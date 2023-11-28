@@ -263,6 +263,15 @@
 <a href="#263" id="263">263</a>
 <a href="#264" id="264">264</a>
 <a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -280,7 +289,8 @@
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
 </span><span class="kw">use </span>futures::{select, StreamExt};
-<span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>parking_lot::Mutex;
+<span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="kw">use </span>polkadot_availability_recovery::AvailabilityRecoverySubsystem;
 <span class="kw">use </span>polkadot_collator_protocol::{CollatorProtocolSubsystem, ProtocolSide};
@@ -293,7 +303,7 @@
 <span class="kw">use </span>polkadot_node_core_prospective_parachains::ProspectiveParachainsSubsystem;
 <span class="kw">use </span>polkadot_node_core_runtime_api::RuntimeApiSubsystem;
 <span class="kw">use </span>polkadot_node_network_protocol::{
-	peer_set::PeerSetProtocolNames,
+	peer_set::{PeerSet, PeerSetProtocolNames},
 	request_response::{
 		v1::{<span class="self">self</span>, AvailableDataFetchingRequest},
 		v2, IncomingRequestReceiver, ReqProtocolNames,
@@ -307,7 +317,7 @@
 <span class="kw">use </span>polkadot_primitives::CollatorPair;
 
 <span class="kw">use </span>sc_authority_discovery::Service <span class="kw">as </span>AuthorityDiscoveryService;
-<span class="kw">use </span>sc_network::NetworkStateInfo;
+<span class="kw">use </span>sc_network::{NetworkStateInfo, NotificationService};
 <span class="kw">use </span>sc_service::TaskManager;
 <span class="kw">use </span>sc_utils::mpsc::tracing_unbounded;
 
@@ -342,6 +352,8 @@
 	</span><span class="kw">pub </span>req_protocol_names: ReqProtocolNames,
 	<span class="doccomment">/// Peerset protocols name mapping
 	</span><span class="kw">pub </span>peer_set_protocol_names: PeerSetProtocolNames,
+	<span class="doccomment">/// Notification services for validation/collation protocols.
+	</span><span class="kw">pub </span>notification_services: HashMap&lt;PeerSet, Box&lt;<span class="kw">dyn </span>NotificationService&gt;&gt;,
 }
 
 <span class="kw">fn </span>build_overseer(
@@ -359,6 +371,7 @@
 		collator_pair,
 		req_protocol_names,
 		peer_set_protocol_names,
+		notification_services,
 	}: CollatorOverseerGenArgs&lt;<span class="lifetime">&#39;_</span>&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;
 	(Overseer&lt;SpawnGlue&lt;sc_service::SpawnTaskHandle&gt;, Arc&lt;BlockChainRpcClient&gt;&gt;, OverseerHandle),
@@ -366,6 +379,8 @@
 &gt; {
 	<span class="kw">let </span>spawner = SpawnGlue(spawner);
 	<span class="kw">let </span>network_bridge_metrics: NetworkBridgeMetrics = Metrics::register(registry)<span class="question-mark">?</span>;
+	<span class="kw">let </span>notification_sinks = Arc::new(Mutex::new(HashMap::new()));
+
 	<span class="kw">let </span>builder = Overseer::builder()
 		.availability_distribution(DummySubsystem)
 		.availability_recovery(AvailabilityRecoverySubsystem::for_collator(
@@ -396,6 +411,8 @@
 			sync_oracle,
 			network_bridge_metrics.clone(),
 			peer_set_protocol_names.clone(),
+			notification_services,
+			notification_sinks.clone(),
 		))
 		.network_bridge_tx(NetworkBridgeTxSubsystem::new(
 			network_service,
@@ -403,6 +420,7 @@
 			network_bridge_metrics,
 			req_protocol_names,
 			peer_set_protocol_names,
+			notification_sinks,
 		))
 		.provisioner(DummySubsystem)
 		.runtime_api(RuntimeApiSubsystem::new(

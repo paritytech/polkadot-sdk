@@ -401,8 +401,6 @@
 <a href="#401" id="401">401</a>
 <a href="#402" id="402">402</a>
 <a href="#403" id="403">403</a>
-<a href="#404" id="404">404</a>
-<a href="#405" id="405">405</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -437,7 +435,7 @@
 /// To be passed to [`FullNetworkConfiguration::add_notification_protocol`]().
 </span><span class="kw">pub use </span>polkadot_node_network_protocol::peer_set::{peer_sets_info, IsAuthority};
 <span class="kw">use </span>polkadot_node_network_protocol::request_response::Requests;
-<span class="kw">use </span>sc_network::ReputationChange;
+<span class="kw">use </span>sc_network::{MessageSink, ReputationChange};
 
 <span class="kw">use </span><span class="kw">crate</span>::validator_discovery;
 
@@ -465,6 +463,7 @@
 	metrics: Metrics,
 	req_protocol_names: ReqProtocolNames,
 	peerset_protocol_names: PeerSetProtocolNames,
+	notification_sinks: Arc&lt;Mutex&lt;HashMap&lt;(PeerSet, PeerId), Box&lt;<span class="kw">dyn </span>MessageSink&gt;&gt;&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;N, AD&gt; NetworkBridgeTx&lt;N, AD&gt; {
@@ -479,6 +478,7 @@
 		metrics: Metrics,
 		req_protocol_names: ReqProtocolNames,
 		peerset_protocol_names: PeerSetProtocolNames,
+		notification_sinks: Arc&lt;Mutex&lt;HashMap&lt;(PeerSet, PeerId), Box&lt;<span class="kw">dyn </span>MessageSink&gt;&gt;&gt;&gt;,
 	) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{
 			network_service,
@@ -486,6 +486,7 @@
 			metrics,
 			req_protocol_names,
 			peerset_protocol_names,
+			notification_sinks,
 		}
 	}
 }
@@ -512,6 +513,7 @@
 	metrics: Metrics,
 	req_protocol_names: ReqProtocolNames,
 	peerset_protocol_names: PeerSetProtocolNames,
+	notification_sinks: Arc&lt;Mutex&lt;HashMap&lt;(PeerSet, PeerId), Box&lt;<span class="kw">dyn </span>MessageSink&gt;&gt;&gt;&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;
 <span class="kw">where
 	</span>N: Network,
@@ -535,6 +537,7 @@
 						<span class="kw-2">&amp;</span>metrics,
 						<span class="kw-2">&amp;</span>req_protocol_names,
 						<span class="kw-2">&amp;</span>peerset_protocol_names,
+						<span class="kw-2">&amp;</span>notification_sinks,
 					)
 					.<span class="kw">await</span>;
 			},
@@ -545,13 +548,14 @@
 <span class="attr">#[overseer::contextbounds(NetworkBridgeTx, prefix = <span class="self">self</span>::overseer)]
 </span><span class="kw">async fn </span>handle_incoming_subsystem_communication&lt;Context, N, AD&gt;(
 	_ctx: <span class="kw-2">&amp;mut </span>Context,
-	<span class="kw-2">mut </span>network_service: N,
+	network_service: N,
 	validator_discovery: <span class="kw-2">&amp;mut </span>validator_discovery::Service&lt;N, AD&gt;,
 	<span class="kw-2">mut </span>authority_discovery_service: AD,
 	msg: NetworkBridgeTxMessage,
 	metrics: <span class="kw-2">&amp;</span>Metrics,
 	req_protocol_names: <span class="kw-2">&amp;</span>ReqProtocolNames,
 	peerset_protocol_names: <span class="kw-2">&amp;</span>PeerSetProtocolNames,
+	notification_sinks: <span class="kw-2">&amp;</span>Arc&lt;Mutex&lt;HashMap&lt;(PeerSet, PeerId), Box&lt;<span class="kw">dyn </span>MessageSink&gt;&gt;&gt;&gt;,
 ) -&gt; (N, AD)
 <span class="kw">where
 	</span>N: Network,
@@ -599,25 +603,22 @@
 
 			<span class="kw">match </span>msg {
 				Versioned::V1(msg) =&gt; send_validation_message_v1(
-					<span class="kw-2">&amp;mut </span>network_service,
 					peers,
-					peerset_protocol_names,
 					WireMessage::ProtocolMessage(msg),
 					<span class="kw-2">&amp;</span>metrics,
+					notification_sinks,
 				),
 				Versioned::VStaging(msg) =&gt; send_validation_message_vstaging(
-					<span class="kw-2">&amp;mut </span>network_service,
 					peers,
-					peerset_protocol_names,
 					WireMessage::ProtocolMessage(msg),
 					<span class="kw-2">&amp;</span>metrics,
+					notification_sinks,
 				),
 				Versioned::V2(msg) =&gt; send_validation_message_v2(
-					<span class="kw-2">&amp;mut </span>network_service,
 					peers,
-					peerset_protocol_names,
 					WireMessage::ProtocolMessage(msg),
 					<span class="kw-2">&amp;</span>metrics,
+					notification_sinks,
 				),
 			}
 		},
@@ -632,25 +633,22 @@
 			<span class="kw">for </span>(peers, msg) <span class="kw">in </span>msgs {
 				<span class="kw">match </span>msg {
 					Versioned::V1(msg) =&gt; send_validation_message_v1(
-						<span class="kw-2">&amp;mut </span>network_service,
 						peers,
-						peerset_protocol_names,
 						WireMessage::ProtocolMessage(msg),
 						<span class="kw-2">&amp;</span>metrics,
+						notification_sinks,
 					),
 					Versioned::VStaging(msg) =&gt; send_validation_message_vstaging(
-						<span class="kw-2">&amp;mut </span>network_service,
 						peers,
-						peerset_protocol_names,
 						WireMessage::ProtocolMessage(msg),
 						<span class="kw-2">&amp;</span>metrics,
+						notification_sinks,
 					),
 					Versioned::V2(msg) =&gt; send_validation_message_v2(
-						<span class="kw-2">&amp;mut </span>network_service,
 						peers,
-						peerset_protocol_names,
 						WireMessage::ProtocolMessage(msg),
 						<span class="kw-2">&amp;</span>metrics,
+						notification_sinks,
 					),
 				}
 			}
@@ -664,18 +662,16 @@
 
 			<span class="kw">match </span>msg {
 				Versioned::V1(msg) =&gt; send_collation_message_v1(
-					<span class="kw-2">&amp;mut </span>network_service,
 					peers,
-					peerset_protocol_names,
 					WireMessage::ProtocolMessage(msg),
 					<span class="kw-2">&amp;</span>metrics,
+					notification_sinks,
 				),
 				Versioned::V2(msg) | Versioned::VStaging(msg) =&gt; send_collation_message_v2(
-					<span class="kw-2">&amp;mut </span>network_service,
 					peers,
-					peerset_protocol_names,
 					WireMessage::ProtocolMessage(msg),
 					<span class="kw-2">&amp;</span>metrics,
+					notification_sinks,
 				),
 			}
 		},
@@ -689,18 +685,16 @@
 			<span class="kw">for </span>(peers, msg) <span class="kw">in </span>msgs {
 				<span class="kw">match </span>msg {
 					Versioned::V1(msg) =&gt; send_collation_message_v1(
-						<span class="kw-2">&amp;mut </span>network_service,
 						peers,
-						peerset_protocol_names,
 						WireMessage::ProtocolMessage(msg),
 						<span class="kw-2">&amp;</span>metrics,
+						notification_sinks,
 					),
 					Versioned::V2(msg) | Versioned::VStaging(msg) =&gt; send_collation_message_v2(
-						<span class="kw-2">&amp;mut </span>network_service,
 						peers,
-						peerset_protocol_names,
 						WireMessage::ProtocolMessage(msg),
 						<span class="kw-2">&amp;</span>metrics,
+						notification_sinks,
 					),
 				}
 			}
@@ -794,6 +788,7 @@
 		metrics,
 		req_protocol_names,
 		peerset_protocol_names,
+		notification_sinks,
 	} = bridge;
 
 	handle_subsystem_messages(
@@ -803,6 +798,7 @@
 		metrics,
 		req_protocol_names,
 		peerset_protocol_names,
+		notification_sinks,
 	)
 	.<span class="kw">await</span><span class="question-mark">?</span>;
 

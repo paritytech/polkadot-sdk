@@ -1207,6 +1207,29 @@
 <a href="#1207" id="1207">1207</a>
 <a href="#1208" id="1208">1208</a>
 <a href="#1209" id="1209">1209</a>
+<a href="#1210" id="1210">1210</a>
+<a href="#1211" id="1211">1211</a>
+<a href="#1212" id="1212">1212</a>
+<a href="#1213" id="1213">1213</a>
+<a href="#1214" id="1214">1214</a>
+<a href="#1215" id="1215">1215</a>
+<a href="#1216" id="1216">1216</a>
+<a href="#1217" id="1217">1217</a>
+<a href="#1218" id="1218">1218</a>
+<a href="#1219" id="1219">1219</a>
+<a href="#1220" id="1220">1220</a>
+<a href="#1221" id="1221">1221</a>
+<a href="#1222" id="1222">1222</a>
+<a href="#1223" id="1223">1223</a>
+<a href="#1224" id="1224">1224</a>
+<a href="#1225" id="1225">1225</a>
+<a href="#1226" id="1226">1226</a>
+<a href="#1227" id="1227">1227</a>
+<a href="#1228" id="1228">1228</a>
+<a href="#1229" id="1229">1229</a>
+<a href="#1230" id="1230">1230</a>
+<a href="#1231" id="1231">1231</a>
+<a href="#1232" id="1232">1232</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1267,7 +1290,7 @@
 	request_responses::ProtocolConfig <span class="kw">as </span>RequestResponseConfig,
 	types::ProtocolName,
 	Multiaddr, NetworkBlock, NetworkService, NetworkStateInfo, NetworkSyncForkRequest,
-	NetworkWorker,
+	NetworkWorker, NotificationService,
 };
 <span class="kw">use </span>sc_network_common::role::Roles;
 <span class="kw">use </span>sc_network_light::light_client_requests::handler::LightClientRequestHandler;
@@ -1448,6 +1471,7 @@
 	imported_blocks_stream: Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = BlockImportNotification&lt;Block&gt;&gt; + Send&gt;&gt;,
 	finality_notification_stream: Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = FinalityNotification&lt;Block&gt;&gt; + Send&gt;&gt;,
 	listen_addr: Multiaddr,
+	notification_services: HashMap&lt;ProtocolName, Box&lt;<span class="kw">dyn </span>NotificationService&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;D, B&gt; Peer&lt;D, B&gt;
@@ -1472,8 +1496,8 @@
 	}
 
 	<span class="doccomment">/// Returns the number of peers we&#39;re connected to.
-	</span><span class="kw">pub fn </span>num_peers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-		<span class="self">self</span>.network.num_connected_peers()
+	</span><span class="kw">pub async fn </span>num_peers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+		<span class="self">self</span>.sync_service.status().<span class="kw">await</span>.unwrap().num_connected_peers <span class="kw">as </span>usize
 	}
 
 	<span class="doccomment">/// Returns the number of downloaded blocks.
@@ -1711,8 +1735,17 @@
 		<span class="self">self</span>.network.service()
 	}
 
-	<span class="kw">pub fn </span>sync_service(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;SyncingService&lt;Block&gt;&gt; {
+	<span class="doccomment">/// Get `SyncingService`.
+	</span><span class="kw">pub fn </span>sync_service(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;SyncingService&lt;Block&gt;&gt; {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.sync_service
+	}
+
+	<span class="doccomment">/// Take notification handle for enabled protocol.
+	</span><span class="kw">pub fn </span>take_notification_service(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		protocol: <span class="kw-2">&amp;</span>ProtocolName,
+	) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NotificationService&gt;&gt; {
+		<span class="self">self</span>.notification_services.remove(protocol)
 	}
 
 	<span class="doccomment">/// Get a reference to the network worker.
@@ -1987,6 +2020,23 @@
 		network_config.transport = TransportConfig::MemoryOnly;
 		network_config.listen_addresses = <span class="macro">vec!</span>[listen_addr.clone()];
 		network_config.allow_non_globals_in_dht = <span class="bool-val">true</span>;
+
+		<span class="kw">let </span>(notif_configs, notif_handles): (Vec&lt;<span class="kw">_</span>&gt;, Vec&lt;<span class="kw">_</span>&gt;) = config
+			.notifications_protocols
+			.into_iter()
+			.map(|p| {
+				<span class="kw">let </span>(config, handle) = NonDefaultSetConfig::new(
+					p.clone(),
+					Vec::new(),
+					<span class="number">1024 </span>* <span class="number">1024</span>,
+					<span class="prelude-val">None</span>,
+					Default::default(),
+				);
+
+				(config, (p, handle))
+			})
+			.unzip();
+
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(connect_to) = config.connect_to_peers {
 			<span class="kw">let </span>addrs = connect_to
 				.iter()
@@ -2058,11 +2108,16 @@
 			protocol_config
 		};
 
+		<span class="kw">let </span>peer_store = PeerStore::new(
+			network_config.boot_nodes.iter().map(|bootnode| bootnode.peer_id).collect(),
+		);
+		<span class="kw">let </span>peer_store_handle = peer_store.handle();
+		<span class="self">self</span>.spawn_task(peer_store.run().boxed());
+
 		<span class="kw">let </span>block_announce_validator = config
 			.block_announce_validator
 			.unwrap_or_else(|| Box::new(DefaultBlockAnnounceValidator));
 
-		<span class="kw">let </span>(tx, rx) = sc_utils::mpsc::tracing_unbounded(<span class="string">&quot;mpsc_syncing_engine_protocol&quot;</span>, <span class="number">100_000</span>);
 		<span class="kw">let </span>(engine, sync_service, block_announce_config) =
 			sc_network_sync::engine::SyncingEngine::new(
 				Roles::from(<span class="kw">if </span>config.is_authority { <span class="kw-2">&amp;</span>Role::Authority } <span class="kw">else </span>{ <span class="kw-2">&amp;</span>Role::Full }),
@@ -2078,7 +2133,7 @@
 				block_relay_params.downloader,
 				state_request_protocol_config.name.clone(),
 				<span class="prelude-val">Some</span>(warp_protocol_config.name.clone()),
-				rx,
+				peer_store_handle.clone(),
 			)
 			.unwrap();
 		<span class="kw">let </span>sync_service_import_queue = Box::new(sync_service.clone());
@@ -2096,21 +2151,9 @@
 			full_net_config.add_request_response_protocol(config);
 		}
 
-		<span class="kw">for </span>protocol <span class="kw">in </span>config.notifications_protocols {
-			full_net_config.add_notification_protocol(NonDefaultSetConfig {
-				notifications_protocol: protocol,
-				fallback_names: Vec::new(),
-				max_notification_size: <span class="number">1024 </span>* <span class="number">1024</span>,
-				handshake: <span class="prelude-val">None</span>,
-				set_config: Default::default(),
-			});
+		<span class="kw">for </span>config <span class="kw">in </span>notif_configs {
+			full_net_config.add_notification_protocol(config);
 		}
-
-		<span class="kw">let </span>peer_store = PeerStore::new(
-			network_config.boot_nodes.iter().map(|bootnode| bootnode.peer_id).collect(),
-		);
-		<span class="kw">let </span>peer_store_handle = peer_store.handle();
-		<span class="self">self</span>.spawn_task(peer_store.run().boxed());
 
 		<span class="kw">let </span>genesis_hash =
 			client.hash(Zero::zero()).ok().flatten().expect(<span class="string">&quot;Genesis block exists; qed&quot;</span>);
@@ -2126,7 +2169,6 @@
 			fork_id,
 			metrics_registry: <span class="prelude-val">None</span>,
 			block_announce_config,
-			tx,
 		})
 		.unwrap();
 
@@ -2162,6 +2204,7 @@
 				backend: <span class="prelude-val">Some</span>(backend),
 				imported_blocks_stream,
 				finality_notification_stream,
+				notification_services: HashMap::from_iter(notif_handles.into_iter()),
 				block_import,
 				verifier,
 				network,
@@ -2174,20 +2217,6 @@
 	<span class="doccomment">/// Used to spawn background tasks, e.g. the block request protocol handler.
 	</span><span class="kw">fn </span>spawn_task(<span class="kw-2">&amp;</span><span class="self">self</span>, f: BoxFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt;) {
 		tokio::spawn(f);
-	}
-
-	<span class="doccomment">/// Polls the testnet until all peers are connected to each other.
-	///
-	/// Must be executed in a task context.
-	</span><span class="kw">fn </span>poll_until_connected(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cx: <span class="kw-2">&amp;mut </span>FutureContext) -&gt; Poll&lt;()&gt; {
-		<span class="self">self</span>.poll(cx);
-
-		<span class="kw">let </span>num_peers = <span class="self">self</span>.peers().len();
-		<span class="kw">if </span><span class="self">self</span>.peers().iter().all(|p| p.num_peers() == num_peers - <span class="number">1</span>) {
-			<span class="kw">return </span>Poll::Ready(())
-		}
-
-		Poll::Pending
 	}
 
 	<span class="kw">async fn </span>is_in_sync(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; bool {
@@ -2267,10 +2296,27 @@
 	}
 
 	<span class="doccomment">/// Run the network until all peers are connected to each other.
-	///
-	/// Calls `poll_until_connected` repeatedly with the runtime passed as parameter.
 	</span><span class="kw">async fn </span>run_until_connected(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-		futures::future::poll_fn::&lt;(), <span class="kw">_</span>&gt;(|cx| <span class="self">self</span>.poll_until_connected(cx)).<span class="kw">await</span>;
+		<span class="kw">let </span>num_peers = <span class="self">self</span>.peers().len();
+		<span class="kw">let </span>sync_services =
+			<span class="self">self</span>.peers().iter().map(|info| info.sync_service.clone()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+
+		<span class="lifetime">&#39;outer</span>: <span class="kw">loop </span>{
+			<span class="kw">for </span>sync_service <span class="kw">in </span><span class="kw-2">&amp;</span>sync_services {
+				<span class="kw">if </span>sync_service.status().<span class="kw">await</span>.unwrap().num_connected_peers <span class="kw">as </span>usize !=
+					num_peers - <span class="number">1
+				</span>{
+					futures::future::poll_fn::&lt;(), <span class="kw">_</span>&gt;(|cx| {
+						<span class="self">self</span>.poll(cx);
+						Poll::Ready(())
+					})
+					.<span class="kw">await</span>;
+					<span class="kw">continue </span><span class="lifetime">&#39;outer
+				</span>}
+			}
+
+			<span class="kw">break
+		</span>}
 	}
 
 	<span class="doccomment">/// Polls the testnet. Processes all the pending actions.

@@ -136,6 +136,8 @@
 <a href="#136" id="136">136</a>
 <a href="#137" id="137">137</a>
 <a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -165,6 +167,7 @@
 	NetworkNotification, NetworkPeers, NetworkRequest, NetworkSyncForkRequest,
 	NotificationSenderError, NotificationSenderT, ReputationChange,
 };
+<span class="kw">use </span>sc_network_common::role::ObservedRole;
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, NumberFor};
 
 <span class="kw">use </span>std::collections::HashSet;
@@ -243,6 +246,7 @@
 			peers: Vec&lt;PeerId&gt;
 		) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt;;
 		<span class="kw">fn </span>sync_num_connected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize;
+		<span class="kw">fn </span>peer_role(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: PeerId, handshake: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;ObservedRole&gt;;
 	}
 
 	<span class="attr">#[async_trait::async_trait]

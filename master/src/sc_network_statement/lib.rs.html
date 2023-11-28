@@ -482,9 +482,6 @@
 <a href="#482" id="482">482</a>
 <a href="#483" id="483">483</a>
 <a href="#484" id="484">484</a>
-<a href="#485" id="485">485</a>
-<a href="#486" id="486">486</a>
-<a href="#487" id="487">487</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -508,12 +505,13 @@
 //! Usage:
 //!
 //! - Use [`StatementHandlerPrototype::new`] to create a prototype.
-//! - Pass the return value of [`StatementHandlerPrototype::set_config`] to the network
-//! configuration as an extra peers set.
+//! - Pass the `NonDefaultSetConfig` returned from [`StatementHandlerPrototype::new`] to the network
+//!   configuration as an extra peers set.
 //! - Use [`StatementHandlerPrototype::build`] then [`StatementHandler::run`] to obtain a
 //! `Future` that processes statements.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::config::<span class="kw-2">*</span>;
+
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>futures::{channel::oneshot, prelude::<span class="kw-2">*</span>, stream::FuturesUnordered, FutureExt};
 <span class="kw">use </span>libp2p::{multiaddr, PeerId};
@@ -521,7 +519,7 @@
 <span class="kw">use </span>sc_network::{
 	config::{NonDefaultSetConfig, NonReservedPeerMode, SetConfig},
 	error,
-	event::Event,
+	service::traits::{NotificationEvent, NotificationService, ValidationResult},
 	types::ProtocolName,
 	utils::{interval, LruHashSet},
 	NetworkEventStream, NetworkNotification, NetworkPeers,
@@ -588,35 +586,35 @@
 <span class="doccomment">/// Prototype for a [`StatementHandler`].
 </span><span class="kw">pub struct </span>StatementHandlerPrototype {
 	protocol_name: ProtocolName,
+	notification_service: Box&lt;<span class="kw">dyn </span>NotificationService&gt;,
 }
 
 <span class="kw">impl </span>StatementHandlerPrototype {
 	<span class="doccomment">/// Create a new instance.
-	</span><span class="kw">pub fn </span>new&lt;Hash: AsRef&lt;[u8]&gt;&gt;(genesis_hash: Hash, fork_id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>new&lt;Hash: AsRef&lt;[u8]&gt;&gt;(
+		genesis_hash: Hash,
+		fork_id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+	) -&gt; (<span class="self">Self</span>, NonDefaultSetConfig) {
 		<span class="kw">let </span>genesis_hash = genesis_hash.as_ref();
 		<span class="kw">let </span>protocol_name = <span class="kw">if let </span><span class="prelude-val">Some</span>(fork_id) = fork_id {
 			<span class="macro">format!</span>(<span class="string">&quot;/{}/{}/statement/1&quot;</span>, array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, genesis_hash), fork_id)
 		} <span class="kw">else </span>{
 			<span class="macro">format!</span>(<span class="string">&quot;/{}/statement/1&quot;</span>, array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, genesis_hash))
 		};
-
-		<span class="self">Self </span>{ protocol_name: protocol_name.into() }
-	}
-
-	<span class="doccomment">/// Returns the configuration of the set to put in the network configuration.
-	</span><span class="kw">pub fn </span>set_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonDefaultSetConfig {
-		NonDefaultSetConfig {
-			notifications_protocol: <span class="self">self</span>.protocol_name.clone(),
-			fallback_names: Vec::new(),
-			max_notification_size: MAX_STATEMENT_SIZE,
-			handshake: <span class="prelude-val">None</span>,
-			set_config: SetConfig {
+		<span class="kw">let </span>(config, notification_service) = NonDefaultSetConfig::new(
+			protocol_name.clone().into(),
+			Vec::new(),
+			MAX_STATEMENT_SIZE,
+			<span class="prelude-val">None</span>,
+			SetConfig {
 				in_peers: <span class="number">0</span>,
 				out_peers: <span class="number">0</span>,
 				reserved_nodes: Vec::new(),
 				non_reserved_mode: NonReservedPeerMode::Deny,
 			},
-		}
+		);
+
+		(<span class="self">Self </span>{ protocol_name: protocol_name.into(), notification_service }, config)
 	}
 
 	<span class="doccomment">/// Turns the prototype into the actual handler.
@@ -634,7 +632,6 @@
 		metrics_registry: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Registry&gt;,
 		executor: <span class="kw">impl </span>Fn(Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send&gt;&gt;) + Send,
 	) -&gt; error::Result&lt;StatementHandler&lt;N, S&gt;&gt; {
-		<span class="kw">let </span>net_event_stream = network.event_stream(<span class="string">&quot;statement-handler-net&quot;</span>);
 		<span class="kw">let </span>sync_event_stream = sync.event_stream(<span class="string">&quot;statement-handler-sync&quot;</span>);
 		<span class="kw">let </span>(queue_sender, <span class="kw-2">mut </span>queue_receiver) = async_channel::bounded(<span class="number">100_000</span>);
 
@@ -663,6 +660,7 @@
 
 		<span class="kw">let </span>handler = StatementHandler {
 			protocol_name: <span class="self">self</span>.protocol_name,
+			notification_service: <span class="self">self</span>.notification_service,
 			propagate_timeout: (Box::pin(interval(PROPAGATE_TIMEOUT))
 				<span class="kw">as </span>Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = ()&gt; + Send&gt;&gt;)
 				.fuse(),
@@ -670,7 +668,6 @@
 			pending_statements_peers: HashMap::new(),
 			network,
 			sync,
-			net_event_stream: net_event_stream.fuse(),
 			sync_event_stream: sync_event_stream.fuse(),
 			peers: HashMap::new(),
 			statement_store,
@@ -706,10 +703,10 @@
 	</span>network: N,
 	<span class="doccomment">/// Syncing service.
 	</span>sync: S,
-	<span class="doccomment">/// Stream of networking events.
-	</span>net_event_stream: stream::Fuse&lt;Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = Event&gt; + Send&gt;&gt;&gt;,
 	<span class="doccomment">/// Receiver for syncing-related events.
 	</span>sync_event_stream: stream::Fuse&lt;Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = SyncEvent&gt; + Send&gt;&gt;&gt;,
+	<span class="doccomment">/// Notification service.
+	</span>notification_service: Box&lt;<span class="kw">dyn </span>NotificationService&gt;,
 	<span class="comment">// All connected peers
 	</span>peers: HashMap&lt;PeerId, Peer&gt;,
 	statement_store: Arc&lt;<span class="kw">dyn </span>StatementStore&gt;,
@@ -748,14 +745,6 @@
 						<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;Inconsistent state, no peers for pending statement!&quot;</span>);
 					}
 				},
-				network_event = <span class="self">self</span>.net_event_stream.next() =&gt; {
-					<span class="kw">if let </span><span class="prelude-val">Some</span>(network_event) = network_event {
-						<span class="self">self</span>.handle_network_event(network_event).<span class="kw">await</span>;
-					} <span class="kw">else </span>{
-						<span class="comment">// Networking has seemingly closed. Closing as well.
-						</span><span class="kw">return</span>;
-					}
-				},
 				sync_event = <span class="self">self</span>.sync_event_stream.next() =&gt; {
 					<span class="kw">if let </span><span class="prelude-val">Some</span>(sync_event) = sync_event {
 						<span class="self">self</span>.handle_sync_event(sync_event);
@@ -763,6 +752,14 @@
 						<span class="comment">// Syncing has seemingly closed. Closing as well.
 						</span><span class="kw">return</span>;
 					}
+				}
+				event = <span class="self">self</span>.notification_service.next_event().fuse() =&gt; {
+					<span class="kw">if let </span><span class="prelude-val">Some</span>(event) = event {
+						<span class="self">self</span>.handle_notification_event(event)
+					} <span class="kw">else </span>{
+						<span class="comment">// `Notifications` has seemingly closed. Closing as well.
+						</span><span class="kw">return
+					</span>}
 				}
 			}
 		}
@@ -793,14 +790,24 @@
 		}
 	}
 
-	<span class="kw">async fn </span>handle_network_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: Event) {
+	<span class="kw">fn </span>handle_notification_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: NotificationEvent) {
 		<span class="kw">match </span>event {
-			Event::Dht(<span class="kw">_</span>) =&gt; {},
-			Event::NotificationStreamOpened { remote, protocol, role, .. }
-				<span class="kw">if </span>protocol == <span class="self">self</span>.protocol_name =&gt;
-			{
+			NotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx, .. } =&gt; {
+				<span class="comment">// only accept peers whose role can be determined
+				</span><span class="kw">let </span>result = <span class="self">self
+					</span>.network
+					.peer_role(peer, handshake)
+					.map_or(ValidationResult::Reject, |<span class="kw">_</span>| ValidationResult::Accept);
+				<span class="kw">let _ </span>= result_tx.send(result);
+			},
+			NotificationEvent::NotificationStreamOpened { peer, handshake, .. } =&gt; {
+				<span class="kw">let </span><span class="prelude-val">Some</span>(role) = <span class="self">self</span>.network.peer_role(peer, handshake) <span class="kw">else </span>{
+					<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;role for {peer} couldn&#39;t be determined&quot;</span>);
+					<span class="kw">return
+				</span>};
+
 				<span class="kw">let </span>_was_in = <span class="self">self</span>.peers.insert(
-					remote,
+					peer,
 					Peer {
 						known_statements: LruHashSet::new(
 							NonZeroUsize::new(MAX_KNOWN_STATEMENTS).expect(<span class="string">&quot;Constant is nonzero&quot;</span>),
@@ -810,39 +817,26 @@
 				);
 				<span class="macro">debug_assert!</span>(_was_in.is_none());
 			},
-			Event::NotificationStreamClosed { remote, protocol }
-				<span class="kw">if </span>protocol == <span class="self">self</span>.protocol_name =&gt;
-			{
-				<span class="kw">let </span>_peer = <span class="self">self</span>.peers.remove(<span class="kw-2">&amp;</span>remote);
+			NotificationEvent::NotificationStreamClosed { peer } =&gt; {
+				<span class="kw">let </span>_peer = <span class="self">self</span>.peers.remove(<span class="kw-2">&amp;</span>peer);
 				<span class="macro">debug_assert!</span>(_peer.is_some());
 			},
+			NotificationEvent::NotificationReceived { peer, notification } =&gt; {
+				<span class="comment">// Accept statements only when node is not major syncing
+				</span><span class="kw">if </span><span class="self">self</span>.sync.is_major_syncing() {
+					<span class="macro">log::trace!</span>(
+						target: LOG_TARGET,
+						<span class="string">&quot;{peer}: Ignoring statements while major syncing or offline&quot;
+					</span>);
+					<span class="kw">return
+				</span>}
 
-			Event::NotificationsReceived { remote, messages } =&gt; {
-				<span class="kw">for </span>(protocol, message) <span class="kw">in </span>messages {
-					<span class="kw">if </span>protocol != <span class="self">self</span>.protocol_name {
-						<span class="kw">continue
-					</span>}
-					<span class="comment">// Accept statements only when node is not major syncing
-					</span><span class="kw">if </span><span class="self">self</span>.sync.is_major_syncing() {
-						<span class="macro">log::trace!</span>(
-							target: LOG_TARGET,
-							<span class="string">&quot;{remote}: Ignoring statements while major syncing or offline&quot;
-						</span>);
-						<span class="kw">continue
-					</span>}
-					<span class="kw">if let </span><span class="prelude-val">Ok</span>(statements) = &lt;Statements <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut </span>message.as_ref()) {
-						<span class="self">self</span>.on_statements(remote, statements);
-					} <span class="kw">else </span>{
-						<span class="macro">log::debug!</span>(
-							target: LOG_TARGET,
-							<span class="string">&quot;Failed to decode statement list from {remote}&quot;
-						</span>);
-					}
+				<span class="kw">if let </span><span class="prelude-val">Ok</span>(statements) = &lt;Statements <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut </span>notification.as_ref()) {
+					<span class="self">self</span>.on_statements(peer, statements);
+				} <span class="kw">else </span>{
+					<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Failed to decode statement list from {peer}&quot;</span>);
 				}
 			},
-
-			<span class="comment">// Not our concern.
-			</span>Event::NotificationStreamOpened { .. } | Event::NotificationStreamClosed { .. } =&gt; {},
 		}
 	}
 

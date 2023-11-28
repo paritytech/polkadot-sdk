@@ -841,6 +841,100 @@
 <a href="#841" id="841">841</a>
 <a href="#842" id="842">842</a>
 <a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -866,7 +960,7 @@
 <span class="kw">use </span>schnellru::{ByLength, LruMap};
 
 <span class="kw">use </span>prometheus_endpoint::{register, Counter, PrometheusError, Registry, U64};
-<span class="kw">use </span>sc_network::types::ProtocolName;
+<span class="kw">use </span>sc_network::{types::ProtocolName, NotificationService};
 <span class="kw">use </span>sc_network_common::role::ObservedRole;
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, Hash, HashingFor};
 <span class="kw">use </span>std::{collections::HashMap, iter, sync::Arc, time, time::Instant};
@@ -917,33 +1011,33 @@
 <span class="doccomment">/// Local implementation of `ValidatorContext`.
 </span><span class="kw">struct </span>NetworkContext&lt;<span class="lifetime">&#39;g</span>, <span class="lifetime">&#39;p</span>, B: BlockT&gt; {
 	gossip: <span class="kw-2">&amp;</span><span class="lifetime">&#39;g </span><span class="kw-2">mut </span>ConsensusGossip&lt;B&gt;,
-	network: <span class="kw-2">&amp;</span><span class="lifetime">&#39;p </span><span class="kw-2">mut </span><span class="kw">dyn </span>Network&lt;B&gt;,
+	notification_service: <span class="kw-2">&amp;</span><span class="lifetime">&#39;p </span><span class="kw-2">mut </span>Box&lt;<span class="kw">dyn </span>NotificationService&gt;,
 }
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;g</span>, <span class="lifetime">&#39;p</span>, B: BlockT&gt; ValidatorContext&lt;B&gt; <span class="kw">for </span>NetworkContext&lt;<span class="lifetime">&#39;g</span>, <span class="lifetime">&#39;p</span>, B&gt; {
 	<span class="doccomment">/// Broadcast all messages with given topic to peers that do not have it yet.
 	</span><span class="kw">fn </span>broadcast_topic(<span class="kw-2">&amp;mut </span><span class="self">self</span>, topic: B::Hash, force: bool) {
-		<span class="self">self</span>.gossip.broadcast_topic(<span class="self">self</span>.network, topic, force);
+		<span class="self">self</span>.gossip.broadcast_topic(<span class="self">self</span>.notification_service, topic, force);
 	}
 
 	<span class="doccomment">/// Broadcast a message to all peers that have not received it previously.
 	</span><span class="kw">fn </span>broadcast_message(<span class="kw-2">&amp;mut </span><span class="self">self</span>, topic: B::Hash, message: Vec&lt;u8&gt;, force: bool) {
-		<span class="self">self</span>.gossip.multicast(<span class="self">self</span>.network, topic, message, force);
+		<span class="self">self</span>.gossip.multicast(<span class="self">self</span>.notification_service, topic, message, force);
 	}
 
 	<span class="doccomment">/// Send addressed message to a peer.
 	</span><span class="kw">fn </span>send_message(<span class="kw-2">&amp;mut </span><span class="self">self</span>, who: <span class="kw-2">&amp;</span>PeerId, message: Vec&lt;u8&gt;) {
-		<span class="self">self</span>.network.write_notification(<span class="kw-2">*</span>who, <span class="self">self</span>.gossip.protocol.clone(), message);
+		<span class="self">self</span>.notification_service.send_sync_notification(who, message);
 	}
 
 	<span class="doccomment">/// Send all messages with given topic to a peer.
 	</span><span class="kw">fn </span>send_topic(<span class="kw-2">&amp;mut </span><span class="self">self</span>, who: <span class="kw-2">&amp;</span>PeerId, topic: B::Hash, force: bool) {
-		<span class="self">self</span>.gossip.send_topic(<span class="self">self</span>.network, who, topic, force);
+		<span class="self">self</span>.gossip.send_topic(<span class="self">self</span>.notification_service, who, topic, force);
 	}
 }
 
 <span class="kw">fn </span>propagate&lt;<span class="lifetime">&#39;a</span>, B: BlockT, I&gt;(
-	network: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>Network&lt;B&gt;,
+	notification_service: <span class="kw-2">&amp;mut </span>Box&lt;<span class="kw">dyn </span>NotificationService&gt;,
 	protocol: ProtocolName,
 	messages: I,
 	intent: MessageIntent,
@@ -990,7 +1084,7 @@
 				<span class="question-mark">?</span>message,
 				<span class="string">&quot;Propagating message&quot;</span>,
 			);
-			network.write_notification(<span class="kw-2">*</span>id, protocol.clone(), message.clone());
+			notification_service.send_sync_notification(id, message.clone());
 		}
 	}
 }
@@ -1034,7 +1128,12 @@
 	}
 
 	<span class="doccomment">/// Handle new connected peer.
-	</span><span class="kw">pub fn </span>new_peer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, network: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>Network&lt;B&gt;, who: PeerId, role: ObservedRole) {
+	</span><span class="kw">pub fn </span>new_peer(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		notification_service: <span class="kw-2">&amp;mut </span>Box&lt;<span class="kw">dyn </span>NotificationService&gt;,
+		who: PeerId,
+		role: ObservedRole,
+	) {
 		<span class="macro">tracing::trace!</span>(
 			target:<span class="string">&quot;gossip&quot;</span>,
 			%who,
@@ -1045,7 +1144,7 @@
 		<span class="self">self</span>.peers.insert(who, PeerConsensus { known_messages: Default::default() });
 
 		<span class="kw">let </span>validator = <span class="self">self</span>.validator.clone();
-		<span class="kw">let </span><span class="kw-2">mut </span>context = NetworkContext { gossip: <span class="self">self</span>, network };
+		<span class="kw">let </span><span class="kw-2">mut </span>context = NetworkContext { gossip: <span class="self">self</span>, notification_service };
 		validator.new_peer(<span class="kw-2">&amp;mut </span>context, <span class="kw-2">&amp;</span>who, role);
 	}
 
@@ -1076,30 +1175,35 @@
 	}
 
 	<span class="doccomment">/// Call when a peer has been disconnected to stop tracking gossip status.
-	</span><span class="kw">pub fn </span>peer_disconnected(<span class="kw-2">&amp;mut </span><span class="self">self</span>, network: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>Network&lt;B&gt;, who: PeerId) {
+	</span><span class="kw">pub fn </span>peer_disconnected(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		notification_service: <span class="kw-2">&amp;mut </span>Box&lt;<span class="kw">dyn </span>NotificationService&gt;,
+		who: PeerId,
+	) {
 		<span class="kw">let </span>validator = <span class="self">self</span>.validator.clone();
-		<span class="kw">let </span><span class="kw-2">mut </span>context = NetworkContext { gossip: <span class="self">self</span>, network };
+		<span class="kw">let </span><span class="kw-2">mut </span>context = NetworkContext { gossip: <span class="self">self</span>, notification_service };
 		validator.peer_disconnected(<span class="kw-2">&amp;mut </span>context, <span class="kw-2">&amp;</span>who);
 		<span class="self">self</span>.peers.remove(<span class="kw-2">&amp;</span>who);
 	}
 
 	<span class="doccomment">/// Perform periodic maintenance
-	</span><span class="kw">pub fn </span>tick(<span class="kw-2">&amp;mut </span><span class="self">self</span>, network: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>Network&lt;B&gt;) {
+	</span><span class="kw">pub fn </span>tick(<span class="kw-2">&amp;mut </span><span class="self">self</span>, notification_service: <span class="kw-2">&amp;mut </span>Box&lt;<span class="kw">dyn </span>NotificationService&gt;) {
 		<span class="self">self</span>.collect_garbage();
 		<span class="kw">if </span>Instant::now() &gt;= <span class="self">self</span>.next_broadcast {
-			<span class="self">self</span>.rebroadcast(network);
+			<span class="self">self</span>.rebroadcast(notification_service);
 			<span class="self">self</span>.next_broadcast = Instant::now() + REBROADCAST_INTERVAL;
 		}
 	}
 
 	<span class="doccomment">/// Rebroadcast all messages to all peers.
-	</span><span class="kw">fn </span>rebroadcast(<span class="kw-2">&amp;mut </span><span class="self">self</span>, network: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>Network&lt;B&gt;) {
+	</span><span class="kw">fn </span>rebroadcast(<span class="kw-2">&amp;mut </span><span class="self">self</span>, notification_service: <span class="kw-2">&amp;mut </span>Box&lt;<span class="kw">dyn </span>NotificationService&gt;) {
 		<span class="kw">let </span>messages = <span class="self">self
 			</span>.messages
 			.iter()
 			.map(|entry| (<span class="kw-2">&amp;</span>entry.message_hash, <span class="kw-2">&amp;</span>entry.topic, <span class="kw-2">&amp;</span>entry.message));
+
 		propagate(
-			network,
+			notification_service,
 			<span class="self">self</span>.protocol.clone(),
 			messages,
 			MessageIntent::PeriodicRebroadcast,
@@ -1109,7 +1213,12 @@
 	}
 
 	<span class="doccomment">/// Broadcast all messages with given topic.
-	</span><span class="kw">pub fn </span>broadcast_topic(<span class="kw-2">&amp;mut </span><span class="self">self</span>, network: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>Network&lt;B&gt;, topic: B::Hash, force: bool) {
+	</span><span class="kw">pub fn </span>broadcast_topic(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		notification_service: <span class="kw-2">&amp;mut </span>Box&lt;<span class="kw">dyn </span>NotificationService&gt;,
+		topic: B::Hash,
+		force: bool,
+	) {
 		<span class="kw">let </span>messages = <span class="self">self</span>.messages.iter().filter_map(|entry| {
 			<span class="kw">if </span>entry.topic == topic {
 				<span class="prelude-val">Some</span>((<span class="kw-2">&amp;</span>entry.message_hash, <span class="kw-2">&amp;</span>entry.topic, <span class="kw-2">&amp;</span>entry.message))
@@ -1119,7 +1228,7 @@
 		});
 		<span class="kw">let </span>intent = <span class="kw">if </span>force { MessageIntent::ForcedBroadcast } <span class="kw">else </span>{ MessageIntent::Broadcast };
 		propagate(
-			network,
+			notification_service,
 			<span class="self">self</span>.protocol.clone(),
 			messages,
 			intent,
@@ -1170,6 +1279,7 @@
 	</span><span class="kw">pub fn </span>on_incoming(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		network: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>Network&lt;B&gt;,
+		notification_service: <span class="kw-2">&amp;mut </span>Box&lt;<span class="kw">dyn </span>NotificationService&gt;,
 		who: PeerId,
 		messages: Vec&lt;Vec&lt;u8&gt;&gt;,
 	) -&gt; Vec&lt;(B::Hash, TopicNotification)&gt; {
@@ -1210,7 +1320,7 @@
 			<span class="comment">// validate the message
 			</span><span class="kw">let </span>validation = {
 				<span class="kw">let </span>validator = <span class="self">self</span>.validator.clone();
-				<span class="kw">let </span><span class="kw-2">mut </span>context = NetworkContext { gossip: <span class="self">self</span>, network };
+				<span class="kw">let </span><span class="kw-2">mut </span>context = NetworkContext { gossip: <span class="self">self</span>, notification_service };
 				validator.validate(<span class="kw-2">&amp;mut </span>context, <span class="kw-2">&amp;</span>who, <span class="kw-2">&amp;</span>message)
 			};
 
@@ -1257,7 +1367,7 @@
 	<span class="doccomment">/// Send all messages with given topic to a peer.
 	</span><span class="kw">pub fn </span>send_topic(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		network: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>Network&lt;B&gt;,
+		notification_service: <span class="kw-2">&amp;mut </span>Box&lt;<span class="kw">dyn </span>NotificationService&gt;,
 		who: <span class="kw-2">&amp;</span>PeerId,
 		topic: B::Hash,
 		force: bool,
@@ -1286,7 +1396,7 @@
 					<span class="question-mark">?</span>entry.message,
 					<span class="string">&quot;Sending topic message&quot;</span>,
 				);
-				network.write_notification(<span class="kw-2">*</span>who, <span class="self">self</span>.protocol.clone(), entry.message.clone());
+				notification_service.send_sync_notification(who, entry.message.clone());
 			}
 		}
 	}
@@ -1294,7 +1404,7 @@
 	<span class="doccomment">/// Multicast a message to all peers.
 	</span><span class="kw">pub fn </span>multicast(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		network: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>Network&lt;B&gt;,
+		notification_service: <span class="kw-2">&amp;mut </span>Box&lt;<span class="kw">dyn </span>NotificationService&gt;,
 		topic: B::Hash,
 		message: Vec&lt;u8&gt;,
 		force: bool,
@@ -1303,7 +1413,7 @@
 		<span class="self">self</span>.register_message_hashed(message_hash, topic, message.clone(), <span class="prelude-val">None</span>);
 		<span class="kw">let </span>intent = <span class="kw">if </span>force { MessageIntent::ForcedBroadcast } <span class="kw">else </span>{ MessageIntent::Broadcast };
 		propagate(
-			network,
+			notification_service,
 			<span class="self">self</span>.protocol.clone(),
 			iter::once((<span class="kw-2">&amp;</span>message_hash, <span class="kw-2">&amp;</span>topic, <span class="kw-2">&amp;</span>message)),
 			intent,
@@ -1314,7 +1424,12 @@
 
 	<span class="doccomment">/// Send addressed message to a peer. The message is not kept or multicast
 	/// later on.
-	</span><span class="kw">pub fn </span>send_message(<span class="kw-2">&amp;mut </span><span class="self">self</span>, network: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>Network&lt;B&gt;, who: <span class="kw-2">&amp;</span>PeerId, message: Vec&lt;u8&gt;) {
+	</span><span class="kw">pub fn </span>send_message(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		notification_service: <span class="kw-2">&amp;mut </span>Box&lt;<span class="kw">dyn </span>NotificationService&gt;,
+		who: <span class="kw-2">&amp;</span>PeerId,
+		message: Vec&lt;u8&gt;,
+	) {
 		<span class="kw">let </span>peer = <span class="kw">match </span><span class="self">self</span>.peers.get_mut(who) {
 			<span class="prelude-val">None </span>=&gt; <span class="kw">return</span>,
 			<span class="prelude-val">Some</span>(peer) =&gt; peer,
@@ -1331,7 +1446,7 @@
 		);
 
 		peer.known_messages.insert(message_hash);
-		network.write_notification(<span class="kw-2">*</span>who, <span class="self">self</span>.protocol.clone(), message);
+		notification_service.send_sync_notification(who, message)
 	}
 }
 
@@ -1367,9 +1482,9 @@
 	<span class="kw">use </span><span class="kw">crate</span>::multiaddr::Multiaddr;
 	<span class="kw">use </span>futures::prelude::<span class="kw-2">*</span>;
 	<span class="kw">use </span>sc_network::{
-		config::MultiaddrWithPeerId, event::Event, NetworkBlock, NetworkEventStream,
-		NetworkNotification, NetworkPeers, NotificationSenderError,
-		NotificationSenderT <span class="kw">as </span>NotificationSender, ReputationChange,
+		config::MultiaddrWithPeerId, event::Event, service::traits::NotificationEvent, MessageSink,
+		NetworkBlock, NetworkEventStream, NetworkNotification, NetworkPeers,
+		NotificationSenderError, NotificationSenderT <span class="kw">as </span>NotificationSender, ReputationChange,
 	};
 	<span class="kw">use </span>sp_runtime::{
 		testing::{Block <span class="kw">as </span>RawBlock, ExtrinsicWrapper, H256},
@@ -1494,6 +1609,10 @@
 		<span class="kw">fn </span>sync_num_connected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
 			<span class="macro">unimplemented!</span>();
 		}
+
+		<span class="kw">fn </span>peer_role(<span class="kw-2">&amp;</span><span class="self">self</span>, _peer_id: PeerId, _handshake: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;ObservedRole&gt; {
+			<span class="prelude-val">None
+		</span>}
 	}
 
 	<span class="kw">impl </span>NetworkEventStream <span class="kw">for </span>NoOpNetwork {
@@ -1530,6 +1649,62 @@
 			_hash: &lt;Block <span class="kw">as </span>BlockT&gt;::Hash,
 			_number: NumberFor&lt;Block&gt;,
 		) {
+			<span class="macro">unimplemented!</span>();
+		}
+	}
+
+	<span class="attr">#[derive(Debug, Default)]
+	</span><span class="kw">struct </span>NoOpNotificationService {}
+
+	<span class="attr">#[async_trait::async_trait]
+	</span><span class="kw">impl </span>NotificationService <span class="kw">for </span>NoOpNotificationService {
+		<span class="doccomment">/// Instruct `Notifications` to open a new substream for `peer`.
+		</span><span class="kw">async fn </span>open_substream(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _peer: PeerId) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
+			<span class="macro">unimplemented!</span>();
+		}
+
+		<span class="doccomment">/// Instruct `Notifications` to close substream for `peer`.
+		</span><span class="kw">async fn </span>close_substream(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _peer: PeerId) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
+			<span class="macro">unimplemented!</span>();
+		}
+
+		<span class="doccomment">/// Send synchronous `notification` to `peer`.
+		</span><span class="kw">fn </span>send_sync_notification(<span class="kw-2">&amp;</span><span class="self">self</span>, _peer: <span class="kw-2">&amp;</span>PeerId, _notification: Vec&lt;u8&gt;) {
+			<span class="macro">unimplemented!</span>();
+		}
+
+		<span class="doccomment">/// Send asynchronous `notification` to `peer`, allowing sender to exercise backpressure.
+		</span><span class="kw">async fn </span>send_async_notification(
+			<span class="kw-2">&amp;</span><span class="self">self</span>,
+			_peer: <span class="kw-2">&amp;</span>PeerId,
+			_notification: Vec&lt;u8&gt;,
+		) -&gt; <span class="prelude-ty">Result</span>&lt;(), sc_network::error::Error&gt; {
+			<span class="macro">unimplemented!</span>();
+		}
+
+		<span class="doccomment">/// Set handshake for the notification protocol replacing the old handshake.
+		</span><span class="kw">async fn </span>set_handshake(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _handshake: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
+			<span class="macro">unimplemented!</span>();
+		}
+
+		<span class="kw">fn </span>try_set_handshake(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _handshake: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
+			<span class="macro">unimplemented!</span>();
+		}
+
+		<span class="doccomment">/// Get next event from the `Notifications` event stream.
+		</span><span class="kw">async fn </span>next_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;NotificationEvent&gt; {
+			<span class="prelude-val">None
+		</span>}
+
+		<span class="kw">fn </span>clone(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>NotificationService&gt;, ()&gt; {
+			<span class="macro">unimplemented!</span>();
+		}
+
+		<span class="kw">fn </span>protocol(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>ProtocolName {
+			<span class="macro">unimplemented!</span>();
+		}
+
+		<span class="kw">fn </span>message_sink(<span class="kw-2">&amp;</span><span class="self">self</span>, _peer: <span class="kw-2">&amp;</span>PeerId) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>MessageSink&gt;&gt; {
 			<span class="macro">unimplemented!</span>();
 		}
 	}
@@ -1616,20 +1791,28 @@
 	</span><span class="kw">fn </span>peer_is_removed_on_disconnect() {
 		<span class="kw">let </span><span class="kw-2">mut </span>consensus = ConsensusGossip::&lt;Block&gt;::new(Arc::new(AllowAll), <span class="string">&quot;/foo&quot;</span>.into(), <span class="prelude-val">None</span>);
 
-		<span class="kw">let </span><span class="kw-2">mut </span>network = NoOpNetwork::default();
+		<span class="kw">let </span><span class="kw-2">mut </span>notification_service: Box&lt;<span class="kw">dyn </span>NotificationService&gt; =
+			Box::new(NoOpNotificationService::default());
 
 		<span class="kw">let </span>peer_id = PeerId::random();
-		consensus.new_peer(<span class="kw-2">&amp;mut </span>network, peer_id, ObservedRole::Full);
+		consensus.new_peer(<span class="kw-2">&amp;mut </span>notification_service, peer_id, ObservedRole::Full);
 		<span class="macro">assert!</span>(consensus.peers.contains_key(<span class="kw-2">&amp;</span>peer_id));
 
-		consensus.peer_disconnected(<span class="kw-2">&amp;mut </span>network, peer_id);
+		consensus.peer_disconnected(<span class="kw-2">&amp;mut </span>notification_service, peer_id);
 		<span class="macro">assert!</span>(!consensus.peers.contains_key(<span class="kw-2">&amp;</span>peer_id));
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>on_incoming_ignores_discarded_messages() {
+		<span class="kw">let </span><span class="kw-2">mut </span>notification_service: Box&lt;<span class="kw">dyn </span>NotificationService&gt; =
+			Box::new(NoOpNotificationService::default());
 		<span class="kw">let </span>to_forward = ConsensusGossip::&lt;Block&gt;::new(Arc::new(DiscardAll), <span class="string">&quot;/foo&quot;</span>.into(), <span class="prelude-val">None</span>)
-			.on_incoming(<span class="kw-2">&amp;mut </span>NoOpNetwork::default(), PeerId::random(), <span class="macro">vec!</span>[<span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]]);
+			.on_incoming(
+				<span class="kw-2">&amp;mut </span>NoOpNetwork::default(),
+				<span class="kw-2">&amp;mut </span>notification_service,
+				PeerId::random(),
+				<span class="macro">vec!</span>[<span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]],
+			);
 
 		<span class="macro">assert!</span>(
 			to_forward.is_empty(),
@@ -1641,11 +1824,14 @@
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>on_incoming_ignores_unregistered_peer() {
 		<span class="kw">let </span><span class="kw-2">mut </span>network = NoOpNetwork::default();
+		<span class="kw">let </span><span class="kw-2">mut </span>notification_service: Box&lt;<span class="kw">dyn </span>NotificationService&gt; =
+			Box::new(NoOpNotificationService::default());
 		<span class="kw">let </span>remote = PeerId::random();
 
 		<span class="kw">let </span>to_forward = ConsensusGossip::&lt;Block&gt;::new(Arc::new(AllowAll), <span class="string">&quot;/foo&quot;</span>.into(), <span class="prelude-val">None</span>)
 			.on_incoming(
 				<span class="kw-2">&amp;mut </span>network,
+				<span class="kw-2">&amp;mut </span>notification_service,
 				<span class="comment">// Unregistered peer.
 				</span>remote,
 				<span class="macro">vec!</span>[<span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]],
@@ -1665,18 +1851,20 @@
 		<span class="kw">let </span><span class="kw-2">mut </span>consensus = ConsensusGossip::&lt;Block&gt;::new(Arc::new(AllowAll), <span class="string">&quot;/foo&quot;</span>.into(), <span class="prelude-val">None</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>network = NoOpNetwork::default();
+		<span class="kw">let </span><span class="kw-2">mut </span>notification_service: Box&lt;<span class="kw">dyn </span>NotificationService&gt; =
+			Box::new(NoOpNotificationService::default());
 
 		<span class="kw">let </span>peer_id = PeerId::random();
-		consensus.new_peer(<span class="kw-2">&amp;mut </span>network, peer_id, ObservedRole::Full);
+		consensus.new_peer(<span class="kw-2">&amp;mut </span>notification_service, peer_id, ObservedRole::Full);
 		<span class="macro">assert!</span>(consensus.peers.contains_key(<span class="kw-2">&amp;</span>peer_id));
 
 		<span class="kw">let </span>peer_id2 = PeerId::random();
-		consensus.new_peer(<span class="kw-2">&amp;mut </span>network, peer_id2, ObservedRole::Full);
+		consensus.new_peer(<span class="kw-2">&amp;mut </span>notification_service, peer_id2, ObservedRole::Full);
 		<span class="macro">assert!</span>(consensus.peers.contains_key(<span class="kw-2">&amp;</span>peer_id2));
 
 		<span class="kw">let </span>message = <span class="macro">vec!</span>[<span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]];
-		consensus.on_incoming(<span class="kw-2">&amp;mut </span>network, peer_id, message.clone());
-		consensus.on_incoming(<span class="kw-2">&amp;mut </span>network, peer_id2, message.clone());
+		consensus.on_incoming(<span class="kw-2">&amp;mut </span>network, <span class="kw-2">&amp;mut </span>notification_service, peer_id, message.clone());
+		consensus.on_incoming(<span class="kw-2">&amp;mut </span>network, <span class="kw-2">&amp;mut </span>notification_service, peer_id2, message.clone());
 
 		<span class="macro">assert_eq!</span>(
 			<span class="macro">vec!</span>[(peer_id, rep::GOSSIP_SUCCESS)],

@@ -790,6 +790,50 @@
 <a href="#790" id="790">790</a>
 <a href="#791" id="791">791</a>
 <a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -815,10 +859,11 @@
 
 </span><span class="kw">pub use crate</span>::{
 	discovery::DEFAULT_KADEMLIA_REPLICATION_FACTOR,
-	protocol::NotificationsSink,
+	protocol::{notification_service, NotificationsSink, ProtocolHandlePair},
 	request_responses::{
 		IncomingRequest, OutgoingResponse, ProtocolConfig <span class="kw">as </span>RequestResponseConfig,
 	},
+	service::traits::NotificationService,
 	types::ProtocolName,
 };
 
@@ -839,7 +884,6 @@
 	ExHashT,
 };
 
-<span class="kw">use </span>sc_utils::mpsc::TracingUnboundedSender;
 <span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 
 <span class="kw">use </span>std::{
@@ -1246,14 +1290,14 @@
 ///
 /// &gt; **Note**: As new fields might be added in the future, please consider using the `new` method
 /// &gt;			and modifiers instead of creating this struct manually.
-</span><span class="attr">#[derive(Clone, Debug)]
+</span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>NonDefaultSetConfig {
 	<span class="doccomment">/// Name of the notifications protocols of this set. A substream on this set will be
 	/// considered established once this protocol is open.
 	///
 	/// &gt; **Note**: This field isn&#39;t present for the default set, as this is handled internally
 	/// &gt; by the networking code.
-	</span><span class="kw">pub </span>notifications_protocol: ProtocolName,
+	</span>protocol_name: ProtocolName,
 
 	<span class="doccomment">/// If the remote reports that it doesn&#39;t support the protocol indicated in the
 	/// `notifications_protocol` field, then each of these fallback names will be tried one by
@@ -1261,37 +1305,84 @@
 	///
 	/// If a fallback is used, it will be reported in
 	/// `sc_network::protocol::event::Event::NotificationStreamOpened::negotiated_fallback`
-	</span><span class="kw">pub </span>fallback_names: Vec&lt;ProtocolName&gt;,
+	</span>fallback_names: Vec&lt;ProtocolName&gt;,
 
 	<span class="doccomment">/// Handshake of the protocol
 	///
 	/// NOTE: Currently custom handshakes are not fully supported. See issue #5685 for more
 	/// details. This field is temporarily used to allow moving the hardcoded block announcement
 	/// protocol out of `protocol.rs`.
-	</span><span class="kw">pub </span>handshake: <span class="prelude-ty">Option</span>&lt;NotificationHandshake&gt;,
+	</span>handshake: <span class="prelude-ty">Option</span>&lt;NotificationHandshake&gt;,
 
 	<span class="doccomment">/// Maximum allowed size of single notifications.
-	</span><span class="kw">pub </span>max_notification_size: u64,
+	</span>max_notification_size: u64,
 
 	<span class="doccomment">/// Base configuration.
-	</span><span class="kw">pub </span>set_config: SetConfig,
+	</span>set_config: SetConfig,
+
+	<span class="doccomment">/// Notification handle.
+	///
+	/// Notification handle is created during `NonDefaultSetConfig` creation and its other half,
+	/// `Box&lt;dyn NotificationService&gt;` is given to the protocol created the config and
+	/// `ProtocolHandle` is given to `Notifications` when it initializes itself. This handle allows
+	/// `Notifications ` to communicate with the protocol directly without relaying events through
+	/// `sc-network.`
+	</span>protocol_handle_pair: ProtocolHandlePair,
 }
 
 <span class="kw">impl </span>NonDefaultSetConfig {
 	<span class="doccomment">/// Creates a new [`NonDefaultSetConfig`]. Zero slots and accepts only reserved nodes.
-	</span><span class="kw">pub fn </span>new(notifications_protocol: ProtocolName, max_notification_size: u64) -&gt; <span class="self">Self </span>{
-		<span class="self">Self </span>{
-			notifications_protocol,
-			max_notification_size,
-			fallback_names: Vec::new(),
-			handshake: <span class="prelude-val">None</span>,
-			set_config: SetConfig {
-				in_peers: <span class="number">0</span>,
-				out_peers: <span class="number">0</span>,
-				reserved_nodes: Vec::new(),
-				non_reserved_mode: NonReservedPeerMode::Deny,
+	/// Also returns an object which allows the protocol to communicate with `Notifications`.
+	</span><span class="kw">pub fn </span>new(
+		protocol_name: ProtocolName,
+		fallback_names: Vec&lt;ProtocolName&gt;,
+		max_notification_size: u64,
+		handshake: <span class="prelude-ty">Option</span>&lt;NotificationHandshake&gt;,
+		set_config: SetConfig,
+	) -&gt; (<span class="self">Self</span>, Box&lt;<span class="kw">dyn </span>NotificationService&gt;) {
+		<span class="kw">let </span>(protocol_handle_pair, notification_service) =
+			notification_service(protocol_name.clone());
+		(
+			<span class="self">Self </span>{
+				protocol_name,
+				max_notification_size,
+				fallback_names,
+				handshake,
+				set_config,
+				protocol_handle_pair,
 			},
-		}
+			notification_service,
+		)
+	}
+
+	<span class="doccomment">/// Get reference to protocol name.
+	</span><span class="kw">pub fn </span>protocol_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>ProtocolName {
+		<span class="kw-2">&amp;</span><span class="self">self</span>.protocol_name
+	}
+
+	<span class="doccomment">/// Get reference to fallback protocol names.
+	</span><span class="kw">pub fn </span>fallback_names(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span>ProtocolName&gt; {
+		<span class="self">self</span>.fallback_names.iter()
+	}
+
+	<span class="doccomment">/// Get reference to handshake.
+	</span><span class="kw">pub fn </span>handshake(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;NotificationHandshake&gt; {
+		<span class="kw-2">&amp;</span><span class="self">self</span>.handshake
+	}
+
+	<span class="doccomment">/// Get maximum notification size.
+	</span><span class="kw">pub fn </span>max_notification_size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
+		<span class="self">self</span>.max_notification_size
+	}
+
+	<span class="doccomment">/// Get reference to `SetConfig`.
+	</span><span class="kw">pub fn </span>set_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>SetConfig {
+		<span class="kw-2">&amp;</span><span class="self">self</span>.set_config
+	}
+
+	<span class="doccomment">/// Take `ProtocolHandlePair` from `NonDefaultSetConfig`
+	</span><span class="kw">pub fn </span>take_protocol_handle(<span class="self">self</span>) -&gt; ProtocolHandlePair {
+		<span class="self">self</span>.protocol_handle_pair
 	}
 
 	<span class="doccomment">/// Modifies the configuration to allow non-reserved nodes.
@@ -1495,9 +1586,6 @@
 
 	<span class="doccomment">/// Block announce protocol configuration
 	</span><span class="kw">pub </span>block_announce_config: NonDefaultSetConfig,
-
-	<span class="doccomment">/// TX channel for direct communication with `SyncingEngine` and `Protocol`.
-	</span><span class="kw">pub </span>tx: TracingUnboundedSender&lt;<span class="kw">crate</span>::event::SyncEvent&lt;Block&gt;&gt;,
 }
 
 <span class="doccomment">/// Full network configuration.

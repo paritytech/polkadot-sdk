@@ -590,6 +590,15 @@
 <a href="#590" id="590">590</a>
 <a href="#591" id="591">591</a>
 <a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -613,6 +622,7 @@
 <span class="kw">use </span>sc_network::{
 	config::{NonDefaultSetConfig, SetConfig},
 	types::ProtocolName,
+	NotificationService,
 };
 <span class="kw">use </span>std::{
 	collections::{hash_map::Entry, HashMap},
@@ -660,7 +670,7 @@
 		<span class="self">self</span>,
 		is_authority: IsAuthority,
 		peerset_protocol_names: <span class="kw-2">&amp;</span>PeerSetProtocolNames,
-	) -&gt; NonDefaultSetConfig {
+	) -&gt; (NonDefaultSetConfig, (PeerSet, Box&lt;<span class="kw">dyn </span>NotificationService&gt;)) {
 		<span class="comment">// Networking layer relies on `get_main_name()` being the main name of the protocol
 		// for peersets and connection management.
 		</span><span class="kw">let </span>protocol = peerset_protocol_names.get_main_name(<span class="self">self</span>);
@@ -668,39 +678,47 @@
 		<span class="kw">let </span>max_notification_size = <span class="self">self</span>.get_max_notification_size(is_authority);
 
 		<span class="kw">match </span><span class="self">self </span>{
-			PeerSet::Validation =&gt; NonDefaultSetConfig {
-				notifications_protocol: protocol,
-				fallback_names,
-				max_notification_size,
-				handshake: <span class="prelude-val">None</span>,
-				set_config: SetConfig {
-					<span class="comment">// we allow full nodes to connect to validators for gossip
-					// to ensure any `MIN_GOSSIP_PEERS` always include reserved peers
-					// we limit the amount of non-reserved slots to be less
-					// than `MIN_GOSSIP_PEERS` in total
-					</span>in_peers: <span class="kw">super</span>::MIN_GOSSIP_PEERS <span class="kw">as </span>u32 / <span class="number">2 </span>- <span class="number">1</span>,
-					out_peers: <span class="kw">super</span>::MIN_GOSSIP_PEERS <span class="kw">as </span>u32 / <span class="number">2 </span>- <span class="number">1</span>,
-					reserved_nodes: Vec::new(),
-					non_reserved_mode: sc_network::config::NonReservedPeerMode::Accept,
-				},
-			},
-			PeerSet::Collation =&gt; NonDefaultSetConfig {
-				notifications_protocol: protocol,
-				fallback_names,
-				max_notification_size,
-				handshake: <span class="prelude-val">None</span>,
-				set_config: SetConfig {
-					<span class="comment">// Non-authority nodes don&#39;t need to accept incoming connections on this peer
-					// set:
-					</span>in_peers: <span class="kw">if </span>is_authority == IsAuthority::Yes { <span class="number">100 </span>} <span class="kw">else </span>{ <span class="number">0 </span>},
-					out_peers: <span class="number">0</span>,
-					reserved_nodes: Vec::new(),
-					non_reserved_mode: <span class="kw">if </span>is_authority == IsAuthority::Yes {
-						sc_network::config::NonReservedPeerMode::Accept
-					} <span class="kw">else </span>{
-						sc_network::config::NonReservedPeerMode::Deny
+			PeerSet::Validation =&gt; {
+				<span class="kw">let </span>(config, notification_service) = NonDefaultSetConfig::new(
+					protocol,
+					fallback_names,
+					max_notification_size,
+					<span class="prelude-val">None</span>,
+					SetConfig {
+						<span class="comment">// we allow full nodes to connect to validators for gossip
+						// to ensure any `MIN_GOSSIP_PEERS` always include reserved peers
+						// we limit the amount of non-reserved slots to be less
+						// than `MIN_GOSSIP_PEERS` in total
+						</span>in_peers: <span class="kw">super</span>::MIN_GOSSIP_PEERS <span class="kw">as </span>u32 / <span class="number">2 </span>- <span class="number">1</span>,
+						out_peers: <span class="kw">super</span>::MIN_GOSSIP_PEERS <span class="kw">as </span>u32 / <span class="number">2 </span>- <span class="number">1</span>,
+						reserved_nodes: Vec::new(),
+						non_reserved_mode: sc_network::config::NonReservedPeerMode::Accept,
 					},
-				},
+				);
+
+				(config, (PeerSet::Validation, notification_service))
+			},
+			PeerSet::Collation =&gt; {
+				<span class="kw">let </span>(config, notification_service) = NonDefaultSetConfig::new(
+					protocol,
+					fallback_names,
+					max_notification_size,
+					<span class="prelude-val">None</span>,
+					SetConfig {
+						<span class="comment">// Non-authority nodes don&#39;t need to accept incoming connections on this
+						// peer set:
+						</span>in_peers: <span class="kw">if </span>is_authority == IsAuthority::Yes { <span class="number">100 </span>} <span class="kw">else </span>{ <span class="number">0 </span>},
+						out_peers: <span class="number">0</span>,
+						reserved_nodes: Vec::new(),
+						non_reserved_mode: <span class="kw">if </span>is_authority == IsAuthority::Yes {
+							sc_network::config::NonReservedPeerMode::Accept
+						} <span class="kw">else </span>{
+							sc_network::config::NonReservedPeerMode::Deny
+						},
+					},
+				);
+
+				(config, (PeerSet::Collation, notification_service))
 			},
 		}
 	}
@@ -796,7 +814,7 @@
 </span><span class="kw">pub fn </span>peer_sets_info(
 	is_authority: IsAuthority,
 	peerset_protocol_names: <span class="kw-2">&amp;</span>PeerSetProtocolNames,
-) -&gt; Vec&lt;NonDefaultSetConfig&gt; {
+) -&gt; Vec&lt;(NonDefaultSetConfig, (PeerSet, Box&lt;<span class="kw">dyn </span>NotificationService&gt;))&gt; {
 	PeerSet::iter()
 		.map(|s| s.get_info(is_authority, <span class="kw-2">&amp;</span>peerset_protocol_names))
 		.collect()
@@ -878,7 +896,7 @@
 }
 
 <span class="doccomment">/// On the wire protocol name to [`PeerSet`] mapping.
-</span><span class="attr">#[derive(Clone)]
+</span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>PeerSetProtocolNames {
 	protocols: HashMap&lt;ProtocolName, (PeerSet, ProtocolVersion)&gt;,
 	names: HashMap&lt;(PeerSet, ProtocolVersion), ProtocolName&gt;,

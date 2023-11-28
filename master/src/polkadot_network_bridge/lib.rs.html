@@ -105,6 +105,7 @@
 <a href="#105" id="105">105</a>
 <a href="#106" id="106">106</a>
 <a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -190,7 +191,8 @@
 	</span>ViewUpdate(View),
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>PeerData {
+<span class="attr">#[derive(Debug)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>PeerData {
 	<span class="doccomment">/// The Latest view sent by the peer.
 	</span>view: View,
 	version: ProtocolVersion,

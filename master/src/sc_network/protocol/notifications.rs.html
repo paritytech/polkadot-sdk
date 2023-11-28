@@ -28,6 +28,10 @@
 <a href="#28" id="28">28</a>
 <a href="#29" id="29">29</a>
 <a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -52,10 +56,14 @@
 </span><span class="kw">pub use </span><span class="self">self</span>::{
 	behaviour::{Notifications, NotificationsOut, ProtocolConfig},
 	handler::{NotificationsSink, NotifsHandlerError, Ready},
+	service::{notification_service, ProtocolHandlePair},
 };
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span><span class="self">self</span>::service::ProtocolHandle;
 
 <span class="kw">mod </span>behaviour;
 <span class="kw">mod </span>handler;
+<span class="kw">mod </span>service;
 <span class="kw">mod </span>tests;
 <span class="kw">mod </span>upgrade;
 </code></pre></div></section></main></body></html>

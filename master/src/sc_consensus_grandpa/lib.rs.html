@@ -1212,6 +1212,10 @@
 <a href="#1212" id="1212">1212</a>
 <a href="#1213" id="1213">1213</a>
 <a href="#1214" id="1214">1214</a>
+<a href="#1215" id="1215">1215</a>
+<a href="#1216" id="1216">1216</a>
+<a href="#1217" id="1217">1217</a>
+<a href="#1218" id="1218">1218</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1281,7 +1285,7 @@
 	BlockchainEvents, CallExecutor, ExecutorProvider, Finalizer, LockImportRun, StorageProvider,
 };
 <span class="kw">use </span>sc_consensus::BlockImport;
-<span class="kw">use </span>sc_network::types::ProtocolName;
+<span class="kw">use </span>sc_network::{types::ProtocolName, NotificationService};
 <span class="kw">use </span>sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_INFO};
 <span class="kw">use </span>sc_transaction_pool_api::OffchainTransactionPoolFactory;
 <span class="kw">use </span>sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver};
@@ -1901,6 +1905,8 @@
 	</span><span class="kw">pub </span>network: N,
 	<span class="doccomment">/// Event stream for syncing-related events.
 	</span><span class="kw">pub </span>sync: S,
+	<span class="doccomment">/// Handle for interacting with `Notifications`.
+	</span><span class="kw">pub </span>notification_service: Box&lt;<span class="kw">dyn </span>NotificationService&gt;,
 	<span class="doccomment">/// A voting rule used to potentially restrict target votes.
 	</span><span class="kw">pub </span>voting_rule: VR,
 	<span class="doccomment">/// The prometheus metrics registry.
@@ -1921,21 +1927,21 @@
 /// For standard protocol name see [`crate::protocol_standard_name`].
 </span><span class="kw">pub fn </span>grandpa_peers_set_config(
 	protocol_name: ProtocolName,
-) -&gt; sc_network::config::NonDefaultSetConfig {
+) -&gt; (sc_network::config::NonDefaultSetConfig, Box&lt;<span class="kw">dyn </span>NotificationService&gt;) {
 	<span class="kw">use </span>communication::grandpa_protocol_name;
-	sc_network::config::NonDefaultSetConfig {
-		notifications_protocol: protocol_name,
-		fallback_names: grandpa_protocol_name::LEGACY_NAMES.iter().map(|<span class="kw-2">&amp;</span>n| n.into()).collect(),
+	sc_network::config::NonDefaultSetConfig::new(
+		protocol_name,
+		grandpa_protocol_name::LEGACY_NAMES.iter().map(|<span class="kw-2">&amp;</span>n| n.into()).collect(),
 		<span class="comment">// Notifications reach ~256kiB in size at the time of writing on Kusama and Polkadot.
-		</span>max_notification_size: <span class="number">1024 </span>* <span class="number">1024</span>,
-		handshake: <span class="prelude-val">None</span>,
-		set_config: sc_network::config::SetConfig {
+		</span><span class="number">1024 </span>* <span class="number">1024</span>,
+		<span class="prelude-val">None</span>,
+		sc_network::config::SetConfig {
 			in_peers: <span class="number">0</span>,
 			out_peers: <span class="number">0</span>,
 			reserved_nodes: Vec::new(),
 			non_reserved_mode: sc_network::config::NonReservedPeerMode::Deny,
 		},
-	}
+	)
 }
 
 <span class="doccomment">/// Run a GRANDPA voter as a task. Provide configuration and a link to a
@@ -1958,6 +1964,7 @@
 		link,
 		network,
 		sync,
+		notification_service,
 		voting_rule,
 		prometheus_registry,
 		shared_voter_state,
@@ -1984,6 +1991,7 @@
 	<span class="kw">let </span>network = NetworkBridge::new(
 		network,
 		sync,
+		notification_service,
 		config.clone(),
 		persistent_data.set_state.clone(),
 		prometheus_registry.as_ref(),

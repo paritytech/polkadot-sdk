@@ -291,6 +291,10 @@
 <a href="#291" id="291">291</a>
 <a href="#292" id="292">292</a>
 <a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -537,7 +541,6 @@
 
 </span><span class="kw">mod </span>behaviour;
 <span class="kw">mod </span>protocol;
-<span class="kw">mod </span>service;
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>mock;
@@ -551,25 +554,30 @@
 <span class="kw">pub mod </span>peer_store;
 <span class="kw">pub mod </span>protocol_controller;
 <span class="kw">pub mod </span>request_responses;
+<span class="kw">pub mod </span>service;
 <span class="kw">pub mod </span>transport;
 <span class="kw">pub mod </span>types;
 <span class="kw">pub mod </span>utils;
 
-<span class="kw">pub use </span>event::{DhtEvent, Event, SyncEvent};
+<span class="kw">pub use </span>event::{DhtEvent, Event};
 <span class="attr">#[doc(inline)]
 </span><span class="kw">pub use </span>libp2p::{multiaddr, Multiaddr, PeerId};
 <span class="kw">pub use </span>request_responses::{Config, IfDisconnected, RequestFailure};
-<span class="kw">pub use </span>sc_network_common::{role::ObservedRole, types::ReputationChange};
+<span class="kw">pub use </span>sc_network_common::{
+	role::{ObservedRole, Roles},
+	types::ReputationChange,
+};
 <span class="kw">pub use </span>service::{
 	signature::Signature,
 	traits::{
-		KademliaKey, NetworkBlock, NetworkDHTProvider, NetworkEventStream, NetworkNotification,
-		NetworkPeers, NetworkRequest, NetworkSigner, NetworkStateInfo, NetworkStatus,
-		NetworkStatusProvider, NetworkSyncForkRequest, NotificationSender <span class="kw">as </span>NotificationSenderT,
-		NotificationSenderError, NotificationSenderReady,
+		KademliaKey, MessageSink, NetworkBlock, NetworkDHTProvider, NetworkEventStream,
+		NetworkNotification, NetworkPeers, NetworkRequest, NetworkSigner, NetworkStateInfo,
+		NetworkStatus, NetworkStatusProvider, NetworkSyncForkRequest,
+		NotificationSender <span class="kw">as </span>NotificationSenderT, NotificationSenderError,
+		NotificationSenderReady, NotificationService,
 	},
-	DecodingError, Keypair, NetworkService, NetworkWorker, NotificationSender, NotificationsSink,
-	OutboundFailure, PublicKey,
+	DecodingError, Keypair, NetworkService, NetworkWorker, NotificationSender, OutboundFailure,
+	PublicKey,
 };
 <span class="kw">pub use </span>types::ProtocolName;
 

@@ -498,6 +498,12 @@
 <a href="#498" id="498">498</a>
 <a href="#499" id="499">499</a>
 <a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
+<a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -830,7 +836,9 @@
 	<span class="kw">use </span>libp2p::{Multiaddr, PeerId};
 	<span class="kw">use </span>sc_block_builder::BlockBuilderBuilder;
 	<span class="kw">use </span>sc_client_api::Backend <span class="kw">as _</span>;
-	<span class="kw">use </span>sc_network::{config::MultiaddrWithPeerId, types::ProtocolName, ReputationChange};
+	<span class="kw">use </span>sc_network::{
+		config::MultiaddrWithPeerId, types::ProtocolName, ObservedRole, ReputationChange,
+	};
 	<span class="kw">use </span>sc_transaction_pool::BasicPool;
 	<span class="kw">use </span>sc_transaction_pool_api::{InPoolTransaction, TransactionPool};
 	<span class="kw">use </span>sp_consensus::BlockOrigin;
@@ -923,6 +931,10 @@
 		<span class="kw">fn </span>sync_num_connected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
 			<span class="macro">unimplemented!</span>();
 		}
+
+		<span class="kw">fn </span>peer_role(<span class="kw-2">&amp;</span><span class="self">self</span>, _peer_id: PeerId, _handshake: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;ObservedRole&gt; {
+			<span class="prelude-val">None
+		</span>}
 	}
 
 	<span class="attr">#[test]

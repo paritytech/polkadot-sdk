@@ -339,7 +339,7 @@ var srcIndex = JSON.parse('{\
 "sc_informant":["",[],["display.rs","lib.rs"]],\
 "sc_keystore":["",[],["lib.rs","local.rs"]],\
 "sc_mixnet":["",[],["api.rs","config.rs","error.rs","extrinsic_queue.rs","lib.rs","maybe_inf_delay.rs","packet_dispatcher.rs","peer_id.rs","protocol.rs","request.rs","run.rs","sync_with_runtime.rs"]],\
-"sc_network":["",[["protocol",[["notifications",[["upgrade",[],["collec.rs","notifications.rs"]]],["behaviour.rs","handler.rs","upgrade.rs"]]],["message.rs","notifications.rs"]],["service",[],["metrics.rs","out_events.rs","signature.rs","traits.rs"]]],["behaviour.rs","config.rs","discovery.rs","error.rs","event.rs","lib.rs","network_state.rs","peer_info.rs","peer_store.rs","protocol.rs","protocol_controller.rs","request_responses.rs","service.rs","transport.rs","types.rs","utils.rs"]],\
+"sc_network":["",[["protocol",[["notifications",[["service",[],["metrics.rs","mod.rs"]],["upgrade",[],["collec.rs","notifications.rs"]]],["behaviour.rs","handler.rs","upgrade.rs"]]],["message.rs","notifications.rs"]],["service",[],["metrics.rs","out_events.rs","signature.rs","traits.rs"]]],["behaviour.rs","config.rs","discovery.rs","error.rs","event.rs","lib.rs","network_state.rs","peer_info.rs","peer_store.rs","protocol.rs","protocol_controller.rs","request_responses.rs","service.rs","transport.rs","types.rs","utils.rs"]],\
 "sc_network_bitswap":["",[],["lib.rs","schema.rs"]],\
 "sc_network_common":["",[["sync",[],["message.rs"]]],["lib.rs","message.rs","role.rs","sync.rs","types.rs"]],\
 "sc_network_gossip":["",[],["bridge.rs","lib.rs","state_machine.rs","validator.rs"]],\

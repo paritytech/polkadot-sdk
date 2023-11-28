@@ -123,6 +123,18 @@
 <a href="#123" id="123">123</a>
 <a href="#124" id="124">124</a>
 <a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -153,7 +165,7 @@
 /// &gt; **Note**: This enum is different from the `Role` enum. The `Role` enum indicates what a
 /// &gt;			node says about itself, while `ObservedRole` is a `Role` merged with the
 /// &gt;			information known locally about that node.
-</span><span class="attr">#[derive(Debug, Clone)]
+</span><span class="attr">#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 </span><span class="kw">pub enum </span>ObservedRole {
 	<span class="doccomment">/// Full node.
 	</span>Full,
@@ -167,6 +179,18 @@
 	<span class="doccomment">/// Returns `true` for `ObservedRole::Light`.
 	</span><span class="kw">pub fn </span>is_light(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
 		<span class="macro">matches!</span>(<span class="self">self</span>, <span class="self">Self</span>::Light)
+	}
+}
+
+<span class="kw">impl </span>From&lt;Roles&gt; <span class="kw">for </span>ObservedRole {
+	<span class="kw">fn </span>from(roles: Roles) -&gt; <span class="self">Self </span>{
+		<span class="kw">if </span>roles.is_authority() {
+			ObservedRole::Authority
+		} <span class="kw">else if </span>roles.is_full() {
+			ObservedRole::Full
+		} <span class="kw">else </span>{
+			ObservedRole::Light
+		}
 	}
 }
 

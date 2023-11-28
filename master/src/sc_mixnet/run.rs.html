@@ -386,6 +386,10 @@
 <a href="#386" id="386">386</a>
 <a href="#387" id="387">387</a>
 <a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -417,11 +421,12 @@
 	request::{extrinsic_delay, Request, SUBMIT_EXTRINSIC},
 	sync_with_runtime::sync_with_runtime,
 };
+<span class="kw">use </span>bytes::Bytes;
 <span class="kw">use </span>codec::{Decode, DecodeAll, Encode};
 <span class="kw">use </span>futures::{
 	future::{pending, Either},
 	stream::FuturesUnordered,
-	StreamExt,
+	FutureExt, StreamExt,
 };
 <span class="kw">use </span>log::{debug, error, trace, warn};
 <span class="kw">use </span>mixnet::{
@@ -431,8 +436,8 @@
 };
 <span class="kw">use </span>sc_client_api::{BlockchainEvents, HeaderBackend};
 <span class="kw">use </span>sc_network::{
-	Event::{NotificationStreamClosed, NotificationStreamOpened, NotificationsReceived},
-	NetworkEventStream, NetworkNotification, NetworkPeers, NetworkStateInfo, ProtocolName,
+	service::traits::{NotificationEvent, ValidationResult},
+	NetworkNotification, NetworkPeers, NetworkStateInfo, NotificationService, ProtocolName,
 };
 <span class="kw">use </span>sc_transaction_pool_api::{
 	LocalTransactionPool, OffchainTransactionPoolFactory, TransactionPool,
@@ -542,12 +547,13 @@
 	protocol_name: ProtocolName,
 	transaction_pool: Arc&lt;P&gt;,
 	keystore: <span class="prelude-ty">Option</span>&lt;KeystorePtr&gt;,
+	<span class="kw-2">mut </span>notification_service: Box&lt;<span class="kw">dyn </span>NotificationService&gt;,
 ) <span class="kw">where
 	</span>B: Block,
 	C: BlockchainEvents&lt;B&gt; + ProvideRuntimeApi&lt;B&gt; + HeaderBackend&lt;B&gt;,
 	C::Api: MixnetApi&lt;B&gt;,
 	S: SyncOracle,
-	N: NetworkStateInfo + NetworkEventStream + NetworkNotification + NetworkPeers,
+	N: NetworkStateInfo + NetworkNotification + NetworkPeers,
 	P: TransactionPool&lt;Block = B&gt; + LocalTransactionPool&lt;Block = B&gt; + <span class="lifetime">&#39;static</span>,
 {
 	<span class="kw">let </span>local_peer_id = network.local_peer_id();
@@ -577,7 +583,6 @@
 	} <span class="kw">else </span>{
 		<span class="prelude-val">None
 	</span>};
-	<span class="kw">let </span><span class="kw-2">mut </span>network_events = network.event_stream(<span class="string">&quot;mixnet&quot;</span>).fuse();
 	<span class="kw">let </span><span class="kw-2">mut </span>next_forward_packet_delay = MaybeInfDelay::new(<span class="prelude-val">None</span>);
 	<span class="kw">let </span><span class="kw-2">mut </span>next_authored_packet_delay = MaybeInfDelay::new(<span class="prelude-val">None</span>);
 	<span class="kw">let </span><span class="kw-2">mut </span>ready_peers = FuturesUnordered::new();
@@ -636,33 +641,36 @@
 				}
 			}
 
-			event = network_events.select_next_some() =&gt; <span class="kw">match </span>event {
-				NotificationStreamOpened { remote, protocol, .. }
-					<span class="kw">if </span>protocol == protocol_name =&gt; packet_dispatcher.add_peer(<span class="kw-2">&amp;</span>remote),
-				NotificationStreamClosed { remote, protocol }
-					<span class="kw">if </span>protocol == protocol_name =&gt; packet_dispatcher.remove_peer(<span class="kw-2">&amp;</span>remote),
-				NotificationsReceived { remote, messages } =&gt; {
-					<span class="kw">for </span>message <span class="kw">in </span>messages {
-						<span class="kw">if </span>message.<span class="number">0 </span>== protocol_name {
-							<span class="kw">match </span>message.<span class="number">1</span>.as_ref().try_into() {
-								<span class="prelude-val">Ok</span>(packet) =&gt; handle_packet(packet,
-									<span class="kw-2">&amp;mut </span>mixnet, <span class="kw-2">&amp;mut </span>request_manager, <span class="kw-2">&amp;mut </span>reply_manager,
-									<span class="kw-2">&amp;mut </span>extrinsic_queue, <span class="kw-2">&amp;</span>config.substrate),
-								<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="macro">debug!</span>(target: LOG_TARGET,
-									<span class="string">&quot;Dropped incorrectly sized packet ({} bytes) from {remote}&quot;</span>,
-									message.<span class="number">1</span>.len(),
-								),
-							}
-						}
+			event = notification_service.next_event().fuse() =&gt; <span class="kw">match </span>event {
+				<span class="prelude-val">None </span>=&gt; <span class="macro">todo!</span>(),
+				<span class="prelude-val">Some</span>(NotificationEvent::ValidateInboundSubstream { result_tx, .. }) =&gt; {
+					<span class="kw">let _ </span>= result_tx.send(ValidationResult::Accept);
+				},
+				<span class="prelude-val">Some</span>(NotificationEvent::NotificationStreamOpened { peer, .. }) =&gt; {
+					packet_dispatcher.add_peer(<span class="kw-2">&amp;</span>peer);
+				},
+				<span class="prelude-val">Some</span>(NotificationEvent::NotificationStreamClosed { peer }) =&gt; {
+					packet_dispatcher.remove_peer(<span class="kw-2">&amp;</span>peer);
+				},
+				<span class="prelude-val">Some</span>(NotificationEvent::NotificationReceived { peer, notification }) =&gt; {
+					<span class="kw">let </span>notification: Bytes = notification.into();
+
+					<span class="kw">match </span>notification.as_ref().try_into() {
+						<span class="prelude-val">Ok</span>(packet) =&gt; handle_packet(packet,
+							<span class="kw-2">&amp;mut </span>mixnet, <span class="kw-2">&amp;mut </span>request_manager, <span class="kw-2">&amp;mut </span>reply_manager,
+							<span class="kw-2">&amp;mut </span>extrinsic_queue, <span class="kw-2">&amp;</span>config.substrate),
+						<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="macro">debug!</span>(target: LOG_TARGET,
+							<span class="string">&quot;Dropped incorrectly sized packet ({} bytes) from {peer}&quot;</span>,
+							notification.len(),
+						),
 					}
-				}
-				<span class="kw">_ </span>=&gt; ()
+				},
 			},
 
 			<span class="kw">_ </span>= next_forward_packet_delay =&gt; {
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(packet) = mixnet.pop_next_forward_packet() {
 					<span class="kw">if let </span><span class="prelude-val">Some</span>(ready_peer) = packet_dispatcher.dispatch(packet) {
-						<span class="kw">if let </span><span class="prelude-val">Some</span>(fut) = ready_peer.send_packet(<span class="kw-2">&amp;*</span>network, protocol_name.clone()) {
+						<span class="kw">if let </span><span class="prelude-val">Some</span>(fut) = ready_peer.send_packet(<span class="kw-2">&amp;</span>notification_service) {
 							ready_peers.push(fut);
 						}
 					}
@@ -676,7 +684,7 @@
 			<span class="kw">_ </span>= next_authored_packet_delay =&gt; {
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(packet) = mixnet.pop_next_authored_packet(<span class="kw-2">&amp;</span>packet_dispatcher) {
 					<span class="kw">if let </span><span class="prelude-val">Some</span>(ready_peer) = packet_dispatcher.dispatch(packet) {
-						<span class="kw">if let </span><span class="prelude-val">Some</span>(fut) = ready_peer.send_packet(<span class="kw-2">&amp;*</span>network, protocol_name.clone()) {
+						<span class="kw">if let </span><span class="prelude-val">Some</span>(fut) = ready_peer.send_packet(<span class="kw-2">&amp;</span>notification_service) {
 							ready_peers.push(fut);
 						}
 					}
@@ -685,7 +693,7 @@
 
 			ready_peer = ready_peers.select_next_some() =&gt; {
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(ready_peer) = ready_peer {
-					<span class="kw">if let </span><span class="prelude-val">Some</span>(fut) = ready_peer.send_packet(<span class="kw-2">&amp;*</span>network, protocol_name.clone()) {
+					<span class="kw">if let </span><span class="prelude-val">Some</span>(fut) = ready_peer.send_packet(<span class="kw-2">&amp;</span>notification_service) {
 						ready_peers.push(fut);
 					}
 				}

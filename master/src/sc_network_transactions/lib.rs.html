@@ -499,14 +499,6 @@
 <a href="#499" id="499">499</a>
 <a href="#500" id="500">500</a>
 <a href="#501" id="501">501</a>
-<a href="#502" id="502">502</a>
-<a href="#503" id="503">503</a>
-<a href="#504" id="504">504</a>
-<a href="#505" id="505">505</a>
-<a href="#506" id="506">506</a>
-<a href="#507" id="507">507</a>
-<a href="#508" id="508">508</a>
-<a href="#509" id="509">509</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -530,8 +522,8 @@
 //! Usage:
 //!
 //! - Use [`TransactionsHandlerPrototype::new`] to create a prototype.
-//! - Pass the return value of [`TransactionsHandlerPrototype::set_config`] to the network
-//! configuration as an extra peers set.
+//! - Pass the `NonDefaultSetConfig` returned from [`TransactionsHandlerPrototype::new`] to the
+//!   network configuration as an extra peers set.
 //! - Use [`TransactionsHandlerPrototype::build`] then [`TransactionsHandler::run`] to obtain a
 //! `Future` that processes transactions.
 
@@ -546,7 +538,7 @@
 <span class="kw">use </span>sc_network::{
 	config::{NonDefaultSetConfig, NonReservedPeerMode, ProtocolId, SetConfig},
 	error,
-	event::Event,
+	service::traits::{NotificationEvent, NotificationService, ValidationResult},
 	types::ProtocolName,
 	utils::{interval, LruHashSet},
 	NetworkEventStream, NetworkNotification, NetworkPeers,
@@ -624,8 +616,11 @@
 
 <span class="doccomment">/// Prototype for a [`TransactionsHandler`].
 </span><span class="kw">pub struct </span>TransactionsHandlerPrototype {
-	protocol_name: ProtocolName,
-	fallback_protocol_names: Vec&lt;ProtocolName&gt;,
+	<span class="doccomment">/// Name of the transaction protocol.
+	</span>protocol_name: ProtocolName,
+
+	<span class="doccomment">/// Handle that is used to communicate with `sc_network::Notifications`.
+	</span>notification_service: Box&lt;<span class="kw">dyn </span>NotificationService&gt;,
 }
 
 <span class="kw">impl </span>TransactionsHandlerPrototype {
@@ -634,35 +629,28 @@
 		protocol_id: ProtocolId,
 		genesis_hash: Hash,
 		fork_id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
-	) -&gt; <span class="self">Self </span>{
+	) -&gt; (<span class="self">Self</span>, NonDefaultSetConfig) {
 		<span class="kw">let </span>genesis_hash = genesis_hash.as_ref();
-		<span class="kw">let </span>protocol_name = <span class="kw">if let </span><span class="prelude-val">Some</span>(fork_id) = fork_id {
+		<span class="kw">let </span>protocol_name: ProtocolName = <span class="kw">if let </span><span class="prelude-val">Some</span>(fork_id) = fork_id {
 			<span class="macro">format!</span>(<span class="string">&quot;/{}/{}/transactions/1&quot;</span>, array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, genesis_hash), fork_id)
 		} <span class="kw">else </span>{
 			<span class="macro">format!</span>(<span class="string">&quot;/{}/transactions/1&quot;</span>, array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, genesis_hash))
-		};
-		<span class="kw">let </span>legacy_protocol_name = <span class="macro">format!</span>(<span class="string">&quot;/{}/transactions/1&quot;</span>, protocol_id.as_ref());
-
-		<span class="self">Self </span>{
-			protocol_name: protocol_name.into(),
-			fallback_protocol_names: iter::once(legacy_protocol_name.into()).collect(),
 		}
-	}
-
-	<span class="doccomment">/// Returns the configuration of the set to put in the network configuration.
-	</span><span class="kw">pub fn </span>set_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonDefaultSetConfig {
-		NonDefaultSetConfig {
-			notifications_protocol: <span class="self">self</span>.protocol_name.clone(),
-			fallback_names: <span class="self">self</span>.fallback_protocol_names.clone(),
-			max_notification_size: MAX_TRANSACTIONS_SIZE,
-			handshake: <span class="prelude-val">None</span>,
-			set_config: SetConfig {
+		.into();
+		<span class="kw">let </span>(config, notification_service) = NonDefaultSetConfig::new(
+			protocol_name.clone(),
+			<span class="macro">vec!</span>[<span class="macro">format!</span>(<span class="string">&quot;/{}/transactions/1&quot;</span>, protocol_id.as_ref()).into()],
+			MAX_TRANSACTIONS_SIZE,
+			<span class="prelude-val">None</span>,
+			SetConfig {
 				in_peers: <span class="number">0</span>,
 				out_peers: <span class="number">0</span>,
 				reserved_nodes: Vec::new(),
 				non_reserved_mode: NonReservedPeerMode::Deny,
 			},
-		}
+		);
+
+		(<span class="self">Self </span>{ protocol_name, notification_service }, config)
 	}
 
 	<span class="doccomment">/// Turns the prototype into the actual handler. Returns a controller that allows controlling
@@ -682,12 +670,12 @@
 		transaction_pool: Arc&lt;<span class="kw">dyn </span>TransactionPool&lt;H, B&gt;&gt;,
 		metrics_registry: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Registry&gt;,
 	) -&gt; error::Result&lt;(TransactionsHandler&lt;B, H, N, S&gt;, TransactionsHandlerController&lt;H&gt;)&gt; {
-		<span class="kw">let </span>net_event_stream = network.event_stream(<span class="string">&quot;transactions-handler-net&quot;</span>);
 		<span class="kw">let </span>sync_event_stream = sync.event_stream(<span class="string">&quot;transactions-handler-sync&quot;</span>);
 		<span class="kw">let </span>(to_handler, from_controller) = tracing_unbounded(<span class="string">&quot;mpsc_transactions_handler&quot;</span>, <span class="number">100_000</span>);
 
 		<span class="kw">let </span>handler = TransactionsHandler {
 			protocol_name: <span class="self">self</span>.protocol_name,
+			notification_service: <span class="self">self</span>.notification_service,
 			propagate_timeout: (Box::pin(interval(PROPAGATE_TIMEOUT))
 				<span class="kw">as </span>Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = ()&gt; + Send&gt;&gt;)
 				.fuse(),
@@ -695,7 +683,6 @@
 			pending_transactions_peers: HashMap::new(),
 			network,
 			sync,
-			net_event_stream: net_event_stream.fuse(),
 			sync_event_stream: sync_event_stream.fuse(),
 			peers: HashMap::new(),
 			transaction_pool,
@@ -762,8 +749,6 @@
 	</span>network: N,
 	<span class="doccomment">/// Syncing service.
 	</span>sync: S,
-	<span class="doccomment">/// Stream of networking events.
-	</span>net_event_stream: stream::Fuse&lt;Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = Event&gt; + Send&gt;&gt;&gt;,
 	<span class="doccomment">/// Receiver for syncing-related events.
 	</span>sync_event_stream: stream::Fuse&lt;Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = SyncEvent&gt; + Send&gt;&gt;&gt;,
 	<span class="comment">// All connected peers
@@ -772,6 +757,8 @@
 	from_controller: TracingUnboundedReceiver&lt;ToHandler&lt;H&gt;&gt;,
 	<span class="doccomment">/// Prometheus metrics.
 	</span>metrics: <span class="prelude-ty">Option</span>&lt;Metrics&gt;,
+	<span class="doccomment">/// Handle that is used to communicate with `sc_network::Notifications`.
+	</span>notification_service: Box&lt;<span class="kw">dyn </span>NotificationService&gt;,
 }
 
 <span class="doccomment">/// Peer information
@@ -804,14 +791,6 @@
 						<span class="macro">warn!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Inconsistent state, no peers for pending transaction!&quot;</span>);
 					}
 				},
-				network_event = <span class="self">self</span>.net_event_stream.next() =&gt; {
-					<span class="kw">if let </span><span class="prelude-val">Some</span>(network_event) = network_event {
-						<span class="self">self</span>.handle_network_event(network_event).<span class="kw">await</span>;
-					} <span class="kw">else </span>{
-						<span class="comment">// Networking has seemingly closed. Closing as well.
-						</span><span class="kw">return</span>;
-					}
-				},
 				sync_event = <span class="self">self</span>.sync_event_stream.next() =&gt; {
 					<span class="kw">if let </span><span class="prelude-val">Some</span>(sync_event) = sync_event {
 						<span class="self">self</span>.handle_sync_event(sync_event);
@@ -826,7 +805,58 @@
 						ToHandler::PropagateTransactions =&gt; <span class="self">self</span>.propagate_transactions(),
 					}
 				},
+				event = <span class="self">self</span>.notification_service.next_event().fuse() =&gt; {
+					<span class="kw">if let </span><span class="prelude-val">Some</span>(event) = event {
+						<span class="self">self</span>.handle_notification_event(event)
+					} <span class="kw">else </span>{
+						<span class="comment">// `Notifications` has seemingly closed. Closing as well.
+						</span><span class="kw">return
+					</span>}
+				}
 			}
+		}
+	}
+
+	<span class="kw">fn </span>handle_notification_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: NotificationEvent) {
+		<span class="kw">match </span>event {
+			NotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx, .. } =&gt; {
+				<span class="comment">// only accept peers whose role can be determined
+				</span><span class="kw">let </span>result = <span class="self">self
+					</span>.network
+					.peer_role(peer, handshake)
+					.map_or(ValidationResult::Reject, |<span class="kw">_</span>| ValidationResult::Accept);
+				<span class="kw">let _ </span>= result_tx.send(result);
+			},
+			NotificationEvent::NotificationStreamOpened { peer, handshake, .. } =&gt; {
+				<span class="kw">let </span><span class="prelude-val">Some</span>(role) = <span class="self">self</span>.network.peer_role(peer, handshake) <span class="kw">else </span>{
+					<span class="macro">log::debug!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;role for {peer} couldn&#39;t be determined&quot;</span>);
+					<span class="kw">return
+				</span>};
+
+				<span class="kw">let </span>_was_in = <span class="self">self</span>.peers.insert(
+					peer,
+					Peer {
+						known_transactions: LruHashSet::new(
+							NonZeroUsize::new(MAX_KNOWN_TRANSACTIONS).expect(<span class="string">&quot;Constant is nonzero&quot;</span>),
+						),
+						role,
+					},
+				);
+				<span class="macro">debug_assert!</span>(_was_in.is_none());
+			},
+			NotificationEvent::NotificationStreamClosed { peer } =&gt; {
+				<span class="kw">let </span>_peer = <span class="self">self</span>.peers.remove(<span class="kw-2">&amp;</span>peer);
+				<span class="macro">debug_assert!</span>(_peer.is_some());
+			},
+			NotificationEvent::NotificationReceived { peer, notification } =&gt; {
+				<span class="kw">if let </span><span class="prelude-val">Ok</span>(m) =
+					&lt;Transactions&lt;B::Extrinsic&gt; <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut </span>notification.as_ref())
+				{
+					<span class="self">self</span>.on_transactions(peer, m);
+				} <span class="kw">else </span>{
+					<span class="macro">warn!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Failed to decode transactions list&quot;</span>);
+				}
+			},
 		}
 	}
 
@@ -852,51 +882,6 @@
 					<span class="macro">log::error!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;Remove reserved peer failed: {}&quot;</span>, err);
 				}
 			},
-		}
-	}
-
-	<span class="kw">async fn </span>handle_network_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: Event) {
-		<span class="kw">match </span>event {
-			Event::Dht(<span class="kw">_</span>) =&gt; {},
-			Event::NotificationStreamOpened { remote, protocol, role, .. }
-				<span class="kw">if </span>protocol == <span class="self">self</span>.protocol_name =&gt;
-			{
-				<span class="kw">let </span>_was_in = <span class="self">self</span>.peers.insert(
-					remote,
-					Peer {
-						known_transactions: LruHashSet::new(
-							NonZeroUsize::new(MAX_KNOWN_TRANSACTIONS).expect(<span class="string">&quot;Constant is nonzero&quot;</span>),
-						),
-						role,
-					},
-				);
-				<span class="macro">debug_assert!</span>(_was_in.is_none());
-			},
-			Event::NotificationStreamClosed { remote, protocol }
-				<span class="kw">if </span>protocol == <span class="self">self</span>.protocol_name =&gt;
-			{
-				<span class="kw">let </span>_peer = <span class="self">self</span>.peers.remove(<span class="kw-2">&amp;</span>remote);
-				<span class="macro">debug_assert!</span>(_peer.is_some());
-			},
-
-			Event::NotificationsReceived { remote, messages } =&gt; {
-				<span class="kw">for </span>(protocol, message) <span class="kw">in </span>messages {
-					<span class="kw">if </span>protocol != <span class="self">self</span>.protocol_name {
-						<span class="kw">continue
-					</span>}
-
-					<span class="kw">if let </span><span class="prelude-val">Ok</span>(m) =
-						&lt;Transactions&lt;B::Extrinsic&gt; <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut </span>message.as_ref())
-					{
-						<span class="self">self</span>.on_transactions(remote, m);
-					} <span class="kw">else </span>{
-						<span class="macro">warn!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Failed to decode transactions list&quot;</span>);
-					}
-				}
-			},
-
-			<span class="comment">// Not our concern.
-			</span>Event::NotificationStreamOpened { .. } | Event::NotificationStreamClosed { .. } =&gt; {},
 		}
 	}
 
@@ -991,8 +976,7 @@
 					propagated_to.entry(hash).or_default().push(who.to_base58());
 				}
 				<span class="macro">trace!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;Sending {} transactions to {}&quot;</span>, to_send.len(), who);
-				<span class="self">self</span>.network
-					.write_notification(<span class="kw-2">*</span>who, <span class="self">self</span>.protocol_name.clone(), to_send.encode());
+				<span class="kw">let _ </span>= <span class="self">self</span>.notification_service.send_sync_notification(who, to_send.encode());
 			}
 		}
 

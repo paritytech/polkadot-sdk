@@ -470,9 +470,6 @@
 <a href="#470" id="470">470</a>
 <a href="#471" id="471">471</a>
 <a href="#472" id="472">472</a>
-<a href="#473" id="473">473</a>
-<a href="#474" id="474">474</a>
-<a href="#475" id="475">475</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -503,6 +500,7 @@
 <span class="kw">use </span>log::{debug, info, warn};
 
 <span class="kw">use </span>sc_client_api::backend::Backend;
+<span class="kw">use </span>sc_network::NotificationService;
 <span class="kw">use </span>sc_telemetry::TelemetryHandle;
 <span class="kw">use </span>sc_utils::mpsc::TracingUnboundedReceiver;
 <span class="kw">use </span>sp_blockchain::HeaderMetadata;
@@ -643,6 +641,7 @@
 	link: LinkHalf&lt;Block, Client, SC&gt;,
 	network: N,
 	sync: S,
+	notification_service: Box&lt;<span class="kw">dyn </span>NotificationService&gt;,
 ) -&gt; sp_blockchain::Result&lt;<span class="kw">impl </span>Future&lt;Output = ()&gt; + Send&gt;
 <span class="kw">where
 	</span>BE: Backend&lt;Block&gt; + Unpin + <span class="lifetime">&#39;static</span>,
@@ -664,6 +663,7 @@
 	<span class="kw">let </span>network = NetworkBridge::new(
 		network,
 		sync,
+		notification_service,
 		config.clone(),
 		persistent_data.set_state.clone(),
 		<span class="prelude-val">None</span>,
@@ -889,14 +889,14 @@
 
 	<span class="kw">use </span>futures::executor;
 
-	<span class="doccomment">/// Ensure `Future` implementation of `ObserverWork` is polling its `NetworkBridge`. Regression
-	/// test for bug introduced in d4fbb897c and fixed in b7af8b339.
+	<span class="doccomment">/// Ensure `Future` implementation of `ObserverWork` is polling its `NetworkBridge`.
+	/// Regression test for bug introduced in d4fbb897c and fixed in b7af8b339.
 	///
-	/// When polled, `NetworkBridge` forwards reputation change requests from the `GossipValidator`
-	/// to the underlying `dyn Network`. This test triggers a reputation change by calling
-	/// `GossipValidator::validate` with an invalid gossip message. After polling the `ObserverWork`
-	/// which should poll the `NetworkBridge`, the reputation change should be forwarded to the test
-	/// network.
+	/// When polled, `NetworkBridge` forwards reputation change requests from the
+	/// `GossipValidator` to the underlying `dyn Network`. This test triggers a reputation change
+	/// by calling `GossipValidator::validate` with an invalid gossip message. After polling the
+	/// `ObserverWork` which should poll the `NetworkBridge`, the reputation change should be
+	/// forwarded to the test network.
 	</span><span class="attr">#[test]
 	</span><span class="kw">fn </span>observer_work_polls_underlying_network_bridge() {
 		<span class="comment">// Create a test network.
@@ -937,12 +937,6 @@
 			<span class="comment">// Poll the observer once and have it forward the reputation change from the gossip
 			// validator to the test network.
 			</span><span class="macro">assert!</span>(observer.now_or_never().is_none());
-
-			<span class="comment">// Ignore initial event stream request by gossip engine.
-			</span><span class="kw">match </span>tester.events.next().now_or_never() {
-				<span class="prelude-val">Some</span>(<span class="prelude-val">Some</span>(Event::EventStream(<span class="kw">_</span>))) =&gt; {},
-				<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;expected event stream request&quot;</span>),
-			};
 
 			<span class="macro">assert_matches!</span>(tester.events.next().now_or_never(), <span class="prelude-val">Some</span>(<span class="prelude-val">Some</span>(Event::Report(<span class="kw">_</span>, <span class="kw">_</span>))));
 		});

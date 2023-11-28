@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["DhtEvent","Event","SyncEvent"]};
+window.SIDEBAR_ITEMS = {"enum":["DhtEvent","Event"]};

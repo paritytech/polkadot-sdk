@@ -1102,6 +1102,8 @@
 <a href="#1102" id="1102">1102</a>
 <a href="#1103" id="1103">1103</a>
 <a href="#1104" id="1104">1104</a>
+<a href="#1105" id="1105">1105</a>
+<a href="#1106" id="1106">1106</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1150,7 +1152,7 @@
 	Message::{Precommit, Prevote, PrimaryPropose},
 };
 <span class="kw">use </span>parity_scale_codec::{Decode, DecodeAll, Encode};
-<span class="kw">use </span>sc_network::{NetworkBlock, NetworkSyncForkRequest, ReputationChange};
+<span class="kw">use </span>sc_network::{NetworkBlock, NetworkSyncForkRequest, NotificationService, ReputationChange};
 <span class="kw">use </span>sc_network_gossip::{GossipEngine, Network <span class="kw">as </span>GossipNetwork};
 <span class="kw">use </span>sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_INFO};
 <span class="kw">use </span>sp_keystore::KeystorePtr;
@@ -1351,6 +1353,7 @@
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(
 		service: N,
 		sync: S,
+		notification_service: Box&lt;<span class="kw">dyn </span>NotificationService&gt;,
 		config: <span class="kw">crate</span>::Config,
 		set_state: <span class="kw">crate</span>::environment::SharedVoterSetState&lt;B&gt;,
 		prometheus_registry: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Registry&gt;,
@@ -1364,6 +1367,7 @@
 		<span class="kw">let </span>gossip_engine = Arc::new(Mutex::new(GossipEngine::new(
 			service.clone(),
 			sync.clone(),
+			notification_service,
 			protocol,
 			validator.clone(),
 			prometheus_registry,

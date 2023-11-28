@@ -2023,6 +2023,9 @@
 <a href="#2023" id="2023">2023</a>
 <a href="#2024" id="2024">2024</a>
 <a href="#2025" id="2025">2025</a>
+<a href="#2026" id="2026">2026</a>
+<a href="#2027" id="2027">2027</a>
+<a href="#2028" id="2028">2028</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2872,6 +2875,7 @@
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use crate</span>::{peer_store::PeerStoreProvider, ReputationChange};
 	<span class="kw">use </span>libp2p::PeerId;
+	<span class="kw">use </span>sc_network_common::role::ObservedRole;
 	<span class="kw">use </span>sc_utils::mpsc::{tracing_unbounded, TryRecvError};
 	<span class="kw">use </span>std::collections::HashSet;
 
@@ -2883,8 +2887,10 @@
 			<span class="kw">fn </span>is_banned(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>PeerId) -&gt; bool;
 			<span class="kw">fn </span>register_protocol(<span class="kw-2">&amp;</span><span class="self">self</span>, protocol_handle: ProtocolHandle);
 			<span class="kw">fn </span>report_disconnect(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId);
+			<span class="kw">fn </span>set_peer_role(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>PeerId, role: ObservedRole);
 			<span class="kw">fn </span>report_peer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId, change: ReputationChange);
 			<span class="kw">fn </span>peer_reputation(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>PeerId) -&gt; i32;
+			<span class="kw">fn </span>peer_role(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>PeerId) -&gt; <span class="prelude-ty">Option</span>&lt;ObservedRole&gt;;
 			<span class="kw">fn </span>outgoing_candidates&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, count: usize, ignored: HashSet&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PeerId&gt;) -&gt; Vec&lt;PeerId&gt;;
 		}
 	}

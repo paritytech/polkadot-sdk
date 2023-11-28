@@ -823,6 +823,86 @@
 <a href="#823" id="823">823</a>
 <a href="#824" id="824">824</a>
 <a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -846,7 +926,11 @@
 	Network, Syncing, Validator,
 };
 
-<span class="kw">use </span>sc_network::{event::Event, types::ProtocolName, ReputationChange};
+<span class="kw">use </span>sc_network::{
+	service::traits::{NotificationEvent, ValidationResult},
+	types::ProtocolName,
+	NotificationService, ReputationChange,
+};
 <span class="kw">use </span>sc_network_sync::SyncEvent;
 
 <span class="kw">use </span>futures::{
@@ -873,10 +957,10 @@
 	periodic_maintenance_interval: futures_timer::Delay,
 	protocol: ProtocolName,
 
-	<span class="doccomment">/// Incoming events from the network.
-	</span>network_event_stream: Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = Event&gt; + Send&gt;&gt;,
 	<span class="doccomment">/// Incoming events from the syncing service.
 	</span>sync_event_stream: Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = SyncEvent&gt; + Send&gt;&gt;,
+	<span class="doccomment">/// Handle for polling notification-related events.
+	</span>notification_service: Box&lt;<span class="kw">dyn </span>NotificationService&gt;,
 	<span class="doccomment">/// Outgoing events to the consumer.
 	</span>message_sinks: HashMap&lt;B::Hash, Vec&lt;Sender&lt;TopicNotification&gt;&gt;&gt;,
 	<span class="doccomment">/// Buffered messages (see [`ForwardingState`]).
@@ -906,6 +990,7 @@
 	</span><span class="kw">pub fn </span>new&lt;N, S&gt;(
 		network: N,
 		sync: S,
+		notification_service: Box&lt;<span class="kw">dyn </span>NotificationService&gt;,
 		protocol: <span class="kw">impl </span>Into&lt;ProtocolName&gt;,
 		validator: Arc&lt;<span class="kw">dyn </span>Validator&lt;B&gt;&gt;,
 		metrics_registry: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Registry&gt;,
@@ -916,17 +1001,16 @@
 		S: Syncing&lt;B&gt; + Send + Clone + <span class="lifetime">&#39;static</span>,
 	{
 		<span class="kw">let </span>protocol = protocol.into();
-		<span class="kw">let </span>network_event_stream = network.event_stream(<span class="string">&quot;network-gossip&quot;</span>);
 		<span class="kw">let </span>sync_event_stream = sync.event_stream(<span class="string">&quot;network-gossip&quot;</span>);
 
 		GossipEngine {
 			state_machine: ConsensusGossip::new(validator, protocol.clone(), metrics_registry),
 			network: Box::new(network),
 			sync: Box::new(sync),
+			notification_service,
 			periodic_maintenance_interval: futures_timer::Delay::new(PERIODIC_MAINTENANCE_INTERVAL),
 			protocol,
 
-			network_event_stream,
 			sync_event_stream,
 			message_sinks: HashMap::new(),
 			forwarding_state: ForwardingState::Idle,
@@ -950,7 +1034,7 @@
 
 	<span class="doccomment">/// Broadcast all messages with given topic.
 	</span><span class="kw">pub fn </span>broadcast_topic(<span class="kw-2">&amp;mut </span><span class="self">self</span>, topic: B::Hash, force: bool) {
-		<span class="self">self</span>.state_machine.broadcast_topic(<span class="kw-2">&amp;mut *</span><span class="self">self</span>.network, topic, force);
+		<span class="self">self</span>.state_machine.broadcast_topic(<span class="kw-2">&amp;mut </span><span class="self">self</span>.notification_service, topic, force);
 	}
 
 	<span class="doccomment">/// Get data of valid, incoming messages for a topic (but might have expired meanwhile).
@@ -975,19 +1059,21 @@
 
 	<span class="doccomment">/// Send all messages with given topic to a peer.
 	</span><span class="kw">pub fn </span>send_topic(<span class="kw-2">&amp;mut </span><span class="self">self</span>, who: <span class="kw-2">&amp;</span>PeerId, topic: B::Hash, force: bool) {
-		<span class="self">self</span>.state_machine.send_topic(<span class="kw-2">&amp;mut *</span><span class="self">self</span>.network, who, topic, force)
+		<span class="self">self</span>.state_machine.send_topic(<span class="kw-2">&amp;mut </span><span class="self">self</span>.notification_service, who, topic, force)
 	}
 
 	<span class="doccomment">/// Multicast a message to all peers.
 	</span><span class="kw">pub fn </span>gossip_message(<span class="kw-2">&amp;mut </span><span class="self">self</span>, topic: B::Hash, message: Vec&lt;u8&gt;, force: bool) {
-		<span class="self">self</span>.state_machine.multicast(<span class="kw-2">&amp;mut *</span><span class="self">self</span>.network, topic, message, force)
+		<span class="self">self</span>.state_machine
+			.multicast(<span class="kw-2">&amp;mut </span><span class="self">self</span>.notification_service, topic, message, force)
 	}
 
 	<span class="doccomment">/// Send addressed message to the given peers. The message is not kept or multicast
 	/// later on.
 	</span><span class="kw">pub fn </span>send_message(<span class="kw-2">&amp;mut </span><span class="self">self</span>, who: Vec&lt;PeerId&gt;, data: Vec&lt;u8&gt;) {
 		<span class="kw">for </span>who <span class="kw">in </span><span class="kw-2">&amp;</span>who {
-			<span class="self">self</span>.state_machine.send_message(<span class="kw-2">&amp;mut *</span><span class="self">self</span>.network, who, data.clone());
+			<span class="self">self</span>.state_machine
+				.send_message(<span class="kw-2">&amp;mut </span><span class="self">self</span>.notification_service, who, data.clone());
 		}
 	}
 
@@ -997,6 +1083,11 @@
 	/// somewhere else.
 	</span><span class="kw">pub fn </span>announce(<span class="kw-2">&amp;</span><span class="self">self</span>, block: B::Hash, associated_data: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;) {
 		<span class="self">self</span>.sync.announce_block(block, associated_data);
+	}
+
+	<span class="doccomment">/// Consume [`GossipEngine`] and return the notification service.
+	</span><span class="kw">pub fn </span>take_notification_service(<span class="self">self</span>) -&gt; Box&lt;<span class="kw">dyn </span>NotificationService&gt; {
+		<span class="self">self</span>.notification_service
 	}
 }
 
@@ -1009,46 +1100,56 @@
 		<span class="lifetime">&#39;outer</span>: <span class="kw">loop </span>{
 			<span class="kw">match </span><span class="kw-2">&amp;mut </span>this.forwarding_state {
 				ForwardingState::Idle =&gt; {
-					<span class="kw">let </span>net_event_stream = this.network_event_stream.poll_next_unpin(cx);
+					<span class="kw">let </span>next_notification_event =
+						this.notification_service.next_event().poll_unpin(cx);
 					<span class="kw">let </span>sync_event_stream = this.sync_event_stream.poll_next_unpin(cx);
 
-					<span class="kw">if </span>net_event_stream.is_pending() &amp;&amp; sync_event_stream.is_pending() {
+					<span class="kw">if </span>next_notification_event.is_pending() &amp;&amp; sync_event_stream.is_pending() {
 						<span class="kw">break
 					</span>}
 
-					<span class="kw">match </span>net_event_stream {
+					<span class="kw">match </span>next_notification_event {
 						Poll::Ready(<span class="prelude-val">Some</span>(event)) =&gt; <span class="kw">match </span>event {
-							Event::NotificationStreamOpened { remote, protocol, role, .. } =&gt;
-								<span class="kw">if </span>protocol == this.protocol {
-									this.state_machine.new_peer(<span class="kw-2">&amp;mut *</span>this.network, remote, role);
-								},
-							Event::NotificationStreamClosed { remote, protocol } =&gt; {
-								<span class="kw">if </span>protocol == this.protocol {
-									this.state_machine
-										.peer_disconnected(<span class="kw-2">&amp;mut *</span>this.network, remote);
-								}
+							NotificationEvent::ValidateInboundSubstream {
+								peer,
+								handshake,
+								result_tx,
+								..
+							} =&gt; {
+								<span class="comment">// only accept peers whose role can be determined
+								</span><span class="kw">let </span>result = this
+									.network
+									.peer_role(peer, handshake)
+									.map_or(ValidationResult::Reject, |<span class="kw">_</span>| ValidationResult::Accept);
+								<span class="kw">let _ </span>= result_tx.send(result);
 							},
-							Event::NotificationsReceived { remote, messages } =&gt; {
-								<span class="kw">let </span>messages = messages
-									.into_iter()
-									.filter_map(|(engine, data)| {
-										<span class="kw">if </span>engine == this.protocol {
-											<span class="prelude-val">Some</span>(data.to_vec())
-										} <span class="kw">else </span>{
-											<span class="prelude-val">None
-										</span>}
-									})
-									.collect();
+							NotificationEvent::NotificationStreamOpened {
+								peer, handshake, ..
+							} =&gt; {
+								<span class="kw">let </span><span class="prelude-val">Some</span>(role) = this.network.peer_role(peer, handshake) <span class="kw">else </span>{
+									<span class="macro">log::debug!</span>(target: <span class="string">&quot;gossip&quot;</span>, <span class="string">&quot;role for {peer} couldn&#39;t be determined&quot;</span>);
+									<span class="kw">continue
+								</span>};
 
+								this.state_machine.new_peer(
+									<span class="kw-2">&amp;mut </span>this.notification_service,
+									peer,
+									role,
+								);
+							},
+							NotificationEvent::NotificationStreamClosed { peer } =&gt; {
+								this.state_machine
+									.peer_disconnected(<span class="kw-2">&amp;mut </span>this.notification_service, peer);
+							},
+							NotificationEvent::NotificationReceived { peer, notification } =&gt; {
 								<span class="kw">let </span>to_forward = this.state_machine.on_incoming(
 									<span class="kw-2">&amp;mut *</span>this.network,
-									remote,
-									messages,
+									<span class="kw-2">&amp;mut </span>this.notification_service,
+									peer,
+									<span class="macro">vec!</span>[notification],
 								);
-
 								this.forwarding_state = ForwardingState::Busy(to_forward.into());
 							},
-							Event::Dht(<span class="kw">_</span>) =&gt; {},
 						},
 						<span class="comment">// The network event stream closed. Do the same for [`GossipValidator`].
 						</span>Poll::Ready(<span class="prelude-val">None</span>) =&gt; {
@@ -1131,7 +1232,7 @@
 
 		<span class="kw">while let </span>Poll::Ready(()) = this.periodic_maintenance_interval.poll_unpin(cx) {
 			this.periodic_maintenance_interval.reset(PERIODIC_MAINTENANCE_INTERVAL);
-			this.state_machine.tick(<span class="kw-2">&amp;mut *</span>this.network);
+			this.state_machine.tick(<span class="kw-2">&amp;mut </span>this.notification_service);
 
 			this.message_sinks.retain(|<span class="kw">_</span>, sinks| {
 				sinks.retain(|sink| !sink.is_closed());
@@ -1153,15 +1254,19 @@
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use crate</span>::{multiaddr::Multiaddr, ValidationResult, ValidatorContext};
+	<span class="kw">use </span>codec::{DecodeAll, Encode};
 	<span class="kw">use </span>futures::{
-		channel::mpsc::{unbounded, UnboundedSender},
+		channel::mpsc::{unbounded, UnboundedReceiver, UnboundedSender},
 		executor::{block_on, block_on_stream},
 		future::poll_fn,
 	};
 	<span class="kw">use </span>quickcheck::{Arbitrary, Gen, QuickCheck};
 	<span class="kw">use </span>sc_network::{
-		config::MultiaddrWithPeerId, NetworkBlock, NetworkEventStream, NetworkNotification,
-		NetworkPeers, NotificationSenderError, NotificationSenderT <span class="kw">as </span>NotificationSender,
+		config::MultiaddrWithPeerId,
+		service::traits::{Direction, MessageSink, NotificationEvent},
+		Event, NetworkBlock, NetworkEventStream, NetworkNotification, NetworkPeers,
+		NotificationSenderError, NotificationSenderT <span class="kw">as </span>NotificationSender, NotificationService,
+		Roles,
 	};
 	<span class="kw">use </span>sc_network_common::role::ObservedRole;
 	<span class="kw">use </span>sc_network_sync::SyncEventStream;
@@ -1176,14 +1281,10 @@
 	<span class="kw">use </span>substrate_test_runtime_client::runtime::Block;
 
 	<span class="attr">#[derive(Clone, Default)]
-	</span><span class="kw">struct </span>TestNetwork {
-		inner: Arc&lt;Mutex&lt;TestNetworkInner&gt;&gt;,
-	}
+	</span><span class="kw">struct </span>TestNetwork {}
 
 	<span class="attr">#[derive(Clone, Default)]
-	</span><span class="kw">struct </span>TestNetworkInner {
-		event_senders: Vec&lt;UnboundedSender&lt;Event&gt;&gt;,
-	}
+	</span><span class="kw">struct </span>TestNetworkInner {}
 
 	<span class="kw">impl </span>NetworkPeers <span class="kw">for </span>TestNetwork {
 		<span class="kw">fn </span>set_authorized_peers(<span class="kw-2">&amp;</span><span class="self">self</span>, _peers: HashSet&lt;PeerId&gt;) {
@@ -1247,14 +1348,17 @@
 		<span class="kw">fn </span>sync_num_connected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
 			<span class="macro">unimplemented!</span>();
 		}
+
+		<span class="kw">fn </span>peer_role(<span class="kw-2">&amp;</span><span class="self">self</span>, _peer_id: PeerId, handshake: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;ObservedRole&gt; {
+			Roles::decode_all(<span class="kw-2">&amp;mut &amp;</span>handshake[..])
+				.ok()
+				.and_then(|role| <span class="prelude-val">Some</span>(ObservedRole::from(role)))
+		}
 	}
 
 	<span class="kw">impl </span>NetworkEventStream <span class="kw">for </span>TestNetwork {
 		<span class="kw">fn </span>event_stream(<span class="kw-2">&amp;</span><span class="self">self</span>, _name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = Event&gt; + Send&gt;&gt; {
-			<span class="kw">let </span>(tx, rx) = unbounded();
-			<span class="self">self</span>.inner.lock().unwrap().event_senders.push(tx);
-
-			Box::pin(rx)
+			<span class="macro">unimplemented!</span>();
 		}
 	}
 
@@ -1326,6 +1430,58 @@
 		}
 	}
 
+	<span class="attr">#[derive(Debug)]
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>TestNotificationService {
+		rx: UnboundedReceiver&lt;NotificationEvent&gt;,
+	}
+
+	<span class="attr">#[async_trait::async_trait]
+	</span><span class="kw">impl </span>sc_network::service::traits::NotificationService <span class="kw">for </span>TestNotificationService {
+		<span class="kw">async fn </span>open_substream(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _peer: PeerId) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
+			<span class="macro">unimplemented!</span>();
+		}
+
+		<span class="kw">async fn </span>close_substream(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _peer: PeerId) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
+			<span class="macro">unimplemented!</span>();
+		}
+
+		<span class="kw">fn </span>send_sync_notification(<span class="kw-2">&amp;</span><span class="self">self</span>, _peer: <span class="kw-2">&amp;</span>PeerId, _notification: Vec&lt;u8&gt;) {
+			<span class="macro">unimplemented!</span>();
+		}
+
+		<span class="kw">async fn </span>send_async_notification(
+			<span class="kw-2">&amp;</span><span class="self">self</span>,
+			_peer: <span class="kw-2">&amp;</span>PeerId,
+			_notification: Vec&lt;u8&gt;,
+		) -&gt; <span class="prelude-ty">Result</span>&lt;(), sc_network::error::Error&gt; {
+			<span class="macro">unimplemented!</span>();
+		}
+
+		<span class="kw">async fn </span>set_handshake(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _handshake: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
+			<span class="macro">unimplemented!</span>();
+		}
+
+		<span class="kw">fn </span>try_set_handshake(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _handshake: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
+			<span class="macro">unimplemented!</span>();
+		}
+
+		<span class="kw">async fn </span>next_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;NotificationEvent&gt; {
+			<span class="self">self</span>.rx.next().<span class="kw">await
+		</span>}
+
+		<span class="kw">fn </span>clone(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>NotificationService&gt;, ()&gt; {
+			<span class="macro">unimplemented!</span>();
+		}
+
+		<span class="kw">fn </span>protocol(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>ProtocolName {
+			<span class="macro">unimplemented!</span>();
+		}
+
+		<span class="kw">fn </span>message_sink(<span class="kw-2">&amp;</span><span class="self">self</span>, _peer: <span class="kw-2">&amp;</span>PeerId) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>MessageSink&gt;&gt; {
+			<span class="macro">unimplemented!</span>();
+		}
+	}
+
 	<span class="kw">struct </span>AllowAll;
 	<span class="kw">impl </span>Validator&lt;Block&gt; <span class="kw">for </span>AllowAll {
 		<span class="kw">fn </span>validate(
@@ -1346,16 +1502,19 @@
 	</span><span class="kw">fn </span>returns_when_network_event_stream_closes() {
 		<span class="kw">let </span>network = TestNetwork::default();
 		<span class="kw">let </span>sync = Arc::new(TestSync::default());
+		<span class="kw">let </span>(tx, rx) = unbounded();
+		<span class="kw">let </span>notification_service = Box::new(TestNotificationService { rx });
 		<span class="kw">let </span><span class="kw-2">mut </span>gossip_engine = GossipEngine::&lt;Block&gt;::new(
 			network.clone(),
 			sync,
+			notification_service,
 			<span class="string">&quot;/my_protocol&quot;</span>,
 			Arc::new(AllowAll {}),
 			<span class="prelude-val">None</span>,
 		);
 
-		<span class="comment">// Drop network event stream sender side.
-		</span>drop(network.inner.lock().unwrap().event_senders.pop());
+		<span class="comment">// drop notification service sender side.
+		</span>drop(tx);
 
 		block_on(poll_fn(<span class="kw">move </span>|ctx| {
 			<span class="kw">if let </span>Poll::Pending = gossip_engine.poll_unpin(ctx) {
@@ -1375,42 +1534,37 @@
 		<span class="kw">let </span>remote_peer = PeerId::random();
 		<span class="kw">let </span>network = TestNetwork::default();
 		<span class="kw">let </span>sync = Arc::new(TestSync::default());
+		<span class="kw">let </span>(<span class="kw-2">mut </span>tx, rx) = unbounded();
+		<span class="kw">let </span>notification_service = Box::new(TestNotificationService { rx });
 
 		<span class="kw">let </span><span class="kw-2">mut </span>gossip_engine = GossipEngine::&lt;Block&gt;::new(
 			network.clone(),
 			sync.clone(),
+			notification_service,
 			protocol.clone(),
 			Arc::new(AllowAll {}),
 			<span class="prelude-val">None</span>,
 		);
 
-		<span class="kw">let </span><span class="kw-2">mut </span>event_sender = network.inner.lock().unwrap().event_senders.pop().unwrap();
-
 		<span class="comment">// Register the remote peer.
-		</span>event_sender
-			.start_send(Event::NotificationStreamOpened {
-				remote: remote_peer,
-				protocol: protocol.clone(),
-				negotiated_fallback: <span class="prelude-val">None</span>,
-				role: ObservedRole::Authority,
-				received_handshake: <span class="macro">vec!</span>[],
-			})
-			.expect(<span class="string">&quot;Event stream is unbounded; qed.&quot;</span>);
+		</span>tx.send(NotificationEvent::NotificationStreamOpened {
+			peer: remote_peer,
+			direction: Direction::Inbound,
+			negotiated_fallback: <span class="prelude-val">None</span>,
+			handshake: Roles::FULL.encode(),
+		})
+		.<span class="kw">await
+		</span>.unwrap();
 
 		<span class="kw">let </span>messages = <span class="macro">vec!</span>[<span class="macro">vec!</span>[<span class="number">1</span>], <span class="macro">vec!</span>[<span class="number">2</span>]];
-		<span class="kw">let </span>events = messages
-			.iter()
-			.cloned()
-			.map(|m| Event::NotificationsReceived {
-				remote: remote_peer,
-				messages: <span class="macro">vec!</span>[(protocol.clone(), m.into())],
-			})
-			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
 		<span class="comment">// Send first event before subscribing.
-		</span>event_sender
-			.start_send(events[<span class="number">0</span>].clone())
-			.expect(<span class="string">&quot;Event stream is unbounded; qed.&quot;</span>);
+		</span>tx.send(NotificationEvent::NotificationReceived {
+			peer: remote_peer,
+			notification: messages[<span class="number">0</span>].clone().into(),
+		})
+		.<span class="kw">await
+		</span>.unwrap();
 
 		<span class="kw">let </span><span class="kw-2">mut </span>subscribers = <span class="macro">vec!</span>[];
 		<span class="kw">for _ in </span><span class="number">0</span>..<span class="number">2 </span>{
@@ -1418,9 +1572,12 @@
 		}
 
 		<span class="comment">// Send second event after subscribing.
-		</span>event_sender
-			.start_send(events[<span class="number">1</span>].clone())
-			.expect(<span class="string">&quot;Event stream is unbounded; qed.&quot;</span>);
+		</span>tx.send(NotificationEvent::NotificationReceived {
+			peer: remote_peer,
+			notification: messages[<span class="number">1</span>].clone().into(),
+		})
+		.<span class="kw">await
+		</span>.unwrap();
 
 		tokio::spawn(gossip_engine);
 
@@ -1497,6 +1654,8 @@
 			<span class="kw">let </span>remote_peer = PeerId::random();
 			<span class="kw">let </span>network = TestNetwork::default();
 			<span class="kw">let </span>sync = Arc::new(TestSync::default());
+			<span class="kw">let </span>(<span class="kw-2">mut </span>tx, rx) = unbounded();
+			<span class="kw">let </span>notification_service = Box::new(TestNotificationService { rx });
 
 			<span class="kw">let </span>num_channels_per_topic = channels.iter().fold(
 				HashMap::new(),
@@ -1524,6 +1683,7 @@
 			<span class="kw">let </span><span class="kw-2">mut </span>gossip_engine = GossipEngine::&lt;Block&gt;::new(
 				network.clone(),
 				sync.clone(),
+				notification_service,
 				protocol.clone(),
 				Arc::new(TestValidator {}),
 				<span class="prelude-val">None</span>,
@@ -1549,22 +1709,18 @@
 				}
 			}
 
-			<span class="kw">let </span><span class="kw-2">mut </span>event_sender = network.inner.lock().unwrap().event_senders.pop().unwrap();
-
 			<span class="comment">// Register the remote peer.
-			</span>event_sender
-				.start_send(Event::NotificationStreamOpened {
-					remote: remote_peer,
-					protocol: protocol.clone(),
-					negotiated_fallback: <span class="prelude-val">None</span>,
-					role: ObservedRole::Authority,
-					received_handshake: <span class="macro">vec!</span>[],
-				})
-				.expect(<span class="string">&quot;Event stream is unbounded; qed.&quot;</span>);
+			</span>tx.start_send(NotificationEvent::NotificationStreamOpened {
+				peer: remote_peer,
+				direction: Direction::Inbound,
+				negotiated_fallback: <span class="prelude-val">None</span>,
+				handshake: Roles::FULL.encode(),
+			})
+			.unwrap();
 
 			<span class="comment">// Send messages into the network event stream.
 			</span><span class="kw">for </span>(i_notification, messages) <span class="kw">in </span>notifications.iter().enumerate() {
-				<span class="kw">let </span>messages = messages
+				<span class="kw">let </span>messages: Vec&lt;Vec&lt;u8&gt;&gt; = messages
 					.into_iter()
 					.enumerate()
 					.map(|(i_message, Message { topic })| {
@@ -1577,13 +1733,17 @@
 						</span>message.push(i_notification.try_into().unwrap());
 						message.push(i_message.try_into().unwrap());
 
-						(protocol.clone(), message.into())
+						message.into()
 					})
 					.collect();
 
-				event_sender
-					.start_send(Event::NotificationsReceived { remote: remote_peer, messages })
-					.expect(<span class="string">&quot;Event stream is unbounded; qed.&quot;</span>);
+				<span class="kw">for </span>message <span class="kw">in </span>messages {
+					tx.start_send(NotificationEvent::NotificationReceived {
+						peer: remote_peer,
+						notification: message,
+					})
+					.unwrap();
+				}
 			}
 
 			<span class="kw">let </span><span class="kw-2">mut </span>received_msgs_per_topic_all_chan = HashMap::&lt;H256, <span class="kw">_</span>&gt;::new();

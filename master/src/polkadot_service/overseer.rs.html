@@ -400,6 +400,14 @@
 <a href="#400" id="400">400</a>
 <a href="#401" id="401">401</a>
 <a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -428,7 +436,7 @@
 <span class="kw">use </span>polkadot_node_core_chain_selection::Config <span class="kw">as </span>ChainSelectionConfig;
 <span class="kw">use </span>polkadot_node_core_dispute_coordinator::Config <span class="kw">as </span>DisputeCoordinatorConfig;
 <span class="kw">use </span>polkadot_node_network_protocol::{
-	peer_set::PeerSetProtocolNames,
+	peer_set::{PeerSet, PeerSetProtocolNames},
 	request_response::{
 		v1 <span class="kw">as </span>request_v1, v2 <span class="kw">as </span>request_v2, IncomingRequestReceiver, ReqProtocolNames,
 	},
@@ -443,15 +451,16 @@
 	OverseerConnector, OverseerHandle, SpawnGlue,
 };
 
+<span class="kw">use </span>parking_lot::Mutex;
 <span class="kw">use </span>polkadot_primitives::runtime_api::ParachainHost;
 <span class="kw">use </span>sc_authority_discovery::Service <span class="kw">as </span>AuthorityDiscoveryService;
 <span class="kw">use </span>sc_client_api::AuxStore;
 <span class="kw">use </span>sc_keystore::LocalKeystore;
-<span class="kw">use </span>sc_network::NetworkStateInfo;
+<span class="kw">use </span>sc_network::{NetworkStateInfo, NotificationService};
 <span class="kw">use </span>sp_api::ProvideRuntimeApi;
 <span class="kw">use </span>sp_blockchain::HeaderBackend;
 <span class="kw">use </span>sp_consensus_babe::BabeApi;
-<span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="kw">pub use </span>polkadot_approval_distribution::ApprovalDistribution <span class="kw">as </span>ApprovalDistributionSubsystem;
 <span class="kw">pub use </span>polkadot_availability_bitfield_distribution::BitfieldDistribution <span class="kw">as </span>BitfieldDistributionSubsystem;
@@ -542,6 +551,8 @@
 	</span><span class="kw">pub </span>peerset_protocol_names: PeerSetProtocolNames,
 	<span class="doccomment">/// The offchain transaction pool factory.
 	</span><span class="kw">pub </span>offchain_transaction_pool_factory: OffchainTransactionPoolFactory&lt;Block&gt;,
+	<span class="doccomment">/// Notification services for validation/collation protocols.
+	</span><span class="kw">pub </span>notification_services: HashMap&lt;PeerSet, Box&lt;<span class="kw">dyn </span>NotificationService&gt;&gt;,
 }
 
 <span class="doccomment">/// Obtain a prepared `OverseerBuilder`, that is initialized
@@ -575,6 +586,7 @@
 		req_protocol_names,
 		peerset_protocol_names,
 		offchain_transaction_pool_factory,
+		notification_services,
 	}: OverseerGenArgs&lt;Spawner, RuntimeClient&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;
 	InitializedOverseerBuilder&lt;
@@ -620,6 +632,7 @@
 	<span class="kw">use </span>polkadot_node_subsystem_util::metrics::Metrics;
 
 	<span class="kw">let </span>metrics = &lt;OverseerMetrics <span class="kw">as </span>MetricsTrait&gt;::register(registry)<span class="question-mark">?</span>;
+	<span class="kw">let </span>notification_sinks = Arc::new(Mutex::new(HashMap::new()));
 
 	<span class="kw">let </span>spawner = SpawnGlue(spawner);
 
@@ -637,6 +650,7 @@
 			network_bridge_metrics.clone(),
 			req_protocol_names,
 			peerset_protocol_names.clone(),
+			notification_sinks.clone(),
 		))
 		.network_bridge_rx(NetworkBridgeRxSubsystem::new(
 			network_service.clone(),
@@ -644,6 +658,8 @@
 			Box::new(sync_service.clone()),
 			network_bridge_metrics,
 			peerset_protocol_names,
+			notification_services,
+			notification_sinks,
 		))
 		.availability_distribution(AvailabilityDistributionSubsystem::new(
 			keystore.clone(),

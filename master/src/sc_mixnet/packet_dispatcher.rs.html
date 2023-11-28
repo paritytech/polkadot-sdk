@@ -192,10 +192,6 @@
 <a href="#192" id="192">192</a>
 <a href="#193" id="193">193</a>
 <a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -222,7 +218,7 @@
 <span class="kw">use </span>log::{debug, warn};
 <span class="kw">use </span>mixnet::core::{AddressedPacket, NetworkStatus, Packet, PeerId <span class="kw">as </span>CorePeerId};
 <span class="kw">use </span>parking_lot::Mutex;
-<span class="kw">use </span>sc_network::{NetworkNotification, ProtocolName};
+<span class="kw">use </span>sc_network::NotificationService;
 <span class="kw">use </span>std::{collections::HashMap, future::Future, sync::Arc};
 
 <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;mixnet&quot;</span>;
@@ -275,41 +271,37 @@
 }
 
 <span class="kw">impl </span>ReadyPeer {
-	<span class="doccomment">/// If a future is returned, and if that future returns `Some`, this function should be called
-	/// again to send the next packet queued for the peer; `self` is placed in the `Some` to make
-	/// this straightforward. Otherwise, we have either sent or dropped all packets queued for the
-	/// peer, and it can be forgotten about for the time being.
+	<span class="doccomment">/// If a future is returned, and if that future returns `Some`, this function should be
+	/// called again to send the next packet queued for the peer; `self` is placed in the `Some`
+	/// to make this straightforward. Otherwise, we have either sent or dropped all packets
+	/// queued for the peer, and it can be forgotten about for the time being.
 	</span><span class="kw">pub fn </span>send_packet(
 		<span class="self">self</span>,
-		network: <span class="kw-2">&amp;</span><span class="kw">impl </span>NetworkNotification,
-		protocol_name: ProtocolName,
+		notification_service: <span class="kw-2">&amp;</span>Box&lt;<span class="kw">dyn </span>NotificationService&gt;,
 	) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw">impl </span>Future&lt;Output = <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;&gt;&gt; {
-		<span class="kw">match </span>network.notification_sender(<span class="self">self</span>.id, protocol_name) {
-			<span class="prelude-val">Err</span>(err) =&gt; {
+		<span class="kw">match </span>notification_service.message_sink(<span class="kw-2">&amp;</span><span class="self">self</span>.id) {
+			<span class="prelude-val">None </span>=&gt; {
 				<span class="macro">debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Failed to get notification sender for peer ID {}: {err}&quot;</span>, <span class="self">self</span>.id
+					<span class="string">&quot;Failed to get message sink for peer ID {}&quot;</span>, <span class="self">self</span>.id,
 				);
 				<span class="self">self</span>.queue.clear();
 				<span class="prelude-val">None
 			</span>},
-			<span class="prelude-val">Ok</span>(sender) =&gt; <span class="prelude-val">Some</span>(<span class="kw">async move </span>{
-				<span class="kw">match </span>sender.ready().<span class="kw">await</span>.and_then(|<span class="kw-2">mut </span>ready| {
-					<span class="kw">let </span>(packet, more_packets) = <span class="self">self</span>.queue.pop();
-					<span class="kw">let </span>packet =
-						packet.expect(<span class="string">&quot;Should only be called if there is a packet to send&quot;</span>);
-					ready.send((packet <span class="kw">as </span>Box&lt;[<span class="kw">_</span>]&gt;).into())<span class="question-mark">?</span>;
-					<span class="prelude-val">Ok</span>(more_packets)
-				}) {
+			<span class="prelude-val">Some</span>(sink) =&gt; <span class="prelude-val">Some</span>(<span class="kw">async move </span>{
+				<span class="kw">let </span>(packet, more_packets) = <span class="self">self</span>.queue.pop();
+				<span class="kw">let </span>packet = packet.expect(<span class="string">&quot;Should only be called if there is a packet to send&quot;</span>);
+
+				<span class="kw">match </span>sink.send_async_notification((packet <span class="kw">as </span>Box&lt;[<span class="kw">_</span>]&gt;).into()).<span class="kw">await </span>{
+					<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; more_packets.then_some(<span class="self">self</span>),
 					<span class="prelude-val">Err</span>(err) =&gt; {
 						<span class="macro">debug!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;Notification sender for peer ID {} failed: {err}&quot;</span>, <span class="self">self</span>.id
+							<span class="string">&quot;Failed to send packet to peer ID {}: {err}&quot;</span>, <span class="self">self</span>.id,
 						);
 						<span class="self">self</span>.queue.clear();
 						<span class="prelude-val">None
 					</span>},
-					<span class="prelude-val">Ok</span>(more_packets) =&gt; more_packets.then(|| <span class="self">self</span>),
 				}
 			}),
 		}

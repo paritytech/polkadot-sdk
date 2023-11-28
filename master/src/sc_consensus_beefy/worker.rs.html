@@ -1681,6 +1681,10 @@
 <a href="#1681" id="1681">1681</a>
 <a href="#1682" id="1682">1682</a>
 <a href="#1683" id="1683">1683</a>
+<a href="#1684" id="1684">1684</a>
+<a href="#1685" id="1685">1685</a>
+<a href="#1686" id="1686">1686</a>
+<a href="#1687" id="1687">1687</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2828,12 +2832,16 @@
 		<span class="kw">let </span>api = Arc::new(TestApi::with_validator_set(<span class="kw-2">&amp;</span>genesis_validator_set));
 		<span class="kw">let </span>network = peer.network_service().clone();
 		<span class="kw">let </span>sync = peer.sync_service().clone();
+		<span class="kw">let </span>notification_service = peer
+			.take_notification_service(<span class="kw-2">&amp;</span><span class="kw">crate</span>::tests::beefy_gossip_proto_name())
+			.unwrap();
 		<span class="kw">let </span>known_peers = Arc::new(Mutex::new(KnownPeers::new()));
 		<span class="kw">let </span>(gossip_validator, gossip_report_stream) = GossipValidator::new(known_peers.clone());
 		<span class="kw">let </span>gossip_validator = Arc::new(gossip_validator);
 		<span class="kw">let </span>gossip_engine = GossipEngine::new(
 			network.clone(),
 			sync.clone(),
+			notification_service,
 			<span class="string">&quot;/beefy/1&quot;</span>,
 			gossip_validator.clone(),
 			<span class="prelude-val">None</span>,

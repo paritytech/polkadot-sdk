@@ -1745,92 +1745,6 @@
 <a href="#1745" id="1745">1745</a>
 <a href="#1746" id="1746">1746</a>
 <a href="#1747" id="1747">1747</a>
-<a href="#1748" id="1748">1748</a>
-<a href="#1749" id="1749">1749</a>
-<a href="#1750" id="1750">1750</a>
-<a href="#1751" id="1751">1751</a>
-<a href="#1752" id="1752">1752</a>
-<a href="#1753" id="1753">1753</a>
-<a href="#1754" id="1754">1754</a>
-<a href="#1755" id="1755">1755</a>
-<a href="#1756" id="1756">1756</a>
-<a href="#1757" id="1757">1757</a>
-<a href="#1758" id="1758">1758</a>
-<a href="#1759" id="1759">1759</a>
-<a href="#1760" id="1760">1760</a>
-<a href="#1761" id="1761">1761</a>
-<a href="#1762" id="1762">1762</a>
-<a href="#1763" id="1763">1763</a>
-<a href="#1764" id="1764">1764</a>
-<a href="#1765" id="1765">1765</a>
-<a href="#1766" id="1766">1766</a>
-<a href="#1767" id="1767">1767</a>
-<a href="#1768" id="1768">1768</a>
-<a href="#1769" id="1769">1769</a>
-<a href="#1770" id="1770">1770</a>
-<a href="#1771" id="1771">1771</a>
-<a href="#1772" id="1772">1772</a>
-<a href="#1773" id="1773">1773</a>
-<a href="#1774" id="1774">1774</a>
-<a href="#1775" id="1775">1775</a>
-<a href="#1776" id="1776">1776</a>
-<a href="#1777" id="1777">1777</a>
-<a href="#1778" id="1778">1778</a>
-<a href="#1779" id="1779">1779</a>
-<a href="#1780" id="1780">1780</a>
-<a href="#1781" id="1781">1781</a>
-<a href="#1782" id="1782">1782</a>
-<a href="#1783" id="1783">1783</a>
-<a href="#1784" id="1784">1784</a>
-<a href="#1785" id="1785">1785</a>
-<a href="#1786" id="1786">1786</a>
-<a href="#1787" id="1787">1787</a>
-<a href="#1788" id="1788">1788</a>
-<a href="#1789" id="1789">1789</a>
-<a href="#1790" id="1790">1790</a>
-<a href="#1791" id="1791">1791</a>
-<a href="#1792" id="1792">1792</a>
-<a href="#1793" id="1793">1793</a>
-<a href="#1794" id="1794">1794</a>
-<a href="#1795" id="1795">1795</a>
-<a href="#1796" id="1796">1796</a>
-<a href="#1797" id="1797">1797</a>
-<a href="#1798" id="1798">1798</a>
-<a href="#1799" id="1799">1799</a>
-<a href="#1800" id="1800">1800</a>
-<a href="#1801" id="1801">1801</a>
-<a href="#1802" id="1802">1802</a>
-<a href="#1803" id="1803">1803</a>
-<a href="#1804" id="1804">1804</a>
-<a href="#1805" id="1805">1805</a>
-<a href="#1806" id="1806">1806</a>
-<a href="#1807" id="1807">1807</a>
-<a href="#1808" id="1808">1808</a>
-<a href="#1809" id="1809">1809</a>
-<a href="#1810" id="1810">1810</a>
-<a href="#1811" id="1811">1811</a>
-<a href="#1812" id="1812">1812</a>
-<a href="#1813" id="1813">1813</a>
-<a href="#1814" id="1814">1814</a>
-<a href="#1815" id="1815">1815</a>
-<a href="#1816" id="1816">1816</a>
-<a href="#1817" id="1817">1817</a>
-<a href="#1818" id="1818">1818</a>
-<a href="#1819" id="1819">1819</a>
-<a href="#1820" id="1820">1820</a>
-<a href="#1821" id="1821">1821</a>
-<a href="#1822" id="1822">1822</a>
-<a href="#1823" id="1823">1823</a>
-<a href="#1824" id="1824">1824</a>
-<a href="#1825" id="1825">1825</a>
-<a href="#1826" id="1826">1826</a>
-<a href="#1827" id="1827">1827</a>
-<a href="#1828" id="1828">1828</a>
-<a href="#1829" id="1829">1829</a>
-<a href="#1830" id="1830">1830</a>
-<a href="#1831" id="1831">1831</a>
-<a href="#1832" id="1832">1832</a>
-<a href="#1833" id="1833">1833</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1887,6 +1801,7 @@
 	ReputationChange,
 };
 
+<span class="kw">use </span>codec::DecodeAll;
 <span class="kw">use </span>either::Either;
 <span class="kw">use </span>futures::{channel::oneshot, prelude::<span class="kw-2">*</span>};
 <span class="attr">#[allow(deprecated)]
@@ -1904,10 +1819,13 @@
 	Multiaddr, PeerId,
 };
 <span class="kw">use </span>log::{debug, error, info, trace, warn};
-<span class="kw">use </span>metrics::{Histogram, HistogramVec, MetricSources, Metrics};
+<span class="kw">use </span>metrics::{Histogram, MetricSources, Metrics};
 <span class="kw">use </span>parking_lot::Mutex;
 
-<span class="kw">use </span>sc_network_common::ExHashT;
+<span class="kw">use </span>sc_network_common::{
+	role::{ObservedRole, Roles},
+	ExHashT,
+};
 <span class="kw">use </span>sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 <span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 
@@ -1951,12 +1869,6 @@
 	</span>bandwidth: Arc&lt;transport::BandwidthSinks&gt;,
 	<span class="doccomment">/// Channel that sends messages to the actual worker.
 	</span>to_worker: TracingUnboundedSender&lt;ServiceToWorkerMsg&gt;,
-	<span class="doccomment">/// For each peer and protocol combination, an object that allows sending notifications to
-	/// that peer. Updated by the [`NetworkWorker`].
-	</span>peers_notifications_sinks: Arc&lt;Mutex&lt;HashMap&lt;(PeerId, ProtocolName), NotificationsSink&gt;&gt;&gt;,
-	<span class="doccomment">/// Field extracted from the [`Metrics`] struct and necessary to report the
-	/// notifications-related metrics.
-	</span>notifications_sizes_metric: <span class="prelude-ty">Option</span>&lt;HistogramVec&gt;,
 	<span class="doccomment">/// Protocol name -&gt; `SetId` mapping for notification protocols. The map never changes after
 	/// initialization.
 	</span>notification_protocol_ids: HashMap&lt;ProtocolName, SetId&gt;,
@@ -1965,6 +1877,8 @@
 	</span>protocol_handles: Vec&lt;protocol_controller::ProtocolHandle&gt;,
 	<span class="doccomment">/// Shortcut to sync protocol handle (`protocol_handles[0]`).
 	</span>sync_protocol_handle: protocol_controller::ProtocolHandle,
+	<span class="doccomment">/// Handle to `PeerStore`.
+	</span>peer_store_handle: PeerStoreHandle,
 	<span class="doccomment">/// Marker to pin the `H` generic. Serves no purpose except to not break backwards
 	/// compatibility.
 	</span>_marker: PhantomData&lt;H&gt;,
@@ -2032,7 +1946,7 @@
 		)<span class="question-mark">?</span>;
 		<span class="kw">for </span>notification_protocol <span class="kw">in </span><span class="kw-2">&amp;</span>notification_protocols {
 			ensure_addresses_consistent_with_transport(
-				notification_protocol.set_config.reserved_nodes.iter().map(|x| <span class="kw-2">&amp;</span>x.multiaddr),
+				notification_protocol.set_config().reserved_nodes.iter().map(|x| <span class="kw-2">&amp;</span>x.multiaddr),
 				<span class="kw-2">&amp;</span>network_config.transport,
 			)<span class="question-mark">?</span>;
 		}
@@ -2074,7 +1988,7 @@
 					.map(|cfg| usize::try_from(cfg.max_response_size).unwrap_or(usize::MAX));
 				<span class="kw">let </span>notifs_max = notification_protocols
 					.iter()
-					.map(|cfg| usize::try_from(cfg.max_notification_size).unwrap_or(usize::MAX));
+					.map(|cfg| usize::try_from(cfg.max_notification_size()).unwrap_or(usize::MAX));
 
 				<span class="comment">// A &quot;default&quot; max is added to cover all the other protocols: ping, identify,
 				// kademlia, block announces, and transactions.
@@ -2106,7 +2020,7 @@
 
 		<span class="comment">// We must prepend a hardcoded default peer set to notification protocols.
 		</span><span class="kw">let </span>all_peer_sets_iter = iter::once(<span class="kw-2">&amp;</span>network_config.default_peers_set)
-			.chain(notification_protocols.iter().map(|protocol| <span class="kw-2">&amp;</span>protocol.set_config));
+			.chain(notification_protocols.iter().map(|protocol| protocol.set_config()));
 
 		<span class="kw">let </span>(protocol_handles, protocol_controllers): (Vec&lt;<span class="kw">_</span>&gt;, Vec&lt;<span class="kw">_</span>&gt;) = all_peer_sets_iter
 			.enumerate()
@@ -2145,20 +2059,8 @@
 			iter::once(<span class="kw-2">&amp;</span>params.block_announce_config)
 				.chain(notification_protocols.iter())
 				.enumerate()
-				.map(|(index, protocol)| {
-					(protocol.notifications_protocol.clone(), SetId::from(index))
-				})
+				.map(|(index, protocol)| (protocol.protocol_name().clone(), SetId::from(index)))
 				.collect();
-
-		<span class="kw">let </span>protocol = Protocol::new(
-			From::from(<span class="kw-2">&amp;</span>params.role),
-			notification_protocols.clone(),
-			params.block_announce_config,
-			params.peer_store.clone(),
-			protocol_handles.clone(),
-			from_protocol_controllers,
-			params.tx,
-		)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>known_addresses = {
 			<span class="comment">// Collect all reserved nodes and bootnodes addresses.
@@ -2169,7 +2071,7 @@
 				.map(|reserved| (reserved.peer_id, reserved.multiaddr.clone()))
 				.chain(notification_protocols.iter().flat_map(|protocol| {
 					protocol
-						.set_config
+						.set_config()
 						.reserved_nodes
 						.iter()
 						.map(|reserved| (reserved.peer_id, reserved.multiaddr.clone()))
@@ -2221,6 +2123,16 @@
 
 		<span class="kw">let </span>num_connected = Arc::new(AtomicUsize::new(<span class="number">0</span>));
 		<span class="kw">let </span>external_addresses = Arc::new(Mutex::new(HashSet::new()));
+
+		<span class="kw">let </span>(protocol, notif_protocol_handles) = Protocol::new(
+			From::from(<span class="kw-2">&amp;</span>params.role),
+			<span class="kw-2">&amp;</span>params.metrics_registry,
+			notification_protocols,
+			params.block_announce_config,
+			params.peer_store.clone(),
+			protocol_handles.clone(),
+			from_protocol_controllers,
+		)<span class="question-mark">?</span>;
 
 		<span class="comment">// Build the swarm.
 		</span><span class="kw">let </span>(<span class="kw-2">mut </span>swarm, bandwidth): (Swarm&lt;Behaviour&lt;B&gt;&gt;, <span class="kw">_</span>) = {
@@ -2341,7 +2253,6 @@
 		}
 
 		<span class="kw">let </span>listen_addresses = Arc::new(Mutex::new(HashSet::new()));
-		<span class="kw">let </span>peers_notifications_sinks = Arc::new(Mutex::new(HashMap::new()));
 
 		<span class="kw">let </span>service = Arc::new(NetworkService {
 			bandwidth,
@@ -2351,13 +2262,10 @@
 			local_peer_id,
 			local_identity,
 			to_worker,
-			peers_notifications_sinks: peers_notifications_sinks.clone(),
-			notifications_sizes_metric: metrics
-				.as_ref()
-				.map(|metrics| metrics.notifications_sizes.clone()),
 			notification_protocol_ids,
 			protocol_handles,
 			sync_protocol_handle,
+			peer_store_handle: params.peer_store.clone(),
 			_marker: PhantomData,
 			_block: Default::default(),
 		});
@@ -2372,8 +2280,8 @@
 			metrics,
 			boot_node_ids,
 			reported_invalid_boot_nodes: Default::default(),
-			peers_notifications_sinks,
 			peer_store_handle: params.peer_store,
+			notif_protocol_handles,
 			_marker: Default::default(),
 			_block: Default::default(),
 		})
@@ -2400,7 +2308,7 @@
 
 	<span class="doccomment">/// Returns the number of peers we&#39;re connected to.
 	</span><span class="kw">pub fn </span>num_connected_peers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-		<span class="self">self</span>.network_service.behaviour().user_protocol().num_connected_peers()
+		<span class="self">self</span>.network_service.behaviour().user_protocol().num_sync_peers()
 	}
 
 	<span class="doccomment">/// Adds an address for a node.
@@ -2824,6 +2732,16 @@
 	<span class="kw">fn </span>sync_num_connected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
 		<span class="self">self</span>.num_connected.load(Ordering::Relaxed)
 	}
+
+	<span class="kw">fn </span>peer_role(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: PeerId, handshake: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;ObservedRole&gt; {
+		<span class="kw">match </span>Roles::decode_all(<span class="kw-2">&amp;mut &amp;</span>handshake[..]) {
+			<span class="prelude-val">Ok</span>(role) =&gt; <span class="prelude-val">Some</span>(role.into()),
+			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
+				<span class="macro">log::debug!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;handshake doesn&#39;t contain peer role: {handshake:?}&quot;</span>);
+				<span class="self">self</span>.peer_store_handle.peer_role(<span class="kw-2">&amp;</span>peer_id)
+			},
+		}
+	}
 }
 
 <span class="kw">impl</span>&lt;B, H&gt; NetworkEventStream <span class="kw">for </span>NetworkService&lt;B, H&gt;
@@ -2843,68 +2761,20 @@
 	</span>B: BlockT + <span class="lifetime">&#39;static</span>,
 	H: ExHashT,
 {
-	<span class="kw">fn </span>write_notification(<span class="kw-2">&amp;</span><span class="self">self</span>, target: PeerId, protocol: ProtocolName, message: Vec&lt;u8&gt;) {
-		<span class="comment">// We clone the `NotificationsSink` in order to be able to unlock the network-wide
-		// `peers_notifications_sinks` mutex as soon as possible.
-		</span><span class="kw">let </span>sink = {
-			<span class="kw">let </span>peers_notifications_sinks = <span class="self">self</span>.peers_notifications_sinks.lock();
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(sink) = peers_notifications_sinks.get(<span class="kw-2">&amp;</span>(target, protocol.clone())) {
-				sink.clone()
-			} <span class="kw">else </span>{
-				<span class="comment">// Notification silently discarded, as documented.
-				</span><span class="macro">debug!</span>(
-					target: <span class="string">&quot;sub-libp2p&quot;</span>,
-					<span class="string">&quot;Attempted to send notification on missing or closed substream: {}, {:?}&quot;</span>,
-					target, protocol,
-				);
-				<span class="kw">return
-			</span>}
-		};
-
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(notifications_sizes_metric) = <span class="self">self</span>.notifications_sizes_metric.as_ref() {
-			notifications_sizes_metric
-				.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;out&quot;</span>, <span class="kw-2">&amp;</span>protocol])
-				.observe(message.len() <span class="kw">as </span>f64);
-		}
-
-		<span class="comment">// Sending is communicated to the `NotificationsSink`.
-		</span><span class="macro">trace!</span>(
-			target: <span class="string">&quot;sub-libp2p&quot;</span>,
-			<span class="string">&quot;External API =&gt; Notification({:?}, {:?}, {} bytes)&quot;</span>,
-			target, protocol, message.len()
-		);
-		<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Handler({:?}) &lt;= Sync notification&quot;</span>, target);
-		sink.send_sync_notification(message);
+	<span class="kw">fn </span>write_notification(<span class="kw-2">&amp;</span><span class="self">self</span>, _target: PeerId, _protocol: ProtocolName, _message: Vec&lt;u8&gt;) {
+		<span class="macro">unimplemented!</span>();
 	}
 
 	<span class="kw">fn </span>notification_sender(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		target: PeerId,
-		protocol: ProtocolName,
+		_target: PeerId,
+		_protocol: ProtocolName,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>NotificationSenderT&gt;, NotificationSenderError&gt; {
-		<span class="comment">// We clone the `NotificationsSink` in order to be able to unlock the network-wide
-		// `peers_notifications_sinks` mutex as soon as possible.
-		</span><span class="kw">let </span>sink = {
-			<span class="kw">let </span>peers_notifications_sinks = <span class="self">self</span>.peers_notifications_sinks.lock();
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(sink) = peers_notifications_sinks.get(<span class="kw-2">&amp;</span>(target, protocol.clone())) {
-				sink.clone()
-			} <span class="kw">else </span>{
-				<span class="kw">return </span><span class="prelude-val">Err</span>(NotificationSenderError::Closed)
-			}
-		};
-
-		<span class="kw">let </span>notification_size_metric = <span class="self">self
-			</span>.notifications_sizes_metric
-			.as_ref()
-			.map(|histogram| histogram.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;out&quot;</span>, <span class="kw-2">&amp;</span>protocol]));
-
-		<span class="prelude-val">Ok</span>(Box::new(NotificationSender { sink, protocol_name: protocol, notification_size_metric }))
+		<span class="macro">unimplemented!</span>();
 	}
 
-	<span class="kw">fn </span>set_notification_handshake(<span class="kw-2">&amp;</span><span class="self">self</span>, protocol: ProtocolName, handshake: Vec&lt;u8&gt;) {
-		<span class="kw">let _ </span>= <span class="self">self
-			</span>.to_worker
-			.unbounded_send(ServiceToWorkerMsg::SetNotificationHandshake(protocol, handshake));
+	<span class="kw">fn </span>set_notification_handshake(<span class="kw-2">&amp;</span><span class="self">self</span>, _protocol: ProtocolName, _handshake: Vec&lt;u8&gt;) {
+		<span class="macro">unimplemented!</span>();
 	}
 }
 
@@ -3042,7 +2912,6 @@
 		pending_response: oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;NetworkState, RequestFailure&gt;&gt;,
 	},
 	DisconnectPeer(PeerId, ProtocolName),
-	SetNotificationHandshake(ProtocolName, Vec&lt;u8&gt;),
 }
 
 <span class="doccomment">/// Main network worker. Must be polled in order for the network to advance.
@@ -3072,11 +2941,10 @@
 	</span>boot_node_ids: Arc&lt;HashMap&lt;PeerId, Vec&lt;Multiaddr&gt;&gt;&gt;,
 	<span class="doccomment">/// Boot nodes that we already have reported as invalid.
 	</span>reported_invalid_boot_nodes: HashSet&lt;PeerId&gt;,
-	<span class="doccomment">/// For each peer and protocol combination, an object that allows sending notifications to
-	/// that peer. Shared with the [`NetworkService`].
-	</span>peers_notifications_sinks: Arc&lt;Mutex&lt;HashMap&lt;(PeerId, ProtocolName), NotificationsSink&gt;&gt;&gt;,
 	<span class="doccomment">/// Peer reputation store handle.
 	</span>peer_store_handle: PeerStoreHandle,
+	<span class="doccomment">/// Notification protocol handles.
+	</span>notif_protocol_handles: Vec&lt;protocol::ProtocolHandle&gt;,
 	<span class="doccomment">/// Marker to pin the `H` generic. Serves no purpose except to not break backwards
 	/// compatibility.
 	</span>_marker: PhantomData&lt;H&gt;,
@@ -3115,8 +2983,7 @@
 		};
 
 		<span class="comment">// Update the `num_connected` count shared with the `NetworkService`.
-		</span><span class="kw">let </span>num_connected_peers =
-			<span class="self">self</span>.network_service.behaviour_mut().user_protocol_mut().num_connected_peers();
+		</span><span class="kw">let </span>num_connected_peers = <span class="self">self</span>.network_service.behaviour().user_protocol().num_sync_peers();
 		<span class="self">self</span>.num_connected.store(num_connected_peers, Ordering::Relaxed);
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="self">self</span>.metrics.as_ref() {
@@ -3186,11 +3053,6 @@
 				.behaviour_mut()
 				.user_protocol_mut()
 				.disconnect_peer(<span class="kw-2">&amp;</span>who, protocol_name),
-			ServiceToWorkerMsg::SetNotificationHandshake(protocol, handshake) =&gt; <span class="self">self
-				</span>.network_service
-				.behaviour_mut()
-				.user_protocol_mut()
-				.set_notification_handshake(protocol, handshake),
 		}
 	}
 
@@ -3305,47 +3167,27 @@
 			},
 			SwarmEvent::Behaviour(BehaviourOut::NotificationStreamOpened {
 				remote,
-				protocol,
+				set_id,
+				direction,
 				negotiated_fallback,
 				notifications_sink,
-				role,
 				received_handshake,
 			}) =&gt; {
-				<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="self">self</span>.metrics.as_ref() {
-					metrics
-						.notifications_streams_opened_total
-						.with_label_values(<span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>protocol])
-						.inc();
-				}
-				{
-					<span class="kw">let </span><span class="kw-2">mut </span>peers_notifications_sinks = <span class="self">self</span>.peers_notifications_sinks.lock();
-					<span class="kw">let </span>_previous_value = peers_notifications_sinks
-						.insert((remote, protocol.clone()), notifications_sink);
-					<span class="macro">debug_assert!</span>(_previous_value.is_none());
-				}
-				<span class="self">self</span>.event_streams.send(Event::NotificationStreamOpened {
+				<span class="kw">let _ </span>= <span class="self">self</span>.notif_protocol_handles[usize::from(set_id)].report_substream_opened(
 					remote,
-					protocol,
-					negotiated_fallback,
-					role,
+					direction,
 					received_handshake,
-				});
+					negotiated_fallback,
+					notifications_sink,
+				);
 			},
 			SwarmEvent::Behaviour(BehaviourOut::NotificationStreamReplaced {
 				remote,
-				protocol,
+				set_id,
 				notifications_sink,
 			}) =&gt; {
-				<span class="kw">let </span><span class="kw-2">mut </span>peers_notifications_sinks = <span class="self">self</span>.peers_notifications_sinks.lock();
-				<span class="kw">if let </span><span class="prelude-val">Some</span>(s) = peers_notifications_sinks.get_mut(<span class="kw-2">&amp;</span>(remote, protocol)) {
-					<span class="kw-2">*</span>s = notifications_sink;
-				} <span class="kw">else </span>{
-					<span class="macro">error!</span>(
-						target: <span class="string">&quot;sub-libp2p&quot;</span>,
-						<span class="string">&quot;NotificationStreamReplaced for non-existing substream&quot;
-					</span>);
-					<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
-				}
+				<span class="kw">let _ </span>= <span class="self">self</span>.notif_protocol_handles[usize::from(set_id)]
+					.report_notification_sink_replaced(remote, notifications_sink);
 
 				<span class="comment">// TODO: Notifications might have been lost as a result of the previous
 				// connection being dropped, and as a result it would be preferable to notify
@@ -3368,31 +3210,17 @@
 				// role,
 				// });
 			</span>},
-			SwarmEvent::Behaviour(BehaviourOut::NotificationStreamClosed { remote, protocol }) =&gt; {
-				<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="self">self</span>.metrics.as_ref() {
-					metrics
-						.notifications_streams_closed_total
-						.with_label_values(<span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>protocol[..]])
-						.inc();
-				}
-				<span class="self">self</span>.event_streams
-					.send(Event::NotificationStreamClosed { remote, protocol: protocol.clone() });
-				{
-					<span class="kw">let </span><span class="kw-2">mut </span>peers_notifications_sinks = <span class="self">self</span>.peers_notifications_sinks.lock();
-					<span class="kw">let </span>_previous_value = peers_notifications_sinks.remove(<span class="kw-2">&amp;</span>(remote, protocol));
-					<span class="macro">debug_assert!</span>(_previous_value.is_some());
-				}
+			SwarmEvent::Behaviour(BehaviourOut::NotificationStreamClosed { remote, set_id }) =&gt; {
+				<span class="kw">let _ </span>= <span class="self">self</span>.notif_protocol_handles[usize::from(set_id)]
+					.report_substream_closed(remote);
 			},
-			SwarmEvent::Behaviour(BehaviourOut::NotificationsReceived { remote, messages }) =&gt; {
-				<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="self">self</span>.metrics.as_ref() {
-					<span class="kw">for </span>(protocol, message) <span class="kw">in </span><span class="kw-2">&amp;</span>messages {
-						metrics
-							.notifications_sizes
-							.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;in&quot;</span>, protocol])
-							.observe(message.len() <span class="kw">as </span>f64);
-					}
-				}
-				<span class="self">self</span>.event_streams.send(Event::NotificationsReceived { remote, messages });
+			SwarmEvent::Behaviour(BehaviourOut::NotificationsReceived {
+				remote,
+				set_id,
+				notification,
+			}) =&gt; {
+				<span class="kw">let _ </span>= <span class="self">self</span>.notif_protocol_handles[usize::from(set_id)]
+					.report_notification_received(remote, notification);
 			},
 			SwarmEvent::Behaviour(BehaviourOut::Dht(event, duration)) =&gt; {
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="self">self</span>.metrics.as_ref() {

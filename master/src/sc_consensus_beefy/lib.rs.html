@@ -561,6 +561,10 @@
 <a href="#561" id="561">561</a>
 <a href="#562" id="562">562</a>
 <a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -601,7 +605,7 @@
 <span class="kw">use </span>prometheus::Registry;
 <span class="kw">use </span>sc_client_api::{Backend, BlockBackend, BlockchainEvents, FinalityNotifications, Finalizer};
 <span class="kw">use </span>sc_consensus::BlockImport;
-<span class="kw">use </span>sc_network::{NetworkRequest, ProtocolName};
+<span class="kw">use </span>sc_network::{NetworkRequest, NotificationService, ProtocolName};
 <span class="kw">use </span>sc_network_gossip::{GossipEngine, Network <span class="kw">as </span>GossipNetwork, Syncing <span class="kw">as </span>GossipSyncing};
 <span class="kw">use </span>sp_api::ProvideRuntimeApi;
 <span class="kw">use </span>sp_blockchain::{
@@ -741,6 +745,8 @@
 	</span><span class="kw">pub </span>network: Arc&lt;N&gt;,
 	<span class="doccomment">/// Syncing service implementing a sync oracle and an event stream for peers.
 	</span><span class="kw">pub </span>sync: Arc&lt;S&gt;,
+	<span class="doccomment">/// Handle for receiving notification events.
+	</span><span class="kw">pub </span>notification_service: Box&lt;<span class="kw">dyn </span>NotificationService&gt;,
 	<span class="doccomment">/// Chain specific BEEFY gossip protocol name. See
 	/// [`communication::beefy_protocol_name::gossip_protocol_name`].
 	</span><span class="kw">pub </span>gossip_protocol_name: ProtocolName,
@@ -806,6 +812,7 @@
 	<span class="kw">let </span>BeefyNetworkParams {
 		network,
 		sync,
+		notification_service,
 		gossip_protocol_name,
 		justifications_protocol_name,
 		..
@@ -827,6 +834,7 @@
 	<span class="kw">let </span>gossip_engine = GossipEngine::new(
 		network.clone(),
 		sync.clone(),
+		notification_service,
 		gossip_protocol_name.clone(),
 		gossip_validator.clone(),
 		<span class="prelude-val">None</span>,
