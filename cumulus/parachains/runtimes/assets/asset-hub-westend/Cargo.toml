@@ -94,7 +94,7 @@ asset-test-utils = { path = "../test-utils" }
 substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder", optional = true }
 
 [features]
-default = ["std"]
+default = [ "std" ]
 runtime-benchmarks = [
 	"assets-common/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
@@ -232,9 +232,9 @@ std = [
 	"xcm/std",
 ]
 
-experimental = ["pallet-aura/experimental"]
+experimental = [ "pallet-aura/experimental" ]
 
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
 # to make it smaller like logging for example.
-on-chain-release-build = ["sp-api/disable-logging"]
+on-chain-release-build = [ "sp-api/disable-logging" ]
