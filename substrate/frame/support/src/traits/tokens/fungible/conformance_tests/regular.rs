@@ -1330,27 +1330,23 @@ pub mod balanced {
 		T::set_total_issuance(50.into());
 
 		// Pair zero balance works
-		let (credit, debt) = T::pair(0.into());
+		let (credit, debt) = T::pair(0.into()).unwrap();
 		assert_eq!(debt.peek(), 0.into());
 		assert_eq!(credit.peek(), 0.into());
 
 		// Pair with non-zero balance: the credit and debt cancel each other out
 		let balance = 10.into();
-		let (credit, debt) = T::pair(balance);
+		let (credit, debt) = T::pair(balance).unwrap();
 		assert_eq!(credit.peek(), balance);
 		assert_eq!(debt.peek(), balance);
 
-		// Creating a pair with greater than total_issuance caps correctly at total_issuance
-		let (credit, debt) = T::pair(T::total_issuance() + 1.into());
-		assert_eq!(credit.peek(), T::total_issuance());
-		assert_eq!(debt.peek(), T::total_issuance());
+		// Creating a pair with greater than total_issuance returns an error
+		T::pair(T::total_issuance() + 1.into()).unwrap_err();
 
-		// Creating a pair that could increase total_issuance beyond the max value caps correctly
+		// Creating a pair that could increase total_issuance beyond the max value returns an error
 		let max_value = T::Balance::max_value();
 		let distance_from_max_value = 5.into();
 		T::set_total_issuance(max_value - distance_from_max_value);
-		let (credit, debt) = T::pair(distance_from_max_value + 5.into());
-		assert_eq!(credit.peek(), distance_from_max_value);
-		assert_eq!(debt.peek(), distance_from_max_value);
+		T::pair(distance_from_max_value + 5.into()).unwrap_err();
 	}
 }

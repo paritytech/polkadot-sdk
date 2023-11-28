@@ -35,10 +35,7 @@ use crate::{
 	},
 };
 use sp_arithmetic::traits::{CheckedAdd, CheckedSub, One};
-use sp_runtime::{
-	traits::{Bounded, Saturating},
-	ArithmeticError, DispatchError, TokenError,
-};
+use sp_runtime::{traits::Saturating, ArithmeticError, DispatchError, TokenError};
 use sp_std::marker::PhantomData;
 
 use super::{Credit, Debt, HandleImbalanceDrop, Imbalance};
@@ -323,7 +320,7 @@ where
 		let _extra = Self::can_withdraw(source, amount).into_result(preservation != Expendable)?;
 		Self::can_deposit(dest, amount, Extant).into_result()?;
 		if source == dest {
-			return Ok(amount)
+			return Ok(amount);
 		}
 
 		Self::decrease_balance(source, amount, BestEffort, preservation, Polite)?;
@@ -423,19 +420,20 @@ pub trait Balanced<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 	/// This is just the same as burning and issuing the same amount and has no effect on the
 	/// total issuance.
 	///
-	/// This is infallible, but doesn't guarantee that the entire `amount` is used to create the
-	/// pair, for example in the case where the amounts would cause overflow or underflow in
-	/// [`Balanced::issue`] or [`Balanced::rescind`].
-	fn pair(amount: Self::Balance) -> (Debt<AccountId, Self>, Credit<AccountId, Self>) {
-		// Maximum amount which can be issued.
-		let issue_cap = Self::Balance::max_value().saturating_sub(Self::total_issuance());
-		// Maximum amount which can be rescinded.
-		let rescind_cap = Self::total_issuance();
-
-		// Amount which can be both issued and rescinded.
-		let capped_amount = amount.min(issue_cap).min(rescind_cap);
-
-		(Self::rescind(capped_amount), Self::issue(capped_amount))
+	/// This could fail when we cannot issue and redeem the entire `amount`, for example in the
+	/// case where the amount would cause overflow or underflow in [`Balanced::issue`] or
+	/// [`Balanced::rescind`].
+	fn pair(
+		amount: Self::Balance,
+	) -> Result<(Debt<AccountId, Self>, Credit<AccountId, Self>), DispatchError> {
+		let issued = Self::issue(amount);
+		let rescinded = Self::rescind(amount);
+		if issued.peek() != rescinded.peek() {
+			// Issued and rescinded will be dropped automatically
+			Err("Failed to issue and rescind equal amounts".into())
+		} else {
+			Ok((rescinded, issued))
+		}
 	}
 
 	/// Mints `value` into the account of `who`, creating it as needed.

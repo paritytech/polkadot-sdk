@@ -37,10 +37,7 @@ use crate::{
 	},
 };
 use sp_arithmetic::traits::{CheckedAdd, CheckedSub, One};
-use sp_runtime::{
-	traits::{Bounded, Saturating},
-	ArithmeticError, DispatchError, TokenError,
-};
+use sp_runtime::{traits::Saturating, ArithmeticError, DispatchError, TokenError};
 
 use super::{Credit, Debt, HandleImbalanceDrop, Imbalance};
 
@@ -489,18 +486,15 @@ pub trait Balanced<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 	fn pair(
 		asset: Self::AssetId,
 		amount: Self::Balance,
-	) -> (Debt<AccountId, Self>, Credit<AccountId, Self>) {
-		let total_issuance = Self::total_issuance(asset.clone());
-
-		// Maximum amount which can be issued.
-		let issue_cap = Self::Balance::max_value().saturating_sub(total_issuance);
-		// Maximum amount which can be rescinded.
-		let rescind_cap = total_issuance;
-
-		// Amount which can be both issued and recinded.
-		let capped_amount = amount.min(issue_cap).min(rescind_cap);
-
-		(Self::rescind(asset.clone(), capped_amount), Self::issue(asset, capped_amount))
+	) -> Result<(Debt<AccountId, Self>, Credit<AccountId, Self>), DispatchError> {
+		let issued = Self::issue(asset.clone(), amount);
+		let rescinded = Self::rescind(asset, amount);
+		if issued.peek() != rescinded.peek() {
+			// Issued and rescinded will be dropped automatically
+			Err("Failed to issue and rescind equal amounts".into())
+		} else {
+			Ok((rescinded, issued))
+		}
 	}
 
 	/// Mints `value` into the account of `who`, creating it as needed.
