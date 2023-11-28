@@ -1161,7 +1161,6 @@ pub trait BlockNumber:
 	+ AtLeast32BitUnsigned
 	+ Into<U256>
 	+ TryFrom<U256>
-	+ TryFrom<u64>
 	+ Default
 	+ TypeInfo
 	+ MaxEncodedLen
@@ -1180,7 +1179,6 @@ impl<
 			+ AtLeast32BitUnsigned
 			+ Into<U256>
 			+ TryFrom<U256>
-			+ TryFrom<u64>
 			+ Default
 			+ TypeInfo
 			+ MaxEncodedLen
