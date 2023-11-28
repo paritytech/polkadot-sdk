@@ -22,24 +22,20 @@ pub use sp_consensus_grandpa::{AuthorityList, SetId};
 
 use crate::{
 	chain_sync::validate_blocks,
-	schema::v1::StateResponse,
-	state::{ImportResult, StateSync},
-	types::{BadPeer, OpaqueStateRequest, OpaqueStateResponse, SyncState, SyncStatus},
+	types::{BadPeer, SyncState, SyncStatus},
 };
 use codec::{Decode, Encode};
 use futures::channel::oneshot;
 use libp2p::PeerId;
-use log::{debug, error, info, trace, warn};
+use log::{debug, error, trace, warn};
 use sc_client_api::ProofProvider;
-use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
 use sc_network_common::sync::message::{
 	BlockAttributes, BlockData, BlockRequest, Direction, FromBlock,
 };
 use sp_blockchain::HeaderBackend;
-use sp_consensus::BlockOrigin;
 use sp_runtime::{
 	traits::{Block as BlockT, Header, NumberFor, Zero},
-	SaturatedConversion,
+	Justifications, SaturatedConversion,
 };
 use std::{collections::HashMap, fmt, sync::Arc};
 
@@ -104,12 +100,6 @@ mod rep {
 
 	/// Reputation change for peers which send us a block which we fail to verify.
 	pub const VERIFICATION_FAIL: Rep = Rep::new(-(1 << 29), "Block verification failed");
-
-	/// Peer response data does not have requested bits.
-	pub const BAD_RESPONSE: Rep = Rep::new(-(1 << 12), "Incomplete response");
-
-	/// Reputation change for peers which send us a known bad state.
-	pub const BAD_STATE: Rep = Rep::new(-(1 << 29), "Bad state");
 }
 
 /// Reported warp sync phase.
@@ -192,7 +182,7 @@ impl<Block: BlockT> WarpSyncParams<Block> {
 }
 
 /// Warp sync phase used by warp sync state machine.
-enum Phase<B: BlockT, Client> {
+enum Phase<B: BlockT> {
 	/// Waiting for enough peers to connect.
 	WaitingForPeers { warp_sync_provider: Arc<dyn WarpSyncProvider<B>> },
 	/// Downloading warp proofs.
@@ -207,8 +197,6 @@ enum Phase<B: BlockT, Client> {
 	PendingTargetBlock,
 	/// Downloading target block.
 	TargetBlock(B::Header),
-	/// Downloading and importing state.
-	State(StateSync<B, Client>),
 	/// Warp sync is complete.
 	Complete,
 }
@@ -217,7 +205,6 @@ enum PeerState {
 	Available,
 	DownloadingProofs,
 	DownloadingTargetBlock,
-	DownloadingState,
 }
 
 impl PeerState {
@@ -237,24 +224,27 @@ pub enum WarpSyncAction<B: BlockT> {
 	SendWarpProofRequest { peer_id: PeerId, request: WarpProofRequest<B> },
 	/// Send block request to peer. Always implies dropping a stale block request to the same peer.
 	SendBlockRequest { peer_id: PeerId, request: BlockRequest<B> },
-	/// Send state request to peer.
-	SendStateRequest { peer_id: PeerId, request: OpaqueStateRequest },
 	/// Disconnect and report peer.
 	DropPeer(BadPeer),
-	/// Import blocks.
-	ImportBlocks { origin: BlockOrigin, blocks: Vec<IncomingBlock<B>> },
 	/// Warp sync has finished.
 	Finished,
 }
 
+pub struct WarpSyncResult<B: BlockT> {
+	pub target_header: B::Header,
+	pub target_body: Option<Vec<B::Extrinsic>>,
+	pub target_justifications: Option<Justifications>,
+}
+
 /// Warp sync state machine. Accumulates warp proofs and state.
 pub struct WarpSync<B: BlockT, Client> {
-	phase: Phase<B, Client>,
+	phase: Phase<B>,
 	client: Arc<Client>,
 	total_proof_bytes: u64,
 	total_state_bytes: u64,
 	peers: HashMap<PeerId, Peer<B>>,
 	actions: Vec<WarpSyncAction<B>>,
+	result: Option<WarpSyncResult<B>>,
 }
 
 impl<B, Client> WarpSync<B, Client>
@@ -278,6 +268,7 @@ where
 				total_state_bytes: 0,
 				peers: HashMap::new(),
 				actions: vec![WarpSyncAction::Finished],
+				result: None,
 			}
 		}
 
@@ -294,6 +285,7 @@ where
 			total_state_bytes: 0,
 			peers: HashMap::new(),
 			actions: Vec::new(),
+			result: None,
 		}
 	}
 
@@ -456,149 +448,14 @@ where
 			return Err(BadPeer(peer_id, rep::VERIFICATION_FAIL))
 		}
 
-		debug!(
-			target: LOG_TARGET,
-			"Downloaded target block {} ({}), continuing with state sync.",
-			header.hash(),
-			header.number(),
-		);
-		let state_sync = StateSync::new(
-			self.client.clone(),
-			header.clone(),
-			block.body,
-			block.justifications,
-			false,
-		);
-		self.phase = Phase::State(state_sync);
+		self.result = Some(WarpSyncResult {
+			target_header: header.clone(),
+			target_body: block.body,
+			target_justifications: block.justifications,
+		});
+		self.phase = Phase::Complete;
+		self.actions.push(WarpSyncAction::Finished);
 		Ok(())
-	}
-
-	/// Process state response.
-	pub fn on_state_response(&mut self, peer_id: PeerId, response: OpaqueStateResponse) {
-		if let Err(bad_peer) = self.on_state_response_inner(peer_id, response) {
-			self.actions.push(WarpSyncAction::DropPeer(bad_peer));
-		}
-	}
-
-	fn on_state_response_inner(
-		&mut self,
-		peer_id: PeerId,
-		response: OpaqueStateResponse,
-	) -> Result<(), BadPeer> {
-		if let Some(peer) = self.peers.get_mut(&peer_id) {
-			peer.state = PeerState::Available;
-		}
-
-		let Phase::State(state_sync) = &mut self.phase else {
-			debug!(target: "sync", "Unexpected state response");
-			return Err(BadPeer(peer_id, rep::UNEXPECTED_RESPONSE))
-		};
-
-		let response: Box<StateResponse> = response.0.downcast().map_err(|_error| {
-			error!(
-				target: LOG_TARGET,
-				"Failed to downcast opaque state response, this is an implementation bug."
-			);
-
-			BadPeer(peer_id, rep::BAD_RESPONSE)
-		})?;
-
-		debug!(
-			target: LOG_TARGET,
-			"Importing state data from {} with {} keys, {} proof nodes.",
-			peer_id,
-			response.entries.len(),
-			response.proof.len(),
-		);
-
-		let import_result = state_sync.import(*response);
-		self.total_state_bytes = state_sync.progress().size;
-
-		match import_result {
-			ImportResult::Import(hash, header, state, body, justifications) => {
-				let origin = BlockOrigin::NetworkInitialSync;
-				let block = IncomingBlock {
-					hash,
-					header: Some(header),
-					body,
-					indexed_body: None,
-					justifications,
-					origin: None,
-					allow_missing_state: true,
-					import_existing: true,
-					skip_execution: true,
-					state: Some(state),
-				};
-				debug!(target: LOG_TARGET, "State download is complete. Import is queued");
-				self.actions.push(WarpSyncAction::ImportBlocks { origin, blocks: vec![block] });
-				Ok(())
-			},
-			ImportResult::Continue => Ok(()),
-			ImportResult::BadResponse => {
-				debug!(target: LOG_TARGET, "Bad state data received from {peer_id}");
-				Err(BadPeer(peer_id, rep::BAD_STATE))
-			},
-		}
-	}
-
-	/// A batch of blocks have been processed, with or without errors.
-	///
-	/// Normally this should be called when target block with state is imported.
-	pub fn on_blocks_processed(
-		&mut self,
-		imported: usize,
-		count: usize,
-		results: Vec<(Result<BlockImportStatus<NumberFor<B>>, BlockImportError>, B::Hash)>,
-	) {
-		let Phase::State(state_sync) = &self.phase else {
-			debug!(target: LOG_TARGET, "Unexpected block import of {imported} of {count}.");
-			return
-		};
-
-		trace!(target: LOG_TARGET, "Warp sync: imported {imported} of {count}.");
-
-		let mut complete = false;
-		let mut success = false;
-
-		for (result, hash) in results {
-			if hash == state_sync.target() {
-				complete = true;
-				success |= match result {
-					Ok(_) => true,
-					Err(e) => {
-						error!(
-							target: LOG_TARGET,
-							"Failed to import target block with state: {e:?}."
-						);
-						false
-					},
-				}
-			} else {
-				debug!(
-					target: LOG_TARGET,
-					"Unexpected block processed: {hash} with result {result:?}.",
-				);
-			}
-		}
-
-		if complete {
-			let total_mib = (self.total_proof_bytes + self.total_state_bytes) / (1024 * 1024);
-
-			if success {
-				info!(
-					target: LOG_TARGET,
-					"Warp sync is complete ({total_mib} MiB), continuing with block sync.",
-				);
-			} else {
-				error!(
-					target: LOG_TARGET,
-					"Warp sync failed. Falling back to full sync.",
-				);
-			}
-
-			self.phase = Phase::Complete;
-			self.actions.push(WarpSyncAction::Finished);
-		}
 	}
 
 	/// Produce warp proof request.
@@ -673,40 +530,7 @@ where
 		))
 	}
 
-	/// Produce state request.
-	fn state_request(&mut self) -> Option<(PeerId, OpaqueStateRequest)> {
-		let Phase::State(state_sync) = &self.phase else { return None };
-
-		if state_sync.is_complete() {
-			return None
-		}
-
-		if self
-			.peers
-			.iter()
-			.any(|(_, peer)| matches!(peer.state, PeerState::DownloadingState))
-		{
-			// Only one state request at a time is possible.
-			return None
-		}
-
-		let Some((peer_id, peer)) =
-			select_synced_available_peer(&mut self.peers, Some(state_sync.target_block_num()))
-		else {
-			return None
-		};
-
-		peer.state = PeerState::DownloadingState;
-		let request = state_sync.next_request();
-		trace!(
-			target: LOG_TARGET,
-			"New state request to {peer_id}: {request:?}.",
-		);
-
-		Some((*peer_id, OpaqueStateRequest(Box::new(request))))
-	}
-
-	/// Returns state sync estimated progress (stage, bytes received).
+	/// Returns warp sync estimated progress (stage, bytes received).
 	pub fn progress(&self) -> WarpSyncProgress<B> {
 		match &self.phase {
 			Phase::WaitingForPeers { .. } => WarpSyncProgress {
@@ -726,14 +550,6 @@ where
 			Phase::PendingTargetBlock { .. } => WarpSyncProgress {
 				phase: WarpSyncPhase::AwaitingTargetBlock,
 				total_bytes: self.total_proof_bytes,
-			},
-			Phase::State(state_sync) => WarpSyncProgress {
-				phase: if state_sync.is_complete() {
-					WarpSyncPhase::ImportingState
-				} else {
-					WarpSyncPhase::DownloadingState
-				},
-				total_bytes: self.total_proof_bytes + state_sync.progress().size,
 			},
 			Phase::Complete => WarpSyncProgress {
 				phase: WarpSyncPhase::Complete,
@@ -755,8 +571,6 @@ where
 				Phase::WarpProof { .. } => SyncState::Downloading { target: Zero::zero() },
 				Phase::PendingTargetBlock => SyncState::Downloading { target: Zero::zero() },
 				Phase::TargetBlock(header) => SyncState::Downloading { target: *header.number() },
-				Phase::State(state_sync) =>
-					SyncState::Downloading { target: state_sync.target_block_num() },
 				Phase::Complete => SyncState::Idle,
 			},
 			best_seen_block: match &self.phase {
@@ -764,17 +578,12 @@ where
 				Phase::WarpProof { .. } => None,
 				Phase::PendingTargetBlock => None,
 				Phase::TargetBlock(header) => Some(*header.number()),
-				Phase::State(state_sync) => Some(state_sync.target_block_num()),
 				Phase::Complete => None,
 			},
 			num_peers: self.peers.len().saturated_into(),
 			num_connected_peers: self.peers.len().saturated_into(),
 			queued_blocks: 0,
-			state_sync: if let Phase::State(state_sync) = &self.phase {
-				Some(state_sync.progress())
-			} else {
-				None
-			},
+			state_sync: None,
 			warp_sync: Some(self.progress()),
 		}
 	}
@@ -794,13 +603,11 @@ where
 			.map(|(peer_id, request)| WarpSyncAction::SendBlockRequest { peer_id, request });
 		self.actions.extend(target_block_request);
 
-		let state_request = self
-			.state_request()
-			.into_iter()
-			.map(|(peer_id, request)| WarpSyncAction::SendStateRequest { peer_id, request });
-		self.actions.extend(state_request);
-
 		std::mem::take(&mut self.actions).into_iter()
+	}
+
+	pub fn take_result(&mut self) -> Option<WarpSyncResult<B>> {
+		self.result.take()
 	}
 }
 
