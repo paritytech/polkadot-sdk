@@ -150,7 +150,8 @@ fn invoke_fmt(current_dir: &Path, contracts_dir: &Path) -> Result<()> {
 	}
 
 	let stdout = String::from_utf8_lossy(&fmt_res.stdout);
-	eprintln!("{}", stdout);
+	let stderr = String::from_utf8_lossy(&fmt_res.stderr);
+	eprintln!("{}\n{}", stdout, stderr);
 	eprintln!(
 		"Fixtures files are not formatted.\nPlease run `rustup run nightly rustfmt {}/*.rs`",
 		contracts_dir.display()
