@@ -1619,7 +1619,10 @@ impl<T: Config> Pallet<T> {
 				(local, Some(remote))
 			},
 			TransferType::RemoteReserve(reserve) => {
-				ensure!(separate_fees_instructions.is_none(), Error::<T>::TooManyReserves);
+				ensure!(
+					separate_fees_instructions.is_none(),
+					Error::<T>::InvalidAssetUnsupportedReserve
+				);
 				let local = Self::remote_reserve_transfer_program(
 					origin,
 					reserve,
@@ -1631,17 +1634,18 @@ impl<T: Config> Pallet<T> {
 				)?;
 				(local, None)
 			},
-			TransferType::Teleport => (
-				Self::teleport_assets_program(
+			TransferType::Teleport => {
+				let (local, remote) = Self::teleport_assets_program(
 					origin,
 					dest,
 					beneficiary,
 					assets,
 					fees,
+					separate_fees_instructions,
 					weight_limit,
-				)?,
-				None,
-			),
+				)?;
+				(local, Some(remote))
+			},
 		};
 		let weight =
 			T::Weigher::weight(&mut local_xcm).map_err(|()| Error::<T>::UnweighableMessage)?;
@@ -1931,6 +1935,8 @@ impl<T: Config> Pallet<T> {
 			&dummy_context,
 		)
 		.map_err(|_| Error::<T>::CannotCheckOutTeleport)?;
+		// safe to do this here, we're in a transactional call that will be reverted on any
+		// errors down the line
 		<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::check_out(
 			&dest,
 			&fees,
@@ -1958,24 +1964,86 @@ impl<T: Config> Pallet<T> {
 		dest: MultiLocation,
 		beneficiary: MultiLocation,
 		assets: Vec<MultiAsset>,
-		mut fees: MultiAsset,
+		fees: MultiAsset,
+		separate_fees_instructions: Option<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>)>,
 		weight_limit: WeightLimit,
-	) -> Result<Xcm<<T as Config>::RuntimeCall>, Error<T>> {
+	) -> Result<(Xcm<<T as Config>::RuntimeCall>, Xcm<()>), Error<T>> {
 		let value = (origin, assets);
 		ensure!(T::XcmTeleportFilter::contains(&value), Error::<T>::Filtered);
 		let (_, assets) = value;
+
+		// max assets is `assets` (+ potentially separately handled fee)
+		let max_assets =
+			assets.len() as u32 + separate_fees_instructions.as_ref().map(|_| 1).unwrap_or(0);
 		let context = T::UniversalLocation::get();
-		fees.reanchor(&dest, context).map_err(|_| Error::<T>::CannotReanchor)?;
-		let max_assets = assets.len() as u32;
-		let xcm_on_dest = Xcm(vec![
-			BuyExecution { fees, weight_limit },
-			DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary },
+		let assets: MultiAssets = assets.into();
+		let mut reanchored_assets = assets.clone();
+		reanchored_assets
+			.reanchor(&dest, context)
+			.map_err(|_| Error::<T>::CannotReanchor)?;
+
+		// fees are either handled through dedicated instructions, or batched together with assets
+		let fees_already_handled = separate_fees_instructions.is_some();
+		let (fees_local_xcm, fees_remote_xcm) = separate_fees_instructions
+			.map(|(local, remote)| (local.into_inner(), remote.into_inner()))
+			.unwrap_or_default();
+
+		// XcmContext irrelevant in teleports checks
+		let dummy_context =
+			XcmContext { origin: None, message_id: Default::default(), topic: None };
+		for asset in assets.inner() {
+			// We should check that the asset can actually be teleported out (for this to
+			// be in error, there would need to be an accounting violation by ourselves,
+			// so it's unlikely, but we don't want to allow that kind of bug to leak into
+			// a trusted chain.
+			<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::can_check_out(
+				&dest,
+				asset,
+				&dummy_context,
+			)
+			.map_err(|_| Error::<T>::CannotCheckOutTeleport)?;
+		}
+		for asset in assets.inner() {
+			// safe to do this here, we're in a transactional call that will be reverted on any
+			// errors down the line
+			<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::check_out(
+				&dest,
+				asset,
+				&dummy_context,
+			);
+		}
+
+		// start off with any necessary local fees specific instructions
+		let mut local_execute_xcm = fees_local_xcm;
+		// continue with rest of assets
+		local_execute_xcm.extend_from_slice(&[
+			// withdraw assets to be teleported
+			WithdrawAsset(assets.clone()),
+			// burn assets on local chain
+			BurnAsset(assets),
 		]);
-		Ok(Xcm(vec![
-			WithdrawAsset(assets.into()),
-			SetFeesMode { jit_withdraw: true },
-			InitiateTeleport { assets: Wild(AllCounted(max_assets)), dest, xcm: xcm_on_dest },
-		]))
+
+		// on destination chain, start off with custom fee instructions
+		let mut xcm_on_dest = fees_remote_xcm;
+		// continue with rest of assets
+		xcm_on_dest.extend_from_slice(&[
+			// teleport `assets` in from origin chain
+			ReceiveTeleportedAsset(reanchored_assets),
+			// following instructions are not exec'ed on behalf of origin chain anymore
+			ClearOrigin,
+		]);
+		if !fees_already_handled {
+			// no custom fees instructions, they are batched together with `assets` transfer;
+			// BuyExecution happens after receiving all `assets`
+			let reanchored_fees =
+				fees.reanchored(&dest, context).map_err(|_| Error::<T>::CannotReanchor)?;
+			// buy execution using `fees` batched together with above `reanchored_assets`
+			xcm_on_dest.push(BuyExecution { fees: reanchored_fees, weight_limit });
+		}
+		// deposit all remaining assets in holding to `beneficiary` location
+		xcm_on_dest.push(DepositAsset { assets: Wild(AllCounted(max_assets)), beneficiary });
+
+		Ok((Xcm(local_execute_xcm), Xcm(xcm_on_dest)))
 	}
 
 	/// Halve `fees` fungible amount.

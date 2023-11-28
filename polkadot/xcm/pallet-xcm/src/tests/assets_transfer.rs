@@ -32,6 +32,7 @@ use xcm_executor::traits::ConvertLocation;
 
 // Helper function to deduplicate testing different teleport types.
 fn do_test_and_verify_teleport_assets<Call: FnOnce()>(
+	origin_location: MultiLocation,
 	expected_beneficiary: MultiLocation,
 	call: Call,
 	expected_weight_limit: WeightLimit,
@@ -40,8 +41,9 @@ fn do_test_and_verify_teleport_assets<Call: FnOnce()>(
 		(ALICE, INITIAL_BALANCE),
 		(ParaId::from(OTHER_PARA_ID).into_account_truncating(), INITIAL_BALANCE),
 	];
+	let dest = RelayLocation::get().into();
 	new_test_ext_with_balances(balances).execute_with(|| {
-		let weight = BaseXcmWeight::get() * 3;
+		let weight = BaseXcmWeight::get() * 2;
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
 		// call extrinsic
 		call();
@@ -49,7 +51,7 @@ fn do_test_and_verify_teleport_assets<Call: FnOnce()>(
 		assert_eq!(
 			sent_xcm(),
 			vec![(
-				RelayLocation::get().into(),
+				dest,
 				Xcm(vec![
 					ReceiveTeleportedAsset((Here, SEND_AMOUNT).into()),
 					ClearOrigin,
@@ -63,10 +65,23 @@ fn do_test_and_verify_teleport_assets<Call: FnOnce()>(
 		);
 		let versioned_sent = VersionedXcm::from(sent_xcm().into_iter().next().unwrap().1);
 		let _check_v2_ok: xcm::v2::Xcm<()> = versioned_sent.try_into().unwrap();
+
+		let mut last_events = last_events(3).into_iter();
 		assert_eq!(
-			last_event(),
+			last_events.next().unwrap(),
 			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete(weight) })
 		);
+		assert_eq!(
+			last_events.next().unwrap(),
+			RuntimeEvent::XcmPallet(crate::Event::FeesPaid {
+				paying: origin_location,
+				fees: MultiAssets::new(),
+			})
+		);
+		assert!(matches!(
+			last_events.next().unwrap(),
+			RuntimeEvent::XcmPallet(crate::Event::Sent { .. })
+		));
 	});
 }
 
@@ -76,8 +91,10 @@ fn do_test_and_verify_teleport_assets<Call: FnOnce()>(
 /// local effects.
 #[test]
 fn teleport_assets_works() {
+	let origin_location: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
 	let beneficiary: MultiLocation = AccountId32 { network: None, id: BOB.into() }.into();
 	do_test_and_verify_teleport_assets(
+		origin_location,
 		beneficiary,
 		|| {
 			assert_ok!(XcmPallet::teleport_assets(
@@ -98,10 +115,12 @@ fn teleport_assets_works() {
 /// local effects.
 #[test]
 fn limited_teleport_assets_works() {
+	let origin_location: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
 	let beneficiary: MultiLocation = AccountId32 { network: None, id: BOB.into() }.into();
 	let weight_limit = WeightLimit::Limited(Weight::from_parts(5000, 5000));
 	let expected_weight_limit = weight_limit.clone();
 	do_test_and_verify_teleport_assets(
+		origin_location,
 		beneficiary,
 		|| {
 			assert_ok!(XcmPallet::limited_teleport_assets(
@@ -160,7 +179,7 @@ fn reserve_transfer_assets_with_paid_router_works() {
 		let xcm_router_fee_amount = Para3000PaymentAmount::get();
 		let weight = BaseXcmWeight::get();
 		let dest: MultiLocation =
-			Junction::AccountId32 { network: None, id: user_account.clone().into() }.into();
+			AccountId32 { network: None, id: user_account.clone().into() }.into();
 		assert_eq!(Balances::total_balance(&user_account), INITIAL_BALANCE);
 		assert_ok!(XcmPallet::reserve_transfer_assets(
 			RuntimeOrigin::signed(user_account.clone()),
@@ -290,8 +309,8 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_local_fee_reserve_works(
 		(ParaId::from(OTHER_PARA_ID).into_account_truncating(), INITIAL_BALANCE),
 	];
 
-	let beneficiary: MultiLocation =
-		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+	let origin_location: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
+	let beneficiary: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
 	let weight_limit = WeightLimit::Limited(Weight::from_parts(5000, 5000));
 	let expected_weight_limit = weight_limit.clone();
 	let expected_beneficiary = beneficiary;
@@ -337,7 +356,7 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_local_fee_reserve_works(
 		assert_eq!(
 			last_events.next().unwrap(),
 			RuntimeEvent::XcmPallet(crate::Event::FeesPaid {
-				paying: expected_beneficiary,
+				paying: origin_location,
 				fees: MultiAssets::new(),
 			})
 		);
@@ -371,8 +390,8 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_local_fee_reserve_works(
 fn transfer_assets_with_destination_asset_reserve_and_local_fee_reserve_works() {
 	let weight = BaseXcmWeight::get() * 3;
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
-	let beneficiary: MultiLocation =
-		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+	let origin_location: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
+	let beneficiary: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
 	new_test_ext_with_balances(balances).execute_with(|| {
 		// create non-sufficient foreign asset BLA (0 total issuance)
 		let foreign_initial_amount = 142;
@@ -454,7 +473,7 @@ fn transfer_assets_with_destination_asset_reserve_and_local_fee_reserve_works() 
 		assert_eq!(
 			last_events.next().unwrap(),
 			RuntimeEvent::XcmPallet(crate::Event::FeesPaid {
-				paying: beneficiary,
+				paying: origin_location,
 				fees: MultiAssets::new(),
 			})
 		);
@@ -472,8 +491,7 @@ fn transfer_assets_with_destination_asset_reserve_and_local_fee_reserve_works() 
 #[test]
 fn transfer_assets_with_remote_asset_reserve_and_local_fee_reserve_disallowed() {
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
-	let beneficiary: MultiLocation =
-		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+	let beneficiary: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
 	new_test_ext_with_balances(balances).execute_with(|| {
 		// create non-sufficient foreign asset BLA (0 total issuance)
 		let foreign_initial_amount = 142;
@@ -547,8 +565,8 @@ fn transfer_assets_with_remote_asset_reserve_and_local_fee_reserve_disallowed() 
 #[test]
 fn transfer_assets_with_local_asset_reserve_and_destination_fee_reserve_works() {
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
-	let beneficiary: MultiLocation =
-		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+	let origin_location: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
+	let beneficiary: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
 	new_test_ext_with_balances(balances).execute_with(|| {
 		// create sufficient foreign asset USDC (0 total issuance)
 		let usdc_initial_local_amount = 142;
@@ -597,7 +615,7 @@ fn transfer_assets_with_local_asset_reserve_and_destination_fee_reserve_works() 
 		assert_eq!(
 			last_events.next().unwrap(),
 			RuntimeEvent::XcmPallet(crate::Event::FeesPaid {
-				paying: beneficiary,
+				paying: origin_location,
 				fees: MultiAssets::new(),
 			})
 		);
@@ -656,8 +674,8 @@ fn transfer_assets_with_local_asset_reserve_and_destination_fee_reserve_works() 
 #[test]
 fn reserve_transfer_assets_with_destination_asset_reserve_and_destination_fee_reserve_works() {
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
-	let beneficiary: MultiLocation =
-		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+	let origin_location: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
+	let beneficiary: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
 	new_test_ext_with_balances(balances).execute_with(|| {
 		// we'll send just this foreign asset back to its reserve location and use it for fees as
 		// well
@@ -702,7 +720,7 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_destination_fee_re
 		assert_eq!(
 			last_events.next().unwrap(),
 			RuntimeEvent::XcmPallet(crate::Event::FeesPaid {
-				paying: beneficiary,
+				paying: origin_location,
 				fees: MultiAssets::new(),
 			})
 		);
@@ -750,8 +768,7 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_destination_fee_re
 #[test]
 fn transfer_assets_with_remote_asset_reserve_and_destination_fee_reserve_disallowed() {
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
-	let beneficiary: MultiLocation =
-		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+	let beneficiary: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
 	new_test_ext_with_balances(balances).execute_with(|| {
 		// create sufficient foreign asset USDC (0 total issuance)
 		let usdc_initial_local_amount = 42;
@@ -825,8 +842,7 @@ fn transfer_assets_with_remote_asset_reserve_and_destination_fee_reserve_disallo
 #[test]
 fn transfer_assets_with_local_asset_reserve_and_remote_fee_reserve_disallowed() {
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
-	let beneficiary: MultiLocation =
-		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+	let beneficiary: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
 	new_test_ext_with_balances(balances).execute_with(|| {
 		// create sufficient foreign asset USDC (0 total issuance)
 		let usdc_initial_local_amount = 142;
@@ -888,8 +904,7 @@ fn transfer_assets_with_local_asset_reserve_and_remote_fee_reserve_disallowed() 
 #[test]
 fn transfer_assets_with_destination_asset_reserve_and_remote_fee_reserve_disallowed() {
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
-	let beneficiary: MultiLocation =
-		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+	let beneficiary: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
 	new_test_ext_with_balances(balances).execute_with(|| {
 		// create sufficient foreign asset USDC (0 total issuance)
 		let usdc_initial_local_amount = 42;
@@ -977,8 +992,7 @@ fn transfer_assets_with_destination_asset_reserve_and_remote_fee_reserve_disallo
 #[test]
 fn reserve_transfer_assets_with_remote_asset_reserve_and_remote_fee_reserve_works() {
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
-	let beneficiary: MultiLocation =
-		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+	let beneficiary: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
 	new_test_ext_with_balances(balances).execute_with(|| {
 		// create sufficient foreign asset USDC (0 total issuance)
 		let usdc_initial_local_amount = 142;
@@ -1083,8 +1097,8 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_remote_fee_reserve_work
 #[test]
 fn transfer_assets_with_local_asset_reserve_and_teleported_fee_works() {
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
-	let beneficiary: MultiLocation =
-		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+	let origin_location: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
+	let beneficiary: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
 	new_test_ext_with_balances(balances).execute_with(|| {
 		// create sufficient foreign asset USDT (0 total issuance)
 		let usdt_initial_local_amount = 42;
@@ -1128,7 +1142,7 @@ fn transfer_assets_with_local_asset_reserve_and_teleported_fee_works() {
 		assert_eq!(
 			last_events.next().unwrap(),
 			RuntimeEvent::XcmPallet(crate::Event::FeesPaid {
-				paying: beneficiary,
+				paying: origin_location,
 				fees: MultiAssets::new(),
 			})
 		);
@@ -1190,8 +1204,8 @@ fn transfer_assets_with_local_asset_reserve_and_teleported_fee_works() {
 #[test]
 fn transfer_assets_with_destination_asset_reserve_and_teleported_fee_works() {
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
-	let beneficiary: MultiLocation =
-		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+	let origin_location: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
+	let beneficiary: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
 	new_test_ext_with_balances(balances).execute_with(|| {
 		// create sufficient foreign asset USDT (0 total issuance)
 		let usdt_initial_local_amount = 42;
@@ -1246,7 +1260,7 @@ fn transfer_assets_with_destination_asset_reserve_and_teleported_fee_works() {
 		assert_eq!(
 			last_events.next().unwrap(),
 			RuntimeEvent::XcmPallet(crate::Event::FeesPaid {
-				paying: beneficiary,
+				paying: origin_location,
 				fees: MultiAssets::new(),
 			})
 		);
@@ -1308,8 +1322,7 @@ fn transfer_assets_with_destination_asset_reserve_and_teleported_fee_works() {
 #[test]
 fn transfer_assets_with_remote_asset_reserve_and_teleported_fee_disallowed() {
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
-	let beneficiary: MultiLocation =
-		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+	let beneficiary: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
 	new_test_ext_with_balances(balances).execute_with(|| {
 		// create sufficient foreign asset USDT (0 total issuance)
 		let usdt_initial_local_amount = 42;
@@ -1379,8 +1392,7 @@ fn transfer_assets_with_remote_asset_reserve_and_teleported_fee_disallowed() {
 #[test]
 fn reserve_transfer_assets_with_teleportable_asset_fails() {
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
-	let beneficiary: MultiLocation =
-		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+	let beneficiary: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
 
 	new_test_ext_with_balances(balances).execute_with(|| {
 		// create sufficient foreign asset USDT (0 total issuance)
@@ -1464,8 +1476,7 @@ fn transfer_assets_with_filtered_teleported_fee_disallowed() {
 #[test]
 fn intermediary_error_reverts_side_effects() {
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
-	let beneficiary: MultiLocation =
-		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+	let beneficiary: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
 	new_test_ext_with_balances(balances).execute_with(|| {
 		// create sufficient foreign asset USDC (0 total issuance)
 		let usdc_initial_local_amount = 142;
