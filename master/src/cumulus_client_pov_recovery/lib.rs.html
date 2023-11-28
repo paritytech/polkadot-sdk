@@ -649,6 +649,17 @@
 <a href="#649" id="649">649</a>
 <a href="#650" id="650">650</a>
 <a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1061,6 +1072,7 @@
 						<span class="question-mark">?</span>block_hash,
 						parent_hash = <span class="question-mark">?</span>parent,
 						parent_scheduled_for_recovery,
+						waiting_blocks = <span class="self">self</span>.waiting_for_parent.len(),
 						<span class="string">&quot;Waiting for recovery of parent.&quot;</span>,
 					);
 
@@ -1093,13 +1105,13 @@
 			</span><span class="kw">_ </span>=&gt; (),
 		}
 
-		<span class="self">self</span>.import_block(block).<span class="kw">await</span>;
+		<span class="self">self</span>.import_block(block);
 	}
 
 	<span class="doccomment">/// Import the given `block`.
 	///
 	/// This will also recursivley drain `waiting_for_parent` and import them as well.
-	</span><span class="kw">async fn </span>import_block(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block: Block) {
+	</span><span class="kw">fn </span>import_block(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block: Block) {
 		<span class="kw">let </span><span class="kw-2">mut </span>blocks = VecDeque::new();
 
 		<span class="macro">tracing::debug!</span>(target: LOG_TARGET, block_hash = <span class="question-mark">?</span>block.hash(), <span class="string">&quot;Importing block retrieved using pov_recovery&quot;</span>);
@@ -1202,7 +1214,6 @@
 		};
 
 		<span class="macro">futures::pin_mut!</span>(pending_candidates);
-
 		<span class="kw">loop </span>{
 			<span class="macro">select! </span>{
 				pending_candidate = pending_candidates.next() =&gt; {
@@ -1224,6 +1235,17 @@
 				imported = imported_blocks.next() =&gt; {
 					<span class="kw">if let </span><span class="prelude-val">Some</span>(imported) = imported {
 						<span class="self">self</span>.clear_waiting_recovery(<span class="kw-2">&amp;</span>imported.hash);
+
+						<span class="comment">// We need to double check that no blocks are waiting for this block.
+						// Can happen when a waiting child block is queued to wait for parent while the parent block is still
+						// in the import queue.
+						</span><span class="kw">if let </span><span class="prelude-val">Some</span>(waiting_blocks) = <span class="self">self</span>.waiting_for_parent.remove(<span class="kw-2">&amp;</span>imported.hash) {
+							<span class="kw">for </span>block <span class="kw">in </span>waiting_blocks {
+								<span class="macro">tracing::debug!</span>(target: LOG_TARGET, block_hash = <span class="question-mark">?</span>block.hash(), resolved_parent = <span class="question-mark">?</span>imported.hash, <span class="string">&quot;Found new waiting child block during import, queuing.&quot;</span>);
+								<span class="self">self</span>.import_block(block);
+							}
+						};
+
 					} <span class="kw">else </span>{
 						<span class="macro">tracing::debug!</span>(target: LOG_TARGET,	<span class="string">&quot;Imported blocks stream ended&quot;</span>);
 						<span class="kw">return</span>;

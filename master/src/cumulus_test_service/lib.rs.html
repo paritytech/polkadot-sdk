@@ -910,6 +910,12 @@
 <a href="#910" id="910">910</a>
 <a href="#911" id="911">911</a>
 <a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -939,6 +945,7 @@
 <span class="kw">use </span>runtime::AccountId;
 <span class="kw">use </span>sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 <span class="kw">use </span>std::{
+	collections::HashSet,
 	future::Future,
 	net::{IpAddr, Ipv4Addr, SocketAddr},
 	time::Duration,
@@ -969,7 +976,7 @@
 <span class="kw">use </span>frame_system_rpc_runtime_api::AccountNonceApi;
 <span class="kw">use </span>polkadot_node_subsystem::{errors::RecoveryError, messages::AvailabilityRecoveryMessage};
 <span class="kw">use </span>polkadot_overseer::Handle <span class="kw">as </span>OverseerHandle;
-<span class="kw">use </span>polkadot_primitives::{CollatorPair, Hash <span class="kw">as </span>PHash, PersistedValidationData};
+<span class="kw">use </span>polkadot_primitives::{CandidateHash, CollatorPair, Hash <span class="kw">as </span>PHash, PersistedValidationData};
 <span class="kw">use </span>polkadot_service::ProvideRuntimeApi;
 <span class="kw">use </span>sc_consensus::ImportQueue;
 <span class="kw">use </span>sc_network::{
@@ -1056,12 +1063,13 @@
 </span><span class="kw">pub struct </span>FailingRecoveryHandle {
 	overseer_handle: OverseerHandle,
 	counter: u32,
+	failed_hashes: HashSet&lt;CandidateHash&gt;,
 }
 
 <span class="kw">impl </span>FailingRecoveryHandle {
 	<span class="doccomment">/// Create a new FailingRecoveryHandle
 	</span><span class="kw">pub fn </span>new(overseer_handle: OverseerHandle) -&gt; <span class="self">Self </span>{
-		<span class="self">Self </span>{ overseer_handle, counter: <span class="number">0 </span>}
+		<span class="self">Self </span>{ overseer_handle, counter: <span class="number">0</span>, failed_hashes: Default::default() }
 	}
 }
 
@@ -1072,11 +1080,15 @@
 		message: AvailabilityRecoveryMessage,
 		origin: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
 	) {
-		<span class="comment">// For every 5th block we immediately signal unavailability to trigger
-		// a retry.
-		</span><span class="kw">if </span><span class="self">self</span>.counter % <span class="number">5 </span>== <span class="number">0 </span>{
+		<span class="kw">let </span>AvailabilityRecoveryMessage::RecoverAvailableData(<span class="kw-2">ref </span>receipt, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) = message;
+		<span class="kw">let </span>candidate_hash = receipt.hash();
+
+		<span class="comment">// For every 3rd block we immediately signal unavailability to trigger
+		// a retry. The same candidate is never failed multiple times to ensure progress.
+		</span><span class="kw">if </span><span class="self">self</span>.counter % <span class="number">3 </span>== <span class="number">0 </span>&amp;&amp; <span class="self">self</span>.failed_hashes.insert(candidate_hash) {
+			<span class="macro">tracing::info!</span>(target: LOG_TARGET, <span class="question-mark">?</span>candidate_hash, <span class="string">&quot;Failing pov recovery.&quot;</span>);
+
 			<span class="kw">let </span>AvailabilityRecoveryMessage::RecoverAvailableData(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, back_sender) = message;
-			<span class="macro">tracing::info!</span>(target: LOG_TARGET, <span class="string">&quot;Failing pov recovery.&quot;</span>);
 			back_sender
 				.send(<span class="prelude-val">Err</span>(RecoveryError::Unavailable))
 				.expect(<span class="string">&quot;Return channel should work here.&quot;</span>);
