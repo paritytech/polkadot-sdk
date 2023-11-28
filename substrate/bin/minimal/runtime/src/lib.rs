@@ -98,7 +98,7 @@ impl pallet_timestamp::Config for Runtime {}
 
 #[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig as pallet_transaction_payment::DefaultConfig)]
 impl pallet_transaction_payment::Config for Runtime {
-	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Balances, ()>;
+	type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, ()>;
 	type WeightToFee = NoFee<<Self as pallet_balances::Config>::Balance>;
 	type LengthToFee = FixedFee<1, <Self as pallet_balances::Config>::Balance>;
 }

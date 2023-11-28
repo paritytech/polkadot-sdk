@@ -16,7 +16,10 @@
 
 use frame_support::{
 	dispatch::GetDispatchInfo,
-	traits::{tokens::currency::Currency as CurrencyT, Get, OnUnbalanced as OnUnbalancedT},
+	traits::{
+		fungible::{Balanced, Credit, Inspect},
+		Get, OnUnbalanced as OnUnbalancedT,
+	},
 	weights::{
 		constants::{WEIGHT_PROOF_SIZE_PER_MB, WEIGHT_REF_TIME_PER_SECOND},
 		WeightToFee as WeightToFeeT,
@@ -193,23 +196,23 @@ impl<T: Get<(AssetId, u128, u128)>, R: TakeRevenue> Drop for FixedRateOfFungible
 /// Weight trader which uses the configured `WeightToFee` to set the right price for weight and then
 /// places any weight bought into the right account.
 pub struct UsingComponents<
-	WeightToFee: WeightToFeeT<Balance = Currency::Balance>,
+	WeightToFee: WeightToFeeT<Balance = <Fungible as Inspect<AccountId>>::Balance>,
 	AssetId: Get<MultiLocation>,
 	AccountId,
-	Currency: CurrencyT<AccountId>,
-	OnUnbalanced: OnUnbalancedT<Currency::NegativeImbalance>,
+	Fungible: Balanced<AccountId> + Inspect<AccountId>,
+	OnUnbalanced: OnUnbalancedT<Credit<AccountId, Fungible>>,
 >(
 	Weight,
-	Currency::Balance,
-	PhantomData<(WeightToFee, AssetId, AccountId, Currency, OnUnbalanced)>,
+	Fungible::Balance,
+	PhantomData<(WeightToFee, AssetId, AccountId, Fungible, OnUnbalanced)>,
 );
 impl<
-		WeightToFee: WeightToFeeT<Balance = Currency::Balance>,
+		WeightToFee: WeightToFeeT<Balance = <Fungible as Inspect<AccountId>>::Balance>,
 		AssetId: Get<MultiLocation>,
 		AccountId,
-		Currency: CurrencyT<AccountId>,
-		OnUnbalanced: OnUnbalancedT<Currency::NegativeImbalance>,
-	> WeightTrader for UsingComponents<WeightToFee, AssetId, AccountId, Currency, OnUnbalanced>
+		Fungible: Balanced<AccountId> + Inspect<AccountId>,
+		OnUnbalanced: OnUnbalancedT<Credit<AccountId, Fungible>>,
+	> WeightTrader for UsingComponents<WeightToFee, AssetId, AccountId, Fungible, OnUnbalanced>
 {
 	fn new() -> Self {
 		Self(Weight::zero(), Zero::zero(), PhantomData)
@@ -246,14 +249,14 @@ impl<
 	}
 }
 impl<
-		WeightToFee: WeightToFeeT<Balance = Currency::Balance>,
+		WeightToFee: WeightToFeeT<Balance = <Fungible as Inspect<AccountId>>::Balance>,
 		AssetId: Get<MultiLocation>,
 		AccountId,
-		Currency: CurrencyT<AccountId>,
-		OnUnbalanced: OnUnbalancedT<Currency::NegativeImbalance>,
-	> Drop for UsingComponents<WeightToFee, AssetId, AccountId, Currency, OnUnbalanced>
+		Fungible: Balanced<AccountId> + Inspect<AccountId>,
+		OnUnbalanced: OnUnbalancedT<Credit<AccountId, Fungible>>,
+	> Drop for UsingComponents<WeightToFee, AssetId, AccountId, Fungible, OnUnbalanced>
 {
 	fn drop(&mut self) {
-		OnUnbalanced::on_unbalanced(Currency::issue(self.1));
+		OnUnbalanced::on_unbalanced(Fungible::issue(self.1));
 	}
 }

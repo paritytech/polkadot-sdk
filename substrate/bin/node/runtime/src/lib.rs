@@ -65,6 +65,9 @@ use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_nfts::PalletFeatures;
 use pallet_nis::WithMaximumOf;
 use pallet_session::historical as pallet_session_historical;
+// Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
+// <https://github.com/paritytech/polkadot-sdk/issues/226>
+#[allow(deprecated)]
 pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 use pallet_tx_pause::RuntimeCallNameOf;
@@ -538,6 +541,9 @@ parameter_types! {
 	pub MaximumMultiplier: Multiplier = Bounded::max_value();
 }
 
+// Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
+// <https://github.com/paritytech/polkadot-sdk/issues/226>
+#[allow(deprecated)]
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees>;

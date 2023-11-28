@@ -24,14 +24,16 @@ use frame_support::{
 	ord_parameter_types,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{AsEnsureOriginWithArg, ConstU32, ConstU64, ConstU8, Imbalance, OnUnbalanced},
+	traits::{
+		fungible, AsEnsureOriginWithArg, ConstU32, ConstU64, ConstU8, Imbalance, OnUnbalanced,
+	},
 	weights::{Weight, WeightToFee as WeightToFeeT},
 	PalletId,
 };
 use frame_system as system;
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use pallet_asset_conversion::{NativeOrAssetId, NativeOrAssetIdConverter};
-use pallet_transaction_payment::CurrencyAdapter;
+use pallet_transaction_payment::FungibleAdapter;
 use sp_core::H256;
 use sp_runtime::{
 	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup, SaturatedConversion},
@@ -151,9 +153,13 @@ parameter_types! {
 }
 
 pub struct DealWithFees;
-impl OnUnbalanced<pallet_balances::NegativeImbalance<Runtime>> for DealWithFees {
+impl OnUnbalanced<fungible::Credit<<Runtime as frame_system::Config>::AccountId, Balances>>
+	for DealWithFees
+{
 	fn on_unbalanceds<B>(
-		mut fees_then_tips: impl Iterator<Item = pallet_balances::NegativeImbalance<Runtime>>,
+		mut fees_then_tips: impl Iterator<
+			Item = fungible::Credit<<Runtime as frame_system::Config>::AccountId, Balances>,
+		>,
 	) {
 		if let Some(fees) = fees_then_tips.next() {
 			FeeUnbalancedAmount::mutate(|a| *a += fees.peek());
@@ -166,7 +172,7 @@ impl OnUnbalanced<pallet_balances::NegativeImbalance<Runtime>> for DealWithFees 
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees>;
+	type OnChargeTransaction = FungibleAdapter<Balances, DealWithFees>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = TransactionByteFee;
 	type FeeMultiplierUpdate = ();
