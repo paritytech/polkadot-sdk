@@ -72,7 +72,7 @@ pub fn expand_outer_task(
 		/// An aggregation of all `Task` enums across all pallets included in the current runtime.
 		#[derive(
 			Clone, Eq, PartialEq,
-			#scrate::__private::codec::Encode, 
+			#scrate::__private::codec::Encode,
 			#scrate::__private::codec::Decode,
 			#scrate::__private::scale_info::TypeInfo,
 			#scrate::__private::RuntimeDebug,

@@ -39,7 +39,8 @@ impl TaskEnumDef {
 				.iter()
 				.map(|task| {
 					let ident = &task.item.sig.ident;
-					let ident = format_ident!("{}", ident.to_string().to_class_case(), span = ident.span());
+					let ident =
+						format_ident!("{}", ident.to_string().to_class_case(), span = ident.span());
 
 					let args = task.item.sig.inputs.iter().collect::<Vec<_>>();
 
@@ -133,7 +134,13 @@ impl ToTokens for TasksDef {
 		let task_fn_idents = self
 			.tasks
 			.iter()
-			.map(|task| format_ident!("{}", &task.item.sig.ident.to_string().to_class_case(), span = task.item.sig.ident.span()))
+			.map(|task| {
+				format_ident!(
+					"{}",
+					&task.item.sig.ident.to_string().to_class_case(),
+					span = task.item.sig.ident.span()
+				)
+			})
 			.collect::<Vec<_>>();
 		let task_indices = self.tasks.iter().map(|task| &task.index_attr.meta.index);
 		let task_conditions = self.tasks.iter().map(|task| &task.condition_attr.meta.expr);
