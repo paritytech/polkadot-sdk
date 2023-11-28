@@ -22,12 +22,11 @@ use kitchensink_runtime::{
 	constants::currency::*, Block, BuildStorage, CheckedExtrinsic, Header, RuntimeCall,
 	RuntimeGenesisConfig, UncheckedExtrinsic,
 };
-use node_executor::ExecutorDispatch;
+use node_executor::ClientWasmExecutor;
 use node_primitives::{BlockNumber, Hash};
 use node_testing::keyring::*;
 use sc_executor::{
-	Externalities, NativeElseWasmExecutor, RuntimeVersionOf, WasmExecutionMethod, WasmExecutor,
-	WasmtimeInstantiationStrategy,
+	Externalities, RuntimeVersionOf, WasmExecutionMethod, WasmtimeInstantiationStrategy,
 };
 use sp_core::{
 	storage::well_known_keys,
@@ -80,7 +79,7 @@ fn new_test_ext(genesis_config: &RuntimeGenesisConfig) -> TestExternalities<Blak
 }
 
 fn construct_block<E: Externalities>(
-	executor: &NativeElseWasmExecutor<ExecutorDispatch>,
+	executor: &ClientWasmExecutor,
 	ext: &mut E,
 	number: BlockNumber,
 	parent_hash: Hash,
@@ -159,7 +158,7 @@ fn construct_block<E: Externalities>(
 
 fn test_blocks(
 	genesis_config: &RuntimeGenesisConfig,
-	executor: &NativeElseWasmExecutor<ExecutorDispatch>,
+	executor: &ClientWasmExecutor,
 ) -> Vec<(Vec<u8>, Hash)> {
 	let mut test_ext = new_test_ext(genesis_config);
 	let mut block1_extrinsics = vec![CheckedExtrinsic {
@@ -196,8 +195,7 @@ fn bench_execute_block(c: &mut Criterion) {
 				ExecutionMethod::Wasm(..) => false,
 			};
 
-			let executor =
-				NativeElseWasmExecutor::new_with_wasm_executor(WasmExecutor::builder().build());
+			let executor = ClientWasmExecutor::builder().build();
 			let runtime_code = RuntimeCode {
 				code_fetcher: &sp_core::traits::WrappedRuntimeCode(compact_code_unwrap().into()),
 				hash: vec![1, 2, 3],
