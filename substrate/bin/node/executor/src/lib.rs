@@ -18,8 +18,16 @@
 //! Provides executor related types intended to be used across Substrate node.
 
 /// Host functions required for kitchensink runtime and Substrate node.
+#[cfg(not(feature = "runtime-benchmarks"))]
 pub type HostFunctions =
 	(sp_io::SubstrateHostFunctions, sp_statement_store::runtime_api::HostFunctions);
+
+#[cfg(feature = "runtime-benchmarks")]
+pub type HostFunctions = (
+	sp_io::SubstrateHostFunctions,
+	sp_statement_store::runtime_api::HostFunctions,
+	frame_benchmarking::benchmarking::HostFunctions,
+);
 
 /// A specialized `WasmExecutor` intended to use accross substrate node. It provides all required
 /// HostFunctions.
