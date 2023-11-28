@@ -51,5 +51,6 @@ This function should be seen as a complement to `chainHead_unstable_follow`, all
 
 - If the networking part of the behaviour fails, then a `{"event": "operationInaccessible"}` notification is generated (as explained above).
 - If the `followSubscription` is invalid or stale, then `"result": "limitReached"` is returned (as explained above).
-- A JSON-RPC error is generated if the block hash passed as parameter doesn't correspond to any block that has been reported by `chainHead_unstable_follow`.
-- A JSON-RPC error is generated if the `followSubscription` is valid but the block hash passed as parameter has already been unpinned.
+- A JSON-RPC error with error code `-32801` is generated if the block hash passed as parameter doesn't correspond to any block that has been reported by `chainHead_unstable_follow`, or the block hash has been unpinned.
+- A JSON-RPC error with error code `-32602` is generated if one of the parameters doesn't correspond to the expected type (similarly to a missing parameter or an invalid parameter type).
+- A JSON-RPC error with error code `-32603` is generated if the JSON-RPC server cannot interpret the block (hardware issues, corrupted database, disk failure etc).
