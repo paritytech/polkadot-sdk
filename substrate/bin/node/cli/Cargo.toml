@@ -165,6 +165,8 @@ runtime-benchmarks = [
 	"frame-benchmarking-cli/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"kitchensink-runtime/runtime-benchmarks",
+	"node-executor/runtime-benchmarks",
+	"node-inspect?/runtime-benchmarks",
 	"pallet-asset-tx-payment/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
