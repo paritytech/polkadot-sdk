@@ -36,6 +36,7 @@
 use sp_runtime::traits::{Convert, Member};
 use sp_std::prelude::*;
 
+use codec::Decode;
 use pallet_mmr::{LeafDataProvider, ParentNumberAndHash};
 use sp_consensus_beefy::{
 	mmr::{BeefyAuthoritySet, BeefyDataProvider, BeefyNextAuthoritySet, MmrLeaf, MmrLeafVersion},
@@ -226,7 +227,7 @@ sp_api::decl_runtime_apis! {
 	/// API useful for BEEFY light clients.
 	pub trait BeefyMmrApi<H>
 	where
-		BeefyAuthoritySet<H>: sp_api::Decode,
+		BeefyAuthoritySet<H>: Decode,
 	{
 		/// Return the currently active BEEFY authority set proof.
 		fn authority_set_proof() -> BeefyAuthoritySet<H>;

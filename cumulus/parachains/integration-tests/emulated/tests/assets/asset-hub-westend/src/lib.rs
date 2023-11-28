@@ -47,11 +47,12 @@ pub use westend_system_emulated_network::{
 	asset_hub_westend_emulated_chain::{
 		genesis::ED as ASSET_HUB_WESTEND_ED, AssetHubWestendParaPallet as AssetHubWestendPallet,
 	},
-	penpal_emulated_chain::PenpalAParaPallet as PenpalAPallet,
+	penpal_emulated_chain::PenpalBParaPallet as PenpalBPallet,
 	westend_emulated_chain::{genesis::ED as WESTEND_ED, WestendRelayPallet as WestendPallet},
 	AssetHubWestendPara as AssetHubWestend, AssetHubWestendParaReceiver as AssetHubWestendReceiver,
-	AssetHubWestendParaSender as AssetHubWestendSender, PenpalAPara as PenpalA,
-	PenpalAParaReceiver as PenpalAReceiver, PenpalAParaSender as PenpalASender,
+	AssetHubWestendParaSender as AssetHubWestendSender, BridgeHubWestendPara as BridgeHubWestend,
+	BridgeHubWestendParaReceiver as BridgeHubWestendReceiver, PenpalBPara as PenpalB,
+	PenpalBParaReceiver as PenpalBReceiver, PenpalBParaSender as PenpalBSender,
 	WestendRelay as Westend, WestendRelayReceiver as WestendReceiver,
 	WestendRelaySender as WestendSender,
 };
@@ -62,8 +63,10 @@ pub const ASSET_MIN_BALANCE: u128 = 1000;
 pub const ASSETS_PALLET_ID: u8 = 50;
 
 pub type RelayToSystemParaTest = Test<Westend, AssetHubWestend>;
+pub type RelayToParaTest = Test<Westend, PenpalB>;
 pub type SystemParaToRelayTest = Test<AssetHubWestend, Westend>;
-pub type SystemParaToParaTest = Test<AssetHubWestend, PenpalA>;
+pub type SystemParaToParaTest = Test<AssetHubWestend, PenpalB>;
+pub type ParaToSystemParaTest = Test<PenpalB, AssetHubWestend>;
 
 #[cfg(test)]
 mod tests;

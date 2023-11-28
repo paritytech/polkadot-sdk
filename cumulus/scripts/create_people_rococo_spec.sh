@@ -26,7 +26,7 @@ echo "Generating chain spec for runtime: $rt_path and para_id: $para_id"
 binary="./target/release/polkadot-parachain"
 
 # build the chain spec we'll manipulate
-$binary build-spec --chain people-rococo-dev > chain-spec-plain.json
+$binary build-spec --chain people-rococo-local > chain-spec-plain.json
 
 # convert runtime to hex
 cat $rt_path | od -A n -v -t x1 |  tr -d ' \n' > rt-hex.txt
@@ -36,7 +36,7 @@ cat $rt_path | od -A n -v -t x1 |  tr -d ' \n' > rt-hex.txt
 #
 # Note: This is a testnet runtime. Each invulnerable's Aura key is also used as its AccountId. This
 # is not recommended in value-bearing networks.
-cat chain-spec-plain.json | jq --rawfile code rt-hex.txt '.genesis.runtime.system.code = ("0x" + $code)' \
+cat chain-spec-plain.json | jq --rawfile code rt-hex.txt '.genesis.runtimeGenesis.code = ("0x" + $code)' \
     | jq '.name = "Rococo People"' \
     | jq '.id = "people-rococo"' \
     | jq '.chainType = "Live"' \
@@ -52,15 +52,15 @@ cat chain-spec-plain.json | jq --rawfile code rt-hex.txt '.genesis.runtime.syste
 	]' \
     | jq '.relay_chain = "rococo"' \
     | jq --argjson para_id $para_id '.para_id = $para_id' \
-    | jq --argjson para_id $para_id '.genesis.runtime.parachainInfo.parachainId = $para_id' \
-    | jq '.genesis.runtime.balances.balances = []' \
-    | jq '.genesis.runtime.collatorSelection.invulnerables = [
+    | jq --argjson para_id $para_id '.genesis.runtimeGenesis.patch.parachainInfo.parachainId = $para_id' \
+    | jq '.genesis.runtimeGenesis.patch.balances.balances = []' \
+    | jq '.genesis.runtimeGenesis.patch.collatorSelection.invulnerables = [
 		"5Gnjmw1iuF2kV4PecFgetJed7B8quBKfLiRM99ELcXvFH9Vn",
 		"5FLZRxyeRPhG69zo4ZPqCJSYboSKaRBUjBvQc1nkuWoBpZ5P",
 		"5DNnmPH2MT6SXpfqbJZbTz4eERmuZegssfxc4ysL8PWrHaNN",
 		"5DkKcSP5MboNMpXScW1CyRqaktKMXH8QLP4Mn49TwS5vhL6k"
 	]' \
-    | jq '.genesis.runtime.session.keys = [
+    | jq '.genesis.runtimeGenesis.patch.session.keys = [
             [
                 "5Gnjmw1iuF2kV4PecFgetJed7B8quBKfLiRM99ELcXvFH9Vn",
                 "5Gnjmw1iuF2kV4PecFgetJed7B8quBKfLiRM99ELcXvFH9Vn",

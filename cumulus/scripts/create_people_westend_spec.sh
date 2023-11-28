@@ -26,7 +26,7 @@ echo "Generating chain spec for runtime: $rt_path and para_id: $para_id"
 binary="./target/release/polkadot-parachain"
 
 # build the chain spec we'll manipulate
-$binary build-spec --chain people-westend-dev > chain-spec-plain.json
+$binary build-spec --chain people-westend-local > chain-spec-plain.json
 
 # convert runtime to hex
 cat $rt_path | od -A n -v -t x1 |  tr -d ' \n' > rt-hex.txt
@@ -36,7 +36,7 @@ cat $rt_path | od -A n -v -t x1 |  tr -d ' \n' > rt-hex.txt
 #
 # Note: This is a testnet runtime. Each invulnerable's Aura key is also used as its AccountId. This
 # is not recommended in value-bearing networks.
-cat chain-spec-plain.json | jq --rawfile code rt-hex.txt '.genesis.runtime.system.code = ("0x" + $code)' \
+cat chain-spec-plain.json | jq --rawfile code rt-hex.txt '.genesis.runtimeGenesis.code = ("0x" + $code)' \
     | jq '.name = "Westend People"' \
     | jq '.id = "people-westend"' \
     | jq '.chainType = "Live"' \
@@ -52,15 +52,15 @@ cat chain-spec-plain.json | jq --rawfile code rt-hex.txt '.genesis.runtime.syste
     ]' \
     | jq '.relay_chain = "westend"' \
     | jq --argjson para_id $para_id '.para_id = $para_id' \
-    | jq --argjson para_id $para_id '.genesis.runtime.parachainInfo.parachainId = $para_id' \
-    | jq '.genesis.runtime.balances.balances = []' \
-    | jq '.genesis.runtime.collatorSelection.invulnerables = [
+    | jq --argjson para_id $para_id '.genesis.runtimeGenesis.patch.parachainInfo.parachainId = $para_id' \
+    | jq '.genesis.runtimeGenesis.patch.balances.balances = []' \
+    | jq '.genesis.runtimeGenesis.patch.collatorSelection.invulnerables = [
         "5CFYvshLff1dHmT33jUcBc7mEKbVRJKbA9HzPqmLfjksHah6",
         "5HgEdsYyVGVsyNmbE1sUxeDLrxTLJXnAKCNa2HJ9QXXEir1B",
         "5EZmD6eA9wm1Y2Dy2wefLCsFJJcC7o8bVfWm7Mfbuanc8JYo",
         "5EkJFfUtbo258dCaqgYSvajN1tNtXhT3SrybW8ZhygoMP3kE"
     ]' \
-    | jq '.genesis.runtime.session.keys = [
+    | jq '.genesis.runtimeGenesis.patch.session.keys = [
             [
                 "5CFYvshLff1dHmT33jUcBc7mEKbVRJKbA9HzPqmLfjksHah6",
                 "5CFYvshLff1dHmT33jUcBc7mEKbVRJKbA9HzPqmLfjksHah6",

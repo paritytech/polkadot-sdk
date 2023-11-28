@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::chain_spec::{get_account_id_from_seed, Extensions};
+use crate::chain_spec::{get_account_id_from_seed, Extensions, GenericChainSpec};
 use cumulus_primitives_core::ParaId;
 use parachains_common::{AccountId, AuraId};
 use sc_service::ChainType;
@@ -22,11 +22,8 @@ use sp_core::sr25519;
 
 use super::get_collator_keys_from_seed;
 
-/// Specialized `ChainSpec` for the seedling parachain runtime.
-pub type SeedlingChainSpec = sc_service::GenericChainSpec<(), Extensions>;
-
-pub fn get_seedling_chain_spec() -> SeedlingChainSpec {
-	SeedlingChainSpec::builder(
+pub fn get_seedling_chain_spec() -> GenericChainSpec {
+	GenericChainSpec::builder(
 		seedling_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "westend".into(), para_id: 2000 },
 	)
