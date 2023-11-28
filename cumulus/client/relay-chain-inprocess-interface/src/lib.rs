@@ -283,7 +283,6 @@ fn build_polkadot_full_node(
 		config,
 		polkadot_service::NewFullParams {
 			is_parachain_node,
-			grandpa_pause: None,
 			// Disable BEEFY. It should not be required by the internal relay chain node.
 			enable_beefy: false,
 			force_authoring_backoff: false,
