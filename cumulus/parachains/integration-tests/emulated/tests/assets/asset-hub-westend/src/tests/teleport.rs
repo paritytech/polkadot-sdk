@@ -15,6 +15,7 @@
 
 use crate::*;
 use asset_hub_westend_runtime::xcm_config::XcmConfig as AssetHubWestendXcmConfig;
+use emulated_integration_tests_common::{para_test_args, relay_test_args};
 use westend_runtime::xcm_config::XcmConfig as WestendXcmConfig;
 
 fn relay_origin_assertions(t: RelayToSystemParaTest) {
