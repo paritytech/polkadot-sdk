@@ -5761,7 +5761,13 @@ mod commission {
 			// Then:
 			assert_eq!(
 				BondedPool::<Runtime>::get(1).unwrap().commission,
-				Commission { current: None, max: None, change_rate: None, throttle_from: Some(1) }
+				Commission {
+					current: None,
+					max: None,
+					change_rate: None,
+					throttle_from: Some(1),
+					claim_permission: None,
+				}
 			);
 			assert_eq!(
 				pool_events_since_last_call(),
@@ -5956,6 +5962,7 @@ mod commission {
 						min_delay: 2_u64
 					}),
 					throttle_from: Some(1_u64),
+					claim_permission: None,
 				}
 			);
 			assert_eq!(
@@ -6007,6 +6014,7 @@ mod commission {
 						min_delay: 2_u64
 					}),
 					throttle_from: Some(3_u64),
+					claim_permission: None,
 				}
 			);
 			assert_eq!(
@@ -6082,7 +6090,8 @@ mod commission {
 						max_increase: Perbill::from_percent(1),
 						min_delay: 2
 					}),
-					throttle_from: Some(7)
+					throttle_from: Some(7),
+					claim_permission: None,
 				}
 			);
 			assert_eq!(
@@ -6183,6 +6192,7 @@ mod commission {
 					max: Some(Perbill::from_percent(50)),
 					change_rate: None,
 					throttle_from: Some(1),
+					claim_permission: None,
 				}
 			);
 
@@ -6409,6 +6419,7 @@ mod commission {
 						min_delay: 10_u64
 					}),
 					throttle_from: Some(11),
+					claim_permission: None,
 				}
 			);
 
@@ -6502,7 +6513,8 @@ mod commission {
 						max_increase: Perbill::from_percent(1),
 						min_delay: 0
 					}),
-					throttle_from: Some(1)
+					throttle_from: Some(1),
+					claim_permission: None,
 				}
 			);
 
@@ -6885,6 +6897,13 @@ mod commission {
 	#[test]
 	fn claim_commission_works() {
 		ExtBuilder::default().build_and_execute(|| {
+			/// Deposit rewards into the pool and claim payout. This will set up pending commission
+			/// to be tested in various scenarios.
+			fn deposit_rewards_and_claim_payout(caller: AccountId, points: u128) {
+				deposit_rewards(points);
+				assert_ok!(Pools::claim_payout(RuntimeOrigin::signed(caller)));
+			}
+
 			let pool_id = 1;
 
 			let _ = Currency::set_balance(&900, 5);
@@ -6905,21 +6924,9 @@ mod commission {
 				]
 			);
 
-			// Pool earns 80 points, payout is triggered.
-			deposit_rewards(80);
-			assert_eq!(
-				PoolMembers::<Runtime>::get(10).unwrap(),
-				PoolMember::<Runtime> { pool_id, points: 10, ..Default::default() }
-			);
-
-			assert_ok!(Pools::claim_payout(RuntimeOrigin::signed(10)));
-			assert_eq!(
-				pool_events_since_last_call(),
-				vec![Event::PaidOut { member: 10, pool_id, payout: 40 }]
-			);
-
 			// Given:
-			assert_eq!(RewardPool::<Runtime>::current_balance(pool_id), 40);
+			deposit_rewards_and_claim_payout(10, 100);
+			assert_eq!(RewardPool::<Runtime>::current_balance(pool_id), 50);
 
 			// Pool does not exist
 			assert_noop!(
@@ -6943,6 +6950,176 @@ mod commission {
 			assert_noop!(
 				Pools::claim_commission(RuntimeOrigin::signed(900), pool_id,),
 				Error::<Runtime>::NoPendingCommission
+			);
+
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![
+					Event::PaidOut { member: 10, pool_id, payout: 50 },
+					Event::PoolCommissionClaimed { pool_id: 1, commission: 50 }
+				]
+			);
+
+			// The pool commission's claim_permission field is updated to `Permissionless` by the
+			// root member, which means anyone can now claim commission for the pool.
+
+			// Given:
+			// Some random non-pool member to claim commission.
+			let non_pool_member = 1001;
+			let _ = Currency::set_balance(&non_pool_member, 5);
+
+			// Set up pending commission.
+			deposit_rewards_and_claim_payout(10, 100);
+			assert_ok!(Pools::set_commission_claim_permission(
+				RuntimeOrigin::signed(900),
+				pool_id,
+				Some(CommissionClaimPermission::Permissionless)
+			));
+
+			// When:
+			assert_ok!(Pools::claim_commission(RuntimeOrigin::signed(non_pool_member), pool_id));
+
+			// Then:
+			assert_eq!(RewardPool::<Runtime>::current_balance(pool_id), 0);
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![
+					Event::PaidOut { member: 10, pool_id, payout: 50 },
+					Event::PoolCommissionClaimPermissionUpdated {
+						pool_id: 1,
+						permission: Some(CommissionClaimPermission::Permissionless)
+					},
+					Event::PoolCommissionClaimed { pool_id: 1, commission: 50 },
+				]
+			);
+
+			// The pool commission's claim_permission is updated to an adhoc account by the root
+			// member, which means now only that account (in addition to the root role) can claim
+			// commission for the pool.
+
+			// Given:
+			// The account designated to claim commission.
+			let designated_commission_claimer = 2001;
+			let _ = Currency::set_balance(&designated_commission_claimer, 5);
+
+			// Set up pending commission.
+			deposit_rewards_and_claim_payout(10, 100);
+			assert_ok!(Pools::set_commission_claim_permission(
+				RuntimeOrigin::signed(900),
+				pool_id,
+				Some(CommissionClaimPermission::Account(designated_commission_claimer))
+			));
+
+			// When:
+			// Previous claimer can no longer claim commission.
+			assert_noop!(
+				Pools::claim_commission(RuntimeOrigin::signed(1001), pool_id,),
+				Error::<Runtime>::DoesNotHavePermission
+			);
+			// Designated claimer can claim commission.
+			assert_ok!(Pools::claim_commission(
+				RuntimeOrigin::signed(designated_commission_claimer),
+				pool_id
+			));
+
+			// Then:
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![
+					Event::PaidOut { member: 10, pool_id, payout: 50 },
+					Event::PoolCommissionClaimPermissionUpdated {
+						pool_id: 1,
+						permission: Some(CommissionClaimPermission::Account(2001))
+					},
+					Event::PoolCommissionClaimed { pool_id: 1, commission: 50 },
+				]
+			);
+
+			// Even with an Account claim permission set, the `root` role of the pool can still
+			// claim commission.
+
+			// Given:
+			deposit_rewards_and_claim_payout(10, 100);
+
+			// When:
+			assert_ok!(Pools::claim_commission(RuntimeOrigin::signed(900), pool_id));
+
+			// Then:
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![
+					Event::PaidOut { member: 10, pool_id, payout: 50 },
+					Event::PoolCommissionClaimed { pool_id: 1, commission: 50 },
+				]
+			);
+
+			// The root role updates commission's claim_permission back to `None`, which results in
+			// only the root member being able to claim commission for the pool.
+
+			// Given:
+			deposit_rewards_and_claim_payout(10, 100);
+
+			// When:
+			assert_ok!(Pools::set_commission_claim_permission(
+				RuntimeOrigin::signed(900),
+				pool_id,
+				None
+			));
+			// Previous claimer can no longer claim commission.
+			assert_noop!(
+				Pools::claim_commission(
+					RuntimeOrigin::signed(designated_commission_claimer),
+					pool_id,
+				),
+				Error::<Runtime>::DoesNotHavePermission
+			);
+			// Root can claim commission.
+			assert_ok!(Pools::claim_commission(RuntimeOrigin::signed(900), pool_id));
+
+			// Then:
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![
+					Event::PaidOut { member: 10, pool_id, payout: 50 },
+					Event::PoolCommissionClaimPermissionUpdated { pool_id: 1, permission: None },
+					Event::PoolCommissionClaimed { pool_id: 1, commission: 50 },
+				]
+			);
+		})
+	}
+
+	#[test]
+	fn set_commission_claim_permission_handles_errors() {
+		ExtBuilder::default().build_and_execute(|| {
+			let pool_id = 1;
+
+			let _ = Currency::set_balance(&900, 5);
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![
+					Event::Created { depositor: 10, pool_id },
+					Event::Bonded { member: 10, pool_id, bonded: 10, joined: true },
+				]
+			);
+
+			// Cannot operate on a non-existing pool.
+			assert_noop!(
+				Pools::set_commission_claim_permission(
+					RuntimeOrigin::signed(10),
+					90,
+					Some(CommissionClaimPermission::Permissionless)
+				),
+				Error::<Runtime>::PoolNotFound
+			);
+
+			// Only the root role can change the commission claim permission.
+			assert_noop!(
+				Pools::set_commission_claim_permission(
+					RuntimeOrigin::signed(10),
+					pool_id,
+					Some(CommissionClaimPermission::Permissionless)
+				),
+				Error::<Runtime>::DoesNotHavePermission
 			);
 		})
 	}
