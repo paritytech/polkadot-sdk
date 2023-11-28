@@ -41,6 +41,15 @@ pub fn expand_outer_task(
 						RuntimeTask::#variant_name(hr)
 					}
 				}
+
+				impl From<RuntimeTask> for Option<#path::Task<#runtime_name>> {
+					fn from(rt: RuntimeTask) -> Self {
+						match rt {
+							RuntimeTask::#variant_name(hr) => Some(hr),
+							_ => None,
+						}
+					}
+				}
 			});
 
 			task_variants.push(quote! {
@@ -56,15 +65,12 @@ pub fn expand_outer_task(
 
 	let prelude = quote!(#scrate::traits::tasks::prelude);
 
-	const INCOMPLETE_MATCH_QED: &'static str =
-		"cannot have an instantiated RuntimeTask without some Task variant in the runtime. QED";
-
 	let output = quote! {
 		/// An aggregation of all `Task` enums across all pallets included in the current runtime.
 		#[derive(
 			Clone, Eq, PartialEq,
-			#scrate::__private::codec::Encode, #scrate::__private::codec::Decode,
-			// #scrate::__private::codec::MaxEncodedLen,
+			#scrate::__private::codec::Encode, 
+			#scrate::__private::codec::Decode,
 			#scrate::__private::scale_info::TypeInfo,
 			#scrate::__private::RuntimeDebug,
 		)]
@@ -72,38 +78,31 @@ pub fn expand_outer_task(
 			#( #task_variants )*
 		}
 
+		#[automatically_derived]
 		impl #scrate::traits::Task for RuntimeTask {
 			type Enumeration = #prelude::IntoIter<RuntimeTask>;
 
-			#[allow(unreachable_code)]
 			fn is_valid(&self) -> bool {
 				match self {
 					#(RuntimeTask::#variant_names(val) => val.is_valid(),)*
-					_ => unreachable!(#INCOMPLETE_MATCH_QED),
 				}
 			}
 
-			#[allow(unreachable_code)]
 			fn run(&self) -> Result<(), #scrate::traits::tasks::prelude::DispatchError> {
 				match self {
 					#(RuntimeTask::#variant_names(val) => val.run(),)*
-					_ => unreachable!(#INCOMPLETE_MATCH_QED),
 				}
 			}
 
-			#[allow(unreachable_code)]
 			fn weight(&self) -> #scrate::pallet_prelude::Weight {
 				match self {
 					#(RuntimeTask::#variant_names(val) => val.weight(),)*
-					_ => unreachable!(#INCOMPLETE_MATCH_QED),
 				}
 			}
 
-			#[allow(unreachable_code)]
 			fn task_index(&self) -> u32 {
 				match self {
 					#(RuntimeTask::#variant_names(val) => val.task_index(),)*
-					_ => unreachable!(#INCOMPLETE_MATCH_QED),
 				}
 			}
 
@@ -116,7 +115,6 @@ pub fn expand_outer_task(
 
 		#( #from_impls )*
 	};
-	// use proc_utils::*;
-	// output.pretty_print();
+
 	output
 }
