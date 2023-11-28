@@ -15,8 +15,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Provides const function allowing converting hex string to `u8` array at compile time if used in
-//! proper context.
+//! Provides a const function for converting a hex string to a `u8` array at compile time, when used
+//! in the proper context. Valid characters are `[0-9a-fA-F]`, and the hex string should not start
+//! with the `0x` prefix.
+//!
+//! # Panics
+//!
+//! The function will panic at compile time when used in a const context if:
+//! - The given hex string has an invalid length.
+//! - It contains invalid characters.
+//!
+//! The function will panic at runtime when used in a non-const context if the above conditions are
+//! met.
 
 /// Util that generates array from (static) string literal
 pub const fn hex2array<const N: usize>(hex: &str) -> [u8; N] {
@@ -111,5 +121,29 @@ mod testh2b {
 				201, 103, 83, 41, 8, 127, 71, 175, 241, 206, 170, 174, 119, 33, 128
 			]
 		);
+	}
+
+	#[test]
+	#[should_panic]
+	fn t_panic_incorrect_length() {
+		let f = |n: u8| -> Option<[u8; 2]> {
+			match n {
+				0 => Some(hex2array("454")),
+				_ => None,
+			}
+		};
+		assert_eq!(f(1), Some([0, 0]));
+	}
+
+	#[test]
+	#[should_panic]
+	fn t_panic_incorrect_character() {
+		let f = |n: u8| -> Option<[u8; 2]> {
+			match n {
+				0 => Some(hex2array("45ag")),
+				_ => None,
+			}
+		};
+		assert_eq!(f(1), Some([0, 0]));
 	}
 }
