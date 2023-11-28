@@ -37,7 +37,7 @@ pub const fn hex2array<const N: usize>(hex: &str) -> [u8; N] {
 			'0'..='9' => c - 48,
 			'a'..='f' => c - 87,
 			'A'..='F' => c - 55,
-			_ => panic!("bad character"),
+			_ => panic!("hex string contains invalid character"),
 		}
 	}
 	let mut output = [0; N];
@@ -126,26 +126,14 @@ mod testh2b {
 	}
 
 	#[test]
-	#[should_panic]
-	fn t_panic_incorrect_length() {
-		let f = |n: u8| -> Option<[u8; 2]> {
-			match n {
-				0 => Some(hex2array("454")),
-				_ => None,
-			}
-		};
-		assert!(f(0).is_some());
+	#[should_panic = "hex string length is not valid"]
+	fn t_panic_incorrect_length2() {
+		let _ = hex2array::<2>("454");
 	}
 
 	#[test]
-	#[should_panic]
-	fn t_panic_incorrect_character() {
-		let f = |n: u8| -> Option<[u8; 2]> {
-			match n {
-				0 => Some(hex2array("45ag")),
-				_ => None,
-			}
-		};
-		assert!(f(0).is_some());
+	#[should_panic = "hex string contains invalid character"]
+	fn t_panic_invalid_character() {
+		let _ = hex2array::<2>("45ag");
 	}
 }
