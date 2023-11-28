@@ -17,7 +17,7 @@
 	(func $assert (param i32)
 		(block $ok
 			(br_if $ok
-				(get_local 0)
+				(local.get 0)
 			)
 			(unreachable)
 		)
@@ -30,7 +30,7 @@
 		(call $seal_input (i32.const 0) (i32.const 36))
 
 		;; reading passed callstack height
-		(set_local $callstack_height (i32.load (i32.const 32)))
+		(local.set $callstack_height (i32.load (i32.const 32)))
 
 		;; incrementing callstack height
 		(i32.store (i32.const 32) (i32.add (i32.load (i32.const 32)) (i32.const 1)))
@@ -40,12 +40,12 @@
 			(i32.eq (call $reentrance_count) (i32.const 0))
 		)
 
-		(i32.eq (get_local $callstack_height) (i32.const 5))
+		(i32.eq (local.get $callstack_height) (i32.const 5))
 		(if
 			(then) ;; exit recursion case
 			(else
 				;; Call to itself
-				(set_local $delegate_call_exit_code
+				(local.set $delegate_call_exit_code
 					(call $seal_delegate_call
 						(i32.const 0)	;; Set no call flags
 						(i32.const 0)	;; Pointer to "callee" code_hash.
@@ -57,13 +57,13 @@
 				)
 
 				(call $assert
-					(i32.eq (get_local $delegate_call_exit_code) (i32.const 0))
+					(i32.eq (local.get $delegate_call_exit_code) (i32.const 0))
 				)
 			)
 		)
 
 		(call $assert
-			(i32.le_s (get_local $callstack_height) (i32.const 5))
+			(i32.le_s (local.get $callstack_height) (i32.const 5))
 		)
 	)
 
