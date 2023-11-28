@@ -713,7 +713,7 @@ pub struct Commission<T: Config> {
 	/// commission updates and when setting an initial `change_rate`.
 	pub throttle_from: Option<BlockNumberFor<T>>,
 	// Whether commission can be claimed permissionlessly, or whether an account can claim
-	// commission. root can always claim.
+	// commission. `Root` role can always claim.
 	pub claim_permission: Option<CommissionClaimPermission<T::AccountId>>,
 }
 
@@ -1871,7 +1871,7 @@ pub mod pallet {
 			pool_id: PoolId,
 			change_rate: CommissionChangeRate<BlockNumberFor<T>>,
 		},
-		/// Pool commission's claim permission has been updated.
+		/// Pool commission claim permission has been updated.
 		PoolCommissionClaimPermissionUpdated {
 			pool_id: PoolId,
 			permission: Option<CommissionClaimPermission<T::AccountId>>,
