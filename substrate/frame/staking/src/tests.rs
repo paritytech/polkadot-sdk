@@ -752,7 +752,7 @@ fn nominators_also_get_slashed_pro_rata() {
 }
 
 // note: this test will panic due to manual changes in the `Ledger` storage that will trigger the
-// `try_state` checks. The check tat panics runs at the end of the test (`post_check`), thus the
+// `try_state` checks. The check that panics runs at the end of the test (`post_check`), thus the
 // asserts in the tests are checked before.
 #[test]
 #[should_panic = "called `Result::unwrap()` on an `Err` value: Other(\"bonded ledger does not have payee set\")"]
