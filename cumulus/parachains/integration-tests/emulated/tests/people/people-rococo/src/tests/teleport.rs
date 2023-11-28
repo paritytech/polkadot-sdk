@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use emulated_integration_tests_common::accounts;
 use crate::*;
 
 use people_rococo_runtime::xcm_config::XcmConfig as PeopleRococoXcmConfig;
@@ -194,19 +195,20 @@ fn limited_teleport_native_assets_from_relay_to_system_para_works() {
 /// should work when there is enough balance in Relay Chain's `CheckAccount`
 #[test]
 fn limited_teleport_native_assets_back_from_system_para_to_relay_works() {
-
 	// Dependency - Relay Chain's `CheckAccount` should have enough balance
 	limited_teleport_native_assets_from_relay_to_system_para_works();
 
-	// Init values for Relay Chain, we set this amount because
-	// there are no balances in PeopleRococo created at genesis.
-	let amount_to_send: Balance = ROCOCO_ED * 1000;
+	let amount_to_send: Balance = PEOPLE_ROCOCO_ED * 1000;
 	let destination = PeopleRococo::parent_location();
 	let beneficiary_id = RococoReceiver::get();
 	let assets = (Parent, amount_to_send).into();
 
+
+	// set sender to PeopleRococoReceiver because they just received
+	// assets from limited_teleport call above. PeopleRococo has
+	// no balances on Genesis.
 	let test_args = TestContext {
-		sender: PeopleRococoSender::get(),
+		sender: PeopleRococoReceiver::get(),
 		receiver: RococoReceiver::get(),
 		args: para_test_args(destination, beneficiary_id, amount_to_send, assets, None, 0),
 	};
@@ -214,6 +216,7 @@ fn limited_teleport_native_assets_back_from_system_para_to_relay_works() {
 	let mut test = SystemParaToRelayTest::new(test_args);
 
 	let sender_balance_before = test.sender.balance;
+	println!("sender_balance_before: {:?}", sender_balance_before);
 	let receiver_balance_before = test.receiver.balance;
 
 	test.set_assertion::<PeopleRococo>(para_origin_assertions);
@@ -247,7 +250,7 @@ fn limited_teleport_native_assets_from_system_para_to_relay_fails() {
 	let assets = (Parent, amount_to_send).into();
 
 	let test_args = TestContext {
-		sender: PeopleRococoSender::get(),
+		sender: PeopleRococoReceiver::get(),
 		receiver: RococoReceiver::get(),
 		args: para_test_args(destination, beneficiary_id, amount_to_send, assets, None, 0),
 	};

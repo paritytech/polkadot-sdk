@@ -53,6 +53,8 @@ pub use rococo_system_emulated_network::{
 };
 
 
+pub const ASSET_ID: u32 = 1;
+pub const ASSET_MIN_BALANCE: u128 = 1000;
 pub type RelayToSystemParaTest = Test<Rococo, PeopleRococo>;
 pub type RelayToParaTest = Test<Rococo, PenpalA>;
 pub type SystemParaToRelayTest = Test<PeopleRococo, Rococo>;

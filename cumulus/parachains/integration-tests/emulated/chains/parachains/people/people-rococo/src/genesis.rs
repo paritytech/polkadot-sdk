@@ -13,13 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use cumulus_primitives_core::ParaId;
 // Substrate
 use sp_core::storage::Storage;
 
 // Cumulus
-use emulated_integration_tests_common::{build_genesis_storage, accounts, collators,
-										SAFE_XCM_VERSION};
+use emulated_integration_tests_common::{build_genesis_storage, collators, SAFE_XCM_VERSION};
+use cumulus_primitives_core::ParaId;
 use parachains_common::Balance;
 
 pub const PARA_ID: u32 = 1004;
