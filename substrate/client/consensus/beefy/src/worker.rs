@@ -1089,7 +1089,7 @@ pub(crate) mod tests {
 	use sp_consensus_beefy::{
 		generate_fork_equivocation_proof_sc, generate_fork_equivocation_proof_vote,
 		generate_vote_equivocation_proof, known_payloads, known_payloads::MMR_ROOT_ID,
-		mmr::MmrRootProvider, Keyring, Payload, SignedCommitment,
+		mmr::MmrRootProvider, ForkEquivocationProof, Keyring, Payload, SignedCommitment,
 	};
 	use sp_runtime::traits::One;
 	use std::marker::PhantomData;
@@ -1758,6 +1758,7 @@ pub(crate) mod tests {
 			Some(header.clone()),
 			Some(ancestry_proof.clone()),
 		);
+
 		{
 			// expect fisher (Alice) to successfully process it
 			assert_eq!(
@@ -1804,14 +1805,26 @@ pub(crate) mod tests {
 			block_number: block_number as u64,
 			validator_set_id: validator_set.id(),
 		};
+
 		// only Bob and Charlie sign
-		let proof = generate_fork_equivocation_proof_sc(
-			commitment,
-			vec![Keyring::Bob, Keyring::Charlie],
-			Some(header),
-			Some(ancestry_proof),
-		);
-		{
+		let signatories = &[Keyring::Bob, Keyring::Charlie]
+			.into_iter()
+			.map(|k| (k.public(), k.sign(&commitment.encode())))
+			.collect::<Vec<_>>();
+
+		// test over all permutations of header and ancestry proof being submitted (proof should
+		// be valid as long as at least one is submitted)
+		for (correct_header, ancestry_proof) in [
+			(Some(header.clone()), Some(ancestry_proof.clone())),
+			(Some(header), None),
+			(None, Some(ancestry_proof)),
+		] {
+			let proof = ForkEquivocationProof {
+				commitment: commitment.clone(),
+				signatories: signatories.clone(),
+				correct_header,
+				ancestry_proof,
+			};
 			// expect fisher (Alice) to successfully process it
 			assert_eq!(
 				alice_worker
@@ -1821,11 +1834,28 @@ pub(crate) mod tests {
 					.report_fork_equivocation(proof.clone()),
 				Ok(true)
 			);
-			// verify Alice report Bob's and Charlie's equivocation to runtime
-			let reported =
+			let mut reported =
 				alice_worker.runtime.reported_fork_equivocations.as_ref().unwrap().lock();
+			// verify Alice report Bob's and Charlie's equivocation to runtime
 			assert_eq!(reported.len(), 2);
-			assert_eq!(*reported.get(1).unwrap(), proof);
+			assert_eq!(reported.pop(), Some(proof));
 		}
+
+		// test that Alice does not submit invalid proof
+		let proofless_proof = ForkEquivocationProof {
+			commitment,
+			signatories: signatories.clone(),
+			correct_header: None,
+			ancestry_proof: None,
+		};
+
+		assert_eq!(
+			alice_worker
+				.comms
+				.gossip_validator
+				.fisherman
+				.report_fork_equivocation(proofless_proof.clone()),
+			Ok(false)
+		);
 	}
 }
