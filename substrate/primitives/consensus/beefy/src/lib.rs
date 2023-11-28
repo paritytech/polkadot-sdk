@@ -49,7 +49,7 @@ use codec::{Codec, Decode, Encode};
 use scale_info::TypeInfo;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::H256;
-use sp_runtime::traits::{Hash, Header, Keccak256, NumberFor};
+use sp_runtime::traits::{Hash, Header as HeaderT, Keccak256, NumberFor};
 use sp_std::prelude::*;
 
 /// Key type for BEEFY module.
@@ -319,7 +319,9 @@ pub struct ForkEquivocationProof<Number, Id, Signature, Header, Hash> {
 	pub ancestry_proof: Option<AncestryProof<Hash>>,
 }
 
-impl<Number, Id, Signature, H: Header, Hash> ForkEquivocationProof<Number, Id, Signature, H, Hash> {
+impl<Number, Id, Signature, H: HeaderT, Hash>
+	ForkEquivocationProof<Number, Id, Signature, H, Hash>
+{
 	/// Returns the authority id of the misbehaving voter.
 	pub fn offender_ids(&self) -> Vec<&Id> {
 		self.signatories.iter().map(|(id, _)| id).collect()
@@ -392,7 +394,7 @@ fn check_header_proof<Header>(
 	expected_header_hash: &Header::Hash,
 ) -> bool
 where
-	Header: sp_api::HeaderT,
+	Header: HeaderT,
 {
 	if let Some(correct_header) = correct_header {
 		let expected_mmr_root_digest = mmr::find_mmr_root_digest::<Header>(correct_header);
@@ -425,7 +427,7 @@ fn check_ancestry_proof<Header, NodeHash, Hasher>(
 	mmr_size: u64,
 ) -> bool
 where
-	Header: sp_api::HeaderT,
+	Header: HeaderT,
 	NodeHash: Clone + Debug + PartialEq + Encode + Decode,
 	Hasher: mmr_lib::Merge<Item = NodeHash>,
 {
@@ -514,7 +516,7 @@ pub fn check_fork_equivocation_proof<Id, MsgHash, Header, NodeHash, Hasher>(
 where
 	Id: BeefyAuthorityId<MsgHash> + PartialEq,
 	MsgHash: Hash,
-	Header: sp_api::HeaderT,
+	Header: HeaderT,
 	NodeHash: Clone + Debug + PartialEq + Encode + Decode,
 	Hasher: mmr_lib::Merge<Item = NodeHash>,
 {
