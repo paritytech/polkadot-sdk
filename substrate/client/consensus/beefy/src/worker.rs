@@ -1843,7 +1843,7 @@ pub(crate) mod tests {
 
 		// test that Alice does not submit invalid proof
 		let proofless_proof = ForkEquivocationProof {
-			commitment,
+			commitment: commitment.clone(),
 			signatories: signatories.clone(),
 			correct_header: None,
 			ancestry_proof: None,
@@ -1857,5 +1857,31 @@ pub(crate) mod tests {
 				.report_fork_equivocation(proofless_proof.clone()),
 			Ok(false)
 		);
+
+		let future_commitment = Commitment {
+			payload: commitment.payload,
+			block_number: net.peer(1).client().info().best_number + 10,
+			validator_set_id: commitment.validator_set_id,
+		};
+
+		let future_proof = generate_fork_equivocation_proof_sc(
+			future_commitment,
+			vec![Keyring::Bob, Keyring::Charlie],
+			None,
+			None,
+		);
+
+		assert_eq!(
+			alice_worker
+				.comms
+				.gossip_validator
+				.fisherman
+				.report_fork_equivocation(future_proof.clone()),
+			Ok(true)
+		);
+		let mut reported =
+			alice_worker.runtime.reported_fork_equivocations.as_ref().unwrap().lock();
+		assert_eq!(reported.len(), 2);
+		assert_eq!(reported.pop(), Some(future_proof));
 	}
 }
