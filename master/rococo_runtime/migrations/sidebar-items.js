@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["CouncilPalletName","DemocracyPalletName","PhragmenElectionPalletId","PhragmenElectionPalletName","TechnicalCommitteePalletName","TechnicalMembershipPalletName","TipsPalletName","UnlockConfig"],"type":["Unreleased"]};
+window.SIDEBAR_ITEMS = {"struct":["CouncilPalletName","DemocracyPalletName","ImOnlinePalletName","PhragmenElectionPalletId","PhragmenElectionPalletName","TechnicalCommitteePalletName","TechnicalMembershipPalletName","TipsPalletName","UnlockConfig","UpgradeSessionKeys"],"type":["Unreleased"]};

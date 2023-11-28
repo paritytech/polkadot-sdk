@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"type":["Unreleased"]};
+window.SIDEBAR_ITEMS = {"struct":["ImOnlinePalletName","UpgradeSessionKeys"],"type":["Unreleased"]};

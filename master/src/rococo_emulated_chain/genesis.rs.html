@@ -95,10 +95,6 @@
 <a href="#95" id="95">95</a>
 <a href="#96" id="96">96</a>
 <a href="#97" id="97">97</a>
-<a href="#98" id="98">98</a>
-<a href="#99" id="99">99</a>
-<a href="#100" id="100">100</a>
-<a href="#101" id="101">101</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -117,7 +113,6 @@
 // Substrate
 </span><span class="kw">use </span>beefy_primitives::ecdsa_crypto::AuthorityId <span class="kw">as </span>BeefyId;
 <span class="kw">use </span>grandpa::AuthorityId <span class="kw">as </span>GrandpaId;
-<span class="kw">use </span>pallet_im_online::sr25519::AuthorityId <span class="kw">as </span>ImOnlineId;
 <span class="kw">use </span>sp_authority_discovery::AuthorityId <span class="kw">as </span>AuthorityDiscoveryId;
 <span class="kw">use </span>sp_consensus_babe::AuthorityId <span class="kw">as </span>BabeId;
 <span class="kw">use </span>sp_core::{sr25519, storage::Storage};
@@ -139,7 +134,6 @@
 <span class="kw">fn </span>session_keys(
 	babe: BabeId,
 	grandpa: GrandpaId,
-	im_online: ImOnlineId,
 	para_validator: ValidatorId,
 	para_assignment: AssignmentId,
 	authority_discovery: AuthorityDiscoveryId,
@@ -148,7 +142,6 @@
 	rococo_runtime::SessionKeys {
 		babe,
 		grandpa,
-		im_online,
 		para_validator,
 		para_assignment,
 		authority_discovery,
@@ -175,7 +168,6 @@
 							x.<span class="number">4</span>.clone(),
 							x.<span class="number">5</span>.clone(),
 							x.<span class="number">6</span>.clone(),
-							x.<span class="number">7</span>.clone(),
 							get_from_seed::&lt;BeefyId&gt;(<span class="string">&quot;Alice&quot;</span>),
 						),
 					)

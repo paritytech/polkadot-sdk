@@ -1078,66 +1078,6 @@
 <a href="#1078" id="1078">1078</a>
 <a href="#1079" id="1079">1079</a>
 <a href="#1080" id="1080">1080</a>
-<a href="#1081" id="1081">1081</a>
-<a href="#1082" id="1082">1082</a>
-<a href="#1083" id="1083">1083</a>
-<a href="#1084" id="1084">1084</a>
-<a href="#1085" id="1085">1085</a>
-<a href="#1086" id="1086">1086</a>
-<a href="#1087" id="1087">1087</a>
-<a href="#1088" id="1088">1088</a>
-<a href="#1089" id="1089">1089</a>
-<a href="#1090" id="1090">1090</a>
-<a href="#1091" id="1091">1091</a>
-<a href="#1092" id="1092">1092</a>
-<a href="#1093" id="1093">1093</a>
-<a href="#1094" id="1094">1094</a>
-<a href="#1095" id="1095">1095</a>
-<a href="#1096" id="1096">1096</a>
-<a href="#1097" id="1097">1097</a>
-<a href="#1098" id="1098">1098</a>
-<a href="#1099" id="1099">1099</a>
-<a href="#1100" id="1100">1100</a>
-<a href="#1101" id="1101">1101</a>
-<a href="#1102" id="1102">1102</a>
-<a href="#1103" id="1103">1103</a>
-<a href="#1104" id="1104">1104</a>
-<a href="#1105" id="1105">1105</a>
-<a href="#1106" id="1106">1106</a>
-<a href="#1107" id="1107">1107</a>
-<a href="#1108" id="1108">1108</a>
-<a href="#1109" id="1109">1109</a>
-<a href="#1110" id="1110">1110</a>
-<a href="#1111" id="1111">1111</a>
-<a href="#1112" id="1112">1112</a>
-<a href="#1113" id="1113">1113</a>
-<a href="#1114" id="1114">1114</a>
-<a href="#1115" id="1115">1115</a>
-<a href="#1116" id="1116">1116</a>
-<a href="#1117" id="1117">1117</a>
-<a href="#1118" id="1118">1118</a>
-<a href="#1119" id="1119">1119</a>
-<a href="#1120" id="1120">1120</a>
-<a href="#1121" id="1121">1121</a>
-<a href="#1122" id="1122">1122</a>
-<a href="#1123" id="1123">1123</a>
-<a href="#1124" id="1124">1124</a>
-<a href="#1125" id="1125">1125</a>
-<a href="#1126" id="1126">1126</a>
-<a href="#1127" id="1127">1127</a>
-<a href="#1128" id="1128">1128</a>
-<a href="#1129" id="1129">1129</a>
-<a href="#1130" id="1130">1130</a>
-<a href="#1131" id="1131">1131</a>
-<a href="#1132" id="1132">1132</a>
-<a href="#1133" id="1133">1133</a>
-<a href="#1134" id="1134">1134</a>
-<a href="#1135" id="1135">1135</a>
-<a href="#1136" id="1136">1136</a>
-<a href="#1137" id="1137">1137</a>
-<a href="#1138" id="1138">1138</a>
-<a href="#1139" id="1139">1139</a>
-<a href="#1140" id="1140">1140</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1158,7 +1098,6 @@
 
 </span><span class="kw">use </span>beefy_primitives::ecdsa_crypto::AuthorityId <span class="kw">as </span>BeefyId;
 <span class="kw">use </span>grandpa::AuthorityId <span class="kw">as </span>GrandpaId;
-<span class="kw">use </span>pallet_im_online::sr25519::AuthorityId <span class="kw">as </span>ImOnlineId;
 <span class="attr">#[cfg(feature = <span class="string">&quot;westend-native&quot;</span>)]
 </span><span class="kw">use </span>pallet_staking::Forcing;
 <span class="kw">use </span>polkadot_primitives::{AccountId, AccountPublic, AssignmentId, ValidatorId};
@@ -1302,7 +1241,6 @@
 </span><span class="kw">fn </span>westend_session_keys(
 	babe: BabeId,
 	grandpa: GrandpaId,
-	im_online: ImOnlineId,
 	para_validator: ValidatorId,
 	para_assignment: AssignmentId,
 	authority_discovery: AuthorityDiscoveryId,
@@ -1311,7 +1249,6 @@
 	westend::SessionKeys {
 		babe,
 		grandpa,
-		im_online,
 		para_validator,
 		para_assignment,
 		authority_discovery,
@@ -1323,7 +1260,6 @@
 </span><span class="kw">fn </span>rococo_session_keys(
 	babe: BabeId,
 	grandpa: GrandpaId,
-	im_online: ImOnlineId,
 	para_validator: ValidatorId,
 	para_assignment: AssignmentId,
 	authority_discovery: AuthorityDiscoveryId,
@@ -1332,7 +1268,6 @@
 	rococo_runtime::SessionKeys {
 		babe,
 		grandpa,
-		im_online,
 		para_validator,
 		para_assignment,
 		authority_discovery,
@@ -1360,7 +1295,6 @@
 		AccountId,
 		BabeId,
 		GrandpaId,
-		ImOnlineId,
 		ValidatorId,
 		AssignmentId,
 		AuthorityDiscoveryId,
@@ -1376,9 +1310,6 @@
 				.unchecked_into(),
 			<span class="comment">//5Eb7wM65PNgtY6e33FEAzYtU5cRTXt6WQvZTnzaKQwkVcABk
 			</span><span class="macro">hex!</span>[<span class="string">&quot;6faae44b21c6f2681a7f60df708e9f79d340f7d441d28bd987fab8d05c6487e8&quot;</span>]
-				.unchecked_into(),
-			<span class="comment">//5CdS2wGo4qdTQceVfEnbZH8vULeBrnGYCxSCxDna4tQSMV6y
-			</span><span class="macro">hex!</span>[<span class="string">&quot;18f5d55f138bfa8e0ea26ed6fa56817b247de3c2e2030a908c63fb37c146473f&quot;</span>]
 				.unchecked_into(),
 			<span class="comment">//5FqMLAgygdX9UqzukDp15Uid9PAKdFAR621U7xtp5ut2NfrW
 			</span><span class="macro">hex!</span>[<span class="string">&quot;a6c1a5b501985a83cb1c37630c5b41e6b0a15b3675b2fd94694758e6cfa6794d&quot;</span>]
@@ -1404,9 +1335,6 @@
 			<span class="comment">//5FXFsPReTUEYPRNKhbTdUathcWBsxTNsLbk2mTpYdKCJewjA
 			</span><span class="macro">hex!</span>[<span class="string">&quot;98f4d81cb383898c2c3d54dab28698c0f717c81b509cb32dc6905af3cc697b18&quot;</span>]
 				.unchecked_into(),
-			<span class="comment">//5CDYSCJK91r8y2r1V4Ddrit4PFMEkwZXJe8mNBqGXJ4xWCWq
-			</span><span class="macro">hex!</span>[<span class="string">&quot;06bd7dd4ab4c808c7d09d9cb6bd27fbcd99ad8400e99212b335056c475c24031&quot;</span>]
-				.unchecked_into(),
 			<span class="comment">//5CZjurB78XbSHf6SLkLhCdkqw52Zm7aBYUDdfkLqEDWJ9Zhj
 			</span><span class="macro">hex!</span>[<span class="string">&quot;162508accd470e379b04cb0c7c60b35a7d5357e84407a89ed2dd48db4b726960&quot;</span>]
 				.unchecked_into(),
@@ -1431,9 +1359,6 @@
 			<span class="comment">//5G4kCbgqUhEyrRHCyFwFEkgBZXoYA8sbgsRxT9rY8Tp5Jj5F
 			</span><span class="macro">hex!</span>[<span class="string">&quot;b0f8d2b9e4e1eafd4dab6358e0b9d5380d78af27c094e69ae9d6d30ca300fd86&quot;</span>]
 				.unchecked_into(),
-			<span class="comment">//5HVhFBLFTKSZK9fX6RktckWDTgYNoSd33fgonsEC8zfr4ddm
-			</span><span class="macro">hex!</span>[<span class="string">&quot;f03c3e184b2883eec9beaeb97f54321587e7476b228831ea0b5fc6da847ea975&quot;</span>]
-				.unchecked_into(),
 			<span class="comment">//5CS7thd2n54WfqeKU3cjvZzK4z5p7zku1Zw97mSzXgPioAAs
 			</span><span class="macro">hex!</span>[<span class="string">&quot;1055100a283968271a0781450b389b9093231be809be1e48a305ebad2a90497e&quot;</span>]
 				.unchecked_into(),
@@ -1457,9 +1382,6 @@
 				.unchecked_into(),
 			<span class="comment">//5ChfdrAqmLjCeDJvynbMjcxYLHYzPe8UWXd3HnX9JDThUMbn
 			</span><span class="macro">hex!</span>[<span class="string">&quot;1c309a70b4e274314b84c9a0a1f973c9c4fc084df5479ef686c54b1ae4950424&quot;</span>]
-				.unchecked_into(),
-			<span class="comment">//5DnsMm24575xK2b2aGfmafiDxwCet6Mr4iiZQeDdWvi8CzuF
-			</span><span class="macro">hex!</span>[<span class="string">&quot;4c64868ba6d8ace235d3efb4c10d745a67cf3bdfeae23b264d7ea2f3439dec42&quot;</span>]
 				.unchecked_into(),
 			<span class="comment">//5D8C3HHEp5E8fJsXRD56494F413CdRSR9QKGXe7v5ZEfymdj
 			</span><span class="macro">hex!</span>[<span class="string">&quot;2ee4d78f328db178c54f205ac809da12e291a33bcbd4f29f081ce7e74bdc5044&quot;</span>]
@@ -1501,7 +1423,6 @@
 							x.<span class="number">5</span>.clone(),
 							x.<span class="number">6</span>.clone(),
 							x.<span class="number">7</span>.clone(),
-							x.<span class="number">8</span>.clone(),
 						),
 					)
 				})
@@ -1548,7 +1469,6 @@
 		AccountId,
 		BabeId,
 		GrandpaId,
-		ImOnlineId,
 		ValidatorId,
 		AssignmentId,
 		AuthorityDiscoveryId,
@@ -1564,9 +1484,6 @@
 				.unchecked_into(),
 			<span class="comment">//5CPd3zoV9Aaah4xWucuDivMHJ2nEEmpdi864nPTiyRZp4t87
 			</span><span class="macro">hex!</span>[<span class="string">&quot;0e6d7d1afbcc6547b92995a394ba0daed07a2420be08220a5a1336c6731f0bfa&quot;</span>]
-				.unchecked_into(),
-			<span class="comment">//5F7BEa1LGFksUihyatf3dCDYneB8pWzVyavnByCsm5nBgezi
-			</span><span class="macro">hex!</span>[<span class="string">&quot;86975a37211f8704e947a365b720f7a3e2757988eaa7d0f197e83dba355ef743&quot;</span>]
 				.unchecked_into(),
 			<span class="comment">//5CP6oGfwqbEfML8efqm1tCZsUgRsJztp9L8ZkEUxA16W8PPz
 			</span><span class="macro">hex!</span>[<span class="string">&quot;0e07a51d3213842f8e9363ce8e444255990a225f87e80a3d651db7841e1a0205&quot;</span>]
@@ -1592,9 +1509,6 @@
 			<span class="comment">//5HnDVBN9mD6mXyx8oryhDbJtezwNSj1VRXgLoYCBA6uEkiao
 			</span><span class="macro">hex!</span>[<span class="string">&quot;fcd5f87a6fd5707a25122a01b4dac0a8482259df7d42a9a096606df1320df08d&quot;</span>]
 				.unchecked_into(),
-			<span class="comment">//5DhyXZiuB1LvqYKFgT5tRpgGsN3is2cM9QxgW7FikvakbAZP
-			</span><span class="macro">hex!</span>[<span class="string">&quot;48a910c0af90898f11bd57d37ceaea53c78994f8e1833a7ade483c9a84bde055&quot;</span>]
-				.unchecked_into(),
 			<span class="comment">//5EPEWRecy2ApL5n18n3aHyU1956zXTRqaJpzDa9DoqiggNwF
 			</span><span class="macro">hex!</span>[<span class="string">&quot;669a10892119453e9feb4e3f1ee8e028916cc3240022920ad643846fbdbee816&quot;</span>]
 				.unchecked_into(),
@@ -1618,9 +1532,6 @@
 				.unchecked_into(),
 			<span class="comment">//5HAes2RQYPbYKbLBfKb88f4zoXv6pPA6Ke8CjN7dob3GpmSP
 			</span><span class="macro">hex!</span>[<span class="string">&quot;e1b68fbd84333e31486c08e6153d9a1415b2e7e71b413702b7d64e9b631184a1&quot;</span>]
-				.unchecked_into(),
-			<span class="comment">//5HTXBf36LXmkFWJLokNUK6fPxVpkr2ToUnB1pvaagdGu4c1T
-			</span><span class="macro">hex!</span>[<span class="string">&quot;ee93e26259decb89afcf17ef2aa0fa2db2e1042fb8f56ecfb24d19eae8629878&quot;</span>]
 				.unchecked_into(),
 			<span class="comment">//5FtAGDZYJKXkhVhAxCQrXmaP7EE2mGbBMfmKDHjfYDgq2BiU
 			</span><span class="macro">hex!</span>[<span class="string">&quot;a8e61ffacafaf546283dc92d14d7cc70ea0151a5dd81fdf73ff5a2951f2b6037&quot;</span>]
@@ -1646,9 +1557,6 @@
 			<span class="comment">//5DJV3zCBTJBLGNDCcdWrYxWDacSz84goGTa4pFeKVvehEBte
 			</span><span class="macro">hex!</span>[<span class="string">&quot;36be9069cdb4a8a07ecd51f257875150f0a8a1be44a10d9d98dabf10a030aef4&quot;</span>]
 				.unchecked_into(),
-			<span class="comment">//5FHf8kpK4fPjEJeYcYon2gAPwEBubRvtwpzkUbhMWSweKPUY
-			</span><span class="macro">hex!</span>[<span class="string">&quot;8e95b9b5b4dc69790b67b566567ca8bf8cdef3a3a8bb65393c0d1d1c87cd2d2c&quot;</span>]
-				.unchecked_into(),
 			<span class="comment">//5F9FsRjpecP9GonktmtFL3kjqNAMKjHVFjyjRdTPa4hbQRZA
 			</span><span class="macro">hex!</span>[<span class="string">&quot;882d72965e642677583b333b2d173ac94b5fd6c405c76184bb14293be748a13b&quot;</span>]
 				.unchecked_into(),
@@ -1672,9 +1580,6 @@
 				.unchecked_into(),
 			<span class="comment">//5EX1JBghGbQqWohTPU6msR9qZ2nYPhK9r3RTQ2oD1K8TCxaG
 			</span><span class="macro">hex!</span>[<span class="string">&quot;6c878e33b83c20324238d22240f735457b6fba544b383e70bb62a27b57380c81&quot;</span>]
-				.unchecked_into(),
-			<span class="comment">//5GqL8RbVAuNXpDhjQi1KrS1MyNuKhvus2AbmQwRGjpuGZmFu
-			</span><span class="macro">hex!</span>[<span class="string">&quot;d2f9d537ffa59919a4028afdb627c14c14c97a1547e13e8e82203d2049b15b1a&quot;</span>]
 				.unchecked_into(),
 			<span class="comment">//5EUNaBpX9mJgcmLQHyG5Pkms6tbDiKuLbeTEJS924Js9cA1N
 			</span><span class="macro">hex!</span>[<span class="string">&quot;6a8570b9c6408e54bacf123cc2bb1b0f087f9c149147d0005badba63a5a4ac01&quot;</span>]
@@ -1700,9 +1605,6 @@
 			<span class="comment">//5GzDPGbUM9uH52ZEwydasTj8edokGUJ7vEpoFWp9FE1YNuFB
 			</span><span class="macro">hex!</span>[<span class="string">&quot;d9c056c98ca0e6b4eb7f5c58c007c1db7be0fe1f3776108f797dd4990d1ccc33&quot;</span>]
 				.unchecked_into(),
-			<span class="comment">//5GWZbVkJEfWZ7fRca39YAQeqri2Z7pkeHyd7rUctUHyQifLp
-			</span><span class="macro">hex!</span>[<span class="string">&quot;c4a980da30939d5bb9e4a734d12bf81259ae286aa21fa4b65405347fa40eff35&quot;</span>]
-				.unchecked_into(),
 			<span class="comment">//5CmLCFeSurRXXtwMmLcVo7sdJ9EqDguvJbuCYDcHkr3cpqyE
 			</span><span class="macro">hex!</span>[<span class="string">&quot;1efc23c0b51ad609ab670ecf45807e31acbd8e7e5cb7c07cf49ee42992d2867c&quot;</span>]
 				.unchecked_into(),
@@ -1727,9 +1629,6 @@
 			<span class="comment">//5DnEySxbnppWEyN8cCLqvGjAorGdLRg2VmkY96dbJ1LHFK8N
 			</span><span class="macro">hex!</span>[<span class="string">&quot;4bea0b37e0cce9bddd80835fa2bfd5606f5dcfb8388bbb10b10c483f0856cf14&quot;</span>]
 				.unchecked_into(),
-			<span class="comment">//5E1Y1FJ7dVP7qtE3wm241pTm72rTMcDT5Jd8Czv7Pwp7N3AH
-			</span><span class="macro">hex!</span>[<span class="string">&quot;560d90ca51e9c9481b8a9810060e04d0708d246714960439f804e5c6f40ca651&quot;</span>]
-				.unchecked_into(),
 			<span class="comment">//5CAC278tFCHAeHYqE51FTWYxHmeLcENSS1RG77EFRTvPZMJT
 			</span><span class="macro">hex!</span>[<span class="string">&quot;042f07fc5268f13c026bbe199d63e6ac77a0c2a780f71cda05cee5a6f1b3f11f&quot;</span>]
 				.unchecked_into(),
@@ -1753,9 +1652,6 @@
 				.unchecked_into(),
 			<span class="comment">//5DrA2fZdzmNqT5j6DXNwVxPBjDV9jhkAqvjt6Us3bQHKy3cF
 			</span><span class="macro">hex!</span>[<span class="string">&quot;4ee66173993dd0db5d628c4c9cb61a27b76611ad3c3925947f0d0011ee2c5dcc&quot;</span>]
-				.unchecked_into(),
-			<span class="comment">//5FNFDUGNLUtqg5LgrwYLNmBiGoP8KRxsvQpBkc7GQP6qaBUG
-			</span><span class="macro">hex!</span>[<span class="string">&quot;92156f54a114ee191415898f2da013d9db6a5362d6b36330d5fc23e27360ab66&quot;</span>]
 				.unchecked_into(),
 			<span class="comment">//5Gx6YeNhynqn8qkda9QKpc9S7oDr4sBrfAu516d3sPpEt26F
 			</span><span class="macro">hex!</span>[<span class="string">&quot;d822d4088b20dca29a580a577a97d6f024bb24c9550bebdfd7d2d18e946a1c7d&quot;</span>]
@@ -1797,7 +1693,6 @@
 							x.<span class="number">5</span>.clone(),
 							x.<span class="number">6</span>.clone(),
 							x.<span class="number">7</span>.clone(),
-							x.<span class="number">8</span>.clone(),
 						),
 					)
 				})
@@ -1908,35 +1803,24 @@
 	AccountId,
 	BabeId,
 	GrandpaId,
-	ImOnlineId,
 	ValidatorId,
 	AssignmentId,
 	AuthorityDiscoveryId,
 	BeefyId,
 ) {
 	<span class="kw">let </span>keys = get_authority_keys_from_seed_no_beefy(seed);
-	(keys.<span class="number">0</span>, keys.<span class="number">1</span>, keys.<span class="number">2</span>, keys.<span class="number">3</span>, keys.<span class="number">4</span>, keys.<span class="number">5</span>, keys.<span class="number">6</span>, keys.<span class="number">7</span>, get_from_seed::&lt;BeefyId&gt;(seed))
+	(keys.<span class="number">0</span>, keys.<span class="number">1</span>, keys.<span class="number">2</span>, keys.<span class="number">3</span>, keys.<span class="number">4</span>, keys.<span class="number">5</span>, keys.<span class="number">6</span>, get_from_seed::&lt;BeefyId&gt;(seed))
 }
 
 <span class="doccomment">/// Helper function to generate stash, controller and session key from seed
 </span><span class="kw">pub fn </span>get_authority_keys_from_seed_no_beefy(
 	seed: <span class="kw-2">&amp;</span>str,
-) -&gt; (
-	AccountId,
-	AccountId,
-	BabeId,
-	GrandpaId,
-	ImOnlineId,
-	ValidatorId,
-	AssignmentId,
-	AuthorityDiscoveryId,
-) {
+) -&gt; (AccountId, AccountId, BabeId, GrandpaId, ValidatorId, AssignmentId, AuthorityDiscoveryId) {
 	(
 		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}//stash&quot;</span>, seed)),
 		get_account_id_from_seed::&lt;sr25519::Public&gt;(seed),
 		get_from_seed::&lt;BabeId&gt;(seed),
 		get_from_seed::&lt;GrandpaId&gt;(seed),
-		get_from_seed::&lt;ImOnlineId&gt;(seed),
 		get_from_seed::&lt;ValidatorId&gt;(seed),
 		get_from_seed::&lt;AssignmentId&gt;(seed),
 		get_from_seed::&lt;AuthorityDiscoveryId&gt;(seed),
@@ -1969,7 +1853,6 @@
 		AccountId,
 		BabeId,
 		GrandpaId,
-		ImOnlineId,
 		ValidatorId,
 		AssignmentId,
 		AuthorityDiscoveryId,
@@ -2001,7 +1884,6 @@
 							x.<span class="number">5</span>.clone(),
 							x.<span class="number">6</span>.clone(),
 							x.<span class="number">7</span>.clone(),
-							x.<span class="number">8</span>.clone(),
 						),
 					)
 				})
@@ -2039,7 +1921,6 @@
 		AccountId,
 		BabeId,
 		GrandpaId,
-		ImOnlineId,
 		ValidatorId,
 		AssignmentId,
 		AuthorityDiscoveryId,
@@ -2070,7 +1951,6 @@
 							x.<span class="number">5</span>.clone(),
 							x.<span class="number">6</span>.clone(),
 							x.<span class="number">7</span>.clone(),
-							x.<span class="number">8</span>.clone(),
 						),
 					)
 				})
