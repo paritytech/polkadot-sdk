@@ -15,9 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Provides executor related types intended to use accross substrate node.
+//! Provides executor related types intended to be used across Substrate node.
 
-/// Host functions required for kitchensink runtime and substrate node.
+/// Host functions required for kitchensink runtime and Substrate node.
 pub type HostFunctions =
 	(sp_io::SubstrateHostFunctions, sp_statement_store::runtime_api::HostFunctions);
 
