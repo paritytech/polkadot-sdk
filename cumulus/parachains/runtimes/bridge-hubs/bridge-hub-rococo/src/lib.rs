@@ -18,6 +18,7 @@
 //!
 //! This runtime currently supports bridging between:
 //! - Rococo <> Westend
+//! - Rococo <> Rococo Bulletin
 
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
@@ -28,6 +29,7 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 pub mod bridge_common_config;
+pub mod bridge_to_bulletin_config;
 pub mod bridge_to_westend_config;
 mod weights;
 pub mod xcm_config;
@@ -106,7 +108,10 @@ pub type SignedExtra = (
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 	BridgeRejectObsoleteHeadersAndMessages,
-	(bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages,),
+	(
+		bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages,
+		bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages,
+	),
 );
 
 /// Unchecked extrinsic type as expected by this runtime.
@@ -500,19 +505,25 @@ construct_runtime!(
 		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 36,
 
 		// BridgeHubRococo uses:
-		//  - BridgeWestendGrandpa
+		//  - BridgeWestendGrandpa + BridgePolkadotBulletinGrandpa
 		//  - BridgeWestendParachains
-		//  - BridgeWestendMessages
+		//  - BridgeWestendMessages + BridgePolkadotBulletinMessages
 		//  - BridgeRelayers
 
 		// GRANDPA bridge modules.
 		BridgeWestendGrandpa: pallet_bridge_grandpa::<Instance3>::{Pallet, Call, Storage, Event<T>, Config<T>} = 48,
+		// we can't use `BridgeRococoBulletinGrandpa` name here, because the same Bulletin runtime will be
+		// used for both Rococo and Polkadot Bulletin chains
+		BridgePolkadotBulletinGrandpa: pallet_bridge_grandpa::<Instance4>::{Pallet, Call, Storage, Event<T>, Config<T>} = 52,
 
 		// Parachain bridge modules.
 		BridgeWestendParachains: pallet_bridge_parachains::<Instance3>::{Pallet, Call, Storage, Event<T>} = 49,
 
 		// Messaging bridge modules.
 		BridgeWestendMessages: pallet_bridge_messages::<Instance3>::{Pallet, Call, Storage, Event<T>, Config<T>} = 51,
+		// we can't use `BridgeRococoBulletinMessages` name here, because the same Bulletin runtime will be
+		// used for both Rococo and Polkadot Bulletin chains
+		BridgePolkadotBulletinMessages: pallet_bridge_messages::<Instance4>::{Pallet, Call, Storage, Event<T>, Config<T>} = 53,
 
 		BridgeRelayers: pallet_bridge_relayers::{Pallet, Call, Storage, Event<T>} = 47,
 
@@ -522,14 +533,21 @@ construct_runtime!(
 	}
 );
 
+/// Proper name for bridge GRANDPA pallet used to bridge with the bulletin chain.
+pub type BridgeRococoBulletinGrandpa = BridgePolkadotBulletinGrandpa;
+/// Proper name for bridge messages pallet used to bridge with the bulletin chain.
+pub type BridgeRococoBulletinMessages = BridgePolkadotBulletinMessages;
+
 bridge_runtime_common::generate_bridge_reject_obsolete_headers_and_messages! {
 	RuntimeCall, AccountId,
 	// Grandpa
 	BridgeWestendGrandpa,
+	BridgeRococoBulletinGrandpa,
 	// Parachains
 	BridgeWestendParachains,
 	// Messages
-	BridgeWestendMessages
+	BridgeWestendMessages,
+	BridgeRococoBulletinMessages
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -554,6 +572,7 @@ mod benches {
 		[pallet_bridge_grandpa, WestendFinality]
 		[pallet_bridge_parachains, WithinWestend]
 		[pallet_bridge_messages, RococoToWestend]
+		[pallet_bridge_messages, RococoToRococoBulletin]
 		[pallet_bridge_relayers, BridgeRelayersBench::<Runtime>]
 	);
 }
@@ -789,6 +808,7 @@ impl_runtime_apis! {
 			type WestendFinality = BridgeWestendGrandpa;
 			type WithinWestend = pallet_bridge_parachains::benchmarking::Pallet::<Runtime, bridge_common_config::BridgeParachainWestendInstance>;
 			type RococoToWestend = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>;
+			type RococoToRococoBulletin = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_bulletin_config::WithRococoBulletinMessagesInstance>;
 
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmarks!(list, extra);
@@ -949,9 +969,12 @@ impl_runtime_apis! {
 			type WestendFinality = BridgeWestendGrandpa;
 			type WithinWestend = pallet_bridge_parachains::benchmarking::Pallet::<Runtime, bridge_common_config::BridgeParachainWestendInstance>;
 			type RococoToWestend = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>;
+			type RococoToRococoBulletin = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_bulletin_config::WithRococoBulletinMessagesInstance>;
 
 			use bridge_runtime_common::messages_benchmarking::{
+				prepare_message_delivery_proof_from_grandpa_chain,
 				prepare_message_delivery_proof_from_parachain,
+				prepare_message_proof_from_grandpa_chain,
 				prepare_message_proof_from_parachain,
 				generate_xcm_builder_bridge_message_sample,
 			};
@@ -995,6 +1018,41 @@ impl_runtime_apis! {
 						Runtime,
 						bridge_common_config::BridgeGrandpaWestendInstance,
 						bridge_to_westend_config::WithBridgeHubWestendMessageBridge,
+					>(params)
+				}
+
+				fn is_message_successfully_dispatched(_nonce: bp_messages::MessageNonce) -> bool {
+					use cumulus_primitives_core::XcmpMessageSource;
+					!XcmpQueue::take_outbound_messages(usize::MAX).is_empty()
+				}
+			}
+
+			impl BridgeMessagesConfig<bridge_to_bulletin_config::WithRococoBulletinMessagesInstance> for Runtime {
+				fn is_relayer_rewarded(_relayer: &Self::AccountId) -> bool {
+					// we do not pay any rewards in this bridge
+					true
+				}
+
+				fn prepare_message_proof(
+					params: MessageProofParams,
+				) -> (bridge_to_bulletin_config::FromRococoBulletinMessagesProof, Weight) {
+					use cumulus_primitives_core::XcmpMessageSource;
+					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
+					prepare_message_proof_from_grandpa_chain::<
+						Runtime,
+						bridge_common_config::BridgeGrandpaRococoBulletinInstance,
+						bridge_to_bulletin_config::WithRococoBulletinMessageBridge,
+					>(params, generate_xcm_builder_bridge_message_sample(X2(GlobalConsensus(Rococo), Parachain(42))))
+				}
+
+				fn prepare_message_delivery_proof(
+					params: MessageDeliveryProofParams<AccountId>,
+				) -> bridge_to_bulletin_config::ToRococoBulletinMessagesDeliveryProof {
+					prepare_message_delivery_proof_from_grandpa_chain::<
+						Runtime,
+						bridge_common_config::BridgeGrandpaRococoBulletinInstance,
+						bridge_to_bulletin_config::WithRococoBulletinMessageBridge,
 					>(params)
 				}
 
@@ -1115,7 +1173,10 @@ mod tests {
 				frame_system::CheckWeight::new(),
 				pallet_transaction_payment::ChargeTransactionPayment::from(10),
 				BridgeRejectObsoleteHeadersAndMessages,
-				(bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),)
+				(
+					bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
+					bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages::default(),
+				)
 			);
 
 			// for BridgeHubRococo

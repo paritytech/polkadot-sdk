@@ -20,7 +20,8 @@ use super::{
 	TransactionByteFee, WeightToFee, XcmpQueue,
 };
 use crate::bridge_common_config::{
-	BridgeGrandpaWestendInstance, DeliveryRewardInBalance, RequiredStakeForStakeAndSlash,
+	BridgeGrandpaRococoBulletinInstance, BridgeGrandpaWestendInstance, DeliveryRewardInBalance,
+	RequiredStakeForStakeAndSlash,
 };
 use bp_messages::LaneId;
 use bp_relayers::{PayRewardFromAccount, RewardsAccountOwner, RewardsAccountParams};
@@ -186,6 +187,10 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 				RuntimeCall::BridgeWestendGrandpa(pallet_bridge_grandpa::Call::<
 					Runtime,
 					BridgeGrandpaWestendInstance,
+				>::initialize { .. }) |
+				RuntimeCall::BridgePolkadotBulletinGrandpa(pallet_bridge_grandpa::Call::<
+					Runtime,
+					BridgeGrandpaRococoBulletinInstance,
 				>::initialize { .. })
 		)
 	}
@@ -284,7 +289,10 @@ impl xcm_executor::Config for XcmConfig {
 			XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
 		),
 	>;
-	type MessageExporter = (crate::bridge_to_westend_config::ToBridgeHubWestendHaulBlobExporter,);
+	type MessageExporter = (
+		crate::bridge_to_westend_config::ToBridgeHubWestendHaulBlobExporter,
+		crate::bridge_to_bulletin_config::ToRococoBulletinHaulBlobExporter,
+	);
 	type UniversalAliases = Nothing;
 	type CallDispatcher = WithOriginFilter<SafeCallFilter>;
 	type SafeCallFilter = SafeCallFilter;

@@ -89,6 +89,7 @@ bp-bridge-hub-westend = { path = "../../../../../bridges/primitives/chain-bridge
 bp-header-chain = { path = "../../../../../bridges/primitives/header-chain", default-features = false }
 bp-messages = { path = "../../../../../bridges/primitives/messages", default-features = false }
 bp-parachains = { path = "../../../../../bridges/primitives/parachains", default-features = false }
+bp-polkadot-bulletin = { path = "../../../../../bridges/primitives/chain-polkadot-bulletin", default-features = false }
 bp-polkadot-core = { path = "../../../../../bridges/primitives/polkadot-core", default-features = false }
 bp-relayers = { path = "../../../../../bridges/primitives/relayers", default-features = false }
 bp-runtime = { path = "../../../../../bridges/primitives/runtime", default-features = false }
@@ -118,6 +119,7 @@ std = [
 	"bp-header-chain/std",
 	"bp-messages/std",
 	"bp-parachains/std",
+	"bp-polkadot-bulletin/std",
 	"bp-polkadot-core/std",
 	"bp-relayers/std",
 	"bp-rococo/std",

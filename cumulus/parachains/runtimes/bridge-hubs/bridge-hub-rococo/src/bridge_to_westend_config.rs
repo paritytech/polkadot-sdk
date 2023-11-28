@@ -14,12 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Bridge definitions used on BridgeHub with the Rococo flavor for bridging to BridgeHubWestend.
+//! Bridge definitions used on BridgeHubRococo for bridging to BridgeHubWestend.
 
 use crate::{
-	bridge_common_config::{BridgeParachainWestendInstance, DeliveryRewardInBalance},
-	weights, AccountId, BridgeWestendMessages, ParachainInfo, Runtime, RuntimeEvent, RuntimeOrigin,
-	XcmRouter,
+	bridge_common_config::{
+		BridgeHubRococo, BridgeHubRococoUniversalLocation, BridgeParachainWestendInstance,
+		DeliveryRewardInBalance,
+	},
+	weights, AccountId, BridgeWestendMessages, Runtime, RuntimeEvent, XcmRouter,
 };
 use bp_messages::LaneId;
 use bridge_runtime_common::{
@@ -27,7 +29,7 @@ use bridge_runtime_common::{
 	messages::{
 		source::{FromBridgedChainMessagesDeliveryProof, TargetHeaderChainAdapter},
 		target::{FromBridgedChainMessagesProof, SourceHeaderChainAdapter},
-		MessageBridge, ThisChainWithMessages, UnderlyingChainProvider,
+		MessageBridge, UnderlyingChainProvider,
 	},
 	messages_xcm_extension::{
 		SenderAndLane, XcmAsPlainPayload, XcmBlobHauler, XcmBlobHaulerAdapter,
@@ -55,7 +57,6 @@ parameter_types! {
 		bp_bridge_hub_rococo::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 	pub const BridgeHubWestendChainId: bp_runtime::ChainId = bp_runtime::BRIDGE_HUB_WESTEND_CHAIN_ID;
 	pub BridgeRococoToWestendMessagesPalletInstance: InteriorMultiLocation = X1(PalletInstance(<BridgeWestendMessages as PalletInfoAccess>::index() as u8));
-	pub BridgeHubRococoUniversalLocation: InteriorMultiLocation = X2(GlobalConsensus(Rococo), Parachain(ParachainInfo::parachain_id().into()));
 	pub WestendGlobalConsensusNetwork: NetworkId = NetworkId::Westend;
 	pub ActiveOutboundLanesToBridgeHubWestend: &'static [bp_messages::LaneId] = &[XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND];
 	pub const AssetHubRococoToAssetHubWestendMessagesLane: bp_messages::LaneId = XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND;
@@ -161,18 +162,6 @@ impl UnderlyingChainProvider for BridgeHubWestend {
 
 impl messages::BridgedChainWithMessages for BridgeHubWestend {}
 
-/// BridgeHubRococo chain from message lane point of view.
-#[derive(RuntimeDebug, Clone, Copy)]
-pub struct BridgeHubRococo;
-
-impl UnderlyingChainProvider for BridgeHubRococo {
-	type Chain = bp_bridge_hub_rococo::BridgeHubRococo;
-}
-
-impl ThisChainWithMessages for BridgeHubRococo {
-	type RuntimeOrigin = RuntimeOrigin;
-}
-
 /// Signed extension that refunds relayers that are delivering messages from the Westend parachain.
 pub type OnBridgeHubRococoRefundBridgeHubWestendMessages = RefundSignedExtensionAdapter<
 	RefundBridgedParachainMessages<
@@ -196,7 +185,7 @@ bp_runtime::generate_static_str_provider!(OnBridgeHubRococoRefundBridgeHubWesten
 pub type WithBridgeHubWestendMessagesInstance = pallet_bridge_messages::Instance3;
 impl pallet_bridge_messages::Config<WithBridgeHubWestendMessagesInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::pallet_bridge_messages::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_bridge_messages_rococo_to_westend::WeightInfo<Runtime>;
 	type BridgedChainId = BridgeHubWestendChainId;
 	type ActiveOutboundLanes = ActiveOutboundLanesToBridgeHubWestend;
 	type MaxUnrewardedRelayerEntriesAtInboundLane = MaxUnrewardedRelayerEntriesAtInboundLane;
