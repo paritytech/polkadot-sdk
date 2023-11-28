@@ -554,12 +554,12 @@
 
 </span><span class="doccomment">//! A queue that handles requests for PVF execution.
 
-</span><span class="kw">use </span><span class="kw">super</span>::worker_intf::Outcome;
+</span><span class="kw">use </span><span class="kw">super</span>::worker_interface::Outcome;
 <span class="kw">use crate</span>::{
 	artifacts::{ArtifactId, ArtifactPathId},
 	host::ResultSender,
 	metrics::Metrics,
-	worker_intf::{IdleWorker, WorkerHandle},
+	worker_interface::{IdleWorker, WorkerHandle},
 	InvalidCandidate, PossiblyInvalidError, ValidationError, LOG_TARGET,
 };
 <span class="kw">use </span>futures::{
@@ -986,7 +986,7 @@
 	<span class="kw">use </span>futures_timer::Delay;
 
 	<span class="kw">loop </span>{
-		<span class="kw">match </span><span class="kw">super</span>::worker_intf::spawn(
+		<span class="kw">match </span><span class="kw">super</span>::worker_interface::spawn(
 			<span class="kw-2">&amp;</span>program_path,
 			<span class="kw-2">&amp;</span>cache_path,
 			job.executor_params.clone(),
@@ -1038,7 +1038,7 @@
 	queue.mux.push(
 		<span class="kw">async move </span>{
 			<span class="kw">let </span>_timer = execution_timer;
-			<span class="kw">let </span>outcome = <span class="kw">super</span>::worker_intf::start_work(
+			<span class="kw">let </span>outcome = <span class="kw">super</span>::worker_interface::start_work(
 				idle,
 				job.artifact.clone(),
 				job.exec_timeout,

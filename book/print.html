@@ -10002,10 +10002,13 @@ preimage.</li>
 <li><strong>Proof-of-Validity (PoV):</strong> A stateless-client proof that a parachain candidate is valid, with respect to some
 validation function.</li>
 <li><strong>PVF:</strong> Parachain Validation Function. The validation code that is run by validators on parachains.</li>
-<li><strong>PVF Prechecking:</strong> This is the process of initially checking the PVF when it is first added. We attempt preparation
-of the PVF and make sure it succeeds within a given timeout, plus some additional checks.</li>
-<li><strong>PVF Preparation:</strong> This is the process of preparing the WASM blob and includes both prevalidation and compilation.
-As there is no prevalidation right now, preparation just consists of compilation.</li>
+<li><strong>PVF Prechecking:</strong> This is the process of checking a PVF when it appears
+on-chain, either when the parachain is onboarded or when it signalled an
+upgrade of its validation code. We attempt preparation of the PVF and make
+sure it that succeeds within a given timeout, plus some additional checks.</li>
+<li><strong>PVF Preparation:</strong> This is the process of preparing the WASM blob and includes both prevalidation and compilation.</li>
+<li><strong>PVF Prevalidation:</strong> Some basic checks for correctness of the PVF blob. The
+first step of PVF preparation, before compilation.</li>
 <li><strong>Relay Parent:</strong> A block in the relay chain, referred to in a context where work is being done in the context of the
 state at this block.</li>
 <li><strong>Runtime:</strong> The relay-chain state machine.</li>
@@ -10025,7 +10028,7 @@ highly scalable.</li>
 </ul>
 <h2 id="see-also"><a class="header" href="#see-also">See Also</a></h2>
 <p>Also of use is the <a href="https://substrate.dev/docs/en/knowledgebase/getting-started/glossary">Substrate Glossary</a>.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="further-reading"><a class="header" href="#further-reading">Further Reading</a></h1>
+<footer id="last-change">Last change: 2023-11-28, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/dbd8d20b25">dbd8d20b25</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="further-reading"><a class="header" href="#further-reading">Further Reading</a></h1>
 <ul>
 <li>Polkadot Wiki on Consensus: <a href="https://wiki.polkadot.network/docs/learn-consensus">https://wiki.polkadot.network/docs/learn-consensus</a></li>
 <li>Polkadot Spec: <a href="https://github.com/w3f/polkadot-spec">https://github.com/w3f/polkadot-spec</a></li>

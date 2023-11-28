@@ -535,10 +535,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span><span class="kw">super</span>::worker_intf::{<span class="self">self</span>, Outcome};
+</span><span class="kw">use </span><span class="kw">super</span>::worker_interface::{<span class="self">self</span>, Outcome};
 <span class="kw">use crate</span>::{
 	metrics::Metrics,
-	worker_intf::{IdleWorker, WorkerHandle},
+	worker_interface::{IdleWorker, WorkerHandle},
 	LOG_TARGET,
 };
 <span class="kw">use </span>always_assert::never;
@@ -799,7 +799,7 @@
 	<span class="kw">use </span>futures_timer::Delay;
 
 	<span class="kw">loop </span>{
-		<span class="kw">match </span>worker_intf::spawn(
+		<span class="kw">match </span>worker_interface::spawn(
 			<span class="kw-2">&amp;</span>program_path,
 			<span class="kw-2">&amp;</span>cache_path,
 			spawn_timeout,
@@ -827,7 +827,7 @@
 	cache_path: PathBuf,
 	_preparation_timer: <span class="prelude-ty">Option</span>&lt;Timer&gt;,
 ) -&gt; PoolEvent {
-	<span class="kw">let </span>outcome = worker_intf::start_work(<span class="kw-2">&amp;</span>metrics, idle, pvf, cache_path).<span class="kw">await</span>;
+	<span class="kw">let </span>outcome = worker_interface::start_work(<span class="kw-2">&amp;</span>metrics, idle, pvf, cache_path).<span class="kw">await</span>;
 	PoolEvent::StartWork(worker, outcome)
 }
 

@@ -232,7 +232,7 @@
 <span class="kw">mod </span>prepare;
 <span class="kw">mod </span>priority;
 <span class="kw">mod </span>security;
-<span class="kw">mod </span>worker_intf;
+<span class="kw">mod </span>worker_interface;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;test-utils&quot;</span>)]
 </span><span class="kw">pub mod </span>testing;
@@ -241,7 +241,7 @@
 <span class="kw">pub use </span>host::{start, Config, ValidationHost, EXECUTE_BINARY_NAME, PREPARE_BINARY_NAME};
 <span class="kw">pub use </span>metrics::Metrics;
 <span class="kw">pub use </span>priority::Priority;
-<span class="kw">pub use </span>worker_intf::{framed_recv, framed_send, JOB_TIMEOUT_WALL_CLOCK_FACTOR};
+<span class="kw">pub use </span>worker_interface::{framed_recv, framed_send, JOB_TIMEOUT_WALL_CLOCK_FACTOR};
 
 <span class="comment">// Re-export some common types.
 </span><span class="kw">pub use </span>polkadot_node_core_pvf_common::{

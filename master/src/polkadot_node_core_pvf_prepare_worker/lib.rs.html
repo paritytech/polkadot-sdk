@@ -697,7 +697,7 @@
 
 </span><span class="kw">mod </span>memory_stats;
 
-<span class="kw">use </span>polkadot_node_core_pvf_common::executor_intf::{prepare, prevalidate};
+<span class="kw">use </span>polkadot_node_core_pvf_common::executor_interface::{prepare, prevalidate};
 
 <span class="comment">// NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-prepare-worker=trace`.
@@ -720,7 +720,7 @@
 <span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareWorkerResult},
-	executor_intf::create_runtime_from_artifact_bytes,
+	executor_interface::create_runtime_from_artifact_bytes,
 	framed_recv_blocking, framed_send_blocking,
 	prepare::{MemoryStats, PrepareJobKind, PrepareStats, PrepareWorkerSuccess},
 	pvf::PvfPrepData,
