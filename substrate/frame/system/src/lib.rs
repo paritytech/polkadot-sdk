@@ -308,21 +308,21 @@ pub mod pallet {
 			/// The weight of database operations that the runtime can invoke.
 			type DbWeight = ();
 
-			#[inject_runtime_type]
 			/// The ubiquitous event type injected by `construct_runtime!`.
+			#[inject_runtime_type]
 			type RuntimeEvent = ();
 
-			#[inject_runtime_type]
 			/// The ubiquitous origin type injected by `construct_runtime!`.
+			#[inject_runtime_type]
 			type RuntimeOrigin = ();
 
-			#[inject_runtime_type]
 			/// The aggregated dispatch type available for extrinsics, injected by
 			/// `construct_runtime!`.
+			#[inject_runtime_type]
 			type RuntimeCall = ();
 
-			#[inject_runtime_type]
 			/// Converts a module to the index of the module, injected by `construct_runtime!`.
+			#[inject_runtime_type]
 			type PalletInfo = ();
 
 			/// The basic call filter to use in dispatchable. Supports everything as the default.
