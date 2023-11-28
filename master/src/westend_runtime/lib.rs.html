@@ -2410,7 +2410,6 @@
 <a href="#2410" id="2410">2410</a>
 <a href="#2411" id="2411">2411</a>
 <a href="#2412" id="2412">2412</a>
-<a href="#2413" id="2413">2413</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3946,11 +3945,10 @@
 		parachains_configuration::migration::v8::MigrateToV8&lt;Runtime&gt;,
 		parachains_configuration::migration::v9::MigrateToV9&lt;Runtime&gt;,
 		paras_registrar::migration::MigrateToV1&lt;Runtime, ()&gt;,
-		pallet_nomination_pools::migration::versioned::V5toV6&lt;Runtime&gt;,
 		pallet_referenda::migration::v1::MigrateV0ToV1&lt;Runtime, ()&gt;,
-		pallet_nomination_pools::migration::versioned::V6ToV7&lt;Runtime&gt;,
 		pallet_grandpa::migrations::MigrateV4ToV5&lt;Runtime&gt;,
 		parachains_configuration::migration::v10::MigrateToV10&lt;Runtime&gt;,
+		pallet_nomination_pools::migration::versioned::V7ToV8&lt;Runtime&gt;,
 	);
 }
 

@@ -3538,6 +3538,58 @@
 <a href="#3538" id="3538">3538</a>
 <a href="#3539" id="3539">3539</a>
 <a href="#3540" id="3540">3540</a>
+<a href="#3541" id="3541">3541</a>
+<a href="#3542" id="3542">3542</a>
+<a href="#3543" id="3543">3543</a>
+<a href="#3544" id="3544">3544</a>
+<a href="#3545" id="3545">3545</a>
+<a href="#3546" id="3546">3546</a>
+<a href="#3547" id="3547">3547</a>
+<a href="#3548" id="3548">3548</a>
+<a href="#3549" id="3549">3549</a>
+<a href="#3550" id="3550">3550</a>
+<a href="#3551" id="3551">3551</a>
+<a href="#3552" id="3552">3552</a>
+<a href="#3553" id="3553">3553</a>
+<a href="#3554" id="3554">3554</a>
+<a href="#3555" id="3555">3555</a>
+<a href="#3556" id="3556">3556</a>
+<a href="#3557" id="3557">3557</a>
+<a href="#3558" id="3558">3558</a>
+<a href="#3559" id="3559">3559</a>
+<a href="#3560" id="3560">3560</a>
+<a href="#3561" id="3561">3561</a>
+<a href="#3562" id="3562">3562</a>
+<a href="#3563" id="3563">3563</a>
+<a href="#3564" id="3564">3564</a>
+<a href="#3565" id="3565">3565</a>
+<a href="#3566" id="3566">3566</a>
+<a href="#3567" id="3567">3567</a>
+<a href="#3568" id="3568">3568</a>
+<a href="#3569" id="3569">3569</a>
+<a href="#3570" id="3570">3570</a>
+<a href="#3571" id="3571">3571</a>
+<a href="#3572" id="3572">3572</a>
+<a href="#3573" id="3573">3573</a>
+<a href="#3574" id="3574">3574</a>
+<a href="#3575" id="3575">3575</a>
+<a href="#3576" id="3576">3576</a>
+<a href="#3577" id="3577">3577</a>
+<a href="#3578" id="3578">3578</a>
+<a href="#3579" id="3579">3579</a>
+<a href="#3580" id="3580">3580</a>
+<a href="#3581" id="3581">3581</a>
+<a href="#3582" id="3582">3582</a>
+<a href="#3583" id="3583">3583</a>
+<a href="#3584" id="3584">3584</a>
+<a href="#3585" id="3585">3585</a>
+<a href="#3586" id="3586">3586</a>
+<a href="#3587" id="3587">3587</a>
+<a href="#3588" id="3588">3588</a>
+<a href="#3589" id="3589">3589</a>
+<a href="#3590" id="3590">3590</a>
+<a href="#3591" id="3591">3591</a>
+<a href="#3592" id="3592">3592</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4216,6 +4268,13 @@
 	</span><span class="kw">pub </span>bouncer: <span class="prelude-ty">Option</span>&lt;AccountId&gt;,
 }
 
+<span class="comment">// A pool&#39;s possible commission claiming permissions.
+</span><span class="attr">#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+</span><span class="kw">pub enum </span>CommissionClaimPermission&lt;AccountId&gt; {
+	Permissionless,
+	Account(AccountId),
+}
+
 <span class="doccomment">/// Pool commission.
 ///
 /// The pool `root` can set commission configuration after pool creation. By default, all commission
@@ -4245,6 +4304,9 @@
 	<span class="doccomment">/// The block from where throttling should be checked from. This value will be updated on all
 	/// commission updates and when setting an initial `change_rate`.
 	</span><span class="kw">pub </span>throttle_from: <span class="prelude-ty">Option</span>&lt;BlockNumberFor&lt;T&gt;&gt;,
+	<span class="comment">// Whether commission can be claimed permissionlessly, or whether an account can claim
+	// commission. `Root` role can always claim.
+	</span><span class="kw">pub </span>claim_permission: <span class="prelude-ty">Option</span>&lt;CommissionClaimPermission&lt;T::AccountId&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;T: Config&gt; Commission&lt;T&gt; {
@@ -4616,6 +4678,17 @@
 
 	<span class="kw">fn </span>can_manage_commission(<span class="kw-2">&amp;</span><span class="self">self</span>, who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; bool {
 		<span class="self">self</span>.is_root(who)
+	}
+
+	<span class="kw">fn </span>can_claim_commission(<span class="kw-2">&amp;</span><span class="self">self</span>, who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; bool {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(permission) = <span class="self">self</span>.commission.claim_permission.as_ref() {
+			<span class="kw">match </span>permission {
+				CommissionClaimPermission::Permissionless =&gt; <span class="bool-val">true</span>,
+				CommissionClaimPermission::Account(account) =&gt; account == who || <span class="self">self</span>.is_root(who),
+			}
+		} <span class="kw">else </span>{
+			<span class="self">self</span>.is_root(who)
+		}
 	}
 
 	<span class="kw">fn </span>is_destroying(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
@@ -5112,7 +5185,7 @@
 	<span class="kw">use </span>sp_runtime::Perbill;
 
 	<span class="doccomment">/// The current storage version.
-	</span><span class="kw">const </span>STORAGE_VERSION: StorageVersion = StorageVersion::new(<span class="number">7</span>);
+	</span><span class="kw">const </span>STORAGE_VERSION: StorageVersion = StorageVersion::new(<span class="number">8</span>);
 
 	<span class="attr">#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -5389,6 +5462,11 @@
 		</span>PoolCommissionChangeRateUpdated {
 			pool_id: PoolId,
 			change_rate: CommissionChangeRate&lt;BlockNumberFor&lt;T&gt;&gt;,
+		},
+		<span class="doccomment">/// Pool commission claim permission has been updated.
+		</span>PoolCommissionClaimPermissionUpdated {
+			pool_id: PoolId,
+			permission: <span class="prelude-ty">Option</span>&lt;CommissionClaimPermission&lt;T::AccountId&gt;&gt;,
 		},
 		<span class="doccomment">/// Pool commission has been claimed.
 		</span>PoolCommissionClaimed { pool_id: PoolId, commission: BalanceOf&lt;T&gt; },
@@ -6282,6 +6360,32 @@
 			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
 			<span class="self">Self</span>::do_adjust_pool_deposit(who, pool_id)
 		}
+
+		<span class="doccomment">/// Set or remove a pool&#39;s commission claim permission.
+		///
+		/// Determines who can claim the pool&#39;s pending commission. Only the `Root` role of the pool
+		/// is able to conifigure commission claim permissions.
+		</span><span class="attr">#[pallet::call_index(<span class="number">22</span>)]
+		#[pallet::weight(T::WeightInfo::set_commission_claim_permission())]
+		</span><span class="kw">pub fn </span>set_commission_claim_permission(
+			origin: OriginFor&lt;T&gt;,
+			pool_id: PoolId,
+			permission: <span class="prelude-ty">Option</span>&lt;CommissionClaimPermission&lt;T::AccountId&gt;&gt;,
+		) -&gt; DispatchResult {
+			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
+			<span class="kw">let </span><span class="kw-2">mut </span>bonded_pool = BondedPool::&lt;T&gt;::get(pool_id).ok_or(Error::&lt;T&gt;::PoolNotFound)<span class="question-mark">?</span>;
+			<span class="macro">ensure!</span>(bonded_pool.can_manage_commission(<span class="kw-2">&amp;</span>who), Error::&lt;T&gt;::DoesNotHavePermission);
+
+			bonded_pool.commission.claim_permission = permission.clone();
+			bonded_pool.put();
+
+			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::PoolCommissionClaimPermissionUpdated {
+				pool_id,
+				permission,
+			});
+
+			<span class="prelude-val">Ok</span>(())
+		}
 	}
 
 	<span class="attr">#[pallet::hooks]
@@ -6646,12 +6750,12 @@
 
 	<span class="kw">fn </span>do_claim_commission(who: T::AccountId, pool_id: PoolId) -&gt; DispatchResult {
 		<span class="kw">let </span>bonded_pool = BondedPool::&lt;T&gt;::get(pool_id).ok_or(Error::&lt;T&gt;::PoolNotFound)<span class="question-mark">?</span>;
-		<span class="macro">ensure!</span>(bonded_pool.can_manage_commission(<span class="kw-2">&amp;</span>who), Error::&lt;T&gt;::DoesNotHavePermission);
+		<span class="macro">ensure!</span>(bonded_pool.can_claim_commission(<span class="kw-2">&amp;</span>who), Error::&lt;T&gt;::DoesNotHavePermission);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>reward_pool = RewardPools::&lt;T&gt;::get(pool_id)
 			.defensive_ok_or::&lt;Error&lt;T&gt;&gt;(DefensiveError::RewardPoolNotFound.into())<span class="question-mark">?</span>;
 
-		<span class="comment">// IMPORTANT: make sure that any newly pending commission not yet processed is added to
+		<span class="comment">// IMPORTANT: ensure newly pending commission not yet processed is added to
 		// `total_commission_pending`.
 		</span>reward_pool.update_records(
 			pool_id,

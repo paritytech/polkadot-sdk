@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"type":["V5toV6","V6ToV7"]};
+window.SIDEBAR_ITEMS = {"type":["V5toV6","V6ToV7","V7ToV8"]};
