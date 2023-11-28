@@ -26,6 +26,9 @@ use sc_cli::{CliConfiguration, ImportParams, Result, SharedParams};
 use sc_service::Configuration;
 use sp_runtime::traits::Block;
 
+type HostFunctions =
+	(sp_io::SubstrateHostFunctions, sp_statement_store::runtime_api::HostFunctions);
+
 impl InspectCmd {
 	/// Run the inspect command, passing the inspector.
 	pub fn run<B, RA>(&self, config: Configuration) -> Result<()>
@@ -33,7 +36,7 @@ impl InspectCmd {
 		B: Block,
 		RA: Send + Sync + 'static,
 	{
-		let executor = sc_service::new_wasm_executor::<node_executor::HostFunctions>(&config);
+		let executor = sc_service::new_wasm_executor::<HostFunctions>(&config);
 		let client = sc_service::new_full_client::<B, RA, _>(&config, None, executor)?;
 		let inspect = Inspector::<B>::new(client);
 

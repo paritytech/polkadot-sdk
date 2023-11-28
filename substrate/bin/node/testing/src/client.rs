@@ -23,7 +23,7 @@ use sp_runtime::BuildStorage;
 pub use substrate_test_client::*;
 
 /// Call executor for `kitchensink-runtime` `TestClient`.
-use node_executor::RuntimeExecutor;
+use node_cli::service::RuntimeExecutor;
 
 /// Default backend type.
 pub type Backend = sc_client_db::Backend<node_primitives::Block>;

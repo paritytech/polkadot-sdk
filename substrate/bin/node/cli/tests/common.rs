@@ -41,7 +41,7 @@ use kitchensink_runtime::{
 use node_primitives::{BlockNumber, Hash};
 use node_testing::keyring::*;
 use sp_externalities::Externalities;
-use staging_node_executor::RuntimeExecutor;
+use staging_node_cli::service::RuntimeExecutor;
 
 pub const TEST_KEY_TYPE_ID: KeyTypeId = KeyTypeId(*b"test");
 

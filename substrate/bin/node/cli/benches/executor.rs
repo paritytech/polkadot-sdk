@@ -22,7 +22,6 @@ use kitchensink_runtime::{
 	constants::currency::*, Block, BuildStorage, CheckedExtrinsic, Header, RuntimeCall,
 	RuntimeGenesisConfig, UncheckedExtrinsic,
 };
-use node_executor::RuntimeExecutor;
 use node_primitives::{BlockNumber, Hash};
 use node_testing::keyring::*;
 use sc_executor::{Externalities, RuntimeVersionOf};
@@ -32,7 +31,7 @@ use sp_core::{
 };
 use sp_runtime::traits::BlakeTwo256;
 use sp_state_machine::TestExternalities as CoreTestExternalities;
-use staging_node_executor as node_executor;
+use staging_node_cli::service::RuntimeExecutor;
 
 criterion_group!(benches, bench_execute_block);
 criterion_main!(benches);
