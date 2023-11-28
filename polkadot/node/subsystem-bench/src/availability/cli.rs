@@ -15,10 +15,6 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use serde::{Deserialize, Serialize};
-#[derive(Debug, clap::Parser, Clone)]
-#[clap(rename_all = "kebab-case")]
-#[allow(missing_docs)]
-pub struct NetworkOptions {}
 
 #[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq)]
 #[value(rename_all = "kebab-case")]

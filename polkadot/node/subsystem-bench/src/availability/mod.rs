@@ -68,7 +68,7 @@ use sc_service::SpawnTaskHandle;
 
 mod cli;
 pub mod configuration;
-pub use cli::{DataAvailabilityReadOptions, NetworkEmulation, NetworkOptions};
+pub use cli::{DataAvailabilityReadOptions, NetworkEmulation};
 pub use configuration::AvailabilityRecoveryConfiguration;
 
 fn build_overseer(
