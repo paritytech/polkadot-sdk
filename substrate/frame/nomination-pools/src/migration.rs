@@ -27,12 +27,20 @@ use sp_runtime::TryRuntimeError;
 pub mod versioned {
 	use super::*;
 
-	/// V7 to V8 migration, wrapped in [`frame_support::migrations::VersionedMigration`] to ensure
-	/// it is only performed when on-chain version is 7.
+	/// V9: Adds `TotalValueUnbonding`.
+	pub type V8ToV9<T> = frame_support::migrations::VersionedMigration<
+		8,
+		9,
+		v9::MigrateToV8<T>,
+		crate::pallet::Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+
+	/// v8: Adds commission claim permissions to `BondedPools`.
 	pub type V7ToV8<T> = frame_support::migrations::VersionedMigration<
 		7,
 		8,
-		v8::MigrateToV8<T>,
+		v8::VersionUncheckedMigrateV7ToV8<T>,
 		crate::pallet::Pallet<T>,
 		<T as frame_system::Config>::DbWeight,
 	>;
@@ -57,7 +65,7 @@ pub mod versioned {
 	>;
 }
 
-mod v8 {
+mod v9 {
 	use super::*;
 
 	pub struct MigrateToV8<T>(sp_std::marker::PhantomData<T>);
@@ -94,10 +102,16 @@ mod v8 {
 				.reads_writes(pool_count.saturating_mul(3).saturating_add(2).into(), 2)
 		}
 
+		// FIXME eagr this necessary?
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			Ok(Vec::new())
+		}
+
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(_data: Vec<u8>) -> Result<(), TryRuntimeError> {
 			ensure!(
-				Pallet::<T>::on_chain_storage_version() >= 8,
+				Pallet::<T>::on_chain_storage_version() >= 9,
 				"nomination-pools::migration::v8: storage version must be no less than 8",
 			);
 
@@ -112,10 +126,78 @@ mod v8 {
 				.unwrap_or_default();
 
 			ensure!(
-				TotalValueUnbonding::<T>::get() <= members_balance_unbonding,
-				"TotalValueUnbonding cannot surpass the sum of unbonding funds of members across all pools.",
-			);
+                TotalValueUnbonding::<T>::get() <= members_balance_unbonding,
+                "TotalValueUnbonding cannot surpass the sum of unbonding funds of members across all pools.",
+            );
 
+			Ok(())
+		}
+	}
+}
+
+pub mod v8 {
+	use super::*;
+
+	#[derive(Decode)]
+	pub struct OldCommission<T: Config> {
+		pub current: Option<(Perbill, T::AccountId)>,
+		pub max: Option<Perbill>,
+		pub change_rate: Option<CommissionChangeRate<BlockNumberFor<T>>>,
+		pub throttle_from: Option<BlockNumberFor<T>>,
+	}
+
+	#[derive(Decode)]
+	pub struct OldBondedPoolInner<T: Config> {
+		pub commission: OldCommission<T>,
+		pub member_counter: u32,
+		pub points: BalanceOf<T>,
+		pub roles: PoolRoles<T::AccountId>,
+		pub state: PoolState,
+	}
+
+	impl<T: Config> OldBondedPoolInner<T> {
+		fn migrate_to_v8(self) -> BondedPoolInner<T> {
+			BondedPoolInner {
+				commission: Commission {
+					current: self.commission.current,
+					max: self.commission.max,
+					change_rate: self.commission.change_rate,
+					throttle_from: self.commission.throttle_from,
+					// `claim_permission` is a new field.
+					claim_permission: None,
+				},
+				member_counter: self.member_counter,
+				points: self.points,
+				roles: self.roles,
+				state: self.state,
+			}
+		}
+	}
+
+	pub struct VersionUncheckedMigrateV7ToV8<T>(sp_std::marker::PhantomData<T>);
+	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV7ToV8<T> {
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			Ok(Vec::new())
+		}
+
+		fn on_runtime_upgrade() -> Weight {
+			let mut translated = 0u64;
+			BondedPools::<T>::translate::<OldBondedPoolInner<T>, _>(|_key, old_value| {
+				translated.saturating_inc();
+				Some(old_value.migrate_to_v8())
+			});
+			T::DbWeight::get().reads_writes(translated, translated + 1)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(_: Vec<u8>) -> Result<(), TryRuntimeError> {
+			// Check new `claim_permission` field is present.
+			ensure!(
+				BondedPools::<T>::iter()
+					.all(|(_, inner)| inner.commission.claim_permission.is_none()),
+				"`claim_permission` value has not been set correctly."
+			);
 			Ok(())
 		}
 	}
