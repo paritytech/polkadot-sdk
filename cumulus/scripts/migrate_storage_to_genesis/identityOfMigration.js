@@ -14,6 +14,7 @@ const migrateIdentityOf = async (key, data, api) => {
 		pgpFingerprint: 'Option<H160>',
 		image: 'Data',
 		twitter: 'Data',
+		github: 'Data',
 		discord: 'Data',
 		},
 		RegistrationNew: {
@@ -35,8 +36,9 @@ const migrateIdentityOf = async (key, data, api) => {
 	if (HexkeyToMigrate === storageItem) {
 		let decoded = api.createType('Registration', data.toU8a(true));
 
-		// Default value for `discord` field
+		// Default value for `discord` and `github` fields.
 		let discord = { none: null };
+		let github = { none: null };
 
 		let decodedJson = decoded.toJSON();
 
@@ -44,8 +46,10 @@ const migrateIdentityOf = async (key, data, api) => {
 		decodedJson.info.additional.forEach(([key, data]) => {
 			let keyString = hexToString(key.raw)
 
-			if (keyString === "Discord" || keyString === "discord") {
+			if (keyString.toLowerCase() === "discord") {
 				discord = { raw: data.raw };
+			} else if (keyString.toLowerCase() === "github") {
+				github = { raw: data.raw };
 			}
 		});
 
@@ -67,6 +71,7 @@ const migrateIdentityOf = async (key, data, api) => {
 					pgpFingerprint: decodedJson.info.pgpFingerprint,
 					image: decodedJson.info.image,
 					twitter: decodedJson.info.twitter,
+					github: github,
 					discord: discord,
 				}
 			}
