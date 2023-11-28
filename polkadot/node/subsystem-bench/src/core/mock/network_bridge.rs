@@ -80,7 +80,16 @@ impl MockNetworkBridgeTx {
 
 		match request {
 			Requests::ChunkFetchingV1(outgoing_request) => {
+				let authority_discovery_id = match outgoing_request.peer {
+					req_res::Recipient::Authority(authority_discovery_id) => authority_discovery_id,
+					_ => unimplemented!("Peer recipient not supported yet"),
+				};
+				// Account our sent request bytes.
 				self.network.peer_stats(0).inc_sent(outgoing_request.payload.encoded_size());
+				// Account for remote received request bytes.
+				self.network
+					.peer_stats_by_id(authority_discovery_id.clone())
+					.inc_received(outgoing_request.payload.encoded_size());
 
 				let validator_index: usize = outgoing_request.payload.index.0 as usize;
 				let candidate_hash = outgoing_request.payload.candidate_hash;
@@ -107,10 +116,6 @@ impl MockNetworkBridgeTx {
 					Ok(req_res::v1::ChunkFetchingResponse::from(Some(chunk)).encode())
 				};
 
-				let authority_discovery_id = match outgoing_request.peer {
-					req_res::Recipient::Authority(authority_discovery_id) => authority_discovery_id,
-					_ => unimplemented!("Peer recipient not supported yet"),
-				};
 				let authority_discovery_id_clone = authority_discovery_id.clone();
 
 				let future = async move {
@@ -142,7 +147,18 @@ impl MockNetworkBridgeTx {
 					.candidate_hashes
 					.get(&candidate_hash)
 					.expect("candidate was generated previously; qed");
-				gum::warn!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
+				gum::debug!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
+
+				let authority_discovery_id = match outgoing_request.peer {
+					req_res::Recipient::Authority(authority_discovery_id) => authority_discovery_id,
+					_ => unimplemented!("Peer recipient not supported yet"),
+				};
+				// Account our sent request bytes.
+				self.network.peer_stats(0).inc_sent(outgoing_request.payload.encoded_size());
+				// Account for remote received request bytes.
+				self.network
+					.peer_stats_by_id(authority_discovery_id.clone())
+					.inc_received(outgoing_request.payload.encoded_size());
 
 				let available_data =
 					self.availabilty.available_data.get(*candidate_index as usize).unwrap().clone();
@@ -161,10 +177,6 @@ impl MockNetworkBridgeTx {
 				}
 				.boxed();
 
-				let authority_discovery_id = match outgoing_request.peer {
-					req_res::Recipient::Authority(authority_discovery_id) => authority_discovery_id,
-					_ => unimplemented!("Peer recipient not supported yet"),
-				};
 				let authority_discovery_id_clone = authority_discovery_id.clone();
 
 				let future_wrapper = async move {
@@ -243,6 +255,7 @@ impl MockNetworkBridgeTx {
 							gum::debug!(target: LOG_TARGET, request = ?request, "Processing request");
 							self.network.inc_sent(request_size(&request));
 							let action = self.respond_to_send_request(request, &mut ingress_tx);
+
 							// Will account for our node sending the request over the emulated
 							// network.
 							self.network.submit_peer_action(action.peer(), action);

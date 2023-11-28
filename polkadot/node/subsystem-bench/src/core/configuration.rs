@@ -13,13 +13,14 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
-use std::path::Path;
-
+//
+//! Test configuration definition and helpers.
 use super::*;
 use keyring::Keyring;
+use std::{path::Path, time::Duration};
 
 pub use crate::cli::TestObjective;
-use polkadot_primitives::ValidatorId;
+use polkadot_primitives::{AuthorityDiscoveryId, ValidatorId};
 use rand::{distributions::Uniform, prelude::Distribution, thread_rng};
 use serde::{Deserialize, Serialize};
 

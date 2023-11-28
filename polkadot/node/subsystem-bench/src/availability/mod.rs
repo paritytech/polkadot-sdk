@@ -100,16 +100,6 @@ pub fn prepare_test(
 	prepare_test_inner(config, state, TestEnvironmentDependencies::default())
 }
 
-/// Takes a test configuration and uses it to creates the `TestEnvironment`.
-#[allow(unused)]
-pub fn prepare_test_with_dependencies(
-	config: TestConfiguration,
-	state: &mut TestState,
-	dependencies: TestEnvironmentDependencies,
-) -> (TestEnvironment, ProtocolConfig) {
-	prepare_test_inner(config, state, dependencies)
-}
-
 fn prepare_test_inner(
 	config: TestConfiguration,
 	state: &mut TestState,

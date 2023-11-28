@@ -13,7 +13,7 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
-
+//! Test environment implementation
 use crate::{
 	core::{mock::AlwaysSupportsParachains, network::NetworkEmulator},
 	TestConfiguration,

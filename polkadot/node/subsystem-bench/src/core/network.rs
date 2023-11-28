@@ -15,8 +15,17 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 use super::*;
 use colored::Colorize;
+use polkadot_primitives::AuthorityDiscoveryId;
 use prometheus_endpoint::U64;
-use std::sync::atomic::{AtomicU64, Ordering};
+use sc_service::SpawnTaskHandle;
+use std::{
+	collections::HashMap,
+	sync::{
+		atomic::{AtomicU64, Ordering},
+		Arc,
+	},
+	time::{Duration, Instant},
+};
 use tokio::sync::mpsc::UnboundedSender;
 
 // An emulated node egress traffic rate_limiter.
@@ -309,9 +318,18 @@ impl NetworkEmulator {
 		self.peers[*index].send(action);
 	}
 
-	// Returns the sent/received stats for all peers.
+	// Returns the sent/received stats for `peer_index`.
 	pub fn peer_stats(&mut self, peer_index: usize) -> Arc<PeerEmulatorStats> {
 		self.stats[peer_index].clone()
+	}
+
+	// Returns the sent/received stats for `peer`.
+	pub fn peer_stats_by_id(&mut self, peer: AuthorityDiscoveryId) -> Arc<PeerEmulatorStats> {
+		let peer_index = self
+			.validator_authority_ids
+			.get(&peer)
+			.expect("all test authorities are valid; qed");
+		self.stats[*peer_index].clone()
 	}
 
 	// Returns the sent/received stats for all peers.
@@ -334,7 +352,6 @@ impl NetworkEmulator {
 	}
 
 	// Increment bytes received by our node (the node that contains the subsystem under test)
-	#[allow(unused)]
 	pub fn inc_received(&self, bytes: u64) {
 		// Our node always is peer 0.
 		self.metrics.on_peer_received(0, bytes);

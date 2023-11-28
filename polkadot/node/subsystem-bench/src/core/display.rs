@@ -14,8 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 //
-//! Some helper methods for parsing prometheus metrics to a format that can be
-//! displayed in the CLI.
+//! Display implementations and helper methods for parsing prometheus metrics 
+//! to a format that can be displayed in the CLI.
 //!
 //! Currently histogram buckets are skipped.
 use super::LOG_TARGET;
