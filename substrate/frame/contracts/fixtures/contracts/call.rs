@@ -23,10 +23,10 @@ extern crate common;
 use uapi::{CallFlags, HostFn, HostFnImpl as api};
 
 #[no_mangle]
-pub fn deploy() {}
+pub extern "C" fn deploy() {}
 
 #[no_mangle]
-pub fn call() {
+pub extern "C" fn call() {
 	let mut buffer = [0u8; 40];
 	let callee_input = 0..4;
 	let callee_addr = 4..36;

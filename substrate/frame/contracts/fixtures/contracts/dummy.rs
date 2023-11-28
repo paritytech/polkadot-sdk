@@ -20,7 +20,7 @@
 extern crate common;
 
 #[no_mangle]
-pub fn deploy() {}
+pub extern "C" fn deploy() {}
 
 #[no_mangle]
-pub fn call() {}
+pub extern "C" fn call() {}
