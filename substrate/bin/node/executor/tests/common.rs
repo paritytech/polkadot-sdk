@@ -41,7 +41,7 @@ use kitchensink_runtime::{
 use node_primitives::{BlockNumber, Hash};
 use node_testing::keyring::*;
 use sp_externalities::Externalities;
-use staging_node_executor::ClientWasmExecutor;
+use staging_node_executor::RuntimeExecutor;
 
 pub const TEST_KEY_TYPE_ID: KeyTypeId = KeyTypeId(*b"test");
 
@@ -97,8 +97,8 @@ pub fn from_block_number(n: u32) -> Header {
 	Header::new(n, Default::default(), Default::default(), [69; 32].into(), Default::default())
 }
 
-pub fn executor() -> ClientWasmExecutor {
-	ClientWasmExecutor::builder().build()
+pub fn executor() -> RuntimeExecutor {
+	RuntimeExecutor::builder().build()
 }
 
 pub fn executor_call(

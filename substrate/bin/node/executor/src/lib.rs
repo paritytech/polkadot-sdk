@@ -23,4 +23,4 @@ pub type HostFunctions =
 
 /// A specialized `WasmExecutor` intended to use accross substrate node. It provides all required
 /// HostFunctions.
-pub type ClientWasmExecutor = sc_executor::WasmExecutor<HostFunctions>;
+pub type RuntimeExecutor = sc_executor::WasmExecutor<HostFunctions>;
