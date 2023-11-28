@@ -711,7 +711,7 @@ fn penpal_to_ah_bidirectional_transfers_foreign_assets_from_para_to_asset_hub() 
 		penpal_create_foreign_asset_on_asset_hub(asset_id_on_penpal, ah_as_seen_by_penpal);
 	let penpal_to_ah_beneficiary_id = AssetHubRococoReceiver::get();
 
-	let fee_amount_to_send = ASSET_HUB_ROCOCO_ED * 1000;
+	let fee_amount_to_send = ASSET_HUB_ROCOCO_ED * 10_000;
 	let asset_amount_to_send = ASSET_MIN_BALANCE * 1000;
 
 	let penpal_assets: MultiAssets = vec![
@@ -848,7 +848,7 @@ fn ah_to_penpal_bidirectional_transfers_foreign_assets_from_para_to_asset_hub() 
 
 	let ah_to_penpal_beneficiary_id = PenpalAReceiver::get();
 
-	let fee_amount_to_send = ASSET_HUB_ROCOCO_ED * 1000;
+	let fee_amount_to_send = ASSET_HUB_ROCOCO_ED * 10_000;
 	let asset_amount_to_send = ASSET_MIN_BALANCE * 1000;
 
 	let ah_assets: MultiAssets = vec![
