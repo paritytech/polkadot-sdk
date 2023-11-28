@@ -65,41 +65,5 @@ pub type RelayToSystemParaTest = Test<Westend, AssetHubWestend>;
 pub type SystemParaToRelayTest = Test<AssetHubWestend, Westend>;
 pub type SystemParaToParaTest = Test<AssetHubWestend, PenpalA>;
 
-/// Returns a `TestArgs` instance to be used for the Relay Chain across integration tests
-pub fn relay_test_args(amount: Balance) -> TestArgs {
-	TestArgs {
-		dest: Westend::child_location_of(AssetHubWestend::para_id()),
-		beneficiary: AccountId32Junction {
-			network: None,
-			id: AssetHubWestendReceiver::get().into(),
-		}
-		.into(),
-		amount,
-		assets: (Here, amount).into(),
-		asset_id: None,
-		fee_asset_item: 0,
-		weight_limit: WeightLimit::Unlimited,
-	}
-}
-
-/// Returns a `TestArgs` instance to be used for the System Parachain across integration tests
-pub fn system_para_test_args(
-	dest: MultiLocation,
-	beneficiary_id: AccountId32,
-	amount: Balance,
-	assets: MultiAssets,
-	asset_id: Option<u32>,
-) -> TestArgs {
-	TestArgs {
-		dest,
-		beneficiary: AccountId32Junction { network: None, id: beneficiary_id.into() }.into(),
-		amount,
-		assets,
-		asset_id,
-		fee_asset_item: 0,
-		weight_limit: WeightLimit::Unlimited,
-	}
-}
-
 #[cfg(test)]
 mod tests;

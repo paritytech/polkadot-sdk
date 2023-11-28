@@ -28,8 +28,8 @@ pallet-balances = { path = "../balances" }
 sp-core = { path = "../../primitives/core" }
 
 [features]
-xcm-emulator = []
 default = [ "std" ]
+xcm-emulator = []
 std = [
 	"codec/std",
 	"enumflags2/std",

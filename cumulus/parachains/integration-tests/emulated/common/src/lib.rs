@@ -31,14 +31,16 @@ use sp_runtime::{
 };
 
 // Polakdot
-use parachains_common::BlockNumber;
+use parachains_common::{Balance, BlockNumber};
 use polkadot_runtime_parachains::configuration::HostConfiguration;
-use xcm;
+use xcm::prelude::{MultiLocation, MultiAssets, WeightLimit, AccountId32 as AccountId32Junction, Here};
 
 // Cumulus
 use parachains_common::{AccountId, AssetHubPolkadotAuraId, AuraId};
 use polkadot_primitives::{AssignmentId, ValidatorId};
 use polkadot_service::chain_spec::get_authority_keys_from_seed_no_beefy;
+use sp_core::crypto::AccountId32;
+use xcm_emulator::TestArgs;
 
 pub const XCM_V2: u32 = 2;
 pub const XCM_V3: u32 = 3;
@@ -80,6 +82,44 @@ pub fn get_host_config() -> HostConfiguration<BlockNumber> {
 		hrmp_max_parachain_outbound_channels: 30,
 		hrmp_max_parachain_inbound_channels: 30,
 		..Default::default()
+	}
+}
+
+
+/// Returns a `TestArgs` instance to be used for the Relay Chain across integration tests
+pub fn relay_test_args(
+	dest: MultiLocation,
+	beneficiary_id: AccountId32,
+	amount: Balance,
+) -> TestArgs {
+	TestArgs {
+		dest,
+		beneficiary: AccountId32Junction { network: None, id: beneficiary_id.into() }.into(),
+		amount,
+		assets: (Here, amount).into(),
+		asset_id: None,
+		fee_asset_item: 0,
+		weight_limit: WeightLimit::Unlimited,
+	}
+}
+
+/// Returns a `TestArgs` instance to be used by parachains across integration tests
+pub fn para_test_args(
+	dest: MultiLocation,
+	beneficiary_id: AccountId32,
+	amount: Balance,
+	assets: MultiAssets,
+	asset_id: Option<u32>,
+	fee_asset_item: u32,
+) -> TestArgs {
+	TestArgs {
+		dest,
+		beneficiary: AccountId32Junction { network: None, id: beneficiary_id.into() }.into(),
+		amount,
+		assets,
+		asset_id,
+		fee_asset_item,
+		weight_limit: WeightLimit::Unlimited,
 	}
 }
 

@@ -15,6 +15,7 @@
 
 use crate::*;
 use asset_hub_rococo_runtime::xcm_config::XcmConfig as AssetHubRococoXcmConfig;
+use emulated_integration_tests_common::{para_test_args, relay_test_args};
 use penpal_runtime::xcm_config::XcmConfig as PenpalRococoXcmConfig;
 use rococo_runtime::xcm_config::XcmConfig as RococoXcmConfig;
 
