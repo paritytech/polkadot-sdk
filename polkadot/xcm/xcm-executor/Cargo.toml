@@ -23,24 +23,24 @@ log = { version = "0.4.17", default-features = false }
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 runtime-benchmarks = [
-	"frame-benchmarking/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
+  "frame-benchmarking/runtime-benchmarks",
+  "frame-support/runtime-benchmarks",
+  "sp-runtime/runtime-benchmarks",
 ]
 std = [
-	"environmental/std",
-	"frame-benchmarking/std",
-	"frame-support/std",
-	"log/std",
-	"parity-scale-codec/std",
-	"scale-info/std",
-	"sp-arithmetic/std",
-	"sp-core/std",
-	"sp-io/std",
-	"sp-runtime/std",
-	"sp-std/std",
-	"sp-weights/std",
-	"xcm/std",
+  "environmental/std",
+  "frame-benchmarking/std",
+  "frame-support/std",
+  "log/std",
+  "parity-scale-codec/std",
+  "scale-info/std",
+  "sp-arithmetic/std",
+  "sp-core/std",
+  "sp-io/std",
+  "sp-runtime/std",
+  "sp-std/std",
+  "sp-weights/std",
+  "xcm/std",
 ]

@@ -35,33 +35,33 @@ sp-core = { path = "../../../substrate/primitives/core" }
 sp-io = { path = "../../../substrate/primitives/io" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
-	"bp-header-chain/std",
-	"bp-parachains/std",
-	"bp-polkadot-core/std",
-	"bp-runtime/std",
-	"codec/std",
-	"frame-benchmarking/std",
-	"frame-support/std",
-	"frame-system/std",
-	"log/std",
-	"pallet-bridge-grandpa/std",
-	"scale-info/std",
-	"sp-runtime/std",
-	"sp-std/std",
-	"sp-trie/std",
+  "bp-header-chain/std",
+  "bp-parachains/std",
+  "bp-polkadot-core/std",
+  "bp-runtime/std",
+  "codec/std",
+  "frame-benchmarking/std",
+  "frame-support/std",
+  "frame-system/std",
+  "log/std",
+  "pallet-bridge-grandpa/std",
+  "scale-info/std",
+  "sp-runtime/std",
+  "sp-std/std",
+  "sp-trie/std",
 ]
 runtime-benchmarks = [
-	"frame-benchmarking/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
-	"pallet-bridge-grandpa/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
+  "frame-benchmarking/runtime-benchmarks",
+  "frame-support/runtime-benchmarks",
+  "frame-system/runtime-benchmarks",
+  "pallet-bridge-grandpa/runtime-benchmarks",
+  "sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-	"pallet-bridge-grandpa/try-runtime",
-	"sp-runtime/try-runtime",
+  "frame-support/try-runtime",
+  "frame-system/try-runtime",
+  "pallet-bridge-grandpa/try-runtime",
+  "sp-runtime/try-runtime",
 ]

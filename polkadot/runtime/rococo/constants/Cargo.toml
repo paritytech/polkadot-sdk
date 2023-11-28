@@ -19,15 +19,15 @@ sp-core = { path = "../../../../substrate/primitives/core", default-features = f
 xcm = { package = "staging-xcm", path = "../../../xcm", default-features = false }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
-	"frame-support/std",
-	"primitives/std",
-	"runtime-common/std",
-	"sp-core/std",
-	"sp-runtime/std",
-	"sp-weights/std",
-	"xcm/std",
+  "frame-support/std",
+  "primitives/std",
+  "runtime-common/std",
+  "sp-core/std",
+  "sp-runtime/std",
+  "sp-weights/std",
+  "xcm/std",
 ]
 
 # Set timing constants (e.g. session period) to faster versions to speed up testing.

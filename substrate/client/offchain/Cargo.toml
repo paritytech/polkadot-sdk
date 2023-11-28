@@ -45,7 +45,7 @@ log = "0.4.17"
 lazy_static = "1.4.0"
 tokio = "1.22.0"
 sc-block-builder = { path = "../block-builder" }
-sc-client-db = { path = "../db", default-features = true}
+sc-client-db = { path = "../db", default-features = true }
 sc-transaction-pool = { path = "../transaction-pool" }
 sc-transaction-pool-api = { path = "../transaction-pool/api" }
 sp-consensus = { path = "../../primitives/consensus/common" }

@@ -16,7 +16,7 @@ tracking-allocator = { package = "staging-tracking-allocator", path = "../../../
 tikv-jemalloc-ctl = { version = "0.5.0", optional = true }
 tikv-jemallocator = { version = "0.5.0", optional = true }
 os_pipe = "1.1.4"
-nix = { version = "0.27.1", features = ["resource", "process"]}
+nix = { version = "0.27.1", features = ["resource", "process"] }
 
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
 
@@ -33,9 +33,9 @@ tikv-jemalloc-ctl = "0.5.0"
 [features]
 builder = []
 jemalloc-allocator = [
-	"dep:tikv-jemalloc-ctl",
-	"dep:tikv-jemallocator",
-	"polkadot-node-core-pvf-common/jemalloc-allocator",
+  "dep:tikv-jemalloc-ctl",
+  "dep:tikv-jemallocator",
+  "polkadot-node-core-pvf-common/jemalloc-allocator",
 ]
 
 [dev-dependencies]

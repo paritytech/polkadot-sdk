@@ -9,10 +9,9 @@ description = "Fixtures for testing contracts pallet."
 
 [dependencies]
 wat = "1"
-frame-system = { path = "../../system", default-features = false}
-sp-runtime = { path = "../../../primitives/runtime", default-features = false}
+frame-system = { path = "../../system", default-features = false }
+sp-runtime = { path = "../../../primitives/runtime", default-features = false }
 
 [features]
-default = [ "std" ]
-std = [ "frame-system/std", "sp-runtime/std" ]
-
+default = ["std"]
+std = ["frame-system/std", "sp-runtime/std"]

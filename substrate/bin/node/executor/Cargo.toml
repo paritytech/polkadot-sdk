@@ -19,12 +19,12 @@ frame-benchmarking = { path = "../../../frame/benchmarking" }
 node-primitives = { path = "../primitives" }
 kitchensink-runtime = { path = "../runtime" }
 sc-executor = { path = "../../../client/executor" }
-sp-core = { path = "../../../primitives/core", features=["serde"] }
+sp-core = { path = "../../../primitives/core", features = ["serde"] }
 sp-keystore = { path = "../../../primitives/keystore" }
 sp-state-machine = { path = "../../../primitives/state-machine" }
 sp-tracing = { path = "../../../primitives/tracing" }
 sp-trie = { path = "../../../primitives/trie" }
-sp-statement-store = { path = "../../../primitives/statement-store", features=["serde"] }
+sp-statement-store = { path = "../../../primitives/statement-store", features = ["serde"] }
 
 [dev-dependencies]
 criterion = "0.4.0"

@@ -26,17 +26,17 @@ sp-runtime = { path = "../../../substrate/primitives/runtime", default-features 
 sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
-	"bp-header-chain/std",
-	"bp-messages/std",
-	"bp-polkadot-core/std",
-	"bp-runtime/std",
-	"codec/std",
-	"frame-support/std",
-	"frame-system/std",
-	"scale-info/std",
-	"sp-api/std",
-	"sp-runtime/std",
-	"sp-std/std",
+  "bp-header-chain/std",
+  "bp-messages/std",
+  "bp-polkadot-core/std",
+  "bp-runtime/std",
+  "codec/std",
+  "frame-support/std",
+  "frame-system/std",
+  "scale-info/std",
+  "sp-api/std",
+  "sp-runtime/std",
+  "sp-std/std",
 ]

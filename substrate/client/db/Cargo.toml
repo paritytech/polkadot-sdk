@@ -14,7 +14,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", features = [
-	"derive",
+  "derive",
 ] }
 hash-db = "0.16.0"
 kvdb = "0.13.0"
@@ -50,10 +50,10 @@ array-bytes = "6.1"
 default = []
 test-helpers = []
 runtime-benchmarks = [
-	"kitchensink-runtime/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
+  "kitchensink-runtime/runtime-benchmarks",
+  "sp-runtime/runtime-benchmarks",
 ]
-rocksdb = [ "kvdb-rocksdb" ]
+rocksdb = ["kvdb-rocksdb"]
 
 [[bench]]
 name = "state_access"

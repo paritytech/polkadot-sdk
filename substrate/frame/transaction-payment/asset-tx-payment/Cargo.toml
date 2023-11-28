@@ -14,14 +14,14 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 # Substrate dependencies
-sp-core = { path = "../../../primitives/core", default-features = false}
-sp-io = { path = "../../../primitives/io", default-features = false}
-sp-runtime = { path = "../../../primitives/runtime", default-features = false}
-sp-std = { path = "../../../primitives/std", default-features = false}
+sp-core = { path = "../../../primitives/core", default-features = false }
+sp-io = { path = "../../../primitives/io", default-features = false }
+sp-runtime = { path = "../../../primitives/runtime", default-features = false }
+sp-std = { path = "../../../primitives/std", default-features = false }
 
-frame-support = { path = "../../support", default-features = false}
-frame-system = { path = "../../system", default-features = false}
-pallet-transaction-payment = { path = "..", default-features = false}
+frame-support = { path = "../../support", default-features = false }
+frame-system = { path = "../../system", default-features = false }
+pallet-transaction-payment = { path = "..", default-features = false }
 frame-benchmarking = { path = "../../benchmarking", default-features = false, optional = true }
 
 # Other dependencies
@@ -32,45 +32,45 @@ serde = { version = "1.0.188", optional = true }
 [dev-dependencies]
 serde_json = "1.0.108"
 
-sp-storage = { path = "../../../primitives/storage", default-features = false}
+sp-storage = { path = "../../../primitives/storage", default-features = false }
 
 pallet-assets = { path = "../../assets" }
 pallet-authorship = { path = "../../authorship" }
 pallet-balances = { path = "../../balances" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
-	"codec/std",
-	"frame-benchmarking?/std",
-	"frame-support/std",
-	"frame-system/std",
-	"pallet-assets/std",
-	"pallet-authorship/std",
-	"pallet-balances/std",
-	"pallet-transaction-payment/std",
-	"scale-info/std",
-	"serde",
-	"sp-core/std",
-	"sp-io/std",
-	"sp-runtime/std",
-	"sp-std/std",
-	"sp-storage/std",
+  "codec/std",
+  "frame-benchmarking?/std",
+  "frame-support/std",
+  "frame-system/std",
+  "pallet-assets/std",
+  "pallet-authorship/std",
+  "pallet-balances/std",
+  "pallet-transaction-payment/std",
+  "scale-info/std",
+  "serde",
+  "sp-core/std",
+  "sp-io/std",
+  "sp-runtime/std",
+  "sp-std/std",
+  "sp-storage/std",
 ]
 runtime-benchmarks = [
-	"frame-benchmarking/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
-	"pallet-assets/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
+  "frame-benchmarking/runtime-benchmarks",
+  "frame-support/runtime-benchmarks",
+  "frame-system/runtime-benchmarks",
+  "pallet-assets/runtime-benchmarks",
+  "pallet-balances/runtime-benchmarks",
+  "sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-	"pallet-assets/try-runtime",
-	"pallet-authorship/try-runtime",
-	"pallet-balances/try-runtime",
-	"pallet-transaction-payment/try-runtime",
-	"sp-runtime/try-runtime",
+  "frame-support/try-runtime",
+  "frame-system/try-runtime",
+  "pallet-assets/try-runtime",
+  "pallet-authorship/try-runtime",
+  "pallet-balances/try-runtime",
+  "pallet-transaction-payment/try-runtime",
+  "sp-runtime/try-runtime",
 ]

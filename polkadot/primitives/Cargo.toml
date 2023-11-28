@@ -30,29 +30,29 @@ polkadot-core-primitives = { path = "../core-primitives", default-features = fal
 polkadot-parachain-primitives = { path = "../parachain", default-features = false }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
-	"application-crypto/std",
-	"bitvec/std",
-	"inherents/std",
-	"parity-scale-codec/std",
-	"polkadot-core-primitives/std",
-	"polkadot-parachain-primitives/std",
-	"primitives/std",
-	"runtime_primitives/std",
-	"scale-info/std",
-	"serde/std",
-	"sp-api/std",
-	"sp-arithmetic/std",
-	"sp-authority-discovery/std",
-	"sp-consensus-slots/std",
-	"sp-io/std",
-	"sp-keystore",
-	"sp-staking/std",
-	"sp-std/std",
+  "application-crypto/std",
+  "bitvec/std",
+  "inherents/std",
+  "parity-scale-codec/std",
+  "polkadot-core-primitives/std",
+  "polkadot-parachain-primitives/std",
+  "primitives/std",
+  "runtime_primitives/std",
+  "scale-info/std",
+  "serde/std",
+  "sp-api/std",
+  "sp-arithmetic/std",
+  "sp-authority-discovery/std",
+  "sp-consensus-slots/std",
+  "sp-io/std",
+  "sp-keystore",
+  "sp-staking/std",
+  "sp-std/std",
 ]
 runtime-benchmarks = [
-	"polkadot-parachain-primitives/runtime-benchmarks",
-	"runtime_primitives/runtime-benchmarks",
-	"sp-staking/runtime-benchmarks",
+  "polkadot-parachain-primitives/runtime-benchmarks",
+  "runtime_primitives/runtime-benchmarks",
+  "sp-staking/runtime-benchmarks",
 ]

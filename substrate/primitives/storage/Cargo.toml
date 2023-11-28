@@ -18,18 +18,18 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 impl-serde = { version = "0.4.0", optional = true, default-features = false }
 ref-cast = "1.0.0"
 serde = { version = "1.0.188", default-features = false, features = ["derive", "alloc"], optional = true }
-sp-debug-derive = { path = "../debug-derive", default-features = false}
-sp-std = { path = "../std", default-features = false}
+sp-debug-derive = { path = "../debug-derive", default-features = false }
+sp-std = { path = "../std", default-features = false }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
-	"codec/std",
-	"impl-serde/std",
-	"serde/std",
-	"sp-debug-derive/std",
-	"sp-std/std",
+  "codec/std",
+  "impl-serde/std",
+  "serde/std",
+  "sp-debug-derive/std",
+  "sp-std/std",
 ]
 
 # Serde support without relying on std features.
-serde = [ "dep:serde", "impl-serde" ]
+serde = ["dep:serde", "impl-serde"]

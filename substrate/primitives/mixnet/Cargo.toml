@@ -20,11 +20,11 @@ sp-application-crypto = { default-features = false, path = "../application-crypt
 sp-std = { default-features = false, path = "../std" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
-	"codec/std",
-	"scale-info/std",
-	"sp-api/std",
-	"sp-application-crypto/std",
-	"sp-std/std",
+  "codec/std",
+  "scale-info/std",
+  "sp-api/std",
+  "sp-application-crypto/std",
+  "sp-std/std",
 ]

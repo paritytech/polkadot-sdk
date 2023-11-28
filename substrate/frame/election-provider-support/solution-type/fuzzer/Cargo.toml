@@ -24,7 +24,7 @@ frame-election-provider-support = { path = "../.." }
 sp-arithmetic = { path = "../../../../primitives/arithmetic" }
 sp-runtime = { path = "../../../../primitives/runtime" }
 # used by generate_solution_type:
-sp-npos-elections = { path = "../../../../primitives/npos-elections", default-features = false}
+sp-npos-elections = { path = "../../../../primitives/npos-elections", default-features = false }
 frame-support = { path = "../../../support" }
 
 [[bin]]
