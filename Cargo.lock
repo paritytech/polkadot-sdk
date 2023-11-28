@@ -2163,7 +2163,6 @@ dependencies = [
 name = "bridge-hub-kusama-runtime"
 version = "0.1.0"
 dependencies = [
- "bridge-hub-common",
  "bridge-hub-test-utils",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
@@ -2228,7 +2227,6 @@ dependencies = [
 name = "bridge-hub-polkadot-runtime"
 version = "0.1.0"
 dependencies = [
- "bridge-hub-common",
  "bridge-hub-test-utils",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
