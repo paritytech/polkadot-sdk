@@ -20,7 +20,7 @@
 #![no_main]
 
 extern crate common;
-use uapi::{Api, ApiImpl as api, CallFlags};
+use uapi::{CallFlags, HostFn, HostFnImpl as api};
 
 #[no_mangle]
 pub fn deploy() {}

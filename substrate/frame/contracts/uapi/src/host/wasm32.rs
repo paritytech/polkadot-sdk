@@ -13,8 +13,7 @@
 // limitations under the License.
 // #![allow(unused_variables)]
 use super::{
-	common::{extract_from_slice, ptr_len_or_sentinel, ptr_or_sentinel},
-	Api, CallFlags, Result,
+	extract_from_slice, ptr_len_or_sentinel, ptr_or_sentinel, CallFlags, HostFn, HostFnImpl, Result,
 };
 use crate::{ReturnCode, ReturnFlags};
 
@@ -281,7 +280,7 @@ mod sys {
 	}
 }
 
-/// A macro to implement all Api functions with a signature of `fn(&mut &mut [u8])`.
+/// A macro to implement all Host functions with a signature of `fn(&mut &mut [u8])`.
 macro_rules! impl_wrapper_for {
     (@impl_fn $( $mod:ident )::*, $suffix:literal, $name:ident) => {
         paste::paste! {
@@ -345,9 +344,7 @@ macro_rules! impl_get_storage {
 	};
 }
 
-pub enum ApiImpl {}
-
-impl Api for ApiImpl {
+impl HostFn for HostFnImpl {
 	fn instantiate_v1(
 		code_hash: &[u8],
 		gas: u64,

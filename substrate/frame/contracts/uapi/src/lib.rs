@@ -21,8 +21,11 @@
 mod flags;
 pub use flags::*;
 
-mod api;
-pub use api::*;
+#[cfg(any(target_arch = "wasm32", target_arch = "riscv32"))]
+mod host;
+
+#[cfg(any(target_arch = "wasm32", target_arch = "riscv32"))]
+pub use host::*;
 
 macro_rules! define_error_codes {
     (

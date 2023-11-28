@@ -14,7 +14,6 @@ scale = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 	"derive",
 	"max-encoded-len",
 ], optional = true }
-cfg-if = { version = "1.0", default-features = false }
 paste = { version = "1.0", default-features = false }
 bitflags = "1.0"
 
