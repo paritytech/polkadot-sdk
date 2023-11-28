@@ -50,7 +50,7 @@ use sc_network_test::{
 };
 use sc_utils::notification::NotificationReceiver;
 use serde::{Deserialize, Serialize};
-use sp_api::{ApiRef, BlockT, ProvideRuntimeApi};
+use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_application_crypto::key_types::BEEFY as BEEFY_KEY_TYPE;
 use sp_consensus::BlockOrigin;
 use sp_consensus_beefy::{
@@ -66,7 +66,7 @@ use sp_keystore::{testing::MemoryKeystore, Keystore, KeystorePtr};
 use sp_mmr_primitives::{Error as MmrError, MmrApi};
 use sp_runtime::{
 	codec::{Decode, Encode},
-	traits::{Header as HeaderT, NumberFor},
+	traits::{Block as BlockT, Header as HeaderT, NumberFor},
 	BuildStorage, DigestItem, EncodedJustification, Justifications, Storage,
 };
 use std::{marker::PhantomData, sync::Arc, task::Poll};
