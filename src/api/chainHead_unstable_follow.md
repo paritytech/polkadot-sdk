@@ -401,4 +401,3 @@ The runtime is of type `invalid` if the JSON-RPC server considers the runtime as
 
 - A JSON-RPC error with error code `-32800` can be generated if the JSON-RPC client has already opened 2 or more `chainHead_unstable_follow` subscriptions.
 - A JSON-RPC error with error code `-32602` is generated if one of the parameters doesn't correspond to the expected type (similarly to a missing parameter or an invalid parameter type).
-- A JSON-RPC error with error code `-32603` is generated if the JSON-RPC server was unable of generating a valid subscription ID.
