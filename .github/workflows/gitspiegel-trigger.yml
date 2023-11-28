@@ -8,6 +8,7 @@ name: gitspiegel sync
 on:
   # the job doesn't check out any code, so it is relatively safe to run it on any event
   pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
   merge_group:
 
 # drop all permissions for GITHUB_TOKEN
