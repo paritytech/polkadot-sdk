@@ -67,7 +67,7 @@ fn id_deposit_relaychain(id: &IdentityInfo<MaxAdditionalFields>) -> Balance {
 }
 
 #[test]
-fn reap_identity() {
+fn on_reap_identity_works() {
 	let identity_relaychain = identity_relay();
 	let identity_parachain = identity_parachain();
 	let mut total_deposit = 0_u128;
