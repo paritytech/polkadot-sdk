@@ -4,46 +4,46 @@ error: `Pallet` does not have #[pallet::validate_unsigned] defined, perhaps you 
 22 |   #[frame_support::pallet]
    |   ^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-65 | / construct_runtime! {
-66 | |     pub struct Runtime
-67 | |     {
-68 | |         System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
-69 | |         Pallet: pallet::{Pallet, ValidateUnsigned},
-70 | |     }
-71 | | }
+66 | / construct_runtime! {
+67 | |     pub struct Runtime
+68 | |     {
+69 | |         System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
+70 | |         Pallet: pallet::{Pallet, ValidateUnsigned},
+71 | |     }
+72 | | }
    | |_- in this macro invocation
    |
    = note: this error originates in the macro `pallet::__substrate_validate_unsigned_check::is_validate_unsigned_part_defined` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0599]: no variant or associated item named `Pallet` found for enum `RuntimeCall` in the current scope
-  --> tests/construct_runtime_ui/undefined_validate_unsigned_part.rs:69:3
+  --> tests/construct_runtime_ui/undefined_validate_unsigned_part.rs:70:3
    |
-65 | // construct_runtime! {
-66 | ||     pub struct Runtime
-67 | ||     {
-68 | ||         System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
-69 | ||         Pallet: pallet::{Pallet, ValidateUnsigned},
+66 | // construct_runtime! {
+67 | ||     pub struct Runtime
+68 | ||     {
+69 | ||         System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
+70 | ||         Pallet: pallet::{Pallet, ValidateUnsigned},
    | ||        -^^^^^^ variant or associated item not found in `RuntimeCall`
    | ||________|
    | |
 ...  |
 
 error[E0599]: no function or associated item named `pre_dispatch` found for struct `pallet::Pallet` in the current scope
-  --> tests/construct_runtime_ui/undefined_validate_unsigned_part.rs:65:1
+  --> tests/construct_runtime_ui/undefined_validate_unsigned_part.rs:66:1
    |
 28 |        pub struct Pallet<T>(_);
    |        -------------------- function or associated item `pre_dispatch` not found for this struct
 ...
-65 |    construct_runtime! {
+66 |    construct_runtime! {
    |  __^
    | | _|
    | ||
-66 | ||     pub struct Runtime
-67 | ||     {
-68 | ||         System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
-69 | ||         Pallet: pallet::{Pallet, ValidateUnsigned},
-70 | ||     }
-71 | || }
+67 | ||     pub struct Runtime
+68 | ||     {
+69 | ||         System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
+70 | ||         Pallet: pallet::{Pallet, ValidateUnsigned},
+71 | ||     }
+72 | || }
    | ||_- in this macro invocation
 ...  |
    |
@@ -54,21 +54,21 @@ error[E0599]: no function or associated item named `pre_dispatch` found for stru
    = note: this error originates in the macro `frame_support::construct_runtime` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0599]: no function or associated item named `validate_unsigned` found for struct `pallet::Pallet` in the current scope
-  --> tests/construct_runtime_ui/undefined_validate_unsigned_part.rs:65:1
+  --> tests/construct_runtime_ui/undefined_validate_unsigned_part.rs:66:1
    |
 28 |        pub struct Pallet<T>(_);
    |        -------------------- function or associated item `validate_unsigned` not found for this struct
 ...
-65 |    construct_runtime! {
+66 |    construct_runtime! {
    |  __^
    | | _|
    | ||
-66 | ||     pub struct Runtime
-67 | ||     {
-68 | ||         System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
-69 | ||         Pallet: pallet::{Pallet, ValidateUnsigned},
-70 | ||     }
-71 | || }
+67 | ||     pub struct Runtime
+68 | ||     {
+69 | ||         System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
+70 | ||         Pallet: pallet::{Pallet, ValidateUnsigned},
+71 | ||     }
+72 | || }
    | ||_- in this macro invocation
 ...  |
    |

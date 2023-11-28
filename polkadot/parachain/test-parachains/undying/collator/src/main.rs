@@ -84,6 +84,7 @@ fn main() -> Result<()> {
 						),
 						grandpa_pause: None,
 						enable_beefy: false,
+						force_authoring_backoff: false,
 						jaeger_agent: None,
 						telemetry_worker_handle: None,
 

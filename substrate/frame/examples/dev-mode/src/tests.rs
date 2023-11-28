@@ -18,7 +18,7 @@
 //! Tests for pallet-dev-mode.
 
 use crate::*;
-use frame_support::{assert_ok, traits::ConstU64};
+use frame_support::{assert_ok, derive_impl, traits::ConstU64};
 use sp_core::H256;
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
@@ -39,6 +39,7 @@ frame_support::construct_runtime!(
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
