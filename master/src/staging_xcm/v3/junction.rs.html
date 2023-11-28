@@ -469,6 +469,8 @@
 <a href="#469" id="469">469</a>
 <a href="#470" id="470">470</a>
 <a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -546,6 +548,8 @@
 	</span>BitcoinCore,
 	<span class="doccomment">/// The Bitcoin network, including hard-forks supported by Bitcoin Cash developers.
 	</span>BitcoinCash,
+	<span class="doccomment">/// The Polkadot Bulletin chain.
+	</span>PolkadotBulletin,
 }
 
 <span class="kw">impl </span>From&lt;OldNetworkId&gt; <span class="kw">for </span><span class="prelude-ty">Option</span>&lt;NetworkId&gt; {
