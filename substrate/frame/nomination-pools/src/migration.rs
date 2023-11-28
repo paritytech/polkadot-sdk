@@ -98,35 +98,27 @@ pub mod v8 {
 
 	pub struct VersionUncheckedMigrateV7ToV8<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV7ToV8<T> {
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			Ok(Vec::new())
+		}
+
 		fn on_runtime_upgrade() -> Weight {
 			let mut translated = 0u64;
 			BondedPools::<T>::translate::<OldBondedPoolInner<T>, _>(|_key, old_value| {
 				translated.saturating_inc();
 				Some(old_value.migrate_to_v8())
 			});
-
-			StorageVersion::new(8).put::<Pallet<T>>();
-			log!(info, "Upgraded {} pools, storage to version 8", translated);
-
 			T::DbWeight::get().reads_writes(translated, translated + 1)
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
-			Ok(Vec::new())
-		}
-
-		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(_: Vec<u8>) -> Result<(), TryRuntimeError> {
+			// Check new `claim_permission` field is present.
 			ensure!(
-				BondedPools::<T>::iter().all(|(_, inner)|
-					// new `claim_permission` field is present.
-					inner.commission.claim_permission.is_none()),
-				"claim_permission value has not been set correctly"
-			);
-			ensure!(
-				Pallet::<T>::on_chain_storage_version() >= 8,
-				"nomination-pools::migration::v8: wrong storage version"
+				BondedPools::<T>::iter()
+					.all(|(_, inner)| inner.commission.claim_permission.is_none()),
+				"`claim_permission` value has not been set correctly."
 			);
 			Ok(())
 		}
