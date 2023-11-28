@@ -1,6 +1,6 @@
 # Testing
 
-Testing is an essential tool to assure correctness. This document describes how we test the polkadot code, whether
+Testing is an essential tool to assure correctness. This document describes how we test the Polkadot code, whether
 locally, at scale, and/or automatically in CI.
 
 ## Scopes
@@ -147,7 +147,7 @@ Fuzzing is an approach to verify correctness against arbitrary or partially stru
 
 Currently implemented fuzzing targets:
 
-* `erasure-coding`
+- `erasure-coding`
 
 The tooling of choice here is `honggfuzz-rs` as it allows _fastest_ coverage according to "some paper" which is a
 positive feature when run as part of PRs.
@@ -158,16 +158,16 @@ hence simply not feasible due to the amount of state that is required.
 
 Other candidates to implement fuzzing are:
 
-* `rpc`
-* ...
+- `rpc`
+- ...
 
 ## Performance metrics
 
 There are various ways of performance metrics.
 
-* timing with `criterion`
-* cache hits/misses w/ `iai` harness or `criterion-perf`
-* `coz` a performance based compiler
+- timing with `criterion`
+- cache hits/misses w/ `iai` harness or `criterion-perf`
+- `coz` a performance based compiler
 
 Most of them are standard tools to aid in the creation of statistical tests regarding change in time of certain unit
 tests.
@@ -185,10 +185,10 @@ pursued at the current time.
 
 Requirements:
 
-* spawn nodes with preconfigured behaviors
-* allow multiple types of configuration to be specified
-* allow extendability via external crates
-* ...
+- spawn nodes with preconfigured behaviors
+- allow multiple types of configuration to be specified
+- allow extendability via external crates
+- ...
 
 ---
 
