@@ -336,15 +336,9 @@ impl<T: Config> Pallet<T> {
 		if amount.is_zero() {
 			return None
 		}
+		let dest = Self::payee(StakingAccount::Stash(stash.clone()))?;
 
-		let dest = match Self::payee(StakingAccount::Stash(stash.clone()))
-			.defensive_proof("payee must exist for a ledger requesting a payout")
-		{
-			Some(dest) => dest,
-			None => return None,
-		};
-
-		let maybe_imbalance = match dest.clone() {
+		let maybe_imbalance = match dest {
 			RewardDestination::Stash => T::Currency::deposit_into_existing(stash, amount).ok(),
 			RewardDestination::Staked => Self::ledger(Stash(stash.clone()))
 				.and_then(|mut ledger| {
@@ -359,7 +353,7 @@ impl<T: Config> Pallet<T> {
 					Ok(r)
 				})
 				.unwrap_or_default(),
-			RewardDestination::Account(dest_account) =>
+			RewardDestination::Account(ref dest_account) =>
 				Some(T::Currency::deposit_creating(&dest_account, amount)),
 			RewardDestination::None => None,
 			#[allow(deprecated)]
