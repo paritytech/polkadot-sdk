@@ -1028,6 +1028,7 @@ dependencies = [
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
+ "penpal-runtime",
  "polkadot-runtime-common",
  "sp-runtime",
  "staging-xcm",
@@ -10816,6 +10817,7 @@ dependencies = [
 name = "pallet-safe-mode"
 version = "4.0.0-dev"
 dependencies = [
+ "docify",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -11219,6 +11221,7 @@ dependencies = [
 name = "pallet-tx-pause"
 version = "4.0.0-dev"
 dependencies = [
+ "docify",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -11765,6 +11768,7 @@ dependencies = [
  "serde_json",
  "sp-core",
  "sp-runtime",
+ "westend-emulated-chain",
 ]
 
 [[package]]
