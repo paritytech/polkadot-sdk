@@ -1101,7 +1101,7 @@ pub fn weight(_: TokenStream, _: TokenStream) -> TokenStream {
 /// ---
 ///
 /// **Rust-Analyzer users**: See the documentation of the Rust item in
-/// `frame_support::pallet_macros::call`.
+/// [`frame_support::pallet_macros::call`](../../frame_support/pallet_macros/attr.call.html).
 #[proc_macro_attribute]
 pub fn compact(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1111,7 +1111,7 @@ pub fn compact(_: TokenStream, _: TokenStream) -> TokenStream {
 /// ---
 ///
 /// **Rust-Analyzer users**: See the documentation of the Rust item in
-/// `frame_support::pallet_macros::call`.
+/// [`frame_support::pallet_macros::call`](../../frame_support/pallet_macros/attr.call.html).
 #[proc_macro_attribute]
 pub fn call(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1123,7 +1123,7 @@ pub fn call(_: TokenStream, _: TokenStream) -> TokenStream {
 /// ---
 ///
 /// **Rust-Analyzer users**: See the documentation of the Rust item in
-/// `frame_support::pallet_macros::call`.
+/// [`frame_support::pallet_macros::call`](../../frame_support/pallet_macros/attr.call.html).
 #[proc_macro_attribute]
 pub fn call_index(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
