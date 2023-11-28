@@ -37,13 +37,13 @@
 //! - [`pallet_example_kitchensink`]: This pallet demonstrates a catalog of all FRAME macros in use
 //!   and their various syntax options.
 //!
-//! - [`pallet-example-storage-migrations`]: An example pallet demonstrating best-practices for
-//!   writing storage migrations.
-//!
 //! - [`pallet_example_split`]: A simple example of a FRAME pallet demonstrating the ability to
 //!   split sections across multiple files.
 //!
 //! - [`pallet_example_frame_crate`]: Example pallet showcasing how one can be
 //! built using only the `frame` umbrella crate.
+//!
+//! - [`pallet-example-storage-migrations`]: An example pallet demonstrating best-practices for
+//!   writing storage migrations.
 //!
 //! **Tip**: Use `cargo doc --package <pallet-name> --open` to view each pallet's documentation.
