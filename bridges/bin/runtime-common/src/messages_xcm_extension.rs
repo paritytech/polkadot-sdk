@@ -146,6 +146,8 @@ pub trait XcmBlobHauler {
 	type MessagesInstance: 'static;
 	/// Returns lane used by this hauler.
 	type SenderAndLane: Get<SenderAndLane>;
+	/// Determines the XCM version for the destination.
+	type DestinationVersion: DetermineVersion;
 
 	/// Actual XCM message sender (`HRMP` or `UMP`) to the source chain
 	/// location (`Self::SenderAndLane::get().location`).
@@ -199,6 +201,12 @@ where
 				);
 				HaulBlobError::Transport("MessageSenderError")
 			})
+	}
+}
+
+impl<H: XcmBlobHauler> DetermineVersion for XcmBlobHaulerAdapter<H> {
+	fn determine_version_for(dest: &MultiLocation, handle_unknown: bool) -> Option<XcmVersion> {
+		H::DestinationVersion::determine_version_for(dest, handle_unknown)
 	}
 }
 
@@ -339,6 +347,34 @@ impl<H: XcmBlobHauler> LocalXcmQueueManager<H> {
 			);
 		}
 		Ok(())
+	}
+}
+
+/// Adapter for the implementation of `DetermineVersion`, which attempts to find the minimal
+/// configured XCM version between the destination `dest` and the bridge hub location provided as
+/// `Get<Location>`.
+pub struct MinXcmVersionOfDestinationAndRemoteBridgeHub<Version, RemoteBridgeHub>(
+	sp_std::marker::PhantomData<(Version, RemoteBridgeHub)>,
+);
+impl<Version: DetermineVersion, RemoteBridgeHub: Get<MultiLocation>> DetermineVersion
+	for MinXcmVersionOfDestinationAndRemoteBridgeHub<Version, RemoteBridgeHub>
+{
+	fn determine_version_for(dest: &MultiLocation, handle_unknown: bool) -> Option<XcmVersion> {
+		let dest_version = Version::determine_version_for(dest, handle_unknown);
+		let bridge_hub_version =
+			Version::determine_version_for(&RemoteBridgeHub::get(), handle_unknown);
+
+		match (dest_version, bridge_hub_version) {
+			(Some(dv), Some(bhv)) =>
+				if dv <= bhv {
+					Some(dv)
+				} else {
+					Some(bhv)
+				},
+			(Some(dv), None) => Some(dv),
+			(None, Some(bhv)) => Some(bhv),
+			(None, None) => None,
+		}
 	}
 }
 

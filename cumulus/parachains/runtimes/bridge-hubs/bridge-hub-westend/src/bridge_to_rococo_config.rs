@@ -18,7 +18,7 @@
 
 use crate::{
 	bridge_common_config::DeliveryRewardInBalance, weights, AccountId, BridgeRococoMessages,
-	ParachainInfo, Runtime, RuntimeEvent, RuntimeOrigin, XcmRouter,
+	ParachainInfo, PolkadotXcm, Runtime, RuntimeEvent, RuntimeOrigin, XcmRouter,
 };
 use bp_messages::LaneId;
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
@@ -30,8 +30,8 @@ use bridge_runtime_common::{
 		MessageBridge, ThisChainWithMessages, UnderlyingChainProvider,
 	},
 	messages_xcm_extension::{
-		SenderAndLane, XcmAsPlainPayload, XcmBlobHauler, XcmBlobHaulerAdapter,
-		XcmBlobMessageDispatch,
+		MinXcmVersionOfDestinationAndRemoteBridgeHub, SenderAndLane, XcmAsPlainPayload,
+		XcmBlobHauler, XcmBlobHaulerAdapter, XcmBlobMessageDispatch,
 	},
 	refund_relayer_extension::{
 		ActualFeeRefund, RefundBridgedParachainMessages, RefundSignedExtensionAdapter,
@@ -65,6 +65,7 @@ parameter_types! {
 	pub BridgeHubWestendUniversalLocation: InteriorMultiLocation = X2(GlobalConsensus(Westend), Parachain(ParachainInfo::parachain_id().into()));
 	pub BridgeWestendToRococoMessagesPalletInstance: InteriorMultiLocation = X1(PalletInstance(<BridgeRococoMessages as PalletInfoAccess>::index() as u8));
 	pub RococoGlobalConsensusNetwork: NetworkId = NetworkId::Rococo;
+	pub RococoGlobalConsensusNetworkWithParentCount: (NetworkId, u8) = (RococoGlobalConsensusNetwork::get(), 2);
 	pub ActiveOutboundLanesToBridgeHubRococo: &'static [bp_messages::LaneId] = &[XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO];
 	pub const AssetHubWestendToAssetHubRococoMessagesLane: bp_messages::LaneId = XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO;
 	// see the `FEE_BOOST_PER_MESSAGE` constant to get the meaning of this value
@@ -80,6 +81,14 @@ parameter_types! {
 	pub CongestedMessage: Xcm<()> = build_congestion_message(true).into();
 
 	pub UncongestedMessage: Xcm<()> = build_congestion_message(false).into();
+
+	pub BridgeHubRococoLocation: MultiLocation = MultiLocation {
+		parents: 2,
+		interior: X2(
+			GlobalConsensus(RococoGlobalConsensusNetwork::get()),
+			Parachain(<bp_bridge_hub_rococo::BridgeHubRococo as bp_runtime::Parachain>::PARACHAIN_ID)
+		)
+	};
 }
 pub const XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO: LaneId = LaneId([0, 0, 0, 2]);
 
@@ -119,7 +128,7 @@ type FromRococoMessageBlobDispatcher = BridgeBlobDispatcher<
 /// Export XCM messages to be relayed to the other side
 pub type ToBridgeHubRococoHaulBlobExporter = HaulBlobExporter<
 	XcmBlobHaulerAdapter<ToBridgeHubRococoXcmBlobHauler>,
-	RococoGlobalConsensusNetwork,
+	RococoGlobalConsensusNetworkWithParentCount,
 	(),
 >;
 pub struct ToBridgeHubRococoXcmBlobHauler;
@@ -127,6 +136,8 @@ impl XcmBlobHauler for ToBridgeHubRococoXcmBlobHauler {
 	type Runtime = Runtime;
 	type MessagesInstance = WithBridgeHubRococoMessagesInstance;
 	type SenderAndLane = FromAssetHubWestendToAssetHubRococoRoute;
+	type DestinationVersion =
+		MinXcmVersionOfDestinationAndRemoteBridgeHub<PolkadotXcm, BridgeHubRococoLocation>;
 
 	type ToSourceChainSender = XcmRouter;
 	type CongestedMessage = CongestedMessage;
