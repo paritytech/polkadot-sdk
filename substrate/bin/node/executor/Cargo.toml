@@ -20,6 +20,7 @@ node-primitives = { path = "../primitives" }
 kitchensink-runtime = { path = "../runtime" }
 sc-executor = { path = "../../../client/executor" }
 sp-core = { path = "../../../primitives/core", features=["serde"] }
+sp-io = { path = "../../../primitives/io" }
 sp-keystore = { path = "../../../primitives/keystore" }
 sp-state-machine = { path = "../../../primitives/state-machine" }
 sp-tracing = { path = "../../../primitives/tracing" }

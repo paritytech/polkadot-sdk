@@ -15,26 +15,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! A `CodeExecutor` specialization which uses natively compiled runtime when the wasm to be
-//! executed is equivalent to the natively compiled code.
+//! Provides executor related types intended to use accross substrate node.
 
-pub use sc_executor::NativeElseWasmExecutor;
+/// Host functions required for kitchensink runtime and substrate node.
+pub type HostFunctions =
+	(sp_io::SubstrateHostFunctions, sp_statement_store::runtime_api::HostFunctions);
 
-// Declare an instance of the native executor named `ExecutorDispatch`. Include the wasm binary as
-// the equivalent wasm code.
-pub struct ExecutorDispatch;
-
-impl sc_executor::NativeExecutionDispatch for ExecutorDispatch {
-	type ExtendHostFunctions = (
-		frame_benchmarking::benchmarking::HostFunctions,
-		sp_statement_store::runtime_api::HostFunctions,
-	);
-
-	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-		kitchensink_runtime::api::dispatch(method, data)
-	}
-
-	fn native_version() -> sc_executor::NativeVersion {
-		kitchensink_runtime::native_version()
-	}
-}
+/// A specialized `WasmExecutor` intended to use accross substrate node. It provides all required
+/// HostFunctions.
+pub type ClientWasmExecutor = sc_executor::WasmExecutor<HostFunctions>;
