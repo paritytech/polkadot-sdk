@@ -19327,13 +19327,10 @@ name = "testnets-common"
 version = "1.0.0"
 dependencies = [
  "frame-support",
- "pallet-treasury",
  "polkadot-core-primitives",
- "polkadot-runtime-common",
  "rococo-runtime-constants",
  "smallvec",
  "sp-runtime",
- "staging-xcm",
  "substrate-wasm-builder",
  "westend-runtime-constants",
 ]
