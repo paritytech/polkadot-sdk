@@ -15,8 +15,8 @@
 
 use crate::*;
 use asset_hub_westend_runtime::xcm_config::XcmConfig as AssetHubWestendXcmConfig;
-use penpal_runtime::xcm_config::XcmConfig as PenpalWestendXcmConfig;
 use westend_runtime::xcm_config::XcmConfig as WestendXcmConfig;
+use westend_system_emulated_network::penpal_emulated_chain::XcmConfig as PenpalWestendXcmConfig;
 
 fn relay_to_para_sender_assertions(t: RelayToParaTest) {
 	type RuntimeEvent = <Westend as Chain>::RuntimeEvent;

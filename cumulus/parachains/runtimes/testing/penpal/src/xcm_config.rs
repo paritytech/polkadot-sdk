@@ -249,6 +249,8 @@ where
 	}
 }
 
+pub const TELEPORTABLE_ASSET_ID: u32 = 2;
+
 parameter_types! {
 	/// The location that this chain recognizes as the Relay network's Asset Hub.
 	pub SystemAssetHubLocation: MultiLocation = MultiLocation::new(1, X1(Parachain(1000)));
@@ -259,10 +261,30 @@ parameter_types! {
 	pub AssetsPalletLocation: MultiLocation =
 		MultiLocation::new(0, X1(PalletInstance(50)));
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
+	// This asset can be added to AH as ForeignAsset and teleported between Penpal and AH
+	pub LocalTeleportableToAssetHub: MultiLocation =
+		MultiLocation::new(0, X2(PalletInstance(50), GeneralIndex(TELEPORTABLE_ASSET_ID.into())));
+	pub ForeignAssetOnAssetHub: MultiLocation = MultiLocation::new(
+		1,
+		X3(Parachain(1000), PalletInstance(50), GeneralIndex(TELEPORTABLE_ASSET_ID.into()))
+	);
+}
+
+/// Accepts asset with ID `AssetLocation` and is coming from `Origin` chain.
+pub struct AssetFromChain<AssetLocation, Origin>(PhantomData<(AssetLocation, Origin)>);
+impl<AssetLocation: Get<MultiLocation>, Origin: Get<MultiLocation>>
+	ContainsPair<MultiAsset, MultiLocation> for AssetFromChain<AssetLocation, Origin>
+{
+	fn contains(asset: &MultiAsset, origin: &MultiLocation) -> bool {
+		log::trace!(target: "xcm::contains", "AssetFromChain asset: {:?}, origin: {:?}", asset, origin);
+		*origin == Origin::get() && matches!(asset.id, Concrete(id) if id == AssetLocation::get())
+	}
 }
 
 pub type Reserves =
 	(NativeAsset, AssetsFrom<SystemAssetHubLocation>, NativeAssetFrom<SystemAssetHubLocation>);
+pub type TrustedTeleporters =
+	(AssetFromChain<LocalTeleportableToAssetHub, SystemAssetHubLocation>,);
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
@@ -273,7 +295,7 @@ impl xcm_executor::Config for XcmConfig {
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
 	type IsReserve = Reserves;
 	// no teleport trust established with other chains
-	type IsTeleporter = NativeAsset;
+	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;

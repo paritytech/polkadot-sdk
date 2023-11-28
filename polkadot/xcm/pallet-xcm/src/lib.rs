@@ -1618,8 +1618,9 @@ impl<T: Config> Pallet<T> {
 				)?;
 				(local, Some(remote))
 			},
-			TransferType::RemoteReserve(reserve) => (
-				Self::remote_reserve_transfer_program(
+			TransferType::RemoteReserve(reserve) => {
+				ensure!(separate_fees_instructions.is_none(), Error::<T>::TooManyReserves);
+				let local = Self::remote_reserve_transfer_program(
 					origin,
 					reserve,
 					dest,
@@ -1627,9 +1628,9 @@ impl<T: Config> Pallet<T> {
 					assets,
 					fees,
 					weight_limit,
-				)?,
-				None,
-			),
+				)?;
+				(local, None)
+			},
 			TransferType::Teleport => (
 				Self::teleport_assets_program(
 					origin,
