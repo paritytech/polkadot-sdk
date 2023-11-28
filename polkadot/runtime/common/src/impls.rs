@@ -153,7 +153,7 @@ pub mod benchmarks {
 	use frame_support::traits::Get;
 	use pallet_asset_rate::AssetKindFactory;
 	use pallet_treasury::ArgumentsFactory as TreasuryArgumentsFactory;
-	use sp_core::{ConstI16, ConstU128, ConstU32, ConstU8};
+	use sp_core::{ConstU32, ConstU8};
 	use xcm::prelude::*;
 
 	/// Provides a factory method for the [`VersionedLocatableAsset`].
