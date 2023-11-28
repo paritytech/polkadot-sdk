@@ -402,8 +402,6 @@ impl WorkerDir {
 
 // Not async since Rust has trouble with async recursion. There should be few files here anyway.
 //
-// TODO: A lingering malicious job can still access future files in this dir. See
-// <https://github.com/paritytech/polkadot-sdk/issues/574> for how to fully secure this.
 /// Clear the temporary worker dir without deleting it. Not deleting is important because the worker
 /// has mounted its own separate filesystem here.
 ///
