@@ -4,28 +4,26 @@
 use frame_benchmarking::{impl_benchmark_test_suite, v2::*, whitelisted_caller, BenchmarkError};
 use frame_support::{
 	dispatch::{DispatchClass, DispatchInfo, PostDispatchInfo},
-	traits::Get,
 	weights::Weight,
 };
 use frame_system::{
-	CheckGenesis, CheckMortality, CheckNonZeroSender, CheckNonce, CheckSpecVersion, CheckTxVersion,
-	CheckWeight, Pallet as System, RawOrigin,
+	pallet_prelude::*, CheckGenesis, CheckMortality, CheckNonZeroSender, CheckNonce,
+	CheckSpecVersion, CheckTxVersion, CheckWeight, Pallet as System, RawOrigin,
 };
-use sp_runtime::traits::{AsSystemOriginSigner, DispatchTransaction, Dispatchable, One};
+use sp_runtime::{
+	generic::Era,
+	traits::{AsSystemOriginSigner, DispatchTransaction, Dispatchable, Get},
+};
 use sp_std::prelude::*;
 
 pub struct Pallet<T: Config>(System<T>);
 pub trait Config: frame_system::Config + Send + Sync {
-	fn default_call() -> Self::RuntimeCall {
-		todo!();
-	}
+	fn default_call() -> Self::RuntimeCall;
 
 	fn dispatch_info(
-		weight: Weight,
-		class: DispatchClass,
-	) -> <Self::RuntimeCall as Dispatchable>::Info {
-		todo!();
-	}
+		_weight: Weight,
+		_class: DispatchClass,
+	) -> <Self::RuntimeCall as Dispatchable>::Info;
 }
 
 #[benchmarks(where
@@ -38,60 +36,48 @@ mod benchmarks {
 
 	#[benchmark]
 	fn check_genesis() -> Result<(), BenchmarkError> {
-		let weights = T::BlockWeights::get();
-		// let free = DispatchInfo { weight: Weight::zero(), ..Default::default() };
 		let len = 0_usize;
-
-		assert_eq!(System::<T>::block_weight().total(), weights.base_block);
 		let caller = whitelisted_caller();
 
 		#[block]
 		{
-			assert!(CheckGenesis::<T>::new()
-				.validate_and_prepare(
+			CheckGenesis::<T>::new()
+				.test_run(
 					RawOrigin::Signed(caller).into(),
 					&<T as Config>::default_call(),
 					&<T as Config>::dispatch_info(Weight::zero(), Default::default()),
-					len
+					len,
+					|_| Ok(().into()),
 				)
-				.is_ok());
+				.unwrap()
+				.unwrap();
 		}
 
-		assert_eq!(
-			System::<T>::block_weight().total(),
-			weights.get(DispatchClass::Normal).base_extrinsic + weights.base_block
-		);
 		Ok(())
 	}
 
 	#[benchmark]
 	fn check_mortality() -> Result<(), BenchmarkError> {
 		let len = 0_usize;
-		let ext = CheckMortality::<T>::from(sp_runtime::generic::Era::mortal(16, 256));
-		let block_number: frame_system::pallet_prelude::BlockNumberFor<T> = One::one();
-		let block_number: frame_system::pallet_prelude::BlockNumberFor<T> =
-			block_number * 17u32.into();
+		let ext = CheckMortality::<T>::from(Era::mortal(16, 256));
+		let block_number: BlockNumberFor<T> = 17u32.into();
 		System::<T>::set_block_number(block_number);
-
+		let prev_block: BlockNumberFor<T> = 16u32.into();
+		let default_hash: T::Hash = Default::default();
+		frame_system::BlockHash::<T>::insert(prev_block, default_hash);
 		let caller = whitelisted_caller();
 
 		#[block]
 		{
-			assert_eq!(
-				ext.validate_only(
-					RawOrigin::Signed(caller).into(),
-					&<T as Config>::default_call(),
-					&<T as Config>::dispatch_info(
-						Weight::from_parts(100, 0),
-						DispatchClass::Normal,
-					),
-					len
-				)
-				.unwrap()
-				.0
-				.longevity,
-				15
-			);
+			ext.test_run(
+				RawOrigin::Signed(caller).into(),
+				&<T as Config>::default_call(),
+				&<T as Config>::dispatch_info(Weight::from_parts(100, 0), DispatchClass::Normal),
+				len,
+				|_| Ok(().into()),
+			)
+			.unwrap()
+			.unwrap();
 		}
 		Ok(())
 	}
@@ -104,14 +90,15 @@ mod benchmarks {
 
 		#[block]
 		{
-			assert!(ext
-				.validate_only(
-					RawOrigin::Signed(caller).into(),
-					&<T as Config>::default_call(),
-					&<T as Config>::dispatch_info(Weight::zero(), Default::default()),
-					len
-				)
-				.is_ok());
+			ext.test_run(
+				RawOrigin::Signed(caller).into(),
+				&<T as Config>::default_call(),
+				&<T as Config>::dispatch_info(Weight::zero(), Default::default()),
+				len,
+				|_| Ok(().into()),
+			)
+			.unwrap()
+			.unwrap();
 		}
 		Ok(())
 	}
@@ -119,65 +106,70 @@ mod benchmarks {
 	#[benchmark]
 	fn check_nonce() -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
-		let info = frame_system::AccountInfo::default();
+		let mut info = frame_system::AccountInfo::default();
+		info.nonce = 1u32.into();
+		info.providers = 1;
+		let expected_nonce = info.nonce + 1u32.into();
 		frame_system::Account::<T>::insert(caller.clone(), info);
 		let len = 0_usize;
-		let ext = CheckNonce::<T>::from(One::one());
+		let ext = CheckNonce::<T>::from(1u32.into());
 
 		#[block]
 		{
-			assert!(ext
-				.validate_only(
-					RawOrigin::Signed(caller).into(),
-					&<T as Config>::default_call(),
-					&<T as Config>::dispatch_info(Weight::zero(), Default::default()),
-					len
-				)
-				.is_ok());
+			ext.test_run(
+				RawOrigin::Signed(caller.clone()).into(),
+				&<T as Config>::default_call(),
+				&<T as Config>::dispatch_info(Weight::zero(), Default::default()),
+				len,
+				|_| Ok(().into()),
+			)
+			.unwrap()
+			.unwrap();
 		}
+
+		let updated_info = frame_system::Account::<T>::get(caller.clone());
+		assert_eq!(updated_info.nonce, expected_nonce);
 		Ok(())
 	}
 
 	#[benchmark]
 	fn check_spec_version() -> Result<(), BenchmarkError> {
-		let weights = T::BlockWeights::get();
 		let len = 0_usize;
-
-		assert_eq!(System::<T>::block_weight().total(), weights.base_block);
 		let caller = whitelisted_caller();
 
 		#[block]
 		{
-			assert!(CheckSpecVersion::<T>::new()
-				.validate_and_prepare(
+			CheckSpecVersion::<T>::new()
+				.test_run(
 					RawOrigin::Signed(caller).into(),
 					&<T as Config>::default_call(),
 					&<T as Config>::dispatch_info(Weight::zero(), Default::default()),
-					len
+					len,
+					|_| Ok(().into()),
 				)
-				.is_ok());
+				.unwrap()
+				.unwrap();
 		}
 		Ok(())
 	}
 
 	#[benchmark]
 	fn check_tx_version() -> Result<(), BenchmarkError> {
-		let weights = T::BlockWeights::get();
 		let len = 0_usize;
-
-		assert_eq!(System::<T>::block_weight().total(), weights.base_block);
 		let caller = whitelisted_caller();
 
 		#[block]
 		{
-			assert!(CheckTxVersion::<T>::new()
-				.validate_and_prepare(
+			CheckTxVersion::<T>::new()
+				.test_run(
 					RawOrigin::Signed(caller).into(),
 					&<T as Config>::default_call(),
 					&<T as Config>::dispatch_info(Weight::zero(), Default::default()),
-					len
+					len,
+					|_| Ok(().into()),
 				)
-				.is_ok());
+				.unwrap()
+				.unwrap();
 		}
 		Ok(())
 	}
@@ -185,50 +177,46 @@ mod benchmarks {
 	#[benchmark]
 	fn check_weight() -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller();
-		let info = <T as Config>::dispatch_info(Weight::from_parts(512, 0), Default::default());
+		let base_extrinsic = <T as frame_system::Config>::BlockWeights::get()
+			.get(DispatchClass::Normal)
+			.base_extrinsic;
+		let info = <T as Config>::dispatch_info(
+			Weight::from_parts(base_extrinsic.ref_time() * 5, 0),
+			DispatchClass::Normal,
+		);
 		let post_info = PostDispatchInfo {
-			actual_weight: Some(Weight::from_parts(700, 0)),
+			actual_weight: Some(Weight::from_parts(base_extrinsic.ref_time() * 2, 0)),
 			pays_fee: Default::default(),
 		};
 		let len = 0_usize;
+		let base_extrinsic = <T as frame_system::Config>::BlockWeights::get()
+			.get(DispatchClass::Normal)
+			.base_extrinsic;
 
 		let ext = CheckWeight::<T>::new();
 
+		let initial_block_weight = Weight::from_parts(base_extrinsic.ref_time() * 2, 0);
 		frame_system::BlockWeight::<T>::mutate(|current_weight| {
 			current_weight.set(Weight::zero(), DispatchClass::Mandatory);
-			current_weight.set(Weight::from_parts(128, 0), DispatchClass::Normal);
+			current_weight.set(initial_block_weight, DispatchClass::Normal);
 		});
 
 		#[block]
 		{
-			let pre = ext
-				.validate_and_prepare(
-					RawOrigin::Signed(caller).into(),
-					&<T as Config>::default_call(),
-					&info,
-					len,
-				)
-				.unwrap()
-				.0;
-			assert_eq!(
-				System::<T>::block_weight().total(),
-				info.weight +
-					Weight::from_parts(128, 0) +
-					<T as frame_system::Config>::BlockWeights::get()
-						.get(DispatchClass::Normal)
-						.base_extrinsic,
-			);
-
-			// assert_ok!(ext::post_dispatch(pre, &info, &post_info, len, &Ok(()), &()));
+			ext.test_run(
+				RawOrigin::Signed(caller).into(),
+				&<T as Config>::default_call(),
+				&info,
+				len,
+				|_| Ok(post_info),
+			)
+			.unwrap()
+			.unwrap();
 		}
 
 		assert_eq!(
 			System::<T>::block_weight().total(),
-			info.weight +
-				Weight::from_parts(128, 0) +
-				<T as frame_system::Config>::BlockWeights::get()
-					.get(DispatchClass::Normal)
-					.base_extrinsic,
+			initial_block_weight + base_extrinsic + post_info.actual_weight.unwrap(),
 		);
 		Ok(())
 	}
