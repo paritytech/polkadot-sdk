@@ -7,6 +7,12 @@ name: gitspiegel sync
 
 on:
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - unlocked
+      - ready_for_review
+      - reopened
   merge_group:
 
 jobs:
