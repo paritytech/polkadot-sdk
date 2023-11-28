@@ -38,7 +38,7 @@ use parking_lot::Mutex;
 use prometheus::Registry;
 use sc_client_api::{Backend, BlockBackend, BlockchainEvents, FinalityNotifications, Finalizer};
 use sc_consensus::BlockImport;
-use sc_network::{NetworkRequest, ProtocolName};
+use sc_network::{NetworkRequest, NotificationService, ProtocolName};
 use sc_network_gossip::{GossipEngine, Network as GossipNetwork, Syncing as GossipSyncing};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{
@@ -178,6 +178,8 @@ pub struct BeefyNetworkParams<B: Block, N, S> {
 	pub network: Arc<N>,
 	/// Syncing service implementing a sync oracle and an event stream for peers.
 	pub sync: Arc<S>,
+	/// Handle for receiving notification events.
+	pub notification_service: Box<dyn NotificationService>,
 	/// Chain specific BEEFY gossip protocol name. See
 	/// [`communication::beefy_protocol_name::gossip_protocol_name`].
 	pub gossip_protocol_name: ProtocolName,
@@ -243,6 +245,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 	let BeefyNetworkParams {
 		network,
 		sync,
+		notification_service,
 		gossip_protocol_name,
 		justifications_protocol_name,
 		..
@@ -264,6 +267,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 	let gossip_engine = GossipEngine::new(
 		network.clone(),
 		sync.clone(),
+		notification_service,
 		gossip_protocol_name.clone(),
 		gossip_validator.clone(),
 		None,
