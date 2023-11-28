@@ -1028,6 +1028,7 @@ dependencies = [
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
+ "penpal-runtime",
  "polkadot-runtime-common",
  "sp-runtime",
  "staging-xcm",
@@ -10815,6 +10816,7 @@ dependencies = [
 name = "pallet-safe-mode"
 version = "4.0.0-dev"
 dependencies = [
+ "docify",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -11218,6 +11220,7 @@ dependencies = [
 name = "pallet-tx-pause"
 version = "4.0.0-dev"
 dependencies = [
+ "docify",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -11764,6 +11767,7 @@ dependencies = [
  "serde_json",
  "sp-core",
  "sp-runtime",
+ "westend-emulated-chain",
 ]
 
 [[package]]
@@ -12985,6 +12989,9 @@ dependencies = [
  "cumulus-relay-chain-interface",
  "frame-benchmarking",
  "frame-benchmarking-cli",
+ "frame-support",
+ "frame-system-rpc-runtime-api",
+ "frame-try-runtime",
  "futures",
  "glutton-runtime",
  "glutton-westend-runtime",
@@ -12992,7 +12999,9 @@ dependencies = [
  "jsonrpsee",
  "log",
  "nix 0.26.2",
+ "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
+ "pallet-transaction-payment-rpc-runtime-api",
  "parachains-common",
  "parity-scale-codec",
  "penpal-runtime",
@@ -13024,14 +13033,18 @@ dependencies = [
  "sp-blockchain",
  "sp-consensus-aura",
  "sp-core",
+ "sp-genesis-builder",
+ "sp-inherents",
  "sp-io",
  "sp-keystore",
  "sp-offchain",
  "sp-runtime",
  "sp-session",
+ "sp-std 8.0.0",
  "sp-timestamp",
  "sp-tracing 10.0.0",
  "sp-transaction-pool",
+ "sp-version",
  "staging-xcm",
  "substrate-build-script-utils",
  "substrate-frame-rpc-system",

@@ -15,23 +15,14 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::chain_spec::{
-	get_account_id_from_seed, get_collator_keys_from_seed, Extensions, SAFE_XCM_VERSION,
+	get_account_id_from_seed, get_collator_keys_from_seed, Extensions, GenericChainSpec,
+	SAFE_XCM_VERSION,
 };
 use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
 use parachains_common::{AccountId, AssetHubPolkadotAuraId, AuraId, Balance as AssetHubBalance};
 use sc_service::ChainType;
 use sp_core::{crypto::UncheckedInto, sr25519};
-
-/// Specialized `ChainSpec` for the normal parachain runtime.
-pub type AssetHubPolkadotChainSpec =
-	sc_service::GenericChainSpec<asset_hub_polkadot_runtime::RuntimeGenesisConfig, Extensions>;
-pub type AssetHubKusamaChainSpec =
-	sc_service::GenericChainSpec<asset_hub_kusama_runtime::RuntimeGenesisConfig, Extensions>;
-pub type AssetHubWestendChainSpec =
-	sc_service::GenericChainSpec<asset_hub_westend_runtime::RuntimeGenesisConfig, Extensions>;
-pub type AssetHubRococoChainSpec =
-	sc_service::GenericChainSpec<asset_hub_rococo_runtime::RuntimeGenesisConfig, Extensions>;
 
 const ASSET_HUB_POLKADOT_ED: AssetHubBalance =
 	parachains_common::polkadot::currency::EXISTENTIAL_DEPOSIT;
@@ -72,13 +63,13 @@ pub fn asset_hub_westend_session_keys(keys: AuraId) -> asset_hub_westend_runtime
 	asset_hub_westend_runtime::SessionKeys { aura: keys }
 }
 
-pub fn asset_hub_polkadot_development_config() -> AssetHubPolkadotChainSpec {
+pub fn asset_hub_polkadot_development_config() -> GenericChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("ss58Format".into(), 0.into());
 	properties.insert("tokenSymbol".into(), "DOT".into());
 	properties.insert("tokenDecimals".into(), 10.into());
 
-	AssetHubPolkadotChainSpec::builder(
+	GenericChainSpec::builder(
 		asset_hub_polkadot_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "polkadot-dev".into(), para_id: 1000 },
@@ -104,13 +95,13 @@ pub fn asset_hub_polkadot_development_config() -> AssetHubPolkadotChainSpec {
 	.build()
 }
 
-pub fn asset_hub_polkadot_local_config() -> AssetHubPolkadotChainSpec {
+pub fn asset_hub_polkadot_local_config() -> GenericChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("ss58Format".into(), 0.into());
 	properties.insert("tokenSymbol".into(), "DOT".into());
 	properties.insert("tokenDecimals".into(), 10.into());
 
-	AssetHubPolkadotChainSpec::builder(
+	GenericChainSpec::builder(
 		asset_hub_polkadot_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "polkadot-local".into(), para_id: 1000 },
@@ -152,13 +143,13 @@ pub fn asset_hub_polkadot_local_config() -> AssetHubPolkadotChainSpec {
 }
 
 // Not used for syncing, but just to determine the genesis values set for the upgrade from shell.
-pub fn asset_hub_polkadot_config() -> AssetHubPolkadotChainSpec {
+pub fn asset_hub_polkadot_config() -> GenericChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("ss58Format".into(), 0.into());
 	properties.insert("tokenSymbol".into(), "DOT".into());
 	properties.insert("tokenDecimals".into(), 10.into());
 
-	AssetHubPolkadotChainSpec::builder(
+	GenericChainSpec::builder(
 		asset_hub_polkadot_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "polkadot".into(), para_id: 1000 },
@@ -249,13 +240,13 @@ fn asset_hub_polkadot_genesis(
 	})
 }
 
-pub fn asset_hub_kusama_development_config() -> AssetHubKusamaChainSpec {
+pub fn asset_hub_kusama_development_config() -> GenericChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("ss58Format".into(), 2.into());
 	properties.insert("tokenSymbol".into(), "KSM".into());
 	properties.insert("tokenDecimals".into(), 12.into());
 
-	AssetHubKusamaChainSpec::builder(
+	GenericChainSpec::builder(
 		asset_hub_kusama_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "kusama-dev".into(), para_id: 1000 },
 	)
@@ -280,13 +271,13 @@ pub fn asset_hub_kusama_development_config() -> AssetHubKusamaChainSpec {
 	.build()
 }
 
-pub fn asset_hub_kusama_local_config() -> AssetHubKusamaChainSpec {
+pub fn asset_hub_kusama_local_config() -> GenericChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("ss58Format".into(), 2.into());
 	properties.insert("tokenSymbol".into(), "KSM".into());
 	properties.insert("tokenDecimals".into(), 12.into());
 
-	AssetHubKusamaChainSpec::builder(
+	GenericChainSpec::builder(
 		asset_hub_kusama_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "kusama-local".into(), para_id: 1000 },
 	)
@@ -325,13 +316,13 @@ pub fn asset_hub_kusama_local_config() -> AssetHubKusamaChainSpec {
 	.build()
 }
 
-pub fn asset_hub_kusama_config() -> AssetHubKusamaChainSpec {
+pub fn asset_hub_kusama_config() -> GenericChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("ss58Format".into(), 2.into());
 	properties.insert("tokenSymbol".into(), "KSM".into());
 	properties.insert("tokenDecimals".into(), 12.into());
 
-	AssetHubKusamaChainSpec::builder(
+	GenericChainSpec::builder(
 		asset_hub_kusama_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "kusama".into(), para_id: 1000 },
 	)
@@ -407,12 +398,12 @@ fn asset_hub_kusama_genesis(
 	})
 }
 
-pub fn asset_hub_westend_development_config() -> AssetHubWestendChainSpec {
+pub fn asset_hub_westend_development_config() -> GenericChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "WND".into());
 	properties.insert("tokenDecimals".into(), 12.into());
 
-	AssetHubWestendChainSpec::builder(
+	GenericChainSpec::builder(
 		asset_hub_westend_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "westend".into(), para_id: 1000 },
@@ -439,12 +430,12 @@ pub fn asset_hub_westend_development_config() -> AssetHubWestendChainSpec {
 	.build()
 }
 
-pub fn asset_hub_westend_local_config() -> AssetHubWestendChainSpec {
+pub fn asset_hub_westend_local_config() -> GenericChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "WND".into());
 	properties.insert("tokenDecimals".into(), 12.into());
 
-	AssetHubWestendChainSpec::builder(
+	GenericChainSpec::builder(
 		asset_hub_westend_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "westend-local".into(), para_id: 1000 },
@@ -485,12 +476,12 @@ pub fn asset_hub_westend_local_config() -> AssetHubWestendChainSpec {
 	.build()
 }
 
-pub fn asset_hub_westend_config() -> AssetHubWestendChainSpec {
+pub fn asset_hub_westend_config() -> GenericChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "WND".into());
 	properties.insert("tokenDecimals".into(), 12.into());
 
-	AssetHubWestendChainSpec::builder(
+	GenericChainSpec::builder(
 		asset_hub_westend_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "westend".into(), para_id: 1000 },
@@ -569,7 +560,7 @@ fn asset_hub_westend_genesis(
 	})
 }
 
-pub fn asset_hub_rococo_development_config() -> AssetHubRococoChainSpec {
+pub fn asset_hub_rococo_development_config() -> GenericChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("ss58Format".into(), 42.into());
 	properties.insert("tokenSymbol".into(), "ROC".into());
@@ -587,8 +578,8 @@ fn asset_hub_rococo_like_development_config(
 	name: &str,
 	chain_id: &str,
 	para_id: u32,
-) -> AssetHubRococoChainSpec {
-	AssetHubRococoChainSpec::builder(
+) -> GenericChainSpec {
+	GenericChainSpec::builder(
 		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "rococo-dev".into(), para_id },
 	)
@@ -614,7 +605,7 @@ fn asset_hub_rococo_like_development_config(
 	.build()
 }
 
-pub fn asset_hub_rococo_local_config() -> AssetHubRococoChainSpec {
+pub fn asset_hub_rococo_local_config() -> GenericChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("ss58Format".into(), 42.into());
 	properties.insert("tokenSymbol".into(), "ROC".into());
@@ -632,8 +623,8 @@ fn asset_hub_rococo_like_local_config(
 	name: &str,
 	chain_id: &str,
 	para_id: u32,
-) -> AssetHubRococoChainSpec {
-	AssetHubRococoChainSpec::builder(
+) -> GenericChainSpec {
+	GenericChainSpec::builder(
 		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "rococo-local".into(), para_id },
 	)
@@ -673,12 +664,12 @@ fn asset_hub_rococo_like_local_config(
 	.build()
 }
 
-pub fn asset_hub_rococo_genesis_config() -> AssetHubRococoChainSpec {
+pub fn asset_hub_rococo_genesis_config() -> GenericChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "ROC".into());
 	properties.insert("tokenDecimals".into(), 12.into());
 	let para_id = 1000;
-	AssetHubRococoChainSpec::builder(
+	GenericChainSpec::builder(
 		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "rococo".into(), para_id },
 	)

@@ -175,11 +175,9 @@ pub fn params_to_wasmtime_semantics(par: &ExecutorParams) -> Semantics {
 
 /// Runs the prevalidation on the given code. Returns a [`RuntimeBlob`] if it succeeds.
 pub fn prevalidate(code: &[u8]) -> Result<RuntimeBlob, sc_executor_common::error::WasmError> {
+	// Construct the runtime blob and do some basic checks for consistency.
 	let blob = RuntimeBlob::new(code)?;
-	// It's assumed this function will take care of any prevalidation logic
-	// that needs to be done.
-	//
-	// Do nothing for now.
+	// In the future this function should take care of any further prevalidation logic.
 	Ok(blob)
 }
 

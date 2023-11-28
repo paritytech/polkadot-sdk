@@ -873,7 +873,7 @@ benchmarks! {
 		)?;
 
 		let caller = whitelisted_caller();
-	}: _(RawOrigin::Signed(caller), controller)
+	}: _(RawOrigin::Signed(caller), stash.clone())
 	verify {
 		assert!(!T::VoterList::contains(&stash));
 	}
