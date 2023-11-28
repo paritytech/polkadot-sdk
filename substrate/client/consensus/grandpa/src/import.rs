@@ -28,7 +28,7 @@ use sc_consensus::{
 };
 use sc_telemetry::TelemetryHandle;
 use sc_utils::mpsc::TracingUnboundedSender;
-use sp_api::{Core, RuntimeApiInfo};
+use sp_api::RuntimeInstance;
 use sp_blockchain::BlockStatus;
 use sp_consensus::{BlockOrigin, Error as ConsensusError, SelectChain};
 use sp_consensus_grandpa::{ConsensusLog, GrandpaApi, ScheduledChange, SetId, GRANDPA_ENGINE_ID};
@@ -233,7 +233,6 @@ where
 	NumberFor<Block>: finality_grandpa::BlockNumberOps,
 	BE: Backend<Block>,
 	Client: ClientForGrandpa<Block, BE>,
-	Client::Api: GrandpaApi<Block>,
 	for<'a> &'a Client: BlockImport<Block, Error = ConsensusError>,
 {
 	// check for a new authority set change.
@@ -424,16 +423,17 @@ where
 
 	/// Read current set id form a given state.
 	fn current_set_id(&self, hash: Block::Hash) -> Result<SetId, ConsensusError> {
-		/*
-		let runtime_version = self.inner.runtime_api().version().map_err(|e| {
-			ConsensusError::ClientImport(format!(
-				"Unable to retrieve current runtime version. {}",
-				e
-			))
-		})?;
+		let mut runtime_api =
+			RuntimeInstance::builder(&*self.inner, hash).off_chain_context().build();
 
-		if runtime_version
-			.api_version(&<dyn GrandpaApi<Block>>::ID)
+		if runtime_api
+			.api_version::<dyn GrandpaApi<Block>>()
+			.map_err(|e| {
+				ConsensusError::ClientImport(format!(
+					"Unable to retrieve `GrandpaApi` version. {}",
+					e
+				))
+			})?
 			.map_or(false, |v| v < 3)
 		{
 			// The new API is not supported in this runtime. Try reading directly from storage.
@@ -450,13 +450,9 @@ where
 			}
 			Err(ConsensusError::ClientImport("Unable to retrieve current set id.".into()))
 		} else {
-			self.inner
-				.runtime_api()
-				.current_set_id()
+			GrandpaApi::<Block>::current_set_id(&mut runtime_api)
 				.map_err(|e| ConsensusError::ClientImport(e.to_string()))
 		}
-		*/
-		todo!()
 	}
 
 	/// Import whole new state and reset authority set.
@@ -475,10 +471,11 @@ where
 				// finality proofs and that the state is correct and final.
 				// So we can read the authority list and set id from the state.
 				self.authority_set_hard_forks.clear();
-				let authorities = self
-					.inner
-					.runtime_api()
-					.grandpa_authorities()
+
+				let mut runtime_api =
+					RuntimeInstance::builder(&*self.inner, hash).off_chain_context().build();
+
+				let authorities = GrandpaApi::<Block>::grandpa_authorities(&mut runtime_api)
 					.map_err(|e| ConsensusError::ClientImport(e.to_string()))?;
 				let set_id = self.current_set_id(hash)?;
 				let authority_set = AuthoritySet::new(
@@ -516,7 +513,6 @@ where
 	NumberFor<Block>: finality_grandpa::BlockNumberOps,
 	BE: Backend<Block>,
 	Client: ClientForGrandpa<Block, BE>,
-	Client::Api: GrandpaApi<Block>,
 	for<'a> &'a Client: BlockImport<Block, Error = ConsensusError>,
 	SC: Send,
 {

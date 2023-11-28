@@ -28,9 +28,8 @@
 
 use codec::Encode;
 use sp_api::{
-	CallApiAt, Core, DisableProofRecording, EnableProofRecording, ProofRecording,
-	RuntimeInstance, RuntimeInstanceBuilderStage2, StorageChanges, StorageProof,
-	TransactionOutcome,
+	CallApiAt, Core, DisableProofRecording, EnableProofRecording, ProofRecording, RuntimeInstance,
+	RuntimeInstanceBuilderStage2, StorageChanges, TransactionOutcome,
 };
 use sp_blockchain::{ApplyExtrinsicFailed, Error, HeaderBackend};
 use sp_runtime::{
@@ -137,7 +136,9 @@ impl<B: BlockT, C, ProofRecorder: ProofRecording<B>>
 	BlockBuilderBuilderStage2<B, C, ProofRecorder>
 {
 	/// Enable proof recording for the block builder.
-	pub fn enable_proof_recording(self) -> BlockBuilderBuilderStage2<B, C, EnableProofRecording<B>> {
+	pub fn enable_proof_recording(
+		self,
+	) -> BlockBuilderBuilderStage2<B, C, EnableProofRecording<B>> {
 		BlockBuilderBuilderStage2 {
 			runtime_instance_builder: self.runtime_instance_builder.with_recorder(),
 			inherent_digests: self.inherent_digests,
@@ -172,30 +173,30 @@ impl<B: BlockT, C, ProofRecorder: ProofRecording<B>>
 /// backend to get the state of the block. Furthermore an optional `proof` is included which
 /// can be used to proof that the build block contains the expected data. The `proof` will
 /// only be set when proof recording was activated.
-pub struct BuiltBlock<Block: BlockT> {
+pub struct BuiltBlock<Block: BlockT, Proof> {
 	/// The actual block that was build.
 	pub block: Block,
 	/// The changes that need to be applied to the backend to get the state of the build block.
 	pub storage_changes: StorageChanges<Block>,
 	/// An optional proof that was recorded while building the block.
-	pub proof: Option<StorageProof>,
+	pub proof: Proof,
 }
 
-impl<Block: BlockT> BuiltBlock<Block> {
+impl<Block: BlockT, Proof> BuiltBlock<Block, Proof> {
 	/// Convert into the inner values.
-	pub fn into_inner(self) -> (Block, StorageChanges<Block>, Option<StorageProof>) {
+	pub fn into_inner(self) -> (Block, StorageChanges<Block>, Proof) {
 		(self.block, self.storage_changes, self.proof)
 	}
 }
 
 /// Utility for building new (valid) blocks from a stream of extrinsics.
-pub struct BlockBuilder<Block: BlockT, CallApiAt, ProofRecorder> {
+pub struct BlockBuilder<Block: BlockT, CallApiAt, ProofRecording> {
 	extrinsics: Vec<Block::Extrinsic>,
-	runtime_instance: RuntimeInstance<CallApiAt, Block, ProofRecorder>,
+	runtime_instance: RuntimeInstance<CallApiAt, Block, ProofRecording>,
 	version: u32,
 	/// The estimated size of the block header.
 	estimated_header_size: usize,
-	_phantom: PhantomData<ProofRecorder>,
+	_phantom: PhantomData<ProofRecording>,
 }
 
 impl<Block, C, ProofRecorder> BlockBuilder<Block, C, ProofRecorder>
@@ -241,11 +242,11 @@ where
 	}
 }
 
-impl<Block, CallApiAt, ProofRecorder> BlockBuilder<Block, CallApiAt, ProofRecorder>
+impl<Block, CallApiAt, ProofRecording> BlockBuilder<Block, CallApiAt, ProofRecording>
 where
 	Block: BlockT,
 	CallApiAt: sp_api::CallApiAt<Block>,
-	ProofRecorder: sp_api::ProofRecording<Block>,
+	ProofRecording: sp_api::ProofRecording<Block>,
 {
 	/// Push onto the block's list of extrinsics.
 	///
@@ -281,7 +282,7 @@ where
 	/// Returns the build `Block`, the changes to the storage and an optional `StorageProof`
 	/// supplied by `self.api`, combined as [`BuiltBlock`].
 	/// The storage proof will be `Some(_)` when proof recording was enabled.
-	pub fn build(mut self) -> Result<BuiltBlock<Block>, Error> {
+	pub fn build(mut self) -> Result<BuiltBlock<Block, ProofRecording::Proof>, Error> {
 		let header: Block::Header =
 			BlockBuilderApi::<Block>::finalize_block(&mut self.runtime_instance)?;
 

@@ -35,6 +35,7 @@ use std::{collections::HashSet, sync::Arc};
 use sp_authority_discovery::AuthorityId;
 use sp_core::crypto::key_types;
 use sp_keystore::{testing::MemoryKeystore, Keystore};
+use substrate_test_runtime_client::runtime::Block;
 
 #[test]
 fn get_addresses_and_authority_id() {
@@ -60,7 +61,7 @@ fn get_addresses_and_authority_id() {
 
 	let test_api = Arc::new(TestApi { authorities: vec![] });
 
-	let (mut worker, mut service) = new_worker_and_service(
+	let (mut worker, mut service) = new_worker_and_service::<_, _, Block, _>(
 		test_api,
 		network.clone(),
 		Box::pin(dht_event_rx),

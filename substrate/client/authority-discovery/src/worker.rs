@@ -45,6 +45,7 @@ use rand::{seq::SliceRandom, thread_rng};
 use sc_network::{
 	event::DhtEvent, KademliaKey, NetworkDHTProvider, NetworkSigner, NetworkStateInfo, Signature,
 };
+use sp_api::{ApiError, CallApiAt, RuntimeInstance};
 use sp_authority_discovery::{
 	AuthorityDiscoveryApi, AuthorityId, AuthorityPair, AuthoritySignature,
 };
@@ -162,15 +163,16 @@ pub trait AuthorityDiscovery<Block: BlockT> {
 #[async_trait::async_trait]
 impl<Block, T> AuthorityDiscovery<Block> for T
 where
-	T: HeaderBackend<Block> + Send + Sync,
-	T::Api: AuthorityDiscoveryApi<Block>,
+	T: HeaderBackend<Block> + CallApiAt<Block> + Send + Sync,
 	Block: BlockT,
 {
 	async fn authorities(
 		&self,
 		at: Block::Hash,
 	) -> std::result::Result<Vec<AuthorityId>, ApiError> {
-		self.runtime_api().authorities(at)
+		let mut runtime_api = RuntimeInstance::builder(self, at).off_chain_context().build();
+
+		AuthorityDiscoveryApi::authorities(&mut runtime_api)
 	}
 
 	async fn best_hash(&self) -> std::result::Result<Block::Hash, Error> {

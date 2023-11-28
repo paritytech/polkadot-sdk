@@ -94,9 +94,7 @@ where
 			.with_recorder()
 			.build();
 		runtime_api.execute_block(block).map_err(|_| Error::BlockExecutionFailed)?;
-		let witness = runtime_api
-			.extract_proof()
-			.expect("We enabled proof recording. A proof must be available; qed");
+		let witness = runtime_api.extract_proof();
 		let witness_len = witness.encoded_size() as u64;
 		let witness_compact_len = witness
 			.into_compact_proof::<HasherOf<Block>>(pre_root)

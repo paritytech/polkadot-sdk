@@ -22,10 +22,11 @@
 
 pub use frame_support::traits::{TryStateSelect, UpgradeCheckSelect};
 use frame_support::weights::Weight;
+use sp_runtime::traits::Block as BlockT;
 
 sp_api::decl_runtime_apis! {
 	/// Runtime api for testing the execution of a runtime upgrade.
-	pub trait TryRuntime {
+	pub trait TryRuntime<Block: BlockT> {
 		/// dry-run runtime upgrades, returning the total weight consumed.
 		///
 		/// This should do EXACTLY the same operations as the runtime would have done in the case of

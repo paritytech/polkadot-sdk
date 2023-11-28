@@ -252,7 +252,6 @@ where
 		Pin<Box<dyn Future<Output = Result<Proposal<Block, PR::Proof>, Self::Error>> + Send>>;
 	type Error = sp_blockchain::Error;
 	type ProofRecording = PR;
-	type Proof = PR::Proof;
 
 	fn propose(
 		self,

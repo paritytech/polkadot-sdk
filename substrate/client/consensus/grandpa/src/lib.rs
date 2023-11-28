@@ -58,26 +58,26 @@
 
 use futures::{prelude::*, StreamExt};
 use log::{debug, error, info};
-use parity_scale_codec::Decode;
 use parking_lot::RwLock;
 use prometheus_endpoint::{PrometheusError, Registry};
 use sc_client_api::{
 	backend::{AuxStore, Backend},
 	utils::is_descendent_of,
-	BlockchainEvents, CallExecutor, ExecutorProvider, Finalizer, LockImportRun, StorageProvider,
+	BlockchainEvents, ExecutorProvider, Finalizer, LockImportRun, StorageProvider,
 };
 use sc_consensus::BlockImport;
 use sc_network::types::ProtocolName;
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_INFO};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver};
+use sp_api::{CallApiAt, RuntimeInstance};
 use sp_application_crypto::AppCrypto;
 use sp_blockchain::{Error as ClientError, HeaderBackend, HeaderMetadata, Result as ClientResult};
 use sp_consensus::SelectChain;
 use sp_consensus_grandpa::{
 	AuthorityList, AuthoritySignature, SetId, CLIENT_LOG_TARGET as LOG_TARGET,
 };
-use sp_core::{crypto::ByteArray, traits::CallContext};
+use sp_core::crypto::ByteArray;
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
 	generic::BlockId,
@@ -308,6 +308,7 @@ pub trait ClientForGrandpa<Block, BE>:
 	+ ExecutorProvider<Block>
 	+ BlockImport<Block, Error = sp_consensus::Error>
 	+ StorageProvider<Block, BE>
+	+ CallApiAt<Block>
 where
 	BE: Backend<Block>,
 	Block: BlockT,
@@ -326,7 +327,8 @@ where
 		+ BlockchainEvents<Block>
 		+ ExecutorProvider<Block>
 		+ BlockImport<Block, Error = sp_consensus::Error>
-		+ StorageProvider<Block, BE>,
+		+ StorageProvider<Block, BE>
+		+ CallApiAt<Block>,
 {
 }
 
@@ -462,27 +464,19 @@ pub trait GenesisAuthoritySetProvider<Block: BlockT> {
 	fn get(&self) -> Result<AuthorityList, ClientError>;
 }
 
-impl<Block: BlockT, E, Client> GenesisAuthoritySetProvider<Block> for Arc<Client>
+impl<Block: BlockT, Client> GenesisAuthoritySetProvider<Block> for Arc<Client>
 where
-	E: CallExecutor<Block>,
-	Client: ExecutorProvider<Block, Executor = E> + HeaderBackend<Block>,
+	Client: CallApiAt<Block> + HeaderBackend<Block>,
 {
 	fn get(&self) -> Result<AuthorityList, ClientError> {
-		self.executor()
-			.call(
-				self.expect_block_hash_from_id(&BlockId::Number(Zero::zero()))?,
-				"GrandpaApi_grandpa_authorities",
-				&[],
-				CallContext::Offchain,
-			)
-			.and_then(|call_result| {
-				Decode::decode(&mut &call_result[..]).map_err(|err| {
-					ClientError::CallResultDecode(
-						"failed to decode GRANDPA authorities set proof",
-						err,
-					)
-				})
-			})
+		let mut runtime_api = RuntimeInstance::builder(
+			&*self,
+			self.expect_block_hash_from_id(&BlockId::Number(Zero::zero()))?,
+		)
+		.off_chain_context()
+		.build();
+
+		GrandpaApi::<Block>::grandpa_authorities(&mut runtime_api).map_err(Into::into)
 	}
 }
 
@@ -734,7 +728,6 @@ where
 	VR: VotingRule<Block, C> + Clone + 'static,
 	NumberFor<Block>: BlockNumberOps,
 	C: ClientForGrandpa<Block, BE> + 'static,
-	C::Api: GrandpaApi<Block>,
 {
 	let GrandpaParams {
 		mut config,
@@ -871,7 +864,6 @@ where
 	Block: BlockT,
 	B: Backend<Block> + 'static,
 	C: ClientForGrandpa<Block, B> + 'static,
-	C::Api: GrandpaApi<Block>,
 	N: NetworkT<Block> + Sync,
 	S: SyncingT<Block> + Sync,
 	NumberFor<Block>: BlockNumberOps,
@@ -1102,7 +1094,6 @@ where
 	NumberFor<Block>: BlockNumberOps,
 	SC: SelectChain<Block> + 'static,
 	C: ClientForGrandpa<Block, B> + 'static,
-	C::Api: GrandpaApi<Block>,
 	VR: VotingRule<Block, C> + Clone + 'static,
 {
 	type Output = Result<(), Error>;

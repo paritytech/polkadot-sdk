@@ -17400,6 +17400,7 @@ dependencies = [
  "async-trait",
  "futures",
  "log",
+ "sp-api",
  "sp-core",
  "sp-inherents",
  "sp-runtime",

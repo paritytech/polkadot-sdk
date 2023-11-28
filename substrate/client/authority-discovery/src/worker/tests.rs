@@ -50,13 +50,6 @@ pub(crate) struct TestApi {
 	pub(crate) authorities: Vec<AuthorityId>,
 }
 
-	type Api = RuntimeApi;
-
-	fn runtime_api(&self) -> ApiRef<'_, Self::Api> {
-		RuntimeApi { authorities: self.authorities.clone() }.into()
-	}
-}
-
 /// Blockchain database header backend. Does not perform any validation.
 impl<Block: BlockT> HeaderBackend<Block> for TestApi {
 	fn header(
@@ -101,12 +94,8 @@ impl<Block: BlockT> HeaderBackend<Block> for TestApi {
 	}
 }
 
-pub(crate) struct RuntimeApi {
-	authorities: Vec<AuthorityId>,
-}
-
 sp_api::mock_impl_runtime_apis! {
-	impl AuthorityDiscoveryApi<Block> for RuntimeApi {
+	impl AuthorityDiscoveryApi for TestApi {
 		fn authorities(&self) -> Vec<AuthorityId> {
 			self.authorities.clone()
 		}
@@ -237,7 +226,7 @@ fn new_registers_metrics() {
 	let registry = prometheus_endpoint::Registry::new();
 
 	let (_to_worker, from_service) = mpsc::channel(0);
-	Worker::new(
+	Worker::<_, _, Block, _>::new(
 		from_service,
 		test_api,
 		network.clone(),
@@ -266,7 +255,7 @@ fn triggers_dht_get_query() {
 	let key_store = MemoryKeystore::new();
 
 	let (_to_worker, from_service) = mpsc::channel(0);
-	let mut worker = Worker::new(
+	let mut worker = Worker::<_, _, Block, _>::new(
 		from_service,
 		test_api,
 		network.clone(),
@@ -304,7 +293,7 @@ fn publish_discover_cycle() {
 			let test_api = Arc::new(TestApi { authorities: vec![node_a_public.into()] });
 
 			let (_to_worker, from_service) = mpsc::channel(0);
-			let mut worker = Worker::new(
+			let mut worker = Worker::<_, _, Block, _>::new(
 				from_service,
 				test_api,
 				network.clone(),
@@ -335,7 +324,7 @@ fn publish_discover_cycle() {
 			let key_store = MemoryKeystore::new();
 
 			let (_to_worker, from_service) = mpsc::channel(0);
-			let mut worker = Worker::new(
+			let mut worker = Worker::<_, _, Block, _>::new(
 				from_service,
 				test_api,
 				network.clone(),
@@ -370,7 +359,7 @@ fn terminate_when_event_stream_terminates() {
 	let test_api = Arc::new(TestApi { authorities: vec![] });
 
 	let (to_worker, from_service) = mpsc::channel(0);
-	let worker = Worker::new(
+	let worker = Worker::<_, _, Block, _>::new(
 		from_service,
 		test_api,
 		network.clone(),
@@ -433,7 +422,7 @@ fn dont_stop_polling_dht_event_stream_after_bogus_event() {
 	let mut pool = LocalPool::new();
 
 	let (mut to_worker, from_service) = mpsc::channel(1);
-	let mut worker = Worker::new(
+	let mut worker = Worker::<_, _, Block, _>::new(
 		from_service,
 		test_api,
 		network.clone(),
@@ -539,7 +528,7 @@ impl DhtValueFoundTester {
 		let local_key_store = MemoryKeystore::new();
 
 		let (_to_worker, from_service) = mpsc::channel(0);
-		let mut local_worker = Worker::new(
+		let mut local_worker = Worker::<_, _, Block, _>::new(
 			from_service,
 			local_test_api,
 			local_network.clone(),
@@ -690,7 +679,7 @@ fn addresses_to_publish_adds_p2p() {
 	));
 
 	let (_to_worker, from_service) = mpsc::channel(0);
-	let worker = Worker::new(
+	let worker = Worker::<_, _, Block, _>::new(
 		from_service,
 		Arc::new(TestApi { authorities: vec![] }),
 		network.clone(),
@@ -724,7 +713,7 @@ fn addresses_to_publish_respects_existing_p2p_protocol() {
 	});
 
 	let (_to_worker, from_service) = mpsc::channel(0);
-	let worker = Worker::new(
+	let worker = Worker::<_, _, Block, _>::new(
 		from_service,
 		Arc::new(TestApi { authorities: vec![] }),
 		network.clone(),
@@ -768,7 +757,7 @@ fn lookup_throttling() {
 	let mut network = TestNetwork::default();
 	let mut receiver = network.get_event_receiver().unwrap();
 	let network = Arc::new(network);
-	let mut worker = Worker::new(
+	let mut worker = Worker::<_, _, Block, _>::new(
 		from_service,
 		Arc::new(TestApi { authorities: remote_public_keys.clone() }),
 		network.clone(),

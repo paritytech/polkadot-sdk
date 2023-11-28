@@ -41,7 +41,6 @@ use sp_api::{CallApiAt, RuntimeInstance};
 use sp_blockchain::HeaderBackend;
 use sp_core::Bytes;
 use sp_keystore::{KeystoreExt, KeystorePtr};
-use sp_runtime::traits::Block as BlockT;
 use sp_session::SessionKeys;
 
 use self::error::{Error, Result};

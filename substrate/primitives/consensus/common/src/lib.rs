@@ -28,7 +28,6 @@ use sp_runtime::{
 	traits::{Block as BlockT, HashingFor},
 	Digest,
 };
-use sp_state_machine::StorageProof;
 
 pub mod block_validation;
 pub mod error;
@@ -36,6 +35,7 @@ mod select_chain;
 
 pub use self::error::Error;
 pub use select_chain::SelectChain;
+pub use sp_api::{DisableProofRecording, EnableProofRecording, ProofRecording};
 pub use sp_inherents::InherentData;
 pub use sp_state_machine::Backend as StateBackend;
 
@@ -100,73 +100,7 @@ pub struct Proposal<Block: BlockT, Proof> {
 	pub storage_changes: sp_state_machine::StorageChanges<HashingFor<Block>>,
 }
 
-/// Error that is returned when [`ProofRecording`] requested to record a proof,
-/// but no proof was recorded.
-#[derive(Debug, thiserror::Error)]
-#[error("Proof should be recorded, but no proof was provided.")]
-pub struct NoProofRecorded;
-
-/// A trait to express the state of proof recording on type system level.
-///
-/// This is used by [`Proposer`] to signal if proof recording is enabled. This can be used by
-/// downstream users of the [`Proposer`] trait to enforce that proof recording is activated when
-/// required. The only two implementations of this trait are [`DisableProofRecording`] and
-/// [`EnableProofRecording`].
-///
-/// This trait is sealed and can not be implemented outside of this crate!
-pub trait ProofRecording: Send + Sync + private::Sealed + 'static {
-	/// The proof type that will be used internally.
-	type Proof: Send + Sync + 'static;
-	/// Is proof recording enabled?
-	const ENABLED: bool;
-	/// Convert the given `storage_proof` into [`Self::Proof`].
-	///
-	/// Internally Substrate uses `Option<StorageProof>` to express the both states of proof
-	/// recording (for now) and as [`Self::Proof`] is some different type, we need to provide a
-	/// function to convert this value.
-	///
-	/// If the proof recording was requested, but `None` is given, this will return
-	/// `Err(NoProofRecorded)`.
-	fn into_proof(storage_proof: Option<StorageProof>) -> Result<Self::Proof, NoProofRecorded>;
-}
-
-/// Express that proof recording is disabled.
-///
-/// For more information see [`ProofRecording`].
-pub struct DisableProofRecording;
-
-impl ProofRecording for DisableProofRecording {
-	type Proof = ();
-	const ENABLED: bool = false;
-
-	fn into_proof(_: Option<StorageProof>) -> Result<Self::Proof, NoProofRecorded> {
-		Ok(())
-	}
-}
-
-/// Express that proof recording is enabled.
-///
-/// For more information see [`ProofRecording`].
-pub struct EnableProofRecording;
-
-impl ProofRecording for EnableProofRecording {
-	type Proof = sp_state_machine::StorageProof;
-	const ENABLED: bool = true;
-
-	fn into_proof(proof: Option<StorageProof>) -> Result<Self::Proof, NoProofRecorded> {
-		proof.ok_or(NoProofRecorded)
-	}
-}
-
-/// Provides `Sealed` trait to prevent implementing trait [`ProofRecording`] outside of this crate.
-mod private {
-	/// Special trait that prevents the implementation of [`super::ProofRecording`] outside of this
-	/// crate.
-	pub trait Sealed {}
-
-	impl Sealed for super::DisableProofRecording {}
-	impl Sealed for super::EnableProofRecording {}
-}
+pub type ProofOf<P, B> = <<P as Proposer<B>>::ProofRecording as ProofRecording<B>>::Proof;
 
 /// Logic for a proposer.
 ///
@@ -178,15 +112,17 @@ pub trait Proposer<B: BlockT> {
 	/// Error type which can occur when proposing or evaluating.
 	type Error: From<Error> + std::error::Error + 'static;
 	/// Future that resolves to a committed proposal with an optional proof.
-	type Proposal: Future<Output = Result<Proposal<B, Self::Proof>, Self::Error>>
-		+ Send
+	type Proposal: Future<
+			Output = Result<
+				Proposal<B, ProofOf<Self, B>>,
+				Self::Error,
+			>,
+		> + Send
 		+ Unpin
 		+ 'static;
 	/// The supported proof recording by the implementator of this trait. See [`ProofRecording`]
 	/// for more information.
-	type ProofRecording: self::ProofRecording<Proof = Self::Proof> + Send + Sync + 'static;
-	/// The proof type used by [`Self::ProofRecording`].
-	type Proof: Send + Sync + 'static;
+	type ProofRecording: sp_api::ProofRecording<B> + Send + Sync + 'static;
 
 	/// Create a proposal.
 	///

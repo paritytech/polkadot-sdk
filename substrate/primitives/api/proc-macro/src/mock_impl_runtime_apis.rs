@@ -146,6 +146,7 @@ impl<'a> Fold for FoldRuntimeApiImpl<'a> {
 
 		let param_types = param_types_and_borrows.iter().map(|v| &v.0);
 		let param_borrows = param_types_and_borrows.iter().map(|v| &v.1);
+		let ret_type = return_type_extract_type(&input.sig.output);
 
 		let orig_block = input.block.clone();
 
@@ -157,9 +158,9 @@ impl<'a> Fold for FoldRuntimeApiImpl<'a> {
 			// Setup the types correctly with borrow.
 			#( let #param_names  = #param_borrows #param_names; )*
 
-			let __fn_implementation__ = move || #orig_block;
+			let __res__: #ret_type = (move || #orig_block)();
 
-			#crate_::Encode::encode(&__fn_implementation__())
+			#crate_::Encode::encode(&__res__)
 		};
 
 		self.match_arms.push(quote! {

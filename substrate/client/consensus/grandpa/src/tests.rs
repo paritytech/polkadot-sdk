@@ -34,6 +34,7 @@ use sc_network_test::{
 	PeersFullClient, TestClient, TestNetFactory,
 };
 use sc_transaction_pool_api::RejectAllTxPool;
+use sp_api::DisableProofRecording;
 use sp_consensus::{BlockOrigin, Error as ConsensusError, SelectChain};
 use sp_consensus_grandpa::{
 	AuthorityList, EquivocationProof, GrandpaApi, OpaqueKeyOwnershipProof, GRANDPA_ENGINE_ID,
@@ -167,13 +168,6 @@ impl TestApi {
 
 pub(crate) struct RuntimeApi {
 	inner: TestApi,
-}
-
-	type Api = RuntimeApi;
-
-	fn runtime_api(&self) -> ApiRef<'_, Self::Api> {
-		RuntimeApi { inner: self.clone() }.into()
-	}
 }
 
 sp_api::mock_impl_runtime_apis! {
@@ -2051,7 +2045,7 @@ async fn revert_prunes_authority_changes() {
 
 	let peers = &[Ed25519Keyring::Alice, Ed25519Keyring::Bob, Ed25519Keyring::Charlie];
 
-	type TestBlockBuilder<'a> = BlockBuilder<'a, Block, PeersFullClient>;
+	type TestBlockBuilder<'a> = BlockBuilder<Block, &'a PeersFullClient, DisableProofRecording>;
 	let edit_block = |mut builder: TestBlockBuilder| {
 		add_scheduled_change(
 			&mut builder,

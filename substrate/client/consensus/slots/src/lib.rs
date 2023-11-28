@@ -38,7 +38,7 @@ use log::{debug, info, warn};
 use sc_consensus::{BlockImport, JustificationSyncLink};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_INFO, CONSENSUS_WARN};
 use sp_arithmetic::traits::BaseArithmetic;
-use sp_consensus::{Proposal, Proposer, SelectChain, SyncOracle};
+use sp_consensus::{ProofOf, Proposal, Proposer, SelectChain, SyncOracle};
 use sp_consensus_slots::{Slot, SlotDuration};
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
@@ -185,7 +185,7 @@ pub trait SimpleSlotWorker<B: BlockT> {
 		claim: &Self::Claim,
 		slot_info: SlotInfo<B>,
 		end_proposing_at: Instant,
-	) -> Option<Proposal<B, <Self::Proposer as Proposer<B>>::Proof>> {
+	) -> Option<Proposal<B, ProofOf<Self::Proposer, B>>> {
 		let slot = slot_info.slot;
 		let telemetry = self.telemetry();
 		let log_target = self.logging_target();
@@ -286,7 +286,7 @@ pub trait SimpleSlotWorker<B: BlockT> {
 	async fn on_slot(
 		&mut self,
 		slot_info: SlotInfo<B>,
-	) -> Option<SlotResult<B, <Self::Proposer as Proposer<B>>::Proof>>
+	) -> Option<SlotResult<B, ProofOf<Self::Proposer, B>>>
 	where
 		Self: Sync,
 	{
@@ -456,13 +456,13 @@ pub trait SimpleSlotWorker<B: BlockT> {
 pub struct SimpleSlotWorkerToSlotWorker<T>(pub T);
 
 #[async_trait::async_trait]
-impl<T: SimpleSlotWorker<B> + Send + Sync, B: BlockT>
-	SlotWorker<B, <T::Proposer as Proposer<B>>::Proof> for SimpleSlotWorkerToSlotWorker<T>
+impl<T: SimpleSlotWorker<B> + Send + Sync, B: BlockT> SlotWorker<B, ProofOf<T::Proposer, B>>
+	for SimpleSlotWorkerToSlotWorker<T>
 {
 	async fn on_slot(
 		&mut self,
 		slot_info: SlotInfo<B>,
-	) -> Option<SlotResult<B, <T::Proposer as Proposer<B>>::Proof>> {
+	) -> Option<SlotResult<B, ProofOf<T::Proposer, B>>> {
 		self.0.on_slot(slot_info).await
 	}
 }

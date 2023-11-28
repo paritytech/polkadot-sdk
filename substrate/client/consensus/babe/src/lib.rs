@@ -108,7 +108,7 @@ use sc_consensus_slots::{
 };
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_TRACE};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use sp_api::{ApiExt, ProvideRuntimeApi};
+use sp_api::{CallApiAt, RuntimeInstance};
 use sp_application_crypto::AppCrypto;
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::{
@@ -378,8 +378,7 @@ pub static INTERMEDIATE_KEY: &[u8] = b"babe1";
 /// Read configuration from the runtime state at current best block.
 pub fn configuration<B: BlockT, C>(client: &C) -> ClientResult<BabeConfiguration>
 where
-	C: AuxStore + ProvideRuntimeApi<B> + UsageProvider<B>,
-	C::Api: BabeApi<B>,
+	C: AuxStore + UsageProvider<B> + CallApiAt<B>,
 {
 	let at_hash = if client.usage_info().chain.finalized_state.is_some() {
 		client.usage_info().chain.best_hash
@@ -388,22 +387,23 @@ where
 		client.usage_info().chain.genesis_hash
 	};
 
-	let runtime_api = client.runtime_api();
-	let version = runtime_api.api_version::<dyn BabeApi<B>>(at_hash)?;
+	let mut runtime_api = RuntimeInstance::builder(client, at_hash).off_chain_context().build();
+	let version = runtime_api.api_version::<dyn BabeApi<B>>()?;
 
 	let config = match version {
 		Some(1) => {
 			#[allow(deprecated)]
 			{
-				runtime_api.configuration_before_version_2()?.into()
+				BabeApi::<B>::configuration_before_version_2(&mut runtime_api)?.into()
 			}
 		},
-		Some(2) => runtime_api.configuration()?,
+		Some(2) => BabeApi::<B>::configuration(&mut runtime_api)?,
 		_ =>
 			return Err(sp_blockchain::Error::VersionInvalid(
 				"Unsupported or invalid BabeApi version".to_string(),
 			)),
 	};
+
 	Ok(config)
 }
 
@@ -480,13 +480,12 @@ pub fn start_babe<B, C, SC, E, I, SO, CIDP, BS, L, Error>(
 ) -> Result<BabeWorker<B>, ConsensusError>
 where
 	B: BlockT,
-	C: ProvideRuntimeApi<B>
-		+ HeaderBackend<B>
+	C: HeaderBackend<B>
+		+ CallApiAt<B>
 		+ HeaderMetadata<B, Error = ClientError>
 		+ Send
 		+ Sync
 		+ 'static,
-	C::Api: BabeApi<B>,
 	SC: SelectChain<B> + 'static,
 	E: Environment<B, Error = Error> + Send + Sync + 'static,
 	E::Proposer: Proposer<B, Error = Error>,
@@ -718,8 +717,7 @@ impl<B, C, E, I, Error, SO, L, BS> sc_consensus_slots::SimpleSlotWorker<B>
 	for BabeSlotWorker<B, C, E, I, SO, L, BS>
 where
 	B: BlockT,
-	C: ProvideRuntimeApi<B> + HeaderBackend<B> + HeaderMetadata<B, Error = ClientError>,
-	C::Api: BabeApi<B>,
+	C: HeaderBackend<B> + HeaderMetadata<B, Error = ClientError> + CallApiAt<B>,
 	E: Environment<B, Error = Error> + Send + Sync,
 	E::Proposer: Proposer<B, Error = Error>,
 	I: BlockImport<B> + Send + Sync + 'static,
@@ -990,8 +988,7 @@ pub struct BabeVerifier<Block: BlockT, Client, SelectChain, CIDP> {
 impl<Block, Client, SelectChain, CIDP> BabeVerifier<Block, Client, SelectChain, CIDP>
 where
 	Block: BlockT,
-	Client: AuxStore + HeaderBackend<Block> + HeaderMetadata<Block> + ProvideRuntimeApi<Block>,
-	Client::Api: BlockBuilderApi<Block> + BabeApi<Block>,
+	Client: AuxStore + HeaderBackend<Block> + HeaderMetadata<Block> + CallApiAt<Block>,
 	SelectChain: sp_consensus::SelectChain<Block>,
 	CIDP: CreateInherentDataProviders<Block, ()>,
 {
@@ -1002,11 +999,11 @@ where
 		inherent_data: InherentData,
 		create_inherent_data_providers: CIDP::InherentDataProviders,
 	) -> Result<(), Error<Block>> {
-		let inherent_res = self
-			.client
-			.runtime_api()
-			.check_inherents(block, inherent_data)
-			.map_err(Error::RuntimeApi)?;
+		let mut runtime_api =
+			RuntimeInstance::builder(&*self.client, at_hash).off_chain_context().build();
+
+		let inherent_res =
+			runtime_api.check_inherents(block, inherent_data).map_err(Error::RuntimeApi)?;
 
 		if !inherent_res.ok() {
 			for (i, e) in inherent_res.into_errors() {
@@ -1068,10 +1065,15 @@ where
 		// its parent would be on the previous session. if generation on the
 		// parent header fails we try with best block as well.
 		let generate_key_owner_proof = |at_hash: Block::Hash| {
-			self.client
-				.runtime_api()
-				.generate_key_ownership_proof(slot, equivocation_proof.offender.clone())
-				.map_err(Error::RuntimeApi)
+			let mut runtime_api =
+				RuntimeInstance::builder(&*self.client, at_hash).off_chain_context().build();
+
+			BabeApi::<Block>::generate_key_ownership_proof(
+				&mut runtime_api,
+				slot,
+				equivocation_proof.offender.clone(),
+			)
+			.map_err(Error::RuntimeApi)
 		};
 
 		let parent_hash = *header.parent_hash();
@@ -1090,15 +1092,18 @@ where
 		};
 
 		// submit equivocation report at best block.
-		let mut runtime_api = self.client.runtime_api();
+		let mut runtime_api = RuntimeInstance::builder(&*self.client, best_hash)
+			.off_chain_context()
+			// Register the offchain tx pool to be able to use it from the runtime.
+			.register_extension(self.offchain_tx_pool_factory.offchain_transaction_pool(best_hash))
+			.build();
 
-		// Register the offchain tx pool to be able to use it from the runtime.
-		runtime_api
-			.register_extension(self.offchain_tx_pool_factory.offchain_transaction_pool(best_hash));
-
-		runtime_api
-			.submit_report_equivocation_unsigned_extrinsic(equivocation_proof, key_owner_proof)
-			.map_err(Error::RuntimeApi)?;
+		BabeApi::<Block>::submit_report_equivocation_unsigned_extrinsic(
+			&mut runtime_api,
+			equivocation_proof,
+			key_owner_proof,
+		)
+		.map_err(Error::RuntimeApi)?;
 
 		info!(target: LOG_TARGET, "Submitted equivocation report for author {:?}", author);
 
@@ -1113,10 +1118,10 @@ where
 	Block: BlockT,
 	Client: HeaderMetadata<Block, Error = sp_blockchain::Error>
 		+ HeaderBackend<Block>
+		+ CallApiAt<Block>
 		+ Send
 		+ Sync
 		+ AuxStore,
-	Client::Api: BlockBuilderApi<Block> + BabeApi<Block>,
 	SelectChain: sp_consensus::SelectChain<Block>,
 	CIDP: CreateInherentDataProviders<Block, ()> + Send + Sync,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
@@ -1326,10 +1331,10 @@ where
 	Inner::Error: Into<ConsensusError>,
 	Client: HeaderBackend<Block>
 		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
+		+ CallApiAt<Block>
 		+ AuxStore
 		+ Send
 		+ Sync,
-	Client::Api: BabeApi<Block> + ApiExt<Block>,
 {
 	/// Import whole state after warp sync.
 	// This function makes multiple transactions to the DB. If one of them fails we may
@@ -1363,10 +1368,13 @@ where
 		};
 
 		// Read epoch info from the imported state.
-		let current_epoch = self.client.runtime_api().current_epoch().map_err(|e| {
+		let mut runtime_api =
+			RuntimeInstance::builder(&*self.client, hash).off_chain_context().build();
+
+		let current_epoch = BabeApi::<Block>::current_epoch(&mut runtime_api).map_err(|e| {
 			ConsensusError::ClientImport(babe_err::<Block>(Error::RuntimeApi(e)).into())
 		})?;
-		let next_epoch = self.client.runtime_api().next_epoch().map_err(|e| {
+		let next_epoch = BabeApi::<Block>::next_epoch(&mut runtime_api).map_err(|e| {
 			ConsensusError::ClientImport(babe_err::<Block>(Error::RuntimeApi(e)).into())
 		})?;
 
@@ -1389,10 +1397,10 @@ where
 	Inner::Error: Into<ConsensusError>,
 	Client: HeaderBackend<Block>
 		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
+		+ CallApiAt<Block>
 		+ AuxStore
 		+ Send
 		+ Sync,
-	Client::Api: BabeApi<Block> + ApiExt<Block>,
 {
 	type Error = ConsensusError;
 
@@ -1813,14 +1821,13 @@ pub fn import_queue<Block: BlockT, Client, SelectChain, BI, CIDP, Spawn>(
 ) -> ClientResult<(DefaultImportQueue<Block>, BabeWorkerHandle<Block>)>
 where
 	BI: BlockImport<Block, Error = ConsensusError> + Send + Sync + 'static,
-	Client: 
-		+ HeaderBackend<Block>
+	Client: HeaderBackend<Block>
 		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
+		+ CallApiAt<Block>
 		+ AuxStore
 		+ Send
 		+ Sync
 		+ 'static,
-	Client::Api: BlockBuilderApi<Block> + BabeApi<Block> + ApiExt<Block>,
 	SelectChain: sp_consensus::SelectChain<Block> + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + Send + Sync + 'static,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
@@ -1864,9 +1871,8 @@ where
 	Client: AuxStore
 		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
 		+ HeaderBackend<Block>
-		
+		+ CallApiAt<Block>
 		+ UsageProvider<Block>,
-	Client::Api: BabeApi<Block>,
 	Backend: BackendT<Block>,
 {
 	let best_number = client.info().best_number;

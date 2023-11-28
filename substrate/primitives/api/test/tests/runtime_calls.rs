@@ -105,11 +105,8 @@ fn record_proof_works() {
 	builder.push(transaction.clone()).unwrap();
 	let (block, _, proof) = builder.build().expect("Bake block").into_inner();
 
-	let backend = create_proof_check_backend::<HashingFor<Block>>(
-		storage_root,
-		proof.expect("Proof was generated"),
-	)
-	.expect("Creates proof backend.");
+	let backend = create_proof_check_backend::<HashingFor<Block>>(storage_root, proof)
+		.expect("Creates proof backend.");
 
 	// Use the proof backend to execute `execute_block`.
 	let mut overlay = Default::default();

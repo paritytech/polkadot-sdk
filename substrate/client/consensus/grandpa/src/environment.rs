@@ -41,7 +41,7 @@ use sc_client_api::{
 };
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_INFO};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use sp_api::ApiExt;
+use sp_api::RuntimeInstance;
 use sp_blockchain::HeaderMetadata;
 use sp_consensus::SelectChain as SelectChainT;
 use sp_consensus_grandpa::{
@@ -487,7 +487,6 @@ where
 	Block: BlockT,
 	BE: BackendT<Block>,
 	C: ClientForGrandpa<Block, BE>,
-	C::Api: GrandpaApi<Block>,
 	N: NetworkT<Block>,
 	S: SyncingT<Block>,
 	SC: SelectChainT<Block>,
@@ -549,16 +548,17 @@ where
 			None => best_block_hash,
 		};
 
+		let mut runtime_api = RuntimeInstance::builder(&self.client, current_set_latest_hash)
+			.off_chain_context()
+			.build();
+
 		// generate key ownership proof at that block
-		let key_owner_proof = match self
-			.client
-			.runtime_api()
-			.generate_key_ownership_proof(
-				current_set_latest_hash,
-				authority_set.set_id,
-				equivocation.offender().clone(),
-			)
-			.map_err(Error::RuntimeApi)?
+		let key_owner_proof = match GrandpaApi::<Block>::generate_key_ownership_proof(
+			&mut runtime_api,
+			authority_set.set_id,
+			equivocation.offender().clone(),
+		)
+		.map_err(Error::RuntimeApi)?
 		{
 			Some(proof) => proof,
 			None => {
@@ -573,19 +573,19 @@ where
 		// submit equivocation report at **best** block
 		let equivocation_proof = EquivocationProof::new(authority_set.set_id, equivocation);
 
-		let mut runtime_api = self.client.runtime_api();
-
-		runtime_api.register_extension(
-			self.offchain_tx_pool_factory.offchain_transaction_pool(best_block_hash),
-		);
-
-		runtime_api
-			.submit_report_equivocation_unsigned_extrinsic(
-				best_block_hash,
-				equivocation_proof,
-				key_owner_proof,
+		let mut runtime_api = RuntimeInstance::builder(&self.client, best_block_hash)
+			.off_chain_context()
+			.register_extension(
+				self.offchain_tx_pool_factory.offchain_transaction_pool(best_block_hash),
 			)
-			.map_err(Error::RuntimeApi)?;
+			.build();
+
+		GrandpaApi::<Block>::submit_report_equivocation_unsigned_extrinsic(
+			&mut runtime_api,
+			equivocation_proof,
+			key_owner_proof,
+		)
+		.map_err(Error::RuntimeApi)?;
 
 		Ok(())
 	}
@@ -656,7 +656,6 @@ where
 	Block: BlockT,
 	B: BackendT<Block>,
 	C: ClientForGrandpa<Block, B> + 'static,
-	C::Api: GrandpaApi<Block>,
 	N: NetworkT<Block>,
 	S: SyncingT<Block>,
 	SC: SelectChainT<Block> + 'static,

@@ -511,8 +511,6 @@ pub use sp_api_proc_macro::impl_runtime_apis;
 /// ```
 pub use sp_api_proc_macro::mock_impl_runtime_apis;
 
-use crate::runtime_decl_for_metadata::runtime_decl_for_core::private::Sealed;
-
 /// A type that records all accessed trie nodes and generates a proof out of it.
 #[cfg(feature = "std")]
 pub type ProofRecorder<B> = sp_trie::recorder::Recorder<HashingFor<B>>;
@@ -850,22 +848,22 @@ impl<C, B: BlockT> RuntimeInstanceBuilder<C, B> {
 		Self { call_api_at, block }
 	}
 
-	pub fn on_chain_context(self) -> RuntimeInstanceBuilderStage2<C, B, DisableProofRecording<B>> {
+	pub fn on_chain_context(self) -> RuntimeInstanceBuilderStage2<C, B, DisableProofRecording> {
 		RuntimeInstanceBuilderStage2 {
 			call_api_at: self.call_api_at,
 			block: self.block,
 			call_context: CallContext::Onchain,
-			with_recorder: DisableProofRecording::default(),
+			with_recorder: DisableProofRecording,
 			extensions: Default::default(),
 		}
 	}
 
-	pub fn off_chain_context(self) -> RuntimeInstanceBuilderStage2<C, B, DisableProofRecording<B>> {
+	pub fn off_chain_context(self) -> RuntimeInstanceBuilderStage2<C, B, DisableProofRecording> {
 		RuntimeInstanceBuilderStage2 {
 			call_api_at: self.call_api_at,
 			block: self.block,
 			call_context: CallContext::Offchain,
-			with_recorder: DisableProofRecording::default(),
+			with_recorder: DisableProofRecording,
 			extensions: Default::default(),
 		}
 	}
@@ -920,39 +918,59 @@ impl<C, B: BlockT, ProofRecorder> RuntimeInstanceBuilderStage2<C, B, ProofRecord
 	}
 }
 
+/// Express that proof recording is enabled.
+///
+/// For more information see [`ProofRecording`].
 #[cfg(feature = "std")]
 pub struct EnableProofRecording<Block: BlockT> {
 	recorder: ProofRecorder<Block>,
 }
 
+/// Express that proof recording is disabled.
+///
+/// For more information see [`ProofRecording`].
 #[cfg(feature = "std")]
-pub struct DisableProofRecording<Block>(PhantomData<Block>);
+pub struct DisableProofRecording;
 
-impl<Block> Default for DisableProofRecording<Block> {
-	fn default() -> Self {
-		Self(PhantomData)
+/// A trait to express the state of proof recording on type system level.
+///
+/// This is used by [`Proposer`] to signal if proof recording is enabled. This can be used by
+/// downstream users of the [`Proposer`] trait to enforce that proof recording is activated when
+/// required. The only two implementations of this trait are [`DisableProofRecording`] and
+/// [`EnableProofRecording`].
+///
+/// This trait is sealed and can not be implemented outside of this crate!
+#[cfg(feature = "std")]
+pub trait ProofRecording<Block: BlockT>: private::Sealed {
+	type Proof: Send;
+
+	fn extract_proof(&self) -> Self::Proof;
+
+	fn get_recorder(&self) -> Option<&ProofRecorder<Block>>;
+}
+
+#[cfg(feature = "std")]
+impl<Block: BlockT> ProofRecording<Block> for EnableProofRecording<Block> {
+	type Proof = StorageProof;
+
+	fn extract_proof(&self) -> Self::Proof {
+		self.recorder.to_storage_proof()
 	}
-}
 
-#[cfg(feature = "std")]
-pub trait ProofRecording: private::Sealed {
-	type Block: BlockT;
-
-	fn get_recorder(&self) -> Option<&ProofRecorder<Self::Block>>;
-}
-
-#[cfg(feature = "std")]
-impl<Block: BlockT> ProofRecording for EnableProofRecording<Block> {
-	fn get_recorder(&self) -> Option<&ProofRecorder<Self::Block>> {
+	fn get_recorder(&self) -> Option<&ProofRecorder<Block>> {
 		Some(&self.recorder)
 	}
 }
 
 #[cfg(feature = "std")]
-impl<Block: BlockT> ProofRecording for DisableProofRecording<Block> {
-	type Block = Block;
+impl<Block: BlockT> ProofRecording<Block> for DisableProofRecording {
+	type Proof = ();
 
-	fn get_recorder(&self) -> Option<&ProofRecorder<Self::Block>> {
+	fn extract_proof(&self) -> Self::Proof {
+		()
+	}
+
+	fn get_recorder(&self) -> Option<&ProofRecorder<Block>> {
 		None
 	}
 }
@@ -963,7 +981,7 @@ mod private {
 
 	pub trait Sealed {}
 
-	impl<Block> Sealed for DisableProofRecording<Block> {}
+	impl Sealed for DisableProofRecording {}
 
 	impl<Block: BlockT> Sealed for EnableProofRecording<Block> {}
 }
@@ -980,15 +998,15 @@ pub struct RuntimeInstance<C, Block: BlockT, ProofRecorder> {
 }
 
 #[cfg(feature = "std")]
-impl<C, B: BlockT> RuntimeInstance<C, B, DisableProofRecording<B>> {
+impl<C, B: BlockT> RuntimeInstance<C, B, DisableProofRecording> {
 	pub fn builder(call_api_at: C, at: B::Hash) -> RuntimeInstanceBuilder<C, B> {
 		RuntimeInstanceBuilder { call_api_at, block: at }
 	}
 }
 
 #[cfg(feature = "std")]
-impl<C: CallApiAt<B>, B: BlockT, ProofRecorder: ProofRecording<Block = B>>
-	RuntimeInstance<C, B, ProofRecorder>
+impl<C: CallApiAt<B>, B: BlockT, ProofRecording: crate::ProofRecording<B>>
+	RuntimeInstance<C, B, ProofRecording>
 {
 	pub fn __runtime_api_internal_call_api_at(
 		&mut self,
@@ -1104,16 +1122,16 @@ impl<C: CallApiAt<B>, B: BlockT, ProofRecorder: ProofRecording<Block = B>>
 			recorder.start_transaction();
 		}
 	}
+
+	pub fn extract_proof(&self) -> ProofRecording::Proof {
+		self.recorder.extract_proof()
+	}
 }
 
 #[cfg(feature = "std")]
 impl<C: CallApiAt<B>, B: BlockT> RuntimeInstance<C, B, EnableProofRecording<B>> {
 	pub fn recorder(&self) -> ProofRecorder<B> {
 		self.recorder.recorder.clone()
-	}
-
-	pub fn extract_proof(&self) -> StorageProof {
-		self.recorder().to_storage_proof()
 	}
 }
 

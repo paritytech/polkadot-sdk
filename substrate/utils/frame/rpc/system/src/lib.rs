@@ -28,7 +28,7 @@ use jsonrpsee::{
 
 use sc_rpc_api::DenyUnsafe;
 use sc_transaction_pool_api::{InPoolTransaction, TransactionPool};
-use sp_api::ApiExt;
+use sp_api::{CallApiAt, RuntimeInstance};
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::HeaderBackend;
 use sp_core::{hexdisplay::HexDisplay, Bytes};
@@ -88,21 +88,17 @@ impl<P: TransactionPool, C, B> System<P, C, B> {
 impl<P, C, Block, AccountId, Nonce>
 	SystemApiServer<<Block as traits::Block>::Hash, AccountId, Nonce> for System<P, C, Block>
 where
-	C: 
-	C: HeaderBackend<Block>,
-	C: Send + Sync + 'static,
-	C::Api: AccountNonceApi<Block, AccountId, Nonce>,
-	C::Api: BlockBuilder<Block>,
+	C: HeaderBackend<Block> + CallApiAt<Block> + Send + Sync + 'static,
 	P: TransactionPool + 'static,
 	Block: traits::Block,
 	AccountId: Clone + Display + Codec + Send + 'static,
 	Nonce: Clone + Display + Codec + Send + traits::AtLeast32Bit + 'static,
 {
 	async fn nonce(&self, account: AccountId) -> RpcResult<Nonce> {
-		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
+		let mut api = RuntimeInstance::builder(&*self.client, best).off_chain_context().build();
 
-		let nonce = api.account_nonce(best, account.clone()).map_err(|e| {
+		let nonce = AccountNonceApi::account_nonce(&mut api, account.clone()).map_err(|e| {
 			CallError::Custom(ErrorObject::owned(
 				Error::RuntimeError.into(),
 				"Unable to query nonce.",
@@ -112,16 +108,15 @@ where
 		Ok(adjust_nonce(&*self.pool, account, nonce))
 	}
 
-	async fn dry_run(
-		&self,
-		extrinsic: Bytes,
-		at: Option<<Block as traits::Block>::Hash>,
-	) -> RpcResult<Bytes> {
+	async fn dry_run(&self, extrinsic: Bytes, at: Option<Block::Hash>) -> RpcResult<Bytes> {
 		self.deny_unsafe.check_if_safe()?;
-		let api = self.client.runtime_api();
+
 		let best_hash = at.unwrap_or_else(||
 			// If the block hash is not supplied assume the best block.
 			self.client.info().best_hash);
+
+		let mut api =
+			RuntimeInstance::builder(&*self.client, best_hash).off_chain_context().build();
 
 		let uxt: <Block as traits::Block>::Extrinsic =
 			Decode::decode(&mut &*extrinsic).map_err(|e| {
@@ -133,7 +128,7 @@ where
 			})?;
 
 		let api_version = api
-			.api_version::<dyn BlockBuilder<Block>>(best_hash)
+			.api_version::<dyn BlockBuilder<Block>>()
 			.map_err(|e| {
 				CallError::Custom(ErrorObject::owned(
 					Error::RuntimeError.into(),
@@ -151,7 +146,7 @@ where
 
 		let result = if api_version < 6 {
 			#[allow(deprecated)]
-			api.apply_extrinsic_before_version_6(best_hash, uxt)
+			BlockBuilder::<Block>::apply_extrinsic_before_version_6(&mut api, uxt)
 				.map(legacy::byte_sized_error::convert_to_latest)
 				.map_err(|e| {
 					CallError::Custom(ErrorObject::owned(
@@ -161,7 +156,7 @@ where
 					))
 				})?
 		} else {
-			api.apply_extrinsic(best_hash, uxt).map_err(|e| {
+			BlockBuilder::<Block>::apply_extrinsic(&mut api, uxt).map_err(|e| {
 				CallError::Custom(ErrorObject::owned(
 					Error::RuntimeError.into(),
 					"Unable to dry run extrinsic.",
@@ -222,7 +217,10 @@ mod tests {
 		transaction_validity::{InvalidTransaction, TransactionValidityError},
 		ApplyExtrinsicResult,
 	};
-	use substrate_test_runtime_client::{runtime::Transfer, AccountKeyring};
+	use substrate_test_runtime_client::{
+		runtime::{AccountId, Block, Nonce, Transfer},
+		AccountKeyring,
+	};
 
 	#[tokio::test]
 	async fn should_return_next_nonce_for_some_account() {
@@ -251,13 +249,13 @@ mod tests {
 		let ext1 = new_transaction(1);
 		block_on(pool.submit_one(hash_of_block0, source, ext1)).unwrap();
 
-		let accounts = System::new(client, pool, DenyUnsafe::Yes);
+		let accounts = System::<_, _, Block>::new(client, pool, DenyUnsafe::Yes);
 
 		// when
-		let nonce = accounts.nonce(AccountKeyring::Alice.into()).await;
+		let nonce: Nonce = accounts.nonce(AccountId::from(AccountKeyring::Alice)).await.unwrap();
 
 		// then
-		assert_eq!(nonce.unwrap(), 2);
+		assert_eq!(nonce, 2);
 	}
 
 	#[tokio::test]
@@ -270,10 +268,11 @@ mod tests {
 		let pool =
 			BasicPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
 
-		let accounts = System::new(client, pool, DenyUnsafe::Yes);
+		let accounts = System::<_, _, Block>::new(client, pool, DenyUnsafe::Yes);
 
 		// when
-		let res = accounts.dry_run(vec![].into(), None).await;
+		let res =
+			SystemApiServer::<_, AccountId, Nonce>::dry_run(&accounts, vec![].into(), None).await;
 		assert_matches!(res, Err(JsonRpseeError::Call(CallError::Custom(e))) => {
 			assert!(e.message().contains("RPC call is unsafe to be called externally"));
 		});
@@ -289,7 +288,7 @@ mod tests {
 		let pool =
 			BasicPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
 
-		let accounts = System::new(client, pool, DenyUnsafe::No);
+		let accounts = System::<_, _, Block>::new(client, pool, DenyUnsafe::No);
 
 		let tx = Transfer {
 			from: AccountKeyring::Alice.into(),
@@ -300,7 +299,10 @@ mod tests {
 		.into_unchecked_extrinsic();
 
 		// when
-		let bytes = accounts.dry_run(tx.encode().into(), None).await.expect("Call is successful");
+		let bytes =
+			SystemApiServer::<_, AccountId, Nonce>::dry_run(&accounts, tx.encode().into(), None)
+				.await
+				.expect("Call is successful");
 
 		// then
 		let apply_res: ApplyExtrinsicResult = Decode::decode(&mut bytes.as_ref()).unwrap();
@@ -328,7 +330,10 @@ mod tests {
 		.into_unchecked_extrinsic();
 
 		// when
-		let bytes = accounts.dry_run(tx.encode().into(), None).await.expect("Call is successful");
+		let bytes =
+			SystemApiServer::<_, AccountId, Nonce>::dry_run(&accounts, tx.encode().into(), None)
+				.await
+				.expect("Call is successful");
 
 		// then
 		let apply_res: ApplyExtrinsicResult = Decode::decode(&mut bytes.as_ref()).unwrap();

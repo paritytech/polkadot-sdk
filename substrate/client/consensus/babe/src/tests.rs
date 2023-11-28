@@ -52,7 +52,6 @@ type TestClient = substrate_test_runtime_client::client::Client<
 	substrate_test_runtime_client::Backend,
 	substrate_test_runtime_client::ExecutorDispatch,
 	TestBlock,
-	substrate_test_runtime_client::runtime::RuntimeApi,
 >;
 
 #[derive(Copy, Clone, PartialEq)]
@@ -122,7 +121,6 @@ impl Proposer<TestBlock> for DummyProposer {
 	type Error = Error;
 	type Proposal = future::Ready<Result<Proposal<TestBlock, ()>, Error>>;
 	type ProofRecording = DisableProofRecording;
-	type Proof = ();
 
 	fn propose(
 		mut self,
@@ -302,7 +300,7 @@ impl TestNetFactory for BabeTestNet {
 async fn rejects_empty_block() {
 	sp_tracing::try_init_simple();
 	let mut net = BabeTestNet::new(3);
-	let block_builder = |builder: BlockBuilder<_, _>| builder.build().unwrap().block;
+	let block_builder = |builder: BlockBuilder<_, &_, _>| builder.build().unwrap().block;
 	net.mut_peers(|peer| {
 		peer[0].generate_blocks(1, BlockOrigin::NetworkInitialSync, block_builder);
 	})

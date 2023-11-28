@@ -32,7 +32,7 @@ use sc_client_api::{
 	blockchain::{Backend as BlockChainBackendT, HeaderBackend},
 };
 use sp_consensus::BlockOrigin;
-use sp_runtime::traits::{Block as BlockT, Header as _};
+use sp_runtime::traits::Block as BlockT;
 use substrate_test_runtime::Transfer;
 
 /// helper to test the `leaves` implementation for various backends

@@ -77,7 +77,7 @@ use sp_blockchain::{
 };
 use sp_consensus::{
 	block_validation::{BlockAnnounceValidator, DefaultBlockAnnounceValidator},
-	BlockOrigin, Error as ConsensusError, SyncOracle,
+	BlockOrigin, DisableProofRecording, Error as ConsensusError, SyncOracle,
 };
 use sp_core::H256;
 use sp_runtime::{
@@ -128,7 +128,6 @@ pub type PeersFullClient = Client<
 	substrate_test_runtime_client::Backend,
 	substrate_test_runtime_client::ExecutorDispatch,
 	Block,
-	substrate_test_runtime_client::runtime::RuntimeApi,
 >;
 
 #[derive(Clone)]
@@ -305,7 +304,7 @@ where
 		edit_block: F,
 	) -> Vec<H256>
 	where
-		F: FnMut(BlockBuilder<Block, PeersFullClient>) -> Block,
+		F: FnMut(BlockBuilder<Block, &PeersFullClient, DisableProofRecording>) -> Block,
 	{
 		let best_hash = self.client.info().best_hash;
 		self.generate_blocks_at(
@@ -329,7 +328,7 @@ where
 		fork_choice: ForkChoiceStrategy,
 	) -> Vec<H256>
 	where
-		F: FnMut(BlockBuilder<Block, PeersFullClient>) -> Block,
+		F: FnMut(BlockBuilder<Block, &PeersFullClient, DisableProofRecording>) -> Block,
 	{
 		let best_hash = self.client.info().best_hash;
 		self.generate_blocks_at(
@@ -358,7 +357,7 @@ where
 		fork_choice: ForkChoiceStrategy,
 	) -> Vec<H256>
 	where
-		F: FnMut(BlockBuilder<Block, PeersFullClient>) -> Block,
+		F: FnMut(BlockBuilder<Block, &PeersFullClient, DisableProofRecording>) -> Block,
 	{
 		let mut hashes = Vec::with_capacity(count);
 		let full_client = self.client.as_client();
