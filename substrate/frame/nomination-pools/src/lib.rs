@@ -2771,7 +2771,8 @@ pub mod pallet {
 
 		/// Set or remove a pool's commission claim permission.
 		///
-		/// Only the `Root` role of the pool is able to conifigure commission claim permissions.
+		/// Determines who can claim the pool's pending commission. Only the `Root` role of the pool
+		/// is able to conifigure commission claim permissions.
 		#[pallet::call_index(22)]
 		#[pallet::weight(T::WeightInfo::set_commission_claim_permission())]
 		pub fn set_commission_claim_permission(
