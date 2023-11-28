@@ -1042,13 +1042,16 @@ impl paras_registrar::Config for Runtime {
 
 parameter_types! {
 	pub LeasePeriod: BlockNumber = prod_or_fast!(1 * DAYS, 1 * DAYS, "ROC_LEASE_PERIOD");
+	pub MinLeasePeriodsForEarlyRefund: BlockNumber = 2;
 }
 
 impl slots::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type ParachainOrigin = RuntimeOrigin;
 	type Currency = Balances;
 	type Registrar = Registrar;
 	type LeasePeriod = LeasePeriod;
+	type MinLeasePeriodsForEarlyRefund = MinLeasePeriodsForEarlyRefund;
 	type LeaseOffset = ();
 	type ForceOrigin = EitherOf<EnsureRoot<Self::AccountId>, LeaseAdmin>;
 	type WeightInfo = weights::runtime_common_slots::WeightInfo<Runtime>;
@@ -1509,6 +1512,7 @@ pub mod migrations {
 		paras_registrar::migration::MigrateToV1<Runtime, ()>,
 		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
 		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, pallet_referenda::Instance2>,
+		slots::migration::versioned::ToV1<Runtime>,
 
 		// Unlock & unreserve Gov1 funds
 

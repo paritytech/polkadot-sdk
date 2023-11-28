@@ -665,6 +665,7 @@ mod tests {
 			Parachains: parachains_paras::{Pallet, Call, Storage, Config<T>, Event},
 			Slots: slots::{Pallet, Call, Storage, Event<T>},
 			AssignedSlots: assigned_slots::{Pallet, Call, Storage, Event<T>},
+			ParachainsOrigin: runtime_parachains::origin::{Pallet, Origin},
 		}
 	);
 
@@ -745,17 +746,22 @@ mod tests {
 
 	impl parachains_shared::Config for Test {}
 
+	impl runtime_parachains::origin::Config for Test {}
+
 	parameter_types! {
 		pub const LeasePeriod: BlockNumber = 3;
+		pub const MinLeasePeriodsForEarlyRefund: BlockNumber = 2;
 		pub static LeaseOffset: BlockNumber = 0;
 		pub const ParaDeposit: u64 = 1;
 	}
 
 	impl slots::Config for Test {
 		type RuntimeEvent = RuntimeEvent;
+		type ParachainOrigin = RuntimeOrigin;
 		type Currency = Balances;
 		type Registrar = TestRegistrar<Test>;
 		type LeasePeriod = LeasePeriod;
+		type MinLeasePeriodsForEarlyRefund = MinLeasePeriodsForEarlyRefund;
 		type LeaseOffset = LeaseOffset;
 		type ForceOrigin = EnsureRoot<Self::AccountId>;
 		type WeightInfo = crate::slots::TestWeightInfo;

@@ -1254,13 +1254,16 @@ impl paras_registrar::Config for Runtime {
 
 parameter_types! {
 	pub const LeasePeriod: BlockNumber = 28 * DAYS;
+	pub const MinLeasePeriodsForEarlyRefund: BlockNumber = 2;
 }
 
 impl slots::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type ParachainOrigin = RuntimeOrigin;
 	type Currency = Balances;
 	type Registrar = Registrar;
 	type LeasePeriod = LeasePeriod;
+	type MinLeasePeriodsForEarlyRefund = MinLeasePeriodsForEarlyRefund;
 	type LeaseOffset = ();
 	type ForceOrigin = EitherOf<EnsureRoot<Self::AccountId>, LeaseAdmin>;
 	type WeightInfo = weights::runtime_common_slots::WeightInfo<Runtime>;
@@ -1534,8 +1537,9 @@ pub mod migrations {
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
 		paras_registrar::migration::MigrateToV1<Runtime, ()>,
 		pallet_nomination_pools::migration::versioned::V5toV6<Runtime>,
-		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
 		pallet_nomination_pools::migration::versioned::V6ToV7<Runtime>,
+		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
+		slots::migration::versioned::ToV1<Runtime>,
 		pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
 		parachains_configuration::migration::v10::MigrateToV10<Runtime>,
 	);

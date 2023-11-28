@@ -16,7 +16,101 @@
 
 use super::*;
 use crate::crowdloan;
+use frame_support::traits::OnRuntimeUpgrade;
 use sp_runtime::traits::AccountIdConversion;
+
+#[cfg(feature = "try-runtime")]
+use sp_runtime::TryRuntimeError;
+
+pub mod versioned {
+	use super::*;
+
+	/// Wrapper over `MigrateToV1` with convenience version checks.
+	///
+	/// This migration would add a new StorageDoubleMap `LeaseInfo` and initialise it with
+	/// current reserved amount and a default value of 4 for lease count.
+	pub type ToV1<T> = frame_support::migrations::VersionedMigration<
+		0,
+		1,
+		v1::MigrateToV1<T>,
+		Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+}
+
+mod v1 {
+	use super::*;
+
+	pub struct MigrateToV1<T>(sp_std::marker::PhantomData<T>);
+
+	impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
+		fn on_runtime_upgrade() -> Weight {
+			let mut weight = Weight::zero();
+			for (para, lease_periods) in Leases::<T>::iter() {
+				weight.saturating_accrue(T::DbWeight::get().reads(1));
+				let mut max_deposits: BTreeMap<T::AccountId, BalanceOf<T>> = BTreeMap::new();
+
+				lease_periods.iter().for_each(|lease| {
+					if let Some((who, amount)) = lease {
+						max_deposits
+							.entry(who.clone())
+							.and_modify(|deposit| *deposit = *amount.max(deposit))
+							.or_insert(*amount);
+					}
+				});
+
+				max_deposits.iter().for_each(|(leaser, deposit)| {
+					weight.saturating_accrue(T::DbWeight::get().writes(1));
+					// for existing leasers, set it to 4 since we don't really know how many
+					// past leases they had. This is generally 8 if a para applies for a full
+					// slot, but we initialise it to half of that.
+					let init_lease_period_count: LeasePeriodOf<T> = 4u32.into();
+					LeaseInfo::<T>::insert(para, leaser, (deposit, init_lease_period_count));
+				})
+			}
+
+			weight
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(_data: Vec<u8>) -> Result<(), TryRuntimeError> {
+			let mut para_leasers =
+				sp_std::collections::btree_set::BTreeSet::<(ParaId, T::AccountId)>::new();
+			for (para, lease_periods) in Leases::<T>::iter() {
+				lease_periods.into_iter().for_each(|maybe_lease| {
+					if let Some((who, _)) = maybe_lease {
+						para_leasers.insert((para, who));
+					}
+				});
+			}
+
+			// for each pair assert reserved amount is what we expect
+			para_leasers.iter().try_for_each(|(para, who)| -> Result<(), TryRuntimeError> {
+				let lease_info = LeaseInfo::<T>::get(para, who)
+					.expect("Migration should have inserted this entry");
+				let expected_deposit = Pallet::<T>::required_deposit(*para, who);
+				let reserved_balance = T::Currency::reserved_balance(who);
+
+				ensure!(
+					lease_info.0 == expected_deposit,
+					"reserved amount not same as required deposit"
+				);
+
+				ensure!(
+					reserved_balance >= lease_info.0,
+					"reserved amount value should be at least the lease reserve amount"
+				);
+
+				ensure!(
+					lease_info.1 == 4u32.into(),
+					"lease count for existing leasers should be set to 4"
+				);
+
+				Ok(())
+			})
+		}
+	}
+}
 
 /// Migrations for using fund index to create fund accounts instead of para ID.
 pub mod slots_crowdloan_index_migration {
@@ -40,7 +134,7 @@ pub mod slots_crowdloan_index_migration {
 						"para_id={:?}, old_fund_account={:?}, fund_id={:?}, leases={:?}",
 						para_id, old_fund_account, crowdloan.fund_index, leases,
 					);
-					break
+					break;
 				}
 			}
 		}

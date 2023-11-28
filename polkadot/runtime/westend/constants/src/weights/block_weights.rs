@@ -15,12 +15,12 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
-//! DATE: 2023-06-14 (Y/M/D)
-//! HOSTNAME: `runner--ss9ysm1-project-163-concurrent-0`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
+//! DATE: 2023-10-26 (Y/M/D)
+//! HOSTNAME: `runner-vmdtonbz-project-674-concurrent-0`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
 //!
 //! SHORT-NAME: `block`, LONG-NAME: `BlockExecution`, RUNTIME: `Development`
 //! WARMUPS: `10`, REPEAT: `100`
-//! WEIGHT-PATH: `runtime/westend/constants/src/weights/`
+//! WEIGHT-PATH: `./polkadot/runtime/westend/constants/src/weights/`
 //! WEIGHT-METRIC: `Average`, WEIGHT-MUL: `1.0`, WEIGHT-ADD: `0`
 
 // Executed Command:
@@ -28,12 +28,11 @@
 //   benchmark
 //   overhead
 //   --chain=westend-dev
-//   --execution=wasm
 //   --wasm-execution=compiled
-//   --weight-path=runtime/westend/constants/src/weights/
+//   --weight-path=./polkadot/runtime/westend/constants/src/weights/
 //   --warmup=10
 //   --repeat=100
-//   --header=./file_header.txt
+//   --header=./polkadot/file_header.txt
 
 use sp_core::parameter_types;
 use sp_weights::{constants::WEIGHT_REF_TIME_PER_NANOS, Weight};
@@ -43,17 +42,17 @@ parameter_types! {
 	/// Calculated by multiplying the *Average* with `1.0` and adding `0`.
 	///
 	/// Stats nanoseconds:
-	///   Min, Max: 449_093, 498_211
-	///   Average:  461_988
-	///   Median:   459_070
-	///   Std-Dev:  10124.58
+	///   Min, Max: 464_551, 736_172
+	///   Average:  480_107
+	///   Median:   474_768
+	///   Std-Dev:  27947.46
 	///
 	/// Percentiles nanoseconds:
-	///   99th: 493_580
-	///   95th: 482_929
-	///   75th: 464_502
+	///   99th: 540_207
+	///   95th: 500_595
+	///   75th: 479_804
 	pub const BlockExecutionWeight: Weight =
-		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(461_988), 0);
+		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(480_107), 0);
 }
 
 #[cfg(test)]
