@@ -18,6 +18,7 @@
 
 use crate::{
 	communication::{
+		fisherman::Fisherman,
 		notification::{
 			BeefyBestBlockSender, BeefyBestBlockStream, BeefyVersionedFinalityProofSender,
 			BeefyVersionedFinalityProofStream,
@@ -28,6 +29,7 @@ use crate::{
 		},
 	},
 	import::BeefyBlockImport,
+	keystore::BeefyKeystore,
 	metrics::register_metrics,
 	round::Rounds,
 	worker::PersistedState,
@@ -219,10 +221,10 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 	beefy_params: BeefyParams<B, BE, C, N, P, R, S>,
 ) where
 	B: Block,
-	BE: Backend<B>,
+	BE: Backend<B> + 'static,
 	C: Client<B, BE> + BlockBackend<B>,
 	P: PayloadProvider<B> + Clone,
-	R: ProvideRuntimeApi<B>,
+	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
 	R::Api: BeefyApi<B, AuthorityId> + MmrApi<B, MmrRootHash, NumberFor<B>>,
 	N: GossipNetwork<B> + NetworkRequest + Send + Sync + 'static,
 	S: GossipSyncing<B> + SyncOracle + 'static,
@@ -240,6 +242,8 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 		mut on_demand_justifications_handler,
 	} = beefy_params;
 
+	let key_store: Arc<BeefyKeystore> = Arc::new(key_store.into());
+
 	let BeefyNetworkParams {
 		network,
 		sync,
@@ -256,10 +260,17 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 	let mut block_import_justif = links.from_block_import_justif_stream.subscribe(100_000).fuse();
 
 	let known_peers = Arc::new(Mutex::new(KnownPeers::new()));
+	let fisherman = Fisherman {
+		backend: backend.clone(),
+		key_store: key_store.clone(),
+		runtime: runtime.clone(),
+		payload_provider: payload_provider.clone(),
+		_phantom: PhantomData,
+	};
 	// Default votes filter is to discard everything.
 	// Validator is updated later with correct starting round and set id.
 	let (gossip_validator, gossip_report_stream) =
-		communication::gossip::GossipValidator::new(known_peers.clone());
+		communication::gossip::GossipValidator::new(known_peers.clone(), fisherman);
 	let gossip_validator = Arc::new(gossip_validator);
 	let gossip_engine = GossipEngine::new(
 		network.clone(),

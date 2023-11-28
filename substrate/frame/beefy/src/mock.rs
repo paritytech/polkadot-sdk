@@ -39,7 +39,7 @@ use crate as pallet_beefy;
 
 pub use sp_consensus_beefy::{
 	ecdsa_crypto::{AuthorityId as BeefyId, AuthoritySignature as BeefySignature},
-	ConsensusLog, EquivocationProof, BEEFY_ENGINE_ID,
+	ConsensusLog, VoteEquivocationProof, BEEFY_ENGINE_ID,
 };
 
 impl_opaque_keys! {
@@ -265,7 +265,7 @@ pub fn new_test_ext_raw_authorities(authorities: Vec<BeefyId>) -> TestExternalit
 
 	let staking_config = pallet_staking::GenesisConfig::<Test> {
 		stakers,
-		validator_count: 2,
+		validator_count: authorities.len() as u32 - 1,
 		force_era: pallet_staking::Forcing::ForceNew,
 		minimum_validator_count: 0,
 		invulnerables: vec![],
