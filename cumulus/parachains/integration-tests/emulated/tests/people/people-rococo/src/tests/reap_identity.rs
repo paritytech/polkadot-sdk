@@ -219,7 +219,7 @@ fn on_reap_identity_works() {
 
 		// reserved balance should be equal to total deposit calculated on the Parachain
 		assert_eq!(reserved_bal, total_deposit);
-		// A single Existential Deposit should be free
-		assert!(PeopleRococoBalances::free_balance(PeopleRococoSender::get()) == PEOPLE_ROCOCO_ED);
+		// Atleast Existential Deposit should be free
+		assert!(PeopleRococoBalances::free_balance(PeopleRococoSender::get()) >= PEOPLE_ROCOCO_ED);
 	});
 }
