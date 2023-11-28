@@ -145,9 +145,9 @@ fn on_reap_identity_works() {
 			&PeopleRococoSender::get()
 		)
 		.is_some());
-		let tuple_subs =
+		let (_, sub_accounts) =
 			<PeopleRococo as PeopleRococoPallet>::Identity::subs_of(&PeopleRococoSender::get());
-		assert!(tuple_subs.1.len() > 0);
+		assert!(sub_accounts.len() > 0);
 	});
 
 	// 5. reap_identity on Relay Chain
