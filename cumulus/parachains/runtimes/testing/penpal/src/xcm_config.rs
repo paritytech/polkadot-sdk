@@ -229,7 +229,9 @@ where
 	Assets: fungibles::Inspect<AccountId>,
 {
 	fn contains(id: &<Assets as fungibles::Inspect<AccountId>>::AssetId) -> bool {
-		!Assets::total_issuance(id.clone()).is_zero()
+		let issuance = Assets::total_issuance(id.clone());
+		log::debug!(target: "kata::NonZeroIssuance", "issuance {:?}", issuance);
+		!issuance.is_zero()
 	}
 }
 
