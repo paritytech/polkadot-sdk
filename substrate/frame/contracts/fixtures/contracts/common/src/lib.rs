@@ -15,9 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #![no_std]
+#![cfg(any(target_arch = "wasm32", target_arch = "riscv32"))]
 
 #[panic_handler]
-#[cfg(any(target_arch = "wasm32", target_arch = "riscv32"))]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
 	#[cfg(target_arch = "wasm32")]
 	core::arch::wasm32::unreachable();
