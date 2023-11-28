@@ -27,6 +27,7 @@ extern crate self as sp_weights;
 mod weight_meter;
 mod weight_v2;
 
+use bounded_collections::Get;
 use codec::{CompactAs, Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
@@ -36,7 +37,6 @@ use sp_arithmetic::{
 	traits::{BaseArithmetic, SaturatedConversion, Unsigned},
 	Perbill,
 };
-use sp_core::Get;
 use sp_debug_derive::RuntimeDebug;
 
 pub use weight_meter::*;
