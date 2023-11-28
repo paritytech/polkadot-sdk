@@ -132,7 +132,7 @@ mod testh2b {
 				_ => None,
 			}
 		};
-		assert_eq!(f(1), Some([0, 0]));
+		assert_eq!(f(0), Some([0, 0]));
 	}
 
 	#[test]
@@ -144,6 +144,6 @@ mod testh2b {
 				_ => None,
 			}
 		};
-		assert_eq!(f(1), Some([0, 0]));
+		assert_eq!(f(0), Some([0, 0]));
 	}
 }
