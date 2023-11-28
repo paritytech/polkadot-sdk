@@ -213,22 +213,6 @@ enum Phase<B: BlockT, Client> {
 	Complete,
 }
 
-/// Import warp proof result.
-pub enum WarpProofImportResult {
-	/// Import was successful.
-	Success,
-	/// Bad proof.
-	BadResponse,
-}
-
-/// Import target block result.
-pub enum TargetBlockImportResult {
-	/// Import was successful.
-	Success,
-	/// Invalid block.
-	BadResponse,
-}
-
 enum PeerState {
 	Available,
 	DownloadingProofs,
