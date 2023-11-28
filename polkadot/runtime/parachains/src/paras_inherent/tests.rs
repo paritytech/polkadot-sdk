@@ -1470,10 +1470,6 @@ mod sanitizers {
 					true
 				);
 				assert_eq!(
-					backed_candidates.get(0).unwrap().validator_indices.get(0).unwrap(),
-					true
-				);
-				assert_eq!(
 					backed_candidates.get(0).unwrap().validator_indices.get(1).unwrap(),
 					true
 				);
