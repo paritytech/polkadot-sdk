@@ -82,6 +82,7 @@ pub fn new_full(
 			is_parachain_node,
 			grandpa_pause: None,
 			enable_beefy: true,
+			force_authoring_backoff: false,
 			jaeger_agent: None,
 			telemetry_worker_handle: None,
 			node_version: None,
