@@ -72,6 +72,7 @@ cumulus-primitives-utility = { path = "../../../../primitives/utility", default-
 pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false }
 parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false }
 parachains-common = { path = "../../../common", default-features = false }
+bridge-hub-common = { path = "../../bridge-hubs/common", default-features = false }
 
 [dev-dependencies]
 bridge-hub-test-utils = { path = "../test-utils" }
@@ -134,6 +135,7 @@ std = [
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
+	"bridge-hub-common/std",
 ]
 
 runtime-benchmarks = [
@@ -161,6 +163,7 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"bridge-hub-common/runtime-benchmarks",
 ]
 
 try-runtime = [

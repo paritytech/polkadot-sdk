@@ -9,9 +9,13 @@ publish = false
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+hex = "0.4.3"
+hex-literal = "0.4.1"
 
 # Substrate
-frame-support = { path = "../../../../../../../substrate/frame/support", default-features = false }
+sp-core = { path = "../../../../../../../substrate/primitives/core", default-features = false}
+frame-support = { path = "../../../../../../../substrate/frame/support", default-features = false}
 pallet-assets = { path = "../../../../../../../substrate/frame/assets", default-features = false }
 pallet-balances = { path = "../../../../../../../substrate/frame/balances", default-features = false }
 pallet-message-queue = { path = "../../../../../../../substrate/frame/message-queue" }
@@ -33,3 +37,15 @@ cumulus-pallet-dmp-queue = { path = "../../../../../../pallets/dmp-queue", defau
 bridge-hub-rococo-runtime = { path = "../../../../../../parachains/runtimes/bridge-hubs/bridge-hub-rococo", default-features = false }
 emulated-integration-tests-common = { path = "../../../common", default-features = false}
 rococo-westend-system-emulated-network = { path = "../../../networks/rococo-westend-system" }
+bridge-hub-rococo-emulated-chain = { path = "../../../chains/parachains/bridges/bridge-hub-rococo"}
+asset-hub-rococo-emulated-chain = { path = "../../../chains/parachains/assets/asset-hub-rococo"}
+penpal-emulated-chain = { path = "../../../chains/parachains/testing/penpal" }
+penpal-runtime = { path = "../../../../../runtimes/testing/penpal" }
+rococo-system-emulated-network ={ path = "../../../networks/rococo-system" }
+
+# Snowbridge
+snowbridge-core = { path = "../../../../../../../../parachain/primitives/core", default-features = false }
+snowbridge-router-primitives = { path = "../../../../../../../../parachain/primitives/router", default-features = false }
+snowbridge-control = { path = "../../../../../../../../parachain/pallets/control", default-features = false }
+snowbridge-inbound-queue = { path = "../../../../../../../../parachain/pallets/inbound-queue", default-features = false }
+snowbridge-outbound-queue = { path = "../../../../../../../../parachain/pallets/outbound-queue", default-features = false }

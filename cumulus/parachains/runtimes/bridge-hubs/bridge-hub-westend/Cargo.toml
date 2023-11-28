@@ -91,6 +91,7 @@ pallet-bridge-messages = { path = "../../../../../bridges/modules/messages", def
 pallet-bridge-parachains = { path = "../../../../../bridges/modules/parachains", default-features = false }
 pallet-bridge-relayers = { path = "../../../../../bridges/modules/relayers", default-features = false }
 bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common", default-features = false }
+bridge-hub-common = { path = "../../bridge-hubs/common", default-features = false }
 
 [dev-dependencies]
 static_assertions = "1.1"
@@ -173,6 +174,7 @@ std = [
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
+	"bridge-hub-common/std",
 ]
 
 runtime-benchmarks = [
@@ -205,6 +207,7 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"bridge-hub-common/runtime-benchmarks",
 ]
 
 try-runtime = [

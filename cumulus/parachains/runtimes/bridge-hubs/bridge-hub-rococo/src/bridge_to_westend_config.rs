@@ -18,7 +18,9 @@
 
 use crate::{
 	bridge_common_config::{BridgeParachainWestendInstance, DeliveryRewardInBalance},
-	weights, AccountId, BridgeWestendMessages, ParachainInfo, Runtime, RuntimeEvent, RuntimeOrigin,
+	weights,
+	xcm_config::{AgentIdOf, EthereumNetwork, UniversalLocation},
+	AccountId, BridgeWestendMessages, ParachainInfo, Runtime, RuntimeEvent, RuntimeOrigin,
 	XcmRouter,
 };
 use bp_messages::LaneId;
@@ -38,6 +40,7 @@ use bridge_runtime_common::{
 		RefundableMessagesLane, RefundableParachain,
 	},
 };
+use snowbridge_router_primitives::outbound::EthereumBlobExporter;
 
 use codec::Encode;
 use frame_support::{parameter_types, traits::PalletInfoAccess};
@@ -115,6 +118,14 @@ pub type ToBridgeHubWestendHaulBlobExporter = HaulBlobExporter<
 	WestendGlobalConsensusNetwork,
 	(),
 >;
+
+pub type SnowbridgeExporter = EthereumBlobExporter<
+	UniversalLocation,
+	EthereumNetwork,
+	snowbridge_outbound_queue::Pallet<Runtime>,
+	AgentIdOf,
+>;
+
 pub struct ToBridgeHubWestendXcmBlobHauler;
 impl XcmBlobHauler for ToBridgeHubWestendXcmBlobHauler {
 	type Runtime = Runtime;

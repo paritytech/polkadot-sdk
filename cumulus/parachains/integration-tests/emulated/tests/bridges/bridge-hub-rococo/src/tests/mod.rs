@@ -15,4 +15,5 @@
 
 mod asset_transfers;
 mod send_xcm;
+mod snowbridge;
 mod teleport;

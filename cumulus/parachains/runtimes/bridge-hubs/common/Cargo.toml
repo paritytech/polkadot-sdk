@@ -1,0 +1,40 @@
+[package]
+name = "bridge-hub-common"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+description = "Bridge hub common utilities"
+license = "Apache-2.0"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
+sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
+sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false }
+cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
+xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false}
+pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false}
+snowbridge-core = { path = "../../../../../../parachain/primitives/core", default-features = false }
+
+[features]
+default = [ "std" ]
+std = [
+	"codec/std",
+	"scale-info/std",
+	"frame-support/std",
+	"sp-std/std",
+	"sp-runtime/std",
+	"cumulus-primitives-core/std",
+	"xcm/std",
+	"pallet-message-queue/std",
+	"snowbridge-core/std"
+]
+
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
+	"snowbridge-core/runtime-benchmarks"
+]

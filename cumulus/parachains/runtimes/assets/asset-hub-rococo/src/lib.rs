@@ -95,8 +95,8 @@ use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use xcm::latest::prelude::*;
 
 use crate::xcm_config::{
-	ForeignCreatorsSovereignAccountOf, LocalAndForeignAssetsMultiLocationMatcher,
-	TrustBackedAssetsPalletLocation,
+	bridging::to_ethereum::EthereumLocation, ForeignCreatorsSovereignAccountOf,
+	LocalAndForeignAssetsMultiLocationMatcher, TrustBackedAssetsPalletLocation,
 };
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
@@ -377,7 +377,10 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type AssetIdParameter = MultiLocationForAssetId;
 	type Currency = Balances;
 	type CreateOrigin = ForeignCreators<
-		(FromSiblingParachain<parachain_info::Pallet<Runtime>>,),
+		(
+			FromSiblingParachain<parachain_info::Pallet<Runtime>>,
+			snowbridge_router_primitives::inbound::FromEthereumGlobalConsensus<EthereumLocation>,
+		),
 		ForeignCreatorsSovereignAccountOf,
 		AccountId,
 	>;
@@ -882,6 +885,37 @@ impl pallet_xcm_bridge_hub_router::Config<ToWestendXcmRouterInstance> for Runtim
 	type FeeAsset = xcm_config::bridging::XcmBridgeHubRouterFeeAssetId;
 }
 
+/// XCM router instance to BridgeHub with bridging capabilities for `Ethereum` global
+/// consensus with dynamic fees and back-pressure.
+pub type ToEthereumXcmRouterInstance = pallet_assets::Instance4;
+impl pallet_xcm_bridge_hub_router::Config<ToEthereumXcmRouterInstance> for Runtime {
+	type WeightInfo = weights::pallet_xcm_bridge_hub_router::WeightInfo<Runtime>;
+
+	type UniversalLocation = xcm_config::UniversalLocation;
+	type BridgedNetworkId = xcm_config::bridging::to_ethereum::EthereumNetwork;
+	type Bridges = xcm_config::bridging::NetworkExportTable;
+
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type BridgeHubOrigin = EnsureXcm<Equals<xcm_config::bridging::SiblingBridgeHub>>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BridgeHubOrigin = EitherOfDiverse<
+		// for running benchmarks
+		EnsureRoot<AccountId>,
+		// for running tests with `--feature runtime-benchmarks`
+		EnsureXcm<Equals<xcm_config::bridging::SiblingBridgeHub>>,
+	>;
+
+	type ToBridgeHubSender = XcmpQueue;
+	type WithBridgeHubChannel =
+		cumulus_pallet_xcmp_queue::bridging::InAndOutXcmpChannelStatusProvider<
+			xcm_config::bridging::SiblingBridgeHubParaId,
+			Runtime,
+		>;
+
+	type ByteFee = xcm_config::bridging::XcmBridgeHubRouterByteFee;
+	type FeeAsset = xcm_config::bridging::XcmBridgeHubRouterFeeAssetId;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -920,6 +954,7 @@ construct_runtime!(
 
 		// Bridge utilities.
 		ToWestendXcmRouter: pallet_xcm_bridge_hub_router::<Instance3>::{Pallet, Storage, Call} = 45,
+		ToEthereumXcmRouter: pallet_xcm_bridge_hub_router::<Instance4>::{Pallet, Storage, Call} = 46,
 
 		// The main stage.
 		Assets: pallet_assets::<Instance1>::{Pallet, Call, Storage, Event<T>} = 50,
@@ -1252,6 +1287,7 @@ impl_runtime_apis! {
 			type Pool = pallet_assets::Pallet::<Runtime, PoolAssetsInstance>;
 
 			type ToWestend = XcmBridgeHubRouterBench<Runtime, ToWestendXcmRouterInstance>;
+			type ToEthereum = XcmBridgeHubRouterBench<Runtime, ToEthereumXcmRouterInstance>;
 
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmarks!(list, extra);
@@ -1468,6 +1504,7 @@ impl_runtime_apis! {
 			type Pool = pallet_assets::Pallet::<Runtime, PoolAssetsInstance>;
 
 			type ToWestend = XcmBridgeHubRouterBench<Runtime, ToWestendXcmRouterInstance>;
+			type ToEthereum = XcmBridgeHubRouterBench<Runtime, ToEthereumXcmRouterInstance>;
 
 			let whitelist: Vec<TrackedStorageKey> = vec![
 				// Block Number
