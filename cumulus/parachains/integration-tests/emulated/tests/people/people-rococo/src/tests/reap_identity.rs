@@ -49,11 +49,10 @@ fn identity_relay() -> IdentityInfo<MaxAdditionalFields> {
 }
 
 fn removed_relay_id_fields(id: IdentityInfo<MaxAdditionalFields>) -> Balance {
-	let addtional_field= ByteDeposit::get() * TryInto::<u128>::try_into(id.additional
-		.encoded_size())
-		.unwrap();
-	let riot_field = ByteDeposit::get() * TryInto::<u128>::try_into(id.riot.encoded_size())
-		.unwrap();
+	let addtional_field =
+		ByteDeposit::get() * TryInto::<u128>::try_into(id.additional.encoded_size()).unwrap();
+	let riot_field =
+		ByteDeposit::get() * TryInto::<u128>::try_into(id.riot.encoded_size()).unwrap();
 	addtional_field + riot_field
 }
 
@@ -73,18 +72,12 @@ fn identity_parachain() -> IdentityInfoParachain {
 }
 
 fn added_parachain_id_fields(id: &IdentityInfoParachain) -> Balance {
-	let matrix_field = ByteDepositParachain::get() * TryInto::<u128>::try_into(
-		id.matrix.encoded_size(),
-	)
-	.unwrap();
-	let github_field = ByteDepositParachain::get() * TryInto::<u128>::try_into(
-		id.github.encoded_size(),
-	)
-	.unwrap();
-	let discord_field = ByteDepositParachain::get() * TryInto::<u128>::try_into(
-		id.discord.encoded_size(),
-	)
-	.unwrap();
+	let matrix_field =
+		ByteDepositParachain::get() * TryInto::<u128>::try_into(id.matrix.encoded_size()).unwrap();
+	let github_field =
+		ByteDepositParachain::get() * TryInto::<u128>::try_into(id.github.encoded_size()).unwrap();
+	let discord_field =
+		ByteDepositParachain::get() * TryInto::<u128>::try_into(id.discord.encoded_size()).unwrap();
 	matrix_field + github_field + discord_field
 }
 
@@ -196,7 +189,7 @@ fn on_reap_identity_works() {
 			]
 		);
 		assert!(PeopleRococoIdentity::identity(&RococoRelaySender::get()).is_none());
-		let (_, sub_accounts)= RococoIdentity::subs_of(&RococoRelaySender::get());
+		let (_, sub_accounts) = RococoIdentity::subs_of(&RococoRelaySender::get());
 		assert_eq!(sub_accounts.len(), 0);
 
 		let reserved_balance = RococoBalances::reserved_balance(RococoRelaySender::get());
