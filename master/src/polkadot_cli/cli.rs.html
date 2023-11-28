@@ -147,16 +147,6 @@
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
-<a href="#152" id="152">152</a>
-<a href="#153" id="153">153</a>
-<a href="#154" id="154">154</a>
-<a href="#155" id="155">155</a>
-<a href="#156" id="156">156</a>
-<a href="#157" id="157">157</a>
-<a href="#158" id="158">158</a>
-<a href="#159" id="159">159</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -240,16 +230,6 @@
 	<span class="doccomment">/// Force using Rococo native runtime.
 	</span><span class="attr">#[arg(long = <span class="string">&quot;force-rococo&quot;</span>)]
 	</span><span class="kw">pub </span>force_rococo: bool,
-
-	<span class="doccomment">/// Setup a GRANDPA scheduled voting pause.
-	///
-	/// This parameter takes two values, namely a block number and a delay (in blocks).
-	///
-	/// After the given block number is finalized the GRANDPA voter will temporarily
-	/// stop voting for new blocks until the given delay has elapsed (i.e. until a
-	/// block at height `pause_block + delay` is imported).
-	</span><span class="attr">#[arg(long = <span class="string">&quot;grandpa-pause&quot;</span>, num_args = <span class="number">2</span>)]
-	</span><span class="kw">pub </span>grandpa_pause: Vec&lt;u32&gt;,
 
 	<span class="doccomment">/// Disable the BEEFY gadget.
 	///

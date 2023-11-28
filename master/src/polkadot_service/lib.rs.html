@@ -1424,26 +1424,6 @@
 <a href="#1424" id="1424">1424</a>
 <a href="#1425" id="1425">1425</a>
 <a href="#1426" id="1426">1426</a>
-<a href="#1427" id="1427">1427</a>
-<a href="#1428" id="1428">1428</a>
-<a href="#1429" id="1429">1429</a>
-<a href="#1430" id="1430">1430</a>
-<a href="#1431" id="1431">1431</a>
-<a href="#1432" id="1432">1432</a>
-<a href="#1433" id="1433">1433</a>
-<a href="#1434" id="1434">1434</a>
-<a href="#1435" id="1435">1435</a>
-<a href="#1436" id="1436">1436</a>
-<a href="#1437" id="1437">1437</a>
-<a href="#1438" id="1438">1438</a>
-<a href="#1439" id="1439">1439</a>
-<a href="#1440" id="1440">1440</a>
-<a href="#1441" id="1441">1441</a>
-<a href="#1442" id="1442">1442</a>
-<a href="#1443" id="1443">1443</a>
-<a href="#1444" id="1444">1444</a>
-<a href="#1445" id="1445">1445</a>
-<a href="#1446" id="1446">1446</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2069,7 +2049,6 @@
 <span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
 </span><span class="kw">pub struct </span>NewFullParams&lt;OverseerGenerator: OverseerGen&gt; {
 	<span class="kw">pub </span>is_parachain_node: IsParachainNode,
-	<span class="kw">pub </span>grandpa_pause: <span class="prelude-ty">Option</span>&lt;(u32, u32)&gt;,
 	<span class="kw">pub </span>enable_beefy: bool,
 	<span class="doccomment">/// Whether to enable the block authoring backoff on production networks
 	/// where it isn&#39;t enabled by default.
@@ -2163,7 +2142,6 @@
 	<span class="kw-2">mut </span>config: Configuration,
 	NewFullParams {
 		is_parachain_node,
-		grandpa_pause,
 		enable_beefy,
 		force_authoring_backoff,
 		jaeger_agent,
@@ -2694,32 +2672,14 @@
 		// provide better guarantees of block and vote data availability than
 		// the observer.
 
-		// add a custom voting rule to temporarily stop voting for new blocks
-		// after the given pause block is finalized and restarting after the
-		// given delay.
-		</span><span class="kw">let </span><span class="kw-2">mut </span>builder = grandpa::VotingRulesBuilder::default();
+		</span><span class="kw">let </span><span class="kw-2">mut </span>voting_rules_builder = grandpa::VotingRulesBuilder::default();
 
 		<span class="attr">#[cfg(not(feature = <span class="string">&quot;malus&quot;</span>))]
 		</span><span class="kw">let </span>_malus_finality_delay = <span class="prelude-val">None</span>;
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(delay) = _malus_finality_delay {
 			<span class="macro">info!</span>(<span class="question-mark">?</span>delay, <span class="string">&quot;Enabling malus finality delay&quot;</span>,);
-			builder = builder.add(grandpa::BeforeBestBlockBy(delay));
-		};
-
-		<span class="kw">let </span>voting_rule = <span class="kw">match </span>grandpa_pause {
-			<span class="prelude-val">Some</span>((block, delay)) =&gt; {
-				<span class="macro">info!</span>(
-					block_number = %block,
-					delay = %delay,
-					<span class="string">&quot;GRANDPA scheduled voting pause set for block #{} with a duration of {} blocks.&quot;</span>,
-					block,
-					delay,
-				);
-
-				builder.add(grandpa_support::PauseAfterBlockFor(block, delay)).build()
-			},
-			<span class="prelude-val">None </span>=&gt; builder.build(),
+			voting_rules_builder = voting_rules_builder.add(grandpa::BeforeBestBlockBy(delay));
 		};
 
 		<span class="kw">let </span>grandpa_config = grandpa::GrandpaParams {
@@ -2727,7 +2687,7 @@
 			link: link_half,
 			network: network.clone(),
 			sync: sync_service.clone(),
-			voting_rule,
+			voting_rule: voting_rules_builder.build(),
 			prometheus_registry: prometheus_registry.clone(),
 			shared_voter_state,
 			telemetry: telemetry.as_ref().map(|x| x.handle()),
