@@ -26,7 +26,7 @@ pub struct TestSequenceOptions {
 
 /// Define the supported benchmarks targets
 #[derive(Debug, Clone, clap::Parser, Serialize, Deserialize)]
-#[command(about = "Test objectives", version, rename_all = "kebab-case")]
+#[command(rename_all = "kebab-case")]
 pub enum TestObjective {
 	/// Benchmark availability recovery strategies.
 	DataAvailabilityRead(DataAvailabilityReadOptions),

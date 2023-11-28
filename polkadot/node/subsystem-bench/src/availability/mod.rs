@@ -312,7 +312,7 @@ fn derive_erasure_chunks_with_proofs_and_root(
 	(erasure_chunks, root)
 }
 
-pub async fn bench_chunk_recovery(env: &mut TestEnvironment, mut state: TestState) {
+pub async fn benchmark_availability_read(env: &mut TestEnvironment, mut state: TestState) {
 	let config = env.config().clone();
 
 	env.import_block(new_block_import_info(Hash::repeat_byte(1), 1)).await;

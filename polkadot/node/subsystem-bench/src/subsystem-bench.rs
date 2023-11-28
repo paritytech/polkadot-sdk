@@ -35,7 +35,8 @@ use core::{
 };
 
 use clap_num::number_range;
-// const LOG_TARGET: &str = "subsystem-bench";
+
+use crate::core::display::display_configuration;
 
 fn le_100(s: &str) -> Result<usize, String> {
 	number_range(s, 0, 100)
@@ -64,7 +65,7 @@ struct BenchCli {
 	pub bandwidth: Option<usize>,
 
 	#[clap(long, value_parser=le_100)]
-	/// Simulated connection error rate [0-100].
+	/// Simulated conection error ratio [0-100].
 	pub peer_error: Option<usize>,
 
 	#[clap(long, value_parser=le_5000)]
@@ -95,22 +96,14 @@ impl BenchCli {
 				);
 				for (index, test_config) in test_sequence.into_iter().enumerate() {
 					gum::info!(
-						"{}, {}, {}, {}, {}, {}",
+						"{}",
 						format!("Step {}/{}", index + 1, num_steps).bright_purple(),
-						format!("n_validators = {}", test_config.n_validators).blue(),
-						format!("n_cores = {}", test_config.n_cores).blue(),
-						format!(
-							"pov_size = {} - {}",
-							test_config.min_pov_size, test_config.max_pov_size
-						)
-						.bright_black(),
-						format!("error = {}", test_config.error).bright_black(),
-						format!("latency = {:?}", test_config.latency).bright_black(),
 					);
+					display_configuration(&test_config);
 
 					let mut state = TestState::new(&test_config);
 					let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
-					env.runtime().block_on(availability::bench_chunk_recovery(&mut env, state));
+					env.runtime().block_on(availability::benchmark_availability_read(&mut env, state));
 				}
 				return Ok(())
 			},
@@ -166,10 +159,12 @@ impl BenchCli {
 			test_config.bandwidth = bandwidth * 1024;
 		}
 
+		display_configuration(&test_config);
+
 		let mut state = TestState::new(&test_config);
 		let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
 		// test_config.write_to_disk();
-		env.runtime().block_on(availability::bench_chunk_recovery(&mut env, state));
+		env.runtime().block_on(availability::benchmark_availability_read(&mut env, state));
 
 		Ok(())
 	}
@@ -181,6 +176,7 @@ fn main() -> eyre::Result<()> {
 		.filter(Some("hyper"), log::LevelFilter::Info)
 		// Avoid `Terminating due to subsystem exit subsystem` warnings
 		.filter(Some("polkadot_overseer"), log::LevelFilter::Error)
+		.filter(None, log::LevelFilter::Info)
 		// .filter(None, log::LevelFilter::Trace)
 		.try_init()
 		.unwrap();
