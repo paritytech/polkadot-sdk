@@ -51,9 +51,8 @@ impl<SelfParaId: Get<ParaId>> ContainsPair<MultiLocation, MultiLocation>
 
 		// here we check if sibling
 		match a {
-			MultiLocation { parents: 1, interior } => {
-				matches!(interior.first(), Some(Parachain(sibling_para_id)) if sibling_para_id.ne(&u32::from(SelfParaId::get())))
-			},
+			MultiLocation { parents: 1, interior } =>
+				matches!(interior.first(), Some(Parachain(sibling_para_id)) if sibling_para_id.ne(&u32::from(SelfParaId::get()))),
 			_ => false,
 		}
 	}
