@@ -26,7 +26,7 @@ use sp_runtime::TryRuntimeError;
 /// Exports for versioned migration `type`s for this pallet.
 pub mod versioned {
 	use super::*;
-	
+
 	/// v8: Adds commission claim permissions to `BondedPools`.
 	pub type V7ToV8<T> = frame_support::migrations::VersionedMigration<
 		7,
