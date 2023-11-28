@@ -2769,6 +2769,10 @@ pub mod pallet {
 			Self::do_adjust_pool_deposit(who, pool_id)
 		}
 
+		/// Set or remove a pool's commission claim permission.
+		///
+		/// Claims any pending commission of a pool and resets the total pending commission to zero.
+		/// Only the `Root` role of the pool is able to conifigure commission claim permissions.
 		#[pallet::call_index(22)]
 		#[pallet::weight(T::WeightInfo::set_commission_claim_permission())]
 		pub fn set_commission_claim_permission(
