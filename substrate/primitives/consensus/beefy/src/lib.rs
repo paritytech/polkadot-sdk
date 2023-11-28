@@ -591,7 +591,7 @@ impl OpaqueKeyOwnershipProof {
 sp_api::decl_runtime_apis! {
 	/// API necessary for BEEFY voters. Due to the significant conceptual
 	/// overlap, in large part, this is lifted from the GRANDPA API.
-	#[api_version(3)]
+	#[api_version(4)]
 	pub trait BeefyApi<AuthorityId, Hash> where
 		AuthorityId : Codec + RuntimeAppPublic,
 		Hash: Codec,

@@ -1842,7 +1842,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(3)]
+	#[api_version(4)]
 	impl beefy_primitives::BeefyApi<Block, BeefyId, Hash> for Runtime {
 		fn beefy_genesis() -> Option<BlockNumber> {
 			Beefy::genesis_block()
