@@ -362,9 +362,13 @@ where
 		Ok(frame_system::Pallet::<System>::block_weight().total())
 	}
 
-	/// Execute all `OnRuntimeUpgrade` of this runtime.
+	/// Execute all Migrations of this runtime.
 	///
 	/// The `checks` param determines whether to execute `pre/post_upgrade` and `try_state` hooks.
+	///
+	/// [`frame_system::LastRuntimeUpgrade`] is set to the current runtime version after
+	/// migrations execute. This is important for idempotency checks, because some migrations use
+	/// this value to determine whether or not they should execute.
 	pub fn try_runtime_upgrade(checks: UpgradeCheckSelect) -> Result<Weight, TryRuntimeError> {
 		let before_all_weight =
 			<AllPalletsWithSystem as BeforeAllRuntimeMigrations>::before_all_runtime_migrations();
@@ -372,6 +376,13 @@ where
 			<(COnRuntimeUpgrade, AllPalletsWithSystem) as OnRuntimeUpgrade>::try_on_runtime_upgrade(
 				checks.pre_and_post(),
 			)?;
+
+		frame_system::LastRuntimeUpgrade::<System>::put(
+			frame_system::LastRuntimeUpgradeInfo::from(
+				<System::Version as frame_support::traits::Get<_>>::get(),
+			),
+		);
+
 		// Nothing should modify the state after the migrations ran:
 		let _guard = StorageNoopGuard::default();
 

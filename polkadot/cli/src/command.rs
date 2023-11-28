@@ -259,6 +259,7 @@ where
 				is_parachain_node: service::IsParachainNode::No,
 				grandpa_pause,
 				enable_beefy,
+				force_authoring_backoff: cli.run.force_authoring_backoff,
 				jaeger_agent,
 				telemetry_worker_handle: None,
 				node_version,
