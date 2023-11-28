@@ -121,16 +121,6 @@ fn relay_limited_teleport_assets(t: RelayToSystemParaTest) -> DispatchResult {
 	)
 }
 
-fn relay_teleport_assets(t: RelayToSystemParaTest) -> DispatchResult {
-	<Rococo as RococoPallet>::XcmPallet::teleport_assets(
-		t.signed_origin,
-		bx!(t.args.dest.into()),
-		bx!(t.args.beneficiary.into()),
-		bx!(t.args.assets.into()),
-		t.args.fee_asset_item,
-	)
-}
-
 fn system_para_limited_teleport_assets(t: SystemParaToRelayTest) -> DispatchResult {
 	<PeopleRococo as PeopleRococoPallet>::PolkadotXcm::limited_teleport_assets(
 		t.signed_origin,
@@ -142,15 +132,6 @@ fn system_para_limited_teleport_assets(t: SystemParaToRelayTest) -> DispatchResu
 	)
 }
 
-fn system_para_teleport_assets(t: SystemParaToRelayTest) -> DispatchResult {
-	<PeopleRococo as PeopleRococoPallet>::PolkadotXcm::teleport_assets(
-		t.signed_origin,
-		bx!(t.args.dest.into()),
-		bx!(t.args.beneficiary.into()),
-		bx!(t.args.assets.into()),
-		t.args.fee_asset_item,
-	)
-}
 
 /// Limited Teleport of native asset from Relay Chain to the System Parachain should work
 #[test]
