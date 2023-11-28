@@ -138,12 +138,27 @@ codegen-units = 1
 }
 
 /// Invoke `cargo fmt` to check that fixtures files are formatted.
-fn invoke_fmt(current_dir: &Path, contracts_dir: &Path) -> Result<()> {
-	let fmt_res = Command::new("rustup")
-		.current_dir(current_dir)
-		.args(&["run", "nightly", "cargo", "fmt", "--check"])
+fn invoke_cargo_fmt<'a, Files>(config_path: &Path, files: Files, contract_dir: &Path) -> Result<()>
+where
+	Files: IntoIterator<Item = &'a Path>,
+{
+	// If rustfmt is not installed, skip the check.
+	if !Command::new("rustup")
+		.args(&["run", "nightly", "rustfmt", "--version"])
 		.output()
-		.unwrap();
+		.expect("failed to execute process")
+		.status
+		.success()
+	{
+		return Ok(())
+	}
+
+	let fmt_res = Command::new("rustup")
+		.args(&["run", "nightly", "rustfmt", "--check", "--config-path"])
+		.arg(config_path)
+		.args(files)
+		.output()
+		.expect("failed to execute process");
 
 	if fmt_res.status.success() {
 		return Ok(())
@@ -153,8 +168,9 @@ fn invoke_fmt(current_dir: &Path, contracts_dir: &Path) -> Result<()> {
 	let stderr = String::from_utf8_lossy(&fmt_res.stderr);
 	eprintln!("{}\n{}", stdout, stderr);
 	eprintln!(
-		"Fixtures files are not formatted.\nPlease run `rustup run nightly rustfmt {}/*.rs`",
-		contracts_dir.display()
+		"Fixtures files are not formatted.\nPlease run `rustup run nightly rustfmt --config-path {} {}/*.rs`",
+		config_path.display(),
+		contract_dir.display()
 	);
 	anyhow::bail!("Fixtures files are not formatted")
 }
@@ -175,7 +191,7 @@ fn invoke_build(current_dir: &Path) -> Result<()> {
 		.env("CARGO_ENCODED_RUSTFLAGS", encoded_rustflags)
 		.args(&["build", "--release", "--target=wasm32-unknown-unknown"])
 		.output()
-		.unwrap();
+		.expect("failed to execute process");
 
 	if build_res.status.success() {
 		return Ok(())
@@ -245,9 +261,14 @@ fn main() -> Result<()> {
 
 	let tmp_dir = tempfile::tempdir()?;
 	let tmp_dir_path = tmp_dir.path();
-	fs::copy(workspace_root.join(".rustfmt.toml"), tmp_dir_path.join(".rustfmt.toml"))?;
+
 	create_cargo_toml(&fixtures_dir, entries.iter(), tmp_dir.path())?;
-	invoke_fmt(tmp_dir_path, &contracts_dir)?;
+	invoke_cargo_fmt(
+		&workspace_root.join(".rustfmt.toml"),
+		entries.iter().map(|entry| &entry.path as _),
+		&contracts_dir,
+	)?;
+
 	invoke_build(tmp_dir_path)?;
 	write_output(tmp_dir_path, &out_dir, entries)?;
 
