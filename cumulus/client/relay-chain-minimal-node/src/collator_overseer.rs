@@ -15,7 +15,6 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use futures::{select, StreamExt};
-use schnellru::{ByLength, LruMap};
 use std::sync::Arc;
 
 use polkadot_availability_recovery::AvailabilityRecoverySubsystem;
@@ -25,6 +24,8 @@ use polkadot_network_bridge::{
 	NetworkBridgeTx as NetworkBridgeTxSubsystem,
 };
 use polkadot_node_collation_generation::CollationGenerationSubsystem;
+use polkadot_node_core_chain_api::ChainApiSubsystem;
+use polkadot_node_core_prospective_parachains::ProspectiveParachainsSubsystem;
 use polkadot_node_core_runtime_api::RuntimeApiSubsystem;
 use polkadot_node_network_protocol::{
 	peer_set::PeerSetProtocolNames,
@@ -36,7 +37,7 @@ use polkadot_node_network_protocol::{
 use polkadot_node_subsystem_util::metrics::{prometheus::Registry, Metrics};
 use polkadot_overseer::{
 	BlockInfo, DummySubsystem, Handle, Overseer, OverseerConnector, OverseerHandle, SpawnGlue,
-	UnpinHandle, KNOWN_LEAVES_CACHE_SIZE,
+	UnpinHandle,
 };
 use polkadot_primitives::CollatorPair;
 
@@ -44,7 +45,6 @@ use sc_authority_discovery::Service as AuthorityDiscoveryService;
 use sc_network::NetworkStateInfo;
 use sc_service::TaskManager;
 use sc_utils::mpsc::tracing_unbounded;
-use sp_runtime::traits::Block as BlockT;
 
 use cumulus_primitives_core::relay_chain::{Block, Hash as PHash};
 use cumulus_relay_chain_interface::RelayChainError;
@@ -103,7 +103,7 @@ fn build_overseer(
 	let network_bridge_metrics: NetworkBridgeMetrics = Metrics::register(registry)?;
 	let builder = Overseer::builder()
 		.availability_distribution(DummySubsystem)
-		.availability_recovery(AvailabilityRecoverySubsystem::with_availability_store_skip(
+		.availability_recovery(AvailabilityRecoverySubsystem::for_collator(
 			available_data_req_receiver,
 			Metrics::register(registry)?,
 		))
@@ -113,7 +113,7 @@ fn build_overseer(
 		.candidate_backing(DummySubsystem)
 		.candidate_validation(DummySubsystem)
 		.pvf_checker(DummySubsystem)
-		.chain_api(DummySubsystem)
+		.chain_api(ChainApiSubsystem::new(runtime_client.clone(), Metrics::register(registry)?))
 		.collation_generation(CollationGenerationSubsystem::new(Metrics::register(registry)?))
 		.collator_protocol({
 			let side = ProtocolSide::Collator {
@@ -146,7 +146,7 @@ fn build_overseer(
 			spawner.clone(),
 		))
 		.statement_distribution(DummySubsystem)
-		.prospective_parachains(DummySubsystem)
+		.prospective_parachains(ProspectiveParachainsSubsystem::new(Metrics::register(registry)?))
 		.approval_distribution(DummySubsystem)
 		.approval_voting(DummySubsystem)
 		.gossip_support(DummySubsystem)
@@ -157,7 +157,6 @@ fn build_overseer(
 		.span_per_active_leaf(Default::default())
 		.active_leaves(Default::default())
 		.supports_parachains(runtime_client)
-		.known_leaves(LruMap::new(ByLength::new(KNOWN_LEAVES_CACHE_SIZE)))
 		.metrics(Metrics::register(registry)?)
 		.spawner(spawner);
 
@@ -209,8 +208,6 @@ pub struct NewMinimalNode {
 	pub task_manager: TaskManager,
 	/// Overseer handle to interact with subsystems
 	pub overseer_handle: Handle,
-	/// Network service
-	pub network: Arc<sc_network::NetworkService<Block, <Block as BlockT>::Hash>>,
 }
 
 /// Glues together the [`Overseer`] and `BlockchainEvents` by forwarding

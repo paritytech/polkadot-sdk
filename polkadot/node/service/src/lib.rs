@@ -98,7 +98,7 @@ pub use service::{
 	ChainSpec, Configuration, Error as SubstrateServiceError, PruningMode, Role, RuntimeGenesis,
 	TFullBackend, TFullCallExecutor, TFullClient, TaskManager, TransactionPoolOptions,
 };
-pub use sp_api::{ApiRef, ConstructRuntimeApi, Core as CoreApi, ProvideRuntimeApi, StateBackend};
+pub use sp_api::{ApiRef, ConstructRuntimeApi, Core as CoreApi, ProvideRuntimeApi};
 pub use sp_runtime::{
 	generic,
 	traits::{self as runtime_traits, BlakeTwo256, Block as BlockT, Header as HeaderT, NumberFor},
@@ -625,6 +625,9 @@ pub struct NewFullParams<OverseerGenerator: OverseerGen> {
 	pub is_parachain_node: IsParachainNode,
 	pub grandpa_pause: Option<(u32, u32)>,
 	pub enable_beefy: bool,
+	/// Whether to enable the block authoring backoff on production networks
+	/// where it isn't enabled by default.
+	pub force_authoring_backoff: bool,
 	pub jaeger_agent: Option<std::net::SocketAddr>,
 	pub telemetry_worker_handle: Option<TelemetryWorkerHandle>,
 	/// The version of the node. TESTING ONLY: `None` can be passed to skip the node/worker version
@@ -716,6 +719,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 		is_parachain_node,
 		grandpa_pause,
 		enable_beefy,
+		force_authoring_backoff,
 		jaeger_agent,
 		telemetry_worker_handle,
 		node_version,
@@ -733,26 +737,27 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 	let is_offchain_indexing_enabled = config.offchain_worker.indexing_enabled;
 	let role = config.role.clone();
 	let force_authoring = config.force_authoring;
-	let backoff_authoring_blocks = {
+	let backoff_authoring_blocks = if !force_authoring_backoff &&
+		(config.chain_spec.is_polkadot() || config.chain_spec.is_kusama())
+	{
+		// the block authoring backoff is disabled by default on production networks
+		None
+	} else {
 		let mut backoff = sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging::default();
 
 		if config.chain_spec.is_rococo() ||
 			config.chain_spec.is_wococo() ||
-			config.chain_spec.is_versi()
+			config.chain_spec.is_versi() ||
+			config.chain_spec.is_dev()
 		{
-			// it's a testnet that's in flux, finality has stalled sometimes due
-			// to operational issues and it's annoying to slow down block
+			// on testnets that are in flux (like rococo or versi), finality has stalled
+			// sometimes due to operational issues and it's annoying to slow down block
 			// production to 1 block per hour.
 			backoff.max_interval = 10;
 		}
 
 		Some(backoff)
 	};
-
-	// Warn the user that BEEFY is still experimental for Polkadot.
-	if enable_beefy && config.chain_spec.is_polkadot() {
-		gum::warn!("BEEFY is still experimental, usage on Polkadot network is discouraged.");
-	}
 
 	let disable_grandpa = config.disable_grandpa;
 	let name = config.network.node_name.clone();
@@ -970,11 +975,15 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 
 	if let Some(hwbench) = hwbench {
 		sc_sysinfo::print_hwbench(&hwbench);
-		if !SUBSTRATE_REFERENCE_HARDWARE.check_hardware(&hwbench) && role.is_authority() {
-			log::warn!(
-				"⚠️  The hardware does not meet the minimal requirements for role 'Authority' find out more at:\n\
-				https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware"
+		match SUBSTRATE_REFERENCE_HARDWARE.check_hardware(&hwbench) {
+			Err(err) if role.is_authority() => {
+				log::warn!(
+				"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority' find out more at:\n\
+				https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware",
+				err
 			);
+			},
+			_ => {},
 		}
 
 		if let Some(ref mut telemetry) = telemetry {

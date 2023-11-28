@@ -32,7 +32,7 @@ pub mod traits;
 use traits::{
 	validate_export, AssetExchange, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin,
 	DropAssets, Enact, ExportXcm, FeeManager, FeeReason, OnResponse, Properties, ShouldExecute,
-	TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
+	TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader, XcmAssetTransfers,
 };
 
 mod assets;
@@ -248,10 +248,16 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 			for asset in fees.inner() {
 				Config::AssetTransactor::withdraw_asset(&asset, &origin, None)?;
 			}
-			Config::FeeManager::handle_fee(fees);
+			Config::FeeManager::handle_fee(fees, None, FeeReason::ChargeFees);
 		}
 		Ok(())
 	}
+}
+
+impl<Config: config::Config> XcmAssetTransfers for XcmExecutor<Config> {
+	type IsReserve = Config::IsReserve;
+	type IsTeleporter = Config::IsTeleporter;
+	type AssetTransactor = Config::AssetTransactor;
 }
 
 #[derive(Debug)]
@@ -405,10 +411,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		reason: FeeReason,
 	) -> Result<XcmHash, XcmError> {
 		let (ticket, fee) = validate_send::<Config::XcmSender>(dest, msg)?;
-		if !Config::FeeManager::is_waived(self.origin_ref(), reason) {
-			let paid = self.holding.try_take(fee.into()).map_err(|_| XcmError::NotHoldingFees)?;
-			Config::FeeManager::handle_fee(paid.into());
-		}
+		self.take_fee(fee, reason)?;
 		Config::XcmSender::deliver(ticket).map_err(Into::into)
 	}
 
@@ -618,14 +621,18 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			DepositAsset { assets, beneficiary } => {
 				let deposited = self.holding.saturating_take(assets);
 				for asset in deposited.into_assets_iter() {
-					Config::AssetTransactor::deposit_asset(&asset, &beneficiary, &self.context)?;
+					Config::AssetTransactor::deposit_asset(
+						&asset,
+						&beneficiary,
+						Some(&self.context),
+					)?;
 				}
 				Ok(())
 			},
 			DepositReserveAsset { assets, dest, xcm } => {
 				let deposited = self.holding.saturating_take(assets);
 				for asset in deposited.assets_iter() {
-					Config::AssetTransactor::deposit_asset(&asset, &dest, &self.context)?;
+					Config::AssetTransactor::deposit_asset(&asset, &dest, Some(&self.context))?;
 				}
 				// Note that we pass `None` as `maybe_failed_bin` and drop any assets which cannot
 				// be reanchored  because we have already called `deposit_asset` on all assets.
@@ -850,7 +857,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					destination,
 					xcm,
 				)?;
-				self.take_fee(fee, FeeReason::Export(network))?;
+				self.take_fee(fee, FeeReason::Export { network, destination })?;
 				Config::MessageExporter::deliver(ticket)?;
 				Ok(())
 			},
@@ -944,6 +951,14 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		if Config::FeeManager::is_waived(self.origin_ref(), reason) {
 			return Ok(())
 		}
+		log::trace!(
+			target: "xcm::fees",
+			"taking fee: {:?} from origin_ref: {:?} in fees_mode: {:?} for a reason: {:?}",
+			fee,
+			self.origin_ref(),
+			self.fees_mode,
+			reason,
+		);
 		let paid = if self.fees_mode.jit_withdraw {
 			let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
 			for asset in fee.inner() {
@@ -953,7 +968,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		} else {
 			self.holding.try_take(fee.into()).map_err(|_| XcmError::NotHoldingFees)?.into()
 		};
-		Config::FeeManager::handle_fee(paid);
+		Config::FeeManager::handle_fee(paid, Some(&self.context), reason);
 		Ok(())
 	}
 
@@ -985,12 +1000,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		let QueryResponseInfo { destination, query_id, max_weight } = info;
 		let instruction = QueryResponse { query_id, response, max_weight, querier };
 		let message = Xcm(vec![instruction]);
-		let (ticket, fee) = validate_send::<Config::XcmSender>(destination, message)?;
-		if !Config::FeeManager::is_waived(self.origin_ref(), fee_reason) {
-			let paid = self.holding.try_take(fee.into()).map_err(|_| XcmError::NotHoldingFees)?;
-			Config::FeeManager::handle_fee(paid.into());
-		}
-		Config::XcmSender::deliver(ticket).map_err(Into::into)
+		self.send(destination, message, fee_reason)
 	}
 
 	fn try_reanchor(

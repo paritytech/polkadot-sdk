@@ -17,73 +17,60 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use chain_spec_builder::{
-	generate_authority_keys_and_store, generate_chain_spec, print_seeds, ChainSpecBuilder,
+	generate_chain_spec_for_runtime, ChainSpecBuilder, ChainSpecBuilderCmd, ConvertToRawCmd,
+	UpdateCodeCmd, VerifyCmd,
 };
 use clap::Parser;
-use node_cli::chain_spec;
-use rand::{distributions::Alphanumeric, rngs::OsRng, Rng};
-use sp_core::{crypto::Ss58Codec, sr25519};
+use sc_chain_spec::{update_code_in_json_chain_spec, GenericChainSpec};
+use staging_chain_spec_builder as chain_spec_builder;
 use std::fs;
 
 fn main() -> Result<(), String> {
-	#[cfg(build_type = "debug")]
-	println!(
-		"The chain spec builder builds a chain specification that includes a Substrate runtime \
-		 compiled as WASM. To ensure proper functioning of the included runtime compile (or run) \
-		 the chain spec builder binary in `--release` mode.\n",
-	);
+	sp_tracing::try_init_simple();
 
 	let builder = ChainSpecBuilder::parse();
-	let chain_spec_path = builder.chain_spec_path().to_path_buf();
+	let chain_spec_path = builder.chain_spec_path.to_path_buf();
 
-	let (authority_seeds, nominator_accounts, endowed_accounts, sudo_account) = match builder {
-		ChainSpecBuilder::Generate { authorities, nominators, endowed, keystore_path, .. } => {
-			let authorities = authorities.max(1);
-			let rand_str = || -> String {
-				OsRng.sample_iter(&Alphanumeric).take(32).map(char::from).collect()
-			};
-
-			let authority_seeds = (0..authorities).map(|_| rand_str()).collect::<Vec<_>>();
-			let nominator_seeds = (0..nominators).map(|_| rand_str()).collect::<Vec<_>>();
-			let endowed_seeds = (0..endowed).map(|_| rand_str()).collect::<Vec<_>>();
-			let sudo_seed = rand_str();
-
-			print_seeds(&authority_seeds, &nominator_seeds, &endowed_seeds, &sudo_seed);
-
-			if let Some(keystore_path) = keystore_path {
-				generate_authority_keys_and_store(&authority_seeds, &keystore_path)?;
-			}
-
-			let nominator_accounts = nominator_seeds
-				.into_iter()
-				.map(|seed| {
-					chain_spec::get_account_id_from_seed::<sr25519::Public>(&seed).to_ss58check()
-				})
-				.collect();
-
-			let endowed_accounts = endowed_seeds
-				.into_iter()
-				.map(|seed| {
-					chain_spec::get_account_id_from_seed::<sr25519::Public>(&seed).to_ss58check()
-				})
-				.collect();
-
-			let sudo_account =
-				chain_spec::get_account_id_from_seed::<sr25519::Public>(&sudo_seed).to_ss58check();
-
-			(authority_seeds, nominator_accounts, endowed_accounts, sudo_account)
+	match builder.command {
+		ChainSpecBuilderCmd::Create(cmd) => {
+			let chain_spec_json = generate_chain_spec_for_runtime(&cmd)?;
+			fs::write(chain_spec_path, chain_spec_json).map_err(|err| err.to_string())?;
 		},
-		ChainSpecBuilder::New {
-			authority_seeds,
-			nominator_accounts,
-			endowed_accounts,
-			sudo_account,
-			..
-		} => (authority_seeds, nominator_accounts, endowed_accounts, sudo_account),
+		ChainSpecBuilderCmd::UpdateCode(UpdateCodeCmd {
+			ref input_chain_spec,
+			ref runtime_wasm_path,
+		}) => {
+			let chain_spec = GenericChainSpec::<()>::from_json_file(input_chain_spec.clone())?;
+
+			let mut chain_spec_json =
+				serde_json::from_str::<serde_json::Value>(&chain_spec.as_json(false)?)
+					.map_err(|e| format!("Conversion to json failed: {e}"))?;
+			update_code_in_json_chain_spec(
+				&mut chain_spec_json,
+				&fs::read(runtime_wasm_path.as_path())
+					.map_err(|e| format!("Wasm blob file could not be read: {e}"))?[..],
+			);
+
+			let chain_spec_json = serde_json::to_string_pretty(&chain_spec_json)
+				.map_err(|e| format!("to pretty failed: {e}"))?;
+			fs::write(chain_spec_path, chain_spec_json).map_err(|err| err.to_string())?;
+		},
+		ChainSpecBuilderCmd::ConvertToRaw(ConvertToRawCmd { ref input_chain_spec }) => {
+			let chain_spec = GenericChainSpec::<()>::from_json_file(input_chain_spec.clone())?;
+
+			let chain_spec_json =
+				serde_json::from_str::<serde_json::Value>(&chain_spec.as_json(true)?)
+					.map_err(|e| format!("Conversion to json failed: {e}"))?;
+
+			let chain_spec_json = serde_json::to_string_pretty(&chain_spec_json)
+				.map_err(|e| format!("Conversion to pretty failed: {e}"))?;
+			fs::write(chain_spec_path, chain_spec_json).map_err(|err| err.to_string())?;
+		},
+		ChainSpecBuilderCmd::Verify(VerifyCmd { ref input_chain_spec }) => {
+			let chain_spec = GenericChainSpec::<()>::from_json_file(input_chain_spec.clone())?;
+			let _ = serde_json::from_str::<serde_json::Value>(&chain_spec.as_json(true)?)
+				.map_err(|e| format!("Conversion to json failed: {e}"))?;
+		},
 	};
-
-	let json =
-		generate_chain_spec(authority_seeds, nominator_accounts, endowed_accounts, sudo_account)?;
-
-	fs::write(chain_spec_path, json).map_err(|err| err.to_string())
+	Ok(())
 }

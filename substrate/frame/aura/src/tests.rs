@@ -29,7 +29,8 @@ use sp_runtime::{Digest, DigestItem};
 fn initial_values() {
 	build_ext_and_execute_test(vec![0, 1, 2, 3], || {
 		assert_eq!(Aura::current_slot(), 0u64);
-		assert_eq!(Aura::authorities().len(), 4);
+		assert_eq!(Aura::authorities().len(), Aura::authorities_len());
+		assert_eq!(Aura::authorities_len(), 4);
 	});
 }
 

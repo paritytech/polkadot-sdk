@@ -52,7 +52,7 @@ impl ShouldExecute for TakeWeightCredit {
 	}
 }
 
-const MAX_ASSETS_FOR_BUY_EXECUTION: usize = 1;
+const MAX_ASSETS_FOR_BUY_EXECUTION: usize = 2;
 
 /// Allows execution from `origin` if it is contained in `T` (i.e. `T::Contains(origin)`) taking
 /// payments into account.
@@ -81,10 +81,15 @@ impl<T: Contains<MultiLocation>> ShouldExecute for AllowTopLevelPaidExecutionFro
 		instructions[..end]
 			.matcher()
 			.match_next_inst(|inst| match inst {
-				ReceiveTeleportedAsset(..) | ReserveAssetDeposited(..) => Ok(()),
-				WithdrawAsset(ref assets) if assets.len() <= MAX_ASSETS_FOR_BUY_EXECUTION => Ok(()),
-				ClaimAsset { ref assets, .. } if assets.len() <= MAX_ASSETS_FOR_BUY_EXECUTION =>
-					Ok(()),
+				ReceiveTeleportedAsset(ref assets) |
+				ReserveAssetDeposited(ref assets) |
+				WithdrawAsset(ref assets) |
+				ClaimAsset { ref assets, .. } =>
+					if assets.len() <= MAX_ASSETS_FOR_BUY_EXECUTION {
+						Ok(())
+					} else {
+						Err(ProcessMessageError::BadFormat)
+					},
 				_ => Err(ProcessMessageError::BadFormat),
 			})?
 			.skip_inst_while(|inst| matches!(inst, ClearOrigin))?

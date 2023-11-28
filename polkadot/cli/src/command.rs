@@ -50,7 +50,7 @@ impl SubstrateCli for Cli {
 
 	fn impl_version() -> String {
 		let commit_hash = env!("SUBSTRATE_CLI_COMMIT_HASH");
-		format!("{NODE_VERSION}-{commit_hash}")
+		format!("{}-{commit_hash}", NODE_VERSION)
 	}
 
 	fn description() -> String {
@@ -195,9 +195,8 @@ where
 		.map_err(Error::from)?;
 	let chain_spec = &runner.config().chain_spec;
 
-	// By default, enable BEEFY on all networks except Polkadot (for now), unless
-	// explicitly disabled through CLI.
-	let mut enable_beefy = !chain_spec.is_polkadot() && !cli.run.no_beefy;
+	// By default, enable BEEFY on all networks, unless explicitly disabled through CLI.
+	let mut enable_beefy = !cli.run.no_beefy;
 	// BEEFY doesn't (yet) support warp sync:
 	// Until we implement https://github.com/paritytech/substrate/issues/14756
 	// - disallow warp sync for validators,
@@ -260,6 +259,7 @@ where
 				is_parachain_node: service::IsParachainNode::No,
 				grandpa_pause,
 				enable_beefy,
+				force_authoring_backoff: cli.run.force_authoring_backoff,
 				jaeger_agent,
 				telemetry_worker_handle: None,
 				node_version,

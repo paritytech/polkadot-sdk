@@ -285,7 +285,7 @@ where
 		base_port: u16,
 	) -> TestNet<G, E, F, U> {
 		sp_tracing::try_init_simple();
-		fdlimit::raise_fd_limit();
+		fdlimit::raise_fd_limit().unwrap();
 		let runtime = Runtime::new().expect("Error creating tokio runtime");
 		let mut net = TestNet {
 			runtime,
