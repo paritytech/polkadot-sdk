@@ -426,6 +426,7 @@ mod tests {
 		type Runtime = TestRuntime;
 		type MessagesInstance = ();
 		type SenderAndLane = TestSenderAndLane;
+		type DestinationVersion = AlwaysLatest;
 
 		type ToSourceChainSender = DummySendXcm;
 		type CongestedMessage = DummyXcmMessage;
