@@ -85,9 +85,10 @@ impl pallet_balances::Config for Runtime {
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = ConstU32<1>;
 	type RuntimeHoldReason = ();
+	type RuntimeFreezeReason = ();
 	type MaxHolds = ();
 }
 
@@ -123,7 +124,7 @@ impl pallet_staking::Config for Runtime {
 	type SessionInterface = ();
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type NextNewSession = ();
-	type MaxNominatorRewardedPerValidator = ConstU32<64>;
+	type MaxExposurePageSize = ConstU32<64>;
 	type OffendingValidatorsThreshold = ();
 	type ElectionProvider =
 		frame_election_provider_support::NoElection<(AccountId, BlockNumber, Staking, ())>;
@@ -174,6 +175,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type Currency = Balances;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type RewardCounter = FixedU128;
 	type BalanceToU256 = BalanceToU256;
 	type U256ToBalance = U256ToBalance;
@@ -195,7 +197,7 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Staking: pallet_staking::{Pallet, Call, Config<T>, Storage, Event<T>},
 		VoterList: pallet_bags_list::<Instance1>::{Pallet, Call, Storage, Event<T>},
-		Pools: pallet_nomination_pools::{Pallet, Call, Storage, Event<T>},
+		Pools: pallet_nomination_pools::{Pallet, Call, Storage, Event<T>, FreezeReason},
 	}
 );
 

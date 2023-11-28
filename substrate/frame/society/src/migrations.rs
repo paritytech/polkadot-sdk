@@ -49,8 +49,30 @@ pub mod v2 {
 				let onchain = Pallet::<T, I>::on_chain_storage_version();
 				ensure!(onchain == 0 && current == 2, "pallet_society: invalid version");
 
-				Ok((old::Candidates::<T, I>::get(), old::Members::<T, I>::get()).encode())
-			}
+/// [`VersionUncheckedMigrateToV2`] wrapped in a [`frame_support::migrations::VersionedMigration`],
+/// ensuring the migration is only performed when on-chain version is 0.
+pub type MigrateToV2<T, I, PastPayouts> = frame_support::migrations::VersionedMigration<
+	0,
+	2,
+	VersionUncheckedMigrateToV2<T, I, PastPayouts>,
+	crate::pallet::Pallet<T, I>,
+	<T as frame_system::Config>::DbWeight,
+>;
+
+pub(crate) mod old {
+	use super::*;
+	use frame_support::storage_alias;
+
+	/// A vote by a member on a candidate application.
+	#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+	pub enum Vote {
+		/// The member has been chosen to be skeptic and has not yet taken any action.
+		Skeptic,
+		/// The member has rejected the candidate's application.
+		Reject,
+		/// The member approves of the candidate's application.
+		Approve,
+	}
 
 			fn on_runtime_upgrade() -> Weight {
 				let onchain = Pallet::<T, I>::on_chain_storage_version();

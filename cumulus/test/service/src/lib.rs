@@ -211,7 +211,8 @@ pub fn new_partial(
 		sc_service::new_full_parts::<Block, RuntimeApi, _>(config, None, executor)?;
 	let client = Arc::new(client);
 
-	let block_import = ParachainBlockImport::new(client.clone(), backend.clone());
+	let block_import =
+		ParachainBlockImport::new_with_delayed_best_block(client.clone(), backend.clone());
 
 	let registry = config.prometheus_registry();
 
@@ -719,7 +720,7 @@ pub fn node_config(
 	let role = if is_collator { Role::Authority } else { Role::Full };
 	let key_seed = key.to_seed();
 	let mut spec =
-		Box::new(chain_spec::get_chain_spec_with_extra_endowed(para_id, endowed_accounts));
+		Box::new(chain_spec::get_chain_spec_with_extra_endowed(Some(para_id), endowed_accounts));
 
 	let mut storage = spec.as_storage_builder().build_storage().expect("could not build storage");
 

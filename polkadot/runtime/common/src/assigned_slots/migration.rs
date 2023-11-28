@@ -24,6 +24,14 @@ use sp_std::vec::Vec;
 
 pub mod v1 {
 	use super::*;
+	pub struct VersionUncheckedMigrateToV1<T>(sp_std::marker::PhantomData<T>);
+	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateToV1<T> {
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+			let onchain_version = Pallet::<T>::on_chain_storage_version();
+			ensure!(onchain_version < 1, "assigned_slots::MigrateToV1 migration can be deleted");
+			Ok(Default::default())
+		}
 
 	mod version_unchecked {
 		use super::*;
@@ -67,18 +75,14 @@ pub mod v1 {
 		}
 	}
 
-	pub mod versioned {
-		use super::*;
-
-		/// `version_unchecked::MigrateV0ToV1` wrapped in a
-		/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), ensuring the
-		/// migration is only performed when on-chain version is 0.
-		pub type MigrateV0ToV1<T> = frame_support::migrations::VersionedMigration<
-			0,
-			1,
-			version_unchecked::MigrateV0ToV1<T>,
-			Pallet<T>,
-			<T as frame_system::Config>::DbWeight,
-		>;
-	}
+	/// [`VersionUncheckedMigrateToV1`] wrapped in a
+	/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), ensuring the
+	/// migration is only performed when on-chain version is 0.
+	pub type MigrateToV1<T> = frame_support::migrations::VersionedMigration<
+		0,
+		1,
+		VersionUncheckedMigrateToV1<T>,
+		Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
 }

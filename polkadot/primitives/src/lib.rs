@@ -19,8 +19,8 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-// `v5` is currently the latest stable version of the runtime API.
-pub mod v5;
+// `v6` is currently the latest stable version of the runtime API.
+pub mod v6;
 
 // The 'staging' version is special - it contains primitives which are
 // still in development. Once they are considered stable, they will be
@@ -33,25 +33,26 @@ pub mod runtime_api;
 
 // Current primitives not requiring versioning are exported here.
 // Primitives requiring versioning must not be exported and must be referred by an exact version.
-pub use v5::{
-	byzantine_threshold, check_candidate_backing, collator_signature_payload,
-	effective_minimum_backing_votes, metric_definitions, slashing, supermajority_threshold,
-	well_known_keys, AbridgedHostConfiguration, AbridgedHrmpChannel, AccountId, AccountIndex,
-	AccountPublic, ApprovalVote, AssignmentId, AuthorityDiscoveryId, AvailabilityBitfield,
-	BackedCandidate, Balance, BlakeTwo256, Block, BlockId, BlockNumber, CandidateCommitments,
-	CandidateDescriptor, CandidateEvent, CandidateHash, CandidateIndex, CandidateReceipt,
-	CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CollatorId, CollatorSignature,
-	CommittedCandidateReceipt, CompactStatement, ConsensusLog, CoreIndex, CoreState, DisputeState,
-	DisputeStatement, DisputeStatementSet, DownwardMessage, EncodeAs, ExecutorParam,
-	ExecutorParams, ExecutorParamsHash, ExplicitDisputeStatement, GroupIndex, GroupRotationInfo,
-	Hash, HashT, HeadData, Header, HrmpChannelId, Id, InboundDownwardMessage, InboundHrmpMessage,
-	IndexedVec, InherentData, InvalidDisputeStatementKind, Moment, MultiDisputeStatementSet, Nonce,
+pub use v6::{
+	async_backing, byzantine_threshold, check_candidate_backing, collator_signature_payload,
+	effective_minimum_backing_votes, executor_params, metric_definitions, slashing,
+	supermajority_threshold, well_known_keys, AbridgedHostConfiguration, AbridgedHrmpChannel,
+	AccountId, AccountIndex, AccountPublic, ApprovalVote, AssignmentId, AsyncBackingParams,
+	AuthorityDiscoveryId, AvailabilityBitfield, BackedCandidate, Balance, BlakeTwo256, Block,
+	BlockId, BlockNumber, CandidateCommitments, CandidateDescriptor, CandidateEvent, CandidateHash,
+	CandidateIndex, CandidateReceipt, CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet,
+	CollatorId, CollatorSignature, CommittedCandidateReceipt, CompactStatement, ConsensusLog,
+	CoreIndex, CoreState, DisputeState, DisputeStatement, DisputeStatementSet, DownwardMessage,
+	EncodeAs, ExecutorParam, ExecutorParamError, ExecutorParams, ExecutorParamsHash,
+	ExplicitDisputeStatement, GroupIndex, GroupRotationInfo, Hash, HashT, HeadData, Header,
+	HorizontalMessages, HrmpChannelId, Id, InboundDownwardMessage, InboundHrmpMessage, IndexedVec,
+	InherentData, InvalidDisputeStatementKind, Moment, MultiDisputeStatementSet, Nonce,
 	OccupiedCore, OccupiedCoreAssumption, OutboundHrmpMessage, ParathreadClaim, ParathreadEntry,
-	PersistedValidationData, PvfCheckStatement, PvfExecTimeoutKind, PvfPrepTimeoutKind,
-	RuntimeMetricLabel, RuntimeMetricLabelValue, RuntimeMetricLabelValues, RuntimeMetricLabels,
-	RuntimeMetricOp, RuntimeMetricUpdate, ScheduledCore, ScrapedOnChainVotes, SessionIndex,
-	SessionInfo, Signature, Signed, SignedAvailabilityBitfield, SignedAvailabilityBitfields,
-	SignedStatement, SigningContext, Slot, UncheckedSigned, UncheckedSignedAvailabilityBitfield,
+	PersistedValidationData, PvfCheckStatement, PvfExecKind, PvfPrepKind, RuntimeMetricLabel,
+	RuntimeMetricLabelValue, RuntimeMetricLabelValues, RuntimeMetricLabels, RuntimeMetricOp,
+	RuntimeMetricUpdate, ScheduledCore, ScrapedOnChainVotes, SessionIndex, SessionInfo, Signature,
+	Signed, SignedAvailabilityBitfield, SignedAvailabilityBitfields, SignedStatement,
+	SigningContext, Slot, UncheckedSigned, UncheckedSignedAvailabilityBitfield,
 	UncheckedSignedAvailabilityBitfields, UncheckedSignedStatement, UpgradeGoAhead,
 	UpgradeRestriction, UpwardMessage, ValidDisputeStatementKind, ValidationCode,
 	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature, ValidityAttestation,
@@ -61,4 +62,4 @@ pub use v5::{
 };
 
 #[cfg(feature = "std")]
-pub use v5::{AssignmentPair, CollatorPair, ValidatorPair};
+pub use v6::{AssignmentPair, CollatorPair, ValidatorPair};

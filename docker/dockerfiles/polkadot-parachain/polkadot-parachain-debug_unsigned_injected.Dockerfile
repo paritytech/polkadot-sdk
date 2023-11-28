@@ -9,10 +9,10 @@ LABEL io.parity.image.authors="devops-team@parity.io" \
 	io.parity.image.vendor="Parity Technologies" \
 	io.parity.image.title="${IMAGE_NAME}" \
 	io.parity.image.description="Cumulus, the Polkadot collator." \
-	io.parity.image.source="https://github.com/paritytech/cumulus/blob/${VCS_REF}/docker/dockerfiles/polkadot-parachain/polkadot-parachain-debug_unsigned_injected.Dockerfile" \
+	io.parity.image.source="https://github.com/paritytech/polkadot-sdk/blob/${VCS_REF}/docker/dockerfiles/polkadot-parachain/polkadot-parachain-debug_unsigned_injected.Dockerfile" \
 	io.parity.image.revision="${VCS_REF}" \
 	io.parity.image.created="${BUILD_DATE}" \
-	io.parity.image.documentation="https://github.com/paritytech/cumulus/"
+	io.parity.image.documentation="https://github.com/paritytech/polkadot-sdk/tree/master/cumulus"
 
 # show backtraces
 ENV RUST_BACKTRACE 1

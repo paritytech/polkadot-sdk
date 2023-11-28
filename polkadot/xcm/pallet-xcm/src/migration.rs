@@ -27,8 +27,15 @@ pub mod v1 {
 	use super::*;
 	use crate::{CurrentMigration, VersionMigrationStage};
 
-	mod version_unchecked {
-		use super::*;
+	/// Named with the 'VersionUnchecked'-prefix because although this implements some version
+	/// checking, the version checking is not complete as it will begin failing after the upgrade is
+	/// enacted on-chain.
+	///
+	/// Use experimental [`MigrateToV1`] instead.
+	pub struct VersionUncheckedMigrateToV1<T>(sp_std::marker::PhantomData<T>);
+	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateToV1<T> {
+		fn on_runtime_upgrade() -> Weight {
+			let mut weight = T::DbWeight::get().reads(1);
 
 		pub struct MigrateV0ToV1<T>(sp_std::marker::PhantomData<T>);
 		impl<T: Config> OnRuntimeUpgrade for MigrateV0ToV1<T> {
@@ -60,19 +67,15 @@ pub mod v1 {
 		}
 	}
 
-	pub mod versioned {
-		use super::*;
-
-		/// Version checked migration to v1.
-		///
-		/// Wrapped in [`VersionedMigration`](frame_support::migrations::VersionedMigration) so
-		/// the pre/post checks don't begin failing after the upgrade is enacted on-chain.
-		pub type MigrateV0ToV1<T> = frame_support::migrations::VersionedMigration<
-			0,
-			1,
-			version_unchecked::MigrateV0ToV1<T>,
-			crate::pallet::Pallet<T>,
-			<T as frame_system::Config>::DbWeight,
-		>;
-	}
+	/// Version checked migration to v1.
+	///
+	/// Wrapped in [`frame_support::migrations::VersionedMigration`] so the pre/post checks don't
+	/// begin failing after the upgrade is enacted on-chain.
+	pub type MigrateToV1<T> = frame_support::migrations::VersionedMigration<
+		0,
+		1,
+		VersionUncheckedMigrateToV1<T>,
+		crate::pallet::Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
 }

@@ -16,7 +16,10 @@
 
 //! Interface to the Substrate Executor
 
-use polkadot_primitives::{ExecutorParam, ExecutorParams};
+use polkadot_primitives::{
+	executor_params::{DEFAULT_LOGICAL_STACK_MAX, DEFAULT_NATIVE_STACK_MAX},
+	ExecutorParam, ExecutorParams,
+};
 use sc_executor_common::{
 	error::WasmError,
 	runtime_blob::RuntimeBlob,
@@ -41,9 +44,6 @@ use std::any::{Any, TypeId};
 // are used for these needs by default.
 const DEFAULT_HEAP_PAGES_ESTIMATE: u32 = 32;
 const EXTRA_HEAP_PAGES: u32 = 2048;
-
-/// The number of bytes devoted for the stack during wasm execution of a PVF.
-pub const NATIVE_STACK_MAX: u32 = 256 * 1024 * 1024;
 
 // VALUES OF THE DEFAULT CONFIGURATION SHOULD NEVER BE CHANGED
 // They are used as base values for the execution environment parametrization.
@@ -73,8 +73,8 @@ pub const DEFAULT_CONFIG: Config = Config {
 		// also increase the native 256x. This hopefully should preclude wasm code from reaching
 		// the stack limit set by the wasmtime.
 		deterministic_stack_limit: Some(DeterministicStackLimit {
-			logical_max: 65536,
-			native_stack_max: NATIVE_STACK_MAX,
+			logical_max: DEFAULT_LOGICAL_STACK_MAX,
+			native_stack_max: DEFAULT_NATIVE_STACK_MAX,
 		}),
 		canonicalize_nans: true,
 		// Rationale for turning the multi-threaded compilation off is to make the preparation time
@@ -95,95 +95,102 @@ pub const DEFAULT_CONFIG: Config = Config {
 	},
 };
 
-pub fn params_to_wasmtime_semantics(par: &ExecutorParams) -> Result<Semantics, String> {
+/// Executes the given PVF in the form of a compiled artifact and returns the result of
+/// execution upon success.
+///
+/// # Safety
+///
+/// The caller must ensure that the compiled artifact passed here was:
+///   1) produced by `prepare`,
+///   2) was not modified,
+///
+/// Failure to adhere to these requirements might lead to crashes and arbitrary code execution.
+pub unsafe fn execute_artifact(
+	compiled_artifact_blob: &[u8],
+	executor_params: &ExecutorParams,
+	params: &[u8],
+) -> Result<Vec<u8>, String> {
+	let mut extensions = sp_externalities::Extensions::new();
+
+	extensions.register(sp_core::traits::ReadRuntimeVersionExt::new(ReadRuntimeVersion));
+
+	let mut ext = ValidationExternalities(extensions);
+
+	match sc_executor::with_externalities_safe(&mut ext, || {
+		let runtime = create_runtime_from_artifact_bytes(compiled_artifact_blob, executor_params)?;
+		runtime.new_instance()?.call(InvokeMethod::Export("validate_block"), params)
+	}) {
+		Ok(Ok(ok)) => Ok(ok),
+		Ok(Err(err)) | Err(err) => Err(err),
+	}
+	.map_err(|err| format!("execute error: {:?}", err))
+}
+
+/// Constructs the runtime for the given PVF, given the artifact bytes.
+///
+/// # Safety
+///
+/// The caller must ensure that the compiled artifact passed here was:
+///   1) produced by `prepare`,
+///   2) was not modified,
+///
+/// Failure to adhere to these requirements might lead to crashes and arbitrary code execution.
+pub unsafe fn create_runtime_from_artifact_bytes(
+	compiled_artifact_blob: &[u8],
+	executor_params: &ExecutorParams,
+) -> Result<WasmtimeRuntime, WasmError> {
+	let mut config = DEFAULT_CONFIG.clone();
+	config.semantics = params_to_wasmtime_semantics(executor_params);
+
+	sc_executor_wasmtime::create_runtime_from_artifact_bytes::<HostFunctions>(
+		compiled_artifact_blob,
+		config,
+	)
+}
+
+pub fn params_to_wasmtime_semantics(par: &ExecutorParams) -> Semantics {
 	let mut sem = DEFAULT_CONFIG.semantics.clone();
-	let mut stack_limit = if let Some(stack_limit) = sem.deterministic_stack_limit.clone() {
-		stack_limit
-	} else {
-		return Err("No default stack limit set".to_owned())
-	};
+	let mut stack_limit = sem
+		.deterministic_stack_limit
+		.expect("There is a comment to not change the default stack limit; it should always be available; qed")
+		.clone();
 
 	for p in par.iter() {
 		match p {
 			ExecutorParam::MaxMemoryPages(max_pages) =>
-				sem.heap_alloc_strategy =
-					HeapAllocStrategy::Dynamic { maximum_pages: Some(*max_pages) },
+				sem.heap_alloc_strategy = HeapAllocStrategy::Dynamic {
+					maximum_pages: Some((*max_pages).saturating_add(DEFAULT_HEAP_PAGES_ESTIMATE)),
+				},
 			ExecutorParam::StackLogicalMax(slm) => stack_limit.logical_max = *slm,
 			ExecutorParam::StackNativeMax(snm) => stack_limit.native_stack_max = *snm,
 			ExecutorParam::WasmExtBulkMemory => sem.wasm_bulk_memory = true,
-			// TODO: Not implemented yet; <https://github.com/paritytech/polkadot/issues/6472>.
-			ExecutorParam::PrecheckingMaxMemory(_) => (),
-			ExecutorParam::PvfPrepTimeout(_, _) | ExecutorParam::PvfExecTimeout(_, _) => (), /* Not used here */
+			ExecutorParam::PrecheckingMaxMemory(_) |
+			ExecutorParam::PvfPrepTimeout(_, _) |
+			ExecutorParam::PvfExecTimeout(_, _) => (), /* Not used here */
 		}
 	}
 	sem.deterministic_stack_limit = Some(stack_limit);
-	Ok(sem)
+	sem
 }
 
-/// A WASM executor with a given configuration. It is instantiated once per execute worker and is
-/// specific to that worker.
-#[derive(Clone)]
-pub struct Executor {
-	config: Config,
+/// Runs the prevalidation on the given code. Returns a [`RuntimeBlob`] if it succeeds.
+pub fn prevalidate(code: &[u8]) -> Result<RuntimeBlob, sc_executor_common::error::WasmError> {
+	let blob = RuntimeBlob::new(code)?;
+	// It's assumed this function will take care of any prevalidation logic
+	// that needs to be done.
+	//
+	// Do nothing for now.
+	Ok(blob)
 }
 
-impl Executor {
-	pub fn new(params: ExecutorParams) -> Result<Self, String> {
-		let mut config = DEFAULT_CONFIG.clone();
-		config.semantics = params_to_wasmtime_semantics(&params)?;
-
-		Ok(Self { config })
-	}
-
-	/// Executes the given PVF in the form of a compiled artifact and returns the result of
-	/// execution upon success.
-	///
-	/// # Safety
-	///
-	/// The caller must ensure that the compiled artifact passed here was:
-	///   1) produced by `prepare`,
-	///   2) was not modified,
-	///
-	/// Failure to adhere to these requirements might lead to crashes and arbitrary code execution.
-	pub unsafe fn execute(
-		&self,
-		compiled_artifact_blob: &[u8],
-		params: &[u8],
-	) -> Result<Vec<u8>, String> {
-		let mut extensions = sp_externalities::Extensions::new();
-
-		extensions.register(sp_core::traits::ReadRuntimeVersionExt::new(ReadRuntimeVersion));
-
-		let mut ext = ValidationExternalities(extensions);
-
-		match sc_executor::with_externalities_safe(&mut ext, || {
-			let runtime = self.create_runtime_from_bytes(compiled_artifact_blob)?;
-			runtime.new_instance()?.call(InvokeMethod::Export("validate_block"), params)
-		}) {
-			Ok(Ok(ok)) => Ok(ok),
-			Ok(Err(err)) | Err(err) => Err(err),
-		}
-		.map_err(|err| format!("execute error: {:?}", err))
-	}
-
-	/// Constructs the runtime for the given PVF, given the artifact bytes.
-	///
-	/// # Safety
-	///
-	/// The caller must ensure that the compiled artifact passed here was:
-	///   1) produced by `prepare`,
-	///   2) was not modified,
-	///
-	/// Failure to adhere to these requirements might lead to crashes and arbitrary code execution.
-	pub unsafe fn create_runtime_from_bytes(
-		&self,
-		compiled_artifact_blob: &[u8],
-	) -> Result<WasmtimeRuntime, WasmError> {
-		sc_executor_wasmtime::create_runtime_from_artifact_bytes::<HostFunctions>(
-			compiled_artifact_blob,
-			self.config.clone(),
-		)
-	}
+/// Runs preparation on the given runtime blob. If successful, it returns a serialized compiled
+/// artifact which can then be used to pass into `Executor::execute` after writing it to the disk.
+pub fn prepare(
+	blob: RuntimeBlob,
+	executor_params: &ExecutorParams,
+) -> Result<Vec<u8>, sc_executor_common::error::WasmError> {
+	let semantics = params_to_wasmtime_semantics(executor_params);
+	sc_executor_wasmtime::prepare_runtime_artifact(blob, &semantics)
 }
 
 /// Available host functions. We leave out:

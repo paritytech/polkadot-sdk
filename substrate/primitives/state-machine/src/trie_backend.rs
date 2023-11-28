@@ -30,7 +30,6 @@ use codec::Codec;
 use hash_db::HashDB;
 use hash_db::Hasher;
 use sp_core::storage::{ChildInfo, StateVersion};
-use sp_trie::PrefixedMemoryDB;
 #[cfg(feature = "std")]
 use sp_trie::{
 	cache::{LocalTrieCache, TrieCache},
@@ -39,6 +38,7 @@ use sp_trie::{
 };
 #[cfg(not(feature = "std"))]
 use sp_trie::{Error, NodeCodec};
+use sp_trie::{MerkleValue, PrefixedMemoryDB};
 use trie_db::TrieCache as TrieCacheT;
 #[cfg(not(feature = "std"))]
 use trie_db::{node::NodeOwned, CachedValue};
@@ -52,7 +52,10 @@ pub trait TrieCacheProvider<H: Hasher> {
 
 	/// Return a [`trie_db::TrieDB`] compatible cache.
 	///
-	/// The `storage_root` parameter should be the storage root of the used trie.
+	/// The `storage_root` parameter *must* be the storage root of the trie this cache is used for.
+	///
+	/// NOTE: Implementors should use the `storage_root` to differentiate between storage keys that
+	/// may belong to different tries.
 	fn as_trie_db_cache(&self, storage_root: H::Out) -> Self::Cache<'_>;
 
 	/// Returns a cache that can be used with a [`trie_db::TrieDBMut`].
@@ -403,6 +406,18 @@ where
 		key: &[u8],
 	) -> Result<Option<StorageValue>, Self::Error> {
 		self.essence.child_storage(child_info, key)
+	}
+
+	fn closest_merkle_value(&self, key: &[u8]) -> Result<Option<MerkleValue<H::Out>>, Self::Error> {
+		self.essence.closest_merkle_value(key)
+	}
+
+	fn child_closest_merkle_value(
+		&self,
+		child_info: &ChildInfo,
+		key: &[u8],
+	) -> Result<Option<MerkleValue<H::Out>>, Self::Error> {
+		self.essence.child_closest_merkle_value(child_info, key)
 	}
 
 	fn next_storage_key(&self, key: &[u8]) -> Result<Option<StorageKey>, Self::Error> {

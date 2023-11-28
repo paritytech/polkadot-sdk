@@ -66,13 +66,15 @@ use assets_common::{
 	foreign_creators::ForeignCreators, matching::FromSiblingParachain, MultiLocationForAssetId,
 };
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
+use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
+use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, ConvertInto, Verify},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult,
+	ApplyExtrinsicResult, Perbill,
 };
 
 use sp_std::prelude::*;
@@ -84,10 +86,11 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
+	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
 	traits::{
 		AsEnsureOriginWithArg, ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse,
-		InstanceFilter,
+		InstanceFilter, TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
@@ -100,6 +103,7 @@ use pallet_nfts::PalletFeatures;
 pub use parachains_common as common;
 use parachains_common::{
 	impls::{AssetsToBlockAuthor, DealWithFees},
+	message_queue::*,
 	polkadot::{consensus::*, currency::*, fee::WeightToFee},
 	AccountId, AssetHubPolkadotAuraId as AuraId, AssetIdForTrustBackedAssets, Balance, BlockNumber,
 	Hash, Header, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS, MAXIMUM_BLOCK_WEIGHT,
@@ -108,7 +112,7 @@ use parachains_common::{
 use sp_runtime::RuntimeDebug;
 use xcm_config::{
 	DotLocation, FellowshipLocation, ForeignAssetsConvertedConcreteId, GovernanceLocation,
-	TrustBackedAssetsConvertedConcreteId, XcmConfig, XcmOriginToTransactDispatchOrigin,
+	TrustBackedAssetsConvertedConcreteId, XcmOriginToTransactDispatchOrigin,
 };
 
 #[cfg(any(feature = "std", test))]
@@ -118,7 +122,6 @@ pub use sp_runtime::BuildStorage;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use xcm::latest::BodyId;
-use xcm_executor::XcmExecutor;
 
 use crate::xcm_config::ForeignCreatorsSovereignAccountOf;
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
@@ -137,7 +140,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("statemint"),
 	impl_name: create_runtime_str!("statemint"),
 	authoring_version: 1,
-	spec_version: 10000,
+	spec_version: 1_004_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 13,
@@ -232,6 +235,7 @@ impl pallet_balances::Config for Runtime {
 	type MaxReserves = ConstU32<50>;
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
 	type MaxHolds = ConstU32<0>;
 	type MaxFreezes = ConstU32<0>;
@@ -542,10 +546,11 @@ parameter_types! {
 }
 
 impl cumulus_pallet_parachain_system::Config for Runtime {
+	type WeightInfo = weights::cumulus_pallet_parachain_system::WeightInfo<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
 	type OnSystemEvent = ();
 	type SelfParaId = parachain_info::Pallet<Runtime>;
-	type DmpMessageHandler = DmpQueue;
+	type DmpQueue = frame_support::traits::EnqueueWithOrigin<MessageQueue, RelayOrigin>;
 	type ReservedDmpWeight = ReservedDmpWeight;
 	type OutboundXcmpMessageSource = XcmpQueue;
 	type XcmpMessageHandler = XcmpQueue;
@@ -557,6 +562,32 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 		BLOCK_PROCESSING_VELOCITY,
 		UNINCLUDED_SEGMENT_CAPACITY,
 	>;
+}
+
+parameter_types! {
+	pub MessageQueueServiceWeight: Weight = Perbill::from_percent(35) * RuntimeBlockWeights::get().max_block;
+}
+
+impl pallet_message_queue::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = weights::pallet_message_queue::WeightInfo<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type MessageProcessor = pallet_message_queue::mock_helpers::NoopMessageProcessor<
+		cumulus_primitives_core::AggregateMessageOrigin,
+	>;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type MessageProcessor = xcm_builder::ProcessXcmMessage<
+		AggregateMessageOrigin,
+		xcm_executor::XcmExecutor<xcm_config::XcmConfig>,
+		RuntimeCall,
+	>;
+	type Size = u32;
+	// The XCMP queue pallet is only ever able to handle the `Sibling(ParaId)` origin:
+	type QueueChangeHandler = NarrowOriginToSibling<XcmpQueue>;
+	type QueuePausedQuery = NarrowOriginToSibling<XcmpQueue>;
+	type HeapSize = sp_core::ConstU32<{ 64 * 1024 }>;
+	type MaxStale = sp_core::ConstU32<8>;
+	type ServiceWeight = MessageQueueServiceWeight;
 }
 
 impl parachain_info::Config for Runtime {}
@@ -571,22 +602,27 @@ parameter_types! {
 impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type WeightInfo = weights::cumulus_pallet_xcmp_queue::WeightInfo<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
-	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type ChannelInfo = ParachainSystem;
 	type VersionWrapper = PolkadotXcm;
-	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
+	// Enqueue XCMP messages from siblings for later processing.
+	type XcmpQueue = TransformOrigin<MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSibling>;
+	type MaxInboundSuspended = sp_core::ConstU32<1_000>;
 	type ControllerOrigin = EitherOfDiverse<
 		EnsureRoot<AccountId>,
 		EnsureXcm<IsVoiceOfBody<FellowshipLocation, FellowsBodyId>>,
 	>;
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
-	type PriceForSiblingDelivery = ();
+	type PriceForSiblingDelivery = NoPriceForMessageDelivery<ParaId>;
+}
+
+parameter_types! {
+	pub const RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
 }
 
 impl cumulus_pallet_dmp_queue::Config for Runtime {
+	type WeightInfo = weights::cumulus_pallet_dmp_queue::WeightInfo<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
-	type XcmExecutor = XcmExecutor<XcmConfig>;
-	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
+	type DmpSink = frame_support::traits::EnqueueWithOrigin<MessageQueue, RelayOrigin>;
 }
 
 parameter_types! {
@@ -759,6 +795,7 @@ construct_runtime!(
 		PolkadotXcm: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config<T>} = 31,
 		CumulusXcm: cumulus_pallet_xcm::{Pallet, Event<T>, Origin} = 32,
 		DmpQueue: cumulus_pallet_dmp_queue::{Pallet, Call, Storage, Event<T>} = 33,
+		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>} = 34,
 
 		// Handy utilities.
 		Utility: pallet_utility::{Pallet, Call, Event} = 40,
@@ -856,16 +893,13 @@ impl frame_support::traits::OnRuntimeUpgrade for InitStorageVersions {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-#[macro_use]
-extern crate frame_benchmarking;
-
-#[cfg(feature = "runtime-benchmarks")]
 mod benches {
-	define_benchmarks!(
+	frame_benchmarking::define_benchmarks!(
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_assets, Local]
 		[pallet_assets, Foreign]
 		[pallet_balances, Balances]
+		[pallet_message_queue, MessageQueue]
 		[pallet_multisig, Multisig]
 		[pallet_nfts, Nfts]
 		[pallet_proxy, Proxy]
@@ -874,9 +908,11 @@ mod benches {
 		[pallet_utility, Utility]
 		[pallet_timestamp, Timestamp]
 		[pallet_collator_selection, CollatorSelection]
+		[cumulus_pallet_parachain_system, ParachainSystem]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
+		[cumulus_pallet_dmp_queue, DmpQueue]
 		// XCM
-		[pallet_xcm, PolkadotXcm]
+		[pallet_xcm, PalletXcmExtrinsicsBenchmark::<Runtime>]
 		// NOTE: Make sure you point to the individual modules below.
 		[pallet_xcm_benchmarks::fungible, XcmBalances]
 		[pallet_xcm_benchmarks::generic, XcmGeneric]
@@ -1090,6 +1126,7 @@ impl_runtime_apis! {
 			use frame_support::traits::StorageInfoTrait;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
+			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 
 			// This is defined once again in dispatch_benchmark, because list_benchmarks!
 			// and add_benchmarks! are macros exported by define_benchmarks! macros and those types
@@ -1132,13 +1169,58 @@ impl_runtime_apis! {
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
 
+			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
+			impl pallet_xcm::benchmarking::Config for Runtime {
+				fn reachable_dest() -> Option<MultiLocation> {
+					Some(Parent.into())
+				}
+
+				fn teleportable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
+					// Relay/native token can be teleported between AH and Relay.
+					Some((
+						MultiAsset {
+							fun: Fungible(EXISTENTIAL_DEPOSIT),
+							id: Concrete(Parent.into())
+						},
+						Parent.into(),
+					))
+				}
+
+				fn reserve_transferable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
+					// AH can reserve transfer native token to some random parachain.
+					let random_para_id = 43211234;
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
+						random_para_id.into()
+					);
+					Some((
+						MultiAsset {
+							fun: Fungible(EXISTENTIAL_DEPOSIT),
+							id: Concrete(Parent.into())
+						},
+						ParentThen(Parachain(random_para_id).into()).into(),
+					))
+				}
+			}
+
 			use xcm::latest::prelude::*;
 			use xcm_config::{DotLocation, MaxAssetsIntoHolding};
 			use pallet_xcm_benchmarks::asset_instance_from;
 
+			parameter_types! {
+				pub ExistentialDepositMultiAsset: Option<MultiAsset> = Some((
+					xcm_config::DotLocation::get(),
+					ExistentialDeposit::get()
+				).into());
+			}
+
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
 				type AccountIdConverter = xcm_config::LocationToAccountId;
+				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
+					xcm_config::XcmConfig,
+					ExistentialDepositMultiAsset,
+					xcm_config::PriceForParentDelivery,
+				>;
 				fn valid_destination() -> Result<MultiLocation, BenchmarkError> {
 					Ok(DotLocation::get())
 				}
@@ -1194,6 +1276,7 @@ impl_runtime_apis! {
 			}
 
 			impl pallet_xcm_benchmarks::generic::Config for Runtime {
+				type TransactAsset = Balances;
 				type RuntimeCall = RuntimeCall;
 
 				fn worst_case_response() -> (u64, Response) {
@@ -1263,6 +1346,16 @@ impl_runtime_apis! {
 			add_benchmarks!(params, batches);
 
 			Ok(batches)
+		}
+	}
+
+	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
+		fn create_default_config() -> Vec<u8> {
+			create_default_config::<RuntimeGenesisConfig>()
+		}
+
+		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
+			build_config::<RuntimeGenesisConfig>(config)
 		}
 	}
 }

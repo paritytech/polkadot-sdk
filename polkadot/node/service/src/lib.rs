@@ -84,7 +84,7 @@ use telemetry::TelemetryWorker;
 #[cfg(feature = "full-node")]
 use telemetry::{Telemetry, TelemetryWorkerHandle};
 
-pub use chain_spec::{KusamaChainSpec, PolkadotChainSpec, RococoChainSpec, WestendChainSpec};
+pub use chain_spec::{GenericChainSpec, RococoChainSpec, WestendChainSpec};
 pub use consensus_common::{Proposal, SelectChain};
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 use mmr_gadget::MmrGadget;
@@ -98,16 +98,12 @@ pub use service::{
 	ChainSpec, Configuration, Error as SubstrateServiceError, PruningMode, Role, RuntimeGenesis,
 	TFullBackend, TFullCallExecutor, TFullClient, TaskManager, TransactionPoolOptions,
 };
-pub use sp_api::{ApiRef, ConstructRuntimeApi, Core as CoreApi, ProvideRuntimeApi, StateBackend};
+pub use sp_api::{ApiRef, ConstructRuntimeApi, Core as CoreApi, ProvideRuntimeApi};
 pub use sp_runtime::{
 	generic,
 	traits::{self as runtime_traits, BlakeTwo256, Block as BlockT, Header as HeaderT, NumberFor},
 };
 
-#[cfg(feature = "kusama-native")]
-pub use {kusama_runtime, kusama_runtime_constants};
-#[cfg(feature = "polkadot-native")]
-pub use {polkadot_runtime, polkadot_runtime_constants};
 #[cfg(feature = "rococo-native")]
 pub use {rococo_runtime, rococo_runtime_constants};
 #[cfg(feature = "westend-native")]
@@ -753,11 +749,6 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 		Some(backoff)
 	};
 
-	// Warn the user that BEEFY is still experimental for Polkadot.
-	if enable_beefy && config.chain_spec.is_polkadot() {
-		gum::warn!("BEEFY is still experimental, usage on Polkadot network is discouraged.");
-	}
-
 	let disable_grandpa = config.disable_grandpa;
 	let name = config.network.node_name.clone();
 
@@ -858,7 +849,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 	let (collation_req_v1_receiver, cfg) =
 		IncomingRequest::get_config_receiver(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
-	let (collation_req_vstaging_receiver, cfg) =
+	let (collation_req_v2_receiver, cfg) =
 		IncomingRequest::get_config_receiver(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
 	let (available_data_req_receiver, cfg) =
@@ -866,7 +857,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 	net_config.add_request_response_protocol(cfg);
 	let (statement_req_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
-	let (candidate_req_vstaging_receiver, cfg) =
+	let (candidate_req_v2_receiver, cfg) =
 		IncomingRequest::get_config_receiver(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
 	let (dispute_req_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
@@ -894,6 +885,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 			import_queue,
 			block_announce_validator_builder: None,
 			warp_sync_params: Some(WarpSyncParams::WithProvider(warp_sync)),
+			block_relay: None,
 		})?;
 
 	if config.offchain_worker.enabled {
@@ -973,11 +965,15 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 
 	if let Some(hwbench) = hwbench {
 		sc_sysinfo::print_hwbench(&hwbench);
-		if !SUBSTRATE_REFERENCE_HARDWARE.check_hardware(&hwbench) && role.is_authority() {
-			log::warn!(
-				"⚠️  The hardware does not meet the minimal requirements for role 'Authority' find out more at:\n\
-				https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware"
+		match SUBSTRATE_REFERENCE_HARDWARE.check_hardware(&hwbench) {
+			Err(err) if role.is_authority() => {
+				log::warn!(
+				"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority' find out more at:\n\
+				https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware",
+				err
 			);
+			},
+			_ => {},
 		}
 
 		if let Some(ref mut telemetry) = telemetry {
@@ -1054,10 +1050,10 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 					pov_req_receiver,
 					chunk_req_receiver,
 					collation_req_v1_receiver,
-					collation_req_vstaging_receiver,
+					collation_req_v2_receiver,
 					available_data_req_receiver,
 					statement_req_receiver,
-					candidate_req_vstaging_receiver,
+					candidate_req_v2_receiver,
 					dispute_req_receiver,
 					registry: prometheus_registry.as_ref(),
 					spawner,

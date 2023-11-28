@@ -28,7 +28,7 @@ use crate::{
 };
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
 use pallet_balances::Error as BalancesError;
-use primitives::{v5::ValidationCode, BlockNumber, SessionIndex};
+use primitives::{BlockNumber, SessionIndex, ValidationCode};
 use sp_std::collections::btree_map::BTreeMap;
 
 fn schedule_blank_para(id: ParaId, parakind: ParaKind) {

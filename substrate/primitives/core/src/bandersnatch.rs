@@ -60,15 +60,7 @@ const PREOUT_SERIALIZED_LEN: usize = 33;
 //
 // This size is dependent on the ring domain size and the actual value
 // is equal to the SCALE encoded size of the `KZG` backend.
-//
-// Some values:
-//  ring_size → ~serialized_size
-//   512        →  74 KB
-//  1024        → 147 KB
-//  2048        → 295 KB
-// NOTE: This is quite big but looks like there is an upcoming fix
-// in the backend.
-const RING_CONTEXT_SERIALIZED_LEN: usize = 147748;
+const RING_CONTEXT_SERIALIZED_LEN: usize = 147716;
 
 /// Bandersnatch public key.
 #[cfg_attr(feature = "full_crypto", derive(Hash))]
@@ -538,10 +530,7 @@ pub mod vrf {
 	#[cfg(feature = "full_crypto")]
 	impl Pair {
 		fn vrf_sign_gen<const N: usize>(&self, data: &VrfSignData) -> VrfSignature {
-			let ios = core::array::from_fn(|i| {
-				let input = data.inputs[i].0.clone();
-				self.secret.vrf_inout(input)
-			});
+			let ios = core::array::from_fn(|i| self.secret.vrf_inout(data.inputs[i].0));
 
 			let thin_signature: ThinVrfSignature<N> =
 				self.secret.sign_thin_vrf(data.transcript.clone(), &ios);
@@ -567,7 +556,7 @@ pub mod vrf {
 			input: &VrfInput,
 		) -> [u8; N] {
 			let transcript = Transcript::new_labeled(context);
-			let inout = self.secret.vrf_inout(input.0.clone());
+			let inout = self.secret.vrf_inout(input.0);
 			inout.vrf_output_bytes(transcript)
 		}
 	}
@@ -583,7 +572,7 @@ pub mod vrf {
 			};
 
 			let preouts: [bandersnatch_vrfs::VrfPreOut; N] =
-				core::array::from_fn(|i| signature.outputs[i].0.clone());
+				core::array::from_fn(|i| signature.outputs[i].0);
 
 			// Deserialize only the proof, the rest has already been deserialized
 			// This is another hack used because backend signature type is generic over
@@ -596,7 +585,7 @@ pub mod vrf {
 			};
 			let signature = ThinVrfSignature { proof, preouts };
 
-			let inputs = data.inputs.iter().map(|i| i.0.clone());
+			let inputs = data.inputs.iter().map(|i| i.0);
 
 			public.verify_thin_vrf(data.transcript.clone(), inputs, &signature).is_ok()
 		}
@@ -610,8 +599,7 @@ pub mod vrf {
 			input: &VrfInput,
 		) -> [u8; N] {
 			let transcript = Transcript::new_labeled(context);
-			let inout =
-				bandersnatch_vrfs::VrfInOut { input: input.0.clone(), preoutput: self.0.clone() };
+			let inout = bandersnatch_vrfs::VrfInOut { input: input.0, preoutput: self.0 };
 			inout.vrf_output_bytes(transcript)
 		}
 	}
@@ -733,10 +721,7 @@ pub mod ring_vrf {
 			data: &VrfSignData,
 			prover: &RingProver,
 		) -> RingVrfSignature {
-			let ios = core::array::from_fn(|i| {
-				let input = data.inputs[i].0.clone();
-				self.secret.vrf_inout(input)
-			});
+			let ios = core::array::from_fn(|i| self.secret.vrf_inout(data.inputs[i].0));
 
 			let ring_signature: bandersnatch_vrfs::RingVrfSignature<N> =
 				bandersnatch_vrfs::RingProver { ring_prover: prover, secret: &self.secret }
@@ -792,12 +777,12 @@ pub mod ring_vrf {
 			};
 
 			let preouts: [bandersnatch_vrfs::VrfPreOut; N] =
-				core::array::from_fn(|i| self.outputs[i].0.clone());
+				core::array::from_fn(|i| self.outputs[i].0);
 
 			let signature =
 				bandersnatch_vrfs::RingVrfSignature { proof: vrf_signature.proof, preouts };
 
-			let inputs = data.inputs.iter().map(|i| i.0.clone());
+			let inputs = data.inputs.iter().map(|i| i.0);
 
 			bandersnatch_vrfs::RingVerifier(verifier)
 				.verify_ring_vrf(data.transcript.clone(), inputs, &signature)

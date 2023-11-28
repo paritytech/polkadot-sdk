@@ -65,14 +65,10 @@ pub mod v1 {
 		}
 	}
 
-	pub mod versioned {
-		use super::*;
-		pub type MigrateV0ToV1<T, UnlockParaIds> = frame_support::migrations::VersionedMigration<
-			0,
-			1,
-			version_unchecked::MigrateV0ToV1<T, UnlockParaIds>,
-			super::Pallet<T>,
-			<T as frame_system::Config>::DbWeight,
-		>;
-	}
-}
+pub type MigrateToV1<T, UnlockParaIds> = frame_support::migrations::VersionedMigration<
+	0,
+	1,
+	VersionUncheckedMigrateToV1<T, UnlockParaIds>,
+	super::Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;

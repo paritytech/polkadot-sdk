@@ -37,7 +37,12 @@ tests:
                   ]
                   events:
                     - name: hrmp.HrmpChannelForceOpened
-                      result: [*cp_id, *sp_id, *hrmp_proposed_max_capacity, *hrmp_proposed_max_message_size]
+                      result: {
+                        sender: *cp_id,
+                        recipient: *sp_id,
+                        proposed_max_capacity: *hrmp_proposed_max_capacity,
+                        proposed_max_message_size: *hrmp_proposed_max_message_size
+                      }
       - name: Force Open HRMP Channel From AssetHub Parachain → Collectives Parachain
         its:
           - name: Alice calls hrmp.forceOpenHrmpChannel
@@ -56,4 +61,9 @@ tests:
                   ]
                   events:
                     - name: hrmp.HrmpChannelForceOpened
-                      result: [*sp_id, *cp_id, *hrmp_proposed_max_capacity, *hrmp_proposed_max_message_size]
+                      result: {
+                        sender: *sp_id,
+                        recipient: *cp_id,
+                        proposed_max_capacity: *hrmp_proposed_max_capacity,
+                        proposed_max_message_size: *hrmp_proposed_max_message_size
+                      }

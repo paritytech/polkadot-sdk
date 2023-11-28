@@ -21,32 +21,8 @@ use sc_executor_common::{
 	error::{Error, Result},
 	util::checked_range,
 };
-use sp_wasm_interface::{Pointer, Value};
+use sp_wasm_interface::Pointer;
 use wasmtime::{AsContext, AsContextMut};
-
-/// Converts a [`wasmtime::Val`] into a substrate runtime interface [`Value`].
-///
-/// Panics if the given value doesn't have a corresponding variant in `Value`.
-pub fn from_wasmtime_val(val: wasmtime::Val) -> Value {
-	match val {
-		wasmtime::Val::I32(v) => Value::I32(v),
-		wasmtime::Val::I64(v) => Value::I64(v),
-		wasmtime::Val::F32(f_bits) => Value::F32(f_bits),
-		wasmtime::Val::F64(f_bits) => Value::F64(f_bits),
-		v => panic!("Given value type is unsupported by Substrate: {:?}", v),
-	}
-}
-
-/// Converts a sp_wasm_interface's [`Value`] into the corresponding variant in wasmtime's
-/// [`wasmtime::Val`].
-pub fn into_wasmtime_val(value: Value) -> wasmtime::Val {
-	match value {
-		Value::I32(v) => wasmtime::Val::I32(v),
-		Value::I64(v) => wasmtime::Val::I64(v),
-		Value::F32(f_bits) => wasmtime::Val::F32(f_bits),
-		Value::F64(f_bits) => wasmtime::Val::F64(f_bits),
-	}
-}
 
 /// Read data from the instance memory into a slice.
 ///
@@ -140,8 +116,8 @@ pub(crate) fn replace_strategy_if_broken(strategy: &mut InstantiationStrategy) {
 
 		// These strategies require a working `madvise` to be sound.
 		InstantiationStrategy::PoolingCopyOnWrite => InstantiationStrategy::Pooling,
-		InstantiationStrategy::RecreateInstanceCopyOnWrite |
-		InstantiationStrategy::LegacyInstanceReuse => InstantiationStrategy::RecreateInstance,
+		InstantiationStrategy::RecreateInstanceCopyOnWrite =>
+			InstantiationStrategy::RecreateInstance,
 	};
 
 	use std::sync::OnceLock;

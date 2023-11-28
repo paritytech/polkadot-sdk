@@ -21,7 +21,7 @@ use cumulus_test_runtime::{AccountId, BalancesCall, ExistentialDeposit, SudoCall
 use futures::{future, StreamExt};
 use sc_transaction_pool_api::{TransactionPool as _, TransactionSource, TransactionStatus};
 use sp_core::{crypto::Pair, sr25519};
-use sp_runtime::{generic::BlockId, OpaqueExtrinsic};
+use sp_runtime::OpaqueExtrinsic;
 
 use cumulus_primitives_core::ParaId;
 use cumulus_test_service::{
@@ -117,7 +117,7 @@ async fn submit_tx_and_wait_for_inclusion(
 	let best_hash = client.chain_info().best_hash;
 
 	let mut watch = tx_pool
-		.submit_and_watch(&BlockId::Hash(best_hash), TransactionSource::External, tx.clone())
+		.submit_and_watch(best_hash, TransactionSource::External, tx.clone())
 		.await
 		.expect("Submits tx to pool")
 		.fuse();
