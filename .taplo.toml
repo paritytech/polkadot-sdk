@@ -1,4 +1,4 @@
-# uses some templating but invalid toml
+# this dir uses some templating that makes toml invalid
 exclude = ["polkadot/zombienet_tests/**"]
 
 [formatting]
