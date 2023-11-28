@@ -33,7 +33,9 @@ use sp_runtime::{
 // Polakdot
 use parachains_common::{Balance, BlockNumber};
 use polkadot_runtime_parachains::configuration::HostConfiguration;
-use xcm::prelude::{MultiLocation, MultiAssets, WeightLimit, AccountId32 as AccountId32Junction, Here};
+use xcm::prelude::{
+	AccountId32 as AccountId32Junction, Here, MultiAssets, MultiLocation, WeightLimit,
+};
 
 // Cumulus
 use parachains_common::{AccountId, AssetHubPolkadotAuraId, AuraId};
@@ -84,7 +86,6 @@ pub fn get_host_config() -> HostConfiguration<BlockNumber> {
 		..Default::default()
 	}
 }
-
 
 /// Returns a `TestArgs` instance to be used for the Relay Chain across integration tests
 pub fn relay_test_args(

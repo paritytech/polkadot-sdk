@@ -132,7 +132,6 @@ fn system_para_limited_teleport_assets(t: SystemParaToRelayTest) -> DispatchResu
 	)
 }
 
-
 /// Limited Teleport of native asset from Relay Chain to the System Parachain should work
 #[test]
 fn limited_teleport_native_assets_from_relay_to_system_para_works() {
@@ -182,7 +181,6 @@ fn limited_teleport_native_assets_back_from_system_para_to_relay_works() {
 	let destination = PeopleRococo::parent_location();
 	let beneficiary_id = RococoReceiver::get();
 	let assets = (Parent, amount_to_send).into();
-
 
 	// set sender to PeopleRococoReceiver because they just received
 	// assets from limited_teleport call above. PeopleRococo has

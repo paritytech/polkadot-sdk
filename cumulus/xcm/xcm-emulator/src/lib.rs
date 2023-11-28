@@ -1498,7 +1498,6 @@ where
 	pub fn set_assertion<Hop>(&mut self, assertion: fn(Self)) {
 		let chain_name = std::any::type_name::<Hop>();
 		self.hops_assertion.insert(chain_name.to_string(), assertion);
-
 	}
 	/// Stores a dispatchable in a particular Chain
 	pub fn set_dispatchable<Hop>(&mut self, dispatchable: fn(Self) -> DispatchResult) {
