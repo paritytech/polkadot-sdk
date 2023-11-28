@@ -287,7 +287,7 @@ impl TraitPair for Pair {
 	fn verify<M: AsRef<[u8]>>(signature: &Signature, data: M, public: &Public) -> bool {
 		let data = vrf::VrfSignData::new_unchecked(SIGNING_CTX, &[data.as_ref()], None);
 		let signature =
-			vrf::VrfSignature { signature: *signature, outputs: vrf::VrfIosVec::default() };
+			vrf::VrfSignature { signature: *signature, pre_outputs: vrf::VrfIosVec::default() };
 		public.vrf_verify(&data, &signature)
 	}
 
@@ -311,18 +311,18 @@ pub mod vrf {
 		ThinVrfSignature, Transcript,
 	};
 
-	/// Max number of inputs/outputs which can be handled by the VRF signing procedures.
+	/// Max number of inputs/pre-outputs which can be handled by the VRF signing procedures.
 	///
 	/// The number is quite arbitrary and chosen to fulfill the use cases found so far.
 	/// If required it can be extended in the future.
 	pub const MAX_VRF_IOS: u32 = 3;
 
-	/// Bounded vector used for VRF inputs and outputs.
+	/// Bounded vector used for VRF inputs and pre-outputs.
 	///
 	/// Can contain at most [`MAX_VRF_IOS`] elements.
 	pub type VrfIosVec<T> = BoundedVec<T, ConstU32<MAX_VRF_IOS>>;
 
-	/// VRF input to construct a [`VrfOutput`] instance and embeddable in [`VrfSignData`].
+	/// VRF input to construct a [`VrfPreOutput`] instance and embeddable in [`VrfSignData`].
 	#[derive(Clone, Debug)]
 	pub struct VrfInput(pub(super) bandersnatch_vrfs::VrfInput);
 
@@ -334,15 +334,15 @@ pub mod vrf {
 		}
 	}
 
-	/// VRF (pre)output derived from [`VrfInput`] using a [`VrfSecret`].
+	/// VRF pre-output derived from [`VrfInput`] using a [`VrfSecret`].
 	///
 	/// This object is used to produce an arbitrary number of verifiable pseudo random
 	/// bytes and is often called pre-output to emphasize that this is not the actual
 	/// output of the VRF but an object capable of generating the output.
 	#[derive(Clone, Debug, PartialEq, Eq)]
-	pub struct VrfOutput(pub(super) bandersnatch_vrfs::VrfPreOut);
+	pub struct VrfPreOutput(pub(super) bandersnatch_vrfs::VrfPreOut);
 
-	impl Encode for VrfOutput {
+	impl Encode for VrfPreOutput {
 		fn encode(&self) -> Vec<u8> {
 			let mut bytes = [0; PREOUT_SERIALIZED_LEN];
 			self.0
@@ -352,22 +352,22 @@ pub mod vrf {
 		}
 	}
 
-	impl Decode for VrfOutput {
+	impl Decode for VrfPreOutput {
 		fn decode<R: codec::Input>(i: &mut R) -> Result<Self, codec::Error> {
 			let buf = <[u8; PREOUT_SERIALIZED_LEN]>::decode(i)?;
 			let preout = bandersnatch_vrfs::VrfPreOut::deserialize_compressed(buf.as_slice())
 				.map_err(|_| "vrf-preout decode error: bad preout")?;
-			Ok(VrfOutput(preout))
+			Ok(VrfPreOutput(preout))
 		}
 	}
 
-	impl MaxEncodedLen for VrfOutput {
+	impl MaxEncodedLen for VrfPreOutput {
 		fn max_encoded_len() -> usize {
 			<[u8; PREOUT_SERIALIZED_LEN]>::max_encoded_len()
 		}
 	}
 
-	impl TypeInfo for VrfOutput {
+	impl TypeInfo for VrfPreOutput {
 		type Identity = [u8; PREOUT_SERIALIZED_LEN];
 
 		fn type_info() -> scale_info::Type {
@@ -384,14 +384,14 @@ pub mod vrf {
 	/// A good explaination of the topic can be found in Merlin [docs](https://merlin.cool/)
 	///
 	/// The `inputs` is a sequence of [`VrfInput`]s which, during the signing procedure, are
-	/// first transformed to [`VrfOutput`]s. Both inputs and outputs are then appended to
+	/// first transformed to [`VrfPreOutput`]s. Both inputs and pre-outputs are then appended to
 	/// the transcript before signing the Fiat-Shamir transform result (the challenge).
 	///
 	/// In practice, as a user, all these technical details can be easily ignored.
 	/// What is important to remember is:
 	/// - *Transcript* is an object defining the protocol and used to produce the signature. This
-	///   object doesn't influence the `VrfOutput`s values.
-	/// - *Vrf inputs* is some additional data which is used to produce *vrf outputs*. This data
+	///   object doesn't influence the `VrfPreOutput`s values.
+	/// - *Vrf inputs* is some additional data which is used to produce *vrf pre-outputs*. This data
 	///   will contribute to the signature as well.
 	#[derive(Clone)]
 	pub struct VrfSignData {
@@ -462,14 +462,14 @@ pub mod vrf {
 
 	/// VRF signature.
 	///
-	/// Includes both the transcript `signature` and the `outputs` generated from the
+	/// Includes both the transcript `signature` and the `pre-outputs` generated from the
 	/// [`VrfSignData::inputs`].
 	///
 	/// Refer to [`VrfSignData`] for more details.
 	#[derive(Clone, Debug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
 	pub struct VrfSignature {
-		/// VRF (pre)outputs.
-		pub outputs: VrfIosVec<VrfOutput>,
+		/// VRF pre-outputs.
+		pub pre_outputs: VrfIosVec<VrfPreOutput>,
 		/// Transcript signature.
 		pub signature: Signature,
 	}
@@ -477,7 +477,7 @@ pub mod vrf {
 	#[cfg(feature = "full_crypto")]
 	impl VrfCrypto for Pair {
 		type VrfInput = VrfInput;
-		type VrfOutput = VrfOutput;
+		type VrfPreOutput = VrfPreOutput;
 		type VrfSignData = VrfSignData;
 		type VrfSignature = VrfSignature;
 	}
@@ -496,15 +496,15 @@ pub mod vrf {
 			}
 		}
 
-		fn vrf_output(&self, input: &Self::VrfInput) -> Self::VrfOutput {
-			let output = self.secret.vrf_preout(&input.0);
-			VrfOutput(output)
+		fn vrf_pre_output(&self, input: &Self::VrfInput) -> Self::VrfPreOutput {
+			let pre_output = self.secret.vrf_preout(&input.0);
+			VrfPreOutput(pre_output)
 		}
 	}
 
 	impl VrfCrypto for Public {
 		type VrfInput = VrfInput;
-		type VrfOutput = VrfOutput;
+		type VrfPreOutput = VrfPreOutput;
 		type VrfSignData = VrfSignData;
 		type VrfSignature = VrfSignature;
 	}
@@ -512,12 +512,12 @@ pub mod vrf {
 	impl VrfPublic for Public {
 		fn vrf_verify(&self, data: &Self::VrfSignData, signature: &Self::VrfSignature) -> bool {
 			const _: () = assert!(MAX_VRF_IOS == 3, "`MAX_VRF_IOS` expected to be 3");
-			let outputs_len = signature.outputs.len();
-			if outputs_len != data.inputs.len() {
+			let pre_outputs_len = signature.pre_outputs.len();
+			if pre_outputs_len != data.inputs.len() {
 				return false
 			}
 			// Workaround to overcome backend signature generic over the number of IOs.
-			match outputs_len {
+			match pre_outputs_len {
 				0 => self.vrf_verify_gen::<0>(data, signature),
 				1 => self.vrf_verify_gen::<1>(data, signature),
 				2 => self.vrf_verify_gen::<2>(data, signature),
@@ -535,11 +535,12 @@ pub mod vrf {
 			let thin_signature: ThinVrfSignature<N> =
 				self.secret.sign_thin_vrf(data.transcript.clone(), &ios);
 
-			let outputs: Vec<_> = thin_signature.preouts.into_iter().map(VrfOutput).collect();
-			let outputs = VrfIosVec::truncate_from(outputs);
+			let pre_outputs: Vec<_> =
+				thin_signature.preouts.into_iter().map(VrfPreOutput).collect();
+			let pre_outputs = VrfIosVec::truncate_from(pre_outputs);
 
 			let mut signature =
-				VrfSignature { signature: Signature([0; SIGNATURE_SERIALIZED_LEN]), outputs };
+				VrfSignature { signature: Signature([0; SIGNATURE_SERIALIZED_LEN]), pre_outputs };
 
 			thin_signature
 				.proof
@@ -572,7 +573,7 @@ pub mod vrf {
 			};
 
 			let preouts: [bandersnatch_vrfs::VrfPreOut; N] =
-				core::array::from_fn(|i| signature.outputs[i].0);
+				core::array::from_fn(|i| signature.pre_outputs[i].0);
 
 			// Deserialize only the proof, the rest has already been deserialized
 			// This is another hack used because backend signature type is generic over
@@ -591,7 +592,7 @@ pub mod vrf {
 		}
 	}
 
-	impl VrfOutput {
+	impl VrfPreOutput {
 		/// Generate an arbitrary number of bytes from the given `context` and VRF `input`.
 		pub fn make_bytes<const N: usize>(
 			&self,
@@ -691,8 +692,8 @@ pub mod ring_vrf {
 	/// Ring VRF signature.
 	#[derive(Clone, Debug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
 	pub struct RingVrfSignature {
-		/// VRF (pre)outputs.
-		pub outputs: VrfIosVec<VrfOutput>,
+		/// VRF pre-outputs.
+		pub pre_outputs: VrfIosVec<VrfPreOutput>,
 		/// Ring signature.
 		pub signature: [u8; RING_SIGNATURE_SERIALIZED_LEN],
 	}
@@ -727,11 +728,12 @@ pub mod ring_vrf {
 				bandersnatch_vrfs::RingProver { ring_prover: prover, secret: &self.secret }
 					.sign_ring_vrf(data.transcript.clone(), &ios);
 
-			let outputs: Vec<_> = ring_signature.preouts.into_iter().map(VrfOutput).collect();
-			let outputs = VrfIosVec::truncate_from(outputs);
+			let pre_outputs: Vec<_> =
+				ring_signature.preouts.into_iter().map(VrfPreOutput).collect();
+			let pre_outputs = VrfIosVec::truncate_from(pre_outputs);
 
 			let mut signature =
-				RingVrfSignature { outputs, signature: [0; RING_SIGNATURE_SERIALIZED_LEN] };
+				RingVrfSignature { pre_outputs, signature: [0; RING_SIGNATURE_SERIALIZED_LEN] };
 
 			ring_signature
 				.proof
@@ -749,7 +751,7 @@ pub mod ring_vrf {
 		/// from which the [`RingVerifier`] has been constructed.
 		pub fn ring_vrf_verify(&self, data: &VrfSignData, verifier: &RingVerifier) -> bool {
 			const _: () = assert!(MAX_VRF_IOS == 3, "`MAX_VRF_IOS` expected to be 3");
-			let preouts_len = self.outputs.len();
+			let preouts_len = self.pre_outputs.len();
 			if preouts_len != data.inputs.len() {
 				return false
 			}
@@ -777,7 +779,7 @@ pub mod ring_vrf {
 			};
 
 			let preouts: [bandersnatch_vrfs::VrfPreOut; N] =
-				core::array::from_fn(|i| self.outputs[i].0);
+				core::array::from_fn(|i| self.pre_outputs[i].0);
 
 			let signature =
 				bandersnatch_vrfs::RingVrfSignature { proof: vrf_signature.proof, preouts };
@@ -919,11 +921,11 @@ mod tests {
 		let signature = pair.vrf_sign(&data);
 
 		let o10 = pair.make_bytes::<32>(b"ctx1", &i1);
-		let o11 = signature.outputs[0].make_bytes::<32>(b"ctx1", &i1);
+		let o11 = signature.pre_outputs[0].make_bytes::<32>(b"ctx1", &i1);
 		assert_eq!(o10, o11);
 
 		let o20 = pair.make_bytes::<48>(b"ctx2", &i2);
-		let o21 = signature.outputs[1].make_bytes::<48>(b"ctx2", &i2);
+		let o21 = signature.pre_outputs[1].make_bytes::<48>(b"ctx2", &i2);
 		assert_eq!(o20, o21);
 	}
 
@@ -1022,11 +1024,11 @@ mod tests {
 		let signature = pair.ring_vrf_sign(&data, &prover);
 
 		let o10 = pair.make_bytes::<32>(b"ctx1", &i1);
-		let o11 = signature.outputs[0].make_bytes::<32>(b"ctx1", &i1);
+		let o11 = signature.pre_outputs[0].make_bytes::<32>(b"ctx1", &i1);
 		assert_eq!(o10, o11);
 
 		let o20 = pair.make_bytes::<48>(b"ctx2", &i2);
-		let o21 = signature.outputs[1].make_bytes::<48>(b"ctx2", &i2);
+		let o21 = signature.pre_outputs[1].make_bytes::<48>(b"ctx2", &i2);
 		assert_eq!(o20, o21);
 	}
 

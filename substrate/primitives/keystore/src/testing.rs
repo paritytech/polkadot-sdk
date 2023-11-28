@@ -265,13 +265,13 @@ impl Keystore for MemoryKeystore {
 	}
 
 	#[cfg(feature = "bandersnatch-experimental")]
-	fn bandersnatch_vrf_output(
+	fn bandersnatch_vrf_pre_output(
 		&self,
 		key_type: KeyTypeId,
 		public: &bandersnatch::Public,
 		input: &bandersnatch::vrf::VrfInput,
-	) -> Result<Option<bandersnatch::vrf::VrfOutput>, Error> {
-		self.vrf_output::<bandersnatch::Pair>(key_type, public, input)
+	) -> Result<Option<bandersnatch::vrf::VrfPreOutput>, Error> {
+		self.vrf_pre_output::<bandersnatch::Pair>(key_type, public, input)
 	}
 
 	#[cfg(feature = "bls-experimental")]

@@ -223,7 +223,7 @@ pub trait Keystore: Send + Sync {
 		input: &bandersnatch::vrf::VrfSignData,
 	) -> Result<Option<bandersnatch::vrf::VrfSignature>, Error>;
 
-	/// Generate a bandersnatch VRF (pre)output for a given input data.
+	/// Generate a bandersnatch VRF pre-output for a given input data.
 	///
 	/// Receives [`KeyTypeId`] and an [`bandersnatch::Public`] key to be able to map
 	/// them to a private key that exists in the keystore.
@@ -231,12 +231,12 @@ pub trait Keystore: Send + Sync {
 	/// Returns `None` if the given `key_type` and `public` combination doesn't
 	/// exist in the keystore or an `Err` when something failed.
 	#[cfg(feature = "bandersnatch-experimental")]
-	fn bandersnatch_vrf_output(
+	fn bandersnatch_vrf_pre_output(
 		&self,
 		key_type: KeyTypeId,
 		public: &bandersnatch::Public,
 		input: &bandersnatch::vrf::VrfInput,
-	) -> Result<Option<bandersnatch::vrf::VrfOutput>, Error>;
+	) -> Result<Option<bandersnatch::vrf::VrfPreOutput>, Error>;
 
 	/// Generate a bandersnatch ring-VRF signature for the given data.
 	///
@@ -569,13 +569,13 @@ impl<T: Keystore + ?Sized> Keystore for Arc<T> {
 	}
 
 	#[cfg(feature = "bandersnatch-experimental")]
-	fn bandersnatch_vrf_output(
+	fn bandersnatch_vrf_pre_output(
 		&self,
 		key_type: KeyTypeId,
 		public: &bandersnatch::Public,
 		input: &bandersnatch::vrf::VrfInput,
-	) -> Result<Option<bandersnatch::vrf::VrfOutput>, Error> {
-		(**self).bandersnatch_vrf_output(key_type, public, input)
+	) -> Result<Option<bandersnatch::vrf::VrfPreOutput>, Error> {
+		(**self).bandersnatch_vrf_pre_output(key_type, public, input)
 	}
 
 	#[cfg(feature = "bandersnatch-experimental")]

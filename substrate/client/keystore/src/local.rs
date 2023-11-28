@@ -293,13 +293,13 @@ impl Keystore for LocalKeystore {
 			self.vrf_sign::<bandersnatch::Pair>(key_type, public, data)
 		}
 
-		fn bandersnatch_vrf_output(
+		fn bandersnatch_vrf_pre_output(
 			&self,
 			key_type: KeyTypeId,
 			public: &bandersnatch::Public,
 			input: &bandersnatch::vrf::VrfInput,
-		) -> std::result::Result<Option<bandersnatch::vrf::VrfOutput>, TraitError> {
-			self.vrf_output::<bandersnatch::Pair>(key_type, public, input)
+		) -> std::result::Result<Option<bandersnatch::vrf::VrfPreOutput>, TraitError> {
+			self.vrf_pre_output::<bandersnatch::Pair>(key_type, public, input)
 		}
 
 		fn bandersnatch_ring_vrf_sign(
