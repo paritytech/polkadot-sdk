@@ -18,6 +18,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+mod messages_generator;
 mod people;
 mod weights;
 pub mod xcm_config;
@@ -410,6 +411,8 @@ impl identity_migrator::Config for Runtime {
 	type WeightInfo = weights::polkadot_runtime_common_identity_migrator::WeightInfo<Runtime>;
 }
 
+impl messages_generator::Config for Runtime {}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -445,6 +448,9 @@ construct_runtime!(
 
 		// The main stage.
 		Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 50,
+
+		// Generate test messages
+		GenerateTestMessages: messages_generator::{Pallet} = 100,
 
 		// To migrate deposits
 		IdentityMigrator: identity_migrator::{Pallet, Call, Event<T>} = 248,
