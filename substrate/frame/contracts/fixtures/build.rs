@@ -138,10 +138,11 @@ codegen-units = 1
 }
 
 /// Invoke `cargo fmt` to check that fixtures files are formatted.
-fn invoke_cargo_fmt<'a, Files>(config_path: &Path, files: Files, contract_dir: &Path) -> Result<()>
-where
-	Files: IntoIterator<Item = &'a Path>,
-{
+fn invoke_cargo_fmt<'a>(
+	config_path: &Path,
+	files: impl Iterator<Item = &'a Path>,
+	contract_dir: &Path,
+) -> Result<()> {
 	// If rustfmt is not installed, skip the check.
 	if !Command::new("rustup")
 		.args(&["run", "nightly", "rustfmt", "--version"])
