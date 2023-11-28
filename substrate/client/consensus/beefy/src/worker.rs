@@ -1713,7 +1713,7 @@ pub(crate) mod tests {
 	}
 
 	#[tokio::test]
-	async fn should_report_valid_fork_equivocations() {
+	async fn beefy_reports_fork_equivocations() {
 		let peers = [Keyring::Alice, Keyring::Bob, Keyring::Charlie];
 		let validator_set = ValidatorSet::new(make_beefy_ids(&peers), 0).unwrap();
 		let mut api_alice = TestApi::with_validator_set(&validator_set);

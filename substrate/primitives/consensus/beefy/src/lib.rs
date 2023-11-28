@@ -305,6 +305,7 @@ impl<Number, Id, Signature> VoteEquivocationProof<Number, Id, Signature> {
 
 /// Proof of authority misbehavior on a given set id.
 /// This proof shows commitment signed on a different fork.
+/// See [check_fork_equivocation_proof] for proof validity conditions.
 #[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
 pub struct ForkEquivocationProof<Number, Id, Signature, Header, Hash> {
 	/// Commitment for a block on different fork than one at the same height in
@@ -312,12 +313,9 @@ pub struct ForkEquivocationProof<Number, Id, Signature, Header, Hash> {
 	pub commitment: Commitment<Number>,
 	/// Signatures on this block
 	pub signatories: Vec<(Id, Signature)>,
-	/// The proof is valid if
-	/// 1. the header is in our chain
-	/// 2. its digest's payload != commitment.payload
-	/// 3. commitment is signed by signatories
+	/// Header at the same height as `commitment.block_number`.
 	pub correct_header: Option<Header>,
-	/// ancestry proof showing mmr root
+	/// Ancestry proof showing mmr root
 	pub ancestry_proof: Option<AncestryProof<Hash>>,
 }
 
