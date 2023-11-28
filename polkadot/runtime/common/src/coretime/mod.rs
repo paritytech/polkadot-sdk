@@ -33,9 +33,9 @@ use sp_std::prelude::*;
 pub use pallet::*;
 
 pub trait WeightInfo {
-	fn request_core_count() -> Weight;
-	fn request_revenue_info_at() -> Weight;
-	fn credit_account() -> Weight;
+	//fn request_core_count() -> Weight;
+	//fn request_revenue_info_at() -> Weight;
+	//fn credit_account() -> Weight;
 	fn assign_core(s: u32) -> Weight;
 }
 
@@ -43,7 +43,9 @@ pub trait WeightInfo {
 pub struct TestWeightInfo;
 
 impl WeightInfo for TestWeightInfo {
-	fn request_core_count() -> Weight {
+	// TODO: Add real benchmarking functionality for each of these to 
+	// benchmarking.rs, then uncomment here and in trait definition.
+	/*fn request_core_count() -> Weight {
 		Weight::MAX
 	}
 	fn request_revenue_info_at() -> Weight {
@@ -51,7 +53,7 @@ impl WeightInfo for TestWeightInfo {
 	}
 	fn credit_account() -> Weight {
 		Weight::MAX
-	}
+	}*/
 	fn assign_core(_s: u32) -> Weight {
 		Weight::MAX
 	}
