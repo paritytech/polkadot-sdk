@@ -44,7 +44,7 @@ use polkadot_runtime_common::impls::{
 	LocatableAssetConverter, VersionedLocatableAsset, VersionedMultiLocationConverter,
 };
 use sp_arithmetic::Permill;
-use sp_core::{ConstU128, ConstU32, ConstU8};
+use sp_core::{ConstU128, ConstU32};
 use sp_runtime::traits::{
 	AccountIdConversion, ConstU16, ConvertToValue, IdentityLookup, Replace, TakeFirst,
 };
@@ -315,6 +315,8 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 	type BalanceConverter = AssetRate;
 	type PayoutPeriod = PayoutSpendPeriod;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper =
-		polkadot_runtime_common::impls::benchmarks::TreasuryArguments<ConstU8<1>, ConstU32<1000>>;
+	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments<
+		sp_core::ConstU8<1>,
+		ConstU32<1000>,
+	>;
 }
