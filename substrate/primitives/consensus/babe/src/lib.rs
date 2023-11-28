@@ -33,7 +33,7 @@ use sp_std::vec::Vec;
 use crate::digests::{NextConfigDescriptor, NextEpochDescriptor};
 
 pub use sp_core::sr25519::vrf::{
-	VrfInput, VrfOutput, VrfProof, VrfSignData, VrfSignature, VrfTranscript,
+	VrfInput, VrfPreOutput, VrfProof, VrfSignData, VrfSignature, VrfTranscript,
 };
 
 /// Key type for BABE module.

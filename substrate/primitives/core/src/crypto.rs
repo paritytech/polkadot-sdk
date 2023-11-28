@@ -1109,8 +1109,8 @@ impl<'a> TryFrom<&'a str> for KeyTypeId {
 pub trait VrfCrypto {
 	/// VRF input.
 	type VrfInput;
-	/// VRF output.
-	type VrfOutput;
+	/// VRF pre-output.
+	type VrfPreOutput;
 	/// VRF signing data.
 	type VrfSignData;
 	/// VRF signature.
@@ -1119,8 +1119,8 @@ pub trait VrfCrypto {
 
 /// VRF Secret Key.
 pub trait VrfSecret: VrfCrypto {
-	/// Get VRF-specific output .
-	fn vrf_output(&self, data: &Self::VrfInput) -> Self::VrfOutput;
+	/// Get VRF-specific pre-output.
+	fn vrf_pre_output(&self, data: &Self::VrfInput) -> Self::VrfPreOutput;
 
 	/// Sign VRF-specific data.
 	fn vrf_sign(&self, input: &Self::VrfSignData) -> Self::VrfSignature;
