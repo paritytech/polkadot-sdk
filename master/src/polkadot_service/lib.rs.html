@@ -1434,6 +1434,16 @@
 <a href="#1434" id="1434">1434</a>
 <a href="#1435" id="1435">1435</a>
 <a href="#1436" id="1436">1436</a>
+<a href="#1437" id="1437">1437</a>
+<a href="#1438" id="1438">1438</a>
+<a href="#1439" id="1439">1439</a>
+<a href="#1440" id="1440">1440</a>
+<a href="#1441" id="1441">1441</a>
+<a href="#1442" id="1442">1442</a>
+<a href="#1443" id="1443">1443</a>
+<a href="#1444" id="1444">1444</a>
+<a href="#1445" id="1445">1445</a>
+<a href="#1446" id="1446">1446</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2061,6 +2071,9 @@
 	<span class="kw">pub </span>is_parachain_node: IsParachainNode,
 	<span class="kw">pub </span>grandpa_pause: <span class="prelude-ty">Option</span>&lt;(u32, u32)&gt;,
 	<span class="kw">pub </span>enable_beefy: bool,
+	<span class="doccomment">/// Whether to enable the block authoring backoff on production networks
+	/// where it isn&#39;t enabled by default.
+	</span><span class="kw">pub </span>force_authoring_backoff: bool,
 	<span class="kw">pub </span>jaeger_agent: <span class="prelude-ty">Option</span>&lt;std::net::SocketAddr&gt;,
 	<span class="kw">pub </span>telemetry_worker_handle: <span class="prelude-ty">Option</span>&lt;TelemetryWorkerHandle&gt;,
 	<span class="doccomment">/// The version of the node. TESTING ONLY: `None` can be passed to skip the node/worker version
@@ -2152,6 +2165,7 @@
 		is_parachain_node,
 		grandpa_pause,
 		enable_beefy,
+		force_authoring_backoff,
 		jaeger_agent,
 		telemetry_worker_handle,
 		node_version,
@@ -2169,15 +2183,21 @@
 	<span class="kw">let </span>is_offchain_indexing_enabled = config.offchain_worker.indexing_enabled;
 	<span class="kw">let </span>role = config.role.clone();
 	<span class="kw">let </span>force_authoring = config.force_authoring;
-	<span class="kw">let </span>backoff_authoring_blocks = {
+	<span class="kw">let </span>backoff_authoring_blocks = <span class="kw">if </span>!force_authoring_backoff &amp;&amp;
+		(config.chain_spec.is_polkadot() || config.chain_spec.is_kusama())
+	{
+		<span class="comment">// the block authoring backoff is disabled by default on production networks
+		</span><span class="prelude-val">None
+	</span>} <span class="kw">else </span>{
 		<span class="kw">let </span><span class="kw-2">mut </span>backoff = sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging::default();
 
 		<span class="kw">if </span>config.chain_spec.is_rococo() ||
 			config.chain_spec.is_wococo() ||
-			config.chain_spec.is_versi()
+			config.chain_spec.is_versi() ||
+			config.chain_spec.is_dev()
 		{
-			<span class="comment">// it&#39;s a testnet that&#39;s in flux, finality has stalled sometimes due
-			// to operational issues and it&#39;s annoying to slow down block
+			<span class="comment">// on testnets that are in flux (like rococo or versi), finality has stalled
+			// sometimes due to operational issues and it&#39;s annoying to slow down block
 			// production to 1 block per hour.
 			</span>backoff.max_interval = <span class="number">10</span>;
 		}

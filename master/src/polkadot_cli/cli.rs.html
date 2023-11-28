@@ -153,6 +153,10 @@
 <a href="#153" id="153">153</a>
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -252,6 +256,10 @@
 	/// Currently enabled by default on &#39;Rococo&#39;, &#39;Wococo&#39; and &#39;Versi&#39;.
 	</span><span class="attr">#[arg(long)]
 	</span><span class="kw">pub </span>no_beefy: bool,
+
+	<span class="doccomment">/// Enable the block authoring backoff that is triggered when finality is lagging.
+	</span><span class="attr">#[arg(long)]
+	</span><span class="kw">pub </span>force_authoring_backoff: bool,
 
 	<span class="doccomment">/// Add the destination address to the &#39;Jaeger&#39; agent.
 	///

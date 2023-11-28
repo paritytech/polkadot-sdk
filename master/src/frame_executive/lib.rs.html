@@ -1687,6 +1687,17 @@
 <a href="#1687" id="1687">1687</a>
 <a href="#1688" id="1688">1688</a>
 <a href="#1689" id="1689">1689</a>
+<a href="#1690" id="1690">1690</a>
+<a href="#1691" id="1691">1691</a>
+<a href="#1692" id="1692">1692</a>
+<a href="#1693" id="1693">1693</a>
+<a href="#1694" id="1694">1694</a>
+<a href="#1695" id="1695">1695</a>
+<a href="#1696" id="1696">1696</a>
+<a href="#1697" id="1697">1697</a>
+<a href="#1698" id="1698">1698</a>
+<a href="#1699" id="1699">1699</a>
+<a href="#1700" id="1700">1700</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2051,9 +2062,13 @@
 		<span class="prelude-val">Ok</span>(frame_system::Pallet::&lt;System&gt;::block_weight().total())
 	}
 
-	<span class="doccomment">/// Execute all `OnRuntimeUpgrade` of this runtime.
+	<span class="doccomment">/// Execute all Migrations of this runtime.
 	///
 	/// The `checks` param determines whether to execute `pre/post_upgrade` and `try_state` hooks.
+	///
+	/// [`frame_system::LastRuntimeUpgrade`] is set to the current runtime version after
+	/// migrations execute. This is important for idempotency checks, because some migrations use
+	/// this value to determine whether or not they should execute.
 	</span><span class="kw">pub fn </span>try_runtime_upgrade(checks: UpgradeCheckSelect) -&gt; <span class="prelude-ty">Result</span>&lt;Weight, TryRuntimeError&gt; {
 		<span class="kw">let </span>before_all_weight =
 			&lt;AllPalletsWithSystem <span class="kw">as </span>BeforeAllRuntimeMigrations&gt;::before_all_runtime_migrations();
@@ -2061,6 +2076,13 @@
 			&lt;(COnRuntimeUpgrade, AllPalletsWithSystem) <span class="kw">as </span>OnRuntimeUpgrade&gt;::try_on_runtime_upgrade(
 				checks.pre_and_post(),
 			)<span class="question-mark">?</span>;
+
+		frame_system::LastRuntimeUpgrade::&lt;System&gt;::put(
+			frame_system::LastRuntimeUpgradeInfo::from(
+				&lt;System::Version <span class="kw">as </span>frame_support::traits::Get&lt;<span class="kw">_</span>&gt;&gt;::get(),
+			),
+		);
+
 		<span class="comment">// Nothing should modify the state after the migrations ran:
 		</span><span class="kw">let </span>_guard = StorageNoopGuard::default();
 
