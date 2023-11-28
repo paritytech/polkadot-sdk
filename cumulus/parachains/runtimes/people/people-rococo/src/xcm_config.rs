@@ -20,7 +20,7 @@ use super::{
 use crate::{TransactionByteFee, CENTS};
 use frame_support::{
 	match_types, parameter_types,
-	traits::{ConstU32, Contains, Everything, Nothing},
+	traits::{ConstU32, Contains, Equals, Everything, Nothing},
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
@@ -187,8 +187,12 @@ pub type Barrier = TrailingSetTopicAsId<
 					// If the message is one that immediately attemps to pay for execution, then
 					// allow it.
 					AllowTopLevelPaidExecutionFrom<Everything>,
-					// Parent and its pluralities (i.e. governance bodies) get free execution.
-					AllowExplicitUnpaidExecutionFrom<ParentOrParentsPlurality>,
+					// Parent and its pluralities (i.e. governance bodies) + sibling bridge hub get
+					// free execution.
+					AllowExplicitUnpaidExecutionFrom<(
+						ParentOrParentsPlurality,
+						Equals<bridging::SiblingBridgeHub>,
+					)>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<ParentOrSiblings>,
 				),
@@ -229,7 +233,7 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetExchanger = ();
 	type FeeManager = ();
 	type MessageExporter = ();
-	type UniversalAliases = Nothing;
+	type UniversalAliases = (bridging::UniversalAliases,);
 	type CallDispatcher = WithOriginFilter<SafeCallFilter>;
 	type SafeCallFilter = SafeCallFilter;
 	type Aliasers = Nothing;
@@ -242,10 +246,12 @@ pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, R
 /// The means for routing XCM messages which are not for local execution into the right message
 /// queues.
 pub type XcmRouter = WithUniqueTopic<(
-	// Two routers - use UMP to communicate with the relay chain:
+	// Use UMP to communicate with the relay chain:
 	cumulus_primitives_utility::ParentAsUmp<ParachainSystem, PolkadotXcm, ()>,
-	// ..and XCMP to communicate with the sibling chains.
+	// Use XCMP to communicate with the sibling chains.
 	XcmpQueue,
+	// Use XCMP with sibling bridge hub to communicate with Rococo Bulletin chain.
+	bridging::ToBulletinXcmRouter,
 )>;
 
 impl pallet_xcm::Config for Runtime {
@@ -284,4 +290,60 @@ impl pallet_xcm::Config for Runtime {
 impl cumulus_pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
+}
+
+/// All configuration related to bridging
+pub mod bridging {
+	use super::*;
+	use sp_std::collections::btree_set::BTreeSet;
+	use xcm_builder::{NetworkExportTableItem, UnpaidRemoteExporter};
+
+	parameter_types! {
+		/// Location of the sibling bridge hub.
+		pub SiblingBridgeHub: MultiLocation = MultiLocation::new(
+			1,
+			X1(Parachain(bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID)),
+		);
+
+
+		/// Location of the with-Bulletin messaging pallet at the sibling bridge hub.
+		pub SiblingBridgeHubWithRococoBulletinInstance: MultiLocation = MultiLocation::new(
+			1,
+			X2(
+				Parachain(bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID),
+				PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_BULLETIN_MESSAGES_PALLET_INDEX)
+			)
+		);
+
+		/// Rococo Bulletin network.
+		pub const RococoBulletinNetwork: NetworkId = NetworkId::ByGenesis([43u8; 32]); // TODO
+
+		/// Set up exporters configuration.
+		pub BridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
+			NetworkExportTableItem::new(
+				RococoBulletinNetwork::get(),
+				None,
+				SiblingBridgeHub::get(),
+				None,
+			)
+		];
+
+		/// Universal aliases
+		pub UniversalAliases: BTreeSet<(MultiLocation, Junction)> = BTreeSet::from_iter(
+			sp_std::vec![
+				(SiblingBridgeHubWithRococoBulletinInstance::get(), GlobalConsensus(RococoBulletinNetwork::get()))
+			]
+		);
+	}
+
+	impl Contains<(MultiLocation, Junction)> for UniversalAliases {
+		fn contains(alias: &(MultiLocation, Junction)) -> bool {
+			UniversalAliases::get().contains(alias)
+		}
+	}
+
+	pub type NetworkExportTable = xcm_builder::NetworkExportTable<BridgeTable>;
+
+	pub type ToBulletinXcmRouter =
+		UnpaidRemoteExporter<NetworkExportTable, XcmpQueue, UniversalLocation>;
 }
