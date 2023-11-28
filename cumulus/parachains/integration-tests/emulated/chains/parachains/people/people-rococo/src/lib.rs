@@ -24,7 +24,7 @@ use emulated_integration_tests_common::{
 	impls::Parachain, xcm_emulator::decl_test_parachains,
 };
 
-// AssetHubRococo Parachain declaration
+// PeopleRococo Parachain declaration
 decl_test_parachains! {
 	pub struct PeopleRococo {
 		genesis = genesis::genesis(),
