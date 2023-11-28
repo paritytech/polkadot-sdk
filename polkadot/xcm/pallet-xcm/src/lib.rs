@@ -2348,6 +2348,7 @@ impl<T: Config> WrapVersion for Pallet<T> {
 		xcm: impl Into<VersionedXcm<RuntimeCall>>,
 	) -> Result<VersionedXcm<RuntimeCall>, ()> {
 		Self::determine_version_for(dest, true)
+			.or_else(|| SafeXcmVersion::<T>::get())
 			.ok_or_else(|| {
 				log::trace!(
 					target: "xcm::pallet_xcm::wrap_version",
@@ -2356,20 +2357,20 @@ impl<T: Config> WrapVersion for Pallet<T> {
 				);
 				()
 			})
-			.and_then(|v| xcm.into().into_version(v))
+			.and_then(|v| xcm.into().into_version(v.min(XCM_VERSION)))
 	}
 }
 
 impl<T: Config> DetermineVersion for Pallet<T> {
 	fn determine_version_for(dest: &MultiLocation, handle_unknown: bool) -> Option<XcmVersion> {
-		SupportedVersion::<T>::get(XCM_VERSION, LatestVersionedMultiLocation(dest))
-			.or_else(|| {
-				if handle_unknown {
-					Self::note_unknown_version(dest);
-				}
-				SafeXcmVersion::<T>::get()
-			})
-			.map(|v| v.min(XCM_VERSION))
+		SupportedVersion::<T>::get(XCM_VERSION, LatestVersionedMultiLocation(dest)).or_else(|| {
+			if handle_unknown {
+				Self::note_unknown_version(dest);
+			}
+			// We don't want to return any default or `SafeXcmVersion`, we are solely interested in
+			// the `SupportedVersion`.
+			None
+		})
 	}
 }
 

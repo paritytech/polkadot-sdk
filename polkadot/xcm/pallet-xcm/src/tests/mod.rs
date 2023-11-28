@@ -780,7 +780,7 @@ fn subscriber_side_subscription_works() {
 			RuntimeOrigin::root(),
 			Box::new(remote.into()),
 		));
-		assert_eq!(XcmPallet::determine_version_for(&remote, false), Some(XCM_VERSION));
+		assert_eq!(XcmPallet::determine_version_for(&remote, false), None);
 		take_sent_xcm();
 
 		// Assume subscription target is working ok.
@@ -835,11 +835,7 @@ fn auto_subscription_works() {
 		let remote_v2: MultiLocation = Parachain(1000).into();
 		let remote_v3: MultiLocation = Parachain(1001).into();
 
-		assert_eq!(XcmPallet::determine_version_for(&remote_v2, false), None);
-		assert_eq!(XcmPallet::determine_version_for(&remote_v3, false), None);
 		assert_ok!(XcmPallet::force_default_xcm_version(RuntimeOrigin::root(), Some(2)));
-		assert_eq!(XcmPallet::determine_version_for(&remote_v2, false), Some(2));
-		assert_eq!(XcmPallet::determine_version_for(&remote_v3, false), Some(2));
 
 		// Wrapping a version for a destination we don't know elicits a subscription.
 		let msg_v2 = xcm::v2::Xcm::<()>(vec![xcm::v2::Instruction::Trap(0)]);
@@ -1019,9 +1015,9 @@ fn determine_and_wrap_version_works() {
 
 		// set default xcm version (a.k.a. `safe_xcm_version`)
 		assert_ok!(XcmPallet::force_default_xcm_version(RuntimeOrigin::root(), Some(1)));
-		assert_eq!(XcmPallet::determine_version_for(&remote_a, false), Some(1));
-		assert_eq!(XcmPallet::determine_version_for(&remote_b, false), Some(1));
-		assert_eq!(XcmPallet::determine_version_for(&remote_c, false), Some(1));
+		assert_eq!(XcmPallet::determine_version_for(&remote_a, false), None);
+		assert_eq!(XcmPallet::determine_version_for(&remote_b, false), None);
+		assert_eq!(XcmPallet::determine_version_for(&remote_c, false), None);
 		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![]);
 
 		// set xcm version only for `remote_a`
@@ -1031,12 +1027,12 @@ fn determine_and_wrap_version_works() {
 			XCM_VERSION
 		));
 		assert_eq!(XcmPallet::determine_version_for(&remote_a, false), Some(XCM_VERSION));
-		assert_eq!(XcmPallet::determine_version_for(&remote_b, false), Some(1));
-		assert_eq!(XcmPallet::determine_version_for(&remote_c, false), Some(1));
+		assert_eq!(XcmPallet::determine_version_for(&remote_b, false), None);
+		assert_eq!(XcmPallet::determine_version_for(&remote_c, false), None);
 		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![]);
 
 		// check xcm version for `remote_b` with `handle_unknown=true`
-		assert_eq!(XcmPallet::determine_version_for(&remote_b, true), Some(1));
+		assert_eq!(XcmPallet::determine_version_for(&remote_b, true), None);
 		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![(remote_b.into(), 1)]);
 
 		// try wrap version

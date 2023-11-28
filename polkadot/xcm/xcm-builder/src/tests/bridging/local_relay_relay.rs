@@ -23,11 +23,16 @@ use super::*;
 parameter_types! {
 	pub UniversalLocation: Junctions = X1(GlobalConsensus(Local::get()));
 	pub RemoteUniversalLocation: Junctions = X1(GlobalConsensus(Remote::get()));
+	pub RemoteWithParentCount: (NetworkId, u8) = (Remote::get(), 1);
 }
 type TheBridge =
 	TestBridge<BridgeBlobDispatcher<TestRemoteIncomingRouter, RemoteUniversalLocation, ()>>;
-type Router =
-	TestTopic<UnpaidLocalExporter<HaulBlobExporter<TheBridge, Remote, Price>, UniversalLocation>>;
+type Router = TestTopic<
+	UnpaidLocalExporter<
+		HaulBlobExporter<TheBridge, RemoteWithParentCount, Price>,
+		UniversalLocation,
+	>,
+>;
 
 /// ```nocompile
 ///  local                                  |                                      remote

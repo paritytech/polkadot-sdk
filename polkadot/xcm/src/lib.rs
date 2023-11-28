@@ -402,6 +402,14 @@ impl WrapVersion for AlwaysV2 {
 		Ok(VersionedXcm::<RuntimeCall>::V2(xcm.into().try_into()?))
 	}
 }
+impl DetermineVersion for AlwaysV2 {
+	fn determine_version_for(
+		_dest: &latest::MultiLocation,
+		_handle_unknown: bool,
+	) -> Option<Version> {
+		Some(v2::VERSION)
+	}
+}
 
 /// `WrapVersion` implementation which attempts to always convert the XCM to version 3 before
 /// wrapping it.
@@ -412,6 +420,14 @@ impl WrapVersion for AlwaysV3 {
 		xcm: impl Into<VersionedXcm<Call>>,
 	) -> Result<VersionedXcm<Call>, ()> {
 		Ok(VersionedXcm::<Call>::V3(xcm.into().try_into()?))
+	}
+}
+impl DetermineVersion for AlwaysV3 {
+	fn determine_version_for(
+		_dest: &latest::MultiLocation,
+		_handle_unknown: bool,
+	) -> Option<Version> {
+		Some(v3::VERSION)
 	}
 }
 
