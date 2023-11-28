@@ -1,3 +1,6 @@
+# uses some templating but invalid toml
+exclude = ["polkadot/zombienet_tests/**"]
+
 [formatting]
 inline_table_expand = false
 array_auto_expand = false

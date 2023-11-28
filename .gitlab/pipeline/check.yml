@@ -97,7 +97,6 @@ check-toml-format:
     - .common-refs
   script:
     - cargo install taplo-cli --locked --version 0.8.1
-    - rm -rf polkadot/zombienet_tests # this dir contains invalid toml
     - taplo format --check
 
 # More info can be found here: https://github.com/paritytech/polkadot/pull/5865
