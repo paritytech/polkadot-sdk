@@ -1005,7 +1005,7 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 pub mod env {
 
 	/// Set the value at the given key in the contract storage.
-	/// See [`pallet_contracts_uapi::Api::set_storage`]
+	/// See [`pallet_contracts_uapi::HostFn::set_storage`]
 	#[prefixed_alias]
 	fn set_storage(
 		ctx: _,
@@ -1018,7 +1018,7 @@ pub mod env {
 	}
 
 	/// Set the value at the given key in the contract storage.
-	/// See [`pallet_contracts_uapi::Api::set_storage_v1`]
+	/// See [`pallet_contracts_uapi::HostFn::set_storage_v1`]
 	#[version(1)]
 	#[prefixed_alias]
 	fn set_storage(
@@ -1032,7 +1032,7 @@ pub mod env {
 	}
 
 	/// Set the value at the given key in the contract storage.
-	/// See [`pallet_contracts_uapi::Api::set_storage_v2`]
+	/// See [`pallet_contracts_uapi::HostFn::set_storage_v2`]
 	#[version(2)]
 	#[prefixed_alias]
 	fn set_storage(
@@ -1047,14 +1047,14 @@ pub mod env {
 	}
 
 	/// Clear the value at the given key in the contract storage.
-	/// See [`pallet_contracts_uapi::Api::clear_storage`]
+	/// See [`pallet_contracts_uapi::HostFn::clear_storage`]
 	#[prefixed_alias]
 	fn clear_storage(ctx: _, memory: _, key_ptr: u32) -> Result<(), TrapReason> {
 		ctx.clear_storage(memory, KeyType::Fix, key_ptr).map(|_| ())
 	}
 
 	/// Clear the value at the given key in the contract storage.
-	/// See [`pallet_contracts_uapi::Api::clear_storage_v1`]
+	/// See [`pallet_contracts_uapi::HostFn::clear_storage_v1`]
 	#[version(1)]
 	#[prefixed_alias]
 	fn clear_storage(ctx: _, memory: _, key_ptr: u32, key_len: u32) -> Result<u32, TrapReason> {
@@ -1062,7 +1062,7 @@ pub mod env {
 	}
 
 	/// Retrieve the value under the given key from storage.
-	/// See [`pallet_contracts_uapi::Api::get_storage`]
+	/// See [`pallet_contracts_uapi::HostFn::get_storage`]
 	#[prefixed_alias]
 	fn get_storage(
 		ctx: _,
@@ -1075,7 +1075,7 @@ pub mod env {
 	}
 
 	/// Retrieve the value under the given key from storage.
-	/// See [`pallet_contracts_uapi::Api::get_storage_v1`]
+	/// See [`pallet_contracts_uapi::HostFn::get_storage_v1`]
 	#[version(1)]
 	#[prefixed_alias]
 	fn get_storage(
@@ -1090,14 +1090,14 @@ pub mod env {
 	}
 
 	/// Checks whether there is a value stored under the given key.
-	/// See [`pallet_contracts_uapi::Api::contains_storage`]
+	/// See [`pallet_contracts_uapi::HostFn::contains_storage`]
 	#[prefixed_alias]
 	fn contains_storage(ctx: _, memory: _, key_ptr: u32) -> Result<u32, TrapReason> {
 		ctx.contains_storage(memory, KeyType::Fix, key_ptr)
 	}
 
 	/// Checks whether there is a value stored under the given key.
-	/// See [`pallet_contracts_uapi::Api::contains_storage_v1`]
+	/// See [`pallet_contracts_uapi::HostFn::contains_storage_v1`]
 	#[version(1)]
 	#[prefixed_alias]
 	fn contains_storage(ctx: _, memory: _, key_ptr: u32, key_len: u32) -> Result<u32, TrapReason> {
@@ -1105,7 +1105,7 @@ pub mod env {
 	}
 
 	/// Retrieve and remove the value under the given key from storage.
-	/// See [`pallet_contracts_uapi::Api::take_storage`]
+	/// See [`pallet_contracts_uapi::HostFn::take_storage`]
 	#[prefixed_alias]
 	fn take_storage(
 		ctx: _,
@@ -1136,7 +1136,7 @@ pub mod env {
 	}
 
 	/// Transfer some value to another account.
-	/// See [`pallet_contracts_uapi::Api::transfer`].
+	/// See [`pallet_contracts_uapi::HostFn::transfer`].
 	#[prefixed_alias]
 	fn transfer(
 		ctx: _,
@@ -1198,7 +1198,7 @@ pub mod env {
 	}
 
 	/// Make a call to another contract.
-	/// See [`pallet_contracts_uapi::Api::call_v1`].
+	/// See [`pallet_contracts_uapi::HostFn::call_v1`].
 	#[version(1)]
 	#[prefixed_alias]
 	fn call(
@@ -1230,7 +1230,7 @@ pub mod env {
 	}
 
 	/// Make a call to another contract.
-	/// See [`pallet_contracts_uapi::Api::call_v2`].
+	/// See [`pallet_contracts_uapi::HostFn::call_v2`].
 	#[version(2)]
 	#[unstable]
 	fn call(
@@ -1264,7 +1264,7 @@ pub mod env {
 	}
 
 	/// Execute code in the context (storage, caller, value) of the current contract.
-	/// See [`pallet_contracts_uapi::Api::delegate_call`].
+	/// See [`pallet_contracts_uapi::HostFn::delegate_call`].
 	#[prefixed_alias]
 	fn delegate_call(
 		ctx: _,
@@ -1288,7 +1288,7 @@ pub mod env {
 	}
 
 	/// Instantiate a contract with the specified code hash.
-	/// See [`pallet_contracts_uapi::Api::instantiate`].
+	/// See [`pallet_contracts_uapi::HostFn::instantiate`].
 	///
 	/// # Note
 	///
@@ -1331,7 +1331,7 @@ pub mod env {
 	}
 
 	/// Instantiate a contract with the specified code hash.
-	/// See [`pallet_contracts_uapi::Api::instantiate_v1`].
+	/// See [`pallet_contracts_uapi::HostFn::instantiate_v1`].
 	#[version(1)]
 	#[prefixed_alias]
 	fn instantiate(
@@ -1367,7 +1367,7 @@ pub mod env {
 	}
 
 	/// Instantiate a contract with the specified code hash.
-	/// See [`pallet_contracts_uapi::Api::instantiate_v2`].
+	/// See [`pallet_contracts_uapi::HostFn::instantiate_v2`].
 	#[version(2)]
 	#[unstable]
 	fn instantiate(
@@ -1405,7 +1405,7 @@ pub mod env {
 	}
 
 	/// Remove the calling account and transfer remaining balance.
-	/// See [`pallet_contracts_uapi::Api::terminate`].
+	/// See [`pallet_contracts_uapi::HostFn::terminate`].
 	///
 	/// # Note
 	///
@@ -1423,7 +1423,7 @@ pub mod env {
 	}
 
 	/// Remove the calling account and transfer remaining **free** balance.
-	/// See [`pallet_contracts_uapi::Api::terminate_v1`].
+	/// See [`pallet_contracts_uapi::HostFn::terminate_v1`].
 	#[version(1)]
 	#[prefixed_alias]
 	fn terminate(ctx: _, memory: _, beneficiary_ptr: u32) -> Result<(), TrapReason> {
@@ -1431,7 +1431,7 @@ pub mod env {
 	}
 
 	/// Stores the input passed by the caller into the supplied buffer.
-	/// See [`pallet_contracts_uapi::Api::input`].
+	/// See [`pallet_contracts_uapi::HostFn::input`].
 	#[prefixed_alias]
 	fn input(ctx: _, memory: _, out_ptr: u32, out_len_ptr: u32) -> Result<(), TrapReason> {
 		ctx.charge_gas(RuntimeCosts::InputBase)?;
@@ -1447,7 +1447,7 @@ pub mod env {
 	}
 
 	/// Cease contract execution and save a data buffer as a result of the execution.
-	/// See [`pallet_contracts_uapi::Api::return_value`].
+	/// See [`pallet_contracts_uapi::HostFn::return_value`].
 	fn seal_return(
 		ctx: _,
 		memory: _,
@@ -1463,7 +1463,7 @@ pub mod env {
 	}
 
 	/// Stores the address of the caller into the supplied buffer.
-	/// See [`pallet_contracts_uapi::Api::caller`].
+	/// See [`pallet_contracts_uapi::HostFn::caller`].
 	#[prefixed_alias]
 	fn caller(ctx: _, memory: _, out_ptr: u32, out_len_ptr: u32) -> Result<(), TrapReason> {
 		ctx.charge_gas(RuntimeCosts::Caller)?;
@@ -1479,7 +1479,7 @@ pub mod env {
 	}
 
 	/// Checks whether a specified address belongs to a contract.
-	/// See [`pallet_contracts_uapi::Api::is_contract`].
+	/// See [`pallet_contracts_uapi::HostFn::is_contract`].
 	#[prefixed_alias]
 	fn is_contract(ctx: _, memory: _, account_ptr: u32) -> Result<u32, TrapReason> {
 		ctx.charge_gas(RuntimeCosts::IsContract)?;
@@ -1490,7 +1490,7 @@ pub mod env {
 	}
 
 	/// Retrieve the code hash for a specified contract address.
-	/// See [`pallet_contracts_uapi::Api::code_hash`].
+	/// See [`pallet_contracts_uapi::HostFn::code_hash`].
 	#[prefixed_alias]
 	fn code_hash(
 		ctx: _,
@@ -1518,7 +1518,7 @@ pub mod env {
 	}
 
 	/// Retrieve the code hash of the currently executing contract.
-	/// See [`pallet_contracts_uapi::Api::own_code_hash`].
+	/// See [`pallet_contracts_uapi::HostFn::own_code_hash`].
 	#[prefixed_alias]
 	fn own_code_hash(ctx: _, memory: _, out_ptr: u32, out_len_ptr: u32) -> Result<(), TrapReason> {
 		ctx.charge_gas(RuntimeCosts::OwnCodeHash)?;
@@ -1534,7 +1534,7 @@ pub mod env {
 	}
 
 	/// Checks whether the caller of the current contract is the origin of the whole call stack.
-	/// See [`pallet_contracts_uapi::Api::caller_is_origin`].
+	/// See [`pallet_contracts_uapi::HostFn::caller_is_origin`].
 	#[prefixed_alias]
 	fn caller_is_origin(ctx: _, _memory: _) -> Result<u32, TrapReason> {
 		ctx.charge_gas(RuntimeCosts::CallerIsOrigin)?;
@@ -1542,7 +1542,7 @@ pub mod env {
 	}
 
 	/// Checks whether the caller of the current contract is root.
-	/// See [`pallet_contracts_uapi::Api::caller_is_root`].
+	/// See [`pallet_contracts_uapi::HostFn::caller_is_root`].
 	#[unstable]
 	fn caller_is_root(ctx: _, _memory: _) -> Result<u32, TrapReason> {
 		ctx.charge_gas(RuntimeCosts::CallerIsRoot)?;
@@ -1550,7 +1550,7 @@ pub mod env {
 	}
 
 	/// Stores the address of the current contract into the supplied buffer.
-	/// See [`pallet_contracts_uapi::Api::address`].
+	/// See [`pallet_contracts_uapi::HostFn::address`].
 	#[prefixed_alias]
 	fn address(ctx: _, memory: _, out_ptr: u32, out_len_ptr: u32) -> Result<(), TrapReason> {
 		ctx.charge_gas(RuntimeCosts::Address)?;
@@ -1565,7 +1565,7 @@ pub mod env {
 	}
 
 	/// Stores the price for the specified amount of gas into the supplied buffer.
-	/// See [`pallet_contracts_uapi::Api::weight_to_fee`].
+	/// See [`pallet_contracts_uapi::HostFn::weight_to_fee`].
 	#[prefixed_alias]
 	fn weight_to_fee(
 		ctx: _,
@@ -1587,7 +1587,7 @@ pub mod env {
 	}
 
 	/// Stores the price for the specified amount of weight into the supplied buffer.
-	/// See [`pallet_contracts_uapi::Api::weight_to_fee_v1`].
+	/// See [`pallet_contracts_uapi::HostFn::weight_to_fee_v1`].
 	#[version(1)]
 	#[unstable]
 	fn weight_to_fee(
@@ -1611,7 +1611,7 @@ pub mod env {
 	}
 
 	/// Stores the weight left into the supplied buffer.
-	/// See [`pallet_contracts_uapi::Api::gas_left`].
+	/// See [`pallet_contracts_uapi::HostFn::gas_left`].
 	#[prefixed_alias]
 	fn gas_left(ctx: _, memory: _, out_ptr: u32, out_len_ptr: u32) -> Result<(), TrapReason> {
 		ctx.charge_gas(RuntimeCosts::GasLeft)?;
@@ -1627,7 +1627,7 @@ pub mod env {
 	}
 
 	/// Stores the amount of weight left into the supplied buffer.
-	/// See [`pallet_contracts_uapi::Api::gas_left_v1`].
+	/// See [`pallet_contracts_uapi::HostFn::gas_left_v1`].
 	#[version(1)]
 	#[unstable]
 	fn gas_left(ctx: _, memory: _, out_ptr: u32, out_len_ptr: u32) -> Result<(), TrapReason> {
@@ -1644,7 +1644,7 @@ pub mod env {
 	}
 
 	/// Stores the *free* balance of the current account into the supplied buffer.
-	/// See [`pallet_contracts_uapi::Api::balance`].
+	/// See [`pallet_contracts_uapi::HostFn::balance`].
 	#[prefixed_alias]
 	fn balance(ctx: _, memory: _, out_ptr: u32, out_len_ptr: u32) -> Result<(), TrapReason> {
 		ctx.charge_gas(RuntimeCosts::Balance)?;
@@ -1659,7 +1659,7 @@ pub mod env {
 	}
 
 	/// Stores the value transferred along with this call/instantiate into the supplied buffer.
-	/// See [`pallet_contracts_uapi::Api::value_transferred`].
+	/// See [`pallet_contracts_uapi::HostFn::value_transferred`].
 	#[prefixed_alias]
 	fn value_transferred(
 		ctx: _,
@@ -1759,7 +1759,7 @@ pub mod env {
 	}
 
 	/// Load the latest block timestamp into the supplied buffer
-	/// See [`pallet_contracts_uapi::Api::now`].
+	/// See [`pallet_contracts_uapi::HostFn::now`].
 	#[prefixed_alias]
 	fn now(ctx: _, memory: _, out_ptr: u32, out_len_ptr: u32) -> Result<(), TrapReason> {
 		ctx.charge_gas(RuntimeCosts::Now)?;
@@ -1774,7 +1774,7 @@ pub mod env {
 	}
 
 	/// Stores the minimum balance (a.k.a. existential deposit) into the supplied buffer.
-	/// See [`pallet_contracts_uapi::Api::minimum_balance`].
+	/// See [`pallet_contracts_uapi::HostFn::minimum_balance`].
 	#[prefixed_alias]
 	fn minimum_balance(
 		ctx: _,
@@ -1923,7 +1923,7 @@ pub mod env {
 	}
 
 	/// Deposit a contract event with the data buffer and optional list of topics.
-	/// See [pallet_contracts_uapi::Api::deposit_event]
+	/// See [pallet_contracts_uapi::HostFn::deposit_event]
 	#[prefixed_alias]
 	fn deposit_event(
 		ctx: _,
@@ -1959,7 +1959,7 @@ pub mod env {
 	}
 
 	/// Stores the current block number of the current contract into the supplied buffer.
-	/// See [`pallet_contracts_uapi::Api::block_number`].
+	/// See [`pallet_contracts_uapi::HostFn::block_number`].
 	#[prefixed_alias]
 	fn block_number(ctx: _, memory: _, out_ptr: u32, out_len_ptr: u32) -> Result<(), TrapReason> {
 		ctx.charge_gas(RuntimeCosts::BlockNumber)?;
@@ -1974,7 +1974,7 @@ pub mod env {
 	}
 
 	/// Computes the SHA2 256-bit hash on the given input buffer.
-	/// See [`pallet_contracts_uapi::Api::hash_sha2_256`].
+	/// See [`pallet_contracts_uapi::HostFn::hash_sha2_256`].
 	#[prefixed_alias]
 	fn hash_sha2_256(
 		ctx: _,
@@ -1990,7 +1990,7 @@ pub mod env {
 	}
 
 	/// Computes the KECCAK 256-bit hash on the given input buffer.
-	/// See [`pallet_contracts_uapi::Api::hash_keccak_256`].
+	/// See [`pallet_contracts_uapi::HostFn::hash_keccak_256`].
 	#[prefixed_alias]
 	fn hash_keccak_256(
 		ctx: _,
@@ -2006,7 +2006,7 @@ pub mod env {
 	}
 
 	/// Computes the BLAKE2 256-bit hash on the given input buffer.
-	/// See [`pallet_contracts_uapi::Api::hash_blake2_256`].
+	/// See [`pallet_contracts_uapi::HostFn::hash_blake2_256`].
 	#[prefixed_alias]
 	fn hash_blake2_256(
 		ctx: _,
@@ -2022,7 +2022,7 @@ pub mod env {
 	}
 
 	/// Computes the BLAKE2 128-bit hash on the given input buffer.
-	/// See [`pallet_contracts_uapi::Api::hash_blake2_128`].
+	/// See [`pallet_contracts_uapi::HostFn::hash_blake2_128`].
 	#[prefixed_alias]
 	fn hash_blake2_128(
 		ctx: _,
@@ -2038,7 +2038,7 @@ pub mod env {
 	}
 
 	/// Call into the chain extension provided by the chain if any.
-	/// See [`pallet_contracts_uapi::Api::call_chain_extension`].
+	/// See [`pallet_contracts_uapi::HostFn::call_chain_extension`].
 	#[prefixed_alias]
 	fn call_chain_extension(
 		ctx: _,
@@ -2121,7 +2121,7 @@ pub mod env {
 	}
 
 	/// Execute an XCM program locally, using the contract's address as the origin.
-	/// See [`pallet_contracts_uapi::Api::execute_xcm`].
+	/// See [`pallet_contracts_uapi::HostFn::execute_xcm`].
 	#[unstable]
 	fn xcm_execute(
 		ctx: _,
@@ -2160,7 +2160,7 @@ pub mod env {
 	}
 
 	/// Send an XCM program from the contract to the specified destination.
-	/// See [`pallet_contracts_uapi::Api::send_xcm`].
+	/// See [`pallet_contracts_uapi::HostFn::send_xcm`].
 	#[unstable]
 	fn xcm_send(
 		ctx: _,
@@ -2198,7 +2198,7 @@ pub mod env {
 	}
 
 	/// Recovers the ECDSA public key from the given message hash and signature.
-	/// See [`pallet_contracts_uapi::Api::ecdsa_recover`].
+	/// See [`pallet_contracts_uapi::HostFn::ecdsa_recover`].
 	#[prefixed_alias]
 	fn ecdsa_recover(
 		ctx: _,
@@ -2229,7 +2229,7 @@ pub mod env {
 	}
 
 	/// Verify a sr25519 signature
-	/// See [`pallet_contracts_uapi::Api::sr25519_verify`].
+	/// See [`pallet_contracts_uapi::HostFn::sr25519_verify`].
 	#[unstable]
 	fn sr25519_verify(
 		ctx: _,
@@ -2257,7 +2257,7 @@ pub mod env {
 	}
 
 	/// Replace the contract code at the specified address with new code.
-	/// See [`pallet_contracts_uapi::Api::set_code_hash`].
+	/// See [`pallet_contracts_uapi::HostFn::set_code_hash`].
 	#[prefixed_alias]
 	fn set_code_hash(ctx: _, memory: _, code_hash_ptr: u32) -> Result<ReturnErrorCode, TrapReason> {
 		ctx.charge_gas(RuntimeCosts::SetCodeHash)?;
@@ -2273,7 +2273,7 @@ pub mod env {
 	}
 
 	/// Calculates Ethereum address from the ECDSA compressed public key and stores
-	/// See [`pallet_contracts_uapi::Api::ecdsa_to_eth_address`].
+	/// See [`pallet_contracts_uapi::HostFn::ecdsa_to_eth_address`].
 	#[prefixed_alias]
 	fn ecdsa_to_eth_address(
 		ctx: _,
@@ -2296,7 +2296,7 @@ pub mod env {
 
 	/// Returns the number of times the currently executing contract exists on the call stack in
 	/// addition to the calling instance.
-	/// See [`pallet_contracts_uapi::Api::reentrance_count`].
+	/// See [`pallet_contracts_uapi::HostFn::reentrance_count`].
 	#[unstable]
 	fn reentrance_count(ctx: _, memory: _) -> Result<u32, TrapReason> {
 		ctx.charge_gas(RuntimeCosts::ReentrantCount)?;
@@ -2305,7 +2305,7 @@ pub mod env {
 
 	/// Returns the number of times specified contract exists on the call stack. Delegated calls are
 	/// not counted as separate calls.
-	/// See [`pallet_contracts_uapi::Api::account_reentrance_count`].
+	/// See [`pallet_contracts_uapi::HostFn::account_reentrance_count`].
 	#[unstable]
 	fn account_reentrance_count(ctx: _, memory: _, account_ptr: u32) -> Result<u32, TrapReason> {
 		ctx.charge_gas(RuntimeCosts::AccountEntranceCount)?;
@@ -2315,14 +2315,14 @@ pub mod env {
 	}
 
 	/// Returns a nonce that is unique per contract instantiation.
-	/// See [`pallet_contracts_uapi::Api::instantiation_nonce`].
+	/// See [`pallet_contracts_uapi::HostFn::instantiation_nonce`].
 	fn instantiation_nonce(ctx: _, _memory: _) -> Result<u64, TrapReason> {
 		ctx.charge_gas(RuntimeCosts::InstantationNonce)?;
 		Ok(ctx.ext.nonce())
 	}
 
 	/// Adds a new delegate dependency to the contract.
-	/// See [`pallet_contracts_uapi::Api::add_delegate_dependency`].
+	/// See [`pallet_contracts_uapi::HostFn::add_delegate_dependency`].
 	#[unstable]
 	fn add_delegate_dependency(ctx: _, memory: _, code_hash_ptr: u32) -> Result<(), TrapReason> {
 		ctx.charge_gas(RuntimeCosts::AddDelegateDependency)?;
@@ -2332,7 +2332,7 @@ pub mod env {
 	}
 
 	/// Removes the delegate dependency from the contract.
-	/// see [`pallet_contracts_uapi::Api::remove_delegate_dependency`].
+	/// see [`pallet_contracts_uapi::HostFn::remove_delegate_dependency`].
 	#[unstable]
 	fn remove_delegate_dependency(ctx: _, memory: _, code_hash_ptr: u32) -> Result<(), TrapReason> {
 		ctx.charge_gas(RuntimeCosts::RemoveDelegateDependency)?;
