@@ -98,6 +98,10 @@ pub struct RunCmd {
 	#[arg(long)]
 	pub no_beefy: bool,
 
+	/// Enable the block authoring backoff that is triggered when finality is lagging.
+	#[arg(long)]
+	pub force_authoring_backoff: bool,
+
 	/// Add the destination address to the 'Jaeger' agent.
 	///
 	/// Must be valid socket address, of format `IP:Port` (commonly `127.0.0.1:6831`).
