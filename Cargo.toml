@@ -193,7 +193,6 @@ members = [
 	"polkadot/xcm/xcm-simulator",
 	"polkadot/xcm/xcm-simulator/example",
 	"polkadot/xcm/xcm-simulator/fuzzer",
-	"substrate",
 	"substrate/bin/minimal/node",
 	"substrate/bin/minimal/runtime",
 	"substrate/bin/node-template/node",
