@@ -1,6 +1,7 @@
 # Testing
 
-Automated testing is an essential tool to assure correctness.
+Testing is an essential tool to assure correctness. This document describes how we test the polkadot code, whether
+locally, at scale, and/or automatically in CI.
 
 ## Scopes
 
@@ -13,7 +14,7 @@ enough to run `cargo test` in the crate you are testing.
 
 For full coverage you may have to pass some additional features. For example:
 
-```
+```sh
 cargo test --features ci-only-tests
 ```
 
@@ -28,37 +29,35 @@ outgoing messages of the subsystem under test. See e.g. the `statement-distribut
 
 #### Behavior tests (3)
 
-Launching small scale networks, with multiple adversarial nodes without any further tooling required. This should
-include tests around the thresholds in order to evaluate the error handling once certain assumed invariants fail.
+Launching small scale networks, with multiple adversarial nodes. This should include tests around the thresholds in
+order to evaluate the error handling once certain assumed invariants fail.
 
-Currently, we commonly use **zombienet** to run mini test-networks locally on
-your own machine.
+Currently, we commonly use **zombienet** to run mini test-networks, whether locally or in CI. To run on your machine:
 
-First, make sure you have [zombienet][zombienet] installed.
+- First, make sure you have [zombienet][zombienet] installed.
 
-Now, all the required binaries must be installed in your $PATH. You must run the
-following from the `polkadot/` directory in order to test your changes. (Not
-`zombienet setup`, or you will get the released binaries without your local
-changes!)
+- Now, all the required binaries must be installed in your $PATH. You must run the following from the `polkadot/`
+directory in order to test your changes. (Not `zombienet setup`, or you will get the released binaries without your
+local changes!)
 
 ```sh
 cargo install --path . --locked
 ```
 
-You will also need to install whatever binaries are required for your specific
-tests. For example, to install `undying-collator`, from `polkadot/`, run:
+- You will also need to install whatever binaries are required for your specific tests. For example, to install
+`undying-collator`, from `polkadot/`, run:
 
 ```sh
 cargo install --path ./parachain/test-parachains/undying/collator --locked
 ```
 
-Finally, run the zombienet test from the `polkadot` directory:
+- Finally, run the zombienet test from the `polkadot` directory:
 
 ```sh
 RUST_LOG=parachain::pvf=trace zombienet --provider=native spawn zombienet_tests/functional/0001-parachains-pvf.toml
 ```
 
-You can pick a validator node like `alice` from the output and view its logs
+- You can pick a validator node like `alice` from the output and view its logs
 (`tail -f <log_file>`) or metrics. Make sure there is nothing funny in the logs
 (try `grep WARN <log_file>`).
 
