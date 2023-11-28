@@ -38,7 +38,7 @@ pub use polkadot_runtime_parachains::{
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
 };
 pub use xcm::{
-	prelude::{MultiLocation, OriginKind, Outcome, VersionedXcm},
+	prelude::{MultiLocation, OriginKind, Outcome, VersionedXcm, XcmVersion},
 	v3::Error,
 	DoubleEncoded,
 };
@@ -789,4 +789,24 @@ macro_rules! impl_foreign_assets_helpers_for_parachain {
 			}
 		}
 	};
+}
+
+#[macro_export]
+macro_rules! impl_xcm_helpers_for_parachain {
+	( $chain:ident ) => {
+		$crate::impls::paste::paste! {
+			impl<N: $crate::impls::Network> $chain<N> {
+				/// Set xcm version for destination
+				pub fn force_xcm_version(dest: $crate::impls::MultiLocation, version: $crate::impls::XcmVersion) {
+					<Self as $crate::impls::TestExt>::execute_with(|| {
+						$crate::impls::assert_ok!(<Self as [<$chain ParaPallet>]>::PolkadotXcm::force_xcm_version(
+							<Self as $crate::impls::Chain>::RuntimeOrigin::root(),
+							$crate::impls::bx!(dest),
+							version,
+						));
+					});
+				}
+			}
+		}
+	}
 }

@@ -13,6 +13,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::*;
+
 mod asset_transfers;
 mod send_xcm;
 mod teleport;
+
+pub(crate) fn bridge_hub_westend_set_xcm_version_for_bridge_hub_rococo(version: XcmVersion) {
+	BridgeHubWestend::force_xcm_version(
+		MultiLocation {
+			parents: 2,
+			interior: X2(
+				GlobalConsensus(NetworkId::Rococo),
+				Parachain(BridgeHubRococo::para_id().into()),
+			),
+		},
+		version,
+	);
+}

@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::*;
+use crate::{tests::bridge_hub_westend_set_xcm_version_for_bridge_hub_rococo, *};
 
 #[test]
 fn send_xcm_from_westend_relay_to_rococo_asset_hub() {
@@ -23,6 +23,8 @@ fn send_xcm_from_westend_relay_to_rococo_asset_hub() {
 	let destination = Westend::child_location_of(BridgeHubWestend::para_id()).into();
 	let weight_limit = WeightLimit::Unlimited;
 	let check_origin = None;
+
+	bridge_hub_westend_set_xcm_version_for_bridge_hub_rococo(XCM_VERSION);
 
 	let remote_xcm = Xcm(vec![ClearOrigin]);
 
