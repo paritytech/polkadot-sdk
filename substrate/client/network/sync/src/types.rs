@@ -23,14 +23,13 @@ use sc_network_common::{role::Roles, types::ReputationChange};
 
 use libp2p::PeerId;
 
+use crate::warp::WarpSyncProgress;
 use sc_network_common::sync::message::BlockRequest;
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 use std::{any::Any, fmt, fmt::Formatter, pin::Pin, sync::Arc};
 
 pub use sc_network_common::sync::SyncMode;
-
-use crate::warp::WarpSyncProgress;
 
 /// The sync status of a peer we are trying to sync with
 #[derive(Debug)]
