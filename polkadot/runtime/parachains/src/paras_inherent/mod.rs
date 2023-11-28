@@ -964,7 +964,7 @@ fn sanitize_backed_candidates<
 	});
 
 	// Filter out backing statements from disabled validators
-	let dropped_disabled = filter_backed_statements_from_disabled::<T>(
+	let dropped_disabled = filter_backed_statements_from_disabled_validators::<T>(
 		&mut backed_candidates,
 		&allowed_relay_parents,
 		scheduled,
@@ -1070,7 +1070,7 @@ fn limit_and_sanitize_disputes<
 // Filters statements from disabled validators in `BackedCandidate`, non-scheduled candidates and
 // few more sanity checks. Returns `true` if at least one statement is removed and `false`
 // otherwise.
-fn filter_backed_statements_from_disabled<T: shared::Config + scheduler::Config>(
+fn filter_backed_statements_from_disabled_validators<T: shared::Config + scheduler::Config>(
 	backed_candidates: &mut Vec<BackedCandidate<<T as frame_system::Config>::Hash>>,
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 	scheduled: &BTreeMap<ParaId, CoreIndex>,

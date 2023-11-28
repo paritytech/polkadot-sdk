@@ -1439,7 +1439,7 @@ mod sanitizers {
 
 				// Eve is disabled but no backing statement is signed by it so nothing should be
 				// filtered
-				assert!(!filter_backed_statements_from_disabled::<Test>(
+				assert!(!filter_backed_statements_from_disabled_validators::<Test>(
 					&mut backed_candidates,
 					&<shared::Pallet<Test>>::allowed_relay_parents(),
 					&scheduled_paras
@@ -1475,7 +1475,7 @@ mod sanitizers {
 				);
 				let untouched = backed_candidates.get(1).unwrap().clone();
 
-				assert!(filter_backed_statements_from_disabled::<Test>(
+				assert!(filter_backed_statements_from_disabled_validators::<Test>(
 					&mut backed_candidates,
 					&<shared::Pallet<Test>>::allowed_relay_parents(),
 					&scheduled_paras
@@ -1511,7 +1511,7 @@ mod sanitizers {
 				assert_eq!(backed_candidates.get(0).unwrap().validity_votes.len(), 2);
 				let untouched = backed_candidates.get(1).unwrap().clone();
 
-				assert!(filter_backed_statements_from_disabled::<Test>(
+				assert!(filter_backed_statements_from_disabled_validators::<Test>(
 					&mut backed_candidates,
 					&<shared::Pallet<Test>>::allowed_relay_parents(),
 					&scheduled_paras
