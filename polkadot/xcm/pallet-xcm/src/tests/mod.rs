@@ -474,10 +474,10 @@ fn incomplete_execute_reverts_side_effects() {
 	let balances = vec![(ALICE, INITIAL_BALANCE), (BOB, INITIAL_BALANCE)];
 	new_test_ext_with_balances(balances).execute_with(|| {
 		let weight = BaseXcmWeight::get() * 4;
-		let dest: MultiLocation = Junction::AccountId32 { network: None, id: BOB.into() }.into();
+		let dest: Location = Junction::AccountId32 { network: None, id: BOB.into() }.into();
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
 		let amount_to_send = INITIAL_BALANCE - ExistentialDeposit::get();
-		let assets: MultiAssets = (Here, amount_to_send).into();
+		let assets: Assets = (Here, amount_to_send).into();
 		let result = XcmPallet::execute(
 			RuntimeOrigin::signed(ALICE),
 			Box::new(VersionedXcm::from(Xcm(vec![

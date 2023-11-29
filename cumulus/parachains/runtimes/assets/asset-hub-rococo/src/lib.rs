@@ -1147,16 +1147,16 @@ impl_runtime_apis! {
 		Block,
 		Balance,
 		u128,
-		Box<Location>,
+		Box<xcm::v3::MultiLocation>,
 	> for Runtime
 	{
-		fn quote_price_exact_tokens_for_tokens(asset1: Box<Location>, asset2: Box<Location>, amount: u128, include_fee: bool) -> Option<Balance> {
+		fn quote_price_exact_tokens_for_tokens(asset1: Box<xcm::v3::MultiLocation>, asset2: Box<xcm::v3::MultiLocation>, amount: u128, include_fee: bool) -> Option<Balance> {
 			AssetConversion::quote_price_exact_tokens_for_tokens(asset1, asset2, amount, include_fee)
 		}
-		fn quote_price_tokens_for_exact_tokens(asset1: Box<Location>, asset2: Box<Location>, amount: u128, include_fee: bool) -> Option<Balance> {
+		fn quote_price_tokens_for_exact_tokens(asset1: Box<xcm::v3::MultiLocation>, asset2: Box<xcm::v3::MultiLocation>, amount: u128, include_fee: bool) -> Option<Balance> {
 			AssetConversion::quote_price_tokens_for_exact_tokens(asset1, asset2, amount, include_fee)
 		}
-		fn get_reserves(asset1: Box<Location>, asset2: Box<Location>) -> Option<(Balance, Balance)> {
+		fn get_reserves(asset1: Box<xcm::v3::MultiLocation>, asset2: Box<xcm::v3::MultiLocation>) -> Option<(Balance, Balance)> {
 			AssetConversion::get_reserves(&asset1, &asset2).ok()
 		}
 	}
