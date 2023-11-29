@@ -30,6 +30,7 @@ use jsonrpsee::{
 };
 use serde::{Deserialize, Serialize};
 
+use sp_api::{CallApiAt, RuntimeInstance};
 use sp_blockchain::HeaderBackend;
 use sp_core::{
 	offchain::{storage::OffchainDb, OffchainDbExt, OffchainStorage},
@@ -147,18 +148,17 @@ impl<Client, Block, MmrHash, S> MmrApiServer<<Block as BlockT>::Hash, NumberFor<
 	for Mmr<Client, (Block, MmrHash), S>
 where
 	Block: BlockT,
-	Client: Send + Sync + 'static + HeaderBackend<Block>,
-	Client::Api: MmrRuntimeApi<Block, MmrHash, NumberFor<Block>>,
+	Client: Send + Sync + 'static + HeaderBackend<Block> + CallApiAt<Block>,
 	MmrHash: Codec + Send + Sync + 'static,
 	S: OffchainStorage + 'static,
 {
 	fn mmr_root(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<MmrHash> {
-		let block_hash = at.unwrap_or_else(||
-			// If the block hash is not supplied assume the best block.
-			self.client.info().best_hash);
-		let api = self.client.runtime_api();
-		let mmr_root = api
-			.mmr_root(block_hash)
+		// If the block hash is not supplied assume the best block.
+		let block_hash = at.unwrap_or_else(|| self.client.info().best_hash);
+		let mut api =
+			RuntimeInstance::builder(&*self.client, block_hash).off_chain_context().build();
+
+		let mmr_root = MmrRuntimeApi::<MmrHash, NumberFor<Block>>::mmr_root(&mut api)
 			.map_err(runtime_error_into_rpc_error)?
 			.map_err(mmr_error_into_rpc_error)?;
 		Ok(mmr_root)
@@ -170,23 +170,30 @@ where
 		best_known_block_number: Option<NumberFor<Block>>,
 		at: Option<<Block as BlockT>::Hash>,
 	) -> RpcResult<LeavesProof<<Block as BlockT>::Hash>> {
-		let mut api = self.client.runtime_api();
-		let block_hash = at.unwrap_or_else(||
-			// If the block hash is not supplied assume the best block.
-			self.client.info().best_hash);
+		// If the block hash is not supplied assume the best block.
+		let block_hash = at.unwrap_or_else(|| self.client.info().best_hash);
 
-		api.register_extension(OffchainDbExt::new(self.offchain_db.clone()));
+		let mut api = RuntimeInstance::builder(&*self.client, block_hash)
+			.off_chain_context()
+			.register_extension(OffchainDbExt::new(self.offchain_db.clone()))
+			.build();
 
-		let (leaves, proof) = api
-			.generate_proof(block_hash, block_numbers, best_known_block_number)
-			.map_err(runtime_error_into_rpc_error)?
-			.map_err(mmr_error_into_rpc_error)?;
+		let (leaves, proof) = MmrRuntimeApi::<MmrHash, NumberFor<Block>>::generate_proof(
+			&mut api,
+			block_numbers,
+			best_known_block_number,
+		)
+		.map_err(runtime_error_into_rpc_error)?
+		.map_err(mmr_error_into_rpc_error)?;
 
 		Ok(LeavesProof::new(block_hash, leaves, proof))
 	}
 
 	fn verify_proof(&self, proof: LeavesProof<<Block as BlockT>::Hash>) -> RpcResult<bool> {
-		let mut api = self.client.runtime_api();
+		let mut api = RuntimeInstance::builder(&*self.client, proof.block_hash)
+			.off_chain_context()
+			.register_extension(OffchainDbExt::new(self.offchain_db.clone()))
+			.build();
 
 		let leaves = Decode::decode(&mut &proof.leaves.0[..])
 			.map_err(|e| CallError::InvalidParams(anyhow::Error::new(e)))?;
@@ -194,9 +201,7 @@ where
 		let decoded_proof = Decode::decode(&mut &proof.proof.0[..])
 			.map_err(|e| CallError::InvalidParams(anyhow::Error::new(e)))?;
 
-		api.register_extension(OffchainDbExt::new(self.offchain_db.clone()));
-
-		api.verify_proof(proof.block_hash, leaves, decoded_proof)
+		MmrRuntimeApi::<MmrHash, NumberFor<Block>>::verify_proof(&mut api, leaves, decoded_proof)
 			.map_err(runtime_error_into_rpc_error)?
 			.map_err(mmr_error_into_rpc_error)?;
 
@@ -206,9 +211,11 @@ where
 	fn verify_proof_stateless(
 		&self,
 		mmr_root: MmrHash,
-		proof: LeavesProof<<Block as BlockT>::Hash>,
+		proof: LeavesProof<Block::Hash>,
 	) -> RpcResult<bool> {
-		let api = self.client.runtime_api();
+		let mut api = RuntimeInstance::builder(&*self.client, proof.block_hash)
+			.off_chain_context()
+			.build();
 
 		let leaves = Decode::decode(&mut &proof.leaves.0[..])
 			.map_err(|e| CallError::InvalidParams(anyhow::Error::new(e)))?;
@@ -216,9 +223,14 @@ where
 		let decoded_proof = Decode::decode(&mut &proof.proof.0[..])
 			.map_err(|e| CallError::InvalidParams(anyhow::Error::new(e)))?;
 
-		api.verify_proof_stateless(proof.block_hash, mmr_root, leaves, decoded_proof)
-			.map_err(runtime_error_into_rpc_error)?
-			.map_err(mmr_error_into_rpc_error)?;
+		MmrRuntimeApi::<MmrHash, NumberFor<Block>>::verify_proof_stateless(
+			&mut api,
+			mmr_root,
+			leaves,
+			decoded_proof,
+		)
+		.map_err(runtime_error_into_rpc_error)?
+		.map_err(mmr_error_into_rpc_error)?;
 
 		Ok(true)
 	}
