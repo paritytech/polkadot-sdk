@@ -793,11 +793,11 @@ where
 			},
 			SyncingAction::Finished => {
 				let connected_peers = self.peers.iter().filter_map(|(peer_id, peer)| {
-					if peer.info.roles.is_full() {
-						Some((*peer_id, peer.info.best_hash, peer.info.best_number))
-					} else {
-						None
-					}
+					peer.info.roles.is_full().then_some((
+						*peer_id,
+						peer.info.best_hash,
+						peer.info.best_number,
+					))
 				});
 				self.strategy.switch_to_next(
 					&self.syncing_config,

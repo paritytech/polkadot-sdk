@@ -399,7 +399,7 @@ where
 		}
 
 		let Phase::TargetBlock(header) = &mut self.phase else {
-			debug!(target: "sync", "Unexpected target block response from {peer_id}");
+			debug!(target: LOG_TARGET, "Unexpected target block response from {peer_id}");
 			return Err(BadPeer(peer_id, rep::UNEXPECTED_RESPONSE))
 		};
 
@@ -426,7 +426,7 @@ where
 
 		let Some(block_header) = &block.header else {
 			debug!(
-				target: "sync",
+				target: LOG_TARGET,
 				"Downloading target block failed: missing header in response from {peer_id}.",
 			);
 			return Err(BadPeer(peer_id, rep::VERIFICATION_FAIL))
@@ -434,7 +434,7 @@ where
 
 		if block_header != header {
 			debug!(
-				target: "sync",
+				target: LOG_TARGET,
 				"Downloading target block failed: different header in response from {peer_id}.",
 			);
 			return Err(BadPeer(peer_id, rep::VERIFICATION_FAIL))
@@ -442,7 +442,7 @@ where
 
 		if block.body.is_none() {
 			debug!(
-				target: "sync",
+				target: LOG_TARGET,
 				"Downloading target block failed: missing body in response from {peer_id}.",
 			);
 			return Err(BadPeer(peer_id, rep::VERIFICATION_FAIL))
@@ -558,7 +558,7 @@ where
 		}
 	}
 
-	/// Get the number of peers known to syncing.
+	/// Get the number of peers known to warp sync.
 	pub fn num_peers(&self) -> usize {
 		self.peers.len()
 	}
