@@ -1378,7 +1378,14 @@ impl_runtime_apis! {
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
 						xcm_config::bridging::SiblingBridgeHubParaId::get().into()
 					);
-					xcm_config::bridging::to_westend::AssetHubWestend::get()
+					let bridged_asset_hub = xcm_config::bridging::to_westend::AssetHubWestend::get();
+					let _ = PolkadotXcm::force_xcm_version(
+						RuntimeOrigin::root(),
+						Box::new(bridged_asset_hub),
+						XCM_VERSION,
+					)
+					.expect("version saved!");
+					bridged_asset_hub
 				}
 			}
 
