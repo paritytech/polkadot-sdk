@@ -764,7 +764,7 @@ pub fn node_config(
 		transaction_pool: Default::default(),
 		network: network_config,
 		keystore: KeystoreConfig::InMemory,
-		database: DatabaseSource::RocksDb { path: root.join("db"), cache_size: 128 },
+		database: DatabaseSource::ParityDb { path: root.join("db") },
 		trie_cache_maximum_size: Some(64 * 1024 * 1024),
 		state_pruning: Some(PruningMode::ArchiveAll),
 		blocks_pruning: BlocksPruning::KeepAll,
