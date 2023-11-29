@@ -27,7 +27,7 @@ use std::{fmt, path::Path};
 ///
 /// # Errors
 ///
-/// Returns an error only if we could not enforce the security level required by the current
+/// Returns an error only if we could not fully enforce the security level required by the current
 /// configuration.
 pub async fn check_security_status(config: &Config) -> Result<SecurityStatus, String> {
 	let Config { prepare_worker_program_path, secure_validator_mode, cache_path, .. } = config;
@@ -166,6 +166,7 @@ fn print_secure_mode_error_or_warning(security_status: &FullSecurityStatus) {
 	const IGNORE_SECURE_MODE_TIP: &'static str =
 		"\nYou can ignore this error with the `--insecure-validator-i-know-what-i-do` \
 		 command line argument if you understand and accept the risks of running insecurely. \
+		 With this flag, security features are enabled on a best-effort basis, but not mandatory. \
 		 \nMore information: https://wiki.polkadot.network/docs/maintain-guides-secure-validator#secure-validator-mode";
 
 	let all_errs_allowed = security_status.all_errs_allowed();

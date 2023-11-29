@@ -630,7 +630,7 @@ pub struct NewFullParams<OverseerGenerator: OverseerGen> {
 	/// The version of the node. TESTING ONLY: `None` can be passed to skip the node/worker version
 	/// check, both on startup and in the workers.
 	pub node_version: Option<String>,
-	/// Whether the node is running as a secure validator.
+	/// Whether the node is attempting to run as a secure validator.
 	pub secure_validator_mode: bool,
 	/// An optional path to a directory containing the workers.
 	pub workers_path: Option<std::path::PathBuf>,

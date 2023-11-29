@@ -426,8 +426,10 @@ async fn all_security_features_work() {
 		let minor: u32 = version_split[1].parse().unwrap();
 		if major >= 6 {
 			true
-		} else {
+		} else if major == 5 {
 			minor >= 13
+		} else {
+			false
 		}
 	};
 

@@ -156,7 +156,7 @@ pub struct Config {
 	pub cache_path: PathBuf,
 	/// The version of the node. `None` can be passed to skip the version check (only for tests).
 	pub node_version: Option<String>,
-	/// Whether the node is running as a secure validator.
+	/// Whether the node is attempting to run as a secure validator.
 	pub secure_validator_mode: bool,
 
 	/// The path to the program that can be used to spawn the prepare workers.

@@ -88,7 +88,7 @@ pub struct Config {
 	pub artifacts_cache_path: PathBuf,
 	/// The version of the node. `None` can be passed to skip the version check (only for tests).
 	pub node_version: Option<String>,
-	/// Whether the node is running as a secure validator.
+	/// Whether the node is attempting to run as a secure validator.
 	pub secure_validator_mode: bool,
 	/// Path to the preparation worker binary
 	pub prep_worker_path: PathBuf,
