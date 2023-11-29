@@ -28,7 +28,7 @@ use std::{
 
 use codec::Encode;
 use sc_chain_spec::ChainSpec;
-use sc_client_api::{BlockBackend, HeaderBackend};
+use sc_client_api::HeaderBackend;
 use sc_service::{
 	config::{PrometheusConfig, TelemetryEndpoints},
 	BasePath, TransactionPoolOptions,
@@ -148,7 +148,7 @@ impl ExportGenesisHeadCommand {
 	pub fn run<B, C>(&self, client: Arc<C>) -> sc_cli::Result<()>
 	where
 		B: BlockT,
-		C: HeaderBackend<B> + BlockBackend<B> + 'static,
+		C: HeaderBackend<B> + 'static,
 	{
 		let genesis_hash = client.hash(Zero::zero())?.ok_or(sc_cli::Error::Client(
 			sp_blockchain::Error::Backend(
