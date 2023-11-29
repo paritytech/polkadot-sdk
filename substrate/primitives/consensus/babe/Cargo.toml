@@ -29,26 +29,26 @@ sp-timestamp = { path = "../../timestamp", optional = true }
 [features]
 default = ["std"]
 std = [
-  "async-trait",
-  "codec/std",
-  "scale-info/std",
-  "serde/std",
-  "sp-api/std",
-  "sp-application-crypto/std",
-  "sp-consensus-slots/std",
-  "sp-core/std",
-  "sp-inherents/std",
-  "sp-runtime/std",
-  "sp-std/std",
-  "sp-timestamp/std",
+	"async-trait",
+	"codec/std",
+	"scale-info/std",
+	"serde/std",
+	"sp-api/std",
+	"sp-application-crypto/std",
+	"sp-consensus-slots/std",
+	"sp-core/std",
+	"sp-inherents/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"sp-timestamp/std",
 ]
 
 # Serde support without relying on std features.
 serde = [
-  "dep:serde",
-  "scale-info/serde",
-  "sp-application-crypto/serde",
-  "sp-consensus-slots/serde",
-  "sp-core/serde",
-  "sp-runtime/serde",
+	"dep:serde",
+	"scale-info/serde",
+	"sp-application-crypto/serde",
+	"sp-consensus-slots/serde",
+	"sp-core/serde",
+	"sp-runtime/serde",
 ]

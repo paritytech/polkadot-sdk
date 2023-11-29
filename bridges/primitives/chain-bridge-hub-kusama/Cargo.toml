@@ -23,11 +23,11 @@ sp-std = { path = "../../../substrate/primitives/std", default-features = false 
 [features]
 default = ["std"]
 std = [
-  "bp-bridge-hub-cumulus/std",
-  "bp-messages/std",
-  "bp-runtime/std",
-  "frame-support/std",
-  "sp-api/std",
-  "sp-runtime/std",
-  "sp-std/std",
+	"bp-bridge-hub-cumulus/std",
+	"bp-messages/std",
+	"bp-runtime/std",
+	"frame-support/std",
+	"sp-api/std",
+	"sp-runtime/std",
+	"sp-std/std",
 ]

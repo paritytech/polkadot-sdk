@@ -15,8 +15,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
-  "derive",
-  "max-encoded-len",
+	"derive",
+	"max-encoded-len",
 ] }
 integer-sqrt = "0.1.2"
 num-traits = { version = "0.2.8", default-features = false }
@@ -34,12 +34,12 @@ rand = "0.8.5"
 [features]
 default = ["std"]
 std = [
-  "codec/std",
-  "num-traits/std",
-  "scale-info/std",
-  "serde/std",
-  "sp-core/std",
-  "sp-std/std",
+	"codec/std",
+	"num-traits/std",
+	"scale-info/std",
+	"serde/std",
+	"sp-core/std",
+	"sp-std/std",
 ]
 # Serde support without relying on std features.
 serde = ["dep:serde", "scale-info/serde"]

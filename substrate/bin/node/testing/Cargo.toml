@@ -33,8 +33,8 @@ sc-client-db = { path = "../../../client/db", features = ["rocksdb"] }
 sc-consensus = { path = "../../../client/consensus/common" }
 sc-executor = { path = "../../../client/executor" }
 sc-service = { path = "../../../client/service", features = [
-  "test-helpers",
-  "rocksdb",
+	"test-helpers",
+	"rocksdb",
 ] }
 sp-api = { path = "../../../primitives/api" }
 sp-block-builder = { path = "../../../primitives/block-builder" }

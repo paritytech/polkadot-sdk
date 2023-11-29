@@ -22,10 +22,10 @@ sp-runtime = { path = "../../../../primitives/runtime", default-features = false
 [features]
 default = ["std"]
 std = [
-  "codec/std",
-  "frame-support/std",
-  "frame-system/std",
-  "scale-info/std",
-  "serde/std",
-  "sp-runtime/std",
+	"codec/std",
+	"frame-support/std",
+	"frame-system/std",
+	"scale-info/std",
+	"serde/std",
+	"sp-runtime/std",
 ]

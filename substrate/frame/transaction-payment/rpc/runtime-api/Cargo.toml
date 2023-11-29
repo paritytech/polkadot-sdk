@@ -22,9 +22,9 @@ sp-weights = { path = "../../../../primitives/weights", default-features = false
 [features]
 default = ["std"]
 std = [
-  "codec/std",
-  "pallet-transaction-payment/std",
-  "sp-api/std",
-  "sp-runtime/std",
-  "sp-weights/std",
+	"codec/std",
+	"pallet-transaction-payment/std",
+	"sp-api/std",
+	"sp-runtime/std",
+	"sp-weights/std",
 ]

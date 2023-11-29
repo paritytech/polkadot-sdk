@@ -32,14 +32,14 @@ hex-literal = "0.4"
 [features]
 default = ["std"]
 std = [
-  "bp-runtime/std",
-  "codec/std",
-  "finality-grandpa/std",
-  "frame-support/std",
-  "scale-info/std",
-  "serde/std",
-  "sp-consensus-grandpa/std",
-  "sp-core/std",
-  "sp-runtime/std",
-  "sp-std/std",
+	"bp-runtime/std",
+	"codec/std",
+	"finality-grandpa/std",
+	"frame-support/std",
+	"scale-info/std",
+	"serde/std",
+	"sp-consensus-grandpa/std",
+	"sp-core/std",
+	"sp-runtime/std",
+	"sp-std/std",
 ]

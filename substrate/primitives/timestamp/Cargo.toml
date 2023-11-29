@@ -23,10 +23,10 @@ sp-std = { path = "../std", default-features = false }
 [features]
 default = ["std"]
 std = [
-  "async-trait",
-  "codec/std",
-  "sp-inherents/std",
-  "sp-runtime/std",
-  "sp-std/std",
-  "thiserror",
+	"async-trait",
+	"codec/std",
+	"sp-inherents/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"thiserror",
 ]

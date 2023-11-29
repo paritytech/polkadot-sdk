@@ -65,6 +65,6 @@ ci-only-tests = []
 jemalloc-allocator = ["polkadot-node-core-pvf-common/jemalloc-allocator"]
 # This feature is used to export test code to other crates without putting it in the production build.
 test-utils = [
-  "polkadot-node-core-pvf-execute-worker",
-  "polkadot-node-core-pvf-prepare-worker",
+	"polkadot-node-core-pvf-execute-worker",
+	"polkadot-node-core-pvf-prepare-worker",
 ]

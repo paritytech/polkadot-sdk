@@ -20,8 +20,8 @@ rocksdb = ["sc-client-db/rocksdb"]
 # exposes the client type
 test-helpers = []
 runtime-benchmarks = [
-  "sc-client-db/runtime-benchmarks",
-  "sp-runtime/runtime-benchmarks",
+	"sc-client-db/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
 
 [dependencies]

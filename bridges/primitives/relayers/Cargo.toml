@@ -28,11 +28,11 @@ hex-literal = "0.4"
 [features]
 default = ["std"]
 std = [
-  "bp-messages/std",
-  "bp-runtime/std",
-  "codec/std",
-  "frame-support/std",
-  "scale-info/std",
-  "sp-runtime/std",
-  "sp-std/std",
+	"bp-messages/std",
+	"bp-runtime/std",
+	"codec/std",
+	"frame-support/std",
+	"scale-info/std",
+	"sp-runtime/std",
+	"sp-std/std",
 ]

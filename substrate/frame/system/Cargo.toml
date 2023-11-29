@@ -35,22 +35,22 @@ substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
 [features]
 default = ["std"]
 std = [
-  "codec/std",
-  "frame-support/std",
-  "log/std",
-  "scale-info/std",
-  "serde/std",
-  "sp-core/std",
-  "sp-externalities/std",
-  "sp-io/std",
-  "sp-runtime/std",
-  "sp-std/std",
-  "sp-version/std",
-  "sp-weights/std",
+	"codec/std",
+	"frame-support/std",
+	"log/std",
+	"scale-info/std",
+	"serde/std",
+	"sp-core/std",
+	"sp-externalities/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"sp-version/std",
+	"sp-weights/std",
 ]
 runtime-benchmarks = [
-  "frame-support/runtime-benchmarks",
-  "sp-runtime/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = ["frame-support/try-runtime", "sp-runtime/try-runtime"]
 experimental = []

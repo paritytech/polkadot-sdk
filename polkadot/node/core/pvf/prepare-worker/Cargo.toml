@@ -33,9 +33,9 @@ tikv-jemalloc-ctl = "0.5.0"
 [features]
 builder = []
 jemalloc-allocator = [
-  "dep:tikv-jemalloc-ctl",
-  "dep:tikv-jemallocator",
-  "polkadot-node-core-pvf-common/jemalloc-allocator",
+	"dep:tikv-jemalloc-ctl",
+	"dep:tikv-jemallocator",
+	"polkadot-node-core-pvf-common/jemalloc-allocator",
 ]
 
 [dev-dependencies]

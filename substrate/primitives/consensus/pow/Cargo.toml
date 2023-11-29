@@ -22,9 +22,9 @@ sp-std = { path = "../../std", default-features = false }
 [features]
 default = ["std"]
 std = [
-  "codec/std",
-  "sp-api/std",
-  "sp-core/std",
-  "sp-runtime/std",
-  "sp-std/std",
+	"codec/std",
+	"sp-api/std",
+	"sp-core/std",
+	"sp-runtime/std",
+	"sp-std/std",
 ]

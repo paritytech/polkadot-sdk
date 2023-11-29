@@ -29,12 +29,12 @@ hex-literal = "0.4"
 [features]
 default = ["std"]
 std = [
-  "bp-header-chain/std",
-  "bp-runtime/std",
-  "codec/std",
-  "frame-support/std",
-  "scale-info/std",
-  "serde/std",
-  "sp-core/std",
-  "sp-std/std",
+	"bp-header-chain/std",
+	"bp-runtime/std",
+	"codec/std",
+	"frame-support/std",
+	"scale-info/std",
+	"serde/std",
+	"sp-core/std",
+	"sp-std/std",
 ]

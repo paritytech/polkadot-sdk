@@ -31,15 +31,15 @@ hex = "0.4"
 [features]
 default = ["std"]
 std = [
-  "bp-messages/std",
-  "bp-runtime/std",
-  "codec/std",
-  "frame-support/std",
-  "frame-system/std",
-  "parity-util-mem",
-  "scale-info/std",
-  "serde",
-  "sp-core/std",
-  "sp-runtime/std",
-  "sp-std/std",
+	"bp-messages/std",
+	"bp-runtime/std",
+	"codec/std",
+	"frame-support/std",
+	"frame-system/std",
+	"parity-util-mem",
+	"scale-info/std",
+	"serde",
+	"sp-core/std",
+	"sp-runtime/std",
+	"sp-std/std",
 ]

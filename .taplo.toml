@@ -1,3 +1,5 @@
+# all options https://taplo.tamasfe.dev/configuration/formatter-options.html
+
 # this dir uses some templating that makes toml invalid
 exclude = ["polkadot/zombienet_tests/**"]
 
@@ -5,3 +7,4 @@ exclude = ["polkadot/zombienet_tests/**"]
 inline_table_expand = false
 array_auto_expand = false
 array_auto_collapse = false
+indent_string = "	"         # tab

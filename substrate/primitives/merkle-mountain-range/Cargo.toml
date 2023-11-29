@@ -30,16 +30,16 @@ array-bytes = "6.1"
 [features]
 default = ["std"]
 std = [
-  "codec/std",
-  "log/std",
-  "mmr-lib/std",
-  "scale-info/std",
-  "serde/std",
-  "sp-api/std",
-  "sp-core/std",
-  "sp-debug-derive/std",
-  "sp-runtime/std",
-  "sp-std/std",
+	"codec/std",
+	"log/std",
+	"mmr-lib/std",
+	"scale-info/std",
+	"serde/std",
+	"sp-api/std",
+	"sp-core/std",
+	"sp-debug-derive/std",
+	"sp-runtime/std",
+	"sp-std/std",
 ]
 
 # Serde support without relying on std features.

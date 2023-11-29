@@ -46,19 +46,19 @@ substrate-build-script-utils = { path = "../../substrate/utils/build-script-util
 default = ["cli", "db", "full-node"]
 db = ["service/db"]
 cli = [
-  "clap",
-  "frame-benchmarking-cli",
-  "sc-cli",
-  "sc-service",
-  "sc-tracing",
-  "service",
-  "try-runtime-cli",
+	"clap",
+	"frame-benchmarking-cli",
+	"sc-cli",
+	"sc-service",
+	"sc-tracing",
+	"service",
+	"try-runtime-cli",
 ]
 runtime-benchmarks = [
-  "frame-benchmarking-cli?/runtime-benchmarks",
-  "polkadot-node-metrics/runtime-benchmarks",
-  "sc-service?/runtime-benchmarks",
-  "service/runtime-benchmarks",
+	"frame-benchmarking-cli?/runtime-benchmarks",
+	"polkadot-node-metrics/runtime-benchmarks",
+	"sc-service?/runtime-benchmarks",
+	"service/runtime-benchmarks",
 ]
 full-node = ["service/full-node"]
 try-runtime = ["service/try-runtime", "try-runtime-cli/try-runtime"]
@@ -71,8 +71,8 @@ rococo-native = ["service/rococo-native"]
 
 malus = ["full-node", "service/malus"]
 runtime-metrics = [
-  "polkadot-node-metrics/runtime-metrics",
-  "service/runtime-metrics",
+	"polkadot-node-metrics/runtime-metrics",
+	"service/runtime-metrics",
 ]
 
 network-protocol-staging = ["service/network-protocol-staging"]

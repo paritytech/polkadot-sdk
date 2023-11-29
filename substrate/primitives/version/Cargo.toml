@@ -28,14 +28,14 @@ sp-version-proc-macro = { path = "proc-macro", default-features = false }
 [features]
 default = ["std"]
 std = [
-  "codec/std",
-  "impl-serde/std",
-  "parity-wasm",
-  "scale-info/std",
-  "serde/std",
-  "sp-runtime/std",
-  "sp-std/std",
-  "thiserror",
+	"codec/std",
+	"impl-serde/std",
+	"parity-wasm",
+	"scale-info/std",
+	"serde/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"thiserror",
 ]
 
 # Serde support without relying on std features.

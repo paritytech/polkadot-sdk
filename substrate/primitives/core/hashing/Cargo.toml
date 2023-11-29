@@ -23,10 +23,10 @@ twox-hash = { version = "1.6.3", default-features = false, features = ["digest_0
 [features]
 default = ["std"]
 std = [
-  "blake2b_simd/std",
-  "byteorder/std",
-  "digest/std",
-  "sha2/std",
-  "sha3/std",
-  "twox-hash/std",
+	"blake2b_simd/std",
+	"byteorder/std",
+	"digest/std",
+	"sha2/std",
+	"sha3/std",
+	"twox-hash/std",
 ]

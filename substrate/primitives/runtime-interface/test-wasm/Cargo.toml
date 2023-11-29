@@ -25,10 +25,10 @@ substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true
 [features]
 default = ["std"]
 std = [
-  "bytes/std",
-  "sp-core/std",
-  "sp-io/std",
-  "sp-runtime-interface/std",
-  "sp-std/std",
-  "substrate-wasm-builder",
+	"bytes/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime-interface/std",
+	"sp-std/std",
+	"substrate-wasm-builder",
 ]

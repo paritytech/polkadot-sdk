@@ -39,31 +39,31 @@ test-pallet = { package = "frame-support-test-pallet", path = "pallet", default-
 [features]
 default = ["std"]
 std = [
-  "codec/std",
-  "frame-benchmarking/std",
-  "frame-executive/std",
-  "frame-metadata/std",
-  "frame-support/std",
-  "frame-system/std",
-  "scale-info/std",
-  "serde/std",
-  "sp-api/std",
-  "sp-arithmetic/std",
-  "sp-core/std",
-  "sp-io/std",
-  "sp-metadata-ir/std",
-  "sp-runtime/std",
-  "sp-state-machine/std",
-  "sp-std/std",
-  "sp-version/std",
-  "test-pallet/std",
+	"codec/std",
+	"frame-benchmarking/std",
+	"frame-executive/std",
+	"frame-metadata/std",
+	"frame-support/std",
+	"frame-system/std",
+	"scale-info/std",
+	"serde/std",
+	"sp-api/std",
+	"sp-arithmetic/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-metadata-ir/std",
+	"sp-runtime/std",
+	"sp-state-machine/std",
+	"sp-std/std",
+	"sp-version/std",
+	"test-pallet/std",
 ]
 experimental = ["frame-support/experimental"]
 try-runtime = [
-  "frame-executive/try-runtime",
-  "frame-support/try-runtime",
-  "frame-system/try-runtime",
-  "sp-runtime/try-runtime",
+	"frame-executive/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"sp-runtime/try-runtime",
 ]
 # WARNING:
 # Only CI runs with this feature enabled. This feature is for testing stuff related to the FRAME macros

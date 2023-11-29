@@ -31,14 +31,14 @@ substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder" }
 [features]
 default = ["std"]
 std = [
-  "frame-support/std",
-  "polkadot-core-primitives/std",
-  "rococo-runtime-constants/std",
-  "sp-runtime/std",
-  "westend-runtime-constants/std",
+	"frame-support/std",
+	"polkadot-core-primitives/std",
+	"rococo-runtime-constants/std",
+	"sp-runtime/std",
+	"westend-runtime-constants/std",
 ]
 
 runtime-benchmarks = [
-  "frame-support/runtime-benchmarks",
-  "sp-runtime/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]

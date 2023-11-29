@@ -22,11 +22,11 @@ sp-timestamp = { path = "../../timestamp", default-features = false }
 [features]
 default = ["std"]
 std = [
-  "codec/std",
-  "scale-info/std",
-  "serde/std",
-  "sp-std/std",
-  "sp-timestamp/std",
+	"codec/std",
+	"scale-info/std",
+	"serde/std",
+	"sp-std/std",
+	"sp-timestamp/std",
 ]
 
 # Serde support without relying on std features.

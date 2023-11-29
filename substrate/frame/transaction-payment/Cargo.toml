@@ -14,7 +14,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
-  "derive",
+	"derive",
 ] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.188", optional = true }
@@ -32,20 +32,20 @@ pallet-balances = { path = "../balances" }
 [features]
 default = ["std"]
 std = [
-  "codec/std",
-  "frame-support/std",
-  "frame-system/std",
-  "pallet-balances/std",
-  "scale-info/std",
-  "serde",
-  "sp-core/std",
-  "sp-io/std",
-  "sp-runtime/std",
-  "sp-std/std",
+	"codec/std",
+	"frame-support/std",
+	"frame-system/std",
+	"pallet-balances/std",
+	"scale-info/std",
+	"serde",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
 ]
 try-runtime = [
-  "frame-support/try-runtime",
-  "frame-system/try-runtime",
-  "pallet-balances/try-runtime",
-  "sp-runtime/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-balances/try-runtime",
+	"sp-runtime/try-runtime",
 ]

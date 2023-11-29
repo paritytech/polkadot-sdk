@@ -98,20 +98,20 @@ substrate-test-utils = { path = "../../../substrate/test-utils" }
 
 [features]
 runtime-benchmarks = [
-  "cumulus-pallet-parachain-system/runtime-benchmarks",
-  "cumulus-primitives-core/runtime-benchmarks",
-  "cumulus-test-client/runtime-benchmarks",
-  "frame-system/runtime-benchmarks",
-  "pallet-im-online/runtime-benchmarks",
-  "pallet-timestamp/runtime-benchmarks",
-  "parachains-common/runtime-benchmarks",
-  "polkadot-cli/runtime-benchmarks",
-  "polkadot-primitives/runtime-benchmarks",
-  "polkadot-service/runtime-benchmarks",
-  "polkadot-test-service/runtime-benchmarks",
-  "rococo-parachain-runtime/runtime-benchmarks",
-  "sc-service/runtime-benchmarks",
-  "sp-runtime/runtime-benchmarks",
+	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
+	"cumulus-test-client/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-im-online/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
+	"polkadot-cli/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"polkadot-service/runtime-benchmarks",
+	"polkadot-test-service/runtime-benchmarks",
+	"rococo-parachain-runtime/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
 
 [[bench]]

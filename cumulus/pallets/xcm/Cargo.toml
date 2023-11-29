@@ -23,18 +23,18 @@ cumulus-primitives-core = { path = "../../primitives/core", default-features = f
 [features]
 default = ["std"]
 std = [
-  "codec/std",
-  "cumulus-primitives-core/std",
-  "frame-support/std",
-  "frame-system/std",
-  "scale-info/std",
-  "sp-io/std",
-  "sp-runtime/std",
-  "sp-std/std",
-  "xcm/std",
+	"codec/std",
+	"cumulus-primitives-core/std",
+	"frame-support/std",
+	"frame-system/std",
+	"scale-info/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"xcm/std",
 ]
 try-runtime = [
-  "frame-support/try-runtime",
-  "frame-system/try-runtime",
-  "sp-runtime/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"sp-runtime/try-runtime",
 ]

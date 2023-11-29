@@ -14,8 +14,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
-  "derive",
-  "max-encoded-len",
+	"derive",
+	"max-encoded-len",
 ] }
 docify = "0.2.0"
 impl-trait-for-tuples = "0.2.2"
@@ -37,32 +37,32 @@ sp-core = { path = "../../primitives/core", default-features = false }
 [features]
 default = ["std"]
 std = [
-  "codec/std",
-  "frame-benchmarking?/std",
-  "frame-support/std",
-  "frame-system/std",
-  "pallet-balances/std",
-  "pallet-utility/std",
-  "scale-info/std",
-  "serde",
-  "sp-core?/std",
-  "sp-io/std",
-  "sp-runtime/std",
-  "sp-std/std",
+	"codec/std",
+	"frame-benchmarking?/std",
+	"frame-support/std",
+	"frame-system/std",
+	"pallet-balances/std",
+	"pallet-utility/std",
+	"scale-info/std",
+	"serde",
+	"sp-core?/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
 ]
 runtime-benchmarks = [
-  "dep:sp-core",
-  "frame-benchmarking/runtime-benchmarks",
-  "frame-support/runtime-benchmarks",
-  "frame-system/runtime-benchmarks",
-  "pallet-balances/runtime-benchmarks",
-  "pallet-utility/runtime-benchmarks",
-  "sp-runtime/runtime-benchmarks",
+	"dep:sp-core",
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
-  "frame-support/try-runtime",
-  "frame-system/try-runtime",
-  "pallet-balances/try-runtime",
-  "pallet-utility/try-runtime",
-  "sp-runtime/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-utility/try-runtime",
+	"sp-runtime/try-runtime",
 ]

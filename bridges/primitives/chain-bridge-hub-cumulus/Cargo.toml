@@ -26,12 +26,12 @@ polkadot-primitives = { path = "../../../polkadot/primitives", default-features 
 [features]
 default = ["std"]
 std = [
-  "bp-messages/std",
-  "bp-polkadot-core/std",
-  "bp-runtime/std",
-  "frame-support/std",
-  "frame-system/std",
-  "polkadot-primitives/std",
-  "sp-api/std",
-  "sp-std/std",
+	"bp-messages/std",
+	"bp-polkadot-core/std",
+	"bp-runtime/std",
+	"frame-support/std",
+	"frame-system/std",
+	"polkadot-primitives/std",
+	"sp-api/std",
+	"sp-std/std",
 ]

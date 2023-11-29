@@ -24,11 +24,11 @@ cumulus-primitives-core = { path = "../../primitives/core", default-features = f
 [features]
 default = ["std"]
 std = [
-  "codec/std",
-  "cumulus-primitives-core/std",
-  "polkadot-primitives/std",
-  "sp-runtime/std",
-  "sp-state-machine/std",
-  "sp-std/std",
-  "sp-trie/std",
+	"codec/std",
+	"cumulus-primitives-core/std",
+	"polkadot-primitives/std",
+	"sp-runtime/std",
+	"sp-state-machine/std",
+	"sp-std/std",
+	"sp-trie/std",
 ]
