@@ -33,14 +33,14 @@ use crate::{
 	worker::PersistedState,
 };
 use futures::{stream::Fuse, StreamExt};
-use log::{error, info};
+use log::{debug, error, info};
 use parking_lot::Mutex;
 use prometheus::Registry;
 use sc_client_api::{Backend, BlockBackend, BlockchainEvents, FinalityNotifications, Finalizer};
 use sc_consensus::BlockImport;
-use sc_network::{NetworkRequest, ProtocolName};
+use sc_network::{NetworkRequest, NotificationService, ProtocolName};
 use sc_network_gossip::{GossipEngine, Network as GossipNetwork, Syncing as GossipSyncing};
-use sp_api::{HeaderT, NumberFor, ProvideRuntimeApi};
+use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{
 	Backend as BlockchainBackend, Error as ClientError, HeaderBackend, Result as ClientResult,
 };
@@ -51,7 +51,7 @@ use sp_consensus_beefy::{
 };
 use sp_keystore::KeystorePtr;
 use sp_mmr_primitives::MmrApi;
-use sp_runtime::traits::{Block, Zero};
+use sp_runtime::traits::{Block, Header as HeaderT, NumberFor, Zero};
 use std::{
 	collections::{BTreeMap, VecDeque},
 	marker::PhantomData,
@@ -178,6 +178,8 @@ pub struct BeefyNetworkParams<B: Block, N, S> {
 	pub network: Arc<N>,
 	/// Syncing service implementing a sync oracle and an event stream for peers.
 	pub sync: Arc<S>,
+	/// Handle for receiving notification events.
+	pub notification_service: Box<dyn NotificationService>,
 	/// Chain specific BEEFY gossip protocol name. See
 	/// [`communication::beefy_protocol_name::gossip_protocol_name`].
 	pub gossip_protocol_name: ProtocolName,
@@ -243,6 +245,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 	let BeefyNetworkParams {
 		network,
 		sync,
+		notification_service,
 		gossip_protocol_name,
 		justifications_protocol_name,
 		..
@@ -264,6 +267,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 	let gossip_engine = GossipEngine::new(
 		network.clone(),
 		sync.clone(),
+		notification_service,
 		gossip_protocol_name.clone(),
 		gossip_validator.clone(),
 		None,
@@ -428,7 +432,7 @@ where
 			let best_beefy = *header.number();
 			// If no session boundaries detected so far, just initialize new rounds here.
 			if sessions.is_empty() {
-				let active_set = expect_validator_set(runtime, backend, &header, beefy_genesis)?;
+				let active_set = expect_validator_set(runtime, backend, &header)?;
 				let mut rounds = Rounds::new(best_beefy, active_set);
 				// Mark the round as already finalized.
 				rounds.conclude(best_beefy);
@@ -447,7 +451,7 @@ where
 
 		if *header.number() == beefy_genesis {
 			// We've reached BEEFY genesis, initialize voter here.
-			let genesis_set = expect_validator_set(runtime, backend, &header, beefy_genesis)?;
+			let genesis_set = expect_validator_set(runtime, backend, &header)?;
 			info!(
 				target: LOG_TARGET,
 				"🥩 Loading BEEFY voter state from genesis on what appears to be first startup. \
@@ -532,7 +536,6 @@ fn expect_validator_set<B, BE, R>(
 	runtime: &R,
 	backend: &BE,
 	at_header: &B::Header,
-	beefy_genesis: NumberFor<B>,
 ) -> ClientResult<ValidatorSet<AuthorityId>>
 where
 	B: Block,
@@ -540,6 +543,7 @@ where
 	R: ProvideRuntimeApi<B>,
 	R::Api: BeefyApi<B, AuthorityId>,
 {
+	debug!(target: LOG_TARGET, "🥩 Try to find validator set active at header: {:?}", at_header);
 	runtime
 		.runtime_api()
 		.validator_set(at_header.hash())
@@ -550,14 +554,14 @@ where
 			// Digest emitted when validator set active 'at_header' was enacted.
 			let blockchain = backend.blockchain();
 			let mut header = at_header.clone();
-			while *header.number() >= beefy_genesis {
+			loop {
+				debug!(target: LOG_TARGET, "🥩 look for auth set change digest in header number: {:?}", *header.number());
 				match worker::find_authorities_change::<B>(&header) {
 					Some(active) => return Some(active),
 					// Move up the chain.
 					None => header = blockchain.expect_header(*header.parent_hash()).ok()?,
 				}
 			}
-			None
 		})
 		.ok_or_else(|| ClientError::Backend("Could not find initial validator set".into()))
 }

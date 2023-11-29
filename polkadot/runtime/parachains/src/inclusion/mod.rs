@@ -21,7 +21,8 @@
 
 use crate::{
 	configuration::{self, HostConfiguration},
-	disputes, dmp, hrmp, paras,
+	disputes, dmp, hrmp,
+	paras::{self, SetGoAhead},
 	scheduler::{self, AvailabilityTimeoutStatus},
 	shared::{self, AllowedRelayParentsTracker},
 };
@@ -29,7 +30,7 @@ use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use frame_support::{
 	defensive,
 	pallet_prelude::*,
-	traits::{Defensive, EnqueueMessage},
+	traits::{Defensive, EnqueueMessage, Footprint, QueueFootprint},
 	BoundedSlice,
 };
 use frame_system::pallet_prelude::*;
@@ -230,7 +231,7 @@ pub enum AggregateMessageOrigin {
 
 /// Identifies a UMP queue inside the `MessageQueue` pallet.
 ///
-/// It is written in verbose form since future variants like `Loopback` and `Bridged` are already
+/// It is written in verbose form since future variants like `Here` and `Bridged` are already
 /// forseeable.
 #[derive(Encode, Decode, Clone, MaxEncodedLen, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 pub enum UmpQueueId {
@@ -448,8 +449,9 @@ impl fmt::Debug for UmpAcceptanceCheckErr {
 				"the ump queue would have grown past the max size permitted by config ({} > {})",
 				total_size, limit,
 			),
-			UmpAcceptanceCheckErr::IsOffboarding =>
-				write!(fmt, "upward message rejected because the para is off-boarding",),
+			UmpAcceptanceCheckErr::IsOffboarding => {
+				write!(fmt, "upward message rejected because the para is off-boarding")
+			},
 		}
 	}
 }
@@ -885,6 +887,7 @@ impl<T: Config> Pallet<T> {
 				new_code,
 				now,
 				&config,
+				SetGoAhead::Yes,
 			));
 		}
 
@@ -922,7 +925,7 @@ impl<T: Config> Pallet<T> {
 
 	pub(crate) fn relay_dispatch_queue_size(para_id: ParaId) -> (u32, u32) {
 		let fp = T::MessageQueue::footprint(AggregateMessageOrigin::Ump(UmpQueueId::Para(para_id)));
-		(fp.count as u32, fp.size as u32)
+		(fp.storage.count as u32, fp.storage.size as u32)
 	}
 
 	/// Check that all the upward messages sent by a candidate pass the acceptance criteria.
@@ -1146,10 +1149,11 @@ impl<BlockNumber> AcceptanceCheckErr<BlockNumber> {
 
 impl<T: Config> OnQueueChanged<AggregateMessageOrigin> for Pallet<T> {
 	// Write back the remaining queue capacity into `relay_dispatch_queue_remaining_capacity`.
-	fn on_queue_changed(origin: AggregateMessageOrigin, count: u64, size: u64) {
+	fn on_queue_changed(origin: AggregateMessageOrigin, fp: QueueFootprint) {
 		let para = match origin {
 			AggregateMessageOrigin::Ump(UmpQueueId::Para(p)) => p,
 		};
+		let QueueFootprint { storage: Footprint { count, size }, .. } = fp;
 		let (count, size) = (count.saturated_into(), size.saturated_into());
 		// TODO paritytech/polkadot#6283: Remove all usages of `relay_dispatch_queue_size`
 		#[allow(deprecated)]
@@ -1326,6 +1330,6 @@ impl<T: Config> QueueFootprinter for Pallet<T> {
 	type Origin = UmpQueueId;
 
 	fn message_count(origin: Self::Origin) -> u64 {
-		T::MessageQueue::footprint(AggregateMessageOrigin::Ump(origin)).count
+		T::MessageQueue::footprint(AggregateMessageOrigin::Ump(origin)).storage.count
 	}
 }

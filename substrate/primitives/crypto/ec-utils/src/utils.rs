@@ -15,116 +15,102 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The generic executions of the operations on arkworks elliptic curves
-//! which get instantiatied by the corresponding curves.
+//! Generic executions of the operations for *Arkworks* elliptic curves.
+
+// As not all functions are used by each elliptic curve and some elliptic
+// curve may be excluded by the build we resort to `#[allow(unused)]` to
+// suppress the expected warning.
+
 use ark_ec::{
-	pairing::{MillerLoopOutput, Pairing, PairingOutput},
-	short_weierstrass,
-	short_weierstrass::SWCurveConfig,
-	twisted_edwards,
-	twisted_edwards::TECurveConfig,
+	pairing::{MillerLoopOutput, Pairing},
+	short_weierstrass::{Affine as SWAffine, Projective as SWProjective, SWCurveConfig},
+	twisted_edwards::{Affine as TEAffine, Projective as TEProjective, TECurveConfig},
 	CurveConfig, VariableBaseMSM,
 };
-use ark_scale::hazmat::ArkScaleProjective;
-use ark_std::vec::Vec;
-use codec::{Decode, Encode};
+use ark_scale::{
+	ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress, Validate},
+	scale::{Decode, Encode},
+};
+use sp_std::vec::Vec;
 
-const HOST_CALL: ark_scale::Usage = ark_scale::HOST_CALL;
-type ArkScale<T> = ark_scale::ArkScale<T, HOST_CALL>;
+// SCALE encoding parameters shared by all the enabled modules
+const SCALE_USAGE: u8 = ark_scale::make_usage(Compress::No, Validate::No);
+type ArkScale<T> = ark_scale::ArkScale<T, SCALE_USAGE>;
+type ArkScaleProjective<T> = ark_scale::hazmat::ArkScaleProjective<T>;
 
-pub(crate) fn multi_miller_loop_generic<Curve: Pairing>(
-	g1: Vec<u8>,
-	g2: Vec<u8>,
-) -> Result<Vec<u8>, ()> {
-	let g1 = <ArkScale<Vec<<Curve as Pairing>::G1Affine>> as Decode>::decode(&mut g1.as_slice())
-		.map_err(|_| ())?;
-	let g2 = <ArkScale<Vec<<Curve as Pairing>::G2Affine>> as Decode>::decode(&mut g2.as_slice())
-		.map_err(|_| ())?;
-
-	let result = Curve::multi_miller_loop(g1.0, g2.0).0;
-
-	let result: ArkScale<<Curve as Pairing>::TargetField> = result.into();
-	Ok(result.encode())
+#[inline(always)]
+pub fn encode<T: CanonicalSerialize>(val: T) -> Vec<u8> {
+	ArkScale::from(val).encode()
 }
 
-pub(crate) fn final_exponentiation_generic<Curve: Pairing>(target: Vec<u8>) -> Result<Vec<u8>, ()> {
-	let target =
-		<ArkScale<<Curve as Pairing>::TargetField> as Decode>::decode(&mut target.as_slice())
-			.map_err(|_| ())?;
-
-	let result = Curve::final_exponentiation(MillerLoopOutput(target.0)).ok_or(())?;
-
-	let result: ArkScale<PairingOutput<Curve>> = result.into();
-	Ok(result.encode())
+#[inline(always)]
+pub fn decode<T: CanonicalDeserialize>(buf: Vec<u8>) -> Result<T, ()> {
+	ArkScale::<T>::decode(&mut &buf[..]).map_err(|_| ()).map(|v| v.0)
 }
 
-pub(crate) fn msm_sw_generic<Curve: SWCurveConfig>(
-	bases: Vec<u8>,
-	scalars: Vec<u8>,
-) -> Result<Vec<u8>, ()> {
-	let bases =
-		<ArkScale<Vec<short_weierstrass::Affine<Curve>>> as Decode>::decode(&mut bases.as_slice())
-			.map_err(|_| ())?;
-	let scalars = <ArkScale<Vec<<Curve as CurveConfig>::ScalarField>> as Decode>::decode(
-		&mut scalars.as_slice(),
-	)
-	.map_err(|_| ())?;
-
-	let result =
-		<short_weierstrass::Projective<Curve> as VariableBaseMSM>::msm(&bases.0, &scalars.0)
-			.map_err(|_| ())?;
-
-	let result: ArkScaleProjective<short_weierstrass::Projective<Curve>> = result.into();
-	Ok(result.encode())
+#[inline(always)]
+pub fn encode_proj_sw<T: SWCurveConfig>(val: &SWProjective<T>) -> Vec<u8> {
+	ArkScaleProjective::from(val).encode()
 }
 
-pub(crate) fn msm_te_generic<Curve: TECurveConfig>(
-	bases: Vec<u8>,
-	scalars: Vec<u8>,
-) -> Result<Vec<u8>, ()> {
-	let bases =
-		<ArkScale<Vec<twisted_edwards::Affine<Curve>>> as Decode>::decode(&mut bases.as_slice())
-			.map_err(|_| ())?;
-	let scalars = <ArkScale<Vec<<Curve as CurveConfig>::ScalarField>> as Decode>::decode(
-		&mut scalars.as_slice(),
-	)
-	.map_err(|_| ())?;
-
-	let result = <twisted_edwards::Projective<Curve> as VariableBaseMSM>::msm(&bases.0, &scalars.0)
-		.map_err(|_| ())?;
-
-	let result: ArkScaleProjective<twisted_edwards::Projective<Curve>> = result.into();
-	Ok(result.encode())
+#[inline(always)]
+pub fn decode_proj_sw<T: SWCurveConfig>(buf: Vec<u8>) -> Result<SWProjective<T>, ()> {
+	ArkScaleProjective::decode(&mut &buf[..]).map_err(|_| ()).map(|v| v.0)
 }
 
-pub(crate) fn mul_projective_generic<Group: SWCurveConfig>(
-	base: Vec<u8>,
-	scalar: Vec<u8>,
-) -> Result<Vec<u8>, ()> {
-	let base = <ArkScaleProjective<short_weierstrass::Projective<Group>> as Decode>::decode(
-		&mut base.as_slice(),
-	)
-	.map_err(|_| ())?;
-	let scalar = <ArkScale<Vec<u64>> as Decode>::decode(&mut scalar.as_slice()).map_err(|_| ())?;
-
-	let result = <Group as SWCurveConfig>::mul_projective(&base.0, &scalar.0);
-
-	let result: ArkScaleProjective<short_weierstrass::Projective<Group>> = result.into();
-	Ok(result.encode())
+#[inline(always)]
+pub fn encode_proj_te<T: TECurveConfig>(val: &TEProjective<T>) -> Vec<u8> {
+	ArkScaleProjective::from(val).encode()
 }
 
-pub(crate) fn mul_projective_te_generic<Group: TECurveConfig>(
-	base: Vec<u8>,
-	scalar: Vec<u8>,
-) -> Result<Vec<u8>, ()> {
-	let base = <ArkScaleProjective<twisted_edwards::Projective<Group>> as Decode>::decode(
-		&mut base.as_slice(),
-	)
-	.map_err(|_| ())?;
-	let scalar = <ArkScale<Vec<u64>> as Decode>::decode(&mut scalar.as_slice()).map_err(|_| ())?;
+#[inline(always)]
+pub fn decode_proj_te<T: TECurveConfig>(buf: Vec<u8>) -> Result<TEProjective<T>, ()> {
+	ArkScaleProjective::decode(&mut &buf[..]).map_err(|_| ()).map(|v| v.0)
+}
 
-	let result = <Group as TECurveConfig>::mul_projective(&base.0, &scalar.0);
+#[allow(unused)]
+pub fn multi_miller_loop<T: Pairing>(g1: Vec<u8>, g2: Vec<u8>) -> Result<Vec<u8>, ()> {
+	let g1 = decode::<Vec<<T as Pairing>::G1Affine>>(g1)?;
+	let g2 = decode::<Vec<<T as Pairing>::G2Affine>>(g2)?;
+	let res = T::multi_miller_loop(g1, g2);
+	Ok(encode(res.0))
+}
 
-	let result: ArkScaleProjective<twisted_edwards::Projective<Group>> = result.into();
-	Ok(result.encode())
+#[allow(unused)]
+pub fn final_exponentiation<T: Pairing>(target: Vec<u8>) -> Result<Vec<u8>, ()> {
+	let target = decode::<<T as Pairing>::TargetField>(target)?;
+	let res = T::final_exponentiation(MillerLoopOutput(target)).ok_or(())?;
+	Ok(encode(res.0))
+}
+
+#[allow(unused)]
+pub fn msm_sw<T: SWCurveConfig>(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
+	let bases = decode::<Vec<SWAffine<T>>>(bases)?;
+	let scalars = decode::<Vec<<T as CurveConfig>::ScalarField>>(scalars)?;
+	let res = <SWProjective<T> as VariableBaseMSM>::msm(&bases, &scalars).map_err(|_| ())?;
+	Ok(encode_proj_sw(&res))
+}
+
+#[allow(unused)]
+pub fn msm_te<T: TECurveConfig>(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
+	let bases = decode::<Vec<TEAffine<T>>>(bases)?;
+	let scalars = decode::<Vec<<T as CurveConfig>::ScalarField>>(scalars)?;
+	let res = <TEProjective<T> as VariableBaseMSM>::msm(&bases, &scalars).map_err(|_| ())?;
+	Ok(encode_proj_te(&res))
+}
+
+#[allow(unused)]
+pub fn mul_projective_sw<T: SWCurveConfig>(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
+	let base = decode_proj_sw::<T>(base)?;
+	let scalar = decode::<Vec<u64>>(scalar)?;
+	let res = <T as SWCurveConfig>::mul_projective(&base, &scalar);
+	Ok(encode_proj_sw(&res))
+}
+
+#[allow(unused)]
+pub fn mul_projective_te<T: TECurveConfig>(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
+	let base = decode_proj_te::<T>(base)?;
+	let scalar = decode::<Vec<u64>>(scalar)?;
+	let res = <T as TECurveConfig>::mul_projective(&base, &scalar);
+	Ok(encode_proj_te(&res))
 }

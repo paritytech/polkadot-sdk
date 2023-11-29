@@ -273,9 +273,9 @@ fn build_project(
 	);
 
 	let (wasm_binary, wasm_binary_bloaty) = if let Some(wasm_binary) = wasm_binary {
-		(wasm_binary.wasm_binary_path_escaped(), bloaty.wasm_binary_bloaty_path_escaped())
+		(wasm_binary.wasm_binary_path_escaped(), bloaty.bloaty_path_escaped())
 	} else {
-		(bloaty.wasm_binary_bloaty_path_escaped(), bloaty.wasm_binary_bloaty_path_escaped())
+		(bloaty.bloaty_path_escaped(), bloaty.bloaty_path_escaped())
 	};
 
 	crate::write_file_if_changed(

@@ -17,10 +17,11 @@ use super::*;
 use crate as xcmp_queue;
 use core::marker::PhantomData;
 use cumulus_pallet_parachain_system::AnyRelayNumber;
-use cumulus_primitives_core::{IsSystem, ParaId};
+use cumulus_primitives_core::{ChannelInfo, IsSystem, ParaId};
 use frame_support::{
-	parameter_types,
+	derive_impl, parameter_types,
 	traits::{ConstU32, Everything, Nothing, OriginTrait},
+	BoundedSlice,
 };
 use frame_system::EnsureRoot;
 use sp_core::H256;
@@ -54,6 +55,7 @@ parameter_types! {
 
 type AccountId = u64;
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = Everything;
 	type BlockWeights = ();
@@ -85,8 +87,10 @@ parameter_types! {
 	pub const MaxReserves: u32 = 50;
 }
 
+pub type Balance = u64;
+
 impl pallet_balances::Config for Test {
-	type Balance = u64;
+	type Balance = Balance;
 	type RuntimeEvent = RuntimeEvent;
 	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
@@ -96,17 +100,20 @@ impl pallet_balances::Config for Test {
 	type MaxReserves = MaxReserves;
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
 	type MaxHolds = ConstU32<0>;
 	type MaxFreezes = ConstU32<0>;
 }
 
 impl cumulus_pallet_parachain_system::Config for Test {
+	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
 	type OnSystemEvent = ();
 	type SelfParaId = ();
 	type OutboundXcmpMessageSource = XcmpQueue;
-	type DmpMessageHandler = ();
+	// Ignore all DMP messages by enqueueing them into `()`:
+	type DmpQueue = frame_support::traits::EnqueueWithOrigin<(), sp_core::ConstU8<0>>;
 	type ReservedDmpWeight = ();
 	type XcmpMessageHandler = XcmpQueue;
 	type ReservedXcmpWeight = ();
@@ -196,19 +203,137 @@ impl<RuntimeOrigin: OriginTrait> ConvertOrigin<RuntimeOrigin>
 	}
 }
 
+parameter_types! {
+	pub static EnqueuedMessages: Vec<(ParaId, Vec<u8>)> = Default::default();
+}
+
+/// An `EnqueueMessage` implementation that puts all messages in thread-local storage.
+pub struct EnqueueToLocalStorage<T>(PhantomData<T>);
+
+impl<T: OnQueueChanged<ParaId>> EnqueueMessage<ParaId> for EnqueueToLocalStorage<T> {
+	type MaxMessageLen = sp_core::ConstU32<65_536>;
+
+	fn enqueue_message(message: BoundedSlice<u8, Self::MaxMessageLen>, origin: ParaId) {
+		let mut msgs = EnqueuedMessages::get();
+		msgs.push((origin, message.to_vec()));
+		EnqueuedMessages::set(msgs);
+		T::on_queue_changed(origin, Self::footprint(origin));
+	}
+
+	fn enqueue_messages<'a>(
+		iter: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
+		origin: ParaId,
+	) {
+		let mut msgs = EnqueuedMessages::get();
+		msgs.extend(iter.map(|m| (origin, m.to_vec())));
+		EnqueuedMessages::set(msgs);
+		T::on_queue_changed(origin, Self::footprint(origin));
+	}
+
+	fn sweep_queue(origin: ParaId) {
+		let mut msgs = EnqueuedMessages::get();
+		msgs.retain(|(o, _)| o != &origin);
+		EnqueuedMessages::set(msgs);
+		T::on_queue_changed(origin, Self::footprint(origin));
+	}
+
+	fn footprint(origin: ParaId) -> QueueFootprint {
+		let msgs = EnqueuedMessages::get();
+		let mut footprint = QueueFootprint::default();
+		for (o, m) in msgs {
+			if o == origin {
+				footprint.storage.count += 1;
+				footprint.storage.size += m.len() as u64;
+			}
+		}
+		footprint.pages = footprint.storage.size as u32 / 16; // Number does not matter
+		footprint
+	}
+}
+
+parameter_types! {
+	/// The asset ID for the asset that we use to pay for message delivery fees.
+	pub FeeAssetId: AssetId = Concrete(RelayChain::get());
+	/// The base fee for the message delivery fees.
+	pub const BaseDeliveryFee: Balance = 300_000_000;
+	/// The fee per byte
+	pub const ByteFee: Balance = 1_000_000;
+}
+
+pub type PriceForSiblingParachainDelivery = polkadot_runtime_common::xcm_sender::ExponentialPrice<
+	FeeAssetId,
+	BaseDeliveryFee,
+	ByteFee,
+	XcmpQueue,
+>;
+
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type XcmExecutor = xcm_executor::XcmExecutor<XcmConfig>;
-	type ChannelInfo = ParachainSystem;
+	type ChannelInfo = MockedChannelInfo;
 	type VersionWrapper = ();
-	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
+	type XcmpQueue = EnqueueToLocalStorage<Pallet<Test>>;
+	type MaxInboundSuspended = sp_core::ConstU32<1_000>;
 	type ControllerOrigin = EnsureRoot<AccountId>;
 	type ControllerOriginConverter = SystemParachainAsSuperuser<RuntimeOrigin>;
 	type WeightInfo = ();
-	type PriceForSiblingDelivery = ();
+	type PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	t.into()
+	frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
+}
+
+/// A para that we have an HRMP channel with.
+pub const HRMP_PARA_ID: u32 = 7777;
+
+pub struct MockedChannelInfo;
+impl GetChannelInfo for MockedChannelInfo {
+	fn get_channel_status(id: ParaId) -> ChannelStatus {
+		if id == HRMP_PARA_ID.into() {
+			return ChannelStatus::Ready(usize::MAX, usize::MAX)
+		}
+
+		ParachainSystem::get_channel_status(id)
+	}
+
+	fn get_channel_info(id: ParaId) -> Option<ChannelInfo> {
+		if id == HRMP_PARA_ID.into() {
+			return Some(ChannelInfo {
+				max_capacity: u32::MAX,
+				max_total_size: u32::MAX,
+				max_message_size: u32::MAX,
+				msg_count: 0,
+				total_size: 0,
+			})
+		}
+
+		ParachainSystem::get_channel_info(id)
+	}
+}
+
+pub(crate) fn mk_page() -> Vec<u8> {
+	let mut page = Vec::<u8>::new();
+
+	for i in 0..100 {
+		page.extend(match i % 2 {
+			0 => v2_xcm().encode(),
+			1 => v3_xcm().encode(),
+			// We cannot push an undecodable XCM here since it would break the decode stream.
+			// This is expected and the whole reason to introduce `MaybeDoubleEncodedVersionedXcm`
+			// instead.
+			_ => unreachable!(),
+		});
+	}
+
+	page
+}
+
+pub(crate) fn v2_xcm() -> VersionedXcm<()> {
+	let instr = xcm::v2::Instruction::<()>::ClearOrigin;
+	VersionedXcm::V2(xcm::v2::Xcm::<()>(vec![instr; 3]))
+}
+
+pub(crate) fn v3_xcm() -> VersionedXcm<()> {
+	let instr = xcm::v3::Instruction::<()>::Trap(1);
+	VersionedXcm::V3(xcm::v3::Xcm::<()>(vec![instr; 3]))
 }

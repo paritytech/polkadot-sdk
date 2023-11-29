@@ -25,7 +25,7 @@ use sp_std::ops::Div;
 mod on_unbalanced;
 mod signed_imbalance;
 mod split_two_ways;
-pub use on_unbalanced::OnUnbalanced;
+pub use on_unbalanced::{OnUnbalanced, ResolveAssetTo, ResolveTo};
 pub use signed_imbalance::SignedImbalance;
 pub use split_two_ways::SplitTwoWays;
 
@@ -71,6 +71,10 @@ pub trait Imbalance<Balance>: Sized + TryDrop + Default {
 	/// Consume `self` and return two independent instances; the first
 	/// is guaranteed to be at most `amount` and the second will be the remainder.
 	fn split(self, amount: Balance) -> (Self, Self);
+
+	/// Mutate `self` by extracting a new instance with at most `amount` value, reducing `self`
+	/// accordingly.
+	fn extract(&mut self, amount: Balance) -> Self;
 
 	/// Consume `self` and return two independent instances; the amounts returned will be in
 	/// approximately the same ratio as `first`:`second`.
@@ -189,6 +193,9 @@ impl<Balance: Default> Imbalance<Balance> for () {
 	}
 	fn split(self, _: Balance) -> (Self, Self) {
 		((), ())
+	}
+	fn extract(&mut self, _: Balance) -> Self {
+		()
 	}
 	fn ration(self, _: u32, _: u32) -> (Self, Self)
 	where
