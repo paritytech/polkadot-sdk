@@ -46,13 +46,32 @@ fn identities() -> Vec<Identity> {
 		0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
 		0x88, 0x99, 0xAA, 0xBB, 0xCC,
 	];
-	let riot = Data::Raw(b"riot-xcm-test".to_vec().try_into().unwrap());
-	let additional = BoundedVec::try_from(vec![(
-		Data::Raw(b"additional".to_vec().try_into().unwrap()),
-		Data::Raw(b"data".to_vec().try_into().unwrap()),
-	)])
-	.unwrap();
+	// Minimal Identity
 	let first_relay = IdentityInfo {
+		display: Data::None,
+		legal: Data::None,
+		web: Data::None,
+		email: Data::None,
+		pgp_fingerprint: None,
+		image: Data::None,
+		twitter: Data::None,
+		riot: Data::None,
+		additional: Default::default(),
+	};
+	let first_para = IdentityInfoParachain {
+		display: Data::None,
+		legal: Data::None,
+		web: Data::None,
+		matrix: Data::None,
+		email: Data::None,
+		pgp_fingerprint: None,
+		image: Data::None,
+		twitter: Data::None,
+		github: Data::None,
+		discord: Data::None,
+	};
+	// Full Identity with no additional
+	let second_relay = IdentityInfo {
 		display: Data::Raw(b"xcm-test-one".to_vec().try_into().unwrap()),
 		legal: Data::Raw(b"The Right Ordinal Xcm Test, Esq.".to_vec().try_into().unwrap()),
 		web: Data::Raw(b"https://xcm-test.io".to_vec().try_into().unwrap()),
@@ -60,45 +79,50 @@ fn identities() -> Vec<Identity> {
 		pgp_fingerprint: None,
 		image: Data::Raw(b"xcm-test.png".to_vec().try_into().unwrap()),
 		twitter: Data::Raw(b"@xcm-test".to_vec().try_into().unwrap()),
-		riot: Default::default(),
+		riot: Data::Raw(b"riot-xcm-test".to_vec().try_into().unwrap()),
 		additional: Default::default(),
 	};
-	let mut second_relay = first_relay.clone();
-	let mut third_relay = first_relay.clone();
-	let mut fourth_relay = first_relay.clone();
-	second_relay.pgp_fingerprint = Some(pgp_fingerprint);
-	third_relay.pgp_fingerprint = Some(pgp_fingerprint);
-	third_relay.riot = riot.clone();
-	fourth_relay.pgp_fingerprint = Some(pgp_fingerprint);
-	fourth_relay.riot = riot.clone();
-	fourth_relay.additional = additional;
-	let first_parachain = IdentityInfoParachain {
-		display: Data::Raw(b"xcm-test".to_vec().try_into().unwrap()),
+	let second_para = IdentityInfoParachain {
+		display: Data::Raw(b"xcm-test-one".to_vec().try_into().unwrap()),
 		legal: Data::Raw(b"The Right Ordinal Xcm Test, Esq.".to_vec().try_into().unwrap()),
 		web: Data::Raw(b"https://xcm-test.io".to_vec().try_into().unwrap()),
-		matrix: Data::None,
+		matrix: Data::Raw(b"riot-xcm-test".to_vec().try_into().unwrap()),
 		email: Data::Raw(b"xcm-test@gmail.com".to_vec().try_into().unwrap()),
-		pgp_fingerprint: None,
+		pgp_fingerprint: Some(pgp_fingerprint),
 		image: Data::Raw(b"xcm-test.png".to_vec().try_into().unwrap()),
 		twitter: Data::Raw(b"@xcm-test".to_vec().try_into().unwrap()),
 		github: Data::None,
 		discord: Data::None,
 	};
-	let mut second_parachain = first_parachain.clone();
-	let mut third_parachain = first_parachain.clone();
-	let mut fourth_parachain = first_parachain.clone();
-	second_parachain.pgp_fingerprint = Some(pgp_fingerprint);
-	third_parachain.pgp_fingerprint = Some(pgp_fingerprint);
-	third_parachain.matrix = riot.to_owned(); // riot field on relay is set to matrix in parachain
-	fourth_parachain.pgp_fingerprint = Some(pgp_fingerprint);
-	fourth_parachain.matrix = riot.to_owned();
-	fourth_parachain.github = riot.to_owned();
+	// Full Identity with nonsensical additional
+	let mut third_relay = second_relay.clone();
+	third_relay.additional = BoundedVec::try_from(vec![(
+		Data::Raw(b"Foo".to_vec().try_into().unwrap()),
+		Data::Raw(b"Bar".to_vec().try_into().unwrap()),
+	)])
+	.unwrap();
+	// Full Identity with meaninful additional
+	let mut fourth_relay = second_relay.clone();
+	fourth_relay.additional = BoundedVec::try_from(vec![
+		(
+			Data::Raw(b"github".to_vec().try_into().unwrap()),
+			Data::Raw(b"niels-usernmae".to_vec().try_into().unwrap()),
+		),
+		(
+			Data::Raw(b"discord".to_vec().try_into().unwrap()),
+			Data::Raw(b"bohr-username".to_vec().try_into().unwrap()),
+		),
+	])
+	.unwrap();
+	let mut fourth_para = second_para.clone();
+	fourth_para.github = Data::Raw(b"niels-usernmae".to_vec().try_into().unwrap());
+	fourth_para.discord = Data::Raw(b"bohr-username".to_vec().try_into().unwrap());
 
 	vec![
-		Identity { relay: first_relay, parachain: first_parachain },
-		Identity { relay: second_relay, parachain: second_parachain },
-		Identity { relay: third_relay, parachain: third_parachain },
-		Identity { relay: fourth_relay, parachain: fourth_parachain },
+		Identity { relay: first_relay, parachain: first_para },
+		Identity { relay: second_relay, parachain: second_para.clone() },
+		Identity { relay: third_relay, parachain: second_para.clone() }, // same as second_para
+		Identity { relay: fourth_relay, parachain: fourth_para },
 	]
 }
 
