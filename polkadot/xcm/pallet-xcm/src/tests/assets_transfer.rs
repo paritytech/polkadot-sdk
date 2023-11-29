@@ -1609,11 +1609,11 @@ fn intermediary_error_reverts_side_effects() {
 		// transfer destination is some other parachain
 		let dest = RelayLocation::get().pushed_with_interior(Parachain(OTHER_PARA_ID)).unwrap();
 
-		let assets: MultiAssets = vec![(usdc_id_multilocation, SEND_AMOUNT).into()].into();
+		let assets: Assets = vec![(usdc_id_multilocation, SEND_AMOUNT).into()].into();
 		let fee_index = 0;
 
 		// balances checks before
-		assert_eq!(Assets::balance(usdc_id_multilocation, ALICE), usdc_initial_local_amount);
+		assert_eq!(AssetsPallet::balance(usdc_id_multilocation, ALICE), usdc_initial_local_amount);
 		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
 
 		// introduce artificial error in sending outbound XCM
@@ -1631,14 +1631,14 @@ fn intermediary_error_reverts_side_effects() {
 		.is_err());
 
 		// Alice no changes
-		assert_eq!(Assets::balance(usdc_id_multilocation, ALICE), usdc_initial_local_amount);
+		assert_eq!(AssetsPallet::balance(usdc_id_multilocation, ALICE), usdc_initial_local_amount);
 		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
 		// Destination account (parachain account) no changes
 		assert_eq!(Balances::free_balance(usdc_chain_sovereign_account.clone()), 0);
-		assert_eq!(Assets::balance(usdc_id_multilocation, usdc_chain_sovereign_account), 0);
+		assert_eq!(AssetsPallet::balance(usdc_id_multilocation, usdc_chain_sovereign_account), 0);
 		// Verify total and active issuance of USDC has not changed
-		assert_eq!(Assets::total_issuance(usdc_id_multilocation), usdc_initial_local_amount);
-		assert_eq!(Assets::active_issuance(usdc_id_multilocation), usdc_initial_local_amount);
+		assert_eq!(AssetsPallet::total_issuance(usdc_id_multilocation), usdc_initial_local_amount);
+		assert_eq!(AssetsPallet::active_issuance(usdc_id_multilocation), usdc_initial_local_amount);
 		// Verify no XCM program sent
 		assert_eq!(sent_xcm(), vec![]);
 	});
