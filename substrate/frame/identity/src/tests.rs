@@ -25,16 +25,20 @@ use crate::{
 
 use codec::{Decode, Encode};
 use frame_support::{
-	assert_noop, assert_ok, ord_parameter_types, parameter_types,
-	traits::{ConstU32, ConstU64, EitherOfDiverse, Get},
+	assert_noop, assert_ok, parameter_types,
+	traits::{ConstU32, ConstU64, Get},
 	BoundedVec,
 };
-use frame_system::{EnsureRoot, EnsureSignedBy};
+use frame_system::EnsureRoot;
 use sp_core::H256;
 use sp_runtime::{
-	traits::{BadOrigin, BlakeTwo256, IdentityLookup},
-	BuildStorage,
+	traits::{BadOrigin, BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
+	BuildStorage, MultiSignature,
 };
+
+type AccountIdOf<Test> = <Test as frame_system::Config>::AccountId;
+pub type AccountPublic = <MultiSignature as Verify>::Signer;
+pub type AccountId = <AccountPublic as IdentifyAccount>::AccountId;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -56,7 +60,7 @@ impl frame_system::Config for Test {
 	type Hash = H256;
 	type RuntimeCall = RuntimeCall;
 	type Hashing = BlakeTwo256;
-	type AccountId = u64;
+	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
@@ -95,12 +99,6 @@ parameter_types! {
 	pub const MaxRegistrars: u32 = 20;
 }
 
-ord_parameter_types! {
-	pub const One: u64 = 1;
-	pub const Two: u64 = 2;
-}
-type EnsureOneOrRoot = EitherOfDiverse<EnsureRoot<u64>, EnsureSignedBy<One, u64>>;
-type EnsureTwoOrRoot = EitherOfDiverse<EnsureRoot<u64>, EnsureSignedBy<Two, u64>>;
 impl pallet_identity::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
@@ -111,22 +109,72 @@ impl pallet_identity::Config for Test {
 	type MaxSubAccounts = ConstU32<2>;
 	type IdentityInformation = IdentityInfo<MaxAdditionalFields>;
 	type MaxRegistrars = MaxRegistrars;
-	type RegistrarOrigin = EnsureOneOrRoot;
-	type ForceOrigin = EnsureTwoOrRoot;
+	type RegistrarOrigin = EnsureRoot<Self::AccountId>;
+	type ForceOrigin = EnsureRoot<Self::AccountId>;
+	type Signer = sp_runtime::MultiSigner;
+	type UsernameAuthorityOrigin = EnsureRoot<Self::AccountId>;
+	type PendingUsernameExpiration = ConstU64<100>;
 	type WeightInfo = ();
+}
+
+impl SignerProvider<AccountId> for sp_runtime::MultiSigner {
+	fn verify_signature(&self, signature: &MultiSignature, message: &[u8]) -> bool {
+		signature.verify(message, &self.clone().into_account())
+	}
+	fn into_account_truncating(&self) -> AccountId {
+		self.clone().into_account()
+	}
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![(1, 100), (2, 100), (3, 100), (10, 1000), (20, 1000), (30, 1000)],
+		balances: vec![
+			(account(1), 100),
+			(account(2), 100),
+			(account(3), 100),
+			(account(10), 1000),
+			(account(20), 1000),
+			(account(30), 1000),
+		],
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
 	t.into()
 }
 
-fn ten() -> IdentityInfo<MaxAdditionalFields> {
+fn account(id: u8) -> AccountIdOf<Test> {
+	[id; 32].into()
+}
+
+fn account_from_u32(id: u32) -> AccountIdOf<Test> {
+	let mut buffer = [255u8; 32];
+	let four_bytes = id.to_le_bytes();
+	buffer[..4].clone_from_slice(&four_bytes[..]);
+	buffer[4..8].clone_from_slice(&four_bytes[..]);
+	buffer[8..12].clone_from_slice(&four_bytes[..]);
+	buffer[12..16].clone_from_slice(&four_bytes[..]);
+	buffer[16..20].clone_from_slice(&four_bytes[..]);
+	buffer[20..24].clone_from_slice(&four_bytes[..]);
+	buffer[24..28].clone_from_slice(&four_bytes[..]);
+	buffer[28..].clone_from_slice(&four_bytes[..]);
+	buffer.into()
+}
+
+fn accounts() -> [AccountIdOf<Test>; 8] {
+	[
+		account(1),
+		account(2),
+		account(3),
+		account(4),
+		account(10),
+		account(20),
+		account(30),
+		account(40),
+	]
+}
+
+fn infoof_ten() -> IdentityInfo<MaxAdditionalFields> {
 	IdentityInfo {
 		display: Data::Raw(b"ten".to_vec().try_into().unwrap()),
 		legal: Data::Raw(b"The Right Ordinal Ten, Esq.".to_vec().try_into().unwrap()),
@@ -134,7 +182,7 @@ fn ten() -> IdentityInfo<MaxAdditionalFields> {
 	}
 }
 
-fn twenty() -> IdentityInfo<MaxAdditionalFields> {
+fn infoof_twenty() -> IdentityInfo<MaxAdditionalFields> {
 	IdentityInfo {
 		display: Data::Raw(b"twenty".to_vec().try_into().unwrap()),
 		legal: Data::Raw(b"The Right Ordinal Twenty, Esq.".to_vec().try_into().unwrap()),
@@ -187,54 +235,58 @@ fn identity_fields_repr_works() {
 fn editing_subaccounts_should_work() {
 	new_test_ext().execute_with(|| {
 		let data = |x| Data::Raw(vec![x; 1].try_into().unwrap());
+		let [one, two, three, _, ten, twenty, _, _] = accounts();
 
 		assert_noop!(
-			Identity::add_sub(RuntimeOrigin::signed(10), 20, data(1)),
+			Identity::add_sub(RuntimeOrigin::signed(ten.clone()), twenty.clone(), data(1)),
 			Error::<Test>::NoIdentity
 		);
 
-		let ten = ten();
-		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(10), Box::new(ten.clone())));
-		let id_deposit = id_deposit(&ten);
-		assert_eq!(Balances::free_balance(10), 1000 - id_deposit);
+		let ten_info = infoof_ten();
+		assert_ok!(Identity::set_identity(
+			RuntimeOrigin::signed(ten.clone()),
+			Box::new(ten_info.clone())
+		));
+		let id_deposit = id_deposit(&ten_info);
+		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit);
 
 		let sub_deposit: u64 = <<Test as Config>::SubAccountDeposit as Get<u64>>::get();
 
 		// first sub account
-		assert_ok!(Identity::add_sub(RuntimeOrigin::signed(10), 1, data(1)));
-		assert_eq!(SuperOf::<Test>::get(1), Some((10, data(1))));
-		assert_eq!(Balances::free_balance(10), 1000 - id_deposit - sub_deposit);
+		assert_ok!(Identity::add_sub(RuntimeOrigin::signed(ten.clone()), one.clone(), data(1)));
+		assert_eq!(SuperOf::<Test>::get(one.clone()), Some((ten.clone(), data(1))));
+		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit - sub_deposit);
 
 		// second sub account
-		assert_ok!(Identity::add_sub(RuntimeOrigin::signed(10), 2, data(2)));
-		assert_eq!(SuperOf::<Test>::get(1), Some((10, data(1))));
-		assert_eq!(SuperOf::<Test>::get(2), Some((10, data(2))));
-		assert_eq!(Balances::free_balance(10), 1000 - id_deposit - 2 * sub_deposit);
+		assert_ok!(Identity::add_sub(RuntimeOrigin::signed(ten.clone()), two.clone(), data(2)));
+		assert_eq!(SuperOf::<Test>::get(one.clone()), Some((ten.clone(), data(1))));
+		assert_eq!(SuperOf::<Test>::get(two.clone()), Some((ten.clone(), data(2))));
+		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit - 2 * sub_deposit);
 
 		// third sub account is too many
 		assert_noop!(
-			Identity::add_sub(RuntimeOrigin::signed(10), 3, data(3)),
+			Identity::add_sub(RuntimeOrigin::signed(ten.clone()), three.clone(), data(3)),
 			Error::<Test>::TooManySubAccounts
 		);
 
 		// rename first sub account
-		assert_ok!(Identity::rename_sub(RuntimeOrigin::signed(10), 1, data(11)));
-		assert_eq!(SuperOf::<Test>::get(1), Some((10, data(11))));
-		assert_eq!(SuperOf::<Test>::get(2), Some((10, data(2))));
-		assert_eq!(Balances::free_balance(10), 1000 - id_deposit - 2 * sub_deposit);
+		assert_ok!(Identity::rename_sub(RuntimeOrigin::signed(ten.clone()), one.clone(), data(11)));
+		assert_eq!(SuperOf::<Test>::get(one.clone()), Some((ten.clone(), data(11))));
+		assert_eq!(SuperOf::<Test>::get(two.clone()), Some((ten.clone(), data(2))));
+		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit - 2 * sub_deposit);
 
 		// remove first sub account
-		assert_ok!(Identity::remove_sub(RuntimeOrigin::signed(10), 1));
-		assert_eq!(SuperOf::<Test>::get(1), None);
-		assert_eq!(SuperOf::<Test>::get(2), Some((10, data(2))));
-		assert_eq!(Balances::free_balance(10), 1000 - id_deposit - sub_deposit);
+		assert_ok!(Identity::remove_sub(RuntimeOrigin::signed(ten.clone()), one.clone()));
+		assert_eq!(SuperOf::<Test>::get(one.clone()), None);
+		assert_eq!(SuperOf::<Test>::get(two.clone()), Some((ten.clone(), data(2))));
+		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit - sub_deposit);
 
 		// add third sub account
-		assert_ok!(Identity::add_sub(RuntimeOrigin::signed(10), 3, data(3)));
-		assert_eq!(SuperOf::<Test>::get(1), None);
-		assert_eq!(SuperOf::<Test>::get(2), Some((10, data(2))));
-		assert_eq!(SuperOf::<Test>::get(3), Some((10, data(3))));
-		assert_eq!(Balances::free_balance(10), 1000 - id_deposit - 2 * sub_deposit);
+		assert_ok!(Identity::add_sub(RuntimeOrigin::signed(ten.clone()), three.clone(), data(3)));
+		assert_eq!(SuperOf::<Test>::get(one), None);
+		assert_eq!(SuperOf::<Test>::get(two), Some((ten.clone(), data(2))));
+		assert_eq!(SuperOf::<Test>::get(three), Some((ten.clone(), data(3))));
+		assert_eq!(Balances::free_balance(ten), 1000 - id_deposit - 2 * sub_deposit);
 	});
 }
 
@@ -242,35 +294,39 @@ fn editing_subaccounts_should_work() {
 fn resolving_subaccount_ownership_works() {
 	new_test_ext().execute_with(|| {
 		let data = |x| Data::Raw(vec![x; 1].try_into().unwrap());
+		let [one, _, _, _, ten, twenty, _, _] = accounts();
 		let sub_deposit: u64 = <<Test as Config>::SubAccountDeposit as Get<u64>>::get();
 
-		let ten = ten();
-		let ten_deposit = id_deposit(&ten);
-		let twenty = twenty();
-		let twenty_deposit = id_deposit(&twenty);
-		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(10), Box::new(ten)));
-		assert_eq!(Balances::free_balance(10), 1000 - ten_deposit);
-		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(20), Box::new(twenty)));
-		assert_eq!(Balances::free_balance(20), 1000 - twenty_deposit);
+		let ten_info = infoof_ten();
+		let ten_deposit = id_deposit(&ten_info);
+		let twenty_info = infoof_twenty();
+		let twenty_deposit = id_deposit(&twenty_info);
+		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(ten.clone()), Box::new(ten_info)));
+		assert_eq!(Balances::free_balance(ten.clone()), 1000 - ten_deposit);
+		assert_ok!(Identity::set_identity(
+			RuntimeOrigin::signed(twenty.clone()),
+			Box::new(twenty_info)
+		));
+		assert_eq!(Balances::free_balance(twenty.clone()), 1000 - twenty_deposit);
 
 		// 10 claims 1 as a subaccount
-		assert_ok!(Identity::add_sub(RuntimeOrigin::signed(10), 1, data(1)));
-		assert_eq!(Balances::free_balance(1), 100);
-		assert_eq!(Balances::free_balance(10), 1000 - ten_deposit - sub_deposit);
-		assert_eq!(Balances::reserved_balance(10), ten_deposit + sub_deposit);
+		assert_ok!(Identity::add_sub(RuntimeOrigin::signed(ten.clone()), one.clone(), data(1)));
+		assert_eq!(Balances::free_balance(one.clone()), 100);
+		assert_eq!(Balances::free_balance(ten.clone()), 1000 - ten_deposit - sub_deposit);
+		assert_eq!(Balances::reserved_balance(ten.clone()), ten_deposit + sub_deposit);
 		// 20 cannot claim 1 now
 		assert_noop!(
-			Identity::add_sub(RuntimeOrigin::signed(20), 1, data(1)),
+			Identity::add_sub(RuntimeOrigin::signed(twenty.clone()), one.clone(), data(1)),
 			Error::<Test>::AlreadyClaimed
 		);
 		// 1 wants to be with 20 so it quits from 10
-		assert_ok!(Identity::quit_sub(RuntimeOrigin::signed(1)));
+		assert_ok!(Identity::quit_sub(RuntimeOrigin::signed(one.clone())));
 		// 1 gets the 10 that 10 paid.
-		assert_eq!(Balances::free_balance(1), 100 + sub_deposit);
-		assert_eq!(Balances::free_balance(10), 1000 - ten_deposit - sub_deposit);
-		assert_eq!(Balances::reserved_balance(10), ten_deposit);
+		assert_eq!(Balances::free_balance(one.clone()), 100 + sub_deposit);
+		assert_eq!(Balances::free_balance(ten.clone()), 1000 - ten_deposit - sub_deposit);
+		assert_eq!(Balances::reserved_balance(ten), ten_deposit);
 		// 20 can claim 1 now
-		assert_ok!(Identity::add_sub(RuntimeOrigin::signed(20), 1, data(1)));
+		assert_ok!(Identity::add_sub(RuntimeOrigin::signed(twenty), one, data(1)));
 	});
 }
 
@@ -287,11 +343,12 @@ fn trailing_zeros_decodes_into_default_data() {
 #[test]
 fn adding_registrar_invalid_index() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Identity::add_registrar(RuntimeOrigin::signed(1), 3));
-		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(3), 0, 10));
+		let [_, _, three, _, _, _, _, _] = accounts();
+		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), three.clone()));
+		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(three.clone()), 0, 10));
 		let fields = IdentityField::Display | IdentityField::Legal;
 		assert_noop!(
-			Identity::set_fields(RuntimeOrigin::signed(3), 100, fields.bits()),
+			Identity::set_fields(RuntimeOrigin::signed(three), 100, fields.bits()),
 			Error::<Test>::InvalidIndex
 		);
 	});
@@ -300,13 +357,14 @@ fn adding_registrar_invalid_index() {
 #[test]
 fn adding_registrar_should_work() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Identity::add_registrar(RuntimeOrigin::signed(1), 3));
-		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(3), 0, 10));
+		let [_, _, three, _, _, _, _, _] = accounts();
+		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), three.clone()));
+		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(three.clone()), 0, 10));
 		let fields = IdentityField::Display | IdentityField::Legal;
-		assert_ok!(Identity::set_fields(RuntimeOrigin::signed(3), 0, fields.bits()));
+		assert_ok!(Identity::set_fields(RuntimeOrigin::signed(three.clone()), 0, fields.bits()));
 		assert_eq!(
 			Identity::registrars(),
-			vec![Some(RegistrarInfo { account: 3, fee: 10, fields: fields.bits() })]
+			vec![Some(RegistrarInfo { account: three, fee: 10, fields: fields.bits() })]
 		);
 	});
 }
@@ -314,12 +372,12 @@ fn adding_registrar_should_work() {
 #[test]
 fn amount_of_registrars_is_limited() {
 	new_test_ext().execute_with(|| {
-		for i in 1..MaxRegistrars::get() + 1 {
-			assert_ok!(Identity::add_registrar(RuntimeOrigin::signed(1), i as u64));
+		for ii in 1..MaxRegistrars::get() + 1 {
+			assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), account_from_u32(ii)));
 		}
-		let last_registrar = MaxRegistrars::get() as u64 + 1;
+		let last_registrar = MaxRegistrars::get() + 1;
 		assert_noop!(
-			Identity::add_registrar(RuntimeOrigin::signed(1), last_registrar),
+			Identity::add_registrar(RuntimeOrigin::root(), account_from_u32(last_registrar)),
 			Error::<Test>::TooManyRegistrars
 		);
 	});
@@ -328,68 +386,76 @@ fn amount_of_registrars_is_limited() {
 #[test]
 fn registration_should_work() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Identity::add_registrar(RuntimeOrigin::signed(1), 3));
-		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(3), 0, 10));
-		let mut three_fields = ten();
+		let [_, _, three, _, ten, _, _, _] = accounts();
+		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), three.clone()));
+		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(three.clone()), 0, 10));
+		let mut three_fields = infoof_ten();
 		three_fields.additional.try_push(Default::default()).unwrap();
 		three_fields.additional.try_push(Default::default()).unwrap();
 		assert!(three_fields.additional.try_push(Default::default()).is_err());
-		let ten = ten();
-		let id_deposit = id_deposit(&ten);
-		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(10), Box::new(ten.clone())));
-		assert_eq!(Identity::identity(10).unwrap().info, ten);
-		assert_eq!(Balances::free_balance(10), 1000 - id_deposit);
-		assert_ok!(Identity::clear_identity(RuntimeOrigin::signed(10)));
-		assert_eq!(Balances::free_balance(10), 1000);
-		assert_noop!(Identity::clear_identity(RuntimeOrigin::signed(10)), Error::<Test>::NotNamed);
+		let ten_info = infoof_ten();
+		let id_deposit = id_deposit(&ten_info);
+		assert_ok!(Identity::set_identity(
+			RuntimeOrigin::signed(ten.clone()),
+			Box::new(ten_info.clone())
+		));
+		assert_eq!(Identity::identity(ten.clone()).unwrap().0.info, ten_info);
+		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit);
+		assert_ok!(Identity::clear_identity(RuntimeOrigin::signed(ten.clone())));
+		assert_eq!(Balances::free_balance(ten.clone()), 1000);
+		assert_noop!(Identity::clear_identity(RuntimeOrigin::signed(ten)), Error::<Test>::NotNamed);
 	});
 }
 
 #[test]
 fn uninvited_judgement_should_work() {
 	new_test_ext().execute_with(|| {
+		let [_, _, three, _, ten, _, _, _] = accounts();
 		assert_noop!(
 			Identity::provide_judgement(
-				RuntimeOrigin::signed(3),
+				RuntimeOrigin::signed(three.clone()),
 				0,
-				10,
+				ten.clone(),
 				Judgement::Reasonable,
 				H256::random()
 			),
 			Error::<Test>::InvalidIndex
 		);
 
-		assert_ok!(Identity::add_registrar(RuntimeOrigin::signed(1), 3));
+		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), three.clone()));
 		assert_noop!(
 			Identity::provide_judgement(
-				RuntimeOrigin::signed(3),
+				RuntimeOrigin::signed(three.clone()),
 				0,
-				10,
+				ten.clone(),
 				Judgement::Reasonable,
 				H256::random()
 			),
 			Error::<Test>::InvalidTarget
 		);
 
-		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(10), Box::new(ten())));
+		assert_ok!(Identity::set_identity(
+			RuntimeOrigin::signed(ten.clone()),
+			Box::new(infoof_ten())
+		));
 		assert_noop!(
 			Identity::provide_judgement(
-				RuntimeOrigin::signed(3),
+				RuntimeOrigin::signed(three.clone()),
 				0,
-				10,
+				ten.clone(),
 				Judgement::Reasonable,
 				H256::random()
 			),
 			Error::<Test>::JudgementForDifferentIdentity
 		);
 
-		let identity_hash = BlakeTwo256::hash_of(&ten());
+		let identity_hash = BlakeTwo256::hash_of(&infoof_ten());
 
 		assert_noop!(
 			Identity::provide_judgement(
-				RuntimeOrigin::signed(10),
+				RuntimeOrigin::signed(ten.clone()),
 				0,
-				10,
+				ten.clone(),
 				Judgement::Reasonable,
 				identity_hash
 			),
@@ -397,9 +463,9 @@ fn uninvited_judgement_should_work() {
 		);
 		assert_noop!(
 			Identity::provide_judgement(
-				RuntimeOrigin::signed(3),
+				RuntimeOrigin::signed(three.clone()),
 				0,
-				10,
+				ten.clone(),
 				Judgement::FeePaid(1),
 				identity_hash
 			),
@@ -407,97 +473,124 @@ fn uninvited_judgement_should_work() {
 		);
 
 		assert_ok!(Identity::provide_judgement(
-			RuntimeOrigin::signed(3),
+			RuntimeOrigin::signed(three.clone()),
 			0,
-			10,
+			ten.clone(),
 			Judgement::Reasonable,
 			identity_hash
 		));
-		assert_eq!(Identity::identity(10).unwrap().judgements, vec![(0, Judgement::Reasonable)]);
+		assert_eq!(Identity::identity(ten).unwrap().0.judgements, vec![(0, Judgement::Reasonable)]);
 	});
 }
 
 #[test]
 fn clearing_judgement_should_work() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Identity::add_registrar(RuntimeOrigin::signed(1), 3));
-		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(10), Box::new(ten())));
-		assert_ok!(Identity::provide_judgement(
-			RuntimeOrigin::signed(3),
-			0,
-			10,
-			Judgement::Reasonable,
-			BlakeTwo256::hash_of(&ten())
+		let [_, _, three, _, ten, _, _, _] = accounts();
+		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), three.clone()));
+		assert_ok!(Identity::set_identity(
+			RuntimeOrigin::signed(ten.clone()),
+			Box::new(infoof_ten())
 		));
-		assert_ok!(Identity::clear_identity(RuntimeOrigin::signed(10)));
-		assert_eq!(Identity::identity(10), None);
+		assert_ok!(Identity::provide_judgement(
+			RuntimeOrigin::signed(three.clone()),
+			0,
+			ten.clone(),
+			Judgement::Reasonable,
+			BlakeTwo256::hash_of(&infoof_ten())
+		));
+		assert_ok!(Identity::clear_identity(RuntimeOrigin::signed(ten.clone())));
+		assert_eq!(Identity::identity(ten), None);
 	});
 }
 
 #[test]
 fn killing_slashing_should_work() {
 	new_test_ext().execute_with(|| {
-		let ten = ten();
-		let id_deposit = id_deposit(&ten);
-		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(10), Box::new(ten)));
-		assert_noop!(Identity::kill_identity(RuntimeOrigin::signed(1), 10), BadOrigin);
-		assert_ok!(Identity::kill_identity(RuntimeOrigin::signed(2), 10));
-		assert_eq!(Identity::identity(10), None);
-		assert_eq!(Balances::free_balance(10), 1000 - id_deposit);
-		assert_noop!(
-			Identity::kill_identity(RuntimeOrigin::signed(2), 10),
-			Error::<Test>::NotNamed
-		);
+		let [one, _, _, _, ten, _, _, _] = accounts();
+		let ten_info = infoof_ten();
+		let id_deposit = id_deposit(&ten_info);
+		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(ten.clone()), Box::new(ten_info)));
+		assert_noop!(Identity::kill_identity(RuntimeOrigin::signed(one), ten.clone()), BadOrigin);
+		assert_ok!(Identity::kill_identity(RuntimeOrigin::root(), ten.clone()));
+		assert_eq!(Identity::identity(ten.clone()), None);
+		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit);
+		assert_noop!(Identity::kill_identity(RuntimeOrigin::root(), ten), Error::<Test>::NotNamed);
 	});
 }
 
 #[test]
 fn setting_subaccounts_should_work() {
 	new_test_ext().execute_with(|| {
-		let ten = ten();
-		let id_deposit = id_deposit(&ten);
+		let [_, _, _, _, ten, twenty, thirty, forty] = accounts();
+		let ten_info = infoof_ten();
+		let id_deposit = id_deposit(&ten_info);
 		let sub_deposit: u64 = <<Test as Config>::SubAccountDeposit as Get<u64>>::get();
-		let mut subs = vec![(20, Data::Raw(vec![40; 1].try_into().unwrap()))];
+		let mut subs = vec![(twenty.clone(), Data::Raw(vec![40; 1].try_into().unwrap()))];
 		assert_noop!(
-			Identity::set_subs(RuntimeOrigin::signed(10), subs.clone()),
+			Identity::set_subs(RuntimeOrigin::signed(ten.clone()), subs.clone()),
 			Error::<Test>::NotFound
 		);
 
-		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(10), Box::new(ten)));
-		assert_eq!(Balances::free_balance(10), 1000 - id_deposit);
-		assert_ok!(Identity::set_subs(RuntimeOrigin::signed(10), subs.clone()));
-		assert_eq!(Balances::free_balance(10), 1000 - id_deposit - sub_deposit);
-		assert_eq!(Identity::subs_of(10), (sub_deposit, vec![20].try_into().unwrap()));
-		assert_eq!(Identity::super_of(20), Some((10, Data::Raw(vec![40; 1].try_into().unwrap()))));
+		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(ten.clone()), Box::new(ten_info)));
+		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit);
+		assert_ok!(Identity::set_subs(RuntimeOrigin::signed(ten.clone()), subs.clone()));
+		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit - sub_deposit);
+		assert_eq!(
+			Identity::subs_of(ten.clone()),
+			(sub_deposit, vec![twenty.clone()].try_into().unwrap())
+		);
+		assert_eq!(
+			Identity::super_of(twenty.clone()),
+			Some((ten.clone(), Data::Raw(vec![40; 1].try_into().unwrap())))
+		);
 
 		// push another item and re-set it.
-		subs.push((30, Data::Raw(vec![50; 1].try_into().unwrap())));
-		assert_ok!(Identity::set_subs(RuntimeOrigin::signed(10), subs.clone()));
-		assert_eq!(Balances::free_balance(10), 1000 - id_deposit - 2 * sub_deposit);
-		assert_eq!(Identity::subs_of(10), (2 * sub_deposit, vec![20, 30].try_into().unwrap()));
-		assert_eq!(Identity::super_of(20), Some((10, Data::Raw(vec![40; 1].try_into().unwrap()))));
-		assert_eq!(Identity::super_of(30), Some((10, Data::Raw(vec![50; 1].try_into().unwrap()))));
+		subs.push((thirty.clone(), Data::Raw(vec![50; 1].try_into().unwrap())));
+		assert_ok!(Identity::set_subs(RuntimeOrigin::signed(ten.clone()), subs.clone()));
+		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit - 2 * sub_deposit);
+		assert_eq!(
+			Identity::subs_of(ten.clone()),
+			(2 * sub_deposit, vec![twenty.clone(), thirty.clone()].try_into().unwrap())
+		);
+		assert_eq!(
+			Identity::super_of(twenty.clone()),
+			Some((ten.clone(), Data::Raw(vec![40; 1].try_into().unwrap())))
+		);
+		assert_eq!(
+			Identity::super_of(thirty.clone()),
+			Some((ten.clone(), Data::Raw(vec![50; 1].try_into().unwrap())))
+		);
 
 		// switch out one of the items and re-set.
-		subs[0] = (40, Data::Raw(vec![60; 1].try_into().unwrap()));
-		assert_ok!(Identity::set_subs(RuntimeOrigin::signed(10), subs.clone()));
+		subs[0] = (forty.clone(), Data::Raw(vec![60; 1].try_into().unwrap()));
+		assert_ok!(Identity::set_subs(RuntimeOrigin::signed(ten.clone()), subs.clone()));
 		// no change in the balance
-		assert_eq!(Balances::free_balance(10), 1000 - id_deposit - 2 * sub_deposit);
-		assert_eq!(Identity::subs_of(10), (2 * sub_deposit, vec![40, 30].try_into().unwrap()));
-		assert_eq!(Identity::super_of(20), None);
-		assert_eq!(Identity::super_of(30), Some((10, Data::Raw(vec![50; 1].try_into().unwrap()))));
-		assert_eq!(Identity::super_of(40), Some((10, Data::Raw(vec![60; 1].try_into().unwrap()))));
+		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit - 2 * sub_deposit);
+		assert_eq!(
+			Identity::subs_of(ten.clone()),
+			(2 * sub_deposit, vec![forty.clone(), thirty.clone()].try_into().unwrap())
+		);
+		assert_eq!(Identity::super_of(twenty.clone()), None);
+		assert_eq!(
+			Identity::super_of(thirty.clone()),
+			Some((ten.clone(), Data::Raw(vec![50; 1].try_into().unwrap())))
+		);
+		assert_eq!(
+			Identity::super_of(forty.clone()),
+			Some((ten.clone(), Data::Raw(vec![60; 1].try_into().unwrap())))
+		);
 
 		// clear
-		assert_ok!(Identity::set_subs(RuntimeOrigin::signed(10), vec![]));
-		assert_eq!(Balances::free_balance(10), 1000 - id_deposit);
-		assert_eq!(Identity::subs_of(10), (0, BoundedVec::default()));
-		assert_eq!(Identity::super_of(30), None);
-		assert_eq!(Identity::super_of(40), None);
+		assert_ok!(Identity::set_subs(RuntimeOrigin::signed(ten.clone()), vec![]));
+		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit);
+		assert_eq!(Identity::subs_of(ten.clone()), (0, BoundedVec::default()));
+		assert_eq!(Identity::super_of(thirty.clone()), None);
+		assert_eq!(Identity::super_of(forty), None);
 
-		subs.push((20, Data::Raw(vec![40; 1].try_into().unwrap())));
+		subs.push((twenty, Data::Raw(vec![40; 1].try_into().unwrap())));
 		assert_noop!(
-			Identity::set_subs(RuntimeOrigin::signed(10), subs.clone()),
+			Identity::set_subs(RuntimeOrigin::signed(ten), subs.clone()),
 			Error::<Test>::TooManySubAccounts
 		);
 	});
@@ -506,67 +599,76 @@ fn setting_subaccounts_should_work() {
 #[test]
 fn clearing_account_should_remove_subaccounts_and_refund() {
 	new_test_ext().execute_with(|| {
-		let ten = ten();
-		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(10), Box::new(ten.clone())));
-		assert_eq!(Balances::free_balance(10), 1000 - id_deposit(&ten));
-		assert_ok!(Identity::set_subs(
-			RuntimeOrigin::signed(10),
-			vec![(20, Data::Raw(vec![40; 1].try_into().unwrap()))]
+		let [_, _, _, _, ten, twenty, _, _] = accounts();
+		let ten_info = infoof_ten();
+		assert_ok!(Identity::set_identity(
+			RuntimeOrigin::signed(ten.clone()),
+			Box::new(ten_info.clone())
 		));
-		assert_ok!(Identity::clear_identity(RuntimeOrigin::signed(10)));
-		assert_eq!(Balances::free_balance(10), 1000);
-		assert!(Identity::super_of(20).is_none());
+		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit(&ten_info));
+		assert_ok!(Identity::set_subs(
+			RuntimeOrigin::signed(ten.clone()),
+			vec![(twenty.clone(), Data::Raw(vec![40; 1].try_into().unwrap()))]
+		));
+		assert_ok!(Identity::clear_identity(RuntimeOrigin::signed(ten.clone())));
+		assert_eq!(Balances::free_balance(ten), 1000);
+		assert!(Identity::super_of(twenty).is_none());
 	});
 }
 
 #[test]
 fn killing_account_should_remove_subaccounts_and_not_refund() {
 	new_test_ext().execute_with(|| {
-		let ten = ten();
-		let id_deposit = id_deposit(&ten);
+		let [_, _, _, _, ten, twenty, _, _] = accounts();
+		let ten_info = infoof_ten();
+		let id_deposit = id_deposit(&ten_info);
 		let sub_deposit: u64 = <<Test as Config>::SubAccountDeposit as Get<u64>>::get();
-		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(10), Box::new(ten)));
-		assert_eq!(Balances::free_balance(10), 1000 - id_deposit);
+		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(ten.clone()), Box::new(ten_info)));
+		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit);
 		assert_ok!(Identity::set_subs(
-			RuntimeOrigin::signed(10),
-			vec![(20, Data::Raw(vec![40; 1].try_into().unwrap()))]
+			RuntimeOrigin::signed(ten.clone()),
+			vec![(twenty.clone(), Data::Raw(vec![40; 1].try_into().unwrap()))]
 		));
-		assert_eq!(Balances::free_balance(10), 1000 - id_deposit - sub_deposit);
-		assert_ok!(Identity::kill_identity(RuntimeOrigin::signed(2), 10));
-		assert_eq!(Balances::free_balance(10), 1000 - id_deposit - sub_deposit);
-		assert!(Identity::super_of(20).is_none());
+		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit - sub_deposit);
+		assert_ok!(Identity::kill_identity(RuntimeOrigin::root(), ten.clone()));
+		assert_eq!(Balances::free_balance(ten), 1000 - id_deposit - sub_deposit);
+		assert!(Identity::super_of(twenty).is_none());
 	});
 }
 
 #[test]
 fn cancelling_requested_judgement_should_work() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Identity::add_registrar(RuntimeOrigin::signed(1), 3));
-		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(3), 0, 10));
+		let [_, _, three, _, ten, _, _, _] = accounts();
+		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), three.clone()));
+		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(three.clone()), 0, 10));
 		assert_noop!(
-			Identity::cancel_request(RuntimeOrigin::signed(10), 0),
+			Identity::cancel_request(RuntimeOrigin::signed(ten.clone()), 0),
 			Error::<Test>::NoIdentity
 		);
-		let ten = ten();
-		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(10), Box::new(ten.clone())));
-		assert_eq!(Balances::free_balance(10), 1000 - id_deposit(&ten));
-		assert_ok!(Identity::request_judgement(RuntimeOrigin::signed(10), 0, 10));
-		assert_ok!(Identity::cancel_request(RuntimeOrigin::signed(10), 0));
-		assert_eq!(Balances::free_balance(10), 1000 - id_deposit(&ten));
+		let ten_info = infoof_ten();
+		assert_ok!(Identity::set_identity(
+			RuntimeOrigin::signed(ten.clone()),
+			Box::new(ten_info.clone())
+		));
+		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit(&ten_info));
+		assert_ok!(Identity::request_judgement(RuntimeOrigin::signed(ten.clone()), 0, 10));
+		assert_ok!(Identity::cancel_request(RuntimeOrigin::signed(ten.clone()), 0));
+		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit(&ten_info));
 		assert_noop!(
-			Identity::cancel_request(RuntimeOrigin::signed(10), 0),
+			Identity::cancel_request(RuntimeOrigin::signed(ten.clone()), 0),
 			Error::<Test>::NotFound
 		);
 
 		assert_ok!(Identity::provide_judgement(
-			RuntimeOrigin::signed(3),
+			RuntimeOrigin::signed(three),
 			0,
-			10,
+			ten.clone(),
 			Judgement::Reasonable,
-			BlakeTwo256::hash_of(&ten)
+			BlakeTwo256::hash_of(&ten_info)
 		));
 		assert_noop!(
-			Identity::cancel_request(RuntimeOrigin::signed(10), 0),
+			Identity::cancel_request(RuntimeOrigin::signed(ten), 0),
 			Error::<Test>::JudgementGiven
 		);
 	});
@@ -575,79 +677,87 @@ fn cancelling_requested_judgement_should_work() {
 #[test]
 fn requesting_judgement_should_work() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Identity::add_registrar(RuntimeOrigin::signed(1), 3));
-		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(3), 0, 10));
-		let ten = ten();
-		let id_deposit = id_deposit(&ten);
-		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(10), Box::new(ten.clone())));
-		assert_eq!(Balances::free_balance(10), 1000 - id_deposit);
+		let [_, _, three, four, ten, _, _, _] = accounts();
+		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), three.clone()));
+		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(three.clone()), 0, 10));
+		let ten_info = infoof_ten();
+		let id_deposit = id_deposit(&ten_info);
+		assert_ok!(Identity::set_identity(
+			RuntimeOrigin::signed(ten.clone()),
+			Box::new(ten_info.clone())
+		));
+		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit);
 		assert_noop!(
-			Identity::request_judgement(RuntimeOrigin::signed(10), 0, 9),
+			Identity::request_judgement(RuntimeOrigin::signed(ten.clone()), 0, 9),
 			Error::<Test>::FeeChanged
 		);
-		assert_ok!(Identity::request_judgement(RuntimeOrigin::signed(10), 0, 10));
+		assert_ok!(Identity::request_judgement(RuntimeOrigin::signed(ten.clone()), 0, 10));
 		// 10 for the judgement request and the deposit for the identity.
-		assert_eq!(Balances::free_balance(10), 1000 - id_deposit - 10);
+		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit - 10);
 
 		// Re-requesting won't work as we already paid.
 		assert_noop!(
-			Identity::request_judgement(RuntimeOrigin::signed(10), 0, 10),
+			Identity::request_judgement(RuntimeOrigin::signed(ten.clone()), 0, 10),
 			Error::<Test>::StickyJudgement
 		);
 		assert_ok!(Identity::provide_judgement(
-			RuntimeOrigin::signed(3),
+			RuntimeOrigin::signed(three.clone()),
 			0,
-			10,
+			ten.clone(),
 			Judgement::Erroneous,
-			BlakeTwo256::hash_of(&ten)
+			BlakeTwo256::hash_of(&ten_info)
 		));
 		// Registrar got their payment now.
 		// 100 initial balance and 10 for the judgement.
-		assert_eq!(Balances::free_balance(3), 100 + 10);
+		assert_eq!(Balances::free_balance(three.clone()), 100 + 10);
 
 		// Re-requesting still won't work as it's erroneous.
 		assert_noop!(
-			Identity::request_judgement(RuntimeOrigin::signed(10), 0, 10),
+			Identity::request_judgement(RuntimeOrigin::signed(ten.clone()), 0, 10),
 			Error::<Test>::StickyJudgement
 		);
 
 		// Requesting from a second registrar still works.
-		assert_ok!(Identity::add_registrar(RuntimeOrigin::signed(1), 4));
-		assert_ok!(Identity::request_judgement(RuntimeOrigin::signed(10), 1, 10));
+		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), four));
+		assert_ok!(Identity::request_judgement(RuntimeOrigin::signed(ten.clone()), 1, 10));
 
 		// Re-requesting after the judgement has been reduced works.
 		assert_ok!(Identity::provide_judgement(
-			RuntimeOrigin::signed(3),
+			RuntimeOrigin::signed(three),
 			0,
-			10,
+			ten.clone(),
 			Judgement::OutOfDate,
-			BlakeTwo256::hash_of(&ten)
+			BlakeTwo256::hash_of(&ten_info)
 		));
-		assert_ok!(Identity::request_judgement(RuntimeOrigin::signed(10), 0, 10));
+		assert_ok!(Identity::request_judgement(RuntimeOrigin::signed(ten), 0, 10));
 	});
 }
 
 #[test]
 fn provide_judgement_should_return_judgement_payment_failed_error() {
 	new_test_ext().execute_with(|| {
-		let ten = ten();
-		let id_deposit = id_deposit(&ten);
-		assert_ok!(Identity::add_registrar(RuntimeOrigin::signed(1), 3));
-		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(3), 0, 10));
-		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(10), Box::new(ten.clone())));
-		assert_ok!(Identity::request_judgement(RuntimeOrigin::signed(10), 0, 10));
+		let [_, _, three, _, ten, _, _, _] = accounts();
+		let ten_info = infoof_ten();
+		let id_deposit = id_deposit(&ten_info);
+		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), three.clone()));
+		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(three.clone()), 0, 10));
+		assert_ok!(Identity::set_identity(
+			RuntimeOrigin::signed(ten.clone()),
+			Box::new(ten_info.clone())
+		));
+		assert_ok!(Identity::request_judgement(RuntimeOrigin::signed(ten.clone()), 0, 10));
 		// 10 for the judgement request and the deposit for the identity.
-		assert_eq!(Balances::free_balance(10), 1000 - id_deposit - 10);
+		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit - 10);
 
 		// This forces judgement payment failed error
-		Balances::make_free_balance_be(&3, 0);
+		Balances::make_free_balance_be(&three, 0);
 		assert_noop!(
 			Identity::provide_judgement(
-				RuntimeOrigin::signed(3),
+				RuntimeOrigin::signed(three.clone()),
 				0,
-				10,
+				ten.clone(),
 				Judgement::Erroneous,
-				BlakeTwo256::hash_of(&ten)
+				BlakeTwo256::hash_of(&ten_info)
 			),
 			Error::<Test>::JudgementPaymentFailed
 		);
@@ -657,8 +767,9 @@ fn provide_judgement_should_return_judgement_payment_failed_error() {
 #[test]
 fn field_deposit_should_work() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Identity::add_registrar(RuntimeOrigin::signed(1), 3));
-		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(3), 0, 10));
+		let [_, _, three, _, ten, _, _, _] = accounts();
+		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), three.clone()));
+		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(three), 0, 10));
 		let id = IdentityInfo {
 			additional: vec![
 				(
@@ -675,39 +786,44 @@ fn field_deposit_should_work() {
 			..Default::default()
 		};
 		let id_deposit = id_deposit(&id);
-		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(10), Box::new(id)));
-		assert_eq!(Balances::free_balance(10), 1000 - id_deposit);
+		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(ten.clone()), Box::new(id)));
+		assert_eq!(Balances::free_balance(ten), 1000 - id_deposit);
 	});
 }
 
 #[test]
 fn setting_account_id_should_work() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Identity::add_registrar(RuntimeOrigin::signed(1), 3));
+		let [_, _, three, four, _, _, _, _] = accounts();
+		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), three.clone()));
 		// account 4 cannot change the first registrar's identity since it's owned by 3.
 		assert_noop!(
-			Identity::set_account_id(RuntimeOrigin::signed(4), 0, 3),
+			Identity::set_account_id(RuntimeOrigin::signed(four.clone()), 0, three.clone()),
 			Error::<Test>::InvalidIndex
 		);
 		// account 3 can, because that's the registrar's current account.
-		assert_ok!(Identity::set_account_id(RuntimeOrigin::signed(3), 0, 4));
+		assert_ok!(Identity::set_account_id(RuntimeOrigin::signed(three.clone()), 0, four.clone()));
 		// account 4 can now, because that's their new ID.
-		assert_ok!(Identity::set_account_id(RuntimeOrigin::signed(4), 0, 3));
+		assert_ok!(Identity::set_account_id(RuntimeOrigin::signed(four), 0, three));
 	});
 }
 
 #[test]
 fn test_has_identity() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(10), Box::new(ten())));
-		assert!(Identity::has_identity(&10, IdentityField::Display as u64));
-		assert!(Identity::has_identity(&10, IdentityField::Legal as u64));
+		let [_, _, _, _, ten, _, _, _] = accounts();
+		assert_ok!(Identity::set_identity(
+			RuntimeOrigin::signed(ten.clone()),
+			Box::new(infoof_ten())
+		));
+		assert!(Identity::has_identity(&ten, IdentityField::Display as u64));
+		assert!(Identity::has_identity(&ten, IdentityField::Legal as u64));
 		assert!(Identity::has_identity(
-			&10,
+			&ten,
 			IdentityField::Display as u64 | IdentityField::Legal as u64
 		));
 		assert!(!Identity::has_identity(
-			&10,
+			&ten,
 			IdentityField::Display as u64 | IdentityField::Legal as u64 | IdentityField::Web as u64
 		));
 	});
@@ -716,66 +832,80 @@ fn test_has_identity() {
 #[test]
 fn reap_identity_works() {
 	new_test_ext().execute_with(|| {
-		let ten_info = ten();
-		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(10), Box::new(ten_info.clone())));
+		let [_, _, _, _, ten, twenty, _, _] = accounts();
+		let ten_info = infoof_ten();
+		assert_ok!(Identity::set_identity(
+			RuntimeOrigin::signed(ten.clone()),
+			Box::new(ten_info.clone())
+		));
 		assert_ok!(Identity::set_subs(
-			RuntimeOrigin::signed(10),
-			vec![(20, Data::Raw(vec![40; 1].try_into().unwrap()))]
+			RuntimeOrigin::signed(ten.clone()),
+			vec![(twenty.clone(), Data::Raw(vec![40; 1].try_into().unwrap()))]
 		));
 		// deposit is correct
 		let id_deposit = id_deposit(&ten_info);
 		let subs_deposit: u64 = <<Test as Config>::SubAccountDeposit as Get<u64>>::get();
-		assert_eq!(Balances::free_balance(10), 1000 - id_deposit - subs_deposit);
+		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit - subs_deposit);
 		// reap
-		assert_ok!(Identity::reap_identity(&10));
+		assert_ok!(Identity::reap_identity(&ten));
 		// no identity or subs
-		assert!(Identity::identity(10).is_none());
-		assert!(Identity::super_of(20).is_none());
+		assert!(Identity::identity(ten.clone()).is_none());
+		assert!(Identity::super_of(twenty).is_none());
 		// balance is unreserved
-		assert_eq!(Balances::free_balance(10), 1000);
+		assert_eq!(Balances::free_balance(ten), 1000);
 	});
 }
 
 #[test]
 fn poke_deposit_works() {
 	new_test_ext().execute_with(|| {
-		let ten_info = ten();
+		let [_, _, _, _, ten, twenty, _, _] = accounts();
+		let ten_info = infoof_ten();
 		// Set a custom registration with 0 deposit
-		IdentityOf::<Test>::insert(
-			&10,
-			Registration {
-				judgements: BoundedVec::default(),
-				deposit: Zero::zero(),
-				info: ten_info.clone(),
-			},
+		IdentityOf::<Test>::insert::<
+			_,
+			(Registration<u64, MaxRegistrars, IdentityInfo<MaxAdditionalFields>>, Option<Username>),
+		>(
+			&ten,
+			(
+				Registration {
+					judgements: Default::default(),
+					deposit: Zero::zero(),
+					info: ten_info.clone(),
+				},
+				None::<Username>,
+			),
 		);
-		assert!(Identity::identity(10).is_some());
+		assert!(Identity::identity(ten.clone()).is_some());
 		// Set a sub with zero deposit
-		SubsOf::<Test>::insert::<&u64, (u64, BoundedVec<u64, ConstU32<2>>)>(
-			&10,
-			(0, vec![20].try_into().unwrap()),
+		SubsOf::<Test>::insert::<_, (u64, BoundedVec<AccountIdOf<Test>, ConstU32<2>>)>(
+			&ten,
+			(0, vec![twenty.clone()].try_into().unwrap()),
 		);
-		SuperOf::<Test>::insert(&20, (&10, Data::Raw(vec![1; 1].try_into().unwrap())));
+		SuperOf::<Test>::insert(&twenty, (&ten, Data::Raw(vec![1; 1].try_into().unwrap())));
 		// Balance is free
-		assert_eq!(Balances::free_balance(10), 1000);
+		assert_eq!(Balances::free_balance(ten.clone()), 1000);
 
 		// poke
-		assert_ok!(Identity::poke_deposit(&10));
+		assert_ok!(Identity::poke_deposit(&ten));
 
 		// free balance reduced correctly
 		let id_deposit = id_deposit(&ten_info);
 		let subs_deposit: u64 = <<Test as Config>::SubAccountDeposit as Get<u64>>::get();
-		assert_eq!(Balances::free_balance(10), 1000 - id_deposit - subs_deposit);
+		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit - subs_deposit);
 		// new registration deposit is 10
 		assert_eq!(
-			Identity::identity(&10),
-			Some(Registration {
-				judgements: BoundedVec::default(),
-				deposit: id_deposit,
-				info: ten()
-			})
+			Identity::identity(&ten),
+			Some((
+				Registration {
+					judgements: Default::default(),
+					deposit: id_deposit,
+					info: infoof_ten()
+				},
+				None
+			))
 		);
-		// new subs deposit is 10          vvvvvvvvvvvv
-		assert_eq!(Identity::subs_of(10), (subs_deposit, vec![20].try_into().unwrap()));
+		// new subs deposit is 10           vvvvvvvvvvvv
+		assert_eq!(Identity::subs_of(ten), (subs_deposit, vec![twenty].try_into().unwrap()));
 	});
 }
