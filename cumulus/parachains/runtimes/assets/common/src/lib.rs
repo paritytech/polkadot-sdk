@@ -264,19 +264,19 @@ mod tests {
 				Err(MatchError::AssetNotHandled),
 			),
 			// ok
-			(ma_1000(1, [Parachain(200)].into()), Ok((Location::new(1, [Parachain(200)]), 1000))),
-			(ma_1000(2, [Parachain(200)].into()), Ok((Location::new(2, [Parachain(200)]), 1000))),
+			(ma_1000(1, [Parachain(200)].into()), Ok((xcm::v3::MultiLocation::new(1, [Parachain(200)]), 1000))),
+			(ma_1000(2, [Parachain(200)].into()), Ok((xcm::v3::MultiLocation::new(2, [Parachain(200)]), 1000))),
 			(
 				ma_1000(1, [Parachain(200), GeneralIndex(1234)].into()),
-				Ok((Location::new(1, [Parachain(200), GeneralIndex(1234)]), 1000)),
+				Ok((xcm::v3::MultiLocation::new(1, [Parachain(200), GeneralIndex(1234)]), 1000)),
 			),
 			(
 				ma_1000(2, [Parachain(200), GeneralIndex(1234)].into()),
-				Ok((Location::new(2, [Parachain(200), GeneralIndex(1234)]), 1000)),
+				Ok((xcm::v3::MultiLocation::new(2, [Parachain(200), GeneralIndex(1234)]), 1000)),
 			),
 			(
 				ma_1000(2, [GlobalConsensus(NetworkId::ByGenesis([7; 32]))].into()),
-				Ok((Location::new(2, [GlobalConsensus(NetworkId::ByGenesis([7; 32]))]), 1000)),
+				Ok((xcm::v3::MultiLocation::new(2, [GlobalConsensus(NetworkId::ByGenesis([7; 32]))]), 1000)),
 			),
 			(
 				ma_1000(
@@ -289,7 +289,7 @@ mod tests {
 					.into(),
 				),
 				Ok((
-					Location::new(
+					xcm::v3::MultiLocation::new(
 						2,
 						[
 							GlobalConsensus(NetworkId::ByGenesis([7; 32])),
