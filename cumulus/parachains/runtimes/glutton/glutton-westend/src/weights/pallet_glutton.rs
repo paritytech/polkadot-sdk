@@ -37,6 +37,8 @@
 // --header=./cumulus/file_header.txt
 // --output=./cumulus/parachains/runtimes/glutton/glutton-westend/src/weights/
 
+// Trivial change.
+
 #![cfg_attr(rustfmt, rustfmt_skip)]
 #![allow(unused_parens)]
 #![allow(unused_imports)]
