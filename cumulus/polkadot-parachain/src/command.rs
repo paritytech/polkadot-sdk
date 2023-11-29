@@ -536,17 +536,19 @@ macro_rules! construct_partials {
 				$code
 			},
 			Runtime::Coretime(coretime_runtime_type) => match coretime_runtime_type {
-				chain_spec::coretime::CoretimeRuntimeType::Westend => {
-					let $partials = new_partial::<chain_spec::coretime::westend::RuntimeApi, _>(
+				chain_spec::coretime::CoretimeRuntimeType::Rococo |
+				chain_spec::coretime::CoretimeRuntimeType::RococoLocal |
+				chain_spec::coretime::CoretimeRuntimeType::RococoDevelopment => {
+					let $partials = new_partial::<chain_spec::coretime::rococo::RuntimeApi, _>(
 						&$config,
 						crate::service::aura_build_import_queue::<_, AuraId>,
 					)?;
 					$code
 				},
-				chain_spec::coretime::CoretimeRuntimeType::Rococo |
-				chain_spec::coretime::CoretimeRuntimeType::RococoLocal |
-				chain_spec::coretime::CoretimeRuntimeType::RococoDevelopment => {
-					let $partials = new_partial::<chain_spec::coretime::rococo::RuntimeApi, _>(
+				chain_spec::coretime::CoretimeRuntimeType::Westend |
+				chain_spec::coretime::CoretimeRuntimeType::WestendLocal |
+				chain_spec::coretime::CoretimeRuntimeType::WestendDevelopment => {
+					let $partials = new_partial::<chain_spec::coretime::westend::RuntimeApi, _>(
 						&$config,
 						crate::service::aura_build_import_queue::<_, AuraId>,
 					)?;
@@ -764,7 +766,9 @@ macro_rules! construct_async_run {
 							{ $( $code )* }.map(|v| (v, task_manager))
 						})
 					},
-					chain_spec::coretime::CoretimeRuntimeType::Westend => {
+					chain_spec::coretime::CoretimeRuntimeType::Westend |
+					chain_spec::coretime::CoretimeRuntimeType::WestendLocal |
+					chain_spec::coretime::CoretimeRuntimeType::WestendDevelopment => {
 						runner.async_run(|$config| {
 							let $components = new_partial::<chain_spec::coretime::westend::RuntimeApi, _>(
 								&$config,
@@ -1115,7 +1119,9 @@ chain_spec::bridge_hubs::BridgeHubRuntimeType::Polkadot |
 							>(config, polkadot_config, collator_options, id, hwbench)
 							.await
 							.map(|r| r.0),
-						chain_spec::coretime::CoretimeRuntimeType::Westend =>
+						chain_spec::coretime::CoretimeRuntimeType::Westend |
+						chain_spec::coretime::CoretimeRuntimeType::WestendLocal |
+						chain_spec::coretime::CoretimeRuntimeType::WestendDevelopment =>
 							crate::service::start_generic_aura_node::<
 								chain_spec::coretime::westend::RuntimeApi,
 								AuraId,
