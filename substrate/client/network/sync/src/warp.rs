@@ -304,14 +304,14 @@ where
 	}
 
 	/// Notify that a new peer has connected.
-	pub fn new_peer(&mut self, peer_id: PeerId, _best_hash: B::Hash, best_number: NumberFor<B>) {
+	pub fn add_peer(&mut self, peer_id: PeerId, _best_hash: B::Hash, best_number: NumberFor<B>) {
 		self.peers.insert(peer_id, Peer { best_number, state: PeerState::Available });
 
 		self.try_to_start_warp_sync();
 	}
 
 	/// Notify that a peer has disconnected.
-	pub fn peer_disconnected(&mut self, peer_id: &PeerId) {
+	pub fn remove_peer(&mut self, peer_id: &PeerId) {
 		self.peers.remove(peer_id);
 	}
 

@@ -75,6 +75,7 @@ struct Peer<B: BlockT> {
 	state: PeerState,
 }
 
+/// Syncing strategy that downloads and imports a recent state directly.
 pub struct StateStrategy<B: BlockT, Client> {
 	state_sync: StateSync<B, Client>,
 	peers: HashMap<PeerId, Peer<B>>,
@@ -114,12 +115,12 @@ where
 	}
 
 	/// Notify that a new peer has connected.
-	pub fn new_peer(&mut self, peer_id: PeerId, _best_hash: B::Hash, best_number: NumberFor<B>) {
+	pub fn add_peer(&mut self, peer_id: PeerId, _best_hash: B::Hash, best_number: NumberFor<B>) {
 		self.peers.insert(peer_id, Peer { best_number, state: PeerState::Available });
 	}
 
 	/// Notify that a peer has disconnected.
-	pub fn peer_disconnected(&mut self, peer_id: &PeerId) {
+	pub fn remove_peer(&mut self, peer_id: &PeerId) {
 		self.peers.remove(peer_id);
 	}
 

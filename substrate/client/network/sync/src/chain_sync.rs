@@ -422,8 +422,8 @@ where
 	}
 
 	/// Notify syncing state machine that a new sync peer has connected.
-	pub fn new_peer(&mut self, peer_id: PeerId, best_hash: B::Hash, best_number: NumberFor<B>) {
-		match self.new_peer_inner(peer_id, best_hash, best_number) {
+	pub fn add_peer(&mut self, peer_id: PeerId, best_hash: B::Hash, best_number: NumberFor<B>) {
+		match self.add_peer_inner(peer_id, best_hash, best_number) {
 			Ok(Some(request)) =>
 				self.actions.push(ChainSyncAction::SendBlockRequest { peer_id, request }),
 			Ok(None) => {},
@@ -432,7 +432,7 @@ where
 	}
 
 	#[must_use]
-	fn new_peer_inner(
+	fn add_peer_inner(
 		&mut self,
 		peer_id: PeerId,
 		best_hash: B::Hash,
@@ -1022,15 +1022,13 @@ where
 			return None
 		}
 
-		let new_peer_info = if is_best {
+		let peer_info = is_best.then_some({
 			// update their best block
 			peer.best_number = number;
 			peer.best_hash = hash;
 
-			Some((hash, number))
-		} else {
-			None
-		};
+			(hash, number)
+		});
 
 		// If the announced block is the best they have and is not ahead of us, our common number
 		// is either one further ahead or it's the one they just announced, if we know about it.
@@ -1051,7 +1049,7 @@ where
 			if let Some(target) = self.fork_targets.get_mut(&hash) {
 				target.peers.insert(peer_id);
 			}
-			return new_peer_info
+			return peer_info
 		}
 
 		if ancient_parent {
@@ -1062,7 +1060,7 @@ where
 				hash,
 				announce.header,
 			);
-			return new_peer_info
+			return peer_info
 		}
 
 		if self.status().state == SyncState::Idle {
@@ -1084,11 +1082,11 @@ where
 				.insert(peer_id);
 		}
 
-		new_peer_info
+		peer_info
 	}
 
 	/// Notify that a sync peer has disconnected.
-	pub fn peer_disconnected(&mut self, peer_id: &PeerId) {
+	pub fn remove_peer(&mut self, peer_id: &PeerId) {
 		self.blocks.clear_peer_download(peer_id);
 		if let Some(gap_sync) = &mut self.gap_sync {
 			gap_sync.blocks.clear_peer_download(peer_id)
@@ -1266,7 +1264,7 @@ where
 			}
 
 			// handle peers that were in other states.
-			let action = match self.new_peer_inner(peer_id, p.best_hash, p.best_number) {
+			let action = match self.add_peer_inner(peer_id, p.best_hash, p.best_number) {
 				// since the request is not a justification, remove it from pending responses
 				Ok(None) => ChainSyncAction::CancelBlockRequest { peer_id },
 				// update the request if the new one is available

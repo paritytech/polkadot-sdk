@@ -128,23 +128,23 @@ where
 	}
 
 	/// Notify that a new peer has connected.
-	pub fn new_peer(&mut self, peer_id: PeerId, best_hash: B::Hash, best_number: NumberFor<B>) {
+	pub fn add_peer(&mut self, peer_id: PeerId, best_hash: B::Hash, best_number: NumberFor<B>) {
 		match self {
 			SyncingStrategy::WarpSyncStrategy(strategy) =>
-				strategy.new_peer(peer_id, best_hash, best_number),
+				strategy.add_peer(peer_id, best_hash, best_number),
 			SyncingStrategy::StateSyncStrategy(strategy) =>
-				strategy.new_peer(peer_id, best_hash, best_number),
+				strategy.add_peer(peer_id, best_hash, best_number),
 			SyncingStrategy::ChainSyncStrategy(strategy) =>
-				strategy.new_peer(peer_id, best_hash, best_number),
+				strategy.add_peer(peer_id, best_hash, best_number),
 		}
 	}
 
 	/// Notify that a peer has disconnected.
-	pub fn peer_disconnected(&mut self, peer_id: &PeerId) {
+	pub fn remove_peer(&mut self, peer_id: &PeerId) {
 		match self {
-			SyncingStrategy::WarpSyncStrategy(strategy) => strategy.peer_disconnected(peer_id),
-			SyncingStrategy::StateSyncStrategy(strategy) => strategy.peer_disconnected(peer_id),
-			SyncingStrategy::ChainSyncStrategy(strategy) => strategy.peer_disconnected(peer_id),
+			SyncingStrategy::WarpSyncStrategy(strategy) => strategy.remove_peer(peer_id),
+			SyncingStrategy::StateSyncStrategy(strategy) => strategy.remove_peer(peer_id),
+			SyncingStrategy::ChainSyncStrategy(strategy) => strategy.remove_peer(peer_id),
 		}
 	}
 
@@ -425,7 +425,7 @@ where
 						// Let `ChainSync` know about connected peers.
 						connected_peers.into_iter().for_each(
 							|(peer_id, best_hash, best_number)| {
-								chain_sync.new_peer(peer_id, best_hash, best_number)
+								chain_sync.add_peer(peer_id, best_hash, best_number)
 							},
 						);
 
@@ -449,7 +449,7 @@ where
 				};
 				// Let `ChainSync` know about connected peers.
 				connected_peers.into_iter().for_each(|(peer_id, best_hash, best_number)| {
-					chain_sync.new_peer(peer_id, best_hash, best_number)
+					chain_sync.add_peer(peer_id, best_hash, best_number)
 				});
 
 				*self = Self::ChainSyncStrategy(chain_sync);

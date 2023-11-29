@@ -1031,7 +1031,7 @@ where
 			}
 		}
 
-		self.strategy.peer_disconnected(&peer_id);
+		self.strategy.remove_peer(&peer_id);
 		self.pending_responses.remove(&peer_id);
 		self.event_streams
 			.retain(|stream| stream.unbounded_send(SyncEvent::PeerDisconnected(peer_id)).is_ok());
@@ -1177,7 +1177,7 @@ where
 
 		// Only forward full peers to syncing strategy.
 		if status.roles.is_full() {
-			self.strategy.new_peer(peer_id, peer.info.best_hash, peer.info.best_number);
+			self.strategy.add_peer(peer_id, peer.info.best_hash, peer.info.best_number);
 		}
 
 		log::debug!(target: LOG_TARGET, "Connected {peer_id}");
