@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use frame_support::{
+	derive_impl,
 	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays},
 	pallet_prelude::ValueQuery,
 	parameter_types,
@@ -292,6 +293,7 @@ pub mod pallet2 {
 	}
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type RuntimeOrigin = RuntimeOrigin;
