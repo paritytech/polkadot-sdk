@@ -131,8 +131,9 @@ impl XcmBlobHauler for ToRococoBulletinXcmBlobHauler {
 /// Messaging Bridge configuration for BridgeHubRococo -> Rococo Bulletin.
 pub struct WithRococoBulletinMessageBridge;
 impl MessageBridge for WithRococoBulletinMessageBridge {
+	// Bulletin chain assumes it is bridged with Polkadot Bridge Hub
 	const BRIDGED_MESSAGES_PALLET_NAME: &'static str =
-		bp_bridge_hub_rococo::WITH_BRIDGE_HUB_ROCOCO_MESSAGES_PALLET_NAME;
+		bp_bridge_hub_polkadot::WITH_BRIDGE_HUB_POLKADOT_MESSAGES_PALLET_NAME;
 	type ThisChain = BridgeHubRococo;
 	type BridgedChain = RococoBulletin;
 	type BridgedHeaderChain = BridgeRococoBulletinGrandpa;

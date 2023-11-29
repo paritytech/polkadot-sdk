@@ -347,3 +347,30 @@ pub mod bridging {
 	pub type ToBulletinXcmRouter =
 		UnpaidRemoteExporter<NetworkExportTable, XcmpQueue, UniversalLocation>;
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use codec::Encode;
+
+	fn test_storage_key() -> Vec<u8> {
+		(*b"test_key").to_vec()
+	}
+
+	fn test_storage_value() -> Vec<u8> {
+		(*b"test_value").to_vec()
+	}
+
+	#[test]
+	fn encoded_test_xcm_message_to_people_chain() {
+		println!(
+			"{}",
+			hex::encode(
+				&RuntimeCall::System(frame_system::Call::set_storage {
+					items: vec![(test_storage_key(), test_storage_value())],
+				})
+				.encode()
+			)
+		);
+	}
+}

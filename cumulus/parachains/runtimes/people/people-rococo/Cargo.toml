@@ -78,6 +78,7 @@ parachains-common = { path = "../../../common", default-features = false }
 bp-bridge-hub-rococo = { path = "../../../../../bridges/primitives/chain-bridge-hub-rococo", default-features = false }
 
 [dev-dependencies]
+hex = "0.4"
 sp-io = { path = "../../../../../substrate/primitives/io" }
 
 [features]
