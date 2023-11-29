@@ -311,7 +311,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type HigherPrecisionBalance = sp_core::U256;
 	type Currency = Balances;
 	type AssetBalance = Balance;
-	type AssetId = Location;
+	type AssetId = xcm::v3::MultiLocation;
 	type Assets = LocalAndForeignAssets<
 		Assets,
 		AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation>,
@@ -326,7 +326,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type PalletId = AssetConversionPalletId;
 	type AllowMultiAssetPools = AllowMultiAssetPools;
 	type MaxSwapPathLength = ConstU32<4>;
-	type MultiAssetId = Box<Location>;
+	type MultiAssetId = Box<xcm::v3::MultiLocation>;
 	type MultiAssetIdConverter =
 		LocationConverter<WestendLocation, LocalAndForeignAssetsLocationMatcher>;
 	type MintMinLiquidity = ConstU128<100>;
@@ -1224,18 +1224,18 @@ impl_runtime_apis! {
 		Block,
 		Balance,
 		u128,
-		Box<Location>,
+		Box<xcm::v3::MultiLocation>,
 	> for Runtime
 	{
-		fn quote_price_exact_tokens_for_tokens(asset1: Box<Location>, asset2: Box<Location>, amount: u128, include_fee: bool) -> Option<Balance> {
+		fn quote_price_exact_tokens_for_tokens(asset1: Box<xcm::v3::MultiLocation>, asset2: Box<xcm::v3::MultiLocation>, amount: u128, include_fee: bool) -> Option<Balance> {
 			AssetConversion::quote_price_exact_tokens_for_tokens(asset1, asset2, amount, include_fee)
 		}
 
-		fn quote_price_tokens_for_exact_tokens(asset1: Box<Location>, asset2: Box<Location>, amount: u128, include_fee: bool) -> Option<Balance> {
+		fn quote_price_tokens_for_exact_tokens(asset1: Box<xcm::v3::MultiLocation>, asset2: Box<xcm::v3::MultiLocation>, amount: u128, include_fee: bool) -> Option<Balance> {
 			AssetConversion::quote_price_tokens_for_exact_tokens(asset1, asset2, amount, include_fee)
 		}
 
-		fn get_reserves(asset1: Box<Location>, asset2: Box<Location>) -> Option<(Balance, Balance)> {
+		fn get_reserves(asset1: Box<xcm::v3::MultiLocation>, asset2: Box<xcm::v3::MultiLocation>) -> Option<(Balance, Balance)> {
 			AssetConversion::get_reserves(&asset1, &asset2).ok()
 		}
 	}
@@ -1650,7 +1650,7 @@ pub mod migrations {
 	/// `AssetHubWestend`. Migrates pools with `Location { parents: 0, interior: Here }` to
 	/// `Location { parents: 1, interior: Here }`
 	pub struct NativeAssetParents0ToParents1Migration<T>(sp_std::marker::PhantomData<T>);
-	impl<T: pallet_asset_conversion::Config<MultiAssetId = Box<Location>, AssetId = Location>>
+	impl<T: pallet_asset_conversion::Config<MultiAssetId = Box<xcm::v3::MultiLocation>, AssetId = xcm::v3::MultiLocation>>
 		OnRuntimeUpgrade for NativeAssetParents0ToParents1Migration<T>
 	where
 		<T as pallet_asset_conversion::Config>::PoolAssetId: Into<u32>,

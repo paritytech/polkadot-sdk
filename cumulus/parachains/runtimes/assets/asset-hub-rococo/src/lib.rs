@@ -329,7 +329,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type HigherPrecisionBalance = sp_core::U256;
 	type Currency = Balances;
 	type AssetBalance = Balance;
-	type AssetId = Location;
+	type AssetId = xcm::v3::MultiLocation;
 	type Assets = LocalAndForeignAssets<
 		Assets,
 		AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation>,
@@ -345,7 +345,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type PalletId = AssetConversionPalletId;
 	type AllowMultiAssetPools = AllowMultiAssetPools;
 	type MaxSwapPathLength = ConstU32<4>;
-	type MultiAssetId = Box<Location>;
+	type MultiAssetId = Box<xcm::v3::MultiLocation>;
 	type MultiAssetIdConverter =
 		LocationConverter<TokenLocation, LocalAndForeignAssetsLocationMatcher>;
 	type MintMinLiquidity = ConstU128<100>;

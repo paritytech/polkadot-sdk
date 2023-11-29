@@ -24,7 +24,6 @@ pub mod runtime_api;
 use crate::matching::{LocalLocationPattern, ParentLocation};
 use frame_support::traits::{Equals, EverythingBut};
 use parachains_common::AssetIdForTrustBackedAssets;
-use xcm::prelude::Location;
 use xcm_builder::{AsPrefixedGeneralIndex, MatchedConvertedConcreteId, StartsWith};
 use xcm_executor::traits::{Identity, JustTry};
 
@@ -43,7 +42,7 @@ pub type TrustBackedAssetsConvertedConcreteId<TrustBackedAssetsPalletLocation, B
 	>;
 
 /// AssetId used for identifying assets by Location.
-pub type LocationForAssetId = Location;
+pub type LocationForAssetId = xcm::v3::MultiLocation;
 
 /// [`MatchedConvertedConcreteId`] converter dedicated for storing `AssetId` as `Location`.
 pub type LocationConvertedConcreteId<LocationFilter, Balance> =
