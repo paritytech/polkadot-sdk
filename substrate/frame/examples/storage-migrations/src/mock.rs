@@ -42,6 +42,8 @@ impl frame_system::Config for MockRuntime {
 }
 
 impl pallet_balances::Config for MockRuntime {
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type MaxLocks = ();
 	type MaxReserves = ();
 	type ReserveIdentifier = [u8; 8];
@@ -53,7 +55,6 @@ impl pallet_balances::Config for MockRuntime {
 	type WeightInfo = ();
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
-	type RuntimeHoldReason = RuntimeHoldReason;
 	type MaxHolds = ();
 }
 
