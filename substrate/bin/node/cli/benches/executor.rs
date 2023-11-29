@@ -191,7 +191,6 @@ fn bench_execute_block(c: &mut Criterion) {
 							&runtime_code,
 							"Core_execute_block",
 							&block.0,
-							false,
 							CallContext::Offchain,
 						)
 						.0
