@@ -192,7 +192,6 @@ fn invoke_riscv_build(current_dir: &Path) -> Result<()> {
 		.current_dir(current_dir)
 		.env_clear()
 		.env("PATH", env::var("PATH").unwrap())
-		.env("RUSTUP_TOOLCHAIN", env::var("RUSTUP_TOOLCHAIN").unwrap())
 		.env("CARGO_ENCODED_RUSTFLAGS", encoded_rustflags)
 		.env("RUSTUP_TOOLCHAIN", "rv32e-nightly-2023-04-05")
 		.args(&["build", "--release", "--target=riscv32em-unknown-none-elf"])
