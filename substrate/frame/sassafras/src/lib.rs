@@ -309,8 +309,7 @@ pub mod pallet {
 			let claim = <frame_system::Pallet<T>>::digest()
 				.logs
 				.iter()
-				.filter_map(|item| item.pre_runtime_try_to::<SlotClaim>(&SASSAFRAS_ENGINE_ID))
-				.next()
+				.find_map(|item| item.pre_runtime_try_to::<SlotClaim>(&SASSAFRAS_ENGINE_ID))
 				.expect("Valid block must have a slot claim. qed");
 
 			CurrentSlot::<T>::put(claim.slot);
@@ -443,7 +442,7 @@ pub mod pallet {
 					TicketsData::<T>::set(ticket_id, Some(ticket.body));
 					valid_tickets
 						.try_push(ticket_id)
-						.expect("Input segment has same length as bounded destination vector; qed");
+						.defensive_proof("Input segment has same length as bounded destination vector; qed");
 				} else {
 					debug!(target: LOG_TARGET, "Proof verification failure for ticket ({:032x})", ticket_id);
 				}
@@ -603,9 +602,7 @@ impl<T: Config> Pallet<T> {
 		NextAuthorities::<T>::put(&next_authorities);
 
 		// Update epoch index
-		let mut epoch_idx = EpochIndex::<T>::get()
-			.checked_add(1)
-			.expect("epoch indices will never reach 2^64 before the death of the universe; qed");
+		let mut epoch_idx = EpochIndex::<T>::get() + 1;
 
 		let slot_idx = CurrentSlot::<T>::get().saturating_sub(Self::epoch_start(epoch_idx));
 		if slot_idx >= T::EpochLength::get() {
@@ -626,9 +623,7 @@ impl<T: Config> Pallet<T> {
 
 		EpochIndex::<T>::put(epoch_idx);
 
-		let next_epoch_idx = epoch_idx
-			.checked_add(1)
-			.expect("epoch indices will never reach 2^64 before the death of the universe; qed");
+		let next_epoch_idx = epoch_idx + 1;
 
 		// Updates current epoch randomness and computes the *next* epoch randomness.
 		let next_randomness = Self::update_epoch_randomness(next_epoch_idx);
@@ -780,9 +775,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Next epoch information.
 	pub fn next_epoch() -> Epoch {
-		let index = EpochIndex::<T>::get()
-			.checked_add(1)
-			.expect("epoch indices will never reach 2^64 before the death of the universe; qed");
+		let index = EpochIndex::<T>::get() + 1;
 		Epoch {
 			index,
 			start: Self::epoch_start(index),
@@ -818,7 +811,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Before importing the first block this returns `None`.
 	pub fn slot_ticket_id(slot: Slot) -> Option<TicketId> {
-		if frame_system::Pallet::<T>::block_number() < One::one() {
+		if frame_system::Pallet::<T>::block_number().is_zero() {
 			return None
 		}
 		let epoch_idx = EpochIndex::<T>::get();
