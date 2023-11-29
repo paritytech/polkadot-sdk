@@ -341,7 +341,21 @@ pub mod pallet {
 		/// A sub-identity was cleared, and the given deposit repatriated from the
 		/// main identity account to the sub-identity account.
 		SubIdentityRevoked { sub: T::AccountId, main: T::AccountId, deposit: BalanceOf<T> },
-		// TODO: Add events
+		/// A username authority was added.
+		AuthorityAdded { authority: T::AccountId },
+		/// A username authority was removed.
+		AuthorityRemoved { authority: T::AccountId },
+		/// A username was set for `who`.
+		UsernameSet { who: T::AccountId, username: Username },
+		/// A username was queued, but `who` must accept it prior to `expiration`.
+		UsernameQueued { who: T::AccountId, username: Username, expiration: BlockNumberFor<T> },
+		/// A queued username passed its expiration without being claimed and was removed.
+		PreapprovalExpired { whose: T::AccountId },
+		/// A username was set as a primary and can be looked up from `who`.
+		PrimaryUsernameSet { who: T::AccountId, username: Username },
+		/// A dangling username (as in, a username corresponding to an account that has removed its
+		/// identity) has been removed.
+		DanglingUsernameRemoved { who: T::AccountId, username: Username },
 	}
 
 	#[pallet::call]
@@ -957,7 +971,7 @@ pub mod pallet {
 		/// The authority can grant up to `allocation` usernames. To top up their allocation, they
 		/// should just issue (or request via governance) a new `add_username_authority` call.
 		#[pallet::call_index(15)]
-		#[pallet::weight(1)]
+		#[pallet::weight(T::WeightInfo::add_username_authority())]
 		pub fn add_username_authority(
 			origin: OriginFor<T>,
 			authority: AccountIdLookupOf<T>,
@@ -974,12 +988,13 @@ pub mod pallet {
 				&authority,
 				AuthorityProperties { suffix, allocation },
 			);
+			Self::deposit_event(Event::AuthorityAdded { authority });
 			Ok(())
 		}
 
 		/// Remove `authority` from the username authorities.
 		#[pallet::call_index(16)]
-		#[pallet::weight(1)]
+		#[pallet::weight(T::WeightInfo::remove_username_authority())]
 		pub fn remove_username_authority(
 			origin: OriginFor<T>,
 			authority: AccountIdLookupOf<T>,
@@ -987,12 +1002,13 @@ pub mod pallet {
 			T::UsernameAuthorityOrigin::ensure_origin(origin)?;
 			let authority = T::Lookup::lookup(authority)?;
 			UsernameAuthorities::<T>::remove(&authority);
+			Self::deposit_event(Event::AuthorityRemoved { authority });
 			Ok(())
 		}
 
 		/// Set the username for `who`. Must be called by a username authority.
 		#[pallet::call_index(17)]
-		#[pallet::weight(1)]
+		#[pallet::weight(T::WeightInfo::set_username_for())]
 		pub fn set_username_for(
 			origin: OriginFor<T>,
 			who: AccountIdentifier<T::AccountId, T::Signer>,
@@ -1066,7 +1082,7 @@ pub mod pallet {
 		/// Accept a given username that an `authority` granted. The call must include the full
 		/// username, as in `username.suffix`.
 		#[pallet::call_index(18)]
-		#[pallet::weight(1)]
+		#[pallet::weight(T::WeightInfo::accept_username())]
 		pub fn accept_username(
 			origin: OriginFor<T>,
 			username: Username,
@@ -1075,22 +1091,24 @@ pub mod pallet {
 			let (approved_for, _) =
 				PendingUsernames::<T>::take(&username).ok_or(Error::<T>::NoUsername)?;
 			ensure!(approved_for == who.clone(), Error::<T>::InvalidUsername);
-			Self::insert_username(&who, username);
+			Self::insert_username(&who, username.clone());
+			Self::deposit_event(Event::UsernameSet { who: who.clone(), username });
 			Ok(Pays::No.into())
 		}
 
 		/// Remove an expired username approval. The call must include the full username, as in
 		/// `username.suffix`.
 		#[pallet::call_index(19)]
-		#[pallet::weight(1)]
+		#[pallet::weight(T::WeightInfo::remove_expired_approval())]
 		pub fn remove_expired_approval(
 			origin: OriginFor<T>,
 			username: Username,
 		) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;
-			if let Some((_, expiration)) = PendingUsernames::<T>::take(&username) {
+			if let Some((who, expiration)) = PendingUsernames::<T>::take(&username) {
 				let now = frame_system::Pallet::<T>::block_number();
 				ensure!(now > expiration, Error::<T>::NotExpired);
+				Self::deposit_event(Event::PreapprovalExpired { whose: who.clone() });
 				Ok(Pays::No.into())
 			} else {
 				Err(Error::<T>::NoUsername.into())
@@ -1099,7 +1117,7 @@ pub mod pallet {
 
 		/// Set a given username as the primary. The username should include the suffix.
 		#[pallet::call_index(20)]
-		#[pallet::weight(1)]
+		#[pallet::weight(T::WeightInfo::set_primary_username())]
 		pub fn set_primary_username(origin: OriginFor<T>, username: Username) -> DispatchResult {
 			// ensure `username` maps to `origin` (i.e. has already been set by an authority)
 			let who = ensure_signed(origin)?;
@@ -1110,22 +1128,24 @@ pub mod pallet {
 			// todo: mutate_extant?
 			let (registration, _maybe_username) =
 				IdentityOf::<T>::get(&who).ok_or(Error::<T>::NoIdentity)?;
-			IdentityOf::<T>::insert(&who, (registration, Some(username)));
+			IdentityOf::<T>::insert(&who, (registration, Some(username.clone())));
+			Self::deposit_event(Event::PrimaryUsernameSet { who: who.clone(), username });
 			Ok(())
 		}
 
 		/// Remove a username that corresponds to an account with no identity. Exists when a user
 		/// gets a username but then calls `clear_identity`.
 		#[pallet::call_index(21)]
-		#[pallet::weight(1)]
+		#[pallet::weight(T::WeightInfo::remove_dangling_username())]
 		pub fn remove_dangling_username(
 			origin: OriginFor<T>,
 			username: Username,
 		) -> DispatchResultWithPostInfo {
 			// ensure `username` maps to `origin` (i.e. has already been set by an authority)
 			let _ = ensure_signed(origin)?;
-			let who = AccountOfUsername::<T>::take(username).ok_or(Error::<T>::NoUsername)?;
+			let who = AccountOfUsername::<T>::take(username.clone()).ok_or(Error::<T>::NoUsername)?;
 			ensure!(!IdentityOf::<T>::contains_key(&who), Error::<T>::InvalidUsername);
+			Self::deposit_event(Event::DanglingUsernameRemoved { who: who.clone(), username });
 			Ok(Pays::No.into())
 		}
 	}
@@ -1190,11 +1210,11 @@ impl<T: Config> Pallet<T> {
 	fn insert_username(who: &T::AccountId, username: Username) {
 		// Check if they already have a primary. If so, leave it. If not, set it.
 		// Likewise, check if they have an identity. If not, give them a minimal one.
-		let (reg, primary_username) = match <IdentityOf<T>>::get(&who) {
+		let (reg, primary_username, new_is_primary) = match <IdentityOf<T>>::get(&who) {
 			// User has an existing Identity and a primary username. Leave it.
-			Some((reg, Some(primary))) => (reg, primary),
+			Some((reg, Some(primary))) => (reg, primary, false),
 			// User has an Identity but no primary. Set the new one as primary.
-			Some((reg, None)) => (reg, username.clone()),
+			Some((reg, None)) => (reg, username.clone(), true),
 			// User does not have an existing Identity. Give them a fresh default one and set
 			// their username as primary.
 			None => (
@@ -1204,6 +1224,7 @@ impl<T: Config> Pallet<T> {
 					deposit: Zero::zero(),
 				},
 				username.clone(),
+				true,
 			),
 		};
 
@@ -1213,7 +1234,11 @@ impl<T: Config> Pallet<T> {
 		// deposit.
 		IdentityOf::<T>::insert(&who, (reg, Some(primary_username)));
 		// Enter in username map.
-		AccountOfUsername::<T>::insert(username, &who);
+		AccountOfUsername::<T>::insert(username.clone(), &who);
+		Self::deposit_event(Event::UsernameSet { who: who.clone(), username: username.clone() });
+		if new_is_primary {
+			Self::deposit_event(Event::PrimaryUsernameSet { who: who.clone(), username });
+		}
 	}
 
 	/// A username was granted by an authority, but required approval from `who`. Put the username
@@ -1221,7 +1246,8 @@ impl<T: Config> Pallet<T> {
 	fn queue_acceptance(who: &T::AccountId, username: Username) {
 		let now = frame_system::Pallet::<T>::block_number();
 		let expiration = now.saturating_add(T::PendingUsernameExpiration::get());
-		PendingUsernames::<T>::insert(&username, (who, expiration));
+		PendingUsernames::<T>::insert(&username, (who.clone(), expiration));
+		Self::deposit_event(Event::UsernameQueued { who: who.clone(), username, expiration });
 	}
 
 	/// Reap an identity, clearing associated storage items and refunding any deposits. This

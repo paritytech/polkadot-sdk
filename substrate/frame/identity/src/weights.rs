@@ -68,6 +68,13 @@ pub trait WeightInfo {
 	fn rename_sub(s: u32, ) -> Weight;
 	fn remove_sub(s: u32, ) -> Weight;
 	fn quit_sub(s: u32, ) -> Weight;
+	fn add_username_authority() -> Weight;
+	fn remove_username_authority() -> Weight;
+	fn set_username_for() -> Weight;
+	fn accept_username() -> Weight;
+	fn remove_expired_approval() -> Weight;
+	fn set_primary_username() -> Weight;
+	fn remove_dangling_username() -> Weight;
 }
 
 /// Weights for pallet_identity using the Substrate node and recommended hardware.
@@ -345,6 +352,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
+	fn add_username_authority() -> Weight { todo!() }
+	fn remove_username_authority() -> Weight { todo!() }
+	fn set_username_for() -> Weight { todo!() }
+	fn accept_username() -> Weight { todo!() }
+	fn remove_expired_approval() -> Weight { todo!() }
+	fn set_primary_username() -> Weight { todo!() }
+	fn remove_dangling_username() -> Weight { todo!() }
 }
 
 // For backwards compatibility and tests
@@ -621,4 +635,11 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
+	fn add_username_authority() -> Weight { todo!() }
+	fn remove_username_authority() -> Weight { todo!() }
+	fn set_username_for() -> Weight { todo!() }
+	fn accept_username() -> Weight { todo!() }
+	fn remove_expired_approval() -> Weight { todo!() }
+	fn set_primary_username() -> Weight { todo!() }
+	fn remove_dangling_username() -> Weight { todo!() }
 }
