@@ -26,8 +26,8 @@ polkadot-node-core-prospective-parachains = { path = "../../../polkadot/node/cor
 sc-authority-discovery = { path = "../../../substrate/client/authority-discovery" }
 sc-network = { path = "../../../substrate/client/network" }
 sc-network-common = { path = "../../../substrate/client/network/common" }
-sc-service = { path = "../../../substrate/client/service" }
 sc-client-api = { path = "../../../substrate/client/api" }
+sc-service = { path = "../../../substrate/client/service", default-features = false }
 substrate-prometheus-endpoint = { path = "../../../substrate/utils/prometheus" }
 sc-tracing = { path = "../../../substrate/client/tracing" }
 sc-utils = { path = "../../../substrate/client/utils" }

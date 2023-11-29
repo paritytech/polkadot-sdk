@@ -33,7 +33,7 @@ sc-client-api = { path = "../../../substrate/client/api" }
 sc-consensus = { path = "../../../substrate/client/consensus/common" }
 sc-executor = { path = "../../../substrate/client/executor" }
 sc-network = { path = "../../../substrate/client/network" }
-sc-service = { path = "../../../substrate/client/service" }
+sc-service = { path = "../../../substrate/client/service", default-features = false }
 sc-tracing = { path = "../../../substrate/client/tracing" }
 sc-transaction-pool = { path = "../../../substrate/client/transaction-pool" }
 sc-transaction-pool-api = { path = "../../../substrate/client/transaction-pool/api" }
@@ -50,16 +50,16 @@ sp-tracing = { path = "../../../substrate/primitives/tracing" }
 sp-timestamp = { path = "../../../substrate/primitives/timestamp" }
 sp-consensus = { path = "../../../substrate/primitives/consensus/common" }
 substrate-test-client = { path = "../../../substrate/test-utils/client" }
-sc-cli = { path = "../../../substrate/client/cli" }
+sc-cli = { path = "../../../substrate/client/cli", default-features = false }
 sc-block-builder = { path = "../../../substrate/client/block-builder" }
 sc-executor-wasmtime = { path = "../../../substrate/client/executor/wasmtime" }
 sc-executor-common = { path = "../../../substrate/client/executor/common" }
 
 # Polkadot
 polkadot-primitives = { path = "../../../polkadot/primitives" }
-polkadot-service = { path = "../../../polkadot/node/service" }
+polkadot-service = { path = "../../../polkadot/node/service", default-features = false }
 polkadot-test-service = { path = "../../../polkadot/node/test/service" }
-polkadot-cli = { path = "../../../polkadot/cli" }
+polkadot-cli = { path = "../../../polkadot/cli", default-features = false }
 polkadot-node-subsystem = { path = "../../../polkadot/node/subsystem" }
 polkadot-overseer = { path = "../../../polkadot/node/overseer" }
 
@@ -90,10 +90,10 @@ sp-authority-discovery = { path = "../../../substrate/primitives/authority-disco
 cumulus-test-client = { path = "../client" }
 
 # Polkadot dependencies
-polkadot-test-service = { path = "../../../polkadot/node/test/service" }
+polkadot-test-service = { path = "../../../polkadot/node/test/service", default-features = false }
 
 # Substrate dependencies
-sc-cli = { path = "../../../substrate/client/cli" }
+sc-cli = { path = "../../../substrate/client/cli", default-features = false }
 substrate-test-utils = { path = "../../../substrate/test-utils" }
 
 [features]

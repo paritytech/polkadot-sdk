@@ -12,7 +12,7 @@ futures = "0.3.28"
 futures-timer = "3.0.2"
 
 # Substrate
-sc-cli = { path = "../../../substrate/client/cli" }
+sc-cli = { path = "../../../substrate/client/cli", default-features = false }
 sc-client-api = { path = "../../../substrate/client/api" }
 sc-telemetry = { path = "../../../substrate/client/telemetry" }
 sc-tracing = { path = "../../../substrate/client/tracing" }
@@ -25,7 +25,7 @@ sp-state-machine = { path = "../../../substrate/primitives/state-machine" }
 
 # Polkadot
 polkadot-cli = { path = "../../../polkadot/cli", default-features = false, features = ["cli"] }
-polkadot-service = { path = "../../../polkadot/node/service" }
+polkadot-service = { path = "../../../polkadot/node/service", default-features = false }
 
 # Cumulus
 cumulus-primitives-core = { path = "../../primitives/core" }
