@@ -31,7 +31,7 @@ use log::{debug, error, info, trace, warn};
 use sc_block_builder::{BlockBuilderApi, BlockBuilderBuilder};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_INFO};
 use sc_transaction_pool_api::{InPoolTransaction, TransactionPool};
-use sp_api::{CallApiAt};
+use sp_api::CallApiAt;
 use sp_blockchain::{ApplyExtrinsicFailed::Validity, Error::ApplyExtrinsicFailed, HeaderBackend};
 use sp_consensus::{DisableProofRecording, EnableProofRecording, ProofRecording, Proposal};
 use sp_core::traits::SpawnNamed;
@@ -113,7 +113,10 @@ impl<A, C> ProposerFactory<A, C, DisableProofRecording> {
 	}
 }
 
-impl<A, C> ProposerFactory<A, C, EnableProofRecording> {
+impl<Block, A, C> ProposerFactory<A, C, EnableProofRecording<Block>>
+where
+	Block: BlockT,
+{
 	/// Create a new proposer factory with proof recording enabled.
 	///
 	/// Each proposer created by this instance will record a proof while building a block.
@@ -214,7 +217,7 @@ where
 	A: TransactionPool<Block = Block> + 'static,
 	Block: BlockT,
 	C: HeaderBackend<Block> + CallApiAt<Block> + Send + Sync + 'static,
-	PR: ProofRecording,
+	PR: ProofRecording<Block>,
 {
 	type CreateProposer = future::Ready<Result<Self::Proposer, Self::Error>>;
 	type Proposer = Proposer<Block, C, A, PR>;
@@ -246,7 +249,7 @@ where
 	A: TransactionPool<Block = Block> + 'static,
 	Block: BlockT,
 	C: HeaderBackend<Block> + CallApiAt<Block> + Send + Sync + 'static,
-	PR: ProofRecording,
+	PR: ProofRecording<Block>,
 {
 	type Proposal =
 		Pin<Box<dyn Future<Output = Result<Proposal<Block, PR::Proof>, Self::Error>> + Send>>;
@@ -295,7 +298,7 @@ where
 	A: TransactionPool<Block = Block>,
 	Block: BlockT,
 	C: HeaderBackend<Block> + CallApiAt<Block> + Send + Sync + 'static,
-	PR: ProofRecording,
+	PR: ProofRecording<Block>,
 {
 	async fn propose_with(
 		self,
@@ -332,7 +335,7 @@ where
 	/// Apply all inherents to the block.
 	fn apply_inherents(
 		&self,
-		block_builder: &mut sc_block_builder::BlockBuilder<Block, C>,
+		block_builder: &mut sc_block_builder::BlockBuilder<Block, C, PR>,
 		inherent_data: InherentData,
 	) -> Result<(), sp_blockchain::Error> {
 		let create_inherents_start = time::Instant::now();
@@ -376,7 +379,7 @@ where
 	/// Apply as many extrinsics as possible to the block.
 	async fn apply_extrinsics(
 		&self,
-		block_builder: &mut sc_block_builder::BlockBuilder<Block, C>,
+		block_builder: &mut sc_block_builder::BlockBuilder<Block, C, PR>,
 		deadline: time::Instant,
 		block_size_limit: Option<usize>,
 	) -> Result<EndProposingReason, sp_blockchain::Error> {
