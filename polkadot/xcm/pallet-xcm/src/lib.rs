@@ -2361,8 +2361,8 @@ impl<T: Config> WrapVersion for Pallet<T> {
 	}
 }
 
-impl<T: Config> DetermineVersion for Pallet<T> {
-	fn determine_version_for(dest: &MultiLocation, handle_unknown: bool) -> Option<XcmVersion> {
+impl<T: Config> CheckVersion for Pallet<T> {
+	fn check_version_for(dest: &MultiLocation, handle_unknown: bool) -> Option<XcmVersion> {
 		SupportedVersion::<T>::get(XCM_VERSION, LatestVersionedMultiLocation(dest)).or_else(|| {
 			if handle_unknown {
 				Self::note_unknown_version(dest);

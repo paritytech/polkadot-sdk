@@ -147,7 +147,7 @@ pub trait XcmBlobHauler {
 	/// Returns lane used by this hauler.
 	type SenderAndLane: Get<SenderAndLane>;
 	/// Determines the XCM version for the destination.
-	type DestinationVersion: DetermineVersion;
+	type DestinationVersion: CheckVersion;
 
 	/// Actual XCM message sender (`HRMP` or `UMP`) to the source chain
 	/// location (`Self::SenderAndLane::get().location`).
@@ -204,9 +204,9 @@ where
 	}
 }
 
-impl<H: XcmBlobHauler> DetermineVersion for XcmBlobHaulerAdapter<H> {
-	fn determine_version_for(dest: &MultiLocation, handle_unknown: bool) -> Option<XcmVersion> {
-		H::DestinationVersion::determine_version_for(dest, handle_unknown)
+impl<H: XcmBlobHauler> CheckVersion for XcmBlobHaulerAdapter<H> {
+	fn check_version_for(dest: &MultiLocation, handle_unknown: bool) -> Option<XcmVersion> {
+		H::DestinationVersion::check_version_for(dest, handle_unknown)
 	}
 }
 
@@ -350,19 +350,19 @@ impl<H: XcmBlobHauler> LocalXcmQueueManager<H> {
 	}
 }
 
-/// Adapter for the implementation of `DetermineVersion`, which attempts to find the minimal
+/// Adapter for the implementation of `CheckVersion`, which attempts to find the minimal
 /// configured XCM version between the destination `dest` and the bridge hub location provided as
 /// `Get<Location>`.
 pub struct MinXcmVersionOfDestinationAndRemoteBridgeHub<Version, RemoteBridgeHub>(
 	sp_std::marker::PhantomData<(Version, RemoteBridgeHub)>,
 );
-impl<Version: DetermineVersion, RemoteBridgeHub: Get<MultiLocation>> DetermineVersion
+impl<Version: CheckVersion, RemoteBridgeHub: Get<MultiLocation>> CheckVersion
 	for MinXcmVersionOfDestinationAndRemoteBridgeHub<Version, RemoteBridgeHub>
 {
-	fn determine_version_for(dest: &MultiLocation, handle_unknown: bool) -> Option<XcmVersion> {
-		let dest_version = Version::determine_version_for(dest, handle_unknown);
+	fn check_version_for(dest: &MultiLocation, handle_unknown: bool) -> Option<XcmVersion> {
+		let dest_version = Version::check_version_for(dest, handle_unknown);
 		let bridge_hub_version =
-			Version::determine_version_for(&RemoteBridgeHub::get(), handle_unknown);
+			Version::check_version_for(&RemoteBridgeHub::get(), handle_unknown);
 
 		match (dest_version, bridge_hub_version) {
 			(Some(dv), Some(bhv)) =>

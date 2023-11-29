@@ -57,7 +57,7 @@ use sp_runtime::{
 };
 use xcm::{
 	latest::prelude::*,
-	prelude::{AlwaysLatest, DetermineVersion, XcmVersion},
+	prelude::{AlwaysLatest, CheckVersion, XcmVersion},
 };
 use xcm_builder::DispatchBlobError;
 use xcm_executor::{
@@ -1527,9 +1527,9 @@ pub mod test_data {
 					Ok(())
 				}
 			}
-			impl DetermineVersion for $name {
+			impl CheckVersion for $name {
 				fn determine_version_for(dest: &MultiLocation, handle_unknown: bool) -> Option<XcmVersion> {
-					AlwaysLatest::determine_version_for(dest, handle_unknown)
+					AlwaysLatest::check_version_for(dest, handle_unknown)
 				}
 			}
 		}

@@ -373,11 +373,10 @@ pub trait WrapVersion {
 	) -> Result<VersionedXcm<RuntimeCall>, ()>;
 }
 
-/// Determine the `Version` that should be used for the `Xcm` datum for the destination
+/// Check and return the `Version` that should be used for the `Xcm` datum for the destination
 /// `MultiLocation`, which will interpret it.
-pub trait DetermineVersion {
-	fn determine_version_for(dest: &latest::MultiLocation, handle_unknown: bool)
-		-> Option<Version>;
+pub trait CheckVersion {
+	fn check_version_for(dest: &latest::MultiLocation, handle_unknown: bool) -> Option<Version>;
 }
 
 /// `()` implementation does nothing with the XCM, just sending with whatever version it was
@@ -402,11 +401,8 @@ impl WrapVersion for AlwaysV2 {
 		Ok(VersionedXcm::<RuntimeCall>::V2(xcm.into().try_into()?))
 	}
 }
-impl DetermineVersion for AlwaysV2 {
-	fn determine_version_for(
-		_dest: &latest::MultiLocation,
-		_handle_unknown: bool,
-	) -> Option<Version> {
+impl CheckVersion for AlwaysV2 {
+	fn check_version_for(_dest: &latest::MultiLocation, _handle_unknown: bool) -> Option<Version> {
 		Some(v2::VERSION)
 	}
 }
@@ -422,11 +418,8 @@ impl WrapVersion for AlwaysV3 {
 		Ok(VersionedXcm::<Call>::V3(xcm.into().try_into()?))
 	}
 }
-impl DetermineVersion for AlwaysV3 {
-	fn determine_version_for(
-		_dest: &latest::MultiLocation,
-		_handle_unknown: bool,
-	) -> Option<Version> {
+impl CheckVersion for AlwaysV3 {
+	fn check_version_for(_dest: &latest::MultiLocation, _handle_unknown: bool) -> Option<Version> {
 		Some(v3::VERSION)
 	}
 }
@@ -441,10 +434,10 @@ pub type AlwaysLts = AlwaysV3;
 
 pub mod prelude {
 	pub use super::{
-		latest::prelude::*, AlwaysLatest, AlwaysLts, AlwaysV2, AlwaysV3, DetermineVersion,
-		IntoVersion, Unsupported, Version as XcmVersion, VersionedAssetId,
-		VersionedInteriorMultiLocation, VersionedMultiAsset, VersionedMultiAssets,
-		VersionedMultiLocation, VersionedResponse, VersionedXcm, WrapVersion,
+		latest::prelude::*, AlwaysLatest, AlwaysLts, AlwaysV2, AlwaysV3, CheckVersion, IntoVersion,
+		Unsupported, Version as XcmVersion, VersionedAssetId, VersionedInteriorMultiLocation,
+		VersionedMultiAsset, VersionedMultiAssets, VersionedMultiLocation, VersionedResponse,
+		VersionedXcm, WrapVersion,
 	};
 }
 
