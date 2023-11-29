@@ -23,7 +23,7 @@ use super::*;
 
 use crate as utility;
 use frame_support::{
-	assert_err_ignore_postinfo, assert_noop, assert_ok,
+	assert_err_ignore_postinfo, assert_noop, assert_ok, derive_impl,
 	dispatch::{DispatchErrorWithPostInfo, Pays},
 	error::BadOrigin,
 	parameter_types, storage,
@@ -144,6 +144,7 @@ parameter_types! {
 	pub BlockWeights: frame_system::limits::BlockWeights =
 		frame_system::limits::BlockWeights::simple_max(Weight::MAX);
 }
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = TestBaseCallFilter;
 	type BlockWeights = BlockWeights;

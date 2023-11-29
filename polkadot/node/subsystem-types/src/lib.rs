@@ -40,7 +40,7 @@ pub mod errors;
 pub mod messages;
 
 mod runtime_client;
-pub use runtime_client::{DefaultSubsystemClient, RuntimeApiSubsystemClient};
+pub use runtime_client::{ChainApiBackend, DefaultSubsystemClient, RuntimeApiSubsystemClient};
 
 pub use jaeger::*;
 pub use polkadot_node_jaeger as jaeger;

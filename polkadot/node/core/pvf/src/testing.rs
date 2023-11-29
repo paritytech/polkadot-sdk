@@ -18,7 +18,7 @@
 
 pub use crate::{
 	host::{EXECUTE_BINARY_NAME, PREPARE_BINARY_NAME},
-	worker_intf::{spawn_with_program_path, SpawnErr},
+	worker_interface::{spawn_with_program_path, SpawnErr},
 };
 
 use crate::get_worker_version;
@@ -36,7 +36,7 @@ pub fn validate_candidate(
 	code: &[u8],
 	params: &[u8],
 ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-	use polkadot_node_core_pvf_common::executor_intf::{prepare, prevalidate};
+	use polkadot_node_core_pvf_common::executor_interface::{prepare, prevalidate};
 	use polkadot_node_core_pvf_execute_worker::execute_artifact;
 
 	let code = sp_maybe_compressed_blob::decompress(code, 10 * 1024 * 1024)
@@ -59,21 +59,22 @@ pub fn validate_candidate(
 ///
 /// NOTE: This should only be called in dev code (tests, benchmarks) as it relies on the relative
 /// paths of the built workers.
-pub fn build_workers_and_get_paths(is_bench: bool) -> (PathBuf, PathBuf) {
+pub fn build_workers_and_get_paths() -> (PathBuf, PathBuf) {
 	// Only needs to be called once for the current process.
 	static WORKER_PATHS: OnceLock<Mutex<(PathBuf, PathBuf)>> = OnceLock::new();
 
-	fn build_workers(is_bench: bool) {
+	fn build_workers() {
 		let mut build_args = vec![
 			"build",
 			"--package=polkadot",
 			"--bin=polkadot-prepare-worker",
 			"--bin=polkadot-execute-worker",
 		];
-		if is_bench {
-			// Benches require --release. Regular tests are debug (no flag needed).
+
+		if cfg!(build_type = "release") {
 			build_args.push("--release");
 		}
+
 		let mut cargo = std::process::Command::new("cargo");
 		let cmd = cargo
 			// wasm runtime not needed
@@ -117,7 +118,7 @@ pub fn build_workers_and_get_paths(is_bench: bool) -> (PathBuf, PathBuf) {
 			}
 		}
 
-		build_workers(is_bench);
+		build_workers();
 
 		Mutex::new((prepare_worker_path, execute_worker_path))
 	});

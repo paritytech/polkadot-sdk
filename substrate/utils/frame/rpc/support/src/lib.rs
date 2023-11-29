@@ -34,7 +34,7 @@ use sp_storage::{StorageData, StorageKey};
 /// # use jsonrpsee::core::Error as RpcError;
 /// # use jsonrpsee::ws_client::WsClientBuilder;
 /// # use codec::Encode;
-/// # use frame_support::{construct_runtime, traits::ConstU32};
+/// # use frame_support::{construct_runtime, derive_impl, traits::ConstU32};
 /// # use substrate_frame_rpc_support::StorageQuery;
 /// # use sc_rpc_api::state::StateApiClient;
 /// # use sp_runtime::{traits::{BlakeTwo256, IdentityLookup}, testing::Header};
@@ -49,6 +49,7 @@ use sp_storage::{StorageData, StorageKey};
 /// #
 /// # type Hash = sp_core::H256;
 /// #
+/// # #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 /// # impl frame_system::Config for TestRuntime {
 /// # 	type BaseCallFilter = ();
 /// # 	type BlockWeights = ();
