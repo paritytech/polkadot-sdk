@@ -1143,7 +1143,8 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			// ensure `username` maps to `origin` (i.e. has already been set by an authority)
 			let _ = ensure_signed(origin)?;
-			let who = AccountOfUsername::<T>::take(username.clone()).ok_or(Error::<T>::NoUsername)?;
+			let who =
+				AccountOfUsername::<T>::take(username.clone()).ok_or(Error::<T>::NoUsername)?;
 			ensure!(!IdentityOf::<T>::contains_key(&who), Error::<T>::InvalidUsername);
 			Self::deposit_event(Event::DanglingUsernameRemoved { who: who.clone(), username });
 			Ok(Pays::No.into())
@@ -1207,7 +1208,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// A username has met all conditions. Insert the relevant storage items.
-	fn insert_username(who: &T::AccountId, username: Username) {
+	pub fn insert_username(who: &T::AccountId, username: Username) {
 		// Check if they already have a primary. If so, leave it. If not, set it.
 		// Likewise, check if they have an identity. If not, give them a minimal one.
 		let (reg, primary_username, new_is_primary) = match <IdentityOf<T>>::get(&who) {
@@ -1243,7 +1244,7 @@ impl<T: Config> Pallet<T> {
 
 	/// A username was granted by an authority, but required approval from `who`. Put the username
 	/// into a queue for approval.
-	fn queue_acceptance(who: &T::AccountId, username: Username) {
+	pub fn queue_acceptance(who: &T::AccountId, username: Username) {
 		let now = frame_system::Pallet::<T>::block_number();
 		let expiration = now.saturating_add(T::PendingUsernameExpiration::get());
 		PendingUsernames::<T>::insert(&username, (who.clone(), expiration));

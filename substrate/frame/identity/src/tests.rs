@@ -149,15 +149,13 @@ fn account(id: u8) -> AccountIdOf<Test> {
 
 fn account_from_u32(id: u32) -> AccountIdOf<Test> {
 	let mut buffer = [255u8; 32];
-	let four_bytes = id.to_le_bytes();
-	buffer[..4].clone_from_slice(&four_bytes[..]);
-	buffer[4..8].clone_from_slice(&four_bytes[..]);
-	buffer[8..12].clone_from_slice(&four_bytes[..]);
-	buffer[12..16].clone_from_slice(&four_bytes[..]);
-	buffer[16..20].clone_from_slice(&four_bytes[..]);
-	buffer[20..24].clone_from_slice(&four_bytes[..]);
-	buffer[24..28].clone_from_slice(&four_bytes[..]);
-	buffer[28..].clone_from_slice(&four_bytes[..]);
+	let id_bytes = id.to_le_bytes();
+	let id_size = id_bytes.len();
+	for ii in 0..buffer.len() / id_size {
+		let s = ii * id_size;
+		let e = s + id_size;
+		buffer[s..e].clone_from_slice(&id_bytes[..]);
+	}
 	buffer.into()
 }
 
