@@ -15,9 +15,7 @@
 
 mod genesis;
 pub use genesis::{genesis, ED, PARA_ID_A, PARA_ID_B};
-pub use penpal_runtime::xcm_config::{
-	ForeignAssetOnAssetHub, LocalTeleportableToAssetHub, XcmConfig, TELEPORTABLE_ASSET_ID,
-};
+pub use penpal_runtime::xcm_config::{LocalTeleportableToAssetHub, XcmConfig};
 
 // Substrate
 use frame_support::traits::OnInitialize;

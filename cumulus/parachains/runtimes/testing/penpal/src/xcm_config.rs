@@ -251,8 +251,8 @@ where
 	}
 }
 
+// This asset can be added to AH as ForeignAsset and teleported between Penpal and AH
 pub const TELEPORTABLE_ASSET_ID: u32 = 2;
-
 parameter_types! {
 	/// The location that this chain recognizes as the Relay network's Asset Hub.
 	pub SystemAssetHubLocation: MultiLocation = MultiLocation::new(1, X1(Parachain(1000)));
@@ -263,12 +263,9 @@ parameter_types! {
 	pub AssetsPalletLocation: MultiLocation =
 		MultiLocation::new(0, X1(PalletInstance(50)));
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
-	// This asset can be added to AH as ForeignAsset and teleported between Penpal and AH
-	pub LocalTeleportableToAssetHub: MultiLocation =
-		MultiLocation::new(0, X2(PalletInstance(50), GeneralIndex(TELEPORTABLE_ASSET_ID.into())));
-	pub ForeignAssetOnAssetHub: MultiLocation = MultiLocation::new(
-		1,
-		X3(Parachain(1000), PalletInstance(50), GeneralIndex(TELEPORTABLE_ASSET_ID.into()))
+	pub LocalTeleportableToAssetHub: MultiLocation = MultiLocation::new(
+		0,
+		X2(PalletInstance(50), GeneralIndex(TELEPORTABLE_ASSET_ID.into()))
 	);
 }
 
