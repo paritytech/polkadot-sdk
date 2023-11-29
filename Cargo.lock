@@ -1016,6 +1016,7 @@ dependencies = [
  "asset-test-utils",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
+ "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
  "frame-support",
  "frame-system",
@@ -2933,6 +2934,21 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+]
+
+[[package]]
+name = "collectives-westend-emulated-chain"
+version = "0.0.0"
+dependencies = [
+ "collectives-westend-runtime",
+ "cumulus-primitives-core",
+ "emulated-integration-tests-common",
+ "frame-support",
+ "parachains-common",
+ "serde_json",
+ "sp-core",
+ "sp-runtime",
+ "westend-emulated-chain",
 ]
 
 [[package]]
@@ -21134,6 +21150,7 @@ version = "0.0.0"
 dependencies = [
  "asset-hub-westend-emulated-chain",
  "bridge-hub-westend-emulated-chain",
+ "collectives-westend-emulated-chain",
  "emulated-integration-tests-common",
  "penpal-emulated-chain",
  "westend-emulated-chain",

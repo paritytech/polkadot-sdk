@@ -47,11 +47,16 @@ pub use westend_system_emulated_network::{
 	asset_hub_westend_emulated_chain::{
 		genesis::ED as ASSET_HUB_WESTEND_ED, AssetHubWestendParaPallet as AssetHubWestendPallet,
 	},
+	collectives_westend_emulated_chain::{
+		genesis::ED as COLLECTIVES_WESTEND_ED,
+		CollectivesWestendParaPallet as CollectivesWestendPallet,
+	},
 	penpal_emulated_chain::PenpalBParaPallet as PenpalBPallet,
 	westend_emulated_chain::{genesis::ED as WESTEND_ED, WestendRelayPallet as WestendPallet},
 	AssetHubWestendPara as AssetHubWestend, AssetHubWestendParaReceiver as AssetHubWestendReceiver,
 	AssetHubWestendParaSender as AssetHubWestendSender, BridgeHubWestendPara as BridgeHubWestend,
-	BridgeHubWestendParaReceiver as BridgeHubWestendReceiver, PenpalBPara as PenpalB,
+	BridgeHubWestendParaReceiver as BridgeHubWestendReceiver,
+	CollectivesWestendPara as CollectivesWestend, PenpalBPara as PenpalB,
 	PenpalBParaReceiver as PenpalBReceiver, PenpalBParaSender as PenpalBSender,
 	WestendRelay as Westend, WestendRelayReceiver as WestendReceiver,
 	WestendRelaySender as WestendSender,

@@ -13,4 +13,5 @@ emulated-integration-tests-common = { path = "../../common", default-features = 
 westend-emulated-chain = { path = "../../chains/relays/westend", default-features = false }
 asset-hub-westend-emulated-chain = { path = "../../chains/parachains/assets/asset-hub-westend" }
 bridge-hub-westend-emulated-chain = { path = "../../chains/parachains/bridges/bridge-hub-westend" }
+collectives-westend-emulated-chain = { path = "../../chains/parachains/collectives/collectives-westend" }
 penpal-emulated-chain = { path = "../../chains/parachains/testing/penpal" }
