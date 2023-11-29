@@ -18,4 +18,4 @@ tokio = { version = "1.22.0", features = ["macros", "time"] }
 
 [dev-dependencies]
 trybuild = { version = "1.0.74", features = [ "diff" ] }
-sc-service = { path = "../client/service" }
+sc-service = { path = "../client/service", default-features = false }
