@@ -12085,6 +12085,7 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
  "rand 0.8.5",
+ "rstest",
  "sc-network",
  "schnellru",
  "sp-core",
@@ -12101,7 +12102,6 @@ version = "1.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
- "env_logger 0.9.3",
  "fatality",
  "futures",
  "futures-timer",
@@ -12116,11 +12116,13 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
  "rand 0.8.5",
+ "rstest",
  "sc-network",
  "schnellru",
  "sp-application-crypto",
  "sp-core",
  "sp-keyring",
+ "sp-tracing 10.0.0",
  "thiserror",
  "tokio",
  "tracing-gum",
@@ -12236,6 +12238,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-node-primitives",
  "polkadot-primitives",
+ "quickcheck",
  "reed-solomon-novelpoly",
  "sp-core",
  "sp-trie",
@@ -12868,6 +12871,7 @@ dependencies = [
  "async-trait",
  "bitvec",
  "derive_more",
+ "fatality",
  "futures",
  "orchestra",
  "polkadot-node-jaeger",
@@ -12921,6 +12925,7 @@ dependencies = [
  "polkadot-primitives-test-helpers",
  "prioritized-metered-channel",
  "rand 0.8.5",
+ "rand_chacha 0.3.1",
  "sc-client-api",
  "schnellru",
  "sp-application-crypto",
@@ -14354,14 +14359,14 @@ dependencies = [
 
 [[package]]
 name = "reed-solomon-novelpoly"
-version = "1.0.0"
+version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3bd8f48b2066e9f69ab192797d66da804d1935bf22763204ed3675740cb0f221"
+checksum = "58130877ca403ab42c864fbac74bb319a0746c07a634a92a5cfc7f54af272582"
 dependencies = [
  "derive_more",
  "fs-err",
- "itertools 0.10.5",
- "static_init 0.5.2",
+ "itertools 0.11.0",
+ "static_init",
  "thiserror",
 ]
 
@@ -14446,6 +14451,12 @@ name = "regex-syntax"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08c74e62047bb2de4ff487b251e4a92e24f48745648451635cec7d591162d9f"
+
+[[package]]
+name = "relative-path"
+version = "1.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c707298afce11da2efef2f600116fa93ffa7a032b5d7b628aa17711ec81383ca"
 
 [[package]]
 name = "remote-ext-tests-bags-list"
@@ -14809,6 +14820,35 @@ dependencies = [
  "libc",
  "rtoolbox",
  "winapi",
+]
+
+[[package]]
+name = "rstest"
+version = "0.18.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97eeab2f3c0a199bc4be135c36c924b6590b88c377d416494288c14f2db30199"
+dependencies = [
+ "futures",
+ "futures-timer",
+ "rstest_macros",
+ "rustc_version 0.4.0",
+]
+
+[[package]]
+name = "rstest_macros"
+version = "0.18.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d428f8247852f894ee1be110b375111b586d4fa431f6c46e64ba5a0dcccbe605"
+dependencies = [
+ "cfg-if",
+ "glob",
+ "proc-macro2",
+ "quote",
+ "regex",
+ "relative-path",
+ "rustc_version 0.4.0",
+ "syn 2.0.38",
+ "unicode-ident",
 ]
 
 [[package]]
@@ -16282,7 +16322,7 @@ dependencies = [
  "sp-transaction-storage-proof",
  "sp-trie",
  "sp-version",
- "static_init 1.0.3",
+ "static_init",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime",
  "substrate-test-runtime-client",
@@ -18667,18 +18707,6 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "static_init"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11b73400442027c4adedda20a9f9b7945234a5bd8d5f7e86da22bd5d0622369c"
-dependencies = [
- "cfg_aliases",
- "libc",
- "parking_lot 0.11.2",
- "static_init_macro 0.5.0",
-]
-
-[[package]]
-name = "static_init"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a2a1c578e98c1c16fc3b8ec1328f7659a500737d7a0c6d625e73e830ff9c1f6"
@@ -18688,21 +18716,8 @@ dependencies = [
  "libc",
  "parking_lot 0.11.2",
  "parking_lot_core 0.8.6",
- "static_init_macro 1.0.2",
+ "static_init_macro",
  "winapi",
-]
-
-[[package]]
-name = "static_init_macro"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2261c91034a1edc3fc4d1b80e89d82714faede0515c14a75da10cb941546bbf"
-dependencies = [
- "cfg_aliases",
- "memchr",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
 ]
 
 [[package]]

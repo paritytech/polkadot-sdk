@@ -43,8 +43,8 @@ use polkadot_node_primitives::{
 };
 use polkadot_primitives::{
 	async_backing, slashing, vstaging::NodeFeatures, AuthorityDiscoveryId, BackedCandidate,
-	BlockNumber, CandidateEvent, CandidateHash, CandidateIndex, CandidateReceipt, CollatorId,
-	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupIndex,
+	BlockNumber, CandidateEvent, CandidateHash, CandidateIndex, CandidateReceipt, ChunkIndex,
+	CollatorId, CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupIndex,
 	GroupRotationInfo, Hash, Header as BlockHeader, Id as ParaId, InboundDownwardMessage,
 	InboundHrmpMessage, MultiDisputeStatementSet, OccupiedCoreAssumption, PersistedValidationData,
 	PvfCheckStatement, PvfExecKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
@@ -471,7 +471,8 @@ pub enum AvailabilityRecoveryMessage {
 	RecoverAvailableData(
 		CandidateReceipt,
 		SessionIndex,
-		Option<GroupIndex>, // Optional backing group to request from first.
+		Option<GroupIndex>,  // Optional backing group to request from first.
+		Option<BlockNumber>, // Optional block number of the relay parent of the candidate.
 		oneshot::Sender<Result<AvailableData, crate::errors::RecoveryError>>,
 	),
 }
@@ -501,7 +502,7 @@ pub enum AvailabilityStoreMessage {
 	QueryDataAvailability(CandidateHash, oneshot::Sender<bool>),
 
 	/// Query an `ErasureChunk` from the AV store by the candidate hash and validator index.
-	QueryChunk(CandidateHash, ValidatorIndex, oneshot::Sender<Option<ErasureChunk>>),
+	QueryChunk(CandidateHash, ChunkIndex, oneshot::Sender<Option<ErasureChunk>>),
 
 	/// Get the size of an `ErasureChunk` from the AV store by the candidate hash.
 	QueryChunkSize(CandidateHash, oneshot::Sender<Option<usize>>),
@@ -514,7 +515,7 @@ pub enum AvailabilityStoreMessage {
 	/// This is useful in cases like bitfield signing, when existence
 	/// matters, but we don't want to necessarily pass around large
 	/// quantities of data to get a single bit of information.
-	QueryChunkAvailability(CandidateHash, ValidatorIndex, oneshot::Sender<bool>),
+	QueryChunkAvailability(CandidateHash, ChunkIndex, oneshot::Sender<bool>),
 
 	/// Store an `ErasureChunk` in the AV store.
 	///

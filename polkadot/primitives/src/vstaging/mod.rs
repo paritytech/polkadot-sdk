@@ -21,4 +21,11 @@
 use bitvec::vec::BitVec;
 
 /// Bit indices in the `HostConfiguration.node_features` that correspond to different node features.
+/// The maximum bit that can be currently set/unset via the `set_node_feature` extrinsic is 255.
 pub type NodeFeatures = BitVec<u8, bitvec::order::Lsb0>;
+
+/// Module containing feature-specific bit indices into the `NodeFeatures` bitvec.
+pub mod node_features {
+	/// Index of the availability chunk shuffling feature bit.
+	pub const AVAILABILITY_CHUNK_SHUFFLING: u8 = 0;
+}

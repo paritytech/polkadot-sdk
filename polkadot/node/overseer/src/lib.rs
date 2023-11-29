@@ -510,6 +510,7 @@ pub struct Overseer<SupportsParachains> {
 		NetworkBridgeTxMessage,
 		RuntimeApiMessage,
 		AvailabilityStoreMessage,
+		ChainApiMessage,
 	])]
 	availability_recovery: AvailabilityRecovery,
 
@@ -517,6 +518,7 @@ pub struct Overseer<SupportsParachains> {
 		AvailabilityStoreMessage,
 		RuntimeApiMessage,
 		BitfieldDistributionMessage,
+		ChainApiMessage
 	])]
 	bitfield_signing: BitfieldSigning,
 

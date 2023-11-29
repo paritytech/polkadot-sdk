@@ -27,16 +27,22 @@ use futures::{
 	FutureExt,
 };
 use polkadot_node_subsystem::{
-	errors::RuntimeApiError,
 	jaeger,
-	messages::{
-		AvailabilityStoreMessage, BitfieldDistributionMessage, RuntimeApiMessage, RuntimeApiRequest,
-	},
-	overseer, ActivatedLeaf, FromOrchestra, OverseerSignal, PerLeafSpan, SpawnedSubsystem,
-	SubsystemError, SubsystemResult, SubsystemSender,
+	messages::{AvailabilityStoreMessage, BitfieldDistributionMessage},
+	overseer, ActivatedLeaf, ChainApiError, FromOrchestra, OverseerSignal, PerLeafSpan,
+	SpawnedSubsystem, SubsystemError, SubsystemResult,
 };
-use polkadot_node_subsystem_util::{self as util, Validator};
-use polkadot_primitives::{AvailabilityBitfield, CoreState, Hash, ValidatorIndex};
+use polkadot_node_subsystem_util::{
+	self as util,
+	availability_chunks::availability_chunk_index,
+	get_block_number, request_availability_cores, request_session_index_for_child,
+	request_session_info, request_validators,
+	runtime::{recv_runtime, request_node_features},
+	Validator,
+};
+use polkadot_primitives::{
+	vstaging::node_features, AvailabilityBitfield, CoreState, Hash, ValidatorIndex,
+};
 use sp_keystore::{Error as KeystoreError, KeystorePtr};
 use std::{collections::HashMap, iter::FromIterator, time::Duration};
 use wasm_timer::{Delay, Instant};
@@ -69,35 +75,118 @@ pub enum Error {
 	MpscSend(#[from] mpsc::SendError),
 
 	#[error(transparent)]
-	Runtime(#[from] RuntimeApiError),
+	Runtime(#[from] util::runtime::Error),
 
 	#[error("Keystore failed: {0:?}")]
 	Keystore(KeystoreError),
+
+	#[error("Cannot find block number for given relay parent")]
+	BlockNumberNotFound,
+
+	#[error("Retrieving response from Chain API unexpectedly failed with error: {0}")]
+	ChainApi(#[from] ChainApiError),
 }
 
 /// If there is a candidate pending availability, query the Availability Store
 /// for whether we have the availability chunk for our validator index.
 async fn get_core_availability(
 	core: &CoreState,
-	validator_idx: ValidatorIndex,
-	sender: &Mutex<&mut impl SubsystemSender<overseer::BitfieldSigningOutgoingMessages>>,
+	n_validators: usize,
+	validator_index: ValidatorIndex,
+	sender: &Mutex<&mut impl overseer::BitfieldSigningSenderTrait>,
 	span: &jaeger::Span,
 ) -> Result<bool, Error> {
 	if let CoreState::Occupied(core) = core {
 		let _span = span.child("query-chunk-availability");
+		let relay_parent = core.candidate_descriptor.relay_parent;
+
+		let block_number = get_block_number::<_, Error>(*sender.lock().await, relay_parent).await;
+
+		let block_number = match block_number {
+			Ok(Some(block_number)) => block_number,
+			Ok(None) => {
+				gum::warn!(
+					target: LOG_TARGET,
+					?relay_parent,
+					?core.candidate_hash,
+					para_id = %core.para_id(),
+					"Failed to get block number."
+				);
+
+				return Ok(false)
+			},
+			Err(err) => {
+				gum::warn!(
+					target: LOG_TARGET,
+					?relay_parent,
+					?core.candidate_hash,
+					para_id = %core.para_id(),
+					error = ?err,
+					"Failed to get block number."
+				);
+
+				return Ok(false)
+			},
+		};
+
+		let session_index =
+			recv_runtime(request_session_index_for_child(relay_parent, *sender.lock().await).await)
+				.await?;
+
+		let maybe_node_features =
+			request_node_features(relay_parent, session_index, *sender.lock().await)
+				.await
+				.map_err(Error::from)?;
+
+		// Init this to all zeros. It won't be used unless
+		// `AVAILABILITY_CHUNK_SHUFFLING` is enabled. We do this to avoid querying
+		// the runtime API for session index and session info unless the feature is enabled.
+		let mut babe_randomness = [0; 32];
+
+		if let Some(ref node_features) = maybe_node_features {
+			if let Some(&true) = node_features
+				.get(usize::from(node_features::AVAILABILITY_CHUNK_SHUFFLING))
+				.as_deref()
+			{
+				let Some(session_info) = recv_runtime(
+					request_session_info(relay_parent, session_index, *sender.lock().await).await,
+				)
+				.await?
+				else {
+					gum::warn!(
+						target: LOG_TARGET,
+						?relay_parent,
+						session_index,
+						?core.candidate_hash,
+						para_id = %core.para_id(),
+						"Failed to get session info."
+					);
+
+					return Ok(false)
+				};
+
+				babe_randomness = session_info.random_seed;
+			}
+		}
+
+		let chunk_index = availability_chunk_index(
+			maybe_node_features.as_ref(),
+			babe_randomness,
+			n_validators,
+			block_number,
+			core.para_id(),
+			validator_index,
+		);
 
 		let (tx, rx) = oneshot::channel();
 		sender
 			.lock()
 			.await
-			.send_message(
-				AvailabilityStoreMessage::QueryChunkAvailability(
-					core.candidate_hash,
-					validator_idx,
-					tx,
-				)
-				.into(),
-			)
+			.send_message(AvailabilityStoreMessage::QueryChunkAvailability(
+				core.candidate_hash,
+				chunk_index,
+				tx,
+			))
 			.await;
 
 		let res = rx.await.map_err(Into::into);
@@ -116,25 +205,6 @@ async fn get_core_availability(
 	}
 }
 
-/// delegates to the v1 runtime API
-async fn get_availability_cores(
-	relay_parent: Hash,
-	sender: &mut impl SubsystemSender<overseer::BitfieldSigningOutgoingMessages>,
-) -> Result<Vec<CoreState>, Error> {
-	let (tx, rx) = oneshot::channel();
-	sender
-		.send_message(
-			RuntimeApiMessage::Request(relay_parent, RuntimeApiRequest::AvailabilityCores(tx))
-				.into(),
-		)
-		.await;
-	match rx.await {
-		Ok(Ok(out)) => Ok(out),
-		Ok(Err(runtime_err)) => Err(runtime_err.into()),
-		Err(err) => Err(err.into()),
-	}
-}
-
 /// - get the list of core states from the runtime
 /// - for each core, concurrently determine chunk availability (see `get_core_availability`)
 /// - return the bitfield if there were no errors at any point in this process (otherwise, it's
@@ -142,13 +212,14 @@ async fn get_availability_cores(
 async fn construct_availability_bitfield(
 	relay_parent: Hash,
 	span: &jaeger::Span,
+	n_validators: usize,
 	validator_idx: ValidatorIndex,
-	sender: &mut impl SubsystemSender<overseer::BitfieldSigningOutgoingMessages>,
+	sender: &mut impl overseer::BitfieldSigningSenderTrait,
 ) -> Result<AvailabilityBitfield, Error> {
 	// get the set of availability cores from the runtime
 	let availability_cores = {
 		let _span = span.child("get-availability-cores");
-		get_availability_cores(relay_parent, sender).await?
+		recv_runtime(request_availability_cores(relay_parent, sender).await).await?
 	};
 
 	// Wrap the sender in a Mutex to share it between the futures.
@@ -163,7 +234,7 @@ async fn construct_availability_bitfield(
 	let results = future::try_join_all(
 		availability_cores
 			.iter()
-			.map(|core| get_core_availability(core, validator_idx, &sender, span)),
+			.map(|core| get_core_availability(core, n_validators, validator_idx, &sender, span)),
 	)
 	.await?;
 
@@ -261,13 +332,20 @@ where
 	let span_delay = span.child("delay");
 	let wait_until = Instant::now() + SPAWNED_TASK_DELAY;
 
+	let validators = request_validators(leaf.hash, &mut sender)
+		.await
+		.await
+		.map_err(|e| Error::Runtime(e.into()))?
+		.map_err(|e| Error::Runtime(e.into()))?;
+
 	// now do all the work we can before we need to wait for the availability store
 	// if we're not a validator, we can just succeed effortlessly
-	let validator = match Validator::new(leaf.hash, keystore.clone(), &mut sender).await {
-		Ok(validator) => validator,
-		Err(util::Error::NotAValidator) => return Ok(()),
-		Err(err) => return Err(Error::Util(err)),
-	};
+	let validator =
+		match Validator::new(&validators, leaf.hash, keystore.clone(), &mut sender).await {
+			Ok(validator) => validator,
+			Err(util::Error::NotAValidator) => return Ok(()),
+			Err(err) => return Err(Error::Util(err)),
+		};
 
 	// wait a bit before doing anything else
 	Delay::new_at(wait_until).await?;
@@ -282,6 +360,7 @@ where
 	let bitfield = match construct_availability_bitfield(
 		leaf.hash,
 		&span_availability,
+		validators.len(),
 		validator.index(),
 		&mut sender,
 	)

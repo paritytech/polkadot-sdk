@@ -9,6 +9,7 @@ license.workspace = true
 [dependencies]
 derive_more = "0.99.17"
 futures = "0.3.21"
+fatality = "0.0.6"
 polkadot-primitives = { path = "../../primitives" }
 polkadot-node-primitives = { path = "../primitives" }
 polkadot-node-network-protocol = { path = "../network/protocol" }

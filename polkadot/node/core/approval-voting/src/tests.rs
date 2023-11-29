@@ -2756,7 +2756,7 @@ async fn recover_available_data(virtual_overseer: &mut VirtualOverseer) {
 	assert_matches!(
 		virtual_overseer.recv().await,
 		AllMessages::AvailabilityRecovery(
-			AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, tx)
+			AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, _, tx)
 		) => {
 			tx.send(Ok(available_data)).unwrap();
 		},

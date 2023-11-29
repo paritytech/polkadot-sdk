@@ -17,12 +17,17 @@
 //! A module that is responsible for migration of storage.
 
 use crate::configuration::{self, Config, Pallet};
-use frame_support::{pallet_prelude::*, traits::Defensive, weights::Weight};
+use frame_support::{
+	pallet_prelude::*,
+	traits::{Defensive, OnRuntimeUpgrade},
+	weights::Weight,
+};
 use frame_system::pallet_prelude::BlockNumberFor;
 use primitives::{vstaging::NodeFeatures, SessionIndex};
 use sp_std::vec::Vec;
 
-use frame_support::traits::OnRuntimeUpgrade;
+#[cfg(feature = "try-runtime")]
+use frame_support::traits::StorageVersion;
 
 use super::v9::V9HostConfiguration;
 

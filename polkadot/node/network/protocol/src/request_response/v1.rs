@@ -22,7 +22,7 @@ use polkadot_node_primitives::{
 	AvailableData, DisputeMessage, ErasureChunk, PoV, Proof, UncheckedDisputeMessage,
 };
 use polkadot_primitives::{
-	CandidateHash, CandidateReceipt, CommittedCandidateReceipt, Hash, Id as ParaId, ValidatorIndex,
+	CandidateHash, CandidateReceipt, ChunkIndex, CommittedCandidateReceipt, Hash, Id as ParaId,
 };
 
 use super::{IsRequest, Protocol};
@@ -33,7 +33,7 @@ pub struct ChunkFetchingRequest {
 	/// Hash of candidate we want a chunk for.
 	pub candidate_hash: CandidateHash,
 	/// The index of the chunk to fetch.
-	pub index: ValidatorIndex,
+	pub index: ChunkIndex,
 }
 
 /// Receive a requested erasure chunk.

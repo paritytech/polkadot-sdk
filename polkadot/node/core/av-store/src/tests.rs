@@ -272,8 +272,8 @@ fn runtime_api_error_does_not_stop_the_subsystem() {
 		// but that's fine, we're still alive
 		let (tx, rx) = oneshot::channel();
 		let candidate_hash = CandidateHash(Hash::repeat_byte(33));
-		let validator_index = ValidatorIndex(5);
-		let query_chunk = AvailabilityStoreMessage::QueryChunk(candidate_hash, validator_index, tx);
+		let chunk_index = ChunkIndex(5);
+		let query_chunk = AvailabilityStoreMessage::QueryChunk(candidate_hash, chunk_index, tx);
 
 		overseer_send(&mut virtual_overseer, query_chunk.into()).await;
 
@@ -288,12 +288,12 @@ fn store_chunk_works() {
 
 	test_harness(TestState::default(), store.clone(), |mut virtual_overseer| async move {
 		let candidate_hash = CandidateHash(Hash::repeat_byte(33));
-		let validator_index = ValidatorIndex(5);
+		let chunk_index = ChunkIndex(5);
 		let n_validators = 10;
 
 		let chunk = ErasureChunk {
 			chunk: vec![1, 2, 3],
-			index: validator_index,
+			index: chunk_index,
 			proof: Proof::try_from(vec![vec![3, 4, 5]]).unwrap(),
 		};
 
@@ -321,7 +321,7 @@ fn store_chunk_works() {
 		assert_eq!(rx.await.unwrap(), Ok(()));
 
 		let (tx, rx) = oneshot::channel();
-		let query_chunk = AvailabilityStoreMessage::QueryChunk(candidate_hash, validator_index, tx);
+		let query_chunk = AvailabilityStoreMessage::QueryChunk(candidate_hash, chunk_index, tx);
 
 		overseer_send(&mut virtual_overseer, query_chunk).await;
 
@@ -336,11 +336,11 @@ fn store_chunk_does_nothing_if_no_entry_already() {
 
 	test_harness(TestState::default(), store.clone(), |mut virtual_overseer| async move {
 		let candidate_hash = CandidateHash(Hash::repeat_byte(33));
-		let validator_index = ValidatorIndex(5);
+		let chunk_index = ChunkIndex(5);
 
 		let chunk = ErasureChunk {
 			chunk: vec![1, 2, 3],
-			index: validator_index,
+			index: chunk_index,
 			proof: Proof::try_from(vec![vec![3, 4, 5]]).unwrap(),
 		};
 
@@ -353,7 +353,7 @@ fn store_chunk_does_nothing_if_no_entry_already() {
 		assert_eq!(rx.await.unwrap(), Err(()));
 
 		let (tx, rx) = oneshot::channel();
-		let query_chunk = AvailabilityStoreMessage::QueryChunk(candidate_hash, validator_index, tx);
+		let query_chunk = AvailabilityStoreMessage::QueryChunk(candidate_hash, chunk_index, tx);
 
 		overseer_send(&mut virtual_overseer, query_chunk).await;
 
@@ -368,7 +368,7 @@ fn query_chunk_checks_meta() {
 
 	test_harness(TestState::default(), store.clone(), |mut virtual_overseer| async move {
 		let candidate_hash = CandidateHash(Hash::repeat_byte(33));
-		let validator_index = ValidatorIndex(5);
+		let chunk_index = ChunkIndex(5);
 		let n_validators = 10;
 
 		// Ensure an entry already exists. In reality this would come from watching
@@ -382,7 +382,7 @@ fn query_chunk_checks_meta() {
 					data_available: false,
 					chunks_stored: {
 						let mut v = bitvec::bitvec![u8, BitOrderLsb0; 0; n_validators];
-						v.set(validator_index.0 as usize, true);
+						v.set(chunk_index.0 as usize, true);
 						v
 					},
 					state: State::Unavailable(BETimestamp(0)),
@@ -392,7 +392,7 @@ fn query_chunk_checks_meta() {
 
 		let (tx, rx) = oneshot::channel();
 		let query_chunk =
-			AvailabilityStoreMessage::QueryChunkAvailability(candidate_hash, validator_index, tx);
+			AvailabilityStoreMessage::QueryChunkAvailability(candidate_hash, chunk_index, tx);
 
 		overseer_send(&mut virtual_overseer, query_chunk.into()).await;
 		assert!(rx.await.unwrap());
@@ -400,7 +400,7 @@ fn query_chunk_checks_meta() {
 		let (tx, rx) = oneshot::channel();
 		let query_chunk = AvailabilityStoreMessage::QueryChunkAvailability(
 			candidate_hash,
-			ValidatorIndex(validator_index.0 + 1),
+			ChunkIndex(chunk_index.0 + 1),
 			tx,
 		);
 
@@ -416,7 +416,7 @@ fn store_available_data_erasure_mismatch() {
 	let test_state = TestState::default();
 	test_harness(test_state.clone(), store.clone(), |mut virtual_overseer| async move {
 		let candidate_hash = CandidateHash(Hash::repeat_byte(1));
-		let validator_index = ValidatorIndex(5);
+		let chunk_index = ChunkIndex(5);
 		let n_validators = 10;
 
 		let pov = PoV { block_data: BlockData(vec![4, 5, 6]) };
@@ -441,9 +441,7 @@ fn store_available_data_erasure_mismatch() {
 
 		assert!(query_available_data(&mut virtual_overseer, candidate_hash).await.is_none());
 
-		assert!(query_chunk(&mut virtual_overseer, candidate_hash, validator_index)
-			.await
-			.is_none());
+		assert!(query_chunk(&mut virtual_overseer, candidate_hash, chunk_index).await.is_none());
 
 		virtual_overseer
 	});
@@ -455,7 +453,7 @@ fn store_block_works() {
 	let test_state = TestState::default();
 	test_harness(test_state.clone(), store.clone(), |mut virtual_overseer| async move {
 		let candidate_hash = CandidateHash(Hash::repeat_byte(1));
-		let validator_index = ValidatorIndex(5);
+		let chunk_index = ChunkIndex(5);
 		let n_validators = 10;
 
 		let pov = PoV { block_data: BlockData(vec![4, 5, 6]) };
@@ -483,14 +481,12 @@ fn store_block_works() {
 		let pov = query_available_data(&mut virtual_overseer, candidate_hash).await.unwrap();
 		assert_eq!(pov, available_data);
 
-		let chunk = query_chunk(&mut virtual_overseer, candidate_hash, validator_index)
-			.await
-			.unwrap();
+		let chunk = query_chunk(&mut virtual_overseer, candidate_hash, chunk_index).await.unwrap();
 
 		let branch = branches.nth(5).unwrap();
 		let expected_chunk = ErasureChunk {
 			chunk: branch.1.to_vec(),
-			index: ValidatorIndex(5),
+			index: ChunkIndex(5),
 			proof: Proof::try_from(branch.0).unwrap(),
 		};
 
@@ -533,7 +529,7 @@ fn store_pov_and_query_chunk_works() {
 		assert_eq!(rx.await.unwrap(), Ok(()));
 
 		for i in 0..n_validators {
-			let chunk = query_chunk(&mut virtual_overseer, candidate_hash, ValidatorIndex(i as _))
+			let chunk = query_chunk(&mut virtual_overseer, candidate_hash, ChunkIndex(i as _))
 				.await
 				.unwrap();
 
@@ -598,7 +594,7 @@ fn query_all_chunks_works() {
 
 			let chunk = ErasureChunk {
 				chunk: vec![1, 2, 3],
-				index: ValidatorIndex(1),
+				index: ChunkIndex(1),
 				proof: Proof::try_from(vec![vec![3, 4, 5]]).unwrap(),
 			};
 
@@ -1116,7 +1112,7 @@ async fn query_available_data(
 async fn query_chunk(
 	virtual_overseer: &mut VirtualOverseer,
 	candidate_hash: CandidateHash,
-	index: ValidatorIndex,
+	index: ChunkIndex,
 ) -> Option<ErasureChunk> {
 	let (tx, rx) = oneshot::channel();
 
@@ -1133,7 +1129,7 @@ async fn has_all_chunks(
 	expect_present: bool,
 ) -> bool {
 	for i in 0..n_validators {
-		if query_chunk(virtual_overseer, candidate_hash, ValidatorIndex(i)).await.is_some() !=
+		if query_chunk(virtual_overseer, candidate_hash, ChunkIndex(i)).await.is_some() !=
 			expect_present
 		{
 			return false
@@ -1206,12 +1202,12 @@ fn query_chunk_size_works() {
 
 	test_harness(TestState::default(), store.clone(), |mut virtual_overseer| async move {
 		let candidate_hash = CandidateHash(Hash::repeat_byte(33));
-		let validator_index = ValidatorIndex(5);
+		let chunk_index = ChunkIndex(5);
 		let n_validators = 10;
 
 		let chunk = ErasureChunk {
 			chunk: vec![1, 2, 3],
-			index: validator_index,
+			index: chunk_index,
 			proof: Proof::try_from(vec![vec![3, 4, 5]]).unwrap(),
 		};
 

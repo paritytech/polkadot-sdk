@@ -114,6 +114,34 @@ pub trait TypeIndex {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, Hash))]
 pub struct ValidatorIndex(pub u32);
 
+/// Index of an availability chunk.
+///
+/// The underlying type is identical to `ValidatorIndex`, because
+/// the number of chunks will always be equal to the number of validators.
+/// However, the chunk index held by a validator may not always be equal to its `ValidatorIndex`, so
+/// we use a separate type to make code easier to read.
+#[derive(Eq, Ord, PartialEq, PartialOrd, Copy, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Hash))]
+pub struct ChunkIndex(pub u32);
+
+impl From<ChunkIndex> for ValidatorIndex {
+	fn from(c_index: ChunkIndex) -> Self {
+		ValidatorIndex(c_index.0)
+	}
+}
+
+impl From<ValidatorIndex> for ChunkIndex {
+	fn from(v_index: ValidatorIndex) -> Self {
+		ChunkIndex(v_index.0)
+	}
+}
+
+impl From<u32> for ChunkIndex {
+	fn from(n: u32) -> Self {
+		ChunkIndex(n)
+	}
+}
+
 // We should really get https://github.com/paritytech/polkadot/issues/2403 going ..
 impl From<u32> for ValidatorIndex {
 	fn from(n: u32) -> Self {
