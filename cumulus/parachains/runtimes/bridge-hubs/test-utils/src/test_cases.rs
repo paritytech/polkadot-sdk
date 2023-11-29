@@ -1528,7 +1528,7 @@ pub mod test_data {
 				}
 			}
 			impl CheckVersion for $name {
-				fn determine_version_for(dest: &MultiLocation, handle_unknown: bool) -> Option<XcmVersion> {
+				fn check_version_for(dest: &MultiLocation, handle_unknown: bool) -> Option<XcmVersion> {
 					AlwaysLatest::check_version_for(dest, handle_unknown)
 				}
 			}
