@@ -102,7 +102,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 	let mut view = View::new();
 	let subsystem = async move {
 		match run_iteration(&mut context, &mut view, &Metrics(None)).await {
-			Ok(()) => break,
+			Ok(()) => {},
 			Err(e) => panic!("{:?}", e),
 		}
 
