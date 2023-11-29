@@ -5,6 +5,7 @@ exclude = [
 	"polkadot/zombienet_tests/**",
 	"cumulus/zombienet/**",
 	"substrate/zombienet/**",
+	"polkadot/node/malus/integrationtests/**",
 ]
 
 [formatting]
