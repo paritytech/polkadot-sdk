@@ -1,7 +1,11 @@
 # all options https://taplo.tamasfe.dev/configuration/formatter-options.html
 
-# this dir uses some templating that makes toml invalid
-exclude = ["polkadot/zombienet_tests/**"]
+# ignore zombienet as they do some deliberate custom toml stuff
+exclude = [
+	"polkadot/zombienet_tests/**",
+	"cumulus/zombienet/**",
+	"substrate/zombienet/**",
+]
 
 [formatting]
 inline_table_expand = false
