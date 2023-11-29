@@ -44,7 +44,7 @@ pub enum Error {
 }
 
 /// Errors for `chainHead` RPC module, as defined in
-/// https://github.com/paritytech/json-rpc-interface-spec.
+/// <https://github.com/paritytech/json-rpc-interface-spec>.
 pub mod rpc_spec_v2 {
 	/// The provided block hash is invalid.
 	pub const INVALID_BLOCK_ERROR: i32 = -32801;
@@ -55,7 +55,7 @@ pub mod rpc_spec_v2 {
 }
 
 /// General purpose errors, as defined in
-/// https://www.jsonrpc.org/specification#error_object.
+/// <https://www.jsonrpc.org/specification#error_object>.
 pub mod json_rpc_spec {
 	/// Invalid parameter error.
 	pub const INVALID_PARAM_ERROR: i32 = -32602;
