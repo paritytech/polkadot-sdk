@@ -68,7 +68,7 @@ use std::{
 	fs,
 	io::{self, Read},
 	os::{
-		fd::RawFd,
+		fd::{AsRawFd, FromRawFd, RawFd},
 		unix::net::UnixStream,
 	},
 	path::PathBuf,
