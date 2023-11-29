@@ -87,7 +87,7 @@ use xcm_config::{
 pub use sp_runtime::BuildStorage;
 
 use assets_common::{
-	foreign_creators::ForeignCreators, matching::FromSiblingParachain, LocationForAssetId,
+	foreign_creators::ForeignCreators, matching::FromSiblingParachain,
 };
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use xcm::latest::prelude::*;
@@ -354,8 +354,8 @@ pub type ForeignAssetsInstance = pallet_assets::Instance2;
 impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
-	type AssetId = LocationForAssetId;
-	type AssetIdParameter = LocationForAssetId;
+	type AssetId = xcm::v3::MultiLocation;
+	type AssetIdParameter = xcm::v3::MultiLocation;
 	type Currency = Balances;
 	type CreateOrigin = ForeignCreators<
 		(FromSiblingParachain<parachain_info::Pallet<Runtime>>,),

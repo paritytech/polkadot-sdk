@@ -41,12 +41,9 @@ pub type TrustBackedAssetsConvertedConcreteId<TrustBackedAssetsPalletLocation, B
 		JustTry,
 	>;
 
-/// AssetId used for identifying assets by Location.
-pub type LocationForAssetId = xcm::v3::MultiLocation;
-
 /// [`MatchedConvertedConcreteId`] converter dedicated for storing `AssetId` as `Location`.
 pub type LocationConvertedConcreteId<LocationFilter, Balance> =
-	MatchedConvertedConcreteId<LocationForAssetId, Balance, LocationFilter, Identity, JustTry>;
+	MatchedConvertedConcreteId<xcm::v3::MultiLocation, Balance, LocationFilter, Identity, JustTry>;
 
 /// [`MatchedConvertedConcreteId`] converter dedicated for storing `ForeignAssets` with `AssetId` as
 /// `Location`.
@@ -201,7 +198,7 @@ mod tests {
 
 		for (asset, expected_result) in test_data {
 			assert_eq!(
-				<TrustBackedAssetsConvert as MatchesFungibles<AssetIdForTrustBackedAssets, u128>>::matches_fungibles(&asset),
+				<TrustBackedAssetsConvert as MatchesFungibles<AssetIdForTrustBackedAssets, u128>>::matches_fungibles(&asset.into()),
 				expected_result, "asset: {:?}", asset);
 		}
 	}
@@ -304,7 +301,7 @@ mod tests {
 
 		for (asset, expected_result) in test_data {
 			assert_eq!(
-				<Convert as MatchesFungibles<LocationForAssetId, u128>>::matches_fungibles(&asset),
+				<Convert as MatchesFungibles<xcm::v3::MultiLocation, u128>>::matches_fungibles(&asset.into()),
 				expected_result,
 				"asset: {:?}",
 				asset
