@@ -49,11 +49,6 @@ fn create_and_claim_treasury_spend() {
 	AssetHubWestend::execute_with(|| {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::Assets;
 
-		// todo this should not be needed
-		type Balances = <AssetHubWestend as AssetHubWestendPallet>::Balances;
-		use frame_support::traits::fungible::Mutate as FungibleMutate;
-		Balances::set_balance(&treasury_account, 10 * WESTEND_ED);
-
 		// create an asset class and mint some assets to the treasury account.
 		assert_ok!(<Assets as Create<_>>::create(
 			ASSET_ID,
