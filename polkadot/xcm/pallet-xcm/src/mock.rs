@@ -607,8 +607,8 @@ pub(crate) fn new_test_ext_with_balances(
 ) -> sp_io::TestExternalities {
 	new_test_ext_with_balances_and_xcm_version(
 		balances,
-		// TODO: why do we use 2? Shouldnt we switch to 3 or use latest::VERSION?
-		Some(2),
+		// By default set actual latest XCM version
+		Some(XCM_VERSION),
 	)
 }
 
