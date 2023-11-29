@@ -80,12 +80,12 @@
 //! The following diagram summarizes how some of the components of Polkadot SDK work together:
 #![doc = simple_mermaid::mermaid!("../../../docs/mermaid/polkadot_sdk_substrate.mmd")]
 //!
-//! A Substrate-based chain is a blockchain composed of a runtime" and a node. As noted above,
-//! the runtime is the application logic of the blockchain, and the node is everything else.
+//! A Substrate-based chain is a blockchain composed of a runtime and a node. As noted above, the
+//! runtime is the application logic of the blockchain, and the node is everything else.
 //! See [`crate::reference_docs::wasm_meta_protocol`] for an in-depth explanation of this. The
 //! former is built with [`frame`], and the latter is built with rest of Substrate.
 //!
-//! > You can think of a Substrate-based chain as a while-labeled blockchain.
+//! > You can think of a Substrate-based chain as a white-labeled blockchain.
 #![doc = simple_mermaid::mermaid!("../../../docs/mermaid/polkadot_sdk_polkadot.mmd")]
 //! Polkadot is itself a Substrate-based chain, composed of the exact same two components. It has
 //! specialized logic in both the node and the runtime side, but it is not "special" in any way.

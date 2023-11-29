@@ -40,15 +40,15 @@ pub mod runtime_vs_smart_contract;
 pub mod extrinsic_encoding;
 
 /// Learn about the signed extensions that form a part of extrinsics.
-// TODO: @jsdw
+// TODO: @jsdw https://github.com/paritytech/polkadot-sdk-docs/issues/42
 pub mod signed_extensions;
 
 /// Learn about *"Origin"* A topic in FRAME that enables complex account abstractions to be built.
-// TODO: @shawntabrizi
+// TODO: @shawntabrizi https://github.com/paritytech/polkadot-sdk-docs/issues/43
 pub mod frame_origin;
 
 /// Learn about how to write safe and defensive code in your FRAME runtime.
-// TODO: @CrackTheCode016
+// TODO: @CrackTheCode016 https://github.com/paritytech/polkadot-sdk-docs/issues/44
 pub mod safe_defensive_programming;
 
 /// Learn about composite enums in FRAME-based runtimes, such as "RuntimeEvent" and "RuntimeCall".
@@ -60,7 +60,7 @@ pub mod fee_less_runtime;
 
 /// Learn about metadata, the main means through which an upgradeable runtime communicates its
 /// properties to the outside world.
-// TODO: @jsdw
+// TODO: @jsdw https://github.com/paritytech/polkadot-sdk-docs/issues/47
 pub mod metadata;
 
 /// Learn about how frame-system handles `account-ids`, nonces, consumers and providers.
@@ -70,30 +70,30 @@ pub mod frame_system_accounts;
 pub mod frame_currency;
 
 /// Learn about benchmarking and weight.
-// TODO: @shawntabrizi @ggwpez
+// TODO: @shawntabrizi @ggwpez https://github.com/paritytech/polkadot-sdk-docs/issues/50
 pub mod frame_benchmarking_weight;
 
 /// Learn about chain specification file and the genesis state of the blockchain.
-// TODO: @michalkucharczyk
+// TODO: @michalkucharczyk https://github.com/paritytech/polkadot-sdk-docs/issues/51
 pub mod chain_spec_genesis;
 
 /// Learn about all the memory limitations of the WASM runtime when it comes to memory usage.
-// TODO: @kianenigma
+// TODO: @kianenigma https://github.com/paritytech/polkadot-sdk-docs/issues/52
 pub mod wasm_memory;
 
 /// Learn about Substrate's CLI, and how it can be extended.
-// TODO: @kianenigma
+// TODO: @kianenigma https://github.com/paritytech/polkadot-sdk-docs/issues/53
 pub mod cli;
 
 /// Learn about Substrate's consensus algorithms, and how you can switch between two.
-// TODO: @JoshOrndorff @kianenigma
+// TODO: @JoshOrndorff @kianenigma https://github.com/paritytech/polkadot-sdk-docs/issues/54
 pub mod consensus_swapping;
 
 /// Learn about all the advance ways to test your coordinate a rutnime upgrade and data migration.
-// TODO: @liamaharon
+// TODO: @liamaharon https://github.com/paritytech/polkadot-sdk-docs/issues/55
 pub mod frame_runtime_migration;
 
 /// Learn about light nodes, how they function, and how Substrate-based chains come
 /// light-node-first out of the box.
-// TODO: @jsdw @josepot
+// TODO: @jsdw @josepot https://github.com/paritytech/polkadot-sdk-docs/issues/68
 pub mod light_nodes;

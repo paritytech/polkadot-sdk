@@ -28,11 +28,11 @@
 
 // TODO: in general, we need to make a deliberate choice here of moving a few key templates to this
 // repo (nothing stays in `substrate-developer-hub`) and the everything else should be community
-// maintained.
+// maintained. https://github.com/paritytech/polkadot-sdk-docs/issues/67
 
 // TODO: we should rename `substrate-node-template` to `substrate-basic-template`,
 // `substrate-blockchain-template`. `node` is confusing in the name.
-// `substrate-blockchain-template` and `cumulus-parachain-template` go well together 🤝.
+// `substrate-blockchain-template` and `cumulus-parachain-template` go well together 🤝. https://github.com/paritytech/polkadot-sdk-docs/issues/67
 
 // NOTE: a super important detail that I am looking forward to here is
 // <https://github.com/paritytech/polkadot-sdk/issues/62#issuecomment-1691523754> and

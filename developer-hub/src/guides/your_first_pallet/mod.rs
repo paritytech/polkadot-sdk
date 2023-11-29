@@ -125,7 +125,7 @@
 //! > [`frame::pallet_macros::derive_impl`] is a FRAME feature that enables developers to have
 //! > defaults for associated types.
 //!
-//! Recall that within out pallet, (almost) all blocks of code are generic over `<T: Config>`. And,
+//! Recall that within our pallet, (almost) all blocks of code are generic over `<T: Config>`. And,
 //! because `trait Config: frame_system::Config`, we can get access to all items in `Config` (or
 //! `frame_system::Config`) using `T::NameOfItem`. This is all within the boundaries of how Rust
 //! traits and generics work. If unfamiliar with this pattern, read
