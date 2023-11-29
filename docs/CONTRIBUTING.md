@@ -159,7 +159,7 @@ We use [zepter](https://github.com/ggwpez/zepter) to enforce features are propag
 
 ## Rust Code Style
 
-We use the nightly version of rustfmt to enforce consistent code formatting. 
+We use the nightly version of rustfmt to enforce consistent code formatting.
 
 You should format your code with `cargo +nightly fmt`.
 
@@ -167,7 +167,7 @@ To see exactly which nightly version is used, check our CI job logs.
 
 ## TOML Code Style
 
-We use [taplo](https://taplo.tamasfe.dev/) to enforce consistent TOML formatting. 
+We use [taplo](https://taplo.tamasfe.dev/) to enforce consistent TOML formatting.
 
 You can install it with `cargo install taplo-cli` and format your code with `taplo format`.
 
