@@ -371,6 +371,8 @@ pub enum AccountIdentifier<
 pub trait SignerProvider<A>: Clone + Decode + Debug + Encode + PartialEq + TypeInfo {
 	fn verify_signature(&self, signature: &MultiSignature, message: &[u8]) -> bool;
 	fn into_account_truncating(&self) -> A;
+	#[cfg(feature = "runtime-benchmarks")]
+	fn create_signer(id: u32) -> Self;
 }
 
 #[cfg(test)]

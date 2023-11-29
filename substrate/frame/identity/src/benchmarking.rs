@@ -32,21 +32,16 @@ use frame_support::{
 use frame_system::RawOrigin;
 use sp_io::crypto::{sr25519_generate, sr25519_sign};
 use sp_runtime::{
-	traits::{Bounded, IdentifyAccount, IdentityLookup, One, Verify},
-	MultiSignature, MultiSigner,
+	traits::{Bounded, One},
+	MultiSignature,
 };
 
 const SEED: u32 = 0;
-/*
-impl<T: Config> SignerProvider<<T as frame_system::Config>::AccountId> for MultiSigner {
-	fn verify_signature(&self, signature: &MultiSignature, message: &[u8]) -> bool {
-		signature.verify(message, &self.clone().into_account())
-	}
-	fn into_account_truncating(&self) -> <T as frame_system::Config>::AccountId {
-		self.clone().into_account()
-	}
+
+fn assert_has_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+	frame_system::Pallet::<T>::assert_has_event(generic_event.into());
 }
-*/
+
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
@@ -605,46 +600,55 @@ mod benchmarks {
 		assert_last_event::<T>(Event::<T>::AuthorityRemoved { authority }.into());
 		Ok(())
 	}
-	/*
-		// pub fn set_username_for(
-		// 	origin: OriginFor<T>,
-		// 	who: AccountIdentifier<T::AccountId, T::Signer>,
-		// 	username: Vec<u8>,
-		// 	signature: Option<MultiSignature>,
-		// )
-		#[benchmark]
-		fn set_username_for() -> Result<(), BenchmarkError> {
-			// Set up a username authority.
-			let auth_origin =
-				T::UsernameAuthorityOrigin::try_successful_origin().expect("can generage origin");
 
-			let authority: T::AccountId = account("authority", 0, SEED);
-			let authority_lookup = T::Lookup::unlookup(authority.clone());
-			let suffix = bench_suffix();
-			let allocation = 10;
+	#[benchmark]
+	fn set_username_for() -> Result<(), BenchmarkError> {
+		// Set up a username authority.
+		let auth_origin =
+			T::UsernameAuthorityOrigin::try_successful_origin().expect("can generage origin");
+		let authority: T::AccountId = account("authority", 0, SEED);
+		let authority_lookup = T::Lookup::unlookup(authority.clone());
+		let suffix = bench_suffix();
+		let allocation = 10;
 
-			assert_ok!(Identity::<T>::add_username_authority(
-				auth_origin,
-				authority_lookup,
-				suffix,
-				allocation
-			));
+		Identity::<T>::add_username_authority(
+			auth_origin,
+			authority_lookup,
+			suffix.clone(),
+			allocation,
+		)?;
 
-			// Set up inputs. Worst case will be signature verification.
-			let signer = sr25519_generate(0.into(), None);
-			// let signer_as_multi = MultiSigner::Sr25519(signer).into_account().into();
-			let username = bench_username();
-			let bounded_username = bounded_username(username.clone(), suffix.clone());
-			let signature = bounded_username.to_vec().using_encoded(|m| MultiSignature::Sr25519(sr25519_sign(0.into(), &signer, &m).unwrap()));
-			let who = AccountIdentifier::Keyed(MultiSigner::Sr25519(signer));
+		let username = bench_username();
+		let bounded_username = bounded_username(username.clone(), suffix.clone());
 
-			#[extrinsic_call]
-			_(RawOrigin::Signed(authority.clone()), who, username, Some(signature));
+		// Set up inputs. Worst case will be signature verification.
+		let signer = sr25519_generate(0.into(), None);
+		let signature = bounded_username.to_vec().using_encoded(|m| {
+			MultiSignature::Sr25519(sr25519_sign(0.into(), &signer, &m).unwrap())
+		});
+		let multisigner = T::Signer::create_signer(0u32.into());
+		let who = AccountIdentifier::Keyed(multisigner.clone());
 
-			// assert_last_event::<T>(Event::<T>::PrimaryUsernameSet { who: MultiSigner::Sr25519(signer).into_account(), username: bounded_username }.into());
-			Ok(())
-		}
-	*/
+		#[extrinsic_call]
+		_(RawOrigin::Signed(authority.clone()), who, username, Some(signature));
+
+		assert_has_event::<T>(
+			Event::<T>::UsernameSet {
+				who: multisigner.clone().into_account_truncating(),
+				username: bounded_username.clone(),
+			}
+			.into(),
+		);
+		assert_has_event::<T>(
+			Event::<T>::PrimaryUsernameSet {
+				who: multisigner.into_account_truncating(),
+				username: bounded_username,
+			}
+			.into(),
+		);
+		Ok(())
+	}
+
 	#[benchmark]
 	fn accept_username() -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();

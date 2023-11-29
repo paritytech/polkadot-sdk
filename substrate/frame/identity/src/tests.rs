@@ -124,6 +124,11 @@ impl SignerProvider<AccountId> for sp_runtime::MultiSigner {
 	fn into_account_truncating(&self) -> AccountId {
 		self.clone().into_account()
 	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn create_signer(id: u32) -> Self {
+		let signer = sp_io::crypto::sr25519_generate(id.into(), None);
+		Self::Sr25519(signer)
+	}
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
