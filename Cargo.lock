@@ -12574,7 +12574,7 @@ dependencies = [
  "async-trait",
  "bridge-hub-rococo-runtime",
  "bridge-hub-westend-runtime",
- "clap 4.4.6",
+ "clap 4.4.10",
  "collectives-westend-runtime",
  "color-print",
  "contracts-rococo-runtime",
