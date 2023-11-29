@@ -766,6 +766,42 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl bp_polkadot_bulletin::PolkadotBulletinFinalityApi<Block> for Runtime {
+		fn best_finalized() -> Option<bp_runtime::HeaderId<bp_polkadot_bulletin::Hash, bp_polkadot_bulletin::BlockNumber>> {
+			BridgePolkadotBulletinGrandpa::best_finalized()
+		}
+
+		fn synced_headers_grandpa_info(
+		) -> Vec<bp_header_chain::StoredHeaderGrandpaInfo<bp_polkadot_bulletin::Header>> {
+			BridgePolkadotBulletinGrandpa::synced_headers_grandpa_info()
+		}
+	}
+
+	impl bp_polkadot_bulletin::FromPolkadotBulletinInboundLaneApi<Block> for Runtime {
+		fn message_details(
+			lane: bp_messages::LaneId,
+			messages: Vec<(bp_messages::MessagePayload, bp_messages::OutboundMessageDetails)>,
+		) -> Vec<bp_messages::InboundMessageDetails> {
+			bridge_runtime_common::messages_api::inbound_message_details::<
+				Runtime,
+				bridge_to_bulletin_config::WithRococoBulletinMessagesInstance,
+			>(lane, messages)
+		}
+	}
+
+	impl bp_polkadot_bulletin::ToPolkadotBulletinOutboundLaneApi<Block> for Runtime {
+		fn message_details(
+			lane: bp_messages::LaneId,
+			begin: bp_messages::MessageNonce,
+			end: bp_messages::MessageNonce,
+		) -> Vec<bp_messages::OutboundMessageDetails> {
+			bridge_runtime_common::messages_api::outbound_message_details::<
+				Runtime,
+				bridge_to_bulletin_config::WithRococoBulletinMessagesInstance,
+			>(lane, begin, end)
+		}
+	}
+
 	#[cfg(feature = "try-runtime")]
 	impl frame_try_runtime::TryRuntime<Block> for Runtime {
 		fn on_runtime_upgrade(checks: frame_try_runtime::UpgradeCheckSelect) -> (Weight, Weight) {

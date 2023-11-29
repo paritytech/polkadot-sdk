@@ -63,7 +63,7 @@ pub mod pallet {
 				2,
 				X1(GlobalConsensus(xcm_config::bridging::RococoBulletinNetwork::get())),
 			);
-			let msg = vec![Transact {
+			let msg = sp_std::vec![Transact {
 				origin_kind: OriginKind::Superuser,
 				call: encoded_bulletin_chain_call.to_vec().into(),
 				require_weight_at_most: bulletin_chain_call_weight,

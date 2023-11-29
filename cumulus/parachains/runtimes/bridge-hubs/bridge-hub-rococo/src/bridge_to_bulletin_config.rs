@@ -69,7 +69,7 @@ parameter_types! {
 		PalletInstance(<BridgeRococoBulletinMessages as PalletInfoAccess>::index() as u8)
 	);
 	/// Rococo Bulletin Network identifier.
-	pub RococoBulletinGlobalConsensusNetwork: NetworkId = NetworkId::ByGenesis([43u8; 32]); // TODO
+	pub RococoBulletinGlobalConsensusNetwork: NetworkId = NetworkId::ByGenesis([42u8; 32]); // TODO
 	/// All active lanes that the current bridge supports.
 	pub ActiveOutboundLanesToRococoBulletin: &'static [bp_messages::LaneId]
 		= &[XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN];
@@ -95,7 +95,7 @@ parameter_types! {
 	/// XCM message that is never sent.
 	pub NeverSentMessage: Option<Xcm<()>> = None;
 }
-pub const XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN: LaneId = LaneId([0, 0, 0, 3]);
+pub const XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN: LaneId = LaneId([0, 0, 0, 0]);
 
 /// Proof of messages, coming from Rococo Bulletin chain.
 pub type FromRococoBulletinMessagesProof =

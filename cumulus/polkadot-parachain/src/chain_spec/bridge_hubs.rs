@@ -267,6 +267,12 @@ pub mod rococo {
 			"bridgeWestendMessages": {
 				"owner": bridges_pallet_owner.clone(),
 			},
+			"bridgePolkadotBulletinGrandpa": {
+				"owner": bridges_pallet_owner.clone(),
+			},
+			"bridgePolkadotBulletinMessages": {
+				"owner": bridges_pallet_owner.clone(),
+			},
 		})
 	}
 }

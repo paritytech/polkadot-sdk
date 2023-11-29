@@ -316,7 +316,7 @@ pub mod bridging {
 		);
 
 		/// Rococo Bulletin network.
-		pub const RococoBulletinNetwork: NetworkId = NetworkId::ByGenesis([43u8; 32]); // TODO
+		pub const RococoBulletinNetwork: NetworkId = NetworkId::ByGenesis([42u8; 32]); // TODO
 
 		/// Set up exporters configuration.
 		pub BridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
