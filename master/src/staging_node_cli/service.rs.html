@@ -934,6 +934,20 @@
 <a href="#934" id="934">934</a>
 <a href="#935" id="935">935</a>
 <a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -962,11 +976,9 @@
 <span class="kw">use </span>frame_system_rpc_runtime_api::AccountNonceApi;
 <span class="kw">use </span>futures::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>kitchensink_runtime::RuntimeApi;
-<span class="kw">use </span>node_executor::ExecutorDispatch;
 <span class="kw">use </span>node_primitives::Block;
 <span class="kw">use </span>sc_client_api::{Backend, BlockBackend};
 <span class="kw">use </span>sc_consensus_babe::{<span class="self">self</span>, SlotProportion};
-<span class="kw">use </span>sc_executor::NativeElseWasmExecutor;
 <span class="kw">use </span>sc_network::{event::Event, NetworkEventStream, NetworkService};
 <span class="kw">use </span>sc_network_sync::{warp::WarpSyncParams, SyncingService};
 <span class="kw">use </span>sc_service::{config::Configuration, error::Error <span class="kw">as </span>ServiceError, RpcHandlers, TaskManager};
@@ -978,9 +990,25 @@
 <span class="kw">use </span>sp_runtime::{generic, traits::Block <span class="kw">as </span>BlockT, SaturatedConversion};
 <span class="kw">use </span>std::sync::Arc;
 
+<span class="doccomment">/// Host functions required for kitchensink runtime and Substrate node.
+</span><span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+</span><span class="kw">pub type </span>HostFunctions =
+	(sp_io::SubstrateHostFunctions, sp_statement_store::runtime_api::HostFunctions);
+
+<span class="doccomment">/// Host functions required for kitchensink runtime and Substrate node.
+</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+</span><span class="kw">pub type </span>HostFunctions = (
+	sp_io::SubstrateHostFunctions,
+	sp_statement_store::runtime_api::HostFunctions,
+	frame_benchmarking::benchmarking::HostFunctions,
+);
+
+<span class="doccomment">/// A specialized `WasmExecutor` intended to use accross substrate node. It provides all required
+/// HostFunctions.
+</span><span class="kw">pub type </span>RuntimeExecutor = sc_executor::WasmExecutor&lt;HostFunctions&gt;;
+
 <span class="doccomment">/// The full client type definition.
-</span><span class="kw">pub type </span>FullClient =
-	sc_service::TFullClient&lt;Block, RuntimeApi, NativeElseWasmExecutor&lt;ExecutorDispatch&gt;&gt;;
+</span><span class="kw">pub type </span>FullClient = sc_service::TFullClient&lt;Block, RuntimeApi, RuntimeExecutor&gt;;
 <span class="kw">type </span>FullBackend = sc_service::TFullBackend&lt;Block&gt;;
 <span class="kw">type </span>FullSelectChain = sc_consensus::LongestChain&lt;FullBackend, Block&gt;;
 <span class="kw">type </span>FullGrandpaBlockImport =
@@ -1110,7 +1138,7 @@
 		})
 		.transpose()<span class="question-mark">?</span>;
 
-	<span class="kw">let </span>executor = sc_service::new_native_or_wasm_executor(<span class="kw-2">&amp;</span>config);
+	<span class="kw">let </span>executor = sc_service::new_wasm_executor(<span class="kw-2">&amp;</span>config);
 
 	<span class="kw">let </span>(client, backend, keystore_container, task_manager) =
 		sc_service::new_full_parts::&lt;Block, RuntimeApi, <span class="kw">_</span>&gt;(

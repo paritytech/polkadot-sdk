@@ -431,7 +431,6 @@ var srcIndex = JSON.parse('{\
 "sp_weights":["",[],["lib.rs","weight_meter.rs","weight_v2.rs"]],\
 "staging_chain_spec_builder":["",[],["lib.rs"]],\
 "staging_node_cli":["",[],["benchmarking.rs","chain_spec.rs","cli.rs","command.rs","lib.rs","service.rs"]],\
-"staging_node_executor":["",[],["lib.rs"]],\
 "staging_node_inspect":["",[],["cli.rs","command.rs","lib.rs"]],\
 "staging_parachain_info":["",[],["lib.rs"]],\
 "staging_tracking_allocator":["",[],["lib.rs"]],\

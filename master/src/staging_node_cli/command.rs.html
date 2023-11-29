@@ -232,7 +232,6 @@
 <a href="#232" id="232">232</a>
 <a href="#233" id="233">233</a>
 <a href="#234" id="234">234</a>
-<a href="#235" id="235">235</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -259,7 +258,6 @@
 };
 <span class="kw">use </span>frame_benchmarking_cli::<span class="kw-2">*</span>;
 <span class="kw">use </span>kitchensink_runtime::{ExistentialDeposit, RuntimeApi};
-<span class="kw">use </span>node_executor::ExecutorDispatch;
 <span class="kw">use </span>node_primitives::Block;
 <span class="kw">use </span>sc_cli::{<span class="prelude-ty">Result</span>, SubstrateCli};
 <span class="kw">use </span>sc_service::PartialComponents;
@@ -324,7 +322,7 @@
 		<span class="prelude-val">Some</span>(Subcommand::Inspect(cmd)) =&gt; {
 			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
 
-			runner.sync_run(|config| cmd.run::&lt;Block, RuntimeApi, ExecutorDispatch&gt;(config))
+			runner.sync_run(|config| cmd.run::&lt;Block, RuntimeApi&gt;(config))
 		},
 		<span class="prelude-val">Some</span>(Subcommand::Benchmark(cmd)) =&gt; {
 			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;

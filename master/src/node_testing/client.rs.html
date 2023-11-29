@@ -76,6 +76,15 @@
 <a href="#76" id="76">76</a>
 <a href="#77" id="77">77</a>
 <a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -101,7 +110,7 @@
 </span><span class="kw">pub use </span>substrate_test_client::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Call executor for `kitchensink-runtime` `TestClient`.
-</span><span class="kw">pub type </span>ExecutorDispatch = sc_executor::NativeElseWasmExecutor&lt;node_executor::ExecutorDispatch&gt;;
+</span><span class="kw">use </span>node_cli::service::RuntimeExecutor;
 
 <span class="doccomment">/// Default backend type.
 </span><span class="kw">pub type </span>Backend = sc_client_db::Backend&lt;node_primitives::Block&gt;;
@@ -109,7 +118,7 @@
 <span class="doccomment">/// Test client type.
 </span><span class="kw">pub type </span>Client = client::Client&lt;
 	Backend,
-	client::LocalCallExecutor&lt;node_primitives::Block, Backend, ExecutorDispatch&gt;,
+	client::LocalCallExecutor&lt;node_primitives::Block, Backend, RuntimeExecutor&gt;,
 	node_primitives::Block,
 	kitchensink_runtime::RuntimeApi,
 &gt;;
@@ -141,7 +150,7 @@
 <span class="kw">impl </span>TestClientBuilderExt
 	<span class="kw">for </span>substrate_test_client::TestClientBuilder&lt;
 		node_primitives::Block,
-		client::LocalCallExecutor&lt;node_primitives::Block, Backend, ExecutorDispatch&gt;,
+		client::LocalCallExecutor&lt;node_primitives::Block, Backend, RuntimeExecutor&gt;,
 		Backend,
 		GenesisParameters,
 	&gt;
@@ -149,9 +158,18 @@
 	<span class="kw">fn </span>new() -&gt; <span class="self">Self </span>{
 		<span class="self">Self</span>::default()
 	}
-
 	<span class="kw">fn </span>build(<span class="self">self</span>) -&gt; Client {
-		<span class="self">self</span>.build_with_native_executor(<span class="prelude-val">None</span>).<span class="number">0
+		<span class="kw">let </span>executor = RuntimeExecutor::builder().build();
+		<span class="kw">use </span>sc_service::client::LocalCallExecutor;
+		<span class="kw">use </span>std::sync::Arc;
+		<span class="kw">let </span>executor = LocalCallExecutor::new(
+			<span class="self">self</span>.backend().clone(),
+			executor.clone(),
+			Default::default(),
+			ExecutionExtensions::new(<span class="prelude-val">None</span>, Arc::new(executor)),
+		)
+		.expect(<span class="string">&quot;Creates LocalCallExecutor&quot;</span>);
+		<span class="self">self</span>.build_with_executor(executor).<span class="number">0
 	</span>}
 }
 </code></pre></div></section></main></body></html>
