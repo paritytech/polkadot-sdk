@@ -17,9 +17,9 @@ frame-support = { path = "../../../substrate/frame/support", default-features = 
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
 
 # Polkadot
-rococo-runtime-constants = { path = "../../../polkadot/runtime/rococo/constants", default-features = false}
-westend-runtime-constants = { path = "../../../polkadot/runtime/westend/constants", default-features = false}
-polkadot-core-primitives = { path = "../../../polkadot/core-primitives", default-features = false}
+rococo-runtime-constants = { path = "../../../polkadot/runtime/rococo/constants", default-features = false }
+westend-runtime-constants = { path = "../../../polkadot/runtime/westend/constants", default-features = false }
+polkadot-core-primitives = { path = "../../../polkadot/core-primitives", default-features = false }
 
 # Cumulus
 
@@ -29,7 +29,7 @@ polkadot-core-primitives = { path = "../../../polkadot/core-primitives", default
 substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"frame-support/std",
 	"polkadot-core-primitives/std",

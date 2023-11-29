@@ -21,7 +21,7 @@ sp-storage = { path = "../../../../primitives/storage" }
 
 [dev-dependencies]
 scale-info = "2.10.0"
-jsonrpsee = { version = "0.16.2", features = ["ws-client", "jsonrpsee-types"] }
+jsonrpsee = { version = "0.16.2", features = ["jsonrpsee-types", "ws-client"] }
 tokio = "1.22.0"
 sp-core = { path = "../../../../primitives/core" }
 sp-runtime = { path = "../../../../primitives/runtime" }
