@@ -31,6 +31,7 @@ use serde::{Deserialize, Serialize};
 use sc_consensus_babe::{authorship, BabeWorkerHandle};
 use sc_consensus_epochs::Epoch as EpochT;
 use sc_rpc_api::DenyUnsafe;
+use sp_api::{CallApiAt, RuntimeInstance};
 use sp_application_crypto::AppCrypto;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_consensus::{Error as ConsensusError, SelectChain};
@@ -81,11 +82,7 @@ impl<B: BlockT, C, SC> Babe<B, C, SC> {
 impl<B: BlockT, C, SC> BabeApiServer for Babe<B, C, SC>
 where
 	B: BlockT,
-	C: 
-		+ HeaderBackend<B>
-		+ HeaderMetadata<B, Error = BlockChainError>
-		+ 'static,
-	C::Api: BabeRuntimeApi<B>,
+	C: HeaderBackend<B> + CallApiAt<B> + HeaderMetadata<B, Error = BlockChainError> + 'static,
 	SC: SelectChain<B> + Clone + 'static,
 {
 	async fn epoch_authorship(&self) -> RpcResult<HashMap<AuthorityId, EpochAuthorship>> {
@@ -93,11 +90,12 @@ where
 
 		let best_header = self.select_chain.best_chain().map_err(Error::SelectChain).await?;
 
-		let epoch_start = self
-			.client
-			.runtime_api()
-			.current_epoch_start(best_header.hash())
-			.map_err(|_| Error::FetchEpoch)?;
+		let mut runtime_api = RuntimeInstance::builder(&*self.client, best_header.hash())
+			.off_chain_context()
+			.build();
+
+		let epoch_start =
+			BabeRuntimeApi::<B>::current_epoch_start(&mut runtime_api).map_err(|_| Error::FetchEpoch)?;
 
 		let epoch = self
 			.babe_worker_handle

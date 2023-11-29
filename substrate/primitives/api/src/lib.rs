@@ -879,10 +879,24 @@ pub struct RuntimeInstanceBuilderStage2<C, B: BlockT, ProofRecorder> {
 }
 
 #[cfg(feature = "std")]
-impl<C, B: BlockT, ProofRecorder> RuntimeInstanceBuilderStage2<C, B, ProofRecorder> {
-	pub fn with_recorder(self) -> RuntimeInstanceBuilderStage2<C, B, EnableProofRecording<B>> {
+impl<C, B: BlockT, ProofRecording> RuntimeInstanceBuilderStage2<C, B, ProofRecording> {
+	pub fn enable_proof_recording(
+		self,
+	) -> RuntimeInstanceBuilderStage2<C, B, EnableProofRecording<B>> {
 		RuntimeInstanceBuilderStage2 {
-			with_recorder: EnableProofRecording { recorder: Default::default() },
+			with_recorder: Default::default(),
+			call_api_at: self.call_api_at,
+			block: self.block,
+			call_context: self.call_context,
+			extensions: self.extensions,
+		}
+	}
+
+	pub fn with_proof_recording<WProofRecording: crate::ProofRecording<B>>(
+		self,
+	) -> RuntimeInstanceBuilderStage2<C, B, WProofRecording> {
+		RuntimeInstanceBuilderStage2 {
+			with_recorder: Default::default(),
 			call_api_at: self.call_api_at,
 			block: self.block,
 			call_context: self.call_context,
@@ -902,7 +916,7 @@ impl<C, B: BlockT, ProofRecorder> RuntimeInstanceBuilderStage2<C, B, ProofRecord
 		self
 	}
 
-	pub fn build(self) -> RuntimeInstance<C, B, ProofRecorder>
+	pub fn build(self) -> RuntimeInstance<C, B, ProofRecording>
 	where
 		C: CallApiAt<B>,
 	{
@@ -926,10 +940,18 @@ pub struct EnableProofRecording<Block: BlockT> {
 	recorder: ProofRecorder<Block>,
 }
 
+#[cfg(feature = "std")]
+impl<Block: BlockT> Default for EnableProofRecording<Block> {
+	fn default() -> Self {
+		Self { recorder: Default::default() }
+	}
+}
+
 /// Express that proof recording is disabled.
 ///
 /// For more information see [`ProofRecording`].
 #[cfg(feature = "std")]
+#[derive(Default)]
 pub struct DisableProofRecording;
 
 /// A trait to express the state of proof recording on type system level.
@@ -941,8 +963,8 @@ pub struct DisableProofRecording;
 ///
 /// This trait is sealed and can not be implemented outside of this crate!
 #[cfg(feature = "std")]
-pub trait ProofRecording<Block: BlockT>: private::Sealed {
-	type Proof: Send;
+pub trait ProofRecording<Block: BlockT>: private::Sealed + Default + Send + Sync + 'static {
+	type Proof: Send + 'static;
 
 	fn extract_proof(&self) -> Self::Proof;
 

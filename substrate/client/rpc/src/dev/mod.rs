@@ -91,7 +91,7 @@ where
 		let pre_root = *parent_header.state_root();
 		let mut runtime_api = RuntimeInstance::builder(&self.client, parent_header.hash())
 			.off_chain_context()
-			.with_recorder()
+			.enable_proof_recording()
 			.build();
 		runtime_api.execute_block(block).map_err(|_| Error::BlockExecutionFailed)?;
 		let witness = runtime_api.extract_proof();

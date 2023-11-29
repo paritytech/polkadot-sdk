@@ -49,6 +49,7 @@
 
 mod metrics;
 
+use sp_api::{CallApiAt, RuntimeInstance};
 pub use sp_statement_store::{Error, StatementStore, MAX_TOPICS};
 
 use metrics::MetricsLink as PrometheusMetrics;
@@ -160,17 +161,18 @@ struct Index {
 	total_size: usize,
 }
 
-struct ClientWrapper<Block, Client> {
-	client: Arc<Client>,
+struct ClientWrapper<Block, HB, CallApi> {
+	header_backend: Arc<HB>,
+	call_api_at: CallApi,
 	_block: std::marker::PhantomData<Block>,
 }
 
-impl<Block, Client> ClientWrapper<Block, Client>
+impl<Block, HB, CallApi> ClientWrapper<Block, HB, CallApi>
 where
 	Block: BlockT,
 	Block::Hash: From<BlockHash>,
-	Client:  HeaderBackend<Block> + Send + Sync + 'static,
-	Client::Api: ValidateStatement<Block>,
+	HB: HeaderBackend<Block> + Send + Sync + 'static,
+	CallApi: CallApiAt<Block>,
 {
 	fn validate_statement(
 		&self,
@@ -178,12 +180,13 @@ where
 		source: StatementSource,
 		statement: Statement,
 	) -> std::result::Result<ValidStatement, InvalidStatement> {
-		let api = self.client.runtime_api();
 		let block = block.map(Into::into).unwrap_or_else(|| {
 			// Validate against the finalized state.
-			self.client.info().finalized_hash
+			self.header_backend.info().finalized_hash
 		});
-		api.validate_statement(block, source, statement)
+		let mut api =
+			RuntimeInstance::builder(&self.call_api_at, block).off_chain_context().build();
+		ValidateStatement::validate_statement(&mut api, source, statement)
 			.map_err(|_| InvalidStatement::InternalError)?
 	}
 }
@@ -476,10 +479,11 @@ impl Index {
 impl Store {
 	/// Create a new shared store instance. There should only be one per process.
 	/// `path` will be used to open a statement database or create a new one if it does not exist.
-	pub fn new_shared<Block, Client>(
+	pub fn new_shared<Block, HB, CallApi>(
 		path: &std::path::Path,
 		options: Options,
-		client: Arc<Client>,
+		header_backend: Arc<HB>,
+		call_api_at: CallApi,
 		keystore: Arc<LocalKeystore>,
 		prometheus: Option<&PrometheusRegistry>,
 		task_spawner: &dyn SpawnNamed,
@@ -487,15 +491,11 @@ impl Store {
 	where
 		Block: BlockT,
 		Block::Hash: From<BlockHash>,
-		Client: 
-			+ HeaderBackend<Block>
-			+ sc_client_api::ExecutorProvider<Block>
-			+ Send
-			+ Sync
-			+ 'static,
-		Client::Api: ValidateStatement<Block>,
+		HB: HeaderBackend<Block> + Send + Sync + 'static,
+		CallApi: CallApiAt<Block> + Send + Sync + 'static,
 	{
-		let store = Arc::new(Self::new(path, options, client, keystore, prometheus)?);
+		let store =
+			Arc::new(Self::new(path, options, header_backend, call_api_at, keystore, prometheus)?);
 
 		// Perform periodic statement store maintenance
 		let worker_store = store.clone();
@@ -516,18 +516,19 @@ impl Store {
 
 	/// Create a new instance.
 	/// `path` will be used to open a statement database or create a new one if it does not exist.
-	fn new<Block, Client>(
+	fn new<Block, HB, CallApi>(
 		path: &std::path::Path,
 		options: Options,
-		client: Arc<Client>,
+		header_backend: Arc<HB>,
+		call_api_at: CallApi,
 		keystore: Arc<LocalKeystore>,
 		prometheus: Option<&PrometheusRegistry>,
 	) -> Result<Store>
 	where
 		Block: BlockT,
 		Block::Hash: From<BlockHash>,
-		Client: HeaderBackend<Block> + Send + Sync + 'static,
-		Client::Api: ValidateStatement<Block>,
+		HB: HeaderBackend<Block> + Send + Sync + 'static,
+		CallApi: CallApiAt<Block> + Send + Sync + 'static,
 	{
 		let mut path: std::path::PathBuf = path.into();
 		path.push("statements");
@@ -560,7 +561,7 @@ impl Store {
 			},
 		}
 
-		let validator = ClientWrapper { client, _block: Default::default() };
+		let validator = ClientWrapper { header_backend, call_api_at, _block: Default::default() };
 		let validate_fn = Box::new(move |block, source, statement| {
 			validator.validate_statement(block, source, statement)
 		});
@@ -947,20 +948,10 @@ mod tests {
 	const CORRECT_BLOCK_HASH: [u8; 32] = [1u8; 32];
 
 	#[derive(Clone)]
-	pub(crate) struct TestClient;
-
-	pub(crate) struct RuntimeApi {
-		_inner: TestClient,
-	}
-
-		type Api = RuntimeApi;
-		fn runtime_api(&self) -> sp_api::ApiRef<Self::Api> {
-			RuntimeApi { _inner: self.clone() }.into()
-		}
-	}
+	pub(crate) struct RuntimeApi;
 
 	sp_api::mock_impl_runtime_apis! {
-		impl ValidateStatement<Block> for RuntimeApi {
+		impl ValidateStatement for RuntimeApi {
 			fn validate_statement(
 				_source: StatementSource,
 				statement: Statement,
@@ -991,6 +982,9 @@ mod tests {
 			}
 		}
 	}
+
+	#[derive(Clone)]
+	pub(crate) struct TestClient;
 
 	impl sp_blockchain::HeaderBackend<Block> for TestClient {
 		fn header(&self, _hash: Hash) -> sp_blockchain::Result<Option<Header>> {
@@ -1027,7 +1021,8 @@ mod tests {
 		let mut path: std::path::PathBuf = temp_dir.path().into();
 		path.push("db");
 		let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
-		let store = Store::new(&path, Default::default(), client, keystore, None).unwrap();
+		let store =
+			Store::new(&path, Default::default(), client, RuntimeApi, keystore, None).unwrap();
 		(store, temp_dir) // return order is important. Store must be dropped before TempDir
 	}
 
@@ -1136,7 +1131,8 @@ mod tests {
 		let client = std::sync::Arc::new(TestClient);
 		let mut path: std::path::PathBuf = temp.path().into();
 		path.push("db");
-		let store = Store::new(&path, Default::default(), client, keystore, None).unwrap();
+		let store =
+			Store::new(&path, Default::default(), client, RuntimeApi, keystore, None).unwrap();
 		assert_eq!(store.statements().unwrap().len(), 3);
 		assert_eq!(store.broadcasts(&[]).unwrap().len(), 3);
 		assert_eq!(store.statement(&statement1.hash()).unwrap(), Some(statement1));
@@ -1270,7 +1266,8 @@ mod tests {
 		let client = std::sync::Arc::new(TestClient);
 		let mut path: std::path::PathBuf = temp.path().into();
 		path.push("db");
-		let store = Store::new(&path, Default::default(), client, keystore, None).unwrap();
+		let store =
+			Store::new(&path, Default::default(), client, RuntimeApi, keystore, None).unwrap();
 		assert_eq!(store.statements().unwrap().len(), 0);
 		assert_eq!(store.index.read().expired.len(), 0);
 	}

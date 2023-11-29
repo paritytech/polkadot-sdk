@@ -28,7 +28,7 @@ use futures::{
 	select,
 };
 use log::{debug, error, info, trace, warn};
-use sc_block_builder::{BlockBuilderApi, BlockBuilderBuilder};
+use sc_block_builder::BlockBuilderBuilder;
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_INFO};
 use sc_transaction_pool_api::{InPoolTransaction, TransactionPool};
 use sp_api::CallApiAt;
@@ -311,7 +311,7 @@ where
 		let mut block_builder = BlockBuilderBuilder::new(&*self.client)
 			.on_parent_block(self.parent_hash)
 			.with_parent_block_number(self.parent_number)
-			.with_proof_recording(PR::ENABLED)
+			.with_proof_recording::<PR>()
 			.with_inherent_digests(inherent_digests)
 			.build()?;
 
@@ -325,17 +325,15 @@ where
 		let (block, storage_changes, proof) = block_builder.build()?.into_inner();
 		let block_took = block_timer.elapsed();
 
-		let proof =
-			PR::into_proof(proof).map_err(|e| sp_blockchain::Error::Application(Box::new(e)))?;
-
 		self.print_summary(&block, end_reason, block_took, block_timer.elapsed());
+
 		Ok(Proposal { block, proof, storage_changes })
 	}
 
 	/// Apply all inherents to the block.
 	fn apply_inherents(
 		&self,
-		block_builder: &mut sc_block_builder::BlockBuilder<Block, C, PR>,
+		block_builder: &mut sc_block_builder::BlockBuilder<Block, &C, PR>,
 		inherent_data: InherentData,
 	) -> Result<(), sp_blockchain::Error> {
 		let create_inherents_start = time::Instant::now();
@@ -379,7 +377,7 @@ where
 	/// Apply as many extrinsics as possible to the block.
 	async fn apply_extrinsics(
 		&self,
-		block_builder: &mut sc_block_builder::BlockBuilder<Block, C, PR>,
+		block_builder: &mut sc_block_builder::BlockBuilder<Block, &C, PR>,
 		deadline: time::Instant,
 		block_size_limit: Option<usize>,
 	) -> Result<EndProposingReason, sp_blockchain::Error> {
@@ -579,7 +577,7 @@ mod tests {
 	use parking_lot::Mutex;
 	use sc_transaction_pool::BasicPool;
 	use sc_transaction_pool_api::{ChainEvent, MaintainedTransactionPool, TransactionSource};
-	use sp_api::Core;
+	use sp_api::{Core, RuntimeInstance};
 	use sp_blockchain::HeaderBackend;
 	use sp_consensus::{BlockOrigin, Environment, Proposer};
 	use sp_runtime::{generic::BlockId, traits::NumberFor, Perbill};
@@ -708,7 +706,7 @@ mod tests {
 
 	#[test]
 	fn proposed_storage_changes_should_match_execute_block_storage_changes() {
-		let (client, backend) = TestClientBuilder::new().build_with_backend();
+		let client = TestClientBuilder::new().build();
 		let client = Arc::new(client);
 		let spawner = sp_core::testing::TaskExecutor::new();
 		let txpool = BasicPool::new_full(
@@ -746,12 +744,10 @@ mod tests {
 
 		assert_eq!(proposal.block.extrinsics().len(), 1);
 
-		let api = client.runtime_api();
-		api.execute_block(genesis_hash, proposal.block).unwrap();
+		let mut api = RuntimeInstance::builder(&client, genesis_hash).off_chain_context().build();
+		Core::<TestBlock>::execute_block(&mut api, proposal.block).unwrap();
 
-		let state = backend.state_at(genesis_hash).unwrap();
-
-		let storage_changes = api.into_storage_changes(&state, genesis_hash).unwrap();
+		let storage_changes = api.into_storage_changes().unwrap();
 
 		assert_eq!(
 			proposal.storage_changes.transaction_storage_root,

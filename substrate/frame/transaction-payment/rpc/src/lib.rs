@@ -26,6 +26,7 @@ use jsonrpsee::{
 	types::error::{CallError, ErrorCode, ErrorObject},
 };
 use pallet_transaction_payment_rpc_runtime_api::{FeeDetails, InclusionFee, RuntimeDispatchInfo};
+use sp_api::{CallApiAt, RuntimeInstance};
 use sp_blockchain::HeaderBackend;
 use sp_core::Bytes;
 use sp_rpc::number::NumberOrHex;
@@ -84,8 +85,7 @@ impl<C, Block, Balance>
 	> for TransactionPayment<C, Block>
 where
 	Block: BlockT,
-	C: HeaderBackend<Block> + Send + Sync + 'static,
-	C::Api: TransactionPaymentRuntimeApi<Block, Balance>,
+	C: HeaderBackend<Block> + CallApiAt<Block> + Send + Sync + 'static,
 	Balance: Codec + MaybeDisplay + Copy + TryInto<NumberOrHex> + Send + Sync + 'static,
 {
 	fn query_info(
@@ -93,8 +93,8 @@ where
 		encoded_xt: Bytes,
 		at: Option<Block::Hash>,
 	) -> RpcResult<RuntimeDispatchInfo<Balance, sp_weights::Weight>> {
-		let api = self.client.runtime_api();
 		let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
+		let mut api = RuntimeInstance::builder(&*self.client, at_hash).off_chain_context().build();
 
 		let encoded_len = encoded_xt.len() as u32;
 
@@ -114,9 +114,9 @@ where
 			))
 		}
 
-		let res = api
-			.query_info(at_hash, uxt, encoded_len)
-			.map_err(|e| map_err(e, "Unable to query dispatch info."))?;
+		let res =
+			TransactionPaymentRuntimeApi::<Block, Balance>::query_info(&mut api, uxt, encoded_len)
+				.map_err(|e| map_err(e, "Unable to query dispatch info."))?;
 
 		Ok(RuntimeDispatchInfo {
 			weight: res.weight,
@@ -130,8 +130,8 @@ where
 		encoded_xt: Bytes,
 		at: Option<Block::Hash>,
 	) -> RpcResult<FeeDetails<NumberOrHex>> {
-		let api = self.client.runtime_api();
 		let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
+		let mut api = RuntimeInstance::builder(&*self.client, at_hash).off_chain_context().build();
 
 		let encoded_len = encoded_xt.len() as u32;
 
@@ -142,7 +142,12 @@ where
 				Some(format!("{:?}", e)),
 			))
 		})?;
-		let fee_details = api.query_fee_details(at_hash, uxt, encoded_len).map_err(|e| {
+		let fee_details = TransactionPaymentRuntimeApi::<Block, Balance>::query_fee_details(
+			&mut api,
+			uxt,
+			encoded_len,
+		)
+		.map_err(|e| {
 			CallError::Custom(ErrorObject::owned(
 				Error::RuntimeError.into(),
 				"Unable to query fee details.",

@@ -125,22 +125,35 @@ where
 ///
 /// This type can not be instantiated directly. To get an instance of it
 /// [`BlockBuilderBuilder::new`] needs to be used.
-pub struct BlockBuilderBuilderStage2<B: BlockT, C, ProofRecorder = DisableProofRecording> {
-	runtime_instance_builder: RuntimeInstanceBuilderStage2<C, B, ProofRecorder>,
+pub struct BlockBuilderBuilderStage2<B: BlockT, C, ProofRecording = DisableProofRecording> {
+	runtime_instance_builder: RuntimeInstanceBuilderStage2<C, B, ProofRecording>,
 	inherent_digests: Digest,
 	parent_block: B::Hash,
 	parent_number: NumberFor<B>,
 }
 
-impl<B: BlockT, C, ProofRecorder: ProofRecording<B>>
-	BlockBuilderBuilderStage2<B, C, ProofRecorder>
+impl<B: BlockT, C, ProofRecording: sp_api::ProofRecording<B>>
+	BlockBuilderBuilderStage2<B, C, ProofRecording>
 {
 	/// Enable proof recording for the block builder.
 	pub fn enable_proof_recording(
 		self,
 	) -> BlockBuilderBuilderStage2<B, C, EnableProofRecording<B>> {
 		BlockBuilderBuilderStage2 {
-			runtime_instance_builder: self.runtime_instance_builder.with_recorder(),
+			runtime_instance_builder: self.runtime_instance_builder.enable_proof_recording(),
+			inherent_digests: self.inherent_digests,
+			parent_block: self.parent_block,
+			parent_number: self.parent_number,
+		}
+	}
+
+	pub fn with_proof_recording<WProofRecording: sp_api::ProofRecording<B>>(
+		self,
+	) -> BlockBuilderBuilderStage2<B, C, WProofRecording> {
+		BlockBuilderBuilderStage2 {
+			runtime_instance_builder: self
+				.runtime_instance_builder
+				.with_proof_recording::<WProofRecording>(),
 			inherent_digests: self.inherent_digests,
 			parent_block: self.parent_block,
 			parent_number: self.parent_number,
@@ -154,7 +167,7 @@ impl<B: BlockT, C, ProofRecorder: ProofRecording<B>>
 	}
 
 	/// Create the instance of the [`BlockBuilder`].
-	pub fn build(self) -> Result<BlockBuilder<B, C, ProofRecorder>, Error>
+	pub fn build(self) -> Result<BlockBuilder<B, C, ProofRecording>, Error>
 	where
 		C: CallApiAt<B>,
 	{

@@ -345,21 +345,21 @@ where
 	Client: CallApiAt<Block> + Send + Sync,
 {
 	async fn validators(&self, at: Hash) -> Result<Vec<ValidatorId>, ApiError> {
-		ParachainHost::<Hash, BlockNumber>::validators(&mut self.runtime_api(at))
+		ParachainHost::validators(&mut self.runtime_api(at))
 	}
 
 	async fn validator_groups(
 		&self,
 		at: Hash,
 	) -> Result<(Vec<Vec<ValidatorIndex>>, GroupRotationInfo<BlockNumber>), ApiError> {
-		ParachainHost::<Hash, BlockNumber>::validator_groups(&mut self.runtime_api(at))
+		ParachainHost::validator_groups(&mut self.runtime_api(at))
 	}
 
 	async fn availability_cores(
 		&self,
 		at: Hash,
 	) -> Result<Vec<CoreState<Hash, BlockNumber>>, ApiError> {
-		ParachainHost::<Hash, BlockNumber>::availability_cores(&mut self.runtime_api(at))
+		ParachainHost::availability_cores(&mut self.runtime_api(at))
 	}
 
 	async fn persisted_validation_data(
@@ -368,11 +368,7 @@ where
 		para_id: Id,
 		assumption: OccupiedCoreAssumption,
 	) -> Result<Option<PersistedValidationData<Hash, BlockNumber>>, ApiError> {
-		ParachainHost::<Hash, BlockNumber>::persisted_validation_data(
-			&mut self.runtime_api(at),
-			para_id,
-			assumption,
-		)
+		ParachainHost::persisted_validation_data(&mut self.runtime_api(at), para_id, assumption)
 	}
 
 	async fn assumed_validation_data(
@@ -382,7 +378,7 @@ where
 		expected_persisted_validation_data_hash: Hash,
 	) -> Result<Option<(PersistedValidationData<Hash, BlockNumber>, ValidationCodeHash)>, ApiError>
 	{
-		ParachainHost::<Hash, BlockNumber>::assumed_validation_data(
+		ParachainHost::assumed_validation_data(
 			&mut self.runtime_api(at),
 			para_id,
 			expected_persisted_validation_data_hash,
@@ -395,15 +391,11 @@ where
 		para_id: Id,
 		outputs: CandidateCommitments,
 	) -> Result<bool, ApiError> {
-		ParachainHost::<Hash, BlockNumber>::check_validation_outputs(
-			&mut self.runtime_api(at),
-			para_id,
-			outputs,
-		)
+		ParachainHost::check_validation_outputs(&mut self.runtime_api(at), para_id, outputs)
 	}
 
 	async fn session_index_for_child(&self, at: Hash) -> Result<SessionIndex, ApiError> {
-		ParachainHost::<Hash, BlockNumber>::session_index_for_child(&mut self.runtime_api(at))
+		ParachainHost::session_index_for_child(&mut self.runtime_api(at))
 	}
 
 	async fn validation_code(
@@ -412,11 +404,7 @@ where
 		para_id: Id,
 		assumption: OccupiedCoreAssumption,
 	) -> Result<Option<ValidationCode>, ApiError> {
-		ParachainHost::<Hash, BlockNumber>::validation_code(
-			&mut self.runtime_api(at),
-			para_id,
-			assumption,
-		)
+		ParachainHost::validation_code(&mut self.runtime_api(at), para_id, assumption)
 	}
 
 	async fn candidate_pending_availability(
@@ -424,14 +412,11 @@ where
 		at: Hash,
 		para_id: Id,
 	) -> Result<Option<CommittedCandidateReceipt<Hash>>, ApiError> {
-		ParachainHost::<Hash, BlockNumber>::candidate_pending_availability(
-			&mut self.runtime_api(at),
-			para_id,
-		)
+		ParachainHost::candidate_pending_availability(&mut self.runtime_api(at), para_id)
 	}
 
 	async fn candidate_events(&self, at: Hash) -> Result<Vec<CandidateEvent<Hash>>, ApiError> {
-		ParachainHost::<Hash, BlockNumber>::candidate_events(&mut self.runtime_api(at))
+		ParachainHost::candidate_events(&mut self.runtime_api(at))
 	}
 
 	async fn dmq_contents(
@@ -439,7 +424,7 @@ where
 		at: Hash,
 		recipient: Id,
 	) -> Result<Vec<InboundDownwardMessage<BlockNumber>>, ApiError> {
-		ParachainHost::<Hash, BlockNumber>::dmq_contents(&mut self.runtime_api(at), recipient)
+		ParachainHost::dmq_contents(&mut self.runtime_api(at), recipient)
 	}
 
 	async fn inbound_hrmp_channels_contents(
@@ -447,10 +432,7 @@ where
 		at: Hash,
 		recipient: Id,
 	) -> Result<BTreeMap<Id, Vec<InboundHrmpMessage<BlockNumber>>>, ApiError> {
-		ParachainHost::<Hash, BlockNumber>::inbound_hrmp_channels_contents(
-			&mut self.runtime_api(at),
-			recipient,
-		)
+		ParachainHost::inbound_hrmp_channels_contents(&mut self.runtime_api(at), recipient)
 	}
 
 	async fn validation_code_by_hash(
@@ -458,14 +440,14 @@ where
 		at: Hash,
 		hash: ValidationCodeHash,
 	) -> Result<Option<ValidationCode>, ApiError> {
-		ParachainHost::<Hash, BlockNumber>::validation_code_by_hash(&mut self.runtime_api(at), hash)
+		ParachainHost::validation_code_by_hash(&mut self.runtime_api(at), hash)
 	}
 
 	async fn on_chain_votes(
 		&self,
 		at: Hash,
 	) -> Result<Option<ScrapedOnChainVotes<Hash>>, ApiError> {
-		ParachainHost::<Hash, BlockNumber>::on_chain_votes(&mut self.runtime_api(at))
+		ParachainHost::on_chain_votes(&mut self.runtime_api(at))
 	}
 
 	async fn session_executor_params(
@@ -473,10 +455,7 @@ where
 		at: Hash,
 		session_index: SessionIndex,
 	) -> Result<Option<ExecutorParams>, ApiError> {
-		ParachainHost::<Hash, BlockNumber>::session_executor_params(
-			&mut self.runtime_api(at),
-			session_index,
-		)
+		ParachainHost::session_executor_params(&mut self.runtime_api(at), session_index)
 	}
 
 	async fn session_info(
@@ -484,7 +463,7 @@ where
 		at: Hash,
 		index: SessionIndex,
 	) -> Result<Option<SessionInfo>, ApiError> {
-		ParachainHost::<Hash, BlockNumber>::session_info(&mut self.runtime_api(at), index)
+		ParachainHost::session_info(&mut self.runtime_api(at), index)
 	}
 
 	async fn submit_pvf_check_statement(
@@ -500,15 +479,11 @@ where
 			)
 			.build();
 
-		ParachainHost::<Hash, BlockNumber>::submit_pvf_check_statement(
-			&mut runtime_api,
-			stmt,
-			signature,
-		)
+		ParachainHost::submit_pvf_check_statement(&mut runtime_api, stmt, signature)
 	}
 
 	async fn pvfs_require_precheck(&self, at: Hash) -> Result<Vec<ValidationCodeHash>, ApiError> {
-		ParachainHost::<Hash, BlockNumber>::pvfs_require_precheck(&mut self.runtime_api(at))
+		ParachainHost::pvfs_require_precheck(&mut self.runtime_api(at))
 	}
 
 	async fn validation_code_hash(
@@ -517,11 +492,7 @@ where
 		para_id: Id,
 		assumption: OccupiedCoreAssumption,
 	) -> Result<Option<ValidationCodeHash>, ApiError> {
-		ParachainHost::<Hash, BlockNumber>::validation_code_hash(
-			&mut self.runtime_api(at),
-			para_id,
-			assumption,
-		)
+		ParachainHost::validation_code_hash(&mut self.runtime_api(at), para_id, assumption)
 	}
 
 	async fn current_epoch(&self, at: Hash) -> Result<Epoch, ApiError> {
@@ -536,21 +507,21 @@ where
 	}
 
 	async fn api_version_parachain_host(&self, at: Hash) -> Result<Option<u32>, ApiError> {
-		self.runtime_api(at).api_version::<dyn ParachainHost<Block>>()
+		self.runtime_api(at).api_version::<dyn ParachainHost>()
 	}
 
 	async fn disputes(
 		&self,
 		at: Hash,
 	) -> Result<Vec<(SessionIndex, CandidateHash, DisputeState<BlockNumber>)>, ApiError> {
-		ParachainHost::<Hash, BlockNumber>::disputes(&mut self.runtime_api(at))
+		ParachainHost::disputes(&mut self.runtime_api(at))
 	}
 
 	async fn unapplied_slashes(
 		&self,
 		at: Hash,
 	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>, ApiError> {
-		ParachainHost::<Hash, BlockNumber>::unapplied_slashes(&mut self.runtime_api(at))
+		ParachainHost::unapplied_slashes(&mut self.runtime_api(at))
 	}
 
 	async fn key_ownership_proof(
@@ -558,10 +529,7 @@ where
 		at: Hash,
 		validator_id: ValidatorId,
 	) -> Result<Option<slashing::OpaqueKeyOwnershipProof>, ApiError> {
-		ParachainHost::<Hash, BlockNumber>::key_ownership_proof(
-			&mut self.runtime_api(at),
-			validator_id,
-		)
+		ParachainHost::key_ownership_proof(&mut self.runtime_api(at), validator_id)
 	}
 
 	async fn submit_report_dispute_lost(
@@ -577,7 +545,7 @@ where
 			)
 			.build();
 
-		ParachainHost::<Hash, BlockNumber>::submit_report_dispute_lost(
+		ParachainHost::submit_report_dispute_lost(
 			&mut runtime_api,
 			dispute_proof,
 			key_ownership_proof,
@@ -589,7 +557,7 @@ where
 		at: Hash,
 		_session_index: SessionIndex,
 	) -> Result<u32, ApiError> {
-		ParachainHost::<Hash, BlockNumber>::minimum_backing_votes(&mut self.runtime_api(at))
+		ParachainHost::minimum_backing_votes(&mut self.runtime_api(at))
 	}
 
 	async fn para_backing_state(
@@ -597,21 +565,21 @@ where
 		at: Hash,
 		para_id: Id,
 	) -> Result<Option<async_backing::BackingState>, ApiError> {
-		ParachainHost::<Hash, BlockNumber>::para_backing_state(&mut self.runtime_api(at), para_id)
+		ParachainHost::para_backing_state(&mut self.runtime_api(at), para_id)
 	}
 
 	async fn async_backing_params(
 		&self,
 		at: Hash,
 	) -> Result<async_backing::AsyncBackingParams, ApiError> {
-		ParachainHost::<Hash, BlockNumber>::async_backing_params(&mut self.runtime_api(at))
+		ParachainHost::async_backing_params(&mut self.runtime_api(at))
 	}
 
 	async fn node_features(&self, at: Hash) -> Result<vstaging::NodeFeatures, ApiError> {
-		ParachainHost::<Hash, BlockNumber>::node_features(&mut self.runtime_api(at))
+		ParachainHost::node_features(&mut self.runtime_api(at))
 	}
 
 	async fn disabled_validators(&self, at: Hash) -> Result<Vec<ValidatorIndex>, ApiError> {
-		ParachainHost::<Hash, BlockNumber>::disabled_validators(&mut self.runtime_api(at))
+		ParachainHost::disabled_validators(&mut self.runtime_api(at))
 	}
 }
