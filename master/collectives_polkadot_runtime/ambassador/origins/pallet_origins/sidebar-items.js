@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Call","Origin"],"mod":["dispatchables","storage_types"],"struct":["EnsureAmbassadorsVoice","EnsureAmbassadorsVoiceFrom","EnsureHeadAmbassadorsVoice","Pallet"],"trait":["Config"],"type":["Module"]};

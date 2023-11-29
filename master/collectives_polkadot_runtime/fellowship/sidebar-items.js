@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["pallet_fellowship_origins","ranks"],"struct":["Architects","EnsureCanPromoteTo","EnsureCanRetainAt","EnsureFellowship","Fellows","Interior","Masters","Members","ReferendaPalletAccount","ToVoice"],"type":["FellowshipCollectiveInstance","FellowshipCoreInstance","FellowshipReferendaInstance","FellowshipSalaryInstance","FellowshipSalaryPaymaster"]};
