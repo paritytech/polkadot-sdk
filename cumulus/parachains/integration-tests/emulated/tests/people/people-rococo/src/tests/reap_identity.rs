@@ -269,7 +269,7 @@ fn assert_reap_parachain(id: Identity) {
 }
 
 #[test]
-fn on_reap_identity_works() {
+fn on_reap_identity_works_for_first_instance() {
 	let ids = identities();
 	let total_deposit = set_id_relay(ids[0].clone());
 	assert_set_id_parachain(ids[0].clone());
@@ -278,13 +278,28 @@ fn on_reap_identity_works() {
 }
 
 #[test]
-fn on_reap_identity_works_for_many_identities() {
+fn on_reap_identity_works_for_second_instance() {
 	let ids = identities();
-	for id in ids {
-		println!("Testing identity: {:?}", id.clone());
-		let total_deposit = set_id_relay(id.clone());
-		assert_set_id_parachain(id.clone());
-		assert_reap_id_relay(total_deposit);
-		assert_reap_parachain(id.clone());
-	}
+	let total_deposit = set_id_relay(ids[1].clone());
+	assert_set_id_parachain(ids[1].clone());
+	assert_reap_id_relay(total_deposit);
+	assert_reap_parachain(ids[1].clone());
+}
+
+#[test]
+fn on_reap_identity_works_for_third_instance() {
+	let ids = identities();
+	let total_deposit = set_id_relay(ids[2].clone());
+	assert_set_id_parachain(ids[2].clone());
+	assert_reap_id_relay(total_deposit);
+	assert_reap_parachain(ids[2].clone());
+}
+
+#[test]
+fn on_reap_identity_works_for_fourth_instance() {
+	let ids = identities();
+	let total_deposit = set_id_relay(ids[3].clone());
+	assert_set_id_parachain(ids[3].clone());
+	assert_reap_id_relay(total_deposit);
+	assert_reap_parachain(ids[3].clone());
 }
