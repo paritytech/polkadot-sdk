@@ -181,9 +181,9 @@ fn migrate_from_version_1_to_2(path: &Path, db_kind: DatabaseKind) -> Result<Ver
 // As these are backwards compatible, we'll convert the old entries in the new format.
 fn migrate_from_version_3_to_4(path: &Path, db_kind: DatabaseKind) -> Result<Version, Error> {
 	gum::info!(target: LOG_TARGET, "Migrating parachains db from version 3 to version 4 ...");
-	use polkadot_node_subsystem_util::database::paritydb_impl::DbAdapter as ParityDbAdapter;
 	#[cfg(feature = "db")]
 	use polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter as RocksDbAdapter;
+	use polkadot_node_subsystem_util::database::paritydb_impl::DbAdapter as ParityDbAdapter;
 	use std::sync::Arc;
 
 	let approval_db_config =

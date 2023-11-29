@@ -346,7 +346,12 @@ pub fn open_database(db_source: &DatabaseSource) -> Result<Arc<dyn Database>, Er
 			path.parent().ok_or(Error::DatabasePathRequired)?.into(),
 			parachains_db::CacheSizes::default(),
 		)?,
-		DatabaseSource::Auto { paritydb_path, #[cfg(feature = "db")]rocksdb_path, .. } => {
+		DatabaseSource::Auto {
+			paritydb_path,
+			#[cfg(feature = "db")]
+			rocksdb_path,
+			..
+		} =>
 			if paritydb_path.is_dir() && paritydb_path.exists() {
 				parachains_db::open_creating_paritydb(
 					paritydb_path.parent().ok_or(Error::DatabasePathRequired)?.into(),
@@ -367,8 +372,7 @@ pub fn open_database(db_source: &DatabaseSource) -> Result<Arc<dyn Database>, Er
 						parachains_db::CacheSizes::default(),
 					)?
 				}
-			}
-		},
+			},
 		DatabaseSource::Custom { .. } => {
 			unimplemented!("No polkadot subsystem db for custom source.");
 		},
