@@ -91,6 +91,9 @@ mod address;
 mod benchmarking;
 mod exec;
 mod gas;
+mod primitives;
+pub use primitives::*;
+
 mod schedule;
 mod storage;
 mod wasm;
@@ -127,11 +130,6 @@ use frame_system::{
 	ensure_signed,
 	pallet_prelude::{BlockNumberFor, OriginFor},
 	EventRecord, Pallet as System,
-};
-use pallet_contracts_primitives::{
-	Code, CodeUploadResult, CodeUploadReturnValue, ContractAccessError, ContractExecResult,
-	ContractInstantiateResult, ContractResult, ExecReturnValue, GetStorageResult,
-	InstantiateReturnValue, StorageDeposit,
 };
 use scale_info::TypeInfo;
 use smallvec::Array;
