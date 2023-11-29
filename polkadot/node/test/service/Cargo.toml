@@ -21,7 +21,8 @@ polkadot-primitives = { path = "../../../primitives" }
 polkadot-parachain-primitives = { path = "../../../parachain" }
 polkadot-rpc = { path = "../../../rpc" }
 polkadot-runtime-common = { path = "../../../runtime/common" }
-polkadot-service = { path = "../../service" }
+# polkadot-service = { path = "../../service" }
+polkadot-service = { default-features = false, features = ["full-node"], path = "../../service" }
 polkadot-node-subsystem = { path = "../../subsystem" }
 polkadot-node-primitives = { path = "../../primitives" }
 polkadot-test-runtime = { path = "../../../runtime/test-runtime" }
@@ -42,7 +43,7 @@ pallet-staking = { path = "../../../../substrate/frame/staking" }
 pallet-balances = { path = "../../../../substrate/frame/balances" }
 pallet-transaction-payment = { path = "../../../../substrate/frame/transaction-payment" }
 sc-chain-spec = { path = "../../../../substrate/client/chain-spec" }
-sc-cli = { path = "../../../../substrate/client/cli" }
+sc-cli = { path = "../../../../substrate/client/cli", default-features = false }
 sc-client-api = { path = "../../../../substrate/client/api" }
 sc-consensus = { path = "../../../../substrate/client/consensus/common" }
 sc-network = { path = "../../../../substrate/client/network" }

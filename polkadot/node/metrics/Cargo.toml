@@ -13,8 +13,9 @@ gum = { package = "tracing-gum", path = "../gum" }
 
 metered = { package = "prioritized-metered-channel", version = "0.5.1", default-features = false, features=["futures_channel"] }
 # Both `sc-service` and `sc-cli` are required by runtime metrics `logger_hook()`.
-sc-service = { path = "../../../substrate/client/service" }
-sc-cli = { path = "../../../substrate/client/cli" }
+# Regarding the above comment, should they be optional dependencies then?
+sc-service = { path = "../../../substrate/client/service", default-features = false }
+sc-cli = { path = "../../../substrate/client/cli", default-features = false }
 
 substrate-prometheus-endpoint = { path = "../../../substrate/utils/prometheus" }
 sc-tracing = { path = "../../../substrate/client/tracing" }
@@ -28,9 +29,8 @@ assert_cmd = "2.0.4"
 tempfile = "3.2.0"
 hyper = { version = "0.14.20", default-features = false, features = ["http1", "tcp"] }
 tokio = "1.24.2"
-polkadot-test-service = { path = "../test/service", features=["runtime-metrics"]}
+polkadot-test-service = { path = "../test/service", features=["runtime-metrics"], default-features = false}
 substrate-test-utils = { path = "../../../substrate/test-utils" }
-sc-service = { path = "../../../substrate/client/service" }
 sp-keyring = { path = "../../../substrate/primitives/keyring" }
 prometheus-parse = {version = "0.2.2"}
 

@@ -337,6 +337,7 @@ impl IdentifyVariant for Box<dyn ChainSpec> {
 #[cfg(feature = "full-node")]
 pub fn open_database(db_source: &DatabaseSource) -> Result<Arc<dyn Database>, Error> {
 	let parachains_db = match db_source {
+		#[cfg(feature = "db")]
 		DatabaseSource::RocksDb { path, .. } => parachains_db::open_creating_rocksdb(
 			path.clone(),
 			parachains_db::CacheSizes::default(),
@@ -345,17 +346,27 @@ pub fn open_database(db_source: &DatabaseSource) -> Result<Arc<dyn Database>, Er
 			path.parent().ok_or(Error::DatabasePathRequired)?.into(),
 			parachains_db::CacheSizes::default(),
 		)?,
-		DatabaseSource::Auto { paritydb_path, rocksdb_path, .. } => {
+		DatabaseSource::Auto { paritydb_path, #[cfg(feature = "db")]rocksdb_path, .. } => {
 			if paritydb_path.is_dir() && paritydb_path.exists() {
 				parachains_db::open_creating_paritydb(
 					paritydb_path.parent().ok_or(Error::DatabasePathRequired)?.into(),
 					parachains_db::CacheSizes::default(),
 				)?
 			} else {
-				parachains_db::open_creating_rocksdb(
-					rocksdb_path.clone(),
-					parachains_db::CacheSizes::default(),
-				)?
+				#[cfg(feature = "db")]
+				{
+					parachains_db::open_creating_rocksdb(
+						rocksdb_path.clone(),
+						parachains_db::CacheSizes::default(),
+					)?
+				}
+				#[cfg(not(feature = "db"))]
+				{
+					parachains_db::open_creating_paritydb(
+						paritydb_path.parent().ok_or(Error::DatabasePathRequired)?.into(),
+						parachains_db::CacheSizes::default(),
+					)?
+				}
 			}
 		},
 		DatabaseSource::Custom { .. } => {
@@ -1410,6 +1421,7 @@ pub fn revert_backend(
 	Ok(())
 }
 
+#[cfg(feature = "full-node")]
 fn revert_chain_selection(db: Arc<dyn Database>, hash: Hash) -> sp_blockchain::Result<()> {
 	let config = chain_selection_subsystem::Config {
 		col_data: parachains_db::REAL_COLUMNS.col_chain_selection_data,
@@ -1424,6 +1436,7 @@ fn revert_chain_selection(db: Arc<dyn Database>, hash: Hash) -> sp_blockchain::R
 		.map_err(|err| sp_blockchain::Error::Backend(err.to_string()))
 }
 
+#[cfg(feature = "full-node")]
 fn revert_approval_voting(db: Arc<dyn Database>, hash: Hash) -> sp_blockchain::Result<()> {
 	let config = approval_voting_subsystem::Config {
 		col_approval_data: parachains_db::REAL_COLUMNS.col_approval_data,

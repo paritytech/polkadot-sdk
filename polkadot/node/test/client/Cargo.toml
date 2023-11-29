@@ -17,7 +17,7 @@ polkadot-node-subsystem = { path = "../../subsystem" }
 
 # Substrate dependencies
 substrate-test-client = { path = "../../../../substrate/test-utils/client" }
-sc-service = { path = "../../../../substrate/client/service" }
+sc-service = { path = "../../../../substrate/client/service", default-features = false }
 sc-block-builder = { path = "../../../../substrate/client/block-builder" }
 sc-consensus = { path = "../../../../substrate/client/consensus/common" }
 sc-offchain = { path = "../../../../substrate/client/offchain" }

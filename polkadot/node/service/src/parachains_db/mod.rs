@@ -26,6 +26,10 @@ const LOG_TARGET: &str = "parachain::db";
 /// Column configuration per version.
 #[cfg(any(test, feature = "full-node"))]
 pub(crate) mod columns {
+	// This v0 module is only used in tests for parity_db; not in main code. But it is
+	// used in both tests and main code for rocks db. This feature gating makes sure there
+	// is never a warning, but perhaps there is a better way?
+	#[cfg(any(test, feature = "db"))]
 	pub mod v0 {
 		pub const NUM_COLUMNS: u32 = 3;
 	}
@@ -91,6 +95,7 @@ pub const REAL_COLUMNS: ColumnsConfig = ColumnsConfig {
 #[derive(PartialEq, Copy, Clone)]
 pub(crate) enum DatabaseKind {
 	ParityDB,
+	#[cfg(feature = "db")]
 	RocksDB,
 }
 
@@ -125,6 +130,7 @@ pub(crate) fn other_io_error(err: String) -> io::Error {
 
 /// Open the database on disk, creating it if it doesn't exist.
 #[cfg(feature = "full-node")]
+#[cfg(feature = "db")]
 pub fn open_creating_rocksdb(
 	root: PathBuf,
 	cache_sizes: CacheSizes,

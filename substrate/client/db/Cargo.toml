@@ -37,7 +37,9 @@ sp-trie = { path = "../../primitives/trie" }
 
 [dev-dependencies]
 criterion = "0.4.0"
-kvdb-rocksdb = "0.19.0"
+# TODO Remove this comment
+# For now it serves as a reminder that I completely removed a dev dependency on kvdb-rocksdb
+# I guess that should be okay following the logic of the first comment in https://stackoverflow.com/questions/62989096
 rand = "0.8.5"
 tempfile = "3.1.0"
 quickcheck = { version = "1.0.3", default-features = false }

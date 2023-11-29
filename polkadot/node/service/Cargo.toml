@@ -18,7 +18,7 @@ sp-mmr-primitives = { path = "../../../substrate/primitives/merkle-mountain-rang
 sc-block-builder = { path = "../../../substrate/client/block-builder" }
 sc-chain-spec = { path = "../../../substrate/client/chain-spec" }
 sc-client-api = { path = "../../../substrate/client/api" }
-sc-client-db = { path = "../../../substrate/client/db" }
+sc-client-db = { default-features = false, path = "../../../substrate/client/db" }
 sc-consensus = { path = "../../../substrate/client/consensus/common" }
 sc-consensus-slots = { path = "../../../substrate/client/consensus/slots" }
 sc-executor = { path = "../../../substrate/client/executor" }
@@ -71,8 +71,8 @@ frame-system = { path = "../../../substrate/frame/system" }
 frame-system-rpc-runtime-api = { path = "../../../substrate/frame/system/rpc/runtime-api" }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../substrate/utils/prometheus" }
 frame-support = { path = "../../../substrate/frame/support" }
-frame-benchmarking-cli = { path = "../../../substrate/utils/frame/benchmarking-cli" }
-frame-benchmarking = { path = "../../../substrate/frame/benchmarking" }
+frame-benchmarking-cli = { path = "../../../substrate/utils/frame/benchmarking-cli", default-features = false }
+frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false }
 
 # External Crates
 async-trait = "0.1.57"
@@ -150,10 +150,10 @@ tempfile = "3.2"
 [features]
 default = [ "db", "full-node" ]
 
-db = [ "service/rocksdb" ]
+# TODO revisit the frame benchmarking features. It only has an std feature as default. And disabling it somehow disables rocksdb.
+db = [ "service/rocksdb", "sc-client-db/rocksdb", "frame-benchmarking-cli/rocksdb", "kvdb-rocksdb" ]
 
 full-node = [
-	"kvdb-rocksdb",
 	"parity-db",
 	"polkadot-approval-distribution",
 	"polkadot-availability-bitfield-distribution",
