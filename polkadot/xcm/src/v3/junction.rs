@@ -124,6 +124,7 @@ impl From<NewNetworkId> for NetworkId {
 			Ethereum { chain_id } => Self::Ethereum { chain_id },
 			BitcoinCore => Self::BitcoinCore,
 			BitcoinCash => Self::BitcoinCash,
+			PolkadotBulletin => Self::PolkadotBulletin,
 		}
 	}
 }
