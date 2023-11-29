@@ -299,7 +299,13 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 	type SpendFunds = ();
 	type MaxApprovals = ConstU32<100>;
 	type SpendOrigin = EitherOf<
-		EnsureRootWithSuccess<AccountId, ConstU128<{ 10_000 * GRAND }>>,
+		EitherOf<
+			EnsureRootWithSuccess<AccountId, ConstU128<{ 10_000 * GRAND }>>,
+			MapSuccess<
+				EnsureXcm<IsVoiceOfBody<GovernanceLocation, TreasurerBodyId>>,
+				Replace<ConstU128<{ 10_000 * GRAND }>>,
+			>,
+		>,
 		EitherOf<
 			MapSuccess<Fellowship5Dan, Replace<ConstU128<{ 10_000 * GRAND }>>>,
 			MapSuccess<Fellows, Replace<ConstU128<{ 10 * GRAND }>>>,
