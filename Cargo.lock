@@ -7839,15 +7839,6 @@ dependencies = [
 
 [[package]]
 name = "memoffset"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5de893c32cde5f383baa4c04c5d6dbdd735cfd4a794b0debdb2bb1b421da5ff4"
-dependencies = [
- "autocfg",
-]
-
-[[package]]
-name = "memoffset"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d61c719bcfbcf5d62b3a09efa6088de8c54bc0bfcd3ea7ae39fcc186108b8de1"
@@ -8296,16 +8287,13 @@ dependencies = [
 
 [[package]]
 name = "nix"
-version = "0.26.2"
+version = "0.26.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bfdda3d196821d6af13126e40375cdf7da646a96114af134d5f417a9a1dc8e1a"
+checksum = "598beaf3cc6fdd9a5dfb1630c2800c7acd31df7aaf0f565796fba2b53ca1af1b"
 dependencies = [
  "bitflags 1.3.2",
  "cfg-if",
  "libc",
- "memoffset 0.7.1",
- "pin-utils",
- "static_assertions",
 ]
 
 [[package]]
@@ -11584,7 +11572,7 @@ version = "1.1.0"
 dependencies = [
  "assert_cmd",
  "color-eyre",
- "nix 0.26.2",
+ "nix 0.27.1",
  "polkadot-cli",
  "polkadot-core-primitives",
  "polkadot-node-core-pvf",
@@ -12580,7 +12568,7 @@ dependencies = [
  "hex-literal",
  "jsonrpsee",
  "log",
- "nix 0.26.2",
+ "nix 0.27.1",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
  "pallet-transaction-payment-rpc-runtime-api",
@@ -13290,7 +13278,7 @@ dependencies = [
  "findshlibs",
  "libc",
  "log",
- "nix 0.26.2",
+ "nix 0.26.4",
  "once_cell",
  "parking_lot 0.12.1",
  "smallvec",
@@ -17972,7 +17960,7 @@ dependencies = [
  "jsonrpsee",
  "kitchensink-runtime",
  "log",
- "nix 0.26.2",
+ "nix 0.27.1",
  "node-primitives",
  "node-rpc",
  "node-testing",
@@ -18321,7 +18309,7 @@ version = "0.1.0"
 dependencies = [
  "assert_cmd",
  "futures",
- "nix 0.26.2",
+ "nix 0.27.1",
  "node-primitives",
  "regex",
  "sc-cli",
