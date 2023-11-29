@@ -7,7 +7,7 @@ Run parachain consensus stress and performance tests on your development machine
 The parachain consensus node implementation spans across many modules which we call subsystems. Each subsystem is 
 responsible for a small part of logic of the parachain consensus pipeline, but in general the most load and 
 performance issues are localized in just a few core subsystems like `availability-recovery`, `approval-voting` or 
-`dispute-coordinator`. In the absence such a tool, we would run large test nets to load/stress test these parts of 
+`dispute-coordinator`. In the absence of such a tool, we would run large test nets to load/stress test these parts of 
 the system. Setting up and making sense of the amount of data produced by such a large test is very expensive, hard 
 to orchestrate and is a huge development time sink.
 

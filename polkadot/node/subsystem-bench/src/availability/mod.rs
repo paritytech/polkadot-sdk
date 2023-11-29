@@ -14,13 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 use itertools::Itertools;
-use std::{
-	collections::HashMap,
-	iter::Cycle,
-	ops::Sub,
-	sync::Arc,
-	time::{Duration, Instant},
-};
+use std::{collections::HashMap, iter::Cycle, ops::Sub, sync::Arc, time::Instant};
 
 use crate::TestEnvironment;
 use polkadot_node_subsystem::{Overseer, OverseerConnector, SpawnGlue};
@@ -67,9 +61,7 @@ use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 use sc_service::SpawnTaskHandle;
 
 mod cli;
-pub mod configuration;
 pub use cli::{DataAvailabilityReadOptions, NetworkEmulation};
-pub use configuration::AvailabilityRecoveryConfiguration;
 
 fn build_overseer(
 	spawn_task_handle: SpawnTaskHandle,
@@ -357,9 +349,6 @@ pub async fn benchmark_availability_read(env: &mut TestEnvironment, mut state: T
 			env.metrics().on_pov_size(available_data.encoded_size());
 			availability_bytes += available_data.encoded_size() as u128;
 		}
-
-		let block_time_delta =
-			Duration::from_secs(6).saturating_sub(Instant::now().sub(block_start_ts));
 
 		let block_time = Instant::now().sub(block_start_ts).as_millis() as u64;
 		env.metrics().set_block_time(block_time);

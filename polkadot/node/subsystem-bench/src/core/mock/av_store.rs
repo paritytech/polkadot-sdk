@@ -129,7 +129,7 @@ impl MockAvailabilityStore {
 						let _ = tx.send(Some(chunk_size));
 					},
 					_ => {
-						unimplemented!("Unexpected runtime-api message")
+						unimplemented!("Unexpected av-store message")
 					},
 				},
 			}

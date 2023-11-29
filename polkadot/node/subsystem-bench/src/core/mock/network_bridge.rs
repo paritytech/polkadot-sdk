@@ -261,7 +261,7 @@ impl MockNetworkBridgeTx {
 						}
 					},
 					_ => {
-						unimplemented!("Unexpected runtime-api message")
+						unimplemented!("Unexpected network bridge message")
 					},
 				},
 			}
