@@ -50,7 +50,8 @@ pub mod tests {
 /// Status of security features on the current system.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Encode, Decode)]
 pub struct SecurityStatus {
-	/// Whether Secure Validator Mode is enabled.
+	/// Whether Secure Validator Mode is enabled. This mode enforces that all required security
+	/// features are present. All features are enabled on a best-effort basis regardless.
 	pub secure_validator_mode: bool,
 	/// Whether the landlock features we use are fully available on this system.
 	pub can_enable_landlock: bool,
