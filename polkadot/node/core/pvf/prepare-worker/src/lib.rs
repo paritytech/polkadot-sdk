@@ -19,7 +19,7 @@
 mod memory_stats;
 
 use polkadot_node_core_pvf_common::{
-	executor_intf::{prepare, prevalidate},
+	executor_interface::{prepare, prevalidate},
 	worker::pipe2_cloexec,
 };
 
@@ -52,7 +52,7 @@ use os_pipe::{self, PipeReader, PipeWriter};
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareWorkerResult},
-	executor_intf::create_runtime_from_artifact_bytes,
+	executor_interface::create_runtime_from_artifact_bytes,
 	framed_recv_blocking, framed_send_blocking,
 	prepare::{MemoryStats, PrepareJobKind, PrepareStats, PrepareWorkerSuccess},
 	pvf::PvfPrepData,
