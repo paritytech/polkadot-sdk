@@ -73,7 +73,7 @@ Concluded and ancient (disputes initiated before the post conclusion acceptance 
 Votes with invalid signatures and from unknown validators (not found in the active set for the current session) are also
 filtered out.
 
-All dispute statements are included included in the order described in the previous paragraph until the available block
+All dispute statements are included in the order described in the previous paragraph until the available block
 weight is exhausted. After the dispute data is included all remaining weight is filled in with candidates and
 availability bitfields. Bitfields are included with priority, then candidates containing code updates and finally any
 backed candidates. If there is not enough weight for all backed candidates they are trimmed by random selection.
