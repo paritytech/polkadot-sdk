@@ -17,6 +17,7 @@ error: use of deprecated constant `WhereSection::_w`:
    | |_^
    |
    = note: `-D deprecated` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(deprecated)]`
    = note: this error originates in the macro `frame_support::match_and_insert` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied

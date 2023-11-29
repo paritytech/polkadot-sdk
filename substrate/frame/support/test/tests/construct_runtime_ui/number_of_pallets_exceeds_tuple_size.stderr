@@ -31,19 +31,34 @@ error[E0412]: cannot find type `RuntimeOrigin` in this scope
   --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:42:23
    |
 42 |     type RuntimeOrigin = RuntimeOrigin;
-   |                          ^^^^^^^^^^^^^ help: you might have meant to use the associated type: `Self::RuntimeOrigin`
+   |                          ^^^^^^^^^^^^^
+   |
+help: you might have meant to use the associated type
+   |
+42 |     type RuntimeOrigin = Self::RuntimeOrigin;
+   |                          ++++++
 
 error[E0412]: cannot find type `RuntimeCall` in this scope
   --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:44:21
    |
 44 |     type RuntimeCall = RuntimeCall;
-   |                        ^^^^^^^^^^^ help: you might have meant to use the associated type: `Self::RuntimeCall`
+   |                        ^^^^^^^^^^^
+   |
+help: you might have meant to use the associated type
+   |
+44 |     type RuntimeCall = Self::RuntimeCall;
+   |                        ++++++
 
 error[E0412]: cannot find type `RuntimeEvent` in this scope
   --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:50:22
    |
 50 |     type RuntimeEvent = RuntimeEvent;
-   |                         ^^^^^^^^^^^^ help: you might have meant to use the associated type: `Self::RuntimeEvent`
+   |                         ^^^^^^^^^^^^
+   |
+help: you might have meant to use the associated type
+   |
+50 |     type RuntimeEvent = Self::RuntimeEvent;
+   |                         ++++++
 
 error[E0412]: cannot find type `PalletInfo` in this scope
   --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:56:20
@@ -54,7 +69,7 @@ error[E0412]: cannot find type `PalletInfo` in this scope
 help: you might have meant to use the associated type
    |
 56 |     type PalletInfo = Self::PalletInfo;
-   |                       ~~~~~~~~~~~~~~~~
+   |                       ++++++
 help: consider importing one of these items
    |
 18 + use frame_benchmarking::__private::traits::PalletInfo;
