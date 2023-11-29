@@ -480,6 +480,8 @@
 <a href="#480" id="480">480</a>
 <a href="#481" id="481">481</a>
 <a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -680,7 +682,9 @@
 		<span class="kw">let </span>sub_id = <span class="kw">match </span><span class="self">self</span>.accept_subscription(<span class="kw-2">&amp;mut </span>sink) {
 			<span class="prelude-val">Ok</span>(sub_id) =&gt; sub_id,
 			<span class="prelude-val">Err</span>(err) =&gt; {
-				sink.close(ChainHeadRpcError::InvalidSubscriptionID);
+				sink.close(ChainHeadRpcError::InternalError(
+					<span class="string">&quot;Cannot generate subscription ID&quot;</span>.into(),
+				));
 				<span class="kw">return </span><span class="prelude-val">Err</span>(err)
 			},
 		};
@@ -788,7 +792,7 @@
 		<span class="self">self</span>.client
 			.header(hash)
 			.map(|opt_header| opt_header.map(|h| hex_string(<span class="kw-2">&amp;</span>h.encode())))
-			.map_err(ChainHeadRpcError::FetchBlockHeader)
+			.map_err(|err| ChainHeadRpcError::InternalError(err.to_string()))
 			.map_err(Into::into)
 	}
 
@@ -875,7 +879,7 @@
 
 		<span class="comment">// Reject subscription if with_runtime is false.
 		</span><span class="kw">if </span>!block_guard.has_runtime() {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(ChainHeadRpcError::InvalidParam(
+			<span class="kw">return </span><span class="prelude-val">Err</span>(ChainHeadRpcError::InvalidRuntimeCall(
 				<span class="string">&quot;The runtime updates flag must be set&quot;</span>.to_string(),
 			)
 			.into())
