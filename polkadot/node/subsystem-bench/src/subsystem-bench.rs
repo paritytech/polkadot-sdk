@@ -184,8 +184,3 @@ fn main() -> eyre::Result<()> {
 	cli.launch()?;
 	Ok(())
 }
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-}

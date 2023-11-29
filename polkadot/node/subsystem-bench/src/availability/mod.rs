@@ -120,7 +120,7 @@ fn prepare_test_inner(
 	};
 
 	let network = NetworkEmulator::new(
-		config.n_validators.clone(),
+		config.n_validators,
 		test_authorities.validator_authority_id,
 		config.peer_bandwidth,
 		dependencies.task_manager.spawn_handle(),

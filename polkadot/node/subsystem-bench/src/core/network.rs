@@ -96,8 +96,6 @@ impl RateLimit {
 
 #[cfg(test)]
 mod tests {
-	use super::*;
-	use polkadot_node_metrics::metered::CoarseDuration;
 	use std::time::Instant;
 
 	use super::RateLimit;
