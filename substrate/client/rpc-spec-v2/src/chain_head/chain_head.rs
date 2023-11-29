@@ -393,7 +393,7 @@ where
 
 		// Reject subscription if with_runtime is false.
 		if !block_guard.has_runtime() {
-			return Err(ChainHeadRpcError::InvalidParam(
+			return Err(ChainHeadRpcError::InvalidRuntimeCall(
 				"The runtime updates flag must be set".to_string(),
 			)
 			.into())
