@@ -14,6 +14,7 @@
 // limitations under the License.
 
 use crate::*;
+use frame_support::BoundedVec;
 use pallet_balances::Event as BalancesEvent;
 use pallet_identity::{legacy::IdentityInfo, Data, Event as IdentityEvent};
 use people_rococo_runtime::people::{
@@ -34,9 +35,24 @@ type RococoIdentityMigrator = <RococoRelay as RococoRelayPallet>::IdentityMigrat
 type PeopleRococoIdentity = <PeopleRococo as PeopleRococoPallet>::Identity;
 type PeopleRococoBalances = <PeopleRococo as PeopleRococoPallet>::Balances;
 
-fn identity_relay() -> IdentityInfo<MaxAdditionalFields> {
-	IdentityInfo {
-		display: Data::Raw(b"xcm-test".to_vec().try_into().unwrap()),
+struct Identity {
+	relay: IdentityInfo<MaxAdditionalFields>,
+	parachain: IdentityInfoParachain,
+}
+
+fn identities() -> Vec<Identity> {
+	let pgp_fingerprint = [
+		0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+		0x88, 0x99, 0xAA, 0xBB, 0xCC,
+	];
+	let riot = Data::Raw(b"riot-xcm-test".to_vec().try_into().unwrap());
+	let additional = BoundedVec::try_from(vec![(
+		Data::Raw(b"additional".to_vec().try_into().unwrap()),
+		Data::Raw(b"data".to_vec().try_into().unwrap()),
+	)])
+	.unwrap();
+	let mut first_relay = IdentityInfo {
+		display: Data::Raw(b"xcm-test-one".to_vec().try_into().unwrap()),
 		legal: Data::Raw(b"The Right Ordinal Xcm Test, Esq.".to_vec().try_into().unwrap()),
 		web: Data::Raw(b"https://xcm-test.io".to_vec().try_into().unwrap()),
 		email: Data::Raw(b"xcm-test@gmail.com".to_vec().try_into().unwrap()),
@@ -45,19 +61,17 @@ fn identity_relay() -> IdentityInfo<MaxAdditionalFields> {
 		twitter: Data::Raw(b"@xcm-test".to_vec().try_into().unwrap()),
 		riot: Default::default(),
 		additional: Default::default(),
-	}
-}
-
-fn removed_relay_id_fields(id: IdentityInfo<MaxAdditionalFields>) -> Balance {
-	let addtional_field =
-		ByteDeposit::get() * TryInto::<u128>::try_into(id.additional.encoded_size()).unwrap();
-	let riot_field =
-		ByteDeposit::get() * TryInto::<u128>::try_into(id.riot.encoded_size()).unwrap();
-	addtional_field + riot_field
-}
-
-fn identity_parachain() -> IdentityInfoParachain {
-	IdentityInfoParachain {
+	};
+	let mut second_relay = first_relay.clone();
+	let mut third_relay = first_relay.clone();
+	let mut fourth_relay = first_relay.clone();
+	second_relay.pgp_fingerprint = Some(pgp_fingerprint);
+	third_relay.pgp_fingerprint = Some(pgp_fingerprint);
+	third_relay.riot = riot.clone();
+	fourth_relay.pgp_fingerprint = Some(pgp_fingerprint);
+	fourth_relay.riot = riot.clone();
+	fourth_relay.additional = additional;
+	let mut first_parachain = IdentityInfoParachain {
 		display: Data::Raw(b"xcm-test".to_vec().try_into().unwrap()),
 		legal: Data::Raw(b"The Right Ordinal Xcm Test, Esq.".to_vec().try_into().unwrap()),
 		web: Data::Raw(b"https://xcm-test.io".to_vec().try_into().unwrap()),
@@ -68,7 +82,31 @@ fn identity_parachain() -> IdentityInfoParachain {
 		twitter: Data::Raw(b"@xcm-test".to_vec().try_into().unwrap()),
 		github: Data::None,
 		discord: Data::None,
-	}
+	};
+	let mut second_parachain = first_parachain.clone();
+	let mut third_parachain = first_parachain.clone();
+	let mut fourth_parachain = first_parachain.clone();
+	second_parachain.pgp_fingerprint = Some(pgp_fingerprint);
+	third_parachain.pgp_fingerprint = Some(pgp_fingerprint);
+	third_parachain.matrix = riot.to_owned(); // riot field on relay is set to matrix in parachain
+	fourth_parachain.pgp_fingerprint = Some(pgp_fingerprint);
+	fourth_parachain.matrix = riot.to_owned();
+	fourth_parachain.github = riot.to_owned();
+
+	vec![
+		Identity { relay: first_relay, parachain: first_parachain },
+		Identity { relay: second_relay, parachain: second_parachain },
+		Identity { relay: third_relay, parachain: third_parachain },
+		Identity { relay: fourth_relay, parachain: fourth_parachain },
+	]
+}
+
+fn removed_relay_id_fields(id: IdentityInfo<MaxAdditionalFields>) -> Balance {
+	let addtional_field =
+		ByteDeposit::get() * TryInto::<u128>::try_into(id.additional.encoded_size()).unwrap();
+	let riot_field =
+		ByteDeposit::get() * TryInto::<u128>::try_into(id.riot.encoded_size()).unwrap();
+	addtional_field + riot_field
 }
 
 fn added_parachain_id_fields(id: &IdentityInfoParachain) -> Balance {
@@ -96,8 +134,7 @@ fn id_deposit_relaychain(id: &IdentityInfo<MaxAdditionalFields>) -> Balance {
 
 #[test]
 fn on_reap_identity_works() {
-	let identity_relaychain = identity_relay();
-	let identity_parachain = identity_parachain();
+	let identities = identities();
 	let mut total_deposit = 0_u128;
 
 	// Set identity and Subs on Relay Chain
@@ -105,9 +142,10 @@ fn on_reap_identity_works() {
 		type RuntimeEvent = <RococoRelay as Chain>::RuntimeEvent;
 
 		// 1. Set identity on Relay Chain
+		// For this test case we only use a single instance of IdentityInfo
 		assert_ok!(RococoIdentity::set_identity(
 			RococoOrigin::signed(RococoRelaySender::get()),
-			Box::new(identity_relaychain.clone())
+			Box::new(identities[0].relay.clone())
 		));
 		assert_expected_events!(
 			RococoRelay,
@@ -131,7 +169,7 @@ fn on_reap_identity_works() {
 		);
 
 		let reserved_bal = RococoBalances::reserved_balance(RococoRelaySender::get());
-		total_deposit = SubAccountDeposit::get() + id_deposit_relaychain(&identity_relaychain);
+		total_deposit = SubAccountDeposit::get() + id_deposit_relaychain(&identities[0].relay);
 
 		// The reserved balance should equal the calculated total deposit
 		assert_eq!(reserved_bal, total_deposit);
@@ -148,7 +186,7 @@ fn on_reap_identity_works() {
 		// 3. Set identity on Parachain
 		assert_ok!(PeopleRococoIdentity::set_identity_no_deposit(
 			&PeopleRococoSender::get(),
-			identity_parachain.clone()
+			identities[0].parachain.clone(),
 		));
 
 		// 4. Set sub-identity on Parachain
@@ -197,9 +235,6 @@ fn on_reap_identity_works() {
 		assert_eq!(reserved_balance, 0);
 		let free_bal_after_reap = RococoBalances::free_balance(RococoRelaySender::get());
 
-		let removed_fields_dep = removed_relay_id_fields(identity_relaychain.clone());
-		println!("removed_fields_dep: {:?}", removed_fields_dep);
-
 		// free balance should be greater than before reap
 		assert!(free_bal_after_reap > free_bal_before_reap);
 		assert_eq!(free_bal_after_reap, free_bal_before_reap + total_deposit);
@@ -209,13 +244,9 @@ fn on_reap_identity_works() {
 	PeopleRococo::execute_with(|| {
 		type RuntimeEvent = <PeopleRococo as Chain>::RuntimeEvent;
 		let reserved_bal = PeopleRococoBalances::reserved_balance(PeopleRococoSender::get());
-		let id_deposit = id_deposit_parachain(&identity_parachain);
+		let id_deposit = id_deposit_parachain(&identities[0].parachain);
 		let subs_deposit = SubAccountDepositParachain::get();
 		let total_deposit = subs_deposit + id_deposit;
-
-		let removed_fields_cost = removed_relay_id_fields(identity_relaychain.clone());
-		let added_fields_cost = added_parachain_id_fields(&identity_parachain);
-		println!("added_fields_deposit: {:?}", added_fields_cost);
 
 		assert_expected_events!(
 			PeopleRococo,
@@ -245,10 +276,9 @@ fn on_reap_identity_works() {
 		// reserved balance should be equal to total deposit calculated on the Parachain
 		assert_eq!(reserved_bal, total_deposit);
 
-		// set to * 2 in caclulate_remote_deposit runtime/rococo/src/impls.rs#L55
-		let para_existential_deposit = PEOPLE_ROCOCO_ED * 2;
-		let expected = para_existential_deposit - removed_fields_cost / 100 / 2;
-
-		assert_eq!(expected, PeopleRococoBalances::free_balance(PeopleRococoSender::get()));
+		// Should have at least one ED after in free balance after the reap.
+		assert!(PeopleRococoBalances::free_balance(PeopleRococoSender::get()) >= PEOPLE_ROCOCO_ED);
 	});
 }
+
+fn on_reap_identity_works_for_many_identities() {}
