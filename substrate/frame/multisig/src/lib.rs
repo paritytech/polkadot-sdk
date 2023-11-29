@@ -59,7 +59,7 @@ use frame_support::{
 	weights::Weight,
 	BoundedVec,
 };
-use frame_system::{self as system, pallet_prelude::BlockNumberFor, RawOrigin};
+use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use scale_info::TypeInfo;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
@@ -88,28 +88,13 @@ macro_rules! log {
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-/// A global extrinsic index, formed as the extrinsic index within a block, together with that
-/// block's height. This allows a transaction in which a multisig operation of a particular
-/// composite was created to be uniquely identified.
-#[derive(
-	Copy, Clone, Eq, PartialEq, Encode, Decode, Default, RuntimeDebug, TypeInfo, MaxEncodedLen,
-)]
-pub struct Timepoint<BlockNumber> {
-	/// The height of the chain at the point in time.
-	height: BlockNumber,
-	/// The index of the extrinsic at the point in time.
-	index: u32,
-}
-
 /// An open multisig operation.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Default, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(MaxApprovals))]
-pub struct Multisig<BlockNumber, Balance, AccountId, MaxApprovals>
+pub struct Multisig<Balance, AccountId, MaxApprovals>
 where
 	MaxApprovals: Get<u32>,
 {
-	/// The extrinsic when the multisig operation was opened.
-	when: Timepoint<BlockNumber>,
 	/// The amount held in reserve of the `depositor`, to be returned once the operation ends.
 	deposit: Balance,
 	/// The account who opened it (i.e. the first to approve it).
@@ -183,7 +168,7 @@ pub mod pallet {
 		T::AccountId,
 		Blake2_128Concat,
 		[u8; 32],
-		Multisig<BlockNumberFor<T>, BalanceOf<T>, T::AccountId, T::MaxSignatories>,
+		Multisig<BalanceOf<T>, T::AccountId, T::MaxSignatories>,
 	>;
 
 	#[pallet::error]
@@ -206,12 +191,6 @@ pub mod pallet {
 		NotFound,
 		/// Only the account that originally created the multisig is able to cancel it.
 		NotOwner,
-		/// No timepoint was given, yet the multisig operation is already underway.
-		NoTimepoint,
-		/// A different timepoint was given to the multisig operation that is underway.
-		WrongTimepoint,
-		/// A timepoint was given, yet no multisig operation is underway.
-		UnexpectedTimepoint,
 		/// The maximum weight information provided was too low.
 		MaxWeightTooLow,
 		/// The data to be stored is already stored.
@@ -224,27 +203,16 @@ pub mod pallet {
 		/// A new multisig operation has begun.
 		NewMultisig { approving: T::AccountId, multisig: T::AccountId, call_hash: CallHash },
 		/// A multisig operation has been approved by someone.
-		MultisigApproval {
-			approving: T::AccountId,
-			timepoint: Timepoint<BlockNumberFor<T>>,
-			multisig: T::AccountId,
-			call_hash: CallHash,
-		},
+		MultisigApproval { approving: T::AccountId, multisig: T::AccountId, call_hash: CallHash },
 		/// A multisig operation has been executed.
 		MultisigExecuted {
 			approving: T::AccountId,
-			timepoint: Timepoint<BlockNumberFor<T>>,
 			multisig: T::AccountId,
 			call_hash: CallHash,
 			result: DispatchResult,
 		},
 		/// A multisig operation has been cancelled.
-		MultisigCancelled {
-			cancelling: T::AccountId,
-			timepoint: Timepoint<BlockNumberFor<T>>,
-			multisig: T::AccountId,
-			call_hash: CallHash,
-		},
+		MultisigCancelled { cancelling: T::AccountId, multisig: T::AccountId, call_hash: CallHash },
 	}
 
 	#[pallet::hooks]
@@ -327,9 +295,6 @@ pub mod pallet {
 		/// - `threshold`: The total number of approvals for this dispatch before it is executed.
 		/// - `other_signatories`: The accounts (other than the sender) who can approve this
 		/// dispatch. May not be empty.
-		/// - `maybe_timepoint`: If this is the first approval, then this must be `None`. If it is
-		/// not the first approval, then it must be `Some`, with the timepoint (block number and
-		/// transaction index) of the first approval transaction.
 		/// - `call`: The call to be executed.
 		///
 		/// NOTE: Unless this is the final approval, you will generally want to use
@@ -366,19 +331,11 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			threshold: u16,
 			other_signatories: Vec<T::AccountId>,
-			maybe_timepoint: Option<Timepoint<BlockNumberFor<T>>>,
 			call: Box<<T as Config>::RuntimeCall>,
 			max_weight: Weight,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			Self::operate(
-				who,
-				threshold,
-				other_signatories,
-				maybe_timepoint,
-				CallOrHash::Call(*call),
-				max_weight,
-			)
+			Self::operate(who, threshold, other_signatories, CallOrHash::Call(*call), max_weight)
 		}
 
 		/// Register approval for a dispatch to be made from a deterministic composite account if
@@ -393,9 +350,6 @@ pub mod pallet {
 		/// - `threshold`: The total number of approvals for this dispatch before it is executed.
 		/// - `other_signatories`: The accounts (other than the sender) who can approve this
 		/// dispatch. May not be empty.
-		/// - `maybe_timepoint`: If this is the first approval, then this must be `None`. If it is
-		/// not the first approval, then it must be `Some`, with the timepoint (block number and
-		/// transaction index) of the first approval transaction.
 		/// - `call_hash`: The hash of the call to be executed.
 		///
 		/// NOTE: If this is the final approval, you will want to use `as_multi` instead.
@@ -423,7 +377,6 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			threshold: u16,
 			other_signatories: Vec<T::AccountId>,
-			maybe_timepoint: Option<Timepoint<BlockNumberFor<T>>>,
 			call_hash: [u8; 32],
 			max_weight: Weight,
 		) -> DispatchResultWithPostInfo {
@@ -432,7 +385,6 @@ pub mod pallet {
 				who,
 				threshold,
 				other_signatories,
-				maybe_timepoint,
 				CallOrHash::Hash(call_hash),
 				max_weight,
 			)
@@ -446,8 +398,6 @@ pub mod pallet {
 		/// - `threshold`: The total number of approvals for this dispatch before it is executed.
 		/// - `other_signatories`: The accounts (other than the sender) who can approve this
 		/// dispatch. May not be empty.
-		/// - `timepoint`: The timepoint (block number and transaction index) of the first approval
-		/// transaction for this dispatch.
 		/// - `call_hash`: The hash of the call to be executed.
 		///
 		/// ## Complexity
@@ -465,7 +415,6 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			threshold: u16,
 			other_signatories: Vec<T::AccountId>,
-			timepoint: Timepoint<BlockNumberFor<T>>,
 			call_hash: [u8; 32],
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -478,7 +427,6 @@ pub mod pallet {
 			let id = Self::multi_account_id(&signatories, threshold);
 
 			let m = <Multisigs<T>>::get(&id, call_hash).ok_or(Error::<T>::NotFound)?;
-			ensure!(m.when == timepoint, Error::<T>::WrongTimepoint);
 			ensure!(m.depositor == who, Error::<T>::NotOwner);
 
 			let err_amount = T::Currency::unreserve(&m.depositor, m.deposit);
@@ -487,7 +435,6 @@ pub mod pallet {
 
 			Self::deposit_event(Event::MultisigCancelled {
 				cancelling: who,
-				timepoint,
 				multisig: id,
 				call_hash,
 			});
@@ -511,7 +458,6 @@ impl<T: Config> Pallet<T> {
 		who: T::AccountId,
 		threshold: u16,
 		other_signatories: Vec<T::AccountId>,
-		maybe_timepoint: Option<Timepoint<BlockNumberFor<T>>>,
 		call_or_hash: CallOrHash<T>,
 		max_weight: Weight,
 	) -> DispatchResultWithPostInfo {
@@ -535,10 +481,6 @@ impl<T: Config> Pallet<T> {
 
 		// Branch on whether the operation has already started or not.
 		if let Some(mut m) = <Multisigs<T>>::get(&id, call_hash) {
-			// Yes; ensure that the timepoint exists and agrees.
-			let timepoint = maybe_timepoint.ok_or(Error::<T>::NoTimepoint)?;
-			ensure!(m.when == timepoint, Error::<T>::WrongTimepoint);
-
 			// Ensure that either we have not yet signed or that it is at threshold.
 			let mut approvals = m.approvals.len() as u16;
 			// We only bother with the approval if we're below threshold.
@@ -564,7 +506,6 @@ impl<T: Config> Pallet<T> {
 				let result = call.dispatch(RawOrigin::Signed(id.clone()).into());
 				Self::deposit_event(Event::MultisigExecuted {
 					approving: who,
-					timepoint,
 					multisig: id,
 					call_hash,
 					result: result.map(|_| ()).map_err(|e| e.error),
@@ -590,7 +531,6 @@ impl<T: Config> Pallet<T> {
 					<Multisigs<T>>::insert(&id, call_hash, m);
 					Self::deposit_event(Event::MultisigApproval {
 						approving: who,
-						timepoint,
 						multisig: id,
 						call_hash,
 					});
@@ -606,9 +546,6 @@ impl<T: Config> Pallet<T> {
 				Ok(Some(final_weight).into())
 			}
 		} else {
-			// Not yet started; there should be no timepoint given.
-			ensure!(maybe_timepoint.is_none(), Error::<T>::UnexpectedTimepoint);
-
 			// Just start the operation by recording it in storage.
 			let deposit = T::DepositBase::get() + T::DepositFactor::get() * threshold.into();
 
@@ -620,12 +557,7 @@ impl<T: Config> Pallet<T> {
 			<Multisigs<T>>::insert(
 				&id,
 				call_hash,
-				Multisig {
-					when: Self::timepoint(),
-					deposit,
-					depositor: who.clone(),
-					approvals: initial_approvals,
-				},
+				Multisig { deposit, depositor: who.clone(), approvals: initial_approvals },
 			);
 			Self::deposit_event(Event::NewMultisig { approving: who, multisig: id, call_hash });
 
@@ -633,14 +565,6 @@ impl<T: Config> Pallet<T> {
 				T::WeightInfo::as_multi_create(other_signatories_len as u32, call_len as u32);
 			// Call is not made, so the actual weight does not include call
 			Ok(Some(final_weight).into())
-		}
-	}
-
-	/// The current `Timepoint`.
-	pub fn timepoint() -> Timepoint<BlockNumberFor<T>> {
-		Timepoint {
-			height: <system::Pallet<T>>::block_number(),
-			index: <system::Pallet<T>>::extrinsic_index().unwrap_or_default(),
 		}
 	}
 

@@ -88,10 +88,6 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	ext
 }
 
-fn now() -> Timepoint<u32> {
-	Multisig::timepoint()
-}
-
 fn call_transfer(dest: u64, value: u64) -> Box<RuntimeCall> {
 	Box::new(RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest, value }))
 }
@@ -110,21 +106,13 @@ fn multisig_deposit_is_taken_and_returned() {
 			RuntimeOrigin::signed(1),
 			2,
 			vec![2, 3],
-			None,
 			call.clone(),
 			Weight::zero()
 		));
 		assert_eq!(Balances::free_balance(1), 2);
 		assert_eq!(Balances::reserved_balance(1), 3);
 
-		assert_ok!(Multisig::as_multi(
-			RuntimeOrigin::signed(2),
-			2,
-			vec![1, 3],
-			Some(now()),
-			call,
-			call_weight
-		));
+		assert_ok!(Multisig::as_multi(RuntimeOrigin::signed(2), 2, vec![1, 3], call, call_weight));
 		assert_eq!(Balances::free_balance(1), 5);
 		assert_eq!(Balances::reserved_balance(1), 0);
 	});
@@ -139,7 +127,6 @@ fn cancel_multisig_returns_deposit() {
 			RuntimeOrigin::signed(1),
 			3,
 			vec![2, 3],
-			None,
 			hash,
 			Weight::zero()
 		));
@@ -147,73 +134,14 @@ fn cancel_multisig_returns_deposit() {
 			RuntimeOrigin::signed(2),
 			3,
 			vec![1, 3],
-			Some(now()),
 			hash,
 			Weight::zero()
 		));
 		assert_eq!(Balances::free_balance(1), 6);
 		assert_eq!(Balances::reserved_balance(1), 4);
-		assert_ok!(Multisig::cancel_as_multi(RuntimeOrigin::signed(1), 3, vec![2, 3], now(), hash));
+		assert_ok!(Multisig::cancel_as_multi(RuntimeOrigin::signed(1), 3, vec![2, 3], hash));
 		assert_eq!(Balances::free_balance(1), 10);
 		assert_eq!(Balances::reserved_balance(1), 0);
-	});
-}
-
-#[test]
-fn timepoint_checking_works() {
-	new_test_ext().execute_with(|| {
-		let multi = Multisig::multi_account_id(&[1, 2, 3][..], 2);
-		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(1), multi, 5));
-		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(2), multi, 5));
-		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(3), multi, 5));
-
-		let call = call_transfer(6, 15);
-		let hash = blake2_256(&call.encode());
-
-		assert_noop!(
-			Multisig::approve_as_multi(
-				RuntimeOrigin::signed(2),
-				2,
-				vec![1, 3],
-				Some(now()),
-				hash,
-				Weight::zero()
-			),
-			Error::<Test>::UnexpectedTimepoint,
-		);
-
-		assert_ok!(Multisig::approve_as_multi(
-			RuntimeOrigin::signed(1),
-			2,
-			vec![2, 3],
-			None,
-			hash,
-			Weight::zero()
-		));
-
-		assert_noop!(
-			Multisig::as_multi(
-				RuntimeOrigin::signed(2),
-				2,
-				vec![1, 3],
-				None,
-				call.clone(),
-				Weight::zero()
-			),
-			Error::<Test>::NoTimepoint,
-		);
-		let later = Timepoint { index: 1, ..now() };
-		assert_noop!(
-			Multisig::as_multi(
-				RuntimeOrigin::signed(2),
-				2,
-				vec![1, 3],
-				Some(later),
-				call,
-				Weight::zero()
-			),
-			Error::<Test>::WrongTimepoint,
-		);
 	});
 }
 
@@ -232,20 +160,12 @@ fn multisig_2_of_3_works() {
 			RuntimeOrigin::signed(1),
 			2,
 			vec![2, 3],
-			None,
 			hash,
 			Weight::zero()
 		));
 		assert_eq!(Balances::free_balance(6), 0);
 
-		assert_ok!(Multisig::as_multi(
-			RuntimeOrigin::signed(2),
-			2,
-			vec![1, 3],
-			Some(now()),
-			call,
-			call_weight
-		));
+		assert_ok!(Multisig::as_multi(RuntimeOrigin::signed(2), 2, vec![1, 3], call, call_weight));
 		assert_eq!(Balances::free_balance(6), 15);
 	});
 }
@@ -265,7 +185,6 @@ fn multisig_3_of_3_works() {
 			RuntimeOrigin::signed(1),
 			3,
 			vec![2, 3],
-			None,
 			hash,
 			Weight::zero()
 		));
@@ -273,20 +192,12 @@ fn multisig_3_of_3_works() {
 			RuntimeOrigin::signed(2),
 			3,
 			vec![1, 3],
-			Some(now()),
 			hash,
 			Weight::zero()
 		));
 		assert_eq!(Balances::free_balance(6), 0);
 
-		assert_ok!(Multisig::as_multi(
-			RuntimeOrigin::signed(3),
-			3,
-			vec![1, 2],
-			Some(now()),
-			call,
-			call_weight
-		));
+		assert_ok!(Multisig::as_multi(RuntimeOrigin::signed(3), 3, vec![1, 2], call, call_weight));
 		assert_eq!(Balances::free_balance(6), 15);
 	});
 }
@@ -300,7 +211,6 @@ fn cancel_multisig_works() {
 			RuntimeOrigin::signed(1),
 			3,
 			vec![2, 3],
-			None,
 			hash,
 			Weight::zero()
 		));
@@ -308,15 +218,14 @@ fn cancel_multisig_works() {
 			RuntimeOrigin::signed(2),
 			3,
 			vec![1, 3],
-			Some(now()),
 			hash,
 			Weight::zero()
 		));
 		assert_noop!(
-			Multisig::cancel_as_multi(RuntimeOrigin::signed(2), 3, vec![1, 3], now(), hash),
+			Multisig::cancel_as_multi(RuntimeOrigin::signed(2), 3, vec![1, 3], hash),
 			Error::<Test>::NotOwner,
 		);
-		assert_ok!(Multisig::cancel_as_multi(RuntimeOrigin::signed(1), 3, vec![2, 3], now(), hash),);
+		assert_ok!(Multisig::cancel_as_multi(RuntimeOrigin::signed(1), 3, vec![2, 3], hash),);
 	});
 }
 
@@ -334,20 +243,12 @@ fn multisig_2_of_3_as_multi_works() {
 			RuntimeOrigin::signed(1),
 			2,
 			vec![2, 3],
-			None,
 			call.clone(),
 			Weight::zero()
 		));
 		assert_eq!(Balances::free_balance(6), 0);
 
-		assert_ok!(Multisig::as_multi(
-			RuntimeOrigin::signed(2),
-			2,
-			vec![1, 3],
-			Some(now()),
-			call,
-			call_weight
-		));
+		assert_ok!(Multisig::as_multi(RuntimeOrigin::signed(2), 2, vec![1, 3], call, call_weight));
 		assert_eq!(Balances::free_balance(6), 15);
 	});
 }
@@ -369,7 +270,6 @@ fn multisig_2_of_3_as_multi_with_many_calls_works() {
 			RuntimeOrigin::signed(1),
 			2,
 			vec![2, 3],
-			None,
 			call1.clone(),
 			Weight::zero()
 		));
@@ -377,7 +277,6 @@ fn multisig_2_of_3_as_multi_with_many_calls_works() {
 			RuntimeOrigin::signed(2),
 			2,
 			vec![1, 3],
-			None,
 			call2.clone(),
 			Weight::zero()
 		));
@@ -385,7 +284,6 @@ fn multisig_2_of_3_as_multi_with_many_calls_works() {
 			RuntimeOrigin::signed(3),
 			2,
 			vec![1, 2],
-			Some(now()),
 			call1,
 			call1_weight
 		));
@@ -393,7 +291,6 @@ fn multisig_2_of_3_as_multi_with_many_calls_works() {
 			RuntimeOrigin::signed(3),
 			2,
 			vec![1, 2],
-			Some(now()),
 			call2,
 			call2_weight
 		));
@@ -418,7 +315,6 @@ fn multisig_2_of_3_cannot_reissue_same_call() {
 			RuntimeOrigin::signed(1),
 			2,
 			vec![2, 3],
-			None,
 			call.clone(),
 			Weight::zero()
 		));
@@ -426,7 +322,6 @@ fn multisig_2_of_3_cannot_reissue_same_call() {
 			RuntimeOrigin::signed(2),
 			2,
 			vec![1, 3],
-			Some(now()),
 			call.clone(),
 			call_weight
 		));
@@ -436,7 +331,6 @@ fn multisig_2_of_3_cannot_reissue_same_call() {
 			RuntimeOrigin::signed(1),
 			2,
 			vec![2, 3],
-			None,
 			call.clone(),
 			Weight::zero()
 		));
@@ -444,7 +338,6 @@ fn multisig_2_of_3_cannot_reissue_same_call() {
 			RuntimeOrigin::signed(3),
 			2,
 			vec![1, 2],
-			Some(now()),
 			call.clone(),
 			call_weight
 		));
@@ -452,7 +345,6 @@ fn multisig_2_of_3_cannot_reissue_same_call() {
 		System::assert_last_event(
 			pallet_multisig::Event::MultisigExecuted {
 				approving: 3,
-				timepoint: now(),
 				multisig: multi,
 				call_hash: hash,
 				result: Err(TokenError::FundsUnavailable.into()),
@@ -467,25 +359,11 @@ fn minimum_threshold_check_works() {
 	new_test_ext().execute_with(|| {
 		let call = call_transfer(6, 15);
 		assert_noop!(
-			Multisig::as_multi(
-				RuntimeOrigin::signed(1),
-				0,
-				vec![2],
-				None,
-				call.clone(),
-				Weight::zero()
-			),
+			Multisig::as_multi(RuntimeOrigin::signed(1), 0, vec![2], call.clone(), Weight::zero()),
 			Error::<Test>::MinimumThreshold,
 		);
 		assert_noop!(
-			Multisig::as_multi(
-				RuntimeOrigin::signed(1),
-				1,
-				vec![2],
-				None,
-				call.clone(),
-				Weight::zero()
-			),
+			Multisig::as_multi(RuntimeOrigin::signed(1), 1, vec![2], call.clone(), Weight::zero()),
 			Error::<Test>::MinimumThreshold,
 		);
 	});
@@ -500,7 +378,6 @@ fn too_many_signatories_fails() {
 				RuntimeOrigin::signed(1),
 				2,
 				vec![2, 3, 4],
-				None,
 				call.clone(),
 				Weight::zero()
 			),
@@ -518,7 +395,6 @@ fn duplicate_approvals_are_ignored() {
 			RuntimeOrigin::signed(1),
 			2,
 			vec![2, 3],
-			None,
 			hash,
 			Weight::zero()
 		));
@@ -527,7 +403,6 @@ fn duplicate_approvals_are_ignored() {
 				RuntimeOrigin::signed(1),
 				2,
 				vec![2, 3],
-				Some(now()),
 				hash,
 				Weight::zero()
 			),
@@ -537,7 +412,6 @@ fn duplicate_approvals_are_ignored() {
 			RuntimeOrigin::signed(2),
 			2,
 			vec![1, 3],
-			Some(now()),
 			hash,
 			Weight::zero()
 		));
@@ -546,7 +420,6 @@ fn duplicate_approvals_are_ignored() {
 				RuntimeOrigin::signed(3),
 				2,
 				vec![1, 2],
-				Some(now()),
 				hash,
 				Weight::zero()
 			),
@@ -570,7 +443,6 @@ fn multisig_1_of_3_works() {
 				RuntimeOrigin::signed(1),
 				1,
 				vec![2, 3],
-				None,
 				hash,
 				Weight::zero()
 			),
@@ -581,7 +453,6 @@ fn multisig_1_of_3_works() {
 				RuntimeOrigin::signed(1),
 				1,
 				vec![2, 3],
-				None,
 				call.clone(),
 				Weight::zero()
 			),
@@ -621,21 +492,13 @@ fn weight_check_works() {
 			RuntimeOrigin::signed(1),
 			2,
 			vec![2, 3],
-			None,
 			call.clone(),
 			Weight::zero()
 		));
 		assert_eq!(Balances::free_balance(6), 0);
 
 		assert_noop!(
-			Multisig::as_multi(
-				RuntimeOrigin::signed(2),
-				2,
-				vec![1, 3],
-				Some(now()),
-				call,
-				Weight::zero()
-			),
+			Multisig::as_multi(RuntimeOrigin::signed(2), 2, vec![1, 3], call, Weight::zero()),
 			Error::<Test>::MaxWeightTooLow,
 		);
 	});
@@ -659,7 +522,6 @@ fn multisig_handles_no_preimage_after_all_approve() {
 			RuntimeOrigin::signed(1),
 			3,
 			vec![2, 3],
-			None,
 			hash,
 			Weight::zero()
 		));
@@ -667,7 +529,6 @@ fn multisig_handles_no_preimage_after_all_approve() {
 			RuntimeOrigin::signed(2),
 			3,
 			vec![1, 3],
-			Some(now()),
 			hash,
 			Weight::zero()
 		));
@@ -675,20 +536,12 @@ fn multisig_handles_no_preimage_after_all_approve() {
 			RuntimeOrigin::signed(3),
 			3,
 			vec![1, 2],
-			Some(now()),
 			hash,
 			Weight::zero()
 		));
 		assert_eq!(Balances::free_balance(6), 0);
 
-		assert_ok!(Multisig::as_multi(
-			RuntimeOrigin::signed(3),
-			3,
-			vec![1, 2],
-			Some(now()),
-			call,
-			call_weight
-		));
+		assert_ok!(Multisig::as_multi(RuntimeOrigin::signed(3), 3, vec![1, 2], call, call_weight));
 		assert_eq!(Balances::free_balance(6), 15);
 	});
 }
