@@ -87,7 +87,7 @@ pub type PoolAssetsConvertedConcreteId<PoolAssetsPalletLocation, Balance> =
 mod tests {
 	use super::*;
 	use sp_runtime::traits::MaybeEquivalence;
-	use xcm::latest::prelude::*;
+	use xcm::v3::prelude::*;
 	use xcm_builder::StartsWithExplicitGlobalConsensus;
 	use xcm_executor::traits::{Error as MatchError, MatchesFungibles};
 
@@ -198,7 +198,7 @@ mod tests {
 
 		for (asset, expected_result) in test_data {
 			assert_eq!(
-				<TrustBackedAssetsConvert as MatchesFungibles<AssetIdForTrustBackedAssets, u128>>::matches_fungibles(&asset.into()),
+				<TrustBackedAssetsConvert as MatchesFungibles<AssetIdForTrustBackedAssets, u128>>::matches_fungibles(&asset.try_into().unwrap()),
 				expected_result, "asset: {:?}", asset);
 		}
 	}
@@ -301,7 +301,7 @@ mod tests {
 
 		for (asset, expected_result) in test_data {
 			assert_eq!(
-				<Convert as MatchesFungibles<xcm::v3::MultiLocation, u128>>::matches_fungibles(&asset.into()),
+				<Convert as MatchesFungibles<xcm::v3::MultiLocation, u128>>::matches_fungibles(&asset.try_into().unwrap()),
 				expected_result,
 				"asset: {:?}",
 				asset
