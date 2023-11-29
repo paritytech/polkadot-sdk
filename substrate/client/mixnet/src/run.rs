@@ -29,11 +29,12 @@ use super::{
 	request::{extrinsic_delay, Request, SUBMIT_EXTRINSIC},
 	sync_with_runtime::sync_with_runtime,
 };
+use bytes::Bytes;
 use codec::{Decode, DecodeAll, Encode};
 use futures::{
 	future::{pending, Either},
 	stream::FuturesUnordered,
-	StreamExt,
+	FutureExt, StreamExt,
 };
 use log::{debug, error, trace, warn};
 use mixnet::{
@@ -43,8 +44,8 @@ use mixnet::{
 };
 use sc_client_api::{BlockchainEvents, HeaderBackend};
 use sc_network::{
-	Event::{NotificationStreamClosed, NotificationStreamOpened, NotificationsReceived},
-	NetworkEventStream, NetworkNotification, NetworkPeers, NetworkStateInfo, ProtocolName,
+	service::traits::{NotificationEvent, ValidationResult},
+	NetworkNotification, NetworkPeers, NetworkStateInfo, NotificationService, ProtocolName,
 };
 use sc_transaction_pool_api::{
 	LocalTransactionPool, OffchainTransactionPoolFactory, TransactionPool,
@@ -154,12 +155,13 @@ pub async fn run<B, C, S, N, P>(
 	protocol_name: ProtocolName,
 	transaction_pool: Arc<P>,
 	keystore: Option<KeystorePtr>,
+	mut notification_service: Box<dyn NotificationService>,
 ) where
 	B: Block,
 	C: BlockchainEvents<B> + ProvideRuntimeApi<B> + HeaderBackend<B>,
 	C::Api: MixnetApi<B>,
 	S: SyncOracle,
-	N: NetworkStateInfo + NetworkEventStream + NetworkNotification + NetworkPeers,
+	N: NetworkStateInfo + NetworkNotification + NetworkPeers,
 	P: TransactionPool<Block = B> + LocalTransactionPool<Block = B> + 'static,
 {
 	let local_peer_id = network.local_peer_id();
@@ -189,7 +191,6 @@ pub async fn run<B, C, S, N, P>(
 	} else {
 		None
 	};
-	let mut network_events = network.event_stream("mixnet").fuse();
 	let mut next_forward_packet_delay = MaybeInfDelay::new(None);
 	let mut next_authored_packet_delay = MaybeInfDelay::new(None);
 	let mut ready_peers = FuturesUnordered::new();
@@ -248,33 +249,36 @@ pub async fn run<B, C, S, N, P>(
 				}
 			}
 
-			event = network_events.select_next_some() => match event {
-				NotificationStreamOpened { remote, protocol, .. }
-					if protocol == protocol_name => packet_dispatcher.add_peer(&remote),
-				NotificationStreamClosed { remote, protocol }
-					if protocol == protocol_name => packet_dispatcher.remove_peer(&remote),
-				NotificationsReceived { remote, messages } => {
-					for message in messages {
-						if message.0 == protocol_name {
-							match message.1.as_ref().try_into() {
-								Ok(packet) => handle_packet(packet,
-									&mut mixnet, &mut request_manager, &mut reply_manager,
-									&mut extrinsic_queue, &config.substrate),
-								Err(_) => debug!(target: LOG_TARGET,
-									"Dropped incorrectly sized packet ({} bytes) from {remote}",
-									message.1.len(),
-								),
-							}
-						}
+			event = notification_service.next_event().fuse() => match event {
+				None => todo!(),
+				Some(NotificationEvent::ValidateInboundSubstream { result_tx, .. }) => {
+					let _ = result_tx.send(ValidationResult::Accept);
+				},
+				Some(NotificationEvent::NotificationStreamOpened { peer, .. }) => {
+					packet_dispatcher.add_peer(&peer);
+				},
+				Some(NotificationEvent::NotificationStreamClosed { peer }) => {
+					packet_dispatcher.remove_peer(&peer);
+				},
+				Some(NotificationEvent::NotificationReceived { peer, notification }) => {
+					let notification: Bytes = notification.into();
+
+					match notification.as_ref().try_into() {
+						Ok(packet) => handle_packet(packet,
+							&mut mixnet, &mut request_manager, &mut reply_manager,
+							&mut extrinsic_queue, &config.substrate),
+						Err(_) => debug!(target: LOG_TARGET,
+							"Dropped incorrectly sized packet ({} bytes) from {peer}",
+							notification.len(),
+						),
 					}
-				}
-				_ => ()
+				},
 			},
 
 			_ = next_forward_packet_delay => {
 				if let Some(packet) = mixnet.pop_next_forward_packet() {
 					if let Some(ready_peer) = packet_dispatcher.dispatch(packet) {
-						if let Some(fut) = ready_peer.send_packet(&*network, protocol_name.clone()) {
+						if let Some(fut) = ready_peer.send_packet(&notification_service) {
 							ready_peers.push(fut);
 						}
 					}
@@ -288,7 +292,7 @@ pub async fn run<B, C, S, N, P>(
 			_ = next_authored_packet_delay => {
 				if let Some(packet) = mixnet.pop_next_authored_packet(&packet_dispatcher) {
 					if let Some(ready_peer) = packet_dispatcher.dispatch(packet) {
-						if let Some(fut) = ready_peer.send_packet(&*network, protocol_name.clone()) {
+						if let Some(fut) = ready_peer.send_packet(&notification_service) {
 							ready_peers.push(fut);
 						}
 					}
@@ -297,7 +301,7 @@ pub async fn run<B, C, S, N, P>(
 
 			ready_peer = ready_peers.select_next_some() => {
 				if let Some(ready_peer) = ready_peer {
-					if let Some(fut) = ready_peer.send_packet(&*network, protocol_name.clone()) {
+					if let Some(fut) = ready_peer.send_packet(&notification_service) {
 						ready_peers.push(fut);
 					}
 				}
