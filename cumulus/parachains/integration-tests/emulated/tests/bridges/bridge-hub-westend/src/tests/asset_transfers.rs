@@ -12,7 +12,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use crate::{tests::bridge_hub_westend_set_xcm_version_for_bridge_hub_rococo, *};
+use crate::{
+	tests::{
+		asset_hub_westend_set_xcm_version_for_asset_hub_rococo,
+		bridge_hub_westend_set_xcm_version_for_bridge_hub_rococo,
+	},
+	*,
+};
 
 fn send_asset_from_asset_hub_westend_to_asset_hub_rococo(id: MultiLocation, amount: u128) {
 	let signed_origin =
@@ -33,6 +39,7 @@ fn send_asset_from_asset_hub_westend_to_asset_hub_rococo(id: MultiLocation, amou
 	let sov_ahw_on_bhw = BridgeHubWestend::sovereign_account_id_of(ahw_as_seen_by_bhw);
 	BridgeHubWestend::fund_accounts(vec![(sov_ahw_on_bhw.into(), 10_000_000_000_000u128)]);
 
+	asset_hub_westend_set_xcm_version_for_asset_hub_rococo(XCM_VERSION);
 	bridge_hub_westend_set_xcm_version_for_bridge_hub_rococo(XCM_VERSION);
 
 	AssetHubWestend::execute_with(|| {

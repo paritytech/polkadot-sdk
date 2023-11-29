@@ -19,6 +19,19 @@ mod asset_transfers;
 mod send_xcm;
 mod teleport;
 
+pub(crate) fn asset_hub_rococo_set_xcm_version_for_asset_hub_westend(version: XcmVersion) {
+	AssetHubRococo::force_xcm_version(
+		MultiLocation {
+			parents: 2,
+			interior: X2(
+				GlobalConsensus(NetworkId::Westend),
+				Parachain(AssetHubWestend::para_id().into()),
+			),
+		},
+		version,
+	);
+}
+
 pub(crate) fn bridge_hub_rococo_set_xcm_version_for_bridge_hub_westend(version: XcmVersion) {
 	BridgeHubRococo::force_xcm_version(
 		MultiLocation {

@@ -936,7 +936,7 @@ impl_runtime_apis! {
 				fn export_message_origin_and_destination(
 				) -> Result<(MultiLocation, NetworkId, InteriorMultiLocation), BenchmarkError> {
 					// save XCM version for remote bridge hub
-					PolkadotXcm::force_xcm_version(
+					let _ = PolkadotXcm::force_xcm_version(
 						RuntimeOrigin::root(),
 						Box::new(bridge_to_westend_config::BridgeHubWestendLocation::get()),
 						XCM_VERSION,
