@@ -20,7 +20,8 @@ use super::{
 	TransactionByteFee, WeightToFee, XcmpQueue,
 };
 use crate::bridge_common_config::{
-	BridgeGrandpaWestendInstance, DeliveryRewardInBalance, RequiredStakeForStakeAndSlash,
+	BridgeGrandpaRococoBulletinInstance, BridgeGrandpaWestendInstance, DeliveryRewardInBalance,
+	RequiredStakeForStakeAndSlash,
 };
 use bp_messages::LaneId;
 use bp_relayers::{PayRewardFromAccount, RewardsAccountOwner, RewardsAccountParams};
@@ -68,6 +69,7 @@ parameter_types! {
 	pub const MaxAssetsIntoHolding: u32 = 64;
 	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
 	pub RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
+	pub SiblingPeople: MultiLocation = (Parent, Parachain(1004)).into();
 }
 
 /// Type for specifying how a `MultiLocation` can be converted into an `AccountId`. This is used
@@ -186,6 +188,10 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 				RuntimeCall::BridgeWestendGrandpa(pallet_bridge_grandpa::Call::<
 					Runtime,
 					BridgeGrandpaWestendInstance,
+				>::initialize { .. }) |
+				RuntimeCall::BridgePolkadotBulletinGrandpa(pallet_bridge_grandpa::Call::<
+					Runtime,
+					BridgeGrandpaRococoBulletinInstance,
 				>::initialize { .. })
 		)
 	}
@@ -204,11 +210,12 @@ pub type Barrier = TrailingSetTopicAsId<
 					// If the message is one that immediately attempts to pay for execution, then
 					// allow it.
 					AllowTopLevelPaidExecutionFrom<Everything>,
-					// Parent, its pluralities (i.e. governance bodies) and relay treasury pallet
-					// get free execution.
+					// Parent, its pluralities (i.e. governance bodies), relay treasury pallet
+					// and sibling People get free execution.
 					AllowExplicitUnpaidExecutionFrom<(
 						ParentOrParentsPlurality,
 						Equals<RelayTreasuryLocation>,
+						Equals<SiblingPeople>,
 					)>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<ParentOrSiblings>,
@@ -284,7 +291,10 @@ impl xcm_executor::Config for XcmConfig {
 			XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
 		),
 	>;
-	type MessageExporter = (crate::bridge_to_westend_config::ToBridgeHubWestendHaulBlobExporter,);
+	type MessageExporter = (
+		crate::bridge_to_westend_config::ToBridgeHubWestendHaulBlobExporter,
+		crate::bridge_to_bulletin_config::ToRococoBulletinHaulBlobExporter,
+	);
 	type UniversalAliases = Nothing;
 	type CallDispatcher = WithOriginFilter<SafeCallFilter>;
 	type SafeCallFilter = SafeCallFilter;
