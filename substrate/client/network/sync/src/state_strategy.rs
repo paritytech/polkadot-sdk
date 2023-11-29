@@ -157,9 +157,7 @@ where
 			response.proof.len(),
 		);
 
-		let import_result = self.state_sync.import(*response);
-
-		match import_result {
+		match self.state_sync.import(*response) {
 			ImportResult::Import(hash, header, state, body, justifications) => {
 				let origin = BlockOrigin::NetworkInitialSync;
 				let block = IncomingBlock {
