@@ -25,6 +25,7 @@
 mod api;
 mod enactment_state;
 pub mod error;
+mod fork_aware_pool;
 mod graph;
 mod metrics;
 mod revalidation;
