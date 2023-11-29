@@ -150,7 +150,6 @@ tempfile = "3.2"
 [features]
 default = [ "db", "full-node" ]
 
-# TODO revisit the frame benchmarking features. It only has an std feature as default. And disabling it somehow disables rocksdb.
 db = [ "service/rocksdb", "sc-client-db/rocksdb", "frame-benchmarking-cli/rocksdb", "kvdb-rocksdb" ]
 
 full-node = [
