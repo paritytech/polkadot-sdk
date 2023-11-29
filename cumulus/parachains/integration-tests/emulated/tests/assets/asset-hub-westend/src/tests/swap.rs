@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{tests::penpal_create_foreign_asset_on_asset_hub, *};
+use crate::*;
 use westend_system_emulated_network::penpal_emulated_chain::LocalTeleportableToAssetHub as PenpalLocalTeleportableToAssetHub;
 
 #[test]
@@ -122,14 +122,13 @@ fn swap_locally_on_chain_using_foreign_assets() {
 			.unwrap();
 
 	// 1. Create asset on penpal and, 2. Create foreign asset on asset_hub_westend
-	penpal_create_foreign_asset_on_asset_hub(
+	super::penpal_create_foreign_asset_on_asset_hub(
 		asset_id_on_penpal,
 		foreign_asset_at_asset_hub_westend,
 		ah_as_seen_by_penpal,
 		true,
 		asset_owner_on_penpal,
 		ASSET_MIN_BALANCE * 1_000_000,
-		WESTEND_ED,
 	);
 
 	let penpal_as_seen_by_ah = AssetHubWestend::sibling_location_of(PenpalB::para_id());

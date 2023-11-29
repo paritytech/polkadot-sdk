@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{tests::penpal_create_foreign_asset_on_asset_hub, *};
+use crate::*;
 use asset_hub_westend_runtime::xcm_config::XcmConfig as AssetHubWestendXcmConfig;
 use emulated_integration_tests_common::xcm_helpers::non_fee_asset;
 use westend_runtime::xcm_config::XcmConfig as WestendXcmConfig;
@@ -661,14 +661,13 @@ fn bidirectional_transfers_foreign_assets_between_para_and_asset_hub() {
 		MultiLocation { parents: 1, interior: X1(Parachain(PenpalB::para_id().into())) }
 			.appended_with(asset_location_on_penpal)
 			.unwrap();
-	penpal_create_foreign_asset_on_asset_hub(
+	super::penpal_create_foreign_asset_on_asset_hub(
 		asset_id_on_penpal,
 		foreign_asset_at_asset_hub_westend,
 		ah_as_seen_by_penpal,
 		false,
 		asset_owner_on_penpal,
 		ASSET_MIN_BALANCE * 1_000_000,
-		WESTEND_ED,
 	);
 	let penpal_to_ah_beneficiary_id = AssetHubWestendReceiver::get();
 
