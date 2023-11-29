@@ -1028,6 +1028,7 @@ dependencies = [
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
+ "penpal-runtime",
  "polkadot-runtime-common",
  "sp-runtime",
  "staging-xcm",
@@ -1049,7 +1050,6 @@ dependencies = [
  "bp-bridge-hub-rococo",
  "bp-bridge-hub-westend",
  "cumulus-pallet-aura-ext",
- "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-session-benchmarking",
  "cumulus-pallet-xcm",
@@ -2320,7 +2320,6 @@ dependencies = [
  "bridge-hub-test-utils",
  "bridge-runtime-common",
  "cumulus-pallet-aura-ext",
- "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-session-benchmarking",
  "cumulus-pallet-xcm",
@@ -2939,7 +2938,6 @@ name = "collectives-westend-runtime"
 version = "1.0.0"
 dependencies = [
  "cumulus-pallet-aura-ext",
- "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-session-benchmarking",
  "cumulus-pallet-xcm",
@@ -4175,6 +4173,7 @@ dependencies = [
  "cumulus-relay-chain-interface",
  "cumulus-relay-chain-rpc-interface",
  "futures",
+ "parking_lot 0.12.1",
  "polkadot-availability-recovery",
  "polkadot-collator-protocol",
  "polkadot-core-primitives",
@@ -11752,6 +11751,7 @@ dependencies = [
  "serde_json",
  "sp-core",
  "sp-runtime",
+ "westend-emulated-chain",
 ]
 
 [[package]]
@@ -13272,6 +13272,7 @@ dependencies = [
  "pallet-transaction-payment-rpc-runtime-api",
  "parity-db",
  "parity-scale-codec",
+ "parking_lot 0.12.1",
  "polkadot-approval-distribution",
  "polkadot-availability-bitfield-distribution",
  "polkadot-availability-distribution",
@@ -15741,6 +15742,7 @@ dependencies = [
  "array-bytes 4.2.0",
  "arrayvec 0.7.4",
  "blake2 0.10.6",
+ "bytes",
  "futures",
  "futures-timer",
  "libp2p-identity",
@@ -15806,6 +15808,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
+ "tokio-stream",
  "tokio-test",
  "tokio-util",
  "unsigned-varint",
@@ -15861,10 +15864,12 @@ name = "sc-network-gossip"
 version = "0.10.0-dev"
 dependencies = [
  "ahash 0.8.3",
+ "async-trait",
  "futures",
  "futures-timer",
  "libp2p",
  "log",
+ "parity-scale-codec",
  "quickcheck",
  "sc-network",
  "sc-network-common",

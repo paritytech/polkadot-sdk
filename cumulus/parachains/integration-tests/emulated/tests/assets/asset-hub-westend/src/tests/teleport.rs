@@ -157,10 +157,12 @@ fn system_para_teleport_assets(t: SystemParaToRelayTest) -> DispatchResult {
 fn limited_teleport_native_assets_from_relay_to_system_para_works() {
 	// Init values for Relay Chain
 	let amount_to_send: Balance = WESTEND_ED * 1000;
+	let dest = Westend::child_location_of(AssetHubWestend::para_id());
+	let beneficiary = AssetHubWestendReceiver::get();
 	let test_args = TestContext {
 		sender: WestendSender::get(),
-		receiver: AssetHubWestendReceiver::get(),
-		args: relay_test_args(amount_to_send),
+		receiver: beneficiary.clone(),
+		args: relay_test_args(dest, beneficiary, amount_to_send),
 	};
 
 	let mut test = RelayToSystemParaTest::new(test_args);
@@ -204,7 +206,7 @@ fn limited_teleport_native_assets_back_from_system_para_to_relay_works() {
 	let test_args = TestContext {
 		sender: AssetHubWestendSender::get(),
 		receiver: WestendReceiver::get(),
-		args: system_para_test_args(destination, beneficiary_id, amount_to_send, assets, None),
+		args: para_test_args(destination, beneficiary_id, amount_to_send, assets, None, 0),
 	};
 
 	let mut test = SystemParaToRelayTest::new(test_args);
@@ -245,7 +247,7 @@ fn limited_teleport_native_assets_from_system_para_to_relay_fails() {
 	let test_args = TestContext {
 		sender: AssetHubWestendSender::get(),
 		receiver: WestendReceiver::get(),
-		args: system_para_test_args(destination, beneficiary_id, amount_to_send, assets, None),
+		args: para_test_args(destination, beneficiary_id, amount_to_send, assets, None, 0),
 	};
 
 	let mut test = SystemParaToRelayTest::new(test_args);
@@ -278,10 +280,12 @@ fn limited_teleport_native_assets_from_system_para_to_relay_fails() {
 fn teleport_native_assets_from_relay_to_system_para_works() {
 	// Init values for Relay Chain
 	let amount_to_send: Balance = WESTEND_ED * 1000;
+	let dest = Westend::child_location_of(AssetHubWestend::para_id());
+	let beneficiary = AssetHubWestendReceiver::get();
 	let test_args = TestContext {
 		sender: WestendSender::get(),
-		receiver: AssetHubWestendReceiver::get(),
-		args: relay_test_args(amount_to_send),
+		receiver: beneficiary.clone(),
+		args: relay_test_args(dest, beneficiary, amount_to_send),
 	};
 
 	let mut test = RelayToSystemParaTest::new(test_args);
@@ -325,7 +329,7 @@ fn teleport_native_assets_back_from_system_para_to_relay_works() {
 	let test_args = TestContext {
 		sender: AssetHubWestendSender::get(),
 		receiver: WestendReceiver::get(),
-		args: system_para_test_args(destination, beneficiary_id, amount_to_send, assets, None),
+		args: para_test_args(destination, beneficiary_id, amount_to_send, assets, None, 0),
 	};
 
 	let mut test = SystemParaToRelayTest::new(test_args);
@@ -366,7 +370,7 @@ fn teleport_native_assets_from_system_para_to_relay_fails() {
 	let test_args = TestContext {
 		sender: AssetHubWestendSender::get(),
 		receiver: WestendReceiver::get(),
-		args: system_para_test_args(destination, beneficiary_id, amount_to_send, assets, None),
+		args: para_test_args(destination, beneficiary_id, amount_to_send, assets, None, 0),
 	};
 
 	let mut test = SystemParaToRelayTest::new(test_args);
@@ -394,16 +398,15 @@ fn teleport_native_assets_from_system_para_to_relay_fails() {
 	assert_eq!(receiver_balance_after, receiver_balance_before);
 }
 
-// TODO: uncomment when CollectivesWestend and BridgeHubWestend are implemented
-// https://github.com/paritytech/polkadot-sdk/pull/1737 (CollectivesWestend)
-// #[test]
-// fn teleport_to_other_system_parachains_works() {
-// 	let amount = ASSET_HUB_WESTEND_ED * 100;
-// 	let native_asset: VersionedMultiAssets = (Parent, amount).into();
+#[test]
+fn teleport_to_other_system_parachains_works() {
+	let amount = ASSET_HUB_WESTEND_ED * 100;
+	let native_asset: MultiAssets = (Parent, amount).into();
 
-// 	test_parachain_is_trusted_teleporter!(
-// 		AssetHubWestend,                            // Origin
-// 		vec![CollectivesWestend, BridgeHubWestend], // Destinations
-// 		(native_asset, amount)
-// 	);
-// }
+	test_parachain_is_trusted_teleporter!(
+		AssetHubWestend,          // Origin
+		AssetHubWestendXcmConfig, // XCM Configuration
+		vec![BridgeHubWestend],   // Destinations
+		(native_asset, amount)
+	);
+}
