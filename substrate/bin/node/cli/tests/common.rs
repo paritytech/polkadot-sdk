@@ -105,7 +105,6 @@ pub fn executor_call(
 	t: &mut TestExternalities<BlakeTwo256>,
 	method: &str,
 	data: &[u8],
-	use_native: bool,
 ) -> (Result<Vec<u8>>, bool) {
 	let mut t = t.ext();
 
@@ -117,7 +116,7 @@ pub fn executor_call(
 		heap_pages: heap_pages.and_then(|hp| Decode::decode(&mut &hp[..]).ok()),
 	};
 	sp_tracing::try_init_simple();
-	executor().call(&mut t, &runtime_code, method, data, use_native, CallContext::Onchain)
+	executor().call(&mut t, &runtime_code, method, data, CallContext::Onchain)
 }
 
 pub fn new_test_ext(code: &[u8]) -> TestExternalities<BlakeTwo256> {
@@ -168,12 +167,12 @@ pub fn construct_block(
 	};
 
 	// execute the block to get the real header.
-	executor_call(env, "Core_initialize_block", &header.encode(), true).0.unwrap();
+	executor_call(env, "Core_initialize_block", &header.encode()).0.unwrap();
 
 	for extrinsic in extrinsics.iter() {
 		// Try to apply the `extrinsic`. It should be valid, in the sense that it passes
 		// all pre-inclusion checks.
-		let r = executor_call(env, "BlockBuilder_apply_extrinsic", &extrinsic.encode(), true)
+		let r = executor_call(env, "BlockBuilder_apply_extrinsic", &extrinsic.encode())
 			.0
 			.expect("application of an extrinsic failed");
 
@@ -186,7 +185,7 @@ pub fn construct_block(
 	}
 
 	let header = Header::decode(
-		&mut &executor_call(env, "BlockBuilder_finalize_block", &[0u8; 0], true).0.unwrap()[..],
+		&mut &executor_call(env, "BlockBuilder_finalize_block", &[0u8; 0]).0.unwrap()[..],
 	)
 	.unwrap();
 
