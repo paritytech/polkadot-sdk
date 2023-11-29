@@ -1423,7 +1423,7 @@
 				<span class="kw">if </span>have_block {
 					<span class="kw">let </span>refs = <span class="self">self</span>.pinned.entry(hash.clone()).or_default();
 					<span class="kw">if </span><span class="kw-2">*</span>refs == <span class="number">0 </span>{
-						<span class="macro">trace!</span>(target: <span class="string">&quot;state-db-pin&quot;</span>, <span class="string">&quot;Pinned block: {:?}&quot;</span>, hash);
+						<span class="macro">trace!</span>(target: LOG_TARGET_PIN, <span class="string">&quot;Pinned block: {:?}&quot;</span>, hash);
 						<span class="self">self</span>.non_canonical.pin(hash);
 					}
 					<span class="kw-2">*</span>refs += <span class="number">1</span>;
@@ -1440,11 +1440,11 @@
 			Entry::Occupied(<span class="kw-2">mut </span>entry) =&gt; {
 				<span class="kw-2">*</span>entry.get_mut() -= <span class="number">1</span>;
 				<span class="kw">if </span><span class="kw-2">*</span>entry.get() == <span class="number">0 </span>{
-					<span class="macro">trace!</span>(target: <span class="string">&quot;state-db-pin&quot;</span>, <span class="string">&quot;Unpinned block: {:?}&quot;</span>, hash);
+					<span class="macro">trace!</span>(target: LOG_TARGET_PIN, <span class="string">&quot;Unpinned block: {:?}&quot;</span>, hash);
 					entry.remove();
 					<span class="self">self</span>.non_canonical.unpin(hash);
 				} <span class="kw">else </span>{
-					<span class="macro">trace!</span>(target: <span class="string">&quot;state-db-pin&quot;</span>, <span class="string">&quot;Releasing reference for {:?}&quot;</span>, hash);
+					<span class="macro">trace!</span>(target: LOG_TARGET_PIN, <span class="string">&quot;Releasing reference for {:?}&quot;</span>, hash);
 				}
 			},
 			Entry::Vacant(<span class="kw">_</span>) =&gt; {},
