@@ -19,6 +19,7 @@
 use super::TestHost;
 use adder::{hash_state, BlockData, HeadData};
 use parity_scale_codec::{Decode, Encode};
+use polkadot_node_core_pvf_common::sp_tracing::try_init_simple;
 use polkadot_parachain_primitives::primitives::{
 	BlockData as GenericBlockData, HeadData as GenericHeadData, RelayChainBlockNumber,
 	ValidationParams,
