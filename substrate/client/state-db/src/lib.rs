@@ -474,7 +474,7 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDbSync<BlockHash, Key, D> {
 				if have_block {
 					let refs = self.pinned.entry(hash.clone()).or_default();
 					if *refs == 0 {
-						trace!(target: "state-db-pin", "Pinned block: {:?}", hash);
+						trace!(target: LOG_TARGET_PIN, "Pinned block: {:?}", hash);
 						self.non_canonical.pin(hash);
 					}
 					*refs += 1;
@@ -491,11 +491,11 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDbSync<BlockHash, Key, D> {
 			Entry::Occupied(mut entry) => {
 				*entry.get_mut() -= 1;
 				if *entry.get() == 0 {
-					trace!(target: "state-db-pin", "Unpinned block: {:?}", hash);
+					trace!(target: LOG_TARGET_PIN, "Unpinned block: {:?}", hash);
 					entry.remove();
 					self.non_canonical.unpin(hash);
 				} else {
-					trace!(target: "state-db-pin", "Releasing reference for {:?}", hash);
+					trace!(target: LOG_TARGET_PIN, "Releasing reference for {:?}", hash);
 				}
 			},
 			Entry::Vacant(_) => {},

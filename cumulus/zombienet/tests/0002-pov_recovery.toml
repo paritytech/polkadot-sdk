@@ -34,13 +34,12 @@ add_to_genesis = false
   args = ["--disable-block-announcements"]
 
   # run 'alice' as a parachain collator who does not produce blocks
-  # 'alice' is a bootnode for 'bob' and 'charlie'
   [[parachains.collators]]
   name = "alice"
   validator = true # collator
   image = "{{COL_IMAGE}}"
   command = "test-parachain"
-  args = ["-lparachain::availability=trace,sync=debug,parachain=debug,cumulus-pov-recovery=debug,cumulus-consensus=debug", "--use-null-consensus", "--disable-block-announcements", "--bootnodes {{'bob'|zombie('multiAddress')}}",  "--", "--reserved-only", "--reserved-nodes {{'ferdie'|zombie('multiAddress')}}"]
+  args = ["-lparachain::availability=trace,sync=debug,parachain=debug,cumulus-pov-recovery=debug,cumulus-consensus=debug", "--use-null-consensus", "--disable-block-announcements", "--bootnodes {{'bob'|zombie('multiAddress')}}", "--in-peers 0", "--out-peers 0",  "--", "--reserved-only", "--reserved-nodes {{'ferdie'|zombie('multiAddress')}}"]
 
   # run 'charlie' as a parachain full node
   [[parachains.collators]]
@@ -48,7 +47,7 @@ add_to_genesis = false
   validator = false # full node
   image = "{{COL_IMAGE}}"
   command = "test-parachain"
-  args = ["-lparachain::availability=trace,sync=debug,parachain=debug,cumulus-pov-recovery=debug,cumulus-consensus=debug", "--disable-block-announcements", "--bootnodes {{'bob'|zombie('multiAddress')}}", "--in-peers 0", "--out-peers 0","--", "--reserved-only", "--reserved-nodes {{'ferdie'|zombie('multiAddress')}}"]
+  args = ["-lparachain::availability=trace,sync=debug,parachain=debug,cumulus-pov-recovery=debug,cumulus-consensus=debug", "--disable-block-announcements", "--bootnodes {{'bob'|zombie('multiAddress')}}", "--in-peers 0", "--out-peers 0", "--", "--reserved-only", "--reserved-nodes {{'ferdie'|zombie('multiAddress')}}"]
 
   # we fail recovery for 'eve' from time to time to test retries
   [[parachains.collators]]

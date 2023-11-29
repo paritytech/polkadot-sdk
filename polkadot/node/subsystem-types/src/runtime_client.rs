@@ -29,7 +29,6 @@ use sp_api::{ApiError, CallApiAt, DisableProofRecording, RuntimeInstance};
 use sp_authority_discovery::AuthorityDiscoveryApi;
 use sp_blockchain::Info;
 use sp_consensus_babe::{BabeApi, Epoch};
-use sp_runtime::traits::{Header as HeaderT, NumberFor};
 use std::{collections::BTreeMap, sync::Arc};
 
 /// Offers header utilities.

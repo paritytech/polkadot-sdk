@@ -191,6 +191,7 @@ pub fn sync_with_runtime(mixnet: &mut Mixnet<Vec<Multiaddr>>, api: &mut dyn Mixn
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use multiaddr::multiaddr;
 
 	#[test]
 	fn fixup_empty_external_addresses() {
