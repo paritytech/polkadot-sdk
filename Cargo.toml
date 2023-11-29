@@ -194,7 +194,6 @@ members = [
 	"substrate/bin/node-template/runtime",
 	"substrate/bin/node/bench",
 	"substrate/bin/node/cli",
-	"substrate/bin/node/executor",
 	"substrate/bin/node/inspect",
 	"substrate/bin/node/primitives",
 	"substrate/bin/node/rpc",
