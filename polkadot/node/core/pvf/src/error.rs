@@ -19,31 +19,44 @@ use polkadot_node_core_pvf_common::error::{InternalValidationError, PrepareError
 /// A error raised during validation of the candidate.
 #[derive(Debug, Clone)]
 pub enum ValidationError {
-	/// The error was raised because the candidate is invalid.
+	/// Deterministic preparation issue. In practice, most of the problems should be caught by
+	/// prechecking, so this may be a sign of internal conditions.
 	///
-	/// Whenever we are unsure if the error was due to the candidate or not, we must vote invalid.
-	InvalidCandidate(InvalidCandidate),
-	/// Some internal error occurred.
-	InternalError(InternalValidationError),
+	/// In principle if preparation of the `WASM` fails, the current candidate cannot be the
+	/// reason for that. So we can't say whether it is invalid or not. In addition, with
+	/// pre-checking enabled only valid runtimes should ever get enacted, so we can be
+	/// reasonably sure that this is some local problem on the current node. However, as this
+	/// particular error *seems* to indicate a deterministic error, we raise a warning.
+	Preparation(PrepareError),
+	/// The error was raised because the candidate is invalid. Should vote against.
+	Invalid(InvalidCandidate),
+	/// Possibly transient issue that may resolve after retries. Should vote against when retries
+	/// fail.
+	PossiblyInvalid(PossiblyInvalidError),
+	/// Preparation or execution issue caused by an internal condition. Should not vote against.
+	Internal(InternalValidationError),
 }
 
 /// A description of an error raised during executing a PVF and can be attributed to the combination
 /// of the candidate [`polkadot_parachain_primitives::primitives::ValidationParams`] and the PVF.
 #[derive(Debug, Clone)]
 pub enum InvalidCandidate {
-	/// PVF preparation ended up with a deterministic error.
-	PrepareError(String),
 	/// The candidate is reported to be invalid by the execution worker. The string contains the
 	/// error message.
 	WorkerReportedInvalid(String),
+	/// PVF execution (compilation is not included) took more time than was allotted.
+	HardTimeout,
+}
+
+/// Possibly transient issue that may resolve after retries.
+#[derive(Debug, Clone)]
+pub enum PossiblyInvalidError {
 	/// The worker process (not the job) has died during validation of a candidate.
 	///
 	/// It's unlikely that this is caused by malicious code since workers spawn separate job
 	/// processes, and those job processes are sandboxed. But, it is possible. We retry in this
 	/// case, and if the error persists, we assume it's caused by the candidate and vote against.
 	AmbiguousWorkerDeath,
-	/// PVF execution (compilation is not included) took more time than was allotted.
-	HardTimeout,
 	/// The job process (not the worker) has died for one of the following reasons:
 	///
 	/// (a) A seccomp violation occurred, most likely due to an attempt by malicious code to
@@ -68,7 +81,7 @@ pub enum InvalidCandidate {
 
 impl From<InternalValidationError> for ValidationError {
 	fn from(error: InternalValidationError) -> Self {
-		Self::InternalError(error)
+		Self::Internal(error)
 	}
 }
 
@@ -77,9 +90,9 @@ impl From<PrepareError> for ValidationError {
 		// Here we need to classify the errors into two errors: deterministic and non-deterministic.
 		// See [`PrepareError::is_deterministic`].
 		if error.is_deterministic() {
-			Self::InvalidCandidate(InvalidCandidate::PrepareError(error.to_string()))
+			Self::Preparation(error)
 		} else {
-			Self::InternalError(InternalValidationError::NonDeterministicPrepareError(error))
+			Self::Internal(InternalValidationError::NonDeterministicPrepareError(error))
 		}
 	}
 }

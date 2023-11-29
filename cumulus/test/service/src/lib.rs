@@ -27,6 +27,7 @@ mod genesis;
 use runtime::AccountId;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 use std::{
+	collections::HashSet,
 	future::Future,
 	net::{IpAddr, Ipv4Addr, SocketAddr},
 	time::Duration,
@@ -57,7 +58,7 @@ use cumulus_test_runtime::{Hash, Header, NodeBlock as Block, RuntimeApi};
 use frame_system_rpc_runtime_api::AccountNonceApi;
 use polkadot_node_subsystem::{errors::RecoveryError, messages::AvailabilityRecoveryMessage};
 use polkadot_overseer::Handle as OverseerHandle;
-use polkadot_primitives::{CollatorPair, Hash as PHash, PersistedValidationData};
+use polkadot_primitives::{CandidateHash, CollatorPair, Hash as PHash, PersistedValidationData};
 use polkadot_service::ProvideRuntimeApi;
 use sc_consensus::ImportQueue;
 use sc_network::{
@@ -144,12 +145,13 @@ pub type TransactionPool = Arc<sc_transaction_pool::FullPool<Block, Client>>;
 pub struct FailingRecoveryHandle {
 	overseer_handle: OverseerHandle,
 	counter: u32,
+	failed_hashes: HashSet<CandidateHash>,
 }
 
 impl FailingRecoveryHandle {
 	/// Create a new FailingRecoveryHandle
 	pub fn new(overseer_handle: OverseerHandle) -> Self {
-		Self { overseer_handle, counter: 0 }
+		Self { overseer_handle, counter: 0, failed_hashes: Default::default() }
 	}
 }
 
@@ -160,11 +162,15 @@ impl RecoveryHandle for FailingRecoveryHandle {
 		message: AvailabilityRecoveryMessage,
 		origin: &'static str,
 	) {
-		// For every 5th block we immediately signal unavailability to trigger
-		// a retry.
-		if self.counter % 5 == 0 {
+		let AvailabilityRecoveryMessage::RecoverAvailableData(ref receipt, _, _, _) = message;
+		let candidate_hash = receipt.hash();
+
+		// For every 3rd block we immediately signal unavailability to trigger
+		// a retry. The same candidate is never failed multiple times to ensure progress.
+		if self.counter % 3 == 0 && self.failed_hashes.insert(candidate_hash) {
+			tracing::info!(target: LOG_TARGET, ?candidate_hash, "Failing pov recovery.");
+
 			let AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, back_sender) = message;
-			tracing::info!(target: LOG_TARGET, "Failing pov recovery.");
 			back_sender
 				.send(Err(RecoveryError::Unavailable))
 				.expect("Return channel should work here.");
@@ -211,7 +217,8 @@ pub fn new_partial(
 		sc_service::new_full_parts::<Block, RuntimeApi, _>(config, None, executor)?;
 	let client = Arc::new(client);
 
-	let block_import = ParachainBlockImport::new(client.clone(), backend.clone());
+	let block_import =
+		ParachainBlockImport::new_with_delayed_best_block(client.clone(), backend.clone());
 
 	let registry = config.prometheus_registry();
 

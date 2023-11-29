@@ -14,9 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::chain_spec::GenericChainSpec;
 use cumulus_primitives_core::ParaId;
 use sc_chain_spec::ChainSpec;
-use std::{path::PathBuf, str::FromStr};
+use std::str::FromStr;
 
 /// Collects all supported Coretime configurations.
 #[derive(Debug, PartialEq)]
@@ -55,25 +56,11 @@ impl FromStr for CoretimeRuntimeType {
 impl CoretimeRuntimeType {
 	pub const ID_PREFIX: &'static str = "coretime";
 
-	pub fn chain_spec_from_json_file(&self, path: PathBuf) -> Result<Box<dyn ChainSpec>, String> {
-		match self {
-			CoretimeRuntimeType::Rococo |
-			CoretimeRuntimeType::RococoLocal |
-			CoretimeRuntimeType::RococoDevelopment =>
-				Ok(Box::new(rococo::CoretimeChainSpec::from_json_file(path)?)),
-			CoretimeRuntimeType::Westend |
-			CoretimeRuntimeType::WestendLocal |
-			CoretimeRuntimeType::WestendDevelopment =>
-				Ok(Box::new(westend::CoretimeChainSpec::from_json_file(path)?)),
-		}
-	}
-
 	pub fn load_config(&self) -> Result<Box<dyn ChainSpec>, String> {
 		match self {
-			CoretimeRuntimeType::Rococo =>
-				Ok(Box::new(rococo::CoretimeChainSpec::from_json_bytes(
-					&include_bytes!("../../../parachains/chain-specs/coretime-rococo.json")[..],
-				)?)),
+			CoretimeRuntimeType::Rococo => Ok(Box::new(GenericChainSpec::from_json_bytes(
+				&include_bytes!("../../../parachains/chain-specs/coretime-rococo.json")[..],
+			)?)),
 			CoretimeRuntimeType::RococoLocal => Ok(Box::new(rococo::local_config(
 				rococo::CORETIME_ROCOCO_DEVELOPMENT,
 				"Rococo Coretime Local",
@@ -86,10 +73,9 @@ impl CoretimeRuntimeType {
 				"rococo-dev",
 				ParaId::new(1005),
 			))),
-			CoretimeRuntimeType::Westend =>
-				Ok(Box::new(westend::CoretimeChainSpec::from_json_bytes(
-					&include_bytes!("../../../parachains/chain-specs/coretime-westend.json")[..],
-				)?)),
+			CoretimeRuntimeType::Westend => Ok(Box::new(GenericChainSpec::from_json_bytes(
+				&include_bytes!("../../../parachains/chain-specs/coretime-westend.json")[..],
+			)?)),
 			CoretimeRuntimeType::WestendLocal => Ok(Box::new(westend::local_config(
 				westend::CORETIME_WESTEND_DEVELOPMENT,
 				"Westend Coretime Local",
@@ -121,7 +107,7 @@ fn ensure_id(id: &str) -> Result<&str, String> {
 
 /// Sub-module for Rococo setup.
 pub mod rococo {
-	use super::ParaId;
+	use super::{GenericChainSpec, ParaId};
 	use crate::chain_spec::{
 		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, SAFE_XCM_VERSION,
 	};
@@ -134,23 +120,19 @@ pub mod rococo {
 	pub(crate) const CORETIME_ROCOCO_DEVELOPMENT: &str = "coretime-rococo-dev";
 	const CORETIME_ROCOCO_ED: Balance = parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
 
-	pub type CoretimeChainSpec =
-		sc_service::GenericChainSpec<coretime_rococo_runtime::RuntimeGenesisConfig, Extensions>;
-	pub type RuntimeApi = coretime_rococo_runtime::RuntimeApi;
-
 	pub fn local_config(
 		id: &str,
 		chain_name: &str,
 		relay_chain: &str,
 		para_id: ParaId,
-	) -> CoretimeChainSpec {
+	) -> GenericChainSpec {
 		// Rococo defaults
 		let mut properties = sc_chain_spec::Properties::new();
 		properties.insert("ss58Format".into(), 42.into());
 		properties.insert("tokenSymbol".into(), "ROC".into());
 		properties.insert("tokenDecimals".into(), 12.into());
 
-		CoretimeChainSpec::builder(
+		GenericChainSpec::builder(
 			coretime_rococo_runtime::WASM_BINARY
 				.expect("WASM binary was not built, please build it!"),
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
@@ -213,7 +195,7 @@ pub mod rococo {
 
 /// Sub-module for Westend setup.
 pub mod westend {
-	use super::ParaId;
+	use super::{GenericChainSpec, ParaId};
 	use crate::chain_spec::{
 		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, SAFE_XCM_VERSION,
 	};
@@ -226,23 +208,19 @@ pub mod westend {
 	pub(crate) const CORETIME_WESTEND_DEVELOPMENT: &str = "coretime-westend-dev";
 	const CORETIME_WESTEND_ED: Balance = parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
 
-	pub type CoretimeChainSpec =
-		sc_service::GenericChainSpec<coretime_westend_runtime::RuntimeGenesisConfig, Extensions>;
-	pub type RuntimeApi = coretime_westend_runtime::RuntimeApi;
-
 	pub fn local_config(
 		id: &str,
 		chain_name: &str,
 		relay_chain: &str,
 		para_id: ParaId,
-	) -> CoretimeChainSpec {
+	) -> GenericChainSpec {
 		// westend defaults
 		let mut properties = sc_chain_spec::Properties::new();
 		properties.insert("ss58Format".into(), 42.into());
-		properties.insert("tokenSymbol".into(), "ROC".into());
+		properties.insert("tokenSymbol".into(), "WND".into());
 		properties.insert("tokenDecimals".into(), 12.into());
 
-		CoretimeChainSpec::builder(
+		GenericChainSpec::builder(
 			coretime_westend_runtime::WASM_BINARY
 				.expect("WASM binary was not built, please build it!"),
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
