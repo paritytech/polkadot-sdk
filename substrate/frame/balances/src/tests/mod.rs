@@ -22,7 +22,7 @@
 use crate::{self as pallet_balances, AccountData, Config, CreditOf, Error, Pallet};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-	assert_err, assert_noop, assert_ok, assert_storage_noop,
+	assert_err, assert_noop, assert_ok, assert_storage_noop, derive_impl,
 	dispatch::{DispatchInfo, GetDispatchInfo},
 	parameter_types,
 	traits::{
@@ -90,6 +90,8 @@ parameter_types! {
 		);
 	pub static ExistentialDeposit: u64 = 1;
 }
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = BlockWeights;
