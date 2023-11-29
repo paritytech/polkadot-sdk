@@ -1961,7 +1961,6 @@
 <a href="#1961" id="1961">1961</a>
 <a href="#1962" id="1962">1962</a>
 <a href="#1963" id="1963">1963</a>
-<a href="#1964" id="1964">1964</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2253,7 +2252,7 @@
 
 			<span class="kw">let </span>result = <span class="self">self
 				</span>.exec
-				.call(<span class="kw-2">&amp;mut </span>ext, <span class="self">self</span>.runtime_code, <span class="self">self</span>.method, <span class="self">self</span>.call_data, <span class="bool-val">false</span>, <span class="self">self</span>.context)
+				.call(<span class="kw-2">&amp;mut </span>ext, <span class="self">self</span>.runtime_code, <span class="self">self</span>.method, <span class="self">self</span>.call_data, <span class="self">self</span>.context)
 				.<span class="number">0</span>;
 
 			<span class="self">self</span>.overlay
@@ -3084,10 +3083,9 @@
 			<span class="kw">_</span>: <span class="kw-2">&amp;</span>RuntimeCode,
 			_method: <span class="kw-2">&amp;</span>str,
 			_data: <span class="kw-2">&amp;</span>[u8],
-			use_native: bool,
 			<span class="kw">_</span>: CallContext,
 		) -&gt; (CallResult&lt;<span class="self">Self</span>::Error&gt;, bool) {
-			<span class="kw">let </span>using_native = use_native &amp;&amp; <span class="self">self</span>.native_available;
+			<span class="kw">let </span>using_native = <span class="self">self</span>.native_available;
 			<span class="kw">match </span>(using_native, <span class="self">self</span>.native_succeeds, <span class="self">self</span>.fallback_succeeds) {
 				(<span class="bool-val">true</span>, <span class="bool-val">true</span>, <span class="kw">_</span>) | (<span class="bool-val">false</span>, <span class="kw">_</span>, <span class="bool-val">true</span>) =&gt; (
 					<span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[
