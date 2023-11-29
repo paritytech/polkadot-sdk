@@ -271,7 +271,7 @@ impl HostFn {
 		// process return type
 		let msg = r#"Should return one of the following:
 				- Result<(), TrapReason>,
-				- Result<ReturnCode, TrapReason>,
+				- Result<ReturnErrorCode, TrapReason>,
 				- Result<u64, TrapReason>,
 				- Result<u32, TrapReason>"#;
 		let ret_ty = match item.clone().sig.output {
@@ -336,7 +336,7 @@ impl HostFn {
 							"()" => Ok(HostFnReturn::Unit),
 							"u32" => Ok(HostFnReturn::U32),
 							"u64" => Ok(HostFnReturn::U64),
-							"ReturnCode" => Ok(HostFnReturn::ReturnCode),
+							"ReturnErrorCode" => Ok(HostFnReturn::ReturnCode),
 							_ => Err(err(arg1.span(), &msg)),
 						}?;
 
@@ -550,7 +550,7 @@ fn expand_env(def: &EnvDef, docs: bool) -> TokenStream2 {
 		/// consumed by humans through rustdoc.
 		#[cfg(doc)]
 		pub mod api_doc {
-			use super::{TrapReason, ReturnCode};
+			use super::{TrapReason, ReturnErrorCode};
 			#docs
 		}
 	}
@@ -767,7 +767,7 @@ fn expand_functions(def: &EnvDef, expand_blocks: bool, host_state: TokenStream2)
 /// #[define_env]
 /// pub mod some_env {
 /// 	#[version(2)]
-/// 	fn foo(ctx: _, memory: _, key_ptr: u32, value_ptr: u32, value_len: u32) -> Result<ReturnCode, TrapReason> {
+/// 	fn foo(ctx: _, memory: _, key_ptr: u32, value_ptr: u32, value_len: u32) -> Result<ReturnErrorCode, TrapReason> {
 /// 		ctx.some_host_fn(KeyType::Fix, key_ptr, value_ptr, value_len).map(|_| ())
 /// 	}
 ///
@@ -793,7 +793,7 @@ fn expand_functions(def: &EnvDef, expand_blocks: bool, host_state: TokenStream2)
 /// pub mod some_env {
 /// 	#[version(1)]
 /// 	#[prefixed_alias]
-/// 	fn foo(ctx: _, memory: _, key_ptr: u32, value_ptr: u32, value_len: u32) -> Result<ReturnCode, TrapReason> {
+/// 	fn foo(ctx: _, memory: _, key_ptr: u32, value_ptr: u32, value_len: u32) -> Result<ReturnErrorCode, TrapReason> {
 /// 		ctx.some_host_fn(KeyType::Fix, key_ptr, value_ptr, value_len).map(|_| ())
 /// 	}
 ///
@@ -811,7 +811,7 @@ fn expand_functions(def: &EnvDef, expand_blocks: bool, host_state: TokenStream2)
 ///
 /// Only following return types are allowed for the host functions defined with the macro:
 /// - `Result<(), TrapReason>`,
-/// - `Result<ReturnCode, TrapReason>`,
+/// - `Result<ReturnErrorCode, TrapReason>`,
 /// - `Result<u32, TrapReason>`.
 ///
 /// The macro expands to `pub struct Env` declaration, with the following traits implementations:

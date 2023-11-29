@@ -16,7 +16,7 @@ frame-system = { path = "../../system", default-features = false}
 pallet-assets = { path = "../../assets" }
 pallet-balances = { path = "../../balances" }
 pallet-contracts = { path = ".." }
-pallet-contracts-primitives = { path = "../primitives", default-features = false}
+pallet-contracts-uapi = { path = "../uapi", default-features = false}
 pallet-contracts-proc-macro = { path = "../proc-macro" }
 pallet-insecure-randomness-collective-flip = { path = "../../insecure-randomness-collective-flip" }
 pallet-message-queue = { path = "../../message-queue" }
@@ -52,7 +52,6 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-balances/std",
-	"pallet-contracts-primitives/std",
 	"pallet-contracts-proc-macro/full",
 	"pallet-contracts/std",
 	"pallet-insecure-randomness-collective-flip/std",
