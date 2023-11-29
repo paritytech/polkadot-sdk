@@ -2347,7 +2347,7 @@ impl<T: Config> WrapVersion for Pallet<T> {
 		dest: &MultiLocation,
 		xcm: impl Into<VersionedXcm<RuntimeCall>>,
 	) -> Result<VersionedXcm<RuntimeCall>, ()> {
-		Self::determine_version_for(dest, true)
+		Self::check_version_for(dest, true)
 			.or_else(|| SafeXcmVersion::<T>::get())
 			.ok_or_else(|| {
 				log::trace!(
