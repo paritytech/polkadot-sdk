@@ -186,7 +186,7 @@ fn assert_set_id_parachain(id: Identity) {
 		assert!(PeopleRococoIdentity::identity(&PeopleRococoSender::get()).is_some());
 		let (_, sub_accounts) =
 			<PeopleRococo as PeopleRococoPallet>::Identity::subs_of(&PeopleRococoSender::get());
-		assert!(sub_accounts.len() > 0);
+		assert_eq!(sub_accounts.len(), 1);
 	});
 }
 
