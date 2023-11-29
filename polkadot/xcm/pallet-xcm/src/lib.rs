@@ -514,6 +514,8 @@ pub mod pallet {
 		CannotReanchor,
 		/// Too many assets have been attempted for transfer.
 		TooManyAssets,
+		/// The amount of the asset requested could not be withdrawn from the origin.
+		CannotWithdraw,
 		/// Origin is invalid for sending.
 		InvalidOrigin,
 		/// The version of the `Versioned` value used is not able to be interpreted.

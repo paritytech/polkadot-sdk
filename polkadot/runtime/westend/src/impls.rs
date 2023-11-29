@@ -100,6 +100,12 @@ where
 		// Do `check_out` accounting since the XCM Executor's `InitiateTeleport` doesn't support
 		// unpaid teleports.
 
+		// withdraw the asset from `who`
+		let who_origin =
+			Junction::AccountId32 { network: None, id: who.clone().into() }.into_location();
+		let _withdrawn = xcm_config::LocalAssetTransactor::withdraw_asset(&wnd, &who_origin, None)
+			.map_err(|_| pallet_xcm::Error::<Runtime>::CannotWithdraw)?;
+
 		// check out
 		xcm_config::LocalAssetTransactor::can_check_out(
 			&destination,
