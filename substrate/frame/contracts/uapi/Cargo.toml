@@ -17,6 +17,9 @@ scale = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 	"max-encoded-len",
 ], optional = true }
 
+[target.'cfg(target_arch = "riscv32")'.dependencies]
+polkavm-derive = '0.2.0'
+
 [features]
 default = [ "scale" ]
 scale = [ "dep:scale", "scale-info" ]

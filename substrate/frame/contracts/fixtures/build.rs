@@ -16,7 +16,7 @@
 // limitations under the License.
 
 //! Compile contracts to wasm and RISC-V binaries.
-use anyhow::Result;
+use anyhow::{bail, format_err, Context, Result};
 use parity_wasm::elements::{deserialize_file, serialize_to_file, Internal};
 use std::{
 	env, fs,
@@ -69,6 +69,10 @@ impl Entry {
 	fn out_wasm_filename(&self) -> String {
 		format!("{}.wasm", self.name())
 	}
+	/// Return the name of the RISC-V polkavm file.
+	fn out_riscv_filename(&self) -> String {
+		format!("{}.polkavm", self.name())
+	}
 }
 
 /// Collect all contract entries from the given source directory.
@@ -113,6 +117,7 @@ edition = '2021'
 [dependencies]
 uapi = {{ package = 'pallet-contracts-uapi', default-features = false, path = {uapi_path:?}}}
 common = {{ package = 'pallet-contracts-fixtures-common',  path = {common_path:?}}}
+polkavm-derive = '0.2.0'
 
 [profile.release]
 opt-level = 3
@@ -173,11 +178,38 @@ fn invoke_cargo_fmt<'a>(
 		config_path.display(),
 		contract_dir.display()
 	);
-	anyhow::bail!("Fixtures files are not formatted")
+	bail!("Fixtures files are not formatted")
 }
 
-/// Invoke `cargo build` to compile the contracts.
-fn invoke_build(current_dir: &Path) -> Result<()> {
+fn invoke_riscv_build(current_dir: &Path) -> Result<()> {
+	let encoded_rustflags =
+		["-Crelocation-model=pie", "-Clink-arg=--emit-relocs", "-Clink-arg=-Tmemory.ld"]
+			.join("\x1f");
+
+	fs::write(current_dir.join("memory.ld"), include_bytes!("./riscv/memory_layout.ld"))?;
+
+	let build_res = Command::new(env::var("CARGO")?)
+		.current_dir(current_dir)
+		.env_clear()
+		.env("PATH", env::var("PATH").unwrap())
+		.env("RUSTUP_TOOLCHAIN", env::var("RUSTUP_TOOLCHAIN").unwrap())
+		.env("CARGO_ENCODED_RUSTFLAGS", encoded_rustflags)
+		.env("RUSTUP_TOOLCHAIN", "rv32e-nightly-2023-04-05")
+		.args(&["build", "--release", "--target=riscv32em-unknown-none-elf"])
+		.output()
+		.expect("failed to execute process");
+
+	if build_res.status.success() {
+		return Ok(())
+	}
+
+	let stderr = String::from_utf8_lossy(&build_res.stderr);
+	eprintln!("{}", stderr);
+	bail!("Failed to build contracts");
+}
+
+/// Build the wasm contracts.
+fn invoke_wasm_build(current_dir: &Path) -> Result<()> {
 	let encoded_rustflags = [
 		"-Clink-arg=-zstack-size=65536",
 		"-Clink-arg=--import-memory",
@@ -200,12 +232,13 @@ fn invoke_build(current_dir: &Path) -> Result<()> {
 
 	let stderr = String::from_utf8_lossy(&build_res.stderr);
 	eprintln!("{}", stderr);
-	anyhow::bail!("Failed to build contracts");
+	bail!("Failed to build contracts");
 }
 
 /// Post-process the compiled wasm contracts.
 fn post_process_wasm(input_path: &Path, output_path: &Path) -> Result<()> {
-	let mut module = deserialize_file(input_path)?;
+	let mut module =
+		deserialize_file(input_path).with_context(|| format!("Failed to read {:?}", input_path))?;
 	if let Some(section) = module.export_section_mut() {
 		section.entries_mut().retain(|entry| {
 			matches!(entry.internal(), Internal::Function(_)) &&
@@ -216,6 +249,16 @@ fn post_process_wasm(input_path: &Path, output_path: &Path) -> Result<()> {
 	serialize_to_file(output_path, module).map_err(Into::into)
 }
 
+/// Post-process the compiled wasm contracts.
+fn post_process_riscv(input_path: &Path, output_path: &Path) -> Result<()> {
+	let mut config = polkavm_linker::Config::default();
+	config.set_strip(true);
+	let orig = fs::read(input_path).with_context(|| format!("Failed to read {:?}", input_path))?;
+	let linked = polkavm_linker::program_from_elf(config, orig.as_ref())
+		.map_err(|err| format_err!("Failed to link polkavm program: {}", err))?;
+	fs::write(output_path, linked.as_bytes()).map_err(Into::into)
+}
+
 /// Write the compiled contracts to the given output directory.
 fn write_output(build_dir: &Path, out_dir: &Path, entries: Vec<Entry>) -> Result<()> {
 	for entry in entries {
@@ -224,6 +267,12 @@ fn write_output(build_dir: &Path, out_dir: &Path, entries: Vec<Entry>) -> Result
 			&build_dir.join("target/wasm32-unknown-unknown/release").join(&wasm_output),
 			&out_dir.join(&wasm_output),
 		)?;
+
+		post_process_riscv(
+			&build_dir.join("target/riscv32em-unknown-none-elf/release").join(&entry.name()),
+			&out_dir.join(&entry.out_riscv_filename()),
+		)?;
+
 		fs::write(out_dir.join(&entry.hash), "")?;
 	}
 
@@ -270,7 +319,8 @@ fn main() -> Result<()> {
 		&contracts_dir,
 	)?;
 
-	invoke_build(tmp_dir_path)?;
+	invoke_wasm_build(tmp_dir_path)?;
+	invoke_riscv_build(tmp_dir_path)?;
 	write_output(tmp_dir_path, &out_dir, entries)?;
 
 	Ok(())

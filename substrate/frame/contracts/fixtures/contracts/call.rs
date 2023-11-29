@@ -23,9 +23,11 @@ extern crate common;
 use uapi::{CallFlags, HostFn, HostFnImpl as api};
 
 #[no_mangle]
+#[polkavm_derive::polkavm_export]
 pub extern "C" fn deploy() {}
 
 #[no_mangle]
+#[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
 	let mut buffer = [0u8; 40];
 	let callee_input = 0..4;
