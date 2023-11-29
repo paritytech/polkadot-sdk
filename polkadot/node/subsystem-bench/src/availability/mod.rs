@@ -363,12 +363,8 @@ pub async fn benchmark_availability_read(env: &mut TestEnvironment, mut state: T
 
 		let block_time = Instant::now().sub(block_start_ts).as_millis() as u64;
 		env.metrics().set_block_time(block_time);
-		gum::info!("Block time {}", format!("{:?}ms", block_time).cyan());
-		gum::info!(target: LOG_TARGET,"{}", format!("Sleeping till end of block ({}ms)", block_time_delta.as_millis()).bright_black());
-		tokio::time::sleep(block_time_delta).await;
+		gum::info!("All work for block completed in {}", format!("{:?}ms", block_time).cyan());
 	}
-
-	env.stop().await;
 
 	let duration: u128 = start_marker.elapsed().as_millis();
 	let availability_bytes = availability_bytes / 1024;
@@ -384,4 +380,5 @@ pub async fn benchmark_availability_read(env: &mut TestEnvironment, mut state: T
 	);
 
 	gum::info!("{}", &env);
+	env.stop().await;
 }
