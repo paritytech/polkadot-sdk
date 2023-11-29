@@ -1650,8 +1650,12 @@ pub mod migrations {
 	/// `AssetHubWestend`. Migrates pools with `Location { parents: 0, interior: Here }` to
 	/// `Location { parents: 1, interior: Here }`
 	pub struct NativeAssetParents0ToParents1Migration<T>(sp_std::marker::PhantomData<T>);
-	impl<T: pallet_asset_conversion::Config<MultiAssetId = Box<xcm::v3::MultiLocation>, AssetId = xcm::v3::MultiLocation>>
-		OnRuntimeUpgrade for NativeAssetParents0ToParents1Migration<T>
+	impl<
+			T: pallet_asset_conversion::Config<
+				MultiAssetId = Box<xcm::v3::MultiLocation>,
+				AssetId = xcm::v3::MultiLocation,
+			>,
+		> OnRuntimeUpgrade for NativeAssetParents0ToParents1Migration<T>
 	where
 		<T as pallet_asset_conversion::Config>::PoolAssetId: Into<u32>,
 		AccountIdOf<Runtime>: Into<[u8; 32]>,
