@@ -154,7 +154,7 @@ pub fn teleports_for_native_asset_works<
 				RuntimeHelper::<Runtime>::xcm_max_weight(XcmReceivedFrom::Parent),
 				Weight::zero(),
 			);
-			assert_eq!(outcome.ensure_complete(), Ok(()));
+			assert_ok!(outcome.ensure_complete());
 
 			// check Balances after
 			assert_ne!(<pallet_balances::Pallet<Runtime>>::free_balance(&target_account), 0.into());
@@ -502,7 +502,7 @@ pub fn teleports_for_foreign_assets_works<
 				RuntimeHelper::<Runtime>::xcm_max_weight(XcmReceivedFrom::Sibling),
 				Weight::zero(),
 			);
-			assert_eq!(outcome.ensure_complete(), Ok(()));
+			assert_ok!(outcome.ensure_complete());
 
 			// checks target_account after
 			assert_eq!(
@@ -1212,7 +1212,7 @@ pub fn create_and_manage_foreign_assets_for_local_consensus_parachain_assets_wor
 				RuntimeHelper::<Runtime>::xcm_max_weight(XcmReceivedFrom::Sibling),
 				Weight::zero(),
 			);
-			assert_eq!(outcome.ensure_complete(), Ok(()));
+			assert_ok!(outcome.ensure_complete());
 
 			// check events
 			let mut events = <frame_system::Pallet<Runtime>>::events()
@@ -1321,7 +1321,7 @@ pub fn create_and_manage_foreign_assets_for_local_consensus_parachain_assets_wor
 				RuntimeHelper::<Runtime>::xcm_max_weight(XcmReceivedFrom::Sibling),
 				Weight::zero(),
 			);
-			assert_eq!(outcome.ensure_complete(), Ok(()));
+			assert_ok!(outcome.ensure_complete());
 
 			additional_checks_after();
 		})

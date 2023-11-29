@@ -45,6 +45,8 @@ parameter_types! {
 	pub BlockWeights: frame_system::limits::BlockWeights =
 		frame_system::limits::BlockWeights::simple_max(Weight::from_parts(1024, u64::MAX));
 }
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = Everything;
 	type BlockWeights = ();

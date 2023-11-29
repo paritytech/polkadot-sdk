@@ -16,7 +16,7 @@
 
 use codec::Encode;
 use frame_support::{
-	construct_runtime, parameter_types,
+	construct_runtime, derive_impl, parameter_types,
 	traits::{
 		AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, Equals, Everything, EverythingBut,
 		Nothing,
@@ -150,6 +150,7 @@ construct_runtime!(
 
 thread_local! {
 	pub static SENT_XCM: RefCell<Vec<(Location, Xcm<()>)>> = RefCell::new(Vec::new());
+	pub static FAIL_SEND_XCM: RefCell<bool> = RefCell::new(false);
 }
 pub(crate) fn sent_xcm() -> Vec<(Location, Xcm<()>)> {
 	SENT_XCM.with(|q| (*q.borrow()).clone())
@@ -161,6 +162,9 @@ pub(crate) fn take_sent_xcm() -> Vec<(Location, Xcm<()>)> {
 		r
 	})
 }
+pub(crate) fn set_send_xcm_artificial_failure(should_fail: bool) {
+	FAIL_SEND_XCM.with(|q| *q.borrow_mut() = should_fail);
+}
 /// Sender that never returns error.
 pub struct TestSendXcm;
 impl SendXcm for TestSendXcm {
@@ -169,6 +173,9 @@ impl SendXcm for TestSendXcm {
 		dest: &mut Option<Location>,
 		msg: &mut Option<Xcm<()>>,
 	) -> SendResult<(Location, Xcm<()>)> {
+		if FAIL_SEND_XCM.with(|q| *q.borrow()) {
+			return Err(SendError::Transport("Intentional send failure used in tests"))
+		}
 		let pair = (dest.take().unwrap(), msg.take().unwrap());
 		Ok((pair, Assets::new()))
 	}
@@ -236,6 +243,7 @@ parameter_types! {
 	pub const BlockHashCount: u64 = 250;
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;

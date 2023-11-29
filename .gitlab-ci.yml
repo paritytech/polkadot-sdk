@@ -69,7 +69,6 @@ default:
 .common-before-script:
   before_script:
     - !reference [.job-switcher, before_script]
-    - !reference [.timestamp, before_script]
     - !reference [.pipeline-stopper-vars, script]
 
 .job-switcher:
@@ -211,10 +210,6 @@ include:
   - .gitlab/pipeline/publish.yml
   # zombienet jobs
   - .gitlab/pipeline/zombienet.yml
-  # timestamp handler
-  - project: parity/infrastructure/ci_cd/shared
-    ref: v0.2
-    file: /common/timestamp.yml
   # ci image
   - project: parity/infrastructure/ci_cd/shared
     ref: main

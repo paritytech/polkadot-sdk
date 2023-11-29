@@ -76,6 +76,8 @@ pub enum NetworkId {
 	BitcoinCore,
 	/// The Bitcoin network, including hard-forks supported by Bitcoin Cash developers.
 	BitcoinCash,
+	/// The Polkadot Bulletin chain.
+	PolkadotBulletin,
 }
 
 impl From<OldNetworkId> for Option<NetworkId> {
