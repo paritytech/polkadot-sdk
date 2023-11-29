@@ -36,10 +36,6 @@ impl From<Vec<TestMetric>> for MetricCollection {
 }
 
 impl MetricCollection {
-	pub fn get(&self, name: &str) -> Vec<&TestMetric> {
-		self.all().into_iter().filter(|metric| &metric.name == name).collect()
-	}
-
 	pub fn all(&self) -> &Vec<TestMetric> {
 		&self.0
 	}

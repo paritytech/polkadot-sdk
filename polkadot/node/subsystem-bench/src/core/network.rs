@@ -225,12 +225,12 @@ impl PeerEmulatorStats {
 
 	pub fn inc_sent(&self, bytes: usize) {
 		self.tx_bytes_total.fetch_add(bytes as u64, Ordering::Relaxed);
-		self.metrics.on_peer_sent(self.peer_index, bytes as u64);
+		self.metrics.on_peer_sent(self.peer_index, bytes);
 	}
 
 	pub fn inc_received(&self, bytes: usize) {
 		self.rx_bytes_total.fetch_add(bytes as u64, Ordering::Relaxed);
-		self.metrics.on_peer_received(self.peer_index, bytes as u64);
+		self.metrics.on_peer_received(self.peer_index, bytes);
 	}
 
 	pub fn sent(&self) -> u64 {
@@ -346,13 +346,13 @@ impl NetworkEmulator {
 	}
 
 	// Increment bytes sent by our node (the node that contains the subsystem under test)
-	pub fn inc_sent(&self, bytes: u64) {
+	pub fn inc_sent(&self, bytes: usize) {
 		// Our node always is peer 0.
 		self.metrics.on_peer_sent(0, bytes);
 	}
 
 	// Increment bytes received by our node (the node that contains the subsystem under test)
-	pub fn inc_received(&self, bytes: u64) {
+	pub fn inc_received(&self, bytes: usize) {
 		// Our node always is peer 0.
 		self.metrics.on_peer_received(0, bytes);
 	}
@@ -398,16 +398,16 @@ impl Metrics {
 	}
 
 	/// Increment total sent for a peer.
-	pub fn on_peer_sent(&self, peer_index: usize, bytes: u64) {
+	pub fn on_peer_sent(&self, peer_index: usize, bytes: usize) {
 		self.peer_total_sent
 			.with_label_values(vec![format!("node{}", peer_index).as_str()].as_slice())
-			.inc_by(bytes);
+			.inc_by(bytes as u64);
 	}
 
 	/// Increment total receioved for a peer.
-	pub fn on_peer_received(&self, peer_index: usize, bytes: u64) {
+	pub fn on_peer_received(&self, peer_index: usize, bytes: usize) {
 		self.peer_total_received
 			.with_label_values(vec![format!("node{}", peer_index).as_str()].as_slice())
-			.inc_by(bytes);
+			.inc_by(bytes as u64);
 	}
 }

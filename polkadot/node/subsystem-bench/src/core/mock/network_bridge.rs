@@ -219,19 +219,18 @@ impl MockNetworkBridgeTx {
 		// Initialize our node bandwidth limits.
 		let mut rx_limiter = RateLimit::new(10, self.config.bandwidth);
 
-		// Get a handle to our node network emulation stats.
-		let our_network_stats = self.network.peer_stats(0);
-		// This task will handle receipt of messages on our simulated network of the node.
+		let our_network = self.network.clone();
+
+		// This task will handle node messages receipt from the simulated network.
 		let _ = ctx
 			.spawn_blocking(
-				"node0-rx",
+				"network-receive",
 				async move {
 					while let Some(action) = ingress_rx.recv().await {
 						let size = action.size();
 
 						// account for our node receiving the data.
-						our_network_stats.inc_received(size);
-
+						our_network.inc_received(size);
 						rx_limiter.reap(size).await;
 						action.run().await;
 					}
@@ -271,12 +270,11 @@ impl MockNetworkBridgeTx {
 }
 
 // A helper to determine the request payload size.
-fn request_size(request: &Requests) -> u64 {
+fn request_size(request: &Requests) -> usize {
 	match request {
-		Requests::ChunkFetchingV1(outgoing_request) =>
-			outgoing_request.payload.encoded_size() as u64,
+		Requests::ChunkFetchingV1(outgoing_request) => outgoing_request.payload.encoded_size(),
 		Requests::AvailableDataFetchingV1(outgoing_request) =>
-			outgoing_request.payload.encoded_size() as u64,
-		_ => panic!("received an unexpected request"),
+			outgoing_request.payload.encoded_size(),
+		_ => unimplemented!("received an unexpected request"),
 	}
 }

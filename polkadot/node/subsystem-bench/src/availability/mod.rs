@@ -105,11 +105,6 @@ fn prepare_test_inner(
 	state: &mut TestState,
 	dependencies: TestEnvironmentDependencies,
 ) -> (TestEnvironment, ProtocolConfig) {
-	// We need to first create the high level test state object.
-	// This will then be decomposed into per subsystem states.
-	let candidate_count = config.n_cores * config.num_blocks;
-	state.generate_candidates(candidate_count);
-
 	// Generate test authorities.
 	let test_authorities = config.generate_authorities();
 
@@ -173,6 +168,7 @@ fn prepare_test_inner(
 pub struct TestState {
 	// Full test configuration
 	config: TestConfiguration,
+	// A cycle iterator on all PoV sizes used in the test.
 	pov_sizes: Cycle<std::vec::IntoIter<usize>>,
 	// Generated candidate receipts to be used in the test
 	candidates: Cycle<std::vec::IntoIter<CandidateReceipt>>,
@@ -181,9 +177,11 @@ pub struct TestState {
 	// Map from generated candidate hashes to candidate index in `available_data`
 	// and `chunks`.
 	candidate_hashes: HashMap<CandidateHash, usize>,
-
-	candidate_receipts: Vec<CandidateReceipt>,
+	// Per candidate index receipts.
+	candidate_receipt_templates: Vec<CandidateReceipt>,
+	// Per candidate index `AvailableData`
 	available_data: Vec<AvailableData>,
+	// Per candiadte index chunks
 	chunks: Vec<Vec<ErasureChunk>>,
 }
 
@@ -200,7 +198,8 @@ impl TestState {
 	}
 
 	/// Generate candidates to be used in the test.
-	pub fn generate_candidates(&mut self, count: usize) {
+	fn generate_candidates(&mut self) {
+		let count = self.config.n_cores * self.config.num_blocks;
 		gum::info!(target: LOG_TARGET,"{}", format!("Pre-generating {} candidates.", count).bright_blue());
 
 		// Generate all candidates
@@ -211,7 +210,8 @@ impl TestState {
 					.pov_size_to_candidate
 					.get(&pov_size)
 					.expect("pov_size always exists; qed");
-				let mut candidate_receipt = self.candidate_receipts[candidate_index].clone();
+				let mut candidate_receipt =
+					self.candidate_receipt_templates[candidate_index].clone();
 
 				// Make it unique.
 				candidate_receipt.descriptor.relay_parent = Hash::from_low_u64_be(index as u64);
@@ -232,7 +232,7 @@ impl TestState {
 
 		let mut chunks = Vec::new();
 		let mut available_data = Vec::new();
-		let mut candidate_receipts = Vec::new();
+		let mut candidate_receipt_templates = Vec::new();
 		let mut pov_size_to_candidate = HashMap::new();
 
 		// we use it for all candidates.
@@ -266,22 +266,25 @@ impl TestState {
 			chunks.push(new_chunks);
 			available_data.push(new_available_data);
 			pov_size_to_candidate.insert(pov_size, index);
-			candidate_receipts.push(candidate_receipt);
+			candidate_receipt_templates.push(candidate_receipt);
 		}
 
 		let pov_sizes = config.pov_sizes().to_vec().into_iter().cycle();
 		gum::info!(target: LOG_TARGET, "{}","Created test environment.".bright_blue());
 
-		Self {
+		let mut _self = Self {
 			config,
 			available_data,
-			candidate_receipts,
+			candidate_receipt_templates,
 			chunks,
 			pov_size_to_candidate,
 			pov_sizes,
 			candidate_hashes: HashMap::new(),
 			candidates: Vec::new().into_iter().cycle(),
-		}
+		};
+
+		_self.generate_candidates();
+		_self
 	}
 }
 

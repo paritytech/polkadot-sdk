@@ -20,6 +20,7 @@ use crate::{
 };
 use colored::Colorize;
 use core::time::Duration;
+use futures::FutureExt;
 use polkadot_overseer::{BlockInfo, Handle as OverseerHandle};
 
 use polkadot_node_subsystem::{messages::AllMessages, Overseer, SpawnGlue, TimeoutExt};
@@ -179,23 +180,22 @@ const MAX_TIME_OF_FLIGHT: Duration = Duration::from_millis(5000);
 /// ### CLI
 /// A subset of the Prometheus metrics are printed at the end of the test.
 pub struct TestEnvironment {
-	// Test dependencies
+	/// Test dependencies
 	dependencies: TestEnvironmentDependencies,
-	// A runtime handle
+	/// A runtime handle
 	runtime_handle: tokio::runtime::Handle,
-	// A handle to the lovely overseer
+	/// A handle to the lovely overseer
 	overseer_handle: OverseerHandle,
-	// The test configuration.
+	/// The test configuration.
 	config: TestConfiguration,
-	// A handle to the network emulator.
+	/// A handle to the network emulator.
 	network: NetworkEmulator,
-	// Configuration/env metrics
+	/// Configuration/env metrics
 	metrics: TestEnvironmentMetrics,
 }
 
 impl TestEnvironment {
-	// Create a new test environment with specified initial state and prometheus registry.
-	// We use prometheus metrics to collect per job task poll time and subsystem metrics.
+	/// Create a new test environment
 	pub fn new(
 		dependencies: TestEnvironmentDependencies,
 		config: TestConfiguration,
@@ -207,8 +207,8 @@ impl TestEnvironment {
 			.expect("Metrics need to be registered");
 
 		let spawn_handle = dependencies.task_manager.spawn_handle();
+		spawn_handle.spawn_blocking("overseer", "overseer", overseer.run().boxed());
 
-		spawn_handle.spawn_blocking("overseer", "overseer", overseer.run());
 		let registry_clone = dependencies.registry.clone();
 		dependencies.task_manager.spawn_handle().spawn_blocking(
 			"prometheus",
