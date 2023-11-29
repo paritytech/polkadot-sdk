@@ -9,10 +9,16 @@ description = "Fixtures for testing contracts pallet."
 
 [dependencies]
 wat = "1"
-frame-system = { path = "../../system", default-features = false}
-sp-runtime = { path = "../../../primitives/runtime", default-features = false}
+frame-system = { path = "../../system" }
+sp-runtime = { path = "../../../primitives/runtime" }
+anyhow = "1.0.0"
 
-[features]
-default = [ "std" ]
-std = [ "frame-system/std", "sp-runtime/std" ]
+[build-dependencies]
+parity-wasm = "0.45.0"
+tempfile = "3.8.1"
+toml = "0.8.8"
+twox-hash = "1.6.3"
+anyhow = "1.0.0"
+cfg-if = { version = "1.0", default-features = false }
+
 
