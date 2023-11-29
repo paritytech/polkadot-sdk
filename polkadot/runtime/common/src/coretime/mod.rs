@@ -76,8 +76,6 @@ pub mod pallet {
 	pub trait Config: frame_system::Config + assigner_bulk::Config {
 		/// The runtime's definition of a Currency.
 		type Currency: Currency<Self::AccountId>;
-		/// Something that provides the weight of this pallet.
-		//type WeightInfo: WeightInfo;
 		/// The external origin allowed to enact coretime extrinsics. Usually the broker system
 		/// parachain.
 		type ExternalBrokerOrigin: EnsureOrigin<Self::RuntimeOrigin>;
