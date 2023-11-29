@@ -1013,14 +1013,14 @@ fn determine_and_wrap_version_works() {
 		assert_eq!(XcmPallet::determine_version_for(&remote_c, false), None);
 		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![]);
 
-		// set default xcm version (a.k.a. `safe_xcm_version`)
+		// set default XCM version (a.k.a. `safe_xcm_version`)
 		assert_ok!(XcmPallet::force_default_xcm_version(RuntimeOrigin::root(), Some(1)));
 		assert_eq!(XcmPallet::determine_version_for(&remote_a, false), None);
 		assert_eq!(XcmPallet::determine_version_for(&remote_b, false), None);
 		assert_eq!(XcmPallet::determine_version_for(&remote_c, false), None);
 		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![]);
 
-		// set xcm version only for `remote_a`
+		// set XCM version only for `remote_a`
 		assert_ok!(XcmPallet::force_xcm_version(
 			RuntimeOrigin::root(),
 			Box::new(remote_a),
@@ -1031,7 +1031,7 @@ fn determine_and_wrap_version_works() {
 		assert_eq!(XcmPallet::determine_version_for(&remote_c, false), None);
 		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![]);
 
-		// check xcm version for `remote_b` with `handle_unknown=true`
+		// check XCM version for `remote_b` with `handle_unknown=true`
 		assert_eq!(XcmPallet::determine_version_for(&remote_b, true), None);
 		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![(remote_b.into(), 1)]);
 

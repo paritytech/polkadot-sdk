@@ -796,7 +796,7 @@ macro_rules! impl_xcm_helpers_for_parachain {
 	( $chain:ident ) => {
 		$crate::impls::paste::paste! {
 			impl<N: $crate::impls::Network> $chain<N> {
-				/// Set xcm version for destination
+				/// Set XCM version for destination
 				pub fn force_xcm_version(dest: $crate::impls::MultiLocation, version: $crate::impls::XcmVersion) {
 					<Self as $crate::impls::TestExt>::execute_with(|| {
 						$crate::impls::assert_ok!(<Self as [<$chain ParaPallet>]>::PolkadotXcm::force_xcm_version(
