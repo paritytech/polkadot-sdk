@@ -268,6 +268,8 @@ fn assert_reap_parachain(id: Identity) {
 	});
 }
 
+// We don't loop through ids and assert because genesis state is
+// required for each test
 #[test]
 fn on_reap_identity_works_for_first_instance() {
 	let ids = identities();
