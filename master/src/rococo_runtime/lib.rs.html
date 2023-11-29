@@ -4232,7 +4232,7 @@
 	}
 
 	<span class="attr">#[api_version(<span class="number">9</span>)]
-	</span><span class="kw">impl </span>primitives::runtime_api::ParachainHost&lt;Block, Hash, BlockNumber&gt; <span class="kw">for </span>Runtime {
+	</span><span class="kw">impl </span>primitives::runtime_api::ParachainHost&lt;Block&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>validators() -&gt; Vec&lt;ValidatorId&gt; {
 			parachains_runtime_api_impl::validators::&lt;Runtime&gt;()
 		}

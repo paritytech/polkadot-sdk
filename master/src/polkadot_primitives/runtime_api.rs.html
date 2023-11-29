@@ -273,6 +273,9 @@
 <a href="#273" id="273">273</a>
 <a href="#274" id="274">274</a>
 <a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -391,11 +394,10 @@
 </span><span class="kw">use crate</span>::{
 	async_backing, slashing, vstaging, AsyncBackingParams, BlockNumber, CandidateCommitments,
 	CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState,
-	ExecutorParams, GroupRotationInfo, OccupiedCoreAssumption, PersistedValidationData,
+	ExecutorParams, GroupRotationInfo, Hash, OccupiedCoreAssumption, PersistedValidationData,
 	PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
 	ValidatorSignature,
 };
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>polkadot_core_primitives <span class="kw">as </span>pcp;
 <span class="kw">use </span>polkadot_parachain_primitives::primitives <span class="kw">as </span>ppp;
 <span class="kw">use </span>sp_std::{collections::btree_map::BTreeMap, prelude::<span class="kw-2">*</span>};
@@ -403,18 +405,18 @@
 <span class="macro">sp_api::decl_runtime_apis! </span>{
 	<span class="doccomment">/// The API for querying the state of parachains on-chain.
 	</span><span class="attr">#[api_version(<span class="number">5</span>)]
-	</span><span class="kw">pub trait </span>ParachainHost&lt;H: Encode + Decode = pcp::v2::Hash, N: Encode + Decode = pcp::v2::BlockNumber&gt; {
+	</span><span class="kw">pub trait </span>ParachainHost {
 		<span class="doccomment">/// Get the current validators.
 		</span><span class="kw">fn </span>validators() -&gt; Vec&lt;ValidatorId&gt;;
 
 		<span class="doccomment">/// Returns the validator groups and rotation info localized based on the hypothetical child
 		///  of a block whose state  this is invoked on. Note that `now` in the `GroupRotationInfo`
 		/// should be the successor of the number of the block.
-		</span><span class="kw">fn </span>validator_groups() -&gt; (Vec&lt;Vec&lt;ValidatorIndex&gt;&gt;, GroupRotationInfo&lt;N&gt;);
+		</span><span class="kw">fn </span>validator_groups() -&gt; (Vec&lt;Vec&lt;ValidatorIndex&gt;&gt;, GroupRotationInfo&lt;BlockNumber&gt;);
 
 		<span class="doccomment">/// Yields information on all availability cores as relevant to the child block.
 		/// Cores are either free or occupied. Free cores can have paras assigned to them.
-		</span><span class="kw">fn </span>availability_cores() -&gt; Vec&lt;CoreState&lt;H, N&gt;&gt;;
+		</span><span class="kw">fn </span>availability_cores() -&gt; Vec&lt;CoreState&lt;Hash, BlockNumber&gt;&gt;;
 
 		<span class="doccomment">/// Yields the persisted validation data for the given `ParaId` along with an assumption that
 		/// should be used if the para currently occupies a core.
@@ -422,15 +424,15 @@
 		/// Returns `None` if either the para is not registered or the assumption is `Freed`
 		/// and the para already occupies a core.
 		</span><span class="kw">fn </span>persisted_validation_data(para_id: ppp::Id, assumption: OccupiedCoreAssumption)
-			-&gt; <span class="prelude-ty">Option</span>&lt;PersistedValidationData&lt;H, N&gt;&gt;;
+			-&gt; <span class="prelude-ty">Option</span>&lt;PersistedValidationData&lt;Hash, BlockNumber&gt;&gt;;
 
 		<span class="doccomment">/// Returns the persisted validation data for the given `ParaId` along with the corresponding
 		/// validation code hash. Instead of accepting assumption about the para, matches the validation
 		/// data hash against an expected one and yields `None` if they&#39;re not equal.
 		</span><span class="kw">fn </span>assumed_validation_data(
 			para_id: ppp::Id,
-			expected_persisted_validation_data_hash: pcp::v2::Hash,
-		) -&gt; <span class="prelude-ty">Option</span>&lt;(PersistedValidationData&lt;H, N&gt;, ppp::ValidationCodeHash)&gt;;
+			expected_persisted_validation_data_hash: Hash,
+		) -&gt; <span class="prelude-ty">Option</span>&lt;(PersistedValidationData&lt;Hash, BlockNumber&gt;, ppp::ValidationCodeHash)&gt;;
 
 		<span class="doccomment">/// Checks if the given validation outputs pass the acceptance criteria.
 		</span><span class="kw">fn </span>check_validation_outputs(para_id: ppp::Id, outputs: CandidateCommitments) -&gt; bool;
@@ -444,30 +446,34 @@
 		///
 		/// Returns `None` if either the para is not registered or the assumption is `Freed`
 		/// and the para already occupies a core.
-		</span><span class="kw">fn </span>validation_code(para_id: ppp::Id, assumption: OccupiedCoreAssumption)
-			-&gt; <span class="prelude-ty">Option</span>&lt;ppp::ValidationCode&gt;;
+		</span><span class="kw">fn </span>validation_code(
+			para_id: ppp::Id,
+			assumption: OccupiedCoreAssumption,
+		) -&gt; <span class="prelude-ty">Option</span>&lt;ppp::ValidationCode&gt;;
 
 		<span class="doccomment">/// Get the receipt of a candidate pending availability. This returns `Some` for any paras
 		/// assigned to occupied cores in `availability_cores` and `None` otherwise.
-		</span><span class="kw">fn </span>candidate_pending_availability(para_id: ppp::Id) -&gt; <span class="prelude-ty">Option</span>&lt;CommittedCandidateReceipt&lt;H&gt;&gt;;
+		</span><span class="kw">fn </span>candidate_pending_availability(para_id: ppp::Id) -&gt; <span class="prelude-ty">Option</span>&lt;CommittedCandidateReceipt&lt;Hash&gt;&gt;;
 
 		<span class="doccomment">/// Get a vector of events concerning candidates that occurred within a block.
-		</span><span class="kw">fn </span>candidate_events() -&gt; Vec&lt;CandidateEvent&lt;H&gt;&gt;;
+		</span><span class="kw">fn </span>candidate_events() -&gt; Vec&lt;CandidateEvent&lt;Hash&gt;&gt;;
 
 		<span class="doccomment">/// Get all the pending inbound messages in the downward message queue for a para.
 		</span><span class="kw">fn </span>dmq_contents(
 			recipient: ppp::Id,
-		) -&gt; Vec&lt;pcp::v2::InboundDownwardMessage&lt;N&gt;&gt;;
+		) -&gt; Vec&lt;pcp::v2::InboundDownwardMessage&lt;BlockNumber&gt;&gt;;
 
 		<span class="doccomment">/// Get the contents of all channels addressed to the given recipient. Channels that have no
 		/// messages in them are also included.
-		</span><span class="kw">fn </span>inbound_hrmp_channels_contents(recipient: ppp::Id) -&gt; BTreeMap&lt;ppp::Id, Vec&lt;pcp::v2::InboundHrmpMessage&lt;N&gt;&gt;&gt;;
+		</span><span class="kw">fn </span>inbound_hrmp_channels_contents(
+			recipient: ppp::Id,
+		) -&gt; BTreeMap&lt;ppp::Id, Vec&lt;pcp::v2::InboundHrmpMessage&lt;BlockNumber&gt;&gt;&gt;;
 
 		<span class="doccomment">/// Get the validation code from its hash.
 		</span><span class="kw">fn </span>validation_code_by_hash(hash: ppp::ValidationCodeHash) -&gt; <span class="prelude-ty">Option</span>&lt;ppp::ValidationCode&gt;;
 
 		<span class="doccomment">/// Scrape dispute relevant from on-chain, backing votes and resolved disputes.
-		</span><span class="kw">fn </span>on_chain_votes() -&gt; <span class="prelude-ty">Option</span>&lt;ScrapedOnChainVotes&lt;H&gt;&gt;;
+		</span><span class="kw">fn </span>on_chain_votes() -&gt; <span class="prelude-ty">Option</span>&lt;ScrapedOnChainVotes&lt;Hash&gt;&gt;;
 
 		<span class="comment">/***** Added in v2 *****/
 
@@ -528,7 +534,7 @@
 
 		</span><span class="doccomment">/// Returns the state of parachain backing for a given para.
 		</span><span class="attr">#[api_version(<span class="number">7</span>)]
-		</span><span class="kw">fn </span>para_backing_state(<span class="kw">_</span>: ppp::Id) -&gt; <span class="prelude-ty">Option</span>&lt;async_backing::BackingState&lt;H, N&gt;&gt;;
+		</span><span class="kw">fn </span>para_backing_state(<span class="kw">_</span>: ppp::Id) -&gt; <span class="prelude-ty">Option</span>&lt;async_backing::BackingState&lt;Hash, BlockNumber&gt;&gt;;
 
 		<span class="doccomment">/// Returns candidate&#39;s acceptance limitations for asynchronous backing for a relay parent.
 		</span><span class="attr">#[api_version(<span class="number">7</span>)]
