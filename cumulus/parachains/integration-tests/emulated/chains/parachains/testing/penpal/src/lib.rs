@@ -68,6 +68,7 @@ decl_test_parachains! {
 
 // Penpal implementation
 impl_accounts_helpers_for_parachain!(PenpalA);
+impl_accounts_helpers_for_parachain!(PenpalB);
 impl_assets_helpers_for_parachain!(PenpalA, Rococo);
 impl_assets_helpers_for_parachain!(PenpalB, Westend);
 impl_assert_events_helpers_for_parachain!(PenpalA);

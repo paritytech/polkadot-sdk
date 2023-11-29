@@ -13,27 +13,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::*;
+use crate::{tests::penpal_create_foreign_asset_on_asset_hub, *};
 use asset_hub_rococo_runtime::xcm_config::XcmConfig as AssetHubRococoXcmConfig;
-use frame_support::weights::WeightToFee;
+use emulated_integration_tests_common::xcm_helpers::non_fee_asset;
 use rococo_runtime::xcm_config::XcmConfig as RococoXcmConfig;
 use rococo_system_emulated_network::penpal_emulated_chain::{
 	LocalTeleportableToAssetHub as PenpalLocalTeleportableToAssetHub,
 	XcmConfig as PenpalRococoXcmConfig,
 };
-
-fn non_fee_asset(assets: &MultiAssets, fee_idx: usize) -> Option<(MultiLocation, u128)> {
-	let asset = assets.inner().into_iter().enumerate().find(|a| a.0 != fee_idx)?.1.clone();
-	let asset_id = match asset.id {
-		Concrete(id) => id,
-		_ => return None,
-	};
-	let asset_amount = match asset.fun {
-		Fungible(amount) => amount,
-		_ => return None,
-	};
-	Some((asset_id, asset_amount))
-}
 
 fn relay_to_para_sender_assertions(t: RelayToParaTest) {
 	type RuntimeEvent = <Rococo as Chain>::RuntimeEvent;
@@ -286,7 +273,7 @@ fn ah_to_penpal_foreign_assets_receiver_assertions(t: SystemParaToParaTest) {
 	);
 }
 
-fn relay_to_para_limited_reserve_transfer_assets(t: RelayToParaTest) -> DispatchResult {
+fn relay_to_para_reserve_transfer_assets(t: RelayToParaTest) -> DispatchResult {
 	<Rococo as RococoPallet>::XcmPallet::limited_reserve_transfer_assets(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
@@ -297,7 +284,7 @@ fn relay_to_para_limited_reserve_transfer_assets(t: RelayToParaTest) -> Dispatch
 	)
 }
 
-fn system_para_to_para_limited_reserve_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
+fn system_para_to_para_reserve_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
 	<AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::limited_reserve_transfer_assets(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
@@ -309,7 +296,7 @@ fn system_para_to_para_limited_reserve_transfer_assets(t: SystemParaToParaTest) 
 }
 
 fn para_to_system_para_reserve_transfer_assets(t: ParaToSystemParaTest) -> DispatchResult {
-	<PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets(
+	<PenpalA as PenpalAPallet>::PolkadotXcm::limited_reserve_transfer_assets(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
 		bx!(t.args.beneficiary.into()),
@@ -431,7 +418,7 @@ fn reserve_transfer_native_asset_from_relay_to_para() {
 
 	test.set_assertion::<Rococo>(relay_to_para_sender_assertions);
 	test.set_assertion::<PenpalA>(para_receiver_assertions);
-	test.set_dispatchable::<Rococo>(relay_to_para_limited_reserve_transfer_assets);
+	test.set_dispatchable::<Rococo>(relay_to_para_reserve_transfer_assets);
 	test.assert();
 
 	let delivery_fees = Rococo::execute_with(|| {
@@ -475,7 +462,7 @@ fn reserve_transfer_native_asset_from_system_para_to_para() {
 
 	test.set_assertion::<AssetHubRococo>(system_para_to_para_sender_assertions);
 	test.set_assertion::<PenpalA>(para_receiver_assertions);
-	test.set_dispatchable::<AssetHubRococo>(system_para_to_para_limited_reserve_transfer_assets);
+	test.set_dispatchable::<AssetHubRococo>(system_para_to_para_reserve_transfer_assets);
 	test.assert();
 
 	let sender_balance_after = test.sender.balance;
@@ -620,7 +607,7 @@ fn reserve_transfer_assets_from_system_para_to_para() {
 
 	test.set_assertion::<AssetHubRococo>(system_para_to_para_assets_sender_assertions);
 	test.set_assertion::<PenpalA>(system_para_to_para_assets_receiver_assertions);
-	test.set_dispatchable::<AssetHubRococo>(system_para_to_para_limited_reserve_transfer_assets);
+	test.set_dispatchable::<AssetHubRococo>(system_para_to_para_reserve_transfer_assets);
 	test.assert();
 
 	let sender_balance_after = test.sender.balance;
@@ -650,100 +637,6 @@ fn reserve_transfer_assets_from_system_para_to_para() {
 	assert_eq!(receiver_assets_after, receiver_assets_before + asset_amount_to_send);
 }
 
-fn penpal_create_foreign_asset_on_asset_hub(
-	asset_id_on_penpal: u32,
-	foreign_asset_at_asset_hub: MultiLocation,
-	ah_as_seen_by_penpal: MultiLocation,
-	is_sufficient: bool,
-	asset_owner: AccountId,
-	prefund_amount: u128,
-) {
-	let ah_check_account = AssetHubRococo::execute_with(|| {
-		<AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::check_account()
-	});
-	let penpal_check_account =
-		PenpalA::execute_with(|| <PenpalA as PenpalAPallet>::PolkadotXcm::check_account());
-	let penpal_as_seen_by_ah = AssetHubRococo::sibling_location_of(PenpalA::para_id());
-
-	// prefund SA of Penpal on AHR with enough ROCs to pay for creating new foreign asset,
-	// also prefund CheckingAccount with ED, because teleported asset itself is not sufficient
-	// and CheckingAccount cannot be created otherwise
-	let sov_penpal_on_ahr = AssetHubRococo::sovereign_account_id_of(penpal_as_seen_by_ah);
-	AssetHubRococo::fund_accounts(vec![
-		(sov_penpal_on_ahr.clone().into(), ROCOCO_ED * 100_000_000_000),
-		(ah_check_account.clone().into(), ROCOCO_ED * 1000),
-	]);
-
-	// prefund SA of AHR on Penpal with some ROCs
-	let sov_ahr_on_penpal = PenpalA::sovereign_account_id_of(ah_as_seen_by_penpal);
-	PenpalA::fund_accounts(vec![
-		(sov_ahr_on_penpal.into(), ROCOCO_ED * 1_000_000_000),
-		(penpal_check_account.clone().into(), ROCOCO_ED * 1000),
-	]);
-
-	// Force create asset on PenpalA and prefund PenpalASender
-	PenpalA::force_create_and_mint_asset(
-		asset_id_on_penpal,
-		ASSET_MIN_BALANCE,
-		is_sufficient,
-		asset_owner,
-		None,
-		prefund_amount,
-	);
-
-	let require_weight_at_most = Weight::from_parts(1_100_000_000_000, 30_000);
-	let origin_kind = OriginKind::Xcm;
-	let sov_penpal_on_ahr_as_location = MultiLocation {
-		parents: 0,
-		interior: X1(AccountId32Junction { network: None, id: sov_penpal_on_ahr.clone().into() }),
-	};
-	let call_create_foreign_assets =
-		<AssetHubRococo as Chain>::RuntimeCall::ForeignAssets(pallet_assets::Call::<
-			<AssetHubRococo as Chain>::Runtime,
-			pallet_assets::Instance2,
-		>::create {
-			id: foreign_asset_at_asset_hub,
-			min_balance: ASSET_MIN_BALANCE,
-			admin: sov_penpal_on_ahr.into(),
-		})
-		.encode();
-	let buy_execution_fee_amount = parachains_common::rococo::fee::WeightToFee::weight_to_fee(
-		&Weight::from_parts(10_100_000_000_000, 300_000),
-	);
-	let buy_execution_fee = MultiAsset {
-		id: Concrete(MultiLocation { parents: 1, interior: Here }),
-		fun: Fungible(buy_execution_fee_amount),
-	};
-	let xcm = VersionedXcm::from(Xcm(vec![
-		WithdrawAsset { 0: vec![buy_execution_fee.clone()].into() },
-		BuyExecution { fees: buy_execution_fee.clone(), weight_limit: Unlimited },
-		Transact { require_weight_at_most, origin_kind, call: call_create_foreign_assets.into() },
-		ExpectTransactStatus(MaybeErrorCode::Success),
-		RefundSurplus,
-		DepositAsset { assets: All.into(), beneficiary: sov_penpal_on_ahr_as_location },
-	]));
-	// Send XCM message from penpal => asset_hub_rococo
-	let sudo_penpal_origin = <PenpalA as Chain>::RuntimeOrigin::root();
-	PenpalA::execute_with(|| {
-		assert_ok!(<PenpalA as PenpalAPallet>::PolkadotXcm::send(
-			sudo_penpal_origin.clone(),
-			bx!(ah_as_seen_by_penpal.into()),
-			bx!(xcm),
-		));
-		type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
-		assert_expected_events!(
-			PenpalA,
-			vec![
-				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::Sent { .. }) => {},
-			]
-		);
-	});
-	AssetHubRococo::execute_with(|| {
-		type ForeignAssets = <AssetHubRococo as AssetHubRococoPallet>::ForeignAssets;
-		assert!(ForeignAssets::asset_exists(foreign_asset_at_asset_hub));
-	});
-}
-
 /// Bidirectional teleports of local Penpal assets to Asset Hub as foreign assets should work
 #[test]
 fn bidirectional_transfers_foreign_assets_between_para_and_asset_hub() {
@@ -765,6 +658,7 @@ fn bidirectional_transfers_foreign_assets_between_para_and_asset_hub() {
 		false,
 		asset_owner_on_penpal,
 		ASSET_MIN_BALANCE * 1_000_000,
+		ROCOCO_ED,
 	);
 	let penpal_to_ah_beneficiary_id = AssetHubRococoReceiver::get();
 
