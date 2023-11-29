@@ -169,13 +169,12 @@ mod tests {
 	use crate::network::Network;
 
 	use async_trait::async_trait;
-	use futures::stream::BoxStream;
 	use polkadot_node_network_protocol::{
 		request_response::{outgoing::Requests, ReqProtocolNames},
 		PeerId,
 	};
 	use polkadot_primitives::Hash;
-	use sc_network::{Event as NetworkEvent, IfDisconnected, ProtocolName, ReputationChange};
+	use sc_network::{IfDisconnected, ProtocolName, ReputationChange};
 	use sp_keyring::Sr25519Keyring;
 	use std::collections::{HashMap, HashSet};
 
@@ -224,10 +223,6 @@ mod tests {
 
 	#[async_trait]
 	impl Network for TestNetwork {
-		fn event_stream(&mut self) -> BoxStream<'static, NetworkEvent> {
-			panic!()
-		}
-
 		async fn set_reserved_peers(
 			&mut self,
 			_protocol: ProtocolName,
@@ -263,7 +258,11 @@ mod tests {
 			panic!()
 		}
 
-		fn write_notification(&self, _: PeerId, _: ProtocolName, _: Vec<u8>) {
+		fn peer_role(
+			&self,
+			_peer_id: PeerId,
+			_handshake: Vec<u8>,
+		) -> Option<sc_network::ObservedRole> {
 			panic!()
 		}
 	}
