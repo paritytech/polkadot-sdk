@@ -18,7 +18,7 @@
 use super::{Event as CollectiveEvent, *};
 use crate as pallet_collective;
 use frame_support::{
-	assert_noop, assert_ok,
+	assert_noop, assert_ok, derive_impl,
 	dispatch::Pays,
 	parameter_types,
 	traits::{ConstU32, ConstU64, StorageVersion},
@@ -90,6 +90,8 @@ parameter_types! {
 		frame_system::limits::BlockWeights::simple_max(Weight::MAX);
 	pub static MaxProposalWeight: Weight = default_max_proposal_weight();
 }
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = BlockWeights;

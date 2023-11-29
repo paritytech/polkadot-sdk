@@ -29,10 +29,6 @@ parameter_types! {
 	pub const RelayChainHeadersToKeep: u32 = 1024;
 	pub const ParachainHeadsToKeep: u32 = 64;
 
-	pub const RococoBridgeParachainPalletName: &'static str = "Paras";
-	pub const MaxRococoParaHeadDataSize: u32 = bp_rococo::MAX_NESTED_PARACHAIN_HEAD_DATA_SIZE;
-	pub const WococoBridgeParachainPalletName: &'static str = "Paras";
-	pub const MaxWococoParaHeadDataSize: u32 = bp_wococo::MAX_NESTED_PARACHAIN_HEAD_DATA_SIZE;
 	pub const WestendBridgeParachainPalletName: &'static str = "Paras";
 	pub const MaxWestendParaHeadDataSize: u32 = bp_westend::MAX_NESTED_PARACHAIN_HEAD_DATA_SIZE;
 
@@ -43,52 +39,6 @@ parameter_types! {
 	pub storage DeliveryRewardInBalance: u64 = 1_000_000;
 }
 
-/// Add GRANDPA bridge pallet to track Wococo relay chain.
-pub type BridgeGrandpaWococoInstance = pallet_bridge_grandpa::Instance1;
-impl pallet_bridge_grandpa::Config<BridgeGrandpaWococoInstance> for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type BridgedChain = bp_wococo::Wococo;
-	type MaxFreeMandatoryHeadersPerBlock = ConstU32<4>;
-	type HeadersToKeep = RelayChainHeadersToKeep;
-	type WeightInfo = weights::pallet_bridge_grandpa_wococo_finality::WeightInfo<Runtime>;
-}
-
-/// Add parachain bridge pallet to track Wococo BridgeHub parachain
-pub type BridgeParachainWococoInstance = pallet_bridge_parachains::Instance1;
-impl pallet_bridge_parachains::Config<BridgeParachainWococoInstance> for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::pallet_bridge_parachains_within_wococo::WeightInfo<Runtime>;
-	type BridgesGrandpaPalletInstance = BridgeGrandpaWococoInstance;
-	type ParasPalletName = WococoBridgeParachainPalletName;
-	type ParaStoredHeaderDataBuilder =
-		SingleParaStoredHeaderDataBuilder<bp_bridge_hub_wococo::BridgeHubWococo>;
-	type HeadsToKeep = ParachainHeadsToKeep;
-	type MaxParaHeadDataSize = MaxWococoParaHeadDataSize;
-}
-
-/// Add GRANDPA bridge pallet to track Rococo relay chain.
-pub type BridgeGrandpaRococoInstance = pallet_bridge_grandpa::Instance2;
-impl pallet_bridge_grandpa::Config<BridgeGrandpaRococoInstance> for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type BridgedChain = bp_rococo::Rococo;
-	type MaxFreeMandatoryHeadersPerBlock = ConstU32<4>;
-	type HeadersToKeep = RelayChainHeadersToKeep;
-	type WeightInfo = weights::pallet_bridge_grandpa_rococo_finality::WeightInfo<Runtime>;
-}
-
-/// Add parachain bridge pallet to track Rococo BridgeHub parachain
-pub type BridgeParachainRococoInstance = pallet_bridge_parachains::Instance2;
-impl pallet_bridge_parachains::Config<BridgeParachainRococoInstance> for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::pallet_bridge_parachains_within_rococo::WeightInfo<Runtime>;
-	type BridgesGrandpaPalletInstance = BridgeGrandpaRococoInstance;
-	type ParasPalletName = RococoBridgeParachainPalletName;
-	type ParaStoredHeaderDataBuilder =
-		SingleParaStoredHeaderDataBuilder<bp_bridge_hub_rococo::BridgeHubRococo>;
-	type HeadsToKeep = ParachainHeadsToKeep;
-	type MaxParaHeadDataSize = MaxRococoParaHeadDataSize;
-}
-
 /// Add GRANDPA bridge pallet to track Westend relay chain.
 pub type BridgeGrandpaWestendInstance = pallet_bridge_grandpa::Instance3;
 impl pallet_bridge_grandpa::Config<BridgeGrandpaWestendInstance> for Runtime {
@@ -96,14 +46,14 @@ impl pallet_bridge_grandpa::Config<BridgeGrandpaWestendInstance> for Runtime {
 	type BridgedChain = bp_westend::Westend;
 	type MaxFreeMandatoryHeadersPerBlock = ConstU32<4>;
 	type HeadersToKeep = RelayChainHeadersToKeep;
-	type WeightInfo = weights::pallet_bridge_grandpa_westend_finality::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_bridge_grandpa::WeightInfo<Runtime>;
 }
 
 /// Add parachain bridge pallet to track Westend BridgeHub parachain
 pub type BridgeParachainWestendInstance = pallet_bridge_parachains::Instance3;
 impl pallet_bridge_parachains::Config<BridgeParachainWestendInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::pallet_bridge_parachains_within_westend::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_bridge_parachains::WeightInfo<Runtime>;
 	type BridgesGrandpaPalletInstance = BridgeGrandpaWestendInstance;
 	type ParasPalletName = WestendBridgeParachainPalletName;
 	type ParaStoredHeaderDataBuilder =
