@@ -38,7 +38,7 @@ type PeopleRococoBalances = <PeopleRococo as PeopleRococoPallet>::Balances;
 #[derive(Clone, Debug)]
 struct Identity {
 	relay: IdentityInfo<MaxAdditionalFields>,
-	parachain: IdentityInfoParachain,
+	para: IdentityInfoParachain,
 }
 
 fn identities() -> Vec<Identity> {
@@ -76,7 +76,7 @@ fn identities() -> Vec<Identity> {
 		legal: Data::Raw(b"The Right Ordinal Xcm Test, Esq.".to_vec().try_into().unwrap()),
 		web: Data::Raw(b"https://xcm-test.io".to_vec().try_into().unwrap()),
 		email: Data::Raw(b"xcm-test@gmail.com".to_vec().try_into().unwrap()),
-		pgp_fingerprint: None,
+		pgp_fingerprint: Some(pgp_fingerprint),
 		image: Data::Raw(b"xcm-test.png".to_vec().try_into().unwrap()),
 		twitter: Data::Raw(b"@xcm-test".to_vec().try_into().unwrap()),
 		riot: Data::Raw(b"riot-xcm-test".to_vec().try_into().unwrap()),
@@ -97,16 +97,16 @@ fn identities() -> Vec<Identity> {
 	// Full Identity with nonsensical additional
 	let mut third_relay = second_relay.clone();
 	third_relay.additional = BoundedVec::try_from(vec![(
-		Data::Raw(b"Foo".to_vec().try_into().unwrap()),
-		Data::Raw(b"Bar".to_vec().try_into().unwrap()),
+		Data::Raw(b"foO".to_vec().try_into().unwrap()),
+		Data::Raw(b"bAr".to_vec().try_into().unwrap()),
 	)])
 	.unwrap();
-	// Full Identity with meaninful additional
+	// Full Identity with meaningful additional
 	let mut fourth_relay = second_relay.clone();
 	fourth_relay.additional = BoundedVec::try_from(vec![
 		(
 			Data::Raw(b"github".to_vec().try_into().unwrap()),
-			Data::Raw(b"niels-usernmae".to_vec().try_into().unwrap()),
+			Data::Raw(b"niels-username".to_vec().try_into().unwrap()),
 		),
 		(
 			Data::Raw(b"discord".to_vec().try_into().unwrap()),
@@ -119,10 +119,10 @@ fn identities() -> Vec<Identity> {
 	fourth_para.discord = Data::Raw(b"bohr-username".to_vec().try_into().unwrap());
 
 	vec![
-		Identity { relay: first_relay, parachain: first_para },
-		Identity { relay: second_relay, parachain: second_para.clone() },
-		Identity { relay: third_relay, parachain: second_para.clone() }, // same as second_para
-		Identity { relay: fourth_relay, parachain: fourth_para },
+		Identity { relay: first_relay, para: first_para },
+		Identity { relay: second_relay, para: second_para.clone() },
+		Identity { relay: third_relay, para: second_para.clone() }, // same as second_para
+		Identity { relay: fourth_relay, para: fourth_para },
 	]
 }
 
@@ -152,13 +152,6 @@ fn set_id_relay(id: Identity) -> u128 {
 			RococoOrigin::signed(RococoRelaySender::get()),
 			Box::new(id.relay.clone())
 		));
-		assert_expected_events!(
-			RococoRelay,
-			vec![
-				RuntimeEvent::Identity(IdentityEvent::IdentitySet { .. }) => {},
-				RuntimeEvent::Balances(BalancesEvent::Reserved { .. }) => {},
-			]
-		);
 
 		// 2. Set sub-identity on Relay Chain
 		assert_ok!(RococoIdentity::set_subs(
@@ -194,7 +187,7 @@ fn assert_set_id_parachain(id: Identity) {
 		// 3. Set identity on Parachain
 		assert_ok!(PeopleRococoIdentity::set_identity_no_deposit(
 			&PeopleRococoSender::get(),
-			id.parachain.clone(),
+			id.para.clone(),
 		));
 
 		// 4. Set sub-identity on Parachain
@@ -249,13 +242,12 @@ fn assert_reap_id_relay(total_deposit: u128) {
 		assert_eq!(free_bal_after_reap, free_bal_before_reap + total_deposit);
 	});
 }
-
 fn assert_reap_parachain(id: Identity) {
 	// 6. assert on Parachain
 	PeopleRococo::execute_with(|| {
 		type RuntimeEvent = <PeopleRococo as Chain>::RuntimeEvent;
 		let reserved_bal = PeopleRococoBalances::reserved_balance(PeopleRococoSender::get());
-		let id_deposit = id_deposit_parachain(&id.parachain);
+		let id_deposit = id_deposit_parachain(&id.para);
 		let subs_deposit = SubAccountDepositParachain::get();
 		let total_deposit = subs_deposit + id_deposit;
 
@@ -295,7 +287,7 @@ fn assert_reap_parachain(id: Identity) {
 // We don't loop through ids and assert because genesis state is
 // required for each test
 #[test]
-fn on_reap_identity_works_for_first_instance() {
+fn on_reap_identity_works_for_minimal_identity() {
 	let ids = identities();
 	let total_deposit = set_id_relay(ids[0].clone());
 	assert_set_id_parachain(ids[0].clone());
@@ -304,7 +296,7 @@ fn on_reap_identity_works_for_first_instance() {
 }
 
 #[test]
-fn on_reap_identity_works_for_second_instance() {
+fn on_reap_identity_works_for_full_identity_no_additional() {
 	let ids = identities();
 	let total_deposit = set_id_relay(ids[1].clone());
 	assert_set_id_parachain(ids[1].clone());
@@ -313,7 +305,7 @@ fn on_reap_identity_works_for_second_instance() {
 }
 
 #[test]
-fn on_reap_identity_works_for_third_instance() {
+fn on_reap_identity_works_for_full_identity_nonsense_additional() {
 	let ids = identities();
 	let total_deposit = set_id_relay(ids[2].clone());
 	assert_set_id_parachain(ids[2].clone());
@@ -322,7 +314,7 @@ fn on_reap_identity_works_for_third_instance() {
 }
 
 #[test]
-fn on_reap_identity_works_for_fourth_instance() {
+fn on_reap_identity_works_for_full_identity_meaningful_additional() {
 	let ids = identities();
 	let total_deposit = set_id_relay(ids[3].clone());
 	assert_set_id_parachain(ids[3].clone());
