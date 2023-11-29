@@ -4,7 +4,7 @@
 .zombienet-before-script:
   before_script:
     # Exit if the job is not merge queue
-    - if [[ $CI_COMMIT_REF_NAME != *"gh-readonly-queue"* ]]; then echo "I will run only in a merge queue"; exit 0; fi
+    # - if [[ $CI_COMMIT_REF_NAME != *"gh-readonly-queue"* ]]; then echo "I will run only in a merge queue"; exit 0; fi
     - echo "Zombie-net Tests Config"
     - echo "${ZOMBIENET_IMAGE}"
     - echo "${POLKADOT_IMAGE}"
@@ -27,8 +27,10 @@
   needs:
     - job: build-push-image-test-parachain
       artifacts: true
+    - job: build-push-image-polkadot-debug
+      artifacts: true
   variables:
-    POLKADOT_IMAGE: "docker.io/paritypr/polkadot-debug:master"
+    POLKADOT_IMAGE: "docker.io/paritypr/polkadot-debug:${DOCKER_IMAGES_VERSION}"
     GH_DIR: "https://github.com/paritytech/cumulus/tree/${CI_COMMIT_SHORT_SHA}/zombienet/tests"
     LOCAL_DIR: "/builds/parity/mirrors/polkadot-sdk/cumulus/zombienet/tests"
     COL_IMAGE: "docker.io/paritypr/test-parachain:${DOCKER_IMAGES_VERSION}"

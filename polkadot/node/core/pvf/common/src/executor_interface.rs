@@ -140,8 +140,7 @@ pub unsafe fn create_runtime_from_artifact_bytes(
 	executor_params: &ExecutorParams,
 ) -> Result<WasmtimeRuntime, WasmError> {
 	let mut config = DEFAULT_CONFIG.clone();
-	config.semantics =
-		params_to_wasmtime_semantics(executor_params).map_err(|err| WasmError::Other(err))?;
+	config.semantics = params_to_wasmtime_semantics(executor_params);
 
 	sc_executor_wasmtime::create_runtime_from_artifact_bytes::<HostFunctions>(
 		compiled_artifact_blob,
@@ -149,13 +148,12 @@ pub unsafe fn create_runtime_from_artifact_bytes(
 	)
 }
 
-pub fn params_to_wasmtime_semantics(par: &ExecutorParams) -> Result<Semantics, String> {
+pub fn params_to_wasmtime_semantics(par: &ExecutorParams) -> Semantics {
 	let mut sem = DEFAULT_CONFIG.semantics.clone();
-	let mut stack_limit = if let Some(stack_limit) = sem.deterministic_stack_limit.clone() {
-		stack_limit
-	} else {
-		return Err("No default stack limit set".to_owned())
-	};
+	let mut stack_limit = sem
+		.deterministic_stack_limit
+		.expect("There is a comment to not change the default stack limit; it should always be available; qed")
+		.clone();
 
 	for p in par.iter() {
 		match p {
@@ -172,16 +170,14 @@ pub fn params_to_wasmtime_semantics(par: &ExecutorParams) -> Result<Semantics, S
 		}
 	}
 	sem.deterministic_stack_limit = Some(stack_limit);
-	Ok(sem)
+	sem
 }
 
 /// Runs the prevalidation on the given code. Returns a [`RuntimeBlob`] if it succeeds.
 pub fn prevalidate(code: &[u8]) -> Result<RuntimeBlob, sc_executor_common::error::WasmError> {
+	// Construct the runtime blob and do some basic checks for consistency.
 	let blob = RuntimeBlob::new(code)?;
-	// It's assumed this function will take care of any prevalidation logic
-	// that needs to be done.
-	//
-	// Do nothing for now.
+	// In the future this function should take care of any further prevalidation logic.
 	Ok(blob)
 }
 
@@ -191,8 +187,7 @@ pub fn prepare(
 	blob: RuntimeBlob,
 	executor_params: &ExecutorParams,
 ) -> Result<Vec<u8>, sc_executor_common::error::WasmError> {
-	let semantics = params_to_wasmtime_semantics(executor_params)
-		.map_err(|e| sc_executor_common::error::WasmError::Other(e))?;
+	let semantics = params_to_wasmtime_semantics(executor_params);
 	sc_executor_wasmtime::prepare_runtime_artifact(blob, &semantics)
 }
 
