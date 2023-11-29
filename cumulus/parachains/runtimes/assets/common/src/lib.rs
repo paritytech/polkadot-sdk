@@ -313,7 +313,7 @@ mod tests {
 	}
 
 	// Create Asset
-	fn ma_1000(parents: u8, interior: Junctions) -> xcm::v3::MultiAsset {
+	fn ma_1000(parents: u8, interior: xcm::v3::Junctions) -> xcm::v3::MultiAsset {
 		(xcm::v3::MultiLocation::new(parents, interior), 1000).into()
 	}
 }
