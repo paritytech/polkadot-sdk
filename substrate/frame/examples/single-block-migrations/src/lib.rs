@@ -31,7 +31,7 @@
 //!   between current and on-chain [`StorageVersion`]s
 
 //! ## How to read these docs
-//! - Run `cargo doc --features try-runtime --package pallet-example-storage-migrations --open`
+//! - Run `cargo doc --features try-runtime --package pallet-example-single-block-migrations --open`
 //! to view the documentation in your browser.
 //! - Read the relevant source code as your read the docs.
 //!
@@ -75,7 +75,7 @@
 //! Here's how the migration module is defined for this pallet:
 //!
 //! ```text
-//! substrate/frame/examples/storage-migrations/src/
+//! substrate/frame/examples/single-block-migrations/src/
 //! ├── lib.rs       <-- pallet definition
 //! ├── Cargo.toml   <-- pallet manifest
 //! └── migrations/
@@ -214,6 +214,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 // allow non-camel-case names for storage version V0 value
 #![allow(non_camel_case_types)]
+
+pub mod migration_reference_docs;
 
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;

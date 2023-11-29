@@ -1,5 +1,5 @@
 [package]
-name = "pallet-example-storage-migrations"
+name = "pallet-example-single-block-migrations"
 version = "4.0.0-dev"
 authors.workspace = true
 edition.workspace = true
