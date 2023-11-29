@@ -959,6 +959,11 @@
 <a href="#959" id="959">959</a>
 <a href="#960" id="960">960</a>
 <a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1236,7 +1241,8 @@
 				extensions_generated_for: std::cell::RefCell&lt;std::option::Option&lt;Block::Hash&gt;&gt;,
 			}
 
-			<span class="kw">impl</span>&lt;Block: #crate_::BlockT, C: #crate_::CallApiAt&lt;Block&gt;&gt; #crate_::ApiExt&lt;Block&gt; <span class="kw">for
+			<span class="attr">#[automatically_derived]
+			</span><span class="kw">impl</span>&lt;Block: #crate_::BlockT, C: #crate_::CallApiAt&lt;Block&gt;&gt; #crate_::ApiExt&lt;Block&gt; <span class="kw">for
 				</span>RuntimeApiImpl&lt;Block, C&gt;
 			{
 				<span class="kw">fn </span>execute_in_transaction&lt;F: FnOnce(<span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; #crate_::TransactionOutcome&lt;R&gt;, R&gt;(
@@ -1328,7 +1334,8 @@
 				}
 			}
 
-			<span class="kw">impl</span>&lt;Block: #crate_::BlockT, C&gt; #crate_::ConstructRuntimeApi&lt;Block, C&gt;
+			<span class="attr">#[automatically_derived]
+			</span><span class="kw">impl</span>&lt;Block: #crate_::BlockT, C&gt; #crate_::ConstructRuntimeApi&lt;Block, C&gt;
 				<span class="kw">for </span>RuntimeApi
 			<span class="kw">where
 				</span>C: #crate_::CallApiAt&lt;Block&gt; + <span class="lifetime">&#39;static</span>,
@@ -1350,7 +1357,8 @@
 				}
 			}
 
-			<span class="kw">impl</span>&lt;Block: #crate_::BlockT, C: #crate_::CallApiAt&lt;Block&gt;&gt; RuntimeApiImpl&lt;Block, C&gt; {
+			<span class="attr">#[automatically_derived]
+			</span><span class="kw">impl</span>&lt;Block: #crate_::BlockT, C: #crate_::CallApiAt&lt;Block&gt;&gt; RuntimeApiImpl&lt;Block, C&gt; {
 				<span class="kw">fn </span>commit_or_rollback_transaction(<span class="kw-2">&amp;</span><span class="self">self</span>, commit: bool) {
 					<span class="kw">let </span>proof = <span class="string">&quot;\
 					We only close a transaction when we opened one ourself.
@@ -1646,8 +1654,10 @@
 		<span class="comment">// remove the trait to get just the module path
 		</span>runtime_mod_path.segments.pop();
 
-		<span class="kw">let </span>processed_impl =
+		<span class="kw">let </span><span class="kw-2">mut </span>processed_impl =
 			ApiRuntimeImplToApiRuntimeApiImpl { runtime_block }.process(impl_.clone());
+
+		processed_impl.attrs.push(<span class="macro">parse_quote!</span>(<span class="attr">#[automatically_derived]</span>));
 
 		result.push(processed_impl);
 	}
