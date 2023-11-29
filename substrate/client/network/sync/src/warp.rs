@@ -23,6 +23,7 @@ pub use sp_consensus_grandpa::{AuthorityList, SetId};
 use crate::{
 	chain_sync::validate_blocks,
 	types::{BadPeer, SyncState, SyncStatus},
+	LOG_TARGET,
 };
 use codec::{Decode, Encode};
 use futures::channel::oneshot;
@@ -38,9 +39,6 @@ use sp_runtime::{
 	Justifications, SaturatedConversion,
 };
 use std::{collections::HashMap, fmt, sync::Arc};
-
-/// Log target for this file.
-const LOG_TARGET: &'static str = "sync";
 
 /// Number of peers that need to be connected before warp sync is started.
 const MIN_PEERS_TO_START_WARP_SYNC: usize = 3;

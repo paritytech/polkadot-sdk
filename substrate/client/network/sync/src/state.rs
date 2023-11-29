@@ -21,6 +21,7 @@
 use crate::{
 	schema::v1::{StateEntry, StateRequest, StateResponse},
 	types::StateDownloadProgress,
+	LOG_TARGET,
 };
 use codec::{Decode, Encode};
 use log::debug;
@@ -91,20 +92,20 @@ where
 	///  Validate and import a state response.
 	pub fn import(&mut self, response: StateResponse) -> ImportResult<B> {
 		if response.entries.is_empty() && response.proof.is_empty() {
-			debug!(target: "sync", "Bad state response");
+			debug!(target: LOG_TARGET, "Bad state response");
 			return ImportResult::BadResponse
 		}
 		if !self.skip_proof && response.proof.is_empty() {
-			debug!(target: "sync", "Missing proof");
+			debug!(target: LOG_TARGET, "Missing proof");
 			return ImportResult::BadResponse
 		}
 		let complete = if !self.skip_proof {
-			debug!(target: "sync", "Importing state from {} trie nodes", response.proof.len());
+			debug!(target: LOG_TARGET, "Importing state from {} trie nodes", response.proof.len());
 			let proof_size = response.proof.len() as u64;
 			let proof = match CompactProof::decode(&mut response.proof.as_ref()) {
 				Ok(proof) => proof,
 				Err(e) => {
-					debug!(target: "sync", "Error decoding proof: {:?}", e);
+					debug!(target: LOG_TARGET, "Error decoding proof: {:?}", e);
 					return ImportResult::BadResponse
 				},
 			};
@@ -115,7 +116,7 @@ where
 			) {
 				Err(e) => {
 					debug!(
-						target: "sync",
+						target: LOG_TARGET,
 						"StateResponse failed proof verification: {}",
 						e,
 					);
@@ -123,11 +124,11 @@ where
 				},
 				Ok(values) => values,
 			};
-			debug!(target: "sync", "Imported with {} keys", values.len());
+			debug!(target: LOG_TARGET, "Imported with {} keys", values.len());
 
 			let complete = completed == 0;
 			if !complete && !values.update_last_key(completed, &mut self.last_key) {
-				debug!(target: "sync", "Error updating key cursor, depth: {}", completed);
+				debug!(target: LOG_TARGET, "Error updating key cursor, depth: {}", completed);
 			};
 
 			for values in values.0 {
@@ -185,7 +186,7 @@ where
 			}
 			for state in response.entries {
 				debug!(
-					target: "sync",
+					target: LOG_TARGET,
 					"Importing state from {:?} to {:?}",
 					state.entries.last().map(|e| sp_core::hexdisplay::HexDisplay::from(&e.key)),
 					state.entries.first().map(|e| sp_core::hexdisplay::HexDisplay::from(&e.key)),

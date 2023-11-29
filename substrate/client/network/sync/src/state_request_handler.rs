@@ -17,7 +17,10 @@
 //! Helper for handling (i.e. answering) state requests from a remote peer via the
 //! `crate::request_responses::RequestResponsesBehaviour`.
 
-use crate::schema::v1::{KeyValueStateEntry, StateEntry, StateRequest, StateResponse};
+use crate::{
+	schema::v1::{KeyValueStateEntry, StateEntry, StateRequest, StateResponse},
+	LOG_TARGET,
+};
 
 use codec::{Decode, Encode};
 use futures::{channel::oneshot, stream::StreamExt};
@@ -39,7 +42,6 @@ use std::{
 	time::Duration,
 };
 
-const LOG_TARGET: &str = "sync";
 const MAX_RESPONSE_BYTES: usize = 2 * 1024 * 1024; // Actual reponse may be bigger.
 const MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER: usize = 2;
 

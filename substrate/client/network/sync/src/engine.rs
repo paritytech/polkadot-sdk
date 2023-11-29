@@ -36,6 +36,7 @@ use crate::{
 		BadPeer, ExtendedPeerInfo, OpaqueStateRequest, OpaqueStateResponse, PeerRequest, SyncEvent,
 	},
 	warp::{EncodedProof, WarpProofRequest, WarpSyncParams},
+	LOG_TARGET,
 };
 
 use codec::{Decode, DecodeAll, Encode};
@@ -96,9 +97,6 @@ const TICK_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(1100)
 
 /// Maximum number of known block hashes to keep for a peer.
 const MAX_KNOWN_BLOCKS: usize = 1024; // ~32kb per peer + LruHashSet overhead
-
-/// Logging target for the file.
-const LOG_TARGET: &str = "sync";
 
 /// If the block announces stream to peer has been inactive for 30 seconds meaning local node
 /// has not sent or received block announcements to/from the peer, report the node for inactivity,
@@ -868,7 +866,7 @@ where
 			},
 			ToServiceCommand::AnnounceBlock(hash, data) => self.announce_block(hash, data),
 			ToServiceCommand::NewBestBlockImported(hash, number) => {
-				log::debug!(target: "sync", "New best block imported {:?}/#{}", hash, number);
+				log::debug!(target: LOG_TARGET, "New best block imported {:?}/#{}", hash, number);
 
 				self.strategy.update_chain_info(&hash, number);
 				let _ = self.notification_service.try_set_handshake(

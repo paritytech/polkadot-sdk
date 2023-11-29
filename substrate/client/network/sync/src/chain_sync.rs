@@ -35,6 +35,7 @@ use crate::{
 	state::{ImportResult, StateSync},
 	types::{BadPeer, Metrics, OpaqueStateRequest, OpaqueStateResponse, SyncState, SyncStatus},
 	warp::{WarpSyncPhase, WarpSyncProgress},
+	LOG_TARGET,
 };
 
 use codec::Encode;
@@ -65,9 +66,6 @@ use std::{
 
 #[cfg(test)]
 mod test;
-
-/// Log target for this file.
-const LOG_TARGET: &'static str = "sync";
 
 /// Maximum blocks to store in the import queue.
 const MAX_IMPORTING_BLOCKS: usize = 2048;
@@ -1045,7 +1043,7 @@ where
 
 		// known block case
 		if known || self.is_already_downloading(&hash) {
-			trace!(target: "sync", "Known block announce from {}: {}", peer_id, hash);
+			trace!(target: LOG_TARGET, "Known block announce from {}: {}", peer_id, hash);
 			if let Some(target) = self.fork_targets.get_mut(&hash) {
 				target.peers.insert(peer_id);
 			}
@@ -1054,7 +1052,7 @@ where
 
 		if ancient_parent {
 			trace!(
-				target: "sync",
+				target: LOG_TARGET,
 				"Ignored ancient block announced from {}: {} {:?}",
 				peer_id,
 				hash,
@@ -1065,7 +1063,7 @@ where
 
 		if self.status().state == SyncState::Idle {
 			trace!(
-				target: "sync",
+				target: LOG_TARGET,
 				"Added sync target for block announced from {}: {} {:?}",
 				peer_id,
 				hash,

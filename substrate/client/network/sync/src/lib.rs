@@ -42,3 +42,6 @@ pub mod state;
 pub mod state_request_handler;
 pub mod warp;
 pub mod warp_request_handler;
+
+/// Log target for this crate.
+const LOG_TARGET: &str = "sync";

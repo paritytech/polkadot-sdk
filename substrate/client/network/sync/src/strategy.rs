@@ -24,6 +24,7 @@ use crate::{
 	state_strategy::{StateStrategy, StateStrategyAction},
 	types::{BadPeer, OpaqueStateRequest, OpaqueStateResponse, SyncStatus},
 	warp::{EncodedProof, WarpProofRequest, WarpSync, WarpSyncAction, WarpSyncConfig},
+	LOG_TARGET,
 };
 use libp2p::PeerId;
 use log::{error, info};
@@ -40,9 +41,6 @@ use sp_runtime::{
 	Justifications,
 };
 use std::sync::Arc;
-
-/// Log target for this file.
-const LOG_TARGET: &'static str = "sync";
 
 /// Corresponding `ChainSync` mode.
 fn chain_sync_mode(sync_mode: SyncMode) -> ChainSyncMode {

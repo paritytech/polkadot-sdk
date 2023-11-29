@@ -22,6 +22,7 @@ use crate::{
 	schema::v1::StateResponse,
 	state::{ImportResult, StateSync},
 	types::{BadPeer, OpaqueStateRequest, OpaqueStateResponse, SyncState, SyncStatus},
+	LOG_TARGET,
 };
 use libp2p::PeerId;
 use log::{debug, error, info, trace};
@@ -33,9 +34,6 @@ use sp_runtime::{
 	Justifications, SaturatedConversion,
 };
 use std::{collections::HashMap, sync::Arc};
-
-/// Log target for this file.
-const LOG_TARGET: &'static str = "sync";
 
 mod rep {
 	use sc_network::ReputationChange as Rep;
