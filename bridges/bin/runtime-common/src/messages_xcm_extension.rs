@@ -146,7 +146,7 @@ pub trait XcmBlobHauler {
 	type MessagesInstance: 'static;
 	/// Returns lane used by this hauler.
 	type SenderAndLane: Get<SenderAndLane>;
-	/// Determines the XCM version for the destination.
+	/// Checks the XCM version for the destination.
 	type DestinationVersion: CheckVersion;
 
 	/// Actual XCM message sender (`HRMP` or `UMP`) to the source chain

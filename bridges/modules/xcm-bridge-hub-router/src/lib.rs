@@ -89,8 +89,8 @@ pub mod pallet {
 		/// **possible fee**. Allows to externalize better control over allowed **bridged
 		/// networks/locations**.
 		type Bridges: ExporterFor;
-		/// Means of converting an `Xcm` into a `VersionedXcm`.
-		type VersionWrapper: WrapVersion;
+		/// Checks the XCM version for the destination.
+		type DestinationVersion: CheckVersion;
 
 		/// Origin of the sibling bridge hub that is allowed to report bridge status.
 		type BridgeHubOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -340,8 +340,11 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 		// check is probably performed by the `ViaBridgeHubExporter`, which attempts to send a
 		// versioned message to the sibling bridge hub. However, the local bridge hub may have a
 		// higher XCM version than the remote `dest`. Once again, it is better to discard such
-		// messages here (e.g., to avoid losing funds) than at the bridge hub.
-		let _ = T::VersionWrapper::wrap_version(dest_ref, xcm_ref.clone())
+		// messages here than at the bridge hub (e.g., to avoid losing funds).
+		let destination_version = T::DestinationVersion::check_version_for(dest_ref, false)
+			.ok_or(SendError::DestinationUnsupported)?;
+		let _ = VersionedXcm::from(xcm_ref.clone())
+			.into_version(destination_version)
 			.map_err(|()| SendError::DestinationUnsupported)?;
 
 		// just use exporter to validate destination and insert instructions to pay message fee

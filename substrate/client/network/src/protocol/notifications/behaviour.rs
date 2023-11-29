@@ -951,7 +951,7 @@ impl Notifications {
 		let Some(incoming) = incoming else {
 			error!(target: "sub-libp2p", "Incoming connection ({:?}) doesn't exist", index);
 			debug_assert!(false);
-			return;
+			return
 		};
 
 		if !incoming.alive {
@@ -1039,7 +1039,7 @@ impl Notifications {
 						peerset_rejected,
 						incoming_index,
 					};
-					return self.report_reject(index).map_or((), |_| ());
+					return self.report_reject(index).map_or((), |_| ())
 				}
 
 				trace!(
