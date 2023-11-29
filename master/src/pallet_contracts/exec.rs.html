@@ -3899,6 +3899,7 @@
 </span><span class="kw">use crate</span>::{
 	debug::{CallInterceptor, CallSpan, Tracing},
 	gas::GasMeter,
+	primitives::{ExecReturnValue, StorageDeposit},
 	storage::{<span class="self">self</span>, meter::Diff, WriteOutcome},
 	BalanceOf, CodeHash, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf,
 	DebugBufferVec, Determinism, Error, Event, Nonce, Origin, Pallet <span class="kw">as </span>Contracts, Schedule,
@@ -3918,7 +3919,6 @@
 	Blake2_128Concat, BoundedVec, StorageHasher,
 };
 <span class="kw">use </span>frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
-<span class="kw">use </span>pallet_contracts_primitives::{ExecReturnValue, StorageDeposit};
 <span class="kw">use </span>smallvec::{Array, SmallVec};
 <span class="kw">use </span>sp_core::{
 	ecdsa::Public <span class="kw">as </span>ECDSAPublic,
@@ -5499,7 +5499,7 @@
 	<span class="kw">use </span>codec::{Decode, Encode};
 	<span class="kw">use </span>frame_support::{assert_err, assert_ok, parameter_types};
 	<span class="kw">use </span>frame_system::{EventRecord, Phase};
-	<span class="kw">use </span>pallet_contracts_primitives::ReturnFlags;
+	<span class="kw">use </span>pallet_contracts_uapi::ReturnFlags;
 	<span class="kw">use </span>pretty_assertions::assert_eq;
 	<span class="kw">use </span>sp_runtime::{traits::Hash, DispatchError};
 	<span class="kw">use </span>std::{cell::RefCell, collections::hash_map::HashMap, rc::Rc};

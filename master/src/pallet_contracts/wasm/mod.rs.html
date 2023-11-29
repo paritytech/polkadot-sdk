@@ -3426,6 +3426,7 @@
 <a href="#3426" id="3426">3426</a>
 <a href="#3427" id="3427">3427</a>
 <a href="#3428" id="3428">3428</a>
+<a href="#3429" id="3429">3429</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3452,13 +3453,13 @@
 <span class="attr">#[cfg(doc)]
 </span><span class="kw">pub use </span><span class="kw">crate</span>::wasm::runtime::api_doc;
 
-<span class="attr">#[cfg(test)]
-</span><span class="kw">pub use </span>tests::MockExt;
-
 <span class="kw">pub use </span><span class="kw">crate</span>::wasm::runtime::{
-	AllowDeprecatedInterface, AllowUnstableInterface, CallFlags, Environment, ReturnCode, Runtime,
+	AllowDeprecatedInterface, AllowUnstableInterface, Environment, ReturnErrorCode, Runtime,
 	RuntimeCosts,
 };
+<span class="kw">pub use </span>pallet_contracts_uapi::ReturnFlags;
+<span class="attr">#[cfg(test)]
+</span><span class="kw">pub use </span>tests::MockExt;
 
 <span class="kw">use crate</span>::{
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
@@ -3864,6 +3865,7 @@
 	<span class="kw">use crate</span>::{
 		exec::{AccountIdOf, ErrorOrigin, ExecError, Executable, Ext, Key, SeedOf},
 		gas::GasMeter,
+		primitives::ExecReturnValue,
 		storage::WriteOutcome,
 		tests::{RuntimeCall, Test, ALICE, BOB},
 		BalanceOf, CodeHash, Error, Origin, Pallet <span class="kw">as </span>Contracts,
@@ -3873,7 +3875,7 @@
 		assert_err, assert_ok, dispatch::DispatchResultWithPostInfo, weights::Weight,
 	};
 	<span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
-	<span class="kw">use </span>pallet_contracts_primitives::{ExecReturnValue, ReturnFlags};
+	<span class="kw">use </span>pallet_contracts_uapi::ReturnFlags;
 	<span class="kw">use </span>pretty_assertions::assert_eq;
 	<span class="kw">use </span>sp_core::H256;
 	<span class="kw">use </span>sp_runtime::DispatchError;
@@ -6167,7 +6169,7 @@
 		<span class="kw">let </span>result = execute(CODE, input, <span class="kw-2">&amp;mut </span>ext).unwrap();
 		<span class="macro">assert_eq!</span>(
 			u32::from_le_bytes(result.data[<span class="number">0</span>..<span class="number">4</span>].try_into().unwrap()),
-			ReturnCode::KeyNotFound <span class="kw">as </span>u32
+			ReturnErrorCode::KeyNotFound <span class="kw">as </span>u32
 		);
 
 		<span class="comment">// value exists
@@ -6175,7 +6177,7 @@
 		<span class="kw">let </span>result = execute(CODE, input, <span class="kw-2">&amp;mut </span>ext).unwrap();
 		<span class="macro">assert_eq!</span>(
 			u32::from_le_bytes(result.data[<span class="number">0</span>..<span class="number">4</span>].try_into().unwrap()),
-			ReturnCode::Success <span class="kw">as </span>u32
+			ReturnErrorCode::Success <span class="kw">as </span>u32
 		);
 		<span class="macro">assert_eq!</span>(ext.storage.get(<span class="kw-2">&amp;</span>[<span class="number">1u8</span>; <span class="number">64</span>].to_vec()).unwrap(), <span class="kw-2">&amp;</span>[<span class="number">42u8</span>]);
 		<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>result.data[<span class="number">4</span>..], <span class="kw-2">&amp;</span>[<span class="number">42u8</span>]);
@@ -6185,7 +6187,7 @@
 		<span class="kw">let </span>result = execute(CODE, input, <span class="kw-2">&amp;mut </span>ext).unwrap();
 		<span class="macro">assert_eq!</span>(
 			u32::from_le_bytes(result.data[<span class="number">0</span>..<span class="number">4</span>].try_into().unwrap()),
-			ReturnCode::Success <span class="kw">as </span>u32
+			ReturnErrorCode::Success <span class="kw">as </span>u32
 		);
 		<span class="macro">assert_eq!</span>(ext.storage.get(<span class="kw-2">&amp;</span>[<span class="number">2u8</span>; <span class="number">19</span>].to_vec()), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="macro">vec!</span>[]));
 		<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>result.data[<span class="number">4</span>..], <span class="kw-2">&amp;</span>([] <span class="kw">as </span>[u8; <span class="number">0</span>]));
@@ -6348,7 +6350,7 @@
 		<span class="kw">let </span>result = execute(CODE, input, <span class="kw-2">&amp;mut </span>ext).unwrap();
 		<span class="macro">assert_eq!</span>(
 			u32::from_le_bytes(result.data[<span class="number">0</span>..<span class="number">4</span>].try_into().unwrap()),
-			ReturnCode::KeyNotFound <span class="kw">as </span>u32
+			ReturnErrorCode::KeyNotFound <span class="kw">as </span>u32
 		);
 
 		<span class="comment">// value did exist -&gt; value returned
@@ -6356,7 +6358,7 @@
 		<span class="kw">let </span>result = execute(CODE, input, <span class="kw-2">&amp;mut </span>ext).unwrap();
 		<span class="macro">assert_eq!</span>(
 			u32::from_le_bytes(result.data[<span class="number">0</span>..<span class="number">4</span>].try_into().unwrap()),
-			ReturnCode::Success <span class="kw">as </span>u32
+			ReturnErrorCode::Success <span class="kw">as </span>u32
 		);
 		<span class="macro">assert_eq!</span>(ext.storage.get(<span class="kw-2">&amp;</span>[<span class="number">1u8</span>; <span class="number">64</span>].to_vec()), <span class="prelude-val">None</span>);
 		<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>result.data[<span class="number">4</span>..], <span class="kw-2">&amp;</span>[<span class="number">42u8</span>]);
@@ -6366,7 +6368,7 @@
 		<span class="kw">let </span>result = execute(CODE, input, <span class="kw-2">&amp;mut </span>ext).unwrap();
 		<span class="macro">assert_eq!</span>(
 			u32::from_le_bytes(result.data[<span class="number">0</span>..<span class="number">4</span>].try_into().unwrap()),
-			ReturnCode::Success <span class="kw">as </span>u32
+			ReturnErrorCode::Success <span class="kw">as </span>u32
 		);
 		<span class="macro">assert_eq!</span>(ext.storage.get(<span class="kw-2">&amp;</span>[<span class="number">2u8</span>; <span class="number">19</span>].to_vec()), <span class="prelude-val">None</span>);
 		<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>result.data[<span class="number">4</span>..], <span class="kw-2">&amp;</span>[<span class="number">0u8</span>; <span class="number">0</span>]);

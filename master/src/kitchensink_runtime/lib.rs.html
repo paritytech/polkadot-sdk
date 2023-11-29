@@ -5380,7 +5380,7 @@
 			gas_limit: <span class="prelude-ty">Option</span>&lt;Weight&gt;,
 			storage_deposit_limit: <span class="prelude-ty">Option</span>&lt;Balance&gt;,
 			input_data: Vec&lt;u8&gt;,
-		) -&gt; pallet_contracts_primitives::ContractExecResult&lt;Balance, EventRecord&gt; {
+		) -&gt; pallet_contracts::ContractExecResult&lt;Balance, EventRecord&gt; {
 			<span class="kw">let </span>gas_limit = gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block);
 			Contracts::bare_call(
 				origin,
@@ -5400,10 +5400,10 @@
 			value: Balance,
 			gas_limit: <span class="prelude-ty">Option</span>&lt;Weight&gt;,
 			storage_deposit_limit: <span class="prelude-ty">Option</span>&lt;Balance&gt;,
-			code: pallet_contracts_primitives::Code&lt;Hash&gt;,
+			code: pallet_contracts::Code&lt;Hash&gt;,
 			data: Vec&lt;u8&gt;,
 			salt: Vec&lt;u8&gt;,
-		) -&gt; pallet_contracts_primitives::ContractInstantiateResult&lt;AccountId, Balance, EventRecord&gt;
+		) -&gt; pallet_contracts::ContractInstantiateResult&lt;AccountId, Balance, EventRecord&gt;
 		{
 			<span class="kw">let </span>gas_limit = gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block);
 			Contracts::bare_instantiate(
@@ -5424,7 +5424,7 @@
 			code: Vec&lt;u8&gt;,
 			storage_deposit_limit: <span class="prelude-ty">Option</span>&lt;Balance&gt;,
 			determinism: pallet_contracts::Determinism,
-		) -&gt; pallet_contracts_primitives::CodeUploadResult&lt;Hash, Balance&gt;
+		) -&gt; pallet_contracts::CodeUploadResult&lt;Hash, Balance&gt;
 		{
 			Contracts::bare_upload_code(
 				origin,
@@ -5437,7 +5437,7 @@
 		<span class="kw">fn </span>get_storage(
 			address: AccountId,
 			key: Vec&lt;u8&gt;,
-		) -&gt; pallet_contracts_primitives::GetStorageResult {
+		) -&gt; pallet_contracts::GetStorageResult {
 			Contracts::get_storage(
 				address,
 				key

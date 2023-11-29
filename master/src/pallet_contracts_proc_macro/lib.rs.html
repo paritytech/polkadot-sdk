@@ -1133,7 +1133,7 @@
 		<span class="comment">// process return type
 		</span><span class="kw">let </span>msg = <span class="string">r#&quot;Should return one of the following:
 				- Result&lt;(), TrapReason&gt;,
-				- Result&lt;ReturnCode, TrapReason&gt;,
+				- Result&lt;ReturnErrorCode, TrapReason&gt;,
 				- Result&lt;u64, TrapReason&gt;,
 				- Result&lt;u32, TrapReason&gt;&quot;#</span>;
 		<span class="kw">let </span>ret_ty = <span class="kw">match </span>item.clone().sig.output {
@@ -1198,7 +1198,7 @@
 							<span class="string">&quot;()&quot; </span>=&gt; <span class="prelude-val">Ok</span>(HostFnReturn::Unit),
 							<span class="string">&quot;u32&quot; </span>=&gt; <span class="prelude-val">Ok</span>(HostFnReturn::U32),
 							<span class="string">&quot;u64&quot; </span>=&gt; <span class="prelude-val">Ok</span>(HostFnReturn::U64),
-							<span class="string">&quot;ReturnCode&quot; </span>=&gt; <span class="prelude-val">Ok</span>(HostFnReturn::ReturnCode),
+							<span class="string">&quot;ReturnErrorCode&quot; </span>=&gt; <span class="prelude-val">Ok</span>(HostFnReturn::ReturnCode),
 							<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(err(arg1.span(), <span class="kw-2">&amp;</span>msg)),
 						}<span class="question-mark">?</span>;
 
@@ -1412,7 +1412,7 @@
 		/// consumed by humans through rustdoc.
 		</span><span class="attr">#[cfg(doc)]
 		</span><span class="kw">pub mod </span>api_doc {
-			<span class="kw">use super</span>::{TrapReason, ReturnCode};
+			<span class="kw">use super</span>::{TrapReason, ReturnErrorCode};
 			#docs
 		}
 	}
@@ -1629,7 +1629,7 @@
 /// #[define_env]
 /// pub mod some_env {
 /// 	#[version(2)]
-/// 	fn foo(ctx: _, memory: _, key_ptr: u32, value_ptr: u32, value_len: u32) -&gt; Result&lt;ReturnCode, TrapReason&gt; {
+/// 	fn foo(ctx: _, memory: _, key_ptr: u32, value_ptr: u32, value_len: u32) -&gt; Result&lt;ReturnErrorCode, TrapReason&gt; {
 /// 		ctx.some_host_fn(KeyType::Fix, key_ptr, value_ptr, value_len).map(|_| ())
 /// 	}
 ///
@@ -1655,7 +1655,7 @@
 /// pub mod some_env {
 /// 	#[version(1)]
 /// 	#[prefixed_alias]
-/// 	fn foo(ctx: _, memory: _, key_ptr: u32, value_ptr: u32, value_len: u32) -&gt; Result&lt;ReturnCode, TrapReason&gt; {
+/// 	fn foo(ctx: _, memory: _, key_ptr: u32, value_ptr: u32, value_len: u32) -&gt; Result&lt;ReturnErrorCode, TrapReason&gt; {
 /// 		ctx.some_host_fn(KeyType::Fix, key_ptr, value_ptr, value_len).map(|_| ())
 /// 	}
 ///
@@ -1673,7 +1673,7 @@
 ///
 /// Only following return types are allowed for the host functions defined with the macro:
 /// - `Result&lt;(), TrapReason&gt;`,
-/// - `Result&lt;ReturnCode, TrapReason&gt;`,
+/// - `Result&lt;ReturnErrorCode, TrapReason&gt;`,
 /// - `Result&lt;u32, TrapReason&gt;`.
 ///
 /// The macro expands to `pub struct Env` declaration, with the following traits implementations:
