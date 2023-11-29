@@ -22,7 +22,6 @@ use jsonrpsee::{
 	core::Error as RpcError,
 	types::error::{CallError, ErrorObject},
 };
-use sp_blockchain::Error as BlockchainError;
 
 /// ChainHead RPC errors.
 #[derive(Debug, thiserror::Error)]
@@ -39,12 +38,9 @@ pub enum Error {
 	/// Invalid parameter provided to the RPC method.
 	#[error("Invalid parameter: {0}")]
 	InvalidParam(String),
-	/// Fetch block header error.
-	#[error("Could not fetch block header: {0}")]
-	FetchBlockHeader(BlockchainError),
-	/// Invalid subscription ID provided by the RPC server.
-	#[error("Invalid subscription ID")]
-	InvalidSubscriptionID,
+	/// Internal error.
+	#[error("Internal error: {0}")]
+	InternalError(String),
 }
 
 /// Errors for `chainHead` RPC module, as defined in
@@ -63,10 +59,8 @@ mod rpc_spec_v2 {
 mod json_rpc_spec {
 	/// Invalid parameter error.
 	pub const INVALID_PARAM_ERROR: i32 = -32602;
-	/// Fetch block header error.
-	pub const FETCH_BLOCK_HEADER_ERROR: i32 = -32603;
-	/// Invalid subscription ID.
-	pub const INVALID_SUB_ID: i32 = -32603;
+	/// Internal error.
+	pub const INTERNAL_ERROR: i32 = -32603;
 }
 
 impl From<Error> for ErrorObject<'static> {
@@ -80,12 +74,10 @@ impl From<Error> for ErrorObject<'static> {
 				ErrorObject::owned(rpc_spec_v2::INVALID_RUNTIME_CALL, msg, None::<()>),
 			Error::InvalidContinue =>
 				ErrorObject::owned(rpc_spec_v2::INVALID_CONTINUE, msg, None::<()>),
-			Error::FetchBlockHeader(_) =>
-				ErrorObject::owned(json_rpc_spec::FETCH_BLOCK_HEADER_ERROR, msg, None::<()>),
 			Error::InvalidParam(_) =>
 				ErrorObject::owned(json_rpc_spec::INVALID_PARAM_ERROR, msg, None::<()>),
-			Error::InvalidSubscriptionID =>
-				ErrorObject::owned(json_rpc_spec::INVALID_SUB_ID, msg, None::<()>),
+			Error::InternalError(_) =>
+				ErrorObject::owned(json_rpc_spec::INTERNAL_ERROR, msg, None::<()>),
 		}
 	}
 }

@@ -198,7 +198,9 @@ where
 		let sub_id = match self.accept_subscription(&mut sink) {
 			Ok(sub_id) => sub_id,
 			Err(err) => {
-				sink.close(ChainHeadRpcError::InvalidSubscriptionID);
+				sink.close(ChainHeadRpcError::InternalError(
+					"Cannot generate subscription ID".into(),
+				));
 				return Err(err)
 			},
 		};
@@ -306,7 +308,7 @@ where
 		self.client
 			.header(hash)
 			.map(|opt_header| opt_header.map(|h| hex_string(&h.encode())))
-			.map_err(ChainHeadRpcError::FetchBlockHeader)
+			.map_err(|err| ChainHeadRpcError::InternalError(err.to_string()))
 			.map_err(Into::into)
 	}
 
