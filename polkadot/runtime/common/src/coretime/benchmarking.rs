@@ -21,8 +21,8 @@
 use super::{Pallet, *};
 use assigner_bulk::MAX_ASSIGNMENTS_PER_SCHEDULE;
 use frame_benchmarking::v2::*;
-use pallet_broker::CoreIndex as BrokerCoreIndex;
 use frame_support::traits::OriginTrait;
+use pallet_broker::CoreIndex as BrokerCoreIndex;
 
 #[benchmarks]
 mod benchmarks {
