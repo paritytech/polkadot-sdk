@@ -110,7 +110,7 @@ where
 					"withdraw_asset(what: {:?}, who_origin: {:?}) error: {:?}",
 					roc, who_origin, err
 				);
-				pallet_xcm::Error::<Runtime>::CannotWithdraw
+				pallet_xcm::Error::<Runtime>::LowBalance
 			})?;
 
 		// check out

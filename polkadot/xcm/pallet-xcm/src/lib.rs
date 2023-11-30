@@ -549,8 +549,6 @@ pub mod pallet {
 		TooManyReserves,
 		/// Local XCM execution incomplete.
 		LocalExecutionIncomplete,
-		/// The amount of the asset requested could not be withdrawn from the origin.
-		CannotWithdraw,
 	}
 
 	impl<T: Config> From<SendError> for Error<T> {
