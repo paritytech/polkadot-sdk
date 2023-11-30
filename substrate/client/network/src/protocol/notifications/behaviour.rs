@@ -2450,7 +2450,7 @@ mod tests {
 			Notifications::new(
 				vec![handle],
 				from_controller,
-				&None,
+				None,
 				iter::once((
 					ProtocolConfig {
 						name: "/foo".into(),
