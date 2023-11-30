@@ -74,7 +74,6 @@ pallet-broker = { path = "../../../frame/broker", default-features = false}
 pallet-child-bounties = { path = "../../../frame/child-bounties", default-features = false}
 pallet-collective = { path = "../../../frame/collective", default-features = false}
 pallet-contracts = { path = "../../../frame/contracts", default-features = false}
-pallet-contracts-primitives = { path = "../../../frame/contracts/primitives", default-features = false}
 pallet-conviction-voting = { path = "../../../frame/conviction-voting", default-features = false}
 pallet-core-fellowship = { path = "../../../frame/core-fellowship", default-features = false}
 pallet-democracy = { path = "../../../frame/democracy", default-features = false}
@@ -171,7 +170,6 @@ std = [
 	"pallet-broker/std",
 	"pallet-child-bounties/std",
 	"pallet-collective/std",
-	"pallet-contracts-primitives/std",
 	"pallet-contracts/std",
 	"pallet-conviction-voting/std",
 	"pallet-core-fellowship/std",
