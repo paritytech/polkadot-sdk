@@ -2716,7 +2716,7 @@ dependencies = [
 [[package]]
 name = "common"
 version = "0.1.0"
-source = "git+https://github.com/w3f/ring-proof#3a930bd4a0b3d5d2a611401ac8805af33ad23062"
+source = "git+https://github.com/davxy/ring-proof?branch=davxy-fix-no-std#b687e0e63a6d99a02c78af6ae78e9e0f5939c95e"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -14158,7 +14158,7 @@ dependencies = [
 [[package]]
 name = "ring"
 version = "0.1.0"
-source = "git+https://github.com/w3f/ring-proof#3a930bd4a0b3d5d2a611401ac8805af33ad23062"
+source = "git+https://github.com/davxy/ring-proof?branch=davxy-fix-no-std#b687e0e63a6d99a02c78af6ae78e9e0f5939c95e"
 dependencies = [
  "ark-ec",
  "ark-ff",
