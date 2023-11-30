@@ -26,9 +26,14 @@
 //!
 //! This capability is possible due to the runtime of a blockchain existing in on-chain storage.
 //!
-//! To upgrade a runtime, an [Origin](frame_system::RawOrigin) with the necesarry permissions
-//! (usually via governance) simply executes [`set_code`] or [`set_code_without_checks`] with the
+//! ## Performing a Runtime Upgrade
+//!
+//! To upgrade a runtime, an [`Origin`](frame_system::RawOrigin) with the necesarry permissions
+//! (usually via governance) simply executes [`set_code`] (or [`set_code_without_checks`]) with the
 //! desired new blob.
+//!
+//! Prior to building the new runtime, don't forget to update the
+//! [`RuntimeVersion`](sp_version::RuntimeVersion).
 //!
 //! # Migrations
 //!
