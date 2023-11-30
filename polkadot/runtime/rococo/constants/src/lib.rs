@@ -114,7 +114,7 @@ pub mod system_parachain {
 	/// BridgeHub parachain ID.
 	pub const BRIDGE_HUB_ID: u32 = 1013;
 	/// Brokerage parachain ID.
-	pub const BROKER_ID: u32 = 1004;
+	pub const BROKER_ID: u32 = 1005;
 
 	frame_support::match_types! {
 		pub type SystemParachains: impl Contains<MultiLocation> = {
