@@ -475,7 +475,7 @@ pub mod pallet {
 		/// The funds are held as a deposit to slash for `migrate_custom_top`.
 		#[codec(index = 1)]
 		SlashForMigrateCustomTop,
-		/// The funds are held as deposit for slashing for `migrate_custom_child`.
+		/// The funds are held as a deposit to slash for `migrate_custom_child`.
 		#[codec(index = 2)]
 		SlashForMigrateCustomChild,
 	}
