@@ -148,7 +148,6 @@ fn set_id_relay(id: &Identity) -> u128 {
 		type RuntimeEvent = <RococoRelay as Chain>::RuntimeEvent;
 
 		// 1. Set identity on Relay Chain
-		// For this test case we only use a single instance of IdentityInfo
 		assert_ok!(RococoIdentity::set_identity(
 			RococoOrigin::signed(RococoRelaySender::get()),
 			Box::new(id.relay.clone())
