@@ -663,6 +663,16 @@
 <a href="#663" id="663">663</a>
 <a href="#664" id="664">664</a>
 <a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -697,7 +707,7 @@
 
 <span class="kw">use </span>futures::{channel::oneshot, select, FutureExt <span class="kw">as _</span>};
 <span class="kw">use </span>futures_timer::Delay;
-<span class="kw">use </span>rand::{seq::SliceRandom <span class="kw">as _</span>, SeedableRng};
+<span class="kw">use </span>rand::{Rng, SeedableRng};
 <span class="kw">use </span>rand_chacha::ChaCha20Rng;
 
 <span class="kw">use </span>sc_network::{config::parse_addr, Multiaddr};
@@ -1272,7 +1282,7 @@
 			.map(|(i, a)| (a.clone(), ValidatorIndex(i <span class="kw">as _</span>)))
 			.collect();
 
-		canonical_shuffling.shuffle(<span class="kw-2">&amp;mut </span>rng);
+		fisher_yates_shuffle(<span class="kw-2">&amp;mut </span>rng, <span class="kw-2">&amp;mut </span>canonical_shuffling[..]);
 		<span class="kw">for </span>(i, (<span class="kw">_</span>, validator_index)) <span class="kw">in </span>canonical_shuffling.iter().enumerate() {
 			shuffled_indices[validator_index.<span class="number">0 </span><span class="kw">as </span>usize] = i;
 		}
@@ -1290,6 +1300,16 @@
 		.<span class="kw">await</span>;
 
 	<span class="prelude-val">Ok</span>(())
+}
+
+<span class="comment">// Durstenfeld algorithm for the Fisher-Yates shuffle
+// https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle#The_modern_algorithm
+</span><span class="kw">fn </span>fisher_yates_shuffle&lt;T, R: Rng + <span class="question-mark">?</span>Sized&gt;(rng: <span class="kw-2">&amp;mut </span>R, items: <span class="kw-2">&amp;mut </span>[T]) {
+	<span class="kw">for </span>i <span class="kw">in </span>(<span class="number">1</span>..items.len()).rev() {
+		<span class="comment">// invariant: elements with index &gt; i have been locked in place.
+		</span><span class="kw">let </span>index = rng.gen_range(<span class="number">0u32</span>..(i <span class="kw">as </span>u32 + <span class="number">1</span>));
+		items.swap(i, index <span class="kw">as </span>usize);
+	}
 }
 
 <span class="attr">#[overseer::subsystem(GossipSupport, error = SubsystemError, prefix = <span class="self">self</span>::overseer)]
