@@ -25,8 +25,6 @@ use crate::{
 	},
 	session_info, shared,
 };
-#[cfg(test)]
-use crate::{mock::MockAssigner, scheduler::V0Assignment};
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
@@ -704,8 +702,11 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			.map(|i| {
 				let AssignmentProviderConfig { ttl, .. } =
 					scheduler::Pallet::<T>::assignment_provider_config(CoreIndex(i));
-				let assignment =
-					T::AssignmentProvider::pop_assignment_for_core(CoreIndex(i)).unwrap();
+				// Load an assignment into provider so that one is present to pop
+				let assignment = <T as scheduler::Config>::AssignmentProvider::get_mock_assignment(
+					CoreIndex(i),
+					ParaId::from(i),
+				);
 				CoreOccupied::Paras(ParasEntry::new(assignment, now + ttl))
 			})
 			.collect();
