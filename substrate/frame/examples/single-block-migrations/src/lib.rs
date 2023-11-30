@@ -15,25 +15,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # Storage Migrations Example Pallet
+//! # Single Block Migration Example Pallet
 //!
-//! An example pallet explaining why storage migrations are necessary and demonstrating
-//! best-practices for writing them.
+//! An example pallet demonstrating best-practices for writing single-block migrations in the
+//! context of upgrading pallet storage.
 //!
-//! It is intended to be a resource for guiding a developer from knowing nothing about storage
-//! migrations to being able to write safe, well tested, versioned migrations for their own pallets.
+//! Read more about runtime upgrades and migrations by reading the [Runtime Upgrade Reference
+//! Docs](runtime_upgrade_reference_docs).
 //!
-//! ## Prerequisites
+//! ## Forwarning
 //!
-//! Before writing pallet storage migrations, you should be familiar with:
-//! - [`Runtime upgrades`](https://docs.substrate.io/maintain/runtime-upgrades/)
-//! - The [`GetStorageVersion`](frame_support::traits::GetStorageVersion) trait, and the difference
-//!   between current and on-chain [`StorageVersion`]s
-
-//! ## How to read these docs
-//! - Run `cargo doc --features try-runtime --package pallet-example-single-block-migrations --open`
-//! to view the documentation in your browser.
-//! - Read the relevant source code as your read the docs.
+//! Single block migrations **MUST** execute in a single block, therefore are typically only
+//! appropriate for migrations which are either guaranteed to not exceed block weight limits.
+//! If you migration exceeds block weight limits, it will **brick your chain**!
+//!
+//! If weight is a concern or you are not sure which type of migration to use, you should probably
+//! use a multi-block migration.
+//!
+//! TODO: Link above to multi-block migration example.
 //!
 //! ## Pallet Overview
 //!
@@ -70,7 +69,7 @@
 //!
 //! ## Adding a migration module
 //!
-//! Containing a pallets migrations in a seperate module is strongly recommended.
+//! Writing a pallets migrations in a seperate module is strongly recommended.
 //!
 //! Here's how the migration module is defined for this pallet:
 //!
@@ -105,8 +104,7 @@
 //! ### `mod version_unchecked`
 //!
 //! Here we define our raw migration logic,
-//! `version_unchecked::MigrateV0ToV1` which implements the
-//! [`OnRuntimeUpgrade`](frame_support::traits::OnRuntimeUpgrade) trait.
+//! `version_unchecked::MigrateV0ToV1` which implements the [`OnRuntimeUpgrade`] trait.
 //!
 //! Importantly, it is kept in a private module so that it cannot be accidentally used in a runtime.
 //!
@@ -115,20 +113,19 @@
 //! #### Standalone Struct or Pallet Hook?
 //!
 //! Note that the storage migration logic is attached to a standalone struct implementing
-//! [`OnRuntimeUpgrade`](frame_support::traits::OnRuntimeUpgrade), rather than implementing the
+//! [`OnRuntimeUpgrade`], rather than implementing the
 //! [`Hooks::on_runtime_upgrade`](frame_support::traits::Hooks::on_runtime_upgrade) hook directly on
 //! the pallet. The pallet hook is better suited for executing other types of logic that needs to
-//! execute on runtime upgrade, but not so much storage migrations.
+//! execute on runtime upgrade, but not so much for storage migrations.
 //!
 //! ### `pub mod versioned`
 //!
 //! Here, `version_unchecked::MigrateV0ToV1` is wrapped in a
-//! [`VersionedMigration`](frame_support::migrations::VersionedMigration) to define
+//! [`VersionedMigration`] to define
 //! [`versioned::MigrateV0ToV1`](crate::migrations::v1::versioned::MigrateV0ToV1), which may be used
 //! in runtimes.
 //!
-//! Using
-//! [`VersionedMigration`](frame_support::migrations::VersionedMigration) ensures that
+//! Using [`VersionedMigration`] ensures that
 //! - The migration only runs once when the on-chain storage version is `0`
 //! - The on-chain storage version is updated to `1` after the migration executes
 //! - Reads and writes from checking and setting the on-chain storage version are accounted for in
@@ -144,78 +141,13 @@
 //! - `on_runtime_upgrade` returns the expected weight
 //! - `post_upgrade` succeeds when given the bytes returned by `pre_upgrade`
 //! - Pallet storage is in the expected state after the migration
-//!
-//! ## Scheduling the Migration to Run Next Runtime Upgrade
-//!
-//! Almost done! The last step is to schedule the migration to run next runtime upgrade passing it
-//! as a generic parameter to your [`Executive`](frame_executive) pallet:
-//!
-//! ```ignore
-//! // Tuple of migrations (structs that implement `OnRuntimeUpgrade`)
-//! type Migrations = (
-//! 	pallet_example_storage_migration::migrations::v1::versioned::MigrateV0ToV1
-//! 	// ...more migrations here
-//! );
-//! pub type Executive = frame_executive::Executive<
-//! 	Runtime,
-//! 	Block,
-//! 	frame_system::ChainContext<Runtime>,
-//! 	Runtime,
-//! 	AllPalletsWithSystem,
-//! 	Migrations, // <-- pass your migrations to Executive here
-//! >;
-//! ```
-//!
-//! ## Ensuring Migraiton Safety
-//!
-//! "My migration unit tests pass, so it should be safe to deploy right?"
-//!
-//! No! Unit tests execute the migration in a very simple test environment, and cannot account
-//! for the complexities of a real runtime or real on-chain state.
-//!
-//! Prior to deploying migrations, it is CRITICAL to perform additional checks to ensure that when
-//! run in our real runtime they will not brick the chain due to:
-//! - Panicing
-//! - Touching too many storage keys and resulting in an excessively large PoV
-//! - Taking too long to execute
-//!
-//! The [`try-runtime-cli`](https://github.com/paritytech/try-runtime-cli) tool has a sub-command
-//! [`on-runtime-upgrade`](https://paritytech.github.io/try-runtime-cli/try_runtime_core/commands/enum.Action.html#variant.OnRuntimeUpgrade)
-//! which is designed to help with exactly this.
-//!
-//! Developers MUST run this command before deploying migrations to ensure they will not
-//! inadvertently result in a bricked chain.
-//!
-//! ### Note on the Manipulability of PoV Size and Execution Time
-//!
-//! While [`try-runtime-cli`](https://github.com/paritytech/try-runtime-cli) can help ensure with
-//! very high certianty that a migration will succeed given **existing** on-chain state, it cannot
-//! prevent a malicious actor from manipulating state in a way that will cause the migration to take
-//! longer or produce a PoV much larger than previously measured.
-//!
-//! Therefore, it is important to write migrations in such a way that the execution time or PoV size
-//! it adds to the block cannot be easily manipulated. e.g., in your migration, do not iterate over
-//! storage that can quickly or cheaply be bloated.
-//!
-//! ### Note on Multi-Block Migrations
-//!
-//! For large migrations that cannot be safely executed in a single block, a feature for writing
-//! simple and safe [multi-block migrations](https://github.com/paritytech/polkadot-sdk/issues/198)
-//! feature is [under active development](https://github.com/paritytech/substrate/pull/14275) and
-//! planned for release before the end of 2023.
-//!
-//! ### Note on Other Tools
-//!
-//! [`Chopsticks`](https://github.com/AcalaNetwork/chopsticks) is another tool in the Substrate
-//! ecosystem which developers may find useful to use in addition to `try-runtime-cli` when testing
-//! their migrations.
 
 // We make sure this pallet uses `no_std` for compiling to Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 // allow non-camel-case names for storage version V0 value
 #![allow(non_camel_case_types)]
 
-pub mod migration_reference_docs;
+pub mod runtime_upgrade_reference_docs;
 
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;
@@ -224,8 +156,12 @@ pub use pallet::*;
 pub mod migrations;
 #[doc(hidden)]
 mod mock;
+use crate::migrations::v1::versioned::MigrateV0ToV1;
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::traits::StorageVersion;
+use frame_support::{
+	migrations::VersionedMigration,
+	traits::{GetStorageVersion, OnRuntimeUpgrade, StorageVersion},
+};
 use sp_runtime::RuntimeDebug;
 
 /// Example struct holding the most recently set [`u32`] and the
