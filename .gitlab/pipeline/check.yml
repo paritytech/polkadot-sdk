@@ -97,7 +97,7 @@ check-toml-format:
     - .common-refs
   script:
     - cargo install taplo-cli --locked --version 0.8.1
-    - taplo format --check
+    - taplo format --check --config ./config/taplo.toml
     - echo "Please run `taplo format` to fix any kind of formatting issues"
 
 # More info can be found here: https://github.com/paritytech/polkadot/pull/5865
