@@ -29,7 +29,7 @@
 //! ## Performing a Runtime Upgrade
 //!
 //! To upgrade a runtime, an [`Origin`](frame_system::RawOrigin) with the necesarry permissions
-//! (usually via governance) simply executes [`set_code`] (or [`set_code_without_checks`]) with the
+//! (usually via governance) executes [`set_code`] (or [`set_code_without_checks`]) with the
 //! desired new blob.
 //!
 //! Prior to building the new runtime, don't forget to update the
@@ -55,8 +55,7 @@
 //!
 //! Suitable for migrations which are guaranteed to not exceed the block weight.
 //!
-//! Single block migrations are simply implementations of [`OnRuntimeUpgrade`]. Migrations can be
-//! written by implementing [`OnRuntimeUpgrade`] on a struct.
+//! Single block migrations are simply implementations of [`OnRuntimeUpgrade`].
 //!
 //! To learn best practices for writing single block pallet storage migrations, see the
 //! [Single Block Migration Example Pallet](crate).
