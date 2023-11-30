@@ -1045,7 +1045,7 @@
 	<span class="kw">let </span>res = res.unwrap_or_else(|e| e.to_compile_error());
 
 	<span class="kw">let </span>res = expander::Expander::new(<span class="string">&quot;construct_runtime&quot;</span>)
-		.dry(std::env::var(<span class="string">&quot;FRAME_EXPAND&quot;</span>).is_err())
+		.dry(std::env::var(<span class="string">&quot;EXPAND_MACROS&quot;</span>).is_err())
 		.verbose(<span class="bool-val">true</span>)
 		.write_to_out_dir(res)
 		.expect(<span class="string">&quot;Does not fail because of IO in OUT_DIR; qed&quot;</span>);

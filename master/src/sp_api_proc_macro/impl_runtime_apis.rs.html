@@ -1812,7 +1812,7 @@
 	);
 
 	<span class="kw">let </span>impl_ = expander::Expander::new(<span class="string">&quot;impl_runtime_apis&quot;</span>)
-		.dry(std::env::var(<span class="string">&quot;SP_API_EXPAND&quot;</span>).is_err())
+		.dry(std::env::var(<span class="string">&quot;EXPAND_MACROS&quot;</span>).is_err())
 		.verbose(<span class="bool-val">true</span>)
 		.write_to_out_dir(impl_)
 		.expect(<span class="string">&quot;Does not fail because of IO in OUT_DIR; qed&quot;</span>);

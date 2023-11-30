@@ -65,6 +65,7 @@ var srcIndex = JSON.parse('{\
 "cumulus_primitives_aura":["",[],["lib.rs"]],\
 "cumulus_primitives_core":["",[],["lib.rs"]],\
 "cumulus_primitives_parachain_inherent":["",[],["client_side.rs","lib.rs","mock.rs"]],\
+"cumulus_primitives_proof_size_hostfunction":["",[],["lib.rs"]],\
 "cumulus_primitives_timestamp":["",[],["lib.rs"]],\
 "cumulus_primitives_utility":["",[],["lib.rs"]],\
 "cumulus_relay_chain_inprocess_interface":["",[],["lib.rs"]],\
@@ -420,7 +421,7 @@ var srcIndex = JSON.parse('{\
 "sp_tracing":["",[],["lib.rs","types.rs"]],\
 "sp_transaction_pool":["",[],["lib.rs","runtime_api.rs"]],\
 "sp_transaction_storage_proof":["",[],["lib.rs"]],\
-"sp_trie":["",[["cache",[],["mod.rs","shared_cache.rs"]]],["error.rs","lib.rs","node_codec.rs","node_header.rs","recorder.rs","storage_proof.rs","trie_codec.rs","trie_stream.rs"]],\
+"sp_trie":["",[["cache",[],["mod.rs","shared_cache.rs"]]],["error.rs","lib.rs","node_codec.rs","node_header.rs","proof_size_extension.rs","recorder.rs","storage_proof.rs","trie_codec.rs","trie_stream.rs"]],\
 "sp_version":["",[],["embed.rs","lib.rs"]],\
 "sp_version_proc_macro":["",[],["decl_runtime_version.rs","lib.rs"]],\
 "sp_wasm_interface":["",[],["lib.rs"]],\

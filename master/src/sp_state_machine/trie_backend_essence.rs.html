@@ -939,14 +939,6 @@
 <a href="#939" id="939">939</a>
 <a href="#940" id="940">940</a>
 <a href="#941" id="941">941</a>
-<a href="#942" id="942">942</a>
-<a href="#943" id="943">943</a>
-<a href="#944" id="944">944</a>
-<a href="#945" id="945">945</a>
-<a href="#946" id="946">946</a>
-<a href="#947" id="947">947</a>
-<a href="#948" id="948">948</a>
-<a href="#949" id="949">949</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -977,19 +969,19 @@
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">use </span>parking_lot::RwLock;
 <span class="kw">use </span>sp_core::storage::{ChildInfo, ChildType, StateVersion};
-<span class="kw">use </span>sp_std::{boxed::Box, marker::PhantomData, vec::Vec};
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">use </span>sp_trie::recorder::Recorder;
+</span><span class="kw">use </span>sp_std::sync::Arc;
+<span class="kw">use </span>sp_std::{boxed::Box, marker::PhantomData, vec::Vec};
 <span class="kw">use </span>sp_trie::{
 	child_delta_trie_root, delta_trie_root, empty_child_trie_root,
 	read_child_trie_first_descedant_value, read_child_trie_hash, read_child_trie_value,
 	read_trie_first_descedant_value, read_trie_value,
 	trie_types::{TrieDBBuilder, TrieError},
 	DBValue, KeySpacedDB, MerkleValue, NodeCodec, PrefixedMemoryDB, Trie, TrieCache,
-	TrieDBRawIterator, TrieRecorder,
+	TrieDBRawIterator, TrieRecorder, TrieRecorderProvider,
 };
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
+</span><span class="kw">use </span>std::collections::HashMap;
 <span class="comment">// In this module, we only use layout for read operation and empty root,
 // where V1 and V0 are equivalent.
 </span><span class="kw">use </span>sp_trie::LayoutV1 <span class="kw">as </span>Layout;
@@ -1032,7 +1024,7 @@
 }
 
 <span class="doccomment">/// A raw iterator over the storage.
-</span><span class="kw">pub struct </span>RawIter&lt;S, H, C&gt;
+</span><span class="kw">pub struct </span>RawIter&lt;S, H, C, R&gt;
 <span class="kw">where
 	</span>H: Hasher,
 {
@@ -1042,25 +1034,26 @@
 	child_info: <span class="prelude-ty">Option</span>&lt;ChildInfo&gt;,
 	trie_iter: TrieDBRawIterator&lt;Layout&lt;H&gt;&gt;,
 	state: IterState,
-	_phantom: PhantomData&lt;(S, C)&gt;,
+	_phantom: PhantomData&lt;(S, C, R)&gt;,
 }
 
-<span class="kw">impl</span>&lt;S, H, C&gt; RawIter&lt;S, H, C&gt;
+<span class="kw">impl</span>&lt;S, H, C, R&gt; RawIter&lt;S, H, C, R&gt;
 <span class="kw">where
 	</span>H: Hasher,
 	S: TrieBackendStorage&lt;H&gt;,
 	H::Out: Codec + Ord,
 	C: TrieCacheProvider&lt;H&gt; + Send + Sync,
+	R: TrieRecorderProvider&lt;H&gt; + Send + Sync,
 {
 	<span class="attr">#[inline]
-	</span><span class="kw">fn </span>prepare&lt;R&gt;(
+	</span><span class="kw">fn </span>prepare&lt;RE&gt;(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		backend: <span class="kw-2">&amp;</span>TrieBackendEssence&lt;S, H, C&gt;,
+		backend: <span class="kw-2">&amp;</span>TrieBackendEssence&lt;S, H, C, R&gt;,
 		callback: <span class="kw">impl </span>FnOnce(
 			<span class="kw-2">&amp;</span>sp_trie::TrieDB&lt;Layout&lt;H&gt;&gt;,
 			<span class="kw-2">&amp;mut </span>TrieDBRawIterator&lt;Layout&lt;H&gt;&gt;,
-		) -&gt; <span class="prelude-ty">Option</span>&lt;core::result::Result&lt;R, Box&lt;TrieError&lt;&lt;H <span class="kw">as </span>Hasher&gt;::Out&gt;&gt;&gt;&gt;,
-	) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="prelude-ty">Result</span>&lt;R&gt;&gt; {
+		) -&gt; <span class="prelude-ty">Option</span>&lt;core::result::Result&lt;RE, Box&lt;TrieError&lt;&lt;H <span class="kw">as </span>Hasher&gt;::Out&gt;&gt;&gt;&gt;,
+	) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="prelude-ty">Result</span>&lt;RE&gt;&gt; {
 		<span class="kw">if </span>!<span class="macro">matches!</span>(<span class="self">self</span>.state, IterState::Pending) {
 			<span class="kw">return </span><span class="prelude-val">None
 		</span>}
@@ -1088,7 +1081,7 @@
 	}
 }
 
-<span class="kw">impl</span>&lt;S, H, C&gt; Default <span class="kw">for </span>RawIter&lt;S, H, C&gt;
+<span class="kw">impl</span>&lt;S, H, C, R&gt; Default <span class="kw">for </span>RawIter&lt;S, H, C, R&gt;
 <span class="kw">where
 	</span>H: Hasher,
 {
@@ -1105,14 +1098,15 @@
 	}
 }
 
-<span class="kw">impl</span>&lt;S, H, C&gt; StorageIterator&lt;H&gt; <span class="kw">for </span>RawIter&lt;S, H, C&gt;
+<span class="kw">impl</span>&lt;S, H, C, R&gt; StorageIterator&lt;H&gt; <span class="kw">for </span>RawIter&lt;S, H, C, R&gt;
 <span class="kw">where
 	</span>H: Hasher,
 	S: TrieBackendStorage&lt;H&gt;,
 	H::Out: Codec + Ord,
 	C: TrieCacheProvider&lt;H&gt; + Send + Sync,
+	R: TrieRecorderProvider&lt;H&gt; + Send + Sync,
 {
-	<span class="kw">type </span>Backend = <span class="kw">crate</span>::TrieBackend&lt;S, H, C&gt;;
+	<span class="kw">type </span>Backend = <span class="kw">crate</span>::TrieBackend&lt;S, H, C, R&gt;;
 	<span class="kw">type </span>Error = <span class="kw">crate</span>::DefaultError;
 
 	<span class="attr">#[inline]
@@ -1153,18 +1147,17 @@
 }
 
 <span class="doccomment">/// Patricia trie-based pairs storage essence.
-</span><span class="kw">pub struct </span>TrieBackendEssence&lt;S: TrieBackendStorage&lt;H&gt;, H: Hasher, C&gt; {
+</span><span class="kw">pub struct </span>TrieBackendEssence&lt;S: TrieBackendStorage&lt;H&gt;, H: Hasher, C, R&gt; {
 	storage: S,
 	root: H::Out,
 	empty: H::Out,
 	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) cache: Arc&lt;RwLock&lt;Cache&lt;H::Out&gt;&gt;&gt;,
 	<span class="kw">pub</span>(<span class="kw">crate</span>) trie_node_cache: <span class="prelude-ty">Option</span>&lt;C&gt;,
-	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) recorder: <span class="prelude-ty">Option</span>&lt;Recorder&lt;H&gt;&gt;,
+	<span class="kw">pub</span>(<span class="kw">crate</span>) recorder: <span class="prelude-ty">Option</span>&lt;R&gt;,
 }
 
-<span class="kw">impl</span>&lt;S: TrieBackendStorage&lt;H&gt;, H: Hasher, C&gt; TrieBackendEssence&lt;S, H, C&gt; {
+<span class="kw">impl</span>&lt;S: TrieBackendStorage&lt;H&gt;, H: Hasher, C, R&gt; TrieBackendEssence&lt;S, H, C, R&gt; {
 	<span class="doccomment">/// Create new trie-based backend.
 	</span><span class="kw">pub fn </span>new(storage: S, root: H::Out) -&gt; <span class="self">Self </span>{
 		<span class="self">Self</span>::new_with_cache(storage, root, <span class="prelude-val">None</span>)
@@ -1179,24 +1172,23 @@
 			<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 			</span>cache: Arc::new(RwLock::new(Cache::new())),
 			trie_node_cache: cache,
-			<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-			</span>recorder: <span class="prelude-val">None</span>,
+			recorder: <span class="prelude-val">None</span>,
 		}
 	}
 
 	<span class="doccomment">/// Create new trie-based backend.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 	</span><span class="kw">pub fn </span>new_with_cache_and_recorder(
 		storage: S,
 		root: H::Out,
 		cache: <span class="prelude-ty">Option</span>&lt;C&gt;,
-		recorder: <span class="prelude-ty">Option</span>&lt;Recorder&lt;H&gt;&gt;,
+		recorder: <span class="prelude-ty">Option</span>&lt;R&gt;,
 	) -&gt; <span class="self">Self </span>{
 		TrieBackendEssence {
 			storage,
 			root,
 			empty: H::hash(<span class="kw-2">&amp;</span>[<span class="number">0u8</span>]),
-			cache: Arc::new(RwLock::new(Cache::new())),
+			<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+			</span>cache: Arc::new(RwLock::new(Cache::new())),
 			trie_node_cache: cache,
 			recorder,
 		}
@@ -1238,37 +1230,31 @@
 	}
 }
 
-<span class="kw">impl</span>&lt;S: TrieBackendStorage&lt;H&gt;, H: Hasher, C: TrieCacheProvider&lt;H&gt;&gt; TrieBackendEssence&lt;S, H, C&gt; {
+<span class="kw">impl</span>&lt;S: TrieBackendStorage&lt;H&gt;, H: Hasher, C: TrieCacheProvider&lt;H&gt;, R: TrieRecorderProvider&lt;H&gt;&gt;
+	TrieBackendEssence&lt;S, H, C, R&gt;
+{
 	<span class="doccomment">/// Call the given closure passing it the recorder and the cache.
 	///
 	/// If the given `storage_root` is `None`, `self.root` will be used.
 	</span><span class="attr">#[inline]
-	</span><span class="kw">fn </span>with_recorder_and_cache&lt;R&gt;(
+	</span><span class="kw">fn </span>with_recorder_and_cache&lt;RE&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		storage_root: <span class="prelude-ty">Option</span>&lt;H::Out&gt;,
 		callback: <span class="kw">impl </span>FnOnce(
 			<span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span><span class="kw">dyn </span>TrieRecorder&lt;H::Out&gt;&gt;,
 			<span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span><span class="kw">dyn </span>TrieCache&lt;NodeCodec&lt;H&gt;&gt;&gt;,
-		) -&gt; R,
-	) -&gt; R {
+		) -&gt; RE,
+	) -&gt; RE {
 		<span class="kw">let </span>storage_root = storage_root.unwrap_or_else(|| <span class="self">self</span>.root);
 		<span class="kw">let </span><span class="kw-2">mut </span>cache = <span class="self">self</span>.trie_node_cache.as_ref().map(|c| c.as_trie_db_cache(storage_root));
 		<span class="kw">let </span>cache = cache.as_mut().map(|c| c <span class="kw">as _</span>);
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-		</span>{
-			<span class="kw">let </span><span class="kw-2">mut </span>recorder = <span class="self">self</span>.recorder.as_ref().map(|r| r.as_trie_recorder(storage_root));
-			<span class="kw">let </span>recorder = <span class="kw">match </span>recorder.as_mut() {
-				<span class="prelude-val">Some</span>(recorder) =&gt; <span class="prelude-val">Some</span>(recorder <span class="kw">as </span><span class="kw-2">&amp;mut </span><span class="kw">dyn </span>TrieRecorder&lt;H::Out&gt;),
-				<span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
-			};
-			callback(recorder, cache)
-		}
-
-		<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
-		</span>{
-			callback(<span class="prelude-val">None</span>, cache)
-		}
+		<span class="kw">let </span><span class="kw-2">mut </span>recorder = <span class="self">self</span>.recorder.as_ref().map(|r| r.as_trie_recorder(storage_root));
+		<span class="kw">let </span>recorder = <span class="kw">match </span>recorder.as_mut() {
+			<span class="prelude-val">Some</span>(recorder) =&gt; <span class="prelude-val">Some</span>(recorder <span class="kw">as </span><span class="kw-2">&amp;mut </span><span class="kw">dyn </span>TrieRecorder&lt;H::Out&gt;),
+			<span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
+		};
+		callback(recorder, cache)
 	}
 
 	<span class="doccomment">/// Call the given closure passing it the recorder and the cache.
@@ -1278,15 +1264,14 @@
 	/// the new storage root. This is required to register the changes in the cache
 	/// for the correct storage root. The given `storage_root` corresponds to the root of the &quot;old&quot;
 	/// trie. If the value is not given, `self.root` is used.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-	</span><span class="kw">fn </span>with_recorder_and_cache_for_storage_root&lt;R&gt;(
+	</span><span class="kw">fn </span>with_recorder_and_cache_for_storage_root&lt;RE&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		storage_root: <span class="prelude-ty">Option</span>&lt;H::Out&gt;,
 		callback: <span class="kw">impl </span>FnOnce(
 			<span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span><span class="kw">dyn </span>TrieRecorder&lt;H::Out&gt;&gt;,
 			<span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span><span class="kw">dyn </span>TrieCache&lt;NodeCodec&lt;H&gt;&gt;&gt;,
-		) -&gt; (<span class="prelude-ty">Option</span>&lt;H::Out&gt;, R),
-	) -&gt; R {
+		) -&gt; (<span class="prelude-ty">Option</span>&lt;H::Out&gt;, RE),
+	) -&gt; RE {
 		<span class="kw">let </span>storage_root = storage_root.unwrap_or_else(|| <span class="self">self</span>.root);
 		<span class="kw">let </span><span class="kw-2">mut </span>recorder = <span class="self">self</span>.recorder.as_ref().map(|r| r.as_trie_recorder(storage_root));
 		<span class="kw">let </span>recorder = <span class="kw">match </span>recorder.as_mut() {
@@ -1310,46 +1295,26 @@
 
 		result
 	}
-
-	<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
-	</span><span class="kw">fn </span>with_recorder_and_cache_for_storage_root&lt;R&gt;(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		_storage_root: <span class="prelude-ty">Option</span>&lt;H::Out&gt;,
-		callback: <span class="kw">impl </span>FnOnce(
-			<span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span><span class="kw">dyn </span>TrieRecorder&lt;H::Out&gt;&gt;,
-			<span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span><span class="kw">dyn </span>TrieCache&lt;NodeCodec&lt;H&gt;&gt;&gt;,
-		) -&gt; (<span class="prelude-ty">Option</span>&lt;H::Out&gt;, R),
-	) -&gt; R {
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(local_cache) = <span class="self">self</span>.trie_node_cache.as_ref() {
-			<span class="kw">let </span><span class="kw-2">mut </span>cache = local_cache.as_trie_db_mut_cache();
-
-			<span class="kw">let </span>(new_root, r) = callback(<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;mut </span>cache));
-
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(new_root) = new_root {
-				local_cache.merge(cache, new_root);
-			}
-
-			r
-		} <span class="kw">else </span>{
-			callback(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>).<span class="number">1
-		</span>}
-	}
 }
 
-<span class="kw">impl</span>&lt;S: TrieBackendStorage&lt;H&gt;, H: Hasher, C: TrieCacheProvider&lt;H&gt; + Send + Sync&gt;
-	TrieBackendEssence&lt;S, H, C&gt;
+<span class="kw">impl</span>&lt;
+		S: TrieBackendStorage&lt;H&gt;,
+		H: Hasher,
+		C: TrieCacheProvider&lt;H&gt; + Send + Sync,
+		R: TrieRecorderProvider&lt;H&gt; + Send + Sync,
+	&gt; TrieBackendEssence&lt;S, H, C, R&gt;
 <span class="kw">where
 	</span>H::Out: Codec + Ord,
 {
 	<span class="doccomment">/// Calls the given closure with a [`TrieDb`] constructed for the given
 	/// storage root and (optionally) child trie.
 	</span><span class="attr">#[inline]
-	</span><span class="kw">fn </span>with_trie_db&lt;R&gt;(
+	</span><span class="kw">fn </span>with_trie_db&lt;RE&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		root: H::Out,
 		child_info: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>ChildInfo&gt;,
-		callback: <span class="kw">impl </span>FnOnce(<span class="kw-2">&amp;</span>sp_trie::TrieDB&lt;Layout&lt;H&gt;&gt;) -&gt; R,
-	) -&gt; R {
+		callback: <span class="kw">impl </span>FnOnce(<span class="kw-2">&amp;</span>sp_trie::TrieDB&lt;Layout&lt;H&gt;&gt;) -&gt; RE,
+	) -&gt; RE {
 		<span class="kw">let </span>backend = <span class="self">self </span><span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>HashDBRef&lt;H, Vec&lt;u8&gt;&gt;;
 		<span class="kw">let </span>db = child_info
 			.as_ref()
@@ -1558,7 +1523,7 @@
 	}
 
 	<span class="doccomment">/// Create a raw iterator over the storage.
-	</span><span class="kw">pub fn </span>raw_iter(<span class="kw-2">&amp;</span><span class="self">self</span>, args: IterArgs) -&gt; <span class="prelude-ty">Result</span>&lt;RawIter&lt;S, H, C&gt;&gt; {
+	</span><span class="kw">pub fn </span>raw_iter(<span class="kw-2">&amp;</span><span class="self">self</span>, args: IterArgs) -&gt; <span class="prelude-ty">Result</span>&lt;RawIter&lt;S, H, C, R&gt;&gt; {
 		<span class="kw">let </span>root = <span class="kw">if let </span><span class="prelude-val">Some</span>(child_info) = args.child_info.as_ref() {
 			<span class="kw">let </span>root = <span class="kw">match </span><span class="self">self</span>.child_root(<span class="kw-2">&amp;</span>child_info)<span class="question-mark">? </span>{
 				<span class="prelude-val">Some</span>(root) =&gt; root,
@@ -1780,19 +1745,28 @@
 	}
 }
 
-<span class="kw">impl</span>&lt;S: TrieBackendStorage&lt;H&gt;, H: Hasher, C: TrieCacheProvider&lt;H&gt; + Send + Sync&gt;
-	AsHashDB&lt;H, DBValue&gt; <span class="kw">for </span>TrieBackendEssence&lt;S, H, C&gt;
+<span class="kw">impl</span>&lt;
+		S: TrieBackendStorage&lt;H&gt;,
+		H: Hasher,
+		C: TrieCacheProvider&lt;H&gt; + Send + Sync,
+		R: TrieRecorderProvider&lt;H&gt; + Send + Sync,
+	&gt; AsHashDB&lt;H, DBValue&gt; <span class="kw">for </span>TrieBackendEssence&lt;S, H, C, R&gt;
 {
 	<span class="kw">fn </span>as_hash_db&lt;<span class="lifetime">&#39;b</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span>(<span class="kw">dyn </span>HashDB&lt;H, DBValue&gt; + <span class="lifetime">&#39;b</span>) {
 		<span class="self">self
 	</span>}
+
 	<span class="kw">fn </span>as_hash_db_mut&lt;<span class="lifetime">&#39;b</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span><span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span><span class="kw-2">mut </span>(<span class="kw">dyn </span>HashDB&lt;H, DBValue&gt; + <span class="lifetime">&#39;b</span>) {
 		<span class="self">self
 	</span>}
 }
 
-<span class="kw">impl</span>&lt;S: TrieBackendStorage&lt;H&gt;, H: Hasher, C: TrieCacheProvider&lt;H&gt; + Send + Sync&gt; HashDB&lt;H, DBValue&gt;
-	<span class="kw">for </span>TrieBackendEssence&lt;S, H, C&gt;
+<span class="kw">impl</span>&lt;
+		S: TrieBackendStorage&lt;H&gt;,
+		H: Hasher,
+		C: TrieCacheProvider&lt;H&gt; + Send + Sync,
+		R: TrieRecorderProvider&lt;H&gt; + Send + Sync,
+	&gt; HashDB&lt;H, DBValue&gt; <span class="kw">for </span>TrieBackendEssence&lt;S, H, C, R&gt;
 {
 	<span class="kw">fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>H::Out, prefix: Prefix) -&gt; <span class="prelude-ty">Option</span>&lt;DBValue&gt; {
 		<span class="kw">if </span><span class="kw-2">*</span>key == <span class="self">self</span>.empty {
@@ -1824,8 +1798,12 @@
 	}
 }
 
-<span class="kw">impl</span>&lt;S: TrieBackendStorage&lt;H&gt;, H: Hasher, C: TrieCacheProvider&lt;H&gt; + Send + Sync&gt;
-	HashDBRef&lt;H, DBValue&gt; <span class="kw">for </span>TrieBackendEssence&lt;S, H, C&gt;
+<span class="kw">impl</span>&lt;
+		S: TrieBackendStorage&lt;H&gt;,
+		H: Hasher,
+		C: TrieCacheProvider&lt;H&gt; + Send + Sync,
+		R: TrieRecorderProvider&lt;H&gt; + Send + Sync,
+	&gt; HashDBRef&lt;H, DBValue&gt; <span class="kw">for </span>TrieBackendEssence&lt;S, H, C, R&gt;
 {
 	<span class="kw">fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>H::Out, prefix: Prefix) -&gt; <span class="prelude-ty">Option</span>&lt;DBValue&gt; {
 		HashDB::get(<span class="self">self</span>, key, prefix)
@@ -1877,7 +1855,10 @@
 				.expect(<span class="string">&quot;insert failed&quot;</span>);
 		};
 
-		<span class="kw">let </span>essence_1 = TrieBackendEssence::&lt;<span class="kw">_</span>, <span class="kw">_</span>, LocalTrieCache&lt;<span class="kw">_</span>&gt;&gt;::new(mdb, root_1);
+		<span class="kw">let </span>essence_1 =
+			TrieBackendEssence::&lt;<span class="kw">_</span>, <span class="kw">_</span>, LocalTrieCache&lt;<span class="kw">_</span>&gt;, sp_trie::recorder::Recorder&lt;<span class="kw">_</span>&gt;&gt;::new(
+				mdb, root_1,
+			);
 		<span class="kw">let </span>mdb = essence_1.backend_storage().clone();
 		<span class="kw">let </span>essence_1 = TrieBackend::from_essence(essence_1);
 
@@ -1887,7 +1868,10 @@
 		<span class="macro">assert_eq!</span>(essence_1.next_storage_key(<span class="string">b&quot;5&quot;</span>), <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="string">b&quot;6&quot;</span>.to_vec())));
 		<span class="macro">assert_eq!</span>(essence_1.next_storage_key(<span class="string">b&quot;6&quot;</span>), <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>));
 
-		<span class="kw">let </span>essence_2 = TrieBackendEssence::&lt;<span class="kw">_</span>, <span class="kw">_</span>, LocalTrieCache&lt;<span class="kw">_</span>&gt;&gt;::new(mdb, root_2);
+		<span class="kw">let </span>essence_2 =
+			TrieBackendEssence::&lt;<span class="kw">_</span>, <span class="kw">_</span>, LocalTrieCache&lt;<span class="kw">_</span>&gt;, sp_trie::recorder::Recorder&lt;<span class="kw">_</span>&gt;&gt;::new(
+				mdb, root_2,
+			);
 
 		<span class="macro">assert_eq!</span>(essence_2.next_child_storage_key(child_info, <span class="string">b&quot;2&quot;</span>), <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="string">b&quot;3&quot;</span>.to_vec())));
 		<span class="macro">assert_eq!</span>(essence_2.next_child_storage_key(child_info, <span class="string">b&quot;3&quot;</span>), <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="string">b&quot;4&quot;</span>.to_vec())));

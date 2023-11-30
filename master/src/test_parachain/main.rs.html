@@ -149,6 +149,7 @@
 <a href="#149" id="149">149</a>
 <a href="#150" id="150">150</a>
 <a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -279,7 +280,7 @@
 				})
 				.unwrap_or(cumulus_test_service::Consensus::RelayChain);
 
-			<span class="kw">let </span>(<span class="kw-2">mut </span>task_manager, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) = tokio_runtime
+			<span class="kw">let </span>(<span class="kw-2">mut </span>task_manager, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) = tokio_runtime
 				.block_on(cumulus_test_service::start_node_impl(
 					config,
 					collator_key,
@@ -290,6 +291,7 @@
 					|<span class="kw">_</span>| <span class="prelude-val">Ok</span>(jsonrpsee::RpcModule::new(())),
 					consensus,
 					collator_options,
+					<span class="bool-val">true</span>,
 				))
 				.expect(<span class="string">&quot;could not create Cumulus test service&quot;</span>);
 

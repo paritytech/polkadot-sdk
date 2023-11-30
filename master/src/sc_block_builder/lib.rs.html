@@ -437,6 +437,11 @@
 <a href="#437" id="437">437</a>
 <a href="#438" id="438">438</a>
 <a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -481,6 +486,7 @@
 <span class="kw">use </span>std::marker::PhantomData;
 
 <span class="kw">pub use </span>sp_block_builder::BlockBuilder <span class="kw">as </span>BlockBuilderApi;
+<span class="kw">use </span>sp_trie::proof_size_extension::ProofSizeExt;
 
 <span class="doccomment">/// A builder for creating an instance of [`BlockBuilder`].
 </span><span class="kw">pub struct </span>BlockBuilderBuilder&lt;<span class="lifetime">&#39;a</span>, B, C&gt; {
@@ -674,6 +680,10 @@
 
 		<span class="kw">if </span>record_proof {
 			api.record_proof();
+			<span class="kw">let </span>recorder = api
+				.proof_recorder()
+				.expect(<span class="string">&quot;Proof recording is enabled in the line above; qed.&quot;</span>);
+			api.register_extension(ProofSizeExt::new(recorder));
 		}
 
 		api.set_call_context(CallContext::Onchain);

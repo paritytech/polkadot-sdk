@@ -575,6 +575,8 @@
 <a href="#575" id="575">575</a>
 <a href="#576" id="576">576</a>
 <a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -628,6 +630,8 @@
 <span class="kw">use </span>sp_core::{traits::SpawnNamed, Decode};
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, BlockIdTo, Header};
 <span class="kw">use </span>std::{sync::Arc, time::Duration};
+
+<span class="kw">pub use </span>cumulus_primitives_proof_size_hostfunction::storage_proof_size;
 
 <span class="comment">// Given the sporadic nature of the explicit recovery operation and the
 // possibility to retry infinite times this value is more than enough.

@@ -916,6 +916,26 @@
 <a href="#916" id="916">916</a>
 <a href="#917" id="917">917</a>
 <a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1105,6 +1125,7 @@
 /// be able to perform chain operations.
 </span><span class="kw">pub fn </span>new_partial(
 	config: <span class="kw-2">&amp;mut </span>Configuration,
+	enable_import_proof_record: bool,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;
 	PartialComponents&lt;
 		Client,
@@ -1132,7 +1153,12 @@
 		sc_executor::NativeElseWasmExecutor::&lt;RuntimeExecutor&gt;::new_with_wasm_executor(wasm);
 
 	<span class="kw">let </span>(client, backend, keystore_container, task_manager) =
-		sc_service::new_full_parts::&lt;Block, RuntimeApi, <span class="kw">_</span>&gt;(config, <span class="prelude-val">None</span>, executor)<span class="question-mark">?</span>;
+		sc_service::new_full_parts_record_import::&lt;Block, RuntimeApi, <span class="kw">_</span>&gt;(
+			config,
+			<span class="prelude-val">None</span>,
+			executor,
+			enable_import_proof_record,
+		)<span class="question-mark">?</span>;
 	<span class="kw">let </span>client = Arc::new(client);
 
 	<span class="kw">let </span>block_import =
@@ -1227,19 +1253,21 @@
 	rpc_ext_builder: RB,
 	consensus: Consensus,
 	collator_options: CollatorOptions,
+	proof_recording_during_import: bool,
 ) -&gt; sc_service::error::Result&lt;(
 	TaskManager,
 	Arc&lt;Client&gt;,
 	Arc&lt;NetworkService&lt;Block, H256&gt;&gt;,
 	RpcHandlers,
 	TransactionPool,
+	Arc&lt;Backend&gt;,
 )&gt;
 <span class="kw">where
 	</span>RB: Fn(Arc&lt;Client&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;jsonrpsee::RpcModule&lt;()&gt;, sc_service::Error&gt; + Send + <span class="lifetime">&#39;static</span>,
 {
 	<span class="kw">let </span><span class="kw-2">mut </span>parachain_config = prepare_node_config(parachain_config);
 
-	<span class="kw">let </span>params = new_partial(<span class="kw-2">&amp;mut </span>parachain_config)<span class="question-mark">?</span>;
+	<span class="kw">let </span>params = new_partial(<span class="kw-2">&amp;mut </span>parachain_config, proof_recording_during_import)<span class="question-mark">?</span>;
 
 	<span class="kw">let </span>transaction_pool = params.transaction_pool.clone();
 	<span class="kw">let </span><span class="kw-2">mut </span>task_manager = params.task_manager;
@@ -1395,7 +1423,7 @@
 
 	start_network.start_network();
 
-	<span class="prelude-val">Ok</span>((task_manager, client, network, rpc_handlers, transaction_pool))
+	<span class="prelude-val">Ok</span>((task_manager, client, network, rpc_handlers, transaction_pool, backend))
 }
 
 <span class="doccomment">/// A Cumulus test node instance used for testing.
@@ -1413,6 +1441,8 @@
 	</span><span class="kw">pub </span>rpc_handlers: RpcHandlers,
 	<span class="doccomment">/// Node&#39;s transaction pool
 	</span><span class="kw">pub </span>transaction_pool: TransactionPool,
+	<span class="doccomment">/// Node&#39;s backend
+	</span><span class="kw">pub </span>backend: Arc&lt;Backend&gt;,
 }
 
 <span class="attr">#[allow(missing_docs)]
@@ -1438,6 +1468,7 @@
 	consensus: Consensus,
 	relay_chain_mode: RelayChainMode,
 	endowed_accounts: Vec&lt;AccountId&gt;,
+	record_proof_during_import: bool,
 }
 
 <span class="kw">impl </span>TestNodeBuilder {
@@ -1462,6 +1493,7 @@
 			consensus: Consensus::RelayChain,
 			endowed_accounts: Default::default(),
 			relay_chain_mode: RelayChainMode::Embedded,
+			record_proof_during_import: <span class="bool-val">true</span>,
 		}
 	}
 
@@ -1574,6 +1606,12 @@
 		<span class="self">self
 	</span>}
 
+	<span class="doccomment">/// Record proofs during import.
+	</span><span class="kw">pub fn </span>import_proof_recording(<span class="kw-2">mut </span><span class="self">self</span>, should_record_proof: bool) -&gt; TestNodeBuilder {
+		<span class="self">self</span>.record_proof_during_import = should_record_proof;
+		<span class="self">self
+	</span>}
+
 	<span class="doccomment">/// Build the [`TestNode`].
 	</span><span class="kw">pub async fn </span>build(<span class="self">self</span>) -&gt; TestNode {
 		<span class="kw">let </span>parachain_config = node_config(
@@ -1602,24 +1640,26 @@
 			<span class="macro">format!</span>(<span class="string">&quot;{} (relay chain)&quot;</span>, relay_chain_config.network.node_name);
 
 		<span class="kw">let </span>multiaddr = parachain_config.network.listen_addresses[<span class="number">0</span>].clone();
-		<span class="kw">let </span>(task_manager, client, network, rpc_handlers, transaction_pool) = start_node_impl(
-			parachain_config,
-			<span class="self">self</span>.collator_key,
-			relay_chain_config,
-			<span class="self">self</span>.para_id,
-			<span class="self">self</span>.wrap_announce_block,
-			<span class="bool-val">false</span>,
-			|<span class="kw">_</span>| <span class="prelude-val">Ok</span>(jsonrpsee::RpcModule::new(())),
-			<span class="self">self</span>.consensus,
-			collator_options,
-		)
-		.<span class="kw">await
-		</span>.expect(<span class="string">&quot;could not create Cumulus test service&quot;</span>);
+		<span class="kw">let </span>(task_manager, client, network, rpc_handlers, transaction_pool, backend) =
+			start_node_impl(
+				parachain_config,
+				<span class="self">self</span>.collator_key,
+				relay_chain_config,
+				<span class="self">self</span>.para_id,
+				<span class="self">self</span>.wrap_announce_block,
+				<span class="bool-val">false</span>,
+				|<span class="kw">_</span>| <span class="prelude-val">Ok</span>(jsonrpsee::RpcModule::new(())),
+				<span class="self">self</span>.consensus,
+				collator_options,
+				<span class="self">self</span>.record_proof_during_import,
+			)
+			.<span class="kw">await
+			</span>.expect(<span class="string">&quot;could not create Cumulus test service&quot;</span>);
 
 		<span class="kw">let </span>peer_id = network.local_peer_id();
 		<span class="kw">let </span>addr = MultiaddrWithPeerId { multiaddr, peer_id };
 
-		TestNode { task_manager, client, network, addr, rpc_handlers, transaction_pool }
+		TestNode { task_manager, client, network, addr, rpc_handlers, transaction_pool, backend }
 	}
 }
 

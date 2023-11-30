@@ -269,6 +269,11 @@
 <a href="#269" id="269">269</a>
 <a href="#270" id="270">270</a>
 <a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Cumulus.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -352,8 +357,13 @@
 </span><span class="kw">pub fn </span>extrinsic_set_validation_data(
 	parent_header: cumulus_test_runtime::Header,
 ) -&gt; OpaqueExtrinsic {
-	<span class="kw">let </span>sproof_builder = RelayStateSproofBuilder { para_id: <span class="number">100</span>.into(), ..Default::default() };
 	<span class="kw">let </span>parent_head = HeadData(parent_header.encode());
+	<span class="kw">let </span>sproof_builder = RelayStateSproofBuilder {
+		para_id: cumulus_test_runtime::PARACHAIN_ID.into(),
+		included_para_head: parent_head.clone().into(),
+		..Default::default()
+	};
+
 	<span class="kw">let </span>(relay_parent_storage_root, relay_chain_state) = sproof_builder.into_state_root_and_proof();
 	<span class="kw">let </span>data = ParachainInherentData {
 		validation_data: PersistedValidationData {
