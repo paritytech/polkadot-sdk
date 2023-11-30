@@ -18,7 +18,7 @@ note: type in trait
 error[E0053]: method `initialize_block` has an incompatible type for trait
   --> tests/ui/type_reference_in_impl_runtime_apis_call.rs:45:54
    |
-45 |         fn initialize_block(_: &<Block as BlockT>::Header) {
+45 |         fn initialize_block(_: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {
    |                                                            ^ expected `ExtrinsicInclusionMode`, found `()`
    |
    = note: expected signature `fn(&sp_runtime::generic::Header<u64, BlakeTwo256>) -> ExtrinsicInclusionMode`
