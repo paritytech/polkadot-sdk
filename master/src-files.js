@@ -75,6 +75,7 @@ var srcIndex = JSON.parse('{\
 "cumulus_test_relay_sproof_builder":["",[],["lib.rs"]],\
 "cumulus_test_runtime":["",[],["lib.rs","test_pallet.rs"]],\
 "cumulus_test_service":["",[],["bench_utils.rs","chain_spec.rs","genesis.rs","lib.rs"]],\
+"developer_hub":["",[["guides",[["your_first_pallet",[],["mod.rs"]]],["changing_consensus.rs","cumulus_enabled_parachain.rs","mod.rs","xcm_enabled_parachain.rs","your_first_node.rs","your_first_runtime.rs"]],["polkadot_sdk",[],["cumulus.rs","frame_runtime.rs","mod.rs","polkadot.rs","smart_contracts.rs","substrate.rs","templates.rs","xcm.rs"]],["reference_docs",[],["blockchain_state_machines.rs","chain_spec_genesis.rs","cli.rs","consensus_swapping.rs","extrinsic_encoding.rs","fee_less_runtime.rs","frame_benchmarking_weight.rs","frame_composite_enums.rs","frame_currency.rs","frame_origin.rs","frame_runtime_migration.rs","frame_system_accounts.rs","glossary.rs","light_nodes.rs","metadata.rs","mod.rs","runtime_vs_smart_contract.rs","safe_defensive_programming.rs","signed_extensions.rs","trait_based_programming.rs","wasm_memory.rs","wasm_meta_protocol.rs"]]],["lib.rs","meta_contributing.rs"]],\
 "emulated_integration_tests_common":["",[],["impls.rs","lib.rs","macros.rs","xcm_helpers.rs"]],\
 "fixed_point":["",[],["fixed_point.rs"]],\
 "fork_tree":["",[],["lib.rs"]],\
@@ -433,7 +434,6 @@ var srcIndex = JSON.parse('{\
 "staging_xcm_builder":["",[],["asset_conversion.rs","barriers.rs","controller.rs","currency_adapter.rs","fee_handling.rs","filter_asset_location.rs","fungibles_adapter.rs","lib.rs","location_conversion.rs","matcher.rs","matches_location.rs","matches_token.rs","nonfungibles_adapter.rs","origin_aliases.rs","origin_conversion.rs","pay.rs","process_xcm_message.rs","routing.rs","test_utils.rs","universal_exports.rs","weight.rs"]],\
 "staging_xcm_executor":["",[["traits",[],["asset_exchange.rs","asset_lock.rs","asset_transfer.rs","conversion.rs","drop_assets.rs","export.rs","fee_manager.rs","filter_asset_location.rs","mod.rs","on_response.rs","should_execute.rs","token_matching.rs","transact_asset.rs","weight.rs"]]],["assets.rs","config.rs","lib.rs"]],\
 "subkey":["",[],["lib.rs"]],\
-"substrate":["",[],["lib.rs"]],\
 "substrate_build_script_utils":["",[],["git.rs","lib.rs","version.rs"]],\
 "substrate_cli_test_utils":["",[],["lib.rs"]],\
 "substrate_frame_cli":["",[],["lib.rs","pallet_id.rs"]],\

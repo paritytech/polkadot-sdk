@@ -1143,8 +1143,6 @@
 <a href="#1143" id="1143">1143</a>
 <a href="#1144" id="1144">1144</a>
 <a href="#1145" id="1145">1145</a>
-<a href="#1146" id="1146">1146</a>
-<a href="#1147" id="1147">1147</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1196,8 +1194,7 @@
 //! - **Total Issuance:** The total number of units in existence in a system.
 //!
 //! - **Reaping an account:** The act of removing an account by resetting its nonce. Happens after
-//!   its
-//! total balance has become zero (or, strictly speaking, less than the Existential Deposit).
+//!   its total balance has become zero (or, strictly speaking, less than the Existential Deposit).
 //!
 //! - **Free Balance:** The portion of a balance that is not reserved. The free balance is the only
 //!   balance that matters for most operations.
@@ -1206,24 +1203,23 @@
 //!   Reserved balance can still be slashed, but only after all the free balance has been slashed.
 //!
 //! - **Imbalance:** A condition when some funds were credited or debited without equal and opposite
-//!   accounting
-//! (i.e. a difference between total issuance and account balances). Functions that result in an
-//! imbalance will return an object of the `Imbalance` trait that can be managed within your runtime
-//! logic. (If an imbalance is simply dropped, it should automatically maintain any book-keeping
-//! such as total issuance.)
+//!   accounting (i.e. a difference between total issuance and account balances). Functions that
+//! result in an imbalance will return an object of the `Imbalance` trait that can be managed within
+//! your runtime logic. (If an imbalance is simply dropped, it should automatically maintain any
+//! book-keeping such as total issuance.)
 //!
 //! - **Lock:** A freeze on a specified amount of an account&#39;s free balance until a specified block
-//!   number. Multiple
-//! locks always operate over the same funds, so they &quot;overlay&quot; rather than &quot;stack&quot;.
+//!   number. Multiple locks always operate over the same funds, so they &quot;overlay&quot; rather than
+//! &quot;stack&quot;.
 //!
 //! ### Implementations
 //!
 //! The Balances pallet provides implementations for the following traits. If these traits provide
 //! the functionality that you need, then you can avoid coupling with the Balances pallet.
 //!
-//! - [`Currency`](frame_support::traits::Currency): Functions for dealing with a
+//! - [`Currency`]: Functions for dealing with a
 //! fungible assets system.
-//! - [`ReservableCurrency`](frame_support::traits::ReservableCurrency):
+//! - [`ReservableCurrency`]
 //! - [`NamedReservableCurrency`](frame_support::traits::NamedReservableCurrency):
 //! Functions for dealing with assets that can be reserved from an account.
 //! - [`LockableCurrency`](frame_support::traits::LockableCurrency): Functions for
@@ -1252,7 +1248,7 @@
 //! ```
 //! use frame_support::traits::Currency;
 //! # pub trait Config: frame_system::Config {
-//! # 	type Currency: Currency&lt;Self::AccountId&gt;;
+//! #   type Currency: Currency&lt;Self::AccountId&gt;;
 //! # }
 //!
 //! pub type BalanceOf&lt;T&gt; = &lt;&lt;T as Config&gt;::Currency as Currency&lt;&lt;T as frame_system::Config&gt;::AccountId&gt;&gt;::Balance;
@@ -1267,26 +1263,26 @@
 //! use frame_support::traits::{WithdrawReasons, LockableCurrency};
 //! use sp_runtime::traits::Bounded;
 //! pub trait Config: frame_system::Config {
-//! 	type Currency: LockableCurrency&lt;Self::AccountId, Moment=frame_system::pallet_prelude::BlockNumberFor&lt;Self&gt;&gt;;
+//!     type Currency: LockableCurrency&lt;Self::AccountId, Moment=frame_system::pallet_prelude::BlockNumberFor&lt;Self&gt;&gt;;
 //! }
 //! # struct StakingLedger&lt;T: Config&gt; {
-//! # 	stash: &lt;T as frame_system::Config&gt;::AccountId,
-//! # 	total: &lt;&lt;T as Config&gt;::Currency as frame_support::traits::Currency&lt;&lt;T as frame_system::Config&gt;::AccountId&gt;&gt;::Balance,
-//! # 	phantom: std::marker::PhantomData&lt;T&gt;,
+//! #   stash: &lt;T as frame_system::Config&gt;::AccountId,
+//! #   total: &lt;&lt;T as Config&gt;::Currency as frame_support::traits::Currency&lt;&lt;T as frame_system::Config&gt;::AccountId&gt;&gt;::Balance,
+//! #   phantom: std::marker::PhantomData&lt;T&gt;,
 //! # }
 //! # const STAKING_ID: [u8; 8] = *b&quot;staking &quot;;
 //!
 //! fn update_ledger&lt;T: Config&gt;(
-//! 	controller: &amp;T::AccountId,
-//! 	ledger: &amp;StakingLedger&lt;T&gt;
+//!     controller: &amp;T::AccountId,
+//!     ledger: &amp;StakingLedger&lt;T&gt;
 //! ) {
-//! 	T::Currency::set_lock(
-//! 		STAKING_ID,
-//! 		&amp;ledger.stash,
-//! 		ledger.total,
-//! 		WithdrawReasons::all()
-//! 	);
-//! 	// &lt;Ledger&lt;T&gt;&gt;::insert(controller, ledger); // Commented out as we don&#39;t have access to Staking&#39;s storage here.
+//!     T::Currency::set_lock(
+//!         STAKING_ID,
+//!         &amp;ledger.stash,
+//!         ledger.total,
+//!         WithdrawReasons::all()
+//!     );
+//!     // &lt;Ledger&lt;T&gt;&gt;::insert(controller, ledger); // Commented out as we don&#39;t have access to Staking&#39;s storage here.
 //! }
 //! # fn main() {}
 //! ```

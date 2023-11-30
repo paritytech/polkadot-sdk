@@ -1887,6 +1887,18 @@
 <a href="#1887" id="1887">1887</a>
 <a href="#1888" id="1888">1888</a>
 <a href="#1889" id="1889">1889</a>
+<a href="#1890" id="1890">1890</a>
+<a href="#1891" id="1891">1891</a>
+<a href="#1892" id="1892">1892</a>
+<a href="#1893" id="1893">1893</a>
+<a href="#1894" id="1894">1894</a>
+<a href="#1895" id="1895">1895</a>
+<a href="#1896" id="1896">1896</a>
+<a href="#1897" id="1897">1897</a>
+<a href="#1898" id="1898">1898</a>
+<a href="#1899" id="1899">1899</a>
+<a href="#1900" id="1900">1900</a>
+<a href="#1901" id="1901">1901</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2907,7 +2919,8 @@
 	{}
 }
 
-<span class="doccomment">/// Ensure that the origin `o` represents a signed extrinsic (i.e. transaction).
+<span class="attr">#[docify::export]
+</span><span class="doccomment">/// Ensure that the origin `o` represents a signed extrinsic (i.e. transaction).
 /// Returns `Ok` with the account that signed the extrinsic or an `Err` otherwise.
 </span><span class="kw">pub fn </span>ensure_signed&lt;OuterOrigin, AccountId&gt;(o: OuterOrigin) -&gt; <span class="prelude-ty">Result</span>&lt;AccountId, BadOrigin&gt;
 <span class="kw">where
@@ -3261,6 +3274,7 @@
 	/// NOTE: Events not registered at the genesis block and quietly omitted.
 	</span><span class="kw">pub fn </span>deposit_event_indexed(topics: <span class="kw-2">&amp;</span>[T::Hash], event: T::RuntimeEvent) {
 		<span class="kw">let </span>block_number = <span class="self">Self</span>::block_number();
+
 		<span class="comment">// Don&#39;t populate events on genesis.
 		</span><span class="kw">if </span>block_number.is_zero() {
 			<span class="kw">return
@@ -3444,12 +3458,7 @@
 	/// NOTE: Events not registered at the genesis block and quietly omitted.
 	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, test))]
 	</span><span class="kw">pub fn </span>events() -&gt; Vec&lt;EventRecord&lt;T::RuntimeEvent, T::Hash&gt;&gt; {
-		<span class="macro">debug_assert!</span>(
-			!<span class="self">Self</span>::block_number().is_zero(),
-			<span class="string">&quot;events not registered at the genesis block&quot;
-		</span>);
-		<span class="comment">// Dereferencing the events here is fine since we are not in the
-		// memory-restricted runtime.
+		<span class="comment">// Dereferencing the events here is fine since we are not in the memory-restricted runtime.
 		</span><span class="self">Self</span>::read_events_no_consensus().map(|e| <span class="kw-2">*</span>e).collect()
 	}
 
@@ -3468,6 +3477,21 @@
 	</span><span class="kw">pub fn </span>read_events_no_consensus(
 	) -&gt; <span class="kw">impl </span>sp_std::iter::Iterator&lt;Item = Box&lt;EventRecord&lt;T::RuntimeEvent, T::Hash&gt;&gt;&gt; {
 		Events::&lt;T&gt;::stream_iter()
+	}
+
+	<span class="doccomment">/// Read and return the events of a specific pallet, as denoted by `E`.
+	///
+	/// This is useful for a pallet that wishes to read only the events it has deposited into
+	/// `frame_system` using the standard `fn deposit_event`.
+	</span><span class="kw">pub fn </span>read_events_for_pallet&lt;E&gt;() -&gt; Vec&lt;E&gt;
+	<span class="kw">where
+		</span>T::RuntimeEvent: TryInto&lt;E&gt;,
+	{
+		Events::&lt;T&gt;::get()
+			.into_iter()
+			.map(|er| er.event)
+			.filter_map(|e| e.try_into().ok())
+			.collect::&lt;<span class="kw">_</span>&gt;()
 	}
 
 	<span class="doccomment">/// Set the block number to something in particular. Can be used as an alternative to

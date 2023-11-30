@@ -331,7 +331,6 @@
 <a href="#331" id="331">331</a>
 <a href="#332" id="332">332</a>
 <a href="#333" id="333">333</a>
-<a href="#334" id="334">334</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -626,9 +625,8 @@
 		}
 	}
 
-	<span class="doccomment">/// Allows you to define an enum on the pallet which will then instruct
-	/// `construct_runtime` to amalgamate all similarly-named enums from other
-	/// pallets into an aggregate enum.
+	<span class="doccomment">/// Allows you to define an enum on the pallet which will then instruct `construct_runtime` to
+	/// amalgamate all similarly-named enums from other pallets into an aggregate enum.
 	</span><span class="attr">#[pallet::composite_enum]
 	</span><span class="kw">pub enum </span>HoldReason {
 		Staking,

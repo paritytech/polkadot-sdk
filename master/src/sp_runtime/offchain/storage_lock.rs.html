@@ -829,7 +829,7 @@
 ///
 /// A lock that is persisted in the DB and provides the ability to guard against
 /// concurrent access in an off-chain worker, with a defined expiry deadline
-/// based on the concrete [`Lockable`](Lockable) implementation.
+/// based on the concrete [`Lockable`] implementation.
 </span><span class="kw">pub struct </span>StorageLock&lt;<span class="lifetime">&#39;a</span>, L = Time&gt; {
 	<span class="comment">// A storage value ref which defines the DB entry representing the lock.
 	</span>value_ref: StorageValueRef&lt;<span class="lifetime">&#39;a</span>&gt;,

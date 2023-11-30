@@ -1627,34 +1627,6 @@
 <a href="#1627" id="1627">1627</a>
 <a href="#1628" id="1628">1628</a>
 <a href="#1629" id="1629">1629</a>
-<a href="#1630" id="1630">1630</a>
-<a href="#1631" id="1631">1631</a>
-<a href="#1632" id="1632">1632</a>
-<a href="#1633" id="1633">1633</a>
-<a href="#1634" id="1634">1634</a>
-<a href="#1635" id="1635">1635</a>
-<a href="#1636" id="1636">1636</a>
-<a href="#1637" id="1637">1637</a>
-<a href="#1638" id="1638">1638</a>
-<a href="#1639" id="1639">1639</a>
-<a href="#1640" id="1640">1640</a>
-<a href="#1641" id="1641">1641</a>
-<a href="#1642" id="1642">1642</a>
-<a href="#1643" id="1643">1643</a>
-<a href="#1644" id="1644">1644</a>
-<a href="#1645" id="1645">1645</a>
-<a href="#1646" id="1646">1646</a>
-<a href="#1647" id="1647">1647</a>
-<a href="#1648" id="1648">1648</a>
-<a href="#1649" id="1649">1649</a>
-<a href="#1650" id="1650">1650</a>
-<a href="#1651" id="1651">1651</a>
-<a href="#1652" id="1652">1652</a>
-<a href="#1653" id="1653">1653</a>
-<a href="#1654" id="1654">1654</a>
-<a href="#1655" id="1655">1655</a>
-<a href="#1656" id="1656">1656</a>
-<a href="#1657" id="1657">1657</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2754,8 +2726,11 @@
 	pallet_macro_stub()
 }
 
-<span class="doccomment">/// Compact encoding for arguments can be achieved via `#[pallet::compact]`. The function must
-/// return a `DispatchResultWithPostInfo` or `DispatchResult`.
+<span class="doccomment">///
+/// ---
+///
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// [`frame_support::pallet_macros::call`](../../frame_support/pallet_macros/attr.call.html).
 </span><span class="attr">#[proc_macro_attribute]
 </span><span class="kw">pub fn </span>compact(<span class="kw">_</span>: TokenStream, <span class="kw">_</span>: TokenStream) -&gt; TokenStream {
 	pallet_macro_stub()
@@ -2765,7 +2740,7 @@
 /// ---
 ///
 /// **Rust-Analyzer users**: See the documentation of the Rust item in
-/// `frame_support::pallet_macros::call`.
+/// [`frame_support::pallet_macros::call`](../../frame_support/pallet_macros/attr.call.html).
 </span><span class="attr">#[proc_macro_attribute]
 </span><span class="kw">pub fn </span>call(<span class="kw">_</span>: TokenStream, <span class="kw">_</span>: TokenStream) -&gt; TokenStream {
 	pallet_macro_stub()
@@ -2774,41 +2749,10 @@
 <span class="doccomment">/// Each dispatchable may also be annotated with the `#[pallet::call_index($idx)]` attribute,
 /// which explicitly defines the codec index for the dispatchable function in the `Call` enum.
 ///
-/// All call indexes start from 0, until it encounters a dispatchable function with a defined
-/// call index. The dispatchable function that lexically follows the function with a defined
-/// call index will have that call index, but incremented by 1, e.g. if there are 3
-/// dispatchable functions `fn foo`, `fn bar` and `fn qux` in that order, and only `fn bar`
-/// has a call index of 10, then `fn qux` will have an index of 11, instead of 1.
+/// ---
 ///
-/// All arguments must implement [`Debug`], [`PartialEq`], [`Eq`], `Decode`, `Encode`, and
-/// [`Clone`]. For ease of use, bound by the trait `frame_support::pallet_prelude::Member`.
-///
-/// If no `#[pallet::call]` exists, then a default implementation corresponding to the
-/// following code is automatically generated:
-///
-/// ```ignore
-/// #[pallet::call]
-/// impl&lt;T: Config&gt; Pallet&lt;T&gt; {}
-/// ```
-///
-/// **WARNING**: modifying dispatchables, changing their order, removing some, etc., must be
-/// done with care. Indeed this will change the outer runtime call type (which is an enum with
-/// one variant per pallet), this outer runtime call can be stored on-chain (e.g. in
-/// `pallet-scheduler`). Thus migration might be needed. To mitigate against some of this, the
-/// `#[pallet::call_index($idx)]` attribute can be used to fix the order of the dispatchable so
-/// that the `Call` enum encoding does not change after modification. As a general rule of
-/// thumb, it is therefore adventageous to always add new calls to the end so you can maintain
-/// the existing order of calls.
-///
-/// ### Macro expansion
-///
-/// The macro creates an enum `Call` with one variant per dispatchable. This enum implements:
-/// [`Clone`], [`Eq`], [`PartialEq`], [`Debug`] (with stripped implementation in `not(&quot;std&quot;)`),
-/// `Encode`, `Decode`, `GetDispatchInfo`, `GetCallName`, `GetCallIndex` and
-/// `UnfilteredDispatchable`.
-///
-/// The macro implements the `Callable` trait on `Pallet` and a function `call_functions`
-/// which returns the dispatchable metadata.
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// [`frame_support::pallet_macros::call`](../../frame_support/pallet_macros/attr.call.html).
 </span><span class="attr">#[proc_macro_attribute]
 </span><span class="kw">pub fn </span>call_index(<span class="kw">_</span>: TokenStream, <span class="kw">_</span>: TokenStream) -&gt; TokenStream {
 	pallet_macro_stub()

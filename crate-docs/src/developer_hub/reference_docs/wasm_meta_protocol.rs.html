@@ -1,0 +1,227 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `developer-hub/src/reference_docs/wasm_meta_protocol.rs`."><title>wasm_meta_protocol.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="developer_hub" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0 (cc66ad468 2023-10-03)" data-channel="1.73.0" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../developer_hub/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<a href="#2" id="2">2</a>
+<a href="#3" id="3">3</a>
+<a href="#4" id="4">4</a>
+<a href="#5" id="5">5</a>
+<a href="#6" id="6">6</a>
+<a href="#7" id="7">7</a>
+<a href="#8" id="8">8</a>
+<a href="#9" id="9">9</a>
+<a href="#10" id="10">10</a>
+<a href="#11" id="11">11</a>
+<a href="#12" id="12">12</a>
+<a href="#13" id="13">13</a>
+<a href="#14" id="14">14</a>
+<a href="#15" id="15">15</a>
+<a href="#16" id="16">16</a>
+<a href="#17" id="17">17</a>
+<a href="#18" id="18">18</a>
+<a href="#19" id="19">19</a>
+<a href="#20" id="20">20</a>
+<a href="#21" id="21">21</a>
+<a href="#22" id="22">22</a>
+<a href="#23" id="23">23</a>
+<a href="#24" id="24">24</a>
+<a href="#25" id="25">25</a>
+<a href="#26" id="26">26</a>
+<a href="#27" id="27">27</a>
+<a href="#28" id="28">28</a>
+<a href="#29" id="29">29</a>
+<a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
+<a href="#36" id="36">36</a>
+<a href="#37" id="37">37</a>
+<a href="#38" id="38">38</a>
+<a href="#39" id="39">39</a>
+<a href="#40" id="40">40</a>
+<a href="#41" id="41">41</a>
+<a href="#42" id="42">42</a>
+<a href="#43" id="43">43</a>
+<a href="#44" id="44">44</a>
+<a href="#45" id="45">45</a>
+<a href="#46" id="46">46</a>
+<a href="#47" id="47">47</a>
+<a href="#48" id="48">48</a>
+<a href="#49" id="49">49</a>
+<a href="#50" id="50">50</a>
+<a href="#51" id="51">51</a>
+<a href="#52" id="52">52</a>
+<a href="#53" id="53">53</a>
+<a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+</pre></div><pre class="rust"><code><span class="doccomment">//! # WASM Meta Protocol
+//!
+//! All Substrate based chains adhere to a unique architectural design novel to the Polkadot
+//! ecosystem. We refer to this design as the &quot;WASM Meta Protocol&quot;.
+//!
+//! Consider the fact that a traditional blockchain software is usually a monolithic artifact.
+//! Upgrading any part of the system implies upgrading the entire system. This has historically led
+//! to cumbersome forkful upgrades to be the status quo in the blockchain ecosystem.
+//!
+//! Moreover, the idea of &quot;storing code in the state&quot; is explored in the context of smart contracts
+//! platforms, but has not been expanded further.
+//!
+//! Substrate mixes these two ideas together, and takes the novel approach of storing the
+//! blockchain&#39;s main &quot;state transition function&quot; in the main blockchain state, in the same fashion
+//! that a smart contract platform stores the code of individual contracts in its state. As noted in
+//! [`crate::reference_docs::blockchain_state_machines`], this state transition function is called
+//! the **Runtime**, and WASM is chosen as the bytecode. The Runtime is stored under a special key
+//! in the state (see
+//! [`sp_core::storage::well_known_keys`](../../../sp_core/index.html)) and can be
+//! updated as a part of the state transition function&#39;s execution, just like a user&#39;s account
+//! balance can be updated.
+//!
+//! &gt; Note that while we drew an analogy between smart contracts and runtimes in the above, there
+//! &gt; are fundamental differences between the two, explained in
+//! &gt; [`crate::reference_docs::runtime_vs_smart_contract`].
+//!
+//! The rest of the system that is NOT the state transition function is called the **node**, and
+//! is a normal binary that is compiled from Rust to different hardware targets.
+//!
+//! This design enables all Substrate-based chains to be fork-less-ly upgradeable, because the
+//! Runtime can be updates on the fly, within the execution of a block, and the node is (for the
+//! most part) oblivious to the change that is happening.
+//!
+//! Therefore, the high-level architecture of a any Substrate-based chain can be demonstrated as
+//! follows:
+</span><span class="attr">#![doc = <span class="macro">simple_mermaid::mermaid!</span>(<span class="string">&quot;../../../docs/mermaid/substrate_simple.mmd&quot;</span>)]
+</span><span class="doccomment">//!
+//! The node and the runtime need to communicate. This is done through two concepts:
+//!
+//! 1. **Host functions**: a way for the (WASM) runtime to talk to the node. All host functions are
+//!    defined in [`sp_io`]. For example, [`sp_io::storage`] are the set of host functions that
+//!    allow the runtime to read and write data to the on-chain state.
+//! 2. **Runtime APIs**: a way for the node to talk to the WASM runtime. Runtime APIs are defined
+//!    using macros and utilities in [`sp_api`]. For example, [`sp_api::Core`] is the most
+//!    fundamental runtime API that any blockchain must implement in order to be able to (re)
+//!    execute blocks.
+</span><span class="attr">#![doc = <span class="macro">simple_mermaid::mermaid!</span>(<span class="string">&quot;../../../docs/mermaid/substrate_client_runtime.mmd&quot;</span>)]
+</span><span class="doccomment">//!
+//! A runtime must have a set of runtime APIs in order to have any meaningful blockchain
+//! functionality, but it can also expose more APIs. See TODO as an example of how to add custom
+//! runtime APIs to your FRAME-based runtime.
+//!
+//! Similarly, for a runtime to be &quot;compatible&quot; with a node, the node must implement the full set of
+//! host functions that the runtime at any point in time requires. Given the fact that a runtime can
+//! evolve in time, and a blockchain node (typically) wishes to be capable of re-executing all the
+//! previous blocks, this means that a node must always maintain support for the old host functions.
+//! This also implies that adding a new host function is a big commitment and should be done with
+//! care. This is why, for example, adding a new host function to Polkadot always requires an RFC.
+//!
+//! ## Node vs. Runtime
+//!
+//! A common question is: which components of the system end up being part of the node, and which
+//! ones of the runtime?
+//!
+//! Recall from [`crate::reference_docs::blockchain_state_machines`] that the runtime is the state
+//! transition function. Anything that needs to influence how your blockchain&#39;s state is updated,
+//! should be a part of the runtime. For example, the logic around currency, governance, identity or
+//! any other application-specific logic that has to do with the state is part of the runtime.
+//!
+//! Anything that does not have to do with the state-transition function and will only
+//! facilitate/enable it is part of the node. For example, the database, networking, and even
+//! consensus algorithm are all node-side components.
+//!
+//! &gt; The consensus is to your runtime what HTTP is to a web-application. It is the underlying
+//! &gt; engine that enables trustless execution of the runtime in a distributed manner whilst
+//! &gt; maintaining a canonical outcome of that execution.
+</span><span class="attr">#![doc = <span class="macro">simple_mermaid::mermaid!</span>(<span class="string">&quot;../../../docs/mermaid/substrate_with_frame.mmd&quot;</span>)]
+</span><span class="doccomment">//!
+//! ## State
+//!
+//! From the previous sections, we know that the a database component is part of the node, not the
+//! runtime. We also hinted that a set of host functions ([`sp_io::storage`]) are how the runtime
+//! issues commands to the node to read/write to the state. Let&#39;s dive deeper into this.
+//!
+//! The state of the blockchain, what we seek to come to consensus about, is indeed *kept* in the
+//! node side. Nonetheless, the runtime is the only component that:
+//!
+//! 1. Can update the state.
+//! 2. Can fully interpret the state.
+//!
+//! In fact, [`sp_core::storage::well_known_keys`] are the only state keys that the node side is
+//! aware of. The rest of the state, including what logic the runtime has, what balance each user
+//! has and such are all only comprehensible to the runtime.
+</span><span class="attr">#![doc = <span class="macro">simple_mermaid::mermaid!</span>(<span class="string">&quot;../../../docs/mermaid/state.mmd&quot;</span>)]
+</span><span class="doccomment">//!
+//! In the above diagram, all of the state keys and values are opaque bytes to the node. The node
+//! does not know what they mean, and it does not now what is the type of the corresponding value
+//! (e.g. if it is a number of a vector). Contrary, the runtime knows both the meaning of their
+//! keys, and the type of the values.
+//!
+//! This opaque-ness is the fundamental reason why Substrate-based chains can fork-less-ly upgrade:
+//! because the node side code is kept oblivious to all of the details of the state transition
+//! function. Therefore, the state transition function can freely upgrade without the node needing
+//! to know.
+//!
+//! ## Native Runtime
+//!
+//! TODO
+//!
+//!
+//! ## Example: Block Execution.
+//!
+//! TODO
+</span></code></pre></div></section></main></body></html>

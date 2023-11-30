@@ -448,6 +448,20 @@
 <a href="#448" id="448">448</a>
 <a href="#449" id="449">449</a>
 <a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
+<a href="#460" id="460">460</a>
+<a href="#461" id="461">461</a>
+<a href="#462" id="462">462</a>
+<a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -476,6 +490,7 @@
 </span><span class="kw">mod </span>keyword {
 	<span class="macro">syn::custom_keyword!</span>(Call);
 	<span class="macro">syn::custom_keyword!</span>(OriginFor);
+	<span class="macro">syn::custom_keyword!</span>(RuntimeOrigin);
 	<span class="macro">syn::custom_keyword!</span>(weight);
 	<span class="macro">syn::custom_keyword!</span>(call_index);
 	<span class="macro">syn::custom_keyword!</span>(compact);
@@ -608,10 +623,10 @@
 	}
 }
 
-<span class="doccomment">/// Check the syntax is `OriginFor&lt;T&gt;` or `&amp;OriginFor&lt;T&gt;`.
+<span class="doccomment">/// Check the syntax is `OriginFor&lt;T&gt;`, `&amp;OriginFor&lt;T&gt;` or `T::RuntimeOrigin`.
 </span><span class="kw">pub fn </span>check_dispatchable_first_arg_type(ty: <span class="kw-2">&amp;</span>syn::Type, is_ref: bool) -&gt; syn::Result&lt;()&gt; {
-	<span class="kw">pub struct </span>CheckDispatchableFirstArg(bool);
-	<span class="kw">impl </span>syn::parse::Parse <span class="kw">for </span>CheckDispatchableFirstArg {
+	<span class="kw">pub struct </span>CheckOriginFor(bool);
+	<span class="kw">impl </span>syn::parse::Parse <span class="kw">for </span>CheckOriginFor {
 		<span class="kw">fn </span>parse(input: syn::parse::ParseStream) -&gt; syn::Result&lt;<span class="self">Self</span>&gt; {
 			<span class="kw">let </span>is_ref = input.parse::&lt;<span class="macro">syn::Token!</span>[<span class="kw-2">&amp;</span>]&gt;().is_ok();
 			input.parse::&lt;keyword::OriginFor&gt;()<span class="question-mark">?</span>;
@@ -623,14 +638,27 @@
 		}
 	}
 
-	<span class="kw">let </span>result = syn::parse2::&lt;CheckDispatchableFirstArg&gt;(ty.to_token_stream());
-	<span class="kw">return match </span>result {
-		<span class="prelude-val">Ok</span>(CheckDispatchableFirstArg(has_ref)) <span class="kw">if </span>is_ref == has_ref =&gt; <span class="prelude-val">Ok</span>(()),
-		<span class="kw">_ </span>=&gt; {
+	<span class="kw">pub struct </span>CheckRuntimeOrigin;
+	<span class="kw">impl </span>syn::parse::Parse <span class="kw">for </span>CheckRuntimeOrigin {
+		<span class="kw">fn </span>parse(input: syn::parse::ParseStream) -&gt; syn::Result&lt;<span class="self">Self</span>&gt; {
+			input.parse::&lt;keyword::T&gt;()<span class="question-mark">?</span>;
+			input.parse::&lt;<span class="macro">syn::Token!</span>[::]&gt;()<span class="question-mark">?</span>;
+			input.parse::&lt;keyword::RuntimeOrigin&gt;()<span class="question-mark">?</span>;
+
+			<span class="prelude-val">Ok</span>(<span class="self">Self</span>)
+		}
+	}
+
+	<span class="kw">let </span>result_origin_for = syn::parse2::&lt;CheckOriginFor&gt;(ty.to_token_stream());
+	<span class="kw">let </span>result_runtime_origin = syn::parse2::&lt;CheckRuntimeOrigin&gt;(ty.to_token_stream());
+	<span class="kw">return match </span>(result_origin_for, result_runtime_origin) {
+		(<span class="prelude-val">Ok</span>(CheckOriginFor(has_ref)), <span class="kw">_</span>) <span class="kw">if </span>is_ref == has_ref =&gt; <span class="prelude-val">Ok</span>(()),
+		(<span class="kw">_</span>, <span class="prelude-val">Ok</span>(<span class="kw">_</span>)) =&gt; <span class="prelude-val">Ok</span>(()),
+		(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
 			<span class="kw">let </span>msg = <span class="kw">if </span>is_ref {
 				<span class="string">&quot;Invalid type: expected `&amp;OriginFor&lt;T&gt;`&quot;
 			</span>} <span class="kw">else </span>{
-				<span class="string">&quot;Invalid type: expected `OriginFor&lt;T&gt;`&quot;
+				<span class="string">&quot;Invalid type: expected `OriginFor&lt;T&gt;` or `T::RuntimeOrigin`&quot;
 			</span>};
 			<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(ty.span(), msg))
 		},
@@ -732,8 +760,8 @@
 					<span class="number">0 </span><span class="kw">if </span>dev_mode =&gt; CallWeightDef::DevModeDefault,
 					<span class="number">0 </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(
 						method.sig.span(),
-						<span class="string">&quot;A pallet::call requires either a concrete `#[pallet::weight($expr)]` or an 
-						inherited weight from the `#[pallet:call(weight($type))]` attribute, but 
+						<span class="string">&quot;A pallet::call requires either a concrete `#[pallet::weight($expr)]` or an
+						inherited weight from the `#[pallet:call(weight($type))]` attribute, but
 						none were given.&quot;</span>,
 					)),
 					<span class="number">1 </span>=&gt; <span class="kw">match </span>weight_attrs.pop().unwrap() {

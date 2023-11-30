@@ -340,7 +340,7 @@
 }
 
 <span class="doccomment">/// Some checks prior to migration. This can be linked to
-/// [`frame_support::traits::OnRuntimeUpgrade::pre_upgrade`] for further testing.
+/// `frame_support::traits::OnRuntimeUpgrade::pre_upgrade` for further testing.
 ///
 /// Panics if anything goes wrong.
 </span><span class="kw">pub fn </span>pre_migration&lt;T: pallet_bounties::Config, P: GetStorageVersion + <span class="lifetime">&#39;static</span>, N: AsRef&lt;str&gt;&gt;(
@@ -394,7 +394,7 @@
 }
 
 <span class="doccomment">/// Some checks for after migration. This can be linked to
-/// [`frame_support::traits::OnRuntimeUpgrade::post_upgrade`] for further testing.
+/// `frame_support::traits::OnRuntimeUpgrade::post_upgrade` for further testing.
 ///
 /// Panics if anything goes wrong.
 </span><span class="kw">pub fn </span>post_migration&lt;T: pallet_bounties::Config, P: GetStorageVersion, N: AsRef&lt;str&gt;&gt;(

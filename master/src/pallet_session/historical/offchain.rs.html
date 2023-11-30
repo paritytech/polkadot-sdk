@@ -258,8 +258,6 @@
 <a href="#258" id="258">258</a>
 <a href="#259" id="259">259</a>
 <a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a>
-<a href="#262" id="262">262</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -279,13 +277,11 @@
 
 </span><span class="doccomment">//! Off-chain logic for creating a proof based data provided by on-chain logic.
 //!
-//! Validator-set extracting an iterator from an off-chain worker stored list containing
-//! historical validator-sets.
-//! Based on the logic of historical slashing, but the validation is done off-chain.
+//! Validator-set extracting an iterator from an off-chain worker stored list containing historical
+//! validator-sets. Based on the logic of historical slashing, but the validation is done off-chain.
 //! Use [`fn store_current_session_validator_set_to_offchain()`](super::onchain) to store the
-//! required data to the offchain validator set.
-//! This is used in conjunction with [`ProvingTrie`](super::ProvingTrie) and
-//! the off-chain indexing API.
+//! required data to the offchain validator set. This is used in conjunction with [`ProvingTrie`]
+//! and the off-chain indexing API.
 
 </span><span class="kw">use </span>sp_runtime::{
 	offchain::storage::{MutateStorageError, StorageRetrievalError, StorageValueRef},

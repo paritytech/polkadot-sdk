@@ -345,6 +345,16 @@
 <a href="#345" id="345">345</a>
 <a href="#346" id="346">346</a>
 <a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -362,11 +372,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="doccomment">//! &gt; Made for [![polkadot]](https://polkadot.network)
-//!
-//! [polkadot]: https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&amp;logo=polkadot&amp;logoColor=white
-//!
-//! # FRAME
+</span><span class="doccomment">//! # FRAME
 //!
 //! ```no_compile
 //!   ______   ______    ________   ___ __ __   ______
@@ -381,14 +387,21 @@
 //! &gt; **F**ramework for **R**untime **A**ggregation of **M**odularized **E**ntities: Substrate&#39;s
 //! &gt; State Transition Function (Runtime) Framework.
 //!
+//! ## Documentation
+//!
+//! See [`polkadot_sdk::frame`](../developer_hub/polkadot_sdk/frame_runtime/index.html).
+//!
 //! ## Warning: Experimental
 //!
 //! This crate and all of its content is experimental, and should not yet be used in production.
 //!
-//! ## Getting Started
+//! ## Underlying dependencies
 //!
-//! TODO: link to `developer_hub::polkadot_sdk::frame`. The `developer_hub` hasn&#39;t been published
-//! yet, this can be updated once it is linkable.
+//! This crate is an amalgamation of multiple other crates that are often used together to compose a
+//! pallet. It is not necessary to use it, and it may fall short for certain purposes.
+//!
+//! In short, this crate only re-exports types and traits from multiple sources. All of these
+//! sources are listed (and re-exported again) in [`deps`].
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 #![cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
@@ -401,8 +414,18 @@
 /// `#[pallet::bar]` inside the mod.
 </span><span class="kw">pub use </span>frame_support::pallet;
 
+<span class="kw">pub use </span>frame_support::pallet_macros::{import_section, pallet_section};
+
 <span class="doccomment">/// The logging library of the runtime. Can normally be the classic `log` crate.
 </span><span class="kw">pub use </span>log;
+
+<span class="doccomment">/// A list of all macros used within the main [`pallet`] macro.
+///
+/// Note: All of these macros are &quot;stubs&quot; and not really usable outside `#[pallet] mod pallet { ..
+/// }`. They are mainly provided for documentation and IDE support.
+</span><span class="kw">pub mod </span>pallet_macros {
+	<span class="kw">pub use </span>frame_support::{derive_impl, pallet, pallet_macros::<span class="kw-2">*</span>};
+}
 
 <span class="doccomment">/// The main prelude of FRAME.
 ///
@@ -425,9 +448,6 @@
 	<span class="doccomment">/// Pallet prelude of `frame-support`.
 	///
 	/// Note: this needs to revised once `frame-support` evolves.
-	</span><span class="comment">// `frame-support` will be break down https://github.com/paritytech/polkadot-sdk/issues/127 and its reexports will
-	// most likely change. These wildcard reexportings can be optimized once `frame-support` has
-	// changed.
 	</span><span class="attr">#[doc(no_inline)]
 	</span><span class="kw">pub use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
 
@@ -503,6 +523,9 @@
 		<span class="doccomment">/// Types to define your runtime version.
 		</span><span class="kw">pub use </span>sp_version::{create_runtime_str, runtime_version, RuntimeVersion};
 
+		<span class="doccomment">/// Macro to implement runtime APIs.
+		</span><span class="kw">pub use </span>sp_api::impl_runtime_apis;
+
 		<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 		</span><span class="kw">pub use </span>sp_version::NativeVersion;
 	}
@@ -526,9 +549,6 @@
 		</span><span class="kw">pub use </span>sp_core::OpaqueMetadata;
 		<span class="kw">pub use </span>sp_inherents::{CheckInherentsResult, InherentData};
 		<span class="kw">pub use </span>sp_runtime::ApplyExtrinsicResult;
-
-		<span class="doccomment">/// Macro to implement runtime APIs.
-		</span><span class="kw">pub use </span>sp_api::impl_runtime_apis;
 
 		<span class="kw">pub use </span>frame_system_rpc_runtime_api::<span class="kw-2">*</span>;
 		<span class="kw">pub use </span>sp_api::{<span class="self">self</span>, <span class="kw-2">*</span>};
