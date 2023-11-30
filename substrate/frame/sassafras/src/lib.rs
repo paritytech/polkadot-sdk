@@ -931,12 +931,10 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		if max_tickets != 0 {
-			if candidates.len() > max_tickets {
-				Self::sort_and_truncate(&mut candidates, max_tickets);
-			} else {
-				candidates.sort_unstable();
-			}
+		if candidates.len() > max_tickets {
+			Self::sort_and_truncate(&mut candidates, max_tickets);
+		} else {
+			candidates.sort_unstable();
 		}
 
 		if metadata.unsorted_tickets_count == 0 {

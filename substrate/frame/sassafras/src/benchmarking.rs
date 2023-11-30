@@ -19,7 +19,6 @@
 
 use crate::*;
 use sp_consensus_sassafras::{vrf::VrfSignature, EphemeralPublic, EpochConfiguration};
-use sp_std::vec;
 
 use frame_benchmarking::v2::*;
 use frame_support::traits::Hooks;
