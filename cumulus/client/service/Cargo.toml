@@ -14,7 +14,7 @@ sc-client-api = { path = "../../../substrate/client/api" }
 sc-consensus = { path = "../../../substrate/client/consensus/common" }
 sc-transaction-pool = { path = "../../../substrate/client/transaction-pool" }
 sc-rpc = { path = "../../../substrate/client/rpc" }
-sc-service = { path = "../../../substrate/client/service" }
+sc-service = { path = "../../../substrate/client/service", default-features = false }
 sc-sysinfo = { path = "../../../substrate/client/sysinfo" }
 sc-telemetry = { path = "../../../substrate/client/telemetry" }
 sc-network = { path = "../../../substrate/client/network" }
@@ -33,6 +33,8 @@ polkadot-primitives = { path = "../../../polkadot/primitives" }
 
 # Cumulus
 cumulus-client-cli = { path = "../cli" }
+
+# For some reason I can enable the collator here, even though it appears to leak rocks on its own...
 cumulus-client-collator = { path = "../collator" }
 cumulus-client-consensus-common = { path = "../consensus/common" }
 cumulus-client-pov-recovery = { path = "../pov-recovery" }

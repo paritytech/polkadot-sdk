@@ -28,10 +28,10 @@ sp-core = { path = "../../substrate/primitives/core" }
 sp-io = { path = "../../substrate/primitives/io" }
 sp-keyring = { path = "../../substrate/primitives/keyring" }
 sp-maybe-compressed-blob = { path = "../../substrate/primitives/maybe-compressed-blob" }
-frame-benchmarking-cli = { path = "../../substrate/utils/frame/benchmarking-cli", optional = true }
-try-runtime-cli = { path = "../../substrate/utils/frame/try-runtime/cli", optional = true }
-sc-cli = { path = "../../substrate/client/cli", optional = true }
-sc-service = { path = "../../substrate/client/service", optional = true }
+frame-benchmarking-cli = { path = "../../substrate/utils/frame/benchmarking-cli", default-features = false, optional = true }
+try-runtime-cli = { path = "../../substrate/utils/frame/try-runtime/cli", default-features = false, optional = true }
+sc-cli = { path = "../../substrate/client/cli", default-features = false, optional = true }
+sc-service = { path = "../../substrate/client/service", default-features = false, optional = true }
 polkadot-node-metrics = { path = "../node/metrics" }
 polkadot-node-primitives = { path = "../node/primitives" }
 sc-tracing = { path = "../../substrate/client/tracing", optional = true }
@@ -44,7 +44,11 @@ substrate-build-script-utils = { path = "../../substrate/utils/build-script-util
 
 [features]
 default = [ "cli", "db", "full-node" ]
-db = [ "service/db" ]
+db = [
+	"sc-cli?/rocksdb",
+	"sc-service?/rocksdb",
+	"service?/db",
+ ]
 cli = [
 	"clap",
 	"frame-benchmarking-cli",

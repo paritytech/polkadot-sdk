@@ -19622,7 +19622,6 @@ dependencies = [
  "sp-transaction-storage-proof",
  "sp-version",
  "sp-weights",
- "substrate-cli-test-utils",
  "substrate-rpc-client",
  "tempfile",
  "tokio",

@@ -9,7 +9,7 @@ publish = false
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [ "derive" ] }
 
 # Substrate
-sc-service = { path = "../../../substrate/client/service" }
+sc-service = { path = "../../../substrate/client/service", default-features = false }
 sc-consensus = { path = "../../../substrate/client/consensus/common" }
 sc-block-builder = { path = "../../../substrate/client/block-builder" }
 sc-executor = { path = "../../../substrate/client/executor" }
