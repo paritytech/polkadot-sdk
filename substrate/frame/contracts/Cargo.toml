@@ -40,7 +40,7 @@ frame-benchmarking = { path = "../benchmarking", default-features = false, optio
 frame-support = { path = "../support", default-features = false}
 frame-system = { path = "../system", default-features = false}
 pallet-balances = { path = "../balances", default-features = false , optional = true}
-pallet-contracts-primitives = { path = "primitives", default-features = false}
+pallet-contracts-uapi = { path = "uapi" }
 pallet-contracts-proc-macro = { path = "proc-macro" }
 sp-api = { path = "../../primitives/api", default-features = false}
 sp-core = { path = "../../primitives/core", default-features = false}
@@ -83,8 +83,6 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"pallet-balances?/std",
-	"pallet-contracts-fixtures/std",
-	"pallet-contracts-primitives/std",
 	"pallet-contracts-proc-macro/full",
 	"pallet-insecure-randomness-collective-flip/std",
 	"pallet-proxy/std",
