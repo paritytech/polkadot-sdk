@@ -310,6 +310,8 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(block_num: BlockNumberFor<T>) -> Weight {
+			debug_assert_eq!(block_num, frame_system::Pallet::<T>::block_number());
+
 			let claim = <frame_system::Pallet<T>>::digest()
 				.logs
 				.iter()
@@ -318,7 +320,7 @@ pub mod pallet {
 
 			CurrentSlot::<T>::put(claim.slot);
 
-			if frame_system::Pallet::<T>::block_number() == One::one() {
+			if block_num == One::one() {
 				Self::post_genesis_initialize(claim.slot);
 			}
 
@@ -755,6 +757,7 @@ impl<T: Config> Pallet<T> {
 		buf.extend_from_slice(&slot.to_le_bytes());
 		let randomness = hashing::blake2_256(buf.as_slice());
 		RandomnessAccumulator::<T>::put(randomness);
+
 		let next_randoness = Self::update_epoch_randomness(1);
 
 		// Deposit a log as this is the first block in first epoch.
@@ -900,6 +903,8 @@ impl<T: Config> Pallet<T> {
 		// of allowed tickets.
 		let mut upper_bound = *candidates.get(max_tickets - 1).unwrap_or(&TicketId::MAX);
 
+		let mut require_sort = false;
+
 		// Consume at most `max_segments` segments.
 		// During the process remove every stale ticket from `TicketsData` storage.
 		for segment_idx in (0..unsorted_segments_count).rev().take(max_segments as usize) {
@@ -907,6 +912,7 @@ impl<T: Config> Pallet<T> {
 			metadata.unsorted_tickets_count -= segment.len() as u32;
 
 			// Push only ids with a value less than the current `upper_bound`.
+			let prev_len = candidates.len();
 			for ticket_id in segment {
 				if ticket_id < upper_bound {
 					candidates.push(ticket_id);
@@ -914,6 +920,7 @@ impl<T: Config> Pallet<T> {
 					TicketsData::<T>::remove(ticket_id);
 				}
 			}
+			require_sort = candidates.len() != prev_len;
 
 			// As we approach the tail of the segments buffer the `upper_bound` value is expected
 			// to decrease (fast). We thus expect the number of tickets pushed into the
@@ -928,12 +935,13 @@ impl<T: Config> Pallet<T> {
 			// to be submitted and the epoch length) the more this check becomes relevant.
 			if candidates.len() > 2 * max_tickets {
 				upper_bound = Self::sort_and_truncate(&mut candidates, max_tickets);
+				require_sort = false;
 			}
 		}
 
 		if candidates.len() > max_tickets {
 			Self::sort_and_truncate(&mut candidates, max_tickets);
-		} else {
+		} else if require_sort {
 			candidates.sort_unstable();
 		}
 

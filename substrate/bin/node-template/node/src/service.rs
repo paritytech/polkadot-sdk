@@ -27,7 +27,7 @@ type HostFunctions = (
 	sp_crypto_ec_utils::ed_on_bls12_381_bandersnatch::host_calls::HostFunctions,
 );
 
-type FullClient =
+pub(crate) type FullClient =
 	sc_service::TFullClient<Block, RuntimeApi, sc_executor::WasmExecutor<HostFunctions>>;
 
 type FullBackend = sc_service::TFullBackend<Block>;
@@ -71,7 +71,7 @@ pub fn new_partial(
 		})
 		.transpose()?;
 
-	let executor = sc_service::new_wasm_executor::<sp_io::SubstrateHostFunctions>(config);
+	let executor = sc_service::new_wasm_executor::<HostFunctions>(config);
 	let (client, backend, keystore_container, task_manager) =
 		sc_service::new_full_parts::<Block, RuntimeApi, _>(
 			config,

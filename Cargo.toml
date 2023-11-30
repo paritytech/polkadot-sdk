@@ -546,6 +546,3 @@ wasmi = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }
 yamux = { opt-level = 3 }
 zeroize = { opt-level = 3 }
-
-[patch."https://github.com/w3f/ring-proof"]
-ring = { git = "https://github.com/davxy/ring-proof", branch = "davxy-fix-no-std" }

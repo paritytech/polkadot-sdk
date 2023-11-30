@@ -803,7 +803,7 @@ fn submit_tickets_with_ring_proof_check_works() {
 	assert!(authorities.iter().zip(pairs.iter()).all(|(auth, pair)| auth == &pair.public()));
 
 	ext.execute_with(|| {
-		let start_slot = Slot::from(100);
+		let start_slot = Slot::from(0);
 		let start_block = 1;
 
 		// Tweak the config to discard ~half of the tickets.
@@ -812,6 +812,7 @@ fn submit_tickets_with_ring_proof_check_works() {
 		EpochConfig::<Test>::set(config);
 
 		initialize_block(start_block, start_slot, Default::default(), pair);
+		NextRandomness::<Test>::set([0; 32]);
 
 		// Check state before tickets submission
 		assert_eq!(
@@ -829,9 +830,9 @@ fn submit_tickets_with_ring_proof_check_works() {
 		// Check state after submission
 		assert_eq!(
 			TicketsMeta::<Test>::get(),
-			TicketsMetadata { unsorted_tickets_count: 14, tickets_count: [0, 0] },
+			TicketsMetadata { unsorted_tickets_count: 16, tickets_count: [0, 0] },
 		);
-		assert_eq!(UnsortedSegments::<Test>::get(0).len(), 14);
+		assert_eq!(UnsortedSegments::<Test>::get(0).len(), 16);
 		assert_eq!(UnsortedSegments::<Test>::get(1).len(), 0);
 
 		finalize_block(start_block);
@@ -853,16 +854,13 @@ fn make_tickets_data() {
 	let authorities: Vec<_> = pairs.iter().map(|sk| sk.public()).collect();
 
 	ext.execute_with(|| {
-		let start_slot = Slot::from(100);
-		let start_block = 1;
 		let config = EpochConfig::<Test>::get();
 
 		let tickets_count = tickets_authors_count * config.attempts_number as usize;
 		let mut tickets = Vec::with_capacity(tickets_count);
 
-		// This is only to properly initialize the "NextRandomness" value which is
-		// used to construct the next epoch tickets.
-		initialize_block(start_block, start_slot, Default::default(), &pairs[0]);
+		// Construct pre-built tickets with a well known `NextRandomness` value.
+		NextRandomness::<Test>::set([0; 32]);
 
 		println!("Constructing {} tickets", tickets_count);
 		pairs.iter().take(tickets_authors_count).enumerate().for_each(|(i, pair)| {
@@ -870,6 +868,7 @@ fn make_tickets_data() {
 			tickets.extend(t);
 			println!("{:.2}%", 100f32 * ((i + 1) as f32 / tickets_authors_count as f32));
 		});
+
 		data_write(TICKETS_FILE, (authorities, tickets));
 	});
 }

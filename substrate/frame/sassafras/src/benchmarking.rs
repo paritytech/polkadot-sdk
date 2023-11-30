@@ -166,6 +166,10 @@ mod benchmarks {
 
 		log::debug!(target: LOG_TARGET, "PreBuiltTickets: {} tickets, {} authorities", tickets.len(), authorities.len());
 
+		// Set `NextRandomness` to the same value used for pre-built tickets
+		// (see `make_tickets_data` test).
+		NextRandomness::<T>::set([0; 32]);
+
 		Pallet::<T>::update_ring_verifier(&authorities);
 
 		// Set next epoch config to accept all the tickets
