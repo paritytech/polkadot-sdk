@@ -110,13 +110,6 @@ impl fmt::Display for BadPeer {
 impl std::error::Error for BadPeer {}
 
 #[derive(Debug)]
-pub struct Metrics {
-	pub queued_blocks: u32,
-	pub fork_targets: u32,
-	pub justifications: crate::request_metrics::Metrics,
-}
-
-#[derive(Debug)]
 pub enum PeerRequest<B: BlockT> {
 	Block(BlockRequest<B>),
 	State,

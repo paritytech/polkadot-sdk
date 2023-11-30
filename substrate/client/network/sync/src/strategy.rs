@@ -28,6 +28,7 @@ use crate::{
 };
 use libp2p::PeerId;
 use log::{error, info};
+use prometheus_endpoint::Registry;
 use sc_client_api::{BlockBackend, ProofProvider};
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
 use sc_network_common::sync::{
@@ -53,6 +54,7 @@ fn chain_sync_mode(sync_mode: SyncMode) -> ChainSyncMode {
 }
 
 /// Syncing configuration containing data for all strategies.
+#[derive(Clone, Debug)]
 pub struct SyncingConfig {
 	/// Syncing mode.
 	pub mode: SyncMode,
@@ -60,6 +62,8 @@ pub struct SyncingConfig {
 	pub max_parallel_downloads: u32,
 	/// Maximum number of blocks to request.
 	pub max_blocks_per_request: u32,
+	/// Prometheus metrics registry.
+	pub metrics_registry: Option<Registry>,
 }
 
 #[derive(Debug)]
@@ -107,7 +111,7 @@ where
 {
 	/// Initialize a new syncing startegy.
 	pub fn new(
-		config: &SyncingConfig,
+		config: SyncingConfig,
 		client: Arc<Client>,
 		warp_sync_config: Option<WarpSyncConfig<B>>,
 	) -> Result<Self, ClientError> {
@@ -121,6 +125,7 @@ where
 				client.clone(),
 				config.max_parallel_downloads,
 				config.max_blocks_per_request,
+				config.metrics_registry,
 			)?))
 		}
 	}
@@ -329,6 +334,15 @@ where
 		}
 	}
 
+	/// Report Prometheus metrics
+	pub fn report_metrics(&self) {
+		match self {
+			SyncingStrategy::WarpSyncStrategy(_) => {},
+			SyncingStrategy::StateSyncStrategy(_) => {},
+			SyncingStrategy::ChainSyncStrategy(strategy) => strategy.report_metrics(),
+		}
+	}
+
 	/// Get actions that should be performed by the owner on the strategy's behalf
 	#[must_use]
 	pub fn actions(&mut self) -> Box<dyn Iterator<Item = SyncingAction<B>>> {
@@ -379,7 +393,7 @@ where
 
 	pub fn switch_to_next(
 		&mut self,
-		config: &SyncingConfig,
+		config: SyncingConfig,
 		client: Arc<Client>,
 		connected_peers: impl Iterator<Item = (PeerId, B::Hash, NumberFor<B>)>,
 	) {
@@ -413,6 +427,7 @@ where
 							client,
 							config.max_parallel_downloads,
 							config.max_blocks_per_request,
+							config.metrics_registry,
 						) {
 							Ok(chain_sync) => chain_sync,
 							Err(e) => {
@@ -438,6 +453,7 @@ where
 					client,
 					config.max_parallel_downloads,
 					config.max_blocks_per_request,
+					config.metrics_registry,
 				) {
 					Ok(chain_sync) => chain_sync,
 					Err(e) => {

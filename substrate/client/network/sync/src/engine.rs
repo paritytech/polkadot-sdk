@@ -48,8 +48,7 @@ use futures::{
 use libp2p::{request_response::OutboundFailure, PeerId};
 use log::{debug, error, trace};
 use prometheus_endpoint::{
-	register, Counter, Gauge, GaugeVec, MetricSource, Opts, PrometheusError, Registry,
-	SourcedGauge, U64,
+	register, Counter, Gauge, MetricSource, Opts, PrometheusError, Registry, SourcedGauge, U64,
 };
 use prost::Message;
 use schnellru::{ByLength, LruMap};
@@ -138,9 +137,6 @@ mod rep {
 
 struct Metrics {
 	peers: Gauge<U64>,
-	queued_blocks: Gauge<U64>,
-	fork_targets: Gauge<U64>,
-	justifications: GaugeVec<U64>,
 	import_queue_blocks_submitted: Counter<U64>,
 	import_queue_justifications_submitted: Counter<U64>,
 }
@@ -151,25 +147,6 @@ impl Metrics {
 		Ok(Self {
 			peers: {
 				let g = Gauge::new("substrate_sync_peers", "Number of peers we sync with")?;
-				register(g, r)?
-			},
-			queued_blocks: {
-				let g =
-					Gauge::new("substrate_sync_queued_blocks", "Number of blocks in import queue")?;
-				register(g, r)?
-			},
-			fork_targets: {
-				let g = Gauge::new("substrate_sync_fork_targets", "Number of fork sync targets")?;
-				register(g, r)?
-			},
-			justifications: {
-				let g = GaugeVec::new(
-					Opts::new(
-						"substrate_sync_extra_justifications",
-						"Number of extra justifications requests",
-					),
-					&["status"],
-				)?;
 				register(g, r)?
 			},
 			import_queue_blocks_submitted: {
@@ -381,7 +358,12 @@ where
 			} else {
 				net_config.network_config.max_blocks_per_request
 			};
-		let syncing_config = SyncingConfig { mode, max_parallel_downloads, max_blocks_per_request };
+		let syncing_config = SyncingConfig {
+			mode,
+			max_parallel_downloads,
+			max_blocks_per_request,
+			metrics_registry: metrics_registry.cloned(),
+		};
 		let cache_capacity = (net_config.network_config.default_peers_set.in_peers +
 			net_config.network_config.default_peers_set.out_peers)
 			.max(1);
@@ -457,7 +439,8 @@ where
 			.map_or(futures::future::pending().boxed().fuse(), |rx| rx.boxed().fuse());
 
 		// Initialize syncing strategy.
-		let strategy = SyncingStrategy::new(&syncing_config, client.clone(), warp_sync_config)?;
+		let strategy =
+			SyncingStrategy::new(syncing_config.clone(), client.clone(), warp_sync_config)?;
 
 		let block_announce_protocol_name = block_announce_config.protocol_name().clone();
 		let (tx, service_rx) = tracing_unbounded("mpsc_chain_sync", 100_000);
@@ -540,31 +523,8 @@ where
 		if let Some(metrics) = &self.metrics {
 			let n = u64::try_from(self.peers.len()).unwrap_or(std::u64::MAX);
 			metrics.peers.set(n);
-
-			if let SyncingStrategy::ChainSyncStrategy(chain_sync) = &self.strategy {
-				let m = chain_sync.metrics();
-
-				metrics.fork_targets.set(m.fork_targets.into());
-				metrics.queued_blocks.set(m.queued_blocks.into());
-
-				metrics
-					.justifications
-					.with_label_values(&["pending"])
-					.set(m.justifications.pending_requests.into());
-				metrics
-					.justifications
-					.with_label_values(&["active"])
-					.set(m.justifications.active_requests.into());
-				metrics
-					.justifications
-					.with_label_values(&["failed"])
-					.set(m.justifications.failed_requests.into());
-				metrics
-					.justifications
-					.with_label_values(&["importing"])
-					.set(m.justifications.importing_requests.into());
-			}
 		}
+		self.strategy.report_metrics();
 	}
 
 	fn update_peer_info(
@@ -793,7 +753,7 @@ where
 					))
 				});
 				self.strategy.switch_to_next(
-					&self.syncing_config,
+					self.syncing_config.clone(),
 					self.client.clone(),
 					connected_peers,
 				);

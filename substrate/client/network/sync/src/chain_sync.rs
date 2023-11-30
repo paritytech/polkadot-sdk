@@ -33,7 +33,7 @@ use crate::{
 	extra_requests::ExtraRequests,
 	schema::v1::StateResponse,
 	state::{ImportResult, StateSync},
-	types::{BadPeer, Metrics, OpaqueStateRequest, OpaqueStateResponse, SyncState, SyncStatus},
+	types::{BadPeer, OpaqueStateRequest, OpaqueStateResponse, SyncState, SyncStatus},
 	warp::{WarpSyncPhase, WarpSyncProgress},
 	LOG_TARGET,
 };
@@ -41,7 +41,7 @@ use crate::{
 use codec::Encode;
 use libp2p::PeerId;
 use log::{debug, error, info, trace, warn};
-
+use prometheus_endpoint::{register, Gauge, GaugeVec, Opts, PrometheusError, Registry, U64};
 use sc_client_api::{BlockBackend, ProofProvider};
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
 use sc_network_common::sync::message::{
@@ -120,6 +120,38 @@ mod rep {
 
 	/// Peer response data does not have requested bits.
 	pub const BAD_RESPONSE: Rep = Rep::new(-(1 << 12), "Incomplete response");
+}
+
+struct Metrics {
+	queued_blocks: Gauge<U64>,
+	fork_targets: Gauge<U64>,
+	justifications: GaugeVec<U64>,
+}
+
+impl Metrics {
+	fn register(r: &Registry) -> Result<Self, PrometheusError> {
+		Ok(Self {
+			queued_blocks: {
+				let g =
+					Gauge::new("substrate_sync_queued_blocks", "Number of blocks in import queue")?;
+				register(g, r)?
+			},
+			fork_targets: {
+				let g = Gauge::new("substrate_sync_fork_targets", "Number of fork sync targets")?;
+				register(g, r)?
+			},
+			justifications: {
+				let g = GaugeVec::new(
+					Opts::new(
+						"substrate_sync_extra_justifications",
+						"Number of extra justifications requests",
+					),
+					&["status"],
+				)?;
+				register(g, r)?
+			},
+		})
+	}
 }
 
 enum AllowedRequests {
@@ -248,6 +280,8 @@ pub struct ChainSync<B: BlockT, Client> {
 	gap_sync: Option<GapSync<B>>,
 	/// Pending actions.
 	actions: Vec<ChainSyncAction<B>>,
+	/// Prometheus metrics.
+	metrics: Option<Metrics>,
 }
 
 /// All the data we have about a Peer that we are trying to sync with
@@ -336,6 +370,7 @@ where
 		client: Arc<Client>,
 		max_parallel_downloads: u32,
 		max_blocks_per_request: u32,
+		metrics_registry: Option<Registry>,
 	) -> Result<Self, ClientError> {
 		let mut sync = Self {
 			client,
@@ -355,6 +390,18 @@ where
 			import_existing: false,
 			gap_sync: None,
 			actions: Vec::new(),
+			metrics: metrics_registry
+				.map(|r| match Metrics::register(&r) {
+					Ok(metrics) => Some(metrics),
+					Err(err) => {
+						log::error!(
+							target: LOG_TARGET,
+							"Failed to register `ChainSync` metrics {err:?}",
+						);
+						None
+					},
+				})
+				.flatten(),
 		};
 
 		sync.reset_sync_start_point()?;
@@ -1104,12 +1151,33 @@ where
 		}
 	}
 
-	/// Get prometheus metrics.
-	pub fn metrics(&self) -> Metrics {
-		Metrics {
-			queued_blocks: self.queue_blocks.len().try_into().unwrap_or(std::u32::MAX),
-			fork_targets: self.fork_targets.len().try_into().unwrap_or(std::u32::MAX),
-			justifications: self.extra_justifications.metrics(),
+	/// Report prometheus metrics.
+	pub fn report_metrics(&self) {
+		if let Some(metrics) = &self.metrics {
+			metrics
+				.fork_targets
+				.set(self.fork_targets.len().try_into().unwrap_or(std::u64::MAX));
+			metrics
+				.queued_blocks
+				.set(self.queue_blocks.len().try_into().unwrap_or(std::u64::MAX));
+
+			let justifications_metrics = self.extra_justifications.metrics();
+			metrics
+				.justifications
+				.with_label_values(&["pending"])
+				.set(justifications_metrics.pending_requests.into());
+			metrics
+				.justifications
+				.with_label_values(&["active"])
+				.set(justifications_metrics.active_requests.into());
+			metrics
+				.justifications
+				.with_label_values(&["failed"])
+				.set(justifications_metrics.failed_requests.into());
+			metrics
+				.justifications
+				.with_label_values(&["importing"])
+				.set(justifications_metrics.importing_requests.into());
 		}
 	}
 
