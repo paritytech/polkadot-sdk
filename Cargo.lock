@@ -4372,7 +4372,7 @@ version = "0.0.1"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
- "docify",
+ "docify 0.2.6",
  "frame",
  "kitchensink-runtime",
  "pallet-aura",
@@ -17594,7 +17594,7 @@ dependencies = [
 name = "sp-runtime"
 version = "24.0.0"
 dependencies = [
- "docify",
+ "docify 0.2.6",
  "either",
  "hash256-std-hasher",
  "impl-trait-for-tuples",
