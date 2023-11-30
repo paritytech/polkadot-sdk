@@ -32,7 +32,6 @@ fn file_hash(path: &Path) -> String {
 	let mut hasher = XxHash32::default();
 	hasher.write(&data);
 	hasher.write(include_bytes!("build.rs"));
-	hasher.write(&[is_riscv_supported().into()]);
 	let hash = hasher.finish();
 	format!("{:x}", hash)
 }
@@ -211,27 +210,8 @@ fn post_process_wasm(input_path: &Path, output_path: &Path) -> Result<()> {
 	serialize_to_file(output_path, module).map_err(Into::into)
 }
 
-/// Check if RISC-V toolchain is installed.
-fn is_riscv_supported() -> bool {
-	use std::sync::OnceLock;
-	static IS_RISCV_SUPPORTED: OnceLock<bool> = OnceLock::new();
-	*IS_RISCV_SUPPORTED.get_or_init(|| {
-		let cmd = Command::new("rustup")
-			.args(&["toolchain", "list"])
-			.output()
-			.expect("failed to execute process");
-
-		let stdout = String::from_utf8(cmd.stdout).unwrap();
-		stdout.contains("riscv32em-nightly-2023-04-05")
-	})
-}
-
 /// Build contracts for RISC-V.
 fn invoke_riscv_build(current_dir: &Path) -> Result<()> {
-	if !is_riscv_supported() {
-		return Ok(())
-	}
-
 	let encoded_rustflags =
 		["-Crelocation-model=pie", "-Clink-arg=--emit-relocs", "-Clink-arg=-Tmemory.ld"]
 			.join("\x1f");
@@ -258,10 +238,6 @@ fn invoke_riscv_build(current_dir: &Path) -> Result<()> {
 }
 /// Post-process the compiled wasm contracts.
 fn post_process_riscv(input_path: &Path, output_path: &Path) -> Result<()> {
-	if !is_riscv_supported() {
-		return Ok(())
-	}
-
 	let mut config = polkavm_linker::Config::default();
 	config.set_strip(true);
 	let orig = fs::read(input_path).with_context(|| format!("Failed to read {:?}", input_path))?;
@@ -310,6 +286,11 @@ fn find_workspace_root(current_dir: &Path) -> Option<PathBuf> {
 }
 
 fn main() -> Result<()> {
+	// Skip build if CI and macos for now since we don't have the RISC-V toolchain easily available there.
+	if env::var("CI").is_ok() && cfg!(target_os = "macos") {
+		return Ok(())
+	}
+
 	let fixtures_dir: PathBuf = env::var("CARGO_MANIFEST_DIR")?.into();
 	let contracts_dir = fixtures_dir.join("contracts");
 	let out_dir: PathBuf = env::var("OUT_DIR")?.into();
