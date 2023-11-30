@@ -18,7 +18,7 @@
 
 pub mod error;
 pub mod execute;
-pub mod executor_intf;
+pub mod executor_interface;
 pub mod prepare;
 pub mod pvf;
 pub mod worker;
@@ -47,7 +47,7 @@ pub mod tests {
 }
 
 /// Status of security features on the current system.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct SecurityStatus {
 	/// Whether the landlock features we use are fully available on this system.
 	pub can_enable_landlock: bool,

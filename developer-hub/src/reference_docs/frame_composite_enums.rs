@@ -1,0 +1,1 @@
+//! # FRAME Composite Enums
