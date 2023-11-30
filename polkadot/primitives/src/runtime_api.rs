@@ -271,11 +271,5 @@ sp_api::decl_runtime_apis! {
 		/// This is a staging method! Do not use on production runtimes!
 		#[api_version(9)]
 		fn node_features() -> vstaging::NodeFeatures;
-
-		/***** Added in v10 *****/
-
-		/// Get bulk core count
-		#[api_version(10)]
-		fn bulk_core_count() -> u16
 	}
 }

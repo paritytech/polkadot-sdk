@@ -265,11 +265,6 @@ pub trait RuntimeApiSubsystemClient {
 
 	/// Get the node features.
 	async fn node_features(&self, at: Hash) -> Result<vstaging::NodeFeatures, ApiError>;
-
-	// === v10 ===
-
-	/// Get the bulk core count
-	async fn bulk_core_count(&self, at: Hash) -> Result<u16, ApiError>;
 }
 
 /// Default implementation of [`RuntimeApiSubsystemClient`] using the client.
@@ -525,12 +520,5 @@ where
 
 	async fn disabled_validators(&self, at: Hash) -> Result<Vec<ValidatorIndex>, ApiError> {
 		self.client.runtime_api().disabled_validators(at)
-	}
-
-	async fn bulk_core_count(
-		&self,
-		at: Hash,
-	) -> Result<u16, ApiError> {
-		self.client.runtime_api().bulk_core_count(at)
 	}
 }

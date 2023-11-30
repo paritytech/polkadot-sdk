@@ -720,8 +720,6 @@ pub enum RuntimeApiRequest {
 	AsyncBackingParams(RuntimeApiSender<async_backing::AsyncBackingParams>),
 	/// Get the node features.
 	NodeFeatures(SessionIndex, RuntimeApiSender<NodeFeatures>),
-	/// Get the bulk core count
-	BulkCoreCount(SessionIndex, RuntimeApiSender<u16>),
 }
 
 impl RuntimeApiRequest {

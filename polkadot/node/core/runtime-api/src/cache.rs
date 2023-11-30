@@ -68,7 +68,6 @@ pub(crate) struct RequestResultCache {
 	para_backing_state: LruMap<(Hash, ParaId), Option<async_backing::BackingState>>,
 	async_backing_params: LruMap<Hash, async_backing::AsyncBackingParams>,
 	node_features: LruMap<SessionIndex, vstaging::NodeFeatures>,
-	bulk_core_count: LruMap<SessionIndex, u16>,
 }
 
 impl Default for RequestResultCache {
@@ -103,7 +102,6 @@ impl Default for RequestResultCache {
 			para_backing_state: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			async_backing_params: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			node_features: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
-			bulk_core_count: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 		}
 	}
 }
@@ -509,21 +507,6 @@ impl RequestResultCache {
 	) {
 		self.async_backing_params.insert(key, value);
 	}
-
-	pub(crate) fn bulk_core_count(
-		&mut self,
-		session_index: SessionIndex,
-	) -> Option<&u16> {
-		self.bulk_core_count.get(&session_index).map(|v| &*v)
-	}
-
-	pub(crate) fn cache_bulk_core_count(
-		&mut self,
-		session_index: SessionIndex,
-		value: u16,
-	) {
-		self.bulk_core_count.insert(session_index, value);
-	}
 }
 
 pub(crate) enum RequestResult {
@@ -575,5 +558,4 @@ pub(crate) enum RequestResult {
 	ParaBackingState(Hash, ParaId, Option<async_backing::BackingState>),
 	AsyncBackingParams(Hash, async_backing::AsyncBackingParams),
 	NodeFeatures(SessionIndex, vstaging::NodeFeatures),
-	BulkCoreCount(SessionIndex, u16),
 }
