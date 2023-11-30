@@ -33,7 +33,9 @@ use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::{
 	impls::ToStakingPot,
-	xcm_config::{ConcreteAssetFromSystem, RelayOrOtherSystemParachains},
+	xcm_config::{
+		ConcreteAssetFromSystem, ParentRelayOrSiblingParachains, RelayOrOtherSystemParachains,
+	},
 	TREASURY_PALLET_ID,
 };
 use polkadot_parachain_primitives::primitives::Sibling;
@@ -57,7 +59,6 @@ use xcm_executor::{
 	traits::{FeeReason, TransactAsset, WithOriginFilter},
 	XcmExecutor,
 };
-use parachains_common::xcm_config::ParentRelayOrSiblingParachains;
 
 parameter_types! {
 	pub const TokenLocation: MultiLocation = MultiLocation::parent();

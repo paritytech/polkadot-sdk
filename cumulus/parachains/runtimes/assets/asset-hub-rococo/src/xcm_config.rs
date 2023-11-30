@@ -33,7 +33,7 @@ use parachains_common::{
 	impls::ToStakingPot,
 	xcm_config::{
 		AssetFeeAsExistentialDepositMultiplier, ConcreteAssetFromSystem,
-		RelayOrOtherSystemParachains,
+		ParentRelayOrSiblingParachains, RelayOrOtherSystemParachains,
 	},
 	TREASURY_PALLET_ID,
 };
@@ -55,7 +55,6 @@ use xcm_builder::{
 	XcmFeeToAccount,
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
-use parachains_common::xcm_config::ParentRelayOrSiblingParachains;
 
 #[cfg(feature = "runtime-benchmarks")]
 use cumulus_primitives_core::ParaId;

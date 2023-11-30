@@ -126,7 +126,7 @@ impl Contains<MultiLocation> for ParentRelayOrSiblingParachains {
 		matches!(
 			location,
 			MultiLocation { parents: 1, interior: Here } |
-			MultiLocation { parents: 1, interior: X1(Parachain(_)) }
+				MultiLocation { parents: 1, interior: X1(Parachain(_)) }
 		)
 	}
 }
