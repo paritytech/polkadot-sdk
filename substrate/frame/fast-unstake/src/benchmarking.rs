@@ -162,7 +162,7 @@ benchmarks! {
 			fast_unstake_events::<T>().last(),
 			Some(Event::BatchChecked { .. })
 		));
-		assert!(stashes.iter().all(|(s, _)| request.stashes.iter().find(|(ss, _)| ss == s).is_some()));
+		assert!(stashes.iter().all(|(s, _)| request.stashes.iter().any(|(ss, _)| ss == s)));
 	}
 
 	register_fast_unstake {

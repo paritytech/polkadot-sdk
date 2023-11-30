@@ -2246,13 +2246,12 @@ benchmarks! {
 		let message_len = message.len() as i32;
 		let key_type = sp_core::crypto::KeyTypeId(*b"code");
 		let sig_params = (0..r)
-			.map(|i| {
+			.flat_map(|i| {
 				let pub_key = sp_io::crypto::sr25519_generate(key_type, None);
 				let sig = sp_io::crypto::sr25519_sign(key_type, &pub_key, &message).expect("Generates signature");
 				let data: [u8; 96] = [AsRef::<[u8]>::as_ref(&sig), AsRef::<[u8]>::as_ref(&pub_key)].concat().try_into().unwrap();
 				data
 			})
-			.flatten()
 			.collect::<Vec<_>>();
 		let sig_params_len = sig_params.len() as i32;
 
