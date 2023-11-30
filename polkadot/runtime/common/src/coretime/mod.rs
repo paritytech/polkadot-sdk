@@ -24,11 +24,15 @@ mod benchmarking;
 
 use frame_support::{pallet_prelude::*, traits::Currency};
 use frame_system::pallet_prelude::*;
-use pallet_broker::CoreAssignment;
-use primitives::CoreIndex;
-use runtime_parachains::assigner_bulk::{self, PartsOf57600};
+use pallet_broker::{CoreAssignment, CoreIndex as BrokerCoreIndex};
+use primitives::{CoreIndex, Id as ParaId};
+use runtime_parachains::{
+	assigner_bulk::{self, PartsOf57600},
+	origin::{ensure_parachain, Origin},
+};
 
-use sp_std::prelude::*;
+use sp_runtime::traits::BadOrigin;
+use sp_std::{prelude::*, result};
 
 pub use pallet::*;
 
@@ -74,17 +78,34 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config + assigner_bulk::Config {
+		type RuntimeOrigin: From<<Self as frame_system::Config>::RuntimeOrigin>
+			+ Into<result::Result<Origin, <Self as Config>::RuntimeOrigin>>;
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The runtime's definition of a Currency.
 		type Currency: Currency<Self::AccountId>;
-		/// The external origin allowed to enact coretime extrinsics. Usually the broker system
-		/// parachain.
-		type ExternalBrokerOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+		/// Something that provides the weight of this pallet.
+		//type WeightInfo: WeightInfo;
+		/// The ParaId of the broker system parachain.
+		#[pallet::constant]
+		type BrokerId: Get<u32>;
 		/// Something that provides the weight of this pallet.
 		type WeightInfo: WeightInfo;
 	}
 
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T: Config> {
+		/// The broker chain has asked for revenue information for a specific block.
+		RevenueInfoRequested { when: BlockNumberFor<T> },
+		/// A core has received a new assignment from the broker chain.
+		CoreAssigned { core: CoreIndex },
+	}
+
 	#[pallet::error]
-	pub enum Error<T> {}
+	pub enum Error<T> {
+		/// The paraid making the call is not the coretime brokerage system parachain.
+		NotBroker,
+	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
@@ -95,8 +116,8 @@ pub mod pallet {
 		//#[pallet::weight(<T as Config>::WeightInfo::request_core_count())]
 		#[pallet::call_index(1)]
 		pub fn request_core_count(origin: OriginFor<T>, _count: u16) -> DispatchResult {
-			// Ignore requests not coming from the External Broker parachain.
-			let _multi_location = <T as Config>::ExternalBrokerOrigin::ensure_origin(origin)?;
+			// Ignore requests not coming from the broker parachain or root.
+			Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
 			Ok(())
 		}
 
@@ -107,8 +128,8 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			_when: BlockNumberFor<T>,
 		) -> DispatchResult {
-			// Ignore requests not coming from the External Broker parachain.
-			let _multi_location = <T as Config>::ExternalBrokerOrigin::ensure_origin(origin)?;
+			// Ignore requests not coming from the broker parachain or root.
+			Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
 			Ok(())
 		}
 
@@ -120,8 +141,8 @@ pub mod pallet {
 			_who: T::AccountId,
 			_amount: BalanceOf<T>,
 		) -> DispatchResult {
-			// Ignore requests not coming from the External Broker parachain.
-			let _multi_location = <T as Config>::ExternalBrokerOrigin::ensure_origin(origin)?;
+			// Ignore requests not coming from the broker parachain or root.
+			Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
 			Ok(())
 		}
 
@@ -134,20 +155,46 @@ pub mod pallet {
 		/// -`begin`: The starting blockheight of the instruction.
 		/// -`assignment`: How the blockspace should be utilised.
 		/// -`end_hint`: An optional hint as to when this particular set of instructions will end.
+		// The broker pallet's `CoreIndex` definition is `u16` but on the relay chain it's `struct
+		// CoreIndex(u32)`
 		// TODO: Weights!
 		#[pallet::call_index(4)]
 		#[pallet::weight(<T as Config>::WeightInfo::assign_core(assignment.len() as u32))]
 		pub fn assign_core(
 			origin: OriginFor<T>,
-			core: CoreIndex,
+			core: BrokerCoreIndex,
 			begin: BlockNumberFor<T>,
 			assignment: Vec<(CoreAssignment, PartsOf57600)>,
 			end_hint: Option<BlockNumberFor<T>>,
 		) -> DispatchResult {
-			// Ignore requests not coming from the External Broker parachain.
-			let _multi_location = <T as Config>::ExternalBrokerOrigin::ensure_origin(origin)?;
+			// Ignore requests not coming from the broker parachain or root.
+			Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
 
-			<assigner_bulk::Pallet<T>>::assign_core(core, begin, assignment, end_hint)
+			<assigner_bulk::Pallet<T>>::assign_core(
+				// Relay chain `CoreIndex` implements `From` for `u32`
+				u32::from(core).into(),
+				begin,
+				assignment,
+				end_hint,
+			)
 		}
+	}
+}
+
+impl<T: Config> Pallet<T> {
+	/// Ensure the origin is one of Root or the `para` itself.
+	fn ensure_root_or_para(
+		origin: <T as frame_system::Config>::RuntimeOrigin,
+		id: ParaId,
+	) -> DispatchResult {
+		if let Ok(caller_id) = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin.clone()))
+		{
+			// Check if matching para id...
+			ensure!(caller_id == id, Error::<T>::NotBroker);
+		} else {
+			// Check if root...
+			ensure_root(origin.clone())?;
+		}
+		Ok(())
 	}
 }
