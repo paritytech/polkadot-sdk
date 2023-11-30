@@ -50,8 +50,8 @@ The security policy and procedures can be found in [docs/contributor/SECURITY.md
 
 ## Contributing & Code of Conduct
 
-Ensure you follow our [contribution guidelines](./docs/contributor/CONTRIBUTING.md). In every interaction and contribution, this
-project adheres to the [Contributor Covenant Code of Conduct](./docs/contributor/CODE_OF_CONDUCT.md).
+Ensure you follow our [contribution guidelines](./docs/contributor/CONTRIBUTING.md). In every interaction and
+contribution, this project adheres to the [Contributor Covenant Code of Conduct](./docs/contributor/CODE_OF_CONDUCT.md).
 
 ## Additional Resources
 
