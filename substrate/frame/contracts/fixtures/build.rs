@@ -32,6 +32,7 @@ fn file_hash(path: &Path) -> String {
 	let mut hasher = XxHash32::default();
 	hasher.write(&data);
 	hasher.write(include_bytes!("build.rs"));
+	hasher.write(&[is_riscv_supported().into()]);
 	let hash = hasher.finish();
 	format!("{:x}", hash)
 }
@@ -104,23 +105,26 @@ fn create_cargo_toml<'a>(
 ) -> Result<()> {
 	let mut cargo_toml: toml::Value = toml::from_str(include_str!("./build/Cargo.toml"))?;
 	let mut set_dep = |name, path| -> Result<()> {
-		cargo_toml["dependencies"][name]["path"] =
-			toml::Value::String(fixtures_dir.join(path).canonicalize()?.to_str().unwrap().to_string());
+		cargo_toml["dependencies"][name]["path"] = toml::Value::String(
+			fixtures_dir.join(path).canonicalize()?.to_str().unwrap().to_string(),
+		);
 		Ok(())
 	};
 	set_dep("uapi", "../uapi")?;
 	set_dep("common", "./contracts/common")?;
 
-	cargo_toml["bin"] = toml::Value::Array(entries
-		.map(|entry| {
-			let name = entry.name();
-			let path = entry.path();
-			toml::Value::Table(toml::toml! {
-				name = name
-				path = path
+	cargo_toml["bin"] = toml::Value::Array(
+		entries
+			.map(|entry| {
+				let name = entry.name();
+				let path = entry.path();
+				toml::Value::Table(toml::toml! {
+					name = name
+					path = path
+				})
 			})
-		})
-		.collect::<Vec<_>>());
+			.collect::<Vec<_>>(),
+	);
 
 	let cargo_toml = toml::to_string_pretty(&cargo_toml)?;
 	// eprintln!("cargo_toml: {}", cargo_toml);
@@ -166,33 +170,7 @@ fn invoke_cargo_fmt<'a>(
 	bail!("Fixtures files are not formatted")
 }
 
-fn invoke_riscv_build(current_dir: &Path) -> Result<()> {
-	let encoded_rustflags =
-		["-Crelocation-model=pie", "-Clink-arg=--emit-relocs", "-Clink-arg=-Tmemory.ld"]
-			.join("\x1f");
-
-	fs::write(current_dir.join("memory.ld"), include_bytes!("./build/riscv_memory_layout.ld"))?;
-
-	let build_res = Command::new(env::var("CARGO")?)
-		.current_dir(current_dir)
-		.env_clear()
-		.env("PATH", env::var("PATH").unwrap())
-		.env("CARGO_ENCODED_RUSTFLAGS", encoded_rustflags)
-		.env("RUSTUP_TOOLCHAIN", "rv32e-nightly-2023-04-05")
-		.args(&["build", "--offline", "--release", "--target=riscv32em-unknown-none-elf"])
-		.output()
-		.expect("failed to execute process");
-
-	if build_res.status.success() {
-		return Ok(())
-	}
-
-	let stderr = String::from_utf8_lossy(&build_res.stderr);
-	eprintln!("{}", stderr);
-	bail!("Failed to build contracts");
-}
-
-/// Build the wasm contracts.
+/// Build contracts for wasm.
 fn invoke_wasm_build(current_dir: &Path) -> Result<()> {
 	let encoded_rustflags = [
 		"-Clink-arg=-zstack-size=65536",
@@ -233,8 +211,57 @@ fn post_process_wasm(input_path: &Path, output_path: &Path) -> Result<()> {
 	serialize_to_file(output_path, module).map_err(Into::into)
 }
 
+/// Check if RISC-V toolchain is installed.
+fn is_riscv_supported() -> bool {
+	use std::sync::OnceLock;
+	static IS_RISCV_SUPPORTED: OnceLock<bool> = OnceLock::new();
+	*IS_RISCV_SUPPORTED.get_or_init(|| {
+		let cmd = Command::new("rustup")
+			.args(&["toolchain", "list"])
+			.output()
+			.expect("failed to execute process");
+
+		let stdout = String::from_utf8(cmd.stdout).unwrap();
+		stdout.contains("riscv32em-nightly-2023-04-05")
+	})
+}
+
+/// Build contracts for RISC-V.
+fn invoke_riscv_build(current_dir: &Path) -> Result<()> {
+	if !is_riscv_supported() {
+		return Ok(())
+	}
+
+	let encoded_rustflags =
+		["-Crelocation-model=pie", "-Clink-arg=--emit-relocs", "-Clink-arg=-Tmemory.ld"]
+			.join("\x1f");
+
+	fs::write(current_dir.join("memory.ld"), include_bytes!("./build/riscv_memory_layout.ld"))?;
+
+	let build_res = Command::new(env::var("CARGO")?)
+		.current_dir(current_dir)
+		.env_clear()
+		.env("PATH", env::var("PATH").unwrap())
+		.env("CARGO_ENCODED_RUSTFLAGS", encoded_rustflags)
+		.env("RUSTUP_TOOLCHAIN", "rv32e-nightly-2023-04-05")
+		.args(&["build", "--offline", "--release", "--target=riscv32em-unknown-none-elf"])
+		.output()
+		.expect("failed to execute process");
+
+	if build_res.status.success() {
+		return Ok(())
+	}
+
+	let stderr = String::from_utf8_lossy(&build_res.stderr);
+	eprintln!("{}", stderr);
+	bail!("Failed to build contracts");
+}
 /// Post-process the compiled wasm contracts.
 fn post_process_riscv(input_path: &Path, output_path: &Path) -> Result<()> {
+	if !is_riscv_supported() {
+		return Ok(())
+	}
+
 	let mut config = polkavm_linker::Config::default();
 	config.set_strip(true);
 	let orig = fs::read(input_path).with_context(|| format!("Failed to read {:?}", input_path))?;
