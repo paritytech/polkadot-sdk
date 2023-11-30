@@ -104,7 +104,14 @@ where
 		let who_origin =
 			Junction::AccountId32 { network: None, id: who.clone().into() }.into_location();
 		let _withdrawn = xcm_config::LocalAssetTransactor::withdraw_asset(&wnd, &who_origin, None)
-			.map_err(|_| pallet_xcm::Error::<Runtime>::CannotWithdraw)?;
+			.map_err(|err| {
+				log::error!(
+					target: "runtime::on_reap_identity",
+					"withdraw_asset(what: {:?}, who_origin: {:?}) error: {:?}",
+					wnd, who_origin, err
+				);
+				pallet_xcm::Error::<Runtime>::CannotWithdraw
+			})?;
 
 		// check out
 		xcm_config::LocalAssetTransactor::can_check_out(
