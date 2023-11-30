@@ -456,6 +456,29 @@ where
 		Ok(())
 	}
 
+	/// Reserve a peer for a request assigning `new_state`.
+	fn schedule_next_peer(
+		&mut self,
+		new_state: PeerState,
+		min_best_number: Option<NumberFor<B>>,
+	) -> Option<PeerId> {
+		let mut targets: Vec<_> = self.peers.values().map(|p| p.best_number).collect();
+		if !targets.is_empty() {
+			targets.sort();
+			let median = targets[targets.len() / 2];
+			let threshold = std::cmp::max(median, min_best_number.unwrap_or(Zero::zero()));
+			// Find a random peer that is synced as much as peer majority and is above
+			// `min_best_number`.
+			for (peer_id, peer) in self.peers.iter_mut() {
+				if peer.state.is_available() && peer.best_number >= threshold {
+					peer.state = new_state;
+					return Some(*peer_id)
+				}
+			}
+		}
+		None
+	}
+
 	/// Produce warp proof request.
 	fn warp_proof_request(&mut self) -> Option<(PeerId, WarpProofRequest<B>)> {
 		let Phase::WarpProof { last_hash, .. } = &self.phase else { return None };
@@ -472,14 +495,10 @@ where
 			return None
 		}
 
-		let Some((peer_id, peer)) = select_synced_available_peer(&mut self.peers, None) else {
-			return None
-		};
-
+		let peer_id = self.schedule_next_peer(PeerState::DownloadingProofs, None)?;
 		trace!(target: LOG_TARGET, "New WarpProofRequest to {peer_id}, begin hash: {begin}.");
-		peer.state = PeerState::DownloadingProofs;
 
-		Some((*peer_id, WarpProofRequest { begin }))
+		Some((peer_id, WarpProofRequest { begin }))
 	}
 
 	/// Produce target block request.
@@ -499,11 +518,8 @@ where
 		let target_hash = target_header.hash();
 		let target_number = *target_header.number();
 
-		let Some((peer_id, peer)) =
-			select_synced_available_peer(&mut self.peers, Some(target_number))
-		else {
-			return None
-		};
+		let peer_id =
+			self.schedule_next_peer(PeerState::DownloadingTargetBlock, Some(target_number))?;
 
 		trace!(
 			target: LOG_TARGET,
@@ -512,10 +528,8 @@ where
 			target_number,
 		);
 
-		peer.state = PeerState::DownloadingTargetBlock;
-
 		Some((
-			*peer_id,
+			peer_id,
 			BlockRequest::<B> {
 				id: 0,
 				fields: BlockAttributes::HEADER |
@@ -607,28 +621,4 @@ where
 	pub fn take_result(&mut self) -> Option<WarpSyncResult<B>> {
 		self.result.take()
 	}
-}
-
-/// Get candidate for warp/block request.
-///
-/// Due to borrowing issues this is a free-standing function accepting a reference to `peers`.
-fn select_synced_available_peer<B: BlockT>(
-	peers: &mut HashMap<PeerId, Peer<B>>,
-	min_best_number: Option<NumberFor<B>>,
-) -> Option<(&PeerId, &mut Peer<B>)> {
-	let mut targets: Vec<_> = peers.values().map(|p| p.best_number).collect();
-	if !targets.is_empty() {
-		targets.sort();
-		let median = targets[targets.len() / 2];
-		let threshold = std::cmp::max(median, min_best_number.unwrap_or(Zero::zero()));
-		// Find a random peer that is synced as much as peer majority and is above
-		// `best_number_at_least`.
-		for (peer_id, peer) in peers.iter_mut() {
-			if peer.state.is_available() && peer.best_number >= threshold {
-				return Some((peer_id, peer))
-			}
-		}
-	}
-
-	None
 }

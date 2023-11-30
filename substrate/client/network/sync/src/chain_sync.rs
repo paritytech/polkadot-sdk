@@ -390,18 +390,16 @@ where
 			import_existing: false,
 			gap_sync: None,
 			actions: Vec::new(),
-			metrics: metrics_registry
-				.map(|r| match Metrics::register(&r) {
-					Ok(metrics) => Some(metrics),
-					Err(err) => {
-						log::error!(
-							target: LOG_TARGET,
-							"Failed to register `ChainSync` metrics {err:?}",
-						);
-						None
-					},
-				})
-				.flatten(),
+			metrics: metrics_registry.and_then(|r| match Metrics::register(&r) {
+				Ok(metrics) => Some(metrics),
+				Err(err) => {
+					log::error!(
+						target: LOG_TARGET,
+						"Failed to register `ChainSync` metrics {err:?}",
+					);
+					None
+				},
+			}),
 		};
 
 		sync.reset_sync_start_point()?;

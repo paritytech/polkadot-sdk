@@ -251,20 +251,36 @@ where
 			return None
 		}
 
-		let Some((peer_id, peer)) =
-			select_synced_available_peer(&mut self.peers, self.state_sync.target_block_num())
-		else {
-			return None
-		};
-
-		peer.state = PeerState::DownloadingState;
+		let peer_id = self
+			.schedule_next_peer(PeerState::DownloadingState, self.state_sync.target_block_num())?;
 		let request = self.state_sync.next_request();
 		trace!(
 			target: LOG_TARGET,
 			"New state request to {peer_id}: {request:?}.",
 		);
+		Some((peer_id, OpaqueStateRequest(Box::new(request))))
+	}
 
-		Some((*peer_id, OpaqueStateRequest(Box::new(request))))
+	fn schedule_next_peer(
+		&mut self,
+		new_state: PeerState,
+		min_best_number: NumberFor<B>,
+	) -> Option<PeerId> {
+		let mut targets: Vec<_> = self.peers.values().map(|p| p.best_number).collect();
+		if !targets.is_empty() {
+			targets.sort();
+			let median = targets[targets.len() / 2];
+			let threshold = std::cmp::max(median, min_best_number);
+			// Find a random peer that is synced as much as peer majority and is above
+			// `min_best_number`.
+			for (peer_id, peer) in self.peers.iter_mut() {
+				if peer.state.is_available() && peer.best_number >= threshold {
+					peer.state = new_state;
+					return Some(*peer_id)
+				}
+			}
+		}
+		None
 	}
 
 	/// Returns the current sync status.
@@ -300,28 +316,4 @@ where
 
 		std::mem::take(&mut self.actions).into_iter()
 	}
-}
-
-/// Get peer for state request.
-///
-/// Due to borrowing issues this is a free-standing function accepting a reference to `peers`.
-fn select_synced_available_peer<B: BlockT>(
-	peers: &mut HashMap<PeerId, Peer<B>>,
-	min_best_number: NumberFor<B>,
-) -> Option<(&PeerId, &mut Peer<B>)> {
-	let mut targets: Vec<_> = peers.values().map(|p| p.best_number).collect();
-	if !targets.is_empty() {
-		targets.sort();
-		let median = targets[targets.len() / 2];
-		let threshold = std::cmp::max(median, min_best_number);
-		// Find a random peer that is synced as much as peer majority and is above
-		// `best_number_at_least`.
-		for (peer_id, peer) in peers.iter_mut() {
-			if peer.state.is_available() && peer.best_number >= threshold {
-				return Some((peer_id, peer))
-			}
-		}
-	}
-
-	None
 }
