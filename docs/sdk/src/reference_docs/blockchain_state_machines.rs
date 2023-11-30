@@ -12,13 +12,13 @@
 //! Then, recall that a typical blockchain system will alter its state through execution of blocks.
 //! *The component that dictates how this state alteration can happen is called the state transition
 //! function*.
-#![doc = simple_mermaid::mermaid!("../../../docs/mermaid/stf_simple.mmd")]
+#![doc = simple_mermaid::mermaid!("../../../mermaid/stf_simple.mmd")]
 //!
 //! In Substrate-based blockchains, the state transition function is called the *Runtime*. This is
 //! explained further in [`crate::reference_docs::wasm_meta_protocol`].
 //!
 //! With this in mind, we can paint a complete picture of a blockchain as a state machine:
-#![doc = simple_mermaid::mermaid!("../../../docs/mermaid/stf.mmd")]
+#![doc = simple_mermaid::mermaid!("../../../mermaid/stf.mmd")]
 //!
 //! In essence, the state of the blockchain at block N is the outcome of applying the state
 //! transition function to the the previous state, and the current block as input. This can be

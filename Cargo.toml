@@ -8,7 +8,7 @@ license = "GPL-3.0-only"
 resolver = "2"
 
 members = [
-	"developer-hub",
+	"docs/sdk",
 	"bridges/bin/runtime-common",
 	"bridges/modules/grandpa",
 	"bridges/modules/messages",
