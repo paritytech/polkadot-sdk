@@ -289,7 +289,7 @@ fn into_multiassets_checked(
 	(assets, fee_index, fee_asset, transfer_asset)
 }
 
-/// Test `limited_reserve_transfer_assets` with local asset reserve and local fee reserve.
+/// Test `tested_call` with local asset reserve and local fee reserve.
 ///
 /// Transferring native asset (local reserve) to some `OTHER_PARA_ID` (no teleport trust).
 /// Using native asset for fees as well.
@@ -303,13 +303,25 @@ fn into_multiassets_checked(
 ///    |     \--> sends `ReserveAssetDeposited(both), ClearOrigin, BuyExecution(fees), DepositAsset`
 ///    \------------------------------------------>
 /// ```
-#[test]
-fn reserve_transfer_assets_with_local_asset_reserve_and_local_fee_reserve_works() {
+///
+/// Verifies `expected_result`
+fn local_asset_reserve_and_local_fee_reserve_call<Call>(
+	tested_call: Call,
+	expected_result: DispatchResult,
+) where
+	Call: FnOnce(
+		OriginFor<Test>,
+		Box<VersionedMultiLocation>,
+		Box<VersionedMultiLocation>,
+		Box<VersionedMultiAssets>,
+		u32,
+		WeightLimit,
+	) -> DispatchResult,
+{
 	let balances = vec![
 		(ALICE, INITIAL_BALANCE),
 		(ParaId::from(OTHER_PARA_ID).into_account_truncating(), INITIAL_BALANCE),
 	];
-
 	let origin_location: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
 	let beneficiary: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
 	let weight_limit = WeightLimit::Limited(Weight::from_parts(5000, 5000));
@@ -321,14 +333,19 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_local_fee_reserve_works(
 		let weight = BaseXcmWeight::get();
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
 		// call extrinsic
-		assert_ok!(XcmPallet::limited_reserve_transfer_assets(
+		let result = tested_call(
 			RuntimeOrigin::signed(ALICE),
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
 			Box::new((Here, SEND_AMOUNT).into()),
 			0,
 			weight_limit,
-		));
+		);
+		assert_eq!(result, expected_result);
+		if expected_result.is_err() {
+			// short-circuit here for tests where we expect failure
+			return
+		}
 		// Alice spent amount
 		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE - SEND_AMOUNT);
 		// Destination account (parachain account) has amount
@@ -366,6 +383,37 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_local_fee_reserve_works(
 			RuntimeEvent::XcmPallet(crate::Event::Sent { .. })
 		));
 	});
+}
+
+/// Test `transfer_assets` with local asset reserve and local fee reserve works.
+#[test]
+fn transfer_assets_with_local_asset_reserve_and_local_fee_reserve_works() {
+	let expected_result = Ok(());
+	local_asset_reserve_and_local_fee_reserve_call(XcmPallet::transfer_assets, expected_result);
+}
+
+/// Test `limited_reserve_transfer_assets` with local asset reserve and local fee reserve works.
+#[test]
+fn reserve_transfer_assets_with_local_asset_reserve_and_local_fee_reserve_works() {
+	let expected_result = Ok(());
+	local_asset_reserve_and_local_fee_reserve_call(
+		XcmPallet::limited_reserve_transfer_assets,
+		expected_result,
+	);
+}
+
+/// Test `limited_teleport_assets` with local asset reserve and local fee reserve fails.
+#[test]
+fn teleport_assets_with_local_asset_reserve_and_local_fee_reserve_fails() {
+	let expected_result = Err(DispatchError::Module(ModuleError {
+		index: 4,
+		error: [2, 0, 0, 0],
+		message: Some("Filtered"),
+	}));
+	local_asset_reserve_and_local_fee_reserve_call(
+		XcmPallet::limited_teleport_assets,
+		expected_result,
+	);
 }
 
 /// Test `tested_call` with destination asset reserve and local fee reserve.
@@ -543,12 +591,23 @@ fn teleport_assets_with_destination_asset_reserve_and_local_fee_reserve_fails() 
 	);
 }
 
-/// Test `transfer_assets` with remote asset reserve and local fee reserve.
+/// Test `tested_call` with remote asset reserve and local fee reserve is disallowed.
 ///
 /// Transferring foreign asset (reserve on `FOREIGN_ASSET_RESERVE_PARA_ID`) to `OTHER_PARA_ID`.
 /// Using native (local reserve) as fee should be disallowed.
-#[test]
-fn transfer_assets_with_remote_asset_reserve_and_local_fee_reserve_disallowed() {
+fn remote_asset_reserve_and_local_fee_reserve_call_disallowed<Call>(
+	tested_call: Call,
+	expected_result: DispatchResult,
+) where
+	Call: FnOnce(
+		OriginFor<Test>,
+		Box<VersionedMultiLocation>,
+		Box<VersionedMultiLocation>,
+		Box<VersionedMultiAssets>,
+		u32,
+		WeightLimit,
+	) -> DispatchResult,
+{
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
 	let beneficiary: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
 	new_test_ext_with_balances(balances).execute_with(|| {
@@ -577,7 +636,7 @@ fn transfer_assets_with_remote_asset_reserve_and_local_fee_reserve_disallowed() 
 		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
 
 		// try the transfer
-		let result = XcmPallet::transfer_assets(
+		let result = tested_call(
 			RuntimeOrigin::signed(ALICE),
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
@@ -585,14 +644,7 @@ fn transfer_assets_with_remote_asset_reserve_and_local_fee_reserve_disallowed() 
 			fee_index as u32,
 			Unlimited,
 		);
-		assert_eq!(
-			result,
-			Err(DispatchError::Module(ModuleError {
-				index: 4,
-				error: [22, 0, 0, 0],
-				message: Some("InvalidAssetUnsupportedReserve")
-			}))
-		);
+		assert_eq!(result, expected_result);
 
 		// Alice transferred nothing
 		assert_eq!(Assets::balance(foreign_asset_id_multilocation, ALICE), foreign_initial_amount);
@@ -606,7 +658,50 @@ fn transfer_assets_with_remote_asset_reserve_and_local_fee_reserve_disallowed() 
 	});
 }
 
-/// Test `tested_call` with destination asset reserve and local fee reserve.
+/// Test `transfer_assets` with remote asset reserve and local fee reserve is disallowed.
+#[test]
+fn transfer_assets_with_remote_asset_reserve_and_local_fee_reserve_disallowed() {
+	let expected_result = Err(DispatchError::Module(ModuleError {
+		index: 4,
+		error: [22, 0, 0, 0],
+		message: Some("InvalidAssetUnsupportedReserve"),
+	}));
+	remote_asset_reserve_and_local_fee_reserve_call_disallowed(
+		XcmPallet::transfer_assets,
+		expected_result,
+	);
+}
+
+/// Test `limited_reserve_transfer_assets` with remote asset reserve and local fee reserve is
+/// disallowed.
+#[test]
+fn reserve_transfer_assets_with_remote_asset_reserve_and_local_fee_reserve_disallowed() {
+	let expected_result = Err(DispatchError::Module(ModuleError {
+		index: 4,
+		error: [23, 0, 0, 0],
+		message: Some("TooManyReserves"),
+	}));
+	remote_asset_reserve_and_local_fee_reserve_call_disallowed(
+		XcmPallet::limited_reserve_transfer_assets,
+		expected_result,
+	);
+}
+
+/// Test `limited_teleport_assets` with remote asset reserve and local fee reserve is disallowed.
+#[test]
+fn teleport_assets_with_remote_asset_reserve_and_local_fee_reserve_disallowed() {
+	let expected_result = Err(DispatchError::Module(ModuleError {
+		index: 4,
+		error: [2, 0, 0, 0],
+		message: Some("Filtered"),
+	}));
+	remote_asset_reserve_and_local_fee_reserve_call_disallowed(
+		XcmPallet::limited_teleport_assets,
+		expected_result,
+	);
+}
+
+/// Test `tested_call` with local asset reserve and destination fee reserve.
 ///
 /// Transferring native asset (local reserve) to `USDC_RESERVE_PARA_ID` (no teleport trust). Using
 /// foreign asset (`USDC_RESERVE_PARA_ID` reserve) for fees.
@@ -779,7 +874,7 @@ fn teleport_assets_with_local_asset_reserve_and_destination_fee_reserve_fails() 
 	);
 }
 
-/// Test `reserve_transfer_assets` with destination asset reserve and destination fee reserve.
+/// Test `tested_call` with destination asset reserve and destination fee reserve.
 ///
 /// ```nocompile
 ///    Here (source)                               FOREIGN_ASSET_RESERVE_PARA_ID (destination)
@@ -790,8 +885,21 @@ fn teleport_assets_with_local_asset_reserve_and_destination_fee_reserve_fails() 
 ///    |     \--> sends `WithdrawAsset(batch), ClearOrigin, BuyExecution(fees), DepositAsset`
 ///    \------------------------------------------>
 /// ```
-#[test]
-fn reserve_transfer_assets_with_destination_asset_reserve_and_destination_fee_reserve_works() {
+///
+/// Verifies `expected_result`
+fn destination_asset_reserve_and_destination_fee_reserve_call<Call>(
+	tested_call: Call,
+	expected_result: DispatchResult,
+) where
+	Call: FnOnce(
+		OriginFor<Test>,
+		Box<VersionedMultiLocation>,
+		Box<VersionedMultiLocation>,
+		Box<VersionedMultiAssets>,
+		u32,
+		WeightLimit,
+	) -> DispatchResult,
+{
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
 	let origin_location: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
 	let beneficiary: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
@@ -821,14 +929,19 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_destination_fee_re
 		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
 
 		// do the transfer
-		assert_ok!(XcmPallet::limited_reserve_transfer_assets(
+		let result = tested_call(
 			RuntimeOrigin::signed(ALICE),
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
 			Box::new(assets.into()),
 			fee_index,
 			Unlimited,
-		));
+		);
+		assert_eq!(result, expected_result);
+		if expected_result.is_err() {
+			// short-circuit here for tests where we expect failure
+			return
+		}
 
 		let weight = BaseXcmWeight::get() * 2;
 		let mut last_events = last_events(3).into_iter();
@@ -880,12 +993,59 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_destination_fee_re
 	});
 }
 
+/// Test `transfer_assets` with destination asset reserve and destination fee reserve.
+#[test]
+fn transfer_assets_with_destination_asset_reserve_and_destination_fee_reserve_works() {
+	let expected_result = Ok(());
+	destination_asset_reserve_and_destination_fee_reserve_call(
+		XcmPallet::transfer_assets,
+		expected_result,
+	);
+}
+
+/// Test `limited_reserve_transfer_assets` with destination asset reserve and destination fee
+/// reserve.
+#[test]
+fn reserve_transfer_assets_with_destination_asset_reserve_and_destination_fee_reserve_works() {
+	let expected_result = Ok(());
+	destination_asset_reserve_and_destination_fee_reserve_call(
+		XcmPallet::limited_reserve_transfer_assets,
+		expected_result,
+	);
+}
+
+/// Test `limited_teleport_assets` with destination asset reserve and destination fee reserve
+/// disallowed.
+#[test]
+fn teleport_assets_with_destination_asset_reserve_and_destination_fee_reserve_disallowed() {
+	let expected_result = Err(DispatchError::Module(ModuleError {
+		index: 4,
+		error: [2, 0, 0, 0],
+		message: Some("Filtered"),
+	}));
+	destination_asset_reserve_and_destination_fee_reserve_call(
+		XcmPallet::limited_teleport_assets,
+		expected_result,
+	);
+}
+
 /// Test `transfer_assets` with remote asset reserve and destination fee reserve is disallowed.
 ///
 /// Transferring foreign asset (reserve on `FOREIGN_ASSET_RESERVE_PARA_ID`) to
 /// `USDC_RESERVE_PARA_ID`. Using USDC (destination reserve) as fee.
-#[test]
-fn transfer_assets_with_remote_asset_reserve_and_destination_fee_reserve_disallowed() {
+fn remote_asset_reserve_and_destination_fee_reserve_call_disallowed<Call>(
+	tested_call: Call,
+	expected_result: DispatchResult,
+) where
+	Call: FnOnce(
+		OriginFor<Test>,
+		Box<VersionedMultiLocation>,
+		Box<VersionedMultiLocation>,
+		Box<VersionedMultiAssets>,
+		u32,
+		WeightLimit,
+	) -> DispatchResult,
+{
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
 	let beneficiary: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
 	new_test_ext_with_balances(balances).execute_with(|| {
@@ -924,7 +1084,7 @@ fn transfer_assets_with_remote_asset_reserve_and_destination_fee_reserve_disallo
 		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
 
 		// do the transfer
-		let result = XcmPallet::transfer_assets(
+		let result = tested_call(
 			RuntimeOrigin::signed(ALICE),
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
@@ -932,14 +1092,7 @@ fn transfer_assets_with_remote_asset_reserve_and_destination_fee_reserve_disallo
 			fee_index as u32,
 			Unlimited,
 		);
-		assert_eq!(
-			result,
-			Err(DispatchError::Module(ModuleError {
-				index: 4,
-				error: [22, 0, 0, 0],
-				message: Some("InvalidAssetUnsupportedReserve")
-			}))
-		);
+		assert_eq!(result, expected_result);
 
 		// Alice native asset untouched
 		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
@@ -954,12 +1107,67 @@ fn transfer_assets_with_remote_asset_reserve_and_destination_fee_reserve_disallo
 	});
 }
 
-/// Test `transfer_assets` with local asset reserve and remote fee reserve is disallowed.
+/// Test `transfer_assets` with remote asset reserve and destination fee reserve is disallowed.
+#[test]
+fn transfer_assets_with_remote_asset_reserve_and_destination_fee_reserve_disallowed() {
+	let expected_result = Err(DispatchError::Module(ModuleError {
+		index: 4,
+		error: [22, 0, 0, 0],
+		message: Some("InvalidAssetUnsupportedReserve"),
+	}));
+	remote_asset_reserve_and_destination_fee_reserve_call_disallowed(
+		XcmPallet::transfer_assets,
+		expected_result,
+	);
+}
+
+/// Test `limited_reserve_transfer_assets` with remote asset reserve and destination fee reserve is
+/// disallowed.
+#[test]
+fn reserve_transfer_assets_with_remote_asset_reserve_and_destination_fee_reserve_disallowed() {
+	let expected_result = Err(DispatchError::Module(ModuleError {
+		index: 4,
+		error: [23, 0, 0, 0],
+		message: Some("TooManyReserves"),
+	}));
+	remote_asset_reserve_and_destination_fee_reserve_call_disallowed(
+		XcmPallet::limited_reserve_transfer_assets,
+		expected_result,
+	);
+}
+
+/// Test `limited_teleport_assets` with remote asset reserve and destination fee reserve is
+/// disallowed.
+#[test]
+fn teleport_assets_with_remote_asset_reserve_and_destination_fee_reserve_disallowed() {
+	let expected_result = Err(DispatchError::Module(ModuleError {
+		index: 4,
+		error: [2, 0, 0, 0],
+		message: Some("Filtered"),
+	}));
+	remote_asset_reserve_and_destination_fee_reserve_call_disallowed(
+		XcmPallet::limited_teleport_assets,
+		expected_result,
+	);
+}
+
+/// Test `tested_call` with local asset reserve and remote fee reserve is disallowed.
 ///
 /// Transferring native asset (local reserve) to `OTHER_PARA_ID` (no teleport trust). Using foreign
 /// asset (`USDC_RESERVE_PARA_ID` remote reserve) for fees.
-#[test]
-fn transfer_assets_with_local_asset_reserve_and_remote_fee_reserve_disallowed() {
+fn local_asset_reserve_and_remote_fee_reserve_call_disallowed<Call>(
+	tested_call: Call,
+	expected_result: DispatchResult,
+) where
+	Call: FnOnce(
+		OriginFor<Test>,
+		Box<VersionedMultiLocation>,
+		Box<VersionedMultiLocation>,
+		Box<VersionedMultiAssets>,
+		u32,
+		WeightLimit,
+	) -> DispatchResult,
+{
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
 	let beneficiary: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
 	new_test_ext_with_balances(balances).execute_with(|| {
@@ -988,7 +1196,7 @@ fn transfer_assets_with_local_asset_reserve_and_remote_fee_reserve_disallowed() 
 		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
 
 		// do the transfer
-		let result = XcmPallet::transfer_assets(
+		let result = tested_call(
 			RuntimeOrigin::signed(ALICE),
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
@@ -996,14 +1204,7 @@ fn transfer_assets_with_local_asset_reserve_and_remote_fee_reserve_disallowed() 
 			fee_index as u32,
 			Unlimited,
 		);
-		assert_eq!(
-			result,
-			Err(DispatchError::Module(ModuleError {
-				index: 4,
-				error: [22, 0, 0, 0],
-				message: Some("InvalidAssetUnsupportedReserve")
-			}))
-		);
+		assert_eq!(result, expected_result);
 		assert_eq!(Assets::balance(usdc_id_multilocation, ALICE), usdc_initial_local_amount);
 		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
 		// Sovereign account of reserve parachain is unchanged
@@ -1016,12 +1217,66 @@ fn transfer_assets_with_local_asset_reserve_and_remote_fee_reserve_disallowed() 
 	});
 }
 
-/// Test `transfer_assets` with destination asset reserve and remote fee reserve is disallowed.
+/// Test `transfer_assets` with local asset reserve and remote fee reserve is disallowed.
+#[test]
+fn transfer_assets_with_local_asset_reserve_and_remote_fee_reserve_disallowed() {
+	let expected_result = Err(DispatchError::Module(ModuleError {
+		index: 4,
+		error: [22, 0, 0, 0],
+		message: Some("InvalidAssetUnsupportedReserve"),
+	}));
+	local_asset_reserve_and_remote_fee_reserve_call_disallowed(
+		XcmPallet::transfer_assets,
+		expected_result,
+	);
+}
+
+/// Test `limited_reserve_transfer_assets` with local asset reserve and remote fee reserve is
+/// disallowed.
+#[test]
+fn reserve_transfer_assets_with_local_asset_reserve_and_remote_fee_reserve_disallowed() {
+	let expected_result = Err(DispatchError::Module(ModuleError {
+		index: 4,
+		error: [23, 0, 0, 0],
+		message: Some("TooManyReserves"),
+	}));
+	local_asset_reserve_and_remote_fee_reserve_call_disallowed(
+		XcmPallet::limited_reserve_transfer_assets,
+		expected_result,
+	);
+}
+
+/// Test `limited_teleport_assets` with local asset reserve and remote fee reserve is disallowed.
+#[test]
+fn teleport_assets_with_local_asset_reserve_and_remote_fee_reserve_disallowed() {
+	let expected_result = Err(DispatchError::Module(ModuleError {
+		index: 4,
+		error: [2, 0, 0, 0],
+		message: Some("Filtered"),
+	}));
+	local_asset_reserve_and_remote_fee_reserve_call_disallowed(
+		XcmPallet::limited_teleport_assets,
+		expected_result,
+	);
+}
+
+/// Test `tested_call` with destination asset reserve and remote fee reserve is disallowed.
 ///
 /// Transferring native asset (local reserve) to `OTHER_PARA_ID` (no teleport trust). Using foreign
 /// asset (`USDC_RESERVE_PARA_ID` remote reserve) for fees.
-#[test]
-fn transfer_assets_with_destination_asset_reserve_and_remote_fee_reserve_disallowed() {
+fn destination_asset_reserve_and_remote_fee_reserve_call_disallowed<Call>(
+	tested_call: Call,
+	expected_result: DispatchResult,
+) where
+	Call: FnOnce(
+		OriginFor<Test>,
+		Box<VersionedMultiLocation>,
+		Box<VersionedMultiLocation>,
+		Box<VersionedMultiAssets>,
+		u32,
+		WeightLimit,
+	) -> DispatchResult,
+{
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
 	let beneficiary: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
 	new_test_ext_with_balances(balances).execute_with(|| {
@@ -1060,7 +1315,7 @@ fn transfer_assets_with_destination_asset_reserve_and_remote_fee_reserve_disallo
 		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
 
 		// do the transfer
-		let result = XcmPallet::transfer_assets(
+		let result = tested_call(
 			RuntimeOrigin::signed(ALICE),
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
@@ -1068,14 +1323,7 @@ fn transfer_assets_with_destination_asset_reserve_and_remote_fee_reserve_disallo
 			fee_index as u32,
 			Unlimited,
 		);
-		assert_eq!(
-			result,
-			Err(DispatchError::Module(ModuleError {
-				index: 4,
-				error: [22, 0, 0, 0],
-				message: Some("InvalidAssetUnsupportedReserve")
-			}))
-		);
+		assert_eq!(result, expected_result);
 		// Alice native asset untouched
 		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
 		assert_eq!(Assets::balance(usdc_id_multilocation, ALICE), usdc_initial_local_amount);
@@ -1093,7 +1341,51 @@ fn transfer_assets_with_destination_asset_reserve_and_remote_fee_reserve_disallo
 	});
 }
 
-/// Test `reserve_transfer_assets` with remote asset reserve and (same) remote fee reserve.
+/// Test `transfer_assets` with destination asset reserve and remote fee reserve is disallowed.
+#[test]
+fn transfer_assets_with_destination_asset_reserve_and_remote_fee_reserve_disallowed() {
+	let expected_result = Err(DispatchError::Module(ModuleError {
+		index: 4,
+		error: [22, 0, 0, 0],
+		message: Some("InvalidAssetUnsupportedReserve"),
+	}));
+	destination_asset_reserve_and_remote_fee_reserve_call_disallowed(
+		XcmPallet::transfer_assets,
+		expected_result,
+	);
+}
+
+/// Test `limited_reserve_transfer_assets` with destination asset reserve and remote fee reserve is
+/// disallowed.
+#[test]
+fn reserve_transfer_assets_with_destination_asset_reserve_and_remote_fee_reserve_disallowed() {
+	let expected_result = Err(DispatchError::Module(ModuleError {
+		index: 4,
+		error: [23, 0, 0, 0],
+		message: Some("TooManyReserves"),
+	}));
+	destination_asset_reserve_and_remote_fee_reserve_call_disallowed(
+		XcmPallet::limited_reserve_transfer_assets,
+		expected_result,
+	);
+}
+
+/// Test `limited_teleport_assets` with destination asset reserve and remote fee reserve is
+/// disallowed.
+#[test]
+fn teleport_assets_with_destination_asset_reserve_and_remote_fee_reserve_disallowed() {
+	let expected_result = Err(DispatchError::Module(ModuleError {
+		index: 4,
+		error: [2, 0, 0, 0],
+		message: Some("Filtered"),
+	}));
+	destination_asset_reserve_and_remote_fee_reserve_call_disallowed(
+		XcmPallet::limited_teleport_assets,
+		expected_result,
+	);
+}
+
+/// Test `tested_call` with remote asset reserve and (same) remote fee reserve.
 ///
 /// Transferring native asset (local reserve) to `OTHER_PARA_ID` (no teleport trust). Using foreign
 /// asset (`USDC_RESERVE_PARA_ID` remote reserve) for fees.
@@ -1108,8 +1400,21 @@ fn transfer_assets_with_destination_asset_reserve_and_remote_fee_reserve_disallo
 ///    |     -----------------> `C` executes `DepositReserveAsset(both)` dest `B`
 ///    |                             --------------------------> `DepositAsset(both)`
 /// ```
-#[test]
-fn reserve_transfer_assets_with_remote_asset_reserve_and_remote_fee_reserve_works() {
+///
+/// Verifies `expected_result`
+fn remote_asset_reserve_and_remote_fee_reserve_call<Call>(
+	tested_call: Call,
+	expected_result: DispatchResult,
+) where
+	Call: FnOnce(
+		OriginFor<Test>,
+		Box<VersionedMultiLocation>,
+		Box<VersionedMultiLocation>,
+		Box<VersionedMultiAssets>,
+		u32,
+		WeightLimit,
+	) -> DispatchResult,
+{
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
 	let beneficiary: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
 	new_test_ext_with_balances(balances).execute_with(|| {
@@ -1127,12 +1432,12 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_remote_fee_reserve_work
 		let dest = RelayLocation::get().pushed_with_interior(Parachain(OTHER_PARA_ID)).unwrap();
 
 		let assets: MultiAssets = vec![(usdc_id_multilocation, SEND_AMOUNT).into()].into();
-		let fee_index = 0;
+		let fee_index = 0u32;
 
 		// reanchor according to test-case
 		let context = UniversalLocation::get();
 		let expected_dest_on_reserve = dest.reanchored(&usdc_chain, context).unwrap();
-		let fees = assets.get(fee_index).unwrap().clone();
+		let fees = assets.get(fee_index as usize).unwrap().clone();
 		let (fees_half_1, fees_half_2) = XcmPallet::halve_fees(fees).unwrap();
 		let mut expected_assets_on_reserve = assets.clone();
 		expected_assets_on_reserve.reanchor(&usdc_chain, context).unwrap();
@@ -1144,14 +1449,20 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_remote_fee_reserve_work
 		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
 
 		// do the transfer
-		assert_ok!(XcmPallet::limited_reserve_transfer_assets(
+		let result = tested_call(
 			RuntimeOrigin::signed(ALICE),
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
 			Box::new(assets.into()),
-			fee_index as u32,
+			fee_index,
 			Unlimited,
-		));
+		);
+		assert_eq!(result, expected_result);
+		if expected_result.is_err() {
+			// short-circuit here for tests where we expect failure
+			return
+		}
+
 		assert!(matches!(
 			last_event(),
 			RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome: Outcome::Complete(_) })
@@ -1196,6 +1507,38 @@ fn reserve_transfer_assets_with_remote_asset_reserve_and_remote_fee_reserve_work
 			)],
 		);
 	});
+}
+
+/// Test `transfer_assets` with remote asset reserve and (same) remote fee reserve.
+#[test]
+fn transfer_assets_with_remote_asset_reserve_and_remote_fee_reserve_works() {
+	let expected_result = Ok(());
+	remote_asset_reserve_and_remote_fee_reserve_call(XcmPallet::transfer_assets, expected_result);
+}
+
+/// Test `limited_reserve_transfer_assets` with remote asset reserve and (same) remote fee reserve.
+#[test]
+fn reserve_transfer_assets_with_remote_asset_reserve_and_remote_fee_reserve_works() {
+	let expected_result = Ok(());
+	remote_asset_reserve_and_remote_fee_reserve_call(
+		XcmPallet::limited_reserve_transfer_assets,
+		expected_result,
+	);
+}
+
+/// Test `limited_teleport_assets` with remote asset reserve and (same) remote fee reserve
+/// disallowed.
+#[test]
+fn teleport_assets_with_remote_asset_reserve_and_remote_fee_reserve_disallowed() {
+	let expected_result = Err(DispatchError::Module(ModuleError {
+		index: 4,
+		error: [2, 0, 0, 0],
+		message: Some("Filtered"),
+	}));
+	remote_asset_reserve_and_remote_fee_reserve_call(
+		XcmPallet::limited_teleport_assets,
+		expected_result,
+	);
 }
 
 /// Test `tested_call` with local asset reserve and teleported fee.
@@ -1330,9 +1673,9 @@ fn transfer_assets_with_local_asset_reserve_and_teleported_fee_works() {
 	local_asset_reserve_and_teleported_fee_call(XcmPallet::transfer_assets, expected_result);
 }
 
-/// Test `limited_reserve_transfer_assets` with local asset reserve and teleported fee fails.
+/// Test `limited_reserve_transfer_assets` with local asset reserve and teleported fee disallowed.
 #[test]
-fn reserve_transfer_assets_with_local_asset_reserve_and_teleported_fee_fails() {
+fn reserve_transfer_assets_with_local_asset_reserve_and_teleported_fee_disallowed() {
 	let expected_result = Err(DispatchError::Module(ModuleError {
 		index: 4,
 		error: [23, 0, 0, 0],
@@ -1344,9 +1687,9 @@ fn reserve_transfer_assets_with_local_asset_reserve_and_teleported_fee_fails() {
 	);
 }
 
-/// Test `limited_teleport_assets` with local asset reserve and teleported fee fails.
+/// Test `limited_teleport_assets` with local asset reserve and teleported fee disallowed.
 #[test]
-fn teleport_assets_with_local_asset_reserve_and_teleported_fee_fails() {
+fn teleport_assets_with_local_asset_reserve_and_teleported_fee_disallowed() {
 	let expected_result = Err(DispatchError::Module(ModuleError {
 		index: 4,
 		error: [2, 0, 0, 0],
@@ -1514,10 +1857,10 @@ fn transfer_assets_with_destination_asset_reserve_and_teleported_fee_works() {
 	destination_asset_reserve_and_teleported_fee_call(XcmPallet::transfer_assets, expected_result);
 }
 
-/// Test `limited_reserve_transfer_assets` with destination asset reserve and local fee reserve
-/// fails.
+/// Test `limited_reserve_transfer_assets` with destination asset reserve and teleported fee
+/// disallowed.
 #[test]
-fn reserve_transfer_assets_with_destination_asset_reserve_and_teleported_fee_fails() {
+fn reserve_transfer_assets_with_destination_asset_reserve_and_teleported_fee_disallowed() {
 	let expected_result = Err(DispatchError::Module(ModuleError {
 		index: 4,
 		error: [23, 0, 0, 0],
@@ -1529,10 +1872,9 @@ fn reserve_transfer_assets_with_destination_asset_reserve_and_teleported_fee_fai
 	);
 }
 
-/// Test `limited_teleport_assets` with destination asset reserve and local fee reserve
-/// fails.
+/// Test `limited_teleport_assets` with destination asset reserve and teleported fee disallowed.
 #[test]
-fn teleport_assets_with_destination_asset_reserve_and_teleported_fee_fails() {
+fn teleport_assets_with_destination_asset_reserve_and_teleported_fee_disallowed() {
 	let expected_result = Err(DispatchError::Module(ModuleError {
 		index: 4,
 		error: [2, 0, 0, 0],
@@ -1544,12 +1886,23 @@ fn teleport_assets_with_destination_asset_reserve_and_teleported_fee_fails() {
 	);
 }
 
-/// Test `transfer_assets` with remote asset reserve and teleported fee is disallowed.
+/// Test `tested_call` with remote asset reserve and teleported fee is disallowed.
 ///
 /// Transferring foreign asset (reserve on `FOREIGN_ASSET_RESERVE_PARA_ID`) to `USDT_PARA_ID`.
 /// Using teleport-trusted USDT for fees.
-#[test]
-fn transfer_assets_with_remote_asset_reserve_and_teleported_fee_disallowed() {
+fn remote_asset_reserve_and_teleported_fee_reserve_call_disallowed<Call>(
+	tested_call: Call,
+	expected_result: DispatchResult,
+) where
+	Call: FnOnce(
+		OriginFor<Test>,
+		Box<VersionedMultiLocation>,
+		Box<VersionedMultiLocation>,
+		Box<VersionedMultiAssets>,
+		u32,
+		WeightLimit,
+	) -> DispatchResult,
+{
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
 	let beneficiary: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
 	new_test_ext_with_balances(balances).execute_with(|| {
@@ -1581,8 +1934,8 @@ fn transfer_assets_with_remote_asset_reserve_and_teleported_fee_disallowed() {
 		assert_eq!(Assets::balance(usdt_id_multilocation, ALICE), usdt_initial_local_amount);
 		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
 
-		// do the transfer
-		let result = XcmPallet::transfer_assets(
+		// try the transfer
+		let result = tested_call(
 			RuntimeOrigin::signed(ALICE),
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
@@ -1590,14 +1943,7 @@ fn transfer_assets_with_remote_asset_reserve_and_teleported_fee_disallowed() {
 			fee_index as u32,
 			Unlimited,
 		);
-		assert_eq!(
-			result,
-			Err(DispatchError::Module(ModuleError {
-				index: 4,
-				error: [22, 0, 0, 0],
-				message: Some("InvalidAssetUnsupportedReserve")
-			}))
-		);
+		assert_eq!(result, expected_result);
 		// Alice native asset untouched
 		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
 		assert_eq!(Assets::balance(usdt_id_multilocation, ALICE), usdt_initial_local_amount);
@@ -1615,11 +1961,54 @@ fn transfer_assets_with_remote_asset_reserve_and_teleported_fee_disallowed() {
 	});
 }
 
+/// Test `transfer_assets` with remote asset reserve and teleported fee is disallowed.
+#[test]
+fn transfer_assets_with_remote_asset_reserve_and_teleported_fee_disallowed() {
+	let expected_result = Err(DispatchError::Module(ModuleError {
+		index: 4,
+		error: [22, 0, 0, 0],
+		message: Some("InvalidAssetUnsupportedReserve"),
+	}));
+	remote_asset_reserve_and_teleported_fee_reserve_call_disallowed(
+		XcmPallet::transfer_assets,
+		expected_result,
+	);
+}
+
+/// Test `limited_reserve_transfer_assets` with remote asset reserve and teleported fee is
+/// disallowed.
+#[test]
+fn reserve_transfer_assets_with_remote_asset_reserve_and_teleported_fee_disallowed() {
+	let expected_result = Err(DispatchError::Module(ModuleError {
+		index: 4,
+		error: [23, 0, 0, 0],
+		message: Some("TooManyReserves"),
+	}));
+	remote_asset_reserve_and_teleported_fee_reserve_call_disallowed(
+		XcmPallet::limited_reserve_transfer_assets,
+		expected_result,
+	);
+}
+
+/// Test `limited_teleport_assets` with remote asset reserve and teleported fee is disallowed.
+#[test]
+fn teleport_assets_with_remote_asset_reserve_and_teleported_fee_disallowed() {
+	let expected_result = Err(DispatchError::Module(ModuleError {
+		index: 4,
+		error: [2, 0, 0, 0],
+		message: Some("Filtered"),
+	}));
+	remote_asset_reserve_and_teleported_fee_reserve_call_disallowed(
+		XcmPallet::limited_teleport_assets,
+		expected_result,
+	);
+}
+
 /// Test `reserve_transfer_assets` single asset which is teleportable - should fail.
 ///
 /// Attempting to reserve-transfer teleport-trusted USDT to `USDT_PARA_ID` should fail.
 #[test]
-fn reserve_transfer_assets_with_teleportable_asset_fails() {
+fn reserve_transfer_assets_with_teleportable_asset_disallowed() {
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
 	let beneficiary: MultiLocation = AccountId32 { network: None, id: ALICE.into() }.into();
 
