@@ -15,7 +15,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 array-bytes = "6.1"
 chrono = "0.4.27"
-clap = { version = "4.4.6", features = ["derive", "string", "wrap_help"] }
+clap = { version = "4.4.10", features = ["derive", "string", "wrap_help"] }
 fdlimit = "0.3.0"
 futures = "0.3.21"
 itertools = "0.10.3"
@@ -26,7 +26,7 @@ parity-scale-codec = "3.6.1"
 rand = "0.8.5"
 regex = "1.6.0"
 rpassword = "7.0.0"
-serde = "1.0.188"
+serde = "1.0.193"
 serde_json = "1.0.108"
 thiserror = "1.0.48"
 bip39 = "2.0.0"
