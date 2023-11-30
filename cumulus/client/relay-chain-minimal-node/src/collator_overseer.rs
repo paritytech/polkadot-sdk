@@ -15,7 +15,8 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use futures::{select, StreamExt};
-use std::sync::Arc;
+use parking_lot::Mutex;
+use std::{collections::HashMap, sync::Arc};
 
 use polkadot_availability_recovery::AvailabilityRecoverySubsystem;
 use polkadot_collator_protocol::{CollatorProtocolSubsystem, ProtocolSide};
@@ -28,7 +29,7 @@ use polkadot_node_core_chain_api::ChainApiSubsystem;
 use polkadot_node_core_prospective_parachains::ProspectiveParachainsSubsystem;
 use polkadot_node_core_runtime_api::RuntimeApiSubsystem;
 use polkadot_node_network_protocol::{
-	peer_set::PeerSetProtocolNames,
+	peer_set::{PeerSet, PeerSetProtocolNames},
 	request_response::{
 		v1::{self, AvailableDataFetchingRequest},
 		v2, IncomingRequestReceiver, ReqProtocolNames,
@@ -42,7 +43,7 @@ use polkadot_overseer::{
 use polkadot_primitives::CollatorPair;
 
 use sc_authority_discovery::Service as AuthorityDiscoveryService;
-use sc_network::NetworkStateInfo;
+use sc_network::{NetworkStateInfo, NotificationService};
 use sc_service::TaskManager;
 use sc_utils::mpsc::tracing_unbounded;
 
@@ -77,6 +78,8 @@ pub(crate) struct CollatorOverseerGenArgs<'a> {
 	pub req_protocol_names: ReqProtocolNames,
 	/// Peerset protocols name mapping
 	pub peer_set_protocol_names: PeerSetProtocolNames,
+	/// Notification services for validation/collation protocols.
+	pub notification_services: HashMap<PeerSet, Box<dyn NotificationService>>,
 }
 
 fn build_overseer(
@@ -94,6 +97,7 @@ fn build_overseer(
 		collator_pair,
 		req_protocol_names,
 		peer_set_protocol_names,
+		notification_services,
 	}: CollatorOverseerGenArgs<'_>,
 ) -> Result<
 	(Overseer<SpawnGlue<sc_service::SpawnTaskHandle>, Arc<BlockChainRpcClient>>, OverseerHandle),
@@ -101,6 +105,8 @@ fn build_overseer(
 > {
 	let spawner = SpawnGlue(spawner);
 	let network_bridge_metrics: NetworkBridgeMetrics = Metrics::register(registry)?;
+	let notification_sinks = Arc::new(Mutex::new(HashMap::new()));
+
 	let builder = Overseer::builder()
 		.availability_distribution(DummySubsystem)
 		.availability_recovery(AvailabilityRecoverySubsystem::for_collator(
@@ -131,6 +137,8 @@ fn build_overseer(
 			sync_oracle,
 			network_bridge_metrics.clone(),
 			peer_set_protocol_names.clone(),
+			notification_services,
+			notification_sinks.clone(),
 		))
 		.network_bridge_tx(NetworkBridgeTxSubsystem::new(
 			network_service,
@@ -138,6 +146,7 @@ fn build_overseer(
 			network_bridge_metrics,
 			req_protocol_names,
 			peer_set_protocol_names,
+			notification_sinks,
 		))
 		.provisioner(DummySubsystem)
 		.runtime_api(RuntimeApiSubsystem::new(

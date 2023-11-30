@@ -275,6 +275,7 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 				extensions_generated_for: std::cell::RefCell<std::option::Option<Block::Hash>>,
 			}
 
+			#[automatically_derived]
 			impl<Block: #crate_::BlockT, C: #crate_::CallApiAt<Block>> #crate_::ApiExt<Block> for
 				RuntimeApiImpl<Block, C>
 			{
@@ -367,6 +368,7 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 				}
 			}
 
+			#[automatically_derived]
 			impl<Block: #crate_::BlockT, C> #crate_::ConstructRuntimeApi<Block, C>
 				for RuntimeApi
 			where
@@ -389,6 +391,7 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 				}
 			}
 
+			#[automatically_derived]
 			impl<Block: #crate_::BlockT, C: #crate_::CallApiAt<Block>> RuntimeApiImpl<Block, C> {
 				fn commit_or_rollback_transaction(&self, commit: bool) {
 					let proof = "\
@@ -685,8 +688,10 @@ fn generate_api_impl_for_runtime_api(impls: &[ItemImpl]) -> Result<TokenStream> 
 		// remove the trait to get just the module path
 		runtime_mod_path.segments.pop();
 
-		let processed_impl =
+		let mut processed_impl =
 			ApiRuntimeImplToApiRuntimeApiImpl { runtime_block }.process(impl_.clone());
+
+		processed_impl.attrs.push(parse_quote!(#[automatically_derived]));
 
 		result.push(processed_impl);
 	}

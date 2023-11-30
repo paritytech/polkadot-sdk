@@ -36,7 +36,8 @@ use sp_weights::Weight;
 /// returned from a dispatch.
 pub type DispatchResultWithPostInfo = sp_runtime::DispatchResultWithInfo<PostDispatchInfo>;
 
-/// Unaugmented version of `DispatchResultWithPostInfo` that can be returned from
+#[docify::export]
+/// Un-augmented version of `DispatchResultWithPostInfo` that can be returned from
 /// dispatchable functions and is automatically converted to the augmented type. Should be
 /// used whenever the `PostDispatchInfo` does not need to be overwritten. As this should
 /// be the common case it is the implicit return type when none is specified.
