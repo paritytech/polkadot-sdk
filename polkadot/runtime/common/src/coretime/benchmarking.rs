@@ -19,12 +19,10 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::{Pallet, *};
-use crate::coretime;
 use assigner_bulk::MAX_ASSIGNMENTS_PER_SCHEDULE;
 use frame_benchmarking::v2::*;
-//use frame_system::RawOrigin;
-//use xcm::latest::prelude::*;
-//use pallet_xcm::Origin;
+use pallet_broker::CoreIndex as BrokerCoreIndex;
+use frame_support::traits::OriginTrait;
 
 #[benchmarks]
 mod benchmarks {
@@ -32,40 +30,21 @@ mod benchmarks {
 	#[benchmark]
 	fn assign_core(s: Linear<0, MAX_ASSIGNMENTS_PER_SCHEDULE>) {
 		// Setup
-		let caller: <T as frame_system::Config>::AccountId = whitelisted_caller();
-		// TODO: This value is copied from BROKER_ID in rococo runtime constants.
-		// Perhaps provide it in a more future proof way if worth the extra 
-		// dependency.
-		let broker_id: u32 = 1004;
-		/*let broker_origin: <T as frame_system::Config>::RuntimeOrigin = RuntimeOrigin {
-			caller: Origin::Xcm(MultiLocation { parents: 0, interior: X1(Parachain(broker_id)) }),
-			RawOrigin::Signed(caller.into())
-		}*/
-		let successful_origin: T::RuntimeOrigin =
-		<<T as coretime::Config>::ExternalBrokerOrigin as EnsureOrigin<_>>::try_successful_origin()
-			.expect("EnsureBrokerOrigin has no successful origin required for the test");
-		// Maybe use this kind of stuff to modify the origin after constructing via try_successful_origin
-		/*fn try_origin(outer: O) -> Result<Self::Success, O> {
-			outer.try_with_caller(|caller| {
-				caller.try_into().and_then(|o| match o {
-					Origin::Xcm(location) if F::contains(&location) => Ok(location),
-					Origin::Xcm(location) => Err(Origin::Xcm(location).into()),
-					o => Err(o.into()),
-				})
-			})
-		}*/
+		let root_origin = <T as frame_system::Config>::RuntimeOrigin::root();
 
-		// Use valid assignment set with maximum number of assignments to maximize work
+		// Use parameterized assignment count
 		let assignments: Vec<(CoreAssignment, PartsOf57600)> = vec![576u16; s as usize]
 			.into_iter()
 			.enumerate()
 			.map(|(index, parts)| (CoreAssignment::Task(index as u32), parts))
 			.collect();
 
+		let core_index: BrokerCoreIndex = 0;
+
 		#[extrinsic_call]
 		_(
-			successful_origin as T::RuntimeOrigin,
-			CoreIndex(0),
+			root_origin as <T as frame_system::Config>::RuntimeOrigin,
+			core_index,
 			BlockNumberFor::<T>::from(5u32),
 			assignments,
 			Some(BlockNumberFor::<T>::from(20u32)),

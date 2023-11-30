@@ -30,8 +30,6 @@ use runtime_parachains::{
 	assigner_bulk::{self, PartsOf57600},
 	origin::{ensure_parachain, Origin},
 };
-
-use sp_runtime::traits::BadOrigin;
 use sp_std::{prelude::*, result};
 
 pub use pallet::*;
