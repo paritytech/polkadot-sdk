@@ -286,11 +286,6 @@ fn find_workspace_root(current_dir: &Path) -> Option<PathBuf> {
 }
 
 fn main() -> Result<()> {
-	// Skip build if CI and macos for now since we don't have the RISC-V toolchain easily available there.
-	if env::var("CI").is_ok() && cfg!(target_os = "macos") {
-		return Ok(())
-	}
-
 	let fixtures_dir: PathBuf = env::var("CARGO_MANIFEST_DIR")?.into();
 	let contracts_dir = fixtures_dir.join("contracts");
 	let out_dir: PathBuf = env::var("OUT_DIR")?.into();
