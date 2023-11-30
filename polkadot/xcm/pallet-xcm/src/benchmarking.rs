@@ -193,7 +193,7 @@ benchmarks! {
 		let versioned_beneficiary: VersionedMultiLocation =
 			AccountId32 { network: None, id: recipient.into() }.into();
 		let versioned_assets: VersionedMultiAssets = assets.into();
-	}: _<RuntimeOrigin<T>>(send_origin.into(), Box::new(versioned_dest), Box::new(versioned_beneficiary), Box::new(versioned_assets), 0)
+	}: _<RuntimeOrigin<T>>(send_origin.into(), Box::new(versioned_dest), Box::new(versioned_beneficiary), Box::new(versioned_assets), 0, WeightLimit::Unlimited)
 	verify {
 		// verify balance after transfer, decreased by transferred amount (+ maybe XCM delivery fees)
 		assert!(pallet_balances::Pallet::<T>::free_balance(&caller) <= balance - transferred_amount);
