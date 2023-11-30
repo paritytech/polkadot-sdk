@@ -120,9 +120,10 @@ impl<AssetLocation: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation>
 	}
 }
 
-/// Filter for the parent relay or sibling parachains.
-/// Can be used only if the current location is a parachain, since it does not verify that the parent
-/// is indeed a relaychain.
+/// Filter to check if a given location is the parent Relay Chain or a sibling parachain.
+///
+/// This type should only be used within the context of a parachain, since it does not verify that
+/// the parent is indeed a Relay Chain.
 pub struct ParentRelayOrSiblingParachains;
 impl Contains<MultiLocation> for ParentRelayOrSiblingParachains {
 	fn contains(location: &MultiLocation) -> bool {
