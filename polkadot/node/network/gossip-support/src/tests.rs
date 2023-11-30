@@ -22,8 +22,8 @@ use assert_matches::assert_matches;
 use async_trait::async_trait;
 use futures::{executor, future, Future};
 use lazy_static::lazy_static;
-use rand::seq::SliceRandom as _;
 use quickcheck::quickcheck;
+use rand::seq::SliceRandom as _;
 
 use sc_network::multiaddr::Protocol;
 use sp_authority_discovery::AuthorityPair as AuthorityDiscoveryPair;

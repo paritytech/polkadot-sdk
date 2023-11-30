@@ -32,7 +32,7 @@ use std::{
 
 use futures::{channel::oneshot, select, FutureExt as _};
 use futures_timer::Delay;
-use rand::{SeedableRng, Rng};
+use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 
 use sc_network::{config::parse_addr, Multiaddr};
@@ -629,10 +629,7 @@ async fn update_gossip_topology(
 
 // Durstenfeld algorithm for the Fisher-Yates shuffle
 // https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle#The_modern_algorithm
-fn fisher_yates_shuffle<T, R: Rng + ?Sized>(
-	rng: &mut R,
-	items: &mut [T],
-) {
+fn fisher_yates_shuffle<T, R: Rng + ?Sized>(rng: &mut R, items: &mut [T]) {
 	for i in (1..items.len()).rev() {
 		// invariant: elements with index > i have been locked in place.
 		let index = rng.gen_range(0u32..(i as u32 + 1));
