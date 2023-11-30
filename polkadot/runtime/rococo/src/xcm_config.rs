@@ -236,7 +236,8 @@ pub type LocalPalletOriginToLocation = (
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	// Note that this configuration of `SendXcmOrigin` is different from the one present in production.
+	// Note that this configuration of `SendXcmOrigin` is different from the one present in
+	// production.
 	type SendXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
 	type XcmRouter = XcmRouter;
 	// Anyone can execute XCM messages locally.
