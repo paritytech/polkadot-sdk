@@ -62,7 +62,7 @@
 //! [`Executive`](frame_executive) pallet:
 //!
 //! ```ignore
-//! // Tuple of migrations (structs that implement `OnRuntimeUpgrade`)
+//! /// Tuple of migrations (structs that implement `OnRuntimeUpgrade`)
 //! type Migrations = (
 //! 	pallet_example_storage_migration::migrations::v1::versioned::MigrateV0ToV1,
 //! 	MyCustomMigration,
