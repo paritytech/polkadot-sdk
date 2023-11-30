@@ -200,7 +200,7 @@ parameter_types! {
 	pub const StakingAdminBodyId: BodyId = BodyId::Defense;
 	// FellowshipAdmin pluralistic body.
 	pub const FellowshipAdminBodyId: BodyId = BodyId::Index(FELLOWSHIP_ADMIN_INDEX);
-	// Treasurer pluralistic body.
+	// `Treasurer` pluralistic body.
 	pub const TreasurerBodyId: BodyId = BodyId::Index(TREASURER_INDEX);
 }
 
@@ -236,7 +236,7 @@ pub type LocalPalletOriginToLocation = (
 	StakingAdminToPlurality,
 	// FellowshipAdmin origin to be used in XCM as a corresponding Plurality `MultiLocation` value.
 	FellowshipAdminToPlurality,
-	// Treasurer origin to be used in XCM as a corresponding Plurality `MultiLocation` value.
+	// `Treasurer` origin to be used in XCM as a corresponding Plurality `MultiLocation` value.
 	TreasurerToPlurality,
 );
 
