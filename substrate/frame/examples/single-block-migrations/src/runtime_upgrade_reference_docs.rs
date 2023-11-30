@@ -50,12 +50,10 @@
 //!
 //! ## Single Block Migrations
 //!
-//! Single block migrations execute immediately and entirely at the beginning of the block following
+//! - Execute immediately and entirely at the beginning of the block following
 //! a runtime upgrade.
-//!
-//! Suitable for migrations which are guaranteed to not exceed the block weight.
-//!
-//! Single block migrations are simply implementations of [`OnRuntimeUpgrade`].
+//! - Are suitable for migrations which are guaranteed to not exceed the block weight.
+//! - Are simply implementations of [`OnRuntimeUpgrade`].
 //!
 //! To learn best practices for writing single block pallet storage migrations, see the
 //! [Single Block Migration Example Pallet](crate).
