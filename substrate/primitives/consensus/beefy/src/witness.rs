@@ -77,7 +77,8 @@ impl<TBlockNumber, TSignatureAccumulator>
 
 #[cfg(test)]
 mod tests {
-	use sp_core::{keccak_256, Pair};
+	use sp_core::Pair;
+	use sp_crypto_hashing::keccak_256;
 
 	use super::*;
 	use codec::Decode;

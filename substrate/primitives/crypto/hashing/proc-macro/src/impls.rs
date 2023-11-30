@@ -83,35 +83,35 @@ impl Parse for MultipleInputBytes {
 }
 
 pub(super) fn twox_64(bytes: Vec<u8>) -> TokenStream {
-	bytes_to_array(sp_core_hashing::twox_64(bytes.as_slice()))
+	bytes_to_array(sp_crypto_hashing::twox_64(bytes.as_slice()))
 }
 
 pub(super) fn twox_128(bytes: Vec<u8>) -> TokenStream {
-	bytes_to_array(sp_core_hashing::twox_128(bytes.as_slice()))
+	bytes_to_array(sp_crypto_hashing::twox_128(bytes.as_slice()))
 }
 
 pub(super) fn blake2b_512(bytes: Vec<u8>) -> TokenStream {
-	bytes_to_array(sp_core_hashing::blake2_512(bytes.as_slice()))
+	bytes_to_array(sp_crypto_hashing::blake2_512(bytes.as_slice()))
 }
 
 pub(super) fn blake2b_256(bytes: Vec<u8>) -> TokenStream {
-	bytes_to_array(sp_core_hashing::blake2_256(bytes.as_slice()))
+	bytes_to_array(sp_crypto_hashing::blake2_256(bytes.as_slice()))
 }
 
 pub(super) fn blake2b_64(bytes: Vec<u8>) -> TokenStream {
-	bytes_to_array(sp_core_hashing::blake2_64(bytes.as_slice()))
+	bytes_to_array(sp_crypto_hashing::blake2_64(bytes.as_slice()))
 }
 
 pub(super) fn keccak_256(bytes: Vec<u8>) -> TokenStream {
-	bytes_to_array(sp_core_hashing::keccak_256(bytes.as_slice()))
+	bytes_to_array(sp_crypto_hashing::keccak_256(bytes.as_slice()))
 }
 
 pub(super) fn keccak_512(bytes: Vec<u8>) -> TokenStream {
-	bytes_to_array(sp_core_hashing::keccak_512(bytes.as_slice()))
+	bytes_to_array(sp_crypto_hashing::keccak_512(bytes.as_slice()))
 }
 
 pub(super) fn sha2_256(bytes: Vec<u8>) -> TokenStream {
-	bytes_to_array(sp_core_hashing::sha2_256(bytes.as_slice()))
+	bytes_to_array(sp_crypto_hashing::sha2_256(bytes.as_slice()))
 }
 
 fn bytes_to_array(bytes: impl IntoIterator<Item = u8>) -> TokenStream {

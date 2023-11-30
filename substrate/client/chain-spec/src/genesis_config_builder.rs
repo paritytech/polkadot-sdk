@@ -62,7 +62,7 @@ where
 	pub fn new(code: &'a [u8]) -> Self {
 		GenesisConfigBuilderRuntimeCaller {
 			code: code.into(),
-			code_hash: sp_core::blake2_256(code).to_vec(),
+			code_hash: sp_crypto_hashing::blake2_256(code).to_vec(),
 			executor: WasmExecutor::<(sp_io::SubstrateHostFunctions, EHF)>::builder()
 				.with_allow_missing_host_functions(true)
 				.build(),

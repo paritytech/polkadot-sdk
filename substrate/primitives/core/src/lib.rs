@@ -46,11 +46,14 @@ pub use sp_debug_derive::RuntimeDebug;
 #[cfg(feature = "serde")]
 pub use impl_serde::serialize as bytes;
 
+// https://github.com/rust-lang/rust/issues/85388
 #[cfg(feature = "full_crypto")]
-pub mod hashing;
+#[deprecated(
+	since = "21.0.0",
+	note = "hashing re-export is scheduled for removal, please use `sp-crypto-hashing` instead"
+)]
+pub use sp_crypto_hashing::{self as hashing, *};
 
-#[cfg(feature = "full_crypto")]
-pub use hashing::{blake2_128, blake2_256, keccak_256, twox_128, twox_256, twox_64};
 pub mod crypto;
 pub mod hexdisplay;
 pub use paste;

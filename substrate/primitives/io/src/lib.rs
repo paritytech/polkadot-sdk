@@ -1251,42 +1251,42 @@ pub trait Crypto {
 pub trait Hashing {
 	/// Conduct a 256-bit Keccak hash.
 	fn keccak_256(data: &[u8]) -> [u8; 32] {
-		sp_core::hashing::keccak_256(data)
+		sp_crypto_hashing::keccak_256(data)
 	}
 
 	/// Conduct a 512-bit Keccak hash.
 	fn keccak_512(data: &[u8]) -> [u8; 64] {
-		sp_core::hashing::keccak_512(data)
+		sp_crypto_hashing::keccak_512(data)
 	}
 
 	/// Conduct a 256-bit Sha2 hash.
 	fn sha2_256(data: &[u8]) -> [u8; 32] {
-		sp_core::hashing::sha2_256(data)
+		sp_crypto_hashing::sha2_256(data)
 	}
 
 	/// Conduct a 128-bit Blake2 hash.
 	fn blake2_128(data: &[u8]) -> [u8; 16] {
-		sp_core::hashing::blake2_128(data)
+		sp_crypto_hashing::blake2_128(data)
 	}
 
 	/// Conduct a 256-bit Blake2 hash.
 	fn blake2_256(data: &[u8]) -> [u8; 32] {
-		sp_core::hashing::blake2_256(data)
+		sp_crypto_hashing::blake2_256(data)
 	}
 
 	/// Conduct four XX hashes to give a 256-bit result.
 	fn twox_256(data: &[u8]) -> [u8; 32] {
-		sp_core::hashing::twox_256(data)
+		sp_crypto_hashing::twox_256(data)
 	}
 
 	/// Conduct two XX hashes to give a 128-bit result.
 	fn twox_128(data: &[u8]) -> [u8; 16] {
-		sp_core::hashing::twox_128(data)
+		sp_crypto_hashing::twox_128(data)
 	}
 
 	/// Conduct two XX hashes to give a 64-bit result.
 	fn twox_64(data: &[u8]) -> [u8; 8] {
-		sp_core::hashing::twox_64(data)
+		sp_crypto_hashing::twox_64(data)
 	}
 }
 
