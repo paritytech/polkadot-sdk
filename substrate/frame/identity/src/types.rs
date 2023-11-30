@@ -26,7 +26,7 @@ use scale_info::{
 	Path, Type, TypeInfo,
 };
 use sp_runtime::{
-	traits::{Member, Zero},
+	traits::{IdentifyAccount, Member, Verify, Zero},
 	RuntimeDebug,
 };
 use sp_std::{fmt::Debug, iter::once, ops::Add, prelude::*};
@@ -373,6 +373,22 @@ pub trait SignerProvider<A>: Clone + Decode + Debug + Encode + PartialEq + TypeI
 	fn into_account_truncating(&self) -> A;
 	#[cfg(feature = "runtime-benchmarks")]
 	fn create_signer(id: u32) -> Self;
+}
+
+type AccountPublic = <MultiSignature as Verify>::Signer;
+type SigningAccountId = <AccountPublic as IdentifyAccount>::AccountId;
+impl SignerProvider<SigningAccountId> for sp_runtime::MultiSigner {
+	fn verify_signature(&self, signature: &MultiSignature, message: &[u8]) -> bool {
+		signature.verify(message, &self.clone().into_account())
+	}
+	fn into_account_truncating(&self) -> SigningAccountId {
+		self.clone().into_account()
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn create_signer(id: u32) -> Self {
+		let signer = sp_io::crypto::sr25519_generate(id.into(), None);
+		Self::Sr25519(signer)
+	}
 }
 
 #[cfg(test)]

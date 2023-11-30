@@ -1490,6 +1490,9 @@ impl pallet_identity::Config for Runtime {
 	type Slashed = Treasury;
 	type ForceOrigin = EnsureRootOrHalfCouncil;
 	type RegistrarOrigin = EnsureRootOrHalfCouncil;
+	type Signer = sp_runtime::MultiSigner;
+	type UsernameAuthorityOrigin = EnsureRoot<Self::AccountId>;
+	type PendingUsernameExpiration = ConstU32<{ 7 * DAYS }>;
 	type WeightInfo = pallet_identity::weights::SubstrateWeight<Runtime>;
 }
 

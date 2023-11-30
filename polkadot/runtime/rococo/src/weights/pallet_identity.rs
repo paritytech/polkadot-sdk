@@ -334,4 +334,11 @@ impl<T: frame_system::Config> pallet_identity::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
+	fn add_username_authority() -> Weight { Weight::from_parts(1, 1) }
+	fn remove_username_authority() -> Weight { Weight::from_parts(1, 1) }
+	fn set_username_for() -> Weight { Weight::from_parts(1, 1) }
+	fn accept_username() -> Weight { Weight::from_parts(1, 1) }
+	fn remove_expired_approval() -> Weight { Weight::from_parts(1, 1) }
+	fn set_primary_username() -> Weight { Weight::from_parts(1, 1) }
+	fn remove_dangling_username() -> Weight { Weight::from_parts(1, 1) }
 }

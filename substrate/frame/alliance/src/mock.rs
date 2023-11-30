@@ -21,7 +21,7 @@ pub use sp_core::H256;
 use sp_runtime::traits::Hash;
 pub use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
+	BuildStorage, MultiSignature,
 };
 use sp_std::convert::{TryFrom, TryInto};
 
@@ -33,7 +33,7 @@ pub use frame_support::{
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use pallet_identity::{
 	legacy::{IdentityField, IdentityInfo},
-	Data, Judgement,
+	Data, Judgement, SignerProvider,
 };
 
 pub use crate as pallet_alliance;
@@ -105,6 +105,7 @@ parameter_types! {
 	pub const MaxSubAccounts: u32 = 2;
 	pub const MaxAdditionalFields: u32 = 2;
 	pub const MaxRegistrars: u32 = 20;
+	pub const PendingUsernameExpiration: u64 = 100;
 }
 ord_parameter_types! {
 	pub const One: u64 = 1;
@@ -128,7 +129,25 @@ impl pallet_identity::Config for Test {
 	type Slashed = ();
 	type RegistrarOrigin = EnsureOneOrRoot;
 	type ForceOrigin = EnsureTwoOrRoot;
+	type Signer = AccountU64;
+	type UsernameAuthorityOrigin = EnsureOneOrRoot;
+	type PendingUsernameExpiration = PendingUsernameExpiration;
 	type WeightInfo = ();
+}
+
+#[derive(Clone, Debug, Encode, Decode, PartialEq, TypeInfo)]
+pub struct AccountU64;
+impl SignerProvider<AccountId> for AccountU64 {
+	fn verify_signature(&self, _signature: &MultiSignature, _message: &[u8]) -> bool {
+		false
+	}
+	fn into_account_truncating(&self) -> AccountId {
+		0u64
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn create_signer(_id: u32) -> Self {
+		AccountU64
+	}
 }
 
 pub struct AllianceIdentityVerifier;
@@ -139,7 +158,7 @@ impl IdentityVerifier<AccountId> for AllianceIdentityVerifier {
 
 	fn has_good_judgement(who: &AccountId) -> bool {
 		if let Some(judgements) =
-			Identity::identity(who).map(|registration| registration.judgements)
+			Identity::identity(who).map(|registration| registration.0.judgements)
 		{
 			judgements
 				.iter()

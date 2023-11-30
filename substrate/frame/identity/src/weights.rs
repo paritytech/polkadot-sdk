@@ -352,13 +352,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
-	fn add_username_authority() -> Weight { todo!() }
-	fn remove_username_authority() -> Weight { todo!() }
-	fn set_username_for() -> Weight { todo!() }
-	fn accept_username() -> Weight { todo!() }
-	fn remove_expired_approval() -> Weight { todo!() }
-	fn set_primary_username() -> Weight { todo!() }
-	fn remove_dangling_username() -> Weight { todo!() }
+	fn add_username_authority() -> Weight { Weight::from_parts(1, 1) }
+	fn remove_username_authority() -> Weight { Weight::from_parts(1, 1) }
+	fn set_username_for() -> Weight { Weight::from_parts(1, 1) }
+	fn accept_username() -> Weight { Weight::from_parts(1, 1) }
+	fn remove_expired_approval() -> Weight { Weight::from_parts(1, 1) }
+	fn set_primary_username() -> Weight { Weight::from_parts(1, 1) }
+	fn remove_dangling_username() -> Weight { Weight::from_parts(1, 1) }
 }
 
 // For backwards compatibility and tests
@@ -635,11 +635,11 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
-	fn add_username_authority() -> Weight { todo!() }
-	fn remove_username_authority() -> Weight { todo!() }
-	fn set_username_for() -> Weight { todo!() }
-	fn accept_username() -> Weight { todo!() }
-	fn remove_expired_approval() -> Weight { todo!() }
-	fn set_primary_username() -> Weight { todo!() }
-	fn remove_dangling_username() -> Weight { todo!() }
+	fn add_username_authority() -> Weight { Weight::from_parts(1, 1) }
+	fn remove_username_authority() -> Weight { Weight::from_parts(1, 1) }
+	fn set_username_for() -> Weight { Weight::from_parts(1, 1) }
+	fn accept_username() -> Weight { Weight::from_parts(1, 1) }
+	fn remove_expired_approval() -> Weight { Weight::from_parts(1, 1) }
+	fn set_primary_username() -> Weight { Weight::from_parts(1, 1) }
+	fn remove_dangling_username() -> Weight { Weight::from_parts(1, 1) }
 }
