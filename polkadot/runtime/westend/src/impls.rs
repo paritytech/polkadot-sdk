@@ -120,7 +120,14 @@ where
 			// not used in AssetTransactor
 			&XcmContext { origin: None, message_id: [0; 32], topic: None },
 		)
-		.map_err(|_| pallet_xcm::Error::<Runtime>::CannotCheckOutTeleport)?;
+		.map_err(|err| {
+			log::error!(
+				target: "runtime::on_reap_identity",
+				"can_check_out(destination: {:?}, asset: {:?}, _) error: {:?}",
+				destination, wnd, err
+			);
+			pallet_xcm::Error::<Runtime>::CannotCheckOutTeleport
+		})?;
 		xcm_config::LocalAssetTransactor::check_out(
 			&destination,
 			&wnd,
