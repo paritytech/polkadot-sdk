@@ -642,7 +642,7 @@ enum PalletsConversion {
 	/// Pallets explicitly declare parts that are fully expanded.
 	///
 	/// This is the end state that contains extra parts included by
-	/// default by Subtrate.
+	/// default by Substrate.
 	///
 	/// `System: frame_system expanded::{Error} ::{Pallet, Call}`
 	///

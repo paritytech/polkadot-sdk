@@ -104,13 +104,14 @@ pub use self::{
 		StorageMap, StorageNMap, StoragePrefixedMap, StorageValue,
 	},
 };
-pub use sp_runtime::{
-	self, print, traits::Printable, ConsensusEngineId, MAX_MODULE_ERROR_ENCODED_SIZE,
-};
-
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::TypeId;
+pub use sp_runtime::{
+	self, ensure, fail, print, runtime_print, traits::Printable, CloneNoBound, ConsensusEngineId,
+	DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+	MAX_MODULE_ERROR_ENCODED_SIZE,
+};
 
 /// A unified log target for support operations.
 pub const LOG_TARGET: &str = "runtime::frame-support";
@@ -471,138 +472,13 @@ macro_rules! ord_parameter_types {
 	}
 }
 
-/// Print out a formatted message.
-///
-/// # Example
-///
-/// ```
-/// frame_support::runtime_print!("my value is {}", 3);
-/// ```
-#[macro_export]
-macro_rules! runtime_print {
-	($($arg:tt)+) => {
-		{
-			use core::fmt::Write;
-			let mut w = $crate::__private::sp_std::Writer::default();
-			let _ = core::write!(&mut w, $($arg)+);
-			$crate::__private::sp_io::misc::print_utf8(&w.inner())
-		}
-	}
-}
-
-/// Print out the debuggable type.
-pub fn debug(data: &impl sp_std::fmt::Debug) {
-	runtime_print!("{:?}", data);
-}
-
 #[doc(inline)]
 pub use frame_support_procedural::{
-	construct_runtime, match_and_insert, transactional, PalletError, RuntimeDebugNoBound,
+	construct_runtime, match_and_insert, transactional, PalletError,
 };
 
 #[doc(hidden)]
 pub use frame_support_procedural::{__create_tt_macro, __generate_dummy_part_checker};
-
-/// Derive [`Clone`] but do not bound any generic.
-///
-/// This is useful for type generic over runtime:
-/// ```
-/// # use frame_support::CloneNoBound;
-/// trait Config {
-/// 		type C: Clone;
-/// }
-///
-/// // Foo implements [`Clone`] because `C` bounds [`Clone`].
-/// // Otherwise compilation will fail with an output telling `c` doesn't implement [`Clone`].
-/// #[derive(CloneNoBound)]
-/// struct Foo<T: Config> {
-/// 		c: T::C,
-/// }
-/// ```
-pub use frame_support_procedural::CloneNoBound;
-
-/// Derive [`Eq`] but do not bound any generic.
-///
-/// This is useful for type generic over runtime:
-/// ```
-/// # use frame_support::{EqNoBound, PartialEqNoBound};
-/// trait Config {
-/// 		type C: Eq;
-/// }
-///
-/// // Foo implements [`Eq`] because `C` bounds [`Eq`].
-/// // Otherwise compilation will fail with an output telling `c` doesn't implement [`Eq`].
-/// #[derive(PartialEqNoBound, EqNoBound)]
-/// struct Foo<T: Config> {
-/// 		c: T::C,
-/// }
-/// ```
-pub use frame_support_procedural::EqNoBound;
-
-/// Derive [`PartialEq`] but do not bound any generic.
-///
-/// This is useful for type generic over runtime:
-/// ```
-/// # use frame_support::PartialEqNoBound;
-/// trait Config {
-/// 		type C: PartialEq;
-/// }
-///
-/// // Foo implements [`PartialEq`] because `C` bounds [`PartialEq`].
-/// // Otherwise compilation will fail with an output telling `c` doesn't implement [`PartialEq`].
-/// #[derive(PartialEqNoBound)]
-/// struct Foo<T: Config> {
-/// 		c: T::C,
-/// }
-/// ```
-pub use frame_support_procedural::PartialEqNoBound;
-
-/// Derive [`Debug`] but do not bound any generic.
-///
-/// This is useful for type generic over runtime:
-/// ```
-/// # use frame_support::DebugNoBound;
-/// # use core::fmt::Debug;
-/// trait Config {
-/// 		type C: Debug;
-/// }
-///
-/// // Foo implements [`Debug`] because `C` bounds [`Debug`].
-/// // Otherwise compilation will fail with an output telling `c` doesn't implement [`Debug`].
-/// #[derive(DebugNoBound)]
-/// struct Foo<T: Config> {
-/// 		c: T::C,
-/// }
-/// ```
-pub use frame_support_procedural::DebugNoBound;
-
-/// Derive [`Default`] but do not bound any generic.
-///
-/// This is useful for type generic over runtime:
-/// ```
-/// # use frame_support::DefaultNoBound;
-/// # use core::default::Default;
-/// trait Config {
-/// 	type C: Default;
-/// }
-///
-/// // Foo implements [`Default`] because `C` bounds [`Default`].
-/// // Otherwise compilation will fail with an output telling `c` doesn't implement [`Default`].
-/// #[derive(DefaultNoBound)]
-/// struct Foo<T: Config> {
-/// 	c: T::C,
-/// }
-///
-/// // Also works with enums, by specifying the default with #[default]:
-/// #[derive(DefaultNoBound)]
-/// enum Bar<T: Config> {
-/// 	// Bar will implement Default as long as all of the types within Baz also implement default.
-/// 	#[default]
-/// 	Baz(T::C),
-/// 	Quxx,
-/// }
-/// ```
-pub use frame_support_procedural::DefaultNoBound;
 
 /// Assert the annotated function is executed within a storage transaction.
 ///
@@ -649,28 +525,6 @@ pub use frame_support_procedural::require_transactional;
 /// const Version: CrateVersion = crate_to_crate_version!();
 /// ```
 pub use frame_support_procedural::crate_to_crate_version;
-
-/// Return Err of the expression: `return Err($expression);`.
-///
-/// Used as `fail!(expression)`.
-#[macro_export]
-macro_rules! fail {
-	( $y:expr ) => {{
-		return Err($y.into())
-	}};
-}
-
-/// Evaluate `$x:expr` and if not true return `Err($y:expr)`.
-///
-/// Used as `ensure!(expression_to_ensure, expression_to_return_on_false)`.
-#[macro_export]
-macro_rules! ensure {
-	( $x:expr, $y:expr $(,)? ) => {{
-		if !$x {
-			$crate::fail!($y);
-		}
-	}};
-}
 
 /// Evaluate an expression, assert it returns an expected `Err` value and that
 /// runtime storage has not been mutated (i.e. expression is a no-operation).

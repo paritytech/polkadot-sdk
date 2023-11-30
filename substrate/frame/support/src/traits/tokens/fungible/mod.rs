@@ -46,8 +46,8 @@ mod item_of;
 mod regular;
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support_procedural::{CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
+use sp_runtime::{CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use sp_std::marker::PhantomData;
 
 use super::{
