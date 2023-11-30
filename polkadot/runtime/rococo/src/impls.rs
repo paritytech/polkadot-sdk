@@ -79,6 +79,8 @@ impl<Runtime, AccountId> ToParachainIdentityReaper<Runtime, AccountId> {
 	}
 }
 
+// Note / Warning: This implementation should only be used in a transactional context. If not, then
+// an error could result in assets being burned.
 impl<Runtime, AccountId> OnReapIdentity<AccountId> for ToParachainIdentityReaper<Runtime, AccountId>
 where
 	Runtime: frame_system::Config + pallet_xcm::Config,
