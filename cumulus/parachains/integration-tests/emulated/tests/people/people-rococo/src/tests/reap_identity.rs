@@ -139,7 +139,7 @@ fn id_deposit_relaychain(id: &IdentityInfo<MaxAdditionalFields>) -> Balance {
 	base_deposit + byte_deposit
 }
 
-fn set_id_relay(id: Identity) -> u128 {
+fn set_id_relay(id: &Identity) -> u128 {
 	let mut total_deposit = 0_u128;
 
 	// Set identity and Subs on Relay Chain
@@ -175,7 +175,7 @@ fn set_id_relay(id: Identity) -> u128 {
 	total_deposit
 }
 
-fn assert_set_id_parachain(id: Identity) {
+fn assert_set_id_parachain(id: &Identity) {
 	// Set identity and Subs on Parachain with Zero deposit
 	PeopleRococo::execute_with(|| {
 		let free_bal = PeopleRococoBalances::free_balance(PeopleRococoSender::get());
@@ -219,6 +219,7 @@ fn assert_reap_id_relay(total_deposit: u128) {
 			RococoOrigin::root(),
 			RococoRelaySender::get(),
 		));
+		println!("total_deposit: {}", total_deposit);
 		assert_expected_events!(
 			RococoRelay,
 			vec![
@@ -242,7 +243,7 @@ fn assert_reap_id_relay(total_deposit: u128) {
 		assert_eq!(free_bal_after_reap, free_bal_before_reap + total_deposit);
 	});
 }
-fn assert_reap_parachain(id: Identity) {
+fn assert_reap_parachain(id: &Identity) {
 	// 6. assert on Parachain
 	PeopleRococo::execute_with(|| {
 		type RuntimeEvent = <PeopleRococo as Chain>::RuntimeEvent;
@@ -284,40 +285,35 @@ fn assert_reap_parachain(id: Identity) {
 	});
 }
 
+fn assert_relay_para_flow(id: &Identity) {
+	let total_deposit = set_id_relay(id);
+	assert_set_id_parachain(id);
+	assert_reap_id_relay(total_deposit);
+	assert_reap_parachain(id);
+}
+
 // We don't loop through ids and assert because genesis state is
 // required for each test
 #[test]
 fn on_reap_identity_works_for_minimal_identity() {
 	let ids = identities();
-	let total_deposit = set_id_relay(ids[0].clone());
-	assert_set_id_parachain(ids[0].clone());
-	assert_reap_id_relay(total_deposit);
-	assert_reap_parachain(ids[0].clone());
+	assert_relay_para_flow(&ids[0]);
 }
 
 #[test]
 fn on_reap_identity_works_for_full_identity_no_additional() {
 	let ids = identities();
-	let total_deposit = set_id_relay(ids[1].clone());
-	assert_set_id_parachain(ids[1].clone());
-	assert_reap_id_relay(total_deposit);
-	assert_reap_parachain(ids[1].clone());
+	assert_relay_para_flow(&ids[1]);
 }
 
 #[test]
 fn on_reap_identity_works_for_full_identity_nonsense_additional() {
 	let ids = identities();
-	let total_deposit = set_id_relay(ids[2].clone());
-	assert_set_id_parachain(ids[2].clone());
-	assert_reap_id_relay(total_deposit);
-	assert_reap_parachain(ids[2].clone());
+	assert_relay_para_flow(&ids[2]);
 }
 
 #[test]
 fn on_reap_identity_works_for_full_identity_meaningful_additional() {
 	let ids = identities();
-	let total_deposit = set_id_relay(ids[3].clone());
-	assert_set_id_parachain(ids[3].clone());
-	assert_reap_id_relay(total_deposit);
-	assert_reap_parachain(ids[3].clone());
+	assert_relay_para_flow(&ids[3])
 }
