@@ -56,7 +56,7 @@ mod benchmarks {
 			.map_err(|_| BenchmarkError::Weightless)?;
 
 		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin, cid.clone(), Some(expire_at));
+		_(origin as T::RuntimeOrigin, cid.clone(), Some(expire_at.clone()));
 
 		assert_eq!(<Announcements<T, I>>::count(), 1);
 		assert_last_event::<T, I>(

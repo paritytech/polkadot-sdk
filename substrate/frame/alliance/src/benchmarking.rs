@@ -183,7 +183,7 @@ mod benchmarks {
 			let voter = &members[j as usize];
 			Alliance::<T, I>::vote(
 				SystemOrigin::Signed(voter.clone()).into(),
-				last_hash,
+				last_hash.clone(),
 				index,
 				true,
 			)?;
@@ -191,7 +191,12 @@ mod benchmarks {
 
 		let voter = members[m as usize - 3].clone();
 		// Voter votes aye without resolving the vote.
-		Alliance::<T, I>::vote(SystemOrigin::Signed(voter.clone()).into(), last_hash, index, true)?;
+		Alliance::<T, I>::vote(
+			SystemOrigin::Signed(voter.clone()).into(),
+			last_hash.clone(),
+			index,
+			true,
+		)?;
 
 		// Voter switches vote to nay, but does not kill the vote, just updates + inserts
 		let approve = false;
@@ -201,7 +206,7 @@ mod benchmarks {
 		frame_benchmarking::benchmarking::add_to_whitelist(voter_key.into());
 
 		#[extrinsic_call]
-		_(SystemOrigin::Signed(voter), last_hash, index, approve);
+		_(SystemOrigin::Signed(voter), last_hash.clone(), index, approve);
 
 		//nothing to verify
 		Ok(())
@@ -250,19 +255,24 @@ mod benchmarks {
 			let voter = &members[j as usize];
 			Alliance::<T, I>::vote(
 				SystemOrigin::Signed(voter.clone()).into(),
-				last_hash,
+				last_hash.clone(),
 				index,
 				true,
 			)?;
 		}
 
 		// Voter votes aye without resolving the vote.
-		Alliance::<T, I>::vote(SystemOrigin::Signed(voter.clone()).into(), last_hash, index, true)?;
+		Alliance::<T, I>::vote(
+			SystemOrigin::Signed(voter.clone()).into(),
+			last_hash.clone(),
+			index,
+			true,
+		)?;
 
 		// Voter switches vote to nay, which kills the vote
 		Alliance::<T, I>::vote(
 			SystemOrigin::Signed(voter.clone()).into(),
-			last_hash,
+			last_hash.clone(),
 			index,
 			false,
 		)?;
@@ -272,7 +282,7 @@ mod benchmarks {
 		frame_benchmarking::benchmarking::add_to_whitelist(voter_key.into());
 
 		#[extrinsic_call]
-		close(SystemOrigin::Signed(voter), last_hash, index, Weight::MAX, bytes_in_storage);
+		close(SystemOrigin::Signed(voter), last_hash.clone(), index, Weight::MAX, bytes_in_storage);
 
 		assert_eq!(T::ProposalProvider::proposal_of(last_hash), None);
 		Ok(())
@@ -320,7 +330,7 @@ mod benchmarks {
 		// approval vote
 		Alliance::<T, I>::vote(
 			SystemOrigin::Signed(proposer.clone()).into(),
-			last_hash,
+			last_hash.clone(),
 			index,
 			false,
 		)?;
@@ -330,7 +340,7 @@ mod benchmarks {
 			let voter = &members[j as usize];
 			Alliance::<T, I>::vote(
 				SystemOrigin::Signed(voter.clone()).into(),
-				last_hash,
+				last_hash.clone(),
 				index,
 				false,
 			)?;
@@ -339,17 +349,22 @@ mod benchmarks {
 		// Member zero is the first aye
 		Alliance::<T, I>::vote(
 			SystemOrigin::Signed(members[0].clone()).into(),
-			last_hash,
+			last_hash.clone(),
 			index,
 			true,
 		)?;
 
 		let voter = members[1].clone();
 		// Caller switches vote to aye, which passes the vote
-		Alliance::<T, I>::vote(SystemOrigin::Signed(voter.clone()).into(), last_hash, index, true)?;
+		Alliance::<T, I>::vote(
+			SystemOrigin::Signed(voter.clone()).into(),
+			last_hash.clone(),
+			index,
+			true,
+		)?;
 
 		#[extrinsic_call]
-		close(SystemOrigin::Signed(voter), last_hash, index, Weight::MAX, bytes_in_storage);
+		close(SystemOrigin::Signed(voter), last_hash.clone(), index, Weight::MAX, bytes_in_storage);
 
 		assert_eq!(T::ProposalProvider::proposal_of(last_hash), None);
 		Ok(())
@@ -399,7 +414,7 @@ mod benchmarks {
 			let voter = &members[j as usize];
 			Alliance::<T, I>::vote(
 				SystemOrigin::Signed(voter.clone()).into(),
-				last_hash,
+				last_hash.clone(),
 				index,
 				true,
 			)?;
@@ -407,7 +422,7 @@ mod benchmarks {
 
 		Alliance::<T, I>::vote(
 			SystemOrigin::Signed(voter.clone()).into(),
-			last_hash,
+			last_hash.clone(),
 			index,
 			false,
 		)?;
@@ -415,7 +430,7 @@ mod benchmarks {
 		System::<T>::set_block_number(BlockNumberFor::<T>::max_value());
 
 		#[extrinsic_call]
-		close(SystemOrigin::Signed(voter), last_hash, index, Weight::MAX, bytes_in_storage);
+		close(SystemOrigin::Signed(voter), last_hash.clone(), index, Weight::MAX, bytes_in_storage);
 
 		// The last proposal is removed.
 		assert_eq!(T::ProposalProvider::proposal_of(last_hash), None);
@@ -462,7 +477,7 @@ mod benchmarks {
 		// The prime member votes aye, so abstentions default to aye.
 		Alliance::<T, I>::vote(
 			SystemOrigin::Signed(proposer.clone()).into(),
-			last_hash,
+			last_hash.clone(),
 			p - 1,
 			true, // Vote aye.
 		)?;
@@ -474,7 +489,7 @@ mod benchmarks {
 			let voter = &members[j as usize];
 			Alliance::<T, I>::vote(
 				SystemOrigin::Signed(voter.clone()).into(),
-				last_hash,
+				last_hash.clone(),
 				index,
 				false,
 			)?;
@@ -484,7 +499,13 @@ mod benchmarks {
 		System::<T>::set_block_number(BlockNumberFor::<T>::max_value());
 
 		#[extrinsic_call]
-		close(SystemOrigin::Signed(proposer), last_hash, index, Weight::MAX, bytes_in_storage);
+		close(
+			SystemOrigin::Signed(proposer),
+			last_hash.clone(),
+			index,
+			Weight::MAX,
+			bytes_in_storage,
+		);
 
 		assert_eq!(T::ProposalProvider::proposal_of(last_hash), None);
 		Ok(())
