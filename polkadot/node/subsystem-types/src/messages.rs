@@ -753,9 +753,6 @@ impl RuntimeApiRequest {
 
 	/// `Node features`
 	pub const NODE_FEATURES_RUNTIME_REQUIREMENT: u32 = 9;
-
-	/// `BulkCoreCount`
-	pub const BULK_CORE_COUNT_RUNTIME_REQUIREMENT: u32 = 10;
 }
 
 /// A message to the Runtime API subsystem.

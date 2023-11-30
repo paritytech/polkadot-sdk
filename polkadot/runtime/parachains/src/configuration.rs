@@ -518,8 +518,8 @@ pub mod pallet {
 	/// v7-v8:  <https://github.com/paritytech/polkadot/pull/6969>
 	/// v8-v9:  <https://github.com/paritytech/polkadot/pull/7577>
 	/// v9-v10: <https://github.com/paritytech/polkadot-sdk/pull/2177>
-	
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(10);
+	/// v10-v11: <https://github.com/paritytech/polkadot-sdk/pull/2559>
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(11);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -1223,6 +1223,14 @@ pub mod pallet {
 				}
 				config.node_features.set(index, value);
 			})
+		}
+		/// Set bulk core count
+		#[pallet::call_index(54)]
+		#[pallet::weight((
+
+		))]
+		pub fn set_bulk_core_count(origin: OriginFor<T>, count: u16) -> DispatchResult {
+			unimplemented!("TODO: Implement")
 		}
 	}
 
