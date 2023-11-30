@@ -29,6 +29,9 @@ sp-core = { path = "../core", default-features = false}
 sp-io = { path = "../io", default-features = false}
 sp-std = { path = "../std", default-features = false}
 sp-weights = { path = "../weights", default-features = false}
+docify = { version = "0.2.6" }
+
+simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", branch = "main" }
 
 [dev-dependencies]
 rand = "0.8.5"
