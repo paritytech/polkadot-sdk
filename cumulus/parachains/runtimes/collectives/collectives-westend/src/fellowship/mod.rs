@@ -288,7 +288,7 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 		EitherOfDiverse<EnsureXcm<IsVoiceOfBody<GovernanceLocation, TreasurerBodyId>>, Fellows>,
 	>;
 	type RuntimeEvent = RuntimeEvent;
-	// This type is never triggered since [`Self::ApproveOrigin`] is [`NeverEnsureOrigin`].
+	// This type should never be triggered since it meant for deprecated functionality.
 	type OnSlash = ();
 	type ProposalBond = ProposalBond;
 	type ProposalBondMinimum = ProposalBondMinimum;
