@@ -9714,7 +9714,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-example-single-block-migrations"
-version = "4.0.0-dev"
+version = "0.0.1"
 dependencies = [
  "docify",
  "frame-executive",
@@ -18799,7 +18799,7 @@ dependencies = [
  "cfg-if",
  "fastrand 2.0.0",
  "redox_syscall 0.4.1",
- "rustix 0.38.21",
+ "rustix 0.38.25",
  "windows-sys 0.48.0",
 ]
 
