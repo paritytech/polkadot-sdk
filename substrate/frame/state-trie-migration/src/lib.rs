@@ -469,7 +469,7 @@ pub mod pallet {
 	/// The reason for this pallet placing a hold on funds.
 	#[pallet::composite_enum]
 	pub enum HoldReason {
-		/// The funds are held as deposit for slashing for `continue_migrate`.
+		/// The funds are held as a deposit to slash for `continue_migrate`.
 		#[codec(index = 0)]
 		SlashForContinueMigrate,
 		/// The funds are held as deposit for slashing for `migrate_custom_top`.
