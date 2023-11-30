@@ -1020,7 +1020,7 @@ where
 			return None
 		}
 
-		let peer_info = is_best.then_some({
+		let peer_info = is_best.then(|| {
 			// update their best block
 			peer.best_number = number;
 			peer.best_hash = hash;
