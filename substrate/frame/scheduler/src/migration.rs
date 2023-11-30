@@ -105,7 +105,7 @@ pub mod v3 {
 			// Check that no agenda overflows `MaxScheduledPerBlock`.
 			let max_scheduled_per_block = T::MaxScheduledPerBlock::get() as usize;
 			for (block_number, agenda) in Agenda::<T>::iter() {
-				if agenda.iter().cloned().filter_map(|s| s).count() > max_scheduled_per_block {
+				if agenda.iter().cloned().flatten().count() > max_scheduled_per_block {
 					log::error!(
 						target: TARGET,
 						"Would truncate agenda of block {:?} from {} items to {} items.",
@@ -119,7 +119,7 @@ pub mod v3 {
 			// Check that bounding the calls will not overflow `MAX_LENGTH`.
 			let max_length = T::Preimages::MAX_LENGTH as usize;
 			for (block_number, agenda) in Agenda::<T>::iter() {
-				for schedule in agenda.iter().cloned().filter_map(|s| s) {
+				for schedule in agenda.iter().cloned().flatten() {
 					match schedule.call {
 						frame_support::traits::schedule::MaybeHashed::Value(call) => {
 							let l = call.using_encoded(|c| c.len());

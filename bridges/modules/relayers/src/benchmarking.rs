@@ -104,7 +104,7 @@ benchmarks! {
 		// create slash destination account
 		let lane = LaneId([0, 0, 0, 0]);
 		let slash_destination = RewardsAccountParams::new(lane, *b"test", RewardsAccountOwner::ThisChain);
-		T::prepare_rewards_account(slash_destination.clone(), Zero::zero());
+		T::prepare_rewards_account(slash_destination, Zero::zero());
 	}: {
 		crate::Pallet::<T>::slash_and_deregister(&relayer, slash_destination)
 	}
@@ -121,7 +121,7 @@ benchmarks! {
 		let account_params =
 			RewardsAccountParams::new(lane, *b"test", RewardsAccountOwner::ThisChain);
 	}: {
-		crate::Pallet::<T>::register_relayer_reward(account_params.clone(), &relayer, One::one());
+		crate::Pallet::<T>::register_relayer_reward(account_params, &relayer, One::one());
 	}
 	verify {
 		assert_eq!(RelayerRewards::<T>::get(relayer, &account_params), Some(One::one()));
