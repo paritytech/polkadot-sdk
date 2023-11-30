@@ -30,10 +30,10 @@ use frame_support::{
 	traits::{EnsureOrigin, Get, OnFinalize, OnInitialize},
 };
 use frame_system::RawOrigin;
-use sp_io::crypto::{sr25519_generate, sr25519_sign};
+use sp_core::{sr25519, Pair};
 use sp_runtime::{
-	traits::{Bounded, One},
-	MultiSignature,
+	traits::{Bounded, IdentifyAccount, One, Verify},
+	MultiSignature, MultiSigner,
 };
 
 const SEED: u32 = 0;
@@ -132,7 +132,7 @@ fn bounded_username(username: Vec<u8>, suffix: Vec<u8>) -> Username {
 	Username::try_from(full_username).expect("test usernames should fit within bounds")
 }
 
-#[benchmarks]
+#[benchmarks(where <T as frame_system::Config>::AccountId: From<sp_runtime::AccountId32>)]
 mod benchmarks {
 	use super::*;
 
@@ -563,7 +563,7 @@ mod benchmarks {
 	#[benchmark]
 	fn add_username_authority() -> Result<(), BenchmarkError> {
 		let origin =
-			T::UsernameAuthorityOrigin::try_successful_origin().expect("can generage origin");
+			T::UsernameAuthorityOrigin::try_successful_origin().expect("can generate origin");
 
 		let authority: T::AccountId = account("authority", 0, SEED);
 		let authority_lookup = T::Lookup::unlookup(authority.clone());
@@ -580,7 +580,7 @@ mod benchmarks {
 	#[benchmark]
 	fn remove_username_authority() -> Result<(), BenchmarkError> {
 		let origin =
-			T::UsernameAuthorityOrigin::try_successful_origin().expect("can generage origin");
+			T::UsernameAuthorityOrigin::try_successful_origin().expect("can generate origin");
 
 		let authority: T::AccountId = account("authority", 0, SEED);
 		let authority_lookup = T::Lookup::unlookup(authority.clone());
@@ -605,7 +605,7 @@ mod benchmarks {
 	fn set_username_for() -> Result<(), BenchmarkError> {
 		// Set up a username authority.
 		let auth_origin =
-			T::UsernameAuthorityOrigin::try_successful_origin().expect("can generage origin");
+			T::UsernameAuthorityOrigin::try_successful_origin().expect("can generate origin");
 		let authority: T::AccountId = account("authority", 0, SEED);
 		let authority_lookup = T::Lookup::unlookup(authority.clone());
 		let suffix = bench_suffix();
@@ -622,26 +622,30 @@ mod benchmarks {
 		let bounded_username = bounded_username(username.clone(), suffix.clone());
 
 		// Set up inputs. Worst case will be signature verification.
-		let signer = sr25519_generate(0.into(), None);
-		let signature = bounded_username.to_vec().using_encoded(|m| {
-			MultiSignature::Sr25519(sr25519_sign(0.into(), &signer, &m).unwrap())
-		});
-		let multisigner = T::Signer::create_signer(0u32.into());
-		let who = AccountIdentifier::Keyed(multisigner.clone());
+		let suri = "//Alice";
+		let pair = sr25519::Pair::from_string(suri, None).unwrap();
+
+		let signature = pair.sign(&bounded_username[..]);
+		assert!(sr25519::Pair::verify(&signature, &bounded_username[..], &pair.public()));
+
+		let multisignature = MultiSignature::from(signature);
+		let multisigner = MultiSigner::from(pair.public().into());
+		assert!(multisignature.verify(&bounded_username[..], &multisigner.into_account()));
+		let who = AccountIdentifier::Keyed(MultiSigner::Sr25519(pair.public()));
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(authority.clone()), who, username, Some(signature));
+		_(RawOrigin::Signed(authority.clone()), who, username, Some(multisignature));
 
 		assert_has_event::<T>(
 			Event::<T>::UsernameSet {
-				who: multisigner.clone().into_account_truncating(),
+				who: multisigner.clone().into_account_truncating().into(),
 				username: bounded_username.clone(),
 			}
 			.into(),
 		);
 		assert_has_event::<T>(
 			Event::<T>::PrimaryUsernameSet {
-				who: multisigner.into_account_truncating(),
+				who: multisigner.into_account_truncating().into(),
 				username: bounded_username,
 			}
 			.into(),
