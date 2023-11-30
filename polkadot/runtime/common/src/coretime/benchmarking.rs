@@ -28,7 +28,7 @@ use pallet_broker::CoreIndex as BrokerCoreIndex;
 mod benchmarks {
 	use super::*;
 	#[benchmark]
-	fn assign_core(s: Linear<0, MAX_ASSIGNMENTS_PER_SCHEDULE>) {
+	fn assign_core(s: Linear<1, MAX_ASSIGNMENTS_PER_SCHEDULE>) {
 		// Setup
 		let root_origin = <T as frame_system::Config>::RuntimeOrigin::root();
 
