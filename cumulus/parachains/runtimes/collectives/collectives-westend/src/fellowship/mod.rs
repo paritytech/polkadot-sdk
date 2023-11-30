@@ -36,7 +36,7 @@ use frame_support::{
 use frame_system::{EnsureRoot, EnsureRootWithSuccess};
 pub use origins::{
 	pallet_origins as pallet_fellowship_origins, Architects, EnsureCanPromoteTo, EnsureCanRetainAt,
-	EnsureFellowship, Fellows, Fellowship5Dan, Masters, Members, ToVoice,
+	EnsureFellowship, Fellows, Masters, Members, ToVoice,
 };
 use pallet_ranked_collective::EnsureOfRank;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};

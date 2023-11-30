@@ -248,7 +248,8 @@ match_types! {
 		// Fellowship Treasury Pallet
 		MultiLocation { parents: 1, interior: X2(Parachain(1001), PalletInstance(65)) }
 	};
-	pub type AmbassadorSalaryPallet: impl Contains<MultiLocation> = {
+	pub type AmbassadorEntities: impl Contains<MultiLocation> = {
+		// Ambassador Salary Pallet
 		MultiLocation { parents: 1, interior: X2(Parachain(1001), PalletInstance(74)) }
 	};
 }
@@ -500,7 +501,7 @@ pub type Barrier = TrailingSetTopicAsId<
 						Equals<RelayTreasuryLocation>,
 						Equals<bridging::SiblingBridgeHub>,
 						FellowshipEntities,
-						AmbassadorSalaryPallet,
+						AmbassadorEntities,
 					)>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<Everything>,
@@ -553,7 +554,7 @@ pub type WaivedLocations = (
 	RelayOrOtherSystemParachains<SystemParachains, Runtime>,
 	Equals<RelayTreasuryLocation>,
 	FellowshipEntities,
-	AmbassadorSalaryPallet,
+	AmbassadorEntities,
 );
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
