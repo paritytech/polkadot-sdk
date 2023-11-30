@@ -15,7 +15,6 @@
 
 use crate::*;
 use asset_hub_westend_runtime::xcm_config::XcmConfig as AssetHubWestendXcmConfig;
-use emulated_integration_tests_common::xcm_helpers::non_fee_asset;
 use westend_runtime::xcm_config::XcmConfig as WestendXcmConfig;
 use westend_system_emulated_network::penpal_emulated_chain::XcmConfig as PenpalWestendXcmConfig;
 
