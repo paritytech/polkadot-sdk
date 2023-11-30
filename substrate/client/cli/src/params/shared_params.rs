@@ -65,8 +65,13 @@ pub struct SharedParams {
 	pub detailed_log_output: bool,
 
 	/// Disable log color output.
-	#[arg(long)]
+	#[cfg_attr(not(windows), arg(long))]
+	#[cfg_attr(windows, arg(long, default_value_t = true, action = clap::ArgAction::Set))]
 	pub disable_log_color: bool,
+
+	/// Use UTC time in log output.
+	#[arg(long)]
+	pub use_utc_log_time: bool,
 
 	/// Enable feature to dynamically update and reload the log filter.
 	///
@@ -130,7 +135,12 @@ impl SharedParams {
 
 	/// Should the log color output be disabled?
 	pub fn disable_log_color(&self) -> bool {
-		self.disable_log_color
+		std::env::var("NO_COLOR").map_or(self.disable_log_color, |no_color| no_color == "1")
+	}
+
+	/// Should use UTC time in log output?
+	pub fn use_utc_log_time(&self) -> bool {
+		self.use_utc_log_time
 	}
 
 	/// Is log reloading enabled

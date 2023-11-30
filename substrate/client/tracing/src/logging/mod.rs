@@ -28,7 +28,7 @@ mod fast_local_time;
 mod layers;
 mod stderr_writer;
 
-pub(crate) type DefaultLogger = stderr_writer::MakeStderrWriter;
+pub(crate) type DefaultLogger = MakeStderrWriter;
 
 pub use directives::*;
 pub use sc_tracing_proc_macro::*;
@@ -41,7 +41,7 @@ use tracing_subscriber::{
 		format, FormatEvent, FormatFields, Formatter, Layer as FmtLayer, MakeWriter,
 		SubscriberBuilder,
 	},
-	layer::{self, SubscriberExt},
+	layer::SubscriberExt,
 	registry::LookupSpan,
 	EnvFilter, FmtSubscriber, Layer, Registry,
 };
@@ -95,6 +95,7 @@ fn prepare_subscriber<N, E, F, W>(
 	directives: &str,
 	profiling_targets: Option<&str>,
 	force_colors: Option<bool>,
+	use_utc: bool,
 	detailed_output: bool,
 	builder_hook: impl Fn(
 		SubscriberBuilder<format::DefaultFields, EventFormat, EnvFilter, DefaultLogger>,
@@ -104,8 +105,8 @@ where
 	N: for<'writer> FormatFields<'writer> + 'static,
 	E: FormatEvent<Registry, N> + 'static,
 	W: MakeWriter + 'static,
-	F: layer::Layer<Formatter<N, E, W>> + Send + Sync + 'static,
-	FmtLayer<Registry, N, E, W>: layer::Layer<Registry> + Send + Sync + 'static,
+	F: Layer<Formatter<N, E, W>> + Send + Sync + 'static,
+	FmtLayer<Registry, N, E, W>: Layer<Registry> + Send + Sync + 'static,
 {
 	// Accept all valid directives and print invalid ones
 	fn parse_user_directives(mut env_filter: EnvFilter, dirs: &str) -> Result<EnvFilter> {
@@ -166,12 +167,12 @@ where
 
 	// If we're only logging `INFO` entries then we'll use a simplified logging format.
 	let detailed_output = match max_level_hint {
-		Some(level) if level <= tracing_subscriber::filter::LevelFilter::INFO => false,
+		Some(level) if level <= LevelFilter::INFO => false,
 		_ => true,
 	} || detailed_output;
 
 	let enable_color = force_colors.unwrap_or_else(|| atty::is(atty::Stream::Stderr));
-	let timer = fast_local_time::FastLocalTime { with_fractional: detailed_output };
+	let timer = FastLocalTime { utc: use_utc, with_fractional: detailed_output };
 
 	let event_format = EventFormat {
 		timer,
@@ -203,6 +204,7 @@ pub struct LoggerBuilder {
 	custom_profiler: Option<Box<dyn crate::TraceHandler>>,
 	log_reloading: bool,
 	force_colors: Option<bool>,
+	use_utc: bool,
 	detailed_output: bool,
 }
 
@@ -215,6 +217,7 @@ impl LoggerBuilder {
 			custom_profiler: None,
 			log_reloading: false,
 			force_colors: None,
+			use_utc: false,
 			detailed_output: false,
 		}
 	}
@@ -261,6 +264,12 @@ impl LoggerBuilder {
 		self
 	}
 
+	/// Use UTC in log output.
+	pub fn with_utc(&mut self, utc: bool) -> &mut Self {
+		self.use_utc = utc;
+		self
+	}
+
 	/// Initialize the global logger
 	///
 	/// This sets various global logging and tracing instances and thus may only be called once.
@@ -271,6 +280,7 @@ impl LoggerBuilder {
 					&self.directives,
 					Some(&profiling_targets),
 					self.force_colors,
+					self.use_utc,
 					self.detailed_output,
 					|builder| enable_log_reloading!(builder),
 				)?;
@@ -289,6 +299,7 @@ impl LoggerBuilder {
 					&self.directives,
 					Some(&profiling_targets),
 					self.force_colors,
+					self.use_utc,
 					self.detailed_output,
 					|builder| builder,
 				)?;
@@ -308,6 +319,7 @@ impl LoggerBuilder {
 				&self.directives,
 				None,
 				self.force_colors,
+				self.use_utc,
 				self.detailed_output,
 				|builder| enable_log_reloading!(builder),
 			)?;
@@ -320,6 +332,7 @@ impl LoggerBuilder {
 				&self.directives,
 				None,
 				self.force_colors,
+				self.use_utc,
 				self.detailed_output,
 				|builder| builder,
 			)?;
@@ -440,14 +453,14 @@ mod tests {
 			let test_directives = "test-target=info";
 			let _guard = init_logger(&test_directives);
 
-			log::info!(target: "test-target", "{}", EXPECTED_LOG_MESSAGE);
+			info!(target: "test-target", "{}", EXPECTED_LOG_MESSAGE);
 		}
 	}
 
 	#[test]
 	fn prefix_in_log_lines() {
 		let re = regex::Regex::new(&format!(
-			r"^\d{{4}}-\d{{2}}-\d{{2}} \d{{2}}:\d{{2}}:\d{{2}} \[{}\] {}$",
+			r"^\d{{4}}-\d{{2}}-\d{{2}} \d{{2}}:\d{{2}}:\d{{2}}[\-\+]\d{{2}}:\d{{2}} \[{}\] {}$",
 			EXPECTED_NODE_NAME, EXPECTED_LOG_MESSAGE,
 		))
 		.unwrap();
@@ -475,7 +488,7 @@ mod tests {
 
 	#[crate::logging::prefix_logs_with(EXPECTED_NODE_NAME)]
 	fn prefix_in_log_lines_process() {
-		log::info!("{}", EXPECTED_LOG_MESSAGE);
+		info!("{}", EXPECTED_LOG_MESSAGE);
 	}
 
 	/// This is not an actual test, it is used by the `do_not_write_with_colors_on_tty` test.
@@ -492,7 +505,7 @@ mod tests {
 	#[test]
 	fn do_not_write_with_colors_on_tty() {
 		let re = regex::Regex::new(&format!(
-			r"^\d{{4}}-\d{{2}}-\d{{2}} \d{{2}}:\d{{2}}:\d{{2}} {}$",
+			r"^\d{{4}}-\d{{2}}-\d{{2}} \d{{2}}:\d{{2}}:\d{{2}}[\-\+]\d{{2}}:\d{{2}} {}$",
 			EXPECTED_LOG_MESSAGE,
 		))
 		.unwrap();

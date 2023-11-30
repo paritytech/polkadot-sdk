@@ -55,7 +55,7 @@ where
 	pub(crate) fn format_event_custom<'b, S, N>(
 		&self,
 		ctx: CustomFmtContext<'b, S, N>,
-		writer: &mut dyn fmt::Write,
+		writer: &mut dyn Write,
 		event: &Event,
 	) -> fmt::Result
 	where
@@ -127,7 +127,7 @@ where
 	fn format_event(
 		&self,
 		ctx: &FmtContext<S, N>,
-		writer: &mut dyn fmt::Write,
+		writer: &mut dyn Write,
 		event: &Event,
 	) -> fmt::Result {
 		if self.dup_to_stdout &&
