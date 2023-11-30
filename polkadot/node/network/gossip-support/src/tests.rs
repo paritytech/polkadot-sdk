@@ -727,6 +727,8 @@ quickcheck! {
 		let mut data1 = x.clone();
 		let mut data2 = x;
 
-		data1.shuffle(&mut rng1) == crate::fisher_yates_shuffle(&mut rng2, &mut data2[..])
+		data1.shuffle(&mut rng1);
+		crate::fisher_yates_shuffle(&mut rng2, &mut data2[..]);
+		data1 == data2
 	}
 }
