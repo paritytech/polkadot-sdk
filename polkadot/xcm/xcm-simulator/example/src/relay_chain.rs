@@ -120,7 +120,9 @@ impl pallet_uniques::Config for Runtime {
 	type Helper = ();
 }
 
-impl shared::Config for Runtime {}
+impl shared::Config for Runtime {
+	type DisabledValidators = ();
+}
 
 impl configuration::Config for Runtime {
 	type WeightInfo = configuration::TestWeightInfo;

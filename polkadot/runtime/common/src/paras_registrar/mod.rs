@@ -799,7 +799,9 @@ mod tests {
 		type MaxFreezes = ConstU32<1>;
 	}
 
-	impl shared::Config for Test {}
+	impl shared::Config for Test {
+		type DisabledValidators = ();
+	}
 
 	impl origin::Config for Test {}
 
