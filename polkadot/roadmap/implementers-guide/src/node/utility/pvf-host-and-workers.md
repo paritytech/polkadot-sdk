@@ -1,7 +1,11 @@
 # PVF Host and Workers
 
 The PVF host is responsible for handling requests to prepare and execute PVF
-code blobs, which it sends to PVF workers running in their own child processes.
+code blobs, which it sends to PVF **workers** running in their own child
+processes.
+
+While the workers are generally long-living, they also spawn one-off secure
+**job processes** that perform the jobs. See "Job Processes" section below.
 
 This system has two high-levels goals that we will touch on here: *determinism*
 and *security*.
@@ -27,17 +31,30 @@ hopefully resolve. We use a more brief delay here (1 second as opposed to 15
 minutes for preparation (see above)), because a successful execution must happen
 in a short amount of time.
 
+If the execution fails during the backing phase, we won't retry to reduce the chance of
+supporting nondeterministic candidates. This reduces the chance of nondeterministic blocks
+getting backed and honest backers getting slashed.
+
 We currently know of the following specific cases that will lead to a retried
 execution request:
 
-1. **OOM:** The host might have been temporarily low on memory due to other
-   processes running on the same machine. **NOTE:** This case will lead to
-   voting against the candidate (and possibly a dispute) if the retry is still
-   not successful.
-2. **Artifact missing:** The prepared artifact might have been deleted due to
+1. **OOM:** We have memory limits to try to prevent attackers from exhausting
+   host memory. If the memory limit is hit, we kill the job process and retry
+   the job. Alternatively, the host might have been temporarily low on memory
+   due to other processes running on the same machine. **NOTE:** This case will
+   lead to voting against the candidate (and possibly a dispute) if the retry is
+   still not successful.
+2. **Syscall violations:** If the job attempts a system call that is blocked by
+   the sandbox's security policy, the job process is immediately killed and we
+   retry. **NOTE:** In the future, if we have a proper way to detect that the
+   job died due to a security violation, it might make sense not to retry in
+   this case.
+3. **Artifact missing:** The prepared artifact might have been deleted due to
    operator error or some bug in the system.
-3. **Panic:** The worker thread panicked for some indeterminate reason, which
-   may or may not be independent of the candidate or PVF.
+4. **Job errors:** For example, the job process panicked for some indeterminate
+   reason, which may or may not be independent of the candidate or PVF.
+5. **Internal errors:** See "Internal Errors" section. In this case, after the
+   retry we abstain from voting.
 
 ### Preparation timeouts
 
@@ -62,10 +79,16 @@ more than the CPU time.
 
 ### Internal errors
 
-In general, for errors not raising a dispute we have to be very careful. This is
-only sound, if we either:
+An internal, or local, error is one that we treat as independent of the PVF
+and/or candidate, i.e. local to the running machine. If this happens, then we
+will first retry the job and if the errors persists, then we simply do not vote.
+This prevents slashes, since otherwise our vote may not agree with that of the
+other validators.
 
-1. Ruled out that error in pre-checking. If something is not checked in
+In general, for errors not raising a dispute we have to be very careful. This is
+only sound, if either:
+
+1. We ruled out that error in pre-checking. If something is not checked in
    pre-checking, even if independent of the candidate and PVF, we must raise a
    dispute.
 2. We are 100% confident that it is a hardware/local issue: Like corrupted file,
@@ -75,11 +98,11 @@ Reasoning: Otherwise it would be possible to register a PVF where candidates can
 not be checked, but we don't get a dispute - so nobody gets punished. Second, we
 end up with a finality stall that is not going to resolve!
 
-There are some error conditions where we can't be sure whether the candidate is
-really invalid or some internal glitch occurred, e.g. panics. Whenever we are
-unsure, we can never treat an error as internal as we would abstain from voting.
-So we will first retry the candidate, and if the issue persists we are forced to
-vote invalid.
+Note that any error from the job process we cannot treat as internal. The job
+runs untrusted code and an attacker can therefore return arbitrary errors. If
+they were to return errors that we treat as internal, they could make us abstain
+from voting. Since we are unsure if such errors are legitimate, we will first
+retry the candidate, and if the issue persists we are forced to vote invalid.
 
 ## Security
 
@@ -119,6 +142,20 @@ So what are we actually worried about? Things that come to mind:
 6. **Intercepting and manipulating packages** - Effect very similar to the
    above, hard to do without also being able to do 4 or 5.
 
+### Job Processes
+
+As mentioned above, our architecture includes long-living **worker processes**
+and one-off **job processes*. This separation is important so that the handling
+of untrusted code can be limited to the job processes. A hijacked job process
+can therefore not interfere with other jobs running in separate processes.
+
+Furthermore, if an unexpected execution error occurred in the worker and not the
+job, we generally can be confident that it has nothing to do with the candidate,
+so we can abstain from voting. On the other hand, a hijacked job can send back
+erroneous responses for candidates, so we know that we should not abstain from
+voting on such errors from jobs. Otherwise, an attacker could trigger a finality
+stall. (See "Internal Errors" section above.)
+
 ### Restricting file-system access
 
 A basic security mechanism is to make sure that any process directly interfacing
@@ -128,16 +165,14 @@ data on the host machine.
 
 *Currently this is only supported on Linux.*
 
-<!-- TODO: Uncomment when this has been enabled. -->
+### Restricting networking
 
-<!-- ### Restricting networking -->
+We also disable networking on PVF threads by disabling certain syscalls, such as
+the creation of sockets. This prevents attackers from either downloading
+payloads or communicating sensitive data from the validator's machine to the
+outside world.
 
-<!-- We also disable networking on PVF threads by disabling certain syscalls, such as -->
-<!-- the creation of sockets. This prevents attackers from either downloading -->
-<!-- payloads or communicating sensitive data from the validator's machine to the -->
-<!-- outside world. -->
-
-<!-- *Currently this is only supported on Linux.* -->
+*Currently this is only supported on Linux.*
 
 ### Clearing env vars
 

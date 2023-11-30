@@ -39,6 +39,7 @@ impl<T: Config> frame_support::traits::Get<u32> for MaxChecking<T> {
 	}
 }
 
+#[docify::export]
 pub(crate) type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 /// An unstake request.

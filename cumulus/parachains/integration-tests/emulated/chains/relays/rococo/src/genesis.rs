@@ -16,7 +16,6 @@
 // Substrate
 use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
 use grandpa::AuthorityId as GrandpaId;
-use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{sr25519, storage::Storage};
@@ -26,8 +25,8 @@ use polkadot_primitives::{AssignmentId, ValidatorId};
 
 // Cumulus
 use emulated_integration_tests_common::{
-	accounts, build_genesis_storage_legacy, get_account_id_from_seed, get_from_seed,
-	get_host_config, validators,
+	accounts, build_genesis_storage, get_account_id_from_seed, get_from_seed, get_host_config,
+	validators,
 };
 use parachains_common::Balance;
 use rococo_runtime_constants::currency::UNITS as ROC;
@@ -38,7 +37,6 @@ const ENDOWMENT: u128 = 1_000_000 * ROC;
 fn session_keys(
 	babe: BabeId,
 	grandpa: GrandpaId,
-	im_online: ImOnlineId,
 	para_validator: ValidatorId,
 	para_assignment: AssignmentId,
 	authority_discovery: AuthorityDiscoveryId,
@@ -47,7 +45,6 @@ fn session_keys(
 	rococo_runtime::SessionKeys {
 		babe,
 		grandpa,
-		im_online,
 		para_validator,
 		para_assignment,
 		authority_discovery,
@@ -74,7 +71,6 @@ pub fn genesis() -> Storage {
 							x.4.clone(),
 							x.5.clone(),
 							x.6.clone(),
-							x.7.clone(),
 							get_from_seed::<BeefyId>("Alice"),
 						),
 					)
@@ -97,5 +93,5 @@ pub fn genesis() -> Storage {
 		..Default::default()
 	};
 
-	build_genesis_storage_legacy(&genesis_config, rococo_runtime::WASM_BINARY.unwrap())
+	build_genesis_storage(&genesis_config, rococo_runtime::WASM_BINARY.unwrap())
 }

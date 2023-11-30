@@ -21,7 +21,6 @@ pub use xcm_emulator;
 
 // Substrate
 use grandpa::AuthorityId as GrandpaId;
-use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{sr25519, storage::Storage, Pair, Public};
@@ -86,7 +85,7 @@ pub fn get_host_config() -> HostConfiguration<BlockNumber> {
 /// Helper function used in tests to build the genesis storage using given RuntimeGenesisConfig and
 /// code Used in `legacy_vs_json_check` submods to verify storage building with JSON patch against
 /// building with RuntimeGenesisConfig struct.
-pub fn build_genesis_storage_legacy(builder: &dyn BuildStorage, code: &[u8]) -> Storage {
+pub fn build_genesis_storage(builder: &dyn BuildStorage, code: &[u8]) -> Storage {
 	let mut storage = builder.build_storage().unwrap();
 	storage
 		.top
@@ -163,7 +162,6 @@ pub mod validators {
 		AccountId,
 		BabeId,
 		GrandpaId,
-		ImOnlineId,
 		ValidatorId,
 		AssignmentId,
 		AuthorityDiscoveryId,

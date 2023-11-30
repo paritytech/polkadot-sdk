@@ -275,9 +275,9 @@ pub enum Outcome {
 }
 
 impl Outcome {
-	pub fn ensure_complete(self) -> Result {
+	pub fn ensure_complete(self) -> result::Result<Weight, Error> {
 		match self {
-			Outcome::Complete(_) => Ok(()),
+			Outcome::Complete(weight) => Ok(weight),
 			Outcome::Incomplete(_, e) => Err(e),
 			Outcome::Error(e) => Err(e),
 		}
