@@ -36,7 +36,7 @@ fn create_and_claim_treasury_spend() {
 		.unwrap();
 	let asset_hub_location = MultiLocation::new(1, Parachain(AssetHubWestend::para_id().into()));
 	let root = <CollectivesWestend as Chain>::RuntimeOrigin::root();
-	// asset kind to be spend from the treasury.
+	// asset kind to be spent from the treasury.
 	let asset_kind = VersionedLocatableAsset::V3 {
 		location: asset_hub_location,
 		asset_id: AssetId::Concrete((PalletInstance(50), GeneralIndex(ASSET_ID.into())).into()),
