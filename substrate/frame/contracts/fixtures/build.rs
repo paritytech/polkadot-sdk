@@ -102,31 +102,16 @@ fn create_cargo_toml<'a>(
 	entries: impl Iterator<Item = &'a Entry>,
 	output_dir: &Path,
 ) -> Result<()> {
-	let uapi_path = fixtures_dir.join("../uapi").canonicalize()?;
-	let common_path = fixtures_dir.join("./contracts/common").canonicalize()?;
-	let mut cargo_toml: toml::Value = toml::from_str(&format!(
-		"
-[package]
-name = 'contracts'
-version = '0.1.0'
-edition = '2021'
+	let mut cargo_toml: toml::Value = toml::from_str(include_str!("./build/Cargo.toml"))?;
+	let mut set_dep = |name, path| -> Result<()> {
+		cargo_toml["dependencies"][name]["path"] =
+			toml::Value::String(fixtures_dir.join(path).canonicalize()?.to_str().unwrap().to_string());
+		Ok(())
+	};
+	set_dep("uapi", "../uapi")?;
+	set_dep("common", "./contracts/common")?;
 
-# Binary targets are injected below.
-[[bin]]
-
-[dependencies]
-uapi = {{ package = 'pallet-contracts-uapi', default-features = false, path = {uapi_path:?}}}
-common = {{ package = 'pallet-contracts-fixtures-common',  path = {common_path:?}}}
-polkavm-derive = '0.2.0'
-
-[profile.release]
-opt-level = 3
-lto = true
-codegen-units = 1
-"
-	))?;
-
-	let binaries = entries
+	cargo_toml["bin"] = toml::Value::Array(entries
 		.map(|entry| {
 			let name = entry.name();
 			let path = entry.path();
@@ -135,10 +120,10 @@ codegen-units = 1
 				path = path
 			})
 		})
-		.collect::<Vec<_>>();
+		.collect::<Vec<_>>());
 
-	cargo_toml["bin"] = toml::Value::Array(binaries);
 	let cargo_toml = toml::to_string_pretty(&cargo_toml)?;
+	// eprintln!("cargo_toml: {}", cargo_toml);
 	fs::write(output_dir.join("Cargo.toml"), cargo_toml).map_err(Into::into)
 }
 
@@ -186,7 +171,7 @@ fn invoke_riscv_build(current_dir: &Path) -> Result<()> {
 		["-Crelocation-model=pie", "-Clink-arg=--emit-relocs", "-Clink-arg=-Tmemory.ld"]
 			.join("\x1f");
 
-	fs::write(current_dir.join("memory.ld"), include_bytes!("./riscv/memory_layout.ld"))?;
+	fs::write(current_dir.join("memory.ld"), include_bytes!("./build/riscv_memory_layout.ld"))?;
 
 	let build_res = Command::new(env::var("CARGO")?)
 		.current_dir(current_dir)
@@ -194,7 +179,7 @@ fn invoke_riscv_build(current_dir: &Path) -> Result<()> {
 		.env("PATH", env::var("PATH").unwrap())
 		.env("CARGO_ENCODED_RUSTFLAGS", encoded_rustflags)
 		.env("RUSTUP_TOOLCHAIN", "rv32e-nightly-2023-04-05")
-		.args(&["build", "--release", "--target=riscv32em-unknown-none-elf"])
+		.args(&["build", "--offline", "--release", "--target=riscv32em-unknown-none-elf"])
 		.output()
 		.expect("failed to execute process");
 
@@ -221,7 +206,7 @@ fn invoke_wasm_build(current_dir: &Path) -> Result<()> {
 	let build_res = Command::new(env::var("CARGO")?)
 		.current_dir(current_dir)
 		.env("CARGO_ENCODED_RUSTFLAGS", encoded_rustflags)
-		.args(&["build", "--release", "--target=wasm32-unknown-unknown"])
+		.args(&["build", "--offline", "--release", "--target=wasm32-unknown-unknown"])
 		.output()
 		.expect("failed to execute process");
 
