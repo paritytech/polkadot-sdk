@@ -68,6 +68,9 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+
 mod payment;
 use frame_support::traits::tokens::AssetId;
 use pallet_asset_conversion::MultiAssetIdConverter;

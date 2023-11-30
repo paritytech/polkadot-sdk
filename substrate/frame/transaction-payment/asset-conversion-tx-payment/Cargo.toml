@@ -19,6 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 # Substrate dependencies
 sp-runtime = { path = "../../../primitives/runtime", default-features = false }
 sp-std = { path = "../../../primitives/std", default-features = false }
+frame-benchmarking = { path = "../../benchmarking", default-features = false, optional = true }
 frame-support = { path = "../../support", default-features = false }
 frame-system = { path = "../../system", default-features = false }
 pallet-asset-conversion = { path = "../../asset-conversion", default-features = false }
@@ -37,6 +38,7 @@ pallet-balances = { path = "../../balances" }
 default = ["std"]
 std = [
 	"codec/std",
+	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-asset-conversion/std",
@@ -49,6 +51,12 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 	"sp-storage/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
