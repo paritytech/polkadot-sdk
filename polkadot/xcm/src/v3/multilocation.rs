@@ -75,6 +75,7 @@ pub struct MultiLocation {
 	pub interior: Junctions,
 }
 
+/// Type alias for a better transition to V4.
 pub type Location = MultiLocation;
 
 impl Default for MultiLocation {

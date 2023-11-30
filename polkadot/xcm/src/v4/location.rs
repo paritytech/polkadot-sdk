@@ -106,11 +106,6 @@ impl Location {
 		Location { parents: 1, interior: Junctions::Here }
 	}
 
-	/// Creates a new `Location` which evaluates to the grand parent context.
-	pub const fn grandparent() -> Location {
-		Location { parents: 2, interior: Junctions::Here }
-	}
-
 	/// Creates a new `Location` with `parents` and an empty (`Here`) interior.
 	pub const fn ancestor(parents: u8) -> Location {
 		Location { parents, interior: Junctions::Here }

@@ -92,6 +92,7 @@ macro_rules! versioned_type {
 		)]
 		#[codec(encode_bound())]
 		#[codec(decode_bound())]
+		#[scale_info(replace_segment("staging_xcm", "xcm"))]
 		$(#[$attr])*
 		pub enum $n {
 			$(#[$index3])*
