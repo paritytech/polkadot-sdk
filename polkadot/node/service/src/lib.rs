@@ -736,25 +736,10 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 	let is_offchain_indexing_enabled = config.offchain_worker.indexing_enabled;
 	let role = config.role.clone();
 	let force_authoring = config.force_authoring;
-	let backoff_authoring_blocks = if !force_authoring_backoff &&
-		(config.chain_spec.is_polkadot() || config.chain_spec.is_kusama())
-	{
+	let backoff_authoring_blocks = if !force_authoring_backoff {
 		// the block authoring backoff is disabled by default on production networks
 		None
 	} else {
-		let mut backoff = sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging::default();
-
-		if config.chain_spec.is_rococo() ||
-			config.chain_spec.is_wococo() ||
-			config.chain_spec.is_versi() ||
-			config.chain_spec.is_dev()
-		{
-			// on testnets that are in flux (like rococo or versi), finality has stalled
-			// sometimes due to operational issues and it's annoying to slow down block
-			// production to 1 block per hour.
-			backoff.max_interval = 10;
-		}
-
 		Some(backoff)
 	};
 
