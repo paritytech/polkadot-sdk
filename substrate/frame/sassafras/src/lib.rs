@@ -952,27 +952,25 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Append a set of tickets to the segments map.
-	pub(crate) fn append_tickets(tickets: BoundedVec<TicketId, EpochLengthFor<T>>) {
+	pub(crate) fn append_tickets(mut tickets: BoundedVec<TicketId, EpochLengthFor<T>>) {
 		debug!(target: LOG_TARGET, "Appending batch with {} tickets", tickets.len());
 		tickets.iter().for_each(|t| trace!(target: LOG_TARGET, "  + {t:032x}"));
 
 		let mut metadata = TicketsMeta::<T>::get();
 		let mut segment_idx = metadata.unsorted_tickets_count / SEGMENT_MAX_SIZE;
 
-		let mut tickets = tickets.as_slice();
 		while !tickets.is_empty() {
 			let rem = metadata.unsorted_tickets_count % SEGMENT_MAX_SIZE;
 			let to_be_added = tickets.len().min((SEGMENT_MAX_SIZE - rem) as usize);
 
-			let mut segment = UnsortedSegments::<T>::get(segment_idx).into_inner();
-			segment.extend_from_slice(&tickets[..to_be_added]);
-			let segment = BoundedVec::truncate_from(segment);
+			let mut segment = UnsortedSegments::<T>::get(segment_idx);
+			let _ = segment
+				.try_extend(tickets.drain(..to_be_added))
+				.defensive_proof("We don't add more than `SEGMENT_MAX_SIZE` and this is the maximum bound for the vector.");
 			UnsortedSegments::<T>::insert(segment_idx, segment);
 
 			metadata.unsorted_tickets_count += to_be_added as u32;
 			segment_idx += 1;
-
-			tickets = &tickets[to_be_added..];
 		}
 
 		TicketsMeta::<T>::set(metadata);
