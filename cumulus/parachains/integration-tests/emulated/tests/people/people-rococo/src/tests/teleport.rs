@@ -254,16 +254,3 @@ fn limited_teleport_native_assets_from_system_para_to_relay_fails() {
 	// Receiver's balance does not change
 	assert_eq!(receiver_balance_after, receiver_balance_before);
 }
-
-// #[test]
-// fn teleport_to_other_system_parachains_works() {
-// 	let amount = PEOPLE_ROCOCO_ED * 100;
-// 	let native_asset: MultiAssets = (Parent, amount).into();
-//
-// 	test_parachain_is_trusted_teleporter!(
-// 		PeopleRococo,          // Origin
-// 		PeopleRococoXcmConfig, // XCM Configuration
-// 		vec![BridgeHubRococo], // Destinations
-// 		(native_asset, amount)
-// 	);
-// }
