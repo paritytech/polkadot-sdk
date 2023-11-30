@@ -22,9 +22,10 @@ use people_rococo_runtime::people::{
 	IdentityInfo as IdentityInfoParachain, SubAccountDeposit as SubAccountDepositParachain,
 };
 use rococo_runtime::{
-	deposit, BasicDeposit, ByteDeposit, MaxAdditionalFields, RuntimeOrigin as RococoOrigin,
-	SubAccountDeposit, EXISTENTIAL_DEPOSIT,
+	BasicDeposit, ByteDeposit, MaxAdditionalFields, RuntimeOrigin as RococoOrigin,
+	SubAccountDeposit,
 };
+use rococo_runtime_constants::currency::*;
 use rococo_system_emulated_network::{
 	rococo_emulated_chain::RococoRelayPallet, RococoRelay, RococoRelayReceiver, RococoRelaySender,
 };
@@ -207,23 +208,21 @@ fn assert_set_id_parachain(id: &Identity) {
 	});
 }
 
-fn assert_reap_id_relay(total_deposit: u128) {
+fn assert_reap_id_relay(total_deposit: u128, id: &Identity) {
 	// 5. reap_identity on Relay Chain
 	RococoRelay::execute_with(|| {
 		type RuntimeEvent = <RococoRelay as Chain>::RuntimeEvent;
 		let free_bal_before_reap = RococoBalances::free_balance(RococoRelaySender::get());
 		let reserved_balance = RococoBalances::reserved_balance(RococoRelaySender::get());
-		let mut remote_deposit = Balance::new();
 		//before reap reserved balance should be equal to total deposit
 		assert_eq!(reserved_balance, total_deposit);
 
-		if let Some((_reg, bytes, subs)) =
-			RococoIdentityMigrator::reap_identity(RococoOrigin::root(), RococoRelaySender::get())
-		{
-			remote_deposit = calculate_remote_deposit(bytes, subs);
-			assert!(remote_deposit > 0);
-		}
+		assert_ok!(RococoIdentityMigrator::reap_identity(
+			RococoOrigin::root(),
+			RococoRelaySender::get()
+		));
 
+		let remote_deposit = calculate_remote_deposit(id.relay.encoded_size() as u32, 1);
 		assert_expected_events!(
 			RococoRelay,
 			vec![
@@ -244,7 +243,7 @@ fn assert_reap_id_relay(total_deposit: u128) {
 
 		// free balance after reap should be greater than before reap
 		assert!(free_bal_after_reap > free_bal_before_reap);
-		assert_eq!(free_bal_after_reap, free_bal_before_reap - remote_deposit);
+		assert_eq!(free_bal_after_reap, free_bal_before_reap + total_deposit - remote_deposit);
 	});
 }
 fn assert_reap_parachain(id: &Identity) {
@@ -308,7 +307,7 @@ fn calculate_remote_deposit(bytes: u32, subs: u32) -> Balance {
 fn assert_relay_para_flow(id: &Identity) {
 	let total_deposit = set_id_relay(id);
 	assert_set_id_parachain(id);
-	assert_reap_id_relay(total_deposit);
+	assert_reap_id_relay(total_deposit, id);
 	assert_reap_parachain(id);
 }
 
