@@ -16,8 +16,8 @@ transform_regex = [
 	# Transforms'
 	"^(.*)'$",
 	# backslashes
-	"^\\+$",
 	"^[0-9]*+k|MB|Mb|ms|Mbit|nd|th|rd$",
+	"^\\+$",
 	# single char `=` `>` `%` ..
 	"^=|>|<|%$",
 	# 22_100

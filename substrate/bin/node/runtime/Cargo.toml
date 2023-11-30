@@ -26,7 +26,7 @@ log = { version = "0.4.17", default-features = false }
 serde_json = { version = "1.0.108", default-features = false, features = ["alloc", "arbitrary_precision"] }
 
 # pallet-asset-conversion: turn on "num-traits" feature
-primitive-types = { version = "0.12.0", default-features = false, features = ["codec", "scale-info", "num-traits"] }
+primitive-types = { version = "0.12.0", default-features = false, features = ["codec", "num-traits", "scale-info"] }
 
 # primitives
 sp-authority-discovery = { path = "../../../primitives/authority-discovery", default-features = false, features = ["serde"] }

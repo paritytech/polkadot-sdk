@@ -13,7 +13,7 @@ parity-scale-codec = { version = "3.0.0", default-features = false }
 scale-info = { version = "2.6.0", default-features = false }
 
 # this is a frame-based runtime, thus importing `frame` with runtime feature enabled.
-frame = { path = "../../../frame", default-features = false, features = ["runtime", "experimental"] }
+frame = { path = "../../../frame", default-features = false, features = ["experimental", "runtime"] }
 frame-support = { path = "../../../frame/support", default-features = false }
 
 # pallets that we want to use

@@ -2,13 +2,14 @@
 
 # ignore zombienet as they do some deliberate custom toml stuff
 exclude = [
-	"polkadot/zombienet_tests/**",
 	"cumulus/zombienet/**",
-	"substrate/zombienet/**",
 	"polkadot/node/malus/integrationtests/**",
+	"polkadot/zombienet_tests/**",
+	"substrate/zombienet/**",
 ]
 
 [formatting]
+reorder_arrays = true
 inline_table_expand = false
 array_auto_expand = false
 array_auto_collapse = false

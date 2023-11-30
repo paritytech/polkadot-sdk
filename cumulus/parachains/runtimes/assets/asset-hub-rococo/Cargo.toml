@@ -55,7 +55,7 @@ sp-transaction-pool = { path = "../../../../../substrate/primitives/transaction-
 sp-version = { path = "../../../../../substrate/primitives/version", default-features = false }
 sp-weights = { path = "../../../../../substrate/primitives/weights", default-features = false }
 # num-traits feature needed for dex integer sq root:
-primitive-types = { version = "0.12.1", default-features = false, features = ["codec", "scale-info", "num-traits"] }
+primitive-types = { version = "0.12.1", default-features = false, features = ["codec", "num-traits", "scale-info"] }
 
 # Polkadot
 rococo-runtime-constants = { path = "../../../../../polkadot/runtime/rococo/constants", default-features = false }
