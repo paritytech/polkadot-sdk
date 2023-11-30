@@ -224,8 +224,7 @@ impl PalletVersionToStorageVersionHelper for T {
 	}
 }
 
-/// Migrate from the `PalletVersion` struct to the new
-/// [`StorageVersion`](crate::traits::StorageVersion) struct.
+/// Migrate from the `PalletVersion` struct to the new [`StorageVersion`] struct.
 ///
 /// This will remove all `PalletVersion's` from the state and insert the current storage version.
 pub fn migrate_from_pallet_version_to_storage_version<
