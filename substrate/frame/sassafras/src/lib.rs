@@ -53,7 +53,7 @@ use scale_info::TypeInfo;
 
 use frame_support::{
 	dispatch::{DispatchResultWithPostInfo, Pays},
-	traits::Get,
+	traits::{Defensive, Get},
 	weights::Weight,
 	BoundedVec, WeakBoundedVec,
 };
@@ -67,7 +67,11 @@ use sp_consensus_sassafras::{
 	TicketId, RANDOMNESS_LENGTH, SASSAFRAS_ENGINE_ID,
 };
 use sp_io::hashing;
-use sp_runtime::{generic::DigestItem, traits::One, BoundToRuntimeAppPublic};
+use sp_runtime::{
+	generic::DigestItem,
+	traits::{One, Zero},
+	BoundToRuntimeAppPublic,
+};
 use sp_std::prelude::Vec;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -438,13 +442,15 @@ pub mod pallet {
 
 				// Check ring signature
 				let sign_data = vrf::ticket_body_sign_data(&ticket.body, ticket_id_input);
-				if ticket.signature.ring_vrf_verify(&sign_data, &verifier) {
-					TicketsData::<T>::set(ticket_id, Some(ticket.body));
-					valid_tickets
-						.try_push(ticket_id)
-						.defensive_proof("Input segment has same length as bounded destination vector; qed");
-				} else {
+				if !ticket.signature.ring_vrf_verify(&sign_data, &verifier) {
 					debug!(target: LOG_TARGET, "Proof verification failure for ticket ({:032x})", ticket_id);
+					continue
+				}
+
+				if let Ok(_) = valid_tickets.try_push(ticket_id).defensive_proof(
+					"Input segment has same length as bounded destination vector; qed",
+				) {
+					TicketsData::<T>::set(ticket_id, Some(ticket.body));
 				}
 			}
 
