@@ -15,10 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! > Made for [![polkadot]](https://polkadot.network)
-//!
-//! [polkadot]: https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&logo=polkadot&logoColor=white
-//!
 //! # FRAME
 //!
 //! ```no_compile
@@ -34,14 +30,21 @@
 //! > **F**ramework for **R**untime **A**ggregation of **M**odularized **E**ntities: Substrate's
 //! > State Transition Function (Runtime) Framework.
 //!
+//! ## Documentation
+//!
+//! See [`polkadot_sdk::frame`](../developer_hub/polkadot_sdk/frame_runtime/index.html).
+//!
 //! ## Warning: Experimental
 //!
 //! This crate and all of its content is experimental, and should not yet be used in production.
 //!
-//! ## Getting Started
+//! ## Underlying dependencies
 //!
-//! TODO: link to `developer_hub::polkadot_sdk::frame`. The `developer_hub` hasn't been published
-//! yet, this can be updated once it is linkable.
+//! This crate is an amalgamation of multiple other crates that are often used together to compose a
+//! pallet. It is not necessary to use it, and it may fall short for certain purposes.
+//!
+//! In short, this crate only re-exports types and traits from multiple sources. All of these
+//! sources are listed (and re-exported again) in [`deps`].
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg(feature = "experimental")]
@@ -54,8 +57,18 @@
 /// `#[pallet::bar]` inside the mod.
 pub use frame_support::pallet;
 
+pub use frame_support::pallet_macros::{import_section, pallet_section};
+
 /// The logging library of the runtime. Can normally be the classic `log` crate.
 pub use log;
+
+/// A list of all macros used within the main [`pallet`] macro.
+///
+/// Note: All of these macros are "stubs" and not really usable outside `#[pallet] mod pallet { ..
+/// }`. They are mainly provided for documentation and IDE support.
+pub mod pallet_macros {
+	pub use frame_support::{derive_impl, pallet, pallet_macros::*};
+}
 
 /// The main prelude of FRAME.
 ///
@@ -78,9 +91,6 @@ pub mod prelude {
 	/// Pallet prelude of `frame-support`.
 	///
 	/// Note: this needs to revised once `frame-support` evolves.
-	// `frame-support` will be break down https://github.com/paritytech/polkadot-sdk/issues/127 and its reexports will
-	// most likely change. These wildcard reexportings can be optimized once `frame-support` has
-	// changed.
 	#[doc(no_inline)]
 	pub use frame_support::pallet_prelude::*;
 
@@ -156,6 +166,9 @@ pub mod runtime {
 		/// Types to define your runtime version.
 		pub use sp_version::{create_runtime_str, runtime_version, RuntimeVersion};
 
+		/// Macro to implement runtime APIs.
+		pub use sp_api::impl_runtime_apis;
+
 		#[cfg(feature = "std")]
 		pub use sp_version::NativeVersion;
 	}
@@ -179,9 +192,6 @@ pub mod runtime {
 		pub use sp_core::OpaqueMetadata;
 		pub use sp_inherents::{CheckInherentsResult, InherentData};
 		pub use sp_runtime::ApplyExtrinsicResult;
-
-		/// Macro to implement runtime APIs.
-		pub use sp_api::impl_runtime_apis;
 
 		pub use frame_system_rpc_runtime_api::*;
 		pub use sp_api::{self, *};
