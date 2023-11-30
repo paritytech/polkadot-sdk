@@ -20,6 +20,7 @@
 #![cfg(test)]
 
 use codec::Encode;
+use frame_support::derive_impl;
 use sp_runtime::{traits::IdentityLookup, BuildStorage};
 
 type AccountId = u64;
@@ -34,6 +35,7 @@ frame_support::construct_runtime!(
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();

@@ -25,7 +25,7 @@ use crate::{
 };
 
 use frame_support::{
-	assert_ok, parameter_types,
+	assert_ok, derive_impl, parameter_types,
 	traits::{
 		Currency, ProcessMessage, ProcessMessageError, ValidatorSet, ValidatorSetWithIdentification,
 	},
@@ -94,6 +94,7 @@ parameter_types! {
 
 pub type AccountId = u64;
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = BlockWeights;

@@ -1307,7 +1307,7 @@ mod tests {
 	use super::*;
 	use crate as elections_phragmen;
 	use frame_support::{
-		assert_noop, assert_ok,
+		assert_noop, assert_ok, derive_impl,
 		dispatch::DispatchResultWithPostInfo,
 		parameter_types,
 		traits::{ConstU32, ConstU64, OnInitialize},
@@ -1321,6 +1321,7 @@ mod tests {
 	};
 	use substrate_test_utils::assert_eq_uvec;
 
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();

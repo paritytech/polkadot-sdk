@@ -20,7 +20,10 @@
 #![cfg(test)]
 
 use crate::{self as pallet_indices, Config};
-use frame_support::traits::{ConstU32, ConstU64};
+use frame_support::{
+	derive_impl,
+	traits::{ConstU32, ConstU64},
+};
 use sp_core::H256;
 use sp_runtime::BuildStorage;
 
@@ -35,6 +38,7 @@ frame_support::construct_runtime!(
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();

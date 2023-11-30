@@ -25,7 +25,7 @@ use frame_election_provider_support::{
 	onchain, SequentialPhragmen,
 };
 use frame_support::{
-	parameter_types,
+	derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64},
 };
 use frame_system as system;
@@ -40,6 +40,7 @@ type AccountId = u64;
 type Nonce = u32;
 type Balance = u64;
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();

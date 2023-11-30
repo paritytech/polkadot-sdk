@@ -22,6 +22,7 @@ use sp_core::H256;
 use sp_runtime::traits::{BlakeTwo256, IdentityLookup};
 
 use frame_support::{
+	derive_impl,
 	dispatch::DispatchClass,
 	parameter_types,
 	traits::{ConstU32, ConstU64, Imbalance, OnUnbalanced},
@@ -69,6 +70,7 @@ parameter_types! {
 	pub static OperationalFeeMultiplier: u8 = 5;
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = BlockWeights;

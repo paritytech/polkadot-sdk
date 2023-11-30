@@ -18,7 +18,10 @@
 //! The crate's mock.
 
 use crate as pallet_asset_rate;
-use frame_support::traits::{ConstU16, ConstU64};
+use frame_support::{
+	derive_impl,
+	traits::{ConstU16, ConstU64},
+};
 use sp_core::H256;
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
@@ -36,6 +39,7 @@ frame_support::construct_runtime!(
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();

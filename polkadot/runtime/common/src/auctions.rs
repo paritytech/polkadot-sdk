@@ -677,7 +677,8 @@ mod tests {
 	use crate::{auctions, mock::TestRegistrar};
 	use ::test_helpers::{dummy_hash, dummy_head_data, dummy_validation_code};
 	use frame_support::{
-		assert_noop, assert_ok, assert_storage_noop, ord_parameter_types, parameter_types,
+		assert_noop, assert_ok, assert_storage_noop, derive_impl, ord_parameter_types,
+		parameter_types,
 		traits::{ConstU32, EitherOfDiverse, OnFinalize, OnInitialize},
 	};
 	use frame_system::{EnsureRoot, EnsureSignedBy};
@@ -705,6 +706,8 @@ mod tests {
 	parameter_types! {
 		pub const BlockHashCount: u32 = 250;
 	}
+
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();

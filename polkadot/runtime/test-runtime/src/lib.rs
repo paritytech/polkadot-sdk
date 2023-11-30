@@ -831,7 +831,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl primitives::runtime_api::ParachainHost<Block, Hash, BlockNumber> for Runtime {
+	impl primitives::runtime_api::ParachainHost<Block> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			runtime_impl::validators::<Runtime>()
 		}

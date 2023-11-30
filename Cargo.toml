@@ -8,6 +8,7 @@ license = "GPL-3.0-only"
 resolver = "2"
 
 members = [
+	"developer-hub",
 	"bridges/bin/runtime-common",
 	"bridges/modules/grandpa",
 	"bridges/modules/messages",
@@ -77,21 +78,15 @@ members = [
 	"cumulus/parachains/pallets/collective-content",
 	"cumulus/parachains/pallets/parachain-info",
 	"cumulus/parachains/pallets/ping",
-	"cumulus/parachains/runtimes/assets/asset-hub-kusama",
-	"cumulus/parachains/runtimes/assets/asset-hub-polkadot",
 	"cumulus/parachains/runtimes/assets/asset-hub-rococo",
 	"cumulus/parachains/runtimes/assets/asset-hub-westend",
 	"cumulus/parachains/runtimes/assets/common",
 	"cumulus/parachains/runtimes/assets/test-utils",
-	"cumulus/parachains/runtimes/bridge-hubs/bridge-hub-kusama",
-	"cumulus/parachains/runtimes/bridge-hubs/bridge-hub-polkadot",
 	"cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo",
 	"cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend",
 	"cumulus/parachains/runtimes/bridge-hubs/test-utils",
-	"cumulus/parachains/runtimes/collectives/collectives-polkadot",
 	"cumulus/parachains/runtimes/collectives/collectives-westend",
 	"cumulus/parachains/runtimes/contracts/contracts-rococo",
-	"cumulus/parachains/runtimes/glutton/glutton-kusama",
 	"cumulus/parachains/runtimes/glutton/glutton-westend",
 	"cumulus/parachains/runtimes/starters/seedling",
 	"cumulus/parachains/runtimes/starters/shell",
@@ -192,7 +187,6 @@ members = [
 	"polkadot/xcm/xcm-simulator",
 	"polkadot/xcm/xcm-simulator/example",
 	"polkadot/xcm/xcm-simulator/fuzzer",
-	"substrate",
 	"substrate/bin/minimal/node",
 	"substrate/bin/minimal/runtime",
 	"substrate/bin/node-template/node",
@@ -200,7 +194,6 @@ members = [
 	"substrate/bin/node-template/runtime",
 	"substrate/bin/node/bench",
 	"substrate/bin/node/cli",
-	"substrate/bin/node/executor",
 	"substrate/bin/node/inspect",
 	"substrate/bin/node/primitives",
 	"substrate/bin/node/rpc",
@@ -290,8 +283,9 @@ members = [
 	"substrate/frame/collective",
 	"substrate/frame/contracts",
 	"substrate/frame/contracts/fixtures",
+	"substrate/frame/contracts/fixtures/contracts/common",
+	"substrate/frame/contracts/uapi",
 	"substrate/frame/contracts/mock-network",
-	"substrate/frame/contracts/primitives",
 	"substrate/frame/contracts/proc-macro",
 	"substrate/frame/conviction-voting",
 	"substrate/frame/core-fellowship",
@@ -482,8 +476,7 @@ default-members = [ "polkadot", "substrate/bin/node/cli" ]
 panic = "unwind"
 opt-level = 3
 
-# make sure dev builds with backtrace do
-# not slow us down
+# make sure dev builds with backtrace do not slow us down
 [profile.dev.package.backtrace]
 inherits = "release"
 

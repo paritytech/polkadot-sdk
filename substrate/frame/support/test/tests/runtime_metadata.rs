@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use frame_support::traits::ConstU32;
+use frame_support::{derive_impl, traits::ConstU32};
 use scale_info::{form::MetaForm, meta_type};
 use sp_metadata_ir::{
 	RuntimeApiMetadataIR, RuntimeApiMethodMetadataIR, RuntimeApiMethodParamMetadataIR,
@@ -27,6 +27,7 @@ pub type Header = sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo2
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, RuntimeCall, (), ()>;
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BlockWeights = ();
 	type BlockLength = ();

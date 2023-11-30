@@ -21,7 +21,7 @@ use frame_election_provider_support::{
 	bounds::{DataProviderBounds, ElectionBounds},
 	data_provider, onchain, ElectionDataProvider, NposSolution, SequentialPhragmen,
 };
-pub use frame_support::{assert_noop, assert_ok, pallet_prelude::GetDefault};
+pub use frame_support::{assert_noop, assert_ok, derive_impl, pallet_prelude::GetDefault};
 use frame_support::{
 	parameter_types,
 	traits::{ConstU32, Hooks},
@@ -80,11 +80,7 @@ frame_election_provider_support::generate_solution_type!(
 
 /// All events of this pallet.
 pub(crate) fn multi_phase_events() -> Vec<super::Event<Runtime>> {
-	System::events()
-		.into_iter()
-		.map(|r| r.event)
-		.filter_map(|e| if let RuntimeEvent::MultiPhase(inner) = e { Some(inner) } else { None })
-		.collect::<Vec<_>>()
+	System::read_events_for_pallet::<super::Event<Runtime>>()
 }
 
 /// To from `now` to block `n`.
@@ -204,6 +200,7 @@ pub fn witness() -> SolutionOrSnapshotSize {
 		.unwrap_or_default()
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	type SS58Prefix = ();
 	type BaseCallFilter = frame_support::traits::Everything;
