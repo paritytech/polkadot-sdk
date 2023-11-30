@@ -21,7 +21,7 @@ derive_more = "0.99.11"
 bounded-collections = { version = "0.1.8", default-features = false, features = ["serde"] }
 
 # all optional crates.
-serde = { version = "1.0.188", default-features = false, features = ["derive", "alloc"] }
+serde = { version = "1.0.193", default-features = false, features = ["derive", "alloc"] }
 
 [features]
 default = [ "std" ]
