@@ -877,8 +877,7 @@ impl<T: Config> Pallet<T> {
 	// Sort and truncate candidate tickets, cleanup storage.
 	fn sort_and_truncate(candidates: &mut Vec<u128>, max_tickets: usize) -> u128 {
 		candidates.sort_unstable();
-		candidates[max_tickets..].iter().for_each(TicketsData::<T>::remove);
-		candidates.truncate(max_tickets);
+		candidates.drain(max_tickets..).for_each(TicketsData::<T>::remove);
 		candidates[max_tickets - 1]
 	}
 
