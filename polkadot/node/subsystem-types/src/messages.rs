@@ -720,6 +720,8 @@ pub enum RuntimeApiRequest {
 	AsyncBackingParams(RuntimeApiSender<async_backing::AsyncBackingParams>),
 	/// Get the node features.
 	NodeFeatures(SessionIndex, RuntimeApiSender<NodeFeatures>),
+	/// Get the bulk core count
+	BulkCoreCount(SessionIndex, RuntimeApiSender<u16>),
 }
 
 impl RuntimeApiRequest {
@@ -751,6 +753,9 @@ impl RuntimeApiRequest {
 
 	/// `Node features`
 	pub const NODE_FEATURES_RUNTIME_REQUIREMENT: u32 = 9;
+
+	/// `BulkCoreCount`
+	pub const BULK_CORE_COUNT_RUNTIME_REQUIREMENT: u32 = 10;
 }
 
 /// A message to the Runtime API subsystem.

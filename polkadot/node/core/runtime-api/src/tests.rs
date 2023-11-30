@@ -276,6 +276,10 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 	async fn disabled_validators(&self, _: Hash) -> Result<Vec<ValidatorIndex>, ApiError> {
 		todo!("Not required for tests")
 	}
+
+	async fn bulk_core_count(&self, _: Hash) -> Result<u16, ApiError> {
+		todo!("Not required for tests")
+	}
 }
 
 #[test]

@@ -536,3 +536,32 @@ pub async fn request_node_features(
 		res.map(Some)
 	}
 }
+
+/// Request current bulk core count
+/// Pass in the session index for caching purposes, as it should only change on session boundaries.
+/// Prior to runtime API version 10, just return 0.
+pub async fn request_bulk_core_count(
+	parent: Hash,
+	session_index: SessionIndex,
+	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
+) -> Result<u16> {
+	let res = recv_runtime(
+		request_from_runtime(parent, sender, |tx| {
+			RuntimeApiRequest::BulkCoreCount(session_index, tx)
+		})
+		.await,
+	)
+	.await;
+
+	if let Err(Error::RuntimeRequest(RuntimeApiError::NotSupported { .. })) = res {
+		gum::trace!(
+			target: LOG_TARGET,
+			?parent,
+			"Querying the bulk core count from the runtime is not supported by the current Runtime API",
+		);
+
+		Ok(0u16)
+	} else {
+		res.map(Some)
+	}
+}

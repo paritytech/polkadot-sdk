@@ -263,6 +263,8 @@ pub struct HostConfiguration<BlockNumber> {
 	pub minimum_backing_votes: u32,
 	/// Node features enablement.
 	pub node_features: NodeFeatures,
+	/// Bulk core count
+	pub bulk_core_count: u16,
 }
 
 impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber> {
@@ -315,6 +317,7 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			on_demand_ttl: 5u32.into(),
 			minimum_backing_votes: LEGACY_MIN_BACKING_VOTES,
 			node_features: NodeFeatures::EMPTY,
+			bulk_core_count: Default::default(),
 		}
 	}
 }
@@ -515,6 +518,7 @@ pub mod pallet {
 	/// v7-v8:  <https://github.com/paritytech/polkadot/pull/6969>
 	/// v8-v9:  <https://github.com/paritytech/polkadot/pull/7577>
 	/// v9-v10: <https://github.com/paritytech/polkadot-sdk/pull/2177>
+	
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(10);
 
 	#[pallet::pallet]

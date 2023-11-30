@@ -607,6 +607,14 @@ impl RelayChainRpcClient {
 			.await
 	}
 
+	pub async fn parachain_host_bulk_core_count(
+		&self,
+		at: RelayHash
+	) -> Result<u16, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_bulk_core_count", at, None::<()>)
+			.await
+	}
+
 	pub async fn parachain_host_disabled_validators(
 		&self,
 		at: RelayHash,

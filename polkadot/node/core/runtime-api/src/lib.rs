@@ -175,6 +175,8 @@ where
 				self.requests_cache.cache_async_backing_params(relay_parent, params),
 			NodeFeatures(session_index, params) =>
 				self.requests_cache.cache_node_features(session_index, params),
+			BulkCoreCount(session_index, count) =>
+				self.requests_cache.cache_bulk_core_count(session_index, count)
 		}
 	}
 
@@ -324,6 +326,14 @@ where
 					Some(Request::NodeFeatures(index, sender))
 				}
 			},
+			Request::BulkCoreCount(index, sender) => {
+				if let Some(value) = self.requests_cache.bulk_core_count(index) {
+					self.metrics.on_cached_request();
+					let _ = sender.send(Ok(value.clone()));
+					None
+				} else {
+					Some(Request::BulkCoreCount(index, sender))
+				}
 		}
 	}
 
@@ -609,6 +619,13 @@ where
 			NodeFeatures,
 			node_features(),
 			ver = Request::NODE_FEATURES_RUNTIME_REQUIREMENT,
+			sender,
+			result = (index)
+		),
+		Request::BulkCoreCount(index, sender) => query!(
+			BulkCoreCount,
+			bulk_core_count(),
+			ver = Request::BULK_CORE_COUNT_RUNTIME_REQUIREMENT,
 			sender,
 			result = (index)
 		),

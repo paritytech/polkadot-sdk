@@ -369,6 +369,10 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 	async fn node_features(&self, at: Hash) -> Result<NodeFeatures, ApiError> {
 		Ok(self.rpc_client.parachain_host_node_features(at).await?)
 	}
+
+	async fn bulk_core_count(&self, at: Hash) -> Result<u16, ApiError> {
+		Ok(self.rpc_client.parachain_host_bulk_core_count(at).await?)
+	}
 }
 
 #[async_trait::async_trait]
