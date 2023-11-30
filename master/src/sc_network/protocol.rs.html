@@ -387,6 +387,11 @@
 <a href="#387" id="387">387</a>
 <a href="#388" id="388">388</a>
 <a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -432,7 +437,7 @@
 
 <span class="kw">use </span>std::{collections::HashSet, iter, task::Poll};
 
-<span class="kw">use </span>notifications::{Notifications, NotificationsOut};
+<span class="kw">use </span>notifications::{metrics, Notifications, NotificationsOut};
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>notifications::ProtocolHandle;
 
@@ -484,7 +489,7 @@
 			<span class="comment">// NOTE: Block announcement protocol is still very much hardcoded into
 			// `Protocol`. 	This protocol must be the first notification protocol given to
 			// `Notifications`
-			</span><span class="kw">let </span>(protocol_configs, handles): (Vec&lt;<span class="kw">_</span>&gt;, Vec&lt;<span class="kw">_</span>&gt;) = iter::once({
+			</span><span class="kw">let </span>(protocol_configs, <span class="kw-2">mut </span>handles): (Vec&lt;<span class="kw">_</span>&gt;, Vec&lt;<span class="kw">_</span>&gt;) = iter::once({
 				<span class="kw">let </span>config = notifications::ProtocolConfig {
 					name: block_announces_protocol.protocol_name().clone(),
 					fallback_names: block_announces_protocol.fallback_names().cloned().collect(),
@@ -511,11 +516,16 @@
 			}))
 			.unzip();
 
+			<span class="kw">let </span>metrics = registry.as_ref().and_then(|registry| metrics::register(<span class="kw-2">&amp;</span>registry).ok());
+			handles.iter_mut().for_each(|handle| {
+				handle.set_metrics(metrics.clone());
+			});
+
 			(
 				Notifications::new(
 					protocol_controller_handles,
 					from_protocol_controllers,
-					registry,
+					metrics,
 					protocol_configs.into_iter(),
 				),
 				installed_protocols,
