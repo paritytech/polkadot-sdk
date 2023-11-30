@@ -60,6 +60,64 @@
 <a href="#60" id="60">60</a>
 <a href="#61" id="61">61</a>
 <a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! # Glossary
 //!
 //! #### State
@@ -98,28 +156,86 @@
 //!
 //! #### Offchain
 //!
-//! #### Host Function:
+//! Refers to operations conducted outside the blockchain&#39;s consensus mechanism. They are essential
+//! for enhancing scalability and efficiency, enabling activities like data fetching and computation
+//! without bloating the blockchain state.
+//!
+//! #### Host Functions:
+//!
+//! Host functions are the node&#39;s API, these are functions provided by the runtime environment (the
+//! [host](#host)) to the Wasm runtime. These functions allow the Wasm code to interact with and
+//! perform operations on the [node](#node), like accessing the blockchain state.
 //!
 //! #### Runtime API:
 //!
+//! This is the API of the runtime, it acts as a communication bridge between the runtime and the
+//! node, serving as the exposed interface that facilitates their interactions.
+//!
 //! #### Dispatchable:
 //!
-//! Callable
+//! Dispatchables are [function objects](https://en.wikipedia.org/wiki/Function_object) that act as
+//! the entry points in [FRAME](frame) pallets. They can be called by internal or external entities
+//! to interact with the blockchain&#39;s state. They are a core aspect of the runtime logic, handling
+//! transactions and other state-changing operations.
+//!
+//! **Synonyms**: Callable
 //!
 //! #### Extrinsic
 //!
+//! An extrinsic is a general term for a piece of data that is originated outside of the runtime,
+//! included into a block and leads to some action. This includes user-initiated transactions as
+//! well as inherents which are placed into the block by the block-builder.
 //!
 //! #### Pallet
 //!
+//! Similar to software modules in traditional programming, [FRAME](frame) pallets in Substrate are
+//! modular components that encapsulate distinct functionalities or business logic. Just as
+//! libraries or modules are used to build and extend the capabilities of a software application,
+//! pallets are the foundational building blocks for constructing a blockchain&#39;s runtime with frame.
+//! They enable the creation of customizable and upgradeable networks, offering a composable
+//! framework for a Substrate-based blockchain. Each pallet can be thought of as a plug-and-play
+//! module, enhancing the blockchain&#39;s functionality in a cohesive and integrated manner.
+//!
 //! #### Full Node
+//!
+//! It is a node that prunes historical states, keeping only recent finalized block states to reduce
+//! storage needs. Full nodes provide current chain state access and allow direct submission and
+//! validation of extrinsics, maintaining network decentralization.
 //!
 //! #### Archive Node
 //!
+//! An archive node is a specialized node that maintains a complete history of all block states and
+//! transactions. Unlike a full node, it does not prune historical data, ensuring full access to the
+//! entire blockchain history. This makes it essential for detailed blockchain analysis and
+//! historical queries, but requires significantly more storage capacity.
+//!
 //! #### Validator
+//!
+//! A validator is a node that participates in the consensus mechanism of the network.
+//! Its role includes block production, transaction validation, network integrity and security
+//! maintenance.
 //!
 //! #### Collator
 //!
+//! A collator is a node that is responsible for producing candidate blocks for the validators.
+//! Collators are similar to validators on any other blockchain but, they do not need to provide
+//! security guarantees as the Relay Chain handles this.
+//!
 //! #### Parachain
 //!
-//! aka. AppChain.
+//! Short for &quot;parallelized chain&quot; a parachain is a specialized blockchain that runs in parallel to
+//! the Relay Chain (Polkadot, Kusama, etc.), benefiting from the shared security and
+//! interoperability features of it.
+//!
+//! **Synonyms**: AppChain
+//!
+//! #### PVF
+//! The Parachain Validation Function (PVF) is the current runtime Wasm for a parachain that is
+//! stored on the Relay chain. It is an essential component in the Polkadot ecosystem, encapsulating
+//! the validation logic for each parachain. The PVF is executed by validators to verify the
+//! correctness of parachain blocks. This is critical for ensuring that each block follows the logic
+//! set by its respective parachain, thus maintaining the integrity and security of the entire
+//! network.
+//!
+//! **Synonyms**: Parachain Validation Function
 </span></code></pre></div></section></main></body></html>
