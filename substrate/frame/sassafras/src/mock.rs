@@ -19,7 +19,10 @@
 
 use crate::{self as pallet_sassafras, EpochChangeInternalTrigger, *};
 
-use frame_support::traits::{ConstU32, ConstU64, OnFinalize, OnInitialize};
+use frame_support::{
+	derive_impl,
+	traits::{ConstU32, OnFinalize, OnInitialize},
+};
 use sp_consensus_sassafras::{
 	digests::SlotClaim,
 	vrf::{RingProver, VrfSignature},
@@ -32,7 +35,6 @@ use sp_core::{
 };
 use sp_runtime::{
 	testing::{Digest, DigestItem, Header, TestXt},
-	traits::IdentityLookup,
 	BuildStorage,
 };
 
@@ -41,30 +43,9 @@ const LOG_TARGET: &str = "sassafras::tests";
 const EPOCH_LENGTH: u32 = 10;
 const MAX_AUTHORITIES: u32 = 100;
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Version = ();
-	type Hashing = sp_runtime::traits::BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = frame_system::mocking::MockBlock<Test>;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type PalletInfo = PalletInfo;
-	type AccountData = u128;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
@@ -83,8 +64,7 @@ impl pallet_sassafras::Config for Test {
 }
 
 frame_support::construct_runtime!(
-	pub enum Test
-	{
+	pub enum Test {
 		System: frame_system,
 		Sassafras: pallet_sassafras,
 	}
@@ -108,9 +88,6 @@ pub fn new_test_ext_with_pairs(
 	authorities_len: usize,
 	with_ring_context: bool,
 ) -> (Vec<AuthorityPair>, sp_io::TestExternalities) {
-	// @davxy temporary logging facility
-	// env_logger::init();
-
 	let pairs = (0..authorities_len)
 		.map(|i| AuthorityPair::from_seed(&U256::from(i).into()))
 		.collect::<Vec<_>>();

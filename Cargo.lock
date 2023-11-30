@@ -10714,7 +10714,6 @@ name = "pallet-sassafras"
 version = "0.3.5-dev"
 dependencies = [
  "array-bytes 6.1.0",
- "env_logger 0.10.0",
  "frame-benchmarking",
  "frame-support",
  "frame-system",

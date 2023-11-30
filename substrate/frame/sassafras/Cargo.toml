@@ -27,7 +27,6 @@ sp-std = { path = "../../primitives/std", default-features = false }
 
 [dev-dependencies]
 array-bytes = "6.1"
-env_logger = "0.10"
 sp-core = { path = "../../primitives/core" }
 
 [features]
@@ -55,5 +54,6 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-# Construct dummy ring context (useful for development)
+# Construct dummy ring context on genesis.
+# Mostly used for testing and development.
 construct-dummy-ring-context = []
