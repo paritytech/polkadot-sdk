@@ -17,10 +17,10 @@ pallet-default-config-example = { path = "default-config", default-features = fa
 pallet-dev-mode = { path = "dev-mode", default-features = false }
 pallet-example-basic = { path = "basic", default-features = false }
 pallet-example-frame-crate = { path = "frame-crate", default-features = false }
-pallet-example-kitchensink = { path = "kitchensink", default-features = false}
-pallet-example-offchain-worker = { path = "offchain-worker", default-features = false}
-pallet-example-split = { path = "split", default-features = false}
-pallet-example-single-block-migrations = { path = "single-block-migrations", default-features = false}
+pallet-example-kitchensink = { path = "kitchensink", default-features = false }
+pallet-example-offchain-worker = { path = "offchain-worker", default-features = false }
+pallet-example-split = { path = "split", default-features = false }
+pallet-example-single-block-migrations = { path = "single-block-migrations", default-features = false }
 
 [features]
 default = ["std"]
@@ -31,8 +31,8 @@ std = [
 	"pallet-example-frame-crate/std",
 	"pallet-example-kitchensink/std",
 	"pallet-example-offchain-worker/std",
-	"pallet-example-split/std",
 	"pallet-example-single-block-migrations/std",
+	"pallet-example-split/std",
 ]
 try-runtime = [
 	"pallet-default-config-example/try-runtime",
@@ -40,6 +40,6 @@ try-runtime = [
 	"pallet-example-basic/try-runtime",
 	"pallet-example-kitchensink/try-runtime",
 	"pallet-example-offchain-worker/try-runtime",
-	"pallet-example-split/try-runtime",
 	"pallet-example-single-block-migrations/try-runtime",
+	"pallet-example-split/try-runtime",
 ]
