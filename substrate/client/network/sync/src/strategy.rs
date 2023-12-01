@@ -391,12 +391,13 @@ where
 		}
 	}
 
+	/// Switch to next strategy if the active one finished.
 	pub fn switch_to_next(
 		&mut self,
 		config: SyncingConfig,
 		client: Arc<Client>,
 		connected_peers: impl Iterator<Item = (PeerId, B::Hash, NumberFor<B>)>,
-	) {
+	) -> Result<(), ClientError> {
 		match self {
 			Self::WarpSyncStrategy(warp_sync) => {
 				match warp_sync.take_result() {
@@ -431,8 +432,8 @@ where
 						) {
 							Ok(chain_sync) => chain_sync,
 							Err(e) => {
-								error!(target: LOG_TARGET, "Failed to start `ChainSync` due to error: {e}.");
-								panic!("Failed to start `ChainSync` due to error: {e}.");
+								error!(target: LOG_TARGET, "Failed to start `ChainSync`.");
+								return Err(e)
 							},
 						};
 						// Let `ChainSync` know about connected peers.
@@ -457,8 +458,8 @@ where
 				) {
 					Ok(chain_sync) => chain_sync,
 					Err(e) => {
-						error!(target: LOG_TARGET, "Failed to start `ChainSync` due to error: {e}.");
-						panic!("Failed to start `ChainSync` due to error: {e}.");
+						error!(target: LOG_TARGET, "Failed to start `ChainSync`.");
+						return Err(e);
 					},
 				};
 				// Let `ChainSync` know about connected peers.
@@ -473,5 +474,6 @@ where
 				debug_assert!(false);
 			},
 		}
+		Ok(())
 	}
 }
