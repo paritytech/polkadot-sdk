@@ -75,13 +75,7 @@ impl Identity {
 				pgp_fingerprint: Some(pgp_fingerprint),
 				image: make_data(b"xcm-test.png", full),
 				twitter: make_data(b"@xcm-test", full),
-				additional: additional.unwrap_or_else(|| {
-					BoundedVec::try_from(vec![(
-						Data::Raw(b"foo".to_vec().try_into().unwrap()),
-						Data::Raw(b"bar".to_vec().try_into().unwrap()),
-					)])
-					.unwrap()
-				}),
+				additional: additional.unwrap_or_else(|| BoundedVec::default()),
 			},
 			para: IdentityInfoParachain {
 				display: make_data(b"xcm-test", full),
