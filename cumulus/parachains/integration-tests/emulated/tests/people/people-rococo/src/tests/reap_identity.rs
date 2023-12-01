@@ -333,23 +333,13 @@ fn assert_reap_parachain(id: &Identity) {
 	PeopleRococo::execute_with(|| {
 		let reserved_bal = PeopleRococoBalances::reserved_balance(PeopleRococoSender::get());
 		let id_deposit = id_deposit_parachain(&id.para);
-		let subs_deposit = SubAccountDepositParachain::get();
-
-		match id.subs {
-			Subs::Zero => {
-				assert_reap_events(0, id_deposit, id);
-				assert_eq!(reserved_bal, id_deposit);
-			},
-			Subs::One => {
-				assert_reap_events(subs_deposit, id_deposit, id);
-				assert_eq!(reserved_bal, SubAccountDepositParachain::get() + id_deposit);
-			},
-			Subs::Many(n) => {
-				let sub_account_deposit = n as u128 * SubAccountDepositParachain::get() as u128;
-				assert_reap_events(sub_account_deposit, id_deposit, id);
-				assert_eq!(reserved_bal, sub_account_deposit + id_deposit);
-			},
-		}
+		let total_deposit = match id.subs {
+			Subs::Zero => id_deposit,
+			Subs::One => id_deposit + SubAccountDepositParachain::get(),
+			Subs::Many(n) => id_deposit + n as u128 * SubAccountDepositParachain::get(),
+		};
+		assert_reap_events(SubAccountDepositParachain::get(), id_deposit, id);
+		assert_eq!(reserved_bal, total_deposit);
 
 		// Should have at least one ED after in free balance after the reap.
 		assert!(PeopleRococoBalances::free_balance(PeopleRococoSender::get()) >= PEOPLE_ROCOCO_ED);
