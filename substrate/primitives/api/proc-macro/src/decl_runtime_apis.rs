@@ -729,7 +729,7 @@ fn decl_runtime_apis_impl_inner(api_decls: &[ItemTrait]) -> Result<TokenStream> 
 	};
 
 	let decl = expander::Expander::new("decl_runtime_apis")
-		.dry(std::env::var("SP_API_EXPAND").is_err())
+		.dry(std::env::var("EXPAND_MACROS").is_err())
 		.verbose(true)
 		.write_to_out_dir(decl)
 		.expect("Does not fail because of IO in OUT_DIR; qed");

@@ -63,8 +63,8 @@ substrate-test-utils = { path = "../../../../substrate/test-utils" }
 tokio = { version = "1.24.2", features = ["macros"] }
 
 [features]
-runtime-metrics=[ "polkadot-test-runtime/runtime-metrics" ]
-runtime-benchmarks= [
+runtime-metrics = ["polkadot-test-runtime/runtime-metrics"]
+runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",

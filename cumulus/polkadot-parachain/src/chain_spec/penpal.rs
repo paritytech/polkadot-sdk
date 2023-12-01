@@ -15,23 +15,22 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::chain_spec::{
-	get_account_id_from_seed, get_collator_keys_from_seed, Extensions, SAFE_XCM_VERSION,
+	get_account_id_from_seed, get_collator_keys_from_seed, Extensions, GenericChainSpec,
+	SAFE_XCM_VERSION,
 };
 use cumulus_primitives_core::ParaId;
 use parachains_common::{AccountId, AuraId};
 use sc_service::ChainType;
 use sp_core::sr25519;
-/// Specialized `ChainSpec` for the normal parachain runtime.
-pub type PenpalChainSpec = sc_service::GenericChainSpec<(), Extensions>;
 
-pub fn get_penpal_chain_spec(id: ParaId, relay_chain: &str) -> PenpalChainSpec {
+pub fn get_penpal_chain_spec(id: ParaId, relay_chain: &str) -> GenericChainSpec {
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "UNIT".into());
 	properties.insert("tokenDecimals".into(), 12u32.into());
 	properties.insert("ss58Format".into(), 42u32.into());
 
-	PenpalChainSpec::builder(
+	GenericChainSpec::builder(
 		penpal_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions {
 			relay_chain: relay_chain.into(), // You MUST set this to the correct network!

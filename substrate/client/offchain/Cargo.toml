@@ -19,7 +19,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive
 fnv = "1.0.6"
 futures = "0.3.21"
 futures-timer = "3.0.2"
-hyper = { version = "0.14.16", features = ["stream", "http2"] }
+hyper = { version = "0.14.16", features = ["http2", "stream"] }
 hyper-rustls = { version = "0.24.0", features = ["http2"] }
 libp2p = "0.51.3"
 num_cpus = "1.13"
@@ -45,7 +45,7 @@ log = "0.4.17"
 lazy_static = "1.4.0"
 tokio = "1.22.0"
 sc-block-builder = { path = "../block-builder" }
-sc-client-db = { path = "../db", default-features = true}
+sc-client-db = { path = "../db", default-features = true }
 sc-transaction-pool = { path = "../transaction-pool" }
 sc-transaction-pool-api = { path = "../transaction-pool/api" }
 sp-consensus = { path = "../../primitives/consensus/common" }

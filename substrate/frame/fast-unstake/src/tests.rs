@@ -788,10 +788,12 @@ mod on_idle {
 			assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(VALIDATOR_PREFIX)));
 
 			// but they indeed are exposed!
-			assert!(pallet_staking::ErasStakers::<T>::contains_key(
+			assert!(pallet_staking::EraInfo::<T>::get_paged_exposure(
 				BondingDuration::get() - 1,
-				VALIDATOR_PREFIX
-			));
+				&VALIDATOR_PREFIX,
+				0
+			)
+			.is_some());
 
 			// process a block, this validator is exposed and has been slashed.
 			next_block(true);
