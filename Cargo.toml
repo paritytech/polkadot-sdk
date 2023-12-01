@@ -8,7 +8,6 @@ license = "GPL-3.0-only"
 resolver = "2"
 
 members = [
-	"developer-hub",
 	"bridges/bin/runtime-common",
 	"bridges/modules/grandpa",
 	"bridges/modules/messages",
@@ -107,6 +106,7 @@ members = [
 	"cumulus/test/runtime",
 	"cumulus/test/service",
 	"cumulus/xcm/xcm-emulator",
+	"developer-hub",
 	"polkadot",
 	"polkadot/cli",
 	"polkadot/core-primitives",
