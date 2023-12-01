@@ -25,8 +25,8 @@ use sp_std::vec::Vec;
 
 /// Collection of storage item formats from the previous storage version.
 ///
-/// Required so we can read values in the old storage format during the migration.
-mod old {
+/// Required so we can read values in the v0 storage format during the migration.
+mod v0 {
 	use super::*;
 
 	/// V0 type for [`crate::Value`].
@@ -65,7 +65,7 @@ mod version_unchecked {
 			use codec::Encode;
 
 			// Access the old value using the `storage_alias` type
-			let old_value = old::Value::<T>::get();
+			let old_value = v0::Value::<T>::get();
 			// Return it as an encoded `Vec<u8>`
 			Ok(old_value.encode())
 		}
@@ -77,7 +77,7 @@ mod version_unchecked {
 		/// [`crate::CurrentAndPreviousValue`].
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
 			// Read the old value from storage
-			if let Some(old_value) = old::Value::<T>::get() {
+			if let Some(old_value) = v0::Value::<T>::get() {
 				// Write the new value to storage
 				let new = crate::CurrentAndPreviousValue { current: old_value, previous: None };
 				crate::Value::<T>::put(new);
@@ -165,7 +165,7 @@ mod test {
 		new_test_ext().execute_with(|| {
 			// By default, no value should be set. Verify this assumption.
 			assert!(crate::Value::<MockRuntime>::get().is_none());
-			assert!(old::Value::<MockRuntime>::get().is_none());
+			assert!(v0::Value::<MockRuntime>::get().is_none());
 
 			// Get the pre_upgrade bytes
 			let bytes = match MigrateV0ToV1::<MockRuntime>::pre_upgrade() {
@@ -192,7 +192,7 @@ mod test {
 		new_test_ext().execute_with(|| {
 			// Set up an initial value
 			let initial_value = 42;
-			old::Value::<MockRuntime>::put(initial_value);
+			v0::Value::<MockRuntime>::put(initial_value);
 
 			// Get the pre_upgrade bytes
 			let bytes = match MigrateV0ToV1::<MockRuntime>::pre_upgrade() {

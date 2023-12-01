@@ -571,9 +571,9 @@ pub fn __create_tt_macro(input: TokenStream) -> TokenStream {
 /// `Value` and writing it back to storage in the new format, so that the on-chain storage layout is
 /// consistent with what is defined in the pallet.
 ///
-/// We can read the old value of `Value` in the migration by creating a `storage_alias`:
+/// We can read the old v0 value of `Value` in the migration by creating a `storage_alias`:
 /// ```ignore
-/// pub(crate) mod old {
+/// pub(crate) mod v0 {
 /// 	use super::*;
 ///
 /// 	#[storage_alias]
@@ -581,7 +581,7 @@ pub fn __create_tt_macro(input: TokenStream) -> TokenStream {
 /// }
 /// ```
 ///
-/// The developer can now access the old value of `Value` by calling `old::Value::<T>::get()`.
+/// The developer can now access the old value of `Value` by calling `v0::Value::<T>::get()`.
 #[proc_macro_attribute]
 pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream {
 	storage_alias::storage_alias(attributes.into(), input.into())

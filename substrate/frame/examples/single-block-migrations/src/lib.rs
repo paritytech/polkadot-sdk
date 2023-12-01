@@ -94,12 +94,12 @@
 //!
 //! To keep the migration logic organised, it is split across additional modules:
 //!
-//! ### `mod old`
+//! ### `mod v0`
 //!
-//! Here we define a [`storage_alias`](frame_support::storage_alias) for the old [`Value`]
+//! Here we define a [`storage_alias`](frame_support::storage_alias) for the old v0 [`Value`]
 //! format.
 //!
-//! This allows reading the old value from storage during the migration.
+//! This allows reading the old v0 value from storage during the migration.
 //!
 //! ### `mod version_unchecked`
 //!
