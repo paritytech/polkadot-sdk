@@ -404,6 +404,11 @@ pub trait Hooks<BlockNumber> {
 	///
 	/// Failure to adequately check storage versions can result in accidental repetitive execution
 	/// of the hook, which can be catastrophic.
+	///
+	/// ## Implementation Note: Weight
+	///
+	/// Typically, implementations of this method are simple enough that weights can be calculated
+	/// manually. However, if required, a benchmark can also be used.
 	fn on_runtime_upgrade() -> Weight {
 		Weight::zero()
 	}
