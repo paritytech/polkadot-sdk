@@ -23,9 +23,15 @@ use sp_consensus_slots::Slot;
 use sp_std::vec::Vec;
 
 pub use sp_core::bandersnatch::{
-	ring_vrf::{RingContext, RingProver, RingVerifier, RingVerifierData, RingVrfSignature},
+	ring_vrf::{RingProver, RingVerifier, RingVerifierData, RingVrfSignature},
 	vrf::{VrfInput, VrfOutput, VrfSignData, VrfSignature},
 };
+
+/// Ring VRF domain size for Sassafras consensus.
+pub const RING_VRF_DOMAIN_SIZE: u32 = 2048;
+
+/// Bandersnatch VRF [`RingContext`] specialization for Sassafras using [`RING_VRF_DOMAIN_SIZE`].
+pub type RingContext = sp_core::bandersnatch::ring_vrf::RingContext<RING_VRF_DOMAIN_SIZE>;
 
 fn vrf_input_from_data(
 	domain: &[u8],
