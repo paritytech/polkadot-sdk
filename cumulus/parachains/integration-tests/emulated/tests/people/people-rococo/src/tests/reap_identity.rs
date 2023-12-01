@@ -116,7 +116,7 @@ fn identities() -> Vec<Identity> {
 	])
 	.unwrap();
 	let mut fourth_para = second_para.clone();
-	fourth_para.github = Data::Raw(b"niels-usernmae".to_vec().try_into().unwrap());
+	fourth_para.github = Data::Raw(b"niels-username".to_vec().try_into().unwrap());
 	fourth_para.discord = Data::Raw(b"bohr-username".to_vec().try_into().unwrap());
 
 	vec![
