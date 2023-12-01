@@ -36,6 +36,7 @@ use log::{debug, error, info, log_enabled, trace, warn};
 use sc_client_api::{Backend, FinalityNotification, FinalityNotifications, HeaderBackend};
 use sc_network_gossip::GossipEngine;
 use sc_utils::{mpsc::TracingUnboundedReceiver, notification::NotificationReceiver};
+use sp_api::{CallApiAt, RuntimeInstance};
 use sp_arithmetic::traits::{AtLeast32Bit, Saturating};
 use sp_consensus::SyncOracle;
 use sp_consensus_beefy::{
@@ -353,7 +354,7 @@ where
 	BE: Backend<B>,
 	P: PayloadProvider<B>,
 	S: SyncOracle,
-	R::Api: BeefyApi<B, AuthorityId>,
+	R: CallApiAt<B>,
 {
 	fn best_grandpa_block(&self) -> NumberFor<B> {
 		*self.persisted_state.voting_oracle.best_grandpa_block_header.number()
@@ -446,9 +447,11 @@ where
 		);
 		let header = &notification.header;
 
-		self.runtime
-			.runtime_api()
-			.beefy_genesis(header.hash())
+		let mut api = RuntimeInstance::builder(&*self.runtime, header.hash())
+			.off_chain_context()
+			.build();
+
+		BeefyApi::<B, AuthorityId>::beefy_genesis(&mut api)
 			.ok()
 			.flatten()
 			.filter(|genesis| *genesis == self.persisted_state.pallet_genesis)
@@ -979,11 +982,17 @@ where
 				);
 				Error::Backend(err_msg)
 			})?;
-		let runtime_api = self.runtime.runtime_api();
+
+		let mut runtime_api =
+			RuntimeInstance::builder(&*self.runtime, hash).off_chain_context().build();
+
 		// generate key ownership proof at that block
-		let key_owner_proof = match runtime_api
-			.generate_key_ownership_proof(hash, validator_set_id, offender_id)
-			.map_err(Error::RuntimeApi)?
+		let key_owner_proof = match BeefyApi::<B, AuthorityId>::generate_key_ownership_proof(
+			&mut runtime_api,
+			validator_set_id,
+			offender_id,
+		)
+		.map_err(Error::RuntimeApi)?
 		{
 			Some(proof) => proof,
 			None => {
@@ -997,9 +1006,16 @@ where
 
 		// submit equivocation report at **best** block
 		let best_block_hash = self.backend.blockchain().info().best_hash;
-		runtime_api
-			.submit_report_equivocation_unsigned_extrinsic(best_block_hash, proof, key_owner_proof)
-			.map_err(Error::RuntimeApi)?;
+		let mut runtime_api = RuntimeInstance::builder(&*self.runtime, best_block_hash)
+			.off_chain_context()
+			.build();
+
+		BeefyApi::<B, AuthorityId>::submit_report_equivocation_unsigned_extrinsic(
+			&mut runtime_api,
+			proof,
+			key_owner_proof,
+		)
+		.map_err(Error::RuntimeApi)?;
 
 		Ok(())
 	}

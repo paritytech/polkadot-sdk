@@ -40,6 +40,7 @@ use sc_client_api::{Backend, BlockBackend, BlockchainEvents, FinalityNotificatio
 use sc_consensus::BlockImport;
 use sc_network::{NetworkRequest, NotificationService, ProtocolName};
 use sc_network_gossip::{GossipEngine, Network as GossipNetwork, Syncing as GossipSyncing};
+use sp_api::{CallApiAt, RuntimeInstance};
 use sp_blockchain::{
 	Backend as BlockchainBackend, Error as ClientError, HeaderBackend, Result as ClientResult,
 };
@@ -94,11 +95,7 @@ impl<B, BE, T> Client<B, BE> for T
 where
 	B: Block,
 	BE: Backend<B>,
-	T: BlockchainEvents<B>
-		+ HeaderBackend<B>
-		+ Finalizer<B, BE>
-		+ Send
-		+ Sync,
+	T: BlockchainEvents<B> + HeaderBackend<B> + Finalizer<B, BE> + Send + Sync,
 {
 	// empty
 }
@@ -138,7 +135,6 @@ where
 	B: Block,
 	BE: Backend<B>,
 	I: BlockImport<B, Error = ConsensusError> + Send + Sync,
-	RuntimeApi::Api: BeefyApi<B, AuthorityId>,
 {
 	// Voter -> RPC links
 	let (to_rpc_justif_sender, from_voter_justif_stream) =
@@ -221,9 +217,9 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 	BE: Backend<B>,
 	C: Client<B, BE> + BlockBackend<B>,
 	P: PayloadProvider<B> + Clone,
-	R::Api: BeefyApi<B, AuthorityId> + MmrApi<B, MmrRootHash, NumberFor<B>>,
 	N: GossipNetwork<B> + NetworkRequest + Send + Sync + 'static,
 	S: GossipSyncing<B> + SyncOracle + 'static,
+	R: CallApiAt<B>,
 {
 	let BeefyParams {
 		client,
@@ -363,7 +359,7 @@ fn load_or_init_voter_state<B, BE, R>(
 where
 	B: Block,
 	BE: Backend<B>,
-	R::Api: BeefyApi<B, AuthorityId>,
+	R: CallApiAt<B>,
 {
 	// Initialize voter state from AUX DB if compatible.
 	crate::aux_schema::load_persistent(backend)?
@@ -397,15 +393,18 @@ fn initialize_voter_state<B, BE, R>(
 where
 	B: Block,
 	BE: Backend<B>,
-	R::Api: BeefyApi<B, AuthorityId>,
+	R: CallApiAt<B>,
 {
-	let beefy_genesis = runtime
-		.runtime_api()
-		.beefy_genesis(best_grandpa.hash())
+	let mut api = RuntimeInstance::builder(runtime, best_grandpa.hash())
+		.off_chain_context()
+		.build();
+
+	let beefy_genesis = BeefyApi::<B, AuthorityId>::beefy_genesis(&mut api)
 		.ok()
 		.flatten()
 		.filter(|genesis| *genesis == beefy_genesis)
 		.ok_or_else(|| ClientError::Backend("BEEFY pallet expected to be active.".into()))?;
+
 	// Walk back the imported blocks and initialize voter either, at the last block with
 	// a BEEFY justification, or at pallet genesis block; voter will resume from there.
 	let blockchain = backend.blockchain();
@@ -492,7 +491,7 @@ async fn wait_for_runtime_pallet<B, R>(
 ) -> ClientResult<(NumberFor<B>, <B as Block>::Header)>
 where
 	B: Block,
-	R::Api: BeefyApi<B, AuthorityId>,
+	R: CallApiAt<B>,
 {
 	info!(target: LOG_TARGET, "🥩 BEEFY gadget waiting for BEEFY pallet to become available...");
 	loop {
@@ -503,7 +502,10 @@ where
 					None => break
 				};
 				let at = notif.header.hash();
-				if let Some(start) = runtime.runtime_api().beefy_genesis(at).ok().flatten() {
+
+				let mut api = RuntimeInstance::builder(runtime, at).off_chain_context().build();
+
+				if let Some(start) = BeefyApi::<B, AuthorityId>::beefy_genesis(&mut api).ok().flatten() {
 					if *notif.header.number() >= start {
 						// Beefy pallet available, return header for best grandpa at the time.
 						info!(
@@ -533,12 +535,13 @@ fn expect_validator_set<B, BE, R>(
 where
 	B: Block,
 	BE: Backend<B>,
-	R::Api: BeefyApi<B, AuthorityId>,
+	R: CallApiAt<B>,
 {
 	debug!(target: LOG_TARGET, "🥩 Try to find validator set active at header: {:?}", at_header);
-	runtime
-		.runtime_api()
-		.validator_set(at_header.hash())
+
+	let mut api = RuntimeInstance::builder(runtime, at_header.hash()).off_chain_context().build();
+
+	BeefyApi::<B, AuthorityId>::validator_set(&mut api)
 		.ok()
 		.flatten()
 		.or_else(|| {

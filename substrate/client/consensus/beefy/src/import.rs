@@ -20,6 +20,7 @@ use std::sync::Arc;
 
 use log::debug;
 
+use sp_api::{CallApiAt, RuntimeInstance};
 use sp_consensus::Error as ConsensusError;
 use sp_consensus_beefy::{ecdsa_crypto::AuthorityId, BeefyApi, BEEFY_ENGINE_ID};
 use sp_runtime::{
@@ -81,7 +82,7 @@ impl<Block, BE, Runtime, I> BeefyBlockImport<Block, BE, Runtime, I>
 where
 	Block: BlockT,
 	BE: Backend<Block>,
-	Runtime::Api: BeefyApi<Block, AuthorityId> + Send,
+	Runtime: CallApiAt<Block>,
 {
 	fn decode_and_verify(
 		&self,
@@ -90,19 +91,18 @@ where
 		hash: <Block as BlockT>::Hash,
 	) -> Result<BeefyVersionedFinalityProof<Block>, ConsensusError> {
 		use ConsensusError::ClientImport as ImportError;
-		let beefy_genesis = self
-			.runtime
-			.runtime_api()
-			.beefy_genesis(hash)
+
+		let mut api = RuntimeInstance::builder(&*self.runtime, hash).off_chain_context().build();
+
+		let beefy_genesis = BeefyApi::<Block, AuthorityId>::beefy_genesis(&mut api)
 			.map_err(|e| ImportError(e.to_string()))?
 			.ok_or_else(|| ImportError("Unknown BEEFY genesis".to_string()))?;
+
 		if number < beefy_genesis {
 			return Err(ImportError("BEEFY genesis is set for future block".to_string()))
 		}
-		let validator_set = self
-			.runtime
-			.runtime_api()
-			.validator_set(hash)
+
+		let validator_set = BeefyApi::<Block, AuthorityId>::validator_set(&mut api)
 			.map_err(|e| ImportError(e.to_string()))?
 			.ok_or_else(|| ImportError("Unknown validator set".to_string()))?;
 
@@ -117,7 +117,7 @@ where
 	Block: BlockT,
 	BE: Backend<Block>,
 	I: BlockImport<Block, Error = ConsensusError> + Send + Sync,
-	Runtime::Api: BeefyApi<Block, AuthorityId>,
+	Runtime: CallApiAt<Block> + Send + Sync,
 {
 	type Error = ConsensusError;
 

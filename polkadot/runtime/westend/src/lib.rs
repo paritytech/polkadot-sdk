@@ -1744,7 +1744,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl sp_api::Metadata<Block> for Runtime {
+	impl sp_api::Metadata for Runtime {
 		fn metadata() -> OpaqueMetadata {
 			OpaqueMetadata::new(Runtime::metadata().into())
 		}
@@ -2031,7 +2031,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_beefy_mmr::BeefyMmrApi<Block, Hash> for RuntimeApi {
+	impl pallet_beefy_mmr::BeefyMmrApi<Hash> for RuntimeApi {
 		fn authority_set_proof() -> beefy_primitives::mmr::BeefyAuthoritySet<Hash> {
 			BeefyMmrLeaf::authority_set_proof()
 		}
@@ -2126,13 +2126,13 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl authority_discovery_primitives::AuthorityDiscoveryApi<Block> for Runtime {
+	impl authority_discovery_primitives::AuthorityDiscoveryApi for Runtime {
 		fn authorities() -> Vec<AuthorityDiscoveryId> {
 			parachains_runtime_api_impl::relevant_authority_ids::<Runtime>()
 		}
 	}
 
-	impl sp_session::SessionKeys<Block> for Runtime {
+	impl sp_session::SessionKeys for Runtime {
 		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
 			SessionKeys::generate(seed)
 		}
@@ -2144,7 +2144,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce> for Runtime {
+	impl frame_system_rpc_runtime_api::AccountNonceApi<AccountId, Nonce> for Runtime {
 		fn account_nonce(account: AccountId) -> Nonce {
 			System::account_nonce(account)
 		}
@@ -2168,7 +2168,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentCallApi<Block, Balance, RuntimeCall>
+	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentCallApi<Balance, RuntimeCall>
 		for Runtime
 	{
 		fn query_call_info(call: RuntimeCall, len: u32) -> RuntimeDispatchInfo<Balance> {
@@ -2186,7 +2186,6 @@ sp_api::impl_runtime_apis! {
 	}
 
 	impl pallet_nomination_pools_runtime_api::NominationPoolsApi<
-		Block,
 		AccountId,
 		Balance,
 	> for Runtime {
@@ -2203,7 +2202,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_staking_runtime_api::StakingApi<Block, Balance, AccountId> for Runtime {
+	impl pallet_staking_runtime_api::StakingApi<Balance, AccountId> for Runtime {
 		fn nominations_quota(balance: Balance) -> u32 {
 			Staking::api_nominations_quota(balance)
 		}
@@ -2234,7 +2233,7 @@ sp_api::impl_runtime_apis! {
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	impl frame_benchmarking::Benchmark<Block> for Runtime {
+	impl frame_benchmarking::Benchmark for Runtime {
 		fn benchmark_metadata(extra: bool) -> (
 			Vec<frame_benchmarking::BenchmarkList>,
 			Vec<frame_support::traits::StorageInfo>,
@@ -2431,7 +2430,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
+	impl sp_genesis_builder::GenesisBuilder for Runtime {
 		fn create_default_config() -> Vec<u8> {
 			create_default_config::<RuntimeGenesisConfig>()
 		}

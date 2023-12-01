@@ -246,7 +246,7 @@ impl TestNetFactory for BeefyTestNet {
 
 #[derive(Clone)]
 pub(crate) struct TestApi {
-	pub beefy_genesis: u64,
+	pub beefy_genesis: NumberFor<Block>,
 	pub validator_set: Option<BeefyValidatorSet>,
 	pub mmr_root_hash: MmrRootHash,
 	pub reported_equivocations:
@@ -281,33 +281,21 @@ impl TestApi {
 	}
 }
 
-// compiler gets confused and warns us about unused inner
-#[allow(dead_code)]
-pub(crate) struct RuntimeApi {
-	inner: TestApi,
-}
-
-impl ProvideRuntimeApi<Block> for TestApi {
-	type Api = RuntimeApi;
-	fn runtime_api(&self) -> ApiRef<Self::Api> {
-		RuntimeApi { inner: self.clone() }.into()
-	}
-}
 sp_api::mock_impl_runtime_apis! {
-	impl BeefyApi<Block, AuthorityId> for RuntimeApi {
+	impl BeefyApi<Block, AuthorityId> for TestApi {
 		fn beefy_genesis() -> Option<NumberFor<Block>> {
-			Some(self.inner.beefy_genesis)
+			Some(self.beefy_genesis)
 		}
 
 		fn validator_set() -> Option<BeefyValidatorSet> {
-			self.inner.validator_set.clone()
+			self.validator_set.clone()
 		}
 
 		fn submit_report_equivocation_unsigned_extrinsic(
 			proof: EquivocationProof<NumberFor<Block>, AuthorityId, Signature>,
 			_dummy: OpaqueKeyOwnershipProof,
 		) -> Option<()> {
-			if let Some(equivocations_buf) = self.inner.reported_equivocations.as_ref() {
+			if let Some(equivocations_buf) = self.reported_equivocations.as_ref() {
 				equivocations_buf.lock().push(proof);
 				None
 			} else {
@@ -321,9 +309,9 @@ sp_api::mock_impl_runtime_apis! {
 		) -> Option<OpaqueKeyOwnershipProof> { Some(OpaqueKeyOwnershipProof::new(vec![])) }
 	}
 
-	impl MmrApi<Block, MmrRootHash, NumberFor<Block>> for RuntimeApi {
+	impl MmrApi<MmrRootHash, NumberFor<Block>> for TestApi {
 		fn mmr_root() -> Result<MmrRootHash, MmrError> {
-			Ok(self.inner.mmr_root_hash)
+			Ok(self.mmr_root_hash)
 		}
 	}
 }
@@ -381,15 +369,11 @@ async fn voter_init_setup(
 }
 
 // Spawns beefy voters. Returns a future to spawn on the runtime.
-fn initialize_beefy<API>(
+fn initialize_beefy(
 	net: &mut BeefyTestNet,
-	peers: Vec<(usize, &BeefyKeyring, Arc<API>)>,
+	peers: Vec<(usize, &BeefyKeyring, Arc<TestApi>)>,
 	min_block_delta: u32,
-) -> impl Future<Output = ()>
-where
-	API: ProvideRuntimeApi<Block> + Sync + Send,
-	API::Api: BeefyApi<Block, AuthorityId> + MmrApi<Block, MmrRootHash, NumberFor<Block>>,
-{
+) -> impl Future<Output = ()> {
 	let tasks = FuturesUnordered::new();
 
 	let mut notification_services = peers
