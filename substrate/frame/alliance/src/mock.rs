@@ -20,7 +20,7 @@
 pub use sp_core::H256;
 use sp_runtime::traits::Hash;
 pub use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
+	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Lazy, Verify},
 	BuildStorage, MultiSignature,
 };
 use sp_std::convert::{TryFrom, TryInto};
@@ -33,7 +33,7 @@ pub use frame_support::{
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use pallet_identity::{
 	legacy::{IdentityField, IdentityInfo},
-	Data, Judgement, SignerProvider,
+	Data, Judgement,
 };
 
 pub use crate as pallet_alliance;
@@ -129,24 +129,29 @@ impl pallet_identity::Config for Test {
 	type Slashed = ();
 	type RegistrarOrigin = EnsureOneOrRoot;
 	type ForceOrigin = EnsureTwoOrRoot;
-	type Signer = AccountU64;
+	type OffchainSignature = AccountU64;
+	type SigningPublicKey = AccountU64;
 	type UsernameAuthorityOrigin = EnsureOneOrRoot;
 	type PendingUsernameExpiration = PendingUsernameExpiration;
 	type WeightInfo = ();
 }
 
-#[derive(Clone, Debug, Encode, Decode, PartialEq, TypeInfo)]
-pub struct AccountU64;
-impl SignerProvider<AccountId> for AccountU64 {
-	fn verify_signature(&self, _signature: &MultiSignature, _message: &[u8]) -> bool {
-		false
-	}
-	fn into_account_truncating(&self) -> AccountId {
+#[derive(Clone, Debug, Encode, Decode, PartialEq, Eq, TypeInfo)]
+pub struct AccountU64(u64);
+impl IdentifyAccount for AccountU64 {
+	type AccountId = u64;
+	fn into_account(self) -> u64 {
 		0u64
 	}
-	#[cfg(feature = "runtime-benchmarks")]
-	fn create_signer(_id: u32) -> Self {
-		AccountU64
+}
+impl Verify for AccountU64 {
+	type Signer = AccountU64;
+	fn verify<L: Lazy<[u8]>>(
+		&self,
+		_msg: L,
+		_signer: &<Self::Signer as IdentifyAccount>::AccountId,
+	) -> bool {
+		false
 	}
 }
 
