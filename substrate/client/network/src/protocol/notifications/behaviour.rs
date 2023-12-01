@@ -40,7 +40,6 @@ use libp2p::{
 };
 use log::{debug, error, trace, warn};
 use parking_lot::RwLock;
-use prometheus_endpoint::Registry;
 use rand::distributions::{Distribution as _, Uniform};
 use sc_utils::mpsc::TracingUnboundedReceiver;
 use smallvec::SmallVec;
@@ -405,7 +404,7 @@ impl Notifications {
 	pub(crate) fn new(
 		protocol_controller_handles: Vec<protocol_controller::ProtocolHandle>,
 		from_protocol_controllers: TracingUnboundedReceiver<Message>,
-		registry: &Option<Registry>,
+		metrics: Option<metrics::Metrics>,
 		notif_protocols: impl Iterator<
 			Item = (
 				ProtocolConfig,
@@ -429,7 +428,6 @@ impl Notifications {
 			.unzip();
 		assert!(!notif_protocols.is_empty());
 
-		let metrics = registry.as_ref().and_then(|registry| metrics::register(&registry).ok());
 		let (mut protocol_handles, command_streams): (Vec<_>, Vec<_>) = protocol_handles
 			.into_iter()
 			.enumerate()
@@ -2452,7 +2450,7 @@ mod tests {
 			Notifications::new(
 				vec![handle],
 				from_controller,
-				&None,
+				None,
 				iter::once((
 					ProtocolConfig {
 						name: "/foo".into(),
