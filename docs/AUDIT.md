@@ -1,6 +1,6 @@
 # Audit
 
-Audits are conducted to ensure the absence of severe or exploitable bugs. MRs are generally merged without audit into the `master` branch. The `audited` tag is used to track the latest audited commit of the `master` branch. This means that audits need to happen in order of being merged.  
+Audits are conducted to ensure the absence of severe or exploitable bugs. Merge Requests are generally merged into the `master` branch without audit. The `audited` tag is used to track the latest audited commit of the `master` branch. This means that audits need to happen in order of being merged.  
 This is an optimistic approach that lets us develop with greater speed, while requiring (possibly) large refactors in the failure case.
 
 Audits can be deferred if the logic is gated by an `experimental` feature or marked as "Not Production Ready" within the first line of doc. Such changes should be queued manually before these warnings are removed.

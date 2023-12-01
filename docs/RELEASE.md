@@ -12,7 +12,7 @@ the versioning story for the crates, node and Westend & Rococo. To easily refer 
 
 We try to follow SemVer<sup>3</sup> as best as possible for versioning our crates' public APIs.  
 
-👉 The public API of our library crates is defined as all public items that are not `#[doc(hidden)]`.
+👉 The public API of our library crates is defined as all public items that are not inside a `__private` module.
 
 ### Node
 
@@ -25,14 +25,12 @@ interface or similar. The node version is declared in the `NODE_VERSION` variabl
 
 ### Westend & Rococo
 
-For the these networks, we only increment the `spec_version`. The spec version is also following
-the node version. The schema is as follows: `M_mmm_ppp` and for example `1_002_000` is the node release `1.2.0`. This versioning has no further meaning, and is only done to map from an on chain `spec_version` easily to the release in this repository. 
+For the these networks, we only increment the `spec_version` and sometimes the `transaction_version`. The spec version is also following
+the node version. Its schema is: `M_mmm_ppp` and for example `1_002_000` is the node release `1.2.0`. This versioning has no further meaning, and is only done to map from an on chain `spec_version` easily to the release in this repository. 
 
 ## Backports
 
-Backports should most of the time not be required. We should only backport critical bug fixes and then release the fixed crates. There should be no need to backport anything from a release branch.
-
-When a backport is required for some previous release, it is the job of the developer (assuming it is some internal person) that has created the initial PR to create the backports. After the backports are done, it is important to ensure that the crate release is being done. We should backport fixes to the releases of the last 6 months.
+Backports should most of the time not be required. We should only backport [critical bug fixes](#bug-and-security-fix) and then release the fixed crates. There should be no need to backport anything from a release branch.
 
 # Processes
 
@@ -40,16 +38,16 @@ The following processes are necessary to actualize our releases. Each process ha
 
 ## Crate Bumping
 
-Cadence: Each Merge Request. Responsible: Developer that opened the MR.
+Cadence: (possibly) each Merge Request. Responsible: Developer that opened the MR.
 
-Following SemVer isn't easy, but there exists [a guide](https://doc.rust-lang.org/cargo/reference/semver.html) in the Rust documentation that explains the small details on when to bump what. This process should be augmented with CI checks that utilize [`cargo-semver-checks`](https://github.com/obi1kenobi/cargo-semver-checks) and/or [`cargo-public-api`](https://github.com/Enselic/cargo-public-api).
+Following SemVer isn't easy, but there exists [a guide](https://doc.rust-lang.org/cargo/reference/semver.html) in the Rust documentation that explains the small details on when to bump what. This process should be augmented with CI checks that utilize [`cargo-semver-checks`](https://github.com/obi1kenobi/cargo-semver-checks) and/or [`cargo-public-api`](https://github.com/Enselic/cargo-public-api). They must also pay attention to downstream dependencies that require a version bump, because they export the changed API.
 
 ### Steps
 
-1. [ ] Developer opens a Merge Request with changed crates.
-3. [ ] They bump all changed crates according to SemVer.
-4. [ ] They bump all crates that export any changed types in their *public API*.
-5. [ ] They also bump all crates that inherit logic changes from relying on one of the bumped crates. 
+1. Developer opens a Merge Request with changed crates against `master`.
+2. They bump all changed crates according to SemVer.
+3. They bump all crates that export any changed types in their *public API*.
+4. They also bump all crates that inherit logic changes from relying on one of the bumped crates. 
 
 ## Mainline Release
 
@@ -59,33 +57,37 @@ This process aims to release the `release` branch as a *Mainline* release every 
 
 ### Steps
 
-1. [ ] Check if process [Clobbering](#clobbering) needs to happen and do so first, if that is the case.
-1. [ ] Check out the latest commit of `release`.
-2. [ ] Verify all CI checks of that commit.
-3. [ ] Announce that commit as cutoff *Mainline* for a release in the General<sup>2</sup> chat.
-4. [ ] Bump the semver of all crates <!-- FAIL-CI: We need some better process here on how to do it exactly -->
-5. [ ] Abort the release process and announce so in General if there are no bumps needed.
-6. [ ] Create a merge request to `release` with the proposed SemVer bumps.
-7. [ ] Announce this merge request in the *General* channel to quickly gather reviews.
-8. [ ] Merge it into `release`.
-9. [ ] Verify all CI checks.
-10. [ ] Announce the intent to do a *Mainline* release from the resulting commit hash in RelEng.
-11. [ ] <!-- The release team has internal checklists for QA i think, should we mention this? -->
-12. [ ] Release all crates to crates.io.
+1. Check if process [Clobbering](#clobbering) needs to happen and do so, if that is the case.
+2. Check out the latest commit of `release`.
+3. Verify all CI checks of that commit.
+4. Update the `CHANGELOG.md` version and date. <!-- Here we could aggregate the PrDocs into the CHANGELOG -->
+5. Open a Merge Request against `release` for visibility.
+6. Check if there were any changes since the last release and abort, if not.
+7. Run `cargo semver-checks` and `cargo public-api` again to ensure that there are no SemVer breaks.
+8. Internal QA from the release team can happen here.
+9.  Do a dry-run release to ensure that it *should* work.
+10. Merge it into `release`.
+11. Verify all CI checks.
+12. Comment that a *Mainline* release will happen from the merged commit hash.
+13. Release all changed crates to crates.io.
+14. Create a release on GitHub.
 
 ## Nightly Release
 
 Cadence: every day at 00:00 UTC+1. Responsible: Release Team
 
-This process aims to release the `master` branch as a *Nightly* release every day. The process can start at 00:00 UTC+1 and should automatically do the following steps.
+This process aims to release the `master` branch as a *Nightly* release. The process can start at 00:00 UTC+1 and should automatically do the following steps.
 
-1. [ ] Check out the latest commit of branch `master`.
-3. [ ] Compare this commit to the latest `nightly*` tag. Announce that the process was aborted in the RelEng chat since there were no changes.
-4. [ ] Verify all CI checks of that commit.
-5. [ ] Set the version of all crate to `major.0.0-nightlyYYMMDD` where `major` is the last released `major` version of that crate plus one.
-6. [ ] Tag this commit as `nightlyYYMMDD`.
-7. [ ] Announce the intent to do a *Nightly* release from that tag in the RelEng chat.
-8. [ ] Release all crates to crates.io using [parity-publish](https://github.com/paritytech/parity-publish). <!-- FAIL-CI: I think Morgan fixed that tool so it would only release crates that had changes, or that had one of their transitive dependencies changes. That would help, since otherwise we always push 400 crates or so. -->
+1. Check out the latest commit of branch `master`.
+2. Verify all CI checks of that commit.
+3. Compare this commit to the latest `nightly*` tag and abort if there are no changes detected.
+4. Set the version of all crates to `major.0.0-nightlyYYMMDD` where `major` is the last released `major` version of that crate plus one.
+5. Tag this commit as `nightlyYYMMDD`.
+9. Do a dry-run release to ensure that it *should* work.
+7. Push this tag (the commit will not belong to any branch).
+8. Announce the intent to do a *Nightly* release from that tag in the RelEng chat.
+9. Release all crates that had changed since the last nightly release to crates.io.
+10. Create a release on GitHub.
 
 ## Clobbering
 
@@ -101,6 +103,21 @@ git checkout release
 git reset --hard origin/audited
 git push --force release
 ```
+
+## Bug and Security Fix
+
+Cadence: n.a. Responsible: Developer
+
+Describes how developers should merge bug and security fixes.
+
+### Steps
+
+1. Developer opens a Merge Request with a bug or security fix.
+2. They have the possibility to mark the MR as such, and does so.
+3. Audit happens with priority.
+4. It is merged into `master`.
+5. It is automatically back-ported to `release`.
+6. The fix will be released in the next *Mainline* release. In urgent cases, a release can happen earlier.
 
 # Footnotes
 
