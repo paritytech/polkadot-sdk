@@ -525,7 +525,7 @@ mod tests {
 
 		let store = MemoryKeystore::new();
 
-		let ring_ctx = bandersnatch::ring_vrf::RingContext::new_testing();
+		let ring_ctx = bandersnatch::ring_vrf::RingContext::<1024>::new_testing();
 
 		let mut pks: Vec<_> = (0..16)
 			.map(|i| bandersnatch::Pair::from_seed(&[i as u8; 32]).public())
