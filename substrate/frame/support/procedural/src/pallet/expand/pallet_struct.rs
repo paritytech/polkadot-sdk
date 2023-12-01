@@ -203,9 +203,9 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 			for #pallet_ident<#type_use_gen>
 			#config_where_clause
 		{
-			type CurrentStorageVersion = #in_code_storage_version_ty;
+			type InCodeStorageVersion = #in_code_storage_version_ty;
 
-			fn in_code_storage_version() -> Self::CurrentStorageVersion {
+			fn in_code_storage_version() -> Self::InCodeStorageVersion {
 				#storage_version
 			}
 
