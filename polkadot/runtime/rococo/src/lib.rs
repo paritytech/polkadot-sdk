@@ -1002,8 +1002,7 @@ impl coretime::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type BrokerId = BrokerId;
-	type WeightInfo = runtime_common::coretime::TestWeightInfo;
-	//type WeightInfo = weights::runtime_common_coretime::WeightInfo<Runtime>;
+	type WeightInfo = weights::runtime_common_coretime::WeightInfo<Runtime>;
 }
 
 impl parachains_assigner_bulk::Config for Runtime {}
