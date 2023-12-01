@@ -29,7 +29,6 @@ use rococo_runtime_constants::currency::*;
 use rococo_system_emulated_network::{
 	rococo_emulated_chain::RococoRelayPallet, RococoRelay, RococoRelayReceiver, RococoRelaySender,
 };
-use std::time::{SystemTime, UNIX_EPOCH};
 type Balance = u128;
 type RococoIdentity = <RococoRelay as RococoRelayPallet>::Identity;
 type RococoBalances = <RococoRelay as RococoRelayPallet>::Balances;
@@ -39,19 +38,85 @@ type PeopleRococoBalances = <PeopleRococo as PeopleRococoPallet>::Balances;
 
 #[derive(Clone, Debug)]
 struct Identity {
-	relay: RelayIdentity,
-	para: ParaIdentity,
+	relay: IdentityInfo<MaxAdditionalFields>,
+	para: IdentityInfoParachain,
+	subs: Subs,
 }
 
-#[derive(Clone, Debug)]
-struct RelayIdentity {
-	main: IdentityInfo<MaxAdditionalFields>,
-	subs: Subs,
-}
-#[derive(Clone, Debug)]
-struct ParaIdentity {
-	main: IdentityInfoParachain,
-	subs: Subs,
+impl Identity {
+	fn new<T: frame_support::traits::Get<u32>>(
+		full: bool,
+		additional: Option<BoundedVec<(Data, Data), MaxAdditionalFields>>,
+		subs: Subs,
+	) -> Self {
+		let pgp_fingerprint = [
+			0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66,
+			0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC,
+		];
+		if full {
+			Self {
+				relay: IdentityInfo {
+					display: Data::Raw(b"xcm-test-one".to_vec().try_into().unwrap()),
+					legal: Data::Raw(b"The Xcm Test, Esq.".to_vec().try_into().unwrap()),
+					web: Data::Raw(b"https://xcm-test.io".to_vec().try_into().unwrap()),
+					email: Data::Raw(b"xcm-test@gmail.com".to_vec().try_into().unwrap()),
+					pgp_fingerprint: Some(pgp_fingerprint),
+					image: Data::Raw(b"xcm-test.png".to_vec().try_into().unwrap()),
+					twitter: Data::Raw(b"@xcm-test".to_vec().try_into().unwrap()),
+					riot: Data::Raw(b"riot-xcm-test".to_vec().try_into().unwrap()),
+					additional: additional.unwrap_or_else(|| {
+						BoundedVec::try_from(vec![(
+							Data::Raw(b"foo".to_vec().try_into().unwrap()),
+							Data::Raw(b"bar".to_vec().try_into().unwrap()),
+						)])
+						.unwrap()
+					}),
+				},
+				para: IdentityInfoParachain {
+					display: Data::Raw(b"xcm-test-one".to_vec().try_into().unwrap()),
+					legal: Data::Raw(
+						b"The Right Ordinal Xcm Test, Esq.".to_vec().try_into().unwrap(),
+					),
+					web: Data::Raw(b"https://xcm-test.io".to_vec().try_into().unwrap()),
+					matrix: Data::Raw(b"riot-xcm-test".to_vec().try_into().unwrap()),
+					email: Data::Raw(b"xcm-test@gmail.com".to_vec().try_into().unwrap()),
+					pgp_fingerprint: Some(pgp_fingerprint),
+					image: Data::Raw(b"xcm-test.png".to_vec().try_into().unwrap()),
+					twitter: Data::Raw(b"@xcm-test".to_vec().try_into().unwrap()),
+					github: Data::Raw(b"niels-username".to_vec().try_into().unwrap()),
+					discord: Data::Raw(b"bohr-username".to_vec().try_into().unwrap()),
+				},
+				subs,
+			}
+		} else {
+			Self {
+				relay: IdentityInfo {
+					display: Data::None,
+					legal: Data::None,
+					web: Data::None,
+					email: Data::None,
+					pgp_fingerprint: None,
+					image: Data::None,
+					twitter: Data::None,
+					riot: Data::None,
+					additional: additional.unwrap_or_default(),
+				},
+				para: IdentityInfoParachain {
+					display: Data::None,
+					legal: Data::None,
+					web: Data::None,
+					matrix: Data::None,
+					email: Data::None,
+					pgp_fingerprint: None,
+					image: Data::None,
+					twitter: Data::None,
+					github: Data::None,
+					discord: Data::None,
+				},
+				subs,
+			}
+		}
+	}
 }
 
 #[derive(Clone, Debug)]
@@ -59,123 +124,6 @@ enum Subs {
 	Zero,
 	One,
 	Many(u32),
-}
-
-fn identities() -> Vec<Identity> {
-	let pgp_fingerprint = [
-		0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
-		0x88, 0x99, 0xAA, 0xBB, 0xCC,
-	];
-	// Minimal Identity
-	let first_relay = IdentityInfo {
-		display: Data::None,
-		legal: Data::None,
-		web: Data::None,
-		email: Data::None,
-		pgp_fingerprint: None,
-		image: Data::None,
-		twitter: Data::None,
-		riot: Data::None,
-		additional: Default::default(),
-	};
-	let first_para = IdentityInfoParachain {
-		display: Data::None,
-		legal: Data::None,
-		web: Data::None,
-		matrix: Data::None,
-		email: Data::None,
-		pgp_fingerprint: None,
-		image: Data::None,
-		twitter: Data::None,
-		github: Data::None,
-		discord: Data::None,
-	};
-	// Full Identity with no additional
-	let second_relay = IdentityInfo {
-		display: Data::Raw(b"xcm-test-one".to_vec().try_into().unwrap()),
-		legal: Data::Raw(b"The Xcm Test, Esq.".to_vec().try_into().unwrap()),
-		web: Data::Raw(b"https://xcm-test.io".to_vec().try_into().unwrap()),
-		email: Data::Raw(b"xcm-test@gmail.com".to_vec().try_into().unwrap()),
-		pgp_fingerprint: Some(pgp_fingerprint),
-		image: Data::Raw(b"xcm-test.png".to_vec().try_into().unwrap()),
-		twitter: Data::Raw(b"@xcm-test".to_vec().try_into().unwrap()),
-		riot: Data::Raw(b"riot-xcm-test".to_vec().try_into().unwrap()),
-		additional: Default::default(),
-	};
-	let second_para = IdentityInfoParachain {
-		display: Data::Raw(b"xcm-test-one".to_vec().try_into().unwrap()),
-		legal: Data::Raw(b"The Right Ordinal Xcm Test, Esq.".to_vec().try_into().unwrap()),
-		web: Data::Raw(b"https://xcm-test.io".to_vec().try_into().unwrap()),
-		matrix: Data::Raw(b"riot-xcm-test".to_vec().try_into().unwrap()),
-		email: Data::Raw(b"xcm-test@gmail.com".to_vec().try_into().unwrap()),
-		pgp_fingerprint: Some(pgp_fingerprint),
-		image: Data::Raw(b"xcm-test.png".to_vec().try_into().unwrap()),
-		twitter: Data::Raw(b"@xcm-test".to_vec().try_into().unwrap()),
-		github: Data::None,
-		discord: Data::None,
-	};
-	// Full Identity with nonsensical additional
-	let mut third_relay = second_relay.clone();
-	third_relay.additional = BoundedVec::try_from(vec![(
-		Data::Raw(b"foO".to_vec().try_into().unwrap()),
-		Data::Raw(b"bAr".to_vec().try_into().unwrap()),
-	)])
-	.unwrap();
-	// Full Identity with meaningful additional
-	let mut fourth_relay = second_relay.clone();
-	fourth_relay.additional = BoundedVec::try_from(vec![
-		(
-			Data::Raw(b"github".to_vec().try_into().unwrap()),
-			Data::Raw(b"niels-username".to_vec().try_into().unwrap()),
-		),
-		(
-			Data::Raw(b"discord".to_vec().try_into().unwrap()),
-			Data::Raw(b"bohr-username".to_vec().try_into().unwrap()),
-		),
-	])
-	.unwrap();
-	let mut fourth_para = second_para.clone();
-	fourth_para.github = Data::Raw(b"niels-username".to_vec().try_into().unwrap());
-	fourth_para.discord = Data::Raw(b"bohr-username".to_vec().try_into().unwrap());
-
-	vec![
-		Identity {
-			relay: RelayIdentity { main: first_relay, subs: Subs::One },
-			para: ParaIdentity { main: first_para, subs: Subs::One },
-		},
-		Identity {
-			relay: RelayIdentity { main: second_relay, subs: Subs::One },
-			para: ParaIdentity { main: second_para.clone(), subs: Subs::One },
-		},
-		Identity {
-			relay: RelayIdentity { main: third_relay, subs: Subs::One },
-			para: ParaIdentity { main: second_para.clone(), subs: Subs::One }, /* same as
-			                                                                    * second_para */
-		},
-		Identity {
-			relay: RelayIdentity { main: fourth_relay.clone(), subs: Subs::One },
-			para: ParaIdentity { main: fourth_para.clone(), subs: Subs::One },
-		},
-		Identity {
-			relay: RelayIdentity { main: fourth_relay.clone(), subs: Subs::Many(2) }, // 2
-			// subs
-			para: ParaIdentity { main: fourth_para.clone(), subs: Subs::Many(2) },
-		},
-		Identity {
-			relay: RelayIdentity {
-				main: fourth_relay.clone(),
-				subs: Subs::Many(MaxSubAccounts::get()),
-			},
-			para: ParaIdentity {
-				main: fourth_para.clone(),
-				subs: Subs::Many(MaxSubAccounts::get()),
-			},
-		},
-		Identity {
-			relay: RelayIdentity { main: fourth_relay.clone(), subs: Subs::Zero },
-			para: ParaIdentity { main: fourth_para.clone(), subs: Subs::Zero },
-		},
-	]
 }
 
 fn id_deposit_parachain(id: &IdentityInfoParachain) -> Balance {
@@ -200,10 +148,10 @@ fn set_id_relay(id: &Identity) -> Balance {
 
 		assert_ok!(RococoIdentity::set_identity(
 			RococoOrigin::signed(RococoRelaySender::get()),
-			Box::new(id.relay.main.clone())
+			Box::new(id.relay.clone())
 		));
 
-		match id.relay.subs {
+		match id.subs {
 			Subs::Zero => {},
 			Subs::One => {
 				assert_ok!(RococoIdentity::set_subs(
@@ -230,12 +178,12 @@ fn set_id_relay(id: &Identity) -> Balance {
 		}
 
 		let reserved_bal = RococoBalances::reserved_balance(RococoRelaySender::get());
-		let id_deposit = id_deposit_relaychain(&id.relay.main);
+		let id_deposit = id_deposit_relaychain(&id.relay);
 
-		match id.relay.subs {
+		match id.subs {
 			Subs::Zero => {},
 			Subs::One => {
-				total_deposit = SubAccountDeposit::get() + id_deposit_relaychain(&id.relay.main);
+				total_deposit = SubAccountDeposit::get() + id_deposit_relaychain(&id.relay);
 				// for Many and One we assert the same
 				assert_expected_events!(
 					RococoRelay,
@@ -259,7 +207,7 @@ fn set_id_relay(id: &Identity) -> Balance {
 				for _ in 0..n {
 					sub_account_deposit += SubAccountDeposit::get();
 				}
-				total_deposit = sub_account_deposit + id_deposit_relaychain(&id.relay.main);
+				total_deposit = sub_account_deposit + id_deposit_relaychain(&id.relay);
 				assert_expected_events!(
 					RococoRelay,
 					vec![
@@ -293,7 +241,7 @@ fn assert_set_id_parachain(id: &Identity) {
 
 		assert_ok!(PeopleRococoIdentity::set_identity_no_deposit(
 			&PeopleRococoSender::get(),
-			id.para.main.clone(),
+			id.para.clone(),
 		));
 
 		assert_ok!(PeopleRococoIdentity::set_sub_no_deposit(
@@ -319,8 +267,8 @@ fn assert_reap_id_relay(total_deposit: u128, id: &Identity) {
 		let free_bal_before_reap = RococoBalances::free_balance(RococoRelaySender::get());
 		let reserved_balance = RococoBalances::reserved_balance(RococoRelaySender::get());
 
-		match id.relay.subs {
-			Subs::Zero => assert_eq!(reserved_balance, id_deposit_relaychain(&id.relay.main)),
+		match id.subs {
+			Subs::Zero => assert_eq!(reserved_balance, id_deposit_relaychain(&id.relay)),
 			_ => assert_eq!(reserved_balance, total_deposit),
 		}
 
@@ -329,10 +277,10 @@ fn assert_reap_id_relay(total_deposit: u128, id: &Identity) {
 			RococoRelaySender::get()
 		));
 
-		let remote_deposit = match id.relay.subs {
-			Subs::Zero => calculate_remote_deposit(id.relay.main.encoded_size() as u32, 0),
-			Subs::One => calculate_remote_deposit(id.relay.main.encoded_size() as u32, 1),
-			Subs::Many(n) => calculate_remote_deposit(id.relay.main.encoded_size() as u32, n),
+		let remote_deposit = match id.subs {
+			Subs::Zero => calculate_remote_deposit(id.relay.encoded_size() as u32, 0),
+			Subs::One => calculate_remote_deposit(id.relay.encoded_size() as u32, 1),
+			Subs::Many(n) => calculate_remote_deposit(id.relay.encoded_size() as u32, n),
 		};
 
 		assert_expected_events!(
@@ -356,11 +304,11 @@ fn assert_reap_id_relay(total_deposit: u128, id: &Identity) {
 		// free balance after reap should be greater than before reap
 		assert!(free_bal_after_reap > free_bal_before_reap);
 
-		match id.relay.subs {
+		match id.subs {
 			Subs::Zero => {
 				assert_eq!(
 					free_bal_after_reap,
-					free_bal_before_reap + id_deposit_relaychain(&id.relay.main) - remote_deposit
+					free_bal_before_reap + id_deposit_relaychain(&id.relay) - remote_deposit
 				);
 			},
 			_ => {
@@ -374,13 +322,12 @@ fn assert_reap_id_relay(total_deposit: u128, id: &Identity) {
 }
 fn assert_reap_parachain(id: &Identity) {
 	PeopleRococo::execute_with(|| {
-		type RuntimeEvent = <PeopleRococo as Chain>::RuntimeEvent;
 		let reserved_bal = PeopleRococoBalances::reserved_balance(PeopleRococoSender::get());
-		let id_deposit = id_deposit_parachain(&id.para.main);
+		let id_deposit = id_deposit_parachain(&id.para);
 		let subs_deposit = SubAccountDepositParachain::get();
 		let total_deposit = subs_deposit + id_deposit;
 
-		match id.para.subs {
+		match id.subs {
 			Subs::Many(n) => {
 				let mut sub_account_deposit = 0_u128;
 				for _ in 0..n {
@@ -451,46 +398,85 @@ fn assert_relay_para_flow(id: &Identity) {
 	assert_reap_parachain(id);
 }
 
-// We don't loop through ids and assert because genesis state is
-// required for each test
+fn nonsesical_additional() -> BoundedVec<(Data, Data), MaxAdditionalFields> {
+	BoundedVec::try_from(vec![
+		(
+			Data::Raw(b"foo".to_vec().try_into().unwrap()),
+			Data::Raw(b"bar".to_vec().try_into().unwrap()),
+		),
+		(
+			Data::Raw(b"baz".to_vec().try_into().unwrap()),
+			Data::Raw(b"qux".to_vec().try_into().unwrap()),
+		),
+	])
+	.unwrap()
+}
+
+fn meaningful_additional() -> BoundedVec<(Data, Data), MaxAdditionalFields> {
+	BoundedVec::try_from(vec![
+		(
+			Data::Raw(b"github".to_vec().try_into().unwrap()),
+			Data::Raw(b"niels-username".to_vec().try_into().unwrap()),
+		),
+		(
+			Data::Raw(b"discord".to_vec().try_into().unwrap()),
+			Data::Raw(b"bohr-username".to_vec().try_into().unwrap()),
+		),
+	])
+	.unwrap()
+}
+
 #[test]
 fn on_reap_identity_works_for_minimal_identity() {
-	let ids = identities();
-	assert_relay_para_flow(&ids[0]);
+	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(false, None, Subs::One));
 }
 
 #[test]
 fn on_reap_identity_works_for_full_identity_no_additional() {
-	let ids = identities();
-	assert_relay_para_flow(&ids[1]);
+	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(true, None, Subs::One));
 }
 
 #[test]
 fn on_reap_identity_works_for_full_identity_nonsense_additional() {
-	let ids = identities();
-	assert_relay_para_flow(&ids[2]);
+	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(
+		true,
+		Some(nonsesical_additional()),
+		Subs::One,
+	));
 }
 
 #[test]
 fn on_reap_identity_works_for_full_identity_meaningful_additional() {
-	let ids = identities();
-	assert_relay_para_flow(&ids[3])
+	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(
+		true,
+		Some(meaningful_additional()),
+		Subs::One,
+	));
 }
 
 #[test]
 fn on_reap_indentity_works_for_full_identity_with_two_subs() {
-	let ids = identities();
-	assert_relay_para_flow(&ids[4])
+	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(
+		true,
+		Some(meaningful_additional()),
+		Subs::One,
+	))
 }
 
 #[test]
 fn on_reap_indentity_works_for_full_identity_with_max_subs() {
-	let ids = identities();
-	assert_relay_para_flow(&ids[5])
+	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(
+		true,
+		Some(meaningful_additional()),
+		Subs::Many(MaxSubAccounts::get()),
+	))
 }
 
 #[test]
 fn on_reap_indentity_works_for_full_identity_with_zero_subs() {
-	let ids = identities();
-	assert_relay_para_flow(&ids[6])
+	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(
+		true,
+		Some(meaningful_additional()),
+		Subs::Zero,
+	));
 }
