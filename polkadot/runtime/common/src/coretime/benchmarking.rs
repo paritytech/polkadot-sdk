@@ -33,11 +33,15 @@ mod benchmarks {
 		let root_origin = <T as frame_system::Config>::RuntimeOrigin::root();
 
 		// Use parameterized assignment count
-		let assignments: Vec<(CoreAssignment, PartsOf57600)> = vec![576u16; s as usize]
+		let mut assignments: Vec<(CoreAssignment, PartsOf57600)> = vec![0u16; s as usize - 1]
 			.into_iter()
 			.enumerate()
 			.map(|(index, parts)| (CoreAssignment::Task(index as u32), parts))
 			.collect();
+		// Parts must add up to exactly 57600. Here we add all the parts in one assignment, as 
+		// it won't effect the weight and splitting up the parts into even groupings may not 
+		// work for every value `s`.
+		assignments.push((CoreAssignment::Task(s as u32), 57600u16));
 
 		let core_index: BrokerCoreIndex = 0;
 
