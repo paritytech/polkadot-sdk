@@ -39,7 +39,7 @@ use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 use sp_runtime_interface::pass_by::PassByInner;
-use sp_std::vec::Vec;
+use sp_std::{vec, vec::Vec};
 
 /// Identifier used to match public keys against bandersnatch-vrf keys.
 pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"band");
@@ -759,7 +759,6 @@ pub mod ring_vrf {
 			self.0
 				.serialize_uncompressed(buf.as_mut_slice())
 				.expect("serialization length is constant and checked by test; qed");
-			println!(">>> E: {}", buf.len());
 			buf
 		}
 	}
