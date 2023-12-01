@@ -194,44 +194,46 @@ where
 	) {
 		trace!(target: LOG_TARGET, "State sync: imported {imported} of {count}.");
 
-		let mut complete = false;
-		let mut success = false;
-
-		for (result, hash) in results {
-			if hash == self.state_sync.target() {
-				complete = true;
-				success |= match result {
-					Ok(_) => true,
-					Err(e) => {
-						error!(
-							target: LOG_TARGET,
-							"Failed to import target block with state: {e:?}."
-						);
-						false
-					},
+		let results = results
+			.into_iter()
+			.filter_map(|(result, hash)| {
+				if hash == self.state_sync.target() {
+					Some(result)
+				} else {
+					debug!(
+						target: LOG_TARGET,
+						"Unexpected block processed: {hash} with result {result:?}.",
+					);
+					None
 				}
-			} else {
-				debug!(
-					target: LOG_TARGET,
-					"Unexpected block processed: {hash} with result {result:?}.",
-				);
-			}
-		}
+			})
+			.collect::<Vec<_>>();
 
-		if complete {
-			if success {
-				info!(
-					target: LOG_TARGET,
-					"State sync is complete ({} MiB), continuing with block sync.",
-					self.state_sync.progress().size / (1024 * 1024),
-				);
-			} else {
+		if !results.is_empty() {
+			// We processed the target block
+			results.iter().filter_map(|result| result.as_ref().err()).for_each(|e| {
 				error!(
 					target: LOG_TARGET,
-					"State sync failed. Falling back to full sync.",
+					"Failed to import target block with state: {e:?}."
 				);
+			});
+			match results.into_iter().any(|result| result.is_ok()) {
+				true => {
+					info!(
+						target: LOG_TARGET,
+						"State sync is complete ({} MiB), continuing with block sync.",
+						self.state_sync.progress().size / (1024 * 1024),
+					);
+				},
+				false => {
+					error!(
+						target: LOG_TARGET,
+						"State sync failed. Falling back to full sync.",
+					);
+					// TODO: Test this scenario.
+					//       Make sure fail-over doesn't render useless warp sync tests.
+				},
 			}
-
 			self.actions.push(StateStrategyAction::Finished);
 		}
 	}
