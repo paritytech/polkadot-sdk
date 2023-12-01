@@ -336,7 +336,7 @@ fn assert_reap_parachain(id: &Identity) {
 			Subs::One => id_deposit + SubAccountDepositParachain::get(),
 			Subs::Many(n) => id_deposit + n as u128 * SubAccountDepositParachain::get(),
 		};
-		assert_reap_events(SubAccountDepositParachain::get(), id_deposit, id);
+		assert_reap_events(id_deposit, id);
 		assert_eq!(reserved_bal, total_deposit);
 
 		// Should have at least one ED after in free balance after the reap.
@@ -344,58 +344,33 @@ fn assert_reap_parachain(id: &Identity) {
 	});
 }
 
-fn assert_reap_events(subs_deposit: Balance, id_deposit: Balance, id: &Identity) {
+fn assert_reap_events(id_deposit: Balance, id: &Identity) {
 	type RuntimeEvent = <PeopleRococo as Chain>::RuntimeEvent;
-	match id.subs {
-		Subs::Zero => {
-			assert_expected_events!(
-				PeopleRococo,
-				vec![
-					RuntimeEvent::Balances(BalancesEvent::Deposit { .. }) => {},
-					RuntimeEvent::Balances(BalancesEvent::Endowed { .. }) => {},
-					RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {
-						who: *who == PeopleRococoSender::get(),
-						amount: *amount == id_deposit,
-					},
-					RuntimeEvent::IdentityMigrator(
-						polkadot_runtime_common::identity_migrator::Event::DepositUpdated {
-							who, identity, subs
-						}) => {
-						who: *who == PeopleRococoSender::get(),
-						identity: *identity == id_deposit,
-						subs: *subs == 0,
-					},
-					RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { ..}) => {},
-				]
-			);
-		},
-		_ => {
-			assert_expected_events!(
-				PeopleRococo,
-				vec![
-					RuntimeEvent::Balances(BalancesEvent::Deposit { .. }) => {},
-					RuntimeEvent::Balances(BalancesEvent::Endowed { .. }) => {},
-					RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {
-						who: *who == PeopleRococoSender::get(),
-						amount: *amount == id_deposit,
-					},
-					RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {
-						who: *who == PeopleRococoSender::get(),
-						amount: *amount == subs_deposit,
-					},
-					RuntimeEvent::IdentityMigrator(
-						polkadot_runtime_common::identity_migrator::Event::DepositUpdated {
-							who, identity, subs
-						}) => {
-						who: *who == PeopleRococoSender::get(),
-						identity: *identity == id_deposit,
-						subs: *subs == subs_deposit,
-					},
-					RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { ..}) => {},
-				]
-			);
-		},
-	}
+	let subs_deposit: Balance = match id.subs {
+		Subs::Zero => 0_u128,
+		Subs::One => SubAccountDepositParachain::get(),
+		Subs::Many(n) => n as u128 * SubAccountDepositParachain::get(),
+	};
+	assert_expected_events!(
+		PeopleRococo,
+		vec![
+			RuntimeEvent::Balances(BalancesEvent::Deposit { .. }) => {},
+			RuntimeEvent::Balances(BalancesEvent::Endowed { .. }) => {},
+			RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {
+				who: *who == PeopleRococoSender::get(),
+				amount: *amount == id_deposit,
+			},
+			RuntimeEvent::IdentityMigrator(
+				polkadot_runtime_common::identity_migrator::Event::DepositUpdated {
+					who, identity, subs
+				}) => {
+				who: *who == PeopleRococoSender::get(),
+				identity: *identity == id_deposit,
+				subs: *subs == subs_deposit,
+			},
+			RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { ..}) => {},
+		]
+	);
 }
 
 fn calculate_remote_deposit(bytes: u32, subs: u32) -> Balance {
