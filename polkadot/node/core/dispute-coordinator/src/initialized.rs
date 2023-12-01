@@ -34,7 +34,7 @@ use polkadot_node_primitives::{
 };
 use polkadot_node_subsystem::{
 	messages::{
-		ApprovalVotingMessage, BlockDescription, ChainSelectionMessage, DisputeCoordinatorMessage,
+		ApprovalVotingMessage, ChainSelectionMessage, DisputeCoordinatorMessage,
 		DisputeDistributionMessage, ImportStatementsResult,
 	},
 	overseer, ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, RuntimeApiError,
@@ -43,7 +43,7 @@ use polkadot_node_subsystem_util::runtime::{
 	self, key_ownership_proof, submit_report_dispute_lost, RuntimeInfo,
 };
 use polkadot_primitives::{
-	slashing, BlockNumber, CandidateHash, CandidateReceipt, CompactStatement, DisputeStatement,
+	slashing, CandidateHash, CandidateReceipt, CompactStatement, DisputeStatement,
 	DisputeStatementSet, Hash, ScrapedOnChainVotes, SessionIndex, ValidDisputeStatementKind,
 	ValidatorId, ValidatorIndex,
 };
