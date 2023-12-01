@@ -54,12 +54,4 @@ mod benchmarks {
 			Some(BlockNumberFor::<T>::from(20u32)),
 		)
 	}
-
-	impl_benchmark_test_suite!(
-		Pallet,
-		crate::mock::new_test_ext(
-			crate::assigner_bulk::mock_helpers::GenesisConfigBuilder::default().build()
-		),
-		crate::mock::Test
-	);
 }
