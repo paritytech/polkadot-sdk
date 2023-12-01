@@ -18,5 +18,5 @@ sp-api = { version = "4.0.0-dev", default-features = false, path = "../../../pri
 sp-staking = { version = "4.0.0-dev", default-features = false, path = "../../../primitives/staking" }
 
 [features]
-default = [ "std" ]
-std = [ "codec/std", "sp-api/std", "sp-staking/std" ]
+default = ["std"]
+std = ["codec/std", "sp-api/std", "sp-staking/std"]

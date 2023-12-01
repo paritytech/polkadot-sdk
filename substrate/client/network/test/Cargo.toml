@@ -29,7 +29,7 @@ sc-network-common = { path = "../common" }
 sc-utils = { path = "../../utils" }
 sc-network-light = { path = "../light" }
 sc-network-sync = { path = "../sync" }
-sc-service = { path = "../../service", default-features = false, features = ["test-helpers"]}
+sc-service = { path = "../../service", default-features = false, features = ["test-helpers"] }
 sp-blockchain = { path = "../../../primitives/blockchain" }
 sp-consensus = { path = "../../../primitives/consensus/common" }
 sp-core = { path = "../../../primitives/core" }

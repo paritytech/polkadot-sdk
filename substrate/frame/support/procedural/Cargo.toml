@@ -29,7 +29,7 @@ expander = "2.0.0"
 sp-core-hashing = { path = "../../../primitives/core/hashing" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = []
 no-metadata-docs = []
 # Generate impl-trait for tuples with the given number of tuples. Will be needed as the number of
