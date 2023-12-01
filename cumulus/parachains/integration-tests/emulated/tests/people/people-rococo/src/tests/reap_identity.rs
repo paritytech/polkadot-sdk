@@ -306,11 +306,9 @@ fn assert_reap_id_relay(total_deposit: u128, id: &Identity) {
 		assert_eq!(sub_accounts.len(), 0);
 
 		let reserved_balance = RococoBalances::reserved_balance(RococoRelaySender::get());
-		// after reap reserved balance should be 0
 		assert_eq!(reserved_balance, 0);
-		let free_bal_after_reap = RococoBalances::free_balance(RococoRelaySender::get());
 
-		// free balance after reap should be greater than before reap
+		let free_bal_after_reap = RococoBalances::free_balance(RococoRelaySender::get());
 		assert!(free_bal_after_reap > free_bal_before_reap);
 
 		match id.subs {
