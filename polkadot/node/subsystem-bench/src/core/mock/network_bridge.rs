@@ -16,10 +16,10 @@
 //!
 //! A generic av store subsystem mockup suitable to be used in benchmarks.
 
+use futures::Future;
 use parity_scale_codec::Encode;
 use polkadot_node_subsystem_types::OverseerSignal;
-
-use std::collections::HashMap;
+use std::{collections::HashMap, pin::Pin};
 
 use futures::FutureExt;
 
@@ -35,6 +35,7 @@ use polkadot_node_subsystem::{
 use polkadot_node_network_protocol::request_response::{
 	self as req_res, v1::ChunkResponse, Requests,
 };
+use polkadot_primitives::AuthorityDiscoveryId;
 
 use crate::core::{
 	configuration::{random_error, random_latency, TestConfiguration},
@@ -71,7 +72,24 @@ impl MockNetworkBridgeTx {
 		Self { config, availabilty, network }
 	}
 
-	pub fn respond_to_send_request(
+	fn not_connected_response(
+		&self,
+		authority_discovery_id: &AuthorityDiscoveryId,
+		future: Pin<Box<dyn Future<Output = ()> + Send>>,
+	) -> NetworkAction {
+		// The network action will send the error after a random delay expires.
+		return NetworkAction::new(
+			authority_discovery_id.clone(),
+			future,
+			0,
+			// Generate a random latency based on configuration.
+			random_latency(self.config.latency.as_ref()),
+		)
+	}
+	/// Returns an `NetworkAction` corresponding to the peer sending the response. If
+	/// the peer is connected, the error is sent with a randomized latency as defined in
+	/// configuration.
+	fn respond_to_send_request(
 		&mut self,
 		request: Requests,
 		ingress_tx: &mut tokio::sync::mpsc::UnboundedSender<NetworkAction>,
@@ -86,9 +104,23 @@ impl MockNetworkBridgeTx {
 				};
 				// Account our sent request bytes.
 				self.network.peer_stats(0).inc_sent(outgoing_request.payload.encoded_size());
+
+				// If peer is disconnected return an error to the caller
+				if !self.network.is_peer_connected(&authority_discovery_id) {
+					// We always send `NotConnected` error and we ignore `IfDisconnected` value in
+					// the caller.
+					let future = async move {
+						let _ = outgoing_request
+							.pending_response
+							.send(Err(RequestFailure::NotConnected));
+					}
+					.boxed();
+					return self.not_connected_response(&authority_discovery_id, future)
+				}
+
 				// Account for remote received request bytes.
 				self.network
-					.peer_stats_by_id(authority_discovery_id.clone())
+					.peer_stats_by_id(&authority_discovery_id)
 					.inc_received(outgoing_request.payload.encoded_size());
 
 				let validator_index: usize = outgoing_request.payload.index.0 as usize;
@@ -153,11 +185,24 @@ impl MockNetworkBridgeTx {
 					req_res::Recipient::Authority(authority_discovery_id) => authority_discovery_id,
 					_ => unimplemented!("Peer recipient not supported yet"),
 				};
+
 				// Account our sent request bytes.
 				self.network.peer_stats(0).inc_sent(outgoing_request.payload.encoded_size());
+
+				// If peer is disconnected return an error to the caller
+				if !self.network.is_peer_connected(&authority_discovery_id) {
+					let future = async move {
+						let _ = outgoing_request
+							.pending_response
+							.send(Err(RequestFailure::NotConnected));
+					}
+					.boxed();
+					return self.not_connected_response(&authority_discovery_id, future)
+				}
+
 				// Account for remote received request bytes.
 				self.network
-					.peer_stats_by_id(authority_discovery_id.clone())
+					.peer_stats_by_id(&authority_discovery_id)
 					.inc_received(outgoing_request.payload.encoded_size());
 
 				let available_data =

@@ -43,6 +43,21 @@ pub struct PeerLatency {
 	pub max_latency: Duration,
 }
 
+// Default PoV size in KiB.
+fn default_pov_size() -> usize {
+	5120
+}
+
+// Default bandwidth in bytes
+fn default_bandwidth() -> usize {
+	52428800
+}
+
+// Default connectivity percentage
+fn default_connectivity() -> usize {
+	100
+}
+
 /// The test input parameters
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TestConfiguration {
@@ -53,22 +68,31 @@ pub struct TestConfiguration {
 	/// Number of cores
 	pub n_cores: usize,
 	/// The min PoV size
+	#[serde(default = "default_pov_size")]
 	pub min_pov_size: usize,
 	/// The max PoV size,
+	#[serde(default = "default_pov_size")]
 	pub max_pov_size: usize,
 	/// Randomly sampled pov_sizes
 	#[serde(skip)]
 	pov_sizes: Vec<usize>,
 	/// The amount of bandiwdth remote validators have.
+	#[serde(default = "default_bandwidth")]
 	pub peer_bandwidth: usize,
 	/// The amount of bandiwdth our node has.
+	#[serde(default = "default_bandwidth")]
 	pub bandwidth: usize,
 	/// Optional peer emulation latency
+	#[serde(default)]
 	pub latency: Option<PeerLatency>,
-	/// Error probability
+	/// Error probability, applies to sending messages to the emulated network peers
+	#[serde(default)]
 	pub error: usize,
-	/// Number of blocks
-	/// In one block `n_cores` candidates are recovered
+	/// Connectivity ratio, the percentage of peers we are not connected to, but ar part of
+	/// the topology.
+	#[serde(default = "default_connectivity")]
+	pub connectivity: usize,
+	/// Number of blocks to run the test for
 	pub num_blocks: usize,
 }
 
@@ -166,6 +190,7 @@ impl TestConfiguration {
 			num_blocks,
 			min_pov_size,
 			max_pov_size,
+			connectivity: 100,
 		}
 	}
 
@@ -192,6 +217,7 @@ impl TestConfiguration {
 			num_blocks,
 			min_pov_size,
 			max_pov_size,
+			connectivity: 95,
 		}
 	}
 
@@ -218,6 +244,7 @@ impl TestConfiguration {
 			num_blocks,
 			min_pov_size,
 			max_pov_size,
+			connectivity: 67,
 		}
 	}
 }

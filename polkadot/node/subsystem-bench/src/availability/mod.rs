@@ -111,13 +111,7 @@ fn prepare_test_inner(
 		chunks: state.chunks.clone(),
 	};
 
-	let network = NetworkEmulator::new(
-		config.n_validators,
-		test_authorities.validator_authority_id,
-		config.peer_bandwidth,
-		dependencies.task_manager.spawn_handle(),
-		&dependencies.registry,
-	);
+	let network = NetworkEmulator::new(&config, &dependencies, &test_authorities);
 
 	let network_bridge_tx = network_bridge::MockNetworkBridgeTx::new(
 		config.clone(),
