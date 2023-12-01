@@ -184,10 +184,7 @@ fn set_id_relay(id: &Identity) -> Balance {
 				assert_eq!(reserved_bal, total_deposit);
 			},
 			Subs::Many(n) => {
-				let mut sub_account_deposit = 0_u128;
-				for _ in 0..n {
-					sub_account_deposit += SubAccountDeposit::get();
-				}
+				let sub_account_deposit = n * SubAccountDeposit::get() as u128;
 				total_deposit = sub_account_deposit + id_deposit_relaychain(&id.relay);
 				assert_expected_events!(
 					RococoRelay,
