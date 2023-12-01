@@ -55,7 +55,6 @@ mod version_unchecked {
 	///
 	/// In this migration, update the on-chain storage for the pallet to reflect the new storage
 	/// layout.
-
 	pub struct MigrateV0ToV1<T: crate::Config>(sp_std::marker::PhantomData<T>);
 
 	impl<T: crate::Config> OnRuntimeUpgrade for MigrateV0ToV1<T> {
