@@ -215,6 +215,13 @@ impl sc_cli::CliConfiguration for ExportGenesisStateCommand {
 	fn shared_params(&self) -> &sc_cli::SharedParams {
 		&self.shared_params
 	}
+
+	fn base_path(&self) -> sc_cli::Result<Option<BasePath>> {
+		// As we are just exporting the genesis wasm a tmp database is enough.
+		//
+		// As otherwise we may "pollute" the global base path.
+		Ok(Some(BasePath::new_temp_dir()?))
+	}
 }
 
 /// Command for exporting the genesis wasm file.
@@ -265,6 +272,13 @@ pub fn extract_genesis_wasm(chain_spec: &dyn ChainSpec) -> sc_cli::Result<Vec<u8
 impl sc_cli::CliConfiguration for ExportGenesisWasmCommand {
 	fn shared_params(&self) -> &sc_cli::SharedParams {
 		&self.shared_params
+	}
+
+	fn base_path(&self) -> sc_cli::Result<Option<BasePath>> {
+		// As we are just exporting the genesis wasm a tmp database is enough.
+		//
+		// As otherwise we may "pollute" the global base path.
+		Ok(Some(BasePath::new_temp_dir()?))
 	}
 }
 
