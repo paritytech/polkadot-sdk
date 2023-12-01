@@ -544,7 +544,7 @@ dependencies = [
 [[package]]
 name = "ark-secret-scalar"
 version = "0.0.2"
-source = "git+https://github.com/w3f/ring-vrf?rev=3ddc205#3ddc2051066c4b3f0eadd0ba5700df12500d9754"
+source = "git+https://github.com/w3f/ring-vrf?rev=2019248#2019248785389b3246d55b1c3b0e9bdef4454cb7"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -552,7 +552,7 @@ dependencies = [
  "ark-std",
  "ark-transcript",
  "digest 0.10.7",
- "rand_core 0.6.4",
+ "getrandom_or_panic",
  "zeroize",
 ]
 
@@ -593,7 +593,7 @@ dependencies = [
 [[package]]
 name = "ark-transcript"
 version = "0.0.2"
-source = "git+https://github.com/w3f/ring-vrf?rev=3ddc205#3ddc2051066c4b3f0eadd0ba5700df12500d9754"
+source = "git+https://github.com/w3f/ring-vrf?rev=2019248#2019248785389b3246d55b1c3b0e9bdef4454cb7"
 dependencies = [
  "ark-ff",
  "ark-serialize",
@@ -1225,7 +1225,7 @@ dependencies = [
 [[package]]
 name = "bandersnatch_vrfs"
 version = "0.0.4"
-source = "git+https://github.com/w3f/ring-vrf?rev=3ddc205#3ddc2051066c4b3f0eadd0ba5700df12500d9754"
+source = "git+https://github.com/w3f/ring-vrf?rev=2019248#2019248785389b3246d55b1c3b0e9bdef4454cb7"
 dependencies = [
  "ark-bls12-381",
  "ark-ec",
@@ -2716,7 +2716,7 @@ dependencies = [
 [[package]]
 name = "common"
 version = "0.1.0"
-source = "git+https://github.com/burdges/ring-proof?branch=patch-1#05a756076cb20f981a52afea3a620168de49f95f"
+source = "git+https://github.com/w3f/ring-proof#61e7b528bc0170d6bf541be32440d569b784425d"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -2724,6 +2724,7 @@ dependencies = [
  "ark-serialize",
  "ark-std",
  "fflonk",
+ "getrandom_or_panic",
  "merlin 3.0.0",
  "rand_chacha 0.3.1",
 ]
@@ -4525,7 +4526,7 @@ checksum = "86e3bdc80eee6e16b2b6b0f87fbc98c04bee3455e35174c0de1a125d0688c632"
 [[package]]
 name = "dleq_vrf"
 version = "0.0.2"
-source = "git+https://github.com/w3f/ring-vrf?rev=3ddc205#3ddc2051066c4b3f0eadd0ba5700df12500d9754"
+source = "git+https://github.com/w3f/ring-vrf?rev=2019248#2019248785389b3246d55b1c3b0e9bdef4454cb7"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -4535,7 +4536,6 @@ dependencies = [
  "ark-std",
  "ark-transcript",
  "arrayvec 0.7.4",
- "rand_core 0.6.4",
  "zeroize",
 ]
 
@@ -4869,9 +4869,9 @@ dependencies = [
 
 [[package]]
 name = "env_logger"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85cdab6a89accf66733ad5a1693a4dcced6aeff64602b634530dd73c1f3ee9f0"
+checksum = "95b3f3e67048839cb0d0781f445682a35113da7121f7c949db0e2be96a4fbece"
 dependencies = [
  "humantime",
  "is-terminal",
@@ -5132,7 +5132,7 @@ version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "84f2e425d9790201ba4af4630191feac6dcc98765b118d4d18e91d23c2353866"
 dependencies = [
- "env_logger 0.10.0",
+ "env_logger 0.10.1",
  "log",
 ]
 
@@ -5910,6 +5910,16 @@ dependencies = [
  "cfg-if",
  "libc",
  "wasi 0.11.0+wasi-snapshot-preview1",
+]
+
+[[package]]
+name = "getrandom_or_panic"
+version = "0.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6ea1015b5a70616b688dc230cfe50c8af89d972cb132d5a622814d29773b10b9"
+dependencies = [
+ "rand 0.8.5",
+ "rand_core 0.6.4",
 ]
 
 [[package]]
@@ -10510,6 +10520,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-sassafras"
+version = "0.3.5-dev"
+dependencies = [
+ "array-bytes 6.1.0",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-consensus-sassafras",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 8.0.0",
+]
+
+[[package]]
 name = "pallet-scheduler"
 version = "4.0.0-dev"
 dependencies = [
@@ -14164,7 +14192,7 @@ dependencies = [
 [[package]]
 name = "ring"
 version = "0.1.0"
-source = "git+https://github.com/burdges/ring-proof?branch=patch-1#05a756076cb20f981a52afea3a620168de49f95f"
+source = "git+https://github.com/w3f/ring-proof#61e7b528bc0170d6bf541be32440d569b784425d"
 dependencies = [
  "ark-ec",
  "ark-ff",
