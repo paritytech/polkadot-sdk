@@ -38,8 +38,8 @@ mod benchmarks {
 			.enumerate()
 			.map(|(index, parts)| (CoreAssignment::Task(index as u32), parts))
 			.collect();
-		// Parts must add up to exactly 57600. Here we add all the parts in one assignment, as 
-		// it won't effect the weight and splitting up the parts into even groupings may not 
+		// Parts must add up to exactly 57600. Here we add all the parts in one assignment, as
+		// it won't effect the weight and splitting up the parts into even groupings may not
 		// work for every value `s`.
 		assignments.push((CoreAssignment::Task(s as u32), 57600u16));
 
