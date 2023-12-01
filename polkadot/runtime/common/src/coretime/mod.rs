@@ -28,7 +28,6 @@ use pallet_broker::{CoreAssignment, CoreIndex as BrokerCoreIndex};
 use primitives::{CoreIndex, Id as ParaId};
 use runtime_parachains::{
 	assigner_bulk::{self, PartsOf57600},
-	configuration::Pallet,
 	origin::{ensure_parachain, Origin},
 };
 use sp_std::{prelude::*, result};
