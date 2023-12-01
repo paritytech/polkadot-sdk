@@ -1024,11 +1024,23 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Set subs with zero deposit. Only used for benchmarking that involve `rejig_deposit`.
+	/// Set sub with zero deposit. Only used for benchmarking that involve `rejig_deposit`.
 	#[cfg(any(feature = "runtime-benchmarks", feature = "xcm-emulator"))]
 	pub fn set_sub_no_deposit(who: &T::AccountId, sub: T::AccountId) -> DispatchResult {
 		use frame_support::BoundedVec;
 		let subs = BoundedVec::<_, T::MaxSubAccounts>::try_from(vec![sub]).unwrap();
+		SubsOf::<T>::insert::<
+			&T::AccountId,
+			(BalanceOf<T>, BoundedVec<T::AccountId, T::MaxSubAccounts>),
+		>(&who, (Zero::zero(), subs));
+		Ok(())
+	}
+
+	/// set subs with zero deposit. Only used for benchmarking that involve `rejig_deposit`.
+	#[cfg(any(feature = "runtime-benchmarks", feature = "xcm-emulator"))]
+	pub fn set_subs_no_deposit(who: &T::AccountId, subs: Vec<T::AccountId>) -> DispatchResult {
+		use frame_support::BoundedVec;
+		let subs = BoundedVec::<_, T::MaxSubAccounts>::try_from(subs).unwrap();
 		SubsOf::<T>::insert::<
 			&T::AccountId,
 			(BalanceOf<T>, BoundedVec<T::AccountId, T::MaxSubAccounts>),

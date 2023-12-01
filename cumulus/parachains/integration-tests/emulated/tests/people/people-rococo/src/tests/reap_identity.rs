@@ -162,6 +162,38 @@ fn set_id_relay(id: &Identity) -> Balance {
 		let id_deposit = id_deposit_relaychain(&id.relay);
 
 		match id.subs {
+			Subs::Zero => {
+				total_deposit = id_deposit; // No subs
+				assert_expected_events!(
+					RococoRelay,
+					vec![
+						RuntimeEvent::Identity(IdentityEvent::IdentitySet { .. }) => {},
+						RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {
+							who: *who == RococoRelaySender::get(),
+							amount: *amount == id_deposit,
+						},
+					]
+				);
+				assert_eq!(reserved_bal, total_deposit);
+			},
+			Subs::One => {
+				total_deposit = SubAccountDeposit::get() + id_deposit_relaychain(&id.relay);
+				assert_expected_events!(
+					RococoRelay,
+					vec![
+						RuntimeEvent::Identity(IdentityEvent::IdentitySet { .. }) => {},
+						RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {
+							who: *who == RococoRelaySender::get(),
+							amount: *amount == id_deposit,
+						},
+						RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {
+							who: *who == RococoRelaySender::get(),
+							amount: *amount == SubAccountDeposit::get(),
+						},
+					]
+				);
+				assert_eq!(reserved_bal, total_deposit);
+			},
 			Subs::Many(n) => {
 				let sub_account_deposit = n as u128 * SubAccountDeposit::get() as u128;
 				total_deposit = sub_account_deposit + id_deposit_relaychain(&id.relay);
@@ -176,25 +208,6 @@ fn set_id_relay(id: &Identity) -> Balance {
 						RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {
 							who: *who == RococoRelaySender::get(),
 							amount: *amount == sub_account_deposit,
-						},
-					]
-				);
-				// The reserved balance should equal the calculated total deposit
-				assert_eq!(reserved_bal, total_deposit);
-			},
-			_ => {
-				total_deposit = SubAccountDeposit::get() + id_deposit_relaychain(&id.relay);
-				assert_expected_events!(
-					RococoRelay,
-					vec![
-						RuntimeEvent::Identity(IdentityEvent::IdentitySet { .. }) => {},
-						RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {
-							who: *who == RococoRelaySender::get(),
-							amount: *amount == id_deposit,
-						},
-						RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {
-							who: *who == RococoRelaySender::get(),
-							amount: *amount == SubAccountDeposit::get(),
 						},
 					]
 				);
@@ -228,13 +241,16 @@ fn assert_set_id_parachain(id: &Identity) {
 					AccountId32::new([1_u8; 32]),
 				));
 			},
-			Subs::Many(n) =>
+			Subs::Many(n) => {
+				let mut subs = Vec::new();
 				for i in 0..n {
-					assert_ok!(PeopleRococoIdentity::set_sub_no_deposit(
-						&PeopleRococoSender::get(),
-						AccountId32::new([i as u8 + 1; 32]),
-					));
-				},
+					subs.push(AccountId32::new([i as u8 + 1; 32]));
+				}
+				assert_ok!(PeopleRococoIdentity::set_subs_no_deposit(
+					&PeopleRococoSender::get(),
+					subs,
+				));
+			},
 		}
 
 		// No events get triggered when calling set_sub_no_deposit
@@ -244,8 +260,8 @@ fn assert_set_id_parachain(id: &Identity) {
 		assert_eq!(reserved_bal, 0);
 		assert!(PeopleRococoIdentity::identity(&PeopleRococoSender::get()).is_some());
 
-		let (_, sub_accounts) =
-			<PeopleRococo as PeopleRococoPallet>::Identity::subs_of(&PeopleRococoSender::get());
+		let (_, sub_accounts) = PeopleRococoIdentity::subs_of(&PeopleRococoSender::get());
+
 		match id.subs {
 			Subs::Zero => assert_eq!(sub_accounts.len(), 0),
 			Subs::One => assert_eq!(sub_accounts.len(), 1),
@@ -318,52 +334,80 @@ fn assert_reap_parachain(id: &Identity) {
 		let reserved_bal = PeopleRococoBalances::reserved_balance(PeopleRococoSender::get());
 		let id_deposit = id_deposit_parachain(&id.para);
 		let subs_deposit = SubAccountDepositParachain::get();
-		let total_deposit = subs_deposit + id_deposit;
 
 		match id.subs {
-			Subs::Many(n) => {
-				let mut sub_account_deposit = 0_u128;
-				for _ in 0..n {
-					sub_account_deposit += SubAccountDepositParachain::get();
-				}
-				assert_reap_events(sub_account_deposit, id_deposit);
+			Subs::Zero => {
+				assert_reap_events(0, id_deposit, id);
+				assert_eq!(reserved_bal, id_deposit);
 			},
-			_ => assert_reap_events(subs_deposit, id_deposit),
+			Subs::One => {
+				assert_reap_events(subs_deposit, id_deposit, id);
+				assert_eq!(reserved_bal, SubAccountDepositParachain::get() + id_deposit);
+			},
+			Subs::Many(n) => {
+				let sub_account_deposit = n as u128 * SubAccountDepositParachain::get() as u128;
+				assert_reap_events(sub_account_deposit, id_deposit, id);
+				assert_eq!(reserved_bal, sub_account_deposit + id_deposit);
+			},
 		}
 
-		// reserved balance should be equal to total deposit calculated on the Parachain
-		assert_eq!(reserved_bal, total_deposit);
 		// Should have at least one ED after in free balance after the reap.
 		assert!(PeopleRococoBalances::free_balance(PeopleRococoSender::get()) >= PEOPLE_ROCOCO_ED);
 	});
 }
 
-fn assert_reap_events(subs_deposit: Balance, id_deposit: Balance) {
+fn assert_reap_events(subs_deposit: Balance, id_deposit: Balance, id: &Identity) {
 	type RuntimeEvent = <PeopleRococo as Chain>::RuntimeEvent;
-	assert_expected_events!(
-		PeopleRococo,
-		vec![
-			RuntimeEvent::Balances(BalancesEvent::Deposit { .. }) => {},
-			RuntimeEvent::Balances(BalancesEvent::Endowed { .. }) => {},
-			RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {
-				who: *who == PeopleRococoSender::get(),
-				amount: *amount == id_deposit,
-			},
-			RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {
-				who: *who == PeopleRococoSender::get(),
-				amount: *amount == subs_deposit,
-			},
-			RuntimeEvent::IdentityMigrator(
-				polkadot_runtime_common::identity_migrator::Event::DepositUpdated {
-					who, identity, subs
-				}) => {
-				who: *who == PeopleRococoSender::get(),
-				identity: *identity == id_deposit,
-				subs: *subs == subs_deposit,
-			},
-			RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { ..}) => {},
-		]
-	);
+	match id.subs {
+		Subs::Zero => {
+			assert_expected_events!(
+				PeopleRococo,
+				vec![
+					RuntimeEvent::Balances(BalancesEvent::Deposit { .. }) => {},
+					RuntimeEvent::Balances(BalancesEvent::Endowed { .. }) => {},
+					RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {
+						who: *who == PeopleRococoSender::get(),
+						amount: *amount == id_deposit,
+					},
+					RuntimeEvent::IdentityMigrator(
+						polkadot_runtime_common::identity_migrator::Event::DepositUpdated {
+							who, identity, subs
+						}) => {
+						who: *who == PeopleRococoSender::get(),
+						identity: *identity == id_deposit,
+						subs: *subs == 0,
+					},
+					RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { ..}) => {},
+				]
+			);
+		},
+		_ => {
+			assert_expected_events!(
+				PeopleRococo,
+				vec![
+					RuntimeEvent::Balances(BalancesEvent::Deposit { .. }) => {},
+					RuntimeEvent::Balances(BalancesEvent::Endowed { .. }) => {},
+					RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {
+						who: *who == PeopleRococoSender::get(),
+						amount: *amount == id_deposit,
+					},
+					RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {
+						who: *who == PeopleRococoSender::get(),
+						amount: *amount == subs_deposit,
+					},
+					RuntimeEvent::IdentityMigrator(
+						polkadot_runtime_common::identity_migrator::Event::DepositUpdated {
+							who, identity, subs
+						}) => {
+						who: *who == PeopleRococoSender::get(),
+						identity: *identity == id_deposit,
+						subs: *subs == subs_deposit,
+					},
+					RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { ..}) => {},
+				]
+			);
+		},
+	}
 }
 
 fn calculate_remote_deposit(bytes: u32, subs: u32) -> Balance {
