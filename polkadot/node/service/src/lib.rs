@@ -740,6 +740,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 		// the block authoring backoff is disabled by default on production networks
 		None
 	} else {
+		let mut backoff = sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging::default();
 		Some(backoff)
 	};
 
