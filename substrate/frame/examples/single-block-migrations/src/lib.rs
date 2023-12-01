@@ -204,7 +204,6 @@ pub mod pallet {
 	#[docify::export(pallet_calls)]
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		#[pallet::call_index(0)]
 		pub fn set_value(origin: OriginFor<T>, value: u32) -> DispatchResult {
 			ensure_signed(origin)?;
 
