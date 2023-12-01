@@ -26,7 +26,7 @@ use scale_info::{
 	Path, Type, TypeInfo,
 };
 use sp_runtime::{
-	traits::{IdentifyAccount, Member, Verify, Zero},
+	traits::{Member, Zero},
 	RuntimeDebug,
 };
 use sp_std::{fmt::Debug, iter::once, ops::Add, prelude::*};
@@ -354,42 +354,6 @@ pub(crate) type Username = BoundedVec<u8, ConstU32<USERNAME_MAX_LENGTH>>;
 // 	   // all other usernames of user (maybe)
 // 	   secondary: BoundedVec<Username, UsernameLimit>,
 // }
-
-/// A wrapper around different accounts based on whether they are based on a cryptographic key or
-/// not.
-#[derive(Clone, Debug, Encode, Decode, PartialEq, TypeInfo)]
-pub enum AccountIdentifier<
-	AccountId: Clone + Decode + Debug + Encode + PartialEq + TypeInfo,
-	S: SignerProvider<AccountId>,
-> {
-	Abstract(AccountId),
-	Keyed(S),
-}
-
-/// Cryptographic keys used with this pallet must have verifiable signatures and be able to be
-/// converted into accounts.
-pub trait SignerProvider<A>: Clone + Decode + Debug + Encode + PartialEq + TypeInfo {
-	fn verify_signature(&self, signature: &MultiSignature, message: &[u8]) -> bool;
-	fn into_account_truncating(&self) -> A;
-	#[cfg(feature = "runtime-benchmarks")]
-	fn create_signer(id: u32) -> Self;
-}
-
-type AccountPublic = <MultiSignature as Verify>::Signer;
-type SigningAccountId = <AccountPublic as IdentifyAccount>::AccountId;
-impl SignerProvider<SigningAccountId> for sp_runtime::MultiSigner {
-	fn verify_signature(&self, signature: &MultiSignature, message: &[u8]) -> bool {
-		signature.verify(message, &self.clone().into_account())
-	}
-	fn into_account_truncating(&self) -> SigningAccountId {
-		self.clone().into_account()
-	}
-	#[cfg(feature = "runtime-benchmarks")]
-	fn create_signer(id: u32) -> Self {
-		let signer = sp_io::crypto::sr25519_generate(id.into(), None);
-		Self::Sr25519(signer)
-	}
-}
 
 #[cfg(test)]
 mod tests {

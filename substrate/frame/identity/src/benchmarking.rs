@@ -22,6 +22,7 @@
 use super::*;
 
 use crate::Pallet as Identity;
+use codec::Encode;
 use frame_benchmarking::{
 	account, impl_benchmark_test_suite, v2::*, whitelisted_caller, BenchmarkError,
 };
@@ -30,9 +31,9 @@ use frame_support::{
 	traits::{EnsureOrigin, Get, OnFinalize, OnInitialize},
 };
 use frame_system::RawOrigin;
-use sp_core::{sr25519, Pair};
+use sp_io::crypto::{sr25519_generate, sr25519_sign};
 use sp_runtime::{
-	traits::{Bounded, IdentifyAccount, One, Verify},
+	traits::{Bounded, IdentifyAccount, One},
 	MultiSignature, MultiSigner,
 };
 
@@ -132,7 +133,11 @@ fn bounded_username(username: Vec<u8>, suffix: Vec<u8>) -> Username {
 	Username::try_from(full_username).expect("test usernames should fit within bounds")
 }
 
-#[benchmarks(where <T as frame_system::Config>::AccountId: From<sp_runtime::AccountId32>)]
+#[benchmarks(
+	where
+		<T as frame_system::Config>::AccountId: From<sp_runtime::AccountId32>,
+		T::OffchainSignature: From<MultiSignature>,
+)]
 mod benchmarks {
 	use super::*;
 
@@ -620,35 +625,30 @@ mod benchmarks {
 
 		let username = bench_username();
 		let bounded_username = bounded_username(username.clone(), suffix.clone());
+		let encoded_username = Encode::encode(&bounded_username.to_vec());
 
-		// Set up inputs. Worst case will be signature verification.
-		let suri = "//Alice";
-		let pair = sr25519::Pair::from_string(suri, None).unwrap();
+		let public = sr25519_generate(0.into(), None);
+		let who_account: T::AccountId = MultiSigner::Sr25519(public).into_account().into();
+		let who_lookup = T::Lookup::unlookup(who_account.clone());
 
-		let signature = pair.sign(&bounded_username[..]);
-		assert!(sr25519::Pair::verify(&signature, &bounded_username[..], &pair.public()));
+		let signature =
+			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &encoded_username).unwrap());
 
-		let multisignature = MultiSignature::from(signature);
-		let multisigner = MultiSigner::from(pair.public().into());
-		assert!(multisignature.verify(&bounded_username[..], &multisigner.into_account()));
-		let who = AccountIdentifier::Keyed(MultiSigner::Sr25519(pair.public()));
+		// Verify signature here to avoid surprise errors at runtime
+		assert!(signature.verify(&encoded_username[..], &public.into()));
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(authority.clone()), who, username, Some(multisignature));
+		_(RawOrigin::Signed(authority.clone()), who_lookup, username, Some(signature.into()));
 
 		assert_has_event::<T>(
 			Event::<T>::UsernameSet {
-				who: multisigner.clone().into_account_truncating().into(),
+				who: who_account.clone(),
 				username: bounded_username.clone(),
 			}
 			.into(),
 		);
 		assert_has_event::<T>(
-			Event::<T>::PrimaryUsernameSet {
-				who: multisigner.into_account_truncating().into(),
-				username: bounded_username,
-			}
-			.into(),
+			Event::<T>::PrimaryUsernameSet { who: who_account, username: bounded_username }.into(),
 		);
 		Ok(())
 	}

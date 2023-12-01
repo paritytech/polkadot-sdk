@@ -31,6 +31,7 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 use sp_core::H256;
+use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
 	traits::{BadOrigin, BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,
@@ -112,7 +113,8 @@ impl pallet_identity::Config for Test {
 	type MaxRegistrars = MaxRegistrars;
 	type RegistrarOrigin = EnsureRoot<Self::AccountId>;
 	type ForceOrigin = EnsureRoot<Self::AccountId>;
-	type Signer = sp_runtime::MultiSigner;
+	type OffchainSignature = MultiSignature;
+	type SigningPublicKey = AccountPublic;
 	type UsernameAuthorityOrigin = EnsureRoot<Self::AccountId>;
 	type PendingUsernameExpiration = ConstU64<100>;
 	type WeightInfo = ();
@@ -132,7 +134,10 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
-	t.into()
+	let mut ext = sp_io::TestExternalities::new(t);
+	ext.register_extension(KeystoreExt::new(MemoryKeystore::new()));
+	ext.execute_with(|| System::set_block_number(1));
+	ext
 }
 
 fn account(id: u8) -> AccountIdOf<Test> {

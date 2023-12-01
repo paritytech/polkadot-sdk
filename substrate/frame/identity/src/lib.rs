@@ -88,14 +88,12 @@ use frame_support::{
 	BoundedVec,
 };
 pub use pallet::*;
-use sp_runtime::{
-	traits::{AppendZerosInput, Hash, Saturating, StaticLookup, Zero},
-	MultiSignature,
+use sp_runtime::traits::{
+	AppendZerosInput, Hash, IdentifyAccount, Saturating, StaticLookup, Verify, Zero,
 };
 use sp_std::prelude::*;
 pub use types::{
-	AccountIdentifier, Data, IdentityInformationProvider, Judgement, RegistrarIndex, RegistrarInfo,
-	Registration, SignerProvider,
+	Data, IdentityInformationProvider, Judgement, RegistrarIndex, RegistrarInfo, Registration,
 };
 pub use weights::WeightInfo;
 
@@ -155,8 +153,13 @@ pub mod pallet {
 		/// The origin which may add or remove registrars. Root can always do this.
 		type RegistrarOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// Type that can both sign messages and be converted into an AccountId of the runtime.
-		type Signer: SignerProvider<Self::AccountId>;
+		/// Signature type for pre-authorizing usernames off-chain.
+		///
+		/// Can verify whether an `Self::SigningPublicKey` created a signature.
+		type OffchainSignature: Verify<Signer = Self::SigningPublicKey> + Parameter;
+
+		/// Public key that corresponds to an on-chain `Self::AccountId`.
+		type SigningPublicKey: IdentifyAccount<AccountId = Self::AccountId>;
 
 		/// The origin which may add or remove username authorities. Root can always do this.
 		type UsernameAuthorityOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -1011,9 +1014,9 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::set_username_for())]
 		pub fn set_username_for(
 			origin: OriginFor<T>,
-			who: AccountIdentifier<T::AccountId, T::Signer>,
+			who: AccountIdLookupOf<T>,
 			username: Vec<u8>,
-			signature: Option<MultiSignature>,
+			signature: Option<T::OffchainSignature>,
 		) -> DispatchResult {
 			// Ensure origin is a Username Authority and has an allocation. Decrement their
 			// allocation by one.
@@ -1057,25 +1060,18 @@ pub mod pallet {
 				Error::<T>::UsernameTaken
 			);
 
-			// Queue or insert username.
-			match who {
-				// The user must accept the username, therefore, queue it.
-				AccountIdentifier::Abstract(a) => {
-					ensure!(signature.is_none(), Error::<T>::InvalidSignature);
-					Self::queue_acceptance(&a, bounded_username);
-				},
-
+			// Insert or queue.
+			let who = T::Lookup::lookup(who)?;
+			if let Some(s) = signature {
 				// Account has pre-signed an authorization. Verify the signature provided and grant
 				// the username directly.
-				AccountIdentifier::Keyed(signer) => {
-					let signature = signature.ok_or(Error::<T>::RequiresSignature)?;
-					let valid = bounded_username
-						.to_vec()
-						.using_encoded(|encoded| signer.verify_signature(&signature, encoded));
-					ensure!(valid, Error::<T>::InvalidSignature);
-					Self::insert_username(&signer.into_account_truncating(), bounded_username);
-				},
-			};
+				let encoded = Encode::encode(&bounded_username.to_vec());
+				Self::validate_signature(&encoded, &s, &who)?;
+				Self::insert_username(&who, bounded_username);
+			} else {
+				// The user must accept the username, therefore, queue it.
+				Self::queue_acceptance(&who, bounded_username);
+			}
 			Ok(())
 		}
 
@@ -1204,6 +1200,30 @@ impl<T: Config> Pallet<T> {
 			username.iter().all(|byte| byte.is_ascii_alphanumeric()),
 			Error::<T>::InvalidUsername
 		);
+		Ok(())
+	}
+
+	/// Validate a signature. Supports signatures on raw `data` or `data` wrapped in HTML `<Bytes>`.
+	fn validate_signature(
+		data: &Vec<u8>,
+		signature: &T::OffchainSignature,
+		signer: &T::AccountId,
+	) -> DispatchResult {
+		// Happy path, user has signed the raw data.
+		if signature.verify(&data[..], &signer) {
+			return Ok(())
+		}
+		// NOTE: for security reasons modern UIs implicitly wrap the data requested to sign into
+		// `<Bytes> + data + </Bytes>`, so why we support both wrapped and raw versions.
+		let prefix = b"<Bytes>";
+		let suffix = b"</Bytes>";
+		let mut wrapped: Vec<u8> = Vec::with_capacity(data.len() + prefix.len() + suffix.len());
+		wrapped.extend(prefix);
+		wrapped.extend(data);
+		wrapped.extend(suffix);
+
+		ensure!(signature.verify(&wrapped[..], &signer), Error::<T>::InvalidSignature);
+
 		Ok(())
 	}
 
