@@ -1036,7 +1036,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// set subs with zero deposit. Only used for benchmarking that involve `rejig_deposit`.
+	/// set subs with zero deposit. Only used for XCM emulator testing.  
 	#[cfg(any(feature = "runtime-benchmarks", feature = "xcm-emulator"))]
 	pub fn set_subs_no_deposit(who: &T::AccountId, subs: Vec<T::AccountId>) -> DispatchResult {
 		use frame_support::BoundedVec;
