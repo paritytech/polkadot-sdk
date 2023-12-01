@@ -157,25 +157,6 @@ will run the tests for the specified rust version and specified image
 
 We use [zepter](https://github.com/ggwpez/zepter) to enforce features are propagated between crates correctly.
 
-## Rust Code Style
-
-We use the nightly version of rustfmt to enforce consistent code formatting.
-
-You should format your code with `cargo +nightly fmt`.
-
-To see exactly which nightly version is used, check our CI job logs.
-
-## TOML Code Style
-
-We use [taplo](https://taplo.tamasfe.dev/) to enforce consistent TOML formatting.
-
-You can install it with `cargo install taplo-cli` and format your code with `taplo format`.
-
-You may find useful
-
-- [Taplo VSCode extension](https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml)
-- For NeoVim, [taplo is avaliable with Mason](https://github.com/williamboman/mason-lspconfig.nvim#available-lsp-servers)
-
 ## Command Bot
 
 If you're member of **paritytech** org - you can use command-bot to run various of common commands in CI:
