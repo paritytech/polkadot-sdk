@@ -29,7 +29,7 @@ mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_runtime_upgrade() -> Weight {
-			if Self::current_storage_version() != Self::on_chain_storage_version() {
+			if Self::in_code_storage_version() != Self::on_chain_storage_version() {
 
 			}
 

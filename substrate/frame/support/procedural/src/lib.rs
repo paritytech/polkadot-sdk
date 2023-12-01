@@ -1084,7 +1084,7 @@ pub fn generate_store(_: TokenStream, _: TokenStream) -> TokenStream {
 /// pub struct Pallet<T>(_);
 /// ```
 ///
-/// If not present, the current storage version is set to the default value.
+/// If not present, the in-code storage version is set to the default value.
 #[proc_macro_attribute]
 pub fn storage_version(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()

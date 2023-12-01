@@ -40,9 +40,9 @@ impl<
 {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
-		let current = Pallet::<T, I>::current_storage_version();
-		let onchain = Pallet::<T, I>::on_chain_storage_version();
-		ensure!(onchain == 0 && current == 2, "pallet_society: invalid version");
+		let in_code = Pallet::<T, I>::in_code_storage_version();
+		let on_chain = Pallet::<T, I>::on_chain_storage_version();
+		ensure!(on_chain == 0 && in_code == 2, "pallet_society: invalid version");
 
 		Ok((v0::Candidates::<T, I>::get(), v0::Members::<T, I>::get()).encode())
 	}

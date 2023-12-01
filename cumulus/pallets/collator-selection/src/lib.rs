@@ -118,7 +118,7 @@ pub mod pallet {
 	use sp_staking::SessionIndex;
 	use sp_std::vec::Vec;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	type BalanceOf<T> =

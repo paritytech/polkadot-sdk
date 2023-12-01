@@ -19,7 +19,7 @@ use crate::{Config, Pallet, Weight, LOG_TARGET};
 use frame_support::{pallet_prelude::*, storage::migration, traits::OnRuntimeUpgrade};
 use log;
 
-/// The current storage version.
+/// The in-code storage version.
 pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 /// Wrapper for all migrations of this pallet.
