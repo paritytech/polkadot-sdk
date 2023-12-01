@@ -671,7 +671,7 @@ where
 			self.num_connected.store(self.peers.len(), Ordering::Relaxed);
 			self.is_major_syncing.store(self.strategy.is_major_syncing(), Ordering::Relaxed);
 
-			// Process actions requested by `ChainSync`.
+			// Process actions requested by a syncing strategy.
 			if let Err(e) = self.process_strategy_actions() {
 				error!("Terminating `SyncingEngine` due to fatal error: {e:?}");
 				return
