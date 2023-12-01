@@ -28,7 +28,7 @@ sp-runtime-interface = { path = "../../runtime-interface", default-features = fa
 sp-std = { path = "../../std", default-features = false, optional = true }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"ark-bls12-377-ext?/std",
 	"ark-bls12-377?/std",
@@ -46,11 +46,11 @@ std = [
 	"sp-runtime-interface?/std",
 	"sp-std?/std",
 ]
-common = [ "ark-ec", "ark-scale", "sp-runtime-interface", "sp-std" ]
-bls12-377 = [ "ark-bls12-377", "ark-bls12-377-ext", "common" ]
-bls12-381 = [ "ark-bls12-381", "ark-bls12-381-ext", "common" ]
-bw6-761 = [ "ark-bw6-761", "ark-bw6-761-ext", "common" ]
-ed-on-bls12-377 = [ "ark-ed-on-bls12-377", "ark-ed-on-bls12-377-ext", "common" ]
+common = ["ark-ec", "ark-scale", "sp-runtime-interface", "sp-std"]
+bls12-377 = ["ark-bls12-377", "ark-bls12-377-ext", "common"]
+bls12-381 = ["ark-bls12-381", "ark-bls12-381-ext", "common"]
+bw6-761 = ["ark-bw6-761", "ark-bw6-761-ext", "common"]
+ed-on-bls12-377 = ["ark-ed-on-bls12-377", "ark-ed-on-bls12-377-ext", "common"]
 ed-on-bls12-381-bandersnatch = [
 	"ark-ed-on-bls12-381-bandersnatch",
 	"ark-ed-on-bls12-381-bandersnatch-ext",

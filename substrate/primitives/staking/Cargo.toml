@@ -13,17 +13,17 @@ readme = "README.md"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-serde = { version = "1.0.193", default-features = false, features = ["derive", "alloc"], optional = true }
+serde = { version = "1.0.193", default-features = false, features = ["alloc", "derive"], optional = true }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 impl-trait-for-tuples = "0.2.2"
 
-sp-core = { path = "../core", default-features = false}
-sp-runtime = { path = "../runtime", default-features = false}
-sp-std = { path = "../std", default-features = false}
+sp-core = { path = "../core", default-features = false }
+sp-runtime = { path = "../runtime", default-features = false }
+sp-std = { path = "../std", default-features = false }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"scale-info/std",
@@ -32,4 +32,4 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 ]
-runtime-benchmarks = [ "sp-runtime/runtime-benchmarks" ]
+runtime-benchmarks = ["sp-runtime/runtime-benchmarks"]

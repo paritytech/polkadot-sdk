@@ -15,7 +15,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 clap = { version = "4.4.10", features = ["derive"] }
 honggfuzz = "0.5"
-rand = { version = "0.8", features = ["std", "small_rng"] }
+rand = { version = "0.8", features = ["small_rng", "std"] }
 
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
@@ -24,7 +24,7 @@ frame-election-provider-support = { path = "../.." }
 sp-arithmetic = { path = "../../../../primitives/arithmetic" }
 sp-runtime = { path = "../../../../primitives/runtime" }
 # used by generate_solution_type:
-sp-npos-elections = { path = "../../../../primitives/npos-elections", default-features = false}
+sp-npos-elections = { path = "../../../../primitives/npos-elections", default-features = false }
 frame-support = { path = "../../../support" }
 
 [[bin]]

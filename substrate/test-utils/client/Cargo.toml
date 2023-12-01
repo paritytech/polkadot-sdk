@@ -22,13 +22,13 @@ serde_json = "1.0.108"
 sc-client-api = { path = "../../client/api" }
 sc-client-db = { path = "../../client/db", default-features = false, features = [
 	"test-helpers",
-]}
+] }
 sc-consensus = { path = "../../client/consensus/common" }
 sc-executor = { path = "../../client/executor" }
 sc-offchain = { path = "../../client/offchain" }
 sc-service = { path = "../../client/service", default-features = false, features = [
 	"test-helpers",
-]}
+] }
 sp-blockchain = { path = "../../primitives/blockchain" }
 sp-consensus = { path = "../../primitives/consensus/common" }
 sp-core = { path = "../../primitives/core" }
