@@ -44,9 +44,6 @@ sp-keyring = { path = "../../../primitives/keyring" }
 frame-system = { path = "../../../frame/system" }
 pallet-transaction-payment = { path = "../../../frame/transaction-payment", default-features = false}
 
-sp-consensus-sassafras = { path = "../../../primitives/consensus/sassafras" }
-sp-crypto-ec-utils = { path = "../../../primitives/crypto/ec-utils", features = ["bls12-381","ed-on-bls12-381-bandersnatch"] }
-
 # These dependencies are used for the node template's RPCs
 jsonrpsee = { version = "0.16.2", features = ["server"] }
 sp-api = { path = "../../../primitives/api" }

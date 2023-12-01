@@ -117,10 +117,7 @@ pub fn run() -> sc_cli::Result<()> {
 							)
 						}
 
-						cmd.run::<Block, (
-							sp_crypto_ec_utils::bls12_381::host_calls::HostFunctions,
-							sp_crypto_ec_utils::ed_on_bls12_381_bandersnatch::host_calls::HostFunctions,
-						)>(config)
+						cmd.run::<Block, ()>(config)
 					},
 					BenchmarkCmd::Block(cmd) => {
 						let PartialComponents { client, .. } = service::new_partial(&config)?;

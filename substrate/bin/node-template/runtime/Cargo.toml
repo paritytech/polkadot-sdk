@@ -42,9 +42,6 @@ sp-version = { path = "../../../primitives/version", default-features = false, f
 serde_json = { version = "1.0.108", default-features = false, features = ["alloc"] }
 sp-genesis-builder = { default-features = false, path = "../../../primitives/genesis-builder" }
 
-pallet-sassafras = { path = "../../../frame/sassafras", default-features = false, features = ["construct-dummy-ring-context"]}
-sp-consensus-sassafras = { path = "../../../primitives/consensus/sassafras", default-features = false}
-
 # Used for the node template's RPCs
 frame-system-rpc-runtime-api = { path = "../../../frame/system/rpc/runtime-api", default-features = false}
 pallet-transaction-payment-rpc-runtime-api = { path = "../../../frame/transaction-payment/rpc/runtime-api", default-features = false}
@@ -73,7 +70,6 @@ std = [
 	"pallet-aura/std",
 	"pallet-balances/std",
 	"pallet-grandpa/std",
-	"pallet-sassafras/std",
 	"pallet-sudo/std",
 	"pallet-template/std",
 	"pallet-timestamp/std",
@@ -85,7 +81,6 @@ std = [
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
 	"sp-consensus-grandpa/std",
-	"sp-consensus-sassafras/std",
 	"sp-core/std",
 	"sp-genesis-builder/std",
 	"sp-inherents/std",
@@ -105,7 +100,6 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-grandpa/runtime-benchmarks",
-	"pallet-sassafras/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-template/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
@@ -119,7 +113,6 @@ try-runtime = [
 	"pallet-aura/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-grandpa/try-runtime",
-	"pallet-sassafras/try-runtime",
 	"pallet-sudo/try-runtime",
 	"pallet-template/try-runtime",
 	"pallet-timestamp/try-runtime",

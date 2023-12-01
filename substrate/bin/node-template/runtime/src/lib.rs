@@ -280,21 +280,6 @@ impl pallet_template::Config for Runtime {
 	type WeightInfo = pallet_template::weights::SubstrateWeight<Runtime>;
 }
 
-impl pallet_sassafras::Config for Runtime {
-	type EpochLength = ConstU32<200>;
-	type MaxAuthorities = ConstU32<100>;
-	type EpochChangeTrigger = pallet_sassafras::EpochChangeInternalTrigger;
-	type WeightInfo = pallet_sassafras::weights::SubstrateWeight<Runtime>;
-}
-
-impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
-where
-	RuntimeCall: From<C>,
-{
-	type Extrinsic = UncheckedExtrinsic;
-	type OverarchingCall = RuntimeCall;
-}
-
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub struct Runtime {
@@ -307,7 +292,6 @@ construct_runtime!(
 		Sudo: pallet_sudo,
 		// Include the custom logic from the pallet-template in the runtime.
 		TemplateModule: pallet_template,
-		Sassafras: pallet_sassafras,
 	}
 );
 
@@ -363,7 +347,6 @@ mod benches {
 		[pallet_timestamp, Timestamp]
 		[pallet_sudo, Sudo]
 		[pallet_template, TemplateModule]
-		[pallet_sassafras, Sassafras]
 	);
 }
 
