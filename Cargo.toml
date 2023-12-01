@@ -8,6 +8,7 @@ license = "GPL-3.0-only"
 resolver = "2"
 
 members = [
+	"developer-hub",
 	"bridges/bin/runtime-common",
 	"bridges/modules/grandpa",
 	"bridges/modules/messages",
@@ -98,6 +99,7 @@ members = [
 	"cumulus/primitives/aura",
 	"cumulus/primitives/core",
 	"cumulus/primitives/parachain-inherent",
+	"cumulus/primitives/proof-size-hostfunction",
 	"cumulus/primitives/timestamp",
 	"cumulus/primitives/utility",
 	"cumulus/test/client",
@@ -187,7 +189,6 @@ members = [
 	"polkadot/xcm/xcm-simulator",
 	"polkadot/xcm/xcm-simulator/example",
 	"polkadot/xcm/xcm-simulator/fuzzer",
-	"substrate",
 	"substrate/bin/minimal/node",
 	"substrate/bin/minimal/runtime",
 	"substrate/bin/node-template/node",
@@ -476,8 +477,7 @@ default-members = ["polkadot", "substrate/bin/node/cli"]
 panic = "unwind"
 opt-level = 3
 
-# make sure dev builds with backtrace do
-# not slow us down
+# make sure dev builds with backtrace do not slow us down
 [profile.dev.package.backtrace]
 inherits = "release"
 
