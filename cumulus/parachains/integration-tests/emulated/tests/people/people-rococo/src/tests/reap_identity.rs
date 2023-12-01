@@ -162,29 +162,8 @@ fn set_id_relay(id: &Identity) -> Balance {
 		let id_deposit = id_deposit_relaychain(&id.relay);
 
 		match id.subs {
-			Subs::Zero => {},
-			Subs::One => {
-				total_deposit = SubAccountDeposit::get() + id_deposit_relaychain(&id.relay);
-				// for Many and One we assert the same
-				assert_expected_events!(
-					RococoRelay,
-					vec![
-						RuntimeEvent::Identity(IdentityEvent::IdentitySet { .. }) => {},
-						RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {
-							who: *who == RococoRelaySender::get(),
-							amount: *amount == id_deposit,
-						},
-						RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {
-							who: *who == RococoRelaySender::get(),
-							amount: *amount == SubAccountDeposit::get(),
-						},
-					]
-				);
-				// The reserved balance should equal the calculated total deposit
-				assert_eq!(reserved_bal, total_deposit);
-			},
 			Subs::Many(n) => {
-				let sub_account_deposit = n * SubAccountDeposit::get() as u128;
+				let sub_account_deposit = n as u128 * SubAccountDeposit::get() as u128;
 				total_deposit = sub_account_deposit + id_deposit_relaychain(&id.relay);
 				assert_expected_events!(
 					RococoRelay,
@@ -197,6 +176,25 @@ fn set_id_relay(id: &Identity) -> Balance {
 						RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {
 							who: *who == RococoRelaySender::get(),
 							amount: *amount == sub_account_deposit,
+						},
+					]
+				);
+				// The reserved balance should equal the calculated total deposit
+				assert_eq!(reserved_bal, total_deposit);
+			},
+			_ => {
+				total_deposit = SubAccountDeposit::get() + id_deposit_relaychain(&id.relay);
+				assert_expected_events!(
+					RococoRelay,
+					vec![
+						RuntimeEvent::Identity(IdentityEvent::IdentitySet { .. }) => {},
+						RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {
+							who: *who == RococoRelaySender::get(),
+							amount: *amount == id_deposit,
+						},
+						RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {
+							who: *who == RococoRelaySender::get(),
+							amount: *amount == SubAccountDeposit::get(),
 						},
 					]
 				);
@@ -222,10 +220,22 @@ fn assert_set_id_parachain(id: &Identity) {
 			id.para.clone(),
 		));
 
-		assert_ok!(PeopleRococoIdentity::set_sub_no_deposit(
-			&PeopleRococoSender::get(),
-			PeopleRococoReceiver::get(),
-		));
+		match id.subs {
+			Subs::Zero => {},
+			Subs::One => {
+				assert_ok!(PeopleRococoIdentity::set_sub_no_deposit(
+					&PeopleRococoSender::get(),
+					PeopleRococoReceiver::get(),
+				));
+			},
+			Subs::Many(n) =>
+				for _ in 0..n {
+					assert_ok!(PeopleRococoIdentity::set_sub_no_deposit(
+						&PeopleRococoSender::get(),
+						PeopleRococoReceiver::get(),
+					));
+				},
+		}
 
 		// No events get triggered when calling set_sub_no_deposit
 
@@ -233,13 +243,18 @@ fn assert_set_id_parachain(id: &Identity) {
 		let reserved_bal = PeopleRococoBalances::reserved_balance(PeopleRococoSender::get());
 		assert_eq!(reserved_bal, 0);
 		assert!(PeopleRococoIdentity::identity(&PeopleRococoSender::get()).is_some());
+
 		let (_, sub_accounts) =
 			<PeopleRococo as PeopleRococoPallet>::Identity::subs_of(&PeopleRococoSender::get());
-		assert_eq!(sub_accounts.len(), 1);
+		match id.subs {
+			Subs::Zero => assert_eq!(sub_accounts.len(), 0),
+			Subs::One => assert_eq!(sub_accounts.len(), 1),
+			Subs::Many(n) => assert_eq!(sub_accounts.len(), n as usize),
+		}
 	});
 }
 
-fn assert_reap_id_relay(total_deposit: u128, id: &Identity) {
+fn assert_reap_id_relay(mut total_deposit: u128, id: &Identity) {
 	RococoRelay::execute_with(|| {
 		type RuntimeEvent = <RococoRelay as Chain>::RuntimeEvent;
 		let free_bal_before_reap = RococoBalances::free_balance(RococoRelaySender::get());
@@ -376,17 +391,11 @@ fn assert_relay_para_flow(id: &Identity) {
 	assert_reap_parachain(id);
 }
 
-fn nonsesical_additional() -> BoundedVec<(Data, Data), MaxAdditionalFields> {
-	BoundedVec::try_from(vec![
-		(
-			Data::Raw(b"foo".to_vec().try_into().unwrap()),
-			Data::Raw(b"bar".to_vec().try_into().unwrap()),
-		),
-		(
-			Data::Raw(b"baz".to_vec().try_into().unwrap()),
-			Data::Raw(b"qux".to_vec().try_into().unwrap()),
-		),
-	])
+fn nonsensical_additional() -> BoundedVec<(Data, Data), MaxAdditionalFields> {
+	BoundedVec::try_from(vec![(
+		Data::Raw(b"fOo".to_vec().try_into().unwrap()),
+		Data::Raw(b"baR".to_vec().try_into().unwrap()),
+	)])
 	.unwrap()
 }
 
@@ -418,7 +427,7 @@ fn on_reap_identity_works_for_full_identity_no_additional() {
 fn on_reap_identity_works_for_full_identity_nonsense_additional() {
 	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(
 		true,
-		Some(nonsesical_additional()),
+		Some(nonsensical_additional()),
 		Subs::One,
 	));
 }
