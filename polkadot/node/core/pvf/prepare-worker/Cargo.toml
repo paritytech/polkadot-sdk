@@ -16,7 +16,7 @@ tracking-allocator = { package = "staging-tracking-allocator", path = "../../../
 tikv-jemalloc-ctl = { version = "0.5.0", optional = true }
 tikv-jemallocator = { version = "0.5.0", optional = true }
 os_pipe = "1.1.4"
-nix = { version = "0.27.1", features = ["resource", "process"]}
+nix = { version = "0.27.1", features = ["process", "resource"] }
 
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
 
