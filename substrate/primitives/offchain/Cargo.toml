@@ -13,10 +13,10 @@ readme = "README.md"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sp-api = { path = "../api", default-features = false}
-sp-core = { path = "../core", default-features = false}
-sp-runtime = { path = "../runtime", default-features = false}
+sp-api = { path = "../api", default-features = false }
+sp-core = { path = "../core", default-features = false }
+sp-runtime = { path = "../runtime", default-features = false }
 
 [features]
-default = [ "std" ]
-std = [ "sp-api/std", "sp-core/std", "sp-runtime/std" ]
+default = ["std"]
+std = ["sp-api/std", "sp-core/std", "sp-runtime/std"]

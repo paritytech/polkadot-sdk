@@ -17,19 +17,19 @@ codec = { package = "parity-scale-codec", version = "3.2.2", default-features = 
 log = { version = "0.4.17", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
-frame-support = { path = "../../support", default-features = false}
-frame-system = { path = "../../system", default-features = false}
+frame-support = { path = "../../support", default-features = false }
+frame-system = { path = "../../system", default-features = false }
 
-sp-io = { path = "../../../primitives/io", default-features = false}
-sp-std = { path = "../../../primitives/std", default-features = false}
+sp-io = { path = "../../../primitives/io", default-features = false }
+sp-std = { path = "../../../primitives/std", default-features = false }
 
-frame-benchmarking = { path = "../../benchmarking", default-features = false, optional = true}
+frame-benchmarking = { path = "../../benchmarking", default-features = false, optional = true }
 
 [dev-dependencies]
-sp-core = { path = "../../../primitives/core", default-features = false}
+sp-core = { path = "../../../primitives/core", default-features = false }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",
@@ -46,4 +46,4 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 ]
-try-runtime = [ "frame-support/try-runtime", "frame-system/try-runtime" ]
+try-runtime = ["frame-support/try-runtime", "frame-system/try-runtime"]

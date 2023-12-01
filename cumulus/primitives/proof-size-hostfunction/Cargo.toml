@@ -17,5 +17,5 @@ sp-core = { path = "../../../substrate/primitives/core" }
 sp-io = { path = "../../../substrate/primitives/io" }
 
 [features]
-default = [ "std" ]
-std = [ "sp-externalities/std", "sp-runtime-interface/std", "sp-trie/std" ]
+default = ["std"]
+std = ["sp-externalities/std", "sp-runtime-interface/std", "sp-trie/std"]
