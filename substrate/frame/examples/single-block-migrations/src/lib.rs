@@ -25,7 +25,7 @@
 //!
 //! ## Forwarning
 //!
-//! Single block migrations **MUST** execute in a single block, therefore are typically only
+//! Single block migrations **MUST** execute in a single block, therefore they are typically only
 //! appropriate for migrations which are either guaranteed to not exceed block weight limits.
 //! If you migration exceeds block weight limits, it will **brick your chain**!
 //!
