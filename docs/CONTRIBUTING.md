@@ -153,6 +153,10 @@ Or if you have opened PR and you're member of `paritytech` - you can use command
 - `bot update-ui latest -v CMD_IMAGE=paritytech/ci-unified:bullseye-1.70.0-2023-05-23 --rust_version=1.70.0` -
 will run the tests for the specified rust version and specified image
 
+## Feature Propagation
+
+We use [zepter](https://github.com/ggwpez/zepter) to enforce features are propagated between crates correctly.
+
 ## Command Bot
 
 If you're member of **paritytech** org - you can use command-bot to run various of common commands in CI:

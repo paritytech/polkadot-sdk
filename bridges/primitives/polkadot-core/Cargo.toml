@@ -29,7 +29,7 @@ sp-std = { path = "../../../substrate/primitives/std", default-features = false 
 hex = "0.4"
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"bp-messages/std",
 	"bp-runtime/std",
