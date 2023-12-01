@@ -20,6 +20,7 @@ sp-authority-discovery = { path = "../../../substrate/primitives/authority-disco
 sp-state-machine = { path = "../../../substrate/primitives/state-machine" }
 sp-storage = { path = "../../../substrate/primitives/storage" }
 sp-runtime = { path = "../../../substrate/primitives/runtime" }
+sp-version = { path = "../../../substrate/primitives/version" }
 sc-client-api = { path = "../../../substrate/client/api" }
 sc-rpc-api = { path = "../../../substrate/client/rpc-api" }
 sc-service = { path = "../../../substrate/client/service" }
@@ -35,9 +36,9 @@ tracing = "0.1.37"
 async-trait = "0.1.73"
 url = "2.4.0"
 serde_json = "1.0.108"
-serde = "1.0.188"
+serde = "1.0.193"
 schnellru = "0.2.1"
-smoldot = { version = "0.11.0",  default_features = false, features = ["std"]}
+smoldot = { version = "0.11.0", default_features = false, features = ["std"] }
 smoldot-light = { version = "0.9.0", default_features = false, features = ["std"] }
 either = "1.8.1"
 thiserror = "1.0.48"

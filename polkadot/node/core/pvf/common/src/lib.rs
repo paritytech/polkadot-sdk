@@ -18,7 +18,7 @@
 
 pub mod error;
 pub mod execute;
-pub mod executor_intf;
+pub mod executor_interface;
 pub mod prepare;
 pub mod pvf;
 pub mod worker;
@@ -30,6 +30,8 @@ pub use cpu_time::ProcessTime;
 pub use sp_tracing;
 
 const LOG_TARGET: &str = "parachain::pvf-common";
+
+pub const RUNTIME_VERSION: &str = env!("SUBSTRATE_WASMTIME_VERSION");
 
 use std::{
 	io::{self, Read, Write},
@@ -45,13 +47,13 @@ pub mod tests {
 }
 
 /// Status of security features on the current system.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct SecurityStatus {
 	/// Whether the landlock features we use are fully available on this system.
 	pub can_enable_landlock: bool,
 	/// Whether the seccomp features we use are fully available on this system.
 	pub can_enable_seccomp: bool,
-	// Whether we are able to unshare the user namespace and change the filesystem root.
+	/// Whether we are able to unshare the user namespace and change the filesystem root.
 	pub can_unshare_user_namespace_and_change_root: bool,
 }
 
