@@ -393,9 +393,9 @@ pub trait SteppedMigration {
 		with_transaction_opaque_err(move || match Self::step(cursor, meter) {
 			Ok(new_cursor) => {
 				cursor = new_cursor;
-				sp_api::TransactionOutcome::Commit(Ok(cursor))
+				sp_runtime::TransactionOutcome::Commit(Ok(cursor))
 			},
-			Err(err) => sp_api::TransactionOutcome::Rollback(Err(err)),
+			Err(err) => sp_runtime::TransactionOutcome::Rollback(Err(err)),
 		})
 		.map_err(|()| SteppedMigrationError::Failed)?
 	}
