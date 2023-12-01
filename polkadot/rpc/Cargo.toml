@@ -30,5 +30,4 @@ txpool-api = { package = "sc-transaction-pool-api", path = "../../substrate/clie
 frame-rpc-system = { package = "substrate-frame-rpc-system", path = "../../substrate/utils/frame/rpc/system" }
 mmr-rpc = { path = "../../substrate/client/merkle-mountain-range/rpc" }
 pallet-transaction-payment-rpc = { path = "../../substrate/frame/transaction-payment/rpc" }
-sp-block-builder = { path = "../../substrate/primitives/block-builder" }
 substrate-state-trie-migration-rpc = { path = "../../substrate/utils/frame/rpc/state-trie-migration-rpc" }

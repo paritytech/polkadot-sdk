@@ -26,9 +26,8 @@ use log::{debug, error, info, warn};
 use sc_client_api::{Backend, FinalityNotification};
 use sc_offchain::OffchainDb;
 use sp_blockchain::{CachedHeaderMetadata, ForkBackend};
-use sp_consensus_beefy::MmrRootHash;
 use sp_core::offchain::{DbExternalities, StorageKind};
-use sp_mmr_primitives::{utils, utils::NodesUtils, MmrApi, NodeIndex};
+use sp_mmr_primitives::{utils, utils::NodesUtils, NodeIndex};
 use sp_runtime::{
 	traits::{Block, Header, NumberFor, One},
 	Saturating,
@@ -50,7 +49,6 @@ where
 	BE: Backend<B>,
 	B: Block,
 	C: MmrClient<B, BE>,
-	C::Api: MmrApi<B, MmrRootHash, NumberFor<B>>,
 {
 	pub fn new(
 		backend: Arc<BE>,

@@ -46,11 +46,9 @@ use sp_blockchain::{
 };
 use sp_consensus::{Error as ConsensusError, SyncOracle};
 use sp_consensus_beefy::{
-	ecdsa_crypto::AuthorityId, BeefyApi, MmrRootHash, PayloadProvider, ValidatorSet,
-	BEEFY_ENGINE_ID,
+	ecdsa_crypto::AuthorityId, BeefyApi, PayloadProvider, ValidatorSet, BEEFY_ENGINE_ID,
 };
 use sp_keystore::KeystorePtr;
-use sp_mmr_primitives::MmrApi;
 use sp_runtime::traits::{Block, Header as HeaderT, NumberFor, Zero};
 use std::{
 	collections::{BTreeMap, VecDeque},

@@ -18,9 +18,9 @@
 //! Contains the [`BlockCmd`] as entry point for the CLI to execute
 //! the *block* benchmark.
 
-use sc_block_builder::BlockBuilderApi;
 use sc_cli::{CliConfiguration, ImportParams, Result, SharedParams};
 use sc_client_api::{Backend as ClientBackend, BlockBackend, StorageProvider, UsageProvider};
+use sp_api::CallApiAt;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{traits::Block as BlockT, OpaqueExtrinsic};
 
@@ -86,8 +86,8 @@ impl BlockCmd {
 		C: BlockBackend<Block>
 			+ StorageProvider<Block, BA>
 			+ UsageProvider<Block>
-			+ HeaderBackend<Block>,
-		C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
+			+ HeaderBackend<Block>
+			+ CallApiAt<Block>,
 	{
 		// Put everything in the benchmark type to have the generic types handy.
 		Benchmark::new(client, self.params.clone()).run()

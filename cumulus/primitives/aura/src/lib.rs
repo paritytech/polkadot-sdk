@@ -22,6 +22,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use sp_consensus_aura::Slot;
+use sp_runtime::traits::Block as BlockT;
 
 sp_api::decl_runtime_apis! {
 	/// This runtime API is used to inform potential block authors whether they will
@@ -34,7 +35,7 @@ sp_api::decl_runtime_apis! {
 	/// When the unincluded segment is short, Aura chains will allow authors to create multiple
 	/// blocks per slot in order to build a backlog. When it is saturated, this API will limit
 	/// the amount of blocks that can be created.
-	pub trait AuraUnincludedSegmentApi {
+	pub trait AuraUnincludedSegmentApi<Block: BlockT> {
 		/// Whether it is legal to extend the chain, assuming the given block is the most
 		/// recently included one as-of the relay parent that will be built against, and
 		/// the given slot.

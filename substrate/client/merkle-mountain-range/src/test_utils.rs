@@ -46,17 +46,10 @@ use tokio::runtime::Runtime;
 
 type MmrHash = H256;
 
+pub(crate) const INDEXING_PREFIX: &'static [u8] = b"mmr_test";
+
 pub(crate) struct MockRuntimeApiData {
 	pub(crate) num_blocks: BlockNumber,
-}
-
-#[derive(Clone)]
-pub(crate) struct MockRuntimeApi {
-	pub(crate) data: Arc<Mutex<MockRuntimeApiData>>,
-}
-
-impl MockRuntimeApi {
-	pub(crate) const INDEXING_PREFIX: &'static [u8] = b"mmr_test";
 }
 
 #[derive(Clone, Debug)]
@@ -84,12 +77,11 @@ impl MmrBlock {
 	pub fn get_offchain_key(&self, node: NodeIndex, key_type: OffchainKeyType) -> Vec<u8> {
 		match key_type {
 			OffchainKeyType::Temp => NodesUtils::node_temp_offchain_key::<Header>(
-				MockRuntimeApi::INDEXING_PREFIX,
+				INDEXING_PREFIX,
 				node,
 				self.parent_hash(),
 			),
-			OffchainKeyType::Canon =>
-				NodesUtils::node_canon_offchain_key(MockRuntimeApi::INDEXING_PREFIX, node),
+			OffchainKeyType::Canon => NodesUtils::node_canon_offchain_key(INDEXING_PREFIX, node),
 		}
 	}
 }
@@ -143,7 +135,7 @@ impl MockClient {
 			let mut offchain_db = self.offchain_db();
 			for node in NodesUtils::right_branch_ending_in_leaf(leaf_idx) {
 				let temp_key = NodesUtils::node_temp_offchain_key::<Header>(
-					MockRuntimeApi::INDEXING_PREFIX,
+					INDEXING_PREFIX,
 					node,
 					parent_hash,
 				);
@@ -286,21 +278,14 @@ impl BlockchainEvents<Block> for MockClient {
 	}
 }
 
-	type Api = MockRuntimeApi;
-
-	fn runtime_api(&self) -> ApiRef<'_, Self::Api> {
-		MockRuntimeApi { data: self.runtime_api_params.clone() }.into()
-	}
-}
-
 sp_api::mock_impl_runtime_apis! {
-	impl mmr::MmrApi<Block, MmrHash, BlockNumber> for MockRuntimeApi {
+	impl mmr::MmrApi<MmrHash, BlockNumber> for MockClient {
 		fn mmr_root() -> Result<MmrHash, mmr::Error> {
 			Err(mmr::Error::PalletNotIncluded)
 		}
 
 		fn mmr_leaf_count(&self) -> Result<LeafIndex, mmr::Error> {
-			Ok(self.data.lock().num_blocks)
+			Ok(self.runtime_api_params.lock().num_blocks)
 		}
 
 		fn generate_proof(
@@ -363,7 +348,7 @@ pub(crate) fn run_test_with_mmr_gadget_pre_post_using_client<F, G, RetF, RetG>(
 	let client_clone = client.clone();
 	runtime.spawn(async move {
 		let backend = client_clone.backend.clone();
-		MmrGadget::start(client_clone, backend, MockRuntimeApi::INDEXING_PREFIX.to_vec()).await
+		MmrGadget::start(client_clone, backend, INDEXING_PREFIX.to_vec()).await
 	});
 
 	runtime.block_on(async move {

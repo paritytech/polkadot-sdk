@@ -43,10 +43,9 @@ use sc_consensus_grandpa::{
 use sc_rpc::SubscriptionTaskExecutor;
 pub use sc_rpc_api::DenyUnsafe;
 use sc_transaction_pool_api::TransactionPool;
-use sp_block_builder::BlockBuilder;
+use sp_api::CallApiAt;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_consensus::SelectChain;
-use sp_consensus_babe::BabeApi;
 use sp_keystore::KeystorePtr;
 
 /// Extra dependencies for BABE.
@@ -111,19 +110,14 @@ pub fn create_full<C, P, SC, B>(
 	}: FullDeps<C, P, SC, B>,
 ) -> Result<RpcModule<()>, Box<dyn std::error::Error + Send + Sync>>
 where
-	C:
-		+ sc_client_api::BlockBackend<Block>
+	C: sc_client_api::BlockBackend<Block>
 		+ HeaderBackend<Block>
 		+ AuxStore
 		+ HeaderMetadata<Block, Error = BlockChainError>
+		+ CallApiAt<Block>
 		+ Sync
 		+ Send
 		+ 'static,
-	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
-	C::Api: mmr_rpc::MmrRuntimeApi<Block, <Block as sp_runtime::traits::Block>::Hash, BlockNumber>,
-	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
-	C::Api: BabeApi<Block>,
-	C::Api: BlockBuilder<Block>,
 	P: TransactionPool + 'static,
 	SC: SelectChain<Block> + 'static,
 	B: sc_client_api::Backend<Block> + Send + Sync + 'static,
@@ -159,12 +153,14 @@ where
 	let properties = chain_spec.properties();
 	io.merge(ChainSpec::new(chain_name, genesis_hash, properties).into_rpc())?;
 
-	io.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
+	io.merge(
+		System::<_, _, _, Nonce, AccountId>::new(client.clone(), pool, deny_unsafe).into_rpc(),
+	)?;
 	// Making synchronous calls in light client freezes the browser currently,
 	// more context: https://github.com/paritytech/substrate/pull/3480
 	// These RPCs should use an asynchronous caller instead.
 	io.merge(
-		Mmr::new(
+		Mmr::<_, _, _, Hash>::new(
 			client.clone(),
 			backend
 				.offchain_storage()
@@ -172,7 +168,7 @@ where
 		)
 		.into_rpc(),
 	)?;
-	io.merge(TransactionPayment::new(client.clone()).into_rpc())?;
+	io.merge(TransactionPayment::<_, _, Balance>::new(client.clone()).into_rpc())?;
 	io.merge(
 		Babe::new(client.clone(), babe_worker_handle.clone(), keystore, select_chain, deny_unsafe)
 			.into_rpc(),

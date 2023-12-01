@@ -130,13 +130,13 @@ pub trait MmrApi<BlockHash, BlockNumber, MmrHash> {
 }
 
 /// MMR RPC methods.
-pub struct Mmr<Client, Block, S> {
+pub struct Mmr<Client, Block, S, MmrHash> {
 	client: Arc<Client>,
 	offchain_db: OffchainDb<S>,
-	_marker: PhantomData<Block>,
+	_marker: PhantomData<(Block, MmrHash)>,
 }
 
-impl<C, B, S> Mmr<C, B, S> {
+impl<C, B, S, MmrHash> Mmr<C, B, S, MmrHash> {
 	/// Create new `Mmr` with the given reference to the client.
 	pub fn new(client: Arc<C>, offchain_storage: S) -> Self {
 		Self { client, _marker: Default::default(), offchain_db: OffchainDb::new(offchain_storage) }
@@ -144,8 +144,8 @@ impl<C, B, S> Mmr<C, B, S> {
 }
 
 #[async_trait]
-impl<Client, Block, MmrHash, S> MmrApiServer<<Block as BlockT>::Hash, NumberFor<Block>, MmrHash>
-	for Mmr<Client, (Block, MmrHash), S>
+impl<Client, Block, MmrHash, S> MmrApiServer<Block::Hash, NumberFor<Block>, MmrHash>
+	for Mmr<Client, Block, S, MmrHash>
 where
 	Block: BlockT,
 	Client: Send + Sync + 'static + HeaderBackend<Block> + CallApiAt<Block>,

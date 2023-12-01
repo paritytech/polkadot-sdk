@@ -20,12 +20,11 @@
 use codec::DecodeAll;
 use frame_support::weights::constants::WEIGHT_REF_TIME_PER_NANOS;
 use frame_system::ConsumedWeight;
-use sc_block_builder::BlockBuilderApi;
 use sc_cli::{Error, Result};
 use sc_client_api::{
 	Backend as ClientBackend, BlockBackend, HeaderBackend, StorageProvider, UsageProvider,
 };
-use sp_api::Core;
+use sp_api::{CallApiAt, Core, RuntimeInstance};
 use sp_blockchain::Error::RuntimeApiError;
 use sp_runtime::{
 	generic::BlockId,
@@ -75,11 +74,11 @@ impl<Block, BA, C> Benchmark<Block, BA, C>
 where
 	Block: BlockT<Extrinsic = OpaqueExtrinsic>,
 	BA: ClientBackend<Block>,
-		+ StorageProvider<Block, BA>
+	C: StorageProvider<Block, BA>
 		+ UsageProvider<Block>
 		+ BlockBackend<Block>
-		+ HeaderBackend<Block>,
-	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
+		+ HeaderBackend<Block>
+		+ CallApiAt<Block>,
 {
 	/// Returns a new [`Self`] from the arguments.
 	pub fn new(client: Arc<C>, params: BenchmarkParams) -> Self {
@@ -114,11 +113,11 @@ where
 		// Execute the block multiple times and collect stats about its execution time.
 		for _ in 0..self.params.repeat {
 			let block = block.clone();
-			let runtime_api = self.client.runtime_api();
+			let mut runtime_api =
+				RuntimeInstance::builder(&*self.client, parent_hash).off_chain_context().build();
 			let start = Instant::now();
 
-			runtime_api
-				.execute_block(parent_hash, block)
+			Core::<Block>::execute_block(&mut runtime_api, block)
 				.map_err(|e| Error::Client(RuntimeApiError(e)))?;
 
 			record.push(start.elapsed().as_nanos() as NanoSeconds);

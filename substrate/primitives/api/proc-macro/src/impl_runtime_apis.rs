@@ -18,10 +18,10 @@
 use crate::{
 	common::API_VERSION_ATTRIBUTE,
 	utils::{
-		extract_all_signature_types, extract_block_type_from_trait_path, extract_impl_trait,
-		extract_parameter_names_types_and_borrows, generate_crate_access,
-		generate_runtime_mod_name_for_trait, parse_runtime_api_version, prefix_function_with_trait,
-		versioned_trait_name, AllowSelfRefInParameters, RequireQualifiedTraitPath,
+		extract_all_signature_types, extract_impl_trait, extract_parameter_names_types_and_borrows,
+		generate_crate_access, generate_runtime_mod_name_for_trait, parse_runtime_api_version,
+		prefix_function_with_trait, versioned_trait_name, AllowSelfRefInParameters,
+		RequireQualifiedTraitPath,
 	},
 };
 
@@ -35,7 +35,7 @@ use syn::{
 	parse::{Error, Parse, ParseStream, Result},
 	parse_macro_input, parse_quote,
 	spanned::Spanned,
-	Attribute, Ident, ImplItem, ItemImpl, LitInt, LitStr, Path, Signature, Type, TypePath,
+	Attribute, Ident, ImplItem, ItemImpl, LitInt, LitStr, Path, Signature, Type,
 };
 
 use std::collections::HashMap;

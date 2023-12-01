@@ -47,6 +47,7 @@ use futures::StreamExt;
 use log::{debug, error, trace, warn};
 use sc_client_api::{Backend, BlockchainEvents, FinalityNotification, FinalityNotifications};
 use sc_offchain::OffchainDb;
+use sp_api::{CallApiAt, RuntimeInstance};
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus_beefy::MmrRootHash;
 use sp_mmr_primitives::{utils, LeafIndex, MmrApi};
@@ -59,17 +60,20 @@ pub const LOG_TARGET: &str = "mmr";
 /// A convenience MMR client trait that defines all the type bounds a MMR client
 /// has to satisfy and defines some helper methods.
 pub trait MmrClient<B, BE>:
-	BlockchainEvents<B> + HeaderBackend<B> + HeaderMetadata<B>
+	BlockchainEvents<B> + HeaderBackend<B> + HeaderMetadata<B> + CallApiAt<B> + Sized
 where
 	B: Block,
 	BE: Backend<B>,
-	Self::Api: MmrApi<B, MmrRootHash, NumberFor<B>>,
 {
 	/// Get the block number where the mmr pallet was added to the runtime.
 	fn first_mmr_block_num(&self, notification: &FinalityNotification<B>) -> Option<NumberFor<B>> {
 		let best_block_hash = notification.header.hash();
 		let best_block_number = *notification.header.number();
-		match self.runtime_api().mmr_leaf_count(best_block_hash) {
+
+		let mut runtime_api =
+			RuntimeInstance::builder(self, best_block_hash).off_chain_context().build();
+
+		match MmrApi::<MmrRootHash, NumberFor<B>>::mmr_leaf_count(&mut runtime_api) {
 			Ok(Ok(mmr_leaf_count)) => {
 				match utils::first_mmr_block_num::<B::Header>(best_block_number, mmr_leaf_count) {
 					Ok(first_mmr_block) => {
@@ -107,10 +111,8 @@ impl<B, BE, T> MmrClient<B, BE> for T
 where
 	B: Block,
 	BE: Backend<B>,
-	T: BlockchainEvents<B> + HeaderBackend<B> + HeaderMetadata<B>,
-	T::Api: MmrApi<B, MmrRootHash, NumberFor<B>>,
+	T: BlockchainEvents<B> + HeaderBackend<B> + HeaderMetadata<B> + CallApiAt<B>,
 {
-	// empty
 }
 
 struct OffchainMmrBuilder<B: Block, BE: Backend<B>, C> {
@@ -127,7 +129,6 @@ where
 	B: Block,
 	BE: Backend<B>,
 	C: MmrClient<B, BE>,
-	C::Api: MmrApi<B, MmrRootHash, NumberFor<B>>,
 {
 	async fn try_build(
 		self,
@@ -174,7 +175,6 @@ where
 	<B::Header as Header>::Number: Into<LeafIndex>,
 	BE: Backend<B>,
 	C: MmrClient<B, BE>,
-	C::Api: MmrApi<B, MmrRootHash, NumberFor<B>>,
 {
 	async fn run(mut self, builder: OffchainMmrBuilder<B, BE, C>) {
 		let mut offchain_mmr = match builder.try_build(&mut self.finality_notifications).await {

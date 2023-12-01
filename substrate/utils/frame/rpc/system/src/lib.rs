@@ -70,14 +70,14 @@ impl From<Error> for i32 {
 }
 
 /// An implementation of System-specific RPC methods on full client.
-pub struct System<P: TransactionPool, C, B> {
+pub struct System<P: TransactionPool, C, Block, Nonce, AccountId> {
 	client: Arc<C>,
 	pool: Arc<P>,
 	deny_unsafe: DenyUnsafe,
-	_marker: std::marker::PhantomData<B>,
+	_marker: std::marker::PhantomData<(Block, Nonce, AccountId)>,
 }
 
-impl<P: TransactionPool, C, B> System<P, C, B> {
+impl<P: TransactionPool, C, Block, Nonce, AccountId> System<P, C, Block, Nonce, AccountId> {
 	/// Create new `FullSystem` given client and transaction pool.
 	pub fn new(client: Arc<C>, pool: Arc<P>, deny_unsafe: DenyUnsafe) -> Self {
 		Self { client, pool, deny_unsafe, _marker: Default::default() }
@@ -86,13 +86,14 @@ impl<P: TransactionPool, C, B> System<P, C, B> {
 
 #[async_trait]
 impl<P, C, Block, AccountId, Nonce>
-	SystemApiServer<<Block as traits::Block>::Hash, AccountId, Nonce> for System<P, C, Block>
+	SystemApiServer<<Block as traits::Block>::Hash, AccountId, Nonce>
+	for System<P, C, Block, Nonce, AccountId>
 where
 	C: HeaderBackend<Block> + CallApiAt<Block> + Send + Sync + 'static,
 	P: TransactionPool + 'static,
 	Block: traits::Block,
-	AccountId: Clone + Display + Codec + Send + 'static,
-	Nonce: Clone + Display + Codec + Send + traits::AtLeast32Bit + 'static,
+	AccountId: Clone + Display + Codec + Send + Sync + 'static,
+	Nonce: Clone + Display + Codec + Send + Sync + traits::AtLeast32Bit + 'static,
 {
 	async fn nonce(&self, account: AccountId) -> RpcResult<Nonce> {
 		let best = self.client.info().best_hash;

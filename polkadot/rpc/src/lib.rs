@@ -28,10 +28,9 @@ use sc_consensus_beefy::communication::notification::{
 };
 use sc_consensus_grandpa::FinalityProofProvider;
 pub use sc_rpc::{DenyUnsafe, SubscriptionTaskExecutor};
-use sp_block_builder::BlockBuilder;
+use sp_api::CallApiAt;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_consensus::SelectChain;
-use sp_consensus_babe::BabeApi;
 use sp_keystore::KeystorePtr;
 use txpool_api::TransactionPool;
 
@@ -97,22 +96,16 @@ pub fn create_full<C, P, SC, B>(
 	FullDeps { client, pool, select_chain, chain_spec, deny_unsafe, babe, grandpa, beefy, backend } : FullDeps<C, P, SC, B>,
 ) -> Result<RpcExtension, Box<dyn std::error::Error + Send + Sync>>
 where
-	C: 
-		+ HeaderBackend<Block>
+	C: HeaderBackend<Block>
 		+ AuxStore
 		+ HeaderMetadata<Block, Error = BlockChainError>
 		+ Send
 		+ Sync
+		+ CallApiAt<Block>
 		+ 'static,
-	C::Api: frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
-	C::Api: mmr_rpc::MmrRuntimeApi<Block, <Block as sp_runtime::traits::Block>::Hash, BlockNumber>,
-	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
-	C::Api: BabeApi<Block>,
-	C::Api: BlockBuilder<Block>,
 	P: TransactionPool + Sync + Send + 'static,
 	SC: SelectChain<Block> + 'static,
 	B: sc_client_api::Backend<Block> + Send + Sync + 'static,
-	B::State: sc_client_api::StateBackend<sp_runtime::traits::HashingFor<Block>>,
 {
 	use frame_rpc_system::{System, SystemApiServer};
 	use mmr_rpc::{Mmr, MmrApiServer};
@@ -134,10 +127,13 @@ where
 	} = grandpa;
 
 	io.merge(StateMigration::new(client.clone(), backend.clone(), deny_unsafe).into_rpc())?;
-	io.merge(System::new(client.clone(), pool.clone(), deny_unsafe).into_rpc())?;
-	io.merge(TransactionPayment::new(client.clone()).into_rpc())?;
 	io.merge(
-		Mmr::new(
+		System::<_, _, _, Nonce, AccountId>::new(client.clone(), pool.clone(), deny_unsafe)
+			.into_rpc(),
+	)?;
+	io.merge(TransactionPayment::<_, _, Balance>::new(client.clone()).into_rpc())?;
+	io.merge(
+		Mmr::<_, _, _, Hash>::new(
 			client.clone(),
 			backend
 				.offchain_storage()

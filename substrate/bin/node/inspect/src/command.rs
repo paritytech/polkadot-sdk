@@ -31,13 +31,12 @@ type HostFunctions =
 
 impl InspectCmd {
 	/// Run the inspect command, passing the inspector.
-	pub fn run<B, RA>(&self, config: Configuration) -> Result<()>
+	pub fn run<B>(&self, config: Configuration) -> Result<()>
 	where
 		B: Block,
-		RA: Send + Sync + 'static,
 	{
 		let executor = sc_service::new_wasm_executor::<HostFunctions>(&config);
-		let client = sc_service::new_full_client::<B, RA, _>(&config, None, executor)?;
+		let client = sc_service::new_full_client::<B, _>(&config, None, executor)?;
 		let inspect = Inspector::<B>::new(client);
 
 		match &self.command {

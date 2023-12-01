@@ -18,11 +18,10 @@
 //! Contains the [`OverheadCmd`] as entry point for the CLI to execute
 //! the *overhead* benchmarks.
 
-use sc_block_builder::BlockBuilderApi;
 use sc_cli::{CliConfiguration, ImportParams, Result, SharedParams};
 use sc_client_api::UsageProvider;
 use sc_service::Configuration;
-use sp_api::{CallApiAt};
+use sp_api::CallApiAt;
 use sp_runtime::{traits::Block as BlockT, DigestItem, OpaqueExtrinsic};
 
 use clap::{Args, Parser};
@@ -107,13 +106,15 @@ impl OverheadCmd {
 	) -> Result<()>
 	where
 		Block: BlockT<Extrinsic = OpaqueExtrinsic>,
-			+ CallApiAt<Block>
-			+ UsageProvider<Block>
-			+ sp_blockchain::HeaderBackend<Block>,
-		C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
+		C: CallApiAt<Block> + UsageProvider<Block> + sp_blockchain::HeaderBackend<Block>,
 	{
 		if ext_builder.pallet() != "system" || ext_builder.extrinsic() != "remark" {
-			return Err(format!("The extrinsic builder is required to build `System::Remark` extrinsics but builds `{}` extrinsics instead", ext_builder.name()).into());
+			return Err(format!(
+				"The extrinsic builder is required to build `System::Remark`\
+				extrinsics but builds `{}` extrinsics instead",
+				ext_builder.name()
+			)
+			.into());
 		}
 		let bench = Benchmark::new(client, self.params.bench.clone(), inherent_data, digest_items);
 

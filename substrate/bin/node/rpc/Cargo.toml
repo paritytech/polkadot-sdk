@@ -30,10 +30,8 @@ sc-rpc-spec-v2 = { path = "../../../client/rpc-spec-v2" }
 sc-sync-state-rpc = { path = "../../../client/sync-state-rpc" }
 sc-transaction-pool-api = { path = "../../../client/transaction-pool/api" }
 sp-api = { path = "../../../primitives/api" }
-sp-block-builder = { path = "../../../primitives/block-builder" }
 sp-blockchain = { path = "../../../primitives/blockchain" }
 sp-consensus = { path = "../../../primitives/consensus/common" }
-sp-consensus-babe = { path = "../../../primitives/consensus/babe" }
 sp-keystore = { path = "../../../primitives/keystore" }
 sp-runtime = { path = "../../../primitives/runtime" }
 sp-statement-store = { path = "../../../primitives/statement-store" }

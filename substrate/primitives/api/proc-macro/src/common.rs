@@ -15,9 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/// The ident used for the block generic parameter.
-pub const BLOCK_GENERIC_IDENT: &str = "Block";
-
 /// The `core_trait` attribute.
 pub const CORE_TRAIT_ATTRIBUTE: &str = "core_trait";
 /// The `api_version` attribute.

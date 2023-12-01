@@ -42,7 +42,7 @@ use sc_consensus_slots::{
 	SlotInfo, StorageChanges,
 };
 use sc_telemetry::TelemetryHandle;
-use sp_api::{Core};
+use sp_api::CallApiAt;
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::{BlockOrigin, Environment, Error as ConsensusError, Proposer, SelectChain};
@@ -51,6 +51,7 @@ use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header, Member, NumberFor};
+use standalone::fetch_authorities_with_compatibility_mode;
 
 mod import_queue;
 pub mod standalone;
@@ -175,8 +176,7 @@ where
 	P::Public: AppPublic + Member,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 	B: BlockT,
-	C:  BlockOf + AuxStore + HeaderBackend<B> + Send + Sync,
-	C::Api: AuraApi<B, AuthorityId<P>>,
+	C: BlockOf + AuxStore + HeaderBackend<B> + CallApiAt<B> + Send + Sync,
 	SC: SelectChain<B>,
 	I: BlockImport<B> + Send + Sync + 'static,
 	PF: Environment<B, Error = Error> + Send + Sync + 'static,
@@ -276,8 +276,7 @@ pub fn build_aura_worker<P, B, C, PF, I, SO, L, BS, Error>(
 >
 where
 	B: BlockT,
-	C:  BlockOf + AuxStore + HeaderBackend<B> + Send + Sync,
-	C::Api: AuraApi<B, AuthorityId<P>>,
+	C: BlockOf + AuxStore + HeaderBackend<B> + CallApiAt<B> + Send + Sync,
 	PF: Environment<B, Error = Error> + Send + Sync + 'static,
 	PF::Proposer: Proposer<B, Error = Error>,
 	P: Pair,
@@ -327,8 +326,7 @@ impl<B, C, E, I, P, Error, SO, L, BS> sc_consensus_slots::SimpleSlotWorker<B>
 	for AuraWorker<C, E, I, P, SO, L, BS, NumberFor<B>>
 where
 	B: BlockT,
-	C:  BlockOf + HeaderBackend<B> + Sync,
-	C::Api: AuraApi<B, AuthorityId<P>>,
+	C: BlockOf + HeaderBackend<B> + Sync + CallApiAt<B>,
 	E: Environment<B, Error = Error> + Send + Sync,
 	E::Proposer: Proposer<B, Error = Error>,
 	I: BlockImport<B> + Send + Sync + 'static,
@@ -358,7 +356,7 @@ where
 	}
 
 	fn aux_data(&self, header: &B::Header, _slot: Slot) -> Result<Self::AuxData, ConsensusError> {
-		authorities(
+		fetch_authorities_with_compatibility_mode(
 			self.client.as_ref(),
 			header.hash(),
 			*header.number() + 1u32.into(),
@@ -504,45 +502,6 @@ impl<B: BlockT> From<crate::standalone::PreDigestLookupError> for Error<B> {
 	}
 }
 
-fn authorities<A, B, C>(
-	client: &C,
-	parent_hash: B::Hash,
-	context_block_number: NumberFor<B>,
-	compatibility_mode: &CompatibilityMode<NumberFor<B>>,
-) -> Result<Vec<A>, ConsensusError>
-where
-	A: Codec + Debug,
-	B: BlockT,
-	C::Api: AuraApi<B, A>,
-{
-	let runtime_api = client.runtime_api();
-
-	match compatibility_mode {
-		CompatibilityMode::None => {},
-		// Use `initialize_block` until we hit the block that should disable the mode.
-		CompatibilityMode::UseInitializeBlock { until } =>
-			if *until > context_block_number {
-				runtime_api
-					.initialize_block(
-						parent_hash,
-						&B::Header::new(
-							context_block_number,
-							Default::default(),
-							Default::default(),
-							parent_hash,
-							Default::default(),
-						),
-					)
-					.map_err(|_| ConsensusError::InvalidAuthoritiesSet)?;
-			},
-	}
-
-	runtime_api
-		.authorities(parent_hash)
-		.ok()
-		.ok_or(ConsensusError::InvalidAuthoritiesSet)
-}
-
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -555,7 +514,7 @@ mod tests {
 	use sc_network_test::{Block as TestBlock, *};
 	use sp_application_crypto::{key_types::AURA, AppCrypto};
 	use sp_consensus::{DisableProofRecording, NoNetwork as DummyOracle, Proposal};
-	use sp_consensus_aura::sr25519::AuthorityPair;
+	use sp_consensus_aura::sr25519::{AuthorityId, AuthorityPair};
 	use sp_inherents::InherentData;
 	use sp_keyring::sr25519::Keyring;
 	use sp_keystore::Keystore;
@@ -594,7 +553,6 @@ mod tests {
 		type Error = Error;
 		type Proposal = future::Ready<Result<Proposal<TestBlock, ()>, Error>>;
 		type ProofRecording = DisableProofRecording;
-		type Proof = ();
 
 		fn propose(
 			self,
@@ -646,7 +604,8 @@ mod tests {
 
 		fn make_verifier(&self, client: PeersClient, _peer_data: &()) -> Self::Verifier {
 			let client = client.as_client();
-			let slot_duration = slot_duration(&*client).expect("slot duration available");
+			let slot_duration =
+				slot_duration::<AuthorityId, _, _>(&*client).expect("slot duration available");
 
 			assert_eq!(slot_duration.as_millis() as u64, SLOT_DURATION_MS);
 			import_queue::AuraVerifier::new(
@@ -729,7 +688,8 @@ mod tests {
 					.for_each(move |_| future::ready(())),
 			);
 
-			let slot_duration = slot_duration(&*client).expect("slot duration available");
+			let slot_duration =
+				slot_duration::<AuthorityId, _, _>(&*client).expect("slot duration available");
 
 			aura_futures.push(
 				start_aura::<AuthorityPair, _, _, _, _, _, _, _, _, _, _>(StartAuraParams {

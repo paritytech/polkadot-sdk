@@ -148,11 +148,7 @@ where
 	RCInterface: RelayChainInterface + Clone,
 	BI: BlockImport<B> + ParachainBlockImportMarker + Send + Sync,
 	PF: Environment<B> + Send + Sync,
-	PF::Proposer: Proposer<
-		B,
-		ProofRecording = EnableProofRecording,
-		Proof = <EnableProofRecording as ProofRecording>::Proof,
-	>,
+	PF::Proposer: Proposer<B, ProofRecording = EnableProofRecording<B>>,
 	CIDP: CreateInherentDataProviders<B, (PHash, PersistedValidationData)>,
 {
 	async fn produce_candidate(
@@ -236,11 +232,7 @@ pub fn build_relay_chain_consensus<Block, PF, BI, CIDP, RCInterface>(
 where
 	Block: BlockT,
 	PF: Environment<Block> + Send + Sync + 'static,
-	PF::Proposer: Proposer<
-		Block,
-		ProofRecording = EnableProofRecording,
-		Proof = <EnableProofRecording as ProofRecording>::Proof,
-	>,
+	PF::Proposer: Proposer<Block, ProofRecording = EnableProofRecording<Block>>,
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
 	CIDP: CreateInherentDataProviders<Block, (PHash, PersistedValidationData)> + 'static,
 	RCInterface: RelayChainInterface + Clone + 'static,

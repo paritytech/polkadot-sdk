@@ -15,9 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sc_block_builder::BlockBuilderApi;
 use sc_cli::{CliConfiguration, ImportParams, Result, SharedParams};
 use sc_client_api::UsageProvider;
+use sp_api::CallApiAt;
 use sp_runtime::{traits::Block as BlockT, DigestItem, OpaqueExtrinsic};
 
 use clap::{Args, Parser};
@@ -92,10 +92,7 @@ impl ExtrinsicCmd {
 	) -> Result<()>
 	where
 		Block: BlockT<Extrinsic = OpaqueExtrinsic>,
-			+ CallApiAt<Block>
-			+ UsageProvider<Block>
-			+ sp_blockchain::HeaderBackend<Block>,
-		C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
+		C: CallApiAt<Block> + UsageProvider<Block> + sp_blockchain::HeaderBackend<Block>,
 	{
 		// Short circuit if --list was specified.
 		if self.params.list {

@@ -17,8 +17,8 @@
 
 use crate::{
 	common::{
-		API_VERSION_ATTRIBUTE, BLOCK_GENERIC_IDENT, CHANGED_IN_ATTRIBUTE, CORE_TRAIT_ATTRIBUTE,
-		RENAMED_ATTRIBUTE, SUPPORTED_ATTRIBUTE_NAMES,
+		API_VERSION_ATTRIBUTE, CHANGED_IN_ATTRIBUTE, CORE_TRAIT_ATTRIBUTE, RENAMED_ATTRIBUTE,
+		SUPPORTED_ATTRIBUTE_NAMES,
 	},
 	utils::{
 		extract_parameter_names_types_and_borrows, fold_fn_decl_for_client_side,
@@ -28,7 +28,7 @@ use crate::{
 	},
 };
 
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::TokenStream;
 
 use quote::quote;
 
@@ -39,8 +39,8 @@ use syn::{
 	spanned::Spanned,
 	token::Comma,
 	visit::{self, Visit},
-	Attribute, FnArg, GenericParam, Generics, Ident, ItemTrait, LitInt, LitStr, TraitBound,
-	TraitItem, TraitItemFn,
+	Attribute, FnArg, Generics, Ident, ItemTrait, LitInt, LitStr, TraitBound, TraitItem,
+	TraitItemFn,
 };
 
 use std::collections::{BTreeMap, HashMap};
@@ -60,15 +60,6 @@ impl Parse for RuntimeApiDecls {
 
 		Ok(Self { decls })
 	}
-}
-
-/// Extend the given generics with `Block: BlockT` as first generic parameter.
-fn extend_generics_with_block(generics: &mut Generics) {
-	let c = generate_crate_access();
-
-	generics.lt_token = Some(Default::default());
-	generics.params.insert(0, parse_quote!( Block: #c::BlockT ));
-	generics.gt_token = Some(Default::default());
 }
 
 /// Remove all attributes from the vector that are supported by us in the declaration of a runtime
@@ -452,7 +443,9 @@ impl<'a> ToClientSideDeclV2<'a> {
 			parse_quote!( __RuntimeInstanceCallApiAt__: #crate_::CallApiAt<__RuntimeInstanceBlock__> ),
 		);
 		generics.params.push(parse_quote!( __RuntimeInstanceBlock__: #crate_::BlockT ));
-		generics.params.push(parse_quote!( __RuntimeInstanceProofRecorder__: #crate_::ProofRecording<__RuntimeInstanceBlock__> ));
+		generics.params.push(
+			parse_quote!( __RuntimeInstanceProofRecorder__: #crate_::ProofRecording<__RuntimeInstanceBlock__> ),
+		);
 
 		let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 

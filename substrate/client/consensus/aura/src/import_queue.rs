@@ -19,8 +19,8 @@
 //! Module implementing the logic for verifying and importing AuRa blocks.
 
 use crate::{
-	authorities, standalone::SealVerificationError, AuthorityId, CompatibilityMode, Error,
-	LOG_TARGET,
+	standalone::{fetch_authorities_with_compatibility_mode, SealVerificationError},
+	AuthorityId, CompatibilityMode, Error, LOG_TARGET,
 };
 use codec::Codec;
 use log::{debug, info, trace};
@@ -32,10 +32,11 @@ use sc_consensus::{
 };
 use sc_consensus_slots::{check_equivocation, CheckedHeader, InherentDataProviderExt};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_TRACE};
+use sp_api::{CallApiAt, RuntimeInstance};
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::Error as ConsensusError;
-use sp_consensus_aura::{inherents::AuraInherentData, AuraApi};
+use sp_consensus_aura::inherents::AuraInherentData;
 use sp_consensus_slots::Slot;
 use sp_core::crypto::Pair;
 use sp_inherents::{CreateInherentDataProviders, InherentDataProvider as _};
@@ -138,14 +139,15 @@ where
 		create_inherent_data_providers: CIDP::InherentDataProviders,
 	) -> Result<(), Error<B>>
 	where
-		C::Api: BlockBuilderApi<B>,
 		CIDP: CreateInherentDataProviders<B, ()>,
+		C: CallApiAt<B>,
 	{
-		let inherent_res = self
-			.client
-			.runtime_api()
-			.check_inherents(at_hash, block, inherent_data)
-			.map_err(|e| Error::Client(e.into()))?;
+		let mut runtime_api =
+			RuntimeInstance::builder(&*self.client, at_hash).off_chain_context().build();
+
+		let inherent_res =
+			BlockBuilderApi::<B>::check_inherents(&mut runtime_api, block, inherent_data)
+				.map_err(|e| Error::Client(e.into()))?;
 
 		if !inherent_res.ok() {
 			for (i, e) in inherent_res.into_errors() {
@@ -163,8 +165,7 @@ where
 #[async_trait::async_trait]
 impl<B: BlockT, C, P, CIDP> Verifier<B> for AuraVerifier<C, P, CIDP, NumberFor<B>>
 where
-	C:  Send + Sync + sc_client_api::backend::AuxStore,
-	C::Api: BlockBuilderApi<B> + AuraApi<B, AuthorityId<P>> + ApiExt<B>,
+	C: Send + Sync + sc_client_api::backend::AuxStore + CallApiAt<B>,
 	P: Pair,
 	P::Public: Codec + Debug,
 	P::Signature: Codec,
@@ -189,7 +190,7 @@ where
 
 		let hash = block.header.hash();
 		let parent_hash = *block.header.parent_hash();
-		let authorities = authorities(
+		let authorities = fetch_authorities_with_compatibility_mode::<P::Public, _, _>(
 			self.client.as_ref(),
 			parent_hash,
 			*block.header.number(),
@@ -232,14 +233,16 @@ where
 
 					inherent_data.aura_replace_inherent_data(slot);
 
+					let runtime_api = RuntimeInstance::builder(&*self.client, parent_hash)
+						.off_chain_context()
+						.build();
+					let api_version = runtime_api
+						.api_version::<dyn BlockBuilderApi<B>>()
+						.map_err(|e| e.to_string())?;
+
 					// skip the inherents verification if the runtime API is old or not expected to
 					// exist.
-					if self
-						.client
-						.runtime_api()
-						.has_api_with::<dyn BlockBuilderApi<B>, _>(parent_hash, |v| v >= 2)
-						.map_err(|e| e.to_string())?
-					{
+					if api_version.unwrap_or(0) >= 2 {
 						self.check_inherents(
 							new_block.clone(),
 							parent_hash,
@@ -349,15 +352,14 @@ pub fn import_queue<P, Block, I, C, S, CIDP>(
 ) -> Result<DefaultImportQueue<Block>, sp_consensus::Error>
 where
 	Block: BlockT,
-	C::Api: BlockBuilderApi<Block> + AuraApi<Block, AuthorityId<P>> + ApiExt<Block>,
-	C: 'static
-		
-		+ BlockOf
+	C: BlockOf
 		+ Send
 		+ Sync
 		+ AuxStore
 		+ UsageProvider<Block>
-		+ HeaderBackend<Block>,
+		+ HeaderBackend<Block>
+		+ CallApiAt<Block>
+		+ 'static,
 	I: BlockImport<Block, Error = ConsensusError> + Send + Sync + 'static,
 	P: Pair + 'static,
 	P::Public: Codec + Debug,

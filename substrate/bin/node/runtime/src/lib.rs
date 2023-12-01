@@ -2298,7 +2298,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl sp_api::Metadata<Block> for Runtime {
+	impl sp_api::Metadata for Runtime {
 		fn metadata() -> OpaqueMetadata {
 			OpaqueMetadata::new(Runtime::metadata().into())
 		}
@@ -2340,7 +2340,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl sp_statement_store::runtime_api::ValidateStatement<Block> for Runtime {
+	impl sp_statement_store::runtime_api::ValidateStatement for Runtime {
 		fn validate_statement(
 			source: sp_statement_store::runtime_api::StatementSource,
 			statement: sp_statement_store::Statement,
@@ -2464,20 +2464,19 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl sp_authority_discovery::AuthorityDiscoveryApi<Block> for Runtime {
+	impl sp_authority_discovery::AuthorityDiscoveryApi for Runtime {
 		fn authorities() -> Vec<AuthorityDiscoveryId> {
 			AuthorityDiscovery::authorities()
 		}
 	}
 
-	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce> for Runtime {
+	impl frame_system_rpc_runtime_api::AccountNonceApi<AccountId, Nonce> for Runtime {
 		fn account_nonce(account: AccountId) -> Nonce {
 			System::account_nonce(account)
 		}
 	}
 
 	impl assets_api::AssetsApi<
-		Block,
 		AccountId,
 		Balance,
 		u32,
@@ -2488,7 +2487,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_contracts::ContractsApi<Block, AccountId, Balance, BlockNumber, Hash, EventRecord> for Runtime
+	impl pallet_contracts::ContractsApi<AccountId, Balance, BlockNumber, Hash, EventRecord> for Runtime
 	{
 		fn call(
 			origin: AccountId,
@@ -2581,7 +2580,6 @@ impl_runtime_apis! {
 	}
 
 	impl pallet_asset_conversion::AssetConversionApi<
-		Block,
 		Balance,
 		u128,
 		NativeOrAssetId<u32>
@@ -2617,7 +2615,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_nfts_runtime_api::NftsApi<Block, AccountId, u32, u32> for Runtime {
+	impl pallet_nfts_runtime_api::NftsApi<AccountId, u32, u32> for Runtime {
 		fn owner(collection: u32, item: u32) -> Option<AccountId> {
 			<Nfts as Inspect<AccountId>>::owner(&collection, &item)
 		}
@@ -2662,7 +2660,6 @@ impl_runtime_apis! {
 	}
 
 	impl pallet_mmr::primitives::MmrApi<
-		Block,
 		mmr::Hash,
 		BlockNumber,
 	> for Runtime {

@@ -17,10 +17,10 @@
 
 //! Contains the core benchmarking logic.
 
-use sc_block_builder::{BlockBuilderApi, BlockBuilderBuilder};
+use sc_block_builder::BlockBuilderBuilder;
 use sc_cli::{Error, Result};
 use sc_client_api::UsageProvider;
-use sp_api::{CallApiAt, Core};
+use sp_api::{CallApiAt, Core, RuntimeInstance};
 use sp_blockchain::{
 	ApplyExtrinsicFailed::Validity,
 	Error::{ApplyExtrinsicFailed, RuntimeApiError},
@@ -72,10 +72,7 @@ pub(crate) struct Benchmark<Block, C> {
 impl<Block, C> Benchmark<Block, C>
 where
 	Block: BlockT<Extrinsic = OpaqueExtrinsic>,
-		+ CallApiAt<Block>
-		+ UsageProvider<Block>
-		+ sp_blockchain::HeaderBackend<Block>,
-	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
+	C: CallApiAt<Block> + UsageProvider<Block> + sp_blockchain::HeaderBackend<Block>,
 {
 	/// Create a new [`Self`] from the arguments.
 	pub fn new(
@@ -178,9 +175,10 @@ where
 
 		info!("Running {} warmups...", self.params.warmup);
 		for _ in 0..self.params.warmup {
-			self.client
-				.runtime_api()
-				.execute_block(genesis, block.clone())
+			let mut runtime_api =
+				RuntimeInstance::builder(&*self.client, genesis).off_chain_context().build();
+
+			Core::<Block>::execute_block(&mut runtime_api, block.clone())
 				.map_err(|e| Error::Client(RuntimeApiError(e)))?;
 		}
 
@@ -189,11 +187,12 @@ where
 		// Execute a block multiple times and record each execution time.
 		for _ in 0..self.params.repeat {
 			let block = block.clone();
-			let runtime_api = self.client.runtime_api();
+
+			let mut runtime_api =
+				RuntimeInstance::builder(&*self.client, genesis).off_chain_context().build();
 			let start = Instant::now();
 
-			runtime_api
-				.execute_block(genesis, block)
+			Core::<Block>::execute_block(&mut runtime_api, block)
 				.map_err(|e| Error::Client(RuntimeApiError(e)))?;
 
 			let elapsed = start.elapsed().as_nanos();

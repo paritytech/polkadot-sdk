@@ -24,8 +24,8 @@ use log::trace;
 
 use codec::Codec;
 
-use sc_client_api::{backend::AuxStore, UsageProvider};
-use sp_api::{Core};
+use sc_client_api::UsageProvider;
+use sp_api::{CallApiAt, Core, RuntimeInstance};
 use sp_application_crypto::{AppCrypto, AppPublic};
 use sp_blockchain::Result as CResult;
 use sp_consensus::Error as ConsensusError;
@@ -48,10 +48,9 @@ pub fn slot_duration<A, B, C>(client: &C) -> CResult<SlotDuration>
 where
 	A: Codec,
 	B: BlockT,
-	C: AuxStore + UsageProvider<B>,
-	C::Api: AuraApi<B, A>,
+	C: CallApiAt<B> + UsageProvider<B>,
 {
-	slot_duration_at(client, client.usage_info().chain.best_hash)
+	slot_duration_at::<A, B, C>(client, client.usage_info().chain.best_hash)
 }
 
 /// Get the slot duration for Aura by reading from a runtime API at a given block's state.
@@ -59,10 +58,11 @@ pub fn slot_duration_at<A, B, C>(client: &C, block_hash: B::Hash) -> CResult<Slo
 where
 	A: Codec,
 	B: BlockT,
-	C: AuxStore,
-	C::Api: AuraApi<B, A>,
+	C: CallApiAt<B>,
 {
-	client.runtime_api().slot_duration(block_hash).map_err(|err| err.into())
+	let mut runtime_api = RuntimeInstance::builder(client, block_hash).off_chain_context().build();
+
+	AuraApi::<A>::slot_duration(&mut runtime_api).map_err(|err| err.into())
 }
 
 /// Get the slot author for given block along with authorities.
@@ -200,32 +200,30 @@ pub fn fetch_authorities_with_compatibility_mode<A, B, C>(
 where
 	A: Codec + Debug,
 	B: BlockT,
-	C::Api: AuraApi<B, A>,
+	C: CallApiAt<B>,
 {
-	let runtime_api = client.runtime_api();
+	let mut runtime_api = RuntimeInstance::builder(client, parent_hash).off_chain_context().build();
 
 	match compatibility_mode {
 		CompatibilityMode::None => {},
 		// Use `initialize_block` until we hit the block that should disable the mode.
 		CompatibilityMode::UseInitializeBlock { until } =>
 			if *until > context_block_number {
-				runtime_api
-					.initialize_block(
+				Core::<B>::initialize_block(
+					&mut runtime_api,
+					&B::Header::new(
+						context_block_number,
+						Default::default(),
+						Default::default(),
 						parent_hash,
-						&B::Header::new(
-							context_block_number,
-							Default::default(),
-							Default::default(),
-							parent_hash,
-							Default::default(),
-						),
-					)
-					.map_err(|_| ConsensusError::InvalidAuthoritiesSet)?;
+						Default::default(),
+					),
+				)
+				.map_err(|_| ConsensusError::InvalidAuthoritiesSet)?;
 			},
 	}
 
-	runtime_api
-		.authorities(parent_hash)
+	AuraApi::<A>::authorities(&mut runtime_api)
 		.ok()
 		.ok_or(ConsensusError::InvalidAuthoritiesSet)
 }
@@ -238,11 +236,11 @@ pub fn fetch_authorities<A, B, C>(
 where
 	A: Codec + Debug,
 	B: BlockT,
-	C::Api: AuraApi<B, A>,
+	C: CallApiAt<B>,
 {
-	client
-		.runtime_api()
-		.authorities(parent_hash)
+	let mut runtime_api = RuntimeInstance::builder(client, parent_hash).off_chain_context().build();
+
+	AuraApi::<A>::authorities(&mut runtime_api)
 		.ok()
 		.ok_or(ConsensusError::InvalidAuthoritiesSet)
 }
@@ -321,7 +319,7 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_keyring::sr25519::Keyring;
+	use sp_keyring::sr25519::{sr25519::Public, Keyring};
 
 	#[test]
 	fn authorities_call_works() {
@@ -329,7 +327,7 @@ mod tests {
 
 		assert_eq!(client.chain_info().best_number, 0);
 		assert_eq!(
-			fetch_authorities_with_compatibility_mode(
+			fetch_authorities_with_compatibility_mode::<Public, _, _>(
 				&client,
 				client.chain_info().best_hash,
 				1,
@@ -344,7 +342,7 @@ mod tests {
 		);
 
 		assert_eq!(
-			fetch_authorities(&client, client.chain_info().best_hash).unwrap(),
+			fetch_authorities::<Public, _, _>(&client, client.chain_info().best_hash).unwrap(),
 			vec![
 				Keyring::Alice.public().into(),
 				Keyring::Bob.public().into(),

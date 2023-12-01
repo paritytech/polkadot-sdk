@@ -33,6 +33,7 @@ use sc_client_api::{backend::AuxStore, BlockOf};
 use sc_consensus::BlockImport;
 use sc_consensus_slots::{BackoffAuthoringBlocksStrategy, SimpleSlotWorker, SlotInfo};
 use sc_telemetry::TelemetryHandle;
+use sp_api::CallApiAt;
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::{EnableProofRecording, Environment, ProofRecording, Proposer, SyncOracle};
@@ -118,8 +119,7 @@ where
 	) -> Box<dyn ParachainConsensus<B>>
 	where
 		Client:
-			BlockOf + AuxStore + HeaderBackend<B> + Send + Sync + 'static,
-		Client::Api: AuraApi<B, P::Public>,
+			BlockOf + AuxStore + HeaderBackend<B> + CallApiAt<B> + Send + Sync + 'static,
 		BI: BlockImport<B> + ParachainBlockImportMarker + Send + Sync + 'static,
 		SO: SyncOracle + Send + Sync + Clone + 'static,
 		BS: BackoffAuthoringBlocksStrategy<NumberFor<B>> + Send + Sync + 'static,

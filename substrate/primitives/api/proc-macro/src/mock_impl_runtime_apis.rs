@@ -16,19 +16,19 @@
 // limitations under the License.
 
 use crate::utils::{
-	extract_block_type_from_trait_path, extract_impl_trait,
-	extract_parameter_names_types_and_borrows, generate_crate_access, prefix_function_with_trait,
-	return_type_extract_type, AllowSelfRefInParameters, RequireQualifiedTraitPath,
+	extract_impl_trait, extract_parameter_names_types_and_borrows, generate_crate_access,
+	prefix_function_with_trait, return_type_extract_type, AllowSelfRefInParameters,
+	RequireQualifiedTraitPath,
 };
 
 use proc_macro2::{Span, TokenStream};
 
-use quote::{quote, quote_spanned};
+use quote::quote;
 
 use syn::{
-	fold::{self, Fold},
+	fold::Fold,
 	parse::{Error, Parse, ParseStream, Result},
-	parse_macro_input, parse_quote,
+	parse_macro_input,
 	spanned::Spanned,
 	Ident, ItemImpl, Type,
 };
@@ -62,7 +62,16 @@ fn implement_common_api_traits(
 ) -> Result<TokenStream> {
 	let crate_ = generate_crate_access();
 
-	Ok(quote!(
+	Ok(quote! {
+		impl #self_ty {
+			fn call_api(&self, function: &str, arguments: Vec<u8>) -> Vec<u8> {
+				match function {
+					#( #match_arms )*
+					f => panic!("Unknown function: `{f}`"),
+				}
+			}
+		}
+
 		impl<Block: #crate_::BlockT> #crate_::CallApiAt<Block> for #self_ty {
 			type StateBackend = #crate_::InMemoryBackend<#crate_::HashingFor<Block>>;
 
@@ -73,10 +82,7 @@ fn implement_common_api_traits(
 				let function = params.function;
 				let arguments = params.arguments;
 
-				Ok(match function {
-					#( #match_arms )*
-					f => panic!("Unknown function: `{f}`"),
-				})
+				Ok(self.call_api(function, arguments))
 			}
 
 			fn runtime_version_at(
@@ -104,7 +110,7 @@ fn implement_common_api_traits(
 				unimplemented!("`initialize_extensions` not implemented for mocks")
 			}
 		}
-	))
+	})
 }
 
 /// Auxiliary structure to fold a runtime api trait implementation into the expected format.

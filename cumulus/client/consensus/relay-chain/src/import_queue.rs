@@ -22,6 +22,7 @@ use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
 	BlockImport, BlockImportParams,
 };
+use sp_api::{CallApiAt, RuntimeInstance};
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::Result as ClientResult;
 use sp_consensus::error::Error as ConsensusError;
@@ -46,7 +47,7 @@ impl<Client, Block, CIDP> Verifier<Client, Block, CIDP> {
 impl<Client, Block, CIDP> VerifierT<Block> for Verifier<Client, Block, CIDP>
 where
 	Block: BlockT,
-	Client: Send + Sync,
+	Client: CallApiAt<Block> + Send + Sync,
 	CIDP: CreateInherentDataProviders<Block, ()>,
 {
 	async fn verify(
@@ -79,11 +80,17 @@ where
 
 			let block = Block::new(block_params.header.clone(), inner_body);
 
-			let inherent_res = self
-				.client
-				.runtime_api()
-				.check_inherents(*block.header().parent_hash(), block.clone(), inherent_data)
-				.map_err(|e| format!("{:?}", e))?;
+			let mut runtime_api =
+				RuntimeInstance::builder(&*self.client, *block.header().parent_hash())
+					.off_chain_context()
+					.build();
+
+			let inherent_res = BlockBuilderApi::<Block>::check_inherents(
+				&mut runtime_api,
+				block.clone(),
+				inherent_data,
+			)
+			.map_err(|e| format!("{:?}", e))?;
 
 			if !inherent_res.ok() {
 				for (i, e) in inherent_res.into_errors() {
@@ -102,6 +109,7 @@ where
 		}
 
 		block_params.post_hash = Some(block_params.header.hash());
+
 		Ok(block_params)
 	}
 }
@@ -120,7 +128,7 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Client: Send + Sync + 'static,
+	Client: CallApiAt<Block> + Send + Sync + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 {
 	let verifier = Verifier::new(client, create_inherent_data_providers);
