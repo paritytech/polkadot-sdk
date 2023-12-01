@@ -23,8 +23,8 @@ use super::*;
 
 use crate as utility;
 use frame_support::{
-	assert_err_ignore_postinfo, assert_noop, assert_ok,
-	dispatch::{DispatchError, DispatchErrorWithPostInfo, Dispatchable, Pays},
+	assert_err_ignore_postinfo, assert_noop, assert_ok, derive_impl,
+	dispatch::{DispatchErrorWithPostInfo, Pays},
 	error::BadOrigin,
 	parameter_types, storage,
 	traits::{ConstU32, ConstU64, Contains},
@@ -33,8 +33,8 @@ use frame_support::{
 use pallet_collective::{EnsureProportionAtLeast, Instance1};
 use sp_core::H256;
 use sp_runtime::{
-	traits::{BlakeTwo256, Hash, IdentityLookup},
-	BuildStorage, TokenError,
+	traits::{BlakeTwo256, Dispatchable, Hash, IdentityLookup},
+	BuildStorage, DispatchError, TokenError,
 };
 
 type BlockNumber = u64;
@@ -132,7 +132,7 @@ frame_support::construct_runtime!(
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Timestamp: pallet_timestamp::{Call, Inherent},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		RootTesting: pallet_root_testing::{Pallet, Call, Storage},
+		RootTesting: pallet_root_testing::{Pallet, Call, Storage,  Event<T>},
 		Council: pallet_collective::<Instance1>,
 		Utility: utility::{Pallet, Call, Event},
 		Example: example::{Pallet, Call},
@@ -144,6 +144,7 @@ parameter_types! {
 	pub BlockWeights: frame_system::limits::BlockWeights =
 		frame_system::limits::BlockWeights::simple_max(Weight::MAX);
 }
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = TestBaseCallFilter;
 	type BlockWeights = BlockWeights;
@@ -183,10 +184,13 @@ impl pallet_balances::Config for Test {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
+	type RuntimeFreezeReason = ();
 	type MaxHolds = ();
 }
 
-impl pallet_root_testing::Config for Test {}
+impl pallet_root_testing::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+}
 
 impl pallet_timestamp::Config for Test {
 	type Moment = u64;

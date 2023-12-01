@@ -1,5 +1,5 @@
 error: Invalid pallet::error, where clause is not allowed on pallet error item
-  --> $DIR/error_where_clause.rs:19:20
+  --> tests/pallet_ui/error_where_clause.rs:36:20
    |
-19 |     pub enum Error<T> where u32: From<u8> {}
+36 |     pub enum Error<T> where u32: From<u8> {}
    |                       ^^^^^

@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{btree_map::Entry, BTreeMap, HashSet};
 
 use futures::channel::oneshot;
 use schnellru::{ByLength, LruMap};
@@ -78,49 +78,64 @@ impl ScrapedUpdates {
 /// concluding against a candidate. Each candidate hash maps to a number of
 /// block heights, which in turn map to vectors of blocks at those heights.
 pub struct Inclusions {
-	inclusions_inner: BTreeMap<CandidateHash, BTreeMap<BlockNumber, Vec<Hash>>>,
+	inclusions_inner: BTreeMap<CandidateHash, BTreeMap<BlockNumber, HashSet<Hash>>>,
+	/// Keeps track at which block number a candidate was inserted. Used in `remove_up_to_height`.
+	/// Without this tracking we won't be able to remove all candidates before block X.
+	candidates_by_block_number: BTreeMap<BlockNumber, HashSet<CandidateHash>>,
 }
 
 impl Inclusions {
 	pub fn new() -> Self {
-		Self { inclusions_inner: BTreeMap::new() }
+		Self { inclusions_inner: BTreeMap::new(), candidates_by_block_number: BTreeMap::new() }
 	}
 
-	// Add parent block to the vector which has CandidateHash as an outer key and
-	// BlockNumber as an inner key
 	pub fn insert(
 		&mut self,
 		candidate_hash: CandidateHash,
 		block_number: BlockNumber,
 		block_hash: Hash,
 	) {
-		if let Some(blocks_including) = self.inclusions_inner.get_mut(&candidate_hash) {
-			if let Some(blocks_at_height) = blocks_including.get_mut(&block_number) {
-				blocks_at_height.push(block_hash);
-			} else {
-				blocks_including.insert(block_number, Vec::from([block_hash]));
-			}
-		} else {
-			let mut blocks_including: BTreeMap<BlockNumber, Vec<Hash>> = BTreeMap::new();
-			blocks_including.insert(block_number, Vec::from([block_hash]));
-			self.inclusions_inner.insert(candidate_hash, blocks_including);
-		}
+		self.inclusions_inner
+			.entry(candidate_hash)
+			.or_default()
+			.entry(block_number)
+			.or_default()
+			.insert(block_hash);
+
+		self.candidates_by_block_number
+			.entry(block_number)
+			.or_default()
+			.insert(candidate_hash);
 	}
 
-	pub fn remove_up_to_height(
-		&mut self,
-		height: &BlockNumber,
-		candidates_modified: HashSet<CandidateHash>,
-	) {
-		for candidate in candidates_modified {
-			if let Some(blocks_including) = self.inclusions_inner.get_mut(&candidate) {
-				// Returns everything after the given key, including the key. This works because the
-				// blocks are sorted in ascending order.
-				*blocks_including = blocks_including.split_off(height);
+	/// Removes all candidates up to a given height.
+	///
+	/// The candidates at the block height are NOT removed.
+	pub fn remove_up_to_height(&mut self, height: &BlockNumber) {
+		let not_stale = self.candidates_by_block_number.split_off(&height);
+		let stale = std::mem::take(&mut self.candidates_by_block_number);
+		self.candidates_by_block_number = not_stale;
+
+		for candidate in stale.into_values().flatten() {
+			match self.inclusions_inner.entry(candidate) {
+				Entry::Vacant(_) => {
+					// Rare case where same candidate was present on multiple heights, but all are
+					// pruned at the same time. This candidate was already pruned in the previous
+					// occurence so it is skipped now.
+				},
+				Entry::Occupied(mut e) => {
+					let mut blocks_including = std::mem::take(e.get_mut());
+					// Returns everything after the given key, including the key. This works because
+					// the blocks are sorted in ascending order.
+					blocks_including = blocks_including.split_off(&height);
+					if blocks_including.is_empty() {
+						e.remove_entry();
+					} else {
+						*e.get_mut() = blocks_including;
+					}
+				},
 			}
 		}
-		self.inclusions_inner
-			.retain(|_, blocks_including| blocks_including.keys().len() > 0);
 	}
 
 	pub fn get(&self, candidate: &CandidateHash) -> Vec<(BlockNumber, Hash)> {
@@ -133,6 +148,10 @@ impl Inclusions {
 			}
 		}
 		inclusions_as_vec
+	}
+
+	pub fn contains(&self, candidate: &CandidateHash) -> bool {
+		self.inclusions_inner.get(candidate).is_some()
 	}
 }
 
@@ -159,20 +178,20 @@ impl Inclusions {
 /// another precaution to have their `CandidateReceipts` available in case a dispute is raised on
 /// them,
 pub struct ChainScraper {
-	/// All candidates we have seen included, which not yet have been finalized.
-	included_candidates: candidates::ScrapedCandidates,
-	/// All candidates we have seen backed
+	/// All candidates we have seen backed.
 	backed_candidates: candidates::ScrapedCandidates,
-	/// Latest relay blocks observed by the provider.
-	///
-	/// We assume that ancestors of cached blocks are already processed, i.e. we have saved
-	/// corresponding included candidates.
-	last_observed_blocks: LruMap<Hash, ()>,
+
 	/// Maps included candidate hashes to one or more relay block heights and hashes.
 	/// These correspond to all the relay blocks which marked a candidate as included,
 	/// and are needed to apply reversions in case a dispute is concluded against the
 	/// candidate.
 	inclusions: Inclusions,
+
+	/// Latest relay blocks observed by the provider.
+	///
+	/// This is used to avoid redundant scraping of ancestry. We assume that ancestors of cached
+	/// blocks are already processed, i.e. we have saved corresponding included candidates.
+	last_observed_blocks: LruMap<Hash, ()>,
 }
 
 impl ChainScraper {
@@ -194,10 +213,9 @@ impl ChainScraper {
 		Sender: overseer::DisputeCoordinatorSenderTrait,
 	{
 		let mut s = Self {
-			included_candidates: candidates::ScrapedCandidates::new(),
 			backed_candidates: candidates::ScrapedCandidates::new(),
-			last_observed_blocks: LruMap::new(ByLength::new(LRU_OBSERVED_BLOCKS_CAPACITY)),
 			inclusions: Inclusions::new(),
+			last_observed_blocks: LruMap::new(ByLength::new(LRU_OBSERVED_BLOCKS_CAPACITY)),
 		};
 		let update =
 			ActiveLeavesUpdate { activated: Some(initial_head), deactivated: Default::default() };
@@ -207,7 +225,7 @@ impl ChainScraper {
 
 	/// Check whether we have seen a candidate included on any chain.
 	pub fn is_candidate_included(&self, candidate_hash: &CandidateHash) -> bool {
-		self.included_candidates.contains(candidate_hash)
+		self.inclusions.contains(candidate_hash)
 	}
 
 	/// Check whether the candidate is backed
@@ -298,9 +316,7 @@ impl ChainScraper {
 		{
 			Some(key_to_prune) => {
 				self.backed_candidates.remove_up_to_height(&key_to_prune);
-				let candidates_modified =
-					self.included_candidates.remove_up_to_height(&key_to_prune);
-				self.inclusions.remove_up_to_height(&key_to_prune, candidates_modified);
+				self.inclusions.remove_up_to_height(&key_to_prune);
 			},
 			None => {
 				// Nothing to prune. We are still in the beginning of the chain and there are not
@@ -337,7 +353,6 @@ impl ChainScraper {
 						?block_number,
 						"Processing included event"
 					);
-					self.included_candidates.insert(block_number, candidate_hash);
 					self.inclusions.insert(candidate_hash, block_number, block_hash);
 					included_receipts.push(receipt);
 				},

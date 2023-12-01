@@ -140,7 +140,7 @@ pub enum InherentError {
 		error("The time since the last timestamp is lower than the minimum period.")
 	)]
 	TooEarly,
-	/// The block timestamp is too far in the future
+	/// The block timestamp is too far in the future.
 	#[cfg_attr(feature = "std", error("The timestamp of the block is too far in the future."))]
 	TooFarInFuture,
 }

@@ -1,3 +1,19 @@
+// Copyright (C) Parity Technologies (UK) Ltd.
+// This file is part of Substrate.
+
+// Substrate is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Substrate is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+
 #![cfg(feature = "runtime-benchmarks")]
 
 use assert_cmd::cargo::cargo_bin;
@@ -8,7 +24,7 @@ use std::{
 use tempfile::tempdir;
 
 /// The runtimes that this command supports.
-static RUNTIMES: [&str; 3] = ["asset-hub-westend", "asset-hub-kusama", "asset-hub-polkadot"];
+static RUNTIMES: [&str; 1] = ["asset-hub-westend"];
 
 /// The `benchmark storage` command works for the dev runtimes.
 #[test]

@@ -2,10 +2,10 @@
 name = "sp-tracing"
 version = "10.0.0"
 license = "Apache-2.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "Instrumentation primitives and macros for Substrate."
 readme = "README.md"
 
@@ -15,7 +15,7 @@ default-target = "wasm32-unknown-unknown"
 # with the tracing enabled
 features = ["with-tracing"]
 # allowing for linux-gnu here, too, allows for `std` to show up as well
-targets = ["x86_64-unknown-linux-gnu", "wasm32-unknown-unknown"]
+targets = ["wasm32-unknown-unknown", "x86_64-unknown-linux-gnu"]
 
 [dependencies]
 sp-std = { path = "../std", default-features = false }
@@ -29,8 +29,8 @@ tracing-subscriber = { version = "0.2.25", optional = true, features = [
 ] }
 
 [features]
-default = [ "std" ]
-with-tracing = [ "codec/derive", "codec/full" ]
+default = ["std"]
+with-tracing = ["codec/derive", "codec/full"]
 std = [
 	"codec/std",
 	"sp-std/std",

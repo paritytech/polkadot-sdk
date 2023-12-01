@@ -1,4 +1,4 @@
-// Copyright 2019-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
 // Cumulus is free software: you can redistribute it and/or modify
@@ -20,11 +20,11 @@
 #![warn(unused_extern_crates)]
 
 mod chain_spec;
-#[macro_use]
-mod service;
 mod cli;
 mod command;
+mod fake_runtime_api;
 mod rpc;
+mod service;
 
 fn main() -> sc_cli::Result<()> {
 	command::run()

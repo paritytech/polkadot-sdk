@@ -14,10 +14,10 @@ have not been designed to be economically secure. Do not use this pallet as-is i
 
 ### Dispatchable Functions
 
-* `set_name` - Set the associated name of an account; a small deposit is reserved if not already
+- `set_name` - Set the associated name of an account; a small deposit is reserved if not already
   taken.
-* `clear_name` - Remove an account's associated name; the deposit is returned.
-* `kill_name` - Forcibly remove the associated name; the deposit is lost.
+- `clear_name` - Remove an account's associated name; the deposit is returned.
+- `kill_name` - Forcibly remove the associated name; the deposit is lost.
 
 [`Call`]: ./enum.Call.html
 [`Config`]: ./trait.Config.html

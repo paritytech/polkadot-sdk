@@ -24,10 +24,8 @@ mod mock;
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_benchmarking::BenchmarkError;
-	use frame_support::{
-		dispatch::{Dispatchable, GetDispatchInfo},
-		pallet_prelude::Encode,
-	};
+	use frame_support::{dispatch::GetDispatchInfo, pallet_prelude::Encode};
+	use sp_runtime::traits::Dispatchable;
 	use xcm::latest::{
 		InteriorMultiLocation, Junction, MultiAsset, MultiAssets, MultiLocation, NetworkId,
 		Response,
@@ -39,6 +37,11 @@ pub mod pallet {
 			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>
 			+ Encode;
+
+		/// The type of `fungible` that is being used under the hood.
+		///
+		/// This is useful for testing and checking.
+		type TransactAsset: frame_support::traits::fungible::Mutate<Self::AccountId>;
 
 		///	The response which causes the most runtime weight.
 		fn worst_case_response() -> (u64, Response);
@@ -88,6 +91,18 @@ pub mod pallet {
 		///
 		/// If set to `Err`, benchmarks which rely on a universal alias will be skipped.
 		fn alias_origin() -> Result<(MultiLocation, MultiLocation), BenchmarkError>;
+
+		/// Returns a valid pallet info for `ExpectPallet` or `QueryPallet` benchmark.
+		///
+		/// By default returns `frame_system::Pallet` info with expected pallet index `0`.
+		fn valid_pallet() -> frame_support::traits::PalletInfoData {
+			frame_support::traits::PalletInfoData {
+				index: <frame_system::Pallet<Self> as frame_support::traits::PalletInfoAccess>::index(),
+				name: <frame_system::Pallet<Self> as frame_support::traits::PalletInfoAccess>::name(),
+				module_name: <frame_system::Pallet<Self> as frame_support::traits::PalletInfoAccess>::module_name(),
+				crate_version: <frame_system::Pallet<Self> as frame_support::traits::PalletInfoAccess>::crate_version(),
+			}
+		}
 	}
 
 	#[pallet::pallet]

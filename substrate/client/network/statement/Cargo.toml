@@ -3,10 +3,10 @@ description = "Substrate statement protocol"
 name = "sc-network-statement"
 version = "0.10.0-dev"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 documentation = "https://docs.rs/sc-network-statement"
 
 [package.metadata.docs.rs]
@@ -21,6 +21,7 @@ libp2p = "0.51.3"
 log = "0.4.17"
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus" }
 sc-network-common = { path = "../common" }
+sc-network-sync = { path = "../sync" }
 sc-network = { path = ".." }
 sp-consensus = { path = "../../../primitives/consensus/common" }
 sp-statement-store = { path = "../../../primitives/statement-store" }

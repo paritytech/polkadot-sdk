@@ -1,5 +1,5 @@
 error: Conditional compilation is not supported for versioned functions
- --> tests/ui/no_versioned_conditional_build.rs:7:2
-  |
-7 |     #[version(2)]
-  |     ^
+  --> tests/ui/no_versioned_conditional_build.rs:24:2
+   |
+24 |     #[version(2)]
+   |     ^

@@ -51,7 +51,6 @@ pub trait CodeExecutor: Sized + Send + Sync + ReadRuntimeVersion + Clone + 'stat
 		runtime_code: &RuntimeCode,
 		method: &str,
 		data: &[u8],
-		use_native: bool,
 		context: CallContext,
 	) -> (Result<Vec<u8>, Self::Error>, bool);
 }
@@ -91,7 +90,7 @@ pub struct RuntimeCode<'a> {
 	///
 	/// If `None` are given, the default value of the executor will be used.
 	pub heap_pages: Option<u64>,
-	/// The SCALE encoded hash of `code`.
+	/// The hash of `code`.
 	///
 	/// The hashing algorithm isn't that important, as long as all runtime
 	/// code instances use the same.

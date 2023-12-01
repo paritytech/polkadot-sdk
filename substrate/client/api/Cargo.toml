@@ -1,11 +1,11 @@
 [package]
 name = "sc-client-api"
 version = "4.0.0-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "Substrate client interfaces."
 documentation = "https://docs.rs/sc-client-api"
 readme = "README.md"
@@ -28,15 +28,16 @@ sc-utils = { path = "../utils" }
 sp-api = { path = "../../primitives/api" }
 sp-blockchain = { path = "../../primitives/blockchain" }
 sp-consensus = { path = "../../primitives/consensus/common" }
-sp-core = { path = "../../primitives/core", default-features = false}
+sp-core = { path = "../../primitives/core", default-features = false }
 sp-database = { path = "../../primitives/database" }
 sp-externalities = { path = "../../primitives/externalities" }
-sp-runtime = { path = "../../primitives/runtime", default-features = false}
+sp-runtime = { path = "../../primitives/runtime", default-features = false }
 sp-state-machine = { path = "../../primitives/state-machine" }
 sp-statement-store = { path = "../../primitives/statement-store" }
 sp-storage = { path = "../../primitives/storage" }
+sp-trie = { path = "../../primitives/trie" }
 
 [dev-dependencies]
-thiserror = "1.0.30"
+thiserror = "1.0.48"
 sp-test-primitives = { path = "../../primitives/test-primitives" }
 substrate-test-runtime = { path = "../../test-utils/runtime" }

@@ -30,9 +30,10 @@ use crate::{
 	},
 	exec::{Frame, Key},
 	migration::codegen::LATEST_MIGRATION_VERSION,
+	primitives::CodeUploadReturnValue,
 	storage::DeletionQueueManager,
 	tests::test_utils::{get_contract, get_contract_checked},
-	wasm::{Determinism, ReturnCode as RuntimeReturnCode},
+	wasm::{Determinism, ReturnErrorCode as RuntimeReturnCode},
 	weights::WeightInfo,
 	BalanceOf, Code, CodeHash, CodeInfoOf, CollectEvents, Config, ContractInfo, ContractInfoOf,
 	DebugInfo, DefaultAddressGenerator, DeletionQueueCounter, Error, HoldReason,
@@ -42,7 +43,8 @@ use assert_matches::assert_matches;
 use codec::Encode;
 use frame_support::{
 	assert_err, assert_err_ignore_postinfo, assert_err_with_weight, assert_noop, assert_ok,
-	dispatch::{DispatchError, DispatchErrorWithPostInfo, PostDispatchInfo},
+	derive_impl,
+	dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo},
 	parameter_types,
 	storage::child,
 	traits::{
@@ -53,7 +55,7 @@ use frame_support::{
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
 };
 use frame_system::{EventRecord, Phase};
-use pallet_contracts_primitives::CodeUploadReturnValue;
+use pallet_contracts_fixtures::compile_module;
 use pretty_assertions::{assert_eq, assert_ne};
 use sp_core::ByteArray;
 use sp_io::hashing::blake2_256;
@@ -61,7 +63,7 @@ use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
 	testing::H256,
 	traits::{BlakeTwo256, Convert, Hash, IdentityLookup},
-	AccountId32, BuildStorage, Perbill, TokenError,
+	AccountId32, BuildStorage, DispatchError, Perbill, TokenError,
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -331,6 +333,8 @@ parameter_types! {
 		);
 	pub static ExistentialDeposit: u64 = 1;
 }
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = BlockWeights;
@@ -370,6 +374,7 @@ impl pallet_balances::Config for Test {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type MaxHolds = ConstU32<1>;
 }
 
@@ -484,6 +489,7 @@ impl Config for Test {
 	type MaxDelegateDependencies = MaxDelegateDependencies;
 	type Debug = TestDebug;
 	type Environment = ();
+	type Xcm = ();
 }
 
 pub const ALICE: AccountId32 = AccountId32::new([1u8; 32]);
@@ -552,27 +558,6 @@ impl ExtBuilder {
 		});
 		ext
 	}
-}
-
-/// Load a given wasm module represented by a .wat file and returns a wasm binary contents along
-/// with it's hash.
-///
-/// The fixture files are located under the `fixtures/` directory.
-fn compile_module<T>(fixture_name: &str) -> wat::Result<(Vec<u8>, <T::Hashing as Hash>::Output)>
-where
-	T: frame_system::Config,
-{
-	let fixture_path = [
-		// When `CARGO_MANIFEST_DIR` is not set, Rust resolves relative paths from the root folder
-		std::env::var("CARGO_MANIFEST_DIR").as_deref().unwrap_or("frame/contracts"),
-		"/fixtures/",
-		fixture_name,
-		".wat",
-	]
-	.concat();
-	let wasm_binary = wat::parse_file(fixture_path)?;
-	let code_hash = T::Hashing::hash(&wasm_binary);
-	Ok((wasm_binary, code_hash))
 }
 
 fn initialize_block(number: u64) {
@@ -856,6 +841,27 @@ fn deposit_event_max_value_limit() {
 				(<Test as Config>::Schedule::get().limits.payload_len + 1).encode(),
 			),
 			Error::<Test>::ValueTooLarge,
+		);
+	});
+}
+
+// Fail out of fuel (ref_time weight) inside the start function.
+#[test]
+fn run_out_of_fuel_start_fun() {
+	let (wasm, _code_hash) = compile_module::<Test>("run_out_of_gas_start_fn").unwrap();
+	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		assert_err_ignore_postinfo!(
+			Contracts::instantiate_with_code(
+				RuntimeOrigin::signed(ALICE),
+				0,
+				Weight::from_parts(1_000_000_000_000, u64::MAX),
+				None,
+				wasm,
+				vec![],
+				vec![],
+			),
+			Error::<Test>::OutOfGas,
 		);
 	});
 }
@@ -5888,6 +5894,56 @@ fn root_cannot_instantiate() {
 				vec![],
 			),
 			DispatchError::RootNotAllowed
+		);
+	});
+}
+
+#[test]
+fn balance_api_returns_free_balance() {
+	let (wasm, _code_hash) = compile_module::<Test>("balance").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Instantiate the BOB contract without any extra balance.
+		let addr = Contracts::bare_instantiate(
+			ALICE,
+			0,
+			GAS_LIMIT,
+			None,
+			Code::Upload(wasm.to_vec()),
+			vec![],
+			vec![],
+			DebugInfo::Skip,
+			CollectEvents::Skip,
+		)
+		.result
+		.unwrap()
+		.account_id;
+
+		let value = 0;
+		// Call BOB which makes it call the balance runtime API.
+		// The contract code asserts that the returned balance is 0.
+		assert_ok!(Contracts::call(
+			RuntimeOrigin::signed(ALICE),
+			addr.clone(),
+			value,
+			GAS_LIMIT,
+			None,
+			vec![]
+		));
+
+		let value = 1;
+		// Calling with value will trap the contract.
+		assert_err_ignore_postinfo!(
+			Contracts::call(
+				RuntimeOrigin::signed(ALICE),
+				addr.clone(),
+				value,
+				GAS_LIMIT,
+				None,
+				vec![]
+			),
+			<Error<Test>>::ContractTrapped
 		);
 	});
 }

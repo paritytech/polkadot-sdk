@@ -1,4 +1,4 @@
-// Copyright 2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
 // Polkadot is free software: you can redistribute it and/or modify
@@ -96,10 +96,10 @@ use std::{
 
 use super::LOG_TARGET;
 use bitvec::prelude::*;
-use polkadot_node_subsystem_util::inclusion_emulator::staging::{
+use polkadot_node_subsystem_util::inclusion_emulator::{
 	ConstraintModifications, Constraints, Fragment, ProspectiveCandidate, RelayChainBlockInfo,
 };
-use polkadot_primitives::vstaging::{
+use polkadot_primitives::{
 	BlockNumber, CandidateHash, CommittedCandidateReceipt, Hash, HeadData, Id as ParaId,
 	PersistedValidationData,
 };
@@ -981,10 +981,8 @@ impl FragmentNode {
 mod tests {
 	use super::*;
 	use assert_matches::assert_matches;
-	use polkadot_node_subsystem_util::inclusion_emulator::staging::InboundHrmpLimitations;
-	use polkadot_primitives::vstaging::{
-		BlockNumber, CandidateCommitments, CandidateDescriptor, HeadData,
-	};
+	use polkadot_node_subsystem_util::inclusion_emulator::InboundHrmpLimitations;
+	use polkadot_primitives::{BlockNumber, CandidateCommitments, CandidateDescriptor, HeadData};
 	use polkadot_primitives_test_helpers as test_helpers;
 
 	fn make_constraints(

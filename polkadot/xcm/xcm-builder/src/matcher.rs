@@ -50,7 +50,7 @@ impl<'a, Call> CreateMatcher for &'a mut [Instruction<Call>] {
 /// ```rust
 /// use frame_support::traits::ProcessMessageError;
 /// use xcm::latest::Instruction;
-/// use xcm_builder::{CreateMatcher, MatchXcm};
+/// use staging_xcm_builder::{CreateMatcher, MatchXcm};
 ///
 /// let mut msg = [Instruction::<()>::ClearOrigin];
 /// let res = msg

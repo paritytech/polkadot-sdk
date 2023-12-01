@@ -1,6 +1,7 @@
 # Overseer Protocol
 
-This chapter contains message types sent to and from the overseer, and the underlying subsystem message types that are transmitted using these.
+This chapter contains message types sent to and from the overseer, and the underlying subsystem message types that are
+transmitted using these.
 
 ## Overseer Signal
 
@@ -17,7 +18,8 @@ enum OverseerSignal {
 }
 ```
 
-All subsystems have their own message types; all of them need to be able to listen for overseer signals as well. There are currently two proposals for how to handle that with unified communication channels:
+All subsystems have their own message types; all of them need to be able to listen for overseer signals as well. There
+are currently two proposals for how to handle that with unified communication channels:
 
 1. Retaining the `OverseerSignal` definition above, add `enum FromOrchestra<T> {Signal(OverseerSignal), Message(T)}`.
 1. Add a generic varint to `OverseerSignal`: `Message(T)`.
@@ -26,21 +28,12 @@ Either way, there will be some top-level type encapsulating messages from the ov
 
 ## Active Leaves Update
 
-Indicates a change in active leaves. Activated leaves should have jobs, whereas deactivated leaves should lead to winding-down of work based on those leaves.
+Indicates a change in active leaves. Activated leaves should have jobs, whereas deactivated leaves should lead to
+winding-down of work based on those leaves.
 
 ```rust
-enum LeafStatus {
-    // A leaf is fresh when it's the first time the leaf has been encountered.
-    // Most leaves should be fresh.
-    Fresh,
-    // A leaf is stale when it's encountered for a subsequent time. This will
-    // happen when the chain is reverted or the fork-choice rule abandons some
-    // chain.
-    Stale,
-}
-
 struct ActiveLeavesUpdate {
-    activated: [(Hash, Number, LeafStatus)], // in practice, these should probably be a SmallVec
+    activated: [(Hash, Number)],
     deactivated: [Hash],
 }
 ```
@@ -201,7 +194,8 @@ enum ApprovalDistributionMessage {
 
 Messages received by the availability distribution subsystem.
 
-This is a network protocol that receives messages of type [`AvailabilityDistributionV1Message`][AvailabilityDistributionV1NetworkMessage].
+This is a network protocol that receives messages of type
+[`AvailabilityDistributionV1Message`][AvailabilityDistributionV1NetworkMessage].
 
 ```rust
 enum AvailabilityDistributionMessage {
@@ -293,7 +287,7 @@ pub enum AvailabilityStoreMessage {
 		tx: oneshot::Sender<Result<(), ()>>,
 	},
 
-	/// Computes and checks the erasure root of `AvailableData` before storing all of its chunks in 
+	/// Computes and checks the erasure root of `AvailableData` before storing all of its chunks in
 	/// the AV store.
 	///
 	/// Return `Ok(())` if the store operation succeeded, `Err(StoreAvailableData)` if it failed.
@@ -319,8 +313,8 @@ pub enum StoreAvailableDataError {
 
 ## Bitfield Distribution Message
 
-Messages received by the bitfield distribution subsystem.
-This is a network protocol that receives messages of type [`BitfieldDistributionV1Message`][BitfieldDistributionV1NetworkMessage].
+Messages received by the bitfield distribution subsystem. This is a network protocol that receives messages of type
+[`BitfieldDistributionV1Message`][BitfieldDistributionV1NetworkMessage].
 
 ```rust
 enum BitfieldDistributionMessage {
@@ -354,7 +348,7 @@ enum CandidateBackingMessage {
   /// The PoV is expected to match the `pov_hash` in the descriptor.
   Second(Hash, CandidateReceipt, PoV),
   /// Note a peer validator's statement about a particular candidate. Disagreements about validity must be escalated
-  /// to a broader check by the Disputes Subsystem, though that escalation is deferred until the approval voting 
+  /// to a broader check by the Disputes Subsystem, though that escalation is deferred until the approval voting
   /// stage to guarantee availability. Agreements are simply tallied until a quorum is reached.
   Statement(Statement),
 }
@@ -420,7 +414,8 @@ enum ChainSelectionMessage {
 
 Messages received by the [Collator Protocol subsystem](../node/collators/collator-protocol.md)
 
-This is a network protocol that receives messages of type [`CollatorProtocolV1Message`][CollatorProtocolV1NetworkMessage].
+This is a network protocol that receives messages of type
+[`CollatorProtocolV1Message`][CollatorProtocolV1NetworkMessage].
 
 ```rust
 enum CollatorProtocolMessage {
@@ -452,7 +447,8 @@ enum CollatorProtocolMessage {
 
 Messages received by the [Collation Generation subsystem](../node/collators/collation-generation.md)
 
-This is the core interface by which collators built on top of a Polkadot node submit collations to validators. As such, these messages are not sent by any subsystem but are instead sent from outside of the overseer.
+This is the core interface by which collators built on top of a Polkadot node submit collations to validators. As such,
+these messages are not sent by any subsystem but are instead sent from outside of the overseer.
 
 ```rust
 /// A function provided to the subsystem which it uses to pull new collations.
@@ -503,7 +499,8 @@ enum CollationGenerationMessage {
 
 Messages received by the [Dispute Coordinator subsystem](../node/disputes/dispute-coordinator.md)
 
-This subsystem coordinates participation in disputes, tracks live disputes, and observed statements of validators from subsystems.
+This subsystem coordinates participation in disputes, tracks live disputes, and observed statements of validators from
+subsystems.
 
 ```rust
 enum DisputeCoordinatorMessage {
@@ -572,11 +569,9 @@ pub enum ImportStatementsResult {
 }
 ```
 
-
 ## Dispute Distribution Message
 
-Messages received by the [Dispute Distribution
-subsystem](../node/disputes/dispute-distribution.md). This subsystem is
+Messages received by the [Dispute Distribution subsystem](../node/disputes/dispute-distribution.md). This subsystem is
 responsible of distributing explicit dispute statements.
 
 ```rust
@@ -602,8 +597,8 @@ enum DisputeDistributionMessage {
 
 ## Network Bridge Message
 
-Messages received by the network bridge. This subsystem is invoked by others to manipulate access
-to the low-level networking code.
+Messages received by the network bridge. This subsystem is invoked by others to manipulate access to the low-level
+networking code.
 
 ```rust
 /// Peer-sets handled by the network bridge.
@@ -778,7 +773,8 @@ enum ProvisionerMessage {
 
 The Runtime API subsystem is responsible for providing an interface to the state of the chain's runtime.
 
-This is fueled by an auxiliary type encapsulating all request types defined in the [Runtime API section](../runtime-api) of the guide.
+This is fueled by an auxiliary type encapsulating all request types defined in the [Runtime API section](../runtime-api)
+of the guide.
 
 ```rust
 enum RuntimeApiRequest {
@@ -835,10 +831,12 @@ enum RuntimeApiMessage {
 
 ## Statement Distribution Message
 
-The Statement Distribution subsystem distributes signed statements and candidates from validators to other validators. It does this by distributing full statements, which embed the candidate receipt, as opposed to compact statements which don't.
-It receives updates from the network bridge and signed statements to share with other validators.
+The Statement Distribution subsystem distributes signed statements and candidates from validators to other validators.
+It does this by distributing full statements, which embed the candidate receipt, as opposed to compact statements which
+don't. It receives updates from the network bridge and signed statements to share with other validators.
 
-This is a network protocol that receives messages of type [`StatementDistributionV1Message`][StatementDistributionV1NetworkMessage].
+This is a network protocol that receives messages of type
+[`StatementDistributionV1Message`][StatementDistributionV1NetworkMessage].
 
 ```rust
 enum StatementDistributionMessage {
@@ -855,7 +853,8 @@ enum StatementDistributionMessage {
 
 ## Validation Request Type
 
-Various modules request that the [Candidate Validation subsystem](../node/utility/candidate-validation.md) validate a block with this message. It returns [`ValidationOutputs`](candidate.md#validationoutputs) for successful validation.
+Various modules request that the [Candidate Validation subsystem](../node/utility/candidate-validation.md) validate a
+block with this message. It returns [`ValidationOutputs`](candidate.md#validationoutputs) for successful validation.
 
 ```rust
 

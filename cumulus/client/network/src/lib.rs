@@ -1,4 +1,4 @@
-// Copyright 2019-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
 // Polkadot is free software: you can redistribute it and/or modify
@@ -28,7 +28,7 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 use cumulus_relay_chain_interface::RelayChainInterface;
 use polkadot_node_primitives::{CollationSecondedSignal, Statement};
-use polkadot_parachain::primitives::HeadData;
+use polkadot_parachain_primitives::primitives::HeadData;
 use polkadot_primitives::{
 	CandidateReceipt, CompactStatement, Hash as PHash, Id as ParaId, OccupiedCoreAssumption,
 	SigningContext, UncheckedSigned,

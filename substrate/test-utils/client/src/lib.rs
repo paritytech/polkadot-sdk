@@ -21,7 +21,7 @@
 
 pub mod client_ext;
 
-pub use self::client_ext::{ClientBlockImportExt, ClientExt};
+pub use self::client_ext::{BlockOrigin, ClientBlockImportExt, ClientExt};
 pub use sc_client_api::{execution_extensions::ExecutionExtensions, BadBlocks, ForkBlocks};
 pub use sc_client_db::{self, Backend, BlocksPruning};
 pub use sc_executor::{self, NativeElseWasmExecutor, WasmExecutionMethod, WasmExecutor};
@@ -263,9 +263,10 @@ impl<Block: BlockT, D, Backend, G: GenesisInit>
 		D: sc_executor::NativeExecutionDispatch + 'static,
 		Backend: sc_client_api::backend::Backend<Block> + 'static,
 	{
-		let executor = executor.into().unwrap_or_else(|| {
+		let mut executor = executor.into().unwrap_or_else(|| {
 			NativeElseWasmExecutor::new_with_wasm_executor(WasmExecutor::builder().build())
 		});
+		executor.disable_use_native();
 		let executor = LocalCallExecutor::new(
 			self.backend.clone(),
 			executor.clone(),

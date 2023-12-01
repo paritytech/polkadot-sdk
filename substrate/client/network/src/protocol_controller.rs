@@ -493,8 +493,8 @@ impl ProtocolController {
 		}
 	}
 
-	/// Remove the peer from the set of reserved peers. The peer is moved to the set of regular
-	/// nodes.
+	/// Remove the peer from the set of reserved peers. The peer is either moved to the set of
+	/// regular nodes or disconnected.
 	fn on_remove_reserved_peer(&mut self, peer_id: PeerId) {
 		let state = match self.reserved_nodes.remove(&peer_id) {
 			Some(state) => state,
@@ -508,7 +508,14 @@ impl ProtocolController {
 		};
 
 		if let PeerState::Connected(direction) = state {
-			if self.reserved_only {
+			// Disconnect if we're at (or over) the regular node limit
+			let disconnect = self.reserved_only ||
+				match direction {
+					Direction::Inbound => self.num_in >= self.max_in,
+					Direction::Outbound => self.num_out >= self.max_out,
+				};
+
+			if disconnect {
 				// Disconnect the node.
 				trace!(
 					target: LOG_TARGET,
@@ -840,6 +847,7 @@ mod tests {
 	use super::*;
 	use crate::{peer_store::PeerStoreProvider, ReputationChange};
 	use libp2p::PeerId;
+	use sc_network_common::role::ObservedRole;
 	use sc_utils::mpsc::{tracing_unbounded, TryRecvError};
 	use std::collections::HashSet;
 
@@ -851,8 +859,10 @@ mod tests {
 			fn is_banned(&self, peer_id: &PeerId) -> bool;
 			fn register_protocol(&self, protocol_handle: ProtocolHandle);
 			fn report_disconnect(&mut self, peer_id: PeerId);
+			fn set_peer_role(&mut self, peer_id: &PeerId, role: ObservedRole);
 			fn report_peer(&mut self, peer_id: PeerId, change: ReputationChange);
 			fn peer_reputation(&self, peer_id: &PeerId) -> i32;
+			fn peer_role(&self, peer_id: &PeerId) -> Option<ObservedRole>;
 			fn outgoing_candidates<'a>(&self, count: usize, ignored: HashSet<&'a PeerId>) -> Vec<PeerId>;
 		}
 	}

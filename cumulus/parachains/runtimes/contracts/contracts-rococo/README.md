@@ -1,7 +1,7 @@
 # Contracts 📝
 
 This is a parachain node for smart contracts; it contains a default configuration of
-Substrate's module for smart contracts ‒ the [`pallet-contracts`](https://github.com/paritytech/substrate/tree/master/frame/contracts).
+Substrate's module for smart contracts ‒ the [`pallet-contracts`](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/contracts).
 
 The node is only available on Rococo, a testnet for Polkadot and Kusama parachains.
 It has been configured as a common good parachain, as such it uses the Rococo relay
@@ -16,7 +16,7 @@ If you have any questions, it's best to ask in the
 ![Contracts Overview](./contracts-overview.svg)
 
 This node contains Substrate's smart contracts module ‒ the
-[`pallet-contracts`](https://github.com/paritytech/substrate/tree/master/frame/contracts).
+[`pallet-contracts`](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/contracts).
 This pallet takes smart contracts as WebAssembly blobs and defines an API
 for everything a smart contract needs (storage access, …).
 As long as a programming language compiles to WebAssembly and there exists an implementation
@@ -33,8 +33,8 @@ There are also different user interfaces and command-line tools you can use to d
 or interact with contracts:
 
 * [Contracts UI](https://paritytech.github.io/contracts-ui/) ‒ a beginner-friendly UI for smart contract developers.
-* [polkadot-js](https://polkadot.js.org/apps/) ‒ the go-to expert UI for smart contract developers.
-* [cargo-contract](https://github.com/paritytech/cargo-contract) ‒ a CLI tool, ideal for scripting or your terminal workflow.
+* [`polkadot-js`](https://polkadot.js.org/apps/) ‒ the go-to expert UI for smart contract developers.
+* [`cargo-contract`](https://github.com/paritytech/cargo-contract) ‒ a CLI tool, ideal for scripting or your terminal workflow.
 
 If you are looking for a quickstart, we can recommend
 [ink!'s Guided Tutorial for Beginners](https://docs.substrate.io/tutorials/v3/ink-workshop/pt1/).
@@ -54,7 +54,8 @@ Once the executable is built, launch the parachain node via:
 ./target/release/polkadot-parachain --chain contracts-rococo
 ```
 
-Refer to the [setup instructions](https://github.com/paritytech/cumulus#manual-setup) to run a local network for development.
+Refer to the [setup instructions](https://github.com/paritytech/polkadot-sdk/tree/master/cumulus#manual-setup) to run a
+local network for development.
 
 ### Rococo Deployment
 

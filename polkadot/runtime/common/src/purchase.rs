@@ -132,7 +132,7 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// A [new] account was created.
+		/// A new account was created.
 		AccountCreated { who: T::AccountId },
 		/// Someone's account validity was updated.
 		ValidityUpdated { who: T::AccountId, validity: AccountValidity },
@@ -484,14 +484,14 @@ mod tests {
 	// or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
 	use crate::purchase;
 	use frame_support::{
-		assert_noop, assert_ok,
-		dispatch::DispatchError::BadOrigin,
-		ord_parameter_types, parameter_types,
+		assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,
 		traits::{Currency, WithdrawReasons},
 	};
 	use sp_runtime::{
 		traits::{BlakeTwo256, Dispatchable, IdentifyAccount, Identity, IdentityLookup, Verify},
-		ArithmeticError, BuildStorage, MultiSignature,
+		ArithmeticError, BuildStorage,
+		DispatchError::BadOrigin,
+		MultiSignature,
 	};
 
 	type Block = frame_system::mocking::MockBlock<Test>;
@@ -511,6 +511,8 @@ mod tests {
 	parameter_types! {
 		pub const BlockHashCount: u32 = 250;
 	}
+
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();
@@ -552,6 +554,7 @@ mod tests {
 		type ReserveIdentifier = [u8; 8];
 		type WeightInfo = ();
 		type RuntimeHoldReason = RuntimeHoldReason;
+		type RuntimeFreezeReason = RuntimeFreezeReason;
 		type FreezeIdentifier = ();
 		type MaxHolds = ConstU32<1>;
 		type MaxFreezes = ConstU32<1>;

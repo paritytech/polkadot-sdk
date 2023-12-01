@@ -4,21 +4,21 @@ A simple, secure module for dealing with fungible assets.
 
 ## Overview
 
-The Assets module provides functionality for asset management of fungible asset classes
-with a fixed supply, including:
+The Assets module provides functionality for asset management of fungible asset classes with a fixed supply, including:
 
 * Asset Issuance
 * Asset Transfer
 * Asset Destruction
 
-To use it in your runtime, you need to implement the assets [`assets::Config`](https://docs.rs/pallet-assets/latest/pallet_assets/pallet/trait.Config.html).
+To use it in your runtime, you need to implement the assets
+[`assets::Config`](https://docs.rs/pallet-assets/latest/pallet_assets/pallet/trait.Config.html).
 
-The supported dispatchable functions are documented in the [`assets::Call`](https://docs.rs/pallet-assets/latest/pallet_assets/pallet/enum.Call.html) enum.
+The supported dispatchable functions are documented in the
+[`assets::Call`](https://docs.rs/pallet-assets/latest/pallet_assets/pallet/enum.Call.html) enum.
 
 ### Terminology
 
-* **Asset issuance:** The creation of a new asset, whose total supply will belong to the
-  account that issues the asset.
+* **Asset issuance:** The creation of a new asset, whose total supply will belong to the account that issues the asset.
 * **Asset transfer:** The action of transferring assets from one account to another.
 * **Asset destruction:** The process of an account removing its entire holding of an asset.
 * **Fungible asset:** An asset whose units are interchangeable.
@@ -30,20 +30,19 @@ The assets system in Substrate is designed to make the following possible:
 
 * Issue a unique asset to its creator's account.
 * Move assets between accounts.
-* Remove an account's balance of an asset when requested by that account's owner and update
-  the asset's total supply.
+* Remove an account's balance of an asset when requested by that account's owner and update the asset's total supply.
 
 ## Interface
 
 ### Dispatchable Functions
 
 * `issue` - Issues the total supply of a new fungible asset to the account of the caller of the function.
-* `transfer` - Transfers an `amount` of units of fungible asset `id` from the balance of
-the function caller's account (`origin`) to a `target` account.
-* `destroy` - Destroys the entire holding of a fungible asset `id` associated with the account
-that called the function.
+* `transfer` - Transfers an `amount` of units of fungible asset `id` from the balance of the function caller's account
+(`origin`) to a `target` account.
+* `destroy` - Destroys the entire holding of a fungible asset `id` associated with the account that called the function.
 
-Please refer to the [`Call`](https://docs.rs/pallet-assets/latest/pallet_assets/enum.Call.html) enum and its associated variants for documentation on each function.
+Please refer to the [`Call`](https://docs.rs/pallet-assets/latest/pallet_assets/enum.Call.html) enum and its associated
+variants for documentation on each function.
 
 ### Public Functions
 <!-- Original author of descriptions: @gavofyork -->
@@ -51,7 +50,8 @@ Please refer to the [`Call`](https://docs.rs/pallet-assets/latest/pallet_assets/
 * `balance` - Get the asset `id` balance of `who`.
 * `total_supply` - Get the total supply of an asset `id`.
 
-Please refer to the [`Pallet`](https://docs.rs/pallet-assets/latest/pallet_assets/pallet/struct.Pallet.html) struct for details on publicly available functions.
+Please refer to the [`Pallet`](https://docs.rs/pallet-assets/latest/pallet_assets/pallet/struct.Pallet.html) struct for
+details on publicly available functions.
 
 ## Usage
 
@@ -111,11 +111,10 @@ pub mod pallet {
 
 ## Assumptions
 
-Below are assumptions that must be held when using this module.  If any of
-them are violated, the behavior of this module is undefined.
+Below are assumptions that must be held when using this module.  If any of them are violated, the behavior of this
+module is undefined.
 
-* The total count of assets should be less than
-  `Config::AssetId::max_value()`.
+* The total count of assets should be less than `Config::AssetId::max_value()`.
 
 ## Related Modules
 

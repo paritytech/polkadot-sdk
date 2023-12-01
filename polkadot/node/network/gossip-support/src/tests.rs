@@ -16,12 +16,14 @@
 
 //! Unit tests for Gossip Support Subsystem.
 
-use std::{collections::HashSet, sync::Arc, time::Duration};
+use std::{collections::HashSet, time::Duration};
 
 use assert_matches::assert_matches;
 use async_trait::async_trait;
 use futures::{executor, future, Future};
 use lazy_static::lazy_static;
+use quickcheck::quickcheck;
+use rand::seq::SliceRandom as _;
 
 use sc_network::multiaddr::Protocol;
 use sp_authority_discovery::AuthorityPair as AuthorityDiscoveryPair;
@@ -30,15 +32,11 @@ use sp_core::crypto::Pair as PairT;
 use sp_keyring::Sr25519Keyring;
 
 use polkadot_node_network_protocol::grid_topology::{SessionGridTopology, TopologyPeerInfo};
-use polkadot_node_subsystem::{
-	jaeger,
-	messages::{AllMessages, RuntimeApiMessage, RuntimeApiRequest},
-	ActivatedLeaf, LeafStatus,
-};
+use polkadot_node_subsystem::messages::{AllMessages, RuntimeApiMessage, RuntimeApiRequest};
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::TimeoutExt as _;
 use polkadot_primitives::{GroupIndex, IndexedVec};
-use test_helpers::mock::make_ferdie_keystore;
+use test_helpers::mock::{make_ferdie_keystore, new_leaf};
 
 use super::*;
 
@@ -196,12 +194,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>, AD: AuthorityDiscovery>(
 const TIMEOUT: Duration = Duration::from_millis(100);
 
 async fn overseer_signal_active_leaves(overseer: &mut VirtualOverseer, leaf: Hash) {
-	let leaf = ActivatedLeaf {
-		hash: leaf,
-		number: 0xdeadcafe,
-		status: LeafStatus::Fresh,
-		span: Arc::new(jaeger::Span::Disabled),
-	};
+	let leaf = new_leaf(leaf, 0xdeadcafe);
 	overseer
 		.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(
 			leaf,
@@ -718,4 +711,24 @@ fn issues_a_connection_request_when_last_request_was_mostly_unresolved() {
 
 	assert_eq!(state.last_session_index, Some(1));
 	assert!(state.last_failure.is_none());
+}
+
+// note: this test was added at a time where the default `rand::SliceRandom::shuffle`
+// function was used to shuffle authorities for the topology and ensures backwards compatibility.
+//
+// in the same commit, an explicit fisher-yates implementation was added in place of the unspecified
+// behavior of that function. If this test begins to fail at some point in the future, it can simply
+// be removed as the desired behavior has been preserved.
+quickcheck! {
+	fn rng_shuffle_equals_fisher_yates(x: Vec<i32>, seed_base: u8) -> bool {
+		let mut rng1: ChaCha20Rng = SeedableRng::from_seed([seed_base; 32]);
+		let mut rng2: ChaCha20Rng = SeedableRng::from_seed([seed_base; 32]);
+
+		let mut data1 = x.clone();
+		let mut data2 = x;
+
+		data1.shuffle(&mut rng1);
+		crate::fisher_yates_shuffle(&mut rng2, &mut data2[..]);
+		data1 == data2
+	}
 }

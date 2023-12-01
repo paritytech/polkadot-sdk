@@ -64,6 +64,7 @@ pub fn to_session_keys(
 		babe: sr25519_keyring.to_owned().public().into(),
 		im_online: sr25519_keyring.to_owned().public().into(),
 		authority_discovery: sr25519_keyring.to_owned().public().into(),
+		mixnet: sr25519_keyring.to_owned().public().into(),
 	}
 }
 
@@ -77,7 +78,9 @@ pub fn signed_extra(nonce: Nonce, extra_fee: Balance) -> SignedExtra {
 		frame_system::CheckEra::from(Era::mortal(256, 0)),
 		frame_system::CheckNonce::from(nonce),
 		frame_system::CheckWeight::new(),
-		pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(extra_fee, None),
+		pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
+			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(extra_fee, None),
+		),
 	)
 }
 

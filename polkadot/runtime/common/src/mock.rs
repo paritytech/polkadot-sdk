@@ -17,16 +17,13 @@
 //! Mocking utilities for testing.
 
 use crate::traits::Registrar;
-use frame_support::{
-	dispatch::{DispatchError, DispatchResult},
-	weights::Weight,
-};
+use frame_support::{dispatch::DispatchResult, weights::Weight};
 use frame_system::pallet_prelude::BlockNumberFor;
 use parity_scale_codec::{Decode, Encode};
 use primitives::{HeadData, Id as ParaId, PvfCheckStatement, SessionIndex, ValidationCode};
 use runtime_parachains::paras;
 use sp_keyring::Sr25519Keyring;
-use sp_runtime::{traits::SaturatedConversion, Permill};
+use sp_runtime::{traits::SaturatedConversion, DispatchError, Permill};
 use std::{cell::RefCell, collections::HashMap};
 
 thread_local! {

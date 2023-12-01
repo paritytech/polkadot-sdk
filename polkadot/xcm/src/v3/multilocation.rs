@@ -265,15 +265,13 @@ impl MultiLocation {
 	///
 	/// # Example
 	/// ```rust
-	/// # use xcm::v3::{Junctions::*, Junction::*, MultiLocation};
-	/// # fn main() {
+	/// # use staging_xcm::v3::{Junctions::*, Junction::*, MultiLocation};
 	/// let mut m = MultiLocation::new(1, X2(PalletInstance(3), OnlyChild));
 	/// assert_eq!(
 	///     m.match_and_split(&MultiLocation::new(1, X1(PalletInstance(3)))),
 	///     Some(&OnlyChild),
 	/// );
 	/// assert_eq!(m.match_and_split(&MultiLocation::new(1, Here)), None);
-	/// # }
 	/// ```
 	pub fn match_and_split(&self, prefix: &MultiLocation) -> Option<&Junction> {
 		if self.parents != prefix.parents {
@@ -292,12 +290,10 @@ impl MultiLocation {
 	///
 	/// # Example
 	/// ```rust
-	/// # use xcm::v3::{Junctions::*, Junction::*, MultiLocation, Parent};
-	/// # fn main() {
+	/// # use staging_xcm::v3::{Junctions::*, Junction::*, MultiLocation, Parent};
 	/// let mut m: MultiLocation = (Parent, Parachain(21), 69u64).into();
 	/// assert_eq!(m.append_with((Parent, PalletInstance(3))), Ok(()));
 	/// assert_eq!(m, MultiLocation::new(1, X2(Parachain(21), PalletInstance(3))));
-	/// # }
 	/// ```
 	pub fn append_with(&mut self, suffix: impl Into<Self>) -> Result<(), Self> {
 		let prefix = core::mem::replace(self, suffix.into());
@@ -313,12 +309,10 @@ impl MultiLocation {
 	///
 	/// # Example
 	/// ```rust
-	/// # use xcm::v3::{Junctions::*, Junction::*, MultiLocation, Parent};
-	/// # fn main() {
+	/// # use staging_xcm::v3::{Junctions::*, Junction::*, MultiLocation, Parent};
 	/// let mut m: MultiLocation = (Parent, Parachain(21), 69u64).into();
 	/// let r = m.appended_with((Parent, PalletInstance(3))).unwrap();
 	/// assert_eq!(r, MultiLocation::new(1, X2(Parachain(21), PalletInstance(3))));
-	/// # }
 	/// ```
 	pub fn appended_with(mut self, suffix: impl Into<Self>) -> Result<Self, (Self, Self)> {
 		match self.append_with(suffix) {
@@ -333,12 +327,10 @@ impl MultiLocation {
 	///
 	/// # Example
 	/// ```rust
-	/// # use xcm::v3::{Junctions::*, Junction::*, MultiLocation, Parent};
-	/// # fn main() {
+	/// # use staging_xcm::v3::{Junctions::*, Junction::*, MultiLocation, Parent};
 	/// let mut m: MultiLocation = (Parent, Parent, PalletInstance(3)).into();
 	/// assert_eq!(m.prepend_with((Parent, Parachain(21), OnlyChild)), Ok(()));
 	/// assert_eq!(m, MultiLocation::new(1, X1(PalletInstance(3))));
-	/// # }
 	/// ```
 	pub fn prepend_with(&mut self, prefix: impl Into<Self>) -> Result<(), Self> {
 		//     prefix     self (suffix)
@@ -382,12 +374,10 @@ impl MultiLocation {
 	///
 	/// # Example
 	/// ```rust
-	/// # use xcm::v3::{Junctions::*, Junction::*, MultiLocation, Parent};
-	/// # fn main() {
+	/// # use staging_xcm::v3::{Junctions::*, Junction::*, MultiLocation, Parent};
 	/// let m: MultiLocation = (Parent, Parent, PalletInstance(3)).into();
 	/// let r = m.prepended_with((Parent, Parachain(21), OnlyChild)).unwrap();
 	/// assert_eq!(r, MultiLocation::new(1, X1(PalletInstance(3))));
-	/// # }
 	/// ```
 	pub fn prepended_with(mut self, prefix: impl Into<Self>) -> Result<Self, (Self, Self)> {
 		match self.prepend_with(prefix) {
@@ -453,6 +443,21 @@ impl MultiLocation {
 				_ => break,
 			}
 		}
+	}
+
+	/// Return the MultiLocation subsection identifying the chain that `self` points to.
+	pub fn chain_location(&self) -> MultiLocation {
+		let mut clone = *self;
+		// start popping junctions until we reach chain identifier
+		while let Some(j) = clone.last() {
+			if matches!(j, Junction::Parachain(_) | Junction::GlobalConsensus(_)) {
+				// return chain subsection
+				return clone
+			} else {
+				(clone, _) = clone.split_last_interior();
+			}
+		}
+		MultiLocation::new(clone.parents, Junctions::Here)
 	}
 }
 
@@ -682,6 +687,57 @@ mod tests {
 
 		assert_eq!(iter.next(), None);
 		assert_eq!(iter.next_back(), None);
+	}
+
+	#[test]
+	fn chain_location_works() {
+		// Relay-chain or parachain context pointing to local resource,
+		let relay_to_local = MultiLocation::new(0, (PalletInstance(42), GeneralIndex(42)));
+		assert_eq!(relay_to_local.chain_location(), MultiLocation::here());
+
+		// Relay-chain context pointing to child parachain,
+		let relay_to_child =
+			MultiLocation::new(0, (Parachain(42), PalletInstance(42), GeneralIndex(42)));
+		let expected = MultiLocation::new(0, Parachain(42));
+		assert_eq!(relay_to_child.chain_location(), expected);
+
+		// Relay-chain context pointing to different consensus relay,
+		let relay_to_remote_relay =
+			MultiLocation::new(1, (GlobalConsensus(Kusama), PalletInstance(42), GeneralIndex(42)));
+		let expected = MultiLocation::new(1, GlobalConsensus(Kusama));
+		assert_eq!(relay_to_remote_relay.chain_location(), expected);
+
+		// Relay-chain context pointing to different consensus parachain,
+		let relay_to_remote_para = MultiLocation::new(
+			1,
+			(GlobalConsensus(Kusama), Parachain(42), PalletInstance(42), GeneralIndex(42)),
+		);
+		let expected = MultiLocation::new(1, (GlobalConsensus(Kusama), Parachain(42)));
+		assert_eq!(relay_to_remote_para.chain_location(), expected);
+
+		// Parachain context pointing to relay chain,
+		let para_to_relay = MultiLocation::new(1, (PalletInstance(42), GeneralIndex(42)));
+		assert_eq!(para_to_relay.chain_location(), MultiLocation::parent());
+
+		// Parachain context pointing to sibling parachain,
+		let para_to_sibling =
+			MultiLocation::new(1, (Parachain(42), PalletInstance(42), GeneralIndex(42)));
+		let expected = MultiLocation::new(1, Parachain(42));
+		assert_eq!(para_to_sibling.chain_location(), expected);
+
+		// Parachain context pointing to different consensus relay,
+		let para_to_remote_relay =
+			MultiLocation::new(2, (GlobalConsensus(Kusama), PalletInstance(42), GeneralIndex(42)));
+		let expected = MultiLocation::new(2, GlobalConsensus(Kusama));
+		assert_eq!(para_to_remote_relay.chain_location(), expected);
+
+		// Parachain context pointing to different consensus parachain,
+		let para_to_remote_para = MultiLocation::new(
+			2,
+			(GlobalConsensus(Kusama), Parachain(42), PalletInstance(42), GeneralIndex(42)),
+		);
+		let expected = MultiLocation::new(2, (GlobalConsensus(Kusama), Parachain(42)));
+		assert_eq!(para_to_remote_para.chain_location(), expected);
 	}
 
 	#[test]

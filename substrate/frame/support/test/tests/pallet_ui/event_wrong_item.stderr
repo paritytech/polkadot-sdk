@@ -1,5 +1,5 @@
 error: Invalid pallet::event, expected enum item
-  --> $DIR/event_wrong_item.rs:19:2
+  --> tests/pallet_ui/event_wrong_item.rs:36:2
    |
-19 |     pub struct Foo;
+36 |     pub struct Foo;
    |     ^^^

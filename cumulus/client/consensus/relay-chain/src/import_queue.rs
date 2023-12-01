@@ -1,4 +1,4 @@
-// Copyright 2019-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
 // Cumulus is free software: you can redistribute it and/or modify
@@ -55,6 +55,10 @@ where
 		&mut self,
 		mut block_params: BlockImportParams<Block>,
 	) -> Result<BlockImportParams<Block>, String> {
+		block_params.fork_choice = Some(sc_consensus::ForkChoiceStrategy::Custom(
+			block_params.origin == sp_consensus::BlockOrigin::NetworkInitialSync,
+		));
+
 		// Skip checks that include execution, if being told so, or when importing only state.
 		//
 		// This is done for example when gap syncing and it is expected that the block after the gap
@@ -100,7 +104,6 @@ where
 		}
 
 		block_params.post_hash = Some(block_params.header.hash());
-
 		Ok(block_params)
 	}
 }

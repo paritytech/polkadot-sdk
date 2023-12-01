@@ -1,11 +1,11 @@
 [package]
 name = "sp-core-hashing"
 version = "9.0.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "Primitive core crate hashing implementation."
 documentation = "https://docs.rs/sp-core-hashing"
 
@@ -21,7 +21,7 @@ sha3 = { version = "0.10.0", default-features = false }
 twox-hash = { version = "1.6.3", default-features = false, features = ["digest_0_10"] }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"blake2b_simd/std",
 	"byteorder/std",

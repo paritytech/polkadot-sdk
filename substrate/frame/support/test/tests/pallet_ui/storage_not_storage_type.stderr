@@ -1,5 +1,5 @@
 error: Invalid pallet::storage, expected ident: `StorageValue` or `StorageMap` or `CountedStorageMap` or `StorageDoubleMap` or `StorageNMap` or `CountedStorageNMap` in order to expand metadata, found `u8`.
-  --> $DIR/storage_not_storage_type.rs:19:16
+  --> tests/pallet_ui/storage_not_storage_type.rs:36:16
    |
-19 |     type Foo<T> = u8;
+36 |     type Foo<T> = u8;
    |                   ^^

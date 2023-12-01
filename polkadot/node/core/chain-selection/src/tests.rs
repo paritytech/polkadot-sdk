@@ -35,11 +35,10 @@ use parity_scale_codec::Encode;
 use parking_lot::Mutex;
 use sp_core::testing::TaskExecutor;
 
-use polkadot_node_subsystem::{
-	jaeger, messages::AllMessages, ActivatedLeaf, ActiveLeavesUpdate, LeafStatus,
-};
+use polkadot_node_subsystem::{messages::AllMessages, ActiveLeavesUpdate};
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{BlakeTwo256, ConsensusLog, HashT};
+use test_helpers::mock::new_leaf;
 
 #[derive(Default)]
 struct TestBackendInner {
@@ -367,12 +366,10 @@ async fn import_blocks_into(
 		let hash = header.hash();
 		virtual_overseer
 			.send(
-				OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(ActivatedLeaf {
+				OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
 					hash,
-					number: header.number,
-					status: LeafStatus::Fresh,
-					span: Arc::new(jaeger::Span::Disabled),
-				}))
+					header.number,
+				)))
 				.into(),
 			)
 			.await;
@@ -425,12 +422,10 @@ async fn import_all_blocks_into(
 	let (_, write_rx) = backend.await_next_write();
 	virtual_overseer
 		.send(
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(ActivatedLeaf {
-				hash: head_hash,
-				number: head.number,
-				status: LeafStatus::Fresh,
-				span: Arc::new(jaeger::Span::Disabled),
-			}))
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
+				head_hash,
+				head.number,
+			)))
 			.into(),
 		)
 		.await;

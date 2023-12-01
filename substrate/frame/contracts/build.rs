@@ -53,7 +53,7 @@ fn get_latest_version() -> u16 {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let out_dir = std::env::var("OUT_DIR")?;
 	let path = std::path::Path::new(&out_dir).join("migration_codegen.rs");
-	let mut f = std::fs::File::create(&path)?;
+	let mut f = std::fs::File::create(path)?;
 	let version = get_latest_version();
 	write!(
 		f,
@@ -68,6 +68,5 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		version - 1,
 	)?;
 
-	println!("cargo:rerun-if-changed=src/migration");
 	Ok(())
 }

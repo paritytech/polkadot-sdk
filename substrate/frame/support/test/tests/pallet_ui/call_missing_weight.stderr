@@ -1,7 +1,7 @@
 error: A pallet::call requires either a concrete `#[pallet::weight($expr)]` or an
                                inherited weight from the `#[pallet:call(weight($type))]` attribute, but
                                none were given.
-  --> tests/pallet_ui/call_missing_weight.rs:17:7
+  --> tests/pallet_ui/call_missing_weight.rs:34:7
    |
-17 |         pub fn foo(origin: OriginFor<T>) -> DispatchResultWithPostInfo {}
+34 |         pub fn foo(origin: OriginFor<T>) -> DispatchResultWithPostInfo {}
    |             ^^

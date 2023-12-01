@@ -16,7 +16,7 @@
 
 use crate::prepare::PrepareJobKind;
 use parity_scale_codec::{Decode, Encode};
-use polkadot_parachain::primitives::ValidationCodeHash;
+use polkadot_parachain_primitives::primitives::ValidationCodeHash;
 use polkadot_primitives::ExecutorParams;
 use sp_core::blake2_256;
 use std::{
@@ -115,7 +115,7 @@ impl fmt::Debug for PvfPrepData {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		write!(
 			f,
-			"Pvf {{ code, code_hash: {:?}, executor_params: {:?}, prep_timeout: {:?} }}",
+			"Pvf {{ code: [...], code_hash: {:?}, executor_params: {:?}, prep_timeout: {:?} }}",
 			self.code_hash, self.executor_params, self.prep_timeout
 		)
 	}

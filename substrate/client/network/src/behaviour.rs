@@ -22,12 +22,13 @@ use crate::{
 	peer_info,
 	peer_store::PeerStoreHandle,
 	protocol::{CustomMessageOutcome, NotificationsSink, Protocol},
+	protocol_controller::SetId,
 	request_responses::{self, IfDisconnected, ProtocolConfig, RequestFailure},
+	service::traits::Direction,
 	types::ProtocolName,
 	ReputationChange,
 };
 
-use bytes::Bytes;
 use futures::channel::oneshot;
 use libp2p::{
 	core::Multiaddr, identify::Info as IdentifyInfo, identity::PublicKey, kad::RecordKey,
@@ -35,7 +36,6 @@ use libp2p::{
 };
 
 use parking_lot::Mutex;
-use sc_network_common::role::{ObservedRole, Roles};
 use sp_runtime::traits::Block as BlockT;
 use std::{collections::HashSet, sync::Arc, time::Duration};
 
@@ -97,8 +97,10 @@ pub enum BehaviourOut {
 	NotificationStreamOpened {
 		/// Node we opened the substream with.
 		remote: PeerId,
-		/// The concerned protocol. Each protocol uses a different substream.
-		protocol: ProtocolName,
+		/// Set ID.
+		set_id: SetId,
+		/// Direction of the stream.
+		direction: Direction,
 		/// If the negotiation didn't use the main name of the protocol (the one in
 		/// `notifications_protocol`), then this field contains which name has actually been
 		/// used.
@@ -106,8 +108,6 @@ pub enum BehaviourOut {
 		negotiated_fallback: Option<ProtocolName>,
 		/// Object that permits sending notifications to the peer.
 		notifications_sink: NotificationsSink,
-		/// Role of the remote.
-		role: ObservedRole,
 		/// Received handshake.
 		received_handshake: Vec<u8>,
 	},
@@ -120,8 +120,8 @@ pub enum BehaviourOut {
 	NotificationStreamReplaced {
 		/// Id of the peer we are connected to.
 		remote: PeerId,
-		/// The concerned protocol. Each protocol uses a different substream.
-		protocol: ProtocolName,
+		/// Set ID.
+		set_id: SetId,
 		/// Replacement for the previous [`NotificationsSink`].
 		notifications_sink: NotificationsSink,
 	},
@@ -131,16 +131,18 @@ pub enum BehaviourOut {
 	NotificationStreamClosed {
 		/// Node we closed the substream with.
 		remote: PeerId,
-		/// The concerned protocol. Each protocol uses a different substream.
-		protocol: ProtocolName,
+		/// Set ID.
+		set_id: SetId,
 	},
 
 	/// Received one or more messages from the given node using the given protocol.
 	NotificationsReceived {
 		/// Node we received the message from.
 		remote: PeerId,
+		/// Set ID.
+		set_id: SetId,
 		/// Concerned protocol and associated message.
-		messages: Vec<(ProtocolName, Bytes)>,
+		notification: Vec<u8>,
 	},
 
 	/// We have obtained identity information from a peer, including the addresses it is listening
@@ -272,44 +274,33 @@ impl<B: BlockT> Behaviour<B> {
 	}
 }
 
-fn reported_roles_to_observed_role(roles: Roles) -> ObservedRole {
-	if roles.is_authority() {
-		ObservedRole::Authority
-	} else if roles.is_full() {
-		ObservedRole::Full
-	} else {
-		ObservedRole::Light
-	}
-}
-
 impl From<CustomMessageOutcome> for BehaviourOut {
 	fn from(event: CustomMessageOutcome) -> Self {
 		match event {
 			CustomMessageOutcome::NotificationStreamOpened {
 				remote,
-				protocol,
+				set_id,
+				direction,
 				negotiated_fallback,
-				roles,
 				received_handshake,
 				notifications_sink,
 			} => BehaviourOut::NotificationStreamOpened {
 				remote,
-				protocol,
+				set_id,
+				direction,
 				negotiated_fallback,
-				role: reported_roles_to_observed_role(roles),
 				received_handshake,
 				notifications_sink,
 			},
 			CustomMessageOutcome::NotificationStreamReplaced {
 				remote,
-				protocol,
+				set_id,
 				notifications_sink,
-			} => BehaviourOut::NotificationStreamReplaced { remote, protocol, notifications_sink },
-			CustomMessageOutcome::NotificationStreamClosed { remote, protocol } =>
-				BehaviourOut::NotificationStreamClosed { remote, protocol },
-			CustomMessageOutcome::NotificationsReceived { remote, messages } =>
-				BehaviourOut::NotificationsReceived { remote, messages },
-			CustomMessageOutcome::None => BehaviourOut::None,
+			} => BehaviourOut::NotificationStreamReplaced { remote, set_id, notifications_sink },
+			CustomMessageOutcome::NotificationStreamClosed { remote, set_id } =>
+				BehaviourOut::NotificationStreamClosed { remote, set_id },
+			CustomMessageOutcome::NotificationsReceived { remote, set_id, notification } =>
+				BehaviourOut::NotificationsReceived { remote, set_id, notification },
 		}
 	}
 }

@@ -1,11 +1,11 @@
 error[E0412]: cannot find type `prefix` in this scope
-  --> tests/pallet_ui/call_weight_inherited_invalid2.rs:22:24
+  --> tests/pallet_ui/call_weight_inherited_invalid2.rs:39:24
    |
-22 |     #[pallet::call(weight(prefix))]
+39 |     #[pallet::call(weight(prefix))]
    |                           ^^^^^^ not found in this scope
 
 error[E0412]: cannot find type `prefix` in this scope
-  --> tests/pallet_ui/call_weight_inherited_invalid2.rs:43:26
+  --> tests/pallet_ui/call_weight_inherited_invalid2.rs:60:26
    |
-43 |     #[pallet::call(weight = prefix)]
+60 |     #[pallet::call(weight = prefix)]
    |                             ^^^^^^ not found in this scope

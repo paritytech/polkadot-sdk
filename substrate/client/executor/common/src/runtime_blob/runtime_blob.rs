@@ -20,8 +20,8 @@ use crate::{error::WasmError, wasm_runtime::HeapAllocStrategy};
 use wasm_instrument::{
 	export_mutable_globals,
 	parity_wasm::elements::{
-		deserialize_buffer, serialize, DataSegment, ExportEntry, External, Internal, MemorySection,
-		MemoryType, Module, Section,
+		deserialize_buffer, serialize, ExportEntry, External, Internal, MemorySection, MemoryType,
+		Module, Section,
 	},
 };
 
@@ -50,11 +50,6 @@ impl RuntimeBlob {
 		let raw_module: Module = deserialize_buffer(wasm_code)
 			.map_err(|e| WasmError::Other(format!("cannot deserialize module: {:?}", e)))?;
 		Ok(Self { raw_module })
-	}
-
-	/// Extract the data segments from the given wasm code.
-	pub(super) fn data_segments(&self) -> Vec<DataSegment> {
-		self.raw_module.data_section().map(|ds| ds.entries()).unwrap_or(&[]).to_vec()
 	}
 
 	/// The number of globals defined in locally in this module.
@@ -188,16 +183,6 @@ impl RuntimeBlob {
 			*memory_ty = MemoryType::new(min, max);
 		}
 		Ok(())
-	}
-
-	/// Returns an iterator of all globals which were exported by [`expose_mutable_globals`].
-	pub(super) fn exported_internal_global_names(&self) -> impl Iterator<Item = &str> {
-		let exports = self.raw_module.export_section().map(|es| es.entries()).unwrap_or(&[]);
-		exports.iter().filter_map(|export| match export.internal() {
-			Internal::Global(_) if export.field().starts_with("exported_internal_global") =>
-				Some(export.field()),
-			_ => None,
-		})
 	}
 
 	/// Scans the wasm blob for the first section with the name that matches the given. Returns the

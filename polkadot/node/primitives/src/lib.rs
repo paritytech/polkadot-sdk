@@ -39,7 +39,9 @@ pub use sp_consensus_babe::{
 	AllowedSlots as BabeAllowedSlots, BabeEpochConfiguration, Epoch as BabeEpoch,
 };
 
-pub use polkadot_parachain::primitives::{BlockData, HorizontalMessages, UpwardMessages};
+pub use polkadot_parachain_primitives::primitives::{
+	BlockData, HorizontalMessages, UpwardMessages,
+};
 
 pub mod approval;
 
@@ -50,6 +52,13 @@ pub use disputes::{
 	InvalidDisputeVote, SignedDisputeStatement, Timestamp, UncheckedDisputeMessage,
 	ValidDisputeVote, ACTIVE_DURATION_SECS,
 };
+
+/// The current node version, which takes the basic SemVer form `<major>.<minor>.<patch>`.
+/// In general, minor should be bumped on every release while major or patch releases are
+/// relatively rare.
+///
+/// The associated worker binaries should use the same version as the node that spawns them.
+pub const NODE_VERSION: &'static str = "1.1.0";
 
 // For a 16-ary Merkle Prefix Trie, we can expect at most 16 32-byte hashes per node
 // plus some overhead:
@@ -433,7 +442,7 @@ pub struct CollationSecondedSignal {
 	pub relay_parent: Hash,
 	/// The statement about seconding the collation.
 	///
-	/// Anything else than [`Statement::Seconded`](Statement::Seconded) is forbidden here.
+	/// Anything else than [`Statement::Seconded`] is forbidden here.
 	pub statement: SignedFullStatement,
 }
 
@@ -463,8 +472,8 @@ impl CollationResult {
 /// Collation function.
 ///
 /// Will be called with the hash of the relay chain block the parachain block should be build on and
-/// the [`ValidationData`] that provides information about the state of the parachain on the relay
-/// chain.
+/// the [`PersistedValidationData`] that provides information about the state of the parachain on
+/// the relay chain.
 ///
 /// Returns an optional [`CollationResult`].
 #[cfg(not(target_os = "unknown"))]
@@ -498,7 +507,7 @@ impl std::fmt::Debug for CollationGenerationConfig {
 	}
 }
 
-/// Parameters for [`CollationGenerationMessage::SubmitCollation`].
+/// Parameters for `CollationGenerationMessage::SubmitCollation`.
 #[derive(Debug)]
 pub struct SubmitCollationParams {
 	/// The relay-parent the collation is built against.
@@ -634,7 +643,7 @@ pub struct ErasureChunk {
 }
 
 impl ErasureChunk {
-	/// Convert bounded Vec Proof to regular Vec<Vec<u8>>
+	/// Convert bounded Vec Proof to regular `Vec<Vec<u8>>`
 	pub fn proof(&self) -> &Proof {
 		&self.proof
 	}
@@ -648,11 +657,4 @@ pub fn maybe_compress_pov(pov: PoV) -> PoV {
 
 	let pov = PoV { block_data: BlockData(raw) };
 	pov
-}
-
-/// How many votes we need to consider a candidate backed.
-///
-/// WARNING: This has to be kept in sync with the runtime check in the inclusion module.
-pub fn minimum_votes(n_validators: usize) -> usize {
-	std::cmp::min(2, n_validators)
 }

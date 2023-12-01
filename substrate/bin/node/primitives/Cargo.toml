@@ -1,21 +1,21 @@
 [package]
 name = "node-primitives"
 version = "2.0.0"
-authors = ["Parity Technologies <admin@parity.io>"]
+authors.workspace = true
 description = "Substrate node low-level primitives."
-edition = "2021"
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 publish = false
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sp-core = { path = "../../../primitives/core", default-features = false}
-sp-runtime = { path = "../../../primitives/runtime", default-features = false}
+sp-core = { path = "../../../primitives/core", default-features = false }
+sp-runtime = { path = "../../../primitives/runtime", default-features = false }
 
 [features]
-default = [ "std" ]
-std = [ "sp-core/std", "sp-runtime/std" ]
+default = ["std"]
+std = ["sp-core/std", "sp-runtime/std"]

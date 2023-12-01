@@ -20,7 +20,8 @@
 // necessarily related to FRAME or even Substrate.
 //
 // Hence, `no_std` rather than sp-runtime.
-#![no_std]
+#![cfg_attr(not(feature = "std"), no_std)]
+
 extern crate alloc;
 
 use derivative::Derivative;
@@ -88,6 +89,7 @@ macro_rules! versioned_type {
 		)]
 		#[codec(encode_bound())]
 		#[codec(decode_bound())]
+		#[scale_info(replace_segment("staging_xcm", "xcm"))]
 		$(#[$attr])*
 		pub enum $n {
 			$(#[$index3])*
@@ -149,6 +151,7 @@ macro_rules! versioned_type {
 		)]
 		#[codec(encode_bound())]
 		#[codec(decode_bound())]
+		#[scale_info(replace_segment("staging_xcm", "xcm"))]
 		$(#[$attr])*
 		pub enum $n {
 			$(#[$index2])*
@@ -309,6 +312,7 @@ versioned_type! {
 #[codec(encode_bound())]
 #[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(RuntimeCall))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum VersionedXcm<RuntimeCall> {
 	#[codec(index = 2)]
 	V2(v2::Xcm<RuntimeCall>),
@@ -445,11 +449,6 @@ pub mod opaque {
 
 	/// The basic `VersionedXcm` type which just uses the `Vec<u8>` as an encoded call.
 	pub type VersionedXcm = super::VersionedXcm<()>;
-}
-
-// A simple trait to get the weight of some object.
-pub trait GetWeight<W> {
-	fn weight(&self) -> latest::Weight;
 }
 
 #[test]

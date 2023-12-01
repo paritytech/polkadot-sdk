@@ -1,4 +1,4 @@
-// Copyright 2019-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
 // Cumulus is free software: you can redistribute it and/or modify
@@ -49,6 +49,9 @@ impl Extensions {
 		sc_chain_spec::get_extension(chain_spec.extensions())
 	}
 }
+
+/// Generic chain spec for all polkadot-parachain runtimes
+pub type GenericChainSpec = sc_service::GenericChainSpec<(), Extensions>;
 
 /// Helper function to generate a crypto pair from seed
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {

@@ -18,7 +18,8 @@
 
 /// Implements the weight types for the elections module and a specific
 /// runtime.
-/// This macro should not be called directly; use [`impl_runtime_weights`] instead.
+/// This macro should not be called directly; use
+/// [`impl_runtime_weights`](crate::impl_runtime_weights!) instead.
 #[macro_export]
 macro_rules! impl_elections_weights {
 	($runtime:ident) => {

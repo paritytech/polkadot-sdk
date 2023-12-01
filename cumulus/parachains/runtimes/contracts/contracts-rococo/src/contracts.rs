@@ -1,19 +1,32 @@
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 use crate::{
-	constants::currency::deposit, Balance, Balances, RandomnessCollectiveFlip, Runtime,
-	RuntimeCall, RuntimeEvent, RuntimeHoldReason, Timestamp,
+	Balance, Balances, RandomnessCollectiveFlip, Runtime, RuntimeCall, RuntimeEvent,
+	RuntimeHoldReason, Timestamp,
 };
 use frame_support::{
 	parameter_types,
 	traits::{ConstBool, ConstU32, Nothing},
 };
 use pallet_contracts::{
-	migration::{v12, v13, v14, v15},
-	weights::SubstrateWeight,
-	Config, DebugInfo, DefaultAddressGenerator, Frame, Schedule,
+	weights::SubstrateWeight, Config, DebugInfo, DefaultAddressGenerator, Frame, Schedule,
 };
 use sp_runtime::Perbill;
 
-pub use parachains_common::AVERAGE_ON_INITIALIZE_RATIO;
+pub use parachains_common::{rococo::currency::deposit, AVERAGE_ON_INITIALIZE_RATIO};
 
 // Prints debug output of the `contracts` pallet to stdout if the node is
 // started with `-lruntime::contracts=debug`.
@@ -55,13 +68,9 @@ impl Config for Runtime {
 	type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
 	type MaxDelegateDependencies = ConstU32<32>;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
-	type Migrations = (
-		v12::Migration<Runtime, Balances>,
-		v13::Migration<Runtime>,
-		v14::Migration<Runtime, Balances>,
-		v15::Migration<Runtime>,
-	);
+	type Migrations = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type Debug = ();
 	type Environment = ();
+	type Xcm = pallet_xcm::Pallet<Self>;
 }

@@ -31,8 +31,8 @@ use polkadot_node_subsystem::{
 		CandidateBackingMessage, ChainApiMessage, ProspectiveParachainsMessage, ProvisionableData,
 		ProvisionerInherentData, ProvisionerMessage, RuntimeApiMessage, RuntimeApiRequest,
 	},
-	overseer, ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, LeafStatus, OverseerSignal,
-	PerLeafSpan, RuntimeApiError, SpawnedSubsystem, SubsystemError,
+	overseer, ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, PerLeafSpan,
+	RuntimeApiError, SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_util::{
 	request_availability_cores, request_persisted_validation_data,
@@ -421,13 +421,7 @@ async fn send_inherent_data(
 		"Selected disputes"
 	);
 
-	// Only include bitfields on fresh leaves. On chain reversions, we want to make sure that
-	// there will be at least one block, which cannot get disputed, so the chain can make progress.
-	let bitfields = match leaf.status {
-		LeafStatus::Fresh =>
-			select_availability_bitfields(&availability_cores, bitfields, &leaf.hash),
-		LeafStatus::Stale => Vec::new(),
-	};
+	let bitfields = select_availability_bitfields(&availability_cores, bitfields, &leaf.hash);
 
 	gum::trace!(
 		target: LOG_TARGET,

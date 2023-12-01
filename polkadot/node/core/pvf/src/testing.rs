@@ -14,14 +14,21 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Various things for testing other crates.
-//!
-//! N.B. This is not guarded with some feature flag. Overexposing items here may affect the final
-//!      artifact even for production builds.
+//! Various utilities for testing.
 
-pub use crate::worker_intf::{spawn_with_program_path, SpawnErr};
+pub use crate::{
+	host::{EXECUTE_BINARY_NAME, PREPARE_BINARY_NAME},
+	worker_interface::{spawn_with_program_path, SpawnErr},
+};
 
+use crate::get_worker_version;
+use is_executable::IsExecutable;
+use polkadot_node_primitives::NODE_VERSION;
 use polkadot_primitives::ExecutorParams;
+use std::{
+	path::PathBuf,
+	sync::{Mutex, OnceLock},
+};
 
 /// A function that emulates the stitches together behaviors of the preparation and the execution
 /// worker in a single synchronous function.
@@ -29,63 +36,93 @@ pub fn validate_candidate(
 	code: &[u8],
 	params: &[u8],
 ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-	use polkadot_node_core_pvf_execute_worker::Executor;
-	use polkadot_node_core_pvf_prepare_worker::{prepare, prevalidate};
+	use polkadot_node_core_pvf_common::executor_interface::{prepare, prevalidate};
+	use polkadot_node_core_pvf_execute_worker::execute_artifact;
 
 	let code = sp_maybe_compressed_blob::decompress(code, 10 * 1024 * 1024)
 		.expect("Decompressing code failed");
 
 	let blob = prevalidate(&code)?;
-	let compiled_artifact_blob = prepare(blob, &ExecutorParams::default())?;
+	let executor_params = ExecutorParams::default();
+	let compiled_artifact_blob = prepare(blob, &executor_params)?;
 
-	let executor = Executor::new(ExecutorParams::default())?;
 	let result = unsafe {
 		// SAFETY: This is trivially safe since the artifact is obtained by calling `prepare`
 		//         and is written into a temporary directory in an unmodified state.
-		executor.execute(&compiled_artifact_blob, params)?
+		execute_artifact(&compiled_artifact_blob, &executor_params, params)?
 	};
 
 	Ok(result)
 }
 
-/// Use this macro to declare a `fn main() {}` that will check the arguments and dispatch them to
-/// the appropriate worker, making the executable that can be used for spawning workers.
-#[macro_export]
-macro_rules! decl_puppet_worker_main {
-	() => {
-		fn main() {
-			$crate::sp_tracing::try_init_simple();
+/// Retrieves the worker paths and builds workers as needed.
+///
+/// NOTE: This should only be called in dev code (tests, benchmarks) as it relies on the relative
+/// paths of the built workers.
+pub fn build_workers_and_get_paths() -> (PathBuf, PathBuf) {
+	// Only needs to be called once for the current process.
+	static WORKER_PATHS: OnceLock<Mutex<(PathBuf, PathBuf)>> = OnceLock::new();
 
-			let args = std::env::args().collect::<Vec<_>>();
-			if args.len() == 1 {
-				panic!("wrong number of arguments");
-			}
+	fn build_workers() {
+		let mut build_args = vec![
+			"build",
+			"--package=polkadot",
+			"--bin=polkadot-prepare-worker",
+			"--bin=polkadot-execute-worker",
+		];
 
-			let entrypoint = match args[1].as_ref() {
-				"exit" => {
-					std::process::exit(1);
-				},
-				"sleep" => {
-					std::thread::sleep(std::time::Duration::from_secs(5));
-					return
-				},
-				"prepare-worker" => $crate::prepare_worker_entrypoint,
-				"execute-worker" => $crate::execute_worker_entrypoint,
-				other => panic!("unknown subcommand: {}", other),
-			};
-
-			let mut node_version = None;
-			let mut socket_path: &str = "";
-
-			for i in (2..args.len()).step_by(2) {
-				match args[i].as_ref() {
-					"--socket-path" => socket_path = args[i + 1].as_str(),
-					"--node-impl-version" => node_version = Some(args[i + 1].as_str()),
-					arg => panic!("Unexpected argument found: {}", arg),
-				}
-			}
-
-			entrypoint(&socket_path, node_version, None);
+		if cfg!(build_type = "release") {
+			build_args.push("--release");
 		}
-	};
+
+		let mut cargo = std::process::Command::new("cargo");
+		let cmd = cargo
+			// wasm runtime not needed
+			.env("SKIP_WASM_BUILD", "1")
+			.args(build_args)
+			.stdout(std::process::Stdio::piped());
+
+		println!("INFO: calling `{cmd:?}`");
+		let exit_status = cmd.status().expect("Failed to run the build program");
+
+		if !exit_status.success() {
+			eprintln!("ERROR: Failed to build workers: {}", exit_status.code().unwrap());
+			std::process::exit(1);
+		}
+	}
+
+	let mutex = WORKER_PATHS.get_or_init(|| {
+		let mut workers_path = std::env::current_exe().unwrap();
+		workers_path.pop();
+		workers_path.pop();
+		let mut prepare_worker_path = workers_path.clone();
+		prepare_worker_path.push(PREPARE_BINARY_NAME);
+		let mut execute_worker_path = workers_path.clone();
+		execute_worker_path.push(EXECUTE_BINARY_NAME);
+
+		// explain why a build happens
+		if !prepare_worker_path.is_executable() {
+			println!("WARN: Prepare worker does not exist or is not executable. Workers directory: {:?}", workers_path);
+		}
+		if !execute_worker_path.is_executable() {
+			println!("WARN: Execute worker does not exist or is not executable. Workers directory: {:?}", workers_path);
+		}
+		if let Ok(ver) = get_worker_version(&prepare_worker_path) {
+			if ver != NODE_VERSION {
+				println!("WARN: Prepare worker version {ver} does not match node version {NODE_VERSION}; worker path: {prepare_worker_path:?}");
+			}
+		}
+		if let Ok(ver) = get_worker_version(&execute_worker_path) {
+			if ver != NODE_VERSION {
+				println!("WARN: Execute worker version {ver} does not match node version {NODE_VERSION}; worker path: {execute_worker_path:?}");
+			}
+		}
+
+		build_workers();
+
+		Mutex::new((prepare_worker_path, execute_worker_path))
+	});
+
+	let guard = mutex.lock().unwrap();
+	(guard.0.clone(), guard.1.clone())
 }

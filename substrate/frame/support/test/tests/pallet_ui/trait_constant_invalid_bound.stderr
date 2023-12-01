@@ -1,5 +1,5 @@
 error: Invalid usage of `#[pallet::constant]`: `Get<T>` trait bound not found
- --> $DIR/trait_constant_invalid_bound.rs:9:3
-  |
-9 |         type U;
-  |         ^^^^
+  --> tests/pallet_ui/trait_constant_invalid_bound.rs:26:3
+   |
+26 |         type U;
+   |         ^^^^

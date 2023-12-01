@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # set -x
 
-# This script manages the deployment of Substrate rustdocs to https://paritytech.github.io/substrate/.
+# This script used to manage the deployment of Substrate rustdocs to https://paritytech.github.io/substrate/.
+# It is no longer used anywhere, and only here for historical/demonstration purposes.
 # - With `deploy` sub-command, it will checkout the passed-in branch/tag ref, build the rustdocs
 #   locally (this takes some time), update the `index.html` index page, and push it to remote
 #   `gh-pages` branch. So users running this command need to have write access to the remote

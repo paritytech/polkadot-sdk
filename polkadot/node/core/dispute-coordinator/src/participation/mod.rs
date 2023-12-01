@@ -32,7 +32,7 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util::runtime::get_validation_code_by_hash;
 use polkadot_primitives::{
-	BlockNumber, CandidateHash, CandidateReceipt, Hash, PvfExecTimeoutKind, SessionIndex,
+	BlockNumber, CandidateHash, CandidateReceipt, Hash, PvfExecKind, SessionIndex,
 };
 
 use crate::LOG_TARGET;
@@ -260,6 +260,13 @@ impl Participation {
 		req: ParticipationRequest,
 		recent_head: Hash,
 	) -> FatalResult<()> {
+		gum::trace!(
+			target: LOG_TARGET,
+			candidate_hash = ?req.candidate_hash(),
+			session = req.session(),
+			"Forking participation"
+		);
+
 		let participation_timer = self.metrics.time_participation();
 		if self.running_participations.insert(*req.candidate_hash()) {
 			let sender = ctx.sender().clone();
@@ -314,12 +321,24 @@ async fn participate(
 		},
 		Ok(Ok(data)) => data,
 		Ok(Err(RecoveryError::Invalid)) => {
+			gum::debug!(
+				target: LOG_TARGET,
+				candidate_hash = ?req.candidate_hash(),
+				session = req.session(),
+				"Invalid availability data during participation"
+			);
 			// the available data was recovered but it is invalid, therefore we'll
 			// vote negatively for the candidate dispute
 			send_result(&mut result_sender, req, ParticipationOutcome::Invalid).await;
 			return
 		},
 		Ok(Err(RecoveryError::Unavailable)) | Ok(Err(RecoveryError::ChannelClosed)) => {
+			gum::debug!(
+				target: LOG_TARGET,
+				candidate_hash = ?req.candidate_hash(),
+				session = req.session(),
+				"Can't fetch availability data in participation"
+			);
 			send_result(&mut result_sender, req, ParticipationOutcome::Unavailable).await;
 			return
 		},
@@ -361,14 +380,15 @@ async fn participate(
 	// same level of leeway.
 	let (validation_tx, validation_rx) = oneshot::channel();
 	sender
-		.send_message(CandidateValidationMessage::ValidateFromExhaustive(
-			available_data.validation_data,
+		.send_message(CandidateValidationMessage::ValidateFromExhaustive {
+			validation_data: available_data.validation_data,
 			validation_code,
-			req.candidate_receipt().clone(),
-			available_data.pov,
-			PvfExecTimeoutKind::Approval,
-			validation_tx,
-		))
+			candidate_receipt: req.candidate_receipt().clone(),
+			pov: available_data.pov,
+			executor_params: req.executor_params(),
+			exec_kind: PvfExecKind::Approval,
+			response_sender: validation_tx,
+		})
 		.await;
 
 	// we cast votes (either positive or negative) depending on the outcome of

@@ -1,4 +1,4 @@
-# polkadot-test-service
+# `polkadot-test-service`
 
 ## Testing
 

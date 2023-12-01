@@ -36,7 +36,7 @@ fn api() -> RpcModule<ChainSpec> {
 #[tokio::test]
 async fn chain_spec_chain_name_works() {
 	let name = api()
-		.call::<_, String>("chainSpec_unstable_chainName", EmptyParams::new())
+		.call::<_, String>("chainSpec_v1_chainName", EmptyParams::new())
 		.await
 		.unwrap();
 	assert_eq!(name, CHAIN_NAME);
@@ -45,7 +45,7 @@ async fn chain_spec_chain_name_works() {
 #[tokio::test]
 async fn chain_spec_genesis_hash_works() {
 	let genesis = api()
-		.call::<_, String>("chainSpec_unstable_genesisHash", EmptyParams::new())
+		.call::<_, String>("chainSpec_v1_genesisHash", EmptyParams::new())
 		.await
 		.unwrap();
 	assert_eq!(genesis, format!("0x{}", hex::encode(CHAIN_GENESIS)));
@@ -54,7 +54,7 @@ async fn chain_spec_genesis_hash_works() {
 #[tokio::test]
 async fn chain_spec_properties_works() {
 	let properties = api()
-		.call::<_, Properties>("chainSpec_unstable_properties", EmptyParams::new())
+		.call::<_, Properties>("chainSpec_v1_properties", EmptyParams::new())
 		.await
 		.unwrap();
 	assert_eq!(properties, serde_json::from_str(CHAIN_PROPERTIES).unwrap());

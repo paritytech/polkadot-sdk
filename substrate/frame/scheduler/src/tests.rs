@@ -1019,7 +1019,7 @@ fn test_migrate_origin() {
 	new_test_ext().execute_with(|| {
 		for i in 0..3u64 {
 			let k = i.twox_64_concat();
-			let old: Vec<Option<Scheduled<[u8; 32], Bounded<RuntimeCall>, u64, u32, u64>>> = vec![
+			let old: Vec<Option<Scheduled<[u8; 32], BoundedCallOf<Test>, u64, u32, u64>>> = vec![
 				Some(Scheduled {
 					maybe_id: None,
 					priority: i as u8 + 10,
@@ -1876,5 +1876,44 @@ fn reschedule_named_last_task_removes_agenda() {
 		);
 		// if all tasks `None`, agenda fully removed.
 		assert!(Agenda::<Test>::get(when).len() == 0);
+	});
+}
+
+/// Ensures that an unvailable call sends an event.
+#[test]
+fn unavailable_call_is_detected() {
+	use frame_support::traits::schedule::v3::Named;
+
+	new_test_ext().execute_with(|| {
+		let call =
+			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
+		let hash = <Test as frame_system::Config>::Hashing::hash_of(&call);
+		let len = call.using_encoded(|x| x.len()) as u32;
+		// Important to use here `Bounded::Lookup` to ensure that we request the hash.
+		let bound = Bounded::Lookup { hash, len };
+
+		let name = [1u8; 32];
+
+		// Schedule a call.
+		let _address = <Scheduler as Named<_, _, _>>::schedule_named(
+			name,
+			DispatchTime::At(4),
+			None,
+			127,
+			root(),
+			bound.clone(),
+		)
+		.unwrap();
+
+		// Ensure the preimage isn't available
+		assert!(!Preimage::have(&bound));
+
+		// Executes in block 4.
+		run_to_block(4);
+
+		assert_eq!(
+			System::events().last().unwrap().event,
+			crate::Event::CallUnavailable { task: (4, 0), id: Some(name) }.into()
+		);
 	});
 }
