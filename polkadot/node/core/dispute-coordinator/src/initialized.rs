@@ -896,23 +896,16 @@ impl Initialized {
 				.await?;
 			},
 			DisputeCoordinatorMessage::DetermineUndisputedChain {
-				base: (base_number, base_hash),
-				block_descriptions,
-				tx,
+				base: (_base_number, _base_hash),
+				block_descriptions: _,
+				tx: _,
 			} => {
 				gum::trace!(
 					target: LOG_TARGET,
 					"DisputeCoordinatorMessage::DetermineUndisputedChain"
 				);
 
-				let undisputed_chain = determine_undisputed_chain(
-					overlay_db,
-					base_number,
-					base_hash,
-					block_descriptions,
-				)?;
-
-				let _ = tx.send(undisputed_chain);
+				return Err(crate::error::Error::SessionInfo);
 			},
 		}
 
