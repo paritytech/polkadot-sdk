@@ -131,6 +131,9 @@
 //! Suitable for migrations which could use arbitrary amounts of block weight.
 //!
 //! TODO: Link to multi block migration example/s.
-
-use frame_support::traits::{GetStorageVersion, OnRuntimeUpgrade, StorageVersion};
-use frame_system::Call::{set_code, set_code_without_checks};
+//!
+//! [`GetStorageVersion`]: frame_support::traits::GetStorageVersion
+//! [`OnRuntimeUpgrade`]: frame_support::traits::OnRuntimeUpgrade
+//! [`StorageVersion`]: frame_support::traits::StorageVersion
+//! [`set_code`]: frame_system::Call::set_code
+//! [`set_code_without_checks`]: frame_system::Call:set_code_without_checks

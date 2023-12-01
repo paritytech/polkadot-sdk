@@ -141,6 +141,11 @@
 //! - `on_runtime_upgrade` returns the expected weight
 //! - `post_upgrade` succeeds when given the bytes returned by `pre_upgrade`
 //! - Pallet storage is in the expected state after the migration
+//!
+//! [`VersionedMigration`]: frame_support::migrations::VersionedMigration
+//! [`GetStorageVersion`]: frame_support::traits::GetStorageVersion
+//! [`OnRuntimeUpgrade`]: frame_support::traits::OnRuntimeUpgrade
+//! [`MigrateV0ToV1`]: crate::migrations::v1::versioned::MigrationV0ToV1
 
 // We make sure this pallet uses `no_std` for compiling to Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -156,12 +161,8 @@ pub use pallet::*;
 pub mod migrations;
 #[doc(hidden)]
 mod mock;
-use crate::migrations::v1::versioned::MigrateV0ToV1;
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{
-	migrations::VersionedMigration,
-	traits::{GetStorageVersion, OnRuntimeUpgrade, StorageVersion},
-};
+use frame_support::traits::StorageVersion;
 use sp_runtime::RuntimeDebug;
 
 /// Example struct holding the most recently set [`u32`] and the
