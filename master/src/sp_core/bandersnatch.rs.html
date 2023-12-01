@@ -1208,6 +1208,15 @@
 <a href="#1208" id="1208">1208</a>
 <a href="#1209" id="1209">1209</a>
 <a href="#1210" id="1210">1210</a>
+<a href="#1211" id="1211">1211</a>
+<a href="#1212" id="1212">1212</a>
+<a href="#1213" id="1213">1213</a>
+<a href="#1214" id="1214">1214</a>
+<a href="#1215" id="1215">1215</a>
+<a href="#1216" id="1216">1216</a>
+<a href="#1217" id="1217">1217</a>
+<a href="#1218" id="1218">1218</a>
+<a href="#1219" id="1219">1219</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1249,7 +1258,7 @@
 <span class="kw">use </span>scale_info::TypeInfo;
 
 <span class="kw">use </span>sp_runtime_interface::pass_by::PassByInner;
-<span class="kw">use </span>sp_std::{boxed::Box, vec::Vec};
+<span class="kw">use </span>sp_std::{vec, vec::Vec};
 
 <span class="doccomment">/// Identifier used to match public keys against bandersnatch-vrf keys.
 </span><span class="kw">pub const </span>CRYPTO_ID: CryptoTypeId = CryptoTypeId(<span class="kw-2">*</span><span class="string">b&quot;band&quot;</span>);
@@ -1832,33 +1841,27 @@
 	<span class="kw">pub use </span>bandersnatch_vrfs::ring::{RingProof, RingProver, RingVerifier, KZG};
 	<span class="kw">use </span>bandersnatch_vrfs::{ring::VerifierKey, CanonicalDeserialize, PublicKey};
 
-	<span class="doccomment">/// Ring max size (keyset max size).
-	</span><span class="kw">pub const </span>RING_MAX_SIZE: u32 = RING_DOMAIN_MAX_SIZE - RING_DOMAIN_OVERHEAD;
-
-	<span class="doccomment">/// Ring domain max size.
-	</span><span class="kw">pub const </span>RING_DOMAIN_MAX_SIZE: u32 = <span class="number">2048</span>;
-
-	<span class="doccomment">/// Overhead in the domain size over the max ring size.
+	<span class="doccomment">/// Overhead in the domain size with respect to the supported ring size.
 	///
-	/// Some bits of the domain are reserved for the zk proof to work.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>RING_DOMAIN_OVERHEAD: u32 = <span class="number">257</span>;
+	/// Some bits of the domain are reserved for the zk-proof to work.
+	</span><span class="kw">pub const </span>RING_DOMAIN_OVERHEAD: u32 = <span class="number">257</span>;
 
-	<span class="comment">// Max size of serialized ring-vrf context params.
-	//
-	// The actual size is dependent on the ring domain size and this value
-	// has been computed for `RING_DOMAIN_MAX_SIZE` with compression disabled
-	// for performance reasons.
-	//
-	// 1024 uncompressed
-	// pub(crate) const RING_CONTEXT_SERIALIZED_MAX_SIZE: usize = 295412;
-	// 1024 compressed
-	// pub(crate) const RING_CONTEXT_SERIALIZED_MAX_SIZE: usize = 147716;
-	// 2048 uncompressed
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>RING_CONTEXT_SERIALIZED_MAX_SIZE: usize = <span class="number">590324</span>;
-	<span class="comment">// 2048 compressed
-	// pub(crate) const RING_CONTEXT_SERIALIZED_MAX_SIZE: usize = 295172;
+	<span class="comment">// Max size of serialized ring-vrf context given `domain_len`.
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const fn </span>ring_context_serialized_size(domain_len: u32) -&gt; usize {
+		<span class="comment">// const G1_POINT_COMPRESSED_SIZE: usize = 48;
+		// const G2_POINT_COMPRESSED_SIZE: usize = 96;
+		</span><span class="kw">const </span>G1_POINT_UNCOMPRESSED_SIZE: usize = <span class="number">96</span>;
+		<span class="kw">const </span>G2_POINT_UNCOMPRESSED_SIZE: usize = <span class="number">192</span>;
+		<span class="kw">const </span>OVERHEAD_SIZE: usize = <span class="number">20</span>;
+		<span class="kw">const </span>G2_POINTS_NUM: usize = <span class="number">2</span>;
+		<span class="kw">let </span>g1_points_num = <span class="number">3 </span>* domain_len <span class="kw">as </span>usize + <span class="number">1</span>;
 
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>RING_VERIFIER_DATA_SERIALIZED_SIZE: usize = <span class="number">388</span>;
+		OVERHEAD_SIZE +
+			g1_points_num * G1_POINT_UNCOMPRESSED_SIZE +
+			G2_POINTS_NUM * G2_POINT_UNCOMPRESSED_SIZE
+	}
+
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>RING_VERIFIER_DATA_SERIALIZED_SIZE: usize = <span class="number">388</span>;
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>RING_SIGNATURE_SERIALIZED_SIZE: usize = <span class="number">755</span>;
 
 	<span class="doccomment">/// remove as soon as soon as serialization is implemented by the backend
@@ -1915,15 +1918,17 @@
 	}
 
 	<span class="doccomment">/// Context used to construct ring prover and verifier.
+	///
+	/// Generic parameter `D` represents the ring domain size and drives
+	/// the max number of supported ring members [`RingContext::max_keyset_size`]
+	/// which is equal to `D - RING_DOMAIN_OVERHEAD`.
 	</span><span class="attr">#[derive(Clone)]
-	</span><span class="kw">pub struct </span>RingContext(KZG);
+	</span><span class="kw">pub struct </span>RingContext&lt;<span class="kw">const </span>D: u32&gt;(KZG);
 
-	<span class="kw">impl </span>RingContext {
+	<span class="kw">impl</span>&lt;<span class="kw">const </span>D: u32&gt; RingContext&lt;D&gt; {
 		<span class="doccomment">/// Build an dummy instance for testing purposes.
-		///
-		/// `domain_size` is set to `RING_DOMAIN_MAX_SIZE`.
 		</span><span class="kw">pub fn </span>new_testing() -&gt; <span class="self">Self </span>{
-			<span class="self">Self</span>(KZG::testing_kzg_setup([<span class="number">0</span>; <span class="number">32</span>], RING_DOMAIN_MAX_SIZE))
+			<span class="self">Self</span>(KZG::testing_kzg_setup([<span class="number">0</span>; <span class="number">32</span>], D))
 		}
 
 		<span class="doccomment">/// Get the keyset max size.
@@ -1971,38 +1976,45 @@
 		}
 	}
 
-	<span class="kw">impl </span>Encode <span class="kw">for </span>RingContext {
+	<span class="kw">impl</span>&lt;<span class="kw">const </span>D: u32&gt; Encode <span class="kw">for </span>RingContext&lt;D&gt; {
 		<span class="kw">fn </span>encode(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;u8&gt; {
-			<span class="kw">let </span><span class="kw-2">mut </span>buf = Box::new([<span class="number">0</span>; RING_CONTEXT_SERIALIZED_MAX_SIZE]);
+			<span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="macro">vec!</span>[<span class="number">0</span>; ring_context_serialized_size(D)];
 			<span class="self">self</span>.<span class="number">0
 				</span>.serialize_uncompressed(buf.as_mut_slice())
 				.expect(<span class="string">&quot;serialization length is constant and checked by test; qed&quot;</span>);
-			buf.encode()
+			buf
 		}
 	}
 
-	<span class="kw">impl </span>Decode <span class="kw">for </span>RingContext {
-		<span class="kw">fn </span>decode&lt;R: codec::Input&gt;(i: <span class="kw-2">&amp;mut </span>R) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, codec::Error&gt; {
-			<span class="kw">let </span>buf = &lt;Box&lt;[u8; RING_CONTEXT_SERIALIZED_MAX_SIZE]&gt;&gt;::decode(i)<span class="question-mark">?</span>;
+	<span class="kw">impl</span>&lt;<span class="kw">const </span>D: u32&gt; Decode <span class="kw">for </span>RingContext&lt;D&gt; {
+		<span class="kw">fn </span>decode&lt;R: codec::Input&gt;(input: <span class="kw-2">&amp;mut </span>R) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, codec::Error&gt; {
+			<span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="macro">vec!</span>[<span class="number">0</span>; ring_context_serialized_size(D)];
+			input.read(<span class="kw-2">&amp;mut </span>buf[..])<span class="question-mark">?</span>;
 			<span class="kw">let </span>kzg = KZG::deserialize_uncompressed_unchecked(buf.as_slice())
 				.map_err(|<span class="kw">_</span>| <span class="string">&quot;KZG decode error&quot;</span>)<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(RingContext(kzg))
 		}
 	}
 
-	<span class="kw">impl </span>EncodeLike <span class="kw">for </span>RingContext {}
+	<span class="kw">impl</span>&lt;<span class="kw">const </span>D: u32&gt; EncodeLike <span class="kw">for </span>RingContext&lt;D&gt; {}
 
-	<span class="kw">impl </span>MaxEncodedLen <span class="kw">for </span>RingContext {
+	<span class="kw">impl</span>&lt;<span class="kw">const </span>D: u32&gt; MaxEncodedLen <span class="kw">for </span>RingContext&lt;D&gt; {
 		<span class="kw">fn </span>max_encoded_len() -&gt; usize {
-			&lt;[u8; RING_CONTEXT_SERIALIZED_MAX_SIZE]&gt;::max_encoded_len()
+			ring_context_serialized_size(D)
 		}
 	}
 
-	<span class="kw">impl </span>TypeInfo <span class="kw">for </span>RingContext {
-		<span class="kw">type </span>Identity = [u8; RING_CONTEXT_SERIALIZED_MAX_SIZE];
+	<span class="kw">impl</span>&lt;<span class="kw">const </span>D: u32&gt; TypeInfo <span class="kw">for </span>RingContext&lt;D&gt; {
+		<span class="kw">type </span>Identity = <span class="self">Self</span>;
 
 		<span class="kw">fn </span>type_info() -&gt; scale_info::Type {
-			<span class="self">Self</span>::Identity::type_info()
+			<span class="kw">let </span>path = scale_info::Path::new(<span class="string">&quot;RingContext&quot;</span>, <span class="macro">module_path!</span>());
+			<span class="kw">let </span>array_type_def = scale_info::TypeDefArray {
+				len: ring_context_serialized_size(D) <span class="kw">as </span>u32,
+				type_param: scale_info::MetaType::new::&lt;u8&gt;(),
+			};
+			<span class="kw">let </span>type_def = scale_info::TypeDef::Array(array_type_def);
+			scale_info::Type { path, type_params: Vec::new(), type_def, docs: Vec::new() }
 		}
 	}
 
@@ -2113,7 +2125,11 @@
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::{ring_vrf::<span class="kw-2">*</span>, vrf::<span class="kw-2">*</span>, <span class="kw-2">*</span>};
 	<span class="kw">use </span><span class="kw">crate</span>::crypto::{VrfPublic, VrfSecret, DEV_PHRASE};
+
 	<span class="kw">const </span>DEV_SEED: <span class="kw-2">&amp;</span>[u8; SEED_SERIALIZED_SIZE] = <span class="kw-2">&amp;</span>[<span class="number">0xcb</span>; SEED_SERIALIZED_SIZE];
+	<span class="kw">const </span>TEST_DOMAIN_SIZE: u32 = <span class="number">1024</span>;
+
+	<span class="kw">type </span>TestRingContext = RingContext&lt;TEST_DOMAIN_SIZE&gt;;
 
 	<span class="attr">#[allow(unused)]
 	</span><span class="kw">fn </span>b2h(bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; String {
@@ -2126,10 +2142,10 @@
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>backend_assumptions_sanity_check() {
-		<span class="kw">let </span>kzg = KZG::testing_kzg_setup([<span class="number">0</span>; <span class="number">32</span>], RING_DOMAIN_MAX_SIZE);
-		<span class="macro">assert_eq!</span>(kzg.max_keyset_size() <span class="kw">as </span>u32, RING_MAX_SIZE);
+		<span class="kw">let </span>kzg = KZG::testing_kzg_setup([<span class="number">0</span>; <span class="number">32</span>], TEST_DOMAIN_SIZE);
+		<span class="macro">assert_eq!</span>(kzg.max_keyset_size() <span class="kw">as </span>u32, TEST_DOMAIN_SIZE - RING_DOMAIN_OVERHEAD);
 
-		<span class="macro">assert_eq!</span>(kzg.uncompressed_size(), RING_CONTEXT_SERIALIZED_MAX_SIZE);
+		<span class="macro">assert_eq!</span>(kzg.uncompressed_size(), ring_context_serialized_size(TEST_DOMAIN_SIZE));
 
 		<span class="kw">let </span>pks: Vec&lt;<span class="kw">_</span>&gt; = (<span class="number">0</span>..<span class="number">16</span>)
 			.map(|i| SecretKey::from_seed(<span class="kw-2">&amp;</span>[i <span class="kw">as </span>u8; <span class="number">32</span>]).to_public().<span class="number">0</span>.into())
@@ -2281,7 +2297,7 @@
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>ring_vrf_sign_verify() {
-		<span class="kw">let </span>ring_ctx = RingContext::new_testing();
+		<span class="kw">let </span>ring_ctx = TestRingContext::new_testing();
 
 		<span class="kw">let </span><span class="kw-2">mut </span>pks: Vec&lt;<span class="kw">_</span>&gt; = (<span class="number">0</span>..<span class="number">16</span>).map(|i| Pair::from_seed(<span class="kw-2">&amp;</span>[i <span class="kw">as </span>u8; <span class="number">32</span>]).public()).collect();
 		<span class="macro">assert!</span>(pks.len() &lt;= ring_ctx.max_keyset_size());
@@ -2307,7 +2323,7 @@
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>ring_vrf_sign_verify_with_out_of_ring_key() {
-		<span class="kw">let </span>ring_ctx = RingContext::new_testing();
+		<span class="kw">let </span>ring_ctx = TestRingContext::new_testing();
 
 		<span class="kw">let </span>pks: Vec&lt;<span class="kw">_</span>&gt; = (<span class="number">0</span>..<span class="number">16</span>).map(|i| Pair::from_seed(<span class="kw-2">&amp;</span>[i <span class="kw">as </span>u8; <span class="number">32</span>]).public()).collect();
 		<span class="kw">let </span>pair = Pair::from_seed(DEV_SEED);
@@ -2326,7 +2342,7 @@
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>ring_vrf_make_bytes_matches() {
-		<span class="kw">let </span>ring_ctx = RingContext::new_testing();
+		<span class="kw">let </span>ring_ctx = TestRingContext::new_testing();
 
 		<span class="kw">let </span><span class="kw-2">mut </span>pks: Vec&lt;<span class="kw">_</span>&gt; = (<span class="number">0</span>..<span class="number">16</span>).map(|i| Pair::from_seed(<span class="kw-2">&amp;</span>[i <span class="kw">as </span>u8; <span class="number">32</span>]).public()).collect();
 		<span class="macro">assert!</span>(pks.len() &lt;= ring_ctx.max_keyset_size());
@@ -2355,7 +2371,7 @@
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>encode_decode_ring_vrf_signature() {
-		<span class="kw">let </span>ring_ctx = RingContext::new_testing();
+		<span class="kw">let </span>ring_ctx = TestRingContext::new_testing();
 
 		<span class="kw">let </span><span class="kw-2">mut </span>pks: Vec&lt;<span class="kw">_</span>&gt; = (<span class="number">0</span>..<span class="number">16</span>).map(|i| Pair::from_seed(<span class="kw-2">&amp;</span>[i <span class="kw">as </span>u8; <span class="number">32</span>]).public()).collect();
 		<span class="macro">assert!</span>(pks.len() &lt;= ring_ctx.max_keyset_size());
@@ -2387,13 +2403,15 @@
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>encode_decode_ring_vrf_context() {
-		<span class="kw">let </span>ctx1 = RingContext::new_testing();
+		<span class="kw">let </span>ctx1 = TestRingContext::new_testing();
 		<span class="kw">let </span>enc1 = ctx1.encode();
 
-		<span class="macro">assert_eq!</span>(enc1.len(), RING_CONTEXT_SERIALIZED_MAX_SIZE);
-		<span class="macro">assert_eq!</span>(RingContext::max_encoded_len(), RING_CONTEXT_SERIALIZED_MAX_SIZE);
+		<span class="kw">let </span>_ti = &lt;TestRingContext <span class="kw">as </span>TypeInfo&gt;::type_info();
 
-		<span class="kw">let </span>ctx2 = RingContext::decode(<span class="kw-2">&amp;mut </span>enc1.as_slice()).unwrap();
+		<span class="macro">assert_eq!</span>(enc1.len(), ring_context_serialized_size(TEST_DOMAIN_SIZE));
+		<span class="macro">assert_eq!</span>(enc1.len(), TestRingContext::max_encoded_len());
+
+		<span class="kw">let </span>ctx2 = TestRingContext::decode(<span class="kw-2">&amp;mut </span>enc1.as_slice()).unwrap();
 		<span class="kw">let </span>enc2 = ctx2.encode();
 
 		<span class="macro">assert_eq!</span>(enc1, enc2);
@@ -2401,7 +2419,7 @@
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>encode_decode_verifier_data() {
-		<span class="kw">let </span>ring_ctx = RingContext::new_testing();
+		<span class="kw">let </span>ring_ctx = TestRingContext::new_testing();
 
 		<span class="kw">let </span>pks: Vec&lt;<span class="kw">_</span>&gt; = (<span class="number">0</span>..<span class="number">16</span>).map(|i| Pair::from_seed(<span class="kw-2">&amp;</span>[i <span class="kw">as </span>u8; <span class="number">32</span>]).public()).collect();
 		<span class="macro">assert!</span>(pks.len() &lt;= ring_ctx.max_keyset_size());
