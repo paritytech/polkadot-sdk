@@ -88,7 +88,7 @@ std = [
 	"pallet-proxy/std",
 	"pallet-timestamp/std",
 	"pallet-utility/std",
-	"rand/std",
+	"rand?/std",
 	"scale-info/std",
 	"serde",
 	"sp-api/std",
