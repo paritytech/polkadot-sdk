@@ -77,7 +77,7 @@ mod version_unchecked {
 		/// [`crate::CurrentAndPreviousValue`].
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
 			// Read the old value from storage
-			if let Some(old_value) = v0::Value::<T>::get() {
+			if let Some(old_value) = v0::Value::<T>::take() {
 				// Write the new value to storage
 				let new = crate::CurrentAndPreviousValue { current: old_value, previous: None };
 				crate::Value::<T>::put(new);
