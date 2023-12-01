@@ -139,7 +139,7 @@ fn set_id_relay(id: &Identity) -> Balance {
 					RococoOrigin::signed(RococoRelaySender::get()),
 					vec![(
 						RococoRelayReceiver::get(),
-						Data::Raw(vec![1_u8; 1].try_into().unwrap())
+						Data::Raw(vec![1_u8; 1].try_into().unwrap()),
 					)],
 				));
 			},
@@ -147,7 +147,7 @@ fn set_id_relay(id: &Identity) -> Balance {
 				let mut subs = Vec::new();
 				for i in 0..n {
 					subs.push((
-						RococoRelayReceiver::get(),
+						AccountId32::new([i as u8 + 1; 32]),
 						Data::Raw(vec![i as u8; 1].try_into().unwrap()),
 					));
 				}
@@ -225,14 +225,14 @@ fn assert_set_id_parachain(id: &Identity) {
 			Subs::One => {
 				assert_ok!(PeopleRococoIdentity::set_sub_no_deposit(
 					&PeopleRococoSender::get(),
-					PeopleRococoReceiver::get(),
+					AccountId32::new([1_u8; 32]),
 				));
 			},
 			Subs::Many(n) =>
-				for _ in 0..n {
+				for i in 0..n {
 					assert_ok!(PeopleRococoIdentity::set_sub_no_deposit(
 						&PeopleRococoSender::get(),
-						PeopleRococoReceiver::get(),
+						AccountId32::new([i as u8 + 1; 32]),
 					));
 				},
 		}
@@ -254,7 +254,7 @@ fn assert_set_id_parachain(id: &Identity) {
 	});
 }
 
-fn assert_reap_id_relay(mut total_deposit: u128, id: &Identity) {
+fn assert_reap_id_relay(total_deposit: u128, id: &Identity) {
 	RococoRelay::execute_with(|| {
 		type RuntimeEvent = <RococoRelay as Chain>::RuntimeEvent;
 		let free_bal_before_reap = RococoBalances::free_balance(RococoRelaySender::get());
