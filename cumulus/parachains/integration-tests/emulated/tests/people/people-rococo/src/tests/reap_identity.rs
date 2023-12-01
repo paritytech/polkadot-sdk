@@ -381,65 +381,54 @@ fn assert_reap_parachain(id: &Identity) {
 		let total_deposit = subs_deposit + id_deposit;
 
 		match id.para.subs {
-			Subs::Zero => {
-				assert_expected_events!(
-					PeopleRococo,
-					vec![
-						RuntimeEvent::Balances(BalancesEvent::Deposit { .. }) => {},
-						RuntimeEvent::Balances(BalancesEvent::Endowed { .. }) => {},
-						RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {
-							who: *who == PeopleRococoSender::get(),
-							amount: *amount == id_deposit,
-						},
-						RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {
-							who: *who == PeopleRococoSender::get(),
-							amount: *amount == subs_deposit,
-						},
-						RuntimeEvent::IdentityMigrator(
-							polkadot_runtime_common::identity_migrator::Event::DepositUpdated {
-								who, identity, subs
-							}) => {
-							who: *who == PeopleRococoSender::get(),
-							identity: *identity == id_deposit,
-							subs: *subs == subs_deposit,
-						},
-						RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { ..}) => {},
-					]
-				);
+			Subs::Many(n) => {
+				let mut sub_account_deposit = 0_u128;
+				for _ in 0..n {
+					sub_account_deposit += SubAccountDepositParachain::get();
+				}
+				assert_reap_events(sub_account_deposit, id_deposit);
 			},
-			_ => {
-				assert_expected_events!(
-					PeopleRococo,
-					vec![
-						RuntimeEvent::Balances(BalancesEvent::Deposit { .. }) => {},
-						RuntimeEvent::Balances(BalancesEvent::Endowed { .. }) => {},
-						RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {
-							who: *who == PeopleRococoSender::get(),
-							amount: *amount == id_deposit,
-						},
-						RuntimeEvent::IdentityMigrator(
-							polkadot_runtime_common::identity_migrator::Event::DepositUpdated {
-								who, identity, subs
-							}) => {
-							who: *who == PeopleRococoSender::get(),
-							identity: *identity == id_deposit,
-							subs: *subs == 0,
-						},
-						RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { ..}) => {},
-					]
-				);
-			},
+			_ => assert_reap_events(subs_deposit, id_deposit),
 		}
 
 		// reserved balance should be equal to total deposit calculated on the Parachain
 		assert_eq!(reserved_bal, total_deposit);
-
 		// Should have at least one ED after in free balance after the reap.
 		assert!(PeopleRococoBalances::free_balance(PeopleRococoSender::get()) >= PEOPLE_ROCOCO_ED);
 	});
 }
 
+fn assert_reap_events(subs_deposit: Balance, id_deposit: Balance) {
+	type RuntimeEvent = <PeopleRococo as Chain>::RuntimeEvent;
+	assert_expected_events!(
+		PeopleRococo,
+		vec![
+			RuntimeEvent::Balances(BalancesEvent::Deposit { .. }) => {},
+			RuntimeEvent::Balances(BalancesEvent::Endowed { .. }) => {},
+			RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {
+				who: *who == PeopleRococoSender::get(),
+				amount: *amount == id_deposit,
+			},
+			RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {
+				who: *who == PeopleRococoSender::get(),
+				amount: *amount == subs_deposit,
+			},
+			RuntimeEvent::IdentityMigrator(
+				polkadot_runtime_common::identity_migrator::Event::DepositUpdated {
+					who, identity, subs
+				}) => {
+				who: *who == PeopleRococoSender::get(),
+				identity: *identity == id_deposit,
+				subs: *subs == subs_deposit,
+			},
+			RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { ..}) => {},
+		]
+	);
+}
+
 fn calculate_remote_deposit(bytes: u32, subs: u32) -> Balance {
+	// Execute these Rococo Relay Currency functions because this is the runtime context that
+	// this function is called in.
 	let para_basic_deposit = deposit(1, 17) / 100;
 	let para_byte_deposit = deposit(0, 1) / 100;
 	let para_sub_account_deposit = deposit(1, 53) / 100;
