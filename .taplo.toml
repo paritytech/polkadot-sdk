@@ -8,9 +8,18 @@ exclude = [
 	"substrate/zombienet/**",
 ]
 
+# global rules
 [formatting]
 reorder_arrays = true
 inline_table_expand = false
 array_auto_expand = false
 array_auto_collapse = false
 indent_string = "	"         # tab
+
+# don't re-order order-dependent deb package metadata
+[[rule]]
+include = ["polkadot/Cargo.toml"]
+keys = ["license-file", "package.metadata.deb"]
+
+[rule.formatting]
+reorder_arrays = false
