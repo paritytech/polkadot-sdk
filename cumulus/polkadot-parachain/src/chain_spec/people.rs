@@ -25,8 +25,10 @@ use std::str::FromStr;
 pub enum PeopleRuntimeType {
 	Rococo,
 	RococoLocal,
+	RococoDevelopment,
 	Westend,
 	WestendLocal,
+	WestendDevelopment,
 }
 
 impl FromStr for PeopleRuntimeType {
@@ -36,8 +38,10 @@ impl FromStr for PeopleRuntimeType {
 		match value {
 			rococo::PEOPLE_ROCOCO => Ok(PeopleRuntimeType::Rococo),
 			rococo::PEOPLE_ROCOCO_LOCAL => Ok(PeopleRuntimeType::RococoLocal),
+			rococo::PEOPLE_ROCOCO_DEVELOPMENT => Ok(PeopleRuntimeType::RococoDevelopment),
 			westend::PEOPLE_WESTEND => Ok(PeopleRuntimeType::Westend),
 			westend::PEOPLE_WESTEND_LOCAL => Ok(PeopleRuntimeType::WestendLocal),
+			westend::PEOPLE_WESTEND_DEVELOPMENT => Ok(PeopleRuntimeType::WestendDevelopment),
 			_ => Err(format!("Value '{}' is not configured yet", value)),
 		}
 	}
@@ -57,6 +61,12 @@ impl PeopleRuntimeType {
 				"rococo-local",
 				ParaId::new(1004),
 			))),
+			PeopleRuntimeType::RococoDevelopment => Ok(Box::new(rococo::local_config(
+				rococo::PEOPLE_ROCOCO_DEVELOPMENT,
+				"Rococo People Development",
+				"rococo-development",
+				ParaId::new(1004),
+			))),
 			PeopleRuntimeType::Westend => Ok(Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/people-westend.json")[..],
 			)?)),
@@ -64,6 +74,12 @@ impl PeopleRuntimeType {
 				westend::PEOPLE_WESTEND_LOCAL,
 				"Westend People Local",
 				"westend-local",
+				ParaId::new(1004),
+			))),
+			PeopleRuntimeType::WestendDevelopment => Ok(Box::new(westend::local_config(
+				westend::PEOPLE_WESTEND_DEVELOPMENT,
+				"Westend People Development",
+				"westend-development",
 				ParaId::new(1004),
 			))),
 		}
@@ -96,6 +112,7 @@ pub mod rococo {
 
 	pub(crate) const PEOPLE_ROCOCO: &str = "people-rococo";
 	pub(crate) const PEOPLE_ROCOCO_LOCAL: &str = "people-rococo-local";
+	pub(crate) const PEOPLE_ROCOCO_DEVELOPMENT: &str = "people-rococo-development";
 	const PEOPLE_ROCOCO_ED: PeopleBalance = EXISTENTIAL_DEPOSIT;
 
 	pub fn local_config(
@@ -205,6 +222,7 @@ pub mod westend {
 
 	pub(crate) const PEOPLE_WESTEND: &str = "people-westend";
 	pub(crate) const PEOPLE_WESTEND_LOCAL: &str = "people-westend-local";
+	pub(crate) const PEOPLE_WESTEND_DEVELOPMENT: &str = "people-westend-development";
 	const PEOPLE_WESTEND_ED: PeopleBalance = EXISTENTIAL_DEPOSIT;
 
 	pub fn local_config(

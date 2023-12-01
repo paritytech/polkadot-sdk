@@ -784,15 +784,11 @@ pub fn run() -> Result<()> {
 
 					People(people_runtime_type) => match people_runtime_type {
 						chain_spec::people::PeopleRuntimeType::Rococo |
-						chain_spec::people::PeopleRuntimeType::RococoLocal =>
-							crate::service::start_generic_aura_node::<
-								RuntimeApi,
-								AuraId,
-							>(config, polkadot_config, collator_options, id, hwbench)
-							.await
-							.map(|r| r.0),
+						chain_spec::people::PeopleRuntimeType::RococoLocal |
+						chain_spec::people::PeopleRuntimeType::RococoDevelopment |
 						chain_spec::people::PeopleRuntimeType::Westend |
-						chain_spec::people::PeopleRuntimeType::WestendLocal =>
+						chain_spec::people::PeopleRuntimeType::WestendLocal |
+						chain_spec::people::PeopleRuntimeType::WestendDevelopment =>
 							crate::service::start_generic_aura_node::<
 								RuntimeApi,
 								AuraId,
