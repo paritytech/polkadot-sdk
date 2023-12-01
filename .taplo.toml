@@ -23,3 +23,11 @@ keys = ["package.metadata.deb"]
 
 [rule.formatting]
 reorder_arrays = false
+
+# don't re-order order-dependent rustflags
+[[rule]]
+include = [".cargo/config.toml"]
+keys = ["build", "target.'cfg(feature = \"cargo-clippy\")'"]
+
+[rule.formatting]
+reorder_arrays = false
