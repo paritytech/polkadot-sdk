@@ -74,7 +74,7 @@ use sp_state_machine::{
 	ChildStorageCollection, KeyValueStates, KeyValueStorageLevel, StorageCollection,
 	MAX_NESTED_TRIE_DEPTH,
 };
-use sp_trie::{CompactProof, MerkleValue, StorageProof};
+use sp_trie::{proof_size_extension::ProofSizeExt, CompactProof, MerkleValue, StorageProof};
 use std::{
 	collections::{HashMap, HashSet},
 	path::PathBuf,
@@ -179,7 +179,7 @@ where
 	)
 }
 
-/// Relevant client configuration items relevant for the client.
+/// Client configuration items.
 #[derive(Debug, Clone)]
 pub struct ClientConfig<Block: BlockT> {
 	/// Enable the offchain worker db.
@@ -193,6 +193,8 @@ pub struct ClientConfig<Block: BlockT> {
 	/// Map of WASM runtime substitute starting at the child of the given block until the runtime
 	/// version doesn't match anymore.
 	pub wasm_runtime_substitutes: HashMap<NumberFor<Block>, Vec<u8>>,
+	/// Enable recording of storage proofs during block import
+	pub enable_import_proof_recording: bool,
 }
 
 impl<Block: BlockT> Default for ClientConfig<Block> {
@@ -203,6 +205,7 @@ impl<Block: BlockT> Default for ClientConfig<Block> {
 			wasm_runtime_overrides: None,
 			no_genesis: false,
 			wasm_runtime_substitutes: HashMap::new(),
+			enable_import_proof_recording: false,
 		}
 	}
 }
@@ -839,15 +842,32 @@ where
 			// We should enact state, but don't have any storage changes, so we need to execute the
 			// block.
 			(true, None, Some(ref body)) => {
-				let mut runtime_api =
-					RuntimeInstance::builder(self, *parent_hash).on_chain_context().build();
+				let gen_storage_changes = if self.config.enable_import_proof_recording {
+					let runtime_api_builder = RuntimeInstance::builder(self, *parent_hash)
+						.on_chain_context()
+						.enable_proof_recording();
 
-				CoreApi::<Block>::execute_block(
-					&mut runtime_api,
-					Block::new(import_block.header.clone(), body.clone()),
-				)?;
+					let recorder = runtime_api_builder.proof_recorder();
+					let mut runtime_api =
+						runtime_api_builder.register_extension(ProofSizeExt::new(recorder)).build();
 
-				let gen_storage_changes = runtime_api.into_storage_changes()?;
+					CoreApi::<Block>::execute_block(
+						&mut runtime_api,
+						Block::new(import_block.header.clone(), body.clone()),
+					)?;
+
+					runtime_api.into_storage_changes()?
+				} else {
+					let mut runtime_api =
+						RuntimeInstance::builder(self, *parent_hash).on_chain_context().build();
+
+					CoreApi::<Block>::execute_block(
+						&mut runtime_api,
+						Block::new(import_block.header.clone(), body.clone()),
+					)?;
+
+					runtime_api.into_storage_changes()?
+				};
 
 				if import_block.header.state_root() != &gen_storage_changes.transaction_storage_root
 				{

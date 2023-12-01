@@ -7,15 +7,10 @@ description = "Rococo variant of Asset Hub parachain runtime"
 license = "Apache-2.0"
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
-	"derive",
-	"max-encoded-len",
-] }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
 hex-literal = { version = "0.4.1" }
 log = { version = "0.4.20", default-features = false }
-scale-info = { version = "2.10.0", default-features = false, features = [
-	"derive",
-] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 smallvec = "1.11.0"
 
 # Substrate
@@ -60,11 +55,7 @@ sp-transaction-pool = { path = "../../../../../substrate/primitives/transaction-
 sp-version = { path = "../../../../../substrate/primitives/version", default-features = false }
 sp-weights = { path = "../../../../../substrate/primitives/weights", default-features = false }
 # num-traits feature needed for dex integer sq root:
-primitive-types = { version = "0.12.1", default-features = false, features = [
-	"codec",
-	"scale-info",
-	"num-traits",
-] }
+primitive-types = { version = "0.12.1", default-features = false, features = ["codec", "num-traits", "scale-info"] }
 
 # Polkadot
 rococo-runtime-constants = { path = "../../../../../polkadot/runtime/rococo/constants", default-features = false }
@@ -79,14 +70,10 @@ xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkad
 
 # Cumulus
 cumulus-pallet-aura-ext = { path = "../../../../pallets/aura-ext", default-features = false }
-cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = [
-	"parameterized-consensus-hook",
-] }
+cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"] }
 cumulus-pallet-session-benchmarking = { path = "../../../../pallets/session-benchmarking", default-features = false }
 cumulus-pallet-xcm = { path = "../../../../pallets/xcm", default-features = false }
-cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false, features = [
-	"bridging",
-] }
+cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false, features = ["bridging"] }
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
 cumulus-primitives-utility = { path = "../../../../primitives/utility", default-features = false }
 pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false }
@@ -108,7 +95,7 @@ asset-test-utils = { path = "../test-utils" }
 substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder", optional = true }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 # When enabled the `state_version` is set to `1`.
 # This means that the chain will start using the new state format. The migration is lazy, so
 # it requires to write a storage value to use the new state format. To migrate all the other
@@ -116,7 +103,7 @@ default = [ "std" ]
 # This pallet will migrate the entire state, controlled through some account.
 #
 # This feature should be removed when the main-net will be migrated.
-state-trie-version-1 = [ "pallet-state-trie-migration" ]
+state-trie-version-1 = ["pallet-state-trie-migration"]
 runtime-benchmarks = [
 	"assets-common/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
@@ -257,9 +244,9 @@ std = [
 	"xcm/std",
 ]
 
-experimental = [ "pallet-aura/experimental" ]
+experimental = ["pallet-aura/experimental"]
 
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
 # to make it smaller like logging for example.
-on-chain-release-build = [ "sp-api/disable-logging" ]
+on-chain-release-build = ["sp-api/disable-logging"]

@@ -378,17 +378,16 @@ mod tests {
 		.expect("Creates genesis block builder");
 
 		// client is used for the convenience of creating and inserting the genesis block.
-		let _client =
-			crate::client::new_with_backend::<_, _, runtime::Block, _, runtime::RuntimeApi>(
-				backend.clone(),
-				executor.clone(),
-				genesis_block_builder,
-				Box::new(TaskExecutor::new()),
-				None,
-				None,
-				client_config,
-			)
-			.expect("Creates a client");
+		let _client = crate::client::new_with_backend::<_, _, runtime::Block, _>(
+			backend.clone(),
+			executor.clone(),
+			genesis_block_builder,
+			Box::new(TaskExecutor::new()),
+			None,
+			None,
+			client_config,
+		)
+		.expect("Creates a client");
 
 		let call_executor = LocalCallExecutor {
 			backend: backend.clone(),
@@ -450,17 +449,16 @@ mod tests {
 		.expect("Creates genesis block builder");
 
 		// client is used for the convenience of creating and inserting the genesis block.
-		let client =
-			crate::client::new_with_backend::<_, _, runtime::Block, _, runtime::RuntimeApi>(
-				backend.clone(),
-				executor.clone(),
-				genesis_block_builder,
-				Box::new(TaskExecutor::new()),
-				None,
-				None,
-				client_config,
-			)
-			.expect("Creates a client");
+		let client = crate::client::new_with_backend::<_, _, runtime::Block, _>(
+			backend.clone(),
+			executor.clone(),
+			genesis_block_builder,
+			Box::new(TaskExecutor::new()),
+			None,
+			None,
+			client_config,
+		)
+		.expect("Creates a client");
 
 		let version = client.runtime_version_at(client.chain_info().genesis_hash).unwrap();
 

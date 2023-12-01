@@ -64,8 +64,6 @@ impl<Block, BS, RA> Collator<Block, BS, RA>
 where
 	Block: BlockT,
 	BS: BlockBackend<Block>,
-	RA,
-	RA::Api: CollectCollationInfo<Block>,
 {
 	/// Create a new instance.
 	fn new(

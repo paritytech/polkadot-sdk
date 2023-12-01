@@ -129,10 +129,11 @@ where
 }
 
 /// Create the initial parts of a full node with the default genesis block builder.
-pub fn new_full_parts<TBl, TExec>(
+pub fn new_full_parts_record_import<TBl, TExec>(
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	executor: TExec,
+	enable_import_proof_recording: bool,
 ) -> Result<TFullParts<TBl, TExec>, Error>
 where
 	TBl: BlockT,
@@ -147,7 +148,26 @@ where
 		executor.clone(),
 	)?;
 
-	new_full_parts_with_genesis_builder(config, telemetry, executor, backend, genesis_block_builder)
+	new_full_parts_with_genesis_builder(
+		config,
+		telemetry,
+		executor,
+		backend,
+		genesis_block_builder,
+		enable_import_proof_recording,
+	)
+}
+/// Create the initial parts of a full node with the default genesis block builder.
+pub fn new_full_parts<TBl, TExec>(
+	config: &Configuration,
+	telemetry: Option<TelemetryHandle>,
+	executor: TExec,
+) -> Result<TFullParts<TBl, TExec>, Error>
+where
+	TBl: BlockT,
+	TExec: CodeExecutor + RuntimeVersionOf + Clone,
+{
+	new_full_parts_record_import(config, telemetry, executor, false)
 }
 
 /// Create the initial parts of a full node.
@@ -157,6 +177,7 @@ pub fn new_full_parts_with_genesis_builder<TBl, TExec, TBuildGenesisBlock>(
 	executor: TExec,
 	backend: Arc<TFullBackend<TBl>>,
 	genesis_block_builder: TBuildGenesisBlock,
+	enable_import_proof_recording: bool,
 ) -> Result<TFullParts<TBl, TExec>, Error>
 where
 	TBl: BlockT,
@@ -224,6 +245,7 @@ where
 					SyncMode::LightState { .. } | SyncMode::Warp { .. }
 				),
 				wasm_runtime_substitutes,
+				enable_import_proof_recording,
 			},
 		)?;
 

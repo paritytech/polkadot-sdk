@@ -407,14 +407,14 @@ pub use sp_api_proc_macro::impl_runtime_apis;
 
 /// Mocks given trait implementations as runtime apis.
 ///
-/// Accepts similar syntax as [`impl_runtime_apis!`] and generates
-/// simplified mock implementations of the given runtime apis. The difference in syntax is that
-/// the trait does not need to be referenced by a qualified path, methods accept the `&self`
-/// parameter and the error type can be specified as associated type. If no error type is
-/// specified [`String`] is used as error type.
+/// Accepts similar syntax as [`impl_runtime_apis!`] and generates simplified mock
+/// implementations of the given runtime apis. The difference in syntax is that the trait does
+/// not need to be referenced by a qualified path, methods accept the `&self` parameter and the
+/// error type can be specified as associated type. If no error type is specified [`String`] is
+/// used as error type.
 ///
-/// Besides implementing the given traits, the [`Core`](sp_api::Core) and
-/// [`ApiExt`](sp_api::ApiExt) are implemented automatically.
+/// Besides implementing the given traits, the [`Core`] and [`ApiExt`] are implemented
+/// automatically.
 ///
 /// # Example
 ///
@@ -837,18 +837,18 @@ decl_runtime_apis! {
 }
 
 #[cfg(feature = "std")]
-pub struct RuntimeInstanceBuilder<C, B: BlockT> {
+pub struct RuntimeInstanceBuilder<C, Block: BlockT> {
 	call_api_at: C,
-	block: B::Hash,
+	block: Block::Hash,
 }
 
 #[cfg(feature = "std")]
-impl<C, B: BlockT> RuntimeInstanceBuilder<C, B> {
-	pub fn create(call_api_at: C, block: B::Hash) -> Self {
+impl<C, Block: BlockT> RuntimeInstanceBuilder<C, Block> {
+	pub fn create(call_api_at: C, block: Block::Hash) -> Self {
 		Self { call_api_at, block }
 	}
 
-	pub fn on_chain_context(self) -> RuntimeInstanceBuilderStage2<C, B, DisableProofRecording> {
+	pub fn on_chain_context(self) -> RuntimeInstanceBuilderStage2<C, Block, DisableProofRecording> {
 		RuntimeInstanceBuilderStage2 {
 			call_api_at: self.call_api_at,
 			block: self.block,
@@ -858,7 +858,9 @@ impl<C, B: BlockT> RuntimeInstanceBuilder<C, B> {
 		}
 	}
 
-	pub fn off_chain_context(self) -> RuntimeInstanceBuilderStage2<C, B, DisableProofRecording> {
+	pub fn off_chain_context(
+		self,
+	) -> RuntimeInstanceBuilderStage2<C, Block, DisableProofRecording> {
 		RuntimeInstanceBuilderStage2 {
 			call_api_at: self.call_api_at,
 			block: self.block,
@@ -870,19 +872,19 @@ impl<C, B: BlockT> RuntimeInstanceBuilder<C, B> {
 }
 
 #[cfg(feature = "std")]
-pub struct RuntimeInstanceBuilderStage2<C, B: BlockT, ProofRecorder> {
+pub struct RuntimeInstanceBuilderStage2<C, Block: BlockT, ProofRecorder> {
 	call_api_at: C,
-	block: B::Hash,
+	block: Block::Hash,
 	call_context: CallContext,
 	with_recorder: ProofRecorder,
 	extensions: Extensions,
 }
 
 #[cfg(feature = "std")]
-impl<C, B: BlockT, ProofRecording> RuntimeInstanceBuilderStage2<C, B, ProofRecording> {
+impl<C, Block: BlockT, ProofRecording> RuntimeInstanceBuilderStage2<C, Block, ProofRecording> {
 	pub fn enable_proof_recording(
 		self,
-	) -> RuntimeInstanceBuilderStage2<C, B, EnableProofRecording<B>> {
+	) -> RuntimeInstanceBuilderStage2<C, Block, EnableProofRecording<Block>> {
 		RuntimeInstanceBuilderStage2 {
 			with_recorder: Default::default(),
 			call_api_at: self.call_api_at,
@@ -892,9 +894,9 @@ impl<C, B: BlockT, ProofRecording> RuntimeInstanceBuilderStage2<C, B, ProofRecor
 		}
 	}
 
-	pub fn with_proof_recording<WProofRecording: crate::ProofRecording<B>>(
+	pub fn with_proof_recording<WProofRecording: crate::ProofRecording<Block>>(
 		self,
-	) -> RuntimeInstanceBuilderStage2<C, B, WProofRecording> {
+	) -> RuntimeInstanceBuilderStage2<C, Block, WProofRecording> {
 		RuntimeInstanceBuilderStage2 {
 			with_recorder: Default::default(),
 			call_api_at: self.call_api_at,
@@ -916,9 +918,9 @@ impl<C, B: BlockT, ProofRecording> RuntimeInstanceBuilderStage2<C, B, ProofRecor
 		self
 	}
 
-	pub fn build(self) -> RuntimeInstance<C, B, ProofRecording>
+	pub fn build(self) -> RuntimeInstance<C, Block, ProofRecording>
 	where
-		C: CallApiAt<B>,
+		C: CallApiAt<Block>,
 	{
 		RuntimeInstance {
 			recorder: self.with_recorder,
@@ -929,6 +931,13 @@ impl<C, B: BlockT, ProofRecording> RuntimeInstanceBuilderStage2<C, B, ProofRecor
 			extensions: self.extensions,
 			transaction_depth: 0,
 		}
+	}
+}
+
+#[cfg(feature = "std")]
+impl<C, Block: BlockT> RuntimeInstanceBuilderStage2<C, Block, EnableProofRecording<Block>> {
+	pub fn proof_recorder(&self) -> ProofRecorder<Block> {
+		self.with_recorder.recorder.clone()
 	}
 }
 

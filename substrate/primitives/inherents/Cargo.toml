@@ -19,14 +19,14 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 impl-trait-for-tuples = "0.2.2"
 thiserror = { version = "1.0.48", optional = true }
-sp-runtime = { path = "../runtime", default-features = false, optional = true}
-sp-std = { path = "../std", default-features = false}
+sp-runtime = { path = "../runtime", default-features = false, optional = true }
+sp-std = { path = "../std", default-features = false }
 
 [dev-dependencies]
 futures = "0.3.21"
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"async-trait",
 	"codec/std",
