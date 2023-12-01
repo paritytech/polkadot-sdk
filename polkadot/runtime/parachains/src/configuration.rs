@@ -173,8 +173,8 @@ pub struct HostConfiguration<BlockNumber> {
 	/// How long to keep code on-chain, in blocks. This should be sufficiently long that disputes
 	/// have concluded.
 	pub code_retention_period: BlockNumber,
-	/// The amount of execution cores to dedicate to on demand execution.
-	pub on_demand_cores: u32,
+	/// The amount of execution cores to dedicate to the bulk assigner
+	pub bulk_core_count: u32,
 	/// The number of retries that a on demand author has to submit their block.
 	pub on_demand_retries: u32,
 	/// The maximum queue size of the pay as you go module.
@@ -265,8 +265,6 @@ pub struct HostConfiguration<BlockNumber> {
 	pub minimum_backing_votes: u32,
 	/// Node features enablement.
 	pub node_features: NodeFeatures,
-	/// Bulk core count
-	pub bulk_core_count: u16,
 }
 
 impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber> {
@@ -666,16 +664,16 @@ pub mod pallet {
 			})
 		}
 
-		/// Set the number of on demand execution cores.
+		/// Set bulk core count
 		#[pallet::call_index(6)]
 		#[pallet::weight((
-			T::WeightInfo::set_config_with_u32(),
+			T::WeightInfo::set_config_with_option_u32(),
 			DispatchClass::Operational,
 		))]
-		pub fn set_on_demand_cores(origin: OriginFor<T>, new: u32) -> DispatchResult {
-			ensure_root(origin)?;
+		pub fn set_bulk_core_count(origin: OriginFor<T>, count: u32) -> DispatchResult {
+			EnsureCoretime::try_origin(origin)?;
 			Self::schedule_config_update(|config| {
-				config.on_demand_cores = new;
+				config.bulk_core_count = count;
 			})
 		}
 
@@ -1228,12 +1226,11 @@ pub mod pallet {
 		}
 		/// Set bulk core count
 		#[pallet::call_index(54)]
-		// TODO: Create better weight here. `set_config_with_option_u16`
 		#[pallet::weight((
 			T::WeightInfo::set_config_with_option_u32(),
 			DispatchClass::Operational,
 		))]
-		pub fn set_bulk_core_count(origin: OriginFor<T>, count: u16) -> DispatchResult {
+		pub fn set_bulk_core_count(origin: OriginFor<T>, count: u32) -> DispatchResult {
 			EnsureCoretime::try_origin(origin)?;
 			Self::schedule_config_update(|config| {
 				config.bulk_core_count = count;

@@ -26,6 +26,7 @@ use frame_system::pallet_prelude::*;
 use pallet_broker::{CoreAssignment, CoreIndex as BrokerCoreIndex};
 use primitives::{CoreIndex, Id as ParaId};
 use runtime_parachains::{
+	configuration::pallet::Pallet as ConfigurationPallet;
 	assigner_bulk::{self, PartsOf57600},
 	origin::{ensure_parachain, Origin},
 };
@@ -117,9 +118,11 @@ pub mod pallet {
 		// TODO Impl me!
 		//#[pallet::weight(<T as Config>::WeightInfo::request_core_count())]
 		#[pallet::call_index(1)]
-		pub fn request_core_count(origin: OriginFor<T>, _count: u16) -> DispatchResult {
+		pub fn request_core_count(origin: OriginFor<T>, count: u16) -> DispatchResult {
 			// Ignore requests not coming from the broker parachain or root.
 			Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
+			let coretime_origin = <T as Config>::RuntimeOrigin::from(Origin::Coretime)?;
+			ConfigurationPallet::set_bulk_core_count(coretime_origin as <T as Config>::RuntimeOrigin, count)?
 			Ok(())
 		}
 
