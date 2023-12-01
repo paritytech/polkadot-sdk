@@ -18,4 +18,4 @@ proc-macro = true
 proc-macro-crate = "2.0.0"
 proc-macro2 = "1.0.56"
 quote = "1.0.28"
-syn = "2.0.38"
+syn = "2.0.39"
