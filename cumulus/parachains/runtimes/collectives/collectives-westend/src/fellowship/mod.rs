@@ -258,6 +258,7 @@ parameter_types! {
 	pub const SpendPeriod: BlockNumber = 7 * DAYS;
 	pub const Burn: Permill = Permill::from_percent(0);
 	pub const PayoutSpendPeriod: BlockNumber = 30 * DAYS;
+	pub const MaxBalance: Balance = Balance::max_value();
 	// The asset's interior location for the paying account. This is the Fellowship Treasury
 	// pallet instance (which sits at index 65).
 	pub FellowshipTreasuryInteriorLocation: InteriorMultiLocation = PalletInstance(65).into();
@@ -300,7 +301,7 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 	type MaxApprovals = ConstU32<100>;
 	type SpendOrigin = EitherOf<
 		EitherOf<
-			EnsureRootWithSuccess<AccountId, ConstU128<{ 10_000 * GRAND }>>,
+			EnsureRootWithSuccess<AccountId, MaxBalance>,
 			MapSuccess<
 				EnsureXcm<IsVoiceOfBody<GovernanceLocation, TreasurerBodyId>>,
 				Replace<ConstU128<{ 10_000 * GRAND }>>,
