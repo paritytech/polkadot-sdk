@@ -53,68 +53,49 @@ impl Identity {
 			0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66,
 			0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC,
 		];
-		if full {
-			Self {
-				relay: IdentityInfo {
-					display: Data::Raw(b"xcm-test-one".to_vec().try_into().unwrap()),
-					legal: Data::Raw(b"The Xcm Test, Esq.".to_vec().try_into().unwrap()),
-					web: Data::Raw(b"https://xcm-test.io".to_vec().try_into().unwrap()),
-					email: Data::Raw(b"xcm-test@gmail.com".to_vec().try_into().unwrap()),
-					pgp_fingerprint: Some(pgp_fingerprint),
-					image: Data::Raw(b"xcm-test.png".to_vec().try_into().unwrap()),
-					twitter: Data::Raw(b"@xcm-test".to_vec().try_into().unwrap()),
-					riot: Data::Raw(b"riot-xcm-test".to_vec().try_into().unwrap()),
-					additional: additional.unwrap_or_else(|| {
-						BoundedVec::try_from(vec![(
-							Data::Raw(b"foo".to_vec().try_into().unwrap()),
-							Data::Raw(b"bar".to_vec().try_into().unwrap()),
-						)])
-						.unwrap()
-					}),
-				},
-				para: IdentityInfoParachain {
-					display: Data::Raw(b"xcm-test-one".to_vec().try_into().unwrap()),
-					legal: Data::Raw(
-						b"The Right Ordinal Xcm Test, Esq.".to_vec().try_into().unwrap(),
-					),
-					web: Data::Raw(b"https://xcm-test.io".to_vec().try_into().unwrap()),
-					matrix: Data::Raw(b"riot-xcm-test".to_vec().try_into().unwrap()),
-					email: Data::Raw(b"xcm-test@gmail.com".to_vec().try_into().unwrap()),
-					pgp_fingerprint: Some(pgp_fingerprint),
-					image: Data::Raw(b"xcm-test.png".to_vec().try_into().unwrap()),
-					twitter: Data::Raw(b"@xcm-test".to_vec().try_into().unwrap()),
-					github: Data::Raw(b"niels-username".to_vec().try_into().unwrap()),
-					discord: Data::Raw(b"bohr-username".to_vec().try_into().unwrap()),
-				},
-				subs,
+		let make_data = |data: &[u8], full: bool| -> Data {
+			if full {
+				Data::Raw(data.to_vec().try_into().unwrap())
+			} else {
+				Data::None
 			}
-		} else {
-			Self {
-				relay: IdentityInfo {
-					display: Data::None,
-					legal: Data::None,
-					web: Data::None,
-					email: Data::None,
-					pgp_fingerprint: None,
-					image: Data::None,
-					twitter: Data::None,
-					riot: Data::None,
-					additional: additional.unwrap_or_default(),
-				},
-				para: IdentityInfoParachain {
-					display: Data::None,
-					legal: Data::None,
-					web: Data::None,
-					matrix: Data::None,
-					email: Data::None,
-					pgp_fingerprint: None,
-					image: Data::None,
-					twitter: Data::None,
-					github: Data::None,
-					discord: Data::None,
-				},
-				subs,
-			}
+		};
+		let (github, discord) = additional
+			.as_ref()
+			.and_then(|vec| vec.get(0))
+			.map(|(g, d)| (g.clone(), d.clone()))
+			.unwrap_or((Data::None, Data::None));
+		Self {
+			relay: IdentityInfo {
+				display: make_data(b"xcm-test", full),
+				legal: make_data(b"The Xcm Test, Esq.", full),
+				web: make_data(b"https://xcm-test.io", full),
+				riot: make_data(b"xcm-riot", full),
+				email: make_data(b"xcm-test@gmail.com", full),
+				pgp_fingerprint: Some(pgp_fingerprint),
+				image: make_data(b"xcm-test.png", full),
+				twitter: make_data(b"@xcm-test", full),
+				additional: additional.unwrap_or_else(|| {
+					BoundedVec::try_from(vec![(
+						Data::Raw(b"foo".to_vec().try_into().unwrap()),
+						Data::Raw(b"bar".to_vec().try_into().unwrap()),
+					)])
+					.unwrap()
+				}),
+			},
+			para: IdentityInfoParachain {
+				display: make_data(b"xcm-test", full),
+				legal: make_data(b"The Xcm Test, Esq.", full),
+				web: make_data(b"https://xcm-test.io", full),
+				matrix: make_data(b"xcm-matrix@server", full),
+				email: make_data(b"xcm-test@gmail.com", full),
+				pgp_fingerprint: Some(pgp_fingerprint),
+				image: make_data(b"xcm-test.png", full),
+				twitter: make_data(b"@xcm-test", full),
+				github,
+				discord,
+			},
+			subs,
 		}
 	}
 }
