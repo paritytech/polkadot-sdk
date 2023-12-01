@@ -148,9 +148,9 @@ serial_test = "2.0.0"
 tempfile = "3.2"
 
 [features]
-default = [ "db", "full-node" ]
+default = ["db", "full-node"]
 
-db = [ "service/rocksdb" ]
+db = ["service/rocksdb"]
 
 full-node = [
 	"kvdb-rocksdb",
@@ -181,8 +181,8 @@ full-node = [
 ]
 
 # Configure the native runtimes to use.
-westend-native = [ "westend-runtime", "westend-runtime-constants" ]
-rococo-native = [ "rococo-runtime", "rococo-runtime-constants" ]
+westend-native = ["westend-runtime", "westend-runtime-constants"]
+rococo-native = ["rococo-runtime", "rococo-runtime-constants"]
 
 runtime-benchmarks = [
 	"frame-benchmarking-cli/runtime-benchmarks",
@@ -219,7 +219,7 @@ fast-runtime = [
 	"westend-runtime?/fast-runtime",
 ]
 
-malus = [ "full-node" ]
+malus = ["full-node"]
 runtime-metrics = [
 	"polkadot-runtime-parachains/runtime-metrics",
 	"rococo-runtime?/runtime-metrics",

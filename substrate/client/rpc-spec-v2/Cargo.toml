@@ -13,7 +13,7 @@ readme = "README.md"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-jsonrpsee = { version = "0.16.2", features = ["client-core", "server", "macros"] }
+jsonrpsee = { version = "0.16.2", features = ["client-core", "macros", "server"] }
 # Internal chain structures for "chain_spec".
 sc-chain-spec = { path = "../chain-spec" }
 # Pool for submitting extrinsics required by "transaction"
@@ -47,6 +47,6 @@ sp-consensus = { path = "../../primitives/consensus/common" }
 sp-externalities = { path = "../../primitives/externalities" }
 sp-maybe-compressed-blob = { path = "../../primitives/maybe-compressed-blob" }
 sc-block-builder = { path = "../block-builder" }
-sc-service = { path = "../service", features = ["test-helpers"]}
+sc-service = { path = "../service", features = ["test-helpers"] }
 assert_matches = "1.3.0"
 pretty_assertions = "1.2.1"

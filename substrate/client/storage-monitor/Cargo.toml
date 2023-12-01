@@ -12,7 +12,7 @@ homepage = "https://substrate.io"
 clap = { version = "4.4.10", features = ["derive", "string"] }
 log = "0.4.17"
 fs4 = "0.7.0"
-sc-client-db = { path = "../db", default-features = false}
+sc-client-db = { path = "../db", default-features = false }
 sp-core = { path = "../../primitives/core" }
 tokio = "1.22.0"
 thiserror = "1.0.48"

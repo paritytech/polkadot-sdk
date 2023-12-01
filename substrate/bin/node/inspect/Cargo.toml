@@ -17,7 +17,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1" }
 thiserror = "1.0"
 sc-cli = { path = "../../../client/cli" }
 sc-client-api = { path = "../../../client/api" }
-sc-service = { path = "../../../client/service", default-features = false}
+sc-service = { path = "../../../client/service", default-features = false }
 sp-blockchain = { path = "../../../primitives/blockchain" }
 sp-core = { path = "../../../primitives/core" }
 sp-io = { path = "../../../primitives/io" }

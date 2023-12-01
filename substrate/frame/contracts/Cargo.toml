@@ -9,7 +9,7 @@ homepage = "https://substrate.io"
 repository.workspace = true
 description = "FRAME pallet for WASM contracts"
 readme = "README.md"
-include = ["src/**/*", "benchmarks/**", "build.rs", "README.md", "CHANGELOG.md"]
+include = ["CHANGELOG.md", "README.md", "benchmarks/**", "build.rs", "src/**/*"]
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -37,19 +37,19 @@ rand_pcg = { version = "0.3", optional = true }
 # Substrate Dependencies
 environmental = { version = "1.1.4", default-features = false }
 frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
-frame-support = { path = "../support", default-features = false}
-frame-system = { path = "../system", default-features = false}
-pallet-balances = { path = "../balances", default-features = false , optional = true}
+frame-support = { path = "../support", default-features = false }
+frame-system = { path = "../system", default-features = false }
+pallet-balances = { path = "../balances", default-features = false, optional = true }
 pallet-contracts-uapi = { path = "uapi" }
 pallet-contracts-proc-macro = { path = "proc-macro" }
-sp-api = { path = "../../primitives/api", default-features = false}
-sp-core = { path = "../../primitives/core", default-features = false}
-sp-io = { path = "../../primitives/io", default-features = false}
-sp-runtime = { path = "../../primitives/runtime", default-features = false}
-sp-std = { path = "../../primitives/std", default-features = false}
+sp-api = { path = "../../primitives/api", default-features = false }
+sp-core = { path = "../../primitives/core", default-features = false }
+sp-io = { path = "../../primitives/io", default-features = false }
+sp-runtime = { path = "../../primitives/runtime", default-features = false }
+sp-std = { path = "../../primitives/std", default-features = false }
 
-xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false}
-xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false }
 
 [dev-dependencies]
 array-bytes = "6.1"
@@ -60,7 +60,7 @@ wat = "1"
 pallet-contracts-fixtures = { path = "./fixtures" }
 
 # Polkadot Dependencies
-xcm-builder = {package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder"}
+xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder" }
 
 # Substrate Dependencies
 pallet-balances = { path = "../balances" }
@@ -74,7 +74,7 @@ sp-keystore = { path = "../../primitives/keystore" }
 sp-tracing = { path = "../../primitives/tracing" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"environmental/std",

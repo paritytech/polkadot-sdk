@@ -21,11 +21,11 @@ sp-api = { path = "../../../substrate/primitives/api", default-features = false 
 inherents = { package = "sp-inherents", path = "../../../substrate/primitives/inherents", default-features = false }
 sp-std = { package = "sp-std", path = "../../../substrate/primitives/std", default-features = false }
 sp-io = { path = "../../../substrate/primitives/io", default-features = false }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false , features=["serde"]}
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, features = ["serde"] }
 sp-session = { path = "../../../substrate/primitives/session", default-features = false }
-sp-staking = { path = "../../../substrate/primitives/staking", default-features = false, features=["serde"] }
-sp-core = { path = "../../../substrate/primitives/core", default-features = false , features=["serde"]}
-sp-npos-elections = { path = "../../../substrate/primitives/npos-elections", default-features = false, features=["serde"] }
+sp-staking = { path = "../../../substrate/primitives/staking", default-features = false, features = ["serde"] }
+sp-core = { path = "../../../substrate/primitives/core", default-features = false, features = ["serde"] }
+sp-npos-elections = { path = "../../../substrate/primitives/npos-elections", default-features = false, features = ["serde"] }
 
 pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false }
 pallet-balances = { path = "../../../substrate/frame/balances", default-features = false }
@@ -70,7 +70,7 @@ libsecp256k1 = "0.7.0"
 test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../primitives/test-helpers" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 no_std = []
 std = [
 	"bitvec/std",
