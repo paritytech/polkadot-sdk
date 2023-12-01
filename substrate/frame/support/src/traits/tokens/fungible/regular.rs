@@ -428,7 +428,9 @@ pub trait Balanced<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 	) -> Result<(Debt<AccountId, Self>, Credit<AccountId, Self>), DispatchError> {
 		let issued = Self::issue(amount);
 		let rescinded = Self::rescind(amount);
-		if issued.peek() != rescinded.peek() {
+		// Need to check amount in case by some edge case both issued and rescinded are below
+		// `amount` by the exact same value
+		if issued.peek() != rescinded.peek() || issued.peek() != amount {
 			// Issued and rescinded will be dropped automatically
 			Err("Failed to issue and rescind equal amounts".into())
 		} else {
