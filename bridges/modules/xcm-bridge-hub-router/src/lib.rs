@@ -472,7 +472,7 @@ mod tests {
 		run_test(|| {
 			assert_eq!(
 				send_xcm::<XcmBridgeHubRouter>(
-					FailingWrapVersionLocation::get(),
+					UnknownXcmVersionLocation::get(),
 					vec![ClearOrigin].into(),
 				),
 				Err(SendError::DestinationUnsupported),

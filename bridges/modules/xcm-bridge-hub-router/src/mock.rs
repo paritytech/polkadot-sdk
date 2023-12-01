@@ -61,7 +61,7 @@ parameter_types! {
 				Some((BridgeFeeAsset::get(), BASE_FEE).into())
 			)
 		];
-	pub FailingWrapVersionLocation: MultiLocation = MultiLocation::new(2, X2(GlobalConsensus(BridgedNetworkId::get()), Parachain(9999)));
+	pub UnknownXcmVersionLocation: MultiLocation = MultiLocation::new(2, X2(GlobalConsensus(BridgedNetworkId::get()), Parachain(9999)));
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
@@ -76,7 +76,7 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 	type BridgedNetworkId = BridgedNetworkId;
 	type Bridges = NetworkExportTable<BridgeTable>;
 	type DestinationVersion =
-		LatestOrNoneForLocationVersionChecker<Equals<FailingWrapVersionLocation>>;
+		LatestOrNoneForLocationVersionChecker<Equals<UnknownXcmVersionLocation>>;
 
 	type BridgeHubOrigin = EnsureRoot<AccountId>;
 	type ToBridgeHubSender = TestToBridgeHubSender;

@@ -1001,7 +1001,7 @@ fn subscription_side_upgrades_work_with_multistage_notify() {
 }
 
 #[test]
-fn determine_and_wrap_version_works() {
+fn check_and_wrap_version_works() {
 	new_test_ext_with_balances_and_xcm_version(vec![], None).execute_with(|| {
 		let remote_a: MultiLocation = Parachain(1000).into();
 		let remote_b: MultiLocation = Parachain(1001).into();
