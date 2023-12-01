@@ -80,7 +80,7 @@
 //! >;
 //! ```
 //!
-//! ### Ensuring Single Block Migraiton Safety
+//! ### Ensuring Single Block Migration Safety
 //!
 //! "My migration unit tests pass, so it should be safe to deploy right?"
 //!
