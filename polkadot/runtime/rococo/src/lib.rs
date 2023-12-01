@@ -70,9 +70,9 @@ use frame_support::{
 	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, Contains, EitherOf, EitherOfDiverse, EnsureOrigin,
-		EverythingBut, InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, PrivilegeCmp,
-		ProcessMessage, ProcessMessageError, StorageMapShim, WithdrawReasons,
+		fungible::HoldConsideration, Contains, EitherOf, EitherOfDiverse, EverythingBut,
+		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, PrivilegeCmp, ProcessMessage,
+		ProcessMessageError, StorageMapShim, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter},
 	PalletId,

@@ -28,6 +28,7 @@ use pallet_broker::{CoreAssignment, CoreIndex as BrokerCoreIndex};
 use primitives::{CoreIndex, Id as ParaId};
 use runtime_parachains::{
 	assigner_bulk::{self, PartsOf57600},
+	configuration::Pallet,
 	origin::{ensure_parachain, Origin},
 };
 use sp_std::{prelude::*, result};
@@ -91,7 +92,8 @@ pub mod pallet {
 	}
 
 	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	// TODO: CI requires that deposit_event is used. Uncomment it once we use it.
+	//#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// The broker chain has asked for revenue information for a specific block.
 		RevenueInfoRequested { when: BlockNumberFor<T> },
