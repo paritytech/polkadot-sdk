@@ -100,6 +100,10 @@
 //! Developers MUST run this command before deploying migrations to ensure they will not
 //! inadvertently result in a bricked chain.
 //!
+//! It is recommended to run as part of your CI pipeline. See the
+//! [polkadot-sdk check-runtime-migration job](https://github.com/paritytech/polkadot-sdk/blob/4a293bc5a25be637c06ce950a34490706597615b/.gitlab/pipeline/check.yml#L103-L124)
+//! for an example of how to configure this.
+//!
 //! ### Note on the Manipulability of PoV Size and Execution Time
 //!
 //! While [`try-runtime-cli`](https://github.com/paritytech/try-runtime-cli) can help ensure with
