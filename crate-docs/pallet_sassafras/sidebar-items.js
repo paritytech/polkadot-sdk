@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["pallet","weights"],"struct":["EpochChangeExternalTrigger","EpochChangeInternalTrigger","TicketsMetadata"],"trait":["EpochChangeTrigger"],"type":["AuthoritiesVec","EpochLengthFor"]};

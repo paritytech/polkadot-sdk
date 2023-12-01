@@ -89,6 +89,41 @@
 <a href="#89" id="89">89</a>
 <a href="#90" id="90">90</a>
 <a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -153,10 +188,10 @@
 	</span><span class="kw">pub </span>erased_signature: EphemeralSignature,
 }
 
-<span class="doccomment">/// Computes ticket-id maximum allowed value for a given epoch.
+<span class="doccomment">/// Computes a boundary for [`TicketId`] maximum allowed value for a given epoch.
 ///
-/// Only ticket identifiers below this threshold should be considered for slot
-/// assignment.
+/// Only ticket identifiers below this threshold should be considered as candidates
+/// for slot assignment.
 ///
 /// The value is computed as `TicketId::MAX*(redundancy*slots)/(attempts*validators)`
 ///
@@ -167,17 +202,52 @@
 /// - `validators`: number of validators in epoch.
 ///
 /// If `attempts * validators = 0` then we return 0.
+///
+/// For details about the formula and implications refer to
+/// [*probabilities an parameters*](https://research.web3.foundation/Polkadot/protocols/block-production/SASSAFRAS#probabilities-and-parameters)
+/// paragraph of the w3f introduction to the protocol.
+</span><span class="comment">// TODO: replace with [RFC-26](https://github.com/polkadot-fellows/RFCs/pull/26)
+// &quot;Tickets Threshold&quot; paragraph once is merged
 </span><span class="kw">pub fn </span>ticket_id_threshold(
 	redundancy: u32,
 	slots: u32,
 	attempts: u32,
 	validators: u32,
 ) -&gt; TicketId {
-	<span class="kw">let </span>den = attempts <span class="kw">as </span>u64 * validators <span class="kw">as </span>u64;
 	<span class="kw">let </span>num = redundancy <span class="kw">as </span>u64 * slots <span class="kw">as </span>u64;
+	<span class="kw">let </span>den = attempts <span class="kw">as </span>u64 * validators <span class="kw">as </span>u64;
 	TicketId::max_value()
 		.checked_div(den.into())
 		.unwrap_or_default()
 		.saturating_mul(num.into())
+}
+
+<span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+	<span class="comment">// This is a trivial example/check which just better explain explains the rationale
+	// behind the threshold.
+	//
+	// After this reading the formula should become obvious.
+	</span><span class="attr">#[test]
+	</span><span class="kw">fn </span>ticket_id_threshold_trivial_check() {
+		<span class="comment">// For an epoch with `s` slots we want to accept a number of tickets equal to ~s·r
+		</span><span class="kw">let </span>redundancy = <span class="number">2</span>;
+		<span class="kw">let </span>slots = <span class="number">1000</span>;
+		<span class="kw">let </span>attempts = <span class="number">100</span>;
+		<span class="kw">let </span>validators = <span class="number">500</span>;
+
+		<span class="kw">let </span>threshold = ticket_id_threshold(redundancy, slots, attempts, validators);
+		<span class="kw">let </span>threshold = threshold <span class="kw">as </span>f64 / TicketId::MAX <span class="kw">as </span>f64;
+
+		<span class="comment">// We expect that the total number of tickets allowed to be submited
+		// is slots*redundancy
+		</span><span class="kw">let </span>avt = ((attempts * validators) <span class="kw">as </span>f64 * threshold) <span class="kw">as </span>u32;
+		<span class="macro">assert_eq!</span>(avt, slots * redundancy);
+
+		<span class="macro">println!</span>(<span class="string">&quot;threshold: {}&quot;</span>, threshold);
+		<span class="macro">println!</span>(<span class="string">&quot;avt = {}&quot;</span>, avt);
+	}
 }
 </code></pre></div></section></main></body></html>

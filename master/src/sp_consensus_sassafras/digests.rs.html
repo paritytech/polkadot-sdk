@@ -146,11 +146,11 @@
 /// This is mandatory in the first block of each epoch.
 </span><span class="attr">#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug)]
 </span><span class="kw">pub struct </span>NextEpochDescriptor {
+	<span class="doccomment">/// Randomness value.
+	</span><span class="kw">pub </span>randomness: Randomness,
 	<span class="doccomment">/// Authorities list.
 	</span><span class="kw">pub </span>authorities: Vec&lt;AuthorityId&gt;,
-	<span class="doccomment">/// Epoch randomness.
-	</span><span class="kw">pub </span>randomness: Randomness,
-	<span class="doccomment">/// Epoch configurable parameters.
+	<span class="doccomment">/// Epoch configuration.
 	///
 	/// If not present previous epoch parameters are used.
 	</span><span class="kw">pub </span>config: <span class="prelude-ty">Option</span>&lt;EpochConfiguration&gt;,

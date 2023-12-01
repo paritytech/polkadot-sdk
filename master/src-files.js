@@ -203,6 +203,7 @@ var srcIndex = JSON.parse('{\
 "pallet_root_testing":["",[],["lib.rs"]],\
 "pallet_safe_mode":["",[],["lib.rs","weights.rs"]],\
 "pallet_salary":["",[],["lib.rs","weights.rs"]],\
+"pallet_sassafras":["",[],["lib.rs","weights.rs"]],\
 "pallet_scheduler":["",[],["lib.rs","migration.rs","weights.rs"]],\
 "pallet_scored_pool":["",[],["lib.rs"]],\
 "pallet_session":["",[["historical",[],["mod.rs","offchain.rs","onchain.rs","shared.rs"]],["migrations",[],["mod.rs","v1.rs"]]],["lib.rs","weights.rs"]],\
