@@ -21,7 +21,6 @@
 #![recursion_limit = "512"]
 
 use pallet_nis::WithMaximumOf;
-use pallet_xcm::EnsureXcm;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use primitives::{
 	slashing, vstaging::NodeFeatures, AccountId, AccountIndex, Balance, BlockNumber,
@@ -31,6 +30,7 @@ use primitives::{
 	ScrapedOnChainVotes, SessionInfo, Signature, ValidationCode, ValidationCodeHash, ValidatorId,
 	ValidatorIndex, PARACHAIN_KEY_TYPE_ID,
 };
+use rococo_runtime_constants::system_parachain::BROKER_ID;
 use runtime_common::{
 	assigned_slots, auctions, claims, coretime, crowdloan, identity_migrator, impl_runtime_weights,
 	impls::{
@@ -126,7 +126,6 @@ use governance::{
 	pallet_custom_origins, AuctionAdmin, Fellows, GeneralAdmin, LeaseAdmin, Treasurer,
 	TreasurySpender,
 };
-use xcm_config::OnlyBroker;
 
 #[cfg(test)]
 mod tests;
@@ -994,10 +993,16 @@ impl parachains_assigner_on_demand::Config for Runtime {
 	type WeightInfo = weights::runtime_parachains_assigner_on_demand::WeightInfo<Runtime>;
 }
 
+parameter_types! {
+	pub const BrokerId: u32 = BROKER_ID;
+}
+
 impl coretime::Config for Runtime {
+	type RuntimeOrigin = RuntimeOrigin;
+	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	//type WeightInfo = weights::runtime_coretime::WeightInfo<Runtime>;
-	type ExternalBrokerOrigin = EnsureXcm<OnlyBroker>;
+	type BrokerId = BrokerId;
 }
 
 impl parachains_assigner_bulk::Config for Runtime {}
@@ -1394,14 +1399,14 @@ construct_runtime! {
 		ParaAssignmentProvider: parachains_assigner_v1::{Pallet, Storage} = 65,
 		OnDemandAssignmentProvider: parachains_assigner_on_demand::{Pallet, Call, Storage, Event<T>} = 66,
 		ParachainsAssignmentProvider: parachains_assigner_parachains::{Pallet} = 67,
-		CoreTimeAssignmentProvider: parachains_assigner_bulk::{Pallet} = 68,
+		CoreTimeAssignmentProvider: parachains_assigner_bulk::{Pallet, Storage} = 68,
 
 		// Parachain Onboarding Pallets. Start indices at 70 to leave room.
 		Registrar: paras_registrar::{Pallet, Call, Storage, Event<T>, Config<T>} = 70,
 		Slots: slots::{Pallet, Call, Storage, Event<T>} = 71,
 		Auctions: auctions::{Pallet, Call, Storage, Event<T>} = 72,
 		Crowdloan: crowdloan::{Pallet, Call, Storage, Event<T>} = 73,
-		Coretime: coretime::{Pallet, Call} = 74,
+		Coretime: coretime::{Pallet, Call, Event<T>} = 74,
 
 		// Pallet for sending XCM.
 		XcmPallet: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config<T>} = 99,
