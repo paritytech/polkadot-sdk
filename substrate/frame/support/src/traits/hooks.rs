@@ -388,11 +388,8 @@ pub trait Hooks<BlockNumber> {
 	///
 	/// ## Implementation Note: Standalone Migrations
 	///
-	/// An increasingly common way to define migrations is
-	///
-	/// Additional "upgrade hooks" can be created by pallets by a manual implementation of
-	/// [`Hooks::on_runtime_upgrade`] which can be passed on to `Executive` at the top level
-	/// runtime.
+	/// Additional migrations can be created by directly implementing [`OnRuntimeUpgrade`] on
+	/// structs and passing them to `Executive`.
 	///
 	/// ## Implementation Note: Pallet Versioning
 	///
