@@ -17,7 +17,7 @@ sp-weights = { path = "../../../../substrate/primitives/weights", default-featur
 sp-core = { path = "../../../../substrate/primitives/core", default-features = false }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"frame-support/std",
 	"primitives/std",

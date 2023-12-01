@@ -23,7 +23,7 @@ use sp_consensus_slots::Slot;
 use sp_std::vec::Vec;
 
 pub use sp_core::bandersnatch::{
-	ring_vrf::{RingContext, RingProver, RingVerifier, RingVrfSignature},
+	ring_vrf::{RingContext, RingProver, RingVerifier, RingVerifierData, RingVrfSignature},
 	vrf::{VrfInput, VrfOutput, VrfSignData, VrfSignature},
 };
 
