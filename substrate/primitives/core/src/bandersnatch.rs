@@ -699,6 +699,10 @@ pub mod ring_vrf {
 	}
 
 	/// Context used to construct ring prover and verifier.
+	///
+	/// Generic parameter `D` represents the ring domain size and drives
+	/// the max number of supported ring members [`RingContext::max_keyset_size`]
+	/// which is equal to `D - RING_DOMAIN_OVERHEAD`.
 	#[derive(Clone)]
 	pub struct RingContext<const D: u32>(KZG);
 
