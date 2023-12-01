@@ -391,13 +391,6 @@ fn calculate_remote_deposit(bytes: u32, subs: u32) -> Balance {
 		.saturating_add(para_existential_deposit.saturating_mul(2))
 }
 
-fn assert_relay_para_flow(id: &Identity) {
-	let total_deposit = set_id_relay(id);
-	assert_set_id_parachain(id);
-	assert_reap_id_relay(total_deposit, id);
-	assert_reap_parachain(id);
-}
-
 fn nonsensical_additional() -> BoundedVec<(Data, Data), MaxAdditionalFields> {
 	BoundedVec::try_from(vec![(
 		Data::Raw(b"fOo".to_vec().try_into().unwrap()),
@@ -420,9 +413,30 @@ fn meaningful_additional() -> BoundedVec<(Data, Data), MaxAdditionalFields> {
 	.unwrap()
 }
 
+fn assert_relay_para_flow(id: &Identity) {
+	let total_deposit = set_id_relay(id);
+	assert_set_id_parachain(id);
+	assert_reap_id_relay(total_deposit, id);
+	assert_reap_parachain(id);
+}
+
 #[test]
 fn on_reap_identity_works_for_minimal_identity() {
 	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(false, None, Subs::One));
+}
+
+#[test]
+fn on_reap_identity_works_for_minimal_identity_with_zero_subs() {
+	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(false, None, Subs::Zero));
+}
+
+#[test]
+fn on_reap_identity_works_for_minimal_identity_with_max_subs() {
+	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(
+		false,
+		None,
+		Subs::Many(MaxSubAccounts::get()),
+	));
 }
 
 #[test]
@@ -431,11 +445,43 @@ fn on_reap_identity_works_for_full_identity_no_additional() {
 }
 
 #[test]
+fn on_reap_identity_works_for_full_identity_no_additional_zero_subs() {
+	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(true, None, Subs::Zero));
+}
+
+#[test]
+fn on_reap_identity_works_for_full_identity_no_additional_max_subs() {
+	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(
+		true,
+		None,
+		Subs::Many(MaxSubAccounts::get()),
+	));
+}
+
+#[test]
 fn on_reap_identity_works_for_full_identity_nonsense_additional() {
 	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(
 		true,
 		Some(nonsensical_additional()),
 		Subs::One,
+	));
+}
+
+#[test]
+fn on_reap_identity_works_for_full_identity_nonsense_additional_zero_subs() {
+	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(
+		true,
+		Some(nonsensical_additional()),
+		Subs::Zero,
+	));
+}
+
+#[test]
+fn on_reap_identity_works_for_full_identity_nonsense_additional_max_subs() {
+	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(
+		true,
+		Some(nonsensical_additional()),
+		Subs::Many(MaxSubAccounts::get()),
 	));
 }
 
@@ -449,28 +495,19 @@ fn on_reap_identity_works_for_full_identity_meaningful_additional() {
 }
 
 #[test]
-fn on_reap_indentity_works_for_full_identity_with_two_subs() {
-	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(
-		true,
-		Some(meaningful_additional()),
-		Subs::One,
-	))
-}
-
-#[test]
-fn on_reap_indentity_works_for_full_identity_with_max_subs() {
-	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(
-		true,
-		Some(meaningful_additional()),
-		Subs::Many(MaxSubAccounts::get()),
-	))
-}
-
-#[test]
-fn on_reap_indentity_works_for_full_identity_with_zero_subs() {
+fn on_reap_identity_works_for_full_identity_meaningful_additional_zero_subs() {
 	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(
 		true,
 		Some(meaningful_additional()),
 		Subs::Zero,
+	));
+}
+
+#[test]
+fn on_reap_identity_works_for_full_identity_meaningful_additional_max_subs() {
+	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(
+		true,
+		Some(meaningful_additional()),
+		Subs::Many(MaxSubAccounts::get()),
 	));
 }
