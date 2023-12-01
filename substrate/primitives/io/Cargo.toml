@@ -18,19 +18,19 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 bytes = { version = "1.1.0", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["bytes"] }
-sp-core = { path = "../core", default-features = false}
-sp-keystore = { path = "../keystore", default-features = false, optional = true}
-sp-std = { path = "../std", default-features = false}
+sp-core = { path = "../core", default-features = false }
+sp-keystore = { path = "../keystore", default-features = false, optional = true }
+sp-std = { path = "../std", default-features = false }
 libsecp256k1 = { version = "0.7", optional = true }
-sp-state-machine = { path = "../state-machine", default-features = false, optional = true}
-sp-runtime-interface = { path = "../runtime-interface", default-features = false}
-sp-trie = { path = "../trie", default-features = false, optional = true}
-sp-externalities = { path = "../externalities", default-features = false}
-sp-tracing = { path = "../tracing", default-features = false}
+sp-state-machine = { path = "../state-machine", default-features = false, optional = true }
+sp-runtime-interface = { path = "../runtime-interface", default-features = false }
+sp-trie = { path = "../trie", default-features = false, optional = true }
+sp-externalities = { path = "../externalities", default-features = false }
+sp-tracing = { path = "../tracing", default-features = false }
 log = { version = "0.4.17", optional = true }
-secp256k1 = { version = "0.28.0", features = ["recovery", "global-context"], optional = true }
+secp256k1 = { version = "0.28.0", features = ["global-context", "recovery"], optional = true }
 tracing = { version = "0.1.29", default-features = false }
-tracing-core = { version = "0.1.28", default-features = false}
+tracing-core = { version = "0.1.28", default-features = false }
 
 # Required for backwards compatibility reason, but only used for verifying when `UseDalekExt` is set.
 ed25519-dalek = { version = "2.0", default-features = false, optional = true }
@@ -39,7 +39,7 @@ ed25519-dalek = { version = "2.0", default-features = false, optional = true }
 rustversion = "1.0.6"
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"bytes/std",
 	"codec/std",
@@ -60,7 +60,7 @@ std = [
 	"tracing/std",
 ]
 
-with-tracing = [ "sp-tracing/with-tracing" ]
+with-tracing = ["sp-tracing/with-tracing"]
 
 # These two features are used for `no_std` builds for the environments which already provides
 # `#[panic_handler]`, `#[alloc_error_handler]` and `#[global_allocator]`.
@@ -92,9 +92,9 @@ improved_panic_error_reporting = []
 # This feature adds BLS crypto primitives.
 # It should not be used in production since the implementation and interface may still
 # be subject to significant changes.
-bls-experimental = [ "sp-keystore/bls-experimental" ]
+bls-experimental = ["sp-keystore/bls-experimental"]
 
 # This feature adds Bandersnatch crypto primitives.
 # It should not be used in production since the implementation and interface may still
 # be subject to significant changes.
-bandersnatch-experimental = [ "sp-keystore/bandersnatch-experimental" ]
+bandersnatch-experimental = ["sp-keystore/bandersnatch-experimental"]

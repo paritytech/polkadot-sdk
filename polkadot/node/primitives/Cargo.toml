@@ -21,7 +21,7 @@ polkadot-parachain-primitives = { path = "../../parachain", default-features = f
 schnorrkel = "0.9.1"
 thiserror = "1.0.48"
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
-serde = { version = "1.0.188", features = ["derive"] }
+serde = { version = "1.0.193", features = ["derive"] }
 
 [target.'cfg(not(target_os = "unknown"))'.dependencies]
 zstd = { version = "0.12.4", default-features = false }

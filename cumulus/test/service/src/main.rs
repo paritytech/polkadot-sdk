@@ -128,7 +128,7 @@ fn main() -> Result<(), sc_cli::Error> {
 				})
 				.unwrap_or(cumulus_test_service::Consensus::RelayChain);
 
-			let (mut task_manager, _, _, _, _) = tokio_runtime
+			let (mut task_manager, _, _, _, _, _) = tokio_runtime
 				.block_on(cumulus_test_service::start_node_impl(
 					config,
 					collator_key,
@@ -139,6 +139,7 @@ fn main() -> Result<(), sc_cli::Error> {
 					|_| Ok(jsonrpsee::RpcModule::new(())),
 					consensus,
 					collator_options,
+					true,
 				))
 				.expect("could not create Cumulus test service");
 

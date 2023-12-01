@@ -15,13 +15,13 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 frame-election-provider-solution-type = { path = "solution-type" }
-frame-support = { path = "../support", default-features = false}
-frame-system = { path = "../system", default-features = false}
-sp-arithmetic = { path = "../../primitives/arithmetic", default-features = false}
-sp-npos-elections = { path = "../../primitives/npos-elections", default-features = false}
-sp-runtime = { path = "../../primitives/runtime", default-features = false}
-sp-std = { path = "../../primitives/std", default-features = false}
-sp-core = { path = "../../primitives/core", default-features = false}
+frame-support = { path = "../support", default-features = false }
+frame-system = { path = "../system", default-features = false }
+sp-arithmetic = { path = "../../primitives/arithmetic", default-features = false }
+sp-npos-elections = { path = "../../primitives/npos-elections", default-features = false }
+sp-runtime = { path = "../../primitives/runtime", default-features = false }
+sp-std = { path = "../../primitives/std", default-features = false }
+sp-core = { path = "../../primitives/core", default-features = false }
 
 [dev-dependencies]
 rand = { version = "0.8.5", features = ["small_rng"] }
@@ -29,8 +29,8 @@ sp-io = { path = "../../primitives/io" }
 sp-npos-elections = { path = "../../primitives/npos-elections" }
 
 [features]
-default = [ "std" ]
-fuzz = [ "default" ]
+default = ["std"]
+fuzz = ["default"]
 std = [
 	"codec/std",
 	"frame-support/std",
