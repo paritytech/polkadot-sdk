@@ -21,7 +21,7 @@
 // #[cfg(test)]
 // mod tests;
 
-use frame_support::{pallet_prelude::*, traits::Currency};
+use frame_support::{pallet_prelude::*, traits::Currency, traits::OriginTrait};
 use frame_system::pallet_prelude::*;
 use pallet_broker::{CoreAssignment, CoreIndex as BrokerCoreIndex};
 use primitives::{CoreIndex, Id as ParaId};
@@ -94,6 +94,13 @@ pub mod pallet {
 		RevenueInfoRequested { when: BlockNumberFor<T> },
 		/// A core has received a new assignment from the broker chain.
 		CoreAssigned { core: CoreIndex },
+	}
+
+	#[pallet::origin]
+	#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	pub enum Origin {
+		/// Coretime origin, used when setting `bulk_core_count` in the `HostConfiguration`
+		Coretime,
 	}
 
 	#[pallet::error]
@@ -191,5 +198,22 @@ impl<T: Config> Pallet<T> {
 			ensure_root(origin.clone())?;
 		}
 		Ok(())
+	}
+}
+
+/// `EnsureOrigin` implementation for `Origin::Coretime`
+pub struct EnsureCoretime;
+impl<O: OriginTrait + From<Origin>> EnsureOrigin<O> for EnsureCoretime {
+	type Success = ();
+	fn try_origin(o: O) -> Result<Self::Success, O> {
+		o.into().and_then(|o| match o {
+			Origin::Coretime => Ok(()),
+			r => Err(O::from(r)),
+		})
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<O, ()> {
+		Ok(O::from(Origin::Coretime))
 	}
 }

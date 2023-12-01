@@ -32,6 +32,8 @@ use primitives::{
 };
 use sp_runtime::{traits::Zero, Perbill};
 use sp_std::prelude::*;
+// TODO: Avoid depending on this here if possible
+use runtime_common::coretime::EnsureCoretime;
 
 #[cfg(test)]
 mod tests;
@@ -1226,11 +1228,16 @@ pub mod pallet {
 		}
 		/// Set bulk core count
 		#[pallet::call_index(54)]
+		// TODO: Create better weight here. `set_config_with_option_u16`
 		#[pallet::weight((
-
+			T::WeightInfo::set_config_with_option_u32(),
+			DispatchClass::Operational,
 		))]
 		pub fn set_bulk_core_count(origin: OriginFor<T>, count: u16) -> DispatchResult {
-			unimplemented!("TODO: Implement")
+			EnsureCoretime::try_origin(origin)?;
+			Self::schedule_config_update(|config| {
+				config.bulk_core_count = count;
+			})
 		}
 	}
 
