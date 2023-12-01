@@ -548,7 +548,7 @@ pub fn __create_tt_macro(input: TokenStream) -> TokenStream {
 
 /// Allows accessing on-chain pallet storage that is no longer accessible via the pallet.
 ///
-/// This is especially useful when writing storage migraitons, when types of storage items are
+/// This is especially useful when writing storage migrations, when types of storage items are
 /// modified or outright removed, but the previous definition is required to perform the migration.
 ///
 /// ## Example
