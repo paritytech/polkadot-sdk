@@ -13,10 +13,10 @@ readme = "README.md"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [features]
-default = [ "rocksdb" ]
+default = ["rocksdb"]
 # The RocksDB feature activates the RocksDB database backend. If it is not activated, and you pass
 # a path to a database, an error will be produced at runtime.
-rocksdb = [ "sc-client-db/rocksdb" ]
+rocksdb = ["sc-client-db/rocksdb"]
 # exposes the client type
 test-helpers = []
 runtime-benchmarks = [
@@ -59,7 +59,7 @@ sc-network-transactions = { path = "../network/transactions" }
 sc-chain-spec = { path = "../chain-spec" }
 sc-client-api = { path = "../api" }
 sp-api = { path = "../../primitives/api" }
-sc-client-db = { path = "../db", default-features = false}
+sc-client-db = { path = "../db", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 sc-executor = { path = "../executor" }
 sc-transaction-pool = { path = "../transaction-pool" }
@@ -77,7 +77,7 @@ sc-sysinfo = { path = "../sysinfo" }
 tracing = "0.1.29"
 tracing-futures = { version = "0.2.4" }
 async-trait = "0.1.57"
-tokio = { version = "1.22.0", features = ["time", "rt-multi-thread", "parking_lot"] }
+tokio = { version = "1.22.0", features = ["parking_lot", "rt-multi-thread", "time"] }
 tempfile = "3.1.0"
 directories = "5.0.1"
 static_init = "1.0.3"

@@ -25,4 +25,4 @@ sp-core = { path = "../../primitives/core" }
 sp-rpc = { path = "../../primitives/rpc" }
 sp-runtime = { path = "../../primitives/runtime" }
 sp-version = { path = "../../primitives/version" }
-jsonrpsee = { version = "0.16.2", features = ["server", "client-core", "macros"] }
+jsonrpsee = { version = "0.16.2", features = ["client-core", "macros", "server"] }
