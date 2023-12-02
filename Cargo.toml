@@ -88,6 +88,7 @@ members = [
 	"cumulus/parachains/runtimes/collectives/collectives-westend",
 	"cumulus/parachains/runtimes/contracts/contracts-rococo",
 	"cumulus/parachains/runtimes/glutton/glutton-westend",
+	"cumulus/parachains/runtimes/staking/staking-rococo",
 	"cumulus/parachains/runtimes/starters/seedling",
 	"cumulus/parachains/runtimes/starters/shell",
 	"cumulus/parachains/runtimes/test-utils",
