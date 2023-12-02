@@ -50,6 +50,7 @@ impl SassafrasInherentData for InherentData {
 	}
 }
 
+// TODO: this can be shared and stored in sc-consensus-slots...
 /// Provides the slot duration inherent data.
 pub struct InherentDataProvider(InherentType);
 

@@ -4,38 +4,29 @@ use futures::FutureExt;
 use node_sassafras_runtime::{self, opaque::Block, RuntimeApi};
 use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_grandpa::SharedVoterState;
-pub use sc_executor::NativeElseWasmExecutor;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager, WarpSyncParams};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use std::{sync::Arc, time::Duration};
 
-// Our native executor instance.
-pub struct ExecutorDispatch;
-
+/// Only enable the benchmarking host functions when we actually want to benchmark.
 #[cfg(feature = "runtime-benchmarks")]
-type ExtendedHostFunctions = (
-	sp_crypto_ec_utils::elliptic_curves::HostFunctions,
+type HostFunctions = (
+	sp_io::SubstrateHostFunctions,
+	sp_crypto_ec_utils::bls12_381::host_calls::HostFunctions,
+	sp_crypto_ec_utils::ed_on_bls12_381_bandersnatch::host_calls::HostFunctions,
 	frame_benchmarking::benchmarking::HostFunctions,
 );
-
+/// Otherwise we only use the default Substrate host functions.
 #[cfg(not(feature = "runtime-benchmarks"))]
-type ExtendedHostFunctions = sp_crypto_ec_utils::elliptic_curves::HostFunctions;
+type HostFunctions = (
+	sp_io::SubstrateHostFunctions,
+	sp_crypto_ec_utils::bls12_381::host_calls::HostFunctions,
+	sp_crypto_ec_utils::ed_on_bls12_381_bandersnatch::host_calls::HostFunctions,
+);
 
-impl sc_executor::NativeExecutionDispatch for ExecutorDispatch {
-	type ExtendHostFunctions = ExtendedHostFunctions;
-
-	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-		node_sassafras_runtime::api::dispatch(method, data)
-	}
-
-	fn native_version() -> sc_executor::NativeVersion {
-		node_sassafras_runtime::native_version()
-	}
-}
-
-pub type FullClient =
-	sc_service::TFullClient<Block, RuntimeApi, NativeElseWasmExecutor<ExecutorDispatch>>;
+pub(crate) type FullClient =
+	sc_service::TFullClient<Block, RuntimeApi, sc_executor::WasmExecutor<HostFunctions>>;
 type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 
@@ -45,6 +36,23 @@ type FullGrandpaBlockImport =
 /// The minimum period of blocks on which justifications will be
 /// imported and generated.
 const GRANDPA_JUSTIFICATION_PERIOD: u32 = 512;
+
+fn create_inherent_data_providers() -> impl sp_inherents::CreateInherentDataProviders<
+	Block,
+	(),
+	InherentDataProviders = impl sc_consensus_slots::InherentDataProviderExt,
+> {
+	|_block_hash, _extra_args| async move {
+		let slot_duration_ms = node_sassafras_runtime::SLOT_DURATION_IN_MILLISECONDS;
+		let slot_duration = sp_consensus_slots::SlotDuration::from_millis(slot_duration_ms);
+		let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+		// TODO: implement a shared sc-consensus-slots::InherentDataProvider
+		// (shared between babe and sassafras)
+		let slot =
+			sc_consensus_sassafras::InherentDataProvider::from_timestamp(*timestamp, slot_duration);
+		Ok((slot, timestamp))
+	}
+}
 
 pub fn new_partial(
 	config: &Configuration,
@@ -75,7 +83,7 @@ pub fn new_partial(
 		})
 		.transpose()?;
 
-	let executor = sc_service::new_native_or_wasm_executor(&config);
+	let executor = sc_service::new_wasm_executor::<HostFunctions>(&config);
 
 	let (client, backend, keystore_container, task_manager) =
 		sc_service::new_full_parts::<Block, RuntimeApi, _>(
@@ -116,22 +124,13 @@ pub fn new_partial(
 		client.clone(),
 	)?;
 
-	let slot_duration = sassafras_link.genesis_config().slot_duration;
-
 	let import_queue = sc_consensus_sassafras::import_queue(
 		sassafras_link.clone(),
 		sassafras_block_import.clone(),
 		Some(Box::new(justification_import)),
 		client.clone(),
 		select_chain.clone(),
-		move |_, ()| async move {
-			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-			let slot = sc_consensus_sassafras::InherentDataProvider::from_timestamp(
-				*timestamp,
-				slot_duration,
-			);
-			Ok((slot, timestamp))
-		},
+		create_inherent_data_providers(),
 		&task_manager.spawn_essential_handle(),
 		config.prometheus_registry(),
 		telemetry.as_ref().map(|x| x.handle()),
@@ -168,10 +167,9 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
 		&client.block_hash(0).ok().flatten().expect("Genesis block exists; qed"),
 		&config.chain_spec,
 	);
-
-	net_config.add_notification_protocol(sc_consensus_grandpa::grandpa_peers_set_config(
-		grandpa_protocol_name.clone(),
-	));
+	let (grandpa_protocol_config, grandpa_notification_service) =
+		sc_consensus_grandpa::grandpa_peers_set_config(grandpa_protocol_name.clone());
+	net_config.add_notification_protocol(grandpa_protocol_config);
 
 	let warp_sync = Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
 		backend.clone(),
@@ -254,8 +252,6 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
 			telemetry.as_ref().map(|x| x.handle()),
 		);
 
-		let slot_duration = sassafras_link.genesis_config().slot_duration;
-
 		let sassafras_params = sc_consensus_sassafras::SassafrasWorkerParams {
 			client: client.clone(),
 			keystore: keystore_container.keystore(),
@@ -266,14 +262,7 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
 			sync_oracle: sync_service.clone(),
 			justification_sync_link: sync_service.clone(),
 			force_authoring,
-			create_inherent_data_providers: move |_, _| async move {
-				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-				let slot = sc_consensus_sassafras::InherentDataProvider::from_timestamp(
-					*timestamp,
-					slot_duration,
-				);
-				Ok((slot, timestamp))
-			},
+			create_inherent_data_providers: create_inherent_data_providers(),
 			offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool.clone()),
 		};
 
@@ -315,6 +304,7 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
 			link: grandpa_link,
 			network,
 			sync: Arc::new(sync_service),
+			notification_service: grandpa_notification_service,
 			voting_rule: sc_consensus_grandpa::VotingRulesBuilder::default().build(),
 			prometheus_registry,
 			shared_voter_state: SharedVoterState::empty(),

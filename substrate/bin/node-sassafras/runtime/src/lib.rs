@@ -27,7 +27,7 @@ use pallet_grandpa::{
 use pallet_transaction_payment::CurrencyAdapter;
 
 use frame_support::{
-	construct_runtime, parameter_types,
+	construct_runtime, genesis_builder_helper, parameter_types,
 	traits::{ConstU128, ConstU32, ConstU64, ConstU8},
 	weights::{
 		constants::{RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND},
@@ -130,7 +130,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 pub const SLOT_DURATION_IN_MILLISECONDS: u64 = 3000;
 
 /// Sassafras epoch duration in slots.
-pub const EPOCH_DURATION_IN_SLOTS: u64 = 10;
+pub const EPOCH_DURATION_IN_SLOTS: u32 = 10;
 
 /// Max authorities for both Sassafras and Grandpa.
 pub const MAX_AUTHORITIES: u32 = 32;
@@ -196,8 +196,7 @@ impl frame_system::Config for Runtime {
 }
 
 impl pallet_sassafras::Config for Runtime {
-	type SlotDuration = ConstU64<SLOT_DURATION_IN_MILLISECONDS>;
-	type EpochDuration = ConstU64<EPOCH_DURATION_IN_SLOTS>;
+	type EpochLength = ConstU32<EPOCH_DURATION_IN_SLOTS>;
 	type MaxAuthorities = ConstU32<MAX_AUTHORITIES>;
 	type WeightInfo = pallet_sassafras::weights::SubstrateWeight<Runtime>;
 	#[cfg(feature = "use-session-pallet")]
@@ -236,6 +235,7 @@ impl pallet_balances::Config for Runtime {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
+	type RuntimeFreezeReason = ();
 	type MaxHolds = ();
 }
 
@@ -513,6 +513,16 @@ impl_runtime_apis! {
 
 		fn query_length_to_fee(length: u32) -> Balance {
 			TransactionPayment::length_to_fee(length)
+		}
+	}
+
+	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
+		fn create_default_config() -> Vec<u8> {
+			genesis_builder_helper::create_default_config::<RuntimeGenesisConfig>()
+		}
+
+		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
+			genesis_builder_helper::build_config::<RuntimeGenesisConfig>(config)
 		}
 	}
 

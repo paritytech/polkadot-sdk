@@ -37,6 +37,7 @@ sp-std = { path = "../../../primitives/std", default-features = false }
 sp-storage = { path = "../../../primitives/storage", default-features = false}
 sp-transaction-pool = { path = "../../../primitives/transaction-pool", default-features = false }
 sp-version = { path = "../../../primitives/version", default-features = false }
+sp-genesis-builder = { path = "../../../primitives/genesis-builder", default-features = false }
 
 # Used for the node template's RPCs
 frame-system-rpc-runtime-api = { path = "../../../frame/system/rpc/runtime-api/", default-features = false }
@@ -70,6 +71,7 @@ std = [
 	"sp-block-builder/std",
 	"sp-consensus-sassafras/std",
 	"sp-core/std",
+	"sp-genesis-builder/std",
 	"sp-inherents/std",
 	"sp-offchain/std",
 	"sp-runtime/std",

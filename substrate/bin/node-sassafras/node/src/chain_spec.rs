@@ -1,14 +1,9 @@
-use node_sassafras_runtime::{
-	AccountId, BalancesConfig, GrandpaConfig, RuntimeGenesisConfig, SassafrasConfig, Signature,
-	SudoConfig, SystemConfig, WASM_BINARY,
-};
 #[cfg(feature = "use-session-pallet")]
-use node_sassafras_runtime::{SessionConfig, SessionKeys};
+use node_sassafras_runtime::SessionKeys;
+use node_sassafras_runtime::{AccountId, RuntimeGenesisConfig, Signature, WASM_BINARY};
 use sc_service::ChainType;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_consensus_sassafras::{
-	AuthorityId as SassafrasId, EpochConfiguration as SassafrasEpochConfig,
-};
+use sp_consensus_sassafras::AuthorityId as SassafrasId;
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
@@ -17,7 +12,15 @@ const SASSAFRAS_TICKETS_MAX_ATTEMPTS_NUMBER: u32 = 8;
 const SASSAFRAS_TICKETS_REDUNDANCY_FACTOR: u32 = 1;
 
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
-pub type ChainSpec = sc_service::GenericChainSpec<RuntimeGenesisConfig>;
+/// Ec-utils host functions required to construct the test `RingContext` instance.
+pub type ChainSpec = sc_service::GenericChainSpec<
+	RuntimeGenesisConfig,
+	Option<()>,
+	(
+		sp_crypto_ec_utils::bls12_381::host_calls::HostFunctions,
+		sp_crypto_ec_utils::ed_on_bls12_381_bandersnatch::host_calls::HostFunctions,
+	),
+>;
 
 /// Generate a crypto pair from seed.
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
@@ -46,114 +49,70 @@ pub fn authority_keys_from_seed(seed: &str) -> (AccountId, SassafrasId, GrandpaI
 }
 
 pub fn development_config() -> Result<ChainSpec, String> {
-	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
-
-	Ok(ChainSpec::from_genesis(
-		"Development",
-		"dev",
-		ChainType::Development,
-		move || {
-			testnet_genesis(
-				wasm_binary,
-				vec![authority_keys_from_seed("Alice")],
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				vec![
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-				],
-			)
-		},
-		vec![],
+	Ok(ChainSpec::builder(
+		WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?,
 		None,
-		None,
-		None,
-		None,
-		None,
+	)
+	.with_name("Development")
+	.with_id("dev")
+	.with_chain_type(ChainType::Development)
+	.with_genesis_config_patch(testnet_genesis(
+		vec![authority_keys_from_seed("Alice")],
+		get_account_id_from_seed::<sr25519::Public>("Alice"),
+		vec![
+			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			get_account_id_from_seed::<sr25519::Public>("Bob"),
+			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+		],
 	))
+	.build())
 }
 
 pub fn local_testnet_config() -> Result<ChainSpec, String> {
-	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
-
-	Ok(ChainSpec::from_genesis(
-		"Local Testnet",
-		"local_testnet",
-		ChainType::Local,
-		move || {
-			testnet_genesis(
-				wasm_binary,
-				vec![authority_keys_from_seed("Alice"), authority_keys_from_seed("Bob")],
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				vec![
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie"),
-					get_account_id_from_seed::<sr25519::Public>("Dave"),
-					get_account_id_from_seed::<sr25519::Public>("Eve"),
-					get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-					get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-				],
-			)
-		},
-		vec![],
+	Ok(ChainSpec::builder(
+		WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?,
 		None,
-		None,
-		None,
-		None,
-		None,
+	)
+	.with_name("Local Testnet")
+	.with_id("local_testnet")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(testnet_genesis(
+		// Initial PoA authorities
+		vec![authority_keys_from_seed("Alice"), authority_keys_from_seed("Bob")],
+		// Sudo account
+		get_account_id_from_seed::<sr25519::Public>("Alice"),
+		// Pre-funded accounts
+		vec![
+			get_account_id_from_seed::<sr25519::Public>("Alice"),
+			get_account_id_from_seed::<sr25519::Public>("Bob"),
+			get_account_id_from_seed::<sr25519::Public>("Charlie"),
+			get_account_id_from_seed::<sr25519::Public>("Dave"),
+			get_account_id_from_seed::<sr25519::Public>("Eve"),
+			get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+		],
 	))
+	.build())
 }
 
-/// Configure initial storage state for FRAME modules.
+#[cfg(feature = "use-session-pallet")]
 fn testnet_genesis(
-	wasm_binary: &[u8],
 	initial_authorities: Vec<(AccountId, SassafrasId, GrandpaId)>,
 	root_key: AccountId,
 	endowed_accounts: Vec<AccountId>,
-) -> RuntimeGenesisConfig {
-	RuntimeGenesisConfig {
-		system: SystemConfig {
-			// Add Wasm runtime to storage.
-			code: wasm_binary.to_vec(),
-			..Default::default()
+) -> serde_json::Value {
+	serde_json::json!({
+		"balances": {
+			"balances": endowed_accounts.iter().cloned().map(|k| (k, 1u64 << 60)).collect::<Vec<_>>(),
 		},
-		balances: BalancesConfig {
-			// Configure endowed accounts with initial balance of 1 << 60.
-			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
-		},
-		sassafras: SassafrasConfig {
-			#[cfg(feature = "use-session-pallet")]
-			authorities: Vec::new(),
-			#[cfg(not(feature = "use-session-pallet"))]
-			authorities: initial_authorities.iter().map(|x| x.1.clone()).collect(),
-			epoch_config: SassafrasEpochConfig {
-				attempts_number: SASSAFRAS_TICKETS_MAX_ATTEMPTS_NUMBER,
-				redundancy_factor: SASSAFRAS_TICKETS_REDUNDANCY_FACTOR,
-			},
-			..Default::default()
-		},
-		grandpa: GrandpaConfig {
-			#[cfg(feature = "use-session-pallet")]
-			authorities: vec![],
-			#[cfg(not(feature = "use-session-pallet"))]
-			authorities: initial_authorities.iter().map(|x| (x.2.clone(), 1)).collect(),
-			..Default::default()
-		},
-		sudo: SudoConfig {
-			// Assign network admin rights.
-			key: Some(root_key),
-		},
-		transaction_payment: Default::default(),
-		#[cfg(feature = "use-session-pallet")]
-		session: SessionConfig {
-			keys: initial_authorities
+		"session": SessionConfig {
+			"keys": initial_authorities
 				.iter()
 				.map(|x| {
 					(
@@ -164,5 +123,34 @@ fn testnet_genesis(
 				})
 				.collect::<Vec<_>>(),
 		},
-	}
+		"sudo": {
+			"key": Some(root_key),
+		},
+	})
+}
+
+#[cfg(not(feature = "use-session-pallet"))]
+fn testnet_genesis(
+	initial_authorities: Vec<(AccountId, SassafrasId, GrandpaId)>,
+	root_key: AccountId,
+	endowed_accounts: Vec<AccountId>,
+) -> serde_json::Value {
+	serde_json::json!({
+		"balances": {
+			"balances": endowed_accounts.iter().cloned().map(|k| (k, 1u64 << 60)).collect::<Vec<_>>(),
+		},
+		"sassafras": {
+			"authorities": initial_authorities.iter().map(|x| x.1.clone()).collect::<Vec<_>>(),
+			"epochConfig": sp_consensus_sassafras::EpochConfiguration {
+				attempts_number: SASSAFRAS_TICKETS_MAX_ATTEMPTS_NUMBER,
+				redundancy_factor: SASSAFRAS_TICKETS_REDUNDANCY_FACTOR,
+			},
+		},
+		"grandpa": {
+			"authorities": initial_authorities.iter().map(|x| (x.2.clone(), 1)).collect::<Vec<_>>(),
+		},
+		"sudo": {
+			"key": Some(root_key),
+		},
+	})
 }
