@@ -63,7 +63,6 @@ directory of the repo:
 
 ```bash
 git checkout <latest tagged release>
-./scripts/init.sh
 cargo build --release
 ```
 
