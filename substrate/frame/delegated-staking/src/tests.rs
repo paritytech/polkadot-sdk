@@ -20,6 +20,43 @@
 use super::*;
 use crate::{mock::*, Event};
 #[test]
-fn hello_world_test() {
+fn create_a_delegatee_with_first_delegator() {
+	// Similar to creating a nomination pool
+	ExtBuilder::default().build_and_execute(|| assert!(true));
+}
+
+#[test]
+fn add_delegation_to_existing_delegator() {
+	// Similar to creating a nomination pool
+	ExtBuilder::default().build_and_execute(|| assert!(true));
+}
+
+#[test]
+fn create_multiple_delegators() {
+	// Similar to creating a nomination pool
+	ExtBuilder::default().build_and_execute(|| assert!(true));
+}
+
+#[test]
+fn withdraw_delegation() {
+	// Similar to creating a nomination pool
+	ExtBuilder::default().build_and_execute(|| assert!(true));
+}
+
+#[test]
+fn apply_pending_slash() {
+	// Similar to creating a nomination pool
+	ExtBuilder::default().build_and_execute(|| assert!(true));
+}
+
+#[test]
+fn distribute_rewards() {
+	// Similar to creating a nomination pool
+	ExtBuilder::default().build_and_execute(|| assert!(true));
+}
+
+#[test]
+fn migrate_to_delegator() {
+	// Similar to creating a nomination pool
 	ExtBuilder::default().build_and_execute(|| assert!(true));
 }

@@ -34,7 +34,7 @@ use frame_support::{
 	},
 };
 use pallet::*;
-use sp_runtime::{traits::Zero, RuntimeDebug, Saturating};
+use sp_runtime::{traits::Zero, DispatchResult, RuntimeDebug, Saturating};
 use sp_staking::{
 	delegation::{Delegatee, Delegator},
 	StakerStatus, StakingInterface,
@@ -92,14 +92,14 @@ pub mod pallet {
 		Delegating,
 	}
 
-	#[pallet::genesis_config]
-	#[derive(frame_support::DefaultNoBound)]
-	pub struct GenesisConfig<T: Config> {}
-
-	#[pallet::genesis_build]
-	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
-		fn build(&self) {}
-	}
+	// #[pallet::genesis_config]
+	// #[derive(frame_support::DefaultNoBound)]
+	// pub struct GenesisConfig<T: Config> {}
+	//
+	// #[pallet::genesis_build]
+	// impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+	// 	fn build(&self) {}
+	// }
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -390,5 +390,22 @@ impl<T: Config> Delegator for Pallet<T> {
 
 		// add the above removed delegation to `new_delegator`.
 		Self::delegate(new_delegator, delegatee, value)
+	}
+}
+
+impl<T: Config> sp_staking::StakeBalanceProvider for Pallet<T> {
+	type Balance = BalanceOf<T>;
+	type AccountId = T::AccountId;
+
+	fn stakeable_balance(who: Self::AccountId) -> Self::Balance {
+		todo!()
+	}
+
+	fn hold_stake(who: Self::AccountId, amount: Self::Balance) -> DispatchResult {
+		todo!()
+	}
+
+	fn release_stake(who: Self::AccountId, amount: Self::Balance) -> DispatchResult {
+		todo!()
 	}
 }

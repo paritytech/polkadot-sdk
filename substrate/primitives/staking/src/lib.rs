@@ -420,4 +420,25 @@ pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
 	pub page_count: Page,
 }
 
+/// Something that provides stakeable balance and a mechanism to reserve this balance.
+pub trait StakeBalanceProvider {
+	/// Balance type used by the staking system.
+	type Balance: Sub<Output = Self::Balance>
+		+ Ord
+		+ PartialEq
+		+ Default
+		+ Copy
+		+ MaxEncodedLen
+		+ FullCodec
+		+ TypeInfo
+		+ Saturating;
+
+	/// AccountId type used by the staking system.
+	type AccountId: Clone + sp_std::fmt::Debug;
+
+	fn stakeable_balance(who: Self::AccountId) -> Self::Balance;
+	fn hold_stake(who: Self::AccountId, amount: Self::Balance) -> DispatchResult;
+	fn release_stake(who: Self::AccountId, amount: Self::Balance) -> DispatchResult;
+}
+
 sp_core::generate_feature_enabled_macro!(runtime_benchmarks_enabled, feature = "runtime-benchmarks", $);
