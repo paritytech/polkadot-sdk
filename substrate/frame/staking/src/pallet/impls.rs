@@ -41,7 +41,7 @@ use sp_runtime::{
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
 	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
-	EraIndex, Page, SessionIndex, Stake,
+	EraIndex, Page, SessionIndex, Stake, StakeBalanceProvider,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
 };
@@ -58,6 +58,7 @@ use super::pallet::*;
 
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;
+use frame_support::traits::WithdrawReasons;
 #[cfg(any(test, feature = "try-runtime"))]
 use sp_runtime::TryRuntimeError;
 
@@ -1817,11 +1818,28 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn force_unlock(who: &Self::AccountId) -> sp_runtime::DispatchResult {
-		T::Currency::remove_lock(crate::STAKING_ID, who);
+		T::StakeBalanceProvider::release(who);
 		Ok(())
 	}
 }
 
+impl<T: Config> StakeBalanceProvider for Pallet<T> {
+	type Balance = BalanceOf<T>;
+	type AccountId = T::AccountId;
+
+	fn stakeable_balance(who: &Self::AccountId) -> Self::Balance {
+		T::Currency::free_balance(who)
+	}
+
+	fn update_hold(who: &Self::AccountId, amount: Self::Balance) -> sp_runtime::DispatchResult {
+		T::Currency::set_lock(crate::STAKING_ID, who, amount, WithdrawReasons::all());
+		Ok(())
+	}
+
+	fn release(who: &Self::AccountId) {
+		T::Currency::remove_lock(crate::STAKING_ID, who)
+	}
+}
 #[cfg(any(test, feature = "try-runtime"))]
 impl<T: Config> Pallet<T> {
 	pub(crate) fn do_try_state(_: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {

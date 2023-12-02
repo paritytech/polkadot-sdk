@@ -31,16 +31,11 @@
 //! performed through the methods exposed by the [`StakingLedger`] implementation in order to ensure
 //! state consistency.
 
-use frame_support::{
-	defensive,
-	traits::{LockableCurrency, WithdrawReasons},
-};
-use sp_staking::StakingAccount;
+use frame_support::defensive;
+use sp_staking::{StakeBalanceProvider, StakingAccount};
 use sp_std::prelude::*;
 
-use crate::{
-	BalanceOf, Bonded, Config, Error, Ledger, Payee, RewardDestination, StakingLedger, STAKING_ID,
-};
+use crate::{BalanceOf, Bonded, Config, Error, Ledger, Payee, RewardDestination, StakingLedger};
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
 use sp_runtime::traits::Zero;
@@ -166,7 +161,8 @@ impl<T: Config> StakingLedger<T> {
 			return Err(Error::<T>::NotStash)
 		}
 
-		T::Currency::set_lock(STAKING_ID, &self.stash, self.total, WithdrawReasons::all());
+		T::StakeBalanceProvider::update_hold(&self.stash, self.total)
+			.map_err(|_| Error::<T>::BadState)?;
 		Ledger::<T>::insert(
 			&self.controller().ok_or_else(|| {
 				defensive!("update called on a ledger that is not bonded.");
@@ -207,7 +203,7 @@ impl<T: Config> StakingLedger<T> {
 		let controller = <Bonded<T>>::get(stash).ok_or(Error::<T>::NotStash)?;
 
 		<Ledger<T>>::get(&controller).ok_or(Error::<T>::NotController).map(|ledger| {
-			T::Currency::remove_lock(STAKING_ID, &ledger.stash);
+			T::StakeBalanceProvider::release(&ledger.stash);
 			Ledger::<T>::remove(controller);
 
 			<Bonded<T>>::remove(&stash);
