@@ -65,7 +65,7 @@ use substrate_test_client::{
 /// The client type being used by the test service.
 pub type Client = FullClient;
 
-pub use polkadot_service::{FullBackend, GetLastTimestamp};
+pub use polkadot_service::FullBackend;
 
 /// Create a new full node.
 #[sc_tracing::logging::prefix_logs_with(config.network.node_name.as_str())]

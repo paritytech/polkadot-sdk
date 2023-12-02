@@ -17,6 +17,7 @@
 use super::{AuthorityDiscoveryApi, Block, Error, Hash, IsParachainNode, Registry};
 use polkadot_node_subsystem_types::DefaultSubsystemClient;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
+use sp_api::CallApiAt;
 use sp_core::traits::SpawnNamed;
 
 use polkadot_availability_distribution::IncomingRequestReceivers;
@@ -82,7 +83,6 @@ pub use polkadot_statement_distribution::StatementDistributionSubsystem;
 pub struct OverseerGenArgs<'a, Spawner, RuntimeClient>
 where
 	RuntimeClient: 'static + HeaderBackend<Block> + AuxStore,
-	RuntimeClient::Api: ParachainHost<Block> + BabeApi<Block> + AuthorityDiscoveryApi<Block>,
 	Spawner: 'static + SpawnNamed + Clone + Unpin,
 {
 	/// The keystore to use for i.e. validator keys.
@@ -214,8 +214,7 @@ pub fn prepared_overseer_builder<Spawner, RuntimeClient>(
 	Error,
 >
 where
-	RuntimeClient: 'static + HeaderBackend<Block> + AuxStore,
-	RuntimeClient::Api: ParachainHost<Block> + BabeApi<Block> + AuthorityDiscoveryApi<Block>,
+	RuntimeClient: 'static + HeaderBackend<Block> + AuxStore + CallApiAt<Block>,
 	Spawner: 'static + SpawnNamed + Clone + Unpin,
 {
 	use polkadot_node_subsystem_util::metrics::Metrics;
@@ -373,8 +372,7 @@ pub trait OverseerGen {
 		Error,
 	>
 	where
-		RuntimeClient: 'static + HeaderBackend<Block> + AuxStore,
-		RuntimeClient::Api: ParachainHost<Block> + BabeApi<Block> + AuthorityDiscoveryApi<Block>,
+		RuntimeClient: 'static + HeaderBackend<Block> + AuxStore + CallApiAt<Block>,
 		Spawner: 'static + SpawnNamed + Clone + Unpin,
 	{
 		let gen = RealOverseerGen;
@@ -398,8 +396,7 @@ impl OverseerGen for RealOverseerGen {
 		Error,
 	>
 	where
-		RuntimeClient: 'static + HeaderBackend<Block> + AuxStore,
-		RuntimeClient::Api: ParachainHost<Block> + BabeApi<Block> + AuthorityDiscoveryApi<Block>,
+		RuntimeClient: 'static + HeaderBackend<Block> + AuxStore + CallApiAt<Block>,
 		Spawner: 'static + SpawnNamed + Clone + Unpin,
 	{
 		prepared_overseer_builder(args)?

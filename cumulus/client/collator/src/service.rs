@@ -21,7 +21,7 @@ use cumulus_client_network::WaitToAnnounce;
 use cumulus_primitives_core::{CollationInfo, CollectCollationInfo, ParachainBlockData};
 
 use sc_client_api::BlockBackend;
-use sp_api::{ApiExt};
+use sp_api::{CallApiAt, RuntimeInstance};
 use sp_consensus::BlockStatus;
 use sp_core::traits::SpawnNamed;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT, Zero};
@@ -99,8 +99,7 @@ impl<Block, BS, RA> CollatorService<Block, BS, RA>
 where
 	Block: BlockT,
 	BS: BlockBackend<Block>,
-	RA,
-	RA::Api: CollectCollationInfo<Block>,
+	RA: CallApiAt<Block>,
 {
 	/// Create a new instance.
 	pub fn new(
@@ -182,27 +181,29 @@ where
 		block_hash: Block::Hash,
 		header: &Block::Header,
 	) -> Result<Option<CollationInfo>, sp_api::ApiError> {
-		let runtime_api = self.runtime_api.runtime_api();
+		let mut runtime_api = RuntimeInstance::builder(&*self.runtime_api, block_hash)
+			.off_chain_context()
+			.build();
 
-		let api_version =
-			match runtime_api.api_version::<dyn CollectCollationInfo<Block>>(block_hash)? {
-				Some(version) => version,
-				None => {
-					tracing::error!(
-						target: LOG_TARGET,
-						"Could not fetch `CollectCollationInfo` runtime api version."
-					);
-					return Ok(None)
-				},
-			};
+		let api_version = match runtime_api.api_version::<dyn CollectCollationInfo<Block>>()? {
+			Some(version) => version,
+			None => {
+				tracing::error!(
+					target: LOG_TARGET,
+					"Could not fetch `CollectCollationInfo` runtime api version."
+				);
+				return Ok(None)
+			},
+		};
 
 		let collation_info = if api_version < 2 {
 			#[allow(deprecated)]
-			runtime_api
-				.collect_collation_info_before_version_2(block_hash)?
-				.into_latest(header.encode().into())
+			CollectCollationInfo::<Block>::collect_collation_info_before_version_2(
+				&mut runtime_api,
+			)?
+			.into_latest(header.encode().into())
 		} else {
-			runtime_api.collect_collation_info(block_hash, header)?
+			CollectCollationInfo::<Block>::collect_collation_info(&mut runtime_api, header)?
 		};
 
 		Ok(Some(collation_info))
@@ -303,8 +304,7 @@ impl<Block, BS, RA> ServiceInterface<Block> for CollatorService<Block, BS, RA>
 where
 	Block: BlockT,
 	BS: BlockBackend<Block>,
-	RA,
-	RA::Api: CollectCollationInfo<Block>,
+	RA: CallApiAt<Block>,
 {
 	fn check_block_status(&self, hash: Block::Hash, header: &Block::Header) -> bool {
 		CollatorService::check_block_status(self, hash, header)

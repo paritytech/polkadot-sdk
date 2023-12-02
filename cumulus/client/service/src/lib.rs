@@ -148,7 +148,6 @@ where
 		+ BlockBackend<Block>
 		+ BlockchainEvents<Block>
 		+ 'static,
-	Client::Api: CollectCollationInfo<Block>,
 	for<'b> &'b Client: BlockImport<Block>,
 	Spawner: SpawnNamed + Clone + Send + Sync + 'static,
 	RCInterface: RelayChainInterface + Clone + 'static,
@@ -389,17 +388,14 @@ pub enum CollatorSybilResistance {
 pub struct BuildNetworkParams<
 	'a,
 	Block: BlockT,
-	Client: 
-		+ BlockBackend<Block>
+	Client: BlockBackend<Block>
 		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
 		+ HeaderBackend<Block>
 		+ BlockIdTo<Block>
 		+ 'static,
 	RCInterface,
 	IQ,
-> where
-	Client::Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
-{
+> {
 	pub parachain_config: &'a Configuration,
 	pub net_config: sc_network::config::FullNetworkConfiguration,
 	pub client: Arc<Client>,
@@ -444,8 +440,6 @@ where
 		+ BlockIdTo<Block, Error = sp_blockchain::Error>
 		+ ProofProvider<Block>
 		+ 'static,
-	Client::Api: CollectCollationInfo<Block>
-		+ sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
 	for<'b> &'b Client: BlockImport<Block>,
 	RCInterface: RelayChainInterface + Clone + 'static,
 	IQ: ImportQueue<Block> + 'static,

@@ -20,7 +20,6 @@
 
 pub mod benchmarking;
 pub mod chain_spec;
-mod fake_runtime_api;
 mod grandpa_support;
 mod parachains_db;
 mod relay_chain_selection;
@@ -99,7 +98,7 @@ pub use service::{
 	ChainSpec, Configuration, Error as SubstrateServiceError, PruningMode, Role, RuntimeGenesis,
 	TFullBackend, TFullCallExecutor, TFullClient, TaskManager, TransactionPoolOptions,
 };
-pub use sp_api::{ApiRef, ConstructRuntimeApi, Core as CoreApi, StateBackend};
+pub use sp_api::Core as CoreApi;
 pub use sp_runtime::{
 	generic,
 	traits::{self as runtime_traits, BlakeTwo256, Block as BlockT, Header as HeaderT, NumberFor},
@@ -110,15 +109,12 @@ pub use {rococo_runtime, rococo_runtime_constants};
 #[cfg(feature = "westend-native")]
 pub use {westend_runtime, westend_runtime_constants};
 
-pub use fake_runtime_api::{GetLastTimestamp, RuntimeApi};
-
 #[cfg(feature = "full-node")]
 pub type FullBackend = service::TFullBackend<Block>;
 
 #[cfg(feature = "full-node")]
 pub type FullClient = service::TFullClient<
 	Block,
-	RuntimeApi,
 	WasmExecutor<(sp_io::SubstrateHostFunctions, frame_benchmarking::benchmarking::HostFunctions)>,
 >;
 
@@ -437,12 +433,11 @@ fn new_partial_basics(
 		.with_runtime_cache_size(config.runtime_cache_size)
 		.build();
 
-	let (client, backend, keystore_container, task_manager) =
-		service::new_full_parts::<Block, RuntimeApi, _>(
-			&config,
-			telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
-			executor,
-		)?;
+	let (client, backend, keystore_container, task_manager) = service::new_full_parts::<Block, _>(
+		&config,
+		telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
+		executor,
+	)?;
 	let client = Arc::new(client);
 
 	let telemetry = telemetry.map(|(worker, telemetry)| {

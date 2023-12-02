@@ -36,6 +36,7 @@ use sc_client_api::{
 	StorageProof,
 };
 use sc_telemetry::TelemetryWorkerHandle;
+use sp_api::{DisableProofRecording, RuntimeInstance};
 use sp_consensus::SyncOracle;
 use sp_core::{sp_std::collections::btree_map::BTreeMap, Pair};
 use sp_state_machine::{Backend as StateBackend, StorageValue};
@@ -63,6 +64,15 @@ impl RelayChainInProcessInterface {
 	) -> Self {
 		Self { full_client, backend, sync_oracle, overseer_handle }
 	}
+
+	fn runtime_api(
+		&self,
+		at: PHash,
+	) -> RuntimeInstance<Arc<FullClient>, PBlock, DisableProofRecording> {
+		RuntimeInstance::builder(self.full_client.clone(), at)
+			.off_chain_context()
+			.build()
+	}
 }
 
 #[async_trait]
@@ -72,7 +82,7 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 		para_id: ParaId,
 		relay_parent: PHash,
 	) -> RelayChainResult<Vec<InboundDownwardMessage>> {
-		Ok(self.full_client.runtime_api().dmq_contents(relay_parent, para_id)?)
+		Ok(ParachainHost::dmq_contents(&mut self.runtime_api(relay_parent), para_id)?)
 	}
 
 	async fn retrieve_all_inbound_hrmp_channel_contents(
@@ -80,10 +90,10 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 		para_id: ParaId,
 		relay_parent: PHash,
 	) -> RelayChainResult<BTreeMap<ParaId, Vec<InboundHrmpMessage>>> {
-		Ok(self
-			.full_client
-			.runtime_api()
-			.inbound_hrmp_channels_contents(relay_parent, para_id)?)
+		Ok(ParachainHost::inbound_hrmp_channels_contents(
+			&mut self.runtime_api(relay_parent),
+			para_id,
+		)?)
 	}
 
 	async fn header(&self, block_id: BlockId) -> RelayChainResult<Option<PHeader>> {
@@ -107,8 +117,8 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 		para_id: ParaId,
 		occupied_core_assumption: OccupiedCoreAssumption,
 	) -> RelayChainResult<Option<PersistedValidationData>> {
-		Ok(self.full_client.runtime_api().persisted_validation_data(
-			hash,
+		Ok(ParachainHost::persisted_validation_data(
+			&mut self.runtime_api(hash),
 			para_id,
 			occupied_core_assumption,
 		)?)
@@ -119,15 +129,15 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 		hash: PHash,
 		para_id: ParaId,
 	) -> RelayChainResult<Option<CommittedCandidateReceipt>> {
-		Ok(self.full_client.runtime_api().candidate_pending_availability(hash, para_id)?)
+		Ok(ParachainHost::candidate_pending_availability(&mut self.runtime_api(hash), para_id)?)
 	}
 
 	async fn session_index_for_child(&self, hash: PHash) -> RelayChainResult<SessionIndex> {
-		Ok(self.full_client.runtime_api().session_index_for_child(hash)?)
+		Ok(ParachainHost::session_index_for_child(&mut self.runtime_api(hash))?)
 	}
 
 	async fn validators(&self, hash: PHash) -> RelayChainResult<Vec<ValidatorId>> {
-		Ok(self.full_client.runtime_api().validators(hash)?)
+		Ok(ParachainHost::validators(&mut self.runtime_api(hash))?)
 	}
 
 	async fn import_notification_stream(

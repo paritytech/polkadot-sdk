@@ -348,7 +348,7 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 	}
 
 	async fn api_version_parachain_host(&self, at: Hash) -> Result<Option<u32>, sp_api::ApiError> {
-		let api_id = <dyn polkadot_primitives::runtime_api::ParachainHost<Block>>::ID;
+		let api_id = <dyn polkadot_primitives::runtime_api::ParachainHost>::ID;
 		Ok(self.rpc_client.runtime_version(at).await.map(|v| v.api_version(&api_id))?)
 	}
 

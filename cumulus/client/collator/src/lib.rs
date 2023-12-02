@@ -16,11 +16,10 @@
 
 //! Cumulus Collator implementation for Substrate.
 
-use cumulus_primitives_core::{
-	relay_chain::Hash as PHash, CollectCollationInfo, PersistedValidationData,
-};
+use cumulus_primitives_core::{relay_chain::Hash as PHash, PersistedValidationData};
 
 use sc_client_api::BlockBackend;
+use sp_api::CallApiAt;
 use sp_core::traits::SpawnNamed;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
@@ -64,6 +63,7 @@ impl<Block, BS, RA> Collator<Block, BS, RA>
 where
 	Block: BlockT,
 	BS: BlockBackend<Block>,
+	RA: CallApiAt<Block>,
 {
 	/// Create a new instance.
 	fn new(
@@ -276,8 +276,7 @@ pub async fn start_collator<Block, RA, BS, Spawner>(
 	Block: BlockT,
 	BS: BlockBackend<Block> + Send + Sync + 'static,
 	Spawner: SpawnNamed + Clone + Send + Sync + 'static,
-	RA: Send + Sync + 'static,
-	RA::Api: CollectCollationInfo<Block>,
+	RA: CallApiAt<Block> + Send + Sync + 'static,
 {
 	// This never needed to be asynchronous, but shouldn't be changed due to backcompat.
 	#[allow(deprecated)]
@@ -301,8 +300,7 @@ pub fn start_collator_sync<Block, RA, BS, Spawner>(
 	Block: BlockT,
 	BS: BlockBackend<Block> + Send + Sync + 'static,
 	Spawner: SpawnNamed + Clone + Send + Sync + 'static,
-	RA: Send + Sync + 'static,
-	RA::Api: CollectCollationInfo<Block>,
+	RA: CallApiAt<Block> + Send + Sync + 'static,
 {
 	let collator_service =
 		CollatorService::new(block_status, Arc::new(spawner.clone()), announce_block, runtime_api);
