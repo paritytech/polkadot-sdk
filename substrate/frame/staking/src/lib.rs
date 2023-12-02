@@ -492,19 +492,45 @@ pub struct StakingLedger<T: Config> {
 }
 
 impl<T: Config> StakingLedger<T> {
-	/// Remove entries from `unlocking` that are sufficiently old and reduce the
-	/// total by the sum of their balances.
-	fn consolidate_unlocked(self, current_era: EraIndex) -> Self {
+	/// Remove entries from `unlocking` that are sufficiently old and optionally upto a given limit.
+	/// Reduce the total by the unlocked amount.
+	fn consolidate_unlocked(
+		self,
+		current_era: EraIndex,
+		maybe_limit: Option<BalanceOf<T>>,
+	) -> Self {
 		let mut total = self.total;
+		let mut unlocked = BalanceOf::<T>::zero();
+
+		// see if there is a limit else default to total value of the ledger which implies no limit.
+		let limit = maybe_limit.unwrap_or(total);
+
+		// remove chunks that are unlocking
 		let unlocking: BoundedVec<_, _> = self
 			.unlocking
 			.into_iter()
-			.filter(|chunk| {
-				if chunk.era > current_era {
-					true
+			.filter_map(|chunk| {
+				// keep the chunks if they are from a future era or we have unlocked upto the limit
+				if chunk.era > current_era || limit == unlocked {
+					defensive_assert!(limit >= unlocked, "unlocked should never exceed limit");
+					Some(chunk)
 				} else {
-					total = total.saturating_sub(chunk.value);
-					false
+					// we remove chunks that are old enough until we reach limit.
+					let max_unlock = limit - unlocked;
+					if chunk.value <= max_unlock {
+						// unlock all and filter out
+						total = total.saturating_sub(chunk.value);
+						unlocked = unlocked.saturating_add(chunk.value);
+						None
+					} else {
+						// keep the leftover amount in the chunk
+						total = total.saturating_sub(max_unlock);
+						unlocked = unlocked.saturating_add(max_unlock);
+						Some(UnlockChunk {
+							value: chunk.value.saturating_sub(max_unlock),
+							era: chunk.era,
+						})
+					}
 				}
 			})
 			.collect::<Vec<_>>()

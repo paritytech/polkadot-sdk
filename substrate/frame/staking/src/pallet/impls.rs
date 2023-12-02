@@ -125,7 +125,7 @@ impl<T: Config> Pallet<T> {
 		let mut ledger = Self::ledger(Controller(controller.clone()))?;
 		let (stash, old_total) = (ledger.stash.clone(), ledger.total);
 		if let Some(current_era) = Self::current_era() {
-			ledger = ledger.consolidate_unlocked(current_era)
+			ledger = ledger.consolidate_unlocked(current_era, None)
 		}
 		let new_total = ledger.total;
 
