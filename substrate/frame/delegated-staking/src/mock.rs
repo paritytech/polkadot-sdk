@@ -149,3 +149,37 @@ frame_support::construct_runtime!(
 		DelegatedStaking: delegated_staking,
 	}
 );
+
+pub struct ExtBuilder {
+}
+
+impl Default for ExtBuilder {
+    fn default() -> Self {
+        Self {}
+    }
+}
+
+impl ExtBuilder {
+
+    fn build(self) -> sp_io::TestExternalities {
+        sp_tracing::try_init_simple();
+        let mut storage = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+
+        let mut ext = sp_io::TestExternalities::from(storage);
+
+        ext.execute_with(|| {
+            // for events to be deposited.
+            frame_system::Pallet::<Runtime>::set_block_number(1);
+        });
+
+        ext
+    }
+    pub fn build_and_execute(self, test: impl FnOnce() -> ()) {
+        sp_tracing::try_init_simple();
+        let mut ext = self.build();
+        ext.execute_with(test);
+        ext.execute_with(|| {
+            // DelegatedStaking::do_try_state().unwrap();
+        });
+    }
+}
