@@ -21,8 +21,5 @@ use super::*;
 use crate::{mock::*, Event};
 #[test]
 fn hello_world_test() {
-    ExtBuilder::default().build_and_execute(|| {
-        assert!(true)
-    });
-
+	ExtBuilder::default().build_and_execute(|| assert!(true));
 }

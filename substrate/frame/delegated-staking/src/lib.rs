@@ -18,7 +18,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![deny(rustdoc::broken_intra_doc_links)]
 
-
 #[cfg(test)]
 mod mock;
 
@@ -95,13 +94,11 @@ pub mod pallet {
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
-	pub struct GenesisConfig<T: Config> {
-	}
+	pub struct GenesisConfig<T: Config> {}
 
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
-		fn build(&self) {
-		}
+		fn build(&self) {}
 	}
 
 	#[pallet::event]
