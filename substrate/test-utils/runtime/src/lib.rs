@@ -1106,28 +1106,6 @@ mod tests {
 		prelude::*, runtime::TestAPI, DefaultTestClientBuilderExt, TestClientBuilder,
 	};
 
-	fn babe_pre_digest() -> DigestItem {
-		use sp_consensus_babe::digests::{
-			CompatibleDigestItem, PreDigest, SecondaryPlainPreDigest,
-		};
-		DigestItem::babe_pre_digest(PreDigest::SecondaryPlain(SecondaryPlainPreDigest {
-			authority_index: 0,
-			slot: 0.into(),
-		}))
-	}
-
-	fn sassafras_pre_digest() -> DigestItem {
-		use sp_consensus_sassafras::{
-			digests::SlotClaim, vrf::slot_claim_sign_data, AuthorityPair,
-		};
-		use sp_core::crypto::{Pair, VrfSecret};
-		let data = slot_claim_sign_data(&Default::default(), 0.into(), 0);
-		let vrf_signature = AuthorityPair::from_seed(&[0u8; 32]).as_ref().vrf_sign(&data);
-		let claim =
-			SlotClaim { authority_idx: 0, slot: 0.into(), vrf_signature, ticket_claim: None };
-		DigestItem::from(&claim)
-	}
-
 	#[test]
 	fn heap_pages_is_respected() {
 		// This tests that the on-chain `HEAP_PAGES` parameter is respected.
