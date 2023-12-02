@@ -613,9 +613,9 @@ where
 	};
 
 	let slot_worker = sc_consensus_slots::start_slot_worker(
-		// TODO: DIXME slot duration should be passed as part of the worker params
+		// TODO FIXME @davxy slot duration should be passed as part of the worker params
 		//sassafras_link.genesis_config.slot_duration,
-		sp_consensus_slots::SlotDuration::from_millis(6000),
+		sp_consensus_slots::SlotDuration::from_millis(3000),
 		select_chain.clone(),
 		sc_consensus_slots::SimpleSlotWorkerToSlotWorker(slot_worker),
 		sync_oracle,
