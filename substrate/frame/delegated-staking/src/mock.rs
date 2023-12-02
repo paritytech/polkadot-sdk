@@ -38,6 +38,10 @@ pub type T = Runtime;
 type Block = frame_system::mocking::MockBlock<Runtime>;
 pub type AccountId = u64;
 
+const GENESIS_VALIDATOR: AccountId = 1;
+const GENESIS_NOMINATOR_ONE: AccountId = 101;
+const GENESIS_NOMINATOR_TWO: AccountId = 102;
+
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Block = Block;
@@ -105,6 +109,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 impl pallet_staking::Config for Runtime {
 	type Currency = Balances;
 	type CurrencyBalance = Balance;
+	type StakeBalanceProvider = DelegatedStaking;
 	type UnixTime = pallet_timestamp::Pallet<Self>;
 	type CurrencyToVote = ();
 	type RewardRemainder = ();
@@ -137,6 +142,7 @@ impl delegated_staking::Config for Runtime {
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type Staking = Staking;
+	type FallbackBalanceProvider = Staking;
 }
 
 frame_support::construct_runtime!(
