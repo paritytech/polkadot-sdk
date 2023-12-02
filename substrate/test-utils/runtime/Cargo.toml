@@ -33,7 +33,7 @@ sp-session = { path = "../../primitives/session", default-features = false }
 sp-api = { path = "../../primitives/api", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"] }
 pallet-babe = { path = "../../frame/babe", default-features = false }
-pallet-sassafras = { path = "../../frame/sassafras", default-features = false}
+pallet-sassafras = { path = "../../frame/sassafras", default-features = false }
 pallet-balances = { path = "../../frame/balances", default-features = false }
 frame-executive = { path = "../../frame/executive", default-features = false }
 frame-system = { path = "../../frame/system", default-features = false }

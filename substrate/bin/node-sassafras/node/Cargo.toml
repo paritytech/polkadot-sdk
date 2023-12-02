@@ -1,7 +1,7 @@
 [package]
 name = "node-sassafras"
 version = "0.3.4-dev"
-authors = ["Parity Technologies <admin@parity.io>", "Davide Galassi <davxy@datawok.net>"]
+authors = ["Davide Galassi <davxy@datawok.net>", "Parity Technologies <admin@parity.io>"]
 description = "Node testbed for Sassafras consensus."
 homepage = "https://substrate.io/"
 edition = "2021"
@@ -17,7 +17,7 @@ name = "node-sassafras"
 
 [dependencies]
 clap = { version = "4.0.9", features = ["derive"] }
-futures = { version = "0.3.21", features = ["thread-pool"]}
+futures = { version = "0.3.21", features = ["thread-pool"] }
 serde_json = "1.0.108"
 
 sc-cli = { path = "../../../client/cli" }
@@ -44,7 +44,7 @@ sp-inherents = { path = "../../../primitives/inherents" }
 sp-keyring = { path = "../../../primitives/keyring" }
 frame-system = { path = "../../../frame/system" }
 pallet-transaction-payment = { path = "../../../frame/transaction-payment" }
-sp-crypto-ec-utils = { path = "../../../primitives/crypto/ec-utils", features = ["bls12-381","ed-on-bls12-381-bandersnatch"] }
+sp-crypto-ec-utils = { path = "../../../primitives/crypto/ec-utils", features = ["bls12-381", "ed-on-bls12-381-bandersnatch"] }
 sp-consensus-slots = { path = "../../../primitives/consensus/slots" }
 sc-consensus-slots = { path = "../../../client/consensus/slots" }
 
@@ -72,8 +72,8 @@ substrate-build-script-utils = { path = "../../../utils/build-script-utils" }
 [features]
 default = []
 runtime-benchmarks = [
-    "node-sassafras-runtime/runtime-benchmarks"
+	"node-sassafras-runtime/runtime-benchmarks",
 ]
 use-session-pallet = [
-    "node-sassafras-runtime/use-session-pallet"
+	"node-sassafras-runtime/use-session-pallet",
 ]

@@ -1,7 +1,7 @@
 [package]
 name = "node-sassafras-runtime"
 version = "0.3.4-dev"
-authors = ["Parity Technologies <admin@parity.io>","Davide Galassi <davxy@datawok.net>"]
+authors = ["Davide Galassi <davxy@datawok.net>", "Parity Technologies <admin@parity.io>"]
 description = "Runtime testbed for Sassafras consensus."
 homepage = "https://substrate.io/"
 edition = "2021"
@@ -15,7 +15,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
 
-pallet-sassafras = { path = "../../../frame/sassafras", default-features = false, features = ["construct-dummy-ring-context"]  }
+pallet-sassafras = { path = "../../../frame/sassafras", default-features = false, features = ["construct-dummy-ring-context"] }
 pallet-balances = { path = "../../../frame/balances", default-features = false }
 pallet-session = { path = "../../../frame/session", default-features = false }
 frame-support = { path = "../../../frame/support", default-features = false }
@@ -34,7 +34,7 @@ sp-offchain = { path = "../../../primitives/offchain", default-features = false 
 sp-runtime = { path = "../../../primitives/runtime", default-features = false }
 sp-session = { path = "../../../primitives/session", default-features = false }
 sp-std = { path = "../../../primitives/std", default-features = false }
-sp-storage = { path = "../../../primitives/storage", default-features = false}
+sp-storage = { path = "../../../primitives/storage", default-features = false }
 sp-transaction-pool = { path = "../../../primitives/transaction-pool", default-features = false }
 sp-version = { path = "../../../primitives/version", default-features = false }
 sp-genesis-builder = { path = "../../../primitives/genesis-builder", default-features = false }
@@ -54,19 +54,19 @@ substrate-wasm-builder = { path = "../../../utils/wasm-builder" }
 default = ["std"]
 std = [
 	"codec/std",
-	"scale-info/std",
 	"frame-executive/std",
 	"frame-support/std",
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
-	"pallet-sassafras/std",
 	"pallet-balances/std",
 	"pallet-grandpa/std",
-	"pallet-sudo/std",
+	"pallet-sassafras/std",
 	"pallet-session/std",
+	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
+	"scale-info/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-sassafras/std",
