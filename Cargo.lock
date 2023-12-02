@@ -12295,7 +12295,6 @@ dependencies = [
  "criterion 0.4.0",
  "libc",
  "nix 0.27.1",
- "os_pipe",
  "parity-scale-codec",
  "polkadot-node-core-pvf-common",
  "polkadot-primitives",

@@ -46,7 +46,7 @@ pub mod tests {
 	pub const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(30);
 }
 
-/// Status of security features on the current system.
+/// Status of security features on thfe current system.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct SecurityStatus {
 	/// Whether the landlock features we use are fully available on this system.
