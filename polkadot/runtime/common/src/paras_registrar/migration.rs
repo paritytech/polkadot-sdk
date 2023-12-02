@@ -99,10 +99,11 @@ pub mod v2 {
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(_: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-			let expected_legacy_paras_count: u32 =
-				NextFreeParaId::<T>::get().saturating_sub(LOWEST_PUBLIC_ID).into();
-			let legacy_paras_count = LegacyParas::<T>::iter_values().count() as u32;
+			let lowest_public_id: u32 = LOWEST_PUBLIC_ID.into();
+			let next_free_para_id: u32 = NextFreeParaId::<T>::get().into();
 
+			let expected_legacy_paras_count = next_free_para_id.saturating_sub(lowest_public_id);
+			let legacy_paras_count = LegacyParas::<T>::iter_values().count() as u32;
 			ensure!(
 				expected_legacy_paras_count == legacy_paras_count,
 				"`LegacyParas` must contain all the non-system parachains"
