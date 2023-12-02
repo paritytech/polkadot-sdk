@@ -520,6 +520,7 @@ fn blocking_and_kicking_works() {
 				RuntimeOrigin::signed(11),
 				ValidatorPrefs { blocked: true, ..Default::default() }
 			));
+
 			// attempt to nominate from 100/101...
 			assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![11]));
 			// should have worked since we're already nominated them
@@ -5030,6 +5031,7 @@ fn on_finalize_weight_is_nonzero() {
 mod sorted_list_provider_integration {
 	use super::*;
 	use frame_election_provider_support::ScoreProvider;
+	use sp_staking::StakingInterface;
 
 	#[test]
 	fn nominator_bond_unbond_chill_works() {
@@ -5069,11 +5071,32 @@ mod sorted_list_provider_integration {
 			assert_eq!(TargetBagsList::score(&11), 1520);
 			assert_eq!(TargetBagsList::score(&21), 1520);
 
-			// finally, stash 42 chills and unbond completely.
+			// stash 42 chills, but remains bonded. Thus it is in idle state.
 			assert_ok!(Staking::chill(RuntimeOrigin::signed(42)));
-			assert_eq!(VoterBagsList::contains(&42), false);
+			assert_eq!(VoterBagsList::contains(&42), true);
+			assert!(<Bonded<Test>>::get(&42).is_some());
+			assert_ok!(<StakingLedger<Test>>::get(StakingAccount::Stash(42)));
+			assert_eq!(Staking::status(&42), Ok(StakerStatus::Idle));
+
+			// scores of previously nominated validators were updated.
 			assert_eq!(TargetBagsList::score(&11), 1500);
 			assert_eq!(TargetBagsList::score(&21), 1500);
+
+			// stash 42 unbonds completely by requesting all unbonding rewards and thus its ledger
+			// is killed.
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(42), 20));
+			// active bonded is 0, ledger will be killed when all the unlocking funds are withdrawn.
+			assert_eq!(<StakingLedger<Test>>::get(StakingAccount::Stash(42)).unwrap().active, 0);
+
+			// roll to block where stash can successfully withdraw unbonding chunks.
+			start_active_era(current_era() + BondingDuration::get());
+
+			// after withdrawing, the ledger is killed.
+			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(42), 0));
+			assert!(<Bonded<Test>>::get(&42).is_none());
+			assert!(<StakingLedger<Test>>::get(StakingAccount::Stash(42)).is_err());
+			assert!(Staking::status(&42).is_err());
+			assert_eq!(VoterBagsList::contains(&42), false);
 		})
 	}
 
@@ -5103,10 +5126,18 @@ mod sorted_list_provider_integration {
 			assert_eq!(VoterBagsList::score(&42), 20);
 			assert_eq!(TargetBagsList::score(&42), 20);
 
-			// finally, stash 42 chills and unbond completely.
+			// stash 42 chills, thus it should be part of the voter and target bags list but with
+			// `Idle` status.
 			assert_ok!(Staking::chill(RuntimeOrigin::signed(42)));
+			assert_eq!(VoterBagsList::contains(&42), true);
+			assert_eq!(TargetBagsList::contains(&42), true);
+			assert_eq!(Staking::status(&42), Ok(StakerStatus::Idle));
+
+			// finally, remove the validator (similar to withdraw all and subsequent ledger kill).
+			assert_ok!(Staking::kill_stash(&42, 0));
 			assert_eq!(VoterBagsList::contains(&42), false);
 			assert_eq!(TargetBagsList::contains(&42), false);
+			assert!(Staking::status(&42).is_err());
 		})
 	}
 }
@@ -7272,7 +7303,6 @@ mod stake_tracker {
 		// * Call::validate()
 		// * Call::nominate()
 		// * Call::chill()
-		// * Call::kick()
 		ExtBuilder::default().build_and_execute(|| {
 			// bond extra to rebag nominated validator.
 			assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(101), 600));
@@ -7320,25 +7350,33 @@ mod stake_tracker {
 			// let's chill a validator now.
 			assert_ok!(Staking::chill(RuntimeOrigin::signed(11)));
 
-			// the chilled validator score is updated to 0 and 11 is not part of the targets list
-			// anymore.
+			// the chilled validator score remains the same, 11 is still part of the targets list
+			// but its staker status is Idle and it was removed from the nominator sand validators
+			// list.
 			assert_eq!(Staking::status(&11), Ok(StakerStatus::Idle));
-			assert_eq!(<TargetBagsList as ScoreProvider<A>>::score(&11), 0);
-			assert_eq!(voters_and_targets().1, [(21, 1000), (31, 500)]);
+			assert_eq!(<TargetBagsList as ScoreProvider<A>>::score(&11), 1000);
+			assert_eq!(voters_and_targets().1, [(11, 1000), (21, 1000), (31, 500)]);
+			assert!(!Nominators::<Test>::contains_key(&11));
+			assert!(!Validators::<Test>::contains_key(&11));
 
-			// now, let's have 101 re-nominate 21 and kick him. Note that 101 also nominates 11 but
-			// that's a noop since 11 is Idle at the moment.
+			// now, let's have 101 re-nominate 21. Note that 101 also nominates 11: even
+			// though 11 is chilled at the moment.
 			assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![21, 11]));
-			assert_eq!(voters_and_targets().1, [(21, 2100), (31, 500)]);
+			assert_eq!(voters_and_targets().1, [(21, 2100), (11, 2100), (31, 500)]);
 
-			// score of 21 and rebag hapened due to nomination.
+			// score update and rebag hapened to 21 and 11 (idle) due to nomination of 101.
 			assert_eq!(
 				target_bags_events(),
 				[
 					BagsEvent::Rebagged { who: 21, from: 1000, to: 10000 },
-					BagsEvent::ScoreUpdated { who: 21, new_score: 2100 }
+					BagsEvent::ScoreUpdated { who: 21, new_score: 2100 },
+					BagsEvent::Rebagged { who: 11, from: 1000, to: 10000 },
+					BagsEvent::ScoreUpdated { who: 11, new_score: 2100 },
 				]
 			);
+
+			assert_eq!(Staking::status(&21).unwrap(), StakerStatus::Validator);
+			assert_eq!(Staking::status(&11).unwrap(), StakerStatus::Idle);
 		})
 	}
 
@@ -7492,15 +7530,19 @@ mod stake_tracker {
 			// we immediately slash 11 with a 50% slash.
 			let exposure = Staking::eras_stakers(active_era(), &11);
 			let slash_percent = Perbill::from_percent(50);
+			let total_stake_to_slash = slash_percent * exposure.total;
 			on_offence_now(
 				&[OffenceDetails { offender: (11, exposure.clone()), reporters: vec![] }],
 				&[slash_percent],
 			);
 
-			// 11 has been chilled and not part of the targets list anymore (using
-			// `DisablementStrategy::WhenSlashed`).
-			assert!(!<TargetBagsList as SortedListProvider<A>>::contains(&11));
-			assert_eq!(<TargetBagsList as ScoreProvider<A>>::score(&11), 0);
+			// 11 has been chilled but it is still part of the targets list and it is in `Idle`
+			// state.
+			assert!(<TargetBagsList as SortedListProvider<A>>::contains(&11));
+			assert_eq!(Staking::status(&11), Ok(StakerStatus::Idle));
+			// and its balance has been updated based on the slash applied.
+			let score_11_after = <TargetBagsList as ScoreProvider<A>>::score(&11);
+			assert_eq!(score_11_after, score_11_before - total_stake_to_slash);
 
 			// self-stake of 11 has decreased by 50% due to slash.
 			assert_eq!(
@@ -7525,14 +7567,30 @@ mod stake_tracker {
 			);
 
 			// the target list has been updated accordingly and an indirect rebag of 21 happened.
-			assert_eq!(voters_and_targets().1, [(21, score_21_after), (31, 500)]);
+			// 11, althoug chilled, is still part of the target list.
+			assert_eq!(
+				voters_and_targets().1,
+				[(11, score_11_after), (21, score_21_after), (31, 500)]
+			);
 			assert_eq!(
 				target_bags_events(),
 				[
+					BagsEvent::Rebagged { who: 11, from: 10000, to: 2000 },
+					BagsEvent::ScoreUpdated { who: 11, new_score: 1550 },
+					BagsEvent::ScoreUpdated { who: 11, new_score: 1465 },
 					BagsEvent::Rebagged { who: 21, from: 10000, to: 2000 },
 					BagsEvent::ScoreUpdated { who: 21, new_score: 1965 },
-					BagsEvent::ScoreUpdated { who: 21, new_score: 1872 }
+					BagsEvent::ScoreUpdated { who: 21, new_score: 1872 },
+					BagsEvent::ScoreUpdated { who: 11, new_score: 1372 },
 				]
+			);
+
+			// fetching targets sorted and filtered by status works.
+			assert_eq!(
+				TargetBagsList::iter()
+					.filter(|t| Staking::status(&t).unwrap() != StakerStatus::Idle)
+					.collect::<Vec<_>>(),
+				[21, 31],
 			);
 		})
 	}

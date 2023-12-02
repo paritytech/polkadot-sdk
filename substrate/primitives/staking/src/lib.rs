@@ -114,6 +114,11 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 	/// nominator.
 	fn on_nominator_update(_who: &AccountId, _prev_nominations: Vec<AccountId>) {}
 
+	/// Fired when an existng nominator becomes idle.
+	///
+	///	An idle nominator stops nominating but its stake state should not be removed.
+	fn on_nominator_idle(_who: &AccountId, _prev_nominations: Vec<AccountId>) {}
+
 	/// Fired when someone removes their intention to nominate, either due to chill or validating.
 	///
 	/// The set of nominations at the time of removal is provided as it can no longer be fetched in
@@ -129,6 +134,11 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 	///
 	/// Note validator preference changes are not communicated, but could be added if needed.
 	fn on_validator_update(_who: &AccountId) {}
+
+	/// Fired when an existing validator becomes idle.
+	///
+	///	An idle validator stops validating but its stake state should not be removed.
+	fn on_validator_idle(_who: &AccountId) {}
 
 	/// Fired when someone removes their intention to validate, either due to chill or nominating.
 	fn on_validator_remove(_who: &AccountId) {}

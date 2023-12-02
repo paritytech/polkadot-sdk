@@ -1151,7 +1151,7 @@ pub mod pallet {
 				}
 			}
 
-			Self::do_remove_nominator(stash);
+			Self::do_chill_nominator(stash);
 			Self::do_add_validator(stash, prefs.clone());
 			Self::deposit_event(Event::<T>::ValidatorPrefsSet { stash: ledger.stash, prefs });
 
@@ -1225,7 +1225,7 @@ pub mod pallet {
 				suppressed: false,
 			};
 
-			Self::do_remove_validator(stash);
+			Self::do_chill_validator(stash);
 			Self::do_add_nominator(stash, nominations);
 
 			Ok(())
@@ -1646,6 +1646,7 @@ pub mod pallet {
 					if let Some(ref mut nom) = maybe_nom {
 						if let Some(pos) = nom.targets.iter().position(|v| v == stash) {
 							nom.targets.swap_remove(pos);
+
 							// update nominations and trickle down to target list score.
 							Self::do_add_nominator(&nom_stash, nom.clone());
 

@@ -19,7 +19,7 @@
 
 use crate::{mock::*, StakeImbalance};
 
-use frame_election_provider_support::SortedListProvider;
+use frame_election_provider_support::{ScoreProvider, SortedListProvider};
 use frame_support::assert_ok;
 use sp_staking::{OnStakingUpdate, Stake, StakingInterface};
 
@@ -292,22 +292,44 @@ fn on_validator_add_works() {
 }
 
 #[test]
-#[should_panic = "Defensive failure has been triggered!: Duplicate: \"staker should not exist in VoterList, as per the contract with staking.\""]
-fn on_nominator_add_already_exists_defensive_works() {
+fn on_nominator_add_already_exists_works() {
 	ExtBuilder::default().populate_lists().build_and_execute(|| {
-		// voter already exists in the list, trying to emit `on_add_nominator` again will fail.
 		assert!(VoterBagsList::contains(&1));
+		assert_eq!(VoterBagsList::count(), 4);
+		assert_eq!(<VoterBagsList as ScoreProvider<A>>::score(&1), 100);
+
+		let voter_list_before = VoterBagsList::iter().collect::<Vec<_>>();
+		let target_list_before = TargetBagsList::iter().collect::<Vec<_>>();
+
+		// noop.
 		<StakeTracker as OnStakingUpdate<A, B>>::on_nominator_add(&1);
+		assert!(VoterBagsList::contains(&1));
+		assert_eq!(VoterBagsList::count(), 4);
+		assert_eq!(<VoterBagsList as ScoreProvider<A>>::score(&1), 100);
+
+		assert_eq!(VoterBagsList::iter().collect::<Vec<_>>(), voter_list_before);
+		assert_eq!(TargetBagsList::iter().collect::<Vec<_>>(), target_list_before);
 	});
 }
 
 #[test]
-#[should_panic = "Defensive failure has been triggered!: Duplicate: \"staker should not exist in TargetList, as per the contract with staking.\""]
-fn on_validator_add_already_exists_defensive_works() {
+fn on_validator_add_already_exists_works() {
 	ExtBuilder::default().populate_lists().build_and_execute(|| {
-		// validator already exists in the list, trying to emit `on_add_validator` again will fail.
 		assert!(TargetBagsList::contains(&10));
+		assert_eq!(TargetBagsList::count(), 2);
+		assert_eq!(<TargetBagsList as ScoreProvider<A>>::score(&10), 300);
+
+		let voter_list_before = VoterBagsList::iter().collect::<Vec<_>>();
+		let target_list_before = TargetBagsList::iter().collect::<Vec<_>>();
+
+		// noop
 		<StakeTracker as OnStakingUpdate<A, B>>::on_validator_add(&10);
+		assert!(TargetBagsList::contains(&10));
+		assert_eq!(TargetBagsList::count(), 2);
+		assert_eq!(<TargetBagsList as ScoreProvider<A>>::score(&10), 300);
+
+		assert_eq!(VoterBagsList::iter().collect::<Vec<_>>(), voter_list_before);
+		assert_eq!(TargetBagsList::iter().collect::<Vec<_>>(), target_list_before);
 	});
 }
 
