@@ -240,7 +240,7 @@ pub mod pallet {
 	///
 	/// Each of these parachains is eligible to perform a single code upgrade without upgrade fees.
 	#[pallet::storage]
-	pub type LegacyParachains<T> = StorageMap<_, Twox64Concat, ParaId, ()>;
+	pub type LegacyParas<T> = StorageMap<_, Twox64Concat, ParaId, ()>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -460,12 +460,12 @@ pub mod pallet {
 				// Root doesn't pay. This, also means that system parachains do not pay for upgrade
 				// fees.
 				None
-			} else if LegacyParachains::<T>::get(para).is_some() {
+			} else if LegacyParas::<T>::get(para).is_some() {
 				// Each legacy para is permitted to perform one upgrade for free.
 				//
 				// This is introduced to  avoid causing a breaking change to the system once para
 				// upgrade fees are required.
-				LegacyParachains::<T>::remove(para);
+				LegacyParas::<T>::remove(para);
 				None
 			} else if let Ok(caller) = ensure_signed(origin) {
 				let para_info = Paras::<T>::get(para).ok_or(Error::<T>::NotRegistered)?;

@@ -1565,7 +1565,7 @@ pub mod migrations {
 		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
 		UpgradeSessionKeys,
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
-		paras_registrar::migration::MigrateToV1<Runtime, ()>,
+		paras_registrar::migration::v1::MigrateToV1<Runtime, ()>,
 		pallet_nomination_pools::migration::versioned_migrations::V5toV6<Runtime>,
 		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
 		pallet_nomination_pools::migration::versioned_migrations::V6ToV7<Runtime>,
