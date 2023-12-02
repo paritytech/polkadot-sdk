@@ -5414,7 +5414,7 @@ fn count_check_works() {
 }
 
 #[test]
-#[should_panic]
+#[should_panic = "called `Result::unwrap()` on an `Err` value: Other(\"bonded ledger does not have payee set\")"]
 fn check_payee_invariant1_works() {
 	// A bonded ledger should always have an assigned `Payee` This test should panic as we verify
 	// that a bad state will panic due to the `try_state` checks in the `post_checks` in `mock`.
@@ -5425,7 +5425,7 @@ fn check_payee_invariant1_works() {
 }
 
 #[test]
-#[should_panic]
+#[should_panic = "called `Result::unwrap()` on an `Err` value: Other(\"number of entries in payee storage items does not match the number of bonded ledgers\")"]
 fn check_payee_invariant2_works() {
 	// The number of entries in both `Payee` and of bonded staking ledgers should match. This test
 	// should panic as we verify that a bad state will panic due to the `try_state` checks in the

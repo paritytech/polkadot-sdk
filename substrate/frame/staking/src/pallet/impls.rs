@@ -1837,7 +1837,10 @@ impl<T: Config> Pallet<T> {
 	/// * The number of entries in `Payee` and of bonded staking ledgers *must* match.
 	fn check_payees() -> Result<(), TryRuntimeError> {
 		for (acc, _) in Ledger::<T>::iter() {
-			ensure!(Payee::<T>::get(acc).is_some(), "bonded ledger does not have payee set");
+			if Payee::<T>::get(&acc).is_none() {
+				log!(error, "ledger {} does not have payee set", acc);
+				return Err("bonded ledger does not have payee set".into());
+			}
 		}
 
 		ensure!(
