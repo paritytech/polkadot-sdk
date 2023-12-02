@@ -414,21 +414,26 @@ impl pallet_timestamp::Config for Runtime {
 	type WeightInfo = pallet_timestamp::weights::SubstrateWeight<Runtime>;
 }
 
-parameter_types! {
-	pub const SlotDuration: u64 = 1000;
-	pub const EpochDuration: u64 = 6;
-}
+const EPOCH_LENGTH: u32 = 6;
+const MAX_AUTHORITIES: u32 = 10;
 
 impl pallet_babe::Config for Runtime {
-	type EpochDuration = EpochDuration;
+	type EpochDuration = ConstU64<{ EPOCH_LENGTH as u64 }>;
 	type ExpectedBlockTime = ConstU64<10_000>;
 	type EpochChangeTrigger = pallet_babe::SameAuthoritiesForever;
 	type DisabledValidators = ();
 	type KeyOwnerProof = sp_core::Void;
 	type EquivocationReportSystem = ();
 	type WeightInfo = ();
-	type MaxAuthorities = ConstU32<10>;
+	type MaxAuthorities = ConstU32<MAX_AUTHORITIES>;
 	type MaxNominators = ConstU32<100>;
+}
+
+impl pallet_sassafras::Config for Runtime {
+	type EpochLength = ConstU32<EPOCH_LENGTH>;
+	type EpochChangeTrigger = pallet_sassafras::EpochChangeInternalTrigger;
+	type MaxAuthorities = ConstU32<MAX_AUTHORITIES>;
+	type WeightInfo = ();
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
@@ -437,15 +442,6 @@ where
 {
 	type Extrinsic = Extrinsic;
 	type OverarchingCall = RuntimeCall;
-}
-
-impl pallet_sassafras::Config for Runtime {
-	type SlotDuration = SlotDuration;
-	type EpochDuration = EpochDuration;
-	//type EpochChangeTrigger = pallet_sassafras::ExternalTrigger;
-	type EpochChangeTrigger = pallet_sassafras::SameAuthoritiesForever;
-	type MaxAuthorities = ConstU32<10>;
-	type MaxTickets = ConstU32<10>;
 }
 
 /// Adds one to the given input and returns the final result.
@@ -655,7 +651,7 @@ impl_runtime_apis! {
 			let epoch_config = Babe::epoch_config().unwrap_or(TEST_RUNTIME_BABE_EPOCH_CONFIGURATION);
 			sp_consensus_babe::BabeConfiguration {
 				slot_duration: Babe::slot_duration(),
-				epoch_length: EpochDuration::get(),
+				epoch_length: EPOCH_LENGTH as u64,
 				c: epoch_config.c,
 				authorities: Babe::authorities().to_vec(),
 				randomness: Babe::randomness(),
