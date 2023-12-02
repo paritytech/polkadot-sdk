@@ -1781,30 +1781,22 @@ impl<T: Encode> WellKnownKey<T> {
 	}
 }
 
-/// Type discriminator for PVF preparation timeouts
+/// Type discriminator for PVF preparation.
 #[derive(Encode, Decode, TypeInfo, Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum PvfPrepTimeoutKind {
-	/// For prechecking requests, the time period after which the preparation worker is considered
-	/// unresponsive and will be killed.
+pub enum PvfPrepKind {
+	/// For prechecking requests.
 	Precheck,
 
-	/// For execution and heads-up requests, the time period after which the preparation worker is
-	/// considered unresponsive and will be killed. More lenient than the timeout for prechecking
-	/// to prevent honest validators from timing out on valid PVFs.
-	Lenient,
+	/// For execution and heads-up requests.
+	Prepare,
 }
 
-/// Type discriminator for PVF execution timeouts
+/// Type discriminator for PVF execution.
 #[derive(Encode, Decode, TypeInfo, Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum PvfExecTimeoutKind {
-	/// The amount of time to spend on execution during backing.
+pub enum PvfExecKind {
+	/// For backing requests.
 	Backing,
-
-	/// The amount of time to spend on execution during approval or disputes.
-	///
-	/// This should be much longer than the backing execution timeout to ensure that in the
-	/// absence of extremely large disparities between hardware, blocks that pass backing are
-	/// considered executable by approval checkers or dispute participants.
+	/// For approval and dispute request.
 	Approval,
 }
 

@@ -24,7 +24,7 @@ use super::*;
 
 use crate as pallet_message_queue;
 use frame_support::{
-	parameter_types,
+	derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64},
 };
 use sp_core::H256;
@@ -43,6 +43,8 @@ frame_support::construct_runtime!(
 		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>},
 	}
 );
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
@@ -278,8 +280,8 @@ parameter_types! {
 /// Records all queue changes into [`QueueChanges`].
 pub struct RecordingQueueChangeHandler;
 impl OnQueueChanged<MessageOrigin> for RecordingQueueChangeHandler {
-	fn on_queue_changed(id: MessageOrigin, items_count: u64, items_size: u64) {
-		QueueChanges::mutate(|cs| cs.push((id, items_count, items_size)));
+	fn on_queue_changed(id: MessageOrigin, fp: QueueFootprint) {
+		QueueChanges::mutate(|cs| cs.push((id, fp.storage.count, fp.storage.size)));
 	}
 }
 
@@ -365,4 +367,8 @@ pub fn num_overweight_enqueued_events() -> u32 {
 			matches!(e.event, RuntimeEvent::MessageQueue(crate::Event::OverweightEnqueued { .. }))
 		})
 		.count() as u32
+}
+
+pub fn fp(pages: u32, count: u64, size: u64) -> QueueFootprint {
+	QueueFootprint { storage: Footprint { count, size }, pages }
 }

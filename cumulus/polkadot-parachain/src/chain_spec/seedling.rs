@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::chain_spec::{get_account_id_from_seed, Extensions};
+use crate::chain_spec::{get_account_id_from_seed, Extensions, GenericChainSpec};
 use cumulus_primitives_core::ParaId;
 use parachains_common::{AccountId, AuraId};
 use sc_service::ChainType;
@@ -22,50 +22,33 @@ use sp_core::sr25519;
 
 use super::get_collator_keys_from_seed;
 
-/// Specialized `ChainSpec` for the seedling parachain runtime.
-pub type SeedlingChainSpec =
-	sc_service::GenericChainSpec<seedling_runtime::RuntimeGenesisConfig, Extensions>;
-
-pub fn get_seedling_chain_spec() -> SeedlingChainSpec {
-	SeedlingChainSpec::from_genesis(
-		"Seedling Local Testnet",
-		"seedling_local_testnet",
-		ChainType::Local,
-		move || {
-			seedling_testnet_genesis(
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				2000.into(),
-				vec![get_collator_keys_from_seed::<AuraId>("Alice")],
-			)
-		},
-		Vec::new(),
-		None,
-		None,
-		None,
-		None,
+pub fn get_seedling_chain_spec() -> GenericChainSpec {
+	GenericChainSpec::builder(
+		seedling_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "westend".into(), para_id: 2000 },
 	)
+	.with_name("Seedling Local Testnet")
+	.with_id("seedling_local_testnet")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(seedling_testnet_genesis(
+		get_account_id_from_seed::<sr25519::Public>("Alice"),
+		2000.into(),
+		vec![get_collator_keys_from_seed::<AuraId>("Alice")],
+	))
+	.with_boot_nodes(Vec::new())
+	.build()
 }
 
 fn seedling_testnet_genesis(
 	root_key: AccountId,
 	parachain_id: ParaId,
 	collators: Vec<AuraId>,
-) -> seedling_runtime::RuntimeGenesisConfig {
-	seedling_runtime::RuntimeGenesisConfig {
-		system: seedling_runtime::SystemConfig {
-			code: seedling_runtime::WASM_BINARY
-				.expect("WASM binary was not build, please build it!")
-				.to_vec(),
-			..Default::default()
+) -> serde_json::Value {
+	serde_json::json!({
+		"sudo": { "key": Some(root_key) },
+		"parachainInfo":  {
+			"parachainId": parachain_id,
 		},
-		sudo: seedling_runtime::SudoConfig { key: Some(root_key) },
-		parachain_info: seedling_runtime::ParachainInfoConfig {
-			parachain_id,
-			..Default::default()
-		},
-		parachain_system: Default::default(),
-		aura: seedling_runtime::AuraConfig { authorities: collators },
-		aura_ext: Default::default(),
-	}
+		"aura": { "authorities": collators },
+	})
 }

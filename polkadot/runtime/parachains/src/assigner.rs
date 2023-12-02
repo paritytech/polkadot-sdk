@@ -53,7 +53,8 @@ impl<T: Config> Pallet<T> {
 	fn is_bulk_core(core_idx: &CoreIndex) -> bool {
 		let parachain_cores =
 			<ParachainAssigner<T> as AssignmentProvider<BlockNumberFor<T>>>::session_core_count();
-		(0..parachain_cores).contains(&core_idx.0)
+
+		core_idx.0 < parachain_cores
 	}
 }
 

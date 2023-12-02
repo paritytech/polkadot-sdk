@@ -19,13 +19,13 @@
 mod block_builder;
 use codec::{Decode, Encode};
 use runtime::{
-	Balance, Block, BlockHashCount, Runtime, RuntimeCall, RuntimeGenesisConfig, Signature,
-	SignedExtra, SignedPayload, UncheckedExtrinsic, VERSION,
+	Balance, Block, BlockHashCount, Runtime, RuntimeCall, Signature, SignedExtra, SignedPayload,
+	UncheckedExtrinsic, VERSION,
 };
 use sc_executor::HeapAllocStrategy;
 use sc_executor_common::runtime_blob::RuntimeBlob;
 use sp_blockchain::HeaderBackend;
-use sp_core::{sr25519, Pair};
+use sp_core::Pair;
 use sp_io::TestExternalities;
 use sp_runtime::{generic::Era, BuildStorage, SaturatedConversion};
 
@@ -44,7 +44,8 @@ mod local_executor {
 	pub struct LocalExecutor;
 
 	impl sc_executor::NativeExecutionDispatch for LocalExecutor {
-		type ExtendHostFunctions = ();
+		type ExtendHostFunctions =
+			cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions;
 
 		fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
 			cumulus_test_runtime::api::dispatch(method, data)
@@ -84,16 +85,12 @@ pub struct GenesisParameters {
 
 impl substrate_test_client::GenesisInit for GenesisParameters {
 	fn genesis_storage(&self) -> Storage {
-		if self.endowed_accounts.is_empty() {
-			genesis_config().build_storage().unwrap()
-		} else {
-			cumulus_test_service::testnet_genesis(
-				cumulus_test_service::get_account_id_from_seed::<sr25519::Public>("Alice"),
-				self.endowed_accounts.clone(),
-			)
-			.build_storage()
-			.unwrap()
-		}
+		cumulus_test_service::chain_spec::get_chain_spec_with_extra_endowed(
+			None,
+			self.endowed_accounts.clone(),
+		)
+		.build_storage()
+		.expect("Builds test runtime genesis storage")
 	}
 }
 
@@ -124,10 +121,6 @@ impl DefaultTestClientBuilderExt for TestClientBuilder {
 	fn new() -> Self {
 		Self::with_default_backend()
 	}
-}
-
-fn genesis_config() -> RuntimeGenesisConfig {
-	cumulus_test_service::testnet_genesis_with_default_endowed(Default::default())
 }
 
 /// Create an unsigned extrinsic from a runtime call.

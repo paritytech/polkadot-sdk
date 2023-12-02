@@ -33,7 +33,6 @@ use crate::{
 	migration::{
 		codegen::LATEST_MIGRATION_VERSION, v09, v10, v11, v12, v13, v14, v15, MigrationStep,
 	},
-	wasm::CallFlags,
 	Pallet as Contracts, *,
 };
 use codec::{Encode, MaxEncodedLen};
@@ -46,6 +45,7 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use pallet_balances;
+use pallet_contracts_uapi::CallFlags;
 use sp_runtime::traits::{Bounded, Hash};
 use sp_std::prelude::*;
 use wasm_instrument::parity_wasm::elements::{BlockType, Instruction, ValueType};

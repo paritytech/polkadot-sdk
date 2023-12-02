@@ -50,7 +50,7 @@ impl SubstrateCli for Cli {
 
 	fn impl_version() -> String {
 		let commit_hash = env!("SUBSTRATE_CLI_COMMIT_HASH");
-		format!("{NODE_VERSION}-{commit_hash}")
+		format!("{}-{commit_hash}", NODE_VERSION)
 	}
 
 	fn description() -> String {
@@ -215,12 +215,6 @@ where
 
 	set_default_ss58_version(chain_spec);
 
-	let grandpa_pause = if cli.run.grandpa_pause.is_empty() {
-		None
-	} else {
-		Some((cli.run.grandpa_pause[0], cli.run.grandpa_pause[1]))
-	};
-
 	if chain_spec.is_kusama() {
 		info!("----------------------------");
 		info!("This chain is not in any way");
@@ -257,8 +251,8 @@ where
 			config,
 			service::NewFullParams {
 				is_parachain_node: service::IsParachainNode::No,
-				grandpa_pause,
 				enable_beefy,
+				force_authoring_backoff: cli.run.force_authoring_backoff,
 				jaeger_agent,
 				telemetry_worker_handle: None,
 				node_version,

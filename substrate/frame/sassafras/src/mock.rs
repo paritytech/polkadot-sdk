@@ -19,7 +19,10 @@
 
 use crate::{self as pallet_sassafras, EpochChangeInternalTrigger, *};
 
-use frame_support::traits::{ConstU32, ConstU64, OnFinalize, OnInitialize};
+use frame_support::{
+	derive_impl,
+	traits::{ConstU32, OnFinalize, OnInitialize},
+};
 use sp_consensus_sassafras::{
 	digests::SlotClaim,
 	vrf::{RingProver, VrfSignature},
@@ -32,39 +35,17 @@ use sp_core::{
 };
 use sp_runtime::{
 	testing::{Digest, DigestItem, Header, TestXt},
-	traits::IdentityLookup,
 	BuildStorage,
 };
 
 const LOG_TARGET: &str = "sassafras::tests";
 
-const SLOT_DURATION: u64 = 1000;
-const EPOCH_DURATION: u64 = 10;
+const EPOCH_LENGTH: u32 = 10;
+const MAX_AUTHORITIES: u32 = 100;
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Version = ();
-	type Hashing = sp_runtime::traits::BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = frame_system::mocking::MockBlock<Test>;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type PalletInfo = PalletInfo;
-	type AccountData = u128;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
@@ -76,27 +57,25 @@ where
 }
 
 impl pallet_sassafras::Config for Test {
-	type SlotDuration = ConstU64<SLOT_DURATION>;
-	type EpochDuration = ConstU64<EPOCH_DURATION>;
-	type MaxAuthorities = ConstU32<100>;
+	type EpochLength = ConstU32<EPOCH_LENGTH>;
+	type MaxAuthorities = ConstU32<MAX_AUTHORITIES>;
 	type EpochChangeTrigger = EpochChangeInternalTrigger;
 	type WeightInfo = ();
 }
 
 frame_support::construct_runtime!(
-	pub enum Test
-	{
+	pub enum Test {
 		System: frame_system,
 		Sassafras: pallet_sassafras,
 	}
 );
 
-// Default used for most of the tests and benchmarks.
+// Default used for most of the tests.
 //
 // The redundancy factor has been set to max value to accept all submitted
 // tickets without worrying about the threshold.
 pub const TEST_EPOCH_CONFIGURATION: EpochConfiguration =
-	EpochConfiguration { redundancy_factor: u32::MAX, attempts_number: 32 };
+	EpochConfiguration { redundancy_factor: u32::MAX, attempts_number: 5 };
 
 /// Build and returns test storage externalities
 pub fn new_test_ext(authorities_len: usize) -> sp_io::TestExternalities {
@@ -109,19 +88,16 @@ pub fn new_test_ext_with_pairs(
 	authorities_len: usize,
 	with_ring_context: bool,
 ) -> (Vec<AuthorityPair>, sp_io::TestExternalities) {
-	// @davxy temporary logging facility
-	// env_logger::init();
-
 	let pairs = (0..authorities_len)
 		.map(|i| AuthorityPair::from_seed(&U256::from(i).into()))
 		.collect::<Vec<_>>();
 
-	let authorities = pairs.iter().map(|p| p.public()).collect();
+	let authorities: Vec<_> = pairs.iter().map(|p| p.public()).collect();
 
 	let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	pallet_sassafras::GenesisConfig::<Test> {
-		authorities,
+		authorities: authorities.clone(),
 		epoch_config: TEST_EPOCH_CONFIGURATION,
 		_phantom: sp_std::marker::PhantomData,
 	}
@@ -132,9 +108,10 @@ pub fn new_test_ext_with_pairs(
 
 	if with_ring_context {
 		ext.execute_with(|| {
-			log::debug!(target: LOG_TARGET, "Building new testing ring context");
+			log::debug!(target: LOG_TARGET, "Building testing ring context");
 			let ring_ctx = vrf::RingContext::new_testing();
 			RingContext::<Test>::set(Some(ring_ctx.clone()));
+			Sassafras::update_ring_verifier(&authorities);
 		});
 	}
 
@@ -259,28 +236,32 @@ pub fn make_ticket_bodies(
 		.collect()
 }
 
-/// Persist the given tickets in `segments_count` separated segments by appending
-/// them to the storage segments list.
+/// Persist the given tickets in the unsorted segments buffer.
 ///
-/// If segments_count > tickets.len() => segments_count = tickets.len()
+/// This function skips all the checks performed by the `submit_tickets` extrinsic and
+/// directly appends the tickets to the `UnsortedSegments` structure.
 pub fn persist_next_epoch_tickets_as_segments(tickets: &[(TicketId, TicketBody)]) {
 	let mut ids = Vec::with_capacity(tickets.len());
 	tickets.iter().for_each(|(id, body)| {
 		TicketsData::<Test>::set(id, Some(body.clone()));
 		ids.push(*id);
 	});
-	let max_chunk_size = MaxTicketsFor::<Test>::get() as usize;
+	let max_chunk_size = Sassafras::epoch_length() as usize;
 	ids.chunks(max_chunk_size).for_each(|chunk| {
 		Sassafras::append_tickets(BoundedVec::truncate_from(chunk.to_vec()));
 	})
 }
 
+/// Calls the [`persist_next_epoch_tickets_as_segments`] and then proceeds to the
+/// sorting of the candidates.
+///
+/// Only "winning" tickets are left.
 pub fn persist_next_epoch_tickets(tickets: &[(TicketId, TicketBody)]) {
 	persist_next_epoch_tickets_as_segments(tickets);
 	// Force sorting of next epoch tickets (enactment) by explicitly querying the first of them.
 	let next_epoch = Sassafras::next_epoch();
 	assert_eq!(TicketsMeta::<Test>::get().unsorted_tickets_count, tickets.len() as u32);
-	Sassafras::slot_ticket(next_epoch.start_slot).unwrap();
+	Sassafras::slot_ticket(next_epoch.start).unwrap();
 	assert_eq!(TicketsMeta::<Test>::get().unsorted_tickets_count, 0);
 }
 
@@ -290,8 +271,9 @@ fn slot_claim_vrf_signature(slot: Slot, pair: &AuthorityPair) -> VrfSignature {
 
 	// Check if epoch is going to change on initialization.
 	let epoch_start = Sassafras::current_epoch_start();
-	if epoch_start != 0_u64 && slot >= epoch_start + EPOCH_DURATION {
-		epoch += slot.saturating_sub(epoch_start).saturating_div(EPOCH_DURATION);
+	let epoch_length = EPOCH_LENGTH.into();
+	if epoch_start != 0_u64 && slot >= epoch_start + epoch_length {
+		epoch += slot.saturating_sub(epoch_start).saturating_div(epoch_length);
 		randomness = crate::NextRandomness::<Test>::get();
 	}
 
