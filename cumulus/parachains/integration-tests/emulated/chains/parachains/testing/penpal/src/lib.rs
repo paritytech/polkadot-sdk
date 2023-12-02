@@ -21,8 +21,11 @@ use frame_support::traits::OnInitialize;
 
 // Cumulus
 use emulated_integration_tests_common::{
-	impl_assert_events_helpers_for_parachain, xcm_emulator::decl_test_parachains,
+	impl_accounts_helpers_for_parachain, impl_assert_events_helpers_for_parachain,
+	impl_assets_helpers_for_parachain, impls::Parachain, xcm_emulator::decl_test_parachains,
 };
+use rococo_emulated_chain::Rococo;
+use westend_emulated_chain::Westend;
 
 // Penpal Parachain declaration
 decl_test_parachains! {
@@ -40,6 +43,7 @@ decl_test_parachains! {
 		pallets = {
 			PolkadotXcm: penpal_runtime::PolkadotXcm,
 			Assets: penpal_runtime::Assets,
+			Balances: penpal_runtime::Balances,
 		}
 	},
 	pub struct PenpalB {
@@ -56,10 +60,14 @@ decl_test_parachains! {
 		pallets = {
 			PolkadotXcm: penpal_runtime::PolkadotXcm,
 			Assets: penpal_runtime::Assets,
+			Balances: penpal_runtime::Balances,
 		}
 	},
 }
 
 // Penpal implementation
+impl_accounts_helpers_for_parachain!(PenpalA);
+impl_assets_helpers_for_parachain!(PenpalA, Rococo);
+impl_assets_helpers_for_parachain!(PenpalB, Westend);
 impl_assert_events_helpers_for_parachain!(PenpalA);
 impl_assert_events_helpers_for_parachain!(PenpalB);

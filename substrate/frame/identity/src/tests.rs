@@ -25,7 +25,7 @@ use crate::{
 
 use codec::{Decode, Encode};
 use frame_support::{
-	assert_noop, assert_ok, ord_parameter_types, parameter_types,
+	assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{ConstU32, ConstU64, EitherOfDiverse, Get},
 	BoundedVec,
 };
@@ -47,6 +47,7 @@ frame_support::construct_runtime!(
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
@@ -710,5 +711,72 @@ fn test_has_identity() {
 			&10,
 			IdentityField::Display as u64 | IdentityField::Legal as u64 | IdentityField::Web as u64
 		));
+	});
+}
+
+#[test]
+fn reap_identity_works() {
+	new_test_ext().execute_with(|| {
+		let ten_info = ten();
+		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(10), Box::new(ten_info.clone())));
+		assert_ok!(Identity::set_subs(
+			RuntimeOrigin::signed(10),
+			vec![(20, Data::Raw(vec![40; 1].try_into().unwrap()))]
+		));
+		// deposit is correct
+		let id_deposit = id_deposit(&ten_info);
+		let subs_deposit: u64 = <<Test as Config>::SubAccountDeposit as Get<u64>>::get();
+		assert_eq!(Balances::free_balance(10), 1000 - id_deposit - subs_deposit);
+		// reap
+		assert_ok!(Identity::reap_identity(&10));
+		// no identity or subs
+		assert!(Identity::identity(10).is_none());
+		assert!(Identity::super_of(20).is_none());
+		// balance is unreserved
+		assert_eq!(Balances::free_balance(10), 1000);
+	});
+}
+
+#[test]
+fn poke_deposit_works() {
+	new_test_ext().execute_with(|| {
+		let ten_info = ten();
+		// Set a custom registration with 0 deposit
+		IdentityOf::<Test>::insert(
+			&10,
+			Registration {
+				judgements: BoundedVec::default(),
+				deposit: Zero::zero(),
+				info: ten_info.clone(),
+			},
+		);
+		assert!(Identity::identity(10).is_some());
+		// Set a sub with zero deposit
+		SubsOf::<Test>::insert::<&u64, (u64, BoundedVec<u64, ConstU32<2>>)>(
+			&10,
+			(0, vec![20].try_into().unwrap()),
+		);
+		SuperOf::<Test>::insert(&20, (&10, Data::Raw(vec![1; 1].try_into().unwrap())));
+		// Balance is free
+		assert_eq!(Balances::free_balance(10), 1000);
+
+		// poke
+		assert_ok!(Identity::poke_deposit(&10));
+
+		// free balance reduced correctly
+		let id_deposit = id_deposit(&ten_info);
+		let subs_deposit: u64 = <<Test as Config>::SubAccountDeposit as Get<u64>>::get();
+		assert_eq!(Balances::free_balance(10), 1000 - id_deposit - subs_deposit);
+		// new registration deposit is 10
+		assert_eq!(
+			Identity::identity(&10),
+			Some(Registration {
+				judgements: BoundedVec::default(),
+				deposit: id_deposit,
+				info: ten()
+			})
+		);
+		// new subs deposit is 10          vvvvvvvvvvvv
+		assert_eq!(Identity::subs_of(10), (subs_deposit, vec![20].try_into().unwrap()));
 	});
 }
