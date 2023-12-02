@@ -20,6 +20,8 @@
 //! An equivalent of `sp_io::TestExternalities` that can load its state from a remote substrate
 //! based chain, or a local state snapshot file.
 
+use tokio::task;
+use std::sync::Arc;
 use codec::{Compact, Decode, Encode};
 use indicatif::{ProgressBar, ProgressStyle};
 use jsonrpsee::{
@@ -795,37 +797,63 @@ where
 
 		let at = self.as_online().at_expected();
 
-		let client = self.as_online().rpc_client();
+		// Create an Arc to share ownership of the client.
+		let client = Arc::new(self.as_online().rpc_client().clone());
 		let mut child_kv = vec![];
-		for prefixed_top_key in child_roots {
-			let child_keys =
-				Self::rpc_child_get_keys(&client, &prefixed_top_key, StorageKey(vec![]), at)
-					.await?;
 
-			let child_kv_inner =
-				Self::rpc_child_get_storage_paged(&client, &prefixed_top_key, child_keys, at)
-					.await?;
+		// Spawn tasks for each child root and collect their handles.
+		let handles: Vec<_> = child_roots.into_iter().map(|prefixed_top_key| {
+			let client = Arc::clone(&client); // Increase the reference count of the Arc.
+			task::spawn(async move {
+				// Asynchronously retrieve child keys using the RPC client.
+				let child_keys =
+					Self::rpc_child_get_keys(&client, &prefixed_top_key, StorageKey(vec![]), at)
+						.await?;
 
-			let prefixed_top_key = PrefixedStorageKey::new(prefixed_top_key.clone().0);
-			let un_prefixed = match ChildType::from_prefixed_key(&prefixed_top_key) {
-				Some((ChildType::ParentKeyId, storage_key)) => storage_key,
-				None => {
-					log::error!(target: LOG_TARGET, "invalid key: {:?}", prefixed_top_key);
-					return Err("Invalid child key")
+				// Asynchronously retrieve child storage data using the RPC client.
+				let child_kv_inner =
+					Self::rpc_child_get_storage_paged(&client, &prefixed_top_key, child_keys, at)
+						.await?;
+
+				let prefixed_top_key = PrefixedStorageKey::new(prefixed_top_key.clone().0);
+				let un_prefixed = match ChildType::from_prefixed_key(&prefixed_top_key) {
+					Some((ChildType::ParentKeyId, storage_key)) => storage_key,
+					None => {
+						log::error!(target: LOG_TARGET, "invalid key: {:?}", prefixed_top_key);
+						return Err("Invalid child key")
+					},
+				};
+
+				let info = ChildInfo::new_default(un_prefixed);
+				let key_values =
+					child_kv_inner.iter().cloned().map(|(k, v)| (k.0, v.0)).collect::<Vec<_>>();
+				Ok((info, child_kv_inner, key_values))
+			})
+		}).collect();
+
+		// Process the results of each task.
+		for handle in handles {
+			match handle.await {
+				Ok(result) => {
+					match result {
+						Ok((info, child_kv_inner, key_values)) => {
+							child_kv.push((info.clone(), child_kv_inner));
+							for (k, v) in key_values {
+								pending_ext.insert_child(info.clone(), k, v);
+							}
+						},
+						Err(e) => return Err("Error inserting child key".into()),
+					}
 				},
-			};
-
-			let info = ChildInfo::new_default(un_prefixed);
-			let key_values =
-				child_kv_inner.iter().cloned().map(|(k, v)| (k.0, v.0)).collect::<Vec<_>>();
-			child_kv.push((info.clone(), child_kv_inner));
-			for (k, v) in key_values {
-				pending_ext.insert_child(info.clone(), k, v);
+				// If there is an error while awaiting the task, return an error indicating a problem processing child data.
+				Err(e) => return Err("Error in processing child key".into()),
 			}
 		}
 
+		// Return the collected child key-value pairs.
 		Ok(child_kv)
 	}
+
 
 	/// Build `Self` from a network node denoted by `uri`.
 	///
