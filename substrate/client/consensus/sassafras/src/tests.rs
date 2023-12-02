@@ -293,7 +293,7 @@ impl TestContext {
 			parent_claim.slot + 1
 		});
 
-		// TODO DAVXY: here maybe we can use the epoch.randomness???
+		// TODO @davxy: maybe here we can use the epoch.randomness???
 		let epoch = self.epoch_data(&parent_hash, parent_number, slot);
 		let sign_data =
 			vrf::slot_claim_sign_data(&self.link.genesis_config.randomness, slot, epoch.epoch_idx);
@@ -647,8 +647,8 @@ fn finalization_prunes_epoch_changes_and_removes_weights() {
 
 	assert_eq!(epoch_changes, vec![canon[6], canon[12], canon[18], canon_tail[3]]);
 
-	// TODO-SASS-P3
-	//todo!("Requires aux_storage_cleanup");
+	// TODO @davxy
+	// todo!("Requires aux_storage_cleanup");
 }
 
 #[test]

@@ -30,7 +30,7 @@ use std::pin::Pin;
 
 /// Get secondary authority index for the given epoch and slot.
 pub(crate) fn secondary_authority_index(slot: Slot, epoch: &Epoch) -> AuthorityIndex {
-	// TODO twox -> blake2
+	// TODO @davxy twox -> blake2
 	u64::from_le_bytes((epoch.randomness, slot).using_encoded(twox_64)) as AuthorityIndex %
 		epoch.authorities.len() as AuthorityIndex
 }
@@ -51,17 +51,16 @@ pub(crate) fn claim_slot(
 
 	let (authority_idx, ticket_claim) = match maybe_ticket {
 		Some((ticket_id, ticket_body)) => {
-			debug!(target: LOG_TARGET, "[TRY PRIMARY (slot {slot}, tkt = {ticket_id:032x})]");
+			debug!(target: LOG_TARGET, "[TRY PRIMARY] slot: {}, tkt: {:032x}", slot, ticket_id);
 
-			// TODO @davxy... this is annoying.
+			// TODO @davxy
 			// If we lose the secret cache then to know if we are the ticket owner then looks
 			// like we need to regenerate the ticket-id using all our keys and check if the
-			// output matches with the onchain one...
-			// Is there a better way???
+			// output matches with the onchain one.
 			let (authority_idx, ticket_secret) = epoch.tickets_aux.remove(&ticket_id)?;
 			debug!(
 				target: LOG_TARGET,
-				"   got ticket: auth: {}, attempt: {}",
+				"  got ticket: authority: {}, attempt: {}",
 				authority_idx,
 				ticket_body.attempt_idx
 			);
@@ -83,7 +82,7 @@ pub(crate) fn claim_slot(
 			(authority_idx, Some(claim))
 		},
 		None => {
-			debug!(target: LOG_TARGET, "[TRY SECONDARY (slot {slot})]");
+			debug!(target: LOG_TARGET, "[TRY SECONDARY] slot: {})", slot);
 			(secondary_authority_index(slot, epoch), None)
 		},
 	};
@@ -342,7 +341,7 @@ where
 	}
 
 	fn should_backoff(&self, _slot: Slot, _chain_head: &B::Header) -> bool {
-		// TODO-SASS-P3
+		// TODO @davxy
 		false
 	}
 
@@ -363,14 +362,14 @@ where
 	}
 
 	fn telemetry(&self) -> Option<TelemetryHandle> {
-		// TODO-SASS-P4
+		// TODO @davxy
 		None
 	}
 
 	fn proposing_remaining_duration(&self, slot_info: &SlotInfo<B>) -> Duration {
 		let parent_slot = find_slot_claim::<B>(&slot_info.chain_head).ok().map(|d| d.slot);
 
-		// TODO-SASS-P2 : clarify this field. In Sassafras this is part of 'self'
+		// TODO @davxy : clarify this field. In Sassafras this is part of 'self'
 		let block_proposal_slot_portion = sc_consensus_slots::SlotProportion::new(0.5);
 
 		sc_consensus_slots::proposing_remaining_duration(
@@ -484,7 +483,8 @@ async fn start_tickets_worker<B, C, SC>(
 
 		match err {
 			None => {
-				// Cache tickets secret in the epoch changes tree (TODO: @davxy use the keystre)
+				// Cache tickets secret in the epoch changes tree
+				// TODO @davxy: use the keystre
 				epoch_changes
 					.shared_data()
 					.epoch_mut(&epoch_identifier)

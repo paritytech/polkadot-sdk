@@ -86,7 +86,7 @@ impl<T: Config> EstimateNextSessionRotation<BlockNumberFor<T>> for Pallet<T> {
 		let elapsed = CurrentSlot::<T>::get().saturating_sub(Self::current_epoch_start()) + 1;
 		let progress = Permill::from_rational(*elapsed, T::EpochDuration::get());
 
-		// TODO-SASS-P2:  Read: Current Slot, Epoch Index, Genesis Slot
+		// TODO @davxy:  Read: Current Slot, Epoch Index, Genesis Slot
 		(Some(progress), T::DbWeight::get().reads(3))
 	}
 
@@ -113,7 +113,7 @@ impl<T: Config> EstimateNextSessionRotation<BlockNumberFor<T>> for Pallet<T> {
 			now.saturating_add(blocks_remaining)
 		});
 
-		// TODO-SASS-P2:  Read: Current Slot, Epoch Index, Genesis Slot
+		// TODO @davxy:  Read: Current Slot, Epoch Index, Genesis Slot
 		(upper_bound, T::DbWeight::get().reads(3))
 	}
 }

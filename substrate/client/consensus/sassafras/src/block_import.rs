@@ -55,7 +55,7 @@ where
 	B: BlockT,
 	C: HeaderMetadata<B> + HeaderBackend<B>,
 {
-	// TODO-SASS-P3
+	// TODO @davxy
 	Default::default()
 }
 
@@ -445,7 +445,7 @@ where
 
 		// Revert to the original epoch changes in case there's an error
 		// importing the block
-		// TODO-SASS-P3: shouldn't we check for Ok(Imported(_))?
+		// TODO @davxy: shouldn't we check for Ok(Imported(_))?
 		if import_result.is_err() {
 			if let Some(data) = epoch_changes_data {
 				data.rollback();

@@ -510,7 +510,7 @@ pub mod pallet {
 		/// call it (validated in `ValidateUnsigned`), as such if the block author is defined it
 		/// will be defined as the equivocation reporter.
 		///
-		/// TODO-SASS-P4: proper weight
+		/// TODO @davxy: proper weight
 		#[pallet::call_index(2)]
 		#[pallet::weight({0})]
 		pub fn report_equivocation_unsigned(

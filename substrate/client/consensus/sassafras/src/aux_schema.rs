@@ -18,7 +18,7 @@
 
 //! Schema for auxiliary data persistence.
 //!
-//! TODO-SASS-P2 : RENAME FROM aux_schema.rs => aux_data.rs
+//! TODO @davxy : RENAME FROM aux_schema.rs => aux_data.rs
 
 use std::{collections::HashSet, sync::Arc};
 

@@ -18,9 +18,9 @@
 
 //! # Sassafras
 //!
-//! TODO-SASS-P2: documentation
+//! TODO @davxy: docs
 
-// TODO-SASS-P2: remove this
+// TODO @davxy: remove this
 //#![deny(warnings)]
 #![forbid(unsafe_code, missing_docs)]
 

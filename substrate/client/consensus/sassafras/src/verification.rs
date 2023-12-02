@@ -412,7 +412,7 @@ where
 					let new_block = Block::new(pre_header.clone(), inner_body);
 
 					if !block.state_action.skip_execution_checks() {
-						// TODO-SASS-P3 : @davxy??? DOC
+						// TODO @davxy: some comments?
 						let mut inherent_data = create_inherent_data_providers
 							.create_inherent_data()
 							.await

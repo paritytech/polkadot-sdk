@@ -724,7 +724,7 @@ impl_runtime_apis! {
 		fn generate_key_ownership_proof(
 			_authority_id: sp_consensus_sassafras::AuthorityId,
 		) -> Option<sp_consensus_sassafras::OpaqueKeyOwnershipProof> {
-			// TODO @davxy SASS-P3
+			// TODO @davxy
 			None
 		}
 
@@ -732,7 +732,7 @@ impl_runtime_apis! {
 			_equivocation_proof: sp_consensus_sassafras::EquivocationProof<<Block as BlockT>::Header>,
 			_key_owner_proof: sp_consensus_sassafras::OpaqueKeyOwnershipProof,
 		) -> bool {
-			// TODO @davxy SASS-P3
+			// TODO @davxy
 			false
 		}
 	}

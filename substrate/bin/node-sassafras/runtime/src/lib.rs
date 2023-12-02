@@ -142,7 +142,7 @@ pub fn native_version() -> NativeVersion {
 }
 
 // Required to send unsigned transactoins from Sassafras pallet
-// TODO-SASS-P2 double check (isn't grandpa requiring the same thing???
+// TODO @davxy: isn't grandpa requiring the same thing?
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
 where
 	RuntimeCall: From<C>,
