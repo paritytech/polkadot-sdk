@@ -84,7 +84,7 @@ pub mod v2 {
 			let next_free_para_id: u32 = NextFreeParaId::<T>::get().into();
 
 			(lowest_public_id..next_free_para_id).for_each(|para_id| {
-				LegacyParas::<T>::insert(ParaId::new(para_id), ());
+				LegacyParas::<T>::insert(ParaId::from(para_id), ());
 				writes.saturating_inc();
 			});
 
@@ -99,8 +99,8 @@ pub mod v2 {
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(_: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-			let expected_legacy_paras_count =
-				NextFreeParaId::<T>::get().saturating_sub(LOWEST_PUBLIC_ID);
+			let expected_legacy_paras_count: u32 =
+				NextFreeParaId::<T>::get().saturating_sub(LOWEST_PUBLIC_ID).into();
 			let legacy_paras_count = LegacyParas::<T>::iter_values().count() as u32;
 
 			ensure!(
