@@ -155,8 +155,8 @@ where
 			// current epoch. We will figure out which is the first skipped epoch and we
 			// will partially re-use its data for this "recovery" epoch.
 			let epoch_data = viable_epoch.as_mut();
-			let skipped_epochs = (*slot - *epoch_data.start_slot) / epoch_data.epoch_duration;
-			let original_epoch_idx = epoch_data.epoch_idx;
+			let skipped_epochs = (*slot - *epoch_data.start) / epoch_data.length as u64;
+			let original_epoch_idx = epoch_data.index;
 
 			// NOTE: notice that we are only updating a local copy of the `Epoch`, this
 			// makes it so that when we insert the next epoch into `EpochChanges` below
@@ -167,14 +167,14 @@ where
 			// which epoch to use for a given slot, we will search in-depth with the
 			// predicate `epoch.start_slot <= slot` which will still match correctly without
 			// requiring to update `start_slot` to the correct value.
-			epoch_data.epoch_idx += skipped_epochs;
-			epoch_data.start_slot =
-				Slot::from(*epoch_data.start_slot + skipped_epochs * epoch_data.epoch_duration);
+			epoch_data.index += skipped_epochs;
+			epoch_data.start =
+				Slot::from(*epoch_data.start + skipped_epochs * epoch_data.length as u64);
 			warn!(
 				target: LOG_TARGET,
 				"Epoch(s) skipped from {} to {}",
 				original_epoch_idx,
-				epoch_data.epoch_idx
+				epoch_data.index
 			);
 		}
 
@@ -182,10 +182,10 @@ where
 			target: LOG_TARGET,
 			log_level,
 			"New epoch {} launching at block {} (block slot {} >= start slot {}).",
-			viable_epoch.as_ref().epoch_idx,
+			viable_epoch.as_ref().index,
 			hash,
 			slot,
-			viable_epoch.as_ref().start_slot,
+			viable_epoch.as_ref().start,
 		);
 
 		let next_epoch = viable_epoch.increment(next_epoch_desc);
@@ -194,7 +194,7 @@ where
 			target: LOG_TARGET,
 			log_level,
 			"Next epoch starts at slot {}",
-			next_epoch.as_ref().start_slot,
+			next_epoch.as_ref().start,
 		);
 
 		let old_epoch_changes = (*epoch_changes).clone();

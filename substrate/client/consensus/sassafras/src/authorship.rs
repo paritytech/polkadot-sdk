@@ -22,16 +22,15 @@ use super::*;
 
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_consensus_sassafras::{
-	digests::SlotClaim, ticket_id_threshold, AuthorityId, Slot, TicketBody, TicketClaim,
-	TicketEnvelope, TicketId,
+	digests::SlotClaim, ticket_id_threshold, vrf::RingContext, AuthorityId, Slot, TicketBody,
+	TicketClaim, TicketEnvelope, TicketId,
 };
-use sp_core::{
-	bandersnatch::ring_vrf::RingContext, ed25519::Pair as EphemeralPair, twox_64, ByteArray,
-};
+use sp_core::{ed25519::Pair as EphemeralPair, twox_64, ByteArray};
 use std::pin::Pin;
 
 /// Get secondary authority index for the given epoch and slot.
 pub(crate) fn secondary_authority_index(slot: Slot, epoch: &Epoch) -> AuthorityIndex {
+	// TODO twox -> blake2
 	u64::from_le_bytes((epoch.randomness, slot).using_encoded(twox_64)) as AuthorityIndex %
 		epoch.authorities.len() as AuthorityIndex
 }
@@ -48,7 +47,7 @@ pub(crate) fn claim_slot(
 		return None
 	}
 
-	let mut vrf_sign_data = vrf::slot_claim_sign_data(&epoch.randomness, slot, epoch.epoch_idx);
+	let mut vrf_sign_data = vrf::slot_claim_sign_data(&epoch.randomness, slot, epoch.index);
 
 	let (authority_idx, ticket_claim) = match maybe_ticket {
 		Some((ticket_id, ticket_body)) => {
@@ -69,11 +68,8 @@ pub(crate) fn claim_slot(
 
 			vrf_sign_data.push_transcript_data(&ticket_body.encode());
 
-			let reveal_vrf_input = vrf::revealed_key_input(
-				&epoch.randomness,
-				ticket_body.attempt_idx,
-				epoch.epoch_idx,
-			);
+			let reveal_vrf_input =
+				vrf::revealed_key_input(&epoch.randomness, ticket_body.attempt_idx, epoch.index);
 			vrf_sign_data
 				.push_vrf_input(reveal_vrf_input)
 				.expect("Sign data has enough space; qed");
@@ -117,12 +113,12 @@ fn generate_epoch_tickets(
 
 	let threshold = ticket_id_threshold(
 		epoch.config.redundancy_factor,
-		epoch.epoch_duration as u32,
+		epoch.length,
 		epoch.config.attempts_number,
 		epoch.authorities.len() as u32,
 	);
 	// TODO-SASS-P4 remove me
-	debug!(target: LOG_TARGET, "Generating tickets for epoch {} @ slot {}", epoch.epoch_idx, epoch.start_slot);
+	debug!(target: LOG_TARGET, "Generating tickets for epoch {} @ slot {}", epoch.index, epoch.start);
 	debug!(target: LOG_TARGET, "    threshold: {threshold:016x}");
 
 	// We need a list of raw unwrapped keys
@@ -142,8 +138,7 @@ fn generate_epoch_tickets(
 
 		let make_ticket = |attempt_idx| {
 			// Ticket id and threshold check.
-			let ticket_id_input =
-				vrf::ticket_id_input(&epoch.randomness, attempt_idx, epoch.epoch_idx);
+			let ticket_id_input = vrf::ticket_id_input(&epoch.randomness, attempt_idx, epoch.index);
 			let ticket_id_output = keystore
 				.bandersnatch_vrf_output(AuthorityId::ID, authority_id.as_ref(), &ticket_id_input)
 				.ok()??;
@@ -163,7 +158,7 @@ fn generate_epoch_tickets(
 
 			// Revealed key.
 			let revealed_input =
-				vrf::revealed_key_input(&epoch.randomness, attempt_idx, epoch.epoch_idx);
+				vrf::revealed_key_input(&epoch.randomness, attempt_idx, epoch.index);
 			let revealed_output = keystore
 				.bandersnatch_vrf_output(AuthorityId::ID, authority_id.as_ref(), &revealed_input)
 				.ok()??;
@@ -616,7 +611,9 @@ where
 	};
 
 	let slot_worker = sc_consensus_slots::start_slot_worker(
-		sassafras_link.genesis_config.slot_duration,
+		// TODO: DIXME slot duration should be passed as part of the worker params
+		//sassafras_link.genesis_config.slot_duration,
+		sp_consensus_slots::SlotDuration::from_millis(6000),
 		select_chain.clone(),
 		sc_consensus_slots::SimpleSlotWorkerToSlotWorker(slot_worker),
 		sync_oracle,

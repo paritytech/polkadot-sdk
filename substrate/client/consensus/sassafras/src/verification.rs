@@ -80,7 +80,7 @@ fn check_header<B: BlockT + Sized>(
 
 	// Optionally check ticket ownership
 
-	let mut sign_data = vrf::slot_claim_sign_data(&epoch.randomness, claim.slot, epoch.epoch_idx);
+	let mut sign_data = vrf::slot_claim_sign_data(&epoch.randomness, claim.slot, epoch.index);
 
 	match (&maybe_ticket, &claim.ticket_claim) {
 		(Some((_ticket_id, ticket_body)), ticket_claim) => {
@@ -89,11 +89,8 @@ fn check_header<B: BlockT + Sized>(
 			sign_data.push_transcript_data(&ticket_body.encode());
 
 			// Revealed key check
-			let revealed_input = vrf::revealed_key_input(
-				&epoch.randomness,
-				ticket_body.attempt_idx,
-				epoch.epoch_idx,
-			);
+			let revealed_input =
+				vrf::revealed_key_input(&epoch.randomness, ticket_body.attempt_idx, epoch.index);
 			let revealed_output = claim
 				.vrf_signature
 				.outputs

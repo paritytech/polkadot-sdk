@@ -237,10 +237,9 @@ impl EpochT for Epoch {
 
 	fn increment(&self, descriptor: NextEpochDescriptor) -> Epoch {
 		sp_consensus_sassafras::Epoch {
-			epoch_idx: self.epoch_idx + 1,
-			start_slot: self.start_slot + self.epoch_duration,
-			slot_duration: self.slot_duration,
-			epoch_duration: self.epoch_duration,
+			index: self.index + 1,
+			start: self.start + self.length as u64,
+			length: self.length,
 			authorities: descriptor.authorities,
 			randomness: descriptor.randomness,
 			config: descriptor.config.unwrap_or(self.config),
@@ -249,11 +248,11 @@ impl EpochT for Epoch {
 	}
 
 	fn start_slot(&self) -> Slot {
-		self.start_slot
+		self.start
 	}
 
 	fn end_slot(&self) -> Slot {
-		self.start_slot + self.epoch_duration
+		self.start + self.length as u64
 	}
 }
 
@@ -262,8 +261,8 @@ impl Epoch {
 	/// the first block, so that has to be provided.
 	pub fn genesis(config: &Epoch, slot: Slot) -> Epoch {
 		let mut epoch = config.clone();
-		epoch.epoch_idx = 0;
-		epoch.start_slot = slot;
+		epoch.index = 0;
+		epoch.start = slot;
 		epoch
 	}
 }
