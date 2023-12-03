@@ -18,16 +18,17 @@ digraph {
 
  pvf [label = "PVF Host"; shape = square]
 
- pp [label = "Prepare\nPool"; shape = square]
+ pq [label = "Prepare\nQueue"; shape = square]
  eq [label = "Execute\nQueue"; shape = square]
+ pp [label = "Prepare\nPool"; shape = square]
 
- subgraph "cluster partial_sandbox_1" {
+ subgraph "cluster partial_sandbox_prep" {
   label = "polkadot-prepare-worker\n(Partial Sandbox)\n\n\n";
   labelloc = "t";
 
   pw [label = "Prepare\nWorker"; shape = square]
 
-  subgraph "cluster full_sandbox_1" {
+  subgraph "cluster full_sandbox_prep" {
    label = "Fully Isolated Sandbox\n\n\n";
    labelloc = "t";
 
@@ -35,13 +36,13 @@ digraph {
   }
  }
 
- subgraph "cluster partial_sandbox_2" {
+ subgraph "cluster partial_sandbox_exec" {
   label = "polkadot-execute-worker\n(Partial Sandbox)\n\n\n";
   labelloc = "t";
 
   ew [label = "Execute\nWorker"; shape = square]
 
-  subgraph "cluster full_sandbox_2" {
+  subgraph "cluster full_sandbox_exec" {
    label = "Fully Isolated Sandbox\n\n\n";
    labelloc = "t";
 
@@ -52,9 +53,10 @@ digraph {
  can -> pvf [label = "Precheck"; style = dashed]
  can -> pvf [label = "Validate"]
 
- pvf -> pp [label = "Prepare"; style = dashed]
+ pvf -> pq [label = "Prepare"; style = dashed]
  pvf -> eq [label = "Execute";]
  pvf -> pvf [label = "see (2) and (3)"; style = dashed]
+ pq -> pp [style = dashed]
 
  pp -> pw [style = dashed]
  eq -> ew
@@ -68,7 +70,7 @@ Some notes about the graph:
 
 1. Once a job has finished, the response will flow back up the way it came.
 2. In the case of execution, the host will send a request for preparation to the
-   Prepare Pool if needed. In that case, only after the preparation succeeds
+   Prepare Queue if needed. In that case, only after the preparation succeeds
    does the Execute Queue continue with validation.
 3. Multiple requests for preparing the same artifact are coalesced, so that the
    work is only done once.
