@@ -130,5 +130,4 @@ mod integration {
 	fn slash_works() {
 		ExtBuilder::default().build_and_execute(|| assert!(true));
 	}
-
 }

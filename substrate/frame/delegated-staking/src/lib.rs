@@ -356,7 +356,6 @@ impl<T: Config> Delegatee for Pallet<T> {
 		// add the above removed delegation to `new_delegator`.
 		Self::delegate(new_delegator, delegatee, value)
 	}
-
 }
 
 impl<T: Config> Delegator for Pallet<T> {
