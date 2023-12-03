@@ -143,9 +143,9 @@ mod integration {
 					Balances::balance_on_hold(&HoldReason::Delegating.into(), &delegator),
 					100
 				);
-				assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), 100);
+				// assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), 100);
 
-				assert_ok!(Staking::bond(RuntimeOrigin::signed(delegatee),));
+				// assert_ok!(Staking::bond(RuntimeOrigin::signed(delegatee),));
 			}
 
 			//

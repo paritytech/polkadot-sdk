@@ -65,10 +65,10 @@ pub mod pallet {
 		/// Core staking implementation.
 		type Staking: StakingInterface<Balance = BalanceOf<Self>, AccountId = Self::AccountId>;
 
-		/// Core Staking Balance Provider.
+		/// Non Delegatee Staking Support.
 		///
 		/// Fallback implementation when an account is not a delegatee.
-		type FallbackBalanceProvider: StakingDelegationSupport<
+		type FallbackSupportProvider: StakingDelegationSupport<
 			Balance = BalanceOf<Self>,
 			AccountId = Self::AccountId,
 		>;
@@ -415,17 +415,17 @@ impl<T: Config> StakingDelegationSupport for Pallet<T> {
 
 	fn stakeable_balance(who: &Self::AccountId) -> Self::Balance {
 		<Delegatees<T>>::get(who).map_or_else(
-			|| T::FallbackBalanceProvider::stakeable_balance(who),
+			|| T::FallbackSupportProvider::stakeable_balance(who),
 			|delegatee| delegatee.effective_balance(),
 		)
 	}
 
 	fn update_hold(who: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
-		T::FallbackBalanceProvider::update_hold(who, amount)
+		T::FallbackSupportProvider::update_hold(who, amount)
 	}
 
 	fn release(who: &Self::AccountId) {
-		T::FallbackBalanceProvider::release(who)
+		T::FallbackSupportProvider::release(who)
 	}
 
 	fn restrict_reward_destination(
@@ -434,11 +434,11 @@ impl<T: Config> StakingDelegationSupport for Pallet<T> {
 	) -> bool {
 		// for non delegatee accounts, use default implementation.
 		if !Self::is_delegatee(who) {
-			return T::FallbackBalanceProvider::restrict_reward_destination(who, reward_destination);
+			return T::FallbackSupportProvider::restrict_reward_destination(who, reward_destination);
 		}
 
 		// restrict if reward destination not set or set as delegatee account itself.
-		reward_destination.map_or_else(|| true, |reward_acc| who == reward_destination)
+		reward_destination.map_or_else(|| true, |reward_acc| who == &reward_acc)
 	}
 	#[cfg(feature = "std")]
 	fn stake_type(who: &Self::AccountId) -> StakeBalanceType {
@@ -446,7 +446,7 @@ impl<T: Config> StakingDelegationSupport for Pallet<T> {
 			return StakeBalanceType::Delegated;
 		}
 
-		T::FallbackBalanceProvider::stake_type(who)
+		T::FallbackSupportProvider::stake_type(who)
 	}
 }
 
