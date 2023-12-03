@@ -6873,22 +6873,25 @@ mod ledger {
 		ExtBuilder::default().build_and_execute(|| {
 			// Given:
 
+			let start = 1001;
 			let mut controllers: Vec<_> = vec![];
-			for n in 1..MaxControllersInBatch::get().into() {
-				let stash = n + 10000;
+			for n in start..(start + MaxControllersInBatch::get()).into() {
+				let ctlr: u64 = n.into();
+				let stash: u64 = (n + 10000).into();
+
 				Ledger::<Test>::insert(
-					n,
+					ctlr,
 					StakingLedger {
 						stash,
 						controller: None,
-						total: (1000 + n).into(),
-						active: (1000 + n).into(),
+						total: (1000 + ctlr).into(),
+						active: (1000 + ctlr).into(),
 						unlocking: Default::default(),
 						legacy_claimed_rewards: bounded_vec![],
 					},
 				);
-				Bonded::<Test>::insert(stash, n);
-				controllers.push(n);
+				Bonded::<Test>::insert(stash, ctlr);
+				controllers.push(ctlr);
 			}
 
 			// When:
@@ -6903,11 +6906,12 @@ mod ledger {
 
 			// Then:
 
-			for n in 1..MaxControllersInBatch::get().into() {
-				let stash = n + 10000;
+			for n in start..(start + MaxControllersInBatch::get()).into() {
+				let ctlr: u64 = n.into();
+				let stash: u64 = (n + 10000).into();
 
 				// Ledger no longer keyed by controller.
-				assert_eq!(Ledger::<Test>::get(n), None);
+				assert_eq!(Ledger::<Test>::get(ctlr), None);
 				// Bonded now maps to the stash.
 				assert_eq!(Bonded::<Test>::get(stash), Some(stash));
 
@@ -6916,8 +6920,8 @@ mod ledger {
 				assert_eq!(ledger_updated.stash, stash);
 
 				// Check `active` and `total` values match the original ledger set by controller.
-				assert_eq!(ledger_updated.active, (1000 + n).into());
-				assert_eq!(ledger_updated.total, (1000 + n).into());
+				assert_eq!(ledger_updated.active, (1000 + ctlr).into());
+				assert_eq!(ledger_updated.total, (1000 + ctlr).into());
 			}
 		})
 	}

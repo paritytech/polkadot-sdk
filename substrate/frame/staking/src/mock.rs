@@ -122,7 +122,7 @@ parameter_types! {
 	pub static SlashDeferDuration: EraIndex = 0;
 	pub static Period: BlockNumber = 5;
 	pub static Offset: BlockNumber = 0;
-	pub static MaxControllersInBatch: u32 = 10;
+	pub static MaxControllersInBatch: u32 = 100;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
