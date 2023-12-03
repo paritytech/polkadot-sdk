@@ -454,6 +454,8 @@ pub mod pallet {
 		/// The member `who` has voted for the `poll` with the given `vote` leading to an updated
 		/// `tally`.
 		Voted { who: T::AccountId, poll: PollIndexOf<T, I>, vote: VoteRecord, tally: TallyOf<T, I> },
+		/// The member `who` of given `rank` has been exchanged from the collective.
+		MemberExchanged { who: T::AccountId, new_who: T::AccountId, rank: Rank },
 	}
 
 	#[pallet::error]
@@ -649,6 +651,47 @@ pub mod pallet {
 				actual_weight: Some(T::WeightInfo::cleanup_poll(r.unique)),
 				pays_fee: Pays::No,
 			})
+		}
+
+		/// Exchanges a member with a new account and the same existing rank.
+		///
+		/// - `origin`: Must be the `AdminOrigin`.
+		/// - `who`: Account of existing member of rank greater than zero to be exchanged.
+		/// - `new_who`: New Account of existing member of rank greater than zero to exchanged to.
+		/// - `min_rank`: The rank of the member or greater.
+		///
+		/// Weight: `O(min_rank)`.
+		#[pallet::call_index(6)]
+		#[pallet::weight(0)]
+		pub fn exchange_member(
+			origin: OriginFor<T>,
+			who: AccountIdLookupOf<T>,
+			new_who: AccountIdLookupOf<T>,
+			min_rank: Rank,
+		) -> DispatchResult {
+			// remove who
+			let max_rank = T::DemoteOrigin::ensure_origin(origin)?;
+			let who = T::Lookup::lookup(who)?;
+			let MemberRecord { rank, .. } = Self::ensure_member(&who)?;
+			ensure!(min_rank >= rank, Error::<T, I>::InvalidWitness);
+			ensure!(max_rank >= rank, Error::<T, I>::NoPermission);
+
+			for r in 0..=rank {
+				Self::remove_from_rank(&who, r)?;
+			}
+			Members::<T, I>::remove(&who);
+
+			// add new member
+			let new_who = T::Lookup::lookup(new_who)?;
+			Self::do_add_member(new_who.clone())?;
+
+			// promotes new_who to the rank of who
+			for _i in 1..=rank {
+				let _ = Self::do_promote_member(new_who.clone(), Some(max_rank.clone()))?;
+			}
+
+			Self::deposit_event(Event::MemberExchanged { who, new_who: new_who.clone(), rank });
+			Ok(())
 		}
 	}
 

@@ -567,3 +567,23 @@ fn tally_support_correct() {
 		MinRankOfClassDelta::set(0);
 	});
 }
+
+#[test]
+fn exchange_member_works() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Club::add_member(RuntimeOrigin::root(), 1));
+		assert_eq!(member_count(0), 1);
+
+		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 1));
+
+		let member_record = MemberRecord { rank: 1 };
+		assert_eq!(Members::<Test>::get(1), Some(member_record.clone()));
+		assert_eq!(Members::<Test>::get(2), None);
+
+		assert_ok!(Club::exchange_member(RuntimeOrigin::root(), 1, 2, 2));
+		assert_eq!(member_count(0), 1);
+
+		assert_eq!(Members::<Test>::get(1), None);
+		assert_eq!(Members::<Test>::get(2), Some(member_record));
+	});
+}
