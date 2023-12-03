@@ -37,7 +37,7 @@ use pallet::*;
 use sp_runtime::{traits::Zero, DispatchResult, RuntimeDebug, Saturating};
 use sp_staking::{
 	delegation::{Delegatee, Delegator},
-	StakeBalanceType, StakerStatus, StakingInterface,
+	StakeBalanceType, StakerStatus, StakingDelegationSupport, StakingInterface,
 };
 use sp_std::{convert::TryInto, prelude::*};
 
@@ -409,7 +409,7 @@ impl<T: Config> Delegator for Pallet<T> {
 	}
 }
 
-impl<T: Config> sp_staking::StakingDelegationSupport for Pallet<T> {
+impl<T: Config> StakingDelegationSupport for Pallet<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
 
@@ -428,6 +428,18 @@ impl<T: Config> sp_staking::StakingDelegationSupport for Pallet<T> {
 		T::FallbackBalanceProvider::release(who)
 	}
 
+	fn restrict_reward_destination(
+		who: &Self::AccountId,
+		reward_destination: Option<Self::AccountId>,
+	) -> bool {
+		// for non delegatee accounts, use default implementation.
+		if !Self::is_delegatee(who) {
+			return T::FallbackBalanceProvider::restrict_reward_destination(who, reward_destination);
+		}
+
+		// restrict if reward destination not set or set as delegatee account itself.
+		reward_destination.map_or_else(|| true, |reward_acc| who == reward_destination)
+	}
 	#[cfg(feature = "std")]
 	fn stake_type(who: &Self::AccountId) -> StakeBalanceType {
 		if Self::is_delegatee(who) {

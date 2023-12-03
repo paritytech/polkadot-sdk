@@ -1823,7 +1823,8 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 }
 
-impl<T: Config> StakingDelegationSupport for Pallet<T> {
+pub struct NoDelegation<T>(PhantomData<T>);
+impl<T: Config> StakingDelegationSupport for NoDelegation<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
 
@@ -1845,6 +1846,7 @@ impl<T: Config> StakingDelegationSupport for Pallet<T> {
 		StakeBalanceType::Direct
 	}
 }
+
 #[cfg(any(test, feature = "try-runtime"))]
 impl<T: Config> Pallet<T> {
 	pub(crate) fn do_try_state(_: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {

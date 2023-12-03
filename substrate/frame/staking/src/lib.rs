@@ -322,7 +322,7 @@ pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 pub use weights::WeightInfo;
 
-pub use pallet::{pallet::*, UseNominatorsAndValidatorsMap, UseValidatorsMap};
+pub use pallet::{pallet::*, NoDelegation, UseNominatorsAndValidatorsMap, UseValidatorsMap};
 
 pub(crate) const STAKING_ID: LockIdentifier = *b"staking ";
 pub(crate) const LOG_TARGET: &str = "runtime::staking";
