@@ -16,12 +16,7 @@
 // limitations under the License.
 
 use crate::{self as delegated_staking};
-use frame_support::{
-	derive_impl,
-	pallet_prelude::*,
-	parameter_types,
-	traits::{ConstU64, Currency},
-};
+use frame_support::{assert_ok, derive_impl, pallet_prelude::*, parameter_types, traits::{ConstU64, Currency}};
 
 use sp_runtime::{traits::IdentityLookup, BuildStorage, Perbill};
 
@@ -29,6 +24,12 @@ use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen,
 };
+use frame_support::traits::fungible::InspectHold;
+use sp_staking::delegation::Delegatee;
+use sp_staking::StakingDelegationSupport;
+use crate::pallet::HoldReason;
+use pallet_staking::RewardDestination;
+use sp_staking::delegation::Delegator;
 
 pub type T = Runtime;
 type Block = frame_system::mocking::MockBlock<Runtime>;
@@ -228,7 +229,31 @@ impl ExtBuilder {
 }
 
 /// fund and return who.
-pub fn fund(who: AccountId, amount: Balance) -> AccountId {
-	let _ = Balances::deposit_creating(&who, amount);
+pub fn fund(who: &AccountId, amount: Balance) -> &AccountId {
+	let _ = Balances::deposit_creating(who, amount);
 	who
+}
+
+
+pub fn setup_delegation(delegatee: AccountId, reward_acc: AccountId, delegators: Vec<AccountId>, delegate_amount: Balance) {
+	assert_ok!(DelegatedStaking::accept_delegations(fund(&delegatee, 100), &reward_acc));
+	assert_ok!(DelegatedStaking::delegate(fund(&delegators[0], delegate_amount + ExistentialDeposit::get()), &delegatee, delegate_amount));
+	assert_ok!(Staking::bond(
+				RuntimeOrigin::signed(delegatee),
+				delegate_amount,
+				RewardDestination::Account(reward_acc)
+			));
+
+	for delegator in &delegators[1..] {
+		assert_ok!(DelegatedStaking::delegate(fund(delegator, 200), &delegatee, 100));
+		assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(delegatee), 100));
+	}
+
+
+	// sanity checks
+	assert_eq!(
+		DelegatedStaking::stakeable_balance(&delegatee),
+		delegate_amount * delegators.len() as Balance
+	);
+	assert_eq!(DelegatedStaking::unbonded_balance(&delegatee), 0);
 }

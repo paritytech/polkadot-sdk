@@ -31,10 +31,10 @@ fn create_a_delegatee_with_first_delegator() {
 		let delegator: AccountId = 202;
 
 		// set intention to accept delegation.
-		assert_ok!(DelegatedStaking::accept_delegations(&fund(delegatee, 1000), &reward_account));
+		assert_ok!(DelegatedStaking::accept_delegations(fund(&delegatee, 1000), &reward_account));
 
 		// delegate to this account
-		assert_ok!(DelegatedStaking::delegate(&fund(delegator, 1000), &delegatee, 100));
+		assert_ok!(DelegatedStaking::delegate(fund(&delegator, 1000), &delegatee, 100));
 
 		// verify
 		assert_eq!(DelegatedStaking::stake_type(&delegatee), StakeBalanceType::Delegated);
@@ -77,7 +77,7 @@ fn create_multiple_delegators() {
 		let reward_account: AccountId = 201;
 
 		// before becoming a delegatee, stakeable balance is only direct balance.
-		assert_eq!(DelegatedStaking::stake_type(&fund(delegatee, 1000)), StakeBalanceType::Direct);
+		assert_eq!(DelegatedStaking::stake_type(fund(&delegatee, 1000)), StakeBalanceType::Direct);
 		assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), 1000);
 
 		// set intention to accept delegation.
@@ -86,7 +86,7 @@ fn create_multiple_delegators() {
 		// create 100 delegators
 		for i in 202..302 {
 			assert_ok!(DelegatedStaking::delegate(
-				&fund(i, 100 + ExistentialDeposit::get()),
+				fund(&i, 100 + ExistentialDeposit::get()),
 				&delegatee,
 				100
 			));
@@ -135,11 +135,11 @@ mod integration {
 			assert_eq!(Staking::status(&delegatee), Err(StakingError::<T>::NotStash.into()));
 
 			// set intention to become a delegatee
-			assert_ok!(DelegatedStaking::accept_delegations(&fund(delegatee, 100), &reward_acc));
+			assert_ok!(DelegatedStaking::accept_delegations(fund(&delegatee, 100), &reward_acc));
 			assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), 0);
 
 			// first delegation
-			assert_ok!(DelegatedStaking::delegate(&fund(200, 200), &delegatee, 100));
+			assert_ok!(DelegatedStaking::delegate(fund(&200, 200), &delegatee, 100));
 			// stakeable balance is now 100.
 			let mut expected_stakeable_balance = 100;
 			assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), expected_stakeable_balance);
@@ -155,7 +155,7 @@ mod integration {
 
 			// set some delegations
 			for delegator in 201..250 {
-				assert_ok!(DelegatedStaking::delegate(&fund(delegator, 200), &delegatee, 100));
+				assert_ok!(DelegatedStaking::delegate(fund(&delegator, 200), &delegatee, 100));
 				expected_stakeable_balance += 100;
 				assert_eq!(
 					Balances::balance_on_hold(&HoldReason::Delegating.into(), &delegator),
@@ -183,7 +183,13 @@ mod integration {
 
 	#[test]
 	fn partial_withdraw() {
-		ExtBuilder::default().build_and_execute(|| assert!(true));
+		ExtBuilder::default().build_and_execute(|| {
+			let delegatee: AccountId = 99;
+			let reward_acc: AccountId = 100;
+			let delegators: Vec<AccountId> = (200..250).collect();
+			let delegate_amount: Balance = 100;
+			setup_delegation(delegatee, reward_acc, delegators, delegate_amount)
+		});
 	}
 
 	#[test]
