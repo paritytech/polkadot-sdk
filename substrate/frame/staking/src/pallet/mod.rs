@@ -37,7 +37,7 @@ use sp_runtime::{
 };
 
 use sp_staking::{
-	EraIndex, Page, SessionIndex, StakingBalanceProvider,
+	EraIndex, Page, SessionIndex, StakingDelegationSupport,
 	StakingAccount::{self, Controller, Stash},
 };
 use sp_std::prelude::*;
@@ -106,12 +106,10 @@ pub mod pallet {
 
 		/// Something that provides stakeable balance of an account as well as a way to hold and
 		/// release this stake.
-		type StakeBalanceProvider: StakingBalanceProvider<
+		type DelegationSupport: StakingDelegationSupport<
 			Balance = Self::CurrencyBalance,
 			AccountId = Self::AccountId,
 		>;
-
-		type RewardDestinationChecker: sp_staking::RewardDestinationChecker<Self::AccountId>;
 
 		/// Time used for computing era duration.
 		///
@@ -713,7 +711,7 @@ pub mod pallet {
 					status
 				);
 				assert!(
-					T::StakeBalanceProvider::stakeable_balance(stash) >= balance,
+					T::DelegationSupport::stakeable_balance(stash) >= balance,
 					"Stash does not have enough balance to bond."
 				);
 				frame_support::assert_ok!(<Pallet<T>>::bond(
@@ -948,7 +946,7 @@ pub mod pallet {
 
 			frame_system::Pallet::<T>::inc_consumers(&stash).map_err(|_| Error::<T>::BadState)?;
 
-			let stash_balance = T::StakeBalanceProvider::stakeable_balance(&stash);
+			let stash_balance = T::DelegationSupport::stakeable_balance(&stash);
 			let value = value.min(stash_balance);
 			Self::deposit_event(Event::<T>::Bonded { stash: stash.clone(), amount: value });
 			let ledger = StakingLedger::<T>::new(stash.clone(), value);
@@ -984,7 +982,7 @@ pub mod pallet {
 
 			let mut ledger = Self::ledger(StakingAccount::Stash(stash.clone()))?;
 
-			let stash_balance = T::StakeBalanceProvider::stakeable_balance(&stash);
+			let stash_balance = T::DelegationSupport::stakeable_balance(&stash);
 			if let Some(extra) = stash_balance.checked_sub(&ledger.total) {
 				let extra = extra.min(max_additional);
 				ledger.total += extra;

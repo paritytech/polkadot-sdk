@@ -47,7 +47,7 @@ pub type BalanceOf<T> =
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use sp_staking::StakingBalanceProvider;
+	use sp_staking::StakingDelegationSupport;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
@@ -68,7 +68,7 @@ pub mod pallet {
 		/// Core Staking Balance Provider.
 		///
 		/// Fallback implementation when an account is not a delegatee.
-		type FallbackBalanceProvider: StakingBalanceProvider<
+		type FallbackBalanceProvider: StakingDelegationSupport<
 			Balance = BalanceOf<Self>,
 			AccountId = Self::AccountId,
 		>;
@@ -409,7 +409,7 @@ impl<T: Config> Delegator for Pallet<T> {
 	}
 }
 
-impl<T: Config> sp_staking::StakingBalanceProvider for Pallet<T> {
+impl<T: Config> sp_staking::StakingDelegationSupport for Pallet<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
 

@@ -410,8 +410,8 @@ pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
 	pub page_count: Page,
 }
 
-/// Something that provides stakeable balance and a mechanism to reserve this balance.
-pub trait StakingBalanceProvider {
+/// Something that provides delegation support to core staking.
+pub trait StakingDelegationSupport{
 	/// Balance type used by the staking system.
 	type Balance: Sub<Output = Self::Balance>
 		+ Ord
@@ -435,22 +435,13 @@ pub trait StakingBalanceProvider {
 	/// Release all amount held for stake.
 	fn release(who: &Self::AccountId);
 
-	#[cfg(feature = "std")]
-	fn stake_type(who: &Self::AccountId) -> StakeBalanceType;
-}
-
-/// Something that ensures destination for staking rewards is allowed.
-pub trait RewardDestinationChecker<AccountId: Clone> {
-
-	/// Returns true if `who` is not allowed to have provided `reward_destination`.
-	fn restrict(who: &AccountId, reward_destination: Option<AccountId>) -> bool;
-}
-
-impl<AccountId: Clone> RewardDestinationChecker<AccountId> for () {
-	fn restrict(_who: &AccountId, _reward_destination: Option<AccountId>) -> bool {
-		// never restrict
+	fn restrict_reward_destination(_who: &Self::AccountId, _reward_destination: Option<Self::AccountId>) -> bool {
+		// never restrict by default
 		false
 	}
+
+	#[cfg(feature = "std")]
+	fn stake_type(who: &Self::AccountId) -> StakeBalanceType;
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

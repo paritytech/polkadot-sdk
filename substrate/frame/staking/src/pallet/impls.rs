@@ -41,7 +41,7 @@ use sp_runtime::{
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
 	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
-	EraIndex, Page, SessionIndex, Stake, StakingBalanceProvider, StakeBalanceType,
+	EraIndex, Page, SessionIndex, Stake, StakingDelegationSupport, StakeBalanceType,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
 };
@@ -1818,12 +1818,12 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn force_unlock(who: &Self::AccountId) -> sp_runtime::DispatchResult {
-		T::StakeBalanceProvider::release(who);
+		T::DelegationSupport::release(who);
 		Ok(())
 	}
 }
 
-impl<T: Config> StakingBalanceProvider for Pallet<T> {
+impl<T: Config> StakingDelegationSupport for Pallet<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
 

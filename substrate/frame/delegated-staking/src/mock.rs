@@ -108,7 +108,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 impl pallet_staking::Config for Runtime {
 	type Currency = Balances;
 	type CurrencyBalance = Balance;
-	type StakeBalanceProvider = DelegatedStaking;
+	type DelegationSupport = DelegatedStaking;
 	type UnixTime = pallet_timestamp::Pallet<Self>;
 	type CurrencyToVote = ();
 	type RewardRemainder = ();

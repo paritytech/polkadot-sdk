@@ -18,11 +18,10 @@
 //! A Ledger implementation for stakers.
 
 use frame_support::defensive;
-use sp_staking::{StakingAccount, StakingBalanceProvider};
+use sp_staking::{StakingAccount, StakingDelegationSupport};
 use sp_std::prelude::*;
 
 use crate::{BalanceOf, Bonded, Config, Error, Ledger, Payee, RewardDestination, StakingLedger};
-use sp_staking::RewardDestinationChecker;
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
 use sp_runtime::traits::Zero;
@@ -142,7 +141,7 @@ impl<T: Config> StakingLedger<T> {
 			return Err(Error::<T>::NotStash)
 		}
 
-		T::StakeBalanceProvider::update_hold(&self.stash, self.total)
+		T::DelegationSupport::update_hold(&self.stash, self.total)
 			.map_err(|_| Error::<T>::BadState)?;
 		Ledger::<T>::insert(
 			&self.controller().ok_or_else(|| {
@@ -163,7 +162,7 @@ impl<T: Config> StakingLedger<T> {
 			return Err(Error::<T>::AlreadyBonded);
 		}
 
-		if T::RewardDestinationChecker::restrict(&self.stash, payee.clone().from(&self.stash)) {
+		if T::DelegationSupport::restrict_reward_destination(&self.stash, payee.clone().from(&self.stash)) {
 			return Err(Error::<T>::RewardDestinationRestricted);
 		}
 
@@ -178,7 +177,7 @@ impl<T: Config> StakingLedger<T> {
 			return Err(Error::<T>::NotStash);
 		}
 
-		if T::RewardDestinationChecker::restrict(&self.stash, payee.clone().from(&self.stash)) {
+		if T::DelegationSupport::restrict_reward_destination(&self.stash, payee.clone().from(&self.stash)) {
 			return Err(Error::<T>::RewardDestinationRestricted);
 		}
 
@@ -192,7 +191,7 @@ impl<T: Config> StakingLedger<T> {
 		let controller = <Bonded<T>>::get(stash).ok_or(Error::<T>::NotStash)?;
 
 		<Ledger<T>>::get(&controller).ok_or(Error::<T>::NotController).map(|ledger| {
-			T::StakeBalanceProvider::release(&ledger.stash);
+			T::DelegationSupport::release(&ledger.stash);
 			Ledger::<T>::remove(controller);
 
 			<Bonded<T>>::remove(&stash);

@@ -21,7 +21,7 @@ use super::*;
 use crate::{mock::*, Event};
 use frame_support::{assert_noop, assert_ok};
 use pallet_staking::Error as StakingError;
-use sp_staking::{StakingBalanceProvider, StakeBalanceType};
+use sp_staking::{StakingDelegationSupport, StakeBalanceType};
 use frame_support::traits::fungible::InspectHold;
 
 #[test]

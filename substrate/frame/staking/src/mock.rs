@@ -294,10 +294,7 @@ impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 impl crate::pallet::pallet::Config for Test {
 	type Currency = Balances;
 	type CurrencyBalance = <Self as pallet_balances::Config>::Balance;
-
-	type StakeBalanceProvider = Staking;
-
-	type RewardDestinationChecker = ();
+	type DelegationSupport = Staking;
 	type UnixTime = Timestamp;
 	type CurrencyToVote = ();
 	type RewardRemainder = RewardRemainderMock;
