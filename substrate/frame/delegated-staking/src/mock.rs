@@ -26,7 +26,7 @@ use frame_support::{
 
 use sp_runtime::{
 	traits::{Convert, IdentityLookup},
-	BuildStorage,
+	BuildStorage, Perbill,
 };
 
 use frame_election_provider_support::{
@@ -168,6 +168,49 @@ impl ExtBuilder {
 		sp_tracing::try_init_simple();
 		let mut storage =
 			frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+
+		let _ = pallet_balances::GenesisConfig::<T> {
+			balances: vec![
+				(GENESIS_VALIDATOR, 10000),
+				(GENESIS_NOMINATOR_ONE, 1000),
+				(GENESIS_NOMINATOR_TWO, 2000),
+			],
+		}
+		.assimilate_storage(&mut storage);
+
+		let stakers = vec![
+			(
+				GENESIS_VALIDATOR,
+				GENESIS_VALIDATOR,
+				1000,
+				sp_staking::StakerStatus::<AccountId>::Validator,
+			),
+			(
+				GENESIS_NOMINATOR_ONE,
+				GENESIS_NOMINATOR_ONE,
+				100,
+				sp_staking::StakerStatus::<AccountId>::Nominator(vec![1]),
+			),
+			(
+				GENESIS_NOMINATOR_TWO,
+				GENESIS_NOMINATOR_TWO,
+				200,
+				sp_staking::StakerStatus::<AccountId>::Nominator(vec![1]),
+			),
+		];
+
+		let _ = pallet_staking::GenesisConfig::<T> {
+			stakers: stakers.clone(),
+			// ideal validator count
+			validator_count: 2,
+			minimum_validator_count: 1,
+			invulnerables: vec![],
+			slash_reward_fraction: Perbill::from_percent(10),
+			min_nominator_bond: ExistentialDeposit::get(),
+			min_validator_bond: ExistentialDeposit::get(),
+			..Default::default()
+		}
+		.assimilate_storage(&mut storage);
 
 		let mut ext = sp_io::TestExternalities::from(storage);
 
