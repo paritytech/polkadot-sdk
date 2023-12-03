@@ -527,9 +527,9 @@ benchmarks! {
 
 	deprecate_controller_batch {
 		let mut controllers: Vec<_> = vec![];
-		for n in 1..MaxControllersInBatch::get().into() {
+		for n in 1..T::MaxControllersInBatch::get() as u32 {
 			let stash = n + 10000;
-			Ledger::<Test>::insert(
+			Ledger::<T>::insert(
 				n,
 				StakingLedger {
 					stash,
@@ -540,25 +540,25 @@ benchmarks! {
 					legacy_claimed_rewards: bounded_vec![],
 				},
 			);
-			Bonded::<Test>::insert(stash, n);
+			Bonded::<T>::insert(stash, n);
 			controllers.push(n);
 		}
 
-		let bounded_controllers: BoundedVec<_, <Test as Config>::MaxControllersInBatch> =
+		let bounded_controllers: BoundedVec<_, T::MaxControllersInBatch> =
 			BoundedVec::try_from(controllers).unwrap();
 
 	}: _(RawOrigin::Root, bounded_controllers)
 	verify {
-		for n in 1..MaxControllersInBatch::get().into() {
+		for n in 1..T::MaxControllersInBatch::get() as u32 {
 			let stash = n + 10000;
 
 			// Ledger no longer keyed by controller.
-			assert_eq!(Ledger::<Test>::get(n), None);
+			assert_eq!(Ledger::<T>::get(n), None);
 			// Bonded now maps to the stash.
-			assert_eq!(Bonded::<Test>::get(stash), Some(stash));
+			assert_eq!(Bonded::<T>::get(stash), Some(stash));
 
 			// Ledger is now keyed by stash.
-			let ledger_updated = Ledger::<Test>::get(stash).unwrap();
+			let ledger_updated = Ledger::<T>::get(stash).unwrap();
 			assert_eq!(ledger_updated.stash, stash);
 
 			// Check `active` and `total` values match the original ledger set by controller.
