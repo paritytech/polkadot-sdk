@@ -26,11 +26,13 @@ mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungible::{hold::Mutate as FunHoldMutate, Inspect as FunInspect, Mutate as FunMutate},
 		tokens::{Fortitude, Precision, Preservation},
+		DefensiveOption,
 	},
 };
 use pallet::*;
@@ -68,7 +70,7 @@ pub mod pallet {
 		/// Non Delegatee Staking Support.
 		///
 		/// Fallback implementation when an account is not a delegatee.
-		type FallbackSupportProvider: StakingDelegationSupport<
+		type FallbackSupport: StakingDelegationSupport<
 			Balance = BalanceOf<Self>,
 			AccountId = Self::AccountId,
 		>;
@@ -95,6 +97,8 @@ pub mod pallet {
 		NotDelegatee,
 		/// Some corruption in internal state.
 		BadState,
+		/// Unapplied pending slash restricts operation on delegatee.
+		UnappliedSlash,
 	}
 
 	/// A reason for placing a hold on funds.
@@ -147,7 +151,10 @@ pub struct DelegationRegister<T: Config> {
 	pub payee: T::AccountId,
 	/// Sum of all delegated funds to this delegatee.
 	#[codec(compact)]
-	pub balance: BalanceOf<T>,
+	pub total_delegated: BalanceOf<T>,
+	/// Amount that is bonded and held.
+	#[codec(compact)]
+	pub hold: BalanceOf<T>,
 	/// Slashes that are not yet applied.
 	#[codec(compact)]
 	pub pending_slash: BalanceOf<T>,
@@ -156,8 +163,20 @@ pub struct DelegationRegister<T: Config> {
 }
 
 impl<T: Config> DelegationRegister<T> {
-	pub fn effective_balance(&self) -> BalanceOf<T> {
-		self.balance.saturating_sub(self.pending_slash)
+	/// balance that can be staked.
+	pub fn delegated_balance(&self) -> BalanceOf<T> {
+		// do not allow to stake more than unapplied slash
+		self.total_delegated.saturating_sub(self.pending_slash)
+	}
+
+	/// balance that is delegated but not bonded.
+	pub fn unbonded_balance(&self) -> BalanceOf<T> {
+		self.total_delegated.saturating_sub(self.hold)
+	}
+
+	/// consumes self and returns Delegation Register with updated hold amount.
+	pub fn update_hold(self, amount: BalanceOf<T>) -> Self {
+		DelegationRegister { hold: amount, ..self }
 	}
 }
 
@@ -165,9 +184,14 @@ impl<T: Config> Delegatee for Pallet<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
 
-	fn delegate_balance(who: Self::AccountId) -> Self::Balance {
+	fn delegated_balance(who: &Self::AccountId) -> Self::Balance {
 		<Delegatees<T>>::get(who)
-			.map_or_else(|| 0u32.into(), |register| register.effective_balance())
+			.map_or_else(|| 0u32.into(), |register| register.delegated_balance())
+	}
+
+	fn unbonded_balance(who: &Self::AccountId) -> Self::Balance {
+		<Delegatees<T>>::get(who)
+			.map_or_else(|| 0u32.into(), |register| register.unbonded_balance())
 	}
 
 	fn accept_delegations(
@@ -191,7 +215,8 @@ impl<T: Config> Delegatee for Pallet<T> {
 			} else {
 				*maybe_register = Some(DelegationRegister {
 					payee: reward_destination.clone(),
-					balance: Zero::zero(),
+					total_delegated: Zero::zero(),
+					hold: Zero::zero(),
 					pending_slash: Zero::zero(),
 					blocked: false,
 				});
@@ -264,7 +289,7 @@ impl<T: Config> Delegatee for Pallet<T> {
 
 	fn update_bond(who: &Self::AccountId) -> DispatchResult {
 		let delegatee = <Delegatees<T>>::get(who).ok_or(Error::<T>::NotDelegatee)?;
-		let delegated_balance = delegatee.effective_balance();
+		let delegated_balance = delegatee.delegated_balance();
 
 		match T::Staking::stake(who) {
 			Ok(stake) => {
@@ -303,7 +328,7 @@ impl<T: Config> Delegatee for Pallet<T> {
 
 		<Delegatees<T>>::mutate(delegatee, |maybe_register| match maybe_register {
 			Some(ledger) => {
-				ledger.balance.saturating_reduce(value);
+				ledger.total_delegated.saturating_reduce(value);
 				Ok(())
 			},
 			None => {
@@ -391,7 +416,7 @@ impl<T: Config> Delegator for Pallet<T> {
 		<Delegators<T>>::insert(delegator, (delegatee, new_delegation_amount));
 		<Delegatees<T>>::mutate(delegatee, |maybe_register| {
 			if let Some(register) = maybe_register {
-				register.balance.saturating_accrue(value);
+				register.total_delegated.saturating_accrue(value);
 			}
 		});
 
@@ -415,30 +440,57 @@ impl<T: Config> StakingDelegationSupport for Pallet<T> {
 
 	fn stakeable_balance(who: &Self::AccountId) -> Self::Balance {
 		<Delegatees<T>>::get(who).map_or_else(
-			|| T::FallbackSupportProvider::stakeable_balance(who),
-			|delegatee| delegatee.effective_balance(),
+			|| T::FallbackSupport::stakeable_balance(who),
+			|delegatee| delegatee.delegated_balance(),
 		)
 	}
 
 	fn update_hold(who: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
-		T::FallbackSupportProvider::update_hold(who, amount)
+		if !Self::is_delegatee(who) {
+			return T::FallbackSupport::update_hold(who, amount);
+		}
+
+		// delegation register should exist since `who` is a delegatee.
+		let delegation_register =
+			<Delegatees<T>>::get(who).defensive_ok_or(Error::<T>::BadState)?;
+		ensure!(delegation_register.total_delegated >= amount, Error::<T>::NotEnoughFunds);
+		ensure!(delegation_register.pending_slash <= amount, Error::<T>::UnappliedSlash);
+
+		let updated_register = delegation_register.update_hold(amount);
+		<Delegatees<T>>::insert(who, updated_register);
+
+		Ok(())
 	}
 
 	fn release(who: &Self::AccountId) {
-		T::FallbackSupportProvider::release(who)
+		let delegation_register = <Delegatees<T>>::get(who);
+		if delegation_register.is_some() {
+			todo!("handle kill delegatee")
+		} else {
+			T::FallbackSupport::release(who)
+		}
 	}
 
 	fn restrict_reward_destination(
 		who: &Self::AccountId,
 		reward_destination: Option<Self::AccountId>,
 	) -> bool {
-		// for non delegatee accounts, use default implementation.
-		if !Self::is_delegatee(who) {
-			return T::FallbackSupportProvider::restrict_reward_destination(who, reward_destination);
+		let maybe_register = <Delegatees<T>>::get(who);
+		// if not delegatee, use fallback.
+		if maybe_register.is_none() {
+			return T::FallbackSupport::restrict_reward_destination(who, reward_destination);
 		}
 
-		// restrict if reward destination not set or set as delegatee account itself.
-		reward_destination.map_or_else(|| true, |reward_acc| who == &reward_acc)
+		// restrict if reward destination is not set
+		if reward_destination.is_none() {
+			return true;
+		}
+
+		let register = maybe_register.expect("checked above; qed");
+		let reward_acc = reward_destination.expect("checked above; qed");
+
+		// restrict if reward account is not what delegatee registered.
+		register.payee != reward_acc
 	}
 	#[cfg(feature = "std")]
 	fn stake_type(who: &Self::AccountId) -> StakeBalanceType {
@@ -446,7 +498,7 @@ impl<T: Config> StakingDelegationSupport for Pallet<T> {
 			return StakeBalanceType::Delegated;
 		}
 
-		T::FallbackSupportProvider::stake_type(who)
+		T::FallbackSupport::stake_type(who)
 	}
 }
 

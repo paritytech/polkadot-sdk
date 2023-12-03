@@ -17,16 +17,13 @@
 
 use crate::{self as delegated_staking};
 use frame_support::{
-	assert_ok, derive_impl,
+	derive_impl,
 	pallet_prelude::*,
 	parameter_types,
 	traits::{ConstU64, Currency},
 };
 
-use sp_runtime::{
-	traits::{Convert, IdentityLookup},
-	BuildStorage, Perbill,
-};
+use sp_runtime::{traits::IdentityLookup, BuildStorage, Perbill};
 
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
@@ -141,7 +138,7 @@ impl delegated_staking::Config for Runtime {
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type Staking = Staking;
-	type FallbackSupportProvider = pallet_staking::NoDelegation<Self>;
+	type FallbackSupport = pallet_staking::NoDelegation<Self>;
 }
 
 frame_support::construct_runtime!(

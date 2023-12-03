@@ -18,7 +18,7 @@
 //! Tests for pallet-delegated-staking.
 
 use super::*;
-use crate::{mock::*, Event};
+use crate::mock::*;
 use frame_support::{assert_noop, assert_ok, traits::fungible::InspectHold};
 use pallet_staking::Error as StakingError;
 use sp_staking::{StakeBalanceType, StakingDelegationSupport};
@@ -124,6 +124,7 @@ fn migrate_to_delegator() {
 /// Integration tests with pallet-staking.
 mod integration {
 	use super::*;
+	use pallet_staking::RewardDestination;
 
 	#[test]
 	fn bond() {
@@ -131,24 +132,48 @@ mod integration {
 			let delegatee: AccountId = 99;
 			let reward_acc: AccountId = 100;
 			assert_eq!(Staking::status(&delegatee), Err(StakingError::<T>::NotStash.into()));
-			assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), 0);
-			assert_eq!(Balances::free_balance(delegatee), 0);
 
 			// set intention to become a delegatee
 			assert_ok!(DelegatedStaking::accept_delegations(&fund(delegatee, 100), &reward_acc));
+			assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), 0);
+
+			// first delegation
+			assert_ok!(DelegatedStaking::delegate(&fund(200, 200), &delegatee, 100));
+			// stakeable balance is now 100.
+			let mut expected_stakeable_balance = 100;
+			assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), expected_stakeable_balance);
+			assert_eq!(DelegatedStaking::unbonded_balance(&delegatee), 100);
+			// bond delegatee
+			assert_ok!(Staking::bond(
+				RuntimeOrigin::signed(delegatee),
+				100,
+				RewardDestination::Account(reward_acc)
+			));
+			// after bond, unbonded balance is 0
+			assert_eq!(DelegatedStaking::unbonded_balance(&delegatee), 0);
+
 			// set some delegations
-			for delegator in 200..250 {
-				assert_ok!(DelegatedStaking::delegate(&fund(delegator, 1000), &delegatee, 100));
+			for delegator in 201..250 {
+				assert_ok!(DelegatedStaking::delegate(&fund(delegator, 200), &delegatee, 100));
+				expected_stakeable_balance += 100;
 				assert_eq!(
 					Balances::balance_on_hold(&HoldReason::Delegating.into(), &delegator),
 					100
 				);
-				// assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), 100);
 
-				// assert_ok!(Staking::bond(RuntimeOrigin::signed(delegatee),));
+				assert_eq!(
+					DelegatedStaking::stakeable_balance(&delegatee),
+					expected_stakeable_balance
+				);
+
+				// unbonded balance is the newly delegated 100
+				assert_eq!(DelegatedStaking::unbonded_balance(&delegatee), 100);
+				assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(delegatee), 100));
+				// after bond, unbonded balance is 0
+				assert_eq!(DelegatedStaking::unbonded_balance(&delegatee), 0);
 			}
 
-			//
+			// check ledger total stake..
 		});
 	}
 
