@@ -184,11 +184,14 @@ mod integration {
 	#[test]
 	fn partial_withdraw() {
 		ExtBuilder::default().build_and_execute(|| {
-			let delegatee: AccountId = 99;
-			let reward_acc: AccountId = 100;
-			let delegators: Vec<AccountId> = (200..300).collect();
-			let delegate_amount: Balance = 200;
-			setup_delegation(delegatee, reward_acc, delegators, delegate_amount)
+			let delegatee: AccountId = 200;
+			let reward_acc: AccountId = 201;
+			let delegators: Vec<AccountId> = (300..400).collect();
+			let delegate_amount: Balance = 500;
+			setup_delegation(delegatee, reward_acc, delegators, delegate_amount);
+
+			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(delegatee), 100));
+
 		});
 	}
 

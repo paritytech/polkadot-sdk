@@ -1043,7 +1043,7 @@ pub mod pallet {
 				if unlocking == T::MaxUnlockingChunks::get() as usize {
 					let real_num_slashing_spans =
 						Self::slashing_spans(&controller).map_or(0, |s| s.iter().count());
-					Some(Self::do_withdraw_unbonded(&controller, real_num_slashing_spans as u32)?)
+					Some(Self::do_withdraw_unbonded(&controller, real_num_slashing_spans as u32, None)?)
 				} else {
 					None
 				}
@@ -1147,7 +1147,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let controller = ensure_signed(origin)?;
 
-			let actual_weight = Self::do_withdraw_unbonded(&controller, num_slashing_spans)?;
+			let actual_weight = Self::do_withdraw_unbonded(&controller, num_slashing_spans, None)?;
 			Ok(Some(actual_weight).into())
 		}
 

@@ -121,11 +121,12 @@ impl<T: Config> Pallet<T> {
 	pub(super) fn do_withdraw_unbonded(
 		controller: &T::AccountId,
 		num_slashing_spans: u32,
+		maybe_limit: Option<BalanceOf<T>>,
 	) -> Result<Weight, DispatchError> {
 		let mut ledger = Self::ledger(Controller(controller.clone()))?;
 		let (stash, old_total) = (ledger.stash.clone(), ledger.total);
 		if let Some(current_era) = Self::current_era() {
-			ledger = ledger.consolidate_unlocked(current_era, None)
+			ledger = ledger.consolidate_unlocked(current_era, maybe_limit)
 		}
 		let new_total = ledger.total;
 
@@ -1713,6 +1714,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		Self::chill(RawOrigin::Signed(ctrl).into())
 	}
 
+	// FIXME(ank4n): Refactor withdraw unbonded to take limit and remove partial_withdraw_unbonded
 	fn withdraw_unbonded(
 		who: Self::AccountId,
 		num_slashing_spans: u32,
@@ -1721,6 +1723,16 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		Self::withdraw_unbonded(RawOrigin::Signed(ctrl.clone()).into(), num_slashing_spans)
 			.map(|_| !Ledger::<T>::contains_key(&ctrl))
 			.map_err(|with_post| with_post.error)
+	}
+
+	fn partial_withdraw_unbonded(
+		who: Self::AccountId,
+		num_slashing_spans: u32,
+		maybe_limit: Option<BalanceOf<T>>,
+	) -> Result<bool, DispatchError> {
+		let ctrl = Self::bonded(&who).ok_or(Error::<T>::NotStash)?;
+		Self::do_withdraw_unbonded(&ctrl, num_slashing_spans, maybe_limit)
+			.map(|_| !Ledger::<T>::contains_key(&ctrl))
 	}
 
 	fn bond(
