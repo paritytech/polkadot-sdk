@@ -539,7 +539,7 @@ benchmarks! {
 				100,
 				RewardDestination::Staked,
 				false
-			)?
+			)?;
 
 			Ledger::<T>::insert(controller.clone(),
 				StakingLedger {
