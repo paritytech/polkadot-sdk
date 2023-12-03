@@ -23,7 +23,7 @@ use futures::prelude::*;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, ImportResult, StateAction};
 use sc_transaction_pool_api::TransactionPool;
 use sp_blockchain::HeaderBackend;
-use sp_consensus::{self, BlockOrigin, Environment, Proposer, SelectChain};
+use sp_consensus::{self, BlockOrigin, Environment, ProofOf, Proposer, SelectChain};
 use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 use std::{sync::Arc, time::Duration};
@@ -59,7 +59,7 @@ pub struct SealBlockParams<'a, B: BlockT, BI, SC, C, E, TP, CIDP, P> {
 }
 
 /// seals a new block with the given params
-pub async fn seal_block<B, BI, SC, C, E, TP, CIDP, P>(
+pub async fn seal_block<B, BI, SC, C, E, TP, CIDP>(
 	SealBlockParams {
 		create_empty,
 		finalize,
@@ -72,13 +72,13 @@ pub async fn seal_block<B, BI, SC, C, E, TP, CIDP, P>(
 		create_inherent_data_providers,
 		consensus_data_provider: digest_provider,
 		mut sender,
-	}: SealBlockParams<'_, B, BI, SC, C, E, TP, CIDP, P>,
+	}: SealBlockParams<'_, B, BI, SC, C, E, TP, CIDP, ProofOf<E::Proposer, B>>,
 ) where
 	B: BlockT,
 	BI: BlockImport<B, Error = sp_consensus::Error> + Send + Sync + 'static,
 	C: HeaderBackend<B>,
 	E: Environment<B>,
-	E::Proposer: Proposer<B, Proof = P>,
+	E::Proposer: Proposer<B>,
 	TP: TransactionPool<Block = B>,
 	SC: SelectChain<B>,
 	CIDP: CreateInherentDataProviders<B, ()>,

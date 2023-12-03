@@ -31,7 +31,7 @@ use sc_consensus::{
 	import_queue::{BasicQueue, BoxBlockImport, Verifier},
 };
 use sp_blockchain::HeaderBackend;
-use sp_consensus::{Environment, Proposer, SelectChain};
+use sp_consensus::{Environment, ProofOf, Proposer, SelectChain};
 use sp_core::traits::SpawnNamed;
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::{traits::Block as BlockT, ConsensusEngineId};
@@ -150,7 +150,7 @@ pub struct DelayedFinalizeParams<C, S> {
 }
 
 /// Creates the background authorship task for the manually seal engine.
-pub async fn run_manual_seal<B, BI, CB, E, C, TP, SC, CS, CIDP, P>(
+pub async fn run_manual_seal<B, BI, CB, E, C, TP, SC, CS, CIDP>(
 	ManualSealParams {
 		mut block_import,
 		mut env,
@@ -160,19 +160,18 @@ pub async fn run_manual_seal<B, BI, CB, E, C, TP, SC, CS, CIDP, P>(
 		select_chain,
 		consensus_data_provider,
 		create_inherent_data_providers,
-	}: ManualSealParams<B, BI, E, C, TP, SC, CS, CIDP, P>,
+	}: ManualSealParams<B, BI, E, C, TP, SC, CS, CIDP, ProofOf<E::Proposer, B>>,
 ) where
 	B: BlockT + 'static,
 	BI: BlockImport<B, Error = sp_consensus::Error> + Send + Sync + 'static,
-	C: HeaderBackend<B> + Finalizer<B, CB> +  'static,
+	C: HeaderBackend<B> + Finalizer<B, CB> + 'static,
 	CB: ClientBackend<B> + 'static,
 	E: Environment<B> + 'static,
-	E::Proposer: Proposer<B, Proof = P>,
+	E::Proposer: Proposer<B>,
 	CS: Stream<Item = EngineCommand<<B as BlockT>::Hash>> + Unpin + 'static,
 	SC: SelectChain<B> + 'static,
 	TP: TransactionPool<Block = B>,
 	CIDP: CreateInherentDataProviders<B, ()>,
-	P: codec::Encode + Send + Sync + 'static,
 {
 	while let Some(command) = commands_stream.next().await {
 		match command {
@@ -210,7 +209,7 @@ pub async fn run_manual_seal<B, BI, CB, E, C, TP, SC, CS, CIDP, P>(
 /// runs the background authorship task for the instant seal engine.
 /// instant-seal creates a new block for every transaction imported into
 /// the transaction pool.
-pub async fn run_instant_seal<B, BI, CB, E, C, TP, SC, CIDP, P>(
+pub async fn run_instant_seal<B, BI, CB, E, C, TP, SC, CIDP>(
 	InstantSealParams {
 		block_import,
 		env,
@@ -219,18 +218,17 @@ pub async fn run_instant_seal<B, BI, CB, E, C, TP, SC, CIDP, P>(
 		select_chain,
 		consensus_data_provider,
 		create_inherent_data_providers,
-	}: InstantSealParams<B, BI, E, C, TP, SC, CIDP, P>,
+	}: InstantSealParams<B, BI, E, C, TP, SC, CIDP, ProofOf<E::Proposer, B>>,
 ) where
 	B: BlockT + 'static,
 	BI: BlockImport<B, Error = sp_consensus::Error> + Send + Sync + 'static,
-	C: HeaderBackend<B> + Finalizer<B, CB> +  'static,
+	C: HeaderBackend<B> + Finalizer<B, CB> + 'static,
 	CB: ClientBackend<B> + 'static,
 	E: Environment<B> + 'static,
-	E::Proposer: Proposer<B, Proof = P>,
+	E::Proposer: Proposer<B>,
 	SC: SelectChain<B> + 'static,
 	TP: TransactionPool<Block = B>,
 	CIDP: CreateInherentDataProviders<B, ()>,
-	P: codec::Encode + Send + Sync + 'static,
 {
 	// instant-seal creates blocks as soon as transactions are imported
 	// into the transaction pool.
@@ -273,10 +271,10 @@ pub async fn run_instant_seal_and_finalize<B, BI, CB, E, C, TP, SC, CIDP, P>(
 ) where
 	B: BlockT + 'static,
 	BI: BlockImport<B, Error = sp_consensus::Error> + Send + Sync + 'static,
-	C: HeaderBackend<B> + Finalizer<B, CB> +  'static,
+	C: HeaderBackend<B> + Finalizer<B, CB> + 'static,
 	CB: ClientBackend<B> + 'static,
 	E: Environment<B> + 'static,
-	E::Proposer: Proposer<B, Proof = P>,
+	E::Proposer: Proposer<B>,
 	SC: SelectChain<B> + 'static,
 	TP: TransactionPool<Block = B>,
 	CIDP: CreateInherentDataProviders<B, ()>,
@@ -316,7 +314,7 @@ pub async fn run_delayed_finalize<B, CB, C, S>(
 ) where
 	B: BlockT + 'static,
 	CB: ClientBackend<B> + 'static,
-	C: HeaderBackend<B> + Finalizer<B, CB> +  BlockchainEvents<B> + 'static,
+	C: HeaderBackend<B> + Finalizer<B, CB> + BlockchainEvents<B> + 'static,
 	S: SpawnNamed,
 {
 	let mut block_import_stream = client.import_notification_stream();

@@ -21,6 +21,7 @@
 
 use crate::Error;
 use sc_client_api::{AuxStore, UsageProvider};
+use sp_api::CallApiAt;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_aura::{
 	sr25519::{AuthorityId, AuthoritySignature},
@@ -56,8 +57,7 @@ impl SlotTimestampProvider {
 	pub fn new_babe<B, C>(client: Arc<C>) -> Result<Self, Error>
 	where
 		B: BlockT,
-		C: AuxStore + HeaderBackend<B> + UsageProvider<B>,
-		C::Api: BabeApi<B>,
+		C: AuxStore + HeaderBackend<B> + UsageProvider<B> + CallApiAt<B>,
 	{
 		let slot_duration = sc_consensus_babe::configuration(&*client)?.slot_duration();
 
@@ -75,10 +75,9 @@ impl SlotTimestampProvider {
 	pub fn new_aura<B, C>(client: Arc<C>) -> Result<Self, Error>
 	where
 		B: BlockT,
-		C: AuxStore + HeaderBackend<B> + UsageProvider<B>,
-		C::Api: AuraApi<B, AuthorityId>,
+		C: AuxStore + HeaderBackend<B> + UsageProvider<B> + CallApiAt<B>,
 	{
-		let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
+		let slot_duration = sc_consensus_aura::slot_duration::<AuthorityId, _, _>(&*client)?;
 
 		let time = Self::with_header(&client, slot_duration, |header| {
 			let slot_number = *sc_consensus_aura::find_pre_digest::<B, AuthoritySignature>(&header)

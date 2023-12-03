@@ -24,9 +24,7 @@ use sc_client_api::{AuxStore, UsageProvider};
 use sc_consensus::BlockImportParams;
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus_aura::{
-	digests::CompatibleDigestItem,
-	sr25519::{AuthorityId, AuthoritySignature},
-	AuraApi, Slot, SlotDuration,
+	digests::CompatibleDigestItem, sr25519::AuthoritySignature, Slot, SlotDuration,
 };
 use sp_inherents::InherentData;
 use sp_runtime::{traits::Block as BlockT, Digest, DigestItem};
@@ -45,7 +43,6 @@ impl<B, C, P> AuraConsensusDataProvider<B, C, P>
 where
 	B: BlockT,
 	C: AuxStore + UsageProvider<B>,
-	C::Api: AuraApi<B, AuthorityId>,
 {
 	/// Creates a new instance of the [`AuraConsensusDataProvider`], requires that `client`
 	/// implements [`sp_consensus_aura::AuraApi`]
@@ -63,9 +60,7 @@ where
 	C: AuxStore
 		+ HeaderBackend<B>
 		+ HeaderMetadata<B, Error = sp_blockchain::Error>
-		+ UsageProvider<B>
-		,
-	C::Api: AuraApi<B, AuthorityId>,
+		+ UsageProvider<B>,
 	P: Send + Sync,
 {
 	type Proof = P;

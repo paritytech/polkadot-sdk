@@ -29,6 +29,7 @@ use sc_consensus_babe::{
 use sc_consensus_epochs::{
 	descendent_query, EpochHeader, SharedEpochChanges, ViableEpochDescriptor,
 };
+use sp_api::CallApiAt;
 use sp_keystore::KeystorePtr;
 use std::{marker::PhantomData, sync::Arc};
 
@@ -136,8 +137,8 @@ where
 	C: AuxStore
 		+ HeaderBackend<B>
 		+ HeaderMetadata<B, Error = sp_blockchain::Error>
-		+ UsageProvider<B>,
-	C::Api: BabeApi<B>,
+		+ UsageProvider<B>
+		+ CallApiAt<B>,
 {
 	pub fn new(
 		client: Arc<C>,
@@ -190,9 +191,7 @@ where
 	C: AuxStore
 		+ HeaderBackend<B>
 		+ HeaderMetadata<B, Error = sp_blockchain::Error>
-		+ UsageProvider<B>
-		,
-	C::Api: BabeApi<B>,
+		+ UsageProvider<B>,
 	P: Send + Sync,
 {
 	type Proof = P;
