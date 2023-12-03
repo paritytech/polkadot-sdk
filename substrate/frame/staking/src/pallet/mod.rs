@@ -37,7 +37,7 @@ use sp_runtime::{
 };
 
 use sp_staking::{
-	EraIndex, Page, SessionIndex, StakeBalanceProvider,
+	EraIndex, Page, SessionIndex, StakingBalanceProvider,
 	StakingAccount::{self, Controller, Stash},
 };
 use sp_std::prelude::*;
@@ -106,10 +106,12 @@ pub mod pallet {
 
 		/// Something that provides stakeable balance of an account as well as a way to hold and
 		/// release this stake.
-		type StakeBalanceProvider: StakeBalanceProvider<
+		type StakeBalanceProvider: StakingBalanceProvider<
 			Balance = Self::CurrencyBalance,
 			AccountId = Self::AccountId,
 		>;
+
+		type RewardDestinationChecker: sp_staking::RewardDestinationChecker<Self::AccountId>;
 
 		/// Time used for computing era duration.
 		///
@@ -855,6 +857,8 @@ pub mod pallet {
 		BoundNotMet,
 		/// Used when attempting to use deprecated controller account logic.
 		ControllerDeprecated,
+		/// Provided reward destination is not allowed.
+		RewardDestinationRestricted,
 	}
 
 	#[pallet::hooks]

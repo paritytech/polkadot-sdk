@@ -296,6 +296,8 @@ impl crate::pallet::pallet::Config for Test {
 	type CurrencyBalance = <Self as pallet_balances::Config>::Balance;
 
 	type StakeBalanceProvider = Staking;
+
+	type RewardDestinationChecker = ();
 	type UnixTime = Timestamp;
 	type CurrencyToVote = ();
 	type RewardRemainder = RewardRemainderMock;

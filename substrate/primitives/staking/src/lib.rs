@@ -98,9 +98,6 @@ pub struct Stake<Balance> {
 #[impl_trait_for_tuples::impl_for_tuples(10)]
 pub trait OnStakingUpdate<AccountId, Balance> {
 	/// Fired when the stake amount of someone updates.
-	///
-	/// This is effectively any changes to the bond amount, such as bonding more funds, and
-	/// unbonding.
 	fn on_stake_update(_who: &AccountId, _prev_stake: Option<Stake<Balance>>) {}
 
 	/// Fired when someone sets their intention to nominate.
@@ -116,9 +113,6 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 	fn on_nominator_update(_who: &AccountId, _prev_nominations: Vec<AccountId>) {}
 
 	/// Fired when someone removes their intention to nominate, either due to chill or validating.
-	///
-	/// The set of nominations at the time of removal is provided as it can no longer be fetched in
-	/// any way.
 	fn on_nominator_remove(_who: &AccountId, _nominations: Vec<AccountId>) {}
 
 	/// Fired when someone sets their intention to validate.
@@ -154,9 +148,6 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 }
 
 /// A generic representation of a staking implementation.
-///
-/// This interface uses the terminology of NPoS, but it is aims to be generic enough to cover other
-/// implementations as well.
 pub trait StakingInterface {
 	/// Balance type used by the staking system.
 	type Balance: Sub<Output = Self::Balance>
@@ -352,10 +343,9 @@ impl<
 				Vec::with_capacity(chunk.len());
 			for individual in chunk.iter() {
 				page_total.saturating_accrue(individual.value);
-				others.push(IndividualExposure {
-					who: individual.who.clone(),
-					value: individual.value,
-				})
+				others.push(
+					IndividualExposure { who: individual.who.clone(), value: individual.value }
+				)
 			}
 
 			exposure_pages.push(ExposurePage { page_total, others });
@@ -421,7 +411,7 @@ pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
 }
 
 /// Something that provides stakeable balance and a mechanism to reserve this balance.
-pub trait StakeBalanceProvider {
+pub trait StakingBalanceProvider {
 	/// Balance type used by the staking system.
 	type Balance: Sub<Output = Self::Balance>
 		+ Ord
@@ -436,12 +426,31 @@ pub trait StakeBalanceProvider {
 	/// AccountId type used by the staking system.
 	type AccountId: Clone + sp_std::fmt::Debug;
 
+	/// Balance of who which is available for stake.
 	fn stakeable_balance(who: &Self::AccountId) -> Self::Balance;
+
+	/// Update amount held for bonded stake.
 	fn update_hold(who: &Self::AccountId, amount: Self::Balance) -> DispatchResult;
+
+	/// Release all amount held for stake.
 	fn release(who: &Self::AccountId);
 
 	#[cfg(feature = "std")]
 	fn stake_type(who: &Self::AccountId) -> StakeBalanceType;
+}
+
+/// Something that ensures destination for staking rewards is allowed.
+pub trait RewardDestinationChecker<AccountId: Clone> {
+
+	/// Returns true if `who` is not allowed to have provided `reward_destination`.
+	fn restrict(who: &AccountId, reward_destination: Option<AccountId>) -> bool;
+}
+
+impl<AccountId: Clone> RewardDestinationChecker<AccountId> for () {
+	fn restrict(_who: &AccountId, _reward_destination: Option<AccountId>) -> bool {
+		// never restrict
+		false
+	}
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

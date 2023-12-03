@@ -16,26 +16,13 @@
 // limitations under the License.
 
 //! A Ledger implementation for stakers.
-//!
-//! A [`StakingLedger`] encapsulates all the state and logic related to the stake of bonded
-//! stakers, namely, it handles the following storage items:
-//! * [`Bonded`]: mutates and reads the state of the controller <> stash bond map (to be deprecated
-//! soon);
-//! * [`Ledger`]: mutates and reads the state of all the stakers. The [`Ledger`] storage item stores
-//!   instances of [`StakingLedger`] keyed by the staker's controller account and should be mutated
-//!   and read through the [`StakingLedger`] API;
-//! * [`Payee`]: mutates and reads the reward destination preferences for a bonded stash.
-//! * Staking locks: mutates the locks for staking.
-//!
-//! NOTE: All the storage operations related to the staking ledger (both reads and writes) *MUST* be
-//! performed through the methods exposed by the [`StakingLedger`] implementation in order to ensure
-//! state consistency.
 
 use frame_support::defensive;
-use sp_staking::{StakeBalanceProvider, StakingAccount};
+use sp_staking::{StakingAccount, StakingBalanceProvider};
 use sp_std::prelude::*;
 
 use crate::{BalanceOf, Bonded, Config, Error, Ledger, Payee, RewardDestination, StakingLedger};
+use sp_staking::RewardDestinationChecker;
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
 use sp_runtime::traits::Zero;
@@ -54,12 +41,6 @@ impl<T: Config> StakingLedger<T> {
 	}
 
 	/// Returns a new instance of a staking ledger.
-	///
-	/// The [`Ledger`] storage is not mutated. In order to store, `StakingLedger::update` must be
-	/// called on the returned staking ledger.
-	///
-	/// Note: as the controller accounts are being deprecated, the stash account is the same as the
-	/// controller account.
 	pub fn new(stash: T::AccountId, stake: BalanceOf<T>) -> Self {
 		Self {
 			stash: stash.clone(),
@@ -179,22 +160,30 @@ impl<T: Config> StakingLedger<T> {
 	/// It sets the reward preferences for the bonded stash.
 	pub(crate) fn bond(self, payee: RewardDestination<T::AccountId>) -> Result<(), Error<T>> {
 		if <Bonded<T>>::contains_key(&self.stash) {
-			Err(Error::<T>::AlreadyBonded)
-		} else {
-			<Payee<T>>::insert(&self.stash, payee);
-			<Bonded<T>>::insert(&self.stash, &self.stash);
-			self.update()
+			return Err(Error::<T>::AlreadyBonded);
 		}
+
+		if T::RewardDestinationChecker::restrict(&self.stash, payee.clone().from(&self.stash)) {
+			return Err(Error::<T>::RewardDestinationRestricted);
+		}
+
+		<Payee<T>>::insert(&self.stash, payee);
+		<Bonded<T>>::insert(&self.stash, &self.stash);
+		self.update()
 	}
 
 	/// Sets the ledger Payee.
 	pub(crate) fn set_payee(self, payee: RewardDestination<T::AccountId>) -> Result<(), Error<T>> {
 		if !<Bonded<T>>::contains_key(&self.stash) {
-			Err(Error::<T>::NotStash)
-		} else {
-			<Payee<T>>::insert(&self.stash, payee);
-			Ok(())
+			return Err(Error::<T>::NotStash);
 		}
+
+		if T::RewardDestinationChecker::restrict(&self.stash, payee.clone().from(&self.stash)) {
+			return Err(Error::<T>::RewardDestinationRestricted);
+		}
+
+		<Payee<T>>::insert(&self.stash, payee);
+		Ok(())
 	}
 
 	/// Clears all data related to a staking ledger and its bond in both [`Ledger`] and [`Bonded`]

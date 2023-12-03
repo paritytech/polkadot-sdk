@@ -20,26 +20,27 @@
 use super::*;
 use crate::{mock::*, Event};
 use frame_support::{assert_noop, assert_ok};
-use sp_staking::{StakeBalanceProvider, StakeBalanceType};
+use pallet_staking::Error as StakingError;
+use sp_staking::{StakingBalanceProvider, StakeBalanceType};
+use frame_support::traits::fungible::InspectHold;
 
 #[test]
 fn create_a_delegatee_with_first_delegator() {
 	ExtBuilder::default().build_and_execute(|| {
 		let delegatee: AccountId = 200;
-		fund(delegatee, 1000);
 		let reward_account: AccountId = 201;
 		let delegator: AccountId = 202;
-		fund(delegator, 1000);
 
 		// set intention to accept delegation.
-		assert_ok!(DelegatedStaking::accept_delegations(&delegatee, &reward_account));
+		assert_ok!(DelegatedStaking::accept_delegations(&fund(delegatee, 1000), &reward_account));
 
 		// delegate to this account
-		assert_ok!(DelegatedStaking::delegate(&delegator, &delegatee, 100));
+		assert_ok!(DelegatedStaking::delegate(&fund(delegator, 1000), &delegatee, 100));
 
 		// verify
 		assert_eq!(DelegatedStaking::stake_type(&delegatee), StakeBalanceType::Delegated);
 		assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), 100);
+		assert_eq!(Balances::balance_on_hold(&HoldReason::Delegating.into(), &delegator), 100);
 	});
 }
 
@@ -74,11 +75,10 @@ fn cannot_become_delegatee() {
 fn create_multiple_delegators() {
 	ExtBuilder::default().build_and_execute(|| {
 		let delegatee: AccountId = 200;
-		fund(delegatee, 1000);
 		let reward_account: AccountId = 201;
 
 		// before becoming a delegatee, stakeable balance is only direct balance.
-		assert_eq!(DelegatedStaking::stake_type(&delegatee), StakeBalanceType::Direct);
+		assert_eq!(DelegatedStaking::stake_type(&fund(delegatee, 1000)), StakeBalanceType::Direct);
 		assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), 1000);
 
 		// set intention to accept delegation.
@@ -86,8 +86,13 @@ fn create_multiple_delegators() {
 
 		// create 100 delegators
 		for i in 202..302 {
-			fund(i, 100 + ExistentialDeposit::get());
-			assert_ok!(DelegatedStaking::delegate(&i, &delegatee, 100));
+			assert_ok!(DelegatedStaking::delegate(
+				&fund(i, 100 + ExistentialDeposit::get()),
+				&delegatee,
+				100
+			));
+			// Balance of 100 held on delegator account for delegating to the delegatee.
+			assert_eq!(Balances::balance_on_hold(&HoldReason::Delegating.into(), &i), 100);
 		}
 
 		// verify
@@ -117,13 +122,32 @@ fn migrate_to_delegator() {
 	ExtBuilder::default().build_and_execute(|| assert!(true));
 }
 
-/// Integration tests with pallet-staking and pallet-nomination-pools.
+/// Integration tests with pallet-staking.
 mod integration {
-	use crate::mock::ExtBuilder;
+	use super::*;
 
 	#[test]
 	fn bond() {
-		ExtBuilder::default().build_and_execute(|| assert!(true));
+		ExtBuilder::default().build_and_execute(|| {
+			let delegatee: AccountId = 99;
+			let reward_acc: AccountId = 100;
+			assert_eq!(Staking::status(&delegatee), Err(StakingError::<T>::NotStash.into()));
+			assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), 0);
+			assert_eq!(Balances::free_balance(delegatee), 0);
+
+			// set intention to become a delegatee
+			assert_ok!(DelegatedStaking::accept_delegations(&fund(delegatee, 100), &reward_acc));
+			// set some delegations
+			for delegator in 200..250 {
+				assert_ok!(DelegatedStaking::delegate(&fund(delegator, 1000), &delegatee, 100));
+				assert_eq!(Balances::balance_on_hold(&HoldReason::Delegating.into(), &delegator), 100);
+				assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), 100);
+
+				assert_ok!(Staking::bond(RuntimeOrigin::signed(delegatee), ));
+			}
+
+			//
+		});
 	}
 
 	#[test]

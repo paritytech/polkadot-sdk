@@ -41,7 +41,7 @@ use sp_runtime::{
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
 	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
-	EraIndex, Page, SessionIndex, Stake, StakeBalanceProvider, StakeBalanceType,
+	EraIndex, Page, SessionIndex, Stake, StakingBalanceProvider, StakeBalanceType,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
 };
@@ -1823,7 +1823,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 }
 
-impl<T: Config> StakeBalanceProvider for Pallet<T> {
+impl<T: Config> StakingBalanceProvider for Pallet<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
 

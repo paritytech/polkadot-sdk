@@ -413,6 +413,22 @@ impl<AccountId> Default for RewardDestination<AccountId> {
 	}
 }
 
+impl<AccountId: Clone> RewardDestination<AccountId> {
+	fn from(self, stash: &AccountId) -> Option<AccountId> {
+		match self {
+			// FIXME(ank4n): Figure out later how to handle Controller
+			RewardDestination::Staked | RewardDestination::Stash => Some(stash.clone()),
+			RewardDestination::Account(a) => Some(a),
+			#[allow(deprecated)]
+			_ => {
+				defensive!("reward destination not set or set as deprecated controller");
+				None
+			},
+		}
+	}
+
+}
+
 /// Preference of what happens regarding validation.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, Default, MaxEncodedLen)]
 pub struct ValidatorPrefs {
