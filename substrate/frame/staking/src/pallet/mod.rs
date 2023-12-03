@@ -269,7 +269,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxUnlockingChunks: Get<u32>;
 
-		/// The maximum amount of controller accounts that can be deprecated in one batch.
+		/// The maximum amount of controller accounts that can be deprecated in one call.
 		type MaxControllersInBatch: Get<u32>;
 
 		/// Something that listens to staking updates and performs actions based on the data it
@@ -1326,7 +1326,7 @@ pub mod pallet {
 		pub fn set_controller(origin: OriginFor<T>) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
 
-			// the bonded map and ledger are mutated directly as this extrinsic is related to a
+			// The bonded map and ledger are mutated directly as this extrinsic is related to a
 			// (temporary) passive migration.
 			Self::ledger(StakingAccount::Stash(stash.clone())).map(|ledger| {
 				let controller = ledger.controller()
@@ -1334,12 +1334,13 @@ pub mod pallet {
                     .ok_or(Error::<T>::NotController)?;
 
 				if controller == stash {
-					// stash is already its own controller.
+					// Stash is already its own controller.
 					return Err(Error::<T>::AlreadyPaired.into())
 				}
-				// update bond and ledger.
 				<Ledger<T>>::remove(controller);
 				<Bonded<T>>::insert(&stash, &stash);
+				// The controller is never stored on-chain, and is instead derived from the `Bonded` storage
+				// item by `StakingLedger`.
 				<Ledger<T>>::insert(&stash, StakingLedger { controller: None, ..ledger});
 				Ok(())
 			})?
@@ -1946,6 +1947,8 @@ pub mod pallet {
 					let ledger = Self::ledger(StakingAccount::Controller(controller.clone()));
 					ledger.ok().map_or(None, |ledger| {
 						if ledger.stash != *controller {
+							// Sets `controller` field back to `None`. The controller is never stored on-chain,
+							// and is instead derived from the `Bonded` storage item by `StakingLedger`.
 							Some((controller.clone(), StakingLedger { controller: None, ..ledger }))
 						} else {
 							None

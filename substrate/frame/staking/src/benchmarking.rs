@@ -29,7 +29,6 @@ use frame_support::{
 	traits::{Currency, Get, Imbalance, UnfilteredDispatchable},
 };
 use sp_runtime::{
-	bounded_vec,
 	traits::{Bounded, One, StaticLookup, TrailingZeroInput, Zero},
 	Perbill, Percent, Saturating,
 };
@@ -528,6 +527,7 @@ benchmarks! {
 	}
 
 	deprecate_controller_batch {
+		// We pass a dynamic number of controllers to the benchmark, up to `MaxControllersInBatch`.
 		let i in 1 .. T::MaxControllersInBatch::get();
 
 		let mut controllers: Vec<_> = vec![];
@@ -548,7 +548,7 @@ benchmarks! {
 					total: (1000 + n).into(),
 					active: (1000 + n).into(),
 					unlocking: Default::default(),
-					legacy_claimed_rewards: bounded_vec![],
+					legacy_claimed_rewards: BoundedVec::default(),
 				}
 			);
 			Bonded::<T>::insert(stash, controller.clone());
