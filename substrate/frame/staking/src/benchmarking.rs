@@ -29,6 +29,7 @@ use frame_support::{
 	traits::{Currency, Get, Imbalance, UnfilteredDispatchable},
 };
 use sp_runtime::{
+	bounded_vec,
 	traits::{Bounded, One, StaticLookup, TrailingZeroInput, Zero},
 	Perbill, Percent, Saturating,
 };
@@ -529,11 +530,14 @@ benchmarks! {
 	deprecate_controller_batch {
 		let mut controllers: Vec<_> = vec![];
 		for n in 1..T::MaxControllersInBatch::get() as u32 {
-			let stash = n + 10000;
+			let stash_index = n + 10000;
+			let stash = create_funded_user::<T>("stash_".to_owned() + &stash_index.to_string(), stash_index, 0);
+			let ctlr = create_funded_user::<T>("controller_".to_owned() + &n.to_string(), n, 0);
+
 			Ledger::<T>::insert(
 				n.into(),
 				StakingLedger {
-					stash: stash.into(),
+					stash,
 					controller: None,
 					total: (1000 + n).into(),
 					active: (1000 + n).into(),
@@ -541,8 +545,8 @@ benchmarks! {
 					legacy_claimed_rewards: bounded_vec![],
 				},
 			);
-			Bonded::<T>::insert(stash.into(), n.into());
-			controllers.push(n.into());
+			Bonded::<T>::insert(stash, ctlr);
+			controllers.push(ctlr);
 		}
 
 		let bounded_controllers: BoundedVec<_, T::MaxControllersInBatch> =
@@ -551,16 +555,18 @@ benchmarks! {
 	}: _(RawOrigin::Root, bounded_controllers)
 	verify {
 		for n in 1..T::MaxControllersInBatch::get() as u32 {
-			let stash = n + 10000;
+			let stash_index = n + 10000;
+			let stash = create_funded_user::<T>("stash_".to_owned() + &stash_index.to_string(), stash_index, 0);
+			let ctlr = create_funded_user::<T>("controller_".to_owned() + &n.to_string(), n, 0);
 
 			// Ledger no longer keyed by controller.
-			assert_eq!(Ledger::<T>::get(n.into()), None);
+			assert_eq!(Ledger::<T>::get(ctlr), None);
 			// Bonded now maps to the stash.
-			assert_eq!(Bonded::<T>::get(stash.into()), Some(stash.into()));
+			assert_eq!(Bonded::<T>::get(stash), Some(stash));
 
 			// Ledger is now keyed by stash.
-			let ledger_updated = Ledger::<T>::get(stash.into()).unwrap();
-			assert_eq!(ledger_updated.stash, stash.into());
+			let ledger_updated = Ledger::<T>::get(stash).unwrap();
+			assert_eq!(ledger_updated.stash, stash);
 
 			// Check `active` and `total` values match the original ledger set by controller.
 			assert_eq!(ledger_updated.active, (1000 + n).into());
