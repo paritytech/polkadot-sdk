@@ -226,7 +226,7 @@ impl ExtBuilder {
 		let mut ext = self.build();
 		ext.execute_with(test);
 		ext.execute_with(|| {
-			// DelegatedStaking::do_try_state().unwrap();
+			DelegatedStaking::do_try_state().unwrap();
 		});
 	}
 }

@@ -418,3 +418,10 @@ impl<T: Config> sp_staking::StakeBalanceProvider for Pallet<T> {
 		T::FallbackBalanceProvider::release(who)
 	}
 }
+
+#[cfg(any(test, feature = "try-runtime"))]
+impl<T: Config> Pallet<T> {
+	pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		Ok(())
+	}
+}
