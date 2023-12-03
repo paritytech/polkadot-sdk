@@ -35,7 +35,10 @@ use frame_support::{
 };
 use pallet::*;
 use sp_runtime::{traits::Zero, DispatchResult, RuntimeDebug, Saturating};
-use sp_staking::{delegation::{Delegatee, Delegator}, StakeBalanceType, StakerStatus, StakingInterface};
+use sp_staking::{
+	delegation::{Delegatee, Delegator},
+	StakeBalanceType, StakerStatus, StakingInterface,
+};
 use sp_std::{convert::TryInto, prelude::*};
 
 pub type BalanceOf<T> =
@@ -407,7 +410,7 @@ impl<T: Config> sp_staking::StakeBalanceProvider for Pallet<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
 
-	fn stakeable_balance(who: &Self::AccountId) ->	Self::Balance  {
+	fn stakeable_balance(who: &Self::AccountId) -> Self::Balance {
 		T::FallbackBalanceProvider::stakeable_balance(who)
 	}
 

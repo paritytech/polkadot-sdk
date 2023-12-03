@@ -231,5 +231,5 @@ impl ExtBuilder {
 }
 
 pub fn fund(who: AccountId, amount: Balance) {
-	let _  = Balances::deposit_creating(&who, amount);
+	let _ = Balances::deposit_creating(&who, amount);
 }

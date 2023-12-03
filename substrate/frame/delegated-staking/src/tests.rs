@@ -17,10 +17,10 @@
 
 //! Tests for pallet-delegated-staking.
 
-use frame_support::{assert_noop, assert_ok};
-use sp_staking::{StakeBalanceType, StakeBalanceProvider};
 use super::*;
 use crate::{mock::*, Event};
+use frame_support::{assert_noop, assert_ok};
+use sp_staking::{StakeBalanceProvider, StakeBalanceType};
 
 #[test]
 fn create_a_delegatee_with_first_delegator() {
@@ -41,7 +41,6 @@ fn create_a_delegatee_with_first_delegator() {
 		// verify
 		assert_eq!(DelegatedStaking::stake_type(&delegatee), StakeBalanceType::Delegated);
 		assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), 100);
-
 	});
 }
 
@@ -49,14 +48,26 @@ fn create_a_delegatee_with_first_delegator() {
 fn cannot_become_delegatee() {
 	ExtBuilder::default().build_and_execute(|| {
 		// cannot set reward account same as delegatee account
-		assert_noop!(DelegatedStaking::accept_delegations(&100, &100), Error::<T>::InvalidRewardDestination);
+		assert_noop!(
+			DelegatedStaking::accept_delegations(&100, &100),
+			Error::<T>::InvalidRewardDestination
+		);
 
 		// an existing validator cannot become delegatee
-		assert_noop!(DelegatedStaking::accept_delegations(&mock::GENESIS_VALIDATOR, &100), Error::<T>::AlreadyStaker);
+		assert_noop!(
+			DelegatedStaking::accept_delegations(&mock::GENESIS_VALIDATOR, &100),
+			Error::<T>::AlreadyStaker
+		);
 
 		// an existing nominator cannot become delegatee
-		assert_noop!(DelegatedStaking::accept_delegations(&mock::GENESIS_NOMINATOR_ONE, &100), Error::<T>::AlreadyStaker);
-		assert_noop!(DelegatedStaking::accept_delegations(&mock::GENESIS_NOMINATOR_TWO, &100), Error::<T>::AlreadyStaker);
+		assert_noop!(
+			DelegatedStaking::accept_delegations(&mock::GENESIS_NOMINATOR_ONE, &100),
+			Error::<T>::AlreadyStaker
+		);
+		assert_noop!(
+			DelegatedStaking::accept_delegations(&mock::GENESIS_NOMINATOR_TWO, &100),
+			Error::<T>::AlreadyStaker
+		);
 	});
 }
 

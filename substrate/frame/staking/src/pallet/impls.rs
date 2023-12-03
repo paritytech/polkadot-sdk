@@ -38,7 +38,13 @@ use sp_runtime::{
 	traits::{Bounded, Convert, One, SaturatedConversion, Saturating, StaticLookup, Zero},
 	Perbill,
 };
-use sp_staking::{currency_to_vote::CurrencyToVote, offence::{DisableStrategy, OffenceDetails, OnOffenceHandler}, EraIndex, Page, SessionIndex, Stake, StakeBalanceProvider, StakingAccount::{self, Controller, Stash}, StakingInterface, StakeBalanceType};
+use sp_staking::{
+	currency_to_vote::CurrencyToVote,
+	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
+	EraIndex, Page, SessionIndex, Stake, StakeBalanceProvider, StakeBalanceType,
+	StakingAccount::{self, Controller, Stash},
+	StakingInterface,
+};
 use sp_std::prelude::*;
 
 use crate::{
