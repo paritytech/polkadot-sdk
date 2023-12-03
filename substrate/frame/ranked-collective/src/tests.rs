@@ -23,13 +23,10 @@ use frame_support::{
 	assert_noop, assert_ok, derive_impl,
 	error::BadOrigin,
 	parameter_types,
-	traits::{ConstU16, ConstU32, ConstU64, EitherOf, Everything, MapSuccess, Polling},
+	traits::{ConstU16, EitherOf, MapSuccess, Polling},
 };
-use sp_core::{Get, H256};
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup, ReduceBy},
-	BuildStorage,
-};
+use sp_core::Get;
+use sp_runtime::{traits::ReduceBy, BuildStorage};
 
 use super::*;
 use crate as pallet_ranked_collective;
@@ -47,29 +44,7 @@ frame_support::construct_runtime!(
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -439,6 +414,32 @@ fn cleanup_works() {
 		// NOTE: This will fail until #10016 is merged.
 		//		assert_noop!(Club::cleanup_poll(RuntimeOrigin::signed(4), 3, 10),
 		// Error::<Test>::NoneRemaining);
+	});
+}
+
+#[test]
+fn remove_member_cleanup_works() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Club::add_member(RuntimeOrigin::root(), 1));
+		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 1));
+		assert_ok!(Club::add_member(RuntimeOrigin::root(), 2));
+		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 2));
+		assert_ok!(Club::add_member(RuntimeOrigin::root(), 3));
+		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 3));
+
+		assert_eq!(IdToIndex::<Test>::get(1, 2), Some(1));
+		assert_eq!(IndexToId::<Test>::get(1, 1), Some(2));
+
+		assert_eq!(IdToIndex::<Test>::get(1, 3), Some(2));
+		assert_eq!(IndexToId::<Test>::get(1, 2), Some(3));
+
+		assert_ok!(Club::remove_member(RuntimeOrigin::root(), 2, 1));
+
+		assert_eq!(IdToIndex::<Test>::get(1, 2), None);
+		assert_eq!(IndexToId::<Test>::get(1, 1), Some(3));
+
+		assert_eq!(IdToIndex::<Test>::get(1, 3), Some(1));
+		assert_eq!(IndexToId::<Test>::get(1, 2), None);
 	});
 }
 
