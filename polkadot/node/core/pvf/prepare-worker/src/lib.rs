@@ -64,8 +64,8 @@ use polkadot_node_core_pvf_common::{
 };
 use polkadot_primitives::ExecutorParams;
 use std::{
-	fs,
-	io::{self, Read},
+	fs::{self, File},
+	io::{self, Read, Write},
 	os::{
 		fd::{AsRawFd, FromRawFd, RawFd},
 		unix::net::UnixStream,
@@ -405,11 +405,14 @@ fn handle_child_process(
 	executor_params: Arc<ExecutorParams>,
 ) -> ! {
 	// SAFETY: pipe_writer is an open and owned file descriptor at this point.
-	let pipe_write = unsafe { FromRawFd::from_raw_fd(pipe_write_fd) };
+	let mut pipe_write = unsafe { File::from_raw_fd(pipe_write_fd) };
 
 	// Drop the read end so we don't have too many FDs open.
 	if let Err(errno) = nix::unistd::close(pipe_read_fd) {
-		send_child_response(pipe_write, JobResult::Err(error_from_errno("closing pipe", errno)));
+		send_child_response(
+			&mut pipe_write,
+			JobResult::Err(error_from_errno("closing pipe", errno)),
+		);
 	}
 
 	// Dropping the stream closes the underlying socket. We want to make sure
@@ -418,7 +421,7 @@ fn handle_child_process(
 	// response over the pipe.
 	if let Err(errno) = nix::unistd::close(stream_fd) {
 		send_child_response(
-			pipe_write,
+			&mut pipe_write,
 			JobResult::Err(error_from_errno("error closing stream", errno)),
 		);
 	}
@@ -467,7 +470,7 @@ fn handle_child_process(
 		WaitOutcome::TimedOut,
 	)
 	.unwrap_or_else(|err| {
-		send_child_response(pipe_write, Err(PrepareError::IoErr(err.to_string())))
+		send_child_response(&mut pipe_write, Err(PrepareError::IoErr(err.to_string())))
 	});
 
 	let prepare_thread = spawn_worker_thread(
@@ -497,7 +500,7 @@ fn handle_child_process(
 		WaitOutcome::Finished,
 	)
 	.unwrap_or_else(|err| {
-		send_child_response(pipe_write, Err(PrepareError::IoErr(err.to_string())))
+		send_child_response(&mut pipe_write, Err(PrepareError::IoErr(err.to_string())))
 	});
 
 	let outcome = thread::wait_for_threads(condvar);
@@ -519,7 +522,7 @@ fn handle_child_process(
 
 			match prepare_thread.join().unwrap_or_else(|err| {
 				send_child_response(
-					pipe_write,
+					&mut pipe_write,
 					Err(PrepareError::JobError(stringify_panic_payload(err))),
 				)
 			}) {
@@ -564,7 +567,7 @@ fn handle_child_process(
 			unreachable!("we run wait_while until the outcome is no longer pending; qed"),
 	};
 
-	send_child_response(pipe_write, result);
+	send_child_response(&mut pipe_write, result);
 }
 
 /// Waits for child process to finish and handle child response from pipe.
@@ -611,10 +614,11 @@ fn handle_parent_process(
 	};
 
 	//SAFETY: pipe_read is an open and owned file descriptor at this point.
-	let pipe_read: RawFd = unsafe { FromRawFd::from_raw_fd(pipe_read_fd) };
+	let mut pipe_read = unsafe { File::from_raw_fd(pipe_read_fd) };
 	// Read from the child. Don't decode unless the process exited normally, which we check later.
 	let mut received_data = Vec::new();
-	let readed = nix::unistd::read(pipe_read, &mut received_data)
+	pipe_read
+		.read_to_end(&mut received_data)
 		.map_err(|err| PrepareError::IoErr(err.to_string()))?;
 
 	let status = nix::sys::wait::waitpid(job_pid, None);
@@ -746,20 +750,9 @@ fn recv_child_response(received_data: &mut io::BufReader<&[u8]>) -> io::Result<J
 /// - `pipe_write`: A `PipeWriter` structure, the writing end of a pipe.
 ///
 /// - `response`: Child process response
-fn send_child_response(pipe_write_fd: RawFd, response: JobResult) -> ! {
-	let binding = response.encode();
-	let buffer = binding.as_slice();
-	let half = buffer.len() / 2;
-	nix::unistd::write(pipe_write_fd, &buffer[..half]).unwrap_or_else(|err| {
-		let err_string = err.to_string();
-
-		process::exit(libc::EXIT_FAILURE);
-	});
-	nix::unistd::write(pipe_write_fd, &buffer[half..]).unwrap_or_else(|err| {
-		let err_string = err.to_string();
-
-		process::exit(libc::EXIT_FAILURE);
-	});
+fn send_child_response(pipe_write: &mut File, response: JobResult) -> ! {
+	framed_send_blocking(pipe_write, response.encode().as_slice())
+		.unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
 
 	if response.is_ok() {
 		process::exit(libc::EXIT_SUCCESS)
