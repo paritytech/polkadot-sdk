@@ -28,8 +28,8 @@ use frame_support::{
 	storage::bounded_vec::BoundedVec,
 	traits::{Currency, Get, Imbalance, UnfilteredDispatchable},
 };
+use sp_core::bounded_vec;
 use sp_runtime::{
-	bounded_vec,
 	traits::{Bounded, One, StaticLookup, TrailingZeroInput, Zero},
 	Perbill, Percent, Saturating,
 };
@@ -539,8 +539,7 @@ benchmarks! {
 				false
 			)?
 
-			Ledger::<T>::insert(
-				controller,
+			Ledger::<T>::insert(controller.clone(),
 				StakingLedger {
 					stash,
 					controller: None,
@@ -548,9 +547,9 @@ benchmarks! {
 					active: (1000 + n).into(),
 					unlocking: Default::default(),
 					legacy_claimed_rewards: bounded_vec![],
-				},
+				}
 			);
-			Bonded::<T>::insert(stash, controller);
+			Bonded::<T>::insert(stash, controller.clone());
 			controllers.push(controller);
 			stashes.push(stash);
 		}
@@ -561,8 +560,8 @@ benchmarks! {
 	}: _(RawOrigin::Root, bounded_controllers)
 	verify {
 		for n in 0..T::MaxControllersInBatch::get() as u32 {
-			let stash = stashes[n - 1];
-			let controller = controllers[n - 1];
+			let stash = stashes[n];
+			let controller = controllers[n];
 
 			// Ledger no longer keyed by controller.
 			assert_eq!(Ledger::<T>::get(controller), None);
