@@ -24,7 +24,6 @@ use sp_staking::{StakeBalanceProvider, StakeBalanceType};
 
 #[test]
 fn create_a_delegatee_with_first_delegator() {
-	// Similar to creating a nomination pool
 	ExtBuilder::default().build_and_execute(|| {
 		let delegatee: AccountId = 200;
 		fund(delegatee, 1000);
@@ -90,18 +89,46 @@ fn withdraw_delegation() {
 
 #[test]
 fn apply_pending_slash() {
-	// Similar to creating a nomination pool
 	ExtBuilder::default().build_and_execute(|| assert!(true));
 }
 
 #[test]
 fn distribute_rewards() {
-	// Similar to creating a nomination pool
 	ExtBuilder::default().build_and_execute(|| assert!(true));
 }
 
 #[test]
 fn migrate_to_delegator() {
-	// Similar to creating a nomination pool
 	ExtBuilder::default().build_and_execute(|| assert!(true));
+}
+
+/// Integration tests with pallet-staking and pallet-nomination-pools.
+mod integration {
+	use crate::mock::ExtBuilder;
+
+	#[test]
+	fn bond() {
+		ExtBuilder::default().build_and_execute(|| assert!(true));
+	}
+
+	#[test]
+	fn bond_extra() {
+		ExtBuilder::default().build_and_execute(|| assert!(true));
+	}
+
+	#[test]
+	fn partial_withdraw() {
+		ExtBuilder::default().build_and_execute(|| assert!(true));
+	}
+
+	#[test]
+	fn claim_reward() {
+		ExtBuilder::default().build_and_execute(|| assert!(true));
+	}
+
+	#[test]
+	fn slash_works() {
+		ExtBuilder::default().build_and_execute(|| assert!(true));
+	}
+
 }

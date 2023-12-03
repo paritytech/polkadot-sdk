@@ -45,6 +45,25 @@ pub trait Delegatee {
 		reward_destination: &Self::AccountId,
 	) -> DispatchResult;
 
+	/// Migrate an nominator account into a delegatee.
+	///
+	/// # Arguments
+	///
+	/// * `new_delegatee`: This is the current nominator account. Funds will be moved from this
+	///   account to `proxy_delegator` and delegated back to `new_delegatee`.
+	/// * `proxy_delegator`: All existing staked funds will be moved to this account. Future
+	///   migration of funds from `proxy_delegator` to `delegator` is possible via calling
+	///   [`Self::migrate_delegator`].
+	///  * `payee`: Delegatees need to set where they want their rewards to be paid out.
+	///
+	/// This is similar to [`Self::accept_delegations`] but allows a current nominator to migrate to
+	/// a delegatee.
+	fn migrate_accept_delegations(
+		new_delegatee: &Self::AccountId,
+		proxy_delegator: &Self::AccountId,
+		payee: &Self::AccountId,
+	) -> DispatchResult;
+
 	/// Stop accepting new delegations on this account.
 	fn block_delegations(delegatee: &Self::AccountId) -> DispatchResult;
 
@@ -73,20 +92,19 @@ pub trait Delegatee {
 		reporter: Option<Self::AccountId>,
 	) -> DispatchResult;
 
-	/// Migrate a nominator account into a delegatee by moving its funds to delegator account and
-	/// delegating these funds back to delegatee.
+	/// Swap a delegated `value` from `delegator_from` to `delegator_to`, with delegatee remaining
+	/// the same.
 	///
-	/// Also takes input a payee which will be the new reward destination for the new delegatee.
+	/// This is useful for migrating old pool accounts using direct staking to lazily move
+	/// delegators to the new delegated pool account.
 	///
-	/// This is useful for migrating old pool accounts to use delegation by providing a pool
-	/// delegator account. This pool delegator account funds can then lazily move funds to actual
-	/// delegators using [`Self::delegator_migrate`].
-	///
-	/// Note: Potentially unsafe and should be only called by trusted runtime code.
-	fn delegatee_migrate(
-		new_delegatee: &Self::AccountId,
-		proxy_delegator: &Self::AccountId,
-		payee: &Self::AccountId,
+	/// FIXME(ank4n): delegator_from should be removed and be always `proxy_delegator` that was
+	/// registered while calling [`Self::migrate_accept_delegations`].
+	fn migrate_delegator(
+		delegatee: &Self::AccountId,
+		delegator_from: &Self::AccountId,
+		delegator_to: &Self::AccountId,
+		value: Self::Balance,
 	) -> DispatchResult;
 }
 
@@ -115,20 +133,6 @@ pub trait Delegator {
 	/// Request removal of delegated stake.
 	fn request_undelegate(
 		delegator: &Self::AccountId,
-		delegatee: &Self::AccountId,
-		value: Self::Balance,
-	) -> DispatchResult;
-
-	/// Swap a delegated `value` from `delegator_from` to `delegator_to`, with delegatee remaining
-	/// the same.
-	///
-	/// This is useful for migrating old pool accounts using direct staking to lazily move
-	/// delegators to the new delegated pool account.
-	///
-	/// Note: Potentially unsafe and should be only called by trusted runtime code.
-	fn delegator_migrate(
-		delegator_from: &Self::AccountId,
-		delegator_to: &Self::AccountId,
 		delegatee: &Self::AccountId,
 		value: Self::Balance,
 	) -> DispatchResult;

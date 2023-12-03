@@ -201,6 +201,52 @@ impl<T: Config> Delegatee for Pallet<T> {
 		Ok(())
 	}
 
+	/// Transfers funds from current staked account to `proxy_delegator`. Current staked account
+	/// becomes a delegatee with `proxy_delegator` delegating stakes to it.
+	fn migrate_accept_delegations(
+		new_delegatee: &Self::AccountId,
+		proxy_delegator: &Self::AccountId,
+		payee: &Self::AccountId,
+	) -> DispatchResult {
+		ensure!(new_delegatee != proxy_delegator, Error::<T>::InvalidDelegation);
+
+		// ensure proxy delegator has at least minimum balance to keep the account alive.
+		ensure!(
+			T::Currency::reducible_balance(
+				proxy_delegator,
+				Preservation::Expendable,
+				Fortitude::Polite
+			) > Zero::zero(),
+			Error::<T>::NotEnoughFunds
+		);
+
+		// ensure staker is a nominator
+		let status = T::Staking::status(new_delegatee)?;
+		match status {
+			StakerStatus::Nominator(_) => (),
+			_ => return Err(Error::<T>::InvalidDelegation.into()),
+		}
+
+		let stake = T::Staking::stake(new_delegatee)?;
+
+		// unlock funds from staker
+		T::Staking::force_unlock(new_delegatee)?;
+
+		// try transferring the staked amount. This should never fail but if it does, it indicates
+		// bad state and we abort.
+		T::Currency::transfer(
+			new_delegatee,
+			proxy_delegator,
+			stake.total,
+			Preservation::Expendable,
+		)
+		.map_err(|_| Error::<T>::BadState)?;
+
+		// delegate from new delegator to staker.
+		Self::accept_delegations(new_delegatee, payee)?;
+		Self::delegate(proxy_delegator, new_delegatee, stake.total)
+	}
+
 	fn block_delegations(delegatee: &Self::AccountId) -> DispatchResult {
 		<Delegatees<T>>::mutate(delegatee, |maybe_register| {
 			if let Some(register) = maybe_register {
@@ -287,51 +333,30 @@ impl<T: Config> Delegatee for Pallet<T> {
 		todo!()
 	}
 
-	/// Transfers funds from current staked account to `proxy_delegator`. Current staked account
-	/// becomes a delegatee with `proxy_delegator` delegating stakes to it.
-	fn delegatee_migrate(
-		new_delegatee: &Self::AccountId,
-		proxy_delegator: &Self::AccountId,
-		payee: &Self::AccountId,
+	/// Move funds from proxy delegator to actual delegator.
+	// TODO: Keep track of proxy delegator and only allow movement from proxy -> new delegator
+	fn migrate_delegator(
+		delegatee: &Self::AccountId,
+		existing_delegator: &Self::AccountId,
+		new_delegator: &Self::AccountId,
+		value: Self::Balance,
 	) -> DispatchResult {
-		ensure!(new_delegatee != proxy_delegator, Error::<T>::InvalidDelegation);
+		ensure!(value >= T::Currency::minimum_balance(), Error::<T>::NotEnoughFunds);
 
-		// ensure proxy delegator has at least minimum balance to keep the account alive.
-		ensure!(
-			T::Currency::reducible_balance(
-				proxy_delegator,
-				Preservation::Expendable,
-				Fortitude::Polite
-			) > Zero::zero(),
-			Error::<T>::NotEnoughFunds
-		);
+		// ensure delegatee exists.
+		ensure!(!<Delegatees<T>>::contains_key(delegatee), Error::<T>::NotDelegatee);
 
-		// ensure staker is a nominator
-		let status = T::Staking::status(new_delegatee)?;
-		match status {
-			StakerStatus::Nominator(_) => (),
-			_ => return Err(Error::<T>::InvalidDelegation.into()),
-		}
+		// remove delegation of `value` from `existing_delegator`.
+		Self::withdraw(existing_delegator, delegatee, value)?;
 
-		let stake = T::Staking::stake(new_delegatee)?;
+		// transfer the withdrawn value to `new_delegator`.
+		T::Currency::transfer(existing_delegator, new_delegator, value, Preservation::Expendable)
+			.map_err(|_| Error::<T>::BadState)?;
 
-		// unlock funds from staker
-		T::Staking::force_unlock(new_delegatee)?;
-
-		// try transferring the staked amount. This should never fail but if it does, it indicates
-		// bad state and we abort.
-		T::Currency::transfer(
-			new_delegatee,
-			proxy_delegator,
-			stake.total,
-			Preservation::Expendable,
-		)
-		.map_err(|_| Error::<T>::BadState)?;
-
-		// delegate from new delegator to staker.
-		Self::accept_delegations(new_delegatee, payee)?;
-		Self::delegate(proxy_delegator, new_delegatee, stake.total)
+		// add the above removed delegation to `new_delegator`.
+		Self::delegate(new_delegator, delegatee, value)
 	}
+
 }
 
 impl<T: Config> Delegator for Pallet<T> {
@@ -382,30 +407,6 @@ impl<T: Config> Delegator for Pallet<T> {
 		value: Self::Balance,
 	) -> DispatchResult {
 		todo!()
-	}
-
-	/// Move funds from proxy delegator to actual delegator.
-	// TODO: Keep track of proxy delegator and only allow movement from proxy -> new delegator
-	fn delegator_migrate(
-		existing_delegator: &Self::AccountId,
-		new_delegator: &Self::AccountId,
-		delegatee: &Self::AccountId,
-		value: Self::Balance,
-	) -> DispatchResult {
-		ensure!(value >= T::Currency::minimum_balance(), Error::<T>::NotEnoughFunds);
-
-		// ensure delegatee exists.
-		ensure!(!<Delegatees<T>>::contains_key(delegatee), Error::<T>::NotDelegatee);
-
-		// remove delegation of `value` from `existing_delegator`.
-		Self::withdraw(existing_delegator, delegatee, value)?;
-
-		// transfer the withdrawn value to `new_delegator`.
-		T::Currency::transfer(existing_delegator, new_delegator, value, Preservation::Expendable)
-			.map_err(|_| Error::<T>::BadState)?;
-
-		// add the above removed delegation to `new_delegator`.
-		Self::delegate(new_delegator, delegatee, value)
 	}
 }
 
