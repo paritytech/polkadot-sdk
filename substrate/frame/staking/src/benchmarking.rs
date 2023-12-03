@@ -25,6 +25,7 @@ use codec::Decode;
 use frame_election_provider_support::{bounds::DataProviderBounds, SortedListProvider};
 use frame_support::{
 	pallet_prelude::*,
+	storage::bounded_vec::BoundedVec,
 	traits::{Currency, Get, Imbalance, UnfilteredDispatchable},
 };
 use sp_runtime::{
@@ -530,9 +531,9 @@ benchmarks! {
 		for n in 1..T::MaxControllersInBatch::get() as u32 {
 			let stash = n + 10000;
 			Ledger::<T>::insert(
-				n,
+				n.into(),
 				StakingLedger {
-					stash,
+					stash: stash.into(),
 					controller: None,
 					total: (1000 + n).into(),
 					active: (1000 + n).into(),
@@ -540,8 +541,8 @@ benchmarks! {
 					legacy_claimed_rewards: bounded_vec![],
 				},
 			);
-			Bonded::<T>::insert(stash, n);
-			controllers.push(n);
+			Bonded::<T>::insert(stash.into(), n.into());
+			controllers.push(n.into());
 		}
 
 		let bounded_controllers: BoundedVec<_, T::MaxControllersInBatch> =
@@ -553,13 +554,13 @@ benchmarks! {
 			let stash = n + 10000;
 
 			// Ledger no longer keyed by controller.
-			assert_eq!(Ledger::<T>::get(n), None);
+			assert_eq!(Ledger::<T>::get(n.into()), None);
 			// Bonded now maps to the stash.
-			assert_eq!(Bonded::<T>::get(stash), Some(stash));
+			assert_eq!(Bonded::<T>::get(stash.into()), Some(stash.into()));
 
 			// Ledger is now keyed by stash.
-			let ledger_updated = Ledger::<T>::get(stash).unwrap();
-			assert_eq!(ledger_updated.stash, stash);
+			let ledger_updated = Ledger::<T>::get(stash.into()).unwrap();
+			assert_eq!(ledger_updated.stash, stash.into());
 
 			// Check `active` and `total` values match the original ledger set by controller.
 			assert_eq!(ledger_updated.active, (1000 + n).into());
