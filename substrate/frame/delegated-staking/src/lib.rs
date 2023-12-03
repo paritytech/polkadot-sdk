@@ -177,6 +177,9 @@ impl<T: Config> Delegatee for Pallet<T> {
 		// Existing delegatee cannot accept delegation
 		ensure!(!<Delegatees<T>>::contains_key(who), Error::<T>::NotAllowed);
 
+		// make sure they are not already a direct staker
+		ensure!(T::Staking::status(who).is_err(), Error::<T>::AlreadyStaker);
+
 		// payee account cannot be same as delegatee
 		ensure!(reward_destination != who, Error::<T>::InvalidRewardDestination);
 
@@ -411,7 +414,10 @@ impl<T: Config> sp_staking::StakeBalanceProvider for Pallet<T> {
 	type AccountId = T::AccountId;
 
 	fn stakeable_balance(who: &Self::AccountId) -> Self::Balance {
-		T::FallbackBalanceProvider::stakeable_balance(who)
+		<Delegatees<T>>::get(who).map_or_else(
+			|| T::FallbackBalanceProvider::stakeable_balance(who),
+			|delegatee| delegatee.effective_balance(),
+		)
 	}
 
 	fn update_hold(who: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
@@ -424,7 +430,17 @@ impl<T: Config> sp_staking::StakeBalanceProvider for Pallet<T> {
 
 	#[cfg(feature = "std")]
 	fn stake_type(who: &Self::AccountId) -> StakeBalanceType {
+		if Self::is_delegatee(who) {
+			return StakeBalanceType::Delegated;
+		}
+
 		T::FallbackBalanceProvider::stake_type(who)
+	}
+}
+
+impl<T: Config> Pallet<T> {
+	fn is_delegatee(who: &T::AccountId) -> bool {
+		<Delegatees<T>>::contains_key(who)
 	}
 }
 
