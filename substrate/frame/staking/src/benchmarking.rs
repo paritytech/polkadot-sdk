@@ -548,17 +548,17 @@ benchmarks! {
 	}: _(RawOrigin::Root, bounded_controllers)
 	verify {
 		for n in 1..i as u32 {
-			let stash = stashes[n as usize];
-			let controller = controllers[n as usize];
+			let stash = &stashes[n as usize];
+			let controller = &controllers[n as usize];
 
 			// Ledger no longer keyed by controller.
 			assert_eq!(Ledger::<T>::get(controller), None);
 			// Bonded now maps to the stash.
-			assert_eq!(Bonded::<T>::get(stash), Some(stash));
+			assert_eq!(Bonded::<T>::get(stash), Some(stash.clone()));
 
 			// Ledger is now keyed by stash.
 			let ledger_updated = Ledger::<T>::get(stash).unwrap();
-			assert_eq!(ledger_updated.stash, stash);
+			assert_eq!(ledger_updated.stash, *stash);
 		}
 	}
 
