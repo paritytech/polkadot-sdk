@@ -533,9 +533,9 @@ benchmarks! {
 
 		for n in 0..T::MaxControllersInBatch::get() as u32 {
 			let (stash, controller) = create_unique_stash_controller::<T>(
-				n, 
-				100, 
-				RewardDestination::Staked, 
+				n,
+				100,
+				RewardDestination::Staked,
 				false
 			)?
 
