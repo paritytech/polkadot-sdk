@@ -544,7 +544,7 @@ benchmarks! {
 			stashes.push(stash);
 		}
 		let bounded_controllers: BoundedVec<_, T::MaxControllersInBatch> =
-			BoundedVec::try_from(controllers).unwrap();
+			BoundedVec::try_from(controllers.clone()).unwrap();
 	}: _(RawOrigin::Root, bounded_controllers)
 	verify {
 		for n in 1..i as u32 {
