@@ -125,6 +125,7 @@ fn migrate_to_delegator() {
 mod integration {
 	use super::*;
 	use pallet_staking::RewardDestination;
+	use sp_staking::Stake;
 
 	#[test]
 	fn bond() {
@@ -173,13 +174,11 @@ mod integration {
 				assert_eq!(DelegatedStaking::unbonded_balance(&delegatee), 0);
 			}
 
-			// check ledger total stake..
+			assert_eq!(Staking::stake(&delegatee).unwrap(), Stake {
+				total: 50*100,
+				active: 50*100,
+			})
 		});
-	}
-
-	#[test]
-	fn bond_extra() {
-		ExtBuilder::default().build_and_execute(|| assert!(true));
 	}
 
 	#[test]
