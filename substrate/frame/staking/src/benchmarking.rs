@@ -529,13 +529,18 @@ benchmarks! {
 
 	deprecate_controller_batch {
 		let mut controllers: Vec<_> = vec![];
-		for n in 1..T::MaxControllersInBatch::get() as u32 {
-			let stash_index = n + 10000;
-			let stash = create_funded_user::<T>("stash_".to_owned() + &stash_index.to_string(), stash_index, 0);
-			let ctlr = create_funded_user::<T>("controller_".to_owned() + &n.to_string(), n, 0);
+		let mut stashes: Vec<_> = vec![];
+
+		for n in 0..T::MaxControllersInBatch::get() as u32 {
+			let (stash, controller) = create_unique_stash_controller::<T>(
+				n, 
+				100, 
+				RewardDestination::Staked, 
+				false
+			)?
 
 			Ledger::<T>::insert(
-				n.into(),
+				controller,
 				StakingLedger {
 					stash,
 					controller: None,
@@ -545,8 +550,9 @@ benchmarks! {
 					legacy_claimed_rewards: bounded_vec![],
 				},
 			);
-			Bonded::<T>::insert(stash, ctlr);
-			controllers.push(ctlr);
+			Bonded::<T>::insert(stash, controller);
+			controllers.push(controller);
+			stashes.push(stash);
 		}
 
 		let bounded_controllers: BoundedVec<_, T::MaxControllersInBatch> =
@@ -554,13 +560,12 @@ benchmarks! {
 
 	}: _(RawOrigin::Root, bounded_controllers)
 	verify {
-		for n in 1..T::MaxControllersInBatch::get() as u32 {
-			let stash_index = n + 10000;
-			let stash = create_funded_user::<T>("stash_".to_owned() + &stash_index.to_string(), stash_index, 0);
-			let ctlr = create_funded_user::<T>("controller_".to_owned() + &n.to_string(), n, 0);
+		for n in 0..T::MaxControllersInBatch::get() as u32 {
+			let stash = stashes[n - 1];
+			let controller = controllers[n - 1];
 
 			// Ledger no longer keyed by controller.
-			assert_eq!(Ledger::<T>::get(ctlr), None);
+			assert_eq!(Ledger::<T>::get(controller), None);
 			// Bonded now maps to the stash.
 			assert_eq!(Bonded::<T>::get(stash), Some(stash));
 
