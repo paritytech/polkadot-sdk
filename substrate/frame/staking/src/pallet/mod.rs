@@ -269,6 +269,9 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxUnlockingChunks: Get<u32>;
 
+		/// The maximum amount of controller accounts that can be deprecated in one batch.
+		type MaxControllersInBatch: Get<u32>;
+
 		/// Something that listens to staking updates and performs actions based on the data it
 		/// receives.
 		///
@@ -1919,6 +1922,46 @@ pub mod pallet {
 				.defensive_proof("ledger should have been previously retrieved from storage.")?;
 
 			Ok(Pays::No.into())
+		}
+
+		/// Updates a batch of controller accounts to their corresponding stash account if they are
+		/// not the same. Ignores any controller accounts that do not exist, and does not operate if
+		/// the stash and controller are already the same.
+		///
+		/// Effects will be felt instantly (as soon as this function is completed successfully).
+		///
+		/// The dispatch origin must be Root.
+		#[pallet::call_index(28)]
+		#[pallet::weight(T::WeightInfo::update_payee())] // TODO: insert real weight.
+		pub fn deprecate_controller_batch(
+			origin: OriginFor<T>,
+			batch: BoundedVec<T::AccountId, T::MaxControllersInBatch>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			// Ignore controllers that do not exist or are already the same as stash.
+			let filtered_batch_with_leger: Vec<_> = batch
+				.iter()
+				.filter_map(|controller| {
+					let ledger = Self::ledger(StakingAccount::Controller(controller.clone()));
+					ledger.ok().map_or(None, |ledger| {
+						if ledger.stash != *controller {
+							Some((controller.clone(), ledger))
+						} else {
+							None
+						}
+					})
+				})
+				.collect();
+
+			// Update unique pairs.
+			for (controller, ledger) in filtered_batch_with_leger {
+				let stash = ledger.stash.clone();
+				<Ledger<T>>::remove(controller);
+				<Bonded<T>>::insert(&stash, stash.clone());
+				<Ledger<T>>::insert(stash, ledger);
+			}
+			Ok(())
 		}
 	}
 }
