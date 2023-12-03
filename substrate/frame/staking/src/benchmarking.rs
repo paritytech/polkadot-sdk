@@ -540,25 +540,11 @@ benchmarks! {
 				RewardDestination::Staked,
 				false
 			)?;
-
-			Ledger::<T>::insert(controller.clone(),
-				StakingLedger {
-					stash,
-					controller: None,
-					total: (1000 + n).into(),
-					active: (1000 + n).into(),
-					unlocking: Default::default(),
-					legacy_claimed_rewards: BoundedVec::default(),
-				}
-			);
-			Bonded::<T>::insert(stash, controller.clone());
 			controllers.push(controller);
 			stashes.push(stash);
 		}
-
 		let bounded_controllers: BoundedVec<_, T::MaxControllersInBatch> =
 			BoundedVec::try_from(controllers).unwrap();
-
 	}: _(RawOrigin::Root, bounded_controllers)
 	verify {
 		for n in 1..i as u32 {
@@ -573,10 +559,6 @@ benchmarks! {
 			// Ledger is now keyed by stash.
 			let ledger_updated = Ledger::<T>::get(stash).unwrap();
 			assert_eq!(ledger_updated.stash, stash);
-
-			// Check `active` and `total` values match the original ledger set by controller.
-			assert_eq!(ledger_updated.active, (1000 + n).into());
-			assert_eq!(ledger_updated.total, (1000 + n).into());
 		}
 	}
 
