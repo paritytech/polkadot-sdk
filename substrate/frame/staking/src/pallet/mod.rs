@@ -1935,12 +1935,12 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::update_payee())] // TODO: insert real weight.
 		pub fn deprecate_controller_batch(
 			origin: OriginFor<T>,
-			batch: BoundedVec<T::AccountId, T::MaxControllersInBatch>,
+			controllers: BoundedVec<T::AccountId, T::MaxControllersInBatch>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
 			// Ignore controllers that do not exist or are already the same as stash.
-			let filtered_batch_with_ledger: Vec<_> = batch
+			let filtered_batch_with_ledger: Vec<_> = controllers
 				.iter()
 				.filter_map(|controller| {
 					let ledger = Self::ledger(StakingAccount::Controller(controller.clone()));

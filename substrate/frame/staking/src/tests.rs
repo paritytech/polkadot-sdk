@@ -6867,4 +6867,58 @@ mod ledger {
 			assert_eq!(Payee::<Test>::get(&21), RewardDestination::Stash);
 		})
 	}
+
+	#[test]
+	fn deprecate_controller_batch_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			// Given:
+
+			let mut controllers: Vec<_> = vec![];
+			for n in 1..MaxControllersInBatch::get().into() {
+				let stash = n + 10000;
+				Ledger::<Test>::insert(
+					n,
+					StakingLedger {
+						stash,
+						controller: None,
+						total: (1000 + n).into(),
+						active: (1000 + n).into(),
+						unlocking: Default::default(),
+						legacy_claimed_rewards: bounded_vec![],
+					},
+				);
+				Bonded::<Test>::insert(stash, n);
+				controllers.push(n);
+			}
+
+			// When:
+
+			let bounded_controllers: BoundedVec<_, <Test as Config>::MaxControllersInBatch> =
+				BoundedVec::try_from(controllers).unwrap();
+
+			assert_ok!(Staking::deprecate_controller_batch(
+				RuntimeOrigin::root(),
+				bounded_controllers
+			));
+
+			// Then:
+
+			for n in 1..MaxControllersInBatch::get().into() {
+				let stash = n + 10000;
+
+				// Ledger no longer keyed by controller.
+				assert_eq!(Ledger::<Test>::get(n), None);
+				// Bonded now maps to the stash.
+				assert_eq!(Bonded::<Test>::get(stash), Some(stash));
+
+				// Ledger is now keyed by stash.
+				let ledger_updated = Ledger::<Test>::get(stash).unwrap();
+				assert_eq!(ledger_updated.stash, stash);
+
+				// Check `active` and `total` values match the original ledger set by controller.
+				assert_eq!(ledger_updated.active, (1000 + n).into());
+				assert_eq!(ledger_updated.total, (1000 + n).into());
+			}
+		})
+	}
 }
