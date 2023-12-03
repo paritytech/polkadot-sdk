@@ -1940,7 +1940,7 @@ pub mod pallet {
 			ensure_root(origin)?;
 
 			// Ignore controllers that do not exist or are already the same as stash.
-			let filtered_batch_with_leger: Vec<_> = batch
+			let filtered_batch_with_ledger: Vec<_> = batch
 				.iter()
 				.filter_map(|controller| {
 					let ledger = Self::ledger(StakingAccount::Controller(controller.clone()));
@@ -1955,7 +1955,7 @@ pub mod pallet {
 				.collect();
 
 			// Update unique pairs.
-			for (controller, ledger) in filtered_batch_with_leger {
+			for (controller, ledger) in filtered_batch_with_ledger {
 				let stash = ledger.stash.clone();
 				<Ledger<T>>::remove(controller);
 				<Bonded<T>>::insert(&stash, stash.clone());
