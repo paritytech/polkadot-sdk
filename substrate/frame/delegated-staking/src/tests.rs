@@ -174,10 +174,10 @@ mod integration {
 				assert_eq!(DelegatedStaking::unbonded_balance(&delegatee), 0);
 			}
 
-			assert_eq!(Staking::stake(&delegatee).unwrap(), Stake {
-				total: 50*100,
-				active: 50*100,
-			})
+			assert_eq!(
+				Staking::stake(&delegatee).unwrap(),
+				Stake { total: 50 * 100, active: 50 * 100 }
+			)
 		});
 	}
 
@@ -186,8 +186,8 @@ mod integration {
 		ExtBuilder::default().build_and_execute(|| {
 			let delegatee: AccountId = 99;
 			let reward_acc: AccountId = 100;
-			let delegators: Vec<AccountId> = (200..250).collect();
-			let delegate_amount: Balance = 100;
+			let delegators: Vec<AccountId> = (200..300).collect();
+			let delegate_amount: Balance = 200;
 			setup_delegation(delegatee, reward_acc, delegators, delegate_amount)
 		});
 	}
