@@ -71,14 +71,29 @@ fn cannot_become_delegatee() {
 }
 
 #[test]
-fn add_delegation_to_existing_delegator() {
-	ExtBuilder::default().build_and_execute(|| assert!(true));
-}
-
-#[test]
 fn create_multiple_delegators() {
-	// Similar to creating a nomination pool
-	ExtBuilder::default().build_and_execute(|| assert!(true));
+	ExtBuilder::default().build_and_execute(|| {
+		let delegatee: AccountId = 200;
+		fund(delegatee, 1000);
+		let reward_account: AccountId = 201;
+
+		// before becoming a delegatee, stakeable balance is only direct balance.
+		assert_eq!(DelegatedStaking::stake_type(&delegatee), StakeBalanceType::Direct);
+		assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), 1000);
+
+		// set intention to accept delegation.
+		assert_ok!(DelegatedStaking::accept_delegations(&delegatee, &reward_account));
+
+		// create 100 delegators
+		for i in 202..302 {
+			fund(i, 100 + ExistentialDeposit::get());
+			assert_ok!(DelegatedStaking::delegate(&i, &delegatee, 100));
+		}
+
+		// verify
+		assert_eq!(DelegatedStaking::stake_type(&delegatee), StakeBalanceType::Delegated);
+		assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), 100 * 100);
+	});
 }
 
 #[test]
