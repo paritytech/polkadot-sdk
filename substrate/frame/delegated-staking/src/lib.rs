@@ -407,7 +407,7 @@ impl<T: Config> sp_staking::StakeBalanceProvider for Pallet<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
 
-	fn stakeable_balance(who: &Self::AccountId) ->	(StakeBalanceType, Self::Balance)  {
+	fn stakeable_balance(who: &Self::AccountId) ->	Self::Balance  {
 		T::FallbackBalanceProvider::stakeable_balance(who)
 	}
 
@@ -417,6 +417,11 @@ impl<T: Config> sp_staking::StakeBalanceProvider for Pallet<T> {
 
 	fn release(who: &Self::AccountId) {
 		T::FallbackBalanceProvider::release(who)
+	}
+
+	#[cfg(feature = "std")]
+	fn stake_type(who: &Self::AccountId) -> StakeBalanceType {
+		T::FallbackBalanceProvider::stake_type(who)
 	}
 }
 

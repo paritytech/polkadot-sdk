@@ -39,7 +39,8 @@ fn create_a_delegatee_with_first_delegator() {
 		assert_ok!(DelegatedStaking::delegate(&delegator, &delegatee, 100));
 
 		// verify
-		assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), (StakeBalanceType::Delegated, 100));
+		assert_eq!(DelegatedStaking::stake_type(&delegatee), StakeBalanceType::Delegated);
+		assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), 100);
 
 	});
 }

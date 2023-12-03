@@ -436,9 +436,12 @@ pub trait StakeBalanceProvider {
 	/// AccountId type used by the staking system.
 	type AccountId: Clone + sp_std::fmt::Debug;
 
-	fn stakeable_balance(who: &Self::AccountId) -> (StakeBalanceType, Self::Balance);
+	fn stakeable_balance(who: &Self::AccountId) -> Self::Balance;
 	fn update_hold(who: &Self::AccountId, amount: Self::Balance) -> DispatchResult;
 	fn release(who: &Self::AccountId);
+
+	#[cfg(feature = "std")]
+	fn stake_type(who: &Self::AccountId) -> StakeBalanceType;
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

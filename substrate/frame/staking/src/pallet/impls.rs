@@ -1821,8 +1821,8 @@ impl<T: Config> StakeBalanceProvider for Pallet<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
 
-	fn stakeable_balance(who: &Self::AccountId) -> (StakeBalanceType, Self::Balance) {
-		(StakeBalanceType::Direct, T::Currency::free_balance(who))
+	fn stakeable_balance(who: &Self::AccountId) -> Self::Balance {
+		T::Currency::free_balance(who)
 	}
 
 	fn update_hold(who: &Self::AccountId, amount: Self::Balance) -> sp_runtime::DispatchResult {
@@ -1832,6 +1832,11 @@ impl<T: Config> StakeBalanceProvider for Pallet<T> {
 
 	fn release(who: &Self::AccountId) {
 		T::Currency::remove_lock(crate::STAKING_ID, who)
+	}
+
+	#[cfg(feature = "std")]
+	fn stake_type(_: &Self::AccountId) -> StakeBalanceType {
+		StakeBalanceType::Direct
 	}
 }
 #[cfg(any(test, feature = "try-runtime"))]
