@@ -35,10 +35,7 @@ use frame_support::{
 };
 use pallet::*;
 use sp_runtime::{traits::Zero, DispatchResult, RuntimeDebug, Saturating};
-use sp_staking::{
-	delegation::{Delegatee, Delegator},
-	StakerStatus, StakingInterface,
-};
+use sp_staking::{delegation::{Delegatee, Delegator}, StakeBalanceType, StakerStatus, StakingInterface};
 use sp_std::{convert::TryInto, prelude::*};
 
 pub type BalanceOf<T> =
@@ -78,6 +75,10 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// The account cannot perform this operation.
 		NotAllowed,
+		/// An existing staker cannot become a delegatee.
+		AlreadyStaker,
+		/// Reward Destination cannot be delegatee account.
+		InvalidRewardDestination,
 		/// Delegation conditions are not met.
 		///
 		/// Possible issues are
@@ -168,22 +169,22 @@ impl<T: Config> Delegatee for Pallet<T> {
 
 	fn accept_delegations(
 		who: &Self::AccountId,
-		payee: &Self::AccountId,
-	) -> sp_runtime::DispatchResult {
+		reward_destination: &Self::AccountId,
+	) -> DispatchResult {
 		// Existing delegatee cannot accept delegation
 		ensure!(!<Delegatees<T>>::contains_key(who), Error::<T>::NotAllowed);
 
 		// payee account cannot be same as delegatee
-		ensure!(payee != who, Error::<T>::InvalidDelegation);
+		ensure!(reward_destination != who, Error::<T>::InvalidRewardDestination);
 
 		// if already a delegator, unblock and return success
 		<Delegatees<T>>::mutate(who, |maybe_register| {
 			if let Some(register) = maybe_register {
 				register.blocked = false;
-				register.payee = payee.clone();
+				register.payee = reward_destination.clone();
 			} else {
 				*maybe_register = Some(DelegationRegister {
-					payee: payee.clone(),
+					payee: reward_destination.clone(),
 					balance: Zero::zero(),
 					pending_slash: Zero::zero(),
 					blocked: false,
@@ -194,7 +195,7 @@ impl<T: Config> Delegatee for Pallet<T> {
 		Ok(())
 	}
 
-	fn block_delegations(delegatee: &Self::AccountId) -> sp_runtime::DispatchResult {
+	fn block_delegations(delegatee: &Self::AccountId) -> DispatchResult {
 		<Delegatees<T>>::mutate(delegatee, |maybe_register| {
 			if let Some(register) = maybe_register {
 				register.blocked = true;
@@ -205,11 +206,11 @@ impl<T: Config> Delegatee for Pallet<T> {
 		})
 	}
 
-	fn kill_delegatee(delegatee: &Self::AccountId) -> sp_runtime::DispatchResult {
+	fn kill_delegatee(delegatee: &Self::AccountId) -> DispatchResult {
 		todo!()
 	}
 
-	fn update_bond(who: &Self::AccountId) -> sp_runtime::DispatchResult {
+	fn update_bond(who: &Self::AccountId) -> DispatchResult {
 		let delegatee = <Delegatees<T>>::get(who).ok_or(Error::<T>::NotDelegatee)?;
 		let delegated_balance = delegatee.effective_balance();
 
@@ -229,7 +230,7 @@ impl<T: Config> Delegatee for Pallet<T> {
 		delegator: &Self::AccountId,
 		delegatee: &Self::AccountId,
 		value: Self::Balance,
-	) -> sp_runtime::DispatchResult {
+	) -> DispatchResult {
 		<Delegators<T>>::mutate_exists(delegator, |maybe_delegate| match maybe_delegate {
 			Some((current_delegatee, delegate_balance)) => {
 				ensure!(&current_delegatee.clone() == delegatee, Error::<T>::NotDelegatee);
@@ -276,7 +277,7 @@ impl<T: Config> Delegatee for Pallet<T> {
 		delegator: &Self::AccountId,
 		value: Self::Balance,
 		reporter: Option<Self::AccountId>,
-	) -> sp_runtime::DispatchResult {
+	) -> DispatchResult {
 		todo!()
 	}
 
@@ -286,7 +287,7 @@ impl<T: Config> Delegatee for Pallet<T> {
 		new_delegatee: &Self::AccountId,
 		proxy_delegator: &Self::AccountId,
 		payee: &Self::AccountId,
-	) -> sp_runtime::DispatchResult {
+	) -> DispatchResult {
 		ensure!(new_delegatee != proxy_delegator, Error::<T>::InvalidDelegation);
 
 		// ensure proxy delegator has at least minimum balance to keep the account alive.
@@ -335,7 +336,7 @@ impl<T: Config> Delegator for Pallet<T> {
 		delegator: &Self::AccountId,
 		delegatee: &Self::AccountId,
 		value: Self::Balance,
-	) -> sp_runtime::DispatchResult {
+	) -> DispatchResult {
 		let delegator_balance =
 			T::Currency::reducible_balance(&delegator, Preservation::Expendable, Fortitude::Polite);
 		ensure!(value >= T::Currency::minimum_balance(), Error::<T>::NotEnoughFunds);
@@ -373,7 +374,7 @@ impl<T: Config> Delegator for Pallet<T> {
 		delegator: &Self::AccountId,
 		delegatee: &Self::AccountId,
 		value: Self::Balance,
-	) -> sp_runtime::DispatchResult {
+	) -> DispatchResult {
 		todo!()
 	}
 
@@ -384,7 +385,7 @@ impl<T: Config> Delegator for Pallet<T> {
 		new_delegator: &Self::AccountId,
 		delegatee: &Self::AccountId,
 		value: Self::Balance,
-	) -> sp_runtime::DispatchResult {
+	) -> DispatchResult {
 		ensure!(value >= T::Currency::minimum_balance(), Error::<T>::NotEnoughFunds);
 
 		// ensure delegatee exists.
@@ -406,7 +407,7 @@ impl<T: Config> sp_staking::StakeBalanceProvider for Pallet<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
 
-	fn stakeable_balance(who: &Self::AccountId) -> Self::Balance {
+	fn stakeable_balance(who: &Self::AccountId) ->	(StakeBalanceType, Self::Balance)  {
 		T::FallbackBalanceProvider::stakeable_balance(who)
 	}
 

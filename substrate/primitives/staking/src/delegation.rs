@@ -40,7 +40,7 @@ pub trait Delegatee {
 	fn delegate_balance(who: Self::AccountId) -> Self::Balance;
 
 	/// Set intention to accept delegations.
-	fn accept_delegations(delegatee: &Self::AccountId, payee: &Self::AccountId) -> DispatchResult;
+	fn accept_delegations(delegatee: &Self::AccountId, reward_destination: &Self::AccountId) -> DispatchResult;
 
 	/// Stop accepting new delegations on this account.
 	fn block_delegations(delegatee: &Self::AccountId) -> DispatchResult;

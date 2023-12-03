@@ -17,17 +17,50 @@
 
 //! Tests for pallet-delegated-staking.
 
+use frame_support::{assert_noop, assert_ok};
+use sp_staking::{StakeBalanceType, StakeBalanceProvider};
 use super::*;
 use crate::{mock::*, Event};
+
 #[test]
 fn create_a_delegatee_with_first_delegator() {
 	// Similar to creating a nomination pool
-	ExtBuilder::default().build_and_execute(|| assert!(true));
+	ExtBuilder::default().build_and_execute(|| {
+		let delegatee: AccountId = 200;
+		fund(delegatee, 1000);
+		let reward_account: AccountId = 201;
+		let delegator: AccountId = 202;
+		fund(delegator, 1000);
+
+		// set intention to accept delegation.
+		assert_ok!(DelegatedStaking::accept_delegations(&delegatee, &reward_account));
+
+		// delegate to this account
+		assert_ok!(DelegatedStaking::delegate(&delegator, &delegatee, 100));
+
+		// verify
+		assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), (StakeBalanceType::Delegated, 100));
+
+	});
+}
+
+#[test]
+fn cannot_become_delegatee() {
+	ExtBuilder::default().build_and_execute(|| {
+		// cannot set reward account same as delegatee account
+		assert_noop!(DelegatedStaking::accept_delegations(&100, &100), Error::<T>::InvalidRewardDestination);
+
+		// an existing validator cannot become delegatee
+		assert_noop!(DelegatedStaking::accept_delegations(&mock::GENESIS_VALIDATOR, &100), Error::<T>::AlreadyStaker);
+
+		// an existing nominator cannot become delegatee
+		assert_noop!(DelegatedStaking::accept_delegations(&mock::GENESIS_NOMINATOR_ONE, &100), Error::<T>::AlreadyStaker);
+		assert_noop!(DelegatedStaking::accept_delegations(&mock::GENESIS_NOMINATOR_TWO, &100), Error::<T>::AlreadyStaker);
+	});
 }
 
 #[test]
 fn add_delegation_to_existing_delegator() {
-	// Similar to creating a nomination pool
 	ExtBuilder::default().build_and_execute(|| assert!(true));
 }
 

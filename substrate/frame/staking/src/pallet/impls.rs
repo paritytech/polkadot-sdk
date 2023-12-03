@@ -38,13 +38,7 @@ use sp_runtime::{
 	traits::{Bounded, Convert, One, SaturatedConversion, Saturating, StaticLookup, Zero},
 	Perbill,
 };
-use sp_staking::{
-	currency_to_vote::CurrencyToVote,
-	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
-	EraIndex, Page, SessionIndex, Stake, StakeBalanceProvider,
-	StakingAccount::{self, Controller, Stash},
-	StakingInterface,
-};
+use sp_staking::{currency_to_vote::CurrencyToVote, offence::{DisableStrategy, OffenceDetails, OnOffenceHandler}, EraIndex, Page, SessionIndex, Stake, StakeBalanceProvider, StakingAccount::{self, Controller, Stash}, StakingInterface, StakeBalanceType};
 use sp_std::prelude::*;
 
 use crate::{
@@ -1827,8 +1821,8 @@ impl<T: Config> StakeBalanceProvider for Pallet<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
 
-	fn stakeable_balance(who: &Self::AccountId) -> Self::Balance {
-		T::Currency::free_balance(who)
+	fn stakeable_balance(who: &Self::AccountId) -> (StakeBalanceType, Self::Balance) {
+		(StakeBalanceType::Direct, T::Currency::free_balance(who))
 	}
 
 	fn update_hold(who: &Self::AccountId, amount: Self::Balance) -> sp_runtime::DispatchResult {

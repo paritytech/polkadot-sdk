@@ -21,7 +21,6 @@ use frame_support::{
 	pallet_prelude::*,
 	parameter_types,
 	traits::{ConstU64, Currency},
-	weights::constants::WEIGHT_REF_TIME_PER_SECOND,
 };
 
 use sp_runtime::{
@@ -38,9 +37,9 @@ pub type T = Runtime;
 type Block = frame_system::mocking::MockBlock<Runtime>;
 pub type AccountId = u64;
 
-const GENESIS_VALIDATOR: AccountId = 1;
-const GENESIS_NOMINATOR_ONE: AccountId = 101;
-const GENESIS_NOMINATOR_TWO: AccountId = 102;
+pub const GENESIS_VALIDATOR: AccountId = 1;
+pub const GENESIS_NOMINATOR_ONE: AccountId = 101;
+pub const GENESIS_NOMINATOR_TWO: AccountId = 102;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
@@ -229,4 +228,8 @@ impl ExtBuilder {
 			DelegatedStaking::do_try_state().unwrap();
 		});
 	}
+}
+
+pub fn fund(who: AccountId, amount: Balance) {
+	let _  = Balances::deposit_creating(&who, amount);
 }
