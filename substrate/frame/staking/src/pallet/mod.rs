@@ -1340,7 +1340,7 @@ pub mod pallet {
 				// update bond and ledger.
 				<Ledger<T>>::remove(controller);
 				<Bonded<T>>::insert(&stash, &stash);
-				<Ledger<T>>::insert(&stash, ledger);
+				<Ledger<T>>::insert(&stash, StakingLedger { controller: None, ..ledger});
 				Ok(())
 			})?
 		}
@@ -1946,7 +1946,7 @@ pub mod pallet {
 					let ledger = Self::ledger(StakingAccount::Controller(controller.clone()));
 					ledger.ok().map_or(None, |ledger| {
 						if ledger.stash != *controller {
-							Some((controller.clone(), ledger))
+							Some((controller.clone(), StakingLedger { controller: None, ..ledger }))
 						} else {
 							None
 						}
@@ -1957,8 +1957,9 @@ pub mod pallet {
 			// Update unique pairs.
 			for (controller, ledger) in filtered_batch_with_ledger {
 				let stash = ledger.stash.clone();
+
+				<Bonded<T>>::insert(&stash, &stash);
 				<Ledger<T>>::remove(controller);
-				<Bonded<T>>::insert(&stash, stash.clone());
 				<Ledger<T>>::insert(stash, ledger);
 			}
 			Ok(())
