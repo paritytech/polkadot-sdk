@@ -28,8 +28,8 @@ use frame_support::{
 	storage::bounded_vec::BoundedVec,
 	traits::{Currency, Get, Imbalance, UnfilteredDispatchable},
 };
-use sp_core::bounded_vec;
 use sp_runtime::{
+	bounded_vec,
 	traits::{Bounded, One, StaticLookup, TrailingZeroInput, Zero},
 	Perbill, Percent, Saturating,
 };
@@ -560,8 +560,8 @@ benchmarks! {
 	}: _(RawOrigin::Root, bounded_controllers)
 	verify {
 		for n in 0..T::MaxControllersInBatch::get() as u32 {
-			let stash = stashes[n];
-			let controller = controllers[n];
+			let stash = stashes[n as usize];
+			let controller = controllers[n as usize];
 
 			// Ledger no longer keyed by controller.
 			assert_eq!(Ledger::<T>::get(controller), None);
