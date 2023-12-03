@@ -343,9 +343,10 @@ impl<
 				Vec::with_capacity(chunk.len());
 			for individual in chunk.iter() {
 				page_total.saturating_accrue(individual.value);
-				others.push(
-					IndividualExposure { who: individual.who.clone(), value: individual.value }
-				)
+				others.push(IndividualExposure {
+					who: individual.who.clone(),
+					value: individual.value,
+				})
 			}
 
 			exposure_pages.push(ExposurePage { page_total, others });
@@ -411,7 +412,7 @@ pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
 }
 
 /// Something that provides delegation support to core staking.
-pub trait StakingDelegationSupport{
+pub trait StakingDelegationSupport {
 	/// Balance type used by the staking system.
 	type Balance: Sub<Output = Self::Balance>
 		+ Ord
@@ -435,7 +436,10 @@ pub trait StakingDelegationSupport{
 	/// Release all amount held for stake.
 	fn release(who: &Self::AccountId);
 
-	fn restrict_reward_destination(_who: &Self::AccountId, _reward_destination: Option<Self::AccountId>) -> bool {
+	fn restrict_reward_destination(
+		_who: &Self::AccountId,
+		_reward_destination: Option<Self::AccountId>,
+	) -> bool {
 		// never restrict by default
 		false
 	}

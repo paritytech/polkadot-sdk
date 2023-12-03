@@ -41,9 +41,9 @@ use sp_runtime::{
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
 	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
-	EraIndex, Page, SessionIndex, Stake, StakingDelegationSupport, StakeBalanceType,
+	EraIndex, Page, SessionIndex, Stake, StakeBalanceType,
 	StakingAccount::{self, Controller, Stash},
-	StakingInterface,
+	StakingDelegationSupport, StakingInterface,
 };
 use sp_std::prelude::*;
 

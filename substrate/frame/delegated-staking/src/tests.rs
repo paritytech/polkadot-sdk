@@ -19,10 +19,9 @@
 
 use super::*;
 use crate::{mock::*, Event};
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{assert_noop, assert_ok, traits::fungible::InspectHold};
 use pallet_staking::Error as StakingError;
-use sp_staking::{StakingDelegationSupport, StakeBalanceType};
-use frame_support::traits::fungible::InspectHold;
+use sp_staking::{StakeBalanceType, StakingDelegationSupport};
 
 #[test]
 fn create_a_delegatee_with_first_delegator() {
@@ -140,10 +139,13 @@ mod integration {
 			// set some delegations
 			for delegator in 200..250 {
 				assert_ok!(DelegatedStaking::delegate(&fund(delegator, 1000), &delegatee, 100));
-				assert_eq!(Balances::balance_on_hold(&HoldReason::Delegating.into(), &delegator), 100);
+				assert_eq!(
+					Balances::balance_on_hold(&HoldReason::Delegating.into(), &delegator),
+					100
+				);
 				assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), 100);
 
-				assert_ok!(Staking::bond(RuntimeOrigin::signed(delegatee), ));
+				assert_ok!(Staking::bond(RuntimeOrigin::signed(delegatee),));
 			}
 
 			//

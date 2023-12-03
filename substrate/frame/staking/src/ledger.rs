@@ -162,7 +162,10 @@ impl<T: Config> StakingLedger<T> {
 			return Err(Error::<T>::AlreadyBonded);
 		}
 
-		if T::DelegationSupport::restrict_reward_destination(&self.stash, payee.clone().from(&self.stash)) {
+		if T::DelegationSupport::restrict_reward_destination(
+			&self.stash,
+			payee.clone().from(&self.stash),
+		) {
 			return Err(Error::<T>::RewardDestinationRestricted);
 		}
 
@@ -177,7 +180,10 @@ impl<T: Config> StakingLedger<T> {
 			return Err(Error::<T>::NotStash);
 		}
 
-		if T::DelegationSupport::restrict_reward_destination(&self.stash, payee.clone().from(&self.stash)) {
+		if T::DelegationSupport::restrict_reward_destination(
+			&self.stash,
+			payee.clone().from(&self.stash),
+		) {
 			return Err(Error::<T>::RewardDestinationRestricted);
 		}
 
