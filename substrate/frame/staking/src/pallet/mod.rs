@@ -1947,8 +1947,9 @@ pub mod pallet {
 					let ledger = Self::ledger(StakingAccount::Controller(controller.clone()));
 					ledger.ok().map_or(None, |ledger| {
 						if ledger.stash != *controller {
-							// Sets `controller` field back to `None`. The controller is never stored on-chain,
-							// and is instead derived from the `Bonded` storage item by `StakingLedger`.
+							// Sets `controller` field back to `None`. The controller is never
+							// stored on-chain, and is instead derived from the `Bonded` storage
+							// item by `StakingLedger`.
 							Some((controller.clone(), StakingLedger { controller: None, ..ledger }))
 						} else {
 							None
