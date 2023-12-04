@@ -18,7 +18,7 @@
 
 pub mod error;
 pub mod execute;
-pub mod executor_intf;
+pub mod executor_interface;
 pub mod prepare;
 pub mod pvf;
 pub mod worker;

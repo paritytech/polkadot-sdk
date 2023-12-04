@@ -17,7 +17,7 @@
 //! Contains the logic for executing PVFs. Used by the polkadot-execute-worker binary.
 
 pub use polkadot_node_core_pvf_common::{
-	executor_intf::execute_artifact, worker_dir, SecurityStatus,
+	executor_interface::execute_artifact, worker_dir, SecurityStatus,
 };
 
 // NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
@@ -236,7 +236,7 @@ fn validate_using_artifact(
 	let descriptor_bytes = match unsafe {
 		// SAFETY: this should be safe since the compiled artifact passed here comes from the
 		//         file created by the prepare workers. These files are obtained by calling
-		//         [`executor_intf::prepare`].
+		//         [`executor_interface::prepare`].
 		execute_artifact(compiled_artifact_blob, executor_params, params)
 	} {
 		Err(err) => return JobResponse::format_invalid("execute", &err),
