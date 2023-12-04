@@ -170,10 +170,6 @@ impl pallet_bridge_messages::WeightInfoExt for TestMessagesWeights {
 parameter_types! {
 	pub const RelayNetwork: NetworkId = NetworkId::Kusama;
 	pub const BridgedRelayNetwork: NetworkId = NetworkId::Polkadot;
-	pub const BridgedDestination: InteriorMultiLocation = X2(
-		GlobalConsensus(BridgedRelayNetwork::get()),
-		Parachain(BRIDGED_ASSET_HUB_ID)
-	);
 	pub const NonBridgedRelayNetwork: NetworkId = NetworkId::Rococo;
 	pub const BridgeReserve: Balance = 100_000;
 	pub UniversalLocation: InteriorMultiLocation = X2(
@@ -189,8 +185,8 @@ impl pallet_xcm_bridge_hub::Config for TestRuntime {
 	type BridgeMessagesPalletInstance = ();
 
 	type MessageExportPrice = ();
-	type Lane = TestXcmBlobHauler;
-	type BridgedDestination = BridgedDestination;
+	type Lanes = TestLanes;
+	type LanesSupport = TestXcmBlobHauler;
 }
 
 parameter_types! {
@@ -198,13 +194,19 @@ parameter_types! {
 		location: MultiLocation::new(1, X1(Parachain(SIBLING_ASSET_HUB_ID))),
 		lane: TEST_LANE_ID,
 	};
+	pub const BridgedDestination: InteriorMultiLocation = X2(
+		GlobalConsensus(BridgedRelayNetwork::get()),
+		Parachain(BRIDGED_ASSET_HUB_ID)
+	);
+	pub TestLanes: sp_std::vec::Vec<(SenderAndLane, InteriorMultiLocation)> = sp_std::vec![
+		(TestSenderAndLane::get(), BridgedDestination::get())
+	];
 }
 
 pub struct TestXcmBlobHauler;
 impl XcmBlobHauler for TestXcmBlobHauler {
 	type Runtime = TestRuntime;
 	type MessagesInstance = ();
-	type SenderAndLane = TestSenderAndLane;
 	type ToSourceChainSender = ();
 	type CongestedMessage = ();
 	type UncongestedMessage = ();

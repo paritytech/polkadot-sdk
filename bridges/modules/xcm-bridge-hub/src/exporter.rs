@@ -93,7 +93,7 @@ where
 				);
 
 				// notify XCM queue manager about updated lane state
-				LocalXcmQueueManager::<T::Lane>::on_bridge_message_enqueued(
+				LocalXcmQueueManager::<T::LanesSupport>::on_bridge_message_enqueued(
 					&sender_and_lane,
 					artifacts.enqueued_messages,
 				);

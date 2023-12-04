@@ -58,10 +58,10 @@ pub mod pallet {
 		/// Price of single message export to the bridged consensus (`Self::BridgedNetworkId`).
 		type MessageExportPrice: Get<MultiAssets>;
 
-		/// Get point-to-point link with bridged consensus (`Self::BridgedNetworkId`).
-		type Lane: XcmBlobHauler;
-		/// Destination location from the `BridgedNetworkId`.
-		type BridgedDestination: Get<InteriorMultiLocation>;
+		/// Get point-to-point links with bridged consensus (`Self::BridgedNetworkId`).
+		type Lanes: Get<Vec<(SenderAndLane, InteriorMultiLocation)>>;
+		/// Support for point-to-point links
+		type LanesSupport: XcmBlobHauler;
 	}
 
 	#[pallet::pallet]
@@ -73,19 +73,18 @@ pub mod pallet {
 			source: &InteriorMultiLocation,
 			dest: &InteriorMultiLocation,
 		) -> Option<SenderAndLane> {
-			// Check that we have configured a point-to-point lane for 'source' and `dest`.
-			let sender_and_lane = <T::Lane as XcmBlobHauler>::SenderAndLane::get();
-			let allowed_dest = T::BridgedDestination::get();
-			let source_as_sender = source.relative_to(&T::UniversalLocation::get());
+			let source = source.relative_to(&T::UniversalLocation::get());
 
-			if source_as_sender == sender_and_lane.location &&
-				dest == &allowed_dest &&
-				dest.global_consensus() == Ok(T::BridgedNetworkId::get())
-			{
-				Some(sender_and_lane)
-			} else {
-				None
-			}
+			// Check that we have configured a point-to-point lane for 'source' and `dest`.
+			T::Lanes::get().into_iter().find_map(|lane| {
+				if source == lane.0.location &&
+					dest == &lane.1 && dest.global_consensus() == Ok(T::BridgedNetworkId::get())
+				{
+					Some(lane.0)
+				} else {
+					None
+				}
+			})
 		}
 	}
 }
