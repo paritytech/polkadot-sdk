@@ -177,16 +177,10 @@ pub mod pallet {
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(PhantomData<T>);
 
-	/// Information that is pertinent to identify the entity behind an account.
+	/// Information that is pertinent to identify the entity behind an account. First item is the
+	/// registration, second is the account's primary username.
 	///
 	/// TWOX-NOTE: OK ― `AccountId` is a secure hash.
-	//
-	// TODO: Consider setting a username limit per account and storing a BoundedVec of all of an
-	// account's usernames. Obvious downside is storing a vec that may not be full, but without it,
-	// when a user calls `clear_identity` there is no way to clean up all their username accounts
-	// without looping through all the map keys. Alternate way would be to introduce a new
-	// dispatchable, callable by anyone, that could identify a username with no key in `IdentityOf`
-	// and remove the username from storage.
 	#[pallet::storage]
 	#[pallet::getter(fn identity)]
 	pub(super) type IdentityOf<T: Config> = StorageMap<
@@ -1124,7 +1118,6 @@ pub mod pallet {
 				AccountOfUsername::<T>::get(username.clone()).is_some(),
 				Error::<T>::NoUsername
 			);
-			// todo: mutate_extant?
 			let (registration, _maybe_username) =
 				IdentityOf::<T>::get(&who).ok_or(Error::<T>::NoIdentity)?;
 			IdentityOf::<T>::insert(&who, (registration, Some(username.clone())));

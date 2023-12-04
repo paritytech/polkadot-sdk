@@ -347,14 +347,6 @@ pub(crate) const USERNAME_MAX_LENGTH: u32 = 32;
 /// A byte vec used to represent a username.
 pub(crate) type Username = BoundedVec<u8, ConstU32<USERNAME_MAX_LENGTH>>;
 
-// TODO: Consider:
-// struct RegisteredUsername {
-// 	   // primary username
-// 	   primary: Username,
-// 	   // all other usernames of user (maybe)
-// 	   secondary: BoundedVec<Username, UsernameLimit>,
-// }
-
 #[cfg(test)]
 mod tests {
 	use super::*;
