@@ -525,10 +525,10 @@ fn received_advertisement_after_backing_leads_to_acknowledgement() {
 			)
 			.await;
 
-			assert_peer_reported(&mut overseer, peer_c, BENEFIT_VALID_STATEMENT).await;
-			assert_peer_reported(&mut overseer, peer_c, BENEFIT_VALID_STATEMENT).await;
-			assert_peer_reported(&mut overseer, peer_c, BENEFIT_VALID_STATEMENT).await;
-			assert_peer_reported(&mut overseer, peer_c, BENEFIT_VALID_RESPONSE).await;
+			assert_peer_reported!(&mut overseer, peer_c, BENEFIT_VALID_STATEMENT);
+			assert_peer_reported!(&mut overseer, peer_c, BENEFIT_VALID_STATEMENT);
+			assert_peer_reported!(&mut overseer, peer_c, BENEFIT_VALID_STATEMENT);
+			assert_peer_reported!(&mut overseer, peer_c, BENEFIT_VALID_RESPONSE);
 
 			answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
 		}
@@ -648,12 +648,11 @@ fn receive_ack_for_unconfirmed_candidate() {
 
 		// Receive an acknowledgement from a peer before the candidate is confirmed.
 		send_ack_from_peer(&mut overseer, peer_c, ack.clone()).await;
-		assert_peer_reported(
+		assert_peer_reported!(
 			&mut overseer,
 			peer_c,
 			COST_UNEXPECTED_ACKNOWLEDGEMENT_UNKNOWN_CANDIDATE,
-		)
-		.await;
+		);
 
 		overseer
 	});
@@ -739,7 +738,7 @@ fn received_acknowledgements_for_locally_confirmed() {
 
 		// Receive an unexpected acknowledgement from peer D.
 		send_ack_from_peer(&mut overseer, peer_d, ack.clone()).await;
-		assert_peer_reported(&mut overseer, peer_d, COST_UNEXPECTED_MANIFEST_DISALLOWED).await;
+		assert_peer_reported!(&mut overseer, peer_d, COST_UNEXPECTED_MANIFEST_DISALLOWED);
 
 		// Send statement from peer B.
 		{
@@ -759,7 +758,7 @@ fn received_acknowledgements_for_locally_confirmed() {
 			)
 			.await;
 
-			assert_peer_reported(&mut overseer, peer_b, BENEFIT_VALID_STATEMENT_FIRST).await;
+			assert_peer_reported!(&mut overseer, peer_b, BENEFIT_VALID_STATEMENT_FIRST);
 
 			assert_matches!(
 				overseer.recv().await,
@@ -806,7 +805,7 @@ fn received_acknowledgements_for_locally_confirmed() {
 		//
 		// It still shouldn't know this manifest.
 		send_ack_from_peer(&mut overseer, peer_d, ack.clone()).await;
-		assert_peer_reported(&mut overseer, peer_d, COST_UNEXPECTED_MANIFEST_DISALLOWED).await;
+		assert_peer_reported!(&mut overseer, peer_d, COST_UNEXPECTED_MANIFEST_DISALLOWED);
 
 		// Receive an acknowledgement from peer C.
 		//
@@ -926,10 +925,10 @@ fn received_acknowledgements_for_externally_confirmed() {
 			)
 			.await;
 
-			assert_peer_reported(&mut overseer, peer_c, BENEFIT_VALID_STATEMENT).await;
-			assert_peer_reported(&mut overseer, peer_c, BENEFIT_VALID_STATEMENT).await;
-			assert_peer_reported(&mut overseer, peer_c, BENEFIT_VALID_STATEMENT).await;
-			assert_peer_reported(&mut overseer, peer_c, BENEFIT_VALID_RESPONSE).await;
+			assert_peer_reported!(&mut overseer, peer_c, BENEFIT_VALID_STATEMENT);
+			assert_peer_reported!(&mut overseer, peer_c, BENEFIT_VALID_STATEMENT);
+			assert_peer_reported!(&mut overseer, peer_c, BENEFIT_VALID_STATEMENT);
+			assert_peer_reported!(&mut overseer, peer_c, BENEFIT_VALID_RESPONSE);
 
 			answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
 		}
@@ -944,11 +943,11 @@ fn received_acknowledgements_for_externally_confirmed() {
 
 		// Receive an unexpected acknowledgement from peer D.
 		send_ack_from_peer(&mut overseer, peer_d, ack.clone()).await;
-		assert_peer_reported(&mut overseer, peer_d, COST_UNEXPECTED_MANIFEST_PEER_UNKNOWN).await;
+		assert_peer_reported!(&mut overseer, peer_d, COST_UNEXPECTED_MANIFEST_PEER_UNKNOWN);
 
 		// Receive an unexpected acknowledgement from peer A.
 		send_ack_from_peer(&mut overseer, peer_a, ack.clone()).await;
-		assert_peer_reported(&mut overseer, peer_a, COST_UNEXPECTED_MANIFEST_DISALLOWED).await;
+		assert_peer_reported!(&mut overseer, peer_a, COST_UNEXPECTED_MANIFEST_DISALLOWED);
 
 		overseer
 	});

@@ -22,7 +22,7 @@ use polkadot_node_network_protocol::{
 	grid_topology::TopologyPeerInfo,
 	request_response::{outgoing::Recipient, ReqProtocolNames},
 	v2::{BackedCandidateAcknowledgement, BackedCandidateManifest},
-	view, ObservedRole, ReputationChange,
+	view, ObservedRole,
 };
 use polkadot_node_primitives::Statement;
 use polkadot_node_subsystem::messages::{
@@ -637,16 +637,15 @@ async fn answer_expected_hypothetical_depth_request(
 	)
 }
 
-async fn assert_peer_reported(
-	virtual_overseer: &mut VirtualOverseer,
-	peer_id: PeerId,
-	rep_change: impl Into<ReputationChange>,
-) {
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
-			if p == peer_id && r == rep_change.into()
-	);
+#[macro_export]
+macro_rules! assert_peer_reported {
+	($virtual_overseer:expr, $peer_id:expr, $rep_change:expr ) => {
+		assert_matches!(
+			$virtual_overseer.recv().await,
+			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+				if p == $peer_id && r == $rep_change.into()
+		);
+	}
 }
 
 async fn send_share_message(
