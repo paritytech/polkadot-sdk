@@ -1,0 +1,17 @@
+title: Fix XCMP max message size check
+
+doc:
+  - audience: Core Dev
+    description: |
+      Improved XCMP max message check logic.
+
+migrations:
+  db: []
+
+  runtime: []
+
+crates:
+  - name: "cumulus-pallet-xcmp-queue"
+    semver: patch
+
+host_functions: []
