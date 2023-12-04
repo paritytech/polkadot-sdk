@@ -13,7 +13,7 @@ parity-scale-codec = { version = "3.6.1", default-features = false, features = [
 log = { version = "0.4.17", default-features = false }
 rustc-hex = { version = "2.1.0", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.188", default-features = false }
+serde = { version = "1.0.193", default-features = false }
 serde_derive = { version = "1.0.117", optional = true }
 smallvec = "1.8.0"
 
@@ -77,7 +77,7 @@ serde_json = "1.0.108"
 substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 no_std = []
 only-staking = []
 runtime-metrics = [
