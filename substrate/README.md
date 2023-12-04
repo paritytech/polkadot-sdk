@@ -26,8 +26,7 @@ here](https://github.com/paritytech/polkadot-sdk/issues) for anything you suspec
 
 ## Contributions & Code of Conduct
 
-Please follow the contributions guidelines as outlined in
-[`docs/contributor/CONTRIBUTING.md`](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md).
+Please follow the contributions guidelines as outlined in [`docs/contributor/CONTRIBUTING.md`](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md).
 In all communications and contributions, this project follows the [Contributor Covenant Code of Conduct](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CODE_OF_CONDUCT.md).
 
 ## Security
