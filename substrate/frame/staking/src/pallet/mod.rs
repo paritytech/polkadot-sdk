@@ -1941,31 +1941,31 @@ pub mod pallet {
 			ensure_root(origin)?;
 
 			// Ignore controllers that do not exist or are already the same as stash.
-			let filtered_batch_with_ledger: Vec<_> = controllers
-				.iter()
-				.filter_map(|controller| {
-					let ledger = Self::ledger(StakingAccount::Controller(controller.clone()));
-					ledger.ok().map_or(None, |ledger| {
-						if ledger.stash != *controller {
-							// Sets `controller` field back to `None`. The controller is never
-							// stored on-chain, and is instead derived from the `Bonded` storage
-							// item by `StakingLedger`.
-							Some((controller.clone(), StakingLedger { controller: None, ..ledger }))
-						} else {
-							None
-						}
-					})
-				})
-				.collect();
+			// let filtered_batch_with_ledger: Vec<_> = controllers
+			// 	.iter()
+			// 	.filter_map(|controller| {
+			// 		let ledger = Self::ledger(StakingAccount::Controller(controller.clone()));
+			// 		ledger.ok().map_or(None, |ledger| {
+			// 			if ledger.stash != *controller {
+			// 				// Sets `controller` field back to `None`. The controller is never
+			// 				// stored on-chain, and is instead derived from the `Bonded` storage
+			// 				// item by `StakingLedger`.
+			// 				Some((controller.clone(), StakingLedger { controller: None, ..ledger }))
+			// 			} else {
+			// 				None
+			// 			}
+			// 		})
+			// 	})
+			// 	.collect();
 
-			// Update unique pairs.
-			for (controller, ledger) in filtered_batch_with_ledger {
-				let stash = ledger.stash.clone();
+			// // Update unique pairs.
+			// for (controller, ledger) in filtered_batch_with_ledger {
+			// 	let stash = ledger.stash.clone();
 
-				<Bonded<T>>::insert(&stash, &stash);
-				<Ledger<T>>::remove(controller);
-				<Ledger<T>>::insert(stash, ledger);
-			}
+			// 	<Bonded<T>>::insert(&stash, &stash);
+			// 	<Ledger<T>>::remove(controller);
+			// 	<Ledger<T>>::insert(stash, ledger);
+			// }
 			Ok(())
 		}
 	}
