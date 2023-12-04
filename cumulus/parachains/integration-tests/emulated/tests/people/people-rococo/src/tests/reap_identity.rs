@@ -27,8 +27,9 @@ use rococo_runtime::{
 };
 use rococo_runtime_constants::currency::*;
 use rococo_system_emulated_network::{
-	rococo_emulated_chain::RococoRelayPallet, RococoRelay, RococoRelayReceiver, RococoRelaySender,
+	rococo_emulated_chain::RococoRelayPallet, RococoRelay, RococoRelaySender,
 };
+
 type Balance = u128;
 type RococoIdentity = <RococoRelay as RococoRelayPallet>::Identity;
 type RococoBalances = <RococoRelay as RococoRelayPallet>::Balances;
@@ -97,7 +98,6 @@ impl Identity {
 #[derive(Clone, Debug)]
 enum Subs {
 	Zero,
-	One,
 	Many(u32),
 }
 
@@ -112,21 +112,35 @@ impl IdentityOn<'_> {
 			IdentityOn::Relay(id) => {
 				let base_deposit = BasicDeposit::get();
 				let byte_deposit =
-					ByteDeposit::get() * TryInto::<u128>::try_into(id.encoded_size()).unwrap();
+					ByteDeposit::get() * TryInto::<Balance>::try_into(id.encoded_size()).unwrap();
 				base_deposit + byte_deposit
 			},
 			IdentityOn::Para(id) => {
 				let base_deposit = BasicDepositParachain::get();
 				let byte_deposit = ByteDepositParachain::get() *
-					TryInto::<u128>::try_into(id.encoded_size()).unwrap();
+					TryInto::<Balance>::try_into(id.encoded_size()).unwrap();
 				base_deposit + byte_deposit
 			},
 		}
 	}
 }
 
+// Generate an `AccountId32` from a `u32`.
+fn account_from_u32(id: u32) -> AccountId32 {
+	let mut buffer = [255u8; 32];
+	let id_bytes = id.to_le_bytes();
+	let id_size = id_bytes.len();
+	for ii in 0..buffer.len() / id_size {
+		let s = ii * id_size;
+		let e = s + id_size;
+		buffer[s..e].clone_from_slice(&id_bytes[..]);
+	}
+	AccountId32::new(buffer)
+}
+
+// Set up the Relay Chain with an identity.
 fn set_id_relay(id: &Identity) -> Balance {
-	let mut total_deposit = 0_u128;
+	let mut total_deposit: Balance = 0;
 
 	// Set identity and Subs on Relay Chain
 	RococoRelay::execute_with(|| {
@@ -139,21 +153,12 @@ fn set_id_relay(id: &Identity) -> Balance {
 
 		match id.subs {
 			Subs::Zero => {},
-			Subs::One => {
-				assert_ok!(RococoIdentity::set_subs(
-					RococoOrigin::signed(RococoRelaySender::get()),
-					vec![(
-						RococoRelayReceiver::get(),
-						Data::Raw(vec![1_u8; 1].try_into().unwrap()),
-					)],
-				));
-			},
 			Subs::Many(n) => {
-				let mut subs = Vec::new();
-				for i in 0..n {
+				let mut subs = Vec::with_capacity(n.try_into().unwrap());
+				for ii in 0..n {
 					subs.push((
-						AccountId32::new([i as u8 + 1; 32]),
-						Data::Raw(vec![i as u8; 1].try_into().unwrap()),
+						account_from_u32(ii),
+						Data::Raw(b"name".to_vec().try_into().unwrap()),
 					));
 				}
 				assert_ok!(RococoIdentity::set_subs(
@@ -180,26 +185,8 @@ fn set_id_relay(id: &Identity) -> Balance {
 					]
 				);
 			},
-			Subs::One => {
-				total_deposit =
-					SubAccountDeposit::get() + IdentityOn::Relay(&id.relay).calculate_deposit();
-				assert_expected_events!(
-					RococoRelay,
-					vec![
-						RuntimeEvent::Identity(IdentityEvent::IdentitySet { .. }) => {},
-						RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {
-							who: *who == RococoRelaySender::get(),
-							amount: *amount == id_deposit,
-						},
-						RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {
-							who: *who == RococoRelaySender::get(),
-							amount: *amount == SubAccountDeposit::get(),
-						},
-					]
-				);
-			},
 			Subs::Many(n) => {
-				let sub_account_deposit = n as u128 * SubAccountDeposit::get();
+				let sub_account_deposit = n as Balance * SubAccountDeposit::get();
 				total_deposit =
 					sub_account_deposit + IdentityOn::Relay(&id.relay).calculate_deposit();
 				assert_expected_events!(
@@ -224,6 +211,7 @@ fn set_id_relay(id: &Identity) -> Balance {
 	total_deposit
 }
 
+// Set up the parachain with an identity and (maybe) sub accounts, but with zero deposits.
 fn assert_set_id_parachain(id: &Identity) {
 	// Set identity and Subs on Parachain with zero deposit
 	PeopleRococo::execute_with(|| {
@@ -240,16 +228,13 @@ fn assert_set_id_parachain(id: &Identity) {
 
 		match id.subs {
 			Subs::Zero => {},
-			Subs::One => {
-				assert_ok!(PeopleRococoIdentity::set_sub_no_deposit(
-					&PeopleRococoSender::get(),
-					AccountId32::new([1_u8; 32]),
-				));
-			},
 			Subs::Many(n) => {
-				let mut subs = Vec::new();
-				for i in 0..n {
-					subs.push(AccountId32::new([i as u8 + 1; 32]));
+				let mut subs = Vec::with_capacity(n.try_into().unwrap());
+				for ii in 0..n {
+					subs.push((
+						account_from_u32(ii),
+						Data::Raw(b"name".to_vec().try_into().unwrap()),
+					));
 				}
 				assert_ok!(PeopleRococoIdentity::set_subs_no_deposit(
 					&PeopleRococoSender::get(),
@@ -257,8 +242,6 @@ fn assert_set_id_parachain(id: &Identity) {
 				));
 			},
 		}
-
-		// No events get triggered when calling set_sub_no_deposit
 
 		// No amount should be reserved as deposit amounts are set to 0.
 		let reserved_bal = PeopleRococoBalances::reserved_balance(PeopleRococoSender::get());
@@ -269,23 +252,19 @@ fn assert_set_id_parachain(id: &Identity) {
 
 		match id.subs {
 			Subs::Zero => assert_eq!(sub_accounts.len(), 0),
-			Subs::One => assert_eq!(sub_accounts.len(), 1),
 			Subs::Many(n) => assert_eq!(sub_accounts.len(), n as usize),
 		}
 	});
 }
 
-fn assert_reap_id_relay(total_deposit: u128, id: &Identity) {
+// Reap the identity on the Relay Chain and assert that the correct things happen there.
+fn assert_reap_id_relay(total_deposit: Balance, id: &Identity) {
 	RococoRelay::execute_with(|| {
 		type RuntimeEvent = <RococoRelay as Chain>::RuntimeEvent;
 		let free_bal_before_reap = RococoBalances::free_balance(RococoRelaySender::get());
 		let reserved_balance = RococoBalances::reserved_balance(RococoRelaySender::get());
 
-		match id.subs {
-			Subs::Zero =>
-				assert_eq!(reserved_balance, IdentityOn::Relay(&id.relay).calculate_deposit()),
-			_ => assert_eq!(reserved_balance, total_deposit),
-		}
+		assert_eq!(reserved_balance, total_deposit);
 
 		assert_ok!(RococoIdentityMigrator::reap_identity(
 			RococoOrigin::root(),
@@ -294,54 +273,56 @@ fn assert_reap_id_relay(total_deposit: u128, id: &Identity) {
 
 		let remote_deposit = match id.subs {
 			Subs::Zero => calculate_remote_deposit(id.relay.encoded_size() as u32, 0),
-			Subs::One => calculate_remote_deposit(id.relay.encoded_size() as u32, 1),
 			Subs::Many(n) => calculate_remote_deposit(id.relay.encoded_size() as u32, n),
 		};
 
 		assert_expected_events!(
 			RococoRelay,
 			vec![
+				// `reap_identity` sums the identity and subs deposits and unreserves them in one
+				// call. Therefore, we only expect one `Unreserved` event.
 				RuntimeEvent::Balances(BalancesEvent::Unreserved { who, amount }) => {
 					who: *who == RococoRelaySender::get(),
 					amount: *amount == total_deposit,
 				},
+				RuntimeEvent::IdentityMigrator(
+					polkadot_runtime_common::identity_migrator::Event::IdentityReaped {
+						who,
+					}) => {
+					who: *who == PeopleRococoSender::get(),
+				},
 			]
 		);
+		// Identity should be gone.
 		assert!(PeopleRococoIdentity::identity(&RococoRelaySender::get()).is_none());
+
+		// Subs should be gone.
 		let (_, sub_accounts) = RococoIdentity::subs_of(&RococoRelaySender::get());
 		assert_eq!(sub_accounts.len(), 0);
 
 		let reserved_balance = RococoBalances::reserved_balance(RococoRelaySender::get());
 		assert_eq!(reserved_balance, 0);
 
+		// Free balance should be greater (i.e. the teleport should work even if 100% of an
+		// account's balance is reserved for Identity).
 		let free_bal_after_reap = RococoBalances::free_balance(RococoRelaySender::get());
 		assert!(free_bal_after_reap > free_bal_before_reap);
 
-		match id.subs {
-			Subs::Zero => {
-				assert_eq!(
-					free_bal_after_reap,
-					free_bal_before_reap + IdentityOn::Relay(&id.relay).calculate_deposit() -
-						remote_deposit
-				);
-			},
-			_ => {
-				assert_eq!(
-					free_bal_after_reap,
-					free_bal_before_reap + total_deposit - remote_deposit
-				);
-			},
-		}
+		// Implicit: total_deposit > remote_deposit. As in, accounts should always have enough
+		// reserved for the parachain deposit.
+		assert_eq!(free_bal_after_reap, free_bal_before_reap + total_deposit - remote_deposit);
 	});
 }
+
+// Reaping the identity on the Relay Chain will have sent an XCM program to the parachain. Ensure
+// that everything happens as expected.
 fn assert_reap_parachain(id: &Identity) {
 	PeopleRococo::execute_with(|| {
 		let reserved_bal = PeopleRococoBalances::reserved_balance(PeopleRococoSender::get());
 		let id_deposit = IdentityOn::Para(&id.para).calculate_deposit();
 		let total_deposit = match id.subs {
 			Subs::Zero => id_deposit,
-			Subs::One => id_deposit + SubAccountDepositParachain::get(),
-			Subs::Many(n) => id_deposit + n as u128 * SubAccountDepositParachain::get(),
+			Subs::Many(n) => id_deposit + n as Balance * SubAccountDepositParachain::get(),
 		};
 		assert_reap_events(id_deposit, id);
 		assert_eq!(reserved_bal, total_deposit);
@@ -351,38 +332,74 @@ fn assert_reap_parachain(id: &Identity) {
 	});
 }
 
+// Assert the events that should happen on the parachain upon reaping an identity on the Relay
+// Chain.
 fn assert_reap_events(id_deposit: Balance, id: &Identity) {
 	type RuntimeEvent = <PeopleRococo as Chain>::RuntimeEvent;
-	let subs_deposit: Balance = match id.subs {
-		Subs::Zero => 0_u128,
-		Subs::One => SubAccountDepositParachain::get(),
-		Subs::Many(n) => n as u128 * SubAccountDepositParachain::get(),
+	match id.subs {
+		Subs::Zero => {
+			assert_expected_events!(
+				PeopleRococo,
+				vec![
+					// Deposit and Endowed from teleport
+					RuntimeEvent::Balances(BalancesEvent::Deposit { .. }) => {},
+					RuntimeEvent::Balances(BalancesEvent::Endowed { .. }) => {},
+					// Amount reserved for identity info
+					RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {
+						who: *who == PeopleRococoSender::get(),
+						amount: *amount == id_deposit,
+					},
+					// Confirmation from Migrator with individual identity and subs deposits
+					RuntimeEvent::IdentityMigrator(
+						polkadot_runtime_common::identity_migrator::Event::DepositUpdated {
+							who, identity, subs
+						}) => {
+						who: *who == PeopleRococoSender::get(),
+						identity: *identity == id_deposit,
+						subs: *subs == 0,
+					},
+					RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { ..}) => {},
+				]
+			);
+		},
+		Subs::Many(n) => {
+			let subs_deposit = n as Balance * SubAccountDepositParachain::get();
+			assert_expected_events!(
+				PeopleRococo,
+				vec![
+					// Deposit and Endowed from teleport
+					RuntimeEvent::Balances(BalancesEvent::Deposit { .. }) => {},
+					RuntimeEvent::Balances(BalancesEvent::Endowed { .. }) => {},
+					// Amount reserved for identity info
+					RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {
+						who: *who == PeopleRococoSender::get(),
+						amount: *amount == id_deposit,
+					},
+					// Amount reserved for subs
+					RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {
+						who: *who == PeopleRococoSender::get(),
+						amount: *amount == subs_deposit,
+					},
+					// Confirmation from Migrator with individual identity and subs deposits
+					RuntimeEvent::IdentityMigrator(
+						polkadot_runtime_common::identity_migrator::Event::DepositUpdated {
+							who, identity, subs
+						}) => {
+						who: *who == PeopleRococoSender::get(),
+						identity: *identity == id_deposit,
+						subs: *subs == subs_deposit,
+					},
+					RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { ..}) => {},
+				]
+			);
+		},
 	};
-	assert_expected_events!(
-		PeopleRococo,
-		vec![
-			RuntimeEvent::Balances(BalancesEvent::Deposit { .. }) => {},
-			RuntimeEvent::Balances(BalancesEvent::Endowed { .. }) => {},
-			RuntimeEvent::Balances(BalancesEvent::Reserved { who, amount }) => {
-				who: *who == PeopleRococoSender::get(),
-				amount: *amount == id_deposit,
-			},
-			RuntimeEvent::IdentityMigrator(
-				polkadot_runtime_common::identity_migrator::Event::DepositUpdated {
-					who, identity, subs
-				}) => {
-				who: *who == PeopleRococoSender::get(),
-				identity: *identity == id_deposit,
-				subs: *subs == subs_deposit,
-			},
-			RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { ..}) => {},
-		]
-	);
 }
 
+// Duplicate of the impl of `ToParachainIdentityReaper` in the Rococo runtime.
 fn calculate_remote_deposit(bytes: u32, subs: u32) -> Balance {
-	// We execute these Rococo Relay Currency functions because this is the runtime context that
-	// this function is called in.
+	// Note: These `deposit` functions and `EXISTENTIAL_DEPOSIT` correspond to the Relay Chain's.
+	// Pulled in: use rococo_runtime_constants::currency::*;
 	let para_basic_deposit = deposit(1, 17) / 100;
 	let para_byte_deposit = deposit(0, 1) / 100;
 	let para_sub_account_deposit = deposit(1, 53) / 100;
@@ -398,6 +415,8 @@ fn calculate_remote_deposit(bytes: u32, subs: u32) -> Balance {
 		.saturating_add(para_existential_deposit.saturating_mul(2))
 }
 
+// Represent some `additional` data that would not be migrated to the parachain. The encoded size,
+// and thus the byte deposit, should decrease.
 fn nonsensical_additional() -> BoundedVec<(Data, Data), MaxAdditionalFields> {
 	BoundedVec::try_from(vec![(
 		Data::Raw(b"fOo".to_vec().try_into().unwrap()),
@@ -406,6 +425,7 @@ fn nonsensical_additional() -> BoundedVec<(Data, Data), MaxAdditionalFields> {
 	.unwrap()
 }
 
+// Represent some `additional` data that will be migrated to the parachain as first-class fields.
 fn meaningful_additional() -> BoundedVec<(Data, Data), MaxAdditionalFields> {
 	BoundedVec::try_from(vec![
 		(
@@ -420,6 +440,7 @@ fn meaningful_additional() -> BoundedVec<(Data, Data), MaxAdditionalFields> {
 	.unwrap()
 }
 
+// Execute a single test case.
 fn assert_relay_para_flow(id: &Identity) {
 	let total_deposit = set_id_relay(id);
 	assert_set_id_parachain(id);
@@ -427,14 +448,16 @@ fn assert_relay_para_flow(id: &Identity) {
 	assert_reap_parachain(id);
 }
 
-#[test]
-fn on_reap_identity_works_for_minimal_identity() {
-	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(false, None, Subs::One));
-}
+// Tests with empty `IdentityInfo`.
 
 #[test]
 fn on_reap_identity_works_for_minimal_identity_with_zero_subs() {
 	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(false, None, Subs::Zero));
+}
+
+#[test]
+fn on_reap_identity_works_for_minimal_identity() {
+	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(false, None, Subs::Many(1)));
 }
 
 #[test]
@@ -446,14 +469,16 @@ fn on_reap_identity_works_for_minimal_identity_with_max_subs() {
 	));
 }
 
-#[test]
-fn on_reap_identity_works_for_full_identity_no_additional() {
-	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(true, None, Subs::One));
-}
+// Tests with full `IdentityInfo`.
 
 #[test]
 fn on_reap_identity_works_for_full_identity_no_additional_zero_subs() {
 	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(true, None, Subs::Zero));
+}
+
+#[test]
+fn on_reap_identity_works_for_full_identity_no_additional() {
+	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(true, None, Subs::Many(1)));
 }
 
 #[test]
@@ -465,14 +490,7 @@ fn on_reap_identity_works_for_full_identity_no_additional_max_subs() {
 	));
 }
 
-#[test]
-fn on_reap_identity_works_for_full_identity_nonsense_additional() {
-	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(
-		true,
-		Some(nonsensical_additional()),
-		Subs::One,
-	));
-}
+// Tests with full `IdentityInfo` and `additional` fields that will _not_ be migrated.
 
 #[test]
 fn on_reap_identity_works_for_full_identity_nonsense_additional_zero_subs() {
@@ -480,6 +498,15 @@ fn on_reap_identity_works_for_full_identity_nonsense_additional_zero_subs() {
 		true,
 		Some(nonsensical_additional()),
 		Subs::Zero,
+	));
+}
+
+#[test]
+fn on_reap_identity_works_for_full_identity_nonsense_additional() {
+	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(
+		true,
+		Some(nonsensical_additional()),
+		Subs::Many(1),
 	));
 }
 
@@ -492,14 +519,7 @@ fn on_reap_identity_works_for_full_identity_nonsense_additional_max_subs() {
 	));
 }
 
-#[test]
-fn on_reap_identity_works_for_full_identity_meaningful_additional() {
-	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(
-		true,
-		Some(meaningful_additional()),
-		Subs::One,
-	));
-}
+// Tests with full `IdentityInfo` and `additional` fields that will be migrated.
 
 #[test]
 fn on_reap_identity_works_for_full_identity_meaningful_additional_zero_subs() {
@@ -507,6 +527,15 @@ fn on_reap_identity_works_for_full_identity_meaningful_additional_zero_subs() {
 		true,
 		Some(meaningful_additional()),
 		Subs::Zero,
+	));
+}
+
+#[test]
+fn on_reap_identity_works_for_full_identity_meaningful_additional() {
+	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(
+		true,
+		Some(meaningful_additional()),
+		Subs::Many(1),
 	));
 }
 
