@@ -110,10 +110,25 @@ impl Config for Test {
 	type OnSetCode = ();
 	type MaxConsumers = ConstU32<16>;
 	type SingleBlockMigrations = ();
-	type MultiBlockMigrator = ();
+	type MultiBlockMigrator = MockedMigrator;
 	type PreInherents = ();
 	type PostInherents = ();
 	type PostTransactions = ();
+}
+
+parameter_types! {
+	pub static Ongoing: bool = false;
+}
+
+pub struct MockedMigrator;
+impl frame_support::migrations::MultiStepMigrator for MockedMigrator {
+	fn ongoing() -> bool {
+		Ongoing::get()
+	}
+
+	fn step() -> Weight {
+		Weight::zero()
+	}
 }
 
 pub type SysEvent = frame_system::Event<Test>;

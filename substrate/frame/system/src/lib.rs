@@ -650,7 +650,7 @@ pub mod pallet {
 		/// The origin filter prevent the call to be dispatched.
 		CallFiltered,
 		/// A multi-block migration is ongoing and prevents the current code from being replaced.
-		MultiBlockMigrationsOngoing, // FAIL-CI test
+		MultiBlockMigrationsOngoing,
 	}
 
 	/// Exposed trait-generic origin type.
