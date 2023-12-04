@@ -34,7 +34,7 @@ sp-io = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" 
 sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"bp-messages/std",
 	"bp-relayers/std",

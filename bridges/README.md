@@ -101,7 +101,7 @@ messages between chains.
 │  ├── parachains            // On-Chain Parachains Light Client
 │  ├── relayers              // Relayer Rewards Registry
 │  ├── xcm-bridge-hub        // Multiple Dynamic Bridges Support
-│  ├── xcm-bridge-hub-router // XCM Router that may be used to Connect to XCM Bridge Hub 
+│  ├── xcm-bridge-hub-router // XCM Router that may be used to Connect to XCM Bridge Hub
 ├── primitives               // Code shared between modules, runtimes, and relays
 │  └──  ...
 ├── relays                   // Application for sending finality proofs and messages between chains
