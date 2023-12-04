@@ -37,7 +37,9 @@ use os_pipe::{self, PipeReader, PipeWriter};
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
-	execute::{Handshake, JobError, JobResponse, JobResult, WorkerResponse},
+	execute::{
+		Handshake, JobError, JobResponse, JobResult, WorkerError, WorkerResponse, WorkerResult,
+	},
 	framed_recv_blocking, framed_send_blocking,
 	worker::{
 		cpu_time_monitor_loop, run_worker, stringify_panic_payload,
@@ -115,8 +117,8 @@ fn recv_request(stream: &mut UnixStream) -> io::Result<(Vec<u8>, Duration)> {
 	Ok((params, execution_timeout))
 }
 
-fn send_response(stream: &mut UnixStream, response: WorkerResponse) -> io::Result<()> {
-	framed_send_blocking(stream, &response.encode())
+fn send_result(stream: &mut UnixStream, result: WorkerResult) -> io::Result<()> {
+	framed_send_blocking(stream, &result.encode())
 }
 
 /// The entrypoint that the spawned execute worker should start with.
@@ -167,10 +169,10 @@ pub fn worker_entrypoint(
 				let compiled_artifact_blob = match std::fs::read(&artifact_path) {
 					Ok(bytes) => bytes,
 					Err(err) => {
-						let response = WorkerResponse::InternalError(
+						let result = Err(WorkerError::InternalError(
 							InternalValidationError::CouldNotOpenFile(err.to_string()),
-						);
-						send_response(&mut stream, response)?;
+						));
+						send_result(&mut stream, result)?;
 						continue
 					},
 				};
@@ -180,21 +182,21 @@ pub fn worker_entrypoint(
 				let usage_before = match nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
 					Ok(usage) => usage,
 					Err(errno) => {
-						let response = internal_error_from_errno("getrusage before", errno);
-						send_response(&mut stream, response)?;
+						let result = Err(internal_error_from_errno("getrusage before", errno));
+						send_result(&mut stream, result)?;
 						continue
 					},
 				};
 
 				// SAFETY: new process is spawned within a single threaded process. This invariant
 				// is enforced by tests.
-				let response = match unsafe { nix::unistd::fork() } {
-					Err(errno) => internal_error_from_errno("fork", errno),
+				let result = match unsafe { nix::unistd::fork() } {
+					Err(errno) => Err(internal_error_from_errno("fork", errno)),
 					Ok(ForkResult::Child) => {
 						// Dropping the stream closes the underlying socket. We want to make sure
 						// that the sandboxed child can't get any kind of information from the
 						// outside world. The only IPC it should be able to do is sending its
-						// response over the pipe.
+						// result over the pipe.
 						drop(stream);
 						// Drop the read end so we don't have too many FDs open.
 						drop(pipe_reader);
@@ -222,7 +224,7 @@ pub fn worker_entrypoint(
 					},
 				};
 
-				send_response(&mut stream, response)?;
+				send_result(&mut stream, result)?;
 			}
 		},
 	);
@@ -256,7 +258,7 @@ fn validate_using_artifact(
 }
 
 /// This is used to handle child process during pvf execute worker.
-/// It execute the artifact and pipes back the response to the parent process
+/// It execute the artifact and pipes back the result to the parent process
 ///
 /// # Arguments
 ///
@@ -299,7 +301,7 @@ fn handle_child_process(
 		WaitOutcome::TimedOut,
 	)
 	.unwrap_or_else(|err| {
-		send_child_response(&mut pipe_write, Err(JobError::CouldNotSpawnThread(err.to_string())))
+		send_child_result(&mut pipe_write, Err(JobError::CouldNotSpawnThread(err.to_string())))
 	});
 
 	let executor_params_2 = executor_params.clone();
@@ -311,12 +313,12 @@ fn handle_child_process(
 		EXECUTE_THREAD_STACK_SIZE,
 	)
 	.unwrap_or_else(|err| {
-		send_child_response(&mut pipe_write, Err(JobError::CouldNotSpawnThread(err.to_string())))
+		send_child_result(&mut pipe_write, Err(JobError::CouldNotSpawnThread(err.to_string())))
 	});
 
 	let outcome = thread::wait_for_threads(condvar);
 
-	let response = match outcome {
+	let result = match outcome {
 		WaitOutcome::Finished => {
 			let _ = cpu_time_monitor_tx.send(());
 			execute_thread.join().map_err(|e| JobError::Panic(stringify_panic_payload(e)))
@@ -334,10 +336,10 @@ fn handle_child_process(
 			unreachable!("we run wait_while until the outcome is no longer pending; qed"),
 	};
 
-	send_child_response(&mut pipe_write, response);
+	send_child_result(&mut pipe_write, result);
 }
 
-/// Waits for child process to finish and handle child response from pipe.
+/// Waits for child process to finish and handle child result from pipe.
 ///
 /// # Arguments
 ///
@@ -351,21 +353,19 @@ fn handle_child_process(
 ///
 /// # Returns
 ///
-/// - The response, either `Ok` or some error state.
+/// The result, either `Ok` or some error state.
 fn handle_parent_process(
 	mut pipe_read: PipeReader,
 	job_pid: Pid,
 	worker_pid: u32,
 	usage_before: Usage,
 	timeout: Duration,
-) -> io::Result<WorkerResponse> {
+) -> io::Result<WorkerResult> {
 	// Read from the child. Don't decode unless the process exited normally, which we check later.
 	let mut received_data = Vec::new();
-	pipe_read
-		.read_to_end(&mut received_data)
-		// Could not decode job response. There is either a bug or the job was hijacked.
-		// Should retry at any rate.
-		.map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
+	// If we cannot read to end, there is either a bug or the job was hijacked. Should retry at any
+	// rate.
+	pipe_read.read_to_end(&mut received_data)?;
 
 	let status = nix::sys::wait::waitpid(job_pid, None);
 	gum::trace!(
@@ -378,7 +378,7 @@ fn handle_parent_process(
 
 	let usage_after = match nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
 		Ok(usage) => usage,
-		Err(errno) => return Ok(internal_error_from_errno("getrusage after", errno)),
+		Err(errno) => return Ok(Err(internal_error_from_errno("getrusage after", errno))),
 	};
 
 	// Using `getrusage` is needed to check whether child has timedout since we cannot rely on
@@ -396,30 +396,14 @@ fn handle_parent_process(
 			cpu_tv.as_millis(),
 			timeout.as_millis(),
 		);
-		return Ok(WorkerResponse::JobTimedOut)
+		return Ok(Err(WorkerError::JobTimedOut))
 	}
 
-	match status {
+	Ok(match status {
 		Ok(WaitStatus::Exited(_, exit_status)) => {
 			let mut reader = io::BufReader::new(received_data.as_slice());
-			let result = match recv_child_response(&mut reader) {
-				Ok(result) => result,
-				Err(err) => return Ok(WorkerResponse::JobError(err.to_string())),
-			};
-
-			match result {
-				Ok(JobResponse::Ok { result_descriptor }) => {
-					// The exit status should have been zero if no error occurred.
-					if exit_status != 0 {
-						return Ok(WorkerResponse::JobError(format!(
-							"unexpected exit status: {}",
-							exit_status
-						)))
-					}
-
-					Ok(WorkerResponse::Ok { result_descriptor, duration: cpu_tv })
-				},
-				Ok(JobResponse::InvalidCandidate(err)) => Ok(WorkerResponse::InvalidCandidate(err)),
+			let job_response = match recv_child_result(&mut reader)? {
+				Ok(response) => response,
 				Err(job_error) => {
 					gum::warn!(
 						target: LOG_TARGET,
@@ -428,31 +412,34 @@ fn handle_parent_process(
 						"execute job error: {}",
 						job_error,
 					);
-					if matches!(job_error, JobError::TimedOut) {
-						Ok(WorkerResponse::JobTimedOut)
-					} else {
-						Ok(WorkerResponse::JobError(job_error.to_string()))
-					}
+					return Ok(Err(job_error.into()))
 				},
+			};
+
+			// The exit status should have been zero if no error occurred.
+			if exit_status == 0 {
+				Ok(WorkerResponse { job_response, duration: cpu_tv })
+			} else {
+				Err(WorkerError::JobError(JobError::UnexpectedExitStatus(exit_status)))
 			}
 		},
 		// The job was killed by the given signal.
 		//
 		// The job gets SIGSYS on seccomp violations, but this signal may have been sent for some
 		// other reason, so we still need to check for seccomp violations elsewhere.
-		Ok(WaitStatus::Signaled(_pid, signal, _core_dump)) => Ok(WorkerResponse::JobDied {
+		Ok(WaitStatus::Signaled(_pid, signal, _core_dump)) => Err(WorkerError::JobDied {
 			err: format!("received signal: {signal:?}"),
 			job_pid: job_pid.as_raw(),
 		}),
-		Err(errno) => Ok(internal_error_from_errno("waitpid", errno)),
+		Err(errno) => Err(internal_error_from_errno("waitpid", errno)),
 
 		// It is within an attacker's power to send an unexpected exit status. So we cannot treat
 		// this as an internal error (which would make us abstain), but must vote against.
-		Ok(unexpected_wait_status) => Ok(WorkerResponse::JobDied {
+		Ok(unexpected_wait_status) => Err(WorkerError::JobDied {
 			err: format!("unexpected status from wait: {unexpected_wait_status:?}"),
 			job_pid: job_pid.as_raw(),
 		}),
-	}
+	})
 }
 
 /// Calculate the total CPU time from the given `usage` structure, returned from
@@ -473,37 +460,37 @@ fn get_total_cpu_usage(rusage: Usage) -> Duration {
 	return Duration::from_micros(micros)
 }
 
-/// Get a job response.
-fn recv_child_response(received_data: &mut io::BufReader<&[u8]>) -> io::Result<JobResult> {
-	let response_bytes = framed_recv_blocking(received_data)?;
-	JobResult::decode(&mut response_bytes.as_slice()).map_err(|e| {
+/// Get a job result.
+fn recv_child_result(received_data: &mut io::BufReader<&[u8]>) -> io::Result<JobResult> {
+	let result_bytes = framed_recv_blocking(received_data)?;
+	JobResult::decode(&mut result_bytes.as_slice()).map_err(|e| {
 		io::Error::new(
 			io::ErrorKind::Other,
-			format!("execute pvf recv_child_response: decode error: {:?}", e),
+			format!("execute pvf recv_child_result: decode error: {:?}", e),
 		)
 	})
 }
 
-/// Write response to the pipe and exit process after.
+/// Write result to the pipe and exit process after.
 ///
 /// # Arguments
 ///
 /// - `pipe_write`: A `PipeWriter` structure, the writing end of a pipe.
 ///
-/// - `response`: Child process response, or error.
-fn send_child_response(pipe_write: &mut PipeWriter, response: JobResult) -> ! {
-	framed_send_blocking(pipe_write, response.encode().as_slice())
+/// - `result`: Child process result, or error.
+fn send_child_result(pipe_write: &mut PipeWriter, result: JobResult) -> ! {
+	framed_send_blocking(pipe_write, result.encode().as_slice())
 		.unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
 
-	if response.is_ok() {
+	if result.is_ok() {
 		process::exit(libc::EXIT_SUCCESS)
 	} else {
 		process::exit(libc::EXIT_FAILURE)
 	}
 }
 
-fn internal_error_from_errno(context: &'static str, errno: Errno) -> WorkerResponse {
-	WorkerResponse::InternalError(InternalValidationError::Kernel(format!(
+fn internal_error_from_errno(context: &'static str, errno: Errno) -> WorkerError {
+	WorkerError::InternalError(InternalValidationError::Kernel(format!(
 		"{}: {}: {}",
 		context,
 		errno,

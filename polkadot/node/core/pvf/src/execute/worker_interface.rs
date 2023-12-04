@@ -29,10 +29,9 @@ use futures_timer::Delay;
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
-	execute::{Handshake, WorkerResponse},
+	execute::{Handshake, WorkerError, WorkerResponse, WorkerResult},
 	worker_dir, SecurityStatus,
 };
-use polkadot_parachain_primitives::primitives::ValidationResult;
 use polkadot_primitives::ExecutorParams;
 use std::{path::Path, time::Duration};
 use tokio::{io, net::UnixStream};
@@ -47,7 +46,7 @@ pub async fn spawn(
 	spawn_timeout: Duration,
 	node_version: Option<&str>,
 	security_status: SecurityStatus,
-) -> Result<(IdleWorker, WorkerHandle), SpawnErr> {
+) -> std::result::Result<(IdleWorker, WorkerHandle), SpawnErr> {
 	let mut extra_args = vec!["execute-worker"];
 	if let Some(node_version) = node_version {
 		extra_args.extend_from_slice(&["--node-impl-version", node_version]);
@@ -76,50 +75,50 @@ pub async fn spawn(
 	Ok((idle_worker, worker_handle))
 }
 
+pub type Result = std::result::Result<Response, Error>;
+
 /// Outcome of PVF execution.
 ///
-/// If the idle worker token is not returned, it means the worker must be terminated.
-pub enum Outcome {
-	/// PVF execution completed successfully and the result is returned. The worker is ready for
-	/// another job.
-	Ok { result_descriptor: ValidationResult, duration: Duration, idle_worker: IdleWorker },
-	/// The candidate validation failed. It may be for example because the wasm execution triggered
-	/// a trap. Errors related to the preparation process are not expected to be encountered by the
-	/// execution workers.
-	InvalidCandidate { err: String, idle_worker: IdleWorker },
-	/// The execution time exceeded the hard limit. The worker is terminated.
-	HardTimeout,
+/// PVF execution completed and the result is returned. The worker is ready for
+/// another job.
+pub struct Response {
+	/// The response (valid/invalid) from the worker.
+	pub worker_response: WorkerResponse,
+	/// Returning the idle worker token means the worker can be reused.
+	pub idle_worker: IdleWorker,
+}
+
+/// The idle worker token is not returned for any of these cases, meaning the worker must be
+/// terminated.
+///
+/// NOTE: Errors related to the preparation process are not expected to be encountered by the
+/// execution workers.
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+	/// The communication with the worker exceeded the hard limit. The worker is terminated.
+	#[error("The communication with the worker exceeded the hard limit")]
+	TimedOut,
 	/// An I/O error happened during communication with the worker. This may mean that the worker
 	/// process already died. The token is not returned in any case.
-	WorkerIntfErr,
-	/// The job process has died. We must kill the worker just in case.
-	///
-	/// We cannot treat this as an internal error because malicious code may have caused this.
-	JobDied { err: String },
-	/// An unexpected error occurred in the job process.
-	///
-	/// Because malicious code can cause a job error, we must not treat it as an internal error.
-	JobError { err: String },
-
-	/// An internal error happened during the validation. Such an error is most likely related to
-	/// some transient glitch.
-	///
-	/// Should only ever be used for errors independent of the candidate and PVF. Therefore it may
-	/// be a problem with the worker, so we terminate it.
-	InternalError { err: InternalValidationError },
+	#[error("An I/O error happened during communication with the worker: {0}")]
+	CommunicationErr(#[from] io::Error),
+	/// The worker reported an error (can be from itself or from the job). The worker should not be
+	/// reused.
+	#[error("The worker reported an error: {0}")]
+	WorkerError(#[from] WorkerError),
 }
 
 /// Given the idle token of a worker and parameters of work, communicates with the worker and
-/// returns the outcome.
+/// returns the result.
 ///
-/// NOTE: Not returning the idle worker token in `Outcome` will trigger the child process being
-/// killed, if it's still alive.
+/// NOTE: Not returning the idle worker token triggers the child process being killed, if it's still
+/// alive.
 pub async fn start_work(
 	worker: IdleWorker,
 	artifact: ArtifactPathId,
 	execution_timeout: Duration,
 	validation_params: Vec<u8>,
-) -> Outcome {
+) -> Result {
 	let IdleWorker { mut stream, pid, worker_dir } = worker;
 
 	gum::debug!(
@@ -132,16 +131,18 @@ pub async fn start_work(
 	);
 
 	with_worker_dir_setup(worker_dir, pid, &artifact.path, |worker_dir| async move {
-		if let Err(error) = send_request(&mut stream, &validation_params, execution_timeout).await {
-			gum::warn!(
-				target: LOG_TARGET,
-				worker_pid = %pid,
-				validation_code_hash = ?artifact.id.code_hash,
-				?error,
-				"failed to send an execute request",
-			);
-			return Outcome::WorkerIntfErr
-		}
+		send_request(&mut stream, &validation_params, execution_timeout).await.map_err(
+			|error| {
+				gum::warn!(
+					target: LOG_TARGET,
+					worker_pid = %pid,
+					validation_code_hash = ?artifact.id.code_hash,
+					?error,
+					"failed to send an execute request",
+				);
+				Error::CommunicationErr(error)
+			},
+		)?;
 
 		// We use a generous timeout here. This is in addition to the one in the child process, in
 		// case the child stalls. We have a wall clock timeout here in the host, but a CPU timeout
@@ -149,12 +150,12 @@ pub async fn start_work(
 		// load, but the CPU resources of the child can only be measured from the parent after the
 		// child process terminates.
 		let timeout = execution_timeout * JOB_TIMEOUT_WALL_CLOCK_FACTOR;
-		let response = futures::select! {
-			response = recv_response(&mut stream).fuse() => {
-				match response {
-					Ok(response) =>
-						handle_response(
-							response,
+		let worker_result = futures::select! {
+			worker_result = recv_result(&mut stream).fuse() => {
+				match worker_result {
+					Ok(result) =>
+						handle_result(
+							result,
 							pid,
 							execution_timeout,
 						)
@@ -165,10 +166,10 @@ pub async fn start_work(
 							worker_pid = %pid,
 							validation_code_hash = ?artifact.id.code_hash,
 							?error,
-							"failed to recv an execute response",
+							"failed to recv an execute result",
 						);
 
-						return Outcome::WorkerIntfErr
+						return Err(Error::CommunicationErr(error))
 					},
 				}
 			},
@@ -179,40 +180,31 @@ pub async fn start_work(
 					validation_code_hash = ?artifact.id.code_hash,
 					"execution worker exceeded lenient timeout for execution, child worker likely stalled",
 				);
-				WorkerResponse::JobTimedOut
+				return Err(Error::TimedOut)
 			},
 		};
 
-		match response {
-			WorkerResponse::Ok { result_descriptor, duration } => Outcome::Ok {
-				result_descriptor,
-				duration,
+		match worker_result {
+			Ok(worker_response) => Ok(Response {
+				worker_response,
 				idle_worker: IdleWorker { stream, pid, worker_dir },
-			},
-			WorkerResponse::InvalidCandidate(err) => Outcome::InvalidCandidate {
-				err,
-				idle_worker: IdleWorker { stream, pid, worker_dir },
-			},
-			WorkerResponse::JobTimedOut => Outcome::HardTimeout,
-			WorkerResponse::JobDied { err, job_pid: _ } => Outcome::JobDied { err },
-			WorkerResponse::JobError(err) => Outcome::JobError { err },
-
-			WorkerResponse::InternalError(err) => Outcome::InternalError { err },
+			}),
+			Err(worker_error) => Err(worker_error.into()),
 		}
 	})
 	.await
 }
 
-/// Handles the case where we successfully received response bytes on the host from the child.
+/// Handles the case where we successfully received result bytes on the host from the child.
 ///
 /// Here we know the artifact exists, but is still located in a temporary file which will be cleared
 /// by [`with_worker_dir_setup`].
-async fn handle_response(
-	response: WorkerResponse,
+async fn handle_result(
+	worker_result: WorkerResult,
 	worker_pid: u32,
 	execution_timeout: Duration,
-) -> WorkerResponse {
-	if let WorkerResponse::Ok { duration, .. } = response {
+) -> WorkerResult {
+	if let Ok(WorkerResponse { duration, .. }) = worker_result {
 		if duration > execution_timeout {
 			// The job didn't complete within the timeout.
 			gum::warn!(
@@ -223,12 +215,11 @@ async fn handle_response(
 				execution_timeout.as_millis(),
 			);
 
-			// Return a timeout error.
-			return WorkerResponse::JobTimedOut
+			return Err(WorkerError::JobTimedOut)
 		}
 	}
 
-	response
+	worker_result
 }
 
 /// Create a temporary file for an artifact in the worker cache, execute the given future/closure
@@ -241,9 +232,9 @@ async fn with_worker_dir_setup<F, Fut>(
 	pid: u32,
 	artifact_path: &Path,
 	f: F,
-) -> Outcome
+) -> Result
 where
-	Fut: futures::Future<Output = Outcome>,
+	Fut: futures::Future<Output = Result>,
 	F: FnOnce(WorkerDir) -> Fut,
 {
 	// Cheaply create a hard link to the artifact. The artifact is always at a known location in the
@@ -258,13 +249,13 @@ where
 			"failed to clear worker cache after the job: {:?}",
 			err,
 		);
-		return Outcome::InternalError {
-			err: InternalValidationError::CouldNotCreateLink(format!("{:?}", err)),
-		}
+		return Err(Error::WorkerError(
+			InternalValidationError::CouldNotCreateLink(format!("{:?}", err)).into(),
+		))
 	}
 
 	let worker_dir_path = worker_dir.path().to_owned();
-	let outcome = f(worker_dir).await;
+	let result = f(worker_dir).await;
 
 	// Try to clear the worker dir.
 	if let Err(err) = clear_worker_dir_path(&worker_dir_path) {
@@ -275,15 +266,16 @@ where
 			"failed to clear worker cache after the job: {:?}",
 			err,
 		);
-		return Outcome::InternalError {
-			err: InternalValidationError::CouldNotClearWorkerDir {
+		return Err(Error::WorkerError(
+			InternalValidationError::CouldNotClearWorkerDir {
 				err: format!("{:?}", err),
 				path: worker_dir_path.to_str().map(String::from),
-			},
-		}
+			}
+			.into(),
+		))
 	}
 
-	outcome
+	result
 }
 
 async fn send_handshake(stream: &mut UnixStream, handshake: Handshake) -> io::Result<()> {
@@ -299,12 +291,12 @@ async fn send_request(
 	framed_send(stream, &execution_timeout.encode()).await
 }
 
-async fn recv_response(stream: &mut UnixStream) -> io::Result<WorkerResponse> {
-	let response_bytes = framed_recv(stream).await?;
-	WorkerResponse::decode(&mut response_bytes.as_slice()).map_err(|e| {
+async fn recv_result(stream: &mut UnixStream) -> io::Result<WorkerResult> {
+	let result_bytes = framed_recv(stream).await?;
+	WorkerResult::decode(&mut result_bytes.as_slice()).map_err(|e| {
 		io::Error::new(
 			io::ErrorKind::Other,
-			format!("execute pvf recv_response: decode error: {:?}", e),
+			format!("execute pvf recv_result: decode error: {:?}", e),
 		)
 	})
 }

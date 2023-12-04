@@ -28,42 +28,52 @@ pub struct Handshake {
 	pub executor_params: ExecutorParams,
 }
 
+/// The result from the execution worker.
+pub type WorkerResult = Result<WorkerResponse, WorkerError>;
+
 /// The response from the execution worker.
 #[derive(Debug, Encode, Decode)]
-pub enum WorkerResponse {
-	/// The job completed successfully.
-	Ok {
-		/// The result of parachain validation.
-		result_descriptor: ValidationResult,
-		/// The amount of CPU time taken by the job.
-		duration: Duration,
-	},
-	/// The candidate is invalid.
-	InvalidCandidate(String),
-	/// The job timed out.
+pub struct WorkerResponse {
+	/// The response from the execute job process.
+	pub job_response: JobResponse,
+	/// The amount of CPU time taken by the job.
+	pub duration: Duration,
+}
+
+/// An error occurred in the worker process.
+#[derive(thiserror::Error, Debug, Encode, Decode)]
+pub enum WorkerError {
+	#[error("The job timed out")]
 	JobTimedOut,
 	/// The job process has died. We must kill the worker just in case.
 	///
 	/// We cannot treat this as an internal error because malicious code may have killed the job.
 	/// We still retry it, because in the non-malicious case it is likely spurious.
+	#[error("The job process (pid {job_pid}) has died: {err}")]
 	JobDied { err: String, job_pid: i32 },
 	/// An unexpected error occurred in the job process, e.g. failing to spawn a thread, panic,
 	/// etc.
 	///
 	/// Because malicious code can cause a job error, we must not treat it as an internal error. We
 	/// still retry it, because in the non-malicious case it is likely spurious.
-	JobError(String),
+	#[error("An unexpected error occurred in the job process: {0}")]
+	JobError(#[from] JobError),
 
-	/// Some internal error occurred.
-	InternalError(InternalValidationError),
+	/// An internal error happened during the validation. Such an error is most likely related to
+	/// some transient glitch.
+	///
+	/// Should only ever be used for errors independent of the candidate and PVF.
+	#[error("An internal error occurred: {0}")]
+	InternalError(#[from] InternalValidationError),
 }
 
 /// The result of a job on the execution worker.
 pub type JobResult = Result<JobResponse, JobError>;
 
-/// The successful response from a job on the execution worker.
+/// The response (valid/invalid) from a job on the execution worker.
 #[derive(Debug, Encode, Decode)]
 pub enum JobResponse {
+	/// The validation completed successfully.
 	Ok {
 		/// The result of parachain validation.
 		result_descriptor: ValidationResult,
@@ -96,4 +106,7 @@ pub enum JobError {
 	CouldNotSpawnThread(String),
 	#[error("An error occurred in the CPU time monitor thread: {0}")]
 	CpuTimeMonitorThread(String),
+	/// Since the job can return any exit status it wants, we have to treat this as untrusted.
+	#[error("Unexpected exit status: {0}")]
+	UnexpectedExitStatus(i32),
 }

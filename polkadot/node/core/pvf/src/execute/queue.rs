@@ -16,7 +16,10 @@
 
 //! A queue that handles requests for PVF execution.
 
-use super::worker_interface::Outcome;
+use super::worker_interface::{
+	Error as WorkerInterfaceError, Response as WorkerInterfaceResponse,
+	Result as WorkerInterfaceResult,
+};
 use crate::{
 	artifacts::{ArtifactId, ArtifactPathId},
 	host::ResultSender,
@@ -30,7 +33,10 @@ use futures::{
 	stream::{FuturesUnordered, StreamExt as _},
 	Future, FutureExt,
 };
-use polkadot_node_core_pvf_common::SecurityStatus;
+use polkadot_node_core_pvf_common::{
+	execute::{JobResponse, WorkerError, WorkerResponse},
+	SecurityStatus,
+};
 use polkadot_primitives::{ExecutorParams, ExecutorParamsHash};
 use slotmap::HopSlotMap;
 use std::{
@@ -127,7 +133,7 @@ impl Workers {
 
 enum QueueEvent {
 	Spawn(IdleWorker, WorkerHandle, ExecuteJob),
-	StartWork(Worker, Outcome, ArtifactId, ResultSender),
+	StartWork(Worker, WorkerInterfaceResult, ArtifactId, ResultSender),
 }
 
 type Mux = FuturesUnordered<BoxFuture<'static, QueueEvent>>;
@@ -300,8 +306,8 @@ async fn handle_mux(queue: &mut Queue, event: QueueEvent) {
 		QueueEvent::Spawn(idle, handle, job) => {
 			handle_worker_spawned(queue, idle, handle, job);
 		},
-		QueueEvent::StartWork(worker, outcome, artifact_id, result_tx) => {
-			handle_job_finish(queue, worker, outcome, artifact_id, result_tx);
+		QueueEvent::StartWork(worker, result, artifact_id, result_tx) => {
+			handle_job_finish(queue, worker, result, artifact_id, result_tx);
 		},
 	}
 }
@@ -330,61 +336,67 @@ fn handle_worker_spawned(
 fn handle_job_finish(
 	queue: &mut Queue,
 	worker: Worker,
-	outcome: Outcome,
+	result: WorkerInterfaceResult,
 	artifact_id: ArtifactId,
 	result_tx: ResultSender,
 ) {
-	let (idle_worker, result, duration) = match outcome {
-		Outcome::Ok { result_descriptor, duration, idle_worker } => {
-			// TODO: propagate the soft timeout
+	let (idle_worker, result) = match result {
+		Ok(response) => {
+			let WorkerInterfaceResponse { worker_response, idle_worker } = response;
+			let WorkerResponse { job_response, duration } = worker_response;
 
-			(Some(idle_worker), Ok(result_descriptor), Some(duration))
+			gum::trace!(
+				target: LOG_TARGET,
+				?artifact_id,
+				?worker,
+				worker_rip = false,
+				?duration,
+				?job_response,
+				"execute worker concluded successfully",
+			);
+
+			let result = match job_response {
+				JobResponse::Ok { result_descriptor } => Ok(result_descriptor),
+				JobResponse::InvalidCandidate(err) =>
+					Err(ValidationError::Invalid(InvalidCandidate::WorkerReportedInvalid(err))),
+			};
+			(Some(idle_worker), result)
 		},
-		Outcome::InvalidCandidate { err, idle_worker } => (
-			Some(idle_worker),
-			Err(ValidationError::Invalid(InvalidCandidate::WorkerReportedInvalid(err))),
-			None,
-		),
-		Outcome::InternalError { err } => (None, Err(ValidationError::Internal(err)), None),
-		// Either the worker or the job timed out. Kill the worker in either case. Treated as
-		// definitely-invalid, because if we timed out, there's no time left for a retry.
-		Outcome::HardTimeout =>
-			(None, Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)), None),
-		// "Maybe invalid" errors (will retry).
-		Outcome::WorkerIntfErr => (
-			None,
-			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
-			None,
-		),
-		Outcome::JobDied { err } => (
-			None,
-			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousJobDeath(err))),
-			None,
-		),
-		Outcome::JobError { err } =>
-			(None, Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(err))), None),
+		Err(err) => {
+			gum::warn!(
+				target: LOG_TARGET,
+				?artifact_id,
+				?worker,
+				worker_rip = true,
+				"execution worker concluded, error occurred: {:?}",
+				err
+			);
+
+			let result = match err {
+				WorkerInterfaceError::WorkerError(WorkerError::InternalError(err)) =>
+					Err(ValidationError::Internal(err)),
+				// Either the worker or the job timed out. Kill the worker in either case. Treated
+				// as definitely-invalid, because if we timed out, there's no time left for a retry.
+				WorkerInterfaceError::TimedOut |
+				WorkerInterfaceError::WorkerError(WorkerError::JobTimedOut) =>
+					Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)),
+				// "Maybe invalid" errors (will retry).
+				WorkerInterfaceError::CommunicationErr(_err) => Err(
+					ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath),
+				),
+				WorkerInterfaceError::WorkerError(WorkerError::JobDied { err, .. }) => Err(
+					ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousJobDeath(err)),
+				),
+				WorkerInterfaceError::WorkerError(WorkerError::JobError(err)) =>
+					Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(
+						err.to_string(),
+					))),
+			};
+			(None, result)
+		},
 	};
 
 	queue.metrics.execute_finished();
-	if let Err(ref err) = result {
-		gum::warn!(
-			target: LOG_TARGET,
-			?artifact_id,
-			?worker,
-			worker_rip = idle_worker.is_none(),
-			"execution worker concluded, error occurred: {:?}",
-			err
-		);
-	} else {
-		gum::trace!(
-			target: LOG_TARGET,
-			?artifact_id,
-			?worker,
-			worker_rip = idle_worker.is_none(),
-			?duration,
-			"execute worker concluded successfully",
-		);
-	}
 
 	// First we send the result. It may fail due to the other end of the channel being dropped,
 	// that's legitimate and we don't treat that as an error.
@@ -500,14 +512,14 @@ fn assign(queue: &mut Queue, worker: Worker, job: ExecuteJob) {
 	queue.mux.push(
 		async move {
 			let _timer = execution_timer;
-			let outcome = super::worker_interface::start_work(
+			let result = super::worker_interface::start_work(
 				idle,
 				job.artifact.clone(),
 				job.exec_timeout,
 				job.params,
 			)
 			.await;
-			QueueEvent::StartWork(worker, outcome, job.artifact.id, job.result_tx)
+			QueueEvent::StartWork(worker, result, job.artifact.id, job.result_tx)
 		}
 		.boxed(),
 	);
