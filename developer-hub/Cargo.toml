@@ -28,6 +28,10 @@ kitchensink-runtime = { path = "../substrate/bin/node/runtime" }
 chain-spec-builder = { package = "staging-chain-spec-builder", path = "../substrate/bin/utils/chain-spec-builder" }
 subkey = { path = "../substrate/bin/utils/subkey" }
 
+# Extra example pallets 
+pallet-referenda = { path = "../substrate/frame/referenda" }
+pallet-broker = { path = "../substrate/frame/broker" }
+
 # Substrate
 sc-network = { path = "../substrate/client/network" }
 sc-rpc-api = { path = "../substrate/client/rpc-api" }
@@ -57,6 +61,7 @@ sp-api = { path = "../substrate/primitives/api" }
 sp-core = { path = "../substrate/primitives/core" }
 sp-keyring = { path = "../substrate/primitives/keyring" }
 sp-runtime = { path = "../substrate/primitives/runtime" }
+sp-arithmetic = { path = "../substrate/primitives/arithmetic" }
 
 [dev-dependencies]
 parity-scale-codec = "3.6.5"
