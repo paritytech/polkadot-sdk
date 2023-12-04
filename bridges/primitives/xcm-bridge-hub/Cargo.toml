@@ -12,5 +12,5 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 
 [features]
-default = [ "std" ]
-std = [ "sp-std/std" ]
+default = ["std"]
+std = ["sp-std/std"]
