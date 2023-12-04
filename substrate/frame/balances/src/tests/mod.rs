@@ -194,9 +194,7 @@ impl ExtBuilder {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		let mut ext = sp_io::TestExternalities::new(t);
-		ext.execute_with(|| System::set_block_number(1));
-		ext
+		sp_io::TestExternalities::new(t)
 	}
 	pub fn build_and_execute_with(self, f: impl Fn()) {
 		let other = self.clone();
