@@ -6,8 +6,7 @@ doc:
 
 migrations:
   runtime:
-    -
-      pallet: "cumulus_pallet_xcmp_queue"
+    - pallet: "cumulus_pallet_xcmp_queue"
       description: "v4: Removes obsolete fields from the `QueueConfigData` structure. For the remaining fields, if they use the old defaults, we replace them with the new defaults."
 
 crates: []
