@@ -1,6 +1,6 @@
 # Release
 
-The output of a release are the `polkadot` node, runtimes for the Westend & Rococo networks and new versions of the crates published to `crates.io`.
+The output of a release are the `polkadot` node, runtimes for the Westend & Rococo networks and new crate versions published to `crates.io`.
 
 ## Versioning
 
@@ -16,7 +16,7 @@ We try to follow SemVer<sup>3</sup> as best as possible for versioning our crate
 
 ### Node
 
-The versioning of the node is done 99% of the time by only incrementing the `minor` version. 
+The versioning of the node is done most of the time by only incrementing the `minor` version. 
 The `major` version is only bumped for special releases and the `patch` can be used for an 
 out of band release that fixes some critical bug. The node version is not following SemVer. 
 This means that the version doesn't express if there are any breaking changes in the CLI 
@@ -25,12 +25,12 @@ interface or similar. The node version is declared in the `NODE_VERSION` variabl
 
 ### Westend & Rococo
 
-For the these networks, we only increment the `spec_version` and sometimes the `transaction_version`. The spec version is also following
+For the these networks, in addition to incrementing the Cargo.toml version we also increment the `spec_version` and sometimes the `transaction_version`. The spec version is also following
 the node version. Its schema is: `M_mmm_ppp` and for example `1_002_000` is the node release `1.2.0`. This versioning has no further meaning, and is only done to map from an on chain `spec_version` easily to the release in this repository. 
 
 ## Backports
 
-Backports should most of the time not be required. We should only backport [critical bug fixes](#bug-and-security-fix) and then release the fixed crates. There should be no need to backport anything from a release branch.
+Backports should be rare. We should only backport [critical bug fixes](#bug-and-security-fix) and then release the fixed crates. There should be no need to backport anything from a release branch.
 
 # Processes
 
@@ -65,7 +65,7 @@ This process aims to release the `release` branch as a *Mainline* release every 
 6. Check if there were any changes since the last release and abort, if not.
 7. Run `cargo semver-checks` and `cargo public-api` again to ensure that there are no SemVer breaks.
 8. Internal QA from the release team can happen here.
-9.  Do a dry-run release to ensure that it *should* work.
+9. Do a dry-run release to ensure that it *should* work.
 10. Merge it into `release`.
 11. Verify all CI checks.
 12. Comment that a *Mainline* release will happen from the merged commit hash.
