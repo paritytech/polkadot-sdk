@@ -101,7 +101,7 @@ pub fn dynamic_pallet_params(attr: TokenStream, item: TokenStream) -> Result<Tok
 				#scrate::__private::codec::Encode,
 				#scrate::__private::codec::Decode,
 				#scrate::__private::codec::MaxEncodedLen,
-				#scrate::sp_runtime::RuntimeDebug,
+				#scrate::__private::RuntimeDebug,
 				#scrate::__private::scale_info::TypeInfo
 			)]
 			#vis enum #name {
@@ -119,7 +119,7 @@ pub fn dynamic_pallet_params(attr: TokenStream, item: TokenStream) -> Result<Tok
 				#scrate::__private::codec::Encode,
 				#scrate::__private::codec::Decode,
 				#scrate::__private::codec::MaxEncodedLen,
-				#scrate::sp_runtime::RuntimeDebug,
+				#scrate::__private::RuntimeDebug,
 				#scrate::__private::scale_info::TypeInfo
 			)]
 			#vis enum #key_ident {
@@ -137,7 +137,7 @@ pub fn dynamic_pallet_params(attr: TokenStream, item: TokenStream) -> Result<Tok
 				#scrate::__private::codec::Encode,
 				#scrate::__private::codec::Decode,
 				#scrate::__private::codec::MaxEncodedLen,
-				#scrate::sp_runtime::RuntimeDebug,
+				#scrate::__private::RuntimeDebug,
 				#scrate::__private::scale_info::TypeInfo
 			)]
 			#vis enum #value_ident {
@@ -171,7 +171,7 @@ pub fn dynamic_pallet_params(attr: TokenStream, item: TokenStream) -> Result<Tok
 					#scrate::__private::codec::Encode,
 					#scrate::__private::codec::Decode,
 					#scrate::__private::codec::MaxEncodedLen,
-					#scrate::sp_runtime::RuntimeDebug,
+					#scrate::__private::RuntimeDebug,
 					#scrate::__private::scale_info::TypeInfo
 				)]
 				#vis struct #key_names;
@@ -441,21 +441,25 @@ pub fn dynamic_params(attr: TokenStream, item: TokenStream) -> Result<TokenStrea
 		.filter_map(|item| match item {
 			syn::Item::Mod(params_mod) => {
 				let attr = params_mod.attrs.first();
-				let Ok(DynamicParamModAttr { meta, .. })=
-					syn::parse2::<DynamicParamModAttr>(quote! { #attr }) else { return None; };
+				let Ok(DynamicParamModAttr { meta, .. }) =
+					syn::parse2::<DynamicParamModAttr>(quote! { #attr })
+				else {
+					return None;
+				};
 				Some(meta.pallet_param_attr.parameter_name)
 			},
 			_ => None,
 		})
 		.collect::<Vec<_>>();
 
+	let dynam_params_ident = params_mod.ident;
 	let res = quote! {
 		#item
 
-		#[#scrate::dynamic_aggregated_params]
+		#[#scrate::dynamic_params::dynamic_aggregated_params]
 		pub enum #name {
 			#(
-				#aggregate_names(#mod_names::#parameter_names),
+				#aggregate_names(#dynam_params_ident::#mod_names::#parameter_names),
 			)*
 		}
 	};

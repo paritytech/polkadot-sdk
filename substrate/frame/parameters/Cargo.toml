@@ -1,10 +1,10 @@
 [package]
 name = "pallet-parameters"
-description = "(unaudited) Pallet to store and configure parameters."
+description = "Pallet to store and configure parameters."
 repository.workspace = true
 license = "Apache-2.0"
-version = "0.5.0-unaudited"
-authors = ["Acala Developers", "Parity Technologies <admin@parity.io>"]
+version = "0.0.1"
+authors = ["Parity Technologies <admin@parity.io>"]
 edition.workspace = true
 
 [dependencies]
@@ -13,7 +13,7 @@ scale-info = { version = "2.1.2", default-features = false, features = ["derive"
 paste = { version = "1.0.14", default-features = false }
 serde = { version = "1.0.188", features = ["derive"], optional = true }
 
-frame-support = { path = "../support", default-features = false }
+frame-support = { path = "../support", default-features = false, features = ["experimental"] }
 frame-system = { path = "../system", default-features = false }
 sp-core = { path = "../../primitives/core", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }

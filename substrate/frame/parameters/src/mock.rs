@@ -17,7 +17,8 @@
 #![cfg(test)]
 
 use frame_support::{
-	construct_runtime, dynamic_pallet_params, dynamic_params,
+	construct_runtime,
+	dynamic_params::{dynamic_pallet_params, dynamic_params},
 	traits::{ConstU32, ConstU64, EnsureOriginWithArg, Everything},
 };
 use sp_core::H256;
@@ -98,7 +99,6 @@ pub mod dynamic_params {
 		pub static Key3: u128 = 4;
 	}
 }
-pub use dynamic_params::*;
 
 #[docify::export(impl_config)]
 impl Config for Runtime {

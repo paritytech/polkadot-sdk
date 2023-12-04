@@ -64,6 +64,7 @@ use beefy_primitives::{
 
 use frame_support::{
 	construct_runtime,
+	dynamic_params::{dynamic_pallet_params, dynamic_params},
 	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
 	traits::{
@@ -74,18 +75,17 @@ use frame_support::{
 	weights::{ConstantMultiplier, WeightMeter},
 	PalletId,
 };
-use frame_system::EnsureRoot;
+use frame_system::{EnsureRoot, EnsureRootWithSuccess};
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use pallet_identity::legacy::IdentityInfo;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
-use pallet_parameters::define_aggregrated_parameters;
 use pallet_session::historical as session_historical;
 use pallet_transaction_payment::{CurrencyAdapter, FeeDetails, RuntimeDispatchInfo};
 use sp_core::{ConstU128, OpaqueMetadata, H256};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{
-		AccountIdLookup, BlakeTwo256, Block as BlockT, ConstU32, ConvertInto,
+		AccountIdLookup, BlakeTwo256, Block as BlockT, ConstBool, ConstU32, ConvertInto,
 		Extrinsic as ExtrinsicT, IdentityLookup, Keccak256, OpaqueKeys, SaturatedConversion,
 		Verify,
 	},
@@ -251,8 +251,8 @@ impl pallet_preimage::Config for Runtime {
 		Balances,
 		PreimageHoldReason,
 		LinearStoragePrice<
-			dynamic_params::preimage::BaseDeposit,
-			dynamic_params::preimage::ByteDeposit,
+			dynamic_params::storage::BaseDeposit,
+			dynamic_params::storage::ByteDeposit,
 			Balance,
 		>,
 	>;
@@ -1255,64 +1255,31 @@ impl pallet_asset_rate::Config for Runtime {
 	type BenchmarkHelper = runtime_common::impls::benchmarks::AssetRateArguments;
 }
 
-use frame_system::EnsureRootWithSuccess;
-use pallet_parameters::define_parameters;
-use sp_runtime::traits::ConstBool;
-
-/// Dynamic parameters that can be set by Root without a runtime upgrade.
-///
-/// All parameters expose metadata and docs.
+#[dynamic_params(RuntimeParameters)]
 pub mod dynamic_params {
 	use super::*;
 
-	/// Dynamic params for [`pallet_nis`].
+	#[dynamic_pallet_params(pallet_parameters::Parameters::<Runtime>, Basic)]
 	pub mod nis {
-		use super::*;
-
-		define_parameters! {
-			pub NisParams = {
-				/// Configures [`pallet_nis::Config::Target`].
-				#[codec(index = 0)]
-				NisTarget: Perquintill = Perquintill::zero(),
-			},
-			Pallet = pallet_parameters::Parameters::<Runtime>,
-			Aggregation = RuntimeParameters::Nis
-		}
+		#[codec(index = 0)]
+		pub static NisTarget: Perquintill = Perquintill::zero();
 	}
 
-	/// Dynamic params for [`pallet_preimage`].
-	pub mod preimage {
-		use super::*;
+	#[dynamic_pallet_params(pallet_parameters::Parameters::<Runtime>, Basic)]
+	pub mod storage {
+		/// Configures the base deposit of storing some data.
+		#[codec(index = 0)]
+		pub static BaseDeposit: Balance = deposit(2, 64);
 
-		define_parameters! {
-			pub PreimageParams = {
-				/// Configures the base deposit of noting a preimage.
-				#[codec(index = 0)]
-				BaseDeposit: Balance = deposit(2, 64),
-
-				/// Configures the per-byte deposit of noting a preimage.
-				#[codec(index = 1)]
-				ByteDeposit: Balance = deposit(0, 1),
-			},
-			Pallet = pallet_parameters::Parameters::<Runtime>,
-			Aggregation = RuntimeParameters::Preimage
-		}
-	}
-
-	define_aggregrated_parameters! {
-		pub RuntimeParameters = {
-			#[codec(index = 0)]
-			Nis: nis::NisParams,
-
-			#[codec(index = 1)]
-			Preimage: preimage::PreimageParams,
-		}
+		/// Configures the per-byte deposit of storing some data.
+		#[codec(index = 1)]
+		pub static ByteDeposit: Balance = deposit(0, 1);
 	}
 }
 
 impl pallet_parameters::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type AggregratedKeyValue = dynamic_params::RuntimeParameters;
+	type AggregratedKeyValue = RuntimeParameters;
 	type AdminOrigin = EnsureRootWithSuccess<AccountId, ConstBool<true>>;
 	type WeightInfo = ();
 }

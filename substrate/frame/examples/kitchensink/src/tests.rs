@@ -18,7 +18,12 @@
 //! Tests for pallet-example-kitchensink.
 
 use crate::*;
-use frame_support::{assert_ok, derive_impl, parameter_types, traits::ConstU64};
+use frame_support::{
+	assert_ok, derive_impl,
+	dynamic_params::{dynamic_pallet_params, dynamic_params},
+	parameter_types,
+	traits::ConstU64,
+};
 use frame_system::EnsureRoot;
 use sp_runtime::BuildStorage;
 // Reexport crate as its pallet name for construct_runtime.
@@ -78,19 +83,16 @@ impl Config for Test {
 	fn some_function() -> u32 {
 		5u32
 	}
-
-	type DynamicParam = ConstU64<42>;
+	// Here we are using the new dynamic parameter:
+	type DynamicParam = dynamic_params::kitchensink::MagicNumber;
 }
 
 impl pallet_parameters::Config for Test {
 	type AggregratedKeyValue = RuntimeParameters;
-
 	type RuntimeEvent = RuntimeEvent;
 	type AdminOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = ();
 }
-
-use frame_support::{dynamic_pallet_params, dynamic_params};
 
 // Here we define some dynamic parameters that can be changed at runtime.
 #[dynamic_params(RuntimeParameters)]
@@ -98,13 +100,11 @@ pub mod dynamic_params {
 	use super::*;
 
 	#[dynamic_pallet_params(pallet_parameters::Parameters::<Test>, Basic)]
-	pub mod pallet1 {
+	pub mod kitchensink {
 		#[codec(index = 0)]
 		pub static MagicNumber: u64 = 42;
 	}
 }
-// FAIL-CI remove this
-use dynamic_params::*;
 
 // This function basically just builds a genesis storage key/value store according to
 // our desired mockup.

@@ -30,6 +30,7 @@ use frame_election_provider_support::{
 use frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
+	dynamic_params::{dynamic_pallet_params, dynamic_params},
 	genesis_builder_helper::{build_config, create_default_config},
 	instances::{Instance1, Instance2},
 	ord_parameter_types,
@@ -2057,6 +2058,24 @@ impl pallet_mixnet::Config for Runtime {
 	type MinMixnodes = ConstU32<7>; // Low to allow small testing networks
 }
 
+#[dynamic_params(RuntimeParameters)]
+pub mod dynamic_params {
+	use super::*;
+
+	#[dynamic_pallet_params(pallet_parameters::Parameters::<Runtime>, Basic)]
+	pub mod kitchensink {
+		#[codec(index = 0)]
+		pub static MagicNumber: u64 = 42;
+	}
+}
+
+impl pallet_parameters::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = EnsureRoot<Self::AccountId>;
+	type WeightInfo = ();
+	type AggregratedKeyValue = RuntimeParameters;
+}
+
 construct_runtime!(
 	pub struct Runtime
 	{
@@ -2134,6 +2153,7 @@ construct_runtime!(
 		Statement: pallet_statement,
 		Broker: pallet_broker,
 		Mixnet: pallet_mixnet,
+		Parameters: pallet_parameters,
 	}
 );
 

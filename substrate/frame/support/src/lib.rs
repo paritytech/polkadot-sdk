@@ -173,9 +173,13 @@ pub use frame_support_procedural::storage_alias;
 
 pub use frame_support_procedural::derive_impl;
 
-pub use frame_support_procedural::{
-	dynamic_aggregated_params, dynamic_pallet_params, dynamic_params,
-};
+/// Experimental macros for defining dynamic params that can be used in pallet configs.
+#[cfg(feature = "experimental")]
+pub mod dynamic_params {
+	pub use frame_support_procedural::{
+		dynamic_aggregated_params, dynamic_pallet_params, dynamic_params,
+	};
+}
 
 /// Create new implementations of the [`Get`](crate::traits::Get) trait.
 ///
