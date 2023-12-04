@@ -2,10 +2,10 @@
 
 binary="./target/release/node-sassafras"
 
-steps=5
-repeat=2
+steps=20
+repeat=3
 
-# export RUST_LOG="sassafras=debug"
+export RUST_LOG="sassafras=debug"
 
 pallet='pallet_sassafras'
 
