@@ -1126,11 +1126,10 @@ fn set_username_with_bytes_signature_should_work() {
 		let mut wrapped_username: Vec<u8> =
 			Vec::with_capacity(unwrapped_username.len() + prehtml.len() + posthtml.len());
 		wrapped_username.extend(prehtml);
-		wrapped_username.extend(unwrapped_username.clone());
+		wrapped_username.extend(unwrapped_encoded.clone());
 		wrapped_username.extend(posthtml);
-		let wrapped_encoded = Encode::encode(&wrapped_username);
 		let signature_on_wrapped =
-			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &wrapped_encoded).unwrap());
+			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &wrapped_username).unwrap());
 
 		// We want to call `validate_signature` on the *unwrapped* username, but the signature on
 		// the *wrapped* data.
@@ -1142,31 +1141,31 @@ fn set_username_with_bytes_signature_should_work() {
 
 		// Make sure it really works in context. Call `set_username_for` with the signature on the
 		// wrapped data.
-		// assert_ok!(Identity::set_username_for(
-		// 	RuntimeOrigin::signed(authority),
-		// 	who_account.clone(),
-		// 	username,
-		// 	Some(signature_on_wrapped)
-		// ));
+		assert_ok!(Identity::set_username_for(
+			RuntimeOrigin::signed(authority),
+			who_account.clone(),
+			username,
+			Some(signature_on_wrapped)
+		));
 
 		// The username in storage should not include `<Bytes>`. As in, it's the original
 		// `username_to_sign`.
-		// assert_eq!(
-		// 	Identity::identity(&who_account),
-		// 	Some((
-		// 		Registration {
-		// 			judgements: Default::default(),
-		// 			deposit: 0,
-		// 			info: <IdentityInfo<MaxAdditionalFields> as types::IdentityInformationProvider>::default()
-		// 		},
-		// 		Some(username_to_sign.clone())
-		// 	))
-		// );
-		// // Likewise for the lookup.
-		// assert_eq!(
-		// 	AccountOfUsername::<Test>::get::<&Username>(&username_to_sign),
-		// 	Some(who_account)
-		// );
+		assert_eq!(
+			Identity::identity(&who_account),
+			Some((
+				Registration {
+					judgements: Default::default(),
+					deposit: 0,
+					info: <IdentityInfo<MaxAdditionalFields> as types::IdentityInformationProvider>::default()
+				},
+				Some(username_to_sign.clone())
+			))
+		);
+		// Likewise for the lookup.
+		assert_eq!(
+			AccountOfUsername::<Test>::get::<&Username>(&username_to_sign),
+			Some(who_account)
+		);
 	});
 }
 
