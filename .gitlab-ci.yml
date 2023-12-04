@@ -132,6 +132,8 @@ default:
     - ls -al 
     - rm -f forklift.sock 
     - forklift clean
+    - export RUSTC_WRAPPER="forklift"
+    - export FORKLIFT_WORK_DIR="$(pwd)" 
     #
     - echo "FL_FORKLIFT_VERSION ${FL_FORKLIFT_VERSION}"
     - echo "FORKLIFT_PACKAGE_SUFFIX $FORKLIFT_PACKAGE_SUFFIX"  
