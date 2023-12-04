@@ -664,7 +664,7 @@ pub mod pallet {
 
 		fn remove_from_rank(who: &T::AccountId, rank: Rank) -> DispatchResult {
 			MemberCount::<T, I>::try_mutate(rank, |last_index| {
-				*last_index = last_index.saturating_sub(1);
+last_index.saturating_dec();
 				let index = IdToIndex::<T, I>::get(rank, &who).ok_or(Error::<T, I>::Corruption)?;
 				if index != *last_index {
 					let last = IndexToId::<T, I>::get(rank, *last_index)
