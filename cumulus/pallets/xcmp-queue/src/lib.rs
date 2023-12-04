@@ -479,10 +479,13 @@ impl<T: Config> Pallet<T> {
 
 		let channel_info =
 			T::ChannelInfo::get_channel_info(recipient).ok_or(MessageSendError::NoChannel)?;
+		// Max message size refers to aggregates, or pages. Not to individual fragments.
 		let max_message_size = channel_info.max_message_size as usize;
 		let format_size = format.encoded_size();
-		// Max message size refers to aggregates, or pages. Not to individual fragments.
-		if encoded_fragment.len() + format_size > max_message_size {
+		// We check the encoded fragment length plus the format size agains the max message size
+		// because the format is concatenated if a new page is needed.
+		let size_to_check = encoded_fragment.len().checked_add(format_size).ok_or(MessageSendError::TooBig)?;
+		if size_to_check > max_message_size {
 			return Err(MessageSendError::TooBig)
 		}
 
