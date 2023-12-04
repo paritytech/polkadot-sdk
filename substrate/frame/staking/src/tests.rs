@@ -6896,8 +6896,10 @@ mod ledger {
 
 			// When:
 
-			let bounded_controllers: BoundedVec<_, <Test as Config>::MaxControllersInDeprecationBatch> =
-				BoundedVec::try_from(controllers).unwrap();
+			let bounded_controllers: BoundedVec<
+				_,
+				<Test as Config>::MaxControllersInDeprecationBatch,
+			> = BoundedVec::try_from(controllers).unwrap();
 
 			assert_ok!(Staking::deprecate_controller_batch(
 				RuntimeOrigin::root(),
