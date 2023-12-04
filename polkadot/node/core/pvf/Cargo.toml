@@ -65,6 +65,6 @@ jemalloc-allocator = ["polkadot-node-core-pvf-common/jemalloc-allocator"]
 # This feature is used to export test code to other crates without putting it in the production build.
 test-utils = [
 	"dep:is_executable",
-	"dep:sp-maybe-compressed-blob",
 	"dep:polkadot-node-core-pvf-execute-worker",
+	"dep:sp-maybe-compressed-blob",
 ]
