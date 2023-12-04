@@ -238,6 +238,7 @@ parameter_types! {
 	pub const BondingDuration: sp_staking::EraIndex = 28;
 	pub const SlashDeferDuration: sp_staking::EraIndex = 7; // 1/4 the bonding duration.
 	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(40);
+	pub const MaxControllersInDeprecationBatch: u32 = 100;
 	pub HistoryDepth: u32 = 84;
 }
 
@@ -276,7 +277,7 @@ impl pallet_staking::Config for Runtime {
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<MAX_QUOTA_NOMINATIONS>;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 	type MaxUnlockingChunks = ConstU32<32>;
-	type MaxControllersInDeprecationBatch = ConstU32<100>;
+	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type HistoryDepth = HistoryDepth;
 	type EventListeners = ();
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;

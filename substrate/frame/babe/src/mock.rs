@@ -146,6 +146,7 @@ parameter_types! {
 	pub const SlashDeferDuration: EraIndex = 0;
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
 	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(16);
+	pub const MaxControllersInDeprecationBatch: u32 = 100;
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
 }
 
@@ -183,7 +184,7 @@ impl pallet_staking::Config for Test {
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 	type NominationsQuota = FixedNominationsQuota<16>;
 	type MaxUnlockingChunks = ConstU32<32>;
-	type MaxControllersInDeprecationBatch = ConstU32<100>;
+	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type HistoryDepth = ConstU32<84>;
 	type EventListeners = ();
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;

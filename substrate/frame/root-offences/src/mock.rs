@@ -162,6 +162,7 @@ parameter_types! {
 	pub const BondingDuration: EraIndex = 3;
 	pub static LedgerSlashPerEra: (BalanceOf<Test>, BTreeMap<EraIndex, BalanceOf<Test>>) = (Zero::zero(), BTreeMap::new());
 	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(75);
+	pub const MaxControllersInDeprecationBatch: u32 = 100;
 }
 
 impl pallet_staking::Config for Test {
@@ -188,7 +189,7 @@ impl pallet_staking::Config for Test {
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<16>;
 	type MaxUnlockingChunks = ConstU32<32>;
 	type HistoryDepth = ConstU32<84>;
-	type MaxControllersInDeprecationBatch = ConstU32<100>;
+	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
 	type EventListeners = ();
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
