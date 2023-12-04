@@ -210,7 +210,7 @@ fn set_id_relay(id: &Identity) -> Balance {
 		let reserved_balance = RococoBalances::reserved_balance(RococoRelaySender::get());
 		let id_deposit = IdentityOn::Relay(&id.relay).calculate_deposit();
 
-		match id.subs {
+		let total_deposit = match id.subs {
 			Subs::Zero => {
 				total_deposit = id_deposit; // No subs
 				assert_expected_events!(
