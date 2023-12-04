@@ -464,7 +464,10 @@ impl<T: Config> Pallet<T> {
 		let format_size = format.encoded_size();
 		// We check the encoded fragment length plus the format size agains the max message size
 		// because the format is concatenated if a new page is needed.
-		let size_to_check = encoded_fragment.len().checked_add(format_size).ok_or(MessageSendError::TooBig)?;
+		let size_to_check = encoded_fragment
+			.len()
+			.checked_add(format_size)
+			.ok_or(MessageSendError::TooBig)?;
 		if size_to_check > max_message_size {
 			return Err(MessageSendError::TooBig)
 		}

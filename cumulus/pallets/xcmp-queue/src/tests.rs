@@ -749,7 +749,7 @@ fn xcmp_queue_send_too_big_xcm_fails() {
 				msg_count: 0,
 				total_size: 0,
 				mqc_head: None,
-			}
+			},
 		);
 
 		// Message is crafted to exceed `max_message_size`
@@ -765,13 +765,10 @@ fn xcmp_queue_send_too_big_xcm_fails() {
 		// check empty outbound queue
 		assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
 
-		// Message is too big because after adding the VersionedXcm enum, it would reach `max_message_size`
-		// Then, adding the format, which is the worst case scenario in which a new page is needed,
-		// would get it over the limit
-		assert_eq!(
-			send_xcm::<XcmpQueue>(dest, message),
-			Err(SendError::Transport("TooBig")),
-		);
+		// Message is too big because after adding the VersionedXcm enum, it would reach
+		// `max_message_size` Then, adding the format, which is the worst case scenario in which a
+		// new page is needed, would get it over the limit
+		assert_eq!(send_xcm::<XcmpQueue>(dest, message), Err(SendError::Transport("TooBig")),);
 
 		// outbound queue is still empty
 		assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
