@@ -30,7 +30,7 @@ fn simple_works() {
 	use Event::*;
 	test_closure(|| {
 		// Add three migrations, each taking one block longer than the previous.
-		MigrationsStorage::set(vec![(SucceedAfter, 0), (SucceedAfter, 1), (SucceedAfter, 2)]);
+		MockedMigrations::set(vec![(SucceedAfter, 0), (SucceedAfter, 1), (SucceedAfter, 2)]);
 
 		System::set_block_number(1);
 		Migrations::on_runtime_upgrade();
@@ -64,7 +64,7 @@ fn simple_works() {
 fn failing_migration_sets_cursor_to_stuck() {
 	test_closure(|| {
 		FailedUpgradeResponse::set(FailedMigrationHandling::KeepStuck);
-		MigrationsStorage::set(vec![(FailAfter, 2)]);
+		MockedMigrations::set(vec![(FailAfter, 2)]);
 
 		System::set_block_number(1);
 		Migrations::on_runtime_upgrade();
@@ -94,7 +94,7 @@ fn failing_migration_sets_cursor_to_stuck() {
 fn failing_migration_force_unstuck_works() {
 	test_closure(|| {
 		FailedUpgradeResponse::set(FailedMigrationHandling::ForceUnstuck);
-		MigrationsStorage::set(vec![(FailAfter, 2)]);
+		MockedMigrations::set(vec![(FailAfter, 2)]);
 
 		System::set_block_number(1);
 		Migrations::on_runtime_upgrade();
@@ -125,7 +125,7 @@ fn failing_migration_force_unstuck_works() {
 #[test]
 fn high_weight_migration_singular_fails() {
 	test_closure(|| {
-		MigrationsStorage::set(vec![(HighWeightAfter(Weight::zero()), 2)]);
+		MockedMigrations::set(vec![(HighWeightAfter(Weight::zero()), 2)]);
 
 		System::set_block_number(1);
 		Migrations::on_runtime_upgrade();
@@ -153,7 +153,7 @@ fn high_weight_migration_singular_fails() {
 #[test]
 fn high_weight_migration_retries_once() {
 	test_closure(|| {
-		MigrationsStorage::set(vec![(SucceedAfter, 0), (HighWeightAfter(Weight::zero()), 0)]);
+		MockedMigrations::set(vec![(SucceedAfter, 0), (HighWeightAfter(Weight::zero()), 0)]);
 
 		System::set_block_number(1);
 		Migrations::on_runtime_upgrade();
@@ -182,7 +182,7 @@ fn high_weight_migration_retries_once() {
 #[test]
 fn high_weight_migration_permanently_overweight_fails() {
 	test_closure(|| {
-		MigrationsStorage::set(vec![(SucceedAfter, 0), (HighWeightAfter(Weight::MAX), 0)]);
+		MockedMigrations::set(vec![(SucceedAfter, 0), (HighWeightAfter(Weight::MAX), 0)]);
 
 		System::set_block_number(1);
 		Migrations::on_runtime_upgrade();
@@ -207,7 +207,7 @@ fn high_weight_migration_permanently_overweight_fails() {
 #[test]
 fn historic_skipping_works() {
 	test_closure(|| {
-		MigrationsStorage::set(vec![
+		MockedMigrations::set(vec![
 			(SucceedAfter, 0),
 			(SucceedAfter, 0), // duplicate
 			(SucceedAfter, 1),
@@ -277,7 +277,7 @@ fn historic_skipping_works() {
 #[test]
 fn upgrade_fails_when_migration_active() {
 	test_closure(|| {
-		MigrationsStorage::set(vec![(SucceedAfter, 10)]);
+		MockedMigrations::set(vec![(SucceedAfter, 10)]);
 
 		System::set_block_number(1);
 		Migrations::on_runtime_upgrade();
@@ -303,7 +303,7 @@ fn upgrade_fails_when_migration_active() {
 #[test]
 fn migration_timeout_errors() {
 	test_closure(|| {
-		MigrationsStorage::set(vec![(TimeoutAfter, 3)]);
+		MockedMigrations::set(vec![(TimeoutAfter, 3)]);
 
 		System::set_block_number(1);
 		Migrations::on_runtime_upgrade();

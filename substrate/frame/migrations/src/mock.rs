@@ -53,13 +53,54 @@ frame_support::parameter_types! {
 
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type Migrations = MigrationsStorage;
+	type Migrations = MockedMigrations;
 	type CursorMaxLen = ConstU32<65_536>;
 	type IdentifierMaxLen = ConstU32<256>;
 	type MigrationStatusHandler = MockedMigrationStatusHandler;
 	type FailedMigrationHandler = MockedFailedMigrationHandler;
 	type MaxServiceWeight = MaxServiceWeight;
 	type WeightInfo = ();
+}
+
+frame_support::parameter_types! {
+	/// The number of started upgrades.
+	pub static UpgradesStarted: u32 = 0;
+	/// The number of completed upgrades.
+	pub static UpgradesCompleted: u32 = 0;
+	/// The migrations that failed.
+	pub static UpgradesFailed: Vec<Option<u32>> = vec![];
+	/// Return value of [`MockedFailedMigrationHandler::failed`].
+	pub static FailedUpgradeResponse: FailedMigrationHandling = FailedMigrationHandling::KeepStuck;
+}
+
+/// Records all started and completed upgrades in `UpgradesStarted` and `UpgradesCompleted`.
+pub struct MockedMigrationStatusHandler;
+impl MigrationStatusHandler for MockedMigrationStatusHandler {
+	fn started() {
+		log::info!("MigrationStatusHandler started");
+		UpgradesStarted::mutate(|v| *v += 1);
+	}
+
+	fn completed() {
+		log::info!("MigrationStatusHandler completed");
+		UpgradesCompleted::mutate(|v| *v += 1);
+	}
+}
+
+/// Records all failed upgrades in `UpgradesFailed`.
+pub struct MockedFailedMigrationHandler;
+impl FailedMigrationHandler for MockedFailedMigrationHandler {
+	fn failed(migration: Option<u32>) -> FailedMigrationHandling {
+		UpgradesFailed::mutate(|v| v.push(migration));
+		let res = FailedUpgradeResponse::get();
+		log::error!("FailedMigrationHandler failed at: {migration:?}, handling as {res:?}");
+		res
+	}
+}
+
+/// Returns the number of `(started, completed, failed)` upgrades and resets their numbers.
+pub fn upgrades_started_completed_failed() -> (u32, u32, u32) {
+	(UpgradesStarted::take(), UpgradesCompleted::take(), UpgradesFailed::take().len() as u32)
 }
 
 /// Build genesis storage according to the mock runtime.

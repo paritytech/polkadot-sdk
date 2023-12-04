@@ -21,9 +21,11 @@ use super::*;
 
 use frame_benchmarking::{v2::*, BenchmarkError};
 use frame_system::{Pallet as System, RawOrigin};
-use sp_std::vec;
+use sp_runtime::traits::One;
 
-pub trait BenchmarkSetup {}
+fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
+}
 
 #[benchmarks]
 mod benches {
@@ -32,32 +34,75 @@ mod benches {
 
 	#[benchmark]
 	fn onboard_new_mbms() {
+		T::Migrations::set_fail_after(0); // Should not be called anyway.
 		assert!(!Cursor::<T>::exists());
 
 		#[block]
 		{
 			Pallet::<T>::onboard_new_mbms();
 		}
+
+		assert_last_event::<T>(Event::UpgradeStarted { migrations: 1 }.into());
 	}
 
 	#[benchmark]
-	fn progress_mbms_base() {
-		Cursor::<T>::set(None);
+	fn progress_mbms_none() {
+		T::Migrations::set_fail_after(0); // Should not be called anyway.
+		assert!(!Cursor::<T>::exists());
+
+		#[block]
+		{
+			Pallet::<T>::progress_mbms(One::one());
+		}
+	}
+
+	/// All migrations completed.
+	#[benchmark]
+	fn exec_migration_completed() -> Result<(), BenchmarkError> {
+		T::Migrations::set_fail_after(0); // Should not be called anyway.
+		assert_eq!(T::Migrations::len(), 1, "Setup failed");
+		let c = ActiveCursor { index: 1, inner_cursor: None, started_at: 0u32.into() };
+		let mut meter = WeightMeter::with_limit(T::MaxServiceWeight::get());
 		System::<T>::set_block_number(1u32.into());
 
 		#[block]
 		{
-			Pallet::<T>::progress_mbms(1u32.into());
+			Pallet::<T>::exec_migration(c, false, &mut meter);
 		}
+
+		assert_last_event::<T>(Event::UpgradeCompleted {}.into());
+
+		Ok(())
 	}
 
+	/// No migration runs since it is skipped as historic.
 	#[benchmark]
-	fn exec_migration_worst_case() -> Result<(), BenchmarkError> {
-		if T::Migrations::len() == 0 {
-			// No weight if there are no migrations to run.
-			return Err(BenchmarkError::Weightless);
+	fn exec_migration_skipped_historic() -> Result<(), BenchmarkError> {
+		T::Migrations::set_fail_after(0); // Should not be called anyway.
+		assert_eq!(T::Migrations::len(), 1, "Setup failed");
+		let c = ActiveCursor { index: 0, inner_cursor: None, started_at: 0u32.into() };
+
+		let id: IdentifierOf<T> = T::Migrations::nth_id(0).unwrap().try_into().unwrap();
+		Historic::<T>::insert(&id, ());
+
+		let mut meter = WeightMeter::with_limit(T::MaxServiceWeight::get());
+		System::<T>::set_block_number(1u32.into());
+
+		#[block]
+		{
+			Pallet::<T>::exec_migration(c, false, &mut meter);
 		}
 
+		assert_last_event::<T>(Event::MigrationSkipped { index: 0 }.into());
+
+		Ok(())
+	}
+
+	/// Advance a migration by one step.
+	#[benchmark]
+	fn exec_migration_advance() -> Result<(), BenchmarkError> {
+		T::Migrations::set_success_after(1);
+		assert_eq!(T::Migrations::len(), 1, "Setup failed");
 		let c = ActiveCursor { index: 0, inner_cursor: None, started_at: 0u32.into() };
 		let mut meter = WeightMeter::with_limit(T::MaxServiceWeight::get());
 		System::<T>::set_block_number(1u32.into());
@@ -67,11 +112,51 @@ mod benches {
 			Pallet::<T>::exec_migration(c, false, &mut meter);
 		}
 
+		assert_last_event::<T>(Event::MigrationAdvanced { index: 0, took: One::one() }.into());
+
+		Ok(())
+	}
+
+	/// Successfully complete a migration.
+	#[benchmark]
+	fn exec_migration_complete() -> Result<(), BenchmarkError> {
+		T::Migrations::set_success_after(0);
+		assert_eq!(T::Migrations::len(), 1, "Setup failed");
+		let c = ActiveCursor { index: 0, inner_cursor: None, started_at: 0u32.into() };
+		let mut meter = WeightMeter::with_limit(T::MaxServiceWeight::get());
+		System::<T>::set_block_number(1u32.into());
+
+		#[block]
+		{
+			Pallet::<T>::exec_migration(c, false, &mut meter);
+		}
+
+		assert_last_event::<T>(Event::MigrationCompleted { index: 0, took: One::one() }.into());
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn exec_migration_fail() -> Result<(), BenchmarkError> {
+		T::Migrations::set_fail_after(0);
+		assert_eq!(T::Migrations::len(), 1, "Setup failed");
+		let c = ActiveCursor { index: 0, inner_cursor: None, started_at: 0u32.into() };
+		let mut meter = WeightMeter::with_limit(T::MaxServiceWeight::get());
+		System::<T>::set_block_number(1u32.into());
+
+		#[block]
+		{
+			Pallet::<T>::exec_migration(c, false, &mut meter);
+		}
+
+		assert_last_event::<T>(Event::UpgradeFailed {}.into());
+
 		Ok(())
 	}
 
 	#[benchmark]
 	fn on_init_loop() {
+		T::Migrations::set_fail_after(0); // Should not be called anyway.
 		System::<T>::set_block_number(1u32.into());
 		Pallet::<T>::on_runtime_upgrade();
 

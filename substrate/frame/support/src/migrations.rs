@@ -487,6 +487,8 @@ where
 }
 
 /// How to proceed after a runtime upgrade failed.
+///
+/// There is NO SANE DEFAULT HERE. All options are very dangerous and should be used with care.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FailedMigrationHandling {
 	/// Resume extrinsic processing of the chain. This will not resume the upgrade.
@@ -496,6 +498,11 @@ pub enum FailedMigrationHandling {
 	ForceUnstuck,
 	/// Set the cursor to `Stuck` and keep blocking extrinsics.
 	KeepStuck,
+	/// Don't do anything with the cursor and let the handler decide.
+	///
+	/// This can be useful in cases where the other two options would overwrite any changes that
+	/// were done by the handler to the cursor.
+	Ignore,
 }
 
 /// Something that can do multi step migrations.

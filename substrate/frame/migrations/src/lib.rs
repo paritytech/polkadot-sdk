@@ -259,6 +259,14 @@ pub type IdentifierOf<T> = BoundedVec<u8, <T as Config>::IdentifierMaxLen>;
 /// Convenience alias for [`ActiveCursor`].
 pub type ActiveCursorOf<T> = ActiveCursor<RawCursorOf<T>, BlockNumberFor<T>>;
 
+/// Trait for a tuple of No-OP migrations with one element.
+pub trait MockedMigrations: SteppedMigrations {
+	/// The migration should fail after `n` steps.
+	fn set_fail_after(n: u32);
+	/// The migration should succeed after `n` steps.
+	fn set_success_after(n: u32);
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -277,7 +285,14 @@ pub mod pallet {
 		///
 		/// Should only be updated in a runtime-upgrade once all the old migrations have completed.
 		/// (Check that [`Cursor`] is `None`).
+		#[cfg(not(feature = "runtime-benchmarks"))]
 		type Migrations: SteppedMigrations;
+
+		/// Mocked migrations for benchmarking only.
+		///
+		/// Should be configured to [`crate::mock_helpers::MockedMigrations`] in benchmarks.
+		#[cfg(feature = "runtime-benchmarks")]
+		type Migrations: MockedMigrations;
 
 		/// The maximal length of an encoded cursor.
 		///
@@ -489,7 +504,7 @@ pub mod pallet {
 		/// Forces the onboarding of the migrations.
 		///
 		/// This process happens automatically on a runtime upgrade. It is in place as an emergency
-		/// measurement. The cursor needs to be `None` for this to suceed.
+		/// measurement. The cursor needs to be `None` for this to succeed.
 		#[pallet::call_index(2)]
 		pub fn force_onboard_mbms(origin: OriginFor<T>) -> DispatchResult {
 			ensure_root(origin)?;
@@ -545,7 +560,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let migrations = T::Migrations::len();
-		log::info!("Onboarding {migrations} new MBM migrations");
+		log::debug!("Onboarding {migrations} new MBM migrations");
 
 		if migrations > 0 {
 			// Set the cursor to the first migration:
@@ -567,7 +582,7 @@ impl<T: Config> Pallet<T> {
 	/// Tries to make progress on the Multi-Block-Migrations process.
 	fn progress_mbms(n: BlockNumberFor<T>) -> Weight {
 		let mut meter = WeightMeter::with_limit(T::MaxServiceWeight::get());
-		meter.consume(T::WeightInfo::progress_mbms_base());
+		meter.consume(T::WeightInfo::progress_mbms_none());
 
 		let mut cursor = match Cursor::<T>::get() {
 			None => {
@@ -575,7 +590,7 @@ impl<T: Config> Pallet<T> {
 				return meter.consumed()
 			},
 			Some(MigrationCursor::Active(cursor)) => {
-				log::info!("Progressing MBM #{}", cursor.index);
+				log::debug!("Progressing MBM #{}", cursor.index);
 				cursor
 			},
 			Some(MigrationCursor::Stuck) => {
@@ -619,7 +634,9 @@ impl<T: Config> Pallet<T> {
 		is_first: bool,
 		meter: &mut WeightMeter,
 	) -> Option<ControlFlow<ActiveCursorOf<T>, ActiveCursorOf<T>>> {
-		if meter.try_consume(T::WeightInfo::exec_migration_worst_case()).is_err() {
+		// The differences between the single branches' weights is not that big. And since we do
+		// only one step per block, we can just use the maximum instead of more precise accounting.
+		if meter.try_consume(Self::exec_migration_max_weight()).is_err() {
 			defensive_assert!(!is_first, "There should be enough weight to do this at least once");
 			return Some(ControlFlow::Continue(cursor))
 		}
@@ -711,7 +728,16 @@ impl<T: Config> Pallet<T> {
 		match T::FailedMigrationHandler::failed(migration) {
 			KeepStuck => Cursor::<T>::set(Some(MigrationCursor::Stuck)),
 			ForceUnstuck => Cursor::<T>::kill(),
+			Ignore => {},
 		}
+	}
+
+	fn exec_migration_max_weight() -> Weight {
+		T::WeightInfo::exec_migration_complete()
+			.max(T::WeightInfo::exec_migration_completed())
+			.max(T::WeightInfo::exec_migration_skipped_historic())
+			.max(T::WeightInfo::exec_migration_advance())
+			.max(T::WeightInfo::exec_migration_fail())
 	}
 }
 
