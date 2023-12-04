@@ -164,7 +164,7 @@ impl IdentityOn<'_> {
 /// **Example**:
 ///
 /// `account_from_u32(5)` will return an `AccountId32` with the bytes
-/// `[0, 5, 0, 0, 0, 0, 0, 0, 0, 5 ... ]` (repeated 8 times)
+/// `[0, 5, 0, 0, 0, 0, 0, 0, 0, 5 ... ]`
 ///
 /// **Note**
 ///
