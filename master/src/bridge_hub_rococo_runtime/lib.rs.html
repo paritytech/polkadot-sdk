@@ -1138,6 +1138,7 @@
 <a href="#1138" id="1138">1138</a>
 <a href="#1139" id="1139">1139</a>
 <a href="#1140" id="1140">1140</a>
+<a href="#1141" id="1141">1141</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1258,6 +1259,7 @@
 	pallet_collator_selection::migration::v1::MigrateToV1&lt;Runtime&gt;,
 	pallet_multisig::migrations::v1::MigrateToV1&lt;Runtime&gt;,
 	InitStorageVersions,
+	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4&lt;Runtime&gt;,
 );
 
 <span class="doccomment">/// Migration to initialize storage versions for pallets added after genesis.

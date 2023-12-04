@@ -970,26 +970,6 @@
 <a href="#970" id="970">970</a>
 <a href="#971" id="971">971</a>
 <a href="#972" id="972">972</a>
-<a href="#973" id="973">973</a>
-<a href="#974" id="974">974</a>
-<a href="#975" id="975">975</a>
-<a href="#976" id="976">976</a>
-<a href="#977" id="977">977</a>
-<a href="#978" id="978">978</a>
-<a href="#979" id="979">979</a>
-<a href="#980" id="980">980</a>
-<a href="#981" id="981">981</a>
-<a href="#982" id="982">982</a>
-<a href="#983" id="983">983</a>
-<a href="#984" id="984">984</a>
-<a href="#985" id="985">985</a>
-<a href="#986" id="986">986</a>
-<a href="#987" id="987">987</a>
-<a href="#988" id="988">988</a>
-<a href="#989" id="989">989</a>
-<a href="#990" id="990">990</a>
-<a href="#991" id="991">991</a>
-<a href="#992" id="992">992</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1052,7 +1032,7 @@
 <span class="kw">use </span>frame_support::{
 	defensive, defensive_assert,
 	traits::{EnqueueMessage, EnsureOrigin, Get, QueueFootprint, QueuePausedQuery},
-	weights::{constants::WEIGHT_REF_TIME_PER_MILLIS, Weight, WeightMeter},
+	weights::{Weight, WeightMeter},
 	BoundedVec,
 };
 <span class="kw">use </span>pallet_message_queue::OnQueueChanged;
@@ -1247,7 +1227,7 @@
 				<span class="kw">return </span>meter.consumed()
 			}
 
-			migration::lazy_migrate_inbound_queue::&lt;T&gt;();
+			migration::v3::lazy_migrate_inbound_queue::&lt;T&gt;();
 
 			meter.consumed()
 		}
@@ -1379,37 +1359,17 @@
 	<span class="doccomment">/// The number of pages which the queue must be reduced to before it signals that
 	/// message sending may recommence after it has been suspended.
 	</span>resume_threshold: u32,
-	<span class="doccomment">/// UNUSED - The amount of remaining weight under which we stop processing messages.
-	</span><span class="attr">#[deprecated(note = <span class="string">&quot;Will be removed&quot;</span>)]
-	</span>threshold_weight: Weight,
-	<span class="doccomment">/// UNUSED - The speed to which the available weight approaches the maximum weight. A lower
-	/// number results in a faster progression. A value of 1 makes the entire weight available
-	/// initially.
-	</span><span class="attr">#[deprecated(note = <span class="string">&quot;Will be removed&quot;</span>)]
-	</span>weight_restrict_decay: Weight,
-	<span class="doccomment">/// UNUSED - The maximum amount of weight any individual message may consume. Messages above
-	/// this weight go into the overweight queue and may only be serviced explicitly.
-	</span><span class="attr">#[deprecated(note = <span class="string">&quot;Will be removed&quot;</span>)]
-	</span>xcmp_max_individual_weight: Weight,
 }
 
 <span class="kw">impl </span>Default <span class="kw">for </span>QueueConfigData {
 	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
 		<span class="comment">// NOTE that these default values are only used on genesis. They should give a rough idea of
 		// what to set these values to, but is in no way a requirement.
-		</span><span class="attr">#![allow(deprecated)]
 		</span><span class="self">Self </span>{
 			drop_threshold: <span class="number">48</span>,    <span class="comment">// 64KiB * 48 = 3MiB
 			</span>suspend_threshold: <span class="number">32</span>, <span class="comment">// 64KiB * 32 = 2MiB
 			</span>resume_threshold: <span class="number">8</span>,   <span class="comment">// 64KiB * 8 = 512KiB
-			// unused:
-			</span>threshold_weight: Weight::from_parts(<span class="number">100_000</span>, <span class="number">0</span>),
-			weight_restrict_decay: Weight::from_parts(<span class="number">2</span>, <span class="number">0</span>),
-			xcmp_max_individual_weight: Weight::from_parts(
-				<span class="number">20u64 </span>* WEIGHT_REF_TIME_PER_MILLIS,
-				DEFAULT_POV_SIZE,
-			),
-		}
+		</span>}
 	}
 }
 

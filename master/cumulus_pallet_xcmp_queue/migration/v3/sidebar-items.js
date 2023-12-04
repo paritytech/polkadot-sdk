@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["InboundState"],"struct":["InboundChannelDetails"]};
+window.SIDEBAR_ITEMS = {"enum":["InboundState"],"fn":["lazy_migrate_inbound_queue"],"struct":["InboundChannelDetails","UncheckedMigrationToV3"],"type":["MigrationToV3"]};

@@ -1662,6 +1662,10 @@
 <a href="#1662" id="1662">1662</a>
 <a href="#1663" id="1663">1663</a>
 <a href="#1664" id="1664">1664</a>
+<a href="#1665" id="1665">1665</a>
+<a href="#1666" id="1666">1666</a>
+<a href="#1667" id="1667">1667</a>
+<a href="#1668" id="1668">1668</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -2618,8 +2622,12 @@
 </span><span class="kw">pub type </span>UncheckedExtrinsic =
 	generic::UncheckedExtrinsic&lt;Address, RuntimeCall, Signature, SignedExtra&gt;;
 <span class="doccomment">/// Migrations to apply on runtime upgrade.
-</span><span class="kw">pub type </span>Migrations =
-	(pallet_collator_selection::migration::v1::MigrateToV1&lt;Runtime&gt;, InitStorageVersions);
+</span><span class="kw">pub type </span>Migrations = (
+	pallet_collator_selection::migration::v1::MigrateToV1&lt;Runtime&gt;,
+	InitStorageVersions,
+	<span class="comment">// unreleased
+	</span>cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4&lt;Runtime&gt;,
+);
 
 <span class="doccomment">/// Migration to initialize storage versions for pallets added after genesis.
 ///

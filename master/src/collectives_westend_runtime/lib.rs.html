@@ -1013,6 +1013,8 @@
 <a href="#1013" id="1013">1013</a>
 <a href="#1014" id="1014">1014</a>
 <a href="#1015" id="1015">1015</a>
+<a href="#1016" id="1016">1016</a>
+<a href="#1017" id="1017">1017</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1722,6 +1724,8 @@
 </span><span class="kw">type </span>Migrations = (
 	<span class="comment">// unreleased
 	</span>pallet_collator_selection::migration::v1::MigrateToV1&lt;Runtime&gt;,
+	<span class="comment">// unreleased
+	</span>cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4&lt;Runtime&gt;,
 );
 
 <span class="doccomment">/// Executive: handles dispatch to the various modules.
