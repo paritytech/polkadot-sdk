@@ -2,8 +2,10 @@
 title: Style Guide for Rust in the Polkadot-SDK
 ---
 
-Where possible these styles are enforced by settings in `rustfmt.toml` so if you run `cargo fmt`
+Where possible these styles are enforced by settings in `rustfmt.toml` so if you run `cargo +nightly fmt`
 then you will adhere to most of these style guidelines automatically.
+
+To see exactly which nightly version is used, check our CI job logs.
 
 # Formatting
 
@@ -150,31 +152,13 @@ let mut target_path =
 
 # Manifest Formatting
 
-> **TLDR**
-> You can use the CLI tool [Zepter](https://crates.io/crates/zepter) to
-> format the files: `zepter format features --fix` (or `zepter f f -f`).
+We use [taplo](https://taplo.tamasfe.dev/) to enforce consistent TOML formatting.
 
-Rust `Cargo.toml` files need to respect certain formatting rules. All entries
-need to be alphabetically sorted. This makes it easier to read them and insert
-new entries. The exhaustive list of rules is enforced by the CI. The general
-format looks like this:
+You can install it with `cargo install taplo-cli` and format your code with `taplo format --config .config/taplo.toml`.
 
-- The feature is written as a single line if it fits within 80 chars:
+See the config file for the exact rules.
 
-```toml
-[features]
-default = [ "std" ]
-```
+You may find useful
 
-- Otherwise the feature is broken down into multiple lines with one entry per
-  line. Each line is padded with one tab and no trailing spaces but a trailing
-  comma.
-
-```toml
-[features]
-default = [
-	"loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong",
-	# Comments go here as well ;)
-	"std",
-]
-```
+- [Taplo VSCode extension](https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml)
+- For NeoVim, [taplo is avaliable with Mason](https://github.com/williamboman/mason-lspconfig.nvim#available-lsp-servers)
