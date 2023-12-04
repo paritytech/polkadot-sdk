@@ -970,6 +970,16 @@
 <a href="#970" id="970">970</a>
 <a href="#971" id="971">971</a>
 <a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
+<a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
+<a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
+<a href="#981" id="981">981</a>
+<a href="#982" id="982">982</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1426,11 +1436,21 @@
 	) -&gt; <span class="prelude-ty">Result</span>&lt;u32, MessageSendError&gt; {
 		<span class="kw">let </span>encoded_fragment = fragment.encode();
 
-		<span class="kw">let </span>channel_info =
+		<span class="comment">// Optimization note: `max_message_size` could potentially be stored in
+		// `OutboundXcmpMessages` once known; that way it&#39;s only accessed when a new page is needed.
+
+		</span><span class="kw">let </span>channel_info =
 			T::ChannelInfo::get_channel_info(recipient).ok_or(MessageSendError::NoChannel)<span class="question-mark">?</span>;
-		<span class="kw">let </span>max_message_size = channel_info.max_message_size <span class="kw">as </span>usize;
 		<span class="comment">// Max message size refers to aggregates, or pages. Not to individual fragments.
-		</span><span class="kw">if </span>encoded_fragment.len() &gt; max_message_size {
+		</span><span class="kw">let </span>max_message_size = channel_info.max_message_size <span class="kw">as </span>usize;
+		<span class="kw">let </span>format_size = format.encoded_size();
+		<span class="comment">// We check the encoded fragment length plus the format size agains the max message size
+		// because the format is concatenated if a new page is needed.
+		</span><span class="kw">let </span>size_to_check = encoded_fragment
+			.len()
+			.checked_add(format_size)
+			.ok_or(MessageSendError::TooBig)<span class="question-mark">?</span>;
+		<span class="kw">if </span>size_to_check &gt; max_message_size {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(MessageSendError::TooBig)
 		}
 
