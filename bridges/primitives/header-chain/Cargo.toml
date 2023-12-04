@@ -30,7 +30,7 @@ hex = "0.4"
 hex-literal = "0.4"
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"bp-runtime/std",
 	"codec/std",
