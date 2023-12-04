@@ -76,12 +76,31 @@ struct BenchCli {
 	/// Maximum remote peer latency in milliseconds [0-5000].
 	pub peer_max_latency: Option<u64>,
 
+	#[clap(long, default_value_t = false)]
+	/// Enable CPU Profiling
+	pub profile: bool,
+
 	#[command(subcommand)]
 	pub objective: cli::TestObjective,
 }
 
 impl BenchCli {
 	fn launch(self) -> eyre::Result<()> {
+		use pyroscope::PyroscopeAgent;
+		use pyroscope_pprofrs::{pprof_backend, PprofConfig};
+
+		// Pyroscope must be running on port 4040
+		// See https://grafana.com/docs/pyroscope/latest/get-started/#download-and-configure-pyroscope
+		let agent_running = if self.profile {
+			let agent = PyroscopeAgent::builder("http://localhost:4040", "subsystem-bench")
+				.backend(pprof_backend(PprofConfig::new().sample_rate(100)))
+				.build()?;
+
+			Some(agent.start()?)
+		} else {
+			None
+		};
+
 		let configuration = self.standard_configuration;
 		let mut test_config = match self.objective {
 			TestObjective::TestSequence(options) => {
@@ -164,6 +183,11 @@ impl BenchCli {
 		// test_config.write_to_disk();
 		env.runtime()
 			.block_on(availability::benchmark_availability_read(&mut env, state));
+
+		if let Some(agent_running) = agent_running {
+			let agent_ready = agent_running.stop()?;
+			agent_ready.shutdown();
+		}
 
 		Ok(())
 	}
