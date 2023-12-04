@@ -629,17 +629,6 @@ fn bidirectional_teleport_foreign_assets_between_para_and_asset_hub() {
 	let penpal_sender_balance_after = penpal_to_ah.sender.balance;
 	let ah_receiver_balance_after = penpal_to_ah.receiver.balance;
 
-	// Sender's balance is reduced
-	println!(
-		"sender dot before {:?} after {:?}",
-		penpal_sender_balance_before, penpal_sender_balance_after
-	);
-	// Receiver's balance is increased
-	println!(
-		"receiver dot before {:?} after {:?}",
-		ah_receiver_balance_before, ah_receiver_balance_after
-	);
-
 	let penpal_sender_assets_after = PenpalA::execute_with(|| {
 		type Assets = <PenpalA as PenpalAPallet>::Assets;
 		<Assets as Inspect<_>>::balance(asset_id_on_penpal, &PenpalASender::get())
@@ -651,17 +640,6 @@ fn bidirectional_teleport_foreign_assets_between_para_and_asset_hub() {
 			&AssetHubRococoReceiver::get(),
 		)
 	});
-
-	// Sender's balance is reduced
-	println!(
-		"sender asset before {:?} after {:?}",
-		penpal_sender_assets_before, penpal_sender_assets_after
-	);
-	// Receiver's balance is increased
-	println!(
-		"receiver asset before {:?} after {:?}",
-		ah_receiver_assets_before, ah_receiver_assets_after
-	);
 
 	// Sender's balance is reduced
 	assert!(penpal_sender_balance_after < penpal_sender_balance_before);
@@ -743,17 +721,6 @@ fn bidirectional_teleport_foreign_assets_between_para_and_asset_hub() {
 	let ah_sender_balance_after = ah_to_penpal.sender.balance;
 	let penpal_receiver_balance_after = ah_to_penpal.receiver.balance;
 
-	// Sender's balance is reduced
-	println!(
-		"sender dot before {:?} after {:?}",
-		ah_sender_balance_before, ah_sender_balance_after
-	);
-	// Receiver's balance is increased
-	println!(
-		"receiver dot before {:?} after {:?}",
-		penpal_receiver_balance_before, penpal_receiver_balance_after
-	);
-
 	let ah_sender_assets_after = AssetHubRococo::execute_with(|| {
 		type ForeignAssets = <AssetHubRococo as AssetHubRococoPallet>::ForeignAssets;
 		<ForeignAssets as Inspect<_>>::balance(
@@ -765,17 +732,6 @@ fn bidirectional_teleport_foreign_assets_between_para_and_asset_hub() {
 		type Assets = <PenpalA as PenpalAPallet>::Assets;
 		<Assets as Inspect<_>>::balance(asset_id_on_penpal, &PenpalAReceiver::get())
 	});
-
-	// Sender's balance is reduced
-	println!(
-		"sender asset before {:?} after {:?}",
-		ah_sender_assets_before, ah_sender_assets_after
-	);
-	// Receiver's balance is increased
-	println!(
-		"receiver asset before {:?} after {:?}",
-		penpal_receiver_assets_before, penpal_receiver_assets_after
-	);
 
 	// Sender's balance is reduced
 	assert!(ah_sender_balance_after < ah_sender_balance_before);
