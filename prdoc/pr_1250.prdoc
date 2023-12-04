@@ -1,7 +1,7 @@
 title: Fix XCMP max message size check
 
 doc:
-  - audience: Parachain Builder
+  - audience: Parachain Dev
     description: |
       Improved XCMP max message check logic.
 
