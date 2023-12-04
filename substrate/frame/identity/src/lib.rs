@@ -74,6 +74,7 @@
 
 mod benchmarking;
 pub mod legacy;
+mod migration;
 #[cfg(test)]
 mod tests;
 mod types;
@@ -84,7 +85,7 @@ use codec::Encode;
 use frame_support::{
 	ensure,
 	pallet_prelude::{DispatchError, DispatchResult},
-	traits::{BalanceStatus, Currency, Get, OnUnbalanced, ReservableCurrency},
+	traits::{BalanceStatus, Currency, Get, OnUnbalanced, ReservableCurrency, StorageVersion},
 	BoundedVec,
 };
 pub use pallet::*;
@@ -171,8 +172,10 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 	}
 
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 	#[pallet::pallet]
-	pub struct Pallet<T>(_);
+	#[pallet::storage_version(STORAGE_VERSION)]
+	pub struct Pallet<T>(PhantomData<T>);
 
 	/// Information that is pertinent to identify the entity behind an account.
 	///
