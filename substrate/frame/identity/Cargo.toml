@@ -29,7 +29,7 @@ sp-core = { path = "../../primitives/core" }
 
 [features]
 default = ["std"]
-xcm-emulator = []
+xcm-emulator-testing = []
 
 std = [
 	"codec/std",
