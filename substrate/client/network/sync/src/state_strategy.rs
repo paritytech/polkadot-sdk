@@ -231,7 +231,6 @@ where
 						"State sync failed. Falling back to full sync.",
 					);
 					// TODO: Test this scenario.
-					//       Make sure fail-over doesn't render useless warp sync tests.
 				},
 			}
 			self.actions.push(StateStrategyAction::Finished);

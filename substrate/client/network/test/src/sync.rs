@@ -1234,10 +1234,12 @@ async fn warp_sync() {
 	net.peer(2).push_blocks(64, false);
 	// Wait for peer 1 to sync state.
 	net.run_until_sync().await;
+	// Make sure it was not a full sync.
 	assert!(!net.peer(3).client().has_state_at(&BlockId::Number(1)));
+	// Make sure warp sync was successful.
 	assert!(net.peer(3).client().has_state_at(&BlockId::Number(64)));
 
-	// Wait for peer 1 download block history
+	// Wait for peer 3 to download block history (gap sync).
 	futures::future::poll_fn::<(), _>(|cx| {
 		net.poll(cx);
 		if net.peer(3).has_body(gap_end) && net.peer(3).has_body(target) {
