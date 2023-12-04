@@ -16,8 +16,8 @@
 //! # OnReapIdentity Tests
 //!
 //! This file contains the test cases for migrating Identity data away from the Rococo Relay
-//! chain and to the PeopleRococo parachain, with zero cost incurred to the user. This migration
-//! is part of the broader Minimal Relay effort:
+//! chain and to the PeopleRococo parachain. This migration is part of the broader Minimal Relay
+//! effort:
 //! https://github.com/polkadot-fellows/RFCs/blob/main/text/0032-minimal-relay.md
 //!
 //! ## Overview
