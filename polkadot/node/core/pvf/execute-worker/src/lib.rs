@@ -16,6 +16,9 @@
 
 //! Contains the logic for executing PVFs. Used by the polkadot-execute-worker binary.
 
+#![deny(unused_crate_dependencies)]
+#![warn(missing_docs)]
+
 pub use polkadot_node_core_pvf_common::{
 	executor_interface::execute_artifact, worker_dir, SecurityStatus,
 };

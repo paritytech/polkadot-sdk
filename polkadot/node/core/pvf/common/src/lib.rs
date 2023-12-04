@@ -16,6 +16,8 @@
 
 //! Contains functionality related to PVFs that is shared by the PVF host and the PVF workers.
 
+#![deny(unused_crate_dependencies)]
+
 pub mod error;
 pub mod execute;
 pub mod executor_interface;
