@@ -16,7 +16,6 @@
 
 //! Contains the logic for preparing PVFs. Used by the polkadot-prepare-worker binary.
 
-#![deny(unused_crate_dependencies)]
 #![warn(missing_docs)]
 
 mod memory_stats;
