@@ -17,6 +17,7 @@ pub use asset_hub_rococo_emulated_chain;
 pub use asset_hub_westend_emulated_chain;
 pub use bridge_hub_rococo_emulated_chain;
 pub use bridge_hub_westend_emulated_chain;
+pub use coretime_rococo_emulated_chain;
 pub use rococo_emulated_chain;
 pub use westend_emulated_chain;
 
@@ -43,6 +44,7 @@ decl_test_networks! {
 		parachains = vec![
 			AssetHubRococo,
 			BridgeHubRococo,
+			CoretimeRococo,
 		],
 		bridge = RococoWestendMockBridge
 
