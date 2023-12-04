@@ -245,10 +245,6 @@ where
 	}
 
 	fn report_peer(&self, peer_id: PeerId, cost_benefit: ReputationChange) {
-		// TODO: when we get rid of `Peerset`, we'll likely need to add some kind of async
-		// interface to `PeerStore`, otherwise we'll have trouble calling functions accepting
-		// `&mut self` via `Arc`.
-		// See https://github.com/paritytech/substrate/issues/14170.
 		T::report_peer(self, peer_id, cost_benefit)
 	}
 
