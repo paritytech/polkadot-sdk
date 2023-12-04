@@ -625,10 +625,8 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns whether processing should continue or break for this block. The return value means:
 	/// - `None`: The migration process is completely finished.
-	/// - `ControlFlow::Break`: We made *some* progress. Continue in the *next* block with the
-	///   cursor.
-	/// - `ControlFlow::Continue`: We made *no* progress. Continue in the *current* block with the
-	///   given cursor.
+	/// - `ControlFlow::Break`: Continue in the *next* block with the given cursor.
+	/// - `ControlFlow::Continue`: Continue in the *current* block with the given cursor.
 	fn exec_migration(
 		mut cursor: ActiveCursorOf<T>,
 		is_first: bool,
@@ -638,7 +636,7 @@ impl<T: Config> Pallet<T> {
 		// only one step per block, we can just use the maximum instead of more precise accounting.
 		if meter.try_consume(Self::exec_migration_max_weight()).is_err() {
 			defensive_assert!(!is_first, "There should be enough weight to do this at least once");
-			return Some(ControlFlow::Continue(cursor))
+			return Some(ControlFlow::Break(cursor))
 		}
 
 		let Some(id) = T::Migrations::nth_id(cursor.index) else {
