@@ -79,6 +79,7 @@ pub trait WeightInfo {
 	fn chill_other() -> Weight;
 	fn force_apply_min_commission() -> Weight;
 	fn set_min_commission() -> Weight;
+	fn deprecate_controller_batch(i: u32) -> Weight;
 }
 
 /// Weights for `pallet_staking` using the Substrate node and recommended hardware.
@@ -782,6 +783,25 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(3_278_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	/// Storage: `Staking::Ledger` (r:100 w:200)
+	/// Proof: `Staking::Ledger` (`max_values`: None, `max_size`: Some(1091), added: 3566, mode: `MaxEncodedLen`)
+	/// Storage: `Staking::Bonded` (r:0 w:100)
+	/// Proof: `Staking::Bonded` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
+	/// The range of component `i` is `[0, 100]`.
+	fn deprecate_controller_batch(i: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `710 + i * (105 ±0)`
+		//  Estimated: `990 + i * (3566 ±0)`
+		// Minimum execution time: 2_000_000 picoseconds.
+		Weight::from_parts(6_001_362, 0)
+			.saturating_add(Weight::from_parts(0, 990))
+			// Standard Error: 24_351
+			.saturating_add(Weight::from_parts(9_567_945, 0).saturating_mul(i.into()))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(i.into())))
+			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(i.into())))
+			.saturating_add(Weight::from_parts(0, 3566).saturating_mul(i.into()))
+	}
+
 }
 
 // For backwards compatibility and tests.
@@ -1483,5 +1503,23 @@ impl WeightInfo for () {
 		// Minimum execution time: 3_044_000 picoseconds.
 		Weight::from_parts(3_278_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `Staking::Ledger` (r:100 w:200)
+	/// Proof: `Staking::Ledger` (`max_values`: None, `max_size`: Some(1091), added: 3566, mode: `MaxEncodedLen`)
+	/// Storage: `Staking::Bonded` (r:0 w:100)
+	/// Proof: `Staking::Bonded` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
+	/// The range of component `i` is `[0, 100]`.
+	fn deprecate_controller_batch(i: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `710 + i * (105 ±0)`
+		//  Estimated: `990 + i * (3566 ±0)`
+		// Minimum execution time: 2_000_000 picoseconds.
+		Weight::from_parts(6_001_362, 0)
+			.saturating_add(Weight::from_parts(0, 990))
+			// Standard Error: 24_351
+			.saturating_add(Weight::from_parts(9_567_945, 0).saturating_mul(i.into()))
+			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(i.into())))
+			.saturating_add(RocksDbWeight::get().writes((3_u64).saturating_mul(i.into())))
+			.saturating_add(Weight::from_parts(0, 3566).saturating_mul(i.into()))
 	}
 }

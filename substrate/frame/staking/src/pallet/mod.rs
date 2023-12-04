@@ -1933,7 +1933,7 @@ pub mod pallet {
 		///
 		/// The dispatch origin must be Root.
 		#[pallet::call_index(28)]
-		#[pallet::weight(T::WeightInfo::update_payee())] // TODO: insert real weight.
+		#[pallet::weight(T::WeightInfo::deprecate_controller_batch(controllers.len() as u32))]
 		pub fn deprecate_controller_batch(
 			origin: OriginFor<T>,
 			controllers: BoundedVec<T::AccountId, T::MaxControllersInDeprecationBatch>,
