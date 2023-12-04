@@ -170,8 +170,8 @@ pub trait XcmBlobHauler {
 pub struct XcmBlobHaulerAdapter<XcmBlobHauler>(sp_std::marker::PhantomData<XcmBlobHauler>);
 
 impl<H: XcmBlobHauler> HaulBlob for XcmBlobHaulerAdapter<H>
-	where
-		H::Runtime: MessagesConfig<H::MessagesInstance, OutboundPayload = XcmAsPlainPayload>,
+where
+	H::Runtime: MessagesConfig<H::MessagesInstance, OutboundPayload = XcmAsPlainPayload>,
 {
 	fn haul_blob(blob: sp_std::prelude::Vec<u8>) -> Result<(), HaulBlobError> {
 		let sender_and_lane = H::SenderAndLane::get();

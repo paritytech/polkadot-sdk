@@ -170,6 +170,10 @@ impl pallet_bridge_messages::WeightInfoExt for TestMessagesWeights {
 parameter_types! {
 	pub const RelayNetwork: NetworkId = NetworkId::Kusama;
 	pub const BridgedRelayNetwork: NetworkId = NetworkId::Polkadot;
+	pub const BridgedDestination: InteriorMultiLocation = X2(
+		GlobalConsensus(BridgedRelayNetwork::get()),
+		Parachain(BRIDGED_ASSET_HUB_ID)
+	);
 	pub const NonBridgedRelayNetwork: NetworkId = NetworkId::Rococo;
 	pub const BridgeReserve: Balance = 100_000;
 	pub UniversalLocation: InteriorMultiLocation = X2(
@@ -186,6 +190,7 @@ impl pallet_xcm_bridge_hub::Config for TestRuntime {
 
 	type MessageExportPrice = ();
 	type Lane = TestXcmBlobHauler;
+	type BridgedDestination = BridgedDestination;
 }
 
 parameter_types! {

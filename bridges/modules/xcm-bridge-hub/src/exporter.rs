@@ -141,7 +141,7 @@ mod tests {
 	}
 
 	fn universal_destination() -> InteriorMultiLocation {
-		X2(GlobalConsensus(BridgedRelayNetwork::get()), Parachain(BRIDGED_ASSET_HUB_ID))
+		BridgedDestination::get()
 	}
 
 	#[test]
