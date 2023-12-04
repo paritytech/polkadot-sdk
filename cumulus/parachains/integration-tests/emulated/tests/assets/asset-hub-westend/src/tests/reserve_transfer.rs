@@ -318,7 +318,7 @@ fn reserve_transfer_native_asset_from_system_para_to_para() {
 	let test_args = TestContext {
 		sender: AssetHubWestendSender::get(),
 		receiver: PenpalBReceiver::get(),
-		args: TestArgs::new_parachain(destination, beneficiary_id, amount_to_send, assets, None, 0),
+		args: TestArgs::new_para(destination, beneficiary_id, amount_to_send, assets, None, 0),
 	};
 
 	let mut test = SystemParaToParaTest::new(test_args);
