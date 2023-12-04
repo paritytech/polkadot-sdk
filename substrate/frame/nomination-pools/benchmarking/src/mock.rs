@@ -94,7 +94,6 @@ pallet_staking_reward_curve::build! {
 }
 parameter_types! {
 	pub const RewardCurve: &'static sp_runtime::curve::PiecewiseLinear<'static> = &I_NPOS;
-	pub const MaxControllersInDeprecationBatch: u32 = 100;
 }
 impl pallet_staking::Config for Runtime {
 	type Currency = Balances;
@@ -120,7 +119,7 @@ impl pallet_staking::Config for Runtime {
 	type VoterList = VoterList;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<16>;
-	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
+	type MaxControllersInDeprecationBatch = ConstU32<100>;
 	type MaxUnlockingChunks = ConstU32<32>;
 	type HistoryDepth = ConstU32<84>;
 	type EventListeners = Pools;
