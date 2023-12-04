@@ -30,10 +30,7 @@ use frame_election_provider_support::{
 	onchain, SequentialPhragmen,
 };
 use pallet_staking::RewardDestination;
-use sp_staking::{
-	delegation::{Delegatee, Delegator},
-	StakingDelegationSupport,
-};
+use sp_staking::delegation::{Delegatee, Delegator, StakingDelegationSupport};
 
 pub type T = Runtime;
 type Block = frame_system::mocking::MockBlock<Runtime>;
@@ -257,7 +254,11 @@ pub fn setup_delegation(
 	));
 
 	for delegator in &delegators[1..] {
-		assert_ok!(DelegatedStaking::delegate(fund(delegator, delegate_amount + ExistentialDeposit::get()), &delegatee, delegate_amount));
+		assert_ok!(DelegatedStaking::delegate(
+			fund(delegator, delegate_amount + ExistentialDeposit::get()),
+			&delegatee,
+			delegate_amount
+		));
 		assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(delegatee), delegate_amount));
 	}
 

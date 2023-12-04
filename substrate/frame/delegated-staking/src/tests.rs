@@ -21,7 +21,7 @@ use super::*;
 use crate::mock::*;
 use frame_support::{assert_noop, assert_ok, traits::fungible::InspectHold};
 use pallet_staking::Error as StakingError;
-use sp_staking::{StakeBalanceType, StakingDelegationSupport};
+use sp_staking::delegation::{StakeBalanceType, StakingDelegationSupport};
 
 #[test]
 fn create_a_delegatee_with_first_delegator() {
@@ -191,7 +191,6 @@ mod integration {
 			setup_delegation(delegatee, reward_acc, delegators, delegate_amount);
 
 			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(delegatee), 100));
-
 		});
 	}
 

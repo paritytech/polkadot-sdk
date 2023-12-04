@@ -38,8 +38,8 @@ use frame_support::{
 use pallet::*;
 use sp_runtime::{traits::Zero, DispatchResult, RuntimeDebug, Saturating};
 use sp_staking::{
-	delegation::{Delegatee, Delegator},
-	StakeBalanceType, StakerStatus, StakingDelegationSupport, StakingInterface,
+	delegation::{Delegatee, Delegator, StakeBalanceType, StakingDelegationSupport},
+	StakerStatus, StakingInterface,
 };
 use sp_std::{convert::TryInto, prelude::*};
 
@@ -49,7 +49,7 @@ pub type BalanceOf<T> =
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use sp_staking::StakingDelegationSupport;
+	use sp_staking::delegation::StakingDelegationSupport;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);

@@ -18,7 +18,7 @@
 //! A Ledger implementation for stakers.
 
 use frame_support::defensive;
-use sp_staking::{StakingAccount, StakingDelegationSupport};
+use sp_staking::{delegation::StakingDelegationSupport, StakingAccount};
 use sp_std::prelude::*;
 
 use crate::{BalanceOf, Bonded, Config, Error, Ledger, Payee, RewardDestination, StakingLedger};

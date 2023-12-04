@@ -140,3 +140,46 @@ pub trait Delegator {
 		value: Self::Balance,
 	) -> DispatchResult;
 }
+
+/// Something that provides delegation support to core staking.
+pub trait StakingDelegationSupport {
+	/// Balance type used by the staking system.
+	type Balance: Sub<Output = Self::Balance>
+		+ Ord
+		+ PartialEq
+		+ Default
+		+ Copy
+		+ MaxEncodedLen
+		+ FullCodec
+		+ TypeInfo
+		+ Saturating;
+
+	/// AccountId type used by the staking system.
+	type AccountId: Clone + sp_std::fmt::Debug;
+
+	/// Balance of who which is available for stake.
+	fn stakeable_balance(who: &Self::AccountId) -> Self::Balance;
+
+	/// Update amount held for bonded stake.
+	fn update_hold(who: &Self::AccountId, amount: Self::Balance) -> DispatchResult;
+
+	/// Release all amount held for stake.
+	fn release(who: &Self::AccountId);
+
+	fn restrict_reward_destination(
+		_who: &Self::AccountId,
+		_reward_destination: Option<Self::AccountId>,
+	) -> bool {
+		// never restrict by default
+		false
+	}
+
+	#[cfg(feature = "std")]
+	fn stake_type(who: &Self::AccountId) -> StakeBalanceType;
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum StakeBalanceType {
+	Direct,
+	Delegated,
+}

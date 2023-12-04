@@ -37,9 +37,9 @@ use sp_runtime::{
 };
 
 use sp_staking::{
+	delegation::StakingDelegationSupport,
 	EraIndex, Page, SessionIndex,
 	StakingAccount::{self, Controller, Stash},
-	StakingDelegationSupport,
 };
 use sp_std::prelude::*;
 
@@ -1043,7 +1043,11 @@ pub mod pallet {
 				if unlocking == T::MaxUnlockingChunks::get() as usize {
 					let real_num_slashing_spans =
 						Self::slashing_spans(&controller).map_or(0, |s| s.iter().count());
-					Some(Self::do_withdraw_unbonded(&controller, real_num_slashing_spans as u32, None)?)
+					Some(Self::do_withdraw_unbonded(
+						&controller,
+						real_num_slashing_spans as u32,
+						None,
+					)?)
 				} else {
 					None
 				}
