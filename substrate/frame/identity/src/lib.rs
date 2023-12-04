@@ -1023,7 +1023,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Set subs with zero deposit and default name. Only used for benchmarking that involve
+	/// Set subs with zero deposit and default name. Only used for benchmarks that involve
 	/// `rejig_deposit`.
 	#[cfg(any(feature = "runtime-benchmarks", feature = "xcm-emulator"))]
 	pub fn set_subs_no_deposit(
