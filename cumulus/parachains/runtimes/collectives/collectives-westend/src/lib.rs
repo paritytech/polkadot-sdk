@@ -707,6 +707,8 @@ pub type UncheckedExtrinsic =
 type Migrations = (
 	// unreleased
 	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
+	// unreleased
+	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.

@@ -46,11 +46,15 @@ pub struct PalletAttr {
 	typ: PalletAttrType,
 }
 
-fn get_first_item_pallet_attr<Attr>(item: &syn::ImplItemType) -> syn::Result<Option<Attr>>
-where
-	Attr: syn::parse::Parse,
-{
-	item.attrs.get(0).map(|a| syn::parse2(a.into_token_stream())).transpose()
+fn is_runtime_type(item: &syn::ImplItemType) -> bool {
+	item.attrs.iter().any(|attr| {
+		if let Ok(PalletAttr { typ: PalletAttrType::RuntimeType(_), .. }) =
+			parse2::<PalletAttr>(attr.into_token_stream())
+		{
+			return true
+		}
+		false
+	})
 }
 
 #[derive(Parse, Debug)]
@@ -132,10 +136,7 @@ fn combine_impls(
 				return None
 			}
 			if let ImplItem::Type(typ) = item.clone() {
-				let mut typ = typ.clone();
-				if let Ok(Some(PalletAttr { typ: PalletAttrType::RuntimeType(_), .. })) =
-					get_first_item_pallet_attr::<PalletAttr>(&mut typ)
-				{
+				if is_runtime_type(&typ) {
 					let item: ImplItem = if inject_runtime_types {
 						parse_quote! {
 							type #ident = #ident;
@@ -226,4 +227,26 @@ fn test_derive_impl_attr_args_parsing() {
 	parse2::<DeriveImplAttrArgs>(quote!(DefaultConfig)).unwrap();
 	assert!(parse2::<DeriveImplAttrArgs>(quote!()).is_err());
 	assert!(parse2::<DeriveImplAttrArgs>(quote!(Config Config)).is_err());
+}
+
+#[test]
+fn test_runtime_type_with_doc() {
+	trait TestTrait {
+		type Test;
+	}
+	#[allow(unused)]
+	struct TestStruct;
+	let p = parse2::<ItemImpl>(quote!(
+		impl TestTrait for TestStruct {
+			/// Some doc
+			#[inject_runtime_type]
+			type Test = u32;
+		}
+	))
+	.unwrap();
+	for item in p.items {
+		if let ImplItem::Type(typ) = item {
+			assert_eq!(is_runtime_type(&typ), true);
+		}
+	}
 }

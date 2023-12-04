@@ -6,9 +6,9 @@ components = [
 	"rust-analyzer",
 	"rust-src",
 	"rust-std",
-	"rustc-dev",
 	"rustc",
+	"rustc-dev",
 	"rustfmt",
 ]
-targets = [ "wasm32-unknown-unknown" ]
+targets = ["wasm32-unknown-unknown"]
 profile = "minimal"
