@@ -62,7 +62,7 @@ rm -rf $BRIDGES_FOLDER/.config
 rm -rf $BRIDGES_FOLDER/.github
 rm -rf $BRIDGES_FOLDER/.maintain
 rm -rf $BRIDGES_FOLDER/deployments
-rm -f $BRIDGES_FOLDER/docs/contributor/dockerhub-*
+rm -f $BRIDGES_FOLDER/docs/dockerhub-*
 rm -rf $BRIDGES_FOLDER/fuzz
 rm -rf $BRIDGES_FOLDER/modules/beefy
 rm -rf $BRIDGES_FOLDER/modules/shift-session-manager
