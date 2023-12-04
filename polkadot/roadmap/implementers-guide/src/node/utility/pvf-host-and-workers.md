@@ -2,12 +2,82 @@
 
 The PVF host is responsible for handling requests to prepare and execute PVF
 code blobs, which it sends to PVF **workers** running in their own child
-processes.
+processes. These workers are spawned from the `polkadot-prepare-worker` and
+`polkadot-execute-worker` binaries.
 
 While the workers are generally long-living, they also spawn one-off secure
 **job processes** that perform the jobs. See "Job Processes" section below.
 
-This system has two high-levels goals that we will touch on here: *determinism*
+## High-Level Flow
+
+```dot process
+digraph {
+ rankdir="LR";
+
+ can [label = "Candidate\nValidation\nSubsystem"; shape = square]
+
+ pvf [label = "PVF Host"; shape = square]
+
+ pq [label = "Prepare\nQueue"; shape = square]
+ eq [label = "Execute\nQueue"; shape = square]
+ pp [label = "Prepare\nPool"; shape = square]
+
+ subgraph "cluster partial_sandbox_prep" {
+  label = "polkadot-prepare-worker\n(Partial Sandbox)\n\n\n";
+  labelloc = "t";
+
+  pw [label = "Prepare\nWorker"; shape = square]
+
+  subgraph "cluster full_sandbox_prep" {
+   label = "Fully Isolated Sandbox\n\n\n";
+   labelloc = "t";
+
+   pj [label = "Prepare\nJob"; shape = square]
+  }
+ }
+
+ subgraph "cluster partial_sandbox_exec" {
+  label = "polkadot-execute-worker\n(Partial Sandbox)\n\n\n";
+  labelloc = "t";
+
+  ew [label = "Execute\nWorker"; shape = square]
+
+  subgraph "cluster full_sandbox_exec" {
+   label = "Fully Isolated Sandbox\n\n\n";
+   labelloc = "t";
+
+   ej [label = "Execute\nJob"; shape = square]
+  }
+ }
+
+ can -> pvf [label = "Precheck"; style = dashed]
+ can -> pvf [label = "Validate"]
+
+ pvf -> pq [label = "Prepare"; style = dashed]
+ pvf -> eq [label = "Execute";]
+ pvf -> pvf [label = "see (2) and (3)"; style = dashed]
+ pq -> pp [style = dashed]
+
+ pp -> pw [style = dashed]
+ eq -> ew
+
+ pw -> pj [style = dashed]
+ ew -> ej
+}
+```
+
+Some notes about the graph:
+
+1. Once a job has finished, the response will flow back up the way it came.
+2. In the case of execution, the host will send a request for preparation to the
+   Prepare Queue if needed. In that case, only after the preparation succeeds
+   does the Execute Queue continue with validation.
+3. Multiple requests for preparing the same artifact are coalesced, so that the
+   work is only done once.
+
+## Goals
+
+This system has two high-level goals that we will touch on here: *determinism*
 and *security*.
 
 ## Determinism
@@ -142,19 +212,24 @@ So what are we actually worried about? Things that come to mind:
 6. **Intercepting and manipulating packages** - Effect very similar to the
    above, hard to do without also being able to do 4 or 5.
 
+We do not protect against (1), (2), and (3), because there are too many sources
+of randomness for an attacker to exploit.
+
+We provide very good protection against (4), (5), and (6).
+
 ### Job Processes
 
 As mentioned above, our architecture includes long-living **worker processes**
-and one-off **job processes*. This separation is important so that the handling
+and one-off **job processes**. This separation is important so that the handling
 of untrusted code can be limited to the job processes. A hijacked job process
 can therefore not interfere with other jobs running in separate processes.
 
-Furthermore, if an unexpected execution error occurred in the worker and not the
-job, we generally can be confident that it has nothing to do with the candidate,
-so we can abstain from voting. On the other hand, a hijacked job can send back
-erroneous responses for candidates, so we know that we should not abstain from
-voting on such errors from jobs. Otherwise, an attacker could trigger a finality
-stall. (See "Internal Errors" section above.)
+Furthermore, if an unexpected execution error occurred in the execution worker
+and not the job itself, we generally can be confident that it has nothing to do
+with the candidate, so we can abstain from voting. On the other hand, a hijacked
+job is able to send back erroneous responses for candidates, so we know that we
+should not abstain from voting on such errors from jobs. Otherwise, an attacker
+could trigger a finality stall. (See "Internal Errors" section above.)
 
 ### Restricting file-system access
 
