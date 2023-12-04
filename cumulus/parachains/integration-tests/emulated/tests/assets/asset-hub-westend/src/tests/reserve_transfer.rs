@@ -15,7 +15,6 @@
 
 use crate::*;
 use asset_hub_westend_runtime::xcm_config::XcmConfig as AssetHubWestendXcmConfig;
-use emulated_integration_tests_common::{para_test_args, relay_test_args};
 use penpal_runtime::xcm_config::XcmConfig as PenpalWestendXcmConfig;
 use westend_runtime::xcm_config::XcmConfig as WestendXcmConfig;
 
@@ -275,7 +274,7 @@ fn reserve_transfer_native_asset_from_relay_to_para() {
 	let test_args = TestContext {
 		sender: WestendSender::get(),
 		receiver: PenpalBReceiver::get(),
-		args: relay_test_args(destination, beneficiary_id, amount_to_send),
+		args: TestArgs::new_relay(destination, beneficiary_id, amount_to_send),
 	};
 
 	let mut test = RelayToParaTest::new(test_args);
@@ -319,7 +318,7 @@ fn reserve_transfer_native_asset_from_system_para_to_para() {
 	let test_args = TestContext {
 		sender: AssetHubWestendSender::get(),
 		receiver: PenpalBReceiver::get(),
-		args: para_test_args(destination, beneficiary_id, amount_to_send, assets, None, 0),
+		args: TestArgs::new_parachain(destination, beneficiary_id, amount_to_send, assets, None, 0),
 	};
 
 	let mut test = SystemParaToParaTest::new(test_args);
@@ -363,7 +362,7 @@ fn reserve_transfer_native_asset_from_para_to_system_para() {
 	let test_args = TestContext {
 		sender: PenpalBSender::get(),
 		receiver: AssetHubWestendReceiver::get(),
-		args: para_test_args(destination, beneficiary_id, amount_to_send, assets, None, 0),
+		args: TestArgs::new_para(destination, beneficiary_id, amount_to_send, assets, None, 0),
 	};
 
 	let mut test = ParaToSystemParaTest::new(test_args);
@@ -444,7 +443,7 @@ fn reserve_transfer_assets_from_system_para_to_para() {
 	let para_test_args = TestContext {
 		sender: AssetHubWestendSender::get(),
 		receiver: PenpalBReceiver::get(),
-		args: para_test_args(
+		args: TestArgs::new_para(
 			destination,
 			beneficiary_id,
 			asset_amount_to_send,

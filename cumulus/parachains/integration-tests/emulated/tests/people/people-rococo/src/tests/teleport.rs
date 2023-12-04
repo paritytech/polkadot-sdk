@@ -14,7 +14,6 @@
 // limitations under the License.
 
 use crate::*;
-use emulated_integration_tests_common::{para_test_args, relay_test_args};
 use people_rococo_runtime::xcm_config::XcmConfig as PeopleRococoXcmConfig;
 use rococo_runtime::xcm_config::XcmConfig as RococoXcmConfig;
 
@@ -142,7 +141,7 @@ fn limited_teleport_native_assets_from_relay_to_system_para_works() {
 	let test_args = TestContext {
 		sender: RococoSender::get(),
 		receiver: PeopleRococoReceiver::get(),
-		args: relay_test_args(dest, beneficiary_id, amount_to_send),
+		args: TestArgs::new_relay(dest, beneficiary_id, amount_to_send),
 	};
 
 	let mut test = RelayToSystemParaTest::new(test_args);
@@ -188,7 +187,7 @@ fn limited_teleport_native_assets_back_from_system_para_to_relay_works() {
 	let test_args = TestContext {
 		sender: PeopleRococoSender::get(),
 		receiver: RococoReceiver::get(),
-		args: para_test_args(destination, beneficiary_id, amount_to_send, assets, None, 0),
+		args: TestArgs::new_para(destination, beneficiary_id, amount_to_send, assets, None, 0),
 	};
 
 	let mut test = SystemParaToRelayTest::new(test_args);
@@ -232,7 +231,7 @@ fn limited_teleport_native_assets_from_system_para_to_relay_fails() {
 	let test_args = TestContext {
 		sender: PeopleRococoSender::get(),
 		receiver: RococoReceiver::get(),
-		args: para_test_args(destination, beneficiary_id, amount_to_send, assets, None, 0),
+		args: TestArgs::new_para(destination, beneficiary_id, amount_to_send, assets, None, 0),
 	};
 
 	let mut test = SystemParaToRelayTest::new(test_args);

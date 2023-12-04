@@ -165,10 +165,6 @@ impl IdentityOn<'_> {
 ///
 /// `account_from_u32(5)` will return an `AccountId32` with the bytes
 /// `[0, 5, 0, 0, 0, 0, 0, 0, 0, 5 ... ]`
-///
-/// **Note**
-///
-/// This is only used for testing and is not intended for production use.
 fn account_from_u32(id: u32) -> AccountId32 {
 	let mut buffer = [255u8; 32];
 	let id_bytes = id.to_le_bytes();
@@ -198,9 +194,9 @@ fn set_id_relay(id: &Identity) -> Balance {
 			Subs::Zero => {},
 			Subs::Many(n) => {
 				let mut subs = Vec::with_capacity(n.try_into().unwrap());
-				for ii in 0..n {
+				for i in 0..n {
 					subs.push((
-						account_from_u32(ii),
+						AccountId32::from(i),
 						Data::Raw(b"name".to_vec().try_into().unwrap()),
 					));
 				}

@@ -15,7 +15,6 @@
 
 use crate::*;
 use asset_hub_rococo_runtime::xcm_config::XcmConfig as AssetHubRococoXcmConfig;
-use emulated_integration_tests_common::{para_test_args, relay_test_args};
 use penpal_runtime::xcm_config::XcmConfig as PenpalRococoXcmConfig;
 use rococo_runtime::xcm_config::XcmConfig as RococoXcmConfig;
 
@@ -276,7 +275,7 @@ fn reserve_transfer_native_asset_from_relay_to_para() {
 	let test_args = TestContext {
 		sender: RococoSender::get(),
 		receiver: PenpalAReceiver::get(),
-		args: relay_test_args(destination, beneficiary_id, amount_to_send),
+		args: TestArgs::new_relay(destination, beneficiary_id, amount_to_send),
 	};
 
 	let mut test = RelayToParaTest::new(test_args);
@@ -320,7 +319,7 @@ fn reserve_transfer_native_asset_from_system_para_to_para() {
 	let test_args = TestContext {
 		sender: AssetHubRococoSender::get(),
 		receiver: PenpalAReceiver::get(),
-		args: para_test_args(destination, beneficiary_id, amount_to_send, assets, None, 0),
+		args: TestArgs::new_para(destination, beneficiary_id, amount_to_send, assets, None, 0),
 	};
 
 	let mut test = SystemParaToParaTest::new(test_args);
@@ -364,7 +363,7 @@ fn reserve_transfer_native_asset_from_para_to_system_para() {
 	let test_args = TestContext {
 		sender: PenpalASender::get(),
 		receiver: AssetHubRococoReceiver::get(),
-		args: para_test_args(destination, beneficiary_id, amount_to_send, assets, None, 0),
+		args: TestArgs::new_para(destination, beneficiary_id, amount_to_send, assets, None, 0),
 	};
 
 	let mut test = ParaToSystemParaTest::new(test_args);
@@ -444,7 +443,7 @@ fn reserve_transfer_assets_from_system_para_to_para() {
 	let para_test_args = TestContext {
 		sender: AssetHubRococoSender::get(),
 		receiver: PenpalAReceiver::get(),
-		args: para_test_args(
+		args: TestArgs::new_para(
 			destination,
 			beneficiary_id,
 			asset_amount_to_send,

@@ -1436,6 +1436,7 @@ pub struct TestArgs {
 }
 
 impl TestArgs {
+	/// Returns a [`TestArgs`] instance to be used for the Relay Chain across integration tests
 	pub fn new_relay(dest: MultiLocation, beneficiary_id: AccountId32, amount: Balance) -> Self {
 		Self {
 			dest,
@@ -1448,11 +1449,14 @@ impl TestArgs {
 		}
 	}
 
-	pub fn new_parachain(
+	/// Returns a [`TestArgs`] instance to be used by parachains across integration tests
+	pub fn new_para(
 		dest: MultiLocation,
 		beneficiary_id: AccountId32,
 		amount: Balance,
+		assets: MultiAssets,
 		asset_id: Option<u32>,
+		fee_asset_item: u32,
 	) -> Self {
 		Self {
 			dest,
