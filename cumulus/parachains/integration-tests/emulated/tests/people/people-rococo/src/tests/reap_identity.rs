@@ -149,8 +149,8 @@ impl IdentityOn<'_> {
 			},
 			IdentityOn::Para(id) => {
 				let base_deposit = BasicDepositParachain::get();
-				let byte_deposit = ByteDepositParachain::get()
-					* TryInto::<Balance>::try_into(id.encoded_size()).unwrap();
+				let byte_deposit = ByteDepositParachain::get() *
+					TryInto::<Balance>::try_into(id.encoded_size()).unwrap();
 				base_deposit + byte_deposit
 			},
 		}

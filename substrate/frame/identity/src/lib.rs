@@ -505,16 +505,14 @@ pub mod pallet {
 
 			let item = (reg_index, Judgement::FeePaid(registrar.fee));
 			match id.judgements.binary_search_by_key(&reg_index, |x| x.0) {
-				Ok(i) => {
+				Ok(i) =>
 					if id.judgements[i].1.is_sticky() {
 						return Err(Error::<T>::StickyJudgement.into());
 					} else {
 						id.judgements[i] = item
-					}
-				},
-				Err(i) => {
-					id.judgements.try_insert(i, item).map_err(|_| Error::<T>::TooManyRegistrars)?
-				},
+					},
+				Err(i) =>
+					id.judgements.try_insert(i, item).map_err(|_| Error::<T>::TooManyRegistrars)?,
 			}
 
 			T::Currency::reserve(&sender, registrar.fee)?;
