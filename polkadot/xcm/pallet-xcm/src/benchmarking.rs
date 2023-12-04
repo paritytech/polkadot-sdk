@@ -336,3 +336,36 @@ benchmarks! {
 		crate::mock::Test
 	);
 }
+
+pub mod helpers {
+	use super::*;
+	pub fn native_teleport_as_asset_transfer<T>(
+		native_asset_location: MultiLocation,
+		destination: MultiLocation,
+	) -> Option<(MultiAssets, u32, MultiLocation, Box<dyn FnOnce()>)>
+	where
+		T: Config + pallet_balances::Config,
+		u128: From<<T as pallet_balances::Config>::Balance>,
+	{
+		// Relay/native token can be teleported to/from AH.
+		let amount = T::ExistentialDeposit::get() * 100u32.into();
+		let assets: MultiAssets =
+			MultiAsset { fun: Fungible(amount.into()), id: Concrete(native_asset_location) }.into();
+		let fee_index = 0u32;
+
+		// Give some multiple of transferred amount
+		let balance = amount * 10u32.into();
+		let who = whitelisted_caller();
+		let _ =
+			<pallet_balances::Pallet::<T> as frame_support::traits::Currency<_>>::make_free_balance_be(&who, balance);
+		// verify initial balance
+		assert_eq!(pallet_balances::Pallet::<T>::free_balance(&who), balance);
+
+		// verify transferred successfully
+		let verify = Box::new(move || {
+			// verify balance after transfer, decreased by transferred amount (and delivery fees)
+			assert!(pallet_balances::Pallet::<T>::free_balance(&who) <= balance - amount);
+		});
+		Some((assets, fee_index, destination, verify))
+	}
+}
