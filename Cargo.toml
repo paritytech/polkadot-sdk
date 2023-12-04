@@ -13,6 +13,7 @@ members = [
 	"bridges/modules/messages",
 	"bridges/modules/parachains",
 	"bridges/modules/relayers",
+	"bridges/modules/xcm-bridge-hub",
 	"bridges/modules/xcm-bridge-hub-router",
 	"bridges/primitives/chain-asset-hub-rococo",
 	"bridges/primitives/chain-asset-hub-westend",

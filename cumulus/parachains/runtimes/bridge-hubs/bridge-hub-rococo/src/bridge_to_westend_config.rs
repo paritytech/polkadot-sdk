@@ -18,8 +18,10 @@
 
 use crate::{
 	bridge_common_config::{BridgeParachainWestendInstance, DeliveryRewardInBalance},
-	weights, AccountId, BridgeWestendMessages, ParachainInfo, Runtime, RuntimeEvent, RuntimeOrigin,
-	XcmRouter,
+	weights,
+	xcm_config::UniversalLocation,
+	AccountId, BridgeWestendMessages, Runtime, RuntimeEvent, RuntimeOrigin,
+	XcmOverBridgeHubWestend, XcmRouter,
 };
 use bp_messages::LaneId;
 use bridge_runtime_common::{
@@ -46,7 +48,7 @@ use xcm::{
 	latest::prelude::*,
 	prelude::{InteriorMultiLocation, NetworkId},
 };
-use xcm_builder::{BridgeBlobDispatcher, HaulBlobExporter};
+use xcm_builder::BridgeBlobDispatcher;
 
 parameter_types! {
 	pub const MaxUnrewardedRelayerEntriesAtInboundLane: bp_messages::MessageNonce =
@@ -55,7 +57,6 @@ parameter_types! {
 		bp_bridge_hub_rococo::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 	pub const BridgeHubWestendChainId: bp_runtime::ChainId = bp_runtime::BRIDGE_HUB_WESTEND_CHAIN_ID;
 	pub BridgeRococoToWestendMessagesPalletInstance: InteriorMultiLocation = X1(PalletInstance(<BridgeWestendMessages as PalletInfoAccess>::index() as u8));
-	pub BridgeHubRococoUniversalLocation: InteriorMultiLocation = X2(GlobalConsensus(Rococo), Parachain(ParachainInfo::parachain_id().into()));
 	pub WestendGlobalConsensusNetwork: NetworkId = NetworkId::Westend;
 	pub ActiveOutboundLanesToBridgeHubWestend: &'static [bp_messages::LaneId] = &[XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND];
 	pub const AssetHubRococoToAssetHubWestendMessagesLane: bp_messages::LaneId = XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND;
@@ -103,22 +104,17 @@ pub type ToWestendBridgeHubMessagesDeliveryProof =
 	FromBridgedChainMessagesDeliveryProof<bp_bridge_hub_westend::Hash>;
 
 /// Dispatches received XCM messages from other bridge
-type FromWestendMessageBlobDispatcher = BridgeBlobDispatcher<
-	XcmRouter,
-	BridgeHubRococoUniversalLocation,
-	BridgeRococoToWestendMessagesPalletInstance,
->;
+type FromWestendMessageBlobDispatcher =
+	BridgeBlobDispatcher<XcmRouter, UniversalLocation, BridgeRococoToWestendMessagesPalletInstance>;
 
 /// Export XCM messages to be relayed to the other side
-pub type ToBridgeHubWestendHaulBlobExporter = HaulBlobExporter<
-	XcmBlobHaulerAdapter<ToBridgeHubWestendXcmBlobHauler>,
-	WestendGlobalConsensusNetwork,
-	(),
->;
+pub type ToBridgeHubWestendHaulBlobExporter = XcmOverBridgeHubWestend;
+
 pub struct ToBridgeHubWestendXcmBlobHauler;
 impl XcmBlobHauler for ToBridgeHubWestendXcmBlobHauler {
 	type Runtime = Runtime;
 	type MessagesInstance = WithBridgeHubWestendMessagesInstance;
+
 	type SenderAndLane = FromAssetHubRococoToAssetHubWestendRoute;
 
 	type ToSourceChainSender = XcmRouter;
@@ -227,6 +223,16 @@ impl pallet_bridge_messages::Config<WithBridgeHubWestendMessagesInstance> for Ru
 		>,
 	>;
 	type OnMessagesDelivered = OnMessagesDeliveredFromWestend;
+}
+
+/// Add support for the export and dispatch of XCM programs.
+pub type XcmOverBridgeHubWestendInstance = pallet_xcm_bridge_hub::Instance1;
+impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubWestendInstance> for Runtime {
+	type UniversalLocation = UniversalLocation;
+	type BridgedNetworkId = WestendGlobalConsensusNetwork;
+	type BridgeMessagesPalletInstance = WithBridgeHubWestendMessagesInstance;
+	type MessageExportPrice = ();
+	type Lane = ToBridgeHubWestendXcmBlobHauler;
 }
 
 #[cfg(test)]

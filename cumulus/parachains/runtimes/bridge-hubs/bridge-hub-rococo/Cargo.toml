@@ -98,6 +98,7 @@ pallet-bridge-grandpa = { path = "../../../../../bridges/modules/grandpa", defau
 pallet-bridge-messages = { path = "../../../../../bridges/modules/messages", default-features = false }
 pallet-bridge-parachains = { path = "../../../../../bridges/modules/parachains", default-features = false }
 pallet-bridge-relayers = { path = "../../../../../bridges/modules/relayers", default-features = false }
+pallet-xcm-bridge-hub = { path = "../../../../../bridges/modules/xcm-bridge-hub", default-features = false }
 bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common", default-features = false }
 
 [dev-dependencies]
@@ -157,6 +158,7 @@ std = [
 	"pallet-utility/std",
 	"pallet-xcm-benchmarks?/std",
 	"pallet-xcm/std",
+	"pallet-xcm-bridge-hub/std",
 	"parachain-info/std",
 	"parachains-common/std",
 	"polkadot-core-primitives/std",
@@ -208,6 +210,7 @@ runtime-benchmarks = [
 	"pallet-utility/runtime-benchmarks",
 	"pallet-xcm-benchmarks/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
+	"pallet-xcm-bridge-hub/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
