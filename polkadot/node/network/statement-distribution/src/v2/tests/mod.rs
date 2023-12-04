@@ -639,7 +639,7 @@ async fn answer_expected_hypothetical_depth_request(
 
 #[macro_export]
 macro_rules! assert_peer_reported {
-	($virtual_overseer:expr, $peer_id:expr, $rep_change:expr ) => {
+	($virtual_overseer:expr, $peer_id:expr, $rep_change:expr $(,)*) => {
 		assert_matches!(
 			$virtual_overseer.recv().await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
