@@ -58,12 +58,12 @@ fn backed_candidate_leads_to_advertisement() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let other_group_validators = state.group_validators(local_group_index, true);
-		let target_group_validators = state.group_validators(other_group, true);
-		let v_a = other_group_validators[0];
-		let v_b = other_group_validators[1];
-		let v_c = target_group_validators[0];
-		let v_d = target_group_validators[1];
+		let local_group_validators = state.group_validators(local_group_index, true);
+		let other_group_validators = state.group_validators(other_group, true);
+		let v_a = local_group_validators[0];
+		let v_b = local_group_validators[1];
+		let v_c = other_group_validators[0];
+		let v_d = other_group_validators[1];
 
 		// peer A is in group, has relay parent in view.
 		// peer B is in group, has no relay parent in view.
@@ -275,12 +275,12 @@ fn received_advertisement_before_confirmation_leads_to_request() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let other_group_validators = state.group_validators(local_group_index, true);
-		let target_group_validators = state.group_validators(other_group, true);
-		let v_a = other_group_validators[0];
-		let v_b = other_group_validators[1];
-		let v_c = target_group_validators[0];
-		let v_d = target_group_validators[1];
+		let local_group_validators = state.group_validators(local_group_index, true);
+		let other_group_validators = state.group_validators(other_group, true);
+		let v_a = local_group_validators[0];
+		let v_b = local_group_validators[1];
+		let v_c = other_group_validators[0];
+		let v_d = other_group_validators[1];
 
 		// peer A is in group, has relay parent in view.
 		// peer B is in group, has no relay parent in view.
@@ -990,10 +990,10 @@ fn received_advertisement_after_confirmation_before_backing() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let target_group_validators = state.group_validators(other_group, true);
-		let v_c = target_group_validators[0];
-		let v_d = target_group_validators[1];
-		let v_e = target_group_validators[2];
+		let other_group_validators = state.group_validators(other_group, true);
+		let v_c = other_group_validators[0];
+		let v_d = other_group_validators[1];
+		let v_e = other_group_validators[2];
 
 		// Connect C, D, E
 		{
@@ -1176,10 +1176,10 @@ fn additional_statements_are_shared_after_manifest_exchange() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let target_group_validators = state.group_validators(other_group, true);
-		let v_c = target_group_validators[0];
-		let v_d = target_group_validators[1];
-		let v_e = target_group_validators[2];
+		let other_group_validators = state.group_validators(other_group, true);
+		let v_c = other_group_validators[0];
+		let v_d = other_group_validators[1];
+		let v_e = other_group_validators[2];
 
 		// Connect C, D, E
 		{
@@ -1472,13 +1472,12 @@ fn advertisement_sent_when_peer_enters_relay_parent_view() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let other_group_validators = state.group_validators(local_group_index, true);
-		let target_group_validators =
-			state.group_validators((local_group_index.0 + 1).into(), true);
-		let v_a = other_group_validators[0];
-		let v_b = other_group_validators[1];
-		let v_c = target_group_validators[0];
-		let v_d = target_group_validators[1];
+		let local_group_validators = state.group_validators(local_group_index, true);
+		let other_group_validators = state.group_validators((local_group_index.0 + 1).into(), true);
+		let v_a = local_group_validators[0];
+		let v_b = local_group_validators[1];
+		let v_c = other_group_validators[0];
+		let v_d = other_group_validators[1];
 
 		// peer A is in group, has relay parent in view.
 		// peer B is in group, has no relay parent in view.
@@ -1695,13 +1694,12 @@ fn advertisement_not_re_sent_when_peer_re_enters_view() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let other_group_validators = state.group_validators(local_group_index, true);
-		let target_group_validators =
-			state.group_validators((local_group_index.0 + 1).into(), true);
-		let v_a = other_group_validators[0];
-		let v_b = other_group_validators[1];
-		let v_c = target_group_validators[0];
-		let v_d = target_group_validators[1];
+		let local_group_validators = state.group_validators(local_group_index, true);
+		let other_group_validators = state.group_validators((local_group_index.0 + 1).into(), true);
+		let v_a = local_group_validators[0];
+		let v_b = local_group_validators[1];
+		let v_c = other_group_validators[0];
+		let v_d = other_group_validators[1];
 
 		// peer A is in group, has relay parent in view.
 		// peer B is in group, has no relay parent in view.
@@ -1919,10 +1917,10 @@ fn grid_statements_imported_to_backing() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let target_group_validators = state.group_validators(other_group, true);
-		let v_c = target_group_validators[0];
-		let v_d = target_group_validators[1];
-		let v_e = target_group_validators[2];
+		let other_group_validators = state.group_validators(other_group, true);
+		let v_c = other_group_validators[0];
+		let v_d = other_group_validators[1];
+		let v_e = other_group_validators[2];
 
 		// Connect C, D, E
 		{
@@ -2124,12 +2122,12 @@ fn advertisements_rejected_from_incorrect_peers() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let other_group_validators = state.group_validators(local_group_index, true);
-		let target_group_validators = state.group_validators(other_group, true);
-		let v_a = other_group_validators[0];
-		let v_b = other_group_validators[1];
-		let v_c = target_group_validators[0];
-		let v_d = target_group_validators[1];
+		let local_group_validators = state.group_validators(local_group_index, true);
+		let other_group_validators = state.group_validators(other_group, true);
+		let v_a = local_group_validators[0];
+		let v_b = local_group_validators[1];
+		let v_c = other_group_validators[0];
+		let v_d = other_group_validators[1];
 
 		// peer A is in group, has relay parent in view.
 		// peer B is in group, has no relay parent in view.
@@ -2268,9 +2266,9 @@ fn manifest_rejected_with_unknown_relay_parent() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let target_group_validators = state.group_validators(other_group, true);
-		let v_c = target_group_validators[0];
-		let v_d = target_group_validators[1];
+		let other_group_validators = state.group_validators(other_group, true);
+		let v_c = other_group_validators[0];
+		let v_d = other_group_validators[1];
 
 		// peer C is not in group, has relay parent in view.
 		// peer D is not in group, has no relay parent in view.
@@ -2370,9 +2368,9 @@ fn manifest_rejected_when_not_a_validator() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let target_group_validators = state.group_validators(other_group, true);
-		let v_c = target_group_validators[0];
-		let v_d = target_group_validators[1];
+		let other_group_validators = state.group_validators(other_group, true);
+		let v_c = other_group_validators[0];
+		let v_d = other_group_validators[1];
 
 		// peer C is not in group, has relay parent in view.
 		// peer D is not in group, has no relay parent in view.
@@ -2477,9 +2475,9 @@ fn manifest_rejected_when_group_does_not_match_para() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let target_group_validators = state.group_validators(other_group, true);
-		let v_c = target_group_validators[0];
-		let v_d = target_group_validators[1];
+		let other_group_validators = state.group_validators(other_group, true);
+		let v_c = other_group_validators[0];
+		let v_d = other_group_validators[1];
 
 		// peer C is not in group, has relay parent in view.
 		// peer D is not in group, has no relay parent in view.
@@ -2583,10 +2581,10 @@ fn peer_reported_for_advertisement_conflicting_with_confirmed_candidate() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let target_group_validators = state.group_validators(other_group, true);
-		let v_c = target_group_validators[0];
-		let v_d = target_group_validators[1];
-		let v_e = target_group_validators[2];
+		let other_group_validators = state.group_validators(other_group, true);
+		let v_c = other_group_validators[0];
+		let v_d = other_group_validators[1];
+		let v_e = other_group_validators[2];
 
 		// Connect C, D, E
 		{

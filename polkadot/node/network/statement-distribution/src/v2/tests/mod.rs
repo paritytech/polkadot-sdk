@@ -414,25 +414,28 @@ async fn setup_test_and_connect_peers(
 	let relay_parent = Hash::repeat_byte(1);
 	let test_leaf = state.make_dummy_leaf(relay_parent);
 
+	// Because we are testing grid mod, the "target" group (the one we communicate with) is usually
+	// other_group, a non-local group.
+	//
 	// TODO: change based on `LocalRole`?
-	let our_group_validators = state.group_validators(local_group, true);
-	let outside_group_validators = state.group_validators(other_group, true);
+	let local_group_validators = state.group_validators(local_group, true);
+	let other_group_validators = state.group_validators(other_group, true);
 
 	let mut peers = vec![];
 	let mut validators = vec![];
-	let mut our_group_idx = 0;
-	let mut outside_group_idx = 0;
+	let mut local_group_idx = 0;
+	let mut other_group_idx = 0;
 	for peer_to_connect in peers_to_connect {
 		let peer = PeerId::random();
 		peers.push(peer);
 
 		let v = if peer_to_connect.local {
-			let v = our_group_validators[our_group_idx];
-			our_group_idx += 1;
+			let v = local_group_validators[local_group_idx];
+			local_group_idx += 1;
 			v
 		} else {
-			let v = outside_group_validators[outside_group_idx];
-			outside_group_idx += 1;
+			let v = other_group_validators[other_group_idx];
+			other_group_idx += 1;
 			v
 		};
 		validators.push(v);
