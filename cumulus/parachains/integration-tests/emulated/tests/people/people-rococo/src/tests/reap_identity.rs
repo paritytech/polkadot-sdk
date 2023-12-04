@@ -435,7 +435,7 @@ fn assert_reap_events(id_deposit: Balance, id: &Identity) {
 	};
 }
 
-// Duplicate of the impl of `ToParachainIdentityReaper` in the Rococo runtime.
+/// Duplicate of the impl of `ToParachainIdentityReaper` in the Rococo runtime.
 fn calculate_remote_deposit(bytes: u32, subs: u32) -> Balance {
 	// Note: These `deposit` functions and `EXISTENTIAL_DEPOSIT` correspond to the Relay Chain's.
 	// Pulled in: use rococo_runtime_constants::currency::*;
