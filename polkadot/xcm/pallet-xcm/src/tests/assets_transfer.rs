@@ -241,7 +241,7 @@ fn reserve_transfer_assets_with_paid_router_works() {
 	});
 }
 
-fn set_up_foreign_asset(
+pub(crate) fn set_up_foreign_asset(
 	reserve_para_id: u32,
 	inner_junction: Option<Junction>,
 	initial_amount: u128,
@@ -280,7 +280,7 @@ fn set_up_foreign_asset(
 
 // Helper function that provides correct `fee_index` after `sort()` done by
 // `vec![MultiAsset, MultiAsset].into()`.
-fn into_multiassets_checked(
+pub(crate) fn into_multiassets_checked(
 	fee_asset: MultiAsset,
 	transfer_asset: MultiAsset,
 ) -> (MultiAssets, usize, MultiAsset, MultiAsset) {

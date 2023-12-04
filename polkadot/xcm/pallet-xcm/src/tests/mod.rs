@@ -16,7 +16,7 @@
 
 #![cfg(test)]
 
-mod assets_transfer;
+pub(crate) mod assets_transfer;
 
 use crate::{
 	mock::*, AssetTraps, CurrentMigration, Error, LatestVersionedMultiLocation, Queries,

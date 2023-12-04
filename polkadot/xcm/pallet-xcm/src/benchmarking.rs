@@ -44,7 +44,7 @@ pub trait Config: crate::Config {
 	///
 	/// Implementation should also make sure `dest` is reachable/connected.
 	///
-	/// If `None`, the benchmarks that depend on this will be skipped.
+	/// If `None`, the benchmarks that depend on this will default to `Weight::MAX`.
 	fn teleportable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
 		None
 	}
@@ -54,8 +54,25 @@ pub trait Config: crate::Config {
 	///
 	/// Implementation should also make sure `dest` is reachable/connected.
 	///
-	/// If `None`, the benchmarks that depend on this will be skipped.
+	/// If `None`, the benchmarks that depend on this will default to `Weight::MAX`.
 	fn reserve_transferable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
+		None
+	}
+
+	/// Sets up a complex transfer (usually consisting of a teleport and reserve-based transfer), so
+	/// that runtime can properly benchmark `transfer_assets()` extrinsic. Should return a tuple
+	/// `(MultiAsset, u32, MultiLocation, dyn FnOnce())` representing the assets to transfer, the
+	/// `u32` index of the asset to be used for fees, the destination chain for the transfer, and a
+	/// `verify()` closure to verify the intended transfer side-effects.
+	///
+	/// Implementation should make sure the provided assets can be transacted by the runtime, there
+	/// are enough balances in the involved accounts, and that `dest` is reachable/connected.
+	///
+	/// Used only in benchmarks.
+	///
+	/// If `None`, the benchmarks that depend on this will default to `Weight::MAX`.
+	fn set_up_complex_asset_transfer(
+	) -> Option<(MultiAssets, u32, MultiLocation, Box<dyn FnOnce()>)> {
 		None
 	}
 }
@@ -159,35 +176,11 @@ benchmarks! {
 	}
 
 	transfer_assets {
-		// TODO: compose this transfer from one reserve and one teleport
-
-		let (asset, destination) = T::reserve_transferable_asset_and_dest().ok_or(
+		let (assets, fee_index, destination, verify) = T::set_up_complex_asset_transfer().ok_or(
 			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
 		)?;
-
-		let transferred_amount = match &asset.fun {
-			Fungible(amount) => *amount,
-			_ => return Err(BenchmarkError::Stop("Benchmark asset not fungible")),
-		}.into();
-		let assets: MultiAssets = asset.into();
-
-		let existential_deposit = T::ExistentialDeposit::get();
-		let caller = whitelisted_caller();
-
-		// Give some multiple of the existential deposit
-		let balance = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
-		assert!(balance >= transferred_amount);
-		let _ = <pallet_balances::Pallet<T> as Currency<_>>::make_free_balance_be(&caller, balance);
-		// verify initial balance
-		assert_eq!(pallet_balances::Pallet::<T>::free_balance(&caller), balance);
-
+		let caller: T::AccountId = whitelisted_caller();
 		let send_origin = RawOrigin::Signed(caller.clone());
-		let origin_location = T::ExecuteXcmOrigin::try_origin(send_origin.clone().into())
-			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
-		if !T::XcmReserveTransferFilter::contains(&(origin_location, assets.clone().into_inner())) {
-			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
-		}
-
 		let recipient = [0u8; 32];
 		let versioned_dest: VersionedMultiLocation = destination.into();
 		let versioned_beneficiary: VersionedMultiLocation =
@@ -195,8 +188,8 @@ benchmarks! {
 		let versioned_assets: VersionedMultiAssets = assets.into();
 	}: _<RuntimeOrigin<T>>(send_origin.into(), Box::new(versioned_dest), Box::new(versioned_beneficiary), Box::new(versioned_assets), 0, WeightLimit::Unlimited)
 	verify {
-		// verify balance after transfer, decreased by transferred amount (+ maybe XCM delivery fees)
-		assert!(pallet_balances::Pallet::<T>::free_balance(&caller) <= balance - transferred_amount);
+		// run provided verification function
+		verify();
 	}
 
 	execute {
