@@ -15,7 +15,7 @@ sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-fea
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false}
 pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false}
-snowbridge-core = { path = "../../../../../../parachain/primitives/core", default-features = false }
+snowbridge-core = { git = "https://github.com/Snowfork/snowbridge.git", tag = "v0.9.0", default-features = false }
 
 [features]
 default = [ "std" ]

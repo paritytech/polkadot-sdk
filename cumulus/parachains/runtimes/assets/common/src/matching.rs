@@ -58,9 +58,11 @@ impl<SelfParaId: Get<ParaId>> ContainsPair<MultiLocation, MultiLocation>
 	}
 }
 
-pub struct FromNetwork<SelfNetworkId>(sp_std::marker::PhantomData<SelfNetworkId>);
-impl<SelfNetworkId: Get<NetworkId>> ContainsPair<MultiLocation, MultiLocation>
-	for FromNetwork<SelfNetworkId>
+pub struct FromNetwork<UniversalLocation, ExpectedNetworkId>(
+	sp_std::marker::PhantomData<(UniversalLocation, ExpectedNetworkId)>,
+);
+impl<UniversalLocation: Get<InteriorMultiLocation>, ExpectedNetworkId: Get<NetworkId>>
+	ContainsPair<MultiLocation, MultiLocation> for FromNetwork<UniversalLocation, ExpectedNetworkId>
 {
 	fn contains(&a: &MultiLocation, b: &MultiLocation) -> bool {
 		// `a` needs to be from `b` at least
@@ -68,11 +70,18 @@ impl<SelfNetworkId: Get<NetworkId>> ContainsPair<MultiLocation, MultiLocation>
 			return false
 		}
 
-		match a {
-			MultiLocation { parents: 2, interior } => {
-				matches!(interior.first(), Some(GlobalConsensus(network)) if *network == SelfNetworkId::get())
+		let universal_source = UniversalLocation::get();
+
+		return match ensure_is_remote(universal_source, a) {
+			Ok((network_id, _)) => network_id == ExpectedNetworkId::get(),
+			Err(e) => {
+				log::trace!(
+					target: "xcm::contains",
+					"FromNetwork origin: {:?} is not remote to the universal_source: {:?} {:?}",
+					a, universal_source, e
+				);
+				false
 			},
-			_ => false,
 		}
 	}
 }

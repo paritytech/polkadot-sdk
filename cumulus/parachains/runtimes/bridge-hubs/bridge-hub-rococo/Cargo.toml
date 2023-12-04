@@ -94,16 +94,17 @@ pallet-bridge-relayers = { path = "../../../../../bridges/modules/relayers", def
 bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common", default-features = false }
 
 # Ethereum Bridge (Snowbridge)
-snowbridge-beacon-primitives = { path = "../../../../../../parachain/primitives/beacon", default-features = false }
-snowbridge-control = { path = "../../../../../../parachain/pallets/control", default-features = false }
-snowbridge-control-runtime-api = { path = "../../../../../../parachain/pallets/control/runtime-api", default-features = false }
-snowbridge-core = { path = "../../../../../../parachain/primitives/core", default-features = false }
-snowbridge-ethereum-beacon-client = { path = "../../../../../../parachain/pallets/ethereum-beacon-client", default-features = false }
-snowbridge-inbound-queue = { path = "../../../../../../parachain/pallets/inbound-queue", default-features = false }
-snowbridge-outbound-queue = { path = "../../../../../../parachain/pallets/outbound-queue", default-features = false }
-snowbridge-outbound-queue-runtime-api = { path = "../../../../../../parachain/pallets/outbound-queue/runtime-api", default-features = false }
-snowbridge-router-primitives = { path = "../../../../../../parachain/primitives/router", default-features = false }
-snowbridge-runtime-common = { path = "../../../../../../parachain/runtime/runtime-common", default-features = false }
+snowbridge-beacon-primitives = { git = "https://github.com/Snowfork/snowbridge.git", tag = "v0.9.0", default-features = false }
+snowbridge-system = { git = "https://github.com/Snowfork/snowbridge.git", tag = "v0.9.0", default-features = false }
+snowbridge-system-runtime-api = { git = "https://github.com/Snowfork/snowbridge.git", tag = "v0.9.0", default-features = false }
+snowbridge-core = { git = "https://github.com/Snowfork/snowbridge.git", tag = "v0.9.0", default-features = false }
+snowbridge-ethereum-beacon-client = { git = "https://github.com/Snowfork/snowbridge.git", tag = "v0.9.0", default-features = false }
+snowbridge-inbound-queue = { git = "https://github.com/Snowfork/snowbridge.git", tag = "v0.9.0", default-features = false }
+snowbridge-outbound-queue = { git = "https://github.com/Snowfork/snowbridge.git", tag = "v0.9.0", default-features = false }
+snowbridge-outbound-queue-runtime-api = { git = "https://github.com/Snowfork/snowbridge.git", tag = "v0.9.0", default-features = false }
+snowbridge-router-primitives = { git = "https://github.com/Snowfork/snowbridge.git", tag = "v0.9.0", default-features = false }
+snowbridge-runtime-common = { git = "https://github.com/Snowfork/snowbridge.git", tag = "v0.9.0", default-features = false }
+snowbridge-rococo-common = { git = "https://github.com/Snowfork/snowbridge.git", tag = "v0.9.0", default-features = false }
 
 bridge-hub-common = { path = "../common", default-features = false }
 
@@ -191,8 +192,8 @@ std = [
 	"xcm-executor/std",
 	"xcm/std",
 	"snowbridge-beacon-primitives/std",
-	"snowbridge-control-runtime-api/std",
-	"snowbridge-control/std",
+	"snowbridge-system-runtime-api/std",
+	"snowbridge-system/std",
 	"snowbridge-core/std",
 	"snowbridge-ethereum-beacon-client/std",
 	"snowbridge-inbound-queue/std",
@@ -200,6 +201,7 @@ std = [
 	"snowbridge-outbound-queue/std",
 	"snowbridge-router-primitives/std",
 	"snowbridge-runtime-common/std",
+	"snowbridge-rococo-common/std",
 	"substrate-wasm-builder",
 ]
 
@@ -233,7 +235,7 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
-	"snowbridge-control/runtime-benchmarks",
+	"snowbridge-system/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
 	"snowbridge-ethereum-beacon-client/runtime-benchmarks",
 	"snowbridge-inbound-queue/runtime-benchmarks",

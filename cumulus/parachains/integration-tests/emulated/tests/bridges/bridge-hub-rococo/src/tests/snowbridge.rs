@@ -18,9 +18,10 @@ use bridge_hub_rococo_emulated_chain::BridgeHubRococoParaPallet as BridgeHubRoco
 use codec::{Decode, Encode};
 use frame_support::pallet_prelude::TypeInfo;
 use hex_literal::hex;
-use snowbridge_control;
 use snowbridge_core::outbound::OperatingMode;
+use snowbridge_rococo_common::EthereumNetwork;
 use snowbridge_router_primitives::inbound::{Command, Destination, MessageV1, VersionedMessage};
+use snowbridge_system;
 use sp_core::H256;
 
 const INITIAL_FUND: u128 = 5_000_000_000 * ROCOCO_ED;
@@ -30,13 +31,14 @@ const TREASURY_ACCOUNT: [u8; 32] =
 	hex!("6d6f646c70792f74727372790000000000000000000000000000000000000000");
 const WETH: [u8; 20] = hex!("87d1f7fdfEe7f651FaBc8bFCB6E086C278b77A7d");
 const ETHEREUM_DESTINATION_ADDRESS: [u8; 20] = hex!("44a57ee2f2FCcb85FDa2B0B18EBD0D8D2333700e");
+const XCM_FEE: u128 = 4_000_000_000;
 
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 pub enum ControlCall {
-	#[codec(index = 2)]
-	CreateAgent,
 	#[codec(index = 3)]
-	CreateChannel { mode: OperatingMode, outbound_fee: u128 },
+	CreateAgent,
+	#[codec(index = 4)]
+	CreateChannel { mode: OperatingMode },
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -98,7 +100,7 @@ fn create_agent() {
 		assert_expected_events!(
 			BridgeHubRococo,
 			vec![
-				RuntimeEvent::EthereumControl(snowbridge_control::Event::CreateAgent {
+				RuntimeEvent::EthereumSystem(snowbridge_system::Event::CreateAgent {
 					..
 				}) => {},
 			]
@@ -133,10 +135,8 @@ fn create_channel() {
 		},
 	]));
 
-	let create_channel_call = SnowbridgeControl::Control(ControlCall::CreateChannel {
-		mode: OperatingMode::Normal,
-		outbound_fee: 1,
-	});
+	let create_channel_call =
+		SnowbridgeControl::Control(ControlCall::CreateChannel { mode: OperatingMode::Normal });
 
 	let create_channel_xcm = VersionedXcm::from(Xcm(vec![
 		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
@@ -179,7 +179,7 @@ fn create_channel() {
 		assert_expected_events!(
 			BridgeHubRococo,
 			vec![
-				RuntimeEvent::EthereumControl(snowbridge_control::Event::CreateChannel {
+				RuntimeEvent::EthereumSystem(snowbridge_system::Event::CreateChannel {
 					..
 				}) => {},
 			]
@@ -205,7 +205,7 @@ fn register_token() {
 			<BridgeHubRococo as BridgeHubRococoPallet>::EthereumInboundQueue;
 		let message = VersionedMessage::V1(MessageV1 {
 			chain_id: CHAIN_ID,
-			command: Command::RegisterToken { token: WETH.into() },
+			command: Command::RegisterToken { token: WETH.into(), fee: XCM_FEE },
 		});
 		let (xcm, _) = EthereumInboundQueue::do_convert(message_id_, message).unwrap();
 		let _ = EthereumInboundQueue::send_xcm(xcm, ASSETHUB_PARA_ID.into()).unwrap();
@@ -244,8 +244,7 @@ fn send_token_to_penpal() {
 	]);
 
 	let weth_asset_location: MultiLocation =
-		(Parent, Parent, Ethereum { chain_id: 15 }, AccountKey20 { network: None, key: WETH })
-			.into();
+		(Parent, Parent, EthereumNetwork::get(), AccountKey20 { network: None, key: WETH }).into();
 	let weth_asset_id = weth_asset_location.into();
 
 	let origin_location =
@@ -294,8 +293,10 @@ fn send_token_to_penpal() {
 				destination: Destination::ForeignAccountId32 {
 					para_id: 2000,
 					id: PenpalAReceiver::get().into(),
+					fee: XCM_FEE,
 				},
 				amount: 1_000_000_000,
+				fee: XCM_FEE,
 			},
 		});
 		let (xcm, _) = EthereumInboundQueue::do_convert(message_id_, message).unwrap();
@@ -354,7 +355,7 @@ fn send_token() {
 			<BridgeHubRococo as BridgeHubRococoPallet>::EthereumInboundQueue;
 		let message = VersionedMessage::V1(MessageV1 {
 			chain_id: CHAIN_ID,
-			command: Command::RegisterToken { token: WETH.into() },
+			command: Command::RegisterToken { token: WETH.into(), fee: XCM_FEE },
 		});
 		let (xcm, _) = EthereumInboundQueue::do_convert(message_id_, message).unwrap();
 		let _ = EthereumInboundQueue::send_xcm(xcm, ASSETHUB_PARA_ID.into()).unwrap();
@@ -364,6 +365,7 @@ fn send_token() {
 				token: WETH.into(),
 				destination: Destination::AccountId32 { id: AssetHubRococoReceiver::get().into() },
 				amount: 1_000_000_000,
+				fee: XCM_FEE,
 			},
 		});
 		let (xcm, _) = EthereumInboundQueue::do_convert(message_id_, message).unwrap();
@@ -409,7 +411,7 @@ fn reserve_transfer_token() {
 			<BridgeHubRococo as BridgeHubRococoPallet>::EthereumInboundQueue;
 		let message = VersionedMessage::V1(MessageV1 {
 			chain_id: CHAIN_ID,
-			command: Command::RegisterToken { token: WETH.into() },
+			command: Command::RegisterToken { token: WETH.into(), fee: XCM_FEE },
 		});
 		let (xcm, _) = EthereumInboundQueue::do_convert(message_id_, message).unwrap();
 		let _ = EthereumInboundQueue::send_xcm(xcm, ASSETHUB_PARA_ID.into()).unwrap();
@@ -419,6 +421,7 @@ fn reserve_transfer_token() {
 				token: WETH.into(),
 				destination: Destination::AccountId32 { id: AssetHubRococoReceiver::get().into() },
 				amount: WETH_AMOUNT,
+				fee: XCM_FEE,
 			},
 		});
 		let (xcm, _) = EthereumInboundQueue::do_convert(message_id_, message).unwrap();

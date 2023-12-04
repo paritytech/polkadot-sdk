@@ -887,12 +887,12 @@ impl pallet_xcm_bridge_hub_router::Config<ToWestendXcmRouterInstance> for Runtim
 
 /// XCM router instance to BridgeHub with bridging capabilities for `Ethereum` global
 /// consensus with dynamic fees and back-pressure.
-pub type ToEthereumXcmRouterInstance = pallet_assets::Instance4;
+pub type ToEthereumXcmRouterInstance = pallet_xcm_bridge_hub_router::Instance4;
 impl pallet_xcm_bridge_hub_router::Config<ToEthereumXcmRouterInstance> for Runtime {
 	type WeightInfo = weights::pallet_xcm_bridge_hub_router::WeightInfo<Runtime>;
 
 	type UniversalLocation = xcm_config::UniversalLocation;
-	type BridgedNetworkId = xcm_config::bridging::to_ethereum::EthereumNetwork;
+	type BridgedNetworkId = snowbridge_rococo_common::EthereumNetwork;
 	type Bridges = xcm_config::bridging::NetworkExportTable;
 
 	#[cfg(not(feature = "runtime-benchmarks"))]
@@ -1030,6 +1030,7 @@ mod benches {
 		[pallet_collator_selection, CollatorSelection]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_xcm_bridge_hub_router, ToWestend]
+		[pallet_xcm_bridge_hub_router, ToEthereum]
 		// XCM
 		[pallet_xcm, PalletXcmExtrinsiscsBenchmark::<Runtime>]
 		// NOTE: Make sure you point to the individual modules below.
@@ -1366,6 +1367,20 @@ impl_runtime_apis! {
 						xcm_config::bridging::SiblingBridgeHubParaId::get().into()
 					);
 					xcm_config::bridging::to_westend::AssetHubWestend::get()
+				}
+			}
+
+			impl XcmBridgeHubRouterConfig<ToEthereumXcmRouterInstance> for Runtime {
+				fn make_congested() {
+					cumulus_pallet_xcmp_queue::bridging::suspend_channel_for_benchmarks::<Runtime>(
+						xcm_config::bridging::SiblingBridgeHubParaId::get().into()
+					);
+				}
+				fn ensure_bridged_target_destination() -> MultiLocation {
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
+						xcm_config::bridging::SiblingBridgeHubParaId::get().into()
+					);
+					xcm_config::bridging::to_ethereum::EthereumLocation::get()
 				}
 			}
 

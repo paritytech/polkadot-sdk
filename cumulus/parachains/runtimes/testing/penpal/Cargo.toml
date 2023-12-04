@@ -76,6 +76,7 @@ pallet-collator-selection = { path = "../../../../pallets/collator-selection", d
 parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false }
 parachains-common = { path = "../../../common", default-features = false }
 assets-common = { path = "../../assets/common", default-features = false }
+snowbridge-rococo-common = { git = "https://github.com/Snowfork/snowbridge.git", tag = "v0.9.0", default-features = false}
 
 [features]
 default = [ "std" ]
@@ -116,6 +117,7 @@ std = [
 	"polkadot-parachain-primitives/std",
 	"polkadot-primitives/std",
 	"polkadot-runtime-common/std",
+	"snowbridge-rococo-common/std",
 	"scale-info/std",
 	"sp-api/std",
 	"sp-block-builder/std",

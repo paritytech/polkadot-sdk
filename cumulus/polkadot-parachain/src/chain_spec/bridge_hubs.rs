@@ -297,7 +297,7 @@ pub mod rococo {
 			"bridgeWestendMessages": {
 				"owner": bridges_pallet_owner.clone(),
 			},
-			"ethereumControl": {
+			"ethereumSystem": {
 				"paraId": id,
 				"assetHubParaId": 1000
 			}

@@ -40,6 +40,7 @@ use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use rococo_runtime_constants::system_parachain;
 use snowbridge_core::DescribeHere;
+use snowbridge_rococo_common::EthereumNetwork;
 use snowbridge_runtime_common::XcmExportFeeToSibling;
 use sp_core::{Get, H256};
 use sp_runtime::traits::AccountIdConversion;
@@ -70,9 +71,6 @@ parameter_types! {
 	pub const MaxAssetsIntoHolding: u32 = 64;
 	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
 	pub RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
-
-	// Network and location for the local Ethereum testnet.
-	pub const EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 15 };
 }
 
 /// Type for specifying how a `MultiLocation` can be converted into an `AccountId`. This is used
@@ -173,6 +171,7 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 						frame_system::Call::set_code_without_checks { .. } |
 						frame_system::Call::kill_prefix { .. },
 				) | RuntimeCall::ParachainSystem(..) |
+				RuntimeCall::Utility(..) |
 				RuntimeCall::Timestamp(..) |
 				RuntimeCall::Balances(..) |
 				RuntimeCall::CollatorSelection(
@@ -197,7 +196,7 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 				snowbridge_inbound_queue::Call::set_operating_mode { .. },
 			) | RuntimeCall::EthereumOutboundQueue(
 				snowbridge_outbound_queue::Call::set_operating_mode { .. },
-			) | RuntimeCall::EthereumControl(..)
+			) | RuntimeCall::EthereumSystem(..)
 		)
 	}
 }
@@ -305,7 +304,7 @@ impl xcm_executor::Config for XcmConfig {
 	>;
 	type MessageExporter = (
 		crate::bridge_to_westend_config::ToBridgeHubWestendHaulBlobExporter,
-		crate::bridge_to_westend_config::SnowbridgeExporter,
+		crate::bridge_to_ethereum_config::SnowbridgeExporter,
 	);
 	type UniversalAliases = Nothing;
 	type CallDispatcher = WithOriginFilter<SafeCallFilter>;
@@ -469,8 +468,8 @@ impl<WaivedLocations: Contains<MultiLocation>, FeeHandler: HandleFee> FeeManager
 {
 	fn is_waived(origin: Option<&MultiLocation>, fee_reason: FeeReason) -> bool {
 		let Some(loc) = origin else { return false };
-		if let Export { network: Ethereum { chain_id: 15 }, destination: Here } = fee_reason {
-			return false
+		if let Export { network, destination: Here } = fee_reason {
+			return !(network == EthereumNetwork::get())
 		}
 		WaivedLocations::contains(loc)
 	}

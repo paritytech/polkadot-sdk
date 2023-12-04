@@ -25,9 +25,9 @@ bridge-hub-rococo-runtime = { path = "../../../../../../runtimes/bridge-hubs/bri
 bridge-hub-common = { path = "../../../../../../runtimes/bridge-hubs/common", default-features = false }
 
 # Snowbridge
-snowbridge-core = { path = "../../../../../../../../../parachain/primitives/core", default-features = false }
-snowbridge-router-primitives = { path = "../../../../../../../../../parachain/primitives/router", default-features = false }
-snowbridge-control = { path = "../../../../../../../../../parachain/pallets/control", default-features = false }
-snowbridge-inbound-queue = { path = "../../../../../../../../../parachain/pallets/inbound-queue", default-features = false }
-snowbridge-outbound-queue = { path = "../../../../../../../../../parachain/pallets/outbound-queue", default-features = false }
+snowbridge-core = { git = "https://github.com/Snowfork/snowbridge.git", tag = "v0.9.0", default-features = false }
+snowbridge-router-primitives = { git = "https://github.com/Snowfork/snowbridge.git", tag = "v0.9.0", default-features = false }
+snowbridge-system = { git = "https://github.com/Snowfork/snowbridge.git", tag = "v0.9.0", default-features = false }
+snowbridge-inbound-queue = { git = "https://github.com/Snowfork/snowbridge.git", tag = "v0.9.0", default-features = false }
+snowbridge-outbound-queue = { git = "https://github.com/Snowfork/snowbridge.git", tag = "v0.9.0", default-features = false }
 
