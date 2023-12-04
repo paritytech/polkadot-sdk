@@ -755,7 +755,7 @@ fn xcmp_queue_send_too_big_xcm_fails() {
 		// Message is crafted to exceed `max_message_size`
 		let mut message = Xcm::builder_unsafe();
 		for _ in 0..97 {
-			message.clear_origin();
+			message = message.clear_origin();
 		}
 		let message = message.build();
 		let encoded_message_size = message.encode().len();
