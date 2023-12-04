@@ -553,27 +553,20 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				// We assume that the Relay-chain is allowed to use transact on this parachain.
 				let origin = *self.origin_ref().ok_or(XcmError::BadOrigin)?;
 
-				log::debug!(target: "kata::transact", "origin {:?}", origin);
 				// TODO: #2841 #TRANSACTFILTER allow the trait to issue filters for the relay-chain
 				let message_call = call.take_decoded().map_err(|_| XcmError::FailedToDecode)?;
-				log::debug!(target: "kata::transact", "message_call {:?}", message_call);
 				ensure!(Config::SafeCallFilter::contains(&message_call), XcmError::NoPermission);
-				log::debug!(target: "kata::transact", "ok permission");
 				let dispatch_origin = Config::OriginConverter::convert_origin(origin, origin_kind)
 					.map_err(|_| XcmError::BadOrigin)?;
 				let weight = message_call.get_dispatch_info().weight;
-				log::debug!(target: "kata::transact", "weight {:?}", weight);
 				ensure!(weight.all_lte(require_weight_at_most), XcmError::MaxWeightInvalid);
-				log::debug!(target: "kata::transact", "ok weight");
 				let maybe_actual_weight =
 					match Config::CallDispatcher::dispatch(message_call, dispatch_origin) {
 						Ok(post_info) => {
-							log::debug!(target: "kata::transact", "transact ok");
 							self.transact_status = MaybeErrorCode::Success;
 							post_info.actual_weight
 						},
 						Err(error_and_info) => {
-							log::error!(target: "kata::transact", "transact error: {:?}", error_and_info);
 							self.transact_status = error_and_info.error.encode().into();
 							error_and_info.post_info.actual_weight
 						},

@@ -128,10 +128,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		amount: T::Balance,
 		increase_supply: bool,
 	) -> DepositConsequence {
-		log::debug!(
-			target: "kata::assets", "can_increase id {:?} who {:?} amount {:?} increase_supply {:?}",
-			id, who, amount, increase_supply
-		);
 		let details = match Asset::<T, I>::get(&id) {
 			Some(details) => details,
 			None => return DepositConsequence::UnknownAsset,
@@ -151,10 +147,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				return DepositConsequence::BelowMinimum
 			}
 			if !details.is_sufficient && !frame_system::Pallet::<T>::can_accrue_consumers(who, 2) {
-				log::error!(
-					target: "kata::assets", "is_sufficient == {:?} && {:?} cannot accrue 2 consumers -> CannotCreate",
-					details.is_sufficient, who
-				);
 				return DepositConsequence::CannotCreate
 			}
 			if details.is_sufficient && details.sufficients.checked_add(1).is_none() {
@@ -173,10 +165,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		keep_alive: bool,
 	) -> WithdrawConsequence<T::Balance> {
 		use WithdrawConsequence::*;
-		log::debug!(
-			target: "kata::assets", "can_decrease id {:?} who {:?} amount {:?} keep_alive {:?}",
-			id, who, amount, keep_alive
-		);
 		let details = match Asset::<T, I>::get(&id) {
 			Some(details) => details,
 			None => return UnknownAsset,
@@ -192,15 +180,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 		let account = match Account::<T, I>::get(&id, who) {
 			Some(a) => a,
-			None => {
-				log::error!(target: "kata::assets", "can_decrease: BalanceLow 1");
-				return BalanceLow
-			},
+			None => return BalanceLow,
 		};
 		if account.status.is_frozen() {
 			return Frozen
 		}
-		log::info!(target: "kata::assets", "can_decrease: account balance {:?}", account.balance);
 		if let Some(rest) = account.balance.checked_sub(&amount) {
 			if let Some(frozen) = T::Freezer::frozen_balance(id.clone(), who) {
 				match frozen.checked_add(&details.min_balance) {
@@ -220,7 +204,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				Success
 			}
 		} else {
-			log::error!(target: "kata::assets", "can_decrease: BalanceLow 2");
 			BalanceLow
 		}
 	}
@@ -427,28 +410,16 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		amount: T::Balance,
 		maybe_check_issuer: Option<T::AccountId>,
 	) -> DispatchResult {
-		log::debug!(target: "kata::do_mint", "try to increase balance");
-		let result =
-			Self::increase_balance(id.clone(), beneficiary, amount, |details| -> DispatchResult {
-				log::debug!(target: "kata::do_mint", "details {:?}", details);
-				if let Some(check_issuer) = maybe_check_issuer {
-					ensure!(check_issuer == details.issuer, Error::<T, I>::NoPermission);
-				}
-				log::debug!(target: "kata::do_mint", "so far so good");
-				debug_assert!(
-					details.supply.checked_add(&amount).is_some(),
-					"checked in prep; qed"
-				);
+		Self::increase_balance(id.clone(), beneficiary, amount, |details| -> DispatchResult {
+			if let Some(check_issuer) = maybe_check_issuer {
+				ensure!(check_issuer == details.issuer, Error::<T, I>::NoPermission);
+			}
+			debug_assert!(details.supply.checked_add(&amount).is_some(), "checked in prep; qed");
 
-				details.supply = details.supply.saturating_add(amount);
+			details.supply = details.supply.saturating_add(amount);
 
-				Ok(())
-			});
-		match result {
-			Ok(_) => log::debug!(target: "kata::do_mint", "increased balance"),
-			Err(e) => log::error!(target: "kata::do_mint", "error {:?}", e),
-		};
-		result?;
+			Ok(())
+		})?;
 
 		Self::deposit_event(Event::Issued { asset_id: id, owner: beneficiary.clone(), amount });
 

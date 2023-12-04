@@ -1345,10 +1345,6 @@ impl<T: Config> Pallet<T> {
 	/// references would not take it above the the maximum.
 	pub fn can_accrue_consumers(who: &T::AccountId, amount: u32) -> bool {
 		let a = Account::<T>::get(who);
-		log::debug!(
-			target: "kata::system", "can_accrue_consumers who {:?} amount {:?}: account {:?}",
-			who, amount, a
-		);
 		match a.consumers.checked_add(amount) {
 			Some(c) => a.providers > 0 && c <= T::MaxConsumers::max_consumers(),
 			None => false,

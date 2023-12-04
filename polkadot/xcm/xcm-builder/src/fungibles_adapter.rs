@@ -61,7 +61,7 @@ impl<
 }
 
 /// The location which is allowed to mint a particular asset.
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum MintLocation {
 	/// This chain is allowed to mint the asset. When we track teleports of the asset we ensure
 	/// that no more of the asset returns back to the chain than has been sent out.
@@ -100,12 +100,10 @@ impl<AssetId> AssetChecking<AssetId> for NoChecking {
 pub struct LocalMint<T>(sp_std::marker::PhantomData<T>);
 impl<AssetId, T: Contains<AssetId>> AssetChecking<AssetId> for LocalMint<T> {
 	fn asset_checking(asset: &AssetId) -> Option<MintLocation> {
-		let ret = match T::contains(asset) {
+		match T::contains(asset) {
 			true => Some(MintLocation::Local),
 			false => None,
-		};
-		log::debug!(target: "kata::LocalMint::asset_checking", "return {:?}", ret);
-		ret
+		}
 	}
 }
 
@@ -114,12 +112,10 @@ impl<AssetId, T: Contains<AssetId>> AssetChecking<AssetId> for LocalMint<T> {
 pub struct NonLocalMint<T>(sp_std::marker::PhantomData<T>);
 impl<AssetId, T: Contains<AssetId>> AssetChecking<AssetId> for NonLocalMint<T> {
 	fn asset_checking(asset: &AssetId) -> Option<MintLocation> {
-		let ret = match T::contains(asset) {
+		match T::contains(asset) {
 			true => Some(MintLocation::NonLocal),
 			false => None,
-		};
-		log::debug!(target: "kata::NonLocalMint::asset_checking", "return {:?}", ret);
-		ret
+		}
 	}
 }
 
@@ -162,23 +158,15 @@ impl<
 {
 	fn can_accrue_checked(asset_id: Assets::AssetId, amount: Assets::Balance) -> XcmResult {
 		let checking_account = CheckingAccount::get();
-		log::debug!(target: "kata::FungiblesMutateAdapter", "can_accrue_checked");
 		Assets::can_deposit(asset_id, &checking_account, amount, Minted)
 			.into_result()
-			.map_err(|e| {
-				log::error!(target: "kata::FungiblesMutateAdapter", "can_reduce_checked error {:?}", e);
-				XcmError::NotWithdrawable
-			})
+			.map_err(|_| XcmError::NotDepositable)
 	}
 	fn can_reduce_checked(asset_id: Assets::AssetId, amount: Assets::Balance) -> XcmResult {
 		let checking_account = CheckingAccount::get();
-		log::debug!(target: "kata::FungiblesMutateAdapter", "can_reduce_checked");
 		Assets::can_withdraw(asset_id, &checking_account, amount)
 			.into_result(false)
-			.map_err(|e| {
-				log::error!(target: "kata::FungiblesMutateAdapter", "can_reduce_checked error {:?}", e);
-				XcmError::NotWithdrawable
-			})
+			.map_err(|_| XcmError::NotWithdrawable)
 			.map(|_| ())
 	}
 	fn accrue_checked(asset_id: Assets::AssetId, amount: Assets::Balance) {
@@ -255,7 +243,7 @@ impl<
 	) -> XcmResult {
 		log::trace!(
 			target: "xcm::fungibles_adapter",
-			"can_check_out origin: {:?}, what: {:?}",
+			"can_check_in origin: {:?}, what: {:?}",
 			_origin, what
 		);
 		// Check we handle this asset.

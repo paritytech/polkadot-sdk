@@ -776,14 +776,10 @@ pub mod pallet {
 			beneficiary: AccountIdLookupOf<T>,
 			#[pallet::compact] amount: T::Balance,
 		) -> DispatchResult {
-			log::debug!(target: "kata::mint", "incomint mint:");
 			let origin = ensure_signed(origin)?;
-			log::debug!(target: "kata::mint", "origin {:?}", origin);
 			let beneficiary = T::Lookup::lookup(beneficiary)?;
 			let id: T::AssetId = id.into();
-			log::debug!(target: "kata::mint", "beneficiary {:?} id {:?}", beneficiary, id);
 			Self::do_mint(id, &beneficiary, amount, Some(origin))?;
-			log::debug!(target: "kata::mint", "minted OK");
 			Ok(())
 		}
 
