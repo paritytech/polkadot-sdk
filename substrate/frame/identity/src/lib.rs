@@ -1204,7 +1204,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Validate a signature. Supports signatures on raw `data` or `data` wrapped in HTML `<Bytes>`.
-	fn validate_signature(
+	pub fn validate_signature(
 		data: &Vec<u8>,
 		signature: &T::OffchainSignature,
 		signer: &T::AccountId,

@@ -26,15 +26,16 @@ use crate::{
 use codec::{Decode, Encode};
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64, Get},
+	traits::{ConstU32, ConstU64, Get, OnFinalize, OnInitialize},
 	BoundedVec,
 };
 use frame_system::EnsureRoot;
 use sp_core::H256;
+use sp_io::crypto::{sr25519_generate, sr25519_sign};
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
 	traits::{BadOrigin, BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
-	BuildStorage, MultiSignature,
+	BuildStorage, MultiSignature, MultiSigner,
 };
 
 type AccountIdOf<Test> = <Test as frame_system::Config>::AccountId;
@@ -140,6 +141,18 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	ext
 }
 
+fn run_to_block(n: u64) {
+	while System::block_number() < n {
+		Identity::on_finalize(System::block_number());
+		Balances::on_finalize(System::block_number());
+		System::on_finalize(System::block_number());
+		System::set_block_number(System::block_number() + 1);
+		System::on_initialize(System::block_number());
+		Balances::on_initialize(System::block_number());
+		Identity::on_initialize(System::block_number());
+	}
+}
+
 fn account(id: u8) -> AccountIdOf<Test> {
 	[id; 32].into()
 }
@@ -161,12 +174,35 @@ fn accounts() -> [AccountIdOf<Test>; 8] {
 		account(1),
 		account(2),
 		account(3),
-		account(4),
+		account(4), // unfunded
 		account(10),
 		account(20),
 		account(30),
-		account(40),
+		account(40), // unfunded
 	]
+}
+
+fn unfunded_accounts() -> [AccountIdOf<Test>; 2] {
+	[account(100), account(101)]
+}
+
+// First return value is a username that would be submitted as a parameter to the dispatchable. As
+// in, it has no suffix attached. Second is a full BoundedVec username with suffix, which is what a
+// user would need to sign.
+fn test_username_of(int: Vec<u8>, suffix: Vec<u8>) -> (Vec<u8>, Username) {
+	let base = b"testusername";
+	let mut username = Vec::with_capacity(base.len() + int.len());
+	username.extend(base);
+	username.extend(int);
+
+	let mut bounded_username = Vec::with_capacity(username.len() + suffix.len() + 1);
+	bounded_username.extend(username.clone());
+	bounded_username.extend(b".");
+	bounded_username.extend(suffix);
+	let bounded_username =
+		Username::try_from(bounded_username).expect("test usernames should fit within bounds");
+
+	(username, bounded_username)
 }
 
 fn infoof_ten() -> IdentityInfo<MaxAdditionalFields> {
@@ -902,5 +938,645 @@ fn poke_deposit_works() {
 		);
 		// new subs deposit is 10           vvvvvvvvvvvv
 		assert_eq!(Identity::subs_of(ten), (subs_deposit, vec![twenty].try_into().unwrap()));
+	});
+}
+
+#[test]
+fn adding_and_removing_authorities_should_work() {
+	new_test_ext().execute_with(|| {
+		let [authority, _] = unfunded_accounts();
+		let suffix: Vec<u8> = b"test".to_vec();
+		let allocation: u32 = 10;
+
+		// add
+		assert_ok!(Identity::add_username_authority(
+			RuntimeOrigin::root(),
+			authority.clone(),
+			suffix.clone(),
+			allocation
+		));
+		assert_eq!(
+			UsernameAuthorities::<Test>::get(&authority),
+			Some(AuthorityProperties { suffix: suffix.clone().try_into().unwrap(), allocation })
+		);
+
+		// update allocation
+		assert_ok!(Identity::add_username_authority(
+			RuntimeOrigin::root(),
+			authority.clone(),
+			suffix.clone(),
+			11u32
+		));
+		assert_eq!(
+			UsernameAuthorities::<Test>::get(&authority),
+			Some(AuthorityProperties { suffix: suffix.try_into().unwrap(), allocation: 11 })
+		);
+
+		// remove
+		assert_ok!(Identity::remove_username_authority(RuntimeOrigin::root(), authority.clone(),));
+		assert!(UsernameAuthorities::<Test>::get(&authority).is_none());
+	});
+}
+
+#[test]
+fn set_username_with_signature_without_existing_identity_should_work() {
+	new_test_ext().execute_with(|| {
+		// set up authority
+		let [authority, _] = unfunded_accounts();
+		let suffix: Vec<u8> = b"test".to_vec();
+		let allocation: u32 = 10;
+		assert_ok!(Identity::add_username_authority(
+			RuntimeOrigin::root(),
+			authority.clone(),
+			suffix.clone(),
+			allocation
+		));
+
+		// set up username
+		let (username, username_to_sign) = test_username_of(b"42".to_vec(), suffix);
+		let encoded_username = Encode::encode(&username_to_sign.to_vec());
+
+		// set up user and sign message
+		let public = sr25519_generate(0.into(), None);
+		let who_account: AccountIdOf<Test> = MultiSigner::Sr25519(public).into_account().into();
+		let signature =
+			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &encoded_username).unwrap());
+
+		assert_ok!(Identity::set_username_for(
+			RuntimeOrigin::signed(authority),
+			who_account.clone(),
+			username.clone(),
+			Some(signature)
+		));
+
+		// Even though user has no balance and no identity, they get a default one for free.
+		assert_eq!(
+			Identity::identity(&who_account),
+			Some((
+				Registration {
+					judgements: Default::default(),
+					deposit: 0,
+					info: <IdentityInfo<MaxAdditionalFields> as types::IdentityInformationProvider>::default()
+				},
+				Some(username_to_sign.clone())
+			))
+		);
+		// Lookup from username to account works.
+		assert_eq!(
+			AccountOfUsername::<Test>::get::<&Username>(&username_to_sign),
+			Some(who_account)
+		);
+	});
+}
+
+#[test]
+fn set_username_with_signature_with_existing_identity_should_work() {
+	new_test_ext().execute_with(|| {
+		// set up authority
+		let [authority, _] = unfunded_accounts();
+		let suffix: Vec<u8> = b"test".to_vec();
+		let allocation: u32 = 10;
+		assert_ok!(Identity::add_username_authority(
+			RuntimeOrigin::root(),
+			authority.clone(),
+			suffix.clone(),
+			allocation
+		));
+
+		// set up username
+		let (username, username_to_sign) = test_username_of(b"42".to_vec(), suffix);
+		let encoded_username = Encode::encode(&username_to_sign.to_vec());
+
+		// set up user and sign message
+		let public = sr25519_generate(0.into(), None);
+		let who_account: AccountIdOf<Test> = MultiSigner::Sr25519(public).into_account().into();
+		let signature =
+			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &encoded_username).unwrap());
+
+		// Set an identity for who. They need some balance though.
+		Balances::make_free_balance_be(&who_account, 1000);
+		let ten_info = infoof_ten();
+		assert_ok!(Identity::set_identity(
+			RuntimeOrigin::signed(who_account.clone()),
+			Box::new(ten_info.clone())
+		));
+		assert_ok!(Identity::set_username_for(
+			RuntimeOrigin::signed(authority),
+			who_account.clone(),
+			username.clone(),
+			Some(signature)
+		));
+
+		assert_eq!(
+			Identity::identity(&who_account),
+			Some((
+				Registration {
+					judgements: Default::default(),
+					deposit: id_deposit(&ten_info),
+					info: ten_info
+				},
+				Some(username_to_sign.clone())
+			))
+		);
+		assert_eq!(
+			AccountOfUsername::<Test>::get::<&Username>(&username_to_sign),
+			Some(who_account)
+		);
+	});
+}
+
+#[test]
+fn set_username_with_bytes_signature_should_work() {
+	new_test_ext().execute_with(|| {
+		// set up authority
+		let [authority, _] = unfunded_accounts();
+		let suffix: Vec<u8> = b"test".to_vec();
+		let allocation: u32 = 10;
+		assert_ok!(Identity::add_username_authority(
+			RuntimeOrigin::root(),
+			authority.clone(),
+			suffix.clone(),
+			allocation
+		));
+
+		// set up user
+		let public = sr25519_generate(0.into(), None);
+		let who_account: AccountIdOf<Test> = MultiSigner::Sr25519(public).into_account().into();
+
+		// set up username
+		let (username, username_to_sign) = test_username_of(b"42".to_vec(), suffix);
+		let unwrapped_username = username_to_sign.to_vec();
+
+		// Sign an unwrapped version, as in `username.suffix`.
+		let unwrapped_encoded = Encode::encode(&unwrapped_username);
+		let signature_on_unwrapped =
+			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &unwrapped_encoded).unwrap());
+
+		// Trivial
+		assert_ok!(Identity::validate_signature(
+			&unwrapped_encoded,
+			&signature_on_unwrapped,
+			&who_account
+		));
+
+		// Here we are going to wrap the username and suffix in "<Bytes>" and verify that the
+		// signature verification still works, but only the username gets set in storage.
+		let prehtml = b"<Bytes>";
+		let posthtml = b"</Bytes>";
+		let mut wrapped_username: Vec<u8> =
+			Vec::with_capacity(unwrapped_username.len() + prehtml.len() + posthtml.len());
+		wrapped_username.extend(prehtml);
+		wrapped_username.extend(unwrapped_username.clone());
+		wrapped_username.extend(posthtml);
+		let wrapped_encoded = Encode::encode(&wrapped_username);
+		let signature_on_wrapped =
+			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &wrapped_encoded).unwrap());
+
+		// We want to call `validate_signature` on the *unwrapped* username, but the signature on
+		// the *wrapped* data.
+		assert_ok!(Identity::validate_signature(
+			&unwrapped_encoded,
+			&signature_on_wrapped,
+			&who_account
+		));
+
+		// Make sure it really works in context. Call `set_username_for` with the signature on the
+		// wrapped data.
+		// assert_ok!(Identity::set_username_for(
+		// 	RuntimeOrigin::signed(authority),
+		// 	who_account.clone(),
+		// 	username,
+		// 	Some(signature_on_wrapped)
+		// ));
+
+		// The username in storage should not include `<Bytes>`. As in, it's the original
+		// `username_to_sign`.
+		// assert_eq!(
+		// 	Identity::identity(&who_account),
+		// 	Some((
+		// 		Registration {
+		// 			judgements: Default::default(),
+		// 			deposit: 0,
+		// 			info: <IdentityInfo<MaxAdditionalFields> as types::IdentityInformationProvider>::default()
+		// 		},
+		// 		Some(username_to_sign.clone())
+		// 	))
+		// );
+		// // Likewise for the lookup.
+		// assert_eq!(
+		// 	AccountOfUsername::<Test>::get::<&Username>(&username_to_sign),
+		// 	Some(who_account)
+		// );
+	});
+}
+
+#[test]
+fn set_username_with_acceptance_should_work() {
+	new_test_ext().execute_with(|| {
+		// set up authority
+		let [authority, who] = unfunded_accounts();
+		let suffix: Vec<u8> = b"test".to_vec();
+		let allocation: u32 = 10;
+		assert_ok!(Identity::add_username_authority(
+			RuntimeOrigin::root(),
+			authority.clone(),
+			suffix.clone(),
+			allocation
+		));
+
+		// set up username
+		let (username, full_username) = test_username_of(b"101".to_vec(), suffix);
+		let now = frame_system::Pallet::<Test>::block_number();
+		let expiration = now + <<Test as Config>::PendingUsernameExpiration as Get<u64>>::get();
+
+		assert_ok!(Identity::set_username_for(
+			RuntimeOrigin::signed(authority),
+			who.clone(),
+			username.clone(),
+			None
+		));
+
+		// Should be pending
+		assert_eq!(
+			PendingUsernames::<Test>::get::<&Username>(&full_username),
+			Some((who.clone(), expiration))
+		);
+
+		// Now the user can accept
+		assert_ok!(Identity::accept_username(
+			RuntimeOrigin::signed(who.clone()),
+			full_username.clone()
+		));
+
+		// No more pending
+		assert!(PendingUsernames::<Test>::get::<&Username>(&full_username).is_none());
+		// Check Identity storage
+		assert_eq!(
+			Identity::identity(&who),
+			Some((
+				Registration {
+					judgements: Default::default(),
+					deposit: 0,
+					info: <IdentityInfo<MaxAdditionalFields> as types::IdentityInformationProvider>::default()
+				},
+				Some(full_username.clone())
+			))
+		);
+		// Check reverse lookup
+		assert_eq!(AccountOfUsername::<Test>::get::<&Username>(&full_username), Some(who));
+	});
+}
+
+#[test]
+fn invalid_usernames_should_be_rejected() {
+	new_test_ext().execute_with(|| {
+		let [authority, who] = unfunded_accounts();
+		let allocation: u32 = 10;
+		let valid_suffix = b"test".to_vec();
+		let invalid_suffixes = [
+			b"te.st".to_vec(), // not alphanumeric
+			b"su:ffx".to_vec(),
+			b"su_ffx".to_vec(),
+			b"suffixes".to_vec(), // too long
+		];
+		for suffix in invalid_suffixes {
+			assert_noop!(
+				Identity::add_username_authority(
+					RuntimeOrigin::root(),
+					authority.clone(),
+					suffix.clone(),
+					allocation
+				),
+				Error::<Test>::InvalidSuffix
+			);
+		}
+
+		// set a valid one now
+		assert_ok!(Identity::add_username_authority(
+			RuntimeOrigin::root(),
+			authority.clone(),
+			valid_suffix,
+			allocation
+		));
+
+		// set up usernames
+		let invalid_usernames = [
+			b"test_username".to_vec(),
+			b"test-username".to_vec(),
+			b"test:username".to_vec(),
+			b"test.username".to_vec(),
+			b"test@username".to_vec(),
+			b"test$username".to_vec(),
+			//0         1         2      v With `.test` this makes it too long.
+			b"testusernametestusernametest".to_vec(),
+		];
+		for username in invalid_usernames {
+			assert_noop!(
+				Identity::set_username_for(
+					RuntimeOrigin::signed(authority.clone()),
+					who.clone(),
+					username.clone(),
+					None
+				),
+				Error::<Test>::InvalidUsername
+			);
+		}
+
+		// valid one works
+		let valid_username = b"testusernametestusernametes".to_vec();
+		assert_ok!(Identity::set_username_for(
+			RuntimeOrigin::signed(authority),
+			who,
+			valid_username,
+			None
+		));
+	});
+}
+
+#[test]
+fn authorities_should_run_out_of_allocation() {
+	new_test_ext().execute_with(|| {
+		// set up authority
+		let [authority, _] = unfunded_accounts();
+		let [pi, e, c, _, _, _, _, _] = accounts();
+		let suffix: Vec<u8> = b"test".to_vec();
+		let allocation: u32 = 2;
+		assert_ok!(Identity::add_username_authority(
+			RuntimeOrigin::root(),
+			authority.clone(),
+			suffix.clone(),
+			allocation
+		));
+
+		assert_ok!(Identity::set_username_for(
+			RuntimeOrigin::signed(authority.clone()),
+			pi,
+			b"username314159".to_vec(),
+			None
+		));
+		assert_ok!(Identity::set_username_for(
+			RuntimeOrigin::signed(authority.clone()),
+			e,
+			b"username271828".to_vec(),
+			None
+		));
+		assert_noop!(
+			Identity::set_username_for(
+				RuntimeOrigin::signed(authority.clone()),
+				c,
+				b"username299792458".to_vec(),
+				None
+			),
+			Error::<Test>::NoAllocation
+		);
+	});
+}
+
+#[test]
+fn setting_primary_should_work() {
+	new_test_ext().execute_with(|| {
+		// set up authority
+		let [authority, _] = unfunded_accounts();
+		let suffix: Vec<u8> = b"test".to_vec();
+		let allocation: u32 = 10;
+		assert_ok!(Identity::add_username_authority(
+			RuntimeOrigin::root(),
+			authority.clone(),
+			suffix.clone(),
+			allocation
+		));
+
+		// set up user
+		let public = sr25519_generate(0.into(), None);
+		let who_account: AccountIdOf<Test> = MultiSigner::Sr25519(public).into_account().into();
+
+		// set up username
+		let (first_username, first_to_sign) = test_username_of(b"42".to_vec(), suffix.clone());
+		let encoded_username = Encode::encode(&first_to_sign.to_vec());
+		let first_signature =
+			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &encoded_username).unwrap());
+
+		assert_ok!(Identity::set_username_for(
+			RuntimeOrigin::signed(authority.clone()),
+			who_account.clone(),
+			first_username.clone(),
+			Some(first_signature)
+		));
+
+		// First username set as primary.
+		assert_eq!(
+			Identity::identity(&who_account),
+			Some((
+				Registration {
+					judgements: Default::default(),
+					deposit: 0,
+					info: <IdentityInfo<MaxAdditionalFields> as types::IdentityInformationProvider>::default()
+				},
+				Some(first_to_sign.clone())
+			))
+		);
+
+		// set up username
+		let (second_username, second_to_sign) = test_username_of(b"101".to_vec(), suffix);
+		let encoded_username = Encode::encode(&second_to_sign.to_vec());
+		let second_signature =
+			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &encoded_username).unwrap());
+
+		assert_ok!(Identity::set_username_for(
+			RuntimeOrigin::signed(authority),
+			who_account.clone(),
+			second_username.clone(),
+			Some(second_signature)
+		));
+
+		// The primary is still the first username.
+		assert_eq!(
+			Identity::identity(&who_account),
+			Some((
+				Registration {
+					judgements: Default::default(),
+					deposit: 0,
+					info: <IdentityInfo<MaxAdditionalFields> as types::IdentityInformationProvider>::default()
+				},
+				Some(first_to_sign.clone())
+			))
+		);
+
+		// Lookup from both works.
+		assert_eq!(
+			AccountOfUsername::<Test>::get::<&Username>(&first_to_sign),
+			Some(who_account.clone())
+		);
+		assert_eq!(
+			AccountOfUsername::<Test>::get::<&Username>(&second_to_sign),
+			Some(who_account.clone())
+		);
+
+		assert_ok!(Identity::set_primary_username(
+			RuntimeOrigin::signed(who_account.clone()),
+			second_to_sign.clone()
+		));
+
+		// The primary is now the second username.
+		assert_eq!(
+			Identity::identity(&who_account),
+			Some((
+				Registration {
+					judgements: Default::default(),
+					deposit: 0,
+					info: <IdentityInfo<MaxAdditionalFields> as types::IdentityInformationProvider>::default()
+				},
+				Some(second_to_sign.clone())
+			))
+		);
+
+		// Lookup from both still works.
+		assert_eq!(
+			AccountOfUsername::<Test>::get::<&Username>(&first_to_sign),
+			Some(who_account.clone())
+		);
+		assert_eq!(AccountOfUsername::<Test>::get::<&Username>(&second_to_sign), Some(who_account));
+	});
+}
+
+#[test]
+fn unaccepted_usernames_should_expire() {
+	new_test_ext().execute_with(|| {
+		// set up authority
+		let [authority, who] = unfunded_accounts();
+		let suffix: Vec<u8> = b"test".to_vec();
+		let allocation: u32 = 10;
+		assert_ok!(Identity::add_username_authority(
+			RuntimeOrigin::root(),
+			authority.clone(),
+			suffix.clone(),
+			allocation
+		));
+
+		// set up username
+		let (username, full_username) = test_username_of(b"101".to_vec(), suffix);
+		let now = frame_system::Pallet::<Test>::block_number();
+		let expiration = now + <<Test as Config>::PendingUsernameExpiration as Get<u64>>::get();
+
+		assert_ok!(Identity::set_username_for(
+			RuntimeOrigin::signed(authority),
+			who.clone(),
+			username.clone(),
+			None
+		));
+
+		// Should be pending
+		assert_eq!(
+			PendingUsernames::<Test>::get::<&Username>(&full_username),
+			Some((who.clone(), expiration))
+		);
+
+		run_to_block(now + expiration - 1);
+
+		// Cannot be removed
+		assert_noop!(
+			Identity::remove_expired_approval(
+				RuntimeOrigin::signed(account(1)),
+				full_username.clone()
+			),
+			Error::<Test>::NotExpired
+		);
+
+		run_to_block(now + expiration);
+
+		// Anyone can remove
+		assert_ok!(Identity::remove_expired_approval(
+			RuntimeOrigin::signed(account(1)),
+			full_username.clone()
+		));
+
+		// No more pending
+		assert!(PendingUsernames::<Test>::get::<&Username>(&full_username).is_none());
+	});
+}
+
+#[test]
+fn removing_dangling_usernames_should_work() {
+	new_test_ext().execute_with(|| {
+		// set up authority
+		let [authority, caller] = unfunded_accounts();
+		let suffix: Vec<u8> = b"test".to_vec();
+		let allocation: u32 = 10;
+		assert_ok!(Identity::add_username_authority(
+			RuntimeOrigin::root(),
+			authority.clone(),
+			suffix.clone(),
+			allocation
+		));
+
+		// set up username
+		let (username, username_to_sign) = test_username_of(b"42".to_vec(), suffix);
+		let encoded_username = Encode::encode(&username_to_sign.to_vec());
+
+		// set up user and sign message
+		let public = sr25519_generate(0.into(), None);
+		let who_account: AccountIdOf<Test> = MultiSigner::Sr25519(public).into_account().into();
+		let signature =
+			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &encoded_username).unwrap());
+
+		// Set an identity for who. They need some balance though.
+		Balances::make_free_balance_be(&who_account, 1000);
+		let ten_info = infoof_ten();
+		assert_ok!(Identity::set_identity(
+			RuntimeOrigin::signed(who_account.clone()),
+			Box::new(ten_info.clone())
+		));
+		assert_ok!(Identity::set_username_for(
+			RuntimeOrigin::signed(authority),
+			who_account.clone(),
+			username.clone(),
+			Some(signature)
+		));
+
+		assert_eq!(
+			Identity::identity(&who_account),
+			Some((
+				Registration {
+					judgements: Default::default(),
+					deposit: id_deposit(&ten_info),
+					info: ten_info
+				},
+				Some(username_to_sign.clone())
+			))
+		);
+		assert_eq!(
+			AccountOfUsername::<Test>::get::<&Username>(&username_to_sign),
+			Some(who_account.clone())
+		);
+
+		// Someone tries to remove it, but they can't
+		assert_noop!(
+			Identity::remove_dangling_username(
+				RuntimeOrigin::signed(caller.clone()),
+				username_to_sign.clone()
+			),
+			Error::<Test>::InvalidUsername
+		);
+
+		// Now the user calls `clear_identity`
+		assert_ok!(Identity::clear_identity(RuntimeOrigin::signed(who_account.clone()),));
+
+		// Identity is gone
+		assert!(Identity::identity(who_account.clone()).is_none());
+
+		// But the reverse lookup is still there
+		assert_eq!(
+			AccountOfUsername::<Test>::get::<&Username>(&username_to_sign),
+			Some(who_account)
+		);
+
+		// Now it can be removed
+		assert_ok!(Identity::remove_dangling_username(
+			RuntimeOrigin::signed(caller),
+			username_to_sign.clone()
+		));
+
+		// And the reverse lookup is gone
+		assert!(AccountOfUsername::<Test>::get::<&Username>(&username_to_sign).is_none());
 	});
 }

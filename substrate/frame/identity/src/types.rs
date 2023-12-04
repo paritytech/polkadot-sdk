@@ -332,7 +332,7 @@ const SUFFIX_MAX_LENGTH: u32 = 7;
 pub(crate) type Suffix = BoundedVec<u8, ConstU32<SUFFIX_MAX_LENGTH>>;
 
 /// Properties of a username authority.
-#[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Debug)]
 pub struct AuthorityProperties {
 	/// The suffix added to usernames granted by this authority. Will be appended to usernames; for
 	/// example, a suffix of `wallet` will result in `.wallet` being appended to a user's selected
