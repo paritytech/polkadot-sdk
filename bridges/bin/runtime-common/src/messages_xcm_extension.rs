@@ -22,7 +22,7 @@
 //! `XcmRouter` <- `MessageDispatch` <- `InboundMessageQueue`
 
 use bp_messages::{
-	source_chain::{MessagesBridge, OnMessagesDelivered},
+	source_chain::OnMessagesDelivered,
 	target_chain::{DispatchMessage, MessageDispatch},
 	LaneId, MessageNonce,
 };
@@ -31,14 +31,14 @@ use bp_xcm_bridge_hub_router::XcmChannelStatusProvider;
 use codec::{Decode, Encode};
 use frame_support::{traits::Get, weights::Weight, CloneNoBound, EqNoBound, PartialEqNoBound};
 use pallet_bridge_messages::{
-	Config as MessagesConfig, OutboundLanesCongestedSignals, Pallet as MessagesPallet,
+	Config as MessagesConfig, OutboundLanesCongestedSignals,
 	WeightInfoExt as MessagesPalletWeights,
 };
 use scale_info::TypeInfo;
 use sp_runtime::SaturatedConversion;
 use sp_std::{fmt::Debug, marker::PhantomData};
 use xcm::prelude::*;
-use xcm_builder::{DispatchBlob, DispatchBlobError, HaulBlob, HaulBlobError};
+use xcm_builder::{DispatchBlob, DispatchBlobError};
 
 /// Plain "XCM" payload, which we transfer through bridge
 pub type XcmAsPlainPayload = sp_std::prelude::Vec<u8>;
@@ -123,6 +123,7 @@ impl<
 
 /// A pair of sending chain location and message lane, used by this chain to send messages
 /// over the bridge.
+#[cfg_attr(feature = "std", derive(Debug, Eq, PartialEq))]
 pub struct SenderAndLane {
 	/// Sending chain relative location.
 	pub location: MultiLocation,
@@ -167,40 +168,6 @@ pub trait XcmBlobHauler {
 ///
 /// It needs to be used at the source bridge hub.
 pub struct XcmBlobHaulerAdapter<XcmBlobHauler>(sp_std::marker::PhantomData<XcmBlobHauler>);
-
-impl<H: XcmBlobHauler> HaulBlob for XcmBlobHaulerAdapter<H>
-where
-	H::Runtime: MessagesConfig<H::MessagesInstance, OutboundPayload = XcmAsPlainPayload>,
-{
-	fn haul_blob(blob: sp_std::prelude::Vec<u8>) -> Result<(), HaulBlobError> {
-		let sender_and_lane = H::SenderAndLane::get();
-		MessagesPallet::<H::Runtime, H::MessagesInstance>::send_message(sender_and_lane.lane, blob)
-			.map(|artifacts| {
-				log::info!(
-					target: crate::LOG_TARGET_BRIDGE_DISPATCH,
-					"haul_blob result - ok: {:?} on lane: {:?}. Enqueued messages: {}",
-					artifacts.nonce,
-					sender_and_lane.lane,
-					artifacts.enqueued_messages,
-				);
-
-				// notify XCM queue manager about updated lane state
-				LocalXcmQueueManager::<H>::on_bridge_message_enqueued(
-					&sender_and_lane,
-					artifacts.enqueued_messages,
-				);
-			})
-			.map_err(|error| {
-				log::error!(
-					target: crate::LOG_TARGET_BRIDGE_DISPATCH,
-					"haul_blob result - error: {:?} on lane: {:?}",
-					error,
-					sender_and_lane.lane,
-				);
-				HaulBlobError::Transport("MessageSenderError")
-			})
-	}
-}
 
 impl<H: XcmBlobHauler> OnMessagesDelivered for XcmBlobHaulerAdapter<H> {
 	fn on_messages_delivered(lane: LaneId, enqueued_messages: MessageNonce) {

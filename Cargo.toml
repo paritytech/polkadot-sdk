@@ -34,6 +34,7 @@ members = [
 	"bridges/primitives/relayers",
 	"bridges/primitives/runtime",
 	"bridges/primitives/test-utils",
+	"bridges/primitives/xcm-bridge-hub",
 	"bridges/primitives/xcm-bridge-hub-router",
 	"cumulus/client/cli",
 	"cumulus/client/collator",
