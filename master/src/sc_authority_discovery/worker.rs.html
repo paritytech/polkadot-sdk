@@ -812,7 +812,7 @@
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>ip_network::IpNetwork;
 <span class="kw">use </span>libp2p::{core::multiaddr, identity::PublicKey, multihash::Multihash, Multiaddr, PeerId};
-<span class="kw">use </span>multihash::{Code, MultihashDigest};
+<span class="kw">use </span>multihash_codetable::{Code, MultihashDigest};
 
 <span class="kw">use </span>log::{debug, error, log_enabled};
 <span class="kw">use </span>prometheus_endpoint::{register, Counter, CounterVec, Gauge, Opts, U64};
