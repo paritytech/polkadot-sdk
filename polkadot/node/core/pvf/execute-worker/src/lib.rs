@@ -160,7 +160,7 @@ pub fn worker_entrypoint(
 					let result =
 						Err(InternalValidationError::HostCommunication(err.to_string()).into());
 					send_result(&mut stream, result)?;
-					return
+					return Err(err)
 				},
 			};
 
