@@ -16,7 +16,6 @@
 // Substrate
 use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
 use grandpa::AuthorityId as GrandpaId;
-use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::storage::Storage;
@@ -39,7 +38,6 @@ const STASH: u128 = 100 * WND;
 fn session_keys(
 	babe: BabeId,
 	grandpa: GrandpaId,
-	im_online: ImOnlineId,
 	para_validator: ValidatorId,
 	para_assignment: AssignmentId,
 	authority_discovery: AuthorityDiscoveryId,
@@ -48,7 +46,6 @@ fn session_keys(
 	westend_runtime::SessionKeys {
 		babe,
 		grandpa,
-		im_online,
 		para_validator,
 		para_assignment,
 		authority_discovery,
@@ -75,7 +72,6 @@ pub fn genesis() -> Storage {
 							x.4.clone(),
 							x.5.clone(),
 							x.6.clone(),
-							x.7.clone(),
 							get_from_seed::<BeefyId>("Alice"),
 						),
 					)
