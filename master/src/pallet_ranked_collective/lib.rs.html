@@ -785,6 +785,11 @@
 <a href="#785" id="785">785</a>
 <a href="#786" id="786">786</a>
 <a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1450,16 +1455,21 @@
 		}
 
 		<span class="kw">fn </span>remove_from_rank(who: <span class="kw-2">&amp;</span>T::AccountId, rank: Rank) -&gt; DispatchResult {
-			<span class="kw">let </span>last_index = MemberCount::&lt;T, I&gt;::get(rank).saturating_sub(<span class="number">1</span>);
-			<span class="kw">let </span>index = IdToIndex::&lt;T, I&gt;::get(rank, <span class="kw-2">&amp;</span>who).ok_or(Error::&lt;T, I&gt;::Corruption)<span class="question-mark">?</span>;
-			<span class="kw">if </span>index != last_index {
-				<span class="kw">let </span>last =
-					IndexToId::&lt;T, I&gt;::get(rank, last_index).ok_or(Error::&lt;T, I&gt;::Corruption)<span class="question-mark">?</span>;
-				IdToIndex::&lt;T, I&gt;::insert(rank, <span class="kw-2">&amp;</span>last, index);
-				IndexToId::&lt;T, I&gt;::insert(rank, index, <span class="kw-2">&amp;</span>last);
-			}
-			MemberCount::&lt;T, I&gt;::mutate(rank, |r| r.saturating_dec());
-			<span class="prelude-val">Ok</span>(())
+			MemberCount::&lt;T, I&gt;::try_mutate(rank, |last_index| {
+				last_index.saturating_dec();
+				<span class="kw">let </span>index = IdToIndex::&lt;T, I&gt;::get(rank, <span class="kw-2">&amp;</span>who).ok_or(Error::&lt;T, I&gt;::Corruption)<span class="question-mark">?</span>;
+				<span class="kw">if </span>index != <span class="kw-2">*</span>last_index {
+					<span class="kw">let </span>last = IndexToId::&lt;T, I&gt;::get(rank, <span class="kw-2">*</span>last_index)
+						.ok_or(Error::&lt;T, I&gt;::Corruption)<span class="question-mark">?</span>;
+					IdToIndex::&lt;T, I&gt;::insert(rank, <span class="kw-2">&amp;</span>last, index);
+					IndexToId::&lt;T, I&gt;::insert(rank, index, <span class="kw-2">&amp;</span>last);
+				}
+
+				IdToIndex::&lt;T, I&gt;::remove(rank, who);
+				IndexToId::&lt;T, I&gt;::remove(rank, last_index);
+
+				<span class="prelude-val">Ok</span>(())
+			})
 		}
 
 		<span class="doccomment">/// Adds a member into the ranked collective at level 0.
