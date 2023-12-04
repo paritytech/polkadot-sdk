@@ -18,7 +18,6 @@
 
 use crate as pallet_xcm_bridge_hub;
 
-use crate::exporter::XcmAsPlainPayload;
 use bp_messages::{
 	source_chain::LaneMessageVerifier,
 	target_chain::{DispatchMessage, MessageDispatch},
