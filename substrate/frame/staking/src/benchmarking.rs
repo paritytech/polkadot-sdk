@@ -528,12 +528,12 @@ benchmarks! {
 
 	deprecate_controller_batch {
 		// We pass a dynamic number of controllers to the benchmark, up to `MaxControllersInDeprecationBatch`.
-		let i in 1 .. T::MaxControllersInDeprecationBatch::get();
+		let i in 0 .. T::MaxControllersInDeprecationBatch::get();
 
 		let mut controllers: Vec<_> = vec![];
 		let mut stashes: Vec<_> = vec![];
 
-		for n in 1..i as u32 {
+		for n in 0..i as u32 {
 			let (stash, controller) = create_unique_stash_controller::<T>(
 				n,
 				100,
@@ -547,7 +547,7 @@ benchmarks! {
 			BoundedVec::try_from(controllers.clone()).unwrap();
 	}: _(RawOrigin::Root, bounded_controllers)
 	verify {
-		for n in 1..i as u32 {
+		for n in 0..i as u32 {
 			let stash = &stashes[n as usize];
 			let controller = &controllers[n as usize];
 
