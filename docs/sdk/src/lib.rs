@@ -1,6 +1,6 @@
-//! # Developer Hub
+//! # Polkadot SDK Docs
 //!
-//! The Polkadot SDK Developer Hub.
+//! The Polkadot SDK Developer Documentation.
 //!
 //! This crate is a *minimal*, but *always-accurate* source of information for those wishing to
 //! build on the Polkadot SDK.
@@ -22,7 +22,7 @@
 //! ## Information Architecture
 //!
 //! This section paints a picture over the high-level information architecture of this crate.
-#![doc = simple_mermaid::mermaid!("../../docs/mermaid/IA.mmd")]
+#![doc = simple_mermaid::mermaid!("../../mermaid/IA.mmd")]
 #![allow(rustdoc::invalid_html_tags)] // TODO: remove later. https://github.com/paritytech/polkadot-sdk-docs/issues/65
 #![allow(rustdoc::bare_urls)] // TODO: remove later. https://github.com/paritytech/polkadot-sdk-docs/issues/65
 #![warn(rustdoc::broken_intra_doc_links)]

@@ -33,7 +33,7 @@
 //!
 //! Therefore, the high-level architecture of a any Substrate-based chain can be demonstrated as
 //! follows:
-#![doc = simple_mermaid::mermaid!("../../../docs/mermaid/substrate_simple.mmd")]
+#![doc = simple_mermaid::mermaid!("../../../mermaid/substrate_simple.mmd")]
 //!
 //! The node and the runtime need to communicate. This is done through two concepts:
 //!
@@ -44,7 +44,7 @@
 //!    using macros and utilities in [`sp_api`]. For example, [`sp_api::Core`] is the most
 //!    fundamental runtime API that any blockchain must implement in order to be able to (re)
 //!    execute blocks.
-#![doc = simple_mermaid::mermaid!("../../../docs/mermaid/substrate_client_runtime.mmd")]
+#![doc = simple_mermaid::mermaid!("../../../mermaid/substrate_client_runtime.mmd")]
 //!
 //! A runtime must have a set of runtime APIs in order to have any meaningful blockchain
 //! functionality, but it can also expose more APIs. See TODO as an example of how to add custom
@@ -74,7 +74,7 @@
 //! > The consensus is to your runtime what HTTP is to a web-application. It is the underlying
 //! > engine that enables trustless execution of the runtime in a distributed manner whilst
 //! > maintaining a canonical outcome of that execution.
-#![doc = simple_mermaid::mermaid!("../../../docs/mermaid/substrate_with_frame.mmd")]
+#![doc = simple_mermaid::mermaid!("../../../mermaid/substrate_with_frame.mmd")]
 //!
 //! ## State
 //!
@@ -91,7 +91,7 @@
 //! In fact, [`sp_core::storage::well_known_keys`] are the only state keys that the node side is
 //! aware of. The rest of the state, including what logic the runtime has, what balance each user
 //! has and such are all only comprehensible to the runtime.
-#![doc = simple_mermaid::mermaid!("../../../docs/mermaid/state.mmd")]
+#![doc = simple_mermaid::mermaid!("../../../mermaid/state.mmd")]
 //!
 //! In the above diagram, all of the state keys and values are opaque bytes to the node. The node
 //! does not know what they mean, and it does not now what is the type of the corresponding value
