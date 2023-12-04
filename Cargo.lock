@@ -4584,7 +4584,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "regex",
- "syn 2.0.38",
+ "syn 2.0.39",
  "termcolor",
  "walkdir",
 ]
@@ -5467,7 +5467,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 8.0.0",
- "sp-storage 13.0.0",
  "sp-tracing 10.0.0",
  "sp-version",
 ]
