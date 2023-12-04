@@ -17,13 +17,13 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
 # FRAME
-frame-support = { path = "../support", default-features = false}
-frame-system = { path = "../system", default-features = false}
-sp-runtime = { path = "../../primitives/runtime", default-features = false}
-sp-std = { path = "../../primitives/std", default-features = false}
-sp-staking = { path = "../../primitives/staking", default-features = false}
-sp-core = { path = "../../primitives/core", default-features = false}
-sp-io = { path = "../../primitives/io", default-features = false}
+frame-support = { path = "../support", default-features = false }
+frame-system = { path = "../system", default-features = false }
+sp-runtime = { path = "../../primitives/runtime", default-features = false }
+sp-std = { path = "../../primitives/std", default-features = false }
+sp-staking = { path = "../../primitives/staking", default-features = false }
+sp-core = { path = "../../primitives/core", default-features = false }
+sp-io = { path = "../../primitives/io", default-features = false }
 log = { version = "0.4.0", default-features = false }
 
 # Optional: use for testing and/or fuzzing
@@ -35,8 +35,8 @@ pallet-balances = { path = "../balances" }
 sp-tracing = { path = "../../primitives/tracing" }
 
 [features]
-default = [ "std" ]
-fuzzing = [ "pallet-balances", "sp-tracing" ]
+default = ["std"]
+fuzzing = ["pallet-balances", "sp-tracing"]
 std = [
 	"codec/std",
 	"frame-support/std",
