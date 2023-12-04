@@ -270,7 +270,7 @@ pub mod pallet {
 		type MaxUnlockingChunks: Get<u32>;
 
 		/// The maximum amount of controller accounts that can be deprecated in one call.
-		type MaxControllersInBatch: Get<u32>;
+		type MaxControllersInDeprecationBatch: Get<u32>;
 
 		/// Something that listens to staking updates and performs actions based on the data it
 		/// receives.
@@ -1936,7 +1936,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::update_payee())] // TODO: insert real weight.
 		pub fn deprecate_controller_batch(
 			origin: OriginFor<T>,
-			controllers: BoundedVec<T::AccountId, T::MaxControllersInBatch>,
+			controllers: BoundedVec<T::AccountId, T::MaxControllersInDeprecationBatch>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 

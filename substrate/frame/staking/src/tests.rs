@@ -6875,7 +6875,7 @@ mod ledger {
 
 			let start = 1001;
 			let mut controllers: Vec<_> = vec![];
-			for n in start..(start + MaxControllersInBatch::get()).into() {
+			for n in start..(start + MaxControllersInDeprecationBatch::get()).into() {
 				let ctlr: u64 = n.into();
 				let stash: u64 = (n + 10000).into();
 
@@ -6896,7 +6896,7 @@ mod ledger {
 
 			// When:
 
-			let bounded_controllers: BoundedVec<_, <Test as Config>::MaxControllersInBatch> =
+			let bounded_controllers: BoundedVec<_, <Test as Config>::MaxControllersInDeprecationBatch> =
 				BoundedVec::try_from(controllers).unwrap();
 
 			assert_ok!(Staking::deprecate_controller_batch(
@@ -6906,7 +6906,7 @@ mod ledger {
 
 			// Then:
 
-			for n in start..(start + MaxControllersInBatch::get()).into() {
+			for n in start..(start + MaxControllersInDeprecationBatch::get()).into() {
 				let ctlr: u64 = n.into();
 				let stash: u64 = (n + 10000).into();
 
