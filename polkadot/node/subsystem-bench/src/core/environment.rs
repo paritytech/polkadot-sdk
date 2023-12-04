@@ -150,7 +150,7 @@ pub const GENESIS_HASH: Hash = Hash::repeat_byte(0xff);
 // We use this to bail out sending messages to the subsystem if it is overloaded such that
 // the time of flight is breaches 5s.
 // This should eventually be a test parameter.
-const MAX_TIME_OF_FLIGHT: Duration = Duration::from_millis(5000);
+pub const MAX_TIME_OF_FLIGHT: Duration = Duration::from_millis(5000);
 
 /// The test environment is the high level wrapper of all things required to test
 /// a certain subsystem.
@@ -294,6 +294,7 @@ impl Display for TestEnvironment {
 				stats
 					.iter()
 					.enumerate()
+					.filter(|(index, _)| *index != 0)
 					.map(|(_index, stats)| stats.tx_bytes_total as u128)
 					.sum::<u128>() / (1024 * 1024)
 			)

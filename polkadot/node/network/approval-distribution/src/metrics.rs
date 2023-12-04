@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+//! [`ApprovalDistribution`] metrics implementation.
 use polkadot_node_metrics::metrics::{prometheus, Metrics as MetricsTrait};
 use polkadot_node_primitives::approval::v2::AssignmentCertKindV2;
 

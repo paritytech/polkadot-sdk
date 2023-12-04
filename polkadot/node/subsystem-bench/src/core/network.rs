@@ -19,6 +19,7 @@ use super::{
 	*,
 };
 use colored::Colorize;
+use futures::FutureExt;
 use polkadot_primitives::AuthorityDiscoveryId;
 use prometheus_endpoint::U64;
 use rand::{seq::SliceRandom, thread_rng};
@@ -31,7 +32,7 @@ use std::{
 	},
 	time::{Duration, Instant},
 };
-use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 // An emulated node egress traffic rate_limiter.
 #[derive(Debug)]
@@ -150,6 +151,7 @@ impl PeerEmulator {
 		bandwidth: usize,
 		spawn_task_handle: SpawnTaskHandle,
 		stats: Arc<PeerEmulatorStats>,
+		to_node_under_test: UnboundedSender<NetworkAction>,
 	) -> Self {
 		let (actions_tx, mut actions_rx) = tokio::sync::mpsc::unbounded_channel();
 
@@ -161,6 +163,7 @@ impl PeerEmulator {
 				loop {
 					let stats_clone = stats.clone();
 					let maybe_action: Option<NetworkAction> = actions_rx.recv().await;
+					let to_node_under_test_clone = to_node_under_test.clone();
 					if let Some(action) = maybe_action {
 						let size = action.size();
 						rate_limiter.reap(size).await;
@@ -170,12 +173,18 @@ impl PeerEmulator {
 								"test-environment",
 								async move {
 									tokio::time::sleep(latency).await;
-									action.run().await;
+									// action.run().await;
+									to_node_under_test_clone
+										.send(action)
+										.expect("Should not fail unbounded channel");
 									stats_clone.inc_sent(size);
 								},
 							)
 						} else {
-							action.run().await;
+							// action.run().await;
+							to_node_under_test
+								.send(action)
+								.expect("Should not fail unbounded channel");
 							stats_clone.inc_sent(size);
 						}
 					} else {
@@ -331,6 +340,8 @@ impl NetworkEmulator {
 			Metrics::new(&dependencies.registry).expect("Metrics always register succesfully");
 		let mut validator_authority_id_mapping = HashMap::new();
 
+		let (ingress_tx, ingress_rx) = tokio::sync::mpsc::unbounded_channel::<NetworkAction>();
+
 		// Create a `PeerEmulator` for each peer.
 		let (stats, mut peers): (_, Vec<_>) = (0..n_peers)
 			.zip(authorities.validator_authority_id.clone().into_iter())
@@ -343,6 +354,7 @@ impl NetworkEmulator {
 						config.peer_bandwidth,
 						dependencies.task_manager.spawn_handle(),
 						stats,
+						ingress_tx.clone(),
 					)),
 				)
 			})
@@ -358,8 +370,41 @@ impl NetworkEmulator {
 		}
 
 		gum::info!(target: LOG_TARGET, "{}",format!("Network created, connected validator count {}", connected_count).bright_black());
+		let our_network =
+			Self { peers, stats, validator_authority_ids: validator_authority_id_mapping };
+		our_network.start_node_under_test_receiver(
+			config,
+			dependencies.task_manager.spawn_handle(),
+			ingress_rx,
+		);
+		our_network
+	}
 
-		Self { peers, stats, validator_authority_ids: validator_authority_id_mapping }
+	pub fn start_node_under_test_receiver(
+		&self,
+		config: &TestConfiguration,
+		spawn_task_handle: SpawnTaskHandle,
+		mut ingress_rx: UnboundedReceiver<NetworkAction>,
+	) {
+		let mut rx_limiter = RateLimit::new(10, config.bandwidth);
+
+		let our_network = self.clone();
+		// This task will handle node messages receipt from the simulated network.
+		let _ = spawn_task_handle.spawn_blocking(
+			"network-receiver-0",
+			"network-receiver",
+			async move {
+				while let Some(action) = ingress_rx.recv().await {
+					let size = action.size();
+
+					// account for our node receiving the data.
+					our_network.inc_received(size);
+					rx_limiter.reap(size).await;
+					action.run().await;
+				}
+			}
+			.boxed(),
+		);
 	}
 
 	pub fn is_peer_connected(&self, peer: &AuthorityDiscoveryId) -> bool {

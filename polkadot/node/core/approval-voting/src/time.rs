@@ -40,7 +40,7 @@ pub(crate) trait Clock {
 }
 
 /// Extension methods for clocks.
-pub(crate) trait ClockExt {
+pub trait ClockExt {
 	fn tranche_now(&self, slot_duration_millis: u64, base_slot: Slot) -> DelayTranche;
 }
 
@@ -52,7 +52,7 @@ impl<C: Clock + ?Sized> ClockExt for C {
 }
 
 /// A clock which uses the actual underlying system clock.
-pub(crate) struct SystemClock;
+pub struct SystemClock;
 
 impl Clock for SystemClock {
 	/// Yields the current tick.

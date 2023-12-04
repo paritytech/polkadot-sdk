@@ -22,12 +22,16 @@ use sp_core::{
 /// Set of test accounts.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Keyring {
-	name: String,
+	pub name: String,
 }
 
 impl Keyring {
 	pub fn new(name: String) -> Keyring {
 		Self { name }
+	}
+
+	pub fn seed(&self) -> String {
+		format!("//{}", self.name)
 	}
 
 	pub fn pair(self) -> Pair {

@@ -58,7 +58,7 @@ use std::{
 	time::Duration,
 };
 
-mod metrics;
+pub mod metrics;
 
 #[cfg(test)]
 mod tests;

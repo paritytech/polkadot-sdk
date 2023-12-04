@@ -22,6 +22,7 @@ use color_eyre::eyre;
 use colored::Colorize;
 use std::{path::Path, time::Duration};
 
+pub(crate) mod approval;
 pub(crate) mod availability;
 pub(crate) mod cli;
 pub(crate) mod core;
@@ -36,6 +37,8 @@ use core::{
 
 use clap_num::number_range;
 
+use crate::approval::bench_approvals;
+// const LOG_TARGET: &str = "subsystem-bench";
 use crate::core::display::display_configuration;
 
 fn le_100(s: &str) -> Result<usize, String> {
@@ -83,6 +86,7 @@ struct BenchCli {
 impl BenchCli {
 	fn launch(self) -> eyre::Result<()> {
 		let configuration = self.standard_configuration;
+
 		let mut test_config = match self.objective {
 			TestObjective::TestSequence(options) => {
 				let test_sequence =
@@ -98,10 +102,25 @@ impl BenchCli {
 					gum::info!("{}", format!("Step {}/{}", index + 1, num_steps).bright_purple(),);
 					display_configuration(&test_config);
 
-					let mut state = TestState::new(&test_config);
-					let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
-					env.runtime()
-						.block_on(availability::benchmark_availability_read(&mut env, state));
+					match test_config.objective {
+						TestObjective::DataAvailabilityRead(_) => {
+							let mut state = TestState::new(&test_config);
+							let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
+
+							env.runtime().block_on(availability::benchmark_availability_read(
+								&mut env, state,
+							));
+						},
+						TestObjective::ApprovalsTest(ref options) => {
+							let (mut env, state) =
+								approval::prepare_test(test_config.clone(), options.clone());
+
+							env.runtime().block_on(async {
+								bench_approvals(&mut env, state).await;
+							});
+						},
+						TestObjective::TestSequence(_) => todo!(),
+					}
 				}
 				return Ok(())
 			},
@@ -130,6 +149,9 @@ impl BenchCli {
 					configuration.min_pov_size,
 					configuration.max_pov_size,
 				),
+			},
+			TestObjective::ApprovalsTest(ref options) => {
+				todo!("Not implemented");
 			},
 		};
 
@@ -176,11 +198,12 @@ fn main() -> eyre::Result<()> {
 		// Avoid `Terminating due to subsystem exit subsystem` warnings
 		.filter(Some("polkadot_overseer"), log::LevelFilter::Error)
 		.filter(None, log::LevelFilter::Info)
-		// .filter(None, log::LevelFilter::Trace)
+		.format_timestamp(Some(env_logger::TimestampPrecision::Millis))
 		.try_init()
 		.unwrap();
 
 	let cli: BenchCli = BenchCli::parse();
 	cli.launch()?;
+
 	Ok(())
 }
