@@ -70,48 +70,58 @@
 // Make doc tests happy
 extern crate self as sp_api;
 
+/// Private exports used by the macros.
+///
+/// This is seen as internal API and can change at any point.
 #[doc(hidden)]
-pub use codec::{self, Decode, DecodeLimit, Encode};
-#[doc(hidden)]
-#[cfg(feature = "std")]
-pub use hash_db::Hasher;
-#[doc(hidden)]
-pub use scale_info;
-#[doc(hidden)]
-pub use sp_core::offchain;
-#[doc(hidden)]
-#[cfg(not(feature = "std"))]
-pub use sp_core::to_substrate_wasm_fn_return_value;
-#[doc(hidden)]
+pub mod __private {
+	#[cfg(feature = "std")]
+	mod std_imports {
+		pub use hash_db::Hasher;
+		pub use sp_core::traits::CallContext;
+		pub use sp_externalities::{Extension, Extensions};
+		pub use sp_runtime::StateVersion;
+		pub use sp_state_machine::{
+			Backend as StateBackend, InMemoryBackend, OverlayedChanges, StorageProof, TrieBackend,
+			TrieBackendBuilder,
+		};
+	}
+	#[cfg(feature = "std")]
+	pub use std_imports::*;
+
+	pub use crate::*;
+	pub use codec::{self, Decode, DecodeLimit, Encode};
+	pub use scale_info;
+	pub use sp_core::offchain;
+	#[cfg(not(feature = "std"))]
+	pub use sp_core::to_substrate_wasm_fn_return_value;
+	#[cfg(feature = "frame-metadata")]
+	pub use sp_metadata_ir::{self as metadata_ir, frame_metadata as metadata};
+	pub use sp_runtime::{
+		generic::BlockId,
+		traits::{Block as BlockT, Hash as HashT, HashingFor, Header as HeaderT, NumberFor},
+		transaction_validity::TransactionValidity,
+		RuntimeString, TransactionOutcome,
+	};
+	pub use sp_std::{mem, slice, vec};
+	pub use sp_version::{create_apis_vec, ApiId, ApisVec, RuntimeVersion};
+}
+
 #[cfg(feature = "std")]
 pub use sp_core::traits::CallContext;
 use sp_core::OpaqueMetadata;
-#[doc(hidden)]
 #[cfg(feature = "std")]
-pub use sp_externalities::{Extension, Extensions};
-#[doc(hidden)]
-#[cfg(feature = "frame-metadata")]
-pub use sp_metadata_ir::{self as metadata_ir, frame_metadata as metadata};
-#[doc(hidden)]
+use sp_externalities::{Extension, Extensions};
+use sp_runtime::traits::Block as BlockT;
 #[cfg(feature = "std")]
-pub use sp_runtime::StateVersion;
-#[doc(hidden)]
-pub use sp_runtime::{
-	generic::BlockId,
-	traits::{Block as BlockT, Hash as HashT, HashingFor, Header as HeaderT, NumberFor},
-	transaction_validity::TransactionValidity,
-	RuntimeString, TransactionOutcome,
-};
-#[doc(hidden)]
+use sp_runtime::traits::HashingFor;
 #[cfg(feature = "std")]
-pub use sp_state_machine::{
-	backend::AsTrieBackend, Backend as StateBackend, InMemoryBackend, OverlayedChanges,
-	StorageProof, TrieBackend, TrieBackendBuilder,
-};
-#[doc(hidden)]
-pub use sp_std::{mem, slice, vec};
-#[doc(hidden)]
-pub use sp_version::{create_apis_vec, ApiId, ApisVec, RuntimeVersion};
+pub use sp_runtime::TransactionOutcome;
+#[cfg(feature = "std")]
+pub use sp_state_machine::StorageProof;
+#[cfg(feature = "std")]
+use sp_state_machine::{backend::AsTrieBackend, Backend as StateBackend, OverlayedChanges};
+use sp_version::RuntimeVersion;
 #[cfg(feature = "std")]
 use std::cell::RefCell;
 

@@ -15,10 +15,11 @@
 
 use crate::*;
 
+type CoretimeRococoBroker = <CoretimeRococo as CoretimeRococoPallet>::Broker;
+
 #[test]
 fn assign_core() {
-
 	CoretimeRococo::execute_with(|| {
-		// test assign_core
+		assert_ok!(CoretimeRococoBroker::assign_core());
 	})
 }

@@ -34,7 +34,6 @@ use jsonrpsee::{
 use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::ChildInfo;
 use sc_service::client::new_in_mem;
-use sp_api::BlockT;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::BlockOrigin;
 use sp_core::{
@@ -42,6 +41,7 @@ use sp_core::{
 	testing::TaskExecutor,
 	Blake2Hasher, Hasher,
 };
+use sp_runtime::traits::Block as BlockT;
 use sp_version::RuntimeVersion;
 use std::{
 	collections::{HashMap, HashSet},

@@ -219,7 +219,7 @@ pub fn run_worker<F>(
 	#[cfg_attr(not(target_os = "linux"), allow(unused_mut))] mut worker_dir_path: PathBuf,
 	node_version: Option<&str>,
 	worker_version: Option<&str>,
-	#[cfg_attr(not(target_os = "linux"), allow(unused_variables))] security_status: &SecurityStatus,
+	security_status: &SecurityStatus,
 	mut event_loop: F,
 ) where
 	F: FnMut(UnixStream, PathBuf) -> io::Result<Never>,

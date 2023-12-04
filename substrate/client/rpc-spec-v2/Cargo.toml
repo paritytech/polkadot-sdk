@@ -37,12 +37,14 @@ tokio = { version = "1.22.0", features = ["sync"] }
 array-bytes = "6.1"
 log = "0.4.17"
 futures-util = { version = "0.3.19", default-features = false }
+
 [dev-dependencies]
 serde_json = "1.0.108"
 tokio = { version = "1.22.0", features = ["macros"] }
 substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
 substrate-test-runtime = { path = "../../test-utils/runtime" }
 sp-consensus = { path = "../../primitives/consensus/common" }
+sp-externalities = { path = "../../primitives/externalities" }
 sp-maybe-compressed-blob = { path = "../../primitives/maybe-compressed-blob" }
 sc-block-builder = { path = "../block-builder" }
 sc-service = { path = "../service", features = ["test-helpers"]}

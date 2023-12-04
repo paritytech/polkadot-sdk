@@ -45,4 +45,4 @@ decl_test_parachains! {
 }
 
 // CoretimeRococo implementation
-impl_assert_events_helpers_for_parachain!(CoretimeRococo, false);
+impl_assert_events_helpers_for_parachain!(CoretimeRococo);

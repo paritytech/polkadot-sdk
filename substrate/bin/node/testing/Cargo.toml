@@ -19,7 +19,7 @@ futures = "0.3.21"
 log = "0.4.17"
 tempfile = "3.1.0"
 frame-system = { path = "../../../frame/system" }
-node-executor = { package = "staging-node-executor", path = "../executor" }
+node-cli = { package = "staging-node-cli", path = "../cli" }
 node-primitives = { path = "../primitives" }
 kitchensink-runtime = { path = "../runtime" }
 pallet-asset-conversion = { path = "../../../frame/asset-conversion" }
