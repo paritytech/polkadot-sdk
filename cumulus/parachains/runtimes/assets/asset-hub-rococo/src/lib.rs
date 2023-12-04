@@ -1387,10 +1387,11 @@ impl_runtime_apis! {
 
 					// set up local asset
 					let asset_amount = 10u128;
+					let initial_asset_amount = asset_amount * 10;
 					let (asset_id, _, _) = pallet_assets::benchmarking::create_default_minted_asset::<
 						Runtime,
 						pallet_assets::Instance1
-					>(false, asset_amount);
+					>(true, initial_asset_amount);
 					let asset_location = MultiLocation::new(
 						0,
 						X2(PalletInstance(50), GeneralIndex(u32::from(asset_id).into()))
@@ -1406,7 +1407,10 @@ impl_runtime_apis! {
 						// (plus transport fees)
 						assert!(Balances::free_balance(&who) <= balance - fee_amount);
 						// verify asset balance decreased by exactly transferred amount
-						assert_eq!(Assets::balance(asset_id.into(), &who), 0);
+						assert_eq!(
+							Assets::balance(asset_id.into(), &who),
+							initial_asset_amount - asset_amount,
+						);
 					});
 					Some((assets, fee_index as u32, dest, verify))
 				}
