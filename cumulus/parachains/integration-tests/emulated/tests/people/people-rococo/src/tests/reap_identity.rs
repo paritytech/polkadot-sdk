@@ -13,6 +13,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! # OnReapIdentity Tests
+//!
+//! This file contains the test cases for migrating Identity data away from the Rococo Relay
+//! chain and to the PeopleRococo parachain, with zero cost incurred to the user. This migration
+//! is part of the broader Minimal Relay effort:
+//! https://github.com/polkadot-fellows/RFCs/blob/main/text/0032-minimal-relay.md
+//!
+//! ## Overview
+//!
+//! The tests validate the robustness and correctness of the `OnReapIdentityHandler`
+//! ensuring that it behaves as expected in various scenarios. Key aspects tested include:
+//!
+//! - **Identity Creation**: Verifying that identities can be created with the correct
+//! information and handling of deposits.
+//! - **Sub-Account Management**: Testing the functionality for managing sub-accounts, including
+//!   creation and deposit requirements.
+//! - **Cross-Chain Functionality**: Ensuring that identities can be managed seamlessly across the
+//!   Rococo Relay Chain and the PeopleRococo Parachain, including testing cross-chain interactions
+//!   and migrations.
+//! - **Deposit Handling**: Confirming that deposits are correctly handled, reserved, and released
+//!   in various scenarios, including identity reaping.
+//!
+//! ### Test Scenarios
+//!
+//! The tests are categorized into several scenarios, each focusing on different aspects of the
+//! Identity Management Module:
+//!
+//! - Minimal identity information with varying numbers of sub-accounts.
+//! - Full identity information with and without additional fields, again with varying numbers of
+//!   sub-accounts.
+//! - Reaping (removal) of identities and the correct release and transfer of associated deposits.
+
 use crate::*;
 use frame_support::BoundedVec;
 use pallet_balances::Event as BalancesEvent;
@@ -125,15 +157,26 @@ impl IdentityOn<'_> {
 	}
 }
 
-// Generate an `AccountId32` from a `u32`.
+/// Generate an `AccountId32` from a `u32`.
+/// This creates a 32-byte array, initially filled with `255`, and then repeatedly fills it
+/// with the 4-byte little-endian representation of the `u32` value, until the array is full.
+///
+/// **Example**:
+///
+/// `account_from_u32(5)` will return an `AccountId32` with the bytes
+/// `[0, 5, 0, 0, 0, 0, 0, 0, 0, 5 ... ]` (repeated 8 times)
+///
+/// **Note**
+///
+/// This is only used for testing and is not intended for production use.
 fn account_from_u32(id: u32) -> AccountId32 {
 	let mut buffer = [255u8; 32];
 	let id_bytes = id.to_le_bytes();
 	let id_size = id_bytes.len();
 	for ii in 0..buffer.len() / id_size {
-		let s = ii * id_size;
-		let e = s + id_size;
-		buffer[s..e].clone_from_slice(&id_bytes[..]);
+		let start = ii * id_size;
+		let end = start + id_size;
+		buffer[start..end].clone_from_slice(&id_bytes[..]);
 	}
 	AccountId32::new(buffer)
 }
@@ -168,7 +211,7 @@ fn set_id_relay(id: &Identity) -> Balance {
 			},
 		}
 
-		let reserved_bal = RococoBalances::reserved_balance(RococoRelaySender::get());
+		let reserved_balance = RococoBalances::reserved_balance(RococoRelaySender::get());
 		let id_deposit = IdentityOn::Relay(&id.relay).calculate_deposit();
 
 		match id.subs {
@@ -206,7 +249,7 @@ fn set_id_relay(id: &Identity) -> Balance {
 			},
 		}
 
-		assert_eq!(reserved_bal, total_deposit);
+		assert_eq!(reserved_balance, total_deposit);
 	});
 	total_deposit
 }
@@ -216,10 +259,10 @@ fn assert_set_id_parachain(id: &Identity) {
 	// Set identity and Subs on Parachain with zero deposit
 	PeopleRococo::execute_with(|| {
 		let free_bal = PeopleRococoBalances::free_balance(PeopleRococoSender::get());
-		let reserved_bal = PeopleRococoBalances::reserved_balance(PeopleRococoSender::get());
+		let reserved_balance = PeopleRococoBalances::reserved_balance(PeopleRococoSender::get());
 
 		//total balance at Genesis should be zero
-		assert_eq!(reserved_bal + free_bal, 0);
+		assert_eq!(reserved_balance + free_bal, 0);
 
 		assert_ok!(PeopleRococoIdentity::set_identity_no_deposit(
 			&PeopleRococoSender::get(),
@@ -244,8 +287,8 @@ fn assert_set_id_parachain(id: &Identity) {
 		}
 
 		// No amount should be reserved as deposit amounts are set to 0.
-		let reserved_bal = PeopleRococoBalances::reserved_balance(PeopleRococoSender::get());
-		assert_eq!(reserved_bal, 0);
+		let reserved_balance = PeopleRococoBalances::reserved_balance(PeopleRococoSender::get());
+		assert_eq!(reserved_balance, 0);
 		assert!(PeopleRococoIdentity::identity(&PeopleRococoSender::get()).is_some());
 
 		let (_, sub_accounts) = PeopleRococoIdentity::subs_of(&PeopleRococoSender::get());
@@ -318,14 +361,14 @@ fn assert_reap_id_relay(total_deposit: Balance, id: &Identity) {
 // that everything happens as expected.
 fn assert_reap_parachain(id: &Identity) {
 	PeopleRococo::execute_with(|| {
-		let reserved_bal = PeopleRococoBalances::reserved_balance(PeopleRococoSender::get());
+		let reserved_balance = PeopleRococoBalances::reserved_balance(PeopleRococoSender::get());
 		let id_deposit = IdentityOn::Para(&id.para).calculate_deposit();
 		let total_deposit = match id.subs {
 			Subs::Zero => id_deposit,
 			Subs::Many(n) => id_deposit + n as Balance * SubAccountDepositParachain::get(),
 		};
 		assert_reap_events(id_deposit, id);
-		assert_eq!(reserved_bal, total_deposit);
+		assert_eq!(reserved_balance, total_deposit);
 
 		// Should have at least one ED after in free balance after the reap.
 		assert!(PeopleRococoBalances::free_balance(PeopleRococoSender::get()) >= PEOPLE_ROCOCO_ED);
