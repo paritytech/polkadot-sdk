@@ -37,7 +37,7 @@ sp-core = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master
 sp-io = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"bp-header-chain/std",
 	"bp-runtime/std",

@@ -29,7 +29,7 @@ sp-std = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master"
 hex = "0.4"
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"bp-messages/std",
 	"bp-runtime/std",

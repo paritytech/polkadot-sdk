@@ -24,7 +24,7 @@ sp-std = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master"
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false , branch = "master" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"bp-messages/std",
 	"bp-polkadot-core/std",
