@@ -178,8 +178,10 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 						pallet_collator_selection::Call::add_invulnerable { .. } |
 						pallet_collator_selection::Call::remove_invulnerable { .. },
 				) | RuntimeCall::Session(pallet_session::Call::purge_keys { .. }) |
-				RuntimeCall::PolkadotXcm(pallet_xcm::Call::force_xcm_version { .. }) |
-				RuntimeCall::XcmpQueue(..) |
+				RuntimeCall::PolkadotXcm(
+					pallet_xcm::Call::force_xcm_version { .. } |
+						pallet_xcm::Call::force_default_xcm_version { .. }
+				) | RuntimeCall::XcmpQueue(..) |
 				RuntimeCall::MessageQueue(..) |
 				RuntimeCall::Alliance(
 					// `init_members` accepts unbounded vecs as arguments,

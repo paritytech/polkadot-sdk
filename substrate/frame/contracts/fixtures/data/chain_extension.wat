@@ -9,7 +9,7 @@
 
 	(func $assert (param i32)
 		(block $ok
-			(br_if $ok (get_local 0))
+			(br_if $ok (local.get 0))
 			(unreachable)
 		)
 	)

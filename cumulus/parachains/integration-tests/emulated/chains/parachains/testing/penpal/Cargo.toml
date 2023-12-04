@@ -23,3 +23,4 @@ cumulus-primitives-core = { path = "../../../../../../../primitives/core", defau
 emulated-integration-tests-common = { path = "../../../../common", default-features = false }
 penpal-runtime = { path = "../../../../../../runtimes/testing/penpal" }
 rococo-emulated-chain = { path = "../../../relays/rococo" }
+westend-emulated-chain = { path = "../../../relays/westend" }

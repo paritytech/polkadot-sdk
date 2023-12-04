@@ -18,8 +18,7 @@
 
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion, SamplingMode};
 use polkadot_node_core_pvf::{
-	start, testing, Config, Metrics, PrepareError, PrepareJobKind, PrepareStats, PvfPrepData,
-	ValidationHost,
+	start, testing, Config, Metrics, PrepareError, PrepareJobKind, PvfPrepData, ValidationHost,
 };
 use polkadot_primitives::ExecutorParams;
 use rococo_runtime::WASM_BINARY;
@@ -37,7 +36,7 @@ impl TestHost {
 	where
 		F: FnOnce(&mut Config),
 	{
-		let (prepare_worker_path, execute_worker_path) = testing::build_workers_and_get_paths(true);
+		let (prepare_worker_path, execute_worker_path) = testing::build_workers_and_get_paths();
 
 		let cache_dir = tempfile::tempdir().unwrap();
 		let mut config = Config::new(
@@ -56,7 +55,7 @@ impl TestHost {
 		&self,
 		code: &[u8],
 		executor_params: ExecutorParams,
-	) -> Result<PrepareStats, PrepareError> {
+	) -> Result<(), PrepareError> {
 		let (result_tx, result_rx) = futures::channel::oneshot::channel();
 
 		let code = sp_maybe_compressed_blob::decompress(code, 16 * 1024 * 1024)

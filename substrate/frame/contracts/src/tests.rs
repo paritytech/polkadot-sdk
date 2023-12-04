@@ -30,9 +30,10 @@ use crate::{
 	},
 	exec::{Frame, Key},
 	migration::codegen::LATEST_MIGRATION_VERSION,
+	primitives::CodeUploadReturnValue,
 	storage::DeletionQueueManager,
 	tests::test_utils::{get_contract, get_contract_checked},
-	wasm::{Determinism, ReturnCode as RuntimeReturnCode},
+	wasm::{Determinism, ReturnErrorCode as RuntimeReturnCode},
 	weights::WeightInfo,
 	BalanceOf, Code, CodeHash, CodeInfoOf, CollectEvents, Config, ContractInfo, ContractInfoOf,
 	DebugInfo, DefaultAddressGenerator, DeletionQueueCounter, Error, HoldReason,
@@ -42,6 +43,7 @@ use assert_matches::assert_matches;
 use codec::Encode;
 use frame_support::{
 	assert_err, assert_err_ignore_postinfo, assert_err_with_weight, assert_noop, assert_ok,
+	derive_impl,
 	dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo},
 	parameter_types,
 	storage::child,
@@ -54,7 +56,6 @@ use frame_support::{
 };
 use frame_system::{EventRecord, Phase};
 use pallet_contracts_fixtures::compile_module;
-use pallet_contracts_primitives::CodeUploadReturnValue;
 use pretty_assertions::{assert_eq, assert_ne};
 use sp_core::ByteArray;
 use sp_io::hashing::blake2_256;
@@ -332,6 +333,8 @@ parameter_types! {
 		);
 	pub static ExistentialDeposit: u64 = 1;
 }
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = BlockWeights;
