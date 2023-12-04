@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::StakingHoldProvider;
 use codec::{FullCodec, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{DispatchResult, Saturating};
@@ -142,30 +143,11 @@ pub trait Delegator {
 }
 
 /// Something that provides delegation support to core staking.
-pub trait StakingDelegationSupport {
-	/// Balance type used by the staking system.
-	type Balance: Sub<Output = Self::Balance>
-		+ Ord
-		+ PartialEq
-		+ Default
-		+ Copy
-		+ MaxEncodedLen
-		+ FullCodec
-		+ TypeInfo
-		+ Saturating;
-
-	/// AccountId type used by the staking system.
-	type AccountId: Clone + sp_std::fmt::Debug;
-
+pub trait StakingDelegationSupport: StakingHoldProvider {
 	/// Balance of who which is available for stake.
 	fn stakeable_balance(who: &Self::AccountId) -> Self::Balance;
 
-	/// Update amount held for bonded stake.
-	fn update_hold(who: &Self::AccountId, amount: Self::Balance) -> DispatchResult;
-
-	/// Release all amount held for stake.
-	fn release(who: &Self::AccountId);
-
+	/// Returns true if provided reward destination is not allowed.
 	fn restrict_reward_destination(
 		_who: &Self::AccountId,
 		_reward_destination: Option<Self::AccountId>,
@@ -175,7 +157,9 @@ pub trait StakingDelegationSupport {
 	}
 
 	#[cfg(feature = "std")]
-	fn stake_type(who: &Self::AccountId) -> StakeBalanceType;
+	fn stake_type(_who: &Self::AccountId) -> StakeBalanceType {
+		StakeBalanceType::Direct
+	}
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

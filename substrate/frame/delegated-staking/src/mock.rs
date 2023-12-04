@@ -139,8 +139,7 @@ impl delegated_staking::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type Staking = Staking;
-	type FallbackSupport = pallet_staking::NoDelegation<Self>;
+	type CoreStaking = Staking;
 }
 
 frame_support::construct_runtime!(

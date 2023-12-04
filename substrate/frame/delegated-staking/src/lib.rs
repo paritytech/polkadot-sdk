@@ -65,15 +65,8 @@ pub mod pallet {
 		type RuntimeHoldReason: From<HoldReason>;
 
 		/// Core staking implementation.
-		type Staking: StakingInterface<Balance = BalanceOf<Self>, AccountId = Self::AccountId>;
-
-		/// Non Delegatee Staking Support.
-		///
-		/// Fallback implementation when an account is not a delegatee.
-		type FallbackSupport: StakingDelegationSupport<
-			Balance = BalanceOf<Self>,
-			AccountId = Self::AccountId,
-		>;
+		type CoreStaking: StakingInterface<Balance = BalanceOf<Self>, AccountId = Self::AccountId>
+			+ sp_staking::StakingHoldProvider<Balance = BalanceOf<Self>, AccountId = Self::AccountId>;
 	}
 
 	#[pallet::error]
@@ -202,7 +195,7 @@ impl<T: Config> Delegatee for Pallet<T> {
 		ensure!(!<Delegatees<T>>::contains_key(who), Error::<T>::NotAllowed);
 
 		// make sure they are not already a direct staker
-		ensure!(T::Staking::status(who).is_err(), Error::<T>::AlreadyStaker);
+		ensure!(T::CoreStaking::status(who).is_err(), Error::<T>::AlreadyStaker);
 
 		// payee account cannot be same as delegatee
 		ensure!(reward_destination != who, Error::<T>::InvalidRewardDestination);
@@ -246,16 +239,16 @@ impl<T: Config> Delegatee for Pallet<T> {
 		);
 
 		// ensure staker is a nominator
-		let status = T::Staking::status(new_delegatee)?;
+		let status = T::CoreStaking::status(new_delegatee)?;
 		match status {
 			StakerStatus::Nominator(_) => (),
 			_ => return Err(Error::<T>::InvalidDelegation.into()),
 		}
 
-		let stake = T::Staking::stake(new_delegatee)?;
+		let stake = T::CoreStaking::stake(new_delegatee)?;
 
 		// unlock funds from staker
-		T::Staking::force_unlock(new_delegatee)?;
+		T::CoreStaking::force_unlock(new_delegatee)?;
 
 		// try transferring the staked amount. This should never fail but if it does, it indicates
 		// bad state and we abort.
@@ -291,14 +284,14 @@ impl<T: Config> Delegatee for Pallet<T> {
 		let delegatee = <Delegatees<T>>::get(who).ok_or(Error::<T>::NotDelegatee)?;
 		let delegated_balance = delegatee.delegated_balance();
 
-		match T::Staking::stake(who) {
+		match T::CoreStaking::stake(who) {
 			Ok(stake) => {
 				let unstaked_delegated_balance = delegated_balance.saturating_sub(stake.total);
-				T::Staking::bond_extra(who, unstaked_delegated_balance)
+				T::CoreStaking::bond_extra(who, unstaked_delegated_balance)
 			},
 			Err(_) => {
 				// If stake not found, it means this is the first bond
-				T::Staking::bond(who, delegated_balance, &delegatee.payee)
+				T::CoreStaking::bond(who, delegated_balance, &delegatee.payee)
 			},
 		}
 	}
@@ -434,20 +427,13 @@ impl<T: Config> Delegator for Pallet<T> {
 	}
 }
 
-impl<T: Config> StakingDelegationSupport for Pallet<T> {
+impl<T: Config> sp_staking::StakingHoldProvider for Pallet<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
 
-	fn stakeable_balance(who: &Self::AccountId) -> Self::Balance {
-		<Delegatees<T>>::get(who).map_or_else(
-			|| T::FallbackSupport::stakeable_balance(who),
-			|delegatee| delegatee.delegated_balance(),
-		)
-	}
-
 	fn update_hold(who: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
 		if !Self::is_delegatee(who) {
-			return T::FallbackSupport::update_hold(who, amount);
+			return T::CoreStaking::update_hold(who, amount);
 		}
 
 		// delegation register should exist since `who` is a delegatee.
@@ -463,12 +449,20 @@ impl<T: Config> StakingDelegationSupport for Pallet<T> {
 	}
 
 	fn release(who: &Self::AccountId) {
-		let delegation_register = <Delegatees<T>>::get(who);
-		if delegation_register.is_some() {
-			todo!("handle kill delegatee")
-		} else {
-			T::FallbackSupport::release(who)
+		if !Self::is_delegatee(who) {
+			T::CoreStaking::release(who);
 		}
+
+		let _delegation_register = <Delegatees<T>>::get(who);
+		todo!("handle kill delegatee")
+	}
+}
+impl<T: Config> StakingDelegationSupport for Pallet<T> {
+	fn stakeable_balance(who: &Self::AccountId) -> Self::Balance {
+		<Delegatees<T>>::get(who).map_or_else(
+			|| T::Currency::reducible_balance(who, Preservation::Expendable, Fortitude::Polite),
+			|delegatee| delegatee.delegated_balance(),
+		)
 	}
 
 	fn restrict_reward_destination(
@@ -476,9 +470,10 @@ impl<T: Config> StakingDelegationSupport for Pallet<T> {
 		reward_destination: Option<Self::AccountId>,
 	) -> bool {
 		let maybe_register = <Delegatees<T>>::get(who);
-		// if not delegatee, use fallback.
+
 		if maybe_register.is_none() {
-			return T::FallbackSupport::restrict_reward_destination(who, reward_destination);
+			// no restrictions for non delegatees.
+			return false;
 		}
 
 		// restrict if reward destination is not set
@@ -492,13 +487,14 @@ impl<T: Config> StakingDelegationSupport for Pallet<T> {
 		// restrict if reward account is not what delegatee registered.
 		register.payee != reward_acc
 	}
+
 	#[cfg(feature = "std")]
 	fn stake_type(who: &Self::AccountId) -> StakeBalanceType {
-		if Self::is_delegatee(who) {
-			return StakeBalanceType::Delegated;
+		if !Self::is_delegatee(who) {
+			return StakeBalanceType::Direct;
 		}
 
-		T::FallbackSupport::stake_type(who)
+		StakeBalanceType::Delegated
 	}
 }
 

@@ -40,11 +40,11 @@ use sp_runtime::{
 };
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
-	delegation::{StakeBalanceType, StakingDelegationSupport},
+	delegation::StakingDelegationSupport,
 	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
 	EraIndex, Page, SessionIndex, Stake,
 	StakingAccount::{self, Controller, Stash},
-	StakingInterface,
+	StakingHoldProvider, StakingInterface,
 };
 use sp_std::prelude::*;
 
@@ -1836,14 +1836,9 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 }
 
-pub struct NoDelegation<T>(PhantomData<T>);
-impl<T: Config> StakingDelegationSupport for NoDelegation<T> {
+impl<T: Config> StakingHoldProvider for Pallet<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
-
-	fn stakeable_balance(who: &Self::AccountId) -> Self::Balance {
-		T::Currency::free_balance(who)
-	}
 
 	fn update_hold(who: &Self::AccountId, amount: Self::Balance) -> sp_runtime::DispatchResult {
 		T::Currency::set_lock(crate::STAKING_ID, who, amount, WithdrawReasons::all());
@@ -1853,10 +1848,26 @@ impl<T: Config> StakingDelegationSupport for NoDelegation<T> {
 	fn release(who: &Self::AccountId) {
 		T::Currency::remove_lock(crate::STAKING_ID, who)
 	}
+}
 
-	#[cfg(feature = "std")]
-	fn stake_type(_: &Self::AccountId) -> StakeBalanceType {
-		StakeBalanceType::Direct
+/// Standard implementation of `StakingDelegationSupport` that supports only direct staking and no
+/// delegated staking.
+pub struct NoDelegation<T>(PhantomData<T>);
+impl<T: Config> StakingHoldProvider for NoDelegation<T> {
+	type Balance = BalanceOf<T>;
+	type AccountId = T::AccountId;
+
+	fn update_hold(who: &Self::AccountId, amount: Self::Balance) -> sp_runtime::DispatchResult {
+		Pallet::<T>::update_hold(who, amount)
+	}
+
+	fn release(who: &Self::AccountId) {
+		Pallet::<T>::release(who)
+	}
+}
+impl<T: Config> StakingDelegationSupport for NoDelegation<T> {
+	fn stakeable_balance(who: &Self::AccountId) -> Self::Balance {
+		T::Currency::free_balance(who)
 	}
 }
 
