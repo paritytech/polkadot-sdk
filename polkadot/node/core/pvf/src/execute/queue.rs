@@ -368,7 +368,7 @@ fn handle_job_finish(
 				?artifact_id,
 				?worker,
 				worker_rip = true,
-				"execution worker concluded, error occurred: {:?}",
+				"execution worker concluded, error occurred: {}",
 				err
 			);
 

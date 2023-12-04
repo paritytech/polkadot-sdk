@@ -67,8 +67,8 @@ pub async fn spawn(
 			gum::warn!(
 				target: LOG_TARGET,
 				worker_pid = %idle_worker.pid,
-				?error,
-				"failed to send a handshake to the spawned worker",
+				"failed to send a handshake to the spawned worker: {}",
+				error,
 			);
 			SpawnErr::Handshake
 		})?;
@@ -141,8 +141,8 @@ pub async fn start_work(
 					target: LOG_TARGET,
 					worker_pid = %pid,
 					validation_code_hash = ?artifact.id.code_hash,
-					?error,
-					"failed to send an execute request",
+					"failed to send an execute request: {}",
+					error,
 				);
 				// Maybe the previous job process killed the parent worker, don't treat as internal.
 				Error::CommunicationErr(error)
@@ -170,8 +170,8 @@ pub async fn start_work(
 							target: LOG_TARGET,
 							worker_pid = %pid,
 							validation_code_hash = ?artifact.id.code_hash,
-							?error,
-							"failed to recv an execute result",
+							"failed to recv an execute result: {}",
+							error,
 						);
 
 						return Err(Error::CommunicationErr(error))
@@ -251,7 +251,7 @@ where
 			target: LOG_TARGET,
 			worker_pid = %pid,
 			?worker_dir,
-			"failed to clear worker cache after the job: {:?}",
+			"failed to clear worker cache after the job: {}",
 			err,
 		);
 		return Err(InternalValidationError::CouldNotCreateLink(format!("{:?}", err)).into())
@@ -266,7 +266,7 @@ where
 			target: LOG_TARGET,
 			worker_pid = %pid,
 			?worker_dir_path,
-			"failed to clear worker cache after the job: {:?}",
+			"failed to clear worker cache after the job: {}",
 			err,
 		);
 		return Err(InternalValidationError::CouldNotClearWorkerDir {
