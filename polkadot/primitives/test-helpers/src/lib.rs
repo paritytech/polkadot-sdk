@@ -159,6 +159,11 @@ pub fn dummy_pvd(parent_head: HeadData, relay_parent_number: u32) -> PersistedVa
 	}
 }
 
+/// Creates a meaningless signature
+pub fn dummy_signature() -> polkadot_primitives::ValidatorSignature {
+	sp_core::crypto::UncheckedFrom::unchecked_from([1u8; 64])
+}
+
 /// Create a meaningless candidate, returning its receipt and PVD.
 pub fn make_candidate(
 	relay_parent_hash: Hash,
@@ -244,6 +249,11 @@ pub fn resign_candidate_descriptor_with_collator<H: AsRef<[u8]>>(
 	descriptor.signature = signature;
 }
 
+/// Extracts validators's public keus (`ValidatorId`) from `Sr25519Keyring`
+pub fn validator_pubkeys(val_ids: &[Sr25519Keyring]) -> Vec<ValidatorId> {
+	val_ids.iter().map(|v| v.public().into()).collect()
+}
+
 /// Builder for `CandidateReceipt`.
 pub struct TestCandidateBuilder {
 	pub para_id: ParaId,
@@ -297,8 +307,4 @@ impl rand::RngCore for AlwaysZeroRng {
 		self.fill_bytes(dest);
 		Ok(())
 	}
-}
-
-pub fn dummy_signature() -> polkadot_primitives::ValidatorSignature {
-	sp_core::crypto::UncheckedFrom::unchecked_from([1u8; 64])
 }

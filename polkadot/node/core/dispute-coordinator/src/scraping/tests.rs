@@ -149,6 +149,11 @@ fn get_block_number_hash(n: BlockNumber) -> Hash {
 	BlakeTwo256::hash(&n.encode())
 }
 
+// Creates a dummy relay chain block hash with the convention of hash(b<block_number><fork>).
+fn get_relay_block_hash(height: BlockNumber, fork: u32) -> Hash {
+	BlakeTwo256::hash(&format!("b_{}_{}", height, fork).encode())
+}
+
 /// Get a dummy event that corresponds to candidate inclusion for the given block number.
 fn get_backed_and_included_candidate_events(block_number: BlockNumber) -> Vec<CandidateEvent> {
 	let candidate_receipt = make_candidate_receipt(get_block_number_hash(block_number));
@@ -761,59 +766,6 @@ fn inclusions_get() {
 }
 
 #[test]
-fn inclusions_iterative_removal() {
-	let mut inclusions = Inclusions::new();
-
-	// Insert 3 candidates in the specified blocks
-	let candidate1 = make_candidate_receipt(BlakeTwo256::hash(&"c1".encode())).hash();
-	let candidate2 = make_candidate_receipt(BlakeTwo256::hash(&"c2".encode())).hash();
-	let candidate3 = make_candidate_receipt(BlakeTwo256::hash(&"c3".encode())).hash();
-	let candidate4 = make_candidate_receipt(BlakeTwo256::hash(&"c4".encode())).hash();
-	let candidate5 = make_candidate_receipt(BlakeTwo256::hash(&"c5".encode())).hash();
-
-	//	B	0	1	2	3
-	// C1	x
-	// C2		x
-	// C3	x		x
-	// C4			x
-	// C5				x
-	inclusions.insert(candidate1, 0, get_block_number_hash(0));
-	inclusions.insert(candidate2, 1, get_block_number_hash(1));
-	inclusions.insert(candidate3, 0, get_block_number_hash(0));
-	inclusions.insert(candidate3, 2, get_block_number_hash(2));
-	inclusions.insert(candidate4, 2, get_block_number_hash(2));
-	inclusions.insert(candidate5, 3, get_block_number_hash(3));
-
-	inclusions.remove_up_to_height(&0);
-	assert!(inclusions.contains(&candidate1), "Expected candidate1 to remain");
-	assert!(inclusions.contains(&candidate2), "Expected candidate2 to remain");
-	assert!(inclusions.contains(&candidate3), "Expected candidate3 to remain");
-	assert!(inclusions.contains(&candidate4), "Expected candidate4 to remain");
-	assert!(inclusions.contains(&candidate5), "Expected candidate5 to remain");
-
-	inclusions.remove_up_to_height(&1);
-	assert!(!inclusions.contains(&candidate1), "Expected candidate1 to be removed");
-	assert!(inclusions.contains(&candidate2), "Expected candidate2 to remain");
-	assert!(inclusions.contains(&candidate3), "Expected candidate3 to remain");
-	assert!(inclusions.contains(&candidate4), "Expected candidate4 to remain");
-	assert!(inclusions.contains(&candidate5), "Expected candidate5 to remain");
-
-	inclusions.remove_up_to_height(&2);
-	assert!(!inclusions.contains(&candidate1), "Expected candidate1 to be removed");
-	assert!(!inclusions.contains(&candidate2), "Expected candidate2 to be removed");
-	assert!(inclusions.contains(&candidate3), "Expected candidate3 to remain");
-	assert!(inclusions.contains(&candidate4), "Expected candidate4 to remain");
-	assert!(inclusions.contains(&candidate5), "Expected candidate5 to remain");
-
-	inclusions.remove_up_to_height(&10);
-	assert!(!inclusions.contains(&candidate1), "Expected candidate1 to be removed");
-	assert!(!inclusions.contains(&candidate2), "Expected candidate2 to be removed");
-	assert!(!inclusions.contains(&candidate3), "Expected candidate3 to be removed");
-	assert!(!inclusions.contains(&candidate4), "Expected candidate4 to be removed");
-	assert!(!inclusions.contains(&candidate5), "Expected candidate5 to be removed");
-}
-
-#[test]
 fn inclusions_duplicate_insertion_same_height_and_block() {
 	let mut inclusions = Inclusions::new();
 
@@ -920,18 +872,389 @@ fn test_duplicate_insertion_same_height_different_blocks() {
 	);
 }
 
+// ----- Inclusions removal tests -----
+// inclusions_removal_null_case
+//
+// inclusions_removal_one_candidate_one_height_one_branch
+//
+// inclusions_removal_one_candidate_one_height_multi_branch
+// inclusions_removal_one_candidate_multi_height_one_branch
+// inclusions_removal_multi_candidate_one_height_one_branch
+//
+// inclusions_removal_multi_candidate_multi_height_one_branch
+// inclusions_removal_one_candidate_multi_height_multi_branch
+// inclusions_removal_multi_candidate_one_height_multi_branch
+//
+// inclusions_removal_multi_candidate_multi_height_multi_branch
 #[test]
-fn inclusions_remove_with_empty_maps() {
+fn inclusions_removal_null_case() {
 	let mut inclusions = Inclusions::new();
 	let height = 5;
 
 	// Ensure both maps are empty before the operation
-	assert!(inclusions.candidates_by_block_number.is_empty());
-	assert!(inclusions.inclusions_inner.is_empty());
+	assert!(inclusions.inclusions_inner.is_empty(), "Expected inclusions_inner to be empty");
+	assert!(
+		inclusions.candidates_by_block_number.is_empty(),
+		"Expected candidates_by_block_number to be empty"
+	);
 
 	inclusions.remove_up_to_height(&height);
 
 	// Ensure both maps remain empty after the operation
-	assert!(inclusions.candidates_by_block_number.is_empty());
-	assert!(inclusions.inclusions_inner.is_empty());
+	assert!(inclusions.inclusions_inner.is_empty(), "Expected inclusions_inner to be empty");
+	assert!(
+		inclusions.candidates_by_block_number.is_empty(),
+		"Expected candidates_by_block_number to be empty"
+	);
+}
+
+#[test]
+fn inclusions_removal_one_candidate_one_height_one_branch() {
+	let mut inclusions = Inclusions::new();
+
+	let candidate1 = make_candidate_receipt(BlakeTwo256::hash(&"c1".encode())).hash();
+
+	// B	0
+	// C1	0
+	inclusions.insert(candidate1, 0, get_relay_block_hash(0, 0));
+
+	// No prune case
+	inclusions.remove_up_to_height(&0);
+	assert!(inclusions.contains(&candidate1), "Expected candidate1 to remain");
+	assert!(inclusions.inclusions_inner.len() == 1);
+	assert!(inclusions.candidates_by_block_number.len() == 1);
+
+	// Prune case up to height 1
+	inclusions.remove_up_to_height(&1);
+	assert!(inclusions.inclusions_inner.is_empty(), "Expected inclusions_inner to be empty");
+	assert!(
+		inclusions.candidates_by_block_number.is_empty(),
+		"Expected candidates_by_block_number to be empty"
+	);
+}
+
+#[test]
+fn inclusions_removal_one_candidate_one_height_multi_branch() {
+	let mut inclusions = Inclusions::new();
+
+	let candidate1 = make_candidate_receipt(BlakeTwo256::hash(&"c1".encode())).hash();
+
+	// B	0
+	// C1	0&1
+	inclusions.insert(candidate1, 0, get_relay_block_hash(0, 0));
+	inclusions.insert(candidate1, 0, get_relay_block_hash(0, 1));
+
+	// No prune case
+	inclusions.remove_up_to_height(&0);
+	assert!(inclusions.contains(&candidate1), "Expected candidate1 to remain");
+	assert!(inclusions.inclusions_inner.len() == 1);
+	assert!(inclusions.inclusions_inner.get(&candidate1).unwrap().get(&0).unwrap().len() == 2);
+	assert!(inclusions.candidates_by_block_number.len() == 1);
+
+	// Prune case up to height 1
+	inclusions.remove_up_to_height(&1);
+	assert!(inclusions.inclusions_inner.is_empty(), "Expected inclusions_inner to be empty");
+	assert!(
+		inclusions.candidates_by_block_number.is_empty(),
+		"Expected candidates_by_block_number to be empty"
+	);
+}
+
+#[test]
+fn inclusions_removal_one_candidate_multi_height_one_branch() {
+	let mut inclusions = Inclusions::new();
+
+	let candidate1 = make_candidate_receipt(BlakeTwo256::hash(&"c1".encode())).hash();
+
+	// B	0	1	2	3	4
+	// C1		0		0
+	inclusions.insert(candidate1, 1, get_relay_block_hash(1, 0));
+	inclusions.insert(candidate1, 3, get_relay_block_hash(3, 0));
+
+	// No prune case
+	inclusions.remove_up_to_height(&1);
+	assert!(inclusions.contains(&candidate1), "Expected candidate1 to remain");
+	assert!(inclusions.inclusions_inner.len() == 1);
+	assert!(inclusions.candidates_by_block_number.len() == 2);
+
+	// Prune case up to height 2
+	inclusions.remove_up_to_height(&2);
+	assert!(inclusions.contains(&candidate1), "Expected candidate1 to remain");
+	assert!(inclusions.inclusions_inner.len() == 1);
+	assert!(inclusions.candidates_by_block_number.len() == 1);
+
+	// Prune case up to height 3
+	inclusions.remove_up_to_height(&3);
+	assert!(inclusions.contains(&candidate1), "Expected candidate1 to remain");
+	assert!(inclusions.inclusions_inner.len() == 1);
+	assert!(inclusions.candidates_by_block_number.len() == 1);
+
+	// Prune case up to height 20 (overshot)
+	inclusions.remove_up_to_height(&20);
+	assert!(inclusions.inclusions_inner.is_empty(), "Expected inclusions_inner to be empty");
+	assert!(
+		inclusions.candidates_by_block_number.is_empty(),
+		"Expected candidates_by_block_number to be empty"
+	);
+}
+
+#[test]
+fn inclusions_removal_multi_candidate_one_height_one_branch() {
+	let mut inclusions = Inclusions::new();
+
+	let candidate1 = make_candidate_receipt(BlakeTwo256::hash(&"c1".encode())).hash();
+	let candidate2 = make_candidate_receipt(BlakeTwo256::hash(&"c2".encode())).hash();
+	let candidate3 = make_candidate_receipt(BlakeTwo256::hash(&"c3".encode())).hash();
+
+	// B	0
+	// C1	0
+	// C2	0
+	// C3	0
+	inclusions.insert(candidate1, 0, get_relay_block_hash(0, 0));
+	inclusions.insert(candidate2, 0, get_relay_block_hash(0, 0));
+	inclusions.insert(candidate3, 0, get_relay_block_hash(0, 0));
+
+	// No prune case
+	inclusions.remove_up_to_height(&0);
+	assert!(inclusions.contains(&candidate1), "Expected candidate1 to remain");
+	assert!(inclusions.contains(&candidate2), "Expected candidate2 to remain");
+	assert!(inclusions.contains(&candidate3), "Expected candidate3 to remain");
+	assert!(inclusions.inclusions_inner.len() == 3);
+	assert!(inclusions.candidates_by_block_number.len() == 1);
+
+	// Prune case up to height 1
+	inclusions.remove_up_to_height(&1);
+	assert!(inclusions.inclusions_inner.is_empty(), "Expected inclusions_inner to be empty");
+	assert!(
+		inclusions.candidates_by_block_number.is_empty(),
+		"Expected candidates_by_block_number to be empty"
+	);
+}
+
+#[test]
+fn inclusions_removal_multi_candidate_multi_height_one_branch() {
+	let mut inclusions = Inclusions::new();
+
+	let candidate1 = make_candidate_receipt(BlakeTwo256::hash(&"c1".encode())).hash();
+	let candidate2 = make_candidate_receipt(BlakeTwo256::hash(&"c2".encode())).hash();
+	let candidate3 = make_candidate_receipt(BlakeTwo256::hash(&"c3".encode())).hash();
+
+	// B	0	1	2	3
+	// C1	0		0
+	// C2	0
+	// C3			0
+	inclusions.insert(candidate1, 0, get_relay_block_hash(0, 0));
+	inclusions.insert(candidate1, 2, get_relay_block_hash(2, 0));
+	inclusions.insert(candidate2, 0, get_relay_block_hash(0, 0));
+	inclusions.insert(candidate3, 2, get_relay_block_hash(2, 0));
+
+	// No prune case
+	inclusions.remove_up_to_height(&0);
+	assert!(inclusions.contains(&candidate1), "Expected candidate1 to remain");
+	assert!(inclusions.contains(&candidate2), "Expected candidate2 to remain");
+	assert!(inclusions.contains(&candidate3), "Expected candidate3 to remain");
+	assert!(inclusions.inclusions_inner.len() == 3);
+	assert!(inclusions.candidates_by_block_number.len() == 2);
+
+	// Prune case up to height 1
+	inclusions.remove_up_to_height(&1);
+	assert!(inclusions.contains(&candidate1), "Expected candidate1 to remain");
+	assert!(!inclusions.contains(&candidate2), "Expected candidate2 to be removed");
+	assert!(inclusions.contains(&candidate3), "Expected candidate3 to remain");
+	assert!(inclusions.inclusions_inner.len() == 2);
+	assert!(inclusions.candidates_by_block_number.len() == 1);
+
+	// Prune case up to height 2
+	inclusions.remove_up_to_height(&2);
+	assert!(inclusions.contains(&candidate1), "Expected candidate1 to remain");
+	assert!(!inclusions.contains(&candidate2), "Expected candidate2 to be removed");
+	assert!(inclusions.contains(&candidate3), "Expected candidate3 to remain");
+	assert!(inclusions.inclusions_inner.len() == 2);
+	assert!(inclusions.candidates_by_block_number.len() == 1);
+
+	// Prune case up to height 3
+	inclusions.remove_up_to_height(&3);
+	assert!(inclusions.inclusions_inner.is_empty(), "Expected inclusions_inner to be empty");
+	assert!(
+		inclusions.candidates_by_block_number.is_empty(),
+		"Expected candidates_by_block_number to be empty"
+	);
+}
+
+#[test]
+fn inclusions_removal_one_candidate_multi_height_multi_branch() {
+	let mut inclusions = Inclusions::new();
+
+	let candidate1 = make_candidate_receipt(BlakeTwo256::hash(&"c1".encode())).hash();
+
+	// B	0	1	2
+	// C1	0	0&1	1
+	inclusions.insert(candidate1, 0, get_relay_block_hash(0, 0));
+	inclusions.insert(candidate1, 1, get_relay_block_hash(1, 0));
+	inclusions.insert(candidate1, 1, get_relay_block_hash(1, 1));
+	inclusions.insert(candidate1, 2, get_relay_block_hash(2, 1));
+
+	// No prune case
+	inclusions.remove_up_to_height(&0);
+	assert!(inclusions.contains(&candidate1), "Expected candidate1 to remain");
+	assert!(inclusions.inclusions_inner.len() == 1);
+	assert!(inclusions.candidates_by_block_number.len() == 3);
+
+	// Prune case up to height 1
+	inclusions.remove_up_to_height(&1);
+	assert!(inclusions.contains(&candidate1), "Expected candidate1 to remain");
+	assert!(inclusions.inclusions_inner.len() == 1);
+	assert!(inclusions.candidates_by_block_number.len() == 2);
+
+	// Prune case up to height 2
+	inclusions.remove_up_to_height(&2);
+	assert!(inclusions.contains(&candidate1), "Expected candidate1 to remain");
+	assert!(inclusions.inclusions_inner.len() == 1);
+	assert!(inclusions.candidates_by_block_number.len() == 1);
+
+	// Prune case up to height 3
+	inclusions.remove_up_to_height(&3);
+	assert!(inclusions.inclusions_inner.is_empty(), "Expected inclusions_inner to be empty");
+	assert!(
+		inclusions.candidates_by_block_number.is_empty(),
+		"Expected candidates_by_block_number to be empty"
+	);
+}
+
+#[test]
+fn inclusions_removal_multi_candidate_one_height_multi_branch() {
+	let mut inclusions = Inclusions::new();
+
+	let candidate1 = make_candidate_receipt(BlakeTwo256::hash(&"c1".encode())).hash();
+	let candidate2 = make_candidate_receipt(BlakeTwo256::hash(&"c2".encode())).hash();
+	let candidate3 = make_candidate_receipt(BlakeTwo256::hash(&"c3".encode())).hash();
+
+	// B	0
+	// C1	0
+	// C2	0&1
+	// C3	1
+	inclusions.insert(candidate1, 0, get_relay_block_hash(0, 0));
+	inclusions.insert(candidate2, 0, get_relay_block_hash(0, 0));
+	inclusions.insert(candidate2, 0, get_relay_block_hash(0, 1));
+	inclusions.insert(candidate3, 0, get_relay_block_hash(0, 1));
+
+	// No prune case
+	inclusions.remove_up_to_height(&0);
+	assert!(inclusions.contains(&candidate1), "Expected candidate1 to remain");
+	assert!(inclusions.contains(&candidate2), "Expected candidate2 to remain");
+	assert!(inclusions.contains(&candidate3), "Expected candidate3 to remain");
+	assert!(inclusions.inclusions_inner.len() == 3);
+	assert!(inclusions.candidates_by_block_number.len() == 1);
+
+	// Prune case up to height 1
+	inclusions.remove_up_to_height(&1);
+	assert!(inclusions.inclusions_inner.is_empty(), "Expected inclusions_inner to be empty");
+	assert!(
+		inclusions.candidates_by_block_number.is_empty(),
+		"Expected candidates_by_block_number to be empty"
+	);
+}
+
+#[test]
+fn inclusions_removal_multi_candidate_multi_height_multi_branch() {
+	let mut inclusions = Inclusions::new();
+
+	let candidate1 = make_candidate_receipt(BlakeTwo256::hash(&"c1".encode())).hash();
+	let candidate2 = make_candidate_receipt(BlakeTwo256::hash(&"c2".encode())).hash();
+	let candidate3 = make_candidate_receipt(BlakeTwo256::hash(&"c3".encode())).hash();
+	let candidate4 = make_candidate_receipt(BlakeTwo256::hash(&"c4".encode())).hash();
+
+	// B	0	1	2
+	// C1	0&1	0	0	//shouldn't get pruned as long as one of the forks need it
+	// C2		1	1
+	// C3	0	1
+	// C4		0&1
+	inclusions.insert(candidate1, 0, get_relay_block_hash(0, 0));
+	inclusions.insert(candidate1, 0, get_relay_block_hash(0, 1));
+	inclusions.insert(candidate1, 1, get_relay_block_hash(1, 0));
+	inclusions.insert(candidate1, 2, get_relay_block_hash(2, 0));
+	inclusions.insert(candidate2, 1, get_relay_block_hash(1, 1));
+	inclusions.insert(candidate2, 2, get_relay_block_hash(2, 1));
+	inclusions.insert(candidate3, 0, get_relay_block_hash(0, 0));
+	inclusions.insert(candidate3, 1, get_relay_block_hash(1, 1));
+	inclusions.insert(candidate4, 1, get_relay_block_hash(1, 0));
+	inclusions.insert(candidate4, 1, get_relay_block_hash(1, 1));
+
+	// No prune case
+	inclusions.remove_up_to_height(&0);
+	assert!(inclusions.contains(&candidate1), "Expected candidate1 to remain");
+	assert!(inclusions.contains(&candidate2), "Expected candidate2 to remain");
+	assert!(inclusions.contains(&candidate3), "Expected candidate3 to remain");
+	assert!(inclusions.contains(&candidate4), "Expected candidate4 to remain");
+	assert!(inclusions.inclusions_inner.len() == 4);
+	assert!(inclusions.candidates_by_block_number.len() == 3);
+
+	// Prune case up to height 1
+	inclusions.remove_up_to_height(&1);
+	assert!(inclusions.contains(&candidate1), "Expected candidate1 to remain");
+	assert!(inclusions.contains(&candidate2), "Expected candidate2 to remain");
+	assert!(inclusions.contains(&candidate3), "Expected candidate3 to remain");
+	assert!(inclusions.contains(&candidate4), "Expected candidate4 to remain");
+	assert!(inclusions.inclusions_inner.len() == 4);
+	assert!(inclusions.candidates_by_block_number.len() == 2);
+
+	// Prune case up to height 2
+	inclusions.remove_up_to_height(&2);
+	assert!(inclusions.contains(&candidate1), "Expected candidate1 to remain");
+	assert!(inclusions.contains(&candidate2), "Expected candidate2 to remain");
+	assert!(!inclusions.contains(&candidate3), "Expected candidate3 to be removed");
+	assert!(!inclusions.contains(&candidate4), "Expected candidate4 to be removed");
+	assert!(inclusions.inclusions_inner.len() == 2);
+	assert!(inclusions.candidates_by_block_number.len() == 1);
+
+	// Prune case up to height 3
+	inclusions.remove_up_to_height(&3);
+	assert!(inclusions.inclusions_inner.is_empty(), "Expected inclusions_inner to be empty");
+	assert!(
+		inclusions.candidates_by_block_number.is_empty(),
+		"Expected candidates_by_block_number to be empty"
+	);
+}
+
+#[test]
+fn inclusions_removal_multi_candidate_multi_height_multi_branch_multi_height_prune() {
+	let mut inclusions = Inclusions::new();
+
+	let candidate1 = make_candidate_receipt(BlakeTwo256::hash(&"c1".encode())).hash();
+	let candidate2 = make_candidate_receipt(BlakeTwo256::hash(&"c2".encode())).hash();
+	let candidate3 = make_candidate_receipt(BlakeTwo256::hash(&"c3".encode())).hash();
+	let candidate4 = make_candidate_receipt(BlakeTwo256::hash(&"c4".encode())).hash();
+
+	// B	0	1	2
+	// C1	0&1	0	0
+	// C2		1	1
+	// C3	0	1
+	// C4		0&1
+	inclusions.insert(candidate1, 0, get_relay_block_hash(0, 0));
+	inclusions.insert(candidate1, 0, get_relay_block_hash(0, 1));
+	inclusions.insert(candidate1, 1, get_relay_block_hash(1, 0));
+	inclusions.insert(candidate1, 2, get_relay_block_hash(2, 0));
+	inclusions.insert(candidate2, 1, get_relay_block_hash(1, 1));
+	inclusions.insert(candidate2, 2, get_relay_block_hash(2, 1));
+	inclusions.insert(candidate3, 0, get_relay_block_hash(0, 0));
+	inclusions.insert(candidate3, 1, get_relay_block_hash(1, 1));
+	inclusions.insert(candidate4, 1, get_relay_block_hash(1, 0));
+	inclusions.insert(candidate4, 1, get_relay_block_hash(1, 1));
+
+	// Prune case up to height 2
+	inclusions.remove_up_to_height(&2);
+	assert!(inclusions.contains(&candidate1), "Expected candidate1 to remain");
+	assert!(inclusions.contains(&candidate2), "Expected candidate2 to remain");
+	assert!(!inclusions.contains(&candidate3), "Expected candidate3 to be removed");
+	assert!(!inclusions.contains(&candidate4), "Expected candidate4 to be removed");
+	assert!(inclusions.inclusions_inner.len() == 2);
+	assert!(inclusions.candidates_by_block_number.len() == 1);
+
+	// Prune case up to height 20
+	inclusions.remove_up_to_height(&20);
+	assert!(inclusions.inclusions_inner.is_empty(), "Expected inclusions_inner to be empty");
+	assert!(
+		inclusions.candidates_by_block_number.is_empty(),
+		"Expected candidates_by_block_number to be empty"
+	);
 }

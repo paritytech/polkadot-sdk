@@ -386,7 +386,7 @@ fn relay_dispatch_queue_size_is_updated() {
 			MessageQueue::service_queues(Weight::from_all(u64::MAX));
 
 			let fp = MessageQueue::footprint(AggregateMessageOrigin::Ump(para));
-			let (para_queue_count, para_queue_size) = (fp.count, fp.size);
+			let (para_queue_count, para_queue_size) = (fp.storage.count, fp.storage.size);
 			assert_eq!(para_queue_count, 1, "count wrong for para: {}", p);
 			assert_eq!(para_queue_size, 8, "size wrong for para: {}", p);
 		}
@@ -400,7 +400,7 @@ fn relay_dispatch_queue_size_is_updated() {
 
 			assert_queue_remaining(p.into(), cfg.max_upward_queue_count, cfg.max_upward_queue_size);
 			let fp = MessageQueue::footprint(AggregateMessageOrigin::Ump(para));
-			let (para_queue_count, para_queue_size) = (fp.count, fp.size);
+			let (para_queue_count, para_queue_size) = (fp.storage.count, fp.storage.size);
 			assert_eq!(para_queue_count, 0, "count wrong for para: {}", p);
 			assert_eq!(para_queue_size, 0, "size wrong for para: {}", p);
 		}

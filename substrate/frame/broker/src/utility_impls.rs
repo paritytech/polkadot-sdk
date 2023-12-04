@@ -101,9 +101,9 @@ impl<T: Config> Pallet<T> {
 
 		let last_committed_timeslice = status.last_committed_timeslice;
 		if region_id.begin <= last_committed_timeslice {
+			let duration = region.end.saturating_sub(region_id.begin);
 			region_id.begin = last_committed_timeslice + 1;
 			if region_id.begin >= region.end {
-				let duration = region.end.saturating_sub(region_id.begin);
 				Self::deposit_event(Event::RegionDropped { region_id, duration });
 				return Ok(None)
 			}

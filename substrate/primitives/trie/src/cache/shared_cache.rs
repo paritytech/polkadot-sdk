@@ -30,7 +30,11 @@ use std::{
 use trie_db::{node::NodeOwned, CachedValue};
 
 lazy_static::lazy_static! {
-	static ref RANDOM_STATE: ahash::RandomState = ahash::RandomState::default();
+	static ref RANDOM_STATE: ahash::RandomState = {
+		use rand::Rng;
+		let mut rng = rand::thread_rng();
+		ahash::RandomState::generate_with(rng.gen(), rng.gen(), rng.gen(), rng.gen())
+	};
 }
 
 pub struct SharedNodeCacheLimiter {

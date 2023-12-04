@@ -30,7 +30,7 @@ use polkadot_runtime_parachains::{
 	disputes::slashing as parachains_slashing, dmp as parachains_dmp, hrmp as parachains_hrmp,
 	inclusion as parachains_inclusion, initializer as parachains_initializer,
 	origin as parachains_origin, paras as parachains_paras,
-	paras_inherent as parachains_paras_inherent, runtime_api_impl::v5 as runtime_impl,
+	paras_inherent as parachains_paras_inherent, runtime_api_impl::v7 as runtime_impl,
 	scheduler as parachains_scheduler, session_info as parachains_session_info,
 	shared as parachains_shared,
 };
@@ -42,7 +42,9 @@ use frame_election_provider_support::{
 	onchain, SequentialPhragmen,
 };
 use frame_support::{
-	construct_runtime, parameter_types,
+	construct_runtime,
+	genesis_builder_helper::{build_config, create_default_config},
+	parameter_types,
 	traits::{Everything, KeyOwnerProofSystem, WithdrawReasons},
 };
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
@@ -190,7 +192,7 @@ impl pallet_babe::Config for Runtime {
 	type WeightInfo = ();
 
 	type MaxAuthorities = MaxAuthorities;
-	type MaxNominators = MaxNominatorRewardedPerValidator;
+	type MaxNominators = MaxNominators;
 
 	type KeyOwnerProof =
 		<Historical as KeyOwnerProofSystem<(KeyTypeId, pallet_babe::AuthorityId)>>::Proof;
@@ -227,6 +229,7 @@ impl pallet_balances::Config for Runtime {
 	type ReserveIdentifier = [u8; 8];
 	type WeightInfo = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
 	type MaxHolds = ConstU32<0>;
 	type MaxFreezes = ConstU32<0>;
@@ -315,7 +318,8 @@ parameter_types! {
 	// 27 eras in which slashes can be cancelled (a bit less than 7 days).
 	pub storage SlashDeferDuration: sp_staking::EraIndex = 27;
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
-	pub storage MaxNominatorRewardedPerValidator: u32 = 64;
+	pub const MaxExposurePageSize: u32 = 64;
+	pub const MaxNominators: u32 = 256;
 	pub storage OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
 	pub const MaxAuthorities: u32 = 100_000;
 	pub const OnChainMaxWinners: u32 = u32::MAX;
@@ -351,7 +355,7 @@ impl pallet_staking::Config for Runtime {
 	type AdminOrigin = frame_system::EnsureNever<()>;
 	type SessionInterface = Self;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
-	type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
+	type MaxExposurePageSize = MaxExposurePageSize;
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type NextNewSession = Session;
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
@@ -377,7 +381,7 @@ impl pallet_grandpa::Config for Runtime {
 
 	type WeightInfo = ();
 	type MaxAuthorities = MaxAuthorities;
-	type MaxNominators = MaxNominatorRewardedPerValidator;
+	type MaxNominators = MaxNominators;
 	type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
 
 	type KeyOwnerProof = sp_core::Void;
@@ -822,7 +826,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl primitives::runtime_api::ParachainHost<Block, Hash, BlockNumber> for Runtime {
+	impl primitives::runtime_api::ParachainHost<Block> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			runtime_impl::validators::<Runtime>()
 		}
@@ -1135,6 +1139,16 @@ sp_api::impl_runtime_apis! {
 	impl crate::GetLastTimestamp<Block> for Runtime {
 		fn get_last_timestamp() -> u64 {
 			Timestamp::now()
+		}
+	}
+
+	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
+		fn create_default_config() -> Vec<u8> {
+			create_default_config::<RuntimeGenesisConfig>()
+		}
+
+		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
+			build_config::<RuntimeGenesisConfig>(config)
 		}
 	}
 }

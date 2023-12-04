@@ -263,14 +263,14 @@ impl<T: Config, const TEST_ALL_STEPS: bool> Migration<T, TEST_ALL_STEPS> {
 impl<T: Config, const TEST_ALL_STEPS: bool> OnRuntimeUpgrade for Migration<T, TEST_ALL_STEPS> {
 	fn on_runtime_upgrade() -> Weight {
 		let name = <Pallet<T>>::name();
-		let latest_version = <Pallet<T>>::current_storage_version();
-		let storage_version = <Pallet<T>>::on_chain_storage_version();
+		let current_version = <Pallet<T>>::current_storage_version();
+		let on_chain_version = <Pallet<T>>::on_chain_storage_version();
 
-		if storage_version == latest_version {
+		if on_chain_version == current_version {
 			log::warn!(
 				target: LOG_TARGET,
 				"{name}: No Migration performed storage_version = latest_version = {:?}",
-				&storage_version
+				&on_chain_version
 			);
 			return T::WeightInfo::on_runtime_upgrade_noop()
 		}
@@ -281,7 +281,7 @@ impl<T: Config, const TEST_ALL_STEPS: bool> OnRuntimeUpgrade for Migration<T, TE
 			log::warn!(
 				target: LOG_TARGET,
 				"{name}: Migration already in progress {:?}",
-				&storage_version
+				&on_chain_version
 			);
 
 			return T::WeightInfo::on_runtime_upgrade_in_progress()
@@ -289,10 +289,10 @@ impl<T: Config, const TEST_ALL_STEPS: bool> OnRuntimeUpgrade for Migration<T, TE
 
 		log::info!(
 			target: LOG_TARGET,
-			"{name}: Upgrading storage from {storage_version:?} to {latest_version:?}.",
+			"{name}: Upgrading storage from {on_chain_version:?} to {current_version:?}.",
 		);
 
-		let cursor = T::Migrations::new(storage_version + 1);
+		let cursor = T::Migrations::new(on_chain_version + 1);
 		MigrationInProgress::<T>::set(Some(cursor));
 
 		#[cfg(feature = "try-runtime")]
@@ -308,25 +308,51 @@ impl<T: Config, const TEST_ALL_STEPS: bool> OnRuntimeUpgrade for Migration<T, TE
 		// We can't really do much here as our migrations do not happen during the runtime upgrade.
 		// Instead, we call the migrations `pre_upgrade` and `post_upgrade` hooks when we iterate
 		// over our migrations.
-		let storage_version = <Pallet<T>>::on_chain_storage_version();
-		let target_version = <Pallet<T>>::current_storage_version();
+		let on_chain_version = <Pallet<T>>::on_chain_storage_version();
+		let current_version = <Pallet<T>>::current_storage_version();
 
-		ensure!(
-			storage_version != target_version,
-			"No upgrade: Please remove this migration from your runtime upgrade configuration."
-		);
+		if on_chain_version == current_version {
+			return Ok(Default::default())
+		}
 
 		log::debug!(
 			target: LOG_TARGET,
 			"Requested migration of {} from {:?}(on-chain storage version) to {:?}(current storage version)",
-			<Pallet<T>>::name(), storage_version, target_version
+			<Pallet<T>>::name(), on_chain_version, current_version
 		);
 
 		ensure!(
-			T::Migrations::is_upgrade_supported(storage_version, target_version),
+			T::Migrations::is_upgrade_supported(on_chain_version, current_version),
 			"Unsupported upgrade: VERSION_RANGE should be (on-chain storage version + 1, current storage version)"
 		);
+
 		Ok(Default::default())
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
+		if !TEST_ALL_STEPS {
+			return Ok(())
+		}
+
+		log::info!(target: LOG_TARGET, "=== POST UPGRADE CHECKS ===");
+
+		// Ensure that the hashing algorithm is correct for each storage map.
+		if let Some(hash) = crate::CodeInfoOf::<T>::iter_keys().next() {
+			crate::CodeInfoOf::<T>::get(hash).expect("CodeInfo exists for hash; qed");
+		}
+		if let Some(hash) = crate::PristineCode::<T>::iter_keys().next() {
+			crate::PristineCode::<T>::get(hash).expect("PristineCode exists for hash; qed");
+		}
+		if let Some(account_id) = crate::ContractInfoOf::<T>::iter_keys().next() {
+			crate::ContractInfoOf::<T>::get(account_id)
+				.expect("ContractInfo exists for account_id; qed");
+		}
+		if let Some(nonce) = crate::DeletionQueue::<T>::iter_keys().next() {
+			crate::DeletionQueue::<T>::get(nonce).expect("DeletionQueue exists for nonce; qed");
+		}
+
+		Ok(())
 	}
 }
 

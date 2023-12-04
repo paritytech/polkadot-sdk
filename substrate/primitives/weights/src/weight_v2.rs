@@ -18,13 +18,10 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
 use sp_arithmetic::traits::{Bounded, CheckedAdd, CheckedSub, Zero};
-use sp_debug_derive::RuntimeDebug;
 
 use super::*;
 
-#[derive(
-	Encode, Decode, MaxEncodedLen, TypeInfo, Eq, PartialEq, Copy, Clone, RuntimeDebug, Default,
-)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Eq, PartialEq, Copy, Clone, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Weight {
 	#[codec(compact)]

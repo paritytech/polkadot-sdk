@@ -33,6 +33,7 @@ use sp_state_machine::{
 	OffchainChangesCollection, StorageCollection, StorageIterator,
 };
 use sp_storage::{ChildInfo, StorageData, StorageKey};
+pub use sp_trie::MerkleValue;
 
 use crate::{blockchain::Backend as BlockchainBackend, UsageInfo};
 
@@ -470,6 +471,21 @@ pub trait StorageProvider<Block: BlockT, B: Backend<Block>> {
 		child_info: &ChildInfo,
 		key: &StorageKey,
 	) -> sp_blockchain::Result<Option<Block::Hash>>;
+
+	/// Given a block's `Hash` and a key, return the closest merkle value.
+	fn closest_merkle_value(
+		&self,
+		hash: Block::Hash,
+		key: &StorageKey,
+	) -> sp_blockchain::Result<Option<MerkleValue<Block::Hash>>>;
+
+	/// Given a block's `Hash`, a key and a child storage key, return the closest merkle value.
+	fn child_closest_merkle_value(
+		&self,
+		hash: Block::Hash,
+		child_info: &ChildInfo,
+		key: &StorageKey,
+	) -> sp_blockchain::Result<Option<MerkleValue<Block::Hash>>>;
 }
 
 /// Client backend.
