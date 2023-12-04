@@ -57,7 +57,7 @@ substrate-prometheus-endpoint = { path = "../../../substrate/utils/prometheus" }
 # Polkadot
 polkadot-cli = { path = "../../../polkadot/cli", features = ["rococo-native"] }
 polkadot-primitives = { path = "../../../polkadot/primitives" }
-xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false }
 
 # Cumulus
 cumulus-client-cli = { path = "../../client/cli" }
@@ -91,4 +91,3 @@ try-runtime = [
 	"polkadot-cli/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-

@@ -77,7 +77,7 @@ serde_json = "1.0.108"
 substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 no_std = []
 only-staking = []
 runtime-metrics = [

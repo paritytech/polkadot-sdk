@@ -35,5 +35,5 @@ docify = "0.2.0"
 [dev-dependencies]
 substrate-test-runtime = { path = "../../test-utils/runtime" }
 sp-keyring = { path = "../../primitives/keyring" }
-sp-application-crypto = { default-features = false, path = "../../primitives/application-crypto", features = ["serde"]  }
+sp-application-crypto = { default-features = false, path = "../../primitives/application-crypto", features = ["serde"] }
 sp-consensus-babe = { default-features = false, path = "../../primitives/consensus/babe", features = ["serde"] }

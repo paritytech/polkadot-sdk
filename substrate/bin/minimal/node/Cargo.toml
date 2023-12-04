@@ -24,9 +24,9 @@ jsonrpsee = { version = "0.16.2", features = ["server"] }
 serde_json = "1.0.108"
 
 sc-cli = { path = "../../../client/cli" }
-sc-executor = {  path = "../../../client/executor" }
-sc-network = {  path = "../../../client/network" }
-sc-service = {  path = "../../../client/service" }
+sc-executor = { path = "../../../client/executor" }
+sc-network = { path = "../../../client/network" }
+sc-service = { path = "../../../client/service" }
 sc-telemetry = { path = "../../../client/telemetry" }
 sc-transaction-pool = { path = "../../../client/transaction-pool" }
 sc-transaction-pool-api = { path = "../../../client/transaction-pool/api" }
@@ -47,7 +47,7 @@ sp-runtime = { path = "../../../primitives/runtime" }
 
 substrate-frame-rpc-system = { path = "../../../utils/frame/rpc/system" }
 
-frame = { path = "../../../frame", features = ["runtime", "experimental"] }
+frame = { path = "../../../frame", features = ["experimental", "runtime"] }
 runtime = { package = "minimal-runtime", path = "../runtime" }
 
 [build-dependencies]

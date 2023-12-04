@@ -107,6 +107,13 @@ impl<H: Hasher> Clone for Recorder<H> {
 }
 
 impl<H: Hasher> Recorder<H> {
+	/// Returns [`RecordedForKey`] per recorded key per trie.
+	///
+	/// There are multiple tries when working with e.g. child tries.
+	pub fn recorded_keys(&self) -> HashMap<<H as Hasher>::Out, HashMap<Arc<[u8]>, RecordedForKey>> {
+		self.inner.lock().recorded_keys.clone()
+	}
+
 	/// Returns the recorder as [`TrieRecorder`](trie_db::TrieRecorder) compatible type.
 	///
 	/// - `storage_root`: The storage root of the trie for which accesses are recorded. This is

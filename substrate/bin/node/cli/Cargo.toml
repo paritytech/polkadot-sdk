@@ -79,7 +79,7 @@ sc-consensus-babe = { path = "../../../client/consensus/babe" }
 grandpa = { package = "sc-consensus-grandpa", path = "../../../client/consensus/grandpa" }
 sc-rpc = { path = "../../../client/rpc" }
 sc-basic-authorship = { path = "../../../client/basic-authorship" }
-sc-service = { path = "../../../client/service", default-features = false}
+sc-service = { path = "../../../client/service", default-features = false }
 sc-telemetry = { path = "../../../client/telemetry" }
 sc-executor = { path = "../../../client/executor" }
 sc-authority-discovery = { path = "../../../client/authority-discovery" }
@@ -96,8 +96,8 @@ frame-system-rpc-runtime-api = { path = "../../../frame/system/rpc/runtime-api" 
 pallet-assets = { path = "../../../frame/assets" }
 pallet-asset-conversion-tx-payment = { path = "../../../frame/transaction-payment/asset-conversion-tx-payment" }
 pallet-asset-tx-payment = { path = "../../../frame/transaction-payment/asset-tx-payment" }
-pallet-im-online = { path = "../../../frame/im-online", default-features = false}
-pallet-skip-feeless-payment = { path = "../../../frame/transaction-payment/skip-feeless-payment", default-features = false}
+pallet-im-online = { path = "../../../frame/im-online", default-features = false }
+pallet-skip-feeless-payment = { path = "../../../frame/transaction-payment/skip-feeless-payment", default-features = false }
 
 # node-specific dependencies
 kitchensink-runtime = { path = "../runtime" }
@@ -105,10 +105,10 @@ node-rpc = { path = "../rpc" }
 node-primitives = { path = "../primitives" }
 
 # CLI-specific dependencies
-sc-cli = { path = "../../../client/cli", optional = true}
-frame-benchmarking-cli = { path = "../../../utils/frame/benchmarking-cli", optional = true}
-node-inspect = { package = "staging-node-inspect", path = "../inspect", optional = true}
-try-runtime-cli = { path = "../../../utils/frame/try-runtime/cli", optional = true}
+sc-cli = { path = "../../../client/cli", optional = true }
+frame-benchmarking-cli = { path = "../../../utils/frame/benchmarking-cli", optional = true }
+node-inspect = { package = "staging-node-inspect", path = "../inspect", optional = true }
+try-runtime-cli = { path = "../../../utils/frame/try-runtime/cli", optional = true }
 serde_json = "1.0.108"
 
 [dev-dependencies]
@@ -129,7 +129,7 @@ regex = "1.6.0"
 platforms = "3.0"
 soketto = "0.7.1"
 criterion = { version = "0.4.0", features = ["async_tokio"] }
-tokio = { version = "1.22.0", features = ["macros", "time", "parking_lot"] }
+tokio = { version = "1.22.0", features = ["macros", "parking_lot", "time"] }
 tokio-util = { version = "0.7.4", features = ["compat"] }
 wait-timeout = "0.2"
 substrate-rpc-client = { path = "../../../utils/frame/rpc/client" }
@@ -159,17 +159,17 @@ sp-state-machine = { path = "../../../primitives/state-machine" }
 [build-dependencies]
 clap = { version = "4.4.10", optional = true }
 clap_complete = { version = "4.0.2", optional = true }
-node-inspect = { package = "staging-node-inspect", path = "../inspect", optional = true}
-frame-benchmarking-cli = { path = "../../../utils/frame/benchmarking-cli", optional = true}
-substrate-build-script-utils = { path = "../../../utils/build-script-utils", optional = true}
-substrate-frame-cli = { path = "../../../utils/frame/frame-utilities-cli", optional = true}
-try-runtime-cli = { path = "../../../utils/frame/try-runtime/cli", optional = true}
+node-inspect = { package = "staging-node-inspect", path = "../inspect", optional = true }
+frame-benchmarking-cli = { path = "../../../utils/frame/benchmarking-cli", optional = true }
+substrate-build-script-utils = { path = "../../../utils/build-script-utils", optional = true }
+substrate-frame-cli = { path = "../../../utils/frame/frame-utilities-cli", optional = true }
+try-runtime-cli = { path = "../../../utils/frame/try-runtime/cli", optional = true }
 sc-cli = { path = "../../../client/cli", optional = true }
 pallet-balances = { path = "../../../frame/balances" }
 sc-storage-monitor = { path = "../../../client/storage-monitor" }
 
 [features]
-default = [ "cli" ]
+default = ["cli"]
 cli = [
 	"clap",
 	"clap_complete",

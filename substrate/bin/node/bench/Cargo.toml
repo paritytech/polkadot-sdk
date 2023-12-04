@@ -31,7 +31,7 @@ sp-core = { path = "../../../primitives/core" }
 sp-consensus = { path = "../../../primitives/consensus/common" }
 sc-basic-authorship = { path = "../../../client/basic-authorship" }
 sp-inherents = { path = "../../../primitives/inherents" }
-sp-timestamp = { path = "../../../primitives/timestamp", default-features = false}
+sp-timestamp = { path = "../../../primitives/timestamp", default-features = false }
 sp-tracing = { path = "../../../primitives/tracing" }
 hash-db = "0.16.0"
 tempfile = "3.1.0"

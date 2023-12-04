@@ -21,13 +21,13 @@ docify = "0.2.0"
 impl-trait-for-tuples = "0.2.2"
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.193", features = ["derive"], optional = true }
-frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true}
-frame-support = { path = "../support", default-features = false}
-frame-system = { path = "../system", default-features = false}
-pallet-balances = { path = "../balances", default-features = false}
-sp-runtime = { path = "../../primitives/runtime", default-features = false}
-sp-std = { path = "../../primitives/std", default-features = false}
-sp-core = { path = "../../primitives/core", default-features = false, optional = true}
+frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
+frame-support = { path = "../support", default-features = false }
+frame-system = { path = "../system", default-features = false }
+pallet-balances = { path = "../balances", default-features = false }
+sp-runtime = { path = "../../primitives/runtime", default-features = false }
+sp-std = { path = "../../primitives/std", default-features = false }
+sp-core = { path = "../../primitives/core", default-features = false, optional = true }
 
 [dev-dependencies]
 sp-io = { path = "../../primitives/io" }
@@ -35,7 +35,7 @@ pallet-utility = { path = "../utility" }
 sp-core = { path = "../../primitives/core", default-features = false }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",

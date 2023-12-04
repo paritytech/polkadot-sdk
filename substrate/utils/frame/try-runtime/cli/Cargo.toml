@@ -12,7 +12,7 @@ description = "Cli command runtime testing and dry-running"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-remote-externalities = { package = "frame-remote-externalities" , path = "../../remote-externalities" }
+remote-externalities = { package = "frame-remote-externalities", path = "../../remote-externalities" }
 sc-cli = { path = "../../../../client/cli" }
 sc-executor = { path = "../../../../client/executor" }
 sp-consensus-aura = { path = "../../../../primitives/consensus/aura" }
@@ -31,7 +31,7 @@ sp-version = { path = "../../../../primitives/version" }
 sp-debug-derive = { path = "../../../../primitives/debug-derive" }
 sp-api = { path = "../../../../primitives/api" }
 sp-weights = { path = "../../../../primitives/weights" }
-frame-try-runtime = { path = "../../../../frame/try-runtime", optional = true}
+frame-try-runtime = { path = "../../../../frame/try-runtime", optional = true }
 substrate-rpc-client = { path = "../../rpc/client" }
 
 async-trait = "0.1.57"

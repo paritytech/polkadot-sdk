@@ -18,7 +18,7 @@ name = "node-template"
 
 [dependencies]
 clap = { version = "4.4.10", features = ["derive"] }
-futures = { version = "0.3.21", features = ["thread-pool"]}
+futures = { version = "0.3.21", features = ["thread-pool"] }
 serde_json = "1.0.108"
 
 sc-cli = { path = "../../../client/cli" }
@@ -42,7 +42,7 @@ sp-timestamp = { path = "../../../primitives/timestamp" }
 sp-inherents = { path = "../../../primitives/inherents" }
 sp-keyring = { path = "../../../primitives/keyring" }
 frame-system = { path = "../../../frame/system" }
-pallet-transaction-payment = { path = "../../../frame/transaction-payment", default-features = false}
+pallet-transaction-payment = { path = "../../../frame/transaction-payment", default-features = false }
 
 # These dependencies are used for the node template's RPCs
 jsonrpsee = { version = "0.16.2", features = ["server"] }
@@ -62,7 +62,7 @@ frame-benchmarking-cli = { path = "../../../utils/frame/benchmarking-cli" }
 node-template-runtime = { path = "../runtime" }
 
 # CLI-specific dependencies
-try-runtime-cli = { path = "../../../utils/frame/try-runtime/cli", optional = true}
+try-runtime-cli = { path = "../../../utils/frame/try-runtime/cli", optional = true }
 
 [build-dependencies]
 substrate-build-script-utils = { path = "../../../utils/build-script-utils" }

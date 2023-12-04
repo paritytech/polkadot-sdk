@@ -21,18 +21,18 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 integer-sqrt = "0.1.2"
 num-traits = { version = "0.2.8", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.193", default-features = false, features = ["derive", "alloc"], optional = true }
+serde = { version = "1.0.193", default-features = false, features = ["alloc", "derive"], optional = true }
 static_assertions = "1.1.0"
-sp-std = { path = "../std", default-features = false}
+sp-std = { path = "../std", default-features = false }
 
 [dev-dependencies]
 criterion = "0.4.0"
 primitive-types = "0.12.0"
-sp-core = { path = "../core", features = ["full_crypto"]}
+sp-core = { path = "../core", features = ["full_crypto"] }
 rand = "0.8.5"
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"num-traits/std",
@@ -42,7 +42,7 @@ std = [
 	"sp-std/std",
 ]
 # Serde support without relying on std features.
-serde = [ "dep:serde", "scale-info/serde" ]
+serde = ["dep:serde", "scale-info/serde"]
 
 [[bench]]
 name = "bench"

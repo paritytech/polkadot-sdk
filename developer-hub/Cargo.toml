@@ -14,7 +14,7 @@ version = "0.0.1"
 # Needed for all FRAME-based code
 parity-scale-codec = { version = "3.0.0", default-features = false }
 scale-info = { version = "2.6.0", default-features = false }
-frame = { path = "../substrate/frame", features = ["runtime", "experimental"] }
+frame = { path = "../substrate/frame", features = ["experimental", "runtime"] }
 pallet-examples = { path = "../substrate/frame/examples" }
 pallet-default-config-example = { path = "../substrate/frame/examples/default-config" }
 
@@ -63,4 +63,4 @@ parity-scale-codec = "3.6.5"
 scale-info = "2.9.0"
 
 [features]
-experimental = [ "pallet-aura/experimental" ]
+experimental = ["pallet-aura/experimental"]
