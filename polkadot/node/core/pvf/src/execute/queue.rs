@@ -373,6 +373,7 @@ fn handle_job_finish(
 			);
 
 			let result = match err {
+				WorkerInterfaceError::InternalError(err) |
 				WorkerInterfaceError::WorkerError(WorkerError::InternalError(err)) =>
 					Err(ValidationError::Internal(err)),
 				// Either the worker or the job timed out. Kill the worker in either case. Treated

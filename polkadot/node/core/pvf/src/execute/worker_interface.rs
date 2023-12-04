@@ -106,6 +106,10 @@ pub enum Error {
 	/// reused.
 	#[error("The worker reported an error: {0}")]
 	WorkerError(#[from] WorkerError),
+
+	/// An internal error happened on the host-side.
+	#[error("An internal error occurred: {0}")]
+	InternalError(#[from] InternalValidationError),
 }
 
 /// Given the idle token of a worker and parameters of work, communicates with the worker and
@@ -140,6 +144,7 @@ pub async fn start_work(
 					?error,
 					"failed to send an execute request",
 				);
+				// Maybe the previous job process killed the parent worker, don't treat as internal.
 				Error::CommunicationErr(error)
 			},
 		)?;
@@ -249,9 +254,7 @@ where
 			"failed to clear worker cache after the job: {:?}",
 			err,
 		);
-		return Err(Error::WorkerError(
-			InternalValidationError::CouldNotCreateLink(format!("{:?}", err)).into(),
-		))
+		return Err(InternalValidationError::CouldNotCreateLink(format!("{:?}", err)).into())
 	}
 
 	let worker_dir_path = worker_dir.path().to_owned();
@@ -266,13 +269,11 @@ where
 			"failed to clear worker cache after the job: {:?}",
 			err,
 		);
-		return Err(Error::WorkerError(
-			InternalValidationError::CouldNotClearWorkerDir {
-				err: format!("{:?}", err),
-				path: worker_dir_path.to_str().map(String::from),
-			}
-			.into(),
-		))
+		return Err(InternalValidationError::CouldNotClearWorkerDir {
+			err: format!("{:?}", err),
+			path: worker_dir_path.to_str().map(String::from),
+		}
+		.into())
 	}
 
 	result

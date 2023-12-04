@@ -137,12 +137,15 @@ impl fmt::Display for PrepareError {
 /// errors we ruled out during pre-checking (so preparation errors are fine).
 #[derive(thiserror::Error, Debug, Clone, Encode, Decode)]
 pub enum InternalValidationError {
-	/// Some communication error occurred with the host.
+	/// Some communication error occurred with the host. It may have died. Should be unrelated to
+	/// the candidate.
 	#[error("validation: some communication error occurred with the host: {0}")]
 	HostCommunication(String),
 	/// Host could not create a hard link to the artifact path.
 	#[error("validation: host could not create a hard link to the artifact path: {0}")]
 	CouldNotCreateLink(String),
+	#[error("validation: could not create pipe: {0}")]
+	CouldNotCreatePipe(String),
 	/// Could not find or open compiled artifact file.
 	#[error("validation: could not find or open compiled artifact file: {0}")]
 	CouldNotOpenFile(String),

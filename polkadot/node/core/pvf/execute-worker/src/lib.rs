@@ -154,10 +154,26 @@ pub fn worker_entrypoint(
 			let worker_pid = process::id();
 			let artifact_path = worker_dir::execute_artifact(&worker_dir_path);
 
-			let Handshake { executor_params } = recv_handshake(&mut stream)?;
+			let Handshake { executor_params } = match recv_handshake(&mut stream) {
+				Ok(handshake) => handshake,
+				Err(err) => {
+					let result =
+						Err(InternalValidationError::HostCommunication(err.to_string()).into());
+					send_result(&mut stream, result)?;
+					return
+				},
+			};
 
 			loop {
-				let (params, execution_timeout) = recv_request(&mut stream)?;
+				let (params, execution_timeout) = match recv_request(&mut stream) {
+					Ok(request) => request,
+					Err(err) => {
+						let result =
+							Err(InternalValidationError::HostCommunication(err.to_string()).into());
+						send_result(&mut stream, result)?;
+						continue
+					},
+				};
 				gum::debug!(
 					target: LOG_TARGET,
 					%worker_pid,
@@ -169,15 +185,24 @@ pub fn worker_entrypoint(
 				let compiled_artifact_blob = match std::fs::read(&artifact_path) {
 					Ok(bytes) => bytes,
 					Err(err) => {
-						let result = Err(WorkerError::InternalError(
-							InternalValidationError::CouldNotOpenFile(err.to_string()),
-						));
+						let result =
+							Err(InternalValidationError::CouldNotOpenFile(err.to_string()).into());
 						send_result(&mut stream, result)?;
 						continue
 					},
 				};
 
-				let (pipe_reader, pipe_writer) = os_pipe::pipe()?;
+				let (pipe_reader, pipe_writer) = match os_pipe::pipe() {
+					Ok(pipe) => pipe,
+					Err(err) => {
+						let result = Err(InternalValidationError::CouldNotCreatePipe(
+							err.to_string(),
+						)
+						.into());
+						send_result(&mut stream, result)?;
+						continue
+					},
+				};
 
 				let usage_before = match nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
 					Ok(usage) => usage,
