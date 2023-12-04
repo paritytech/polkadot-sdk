@@ -257,7 +257,7 @@ fn assert_set_id_parachain(id: &Identity) {
 		let free_bal = PeopleRococoBalances::free_balance(PeopleRococoSender::get());
 		let reserved_balance = PeopleRococoBalances::reserved_balance(PeopleRococoSender::get());
 
-		//total balance at Genesis should be zero
+		// total balance at Genesis should be zero
 		assert_eq!(reserved_balance + free_bal, 0);
 
 		assert_ok!(PeopleRococoIdentity::set_identity_no_deposit(
