@@ -49,8 +49,9 @@ pub struct PalletAttr {
 fn is_runtime_type(item: &syn::ImplItemType) -> bool {
 	item.attrs.iter().any(|attr| {
 		if let Ok(PalletAttr { typ: PalletAttrType::RuntimeType(_), .. }) =
-					parse2::<PalletAttr>(attr.into_token_stream()) {
-			return true;
+			parse2::<PalletAttr>(attr.into_token_stream())
+		{
+			return true
 		}
 		false
 	})
@@ -241,7 +242,8 @@ fn test_runtime_type_with_doc() {
 			#[inject_runtime_type]
 			type Test = u32;
 		}
-	)).unwrap();
+	))
+	.unwrap();
 	for item in p.items {
 		if let ImplItem::Type(typ) = item {
 			assert_eq!(is_runtime_type(&typ), true);
