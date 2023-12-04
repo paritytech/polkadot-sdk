@@ -17,17 +17,15 @@
 
 //! A crate that hosts a common definitions that are relevant for the pallet-contracts.
 
-#![cfg_attr(not(feature = "std"), no_std)]
-
-use bitflags::bitflags;
 use codec::{Decode, Encode, MaxEncodedLen};
+use frame_support::weights::Weight;
+use pallet_contracts_uapi::ReturnFlags;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Saturating, Zero},
 	DispatchError, RuntimeDebug,
 };
 use sp_std::prelude::*;
-use sp_weights::Weight;
 
 /// Result type of a `bare_call` or `bare_instantiate` call as well as `ContractsApi::call` and
 /// `ContractsApi::instantiate`.
@@ -107,15 +105,6 @@ pub enum ContractAccessError {
 	KeyDecodingFailed,
 	/// Storage is migrating. Try again later.
 	MigrationInProgress,
-}
-
-bitflags! {
-	/// Flags used by a contract to customize exit behaviour.
-	#[derive(Encode, Decode, TypeInfo)]
-	pub struct ReturnFlags: u32 {
-		/// If this bit is set all changes made by the contract execution are rolled back.
-		const REVERT = 0x0000_0001;
-	}
 }
 
 /// Output of a contract call or instantiation which ran to completion.
