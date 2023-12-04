@@ -149,8 +149,8 @@ impl IdentityOn<'_> {
 			},
 			IdentityOn::Para(id) => {
 				let base_deposit = BasicDepositParachain::get();
-				let byte_deposit = ByteDepositParachain::get() *
-					TryInto::<Balance>::try_into(id.encoded_size()).unwrap();
+				let byte_deposit = ByteDepositParachain::get()
+					* TryInto::<Balance>::try_into(id.encoded_size()).unwrap();
 				base_deposit + byte_deposit
 			},
 		}
@@ -169,10 +169,8 @@ fn account_from_u32(id: u32) -> AccountId32 {
 	let mut buffer = [255u8; 32];
 	let id_bytes = id.to_le_bytes();
 	let id_size = id_bytes.len();
-	for ii in 0..buffer.len() / id_size {
-		let start = ii * id_size;
-		let end = start + id_size;
-		buffer[start..end].clone_from_slice(&id_bytes[..]);
+	for chunk in buffer.chunks_mut(id_size) {
+		chunk.clone_from_slice(&id_bytes);
 	}
 	AccountId32::new(buffer)
 }
@@ -190,21 +188,15 @@ fn set_id_relay(id: &Identity) -> Balance {
 			Box::new(id.relay.clone())
 		));
 
-		match id.subs {
-			Subs::Zero => {},
-			Subs::Many(n) => {
-				let mut subs = Vec::with_capacity(n.try_into().unwrap());
-				for i in 0..n {
-					subs.push((
-						AccountId32::from(i),
-						Data::Raw(b"name".to_vec().try_into().unwrap()),
-					));
-				}
-				assert_ok!(RococoIdentity::set_subs(
-					RococoOrigin::signed(RococoRelaySender::get()),
-					subs,
-				));
-			},
+		if let Subs::Many(n) = id.subs {
+			let subs: Vec<_> = (0..n)
+				.map(|i| (account_from_u32(i), Data::Raw(b"name".to_vec().try_into().unwrap())))
+				.collect();
+
+			assert_ok!(RococoIdentity::set_subs(
+				RococoOrigin::signed(RococoRelaySender::get()),
+				subs,
+			));
 		}
 
 		let reserved_balance = RococoBalances::reserved_balance(RococoRelaySender::get());
@@ -223,6 +215,7 @@ fn set_id_relay(id: &Identity) -> Balance {
 						},
 					]
 				);
+				total_deposit
 			},
 			Subs::Many(n) => {
 				let sub_account_deposit = n as Balance * SubAccountDeposit::get();
@@ -242,8 +235,9 @@ fn set_id_relay(id: &Identity) -> Balance {
 						},
 					]
 				);
+				total_deposit
 			},
-		}
+		};
 
 		assert_eq!(reserved_balance, total_deposit);
 	});
@@ -268,13 +262,11 @@ fn assert_set_id_parachain(id: &Identity) {
 		match id.subs {
 			Subs::Zero => {},
 			Subs::Many(n) => {
-				let mut subs = Vec::with_capacity(n.try_into().unwrap());
-				for ii in 0..n {
-					subs.push((
-						account_from_u32(ii),
-						Data::Raw(b"name".to_vec().try_into().unwrap()),
-					));
-				}
+				let subs: Vec<_> = (0..n)
+					.map(|ii| {
+						(account_from_u32(ii), Data::Raw(b"name".to_vec().try_into().unwrap()))
+					})
+					.collect();
 				assert_ok!(PeopleRococoIdentity::set_subs_no_deposit(
 					&PeopleRococoSender::get(),
 					subs,
@@ -397,7 +389,7 @@ fn assert_reap_events(id_deposit: Balance, id: &Identity) {
 						identity: *identity == id_deposit,
 						subs: *subs == 0,
 					},
-					RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { ..}) => {},
+					RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { .. }) => {},
 				]
 			);
 		},
@@ -428,7 +420,7 @@ fn assert_reap_events(id_deposit: Balance, id: &Identity) {
 						identity: *identity == id_deposit,
 						subs: *subs == subs_deposit,
 					},
-					RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { ..}) => {},
+					RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { .. }) => {},
 				]
 			);
 		},

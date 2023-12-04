@@ -554,28 +554,6 @@ impl From<[u8; 32]> for AccountId32 {
 	}
 }
 
-/// Generate an `AccountId32` from a `u32`.
-/// This creates a 32-byte array, initially filled with `255`, and then repeatedly fills it
-/// with the 4-byte little-endian representation of the `u32` value, until the array is full.
-///
-/// **Example**:
-///
-/// `account_from_u32(5)` will return an `AccountId32` with the bytes
-/// `[0, 5, 0, 0, 0, 0, 0, 0, 0, 5 ... ]`
-impl From<u32> for AccountId32 {
-	fn from(id: u32) -> Self {
-		let mut buffer = [255u8; 32];
-		let id_bytes = id.to_le_bytes();
-		let id_size = id_bytes.len();
-		for i in 0..buffer.len() / id_size {
-			let start = i * id_size;
-			let end = start + id_size;
-			buffer[start..end].clone_from_slice(&id_bytes[..]);
-		}
-		Self::new(buffer)
-	}
-}
-
 impl<'a> TryFrom<&'a [u8]> for AccountId32 {
 	type Error = ();
 	fn try_from(x: &'a [u8]) -> Result<AccountId32, ()> {

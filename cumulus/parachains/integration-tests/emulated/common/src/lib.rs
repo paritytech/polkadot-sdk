@@ -30,18 +30,13 @@ use sp_runtime::{
 };
 
 // Polakdot
-use parachains_common::{Balance, BlockNumber};
+use parachains_common::BlockNumber;
 use polkadot_runtime_parachains::configuration::HostConfiguration;
-use xcm::prelude::{
-	AccountId32 as AccountId32Junction, Here, MultiAssets, MultiLocation, WeightLimit,
-};
 
 // Cumulus
 use parachains_common::{AccountId, AssetHubPolkadotAuraId, AuraId};
 use polkadot_primitives::{AssignmentId, ValidatorId};
 use polkadot_service::chain_spec::get_authority_keys_from_seed_no_beefy;
-use sp_core::crypto::AccountId32;
-use xcm_emulator::TestArgs;
 
 pub const XCM_V2: u32 = 2;
 pub const XCM_V3: u32 = 3;
