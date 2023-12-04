@@ -266,7 +266,7 @@ fn change_controller_works() {
 
 		// the raw storage ledger's controller is always `None`. however, we can still fetch the
 		// correct controller with `ledger.controler()`.
-		let raw_ledger =  <Ledger<Test>>::get(&stash).unwrap();
+		let raw_ledger = <Ledger<Test>>::get(&stash).unwrap();
 		assert_eq!(raw_ledger.controller, None);
 
 		// `controller` is no longer in control. `stash` is now controller.

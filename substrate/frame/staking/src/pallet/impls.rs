@@ -1855,8 +1855,10 @@ impl<T: Config> Pallet<T> {
 		Bonded::<T>::iter()
 			.map(|(stash, ctrl)| {
 				// `ledger.controller` is never stored in raw storage.
-				let raw = Ledger::<T>::get(stash)
-					.unwrap_or_else(|| Ledger::<T>::get(ctrl.clone()).expect("try_check: bonded stash/ctrl does not have an associated ledger"));
+				let raw = Ledger::<T>::get(stash).unwrap_or_else(|| {
+					Ledger::<T>::get(ctrl.clone())
+						.expect("try_check: bonded stash/ctrl does not have an associated ledger")
+				});
 				ensure!(raw.controller == None, "raw storage controller should be None");
 
 				// ensure ledger consistency.
