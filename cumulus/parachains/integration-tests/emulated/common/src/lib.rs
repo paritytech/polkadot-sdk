@@ -103,7 +103,7 @@ pub fn relay_test_args(
 	}
 }
 
-/// Returns a `TestArgs` instance to be used by parachains across integration tests
+/// Returns a [`TestArgs`] instance to be used by parachains across integration tests
 pub fn para_test_args(
 	dest: MultiLocation,
 	beneficiary_id: AccountId32,
