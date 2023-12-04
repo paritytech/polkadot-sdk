@@ -93,22 +93,12 @@ The reviewers are also responsible to check:
 
 All Pull Requests must contain proper title & description.
 
-Some Pull Requests can be exempt of `prdoc` documentation, those
-must be labelled with
+Some Pull Requests can be exempt of `prdoc` documentation, those must be labelled with
 [`R0-silent`](https://github.com/paritytech/labels/blob/main/ruled_labels/specs_polkadot-sdk.yaml#L89-L91).
 
 Non "silent" PRs must come with documentation in the form of a `.prdoc` file.
-A `.prdoc` documentation is made of a text file (YAML) named `/prdoc/pr_NNNN.prdoc` where `NNNN` is the PR number.
-For convenience, those file can also contain a short description/title: `/prdoc/pr_NNNN_pr-foobar.prdoc`.
 
-The CI automation checks for the presence and validity of a `prdoc` in the `/prdoc` folder.
-Those files need to comply with a specific [schema](https://github.com/paritytech/prdoc/blob/master/schema_user.json). It
-is highly recommended to [make your editor aware](https://github.com/paritytech/prdoc#schemas) of the schema as it is
-self-described and will assist you in writing correct content.
-
-This schema is also embedded in the
-[prdoc](https://github.com/paritytech/prdoc) utility that can also be used to generate and check the validity of a
-`prdoc` locally.
+See more about `prdoc` [here](./prdoc.md)
 
 ## Helping out
 
@@ -152,6 +142,10 @@ Or if you have opened PR and you're member of `paritytech` - you can use command
 - `bot update-ui latest --rust_version=1.70.0` - will run the tests for the specified rust version
 - `bot update-ui latest -v CMD_IMAGE=paritytech/ci-unified:bullseye-1.70.0-2023-05-23 --rust_version=1.70.0` -
 will run the tests for the specified rust version and specified image
+
+## Feature Propagation
+
+We use [zepter](https://github.com/ggwpez/zepter) to enforce features are propagated between crates correctly.
 
 ## Command Bot
 
