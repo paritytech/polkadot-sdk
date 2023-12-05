@@ -519,17 +519,6 @@
 <a href="#519" id="519">519</a>
 <a href="#520" id="520">520</a>
 <a href="#521" id="521">521</a>
-<a href="#522" id="522">522</a>
-<a href="#523" id="523">523</a>
-<a href="#524" id="524">524</a>
-<a href="#525" id="525">525</a>
-<a href="#526" id="526">526</a>
-<a href="#527" id="527">527</a>
-<a href="#528" id="528">528</a>
-<a href="#529" id="529">529</a>
-<a href="#530" id="530">530</a>
-<a href="#531" id="531">531</a>
-<a href="#532" id="532">532</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -585,7 +574,7 @@
 <span class="kw">use </span>sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 <span class="kw">use </span>sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{AccountIdLookup, BlakeTwo256, Block <span class="kw">as </span>BlockT},
+	traits::{BlakeTwo256, Block <span class="kw">as </span>BlockT},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
@@ -596,7 +585,7 @@
 
 <span class="kw">use </span>cumulus_primitives_core::AggregateMessageOrigin;
 <span class="kw">pub use </span>frame_support::{
-	construct_runtime,
+	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
@@ -700,25 +689,14 @@
 	<span class="kw">pub const </span>SS58Prefix: u8 = <span class="number">42</span>;
 }
 
-<span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
+<span class="attr">#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig)]
+</span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>AccountId = AccountId;
-	<span class="kw">type </span>RuntimeCall = RuntimeCall;
-	<span class="kw">type </span>Lookup = AccountIdLookup&lt;AccountId, ()&gt;;
 	<span class="kw">type </span>Nonce = Nonce;
 	<span class="kw">type </span>Hash = Hash;
-	<span class="kw">type </span>Hashing = BlakeTwo256;
 	<span class="kw">type </span>Block = Block;
-	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-	<span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;
 	<span class="kw">type </span>BlockHashCount = BlockHashCount;
 	<span class="kw">type </span>Version = Version;
-	<span class="kw">type </span>PalletInfo = PalletInfo;
-	<span class="kw">type </span>AccountData = ();
-	<span class="kw">type </span>OnNewAccount = ();
-	<span class="kw">type </span>OnKilledAccount = ();
-	<span class="kw">type </span>DbWeight = ();
-	<span class="kw">type </span>BaseCallFilter = frame_support::traits::Everything;
-	<span class="kw">type </span>SystemWeightInfo = ();
 	<span class="kw">type </span>BlockWeights = RuntimeBlockWeights;
 	<span class="kw">type </span>BlockLength = RuntimeBlockLength;
 	<span class="kw">type </span>SS58Prefix = SS58Prefix;

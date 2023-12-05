@@ -567,30 +567,6 @@
 <a href="#567" id="567">567</a>
 <a href="#568" id="568">568</a>
 <a href="#569" id="569">569</a>
-<a href="#570" id="570">570</a>
-<a href="#571" id="571">571</a>
-<a href="#572" id="572">572</a>
-<a href="#573" id="573">573</a>
-<a href="#574" id="574">574</a>
-<a href="#575" id="575">575</a>
-<a href="#576" id="576">576</a>
-<a href="#577" id="577">577</a>
-<a href="#578" id="578">578</a>
-<a href="#579" id="579">579</a>
-<a href="#580" id="580">580</a>
-<a href="#581" id="581">581</a>
-<a href="#582" id="582">582</a>
-<a href="#583" id="583">583</a>
-<a href="#584" id="584">584</a>
-<a href="#585" id="585">585</a>
-<a href="#586" id="586">586</a>
-<a href="#587" id="587">587</a>
-<a href="#588" id="588">588</a>
-<a href="#589" id="589">589</a>
-<a href="#590" id="590">590</a>
-<a href="#591" id="591">591</a>
-<a href="#592" id="592">592</a>
-<a href="#593" id="593">593</a>
 </pre></div><pre class="rust"><code><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 </span><span class="comment">// `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 </span><span class="attr">#![recursion_limit = <span class="string">&quot;256&quot;</span>]
@@ -605,9 +581,7 @@
 <span class="kw">use </span>sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 <span class="kw">use </span>sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{
-		AccountIdLookup, BlakeTwo256, Block <span class="kw">as </span>BlockT, IdentifyAccount, NumberFor, One, Verify,
-	},
+	traits::{BlakeTwo256, Block <span class="kw">as </span>BlockT, IdentifyAccount, NumberFor, One, Verify},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature,
 };
@@ -619,7 +593,7 @@
 <span class="kw">use </span>frame_support::genesis_builder_helper::{build_config, create_default_config};
 <span class="comment">// A few exports that help ease life for downstream crates.
 </span><span class="kw">pub use </span>frame_support::{
-	construct_runtime, parameter_types,
+	construct_runtime, derive_impl, parameter_types,
 	traits::{
 		ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, KeyOwnerProofSystem, Randomness,
 		StorageInfo,
@@ -744,11 +718,11 @@
 	<span class="kw">pub const </span>SS58Prefix: u8 = <span class="number">42</span>;
 }
 
-<span class="comment">// Configure FRAME pallets to include in runtime.
-
+<span class="doccomment">/// The default types are being injected by [`derive_impl`](`frame_support::derive_impl`) from
+/// [`SoloChainDefaultConfig`](`struct@frame_system::config_preludes::SolochainDefaultConfig`),
+/// but overridden as needed.
+</span><span class="attr">#[derive_impl(frame_system::config_preludes::SolochainDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig)]
 </span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
-	<span class="doccomment">/// The basic call filter to use in dispatchable.
-	</span><span class="kw">type </span>BaseCallFilter = frame_support::traits::Everything;
 	<span class="doccomment">/// The block type for the runtime.
 	</span><span class="kw">type </span>Block = Block;
 	<span class="doccomment">/// Block &amp; extrinsics weights: base values and limits.
@@ -757,42 +731,20 @@
 	</span><span class="kw">type </span>BlockLength = BlockLength;
 	<span class="doccomment">/// The identifier used to distinguish between accounts.
 	</span><span class="kw">type </span>AccountId = AccountId;
-	<span class="doccomment">/// The aggregated dispatch type that is available for extrinsics.
-	</span><span class="kw">type </span>RuntimeCall = RuntimeCall;
-	<span class="doccomment">/// The lookup mechanism to get account ID from whatever is passed in dispatchers.
-	</span><span class="kw">type </span>Lookup = AccountIdLookup&lt;AccountId, ()&gt;;
 	<span class="doccomment">/// The type for storing how many extrinsics an account has signed.
 	</span><span class="kw">type </span>Nonce = Nonce;
 	<span class="doccomment">/// The type for hashing blocks and tries.
 	</span><span class="kw">type </span>Hash = Hash;
-	<span class="doccomment">/// The hashing algorithm used.
-	</span><span class="kw">type </span>Hashing = BlakeTwo256;
-	<span class="doccomment">/// The ubiquitous event type.
-	</span><span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-	<span class="doccomment">/// The ubiquitous origin type.
-	</span><span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;
 	<span class="doccomment">/// Maximum number of block number to block hash mappings to keep (oldest pruned first).
 	</span><span class="kw">type </span>BlockHashCount = BlockHashCount;
 	<span class="doccomment">/// The weight of database operations that the runtime can invoke.
 	</span><span class="kw">type </span>DbWeight = RocksDbWeight;
 	<span class="doccomment">/// Version of the runtime.
 	</span><span class="kw">type </span>Version = Version;
-	<span class="doccomment">/// Converts a module to the index of the module in `construct_runtime!`.
-	///
-	/// This type is being generated by `construct_runtime!`.
-	</span><span class="kw">type </span>PalletInfo = PalletInfo;
-	<span class="doccomment">/// What to do if a new account is created.
-	</span><span class="kw">type </span>OnNewAccount = ();
-	<span class="doccomment">/// What to do if an account is fully reaped from the system.
-	</span><span class="kw">type </span>OnKilledAccount = ();
 	<span class="doccomment">/// The data to be stored in an account.
 	</span><span class="kw">type </span>AccountData = pallet_balances::AccountData&lt;Balance&gt;;
-	<span class="doccomment">/// Weight information for the extrinsics of this pallet.
-	</span><span class="kw">type </span>SystemWeightInfo = ();
 	<span class="doccomment">/// This is used as an identifier of the chain. 42 is the generic substrate prefix.
 	</span><span class="kw">type </span>SS58Prefix = SS58Prefix;
-	<span class="doccomment">/// The set code logic, just the default since we&#39;re not a parachain.
-	</span><span class="kw">type </span>OnSetCode = ();
 	<span class="kw">type </span>MaxConsumers = frame_support::traits::ConstU32&lt;<span class="number">16</span>&gt;;
 }
 

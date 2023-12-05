@@ -1899,6 +1899,66 @@
 <a href="#1899" id="1899">1899</a>
 <a href="#1900" id="1900">1900</a>
 <a href="#1901" id="1901">1901</a>
+<a href="#1902" id="1902">1902</a>
+<a href="#1903" id="1903">1903</a>
+<a href="#1904" id="1904">1904</a>
+<a href="#1905" id="1905">1905</a>
+<a href="#1906" id="1906">1906</a>
+<a href="#1907" id="1907">1907</a>
+<a href="#1908" id="1908">1908</a>
+<a href="#1909" id="1909">1909</a>
+<a href="#1910" id="1910">1910</a>
+<a href="#1911" id="1911">1911</a>
+<a href="#1912" id="1912">1912</a>
+<a href="#1913" id="1913">1913</a>
+<a href="#1914" id="1914">1914</a>
+<a href="#1915" id="1915">1915</a>
+<a href="#1916" id="1916">1916</a>
+<a href="#1917" id="1917">1917</a>
+<a href="#1918" id="1918">1918</a>
+<a href="#1919" id="1919">1919</a>
+<a href="#1920" id="1920">1920</a>
+<a href="#1921" id="1921">1921</a>
+<a href="#1922" id="1922">1922</a>
+<a href="#1923" id="1923">1923</a>
+<a href="#1924" id="1924">1924</a>
+<a href="#1925" id="1925">1925</a>
+<a href="#1926" id="1926">1926</a>
+<a href="#1927" id="1927">1927</a>
+<a href="#1928" id="1928">1928</a>
+<a href="#1929" id="1929">1929</a>
+<a href="#1930" id="1930">1930</a>
+<a href="#1931" id="1931">1931</a>
+<a href="#1932" id="1932">1932</a>
+<a href="#1933" id="1933">1933</a>
+<a href="#1934" id="1934">1934</a>
+<a href="#1935" id="1935">1935</a>
+<a href="#1936" id="1936">1936</a>
+<a href="#1937" id="1937">1937</a>
+<a href="#1938" id="1938">1938</a>
+<a href="#1939" id="1939">1939</a>
+<a href="#1940" id="1940">1940</a>
+<a href="#1941" id="1941">1941</a>
+<a href="#1942" id="1942">1942</a>
+<a href="#1943" id="1943">1943</a>
+<a href="#1944" id="1944">1944</a>
+<a href="#1945" id="1945">1945</a>
+<a href="#1946" id="1946">1946</a>
+<a href="#1947" id="1947">1947</a>
+<a href="#1948" id="1948">1948</a>
+<a href="#1949" id="1949">1949</a>
+<a href="#1950" id="1950">1950</a>
+<a href="#1951" id="1951">1951</a>
+<a href="#1952" id="1952">1952</a>
+<a href="#1953" id="1953">1953</a>
+<a href="#1954" id="1954">1954</a>
+<a href="#1955" id="1955">1955</a>
+<a href="#1956" id="1956">1956</a>
+<a href="#1957" id="1957">1957</a>
+<a href="#1958" id="1958">1958</a>
+<a href="#1959" id="1959">1959</a>
+<a href="#1960" id="1960">1960</a>
+<a href="#1961" id="1961">1961</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2107,6 +2167,7 @@
 	<span class="doccomment">/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	</span><span class="kw">pub mod </span>config_preludes {
 		<span class="kw">use super</span>::{inject_runtime_type, DefaultConfig};
+		<span class="kw">use </span>frame_support::derive_impl;
 
 		<span class="doccomment">/// Provides a viable default config that can be used with
 		/// [`derive_impl`](`frame_support::derive_impl`) to derive a testing pallet config
@@ -2159,39 +2220,98 @@
 		///   if you use `pallet-balances` or similar.
 		/// * Make sure to overwrite [`DefaultConfig::Version`].
 		/// * 2s block time, and a default 5mb block size is used.
-		</span><span class="attr">#[cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
 		</span><span class="kw">pub struct </span>SolochainDefaultConfig;
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
-		#[frame_support::register_default_impl(SolochainDefaultConfig)]
+		<span class="attr">#[frame_support::register_default_impl(SolochainDefaultConfig)]
 		</span><span class="kw">impl </span>DefaultConfig <span class="kw">for </span>SolochainDefaultConfig {
-			<span class="kw">type </span>Nonce = u32;
-			<span class="kw">type </span>Hash = sp_core::hash::H256;
-			<span class="kw">type </span>Hashing = sp_runtime::traits::BlakeTwo256;
-			<span class="kw">type </span>AccountId = sp_runtime::AccountId32;
-			<span class="kw">type </span>Lookup = sp_runtime::traits::AccountIdLookup&lt;<span class="self">Self</span>::AccountId, ()&gt;;
-			<span class="kw">type </span>MaxConsumers = frame_support::traits::ConstU32&lt;<span class="number">128</span>&gt;;
-			<span class="kw">type </span>AccountData = <span class="kw">crate</span>::AccountInfo&lt;<span class="self">Self</span>::Nonce, ()&gt;;
-			<span class="kw">type </span>OnNewAccount = ();
-			<span class="kw">type </span>OnKilledAccount = ();
-			<span class="kw">type </span>SystemWeightInfo = ();
-			<span class="kw">type </span>SS58Prefix = ();
-			<span class="kw">type </span>Version = ();
-			<span class="kw">type </span>BlockWeights = ();
-			<span class="kw">type </span>BlockLength = ();
-			<span class="kw">type </span>DbWeight = ();
-			<span class="attr">#[inject_runtime_type]
+			<span class="doccomment">/// The default type for storing how many extrinsics an account has signed.
+			</span><span class="kw">type </span>Nonce = u32;
+
+			<span class="doccomment">/// The default type for hashing blocks and tries.
+			</span><span class="kw">type </span>Hash = sp_core::hash::H256;
+
+			<span class="doccomment">/// The default hashing algorithm used.
+			</span><span class="kw">type </span>Hashing = sp_runtime::traits::BlakeTwo256;
+
+			<span class="doccomment">/// The default identifier used to distinguish between accounts.
+			</span><span class="kw">type </span>AccountId = sp_runtime::AccountId32;
+
+			<span class="doccomment">/// The lookup mechanism to get account ID from whatever is passed in dispatchers.
+			</span><span class="kw">type </span>Lookup = sp_runtime::traits::AccountIdLookup&lt;<span class="self">Self</span>::AccountId, ()&gt;;
+
+			<span class="doccomment">/// The maximum number of consumers allowed on a single account. Using 128 as default.
+			</span><span class="kw">type </span>MaxConsumers = frame_support::traits::ConstU32&lt;<span class="number">128</span>&gt;;
+
+			<span class="doccomment">/// The default data to be stored in an account.
+			</span><span class="kw">type </span>AccountData = <span class="kw">crate</span>::AccountInfo&lt;<span class="self">Self</span>::Nonce, ()&gt;;
+
+			<span class="doccomment">/// What to do if a new account is created.
+			</span><span class="kw">type </span>OnNewAccount = ();
+
+			<span class="doccomment">/// What to do if an account is fully reaped from the system.
+			</span><span class="kw">type </span>OnKilledAccount = ();
+
+			<span class="doccomment">/// Weight information for the extrinsics of this pallet.
+			</span><span class="kw">type </span>SystemWeightInfo = ();
+
+			<span class="doccomment">/// This is used as an identifier of the chain.
+			</span><span class="kw">type </span>SS58Prefix = ();
+
+			<span class="doccomment">/// Version of the runtime.
+			</span><span class="kw">type </span>Version = ();
+
+			<span class="doccomment">/// Block &amp; extrinsics weights: base values and limits.
+			</span><span class="kw">type </span>BlockWeights = ();
+
+			<span class="doccomment">/// The maximum length of a block (in bytes).
+			</span><span class="kw">type </span>BlockLength = ();
+
+			<span class="doccomment">/// The weight of database operations that the runtime can invoke.
+			</span><span class="kw">type </span>DbWeight = ();
+
+			<span class="doccomment">/// The ubiquitous event type injected by `construct_runtime!`.
+			</span><span class="attr">#[inject_runtime_type]
 			</span><span class="kw">type </span>RuntimeEvent = ();
-			<span class="attr">#[inject_runtime_type]
+
+			<span class="doccomment">/// The ubiquitous origin type injected by `construct_runtime!`.
+			</span><span class="attr">#[inject_runtime_type]
 			</span><span class="kw">type </span>RuntimeOrigin = ();
-			<span class="attr">#[inject_runtime_type]
+
+			<span class="doccomment">/// The aggregated dispatch type available for extrinsics, injected by
+			/// `construct_runtime!`.
+			</span><span class="attr">#[inject_runtime_type]
 			</span><span class="kw">type </span>RuntimeCall = ();
-			<span class="attr">#[inject_runtime_type]
+
+			<span class="doccomment">/// Converts a module to the index of the module, injected by `construct_runtime!`.
+			</span><span class="attr">#[inject_runtime_type]
 			</span><span class="kw">type </span>PalletInfo = ();
-			<span class="kw">type </span>BaseCallFilter = frame_support::traits::Everything;
-			<span class="kw">type </span>BlockHashCount = frame_support::traits::ConstU32&lt;<span class="number">256</span>&gt;;
-			<span class="kw">type </span>OnSetCode = ();
+
+			<span class="doccomment">/// The basic call filter to use in dispatchable. Supports everything as the default.
+			</span><span class="kw">type </span>BaseCallFilter = frame_support::traits::Everything;
+
+			<span class="doccomment">/// Maximum number of block number to block hash mappings to keep (oldest pruned first).
+			/// Using 256 as default.
+			</span><span class="kw">type </span>BlockHashCount = frame_support::traits::ConstU32&lt;<span class="number">256</span>&gt;;
+
+			<span class="doccomment">/// The set code logic, just the default since we&#39;re not a parachain.
+			</span><span class="kw">type </span>OnSetCode = ();
 		}
+
+		<span class="doccomment">/// Default configurations of this pallet in a relay-chain environment.
+		</span><span class="kw">pub struct </span>RelayChainDefaultConfig;
+
+		<span class="doccomment">/// It currently uses the same configuration as `SolochainDefaultConfig`.
+		</span><span class="attr">#[derive_impl(SolochainDefaultConfig <span class="kw">as </span>DefaultConfig, no_aggregated_types)]
+		#[frame_support::register_default_impl(RelayChainDefaultConfig)]
+		</span><span class="kw">impl </span>DefaultConfig <span class="kw">for </span>RelayChainDefaultConfig {}
+
+		<span class="doccomment">/// Default configurations of this pallet in a parachain environment.
+		</span><span class="kw">pub struct </span>ParaChainDefaultConfig;
+
+		<span class="doccomment">/// It currently uses the same configuration as `SolochainDefaultConfig`.
+		</span><span class="attr">#[derive_impl(SolochainDefaultConfig <span class="kw">as </span>DefaultConfig, no_aggregated_types)]
+		#[frame_support::register_default_impl(ParaChainDefaultConfig)]
+		</span><span class="kw">impl </span>DefaultConfig <span class="kw">for </span>ParaChainDefaultConfig {}
 	}
 
 	<span class="doccomment">/// System configuration trait. Implemented by runtime.

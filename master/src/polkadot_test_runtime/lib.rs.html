@@ -1142,16 +1142,6 @@
 <a href="#1142" id="1142">1142</a>
 <a href="#1143" id="1143">1143</a>
 <a href="#1144" id="1144">1144</a>
-<a href="#1145" id="1145">1145</a>
-<a href="#1146" id="1146">1146</a>
-<a href="#1147" id="1147">1147</a>
-<a href="#1148" id="1148">1148</a>
-<a href="#1149" id="1149">1149</a>
-<a href="#1150" id="1150">1150</a>
-<a href="#1151" id="1151">1151</a>
-<a href="#1152" id="1152">1152</a>
-<a href="#1153" id="1153">1153</a>
-<a href="#1154" id="1154">1154</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1196,10 +1186,10 @@
 	onchain, SequentialPhragmen,
 };
 <span class="kw">use </span>frame_support::{
-	construct_runtime,
+	construct_runtime, derive_impl,
 	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
-	traits::{Everything, KeyOwnerProofSystem, WithdrawReasons},
+	traits::{KeyOwnerProofSystem, WithdrawReasons},
 };
 <span class="kw">use </span>pallet_grandpa::{fg_primitives, AuthorityId <span class="kw">as </span>GrandpaId};
 <span class="kw">use </span>pallet_session::historical <span class="kw">as </span>session_historical;
@@ -1293,29 +1283,19 @@
 	<span class="kw">pub const </span>SS58Prefix: u8 = <span class="number">42</span>;
 }
 
-<span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
-	<span class="kw">type </span>BaseCallFilter = Everything;
+<span class="attr">#[derive_impl(frame_system::config_preludes::RelayChainDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig)]
+</span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>BlockWeights = BlockWeights;
 	<span class="kw">type </span>BlockLength = BlockLength;
-	<span class="kw">type </span>DbWeight = ();
-	<span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;
-	<span class="kw">type </span>RuntimeCall = RuntimeCall;
 	<span class="kw">type </span>Nonce = Nonce;
 	<span class="kw">type </span>Hash = HashT;
-	<span class="kw">type </span>Hashing = BlakeTwo256;
 	<span class="kw">type </span>AccountId = AccountId;
 	<span class="kw">type </span>Lookup = Indices;
 	<span class="kw">type </span>Block = Block;
-	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>BlockHashCount = BlockHashCount;
 	<span class="kw">type </span>Version = Version;
-	<span class="kw">type </span>PalletInfo = PalletInfo;
 	<span class="kw">type </span>AccountData = pallet_balances::AccountData&lt;Balance&gt;;
-	<span class="kw">type </span>OnNewAccount = ();
-	<span class="kw">type </span>OnKilledAccount = ();
-	<span class="kw">type </span>SystemWeightInfo = ();
 	<span class="kw">type </span>SS58Prefix = SS58Prefix;
-	<span class="kw">type </span>OnSetCode = ();
 	<span class="kw">type </span>MaxConsumers = frame_support::traits::ConstU32&lt;<span class="number">16</span>&gt;;
 }
 

@@ -1656,16 +1656,6 @@
 <a href="#1656" id="1656">1656</a>
 <a href="#1657" id="1657">1657</a>
 <a href="#1658" id="1658">1658</a>
-<a href="#1659" id="1659">1659</a>
-<a href="#1660" id="1660">1660</a>
-<a href="#1661" id="1661">1661</a>
-<a href="#1662" id="1662">1662</a>
-<a href="#1663" id="1663">1663</a>
-<a href="#1664" id="1664">1664</a>
-<a href="#1665" id="1665">1665</a>
-<a href="#1666" id="1666">1666</a>
-<a href="#1667" id="1667">1667</a>
-<a href="#1668" id="1668">1668</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1707,9 +1697,7 @@
 <span class="kw">use </span>sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 <span class="kw">use </span>sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{
-		AccountIdConversion, AccountIdLookup, BlakeTwo256, Block <span class="kw">as </span>BlockT, Saturating, Verify,
-	},
+	traits::{AccountIdConversion, BlakeTwo256, Block <span class="kw">as </span>BlockT, Saturating, Verify},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, Permill,
 };
@@ -1722,7 +1710,7 @@
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>cumulus_primitives_core::ParaId;
 <span class="kw">use </span>frame_support::{
-	construct_runtime,
+	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_config, create_default_config},
 	ord_parameter_types, parameter_types,
@@ -1834,25 +1822,17 @@
 }
 
 <span class="comment">// Configure FRAME pallets to include in runtime.
+</span><span class="attr">#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig)]
 </span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
-	<span class="kw">type </span>BaseCallFilter = frame_support::traits::Everything;
 	<span class="kw">type </span>BlockWeights = RuntimeBlockWeights;
 	<span class="kw">type </span>BlockLength = RuntimeBlockLength;
 	<span class="kw">type </span>AccountId = AccountId;
-	<span class="kw">type </span>RuntimeCall = RuntimeCall;
-	<span class="kw">type </span>Lookup = AccountIdLookup&lt;AccountId, ()&gt;;
 	<span class="kw">type </span>Nonce = Nonce;
 	<span class="kw">type </span>Hash = Hash;
-	<span class="kw">type </span>Hashing = BlakeTwo256;
 	<span class="kw">type </span>Block = Block;
-	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-	<span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;
 	<span class="kw">type </span>BlockHashCount = BlockHashCount;
 	<span class="kw">type </span>DbWeight = RocksDbWeight;
 	<span class="kw">type </span>Version = Version;
-	<span class="kw">type </span>PalletInfo = PalletInfo;
-	<span class="kw">type </span>OnNewAccount = ();
-	<span class="kw">type </span>OnKilledAccount = ();
 	<span class="kw">type </span>AccountData = pallet_balances::AccountData&lt;Balance&gt;;
 	<span class="kw">type </span>SystemWeightInfo = weights::frame_system::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>SS58Prefix = SS58Prefix;

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["SolochainDefaultConfig","TestDefaultConfig"]};
+window.SIDEBAR_ITEMS = {"struct":["ParaChainDefaultConfig","RelayChainDefaultConfig","SolochainDefaultConfig","TestDefaultConfig"]};

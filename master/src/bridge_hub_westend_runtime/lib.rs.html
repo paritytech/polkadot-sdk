@@ -1113,23 +1113,6 @@
 <a href="#1113" id="1113">1113</a>
 <a href="#1114" id="1114">1114</a>
 <a href="#1115" id="1115">1115</a>
-<a href="#1116" id="1116">1116</a>
-<a href="#1117" id="1117">1117</a>
-<a href="#1118" id="1118">1118</a>
-<a href="#1119" id="1119">1119</a>
-<a href="#1120" id="1120">1120</a>
-<a href="#1121" id="1121">1121</a>
-<a href="#1122" id="1122">1122</a>
-<a href="#1123" id="1123">1123</a>
-<a href="#1124" id="1124">1124</a>
-<a href="#1125" id="1125">1125</a>
-<a href="#1126" id="1126">1126</a>
-<a href="#1127" id="1127">1127</a>
-<a href="#1128" id="1128">1128</a>
-<a href="#1129" id="1129">1129</a>
-<a href="#1130" id="1130">1130</a>
-<a href="#1131" id="1131">1131</a>
-<a href="#1132" id="1132">1132</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1171,7 +1154,7 @@
 <span class="kw">use </span>sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 <span class="kw">use </span>sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{AccountIdLookup, BlakeTwo256, Block <span class="kw">as </span>BlockT},
+	traits::Block <span class="kw">as </span>BlockT,
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
@@ -1182,11 +1165,11 @@
 <span class="kw">use </span>sp_version::RuntimeVersion;
 
 <span class="kw">use </span>frame_support::{
-	construct_runtime,
+	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
-	traits::{ConstBool, ConstU32, ConstU64, ConstU8, Everything, TransformOrigin},
+	traits::{ConstBool, ConstU32, ConstU64, ConstU8, TransformOrigin},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
 };
@@ -1344,41 +1327,24 @@
 
 <span class="comment">// Configure FRAME pallets to include in runtime.
 
+</span><span class="attr">#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig)]
 </span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
 	<span class="doccomment">/// The identifier used to distinguish between accounts.
 	</span><span class="kw">type </span>AccountId = AccountId;
-	<span class="doccomment">/// The aggregated dispatch type that is available for extrinsics.
-	</span><span class="kw">type </span>RuntimeCall = RuntimeCall;
-	<span class="doccomment">/// The lookup mechanism to get account ID from whatever is passed in dispatchers.
-	</span><span class="kw">type </span>Lookup = AccountIdLookup&lt;AccountId, ()&gt;;
 	<span class="doccomment">/// The index type for storing how many extrinsics an account has signed.
 	</span><span class="kw">type </span>Nonce = Nonce;
 	<span class="doccomment">/// The type for hashing blocks and tries.
 	</span><span class="kw">type </span>Hash = Hash;
-	<span class="doccomment">/// The hashing algorithm used.
-	</span><span class="kw">type </span>Hashing = BlakeTwo256;
 	<span class="doccomment">/// The block type.
 	</span><span class="kw">type </span>Block = Block;
-	<span class="doccomment">/// The ubiquitous event type.
-	</span><span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-	<span class="doccomment">/// The ubiquitous origin type.
-	</span><span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;
 	<span class="doccomment">/// Maximum number of block number to block hash mappings to keep (oldest pruned first).
 	</span><span class="kw">type </span>BlockHashCount = BlockHashCount;
 	<span class="doccomment">/// Runtime version.
 	</span><span class="kw">type </span>Version = Version;
-	<span class="doccomment">/// Converts a module to an index of this module in the runtime.
-	</span><span class="kw">type </span>PalletInfo = PalletInfo;
 	<span class="doccomment">/// The data to be stored in an account.
 	</span><span class="kw">type </span>AccountData = pallet_balances::AccountData&lt;Balance&gt;;
-	<span class="doccomment">/// What to do if a new account is created.
-	</span><span class="kw">type </span>OnNewAccount = ();
-	<span class="doccomment">/// What to do if an account is fully reaped from the system.
-	</span><span class="kw">type </span>OnKilledAccount = ();
 	<span class="doccomment">/// The weight of database operations that the runtime can invoke.
 	</span><span class="kw">type </span>DbWeight = RocksDbWeight;
-	<span class="doccomment">/// The basic call filter to use in dispatchable.
-	</span><span class="kw">type </span>BaseCallFilter = Everything;
 	<span class="doccomment">/// Weight information for the extrinsics of this pallet.
 	</span><span class="kw">type </span>SystemWeightInfo = weights::frame_system::WeightInfo&lt;Runtime&gt;;
 	<span class="doccomment">/// Block &amp; extrinsics weights: base values and limits.

@@ -477,19 +477,6 @@
 <a href="#477" id="477">477</a>
 <a href="#478" id="478">478</a>
 <a href="#479" id="479">479</a>
-<a href="#480" id="480">480</a>
-<a href="#481" id="481">481</a>
-<a href="#482" id="482">482</a>
-<a href="#483" id="483">483</a>
-<a href="#484" id="484">484</a>
-<a href="#485" id="485">485</a>
-<a href="#486" id="486">486</a>
-<a href="#487" id="487">487</a>
-<a href="#488" id="488">488</a>
-<a href="#489" id="489">489</a>
-<a href="#490" id="490">490</a>
-<a href="#491" id="491">491</a>
-<a href="#492" id="492">492</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -521,7 +508,7 @@
 
 <span class="kw">mod </span>test_pallet;
 
-<span class="kw">use </span>frame_support::traits::OnRuntimeUpgrade;
+<span class="kw">use </span>frame_support::{derive_impl, traits::OnRuntimeUpgrade};
 <span class="kw">use </span>sp_api::{decl_runtime_apis, impl_runtime_apis};
 <span class="kw">use </span>sp_core::{ConstU32, OpaqueMetadata};
 <span class="kw">use </span>sp_runtime::{
@@ -669,36 +656,23 @@
 	<span class="kw">pub const </span>SS58Prefix: u8 = <span class="number">42</span>;
 }
 
-<span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
+<span class="attr">#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig)]
+</span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
 	<span class="doccomment">/// The identifier used to distinguish between accounts.
 	</span><span class="kw">type </span>AccountId = AccountId;
-	<span class="doccomment">/// The aggregated dispatch type that is available for extrinsics.
-	</span><span class="kw">type </span>RuntimeCall = RuntimeCall;
 	<span class="doccomment">/// The lookup mechanism to get account ID from whatever is passed in dispatchers.
 	</span><span class="kw">type </span>Lookup = IdentityLookup&lt;AccountId&gt;;
 	<span class="doccomment">/// The index type for storing how many extrinsics an account has signed.
 	</span><span class="kw">type </span>Nonce = Nonce;
 	<span class="doccomment">/// The type for hashing blocks and tries.
 	</span><span class="kw">type </span>Hash = Hash;
-	<span class="doccomment">/// The hashing algorithm used.
-	</span><span class="kw">type </span>Hashing = BlakeTwo256;
 	<span class="doccomment">/// The block type.
 	</span><span class="kw">type </span>Block = Block;
-	<span class="doccomment">/// The ubiquitous event type.
-	</span><span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-	<span class="doccomment">/// The ubiquitous origin type.
-	</span><span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;
 	<span class="doccomment">/// Maximum number of block number to block hash mappings to keep (oldest pruned first).
 	</span><span class="kw">type </span>BlockHashCount = BlockHashCount;
 	<span class="doccomment">/// Runtime version.
 	</span><span class="kw">type </span>Version = Version;
-	<span class="kw">type </span>PalletInfo = PalletInfo;
 	<span class="kw">type </span>AccountData = pallet_balances::AccountData&lt;Balance&gt;;
-	<span class="kw">type </span>OnNewAccount = ();
-	<span class="kw">type </span>OnKilledAccount = ();
-	<span class="kw">type </span>DbWeight = ();
-	<span class="kw">type </span>BaseCallFilter = frame_support::traits::Everything;
-	<span class="kw">type </span>SystemWeightInfo = ();
 	<span class="kw">type </span>BlockWeights = RuntimeBlockWeights;
 	<span class="kw">type </span>BlockLength = RuntimeBlockLength;
 	<span class="kw">type </span>SS58Prefix = SS58Prefix;
