@@ -10544,7 +10544,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-parameters"
-version = "0.5.0-unaudited"
+version = "0.0.1"
 dependencies = [
  "docify",
  "frame-support",
