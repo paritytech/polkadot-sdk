@@ -38,11 +38,12 @@ use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::ChildInfo;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::BlockOrigin;
+use sp_core::{Blake2Hasher, Hasher};
 use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT},
 	SaturatedConversion,
 };
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use substrate_test_runtime::Transfer;
 use substrate_test_runtime_client::{
 	prelude::*, runtime, Backend, BlockBuilderExt, Client, ClientBlockImportExt,
@@ -337,7 +338,15 @@ async fn archive_call() {
 #[tokio::test]
 async fn archive_storage_hashes_values() {
 	let (mut client, api) = setup_api(MAX_PAGINATION_LIMIT, MAX_QUERIED_LIMIT);
-	let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+
+	let block = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
 	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
 	let block_hash = format!("{:?}", block.header.hash());
 	let key = hex_string(&KEY);
@@ -380,7 +389,11 @@ async fn archive_storage_hashes_values() {
 	};
 
 	// Import a block with the given key value pair.
-	let mut builder = client.new_block(Default::default()).unwrap();
+	let mut builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block.hash())
+		.with_parent_block_number(1)
+		.build()
+		.unwrap();
 	builder.push_storage_change(KEY.to_vec(), Some(VALUE.to_vec())).unwrap();
 	let block = builder.build().unwrap().block;
 	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
@@ -529,7 +542,11 @@ async fn archive_storage_closest_merkle_value() {
 	}
 
 	// Import a new block with storage changes.
-	let mut builder = client.new_block(Default::default()).unwrap();
+	let mut builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap();
 	builder.push_storage_change(b":AAAA".to_vec(), Some(vec![1; 64])).unwrap();
 	builder.push_storage_change(b":AAAB".to_vec(), Some(vec![2; 64])).unwrap();
 	let block = builder.build().unwrap().block;
@@ -539,7 +556,11 @@ async fn archive_storage_closest_merkle_value() {
 	let merkle_values_lhs = expect_merkle_request(&api, block_hash).await;
 
 	// Import a new block with and change AAAB value.
-	let mut builder = client.new_block(Default::default()).unwrap();
+	let mut builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block.hash())
+		.with_parent_block_number(1)
+		.build()
+		.unwrap();
 	builder.push_storage_change(b":AAAA".to_vec(), Some(vec![1; 64])).unwrap();
 	builder.push_storage_change(b":AAAB".to_vec(), Some(vec![3; 64])).unwrap();
 	let block = builder.build().unwrap().block;
@@ -570,7 +591,11 @@ async fn archive_storage_paginate_iterations() {
 	let (mut client, api) = setup_api(1, MAX_QUERIED_LIMIT);
 
 	// Import a new block with storage changes.
-	let mut builder = client.new_block(Default::default()).unwrap();
+	let mut builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap();
 	builder.push_storage_change(b":m".to_vec(), Some(b"a".to_vec())).unwrap();
 	builder.push_storage_change(b":mo".to_vec(), Some(b"ab".to_vec())).unwrap();
 	builder.push_storage_change(b":moc".to_vec(), Some(b"abc".to_vec())).unwrap();
@@ -761,7 +786,11 @@ async fn archive_storage_discarded_items() {
 	let (mut client, api) = setup_api(MAX_PAGINATION_LIMIT, 1);
 
 	// Import a new block with storage changes.
-	let mut builder = client.new_block(Default::default()).unwrap();
+	let mut builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap();
 	builder.push_storage_change(b":m".to_vec(), Some(b"a".to_vec())).unwrap();
 	let block = builder.build().unwrap().block;
 	let block_hash = format!("{:?}", block.header.hash());

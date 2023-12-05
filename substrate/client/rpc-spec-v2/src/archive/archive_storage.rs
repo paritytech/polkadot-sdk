@@ -18,7 +18,7 @@
 
 //! Implementation of the `archive_storage` method.
 
-use std::{marker::PhantomData, sync::Arc};
+use std::sync::Arc;
 
 use sc_client_api::{Backend, ChildInfo, StorageKey, StorageProvider};
 use sp_runtime::traits::Block as BlockT;
