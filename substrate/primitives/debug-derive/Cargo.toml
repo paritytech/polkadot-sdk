@@ -18,11 +18,11 @@ proc-macro = true
 
 [dependencies]
 quote = "1.0.28"
-syn = "2.0.38"
+syn = "2.0.39"
 proc-macro2 = "1.0.56"
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = []
 # By default `RuntimeDebug` implements `Debug` that outputs `<wasm:stripped>` when `std` is
 # disabled. However, sometimes downstream users need to have the real `Debug` implementation for

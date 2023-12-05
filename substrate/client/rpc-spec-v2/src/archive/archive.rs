@@ -30,13 +30,13 @@ use sc_client_api::{
 	Backend, BlockBackend, BlockchainEvents, CallExecutor, ChildInfo, ExecutorProvider, StorageKey,
 	StorageProvider,
 };
-use sp_api::{CallApiAt, CallContext, NumberFor};
+use sp_api::{CallApiAt, CallContext};
 use sp_blockchain::{
 	Backend as BlockChainBackend, Error as BlockChainError, HeaderBackend, HeaderMetadata,
 };
 use sp_core::Bytes;
 use sp_runtime::{
-	traits::{Block as BlockT, Header as HeaderT},
+	traits::{Block as BlockT, Header as HeaderT, NumberFor},
 	SaturatedConversion,
 };
 use std::{collections::HashSet, marker::PhantomData, sync::Arc};
@@ -56,7 +56,7 @@ pub struct Archive<BE: Backend<Block>, Block: BlockT, Client> {
 	/// The maximum number of queried items allowed for the `archive_storage` at a time.
 	storage_max_queried_items: usize,
 	/// Phantom member to pin the block type.
-	_phantom: PhantomData<(Block, BE)>,
+	_phantom: PhantomData<Block>,
 }
 
 impl<BE: Backend<Block>, Block: BlockT, Client> Archive<BE, Block, Client> {

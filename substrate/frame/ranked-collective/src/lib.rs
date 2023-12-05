@@ -663,16 +663,21 @@ pub mod pallet {
 		}
 
 		fn remove_from_rank(who: &T::AccountId, rank: Rank) -> DispatchResult {
-			let last_index = MemberCount::<T, I>::get(rank).saturating_sub(1);
-			let index = IdToIndex::<T, I>::get(rank, &who).ok_or(Error::<T, I>::Corruption)?;
-			if index != last_index {
-				let last =
-					IndexToId::<T, I>::get(rank, last_index).ok_or(Error::<T, I>::Corruption)?;
-				IdToIndex::<T, I>::insert(rank, &last, index);
-				IndexToId::<T, I>::insert(rank, index, &last);
-			}
-			MemberCount::<T, I>::mutate(rank, |r| r.saturating_dec());
-			Ok(())
+			MemberCount::<T, I>::try_mutate(rank, |last_index| {
+				last_index.saturating_dec();
+				let index = IdToIndex::<T, I>::get(rank, &who).ok_or(Error::<T, I>::Corruption)?;
+				if index != *last_index {
+					let last = IndexToId::<T, I>::get(rank, *last_index)
+						.ok_or(Error::<T, I>::Corruption)?;
+					IdToIndex::<T, I>::insert(rank, &last, index);
+					IndexToId::<T, I>::insert(rank, index, &last);
+				}
+
+				IdToIndex::<T, I>::remove(rank, who);
+				IndexToId::<T, I>::remove(rank, last_index);
+
+				Ok(())
+			})
 		}
 
 		/// Adds a member into the ranked collective at level 0.

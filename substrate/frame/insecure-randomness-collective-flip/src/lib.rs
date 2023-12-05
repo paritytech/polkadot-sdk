@@ -169,7 +169,7 @@ mod tests {
 	};
 
 	use frame_support::{
-		parameter_types,
+		derive_impl, parameter_types,
 		traits::{ConstU32, ConstU64, OnInitialize, Randomness},
 	};
 	use frame_system::limits;
@@ -189,6 +189,7 @@ mod tests {
 			::max(2 * 1024);
 	}
 
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();

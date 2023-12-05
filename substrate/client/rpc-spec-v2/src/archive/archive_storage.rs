@@ -21,7 +21,7 @@
 use std::{marker::PhantomData, sync::Arc};
 
 use sc_client_api::{Backend, ChildInfo, StorageKey, StorageProvider};
-use sp_api::BlockT;
+use sp_runtime::traits::Block as BlockT;
 
 use crate::common::{
 	events::{
@@ -39,7 +39,6 @@ pub struct ArchiveStorage<Client, Block, BE> {
 	storage_max_reported_items: usize,
 	/// The maximum number of queried items allowed for the `archive_storage` at a time.
 	storage_max_queried_items: usize,
-	_phantom: PhantomData<(BE, Block)>,
 }
 
 impl<Client, Block, BE> ArchiveStorage<Client, Block, BE> {
@@ -49,12 +48,7 @@ impl<Client, Block, BE> ArchiveStorage<Client, Block, BE> {
 		storage_max_reported_items: usize,
 		storage_max_queried_items: usize,
 	) -> Self {
-		Self {
-			client: Storage::new(client),
-			storage_max_reported_items,
-			storage_max_queried_items,
-			_phantom: PhantomData,
-		}
+		Self { client: Storage::new(client), storage_max_reported_items, storage_max_queried_items }
 	}
 }
 

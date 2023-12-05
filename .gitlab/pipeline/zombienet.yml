@@ -1,3 +1,8 @@
+.zombienet-refs:
+  extends: .build-refs
+  variables:
+    ZOMBIENET_IMAGE: "docker.io/paritytech/zombienet:v1.3.83"
+
 include:
   # substrate tests
   - .gitlab/pipeline/zombienet/substrate.yml

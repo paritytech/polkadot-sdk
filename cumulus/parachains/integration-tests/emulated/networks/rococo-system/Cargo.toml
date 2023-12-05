@@ -1,0 +1,16 @@
+[package]
+name = "rococo-system-emulated-network"
+version = "0.0.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+description = "Rococo System emulated network"
+publish = false
+
+[dependencies]
+# Cumulus
+emulated-integration-tests-common = { path = "../../common", default-features = false }
+rococo-emulated-chain = { path = "../../chains/relays/rococo" }
+asset-hub-rococo-emulated-chain = { path = "../../chains/parachains/assets/asset-hub-rococo" }
+bridge-hub-rococo-emulated-chain = { path = "../../chains/parachains/bridges/bridge-hub-rococo" }
+penpal-emulated-chain = { path = "../../chains/parachains/testing/penpal" }

@@ -5,12 +5,8 @@
   "bootNodes": [
     "/dns/kusama-bridge-hub-connect-ew1-0.polkadot.io/tcp/30334/p2p/12D3KooWPQQPivrqQ51kRTDc2R1mtqwKT4GGtk2rapkY4FrwHrEp",
     "/dns/kusama-bridge-hub-connect-ew1-1.polkadot.io/tcp/30334/p2p/12D3KooWPcF9Yk4gYrMju9CyWCV69hAFXbYsnxCLogwLGu9QFTRn",
-    "/dns/kusama-bridge-hub-connect-ue4-0.polkadot.io/tcp/30334/p2p/12D3KooWMf1sVnJDTkKWtaThqvrgcSPLbfGXttSqbwhM2DJp9BUG",
-    "/dns/kusama-bridge-hub-connect-ue4-1.polkadot.io/tcp/30334/p2p/12D3KooWQaV7wMfNVKy2aMz4Lds3TTxgSDyZAUEnbAZMfD8rW3ow",
     "/dns/kusama-bridge-hub-connect-ew1-0.polkadot.io/tcp/443/wss/p2p/12D3KooWPQQPivrqQ51kRTDc2R1mtqwKT4GGtk2rapkY4FrwHrEp",
     "/dns/kusama-bridge-hub-connect-ew1-1.polkadot.io/tcp/443/wss/p2p/12D3KooWPcF9Yk4gYrMju9CyWCV69hAFXbYsnxCLogwLGu9QFTRn",
-    "/dns/kusama-bridge-hub-connect-ue4-0.polkadot.io/tcp/443/wss/p2p/12D3KooWMf1sVnJDTkKWtaThqvrgcSPLbfGXttSqbwhM2DJp9BUG",
-    "/dns/kusama-bridge-hub-connect-ue4-1.polkadot.io/tcp/443/wss/p2p/12D3KooWQaV7wMfNVKy2aMz4Lds3TTxgSDyZAUEnbAZMfD8rW3ow",
     "/dns/boot.stake.plus/tcp/41333/p2p/12D3KooWBzbs2jsXjG5dipktGPKaUm9XWvkmeJFsEAGkVt946Aa7",
     "/dns/boot.stake.plus/tcp/41334/wss/p2p/12D3KooWBzbs2jsXjG5dipktGPKaUm9XWvkmeJFsEAGkVt946Aa7",
     "/dns/boot.metaspan.io/tcp/26032/p2p/12D3KooWKfuSaZrLNz43PDgM4inMALXRHTSh2WBuqQtZRq8zmT1Z",
@@ -24,7 +20,12 @@
     "/dns/bridge-hub-kusama.bootnode.amforc.com/tcp/30337/p2p/12D3KooWGNeQJ5rXnEJkVUuQqwHd8aV5GkTAheaRoCaK8ZwW94id",
     "/dns/bridge-hub-kusama.bootnode.amforc.com/tcp/30333/wss/p2p/12D3KooWGNeQJ5rXnEJkVUuQqwHd8aV5GkTAheaRoCaK8ZwW94id",
     "/dns/kusama-bridge-hub-boot-ng.dwellir.com/tcp/30337/p2p/12D3KooWBFskNCQDVjuUeBh6vrszWrUvYMBBhtZRLnoTZDdLYbW5",
-    "/dns/kusama-bridge-hub-boot-ng.dwellir.com/tcp/443/wss/p2p/12D3KooWBFskNCQDVjuUeBh6vrszWrUvYMBBhtZRLnoTZDdLYbW5"
+    "/dns/kusama-bridge-hub-boot-ng.dwellir.com/tcp/443/wss/p2p/12D3KooWBFskNCQDVjuUeBh6vrszWrUvYMBBhtZRLnoTZDdLYbW5",
+    "/dns/bridgehub-kusama-bootnode.radiumblock.com/tcp/30333/p2p/12D3KooWQMWofXj8v3RroDNnrhv1iURqm8vnaG98AdGnCn2YoDcW",
+    "/dns/bridgehub-kusama-bootnode.radiumblock.com/tcp/30336/wss/p2p/12D3KooWQMWofXj8v3RroDNnrhv1iURqm8vnaG98AdGnCn2YoDcW",
+    "/dns/kbr13.rotko.net/tcp/33553/p2p/12D3KooWAmBp54mUEYtvsk2kxNEsDbAvdUMcaghxKXgUQxmPEQ66",
+    "/dns/kbr13.rotko.net/tcp/34553/ws/p2p/12D3KooWAmBp54mUEYtvsk2kxNEsDbAvdUMcaghxKXgUQxmPEQ66",
+    "/dns/kbr13.rotko.net/tcp/35553/wss/p2p/12D3KooWAmBp54mUEYtvsk2kxNEsDbAvdUMcaghxKXgUQxmPEQ66"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
