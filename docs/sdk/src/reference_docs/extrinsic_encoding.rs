@@ -30,7 +30,7 @@
 //! ```
 //!
 //! For clarity, the actual implementation in Substrate looks like this:
-#![doc = docify::embed!("../substrate/primitives/runtime/src/generic/unchecked_extrinsic.rs", unchecked_extrinsic_encode_impl)]
+#![doc = docify::embed!("../../substrate/primitives/runtime/src/generic/unchecked_extrinsic.rs", unchecked_extrinsic_encode_impl)]
 //!
 //! Let's look at how each of these details is constructed:
 //!
