@@ -84,7 +84,7 @@ pub mod frame_system {
 	pub enum Error<T> {
 		/// Required by construct_runtime
 		CallFiltered,
-		/// Used in tasks example
+		/// Used in tasks example.
 		NotFound,
 		/// The specified [`Task`] is not valid.
 		InvalidTask,
