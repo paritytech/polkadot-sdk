@@ -23,7 +23,7 @@ use std::{env, time::Duration};
 // Test spawning a program that immediately exits with a failure code.
 #[tokio::test]
 async fn spawn_immediate_exit() {
-	let (prepare_worker_path, _) = build_workers_and_get_paths(false);
+	let (prepare_worker_path, _) = build_workers_and_get_paths();
 
 	// There's no explicit `exit` subcommand in the worker; it will panic on an unknown
 	// subcommand anyway
@@ -41,7 +41,7 @@ async fn spawn_immediate_exit() {
 
 #[tokio::test]
 async fn spawn_timeout() {
-	let (_, execute_worker_path) = build_workers_and_get_paths(false);
+	let (_, execute_worker_path) = build_workers_and_get_paths();
 
 	let result = spawn_with_program_path(
 		"integration-test",
@@ -57,7 +57,7 @@ async fn spawn_timeout() {
 
 #[tokio::test]
 async fn should_connect() {
-	let (prepare_worker_path, _) = build_workers_and_get_paths(false);
+	let (prepare_worker_path, _) = build_workers_and_get_paths();
 
 	let _ = spawn_with_program_path(
 		"integration-test",

@@ -10,7 +10,7 @@ license.workspace = true
 cpu-time = "1.0.0"
 gum = { package = "tracing-gum", path = "../../../gum" }
 os_pipe = "1.1.4"
-nix = { version = "0.27.1", features = ["resource", "process"]}
+nix = { version = "0.27.1", features = ["process", "resource"] }
 libc = "0.2.139"
 
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }

@@ -44,12 +44,6 @@ fn swap_locally_on_chain_using_local_assets() {
 			100_000_000_000_000,
 		));
 
-		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::Balances::force_set_balance(
-			<AssetHubRococo as Chain>::RuntimeOrigin::root(),
-			AssetHubRococoSender::get().into(),
-			100_000_000_000_000,
-		));
-
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::create_pool(
 			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
 			asset_native.clone(),
