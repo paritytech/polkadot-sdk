@@ -43,10 +43,7 @@ use polkadot_node_subsystem::{
 	},
 	overseer, RuntimeApiError, SubsystemError, SubsystemResult,
 };
-use polkadot_node_subsystem_util::{
-	determine_new_blocks,
-	runtime::{request_node_features, RuntimeInfo},
-};
+use polkadot_node_subsystem_util::{determine_new_blocks, runtime::RuntimeInfo};
 use polkadot_primitives::{
 	vstaging::node_features, BlockNumber, CandidateEvent, CandidateHash, CandidateReceipt,
 	ConsensusLog, CoreIndex, GroupIndex, Hash, Header, SessionIndex,
@@ -63,7 +60,7 @@ use super::approval_db::v2;
 use crate::{
 	backend::{Backend, OverlayedBackend},
 	criteria::{AssignmentCriteria, OurAssignment},
-	get_session_info,
+	get_extended_session_info, get_session_info,
 	persisted_entries::CandidateEntry,
 	time::{slot_number_to_tick, Tick},
 };
@@ -217,19 +214,20 @@ async fn imported_block_info<Context>(
 		}
 	};
 
+	let extended_session_info =
+		get_extended_session_info(env.runtime_info, ctx.sender(), block_hash, session_index).await;
+	let enable_v2_assignments = extended_session_info.map_or(false, |extended_session_info| {
+		*extended_session_info
+			.node_features
+			.get(node_features::FeatureIndex::EnableAssignmentsV2 as usize)
+			.as_deref()
+			.unwrap_or(&false)
+	});
+
 	let session_info = get_session_info(env.runtime_info, ctx.sender(), block_hash, session_index)
 		.await
 		.ok_or(ImportedBlockInfoError::SessionInfoUnavailable)?;
-	let enable_v2_assignments = request_node_features(block_hash, session_index, ctx.sender())
-		.await
-		.ok()
-		.flatten()
-		.map_or(false, |node_features| {
-			*node_features
-				.get(node_features::ENABLE_ASSIGNMENTS_V2 as usize)
-				.as_deref()
-				.unwrap_or(&false)
-		});
+
 	gum::debug!(target: LOG_TARGET, ?enable_v2_assignments, "V2 assignments");
 	let (assignments, slot, relay_vrf_story) = {
 		let unsafe_vrf = approval_types::v1::babe_unsafe_vrf_info(&block_header);
@@ -617,7 +615,7 @@ pub(crate) mod tests {
 	use polkadot_node_subsystem_test_helpers::make_subsystem_context;
 	use polkadot_node_subsystem_util::database::Database;
 	use polkadot_primitives::{
-		vstaging::{node_features::ENABLE_ASSIGNMENTS_V2, NodeFeatures},
+		vstaging::{node_features::FeatureIndex, NodeFeatures},
 		ExecutorParams, Id as ParaId, IndexedVec, SessionInfo, ValidatorId, ValidatorIndex,
 	};
 	pub(crate) use sp_consensus_babe::{
@@ -882,7 +880,7 @@ pub(crate) mod tests {
 					AllMessages::RuntimeApi(
 						RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
 					) => {
-						si_tx.send(Ok(NodeFeatures::repeat(enable_v2, 1))).unwrap();
+						si_tx.send(Ok(NodeFeatures::repeat(enable_v2, FeatureIndex::EnableAssignmentsV2 as usize + 1))).unwrap();
 					}
 				);
 			});

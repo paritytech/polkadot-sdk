@@ -28,7 +28,7 @@ use polkadot_node_subsystem::{
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError, SubsystemResult,
 };
 use polkadot_node_subsystem_types::RuntimeApiSubsystemClient;
-use polkadot_primitives::{vstaging::node_features::FIRST_UNASSIGNED, Hash, SessionIndex};
+use polkadot_primitives::Hash;
 
 use cache::{RequestResult, RequestResultCache};
 use futures::{channel::oneshot, prelude::*, select, stream::FuturesUnordered};
@@ -327,24 +327,6 @@ where
 		}
 	}
 
-	// Checks that all set features in runtime are known by the current version of the node, if not
-	// it throws an warning for users to update their version.
-	async fn maybe_check_node_features(
-		should_check_node_features: Option<(Hash, SessionIndex, Arc<Client>, Metrics)>,
-	) {
-		if let Some((block_hash, session_index, client, metrics)) = should_check_node_features {
-			let (tx, _rx) = oneshot::channel();
-			let request = Request::NodeFeatures(session_index, tx);
-			let result = make_runtime_api_request(client, metrics, block_hash, request).await;
-			if let Some(RequestResult::NodeFeatures(_, features)) = result {
-				let last_set_index = features.iter_ones().last().unwrap_or_default();
-				if last_set_index >= FIRST_UNASSIGNED as usize {
-					gum::warn!(target: LOG_TARGET, "Runtime requires feature bit {} that node doesn't support, please upgrade node version", last_set_index);
-				}
-			}
-		};
-	}
-
 	/// Spawn a runtime API request.
 	fn spawn_request(&mut self, relay_parent: Hash, request: Request) {
 		let client = self.client.clone();
@@ -357,18 +339,9 @@ where
 			None => return,
 		};
 
-		// Every-time we fetch a new session info from the runtime, let's check the node features as
-		// well to make sure things are compatible.
-		let should_check_node_features = match request {
-			Request::SessionInfo(session_index, _) =>
-				Some((relay_parent, session_index, self.client.clone(), self.metrics.clone())),
-			_ => None,
-		};
-
 		let request = async move {
 			let result = make_runtime_api_request(client, metrics, relay_parent, request).await;
 			let _ = sender.send(result);
-			Self::maybe_check_node_features(should_check_node_features).await;
 		}
 		.boxed();
 

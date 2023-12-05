@@ -998,16 +998,16 @@ async fn import_block(
 					si_tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
 				}
 			);
-		}
 
-		assert_matches!(
-			overseer_recv(overseer).await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
-			) => {
-				si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
-			}
-		);
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
+				) => {
+					si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+				}
+			);
+		}
 
 		assert_matches!(
 			overseer_recv(overseer).await,
