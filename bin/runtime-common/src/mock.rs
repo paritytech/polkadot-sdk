@@ -378,6 +378,7 @@ impl ChainWithGrandpa for BridgedUnderlyingChain {
 	const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 = 8;
 	const MAX_HEADER_SIZE: u32 = 256;
 	const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 = 64;
+	const WORST_HEADER_SIZE_IN_JUSTIFICATION: u32 = 64;
 }
 
 impl Chain for BridgedUnderlyingParachain {

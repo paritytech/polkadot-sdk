@@ -44,6 +44,7 @@ pub use bp_polkadot_core::{
 	AccountAddress, AccountId, Balance, Block, BlockNumber, Hash, Hasher, Header, Nonce, Signature,
 	SignedBlock, UncheckedExtrinsic, AVERAGE_HEADER_SIZE_IN_JUSTIFICATION,
 	EXTRA_STORAGE_PROOF_SIZE, MAX_HEADER_SIZE, REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY,
+	WORST_HEADER_SIZE_IN_JUSTIFICATION,
 };
 
 /// Maximal number of GRANDPA authorities at Polkadot Bulletin chain.
@@ -209,6 +210,7 @@ impl ChainWithGrandpa for PolkadotBulletin {
 		REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY;
 	const MAX_HEADER_SIZE: u32 = MAX_HEADER_SIZE;
 	const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 = AVERAGE_HEADER_SIZE_IN_JUSTIFICATION;
+	const WORST_HEADER_SIZE_IN_JUSTIFICATION: u32 = WORST_HEADER_SIZE_IN_JUSTIFICATION;
 }
 
 decl_bridge_finality_runtime_apis!(polkadot_bulletin, grandpa);

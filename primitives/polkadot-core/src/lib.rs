@@ -70,7 +70,16 @@ pub const MAX_AUTHORITIES_COUNT: u32 = 1_256;
 /// reserve here.
 pub const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 = 2;
 
-/// Approximate average header size in `votes_ancestries` field of justification on Polkadot-like
+/// Average header size in `votes_ancestries` field of justification on Polkadot-like
+/// chains.
+///
+/// See [`bp-header-chain::ChainWithGrandpa`] for more details.
+///
+/// This value comes from recent (February, 2023) Kusama headers. Average is `336` there, but let's
+/// have some reserve and make it 1024.
+pub const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 = 1024;
+
+/// Worst-case header size in `votes_ancestries` field of justification on Polkadot-like
 /// chains.
 ///
 /// See [`bp-header-chain::ChainWithGrandpa`] for more details.
@@ -79,7 +88,7 @@ pub const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 = 2;
 /// non-mandatory headers has size `40kb` (they contain the BABE epoch descriptor with all
 /// authorities - just like our mandatory header). Since we assume `2` headers in justification
 /// votes ancestry, let's set average header to `40kb / 2`.
-pub const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 = 20 * 1024;
+pub const WORST_HEADER_SIZE_IN_JUSTIFICATION: u32 = 20 * 1024;
 
 /// Approximate maximal header size on Polkadot-like chains.
 ///
