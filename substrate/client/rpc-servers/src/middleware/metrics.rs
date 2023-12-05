@@ -1,12 +1,18 @@
-use prometheus_endpoint::{
-	register, Counter, CounterVec, HistogramOpts, HistogramVec, Opts, PrometheusError, Registry,
-	U64,
+use std::{
+	future::Future,
+	pin::Pin,
+	task::{Context, Poll},
+	time::Instant,
 };
 
 use jsonrpsee::{
 	core::async_trait, server::middleware::rpc::RpcServiceT, types::Request, MethodResponse,
 };
-use std::time::Instant;
+use pin_project::pin_project;
+use prometheus_endpoint::{
+	register, Counter, CounterVec, HistogramOpts, HistogramVec, Opts, PrometheusError, Registry,
+	U64,
+};
 
 /// Histogram time buckets in microseconds.
 const HISTOGRAM_BUCKETS: [f64; 11] = [
@@ -172,7 +178,9 @@ impl<'a, S> RpcServiceT<'a> for Metrics<S>
 where
 	S: Send + Sync + RpcServiceT<'a>,
 {
-	async fn call(&self, req: Request<'a>) -> MethodResponse {
+	type Future = ResponseFuture<'a, S::Future>;
+
+	fn call(&self, req: Request<'a>) -> Self::Future {
 		let now = Instant::now();
 
 		log::trace!(
@@ -187,33 +195,70 @@ where
 			.with_label_values(&[self.transport_label, req.method_name()])
 			.inc();
 
-		let rp = self.service.call(req.clone()).await;
+		ResponseFuture {
+			fut: self.service.call(req.clone()),
+			metrics: self.metrics.clone(),
+			req,
+			now,
+			transport_label: self.transport_label,
+		}
+	}
+}
 
-		log::trace!(target: "rpc_metrics", "[{}] on_response started_at={:?}", self.transport_label, now);
-		log::trace!(target: "rpc_metrics::extra", "[{}] result={:?}", self.transport_label, rp);
+/// Response future for metrics.
+#[pin_project]
+pub struct ResponseFuture<'a, F> {
+	#[pin]
+	fut: F,
+	metrics: RpcMetrics,
+	req: Request<'a>,
+	now: Instant,
+	transport_label: &'static str,
+}
 
-		let micros = now.elapsed().as_micros();
-		log::debug!(
-			target: "rpc_metrics",
-			"[{}] {} call took {} μs",
-			self.transport_label,
-			req.method_name(),
-			micros,
-		);
-		self.metrics
-			.calls_time
-			.with_label_values(&[self.transport_label, req.method_name()])
-			.observe(micros as _);
-		self.metrics
-			.calls_finished
-			.with_label_values(&[
-				self.transport_label,
-				req.method_name(),
-				// the label "is_error", so `success` should be regarded as false
-				// and vice-versa to be registrered correctly.
-				if rp.success_or_error.is_success() { "false" } else { "true" },
-			])
-			.inc();
-		rp
+impl<'a, F> std::fmt::Debug for ResponseFuture<'a, F> {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.write_str("ResponseFuture")
+	}
+}
+
+impl<'a, F: Future<Output = MethodResponse>> Future for ResponseFuture<'a, F> {
+	type Output = F::Output;
+
+	fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+		let this = self.project();
+
+		let res = this.fut.poll(cx);
+		if let Poll::Ready(rp) = &res {
+			let method_name = this.req.method_name();
+			let transport_label = &this.transport_label;
+			let now = this.now;
+			let metrics = &this.metrics;
+
+			log::trace!(target: "rpc_metrics", "[{transport_label}] on_response started_at={:?}", now);
+			log::trace!(target: "rpc_metrics::extra", "[{transport_label}] result={:?}", rp);
+
+			let micros = now.elapsed().as_micros();
+			log::debug!(
+				target: "rpc_metrics",
+				"[{transport_label}] {method_name} call took {} μs",
+				micros,
+			);
+			metrics
+				.calls_time
+				.with_label_values(&[transport_label, method_name])
+				.observe(micros as _);
+			metrics
+				.calls_finished
+				.with_label_values(&[
+					transport_label,
+					method_name,
+					// the label "is_error", so `success` should be regarded as false
+					// and vice-versa to be registrered correctly.
+					if rp.success_or_error.is_success() { "false" } else { "true" },
+				])
+				.inc();
+		}
+		res
 	}
 }

@@ -6990,7 +6990,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee"
 version = "0.20.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#8381243787eae9bce4c1f0ae4891d095710a7429"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=master#0a39c1ad7a1495931ac43a5f3efd4650728af147"
 dependencies = [
  "jsonrpsee-core",
  "jsonrpsee-http-client",
@@ -7005,7 +7005,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-client-transport"
 version = "0.20.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#8381243787eae9bce4c1f0ae4891d095710a7429"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=master#0a39c1ad7a1495931ac43a5f3efd4650728af147"
 dependencies = [
  "futures-util",
  "http",
@@ -7024,7 +7024,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-core"
 version = "0.20.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#8381243787eae9bce4c1f0ae4891d095710a7429"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=master#0a39c1ad7a1495931ac43a5f3efd4650728af147"
 dependencies = [
  "anyhow",
  "async-lock 3.0.0",
@@ -7048,7 +7048,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-http-client"
 version = "0.20.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#8381243787eae9bce4c1f0ae4891d095710a7429"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=master#0a39c1ad7a1495931ac43a5f3efd4650728af147"
 dependencies = [
  "async-trait",
  "hyper",
@@ -7067,7 +7067,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-proc-macros"
 version = "0.20.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#8381243787eae9bce4c1f0ae4891d095710a7429"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=master#0a39c1ad7a1495931ac43a5f3efd4650728af147"
 dependencies = [
  "heck",
  "proc-macro-crate 2.0.0",
@@ -7079,9 +7079,8 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-server"
 version = "0.20.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#8381243787eae9bce4c1f0ae4891d095710a7429"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=master#0a39c1ad7a1495931ac43a5f3efd4650728af147"
 dependencies = [
- "async-trait",
  "futures-util",
  "http",
  "hyper",
@@ -7103,20 +7102,19 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-types"
 version = "0.20.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#8381243787eae9bce4c1f0ae4891d095710a7429"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=master#0a39c1ad7a1495931ac43a5f3efd4650728af147"
 dependencies = [
  "anyhow",
  "beef",
  "serde",
  "serde_json",
  "thiserror",
- "tracing",
 ]
 
 [[package]]
 name = "jsonrpsee-ws-client"
 version = "0.20.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=na-jsonrpsee-service#8381243787eae9bce4c1f0ae4891d095710a7429"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=master#0a39c1ad7a1495931ac43a5f3efd4650728af147"
 dependencies = [
  "http",
  "jsonrpsee-client-transport",
@@ -15988,6 +15986,7 @@ dependencies = [
  "hyper",
  "jsonrpsee",
  "log",
+ "pin-project",
  "serde_json",
  "substrate-prometheus-endpoint",
  "tokio",

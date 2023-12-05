@@ -1,6 +1,6 @@
 use jsonrpsee::{
 	core::async_trait,
-	server::middleware::rpc::RpcServiceT,
+	server::middleware::rpc::{ResponseFuture, RpcServiceT},
 	types::{ErrorObject, Request},
 	MethodResponse,
 };
@@ -51,13 +51,7 @@ enum State {
 	Allow { until: Instant, rem: u64 },
 }
 
-/// Depending on how the rate limit is instantiated
-/// it's possible to select whether the rate limit
-/// is be applied per connection or shared by
-/// all connections.
-///
-/// Have a look at `async fn run_server` below which
-/// shows how do it.
+/// Rate limit middleware.
 #[derive(Clone)]
 pub struct RateLimit<S> {
 	service: S,
@@ -87,7 +81,9 @@ impl<'a, S> RpcServiceT<'a> for RateLimit<S>
 where
 	S: Send + Sync + RpcServiceT<'a>,
 {
-	async fn call(&self, req: Request<'a>) -> MethodResponse {
+	type Future = ResponseFuture<S::Future>;
+
+	fn call(&self, req: Request<'a>) -> Self::Future {
 		let now = Instant::now();
 
 		let is_denied = {
@@ -117,16 +113,18 @@ where
 		};
 
 		if is_denied {
-			MethodResponse::error(
+			let rp = MethodResponse::error(
 				req.id,
 				ErrorObject::owned(
 					-32000,
 					"RPC rate limit",
 					Some(format!("{} calls/min is allowed", self.rate.num)),
 				),
-			)
+			);
+
+			ResponseFuture::ready(rp)
 		} else {
-			self.service.call(req).await
+			ResponseFuture::future(self.service.call(req))
 		}
 	}
 }

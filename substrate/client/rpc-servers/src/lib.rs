@@ -118,8 +118,11 @@ pub async fn start_server<M: Send + Sync + 'static>(
 		.max_response_body_size(max_payload_out_mb.saturating_mul(MEGABYTE))
 		.max_connections(max_connections)
 		.max_subscriptions_per_connection(max_subs_per_conn)
-		.ping_interval(PingConfig::WithoutInactivityCheck(Duration::from_secs(30)))
-		.unwrap()
+		.enable_ws_ping(
+			PingConfig::new()
+				.ping_interval(Duration::from_secs(30))
+				.inactive_limit(Duration::from_secs(40)),
+		)
 		.set_http_middleware(http_middleware)
 		.set_message_buffer_capacity(message_buffer_capacity)
 		.custom_tokio_runtime(tokio_handle);

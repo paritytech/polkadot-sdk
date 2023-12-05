@@ -553,6 +553,6 @@ yamux = { opt-level = 3 }
 zeroize = { opt-level = 3 }
 
 [patch.crates-io]
-jsonrpsee = { git = "https://github.com/paritytech/jsonrpsee", branch = "na-jsonrpsee-service" }
-jsonrpsee-core = { git = "https://github.com/paritytech/jsonrpsee", branch = "na-jsonrpsee-service" }
+jsonrpsee = { git = "https://github.com/paritytech/jsonrpsee", branch = "master" }
+jsonrpsee-core = { git = "https://github.com/paritytech/jsonrpsee", branch = "master" }
 
