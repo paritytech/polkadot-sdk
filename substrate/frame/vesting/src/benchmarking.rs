@@ -383,6 +383,33 @@ benchmarks! {
 		);
 	}
 
+force_remove_vesting_schedule {
+		let l in 0 .. MaxLocksOf::<T>::get() - 1;
+		let s in 2 .. T::MAX_VESTING_SCHEDULES;
+
+		let source: T::AccountId = account("source", 0, SEED);
+		let source_lookup: <T::Lookup as StaticLookup>::Source = T::Lookup::unlookup(source.clone());
+		T::Currency::make_free_balance_be(&source, BalanceOf::<T>::max_value());
+
+		let target: T::AccountId = account("target", 0, SEED);
+		let target_lookup: <T::Lookup as StaticLookup>::Source = T::Lookup::unlookup(target.clone());
+		T::Currency::make_free_balance_be(&target, T::Currency::minimum_balance());
+
+		// Give target existing locks.
+		add_locks::<T>(&target, l as u8);
+		let _ = add_vesting_schedules::<T>(target_lookup.clone(), s)?;
+
+		// The last vesting schedule.
+		let schedule_index = s - 1;
+	}: _(RawOrigin::Root, target_lookup, schedule_index)
+	verify {
+		assert_eq!(
+		Vesting::<T>::vesting(&target).unwrap().len(),
+			schedule_index as usize,
+			"Schedule count should reduce by 1"
+		);
+	}
+
 	impl_benchmark_test_suite!(
 		Vesting,
 		crate::mock::ExtBuilder::default().existential_deposit(256).build(),

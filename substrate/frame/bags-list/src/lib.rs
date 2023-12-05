@@ -17,7 +17,7 @@
 
 //! > Made with *Substrate*, for *Polkadot*.
 //!
-//! [![github]](https://github.com/paritytech/substrate/frame/fast-unstake) -
+//! [![github]](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/bags-list) -
 //! [![polkadot]](https://polkadot.network)
 //!
 //! [polkadot]:

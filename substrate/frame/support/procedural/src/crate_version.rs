@@ -18,7 +18,7 @@
 //! Implementation of macros related to crate versioning.
 
 use super::get_cargo_env_var;
-use frame_support_procedural_tools::generate_crate_access_2018;
+use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 use proc_macro2::{Span, TokenStream};
 use syn::{Error, Result};
 
@@ -42,7 +42,7 @@ pub fn crate_to_crate_version(input: proc_macro::TokenStream) -> Result<TokenStr
 	let patch_version = get_cargo_env_var::<u8>("CARGO_PKG_VERSION_PATCH")
 		.map_err(|_| create_error("Patch version needs to fit into `u8`"))?;
 
-	let crate_ = generate_crate_access_2018("frame-support")?;
+	let crate_ = generate_access_from_frame_or_crate("frame-support")?;
 
 	Ok(quote::quote! {
 		#crate_::traits::CrateVersion {

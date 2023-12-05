@@ -203,7 +203,10 @@ fn generate_crate_skip_build_env_name() -> String {
 /// Checks if the build of the WASM binary should be skipped.
 fn check_skip_build() -> bool {
 	env::var(crate::SKIP_BUILD_ENV).is_ok() ||
-		env::var(generate_crate_skip_build_env_name()).is_ok()
+		env::var(generate_crate_skip_build_env_name()).is_ok() ||
+		// If we are running in docs.rs, let's skip building.
+		// https://docs.rs/about/builds#detecting-docsrs
+		env::var("DOCS_RS").is_ok()
 }
 
 /// Provide a dummy WASM binary if there doesn't exist one.
@@ -270,9 +273,9 @@ fn build_project(
 	);
 
 	let (wasm_binary, wasm_binary_bloaty) = if let Some(wasm_binary) = wasm_binary {
-		(wasm_binary.wasm_binary_path_escaped(), bloaty.wasm_binary_bloaty_path_escaped())
+		(wasm_binary.wasm_binary_path_escaped(), bloaty.bloaty_path_escaped())
 	} else {
-		(bloaty.wasm_binary_bloaty_path_escaped(), bloaty.wasm_binary_bloaty_path_escaped())
+		(bloaty.bloaty_path_escaped(), bloaty.bloaty_path_escaped())
 	};
 
 	crate::write_file_if_changed(

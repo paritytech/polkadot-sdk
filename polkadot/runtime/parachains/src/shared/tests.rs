@@ -22,10 +22,7 @@ use crate::{
 use assert_matches::assert_matches;
 use keyring::Sr25519Keyring;
 use primitives::Hash;
-
-fn validator_pubkeys(val_ids: &[Sr25519Keyring]) -> Vec<ValidatorId> {
-	val_ids.iter().map(|v| v.public().into()).collect()
-}
+use test_helpers::validator_pubkeys;
 
 #[test]
 fn tracker_earliest_block_number() {

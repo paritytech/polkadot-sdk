@@ -19,15 +19,11 @@
 use crate as pallet_xcm_bridge_hub_router;
 
 use bp_xcm_bridge_hub_router::XcmChannelStatusProvider;
-use frame_support::{construct_runtime, parameter_types};
+use frame_support::{construct_runtime, derive_impl, parameter_types};
 use frame_system::EnsureRoot;
-use sp_core::H256;
-use sp_runtime::{
-	traits::{BlakeTwo256, ConstU128, IdentityLookup},
-	BuildStorage,
-};
+use sp_runtime::{traits::ConstU128, BuildStorage};
 use xcm::prelude::*;
-use xcm_builder::NetworkExportTable;
+use xcm_builder::{NetworkExportTable, NetworkExportTableItem};
 
 pub type AccountId = u64;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
@@ -53,34 +49,20 @@ parameter_types! {
 	pub UniversalLocation: InteriorMultiLocation = X2(GlobalConsensus(ThisNetworkId::get()), Parachain(1000));
 	pub SiblingBridgeHubLocation: MultiLocation = ParentThen(X1(Parachain(1002))).into();
 	pub BridgeFeeAsset: AssetId = MultiLocation::parent().into();
-	pub BridgeTable: Vec<(NetworkId, MultiLocation, Option<MultiAsset>)>
-		= vec![(BridgedNetworkId::get(), SiblingBridgeHubLocation::get(), Some((BridgeFeeAsset::get(), BASE_FEE).into()))];
+	pub BridgeTable: Vec<NetworkExportTableItem>
+		= vec![
+			NetworkExportTableItem::new(
+				BridgedNetworkId::get(),
+				None,
+				SiblingBridgeHubLocation::get(),
+				Some((BridgeFeeAsset::get(), BASE_FEE).into())
+			)
+		];
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for TestRuntime {
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type RuntimeCall = RuntimeCall;
 	type Block = Block;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = AccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = frame_support::traits::ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type BaseCallFilter = frame_support::traits::Everything;
-	type SystemWeightInfo = ();
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {

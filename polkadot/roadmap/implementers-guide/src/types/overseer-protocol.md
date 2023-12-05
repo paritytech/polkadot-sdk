@@ -32,18 +32,8 @@ Indicates a change in active leaves. Activated leaves should have jobs, whereas 
 winding-down of work based on those leaves.
 
 ```rust
-enum LeafStatus {
-    // A leaf is fresh when it's the first time the leaf has been encountered.
-    // Most leaves should be fresh.
-    Fresh,
-    // A leaf is stale when it's encountered for a subsequent time. This will
-    // happen when the chain is reverted or the fork-choice rule abandons some
-    // chain.
-    Stale,
-}
-
 struct ActiveLeavesUpdate {
-    activated: [(Hash, Number, LeafStatus)], // in practice, these should probably be a SmallVec
+    activated: [(Hash, Number)],
     deactivated: [Hash],
 }
 ```

@@ -21,15 +21,19 @@ use futures::{executor, future};
 use futures_timer::Delay;
 
 use parity_scale_codec::Encode;
-use polkadot_node_network_protocol::request_response::{IncomingRequest, ReqProtocolNames};
+use polkadot_node_network_protocol::request_response::{
+	self as req_res, IncomingRequest, Recipient, ReqProtocolNames, Requests,
+};
 
 use super::*;
 
-use sc_network::config::RequestResponseConfig;
+use sc_network::{config::RequestResponseConfig, IfDisconnected, OutboundFailure, RequestFailure};
 
 use polkadot_erasure_coding::{branches, obtain_chunks_v1 as obtain_chunks};
 use polkadot_node_primitives::{BlockData, PoV, Proof};
-use polkadot_node_subsystem::messages::{AllMessages, RuntimeApiMessage, RuntimeApiRequest};
+use polkadot_node_subsystem::messages::{
+	AllMessages, NetworkBridgeTxMessage, RuntimeApiMessage, RuntimeApiRequest,
+};
 use polkadot_node_subsystem_test_helpers::{
 	make_subsystem_context, mock::new_leaf, TestSubsystemContextHandle,
 };
@@ -204,7 +208,7 @@ use sp_keyring::Sr25519Keyring;
 enum Has {
 	No,
 	Yes,
-	NetworkError(sc_network::RequestFailure),
+	NetworkError(RequestFailure),
 	/// Make request not return at all, instead the sender is returned from the function.
 	///
 	/// Note, if you use `DoesNotReturn` you have to keep the returned senders alive, otherwise the
@@ -214,7 +218,7 @@ enum Has {
 
 impl Has {
 	fn timeout() -> Self {
-		Has::NetworkError(sc_network::RequestFailure::Network(sc_network::OutboundFailure::Timeout))
+		Has::NetworkError(RequestFailure::Network(OutboundFailure::Timeout))
 	}
 }
 
@@ -393,7 +397,7 @@ impl TestState {
 		candidate_hash: CandidateHash,
 		virtual_overseer: &mut VirtualOverseer,
 		who_has: impl Fn(usize) -> Has,
-	) -> Vec<oneshot::Sender<std::result::Result<Vec<u8>, sc_network::RequestFailure>>> {
+	) -> Vec<oneshot::Sender<std::result::Result<Vec<u8>, RequestFailure>>> {
 		let mut senders = Vec::new();
 		for _ in 0..self.validators.len() {
 			// Receive a request for a chunk.
@@ -1010,7 +1014,7 @@ fn recovers_from_only_chunks_if_pov_large() {
 			AvailabilityRecoveryMessage::RecoverAvailableData(
 				new_candidate.clone(),
 				test_state.session_index,
-				None,
+				Some(GroupIndex(0)),
 				tx,
 			),
 		)
@@ -1545,37 +1549,4 @@ fn invalid_local_chunk_is_ignored() {
 		assert_eq!(rx.await.unwrap().unwrap(), test_state.available_data);
 		(virtual_overseer, req_cfg)
 	});
-}
-
-#[test]
-fn parallel_request_calculation_works_as_expected() {
-	let num_validators = 100;
-	let threshold = recovery_threshold(num_validators).unwrap();
-	let (erasure_task_tx, _erasure_task_rx) = futures::channel::mpsc::channel(16);
-
-	let mut phase = RequestChunksFromValidators::new(100, erasure_task_tx);
-	assert_eq!(phase.get_desired_request_count(threshold), threshold);
-	phase.error_count = 1;
-	phase.total_received_responses = 1;
-	// We saturate at threshold (34):
-	assert_eq!(phase.get_desired_request_count(threshold), threshold);
-
-	let dummy_chunk =
-		ErasureChunk { chunk: Vec::new(), index: ValidatorIndex(0), proof: Proof::dummy_proof() };
-	phase.insert_chunk(ValidatorIndex(0), dummy_chunk.clone());
-	phase.total_received_responses = 2;
-	// With given error rate - still saturating:
-	assert_eq!(phase.get_desired_request_count(threshold), threshold);
-	for i in 1..9 {
-		phase.insert_chunk(ValidatorIndex(i), dummy_chunk.clone());
-	}
-	phase.total_received_responses += 8;
-	// error rate: 1/10
-	// remaining chunks needed: threshold (34) - 9
-	// expected: 24 * (1+ 1/10) = (next greater integer) = 27
-	assert_eq!(phase.get_desired_request_count(threshold), 27);
-	phase.insert_chunk(ValidatorIndex(9), dummy_chunk.clone());
-	phase.error_count = 0;
-	// With error count zero - we should fetch exactly as needed:
-	assert_eq!(phase.get_desired_request_count(threshold), threshold - phase.chunk_count());
 }

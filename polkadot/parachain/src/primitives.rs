@@ -20,12 +20,12 @@
 use sp_std::vec::Vec;
 
 use bounded_collections::{BoundedVec, ConstU32};
-use frame_support::weights::Weight;
 use parity_scale_codec::{CompactAs, Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_core::{bytes, RuntimeDebug, TypeId};
 use sp_runtime::traits::Hash as _;
+use sp_weights::Weight;
 
 use polkadot_core_primitives::{Hash, OutboundHrmpMessage};
 
@@ -199,13 +199,11 @@ impl From<i32> for Id {
 	}
 }
 
-const USER_INDEX_START: u32 = 1000;
+// System parachain ID is considered `< 2000`.
+const SYSTEM_INDEX_END: u32 = 1999;
 const PUBLIC_INDEX_START: u32 = 2000;
 
-/// The ID of the first user (non-system) parachain.
-pub const LOWEST_USER_ID: Id = Id(USER_INDEX_START);
-
-/// The ID of the first publicly registerable parachain.
+/// The ID of the first publicly registrable parachain.
 pub const LOWEST_PUBLIC_ID: Id = Id(PUBLIC_INDEX_START);
 
 impl Id {
@@ -223,7 +221,7 @@ pub trait IsSystem {
 
 impl IsSystem for Id {
 	fn is_system(&self) -> bool {
-		self.0 < USER_INDEX_START
+		self.0 <= SYSTEM_INDEX_END
 	}
 }
 
@@ -335,7 +333,7 @@ impl DmpMessageHandler for () {
 }
 
 /// The aggregate XCMP message format.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, TypeInfo)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, TypeInfo, RuntimeDebug)]
 pub enum XcmpMessageFormat {
 	/// Encoded `VersionedXcm` messages, all concatenated.
 	ConcatenatedVersionedXcm,

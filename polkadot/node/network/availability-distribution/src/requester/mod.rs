@@ -35,7 +35,7 @@ use futures::{
 use polkadot_node_subsystem::{
 	jaeger,
 	messages::{ChainApiMessage, RuntimeApiMessage},
-	overseer, ActivatedLeaf, ActiveLeavesUpdate, LeafStatus,
+	overseer, ActivatedLeaf, ActiveLeavesUpdate,
 };
 use polkadot_node_subsystem_util::runtime::{get_occupied_cores, RuntimeInfo};
 use polkadot_primitives::{CandidateHash, Hash, OccupiedCore, SessionIndex};
@@ -105,8 +105,7 @@ impl Requester {
 	) -> Result<()> {
 		gum::trace!(target: LOG_TARGET, ?update, "Update fetching heads");
 		let ActiveLeavesUpdate { activated, deactivated } = update;
-		// Stale leaves happen after a reversion - we don't want to re-run availability there.
-		if let Some(leaf) = activated.filter(|leaf| leaf.status == LeafStatus::Fresh) {
+		if let Some(leaf) = activated {
 			let span = spans
 				.get(&leaf.hash)
 				.map(|span| span.child("update-fetching-heads"))

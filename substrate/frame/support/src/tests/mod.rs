@@ -647,3 +647,17 @@ fn check_storage_parameter_type_works() {
 		assert_eq!(300, StorageParameter::get());
 	})
 }
+
+#[test]
+fn derive_partial_eq_no_bound_core_mod() {
+	mod core {}
+
+	#[derive(
+		crate::PartialEqNoBound,
+		crate::CloneNoBound,
+		crate::DebugNoBound,
+		crate::DefaultNoBound,
+		crate::EqNoBound,
+	)]
+	struct Test;
+}

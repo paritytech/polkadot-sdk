@@ -50,10 +50,10 @@ use sc_network_bitswap::BitswapRequestHandler;
 use sc_network_common::role::Roles;
 use sc_network_light::light_client_requests::handler::LightClientRequestHandler;
 use sc_network_sync::{
-	block_request_handler::BlockRequestHandler, engine::SyncingEngine,
-	service::network::NetworkServiceProvider, state_request_handler::StateRequestHandler,
-	warp::WarpSyncParams, warp_request_handler::RequestHandler as WarpSyncRequestHandler,
-	SyncingService,
+	block_relay_protocol::BlockRelayParams, block_request_handler::BlockRequestHandler,
+	engine::SyncingEngine, service::network::NetworkServiceProvider,
+	state_request_handler::StateRequestHandler, warp::WarpSyncParams,
+	warp_request_handler::RequestHandler as WarpSyncRequestHandler, SyncingService,
 };
 use sc_rpc::{
 	author::AuthorApiServer,
@@ -130,10 +130,11 @@ where
 }
 
 /// Create the initial parts of a full node with the default genesis block builder.
-pub fn new_full_parts<TBl, TRtApi, TExec>(
+pub fn new_full_parts_record_import<TBl, TRtApi, TExec>(
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	executor: TExec,
+	enable_import_proof_recording: bool,
 ) -> Result<TFullParts<TBl, TRtApi, TExec>, Error>
 where
 	TBl: BlockT,
@@ -148,7 +149,26 @@ where
 		executor.clone(),
 	)?;
 
-	new_full_parts_with_genesis_builder(config, telemetry, executor, backend, genesis_block_builder)
+	new_full_parts_with_genesis_builder(
+		config,
+		telemetry,
+		executor,
+		backend,
+		genesis_block_builder,
+		enable_import_proof_recording,
+	)
+}
+/// Create the initial parts of a full node with the default genesis block builder.
+pub fn new_full_parts<TBl, TRtApi, TExec>(
+	config: &Configuration,
+	telemetry: Option<TelemetryHandle>,
+	executor: TExec,
+) -> Result<TFullParts<TBl, TRtApi, TExec>, Error>
+where
+	TBl: BlockT,
+	TExec: CodeExecutor + RuntimeVersionOf + Clone,
+{
+	new_full_parts_record_import(config, telemetry, executor, false)
 }
 
 /// Create the initial parts of a full node.
@@ -158,6 +178,7 @@ pub fn new_full_parts_with_genesis_builder<TBl, TRtApi, TExec, TBuildGenesisBloc
 	executor: TExec,
 	backend: Arc<TFullBackend<TBl>>,
 	genesis_block_builder: TBuildGenesisBlock,
+	enable_import_proof_recording: bool,
 ) -> Result<TFullParts<TBl, TRtApi, TExec>, Error>
 where
 	TBl: BlockT,
@@ -225,6 +246,7 @@ where
 					SyncMode::LightState { .. } | SyncMode::Warp { .. }
 				),
 				wasm_runtime_substitutes,
+				enable_import_proof_recording,
 			},
 		)?;
 
@@ -637,7 +659,6 @@ where
 		client.clone(),
 		backend.clone(),
 		task_executor.clone(),
-		client.info().genesis_hash,
 		// Defaults to sensible limits for the `ChainHead`.
 		sc_rpc_spec_v2::chain_head::ChainHeadConfig::default(),
 	)
@@ -696,6 +717,9 @@ pub struct BuildNetworkParams<'a, TBl: BlockT, TExPool, TImpQu, TCl> {
 		Option<Box<dyn FnOnce(Arc<TCl>) -> Box<dyn BlockAnnounceValidator<TBl> + Send> + Send>>,
 	/// Optional warp sync params.
 	pub warp_sync_params: Option<WarpSyncParams<TBl>>,
+	/// User specified block relay params. If not specified, the default
+	/// block request handler will be used.
+	pub block_relay: Option<BlockRelayParams<TBl>>,
 }
 
 /// Build the network service, the network status sinks and an RPC sender.
@@ -734,6 +758,7 @@ where
 		import_queue,
 		block_announce_validator_builder,
 		warp_sync_params,
+		block_relay,
 	} = params;
 
 	if warp_sync_params.is_none() && config.network.sync_mode.is_warp() {
@@ -750,6 +775,11 @@ where
 	}
 
 	let protocol_id = config.protocol_id();
+	let genesis_hash = client
+		.block_hash(0u32.into())
+		.ok()
+		.flatten()
+		.expect("Genesis block exists; qed");
 
 	let block_announce_validator = if let Some(f) = block_announce_validator_builder {
 		f(client.clone())
@@ -757,19 +787,26 @@ where
 		Box::new(DefaultBlockAnnounceValidator)
 	};
 
-	let (block_request_protocol_config, block_request_protocol_name) = {
-		// Allow both outgoing and incoming requests.
-		let (handler, protocol_config) = BlockRequestHandler::new(
-			&protocol_id,
-			config.chain_spec.fork_id(),
-			client.clone(),
-			net_config.network_config.default_peers_set.in_peers as usize +
-				net_config.network_config.default_peers_set.out_peers as usize,
-		);
-		let config_name = protocol_config.name.clone();
-		spawn_handle.spawn("block-request-handler", Some("networking"), handler.run());
-		(protocol_config, config_name)
+	let (chain_sync_network_provider, chain_sync_network_handle) = NetworkServiceProvider::new();
+	let (mut block_server, block_downloader, block_request_protocol_config) = match block_relay {
+		Some(params) => (params.server, params.downloader, params.request_response_config),
+		None => {
+			// Custom protocol was not specified, use the default block handler.
+			// Allow both outgoing and incoming requests.
+			let params = BlockRequestHandler::new(
+				chain_sync_network_handle.clone(),
+				&protocol_id,
+				config.chain_spec.fork_id(),
+				client.clone(),
+				config.network.default_peers_set.in_peers as usize +
+					config.network.default_peers_set.out_peers as usize,
+			);
+			(params.server, params.downloader, params.request_response_config)
+		},
 	};
+	spawn_handle.spawn("block-request-handler", Some("networking"), async move {
+		block_server.run().await;
+	});
 
 	let (state_request_protocol_config, state_request_protocol_name) = {
 		let num_peer_hint = net_config.network_config.default_peers_set_num_full as usize +
@@ -792,11 +829,7 @@ where
 			// Allow both outgoing and incoming requests.
 			let (handler, protocol_config) = WarpSyncRequestHandler::new(
 				protocol_id.clone(),
-				client
-					.block_hash(0u32.into())
-					.ok()
-					.flatten()
-					.expect("Genesis block exists; qed"),
+				genesis_hash,
 				config.chain_spec.fork_id(),
 				warp_with_provider.clone(),
 			);
@@ -835,17 +868,13 @@ where
 	}
 
 	// create transactions protocol and add it to the list of supported protocols of
-	// `network_params`
-	let transactions_handler_proto = sc_network_transactions::TransactionsHandlerPrototype::new(
-		protocol_id.clone(),
-		client
-			.block_hash(0u32.into())
-			.ok()
-			.flatten()
-			.expect("Genesis block exists; qed"),
-		config.chain_spec.fork_id(),
-	);
-	net_config.add_notification_protocol(transactions_handler_proto.set_config());
+	let (transactions_handler_proto, transactions_config) =
+		sc_network_transactions::TransactionsHandlerPrototype::new(
+			protocol_id.clone(),
+			genesis_hash,
+			config.chain_spec.fork_id(),
+		);
+	net_config.add_notification_protocol(transactions_config);
 
 	// Create `PeerStore` and initialize it with bootnode peer ids.
 	let peer_store = PeerStore::new(
@@ -859,8 +888,6 @@ where
 	let peer_store_handle = peer_store.handle();
 	spawn_handle.spawn("peer-store", Some("networking"), peer_store.run());
 
-	let (tx, rx) = sc_utils::mpsc::tracing_unbounded("mpsc_syncing_engine_protocol", 100_000);
-	let (chain_sync_network_provider, chain_sync_network_handle) = NetworkServiceProvider::new();
 	let (engine, sync_service, block_announce_config) = SyncingEngine::new(
 		Roles::from(&config.role),
 		client.clone(),
@@ -872,10 +899,10 @@ where
 		warp_sync_params,
 		chain_sync_network_handle,
 		import_queue.service(),
-		block_request_protocol_name,
+		block_downloader,
 		state_request_protocol_name,
 		warp_request_protocol_name,
-		rx,
+		peer_store_handle.clone(),
 	)?;
 	let sync_service_import_queue = sync_service.clone();
 	let sync_service = Arc::new(sync_service);
@@ -896,7 +923,6 @@ where
 		fork_id: config.chain_spec.fork_id().map(ToOwned::to_owned),
 		metrics_registry: config.prometheus_config.as_ref().map(|config| config.registry.clone()),
 		block_announce_config,
-		tx,
 	};
 
 	let has_bootnodes = !network_params.network_config.network_config.boot_nodes.is_empty();

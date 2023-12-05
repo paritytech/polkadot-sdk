@@ -27,7 +27,13 @@ use finality_grandpa::voter_set::VoterSet;
 use sp_consensus_grandpa::{AuthorityId, AuthoritySignature, SetId};
 use sp_runtime::{traits::Header as HeaderT, RuntimeDebug};
 use sp_std::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	collections::{
+		btree_map::{
+			BTreeMap,
+			Entry::{Occupied, Vacant},
+		},
+		btree_set::BTreeSet,
+	},
 	prelude::*,
 };
 
@@ -44,23 +50,40 @@ pub struct AncestryChain<Header: HeaderT> {
 	/// We expect all forks in the ancestry chain to be descendants of base.
 	base: HeaderId<Header::Hash, Header::Number>,
 	/// Header hash => parent header hash mapping.
-	pub parents: BTreeMap<Header::Hash, Header::Hash>,
+	parents: BTreeMap<Header::Hash, Header::Hash>,
 	/// Hashes of headers that were not visited by `ancestry()`.
-	pub unvisited: BTreeSet<Header::Hash>,
+	unvisited: BTreeSet<Header::Hash>,
 }
 
 impl<Header: HeaderT> AncestryChain<Header> {
-	/// Create new ancestry chain.
-	pub fn new(justification: &GrandpaJustification<Header>) -> AncestryChain<Header> {
+	/// Creates a new instance of `AncestryChain` starting from a `GrandpaJustification`.
+	///
+	/// Returns the `AncestryChain` and a `Vec` containing the `votes_ancestries` entries
+	/// that were ignored when creating it, because they are duplicates.
+	pub fn new(
+		justification: &GrandpaJustification<Header>,
+	) -> (AncestryChain<Header>, Vec<usize>) {
 		let mut parents = BTreeMap::new();
 		let mut unvisited = BTreeSet::new();
-		for ancestor in &justification.votes_ancestries {
+		let mut ignored_idxs = Vec::new();
+		for (idx, ancestor) in justification.votes_ancestries.iter().enumerate() {
 			let hash = ancestor.hash();
-			let parent_hash = *ancestor.parent_hash();
-			parents.insert(hash, parent_hash);
-			unvisited.insert(hash);
+			match parents.entry(hash) {
+				Occupied(_) => {
+					ignored_idxs.push(idx);
+				},
+				Vacant(entry) => {
+					entry.insert(*ancestor.parent_hash());
+					unvisited.insert(hash);
+				},
+			}
 		}
-		AncestryChain { base: justification.commit_target_id(), parents, unvisited }
+		(AncestryChain { base: justification.commit_target_id(), parents, unvisited }, ignored_idxs)
+	}
+
+	/// Returns the hash of a block's parent if the block is present in the ancestry.
+	pub fn parent_hash_of(&self, hash: &Header::Hash) -> Option<&Header::Hash> {
+		self.parents.get(hash)
 	}
 
 	/// Returns a route if the precommit target block is a descendant of the `base` block.
@@ -80,7 +103,7 @@ impl<Header: HeaderT> AncestryChain<Header> {
 				break
 			}
 
-			current_hash = match self.parents.get(&current_hash) {
+			current_hash = match self.parent_hash_of(&current_hash) {
 				Some(parent_hash) => {
 					let is_visited_before = self.unvisited.get(&current_hash).is_none();
 					if is_visited_before {
@@ -117,6 +140,8 @@ pub enum Error {
 	InvalidAuthorityList,
 	/// Justification is finalizing unexpected header.
 	InvalidJustificationTarget,
+	/// The justification contains duplicate headers in its `votes_ancestries` field.
+	DuplicateVotesAncestries,
 	/// Error validating a precommit
 	Precommit(PrecommitError),
 	/// The cumulative weight of all votes in the justification is not enough to justify commit
@@ -143,6 +168,7 @@ pub enum PrecommitError {
 }
 
 /// The context needed for validating GRANDPA finality proofs.
+#[derive(RuntimeDebug)]
 pub struct JustificationVerificationContext {
 	/// The authority set used to verify the justification.
 	pub voter_set: VoterSet<AuthorityId>,
@@ -167,6 +193,12 @@ enum IterationFlow {
 
 /// Verification callbacks.
 trait JustificationVerifier<Header: HeaderT> {
+	/// Called when there are duplicate headers in the votes ancestries.
+	fn process_duplicate_votes_ancestries(
+		&mut self,
+		duplicate_votes_ancestries: Vec<usize>,
+	) -> Result<(), Error>;
+
 	fn process_redundant_vote(
 		&mut self,
 		precommit_idx: usize,
@@ -215,9 +247,13 @@ trait JustificationVerifier<Header: HeaderT> {
 		}
 
 		let threshold = context.voter_set.threshold().get();
-		let mut chain = AncestryChain::new(justification);
+		let (mut chain, ignored_idxs) = AncestryChain::new(justification);
 		let mut signature_buffer = Vec::new();
 		let mut cumulative_weight = 0u64;
+
+		if !ignored_idxs.is_empty() {
+			self.process_duplicate_votes_ancestries(ignored_idxs)?;
+		}
 
 		for (precommit_idx, signed) in justification.commit.precommits.iter().enumerate() {
 			if cumulative_weight >= threshold {
