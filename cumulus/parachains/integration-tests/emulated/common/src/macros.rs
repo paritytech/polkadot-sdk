@@ -168,7 +168,8 @@ macro_rules! include_penpal_create_foreign_asset_on_asset_hub {
 				);
 
 				let require_weight_at_most = Weight::from_parts(1_100_000_000_000, 30_000);
-				let origin_kind = OriginKind::SovereignAccount;
+				// `OriginKind::Xcm` required by ForeignCreators pallet-assets origin filter
+				let origin_kind = OriginKind::Xcm;
 				let call_create_foreign_assets =
 					<$asset_hub as Chain>::RuntimeCall::ForeignAssets(pallet_assets::Call::<
 						<$asset_hub as Chain>::Runtime,
