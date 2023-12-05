@@ -649,7 +649,7 @@ mod test {
 	}
 
 	#[test]
-	fn generate_with_phrase_should_be_recoverable_with_from_string_perhaps() {
+	fn generate_with_phrase_should_be_recoverable_with_from_string() {
 		let (pair, phrase, seed) = Pair::generate_with_phrase(None);
 		let repair_seed = Pair::from_seed_slice(seed.as_ref()).expect("seed slice is valid");
 		assert_eq!(pair.public(), repair_seed.public());

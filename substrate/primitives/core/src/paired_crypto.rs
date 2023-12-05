@@ -544,7 +544,7 @@ mod test {
 	}
 
 	#[test]
-	fn generate_with_phrase_should_be_recoverable_with_from_string_perhaps() {
+	fn generate_with_phrase_should_be_recoverable_with_from_string() {
 		let (pair, phrase, seed) = Pair::generate_with_phrase(None);
 		let repair_seed = Pair::from_seed_slice(seed.as_ref()).expect("seed slice is valid");
 		assert_eq!(pair.public(), repair_seed.public());
@@ -555,6 +555,7 @@ mod test {
 		let repair_string = Pair::from_string(phrase.as_str(), None).expect("seed slice is valid");
 		assert_eq!(pair.public(), repair_string.public());
 	}
+
 	#[test]
 	fn seed_and_derive_should_work() {
 		let seed_for_right_and_left: [u8; SECURE_SEED_LEN] = array_bytes::hex2array_unchecked(
