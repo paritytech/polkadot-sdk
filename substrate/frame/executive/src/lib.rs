@@ -761,7 +761,7 @@ mod tests {
 	};
 
 	use frame_support::{
-		assert_err, parameter_types,
+		assert_err, derive_impl, parameter_types,
 		traits::{fungible, ConstU32, ConstU64, ConstU8, Currency},
 		weights::{ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight, WeightToFee},
 	};
@@ -917,6 +917,7 @@ mod tests {
 			write: 100,
 		};
 	}
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Runtime {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = BlockWeights;

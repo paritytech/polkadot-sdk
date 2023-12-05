@@ -80,7 +80,6 @@ pub fn new_full(
 		config,
 		polkadot_service::NewFullParams {
 			is_parachain_node,
-			grandpa_pause: None,
 			enable_beefy: true,
 			force_authoring_backoff: false,
 			jaeger_agent: None,
