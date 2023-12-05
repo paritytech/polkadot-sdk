@@ -87,7 +87,6 @@ check-rust-feature-propagation:
     - .kubernetes-env
     - .common-refs
   script:
-    - cargo install --locked --version 0.13.3 -q -f zepter && zepter --version
     - zepter run check
 
 check-toml-format:
@@ -96,7 +95,6 @@ check-toml-format:
     - .kubernetes-env
     - .common-refs
   script:
-    - cargo install taplo-cli --locked --version 0.8.1
     - taplo format --check --config .config/taplo.toml
     - echo "Please run `taplo format --config .config/taplo.toml` to fix any toml formatting issues"
 
