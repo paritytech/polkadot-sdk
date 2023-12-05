@@ -70,7 +70,7 @@
 //! > that they already pose, rather than repeating yourself**.
 //!
 //! For more details about documenting guidelines, see:
-//! <https://github.com/paritytech/polkadot-sdk/master/docs/DOCUMENTATION_GUIDELINES.md>
+//! <https://github.com/paritytech/polkadot-sdk/master/docs/contributor/DOCUMENTATION_GUIDELINES.md>
 //!
 //! #### Example: Explaining `#[pallet::call]`
 //!
@@ -138,7 +138,7 @@
 //! To build this crate properly, with with right HTML headers injected, run:
 //!
 //! ```no_compile
-//! RUSTDOCFLAGS="--html-in-header $(pwd)/developer-hub/headers/toc.html" cargo doc -p developer-hub
+//! RUSTDOCFLAGS="--html-in-header $(pwd)/docs/sdk/headers/toc.html" cargo doc -p polkadot-sdk-docs
 //! ```
 //!
 //! adding `--no-deps` would speed up the process while development. If even faster build time for
