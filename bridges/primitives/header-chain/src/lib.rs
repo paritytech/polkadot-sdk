@@ -280,9 +280,22 @@ pub trait ChainWithGrandpa: Chain {
 	/// headers that aren't changing the set.
 	///
 	/// This isn't a strict limit. The relay may submit justifications with larger headers in its
+	/// ancestry and the pallet will accept the call. The limit is only used to compute fee, paid
+	/// by the user at the sending chain. It covers most of cases, but if the actual header,
+	/// submitted with the messages transaction will be larger than the
+	/// `AVERAGE_HEADER_SIZE_IN_JUSTIFICATION`, the difference (`WORST_HEADER_SIZE_IN_JUSTIFICATION`
+	/// - `AVERAGE_HEADER_SIZE_IN_JUSTIFICATION`) must be covered by the sending chain.
+	const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32;
+
+	/// Worst-case size of the chain header from justification ancestry. We don't expect to see
+	/// there headers that change GRANDPA authorities set (GRANDPA will probably be able to finalize
+	/// at least one additional header per session on non test chains), so this is the worst-case
+	/// size of headers that aren't changing the set.
+	///
+	/// This isn't a strict limit. The relay may submit justifications with larger headers in its
 	/// ancestry and the pallet will accept the call. The limit is only used to compute maximal
 	/// refund amount and doing calls which exceed the limit, may be costly to submitter.
-	const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32;
+	const WORST_HEADER_SIZE_IN_JUSTIFICATION: u32;
 }
 
 impl<T> ChainWithGrandpa for T
@@ -298,4 +311,6 @@ where
 	const MAX_HEADER_SIZE: u32 = <T::Chain as ChainWithGrandpa>::MAX_HEADER_SIZE;
 	const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 =
 		<T::Chain as ChainWithGrandpa>::AVERAGE_HEADER_SIZE_IN_JUSTIFICATION;
+	const WORST_HEADER_SIZE_IN_JUSTIFICATION: u32 =
+		<T::Chain as ChainWithGrandpa>::WORST_HEADER_SIZE_IN_JUSTIFICATION;
 }
