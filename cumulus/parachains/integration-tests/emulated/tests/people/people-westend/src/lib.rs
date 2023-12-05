@@ -26,7 +26,7 @@ pub use frame_support::{
 // Polkadot
 pub use xcm::{
 	prelude::{AccountId32 as AccountId32Junction, *},
-	v3::{Error, NetworkId::Rococo as RococoId},
+	v3::{Error, NetworkId::Westend as WestendId},
 };
 
 // Cumulus
@@ -41,24 +41,24 @@ pub use emulated_integration_tests_common::{
 	PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD, XCM_V3,
 };
 pub use parachains_common::{AccountId, Balance};
-pub use rococo_system_emulated_network::{
-	people_rococo_emulated_chain::{
-		genesis::ED as PEOPLE_ROCOCO_ED, PeopleRococoParaPallet as PeopleRococoPallet,
+pub use westend_system_emulated_network::{
+	people_westend_emulated_chain::{
+		genesis::ED as PEOPLE_WESTEND_ED, PeopleWestendParaPallet as PeopleWestendPallet,
 	},
-	rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
-	PenpalAPara as PenpalA, PeopleRococoPara as PeopleRococo,
-	PeopleRococoParaReceiver as PeopleRococoReceiver, PeopleRococoParaSender as PeopleRococoSender,
-	RococoRelay as Rococo, RococoRelayReceiver as RococoReceiver,
-	RococoRelaySender as RococoSender,
+	westend_emulated_chain::{genesis::ED as WESTEND_ED, WestendRelayPallet as WestendPallet},
+	PenpalAPara as PenpalA, PeopleWestendPara as PeopleWestend,
+	PeopleWestendParaReceiver as PeopleWestendReceiver,
+	PeopleWestendParaSender as PeopleWestendSender, WestendRelay as Westend,
+	WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,
 };
 
 // pub const ASSET_ID: u32 = 1;
 // pub const ASSET_MIN_BALANCE: u128 = 1000;
-pub type RelayToSystemParaTest = Test<Rococo, PeopleRococo>;
-pub type RelayToParaTest = Test<Rococo, PenpalA>;
-pub type SystemParaToRelayTest = Test<PeopleRococo, Rococo>;
-pub type SystemParaToParaTest = Test<PeopleRococo, PenpalA>;
-pub type ParaToSystemParaTest = Test<PenpalA, PeopleRococo>;
+pub type RelayToSystemParaTest = Test<Westend, PeopleWestend>;
+pub type RelayToParaTest = Test<Westend, PenpalA>;
+pub type SystemParaToRelayTest = Test<PeopleWestend, Westend>;
+pub type SystemParaToParaTest = Test<PeopleWestend, PenpalA>;
+pub type ParaToSystemParaTest = Test<PenpalA, PeopleWestend>;
 
 #[cfg(test)]
 mod tests;

@@ -11696,6 +11696,49 @@ dependencies = [
 ]
 
 [[package]]
+name = "people-westend-emulated-chain"
+version = "0.1.0"
+dependencies = [
+ "cumulus-primitives-core",
+ "emulated-integration-tests-common",
+ "frame-support",
+ "parachains-common",
+ "people-westend-runtime",
+ "serde_json",
+ "sp-core",
+ "sp-runtime",
+ "westend-emulated-chain",
+]
+
+[[package]]
+name = "people-westend-integration-tests"
+version = "0.1.0"
+dependencies = [
+ "assert_matches",
+ "asset-test-utils",
+ "emulated-integration-tests-common",
+ "frame-support",
+ "pallet-asset-conversion",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-identity",
+ "pallet-message-queue",
+ "pallet-xcm",
+ "parachains-common",
+ "parity-scale-codec",
+ "penpal-runtime",
+ "people-westend-runtime",
+ "polkadot-primitives",
+ "polkadot-runtime-common",
+ "sp-runtime",
+ "staging-xcm",
+ "staging-xcm-executor",
+ "westend-runtime",
+ "westend-runtime-constants",
+ "westend-system-emulated-network",
+]
+
+[[package]]
 name = "people-westend-runtime"
 version = "0.1.0"
 dependencies = [
@@ -21131,6 +21174,7 @@ dependencies = [
  "bridge-hub-westend-emulated-chain",
  "emulated-integration-tests-common",
  "penpal-emulated-chain",
+ "people-westend-emulated-chain",
  "westend-emulated-chain",
 ]
 

@@ -14,3 +14,4 @@ westend-emulated-chain = { path = "../../chains/relays/westend", default-feature
 asset-hub-westend-emulated-chain = { path = "../../chains/parachains/assets/asset-hub-westend" }
 bridge-hub-westend-emulated-chain = { path = "../../chains/parachains/bridges/bridge-hub-westend" }
 penpal-emulated-chain = { path = "../../chains/parachains/testing/penpal" }
+people-westend-emulated-chain = { path = "../../chains/parachains/people/people-westend" }
