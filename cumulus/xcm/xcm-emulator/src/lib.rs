@@ -1449,7 +1449,7 @@ impl TestArgs {
 		}
 	}
 
-	/// Returns a [`TestArgs`] instance to be used by parachains across integration tests.
+	/// Returns a [`TestArgs`] instance to be used for parachains across integration tests.
 	pub fn new_para(
 		dest: MultiLocation,
 		beneficiary_id: AccountId32,
