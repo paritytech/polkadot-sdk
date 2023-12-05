@@ -791,7 +791,6 @@ mod weight_tests {
 		type BaseCallFilter = crate::traits::Everything;
 		type RuntimeOrigin = RuntimeOrigin;
 		type RuntimeCall = RuntimeCall;
-		type RuntimeTask = RuntimeTask;
 		type DbWeight = DbWeight;
 		type PalletInfo = PalletInfo;
 	}

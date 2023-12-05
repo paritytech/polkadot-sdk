@@ -179,7 +179,6 @@ impl frame_system::Config for Runtime {
 	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeTask = RuntimeTask;
 	type BlockHashCount = BlockHashCount;
 	type DbWeight = RocksDbWeight;
 	type Version = Version;

@@ -54,7 +54,6 @@ impl frame_system::Config for Test {
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
-	type RuntimeTask = RuntimeTask;
 	type BlockHashCount = ();
 	type Version = ();
 	type PalletInfo = PalletInfo;

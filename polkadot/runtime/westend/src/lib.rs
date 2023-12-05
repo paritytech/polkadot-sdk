@@ -187,7 +187,6 @@ impl frame_system::Config for Runtime {
 	type BlockLength = BlockLength;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
-	type RuntimeTask = RuntimeTask;
 	type Nonce = Nonce;
 	type Hash = Hash;
 	type Hashing = BlakeTwo256;

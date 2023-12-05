@@ -38,6 +38,5 @@ impl frame_system::Config for Runtime {
 }
 
 impl tasks_example::Config for Runtime {
-	type RuntimeTask = RuntimeTask;
 	type WeightInfo = ();
 }

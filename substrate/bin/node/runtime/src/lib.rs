@@ -290,7 +290,6 @@ impl frame_system::Config for Runtime {
 	type DbWeight = RocksDbWeight;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
-	type RuntimeTask = RuntimeTask;
 	type Nonce = Nonce;
 	type Hash = Hash;
 	type Hashing = BlakeTwo256;
@@ -313,7 +312,6 @@ impl frame_system::Config for Runtime {
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
 
 impl pallet_example_tasks::Config for Runtime {
-	type RuntimeTask = RuntimeTask;
 	type WeightInfo = pallet_example_tasks::weights::SubstrateWeight<Runtime>;
 }
 

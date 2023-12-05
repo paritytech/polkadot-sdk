@@ -167,7 +167,6 @@ impl frame_system::Config for Runtime {
 	/// The aggregated dispatch type that is available for extrinsics.
 	type RuntimeCall = RuntimeCall;
 	/// The aggregated task type that is available for extrinsics.
-	type RuntimeTask = RuntimeTask;
 	/// The lookup mechanism to get account ID from whatever is passed in dispatchers.
 	type Lookup = AccountIdLookup<AccountId, ()>;
 	/// The type for storing how many extrinsics an account has signed.

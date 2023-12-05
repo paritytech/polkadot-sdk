@@ -47,8 +47,7 @@ impl frame_system::Config for Runtime {
 	type Lookup = sp_runtime::traits::IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
-	type RuntimeTask = RuntimeTask;
-	type BlockHashCount = frame_support::traits::ConstU32<250>;
+		type BlockHashCount = frame_support::traits::ConstU32<250>;
 	type BlockWeights = ();
 	type BlockLength = ();
 	type DbWeight = ();

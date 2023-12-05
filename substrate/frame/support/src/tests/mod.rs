@@ -231,7 +231,6 @@ crate::construct_runtime!(
 impl Config for Runtime {
 	type Block = Block;
 	type AccountId = AccountId;
-	type RuntimeTask = RuntimeTask;
 }
 
 fn new_test_ext() -> TestExternalities {

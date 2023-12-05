@@ -68,7 +68,6 @@ impl renamed_frame_system::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletInfo = PalletInfo;
 	type RuntimeCall = RuntimeCall;
-	type RuntimeTask = RuntimeTask;
 	type DbWeight = ();
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
