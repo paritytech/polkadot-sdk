@@ -1035,8 +1035,8 @@ impl coretime::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
-	//type WeightInfo = weights::runtime_coretime::WeightInfo<Runtime>;
 	type BrokerId = BrokerId;
+	type WeightInfo = weights::runtime_common_coretime::WeightInfo<Runtime>;
 }
 
 impl parachains_assigner_bulk::Config for Runtime {}
@@ -1725,6 +1725,7 @@ mod benches {
 		// the that path resolves correctly in the generated file.
 		[runtime_common::assigned_slots, AssignedSlots]
 		[runtime_common::auctions, Auctions]
+		[runtime_common::coretime, Coretime]
 		[runtime_common::crowdloan, Crowdloan]
 		[runtime_common::claims, Claims]
 		[runtime_common::identity_migrator, IdentityMigrator]

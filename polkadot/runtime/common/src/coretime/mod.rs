@@ -18,6 +18,7 @@
 //!
 //! <https://github.com/polkadot-fellows/RFCs/blob/main/text/0005-coretime-interface.md>
 
+mod benchmarking;
 // #[cfg(test)]
 // mod tests;
 
@@ -35,17 +36,19 @@ use sp_std::{prelude::*, result};
 pub use pallet::*;
 
 pub trait WeightInfo {
-	fn request_core_count() -> Weight;
-	fn request_revenue_info_at() -> Weight;
-	fn credit_account() -> Weight;
-	fn assign_core() -> Weight;
+	//fn request_core_count() -> Weight;
+	//fn request_revenue_info_at() -> Weight;
+	//fn credit_account() -> Weight;
+	fn assign_core(s: u32) -> Weight;
 }
 
 /// A weight info that is only suitable for testing.
 pub struct TestWeightInfo;
 
 impl WeightInfo for TestWeightInfo {
-	fn request_core_count() -> Weight {
+	// TODO: Add real benchmarking functionality for each of these to
+	// benchmarking.rs, then uncomment here and in trait definition.
+	/*fn request_core_count() -> Weight {
 		Weight::MAX
 	}
 	fn request_revenue_info_at() -> Weight {
@@ -53,8 +56,8 @@ impl WeightInfo for TestWeightInfo {
 	}
 	fn credit_account() -> Weight {
 		Weight::MAX
-	}
-	fn assign_core() -> Weight {
+	}*/
+	fn assign_core(_s: u32) -> Weight {
 		Weight::MAX
 	}
 }
@@ -84,10 +87,13 @@ pub mod pallet {
 		/// The ParaId of the broker system parachain.
 		#[pallet::constant]
 		type BrokerId: Get<u32>;
+		/// Something that provides the weight of this pallet.
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	// TODO: CI requires that deposit_event is used. Uncomment it once we use it.
+	//#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// The broker chain has asked for revenue information for a specific block.
 		RevenueInfoRequested { when: BlockNumberFor<T> },
@@ -152,8 +158,8 @@ pub mod pallet {
 		// The broker pallet's `CoreIndex` definition is `u16` but on the relay chain it's `struct
 		// CoreIndex(u32)`
 		// TODO: Weights!
-		//#[pallet::weight(<T as Config>::WeightInfo::assign_core())]
 		#[pallet::call_index(4)]
+		#[pallet::weight(<T as Config>::WeightInfo::assign_core(assignment.len() as u32))]
 		pub fn assign_core(
 			origin: OriginFor<T>,
 			core: BrokerCoreIndex,
