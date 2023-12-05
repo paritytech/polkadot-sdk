@@ -93,7 +93,6 @@ members = [
 	"cumulus/parachains/runtimes/test-utils",
 	"cumulus/parachains/runtimes/testing/penpal",
 	"cumulus/parachains/runtimes/testing/rococo-parachain",
-	"cumulus/parachains/testnets-common",
 	"cumulus/polkadot-parachain",
 	"cumulus/primitives/aura",
 	"cumulus/primitives/core",

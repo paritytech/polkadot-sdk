@@ -84,9 +84,9 @@ use parachains_common::{
 	impls::DealWithFees, message_queue::*, AccountId, AuraId, Balance, BlockNumber, Hash, Header,
 	Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS, MAXIMUM_BLOCK_WEIGHT, MINUTES,
 	NORMAL_DISPATCH_RATIO, SLOT_DURATION,
+	westend::{account::*, consensus::*, currency::*, fee::WeightToFee},
 };
 use sp_runtime::RuntimeDebug;
-use testnets_common::westend::{account::*, consensus::*, currency::*, fee::WeightToFee};
 use xcm_config::{GovernanceLocation, XcmOriginToTransactDispatchOrigin};
 
 #[cfg(any(feature = "std", test))]
