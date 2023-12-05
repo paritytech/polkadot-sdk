@@ -66,6 +66,7 @@ use polkadot_parachain_primitives::primitives::ValidationCodeHash;
 use polkadot_primitives::ExecutorParamsHash;
 use std::{
 	collections::HashMap,
+	io,
 	path::{Path, PathBuf},
 	str::FromStr as _,
 	time::{Duration, SystemTime},
@@ -290,7 +291,17 @@ impl Artifacts {
 		}
 
 		// Make sure that the cache path directory and all its parents are created.
-		let _ = tokio::fs::create_dir_all(cache_path).await;
+		if let Err(err) = tokio::fs::create_dir_all(cache_path).await {
+			if err.kind() != io::ErrorKind::AlreadyExists {
+				gum::error!(
+					target: LOG_TARGET,
+					?err,
+					"failed to create dir {:?}",
+					cache_path,
+				);
+				return
+			}
+		}
 
 		let mut dir = match tokio::fs::read_dir(cache_path).await {
 			Ok(dir) => dir,
@@ -499,8 +510,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn remove_stale_cache_on_startup() {
-		let cache_dir = crate::worker_intf::tmppath("test-cache").await.unwrap();
-		fs::create_dir_all(&cache_dir).unwrap();
+		let cache_dir = tempfile::Builder::new().prefix("test-cache-").tempdir().unwrap();
 
 		// invalid prefix
 		create_rand_artifact(&cache_dir, "");
@@ -529,7 +539,7 @@ mod tests {
 
 		assert_eq!(fs::read_dir(&cache_dir).unwrap().count(), 7);
 
-		let artifacts = Artifacts::new_and_prune(&cache_dir).await;
+		let artifacts = Artifacts::new_and_prune(cache_dir.path()).await;
 
 		assert_eq!(fs::read_dir(&cache_dir).unwrap().count(), 1);
 		assert_eq!(artifacts.len(), 1);

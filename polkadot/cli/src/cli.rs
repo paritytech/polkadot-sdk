@@ -82,21 +82,21 @@ pub struct RunCmd {
 	#[arg(long = "force-rococo")]
 	pub force_rococo: bool,
 
-	/// Setup a GRANDPA scheduled voting pause.
-	///
-	/// This parameter takes two values, namely a block number and a delay (in blocks).
-	///
-	/// After the given block number is finalized the GRANDPA voter will temporarily
-	/// stop voting for new blocks until the given delay has elapsed (i.e. until a
-	/// block at height `pause_block + delay` is imported).
-	#[arg(long = "grandpa-pause", num_args = 2)]
-	pub grandpa_pause: Vec<u32>,
-
 	/// Disable the BEEFY gadget.
 	///
 	/// Currently enabled by default on 'Rococo', 'Wococo' and 'Versi'.
 	#[arg(long)]
 	pub no_beefy: bool,
+
+	/// Allows a validator to run insecurely outside of Secure Validator Mode. Security features
+	/// are still enabled on a best-effort basis, but missing features are no longer required. For
+	/// more information see <https://github.com/w3f/polkadot-wiki/issues/4881>.
+	#[arg(long = "insecure-validator-i-know-what-i-do", requires = "validator")]
+	pub insecure_validator: bool,
+
+	/// Enable the block authoring backoff that is triggered when finality is lagging.
+	#[arg(long)]
+	pub force_authoring_backoff: bool,
 
 	/// Add the destination address to the 'Jaeger' agent.
 	///

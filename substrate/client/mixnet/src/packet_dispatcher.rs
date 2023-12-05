@@ -24,7 +24,7 @@ use libp2p_identity::PeerId;
 use log::{debug, warn};
 use mixnet::core::{AddressedPacket, NetworkStatus, Packet, PeerId as CorePeerId};
 use parking_lot::Mutex;
-use sc_network::{NetworkNotification, ProtocolName};
+use sc_network::NotificationService;
 use std::{collections::HashMap, future::Future, sync::Arc};
 
 const LOG_TARGET: &str = "mixnet";
@@ -77,41 +77,37 @@ pub struct ReadyPeer {
 }
 
 impl ReadyPeer {
-	/// If a future is returned, and if that future returns `Some`, this function should be called
-	/// again to send the next packet queued for the peer; `self` is placed in the `Some` to make
-	/// this straightforward. Otherwise, we have either sent or dropped all packets queued for the
-	/// peer, and it can be forgotten about for the time being.
+	/// If a future is returned, and if that future returns `Some`, this function should be
+	/// called again to send the next packet queued for the peer; `self` is placed in the `Some`
+	/// to make this straightforward. Otherwise, we have either sent or dropped all packets
+	/// queued for the peer, and it can be forgotten about for the time being.
 	pub fn send_packet(
 		self,
-		network: &impl NetworkNotification,
-		protocol_name: ProtocolName,
+		notification_service: &Box<dyn NotificationService>,
 	) -> Option<impl Future<Output = Option<Self>>> {
-		match network.notification_sender(self.id, protocol_name) {
-			Err(err) => {
+		match notification_service.message_sink(&self.id) {
+			None => {
 				debug!(
 					target: LOG_TARGET,
-					"Failed to get notification sender for peer ID {}: {err}", self.id
+					"Failed to get message sink for peer ID {}", self.id,
 				);
 				self.queue.clear();
 				None
 			},
-			Ok(sender) => Some(async move {
-				match sender.ready().await.and_then(|mut ready| {
-					let (packet, more_packets) = self.queue.pop();
-					let packet =
-						packet.expect("Should only be called if there is a packet to send");
-					ready.send((packet as Box<[_]>).into())?;
-					Ok(more_packets)
-				}) {
+			Some(sink) => Some(async move {
+				let (packet, more_packets) = self.queue.pop();
+				let packet = packet.expect("Should only be called if there is a packet to send");
+
+				match sink.send_async_notification((packet as Box<[_]>).into()).await {
+					Ok(_) => more_packets.then_some(self),
 					Err(err) => {
 						debug!(
 							target: LOG_TARGET,
-							"Notification sender for peer ID {} failed: {err}", self.id
+							"Failed to send packet to peer ID {}: {err}", self.id,
 						);
 						self.queue.clear();
 						None
 					},
-					Ok(more_packets) => more_packets.then(|| self),
 				}
 			}),
 		}

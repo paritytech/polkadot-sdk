@@ -18,6 +18,8 @@
 
 use assert_matches::assert_matches;
 use parity_scale_codec::Encode as _;
+#[cfg(all(feature = "ci-only-tests", target_os = "linux"))]
+use polkadot_node_core_pvf::SecurityStatus;
 use polkadot_node_core_pvf::{
 	start, testing::build_workers_and_get_paths, Config, InvalidCandidate, Metrics, PrepareError,
 	PrepareJobKind, PvfPrepData, ValidationError, ValidationHost, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
@@ -37,6 +39,7 @@ const TEST_EXECUTION_TIMEOUT: Duration = Duration::from_secs(6);
 const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(6);
 
 struct TestHost {
+	// Keep a reference to the tempdir as it gets deleted on drop.
 	cache_dir: tempfile::TempDir,
 	host: Mutex<ValidationHost>,
 }
@@ -50,12 +53,13 @@ impl TestHost {
 	where
 		F: FnOnce(&mut Config),
 	{
-		let (prepare_worker_path, execute_worker_path) = build_workers_and_get_paths(false);
+		let (prepare_worker_path, execute_worker_path) = build_workers_and_get_paths();
 
 		let cache_dir = tempfile::tempdir().unwrap();
 		let mut config = Config::new(
 			cache_dir.path().to_owned(),
 			None,
+			false,
 			prepare_worker_path,
 			execute_worker_path,
 		);
@@ -121,6 +125,11 @@ impl TestHost {
 			.await
 			.unwrap();
 		result_rx.await.unwrap()
+	}
+
+	#[cfg(all(feature = "ci-only-tests", target_os = "linux"))]
+	async fn security_status(&self) -> SecurityStatus {
+		self.host.lock().await.security_status.clone()
 	}
 }
 
@@ -401,4 +410,38 @@ async fn prepare_can_run_serially() {
 
 	// Prepare a different wasm blob to prevent skipping work.
 	let _stats = host.precheck_pvf(halt::wasm_binary_unwrap(), Default::default()).await.unwrap();
+}
+
+// CI machines should be able to enable all the security features.
+#[cfg(all(feature = "ci-only-tests", target_os = "linux"))]
+#[tokio::test]
+async fn all_security_features_work() {
+	// Landlock is only available starting Linux 5.13, and we may be testing on an old kernel.
+	let can_enable_landlock = {
+		let sysinfo = sc_sysinfo::gather_sysinfo();
+		// The version will look something like "5.15.0-87-generic".
+		let version = sysinfo.linux_kernel.unwrap();
+		let version_split: Vec<&str> = version.split(".").collect();
+		let major: u32 = version_split[0].parse().unwrap();
+		let minor: u32 = version_split[1].parse().unwrap();
+		if major >= 6 {
+			true
+		} else if major == 5 {
+			minor >= 13
+		} else {
+			false
+		}
+	};
+
+	let host = TestHost::new().await;
+
+	assert_eq!(
+		host.security_status().await,
+		SecurityStatus {
+			secure_validator_mode: false,
+			can_enable_landlock,
+			can_enable_seccomp: true,
+			can_unshare_user_namespace_and_change_root: true,
+		}
+	);
 }
