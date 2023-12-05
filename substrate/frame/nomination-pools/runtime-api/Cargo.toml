@@ -14,10 +14,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
-sp-api = { path = "../../../primitives/api", default-features = false}
-sp-std = { path = "../../../primitives/std", default-features = false}
-pallet-nomination-pools = { path = "..", default-features = false}
+sp-api = { path = "../../../primitives/api", default-features = false }
+sp-std = { path = "../../../primitives/std", default-features = false }
+pallet-nomination-pools = { path = "..", default-features = false }
 
 [features]
-default = [ "std" ]
-std = [ "codec/std", "pallet-nomination-pools/std", "sp-api/std", "sp-std/std" ]
+default = ["std"]
+std = ["codec/std", "pallet-nomination-pools/std", "sp-api/std", "sp-std/std"]

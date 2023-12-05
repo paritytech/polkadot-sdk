@@ -28,8 +28,8 @@ pub use asset_hub_rococo_runtime::{
 	},
 	AllPalletsWithoutSystem, AssetDeposit, Assets, Balances, ExistentialDeposit, ForeignAssets,
 	ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte, ParachainSystem, Runtime,
-	RuntimeCall, RuntimeEvent, RuntimeFlavor, SessionKeys, System, ToRococoXcmRouterInstance,
-	ToWestendXcmRouterInstance, ToWococoXcmRouterInstance, TrustBackedAssetsInstance, XcmpQueue,
+	RuntimeCall, RuntimeEvent, SessionKeys, System, ToWestendXcmRouterInstance,
+	TrustBackedAssetsInstance, XcmpQueue,
 };
 use asset_test_utils::{
 	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys, ExtBuilder,
@@ -674,15 +674,6 @@ fn limited_reserve_transfer_assets_for_native_asset_over_bridge_works(
 mod asset_hub_rococo_tests {
 	use super::*;
 
-	fn bridging_to_asset_hub_wococo() -> TestBridgingConfig {
-		asset_test_utils::test_cases_over_bridge::TestBridgingConfig {
-			bridged_network: bridging::to_wococo::WococoNetwork::get(),
-			local_bridge_hub_para_id: bridging::SiblingBridgeHubParaId::get(),
-			local_bridge_hub_location: bridging::SiblingBridgeHub::get(),
-			bridged_target_location: bridging::to_wococo::AssetHubWococo::get(),
-		}
-	}
-
 	fn bridging_to_asset_hub_westend() -> TestBridgingConfig {
 		asset_test_utils::test_cases_over_bridge::TestBridgingConfig {
 			bridged_network: bridging::to_westend::WestendNetwork::get(),
@@ -693,41 +684,9 @@ mod asset_hub_rococo_tests {
 	}
 
 	#[test]
-	fn limited_reserve_transfer_assets_for_native_asset_to_asset_hub_wococo_works() {
-		limited_reserve_transfer_assets_for_native_asset_over_bridge_works(
-			bridging_to_asset_hub_wococo,
-		)
-	}
-
-	#[test]
 	fn limited_reserve_transfer_assets_for_native_asset_to_asset_hub_westend_works() {
 		limited_reserve_transfer_assets_for_native_asset_over_bridge_works(
 			bridging_to_asset_hub_westend,
-		)
-	}
-
-	#[test]
-	fn receive_reserve_asset_deposited_woc_from_asset_hub_wococo_works() {
-		const BLOCK_AUTHOR_ACCOUNT: [u8; 32] = [13; 32];
-		asset_test_utils::test_cases_over_bridge::receive_reserve_asset_deposited_from_different_consensus_works::<
-			Runtime,
-			AllPalletsWithoutSystem,
-			XcmConfig,
-			LocationToAccountId,
-			ForeignAssetsInstance,
-		>(
-			collator_session_keys().add(collator_session_key(BLOCK_AUTHOR_ACCOUNT)),
-			ExistentialDeposit::get(),
-			AccountId::from([73; 32]),
-			AccountId::from(BLOCK_AUTHOR_ACCOUNT),
-			// receiving WOCs
-			(MultiLocation { parents: 2, interior: X1(GlobalConsensus(Wococo)) }, 1000000000000, 1_000_000_000),
-			bridging_to_asset_hub_wococo,
-			(
-				X1(PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WOCOCO_MESSAGES_PALLET_INDEX)),
-				GlobalConsensus(Wococo),
-				X1(Parachain(1000))
-			)
 		)
 	}
 
@@ -753,58 +712,6 @@ mod asset_hub_rococo_tests {
 				GlobalConsensus(Westend),
 				X1(Parachain(1000))
 			)
-		)
-	}
-
-	#[test]
-	fn report_bridge_status_from_xcm_bridge_router_for_wococo_works() {
-		asset_test_utils::test_cases_over_bridge::report_bridge_status_from_xcm_bridge_router_works::<
-			Runtime,
-			AllPalletsWithoutSystem,
-			XcmConfig,
-			LocationToAccountId,
-			ToWococoXcmRouterInstance,
-		>(
-			collator_session_keys(),
-			bridging_to_asset_hub_wococo,
-			|| {
-				sp_std::vec![
-					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-					Transact {
-						origin_kind: OriginKind::Xcm,
-						require_weight_at_most:
-							bp_asset_hub_rococo::XcmBridgeHubRouterTransactCallMaxWeight::get(),
-						call: bp_asset_hub_rococo::Call::ToWococoXcmRouter(
-							bp_asset_hub_rococo::XcmBridgeHubRouterCall::report_bridge_status {
-								bridge_id: Default::default(),
-								is_congested: true,
-							}
-						)
-						.encode()
-						.into(),
-					}
-				]
-				.into()
-			},
-			|| {
-				sp_std::vec![
-					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-					Transact {
-						origin_kind: OriginKind::Xcm,
-						require_weight_at_most:
-							bp_asset_hub_rococo::XcmBridgeHubRouterTransactCallMaxWeight::get(),
-						call: bp_asset_hub_rococo::Call::ToWococoXcmRouter(
-							bp_asset_hub_rococo::XcmBridgeHubRouterCall::report_bridge_status {
-								bridge_id: Default::default(),
-								is_congested: false,
-							}
-						)
-						.encode()
-						.into(),
-					}
-				]
-				.into()
-			},
 		)
 	}
 
@@ -864,22 +771,6 @@ mod asset_hub_rococo_tests {
 	fn test_report_bridge_status_call_compatibility() {
 		// if this test fails, make sure `bp_asset_hub_rococo` has valid encoding
 		assert_eq!(
-			RuntimeCall::ToWococoXcmRouter(
-				pallet_xcm_bridge_hub_router::Call::report_bridge_status {
-					bridge_id: Default::default(),
-					is_congested: true,
-				}
-			)
-			.encode(),
-			bp_asset_hub_rococo::Call::ToWococoXcmRouter(
-				bp_asset_hub_rococo::XcmBridgeHubRouterCall::report_bridge_status {
-					bridge_id: Default::default(),
-					is_congested: true,
-				}
-			)
-			.encode()
-		);
-		assert_eq!(
 			RuntimeCall::ToWestendXcmRouter(
 				pallet_xcm_bridge_hub_router::Call::report_bridge_status {
 					bridge_id: Default::default(),
@@ -894,19 +785,6 @@ mod asset_hub_rococo_tests {
 				}
 			)
 			.encode()
-		);
-	}
-
-	#[test]
-	fn check_sane_weight_report_bridge_status_for_wococo() {
-		use pallet_xcm_bridge_hub_router::WeightInfo;
-		let actual = <Runtime as pallet_xcm_bridge_hub_router::Config<ToWococoXcmRouterInstance>>::WeightInfo::report_bridge_status();
-		let max_weight = bp_asset_hub_rococo::XcmBridgeHubRouterTransactCallMaxWeight::get();
-		assert!(
-			actual.all_lte(max_weight),
-			"max_weight: {:?} should be adjusted to actual {:?}",
-			max_weight,
-			actual
 		);
 	}
 
@@ -951,167 +829,6 @@ mod asset_hub_rococo_tests {
 				}
 			}),
 			WeightLimit::Unlimited,
-		);
-	}
-}
-
-mod asset_hub_wococo_tests {
-	use super::*;
-
-	fn bridging_to_asset_hub_rococo() -> TestBridgingConfig {
-		TestBridgingConfig {
-			bridged_network: bridging::to_rococo::RococoNetwork::get(),
-			local_bridge_hub_para_id: bridging::SiblingBridgeHubParaId::get(),
-			local_bridge_hub_location: bridging::SiblingBridgeHub::get(),
-			bridged_target_location: bridging::to_rococo::AssetHubRococo::get(),
-		}
-	}
-
-	pub(crate) fn set_wococo_flavor() {
-		let flavor_key = xcm_config::Flavor::key().to_vec();
-		let flavor = RuntimeFlavor::Wococo;
-
-		// encode `set_storage` call
-		let set_storage_call = RuntimeCall::System(frame_system::Call::<Runtime>::set_storage {
-			items: vec![(flavor_key, flavor.encode())],
-		})
-		.encode();
-
-		// estimate - storing just 1 value
-		use frame_system::WeightInfo;
-		let require_weight_at_most =
-			<Runtime as frame_system::Config>::SystemWeightInfo::set_storage(1);
-
-		// execute XCM with Transact to `set_storage` as governance does
-		assert_ok!(RuntimeHelper::execute_as_governance(set_storage_call, require_weight_at_most)
-			.ensure_complete());
-
-		// check if stored
-		assert_eq!(flavor, xcm_config::Flavor::get());
-	}
-
-	fn with_wococo_flavor_bridging_to_asset_hub_rococo() -> TestBridgingConfig {
-		set_wococo_flavor();
-		bridging_to_asset_hub_rococo()
-	}
-
-	#[test]
-	fn limited_reserve_transfer_assets_for_native_asset_to_asset_hub_rococo_works() {
-		limited_reserve_transfer_assets_for_native_asset_over_bridge_works(
-			with_wococo_flavor_bridging_to_asset_hub_rococo,
-		)
-	}
-
-	#[test]
-	fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_works() {
-		const BLOCK_AUTHOR_ACCOUNT: [u8; 32] = [13; 32];
-		asset_test_utils::test_cases_over_bridge::receive_reserve_asset_deposited_from_different_consensus_works::<
-			Runtime,
-			AllPalletsWithoutSystem,
-			XcmConfig,
-			LocationToAccountId,
-			ForeignAssetsInstance,
-		>(
-			collator_session_keys().add(collator_session_key(BLOCK_AUTHOR_ACCOUNT)),
-			ExistentialDeposit::get(),
-			AccountId::from([73; 32]),
-			AccountId::from(BLOCK_AUTHOR_ACCOUNT),
-			// receiving ROCs
-			(MultiLocation { parents: 2, interior: X1(GlobalConsensus(Rococo)) }, 1000000000000, 1_000_000_000),
-			with_wococo_flavor_bridging_to_asset_hub_rococo,
-			(
-				X1(PalletInstance(bp_bridge_hub_wococo::WITH_BRIDGE_WOCOCO_TO_ROCOCO_MESSAGES_PALLET_INDEX)),
-				GlobalConsensus(Rococo),
-				X1(Parachain(1000))
-			)
-		)
-	}
-
-	#[test]
-	fn report_bridge_status_from_xcm_bridge_router_works() {
-		asset_test_utils::test_cases_over_bridge::report_bridge_status_from_xcm_bridge_router_works::<
-			Runtime,
-			AllPalletsWithoutSystem,
-			XcmConfig,
-			LocationToAccountId,
-			ToRococoXcmRouterInstance,
-		>(
-			collator_session_keys(),
-			with_wococo_flavor_bridging_to_asset_hub_rococo,
-			|| {
-				sp_std::vec![
-					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-					Transact {
-						origin_kind: OriginKind::Xcm,
-						require_weight_at_most:
-							bp_asset_hub_wococo::XcmBridgeHubRouterTransactCallMaxWeight::get(),
-						call: bp_asset_hub_wococo::Call::ToRococoXcmRouter(
-							bp_asset_hub_wococo::XcmBridgeHubRouterCall::report_bridge_status {
-								bridge_id: Default::default(),
-								is_congested: true,
-							}
-						)
-						.encode()
-						.into(),
-					}
-				]
-				.into()
-			},
-			|| {
-				sp_std::vec![
-					UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-					Transact {
-						origin_kind: OriginKind::Xcm,
-						require_weight_at_most:
-							bp_asset_hub_wococo::XcmBridgeHubRouterTransactCallMaxWeight::get(),
-						call: bp_asset_hub_wococo::Call::ToRococoXcmRouter(
-							bp_asset_hub_wococo::XcmBridgeHubRouterCall::report_bridge_status {
-								bridge_id: Default::default(),
-								is_congested: false,
-							}
-						)
-						.encode()
-						.into(),
-					}
-				]
-				.into()
-			},
-		)
-	}
-
-	#[test]
-	fn test_report_bridge_status_call_compatibility() {
-		// if this test fails, make sure `bp_asset_hub_rococo` has valid encoding
-		assert_eq!(
-			RuntimeCall::ToRococoXcmRouter(
-				pallet_xcm_bridge_hub_router::Call::report_bridge_status {
-					bridge_id: Default::default(),
-					is_congested: true,
-				}
-			)
-			.encode(),
-			bp_asset_hub_wococo::Call::ToRococoXcmRouter(
-				bp_asset_hub_wococo::XcmBridgeHubRouterCall::report_bridge_status {
-					bridge_id: Default::default(),
-					is_congested: true,
-				}
-			)
-			.encode()
-		)
-	}
-
-	#[test]
-	fn check_sane_weight_report_bridge_status() {
-		use pallet_xcm_bridge_hub_router::WeightInfo;
-		let actual = <Runtime as pallet_xcm_bridge_hub_router::Config<
-			ToRococoXcmRouterInstance,
-		>>::WeightInfo::report_bridge_status();
-		let max_weight = bp_asset_hub_wococo::XcmBridgeHubRouterTransactCallMaxWeight::get();
-		assert!(
-			actual.all_lte(max_weight),
-			"max_weight: {:?} should be adjusted to actual {:?}",
-			max_weight,
-			actual
 		);
 	}
 }

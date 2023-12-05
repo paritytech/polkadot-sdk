@@ -168,7 +168,7 @@ benchmarks! {
 			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
 		}
 		let versioned_msg = VersionedXcm::from(msg);
-	}: _<RuntimeOrigin<T>>(execute_origin, Box::new(versioned_msg), Weight::zero())
+	}: _<RuntimeOrigin<T>>(execute_origin, Box::new(versioned_msg), Weight::MAX)
 
 	force_xcm_version {
 		let loc = T::reachable_dest().ok_or(

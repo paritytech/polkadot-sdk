@@ -15,15 +15,15 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-sp-api = { path = "../api", default-features = false}
-sp-core = { path = "../core", default-features = false}
-sp-runtime = { path = "../runtime", optional = true}
-sp-staking = { path = "../staking", default-features = false}
-sp-std = { path = "../std", default-features = false}
+sp-api = { path = "../api", default-features = false }
+sp-core = { path = "../core", default-features = false }
+sp-runtime = { path = "../runtime", optional = true }
+sp-staking = { path = "../staking", default-features = false }
+sp-std = { path = "../std", default-features = false }
 sp-keystore = { path = "../keystore", optional = true }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"scale-info/std",
