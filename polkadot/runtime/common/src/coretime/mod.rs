@@ -30,7 +30,6 @@ use runtime_parachains::{
 	origin::{ensure_parachain, Origin},
 };
 
-use sp_runtime::traits::BadOrigin;
 use sp_std::{prelude::*, result};
 
 pub use pallet::*;
@@ -165,13 +164,12 @@ pub mod pallet {
 			// Ignore requests not coming from the broker parachain or root.
 			Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
 
-			<assigner_bulk::Pallet<T>>::assign_core(
-				// Relay chain `CoreIndex` implements `From` for `u32`
-				u32::from(core).into(),
-				begin,
-				assignment,
-				end_hint,
-			)
+			// Relay chain `CoreIndex` implements `From` for `u32`
+			let core = u32::from(core).into();
+
+			<assigner_bulk::Pallet<T>>::assign_core(core, begin, assignment, end_hint)?;
+			Self::deposit_event(Event::<T>::CoreAssigned { core });
+			Ok(())
 		}
 	}
 }
