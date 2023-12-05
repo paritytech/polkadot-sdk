@@ -1,0 +1,54 @@
+<script>
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		}
+
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			link.textContent = header.textContent;
+			link.className = header.tagName.toLowerCase();
+			toc.appendChild(link);
+		});
+
+		sidebar.insertBefore(toc, sidebar.firstChild);
+		console.log("injecting ToC");
+	});
+</script>
+<style>
+.table-of-contents {
+    margin-bottom: 1em;
+    padding: 0.5em;
+}
+
+.table-of-contents a {
+    display: block;
+    margin: 0.2em 0;
+}
+
+.table-of-contents .h2 {
+    font-weight: bold;
+    margin-left: 0;
+}
+
+.table-of-contents .h3 {
+    margin-left: 1em;
+}
+
+.table-of-contents .h4 {
+    margin-left: 2em;
+}
+</style>

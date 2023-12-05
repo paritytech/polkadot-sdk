@@ -51,7 +51,7 @@ use sp_std::marker::PhantomData;
 /// 	// OnRuntimeUpgrade implementation...
 /// }
 ///
-/// pub type VersionCheckedMigrateV5ToV6<T, I> =
+/// pub type MigrateV5ToV6<T, I> =
 /// 	VersionedMigration<
 /// 		5,
 /// 		6,
@@ -63,7 +63,7 @@ use sp_std::marker::PhantomData;
 /// // Migrations tuple to pass to the Executive pallet:
 /// pub type Migrations = (
 /// 	// other migrations...
-/// 	VersionCheckedMigrateV5ToV6<T, ()>,
+/// 	MigrateV5ToV6<T, ()>,
 /// 	// other migrations...
 /// );
 /// ```
@@ -224,8 +224,7 @@ impl PalletVersionToStorageVersionHelper for T {
 	}
 }
 
-/// Migrate from the `PalletVersion` struct to the new
-/// [`StorageVersion`](crate::traits::StorageVersion) struct.
+/// Migrate from the `PalletVersion` struct to the new [`StorageVersion`] struct.
 ///
 /// This will remove all `PalletVersion's` from the state and insert the current storage version.
 pub fn migrate_from_pallet_version_to_storage_version<

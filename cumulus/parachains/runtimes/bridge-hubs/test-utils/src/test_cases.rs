@@ -909,7 +909,6 @@ where
 				]),
 			]),
 		},
-		RefundSurplus,
 		DepositAsset {
 			assets: Wild(All),
 			beneficiary: MultiLocation { parents: 1, interior: X1(Parachain(1000)) },

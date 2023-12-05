@@ -32,7 +32,7 @@ pub mod traits;
 use traits::{
 	validate_export, AssetExchange, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin,
 	DropAssets, Enact, ExportXcm, FeeManager, FeeReason, OnResponse, Properties, ShouldExecute,
-	TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
+	TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader, XcmAssetTransfers,
 };
 
 mod assets;
@@ -252,6 +252,12 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 		}
 		Ok(())
 	}
+}
+
+impl<Config: config::Config> XcmAssetTransfers for XcmExecutor<Config> {
+	type IsReserve = Config::IsReserve;
+	type IsTeleporter = Config::IsTeleporter;
+	type AssetTransactor = Config::AssetTransactor;
 }
 
 #[derive(Debug)]
