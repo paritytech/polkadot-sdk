@@ -27,7 +27,7 @@ use super::*;
 use futures::executor::block_on;
 use std::sync::Arc;
 
-use sc_block_builder::BlockBuilderProvider;
+use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::Finalizer;
 use sc_consensus::{BlockImport, BoxJustificationImport};
 use sc_network_test::*;
@@ -83,10 +83,10 @@ type SassafrasVerifier = crate::SassafrasVerifier<
 
 type SassafrasLink = crate::SassafrasLink<TestBlock>;
 
-// Epoch duration is slots
-const EPOCH_DURATION: u64 = 6;
+// Epoch length in slots
+const EPOCH_LENGTH: u32 = 6;
 // Slot duration is milliseconds
-const SLOT_DURATION: u64 = 1000;
+const SLOT_DURATION: SlotDuration = SlotDuration::from_millis(1000_u64);
 
 struct TestProposer {
 	client: Arc<TestClient>,
@@ -114,8 +114,13 @@ impl Proposer<TestBlock> for TestProposer {
 		_: Duration,
 		_: Option<usize>,
 	) -> Self::Proposal {
-		let block_builder =
-			self.client.new_block_at(self.parent_hash, inherent_digests, false).unwrap();
+		let block_builder = BlockBuilderBuilder::new(&*self.client)
+			.on_parent_block(self.parent_hash)
+			.fetch_parent_block_number(&*self.client)
+			.unwrap()
+			.with_inherent_digests(inherent_digests)
+			.build()
+			.unwrap();
 
 		let block = match block_builder.build().map_err(|e| e.into()) {
 			Ok(b) => b.block,
@@ -140,9 +145,8 @@ fn create_test_verifier(
 	link: &SassafrasLink,
 	config: Epoch,
 ) -> SassafrasVerifier {
-	let slot_duration = config.slot_duration;
 	let create_inherent_data_providers = Box::new(move |_, _| async move {
-		let slot = InherentDataProvider::from_timestamp(Timestamp::current(), slot_duration);
+		let slot = InherentDataProvider::from_timestamp(Timestamp::current(), SLOT_DURATION);
 		Ok((slot,))
 	});
 
@@ -176,16 +180,15 @@ fn create_test_keystore(authority: Keyring) -> KeystorePtr {
 
 fn create_test_epoch() -> Epoch {
 	sp_consensus_sassafras::Epoch {
-		epoch_idx: 0,
-		start_slot: 0.into(),
-		slot_duration: SlotDuration::from_millis(SLOT_DURATION),
-		epoch_duration: EPOCH_DURATION,
+		index: 0,
+		start: 0.into(),
+		length: EPOCH_LENGTH,
+		randomness: [0; 32],
 		authorities: vec![
 			Keyring::Alice.public().into(),
 			Keyring::Bob.public().into(),
 			Keyring::Charlie.public().into(),
 		],
-		randomness: [0; 32],
 		config: EpochConfiguration { redundancy_factor: 1, attempts_number: 32 },
 	}
 	.into()
@@ -296,7 +299,7 @@ impl TestContext {
 		// TODO @davxy: maybe here we can use the epoch.randomness???
 		let epoch = self.epoch_data(&parent_hash, parent_number, slot);
 		let sign_data =
-			vrf::slot_claim_sign_data(&self.link.genesis_config.randomness, slot, epoch.epoch_idx);
+			vrf::slot_claim_sign_data(&self.link.genesis_config.randomness, slot, epoch.index);
 		let vrf_signature = self
 			.keystore
 			.bandersnatch_vrf_sign(SASSAFRAS, &public, &sign_data)
@@ -362,18 +365,18 @@ fn tests_assumptions_sanity_check() {
 #[test]
 fn claim_secondary_slots_works() {
 	let mut epoch = create_test_epoch();
-	epoch.epoch_idx = 1;
-	epoch.start_slot = 6.into();
+	epoch.index = 1;
+	epoch.start = 6.into();
 	epoch.randomness = [2; 32];
 
 	let authorities = [Keyring::Alice, Keyring::Bob, Keyring::Charlie];
 
-	let mut assignments = vec![usize::MAX; epoch.epoch_duration as usize];
+	let mut assignments = vec![usize::MAX; epoch.length as usize];
 
 	for (auth_idx, auth_id) in authorities.iter().enumerate() {
 		let keystore = create_test_keystore(*auth_id);
 
-		for slot in 0..epoch.epoch_duration {
+		for slot in 0..epoch.length as u64 {
 			if let Some((claim, auth_id2)) =
 				authorship::claim_slot(slot.into(), &mut epoch, None, &keystore)
 			{
@@ -401,15 +404,15 @@ fn claim_primary_slots_works() {
 	// ticket auxiliary information.
 	let mut epoch = create_test_epoch();
 	epoch.randomness = [2; 32];
-	epoch.epoch_idx = 1;
-	epoch.start_slot = 6.into();
+	epoch.index = 1;
+	epoch.start = 6.into();
 
 	let keystore = create_test_keystore(Keyring::Alice);
 	let alice_authority_idx = 0_u32;
 
 	let ticket_id = 123;
 	let erased_public = EphemeralPublic::unchecked_from([0; 32]);
-	let revealed_public = erased_public.clone();
+	let revealed_public = erased_public;
 	let ticket_body = TicketBody { attempt_idx: 0, erased_public, revealed_public };
 	let ticket_secret = TicketSecret { attempt_idx: 0, seed: [0; 32] };
 
@@ -497,9 +500,9 @@ fn import_rejects_block_with_missing_epoch_changes() {
 	let mut env = TestContext::new();
 
 	let blocks =
-		env.propose_and_import_blocks(env.client.info().genesis_hash, EPOCH_DURATION as usize);
+		env.propose_and_import_blocks(env.client.info().genesis_hash, EPOCH_LENGTH as usize);
 
-	let mut import_params = env.propose_block(blocks[EPOCH_DURATION as usize - 1], None);
+	let mut import_params = env.propose_block(blocks[EPOCH_LENGTH as usize - 1], None);
 
 	let digest = import_params.header.digest_mut();
 	// Remove the epoch change announcement.
@@ -561,8 +564,8 @@ fn allows_to_skip_epochs() {
 			number: 1,
 		})
 		.unwrap();
-	assert_eq!(data.epoch_idx, 0);
-	assert_eq!(data.start_slot, Slot::from(1));
+	assert_eq!(data.index, 0);
+	assert_eq!(data.start, Slot::from(1));
 
 	// First block in E0 (B1) also announces E1
 	let data = epoch_changes
@@ -572,8 +575,8 @@ fn allows_to_skip_epochs() {
 			number: 1,
 		})
 		.unwrap();
-	assert_eq!(data.epoch_idx, 1);
-	assert_eq!(data.start_slot, Slot::from(7));
+	assert_eq!(data.index, 1);
+	assert_eq!(data.start, Slot::from(7));
 
 	// First block in E1 (B7) announces E2
 	// NOTE: config is used by E3 without altering epoch node values.
@@ -586,8 +589,8 @@ fn allows_to_skip_epochs() {
 			number: 7,
 		})
 		.unwrap();
-	assert_eq!(data.epoch_idx, 2);
-	assert_eq!(data.start_slot, Slot::from(13));
+	assert_eq!(data.index, 2);
+	assert_eq!(data.start, Slot::from(13));
 
 	// First block in E3 (B8) announced E4.
 	let data = epoch_changes
@@ -597,8 +600,8 @@ fn allows_to_skip_epochs() {
 			number: 8,
 		})
 		.unwrap();
-	assert_eq!(data.epoch_idx, 4);
-	assert_eq!(data.start_slot, Slot::from(25));
+	assert_eq!(data.index, 4);
+	assert_eq!(data.start, Slot::from(25));
 }
 
 #[test]
@@ -752,7 +755,7 @@ fn verify_block_claimed_via_secondary_method() {
 
 	let blocks = env.propose_and_import_blocks(env.client.info().genesis_hash, 7);
 
-	let in_params = env.propose_block(blocks[6], Some(9.into()));
+	let in_params = env.propose_block(blocks[6], Some(6.into()));
 
 	let _out_params = env.verify_block(in_params);
 }
@@ -886,7 +889,6 @@ async fn sassafras_network_progress() {
 			.for_each(|_| future::ready(()));
 		import_notifications.push(import_futures);
 
-		//let slot_duration = data.link.genesis_config.slot_duration();
 		let client_clone = client.clone();
 		let create_inherent_data_providers = Box::new(move |parent, _| {
 			// Get the slot of the parent header and just increase this slot.

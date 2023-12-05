@@ -72,7 +72,12 @@ substrate-build-script-utils = { path = "../../../utils/build-script-utils" }
 [features]
 default = []
 runtime-benchmarks = [
+	"frame-benchmarking-cli/runtime-benchmarks",
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
 	"node-sassafras-runtime/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
 use-session-pallet = [
 	"node-sassafras-runtime/use-session-pallet",

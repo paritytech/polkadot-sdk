@@ -54,8 +54,10 @@ substrate-wasm-builder = { path = "../../../utils/wasm-builder" }
 default = ["std"]
 std = [
 	"codec/std",
+	"frame-benchmarking/std",
 	"frame-executive/std",
 	"frame-support/std",
+	"frame-system-benchmarking/std",
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
 	"pallet-balances/std",
@@ -77,6 +79,7 @@ std = [
 	"sp-runtime/std",
 	"sp-session/std",
 	"sp-std/std",
+	"sp-storage/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",
 ]
@@ -88,6 +91,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-grandpa/runtime-benchmarks",
 	"pallet-sassafras/runtime-benchmarks",
+	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]

@@ -111,7 +111,13 @@ fn testnet_genesis(
 		"balances": {
 			"balances": endowed_accounts.iter().cloned().map(|k| (k, 1u64 << 60)).collect::<Vec<_>>(),
 		},
-		"session": SessionConfig {
+		"sassafras": {
+			"epochConfig": sp_consensus_sassafras::EpochConfiguration {
+				attempts_number: SASSAFRAS_TICKETS_MAX_ATTEMPTS_NUMBER,
+				redundancy_factor: SASSAFRAS_TICKETS_REDUNDANCY_FACTOR,
+			},
+		},
+		"session": {
 			"keys": initial_authorities
 				.iter()
 				.map(|x| {

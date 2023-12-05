@@ -25,14 +25,14 @@ use sp_consensus_sassafras::{
 	digests::SlotClaim, ticket_id_threshold, vrf::RingContext, AuthorityId, Slot, TicketBody,
 	TicketClaim, TicketEnvelope, TicketId,
 };
-use sp_core::{ed25519::Pair as EphemeralPair, twox_64, ByteArray};
+use sp_core::{ed25519::Pair as EphemeralPair, hashing::blake2_64, ByteArray};
 use std::pin::Pin;
 
 /// Get secondary authority index for the given epoch and slot.
 pub(crate) fn secondary_authority_index(slot: Slot, epoch: &Epoch) -> AuthorityIndex {
 	// TODO @davxy twox -> blake2
-	u64::from_le_bytes((epoch.randomness, slot).using_encoded(twox_64)) as AuthorityIndex %
-		epoch.authorities.len() as AuthorityIndex
+	let hash = u64::from_le_bytes((epoch.randomness, slot).using_encoded(blake2_64));
+	(hash % epoch.authorities.len() as u64) as AuthorityIndex
 }
 
 /// Try to claim an epoch slot.
