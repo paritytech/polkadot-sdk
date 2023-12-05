@@ -194,9 +194,10 @@ pub mod ecdsa_bls_crypto {
 	/// Signature for a BEEFY authority using (ECDSA,BLS) as its crypto.
 	pub type AuthoritySignature = Signature;
 
-	impl<MsgHash: Hash> BeefyAuthorityId<MsgHash> for AuthorityId
+	impl<H> BeefyAuthorityId<H> for AuthorityId
 	where
-		<MsgHash as Hash>::Output: Into<[u8; 32]>,
+		H: Hash,
+		H::Output: Into<[u8; 32]>,
 	{
 		fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool {
 			// We can not simply call
@@ -206,7 +207,7 @@ pub mod ecdsa_bls_crypto {
 			// on Ethereum network where Keccak hasher is significantly cheaper than Blake2b.
 			// See Figure 3 of [OnSc21](https://www.scitepress.org/Papers/2021/106066/106066.pdf)
 			// for comparison.
-			EcdsaBlsPair::verify_with_hasher::<MsgHash>(
+			EcdsaBlsPair::verify_with_hasher::<H>(
 				signature.as_inner_ref(),
 				msg,
 				self.as_inner_ref(),

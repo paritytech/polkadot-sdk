@@ -121,7 +121,20 @@ impl From<Slot> for u64 {
 }
 
 /// A slot duration defined in milliseconds.
-#[derive(Clone, Copy, Debug, Encode, Decode, Hash, PartialOrd, Ord, PartialEq, Eq, TypeInfo)]
+#[derive(
+	Clone,
+	Copy,
+	Debug,
+	Encode,
+	Decode,
+	MaxEncodedLen,
+	Hash,
+	PartialOrd,
+	Ord,
+	PartialEq,
+	Eq,
+	TypeInfo,
+)]
 pub struct SlotDuration(u64);
 
 impl SlotDuration {

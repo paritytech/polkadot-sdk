@@ -21,7 +21,7 @@
 use frame_support::pallet_prelude::DispatchError;
 use sp_std::boxed::Box;
 use xcm::prelude::*;
-use xcm_executor::traits::QueryHandler;
+pub use xcm_executor::traits::QueryHandler;
 
 /// Umbrella trait for all Controller traits.
 pub trait Controller<Origin, RuntimeCall, Timeout>:

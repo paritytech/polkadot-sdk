@@ -170,8 +170,6 @@ function run_relay() {
         --bridge-hub-rococo-port 8943 \
         --bridge-hub-rococo-version-mode Auto \
         --bridge-hub-rococo-signer //Charlie \
-        --westend-headers-to-bridge-hub-rococo-signer //Bob \
-        --westend-parachains-to-bridge-hub-rococo-signer //Bob \
         --bridge-hub-rococo-transactions-mortality 4 \
         --westend-host localhost \
         --westend-port 9945 \
@@ -180,8 +178,6 @@ function run_relay() {
         --bridge-hub-westend-port 8945 \
         --bridge-hub-westend-version-mode Auto \
         --bridge-hub-westend-signer //Charlie \
-        --rococo-headers-to-bridge-hub-westend-signer //Bob \
-        --rococo-parachains-to-bridge-hub-westend-signer //Bob \
         --bridge-hub-westend-transactions-mortality 4 \
         --lane "${LANE_ID}"
 }
@@ -209,7 +205,7 @@ case "$1" in
           "ws://127.0.0.1:9910" \
           "//Alice" \
           "$GLOBAL_CONSENSUS_WESTEND_ASSET_HUB_WESTEND_1000_SOVEREIGN_ACCOUNT" \
-          $((1000000000 + 50000000000 * 20))
+          $((1000000000000 + 50000000000 * 20))
       # HRMP
       open_hrmp_channels \
           "ws://127.0.0.1:9942" \
@@ -227,19 +223,19 @@ case "$1" in
           "ws://127.0.0.1:8943" \
           "//Alice" \
           "$ASSET_HUB_ROCOCO_SOVEREIGN_ACCOUNT_AT_BRIDGE_HUB_ROCOCO" \
-          $((1000000000 + 50000000000 * 20))
+          $((1000000000000 + 50000000000 * 20))
       # drip SA of lane dedicated to asset hub for paying rewards for delivery
       transfer_balance \
           "ws://127.0.0.1:8943" \
           "//Alice" \
           "$ON_BRIDGE_HUB_ROCOCO_SOVEREIGN_ACCOUNT_FOR_LANE_00000002_bhwd_ThisChain" \
-          $((1000000000 + 2000000000000))
+          $((1000000000000 + 2000000000000))
       # drip SA of lane dedicated to asset hub for paying rewards for delivery confirmation
       transfer_balance \
           "ws://127.0.0.1:8943" \
           "//Alice" \
           "$ON_BRIDGE_HUB_ROCOCO_SOVEREIGN_ACCOUNT_FOR_LANE_00000002_bhwd_BridgedChain" \
-          $((1000000000 + 2000000000000))
+          $((1000000000000 + 2000000000000))
       ;;
   init-asset-hub-westend-local)
       ensure_polkadot_js_api
@@ -258,7 +254,7 @@ case "$1" in
           "ws://127.0.0.1:9010" \
           "//Alice" \
           "$GLOBAL_CONSENSUS_ROCOCO_ASSET_HUB_ROCOCO_1000_SOVEREIGN_ACCOUNT" \
-          $((1000000000 + 50000000000 * 20))
+          $((1000000000000000 + 50000000000 * 20))
       # HRMP
       open_hrmp_channels \
           "ws://127.0.0.1:9945" \
@@ -275,19 +271,19 @@ case "$1" in
           "ws://127.0.0.1:8945" \
           "//Alice" \
           "$ASSET_HUB_WESTEND_SOVEREIGN_ACCOUNT_AT_BRIDGE_HUB_WESTEND" \
-          $((1000000000 + 50000000000 * 20))
+          $((1000000000000000 + 50000000000 * 20))
       # drip SA of lane dedicated to asset hub for paying rewards for delivery
       transfer_balance \
           "ws://127.0.0.1:8945" \
           "//Alice" \
           "$ON_BRIDGE_HUB_WESTEND_SOVEREIGN_ACCOUNT_FOR_LANE_00000002_bhro_ThisChain" \
-          $((1000000000 + 2000000000000))
+          $((1000000000000000 + 2000000000000))
       # drip SA of lane dedicated to asset hub for paying rewards for delivery confirmation
       transfer_balance \
           "ws://127.0.0.1:8945" \
           "//Alice" \
           "$ON_BRIDGE_HUB_WESTEND_SOVEREIGN_ACCOUNT_FOR_LANE_00000002_bhro_BridgedChain" \
-          $((1000000000 + 2000000000000))
+          $((1000000000000000 + 2000000000000))
       ;;
   reserve-transfer-assets-from-asset-hub-rococo-local)
       ensure_polkadot_js_api
@@ -309,7 +305,7 @@ case "$1" in
           "//Alice" \
           "$(jq --null-input '{ "V3": { "parents": 2, "interior": { "X2": [ { "GlobalConsensus": "Westend" }, { "Parachain": 1000 } ] } } }')" \
           "$(jq --null-input '{ "V3": { "parents": 0, "interior": { "X1": { "AccountId32": { "id": [212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130, 44, 133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125] } } } } }')" \
-          "$(jq --null-input '{ "V3": [ { "id": { "Concrete": { "parents": 2, "interior": { "X1": { "GlobalConsensus": "Westend" } } } }, "fun": { "Fungible": 140000000000 } } ] }')" \
+          "$(jq --null-input '{ "V3": [ { "id": { "Concrete": { "parents": 2, "interior": { "X1": { "GlobalConsensus": "Westend" } } } }, "fun": { "Fungible": 40000000000 } } ] }')" \
           0 \
           "Unlimited"
       ;;

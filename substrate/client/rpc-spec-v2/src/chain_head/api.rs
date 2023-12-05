@@ -21,6 +21,7 @@
 //! API trait of the chain head.
 use crate::chain_head::event::{FollowEvent, MethodResponse, StorageQuery};
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
+use sp_rpc::list::ListOrValue;
 
 #[rpc(client, server)]
 pub trait ChainHeadApi<Hash> {
@@ -73,14 +74,6 @@ pub trait ChainHeadApi<Hash> {
 		hash: Hash,
 	) -> RpcResult<Option<String>>;
 
-	/// Get the chain's genesis hash.
-	///
-	/// # Unstable
-	///
-	/// This method is unstable and subject to change in the future.
-	#[method(name = "chainHead_unstable_genesisHash", blocking)]
-	fn chain_head_unstable_genesis_hash(&self) -> RpcResult<String>;
-
 	/// Returns storage entries at a specific block's state.
 	///
 	/// # Unstable
@@ -109,16 +102,22 @@ pub trait ChainHeadApi<Hash> {
 		call_parameters: String,
 	) -> RpcResult<MethodResponse>;
 
-	/// Unpin a block reported by the `follow` method.
+	/// Unpin a block or multiple blocks reported by the `follow` method.
 	///
 	/// Ongoing operations that require the provided block
 	/// will continue normally.
+	///
+	/// When this method returns an error, it is guaranteed that no blocks have been unpinned.
 	///
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
 	#[method(name = "chainHead_unstable_unpin", blocking)]
-	fn chain_head_unstable_unpin(&self, follow_subscription: String, hash: Hash) -> RpcResult<()>;
+	fn chain_head_unstable_unpin(
+		&self,
+		follow_subscription: String,
+		hash_or_hashes: ListOrValue<Hash>,
+	) -> RpcResult<()>;
 
 	/// Resumes a storage fetch started with `chainHead_storage` after it has generated an
 	/// `operationWaitingForContinue` event.

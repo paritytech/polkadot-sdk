@@ -7,7 +7,7 @@ description = "Parachain node CLI utilities."
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
 [dependencies]
-clap = { version = "4.4.6", features = ["derive"] }
+clap = { version = "4.4.10", features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 url = "2.4.0"
 

@@ -15,7 +15,6 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 pub mod block_weights;
-pub mod cumulus_pallet_dmp_queue;
 pub mod cumulus_pallet_parachain_system;
 pub mod cumulus_pallet_xcmp_queue;
 pub mod extrinsic_weights;
@@ -36,9 +35,7 @@ pub mod pallet_timestamp;
 pub mod pallet_uniques;
 pub mod pallet_utility;
 pub mod pallet_xcm;
-pub mod pallet_xcm_bridge_hub_router_to_rococo;
-pub mod pallet_xcm_bridge_hub_router_to_westend;
-pub mod pallet_xcm_bridge_hub_router_to_wococo;
+pub mod pallet_xcm_bridge_hub_router;
 pub mod paritydb_weights;
 pub mod rocksdb_weights;
 pub mod xcm;

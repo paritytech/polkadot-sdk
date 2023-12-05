@@ -30,8 +30,8 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_types::UnpinHandle;
 use polkadot_primitives::{
-	slashing, AsyncBackingParams, CandidateEvent, CandidateHash, CoreState, EncodeAs,
-	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, IndexedVec, OccupiedCore,
+	slashing, vstaging::NodeFeatures, AsyncBackingParams, CandidateEvent, CandidateHash, CoreState,
+	EncodeAs, ExecutorParams, GroupIndex, GroupRotationInfo, Hash, IndexedVec, OccupiedCore,
 	ScrapedOnChainVotes, SessionIndex, SessionInfo, Signed, SigningContext, UncheckedSigned,
 	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, LEGACY_MIN_BACKING_VOTES,
 };
@@ -505,5 +505,34 @@ pub async fn request_min_backing_votes(
 		Ok(LEGACY_MIN_BACKING_VOTES)
 	} else {
 		min_backing_votes_res
+	}
+}
+
+/// Request the node features enabled in the runtime.
+/// Pass in the session index for caching purposes, as it should only change on session boundaries.
+/// Prior to runtime API version 9, just return `None`.
+pub async fn request_node_features(
+	parent: Hash,
+	session_index: SessionIndex,
+	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
+) -> Result<Option<NodeFeatures>> {
+	let res = recv_runtime(
+		request_from_runtime(parent, sender, |tx| {
+			RuntimeApiRequest::NodeFeatures(session_index, tx)
+		})
+		.await,
+	)
+	.await;
+
+	if let Err(Error::RuntimeRequest(RuntimeApiError::NotSupported { .. })) = res {
+		gum::trace!(
+			target: LOG_TARGET,
+			?parent,
+			"Querying the node features from the runtime is not supported by the current Runtime API",
+		);
+
+		Ok(None)
+	} else {
+		res.map(Some)
 	}
 }
