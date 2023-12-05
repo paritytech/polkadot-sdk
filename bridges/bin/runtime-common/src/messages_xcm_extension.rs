@@ -168,8 +168,10 @@ pub struct XcmBlobHaulerAdapter<XcmBlobHauler, Lanes>(
 	sp_std::marker::PhantomData<(XcmBlobHauler, Lanes)>,
 );
 
-impl<H: XcmBlobHauler, Lanes: Get<Vec<(SenderAndLane, InteriorMultiLocation)>>> OnMessagesDelivered
-	for XcmBlobHaulerAdapter<H, Lanes>
+impl<
+		H: XcmBlobHauler,
+		Lanes: Get<sp_std::vec::Vec<(SenderAndLane, (NetworkId, InteriorMultiLocation))>>,
+	> OnMessagesDelivered for XcmBlobHaulerAdapter<H, Lanes>
 {
 	fn on_messages_delivered(lane: LaneId, enqueued_messages: MessageNonce) {
 		if let Some(sender_and_lane) =
@@ -323,8 +325,8 @@ mod tests {
 			location: MultiLocation::new(1, X1(Parachain(1000))),
 			lane: TEST_LANE_ID,
 		};
-		pub TestLanes: sp_std::vec::Vec<(SenderAndLane, InteriorMultiLocation)> = sp_std::vec![
-			(TestSenderAndLane::get(), InteriorMultiLocation::Here)
+		pub TestLanes: sp_std::vec::Vec<(SenderAndLane, (NetworkId, InteriorMultiLocation))> = sp_std::vec![
+			(TestSenderAndLane::get(), (NetworkId::ByGenesis([0; 32]), InteriorMultiLocation::Here))
 		];
 		pub DummyXcmMessage: Xcm<()> = Xcm::new();
 	}

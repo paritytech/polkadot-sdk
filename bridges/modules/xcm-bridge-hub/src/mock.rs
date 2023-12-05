@@ -194,12 +194,11 @@ parameter_types! {
 		location: MultiLocation::new(1, X1(Parachain(SIBLING_ASSET_HUB_ID))),
 		lane: TEST_LANE_ID,
 	};
-	pub const BridgedDestination: InteriorMultiLocation = X2(
-		GlobalConsensus(BridgedRelayNetwork::get()),
+	pub const BridgedDestination: InteriorMultiLocation = X1(
 		Parachain(BRIDGED_ASSET_HUB_ID)
 	);
-	pub TestLanes: sp_std::vec::Vec<(SenderAndLane, InteriorMultiLocation)> = sp_std::vec![
-		(TestSenderAndLane::get(), BridgedDestination::get())
+	pub TestLanes: sp_std::vec::Vec<(SenderAndLane, (NetworkId, InteriorMultiLocation))> = sp_std::vec![
+		(TestSenderAndLane::get(), (BridgedRelayNetwork::get(), BridgedDestination::get()))
 	];
 }
 

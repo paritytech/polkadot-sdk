@@ -59,8 +59,10 @@ pub mod pallet {
 		type MessageExportPrice: Get<MultiAssets>;
 
 		/// Get point-to-point links with bridged consensus (`Self::BridgedNetworkId`).
-		type Lanes: Get<Vec<(SenderAndLane, InteriorMultiLocation)>>;
+		/// (this will be replaced with dynamic on-chain bridges - for Bridges V2)
+		type Lanes: Get<sp_std::vec::Vec<(SenderAndLane, (NetworkId, InteriorMultiLocation))>>;
 		/// Support for point-to-point links
+		/// (this will be replaced with dynamic on-chain bridges - for Bridges V2)
 		type LanesSupport: XcmBlobHauler;
 	}
 
@@ -71,20 +73,24 @@ pub mod pallet {
 		/// Returns dedicated/configured lane identifier.
 		pub(crate) fn lane_for(
 			source: &InteriorMultiLocation,
-			dest: &InteriorMultiLocation,
+			dest: (&NetworkId, &InteriorMultiLocation),
 		) -> Option<SenderAndLane> {
 			let source = source.relative_to(&T::UniversalLocation::get());
 
 			// Check that we have configured a point-to-point lane for 'source' and `dest`.
-			T::Lanes::get().into_iter().find_map(|lane| {
-				if source == lane.0.location &&
-					dest == &lane.1 && dest.global_consensus() == Ok(T::BridgedNetworkId::get())
-				{
-					Some(lane.0)
-				} else {
-					None
-				}
-			})
+			T::Lanes::get()
+				.into_iter()
+				.find_map(|(lane_source, (lane_dest_network, lane_dest))| {
+					if lane_source.location == source &&
+						&lane_dest_network == dest.0 &&
+						&T::BridgedNetworkId::get() == dest.0 &&
+						&lane_dest == dest.1
+					{
+						Some(lane_source)
+					} else {
+						None
+					}
+				})
 		}
 	}
 }

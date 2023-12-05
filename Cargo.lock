@@ -2042,6 +2042,7 @@ dependencies = [
 name = "bridge-hub-westend-runtime"
 version = "0.1.0"
 dependencies = [
+ "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
  "bp-bridge-hub-rococo",
  "bp-bridge-hub-westend",
