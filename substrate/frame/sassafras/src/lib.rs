@@ -755,7 +755,10 @@ impl<T: Config> Pallet<T> {
 
 	// Deposit next epoch descriptor in the block header digest.
 	fn deposit_next_epoch_descriptor_digest(desc: NextEpochDescriptor) {
-		let item = ConsensusLog::NextEpochData(desc);
+		Self::deposit_consensus(ConsensusLog::NextEpochData(desc))
+	}
+
+	pub(crate) fn deposit_consensus(item: ConsensusLog) {
 		let log = DigestItem::Consensus(SASSAFRAS_ENGINE_ID, item.encode());
 		<frame_system::Pallet<T>>::deposit_log(log)
 	}
