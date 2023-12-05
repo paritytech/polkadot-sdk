@@ -6883,8 +6883,8 @@ mod ledger {
 					ctlr,
 					StakingLedger {
 						controller: None,
-						total: (1000 + ctlr).into(),
-						active: (1000 + ctlr).into(),
+						total: (10 + ctlr).into(),
+						active: (10 + ctlr).into(),
 						..StakingLedger::default_from(stash.clone())
 					},
 				);
@@ -6934,8 +6934,8 @@ mod ledger {
 				assert_eq!(ledger_updated.stash, stash);
 
 				// Check `active` and `total` values match the original ledger set by controller.
-				assert_eq!(ledger_updated.active, (1000 + ctlr).into());
-				assert_eq!(ledger_updated.total, (1000 + ctlr).into());
+				assert_eq!(ledger_updated.active, (10 + ctlr).into());
+				assert_eq!(ledger_updated.total, (10 + ctlr).into());
 			}
 		})
 	}
@@ -6957,8 +6957,6 @@ mod ledger {
 					ctlr,
 					StakingLedger {
 						controller: None,
-						total: (1000 + ctlr).into(),
-						active: (1000 + ctlr).into(),
 						..StakingLedger::default_from(stash.clone())
 					},
 				);
@@ -6989,7 +6987,6 @@ mod ledger {
 
 				// Side effect of migration for unique pair.
 				if unique_pair {
-					// Ledger no longer keyed by controller.
 					assert_eq!(Ledger::<Test>::get(ctlr), None);
 				}
 				// Bonded maps to the stash.
