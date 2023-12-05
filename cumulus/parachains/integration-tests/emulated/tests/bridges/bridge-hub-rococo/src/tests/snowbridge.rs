@@ -504,7 +504,7 @@ fn reserve_transfer_token() {
 				.find(|&event| matches!(
 					event,
 					RuntimeEvent::Balances(pallet_balances::Event::Deposit{ who, amount })
-						if who == &assethub_sovereign && *amount == 2200000000000
+						if who == &assethub_sovereign && *amount == 2680000000000
 				))
 				.is_some(),
 			"Assethub sovereign takes remote fee."
