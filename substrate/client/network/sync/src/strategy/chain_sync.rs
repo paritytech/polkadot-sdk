@@ -32,9 +32,11 @@ use crate::{
 	blocks::BlockCollection,
 	extra_requests::ExtraRequests,
 	schema::v1::StateResponse,
-	state::{ImportResult, StateSync},
+	strategy::{
+		state_sync::{ImportResult, StateSync},
+		warp::{WarpSyncPhase, WarpSyncProgress},
+	},
 	types::{BadPeer, OpaqueStateRequest, OpaqueStateResponse, SyncState, SyncStatus},
-	warp::{WarpSyncPhase, WarpSyncProgress},
 	LOG_TARGET,
 };
 

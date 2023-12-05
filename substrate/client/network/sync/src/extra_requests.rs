@@ -17,8 +17,8 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::{
-	chain_sync::{PeerSync, PeerSyncState},
 	request_metrics::Metrics,
+	strategy::chain_sync::{PeerSync, PeerSyncState},
 	LOG_TARGET,
 };
 use fork_tree::ForkTree;
@@ -346,7 +346,7 @@ impl<'a, B: BlockT> Matcher<'a, B> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::chain_sync::PeerSync;
+	use crate::strategy::chain_sync::PeerSync;
 	use quickcheck::{Arbitrary, Gen, QuickCheck};
 	use sp_blockchain::Error as ClientError;
 	use sp_test_primitives::{Block, BlockNumber, Hash};

@@ -19,13 +19,16 @@
 //! [`SyncingStrategy`] is a proxy between [`crate::engine::SyncingEngine`]
 //! and specific syncing algorithms.
 
+pub mod chain_sync;
+mod state;
+mod state_sync;
+pub mod warp;
+
 use crate::{
-	chain_sync::{ChainSync, ChainSyncAction, ChainSyncMode},
-	state_strategy::{StateStrategy, StateStrategyAction},
 	types::{BadPeer, OpaqueStateRequest, OpaqueStateResponse, SyncStatus},
-	warp::{EncodedProof, WarpProofRequest, WarpSync, WarpSyncAction, WarpSyncConfig},
 	LOG_TARGET,
 };
+use chain_sync::{ChainSync, ChainSyncAction, ChainSyncMode};
 use libp2p::PeerId;
 use log::{error, info};
 use prometheus_endpoint::Registry;
@@ -41,7 +44,9 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header, NumberFor},
 	Justifications,
 };
+use state::{StateStrategy, StateStrategyAction};
 use std::sync::Arc;
+use warp::{EncodedProof, WarpProofRequest, WarpSync, WarpSyncAction, WarpSyncConfig};
 
 /// Corresponding `ChainSync` mode.
 fn chain_sync_mode(sync_mode: SyncMode) -> ChainSyncMode {

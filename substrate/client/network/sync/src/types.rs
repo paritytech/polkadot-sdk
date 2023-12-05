@@ -23,7 +23,7 @@ use sc_network_common::{role::Roles, types::ReputationChange};
 
 use libp2p::PeerId;
 
-use crate::warp::WarpSyncProgress;
+use crate::strategy::warp::WarpSyncProgress;
 use sc_network_common::sync::message::BlockRequest;
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 

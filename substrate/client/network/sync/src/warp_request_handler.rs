@@ -21,7 +21,7 @@ use futures::{channel::oneshot, stream::StreamExt};
 use log::debug;
 
 use crate::{
-	warp::{EncodedProof, WarpProofRequest, WarpSyncProvider},
+	strategy::warp::{EncodedProof, WarpProofRequest, WarpSyncProvider},
 	LOG_TARGET,
 };
 use sc_network::{

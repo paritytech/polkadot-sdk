@@ -21,7 +21,7 @@
 pub use sp_consensus_grandpa::{AuthorityList, SetId};
 
 use crate::{
-	chain_sync::validate_blocks,
+	strategy::chain_sync::validate_blocks,
 	types::{BadPeer, SyncState, SyncStatus},
 	LOG_TARGET,
 };

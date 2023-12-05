@@ -20,7 +20,7 @@
 
 use crate::{
 	schema::v1::StateResponse,
-	state::{ImportResult, StateSync},
+	strategy::state_sync::{ImportResult, StateSync},
 	types::{BadPeer, OpaqueStateRequest, OpaqueStateResponse, SyncState, SyncStatus},
 	LOG_TARGET,
 };

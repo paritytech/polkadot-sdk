@@ -31,11 +31,13 @@ use crate::{
 		self,
 		syncing_service::{SyncingService, ToServiceCommand},
 	},
-	strategy::{SyncingAction, SyncingConfig, SyncingStrategy},
+	strategy::{
+		warp::{EncodedProof, WarpProofRequest, WarpSyncParams},
+		SyncingAction, SyncingConfig, SyncingStrategy,
+	},
 	types::{
 		BadPeer, ExtendedPeerInfo, OpaqueStateRequest, OpaqueStateResponse, PeerRequest, SyncEvent,
 	},
-	warp::{EncodedProof, WarpProofRequest, WarpSyncParams},
 	LOG_TARGET,
 };
 
