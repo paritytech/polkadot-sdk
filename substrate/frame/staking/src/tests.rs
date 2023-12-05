@@ -6869,7 +6869,7 @@ mod ledger {
 	}
 
 	#[test]
-	fn deprecate_controller_batch_works() {
+	fn deprecate_controller_batch_works_full_weight() {
 		ExtBuilder::default().build_and_execute(|| {
 			// Given:
 
@@ -6901,10 +6901,28 @@ mod ledger {
 				<Test as Config>::MaxControllersInDeprecationBatch,
 			> = BoundedVec::try_from(controllers).unwrap();
 
-			assert_ok!(Staking::deprecate_controller_batch(
-				RuntimeOrigin::root(),
-				bounded_controllers
-			));
+			// Only Root can sign.
+			assert_noop!(
+				Staking::deprecate_controller_batch(
+					RuntimeOrigin::signed(1),
+					bounded_controllers.clone()
+				),
+				BadOrigin
+			);
+
+			let result =
+				Staking::deprecate_controller_batch(RuntimeOrigin::root(), bounded_controllers);
+
+			//Successful call by Root.
+			assert_ok!(result);
+
+			// Weight accounts for every controller was migrated.
+			assert_eq!(
+				result.unwrap().actual_weight.unwrap(),
+				<Test as Config>::WeightInfo::deprecate_controller_batch(
+					<Test as Config>::MaxControllersInDeprecationBatch::get()
+				)
+			);
 
 			// Then:
 
