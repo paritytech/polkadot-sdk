@@ -778,7 +778,9 @@ mod tests {
 		assert_eq!(1, cache.lru.limiter_mut().known_storage_keys.len());
 		assert_eq!(
 			3, // Two instances inside the cache + one extra in `known_storage_keys`.
-			Arc::strong_count(cache.lru.limiter_mut().known_storage_keys.get(&key[..]).unwrap())
+			Arc::strong_count(
+				cache.lru.limiter_mut().known_storage_keys.get_key_value(&key[..]).unwrap().0
+			)
 		);
 		assert_eq!(key.len(), cache.lru.limiter().heap_size);
 		assert_eq!(cache.lru.len(), 2);
@@ -792,7 +794,9 @@ mod tests {
 		assert_eq!(1, cache.lru.limiter_mut().known_storage_keys.len());
 		assert_eq!(
 			3,
-			Arc::strong_count(cache.lru.limiter_mut().known_storage_keys.get(&key[..]).unwrap())
+			Arc::strong_count(
+				cache.lru.limiter_mut().known_storage_keys.get_key_value(&key[..]).unwrap().0
+			)
 		);
 		assert_eq!(key.len(), cache.lru.limiter().heap_size);
 		assert_eq!(cache.lru.len(), 2);
@@ -812,7 +816,9 @@ mod tests {
 		assert_eq!(1, cache.lru.limiter_mut().known_storage_keys.len());
 		assert_eq!(
 			3,
-			Arc::strong_count(cache.lru.limiter_mut().known_storage_keys.get(&key[..]).unwrap())
+			Arc::strong_count(
+				cache.lru.limiter_mut().known_storage_keys.get_key_value(&key[..]).unwrap().0
+			)
 		);
 		assert_eq!(key.len(), cache.lru.limiter().heap_size);
 		assert_eq!(cache.lru.len(), 2);
@@ -833,7 +839,7 @@ mod tests {
 		assert_eq!(cache.lru.limiter().items_evicted, 2);
 		assert_eq!(10, cache.lru.len());
 		assert_eq!(10, cache.lru.limiter_mut().known_storage_keys.len());
-		assert!(cache.lru.limiter_mut().known_storage_keys.get(&key[..]).is_none());
+		assert!(cache.lru.limiter_mut().known_storage_keys.get_key_value(&key[..]).is_none());
 		assert_eq!(key.len() * 10, cache.lru.limiter().heap_size);
 		assert_eq!(cache.lru.len(), 10);
 		assert!(cache.lru.limiter().heap_size <= cache.lru.limiter().max_heap_size);
@@ -854,6 +860,6 @@ mod tests {
 			vec![],
 		);
 
-		assert!(cache.lru.limiter_mut().known_storage_keys.get(&key[..]).is_none());
+		assert!(cache.lru.limiter_mut().known_storage_keys.get_key_value(&key[..]).is_none());
 	}
 }
