@@ -85,6 +85,7 @@ impl OnKilledAccount<u64> for RecordKilled {
 	}
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = RuntimeBlockWeights;
