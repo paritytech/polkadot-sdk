@@ -532,7 +532,6 @@ benchmarks! {
 
 		let mut controllers: Vec<_> = vec![];
 		let mut stashes: Vec<_> = vec![];
-
 		for n in 0..i as u32 {
 			let (stash, controller) = create_unique_stash_controller::<T>(
 				n,
@@ -550,15 +549,12 @@ benchmarks! {
 		for n in 0..i as u32 {
 			let stash = &stashes[n as usize];
 			let controller = &controllers[n as usize];
-
 			// Ledger no longer keyed by controller.
 			assert_eq!(Ledger::<T>::get(controller), None);
 			// Bonded now maps to the stash.
 			assert_eq!(Bonded::<T>::get(stash), Some(stash.clone()));
-
 			// Ledger is now keyed by stash.
-			let ledger_updated = Ledger::<T>::get(stash).unwrap();
-			assert_eq!(ledger_updated.stash, *stash);
+			assert_eq!(Ledger::<T>::get(stash).unwrap().stash, *stash);
 		}
 	}
 
