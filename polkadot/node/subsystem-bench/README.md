@@ -114,21 +114,23 @@ used to run a suite of tests defined in a `yaml` file like in this [example](exa
 
 ```
 Options:
-      --network <NETWORK>                    The type of network to be emulated [default: ideal] [possible values:
-                                             ideal, healthy, degraded]
-      --n-cores <N_CORES>                    Number of cores to fetch availability for [default: 100]
-      --n-validators <N_VALIDATORS>          Number of validators to fetch chunks from [default: 500]
-      --min-pov-size <MIN_POV_SIZE>          The minimum pov size in KiB [default: 5120]
-      --max-pov-size <MAX_POV_SIZE>          The maximum pov size bytes [default: 5120]
-  -n, --num-blocks <NUM_BLOCKS>              The number of blocks the test is going to run [default: 1]
-  -p, --peer-bandwidth <PEER_BANDWIDTH>      The bandwidth of simulated remote peers in KiB
-  -b, --bandwidth <BANDWIDTH>                The bandwidth of our simulated node in KiB
-      --peer-error <PEER_ERROR>              Simulated conection error ratio [0-100]
-      --peer-min-latency <PEER_MIN_LATENCY>  Minimum remote peer latency in milliseconds [0-5000]
-      --peer-max-latency <PEER_MAX_LATENCY>  Maximum remote peer latency in milliseconds [0-5000]
-      --profile                              Enable CPU Profiling
-  -h, --help                                 Print help
-  -V, --version                              Print version
+      --network <NETWORK>                              The type of network to be emulated [default: ideal] [possible values:
+                                                       ideal, healthy, degraded]
+      --n-cores <N_CORES>                              Number of cores to fetch availability for [default: 100]
+      --n-validators <N_VALIDATORS>                    Number of validators to fetch chunks from [default: 500]
+      --min-pov-size <MIN_POV_SIZE>                    The minimum pov size in KiB [default: 5120]
+      --max-pov-size <MAX_POV_SIZE>                    The maximum pov size bytes [default: 5120]
+  -n, --num-blocks <NUM_BLOCKS>                        The number of blocks the test is going to run [default: 1]
+  -p, --peer-bandwidth <PEER_BANDWIDTH>                The bandwidth of simulated remote peers in KiB
+  -b, --bandwidth <BANDWIDTH>                          The bandwidth of our simulated node in KiB
+      --peer-error <PEER_ERROR>                        Simulated conection error ratio [0-100]
+      --peer-min-latency <PEER_MIN_LATENCY>            Minimum remote peer latency in milliseconds [0-5000]
+      --peer-max-latency <PEER_MAX_LATENCY>            Maximum remote peer latency in milliseconds [0-5000]
+      --profile                                        Enable CPU Profiling with Pyroscope
+      --pyroscope-url <PYROSCOPE_URL>                  Pyroscope Server URL [default: http://localhost:4040]
+      --pyroscope-sample-rate <PYROSCOPE_SAMPLE_RATE>  Pyroscope Sample Rate [default: 113]
+  -h, --help                                           Print help
+  -V, --version                                        Print version
 ```
 
 These apply to all test objectives, except `test-sequence` which relies on the values being specified in a file.

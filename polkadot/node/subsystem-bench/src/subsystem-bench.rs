@@ -18,6 +18,8 @@
 //! CI regression testing.
 use clap::Parser;
 use color_eyre::eyre;
+use pyroscope::PyroscopeAgent;
+use pyroscope_pprofrs::{pprof_backend, PprofConfig};
 
 use colored::Colorize;
 use std::{path::Path, time::Duration};
@@ -77,8 +79,16 @@ struct BenchCli {
 	pub peer_max_latency: Option<u64>,
 
 	#[clap(long, default_value_t = false)]
-	/// Enable CPU Profiling
+	/// Enable CPU Profiling with Pyroscope
 	pub profile: bool,
+
+	#[clap(long, default_value_t = String::from("http://localhost:4040"))]
+	/// Pyroscope Server URL
+	pub pyroscope_url: String,
+
+	#[clap(long, default_value_t = 113)]
+	/// Pyroscope Sample Rate
+	pub pyroscope_sample_rate: u32,
 
 	#[command(subcommand)]
 	pub objective: cli::TestObjective,
@@ -86,14 +96,9 @@ struct BenchCli {
 
 impl BenchCli {
 	fn launch(self) -> eyre::Result<()> {
-		use pyroscope::PyroscopeAgent;
-		use pyroscope_pprofrs::{pprof_backend, PprofConfig};
-
-		// Pyroscope must be running on port 4040
-		// See https://grafana.com/docs/pyroscope/latest/get-started/#download-and-configure-pyroscope
 		let agent_running = if self.profile {
-			let agent = PyroscopeAgent::builder("http://localhost:4040", "subsystem-bench")
-				.backend(pprof_backend(PprofConfig::new().sample_rate(100)))
+			let agent = PyroscopeAgent::builder(self.pyroscope_url.as_str(), "subsystem-bench")
+				.backend(pprof_backend(PprofConfig::new().sample_rate(self.pyroscope_sample_rate)))
 				.build()?;
 
 			Some(agent.start()?)
