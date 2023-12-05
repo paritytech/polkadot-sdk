@@ -168,13 +168,7 @@ macro_rules! include_penpal_create_foreign_asset_on_asset_hub {
 				);
 
 				let require_weight_at_most = Weight::from_parts(1_100_000_000_000, 30_000);
-				let origin_kind = OriginKind::Xcm;
-				let sov_penpal_on_ah_as_location = MultiLocation {
-					parents: 0,
-					interior: X1(
-						AccountId32Junction { network: None, id: sov_penpal_on_ah.clone().into() }
-					),
-				};
+				let origin_kind = OriginKind::SovereignAccount;
 				let call_create_foreign_assets =
 					<$asset_hub as Chain>::RuntimeCall::ForeignAssets(pallet_assets::Call::<
 						<$asset_hub as Chain>::Runtime,
@@ -198,7 +192,7 @@ macro_rules! include_penpal_create_foreign_asset_on_asset_hub {
 					Transact { require_weight_at_most, origin_kind, call: call_create_foreign_assets.into() },
 					ExpectTransactStatus(MaybeErrorCode::Success),
 					RefundSurplus,
-					DepositAsset { assets: All.into(), beneficiary: sov_penpal_on_ah_as_location },
+					DepositAsset { assets: All.into(), beneficiary: penpal_as_seen_by_ah },
 				]));
 				// Send XCM message from penpal => asset_hub
 				let sudo_penpal_origin = <$penpal as Chain>::RuntimeOrigin::root();

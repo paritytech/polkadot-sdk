@@ -1259,7 +1259,7 @@ pub mod pallet {
 		/// Fee payment on the destination side is made from the asset in the `assets` vector of
 		/// index `fee_asset_item` (hence referred to as `fees`), up to enough to pay for
 		/// `weight_limit` of weight. If more weight is needed than `weight_limit`, then the
-		/// operation will fail and the assets send may be at risk.
+		/// operation will fail and the assets sent may be at risk.
 		///
 		/// `assets` (excluding `fees`) must have same reserve location or otherwise be teleportable
 		/// to `dest`, no limitations imposed on `fees`.
