@@ -18,5 +18,5 @@ halt = { package = "test-parachain-halt", path = "halt" }
 sp-core = { path = "../../../substrate/primitives/core" }
 
 [features]
-default = [ "std" ]
-std = [ "adder/std", "halt/std", "parity-scale-codec/std" ]
+default = ["std"]
+std = ["adder/std", "halt/std", "parity-scale-codec/std"]
