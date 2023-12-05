@@ -196,6 +196,7 @@ pub mod tests {
 	impl pallet_default_config_example::Config for Runtime {
 		// These two both cannot have defaults.
 		type RuntimeEvent = RuntimeEvent;
+		type RuntimeTask = RuntimeTask;
 
 		type HasNoDefault = frame_support::traits::ConstU32<1>;
 		type CannotHaveDefault = SomeCall;
