@@ -318,11 +318,20 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Chill a stash account.
+	///
+	/// Chilling consists of removing the nominator/validator's stash from the corresponding
+	/// `Nominators` or `Validators` storage map.
+	///
+	/// Note: chilling a staker does not remove its footprint from the voter list or target list.
+	///
+	/// Invariant: upon chilling the status of the stash must be `StakerStatus::Idle`.
 	pub(crate) fn chill_stash(stash: &T::AccountId) {
 		let chilled_as_validator = Self::do_chill_validator(stash);
 		let chilled_as_nominator = Self::do_chill_nominator(stash);
 		if chilled_as_validator || chilled_as_nominator {
+			debug_assert!(T::VoterList::contains(stash) || T::TargetList::contains(stash));
 			debug_assert_eq!(Self::status(stash), Ok(StakerStatus::Idle));
+
 			Self::deposit_event(Event::<T>::Chilled { stash: stash.clone() });
 		}
 	}
@@ -986,9 +995,8 @@ impl<T: Config> Pallet<T> {
 	///
 	/// If the nominator already exists, their nominations will be updated.
 	///
-	/// NOTE: you must ALWAYS use this function to add nominator or update their targets. Any access
-	/// to `Nominators` or `VoterList` outside of this function is almost certainly
-	/// wrong.
+	/// NOTE: you must ALWAYS use this function to add nominator or update their targets. Any
+	/// access to `Nominators` or `VoterList` outside of this function is almost certainly wrong.
 	pub fn do_add_nominator(who: &T::AccountId, nominations: Nominations<T>) {
 		match (Nominators::<T>::contains_key(who), T::VoterList::contains(who)) {
 			(false, false) => {
@@ -1015,6 +1023,10 @@ impl<T: Config> Pallet<T> {
 		);
 	}
 
+	/// Tries to chill a nominator.
+	///
+	/// A chilled nominator is removed from the `Nominators` map, and the nominator's new state must
+	/// be signalled to [`T::EventListeners`].
 	pub(crate) fn do_chill_nominator(who: &T::AccountId) -> bool {
 		let outcome = if Nominators::<T>::contains_key(who) {
 			T::EventListeners::on_nominator_idle(who, Self::nominations(who).unwrap_or_default());
@@ -1032,9 +1044,8 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns true if `who` was removed from `Nominators`, otherwise false.
 	///
-	/// NOTE: you must ALWAYS use this function to remove a nominator from the system. Any access to
-	/// `Nominators` or `VoterList` outside of this function is almost certainly
-	/// wrong.
+	/// NOTE: you must ALWAYS use this function to remove a nominator from the system. Any access
+	/// to `Nominators` or `VoterList` outside of this function is almost certainly wrong.
 	pub fn do_remove_nominator(who: &T::AccountId) -> bool {
 		let nominations = Self::nominations(who).unwrap_or_default();
 
@@ -1043,9 +1054,7 @@ impl<T: Config> Pallet<T> {
 			(true, true) => {
 				// first chill nominator.
 				Self::do_chill_nominator(who);
-
 				T::EventListeners::on_nominator_remove(who, nominations);
-				Nominators::<T>::remove(who);
 				true
 			},
 			// nominator is idle already, remove it.
@@ -1096,6 +1105,9 @@ impl<T: Config> Pallet<T> {
 		);
 	}
 
+	/// Tries to chill a validator.
+	///
+	/// A chilled validator is removed from the `Validators` map.
 	pub(crate) fn do_chill_validator(who: &T::AccountId) -> bool {
 		if Validators::<T>::contains_key(who) {
 			Validators::<T>::remove(who);
@@ -1116,10 +1128,9 @@ impl<T: Config> Pallet<T> {
 		let outcome = match (Validators::<T>::contains_key(who), T::TargetList::contains(who)) {
 			// ensure the validator is idle before removing it.
 			(true, true) => {
+				// first chill validator.
 				Self::do_chill_validator(who);
-
 				T::EventListeners::on_validator_remove(who);
-				Validators::<T>::remove(who);
 				true
 			},
 			// validator is idle, remove it.

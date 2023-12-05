@@ -15,19 +15,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # StakeTracker
+//! # Stake Tracker Pallet
 //!
-//! FRAME stake tracker pallet
+//! The stake-tracker pallet is responsible to keep track of stake and approval voting of voters and
+//! targets in the staking system.
 //!
 //! ## Overview
 //!
-//! The stake-tracker pallet listens to staking events through implementing the
-//! [`OnStakingUpdate`] trait and forwards those events to one or multiple types (e.g. pallets) that
-//! must be kept track of the stake and staker's state. The pallet does not expose any
-//! callables and acts as a multiplexer of staking events.
-//!
-//! Currently, the stake tracker pallet is used to update a voter and target sorted target list
-//! implemented through the bags lists pallet.
+//! The stake-tracker pallet listens to staking events through implementing the [`OnStakingUpdate`]
+//! trait and, based on those events, ensures that the score of nodes in the lists
+//! [`Config::VoterList`] and [`Config::TargetList`] are kept up to date with the staker's bonds
+//! and nominations in the system. In addition, the pallet also ensures that [`Config::TargetList`]
+//! is *strictly sorted* based on the targets' approvals.
 //!
 //! ## Goals
 //!
@@ -35,20 +34,32 @@
 //!
 //! * The [`Config::TargetList`] keeps a sorted list of validators, sorted by approvals
 //! (which include self-vote and nominations).
-//! * The [`Config::VoterList`] keeps a sorted list of voters, sorted by bonded stake.
+//! * The [`Config::VoterList`] keeps a semi-sorted list of voters, loosely sorted by bonded stake.
+//! This pallet does nothing to ensure that the voter list sorting is correct.
 //! * The [`Config::TargetList`] sorting must be *always* kept up to date, even in the event of new
-//! nomination updates, nominator/validator slashes and rewards.
+//! nomination updates, nominator/validator slashes and rewards. This pallet *must* ensure that the
+//! scores of the targets are always up to date *and* the targets are sorted by score at all time.
 //!
-//! Note that from the POV of this pallet, all events will result in one or multiple
-//! updates to the [`Config::VoterList`] and/or [`Config::TargetList`] state. If a update or set of
-//! updates require too much weight to process (e.g. at nominator's rewards payout or at nominator's
-//! slashes), the event emitter should handle that in some way (e.g. buffering events).
+//! Note that from the POV of this pallet, all events will result in one or multiple updates to
+//! [`Config::VoterList`] and/or [`Config::TargetList`] state. If a set of staking updates require
+//! too much weight to process (e.g. at nominator's rewards payout or at nominator's slashes), the
+//! event emitter should handle that in some way (e.g. buffering events).
+//!
+//! ## Domain-specific consideration on [`Config::VoterList`] and [`Config::TargetList`]
+//!
+//! In the context of Polkadot's staking system, both the voter and target lists will be implemented
+//! by a bags-list pallet, which implements the `SortedListProvider` trait.
+//!
+//! Note that the score provider of the target's bags-list is the list itself. This, coupled with
+//! the fact that the target list sorting must be always up to date results in requiring this
+//! pallet to ensure at all times that the score of the targets in the `TargetList` is *always* kept
+//! up to date.
 //!
 //! ## Event emitter ordering and staking ledger state updates
 //!
 //! It is important to ensure that the events are emitted from staking (i.e. the calls into
-//! [`OnStakingUpdate`]) *after* the caller ensures that the state of the staking ledger is up to
-//! date, since the new state will be fetched and used to update the sorted lists accordingly.
+//! [`OnStakingUpdate`]) *after* the staking ledger has been updated by the caller, since the new
+//! state will be fetched and used to update the sorted lists accordingly.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -126,6 +137,9 @@ pub mod pallet {
 		type VoterList: SortedListProvider<Self::AccountId, Score = VoteWeight>;
 
 		/// Something that provides an *always* sorted list of targets.
+		///
+		/// This pallet is responsible to keep the score and sorting of this pallet up to date with
+		/// the state from [`Self::StakingInterface`].
 		type TargetList: SortedListProvider<
 			Self::AccountId,
 			Score = <Self::Staking as StakingInterface>::Balance,
@@ -299,11 +313,12 @@ pub mod pallet {
 }
 
 impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
-	// Fired when the stake amount of someone updates.
-	//
-	// When a nominator's stake is updated, all the nominated targets must be updated accordingly.
-	//
-	// Note: it is assumed that who's staking state is updated *before* this method is called.
+	/// Fired when the stake amount of some staker updates.
+	///
+	/// When a nominator's stake is updated, all the nominated targets must be updated accordingly.
+	///
+	/// Note: it is assumed that `who`'s staking ledger state is updated *before* this method is
+	/// called.
 	fn on_stake_update(who: &T::AccountId, prev_stake: Option<Stake<BalanceOf<T>>>) {
 		// closure to calculate the stake imbalance of a staker.
 		let stake_imbalance_of = |prev_stake: Option<Stake<BalanceOf<T>>>,
@@ -370,9 +385,10 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		}
 	}
 
-	// Fired when someone sets their intention to nominate.
-	//
-	// Note: it is assumed that who's staking state is updated *before* this method is called.
+	/// Fired when someone sets their intention to nominate.
+	///
+	/// Note: it is assumed that `who`'s ledger staking state is updated *before* this method is
+	/// called.
 	fn on_nominator_add(who: &T::AccountId) {
 		let nominator_vote = Self::weight_of(Self::active_vote_of(who));
 
@@ -400,12 +416,13 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		log!(debug, "on_nominator_add: {:?}. role: {:?}", who, T::Staking::status(who),);
 	}
 
-	// Fired when someone sets their intention to validate.
+	/// Fired when someone sets their intention to validate.
+	///
+	/// A validator is also considered a voter with self-vote and should also be added to
+	/// [`Config::VoterList`].
 	//
-	// A validator is also considered a voter with self-vote and should be added to
-	// [`Config::VoterList`].
-	//
-	// Note: it is assumed that who's staking state is updated *before* calling this method.
+	/// Note: it is assumed that `who`'s ledger staking state is updated *before* calling this
+	/// method.
 	fn on_validator_add(who: &T::AccountId) {
 		// target may exist in the list in case of re-enabling a chilled validator;
 		if !T::TargetList::contains(who) {
@@ -442,8 +459,8 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		}
 	}
 
-	// Fired when someone removes their intention to nominate and is completely removed from the
-	// staking state.
+	/// Fired when someone removes their intention to nominate and is completely removed from the
+	/// staking state.
 	fn on_nominator_remove(who: &T::AccountId, nominations: Vec<T::AccountId>) {
 		log!(debug, "on_nominator_remove: {:?}, impacting {:?}", who, nominations);
 
@@ -457,8 +474,8 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		);
 	}
 
-	// Fired when someone removes their intention to validate and is completely removed from the
-	// staking state.
+	/// Fired when someone removes their intention to validate and is completely removed from the
+	/// staking state.
 	fn on_validator_remove(who: &T::AccountId) {
 		log!(debug, "on_validator_remove: {:?}", who,);
 
@@ -476,7 +493,8 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	/// same (updates to the nominator's stake should emit [`Self::on_stake_update`] instead).
 	/// However, the score of the nominated targets must be updated accordingly.
 	///
-	/// Note: it is assumed that who's staking state is updated *before* calling this method.
+	/// Note: it is assumed that `who`'s ledger staking state is updated *before* calling this
+	/// method.
 	fn on_nominator_update(who: &T::AccountId, prev_nominations: Vec<T::AccountId>) {
 		let nominator_vote = Self::weight_of(Self::active_vote_of(who));
 

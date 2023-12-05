@@ -222,31 +222,41 @@ pub mod pallet {
 		/// After the threshold is reached a new era will be forced.
 		type OffendingValidatorsThreshold: Get<Perbill>;
 
-		/// Something that provides a best-effort sorted list of voters aka electing nominators,
-		/// used for NPoS election.
+		/// Something that provides a best-effort sorted list of voters (aka electing and chilled
+		/// nominators), used for NPoS election.
 		///
 		/// The changes to nominators are reported to this. Moreover, each validator's self-vote is
 		/// also reported as one independent vote.
+		///
+		/// Voters will be removed from this list when their ledger is killed. Otherwise, the voter
+		/// is kept in this list, even when it is chilled.
 		///
 		/// To keep the load off the chain as much as possible, changes made to the staked amount
 		/// via rewards and slashes are not reported and thus need to be manually fixed by the
 		/// staker. In case of `bags-list`, this always means using `rebag` and `putInFrontOf`.
 		///
-		/// Invariant: what comes out of this list will always be a nominator.
+		/// Invariant: what comes out of this list will always be a nominator OR a chilled
+		/// nominator.
 		type VoterList: SortedListProvider<Self::AccountId, Score = VoteWeight>;
 
-		/// Something that provides a sorted list of targets aka electable validators, used for NPoS
-		/// election.
+		/// Something that provides a sorted list of targets (aka electable and chilled
+		/// validators), used for NPoS election.
 		///
-		/// The changes to the approval stake of each validator are reported to this. This means any
-		/// change to:
-		/// 1. The stake of any validator or nominator.
-		/// 2. The targets of any nominator
-		/// 3. The role of any staker (e.g. validator -> chilled, nominator -> validator, etc)
+		/// The changes to the approval stake of each validator are reported to this list through
+		/// [`Self::EventListeners`]. The target(s) approval stake in the list should be updated in
+		/// any of these cases:
+		/// 1. The stake of a validator or nominator is updated.
+		/// 2. The nominations of a voter are updated.
+		/// 3. A nominator or validator ledger is removed from the staking system.
 		///
-		/// Unlike `VoterList`, the values in this list are always kept up to date with rewards,
-		/// slashes, etc, and thus represent the accurate approval stake of all account being
-		/// nominated by nominators.
+		/// Unlike `VoterList`, the values in this list are always kept up to date with both the
+		/// voter and target ledger's state at all the time (even upon rewards, slashes, etc) and
+		/// thus it represent an accurate approval stake of all target accounts in the system.
+		///
+		/// Chilled validators will *not* be removed from this list. Even when chilled, the target's
+		/// approval voting must be kept up to date. In case a chilled validator re-validates their
+		/// intention to be a validator again, their target score is up to date with the nominations
+		/// in the system.
 		type TargetList: SortedListProvider<Self::AccountId, Score = BalanceOf<Self>>;
 
 		/// The maximum number of `unlocking` chunks a [`StakingLedger`] can
@@ -346,10 +356,9 @@ pub mod pallet {
 	/// The map from nominator stash key to their nomination preferences, namely the validators that
 	/// they wish to support.
 	///
-	/// Note that the keys of this storage map might become non-decodable in case the
-	/// account's [`NominationsQuota::MaxNominations`] configuration is decreased.
-	/// In this rare case, these nominators
-	/// are still existent in storage, their key is correct and retrievable (i.e. `contains_key`
+	/// Note that the keys of this storage map might become non-decodable in case the account's
+	/// [`NominationsQuota::MaxNominations`] configuration is decreased. In this rare case, these
+	/// nominators still exist in storage, their key is correct and retrievable (i.e. `contains_key`
 	/// indicates that they exist), but their value cannot be decoded. Therefore, the non-decodable
 	/// nominators will effectively not-exist, until they re-submit their preferences such that it
 	/// is within the bounds of the newly set `Config::MaxNominations`.
