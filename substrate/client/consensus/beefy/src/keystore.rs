@@ -95,9 +95,8 @@ where
 	) -> Result<<AuthorityId as RuntimeAppPublic>::Signature, error::Error> {
 		let store = self.0.clone().ok_or_else(|| error::Error::Keystore("no Keystore".into()))?;
 
-
-		// ECDSA should use ecdsa_sign_prehashed since it needs to be hashed by keccak_256 instead of blake2.
-		// As such we need to deal with producing the signatures case-by-case
+		// ECDSA should use ecdsa_sign_prehashed since it needs to be hashed by keccak_256 instead
+		// of blake2. As such we need to deal with producing the signatures case-by-case
 		let signature_byte_array: Vec<u8> = match <AuthorityId as AppCrypto>::CRYPTO_ID {
 			ecdsa::CRYPTO_ID => {
 				let msg_hash = keccak_256(message);
