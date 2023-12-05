@@ -111,10 +111,12 @@ parameter_types! {
 	pub const AssetHub: MultiLocation = Parachain(ASSET_HUB_ID).into_location();
 	pub const Collectives: MultiLocation = Parachain(COLLECTIVES_ID).into_location();
 	pub const BridgeHub: MultiLocation = Parachain(BRIDGE_HUB_ID).into_location();
+	pub const People: MultiLocation = Parachain(PEOPLE_ID).into_location();
 	pub const Wnd: MultiAssetFilter = Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) });
 	pub const WndForAssetHub: (MultiAssetFilter, MultiLocation) = (Wnd::get(), AssetHub::get());
 	pub const WndForCollectives: (MultiAssetFilter, MultiLocation) = (Wnd::get(), Collectives::get());
 	pub const WndForBridgeHub: (MultiAssetFilter, MultiLocation) = (Wnd::get(), BridgeHub::get());
+	pub const WndForPeople: (MultiAssetFilter, MultiLocation) = (Wnd::get(), People::get());
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
@@ -123,6 +125,7 @@ pub type TrustedTeleporters = (
 	xcm_builder::Case<WndForAssetHub>,
 	xcm_builder::Case<WndForCollectives>,
 	xcm_builder::Case<WndForBridgeHub>,
+	xcm_builder::Case<WndForPeople>,
 );
 
 match_types! {
