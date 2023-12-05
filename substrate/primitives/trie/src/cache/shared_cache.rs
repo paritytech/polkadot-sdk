@@ -19,11 +19,11 @@
 ///! that combines both caches and is exported to the outside.
 use super::{CacheSize, NodeCached};
 use hash_db::Hasher;
-use hashbrown::{hash_set::Entry as SetEntry, HashSet};
 use nohash_hasher::BuildNoHashHasher;
 use parking_lot::{Mutex, RwLock, RwLockWriteGuard};
 use schnellru::LruMap;
 use std::{
+	collections::{hash_map::Entry as SetEntry, HashMap},
 	hash::{BuildHasher, Hasher as _},
 	sync::Arc,
 };
@@ -148,7 +148,7 @@ pub struct SharedValueCacheLimiter {
 	heap_size: usize,
 
 	/// A set with all of the keys deduplicated to save on memory.
-	known_storage_keys: HashSet<Arc<[u8]>>,
+	known_storage_keys: HashMap<Arc<[u8]>, ()>,
 
 	/// A counter with the number of elements that got evicted from the cache.
 	///
@@ -189,10 +189,10 @@ where
 				}
 
 				self.heap_size += new_item_heap_size;
-				entry.insert();
+				entry.insert(());
 			},
 			SetEntry::Occupied(entry) => {
-				key.storage_key = entry.get().clone();
+				key.storage_key = entry.key().clone();
 			},
 		}
 
