@@ -1,0 +1,190 @@
+{
+  "name": "Rococo BEEFY",
+  "interval": "20m",
+  "rules": [
+    {
+      "expr": "",
+      "for": "20m",
+      "labels": {
+        "matrix_room": "lMunCqbBqxEqfRuUDF"
+      },
+      "annotations": {
+        "__dashboardUid__": "3sEDRyl7z",
+        "__panelId__": "6",
+        "summary": "Some Rococo BEEFY validators experienced lagging sessions"
+      },
+      "grafana_alert": {
+        "id": 42,
+        "orgId": 1,
+        "title": "Rococo BEEFY Lagging Sessions",
+        "condition": "B",
+        "data": [
+          {
+            "refId": "A",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 10800,
+              "to": 0
+            },
+            "datasourceUid": "PC96415006F908B67",
+            "model": {
+              "editorMode": "code",
+              "exemplar": true,
+              "expr": "increase(substrate_beefy_lagging_sessions{chain=\"rococo_v2_2\", node=~\"rococo.*(3-validator|3-rpc).*\"}[60m])",
+              "interval": "",
+              "intervalMs": 30000,
+              "legendFormat": "",
+              "maxDataPoints": 43200,
+              "range": true,
+              "refId": "A"
+            }
+          },
+          {
+            "refId": "B",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 0,
+              "to": 0
+            },
+            "datasourceUid": "-100",
+            "model": {
+              "conditions": [
+                {
+                  "evaluator": {
+                    "params": [
+                      0
+                    ],
+                    "type": "gt"
+                  },
+                  "operator": {
+                    "type": "and"
+                  },
+                  "query": {
+                    "params": [
+                      "A"
+                    ]
+                  },
+                  "reducer": {
+                    "params": [],
+                    "type": "last"
+                  },
+                  "type": "query"
+                }
+              ],
+              "datasource": {
+                "type": "grafana-expression",
+                "uid": "-100"
+              },
+              "hide": false,
+              "intervalMs": 1000,
+              "maxDataPoints": 43200,
+              "refId": "B",
+              "type": "classic_conditions"
+            }
+          }
+        ],
+        "updated": "2023-11-21T08:44:25Z",
+        "intervalSeconds": 1200,
+        "version": 14,
+        "uid": "eYY8ks_7z",
+        "namespace_uid": "eblDiw17z",
+        "namespace_id": 140,
+        "rule_group": "Rococo BEEFY",
+        "no_data_state": "NoData",
+        "exec_err_state": "Alerting",
+        "is_paused": false
+      }
+    },
+    {
+      "expr": "",
+      "for": "1h",
+      "labels": {
+        "matrix_room": "lMunCqbBqxEqfRuUDF"
+      },
+      "annotations": {
+        "__dashboardUid__": "3sEDRyl7z",
+        "__panelId__": "2",
+        "summary": "Rococo BEEFY best blocks have not advanced for at least 60 mins"
+      },
+      "grafana_alert": {
+        "id": 41,
+        "orgId": 1,
+        "title": "Rococo BEEFY best blocks not advancing",
+        "condition": "C",
+        "data": [
+          {
+            "refId": "A",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 10800,
+              "to": 0
+            },
+            "datasourceUid": "PC96415006F908B67",
+            "model": {
+              "editorMode": "code",
+              "expr": "increase(substrate_beefy_best_block{chain=\"rococo_v2_2\", node=~\"rococo.*(validator|rpc).*\"}[1h])",
+              "hide": false,
+              "intervalMs": 1000,
+              "maxDataPoints": 43200,
+              "range": true,
+              "refId": "A"
+            }
+          },
+          {
+            "refId": "C",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 0,
+              "to": 0
+            },
+            "datasourceUid": "-100",
+            "model": {
+              "conditions": [
+                {
+                  "evaluator": {
+                    "params": [
+                      100
+                    ],
+                    "type": "lt"
+                  },
+                  "operator": {
+                    "type": "and"
+                  },
+                  "query": {
+                    "params": [
+                      "A"
+                    ]
+                  },
+                  "reducer": {
+                    "params": [],
+                    "type": "last"
+                  },
+                  "type": "query"
+                }
+              ],
+              "datasource": {
+                "type": "grafana-expression",
+                "uid": "-100"
+              },
+              "hide": false,
+              "intervalMs": 1000,
+              "maxDataPoints": 43200,
+              "refId": "C",
+              "type": "classic_conditions"
+            }
+          }
+        ],
+        "updated": "2023-11-21T08:44:25Z",
+        "intervalSeconds": 1200,
+        "version": 15,
+        "uid": "CBuugs_7k",
+        "namespace_uid": "eblDiw17z",
+        "namespace_id": 140,
+        "rule_group": "Rococo BEEFY",
+        "no_data_state": "Alerting",
+        "exec_err_state": "Alerting",
+        "is_paused": false
+      }
+    }
+  ]
+}
