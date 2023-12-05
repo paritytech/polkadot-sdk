@@ -313,7 +313,7 @@ node-bench-regression-guard:
   after_script: [""]
 
 # if this fails run `bot update-ui` in the Pull Request or "./scripts/update-ui-tests.sh" locally
-# see ./docs/CONTRIBUTING.md#ui-tests
+# see ./docs/contributor/CONTRIBUTING.md#ui-tests
 test-frame-ui:
   stage: test
   extends:
