@@ -28,7 +28,7 @@ use frame_election_provider_support::{
 	onchain, BalancingConfig, ElectionDataProvider, SequentialPhragmen, VoteWeight,
 };
 use frame_support::{
-	construct_runtime,
+	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_config, create_default_config},
 	instances::{Instance1, Instance2},
@@ -283,29 +283,22 @@ impl pallet_safe_mode::Config for Runtime {
 	type WeightInfo = pallet_safe_mode::weights::SubstrateWeight<Runtime>;
 }
 
+#[derive_impl(frame_system::config_preludes::SolochainDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = InsideBoth<SafeMode, TxPause>;
 	type BlockWeights = RuntimeBlockWeights;
 	type BlockLength = RuntimeBlockLength;
 	type DbWeight = RocksDbWeight;
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
 	type Nonce = Nonce;
 	type Hash = Hash;
-	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = Indices;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
 	type BlockHashCount = BlockHashCount;
 	type Version = Version;
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
 	type SystemWeightInfo = frame_system::weights::SubstrateWeight<Runtime>;
 	type SS58Prefix = ConstU16<42>;
-	type OnSetCode = ();
 	type MaxConsumers = ConstU32<16>;
 }
 
@@ -2194,9 +2187,10 @@ pub type Executive = frame_executive::Executive<
 >;
 
 // All migrations executed on runtime upgrade as a nested tuple of types implementing
-// `OnRuntimeUpgrade`.
+// `OnRuntimeUpgrade`. Note: These are examples and do not need to be run directly
+// after the genesis block.
 type Migrations = (
-	pallet_nomination_pools::migration::v2::MigrateToV2<Runtime>,
+	pallet_nomination_pools::migration::versioned::V6ToV7<Runtime>,
 	pallet_alliance::migration::Migration<Runtime>,
 	pallet_contracts::Migration<Runtime>,
 );
@@ -2496,7 +2490,7 @@ impl_runtime_apis! {
 			gas_limit: Option<Weight>,
 			storage_deposit_limit: Option<Balance>,
 			input_data: Vec<u8>,
-		) -> pallet_contracts_primitives::ContractExecResult<Balance, EventRecord> {
+		) -> pallet_contracts::ContractExecResult<Balance, EventRecord> {
 			let gas_limit = gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block);
 			Contracts::bare_call(
 				origin,
@@ -2516,10 +2510,10 @@ impl_runtime_apis! {
 			value: Balance,
 			gas_limit: Option<Weight>,
 			storage_deposit_limit: Option<Balance>,
-			code: pallet_contracts_primitives::Code<Hash>,
+			code: pallet_contracts::Code<Hash>,
 			data: Vec<u8>,
 			salt: Vec<u8>,
-		) -> pallet_contracts_primitives::ContractInstantiateResult<AccountId, Balance, EventRecord>
+		) -> pallet_contracts::ContractInstantiateResult<AccountId, Balance, EventRecord>
 		{
 			let gas_limit = gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block);
 			Contracts::bare_instantiate(
@@ -2540,7 +2534,7 @@ impl_runtime_apis! {
 			code: Vec<u8>,
 			storage_deposit_limit: Option<Balance>,
 			determinism: pallet_contracts::Determinism,
-		) -> pallet_contracts_primitives::CodeUploadResult<Hash, Balance>
+		) -> pallet_contracts::CodeUploadResult<Hash, Balance>
 		{
 			Contracts::bare_upload_code(
 				origin,
@@ -2553,7 +2547,7 @@ impl_runtime_apis! {
 		fn get_storage(
 			address: AccountId,
 			key: Vec<u8>,
-		) -> pallet_contracts_primitives::GetStorageResult {
+		) -> pallet_contracts::GetStorageResult {
 			Contracts::get_storage(
 				address,
 				key

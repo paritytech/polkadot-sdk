@@ -18,8 +18,7 @@
 
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion, SamplingMode};
 use polkadot_node_core_pvf::{
-	start, testing, Config, Metrics, PrepareError, PrepareJobKind, PrepareStats, PvfPrepData,
-	ValidationHost,
+	start, testing, Config, Metrics, PrepareError, PrepareJobKind, PvfPrepData, ValidationHost,
 };
 use polkadot_primitives::ExecutorParams;
 use rococo_runtime::WASM_BINARY;
@@ -29,6 +28,8 @@ use tokio::{runtime::Handle, sync::Mutex};
 const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(30);
 
 struct TestHost {
+	// Keep a reference to the tempdir as it gets deleted on drop.
+	cache_dir: tempfile::TempDir,
 	host: Mutex<ValidationHost>,
 }
 
@@ -37,26 +38,27 @@ impl TestHost {
 	where
 		F: FnOnce(&mut Config),
 	{
-		let (prepare_worker_path, execute_worker_path) = testing::build_workers_and_get_paths(true);
+		let (prepare_worker_path, execute_worker_path) = testing::build_workers_and_get_paths();
 
 		let cache_dir = tempfile::tempdir().unwrap();
 		let mut config = Config::new(
 			cache_dir.path().to_owned(),
 			None,
+			false,
 			prepare_worker_path,
 			execute_worker_path,
 		);
 		f(&mut config);
 		let (host, task) = start(config, Metrics::default()).await.unwrap();
 		let _ = handle.spawn(task);
-		Self { host: Mutex::new(host) }
+		Self { host: Mutex::new(host), cache_dir }
 	}
 
 	async fn precheck_pvf(
 		&self,
 		code: &[u8],
 		executor_params: ExecutorParams,
-	) -> Result<PrepareStats, PrepareError> {
+	) -> Result<(), PrepareError> {
 		let (result_tx, result_rx) = futures::channel::oneshot::channel();
 
 		let code = sp_maybe_compressed_blob::decompress(code, 16 * 1024 * 1024)
