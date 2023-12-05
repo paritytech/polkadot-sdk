@@ -17,6 +17,7 @@
 
 //! Tests for `pallet-example-tasks`.
 #![cfg(test)]
+
 use crate::{mock::*, Numbers, Total};
 use frame_support::{assert_noop, assert_ok, traits::Task};
 use sp_runtime::BuildStorage;
