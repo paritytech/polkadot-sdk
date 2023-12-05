@@ -7588,13 +7588,10 @@ mod stake_tracker {
 			// calling update on a ledger with no stake changes will not affect the target's score.
 			assert_ok!(ledger.update());
 
-			assert_eq!(
-				target_bags_events(),
-				[],
-			);
+			assert_eq!(target_bags_events(), [],);
 
-			let score_11_before =  TargetBagsList::score(&11);
-			let score_21_before =  TargetBagsList::score(&21);
+			let score_11_before = TargetBagsList::score(&11);
+			let score_21_before = TargetBagsList::score(&21);
 
 			let extra = 100;
 

@@ -32,8 +32,7 @@
 //! state consistency.
 
 use frame_support::{
-	defensive,
-	ensure,
+	defensive, ensure,
 	traits::{LockableCurrency, WithdrawReasons},
 };
 use sp_staking::{OnStakingUpdate, Stake, StakerStatus, StakingAccount, StakingInterface};
@@ -185,11 +184,11 @@ impl<T: Config> StakingLedger<T> {
 		T::Currency::set_lock(STAKING_ID, &self.stash, self.total, WithdrawReasons::all());
 		Ledger::<T>::insert(controller, &self);
 
-        // fire `on_stake_update` if there was a stake update.
-        let new_stake: Stake<_> = self.clone().into();
-        if new_stake != prev_stake.unwrap_or_default() {
-		    T::EventListeners::on_stake_update(&self.stash, prev_stake);
-        }
+		// fire `on_stake_update` if there was a stake update.
+		let new_stake: Stake<_> = self.clone().into();
+		if new_stake != prev_stake.unwrap_or_default() {
+			T::EventListeners::on_stake_update(&self.stash, prev_stake);
+		}
 
 		Ok(())
 	}
@@ -227,10 +226,7 @@ impl<T: Config> StakingLedger<T> {
 	pub(crate) fn kill(stash: &T::AccountId) -> Result<(), Error<T>> {
 		let controller = <Bonded<T>>::get(stash).ok_or(Error::<T>::NotStash)?;
 
-		ensure!(
-			crate::Pallet::<T>::status(stash) == Ok(StakerStatus::Idle),
-			Error::<T>::BadState
-		);
+		ensure!(crate::Pallet::<T>::status(stash) == Ok(StakerStatus::Idle), Error::<T>::BadState);
 
 		<Ledger<T>>::get(&controller).ok_or(Error::<T>::NotController).map(|ledger| {
 			T::Currency::remove_lock(STAKING_ID, &ledger.stash);
