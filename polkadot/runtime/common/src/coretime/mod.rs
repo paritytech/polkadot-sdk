@@ -92,8 +92,7 @@ pub mod pallet {
 	}
 
 	#[pallet::event]
-	// TODO: CI requires that deposit_event is used. Uncomment it once we use it.
-	//#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// The broker chain has asked for revenue information for a specific block.
 		RevenueInfoRequested { when: BlockNumberFor<T> },
