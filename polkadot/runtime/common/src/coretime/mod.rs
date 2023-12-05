@@ -156,7 +156,6 @@ pub mod pallet {
 		/// -`end_hint`: An optional hint as to when this particular set of instructions will end.
 		// The broker pallet's `CoreIndex` definition is `u16` but on the relay chain it's `struct
 		// CoreIndex(u32)`
-		// TODO: Weights!
 		#[pallet::call_index(4)]
 		#[pallet::weight(<T as Config>::WeightInfo::assign_core(assignment.len() as u32))]
 		pub fn assign_core(
