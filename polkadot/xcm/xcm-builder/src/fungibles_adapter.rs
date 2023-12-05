@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Adapters to work with `frame_support::traits::tokens::fungibles` through XCM.
+//! Adapters to work with [`frame_support::traits::fungibles`] through XCM.
 
 use frame_support::traits::{
 	tokens::{
@@ -34,7 +34,7 @@ impl<
 		Assets: fungibles::Mutate<AccountId>,
 		Matcher: MatchesFungibles<Assets::AssetId, Assets::Balance>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		AccountId: Clone, // can't get away without it since Currency is generic over it.
+		AccountId: Eq + Clone, /* can't get away without it since Currency is generic over it. */
 	> TransactAsset for FungiblesTransferAdapter<Assets, Matcher, AccountIdConverter, AccountId>
 {
 	fn internal_transfer_asset(
@@ -150,7 +150,7 @@ impl<
 		Assets: fungibles::Mutate<AccountId>,
 		Matcher: MatchesFungibles<Assets::AssetId, Assets::Balance>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		AccountId: Clone, // can't get away without it since Currency is generic over it.
+		AccountId: Eq + Clone, /* can't get away without it since Currency is generic over it. */
 		CheckAsset: AssetChecking<Assets::AssetId>,
 		CheckingAccount: Get<AccountId>,
 	>
@@ -185,7 +185,7 @@ impl<
 		Assets: fungibles::Mutate<AccountId>,
 		Matcher: MatchesFungibles<Assets::AssetId, Assets::Balance>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		AccountId: Clone, // can't get away without it since Currency is generic over it.
+		AccountId: Eq + Clone, /* can't get away without it since Currency is generic over it. */
 		CheckAsset: AssetChecking<Assets::AssetId>,
 		CheckingAccount: Get<AccountId>,
 	> TransactAsset
@@ -274,7 +274,11 @@ impl<
 		}
 	}
 
-	fn deposit_asset(what: &MultiAsset, who: &MultiLocation, _context: &XcmContext) -> XcmResult {
+	fn deposit_asset(
+		what: &MultiAsset,
+		who: &MultiLocation,
+		_context: Option<&XcmContext>,
+	) -> XcmResult {
 		log::trace!(
 			target: "xcm::fungibles_adapter",
 			"deposit_asset what: {:?}, who: {:?}",
@@ -321,7 +325,7 @@ impl<
 		Assets: fungibles::Mutate<AccountId>,
 		Matcher: MatchesFungibles<Assets::AssetId, Assets::Balance>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		AccountId: Clone, // can't get away without it since Currency is generic over it.
+		AccountId: Eq + Clone, /* can't get away without it since Currency is generic over it. */
 		CheckAsset: AssetChecking<Assets::AssetId>,
 		CheckingAccount: Get<AccountId>,
 	> TransactAsset
@@ -371,7 +375,11 @@ impl<
 		>::check_out(dest, what, context)
 	}
 
-	fn deposit_asset(what: &MultiAsset, who: &MultiLocation, context: &XcmContext) -> XcmResult {
+	fn deposit_asset(
+		what: &MultiAsset,
+		who: &MultiLocation,
+		context: Option<&XcmContext>,
+	) -> XcmResult {
 		FungiblesMutateAdapter::<
 			Assets,
 			Matcher,

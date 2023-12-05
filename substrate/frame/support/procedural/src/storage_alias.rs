@@ -18,7 +18,7 @@
 //! Implementation of the `storage_alias` attribute macro.
 
 use crate::{counter_prefix, pallet::parse::helper};
-use frame_support_procedural_tools::generate_crate_access_2018;
+use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
 use syn::{
@@ -199,7 +199,7 @@ impl StorageType {
 	/// Generate the actual type declaration.
 	fn generate_type_declaration(
 		&self,
-		crate_: &Ident,
+		crate_: &syn::Path,
 		storage_instance: &StorageInstance,
 		storage_name: &Ident,
 		storage_generics: Option<&SimpleGenerics>,
@@ -475,7 +475,7 @@ enum PrefixType {
 /// Implementation of the `storage_alias` attribute macro.
 pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> Result<TokenStream> {
 	let input = syn::parse2::<Input>(input)?;
-	let crate_ = generate_crate_access_2018("frame-support")?;
+	let crate_ = generate_access_from_frame_or_crate("frame-support")?;
 
 	let prefix_type = if attributes.is_empty() {
 		PrefixType::Compatibility
@@ -527,7 +527,7 @@ struct StorageInstance {
 
 /// Generate the [`StorageInstance`] for the storage alias.
 fn generate_storage_instance(
-	crate_: &Ident,
+	crate_: &syn::Path,
 	storage_name: &Ident,
 	storage_generics: Option<&SimpleGenerics>,
 	storage_where_clause: Option<&WhereClause>,

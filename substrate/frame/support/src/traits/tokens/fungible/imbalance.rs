@@ -113,6 +113,13 @@ impl<B: Balance, OnDrop: HandleImbalanceDrop<B>, OppositeOnDrop: HandleImbalance
 		sp_std::mem::forget(self);
 		(Imbalance::new(first), Imbalance::new(second))
 	}
+
+	fn extract(&mut self, amount: B) -> Self {
+		let new = self.amount.min(amount);
+		self.amount = self.amount - new;
+		Imbalance::new(new)
+	}
+
 	fn merge(mut self, other: Self) -> Self {
 		self.amount = self.amount.saturating_add(other.amount);
 		sp_std::mem::forget(other);

@@ -230,6 +230,11 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
+	/// Return current authorities length.
+	pub fn authorities_len() -> usize {
+		Authorities::<T>::decode_len().unwrap_or(0)
+	}
+
 	/// Get the current slot from the pre-runtime digests.
 	fn current_slot_from_digests() -> Option<Slot> {
 		let digest = frame_system::Pallet::<T>::digest();
@@ -363,7 +368,7 @@ impl<T: Config> FindAuthor<u32> for Pallet<T> {
 		for (id, mut data) in digests.into_iter() {
 			if id == AURA_ENGINE_ID {
 				let slot = Slot::decode(&mut data).ok()?;
-				let author_index = *slot % Self::authorities().len() as u64;
+				let author_index = *slot % Self::authorities_len() as u64;
 				return Some(author_index as u32)
 			}
 		}
@@ -408,8 +413,9 @@ impl<T: Config> OnTimestampSet<T::Moment> for Pallet<T> {
 		let timestamp_slot = moment / slot_duration;
 		let timestamp_slot = Slot::from(timestamp_slot.saturated_into::<u64>());
 
-		assert!(
-			CurrentSlot::<T>::get() == timestamp_slot,
+		assert_eq!(
+			CurrentSlot::<T>::get(),
+			timestamp_slot,
 			"Timestamp slot must match `CurrentSlot`"
 		);
 	}

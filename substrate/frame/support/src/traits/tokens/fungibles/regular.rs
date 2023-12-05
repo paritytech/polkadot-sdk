@@ -250,7 +250,10 @@ pub trait Unbalanced<AccountId>: Inspect<AccountId> {
 }
 
 /// Trait for providing a basic fungible asset.
-pub trait Mutate<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
+pub trait Mutate<AccountId>: Inspect<AccountId> + Unbalanced<AccountId>
+where
+	AccountId: Eq,
+{
 	/// Increase the balance of `who` by exactly `amount`, minting new tokens. If that isn't
 	/// possible then an `Err` is returned and nothing is changed.
 	fn mint_into(
@@ -353,6 +356,9 @@ pub trait Mutate<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 	}
 
 	/// Transfer funds from one account into another.
+	///
+	/// A transfer where the source and destination account are identical is treated as No-OP after
+	/// checking the preconditions.
 	fn transfer(
 		asset: Self::AssetId,
 		source: &AccountId,
@@ -363,6 +369,10 @@ pub trait Mutate<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 		let _extra = Self::can_withdraw(asset.clone(), source, amount)
 			.into_result(preservation != Expendable)?;
 		Self::can_deposit(asset.clone(), dest, amount, Extant).into_result()?;
+		if source == dest {
+			return Ok(amount)
+		}
+
 		Self::decrease_balance(asset.clone(), source, amount, BestEffort, preservation, Polite)?;
 		// This should never fail as we checked `can_deposit` earlier. But we do a best-effort
 		// anyway.

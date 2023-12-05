@@ -195,7 +195,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		DefensiveTruncateFrom, EnqueueMessage, ExecuteOverweightError, Footprint, ProcessMessage,
-		ProcessMessageError, QueuePausedQuery, ServiceQueues,
+		ProcessMessageError, QueueFootprint, QueuePausedQuery, ServiceQueues,
 	},
 	BoundedSlice, CloneNoBound, DefaultNoBound,
 };
@@ -423,14 +423,23 @@ impl<MessageOrigin> Default for BookState<MessageOrigin> {
 	}
 }
 
+impl<MessageOrigin> From<BookState<MessageOrigin>> for QueueFootprint {
+	fn from(book: BookState<MessageOrigin>) -> Self {
+		QueueFootprint {
+			pages: book.count,
+			storage: Footprint { count: book.message_count, size: book.size },
+		}
+	}
+}
+
 /// Handler code for when the items in a queue change.
 pub trait OnQueueChanged<Id> {
 	/// Note that the queue `id` now has `item_count` items in it, taking up `items_size` bytes.
-	fn on_queue_changed(id: Id, items_count: u64, items_size: u64);
+	fn on_queue_changed(id: Id, fp: QueueFootprint);
 }
 
 impl<Id> OnQueueChanged<Id> for () {
-	fn on_queue_changed(_: Id, _: u64, _: u64) {}
+	fn on_queue_changed(_: Id, _: QueueFootprint) {}
 }
 
 #[frame_support::pallet]
@@ -584,8 +593,9 @@ pub mod pallet {
 		}
 
 		/// Check all compile-time assumptions about [`crate::Config`].
+		#[cfg(test)]
 		fn integrity_test() {
-			assert!(!MaxMessageLenOf::<T>::get().is_zero(), "HeapSize too low");
+			Self::do_integrity_test().expect("Pallet config is valid; qed")
 		}
 	}
 
@@ -759,6 +769,47 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
+	/// The maximal weight that a single message can consume.
+	///
+	/// Any message using more than this will be marked as permanently overweight and not
+	/// automatically re-attempted. Returns `None` if the servicing of a message cannot begin.
+	/// `Some(0)` means that only messages with no weight may be served.
+	fn max_message_weight(limit: Weight) -> Option<Weight> {
+		limit.checked_sub(&Self::single_msg_overhead())
+	}
+
+	/// The overhead of servicing a single message.
+	fn single_msg_overhead() -> Weight {
+		T::WeightInfo::bump_service_head()
+			.saturating_add(T::WeightInfo::service_queue_base())
+			.saturating_add(
+				T::WeightInfo::service_page_base_completion()
+					.max(T::WeightInfo::service_page_base_no_completion()),
+			)
+			.saturating_add(T::WeightInfo::service_page_item())
+			.saturating_add(T::WeightInfo::ready_ring_unknit())
+	}
+
+	/// Checks invariants of the pallet config.
+	///
+	/// The results of this can only be relied upon if the config values are set to constants.
+	#[cfg(test)]
+	fn do_integrity_test() -> Result<(), String> {
+		ensure!(!MaxMessageLenOf::<T>::get().is_zero(), "HeapSize too low");
+
+		if let Some(service) = T::ServiceWeight::get() {
+			if Self::max_message_weight(service).is_none() {
+				return Err(format!(
+					"ServiceWeight too low: {}. Must be at least {}",
+					service,
+					Self::single_msg_overhead(),
+				))
+			}
+		}
+
+		Ok(())
+	}
+
 	fn do_enqueue_message(
 		origin: &MessageOriginOf<T>,
 		message: BoundedSlice<u8, MaxMessageLenOf<T>>,
@@ -865,11 +916,7 @@ impl<T: Config> Pallet<T> {
 					T::WeightInfo::execute_overweight_page_updated()
 				};
 				BookStateFor::<T>::insert(&origin, &book_state);
-				T::QueueChangeHandler::on_queue_changed(
-					origin,
-					book_state.message_count,
-					book_state.size,
-				);
+				T::QueueChangeHandler::on_queue_changed(origin, book_state.into());
 				Ok(weight_counter.consumed().saturating_add(page_weight))
 			},
 		}
@@ -934,11 +981,7 @@ impl<T: Config> Pallet<T> {
 		book_state.message_count.saturating_reduce(page.remaining.into() as u64);
 		book_state.size.saturating_reduce(page.remaining_size.into() as u64);
 		BookStateFor::<T>::insert(origin, &book_state);
-		T::QueueChangeHandler::on_queue_changed(
-			origin.clone(),
-			book_state.message_count,
-			book_state.size,
-		);
+		T::QueueChangeHandler::on_queue_changed(origin.clone(), book_state.into());
 		Self::deposit_event(Event::PageReaped { origin: origin.clone(), index: page_index });
 
 		Ok(())
@@ -993,11 +1036,7 @@ impl<T: Config> Pallet<T> {
 		}
 		BookStateFor::<T>::insert(&origin, &book_state);
 		if total_processed > 0 {
-			T::QueueChangeHandler::on_queue_changed(
-				origin,
-				book_state.message_count,
-				book_state.size,
-			);
+			T::QueueChangeHandler::on_queue_changed(origin, book_state.into());
 		}
 		(total_processed > 0, next_ready)
 	}
@@ -1360,9 +1399,13 @@ impl<T: Config> ServiceQueues for Pallet<T> {
 	type OverweightMessageAddress = (MessageOriginOf<T>, PageIndex, T::Size);
 
 	fn service_queues(weight_limit: Weight) -> Weight {
-		// The maximum weight that processing a single message may take.
-		let overweight_limit = weight_limit;
 		let mut weight = WeightMeter::with_limit(weight_limit);
+
+		// Get the maximum weight that processing a single message may take:
+		let max_weight = Self::max_message_weight(weight_limit).unwrap_or_else(|| {
+			defensive!("Not enough weight to service a single message.");
+			Weight::zero()
+		});
 
 		let mut next = match Self::bump_service_head(&mut weight) {
 			Some(h) => h,
@@ -1374,7 +1417,7 @@ impl<T: Config> ServiceQueues for Pallet<T> {
 		let mut last_no_progress = None;
 
 		loop {
-			let (progressed, n) = Self::service_queue(next.clone(), &mut weight, overweight_limit);
+			let (progressed, n) = Self::service_queue(next.clone(), &mut weight, max_weight);
 			next = match n {
 				Some(n) =>
 					if !progressed {
@@ -1436,7 +1479,7 @@ impl<T: Config> EnqueueMessage<MessageOriginOf<T>> for Pallet<T> {
 	) {
 		Self::do_enqueue_message(&origin, message);
 		let book_state = BookStateFor::<T>::get(&origin);
-		T::QueueChangeHandler::on_queue_changed(origin, book_state.message_count, book_state.size);
+		T::QueueChangeHandler::on_queue_changed(origin, book_state.into());
 	}
 
 	fn enqueue_messages<'a>(
@@ -1447,7 +1490,7 @@ impl<T: Config> EnqueueMessage<MessageOriginOf<T>> for Pallet<T> {
 			Self::do_enqueue_message(&origin, message);
 		}
 		let book_state = BookStateFor::<T>::get(&origin);
-		T::QueueChangeHandler::on_queue_changed(origin, book_state.message_count, book_state.size);
+		T::QueueChangeHandler::on_queue_changed(origin, book_state.into());
 	}
 
 	fn sweep_queue(origin: MessageOriginOf<T>) {
@@ -1462,8 +1505,7 @@ impl<T: Config> EnqueueMessage<MessageOriginOf<T>> for Pallet<T> {
 		BookStateFor::<T>::insert(&origin, &book_state);
 	}
 
-	fn footprint(origin: MessageOriginOf<T>) -> Footprint {
-		let book_state = BookStateFor::<T>::get(&origin);
-		Footprint { count: book_state.message_count, size: book_state.size }
+	fn footprint(origin: MessageOriginOf<T>) -> QueueFootprint {
+		BookStateFor::<T>::get(&origin).into()
 	}
 }

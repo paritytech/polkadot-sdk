@@ -1,0 +1,6 @@
+error: No UnpaidExecution instruction
+  --> tests/ui/builder_pattern/no_unpaid_execution.rs:25:5
+   |
+25 | /     BuyExecution { fees: u128 },
+26 | |     Transact { call: Call },
+   | |____________________________^

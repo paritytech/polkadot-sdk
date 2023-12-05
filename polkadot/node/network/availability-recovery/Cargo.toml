@@ -1,5 +1,6 @@
 [package]
 name = "polkadot-availability-recovery"
+description = "The Availability Recovery subsystem. Handles requests for recovering the availability data of included candidates."
 version = "1.0.0"
 authors.workspace = true
 edition.workspace = true

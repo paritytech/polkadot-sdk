@@ -67,7 +67,13 @@ impl<'a, H: Hasher> trie_db::TrieCache<NodeCodec<H>> for TrieCache<'a, H> {
 /// Provider of [`TrieCache`] instances.
 pub(crate) struct CacheProvider<H: Hasher> {
 	node_cache: RefCell<BTreeMap<H::Out, NodeOwned<H::Out>>>,
-	value_cache: RefCell<BTreeMap<Box<[u8]>, trie_db::CachedValue<H::Out>>>,
+	/// Cache: `storage_root` => `storage_key` => `value`.
+	///
+	/// One `block` can for example use multiple tries (child tries) and we need to distinguish the
+	/// cached (`storage_key`, `value`) between them. For this we are using the `storage_root` to
+	/// distinguish them (even if the storage root is the same for two child tries, it just means
+	/// that both are exactly the same trie and there would happen no collision).
+	value_cache: RefCell<BTreeMap<H::Out, BTreeMap<Box<[u8]>, trie_db::CachedValue<H::Out>>>>,
 }
 
 impl<H: Hasher> CacheProvider<H> {
@@ -81,22 +87,26 @@ impl<H: Hasher> CacheProvider<H> {
 impl<H: Hasher> TrieCacheProvider<H> for CacheProvider<H> {
 	type Cache<'a> = TrieCache<'a, H> where H: 'a;
 
-	fn as_trie_db_cache(&self, _storage_root: <H as Hasher>::Out) -> Self::Cache<'_> {
+	fn as_trie_db_cache(&self, storage_root: <H as Hasher>::Out) -> Self::Cache<'_> {
 		TrieCache {
-			value_cache: Some(self.value_cache.borrow_mut()),
+			value_cache: Some(RefMut::map(self.value_cache.borrow_mut(), |c| {
+				c.entry(storage_root).or_default()
+			})),
 			node_cache: self.node_cache.borrow_mut(),
 		}
 	}
 
 	fn as_trie_db_mut_cache(&self) -> Self::Cache<'_> {
 		// This method is called when we calculate the storage root.
-		// Since we are using a simplified cache architecture,
-		// we do not have separate key spaces for different storage roots.
-		// The value cache is therefore disabled here.
+		// We are not interested in caching new values (as we would throw them away directly after a
+		// block is validated) and thus, we don't pass any `value_cache`.
 		TrieCache { value_cache: None, node_cache: self.node_cache.borrow_mut() }
 	}
 
-	fn merge<'a>(&'a self, _other: Self::Cache<'a>, _new_root: <H as Hasher>::Out) {}
+	fn merge<'a>(&'a self, _other: Self::Cache<'a>, _new_root: <H as Hasher>::Out) {
+		// This is called to merge the `value_cache` from `as_trie_db_mut_cache`, which is not
+		// activated, so we don't need to do anything here.
+	}
 }
 
 // This is safe here since we are single-threaded in WASM

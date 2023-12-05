@@ -18,42 +18,52 @@
 
 use super::*;
 use frame_support::{
-	pallet_prelude::ValueQuery, storage_alias, traits::OnRuntimeUpgrade, weights::Weight,
+	migrations::VersionedMigration, pallet_prelude::ValueQuery, storage_alias,
+	traits::OnRuntimeUpgrade, weights::Weight,
 };
 
 mod v0 {
 	use super::*;
 
-	use primitives::CollatorId;
+	use primitives::{CollatorId, Id};
+
 	#[storage_alias]
 	pub(super) type Scheduled<T: Config> = StorageValue<Pallet<T>, Vec<CoreAssignment>, ValueQuery>;
 
-	#[derive(Encode, Decode)]
-	pub struct QueuedParathread {
-		claim: primitives::ParathreadEntry,
-		core_offset: u32,
+	#[derive(Clone, Encode, Decode)]
+	#[cfg_attr(feature = "std", derive(PartialEq))]
+	pub struct ParathreadClaim(pub Id, pub CollatorId);
+
+	#[derive(Clone, Encode, Decode)]
+	#[cfg_attr(feature = "std", derive(PartialEq))]
+	pub struct ParathreadEntry {
+		/// The claim.
+		pub claim: ParathreadClaim,
+		/// Number of retries.
+		pub retries: u32,
 	}
 
-	#[derive(Encode, Decode, Default)]
-	pub struct ParathreadClaimQueue {
-		queue: Vec<QueuedParathread>,
-		next_core_offset: u32,
+	/// What is occupying a specific availability core.
+	#[derive(Clone, Encode, Decode)]
+	#[cfg_attr(feature = "std", derive(PartialEq))]
+	pub enum CoreOccupied {
+		/// A parathread.
+		Parathread(ParathreadEntry),
+		/// A parachain.
+		Parachain,
 	}
 
-	// Only here to facilitate the migration.
-	impl ParathreadClaimQueue {
-		pub fn len(self) -> usize {
-			self.queue.len()
-		}
-	}
+	/// The actual type isn't important, as we only delete the key in the state.
+	#[storage_alias]
+	pub(crate) type AvailabilityCores<T: Config> =
+		StorageValue<Pallet<T>, Vec<Option<CoreOccupied>>, ValueQuery>;
+
+	/// The actual type isn't important, as we only delete the key in the state.
+	#[storage_alias]
+	pub(super) type ParathreadQueue<T: Config> = StorageValue<Pallet<T>, (), ValueQuery>;
 
 	#[storage_alias]
-	pub(super) type ParathreadQueue<T: Config> =
-		StorageValue<Pallet<T>, ParathreadClaimQueue, ValueQuery>;
-
-	#[storage_alias]
-	pub(super) type ParathreadClaimIndex<T: Config> =
-		StorageValue<Pallet<T>, Vec<ParaId>, ValueQuery>;
+	pub(super) type ParathreadClaimIndex<T: Config> = StorageValue<Pallet<T>, (), ValueQuery>;
 
 	/// The assignment type.
 	#[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
@@ -83,53 +93,60 @@ mod v0 {
 pub mod v1 {
 	use super::*;
 	use crate::scheduler;
-	use frame_support::traits::StorageVersion;
 
-	pub struct MigrateToV1<T>(sp_std::marker::PhantomData<T>);
-	impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
+	#[allow(deprecated)]
+	pub type MigrateToV1<T> = VersionedMigration<
+		0,
+		1,
+		UncheckedMigrateToV1<T>,
+		Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+
+	#[deprecated(note = "Use MigrateToV1 instead")]
+	pub struct UncheckedMigrateToV1<T>(sp_std::marker::PhantomData<T>);
+	#[allow(deprecated)]
+	impl<T: Config> OnRuntimeUpgrade for UncheckedMigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
-			if StorageVersion::get::<Pallet<T>>() == 0 {
-				let weight_consumed = migrate_to_v1::<T>();
+			let weight_consumed = migrate_to_v1::<T>();
 
-				log::info!(target: scheduler::LOG_TARGET, "Migrating para scheduler storage to v1");
-				StorageVersion::new(1).put::<Pallet<T>>();
+			log::info!(target: scheduler::LOG_TARGET, "Migrating para scheduler storage to v1");
 
-				weight_consumed
-			} else {
-				log::warn!(target: scheduler::LOG_TARGET, "Para scheduler v1 migration should be removed.");
-				T::DbWeight::get().reads(1)
-			}
+			weight_consumed
 		}
 
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::DispatchError> {
-			log::trace!(
+			let n: u32 = v0::Scheduled::<T>::get().len() as u32 +
+				v0::AvailabilityCores::<T>::get().iter().filter(|c| c.is_some()).count() as u32;
+
+			log::info!(
 				target: crate::scheduler::LOG_TARGET,
-				"Scheduled before migration: {}",
-				v0::Scheduled::<T>::get().len()
+				"Number of scheduled and waiting for availability before: {n}",
 			);
 
-			let bytes = u32::to_be_bytes(v0::Scheduled::<T>::get().len() as u32);
-
-			Ok(bytes.to_vec())
+			Ok(n.encode())
 		}
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
-			log::trace!(target: crate::scheduler::LOG_TARGET, "Running post_upgrade()");
+			log::info!(target: crate::scheduler::LOG_TARGET, "Running post_upgrade()");
+
 			ensure!(
-				StorageVersion::get::<Pallet<T>>() >= 1,
-				"Storage version should be at least `1` after the migration"
-			);
-			ensure!(
-				v0::Scheduled::<T>::get().len() == 0,
+				v0::Scheduled::<T>::get().is_empty(),
 				"Scheduled should be empty after the migration"
 			);
 
-			let sched_len = u32::from_be_bytes(state.try_into().unwrap());
+			let expected_len = u32::decode(&mut &state[..]).unwrap();
+			let availability_cores_waiting = super::AvailabilityCores::<T>::get()
+				.iter()
+				.filter(|c| !matches!(c, CoreOccupied::Free))
+				.count();
+
 			ensure!(
-				Pallet::<T>::claimqueue_len() as u32 == sched_len,
-				"Scheduled completely moved to ClaimQueue after migration"
+				Pallet::<T>::claimqueue_len() as u32 + availability_cores_waiting as u32 ==
+					expected_len,
+				"ClaimQueue and AvailabilityCores should have the correct length",
 			);
 
 			Ok(())
@@ -140,11 +157,8 @@ pub mod v1 {
 pub fn migrate_to_v1<T: crate::scheduler::Config>() -> Weight {
 	let mut weight: Weight = Weight::zero();
 
-	let pq = v0::ParathreadQueue::<T>::take();
-	let pq_len = pq.len() as u64;
-
-	let pci = v0::ParathreadClaimIndex::<T>::take();
-	let pci_len = pci.len() as u64;
+	v0::ParathreadQueue::<T>::kill();
+	v0::ParathreadClaimIndex::<T>::kill();
 
 	let now = <frame_system::Pallet<T>>::block_number();
 	let scheduled = v0::Scheduled::<T>::take();
@@ -156,10 +170,35 @@ pub fn migrate_to_v1<T: crate::scheduler::Config>() -> Weight {
 		Pallet::<T>::add_to_claimqueue(core_idx, pe);
 	}
 
+	let parachains = paras::Pallet::<T>::parachains();
+	let availability_cores = v0::AvailabilityCores::<T>::take();
+	let mut new_availability_cores = Vec::new();
+
+	for (core_index, core) in availability_cores.into_iter().enumerate() {
+		let new_core = if let Some(core) = core {
+			match core {
+				v0::CoreOccupied::Parachain => CoreOccupied::Paras(ParasEntry::new(
+					Assignment::new(parachains[core_index]),
+					now,
+				)),
+				v0::CoreOccupied::Parathread(entry) =>
+					CoreOccupied::Paras(ParasEntry::new(Assignment::new(entry.claim.0), now)),
+			}
+		} else {
+			CoreOccupied::Free
+		};
+
+		new_availability_cores.push(new_core);
+	}
+
+	super::AvailabilityCores::<T>::set(new_availability_cores);
+
 	// 2x as once for Scheduled and once for Claimqueue
 	weight = weight.saturating_add(T::DbWeight::get().reads_writes(2 * sched_len, 2 * sched_len));
-	weight = weight.saturating_add(T::DbWeight::get().reads_writes(pq_len, pq_len));
-	weight = weight.saturating_add(T::DbWeight::get().reads_writes(pci_len, pci_len));
+	// reading parachains + availability_cores, writing AvailabilityCores
+	weight = weight.saturating_add(T::DbWeight::get().reads_writes(2, 1));
+	// 2x kill
+	weight = weight.saturating_add(T::DbWeight::get().writes(2));
 
 	weight
 }

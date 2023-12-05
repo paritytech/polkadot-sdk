@@ -192,6 +192,7 @@ pub mod benchmarks {
 mod tests {
 	use super::*;
 	use frame_support::{
+		derive_impl,
 		dispatch::DispatchClass,
 		parameter_types,
 		traits::{
@@ -237,6 +238,7 @@ mod tests {
 		pub const AvailableBlockRatio: Perbill = Perbill::one();
 	}
 
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type RuntimeOrigin = RuntimeOrigin;
@@ -274,6 +276,7 @@ mod tests {
 		type ReserveIdentifier = [u8; 8];
 		type WeightInfo = ();
 		type RuntimeHoldReason = RuntimeHoldReason;
+		type RuntimeFreezeReason = RuntimeFreezeReason;
 		type FreezeIdentifier = ();
 		type MaxHolds = ConstU32<1>;
 		type MaxFreezes = ConstU32<1>;
