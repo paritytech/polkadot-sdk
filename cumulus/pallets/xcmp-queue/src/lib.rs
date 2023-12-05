@@ -454,11 +454,21 @@ impl<T: Config> Pallet<T> {
 	) -> Result<u32, MessageSendError> {
 		let encoded_fragment = fragment.encode();
 
+		// Optimization note: `max_message_size` could potentially be stored in
+		// `OutboundXcmpMessages` once known; that way it's only accessed when a new page is needed.
+
 		let channel_info =
 			T::ChannelInfo::get_channel_info(recipient).ok_or(MessageSendError::NoChannel)?;
-		let max_message_size = channel_info.max_message_size as usize;
 		// Max message size refers to aggregates, or pages. Not to individual fragments.
-		if encoded_fragment.len() > max_message_size {
+		let max_message_size = channel_info.max_message_size as usize;
+		let format_size = format.encoded_size();
+		// We check the encoded fragment length plus the format size agains the max message size
+		// because the format is concatenated if a new page is needed.
+		let size_to_check = encoded_fragment
+			.len()
+			.checked_add(format_size)
+			.ok_or(MessageSendError::TooBig)?;
+		if size_to_check > max_message_size {
 			return Err(MessageSendError::TooBig)
 		}
 
