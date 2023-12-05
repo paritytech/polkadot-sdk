@@ -25,25 +25,18 @@
 //! The tests validate the robustness and correctness of the `OnReapIdentityHandler`
 //! ensuring that it behaves as expected in various scenarios. Key aspects tested include:
 //!
-//! - **Identity Creation**: Verifying that identities can be created with the correct
-//! information and handling of deposits.
-//! - **Sub-Account Management**: Testing the functionality for managing sub-accounts, including
-//!   creation and deposit requirements.
-//! - **Cross-Chain Functionality**: Ensuring that identities can be managed seamlessly across the
-//!   Rococo Relay Chain and the PeopleRococo Parachain, including testing cross-chain interactions
-//!   and migrations.
-//! - **Deposit Handling**: Confirming that deposits are correctly handled, reserved, and released
-//!   in various scenarios, including identity reaping.
+//! - **Deposit Handling**: Confirming that deposits are correctly migrated from the Relay Chain to
+//!   the People parachain in various scenarios (different `IdentityInfo` fields and different
+//!   numbers of sub-accounts).
 //!
 //! ### Test Scenarios
 //!
-//! The tests are categorized into several scenarios, each focusing on different aspects of the
-//! Identity Management Module:
+//! The tests are categorized into several scenarios, each resulting in different deposits required
+//! on the destination parachain. The tests ensure:
 //!
-//! - Minimal identity information with varying numbers of sub-accounts.
-//! - Full identity information with and without additional fields, again with varying numbers of
-//!   sub-accounts.
-//! - Reaping (removal) of identities and the correct release and transfer of associated deposits.
+//! - Reserved deposits on the Relay Chain are fully released;
+//! - The freed deposit from the Relay Chain is sufficient for the parachain deposit; and
+//! - The account will exist on the parachain.
 
 use crate::*;
 use frame_support::BoundedVec;
