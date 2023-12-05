@@ -105,7 +105,7 @@ impl MockNetworkBridgeTx {
 				// Account our sent request bytes.
 				self.network.peer_stats(0).inc_sent(outgoing_request.payload.encoded_size());
 
-				// If peer is disconnected return an error to the caller
+				// If peer is disconnected return an error
 				if !self.network.is_peer_connected(&authority_discovery_id) {
 					// We always send `NotConnected` error and we ignore `IfDisconnected` value in
 					// the caller.
@@ -189,7 +189,7 @@ impl MockNetworkBridgeTx {
 				// Account our sent request bytes.
 				self.network.peer_stats(0).inc_sent(outgoing_request.payload.encoded_size());
 
-				// If peer is disconnected return an error to the caller
+				// If peer is disconnected return an error
 				if !self.network.is_peer_connected(&authority_discovery_id) {
 					let future = async move {
 						let _ = outgoing_request
