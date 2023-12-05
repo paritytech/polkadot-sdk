@@ -18079,12 +18079,12 @@ dependencies = [
 name = "sp-weights"
 version = "20.0.0"
 dependencies = [
+ "bounded-collections",
  "parity-scale-codec",
  "scale-info",
  "serde",
  "smallvec",
  "sp-arithmetic",
- "sp-core",
  "sp-debug-derive 8.0.0",
  "sp-std 8.0.0",
 ]
