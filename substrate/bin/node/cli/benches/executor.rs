@@ -103,14 +103,7 @@ fn construct_block<E: Externalities>(
 
 	// execute the block to get the real header.
 	executor
-		.call(
-			ext,
-			&runtime_code,
-			"Core_initialize_block",
-			&header.encode(),
-			true,
-			CallContext::Offchain,
-		)
+		.call(ext, &runtime_code, "Core_initialize_block", &header.encode(), CallContext::Offchain)
 		.0
 		.unwrap();
 
@@ -121,7 +114,6 @@ fn construct_block<E: Externalities>(
 				&runtime_code,
 				"BlockBuilder_apply_extrinsic",
 				&i.encode(),
-				true,
 				CallContext::Offchain,
 			)
 			.0
@@ -135,7 +127,6 @@ fn construct_block<E: Externalities>(
 				&runtime_code,
 				"BlockBuilder_finalize_block",
 				&[0u8; 0],
-				true,
 				CallContext::Offchain,
 			)
 			.0
@@ -200,7 +191,6 @@ fn bench_execute_block(c: &mut Criterion) {
 							&runtime_code,
 							"Core_execute_block",
 							&block.0,
-							false,
 							CallContext::Offchain,
 						)
 						.0

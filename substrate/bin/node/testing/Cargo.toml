@@ -29,13 +29,13 @@ pallet-asset-tx-payment = { path = "../../../frame/transaction-payment/asset-tx-
 pallet-skip-feeless-payment = { path = "../../../frame/transaction-payment/skip-feeless-payment" }
 sc-block-builder = { path = "../../../client/block-builder" }
 sc-client-api = { path = "../../../client/api" }
-sc-client-db = { path = "../../../client/db", features = ["rocksdb"]}
+sc-client-db = { path = "../../../client/db", features = ["rocksdb"] }
 sc-consensus = { path = "../../../client/consensus/common" }
 sc-executor = { path = "../../../client/executor" }
 sc-service = { path = "../../../client/service", features = [
-	"test-helpers",
 	"rocksdb",
-]}
+	"test-helpers",
+] }
 sp-api = { path = "../../../primitives/api" }
 sp-block-builder = { path = "../../../primitives/block-builder" }
 sp-blockchain = { path = "../../../primitives/blockchain" }
@@ -45,5 +45,5 @@ sp-inherents = { path = "../../../primitives/inherents" }
 sp-io = { path = "../../../primitives/io" }
 sp-keyring = { path = "../../../primitives/keyring" }
 sp-runtime = { path = "../../../primitives/runtime" }
-sp-timestamp = { path = "../../../primitives/timestamp", default-features = false}
+sp-timestamp = { path = "../../../primitives/timestamp", default-features = false }
 substrate-test-client = { path = "../../../test-utils/client" }
