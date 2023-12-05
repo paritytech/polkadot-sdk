@@ -1015,8 +1015,8 @@ fn lease_holding_parachains_have_no_upgrade_costs() {
 		run_to_session(START_SESSION_INDEX + 4);
 		assert!(Registrar::is_parachain(para_id));
 
-		// The lease holding parachain should be able to schedule a code upgrade without any additional 
-		// deposit or fees necessary.
+		// The lease holding parachain should be able to schedule a code upgrade without any
+		// additional deposit or fees necessary.
 
 		let location: MultiLocation = (Parent, Parachain(para_id.into())).into();
 		let sovereign_account =

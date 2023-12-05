@@ -41,7 +41,7 @@ use runtime_parachains::paras::{OnNewHead, ParaKind};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{CheckedSub, Saturating},
-	RuntimeDebug,
+	DispatchError, RuntimeDebug, TokenError,
 };
 use xcm::opaque::lts::{Junction::Parachain, MultiLocation, Parent};
 use xcm_executor::traits::ConvertLocation;
@@ -731,13 +731,14 @@ impl<T: Config> Pallet<T> {
 			.saturating_add(per_byte_fee.saturating_mul((new_code.0.len() as u32).into()));
 
 		let mut info = Paras::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
-		let deposit_info = Deposits::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
+		let current_deposit_info =
+			Deposits::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
 
 		let current_deposit = info.deposit;
-		let current_depositor = deposit_info.depositor;
+		let current_depositor = current_deposit_info.depositor.clone();
 
 		if let Some(caller) = maybe_caller.clone() {
-			if caller != current_depositor {
+			let new_deposit_info = if caller != current_depositor {
 				// If the caller is not the one who had their funds reserved for this parachain, we
 				// will unreserve all funds from the original depositor and reserve the required
 				// amount from the new depositor.
@@ -746,41 +747,39 @@ impl<T: Config> Pallet<T> {
 				// deposit reserved for this parachain. Reserving the deposit across both the para
 				// manager and the parachain itself could unnecessarily complicate refunds.
 
-				<T as Config>::Currency::reserve(&caller, new_deposit)?;
-				<T as Config>::Currency::unreserve(&current_depositor, current_deposit);
-
 				// Update the depositor to the caller.
-				let deposit_info = DepositInfo { depositor: caller.clone(), pending_refund: None };
-				Deposits::<T>::insert(para, deposit_info);
-			} else if current_deposit < new_deposit {
-				// The caller is the current depositor and an additional deposit is required to
-				// cover for the new validation code which has a greater size compared to the old
-				// one.
-
-				let excess = new_deposit.saturating_sub(current_deposit);
-				<T as Config>::Currency::reserve(&caller, excess)?;
+				DepositInfo { depositor: caller.clone(), pending_refund: None }
 			} else if current_deposit > new_deposit {
-				// The caller is the current depositor and in the that case the existing deposit
-				// exceeds the required amount due to validation code reduction, the excess deposit
-				// will be returned to  the caller.
+				// The caller is the current depositor and the existing deposit exceeds the required
+				// amount.
+				//
+				// The excess deposit will be refunded to the caller upon the success of the code
+				// upgrade.
 				//
 				// The reason why the deposit is not instantly refunded is that scheduling a code
-				// upgrade doesn't guarantee the success of an upgrade.
+				// upgrade doesn't guarantee the success of it.
 				//
 				// If we returned the deposit here, a possible attack scenario would be to register
 				// the validation code of a parachain and then schedule a code upgrade to set the
 				// code to an empty blob. In such a case, the pre-checking process would fail, so
 				// the old code would remain on-chain even though there is no deposit to cover it.
 
-				let deposit_info = DepositInfo {
+				DepositInfo {
 					depositor: caller.clone(),
 					pending_refund: Some((
-						current_depositor,
+						current_depositor.clone(),
 						current_deposit.saturating_sub(new_deposit),
 					)),
-				};
-				Deposits::<T>::insert(para, deposit_info);
-			}
+				}
+			} else {
+				// The caller is the current depositor and there is no funds to be refunded hence
+				// the deposit infor remains the same.
+				current_deposit_info.clone()
+			};
+
+			// Before dealing with any currency operations, we ensure beforehand that all of them
+			// will be successful.
+			// TODO: Check before charging the fee.
 
 			<T as Config>::Currency::withdraw(
 				&caller,
@@ -789,9 +788,37 @@ impl<T: Config> Pallet<T> {
 				ExistenceRequirement::KeepAlive,
 			)?;
 
+			ensure!(
+				<T as Config>::Currency::can_reserve(&new_deposit_info.depositor, new_deposit),
+				DispatchError::Token(TokenError::FundsUnavailable)
+			);
+
+			let additional_deposit = if caller != current_depositor {
+				// Since the depositor changed the additional deposit needs to account for storing
+				// the new entire validation code.
+				new_deposit
+			} else {
+				// The depositor did not change, so we only have to reserve the difference to
+				// account for the increase in the validation code.
+				new_deposit.saturating_sub(current_deposit)
+			};
+
+			<T as Config>::Currency::reserve(&caller, additional_deposit)?;
+
+			if caller != current_depositor {
+				// After reserving the required funds from the new depositor we can now safely
+				// refund the old depositor.
+				<T as Config>::Currency::unreserve(&current_depositor, current_deposit);
+			}
+
 			// Update the deposit to the new appropriate amount.
 			info.deposit = new_deposit;
 			Paras::<T>::insert(para, info);
+
+			// We update the deposit info if it changed.
+			if current_deposit_info != new_deposit_info {
+				Deposits::<T>::insert(para, new_deposit_info);
+			}
 		} else if current_deposit > new_deposit {
 			// The depositor should receive a refund if the current deposit exceeds the new required
 			// deposit, even if they did not initiate the upgrade.
@@ -860,8 +887,13 @@ impl<T: Config> OnNewHead for Pallet<T> {
 
 impl<T: Config> OnCodeUpgrade for Pallet<T> {
 	fn on_code_upgrade(id: ParaId) -> Weight {
-		let mut deposit_info =
-			Deposits::<T>::get(id).expect("The depositor must be known for each parachain; qed");
+		let maybe_deposit_info = Deposits::<T>::get(id);
+		if maybe_deposit_info.is_none() {
+			return T::DbWeight::get().reads(1)
+		}
+
+		let mut deposit_info = maybe_deposit_info
+			.expect("Ensured above that the deposit info is stored for the parachain; qed");
 
 		if let Some((who, rebate)) = deposit_info.pending_refund {
 			<T as Config>::Currency::unreserve(&who, rebate);
