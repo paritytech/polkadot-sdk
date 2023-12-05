@@ -9,7 +9,8 @@ license.workspace = true
 [dependencies]
 polkadot-primitives = { path = "../primitives" }
 polkadot-node-primitives = { package = "polkadot-node-primitives", path = "../node/primitives" }
-novelpoly = { package = "reed-solomon-novelpoly", version = "1.0.2" }
+# novelpoly = { package = "reed-solomon-novelpoly", path = "/Users/alindima/Desktop/code/reed-solomon-novelpoly/reed-solomon-novelpoly"}
+novelpoly = { git = "https://github.com/paritytech/reed-solomon-novelpoly.git", package = "reed-solomon-novelpoly", branch = "master" }
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["std", "derive"] }
 sp-core = { path = "../../substrate/primitives/core" }
 sp-trie = { path = "../../substrate/primitives/trie" }

@@ -919,13 +919,16 @@ async fn erasure_task_thread(
 			Some(ErasureTask::Reconstruct(n_validators, chunks, sender)) => {
 				let _ = sender.send(polkadot_erasure_coding::reconstruct_v1(
 					n_validators,
-					chunks.iter().map(|(c_index, chunk)| {
-						(
-							&chunk.chunk[..],
-							usize::try_from(c_index.0)
-								.expect("usize is at least u32 bytes on all modern targets."),
-						)
-					}),
+					chunks
+						.iter()
+						.map(|(c_index, chunk)| {
+							(
+								&chunk.chunk[..],
+								usize::try_from(c_index.0)
+									.expect("usize is at least u32 bytes on all modern targets."),
+							)
+						})
+						.collect(),
 				));
 			},
 			Some(ErasureTask::Reencode(n_validators, root, available_data, sender)) => {

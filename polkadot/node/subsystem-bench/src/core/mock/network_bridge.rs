@@ -91,7 +91,7 @@ impl MockNetworkBridgeTx {
 					.peer_stats_by_id(authority_discovery_id.clone())
 					.inc_received(outgoing_request.payload.encoded_size());
 
-				let validator_index: usize = outgoing_request.payload.index.0 as usize;
+				let chunk_index: usize = outgoing_request.payload.index.0 as usize;
 				let candidate_hash = outgoing_request.payload.candidate_hash;
 
 				let candidate_index = self
@@ -102,8 +102,7 @@ impl MockNetworkBridgeTx {
 				gum::warn!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
 
 				let chunk: ChunkResponse =
-					self.availabilty.chunks.get(*candidate_index as usize).unwrap()
-						[validator_index]
+					self.availabilty.chunks.get(*candidate_index as usize).unwrap()[chunk_index]
 						.clone()
 						.into();
 				let mut size = chunk.encoded_size();

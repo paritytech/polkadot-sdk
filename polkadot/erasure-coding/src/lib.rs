@@ -36,6 +36,8 @@ use thiserror::Error;
 
 use novelpoly::{CodeParams, WrappedShard};
 
+pub mod cpp;
+
 // we are limited to the field order of GF(2^16), which is 65536
 const MAX_VALIDATORS: usize = novelpoly::f2e16::FIELD_SIZE;
 
@@ -182,13 +184,14 @@ pub fn reconstruct_from_systematic<T: Decode>(
 ///
 /// Works only up to 65536 validators, and `n_validators` must be non-zero.
 pub fn obtain_chunks_v1(n_validators: usize, data: &AvailableData) -> Result<Vec<Vec<u8>>, Error> {
-	obtain_chunks(n_validators, data)
+	// obtain_chunks(n_validators, data)
+	Ok(cpp::obtain_chunks(n_validators, data))
 }
 
 /// Obtain erasure-coded chunks, one for each validator.
 ///
 /// Works only up to 65536 validators, and `n_validators` must be non-zero.
-pub fn obtain_chunks<T: Encode>(n_validators: usize, data: &T) -> Result<Vec<Vec<u8>>, Error> {
+fn obtain_chunks<T: Encode>(n_validators: usize, data: &T) -> Result<Vec<Vec<u8>>, Error> {
 	let params = code_params(n_validators)?;
 	let encoded = data.encode();
 
@@ -211,11 +214,19 @@ pub fn obtain_chunks<T: Encode>(n_validators: usize, data: &T) -> Result<Vec<Vec
 /// are provided, recovery is not possible.
 ///
 /// Works only up to 65536 validators, and `n_validators` must be non-zero.
-pub fn reconstruct_v1<'a, I: 'a>(n_validators: usize, chunks: I) -> Result<AvailableData, Error>
-where
-	I: IntoIterator<Item = (&'a [u8], usize)>,
-{
-	reconstruct(n_validators, chunks)
+pub fn reconstruct_v1(
+	n_validators: usize,
+	mut chunks: Vec<(&[u8], usize)>,
+) -> Result<AvailableData, Error> {
+	// reconstruct(n_validators, chunks)
+	let cpp_chunks = {
+		let mut new_chunks = vec![vec![]; n_validators];
+		for (chunk, index) in chunks.into_iter() {
+			new_chunks[index] = chunk.to_vec();
+		}
+		new_chunks
+	};
+	Ok(cpp::reconstruct(n_validators, cpp_chunks.iter().map(|c| c.as_slice()).collect()))
 }
 
 /// Reconstruct decodable data from a set of chunks.

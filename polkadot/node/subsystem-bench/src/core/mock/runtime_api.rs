@@ -16,13 +16,15 @@
 //!
 //! A generic runtime api subsystem mockup suitable to be used in benchmarks.
 
-use polkadot_primitives::{GroupIndex, IndexedVec, SessionInfo, ValidatorIndex};
-
 use polkadot_node_subsystem::{
 	messages::{RuntimeApiMessage, RuntimeApiRequest},
 	overseer, SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_types::OverseerSignal;
+use polkadot_primitives::{
+	vstaging::{node_features, NodeFeatures},
+	GroupIndex, IndexedVec, SessionInfo, ValidatorIndex,
+};
 
 use crate::core::configuration::{TestAuthorities, TestConfiguration};
 use futures::FutureExt;
@@ -97,6 +99,19 @@ impl MockRuntimeApi {
 							RuntimeApiRequest::SessionInfo(_session_index, sender),
 						) => {
 							let _ = sender.send(Ok(Some(self.session_info())));
+						},
+						RuntimeApiMessage::Request(
+							_request,
+							RuntimeApiRequest::NodeFeatures(_session_index, sender),
+						) => {
+							let mut node_features = NodeFeatures::new();
+							node_features.resize(
+								node_features::AVAILABILITY_CHUNK_SHUFFLING as usize + 1,
+								false,
+							);
+							node_features
+								.set(node_features::AVAILABILITY_CHUNK_SHUFFLING.into(), true);
+							let _ = sender.send(Ok(node_features));
 						},
 						// Long term TODO: implement more as needed.
 						_ => {

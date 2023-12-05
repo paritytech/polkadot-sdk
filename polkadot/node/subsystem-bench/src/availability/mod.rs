@@ -60,8 +60,8 @@ use polkadot_node_primitives::{AvailableData, ErasureChunk};
 use super::{cli::TestObjective, core::mock::AlwaysSupportsParachains};
 use polkadot_node_subsystem_test_helpers::mock::new_block_import_info;
 use polkadot_primitives::{
-	CandidateHash, CandidateReceipt, GroupIndex, Hash, HeadData, PersistedValidationData,
-	ValidatorIndex,
+	BlockNumber, CandidateHash, CandidateReceipt, ChunkIndex, GroupIndex, Hash, HeadData,
+	PersistedValidationData, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 use sc_service::SpawnTaskHandle;
@@ -147,7 +147,7 @@ fn prepare_test_inner(
 			Metrics::try_register(&dependencies.registry).unwrap(),
 		)
 	} else {
-		AvailabilityRecoverySubsystem::with_chunks_only(
+		AvailabilityRecoverySubsystem::with_systematic_chunks(
 			collation_req_receiver,
 			Metrics::try_register(&dependencies.registry).unwrap(),
 		)
@@ -307,7 +307,7 @@ fn derive_erasure_chunks_with_proofs_and_root(
 		.enumerate()
 		.map(|(index, (proof, chunk))| ErasureChunk {
 			chunk: chunk.to_vec(),
-			index: ValidatorIndex(index as _),
+			index: ChunkIndex(index as _),
 			proof: Proof::try_from(proof).unwrap(),
 		})
 		.collect::<Vec<ErasureChunk>>();
@@ -345,6 +345,7 @@ pub async fn benchmark_availability_read(env: &mut TestEnvironment, mut state: T
 					Some(GroupIndex(
 						candidate_num as u32 % (std::cmp::max(5, config.n_cores) / 5) as u32,
 					)),
+					Some(block_num as u32),
 					tx,
 				),
 			);
