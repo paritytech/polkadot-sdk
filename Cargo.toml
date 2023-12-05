@@ -180,6 +180,7 @@ members = [
 	"polkadot/utils/generate-bags",
 	"polkadot/utils/remote-ext-tests/bags-list",
 	"polkadot/xcm",
+	"polkadot/xcm/docs",
 	"polkadot/xcm/pallet-xcm",
 	"polkadot/xcm/pallet-xcm-benchmarks",
 	"polkadot/xcm/procedural",

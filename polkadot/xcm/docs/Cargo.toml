@@ -1,0 +1,27 @@
+[package]
+name = "xcm-docs"
+description = "Documentation and guides for XCM"
+version = "0.0.1"
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[dependencies]
+# For XCM stuff
+xcm = { version = "5.0.0", package = "staging-xcm" }
+xcm-executor = { version = "5.0.0", package = "staging-xcm-executor" }
+xcm-simulator = "5.0.0"
+
+# For building FRAME runtimes
+frame = { path = "../../../substrate/frame", features = ["experimental", "runtime"] }
+codec = { package = "parity-scale-codec", version = "3.6.9" }
+polkadot-parachain-primitives = { path = "../../../polkadot/parachain" }
+polkadot-primitives = { path = "../../../polkadot/primitives" }
+sp-runtime = { path = "../../../substrate/primitives/runtime" }
+sp-std = { path = "../../../substrate/primitives/std" }
+sp-io = { path = "../../../substrate/primitives/io" }
+
+# For building docs
+simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", branch = "main" }
+docify = "0.2.6"
