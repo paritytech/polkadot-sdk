@@ -38,9 +38,9 @@ use crate::{error, LOG_TARGET};
 // RuntimeAppPublic + BeefyAuthorityId<BeefySignatureHasher> >  AuthorityIdBound for T { type
 // Signature = AppCrypto::Signature; }
 
-/// A BEEFY specific keystore i mplemented as a `Newtype`. This is basically a
+/// A BEEFY specific keystore implemented as a `Newtype`. This is basically a
 /// wrapper around [`sp_keystore::Keystore`] and allows to customize
-/// commoncryptographic functionality.
+/// common cryptographic functionality.
 pub(crate) struct BeefyKeystore<AuthorityId: AuthorityIdBound>(
 	Option<KeystorePtr>,
 	PhantomData<fn() -> AuthorityId>,
@@ -95,9 +95,8 @@ where
 	) -> Result<<AuthorityId as RuntimeAppPublic>::Signature, error::Error> {
 		let store = self.0.clone().ok_or_else(|| error::Error::Keystore("no Keystore".into()))?;
 
-		//ECDSA shoud do ecdsa_sign_prehashed because it needs to be hashed by keccak_256
-		//as such we need to deal with signing case by case
-
+		// ECDSA should use ecdsa_sign_prehashed since it needs to be hashed by keccak_256 instead
+		// of blake2. As such we need to deal with producing the signatures case-by-case
 		let signature_byte_array: Vec<u8> = match <AuthorityId as AppCrypto>::CRYPTO_ID {
 			ecdsa::CRYPTO_ID => {
 				let msg_hash = keccak_256(message);

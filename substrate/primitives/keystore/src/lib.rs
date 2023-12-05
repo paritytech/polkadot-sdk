@@ -356,7 +356,7 @@ pub trait Keystore: Send + Sync {
 	) -> Result<Option<ecdsa_bls377::Signature>, Error>;
 
 	/// Hashes the `message` using keccak256 and then signs it using ECDSA
-	/// algorithm. It does not affect the behavoir of BLS12-377 component. It generates
+	/// algorithm. It does not affect the behavior of BLS12-377 component. It generates
 	/// BLS12-377 Signature according to IETF standard.
 	///
 	/// Receives [`KeyTypeId`] and a [`ecdsa_bls377::Public`] key to be able to map

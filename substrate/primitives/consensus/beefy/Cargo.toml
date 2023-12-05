@@ -21,8 +21,8 @@ sp-core = { path = "../../core", default-features = false }
 sp-io = { path = "../../io", default-features = false }
 sp-mmr-primitives = { path = "../../merkle-mountain-range", default-features = false }
 sp-runtime = { path = "../../runtime", default-features = false }
-sp-std = { path = "../../std", default-features = false }
 sp-keystore = { path = "../../keystore", default-features = false}
+sp-std = { path = "../../std", default-features = false }
 strum = { version = "0.24.1", features = ["derive"], default-features = false }
 lazy_static = "1.4.0"
 
