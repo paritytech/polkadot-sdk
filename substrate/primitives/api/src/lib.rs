@@ -406,14 +406,14 @@ pub use sp_api_proc_macro::impl_runtime_apis;
 
 /// Mocks given trait implementations as runtime apis.
 ///
-/// Accepts similar syntax as [`impl_runtime_apis!`] and generates
-/// simplified mock implementations of the given runtime apis. The difference in syntax is that
-/// the trait does not need to be referenced by a qualified path, methods accept the `&self`
-/// parameter and the error type can be specified as associated type. If no error type is
-/// specified [`String`] is used as error type.
+/// Accepts similar syntax as [`impl_runtime_apis!`] and generates simplified mock
+/// implementations of the given runtime apis. The difference in syntax is that the trait does
+/// not need to be referenced by a qualified path, methods accept the `&self` parameter and the
+/// error type can be specified as associated type. If no error type is specified [`String`] is
+/// used as error type.
 ///
-/// Besides implementing the given traits, the [`Core`](sp_api::Core) and
-/// [`ApiExt`](sp_api::ApiExt) are implemented automatically.
+/// Besides implementing the given traits, the [`Core`] and [`ApiExt`] are implemented
+/// automatically.
 ///
 /// # Example
 ///
