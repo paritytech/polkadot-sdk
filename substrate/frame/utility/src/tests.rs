@@ -399,6 +399,15 @@ fn as_derivative_filters() {
 }
 
 #[test]
+fn as_derivative_u32_compat_with_old_u16() {
+	new_test_ext().execute_with(|| {
+		let sub_1_0 = Utility::derivative_account_id(1, 0);
+		const SAME_DERIVATIVE_AS_WITH_OLD_U16_INDEX: u64 = 13950085325555297514;
+		assert_eq!(sub_1_0, SAME_DERIVATIVE_AS_WITH_OLD_U16_INDEX);
+	})
+}
+
+#[test]
 fn batch_with_root_works() {
 	new_test_ext().execute_with(|| {
 		let k = b"a".to_vec();
