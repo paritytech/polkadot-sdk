@@ -56,7 +56,7 @@ sp-runtime-interface = { path = "../runtime-interface", default-features = false
 # bls crypto
 w3f-bls = { version = "0.1.3", default-features = false, optional = true }
 # bandersnatch crypto
-bandersnatch_vrfs = { git = "https://github.com/w3f/ring-vrf", rev = "3ddc205", default-features = false, optional = true }
+bandersnatch_vrfs = { git = "https://github.com/w3f/ring-vrf", rev = "2019248", default-features = false, features = ["substrate-curves"], optional = true }
 
 [dev-dependencies]
 criterion = "0.4.0"

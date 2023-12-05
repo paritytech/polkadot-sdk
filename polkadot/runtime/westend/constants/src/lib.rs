@@ -106,6 +106,8 @@ pub mod system_parachain {
 	pub const COLLECTIVES_ID: u32 = 1001;
 	/// BridgeHub parachain ID.
 	pub const BRIDGE_HUB_ID: u32 = 1002;
+	/// People Chain parachain ID.
+	pub const PEOPLE_ID: u32 = 1004;
 
 	frame_support::match_types! {
 		pub type SystemParachains: impl Contains<MultiLocation> = {
