@@ -80,11 +80,7 @@ frame_election_provider_support::generate_solution_type!(
 
 /// All events of this pallet.
 pub(crate) fn multi_phase_events() -> Vec<super::Event<Runtime>> {
-	System::events()
-		.into_iter()
-		.map(|r| r.event)
-		.filter_map(|e| if let RuntimeEvent::MultiPhase(inner) = e { Some(inner) } else { None })
-		.collect::<Vec<_>>()
+	System::read_events_for_pallet::<super::Event<Runtime>>()
 }
 
 /// To from `now` to block `n`.
