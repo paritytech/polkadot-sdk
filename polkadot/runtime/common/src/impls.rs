@@ -192,6 +192,7 @@ pub mod benchmarks {
 mod tests {
 	use super::*;
 	use frame_support::{
+		derive_impl,
 		dispatch::DispatchClass,
 		parameter_types,
 		traits::{
@@ -237,6 +238,7 @@ mod tests {
 		pub const AvailableBlockRatio: Perbill = Perbill::one();
 	}
 
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type RuntimeOrigin = RuntimeOrigin;

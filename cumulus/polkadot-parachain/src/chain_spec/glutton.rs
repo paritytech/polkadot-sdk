@@ -22,62 +22,6 @@ use sp_core::sr25519;
 
 use super::get_collator_keys_from_seed;
 
-pub fn glutton_development_config(para_id: ParaId) -> GenericChainSpec {
-	GenericChainSpec::builder(
-		glutton_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		Extensions { relay_chain: "kusama-dev".into(), para_id: para_id.into() },
-	)
-	.with_name("Glutton Development")
-	.with_id("glutton_dev")
-	.with_chain_type(ChainType::Local)
-	.with_genesis_config_patch(glutton_genesis(
-		para_id,
-		vec![get_collator_keys_from_seed::<AuraId>("Alice")],
-	))
-	.build()
-}
-
-pub fn glutton_local_config(para_id: ParaId) -> GenericChainSpec {
-	GenericChainSpec::builder(
-		glutton_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		Extensions { relay_chain: "kusama-local".into(), para_id: para_id.into() },
-	)
-	.with_name("Glutton Local")
-	.with_id("glutton_local")
-	.with_chain_type(ChainType::Local)
-	.with_genesis_config_patch(glutton_genesis(
-		para_id,
-		vec![
-			get_collator_keys_from_seed::<AuraId>("Alice"),
-			get_collator_keys_from_seed::<AuraId>("Bob"),
-		],
-	))
-	.build()
-}
-
-pub fn glutton_config(para_id: ParaId) -> GenericChainSpec {
-	let mut properties = sc_chain_spec::Properties::new();
-	properties.insert("ss58Format".into(), 2.into());
-
-	GenericChainSpec::builder(
-		glutton_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		Extensions { relay_chain: "kusama".into(), para_id: para_id.into() },
-	)
-	.with_name(format!("Glutton {}", para_id).as_str())
-	.with_id(format!("glutton-kusama-{}", para_id).as_str())
-	.with_chain_type(ChainType::Live)
-	.with_genesis_config_patch(glutton_genesis(
-		para_id,
-		vec![
-			get_collator_keys_from_seed::<AuraId>("Alice"),
-			get_collator_keys_from_seed::<AuraId>("Bob"),
-		],
-	))
-	.with_protocol_id(format!("glutton-kusama-{}", para_id).as_str())
-	.with_properties(properties)
-	.build()
-}
-
 fn glutton_genesis(parachain_id: ParaId, collators: Vec<AuraId>) -> serde_json::Value {
 	serde_json::json!( {
 		"parachainInfo": {
