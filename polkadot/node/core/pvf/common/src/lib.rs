@@ -33,6 +33,7 @@ const LOG_TARGET: &str = "parachain::pvf-common";
 
 pub const RUNTIME_VERSION: &str = env!("SUBSTRATE_WASMTIME_VERSION");
 
+use parity_scale_codec::{Decode, Encode};
 use std::{
 	io::{self, Read, Write},
 	mem,
@@ -46,15 +47,24 @@ pub mod tests {
 	pub const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(30);
 }
 
-/// Status of security features on thfe current system.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+/// Status of security features on the current system.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Encode, Decode)]
 pub struct SecurityStatus {
+	/// Whether Secure Validator Mode is enabled. This mode enforces that all required security
+	/// features are present. All features are enabled on a best-effort basis regardless.
+	pub secure_validator_mode: bool,
 	/// Whether the landlock features we use are fully available on this system.
 	pub can_enable_landlock: bool,
 	/// Whether the seccomp features we use are fully available on this system.
 	pub can_enable_seccomp: bool,
 	/// Whether we are able to unshare the user namespace and change the filesystem root.
 	pub can_unshare_user_namespace_and_change_root: bool,
+}
+
+/// A handshake with information for the worker.
+#[derive(Debug, Encode, Decode)]
+pub struct WorkerHandshake {
+	pub security_status: SecurityStatus,
 }
 
 /// Write some data prefixed by its length into `w`. Sync version of `framed_send` to avoid
