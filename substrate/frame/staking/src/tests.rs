@@ -141,7 +141,6 @@ fn kill_stash_works() {
 }
 
 #[test]
-#[should_panic]
 fn kill_ledger_preconditions_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		// Account 11 (also controller) is stashed and locked
@@ -7473,7 +7472,6 @@ mod stake_tracker {
 			assert_eq!(
 				target_bags_events(),
 				[
-					BagsEvent::ScoreUpdated { who: 11, new_score: 1500 },
 					BagsEvent::Rebagged { who: 11, from: 2000, to: 10000 },
 					BagsEvent::ScoreUpdated { who: 11, new_score: 9555 },
 					BagsEvent::Rebagged { who: 11, from: 10000, to: u128::MAX },
@@ -7591,6 +7589,44 @@ mod stake_tracker {
 					.filter(|t| Staking::status(&t).unwrap() != StakerStatus::Idle)
 					.collect::<Vec<_>>(),
 				[21, 31],
+			);
+		})
+	}
+
+	#[test]
+	fn no_redundant_update_ledger_events() {
+		ExtBuilder::default().build_and_execute(|| {
+			// 101 nominates 11 and 21.
+			assert_eq!(Staking::status(&101), Ok(StakerStatus::Nominator(vec![11, 21])));
+
+			let ledger = Staking::ledger(StakingAccount::Stash(101)).unwrap();
+
+			// calling update on a ledger with no stake changes will not affect the target's score.
+			assert_ok!(ledger.update());
+
+			assert_eq!(
+				target_bags_events(),
+				[],
+			);
+
+			let score_11_before =  TargetBagsList::score(&11);
+			let score_21_before =  TargetBagsList::score(&21);
+
+			let extra = 100;
+
+			// however, updating the stake of the nominator will affect the score of its nominated
+			// targets, as expected.
+			let mut ledger = Staking::ledger(StakingAccount::Stash(101)).unwrap();
+			ledger.active += extra;
+			ledger.total += extra;
+			assert_ok!(ledger.update());
+
+			assert_eq!(
+				target_bags_events(),
+				[
+					BagsEvent::ScoreUpdated { who: 11, new_score: score_11_before + extra },
+					BagsEvent::ScoreUpdated { who: 21, new_score: score_21_before + extra },
+				],
 			);
 		})
 	}

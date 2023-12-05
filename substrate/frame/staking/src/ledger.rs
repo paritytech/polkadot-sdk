@@ -33,7 +33,8 @@
 
 use frame_support::{
 	defensive,
-	traits::{Defensive, LockableCurrency, WithdrawReasons},
+	ensure,
+	traits::{LockableCurrency, WithdrawReasons},
 };
 use sp_staking::{OnStakingUpdate, Stake, StakerStatus, StakingAccount, StakingInterface};
 use sp_std::prelude::*;
@@ -184,7 +185,11 @@ impl<T: Config> StakingLedger<T> {
 		T::Currency::set_lock(STAKING_ID, &self.stash, self.total, WithdrawReasons::all());
 		Ledger::<T>::insert(controller, &self);
 
-		T::EventListeners::on_stake_update(&self.stash, prev_stake);
+        // fire `on_stake_update` if there was a stake update.
+        let new_stake: Stake<_> = self.clone().into();
+        if new_stake != prev_stake.unwrap_or_default() {
+		    T::EventListeners::on_stake_update(&self.stash, prev_stake);
+        }
 
 		Ok(())
 	}
@@ -214,18 +219,18 @@ impl<T: Config> StakingLedger<T> {
 
 	/// Clears all data related to a staking ledger and its bond in both [`Ledger`] and [`Bonded`]
 	/// storage items and updates the stash staking lock.
+	///
+	/// Note: we assume that [`T::EventListeners::on_nominator_remove`] and/or
+	/// [`T::EventListeners::on_validator_remove`] have been called and the stash is idle, prior to
+	/// call this method. This can be achieved by calling `[crate::Pallet::<T>::kill_stash]` prior
+	/// to this call.
 	pub(crate) fn kill(stash: &T::AccountId) -> Result<(), Error<T>> {
 		let controller = <Bonded<T>>::get(stash).ok_or(Error::<T>::NotStash)?;
 
-		// Note: by now, we expect that the caller has already called `on_nominator_remove` and/or
-		// `on_validator_remove` and the stash is idle. This can be achieved by calling
-		// `[crate::Pallet::<T>::kill_stash]` prior to this call.
-		if crate::Pallet::<T>::status(stash).defensive_unwrap_or(StakerStatus::Idle) !=
-			StakerStatus::Idle
-		{
-			defensive!("tried to kill a ledger before calling `kill_stash()`. this may lead to inconsistent states.");
-			return Err(Error::<T>::BadState)
-		}
+		ensure!(
+			crate::Pallet::<T>::status(stash) == Ok(StakerStatus::Idle),
+			Error::<T>::BadState
+		);
 
 		<Ledger<T>>::get(&controller).ok_or(Error::<T>::NotController).map(|ledger| {
 			T::Currency::remove_lock(STAKING_ID, &ledger.stash);

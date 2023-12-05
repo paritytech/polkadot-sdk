@@ -347,13 +347,9 @@ impl<T: Config> Pallet<T> {
 					ledger.active += amount;
 					ledger.total += amount;
 					let r = T::Currency::deposit_into_existing(stash, amount).ok();
-
-					let _ = match <Self as StakingInterface>::status(stash)
-						.expect("stash is a staker; qed.")
-					{
-						StakerStatus::Nominator(_) | StakerStatus::Validator => ledger.update(),
-						StakerStatus::Idle => Ok(()),
-					};
+					let _ = ledger
+						.update()
+						.defensive_proof("ledger fetched from storage, so it exists; qed.");
 
 					Ok(r)
 				})
@@ -989,18 +985,13 @@ impl<T: Config> Pallet<T> {
 			(false, false) => {
 				// new nomination
 				Nominators::<T>::insert(who, nominations);
-				<T::EventListeners as OnStakingUpdate<T::AccountId, BalanceOf<T>>>::on_nominator_add(
-					who,
-				);
+				T::EventListeners::on_nominator_add(who);
 			},
 			(true, true) | (false, true) => {
 				// update nominations or un-chill nominator.
 				let prev_nominations = Self::nominations(who).unwrap_or_default();
 				Nominators::<T>::insert(who, nominations);
-				<T::EventListeners as OnStakingUpdate<T::AccountId, BalanceOf<T>>>::on_nominator_update(
-					who,
-					prev_nominations,
-				);
+				T::EventListeners::on_nominator_update(who, prev_nominations);
 			},
 			(true, false) => {
 				defensive!("unexpected state.");
@@ -1017,11 +1008,7 @@ impl<T: Config> Pallet<T> {
 
 	pub(crate) fn do_chill_nominator(who: &T::AccountId) -> bool {
 		let outcome = if Nominators::<T>::contains_key(who) {
-			<T::EventListeners as OnStakingUpdate<T::AccountId, BalanceOf<T>>>::on_nominator_idle(
-				who,
-				Self::nominations(who).unwrap_or_default(),
-			);
-
+			T::EventListeners::on_nominator_idle(who, Self::nominations(who).unwrap_or_default());
 			Nominators::<T>::remove(who);
 			true
 		} else {
@@ -1048,19 +1035,13 @@ impl<T: Config> Pallet<T> {
 				// first chill nominator.
 				Self::do_chill_nominator(who);
 
-				<T::EventListeners as OnStakingUpdate<T::AccountId, BalanceOf<T>>>::on_nominator_remove(
-					who,
-					nominations,
-				);
+				T::EventListeners::on_nominator_remove(who, nominations);
 				Nominators::<T>::remove(who);
 				true
 			},
 			// nominator is idle already, remove it.
 			(false, true) => {
-				<T::EventListeners as OnStakingUpdate<T::AccountId, BalanceOf<T>>>::on_nominator_remove(
-					who,
-					nominations,
-				);
+				T::EventListeners::on_nominator_remove(who, nominations);
 				true
 			},
 			(true, false) => {
@@ -1093,9 +1074,7 @@ impl<T: Config> Pallet<T> {
 	pub fn do_add_validator(who: &T::AccountId, prefs: ValidatorPrefs) {
 		if !Validators::<T>::contains_key(who) {
 			Validators::<T>::insert(who, prefs);
-			<T::EventListeners as OnStakingUpdate<T::AccountId, BalanceOf<T>>>::on_validator_add(
-				who,
-			);
+			T::EventListeners::on_validator_add(who);
 		} else {
 			Validators::<T>::insert(who, prefs);
 		}
@@ -1130,17 +1109,13 @@ impl<T: Config> Pallet<T> {
 			(true, true) => {
 				Self::do_chill_validator(who);
 
-				<T::EventListeners as OnStakingUpdate<T::AccountId, BalanceOf<T>>>::on_validator_remove(
-					who,
-				);
+				T::EventListeners::on_validator_remove(who);
 				Validators::<T>::remove(who);
 				true
 			},
 			// validator is idle, remove it.
 			(false, true) => {
-				<T::EventListeners as OnStakingUpdate<T::AccountId, BalanceOf<T>>>::on_validator_remove(
-					who,
-				);
+				T::EventListeners::on_validator_remove(who);
 				true
 			},
 			(true, false) => {
