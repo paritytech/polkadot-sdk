@@ -1680,7 +1680,7 @@ fn regression_issue_2319() {
 		assert_eq!(MessagesProcessed::take(), vec![(b"callback=0".to_vec(), Here)]);
 
 		assert_eq!(MessageQueue::service_queues(1.into_weight()), 1.into_weight());
-		// expects anothermessage to be processed, but it isn't procssed at all
+		// It used to fail here but got fixed.
 		assert_eq!(MessagesProcessed::take(), vec![(b"anothermessage".to_vec(), There)]);
 	});
 }
