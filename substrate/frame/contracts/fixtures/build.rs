@@ -147,9 +147,7 @@ fn invoke_cargo_fmt<'a>(
 	if !Command::new("rustup")
 		.args(&["run", "nightly", "rustfmt", "--version"])
 		.output()
-		.expect("failed to execute process")
-		.status
-		.success()
+		.map_or(false, |o| o.status.success())
 	{
 		return Ok(())
 	}
@@ -169,10 +167,12 @@ fn invoke_cargo_fmt<'a>(
 	let stderr = String::from_utf8_lossy(&fmt_res.stderr);
 	eprintln!("{}\n{}", stdout, stderr);
 	eprintln!(
-		"Fixtures files are not formatted.\nPlease run `rustup run nightly rustfmt --config-path {} {}/*.rs`",
+		"Fixtures files are not formatted.\n
+		Please run `rustup run nightly rustfmt --config-path {} {}/*.rs`",
 		config_path.display(),
 		contract_dir.display()
 	);
+
 	anyhow::bail!("Fixtures files are not formatted")
 }
 
