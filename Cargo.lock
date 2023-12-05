@@ -18750,6 +18750,7 @@ dependencies = [
  "sp-blockchain",
  "sp-consensus",
  "sp-core",
+ "sp-crypto-ec-utils 0.4.1",
  "sp-runtime",
  "substrate-test-client",
  "substrate-test-runtime",
