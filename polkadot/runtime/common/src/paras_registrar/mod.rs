@@ -235,13 +235,6 @@ pub mod pallet {
 	pub type Deposits<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, DepositInfo<T::AccountId, BalanceOf<T>>>;
 
-	/// Stores all the `ParaId`s of parachains that purchased a slot using the legacy auctions
-	/// model.
-	///
-	/// Each of these parachains is eligible to perform a single code upgrade without upgrade fees.
-	#[pallet::storage]
-	pub type LegacyParas<T> = StorageMap<_, Twox64Concat, ParaId, ()>;
-
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
@@ -456,16 +449,19 @@ pub mod pallet {
 		) -> DispatchResult {
 			Self::ensure_root_para_or_owner(origin.clone(), para)?;
 
-			let fee_payer = if ensure_root(origin.clone()).is_ok() {
-				// Root doesn't pay. This, also means that system parachains do not pay for upgrade
-				// fees.
-				None
-			} else if LegacyParas::<T>::get(para).is_some() {
-				// Each legacy para is permitted to perform one upgrade for free.
+			let fee_payer = if ensure_root(origin.clone()).is_ok() ||
+				Self::parachains().contains(&para)
+			{
+				// There are two cases where we do not require any upgrade costs from the initiator
+				// of the upgrade:
 				//
-				// This is introduced to  avoid causing a breaking change to the system once para
-				// upgrade fees are required.
-				LegacyParas::<T>::remove(para);
+				// 1. Root doesn't pay. This also means that system parachains do not pay for
+				//    upgrade fees.
+				//
+				// 2. All lease-holding parachains are permitted to do upgrades for free. This is
+				//    introduced to avoid
+				// causing a breaking change to the system once para upgrade fees are required.
+
 				None
 			} else if let Ok(caller) = ensure_signed(origin) {
 				let para_info = Paras::<T>::get(para).ok_or(Error::<T>::NotRegistered)?;

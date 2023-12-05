@@ -631,7 +631,7 @@ fn para_upgrade_initiated_by_manager_works() {
 		assert_eq!(Paras::lifecycle(ParaId::from(para_id)), Some(ParaLifecycle::Onboarding));
 		// After two sessions the parachain will be succesfully registered as an on-demand.
 		run_to_session(START_SESSION_INDEX + 2);
-		assert_eq!(Paras::lifecycle(ParaId::from(para_id)), Some(ParaLifecycle::Parathread));
+		assert!(Registrar::is_parathread(para_id));
 		// The deposit should be appropriately taken.
 		let total_bytes_stored = code_size as u32 + head_size as u32;
 		assert_eq!(
@@ -756,7 +756,7 @@ fn root_upgrading_parachain_works() {
 		assert_eq!(Paras::lifecycle(ParaId::from(para_id)), Some(ParaLifecycle::Onboarding));
 		// After two sessions the parachain will be succesfully registered as an on-demand.
 		run_to_session(START_SESSION_INDEX + 2);
-		assert_eq!(Paras::lifecycle(ParaId::from(para_id)), Some(ParaLifecycle::Parathread));
+		assert!(Registrar::is_parathread(para_id));
 		// The deposit should be appropriately taken.
 		let total_bytes_stored = code_size as u32 + head_size as u32;
 		assert_eq!(
@@ -852,7 +852,7 @@ fn para_upgrading_itself_works() {
 		assert_eq!(Paras::lifecycle(ParaId::from(para_id)), Some(ParaLifecycle::Onboarding));
 		// After two sessions the parachain will be succesfully registered as an on-demand.
 		run_to_session(START_SESSION_INDEX + 2);
-		assert_eq!(Paras::lifecycle(ParaId::from(para_id)), Some(ParaLifecycle::Parathread));
+		assert!(Registrar::is_parathread(para_id));
 		// The deposit should be appropriately taken.
 		let total_bytes_stored = code_size as u32 + head_size as u32;
 		assert_eq!(
@@ -972,7 +972,7 @@ fn para_upgrading_itself_works() {
 }
 
 #[test]
-fn legacy_para_upgardes_require_no_fee() {
+fn lease_holding_parachains_have_no_upgrade_costs() {
 	new_test_ext().execute_with(|| {
 		assert!(System::block_number().is_one()); /* So events are emitted */
 		let para_id = LOWEST_PUBLIC_ID;
@@ -1001,7 +1001,8 @@ fn legacy_para_upgardes_require_no_fee() {
 		assert_eq!(Paras::lifecycle(ParaId::from(para_id)), Some(ParaLifecycle::Onboarding));
 		// After two sessions the parachain will be succesfully registered as an on-demand.
 		run_to_session(START_SESSION_INDEX + 2);
-		assert_eq!(Paras::lifecycle(ParaId::from(para_id)), Some(ParaLifecycle::Parathread));
+		assert!(Registrar::is_parathread(para_id));
+
 		// The deposit should be appropriately taken.
 		let total_bytes_stored = code_size as u32 + head_size as u32;
 		assert_eq!(
@@ -1009,11 +1010,13 @@ fn legacy_para_upgardes_require_no_fee() {
 			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
 		);
 
-		// We 'simulate' the migration. In this case there is only one legacy parachain.
-		paras_registrar::LegacyParas::<Test>::insert(ParaId::from(para_id), ());
+		// Make the para a lease holding parachain.
+		assert_ok!(Registrar::make_parachain(para_id));
+		run_to_session(START_SESSION_INDEX + 4);
+		assert!(Registrar::is_parachain(para_id));
 
-		// The parachain should be able to schedule a code upgrade without any additional deposit or
-		// fees necessary.
+		// The lease holding parachain should be able to schedule a code upgrade without any additional 
+		// deposit or fees necessary.
 
 		let location: MultiLocation = (Parent, Parachain(para_id.into())).into();
 		let sovereign_account =
@@ -1030,10 +1033,10 @@ fn legacy_para_upgardes_require_no_fee() {
 			ParaId::from(para_id),
 			code_1.clone(),
 		));
-		conclude_pvf_checking::<Test>(&code_1, VALIDATORS, START_SESSION_INDEX + 2, true);
+		conclude_pvf_checking::<Test>(&code_1, VALIDATORS, START_SESSION_INDEX + 4, true);
 
 		// After two more sessions the parachain can be upgraded.
-		run_to_session(START_SESSION_INDEX + 4);
+		run_to_session(START_SESSION_INDEX + 6);
 		// Force a new head to enact the code upgrade.
 		assert_ok!(Paras::force_note_new_head(
 			RuntimeOrigin::root(),
@@ -1049,42 +1052,6 @@ fn legacy_para_upgardes_require_no_fee() {
 		);
 		assert_eq!(Balances::total_balance(&account_id(1)), free_balance);
 		assert_eq!(Balances::total_balance(&sovereign_account), free_balance);
-
-		// However, legacy chains are only allowed to perform a free upgrade once.
-		// Doing a new upgrade will require fees:
-
-		assert!(paras_registrar::LegacyParas::<Test>::get(ParaId::from(para_id)).is_none());
-
-		code_size *= 2;
-		let code_2 = validation_code(code_size);
-		assert_ok!(Registrar::schedule_code_upgrade(
-			para_origin.clone().into(),
-			ParaId::from(para_id),
-			code_2.clone(),
-		));
-		conclude_pvf_checking::<Test>(&code_2, VALIDATORS, START_SESSION_INDEX + 4, true);
-
-		// After two more sessions the parachain can be upgraded.
-		run_to_session(START_SESSION_INDEX + 6);
-		// Force a new head to enact the code upgrade.
-		assert_ok!(Paras::force_note_new_head(
-			RuntimeOrigin::root(),
-			para_id,
-			genesis_head.clone()
-		));
-		assert_eq!(Paras::current_code(&para_id), Some(code_2.clone()));
-
-		// The parachain should have a deposit reserved that covers the new code.
-		let total_bytes_stored = code_size as u32 + head_size as u32;
-		assert_eq!(
-			Balances::reserved_balance(&sovereign_account),
-			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
-		);
-		// An additional upgrade fee should also be deducted from the caller's balance.
-		assert_eq!(Balances::total_balance(&sovereign_account), free_balance - UpgradeFee::get());
-		// Since all the deposit is now held by the parachain, the manager should have received a
-		// refund.
-		assert_eq!(Balances::reserved_balance(&account_id(1)), 0);
 	});
 }
 
