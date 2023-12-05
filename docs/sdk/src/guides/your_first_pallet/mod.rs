@@ -76,7 +76,7 @@
 //!   signature of the function: it takes a generic `T::RuntimeOrigin` and returns a
 //!   `Result<T::AccountId, _>`. So by the end of this function call, we know that this dispatchable
 //!   was signed by `who`.
-#![doc = docify::embed!("../substrate/frame/system/src/lib.rs", ensure_signed)]
+#![doc = docify::embed!("../../substrate/frame/system/src/lib.rs", ensure_signed)]
 //!
 //!
 //! - Where does `mutate`, `get` and `insert` and other storage APIs come from? All of them are
@@ -84,7 +84,7 @@
 //! into [`frame::prelude::StorageMap::insert`].
 //!
 //! - The return type of all dispatchable functions is [`frame::prelude::DispatchResult`]:
-#![doc = docify::embed!("../substrate/frame/support/src/dispatch.rs", DispatchResult)]
+#![doc = docify::embed!("../../substrate/frame/support/src/dispatch.rs", DispatchResult)]
 //!
 //! Which is more or less a normal Rust `Result`, with a custom [`frame::prelude::DispatchError`] as
 //! the `Err` variant. We won't cover this error in detail here, but importantly you should know
