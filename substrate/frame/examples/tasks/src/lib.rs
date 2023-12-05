@@ -38,6 +38,7 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
+		/// The referenced task was not found.
 		NotFound,
 	}
 
