@@ -320,9 +320,6 @@
 <a href="#320" id="320">320</a>
 <a href="#321" id="321">321</a>
 <a href="#322" id="322">322</a>
-<a href="#323" id="323">323</a>
-<a href="#324" id="324">324</a>
-<a href="#325" id="325">325</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -353,7 +350,7 @@
 </span><span class="kw">pub use </span>landlock::RulesetStatus;
 
 <span class="kw">use crate</span>::{
-	worker::{stringify_panic_payload, WorkerKind},
+	worker::{stringify_panic_payload, WorkerInfo, WorkerKind},
 	LOG_TARGET,
 };
 <span class="kw">use </span>landlock::<span class="kw-2">*</span>;
@@ -399,6 +396,8 @@
 
 <span class="attr">#[derive(thiserror::Error, Debug)]
 </span><span class="kw">pub enum </span>Error {
+	<span class="attr">#[error(<span class="string">&quot;Could not fully enable: {0:?}&quot;</span>)]
+	</span>NotFullyEnabled(RulesetStatus),
 	<span class="attr">#[error(<span class="string">&quot;Invalid exception path: {0:?}&quot;</span>)]
 	</span>InvalidExceptionPath(PathBuf),
 	<span class="attr">#[error(transparent)]
@@ -410,17 +409,13 @@
 <span class="kw">pub type </span><span class="prelude-ty">Result</span>&lt;T&gt; = std::result::Result&lt;T, Error&gt;;
 
 <span class="doccomment">/// Try to enable landlock for the given kind of worker.
-</span><span class="kw">pub fn </span>enable_for_worker(
-	worker_kind: WorkerKind,
-	worker_pid: u32,
-	worker_dir_path: <span class="kw-2">&amp;</span>Path,
-) -&gt; <span class="prelude-ty">Result</span>&lt;RulesetStatus&gt; {
-	<span class="kw">let </span>exceptions: Vec&lt;(PathBuf, BitFlags&lt;AccessFs&gt;)&gt; = <span class="kw">match </span>worker_kind {
+</span><span class="kw">pub fn </span>enable_for_worker(worker_info: <span class="kw-2">&amp;</span>WorkerInfo) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+	<span class="kw">let </span>exceptions: Vec&lt;(PathBuf, BitFlags&lt;AccessFs&gt;)&gt; = <span class="kw">match </span>worker_info.kind {
 		WorkerKind::Prepare =&gt; {
-			<span class="macro">vec!</span>[(worker_dir_path.to_owned(), AccessFs::WriteFile.into())]
+			<span class="macro">vec!</span>[(worker_info.worker_dir_path.to_owned(), AccessFs::WriteFile.into())]
 		},
 		WorkerKind::Execute =&gt; {
-			<span class="macro">vec!</span>[(worker_dir_path.to_owned(), AccessFs::ReadFile.into())]
+			<span class="macro">vec!</span>[(worker_info.worker_dir_path.to_owned(), AccessFs::ReadFile.into())]
 		},
 		WorkerKind::CheckPivotRoot =&gt;
 			<span class="macro">panic!</span>(<span class="string">&quot;this should only be passed for checking pivot_root; qed&quot;</span>),
@@ -428,9 +423,7 @@
 
 	<span class="macro">gum::trace!</span>(
 		target: LOG_TARGET,
-		%worker_kind,
-		%worker_pid,
-		<span class="question-mark">?</span>worker_dir_path,
+		<span class="question-mark">?</span>worker_info,
 		<span class="string">&quot;enabling landlock with exceptions: {:?}&quot;</span>,
 		exceptions,
 	);
@@ -439,18 +432,14 @@
 }
 
 <span class="comment">// TODO: &lt;https://github.com/landlock-lsm/rust-landlock/issues/36&gt;
-</span><span class="doccomment">/// Runs a check for landlock and returns a single bool indicating whether the given landlock
-/// ABI is fully enabled on the current Linux environment.
-</span><span class="kw">pub fn </span>check_is_fully_enabled() -&gt; bool {
-	<span class="kw">let </span>status_from_thread: <span class="prelude-ty">Result</span>&lt;RulesetStatus&gt; =
-		<span class="kw">match </span>std::thread::spawn(|| try_restrict(std::iter::empty::&lt;(PathBuf, AccessFs)&gt;())).join()
-		{
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(status)) =&gt; <span class="prelude-val">Ok</span>(status),
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(ruleset_err)) =&gt; <span class="prelude-val">Err</span>(ruleset_err.into()),
-			<span class="prelude-val">Err</span>(err) =&gt; <span class="prelude-val">Err</span>(Error::Panic(stringify_panic_payload(err))),
-		};
-
-	<span class="macro">matches!</span>(status_from_thread, <span class="prelude-val">Ok</span>(RulesetStatus::FullyEnforced))
+</span><span class="doccomment">/// Runs a check for landlock in its own thread, and returns an error indicating whether the given
+/// landlock ABI is fully enabled on the current Linux environment.
+</span><span class="kw">pub fn </span>check_is_fully_enabled() -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+	<span class="kw">match </span>std::thread::spawn(|| try_restrict(std::iter::empty::&lt;(PathBuf, AccessFs)&gt;())).join() {
+		<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(())) =&gt; <span class="prelude-val">Ok</span>(()),
+		<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) =&gt; <span class="prelude-val">Err</span>(err),
+		<span class="prelude-val">Err</span>(err) =&gt; <span class="prelude-val">Err</span>(Error::Panic(stringify_panic_payload(err))),
+	}
 }
 
 <span class="doccomment">/// Tries to restrict the current thread (should only be called in a process&#39; main thread) with
@@ -464,7 +453,7 @@
 /// # Returns
 ///
 /// The status of the restriction (whether it was fully, partially, or not-at-all enforced).
-</span><span class="kw">fn </span>try_restrict&lt;I, P, A&gt;(fs_exceptions: I) -&gt; <span class="prelude-ty">Result</span>&lt;RulesetStatus&gt;
+</span><span class="kw">fn </span>try_restrict&lt;I, P, A&gt;(fs_exceptions: I) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;
 <span class="kw">where
 	</span>I: IntoIterator&lt;Item = (P, A)&gt;,
 	P: AsRef&lt;Path&gt;,
@@ -481,8 +470,13 @@
 		}
 		ruleset = ruleset.add_rules(rules)<span class="question-mark">?</span>;
 	}
+
 	<span class="kw">let </span>status = ruleset.restrict_self()<span class="question-mark">?</span>;
-	<span class="prelude-val">Ok</span>(status.ruleset)
+	<span class="kw">if </span>!<span class="macro">matches!</span>(status.ruleset, RulesetStatus::FullyEnforced) {
+		<span class="kw">return </span><span class="prelude-val">Err</span>(Error::NotFullyEnabled(status.ruleset))
+	}
+
+	<span class="prelude-val">Ok</span>(())
 }
 
 <span class="attr">#[cfg(test)]
@@ -493,7 +487,7 @@
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>restricted_thread_cannot_read_file() {
 		<span class="comment">// TODO: This would be nice: &lt;https://github.com/rust-lang/rust/issues/68007&gt;.
-		</span><span class="kw">if </span>!check_is_fully_enabled() {
+		</span><span class="kw">if </span>check_is_fully_enabled().is_err() {
 			<span class="kw">return
 		</span>}
 
@@ -516,7 +510,7 @@
 
 			<span class="comment">// Apply Landlock with a read exception for only one of the files.
 			</span><span class="kw">let </span>status = try_restrict(<span class="macro">vec!</span>[(path1, AccessFs::ReadFile)]);
-			<span class="kw">if </span>!<span class="macro">matches!</span>(status, <span class="prelude-val">Ok</span>(RulesetStatus::FullyEnforced)) {
+			<span class="kw">if </span>!<span class="macro">matches!</span>(status, <span class="prelude-val">Ok</span>(())) {
 				<span class="macro">panic!</span>(
 					<span class="string">&quot;Ruleset should be enforced since we checked if landlock is enabled: {:?}&quot;</span>,
 					status
@@ -537,7 +531,7 @@
 
 			<span class="comment">// Apply Landlock for all files.
 			</span><span class="kw">let </span>status = try_restrict(std::iter::empty::&lt;(PathBuf, AccessFs)&gt;());
-			<span class="kw">if </span>!<span class="macro">matches!</span>(status, <span class="prelude-val">Ok</span>(RulesetStatus::FullyEnforced)) {
+			<span class="kw">if </span>!<span class="macro">matches!</span>(status, <span class="prelude-val">Ok</span>(())) {
 				<span class="macro">panic!</span>(
 					<span class="string">&quot;Ruleset should be enforced since we checked if landlock is enabled: {:?}&quot;</span>,
 					status
@@ -558,7 +552,7 @@
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>restricted_thread_cannot_write_file() {
 		<span class="comment">// TODO: This would be nice: &lt;https://github.com/rust-lang/rust/issues/68007&gt;.
-		</span><span class="kw">if </span>!check_is_fully_enabled() {
+		</span><span class="kw">if </span>check_is_fully_enabled().is_err() {
 			<span class="kw">return
 		</span>}
 
@@ -577,7 +571,7 @@
 
 			<span class="comment">// Apply Landlock with a write exception for only one of the files.
 			</span><span class="kw">let </span>status = try_restrict(<span class="macro">vec!</span>[(path1, AccessFs::WriteFile)]);
-			<span class="kw">if </span>!<span class="macro">matches!</span>(status, <span class="prelude-val">Ok</span>(RulesetStatus::FullyEnforced)) {
+			<span class="kw">if </span>!<span class="macro">matches!</span>(status, <span class="prelude-val">Ok</span>(())) {
 				<span class="macro">panic!</span>(
 					<span class="string">&quot;Ruleset should be enforced since we checked if landlock is enabled: {:?}&quot;</span>,
 					status
@@ -595,7 +589,7 @@
 
 			<span class="comment">// Apply Landlock for all files.
 			</span><span class="kw">let </span>status = try_restrict(std::iter::empty::&lt;(PathBuf, AccessFs)&gt;());
-			<span class="kw">if </span>!<span class="macro">matches!</span>(status, <span class="prelude-val">Ok</span>(RulesetStatus::FullyEnforced)) {
+			<span class="kw">if </span>!<span class="macro">matches!</span>(status, <span class="prelude-val">Ok</span>(())) {
 				<span class="macro">panic!</span>(
 					<span class="string">&quot;Ruleset should be enforced since we checked if landlock is enabled: {:?}&quot;</span>,
 					status
@@ -617,7 +611,7 @@
 	</span><span class="attr">#[test]
 	</span><span class="kw">fn </span>restricted_thread_can_truncate_file() {
 		<span class="comment">// TODO: This would be nice: &lt;https://github.com/rust-lang/rust/issues/68007&gt;.
-		</span><span class="kw">if </span>!check_is_fully_enabled() {
+		</span><span class="kw">if </span>check_is_fully_enabled().is_err() {
 			<span class="kw">return
 		</span>}
 
@@ -633,7 +627,7 @@
 
 			<span class="comment">// Apply Landlock with all exceptions under the current ABI.
 			</span><span class="kw">let </span>status = try_restrict(<span class="macro">vec!</span>[(path, AccessFs::from_all(LANDLOCK_ABI))]);
-			<span class="kw">if </span>!<span class="macro">matches!</span>(status, <span class="prelude-val">Ok</span>(RulesetStatus::FullyEnforced)) {
+			<span class="kw">if </span>!<span class="macro">matches!</span>(status, <span class="prelude-val">Ok</span>(())) {
 				<span class="macro">panic!</span>(
 					<span class="string">&quot;Ruleset should be enforced since we checked if landlock is enabled: {:?}&quot;</span>,
 					status

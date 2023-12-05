@@ -308,6 +308,7 @@
 <a href="#308" id="308">308</a>
 <a href="#309" id="309">309</a>
 <a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -372,16 +373,16 @@
 		security_status,
 	)
 	.<span class="kw">await</span><span class="question-mark">?</span>;
-	send_handshake(<span class="kw-2">&amp;mut </span>idle_worker.stream, Handshake { executor_params })
+	send_execute_handshake(<span class="kw-2">&amp;mut </span>idle_worker.stream, Handshake { executor_params })
 		.<span class="kw">await
 		</span>.map_err(|error| {
+			<span class="kw">let </span>err = SpawnErr::Handshake { err: error.to_string() };
 			<span class="macro">gum::warn!</span>(
 				target: LOG_TARGET,
 				worker_pid = %idle_worker.pid,
-				<span class="question-mark">?</span>error,
-				<span class="string">&quot;failed to send a handshake to the spawned worker&quot;</span>,
+				%err
 			);
-			SpawnErr::Handshake
+			err
 		})<span class="question-mark">?</span>;
 	<span class="prelude-val">Ok</span>((idle_worker, worker_handle))
 }
@@ -596,7 +597,8 @@
 	outcome
 }
 
-<span class="kw">async fn </span>send_handshake(stream: <span class="kw-2">&amp;mut </span>UnixStream, handshake: Handshake) -&gt; io::Result&lt;()&gt; {
+<span class="doccomment">/// Sends a handshake with information specific to the execute worker.
+</span><span class="kw">async fn </span>send_execute_handshake(stream: <span class="kw-2">&amp;mut </span>UnixStream, handshake: Handshake) -&gt; io::Result&lt;()&gt; {
 	framed_send(stream, <span class="kw-2">&amp;</span>handshake.encode()).<span class="kw">await
 </span>}
 

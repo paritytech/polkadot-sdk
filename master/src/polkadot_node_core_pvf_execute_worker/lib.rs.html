@@ -507,9 +507,6 @@
 <a href="#507" id="507">507</a>
 <a href="#508" id="508">508</a>
 <a href="#509" id="509">509</a>
-<a href="#510" id="510">510</a>
-<a href="#511" id="511">511</a>
-<a href="#512" id="512">512</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -528,9 +525,7 @@
 
 </span><span class="doccomment">//! Contains the logic for executing PVFs. Used by the polkadot-execute-worker binary.
 
-</span><span class="kw">pub use </span>polkadot_node_core_pvf_common::{
-	executor_interface::execute_artifact, worker_dir, SecurityStatus,
-};
+</span><span class="kw">pub use </span>polkadot_node_core_pvf_common::{executor_interface::execute_artifact, worker_dir};
 
 <span class="comment">// NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-execute-worker=trace`.
@@ -604,12 +599,13 @@
 </span><span class="doccomment">/// The stack size for the execute thread.
 </span><span class="kw">pub const </span>EXECUTE_THREAD_STACK_SIZE: usize = <span class="number">2 </span>* <span class="number">1024 </span>* <span class="number">1024 </span>+ DEFAULT_NATIVE_STACK_MAX <span class="kw">as </span>usize;
 
-<span class="kw">fn </span>recv_handshake(stream: <span class="kw-2">&amp;mut </span>UnixStream) -&gt; io::Result&lt;Handshake&gt; {
+<span class="doccomment">/// Receives a handshake with information specific to the execute worker.
+</span><span class="kw">fn </span>recv_execute_handshake(stream: <span class="kw-2">&amp;mut </span>UnixStream) -&gt; io::Result&lt;Handshake&gt; {
 	<span class="kw">let </span>handshake_enc = framed_recv_blocking(stream)<span class="question-mark">?</span>;
 	<span class="kw">let </span>handshake = Handshake::decode(<span class="kw-2">&amp;mut &amp;</span>handshake_enc[..]).map_err(|<span class="kw">_</span>| {
 		io::Error::new(
 			io::ErrorKind::Other,
-			<span class="string">&quot;execute pvf recv_handshake: failed to decode Handshake&quot;</span>.to_owned(),
+			<span class="string">&quot;execute pvf recv_execute_handshake: failed to decode Handshake&quot;</span>.to_owned(),
 		)
 	})<span class="question-mark">?</span>;
 	<span class="prelude-val">Ok</span>(handshake)
@@ -651,7 +647,6 @@
 	worker_dir_path: PathBuf,
 	node_version: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
 	worker_version: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
-	security_status: SecurityStatus,
 ) {
 	run_worker(
 		WorkerKind::Execute,
@@ -659,12 +654,11 @@
 		worker_dir_path,
 		node_version,
 		worker_version,
-		<span class="kw-2">&amp;</span>security_status,
 		|<span class="kw-2">mut </span>stream, worker_dir_path| {
 			<span class="kw">let </span>worker_pid = process::id();
 			<span class="kw">let </span>artifact_path = worker_dir::execute_artifact(<span class="kw-2">&amp;</span>worker_dir_path);
 
-			<span class="kw">let </span>Handshake { executor_params } = recv_handshake(<span class="kw-2">&amp;mut </span>stream)<span class="question-mark">?</span>;
+			<span class="kw">let </span>Handshake { executor_params } = recv_execute_handshake(<span class="kw-2">&amp;mut </span>stream)<span class="question-mark">?</span>;
 
 			<span class="kw">loop </span>{
 				<span class="kw">let </span>(params, execution_timeout) = recv_request(<span class="kw-2">&amp;mut </span>stream)<span class="question-mark">?</span>;

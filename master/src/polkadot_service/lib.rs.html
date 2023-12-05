@@ -1442,6 +1442,10 @@
 <a href="#1442" id="1442">1442</a>
 <a href="#1443" id="1443">1443</a>
 <a href="#1444" id="1444">1444</a>
+<a href="#1445" id="1445">1445</a>
+<a href="#1446" id="1446">1446</a>
+<a href="#1447" id="1447">1447</a>
+<a href="#1448" id="1448">1448</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2077,6 +2081,8 @@
 	<span class="doccomment">/// The version of the node. TESTING ONLY: `None` can be passed to skip the node/worker version
 	/// check, both on startup and in the workers.
 	</span><span class="kw">pub </span>node_version: <span class="prelude-ty">Option</span>&lt;String&gt;,
+	<span class="doccomment">/// Whether the node is attempting to run as a secure validator.
+	</span><span class="kw">pub </span>secure_validator_mode: bool,
 	<span class="doccomment">/// An optional path to a directory containing the workers.
 	</span><span class="kw">pub </span>workers_path: <span class="prelude-ty">Option</span>&lt;std::path::PathBuf&gt;,
 	<span class="doccomment">/// Optional custom names for the prepare and execute workers.
@@ -2166,6 +2172,7 @@
 		jaeger_agent,
 		telemetry_worker_handle,
 		node_version,
+		secure_validator_mode,
 		workers_path,
 		workers_names,
 		overseer_gen,
@@ -2397,6 +2404,7 @@
 				.ok_or(Error::DatabasePathRequired)<span class="question-mark">?
 				</span>.join(<span class="string">&quot;pvf-artifacts&quot;</span>),
 			node_version,
+			secure_validator_mode,
 			prep_worker_path,
 			exec_worker_path,
 		})

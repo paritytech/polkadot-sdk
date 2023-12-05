@@ -664,12 +664,6 @@
 <a href="#664" id="664">664</a>
 <a href="#665" id="665">665</a>
 <a href="#666" id="666">666</a>
-<a href="#667" id="667">667</a>
-<a href="#668" id="668">668</a>
-<a href="#669" id="669">669</a>
-<a href="#670" id="670">670</a>
-<a href="#671" id="671">671</a>
-<a href="#672" id="672">672</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -690,9 +684,10 @@
 
 </span><span class="kw">pub mod </span>security;
 
-<span class="kw">use crate</span>::{SecurityStatus, LOG_TARGET};
+<span class="kw">use crate</span>::{framed_recv_blocking, WorkerHandshake, LOG_TARGET};
 <span class="kw">use </span>cpu_time::ProcessTime;
 <span class="kw">use </span>futures::never::Never;
+<span class="kw">use </span>parity_scale_codec::Decode;
 <span class="kw">use </span>std::{
 	any::Any,
 	fmt, io,
@@ -722,9 +717,7 @@
 			<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
 			</span><span class="kw">use </span><span class="macro-nonterminal">$crate::worker::security</span>;
 
-			<span class="comment">// TODO: Remove this dependency, and `pub use sp_tracing` in `lib.rs`.
-			// See &lt;https://github.com/paritytech/polkadot/issues/7117&gt;.
-			</span><span class="macro-nonterminal">$crate::sp_tracing::try_init_simple</span>();
+			<span class="macro-nonterminal">$crate::sp_tracing::try_init_simple</span>();
 
 			<span class="kw">let </span>worker_pid = std::process::id();
 
@@ -751,14 +744,26 @@
 
 				<span class="string">&quot;--check-can-enable-landlock&quot; </span>=&gt; {
 					<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
-					</span><span class="kw">let </span>status = <span class="kw">if </span>security::landlock::check_is_fully_enabled() { <span class="number">0 </span>} <span class="kw">else </span>{ -<span class="number">1 </span>};
+					</span><span class="kw">let </span>status = <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = security::landlock::check_is_fully_enabled() {
+						<span class="comment">// Write the error to stderr, log it on the host-side.
+						</span><span class="macro">eprintln!</span>(<span class="string">&quot;{}&quot;</span>, err);
+						-<span class="number">1
+					</span>} <span class="kw">else </span>{
+						<span class="number">0
+					</span>};
 					<span class="attr">#[cfg(not(target_os = <span class="string">&quot;linux&quot;</span>))]
 					</span><span class="kw">let </span>status = -<span class="number">1</span>;
 					std::process::exit(status)
 				},
 				<span class="string">&quot;--check-can-enable-seccomp&quot; </span>=&gt; {
 					<span class="attr">#[cfg(all(target_os = <span class="string">&quot;linux&quot;</span>, target_arch = <span class="string">&quot;x86_64&quot;</span>))]
-					</span><span class="kw">let </span>status = <span class="kw">if </span>security::seccomp::check_is_fully_enabled() { <span class="number">0 </span>} <span class="kw">else </span>{ -<span class="number">1 </span>};
+					</span><span class="kw">let </span>status = <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = security::seccomp::check_is_fully_enabled() {
+						<span class="comment">// Write the error to stderr, log it on the host-side.
+						</span><span class="macro">eprintln!</span>(<span class="string">&quot;{}&quot;</span>, err);
+						-<span class="number">1
+					</span>} <span class="kw">else </span>{
+						<span class="number">0
+					</span>};
 					<span class="attr">#[cfg(not(all(target_os = <span class="string">&quot;linux&quot;</span>, target_arch = <span class="string">&quot;x86_64&quot;</span>)))]
 					</span><span class="kw">let </span>status = -<span class="number">1</span>;
 					std::process::exit(status)
@@ -767,11 +772,9 @@
 					<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
 					</span><span class="kw">let </span>cache_path_tempdir = std::path::Path::new(<span class="kw-2">&amp;</span>args[<span class="number">2</span>]);
 					<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
-					</span><span class="kw">let </span>status = <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = security::unshare_user_namespace_and_change_root(
-						<span class="macro-nonterminal">$crate::worker::WorkerKind::CheckPivotRoot</span>,
-						worker_pid,
-						<span class="kw-2">&amp;</span>cache_path_tempdir,
-					) {
+					</span><span class="kw">let </span>status = <span class="kw">if let </span><span class="prelude-val">Err</span>(err) =
+						security::change_root::check_is_fully_enabled(<span class="kw-2">&amp;</span>cache_path_tempdir)
+					{
 						<span class="comment">// Write the error to stderr, log it on the host-side.
 						</span><span class="macro">eprintln!</span>(<span class="string">&quot;{}&quot;</span>, err);
 						-<span class="number">1
@@ -779,11 +782,7 @@
 						<span class="number">0
 					</span>};
 					<span class="attr">#[cfg(not(target_os = <span class="string">&quot;linux&quot;</span>))]
-					</span><span class="kw">let </span>status = {
-						<span class="comment">// Write the error to stderr, log it on the host-side.
-						</span><span class="macro">eprintln!</span>(<span class="string">&quot;not available on macos&quot;</span>);
-						-<span class="number">1
-					</span>};
+					</span><span class="kw">let </span>status = -<span class="number">1</span>;
 					std::process::exit(status)
 				},
 
@@ -806,9 +805,6 @@
 			<span class="kw">let </span><span class="kw-2">mut </span>socket_path = <span class="prelude-val">None</span>;
 			<span class="kw">let </span><span class="kw-2">mut </span>worker_dir_path = <span class="prelude-val">None</span>;
 			<span class="kw">let </span><span class="kw-2">mut </span>node_version = <span class="prelude-val">None</span>;
-			<span class="kw">let </span><span class="kw-2">mut </span>can_enable_landlock = <span class="bool-val">false</span>;
-			<span class="kw">let </span><span class="kw-2">mut </span>can_enable_seccomp = <span class="bool-val">false</span>;
-			<span class="kw">let </span><span class="kw-2">mut </span>can_unshare_user_namespace_and_change_root = <span class="bool-val">false</span>;
 
 			<span class="kw">let </span><span class="kw-2">mut </span>i = <span class="number">2</span>;
 			<span class="kw">while </span>i &lt; args.len() {
@@ -825,10 +821,6 @@
 						node_version = <span class="prelude-val">Some</span>(args[i + <span class="number">1</span>].as_str());
 						i += <span class="number">1
 					</span>},
-					<span class="string">&quot;--can-enable-landlock&quot; </span>=&gt; can_enable_landlock = <span class="bool-val">true</span>,
-					<span class="string">&quot;--can-enable-seccomp&quot; </span>=&gt; can_enable_seccomp = <span class="bool-val">true</span>,
-					<span class="string">&quot;--can-unshare-user-namespace-and-change-root&quot; </span>=&gt;
-						can_unshare_user_namespace_and_change_root = <span class="bool-val">true</span>,
 					arg =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unexpected argument found: {}&quot;</span>, arg),
 				}
 				i += <span class="number">1</span>;
@@ -839,19 +831,8 @@
 
 			<span class="kw">let </span>socket_path = std::path::Path::new(socket_path).to_owned();
 			<span class="kw">let </span>worker_dir_path = std::path::Path::new(worker_dir_path).to_owned();
-			<span class="kw">let </span>security_status = <span class="macro-nonterminal">$crate::SecurityStatus </span>{
-				can_enable_landlock,
-				can_enable_seccomp,
-				can_unshare_user_namespace_and_change_root,
-			};
 
-			<span class="macro-nonterminal">$entrypoint</span>(
-				socket_path,
-				worker_dir_path,
-				node_version,
-				<span class="prelude-val">Some</span>(<span class="macro-nonterminal">$worker_version</span>),
-				security_status,
-			);
+			<span class="macro-nonterminal">$entrypoint</span>(socket_path, worker_dir_path, node_version, <span class="prelude-val">Some</span>(<span class="macro-nonterminal">$worker_version</span>));
 		}
 	};
 }
@@ -877,74 +858,76 @@
 	}
 }
 
+<span class="comment">// Some fields are only used for logging, and dead-code analysis ignores Debug.
+</span><span class="attr">#[allow(dead_code)]
+#[derive(Debug)]
+</span><span class="kw">pub struct </span>WorkerInfo {
+	pid: u32,
+	kind: WorkerKind,
+	version: <span class="prelude-ty">Option</span>&lt;String&gt;,
+	worker_dir_path: PathBuf,
+}
+
 <span class="comment">// NOTE: The worker version must be passed in so that we accurately get the version of the worker,
 // and not the version that this crate was compiled with.
 //
 // NOTE: This must not spawn any threads due to safety requirements in `event_loop` and to avoid
-// errors in [`security::unshare_user_namespace_and_change_root`].
+// errors in [`security::change_root::try_restrict`].
 //
 </span><span class="doccomment">/// Initializes the worker process, then runs the given event loop, which spawns a new job process
 /// to securely handle each incoming request.
 </span><span class="kw">pub fn </span>run_worker&lt;F&gt;(
 	worker_kind: WorkerKind,
 	socket_path: PathBuf,
-	<span class="attr">#[cfg_attr(not(target_os = <span class="string">&quot;linux&quot;</span>), allow(unused_mut))] </span><span class="kw-2">mut </span>worker_dir_path: PathBuf,
+	worker_dir_path: PathBuf,
 	node_version: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
 	worker_version: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
-	security_status: <span class="kw-2">&amp;</span>SecurityStatus,
 	<span class="kw-2">mut </span>event_loop: F,
 ) <span class="kw">where
 	</span>F: FnMut(UnixStream, PathBuf) -&gt; io::Result&lt;Never&gt;,
 {
-	<span class="kw">let </span>worker_pid = std::process::id();
+	<span class="attr">#[cfg_attr(not(target_os = <span class="string">&quot;linux&quot;</span>), allow(unused_mut))]
+	</span><span class="kw">let </span><span class="kw-2">mut </span>worker_info = WorkerInfo {
+		pid: std::process::id(),
+		kind: worker_kind,
+		version: worker_version.map(|v| v.to_string()),
+		worker_dir_path,
+	};
 	<span class="macro">gum::debug!</span>(
 		target: LOG_TARGET,
-		%worker_pid,
+		<span class="question-mark">?</span>worker_info,
 		<span class="question-mark">?</span>socket_path,
-		<span class="question-mark">?</span>worker_dir_path,
-		<span class="question-mark">?</span>security_status,
 		<span class="string">&quot;starting pvf worker ({})&quot;</span>,
-		worker_kind
+		worker_info.kind
 	);
 
 	<span class="comment">// Check for a mismatch between the node and worker versions.
-	</span><span class="kw">if let </span>(<span class="prelude-val">Some</span>(node_version), <span class="prelude-val">Some</span>(worker_version)) = (node_version, worker_version) {
+	</span><span class="kw">if let </span>(<span class="prelude-val">Some</span>(node_version), <span class="prelude-val">Some</span>(worker_version)) = (node_version, <span class="kw-2">&amp;</span>worker_info.version) {
 		<span class="kw">if </span>node_version != worker_version {
 			<span class="macro">gum::error!</span>(
 				target: LOG_TARGET,
-				%worker_kind,
-				%worker_pid,
+				<span class="question-mark">?</span>worker_info,
 				%node_version,
-				%worker_version,
 				<span class="string">&quot;Node and worker version mismatch, node needs restarting, forcing shutdown&quot;</span>,
 			);
 			kill_parent_node_in_emergency();
-			worker_shutdown_message(worker_kind, worker_pid, <span class="string">&quot;Version mismatch&quot;</span>);
-			<span class="kw">return
-		</span>}
+			worker_shutdown(worker_info, <span class="string">&quot;Version mismatch&quot;</span>);
+		}
 	}
 
 	<span class="comment">// Make sure that we can read the worker dir path, and log its contents.
 	</span><span class="kw">let </span>entries = || -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, io::Error&gt; {
-		std::fs::read_dir(<span class="kw-2">&amp;</span>worker_dir_path)<span class="question-mark">?
+		std::fs::read_dir(<span class="kw-2">&amp;</span>worker_info.worker_dir_path)<span class="question-mark">?
 			</span>.map(|res| res.map(|e| e.file_name()))
 			.collect()
 	}();
 	<span class="kw">match </span>entries {
 		<span class="prelude-val">Ok</span>(entries) =&gt;
-			<span class="macro">gum::trace!</span>(target: LOG_TARGET, %worker_pid, <span class="question-mark">?</span>worker_dir_path, <span class="string">&quot;content of worker dir: {:?}&quot;</span>, entries),
+			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>worker_info, <span class="string">&quot;content of worker dir: {:?}&quot;</span>, entries),
 		<span class="prelude-val">Err</span>(err) =&gt; {
-			<span class="macro">gum::error!</span>(
-				target: LOG_TARGET,
-				%worker_kind,
-				%worker_pid,
-				<span class="question-mark">?</span>worker_dir_path,
-				<span class="string">&quot;Could not read worker dir: {}&quot;</span>,
-				err.to_string()
-			);
-			worker_shutdown_message(worker_kind, worker_pid, <span class="kw-2">&amp;</span>err.to_string());
-			<span class="kw">return
-		</span>},
+			<span class="kw">let </span>err = <span class="macro">format!</span>(<span class="string">&quot;Could not read worker dir: {}&quot;</span>, err.to_string());
+			worker_shutdown_error(worker_info, <span class="kw-2">&amp;</span>err);
+		},
 	}
 
 	<span class="comment">// Connect to the socket.
@@ -953,23 +936,20 @@
 		<span class="kw">let _ </span>= std::fs::remove_file(<span class="kw-2">&amp;</span>socket_path);
 		<span class="prelude-val">Ok</span>(stream)
 	}();
-	<span class="kw">let </span>stream = <span class="kw">match </span>stream {
-		<span class="prelude-val">Ok</span>(s) =&gt; s,
-		<span class="prelude-val">Err</span>(err) =&gt; {
-			<span class="macro">gum::error!</span>(
-				target: LOG_TARGET,
-				%worker_kind,
-				%worker_pid,
-				<span class="string">&quot;{}&quot;</span>,
-				err
-			);
-			worker_shutdown_message(worker_kind, worker_pid, <span class="kw-2">&amp;</span>err.to_string());
-			<span class="kw">return
-		</span>},
+	<span class="kw">let </span><span class="kw-2">mut </span>stream = <span class="kw">match </span>stream {
+		<span class="prelude-val">Ok</span>(ok) =&gt; ok,
+		<span class="prelude-val">Err</span>(err) =&gt; worker_shutdown_error(worker_info, <span class="kw-2">&amp;</span>err.to_string()),
+	};
+
+	<span class="kw">let </span>WorkerHandshake { security_status } = <span class="kw">match </span>recv_worker_handshake(<span class="kw-2">&amp;mut </span>stream) {
+		<span class="prelude-val">Ok</span>(ok) =&gt; ok,
+		<span class="prelude-val">Err</span>(err) =&gt; worker_shutdown_error(worker_info, <span class="kw-2">&amp;</span>err.to_string()),
 	};
 
 	<span class="comment">// Enable some security features.
 	</span>{
+		<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>security_status, <span class="string">&quot;Enabling security features&quot;</span>);
+
 		<span class="comment">// Call based on whether we can change root. Error out if it should work but fails.
 		//
 		// NOTE: This should not be called in a multi-threaded context (i.e. inside the tokio
@@ -978,39 +958,29 @@
 		//       &gt; CLONE_NEWUSER requires that the calling process is not threaded.
 		</span><span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
 		</span><span class="kw">if </span>security_status.can_unshare_user_namespace_and_change_root {
-			<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = security::unshare_user_namespace_and_change_root(
-				worker_kind,
-				worker_pid,
-				<span class="kw-2">&amp;</span>worker_dir_path,
-			) {
-				<span class="comment">// The filesystem may be in an inconsistent state, bail out.
-				</span><span class="macro">gum::error!</span>(
-					target: LOG_TARGET,
-					%worker_kind,
-					%worker_pid,
-					<span class="question-mark">?</span>worker_dir_path,
-					<span class="string">&quot;Could not change root to be the worker cache path: {}&quot;</span>,
-					err
-				);
-				worker_shutdown_message(worker_kind, worker_pid, <span class="kw-2">&amp;</span>err);
-				<span class="kw">return
-			</span>}
-			worker_dir_path = std::path::Path::new(<span class="string">&quot;/&quot;</span>).to_owned();
+			<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = security::change_root::enable_for_worker(<span class="kw-2">&amp;</span>worker_info) {
+				<span class="comment">// The filesystem may be in an inconsistent state, always bail out.
+				</span><span class="kw">let </span>err = <span class="macro">format!</span>(<span class="string">&quot;Could not change root to be the worker cache path: {}&quot;</span>, err);
+				worker_shutdown_error(worker_info, <span class="kw-2">&amp;</span>err);
+			}
+			worker_info.worker_dir_path = std::path::Path::new(<span class="string">&quot;/&quot;</span>).to_owned();
 		}
 
 		<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
 		</span><span class="kw">if </span>security_status.can_enable_landlock {
-			<span class="kw">let </span>landlock_status =
-				security::landlock::enable_for_worker(worker_kind, worker_pid, <span class="kw-2">&amp;</span>worker_dir_path);
-			<span class="kw">if </span>!<span class="macro">matches!</span>(landlock_status, <span class="prelude-val">Ok</span>(landlock::RulesetStatus::FullyEnforced)) {
-				<span class="comment">// We previously were able to enable, so this should never happen.
-				</span><span class="macro">gum::error!</span>(
+			<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = security::landlock::enable_for_worker(<span class="kw-2">&amp;</span>worker_info) {
+				<span class="comment">// We previously were able to enable, so this should never happen. Shutdown if
+				// running in secure mode.
+				</span><span class="kw">let </span>err = <span class="macro">format!</span>(<span class="string">&quot;could not fully enable landlock: {:?}&quot;</span>, err);
+				<span class="macro">gum::error!</span>(
 					target: LOG_TARGET,
-					%worker_kind,
-					%worker_pid,
-					<span class="string">&quot;could not fully enable landlock: {:?}. This should not happen, please report an issue&quot;</span>,
-					landlock_status
+					<span class="question-mark">?</span>worker_info,
+					<span class="string">&quot;{}. This should not happen, please report an issue&quot;</span>,
+					err
 				);
+				<span class="kw">if </span>security_status.secure_validator_mode {
+					worker_shutdown(worker_info, <span class="kw-2">&amp;</span>err);
+				}
 			}
 		}
 
@@ -1018,48 +988,54 @@
 		//       job to catch regressions. See &lt;https://github.com/paritytech/ci_cd/issues/609&gt;.
 		</span><span class="attr">#[cfg(all(target_os = <span class="string">&quot;linux&quot;</span>, target_arch = <span class="string">&quot;x86_64&quot;</span>))]
 		</span><span class="kw">if </span>security_status.can_enable_seccomp {
-			<span class="kw">let </span>seccomp_status =
-				security::seccomp::enable_for_worker(worker_kind, worker_pid, <span class="kw-2">&amp;</span>worker_dir_path);
-			<span class="kw">if </span>!<span class="macro">matches!</span>(seccomp_status, <span class="prelude-val">Ok</span>(())) {
-				<span class="comment">// We previously were able to enable, so this should never happen.
-				//
-				// TODO: Make this a real error in secure-mode. See:
-				// &lt;https://github.com/paritytech/polkadot-sdk/issues/1444&gt;
-				</span><span class="macro">gum::error!</span>(
+			<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = security::seccomp::enable_for_worker(<span class="kw-2">&amp;</span>worker_info) {
+				<span class="comment">// We previously were able to enable, so this should never happen. Shutdown if
+				// running in secure mode.
+				</span><span class="kw">let </span>err = <span class="macro">format!</span>(<span class="string">&quot;could not fully enable seccomp: {:?}&quot;</span>, err);
+				<span class="macro">gum::error!</span>(
 					target: LOG_TARGET,
-					%worker_kind,
-					%worker_pid,
-					<span class="string">&quot;could not fully enable seccomp: {:?}. This should not happen, please report an issue&quot;</span>,
-					seccomp_status
+					<span class="question-mark">?</span>worker_info,
+					<span class="string">&quot;{}. This should not happen, please report an issue&quot;</span>,
+					err
 				);
+				<span class="kw">if </span>security_status.secure_validator_mode {
+					worker_shutdown(worker_info, <span class="kw-2">&amp;</span>err);
+				}
 			}
 		}
 
-		<span class="kw">if </span>!security::check_env_vars_were_cleared(worker_kind, worker_pid) {
+		<span class="kw">if </span>!security::check_env_vars_were_cleared(<span class="kw-2">&amp;</span>worker_info) {
 			<span class="kw">let </span>err = <span class="string">&quot;not all env vars were cleared when spawning the process&quot;</span>;
 			<span class="macro">gum::error!</span>(
 				target: LOG_TARGET,
-				%worker_kind,
-				%worker_pid,
+				<span class="question-mark">?</span>worker_info,
 				<span class="string">&quot;{}&quot;</span>,
 				err
 			);
-			worker_shutdown_message(worker_kind, worker_pid, err);
-			<span class="kw">return
-		</span>}
+			<span class="kw">if </span>security_status.secure_validator_mode {
+				worker_shutdown(worker_info, err);
+			}
+		}
 	}
 
 	<span class="comment">// Run the main worker loop.
-	</span><span class="kw">let </span>err = event_loop(stream, worker_dir_path)
+	</span><span class="kw">let </span>err = event_loop(stream, worker_info.worker_dir_path.clone())
 		<span class="comment">// It&#39;s never `Ok` because it&#39;s `Ok(Never)`.
 		</span>.unwrap_err();
 
-	worker_shutdown_message(worker_kind, worker_pid, <span class="kw-2">&amp;</span>err.to_string());
+	worker_shutdown(worker_info, <span class="kw-2">&amp;</span>err.to_string());
 }
 
-<span class="doccomment">/// Provide a consistent message on worker shutdown.
-</span><span class="kw">fn </span>worker_shutdown_message(worker_kind: WorkerKind, worker_pid: u32, err: <span class="kw-2">&amp;</span>str) {
-	<span class="macro">gum::debug!</span>(target: LOG_TARGET, %worker_pid, <span class="string">&quot;quitting pvf worker ({}): {}&quot;</span>, worker_kind, err);
+<span class="doccomment">/// Provide a consistent message on unexpected worker shutdown.
+</span><span class="kw">fn </span>worker_shutdown(worker_info: WorkerInfo, err: <span class="kw-2">&amp;</span>str) -&gt; ! {
+	<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="question-mark">?</span>worker_info, <span class="string">&quot;quitting pvf worker ({}): {}&quot;</span>, worker_info.kind, err);
+	std::process::exit(<span class="number">1</span>);
+}
+
+<span class="doccomment">/// Provide a consistent error on unexpected worker shutdown.
+</span><span class="kw">fn </span>worker_shutdown_error(worker_info: WorkerInfo, err: <span class="kw-2">&amp;</span>str) -&gt; ! {
+	<span class="macro">gum::error!</span>(target: LOG_TARGET, <span class="question-mark">?</span>worker_info, <span class="string">&quot;quitting pvf worker ({}): {}&quot;</span>, worker_info.kind, err);
+	std::process::exit(<span class="number">1</span>);
 }
 
 <span class="doccomment">/// Loop that runs in the CPU time monitor thread on prepare and execute jobs. Continuously wakes up
@@ -1128,6 +1104,18 @@
 			libc::kill(ppid, libc::SIGTERM);
 		}
 	}
+}
+
+<span class="doccomment">/// Receives a handshake with information for the worker.
+</span><span class="kw">fn </span>recv_worker_handshake(stream: <span class="kw-2">&amp;mut </span>UnixStream) -&gt; io::Result&lt;WorkerHandshake&gt; {
+	<span class="kw">let </span>worker_handshake = framed_recv_blocking(stream)<span class="question-mark">?</span>;
+	<span class="kw">let </span>worker_handshake = WorkerHandshake::decode(<span class="kw-2">&amp;mut &amp;</span>worker_handshake[..]).map_err(|e| {
+		io::Error::new(
+			io::ErrorKind::Other,
+			<span class="macro">format!</span>(<span class="string">&quot;recv_worker_handshake: failed to decode WorkerHandshake: {}&quot;</span>, e),
+		)
+	})<span class="question-mark">?</span>;
+	<span class="prelude-val">Ok</span>(worker_handshake)
 }
 
 <span class="doccomment">/// Functionality related to threads spawned by the workers.

@@ -536,6 +536,17 @@
 <a href="#536" id="536">536</a>
 <a href="#537" id="537">537</a>
 <a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -604,6 +615,7 @@
 <span class="kw">use </span>polkadot_primitives::ExecutorParamsHash;
 <span class="kw">use </span>std::{
 	collections::HashMap,
+	io,
 	path::{Path, PathBuf},
 	str::FromStr <span class="kw">as _</span>,
 	time::{Duration, SystemTime},
@@ -828,7 +840,17 @@
 		}
 
 		<span class="comment">// Make sure that the cache path directory and all its parents are created.
-		</span><span class="kw">let _ </span>= tokio::fs::create_dir_all(cache_path).<span class="kw">await</span>;
+		</span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = tokio::fs::create_dir_all(cache_path).<span class="kw">await </span>{
+			<span class="kw">if </span>err.kind() != io::ErrorKind::AlreadyExists {
+				<span class="macro">gum::error!</span>(
+					target: LOG_TARGET,
+					<span class="question-mark">?</span>err,
+					<span class="string">&quot;failed to create dir {:?}&quot;</span>,
+					cache_path,
+				);
+				<span class="kw">return
+			</span>}
+		}
 
 		<span class="kw">let </span><span class="kw-2">mut </span>dir = <span class="kw">match </span>tokio::fs::read_dir(cache_path).<span class="kw">await </span>{
 			<span class="prelude-val">Ok</span>(dir) =&gt; dir,

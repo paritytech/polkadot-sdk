@@ -921,6 +921,15 @@
 <a href="#921" id="921">921</a>
 <a href="#922" id="922">922</a>
 <a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1011,6 +1020,8 @@
 	</span><span class="kw">pub </span>artifacts_cache_path: PathBuf,
 	<span class="doccomment">/// The version of the node. `None` can be passed to skip the version check (only for tests).
 	</span><span class="kw">pub </span>node_version: <span class="prelude-ty">Option</span>&lt;String&gt;,
+	<span class="doccomment">/// Whether the node is attempting to run as a secure validator.
+	</span><span class="kw">pub </span>secure_validator_mode: bool,
 	<span class="doccomment">/// Path to the preparation worker binary
 	</span><span class="kw">pub </span>prep_worker_path: PathBuf,
 	<span class="doccomment">/// Path to the execution worker binary
@@ -1056,12 +1067,19 @@
 	<span class="kw-2">mut </span>ctx: Context,
 	metrics: Metrics,
 	pvf_metrics: polkadot_node_core_pvf::Metrics,
-	Config { artifacts_cache_path, node_version, prep_worker_path, exec_worker_path }: Config,
+	Config {
+		artifacts_cache_path,
+		node_version,
+		secure_validator_mode,
+		prep_worker_path,
+		exec_worker_path,
+	}: Config,
 ) -&gt; SubsystemResult&lt;()&gt; {
 	<span class="kw">let </span>(validation_host, task) = polkadot_node_core_pvf::start(
 		polkadot_node_core_pvf::Config::new(
 			artifacts_cache_path,
 			node_version,
+			secure_validator_mode,
 			prep_worker_path,
 			exec_worker_path,
 		),

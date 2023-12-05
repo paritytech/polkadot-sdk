@@ -76,6 +76,16 @@
 <a href="#76" id="76">76</a>
 <a href="#77" id="77">77</a>
 <a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -111,6 +121,7 @@
 
 <span class="kw">pub const </span>RUNTIME_VERSION: <span class="kw-2">&amp;</span>str = <span class="macro">env!</span>(<span class="string">&quot;SUBSTRATE_WASMTIME_VERSION&quot;</span>);
 
+<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>std::{
 	io::{<span class="self">self</span>, Read, Write},
 	mem,
@@ -125,14 +136,23 @@
 }
 
 <span class="doccomment">/// Status of security features on the current system.
-</span><span class="attr">#[derive(Debug, Clone, Default, PartialEq, Eq)]
+</span><span class="attr">#[derive(Debug, Clone, Default, PartialEq, Eq, Encode, Decode)]
 </span><span class="kw">pub struct </span>SecurityStatus {
+	<span class="doccomment">/// Whether Secure Validator Mode is enabled. This mode enforces that all required security
+	/// features are present. All features are enabled on a best-effort basis regardless.
+	</span><span class="kw">pub </span>secure_validator_mode: bool,
 	<span class="doccomment">/// Whether the landlock features we use are fully available on this system.
 	</span><span class="kw">pub </span>can_enable_landlock: bool,
 	<span class="doccomment">/// Whether the seccomp features we use are fully available on this system.
 	</span><span class="kw">pub </span>can_enable_seccomp: bool,
 	<span class="doccomment">/// Whether we are able to unshare the user namespace and change the filesystem root.
 	</span><span class="kw">pub </span>can_unshare_user_namespace_and_change_root: bool,
+}
+
+<span class="doccomment">/// A handshake with information for the worker.
+</span><span class="attr">#[derive(Debug, Encode, Decode)]
+</span><span class="kw">pub struct </span>WorkerHandshake {
+	<span class="kw">pub </span>security_status: SecurityStatus,
 }
 
 <span class="doccomment">/// Write some data prefixed by its length into `w`. Sync version of `framed_send` to avoid

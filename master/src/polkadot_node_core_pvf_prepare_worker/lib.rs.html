@@ -675,8 +675,6 @@
 <a href="#675" id="675">675</a>
 <a href="#676" id="676">676</a>
 <a href="#677" id="677">677</a>
-<a href="#678" id="678">678</a>
-<a href="#679" id="679">679</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -729,7 +727,7 @@
 		thread::{<span class="self">self</span>, spawn_worker_thread, WaitOutcome},
 		WorkerKind,
 	},
-	worker_dir, ProcessTime, SecurityStatus,
+	worker_dir, ProcessTime,
 };
 <span class="kw">use </span>polkadot_primitives::ExecutorParams;
 <span class="kw">use </span>std::{
@@ -872,7 +870,6 @@
 	worker_dir_path: PathBuf,
 	node_version: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
 	worker_version: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
-	security_status: SecurityStatus,
 ) {
 	run_worker(
 		WorkerKind::Prepare,
@@ -880,7 +877,6 @@
 		worker_dir_path,
 		node_version,
 		worker_version,
-		<span class="kw-2">&amp;</span>security_status,
 		|<span class="kw-2">mut </span>stream, worker_dir_path| {
 			<span class="kw">let </span>worker_pid = process::id();
 			<span class="kw">let </span>temp_artifact_dest = worker_dir::prepare_tmp_artifact(<span class="kw-2">&amp;</span>worker_dir_path);

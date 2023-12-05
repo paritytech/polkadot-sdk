@@ -189,14 +189,6 @@
 <a href="#189" id="189">189</a>
 <a href="#190" id="190">190</a>
 <a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
-<a href="#199" id="199">199</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -271,11 +263,11 @@
 //! candidate.
 
 </span><span class="kw">use crate</span>::{
-	worker::{stringify_panic_payload, WorkerKind},
+	worker::{stringify_panic_payload, WorkerInfo},
 	LOG_TARGET,
 };
 <span class="kw">use </span>seccompiler::<span class="kw-2">*</span>;
-<span class="kw">use </span>std::{collections::BTreeMap, path::Path};
+<span class="kw">use </span>std::collections::BTreeMap;
 
 <span class="doccomment">/// The action to take on caught syscalls.
 </span><span class="attr">#[cfg(not(test))]
@@ -297,36 +289,28 @@
 <span class="kw">pub type </span><span class="prelude-ty">Result</span>&lt;T&gt; = std::result::Result&lt;T, Error&gt;;
 
 <span class="doccomment">/// Try to enable seccomp for the given kind of worker.
-</span><span class="kw">pub fn </span>enable_for_worker(
-	worker_kind: WorkerKind,
-	worker_pid: u32,
-	worker_dir_path: <span class="kw-2">&amp;</span>Path,
-) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+</span><span class="kw">pub fn </span>enable_for_worker(worker_info: <span class="kw-2">&amp;</span>WorkerInfo) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
 	<span class="macro">gum::trace!</span>(
 		target: LOG_TARGET,
-		%worker_kind,
-		%worker_pid,
-		<span class="question-mark">?</span>worker_dir_path,
+		<span class="question-mark">?</span>worker_info,
 		<span class="string">&quot;enabling seccomp&quot;</span>,
 	);
 
 	try_restrict()
 }
 
-<span class="doccomment">/// Runs a check for seccomp and returns a single bool indicating whether seccomp with our rules is
-/// fully enabled on the current Linux environment.
-</span><span class="kw">pub fn </span>check_is_fully_enabled() -&gt; bool {
-	<span class="kw">let </span>status_from_thread: <span class="prelude-ty">Result</span>&lt;()&gt; = <span class="kw">match </span>std::thread::spawn(|| try_restrict()).join() {
+<span class="doccomment">/// Runs a check for seccomp in its own thread, and returns an error indicating whether seccomp with
+/// our rules is fully enabled on the current Linux environment.
+</span><span class="kw">pub fn </span>check_is_fully_enabled() -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+	<span class="kw">match </span>std::thread::spawn(|| try_restrict()).join() {
 		<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(())) =&gt; <span class="prelude-val">Ok</span>(()),
-		<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) =&gt; <span class="prelude-val">Err</span>(err.into()),
+		<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) =&gt; <span class="prelude-val">Err</span>(err),
 		<span class="prelude-val">Err</span>(err) =&gt; <span class="prelude-val">Err</span>(Error::Panic(stringify_panic_payload(err))),
-	};
-
-	<span class="macro">matches!</span>(status_from_thread, <span class="prelude-val">Ok</span>(()))
+	}
 }
 
 <span class="doccomment">/// Applies a `seccomp` filter to disable networking for the PVF threads.
-</span><span class="kw">pub fn </span>try_restrict() -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+</span><span class="kw">fn </span>try_restrict() -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
 	<span class="comment">// Build a `seccomp` filter which by default allows all syscalls except those blocked in the
 	// blacklist.
 	</span><span class="kw">let </span><span class="kw-2">mut </span>blacklisted_rules = BTreeMap::default();
@@ -368,7 +352,7 @@
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>sandboxed_thread_cannot_use_sockets() {
 		<span class="comment">// TODO: This would be nice: &lt;https://github.com/rust-lang/rust/issues/68007&gt;.
-		</span><span class="kw">if </span>!check_is_fully_enabled() {
+		</span><span class="kw">if </span>check_is_fully_enabled().is_err() {
 			<span class="kw">return
 		</span>}
 

@@ -429,39 +429,6 @@
 <a href="#429" id="429">429</a>
 <a href="#430" id="430">430</a>
 <a href="#431" id="431">431</a>
-<a href="#432" id="432">432</a>
-<a href="#433" id="433">433</a>
-<a href="#434" id="434">434</a>
-<a href="#435" id="435">435</a>
-<a href="#436" id="436">436</a>
-<a href="#437" id="437">437</a>
-<a href="#438" id="438">438</a>
-<a href="#439" id="439">439</a>
-<a href="#440" id="440">440</a>
-<a href="#441" id="441">441</a>
-<a href="#442" id="442">442</a>
-<a href="#443" id="443">443</a>
-<a href="#444" id="444">444</a>
-<a href="#445" id="445">445</a>
-<a href="#446" id="446">446</a>
-<a href="#447" id="447">447</a>
-<a href="#448" id="448">448</a>
-<a href="#449" id="449">449</a>
-<a href="#450" id="450">450</a>
-<a href="#451" id="451">451</a>
-<a href="#452" id="452">452</a>
-<a href="#453" id="453">453</a>
-<a href="#454" id="454">454</a>
-<a href="#455" id="455">455</a>
-<a href="#456" id="456">456</a>
-<a href="#457" id="457">457</a>
-<a href="#458" id="458">458</a>
-<a href="#459" id="459">459</a>
-<a href="#460" id="460">460</a>
-<a href="#461" id="461">461</a>
-<a href="#462" id="462">462</a>
-<a href="#463" id="463">463</a>
-<a href="#464" id="464">464</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -483,8 +450,9 @@
 </span><span class="kw">use </span><span class="kw">crate</span>::LOG_TARGET;
 <span class="kw">use </span>futures::FutureExt <span class="kw">as _</span>;
 <span class="kw">use </span>futures_timer::Delay;
+<span class="kw">use </span>parity_scale_codec::Encode;
 <span class="kw">use </span>pin_project::pin_project;
-<span class="kw">use </span>polkadot_node_core_pvf_common::SecurityStatus;
+<span class="kw">use </span>polkadot_node_core_pvf_common::{SecurityStatus, WorkerHandshake};
 <span class="kw">use </span>rand::Rng;
 <span class="kw">use </span>std::{
 	fmt, mem,
@@ -532,84 +500,55 @@
 	<span class="kw">let </span>program_path = program_path.into();
 	<span class="kw">let </span>worker_dir = WorkerDir::new(debug_id, cache_path).<span class="kw">await</span><span class="question-mark">?</span>;
 	<span class="kw">let </span>extra_args: Vec&lt;String&gt; = extra_args.iter().map(|arg| arg.to_string()).collect();
+	<span class="comment">// Hack the borrow-checker.
+	</span><span class="kw">let </span>program_path_clone = program_path.clone();
+	<span class="kw">let </span>worker_dir_clone = worker_dir.path().to_owned();
+	<span class="kw">let </span>extra_args_clone = extra_args.clone();
 
 	with_transient_socket_path(debug_id, |socket_path| {
 		<span class="kw">let </span>socket_path = socket_path.to_owned();
-		<span class="kw">let </span>worker_dir_path = worker_dir.path().to_owned();
 
 		<span class="kw">async move </span>{
-			<span class="kw">let </span>listener = UnixListener::bind(<span class="kw-2">&amp;</span>socket_path).map_err(|err| {
-				<span class="macro">gum::warn!</span>(
-					target: LOG_TARGET,
-					%debug_id,
-					<span class="question-mark">?</span>program_path,
-					<span class="question-mark">?</span>extra_args,
-					<span class="question-mark">?</span>worker_dir,
-					<span class="question-mark">?</span>socket_path,
-					<span class="string">&quot;cannot bind unix socket: {:?}&quot;</span>,
-					err,
-				);
-				SpawnErr::Bind
-			})<span class="question-mark">?</span>;
+			<span class="kw">let </span>listener = <span class="kw">match </span>UnixListener::bind(<span class="kw-2">&amp;</span>socket_path) {
+				<span class="prelude-val">Ok</span>(ok) =&gt; ok,
+				<span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(SpawnErr::Bind { socket_path, err: err.to_string() }),
+			};
 
-			<span class="kw">let </span>handle = WorkerHandle::spawn(
-				<span class="kw-2">&amp;</span>program_path,
-				<span class="kw-2">&amp;</span>extra_args,
-				<span class="kw-2">&amp;</span>socket_path,
-				<span class="kw-2">&amp;</span>worker_dir_path,
-				security_status,
-			)
-			.map_err(|err| {
-				<span class="macro">gum::warn!</span>(
-					target: LOG_TARGET,
-					%debug_id,
-					<span class="question-mark">?</span>program_path,
-					<span class="question-mark">?</span>extra_args,
-					<span class="question-mark">?</span>worker_dir_path,
-					<span class="question-mark">?</span>socket_path,
-					<span class="string">&quot;cannot spawn a worker: {:?}&quot;</span>,
-					err,
-				);
-				SpawnErr::ProcessSpawn
-			})<span class="question-mark">?</span>;
+			<span class="kw">let </span>handle =
+				WorkerHandle::spawn(<span class="kw-2">&amp;</span>program_path, <span class="kw-2">&amp;</span>extra_args, <span class="kw-2">&amp;</span>socket_path, <span class="kw-2">&amp;</span>worker_dir.path())
+					.map_err(|err| SpawnErr::ProcessSpawn { program_path, err: err.to_string() })<span class="question-mark">?</span>;
 
 			<span class="macro">futures::select! </span>{
 				accept_result = listener.accept().fuse() =&gt; {
-					<span class="kw">let </span>(stream, <span class="kw">_</span>) = accept_result.map_err(|err| {
-						<span class="macro">gum::warn!</span>(
-							target: LOG_TARGET,
-							%debug_id,
-							<span class="question-mark">?</span>program_path,
-							<span class="question-mark">?</span>extra_args,
-							<span class="question-mark">?</span>worker_dir_path,
-							<span class="question-mark">?</span>socket_path,
-							<span class="string">&quot;cannot accept a worker: {:?}&quot;</span>,
-							err,
-						);
-						SpawnErr::Accept
-					})<span class="question-mark">?</span>;
+					<span class="kw">let </span>(<span class="kw-2">mut </span>stream, <span class="kw">_</span>) = accept_result
+						.map_err(|err| SpawnErr::Accept { socket_path, err: err.to_string() })<span class="question-mark">?</span>;
+					send_worker_handshake(<span class="kw-2">&amp;mut </span>stream, WorkerHandshake { security_status })
+						.<span class="kw">await
+						</span>.map_err(|err| SpawnErr::Handshake { err: err.to_string() })<span class="question-mark">?</span>;
 					<span class="prelude-val">Ok</span>((IdleWorker { stream, pid: handle.id(), worker_dir }, handle))
 				}
-				<span class="kw">_ </span>= Delay::new(spawn_timeout).fuse() =&gt; {
-					<span class="macro">gum::warn!</span>(
-						target: LOG_TARGET,
-						%debug_id,
-						<span class="question-mark">?</span>program_path,
-						<span class="question-mark">?</span>extra_args,
-						<span class="question-mark">?</span>worker_dir_path,
-						<span class="question-mark">?</span>socket_path,
-						<span class="question-mark">?</span>spawn_timeout,
-						<span class="string">&quot;spawning and connecting to socket timed out&quot;</span>,
-					);
-					<span class="prelude-val">Err</span>(SpawnErr::AcceptTimeout)
-				}
+				<span class="kw">_ </span>= Delay::new(spawn_timeout).fuse() =&gt; <span class="prelude-val">Err</span>(SpawnErr::AcceptTimeout{spawn_timeout}),
 			}
 		}
 	})
 	.<span class="kw">await
-</span>}
+	</span>.map_err(|err| {
+		<span class="macro">gum::warn!</span>(
+			target: LOG_TARGET,
+			%debug_id,
+			<span class="question-mark">?</span>program_path_clone,
+			<span class="question-mark">?</span>extra_args_clone,
+			<span class="question-mark">?</span>worker_dir_clone,
+			<span class="string">&quot;error spawning worker: {}&quot;</span>,
+			err,
+		);
+		err
+	})
+}
 
-<span class="kw">async fn </span>with_transient_socket_path&lt;T, F, Fut&gt;(debug_id: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, f: F) -&gt; <span class="prelude-ty">Result</span>&lt;T, SpawnErr&gt;
+<span class="doccomment">/// A temporary, random, free path that is necessary only to establish socket communications. If a
+/// directory exists at the path at the end of this function, it is removed then.
+</span><span class="kw">async fn </span>with_transient_socket_path&lt;T, F, Fut&gt;(debug_id: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, f: F) -&gt; <span class="prelude-ty">Result</span>&lt;T, SpawnErr&gt;
 <span class="kw">where
 	</span>F: FnOnce(<span class="kw-2">&amp;</span>Path) -&gt; Fut,
 	Fut: futures::Future&lt;Output = <span class="prelude-ty">Result</span>&lt;T, SpawnErr&gt;&gt; + <span class="lifetime">&#39;static</span>,
@@ -678,21 +617,26 @@
 	</span><span class="kw">pub </span>worker_dir: WorkerDir,
 }
 
-<span class="doccomment">/// An error happened during spawning a worker process.
-</span><span class="attr">#[derive(Clone, Debug)]
+<span class="doccomment">/// This is publicly exposed only for integration tests.
+///
+/// An error happened during spawning a worker process.
+</span><span class="attr">#[derive(thiserror::Error, Clone, Debug)]
+#[doc(hidden)]
 </span><span class="kw">pub enum </span>SpawnErr {
-	<span class="doccomment">/// Cannot obtain a temporary path location.
+	<span class="attr">#[error(<span class="string">&quot;cannot obtain a temporary path location&quot;</span>)]
 	</span>TmpPath,
-	<span class="doccomment">/// Cannot bind the socket to the given path.
-	</span>Bind,
-	<span class="doccomment">/// An error happened during accepting a connection to the socket.
-	</span>Accept,
-	<span class="doccomment">/// An error happened during spawning the process.
-	</span>ProcessSpawn,
-	<span class="doccomment">/// The deadline allotted for the worker spawning and connecting to the socket has elapsed.
-	</span>AcceptTimeout,
-	<span class="doccomment">/// Failed to send handshake after successful spawning was signaled
-	</span>Handshake,
+	<span class="attr">#[error(<span class="string">&quot;cannot bind the socket to the given path {socket_path:?}: {err}&quot;</span>)]
+	</span>Bind { socket_path: PathBuf, err: String },
+	<span class="attr">#[error(
+		<span class="string">&quot;an error happened during accepting a connection to the socket {socket_path:?}: {err}&quot;
+	</span>)]
+	</span>Accept { socket_path: PathBuf, err: String },
+	<span class="attr">#[error(<span class="string">&quot;an error happened during spawning the process at path {program_path:?}: {err}&quot;</span>)]
+	</span>ProcessSpawn { program_path: PathBuf, err: String },
+	<span class="attr">#[error(<span class="string">&quot;the deadline {}ms allotted for the worker spawning and connecting to the socket has elapsed&quot;</span>, .spawn_timeout.as_millis())]
+	</span>AcceptTimeout { spawn_timeout: Duration },
+	<span class="attr">#[error(<span class="string">&quot;failed to send handshake after successful spawning was signaled: {err}&quot;</span>)]
+	</span>Handshake { err: String },
 }
 
 <span class="doccomment">/// This is a representation of a potentially running worker. Drop it and the process will be
@@ -720,22 +664,7 @@
 		extra_args: <span class="kw-2">&amp;</span>[String],
 		socket_path: <span class="kw">impl </span>AsRef&lt;Path&gt;,
 		worker_dir_path: <span class="kw">impl </span>AsRef&lt;Path&gt;,
-		security_status: SecurityStatus,
 	) -&gt; io::Result&lt;<span class="self">Self</span>&gt; {
-		<span class="kw">let </span>security_args = {
-			<span class="kw">let </span><span class="kw-2">mut </span>args = <span class="macro">vec!</span>[];
-			<span class="kw">if </span>security_status.can_enable_landlock {
-				args.push(<span class="string">&quot;--can-enable-landlock&quot;</span>.to_string());
-			}
-			<span class="kw">if </span>security_status.can_enable_seccomp {
-				args.push(<span class="string">&quot;--can-enable-seccomp&quot;</span>.to_string());
-			}
-			<span class="kw">if </span>security_status.can_unshare_user_namespace_and_change_root {
-				args.push(<span class="string">&quot;--can-unshare-user-namespace-and-change-root&quot;</span>.to_string());
-			}
-			args
-		};
-
 		<span class="comment">// Clear all env vars from the spawned process.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>command = process::Command::new(program.as_ref());
 		command.env_clear();
@@ -750,7 +679,6 @@
 			.arg(socket_path.as_ref().as_os_str())
 			.arg(<span class="string">&quot;--worker-dir-path&quot;</span>)
 			.arg(worker_dir_path.as_ref().as_os_str())
-			.args(<span class="kw-2">&amp;</span>security_args)
 			.stdout(std::process::Stdio::piped())
 			.kill_on_drop(<span class="bool-val">true</span>)
 			.spawn()<span class="question-mark">?</span>;
@@ -850,6 +778,14 @@
 	<span class="prelude-val">Ok</span>(buf)
 }
 
+<span class="doccomment">/// Sends a handshake with information for the worker.
+</span><span class="kw">async fn </span>send_worker_handshake(
+	stream: <span class="kw-2">&amp;mut </span>UnixStream,
+	handshake: WorkerHandshake,
+) -&gt; io::Result&lt;()&gt; {
+	framed_send(stream, <span class="kw-2">&amp;</span>handshake.encode()).<span class="kw">await
+</span>}
+
 <span class="doccomment">/// A temporary worker dir that contains only files needed by the worker. The worker will change its
 /// root (the `/` directory) to this directory; it should have access to no other paths on its
 /// filesystem.
@@ -897,8 +833,6 @@
 
 <span class="comment">// Not async since Rust has trouble with async recursion. There should be few files here anyway.
 //
-// TODO: A lingering malicious job can still access future files in this dir. See
-// &lt;https://github.com/paritytech/polkadot-sdk/issues/574&gt; for how to fully secure this.
 </span><span class="doccomment">/// Clear the temporary worker dir without deleting it. Not deleting is important because the worker
 /// has mounted its own separate filesystem here.
 ///

@@ -1704,6 +1704,14 @@
 <a href="#1704" id="1704">1704</a>
 <a href="#1705" id="1705">1705</a>
 <a href="#1706" id="1706">1706</a>
+<a href="#1707" id="1707">1707</a>
+<a href="#1708" id="1708">1708</a>
+<a href="#1709" id="1709">1709</a>
+<a href="#1710" id="1710">1710</a>
+<a href="#1711" id="1711">1711</a>
+<a href="#1712" id="1712">1712</a>
+<a href="#1713" id="1713">1713</a>
+<a href="#1714" id="1714">1714</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1742,7 +1750,7 @@
 	prepare::PrepareSuccess,
 	pvf::PvfPrepData,
 };
-<span class="kw">use </span>polkadot_node_subsystem::SubsystemResult;
+<span class="kw">use </span>polkadot_node_subsystem::{SubsystemError, SubsystemResult};
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::ValidationResult;
 <span class="kw">use </span>std::{
 	collections::HashMap,
@@ -1862,6 +1870,8 @@
 	</span><span class="kw">pub </span>cache_path: PathBuf,
 	<span class="doccomment">/// The version of the node. `None` can be passed to skip the version check (only for tests).
 	</span><span class="kw">pub </span>node_version: <span class="prelude-ty">Option</span>&lt;String&gt;,
+	<span class="doccomment">/// Whether the node is attempting to run as a secure validator.
+	</span><span class="kw">pub </span>secure_validator_mode: bool,
 
 	<span class="doccomment">/// The path to the program that can be used to spawn the prepare workers.
 	</span><span class="kw">pub </span>prepare_worker_program_path: PathBuf,
@@ -1886,12 +1896,14 @@
 	</span><span class="kw">pub fn </span>new(
 		cache_path: PathBuf,
 		node_version: <span class="prelude-ty">Option</span>&lt;String&gt;,
+		secure_validator_mode: bool,
 		prepare_worker_program_path: PathBuf,
 		execute_worker_program_path: PathBuf,
 	) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{
 			cache_path,
 			node_version,
+			secure_validator_mode,
 
 			prepare_worker_program_path,
 			prepare_worker_spawn_timeout: Duration::from_secs(<span class="number">3</span>),
@@ -1919,8 +1931,12 @@
 ) -&gt; SubsystemResult&lt;(ValidationHost, <span class="kw">impl </span>Future&lt;Output = ()&gt;)&gt; {
 	<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>config, <span class="string">&quot;starting PVF validation host&quot;</span>);
 
-	<span class="comment">// Run checks for supported security features once per host startup. Warn here if not enabled.
-	</span><span class="kw">let </span>security_status = security::check_security_status(<span class="kw-2">&amp;</span>config).<span class="kw">await</span>;
+	<span class="comment">// Run checks for supported security features once per host startup. If some checks fail, warn
+	// if Secure Validator Mode is disabled and return an error otherwise.
+	</span><span class="kw">let </span>security_status = <span class="kw">match </span>security::check_security_status(<span class="kw-2">&amp;</span>config).<span class="kw">await </span>{
+		<span class="prelude-val">Ok</span>(ok) =&gt; ok,
+		<span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(SubsystemError::Context(err)),
+	};
 
 	<span class="kw">let </span>(to_host_tx, to_host_rx) = mpsc::channel(<span class="number">10</span>);
 
