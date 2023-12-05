@@ -35,7 +35,7 @@ use frame_support::{
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, WEIGHT_REF_TIME_PER_SECOND},
 		Weight,
-	}, derive_impl,
+	},
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},

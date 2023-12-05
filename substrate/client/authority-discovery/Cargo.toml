@@ -23,8 +23,8 @@ futures-timer = "3.0.1"
 ip_network = "0.4.1"
 libp2p = { version = "0.51.3", features = ["ed25519", "kad"] }
 multihash = { version = "0.18.1", default-features = false, features = [
-  "sha2",
-  "std",
+	"sha2",
+	"std",
 ] }
 log = "0.4.17"
 prost = "0.11"
@@ -41,9 +41,9 @@ sp-keystore = { path = "../../primitives/keystore" }
 sp-runtime = { path = "../../primitives/runtime" }
 async-trait = "0.1.56"
 multihash-codetable = { version = "0.1.1", features = [
-  "serde",
-  "sha2",
-  "digest",
+	"digest",
+	"serde",
+	"sha2",
 ] }
 
 [dev-dependencies]
