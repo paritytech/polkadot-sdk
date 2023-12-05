@@ -29,6 +29,8 @@ sp-core = { path = "../../primitives/core" }
 
 [features]
 default = ["std"]
+xcm-emulator-testing = []
+
 std = [
 	"codec/std",
 	"enumflags2/std",

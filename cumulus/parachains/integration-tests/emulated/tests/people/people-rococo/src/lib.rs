@@ -18,17 +18,15 @@ pub use codec::Encode;
 // Substrate
 pub use frame_support::{
 	assert_err, assert_ok,
-	instances::Instance2,
 	pallet_prelude::Weight,
-	sp_runtime::{AccountId32, DispatchError, DispatchResult, ModuleError},
+	sp_runtime::{AccountId32, DispatchError, DispatchResult},
 	traits::fungibles::Inspect,
-	BoundedVec,
 };
 
 // Polkadot
 pub use xcm::{
 	prelude::{AccountId32 as AccountId32Junction, *},
-	v3::{Error, NetworkId::Westend as WestendId},
+	v3::{Error, NetworkId::Rococo as RococoId},
 };
 
 // Cumulus
@@ -43,30 +41,24 @@ pub use emulated_integration_tests_common::{
 	PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD, XCM_V3,
 };
 pub use parachains_common::{AccountId, Balance};
-pub use westend_system_emulated_network::{
-	asset_hub_westend_emulated_chain::{
-		genesis::ED as ASSET_HUB_WESTEND_ED, AssetHubWestendParaPallet as AssetHubWestendPallet,
+pub use rococo_system_emulated_network::{
+	people_rococo_emulated_chain::{
+		genesis::ED as PEOPLE_ROCOCO_ED, PeopleRococoParaPallet as PeopleRococoPallet,
 	},
-	penpal_emulated_chain::PenpalBParaPallet as PenpalBPallet,
-	westend_emulated_chain::{genesis::ED as WESTEND_ED, WestendRelayPallet as WestendPallet},
-	AssetHubWestendPara as AssetHubWestend, AssetHubWestendParaReceiver as AssetHubWestendReceiver,
-	AssetHubWestendParaSender as AssetHubWestendSender, BridgeHubWestendPara as BridgeHubWestend,
-	BridgeHubWestendParaReceiver as BridgeHubWestendReceiver, PenpalBPara as PenpalB,
-	PenpalBParaReceiver as PenpalBReceiver, PenpalBParaSender as PenpalBSender,
-	WestendRelay as Westend, WestendRelayReceiver as WestendReceiver,
-	WestendRelaySender as WestendSender,
+	rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
+	PenpalAPara as PenpalA, PeopleRococoPara as PeopleRococo,
+	PeopleRococoParaReceiver as PeopleRococoReceiver, PeopleRococoParaSender as PeopleRococoSender,
+	RococoRelay as Rococo, RococoRelayReceiver as RococoReceiver,
+	RococoRelaySender as RococoSender,
 };
 
 pub const ASSET_ID: u32 = 1;
 pub const ASSET_MIN_BALANCE: u128 = 1000;
-// `Assets` pallet index
-pub const ASSETS_PALLET_ID: u8 = 50;
-
-pub type RelayToSystemParaTest = Test<Westend, AssetHubWestend>;
-pub type RelayToParaTest = Test<Westend, PenpalB>;
-pub type SystemParaToRelayTest = Test<AssetHubWestend, Westend>;
-pub type SystemParaToParaTest = Test<AssetHubWestend, PenpalB>;
-pub type ParaToSystemParaTest = Test<PenpalB, AssetHubWestend>;
+pub type RelayToSystemParaTest = Test<Rococo, PeopleRococo>;
+pub type RelayToParaTest = Test<Rococo, PenpalA>;
+pub type SystemParaToRelayTest = Test<PeopleRococo, Rococo>;
+pub type SystemParaToParaTest = Test<PeopleRococo, PenpalA>;
+pub type ParaToSystemParaTest = Test<PenpalA, PeopleRococo>;
 
 #[cfg(test)]
 mod tests;

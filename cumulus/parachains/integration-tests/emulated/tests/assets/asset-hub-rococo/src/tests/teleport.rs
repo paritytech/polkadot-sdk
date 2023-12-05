@@ -162,7 +162,7 @@ fn limited_teleport_native_assets_from_relay_to_system_para_works() {
 	let test_args = TestContext {
 		sender: RococoSender::get(),
 		receiver: AssetHubRococoReceiver::get(),
-		args: relay_test_args(dest, beneficiary_id, amount_to_send),
+		args: TestArgs::new_relay(dest, beneficiary_id, amount_to_send),
 	};
 
 	let mut test = RelayToSystemParaTest::new(test_args);
@@ -206,7 +206,7 @@ fn limited_teleport_native_assets_back_from_system_para_to_relay_works() {
 	let test_args = TestContext {
 		sender: AssetHubRococoSender::get(),
 		receiver: RococoReceiver::get(),
-		args: para_test_args(destination, beneficiary_id, amount_to_send, assets, None, 0),
+		args: TestArgs::new_para(destination, beneficiary_id, amount_to_send, assets, None, 0),
 	};
 
 	let mut test = SystemParaToRelayTest::new(test_args);
@@ -247,7 +247,7 @@ fn limited_teleport_native_assets_from_system_para_to_relay_fails() {
 	let test_args = TestContext {
 		sender: AssetHubRococoSender::get(),
 		receiver: RococoReceiver::get(),
-		args: para_test_args(destination, beneficiary_id, amount_to_send, assets, None, 0),
+		args: TestArgs::new_para(destination, beneficiary_id, amount_to_send, assets, None, 0),
 	};
 
 	let mut test = SystemParaToRelayTest::new(test_args);
@@ -285,7 +285,7 @@ fn teleport_native_assets_from_relay_to_system_para_works() {
 	let test_args = TestContext {
 		sender: RococoSender::get(),
 		receiver: AssetHubRococoReceiver::get(),
-		args: relay_test_args(dest, beneficiary_id, amount_to_send),
+		args: TestArgs::new_relay(dest, beneficiary_id, amount_to_send),
 	};
 
 	let mut test = RelayToSystemParaTest::new(test_args);
@@ -329,7 +329,7 @@ fn teleport_native_assets_back_from_system_para_to_relay_works() {
 	let test_args = TestContext {
 		sender: AssetHubRococoSender::get(),
 		receiver: RococoReceiver::get(),
-		args: para_test_args(destination, beneficiary_id, amount_to_send, assets, None, 0),
+		args: TestArgs::new_para(destination, beneficiary_id, amount_to_send, assets, None, 0),
 	};
 
 	let mut test = SystemParaToRelayTest::new(test_args);
@@ -370,7 +370,7 @@ fn teleport_native_assets_from_system_para_to_relay_fails() {
 	let test_args = TestContext {
 		sender: AssetHubRococoSender::get(),
 		receiver: RococoReceiver::get(),
-		args: para_test_args(destination, beneficiary_id, amount_to_send, assets, None, 0),
+		args: TestArgs::new_para(destination, beneficiary_id, amount_to_send, assets, None, 0),
 	};
 
 	let mut test = SystemParaToRelayTest::new(test_args);
