@@ -1111,7 +1111,7 @@ pub mod pallet {
 		/// this call results in a complete removal of all the data related to the stash account.
 		/// In this case, the `num_slashing_spans` must be larger or equal to the number of
 		/// slashing spans associated with the stash account in the [`SlashingSpans`] storage type,
-		/// otherwise the call will fail. The call weight is directly propotional to
+		/// otherwise the call will fail. The call weight is directly proportional to
 		/// `num_slashing_spans`.
 		///
 		/// ## Complexity
