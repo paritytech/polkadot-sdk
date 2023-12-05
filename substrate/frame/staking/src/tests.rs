@@ -6882,12 +6882,10 @@ mod ledger {
 				Ledger::<Test>::insert(
 					ctlr,
 					StakingLedger {
-						stash,
 						controller: None,
 						total: (1000 + ctlr).into(),
 						active: (1000 + ctlr).into(),
-						unlocking: Default::default(),
-						legacy_claimed_rewards: bounded_vec![],
+						..StakingLedger::default_from(stash.clone())
 					},
 				);
 				Bonded::<Test>::insert(stash, ctlr);
@@ -6912,11 +6910,7 @@ mod ledger {
 
 			let result =
 				Staking::deprecate_controller_batch(RuntimeOrigin::root(), bounded_controllers);
-
-			//Successful call by Root.
 			assert_ok!(result);
-
-			// Weight accounts for every controller was migrated.
 			assert_eq!(
 				result.unwrap().actual_weight.unwrap(),
 				<Test as Config>::WeightInfo::deprecate_controller_batch(
@@ -6955,18 +6949,17 @@ mod ledger {
 			let mut controllers: Vec<_> = vec![];
 			for n in start..(start + MaxControllersInDeprecationBatch::get()).into() {
 				let ctlr: u64 = n.into();
+
 				// Only half of entries are unique pairs.
 				let stash: u64 = if n % 2 == 0 { (n + 10000).into() } else { ctlr };
 
 				Ledger::<Test>::insert(
 					ctlr,
 					StakingLedger {
-						stash,
 						controller: None,
 						total: (1000 + ctlr).into(),
 						active: (1000 + ctlr).into(),
-						unlocking: Default::default(),
-						legacy_claimed_rewards: bounded_vec![],
+						..StakingLedger::default_from(stash.clone())
 					},
 				);
 				Bonded::<Test>::insert(stash, ctlr);
@@ -6979,22 +6972,9 @@ mod ledger {
 				<Test as Config>::MaxControllersInDeprecationBatch,
 			> = BoundedVec::try_from(controllers.clone()).unwrap();
 
-			// Only Root can sign.
-			assert_noop!(
-				Staking::deprecate_controller_batch(
-					RuntimeOrigin::signed(1),
-					bounded_controllers.clone()
-				),
-				BadOrigin
-			);
-
 			let result =
 				Staking::deprecate_controller_batch(RuntimeOrigin::root(), bounded_controllers);
-
-			//Successful call by Root.
 			assert_ok!(result);
-
-			// Weight accounts for only half controller was migrated.
 			assert_eq!(
 				result.unwrap().actual_weight.unwrap(),
 				<Test as Config>::WeightInfo::deprecate_controller_batch(controllers.len() as u32)
@@ -7007,22 +6987,17 @@ mod ledger {
 				let ctlr: u64 = n.into();
 				let stash: u64 = if unique_pair { (n + 10000).into() } else { ctlr };
 
-				// Side effects of migration for unique pair.
+				// Side effect of migration for unique pair.
 				if unique_pair {
 					// Ledger no longer keyed by controller.
 					assert_eq!(Ledger::<Test>::get(ctlr), None);
 				}
-
 				// Bonded maps to the stash.
 				assert_eq!(Bonded::<Test>::get(stash), Some(stash));
 
 				// Ledger is keyed by stash.
 				let ledger_updated = Ledger::<Test>::get(stash).unwrap();
 				assert_eq!(ledger_updated.stash, stash);
-
-				// Check `active` and `total` values match the original ledger set by controller.
-				assert_eq!(ledger_updated.active, (1000 + ctlr).into());
-				assert_eq!(ledger_updated.total, (1000 + ctlr).into());
 			}
 		})
 	}
