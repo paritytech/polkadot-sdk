@@ -1937,7 +1937,7 @@ pub mod pallet {
 		pub fn deprecate_controller_batch(
 			origin: OriginFor<T>,
 			controllers: BoundedVec<T::AccountId, T::MaxControllersInDeprecationBatch>,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
 
 			// Ignore controllers that do not exist or are already the same as stash.
@@ -1966,7 +1966,7 @@ pub mod pallet {
 				<Ledger<T>>::remove(controller);
 				<Ledger<T>>::insert(stash, ledger);
 			}
-			Ok(())
+			Ok(Some(T::WeightInfo::deprecate_controller_batch(controllers.len() as u32)).into())
 		}
 	}
 }
