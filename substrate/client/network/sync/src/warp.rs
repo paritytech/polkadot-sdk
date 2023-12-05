@@ -28,7 +28,7 @@ use crate::{
 use codec::{Decode, Encode};
 use futures::channel::oneshot;
 use libp2p::PeerId;
-use log::{debug, error, trace, warn};
+use log::{debug, error, trace};
 use sc_client_api::ProofProvider;
 use sc_network_common::sync::message::{
 	BlockAttributes, BlockData, BlockRequest, Direction, FromBlock,
@@ -255,7 +255,7 @@ where
 	/// proofs, in this case we will continue polling until the target block is known.
 	pub fn new(client: Arc<Client>, warp_sync_config: WarpSyncConfig<B>) -> Self {
 		if client.info().finalized_state.is_some() {
-			warn!(
+			error!(
 				target: LOG_TARGET,
 				"Can't use warp sync mode with a partially synced database. Reverting to full sync mode."
 			);

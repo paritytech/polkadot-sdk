@@ -699,6 +699,8 @@ pub struct FullPeerConfig {
 	pub storage_chain: bool,
 	/// Optional target block header to sync to
 	pub target_block: Option<<Block as BlockT>::Header>,
+	/// Force genesis even in case of warp & light state sync.
+	pub force_genesis: bool,
 }
 
 #[async_trait::async_trait]
@@ -758,7 +760,9 @@ pub trait TestNetFactory: Default + Sized + Send {
 			*genesis_extra_storage = storage;
 		}
 
-		if matches!(config.sync_mode, SyncMode::LightState { .. } | SyncMode::Warp) {
+		if !config.force_genesis &&
+			matches!(config.sync_mode, SyncMode::LightState { .. } | SyncMode::Warp)
+		{
 			test_client_builder = test_client_builder.set_no_genesis();
 		}
 		let backend = test_client_builder.backend();
