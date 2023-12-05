@@ -15,6 +15,12 @@
 //! There are instructions on asset transferring, teleporting, locking, among others.
 //! New instructions are added via the [RFC process](https://github.com/paritytech/xcm-format/blob/master/proposals/0032-process.md).
 //!
+//! ## In Polkadot SDK
+//!
+//! The Polkadot SDK allows for easily deploying own blockchains from scratch, all very customizable.
+//! This makes dealing with all these blockchains cumbersome.
+//! XCM exists both as a standard for doing similar things in many chains, and as a language to send message between them.
+//!
 //! ## Implementation
 //!
 //! A ready-to-use Rust implementation lives in the [polkadot-sdk repo](https://github.com/paritytech/polkadot-sdk/tree/master/polkadot/xcm),
