@@ -6885,7 +6885,7 @@ mod ledger {
 						controller: None,
 						total: (10 + ctlr).into(),
 						active: (10 + ctlr).into(),
-						..StakingLedger::default_from(stash.clone())
+						..StakingLedger::default_from(stash)
 					},
 				);
 				Bonded::<Test>::insert(stash, ctlr);
@@ -6955,10 +6955,7 @@ mod ledger {
 
 				Ledger::<Test>::insert(
 					ctlr,
-					StakingLedger {
-						controller: None,
-						..StakingLedger::default_from(stash.clone())
-					},
+					StakingLedger { controller: None, ..StakingLedger::default_from(stash) },
 				);
 				Bonded::<Test>::insert(stash, ctlr);
 				controllers.push(ctlr);
