@@ -414,6 +414,7 @@
 <span class="kw">mod </span>weight_meter;
 <span class="kw">mod </span>weight_v2;
 
+<span class="kw">use </span>bounded_collections::Get;
 <span class="kw">use </span>codec::{CompactAs, Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
@@ -423,7 +424,6 @@
 	traits::{BaseArithmetic, SaturatedConversion, Unsigned},
 	Perbill,
 };
-<span class="kw">use </span>sp_core::Get;
 <span class="kw">use </span>sp_debug_derive::RuntimeDebug;
 
 <span class="kw">pub use </span>weight_meter::<span class="kw-2">*</span>;
@@ -657,7 +657,7 @@
 /// # Example
 ///
 /// ```
-/// # use sp_core::ConstU128;
+/// # use bounded_collections::ConstU128;
 /// # use sp_weights::ConstantMultiplier;
 /// // Results in a multiplier of 10 for each unit of weight (or length)
 /// type LengthToFee = ConstantMultiplier::&lt;u128, ConstU128&lt;10u128&gt;&gt;;
@@ -747,7 +747,7 @@
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>constant_fee_works() {
-		<span class="kw">use </span>sp_core::ConstU128;
+		<span class="kw">use </span>bounded_collections::ConstU128;
 		<span class="macro">assert_eq!</span>(
 			ConstantMultiplier::&lt;u128, ConstU128&lt;<span class="number">100u128</span>&gt;&gt;::weight_to_fee(<span class="kw-2">&amp;</span>Weight::zero()),
 			<span class="number">0
