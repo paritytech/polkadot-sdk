@@ -32,7 +32,7 @@ a local Grafana/Prometheus stack is needed.
 
 ### Run Prometheus, Pyroscope and Graphana in Docker
 
-If you are using Docker, you can skip the next steps to install Prometheus, Pyroscope and Graphana using `docker-compose` file.
+If docker is not usable, then follow the next sections to manually install Prometheus, Pyroscope and Graphana on your machine.
 
 ```bash
 cd polkadot/node/subsystem-bench/docker
