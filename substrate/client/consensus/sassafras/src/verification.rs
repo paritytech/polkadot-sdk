@@ -119,7 +119,12 @@ fn check_header<B: BlockT + Sized>(
 			debug!(target: LOG_TARGET, "checking secondary");
 			let idx = authorship::secondary_authority_index(claim.slot, epoch);
 			if idx != claim.authority_idx {
-				error!(target: LOG_TARGET, "Bad secondary authority index");
+				error!(
+					target: LOG_TARGET,
+					"Bad secondary authority index (expected: {}, got {})",
+					idx,
+					claim.authority_idx
+				);
 				return Err(Error::SlotAuthorNotFound)
 			}
 		},

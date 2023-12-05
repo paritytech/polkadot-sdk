@@ -755,7 +755,7 @@ fn verify_block_claimed_via_secondary_method() {
 
 	let blocks = env.propose_and_import_blocks(env.client.info().genesis_hash, 7);
 
-	let in_params = env.propose_block(blocks[6], Some(9.into()));
+	let in_params = env.propose_block(blocks[6], Some(6.into()));
 
 	let _out_params = env.verify_block(in_params);
 }
