@@ -1339,9 +1339,7 @@ pub mod pallet {
 				}
 				<Ledger<T>>::remove(controller);
 				<Bonded<T>>::insert(&stash, &stash);
-				// The controller is never stored on-chain, and is instead derived from the `Bonded` storage
-				// item by `StakingLedger`.
-				<Ledger<T>>::insert(&stash, StakingLedger { controller: None, ..ledger});
+				<Ledger<T>>::insert(&stash, ledger);
 				Ok(())
 			})?
 		}
@@ -1947,10 +1945,7 @@ pub mod pallet {
 					let ledger = Self::ledger(StakingAccount::Controller(controller.clone()));
 					ledger.ok().map_or(None, |ledger| {
 						if ledger.stash != *controller {
-							// Sets `controller` field back to `None`. The controller is never
-							// stored on-chain, and is instead derived from the `Bonded` storage
-							// item by `StakingLedger`.
-							Some((controller.clone(), StakingLedger { controller: None, ..ledger }))
+							Some((controller.clone(), ledger))
 						} else {
 							None
 						}
