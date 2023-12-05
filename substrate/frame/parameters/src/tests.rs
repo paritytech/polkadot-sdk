@@ -168,18 +168,17 @@ fn test_define_parameters_aggregrated_key_value() {
 #[test]
 fn test_define_aggregrated_parameters_key_convert() {
 	use codec::Encode;
-	use frame_support::traits::Into2;
 
 	let key1 = pallet1::Key1;
 	let parameter_key: pallet1::ParametersKey = key1.clone().into();
-	let runtime_key: RuntimeParametersKey = parameter_key.clone().into2();
+	let runtime_key: RuntimeParametersKey = parameter_key.clone().into();
 
 	assert_eq!(runtime_key, RuntimeParametersKey::Pallet1(pallet1::ParametersKey::Key1(key1)));
 	assert_eq!(runtime_key.encode(), vec![0, 0]);
 
 	let key2 = pallet2::Key2;
 	let parameter_key: pallet2::ParametersKey = key2.clone().into();
-	let runtime_key: RuntimeParametersKey = parameter_key.clone().into2();
+	let runtime_key: RuntimeParametersKey = parameter_key.clone().into();
 
 	assert_eq!(runtime_key, RuntimeParametersKey::Pallet2(pallet2::ParametersKey::Key2(key2)));
 	assert_eq!(runtime_key.encode(), vec![1, 1]);

@@ -16,68 +16,16 @@
 // limitations under the License.
 
 use crate::Parameter;
+use codec::MaxEncodedLen;
 
-#[doc(hidden)]
 pub trait Key {
 	type Value;
 	type WrappedValue: Into<Self::Value>;
 }
 
-#[doc(hidden)]
 pub trait AggregratedKeyValue: Parameter {
-	type AggregratedKey: Parameter + codec::MaxEncodedLen;
-	type AggregratedValue: Parameter + codec::MaxEncodedLen;
+	type AggregratedKey: Parameter + MaxEncodedLen;
+	type AggregratedValue: Parameter + MaxEncodedLen;
 
 	fn into_parts(self) -> (Self::AggregratedKey, Option<Self::AggregratedValue>);
-}
-
-// workaround for rust bug https://github.com/rust-lang/rust/issues/51445
-pub mod workaround {
-	#[doc(hidden)]
-	pub trait From2<T>: Sized {
-		#[must_use]
-		fn from2(value: T) -> Self;
-	}
-
-	#[doc(hidden)]
-	pub trait Into2<T>: Sized {
-		#[must_use]
-		fn into2(self) -> T;
-	}
-
-	impl<T, U> Into2<U> for T
-	where
-		U: From2<T>,
-	{
-		#[inline]
-		fn into2(self) -> U {
-			U::from2(self)
-		}
-	}
-
-	#[doc(hidden)]
-	pub trait TryInto2<T>: Sized {
-		type Error;
-
-		fn try_into2(self) -> Result<T, Self::Error>;
-	}
-
-	#[doc(hidden)]
-	pub trait TryFrom2<T>: Sized {
-		type Error;
-
-		fn try_from2(value: T) -> Result<Self, Self::Error>;
-	}
-
-	impl<T, U> TryInto2<U> for T
-	where
-		U: TryFrom2<T>,
-	{
-		type Error = U::Error;
-
-		#[inline]
-		fn try_into2(self) -> Result<U, U::Error> {
-			U::try_from2(self)
-		}
-	}
 }
