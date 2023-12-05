@@ -4394,45 +4394,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "developer-hub"
-version = "0.0.1"
-dependencies = [
- "cumulus-pallet-aura-ext",
- "cumulus-pallet-parachain-system",
- "docify",
- "frame",
- "kitchensink-runtime",
- "pallet-aura",
- "pallet-default-config-example",
- "pallet-examples",
- "pallet-timestamp",
- "parity-scale-codec",
- "sc-cli",
- "sc-client-db",
- "sc-consensus-aura",
- "sc-consensus-babe",
- "sc-consensus-beefy",
- "sc-consensus-grandpa",
- "sc-consensus-manual-seal",
- "sc-consensus-pow",
- "sc-network",
- "sc-rpc",
- "sc-rpc-api",
- "scale-info",
- "simple-mermaid 0.1.0 (git+https://github.com/kianenigma/simple-mermaid.git?branch=main)",
- "sp-api",
- "sp-core",
- "sp-io",
- "sp-keyring",
- "sp-runtime",
- "staging-chain-spec-builder",
- "staging-node-cli",
- "staging-parachain-info",
- "subkey",
- "substrate-wasm-builder",
-]
-
-[[package]]
 name = "diff"
 version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -13049,6 +13010,45 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkadot-sdk-docs"
+version = "0.0.1"
+dependencies = [
+ "cumulus-pallet-aura-ext",
+ "cumulus-pallet-parachain-system",
+ "docify",
+ "frame",
+ "kitchensink-runtime",
+ "pallet-aura",
+ "pallet-default-config-example",
+ "pallet-examples",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "sc-cli",
+ "sc-client-db",
+ "sc-consensus-aura",
+ "sc-consensus-babe",
+ "sc-consensus-beefy",
+ "sc-consensus-grandpa",
+ "sc-consensus-manual-seal",
+ "sc-consensus-pow",
+ "sc-network",
+ "sc-rpc",
+ "sc-rpc-api",
+ "scale-info",
+ "simple-mermaid 0.1.0 (git+https://github.com/kianenigma/simple-mermaid.git?branch=main)",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-keyring",
+ "sp-runtime",
+ "staging-chain-spec-builder",
+ "staging-node-cli",
+ "staging-parachain-info",
+ "subkey",
+ "substrate-wasm-builder",
+]
+
+[[package]]
 name = "polkadot-service"
 version = "1.0.0"
 dependencies = [
@@ -13190,7 +13190,6 @@ dependencies = [
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
  "polkadot-node-subsystem-test-helpers",
- "polkadot-node-subsystem-types",
  "polkadot-node-subsystem-util",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
