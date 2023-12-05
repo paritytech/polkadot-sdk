@@ -7,9 +7,7 @@ callsite is a small <code>static</code> value that is responsible for the follow
 <li>Storing the span or event’s <a href="../struct.Metadata.html" title="struct polkadot_node_subsystem::gen::tracing::Metadata"><code>Metadata</code></a>,</li>
 <li>Uniquely <a href="struct.Identifier.html" title="struct polkadot_node_subsystem::gen::tracing::callsite::Identifier">identifying</a> the span or event definition,</li>
 <li>Caching the subscriber’s <a href="../subscriber/struct.Interest.html" title="struct polkadot_node_subsystem::gen::tracing::subscriber::Interest"><code>Interest</code></a><sup id="fnref1"><a href="#fn1">1</a></sup> in that span or event, to avoid
-re-evaluating filters,</li>
-<li>Storing a [<code>Registration</code>] that allows the callsite to be part of a global
-list of all callsites in the program.</li>
+re-evaluating filters.</li>
 </ul>
 <h2 id="registering-callsites"><a href="#registering-callsites">Registering Callsites</a></h2>
 <p>When a span or event is recorded for the first time, its callsite
