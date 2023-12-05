@@ -23,7 +23,7 @@ use frame_election_provider_support::{
 	onchain, SequentialPhragmen, SortedListProvider, VoteWeight,
 };
 use frame_support::{
-	assert_ok, ord_parameter_types, parameter_types,
+	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
 		ConstU64, Currency, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance, OnUnbalanced,
 		OneSessionHandler,
@@ -126,6 +126,7 @@ parameter_types! {
 	pub static Offset: BlockNumber = 0;
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
@@ -619,7 +620,7 @@ pub(crate) fn current_era() -> EraIndex {
 
 pub(crate) fn bond(who: AccountId, val: Balance) {
 	let _ = Balances::make_free_balance_be(&who, val);
-	assert_ok!(Staking::bond(RuntimeOrigin::signed(who), val, RewardDestination::Controller));
+	assert_ok!(Staking::bond(RuntimeOrigin::signed(who), val, RewardDestination::Stash));
 }
 
 pub(crate) fn bond_validator(who: AccountId, val: Balance) {
@@ -932,10 +933,6 @@ pub(crate) fn stake_tracker_sanity_tests() -> Result<(), &'static str> {
 	assert_eq!(valid_validators_count, TargetBagsList::count() as usize);
 
 	Ok(())
-}
-
-pub(crate) fn some_existing_validator() -> Option<AccountId> {
-	TargetBagsList::iter().last()
 }
 
 pub(crate) fn voters_and_targets() -> (Vec<(AccountId, VoteWeight)>, Vec<(AccountId, Balance)>) {

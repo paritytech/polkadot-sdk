@@ -37,7 +37,7 @@ sp-core = { path = "../../../substrate/primitives/core" }
 sp-io = { path = "../../../substrate/primitives/io" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"bp-header-chain/std",
 	"bp-runtime/std",

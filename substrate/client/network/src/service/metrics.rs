@@ -61,9 +61,6 @@ pub struct Metrics {
 	pub kbuckets_num_nodes: GaugeVec<U64>,
 	pub listeners_local_addresses: Gauge<U64>,
 	pub listeners_errors_total: Counter<U64>,
-	pub notifications_sizes: HistogramVec,
-	pub notifications_streams_closed_total: CounterVec<U64>,
-	pub notifications_streams_opened_total: CounterVec<U64>,
 	pub peerset_num_discovered: Gauge<U64>,
 	pub pending_connections: Gauge<U64>,
 	pub pending_connections_errors_total: CounterVec<U64>,
@@ -152,31 +149,6 @@ impl Metrics {
 			listeners_errors_total: prometheus::register(Counter::new(
 				"substrate_sub_libp2p_listeners_errors_total",
 				"Total number of non-fatal errors reported by a listener"
-			)?, registry)?,
-			notifications_sizes: prometheus::register(HistogramVec::new(
-				HistogramOpts {
-					common_opts: Opts::new(
-						"substrate_sub_libp2p_notifications_sizes",
-						"Sizes of the notifications send to and received from all nodes"
-					),
-					buckets: prometheus::exponential_buckets(64.0, 4.0, 8)
-						.expect("parameters are always valid values; qed"),
-				},
-				&["direction", "protocol"]
-			)?, registry)?,
-			notifications_streams_closed_total: prometheus::register(CounterVec::new(
-				Opts::new(
-					"substrate_sub_libp2p_notifications_streams_closed_total",
-					"Total number of notification substreams that have been closed"
-				),
-				&["protocol"]
-			)?, registry)?,
-			notifications_streams_opened_total: prometheus::register(CounterVec::new(
-				Opts::new(
-					"substrate_sub_libp2p_notifications_streams_opened_total",
-					"Total number of notification substreams that have been opened"
-				),
-				&["protocol"]
 			)?, registry)?,
 			peerset_num_discovered: prometheus::register(Gauge::new(
 				"substrate_sub_libp2p_peerset_num_discovered",

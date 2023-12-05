@@ -173,6 +173,8 @@ where
 				.cache_para_backing_state((relay_parent, para_id), constraints),
 			AsyncBackingParams(relay_parent, params) =>
 				self.requests_cache.cache_async_backing_params(relay_parent, params),
+			NodeFeatures(session_index, params) =>
+				self.requests_cache.cache_node_features(session_index, params),
 		}
 	}
 
@@ -313,6 +315,15 @@ where
 					Some(Request::MinimumBackingVotes(index, sender))
 				}
 			},
+			Request::NodeFeatures(index, sender) => {
+				if let Some(value) = self.requests_cache.node_features(index) {
+					self.metrics.on_cached_request();
+					let _ = sender.send(Ok(value.clone()));
+					None
+				} else {
+					Some(Request::NodeFeatures(index, sender))
+				}
+			},
 		}
 	}
 
@@ -408,6 +419,9 @@ where
 
 	macro_rules! query {
 		($req_variant:ident, $api_name:ident ($($param:expr),*), ver = $version:expr, $sender:expr) => {{
+			query!($req_variant, $api_name($($param),*), ver = $version, $sender, result = ( relay_parent $(, $param )* ) )
+		}};
+		($req_variant:ident, $api_name:ident ($($param:expr),*), ver = $version:expr, $sender:expr, result = ( $($results:expr),* ) ) => {{
 			let sender = $sender;
 			let version: u32 = $version;	// enforce type for the version expression
 			let runtime_version = client.api_version_parachain_host(relay_parent).await
@@ -441,7 +455,7 @@ where
 			metrics.on_request(res.is_ok());
 			let _ = sender.send(res.clone());
 
-			res.ok().map(|res| RequestResult::$req_variant(relay_parent, $( $param, )* res))
+			res.ok().map(|res| RequestResult::$req_variant($( $results, )* res))
 		}}
 	}
 
@@ -591,5 +605,12 @@ where
 				sender
 			)
 		},
+		Request::NodeFeatures(index, sender) => query!(
+			NodeFeatures,
+			node_features(),
+			ver = Request::NODE_FEATURES_RUNTIME_REQUIREMENT,
+			sender,
+			result = (index)
+		),
 	}
 }
