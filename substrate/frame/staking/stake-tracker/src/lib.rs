@@ -447,10 +447,8 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	fn on_nominator_remove(who: &T::AccountId, nominations: Vec<T::AccountId>) {
 		log!(debug, "on_nominator_remove: {:?}, impacting {:?}", who, nominations);
 
-		if T::Staking::status(who).is_ok() {
-			//debug_assert!(!T::VoterList::contains(who));
-
-			// nominator must be idle before removing completely.
+		// nominator must be idle before removing completely.
+		if T::Staking::status(who).unwrap_or(StakerStatus::Idle) != StakerStatus::Idle {
 			Self::on_nominator_idle(who, nominations);
 		}
 
