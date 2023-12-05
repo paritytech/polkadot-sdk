@@ -117,6 +117,30 @@ fn limited_teleport_assets_works() {
 	);
 }
 
+/// `limited_teleport_assets` should fail for filtered assets
+#[test]
+fn limited_teleport_filtered_assets_disallowed() {
+	let beneficiary: MultiLocation = AccountId32 { network: None, id: BOB.into() }.into();
+	new_test_ext_with_balances(vec![(ALICE, INITIAL_BALANCE)]).execute_with(|| {
+		let result = XcmPallet::limited_teleport_assets(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(FilteredTeleportLocation::get().into()),
+			Box::new(beneficiary.into()),
+			Box::new(FilteredTeleportAsset::get().into()),
+			0,
+			Unlimited,
+		);
+		assert_eq!(
+			result,
+			Err(DispatchError::Module(ModuleError {
+				index: 4,
+				error: [2, 0, 0, 0],
+				message: Some("Filtered")
+			}))
+		);
+	});
+}
+
 /// Test `reserve_transfer_assets_with_paid_router_works`
 ///
 /// Asserts that the sender's balance is decreased and the beneficiary's balance
@@ -1401,5 +1425,93 @@ fn reserve_transfer_assets_with_teleportable_asset_fails() {
 		// Verify total and active issuance of USDT are still the same
 		assert_eq!(Assets::total_issuance(usdt_id_multilocation), usdt_initial_local_amount);
 		assert_eq!(Assets::active_issuance(usdt_id_multilocation), usdt_initial_local_amount);
+	});
+}
+
+/// Test `reserve_transfer_assets` with teleportable fee that is filtered - should fail.
+#[test]
+fn reserve_transfer_assets_with_filtered_teleported_fee_disallowed() {
+	let beneficiary: MultiLocation = AccountId32 { network: None, id: BOB.into() }.into();
+	new_test_ext_with_balances(vec![(ALICE, INITIAL_BALANCE)]).execute_with(|| {
+		let (assets, fee_index, _, _) = into_multiassets_checked(
+			// FilteredTeleportAsset for fees - teleportable but filtered
+			FilteredTeleportAsset::get().into(),
+			// native asset to transfer (not used for fees) - local reserve
+			(MultiLocation::here(), SEND_AMOUNT).into(),
+		);
+		let result = XcmPallet::limited_reserve_transfer_assets(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(FilteredTeleportLocation::get().into()),
+			Box::new(beneficiary.into()),
+			Box::new(assets.into()),
+			fee_index as u32,
+			Unlimited,
+		);
+		assert_eq!(
+			result,
+			Err(DispatchError::Module(ModuleError {
+				index: 4,
+				error: [2, 0, 0, 0],
+				message: Some("Filtered")
+			}))
+		);
+	});
+}
+
+/// Test failure to complete execution of local XCM instructions reverts intermediate side-effects.
+///
+/// Extrinsic will execute XCM to withdraw & burn reserve-based assets, then fail sending XCM to
+/// reserve chain for releasing reserve assets. Assert that the previous instructions (withdraw &
+/// burn) effects are reverted.
+#[test]
+fn intermediary_error_reverts_side_effects() {
+	let balances = vec![(ALICE, INITIAL_BALANCE)];
+	let beneficiary: MultiLocation =
+		Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+	new_test_ext_with_balances(balances).execute_with(|| {
+		// create sufficient foreign asset USDC (0 total issuance)
+		let usdc_initial_local_amount = 142;
+		let (_, usdc_chain_sovereign_account, usdc_id_multilocation) = set_up_foreign_asset(
+			USDC_RESERVE_PARA_ID,
+			Some(USDC_INNER_JUNCTION),
+			usdc_initial_local_amount,
+			true,
+		);
+
+		// transfer destination is some other parachain
+		let dest = RelayLocation::get().pushed_with_interior(Parachain(OTHER_PARA_ID)).unwrap();
+
+		let assets: MultiAssets = vec![(usdc_id_multilocation, SEND_AMOUNT).into()].into();
+		let fee_index = 0;
+
+		// balances checks before
+		assert_eq!(Assets::balance(usdc_id_multilocation, ALICE), usdc_initial_local_amount);
+		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
+
+		// introduce artificial error in sending outbound XCM
+		set_send_xcm_artificial_failure(true);
+
+		// do the transfer - extrinsic should completely fail on xcm send failure
+		assert!(XcmPallet::limited_reserve_transfer_assets(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(dest.into()),
+			Box::new(beneficiary.into()),
+			Box::new(assets.into()),
+			fee_index as u32,
+			Unlimited,
+		)
+		.is_err());
+
+		// Alice no changes
+		assert_eq!(Assets::balance(usdc_id_multilocation, ALICE), usdc_initial_local_amount);
+		assert_eq!(Balances::free_balance(ALICE), INITIAL_BALANCE);
+		// Destination account (parachain account) no changes
+		assert_eq!(Balances::free_balance(usdc_chain_sovereign_account.clone()), 0);
+		assert_eq!(Assets::balance(usdc_id_multilocation, usdc_chain_sovereign_account), 0);
+		// Verify total and active issuance of USDC has not changed
+		assert_eq!(Assets::total_issuance(usdc_id_multilocation), usdc_initial_local_amount);
+		assert_eq!(Assets::active_issuance(usdc_id_multilocation), usdc_initial_local_amount);
+		// Verify no XCM program sent
+		assert_eq!(sent_xcm(), vec![]);
 	});
 }

@@ -39,6 +39,8 @@ use sp_std::convert::TryFrom;
 /// ECDSA and BLS12-377 paired crypto scheme
 #[cfg(feature = "bls-experimental")]
 pub mod ecdsa_bls377 {
+	#[cfg(feature = "full_crypto")]
+	use crate::Hasher;
 	use crate::{
 		bls377,
 		crypto::{CryptoTypeId, Pair as PairT, UncheckedFrom},
@@ -78,15 +80,17 @@ pub mod ecdsa_bls377 {
 
 	#[cfg(feature = "full_crypto")]
 	impl Pair {
-		/// Hashes the `message` with the specified `MsgHasher` and then signs it using ECDSA
-		/// algorithm. It does not affect the behavoir of BLS12-377 component. It generates
-		/// BLS12-377 Signature according to IETF standard and disregards the hasher for the
-		/// BLS12-377 component
-		pub fn sign_with_hasher<MsgHasher: crate::Hasher>(&self, message: &[u8]) -> Signature
+		/// Hashes the `message` with the specified [`Hasher`] before signing sith the ECDSA secret
+		/// component.
+		///
+		/// The hasher does not affect the BLS12-377 component. This generates BLS12-377 Signature
+		/// according to IETF standard.
+		pub fn sign_with_hasher<H>(&self, message: &[u8]) -> Signature
 		where
-			<MsgHasher as crate::Hasher>::Out: Into<[u8; 32]>,
+			H: Hasher,
+			H::Out: Into<[u8; 32]>,
 		{
-			let msg_hash = <MsgHasher as crate::Hasher>::hash(message).into();
+			let msg_hash = H::hash(message).into();
 
 			let mut raw: [u8; SIGNATURE_LEN] = [0u8; SIGNATURE_LEN];
 			raw[..ecdsa::SIGNATURE_SERIALIZED_SIZE]
@@ -96,19 +100,17 @@ pub mod ecdsa_bls377 {
 			<Self as PairT>::Signature::unchecked_from(raw)
 		}
 
-		/// Hashes the `message` with the specified `MsgHasher` and then verifies whether the
-		/// resulting hash was signed by the provided ECDSA public key. It does not affect the
-		/// behavior of the BLS12-377 component. It verifies whether the BLS12-377 signature was
-		/// hashed and signed according to IETF standard
-		pub fn verify_with_hasher<MsgHasher: crate::Hasher>(
-			sig: &Signature,
-			message: &[u8],
-			public: &Public,
-		) -> bool
+		/// Hashes the `message` with the specified [`Hasher`] before verifying with the ECDSA
+		/// public component.
+		///
+		/// The hasher does not affect the the BLS12-377 component. This verifies whether the
+		/// BLS12-377 signature was hashed and signed according to IETF standard
+		pub fn verify_with_hasher<H>(sig: &Signature, message: &[u8], public: &Public) -> bool
 		where
-			<MsgHasher as crate::Hasher>::Out: Into<[u8; 32]>,
+			H: Hasher,
+			H::Out: Into<[u8; 32]>,
 		{
-			let msg_hash = <MsgHasher as crate::Hasher>::hash(message).into();
+			let msg_hash = H::hash(message).into();
 
 			let Ok(left_pub) = public.0[..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE].try_into() else {
 				return false

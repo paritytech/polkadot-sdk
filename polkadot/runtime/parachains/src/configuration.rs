@@ -26,8 +26,8 @@ use polkadot_parachain_primitives::primitives::{
 	MAX_HORIZONTAL_MESSAGE_NUM, MAX_UPWARD_MESSAGE_NUM,
 };
 use primitives::{
-	AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams, SessionIndex,
-	LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE,
+	vstaging::NodeFeatures, AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams,
+	SessionIndex, LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE,
 	ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
 use sp_runtime::{traits::Zero, Perbill};
@@ -261,6 +261,8 @@ pub struct HostConfiguration<BlockNumber> {
 	/// The minimum number of valid backing statements required to consider a parachain candidate
 	/// backable.
 	pub minimum_backing_votes: u32,
+	/// Node features enablement.
+	pub node_features: NodeFeatures,
 }
 
 impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber> {
@@ -312,6 +314,7 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			on_demand_target_queue_utilization: Perbill::from_percent(25),
 			on_demand_ttl: 5u32.into(),
 			minimum_backing_votes: LEGACY_MIN_BACKING_VOTES,
+			node_features: NodeFeatures::EMPTY,
 		}
 	}
 }
@@ -463,6 +466,7 @@ pub trait WeightInfo {
 	fn set_hrmp_open_request_ttl() -> Weight;
 	fn set_config_with_executor_params() -> Weight;
 	fn set_config_with_perbill() -> Weight;
+	fn set_node_feature() -> Weight;
 }
 
 pub struct TestWeightInfo;
@@ -488,6 +492,9 @@ impl WeightInfo for TestWeightInfo {
 	fn set_config_with_perbill() -> Weight {
 		Weight::MAX
 	}
+	fn set_node_feature() -> Weight {
+		Weight::MAX
+	}
 }
 
 #[frame_support::pallet]
@@ -496,18 +503,19 @@ pub mod pallet {
 
 	/// The current storage version.
 	///
-	/// v0-v1: <https://github.com/paritytech/polkadot/pull/3575>
-	/// v1-v2: <https://github.com/paritytech/polkadot/pull/4420>
-	/// v2-v3: <https://github.com/paritytech/polkadot/pull/6091>
-	/// v3-v4: <https://github.com/paritytech/polkadot/pull/6345>
-	/// v4-v5: <https://github.com/paritytech/polkadot/pull/6937>
-	///      + <https://github.com/paritytech/polkadot/pull/6961>
-	///      + <https://github.com/paritytech/polkadot/pull/6934>
-	/// v5-v6: <https://github.com/paritytech/polkadot/pull/6271> (remove UMP dispatch queue)
-	/// v6-v7: <https://github.com/paritytech/polkadot/pull/7396>
-	/// v7-v8: <https://github.com/paritytech/polkadot/pull/6969>
-	/// v8-v9: <https://github.com/paritytech/polkadot/pull/7577>
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(9);
+	/// v0-v1:  <https://github.com/paritytech/polkadot/pull/3575>
+	/// v1-v2:  <https://github.com/paritytech/polkadot/pull/4420>
+	/// v2-v3:  <https://github.com/paritytech/polkadot/pull/6091>
+	/// v3-v4:  <https://github.com/paritytech/polkadot/pull/6345>
+	/// v4-v5:  <https://github.com/paritytech/polkadot/pull/6937>
+	///       + <https://github.com/paritytech/polkadot/pull/6961>
+	///       + <https://github.com/paritytech/polkadot/pull/6934>
+	/// v5-v6:  <https://github.com/paritytech/polkadot/pull/6271> (remove UMP dispatch queue)
+	/// v6-v7:  <https://github.com/paritytech/polkadot/pull/7396>
+	/// v7-v8:  <https://github.com/paritytech/polkadot/pull/6969>
+	/// v8-v9:  <https://github.com/paritytech/polkadot/pull/7577>
+	/// v9-v10: <https://github.com/paritytech/polkadot-sdk/pull/2177>
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(10);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -1193,6 +1201,23 @@ pub mod pallet {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
 				config.minimum_backing_votes = new;
+			})
+		}
+		/// Set/Unset a node feature.
+		#[pallet::call_index(53)]
+		#[pallet::weight((
+			T::WeightInfo::set_node_feature(),
+			DispatchClass::Operational
+		))]
+		pub fn set_node_feature(origin: OriginFor<T>, index: u8, value: bool) -> DispatchResult {
+			ensure_root(origin)?;
+
+			Self::schedule_config_update(|config| {
+				let index = usize::from(index);
+				if config.node_features.len() <= index {
+					config.node_features.resize(index + 1, false);
+				}
+				config.node_features.set(index, value);
 			})
 		}
 	}

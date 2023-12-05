@@ -19,7 +19,10 @@ pub use frame_support::assert_ok;
 // Polkadot
 pub use xcm::{
 	prelude::{AccountId32 as AccountId32Junction, *},
-	v3::{Error, NetworkId::Rococo as RococoId},
+	v3::{
+		Error,
+		NetworkId::{Rococo as RococoId, Westend as WestendId},
+	},
 };
 
 // Bridges
@@ -27,6 +30,8 @@ pub use bp_messages::LaneId;
 
 // Cumulus
 pub use emulated_integration_tests_common::{
+	accounts::ALICE,
+	impls::Inspect,
 	test_parachain_is_trusted_teleporter,
 	xcm_emulator::{
 		assert_expected_events, bx, helpers::weight_within_threshold, Chain, Parachain as Para,
@@ -36,16 +41,22 @@ pub use emulated_integration_tests_common::{
 	PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD, XCM_V3,
 };
 pub use parachains_common::{AccountId, Balance};
-pub use westend_system_emulated_network::{
-	bridge_hub_westend_emulated_chain::{
-		genesis::ED as BRIDGE_HUB_ROCOCO_ED, BridgeHubWestendParaPallet as BridgeHubWestendPallet,
+pub use rococo_westend_system_emulated_network::{
+	asset_hub_rococo_emulated_chain::{
+		genesis::ED as ASSET_HUB_ROCOCO_ED, AssetHubRococoParaPallet as AssetHubRococoPallet,
 	},
-	westend_emulated_chain::{genesis::ED as ROCOCO_ED, WestendRelayPallet as WestendPallet},
+	asset_hub_westend_emulated_chain::{
+		genesis::ED as ASSET_HUB_WESTEND_ED, AssetHubWestendParaPallet as AssetHubWestendPallet,
+	},
+	bridge_hub_westend_emulated_chain::{
+		genesis::ED as BRIDGE_HUB_WESTEND_ED, BridgeHubWestendParaPallet as BridgeHubWestendPallet,
+	},
+	westend_emulated_chain::WestendRelayPallet as WestendPallet,
+	AssetHubRococoPara as AssetHubRococo, AssetHubRococoParaReceiver as AssetHubRococoReceiver,
 	AssetHubWestendPara as AssetHubWestend, AssetHubWestendParaReceiver as AssetHubWestendReceiver,
-	AssetHubWestendParaSender as AssetHubWestendSender, BridgeHubWestendPara as BridgeHubWestend,
-	BridgeHubWestendParaReceiver as BridgeHubWestendReceiver,
-	BridgeHubWestendParaSender as BridgeHubWestendSender, WestendRelay as Westend,
-	WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,
+	AssetHubWestendParaSender as AssetHubWestendSender, BridgeHubRococoPara as BridgeHubRococo,
+	BridgeHubWestendPara as BridgeHubWestend, BridgeHubWestendParaSender as BridgeHubWestendSender,
+	WestendRelay as Westend,
 };
 
 pub const ASSET_ID: u32 = 1;
