@@ -23,7 +23,7 @@
 //! * [`substrate`], for an overview of what Substrate as the main blockchain framework of Polkadot
 //!   SDK.
 //! * [`frame`], to learn about how to write blockchain applications aka. "App Chains".
-//! * Continue with the [`developer_hub`'s "getting started"](crate#getting-started).
+//! * Continue with the [`polkadot_sdk_docs`'s "getting started"](crate#getting-started).
 //!
 //! ## Components
 //!
@@ -78,7 +78,7 @@
 //! ### Summary
 //!
 //! The following diagram summarizes how some of the components of Polkadot SDK work together:
-#![doc = simple_mermaid::mermaid!("../../../docs/mermaid/polkadot_sdk_substrate.mmd")]
+#![doc = simple_mermaid::mermaid!("../../../mermaid/polkadot_sdk_substrate.mmd")]
 //!
 //! A Substrate-based chain is a blockchain composed of a runtime and a node. As noted above, the
 //! runtime is the application logic of the blockchain, and the node is everything else.
@@ -86,13 +86,13 @@
 //! former is built with [`frame`], and the latter is built with rest of Substrate.
 //!
 //! > You can think of a Substrate-based chain as a white-labeled blockchain.
-#![doc = simple_mermaid::mermaid!("../../../docs/mermaid/polkadot_sdk_polkadot.mmd")]
+#![doc = simple_mermaid::mermaid!("../../../mermaid/polkadot_sdk_polkadot.mmd")]
 //! Polkadot is itself a Substrate-based chain, composed of the exact same two components. It has
 //! specialized logic in both the node and the runtime side, but it is not "special" in any way.
 //!
 //! A parachain is a "special" Substrate-based chain, whereby both the node and the runtime
 //! components have became "Polkadot-aware" using Cumulus.
-#![doc = simple_mermaid::mermaid!("../../../docs/mermaid/polkadot_sdk_parachain.mmd")]
+#![doc = simple_mermaid::mermaid!("../../../mermaid/polkadot_sdk_parachain.mmd")]
 //!
 //! ## Notable Upstream Crates
 //!
