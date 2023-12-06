@@ -16,14 +16,16 @@
 
 //! On-demand Substrate -> Substrate header finality relay.
 
-use crate::finality::SubmitFinalityProofCallBuilder;
+use crate::{
+	finality::SubmitFinalityProofCallBuilder, finality_base::engine::MaxExpectedCallSizeCheck,
+};
 
 use async_std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use bp_header_chain::ConsensusLogReader;
 use bp_runtime::HeaderIdProvider;
 use futures::{select, FutureExt};
-use num_traits::{One, Zero};
+use num_traits::{One, Saturating, Zero};
 use sp_runtime::traits::Header;
 
 use finality_relay::{FinalitySyncParams, TargetClient as FinalityTargetClient};
@@ -133,29 +135,61 @@ impl<P: SubstrateFinalitySyncPipeline> OnDemandRelay<P::SourceChain, P::TargetCh
 		&self,
 		required_header: BlockNumberOf<P::SourceChain>,
 	) -> Result<(HeaderIdOf<P::SourceChain>, Vec<CallOf<P::TargetChain>>), SubstrateError> {
-		// first find proper header (either `required_header`) or its descendant
-		let finality_source = SubstrateFinalitySource::<P>::new(self.source_client.clone(), None);
-		let (header, mut proof) = finality_source.prove_block_finality(required_header).await?;
-		let header_id = header.id();
+		const MAX_ITERATIONS: u32 = 4;
+		let mut iterations = 0;
+		let mut current_required_header = required_header;
+		loop {
+			// first find proper header (either `current_required_header`) or its descendant
+			let finality_source =
+				SubstrateFinalitySource::<P>::new(self.source_client.clone(), None);
+			let (header, mut proof) =
+				finality_source.prove_block_finality(current_required_header).await?;
+			let header_id = header.id();
 
-		// optimize justification before including it into the call
-		P::FinalityEngine::optimize_proof(&self.target_client, &header, &mut proof).await?;
+			// optimize justification before including it into the call
+			P::FinalityEngine::optimize_proof(&self.target_client, &header, &mut proof).await?;
 
-		log::debug!(
-			target: "bridge",
-			"[{}] Requested to prove {} head {:?}. Selected to prove {} head {:?}",
-			self.relay_task_name,
-			P::SourceChain::NAME,
-			required_header,
-			P::SourceChain::NAME,
-			header_id,
-		);
+			// now we have the header and its proof, but we want to minimize our losses, so let's
+			// check if we'll get the full refund for submitting this header
+			let check_result = P::FinalityEngine::check_max_expected_call_size(&header, &proof);
+			if let MaxExpectedCallSizeCheck::Exceeds { call_size, max_call_size } = check_result {
+				iterations += 1;
+				current_required_header = header_id.number().saturating_add(One::one());
+				if iterations < MAX_ITERATIONS {
+					log::debug!(
+						target: "bridge",
+						"[{}] Requested to prove {} head {:?}. Selected to prove {} head {:?}. But it is too large: {} vs {}. \
+						Going to select next header",
+						self.relay_task_name,
+						P::SourceChain::NAME,
+						required_header,
+						P::SourceChain::NAME,
+						header_id,
+						call_size,
+						max_call_size,
+					);
 
-		// and then craft the submit-proof call
-		let call =
-			P::SubmitFinalityProofCallBuilder::build_submit_finality_proof_call(header, proof);
+					continue;
+				}
+			}
 
-		Ok((header_id, vec![call]))
+			log::debug!(
+				target: "bridge",
+				"[{}] Requested to prove {} head {:?}. Selected to prove {} head {:?} (after {} iterations)",
+				self.relay_task_name,
+				P::SourceChain::NAME,
+				required_header,
+				P::SourceChain::NAME,
+				header_id,
+				iterations,
+			);
+
+			// and then craft the submit-proof call
+			let call =
+				P::SubmitFinalityProofCallBuilder::build_submit_finality_proof_call(header, proof);
+
+			return Ok((header_id, vec![call]));
+		}
 	}
 }
 
