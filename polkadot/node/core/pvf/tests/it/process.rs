@@ -29,7 +29,7 @@ use polkadot_parachain_primitives::primitives::{
 };
 use procfs::process;
 use rusty_fork::rusty_fork_test;
-use std::time::Duration;
+use std::{future::Future, sync::Arc, time::Duration};
 
 const PREPARE_PROCESS_NAME: &'static str = "polkadot-prepare-worker";
 const EXECUTE_PROCESS_NAME: &'static str = "polkadot-execute-worker";
@@ -74,7 +74,7 @@ fn find_process_by_sid_and_name(
 
 	let mut found = None;
 	for process in all_processes {
-		let stat = process.stat().unwrap();
+		let stat = process.stat().expect("/proc existed above. Potential race occurred");
 
 		if stat.session != sid || !process.exe().unwrap().to_str().unwrap().contains(exe_name) {
 			continue
@@ -94,21 +94,43 @@ fn find_process_by_sid_and_name(
 	found
 }
 
+/// Sets up the test and makes sure everything gets cleaned up after.
+///
+/// We run the runtime manually because `#[tokio::test]` doesn't work in `rusty_fork_test!`.
+fn test_wrapper<F, Fut>(f: F)
+where
+	F: FnOnce(Arc<TestHost>, i32) -> Fut,
+	Fut: Future<Output = ()>,
+{
+	let rt = tokio::runtime::Runtime::new().unwrap();
+	rt.block_on(async {
+		let host = Arc::new(TestHost::new().await);
+
+		// Create a new session and get the session ID.
+		let sid = unsafe { libc::setsid() };
+		assert!(sid > 0);
+
+		// Pass a clone of the host so that it does not get dropped after.
+		f(host.clone(), sid).await;
+
+		// Sleep to give processes a chance to get cleaned up, preventing races in the next step.
+		tokio::time::sleep(Duration::from_millis(500)).await;
+
+		// Make sure job processes got cleaned up. Pass `is_direct_child: false` to target the
+		// job processes.
+		assert!(find_process_by_sid_and_name(sid, PREPARE_PROCESS_NAME, false).is_none());
+		assert!(find_process_by_sid_and_name(sid, EXECUTE_PROCESS_NAME, false).is_none());
+	});
+}
+
 // Run these tests in their own processes with rusty-fork. They work by each creating a new session,
 // then finding the child process that matches the session ID and expected process name and doing
 // something with that child.
 rusty_fork_test! {
-	// All created subprocesses for jobs should get cleaned up, to avoid memory leaks.
+	// Everything succeeded. All created subprocesses for jobs should get cleaned up, to avoid memory leaks.
 	#[test]
-	fn job_processes_get_cleaned_up() {
-		let rt  = tokio::runtime::Runtime::new().unwrap();
-		rt.block_on(async {
-			let host = TestHost::new().await;
-
-			// Create a new session and get the session ID.
-			let sid = unsafe { libc::setsid() };
-			assert!(sid > 0);
-
+	fn successful_prepare_and_validate() {
+		test_wrapper(|host, _sid| async move {
 			let parent_head = HeadData { number: 0, parent_hash: [0; 32], post_state: hash_state(0) };
 			let block_data = BlockData { state: 0, add: 512 };
 			host
@@ -124,24 +146,13 @@ rusty_fork_test! {
 				)
 				.await
 				.unwrap();
-
-			// Pass `is_direct_child: false` to target the job processes.
-			assert!(find_process_by_sid_and_name(sid, PREPARE_PROCESS_NAME, false).is_none());
-			assert!(find_process_by_sid_and_name(sid, EXECUTE_PROCESS_NAME, false).is_none());
 		})
 	}
 
 	// What happens when the prepare worker (not the job) times out?
 	#[test]
 	fn prepare_worker_timeout() {
-		let rt  = tokio::runtime::Runtime::new().unwrap();
-		rt.block_on(async {
-			let host = TestHost::new().await;
-
-			// Create a new session and get the session ID.
-			let sid = unsafe { libc::setsid() };
-			assert!(sid > 0);
-
+		test_wrapper(|host, sid| async move {
 			let (result, _) = futures::join!(
 				// Choose a job that would normally take the entire timeout.
 				host.precheck_pvf(rococo_runtime::WASM_BINARY.unwrap(), Default::default()),
@@ -159,14 +170,7 @@ rusty_fork_test! {
 	// What happens when the execute worker (not the job) times out?
 	#[test]
 	fn execute_worker_timeout() {
-		let rt  = tokio::runtime::Runtime::new().unwrap();
-		rt.block_on(async {
-			let host = TestHost::new().await;
-
-			// Create a new session and get the session ID.
-			let sid = unsafe { libc::setsid() };
-			assert!(sid > 0);
-
+		test_wrapper(|host, sid| async move {
 			// Prepare the artifact ahead of time.
 			let binary = halt::wasm_binary_unwrap();
 			host.precheck_pvf(binary, Default::default()).await.unwrap();
@@ -200,14 +204,7 @@ rusty_fork_test! {
 	// What happens when the prepare worker dies in the middle of a job?
 	#[test]
 	fn prepare_worker_killed_during_job() {
-		let rt  = tokio::runtime::Runtime::new().unwrap();
-		rt.block_on(async {
-			let host = TestHost::new().await;
-
-			// Create a new session and get the session ID.
-			let sid = unsafe { libc::setsid() };
-			assert!(sid > 0);
-
+		test_wrapper(|host, sid| async move {
 			let (result, _) = futures::join!(
 				// Choose a job that would normally take the entire timeout.
 				host.precheck_pvf(rococo_runtime::WASM_BINARY.unwrap(), Default::default()),
@@ -225,14 +222,7 @@ rusty_fork_test! {
 	// What happens when the execute worker dies in the middle of a job?
 	#[test]
 	fn execute_worker_killed_during_job() {
-		let rt  = tokio::runtime::Runtime::new().unwrap();
-		rt.block_on(async {
-			let host = TestHost::new().await;
-
-			// Create a new session and get the session ID.
-			let sid = unsafe { libc::setsid() };
-			assert!(sid > 0);
-
+		test_wrapper(|host, sid| async move {
 			// Prepare the artifact ahead of time.
 			let binary = halt::wasm_binary_unwrap();
 			host.precheck_pvf(binary, Default::default()).await.unwrap();
@@ -266,14 +256,7 @@ rusty_fork_test! {
 	// What happens when the forked prepare job dies in the middle of its job?
 	#[test]
 	fn forked_prepare_job_killed_during_job() {
-		let rt  = tokio::runtime::Runtime::new().unwrap();
-		rt.block_on(async {
-			let host = TestHost::new().await;
-
-			// Create a new session and get the session ID.
-			let sid = unsafe { libc::setsid() };
-			assert!(sid > 0);
-
+		test_wrapper(|host, sid| async move {
 			let (result, _) = futures::join!(
 				// Choose a job that would normally take the entire timeout.
 				host.precheck_pvf(rococo_runtime::WASM_BINARY.unwrap(), Default::default()),
@@ -295,14 +278,7 @@ rusty_fork_test! {
 	// What happens when the forked execute job dies in the middle of its job?
 	#[test]
 	fn forked_execute_job_killed_during_job() {
-		let rt  = tokio::runtime::Runtime::new().unwrap();
-		rt.block_on(async {
-			let host = TestHost::new().await;
-
-			// Create a new session and get the session ID.
-			let sid = unsafe { libc::setsid() };
-			assert!(sid > 0);
-
+		test_wrapper(|host, sid| async move {
 			// Prepare the artifact ahead of time.
 			let binary = halt::wasm_binary_unwrap();
 			host.precheck_pvf(binary, Default::default()).await.unwrap();
@@ -340,14 +316,7 @@ rusty_fork_test! {
 	// See `run_worker` for why we need this invariant.
 	#[test]
 	fn ensure_prepare_processes_have_correct_num_threads() {
-		let rt  = tokio::runtime::Runtime::new().unwrap();
-		rt.block_on(async {
-			let host = TestHost::new().await;
-
-			// Create a new session and get the session ID.
-			let sid = unsafe { libc::setsid() };
-			assert!(sid > 0);
-
+		test_wrapper(|host, sid| async move {
 			let _ = futures::join!(
 				// Choose a job that would normally take the entire timeout.
 				host.precheck_pvf(rococo_runtime::WASM_BINARY.unwrap(), Default::default()),
@@ -377,14 +346,7 @@ rusty_fork_test! {
 	// See `run_worker` for why we need this invariant.
 	#[test]
 	fn ensure_execute_processes_have_correct_num_threads() {
-		let rt  = tokio::runtime::Runtime::new().unwrap();
-		rt.block_on(async {
-			let host = TestHost::new().await;
-
-			// Create a new session and get the session ID.
-			let sid = unsafe { libc::setsid() };
-			assert!(sid > 0);
-
+		test_wrapper(|host, sid| async move {
 			// Prepare the artifact ahead of time.
 			let binary = halt::wasm_binary_unwrap();
 			host.precheck_pvf(binary, Default::default()).await.unwrap();
