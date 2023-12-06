@@ -146,6 +146,8 @@ pub type Migrations = (
 pub mod migrations {
 	use super::*;
 
+	pub type V1_04_00 = ();
+
 	pub type V1_05_00 = ();
 
 	/// New migrations should be added here in the `Unreleased` tuple.
