@@ -1656,6 +1656,55 @@
 <a href="#1656" id="1656">1656</a>
 <a href="#1657" id="1657">1657</a>
 <a href="#1658" id="1658">1658</a>
+<a href="#1659" id="1659">1659</a>
+<a href="#1660" id="1660">1660</a>
+<a href="#1661" id="1661">1661</a>
+<a href="#1662" id="1662">1662</a>
+<a href="#1663" id="1663">1663</a>
+<a href="#1664" id="1664">1664</a>
+<a href="#1665" id="1665">1665</a>
+<a href="#1666" id="1666">1666</a>
+<a href="#1667" id="1667">1667</a>
+<a href="#1668" id="1668">1668</a>
+<a href="#1669" id="1669">1669</a>
+<a href="#1670" id="1670">1670</a>
+<a href="#1671" id="1671">1671</a>
+<a href="#1672" id="1672">1672</a>
+<a href="#1673" id="1673">1673</a>
+<a href="#1674" id="1674">1674</a>
+<a href="#1675" id="1675">1675</a>
+<a href="#1676" id="1676">1676</a>
+<a href="#1677" id="1677">1677</a>
+<a href="#1678" id="1678">1678</a>
+<a href="#1679" id="1679">1679</a>
+<a href="#1680" id="1680">1680</a>
+<a href="#1681" id="1681">1681</a>
+<a href="#1682" id="1682">1682</a>
+<a href="#1683" id="1683">1683</a>
+<a href="#1684" id="1684">1684</a>
+<a href="#1685" id="1685">1685</a>
+<a href="#1686" id="1686">1686</a>
+<a href="#1687" id="1687">1687</a>
+<a href="#1688" id="1688">1688</a>
+<a href="#1689" id="1689">1689</a>
+<a href="#1690" id="1690">1690</a>
+<a href="#1691" id="1691">1691</a>
+<a href="#1692" id="1692">1692</a>
+<a href="#1693" id="1693">1693</a>
+<a href="#1694" id="1694">1694</a>
+<a href="#1695" id="1695">1695</a>
+<a href="#1696" id="1696">1696</a>
+<a href="#1697" id="1697">1697</a>
+<a href="#1698" id="1698">1698</a>
+<a href="#1699" id="1699">1699</a>
+<a href="#1700" id="1700">1700</a>
+<a href="#1701" id="1701">1701</a>
+<a href="#1702" id="1702">1702</a>
+<a href="#1703" id="1703">1703</a>
+<a href="#1704" id="1704">1704</a>
+<a href="#1705" id="1705">1705</a>
+<a href="#1706" id="1706">1706</a>
+<a href="#1707" id="1707">1707</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -3016,6 +3065,55 @@
 						},
 						ParentThen(Parachain(random_para_id).into()).into(),
 					))
+				}
+
+				<span class="kw">fn </span>set_up_complex_asset_transfer(
+				) -&gt; <span class="prelude-ty">Option</span>&lt;(MultiAssets, u32, MultiLocation, Box&lt;<span class="kw">dyn </span>FnOnce()&gt;)&gt; {
+					<span class="comment">// Transfer to Relay some local AH asset (local-reserve-transfer) while paying
+					// fees using teleported native token.
+					// (We don&#39;t care that Relay doesn&#39;t accept incoming unknown AH local asset)
+					</span><span class="kw">let </span>dest = Parent.into();
+
+					<span class="kw">let </span>fee_amount = EXISTENTIAL_DEPOSIT;
+					<span class="kw">let </span>fee_asset: MultiAsset = (MultiLocation::parent(), fee_amount).into();
+
+					<span class="kw">let </span>who = frame_benchmarking::whitelisted_caller();
+					<span class="comment">// Give some multiple of the existential deposit
+					</span><span class="kw">let </span>balance = fee_amount + EXISTENTIAL_DEPOSIT * <span class="number">1000</span>;
+					<span class="kw">let _ </span>= &lt;Balances <span class="kw">as </span>frame_support::traits::Currency&lt;<span class="kw">_</span>&gt;&gt;::make_free_balance_be(
+						<span class="kw-2">&amp;</span>who, balance,
+					);
+					<span class="comment">// verify initial balance
+					</span><span class="macro">assert_eq!</span>(Balances::free_balance(<span class="kw-2">&amp;</span>who), balance);
+
+					<span class="comment">// set up local asset
+					</span><span class="kw">let </span>asset_amount = <span class="number">10u128</span>;
+					<span class="kw">let </span>initial_asset_amount = asset_amount * <span class="number">10</span>;
+					<span class="kw">let </span>(asset_id, <span class="kw">_</span>, <span class="kw">_</span>) = pallet_assets::benchmarking::create_default_minted_asset::&lt;
+						Runtime,
+						pallet_assets::Instance1
+					&gt;(<span class="bool-val">true</span>, initial_asset_amount);
+					<span class="kw">let </span>asset_location = MultiLocation::new(
+						<span class="number">0</span>,
+						X2(PalletInstance(<span class="number">50</span>), GeneralIndex(u32::from(asset_id).into()))
+					);
+					<span class="kw">let </span>transfer_asset: MultiAsset = (asset_location, asset_amount).into();
+
+					<span class="kw">let </span>assets: MultiAssets = <span class="macro">vec!</span>[fee_asset.clone(), transfer_asset].into();
+					<span class="kw">let </span>fee_index = <span class="kw">if </span>assets.get(<span class="number">0</span>).unwrap().eq(<span class="kw-2">&amp;</span>fee_asset) { <span class="number">0 </span>} <span class="kw">else </span>{ <span class="number">1 </span>};
+
+					<span class="comment">// verify transferred successfully
+					</span><span class="kw">let </span>verify = Box::new(<span class="kw">move </span>|| {
+						<span class="comment">// verify native balance after transfer, decreased by transferred fee amount
+						// (plus transport fees)
+						</span><span class="macro">assert!</span>(Balances::free_balance(<span class="kw-2">&amp;</span>who) &lt;= balance - fee_amount);
+						<span class="comment">// verify asset balance decreased by exactly transferred amount
+						</span><span class="macro">assert_eq!</span>(
+							Assets::balance(asset_id.into(), <span class="kw-2">&amp;</span>who),
+							initial_asset_amount - asset_amount,
+						);
+					});
+					<span class="prelude-val">Some</span>((assets, fee_index <span class="kw">as </span>u32, dest, verify))
 				}
 			}
 

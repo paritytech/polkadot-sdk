@@ -762,6 +762,18 @@
 <a href="#762" id="762">762</a>
 <a href="#763" id="763">763</a>
 <a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 //
@@ -1487,6 +1499,18 @@
 					<span class="comment">// Reserve transfers are disabled on Contracts-System-Para.
 					</span><span class="prelude-val">None
 				</span>}
+
+				<span class="kw">fn </span>set_up_complex_asset_transfer(
+				) -&gt; <span class="prelude-ty">Option</span>&lt;(MultiAssets, u32, MultiLocation, Box&lt;<span class="kw">dyn </span>FnOnce()&gt;)&gt; {
+					<span class="comment">// Contracts-System-Para only supports teleports to system parachain.
+					// Relay/native token can be teleported between Contracts-System-Para and Relay.
+					</span><span class="kw">let </span>native_location = Parent.into();
+					<span class="kw">let </span>dest = Parent.into();
+					pallet_xcm::benchmarking::helpers::native_teleport_as_asset_transfer::&lt;Runtime&gt;(
+						native_location,
+						dest
+					)
+				}
 			}
 
 			<span class="kw">let </span>whitelist: Vec&lt;TrackedStorageKey&gt; = <span class="macro">vec!</span>[

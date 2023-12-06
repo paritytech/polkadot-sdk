@@ -71,6 +71,8 @@
 <a href="#71" id="71">71</a>
 <a href="#72" id="72">72</a>
 <a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -88,6 +90,7 @@
 
 </span><span class="kw">mod </span>genesis;
 <span class="kw">pub use </span>genesis::{genesis, ED, PARA_ID_A, PARA_ID_B};
+<span class="kw">pub use </span>penpal_runtime::xcm_config::{LocalTeleportableToAssetHub, XcmConfig};
 
 <span class="comment">// Substrate
 </span><span class="kw">use </span>frame_support::traits::OnInitialize;
@@ -140,6 +143,7 @@
 
 <span class="comment">// Penpal implementation
 </span><span class="macro">impl_accounts_helpers_for_parachain!</span>(PenpalA);
+<span class="macro">impl_accounts_helpers_for_parachain!</span>(PenpalB);
 <span class="macro">impl_assets_helpers_for_parachain!</span>(PenpalA, Rococo);
 <span class="macro">impl_assets_helpers_for_parachain!</span>(PenpalB, Westend);
 <span class="macro">impl_assert_events_helpers_for_parachain!</span>(PenpalA);

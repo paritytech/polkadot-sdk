@@ -291,6 +291,10 @@
 <a href="#291" id="291">291</a>
 <a href="#292" id="292">292</a>
 <a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -341,6 +345,10 @@
 <span class="doccomment">/// Weight functions for `pallet_xcm`.
 </span><span class="kw">pub struct </span>WeightInfo&lt;T&gt;(PhantomData&lt;T&gt;);
 <span class="kw">impl</span>&lt;T: frame_system::Config&gt; pallet_xcm::WeightInfo <span class="kw">for </span>WeightInfo&lt;T&gt; {
+	<span class="kw">fn </span>transfer_assets() -&gt; Weight {
+		<span class="comment">// TODO: run benchmarks
+		</span>Weight::zero()
+	}
 	<span class="doccomment">/// Storage: `Dmp::DeliveryFeeFactor` (r:1 w:0)
 	/// Proof: `Dmp::DeliveryFeeFactor` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `XcmPallet::SupportedVersion` (r:1 w:0)

@@ -2419,6 +2419,20 @@
 <a href="#2419" id="2419">2419</a>
 <a href="#2420" id="2420">2420</a>
 <a href="#2421" id="2421">2421</a>
+<a href="#2422" id="2422">2422</a>
+<a href="#2423" id="2423">2423</a>
+<a href="#2424" id="2424">2424</a>
+<a href="#2425" id="2425">2425</a>
+<a href="#2426" id="2426">2426</a>
+<a href="#2427" id="2427">2427</a>
+<a href="#2428" id="2428">2428</a>
+<a href="#2429" id="2429">2429</a>
+<a href="#2430" id="2430">2430</a>
+<a href="#2431" id="2431">2431</a>
+<a href="#2432" id="2432">2432</a>
+<a href="#2433" id="2433">2433</a>
+<a href="#2434" id="2434">2434</a>
+<a href="#2435" id="2435">2435</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -4681,6 +4695,20 @@
 						},
 						Parachain(<span class="number">43211234</span>).into(),
 					))
+				}
+
+				<span class="kw">fn </span>set_up_complex_asset_transfer(
+				) -&gt; <span class="prelude-ty">Option</span>&lt;(MultiAssets, u32, MultiLocation, Box&lt;<span class="kw">dyn </span>FnOnce()&gt;)&gt; {
+					<span class="comment">// Relay supports only native token, either reserve transfer it to non-system parachains,
+					// or teleport it to system parachain. Use the teleport case for benchmarking as it&#39;s
+					// slightly heavier.
+					// Relay/native token can be teleported to/from AH.
+					</span><span class="kw">let </span>native_location = Here.into();
+					<span class="kw">let </span>dest = <span class="kw">crate</span>::xcm_config::AssetHub::get();
+					pallet_xcm::benchmarking::helpers::native_teleport_as_asset_transfer::&lt;Runtime&gt;(
+						native_location,
+						dest
+					)
 				}
 			}
 			<span class="kw">impl </span>pallet_xcm_benchmarks::Config <span class="kw">for </span>Runtime {
