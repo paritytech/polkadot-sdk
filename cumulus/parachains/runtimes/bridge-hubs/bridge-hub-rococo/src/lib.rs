@@ -933,7 +933,13 @@ impl_runtime_apis! {
 
 				fn export_message_origin_and_destination(
 				) -> Result<(MultiLocation, NetworkId, InteriorMultiLocation), BenchmarkError> {
-					Ok((TokenLocation::get(), NetworkId::Westend, X1(Parachain(bridge_to_westend_config::AssetHubWestendParaId::get().into()))))
+					Ok(
+						(
+							bridge_to_westend_config::FromAssetHubRococoToAssetHubWestendRoute::get().location,
+							NetworkId::Westend,
+							X1(Parachain(bridge_to_westend_config::AssetHubWestendParaId::get().into()))
+						)
+					)
 				}
 
 				fn alias_origin() -> Result<(MultiLocation, MultiLocation), BenchmarkError> {
