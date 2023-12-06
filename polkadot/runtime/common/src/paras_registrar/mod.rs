@@ -41,7 +41,7 @@ use runtime_parachains::paras::{OnNewHead, ParaKind};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{CheckedSub, Saturating},
-	DispatchError, RuntimeDebug, TokenError,
+	RuntimeDebug,
 };
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, TypeInfo)]
@@ -63,12 +63,16 @@ impl<Account, Balance> ParaInfo<Account, Balance> {
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, TypeInfo)]
-pub struct DepositInfo<AccountId, Balance> {
-	/// The `AccountId` that has its deposit reserved for this parachain.
+pub struct StashInfo<AccountId, Balance> {
+	/// The stash account of a parachain. This account is responsible for holding the required
+	/// deposit for this registered parachain.
 	///
-	/// when the parachain is registered, this will be set to the parachain manager. However, at
-	/// a later point, this can be updated by calling the `set_upgrade_cost_payer` extrinsic.
-	depositor: AccountId,
+	/// This account will be responsible for covering all associated costs related to performing
+	/// parachain validation code upgrades.
+	///
+	/// When a parachain is newly registered, this will be set to the parachain manager. However,
+	/// at a later point, this can be updated by calling the `set_parachain_stash` extrinsic.
+	stash: AccountId,
 	/// In case there is a pending refund, this stores information about the account and the
 	/// amount that will be refunded upon a successful code upgrade.
 	pending_refund: Option<(AccountId, Balance)>,
@@ -181,8 +185,8 @@ pub mod pallet {
 		AlreadyRegistered,
 		/// The caller is not the owner of this Id.
 		NotOwner,
-		/// The caller is not the depositor of this parachain.
-		NotDepositor,
+		/// The caller is not the stash account of this parachain.
+		NotStash,
 		/// Invalid para code size.
 		CodeTooLarge,
 		/// Invalid para head data size.
@@ -213,7 +217,7 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type PendingSwap<T> = StorageMap<_, Twox64Concat, ParaId, ParaId>;
 
-	/// Amount held on deposit for each para and the original depositor.
+	/// Amount held on deposit for each para and the original stash.
 	///
 	/// The given account ID is responsible for registering the code and initial head data, but may
 	/// only do so if it isn't yet registered. (After that, it's up to governance to do so.)
@@ -225,11 +229,11 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type NextFreeParaId<T> = StorageValue<_, ParaId, ValueQuery>;
 
-	/// Stores all the necessary information about the account currently holding the deposit for
-	/// the parachain, as well as whether the current depositor has any pending refunds.
+	/// Stores all the necessary information about the current stash account of the parachain, as
+	/// well as whether there are any pending refunds.
 	#[pallet::storage]
-	pub type Deposits<T: Config> =
-		StorageMap<_, Twox64Concat, ParaId, DepositInfo<T::AccountId, BalanceOf<T>>>;
+	pub type ParaStashes<T: Config> =
+		StorageMap<_, Twox64Concat, ParaId, StashInfo<T::AccountId, BalanceOf<T>>>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -482,31 +486,31 @@ pub mod pallet {
 		/// unlocked.
 		#[pallet::call_index(9)]
 		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
-		pub fn set_upgrade_cost_payer(
+		pub fn set_parachain_stash(
 			origin: OriginFor<T>,
 			para: ParaId,
-			cost_payer: T::AccountId,
+			new_stash: T::AccountId,
 		) -> DispatchResult {
 			Self::ensure_root_para_or_owner(origin, para)?;
 
 			let info = Paras::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
-			let mut deposit_info =
-				Deposits::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
+			let mut stash_info =
+				ParaStashes::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
 
 			// When updating the account responsible for all code upgrade costs, we unreserve all
-			// funds associated with the registered parachain from the original depositor and
-			// reserve the required amount from the new depositor.
+			// funds associated with the registered parachain from the original stash and reserve
+			// the required amount from the new one.
 
-			<T as Config>::Currency::reserve(&cost_payer, info.deposit)?;
+			<T as Config>::Currency::reserve(&new_stash, info.deposit)?;
 
-			if cost_payer != deposit_info.depositor {
-				// After reserving the required funds from the new depositor we can now safely
+			if new_stash != stash_info.stash {
+				// After reserving the required funds from the new stash we can now safely
 				// refund the old account.
-				<T as Config>::Currency::unreserve(&deposit_info.depositor, info.deposit);
+				<T as Config>::Currency::unreserve(&stash_info.stash, info.deposit);
 			}
 
-			deposit_info.depositor = cost_payer;
-			Deposits::<T>::insert(para, deposit_info);
+			stash_info.stash = new_stash;
+			ParaStashes::<T>::insert(para, stash_info);
 
 			Ok(())
 		}
@@ -693,10 +697,10 @@ impl<T: Config> Pallet<T> {
 			<T as Config>::Currency::unreserve(&who, rebate);
 		};
 		let info = ParaInfo { manager: who.clone(), deposit, locked: None };
-		let deposit_info = DepositInfo { depositor: who.clone(), pending_refund: None };
+		let stash_info = StashInfo { stash: who.clone(), pending_refund: None };
 
 		Paras::<T>::insert(id, info);
-		Deposits::<T>::insert(id, deposit_info);
+		ParaStashes::<T>::insert(id, stash_info);
 		// We check above that para has no lifecycle, so this should not fail.
 		let res = runtime_parachains::schedule_para_initialize::<T>(id, genesis);
 		debug_assert!(res.is_ok());
@@ -748,33 +752,21 @@ impl<T: Config> Pallet<T> {
 			.saturating_add(per_byte_fee.saturating_mul((new_code.0.len() as u32).into()));
 
 		let mut info = Paras::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
-		let mut deposit_info =
-			Deposits::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
+		let mut stash_info =
+			ParaStashes::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
 
 		let current_deposit = info.deposit;
 
 		if !free_upgrade {
-			// Before dealing with any currency operations, we ensure beforehand that all of them
-			// will be successful.
-			// TODO: Check before charging the fee.
-
 			<T as Config>::Currency::withdraw(
-				&deposit_info.depositor,
+				&stash_info.stash,
 				T::UpgradeFee::get(),
 				WithdrawReasons::FEE,
 				ExistenceRequirement::KeepAlive,
 			)?;
 
-			// We need to reserve the difference to account for the increase in the validation code
-			// size.
-
 			let additional_deposit = new_deposit.saturating_sub(current_deposit);
-			ensure!(
-				<T as Config>::Currency::can_reserve(&deposit_info.depositor, additional_deposit),
-				DispatchError::Token(TokenError::FundsUnavailable)
-			);
-
-			<T as Config>::Currency::reserve(&deposit_info.depositor, additional_deposit)?;
+			<T as Config>::Currency::reserve(&stash_info.stash, additional_deposit)?;
 
 			// Update the deposit to the new appropriate amount.
 			info.deposit = new_deposit;
@@ -782,8 +774,8 @@ impl<T: Config> Pallet<T> {
 		}
 
 		if current_deposit > new_deposit {
-			// The depositor should receive a refund if the current deposit exceeds the new required
-			// deposit, even if they did not initiate the upgrade.
+			// The stash account should receive a refund if the current deposit exceeds the new
+			// required deposit, even if they did not initiate the upgrade.
 			//
 			// The excess deposit will be refunded to the caller upon the success of the code
 			// upgrade.
@@ -796,9 +788,9 @@ impl<T: Config> Pallet<T> {
 			// code to an empty blob. In such a case, the pre-checking process would fail, so
 			// the old code would remain on-chain even though there is no deposit to cover it.
 
-			deposit_info.pending_refund =
-				Some((deposit_info.depositor.clone(), current_deposit.saturating_sub(new_deposit)));
-			Deposits::<T>::insert(para, deposit_info);
+			stash_info.pending_refund =
+				Some((stash_info.stash.clone(), current_deposit.saturating_sub(new_deposit)));
+			ParaStashes::<T>::insert(para, stash_info);
 		}
 
 		runtime_parachains::schedule_code_upgrade::<T>(para, new_code, SetGoAhead::No)
@@ -856,18 +848,18 @@ impl<T: Config> OnNewHead for Pallet<T> {
 
 impl<T: Config> OnCodeUpgrade for Pallet<T> {
 	fn on_code_upgrade(id: ParaId) -> Weight {
-		let maybe_deposit_info = Deposits::<T>::get(id);
-		if maybe_deposit_info.is_none() {
+		let maybe_stash_info = ParaStashes::<T>::get(id);
+		if maybe_stash_info.is_none() {
 			return T::DbWeight::get().reads(1)
 		}
 
-		let mut deposit_info = maybe_deposit_info
+		let mut stash_info = maybe_stash_info
 			.expect("Ensured above that the deposit info is stored for the parachain; qed");
 
-		if let Some((who, rebate)) = deposit_info.pending_refund {
+		if let Some((who, rebate)) = stash_info.pending_refund {
 			<T as Config>::Currency::unreserve(&who, rebate);
-			deposit_info.pending_refund = None;
-			Deposits::<T>::insert(id, deposit_info);
+			stash_info.pending_refund = None;
+			ParaStashes::<T>::insert(id, stash_info);
 
 			return T::DbWeight::get().reads_writes(2, 2)
 		}

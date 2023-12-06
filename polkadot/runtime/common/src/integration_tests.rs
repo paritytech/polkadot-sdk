@@ -888,7 +888,7 @@ fn lease_holding_parachains_have_no_upgrade_costs() {
 }
 
 #[test]
-fn changing_upgrade_cost_payer_works() {
+fn changing_parachain_stash_works() {
 	new_test_ext().execute_with(|| {
 		assert!(System::block_number().is_one()); /* So events are emitted */
 		let para_id = LOWEST_PUBLIC_ID;
@@ -933,7 +933,7 @@ fn changing_upgrade_cost_payer_works() {
 		let new_payer = account_id(2);
 
 		assert_noop!(
-			Registrar::set_upgrade_cost_payer(signed(1), ParaId::from(para_id), new_payer.clone(),),
+			Registrar::set_parachain_stash(signed(1), ParaId::from(para_id), new_payer.clone(),),
 			BalancesError::<Test>::InsufficientBalance
 		);
 
@@ -941,7 +941,7 @@ fn changing_upgrade_cost_payer_works() {
 		// reserve will be successful, and the old account will be refunded.
 		Balances::make_free_balance_be(&account_id(2), free_balance);
 
-		assert_ok!(Registrar::set_upgrade_cost_payer(
+		assert_ok!(Registrar::set_parachain_stash(
 			signed(1),
 			ParaId::from(para_id),
 			new_payer.clone(),
