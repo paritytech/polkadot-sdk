@@ -463,7 +463,7 @@ impl<
 		// Let's resolve the known/supported XCM version for the destination because we don't know
 		// if it supports the same/latest version.
 		let (universal_dest, version) =
-			match dest.pushed_front_with(GlobalConsensus(bridged_network.clone())) {
+			match dest.pushed_front_with(GlobalConsensus(bridged_network)) {
 				Ok(d) => {
 					let version = Bridge::get_version_for(&MultiLocation::from(AncestorThen(
 						bridged_network_location_parents,
