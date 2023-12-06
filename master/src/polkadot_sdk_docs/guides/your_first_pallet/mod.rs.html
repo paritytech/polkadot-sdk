@@ -736,6 +736,22 @@
 <a href="#736" id="736">736</a>
 <a href="#737" id="737">737</a>
 <a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! # Currency Pallet
 //!
 //! By the end of this guide, you will write a small FRAME pallet (see
@@ -750,12 +766,11 @@
 //! &gt; This guide will build a currency pallet from scratch using only the lowest primitives of
 //! &gt; FRAME, and is mainly intended for education, not *applicability*. For example, almost all
 //! &gt; FRAME-based runtimes use various techniques to re-use a currency pallet instead of writing
-//! &gt; one. Further advance FRAME related topics are discussed in [`crate::reference_docs`].
+//! &gt; one. Further advanced FRAME related topics are discussed in [`crate::reference_docs`].
 //!
 //! ## Topics Covered
 //!
-//! The following FRAME topics are covered in this guide. See the documentation of the
-//! associated items to know more.
+//! The following FRAME topics are covered in this guide:
 //!
 //! - [Storage](frame::pallet_macros::storage)
 //! - [Call](frame::pallet_macros::call)
@@ -788,8 +803,10 @@
 //!
 //! One should be a mapping from account-ids to a balance type, and one value that is the total
 //! issuance.
-</span><span class="comment">//
-// For the rest of this guide, we will opt for a balance type of u128.
+//!
+//! &gt; For the rest of this guide, we will opt for a balance type of `u128`. For the sake of
+//! &gt; simplicity, we are hardcoding this type. In a real pallet is best practice to define it as a
+//! &gt; generic bounded type in the `Config` trait, and then specify it in the implementation.
 </span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/guides/your_first_pallet/mod.rs&quot;</span>, Balance)]
 </span><span class="doccomment">//!
 //! The definition of these two storage items, based on [`frame::pallet_macros::storage`] details,
@@ -898,14 +915,13 @@
 </span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/guides/your_first_pallet/mod.rs&quot;</span>, first_test)]
 </span><span class="doccomment">//!
 //! In the first test, we simply assert that there is no total issuance, and no balance associated
-//! with account `1`. Then, we mint some balance into `1`, and re-check.
+//! with Alice&#39;s account. Then, we mint some balance into Alice&#39;s, and re-check.
 //!
 //! As noted above, the `T::AccountId` is now `u64`. Moreover, `Runtime` is replacing `&lt;T: Config&gt;`.
 //! This is why for example you see `Balances::&lt;Runtime&gt;::get(..)`. Finally, notice that the
 //! dispatchables are simply functions that can be called on top of the `Pallet` struct.
-//!
-//! TODO: hard to explain exactly `RuntimeOrigin::signed(1)` at this point.
-//!
+</span><span class="comment">// TODO: hard to explain exactly `RuntimeOrigin::signed(ALICE)` at this point.
+</span><span class="doccomment">//!
 //! Congratulations! You have written your first pallet and tested it! Next, we learn a few optional
 //! steps to improve our pallet.
 //!
@@ -924,8 +940,8 @@
 </span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/guides/your_first_pallet/mod.rs&quot;</span>, StateBuilder)]
 </span><span class="doccomment">//!
 //! This struct is meant to contain the same list of accounts and balances that we want to have at
-//! the beginning of each block. We hardcoded this to `let accounts = vec![(1, 100), (2, 100)];` so
-//! far. Then, if desired, we attach a default value for this struct.
+//! the beginning of each block. We hardcoded this to `let accounts = vec![(ALICE, 100), (2, 100)];`
+//! so far. Then, if desired, we attach a default value for this struct.
 </span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/guides/your_first_pallet/mod.rs&quot;</span>, default_state_builder)]
 </span><span class="doccomment">//!
 //! Like any other builder pattern, we attach functions to the type to mutate its internal
@@ -960,7 +976,7 @@
 //! &quot;success path&quot; of a dispatchable, and one test for each &quot;failure path&quot;, such as:
 </span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/guides/your_first_pallet/mod.rs&quot;</span>, transfer_from_non_existent_fails)]
 </span><span class="doccomment">//!
-//! We leave it up to you to write a test that triggers to `InsufficientBalance` error.
+//! We leave it up to you to write a test that triggers the `InsufficientBalance` error.
 //!
 //! ### Event and Error
 //!
@@ -968,22 +984,25 @@
 //! Errors. First, let&#39;s understand what each is.
 //!
 //! - **Error**: The static string-based error scheme we used so far is good for readability, but it
-//!   has a few drawbacks. These string literals will bloat the final wasm blob, and are relatively
-//!   heavy to transmit and encode/decode. Moreover, it is easy to mistype them by one character.
-//!   FRAME errors are exactly a solution to maintain readability, whilst fixing the drawbacks
-//!   mentioned. In short, we use an enum to represent different variants of our error. These
-//!   variants are then mapped in an efficient way (using only `u8` indices) to
-//!   [`sp_runtime::DispatchError::Module`] Read more about this in [`frame::pallet_macros::error`].
+//!   has a few drawbacks. The biggest problem with strings are that they are not type safe, e.g. a
+//!   match statement cannot be exhaustive. These string literals will bloat the final wasm blob,
+//!   and are relatively heavy to transmit and encode/decode. Moreover, it is easy to mistype them
+//!   by one character. FRAME errors are exactly a solution to maintain readability, whilst fixing
+//!   the drawbacks mentioned. In short, we use an enum to represent different variants of our
+//!   error. These variants are then mapped in an efficient way (using only `u8` indices) to
+//!   [`sp_runtime::DispatchError::Module`]. Read more about this in
+//!   [`frame::pallet_macros::error`].
 //!
-//! - **Event**: Events are akin to the return type of dispatchables. They should represent what
-//!   happened at the end of a dispatch operation. Therefore, the convention is to use passive tense
-//!   for event names (eg. `SomethingHappened`). This allows other sub-systems or external parties
-//!   (eg. a light-node, a DApp) to listen to particular events happening, without needing to
-//!   re-execute the whole state transition function.
-//!
-//! TODO: both need to be improved a lot at the pallet-macro rust-doc level. Also my explanation
-//! of event is probably not the best.
-//!
+//! - **Event**: Events are akin to the return type of dispatchables. They are mostly data blobs
+//!   emitted by the runtime to let outside world know what is happening inside the pallet. Since
+//!   otherwise, the outside world does not have an easy access to the state changes. They should
+//!   represent what happened at the end of a dispatch operation. Therefore, the convention is to
+//!   use passive tense for event names (eg. `SomethingHappened`). This allows other sub-systems or
+//!   external parties (eg. a light-node, a DApp) to listen to particular events happening, without
+//!   needing to re-execute the whole state transition function.
+</span><span class="comment">// TODO: both need to be improved a lot at the pallet-macro rust-doc level. Also my explanation
+// of event is probably not the best.
+</span><span class="doccomment">//!
 //! With the explanation out of the way, let&#39;s see how these components can be added. Both follow a
 //! fairly familiar syntax: normal Rust enums, with an extra `#[frame::event/error]` attribute
 //! attached.
@@ -1151,6 +1170,9 @@
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>tests {
 		<span class="kw">use </span><span class="kw">crate</span>::guides::your_first_pallet::pallet::<span class="kw-2">*</span>;
 		<span class="kw">use </span>frame::testing_prelude::<span class="kw-2">*</span>;
+		<span class="kw">const </span>ALICE: u64 = <span class="number">1</span>;
+		<span class="kw">const </span>BOB: u64 = <span class="number">2</span>;
+		<span class="kw">const </span>CHARLIE: u64 = <span class="number">3</span>;
 
 		<span class="attr">#[docify::export]
 		</span><span class="kw">mod </span>runtime {
@@ -1185,7 +1207,7 @@
 		#[docify::export]
 		</span><span class="kw">fn </span>new_test_state_basic() -&gt; TestState {
 			<span class="kw">let </span><span class="kw-2">mut </span>state = TestState::new_empty();
-			<span class="kw">let </span>accounts = <span class="macro">vec!</span>[(<span class="number">1</span>, <span class="number">100</span>), (<span class="number">2</span>, <span class="number">100</span>)];
+			<span class="kw">let </span>accounts = <span class="macro">vec!</span>[(ALICE, <span class="number">100</span>), (BOB, <span class="number">100</span>)];
 			state.execute_with(|| {
 				<span class="kw">for </span>(who, amount) <span class="kw">in </span><span class="kw-2">&amp;</span>accounts {
 					Balances::&lt;Runtime&gt;::insert(who, amount);
@@ -1204,7 +1226,7 @@
 		<span class="attr">#[docify::export(default_state_builder)]
 		</span><span class="kw">impl </span>Default <span class="kw">for </span>StateBuilder {
 			<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-				<span class="self">Self </span>{ balances: <span class="macro">vec!</span>[(<span class="number">1</span>, <span class="number">100</span>), (<span class="number">2</span>, <span class="number">100</span>)] }
+				<span class="self">Self </span>{ balances: <span class="macro">vec!</span>[(ALICE, <span class="number">100</span>), (BOB, <span class="number">100</span>)] }
 			}
 		}
 
@@ -1247,15 +1269,19 @@
 		#[test]
 		</span><span class="kw">fn </span>first_test() {
 			TestState::new_empty().execute_with(|| {
-				<span class="comment">// We expect account 1 to have no funds.
-				</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">1</span>), <span class="prelude-val">None</span>);
+				<span class="comment">// We expect Alice&#39;s account to have no funds.
+				</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>ALICE), <span class="prelude-val">None</span>);
 				<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">None</span>);
 
-				<span class="comment">// mint some funds into 1
-				</span><span class="macro">assert_ok!</span>(Pallet::&lt;Runtime&gt;::mint_unsafe(RuntimeOrigin::signed(<span class="number">1</span>), <span class="number">1</span>, <span class="number">100</span>));
+				<span class="comment">// mint some funds into Alice&#39;s account.
+				</span><span class="macro">assert_ok!</span>(Pallet::&lt;Runtime&gt;::mint_unsafe(
+					RuntimeOrigin::signed(ALICE),
+					ALICE,
+					<span class="number">100
+				</span>));
 
 				<span class="comment">// re-check the above
-				</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">1</span>), <span class="prelude-val">Some</span>(<span class="number">100</span>));
+				</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>ALICE), <span class="prelude-val">Some</span>(<span class="number">100</span>));
 				<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">100</span>));
 			})
 		}
@@ -1264,9 +1290,9 @@
 		#[test]
 		</span><span class="kw">fn </span>state_builder_works() {
 			StateBuilder::default().build_and_execute(|| {
-				<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">1</span>), <span class="prelude-val">Some</span>(<span class="number">100</span>));
-				<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">2</span>), <span class="prelude-val">Some</span>(<span class="number">100</span>));
-				<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">3</span>), <span class="prelude-val">None</span>);
+				<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>ALICE), <span class="prelude-val">Some</span>(<span class="number">100</span>));
+				<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>BOB), <span class="prelude-val">Some</span>(<span class="number">100</span>));
+				<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>CHARLIE), <span class="prelude-val">None</span>);
 				<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">200</span>));
 			});
 		}
@@ -1274,8 +1300,8 @@
 		<span class="attr">#[docify::export]
 		#[test]
 		</span><span class="kw">fn </span>state_builder_add_balance() {
-			StateBuilder::default().add_balance(<span class="number">3</span>, <span class="number">42</span>).build_and_execute(|| {
-				<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">3</span>), <span class="prelude-val">Some</span>(<span class="number">42</span>));
+			StateBuilder::default().add_balance(CHARLIE, <span class="number">42</span>).build_and_execute(|| {
+				<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>CHARLIE), <span class="prelude-val">Some</span>(<span class="number">42</span>));
 				<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">242</span>));
 			})
 		}
@@ -1284,10 +1310,10 @@
 		#[should_panic]
 		</span><span class="kw">fn </span>state_builder_duplicate_genesis_fails() {
 			StateBuilder::default()
-				.add_balance(<span class="number">3</span>, <span class="number">42</span>)
-				.add_balance(<span class="number">3</span>, <span class="number">43</span>)
+				.add_balance(CHARLIE, <span class="number">42</span>)
+				.add_balance(CHARLIE, <span class="number">43</span>)
 				.build_and_execute(|| {
-					<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">3</span>), <span class="prelude-val">None</span>);
+					<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>CHARLIE), <span class="prelude-val">None</span>);
 					<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">242</span>));
 				})
 		}
@@ -1297,17 +1323,21 @@
 		</span><span class="kw">fn </span>mint_works() {
 			StateBuilder::default().build_and_execute(|| {
 				<span class="comment">// given the initial state, when:
-				</span><span class="macro">assert_ok!</span>(Pallet::&lt;Runtime&gt;::mint_unsafe(RuntimeOrigin::signed(<span class="number">1</span>), <span class="number">2</span>, <span class="number">100</span>));
+				</span><span class="macro">assert_ok!</span>(Pallet::&lt;Runtime&gt;::mint_unsafe(RuntimeOrigin::signed(ALICE), BOB, <span class="number">100</span>));
 
 				<span class="comment">// then:
-				</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">2</span>), <span class="prelude-val">Some</span>(<span class="number">200</span>));
+				</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>BOB), <span class="prelude-val">Some</span>(<span class="number">200</span>));
 				<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">300</span>));
 
 				<span class="comment">// given:
-				</span><span class="macro">assert_ok!</span>(Pallet::&lt;Runtime&gt;::mint_unsafe(RuntimeOrigin::signed(<span class="number">1</span>), <span class="number">3</span>, <span class="number">100</span>));
+				</span><span class="macro">assert_ok!</span>(Pallet::&lt;Runtime&gt;::mint_unsafe(
+					RuntimeOrigin::signed(ALICE),
+					CHARLIE,
+					<span class="number">100
+				</span>));
 
 				<span class="comment">// then:
-				</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">3</span>), <span class="prelude-val">Some</span>(<span class="number">100</span>));
+				</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>CHARLIE), <span class="prelude-val">Some</span>(<span class="number">100</span>));
 				<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">400</span>));
 			});
 		}
@@ -1317,19 +1347,19 @@
 		</span><span class="kw">fn </span>transfer_works() {
 			StateBuilder::default().build_and_execute(|| {
 				<span class="comment">// given the the initial state, when:
-				</span><span class="macro">assert_ok!</span>(Pallet::&lt;Runtime&gt;::transfer(RuntimeOrigin::signed(<span class="number">1</span>), <span class="number">2</span>, <span class="number">50</span>));
+				</span><span class="macro">assert_ok!</span>(Pallet::&lt;Runtime&gt;::transfer(RuntimeOrigin::signed(ALICE), BOB, <span class="number">50</span>));
 
 				<span class="comment">// then:
-				</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">1</span>), <span class="prelude-val">Some</span>(<span class="number">50</span>));
-				<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">2</span>), <span class="prelude-val">Some</span>(<span class="number">150</span>));
+				</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>ALICE), <span class="prelude-val">Some</span>(<span class="number">50</span>));
+				<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>BOB), <span class="prelude-val">Some</span>(<span class="number">150</span>));
 				<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">200</span>));
 
 				<span class="comment">// when:
-				</span><span class="macro">assert_ok!</span>(Pallet::&lt;Runtime&gt;::transfer(RuntimeOrigin::signed(<span class="number">2</span>), <span class="number">1</span>, <span class="number">50</span>));
+				</span><span class="macro">assert_ok!</span>(Pallet::&lt;Runtime&gt;::transfer(RuntimeOrigin::signed(BOB), ALICE, <span class="number">50</span>));
 
 				<span class="comment">// then:
-				</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">1</span>), <span class="prelude-val">Some</span>(<span class="number">100</span>));
-				<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">2</span>), <span class="prelude-val">Some</span>(<span class="number">100</span>));
+				</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>ALICE), <span class="prelude-val">Some</span>(<span class="number">100</span>));
+				<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>BOB), <span class="prelude-val">Some</span>(<span class="number">100</span>));
 				<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">200</span>));
 			});
 		}
@@ -1340,14 +1370,14 @@
 			StateBuilder::default().build_and_execute(|| {
 				<span class="comment">// given the the initial state, when:
 				</span><span class="macro">assert_err!</span>(
-					Pallet::&lt;Runtime&gt;::transfer(RuntimeOrigin::signed(<span class="number">3</span>), <span class="number">1</span>, <span class="number">10</span>),
+					Pallet::&lt;Runtime&gt;::transfer(RuntimeOrigin::signed(CHARLIE), ALICE, <span class="number">10</span>),
 					<span class="string">&quot;NonExistentAccount&quot;
 				</span>);
 
 				<span class="comment">// then nothing has changed.
-				</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">1</span>), <span class="prelude-val">Some</span>(<span class="number">100</span>));
-				<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">2</span>), <span class="prelude-val">Some</span>(<span class="number">100</span>));
-				<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">3</span>), <span class="prelude-val">None</span>);
+				</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>ALICE), <span class="prelude-val">Some</span>(<span class="number">100</span>));
+				<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>BOB), <span class="prelude-val">Some</span>(<span class="number">100</span>));
+				<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>CHARLIE), <span class="prelude-val">None</span>);
 				<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">200</span>));
 			});
 		}
@@ -1423,6 +1453,8 @@
 	</span><span class="kw">pub mod </span>tests {
 		<span class="kw">use super</span>::{<span class="kw">super</span>::pallet::tests::StateBuilder, <span class="kw-2">*</span>};
 		<span class="kw">use </span>frame::testing_prelude::<span class="kw-2">*</span>;
+		<span class="kw">const </span>ALICE: u64 = <span class="number">1</span>;
+		<span class="kw">const </span>BOB: u64 = <span class="number">2</span>;
 
 		<span class="attr">#[docify::export]
 		</span><span class="kw">pub mod </span>runtime_v2 {
@@ -1455,20 +1487,20 @@
 			StateBuilder::default().build_and_execute(|| {
 				<span class="comment">// skip the genesis block, as events are not deposited there and we need them for
 				// the final assertion.
-				</span>System::set_block_number(<span class="number">1</span>);
+				</span>System::set_block_number(ALICE);
 
 				<span class="comment">// given the the initial state, when:
-				</span><span class="macro">assert_ok!</span>(Pallet::&lt;Runtime&gt;::transfer(RuntimeOrigin::signed(<span class="number">1</span>), <span class="number">2</span>, <span class="number">50</span>));
+				</span><span class="macro">assert_ok!</span>(Pallet::&lt;Runtime&gt;::transfer(RuntimeOrigin::signed(ALICE), BOB, <span class="number">50</span>));
 
 				<span class="comment">// then:
-				</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">1</span>), <span class="prelude-val">Some</span>(<span class="number">50</span>));
-				<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">2</span>), <span class="prelude-val">Some</span>(<span class="number">150</span>));
+				</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>ALICE), <span class="prelude-val">Some</span>(<span class="number">50</span>));
+				<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>BOB), <span class="prelude-val">Some</span>(<span class="number">150</span>));
 				<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">200</span>));
 
 				<span class="comment">// now we can also check that an event has been deposited:
 				</span><span class="macro">assert_eq!</span>(
 					System::read_events_for_pallet::&lt;Event&lt;Runtime&gt;&gt;(),
-					<span class="macro">vec!</span>[Event::Transferred { from: <span class="number">1</span>, to: <span class="number">2</span>, amount: <span class="number">50 </span>}]
+					<span class="macro">vec!</span>[Event::Transferred { from: ALICE, to: BOB, amount: <span class="number">50 </span>}]
 				);
 			});
 		}

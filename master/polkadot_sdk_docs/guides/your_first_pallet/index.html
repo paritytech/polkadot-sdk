@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Write your first simple pallet, learning the most most basic features of FRAME along the way."><title>polkadot_sdk_docs::guides::your_first_pallet - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0 (cc66ad468 2023-10-03)" data-channel="1.73.0" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2></h2></nav><nav class="sidebar"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2 class="location"><a href="#">Module your_first_pallet</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#modules">Modules</a></li></ul></section></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">guides</a>::<wbr><a class="mod" href="#">your_first_pallet</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/guides/your_first_pallet/mod.rs.html#1-738">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Write your first simple pallet, learning the most most basic features of FRAME along the way.</p>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Write your first simple pallet, learning the most most basic features of FRAME along the way."><title>polkadot_sdk_docs::guides::your_first_pallet - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0 (cc66ad468 2023-10-03)" data-channel="1.73.0" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2></h2></nav><nav class="sidebar"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2 class="location"><a href="#">Module your_first_pallet</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#modules">Modules</a></li></ul></section></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">guides</a>::<wbr><a class="mod" href="#">your_first_pallet</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/guides/your_first_pallet/mod.rs.html#1-754">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Write your first simple pallet, learning the most most basic features of FRAME along the way.</p>
 <h2 id="currency-pallet"><a href="#currency-pallet">Currency Pallet</a></h2>
 <p>By the end of this guide, you will write a small FRAME pallet (see
 <a href="../../polkadot_sdk/frame_runtime/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::frame_runtime"><code>crate::polkadot_sdk::frame_runtime</code></a>) that is capable of handling a simple crypto-currency.
@@ -13,11 +13,10 @@ system).</li>
 <p>This guide will build a currency pallet from scratch using only the lowest primitives of
 FRAME, and is mainly intended for education, not <em>applicability</em>. For example, almost all
 FRAME-based runtimes use various techniques to re-use a currency pallet instead of writing
-one. Further advance FRAME related topics are discussed in <a href="../../reference_docs/index.html" title="mod polkadot_sdk_docs::reference_docs"><code>crate::reference_docs</code></a>.</p>
+one. Further advanced FRAME related topics are discussed in <a href="../../reference_docs/index.html" title="mod polkadot_sdk_docs::reference_docs"><code>crate::reference_docs</code></a>.</p>
 </blockquote>
 <h3 id="topics-covered"><a href="#topics-covered">Topics Covered</a></h3>
-<p>The following FRAME topics are covered in this guide. See the documentation of the
-associated items to know more.</p>
+<p>The following FRAME topics are covered in this guide:</p>
 <ul>
 <li><a href="../../../frame_support_procedural/attr.storage.html" title="attr frame_support_procedural::storage">Storage</a></li>
 <li><a href="../../../frame_support_procedural/attr.call.html" title="attr frame_support_procedural::call">Call</a></li>
@@ -54,6 +53,11 @@ to the documentation of each to get an overview of what they do.</p>
 <p>First, we will need to create two onchain storage declarations.</p>
 <p>One should be a mapping from account-ids to a balance type, and one value that is the total
 issuance.</p>
+<blockquote>
+<p>For the rest of this guide, we will opt for a balance type of <code>u128</code>. For the sake of
+simplicity, we are hardcoding this type. In a real pallet is best practice to define it as a
+generic bounded type in the <code>Config</code> trait, and then specify it in the implementation.</p>
+</blockquote>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub type </span>Balance = u128;</code></pre></div>
 <p>The definition of these two storage items, based on <a href="../../../frame_support_procedural/attr.storage.html" title="attr frame_support_procedural::storage"><code>frame::pallet_macros::storage</code></a> details,
@@ -261,24 +265,27 @@ to be used in our tests.</p>
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
 </span><span class="kw">fn </span>first_test() {
 	TestState::new_empty().execute_with(|| {
-		<span class="comment">// We expect account 1 to have no funds.
-		</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">1</span>), <span class="prelude-val">None</span>);
+		<span class="comment">// We expect Alice&#39;s account to have no funds.
+		</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>ALICE), <span class="prelude-val">None</span>);
 		<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">None</span>);
 
-		<span class="comment">// mint some funds into 1
-		</span><span class="macro">assert_ok!</span>(Pallet::&lt;Runtime&gt;::mint_unsafe(RuntimeOrigin::signed(<span class="number">1</span>), <span class="number">1</span>, <span class="number">100</span>));
+		<span class="comment">// mint some funds into Alice&#39;s account.
+		</span><span class="macro">assert_ok!</span>(Pallet::&lt;Runtime&gt;::mint_unsafe(
+			RuntimeOrigin::signed(ALICE),
+			ALICE,
+			<span class="number">100
+		</span>));
 
 		<span class="comment">// re-check the above
-		</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">1</span>), <span class="prelude-val">Some</span>(<span class="number">100</span>));
+		</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>ALICE), <span class="prelude-val">Some</span>(<span class="number">100</span>));
 		<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">100</span>));
 	})
 }</code></pre></div>
 <p>In the first test, we simply assert that there is no total issuance, and no balance associated
-with account <code>1</code>. Then, we mint some balance into <code>1</code>, and re-check.</p>
+with Alice’s account. Then, we mint some balance into Alice’s, and re-check.</p>
 <p>As noted above, the <code>T::AccountId</code> is now <code>u64</code>. Moreover, <code>Runtime</code> is replacing <code>&lt;T: Config&gt;</code>.
 This is why for example you see <code>Balances::&lt;Runtime&gt;::get(..)</code>. Finally, notice that the
 dispatchables are simply functions that can be called on top of the <code>Pallet</code> struct.</p>
-<p>TODO: hard to explain exactly <code>RuntimeOrigin::signed(1)</code> at this point.</p>
 <p>Congratulations! You have written your first pallet and tested it! Next, we learn a few optional
 steps to improve our pallet.</p>
 <h3 id="improving-the-currency-pallet"><a href="#improving-the-currency-pallet">Improving the Currency Pallet</a></h3><h4 id="better-test-setup"><a href="#better-test-setup">Better Test Setup</a></h4>
@@ -295,12 +302,12 @@ on this that you can use to learn the Builder Pattern.</p>
 	balances: Vec&lt;(&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::AccountId, Balance)&gt;,
 }</code></pre></div>
 <p>This struct is meant to contain the same list of accounts and balances that we want to have at
-the beginning of each block. We hardcoded this to <code>let accounts = vec![(1, 100), (2, 100)];</code> so
-far. Then, if desired, we attach a default value for this struct.</p>
+the beginning of each block. We hardcoded this to <code>let accounts = vec![(ALICE, 100), (2, 100)];</code>
+so far. Then, if desired, we attach a default value for this struct.</p>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">impl </span>Default <span class="kw">for </span>StateBuilder {
 	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-		<span class="self">Self </span>{ balances: <span class="macro">vec!</span>[(<span class="number">1</span>, <span class="number">100</span>), (<span class="number">2</span>, <span class="number">100</span>)] }
+		<span class="self">Self </span>{ balances: <span class="macro">vec!</span>[(ALICE, <span class="number">100</span>), (BOB, <span class="number">100</span>)] }
 	}
 }</code></pre></div>
 <p>Like any other builder pattern, we attach functions to the type to mutate its internal
@@ -355,17 +362,17 @@ is working exactly as intended.</p>
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
 </span><span class="kw">fn </span>state_builder_works() {
 	StateBuilder::default().build_and_execute(|| {
-		<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">1</span>), <span class="prelude-val">Some</span>(<span class="number">100</span>));
-		<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">2</span>), <span class="prelude-val">Some</span>(<span class="number">100</span>));
-		<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">3</span>), <span class="prelude-val">None</span>);
+		<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>ALICE), <span class="prelude-val">Some</span>(<span class="number">100</span>));
+		<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>BOB), <span class="prelude-val">Some</span>(<span class="number">100</span>));
+		<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>CHARLIE), <span class="prelude-val">None</span>);
 		<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">200</span>));
 	});
 }</code></pre></div>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
 </span><span class="kw">fn </span>state_builder_add_balance() {
-	StateBuilder::default().add_balance(<span class="number">3</span>, <span class="number">42</span>).build_and_execute(|| {
-		<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">3</span>), <span class="prelude-val">Some</span>(<span class="number">42</span>));
+	StateBuilder::default().add_balance(CHARLIE, <span class="number">42</span>).build_and_execute(|| {
+		<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>CHARLIE), <span class="prelude-val">Some</span>(<span class="number">42</span>));
 		<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">242</span>));
 	})
 }</code></pre></div>
@@ -377,19 +384,19 @@ mint would look like.</p>
 </span><span class="kw">fn </span>transfer_works() {
 	StateBuilder::default().build_and_execute(|| {
 		<span class="comment">// given the the initial state, when:
-		</span><span class="macro">assert_ok!</span>(Pallet::&lt;Runtime&gt;::transfer(RuntimeOrigin::signed(<span class="number">1</span>), <span class="number">2</span>, <span class="number">50</span>));
+		</span><span class="macro">assert_ok!</span>(Pallet::&lt;Runtime&gt;::transfer(RuntimeOrigin::signed(ALICE), BOB, <span class="number">50</span>));
 
 		<span class="comment">// then:
-		</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">1</span>), <span class="prelude-val">Some</span>(<span class="number">50</span>));
-		<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">2</span>), <span class="prelude-val">Some</span>(<span class="number">150</span>));
+		</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>ALICE), <span class="prelude-val">Some</span>(<span class="number">50</span>));
+		<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>BOB), <span class="prelude-val">Some</span>(<span class="number">150</span>));
 		<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">200</span>));
 
 		<span class="comment">// when:
-		</span><span class="macro">assert_ok!</span>(Pallet::&lt;Runtime&gt;::transfer(RuntimeOrigin::signed(<span class="number">2</span>), <span class="number">1</span>, <span class="number">50</span>));
+		</span><span class="macro">assert_ok!</span>(Pallet::&lt;Runtime&gt;::transfer(RuntimeOrigin::signed(BOB), ALICE, <span class="number">50</span>));
 
 		<span class="comment">// then:
-		</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">1</span>), <span class="prelude-val">Some</span>(<span class="number">100</span>));
-		<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">2</span>), <span class="prelude-val">Some</span>(<span class="number">100</span>));
+		</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>ALICE), <span class="prelude-val">Some</span>(<span class="number">100</span>));
+		<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>BOB), <span class="prelude-val">Some</span>(<span class="number">100</span>));
 		<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">200</span>));
 	});
 }</code></pre></div>
@@ -398,17 +405,21 @@ mint would look like.</p>
 </span><span class="kw">fn </span>mint_works() {
 	StateBuilder::default().build_and_execute(|| {
 		<span class="comment">// given the initial state, when:
-		</span><span class="macro">assert_ok!</span>(Pallet::&lt;Runtime&gt;::mint_unsafe(RuntimeOrigin::signed(<span class="number">1</span>), <span class="number">2</span>, <span class="number">100</span>));
+		</span><span class="macro">assert_ok!</span>(Pallet::&lt;Runtime&gt;::mint_unsafe(RuntimeOrigin::signed(ALICE), BOB, <span class="number">100</span>));
 
 		<span class="comment">// then:
-		</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">2</span>), <span class="prelude-val">Some</span>(<span class="number">200</span>));
+		</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>BOB), <span class="prelude-val">Some</span>(<span class="number">200</span>));
 		<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">300</span>));
 
 		<span class="comment">// given:
-		</span><span class="macro">assert_ok!</span>(Pallet::&lt;Runtime&gt;::mint_unsafe(RuntimeOrigin::signed(<span class="number">1</span>), <span class="number">3</span>, <span class="number">100</span>));
+		</span><span class="macro">assert_ok!</span>(Pallet::&lt;Runtime&gt;::mint_unsafe(
+			RuntimeOrigin::signed(ALICE),
+			CHARLIE,
+			<span class="number">100
+		</span>));
 
 		<span class="comment">// then:
-		</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">3</span>), <span class="prelude-val">Some</span>(<span class="number">100</span>));
+		</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>CHARLIE), <span class="prelude-val">Some</span>(<span class="number">100</span>));
 		<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">400</span>));
 	});
 }</code></pre></div>
@@ -420,41 +431,43 @@ mint would look like.</p>
 	StateBuilder::default().build_and_execute(|| {
 		<span class="comment">// given the the initial state, when:
 		</span><span class="macro">assert_err!</span>(
-			Pallet::&lt;Runtime&gt;::transfer(RuntimeOrigin::signed(<span class="number">3</span>), <span class="number">1</span>, <span class="number">10</span>),
+			Pallet::&lt;Runtime&gt;::transfer(RuntimeOrigin::signed(CHARLIE), ALICE, <span class="number">10</span>),
 			<span class="string">&quot;NonExistentAccount&quot;
 		</span>);
 
 		<span class="comment">// then nothing has changed.
-		</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">1</span>), <span class="prelude-val">Some</span>(<span class="number">100</span>));
-		<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">2</span>), <span class="prelude-val">Some</span>(<span class="number">100</span>));
-		<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span><span class="number">3</span>), <span class="prelude-val">None</span>);
+		</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>ALICE), <span class="prelude-val">Some</span>(<span class="number">100</span>));
+		<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>BOB), <span class="prelude-val">Some</span>(<span class="number">100</span>));
+		<span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>CHARLIE), <span class="prelude-val">None</span>);
 		<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">200</span>));
 	});
 }</code></pre></div>
-<p>We leave it up to you to write a test that triggers to <code>InsufficientBalance</code> error.</p>
+<p>We leave it up to you to write a test that triggers the <code>InsufficientBalance</code> error.</p>
 <h4 id="event-and-error"><a href="#event-and-error">Event and Error</a></h4>
 <p>Our pallet is mainly missing two parts that are common in most FRAME pallets: Events, and
 Errors. First, let’s understand what each is.</p>
 <ul>
 <li>
 <p><strong>Error</strong>: The static string-based error scheme we used so far is good for readability, but it
-has a few drawbacks. These string literals will bloat the final wasm blob, and are relatively
-heavy to transmit and encode/decode. Moreover, it is easy to mistype them by one character.
-FRAME errors are exactly a solution to maintain readability, whilst fixing the drawbacks
-mentioned. In short, we use an enum to represent different variants of our error. These
-variants are then mapped in an efficient way (using only <code>u8</code> indices) to
-<a href="../../../sp_runtime/enum.DispatchError.html#variant.Module" title="variant sp_runtime::DispatchError::Module"><code>sp_runtime::DispatchError::Module</code></a> Read more about this in <a href="../../../frame_support_procedural/attr.error.html" title="attr frame_support_procedural::error"><code>frame::pallet_macros::error</code></a>.</p>
+has a few drawbacks. The biggest problem with strings are that they are not type safe, e.g. a
+match statement cannot be exhaustive. These string literals will bloat the final wasm blob,
+and are relatively heavy to transmit and encode/decode. Moreover, it is easy to mistype them
+by one character. FRAME errors are exactly a solution to maintain readability, whilst fixing
+the drawbacks mentioned. In short, we use an enum to represent different variants of our
+error. These variants are then mapped in an efficient way (using only <code>u8</code> indices) to
+<a href="../../../sp_runtime/enum.DispatchError.html#variant.Module" title="variant sp_runtime::DispatchError::Module"><code>sp_runtime::DispatchError::Module</code></a>. Read more about this in
+<a href="../../../frame_support_procedural/attr.error.html" title="attr frame_support_procedural::error"><code>frame::pallet_macros::error</code></a>.</p>
 </li>
 <li>
-<p><strong>Event</strong>: Events are akin to the return type of dispatchables. They should represent what
-happened at the end of a dispatch operation. Therefore, the convention is to use passive tense
-for event names (eg. <code>SomethingHappened</code>). This allows other sub-systems or external parties
-(eg. a light-node, a DApp) to listen to particular events happening, without needing to
-re-execute the whole state transition function.</p>
+<p><strong>Event</strong>: Events are akin to the return type of dispatchables. They are mostly data blobs
+emitted by the runtime to let outside world know what is happening inside the pallet. Since
+otherwise, the outside world does not have an easy access to the state changes. They should
+represent what happened at the end of a dispatch operation. Therefore, the convention is to
+use passive tense for event names (eg. <code>SomethingHappened</code>). This allows other sub-systems or
+external parties (eg. a light-node, a DApp) to listen to particular events happening, without
+needing to re-execute the whole state transition function.</p>
 </li>
 </ul>
-<p>TODO: both need to be improved a lot at the pallet-macro rust-doc level. Also my explanation
-of event is probably not the best.</p>
 <p>With the explanation out of the way, let’s see how these components can be added. Both follow a
 fairly familiar syntax: normal Rust enums, with an extra <code>#[frame::event/error]</code> attribute
 attached.</p>
