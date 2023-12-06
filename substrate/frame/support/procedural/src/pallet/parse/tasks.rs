@@ -20,7 +20,7 @@
 use std::collections::HashSet;
 
 #[cfg(test)]
-use crate::assert_error_matches;
+use crate::assert_parse_error_matches;
 
 #[cfg(test)]
 use crate::pallet::parse::tests::simulate_manifest_dir;
@@ -66,16 +66,7 @@ pub struct TasksDef {
 impl syn::parse::Parse for TasksDef {
 	fn parse(input: ParseStream) -> Result<Self> {
 		let item_impl: ItemImpl = input.parse()?;
-		let (tasks_attrs, normal_attrs): (Vec<_>, Vec<_>) =
-			item_impl.attrs.clone().into_iter().partition(|attr| {
-				let mut path_segs = attr.path().segments.iter();
-				let (Some(prefix), Some(suffix), None) =
-					(path_segs.next(), path_segs.next(), path_segs.next())
-				else {
-					return false
-				};
-				prefix.ident == "pallet" && suffix.ident == "tasks"
-			});
+		let (tasks_attrs, normal_attrs) = extract_tasks_attrs(&item_impl);
 		let tasks_attr = match tasks_attrs.first() {
 			Some(attr) => Some(parse2::<PalletTasksAttr>(attr.to_token_stream())?),
 			None => None,
@@ -229,21 +220,7 @@ impl syn::parse::Parse for TaskDef {
 		let item = input.parse::<ImplItemFn>()?;
 		// we only want to activate TaskAttrType parsing errors for tasks-related attributes,
 		// so we filter them here
-		let (task_attrs, normal_attrs): (Vec<_>, Vec<_>) =
-			item.attrs.clone().into_iter().partition(|attr| {
-				let mut path_segs = attr.path().segments.iter();
-				let (Some(prefix), Some(suffix)) = (path_segs.next(), path_segs.next()) else {
-					return false
-				};
-				// N.B: the `PartialEq` impl between `Ident` and `&str` is more efficient than
-				// parsing and makes no stack or heap allocations
-				prefix.ident == "pallet" &&
-					(suffix.ident == "tasks" ||
-						suffix.ident == "task_list" ||
-						suffix.ident == "task_condition" ||
-						suffix.ident == "task_weight" ||
-						suffix.ident == "task_index")
-			});
+		let (task_attrs, normal_attrs) = extract_task_attrs(&item);
 
 		let task_attrs: Vec<TaskAttr> = task_attrs
 			.into_iter()
@@ -550,16 +527,45 @@ impl TryFrom<PalletTaskAttr<TaskAttrMeta>> for TaskListAttr {
 	}
 }
 
+fn extract_tasks_attrs(item_impl: &ItemImpl) -> (Vec<syn::Attribute>, Vec<syn::Attribute>) {
+	item_impl.attrs.clone().into_iter().partition(|attr| {
+		let mut path_segs = attr.path().segments.iter();
+		let (Some(prefix), Some(suffix), None) =
+			(path_segs.next(), path_segs.next(), path_segs.next())
+		else {
+			return false
+		};
+		prefix.ident == "pallet" && suffix.ident == "tasks"
+	})
+}
+
+fn extract_task_attrs(item: &ImplItemFn) -> (Vec<syn::Attribute>, Vec<syn::Attribute>) {
+	item.attrs.clone().into_iter().partition(|attr| {
+		let mut path_segs = attr.path().segments.iter();
+		let (Some(prefix), Some(suffix)) = (path_segs.next(), path_segs.next()) else {
+			return false
+		};
+		// N.B: the `PartialEq` impl between `Ident` and `&str` is more efficient than
+		// parsing and makes no stack or heap allocations
+		prefix.ident == "pallet" &&
+			(suffix.ident == "tasks" ||
+				suffix.ident == "task_list" ||
+				suffix.ident == "task_condition" ||
+				suffix.ident == "task_weight" ||
+				suffix.ident == "task_index")
+	})
+}
+
 #[test]
 fn test_parse_task_list_() {
 	parse2::<TaskAttr>(quote!(#[pallet::task_list(Something::iter())])).unwrap();
 	parse2::<TaskAttr>(quote!(#[pallet::task_list(Numbers::<T, I>::iter_keys())])).unwrap();
 	parse2::<TaskAttr>(quote!(#[pallet::task_list(iter())])).unwrap();
-	assert_error_matches!(
+	assert_parse_error_matches!(
 		parse2::<TaskAttr>(quote!(#[pallet::task_list()])),
 		"expected an expression"
 	);
-	assert_error_matches!(parse2::<TaskAttr>(quote!(#[pallet::task_list])), "expected parentheses");
+	assert_parse_error_matches!(parse2::<TaskAttr>(quote!(#[pallet::task_list])), "expected parentheses");
 }
 
 #[test]
@@ -567,15 +573,15 @@ fn test_parse_task_index() {
 	parse2::<TaskAttr>(quote!(#[pallet::task_index(3)])).unwrap();
 	parse2::<TaskAttr>(quote!(#[pallet::task_index(0)])).unwrap();
 	parse2::<TaskAttr>(quote!(#[pallet::task_index(17)])).unwrap();
-	assert_error_matches!(
+	assert_parse_error_matches!(
 		parse2::<TaskAttr>(quote!(#[pallet::task_index])),
 		"expected parentheses"
 	);
-	assert_error_matches!(
+	assert_parse_error_matches!(
 		parse2::<TaskAttr>(quote!(#[pallet::task_index("hey")])),
 		"expected integer literal"
 	);
-	assert_error_matches!(
+	assert_parse_error_matches!(
 		parse2::<TaskAttr>(quote!(#[pallet::task_index(0.3)])),
 		"expected integer literal"
 	);
@@ -592,10 +598,10 @@ fn test_parse_task_condition() {
 #[test]
 fn test_parse_tasks_attr() {
 	parse2::<PalletTasksAttr>(quote!(#[pallet::tasks])).unwrap();
-	assert_error_matches!(parse2::<PalletTasksAttr>(quote!(#[pallet::taskss])), "expected `tasks`");
-	assert_error_matches!(parse2::<PalletTasksAttr>(quote!(#[pallet::tasks_])), "expected `tasks`");
-	assert_error_matches!(parse2::<PalletTasksAttr>(quote!(#[pal::tasks])), "expected `pallet`");
-	assert_error_matches!(
+	assert_parse_error_matches!(parse2::<PalletTasksAttr>(quote!(#[pallet::taskss])), "expected `tasks`");
+	assert_parse_error_matches!(parse2::<PalletTasksAttr>(quote!(#[pallet::tasks_])), "expected `tasks`");
+	assert_parse_error_matches!(parse2::<PalletTasksAttr>(quote!(#[pal::tasks])), "expected `pallet`");
+	assert_parse_error_matches!(
 		parse2::<PalletTasksAttr>(quote!(#[pallet::tasks()])),
 		"unexpected token"
 	);
@@ -682,7 +688,7 @@ fn test_parse_tasks_def_basic_increment_decrement() {
 #[test]
 fn test_parse_tasks_def_duplicate_index() {
 	simulate_manifest_dir("../../examples/basic", || {
-		assert_error_matches!(
+		assert_parse_error_matches!(
 			parse2::<TasksDef>(quote! {
 				#[pallet::tasks]
 				impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -711,7 +717,7 @@ fn test_parse_tasks_def_duplicate_index() {
 #[test]
 fn test_parse_tasks_def_missing_task_list() {
 	simulate_manifest_dir("../../examples/basic", || {
-		assert_error_matches!(
+		assert_parse_error_matches!(
 			parse2::<TasksDef>(quote! {
 				#[pallet::tasks]
 				impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -730,7 +736,7 @@ fn test_parse_tasks_def_missing_task_list() {
 #[test]
 fn test_parse_tasks_def_missing_task_condition() {
 	simulate_manifest_dir("../../examples/basic", || {
-		assert_error_matches!(
+		assert_parse_error_matches!(
 			parse2::<TasksDef>(quote! {
 				#[pallet::tasks]
 				impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -749,7 +755,7 @@ fn test_parse_tasks_def_missing_task_condition() {
 #[test]
 fn test_parse_tasks_def_missing_task_index() {
 	simulate_manifest_dir("../../examples/basic", || {
-		assert_error_matches!(
+		assert_parse_error_matches!(
 			parse2::<TasksDef>(quote! {
 				#[pallet::tasks]
 				impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -768,7 +774,7 @@ fn test_parse_tasks_def_missing_task_index() {
 #[test]
 fn test_parse_tasks_def_missing_task_weight() {
 	simulate_manifest_dir("../../examples/basic", || {
-		assert_error_matches!(
+		assert_parse_error_matches!(
 			parse2::<TasksDef>(quote! {
 				#[pallet::tasks]
 				impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -788,7 +794,7 @@ fn test_parse_tasks_def_missing_task_weight() {
 #[test]
 fn test_parse_tasks_def_unexpected_extra_task_list_attr() {
 	simulate_manifest_dir("../../examples/basic", || {
-		assert_error_matches!(
+		assert_parse_error_matches!(
 			parse2::<TasksDef>(quote! {
 				#[pallet::tasks]
 				impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -810,7 +816,7 @@ fn test_parse_tasks_def_unexpected_extra_task_list_attr() {
 #[test]
 fn test_parse_tasks_def_unexpected_extra_task_condition_attr() {
 	simulate_manifest_dir("../../examples/basic", || {
-		assert_error_matches!(
+		assert_parse_error_matches!(
 			parse2::<TasksDef>(quote! {
 				#[pallet::tasks]
 				impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -832,7 +838,7 @@ fn test_parse_tasks_def_unexpected_extra_task_condition_attr() {
 #[test]
 fn test_parse_tasks_def_unexpected_extra_task_index_attr() {
 	simulate_manifest_dir("../../examples/basic", || {
-		assert_error_matches!(
+		assert_parse_error_matches!(
 			parse2::<TasksDef>(quote! {
 				#[pallet::tasks]
 				impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -854,7 +860,7 @@ fn test_parse_tasks_def_unexpected_extra_task_index_attr() {
 #[test]
 fn test_parse_tasks_def_extra_tasks_attribute() {
 	simulate_manifest_dir("../../examples/basic", || {
-		assert_error_matches!(
+		assert_parse_error_matches!(
 			parse2::<TasksDef>(quote! {
 				#[pallet::tasks]
 				#[pallet::tasks]
@@ -920,7 +926,7 @@ fn test_parse_task_enum_def_missing_attr_alternate_name_allowed() {
 #[test]
 fn test_parse_task_enum_def_wrong_attr() {
 	simulate_manifest_dir("../../examples/basic", || {
-		assert_error_matches!(
+		assert_parse_error_matches!(
 			parse2::<TaskEnumDef>(quote! {
 				#[pallet::something]
 				pub enum Task<T: Config> {
@@ -936,7 +942,7 @@ fn test_parse_task_enum_def_wrong_attr() {
 #[test]
 fn test_parse_task_enum_def_wrong_item() {
 	simulate_manifest_dir("../../examples/basic", || {
-		assert_error_matches!(
+		assert_parse_error_matches!(
 			parse2::<TaskEnumDef>(quote! {
 				#[pallet::task_enum]
 				pub struct Something;

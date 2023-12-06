@@ -67,7 +67,7 @@ pub fn expand_outer_task(
 		task_paths.push(quote!(#path::Task));
 	}
 
-	let prelude = quote!(#scrate::traits::tasks::prelude);
+	let prelude = quote!(#scrate::traits::tasks::__private);
 
 	const INCOMPLETE_MATCH_QED: &'static str =
 		"cannot have an instantiated RuntimeTask without some Task variant in the runtime. QED";
@@ -96,7 +96,7 @@ pub fn expand_outer_task(
 				}
 			}
 
-			fn run(&self) -> Result<(), #scrate::traits::tasks::prelude::DispatchError> {
+			fn run(&self) -> Result<(), #scrate::traits::tasks::__private::DispatchError> {
 				match self {
 					#(RuntimeTask::#variant_names(val) => val.run(),)*
 					_ => unreachable!(#INCOMPLETE_MATCH_QED),

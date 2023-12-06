@@ -15,17 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use once_cell::sync::Lazy;
 use std::{panic, sync::Mutex};
 use syn::parse_quote;
 
-/// Ensures that only one thread can modify/restore the `CARGO_MANIFEST_DIR` ENV var at a time,
-/// avoiding a race condition because `cargo test` runs tests in parallel.
-///
-/// Although this forces all tests that use [`simulate_manifest_dir`] to run sequentially with
-/// respect to each other, this is still several orders of magnitude faster than using UI
-/// tests, even if they are run in parallel.
-static MANIFEST_DIR_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+#[doc(hidden)]
+pub mod __private {
+	pub use regex;
+}
 
 /// Allows you to assert that the input expression resolves to an error whose string
 /// representation matches the specified regex literal.
@@ -35,7 +31,7 @@ static MANIFEST_DIR_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 /// ```
 /// use super::tasks::*;
 ///
-/// assert_error_matches!(
+/// assert_parse_error_matches!(
 /// 	parse2::<TaskEnumDef>(quote! {
 /// 		#[pallet::task_enum]
 /// 		pub struct Something;
@@ -48,7 +44,7 @@ static MANIFEST_DIR_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 /// use with the [`regex`] crate.):
 ///
 /// ```ignore
-/// assert_error_matches!(
+/// assert_parse_error_matches!(
 /// 	parse2::<TasksDef>(quote! {
 /// 		#[pallet::tasks]
 /// 		impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -66,13 +62,13 @@ static MANIFEST_DIR_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 /// Although this is primarily intended to be used with parsing errors, this macro is general
 /// enough that it will work with any error with a reasonable [`core::fmt::Display`] impl.
 #[macro_export]
-macro_rules! assert_error_matches {
+macro_rules! assert_parse_error_matches {
 	($expr:expr, $reg:literal) => {
 		match $expr {
 			Ok(_) => panic!("Expected an `Error(..)`, but got Ok(..)"),
 			Err(e) => {
 				let error_message = e.to_string();
-				let re = regex::Regex::new($reg).expect("Invalid regex pattern");
+				let re = $crate::pallet::parse::tests::__private::regex::Regex::new($reg).expect("Invalid regex pattern");
 				assert!(
 					re.is_match(&error_message),
 					"Error message \"{}\" does not match the pattern \"{}\"",
@@ -162,7 +158,7 @@ macro_rules! assert_pallet_parse_error {
 		$($tokens:tt)*
 	) => {
 		$crate::pallet::parse::tests::simulate_manifest_dir($manifest_dir, || {
-			$crate::assert_error_matches!(
+			$crate::assert_parse_error_matches!(
 				$crate::pallet::parse::Def::try_from(
 					parse_quote! {
 						$($tokens)*
@@ -190,6 +186,14 @@ pub fn simulate_manifest_dir<P: AsRef<std::path::Path>, F: FnOnce() + std::panic
 	closure: F,
 ) {
 	use std::{env::*, path::*};
+
+	/// Ensures that only one thread can modify/restore the `CARGO_MANIFEST_DIR` ENV var at a time,
+	/// avoiding a race condition because `cargo test` runs tests in parallel.
+	///
+	/// Although this forces all tests that use [`simulate_manifest_dir`] to run sequentially with
+	/// respect to each other, this is still several orders of magnitude faster than using UI
+	/// tests, even if they are run in parallel.
+	static MANIFEST_DIR_LOCK: Mutex<()> = Mutex::new(());
 
 	// avoid race condition when swapping out `CARGO_MANIFEST_DIR`
 	let guard = MANIFEST_DIR_LOCK.lock().unwrap();

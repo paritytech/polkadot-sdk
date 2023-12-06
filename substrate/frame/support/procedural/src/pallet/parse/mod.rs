@@ -105,14 +105,7 @@ impl Def {
 		let mut type_values = vec![];
 		let mut composites: Vec<CompositeDef> = vec![];
 
-		let mut item_tokens: Option<proc_macro2::TokenStream> = None;
-
 		for (index, item) in items.iter_mut().enumerate() {
-			// provides lazy access to the item's underlying `TokenStream2`
-			let mut get_tokens = |item: &syn::Item| {
-				item_tokens.get_or_insert_with(|| item.clone().to_token_stream()).clone()
-			};
-
 			let pallet_attr: Option<PalletAttr> = helper::take_first_item_pallet_attr(item)?;
 
 			match pallet_attr {
@@ -135,7 +128,7 @@ impl Def {
 				Some(PalletAttr::RuntimeCall(cw, span)) if call.is_none() =>
 					call = Some(call::CallDef::try_from(span, index, item, dev_mode, cw)?),
 				Some(PalletAttr::Tasks(_)) if tasks.is_none() => {
-					let item_tokens = get_tokens(item);
+					let item_tokens = item.to_token_stream();
 					// `TasksDef::parse` needs to know if attr was provided so we artificially
 					// re-insert it here
 					tasks = Some(syn::parse_quote! {
@@ -159,7 +152,7 @@ impl Def {
 					"`#[pallet::task_list]` can only be used on items within an `impl` statement."
 				)),
 				Some(PalletAttr::RuntimeTask(_)) if task_enum.is_none() =>
-					task_enum = Some(syn::parse2::<tasks::TaskEnumDef>(get_tokens(item))?),
+					task_enum = Some(syn::parse2::<tasks::TaskEnumDef>(item.to_token_stream())?),
 				Some(PalletAttr::Error(span)) if error.is_none() =>
 					error = Some(error::ErrorDef::try_from(span, index, item)?),
 				Some(PalletAttr::RuntimeEvent(span)) if event.is_none() =>
