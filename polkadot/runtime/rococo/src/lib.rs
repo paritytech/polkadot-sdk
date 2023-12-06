@@ -97,7 +97,7 @@ use sp_staking::SessionIndex;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use xcm::{
-	latest::{InteriorMultiLocation, Junction, Junction::PalletInstance, NetworkId},
+	latest::{InteriorMultiLocation, Junction, Junction::PalletInstance},
 	VersionedMultiLocation,
 };
 use xcm_builder::PayOverXcm;

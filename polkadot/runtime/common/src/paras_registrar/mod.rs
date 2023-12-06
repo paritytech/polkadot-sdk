@@ -1666,10 +1666,9 @@ mod benchmarking {
 		assert_eq!(event, &system_event);
 	}
 
-	fn register_para<T: Config>(id: u32) -> ParaId {
+	fn register_para<T: Config>(id: u32, validation_code: ValidationCode) -> ParaId {
 		let para = ParaId::from(id);
 		let genesis_head = Registrar::<T>::worst_head_data();
-		let validation_code = Registrar::<T>::worst_validation_code();
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 		assert_ok!(Registrar::<T>::reserve(RawOrigin::Signed(caller.clone()).into()));
@@ -1747,7 +1746,7 @@ mod benchmarking {
 		}
 
 		deregister {
-			let para = register_para::<T>(LOWEST_PUBLIC_ID.into());
+			let para = register_para::<T>(LOWEST_PUBLIC_ID.into(), Registrar::<T>::worst_validation_code());
 			next_scheduled_session::<T>();
 			let caller: T::AccountId = whitelisted_caller();
 		}: _(RawOrigin::Signed(caller), para)
@@ -1757,8 +1756,8 @@ mod benchmarking {
 
 		swap {
 			// On demand parachain
-			let parathread = register_para::<T>(LOWEST_PUBLIC_ID.into());
-			let parachain = register_para::<T>((LOWEST_PUBLIC_ID + 1).into());
+			let parathread = register_para::<T>(LOWEST_PUBLIC_ID.into(), Registrar::<T>::worst_validation_code());
+			let parachain = register_para::<T>((LOWEST_PUBLIC_ID + 1).into(), Registrar::<T>::worst_validation_code());
 
 			let parachain_origin = para_origin(parachain.into());
 
@@ -1783,10 +1782,17 @@ mod benchmarking {
 		}
 
 		schedule_code_upgrade {
-			let b in 1 .. MAX_CODE_SIZE;
-			let new_code = ValidationCode(vec![0; b as usize]);
-			let para_id = ParaId::from(1000);
-		}: _(RawOrigin::Root, para_id, new_code)
+			// The 'worst case' scenario in terms of benchmarking is when the upgrade isn't free
+			// and there is a refund. 
+
+			let b in 2 .. MAX_CODE_SIZE;
+			let initial_code = ValidationCode(vec![0; b as usize]);
+			let new_code = ValidationCode(vec![0; b as usize - 1]);
+
+			let para = register_para::<T>(LOWEST_PUBLIC_ID.into(), initial_code);
+			// Actually finish registration process
+			next_scheduled_session::<T>();
+		}: _(RawOrigin::Root, para, new_code)
 
 		set_current_head {
 			let b in 1 .. MAX_HEAD_DATA_SIZE;
@@ -1795,7 +1801,7 @@ mod benchmarking {
 		}: _(RawOrigin::Root, para_id, new_head)
 
 		set_parachain_stash {
-			let para = register_para::<T>(LOWEST_PUBLIC_ID.into());
+			let para = register_para::<T>(LOWEST_PUBLIC_ID.into(), Registrar::<T>::worst_validation_code());
 			// Actually finish registration process
 			next_scheduled_session::<T>();
 
