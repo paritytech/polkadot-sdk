@@ -27,6 +27,7 @@ use bp_messages::{
 	LaneId, MessageNonce,
 };
 use bp_runtime::messages::MessageDispatchResult;
+pub use bp_xcm_bridge_hub::XcmAsPlainPayload;
 use bp_xcm_bridge_hub_router::XcmChannelStatusProvider;
 use codec::{Decode, Encode};
 use frame_support::{traits::Get, weights::Weight, CloneNoBound, EqNoBound, PartialEqNoBound};
@@ -38,9 +39,6 @@ use sp_runtime::SaturatedConversion;
 use sp_std::{fmt::Debug, marker::PhantomData};
 use xcm::prelude::*;
 use xcm_builder::{DispatchBlob, DispatchBlobError};
-
-/// Plain "XCM" payload, which we transfer through bridge
-pub type XcmAsPlainPayload = sp_std::prelude::Vec<u8>;
 
 /// Message dispatch result type for single message
 #[derive(CloneNoBound, EqNoBound, PartialEqNoBound, Encode, Decode, Debug, TypeInfo)]

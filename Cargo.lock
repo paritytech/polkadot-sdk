@@ -2131,6 +2131,7 @@ dependencies = [
  "bp-relayers",
  "bp-runtime",
  "bp-test-utils",
+ "bp-xcm-bridge-hub",
  "bp-xcm-bridge-hub-router",
  "frame-support",
  "frame-system",

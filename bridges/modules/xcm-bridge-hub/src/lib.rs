@@ -59,10 +59,10 @@ pub mod pallet {
 		type MessageExportPrice: Get<MultiAssets>;
 
 		/// Get point-to-point links with bridged consensus (`Self::BridgedNetworkId`).
-		/// (this will be replaced with dynamic on-chain bridges - for Bridges V2)
+		/// (this will be replaced with dynamic on-chain bridges - `Bridges V2`)
 		type Lanes: Get<sp_std::vec::Vec<(SenderAndLane, (NetworkId, InteriorMultiLocation))>>;
 		/// Support for point-to-point links
-		/// (this will be replaced with dynamic on-chain bridges - for Bridges V2)
+		/// (this will be replaced with dynamic on-chain bridges - `Bridges V2`)
 		type LanesSupport: XcmBlobHauler;
 	}
 
