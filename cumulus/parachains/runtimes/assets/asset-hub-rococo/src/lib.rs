@@ -673,7 +673,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
 }
 
-impl cumulus_pallet_xcmp_queue::migration::v4::V4Config for Runtime {
+impl cumulus_pallet_xcmp_queue::migration::v5::V5Config for Runtime {
 	// This must be the same as the `ChannelInfo` from the `Config`:
 	type ChannelList = ParachainSystem;
 }
@@ -955,7 +955,7 @@ pub type Migrations = (
 	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
 	InitStorageVersions,
 	cumulus_pallet_xcmp_queue::migration::v4::MigrateV3ToV4<Runtime>,
-	cumulus_pallet_xcmp_queue::migration::v4::MigrateV4ToV5<Runtime>,
+	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5<Runtime>,
 );
 
 /// Migration to initialize storage versions for pallets added after genesis.

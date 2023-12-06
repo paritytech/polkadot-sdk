@@ -655,7 +655,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
 }
 
-impl cumulus_pallet_xcmp_queue::migration::v4::V4Config for Runtime {
+impl cumulus_pallet_xcmp_queue::migration::v5::V5Config for Runtime {
 	// This must be the same as the `ChannelInfo` from the `Config`:
 	type ChannelList = ParachainSystem;
 }
@@ -939,7 +939,7 @@ pub type Migrations = (
 	// unreleased
 	DeleteUndecodableStorage,
 	cumulus_pallet_xcmp_queue::migration::v4::MigrateV3ToV4<Runtime>,
-	cumulus_pallet_xcmp_queue::migration::v4::MigrateV4ToV5<Runtime>,
+	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5<Runtime>,
 );
 
 /// Asset Hub Westend has some undecodable storage, delete it.

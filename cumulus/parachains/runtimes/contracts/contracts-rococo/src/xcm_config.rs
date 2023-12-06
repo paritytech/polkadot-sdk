@@ -303,7 +303,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
 }
 
-impl cumulus_pallet_xcmp_queue::migration::v4::V4Config for Runtime {
+impl cumulus_pallet_xcmp_queue::migration::v5::V5Config for Runtime {
 	// This must be the same as the `ChannelInfo` from the `Config`:
 	type ChannelList = ParachainSystem;
 }
