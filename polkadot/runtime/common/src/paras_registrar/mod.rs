@@ -43,8 +43,8 @@ use sp_runtime::{
 	traits::{CheckedSub, Saturating},
 	RuntimeDebug,
 };
-use xcm_executor::traits::ConvertLocation;
 use xcm::opaque::lts::{Junction::Parachain, MultiLocation, Parent};
+use xcm_executor::traits::ConvertLocation;
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, TypeInfo)]
 pub struct ParaInfo<Account, Balance> {
@@ -73,7 +73,8 @@ pub struct BillingInfo<AccountId, Balance> {
 	/// parachain validation code upgrades.
 	///
 	/// When a parachain is newly registered, this will be set to the parachain manager. However,
-	/// at a later point, this can be updated by calling the `set_parachain_billing_account_to_self` extrinsic.
+	/// at a later point, this can be updated by calling the
+	/// `set_parachain_billing_account_to_self` extrinsic.
 	billing_account: AccountId,
 	/// In case there is a pending refund, this stores information about the account and the
 	/// amount that will be refunded upon a successful code upgrade.
@@ -512,10 +513,10 @@ pub mod pallet {
 
 				caller
 			} else if ensure_root(origin).is_ok() {
-				// Root should use `force_set_parachain_billing_account` since it doesn't make sense 
+				// Root should use `force_set_parachain_billing_account` since it doesn't make sense
 				// for the root to set itself as the billing account.
 				return Ok(())
-			}else {
+			} else {
 				let location: MultiLocation = (Parent, Parachain(para.into())).into();
 				let sovereign_account = T::SovereignAccountOf::convert_location(&location).unwrap();
 				sovereign_account
@@ -529,8 +530,8 @@ pub mod pallet {
 		/// Sets the billing account of a parachain to the caller.
 		///
 		/// ## Deposits/Fees
-		/// For this call to be successful, the `new_billing_account` account must have a sufficient balance
-		/// to cover the current deposit required for this parachain.
+		/// For this call to be successful, the `new_billing_account` account must have a sufficient
+		/// balance to cover the current deposit required for this parachain.
 		///
 		/// Can only be called by Root.
 		#[pallet::call_index(10)]
@@ -538,7 +539,7 @@ pub mod pallet {
 		pub fn force_set_parachain_billing_account(
 			origin: OriginFor<T>,
 			para: ParaId,
-			new_billing_account: T::AccountId
+			new_billing_account: T::AccountId,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
@@ -820,8 +821,10 @@ impl<T: Config> Pallet<T> {
 			// code to an empty blob. In such a case, the pre-checking process would fail, so
 			// the old code would remain on-chain even though there is no deposit to cover it.
 
-			billing_info.pending_refund =
-				Some((billing_info.billing_account.clone(), current_deposit.saturating_sub(new_deposit)));
+			billing_info.pending_refund = Some((
+				billing_info.billing_account.clone(),
+				current_deposit.saturating_sub(new_deposit),
+			));
 			ParaBillings::<T>::insert(para, billing_info);
 		}
 
@@ -875,7 +878,7 @@ impl<T: Config> Pallet<T> {
 			ParaBillings::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
 
 		// When updating the account responsible for all code upgrade costs, we unreserve all
-		// funds associated with the registered parachain from the original billing account and 
+		// funds associated with the registered parachain from the original billing account and
 		// reserves the required amount from the new one.
 
 		<T as Config>::Currency::reserve(&new_billing_account, info.deposit)?;

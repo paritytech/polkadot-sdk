@@ -899,7 +899,7 @@ fn lease_holding_parachains_have_no_upgrade_costs() {
 }
 
 #[test]
-fn changing_parachain_billing_account_works() {
+fn setting_parachain_billing_account_to_self_works() {
 	new_test_ext().execute_with(|| {
 		assert!(System::block_number().is_one()); /* So events are emitted */
 		let para_id = LOWEST_PUBLIC_ID;
@@ -936,8 +936,9 @@ fn changing_parachain_billing_account_works() {
 			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
 		);
 
-		// CASE 1: Attempting to set the billing account for the parachain to the parachain sovereign 
-		// account with an insufficient balance to cover the required deposit should result in a failure.
+		// CASE 1: Attempting to set the billing account for the parachain to the parachain
+		// sovereign account with an insufficient balance to cover the required deposit should
+		// result in a failure.
 
 		let location: MultiLocation = (Parent, Parachain(para_id.into())).into();
 		let sovereign_account =
@@ -946,7 +947,10 @@ fn changing_parachain_billing_account_works() {
 		let para_origin: runtime_parachains::Origin = u32::from(LOWEST_PUBLIC_ID).into();
 
 		assert_noop!(
-			Registrar::set_parachain_billing_account_to_self(para_origin.clone().into(), ParaId::from(para_id)),
+			Registrar::set_parachain_billing_account_to_self(
+				para_origin.clone().into(),
+				ParaId::from(para_id)
+			),
 			BalancesError::<Test>::InsufficientBalance
 		);
 
@@ -987,8 +991,8 @@ fn changing_parachain_billing_account_works() {
 		));
 		assert_eq!(Paras::current_code(&para_id), Some(code_1.clone()));
 
-		// The new code upgrade billing account will have its deposit appropriately adjusted given the
-		// increase in the new code.
+		// The new code upgrade billing account will have its deposit appropriately adjusted given
+		// the increase in the new code.
 		let total_bytes_stored = code_size as u32 + head_size as u32;
 		assert_eq!(
 			Balances::reserved_balance(&sovereign_account),
@@ -996,6 +1000,109 @@ fn changing_parachain_billing_account_works() {
 		);
 		// The new billing account will also be charged with the upgrade fees.
 		assert_eq!(Balances::total_balance(&sovereign_account), free_balance - UpgradeFee::get());
+
+		// The account of the initial billing account should however remain unchanged.
+		assert_eq!(Balances::free_balance(&account_id(1)), free_balance);
+	});
+}
+
+#[test]
+fn force_set_parachain_billing_account_works() {
+	new_test_ext().execute_with(|| {
+		assert!(System::block_number().is_one()); /* So events are emitted */
+		let para_id = LOWEST_PUBLIC_ID;
+		const START_SESSION_INDEX: SessionIndex = 1;
+		run_to_session(START_SESSION_INDEX);
+
+		// User 1 will own a parachain
+		let free_balance = 1_000_000_000;
+		Balances::make_free_balance_be(&account_id(1), free_balance);
+		// Register an on demand parachain
+		let mut code_size = 1024 * 1024;
+		let genesis_head = Registrar::worst_head_data();
+		let head_size = genesis_head.0.len();
+		let code_0 = validation_code(code_size);
+
+		assert_ok!(Registrar::reserve(signed(1)));
+		assert_ok!(Registrar::register(
+			signed(1),
+			ParaId::from(para_id),
+			genesis_head.clone(),
+			code_0.clone(),
+		));
+		conclude_pvf_checking::<Test>(&code_0, VALIDATORS, START_SESSION_INDEX, true);
+
+		// The para should be onboarding.
+		assert_eq!(Paras::lifecycle(ParaId::from(para_id)), Some(ParaLifecycle::Onboarding));
+		// After two sessions the parachain will be succesfully registered as an on-demand.
+		run_to_session(START_SESSION_INDEX + 2);
+		assert!(Registrar::is_parathread(para_id));
+		// The deposit should be appropriately taken.
+		let total_bytes_stored = code_size as u32 + head_size as u32;
+		assert_eq!(
+			Balances::reserved_balance(&account_id(1)),
+			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
+		);
+
+		// CASE 1: Attempting to set the billing account with an insufficient balance to cover
+		// the required deposit should result in a failure.
+
+		assert_noop!(
+			Registrar::force_set_parachain_billing_account(
+				RuntimeOrigin::root(),
+				ParaId::from(para_id),
+				account_id(2),
+			),
+			BalancesError::<Test>::InsufficientBalance
+		);
+
+		// CASE 2: The happy path.. The new billing account is sufficiently funded, so the
+		// reserve will be successful, and the old account will be refunded.
+		Balances::make_free_balance_be(&&account_id(2), free_balance);
+
+		assert_ok!(Registrar::force_set_parachain_billing_account(
+			RuntimeOrigin::root(),
+			ParaId::from(para_id),
+			account_id(2)
+		));
+
+		assert_eq!(
+			Balances::reserved_balance(&account_id(2)),
+			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
+		);
+		assert_eq!(Balances::free_balance(&account_id(1)), free_balance);
+
+		// Now, if we attempt to schedule a code upgrade, all the costs will be covered by the new
+		// billing account.
+
+		code_size *= 2;
+		let code_1 = validation_code(code_size);
+		assert_ok!(Registrar::schedule_code_upgrade(
+			signed(1),
+			ParaId::from(para_id),
+			code_1.clone(),
+		));
+		conclude_pvf_checking::<Test>(&code_1, VALIDATORS, START_SESSION_INDEX + 2, true);
+
+		// After two more sessions the parachain can be upgraded.
+		run_to_session(START_SESSION_INDEX + 4);
+		// Force a new head to enact the code upgrade.
+		assert_ok!(Paras::force_note_new_head(
+			RuntimeOrigin::root(),
+			para_id,
+			genesis_head.clone()
+		));
+		assert_eq!(Paras::current_code(&para_id), Some(code_1.clone()));
+
+		// The new code upgrade billing account will have its deposit appropriately adjusted given
+		// the increase in the new code.
+		let total_bytes_stored = code_size as u32 + head_size as u32;
+		assert_eq!(
+			Balances::reserved_balance(&account_id(2)),
+			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
+		);
+		// The new billing account will also be charged with the upgrade fees.
+		assert_eq!(Balances::total_balance(&account_id(2)), free_balance - UpgradeFee::get());
 
 		// The account of the initial billing account should however remain unchanged.
 		assert_eq!(Balances::free_balance(&account_id(1)), free_balance);
