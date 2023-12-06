@@ -43,7 +43,7 @@ pub type SolutionTargetIndexOf<T> = <SolutionOf<T> as NposSolution>::TargetIndex
 /// The solution type used by this crate.
 pub type SolutionOf<T> = <T as crate::Config>::Solution;
 
-#[derive(DebugNoBound)]
+#[derive(DebugNoBound, PartialEq)]
 pub enum ElectionError<T: crate::Config> {
 	/// Error returned by the election data provider.
 	DataProvider,
@@ -52,6 +52,9 @@ pub enum ElectionError<T: crate::Config> {
 	DataProviderBoundariesExceeded,
 	/// The support `page_index` was not available at request.
 	SupportPageNotAvailable(PageIndex),
+	/// The requested page exceeds the number of election pages defined of the current election
+	/// config.
+	RequestedPageExceeded,
 	/// The fallback election error'ed.
 	Fallback(FallbackErrorOf<T>),
 }

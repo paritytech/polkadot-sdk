@@ -496,9 +496,10 @@ impl<T: impls::pallet::Config> Pallet<T> {
 				let desired_targets = crate::Snapshot::<T>::desired_targets().unwrap_or_default();
 				match (final_score == claimed_score, winner_count == desired_targets) {
 					(true, true) => {
-						Self::deposit_event(
-							Event::<T>::Queued(final_score, QueuedSolution::<T>::queued_score())
-						);
+						Self::deposit_event(Event::<T>::Queued(
+							final_score,
+							QueuedSolution::<T>::queued_score(),
+						));
 						QueuedSolution::<T>::finalize_solution(final_score);
 						Ok(())
 					},

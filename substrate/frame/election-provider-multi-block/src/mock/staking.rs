@@ -34,12 +34,10 @@ frame_support::parameter_types! {
 		(2, 10, bounded_vec![30, 40]),
 		(3, 10, bounded_vec![40]),
 		(4, 10, bounded_vec![10, 20, 40]),
-		// page 1:
 		(5, 10, bounded_vec![10, 30, 40]),
 		(6, 10, bounded_vec![20, 30, 40]),
 		(7, 10, bounded_vec![20, 30]),
 		(8, 10, bounded_vec![10]),
-		// page 0: (self-votes)
 		(10, 10, bounded_vec![10]),
 		(20, 20, bounded_vec![20]),
 		(30, 30, bounded_vec![30]),
@@ -50,7 +48,7 @@ frame_support::parameter_types! {
 		(80, 80, bounded_vec![80]),
 	];
 	pub static EpochLength: u64 = 30;
-	pub static DesiredTargets: u32 = 2;
+	pub static DesiredTargets: u32 = 10;
 
 	pub static LastIteratedTargetIndex: Option<usize> = None;
 	pub static LastIteratedVoterIndex: Option<usize> = None;
@@ -80,12 +78,15 @@ impl ElectionDataProvider for MockStaking {
 
 		assert!(!bounds.exhausted(None, CountBound(targets.len() as u32).into(),));
 
-		// update the last iterater target index accordingly.
+		// update the last iterated target index accordingly.
 		if remaining > 0 {
-			let last = targets.last().cloned().unwrap();
-			LastIteratedTargetIndex::set(
-				Some(Targets::get().iter().position(|v| v == &last).map(|i| i + 1).unwrap())
-			);
+			if let Some(last) = targets.last().cloned() {
+				LastIteratedTargetIndex::set(Some(
+					Targets::get().iter().position(|v| v == &last).map(|i| i + 1).unwrap(),
+				));
+			} else {
+				// no more targets to process, do nothing.
+			}
 		} else {
 			LastIteratedTargetIndex::set(None);
 		}
@@ -114,10 +115,13 @@ impl ElectionDataProvider for MockStaking {
 
 		// update the last iterater voter index accordingly.
 		if remaining > 0 {
-			let last = voters.last().cloned().unwrap();
-			LastIteratedVoterIndex::set(
-				Some(Voters::get().iter().position(|v| v == &last).map(|i| i + 1).unwrap())
-			);
+			if let Some(last) = voters.last().cloned() {
+				LastIteratedVoterIndex::set(Some(
+					Voters::get().iter().position(|v| v == &last).map(|i| i + 1).unwrap(),
+				));
+			} else {
+				// no more voters to process, do nothing.
+			}
 		} else {
 			LastIteratedVoterIndex::set(None);
 		}

@@ -186,6 +186,7 @@ pub mod bounds;
 pub mod onchain;
 pub mod traits;
 
+use sp_core::ConstU32;
 use sp_runtime::{
 	traits::{Bounded, Saturating, Zero},
 	RuntimeDebug,
@@ -385,7 +386,7 @@ pub trait ElectionProvider {
 	type BlockNumber;
 
 	/// The error type returned by the provider;
-	type Error: Debug;
+	type Error: Debug + PartialEq;
 
 	/// The maximum number of backers that a single page may have in results returned by this
 	/// election provider.
@@ -450,30 +451,33 @@ pub trait InstantElectionProvider: ElectionProvider {
 
 pub struct NoElection<X>(sp_std::marker::PhantomData<X>);
 
-impl<AccountId, BlockNumber, DataProvider, MaxWinners> ElectionProvider
-	for NoElection<(AccountId, BlockNumber, DataProvider, MaxWinners)>
+impl<AccountId, BlockNumber, DataProvider, MaxWinnersPerPage, MaxBackersPerWinner> ElectionProvider
+	for NoElection<(AccountId, BlockNumber, DataProvider, MaxWinnersPerPage, MaxBackersPerWinner)>
 where
 	DataProvider: ElectionDataProvider<AccountId = AccountId, BlockNumber = BlockNumber>,
-	MaxWinners: Get<u32>,
+	MaxWinnersPerPage: Get<u32>,
+	MaxBackersPerWinner: Get<u32>,
 {
 	type AccountId = AccountId;
 	type BlockNumber = BlockNumber;
 	type Error = &'static str;
-	type Pages = ();
+	type Pages = ConstU32<1>;
 	type DataProvider = DataProvider;
-	type MaxWinnersPerPage = ();
-	type MaxBackersPerWinner = ();
+	type MaxWinnersPerPage = MaxWinnersPerPage;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
 
 	fn elect(_remaining_pages: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		Err("`NoElection` cannot do anything.")
 	}
 }
 
-impl<AccountId, BlockNumber, DataProvider, MaxWinners> InstantElectionProvider
-	for NoElection<(AccountId, BlockNumber, DataProvider, MaxWinners)>
+impl<AccountId, BlockNumber, DataProvider, MaxWinnersPerPage, MaxBackersPerWinner>
+	InstantElectionProvider
+	for NoElection<(AccountId, BlockNumber, DataProvider, MaxWinnersPerPage, MaxBackersPerWinner)>
 where
 	DataProvider: ElectionDataProvider<AccountId = AccountId, BlockNumber = BlockNumber>,
-	MaxWinners: Get<u32>,
+	MaxWinnersPerPage: Get<u32>,
+	MaxBackersPerWinner: Get<u32>,
 {
 	fn instant_elect(
 		_: DataProviderBounds,
@@ -736,8 +740,10 @@ impl<AccountId: Debug, BOuter: Get<u32>, BInner: Get<u32>> Debug
 	for BoundedSupports<AccountId, BOuter, BInner>
 {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-		// TODO(gpestana): impl
-		write!(f, "TODO: finish Debug impl for BoundedSupports")
+		for s in self.0.iter() {
+			write!(f, "({:?}, {:?}, {:?}) ", s.0, s.1.total, s.1.voters)?;
+		}
+		Ok(())
 	}
 }
 
@@ -809,7 +815,7 @@ impl<AccountId, BOuter: Get<u32>, BInner: Get<u32>>
 	}
 }
 
-/// Same as `BoundedSupports` but parameterized by a `ElectionProviderBase`.
+/// Same as `BoundedSupports` but parameterized by an `ElectionProvider`.
 pub type BoundedSupportsOf<E> = BoundedSupports<
 	<E as ElectionProvider>::AccountId,
 	<E as ElectionProvider>::MaxWinnersPerPage,

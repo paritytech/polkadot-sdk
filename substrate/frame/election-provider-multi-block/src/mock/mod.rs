@@ -82,7 +82,7 @@ impl pallet_balances::Config for Runtime {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type MaxHolds = ();
+	type MaxHolds = ConstU32<1>;
 	type RuntimeFreezeReason = ();
 }
 
@@ -266,8 +266,11 @@ pub(crate) fn roll_to(n: BlockNumber) {
 			election_prediction
 		);
 		MultiPhase::on_initialize(bn);
-		// TODO(gpestana): other internal pallets.
+		VerifierPallet::on_initialize(bn);
+		//SignedPallet::on_initialize(bn);
+		//UnsignedPallet::on_initialize(bn);
 
+		// TODO(gpestana): implement sanity check for all pallets.
 		//all_pallets_sanity_checks();
 	}
 }

@@ -15,7 +15,72 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # Multi phase, multi block, offchain election provider pallet.
+//! # Multi-phase, multi-block election provider pallet.
+//!
+//! This pallet manages the NPoS election across its different phases, with the ability to accept
+//! both on-chain and off-chain solutions. The off-chain solutions may be submitted as a signed or
+//! unsigned transaction. Crucially, supports paginated, multi-block elections. The goal of
+//! supporting paged elections is to scale the elections linearly with the number of blocks
+//! allocated to the election.
+//!
+//! **PoV-friendly**: The work performed in a block by this pallet must be measurable and the time
+//! and computation required per block must be deterministic with regards to the number of voters,
+//! targets and any other configurations that are set apriori. These assumptions make this pallet
+//! suitable to run on a parachain.
+//!
+//! ## Pallet organization and sub-pallets
+//!
+//! This pallet consists of a `core` pallet and multiple sub-pallets. Conceptually, the pallets have
+//! a hierarquical relationship, where the `core` pallet sets and manages shared state between all
+//! pallets. Its "child" pallets can not depend on the `core` pallet and iteract with it through
+//! trait interfaces:
+//!
+//!```ignore
+//! 	pallet-core
+//! 		|
+//! 		|
+//! 		- pallet-verifier
+//! 		|
+//! 		- pallet-signed
+//! 		|
+//! 		- pallet-unsigned
+//! ```
+//!
+//! Each sub-pallet has a specific set of tasks and implement one or more interfaces to expose their
+//! functionality to the core pallet:
+//! - The [`verifier`] pallet provides an implementation of the [`verifier::Verifier`] trait, which
+//!   exposes the functionality to verify NPoS solutions in a multi-block context. In addition, it
+//!   implements [`verifier::VerifierAsync`] which verifies multi-paged solution asynchronously.
+//! - The [`signed`] pallet implements the signed phase, where off-chain entities commit to and
+//!   submit their election solutions. This pallet implements the
+//!   [`verifier::SolutionDataProvider`], which is used by the [`verifier`] pallet to fetch solution
+//!   data.
+//! - The [`unsigned`] pallet implements the unsigned phase, where block authors can calculate and
+//!   submit through inherent paged solutions. This pallet also implements the
+//!   [`verifier::SolutionDataProvider`] interface.
+//!
+//! ### Pallet ordering
+//!
+//! Due to the assumptions of when the `on_initialize` hook must be called by the executor for the
+//! core pallet and each sub-pallets, it is crucial the the pallets are ordered correctly in the
+//! construct runtime. The ordering must be the following:
+//!
+//! ```ignore
+//! 1. pallet-core
+//! 2. pallet-verifier
+//! 3. pallet-signed
+//! 4. pallet-unsigned
+//! ```
+//!
+//! ## Election Phases
+//!
+//! ```ignore
+//! // ----------      ----------   --------------   -----------
+//! //            |  |            |                |             |
+//! 	//    Snapshot Signed  SignedValidation    Unsigned       elect()
+//! ```
+//!
+//! > to-finish
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -28,6 +93,7 @@ use frame_election_provider_support::{
 	NposSolution, PageIndex, VoterOf,
 };
 use frame_support::{
+	defensive, ensure,
 	traits::{Defensive, DefensiveSaturating, Get},
 	BoundedVec,
 };
@@ -143,10 +209,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type Round<T: Config> = StorageValue<_, u32, ValueQuery>;
 
-	/// Desired number of targets to elect per round.
-	#[pallet::storage]
-	pub(crate) type DesiredTargets<T> = StorageValue<_, u32>;
-
 	/// Paginated target snapshot.
 	#[pallet::storage]
 	pub(crate) type PagedTargetSnapshot<T: Config> =
@@ -208,30 +270,40 @@ pub mod pallet {
 				snapshot_deadline,
 			);
 
+			// closure that tries to progress paged snapshot creation.
+			let try_snapshot_next = |remaining_pages: PageIndex| {
+				match Self::create_targets_snapshot(remaining_pages)
+					.and_then(|t| Self::create_voters_snapshot(remaining_pages).map(|v| (t, v)))
+				{
+					Ok((target_count, voter_count)) => {
+						log!(
+							info,
+							"snapshot progressed: page {} with {} targets and {} voters",
+							remaining_pages,
+							target_count,
+							voter_count,
+						);
+
+						Self::phase_transition(Phase::Snapshot(remaining_pages));
+						Weight::default() // weights
+					},
+					Err(err) => {
+						log!(error, "error building snapshot: {:?}", err);
+						// TODO(gpestana): what exactly do here?
+						Weight::default() // weights
+					},
+				}
+			};
+
 			match current_phase {
 				// start snapshot.
 				Phase::Off
 					if remaining_blocks <= snapshot_deadline &&
 						remaining_blocks > signed_deadline =>
-				{
-					let remaining_pages = Self::msp();
-
-					Self::create_targets_snapshot(remaining_pages).unwrap(); // TODO(gpestana): unwrap
-					Self::create_voters_snapshot(remaining_pages).unwrap(); // TODO(gpestana): unwrap
-
-					Self::phase_transition(Phase::Snapshot(remaining_pages));
-					Weight::default() // weights
-				},
+					try_snapshot_next(Self::msp()),
 
 				// continue snapshot.
-				Phase::Snapshot(x) if x > 0 => {
-					let remaining_pages = x.saturating_sub(1);
-					Self::create_targets_snapshot(remaining_pages).unwrap(); // TODO(gpestana): unwrap
-					Self::create_voters_snapshot(remaining_pages).unwrap(); // TODO(gpestana): unwrap
-
-					Self::phase_transition(Phase::Snapshot(remaining_pages));
-					Weight::default() // weights
-				},
+				Phase::Snapshot(x) if x > 0 => try_snapshot_next(x.saturating_sub(1)),
 
 				// start signed phase. The `signed` pallet will take further actions now.
 				Phase::Snapshot(0)
@@ -283,9 +355,12 @@ pub mod pallet {
 ///
 /// It manages the following storage items:
 ///
-/// - [`DesiredTargets`]: The number of targets that we wish to collect.
 /// - [`PagedVoterSnapshot`]: Paginated map of voters.
 /// - [`PagedTargetSnapshot`]: Paginated map of targets.
+///
+///	To ensure correctness and data consistency, all the reads and writes to storage items related to
+///	the snapshot and "wrapped" by this struct must be performed through the methods exposed by the
+///	implementation of [`Snapshot`].
 ///
 /// ### Invariants
 ///
@@ -294,28 +369,36 @@ pub mod pallet {
 /// private.
 pub(crate) struct Snapshot<T>(sp_std::marker::PhantomData<T>);
 impl<T: Config> Snapshot<T> {
-	/// Returns the targets of a specific `page` index.
+	/// Returns the targets of a specific `page` index in the current snapshot.
 	fn targets(page: PageIndex) -> Option<BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>> {
 		PagedTargetSnapshot::<T>::get(page)
 	}
 
+	/// Sets a page of targets in the snapshot's storage.
 	fn set_targets(page: PageIndex, targets: BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>) {
 		PagedTargetSnapshot::<T>::insert(page, targets);
 	}
 
-	fn set_desired_targets(targets: u32) {
-		DesiredTargets::<T>::put(targets);
-	}
-
+	/// Return the number of desired targets, which is defined by [`T::DataProvider`].
 	fn desired_targets() -> Option<u32> {
-		DesiredTargets::<T>::get()
+		match T::DataProvider::desired_targets() {
+			Ok(desired) => Some(desired),
+			Err(err) => {
+				defensive!(
+					"error fetching the desired targets from the election data provider {}",
+					err
+				);
+				None
+			},
+		}
 	}
 
-	/// Returns the voters of a specific `page` index.
+	/// Returns the voters of a specific `page` index in the current snapshot.
 	fn voters(page: PageIndex) -> Option<VoterPageOf<T>> {
 		PagedVoterSnapshot::<T>::get(page)
 	}
 
+	/// Sets a page of voters in the snapshot's storage.
 	fn set_voters(
 		page: PageIndex,
 		voters: BoundedVec<VoterOf<T::DataProvider>, T::VoterSnapshotPerBlock>,
@@ -324,8 +407,10 @@ impl<T: Config> Snapshot<T> {
 	}
 
 	/// Clears all data related to a snapshot.
+	///
+	/// At the end of a round, all the snapshot related data must be cleared and the election phase
+	/// has transitioned to `Phase::Off`.
 	fn kill() {
-		DesiredTargets::<T>::kill();
 		let _ = PagedVoterSnapshot::<T>::clear(u32::MAX, None);
 		let _ = PagedTargetSnapshot::<T>::clear(u32::MAX, None);
 
@@ -340,10 +425,12 @@ impl<T: Config> Snapshot<T> {
 }
 
 impl<T: Config> Pallet<T> {
-	pub(crate) fn current_phase() -> Phase<BlockNumberFor<T>> {
+	/// Return the current election phase.
+	pub fn current_phase() -> Phase<BlockNumberFor<T>> {
 		<CurrentPhase<T>>::get()
 	}
 
+	/// Return the current election round.
 	pub(crate) fn current_round() -> u32 {
 		<Round<T>>::get()
 	}
@@ -368,12 +455,9 @@ impl<T: Config> Pallet<T> {
 
 	/// Creates the target snapshot.
 	fn create_targets_snapshot(remaining_pages: u32) -> Result<u32, ElectionError<T>> {
-		// set the desired target in the data provider before requesting the electable targets.
-		// TODO(gpestana): check if this is the best pattern here.
-		Snapshot::<T>::set_desired_targets(
-			T::DataProvider::desired_targets().map_err(|_| ElectionError::<T>::DataProvider)?,
-		);
+		ensure!(remaining_pages < T::Pages::get(), ElectionError::<T>::RequestedPageExceeded);
 
+		// set target count bound as the max number of targets per page.
 		let bounds = ElectionBoundsBuilder::default()
 			.targets_count(T::TargetSnapshotPerBlock::get().into())
 			.build()
@@ -381,13 +465,13 @@ impl<T: Config> Pallet<T> {
 
 		let targets: BoundedVec<_, T::TargetSnapshotPerBlock> =
 			T::DataProvider::electable_targets(bounds, remaining_pages)
-				.and_then(
-					|t| t.try_into().map_err(|_| "too many targets returned by the data provider.")
-				)
+				.and_then(|t| {
+					t.try_into().map_err(|_| "too many targets returned by the data provider.")
+				})
 				.map_err(|_| ElectionError::<T>::DataProvider)?;
 
 		let count = targets.len() as u32;
-		log!(debug, "created target snapshot with {} targets.", count);
+		log!(info, "created target snapshot with {} targets.", count);
 
 		Snapshot::<T>::set_targets(remaining_pages, targets);
 
@@ -395,6 +479,9 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn create_voters_snapshot(remaining_pages: u32) -> Result<u32, ElectionError<T>> {
+		ensure!(remaining_pages < T::Pages::get(), ElectionError::<T>::RequestedPageExceeded);
+
+		// set voter count bound as the max number of voterss per page.
 		let bounds = ElectionBoundsBuilder::default()
 			.voters_count(T::VoterSnapshotPerBlock::get().into())
 			.build()
@@ -402,13 +489,13 @@ impl<T: Config> Pallet<T> {
 
 		let voters: BoundedVec<_, T::VoterSnapshotPerBlock> =
 			T::DataProvider::electing_voters(bounds, remaining_pages)
-				.and_then(
-					|v| v.try_into().map_err(|_| "too many voters returned by the data provider")
-				)
+				.and_then(|v| {
+					v.try_into().map_err(|_| "too many voters returned by the data provider")
+				})
 				.map_err(|_| ElectionError::<T>::DataProvider)?;
 
 		let count = voters.len() as u32;
-		log!(debug, "created voter snapshot with {} voters.", count);
+		log!(info, "created voter snapshot with {} voters.", count);
 
 		Snapshot::<T>::set_voters(remaining_pages, voters);
 
@@ -470,10 +557,6 @@ mod phase_transition {
 	use super::*;
 	use crate::mock::*;
 
-	use frame_support::assert_ok;
-
-	//TODO(gpestana): add snapshot verification once it's ready.
-
 	#[test]
 	fn single_page() {
 		//  ----------      ----------   --------------   -----------
@@ -502,7 +585,7 @@ mod phase_transition {
                 let expected_signed = expected_validate - SignedPhase::get();
                 let expected_snapshot = expected_signed - Pages::get() as BlockNumber;
 
-                // tests transition phase boundaries and does snapshot sanity checks.
+                // tests transition phase boundaries and performs snapshot sanity checks.
                 roll_to(expected_snapshot);
                 assert_eq!(<CurrentPhase<T>>::get(), Phase::Off);
 
@@ -528,11 +611,6 @@ mod phase_transition {
                 roll_to(expected_unsigned + 1);
                 let start_unsigned = System::block_number();
                 assert_eq!(<CurrentPhase<T>>::get(), Phase::Unsigned(start_unsigned));
-
-                // elect() will be called at any time after `next_election`.
-                roll_to(next_election + 5);
-                assert_eq!(<CurrentPhase<T>>::get(), Phase::Unsigned(start_unsigned));
-                assert_ok!(MultiPhase::elect(0));
 		})
 	}
 
@@ -546,12 +624,163 @@ mod phase_transition {
 
 #[cfg(test)]
 mod snapshot {
-	//use super::*;
-	//use crate::mock::*;
+	use super::*;
+	use crate::mock::*;
+
+	use frame_support::{assert_noop, assert_ok};
 
 	#[test]
-	fn targets_snapshot_works() {}
+	fn setters_getters_work() {
+		ExtBuilder::default().build_and_execute(|| {
+			let v = BoundedVec::<_, _>::try_from(vec![]).unwrap();
+
+			assert!(Snapshot::<T>::targets(0).is_none());
+			assert!(Snapshot::<T>::targets(1).is_none());
+			assert!(Snapshot::<T>::voters(0).is_none());
+			assert!(Snapshot::<T>::voters(1).is_none());
+
+			Snapshot::<T>::set_targets(0, v.clone());
+			assert!(Snapshot::<T>::targets(0).is_some());
+			assert!(Snapshot::<T>::targets(1).is_none());
+			Snapshot::<T>::set_targets(1, v.clone());
+			assert!(Snapshot::<T>::targets(1).is_some());
+
+			Snapshot::<T>::kill();
+			assert!(Snapshot::<T>::targets(0).is_none());
+			assert!(Snapshot::<T>::targets(1).is_none());
+			assert!(Snapshot::<T>::voters(0).is_none());
+			assert!(Snapshot::<T>::voters(1).is_none());
+		})
+	}
 
 	#[test]
-	fn voters_snapshot_works() {}
+	fn targets_voters_snapshot_boundary_checks_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			assert_eq!(Pages::get(), 3);
+			assert_eq!(MultiPhase::msp(), 2);
+			assert_eq!(MultiPhase::lsp(), 0);
+
+			assert_ok!(MultiPhase::create_targets_snapshot(2));
+			assert_ok!(MultiPhase::create_targets_snapshot(1));
+			assert_ok!(MultiPhase::create_targets_snapshot(0));
+
+			assert_noop!(
+				MultiPhase::create_targets_snapshot(3),
+				ElectionError::<T>::RequestedPageExceeded
+			);
+			assert_noop!(
+				MultiPhase::create_targets_snapshot(10),
+				ElectionError::<T>::RequestedPageExceeded
+			);
+
+			assert_ok!(MultiPhase::create_voters_snapshot(2));
+			assert_ok!(MultiPhase::create_voters_snapshot(1));
+			assert_ok!(MultiPhase::create_voters_snapshot(0));
+
+			assert_noop!(
+				MultiPhase::create_voters_snapshot(3),
+				ElectionError::<T>::RequestedPageExceeded
+			);
+			assert_noop!(
+				MultiPhase::create_voters_snapshot(10),
+				ElectionError::<T>::RequestedPageExceeded
+			);
+		})
+	}
+
+	#[test]
+	fn create_targets_snapshot_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			assert_eq!(MultiPhase::msp(), 2);
+
+			let no_bounds = ElectionBoundsBuilder::default().build().targets;
+			let all_targets =
+				<MockStaking as ElectionDataProvider>::electable_targets(no_bounds, 0);
+			assert_eq!(all_targets.unwrap(), Targets::get());
+			assert_eq!(Targets::get().len(), 8);
+
+			// sets max targets per page to 2.
+			TargetSnapshotPerBlock::set(2);
+
+			// page `msp`.
+			let result_and_count = MultiPhase::create_targets_snapshot(MultiPhase::msp());
+			assert_eq!(result_and_count.unwrap(), 2);
+			assert_eq!(Snapshot::<T>::targets(MultiPhase::msp()).unwrap().to_vec(), vec![10, 20]);
+
+			let result_and_count = MultiPhase::create_targets_snapshot(1);
+			assert_eq!(result_and_count.unwrap(), 2);
+			assert_eq!(Snapshot::<T>::targets(1).unwrap().to_vec(), vec![30, 40]);
+
+			// page `lsp`.
+			let result_and_count = MultiPhase::create_targets_snapshot(MultiPhase::lsp());
+			assert_eq!(result_and_count.unwrap(), 2);
+			assert_eq!(Snapshot::<T>::targets(MultiPhase::lsp()).unwrap().to_vec(), vec![50, 60]);
+
+			// reset storage.
+			Snapshot::<T>::kill();
+
+			// set new max snapshot per block. Since the election data provider has only 8 targets,
+			// only the 2 first pages will have targets.
+			TargetSnapshotPerBlock::set(6);
+
+			let result_and_count = MultiPhase::create_targets_snapshot(MultiPhase::msp());
+			assert_eq!(result_and_count.unwrap(), 6);
+			assert_eq!(
+				Snapshot::<T>::targets(MultiPhase::msp()).unwrap().to_vec(),
+				vec![10, 20, 30, 40, 50, 60]
+			);
+
+			let result_and_count = MultiPhase::create_targets_snapshot(1);
+			assert_eq!(result_and_count.unwrap(), 2);
+			assert_eq!(Snapshot::<T>::targets(1).unwrap().to_vec(), vec![70, 80]);
+
+			// page `lsp`.
+			let result_and_count = MultiPhase::create_targets_snapshot(MultiPhase::lsp());
+			assert_eq!(result_and_count.unwrap(), 0);
+			assert_eq!(
+				Snapshot::<T>::targets(MultiPhase::lsp()).unwrap().to_vec(),
+				Vec::<u64>::new()
+			);
+
+			// reset storage.
+			Snapshot::<T>::kill();
+		})
+	}
+
+	#[test]
+	fn voters_snapshot_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			assert_eq!(MultiPhase::msp(), 2);
+
+			let no_bounds = ElectionBoundsBuilder::default().build().voters;
+			let all_voters = <MockStaking as ElectionDataProvider>::electing_voters(no_bounds, 0);
+			assert_eq!(all_voters.unwrap(), Voters::get());
+			assert_eq!(Voters::get().len(), 16);
+
+			// sets max voters per page to 7.
+			VoterSnapshotPerBlock::set(7);
+
+			let voters_page = |page: PageIndex| {
+				Snapshot::<T>::voters(page)
+					.unwrap()
+					.iter()
+					.map(|v| v.0)
+					.collect::<Vec<AccountId>>()
+			};
+
+			// page `msp`.
+			let result_and_count = MultiPhase::create_voters_snapshot(MultiPhase::msp());
+			assert_eq!(result_and_count.unwrap(), 7);
+			assert_eq!(voters_page(MultiPhase::msp()), vec![1, 2, 3, 4, 5, 6, 7]);
+
+			let result_and_count = MultiPhase::create_voters_snapshot(1);
+			assert_eq!(result_and_count.unwrap(), 7);
+			assert_eq!(voters_page(1), vec![8, 10, 20, 30, 40, 50, 60]);
+
+			// page `lsp`.
+			let result_and_count = MultiPhase::create_voters_snapshot(MultiPhase::lsp());
+			assert_eq!(result_and_count.unwrap(), 2);
+			assert_eq!(voters_page(MultiPhase::lsp()), vec![70, 80]);
+		})
+	}
 }

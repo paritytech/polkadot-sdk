@@ -373,9 +373,7 @@ impl<T: Config> Pallet<T> {
 	fn new_session(
 		session_index: SessionIndex,
 		is_genesis: bool,
-	) -> Option<
-		BoundedVec<(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>), MaxExposuresPerPageOf<T>>,
-	> {
+	) -> Option<BoundedVec<T::AccountId, MaxExposuresPerPageOf<T>>> {
 		if let Some(current_era) = Self::current_era() {
 			// Initial era has been set.
 			let current_era_start_session_index = Self::eras_start_session_index(current_era)
@@ -565,18 +563,13 @@ impl<T: Config> Pallet<T> {
 		start_session_index: SessionIndex,
 		is_genesis: bool,
 	) -> Option<BoundedVec<T::AccountId, MaxExposuresPerPageOf<T>>> {
-		let election_result: BoundedVec<_, MaxExposuresPerPageOf<T>> = if is_genesis {
+		let election_result: BoundedSupportsOf<T::ElectionProvider> = if is_genesis {
 			let result = <T::GenesisElectionProvider>::elect(Zero::zero()).map_err(|e| {
 				log!(warn, "genesis election provider failed due to {:?}", e);
 				Self::deposit_event(Event::StakingElectionFailed);
 			});
 
-			result
-				.ok()?
-				.into_inner()
-				.try_into()
-				// both bounds checked in integrity test to be equal
-				.defensive_unwrap_or_default()
+			result.ok().unwrap_or_default()
 		} else {
 			let result = <T::ElectionProvider>::elect(Zero::zero()).map_err(|e| {
 				log!(warn, "election provider failed due to {:?}", e);
