@@ -172,6 +172,9 @@ pub mod pallet {
 		/// issuance.
 		type Reward: OnUnbalanced<PositiveImbalanceOf<Self>>;
 
+		/// Origin from which staking admin calls must come.
+		type DeprecationOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
 		/// Number of sessions per era.
 		#[pallet::constant]
 		type SessionsPerEra: Get<SessionIndex>;
@@ -1936,7 +1939,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			controllers: BoundedVec<T::AccountId, T::MaxControllersInDeprecationBatch>,
 		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
+			T::DeprecationOrigin::ensure_origin(origin)?;
 
 			// Ignore controllers that do not exist or are already the same as stash.
 			let filtered_batch_with_ledger: Vec<_> = controllers

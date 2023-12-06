@@ -303,6 +303,7 @@ impl crate::pallet::pallet::Config for Test {
 	type SessionsPerEra = SessionsPerEra;
 	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = EnsureOneOrRoot;
+	type DeprecationOrigin = EnsureOneOrRoot;
 	type BondingDuration = BondingDuration;
 	type SessionInterface = Self;
 	type EraPayout = ConvertCurve<RewardCurve>;

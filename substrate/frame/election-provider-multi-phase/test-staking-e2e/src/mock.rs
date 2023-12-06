@@ -265,6 +265,7 @@ impl pallet_staking::Config for Runtime {
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = EnsureRoot<AccountId>; // root can cancel slashes
+	type DeprecationOrigin = EnsureRoot<AccountId>;
 	type SessionInterface = Self;
 	type EraPayout = ();
 	type NextNewSession = Session;
