@@ -20,6 +20,8 @@ use frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
 use sp_std::collections::btree_map::BTreeMap;
 
+use primitives::v6::GroupIndex;
+
 use crate::builder::BenchBuilder;
 
 benchmarks! {
@@ -116,7 +118,8 @@ benchmarks! {
 		// There is 1 backed,
 		assert_eq!(benchmark.backed_candidates.len(), 1);
 		// with `v` validity votes.
-		assert_eq!(benchmark.backed_candidates.get(0).unwrap().validity_votes.len(), v as usize);
+		let votes = scheduler::Pallet::<T>::group_validators(GroupIndex::from(0)).map_or(v as usize, |g| g.len());
+		assert_eq!(benchmark.backed_candidates.get(0).unwrap().validity_votes.len(), votes);
 
 		benchmark.bitfields.clear();
 		benchmark.disputes.clear();
@@ -138,7 +141,7 @@ benchmarks! {
 			let descriptor = backing_validators.0.descriptor();
 			assert_eq!(ParaId::from(para_id), descriptor.para_id);
 			assert_eq!(header.hash(), descriptor.relay_parent);
-			assert_eq!(backing_validators.1.len(), v as usize);
+			assert_eq!(backing_validators.1.len(), votes);
 		}
 
 		assert_eq!(
@@ -167,11 +170,13 @@ benchmarks! {
 
 		let mut benchmark = scenario.data.clone();
 
+		let votes = scheduler::Pallet::<T>::group_validators(GroupIndex::from(0)).map_or(BenchBuilder::<T>::fallback_min_validity_votes() as usize, |g| g.len());
+
 		// There is 1 backed
 		assert_eq!(benchmark.backed_candidates.len(), 1);
 		assert_eq!(
-			benchmark.backed_candidates.get(0).unwrap().validity_votes.len() as u32,
-			BenchBuilder::<T>::fallback_min_validity_votes()
+			benchmark.backed_candidates.get(0).unwrap().validity_votes.len(),
+			votes,
 		);
 
 		benchmark.bitfields.clear();
@@ -197,8 +202,8 @@ benchmarks! {
 				assert_eq!(ParaId::from(para_id), descriptor.para_id);
 				assert_eq!(header.hash(), descriptor.relay_parent);
 				assert_eq!(
-					backing_validators.1.len() as u32,
-					BenchBuilder::<T>::fallback_min_validity_votes()
+					backing_validators.1.len(),
+					votes,
 				);
 			}
 
