@@ -29,7 +29,6 @@ use codec::{Decode, Encode};
 use futures::channel::oneshot;
 use libp2p::PeerId;
 use log::{debug, error, trace};
-use sc_client_api::ProofProvider;
 use sc_network_common::sync::message::{
 	BlockAttributes, BlockData, BlockRequest, Direction, FromBlock,
 };
@@ -248,7 +247,7 @@ pub struct WarpSync<B: BlockT, Client> {
 impl<B, Client> WarpSync<B, Client>
 where
 	B: BlockT,
-	Client: HeaderBackend<B> + ProofProvider<B> + 'static,
+	Client: HeaderBackend<B> + 'static,
 {
 	/// Create a new instance. When passing a warp sync provider we will be checking for proof and
 	/// authorities. Alternatively we can pass a target block when we want to skip downloading
@@ -321,12 +320,10 @@ where
 			return
 		}
 
-		let genesis_hash =
-			self.client.hash(Zero::zero()).unwrap().expect("Genesis hash always exists");
 		self.phase = Phase::WarpProof {
 			set_id: 0,
 			authorities: warp_sync_provider.current_authorities(),
-			last_hash: genesis_hash,
+			last_hash: self.client.info().genesis_hash,
 			warp_sync_provider: Arc::clone(warp_sync_provider),
 		};
 		trace!(target: LOG_TARGET, "Started warp sync with {} peers.", self.peers.len());
