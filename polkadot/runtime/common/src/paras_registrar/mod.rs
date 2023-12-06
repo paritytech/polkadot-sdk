@@ -43,6 +43,8 @@ use sp_runtime::{
 	traits::{CheckedSub, Saturating},
 	RuntimeDebug,
 };
+use xcm_executor::traits::ConvertLocation;
+use xcm::opaque::lts::{Junction::Parachain, MultiLocation, Parent};
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, TypeInfo)]
 pub struct ParaInfo<Account, Balance> {
@@ -63,16 +65,16 @@ impl<Account, Balance> ParaInfo<Account, Balance> {
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, TypeInfo)]
-pub struct StashInfo<AccountId, Balance> {
-	/// The stash account of a parachain. This account is responsible for holding the required
+pub struct BillingInfo<AccountId, Balance> {
+	/// The billing account of a parachain. This account is responsible for holding the required
 	/// deposit for this registered parachain.
 	///
 	/// This account will be responsible for covering all associated costs related to performing
 	/// parachain validation code upgrades.
 	///
 	/// When a parachain is newly registered, this will be set to the parachain manager. However,
-	/// at a later point, this can be updated by calling the `set_parachain_stash` extrinsic.
-	stash: AccountId,
+	/// at a later point, this can be updated by calling the `set_parachain_billing_account_to_self` extrinsic.
+	billing_account: AccountId,
 	/// In case there is a pending refund, this stores information about the account and the
 	/// amount that will be refunded upon a successful code upgrade.
 	pending_refund: Option<(AccountId, Balance)>,
@@ -89,7 +91,7 @@ pub trait WeightInfo {
 	fn swap() -> Weight;
 	fn schedule_code_upgrade(b: u32) -> Weight;
 	fn set_current_head(b: u32) -> Weight;
-	fn set_parachain_stash() -> Weight;
+	fn set_parachain_billing_account_to_self() -> Weight;
 }
 
 pub struct TestWeightInfo;
@@ -115,7 +117,7 @@ impl WeightInfo for TestWeightInfo {
 	fn set_current_head(_b: u32) -> Weight {
 		Weight::zero()
 	}
-	fn set_parachain_stash() -> Weight {
+	fn set_parachain_billing_account_to_self() -> Weight {
 		Weight::zero()
 	}
 }
@@ -168,6 +170,11 @@ pub mod pallet {
 		#[pallet::constant]
 		type UpgradeFee: Get<BalanceOf<Self>>;
 
+		/// Type used to get the sovereign account of a parachain.  
+		///
+		/// This is used to enable reserving or refunding deposit from parachains.
+		type SovereignAccountOf: ConvertLocation<Self::AccountId>;
+
 		/// Weight Information for the Extrinsics in the Pallet
 		type WeightInfo: WeightInfo;
 	}
@@ -189,8 +196,6 @@ pub mod pallet {
 		AlreadyRegistered,
 		/// The caller is not the owner of this Id.
 		NotOwner,
-		/// The caller is not the stash account of this parachain.
-		NotStash,
 		/// Invalid para code size.
 		CodeTooLarge,
 		/// Invalid para head data size.
@@ -221,7 +226,7 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type PendingSwap<T> = StorageMap<_, Twox64Concat, ParaId, ParaId>;
 
-	/// Amount held on deposit for each para and the original stash.
+	/// Amount held on deposit for each para and the original billing account.
 	///
 	/// The given account ID is responsible for registering the code and initial head data, but may
 	/// only do so if it isn't yet registered. (After that, it's up to governance to do so.)
@@ -233,11 +238,11 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type NextFreeParaId<T> = StorageValue<_, ParaId, ValueQuery>;
 
-	/// Stores all the necessary information about the current stash account of the parachain, as
+	/// Stores all the necessary information about the current billing account of the parachain, as
 	/// well as whether there are any pending refunds.
 	#[pallet::storage]
-	pub type ParaStashes<T: Config> =
-		StorageMap<_, Twox64Concat, ParaId, StashInfo<T::AccountId, BalanceOf<T>>>;
+	pub type ParaBillings<T: Config> =
+		StorageMap<_, Twox64Concat, ParaId, BillingInfo<T::AccountId, BalanceOf<T>>>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -484,42 +489,60 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Changes the stash account of a parachain.
-		///
-		/// The newly set account will be responsible for covering all associated costs related to
-		/// performing parachain validation code upgrades.
+		/// Changes the billing account of a parachain to the caller.
 		///
 		/// ## Deposits/Fees
-		/// For this call to be successful, the `new_stash` account must have a sufficient balance
+		/// For this call to be successful, the caller account must have a sufficient balance
 		/// to cover the current deposit required for this parachain.
 		///
 		/// Can be called by Root, the parachain, or the parachain manager if the parachain is
 		/// unlocked.
 		#[pallet::call_index(9)]
-		#[pallet::weight(<T as Config>::WeightInfo::set_parachain_stash())]
-		pub fn set_parachain_stash(
+		#[pallet::weight(<T as Config>::WeightInfo::set_parachain_billing_account_to_self())]
+		pub fn set_parachain_billing_account_to_self(
 			origin: OriginFor<T>,
 			para: ParaId,
-			new_stash: T::AccountId,
 		) -> DispatchResult {
-			Self::ensure_root_para_or_owner(origin, para)?;
+			Self::ensure_root_para_or_owner(origin.clone(), para)?;
 
-			let info = Paras::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
-			let mut stash_info =
-				ParaStashes::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
+			let new_billing_account = if let Ok(caller) = ensure_signed(origin.clone()) {
+				let para_info = Paras::<T>::get(para).ok_or(Error::<T>::NotRegistered)?;
+				ensure!(!para_info.is_locked(), Error::<T>::ParaLocked);
+				ensure!(para_info.manager == caller, Error::<T>::NotOwner);
 
-			// When updating the account responsible for all code upgrade costs, we unreserve all
-			// funds associated with the registered parachain from the original stash and reserve
-			// the required amount from the new one.
+				caller
+			} else if ensure_root(origin).is_ok() {
+				// Root should use `force_set_parachain_billing_account` since it doesn't make sense 
+				// for the root to set itself as the billing account.
+				return Ok(())
+			}else {
+				let location: MultiLocation = (Parent, Parachain(para.into())).into();
+				let sovereign_account = T::SovereignAccountOf::convert_location(&location).unwrap();
+				sovereign_account
+			};
 
-			<T as Config>::Currency::reserve(&new_stash, info.deposit)?;
+			Self::set_parachain_billing_account(para, new_billing_account)?;
 
-			// After reserving the required funds from the new stash we can now safely
-			// refund the old account.
-			<T as Config>::Currency::unreserve(&stash_info.stash, info.deposit);
+			Ok(())
+		}
 
-			stash_info.stash = new_stash;
-			ParaStashes::<T>::insert(para, stash_info);
+		/// Sets the billing account of a parachain to the caller.
+		///
+		/// ## Deposits/Fees
+		/// For this call to be successful, the `new_billing_account` account must have a sufficient balance
+		/// to cover the current deposit required for this parachain.
+		///
+		/// Can only be called by Root.
+		#[pallet::call_index(10)]
+		#[pallet::weight(<T as Config>::WeightInfo::set_parachain_billing_account_to_self())]
+		pub fn force_set_parachain_billing_account(
+			origin: OriginFor<T>,
+			para: ParaId,
+			new_billing_account: T::AccountId
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			Self::set_parachain_billing_account(para, new_billing_account)?;
 
 			Ok(())
 		}
@@ -706,10 +729,10 @@ impl<T: Config> Pallet<T> {
 			<T as Config>::Currency::unreserve(&who, rebate);
 		};
 		let info = ParaInfo { manager: who.clone(), deposit, locked: None };
-		let stash_info = StashInfo { stash: who.clone(), pending_refund: None };
+		let billing_info = BillingInfo { billing_account: who.clone(), pending_refund: None };
 
 		Paras::<T>::insert(id, info);
-		ParaStashes::<T>::insert(id, stash_info);
+		ParaBillings::<T>::insert(id, billing_info);
 		// We check above that para has no lifecycle, so this should not fail.
 		let res = runtime_parachains::schedule_para_initialize::<T>(id, genesis);
 		debug_assert!(res.is_ok());
@@ -761,21 +784,21 @@ impl<T: Config> Pallet<T> {
 			.saturating_add(per_byte_fee.saturating_mul((new_code.0.len() as u32).into()));
 
 		let mut info = Paras::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
-		let mut stash_info =
-			ParaStashes::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
+		let mut billing_info =
+			ParaBillings::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
 
 		let current_deposit = info.deposit;
 
 		if !free_upgrade {
 			<T as Config>::Currency::withdraw(
-				&stash_info.stash,
+				&billing_info.billing_account,
 				T::UpgradeFee::get(),
 				WithdrawReasons::FEE,
 				ExistenceRequirement::KeepAlive,
 			)?;
 
 			let additional_deposit = new_deposit.saturating_sub(current_deposit);
-			<T as Config>::Currency::reserve(&stash_info.stash, additional_deposit)?;
+			<T as Config>::Currency::reserve(&billing_info.billing_account, additional_deposit)?;
 
 			// Update the deposit to the new appropriate amount.
 			info.deposit = new_deposit;
@@ -783,7 +806,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		if current_deposit > new_deposit {
-			// The stash account should receive a refund if the current deposit exceeds the new
+			// The billing account should receive a refund if the current deposit exceeds the new
 			// required deposit, even if they did not initiate the upgrade.
 			//
 			// The excess deposit will be refunded to the caller upon the success of the code
@@ -797,9 +820,9 @@ impl<T: Config> Pallet<T> {
 			// code to an empty blob. In such a case, the pre-checking process would fail, so
 			// the old code would remain on-chain even though there is no deposit to cover it.
 
-			stash_info.pending_refund =
-				Some((stash_info.stash.clone(), current_deposit.saturating_sub(new_deposit)));
-			ParaStashes::<T>::insert(para, stash_info);
+			billing_info.pending_refund =
+				Some((billing_info.billing_account.clone(), current_deposit.saturating_sub(new_deposit)));
+			ParaBillings::<T>::insert(para, billing_info);
 		}
 
 		runtime_parachains::schedule_code_upgrade::<T>(para, new_code, SetGoAhead::No)
@@ -838,6 +861,34 @@ impl<T: Config> Pallet<T> {
 		debug_assert!(res2.is_ok());
 		T::OnSwap::on_swap(to_upgrade, to_downgrade);
 	}
+
+	/// Sets the billing account of a parachain.
+	///
+	/// The newly set account will be responsible for covering all associated costs related to
+	/// performing parachain validation code upgrades.
+	fn set_parachain_billing_account(
+		para: ParaId,
+		new_billing_account: T::AccountId,
+	) -> DispatchResult {
+		let info = Paras::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
+		let mut billing_info =
+			ParaBillings::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
+
+		// When updating the account responsible for all code upgrade costs, we unreserve all
+		// funds associated with the registered parachain from the original billing account and 
+		// reserves the required amount from the new one.
+
+		<T as Config>::Currency::reserve(&new_billing_account, info.deposit)?;
+
+		// After reserving the required funds from the new billing account we can now safely
+		// refund the old account.
+		<T as Config>::Currency::unreserve(&billing_info.billing_account, info.deposit);
+
+		billing_info.billing_account = new_billing_account;
+		ParaBillings::<T>::insert(para, billing_info);
+
+		Ok(())
+	}
 }
 
 impl<T: Config> OnNewHead for Pallet<T> {
@@ -857,18 +908,18 @@ impl<T: Config> OnNewHead for Pallet<T> {
 
 impl<T: Config> OnCodeUpgrade for Pallet<T> {
 	fn on_code_upgrade(id: ParaId) -> Weight {
-		let maybe_stash_info = ParaStashes::<T>::get(id);
-		if maybe_stash_info.is_none() {
+		let maybe_billing_info = ParaBillings::<T>::get(id);
+		if maybe_billing_info.is_none() {
 			return T::DbWeight::get().reads(1)
 		}
 
-		let mut stash_info = maybe_stash_info
+		let mut billing_info = maybe_billing_info
 			.expect("Ensured above that the deposit info is stored for the parachain; qed");
 
-		if let Some((who, rebate)) = stash_info.pending_refund {
+		if let Some((who, rebate)) = billing_info.pending_refund {
 			<T as Config>::Currency::unreserve(&who, rebate);
-			stash_info.pending_refund = None;
-			ParaStashes::<T>::insert(id, stash_info);
+			billing_info.pending_refund = None;
+			ParaBillings::<T>::insert(id, billing_info);
 
 			return T::DbWeight::get().reads_writes(2, 2)
 		}
@@ -1021,6 +1072,7 @@ mod tests {
 		type ParaDeposit = ParaDeposit;
 		type DataDepositPerByte = DataDepositPerByte;
 		type UpgradeFee = UpgradeFee;
+		type SovereignAccountOf = ();
 		type WeightInfo = TestWeightInfo;
 	}
 
@@ -1800,18 +1852,22 @@ mod benchmarking {
 			let para_id = ParaId::from(1000);
 		}: _(RawOrigin::Root, para_id, new_head)
 
-		set_parachain_stash {
+		set_parachain_billing_account_to_self {
 			let para = register_para::<T>(LOWEST_PUBLIC_ID.into(), Registrar::<T>::worst_validation_code());
 			// Actually finish registration process
 			next_scheduled_session::<T>();
 
-			let stash: T::AccountId = account("stash", 0, 0);
-			T::Currency::make_free_balance_be(&stash, BalanceOf::<T>::max_value());
-			let caller: T::AccountId = whitelisted_caller();
-		}: _(RawOrigin::Signed(caller.clone()), para, stash.clone())
+			let location: MultiLocation = (Parent, Parachain(LOWEST_PUBLIC_ID.into())).into();
+			let sovereign_account =
+				<T as Config>::SovereignAccountOf::convert_location(&location)
+					.unwrap();
+			T::Currency::make_free_balance_be(&sovereign_account, BalanceOf::<T>::max_value());
+
+			let para_origin: runtime_parachains::Origin = u32::from(LOWEST_PUBLIC_ID).into();
+		}: _(para_origin, para)
 		verify {
-			assert_eq!(ParaStashes::<T>::get(para), Some(StashInfo {
-				stash,
+			assert_eq!(ParaBillings::<T>::get(para), Some(BillingInfo {
+				billing_account: sovereign_account,
 				pending_refund: None
 			}));
 		}

@@ -51,6 +51,9 @@ use sp_runtime::{
 	AccountId32, BuildStorage,
 };
 use sp_std::sync::Arc;
+use xcm::opaque::lts::{Junction::Parachain, MultiLocation, NetworkId, Parent};
+use xcm_builder::{Account32Hash, AccountId32Aliases, ChildParachainConvertsVia};
+use xcm_executor::traits::ConvertLocation;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlockU32<Test>;
@@ -220,7 +223,14 @@ parameter_types! {
 	pub const ParaDeposit: Balance = 500;
 	pub const DataDepositPerByte: Balance = 1;
 	pub const UpgradeFee: Balance = 2;
+	pub const RelayNetwork: NetworkId = NetworkId::Kusama;
 }
+
+pub type LocationToAccountId = (
+	ChildParachainConvertsVia<ParaId, AccountId32>,
+	AccountId32Aliases<RelayNetwork, AccountId32>,
+	Account32Hash<(), AccountId32>,
+);
 
 impl paras_registrar::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
@@ -230,6 +240,7 @@ impl paras_registrar::Config for Test {
 	type Currency = Balances;
 	type RuntimeOrigin = RuntimeOrigin;
 	type UpgradeFee = UpgradeFee;
+	type SovereignAccountOf = LocationToAccountId;
 	type WeightInfo = crate::paras_registrar::TestWeightInfo;
 }
 
@@ -888,7 +899,7 @@ fn lease_holding_parachains_have_no_upgrade_costs() {
 }
 
 #[test]
-fn changing_parachain_stash_works() {
+fn changing_parachain_billing_account_works() {
 	new_test_ext().execute_with(|| {
 		assert!(System::block_number().is_one()); /* So events are emitted */
 		let para_id = LOWEST_PUBLIC_ID;
@@ -897,8 +908,7 @@ fn changing_parachain_stash_works() {
 
 		// User 1 will own a parachain
 		let free_balance = 1_000_000_000;
-		let initial_payer = account_id(1);
-		Balances::make_free_balance_be(&initial_payer, free_balance);
+		Balances::make_free_balance_be(&account_id(1), free_balance);
 		// Register an on demand parachain
 		let mut code_size = 1024 * 1024;
 		let genesis_head = Registrar::worst_head_data();
@@ -922,39 +932,41 @@ fn changing_parachain_stash_works() {
 		// The deposit should be appropriately taken.
 		let total_bytes_stored = code_size as u32 + head_size as u32;
 		assert_eq!(
-			Balances::reserved_balance(&initial_payer),
+			Balances::reserved_balance(&account_id(1)),
 			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
 		);
 
-		// CASE 1: Attempting to set the code upgrade payer to an account with an insufficient
-		// balance to cover the required deposit should result in a failure.
+		// CASE 1: Attempting to set the billing account for the parachain to the parachain sovereign 
+		// account with an insufficient balance to cover the required deposit should result in a failure.
 
-		// The new payer with an empty balance.
-		let new_payer = account_id(2);
+		let location: MultiLocation = (Parent, Parachain(para_id.into())).into();
+		let sovereign_account =
+			<Test as paras_registrar::Config>::SovereignAccountOf::convert_location(&location)
+				.unwrap();
+		let para_origin: runtime_parachains::Origin = u32::from(LOWEST_PUBLIC_ID).into();
 
 		assert_noop!(
-			Registrar::set_parachain_stash(signed(1), ParaId::from(para_id), new_payer.clone(),),
+			Registrar::set_parachain_billing_account_to_self(para_origin.clone().into(), ParaId::from(para_id)),
 			BalancesError::<Test>::InsufficientBalance
 		);
 
-		// CASE 2: The happy path.. The new cost payer account is sufficiently funded, so the
+		// CASE 2: The happy path.. The new billing account is sufficiently funded, so the
 		// reserve will be successful, and the old account will be refunded.
-		Balances::make_free_balance_be(&account_id(2), free_balance);
+		Balances::make_free_balance_be(&sovereign_account, free_balance);
 
-		assert_ok!(Registrar::set_parachain_stash(
-			signed(1),
+		assert_ok!(Registrar::set_parachain_billing_account_to_self(
+			para_origin.into(),
 			ParaId::from(para_id),
-			new_payer.clone(),
-		),);
+		));
 
 		assert_eq!(
-			Balances::reserved_balance(&new_payer),
+			Balances::reserved_balance(&sovereign_account),
 			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
 		);
-		assert_eq!(Balances::free_balance(&initial_payer), free_balance);
+		assert_eq!(Balances::free_balance(&account_id(1)), free_balance);
 
 		// Now, if we attempt to schedule a code upgrade, all the costs will be covered by the new
-		// payer account.
+		// billing account.
 
 		code_size *= 2;
 		let code_1 = validation_code(code_size);
@@ -975,18 +987,18 @@ fn changing_parachain_stash_works() {
 		));
 		assert_eq!(Paras::current_code(&para_id), Some(code_1.clone()));
 
-		// The new code upgrade payer will have its deposit appropriately adjusted given the
+		// The new code upgrade billing account will have its deposit appropriately adjusted given the
 		// increase in the new code.
 		let total_bytes_stored = code_size as u32 + head_size as u32;
 		assert_eq!(
-			Balances::reserved_balance(&new_payer),
+			Balances::reserved_balance(&sovereign_account),
 			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
 		);
-		// The new payer will also be charged with the upgrade fees.
-		assert_eq!(Balances::total_balance(&new_payer), free_balance - UpgradeFee::get());
+		// The new billing account will also be charged with the upgrade fees.
+		assert_eq!(Balances::total_balance(&sovereign_account), free_balance - UpgradeFee::get());
 
-		// The account of the initial payer should however remain unchanged.
-		assert_eq!(Balances::free_balance(&initial_payer), free_balance);
+		// The account of the initial billing account should however remain unchanged.
+		assert_eq!(Balances::free_balance(&account_id(1)), free_balance);
 	});
 }
 

@@ -100,7 +100,7 @@ use xcm::{
 	latest::{InteriorMultiLocation, Junction, Junction::PalletInstance},
 	VersionedMultiLocation,
 };
-use xcm_builder::PayOverXcm;
+use xcm_builder::{Account32Hash, AccountId32Aliases, ChildParachainConvertsVia, PayOverXcm};
 
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
@@ -1061,6 +1061,12 @@ impl parachains_slashing::Config for Runtime {
 	type BenchmarkingConfig = parachains_slashing::BenchConfig<200>;
 }
 
+pub type LocationToAccountId<AccountId> = (
+	ChildParachainConvertsVia<ParaId, AccountId>,
+	AccountId32Aliases<RelayNetwork, AccountId>,
+	Account32Hash<(), AccountId>,
+);
+
 parameter_types! {
 	pub const ParaDeposit: Balance = 40 * UNITS;
 	pub const UpgradeFee: Balance = 2 * UNITS;
@@ -1073,6 +1079,7 @@ impl paras_registrar::Config for Runtime {
 	type OnSwap = (Crowdloan, Slots);
 	type ParaDeposit = ParaDeposit;
 	type UpgradeFee = UpgradeFee;
+	type SovereignAccountOf = LocationToAccountId<Self::AccountId>;
 	type DataDepositPerByte = DataDepositPerByte;
 	type WeightInfo = weights::runtime_common_paras_registrar::WeightInfo<Runtime>;
 }
