@@ -16,13 +16,16 @@
 
 //! Client side code for generating the parachain inherent.
 
-use crate::ParachainInherentData;
 use codec::Decode;
 use cumulus_primitives_core::{
 	relay_chain::{self, Hash as PHash, HrmpChannelId},
 	ParaId, PersistedValidationData,
 };
+use cumulus_primitives_parachain_inherent::{ParachainInherentData, INHERENT_IDENTIFIER};
 use cumulus_relay_chain_interface::RelayChainInterface;
+
+mod mock;
+pub use mock::{MockValidationDataInherentDataProvider, MockXcmConfig};
 
 const LOG_TARGET: &str = "parachain-inherent";
 
@@ -185,7 +188,7 @@ impl sp_inherents::InherentDataProvider for ParachainInherentData {
 		&self,
 		inherent_data: &mut sp_inherents::InherentData,
 	) -> Result<(), sp_inherents::Error> {
-		inherent_data.put_data(crate::INHERENT_IDENTIFIER, &self)
+		inherent_data.put_data(INHERENT_IDENTIFIER, &self)
 	}
 
 	async fn try_handle_error(

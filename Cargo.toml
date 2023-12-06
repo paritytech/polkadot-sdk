@@ -41,6 +41,7 @@ members = [
 	"cumulus/client/consensus/proposer",
 	"cumulus/client/consensus/relay-chain",
 	"cumulus/client/network",
+	"cumulus/client/parachain-inherent",
 	"cumulus/client/pov-recovery",
 	"cumulus/client/relay-chain-inprocess-interface",
 	"cumulus/client/relay-chain-interface",
