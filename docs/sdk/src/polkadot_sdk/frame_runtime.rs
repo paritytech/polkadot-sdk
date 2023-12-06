@@ -21,7 +21,7 @@
 //! 1. A *runtime* which represents the state transition function (i.e. "Business Logic") of a
 //! blockchain, and is encoded as a WASM blob.
 //! 2. A node whose primary purpose is to execute the given runtime.
-#![doc = simple_mermaid::mermaid!("../../../docs/mermaid/substrate_simple.mmd")]
+#![doc = simple_mermaid::mermaid!("../../../mermaid/substrate_simple.mmd")]
 //!
 //! *FRAME is the Substrate's framework of choice to build a runtime.*
 //!
