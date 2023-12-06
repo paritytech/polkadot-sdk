@@ -711,6 +711,21 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			})
 			.collect();
 		scheduler::AvailabilityCores::<T>::set(cores);
+		// Add items to claim queue as well:
+		let cores = (0..used_cores)
+			.into_iter()
+			.map(|i| {
+				let AssignmentProviderConfig { ttl, .. } =
+					scheduler::Pallet::<T>::assignment_provider_config(CoreIndex(i));
+				// Load an assignment into provider so that one is present to pop
+				let assignment = <T as scheduler::Config>::AssignmentProvider::get_mock_assignment(
+					CoreIndex(i),
+					ParaId::from(i),
+				);
+				(CoreIndex(i), [ParasEntry::new(assignment, now + ttl)].into())
+			})
+			.collect();
+		scheduler::ClaimQueue::<T>::set(cores);
 
 		Bench::<T> {
 			data: ParachainsInherentData {
