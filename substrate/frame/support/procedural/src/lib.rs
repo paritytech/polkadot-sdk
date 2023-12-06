@@ -414,7 +414,7 @@ pub fn require_transactional(attr: TokenStream, input: TokenStream) -> TokenStre
 
 /// Derive [`Clone`] but do not bound any generic.
 ///
-/// Docs at [`frame_support::CloneNoBound`](../../frame_support/derive.CloneNoBound.html).
+/// Docs at [`frame_support::CloneNoBound`](../frame_support/derive.CloneNoBound.html).
 #[proc_macro_derive(CloneNoBound)]
 pub fn derive_clone_no_bound(input: TokenStream) -> TokenStream {
 	no_bound::clone::derive_clone_no_bound(input)
@@ -422,7 +422,7 @@ pub fn derive_clone_no_bound(input: TokenStream) -> TokenStream {
 
 /// Derive [`Debug`] but do not bound any generics.
 ///
-/// Docs at [`frame_support::DebugNoBound`](../../frame_support/derive.DebugNoBound.html).
+/// Docs at [`frame_support::DebugNoBound`](../frame_support/derive.DebugNoBound.html).
 #[proc_macro_derive(DebugNoBound)]
 pub fn derive_debug_no_bound(input: TokenStream) -> TokenStream {
 	no_bound::debug::derive_debug_no_bound(input)
@@ -459,7 +459,7 @@ pub fn derive_runtime_debug_no_bound(input: TokenStream) -> TokenStream {
 
 /// Derive [`PartialEq`] but do not bound any generic.
 ///
-/// Docs at [`frame_support::PartialEqNoBound`](../../frame_support/derive.PartialEqNoBound.html).
+/// Docs at [`frame_support::PartialEqNoBound`](../frame_support/derive.PartialEqNoBound.html).
 #[proc_macro_derive(PartialEqNoBound)]
 pub fn derive_partial_eq_no_bound(input: TokenStream) -> TokenStream {
 	no_bound::partial_eq::derive_partial_eq_no_bound(input)
@@ -467,7 +467,7 @@ pub fn derive_partial_eq_no_bound(input: TokenStream) -> TokenStream {
 
 /// DeriveEq but do no bound any generic.
 ///
-/// Docs at [`frame_support::EqNoBound`](../../frame_support/derive.EqNoBound.html).
+/// Docs at [`frame_support::EqNoBound`](../frame_support/derive.EqNoBound.html).
 #[proc_macro_derive(EqNoBound)]
 pub fn derive_eq_no_bound(input: TokenStream) -> TokenStream {
 	let input: syn::DeriveInput = match syn::parse(input) {
@@ -488,7 +488,7 @@ pub fn derive_eq_no_bound(input: TokenStream) -> TokenStream {
 
 /// derive `Default` but do no bound any generic. Docs are at `frame_support::DefaultNoBound`.
 ///
-/// Docs at [`frame_support::DefaultNoBound`](../../frame_support/derive.PartialEqNoBound.html).
+/// Docs at [`frame_support::DefaultNoBound`](../frame_support/derive.PartialEqNoBound.html).
 #[proc_macro_derive(DefaultNoBound, attributes(default))]
 pub fn derive_default_no_bound(input: TokenStream) -> TokenStream {
 	no_bound::default::derive_default_no_bound(input)
@@ -990,14 +990,14 @@ pub fn config(_: TokenStream, _: TokenStream) -> TokenStream {
 }
 
 /// Documentation for this item can be found at
-/// [`frame_support::pallet_macros::constant`](../../frame_support/pallet_macros/attr.constant.html).
+/// [`frame_support::pallet_macros::constant`](../frame_support/pallet_macros/attr.constant.html).
 #[proc_macro_attribute]
 pub fn constant(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
 /// Documentation for this item can be found at
-/// [`frame_support::pallet_macros::constant_name`](../../frame_support/pallet_macros/attr.constant_name.html).
+/// [`frame_support::pallet_macros::constant_name`](../frame_support/pallet_macros/attr.constant_name.html).
 #[proc_macro_attribute]
 pub fn constant_name(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1102,14 +1102,14 @@ pub fn weight(_: TokenStream, _: TokenStream) -> TokenStream {
 }
 
 /// Documentation for this item can be found at
-/// [`frame_support::pallet_macros::compact`](../../frame_support/pallet_macros/attr.compact.html).
+/// [`frame_support::pallet_macros::compact`](../frame_support/pallet_macros/attr.compact.html).
 #[proc_macro_attribute]
 pub fn compact(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
 /// Documentation for this item can be found at
-/// [`frame_support::pallet_macros::call`](../../frame_support/pallet_macros/attr.call.html).
+/// [`frame_support::pallet_macros::call`](../frame_support/pallet_macros/attr.call.html).
 #[proc_macro_attribute]
 pub fn call(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1121,37 +1121,15 @@ pub fn call(_: TokenStream, _: TokenStream) -> TokenStream {
 /// ---
 ///
 /// Documentation for this item can be found at
-/// [`frame_support::pallet_macros::call_index`](../../frame_support/pallet_macros/attr.call_index.html).
+/// [`frame_support::pallet_macros::call_index`](../frame_support/pallet_macros/attr.call_index.html).
 #[proc_macro_attribute]
 pub fn call_index(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// Each dispatchable may be annotated with the `#[pallet::feeless_if($closure)]` attribute,
-/// which explicitly defines the condition for the dispatchable to be feeless.
+/// Documentation for this item can be found at
 ///
-/// The arguments for the closure must be the referenced arguments of the dispatchable function.
-///
-/// The closure must return `bool`.
-///
-/// ### Example
-/// ```ignore
-/// #[pallet::feeless_if(|_origin: &OriginFor<T>, something: &u32| -> bool {
-/// 		*something == 0
-/// 	})]
-/// pub fn do_something(origin: OriginFor<T>, something: u32) -> DispatchResult {
-///     ....
-/// }
-/// ```
-///
-/// Please note that this only works for signed dispatchables and requires a signed extension
-/// such as `SkipCheckIfFeeless` as defined in `pallet-skip-feeless-payment` to wrap the existing
-/// payment extension. Else, this is completely ignored and the dispatchable is still charged.
-///
-/// ### Macro expansion
-///
-/// The macro implements the `CheckIfFeeless` trait on the dispatchable and calls the corresponding
-/// closure in the implementation.
+/// [`frame_support::pallet_macros::feeless_if`](../frame_support/pallet_macros/attr.feeless_if.html).
 #[proc_macro_attribute]
 pub fn feeless_if(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1183,14 +1161,14 @@ pub fn extra_constants(_: TokenStream, _: TokenStream) -> TokenStream {
 }
 
 /// Documentation for this item can be found at
-/// [`frame_support::pallet_macros::error`](../../frame_support/pallet_macros/attr.error.html).
+/// [`frame_support::pallet_macros::error`](../frame_support/pallet_macros/attr.error.html).
 #[proc_macro_attribute]
 pub fn error(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
 /// Documentation for this item can be found at
-/// [`frame_support::pallet_macros::event`](../../frame_support/pallet_macros/attr.event.html).
+/// [`frame_support::pallet_macros::event`](../frame_support/pallet_macros/attr.event.html).
 #[proc_macro_attribute]
 pub fn event(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1223,7 +1201,7 @@ pub fn generate_deposit(_: TokenStream, _: TokenStream) -> TokenStream {
 }
 
 /// Documentation for this item can be found at
-/// [`frame_support::pallet_macros::storage`](../../frame_support/pallet_macros/attr.storage.html).
+/// [`frame_support::pallet_macros::storage`](../frame_support/pallet_macros/attr.storage.html).
 #[proc_macro_attribute]
 pub fn storage(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1327,14 +1305,14 @@ pub fn type_value(_: TokenStream, _: TokenStream) -> TokenStream {
 }
 
 /// Documentation for this item can be found at
-/// [`frame_support::pallet_macros::genesis_config`](../../frame_support/pallet_macros/attr.genesis_config.html).
+/// [`frame_support::pallet_macros::genesis_config`](../frame_support/pallet_macros/attr.genesis_config.html).
 #[proc_macro_attribute]
 pub fn genesis_config(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
 /// Documentation for this item can be found at
-/// [`frame_support::pallet_macros::genesis_build`](../../frame_support/pallet_macros/attr.genesis_build.html).
+/// [`frame_support::pallet_macros::genesis_build`](../frame_support/pallet_macros/attr.genesis_build.html).
 #[proc_macro_attribute]
 pub fn genesis_build(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()

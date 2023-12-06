@@ -2228,11 +2228,41 @@ pub use frame_support_procedural::pallet;
 /// Contains macro stubs for all of the pallet:: macros
 pub mod pallet_macros {
 	pub use frame_support_procedural::{
-		composite_enum, config, disable_frame_system_supertrait_check, extra_constants, feeless_if,
+		composite_enum, config, disable_frame_system_supertrait_check, extra_constants,
 		generate_deposit, generate_store, getter, hooks, import_section, inherent, no_default,
 		no_default_bounds, origin, pallet_section, storage_prefix, storage_version, type_value,
 		unbounded, validate_unsigned, weight, whitelist_storage,
 	};
+
+	/// Each dispatchable may be annotated with the `#[pallet::feeless_if($closure)]` attribute,
+	/// which explicitly defines the condition for the dispatchable to be feeless.
+	///
+	/// The arguments for the closure must be the referenced arguments of the dispatchable function.
+	///
+	/// The closure must return `bool`.
+	///
+	/// ### Example
+	/// ```ignore
+	/// #[pallet::feeless_if(|_origin: &OriginFor<T>, something: &u32| -> bool {
+	/// 		*something == 0
+	/// 	})]
+	/// pub fn do_something(origin: OriginFor<T>, something: u32) -> DispatchResult {
+	///     ....
+	/// }
+	/// ```
+	///
+	/// Please note that this only works for signed dispatchables and requires a signed extension
+	/// such as [`pallet_skip_feeless_payment::SkipCheckIfFeeless`] to wrap the existing payment
+	/// extension. Else, this is completely ignored and the dispatchable is still charged.
+	///
+	/// ### Macro expansion
+	///
+	/// The macro implements the [`pallet_skip_feeless_payment::CheckIfFeeless`] trait on the
+	/// dispatchable and calls the corresponding closure in the implementation.
+	///
+	/// [`pallet_skip_feeless_payment::SkipCheckIfFeeless`]: ../../pallet_skip_feeless_payment/struct.SkipCheckIfFeeless.html
+	/// [`pallet_skip_feeless_payment::CheckIfFeeless`]: ../../pallet_skip_feeless_payment/struct.SkipCheckIfFeeless.html
+	pub use frame_support_procedural::feeless_if;
 
 	/// The `#[pallet::error]` attribute allows you to define an error enum that will be
 	/// returned from the dispatchable when an error occurs. The information for this error
