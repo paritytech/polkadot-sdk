@@ -445,7 +445,7 @@ fn trapped_assets_can_be_claimed() {
 		assert_eq!(AssetTraps::<Test>::iter().collect::<Vec<_>>(), vec![]);
 
 		let weight = BaseXcmWeight::get() * 3;
-		assert_ok!(XcmPallet::execute(
+		assert_ok!(<XcmPallet as xcm_builder::ExecuteController<_, _>>::execute(
 			RuntimeOrigin::signed(ALICE),
 			Box::new(VersionedXcm::from(Xcm(vec![
 				ClaimAsset { assets: (Here, SEND_AMOUNT).into(), ticket: Here.into() },
@@ -456,6 +456,52 @@ fn trapped_assets_can_be_claimed() {
 		));
 		let outcome = Outcome::Incomplete(BaseXcmWeight::get(), XcmError::UnknownClaim);
 		assert_eq!(last_event(), RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome }));
+	});
+}
+
+/// Test failure to complete execution reverts intermediate side-effects.
+///
+/// XCM program will withdraw and deposit some assets, then fail execution of a further withdraw.
+/// Assert that the previous instructions effects are reverted.
+#[test]
+fn incomplete_execute_reverts_side_effects() {
+	let balances = vec![(ALICE, INITIAL_BALANCE), (BOB, INITIAL_BALANCE)];
+	new_test_ext_with_balances(balances).execute_with(|| {
+		let weight = BaseXcmWeight::get() * 4;
+		let dest: MultiLocation = Junction::AccountId32 { network: None, id: BOB.into() }.into();
+		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
+		let amount_to_send = INITIAL_BALANCE - ExistentialDeposit::get();
+		let assets: MultiAssets = (Here, amount_to_send).into();
+		let result = XcmPallet::execute(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(VersionedXcm::from(Xcm(vec![
+				// Withdraw + BuyExec + Deposit should work
+				WithdrawAsset(assets.clone()),
+				buy_execution(assets.inner()[0].clone()),
+				DepositAsset { assets: assets.clone().into(), beneficiary: dest },
+				// Withdrawing once more will fail because of InsufficientBalance, and we expect to
+				// revert the effects of the above instructions as well
+				WithdrawAsset(assets),
+			]))),
+			weight,
+		);
+		// all effects are reverted and balances unchanged for either sender or receiver
+		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
+		assert_eq!(Balances::total_balance(&BOB), INITIAL_BALANCE);
+		assert_eq!(
+			result,
+			Err(sp_runtime::DispatchErrorWithPostInfo {
+				post_info: frame_support::dispatch::PostDispatchInfo {
+					actual_weight: None,
+					pays_fee: frame_support::dispatch::Pays::Yes,
+				},
+				error: sp_runtime::DispatchError::Module(sp_runtime::ModuleError {
+					index: 4,
+					error: [24, 0, 0, 0,],
+					message: Some("LocalExecutionIncomplete")
+				})
+			})
+		);
 	});
 }
 

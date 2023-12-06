@@ -1,7 +1,7 @@
 [build]
 rustdocflags = [
-  "-Dwarnings",
-  "-Arustdoc::redundant_explicit_links", # stylistic
+	"-Dwarnings",
+	"-Arustdoc::redundant_explicit_links", # stylistic
 ]
 
 [env]

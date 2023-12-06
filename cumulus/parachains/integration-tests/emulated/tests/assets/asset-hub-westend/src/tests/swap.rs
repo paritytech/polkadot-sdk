@@ -114,7 +114,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 	let foreign_asset1_at_asset_hub_westend = Box::new(MultiLocation {
 		parents: 1,
 		interior: X3(
-			Parachain(PenpalA::para_id().into()),
+			Parachain(PenpalB::para_id().into()),
 			PalletInstance(ASSETS_PALLET_ID),
 			GeneralIndex(ASSET_ID.into()),
 		),
@@ -125,18 +125,18 @@ fn swap_locally_on_chain_using_foreign_assets() {
 			.into();
 
 	let penpal_location =
-		MultiLocation { parents: 1, interior: X1(Parachain(PenpalA::para_id().into())) };
+		MultiLocation { parents: 1, interior: X1(Parachain(PenpalB::para_id().into())) };
 
 	// 1. Create asset on penpal:
-	PenpalA::execute_with(|| {
-		assert_ok!(<PenpalA as PenpalAPallet>::Assets::create(
-			<PenpalA as Chain>::RuntimeOrigin::signed(PenpalASender::get()),
+	PenpalB::execute_with(|| {
+		assert_ok!(<PenpalB as PenpalBPallet>::Assets::create(
+			<PenpalB as Chain>::RuntimeOrigin::signed(PenpalBSender::get()),
 			ASSET_ID.into(),
-			PenpalASender::get().into(),
+			PenpalBSender::get().into(),
 			1000,
 		));
 
-		assert!(<PenpalA as PenpalAPallet>::Assets::asset_exists(ASSET_ID));
+		assert!(<PenpalB as PenpalBPallet>::Assets::asset_exists(ASSET_ID));
 	});
 
 	// 2. Create foreign asset on asset_hub_westend:
@@ -190,18 +190,18 @@ fn swap_locally_on_chain_using_foreign_assets() {
 	]));
 
 	// Send XCM message from penpal => asset_hub_westend
-	let sudo_penpal_origin = <PenpalA as Chain>::RuntimeOrigin::root();
-	PenpalA::execute_with(|| {
-		assert_ok!(<PenpalA as PenpalAPallet>::PolkadotXcm::send(
+	let sudo_penpal_origin = <PenpalB as Chain>::RuntimeOrigin::root();
+	PenpalB::execute_with(|| {
+		assert_ok!(<PenpalB as PenpalBPallet>::PolkadotXcm::send(
 			sudo_penpal_origin.clone(),
 			bx!(assets_para_destination.clone()),
 			bx!(xcm),
 		));
 
-		type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
+		type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
 
 		assert_expected_events!(
-			PenpalA,
+			PenpalB,
 			vec![
 				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::Sent { .. }) => {},
 			]

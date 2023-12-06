@@ -763,7 +763,7 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionsInner<Block, BE> {
 		// blocks.
 		for hash in hashes.clone() {
 			if !sub.contains_block(hash) {
-				return Err(SubscriptionManagementError::BlockHashAbsent);
+				return Err(SubscriptionManagementError::BlockHashAbsent)
 			}
 		}
 

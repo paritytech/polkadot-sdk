@@ -12,10 +12,9 @@ workspace = true
 [dependencies]
 futures = "0.3.21"
 gum = { package = "tracing-gum", path = "../../gum" }
-sp-blockchain = { path = "../../../../substrate/primitives/blockchain" }
-polkadot-primitives = { path = "../../../primitives" }
 polkadot-node-metrics = { path = "../../metrics" }
 polkadot-node-subsystem = { path = "../../subsystem" }
+polkadot-node-subsystem-types = { path = "../../subsystem-types" }
 sc-client-api = { path = "../../../../substrate/client/api" }
 sc-consensus-babe = { path = "../../../../substrate/client/consensus/babe" }
 
@@ -24,5 +23,7 @@ futures = { version = "0.3.21", features = ["thread-pool"] }
 maplit = "1.0.2"
 parity-scale-codec = "3.6.1"
 polkadot-node-primitives = { path = "../../primitives" }
+polkadot-primitives = { path = "../../../primitives" }
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 sp-core = { path = "../../../../substrate/primitives/core" }
+sp-blockchain = { path = "../../../../substrate/primitives/blockchain" }

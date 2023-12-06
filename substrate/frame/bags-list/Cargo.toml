@@ -53,7 +53,7 @@ frame-election-provider-support = { path = "../election-provider-support" }
 frame-benchmarking = { path = "../benchmarking" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",

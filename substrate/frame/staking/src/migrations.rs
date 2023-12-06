@@ -82,19 +82,9 @@ pub mod v14 {
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
-			frame_support::ensure!(
-				Pallet::<T>::on_chain_storage_version() == 13,
-				"Required v13 before upgrading to v14."
-			);
-
-			Ok(Default::default())
-		}
-
-		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
 			frame_support::ensure!(
-				Pallet::<T>::on_chain_storage_version() == 14,
+				Pallet::<T>::on_chain_storage_version() >= 14,
 				"v14 not applied"
 			);
 			Ok(())

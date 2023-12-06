@@ -155,7 +155,7 @@ fn xcm_enqueueing_broken_xcm_works() {
 				.take(20)
 				.collect::<Vec<_>>(),
 		);
-		EnqueuedMessages::set(&vec![]);
+		EnqueuedMessages::take();
 
 		// But if we do it all in one page, then it only uses the first 10:
 		XcmpQueue::handle_xcmp_messages(
