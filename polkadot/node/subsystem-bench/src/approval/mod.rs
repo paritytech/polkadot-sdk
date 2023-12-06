@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use std::{
 	collections::{BTreeMap, HashMap, HashSet},
 	sync::{
-		atomic::{AtomicBool, AtomicU32},
+		atomic::{AtomicBool, AtomicU32, AtomicU64},
 		Arc,
 	},
 	time::{Duration, Instant},
@@ -39,8 +39,8 @@ use polkadot_node_core_approval_voting::{
 };
 use polkadot_node_primitives::approval::{
 	self,
-	v1::{IndirectSignedApprovalVote, RelayVRFStory},
-	v2::{CoreBitfield, IndirectAssignmentCertV2},
+	v1::RelayVRFStory,
+	v2::{CoreBitfield, IndirectAssignmentCertV2, IndirectSignedApprovalVoteV2},
 };
 
 use polkadot_node_network_protocol::{
@@ -63,9 +63,10 @@ use rand::{seq::SliceRandom, RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 
 use polkadot_primitives::{
-	ApprovalVote, BlockNumber, CandidateEvent, CandidateHash, CandidateIndex, CandidateReceipt,
-	CoreIndex, GroupIndex, Hash, Header, Id as ParaId, IndexedVec, SessionInfo, Slot,
-	ValidatorIndex, ValidatorPair, ASSIGNMENT_KEY_TYPE_ID,
+	vstaging::ApprovalVoteMultipleCandidates, ApprovalVote, BlockNumber, CandidateEvent,
+	CandidateHash, CandidateIndex, CandidateReceipt, CoreIndex, GroupIndex, Hash, Header,
+	Id as ParaId, IndexedVec, SessionInfo, Slot, ValidatorIndex, ValidatorPair,
+	ASSIGNMENT_KEY_TYPE_ID,
 };
 use polkadot_primitives_test_helpers::dummy_candidate_receipt_bad_sig;
 use sc_keystore::LocalKeystore;
@@ -135,6 +136,9 @@ pub struct ApprovalsOptions {
 	#[clap(short, long, default_value_t = 89)]
 	/// Max candidate to be signed in a single approval.
 	pub max_coalesce: u32,
+	#[clap(short, long, default_value_t = false)]
+	/// Enable assignments v2.
+	pub enable_assignments_v2: bool,
 }
 
 /// Information about a block. It is part of test state and it is used by the mock
@@ -159,6 +163,7 @@ struct BlockTestData {
 	/// This set on `true` when ChainSelectionMessage::Approved is received inside the chain
 	/// selection mock subsystem.
 	approved: Arc<AtomicBool>,
+	prev_candidates: u64,
 }
 
 /// Approval test state used by all mock subsystems to be able to answer messages emitted
@@ -166,7 +171,7 @@ struct BlockTestData {
 ///
 /// This gets cloned across all mock subsystems, so if there is any information that gets
 /// updated between subsystems, they would have to be wrapped in Arc's.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct ApprovalTestState {
 	/// The generic test configuration passed when starting the benchmark.
 	configuration: TestConfiguration,
@@ -189,12 +194,20 @@ pub struct ApprovalTestState {
 	test_authorities: TestAuthorities,
 	/// Last approved block number.
 	last_approved_block: Arc<AtomicU32>,
+	/// Total sent messages.
+	total_sent_messages: Arc<AtomicU64>,
+	/// Approval voting metrics.
+	approval_voting_metrics: ApprovalVotingMetrics,
 }
 
 impl ApprovalTestState {
 	/// Build a new `ApprovalTestState` object out of the configurations passed when the benchmark
 	/// was tested.
-	fn new(configuration: &TestConfiguration, options: ApprovalsOptions) -> Self {
+	fn new(
+		configuration: &TestConfiguration,
+		options: ApprovalsOptions,
+		dependencies: &TestEnvironmentDependencies,
+	) -> Self {
 		let test_authorities = configuration.generate_authorities();
 
 		let random_samplings = random_samplings_to_node_patterns(
@@ -221,7 +234,10 @@ impl ApprovalTestState {
 			initial_slot,
 			test_authorities,
 			last_approved_block: Arc::new(AtomicU32::new(0)),
+			total_sent_messages: Arc::new(AtomicU64::new(0)),
 			options,
+			approval_voting_metrics: ApprovalVotingMetrics::try_register(&dependencies.registry)
+				.unwrap(),
 		};
 		state.generate_blocks_information();
 		gum::info!("Built testing state");
@@ -232,6 +248,7 @@ impl ApprovalTestState {
 	/// Generates the blocks and the information about the blocks that will be used
 	/// to drive this test.
 	fn generate_blocks_information(&mut self) {
+		let mut prev_candidates = 0;
 		for block_number in 1..self.configuration.num_blocks + 1 {
 			let block_hash = Hash::repeat_byte(block_number as u8);
 			let parent_hash = self
@@ -266,7 +283,9 @@ impl ApprovalTestState {
 				),
 				relay_vrf_story,
 				approved: Arc::new(AtomicBool::new(false)),
+				prev_candidates,
 			};
+			prev_candidates += block_info.candidates.len() as u64;
 			self.per_slot_heads.push(block_info)
 		}
 	}
@@ -356,7 +375,7 @@ impl TestMessage {
 		match &self.typ {
 			// We want assignments to always arrive before approval, so
 			// we don't send them with a latency.
-			MessageType::Approval => Some(Duration::from_millis(300)),
+			MessageType::Approval => None,
 			MessageType::Assignment => None,
 			MessageType::Other => None,
 		}
@@ -430,9 +449,14 @@ impl PeerMessagesGenerator {
 					self.state.get_info_by_slot(current_slot).map(|block| block.clone());
 
 				if let Some(block_info) = block_info {
-					if already_generated.insert(block_info.hash) {
+					let candidates = self.state.approval_voting_metrics.candidates_imported();
+
+					if candidates >= block_info.prev_candidates + block_info.candidates.len() as u64 &&
+						already_generated.insert(block_info.hash)
+					{
 						let (tx, rx) = oneshot::channel();
 						self.overseer_handle.wait_for_activation(block_info.hash, tx).await;
+
 						rx.await
 							.expect("We should not fail waiting for block to be activated")
 							.expect("We should not fail waiting for block to be activated");
@@ -462,7 +486,7 @@ impl PeerMessagesGenerator {
 								.zip(self.state.test_authorities.peer_ids.clone().into_iter())
 								.collect_vec(),
 							&self.state.session_info,
-							false,
+							self.options.enable_assignments_v2,
 							&self.state.random_samplings,
 							self.validator_index.0,
 							&block_info.relay_vrf_story,
@@ -498,19 +522,24 @@ impl PeerMessagesGenerator {
 					// Messages are sorted per block and per tranches, so earlier blocks would be
 					// at the front of messages_to_send, so we always prefer to send all messages
 					// we can send for older blocks.
-					for message_to_send in messages_to_send.iter_mut() {
-						let current_slot = Slot::from_timestamp(
-							Timestamp::current(),
-							SlotDuration::from_millis(SLOT_DURATION_MILLIS),
-						);
+					let current_slot = Slot::from_timestamp(
+						Timestamp::current(),
+						SlotDuration::from_millis(SLOT_DURATION_MILLIS),
+					);
 
+					for message_to_send in messages_to_send.iter_mut() {
 						if message_to_send
 							.peek()
 							.map(|val| {
 								let block_info = self.state.get_info_by_hash(val.block_hash);
 								let tranche_now =
 									system_clock.tranche_now(SLOT_DURATION_MILLIS, block_info.slot);
-								val.tranche <= tranche_now && current_slot >= block_info.slot
+								let tranche_to_send = match val.typ {
+									MessageType::Approval => val.tranche + 1,
+									MessageType::Assignment => val.tranche,
+									MessageType::Other => val.tranche,
+								};
+								tranche_to_send <= tranche_now && current_slot >= block_info.slot
 							})
 							.unwrap_or_default()
 						{
@@ -521,6 +550,10 @@ impl PeerMessagesGenerator {
 								for (peer, messages) in message.split_by_peer_id() {
 									for message in messages {
 										let latency = message.get_latency();
+										self.state
+											.total_sent_messages
+											.as_ref()
+											.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 										self.send_message(message, peer.0, latency)
 									}
 								}
@@ -795,13 +828,13 @@ fn sign_candidates(
 		.map(|peer| *peer)
 		.collect::<HashSet<(ValidatorIndex, PeerId)>>();
 
-	let payload = ApprovalVote(*hashes.first().unwrap()).signing_payload(1);
+	let payload = ApprovalVoteMultipleCandidates(&hashes).signing_payload(1);
 
 	let validator_key: ValidatorPair = keyring.0.pair().into();
 	let signature = validator_key.sign(&payload[..]);
-	let indirect = IndirectSignedApprovalVote {
+	let indirect = IndirectSignedApprovalVoteV2 {
 		block_hash,
-		candidate_index: *candidate_indices.first().unwrap() as CandidateIndex,
+		candidate_indices: candidate_indices.try_into().unwrap(),
 		validator: current_validator_index,
 		signature,
 	};
@@ -1197,7 +1230,7 @@ fn build_overseer(
 		Arc::new(db),
 		Arc::new(keystore),
 		Box::new(TestSyncOracle {}),
-		ApprovalVotingMetrics::try_register(&dependencies.registry).unwrap(),
+		state.approval_voting_metrics.clone(),
 	);
 
 	let approval_distribution = ApprovalDistribution::new(
@@ -1238,7 +1271,7 @@ fn prepare_test_inner(
 	options: ApprovalsOptions,
 ) -> (TestEnvironment, ApprovalTestState) {
 	gum::info!("Prepare test state");
-	let mut state = ApprovalTestState::new(&config, options);
+	let mut state = ApprovalTestState::new(&config, options, &dependencies);
 
 	gum::info!("Build network emulator");
 
@@ -1328,7 +1361,11 @@ pub async fn bench_approvals(env: &mut TestEnvironment, state: ApprovalTestState
 	env.stop().await;
 
 	let duration: u128 = start_marker.elapsed().as_millis();
-	gum::info!("All blocks processed in {}", format!("{:?}ms", duration).cyan());
+	gum::info!(
+		"All blocks processed in {} num_messages {}",
+		format!("{:?}ms", duration).cyan(),
+		state.total_sent_messages.load(std::sync::atomic::Ordering::SeqCst)
+	);
 
 	gum::info!("{}", &env);
 }

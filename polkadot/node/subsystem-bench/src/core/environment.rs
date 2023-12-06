@@ -308,9 +308,27 @@ impl Display for TestEnvironment {
 
 		let test_metrics = super::display::parse_metrics(self.registry());
 		let subsystem_cpu_metrics =
-			test_metrics.subset_with_label_value("task_group", "availability-recovery");
+			test_metrics.subset_with_label_value("task_group", "approval-distribution");
 		let total_cpu = subsystem_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum");
-		writeln!(f, "Total subsystem CPU usage {}", format!("{:.2}s", total_cpu).bright_purple())?;
+		writeln!(
+			f,
+			"Total approval-distribution CPU usage {}",
+			format!("{:.2}s", total_cpu).bright_purple()
+		)?;
+		writeln!(
+			f,
+			"CPU usage per block {}",
+			format!("{:.2}s", total_cpu / self.config().num_blocks as f64).bright_purple()
+		)?;
+
+		let subsystem_cpu_metrics =
+			test_metrics.subset_with_label_value("task_group", "approval-voting");
+		let total_cpu = subsystem_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum");
+		writeln!(
+			f,
+			"Total approval-voting CPU usage {}",
+			format!("{:.2}s", total_cpu).bright_purple()
+		)?;
 		writeln!(
 			f,
 			"CPU usage per block {}",

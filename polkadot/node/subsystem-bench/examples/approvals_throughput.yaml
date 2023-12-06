@@ -4,6 +4,7 @@ TestConfiguration:
     last_considered_tranche: 89
     min_coalesce: 1
     max_coalesce: 1
+    enable_assignments_v2: false
   n_validators: 500
   n_cores: 100
   n_included_candidates: 70
