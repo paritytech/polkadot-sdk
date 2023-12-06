@@ -252,7 +252,12 @@ mod integration {
 	}
 
 	#[test]
-	fn reward_destination_cannot_be_delegatee() {
+	fn direct_withdraw_ends_up_in_limbo() {
+
+	}
+
+	#[test]
+	fn reward_destination_restrictions() {
 		ExtBuilder::default().build_and_execute(|| assert!(true));
 	}
 
