@@ -6899,10 +6899,10 @@ mod ledger {
 				<Test as Config>::MaxControllersInDeprecationBatch,
 			> = BoundedVec::try_from(controllers).unwrap();
 
-			// Only Root can sign.
+			// Only `DeprecationOrigin` can sign.
 			assert_noop!(
 				Staking::deprecate_controller_batch(
-					RuntimeOrigin::signed(1),
+					RuntimeOrigin::signed(2),
 					bounded_controllers.clone()
 				),
 				BadOrigin

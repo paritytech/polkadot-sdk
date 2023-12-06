@@ -527,7 +527,8 @@ benchmarks! {
 	}
 
 	deprecate_controller_batch {
-		// We pass a dynamic number of controllers to the benchmark, up to `MaxControllersInDeprecationBatch`.
+		// We pass a dynamic number of controllers to the benchmark, up to
+		// `MaxControllersInDeprecationBatch`.
 		let i in 0 .. T::MaxControllersInDeprecationBatch::get();
 
 		let mut controllers: Vec<_> = vec![];
