@@ -619,3 +619,135 @@ where
 		self.result.take()
 	}
 }
+
+#[cfg(test)]
+mod test {
+	use super::{EncodedProof, VerificationResult, WarpSync, WarpSyncAction, WarpSyncConfig};
+	use sp_blockchain::{BlockStatus, Error as BlockchainError, HeaderBackend, Info};
+	use sp_consensus_grandpa::{AuthorityList, SetId};
+	use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
+	use std::sync::Arc;
+	use substrate_test_runtime_client::runtime::{Block, Hash};
+
+	mockall::mock! {
+		pub Client<B: BlockT> {}
+
+		impl<B: BlockT> HeaderBackend<B> for Client<B> {
+			fn header(&self, hash: B::Hash) -> Result<Option<B::Header>, BlockchainError>;
+			fn info(&self) -> Info<B>;
+			fn status(&self, hash: B::Hash) -> Result<BlockStatus, BlockchainError>;
+			fn number(
+				&self,
+				hash: B::Hash,
+			) -> Result<Option<<<B as BlockT>::Header as HeaderT>::Number>, BlockchainError>;
+			fn hash(&self, number: NumberFor<B>) -> Result<Option<B::Hash>, BlockchainError>;
+		}
+	}
+
+	mockall::mock! {
+		pub WarpSyncProvider<B: BlockT> {}
+
+		impl<B: BlockT> super::WarpSyncProvider<B> for WarpSyncProvider<B> {
+			fn generate(
+				&self,
+				start: B::Hash,
+			) -> Result<EncodedProof, Box<dyn std::error::Error + Send + Sync>>;
+			fn verify(
+				&self,
+				proof: &EncodedProof,
+				set_id: SetId,
+				authorities: AuthorityList,
+			) -> Result<VerificationResult<B>, Box<dyn std::error::Error + Send + Sync>>;
+			fn current_authorities(&self) -> AuthorityList;
+		}
+	}
+
+	fn mock_client_with_state() -> MockClient<Block> {
+		let mut client = MockClient::<Block>::new();
+		let genesis_hash = Hash::random();
+		client.expect_info().return_once(move || Info {
+			best_hash: genesis_hash,
+			best_number: 0,
+			genesis_hash,
+			finalized_hash: genesis_hash,
+			finalized_number: 0,
+			// We need some finalized state to render warp sync impossible.
+			finalized_state: Some((genesis_hash, 0)),
+			number_leaves: 0,
+			block_gap: None,
+		});
+
+		client
+	}
+
+	fn mock_client_without_state() -> MockClient<Block> {
+		let mut client = MockClient::<Block>::new();
+		let genesis_hash = Hash::random();
+		client.expect_info().return_once(move || Info {
+			best_hash: genesis_hash,
+			best_number: 0,
+			genesis_hash,
+			finalized_hash: genesis_hash,
+			finalized_number: 0,
+			finalized_state: None,
+			number_leaves: 0,
+			block_gap: None,
+		});
+
+		client
+	}
+
+	#[test]
+	fn warp_sync_with_provider_for_db_with_finalized_state_is_noop() {
+		let client = mock_client_with_state();
+		let provider = MockWarpSyncProvider::<Block>::new();
+		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
+		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+
+		// Warp sync instantly finishes
+		let actions = warp_sync.actions().collect::<Vec<_>>();
+		assert_eq!(actions.len(), 1);
+		assert!(matches!(actions[0], WarpSyncAction::Finished));
+
+		// ... with no result.
+		assert!(warp_sync.take_result().is_none());
+	}
+
+	#[test]
+	fn warp_sync_to_target_for_db_with_finalized_state_is_noop() {
+		let client = mock_client_with_state();
+		let config = WarpSyncConfig::WaitForTarget;
+		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+
+		// Warp sync instantly finishes
+		let actions = warp_sync.actions().collect::<Vec<_>>();
+		assert_eq!(actions.len(), 1);
+		assert!(matches!(actions[0], WarpSyncAction::Finished));
+
+		// ... with no result.
+		assert!(warp_sync.take_result().is_none());
+	}
+
+	#[test]
+	fn warp_sync_with_provider_for_empty_db_doesnt_finish_instantly() {
+		let client = mock_client_without_state();
+		let provider = MockWarpSyncProvider::<Block>::new();
+		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
+		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+
+		// No actions are emitted.
+		assert_eq!(warp_sync.actions().count(), 0)
+	}
+
+	#[test]
+	fn warp_sync_to_target_for_empty_db_doesnt_finish_instantly() {
+		let client = mock_client_without_state();
+		let config = WarpSyncConfig::WaitForTarget;
+		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+
+		// No actions are emitted.
+		assert_eq!(warp_sync.actions().count(), 0)
+	}
+
+	// TODO
+}
