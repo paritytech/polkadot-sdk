@@ -343,7 +343,7 @@ impl pallet_staking::Config for Runtime {
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = frame_system::EnsureNever<()>;
-	type DeprecationOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
+	type DeprecationOrigin = frame_system::EnsureRoot<AccountId>;
 	type SessionInterface = Self;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type MaxExposurePageSize = MaxExposurePageSize;
