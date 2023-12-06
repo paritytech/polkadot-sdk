@@ -40,7 +40,7 @@ use pallet::*;
 use sp_runtime::{traits::Zero, DispatchResult, RuntimeDebug, Saturating};
 use sp_staking::{
 	delegation::{DelegationInterface, StakingDelegationSupport},
-	EraIndex, Stake, StakerStatus, StakingInterface,
+	EraIndex, Stake, StakerStatus, StakingInterface, StakingHoldProvider,
 };
 use sp_std::{convert::TryInto, prelude::*};
 
@@ -98,6 +98,8 @@ pub mod pallet {
 		WithdrawFailed,
 		/// This operation is not supported with Delegation Staking.
 		NotSupported,
+		/// This delegatee is not set as a migrating account.
+		NotMigrating,
 	}
 
 	/// A reason for placing a hold on funds.
@@ -136,6 +138,14 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type Delegatees<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, DelegationRegister<T>, OptionQuery>;
+
+	/// Map of Delegatee and its proxy delegator account while its actual delegators are migrating.
+	///
+	/// Helps ensure correctness of ongoing migration of a direct nominator to a delegatee. If a
+	/// delegatee does not exist, it implies it is not going through migration.
+	#[pallet::storage]
+	pub(crate) type DelegateeMigration<T: Config> =
+		CountedStorageMap<_, Twox64Concat, T::AccountId, T::AccountId, OptionQuery>;
 }
 
 /// Register of all delegations to a `Delegatee`.
@@ -251,10 +261,11 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 			_ => return Err(Error::<T>::InvalidDelegation.into()),
 		}
 
+		<DelegateeMigration<T>>::insert(&new_delegatee, &proxy_delegator);
 		let stake = T::CoreStaking::stake(new_delegatee)?;
 
 		// unlock funds from staker
-		T::CoreStaking::force_unlock(new_delegatee)?;
+		T::CoreStaking::release_all(new_delegatee);
 
 		// try transferring the staked amount. This should never fail but if it does, it indicates
 		// bad state and we abort.
@@ -326,7 +337,6 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 	#[transactional]
 	fn migrate_delegator(
 		delegatee: &Self::AccountId,
-		existing_delegator: &Self::AccountId,
 		new_delegator: &Self::AccountId,
 		value: Self::Balance,
 	) -> DispatchResult {
@@ -334,12 +344,13 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 
 		// ensure delegatee exists.
 		ensure!(!<Delegatees<T>>::contains_key(delegatee), Error::<T>::NotDelegatee);
+		let proxy_delegator = <DelegateeMigration<T>>::get(delegatee).ok_or(Error::<T>::NotMigrating)?;
 
-		// remove delegation of `value` from `existing_delegator`.
-		Self::delegation_withdraw(existing_delegator, delegatee, value)?;
+		// remove delegation of `value` from `proxy_delegator`.
+		Self::delegation_withdraw(&proxy_delegator, delegatee, value)?;
 
 		// transfer the withdrawn value to `new_delegator`.
-		T::Currency::transfer(existing_delegator, new_delegator, value, Preservation::Expendable)
+		T::Currency::transfer(&proxy_delegator, new_delegator, value, Preservation::Expendable)
 			.map_err(|_| Error::<T>::BadState)?;
 
 		// add the above removed delegation to `new_delegator`.
@@ -624,11 +635,6 @@ impl<T: Config> StakingInterface for Pallet<T> {
 
 	fn nominations(who: &Self::AccountId) -> Option<Vec<Self::AccountId>> {
 		T::CoreStaking::nominations(who)
-	}
-
-	fn force_unlock(_who: &Self::AccountId) -> DispatchResult {
-		defensive_assert!(false, "not supported for delegated impl of staking interface");
-		Err(Error::<T>::NotSupported.into())
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

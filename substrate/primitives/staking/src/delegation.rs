@@ -100,18 +100,14 @@ pub trait DelegationInterface {
 		reporter: Option<Self::AccountId>,
 	) -> DispatchResult;
 
-	/// Swap a delegated `value` from `delegator_from` to `delegator_to`, with delegatee remaining
-	/// the same.
+	/// Move a delegated amount from `proxy_delegator` to `new_delegator`.
 	///
+	/// Delegatee must have used [`Self::migrate_accept_delegations`] to setup a `proxy_delegator`.
 	/// This is useful for migrating old pool accounts using direct staking to lazily move
 	/// delegators to the new delegated pool account.
-	///
-	/// FIXME(ank4n): delegator_from should be removed and be always `proxy_delegator` that was
-	/// registered while calling [`Self::migrate_accept_delegations`].
 	fn migrate_delegator(
 		delegatee: &Self::AccountId,
-		delegator_from: &Self::AccountId,
-		delegator_to: &Self::AccountId,
+		new_delegator: &Self::AccountId,
 		value: Self::Balance,
 	) -> DispatchResult;
 

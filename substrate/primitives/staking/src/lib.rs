@@ -285,9 +285,6 @@ pub trait StakingInterface {
 		}
 	}
 
-	/// Used for migration of locks.
-	fn force_unlock(who: &Self::AccountId) -> DispatchResult;
-
 	#[cfg(feature = "runtime-benchmarks")]
 	fn max_exposure_page_size() -> Page;
 

@@ -1832,11 +1832,6 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			T::MaxExposurePageSize::get()
 		}
 	}
-
-	fn force_unlock(who: &Self::AccountId) -> sp_runtime::DispatchResult {
-		T::DelegationSupport::release_all(who);
-		Ok(())
-	}
 }
 
 impl<T: Config> StakingHoldProvider for Pallet<T> {
