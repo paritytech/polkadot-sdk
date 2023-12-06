@@ -16,7 +16,7 @@
 use crate::*;
 
 #[test]
-fn send_xcm_from_rococo_relay_to_westend_asset_hub() {
+fn send_xcm_from_rococo_relay_to_westend_asset_hub_should_fail_on_not_applicable() {
 	// Init tests variables
 	// XcmPallet send arguments
 	let sudo_origin = <Rococo as Chain>::RuntimeOrigin::root();
@@ -53,7 +53,8 @@ fn send_xcm_from_rococo_relay_to_westend_asset_hub() {
 			]
 		);
 	});
-	// Receive XCM message in Bridge Hub source Parachain
+	// Receive XCM message in Bridge Hub source Parachain, it should fail, because we don't have
+	// opened bridge/lane.
 	BridgeHubRococo::execute_with(|| {
 		type RuntimeEvent = <BridgeHubRococo as Chain>::RuntimeEvent;
 
@@ -61,37 +62,7 @@ fn send_xcm_from_rococo_relay_to_westend_asset_hub() {
 			BridgeHubRococo,
 			vec![
 				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed {
-					success: true,
-					..
-				}) => {},
-				RuntimeEvent::BridgeWestendMessages(pallet_bridge_messages::Event::MessageAccepted {
-					lane_id: LaneId([0, 0, 0, 2]),
-					nonce: 1,
-				}) => {},
-			]
-		);
-	});
-
-	// Westend Global Consensus
-	// Receive XCM message in Bridge Hub target Parachain
-	BridgeHubWestend::execute_with(|| {
-		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-
-		assert_expected_events!(
-			BridgeHubWestend,
-			vec![
-				RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},
-			]
-		);
-	});
-	// Receive embedded XCM message within `ExportMessage` in Parachain destination
-	AssetHubWestend::execute_with(|| {
-		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
-
-		assert_expected_events!(
-			AssetHubWestend,
-			vec![
-				RuntimeEvent::MessageQueue(pallet_message_queue::Event::ProcessingFailed {
+					success: false,
 					..
 				}) => {},
 			]

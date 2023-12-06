@@ -36,7 +36,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::{
-	construct_runtime,
+	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_config, create_default_config},
 	ord_parameter_types, parameter_types,
@@ -67,9 +67,7 @@ use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{
-		AccountIdConversion, AccountIdLookup, BlakeTwo256, Block as BlockT, Saturating, Verify,
-	},
+	traits::{AccountIdConversion, BlakeTwo256, Block as BlockT, Saturating, Verify},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, Perbill, Permill, RuntimeDebug,
 };
@@ -148,25 +146,17 @@ parameter_types! {
 }
 
 // Configure FRAME pallets to include in runtime.
+#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
-	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = RuntimeBlockWeights;
 	type BlockLength = RuntimeBlockLength;
 	type AccountId = AccountId;
-	type RuntimeCall = RuntimeCall;
-	type Lookup = AccountIdLookup<AccountId, ()>;
 	type Nonce = Nonce;
 	type Hash = Hash;
-	type Hashing = BlakeTwo256;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeOrigin = RuntimeOrigin;
 	type BlockHashCount = BlockHashCount;
 	type DbWeight = RocksDbWeight;
 	type Version = Version;
-	type PalletInfo = PalletInfo;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
 	type AccountData = pallet_balances::AccountData<Balance>;
 	type SystemWeightInfo = weights::frame_system::WeightInfo<Runtime>;
 	type SS58Prefix = SS58Prefix;
@@ -939,6 +929,8 @@ pub type Migrations = (
 	InitStorageVersions,
 	// unreleased
 	DeleteUndecodableStorage,
+	// unreleased
+	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
 );
 
 /// Asset Hub Westend has some undecodable storage, delete it.
@@ -1436,6 +1428,55 @@ impl_runtime_apis! {
 						},
 						ParentThen(Parachain(random_para_id).into()).into(),
 					))
+				}
+
+				fn set_up_complex_asset_transfer(
+				) -> Option<(MultiAssets, u32, MultiLocation, Box<dyn FnOnce()>)> {
+					// Transfer to Relay some local AH asset (local-reserve-transfer) while paying
+					// fees using teleported native token.
+					// (We don't care that Relay doesn't accept incoming unknown AH local asset)
+					let dest = Parent.into();
+
+					let fee_amount = EXISTENTIAL_DEPOSIT;
+					let fee_asset: MultiAsset = (MultiLocation::parent(), fee_amount).into();
+
+					let who = frame_benchmarking::whitelisted_caller();
+					// Give some multiple of the existential deposit
+					let balance = fee_amount + EXISTENTIAL_DEPOSIT * 1000;
+					let _ = <Balances as frame_support::traits::Currency<_>>::make_free_balance_be(
+						&who, balance,
+					);
+					// verify initial balance
+					assert_eq!(Balances::free_balance(&who), balance);
+
+					// set up local asset
+					let asset_amount = 10u128;
+					let initial_asset_amount = asset_amount * 10;
+					let (asset_id, _, _) = pallet_assets::benchmarking::create_default_minted_asset::<
+						Runtime,
+						pallet_assets::Instance1
+					>(true, initial_asset_amount);
+					let asset_location = MultiLocation::new(
+						0,
+						X2(PalletInstance(50), GeneralIndex(u32::from(asset_id).into()))
+					);
+					let transfer_asset: MultiAsset = (asset_location, asset_amount).into();
+
+					let assets: MultiAssets = vec![fee_asset.clone(), transfer_asset].into();
+					let fee_index = if assets.get(0).unwrap().eq(&fee_asset) { 0 } else { 1 };
+
+					// verify transferred successfully
+					let verify = Box::new(move || {
+						// verify native balance after transfer, decreased by transferred fee amount
+						// (plus transport fees)
+						assert!(Balances::free_balance(&who) <= balance - fee_amount);
+						// verify asset balance decreased by exactly transferred amount
+						assert_eq!(
+							Assets::balance(asset_id.into(), &who),
+							initial_asset_amount - asset_amount,
+						);
+					});
+					Some((assets, fee_index as u32, dest, verify))
 				}
 			}
 
