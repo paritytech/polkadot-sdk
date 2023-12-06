@@ -18,11 +18,15 @@
 //! spawned by the host) and job processes (spawned by the workers to securely perform PVF jobs).
 
 use super::TestHost;
+use adder::{hash_state, BlockData, HeadData};
 use assert_matches::assert_matches;
+use parity_scale_codec::Encode;
 use polkadot_node_core_pvf::{
 	InvalidCandidate, PossiblyInvalidError, PrepareError, ValidationError,
 };
-use polkadot_parachain_primitives::primitives::{BlockData, ValidationParams};
+use polkadot_parachain_primitives::primitives::{
+	BlockData as GenericBlockData, HeadData as GenericHeadData, ValidationParams,
+};
 use procfs::process;
 use rusty_fork::rusty_fork_test;
 use std::time::Duration;
@@ -39,11 +43,13 @@ fn send_signal_by_sid_and_name(
 	is_direct_child: bool,
 	signal: i32,
 ) {
-	let process = find_process_by_sid_and_name(sid, exe_name, is_direct_child);
+	let process = find_process_by_sid_and_name(sid, exe_name, is_direct_child)
+		.expect("Should have found the expected process");
 	assert_eq!(unsafe { libc::kill(process.pid(), signal) }, 0);
 }
 fn get_num_threads_by_sid_and_name(sid: i32, exe_name: &'static str, is_direct_child: bool) -> i64 {
-	let process = find_process_by_sid_and_name(sid, exe_name, is_direct_child);
+	let process = find_process_by_sid_and_name(sid, exe_name, is_direct_child)
+		.expect("Should have found the expected process");
 	process.stat().unwrap().num_threads
 }
 
@@ -51,7 +57,7 @@ fn find_process_by_sid_and_name(
 	sid: i32,
 	exe_name: &'static str,
 	is_direct_child: bool,
-) -> process::Process {
+) -> Option<process::Process> {
 	let all_processes: Vec<process::Process> = process::all_processes()
 		.expect("Can't read /proc")
 		.filter_map(|p| match p {
@@ -85,13 +91,46 @@ fn find_process_by_sid_and_name(
 		}
 		found = Some(process);
 	}
-	found.expect("Should have found the expected process")
+	found
 }
 
 // Run these tests in their own processes with rusty-fork. They work by each creating a new session,
-// then doing something with the child process that matches the session ID and expected process
-// name.
+// then finding the child process that matches the session ID and expected process name and doing
+// something with that child.
 rusty_fork_test! {
+	// All created subprocesses for jobs should get cleaned up, to avoid memory leaks.
+	#[test]
+	fn job_processes_get_cleaned_up() {
+		let rt  = tokio::runtime::Runtime::new().unwrap();
+		rt.block_on(async {
+			let host = TestHost::new().await;
+
+			// Create a new session and get the session ID.
+			let sid = unsafe { libc::setsid() };
+			assert!(sid > 0);
+
+			let parent_head = HeadData { number: 0, parent_hash: [0; 32], post_state: hash_state(0) };
+			let block_data = BlockData { state: 0, add: 512 };
+			host
+				.validate_candidate(
+					adder::wasm_binary_unwrap(),
+					ValidationParams {
+						parent_head: GenericHeadData(parent_head.encode()),
+						block_data: GenericBlockData(block_data.encode()),
+						relay_parent_number: 1,
+						relay_parent_storage_root: Default::default(),
+					},
+					Default::default(),
+				)
+				.await
+				.unwrap();
+
+			// Pass `is_direct_child: false` to target the job processes.
+			assert!(find_process_by_sid_and_name(sid, PREPARE_PROCESS_NAME, false).is_none());
+			assert!(find_process_by_sid_and_name(sid, EXECUTE_PROCESS_NAME, false).is_none());
+		})
+	}
+
 	// What happens when the prepare worker (not the job) times out?
 	#[test]
 	fn prepare_worker_timeout() {
@@ -137,7 +176,7 @@ rusty_fork_test! {
 				host.validate_candidate(
 					binary,
 					ValidationParams {
-						block_data: BlockData(Vec::new()),
+						block_data: GenericBlockData(Vec::new()),
 						parent_head: Default::default(),
 						relay_parent_number: 1,
 						relay_parent_storage_root: Default::default(),
@@ -203,7 +242,7 @@ rusty_fork_test! {
 				host.validate_candidate(
 					binary,
 					ValidationParams {
-						block_data: BlockData(Vec::new()),
+						block_data: GenericBlockData(Vec::new()),
 						parent_head: Default::default(),
 						relay_parent_number: 1,
 						relay_parent_storage_root: Default::default(),
@@ -273,7 +312,7 @@ rusty_fork_test! {
 				host.validate_candidate(
 					binary,
 					ValidationParams {
-						block_data: BlockData(Vec::new()),
+						block_data: GenericBlockData(Vec::new()),
 						parent_head: Default::default(),
 						relay_parent_number: 1,
 						relay_parent_storage_root: Default::default(),
@@ -355,7 +394,7 @@ rusty_fork_test! {
 				host.validate_candidate(
 					binary,
 					ValidationParams {
-						block_data: BlockData(Vec::new()),
+						block_data: GenericBlockData(Vec::new()),
 						parent_head: Default::default(),
 						relay_parent_number: 1,
 						relay_parent_storage_root: Default::default(),
