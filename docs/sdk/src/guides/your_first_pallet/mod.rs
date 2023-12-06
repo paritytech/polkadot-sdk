@@ -50,7 +50,7 @@
 //! One should be a mapping from account-ids to a balance type, and one value that is the total
 //! issuance.
 //!
-//! > For the rest of this guide, we will opt for a balance type of u128. For the sake of
+//! > For the rest of this guide, we will opt for a balance type of `u128`. For the sake of
 //! > simplicity, we are hardcoding this type. In a real pallet is best practice to define it as a
 //! > generic bounded type in the `Config` trait, and then specify it in the implementation.
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", Balance)]
@@ -161,7 +161,7 @@
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", first_test)]
 //!
 //! In the first test, we simply assert that there is no total issuance, and no balance associated
-//! with ALICE's account. Then, we mint some balance into ALICE's, and re-check.
+//! with Alice's account. Then, we mint some balance into Alice's, and re-check.
 //!
 //! As noted above, the `T::AccountId` is now `u64`. Moreover, `Runtime` is replacing `<T: Config>`.
 //! This is why for example you see `Balances::<Runtime>::get(..)`. Finally, notice that the
@@ -514,11 +514,11 @@ pub mod pallet {
 		#[test]
 		fn first_test() {
 			TestState::new_empty().execute_with(|| {
-				// We expect ALICE's account to have no funds.
+				// We expect Alice's account to have no funds.
 				assert_eq!(Balances::<Runtime>::get(&ALICE), None);
 				assert_eq!(TotalIssuance::<Runtime>::get(), None);
 
-				// mint some funds into ALICE's
+				// mint some funds into Alice's account.
 				assert_ok!(Pallet::<Runtime>::mint_unsafe(
 					RuntimeOrigin::signed(ALICE),
 					ALICE,
