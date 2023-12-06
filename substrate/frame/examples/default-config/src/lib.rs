@@ -47,7 +47,7 @@ pub mod pallet {
 		#[pallet::no_default] // optional. `RuntimeEvent` is automatically excluded as well.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		/// The overarching task type. 
+		/// The overarching task type.
 		#[pallet::no_default]
 		type RuntimeTask: Task;
 

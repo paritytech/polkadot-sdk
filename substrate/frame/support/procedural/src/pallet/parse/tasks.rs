@@ -156,7 +156,7 @@ pub struct TaskEnumDef {
 impl syn::parse::Parse for TaskEnumDef {
 	fn parse(input: ParseStream) -> Result<Self> {
 		let mut item_enum = input.parse::<ItemEnum>()?;
-		let attr = extract_pallet_attr(&mut item_enum)?;	
+		let attr = extract_pallet_attr(&mut item_enum)?;
 		let attr = match attr {
 			Some(attr) => Some(parse2(attr)?),
 			None => None,
@@ -524,10 +524,7 @@ fn extract_pallet_attr(item_enum: &mut ItemEnum) -> Result<Option<TokenStream2>>
 		.cloned()
 		.collect();
 	if let Some(span) = duplicate {
-		return Err(Error::new(
-			span,
-			"only one `#[pallet::_]` attribute is supported on this item",
-		))
+		return Err(Error::new(span, "only one `#[pallet::_]` attribute is supported on this item"))
 	}
 	Ok(attr)
 }
@@ -570,7 +567,10 @@ fn test_parse_task_list_() {
 		parse2::<TaskAttr>(quote!(#[pallet::task_list()])),
 		"expected an expression"
 	);
-	assert_parse_error_matches!(parse2::<TaskAttr>(quote!(#[pallet::task_list])), "expected parentheses");
+	assert_parse_error_matches!(
+		parse2::<TaskAttr>(quote!(#[pallet::task_list])),
+		"expected parentheses"
+	);
 }
 
 #[test]
@@ -603,9 +603,18 @@ fn test_parse_task_condition() {
 #[test]
 fn test_parse_tasks_attr() {
 	parse2::<PalletTasksAttr>(quote!(#[pallet::tasks])).unwrap();
-	assert_parse_error_matches!(parse2::<PalletTasksAttr>(quote!(#[pallet::taskss])), "expected `tasks`");
-	assert_parse_error_matches!(parse2::<PalletTasksAttr>(quote!(#[pallet::tasks_])), "expected `tasks`");
-	assert_parse_error_matches!(parse2::<PalletTasksAttr>(quote!(#[pal::tasks])), "expected `pallet`");
+	assert_parse_error_matches!(
+		parse2::<PalletTasksAttr>(quote!(#[pallet::taskss])),
+		"expected `tasks`"
+	);
+	assert_parse_error_matches!(
+		parse2::<PalletTasksAttr>(quote!(#[pallet::tasks_])),
+		"expected `tasks`"
+	);
+	assert_parse_error_matches!(
+		parse2::<PalletTasksAttr>(quote!(#[pal::tasks])),
+		"expected `pallet`"
+	);
 	assert_parse_error_matches!(
 		parse2::<PalletTasksAttr>(quote!(#[pallet::tasks()])),
 		"unexpected token"

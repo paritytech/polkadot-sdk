@@ -68,7 +68,8 @@ macro_rules! assert_parse_error_matches {
 			Ok(_) => panic!("Expected an `Error(..)`, but got Ok(..)"),
 			Err(e) => {
 				let error_message = e.to_string();
-				let re = $crate::pallet::parse::tests::__private::regex::Regex::new($reg).expect("Invalid regex pattern");
+				let re = $crate::pallet::parse::tests::__private::regex::Regex::new($reg)
+					.expect("Invalid regex pattern");
 				assert!(
 					re.is_match(&error_message),
 					"Error message \"{}\" does not match the pattern \"{}\"",

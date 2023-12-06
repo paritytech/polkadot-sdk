@@ -37,24 +37,24 @@ impl TaskEnumDef {
 	) -> Self {
 		let variants = if tasks.tasks_attr.is_some() {
 			tasks
-			.tasks
-			.iter()
-			.map(|task| {
-				let ident = &task.item.sig.ident;
-				let ident =
-					format_ident!("{}", ident.to_string().to_class_case(), span = ident.span());
+				.tasks
+				.iter()
+				.map(|task| {
+					let ident = &task.item.sig.ident;
+					let ident =
+						format_ident!("{}", ident.to_string().to_class_case(), span = ident.span());
 
-				let args = task.item.sig.inputs.iter().collect::<Vec<_>>();
+					let args = task.item.sig.inputs.iter().collect::<Vec<_>>();
 
-				if args.is_empty() {
-					quote!(#ident)
-				} else {
-					quote!(#ident {
-						#(#args),*
-					})
-				}
-			})
-			.collect::<Vec<_>>()
+					if args.is_empty() {
+						quote!(#ident)
+					} else {
+						quote!(#ident {
+							#(#args),*
+						})
+					}
+				})
+				.collect::<Vec<_>>()
 		} else {
 			Vec::new()
 		};
