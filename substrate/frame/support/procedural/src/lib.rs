@@ -412,13 +412,17 @@ pub fn require_transactional(attr: TokenStream, input: TokenStream) -> TokenStre
 		.unwrap_or_else(|e| e.to_compile_error().into())
 }
 
-/// Derive [`Clone`] but do not bound any generic. Docs are at `frame_support::CloneNoBound`.
+/// Derive [`Clone`] but do not bound any generic.
+///
+/// Docs at [`frame_support::CloneNoBound`](../../frame_support/derive.CloneNoBound.html).
 #[proc_macro_derive(CloneNoBound)]
 pub fn derive_clone_no_bound(input: TokenStream) -> TokenStream {
 	no_bound::clone::derive_clone_no_bound(input)
 }
 
-/// Derive [`Debug`] but do not bound any generics. Docs are at `frame_support::DebugNoBound`.
+/// Derive [`Debug`] but do not bound any generics.
+///
+/// Docs at [`frame_support::DebugNoBound`](../../frame_support/derive.DebugNoBound.html).
 #[proc_macro_derive(DebugNoBound)]
 pub fn derive_debug_no_bound(input: TokenStream) -> TokenStream {
 	no_bound::debug::derive_debug_no_bound(input)
@@ -453,14 +457,17 @@ pub fn derive_runtime_debug_no_bound(input: TokenStream) -> TokenStream {
 	}
 }
 
-/// Derive [`PartialEq`] but do not bound any generic. Docs are at
-/// `frame_support::PartialEqNoBound`.
+/// Derive [`PartialEq`] but do not bound any generic.
+///
+/// Docs at [`frame_support::PartialEqNoBound`](../../frame_support/derive.PartialEqNoBound.html).
 #[proc_macro_derive(PartialEqNoBound)]
 pub fn derive_partial_eq_no_bound(input: TokenStream) -> TokenStream {
 	no_bound::partial_eq::derive_partial_eq_no_bound(input)
 }
 
-/// derive Eq but do no bound any generic. Docs are at `frame_support::EqNoBound`.
+/// DeriveEq but do no bound any generic.
+///
+/// Docs at [`frame_support::EqNoBound`](../../frame_support/derive.EqNoBound.html).
 #[proc_macro_derive(EqNoBound)]
 pub fn derive_eq_no_bound(input: TokenStream) -> TokenStream {
 	let input: syn::DeriveInput = match syn::parse(input) {
@@ -480,6 +487,8 @@ pub fn derive_eq_no_bound(input: TokenStream) -> TokenStream {
 }
 
 /// derive `Default` but do no bound any generic. Docs are at `frame_support::DefaultNoBound`.
+///
+/// Docs at [`frame_support::DefaultNoBound`](../../frame_support/derive.PartialEqNoBound.html).
 #[proc_macro_derive(DefaultNoBound, attributes(default))]
 pub fn derive_default_no_bound(input: TokenStream) -> TokenStream {
 	no_bound::default::derive_default_no_bound(input)
@@ -979,21 +988,15 @@ pub fn config(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
-/// ---
-///
-/// **Rust-Analyzer users**: See the documentation of the Rust item in
-/// `frame_support::pallet_macros::constant`.
+/// Documentation for this item can be found at
+/// [`frame_support::pallet_macros::constant`](../../frame_support/pallet_macros/attr.constant.html).
 #[proc_macro_attribute]
 pub fn constant(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
-/// ---
-///
-/// **Rust-Analyzer users**: See the documentation of the Rust item in
-/// `frame_support::pallet_macros::constant_name`.
+/// Documentation for this item can be found at
+/// [`frame_support::pallet_macros::constant_name`](../../frame_support/pallet_macros/attr.constant_name.html).
 #[proc_macro_attribute]
 pub fn constant_name(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1097,20 +1100,14 @@ pub fn weight(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
-/// ---
-///
-/// **Rust-Analyzer users**: See the documentation of the Rust item in
-/// [`frame_support::pallet_macros::call`](../../frame_support/pallet_macros/attr.call.html).
+/// Documentation for this item can be found at
+/// [`frame_support::pallet_macros::compact`](../../frame_support/pallet_macros/attr.compact.html).
 #[proc_macro_attribute]
 pub fn compact(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
-/// ---
-///
-/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// Documentation for this item can be found at
 /// [`frame_support::pallet_macros::call`](../../frame_support/pallet_macros/attr.call.html).
 #[proc_macro_attribute]
 pub fn call(_: TokenStream, _: TokenStream) -> TokenStream {
@@ -1122,8 +1119,8 @@ pub fn call(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
-/// **Rust-Analyzer users**: See the documentation of the Rust item in
-/// [`frame_support::pallet_macros::call`](../../frame_support/pallet_macros/attr.call.html).
+/// Documentation for this item can be found at
+/// [`frame_support::pallet_macros::call_index`](../../frame_support/pallet_macros/attr.call_index.html).
 #[proc_macro_attribute]
 pub fn call_index(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1285,11 +1282,8 @@ pub fn generate_deposit(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
-/// ---
-///
-/// **Rust-Analyzer users**: See the documentation of the Rust item in
-/// `frame_support::pallet_macros::storage`.
+/// Documentation for this item can be found at
+/// [`frame_support::pallet_macros::storage`](../../frame_support/pallet_macros/attr.storage.html).
 #[proc_macro_attribute]
 pub fn storage(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1392,21 +1386,15 @@ pub fn type_value(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
-/// ---
-///
-/// **Rust-Analyzer users**: See the documentation of the Rust item in
-/// `frame_support::pallet_macros::genesis_config`.
+/// Documentation for this item can be found at
+/// [`frame_support::pallet_macros::genesis_config`](../../frame_support/pallet_macros/attr.genesis_config.html).
 #[proc_macro_attribute]
 pub fn genesis_config(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-///
-/// ---
-///
-/// **Rust-Analyzer users**: See the documentation of the Rust item in
-/// `frame_support::pallet_macros::genesis_build`.
+/// Documentation for this item can be found at
+/// [`frame_support::pallet_macros::genesis_build`](../../frame_support/pallet_macros/attr.genesis_build.html).
 #[proc_macro_attribute]
 pub fn genesis_build(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
