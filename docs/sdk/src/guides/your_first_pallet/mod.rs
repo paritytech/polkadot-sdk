@@ -236,7 +236,8 @@
 //!   by one character. FRAME errors are exactly a solution to maintain readability, whilst fixing
 //!   the drawbacks mentioned. In short, we use an enum to represent different variants of our
 //!   error. These variants are then mapped in an efficient way (using only `u8` indices) to
-//!   [`sp_runtime::DispatchError::Module`] Read more about this in [`frame::pallet_macros::error`].
+//!   [`sp_runtime::DispatchError::Module`]. Read more about this in
+//!   [`frame::pallet_macros::error`].
 //!
 //! - **Event**: Events are akin to the return type of dispatchables. They are mostly data blobs
 //!   emitted by the runtime to let outside world know what is happening inside the pallet. Since
