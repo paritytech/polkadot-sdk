@@ -133,12 +133,18 @@ pub struct ApprovalsOptions {
 	#[clap(short, long, default_value_t = 1)]
 	/// Min candidates to be signed in a single approval.
 	pub min_coalesce: u32,
-	#[clap(short, long, default_value_t = 89)]
+	#[clap(short, long, default_value_t = 1)]
 	/// Max candidate to be signed in a single approval.
 	pub max_coalesce: u32,
 	#[clap(short, long, default_value_t = false)]
 	/// Enable assignments v2.
 	pub enable_assignments_v2: bool,
+	#[clap(short, long, default_value_t = 89)]
+	/// Send messages till tranche
+	pub send_till_tranche: u32,
+	#[clap(short, long, default_value_t = true)]
+	/// Sends messages only till block is approved.
+	pub stop_when_approved: bool,
 }
 
 /// Information about a block. It is part of test state and it is used by the mock
@@ -546,7 +552,10 @@ impl PeerMessagesGenerator {
 							let message = message_to_send.next().unwrap();
 
 							let block_info = self.state.get_info_by_hash(message.block_hash);
-							if !block_info.approved.load(std::sync::atomic::Ordering::SeqCst) {
+							if !block_info.approved.load(std::sync::atomic::Ordering::SeqCst) ||
+								(!self.options.stop_when_approved &&
+									message.tranche <= self.options.send_till_tranche)
+							{
 								for (peer, messages) in message.split_by_peer_id() {
 									for message in messages {
 										let latency = message.get_latency();
