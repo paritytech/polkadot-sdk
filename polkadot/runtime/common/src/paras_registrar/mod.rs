@@ -43,7 +43,6 @@ use sp_runtime::{
 	traits::{CheckedSub, Saturating},
 	DispatchError, RuntimeDebug, TokenError,
 };
-use xcm_executor::traits::ConvertLocation;
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, TypeInfo)]
 pub struct ParaInfo<Account, Balance> {
@@ -160,11 +159,6 @@ pub mod pallet {
 		/// This is used to discourage spamming parachain upgrades.
 		#[pallet::constant]
 		type UpgradeFee: Get<BalanceOf<Self>>;
-
-		/// Type used to get the sovereign account of a parachain.  
-		///
-		/// This is used to enable reserving or refunding deposit from parachains.
-		type SovereignAccountOf: ConvertLocation<Self::AccountId>;
 
 		/// Weight Information for the Extrinsics in the Pallet
 		type WeightInfo: WeightInfo;
@@ -802,10 +796,8 @@ impl<T: Config> Pallet<T> {
 			// code to an empty blob. In such a case, the pre-checking process would fail, so
 			// the old code would remain on-chain even though there is no deposit to cover it.
 
-			deposit_info.pending_refund = Some((
-				deposit_info.depositor.clone(),
-				current_deposit.saturating_sub(new_deposit),
-			));
+			deposit_info.pending_refund =
+				Some((deposit_info.depositor.clone(), current_deposit.saturating_sub(new_deposit)));
 			Deposits::<T>::insert(para, deposit_info);
 		}
 
@@ -909,7 +901,6 @@ mod tests {
 		BuildStorage, Perbill,
 	};
 	use sp_std::collections::btree_map::BTreeMap;
-	use xcm::opaque::lts::NetworkId;
 
 	type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 	type Block = frame_system::mocking::MockBlockU32<Test>;
@@ -1019,7 +1010,6 @@ mod tests {
 		pub const DataDepositPerByte: Balance = 1;
 		pub const MaxRetries: u32 = 3;
 		pub const UpgradeFee: Balance = 2;
-		pub const RelayNetwork: NetworkId = NetworkId::Kusama;
 	}
 
 	impl Config for Test {
@@ -1030,7 +1020,6 @@ mod tests {
 		type ParaDeposit = ParaDeposit;
 		type DataDepositPerByte = DataDepositPerByte;
 		type UpgradeFee = UpgradeFee;
-		type SovereignAccountOf = ();
 		type WeightInfo = TestWeightInfo;
 	}
 
