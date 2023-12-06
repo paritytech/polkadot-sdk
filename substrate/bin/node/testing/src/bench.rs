@@ -44,6 +44,7 @@ use sc_client_api::{execution_extensions::ExecutionExtensions, UsageProvider};
 use sc_client_db::PruningMode;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, ImportResult, ImportedAux};
 use sc_executor::{WasmExecutionMethod, WasmtimeInstantiationStrategy};
+use sp_api::RuntimeInstance;
 use sp_block_builder::BlockBuilder;
 use sp_consensus::BlockOrigin;
 use sp_core::{blake2_256, ed25519, sr25519, traits::SpawnNamed, Pair, Public};
@@ -430,9 +431,11 @@ impl BenchDb {
 			.put_data(sp_timestamp::INHERENT_IDENTIFIER, &timestamp)
 			.expect("Put timestamp failed");
 
-		client
-			.runtime_api()
-			.inherent_extrinsics(client.chain_info().genesis_hash, inherent_data)
+		let mut runtime_api = RuntimeInstance::builder(client, client.chain_info().genesis_hash)
+			.off_chain_context()
+			.build();
+
+		BlockBuilder::<Block>::inherent_extrinsics(&mut runtime_api, inherent_data)
 			.expect("Get inherents failed")
 	}
 

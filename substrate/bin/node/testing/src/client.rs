@@ -33,7 +33,6 @@ pub type Client = client::Client<
 	Backend,
 	client::LocalCallExecutor<node_primitives::Block, Backend, RuntimeExecutor>,
 	node_primitives::Block,
-	kitchensink_runtime::RuntimeApi,
 >;
 
 /// Genesis configuration parameters for `TestClient`.

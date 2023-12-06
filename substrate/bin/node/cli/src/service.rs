@@ -25,8 +25,7 @@ use codec::Encode;
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 use frame_system_rpc_runtime_api::AccountNonceApi;
 use futures::prelude::*;
-use kitchensink_runtime::RuntimeApi;
-use node_primitives::Block;
+use node_primitives::{AccountId, Block, Nonce};
 use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_babe::{self, SlotProportion};
 use sc_network::{event::Event, NetworkEventStream, NetworkService};
@@ -35,6 +34,7 @@ use sc_service::{config::Configuration, error::Error as ServiceError, RpcHandler
 use sc_statement_store::Store as StatementStore;
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
+use sp_api::RuntimeInstance;
 use sp_core::crypto::Pair;
 use sp_runtime::{generic, traits::Block as BlockT, SaturatedConversion};
 use std::sync::Arc;
@@ -57,7 +57,7 @@ pub type HostFunctions = (
 pub type RuntimeExecutor = sc_executor::WasmExecutor<HostFunctions>;
 
 /// The full client type definition.
-pub type FullClient = sc_service::TFullClient<Block, RuntimeApi, RuntimeExecutor>;
+pub type FullClient = sc_service::TFullClient<Block, RuntimeExecutor>;
 type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 type FullGrandpaBlockImport =
@@ -75,9 +75,9 @@ const GRANDPA_JUSTIFICATION_PERIOD: u32 = 512;
 /// Note: Should only be used for tests.
 pub fn fetch_nonce(client: &FullClient, account: sp_core::sr25519::Pair) -> u32 {
 	let best_hash = client.chain_info().best_hash;
-	client
-		.runtime_api()
-		.account_nonce(best_hash, account.public().into())
+	let mut runtime_api = RuntimeInstance::builder(client, best_hash).off_chain_context().build();
+
+	AccountNonceApi::<AccountId, Nonce>::account_nonce(&mut runtime_api, account.public().into())
 		.expect("Fetching account nonce works; qed")
 }
 
@@ -189,12 +189,11 @@ pub fn new_partial(
 
 	let executor = sc_service::new_wasm_executor(&config);
 
-	let (client, backend, keystore_container, task_manager) =
-		sc_service::new_full_parts::<Block, RuntimeApi, _>(
-			config,
-			telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
-			executor,
-		)?;
+	let (client, backend, keystore_container, task_manager) = sc_service::new_full_parts::<Block, _>(
+		config,
+		telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
+		executor,
+	)?;
 	let client = Arc::new(client);
 
 	let telemetry = telemetry.map(|(worker, telemetry)| {
@@ -257,6 +256,7 @@ pub fn new_partial(
 	let statement_store = sc_statement_store::Store::new_shared(
 		&config.data_path,
 		Default::default(),
+		client.clone(),
 		client.clone(),
 		keystore_container.local_keystore(),
 		config.prometheus_registry(),

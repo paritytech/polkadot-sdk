@@ -22,7 +22,7 @@ use cumulus_client_cli::CollatorOptions;
 use cumulus_client_consensus_common::ParachainConsensus;
 use cumulus_client_network::{AssumeSybilResistance, RequireSecondedInBlockAnnounce};
 use cumulus_client_pov_recovery::{PoVRecovery, RecoveryDelayRange, RecoveryHandle};
-use cumulus_primitives_core::{CollectCollationInfo, ParaId};
+use cumulus_primitives_core::ParaId;
 use cumulus_relay_chain_inprocess_interface::build_inprocess_relay_chain;
 use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
 use cumulus_relay_chain_minimal_node::{
@@ -46,6 +46,7 @@ use sc_network_transactions::TransactionsHandlerController;
 use sc_service::{Configuration, NetworkStarter, SpawnTaskHandle, TaskManager, WarpSyncParams};
 use sc_telemetry::{log, TelemetryWorkerHandle};
 use sc_utils::mpsc::TracingUnboundedSender;
+use sp_api::CallApiAt;
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_core::{traits::SpawnNamed, Decode};
 use sp_runtime::traits::{Block as BlockT, BlockIdTo, Header};
@@ -147,6 +148,7 @@ where
 		+ Sync
 		+ BlockBackend<Block>
 		+ BlockchainEvents<Block>
+		+ CallApiAt<Block>
 		+ 'static,
 	for<'b> &'b Client: BlockImport<Block>,
 	Spawner: SpawnNamed + Clone + Send + Sync + 'static,
@@ -392,6 +394,7 @@ pub struct BuildNetworkParams<
 		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
 		+ HeaderBackend<Block>
 		+ BlockIdTo<Block>
+		+ CallApiAt<Block>
 		+ 'static,
 	RCInterface,
 	IQ,
@@ -439,6 +442,7 @@ where
 		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
 		+ BlockIdTo<Block, Error = sp_blockchain::Error>
 		+ ProofProvider<Block>
+		+ CallApiAt<Block>
 		+ 'static,
 	for<'b> &'b Client: BlockImport<Block>,
 	RCInterface: RelayChainInterface + Clone + 'static,

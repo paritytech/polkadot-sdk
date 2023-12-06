@@ -127,8 +127,7 @@ where
 		PF::Proposer: Proposer<
 			B,
 			Error = Error,
-			ProofRecording = EnableProofRecording,
-			Proof = <EnableProofRecording as ProofRecording>::Proof,
+			ProofRecording = EnableProofRecording<B>,
 		>,
 		Error: std::error::Error + Send + From<sp_consensus::Error> + 'static,
 		P: Pair + 'static,
@@ -197,7 +196,7 @@ where
 	CIDP: CreateInherentDataProviders<B, (PHash, PersistedValidationData)> + Send + Sync + 'static,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send,
 	W: SimpleSlotWorker<B> + Send + Sync,
-	W::Proposer: Proposer<B, Proof = <EnableProofRecording as ProofRecording>::Proof>,
+	W::Proposer: Proposer<B>,
 {
 	async fn produce_candidate(
 		&mut self,

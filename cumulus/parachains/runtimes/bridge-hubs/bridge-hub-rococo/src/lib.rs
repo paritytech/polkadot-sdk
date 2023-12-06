@@ -559,7 +559,7 @@ mod benches {
 }
 
 impl_runtime_apis! {
-	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
+	impl sp_consensus_aura::AuraApi<AuraId> for Runtime {
 		fn slot_duration() -> sp_consensus_aura::SlotDuration {
 			sp_consensus_aura::SlotDuration::from_millis(Aura::slot_duration())
 		}
@@ -583,7 +583,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl sp_api::Metadata<Block> for Runtime {
+	impl sp_api::Metadata for Runtime {
 		fn metadata() -> OpaqueMetadata {
 			OpaqueMetadata::new(Runtime::metadata().into())
 		}
@@ -634,7 +634,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl sp_session::SessionKeys<Block> for Runtime {
+	impl sp_session::SessionKeys for Runtime {
 		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
 			SessionKeys::generate(seed)
 		}
@@ -646,7 +646,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce> for Runtime {
+	impl frame_system_rpc_runtime_api::AccountNonceApi<AccountId, Nonce> for Runtime {
 		fn account_nonce(account: AccountId) -> Nonce {
 			System::account_nonce(account)
 		}
@@ -673,7 +673,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentCallApi<Block, Balance, RuntimeCall>
+	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentCallApi<Balance, RuntimeCall>
 		for Runtime
 	{
 		fn query_call_info(
@@ -702,7 +702,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl bp_westend::WestendFinalityApi<Block> for Runtime {
+	impl bp_westend::WestendFinalityApi for Runtime {
 		fn best_finalized() -> Option<HeaderId<bp_westend::Hash, bp_westend::BlockNumber>> {
 			BridgeWestendGrandpa::best_finalized()
 		}
@@ -712,7 +712,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl bp_bridge_hub_westend::BridgeHubWestendFinalityApi<Block> for Runtime {
+	impl bp_bridge_hub_westend::BridgeHubWestendFinalityApi for Runtime {
 		fn best_finalized() -> Option<HeaderId<Hash, BlockNumber>> {
 			BridgeWestendParachains::best_parachain_head_id::<
 				bp_bridge_hub_westend::BridgeHubWestend
@@ -721,7 +721,7 @@ impl_runtime_apis! {
 	}
 
 	// This is exposed by BridgeHubRococo
-	impl bp_bridge_hub_westend::FromBridgeHubWestendInboundLaneApi<Block> for Runtime {
+	impl bp_bridge_hub_westend::FromBridgeHubWestendInboundLaneApi for Runtime {
 		fn message_details(
 			lane: bp_messages::LaneId,
 			messages: Vec<(bp_messages::MessagePayload, bp_messages::OutboundMessageDetails)>,
@@ -734,7 +734,7 @@ impl_runtime_apis! {
 	}
 
 	// This is exposed by BridgeHubRococo
-	impl bp_bridge_hub_westend::ToBridgeHubWestendOutboundLaneApi<Block> for Runtime {
+	impl bp_bridge_hub_westend::ToBridgeHubWestendOutboundLaneApi for Runtime {
 		fn message_details(
 			lane: bp_messages::LaneId,
 			begin: bp_messages::MessageNonce,
@@ -767,7 +767,7 @@ impl_runtime_apis! {
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	impl frame_benchmarking::Benchmark<Block> for Runtime {
+	impl frame_benchmarking::Benchmark for Runtime {
 		fn benchmark_metadata(extra: bool) -> (
 			Vec<frame_benchmarking::BenchmarkList>,
 			Vec<frame_support::traits::StorageInfo>,
@@ -1074,7 +1074,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
+	impl sp_genesis_builder::GenesisBuilder for Runtime {
 		fn create_default_config() -> Vec<u8> {
 			create_default_config::<RuntimeGenesisConfig>()
 		}

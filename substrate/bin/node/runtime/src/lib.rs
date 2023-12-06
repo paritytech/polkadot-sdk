@@ -2598,7 +2598,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentCallApi<Block, Balance, RuntimeCall>
+	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentCallApi<Balance, RuntimeCall>
 		for Runtime
 	{
 		fn query_call_info(call: RuntimeCall, len: u32) -> RuntimeDispatchInfo<Balance> {
@@ -2708,7 +2708,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl sp_mixnet::runtime_api::MixnetApi<Block> for Runtime {
+	impl sp_mixnet::runtime_api::MixnetApi for Runtime {
 		fn session_status() -> sp_mixnet::types::SessionStatus {
 			Mixnet::session_status()
 		}

@@ -38,6 +38,7 @@ use polkadot_primitives::{CollatorPair, Id as ParaId};
 use futures::{channel::mpsc::Receiver, prelude::*};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 use sc_consensus::BlockImport;
+use sp_api::CallApiAt;
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::SyncOracle;
@@ -94,15 +95,14 @@ pub fn run<Block, P, BI, CIDP, Client, RClient, SO, Proposer, CS>(
 ) -> impl Future<Output = ()> + Send + 'static
 where
 	Block: BlockT + Send,
-	Client:
-		+ BlockOf
+	Client: BlockOf
 		+ AuxStore
 		+ HeaderBackend<Block>
 		+ BlockBackend<Block>
 		+ Send
 		+ Sync
+		+ CallApiAt<Block>
 		+ 'static,
-	Client::Api: AuraApi<Block, P::Public> + CollectCollationInfo<Block>,
 	RClient: RelayChainInterface + Send + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + Send + 'static,
 	CIDP::InherentDataProviders: Send,

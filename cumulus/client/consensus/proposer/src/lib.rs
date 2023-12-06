@@ -98,7 +98,7 @@ where
 	B: sp_runtime::traits::Block,
 	T: Environment<B> + Send,
 	T::Error: Send + Sync + 'static,
-	T::Proposer: SubstrateProposer<B, ProofRecording = EnableProofRecording, Proof = StorageProof>,
+	T::Proposer: SubstrateProposer<B, ProofRecording = EnableProofRecording<B>>,
 	<T::Proposer as SubstrateProposer<B>>::Error: Send + Sync + 'static,
 {
 	async fn propose(

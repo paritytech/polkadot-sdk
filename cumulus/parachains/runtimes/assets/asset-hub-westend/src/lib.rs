@@ -1085,7 +1085,7 @@ mod benches {
 }
 
 impl_runtime_apis! {
-	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
+	impl sp_consensus_aura::AuraApi<AuraId> for Runtime {
 		fn slot_duration() -> sp_consensus_aura::SlotDuration {
 			sp_consensus_aura::SlotDuration::from_millis(Aura::slot_duration())
 		}
@@ -1109,7 +1109,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl sp_api::Metadata<Block> for Runtime {
+	impl sp_api::Metadata for Runtime {
 		fn metadata() -> OpaqueMetadata {
 			OpaqueMetadata::new(Runtime::metadata().into())
 		}
@@ -1160,7 +1160,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl sp_session::SessionKeys<Block> for Runtime {
+	impl sp_session::SessionKeys for Runtime {
 		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
 			SessionKeys::generate(seed)
 		}
@@ -1172,13 +1172,13 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce> for Runtime {
+	impl frame_system_rpc_runtime_api::AccountNonceApi<AccountId, Nonce> for Runtime {
 		fn account_nonce(account: AccountId) -> Nonce {
 			System::account_nonce(account)
 		}
 	}
 
-	impl pallet_nfts_runtime_api::NftsApi<Block, AccountId, u32, u32> for Runtime {
+	impl pallet_nfts_runtime_api::NftsApi<AccountId, u32, u32> for Runtime {
 		fn owner(collection: u32, item: u32) -> Option<AccountId> {
 			<Nfts as Inspect<AccountId>>::owner(&collection, &item)
 		}
@@ -1223,7 +1223,6 @@ impl_runtime_apis! {
 	}
 
 	impl pallet_asset_conversion::AssetConversionApi<
-		Block,
 		Balance,
 		u128,
 		Box<MultiLocation>,
@@ -1263,7 +1262,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentCallApi<Block, Balance, RuntimeCall>
+	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentCallApi<Balance, RuntimeCall>
 		for Runtime
 	{
 		fn query_call_info(
@@ -1287,7 +1286,6 @@ impl_runtime_apis! {
 	}
 
 	impl assets_common::runtime_api::FungiblesApi<
-		Block,
 		AccountId,
 	> for Runtime
 	{
@@ -1352,7 +1350,7 @@ impl_runtime_apis! {
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	impl frame_benchmarking::Benchmark<Block> for Runtime {
+	impl frame_benchmarking::Benchmark for Runtime {
 		fn benchmark_metadata(extra: bool) -> (
 			Vec<frame_benchmarking::BenchmarkList>,
 			Vec<frame_support::traits::StorageInfo>,
@@ -1619,7 +1617,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
+	impl sp_genesis_builder::GenesisBuilder for Runtime {
 		fn create_default_config() -> Vec<u8> {
 			create_default_config::<RuntimeGenesisConfig>()
 		}

@@ -44,7 +44,7 @@ use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, StateActi
 use sc_consensus_aura::standalone as aura_internal;
 use sp_application_crypto::AppPublic;
 use sp_consensus::BlockOrigin;
-use sp_consensus_aura::{AuraApi, Slot, SlotDuration};
+use sp_consensus_aura::{Slot, SlotDuration};
 use sp_core::crypto::Pair;
 use sp_inherents::{CreateInherentDataProviders, InherentData, InherentDataProvider};
 use sp_keystore::KeystorePtr;
@@ -296,7 +296,6 @@ pub async fn claim_slot<B, C, P>(
 where
 	B: BlockT,
 	C: Send + Sync + 'static,
-	C::Api: AuraApi<B, P::Public>,
 	P: Pair,
 	P::Public: Codec,
 	P::Signature: Codec,
