@@ -29,7 +29,7 @@ use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen,
 };
-use pallet_staking::RewardDestination;
+use pallet_staking::{RewardDestination, CurrentEra};
 use sp_staking::delegation::{Delegatee, Delegator, StakingDelegationSupport};
 
 pub type T = Runtime;
@@ -91,7 +91,6 @@ pallet_staking_reward_curve::build! {
 parameter_types! {
 	pub const RewardCurve: &'static sp_runtime::curve::PiecewiseLinear<'static> = &I_NPOS;
 	pub static BondingDuration: u32 = 3;
-	pub static CurrentEra: u32 = 0;
 	pub static ElectionsBoundsOnChain: ElectionBounds = ElectionBoundsBuilder::default().build();
 }
 pub struct OnChainSeqPhragmen;
@@ -229,12 +228,12 @@ impl ExtBuilder {
 }
 
 /// fund and return who.
-pub fn fund(who: &AccountId, amount: Balance) -> &AccountId {
+pub(crate) fn fund(who: &AccountId, amount: Balance) -> &AccountId {
 	let _ = Balances::deposit_creating(who, amount);
 	who
 }
 
-pub fn setup_delegation(
+pub(crate) fn setup_delegation(
 	delegatee: AccountId,
 	reward_acc: AccountId,
 	delegators: Vec<AccountId>,
@@ -267,4 +266,13 @@ pub fn setup_delegation(
 		delegate_amount * delegators.len() as Balance
 	);
 	assert_eq!(DelegatedStaking::unbonded_balance(&delegatee), 0);
+}
+
+pub(crate) fn start_era(era: sp_staking::EraIndex) {
+	CurrentEra::<T>::set(Some(era));
+}
+
+pub(crate) fn eq_stake(who: AccountId, total: Balance, active: Balance) -> bool {
+	use sp_staking::{StakingInterface, Stake};
+	Staking::stake(&who).unwrap() == Stake { total, active }
 }

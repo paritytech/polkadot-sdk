@@ -182,15 +182,49 @@ mod integration {
 	}
 
 	#[test]
-	fn partial_withdraw() {
+	fn withdraw_test() {
 		ExtBuilder::default().build_and_execute(|| {
+			// initial era
+			start_era(1);
 			let delegatee: AccountId = 200;
 			let reward_acc: AccountId = 201;
 			let delegators: Vec<AccountId> = (300..400).collect();
 			let delegate_amount: Balance = 500;
-			setup_delegation(delegatee, reward_acc, delegators, delegate_amount);
+			setup_delegation(delegatee, reward_acc, delegators.clone(), delegate_amount);
+			let expected_staked = delegate_amount * delegators.len() as Balance;
 
+			// lets go to a new era
+			start_era(2);
+
+			assert!(eq_stake(delegatee, expected_staked, expected_staked));
+			// Withdrawing without unbonding would not do anything
 			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(delegatee), 100));
+			// active and total stake remains same
+			assert!(eq_stake(delegatee, expected_staked, expected_staked));
+
+			// 200 wants to unbond 50 in era 2, withdrawable in era 5.
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(delegatee), 50));
+			// 201 wants to unbond 100 in era 3, withdrawable in era 6.
+			start_era(3);
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(delegatee), 100));
+			// 202 wants to unbond 100 in era 4, withdrawable in era 7.
+			start_era(4);
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(delegatee), 200));
+
+			// active stake is now reduced..
+			let mut expected_active = expected_staked - (50 + 100 + 200);
+			assert!(eq_stake(delegatee, expected_staked, expected_active));
+
+			// lets try withdrawing now, still should do nothing as we are at era 4.
+			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(delegatee), 50));
+			assert!(eq_stake(delegatee, expected_staked, expected_active));
+			assert_eq!(DelegatedStaking::unbonded_balance(&delegatee), 0);
+			// full amount is still delegated
+			assert_eq!(DelegatedStaking::delegated_balance(&delegatee), expected_staked);
+
+			start_era(5);
+			// at era 5, 50 tokens are withdrawable
+			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(delegatee), 50));
 		});
 	}
 
