@@ -16,9 +16,7 @@
 
 //! Contains the logic for executing PVFs. Used by the polkadot-execute-worker binary.
 
-pub use polkadot_node_core_pvf_common::{
-	executor_intf::execute_artifact, worker_dir, SecurityStatus,
-};
+pub use polkadot_node_core_pvf_common::{executor_interface::execute_artifact, worker_dir};
 
 // NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-execute-worker=trace`.
@@ -92,12 +90,13 @@ use std::{
 /// The stack size for the execute thread.
 pub const EXECUTE_THREAD_STACK_SIZE: usize = 2 * 1024 * 1024 + DEFAULT_NATIVE_STACK_MAX as usize;
 
-fn recv_handshake(stream: &mut UnixStream) -> io::Result<Handshake> {
+/// Receives a handshake with information specific to the execute worker.
+fn recv_execute_handshake(stream: &mut UnixStream) -> io::Result<Handshake> {
 	let handshake_enc = framed_recv_blocking(stream)?;
 	let handshake = Handshake::decode(&mut &handshake_enc[..]).map_err(|_| {
 		io::Error::new(
 			io::ErrorKind::Other,
-			"execute pvf recv_handshake: failed to decode Handshake".to_owned(),
+			"execute pvf recv_execute_handshake: failed to decode Handshake".to_owned(),
 		)
 	})?;
 	Ok(handshake)
@@ -139,7 +138,6 @@ pub fn worker_entrypoint(
 	worker_dir_path: PathBuf,
 	node_version: Option<&str>,
 	worker_version: Option<&str>,
-	security_status: SecurityStatus,
 ) {
 	run_worker(
 		WorkerKind::Execute,
@@ -147,12 +145,11 @@ pub fn worker_entrypoint(
 		worker_dir_path,
 		node_version,
 		worker_version,
-		&security_status,
 		|mut stream, worker_dir_path| {
 			let worker_pid = process::id();
 			let artifact_path = worker_dir::execute_artifact(&worker_dir_path);
 
-			let Handshake { executor_params } = recv_handshake(&mut stream)?;
+			let Handshake { executor_params } = recv_execute_handshake(&mut stream)?;
 
 			loop {
 				let (params, execution_timeout) = recv_request(&mut stream)?;
@@ -222,12 +219,6 @@ pub fn worker_entrypoint(
 					},
 				};
 
-				gum::trace!(
-					target: LOG_TARGET,
-					%worker_pid,
-					"worker: sending response to host: {:?}",
-					response
-				);
 				send_response(&mut stream, response)?;
 			}
 		},
@@ -242,7 +233,7 @@ fn validate_using_artifact(
 	let descriptor_bytes = match unsafe {
 		// SAFETY: this should be safe since the compiled artifact passed here comes from the
 		//         file created by the prepare workers. These files are obtained by calling
-		//         [`executor_intf::prepare`].
+		//         [`executor_interface::prepare`].
 		execute_artifact(compiled_artifact_blob, executor_params, params)
 	} {
 		Err(err) => return JobResponse::format_invalid("execute", &err),
@@ -360,7 +351,7 @@ fn handle_child_process(
 /// - The response, either `Ok` or some error state.
 fn handle_parent_process(
 	mut pipe_read: PipeReader,
-	child: Pid,
+	job_pid: Pid,
 	worker_pid: u32,
 	usage_before: Usage,
 	timeout: Duration,
@@ -373,10 +364,11 @@ fn handle_parent_process(
 		// Should retry at any rate.
 		.map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))?;
 
-	let status = nix::sys::wait::waitpid(child, None);
+	let status = nix::sys::wait::waitpid(job_pid, None);
 	gum::trace!(
 		target: LOG_TARGET,
 		%worker_pid,
+		%job_pid,
 		"execute worker received wait status from job: {:?}",
 		status,
 	);
@@ -396,6 +388,7 @@ fn handle_parent_process(
 		gum::warn!(
 			target: LOG_TARGET,
 			%worker_pid,
+			%job_pid,
 			"execute job took {}ms cpu time, exceeded execute timeout {}ms",
 			cpu_tv.as_millis(),
 			timeout.as_millis(),
@@ -428,6 +421,7 @@ fn handle_parent_process(
 					gum::warn!(
 						target: LOG_TARGET,
 						%worker_pid,
+						%job_pid,
 						"execute job error: {}",
 						job_error,
 					);
@@ -443,15 +437,18 @@ fn handle_parent_process(
 		//
 		// The job gets SIGSYS on seccomp violations, but this signal may have been sent for some
 		// other reason, so we still need to check for seccomp violations elsewhere.
-		Ok(WaitStatus::Signaled(_pid, signal, _core_dump)) =>
-			Ok(WorkerResponse::JobDied(format!("received signal: {signal:?}"))),
+		Ok(WaitStatus::Signaled(_pid, signal, _core_dump)) => Ok(WorkerResponse::JobDied {
+			err: format!("received signal: {signal:?}"),
+			job_pid: job_pid.as_raw(),
+		}),
 		Err(errno) => Ok(internal_error_from_errno("waitpid", errno)),
 
 		// It is within an attacker's power to send an unexpected exit status. So we cannot treat
 		// this as an internal error (which would make us abstain), but must vote against.
-		Ok(unexpected_wait_status) => Ok(WorkerResponse::JobDied(format!(
-			"unexpected status from wait: {unexpected_wait_status:?}"
-		))),
+		Ok(unexpected_wait_status) => Ok(WorkerResponse::JobDied {
+			err: format!("unexpected status from wait: {unexpected_wait_status:?}"),
+			job_pid: job_pid.as_raw(),
+		}),
 	}
 }
 

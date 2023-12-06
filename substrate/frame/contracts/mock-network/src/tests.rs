@@ -29,9 +29,8 @@ use frame_support::{
 	traits::{fungibles::Mutate, Currency},
 };
 use pallet_balances::{BalanceLock, Reasons};
-use pallet_contracts::{CollectEvents, DebugInfo, Determinism};
+use pallet_contracts::{Code, CollectEvents, DebugInfo, Determinism};
 use pallet_contracts_fixtures::compile_module;
-use pallet_contracts_primitives::Code;
 use xcm::{v3::prelude::*, VersionedMultiLocation, VersionedXcm};
 use xcm_simulator::TestExt;
 
