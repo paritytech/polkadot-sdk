@@ -89,6 +89,7 @@ pub trait WeightInfo {
 	fn swap() -> Weight;
 	fn schedule_code_upgrade(b: u32) -> Weight;
 	fn set_current_head(b: u32) -> Weight;
+	fn set_parachain_stash() -> Weight;
 }
 
 pub struct TestWeightInfo;
@@ -112,6 +113,9 @@ impl WeightInfo for TestWeightInfo {
 		Weight::zero()
 	}
 	fn set_current_head(_b: u32) -> Weight {
+		Weight::zero()
+	}
+	fn set_parachain_stash() -> Weight {
 		Weight::zero()
 	}
 }
@@ -480,12 +484,19 @@ pub mod pallet {
 			Ok(())
 		}
 
-		// TODO: add docs & use proper weight
-		//
+		/// Changes the stash account of a parachain.
+		///
+		/// The newly set account will be responsible for covering all associated costs related to
+		/// performing parachain validation code upgrades.
+		///
+		/// ## Deposits/Fees
+		/// For this call to be successful, the `new_stash` account must have a sufficient balance
+		/// to cover the current deposit required for this parachain.
+		///
 		/// Can be called by Root, the parachain, or the parachain manager if the parachain is
 		/// unlocked.
 		#[pallet::call_index(9)]
-		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
+		#[pallet::weight(<T as Config>::WeightInfo::set_parachain_stash())]
 		pub fn set_parachain_stash(
 			origin: OriginFor<T>,
 			para: ParaId,
@@ -503,11 +514,9 @@ pub mod pallet {
 
 			<T as Config>::Currency::reserve(&new_stash, info.deposit)?;
 
-			if new_stash != stash_info.stash {
-				// After reserving the required funds from the new stash we can now safely
-				// refund the old account.
-				<T as Config>::Currency::unreserve(&stash_info.stash, info.deposit);
-			}
+			// After reserving the required funds from the new stash we can now safely
+			// refund the old account.
+			<T as Config>::Currency::unreserve(&stash_info.stash, info.deposit);
 
 			stash_info.stash = new_stash;
 			ParaStashes::<T>::insert(para, stash_info);
@@ -1784,6 +1793,22 @@ mod benchmarking {
 			let new_head = HeadData(vec![0; b as usize]);
 			let para_id = ParaId::from(1000);
 		}: _(RawOrigin::Root, para_id, new_head)
+
+		set_parachain_stash {
+			let para = register_para::<T>(LOWEST_PUBLIC_ID.into());
+			// Actually finish registration process
+			next_scheduled_session::<T>();
+
+			let stash: T::AccountId = account("stash", 0, 0);
+			T::Currency::make_free_balance_be(&stash, BalanceOf::<T>::max_value());
+			let caller: T::AccountId = whitelisted_caller();
+		}: _(RawOrigin::Signed(caller.clone()), para, stash.clone())
+		verify {
+			assert_eq!(ParaStashes::<T>::get(para), Some(StashInfo {
+				stash,
+				pending_refund: None
+			}));
+		}
 
 		impl_benchmark_test_suite!(
 			Registrar,
