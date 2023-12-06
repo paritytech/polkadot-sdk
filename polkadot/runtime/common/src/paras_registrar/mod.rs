@@ -93,6 +93,7 @@ pub trait WeightInfo {
 	fn schedule_code_upgrade(b: u32) -> Weight;
 	fn set_current_head(b: u32) -> Weight;
 	fn set_parachain_billing_account_to_self() -> Weight;
+	fn force_set_parachain_billing_account() -> Weight;
 }
 
 pub struct TestWeightInfo;
@@ -119,6 +120,9 @@ impl WeightInfo for TestWeightInfo {
 		Weight::zero()
 	}
 	fn set_parachain_billing_account_to_self() -> Weight {
+		Weight::zero()
+	}
+	fn force_set_parachain_billing_account() -> Weight {
 		Weight::zero()
 	}
 }
@@ -535,7 +539,7 @@ pub mod pallet {
 		///
 		/// Can only be called by Root.
 		#[pallet::call_index(10)]
-		#[pallet::weight(<T as Config>::WeightInfo::set_parachain_billing_account_to_self())]
+		#[pallet::weight(<T as Config>::WeightInfo::force_set_parachain_billing_account())]
 		pub fn force_set_parachain_billing_account(
 			origin: OriginFor<T>,
 			para: ParaId,
@@ -1868,6 +1872,24 @@ mod benchmarking {
 
 			let para_origin: runtime_parachains::Origin = u32::from(LOWEST_PUBLIC_ID).into();
 		}: _(para_origin, para)
+		verify {
+			assert_eq!(ParaBillings::<T>::get(para), Some(BillingInfo {
+				billing_account: sovereign_account,
+				pending_refund: None
+			}));
+		}
+
+		force_set_parachain_billing_account {
+			let para = register_para::<T>(LOWEST_PUBLIC_ID.into(), Registrar::<T>::worst_validation_code());
+			// Actually finish registration process
+			next_scheduled_session::<T>();
+
+			let location: MultiLocation = (Parent, Parachain(LOWEST_PUBLIC_ID.into())).into();
+			let sovereign_account =
+				<T as Config>::SovereignAccountOf::convert_location(&location)
+					.unwrap();
+			T::Currency::make_free_balance_be(&sovereign_account, BalanceOf::<T>::max_value());
+		}: _(RawOrigin::Root, para, sovereign_account.clone())
 		verify {
 			assert_eq!(ParaBillings::<T>::get(para), Some(BillingInfo {
 				billing_account: sovereign_account,

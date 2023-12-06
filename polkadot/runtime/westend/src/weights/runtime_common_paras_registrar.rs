@@ -218,7 +218,21 @@ impl<T: frame_system::Config> runtime_common::paras_registrar::WeightInfo for We
 	/// Storage: Paras Heads (r:0 w:1)
 	/// Proof Skipped: Paras Heads (max_values: None, max_size: None, mode: Measured)
 	/// The range of component `b` is `[1, 1048576]`.
-	fn set_parachain_stash() -> Weight {
+	fn set_parachain_billing_account_to_self() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 8_804_000 picoseconds.
+		Weight::from_parts(8_956_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			// Standard Error: 3
+			.saturating_add(Weight::from_parts(1_029, 0))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	/// Storage: Paras Heads (r:0 w:1)
+	/// Proof Skipped: Paras Heads (max_values: None, max_size: None, mode: Measured)
+	/// The range of component `b` is `[1, 1048576]`.
+	fn force_set_parachain_billing_account() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`

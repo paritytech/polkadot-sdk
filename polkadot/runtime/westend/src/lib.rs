@@ -99,7 +99,7 @@ use xcm::{
 	latest::{InteriorMultiLocation, Junction, Junction::PalletInstance},
 	VersionedMultiLocation,
 };
-use xcm_builder::{Account32Hash, AccountId32Aliases, ChildParachainConvertsVia, PayOverXcm};
+use xcm_builder::PayOverXcm;
 
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
@@ -118,6 +118,8 @@ use westend_runtime_constants::{currency::*, fee::*, time::*};
 mod bag_thresholds;
 mod weights;
 pub mod xcm_config;
+
+use xcm_config::LocationConverter;
 
 // Implemented types.
 mod impls;
@@ -1281,12 +1283,6 @@ parameter_types! {
 	pub const RegistrarDataDepositPerByte: Balance = deposit(0, 1);
 }
 
-pub type LocationToAccountId<AccountId> = (
-	ChildParachainConvertsVia<ParaId, AccountId>,
-	AccountId32Aliases<RelayNetwork, AccountId>,
-	Account32Hash<(), AccountId>,
-);
-
 impl paras_registrar::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
@@ -1295,7 +1291,7 @@ impl paras_registrar::Config for Runtime {
 	type ParaDeposit = ParaDeposit;
 	type DataDepositPerByte = RegistrarDataDepositPerByte;
 	type UpgradeFee = UpgradeFee;
-	type SovereignAccountOf = LocationToAccountId<Self::AccountId>;
+	type SovereignAccountOf = LocationConverter;
 	type WeightInfo = weights::runtime_common_paras_registrar::WeightInfo<Runtime>;
 }
 
@@ -2334,7 +2330,7 @@ sp_api::impl_runtime_apis! {
 
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
-				type AccountIdConverter = xcm_config::LocationConverter;
+				type AccountIdConverter = LocationConverter;
 				type DeliveryHelper = runtime_common::xcm_sender::ToParachainDeliveryHelper<
 					xcm_config::XcmConfig,
 					ExistentialDepositMultiAsset,

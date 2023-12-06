@@ -52,7 +52,7 @@ use sp_runtime::{
 };
 use sp_std::sync::Arc;
 use xcm::opaque::lts::{Junction::Parachain, MultiLocation, NetworkId, Parent};
-use xcm_builder::{Account32Hash, AccountId32Aliases, ChildParachainConvertsVia};
+use xcm_builder::{DescribeAllTerminal, DescribeFamily, HashedDescription};
 use xcm_executor::traits::ConvertLocation;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -226,11 +226,7 @@ parameter_types! {
 	pub const RelayNetwork: NetworkId = NetworkId::Kusama;
 }
 
-pub type LocationToAccountId = (
-	ChildParachainConvertsVia<ParaId, AccountId32>,
-	AccountId32Aliases<RelayNetwork, AccountId32>,
-	Account32Hash<(), AccountId32>,
-);
+pub type LocationToAccountId = HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>;
 
 impl paras_registrar::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
