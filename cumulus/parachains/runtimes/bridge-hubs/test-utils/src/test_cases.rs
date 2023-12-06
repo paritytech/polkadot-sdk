@@ -302,9 +302,9 @@ pub fn message_dispatch_routing_works<
 	assert_ne!(runtime_para_id, sibling_parachain_id);
 
 	struct NetworkWithParentCount<N, C>(core::marker::PhantomData<(N, C)>);
-	impl<N: Get<NetworkId>, C: Get<u8>> Get<(NetworkId, u8)> for NetworkWithParentCount<N, C> {
-		fn get() -> (NetworkId, u8) {
-			(N::get(), C::get())
+	impl<N: Get<NetworkId>, C: Get<u8>> Get<MultiLocation> for NetworkWithParentCount<N, C> {
+		fn get() -> MultiLocation {
+			MultiLocation { parents: C::get(), interior: X1(GlobalConsensus(N::get())) }
 		}
 	}
 
@@ -1539,7 +1539,7 @@ pub mod test_data {
 	/// which are transferred over bridge.
 	pub(crate) fn simulate_message_exporter_on_bridged_chain<
 		SourceNetwork: Get<NetworkId>,
-		DestinationNetwork: Get<(NetworkId, u8)>,
+		DestinationNetwork: Get<MultiLocation>,
 	>(
 		(destination_network, destination_junctions): (NetworkId, Junctions),
 	) -> Vec<u8> {

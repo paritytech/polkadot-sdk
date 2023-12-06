@@ -57,7 +57,10 @@ parameter_types! {
 	pub BridgeRococoToWestendMessagesPalletInstance: InteriorMultiLocation = X1(PalletInstance(<BridgeWestendMessages as PalletInfoAccess>::index() as u8));
 	pub BridgeHubRococoUniversalLocation: InteriorMultiLocation = X2(GlobalConsensus(Rococo), Parachain(ParachainInfo::parachain_id().into()));
 	pub WestendGlobalConsensusNetwork: NetworkId = NetworkId::Westend;
-	pub WestendGlobalConsensusNetworkWithParentCount: (NetworkId, u8) = (WestendGlobalConsensusNetwork::get(), 2);
+	pub WestendGlobalConsensusNetworkLocation: MultiLocation = MultiLocation {
+		parents: 2,
+		interior: X1(GlobalConsensus(WestendGlobalConsensusNetwork::get()))
+	};
 	pub ActiveOutboundLanesToBridgeHubWestend: &'static [bp_messages::LaneId] = &[XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND];
 	pub const AssetHubRococoToAssetHubWestendMessagesLane: bp_messages::LaneId = XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND;
 	// see the `FEE_BOOST_PER_MESSAGE` constant to get the meaning of this value
@@ -121,7 +124,7 @@ type FromWestendMessageBlobDispatcher = BridgeBlobDispatcher<
 /// Export XCM messages to be relayed to the other side
 pub type ToBridgeHubWestendHaulBlobExporter = HaulBlobExporter<
 	XcmBlobHaulerAdapter<ToBridgeHubWestendXcmBlobHauler>,
-	WestendGlobalConsensusNetworkWithParentCount,
+	WestendGlobalConsensusNetworkLocation,
 	(),
 >;
 pub struct ToBridgeHubWestendXcmBlobHauler;

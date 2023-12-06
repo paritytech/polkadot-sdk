@@ -24,7 +24,7 @@ parameter_types! {
 	pub UniversalLocation: Junctions = X2(GlobalConsensus(Local::get()), Parachain(1000));
 	pub RelayUniversalLocation: Junctions = X1(GlobalConsensus(Local::get()));
 	pub RemoteUniversalLocation: Junctions = X1(GlobalConsensus(Remote::get()));
-	pub RemoteWithParentCount: (NetworkId, u8) = (Remote::get(), 1);
+	pub RemoteNetwork: MultiLocation = AncestorThen(1, GlobalConsensus(Remote::get())).into();
 	pub BridgeTable: Vec<NetworkExportTableItem> = vec![
 		NetworkExportTableItem::new(
 			Remote::get(),
@@ -36,7 +36,7 @@ parameter_types! {
 }
 type TheBridge =
 	TestBridge<BridgeBlobDispatcher<TestRemoteIncomingRouter, RemoteUniversalLocation, ()>>;
-type RelayExporter = HaulBlobExporter<TheBridge, RemoteWithParentCount, ()>;
+type RelayExporter = HaulBlobExporter<TheBridge, RemoteNetwork, ()>;
 type LocalInnerRouter =
 	UnpaidExecutingRouter<UniversalLocation, RelayUniversalLocation, RelayExporter>;
 type LocalBridgeRouter =

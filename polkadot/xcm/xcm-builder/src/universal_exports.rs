@@ -425,9 +425,18 @@ impl<
 pub struct HaulBlobExporter<Bridge, BridgedNetwork, Price>(
 	PhantomData<(Bridge, BridgedNetwork, Price)>,
 );
+/// `ExportXcm` implementation for `HaulBlobExporter`.
+///
+/// # Type Parameters
+///
+/// ```text
+/// - Bridge: Implements HaulBlob and GetVersion for retrieving XCM version for the destination.
+/// - BridgedNetwork: The relative location of the bridged consensus system with the expected GlobalConsensus junction.
+/// - Price: potential fees for exporting.
+/// ```
 impl<
 		Bridge: HaulBlob + GetVersion,
-		BridgedNetwork: Get<(NetworkId, u8)>,
+		BridgedNetwork: Get<MultiLocation>,
 		Price: Get<MultiAssets>,
 	> ExportXcm for HaulBlobExporter<Bridge, BridgedNetwork, Price>
 {
@@ -440,18 +449,24 @@ impl<
 		destination: &mut Option<InteriorMultiLocation>,
 		message: &mut Option<Xcm<()>>,
 	) -> Result<((Vec<u8>, XcmHash), MultiAssets), SendError> {
-		let bridged_network = BridgedNetwork::get();
-		ensure!(&network == &bridged_network.0, SendError::NotApplicable);
+		let (bridged_network, bridged_network_location_parents) = {
+			let MultiLocation { parents, interior: mut junctions } = BridgedNetwork::get();
+			match junctions.take_first() {
+				Some(GlobalConsensus(network)) => (network, parents),
+				_ => return Err(SendError::NotApplicable),
+			}
+		};
+		ensure!(&network == &bridged_network, SendError::NotApplicable);
 		// We don't/can't use the `channel` for this adapter.
 		let dest = destination.take().ok_or(SendError::MissingArgument)?;
 
 		// Let's resolve the known/supported XCM version for the destination because we don't know
 		// if it supports the same/latest version.
 		let (universal_dest, version) =
-			match dest.pushed_front_with(GlobalConsensus(bridged_network.0)) {
+			match dest.pushed_front_with(GlobalConsensus(bridged_network.clone())) {
 				Ok(d) => {
 					let version = Bridge::get_version_for(&MultiLocation::from(AncestorThen(
-						bridged_network.1,
+						bridged_network_location_parents,
 						d,
 					)))
 					.ok_or(SendError::DestinationUnsupported)?;
