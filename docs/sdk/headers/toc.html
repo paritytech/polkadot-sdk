@@ -1,15 +1,15 @@
 <script>
 	window.addEventListener("DOMContentLoaded", (event) => {
-		// if the crate is one that starts with `developer_hub`
+		// if the crate is one that starts with `polkadot_sdk_docs`
 		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
-		if (!crate_name.textContent.startsWith("developer_hub")) {
-			console.log("skipping -- not `developer_hub`");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
 			return;
 		}
 
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
-		console.log(`detected developer_hub: headers: ${headers.length}`);
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
 
 		let toc = document.createElement("div");
 		toc.classList.add("table-of-contents");
