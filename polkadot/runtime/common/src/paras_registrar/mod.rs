@@ -213,8 +213,6 @@ pub mod pallet {
 		/// Cannot perform a parachain slot / lifecycle swap. Check that the state of both paras
 		/// are correct for the swap to work.
 		CannotSwap,
-		/// Tried to set the upgrade cost payer to an invalid account.
-		InvalidUpgradeCostPayer,
 	}
 
 	/// Pending swap operations.
@@ -501,8 +499,6 @@ pub mod pallet {
 			let mut deposit_info =
 				Deposits::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
 
-			ensure!(cost_payer != deposit_info.depositor, Error::<T>::InvalidUpgradeCostPayer);
-
 			// When updating the account responsible for all code upgrade costs, we unreserve all
 			// funds associated with the registered parachain from the original depositor and
 			// reserve the required amount from the new depositor.
@@ -786,41 +782,30 @@ impl<T: Config> Pallet<T> {
 
 			<T as Config>::Currency::reserve(&deposit_info.depositor, additional_deposit)?;
 
-			if current_deposit > new_deposit {
-				// The payer is the current depositor and the existing deposit exceeds the required
-				// amount.
-				//
-				// The excess deposit will be refunded to the caller upon the success of the code
-				// upgrade.
-				//
-				// The reason why the deposit is not instantly refunded is that scheduling a code
-				// upgrade doesn't guarantee the success of it.
-				//
-				// If we returned the deposit here, a possible attack scenario would be to register
-				// the validation code of a parachain and then schedule a code upgrade to set the
-				// code to an empty blob. In such a case, the pre-checking process would fail, so
-				// the old code would remain on-chain even though there is no deposit to cover it.
-
-				deposit_info.pending_refund = Some((
-					deposit_info.depositor.clone(),
-					current_deposit.saturating_sub(new_deposit),
-				));
-				Deposits::<T>::insert(para, deposit_info);
-			}
-
 			// Update the deposit to the new appropriate amount.
 			info.deposit = new_deposit;
 			Paras::<T>::insert(para, info);
-		} else if current_deposit > new_deposit {
+		}
+
+		if current_deposit > new_deposit {
 			// The depositor should receive a refund if the current deposit exceeds the new required
 			// deposit, even if they did not initiate the upgrade.
-			deposit_info = DepositInfo {
-				depositor: deposit_info.depositor.clone(),
-				pending_refund: Some((
-					deposit_info.depositor,
-					current_deposit.saturating_sub(new_deposit),
-				)),
-			};
+			//
+			// The excess deposit will be refunded to the caller upon the success of the code
+			// upgrade.
+			//
+			// The reason why the deposit is not instantly refunded is that scheduling a code
+			// upgrade doesn't guarantee the success of it.
+			//
+			// If we returned the deposit here, a possible attack scenario would be to register
+			// the validation code of a parachain and then schedule a code upgrade to set the
+			// code to an empty blob. In such a case, the pre-checking process would fail, so
+			// the old code would remain on-chain even though there is no deposit to cover it.
+
+			deposit_info.pending_refund = Some((
+				deposit_info.depositor.clone(),
+				current_deposit.saturating_sub(new_deposit),
+			));
 			Deposits::<T>::insert(para, deposit_info);
 		}
 
