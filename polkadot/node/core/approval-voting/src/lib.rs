@@ -194,6 +194,13 @@ impl Metrics {
 		}
 	}
 
+	pub fn candidates_imported(&self) -> u64 {
+		self.0
+			.as_ref()
+			.map(|metrics| metrics.imported_candidates_total.get())
+			.unwrap_or_default()
+	}
+
 	fn on_assignment_produced(&self, tranche: DelayTranche) {
 		if let Some(metrics) = &self.0 {
 			metrics.assignments_produced.observe(tranche as f64);

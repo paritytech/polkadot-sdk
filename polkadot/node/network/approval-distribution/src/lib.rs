@@ -114,6 +114,7 @@ struct ApprovalRouting {
 	required_routing: RequiredRouting,
 	local: bool,
 	random_routing: RandomRouting,
+	random_peers: Vec<PeerId>,
 }
 
 // This struct is responsible for tracking the full state of an assignment and grid routing
@@ -646,8 +647,9 @@ impl BlockEntry {
 	pub fn note_approval(
 		&mut self,
 		approval: IndirectSignedApprovalVoteV2,
-	) -> Result<RequiredRouting, ApprovalEntryError> {
+	) -> Result<(RequiredRouting, HashSet<PeerId>), ApprovalEntryError> {
 		let mut required_routing = None;
+		let mut random_peer_ids = HashSet::new();
 
 		if self.candidates.len() < approval.candidate_indices.len() as usize {
 			return Err(ApprovalEntryError::CandidateIndexOutOfBounds)
@@ -670,6 +672,7 @@ impl BlockEntry {
 				self.approval_entries.get_mut(&(approval.validator, assignment_bitfield))
 			{
 				approval_entry.note_approval(approval.clone())?;
+				random_peer_ids.extend(approval_entry.routing_info().random_peers.iter());
 
 				if let Some(required_routing) = required_routing {
 					if required_routing != approval_entry.routing_info().required_routing {
@@ -688,7 +691,7 @@ impl BlockEntry {
 		}
 
 		if let Some(required_routing) = required_routing {
-			Ok(required_routing)
+			Ok((required_routing, random_peer_ids))
 		} else {
 			Err(ApprovalEntryError::UnknownAssignment)
 		}
@@ -1259,7 +1262,7 @@ impl State {
 			Some(entry) => entry,
 			None => {
 				if let Some(peer_id) = source.peer_id() {
-					gum::trace!(
+					gum::info!(
 						target: LOG_TARGET,
 						?peer_id,
 						hash = ?block_hash,
@@ -1278,6 +1281,12 @@ impl State {
 						metrics.on_assignment_recent_outdated();
 					}
 				}
+				gum::info!(
+					target: LOG_TARGET,
+					hash = ?block_hash,
+					?validator_index,
+					"Unexpected assignment invalid",
+				);
 				metrics.on_assignment_invalid_block();
 				return
 			},
@@ -1489,7 +1498,12 @@ impl State {
 		let approval_entry = entry.insert_approval_entry(ApprovalEntry::new(
 			assignment.clone(),
 			claimed_candidate_indices.clone(),
-			ApprovalRouting { required_routing, local, random_routing: Default::default() },
+			ApprovalRouting {
+				required_routing,
+				local,
+				random_routing: Default::default(),
+				random_peers: Default::default(),
+			},
 		));
 
 		// Dispatch the message to all peers in the routing set which
@@ -1531,6 +1545,7 @@ impl State {
 
 			if route_random {
 				approval_entry.routing_info_mut().random_routing.inc_sent();
+				approval_entry.routing_info_mut().random_peers.push(peer);
 				peers.push(peer);
 			}
 		}
@@ -1577,7 +1592,7 @@ impl State {
 	) -> bool {
 		for message_subject in assignments_knowledge_key {
 			if !entry.knowledge.contains(&message_subject.0, message_subject.1) {
-				gum::trace!(
+				gum::info!(
 					target: LOG_TARGET,
 					?peer_id,
 					?message_subject,
@@ -1797,7 +1812,7 @@ impl State {
 			}
 		}
 
-		let required_routing = match entry.note_approval(vote.clone()) {
+		let (required_routing, random_peer_ids) = match entry.note_approval(vote.clone()) {
 			Ok(required_routing) => required_routing,
 			Err(err) => {
 				gum::warn!(
@@ -1840,7 +1855,7 @@ impl State {
 			//   3. Any randomly selected peers have been sent the assignment already.
 			let in_topology = topology
 				.map_or(false, |t| t.local_grid_neighbors().route_to_peer(required_routing, peer));
-			in_topology || knowledge.sent.contains_any(&assignments_knowledge_keys)
+			in_topology || random_peer_ids.contains(peer)
 		};
 
 		let peers = entry
@@ -1856,25 +1871,25 @@ impl State {
 			if let Some(entry) = entry.known_by.get_mut(&peer.0) {
 				// A random assignment could have been sent to the peer, so we need to make sure
 				// we send all the other assignments, before we can send the corresponding approval.
-				let (sent_to_peer, notknown_by_peer) = entry.partition_sent_notknown(&assignments);
-				if !notknown_by_peer.is_empty() {
-					let notknown_by_peer = notknown_by_peer
-						.into_iter()
-						.map(|(assignment, bitfield)| (assignment.clone(), bitfield.clone()))
-						.collect_vec();
-					gum::trace!(
-						target: LOG_TARGET,
-						?block_hash,
-						?peer,
-						missing = notknown_by_peer.len(),
-						part1 = sent_to_peer.len(),
-						"Sending missing assignments",
-					);
+				// let (sent_to_peer, notknown_by_peer) =
+				// entry.partition_sent_notknown(&assignments); if !notknown_by_peer.is_empty() {
+				// 	let notknown_by_peer = notknown_by_peer
+				// 		.into_iter()
+				// 		.map(|(assignment, bitfield)| (assignment.clone(), bitfield.clone()))
+				// 		.collect_vec();
+				// 	gum::trace!(
+				// 		target: LOG_TARGET,
+				// 		?block_hash,
+				// 		?peer,
+				// 		missing = notknown_by_peer.len(),
+				// 		part1 = sent_to_peer.len(),
+				// 		"Sending missing assignments",
+				// 	);
 
-					entry.mark_sent(&notknown_by_peer);
-					send_assignments_batched(ctx.sender(), notknown_by_peer, &[(peer.0, peer.1)])
-						.await;
-				}
+				// 	entry.mark_sent(&notknown_by_peer);
+				// 	send_assignments_batched(ctx.sender(), notknown_by_peer, &[(peer.0, peer.1)])
+				// 		.await;
+				// }
 
 				entry.sent.insert(approval_knwowledge_key.0.clone(), approval_knwowledge_key.1);
 			}
@@ -1985,8 +2000,7 @@ impl State {
 						// randomly sample peers.
 						{
 							let required_routing = approval_entry.routing_info().required_routing;
-							let random_routing =
-								&mut approval_entry.routing_info_mut().random_routing;
+							let random_routing = &mut approval_entry.routing_info_mut();
 							let rng = &mut *rng;
 							let mut peer_filter = move |peer_id| {
 								let in_topology = topology.as_ref().map_or(false, |t| {
@@ -2001,9 +2015,11 @@ impl State {
 										return false
 									}
 
-									let route_random = random_routing.sample(total_peers, rng);
+									let route_random =
+										random_routing.random_routing.sample(total_peers, rng);
 									if route_random {
-										random_routing.inc_sent();
+										random_routing.random_routing.inc_sent();
+										random_routing.random_peers.push(*peer_id);
 									}
 
 									route_random
