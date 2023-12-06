@@ -19,6 +19,7 @@
 //! Block sealing utilities
 
 use crate::{rpc, ConsensusDataProvider, CreatedBlock, Error};
+use codec::Encode;
 use futures::prelude::*;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, ImportResult, StateAction};
 use sc_transaction_pool_api::TransactionPool;
@@ -82,7 +83,7 @@ pub async fn seal_block<B, BI, SC, C, E, TP, CIDP>(
 	TP: TransactionPool<Block = B>,
 	SC: SelectChain<B>,
 	CIDP: CreateInherentDataProviders<B, ()>,
-	P: codec::Encode + Send + Sync + 'static,
+	ProofOf<E::Proposer, B>: Encode,
 {
 	let future = async {
 		if pool.status().ready == 0 && !create_empty {

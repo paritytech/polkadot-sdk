@@ -23,11 +23,7 @@ use crate::Error;
 use sc_client_api::{AuxStore, UsageProvider};
 use sp_api::CallApiAt;
 use sp_blockchain::HeaderBackend;
-use sp_consensus_aura::{
-	sr25519::{AuthorityId, AuthoritySignature},
-	AuraApi,
-};
-use sp_consensus_babe::BabeApi;
+use sp_consensus_aura::sr25519::{AuthorityId, AuthoritySignature};
 use sp_consensus_slots::{Slot, SlotDuration};
 use sp_inherents::{InherentData, InherentDataProvider, InherentIdentifier};
 use sp_runtime::traits::{Block as BlockT, Zero};

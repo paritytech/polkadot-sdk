@@ -38,7 +38,7 @@ use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus_babe::{
 	digests::{NextEpochDescriptor, PreDigest, SecondaryPlainPreDigest},
 	inherents::BabeInherentData,
-	AuthorityId, BabeApi, BabeAuthorityWeight, BabeConfiguration, ConsensusLog, BABE_ENGINE_ID,
+	AuthorityId, BabeAuthorityWeight, BabeConfiguration, ConsensusLog, BABE_ENGINE_ID,
 };
 use sp_consensus_slots::Slot;
 use sp_inherents::InherentData;
@@ -191,7 +191,8 @@ where
 	C: AuxStore
 		+ HeaderBackend<B>
 		+ HeaderMetadata<B, Error = sp_blockchain::Error>
-		+ UsageProvider<B>,
+		+ UsageProvider<B>
+		+ CallApiAt<B>,
 	P: Send + Sync,
 {
 	type Proof = P;

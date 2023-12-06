@@ -19,6 +19,7 @@
 //! A manual sealing engine: the engine listens for rpc calls to seal blocks and create forks.
 //! This is suitable for a testing environment.
 
+use codec::Encode;
 use futures::prelude::*;
 use futures_timer::Delay;
 use prometheus_endpoint::Registry;
@@ -172,6 +173,7 @@ pub async fn run_manual_seal<B, BI, CB, E, C, TP, SC, CS, CIDP>(
 	SC: SelectChain<B> + 'static,
 	TP: TransactionPool<Block = B>,
 	CIDP: CreateInherentDataProviders<B, ()>,
+	ProofOf<E::Proposer, B>: Encode,
 {
 	while let Some(command) = commands_stream.next().await {
 		match command {
@@ -229,6 +231,7 @@ pub async fn run_instant_seal<B, BI, CB, E, C, TP, SC, CIDP>(
 	SC: SelectChain<B> + 'static,
 	TP: TransactionPool<Block = B>,
 	CIDP: CreateInherentDataProviders<B, ()>,
+	ProofOf<E::Proposer, B>: Encode,
 {
 	// instant-seal creates blocks as soon as transactions are imported
 	// into the transaction pool.
@@ -267,7 +270,7 @@ pub async fn run_instant_seal_and_finalize<B, BI, CB, E, C, TP, SC, CIDP, P>(
 		select_chain,
 		consensus_data_provider,
 		create_inherent_data_providers,
-	}: InstantSealParams<B, BI, E, C, TP, SC, CIDP, P>,
+	}: InstantSealParams<B, BI, E, C, TP, SC, CIDP, ProofOf<E::Proposer, B>>,
 ) where
 	B: BlockT + 'static,
 	BI: BlockImport<B, Error = sp_consensus::Error> + Send + Sync + 'static,
@@ -279,6 +282,7 @@ pub async fn run_instant_seal_and_finalize<B, BI, CB, E, C, TP, SC, CIDP, P>(
 	TP: TransactionPool<Block = B>,
 	CIDP: CreateInherentDataProviders<B, ()>,
 	P: codec::Encode + Send + Sync + 'static,
+	ProofOf<E::Proposer, B>: Encode,
 {
 	// Creates and finalizes blocks as soon as transactions are imported
 	// into the transaction pool.
@@ -366,6 +370,7 @@ mod tests {
 	impl<B, C> ConsensusDataProvider<B> for TestDigestProvider<C>
 	where
 		B: BlockT,
+		C: Sync + Send,
 	{
 		type Proof = ();
 

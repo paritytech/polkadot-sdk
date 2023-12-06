@@ -22,9 +22,12 @@
 use crate::{ConsensusDataProvider, Error};
 use sc_client_api::{AuxStore, UsageProvider};
 use sc_consensus::BlockImportParams;
+use sp_api::CallApiAt;
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus_aura::{
-	digests::CompatibleDigestItem, sr25519::AuthoritySignature, Slot, SlotDuration,
+	digests::CompatibleDigestItem,
+	sr25519::{AuthorityId, AuthoritySignature},
+	Slot, SlotDuration,
 };
 use sp_inherents::InherentData;
 use sp_runtime::{traits::Block as BlockT, Digest, DigestItem};
@@ -42,12 +45,12 @@ pub struct AuraConsensusDataProvider<B, C, P> {
 impl<B, C, P> AuraConsensusDataProvider<B, C, P>
 where
 	B: BlockT,
-	C: AuxStore + UsageProvider<B>,
+	C: AuxStore + UsageProvider<B> + CallApiAt<B>,
 {
 	/// Creates a new instance of the [`AuraConsensusDataProvider`], requires that `client`
 	/// implements [`sp_consensus_aura::AuraApi`]
 	pub fn new(client: Arc<C>) -> Self {
-		let slot_duration = sc_consensus_aura::slot_duration(&*client)
+		let slot_duration = sc_consensus_aura::slot_duration::<AuthorityId, _, _>(&*client)
 			.expect("slot_duration is always present; qed.");
 
 		Self { slot_duration, _phantom: PhantomData }
