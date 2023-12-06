@@ -147,7 +147,7 @@ pub trait XcmBlobHauler {
 	/// Returns lane used by this hauler.
 	type SenderAndLane: Get<SenderAndLane>;
 	/// Checks the XCM version for the destination.
-	type DestinationVersion: CheckVersion;
+	type DestinationVersion: GetVersion;
 
 	/// Actual XCM message sender (`HRMP` or `UMP`) to the source chain
 	/// location (`Self::SenderAndLane::get().location`).
@@ -204,9 +204,9 @@ where
 	}
 }
 
-impl<H: XcmBlobHauler> CheckVersion for XcmBlobHaulerAdapter<H> {
-	fn check_version_for(dest: &MultiLocation, handle_unknown: bool) -> Option<XcmVersion> {
-		H::DestinationVersion::check_version_for(dest, handle_unknown)
+impl<H: XcmBlobHauler> GetVersion for XcmBlobHaulerAdapter<H> {
+	fn get_version_for(dest: &MultiLocation) -> Option<XcmVersion> {
+		H::DestinationVersion::get_version_for(dest)
 	}
 }
 
@@ -350,19 +350,18 @@ impl<H: XcmBlobHauler> LocalXcmQueueManager<H> {
 	}
 }
 
-/// Adapter for the implementation of `CheckVersion`, which attempts to find the minimal
+/// Adapter for the implementation of `GetVersion`, which attempts to find the minimal
 /// configured XCM version between the destination `dest` and the bridge hub location provided as
 /// `Get<Location>`.
 pub struct MinXcmVersionOfDestinationAndRemoteBridgeHub<Version, RemoteBridgeHub>(
 	sp_std::marker::PhantomData<(Version, RemoteBridgeHub)>,
 );
-impl<Version: CheckVersion, RemoteBridgeHub: Get<MultiLocation>> CheckVersion
+impl<Version: GetVersion, RemoteBridgeHub: Get<MultiLocation>> GetVersion
 	for MinXcmVersionOfDestinationAndRemoteBridgeHub<Version, RemoteBridgeHub>
 {
-	fn check_version_for(dest: &MultiLocation, handle_unknown: bool) -> Option<XcmVersion> {
-		let dest_version = Version::check_version_for(dest, handle_unknown);
-		let bridge_hub_version =
-			Version::check_version_for(&RemoteBridgeHub::get(), handle_unknown);
+	fn get_version_for(dest: &MultiLocation) -> Option<XcmVersion> {
+		let dest_version = Version::get_version_for(dest);
+		let bridge_hub_version = Version::get_version_for(&RemoteBridgeHub::get());
 
 		match (dest_version, bridge_hub_version) {
 			(Some(dv), Some(bhv)) => Some(sp_std::cmp::min(dv, bhv)),

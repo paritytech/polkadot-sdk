@@ -87,10 +87,10 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 }
 
 pub struct LatestOrNoneForLocationVersionChecker<Location>(sp_std::marker::PhantomData<Location>);
-impl<Location: Contains<MultiLocation>> CheckVersion
+impl<Location: Contains<MultiLocation>> GetVersion
 	for LatestOrNoneForLocationVersionChecker<Location>
 {
-	fn check_version_for(dest: &MultiLocation, _handle_unknown: bool) -> Option<XcmVersion> {
+	fn get_version_for(dest: &MultiLocation) -> Option<XcmVersion> {
 		if Location::contains(dest) {
 			return None
 		}

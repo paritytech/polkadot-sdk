@@ -426,7 +426,7 @@ pub struct HaulBlobExporter<Bridge, BridgedNetwork, Price>(
 	PhantomData<(Bridge, BridgedNetwork, Price)>,
 );
 impl<
-		Bridge: HaulBlob + CheckVersion,
+		Bridge: HaulBlob + GetVersion,
 		BridgedNetwork: Get<(NetworkId, u8)>,
 		Price: Get<MultiAssets>,
 	> ExportXcm for HaulBlobExporter<Bridge, BridgedNetwork, Price>
@@ -450,10 +450,10 @@ impl<
 		let (universal_dest, version) =
 			match dest.pushed_front_with(GlobalConsensus(bridged_network.0)) {
 				Ok(d) => {
-					let version = Bridge::check_version_for(
-						&MultiLocation::from(AncestorThen(bridged_network.1, d)),
-						true,
-					)
+					let version = Bridge::get_version_for(&MultiLocation::from(AncestorThen(
+						bridged_network.1,
+						d,
+					)))
 					.ok_or(SendError::DestinationUnsupported)?;
 					(d, version)
 				},
