@@ -84,6 +84,7 @@ pub trait Delegatee {
 		delegatee: &Self::AccountId,
 		delegator: &Self::AccountId,
 		value: Self::Balance,
+		num_slashing_spans: u32,
 	) -> DispatchResult;
 
 	/// Applies a pending slash on delegatee by passing a delegator account who should be slashed
@@ -134,12 +135,8 @@ pub trait Delegator {
 		value: Self::Balance,
 	) -> DispatchResult;
 
-	/// Request removal of delegated stake.
-	fn request_undelegate(
-		delegator: &Self::AccountId,
-		delegatee: &Self::AccountId,
-		value: Self::Balance,
-	) -> DispatchResult;
+	/// Unbond stake.
+	fn unbond(delegatee: &Self::AccountId, value: Self::Balance) -> DispatchResult;
 }
 
 /// Something that provides delegation support to core staking.

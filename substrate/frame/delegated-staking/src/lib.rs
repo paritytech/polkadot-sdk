@@ -88,6 +88,8 @@ pub mod pallet {
 		NotEnoughFunds,
 		/// Not an existing delegatee account.
 		NotDelegatee,
+		/// Not a Delegator account.
+		NotDelegator,
 		/// Some corruption in internal state.
 		BadState,
 		/// Unapplied pending slash restricts operation on delegatee.
@@ -282,16 +284,15 @@ impl<T: Config> Delegatee for Pallet<T> {
 
 	fn update_bond(who: &Self::AccountId) -> DispatchResult {
 		let delegatee = <Delegatees<T>>::get(who).ok_or(Error::<T>::NotDelegatee)?;
-		let delegated_balance = delegatee.delegated_balance();
+		let amount_to_bond = delegatee.unbonded_balance();
 
 		match T::CoreStaking::stake(who) {
 			Ok(stake) => {
-				let unstaked_delegated_balance = delegated_balance.saturating_sub(stake.total);
-				T::CoreStaking::bond_extra(who, unstaked_delegated_balance)
+				T::CoreStaking::bond_extra(who, amount_to_bond)
 			},
 			Err(_) => {
 				// If stake not found, it means this is the first bond
-				T::CoreStaking::bond(who, delegated_balance, &delegatee.payee)
+				T::CoreStaking::bond(who, amount_to_bond, &delegatee.payee)
 			},
 		}
 	}
@@ -300,46 +301,11 @@ impl<T: Config> Delegatee for Pallet<T> {
 		delegator: &Self::AccountId,
 		delegatee: &Self::AccountId,
 		value: Self::Balance,
+		num_slashing_spans: u32,
 	) -> DispatchResult {
-		<Delegators<T>>::mutate_exists(delegator, |maybe_delegate| match maybe_delegate {
-			Some((current_delegatee, delegate_balance)) => {
-				ensure!(&current_delegatee.clone() == delegatee, Error::<T>::NotDelegatee);
-				ensure!(*delegate_balance >= value, Error::<T>::NotAllowed);
-
-				delegate_balance.saturating_reduce(value);
-
-				if *delegate_balance == BalanceOf::<T>::zero() {
-					*maybe_delegate = None;
-				}
-				Ok(())
-			},
-			None => {
-				// delegator does not exist
-				return Err(Error::<T>::NotAllowed)
-			},
-		})?;
-
-		<Delegatees<T>>::mutate(delegatee, |maybe_register| match maybe_register {
-			Some(ledger) => {
-				ledger.total_delegated.saturating_reduce(value);
-				Ok(())
-			},
-			None => {
-				// Delegatee not found
-				return Err(Error::<T>::NotDelegatee)
-			},
-		})?;
-
-		let released = T::Currency::release(
-			&HoldReason::Delegating.into(),
-			&delegator,
-			value,
-			Precision::BestEffort,
-		)?;
-
-		defensive_assert!(released == value, "hold should have been released fully");
-
-		Ok(())
+		// fixme(ank4n) handle killing of stash
+		let _ = T::CoreStaking::withdraw_exact(delegatee, value, num_slashing_spans);
+		Self::delegation_withdraw(delegator, delegatee, value)
 	}
 
 	fn apply_slash(
@@ -365,7 +331,7 @@ impl<T: Config> Delegatee for Pallet<T> {
 		ensure!(!<Delegatees<T>>::contains_key(delegatee), Error::<T>::NotDelegatee);
 
 		// remove delegation of `value` from `existing_delegator`.
-		Self::withdraw(existing_delegator, delegatee, value)?;
+		Self::delegation_withdraw(existing_delegator, delegatee, value)?;
 
 		// transfer the withdrawn value to `new_delegator`.
 		T::Currency::transfer(existing_delegator, new_delegator, value, Preservation::Expendable)
@@ -418,12 +384,8 @@ impl<T: Config> Delegator for Pallet<T> {
 		Ok(())
 	}
 
-	fn request_undelegate(
-		delegator: &Self::AccountId,
-		delegatee: &Self::AccountId,
-		value: Self::Balance,
-	) -> DispatchResult {
-		todo!()
+	fn unbond(delegatee: &Self::AccountId, value: Self::Balance) -> DispatchResult {
+		T::CoreStaking::unbond(delegatee, value)
 	}
 }
 
@@ -501,6 +463,52 @@ impl<T: Config> StakingDelegationSupport for Pallet<T> {
 impl<T: Config> Pallet<T> {
 	fn is_delegatee(who: &T::AccountId) -> bool {
 		<Delegatees<T>>::contains_key(who)
+	}
+
+	fn delegation_withdraw(
+		delegator: &T::AccountId,
+		delegatee: &T::AccountId,
+		value: BalanceOf<T>,
+	) -> DispatchResult {
+		<Delegators<T>>::mutate_exists(delegator, |maybe_delegate| match maybe_delegate {
+			Some((current_delegatee, delegate_balance)) => {
+				ensure!(&current_delegatee.clone() == delegatee, Error::<T>::NotDelegatee);
+				ensure!(*delegate_balance >= value, Error::<T>::NotEnoughFunds);
+
+				delegate_balance.saturating_reduce(value);
+
+				if *delegate_balance == BalanceOf::<T>::zero() {
+					*maybe_delegate = None;
+				}
+				Ok(())
+			},
+			None => {
+				// delegator does not exist
+				return Err(Error::<T>::NotDelegator)
+			},
+		})?;
+
+		<Delegatees<T>>::mutate(delegatee, |maybe_register| match maybe_register {
+			Some(ledger) => {
+				ledger.total_delegated.saturating_reduce(value);
+				Ok(())
+			},
+			None => {
+				// Delegatee not found
+				return Err(Error::<T>::NotDelegatee)
+			},
+		})?;
+
+		let released = T::Currency::release(
+			&HoldReason::Delegating.into(),
+			&delegator,
+			value,
+			Precision::BestEffort,
+		)?;
+
+		defensive_assert!(released == value, "hold should have been released fully");
+
+		Ok(())
 	}
 }
 

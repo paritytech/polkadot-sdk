@@ -251,10 +251,10 @@ pub trait StakingInterface {
 	/// Unlock any funds schedule to unlock before or at the current era upto a provided limit.
 	///
 	/// Returns whether the stash was killed because of this withdraw or not.
-	fn partial_withdraw_unbonded(
-		stash: Self::AccountId,
+	fn withdraw_exact(
+		stash: &Self::AccountId,
+		amount: Self::Balance,
 		num_slashing_spans: u32,
-		maybe_limit: Option<Self::Balance>,
 	) -> Result<bool, DispatchError>;
 
 	/// The ideal number of active validators.

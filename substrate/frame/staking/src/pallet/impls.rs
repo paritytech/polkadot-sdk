@@ -122,15 +122,20 @@ impl<T: Config> Pallet<T> {
 	pub(super) fn do_withdraw_unbonded(
 		controller: &T::AccountId,
 		num_slashing_spans: u32,
-		maybe_limit: Option<BalanceOf<T>>,
+		maybe_amount: Option<BalanceOf<T>>,
 	) -> Result<Weight, DispatchError> {
 		let mut ledger = Self::ledger(Controller(controller.clone()))?;
 		let (stash, old_total) = (ledger.stash.clone(), ledger.total);
 		if let Some(current_era) = Self::current_era() {
-			ledger = ledger.consolidate_unlocked(current_era, maybe_limit)
+			ledger = ledger.consolidate_unlocked(current_era, maybe_amount)
 		}
 		let new_total = ledger.total;
 
+		if let Some(amount) = maybe_amount {
+			ensure!(
+			old_total.saturating_sub(new_total) == amount,
+			Error::<T>::NotEnoughFunds);
+		};
 		let used_weight =
 			if ledger.unlocking.is_empty() && ledger.active < T::Currency::minimum_balance() {
 				// This account must have called `unbond()` with some value that caused the active
@@ -1726,13 +1731,13 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			.map_err(|with_post| with_post.error)
 	}
 
-	fn partial_withdraw_unbonded(
-		who: Self::AccountId,
+	fn withdraw_exact(
+		who: &Self::AccountId,
+		amount: BalanceOf<T>,
 		num_slashing_spans: u32,
-		maybe_limit: Option<BalanceOf<T>>,
 	) -> Result<bool, DispatchError> {
-		let ctrl = Self::bonded(&who).ok_or(Error::<T>::NotStash)?;
-		Self::do_withdraw_unbonded(&ctrl, num_slashing_spans, maybe_limit)
+		let ctrl = Self::bonded(who).ok_or(Error::<T>::NotStash)?;
+		Self::do_withdraw_unbonded(&ctrl, num_slashing_spans, Some(amount))
 			.map(|_| !Ledger::<T>::contains_key(&ctrl))
 	}
 

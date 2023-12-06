@@ -240,24 +240,13 @@ pub(crate) fn setup_delegation(
 	delegate_amount: Balance,
 ) {
 	assert_ok!(DelegatedStaking::accept_delegations(fund(&delegatee, 100), &reward_acc));
-	assert_ok!(DelegatedStaking::delegate(
-		fund(&delegators[0], delegate_amount + ExistentialDeposit::get()),
-		&delegatee,
-		delegate_amount
-	));
-	assert_ok!(Staking::bond(
-		RuntimeOrigin::signed(delegatee),
-		delegate_amount,
-		RewardDestination::Account(reward_acc)
-	));
-
-	for delegator in &delegators[1..] {
+	for delegator in &delegators {
 		assert_ok!(DelegatedStaking::delegate(
 			fund(delegator, delegate_amount + ExistentialDeposit::get()),
 			&delegatee,
 			delegate_amount
 		));
-		assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(delegatee), delegate_amount));
+		assert_ok!(DelegatedStaking::update_bond(&delegatee));
 	}
 
 	// sanity checks
