@@ -172,7 +172,7 @@ pub mod pallet {
 		/// issuance.
 		type Reward: OnUnbalanced<PositiveImbalanceOf<Self>>;
 
-		/// Origin from which staking admin calls must come.
+		/// Origin from which deprecation calls must come.
 		type DeprecationOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// Number of sessions per era.
