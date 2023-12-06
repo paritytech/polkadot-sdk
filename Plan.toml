@@ -10199,7 +10199,7 @@ path = "substrate/primitives/std"
 name = "pallet-staking"
 path = "substrate/frame/staking"
 from = "25.0.0"
-to = "26.0.0"
+to = "26.0.1"
 bump = "unknown"
 reason = "changed"
 
