@@ -494,6 +494,7 @@ pub fn derive_default_no_bound(input: TokenStream) -> TokenStream {
 	no_bound::default::derive_default_no_bound(input)
 }
 
+/// Macro used internally in FRAME to generate the crate version for a pallet.
 #[proc_macro]
 pub fn crate_to_crate_version(input: TokenStream) -> TokenStream {
 	crate_version::crate_to_crate_version(input)
