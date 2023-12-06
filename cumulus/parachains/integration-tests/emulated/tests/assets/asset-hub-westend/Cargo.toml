@@ -38,5 +38,4 @@ asset-test-utils = { path = "../../../../../runtimes/assets/test-utils" }
 cumulus-pallet-dmp-queue = { default-features = false, path = "../../../../../../pallets/dmp-queue" }
 cumulus-pallet-parachain-system = { default-features = false, path = "../../../../../../pallets/parachain-system" }
 emulated-integration-tests-common = { path = "../../../common", default-features = false }
-penpal-runtime = { path = "../../../../../runtimes/testing/penpal" }
 westend-system-emulated-network = { path = "../../../networks/westend-system" }
