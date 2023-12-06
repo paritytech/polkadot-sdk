@@ -1725,9 +1725,10 @@ mod benchmarking {
 		assert_eq!(event, &system_event);
 	}
 
-	fn register_para<T: Config>(id: u32, validation_code: ValidationCode) -> ParaId {
+	fn register_para<T: Config>(id: u32) -> ParaId {
 		let para = ParaId::from(id);
 		let genesis_head = Registrar::<T>::worst_head_data();
+		let validation_code = Registrar::<T>::worst_validation_code();
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 		assert_ok!(Registrar::<T>::reserve(RawOrigin::Signed(caller.clone()).into()));
@@ -1805,7 +1806,7 @@ mod benchmarking {
 		}
 
 		deregister {
-			let para = register_para::<T>(LOWEST_PUBLIC_ID.into(), Registrar::<T>::worst_validation_code());
+			let para = register_para::<T>(LOWEST_PUBLIC_ID.into());
 			next_scheduled_session::<T>();
 			let caller: T::AccountId = whitelisted_caller();
 		}: _(RawOrigin::Signed(caller), para)
@@ -1815,8 +1816,8 @@ mod benchmarking {
 
 		swap {
 			// On demand parachain
-			let parathread = register_para::<T>(LOWEST_PUBLIC_ID.into(), Registrar::<T>::worst_validation_code());
-			let parachain = register_para::<T>((LOWEST_PUBLIC_ID + 1).into(), Registrar::<T>::worst_validation_code());
+			let parathread = register_para::<T>(LOWEST_PUBLIC_ID.into());
+			let parachain = register_para::<T>((LOWEST_PUBLIC_ID + 1).into());
 
 			let parachain_origin = para_origin(parachain.into());
 
@@ -1844,11 +1845,11 @@ mod benchmarking {
 			// The 'worst case' scenario in terms of benchmarking is when the upgrade isn't free
 			// and there is a refund.
 
-			let b in 2 .. MAX_CODE_SIZE;
-			let initial_code = ValidationCode(vec![0; b as usize]);
-			let new_code = ValidationCode(vec![0; b as usize - 1]);
+			let para = register_para::<T>(LOWEST_PUBLIC_ID.into());
 
-			let para = register_para::<T>(LOWEST_PUBLIC_ID.into(), initial_code);
+			let b in 1 .. MAX_CODE_SIZE;
+			let new_code = ValidationCode(vec![0; b as usize]);
+
 			// Actually finish registration process
 			next_scheduled_session::<T>();
 		}: _(RawOrigin::Root, para, new_code)
@@ -1860,7 +1861,7 @@ mod benchmarking {
 		}: _(RawOrigin::Root, para_id, new_head)
 
 		set_parachain_billing_account_to_self {
-			let para = register_para::<T>(LOWEST_PUBLIC_ID.into(), Registrar::<T>::worst_validation_code());
+			let para = register_para::<T>(LOWEST_PUBLIC_ID.into());
 			// Actually finish registration process
 			next_scheduled_session::<T>();
 
@@ -1880,7 +1881,7 @@ mod benchmarking {
 		}
 
 		force_set_parachain_billing_account {
-			let para = register_para::<T>(LOWEST_PUBLIC_ID.into(), Registrar::<T>::worst_validation_code());
+			let para = register_para::<T>(LOWEST_PUBLIC_ID.into());
 			// Actually finish registration process
 			next_scheduled_session::<T>();
 

@@ -940,7 +940,7 @@ fn setting_parachain_billing_account_to_self_works() {
 		let sovereign_account =
 			<Test as paras_registrar::Config>::SovereignAccountOf::convert_location(&location)
 				.unwrap();
-		let para_origin: runtime_parachains::Origin = u32::from(LOWEST_PUBLIC_ID).into();
+		let para_origin: runtime_parachains::Origin = u32::from(para_id).into();
 
 		assert_noop!(
 			Registrar::set_parachain_billing_account_to_self(
