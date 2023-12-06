@@ -365,12 +365,7 @@ impl<Version: CheckVersion, RemoteBridgeHub: Get<MultiLocation>> CheckVersion
 			Version::check_version_for(&RemoteBridgeHub::get(), handle_unknown);
 
 		match (dest_version, bridge_hub_version) {
-			(Some(dv), Some(bhv)) =>
-				if dv <= bhv {
-					Some(dv)
-				} else {
-					Some(bhv)
-				},
+			(Some(dv), Some(bhv)) => Some(sp_std::cmp::min(dv, bhv)),
 			(Some(dv), None) => Some(dv),
 			(None, Some(bhv)) => Some(bhv),
 			(None, None) => None,
