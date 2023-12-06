@@ -381,7 +381,11 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 
 		T::Currency::hold(&HoldReason::Delegating.into(), &delegator, value)?;
 
-		Self::deposit_event(Event::<T>::Delegated { delegatee: delegatee.clone(), delegator: delegator.clone(), amount: value });
+		Self::deposit_event(Event::<T>::Delegated {
+			delegatee: delegatee.clone(),
+			delegator: delegator.clone(),
+			amount: value,
+		});
 
 		Ok(())
 	}
@@ -697,7 +701,11 @@ impl<T: Config> Pallet<T> {
 		)?;
 
 		defensive_assert!(released == value, "hold should have been released fully");
-		Self::deposit_event(Event::<T>::Withdrawn { delegatee: delegatee.clone(), delegator: delegator.clone(), amount: value });
+		Self::deposit_event(Event::<T>::Withdrawn {
+			delegatee: delegatee.clone(),
+			delegator: delegator.clone(),
+			amount: value,
+		});
 
 		Ok(())
 	}
