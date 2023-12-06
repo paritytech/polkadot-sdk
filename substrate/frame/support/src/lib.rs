@@ -2228,12 +2228,57 @@ pub use frame_support_procedural::pallet;
 /// Contains macro stubs for all of the pallet:: macros
 pub mod pallet_macros {
 	pub use frame_support_procedural::{
-		composite_enum, config, disable_frame_system_supertrait_check, error, event,
-		extra_constants, feeless_if, generate_deposit, generate_store, getter, hooks,
-		import_section, inherent, no_default, no_default_bounds, origin, pallet_section,
-		storage_prefix, storage_version, type_value, unbounded, validate_unsigned, weight,
-		whitelist_storage,
+		composite_enum, config, disable_frame_system_supertrait_check, event, extra_constants,
+		feeless_if, generate_deposit, generate_store, getter, hooks, import_section, inherent,
+		no_default, no_default_bounds, origin, pallet_section, storage_prefix, storage_version,
+		type_value, unbounded, validate_unsigned, weight, whitelist_storage,
 	};
+
+	/// The `#[pallet::error]` attribute allows you to define an error enum that will be
+	/// returned from the dispatchable when an error occurs. The information for this error
+	/// type is then stored in metadata.
+	///
+	/// Item must be defined as:
+	///
+	/// ```ignore
+	/// #[pallet::error]
+	/// pub enum Error<T> {
+	/// 	/// $some_optional_doc
+	/// 	$SomeFieldLessVariant,
+	/// 	/// $some_more_optional_doc
+	/// 	$SomeVariantWithOneField(FieldType),
+	/// 	...
+	/// }
+	/// ```
+	/// I.e. a regular enum named `Error`, with generic `T` and fieldless or multiple-field
+	/// variants.
+	///
+	/// Any field type in the enum variants must implement [`TypeInfo`] in order to be properly
+	/// used in the metadata, and its encoded size should be as small as possible, preferably 1
+	/// byte in size in order to reduce storage size. The error enum itself has an absolute
+	/// maximum encoded size specified by [`frame_support::MAX_MODULE_ERROR_ENCODED_SIZE`].
+	///
+	/// (1 byte can still be 256 different errors. The more specific the error, the easier it
+	/// is to diagnose problems and give a better experience to the user. Don't skimp on having
+	/// lots of individual error conditions.)
+	///
+	/// Field types in enum variants must also implement [`frame_support::PalletError`],
+	/// otherwise the pallet will fail to compile. Rust primitive types have already
+	/// implemented the [`frame_support::PalletError`] trait along with some commonly used
+	/// stdlib types such as [`Option`] and [`sp_std::marker::PhantomData`], and hence
+	/// in most use cases, a manual implementation is not necessary and is discouraged.
+	///
+	/// The generic `T` must not bound anything and a `where` clause is not allowed. That said,
+	/// bounds and/or a where clause should not needed for any use-case.
+	///
+	/// ## Macro expansion
+	///
+	/// The macro implements the [`Debug`] trait and functions `as_u8` using variant position,
+	/// and `as_str` using variant doc.
+	///
+	/// The macro also implements `From<Error<T>>` for `&'static str` and `From<Error<T>>` for
+	/// `DispatchError`.
+	pub use frame_support_procedural::error;
 
 	/// Allows a pallet to declare a set of functions as a *dispatchable extrinsic*. In
 	/// slightly simplified terms, this macro declares the set of "transactions" of a pallet.
