@@ -2228,10 +2228,10 @@ pub use frame_support_procedural::pallet;
 /// Contains macro stubs for all of the pallet:: macros
 pub mod pallet_macros {
 	pub use frame_support_procedural::{
-		composite_enum, config, disable_frame_system_supertrait_check, event, extra_constants,
-		feeless_if, generate_deposit, generate_store, getter, hooks, import_section, inherent,
-		no_default, no_default_bounds, origin, pallet_section, storage_prefix, storage_version,
-		type_value, unbounded, validate_unsigned, weight, whitelist_storage,
+		composite_enum, config, disable_frame_system_supertrait_check, extra_constants, feeless_if,
+		generate_deposit, generate_store, getter, hooks, import_section, inherent, no_default,
+		no_default_bounds, origin, pallet_section, storage_prefix, storage_version, type_value,
+		unbounded, validate_unsigned, weight, whitelist_storage,
 	};
 
 	/// The `#[pallet::error]` attribute allows you to define an error enum that will be
@@ -2253,10 +2253,11 @@ pub mod pallet_macros {
 	/// I.e. a regular enum named `Error`, with generic `T` and fieldless or multiple-field
 	/// variants.
 	///
-	/// Any field type in the enum variants must implement [`TypeInfo`] in order to be properly
-	/// used in the metadata, and its encoded size should be as small as possible, preferably 1
-	/// byte in size in order to reduce storage size. The error enum itself has an absolute
-	/// maximum encoded size specified by [`frame_support::MAX_MODULE_ERROR_ENCODED_SIZE`].
+	/// Any field type in the enum variants must implement [`scale_info::TypeInfo`] in order to
+	/// be properly used in the metadata, and its encoded size should be as small as possible,
+	/// preferably 1 byte in size in order to reduce storage size. The error enum itself has an
+	/// absolute maximum encoded size specified by
+	/// [`frame_support::MAX_MODULE_ERROR_ENCODED_SIZE`].
 	///
 	/// (1 byte can still be 256 different errors. The more specific the error, the easier it
 	/// is to diagnose problems and give a better experience to the user. Don't skimp on having
@@ -2279,6 +2280,30 @@ pub mod pallet_macros {
 	/// The macro also implements `From<Error<T>>` for `&'static str` and `From<Error<T>>` for
 	/// `DispatchError`.
 	pub use frame_support_procedural::error;
+
+	/// The `#[pallet::event]` attribute allows you to define pallet events. Pallet events are
+	/// stored under the `system` / `events` key when the block is applied (and then replaced
+	/// when the next block writes it's events).
+	///
+	/// The Event enum must be defined as follows:
+	///
+	/// ```ignore
+	/// #[pallet::event]
+	/// #[pallet::generate_deposit($visibility fn deposit_event)] // Optional
+	/// pub enum Event<$some_generic> $optional_where_clause {
+	/// 	/// Some doc
+	/// 	$SomeName($SomeType, $YetanotherType, ...),
+	/// 	...
+	/// }
+	/// ```
+	///
+	/// I.e. an enum (with named or unnamed fields variant), named `Event`, with generic: none
+	/// or `T` or `T: Config`, and optional w here clause.
+	///
+	/// Each field must implement [`Clone`], [`Eq`], [`PartialEq`], [`codec::Encode`],
+	/// [`codec::Decode`], and [`Debug`] (on std only). For ease of use, bound by the trait
+	/// `Member`, available in `frame_support::pallet_prelude`.
+	pub use frame_support_procedural::event;
 
 	/// Allows a pallet to declare a set of functions as a *dispatchable extrinsic*. In
 	/// slightly simplified terms, this macro declares the set of "transactions" of a pallet.
