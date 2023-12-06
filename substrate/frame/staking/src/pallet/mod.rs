@@ -1932,14 +1932,14 @@ pub mod pallet {
 		///
 		/// Effects will be felt instantly (as soon as this function is completed successfully).
 		///
-		/// The dispatch origin must be DeprecationOrigin.
+		/// The dispatch origin must be AdminOrigin.
 		#[pallet::call_index(28)]
 		#[pallet::weight(T::WeightInfo::deprecate_controller_batch(controllers.len() as u32))]
 		pub fn deprecate_controller_batch(
 			origin: OriginFor<T>,
 			controllers: BoundedVec<T::AccountId, T::MaxControllersInDeprecationBatch>,
 		) -> DispatchResultWithPostInfo {
-			T::DeprecationOrigin::ensure_origin(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 
 			// Ignore controllers that do not exist or are already the same as stash.
 			let filtered_batch_with_ledger: Vec<_> = controllers
