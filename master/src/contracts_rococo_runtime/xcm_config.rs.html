@@ -293,17 +293,6 @@
 <a href="#293" id="293">293</a>
 <a href="#294" id="294">294</a>
 <a href="#295" id="295">295</a>
-<a href="#296" id="296">296</a>
-<a href="#297" id="297">297</a>
-<a href="#298" id="298">298</a>
-<a href="#299" id="299">299</a>
-<a href="#300" id="300">300</a>
-<a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
-<a href="#303" id="303">303</a>
-<a href="#304" id="304">304</a>
-<a href="#305" id="305">305</a>
-<a href="#306" id="306">306</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -333,12 +322,13 @@
 <span class="kw">use </span>frame_system::EnsureRoot;
 <span class="kw">use </span>pallet_xcm::{EnsureXcm, IsMajorityOfBody, XcmPassthrough};
 <span class="kw">use </span>parachains_common::{
-	xcm_config::{ConcreteAssetFromSystem, RelayOrOtherSystemParachains},
+	xcm_config::{
+		AllSiblingSystemParachains, ConcreteAssetFromSystem, RelayOrOtherSystemParachains,
+	},
 	TREASURY_PALLET_ID,
 };
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::Sibling;
 <span class="kw">use </span>polkadot_runtime_common::xcm_sender::ExponentialPrice;
-<span class="kw">use </span>rococo_runtime_constants::system_parachain;
 <span class="kw">use </span>sp_runtime::traits::AccountIdConversion;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_builder::{
@@ -464,25 +454,13 @@
 	&gt;,
 &gt;;
 
-<span class="macro">match_types! </span>{
-	<span class="kw">pub type </span>SystemParachains: <span class="kw">impl </span>Contains&lt;MultiLocation&gt; = {
-		MultiLocation {
-			parents: <span class="number">1</span>,
-			interior: X1(Parachain(
-				system_parachain::ASSET_HUB_ID |
-				system_parachain::BRIDGE_HUB_ID |
-				system_parachain::CONTRACTS_ID |
-				system_parachain::ENCOINTER_ID
-			)),
-		}
-	};
-}
-
 <span class="doccomment">/// Locations that will not be charged fees in the executor,
 /// either execution or delivery.
 /// We only waive fees for system functions, which these locations represent.
-</span><span class="kw">pub type </span>WaivedLocations =
-	(RelayOrOtherSystemParachains&lt;SystemParachains, Runtime&gt;, Equals&lt;RelayTreasuryLocation&gt;);
+</span><span class="kw">pub type </span>WaivedLocations = (
+	RelayOrOtherSystemParachains&lt;AllSiblingSystemParachains, Runtime&gt;,
+	Equals&lt;RelayTreasuryLocation&gt;,
+);
 
 <span class="kw">pub type </span>TrustedTeleporter = ConcreteAssetFromSystem&lt;RelayLocation&gt;;
 
