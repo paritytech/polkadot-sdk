@@ -43,7 +43,6 @@ use sp_runtime::{
 	traits::{CheckedSub, Saturating},
 	DispatchError, RuntimeDebug, TokenError,
 };
-use xcm::opaque::lts::{Junction::Parachain, MultiLocation, Parent};
 use xcm_executor::traits::ConvertLocation;
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, TypeInfo)]
@@ -68,7 +67,8 @@ impl<Account, Balance> ParaInfo<Account, Balance> {
 pub struct DepositInfo<AccountId, Balance> {
 	/// The `AccountId` that has its deposit reserved for this parachain.
 	///
-	/// This will either be the parachain manager or the sovereign account of the parachain.
+	/// when the parachain is registered, this will be set to the parachain manager. However, at
+	/// a later point, this can be updated by calling the `set_upgrade_cost_payer` extrinsic.
 	depositor: AccountId,
 	/// In case there is a pending refund, this stores information about the account and the
 	/// amount that will be refunded upon a successful code upgrade.
@@ -187,6 +187,8 @@ pub mod pallet {
 		AlreadyRegistered,
 		/// The caller is not the owner of this Id.
 		NotOwner,
+		/// The caller is not the depositor of this parachain.
+		NotDepositor,
 		/// Invalid para code size.
 		CodeTooLarge,
 		/// Invalid para head data size.
@@ -211,6 +213,8 @@ pub mod pallet {
 		/// Cannot perform a parachain slot / lifecycle swap. Check that the state of both paras
 		/// are correct for the swap to work.
 		CannotSwap,
+		/// Tried to set the upgrade cost payer to an invalid account.
+		InvalidUpgradeCostPayer,
 	}
 
 	/// Pending swap operations.
@@ -230,7 +234,7 @@ pub mod pallet {
 	pub type NextFreeParaId<T> = StorageValue<_, ParaId, ValueQuery>;
 
 	/// Stores all the necessary information about the account currently holding the deposit for
-	/// the parachain, as well as whether the current or prior depositor has any pending refunds.
+	/// the parachain, as well as whether the current depositor has any pending refunds.
 	#[pallet::storage]
 	pub type Deposits<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, DepositInfo<T::AccountId, BalanceOf<T>>>;
@@ -449,33 +453,19 @@ pub mod pallet {
 		) -> DispatchResult {
 			Self::ensure_root_para_or_owner(origin.clone(), para)?;
 
-			let upgrade_cost_payer = if ensure_root(origin.clone()).is_ok() ||
-				Self::parachains().contains(&para)
-			{
-				// There are two cases where we do not charge any upgrade costs from the initiator
-				// of the upgrade:
-				//
-				// 1. Root doesn't pay. This also means that system parachains do not pay for
-				//    upgrade fees.
-				//
-				// 2. All lease-holding parachains are permitted to do upgrades for free. This is
-				//    introduced to avoid causing a breaking change to the system once para upgrade
-				//    fees are required.
+			// There are two cases where we do not charge any upgrade costs from the initiator
+			// of the upgrade:
+			//
+			// 1. Root doesn't pay. This also means that system parachains do not pay for upgrade
+			//    fees.
+			//
+			// 2. All lease-holding parachains are permitted to do upgrades for free. This is
+			//    introduced to avoid causing a breaking change to the system once para upgrade fees
+			//    are required.
+			let free_upgrade =
+				ensure_root(origin.clone()).is_ok() || Self::parachains().contains(&para);
 
-				None
-			} else if let Ok(caller) = ensure_signed(origin) {
-				let para_info = Paras::<T>::get(para).ok_or(Error::<T>::NotRegistered)?;
-				ensure!(!para_info.is_locked(), Error::<T>::ParaLocked);
-				ensure!(para_info.manager == caller, Error::<T>::NotOwner);
-
-				Some(caller)
-			} else {
-				let location: MultiLocation = (Parent, Parachain(para.into())).into();
-				let sovereign_account = T::SovereignAccountOf::convert_location(&location).unwrap();
-				Some(sovereign_account)
-			};
-
-			Self::do_schedule_code_upgrade(para, new_code, upgrade_cost_payer)
+			Self::do_schedule_code_upgrade(para, new_code, free_upgrade)
 		}
 
 		/// Set the parachain's current head.
@@ -491,6 +481,43 @@ pub mod pallet {
 		) -> DispatchResult {
 			Self::ensure_root_para_or_owner(origin, para)?;
 			runtime_parachains::set_current_head::<T>(para, new_head);
+			Ok(())
+		}
+
+		// TODO: add docs & use proper weight
+		//
+		/// Can be called by Root, the parachain, or the parachain manager if the parachain is
+		/// unlocked.
+		#[pallet::call_index(9)]
+		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
+		pub fn set_upgrade_cost_payer(
+			origin: OriginFor<T>,
+			para: ParaId,
+			cost_payer: T::AccountId,
+		) -> DispatchResult {
+			Self::ensure_root_para_or_owner(origin, para)?;
+
+			let info = Paras::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
+			let mut deposit_info =
+				Deposits::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
+
+			ensure!(cost_payer != deposit_info.depositor, Error::<T>::InvalidUpgradeCostPayer);
+
+			// When updating the account responsible for all code upgrade costs, we unreserve all
+			// funds associated with the registered parachain from the original depositor and
+			// reserve the required amount from the new depositor.
+
+			<T as Config>::Currency::reserve(&cost_payer, info.deposit)?;
+
+			if cost_payer != deposit_info.depositor {
+				// After reserving the required funds from the new depositor we can now safely
+				// refund the old account.
+				<T as Config>::Currency::unreserve(&deposit_info.depositor, info.deposit);
+			}
+
+			deposit_info.depositor = cost_payer;
+			Deposits::<T>::insert(para, deposit_info);
+
 			Ok(())
 		}
 	}
@@ -708,7 +735,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Schedules a code upgrade for a parachain.
 	///
-	/// If `upgrade_cost_payer` isn't specified, there won't be any extra deposit or fees charged
+	/// If `free_upgrade` is set to true, there won't be any extra deposit or fees charged
 	/// for scheduling the code upgrade.
 	///
 	/// If the size of the validation is reduced and the upgrade is successful the caller will be
@@ -716,7 +743,7 @@ impl<T: Config> Pallet<T> {
 	fn do_schedule_code_upgrade(
 		para: ParaId,
 		new_code: ValidationCode,
-		upgrade_cost_payer: Option<T::AccountId>,
+		free_upgrade: bool,
 	) -> DispatchResult {
 		// Before doing anything we ensure that a code upgrade is allowed at the moment for the
 		// specific parachain.
@@ -731,25 +758,35 @@ impl<T: Config> Pallet<T> {
 			.saturating_add(per_byte_fee.saturating_mul((new_code.0.len() as u32).into()));
 
 		let mut info = Paras::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
-		let current_deposit_info =
+		let mut deposit_info =
 			Deposits::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
 
 		let current_deposit = info.deposit;
-		let current_depositor = current_deposit_info.depositor.clone();
 
-		if let Some(payer) = upgrade_cost_payer.clone() {
-			let new_deposit_info = if payer != current_depositor {
-				// If the payer is not the one who had their funds reserved for this parachain, we
-				// will unreserve all funds from the original depositor and reserve the required
-				// amount from the new depositor.
-				//
-				// The primary reason for this is to more easily track the account that has its
-				// deposit reserved for this parachain. Reserving the deposit across both the para
-				// manager and the parachain itself could unnecessarily complicate refunds.
+		if !free_upgrade {
+			// Before dealing with any currency operations, we ensure beforehand that all of them
+			// will be successful.
+			// TODO: Check before charging the fee.
 
-				// Update the depositor to the caller.
-				DepositInfo { depositor: payer.clone(), pending_refund: None }
-			} else if current_deposit > new_deposit {
+			<T as Config>::Currency::withdraw(
+				&deposit_info.depositor,
+				T::UpgradeFee::get(),
+				WithdrawReasons::FEE,
+				ExistenceRequirement::KeepAlive,
+			)?;
+
+			// We need to reserve the difference to account for the increase in the validation code
+			// size.
+
+			let additional_deposit = new_deposit.saturating_sub(current_deposit);
+			ensure!(
+				<T as Config>::Currency::can_reserve(&deposit_info.depositor, additional_deposit),
+				DispatchError::Token(TokenError::FundsUnavailable)
+			);
+
+			<T as Config>::Currency::reserve(&deposit_info.depositor, additional_deposit)?;
+
+			if current_deposit > new_deposit {
 				// The payer is the current depositor and the existing deposit exceeds the required
 				// amount.
 				//
@@ -764,68 +801,23 @@ impl<T: Config> Pallet<T> {
 				// code to an empty blob. In such a case, the pre-checking process would fail, so
 				// the old code would remain on-chain even though there is no deposit to cover it.
 
-				DepositInfo {
-					depositor: payer.clone(),
-					pending_refund: Some((
-						current_depositor.clone(),
-						current_deposit.saturating_sub(new_deposit),
-					)),
-				}
-			} else {
-				// The caller is the current depositor and there is no funds to be refunded hence
-				// the deposit infor remains the same.
-				current_deposit_info.clone()
-			};
-
-			// Before dealing with any currency operations, we ensure beforehand that all of them
-			// will be successful.
-			// TODO: Check before charging the fee.
-
-			<T as Config>::Currency::withdraw(
-				&payer,
-				T::UpgradeFee::get(),
-				WithdrawReasons::FEE,
-				ExistenceRequirement::KeepAlive,
-			)?;
-
-			ensure!(
-				<T as Config>::Currency::can_reserve(&new_deposit_info.depositor, new_deposit),
-				DispatchError::Token(TokenError::FundsUnavailable)
-			);
-
-			let additional_deposit = if payer != current_depositor {
-				// Since the account covering the costs of storing the validation code has changed,
-				// the entire required deposit will now be reserved from the new account.
-				new_deposit
-			} else {
-				// The depositor did not change, so we only have to reserve the difference to
-				// account for the increase in the validation code.
-				new_deposit.saturating_sub(current_deposit)
-			};
-
-			<T as Config>::Currency::reserve(&payer, additional_deposit)?;
-
-			if payer != current_depositor {
-				// After reserving the required funds from the new depositor we can now safely
-				// refund the old account.
-				<T as Config>::Currency::unreserve(&current_depositor, current_deposit);
+				deposit_info.pending_refund = Some((
+					deposit_info.depositor.clone(),
+					current_deposit.saturating_sub(new_deposit),
+				));
+				Deposits::<T>::insert(para, deposit_info);
 			}
 
 			// Update the deposit to the new appropriate amount.
 			info.deposit = new_deposit;
 			Paras::<T>::insert(para, info);
-
-			// We update the deposit info if it changed.
-			if current_deposit_info != new_deposit_info {
-				Deposits::<T>::insert(para, new_deposit_info);
-			}
 		} else if current_deposit > new_deposit {
 			// The depositor should receive a refund if the current deposit exceeds the new required
 			// deposit, even if they did not initiate the upgrade.
-			let deposit_info = DepositInfo {
-				depositor: current_depositor.clone(),
+			deposit_info = DepositInfo {
+				depositor: deposit_info.depositor.clone(),
 				pending_refund: Some((
-					current_depositor,
+					deposit_info.depositor,
 					current_deposit.saturating_sub(new_deposit),
 				)),
 			};
