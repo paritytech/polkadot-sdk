@@ -23,8 +23,9 @@ use bp_header_chain::{
 		verify_and_optimize_justification, GrandpaEquivocationsFinder, GrandpaJustification,
 		JustificationVerificationContext,
 	},
-	AuthoritySet, ConsensusLogReader, FinalityProof, FindEquivocations, GrandpaConsensusLogReader,
-	HeaderFinalityInfo, HeaderGrandpaInfo, StoredHeaderGrandpaInfo,
+	max_expected_submit_finality_proof_arguments_size, AuthoritySet, ConsensusLogReader,
+	FinalityProof, FindEquivocations, GrandpaConsensusLogReader, HeaderFinalityInfo,
+	HeaderGrandpaInfo, StoredHeaderGrandpaInfo,
 };
 use bp_runtime::{BasicOperatingMode, HeaderIdProvider, OperatingMode};
 use codec::{Decode, Encode};
@@ -35,8 +36,21 @@ use relay_substrate_client::{
 };
 use sp_consensus_grandpa::{AuthorityList as GrandpaAuthoritiesSet, GRANDPA_ENGINE_ID};
 use sp_core::{storage::StorageKey, Bytes};
-use sp_runtime::{scale_info::TypeInfo, traits::Header, ConsensusEngineId};
+use sp_runtime::{scale_info::TypeInfo, traits::Header, ConsensusEngineId, SaturatedConversion};
 use std::{fmt::Debug, marker::PhantomData};
+
+/// Result of checking maximal expected call size.
+pub enum MaxExpectedCallSizeCheck {
+	/// Size is ok and call will be refunded.
+	Ok,
+	/// The call size exceeds the maximal expected and relayer will only get partial refund.
+	Exceeds {
+		/// Actual call size.
+		call_size: u32,
+		/// Maximal expected call size.
+		max_call_size: u32,
+	},
+}
 
 /// Finality engine, used by the Substrate chain.
 #[async_trait]
@@ -110,6 +124,14 @@ pub trait Engine<C: Chain>: Send {
 		header: &C::Header,
 		proof: &mut Self::FinalityProof,
 	) -> Result<(), SubstrateError>;
+
+	/// Checks whether the given `header` and its finality `proof` fit the maximal expected
+	/// call size limit. If result is `MaxExpectedCallSizeCheck::Exceeds { .. }`, this
+	/// submission won't be fully refunded and relayer will spend its own funds on that.
+	fn check_max_expected_call_size(
+		header: &C::Header,
+		proof: &Self::FinalityProof,
+	) -> MaxExpectedCallSizeCheck;
 
 	/// Prepare initialization data for the finality bridge pallet.
 	async fn prepare_initialization_data(
@@ -217,6 +239,24 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 				e,
 			))
 		})
+	}
+
+	fn check_max_expected_call_size(
+		header: &C::Header,
+		proof: &Self::FinalityProof,
+	) -> MaxExpectedCallSizeCheck {
+		let is_mandatory = Self::ConsensusLogReader::schedules_authorities_change(header.digest());
+		let call_size: u32 =
+			header.encoded_size().saturating_add(proof.encoded_size()).saturated_into();
+		let max_call_size = max_expected_submit_finality_proof_arguments_size::<C>(
+			is_mandatory,
+			proof.commit.precommits.len().saturated_into(),
+		);
+		if call_size > max_call_size {
+			MaxExpectedCallSizeCheck::Exceeds { call_size, max_call_size }
+		} else {
+			MaxExpectedCallSizeCheck::Ok
+		}
 	}
 
 	/// Prepare initialization data for the GRANDPA verifier pallet.
