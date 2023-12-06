@@ -21,7 +21,7 @@ use super::*;
 use crate::mock::*;
 use frame_support::{assert_noop, assert_ok, traits::fungible::InspectHold};
 use pallet_staking::Error as StakingError;
-use sp_staking::delegation::{StakeBalanceType, StakingDelegationSupport};
+use sp_staking::delegation::StakingDelegationSupport;
 
 #[test]
 fn create_a_delegatee_with_first_delegator() {
@@ -37,7 +37,7 @@ fn create_a_delegatee_with_first_delegator() {
 		assert_ok!(DelegatedStaking::delegate(fund(&delegator, 1000), &delegatee, 100));
 
 		// verify
-		assert_eq!(DelegatedStaking::stake_type(&delegatee), StakeBalanceType::Delegated);
+		assert!(DelegatedStaking::is_delegatee(&delegatee));
 		assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), 100);
 		assert_eq!(Balances::balance_on_hold(&HoldReason::Delegating.into(), &delegator), 100);
 	});
@@ -77,7 +77,7 @@ fn create_multiple_delegators() {
 		let reward_account: AccountId = 201;
 
 		// before becoming a delegatee, stakeable balance is only direct balance.
-		assert_eq!(DelegatedStaking::stake_type(fund(&delegatee, 1000)), StakeBalanceType::Direct);
+		assert!(!DelegatedStaking::is_delegatee(fund(&delegatee, 1000)));
 		assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), 1000);
 
 		// set intention to accept delegation.
@@ -95,7 +95,7 @@ fn create_multiple_delegators() {
 		}
 
 		// verify
-		assert_eq!(DelegatedStaking::stake_type(&delegatee), StakeBalanceType::Delegated);
+		assert!(DelegatedStaking::is_delegatee(&delegatee));
 		assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), 100 * 100);
 	});
 }

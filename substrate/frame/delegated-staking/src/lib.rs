@@ -39,7 +39,7 @@ use frame_support::{
 use pallet::*;
 use sp_runtime::{traits::Zero, DispatchResult, RuntimeDebug, Saturating};
 use sp_staking::{
-	delegation::{Delegatee, Delegator, StakeBalanceType, StakingDelegationSupport},
+	delegation::{Delegatee, StakingDelegationSupport},
 	EraIndex, Stake, StakerStatus, StakingInterface,
 };
 use sp_std::{convert::TryInto, prelude::*};
@@ -345,11 +345,6 @@ impl<T: Config> Delegatee for Pallet<T> {
 		// add the above removed delegation to `new_delegator`.
 		Self::delegate(new_delegator, delegatee, value)
 	}
-}
-
-impl<T: Config> Delegator for Pallet<T> {
-	type Balance = BalanceOf<T>;
-	type AccountId = T::AccountId;
 
 	fn delegate(
 		delegator: &Self::AccountId,
@@ -388,6 +383,7 @@ impl<T: Config> Delegator for Pallet<T> {
 
 		Ok(())
 	}
+
 }
 
 impl<T: Config> sp_staking::StakingHoldProvider for Pallet<T> {
@@ -452,12 +448,8 @@ impl<T: Config> StakingDelegationSupport for Pallet<T> {
 	}
 
 	#[cfg(feature = "std")]
-	fn stake_type(who: &Self::AccountId) -> StakeBalanceType {
-		if !Self::is_delegatee(who) {
-			return StakeBalanceType::Direct;
-		}
-
-		StakeBalanceType::Delegated
+	fn is_delegatee(who: &Self::AccountId) -> bool {
+		Self::is_delegatee(who)
 	}
 }
 

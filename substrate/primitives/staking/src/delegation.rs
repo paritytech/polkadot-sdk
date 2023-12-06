@@ -114,24 +114,8 @@ pub trait Delegatee {
 		delegator_to: &Self::AccountId,
 		value: Self::Balance,
 	) -> DispatchResult;
-}
 
-/// Allows an account to delegate their stakes to a delegatee.
-pub trait Delegator {
-	type Balance: Sub<Output = Self::Balance>
-		+ Ord
-		+ PartialEq
-		+ Default
-		+ Copy
-		+ MaxEncodedLen
-		+ FullCodec
-		+ TypeInfo
-		+ Saturating;
-
-	/// AccountId type used by the staking system.
-	type AccountId: Clone + sp_std::fmt::Debug;
-
-	/// Delegate some funds to a Delegatee
+	/// As a `delegator`, delegate some funds to a Delegatee
 	fn delegate(
 		delegator: &Self::AccountId,
 		delegatee: &Self::AccountId,
@@ -154,13 +138,5 @@ pub trait StakingDelegationSupport: StakingHoldProvider {
 	}
 
 	#[cfg(feature = "std")]
-	fn stake_type(_who: &Self::AccountId) -> StakeBalanceType {
-		StakeBalanceType::Direct
-	}
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum StakeBalanceType {
-	Direct,
-	Delegated,
+	fn is_delegatee(_who: &Self::AccountId) -> bool;
 }

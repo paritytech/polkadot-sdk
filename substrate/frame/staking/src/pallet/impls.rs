@@ -1868,10 +1868,12 @@ impl<T: Config> StakingHoldProvider for NoDelegation<T> {
 		Pallet::<T>::release(who)
 	}
 }
+
 impl<T: Config> StakingDelegationSupport for NoDelegation<T> {
 	fn stakeable_balance(who: &Self::AccountId) -> Self::Balance {
 		T::Currency::free_balance(who)
 	}
+	fn is_delegatee(_who: &Self::AccountId) -> bool { false }
 }
 
 #[cfg(any(test, feature = "try-runtime"))]
