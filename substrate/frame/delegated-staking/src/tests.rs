@@ -116,11 +116,6 @@ fn distribute_rewards() {
 	ExtBuilder::default().build_and_execute(|| assert!(true));
 }
 
-#[test]
-fn migrate_to_delegator() {
-	ExtBuilder::default().build_and_execute(|| assert!(true));
-}
-
 /// Integration tests with pallet-staking.
 mod integration {
 	use super::*;
@@ -266,4 +261,10 @@ mod integration {
 	fn slash_works() {
 		ExtBuilder::default().build_and_execute(|| assert!(true));
 	}
+
+	#[test]
+	fn migration_works() {
+		ExtBuilder::default().build_and_execute(|| assert!(true));
+	}
+
 }
