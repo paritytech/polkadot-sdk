@@ -20,26 +20,26 @@ use crate::*;
 use cumulus_primitives_core::ListChannelInfos;
 use frame_support::{pallet_prelude::*, traits::OnRuntimeUpgrade};
 
-/// Configs needed to run the V4 migration.
-pub trait V4Config: Config {
+/// Configs needed to run the V5 migration.
+pub trait V5Config: Config {
 	/// List all outbound channels with their target `ParaId` and maximum message size.
 	type ChannelList: ListChannelInfos;
 }
 
-/// Ensures that the storage migrates cleanly to V4.
+/// Ensures that the storage migrates cleanly to V5.
 ///
 /// The migration itself is a no-op, but it checks that none of the `BoundedVec`s would truncate on
 /// the next decode after the upgrade was applied.
-pub type MigrateV3ToV4<T> = frame_support::migrations::VersionedMigration<
+pub type MigrateV4ToV5<T> = frame_support::migrations::VersionedMigration<
 	3,
 	4,
-	UncheckedMigrateV3ToV4<T>,
+	UncheckedMigrateV4ToV5<T>,
 	Pallet<T>,
 	<T as frame_system::Config>::DbWeight,
 >;
 
-// V3 storage aliases
-mod v3 {
+// V4 storage aliases
+mod v4 {
 	use super::*;
 
 	#[frame_support::storage_alias]
@@ -62,10 +62,10 @@ mod v3 {
 		StorageMap<Pallet<T>, Blake2_128Concat, ParaId, Vec<u8>, ValueQuery>;
 }
 
-/// Please use [`MigrateV3ToV4`] instead.
-pub struct UncheckedMigrateV3ToV4<T: V4Config>(core::marker::PhantomData<T>);
+/// Please use [`MigrateV4ToV5`] instead.
+pub struct UncheckedMigrateV4ToV5<T: V5Config>(core::marker::PhantomData<T>);
 
-impl<T: V4Config> OnRuntimeUpgrade for UncheckedMigrateV3ToV4<T> {
+impl<T: V5Config> OnRuntimeUpgrade for UncheckedMigrateV4ToV5<T> {
 	fn on_runtime_upgrade() -> frame_support::weights::Weight {
 		Default::default()
 	}
@@ -74,7 +74,7 @@ impl<T: V4Config> OnRuntimeUpgrade for UncheckedMigrateV3ToV4<T> {
 	fn post_upgrade(_: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
 		// We dont need any front-run protection for this since channels are opened by governance.
 		ensure!(
-			v3::OutboundXcmpStatus::<T>::get().len() as u32 <= T::MaxActiveOutboundChannels::get(),
+			v4::OutboundXcmpStatus::<T>::get().len() as u32 <= T::MaxActiveOutboundChannels::get(),
 			"Too many outbound channels."
 		);
 
@@ -86,7 +86,7 @@ impl<T: V4Config> OnRuntimeUpgrade for UncheckedMigrateV3ToV4<T> {
 
 			ensure!(
 				info.max_message_size <= max_msg_len,
-				"Max message size for channel is too large. This means that the V4 migration can \
+				"Max message size for channel is too large. This means that the V5 migration can \
 				be front-run and an attacker could place a large message just right before the \
 				migration to make other messages un-decodable. Please either increase \
 				`MaxPageSize` or decrease the `max_message_size` for this channel.",
@@ -94,13 +94,13 @@ impl<T: V4Config> OnRuntimeUpgrade for UncheckedMigrateV3ToV4<T> {
 		}
 
 		// Now check that all pages still fit into the new `BoundedVec`s:
-		for page in v3::OutboundXcmpMessages::<T>::iter_values() {
+		for page in v4::OutboundXcmpMessages::<T>::iter_values() {
 			ensure!(
 				page.len() < T::MaxPageSize::get() as usize,
 				"Too long message in storage. Manual intervention required."
 			);
 		}
-		for page in v3::SignalMessages::<T>::iter_values() {
+		for page in v4::SignalMessages::<T>::iter_values() {
 			ensure!(
 				page.len() < T::MaxPageSize::get() as usize,
 				"Too long signal in storage. Manual intervention required."

@@ -16,7 +16,7 @@
 
 //! A module that is responsible for migration of storage.
 
-pub mod v4;
+pub mod v5;
 
 use crate::{Config, OverweightIndex, Pallet, ParaId, QueueConfig, DEFAULT_POV_SIZE};
 use cumulus_primitives_core::XcmpMessageFormat;
