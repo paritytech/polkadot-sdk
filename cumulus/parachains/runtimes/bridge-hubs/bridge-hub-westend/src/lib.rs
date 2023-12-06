@@ -910,7 +910,7 @@ impl_runtime_apis! {
 
 				fn export_message_origin_and_destination(
 				) -> Result<(MultiLocation, NetworkId, InteriorMultiLocation), BenchmarkError> {
-					Ok((WestendLocation::get(), NetworkId::Rococo, X1(Parachain(100))))
+					Ok((WestendLocation::get(), NetworkId::Rococo, X1(Parachain(bridge_to_rococo_config::AssetHubRococoParaId::get().into()))))
 				}
 
 				fn alias_origin() -> Result<(MultiLocation, MultiLocation), BenchmarkError> {
