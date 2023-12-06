@@ -1819,6 +1819,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "bp-xcm-bridge-hub"
+version = "0.1.0"
+dependencies = [
+ "sp-std 8.0.0",
+]
+
+[[package]]
 name = "bp-xcm-bridge-hub-router"
 version = "0.1.0"
 dependencies = [
@@ -1916,6 +1923,7 @@ dependencies = [
  "pallet-utility",
  "pallet-xcm",
  "pallet-xcm-benchmarks",
+ "pallet-xcm-bridge-hub",
  "parachains-common",
  "parity-scale-codec",
  "polkadot-core-primitives",
@@ -2033,6 +2041,7 @@ dependencies = [
 name = "bridge-hub-westend-runtime"
 version = "0.1.0"
 dependencies = [
+ "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
  "bp-bridge-hub-rococo",
  "bp-bridge-hub-westend",
@@ -2079,6 +2088,7 @@ dependencies = [
  "pallet-utility",
  "pallet-xcm",
  "pallet-xcm-benchmarks",
+ "pallet-xcm-bridge-hub",
  "parachains-common",
  "parity-scale-codec",
  "polkadot-core-primitives",
@@ -2122,6 +2132,7 @@ dependencies = [
  "bp-relayers",
  "bp-runtime",
  "bp-test-utils",
+ "bp-xcm-bridge-hub",
  "bp-xcm-bridge-hub-router",
  "frame-support",
  "frame-system",
@@ -11068,6 +11079,31 @@ dependencies = [
  "sp-runtime",
  "sp-std 8.0.0",
  "sp-tracing 10.0.0",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
+]
+
+[[package]]
+name = "pallet-xcm-bridge-hub"
+version = "0.1.0"
+dependencies = [
+ "bp-header-chain",
+ "bp-messages",
+ "bp-runtime",
+ "bp-xcm-bridge-hub",
+ "bridge-runtime-common",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-balances",
+ "pallet-bridge-messages",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 8.0.0",
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
