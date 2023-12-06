@@ -75,7 +75,7 @@ impl<T: V5Config> OnRuntimeUpgrade for UncheckedMigrateV4ToV5<T> {
 		// We dont need any front-run protection for this since channels are opened by governance.
 		ensure!(
 			v4::OutboundXcmpStatus::<T>::get().len() as u32 <= T::MaxActiveOutboundChannels::get(),
-			"Too many outbound channels."
+			"Too many outbound channels. Close some channels or increase `MaxActiveOutboundChannels`."
 		);
 
 		// Check if any channels have a too large message max sizes.
@@ -97,13 +97,13 @@ impl<T: V5Config> OnRuntimeUpgrade for UncheckedMigrateV4ToV5<T> {
 		for page in v4::OutboundXcmpMessages::<T>::iter_values() {
 			ensure!(
 				page.len() < T::MaxPageSize::get() as usize,
-				"Too long message in storage. Manual intervention required."
+				"Too long message in storage. Either manually truncate the pages or increase `MaxPageSize`."
 			);
 		}
 		for page in v4::SignalMessages::<T>::iter_values() {
 			ensure!(
 				page.len() < T::MaxPageSize::get() as usize,
-				"Too long signal in storage. Manual intervention required."
+				"Too long signal in storage. Either manually truncate the pages or increase `MaxPageSize`."
 			);
 		}
 
