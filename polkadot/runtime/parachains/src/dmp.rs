@@ -17,12 +17,12 @@
 //! To prevent Out of Memory errors on the `DownwardMessageQueue`, an
 //! exponential fee factor (`DeliveryFeeFactor`) is set. The fee factor
 //! increments exponentially after the number of messages in the
-//! `DownwardMessageQueue` pass a threshold. This threshold is set as:
+//! `DownwardMessageQueue` passes a threshold. This threshold is set as:
 //!
 //! ```ignore
 //! // Maximum max sized messages that can be send to
 //! // the DownwardMessageQueue before it runs out of memory
-//! max_messsages = MAX_POSSIBLE_ALLOCATION / max_downward_message_size
+//! max_messages = MAX_POSSIBLE_ALLOCATION / max_downward_message_size
 //! threshold = max_messages / THRESHOLD_FACTOR
 //! ```
 //! Based on the THRESHOLD_FACTOR, the threshold is set as a fraction of the
@@ -144,7 +144,7 @@ pub mod pallet {
 		FixedU128::from_u32(1)
 	}
 
-	/// The number to multiply the base delivery fee by.
+	/// The factor to multiply the base delivery fee by.
 	#[pallet::storage]
 	pub(crate) type DeliveryFeeFactor<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, FixedU128, ValueQuery, InitialFactor>;
@@ -243,10 +243,9 @@ impl<T: Config> Pallet<T> {
 		let threshold =
 			Self::dmq_max_length(config.max_downward_message_size).saturating_div(THRESHOLD_FACTOR);
 		if q_len > (threshold as usize) {
-			let message_size_factor =
-				FixedU128::from_u32(serialized_len.saturating_div(1024) as u32)
-					.saturating_mul(MESSAGE_SIZE_FEE_BASE);
-			Self::increment_fee_factor(para, message_size_factor);
+			let message_size_factor = FixedU128::from((serialized_len / 1024) as u128)
+				.saturating_mul(MESSAGE_SIZE_FEE_BASE);
+			Self::increase_fee_factor(para, message_size_factor);
 		}
 
 		Ok(())
@@ -304,7 +303,7 @@ impl<T: Config> Pallet<T> {
 		let threshold =
 			Self::dmq_max_length(config.max_downward_message_size).saturating_div(THRESHOLD_FACTOR);
 		if q_len <= (threshold as usize) {
-			Self::decrement_fee_factor(para);
+			Self::decrease_fee_factor(para);
 		}
 		T::DbWeight::get().reads_writes(1, 1)
 	}
@@ -337,32 +336,26 @@ impl<T: Config> Pallet<T> {
 	) -> Vec<InboundDownwardMessage<BlockNumberFor<T>>> {
 		DownwardMessageQueues::<T>::get(&recipient)
 	}
-
-	/// Raise the delivery fee factor by a multiplicative factor and stores the resulting value.
-	///
-	/// Returns the new delivery fee factor after the increment.
-	pub(crate) fn increment_fee_factor(para: ParaId, message_size_factor: FixedU128) -> FixedU128 {
-		<DeliveryFeeFactor<T>>::mutate(para, |f| {
-			*f = f.saturating_mul(EXPONENTIAL_FEE_BASE + message_size_factor);
-			*f
-		})
-	}
-
-	/// Reduce the delivery fee factor by a multiplicative factor and stores the resulting value.
-	///
-	/// Does not reduce the fee factor below the initial value, which is currently set as 1.
-	///
-	/// Returns the new delivery fee factor after the decrement.
-	pub(crate) fn decrement_fee_factor(para: ParaId) -> FixedU128 {
-		<DeliveryFeeFactor<T>>::mutate(para, |f| {
-			*f = InitialFactor::get().max(*f / EXPONENTIAL_FEE_BASE);
-			*f
-		})
-	}
 }
 
 impl<T: Config> FeeTracker for Pallet<T> {
-	fn get_fee_factor(para: ParaId) -> FixedU128 {
-		DeliveryFeeFactor::<T>::get(para)
+	type Id = ParaId;
+
+	fn get_fee_factor(id: Self::Id) -> FixedU128 {
+		DeliveryFeeFactor::<T>::get(id)
+	}
+
+	fn increase_fee_factor(id: Self::Id, message_size_factor: FixedU128) -> FixedU128 {
+		<DeliveryFeeFactor<T>>::mutate(id, |f| {
+			*f = f.saturating_mul(EXPONENTIAL_FEE_BASE.saturating_add(message_size_factor));
+			*f
+		})
+	}
+
+	fn decrease_fee_factor(id: Self::Id) -> FixedU128 {
+		<DeliveryFeeFactor<T>>::mutate(id, |f| {
+			*f = InitialFactor::get().max(*f / EXPONENTIAL_FEE_BASE);
+			*f
+		})
 	}
 }

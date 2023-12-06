@@ -60,6 +60,8 @@ benchmarks_instance_pallet! {
 			is_congested: false,
 			delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR + MINIMAL_DELIVERY_FEE_FACTOR,
 		});
+
+		let _ = T::ensure_bridged_target_destination();
 		T::make_congested();
 	}: {
 		crate::Pallet::<T, I>::on_initialize(Zero::zero())
@@ -79,11 +81,11 @@ benchmarks_instance_pallet! {
 	}
 
 	send_message {
-		// make local queue congested, because it means additional db write
-		T::make_congested();
-
 		let dest = T::ensure_bridged_target_destination();
 		let xcm = sp_std::vec![].into();
+
+		// make local queue congested, because it means additional db write
+		T::make_congested();
 	}: {
 		send_xcm::<crate::Pallet<T, I>>(dest, xcm).expect("message is sent")
 	}

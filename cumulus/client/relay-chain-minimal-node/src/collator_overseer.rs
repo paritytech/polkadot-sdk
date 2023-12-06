@@ -15,8 +15,8 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use futures::{select, StreamExt};
-use schnellru::{ByLength, LruMap};
-use std::sync::Arc;
+use parking_lot::Mutex;
+use std::{collections::HashMap, sync::Arc};
 
 use polkadot_availability_recovery::AvailabilityRecoverySubsystem;
 use polkadot_collator_protocol::{CollatorProtocolSubsystem, ProtocolSide};
@@ -25,26 +25,27 @@ use polkadot_network_bridge::{
 	NetworkBridgeTx as NetworkBridgeTxSubsystem,
 };
 use polkadot_node_collation_generation::CollationGenerationSubsystem;
+use polkadot_node_core_chain_api::ChainApiSubsystem;
+use polkadot_node_core_prospective_parachains::ProspectiveParachainsSubsystem;
 use polkadot_node_core_runtime_api::RuntimeApiSubsystem;
 use polkadot_node_network_protocol::{
-	peer_set::PeerSetProtocolNames,
+	peer_set::{PeerSet, PeerSetProtocolNames},
 	request_response::{
 		v1::{self, AvailableDataFetchingRequest},
-		vstaging, IncomingRequestReceiver, ReqProtocolNames,
+		v2, IncomingRequestReceiver, ReqProtocolNames,
 	},
 };
 use polkadot_node_subsystem_util::metrics::{prometheus::Registry, Metrics};
 use polkadot_overseer::{
 	BlockInfo, DummySubsystem, Handle, Overseer, OverseerConnector, OverseerHandle, SpawnGlue,
-	UnpinHandle, KNOWN_LEAVES_CACHE_SIZE,
+	UnpinHandle,
 };
 use polkadot_primitives::CollatorPair;
 
 use sc_authority_discovery::Service as AuthorityDiscoveryService;
-use sc_network::NetworkStateInfo;
+use sc_network::{NetworkStateInfo, NotificationService};
 use sc_service::TaskManager;
 use sc_utils::mpsc::tracing_unbounded;
-use sp_runtime::traits::Block as BlockT;
 
 use cumulus_primitives_core::relay_chain::{Block, Hash as PHash};
 use cumulus_relay_chain_interface::RelayChainError;
@@ -63,9 +64,8 @@ pub(crate) struct CollatorOverseerGenArgs<'a> {
 	pub authority_discovery_service: AuthorityDiscoveryService,
 	/// Receiver for collation request protocol v1.
 	pub collation_req_receiver_v1: IncomingRequestReceiver<v1::CollationFetchingRequest>,
-	/// Receiver for collation request protocol vstaging.
-	pub collation_req_receiver_vstaging:
-		IncomingRequestReceiver<vstaging::CollationFetchingRequest>,
+	/// Receiver for collation request protocol v2.
+	pub collation_req_receiver_v2: IncomingRequestReceiver<v2::CollationFetchingRequest>,
 	/// Receiver for availability request protocol
 	pub available_data_req_receiver: IncomingRequestReceiver<AvailableDataFetchingRequest>,
 	/// Prometheus registry, commonly used for production systems, less so for test.
@@ -78,6 +78,8 @@ pub(crate) struct CollatorOverseerGenArgs<'a> {
 	pub req_protocol_names: ReqProtocolNames,
 	/// Peerset protocols name mapping
 	pub peer_set_protocol_names: PeerSetProtocolNames,
+	/// Notification services for validation/collation protocols.
+	pub notification_services: HashMap<PeerSet, Box<dyn NotificationService>>,
 }
 
 fn build_overseer(
@@ -88,13 +90,14 @@ fn build_overseer(
 		sync_oracle,
 		authority_discovery_service,
 		collation_req_receiver_v1,
-		collation_req_receiver_vstaging,
+		collation_req_receiver_v2,
 		available_data_req_receiver,
 		registry,
 		spawner,
 		collator_pair,
 		req_protocol_names,
 		peer_set_protocol_names,
+		notification_services,
 	}: CollatorOverseerGenArgs<'_>,
 ) -> Result<
 	(Overseer<SpawnGlue<sc_service::SpawnTaskHandle>, Arc<BlockChainRpcClient>>, OverseerHandle),
@@ -102,9 +105,11 @@ fn build_overseer(
 > {
 	let spawner = SpawnGlue(spawner);
 	let network_bridge_metrics: NetworkBridgeMetrics = Metrics::register(registry)?;
+	let notification_sinks = Arc::new(Mutex::new(HashMap::new()));
+
 	let builder = Overseer::builder()
 		.availability_distribution(DummySubsystem)
-		.availability_recovery(AvailabilityRecoverySubsystem::with_availability_store_skip(
+		.availability_recovery(AvailabilityRecoverySubsystem::for_collator(
 			available_data_req_receiver,
 			Metrics::register(registry)?,
 		))
@@ -114,14 +119,14 @@ fn build_overseer(
 		.candidate_backing(DummySubsystem)
 		.candidate_validation(DummySubsystem)
 		.pvf_checker(DummySubsystem)
-		.chain_api(DummySubsystem)
+		.chain_api(ChainApiSubsystem::new(runtime_client.clone(), Metrics::register(registry)?))
 		.collation_generation(CollationGenerationSubsystem::new(Metrics::register(registry)?))
 		.collator_protocol({
 			let side = ProtocolSide::Collator {
 				peer_id: network_service.local_peer_id(),
 				collator_pair,
 				request_receiver_v1: collation_req_receiver_v1,
-				request_receiver_vstaging: collation_req_receiver_vstaging,
+				request_receiver_v2: collation_req_receiver_v2,
 				metrics: Metrics::register(registry)?,
 			};
 			CollatorProtocolSubsystem::new(side)
@@ -132,6 +137,8 @@ fn build_overseer(
 			sync_oracle,
 			network_bridge_metrics.clone(),
 			peer_set_protocol_names.clone(),
+			notification_services,
+			notification_sinks.clone(),
 		))
 		.network_bridge_tx(NetworkBridgeTxSubsystem::new(
 			network_service,
@@ -139,6 +146,7 @@ fn build_overseer(
 			network_bridge_metrics,
 			req_protocol_names,
 			peer_set_protocol_names,
+			notification_sinks,
 		))
 		.provisioner(DummySubsystem)
 		.runtime_api(RuntimeApiSubsystem::new(
@@ -147,7 +155,7 @@ fn build_overseer(
 			spawner.clone(),
 		))
 		.statement_distribution(DummySubsystem)
-		.prospective_parachains(DummySubsystem)
+		.prospective_parachains(ProspectiveParachainsSubsystem::new(Metrics::register(registry)?))
 		.approval_distribution(DummySubsystem)
 		.approval_voting(DummySubsystem)
 		.gossip_support(DummySubsystem)
@@ -158,7 +166,6 @@ fn build_overseer(
 		.span_per_active_leaf(Default::default())
 		.active_leaves(Default::default())
 		.supports_parachains(runtime_client)
-		.known_leaves(LruMap::new(ByLength::new(KNOWN_LEAVES_CACHE_SIZE)))
 		.metrics(Metrics::register(registry)?)
 		.spawner(spawner);
 
@@ -210,8 +217,6 @@ pub struct NewMinimalNode {
 	pub task_manager: TaskManager,
 	/// Overseer handle to interact with subsystems
 	pub overseer_handle: Handle,
-	/// Network service
-	pub network: Arc<sc_network::NetworkService<Block, <Block as BlockT>::Hash>>,
 }
 
 /// Glues together the [`Overseer`] and `BlockchainEvents` by forwarding

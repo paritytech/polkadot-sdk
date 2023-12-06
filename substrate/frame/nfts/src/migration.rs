@@ -97,9 +97,6 @@ pub mod v1 {
 
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
-			let current_version = Pallet::<T>::current_storage_version();
-			let onchain_version = Pallet::<T>::on_chain_storage_version();
-			ensure!(onchain_version == 0 && current_version == 1, "migration from version 0 to 1.");
 			let prev_count = Collection::<T>::iter().count();
 			Ok((prev_count as u32).encode())
 		}
@@ -115,7 +112,7 @@ pub mod v1 {
 				"the records count before and after the migration should be the same"
 			);
 
-			ensure!(Pallet::<T>::on_chain_storage_version() == 1, "wrong storage version");
+			ensure!(Pallet::<T>::on_chain_storage_version() >= 1, "wrong storage version");
 
 			Ok(())
 		}

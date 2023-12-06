@@ -24,7 +24,6 @@ use log::{error, info, trace, warn};
 use parking_lot::{Mutex, RwLock};
 use prometheus_endpoint::Registry;
 use rand::Rng;
-use sc_block_builder::{BlockBuilderApi, BlockBuilderProvider, RecordProof};
 use sc_chain_spec::{resolve_state_version_from_wasm, BuildGenesisBlock};
 use sc_client_api::{
 	backend::{
@@ -70,7 +69,7 @@ use sp_runtime::{
 		Block as BlockT, BlockIdTo, HashingFor, Header as HeaderT, NumberFor, One,
 		SaturatedConversion, Zero,
 	},
-	Digest, Justification, Justifications, StateVersion,
+	Justification, Justifications, StateVersion,
 };
 use sp_state_machine::{
 	prove_child_read, prove_range_read_with_child_with_size, prove_read,
@@ -78,7 +77,7 @@ use sp_state_machine::{
 	ChildStorageCollection, KeyValueStates, KeyValueStorageLevel, StorageCollection,
 	MAX_NESTED_TRIE_DEPTH,
 };
-use sp_trie::{CompactProof, MerkleValue, StorageProof};
+use sp_trie::{proof_size_extension::ProofSizeExt, CompactProof, MerkleValue, StorageProof};
 use std::{
 	collections::{HashMap, HashSet},
 	marker::PhantomData,
@@ -185,7 +184,7 @@ where
 	)
 }
 
-/// Relevant client configuration items relevant for the client.
+/// Client configuration items.
 #[derive(Debug, Clone)]
 pub struct ClientConfig<Block: BlockT> {
 	/// Enable the offchain worker db.
@@ -199,6 +198,8 @@ pub struct ClientConfig<Block: BlockT> {
 	/// Map of WASM runtime substitute starting at the child of the given block until the runtime
 	/// version doesn't match anymore.
 	pub wasm_runtime_substitutes: HashMap<NumberFor<Block>, Vec<u8>>,
+	/// Enable recording of storage proofs during block import
+	pub enable_import_proof_recording: bool,
 }
 
 impl<Block: BlockT> Default for ClientConfig<Block> {
@@ -209,6 +210,7 @@ impl<Block: BlockT> Default for ClientConfig<Block> {
 			wasm_runtime_overrides: None,
 			no_genesis: false,
 			wasm_runtime_substitutes: HashMap::new(),
+			enable_import_proof_recording: false,
 		}
 	}
 }
@@ -484,8 +486,7 @@ where
 		CallExecutor::runtime_version(&self.executor, hash)
 	}
 
-	/// Apply a checked and validated block to an operation. If a justification is provided
-	/// then `finalized` *must* be true.
+	/// Apply a checked and validated block to an operation.
 	fn apply_block(
 		&self,
 		operation: &mut ClientImportOperation<Block, B>,
@@ -859,6 +860,14 @@ where
 				let mut runtime_api = self.runtime_api();
 
 				runtime_api.set_call_context(CallContext::Onchain);
+
+				if self.config.enable_import_proof_recording {
+					runtime_api.record_proof();
+					let recorder = runtime_api
+						.proof_recorder()
+						.expect("Proof recording is enabled in the line above; qed.");
+					runtime_api.register_extension(ProofSizeExt::new(recorder));
+				}
 
 				runtime_api.execute_block(
 					*parent_hash,
@@ -1403,46 +1412,6 @@ where
 	}
 }
 
-impl<B, E, Block, RA> BlockBuilderProvider<B, Block, Self> for Client<B, E, Block, RA>
-where
-	B: backend::Backend<Block> + Send + Sync + 'static,
-	E: CallExecutor<Block> + Send + Sync + 'static,
-	Block: BlockT,
-	Self: ChainHeaderBackend<Block> + ProvideRuntimeApi<Block>,
-	<Self as ProvideRuntimeApi<Block>>::Api: ApiExt<Block> + BlockBuilderApi<Block>,
-{
-	fn new_block_at<R: Into<RecordProof>>(
-		&self,
-		parent: Block::Hash,
-		inherent_digests: Digest,
-		record_proof: R,
-	) -> sp_blockchain::Result<sc_block_builder::BlockBuilder<Block, Self, B>> {
-		sc_block_builder::BlockBuilder::new(
-			self,
-			parent,
-			self.expect_block_number_from_id(&BlockId::Hash(parent))?,
-			record_proof.into(),
-			inherent_digests,
-			&self.backend,
-		)
-	}
-
-	fn new_block(
-		&self,
-		inherent_digests: Digest,
-	) -> sp_blockchain::Result<sc_block_builder::BlockBuilder<Block, Self, B>> {
-		let info = self.chain_info();
-		sc_block_builder::BlockBuilder::new(
-			self,
-			info.best_hash,
-			info.best_number,
-			RecordProof::No,
-			inherent_digests,
-			&self.backend,
-		)
-	}
-}
-
 impl<B, E, Block, RA> ExecutorProvider<Block> for Client<B, E, Block, RA>
 where
 	B: backend::Backend<Block>,
@@ -1766,8 +1735,7 @@ where
 {
 	type Error = ConsensusError;
 
-	/// Import a checked and validated block. If a justification is provided in
-	/// `BlockImportParams` then `finalized` *must* be true.
+	/// Import a checked and validated block.
 	///
 	/// NOTE: only use this implementation when there are NO consensus-level BlockImport
 	/// objects. Otherwise, importing blocks directly into the client would be bypassing

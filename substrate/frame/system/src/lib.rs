@@ -163,7 +163,7 @@ pub trait SetCode<T: Config> {
 
 impl<T: Config> SetCode<T> for () {
 	fn set_code(code: Vec<u8>) -> DispatchResult {
-		<Pallet<T>>::update_code_in_storage(&code)?;
+		<Pallet<T>>::update_code_in_storage(&code);
 		Ok(())
 	}
 }
@@ -206,6 +206,7 @@ pub mod pallet {
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	pub mod config_preludes {
 		use super::{inject_runtime_type, DefaultConfig};
+		use frame_support::derive_impl;
 
 		/// Provides a viable default config that can be used with
 		/// [`derive_impl`](`frame_support::derive_impl`) to derive a testing pallet config
@@ -244,6 +245,112 @@ pub mod pallet {
 			type BlockHashCount = frame_support::traits::ConstU64<10>;
 			type OnSetCode = ();
 		}
+
+		/// Default configurations of this pallet in a solo-chain environment.
+		///
+		/// ## Considerations:
+		///
+		/// By default, this type makes the following choices:
+		///
+		/// * Use a normal 32 byte account id, with a [`DefaultConfig::Lookup`] that implies no
+		///   'account-indexing' pallet is being used.
+		/// * Given that we don't know anything about the existence of a currency system in scope,
+		///   an [`DefaultConfig::AccountData`] is chosen that has no addition data. Overwrite this
+		///   if you use `pallet-balances` or similar.
+		/// * Make sure to overwrite [`DefaultConfig::Version`].
+		/// * 2s block time, and a default 5mb block size is used.
+		pub struct SolochainDefaultConfig;
+
+		#[frame_support::register_default_impl(SolochainDefaultConfig)]
+		impl DefaultConfig for SolochainDefaultConfig {
+			/// The default type for storing how many extrinsics an account has signed.
+			type Nonce = u32;
+
+			/// The default type for hashing blocks and tries.
+			type Hash = sp_core::hash::H256;
+
+			/// The default hashing algorithm used.
+			type Hashing = sp_runtime::traits::BlakeTwo256;
+
+			/// The default identifier used to distinguish between accounts.
+			type AccountId = sp_runtime::AccountId32;
+
+			/// The lookup mechanism to get account ID from whatever is passed in dispatchers.
+			type Lookup = sp_runtime::traits::AccountIdLookup<Self::AccountId, ()>;
+
+			/// The maximum number of consumers allowed on a single account. Using 128 as default.
+			type MaxConsumers = frame_support::traits::ConstU32<128>;
+
+			/// The default data to be stored in an account.
+			type AccountData = crate::AccountInfo<Self::Nonce, ()>;
+
+			/// What to do if a new account is created.
+			type OnNewAccount = ();
+
+			/// What to do if an account is fully reaped from the system.
+			type OnKilledAccount = ();
+
+			/// Weight information for the extrinsics of this pallet.
+			type SystemWeightInfo = ();
+
+			/// This is used as an identifier of the chain.
+			type SS58Prefix = ();
+
+			/// Version of the runtime.
+			type Version = ();
+
+			/// Block & extrinsics weights: base values and limits.
+			type BlockWeights = ();
+
+			/// The maximum length of a block (in bytes).
+			type BlockLength = ();
+
+			/// The weight of database operations that the runtime can invoke.
+			type DbWeight = ();
+
+			/// The ubiquitous event type injected by `construct_runtime!`.
+			#[inject_runtime_type]
+			type RuntimeEvent = ();
+
+			/// The ubiquitous origin type injected by `construct_runtime!`.
+			#[inject_runtime_type]
+			type RuntimeOrigin = ();
+
+			/// The aggregated dispatch type available for extrinsics, injected by
+			/// `construct_runtime!`.
+			#[inject_runtime_type]
+			type RuntimeCall = ();
+
+			/// Converts a module to the index of the module, injected by `construct_runtime!`.
+			#[inject_runtime_type]
+			type PalletInfo = ();
+
+			/// The basic call filter to use in dispatchable. Supports everything as the default.
+			type BaseCallFilter = frame_support::traits::Everything;
+
+			/// Maximum number of block number to block hash mappings to keep (oldest pruned first).
+			/// Using 256 as default.
+			type BlockHashCount = frame_support::traits::ConstU32<256>;
+
+			/// The set code logic, just the default since we're not a parachain.
+			type OnSetCode = ();
+		}
+
+		/// Default configurations of this pallet in a relay-chain environment.
+		pub struct RelayChainDefaultConfig;
+
+		/// It currently uses the same configuration as `SolochainDefaultConfig`.
+		#[derive_impl(SolochainDefaultConfig as DefaultConfig, no_aggregated_types)]
+		#[frame_support::register_default_impl(RelayChainDefaultConfig)]
+		impl DefaultConfig for RelayChainDefaultConfig {}
+
+		/// Default configurations of this pallet in a parachain environment.
+		pub struct ParaChainDefaultConfig;
+
+		/// It currently uses the same configuration as `SolochainDefaultConfig`.
+		#[derive_impl(SolochainDefaultConfig as DefaultConfig, no_aggregated_types)]
+		#[frame_support::register_default_impl(ParaChainDefaultConfig)]
+		impl DefaultConfig for ParaChainDefaultConfig {}
 	}
 
 	/// System configuration trait. Implemented by runtime.
@@ -420,8 +527,9 @@ pub mod pallet {
 		///
 		/// Can be executed by every `origin`.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::SystemWeightInfo::remark(_remark.len() as u32))]
-		pub fn remark(_origin: OriginFor<T>, _remark: Vec<u8>) -> DispatchResultWithPostInfo {
+		#[pallet::weight(T::SystemWeightInfo::remark(remark.len() as u32))]
+		pub fn remark(_origin: OriginFor<T>, remark: Vec<u8>) -> DispatchResultWithPostInfo {
+			let _ = remark; // No need to check the weight witness.
 			Ok(().into())
 		}
 
@@ -495,16 +603,16 @@ pub mod pallet {
 		/// the prefix we are removing to accurately calculate the weight of this function.
 		#[pallet::call_index(6)]
 		#[pallet::weight((
-			T::SystemWeightInfo::kill_prefix(_subkeys.saturating_add(1)),
+			T::SystemWeightInfo::kill_prefix(subkeys.saturating_add(1)),
 			DispatchClass::Operational,
 		))]
 		pub fn kill_prefix(
 			origin: OriginFor<T>,
 			prefix: Key,
-			_subkeys: u32,
+			subkeys: u32,
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
-			let _ = storage::unhashed::clear_prefix(&prefix, None, None);
+			let _ = storage::unhashed::clear_prefix(&prefix, Some(subkeys), None);
 			Ok(().into())
 		}
 
@@ -676,8 +784,6 @@ pub mod pallet {
 	#[derive(frame_support::DefaultNoBound)]
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
-		#[serde(with = "sp_core::bytes")]
-		pub code: Vec<u8>,
 		#[serde(skip)]
 		pub _config: sp_std::marker::PhantomData<T>,
 	}
@@ -691,7 +797,6 @@ pub mod pallet {
 			<UpgradedToU32RefCount<T>>::put(true);
 			<UpgradedToTripleRefCount<T>>::put(true);
 
-			sp_io::storage::set(well_known_keys::CODE, &self.code);
 			sp_io::storage::set(well_known_keys::EXTRINSIC_INDEX, &0u32.encode());
 		}
 	}
@@ -973,6 +1078,7 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 	{}
 }
 
+#[docify::export]
 /// Ensure that the origin `o` represents a signed extrinsic (i.e. transaction).
 /// Returns `Ok` with the account that signed the extrinsic or an `Err` otherwise.
 pub fn ensure_signed<OuterOrigin, AccountId>(o: OuterOrigin) -> Result<AccountId, BadOrigin>
@@ -1049,6 +1155,25 @@ pub enum DecRefStatus {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Returns the `spec_version` of the last runtime upgrade.
+	///
+	/// This function is useful for writing guarded runtime migrations in the runtime. A runtime
+	/// migration can use the `spec_version` to ensure that it isn't applied twice. This works
+	/// similar as the storage version for pallets.
+	///
+	/// This functions returns the `spec_version` of the last runtime upgrade while executing the
+	/// runtime migrations
+	/// [`on_runtime_upgrade`](frame_support::traits::OnRuntimeUpgrade::on_runtime_upgrade)
+	/// function. After all migrations are executed, this will return the `spec_version` of the
+	/// current runtime until there is another runtime upgrade.
+	///
+	/// Example:
+	#[doc = docify::embed!("src/tests.rs", last_runtime_upgrade_spec_version_usage)]
+	pub fn last_runtime_upgrade_spec_version() -> u32 {
+		LastRuntimeUpgrade::<T>::get().map_or(0, |l| l.spec_version.0)
+	}
+
+	/// Returns true if the given account exists.
 	pub fn account_exists(who: &T::AccountId) -> bool {
 		Account::<T>::contains_key(who)
 	}
@@ -1058,11 +1183,10 @@ impl<T: Config> Pallet<T> {
 	/// Note this function almost never should be used directly. It is exposed
 	/// for `OnSetCode` implementations that defer actual code being written to
 	/// the storage (for instance in case of parachains).
-	pub fn update_code_in_storage(code: &[u8]) -> DispatchResult {
+	pub fn update_code_in_storage(code: &[u8]) {
 		storage::unhashed::put_raw(well_known_keys::CODE, code);
 		Self::deposit_log(generic::DigestItem::RuntimeEnvironmentUpdated);
 		Self::deposit_event(Event::CodeUpdated);
-		Ok(())
 	}
 
 	/// Increment the reference counter on an account.
@@ -1309,6 +1433,7 @@ impl<T: Config> Pallet<T> {
 	/// NOTE: Events not registered at the genesis block and quietly omitted.
 	pub fn deposit_event_indexed(topics: &[T::Hash], event: T::RuntimeEvent) {
 		let block_number = Self::block_number();
+
 		// Don't populate events on genesis.
 		if block_number.is_zero() {
 			return
@@ -1492,12 +1617,7 @@ impl<T: Config> Pallet<T> {
 	/// NOTE: Events not registered at the genesis block and quietly omitted.
 	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
 	pub fn events() -> Vec<EventRecord<T::RuntimeEvent, T::Hash>> {
-		debug_assert!(
-			!Self::block_number().is_zero(),
-			"events not registered at the genesis block"
-		);
-		// Dereferencing the events here is fine since we are not in the
-		// memory-restricted runtime.
+		// Dereferencing the events here is fine since we are not in the memory-restricted runtime.
 		Self::read_events_no_consensus().map(|e| *e).collect()
 	}
 
@@ -1516,6 +1636,21 @@ impl<T: Config> Pallet<T> {
 	pub fn read_events_no_consensus(
 	) -> impl sp_std::iter::Iterator<Item = Box<EventRecord<T::RuntimeEvent, T::Hash>>> {
 		Events::<T>::stream_iter()
+	}
+
+	/// Read and return the events of a specific pallet, as denoted by `E`.
+	///
+	/// This is useful for a pallet that wishes to read only the events it has deposited into
+	/// `frame_system` using the standard `fn deposit_event`.
+	pub fn read_events_for_pallet<E>() -> Vec<E>
+	where
+		T::RuntimeEvent: TryInto<E>,
+	{
+		Events::<T>::get()
+			.into_iter()
+			.map(|er| er.event)
+			.filter_map(|e| e.try_into().ok())
+			.collect::<_>()
 	}
 
 	/// Set the block number to something in particular. Can be used as an alternative to
@@ -1816,4 +1951,11 @@ pub mod pallet_prelude {
 
 	/// Type alias for the `BlockNumber` associated type of system config.
 	pub type BlockNumberFor<T> = <HeaderFor<T> as sp_runtime::traits::Header>::Number;
+
+	/// Type alias for the `Extrinsic` associated type of system config.
+	pub type ExtrinsicFor<T> =
+		<<T as crate::Config>::Block as sp_runtime::traits::Block>::Extrinsic;
+
+	/// Type alias for the `RuntimeCall` associated type of system config.
+	pub type RuntimeCallFor<T> = <T as crate::Config>::RuntimeCall;
 }

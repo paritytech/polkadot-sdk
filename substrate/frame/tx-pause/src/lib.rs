@@ -15,6 +15,62 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! # Transaction Pause
+//!
+//! Allows dynamic, chain-state-based pausing and unpausing of specific extrinsics via call filters.
+//!
+//! ## WARNING
+//!
+//! NOT YET AUDITED. DO NOT USE IN PRODUCTION.
+//!
+//! ## Pallet API
+//!
+//! See the [`pallet`] module for more information about the interfaces this pallet exposes,
+//! including its configuration trait, dispatchables, storage items, events, and errors.
+//!
+//! ## Overview
+//!
+//! A dynamic call filter that can be controlled with extrinsics.
+//!
+//! Pausing an extrinsic means that the extrinsic CANNOT be called again until it is unpaused.
+//! The exception is calls that use `dispatch_bypass_filter`, typically only with the root origin.
+//!
+//! ### Primary Features
+//!
+//! - Calls that should never be paused can be added to a whitelist.
+//! - Separate origins are configurable for pausing and pausing.
+//! - Pausing is triggered using the string representation of the call.
+//! - Pauses can target a single extrinsic or an entire pallet.
+//! - Pauses can target future extrinsics or pallets.
+//!
+//! ### Example
+//!
+//! Configuration of call filters:
+//!
+//! ```ignore
+//! impl frame_system::Config for Runtime {
+//!   // …
+//!   type BaseCallFilter = InsideBoth<DefaultFilter, TxPause>;
+//!   // …
+//! }
+//! ```
+//!
+//! Pause specific all:
+#![doc = docify::embed!("src/tests.rs", can_pause_specific_call)]
+//!
+//! Unpause specific all:
+#![doc = docify::embed!("src/tests.rs", can_unpause_specific_call)]
+//!
+//! Pause all calls in a pallet:
+#![doc = docify::embed!("src/tests.rs", can_pause_all_calls_in_pallet_except_on_whitelist)]
+//!
+//! ## Low Level / Implementation Details
+//!
+//! ### Use Cost
+//!
+//! A storage map (`PausedCalls`) is used to store currently paused calls.
+//! Using the call filter will require a db read of that storage on each extrinsic.
+
 #![cfg_attr(not(feature = "std"), no_std)]
 #![deny(rustdoc::broken_intra_doc_links)]
 
@@ -205,7 +261,7 @@ impl<T: Config> Pallet<T> {
 	/// Ensure that this call can be paused.
 	pub fn ensure_can_pause(full_name: &RuntimeCallNameOf<T>) -> Result<(), Error<T>> {
 		// SAFETY: The `TxPause` pallet can never pause itself.
-		if full_name.0.as_ref() == <Self as PalletInfoAccess>::name().as_bytes().to_vec() {
+		if full_name.0.as_slice() == <Self as PalletInfoAccess>::name().as_bytes() {
 			return Err(Error::<T>::Unpausable)
 		}
 

@@ -1,6 +1,6 @@
 [package]
 name = "bp-bridge-hub-polkadot"
-description = "Primitives of BridgeHubWococo parachain runtime."
+description = "Primitives of BridgeHubPolkadot parachain runtime."
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
@@ -22,7 +22,7 @@ sp-runtime = { path = "../../../substrate/primitives/runtime", default-features 
 sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"bp-bridge-hub-cumulus/std",
 	"bp-messages/std",
