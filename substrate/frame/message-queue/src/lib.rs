@@ -1183,6 +1183,13 @@ impl<T: Config> Pallet<T> {
 			"Memory Corruption in Pages"
 		);
 
+		// Basic checks for each book
+		for book in BookStateFor::<T>::iter_values() {
+			let fp: QueueFootprint = book.into();
+
+			ensure!(fp.ready_pages <= fp.pages, "There can be no more ready than total pages");
+		}
+
 		// No state to check
 		if ServiceHead::<T>::get().is_none() {
 			return Ok(())
