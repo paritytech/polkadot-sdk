@@ -1,7 +1,7 @@
 title: Storage bound the XCMP queue pallet
 
 doc:
-  - audience: Parachain Dev
+  - audience: Runtime Dev
     description: |
       Enforce upper limits for the number of suspended channels and on
       the number of channels that have messages pending. This is needed to use
@@ -11,11 +11,10 @@ migrations:
   db: []
 
   runtime:
-    - pallet: cumulus-pallet-xcmp-queue
+    - reference: cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5
       description: A No-OP migration is deployed to ensure that all `BoundedVec`s` still decode as expected.
 
 crates:
   - name: cumulus-pallet-xcmp-queue
-    semver: major
 
 host_functions: []
