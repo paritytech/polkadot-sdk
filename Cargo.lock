@@ -1521,13 +1521,14 @@ dependencies = [
 
 [[package]]
 name = "bounded-collections"
-version = "0.1.8"
+version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb5b05133427c07c4776906f673ccf36c21b102c9829c641a5b56bd151d44fd6"
+checksum = "ca548b6163b872067dc5eb82fd130c56881435e30367d2073594a3d9744120dd"
 dependencies = [
  "log",
  "parity-scale-codec",
  "scale-info",
+ "schemars",
  "serde",
 ]
 
@@ -18115,6 +18116,7 @@ dependencies = [
  "bounded-collections",
  "parity-scale-codec",
  "scale-info",
+ "schemars",
  "serde",
  "smallvec",
  "sp-arithmetic",
