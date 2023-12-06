@@ -1783,7 +1783,7 @@ mod benchmarking {
 
 		schedule_code_upgrade {
 			// The 'worst case' scenario in terms of benchmarking is when the upgrade isn't free
-			// and there is a refund. 
+			// and there is a refund.
 
 			let b in 2 .. MAX_CODE_SIZE;
 			let initial_code = ValidationCode(vec![0; b as usize]);
