@@ -148,7 +148,7 @@ pub struct SharedValueCacheLimiter {
 	heap_size: usize,
 
 	/// A set with all of the keys deduplicated to save on memory.
-	known_storage_keys: HashMap<Arc<[u8]>, ()>,
+	known_storage_keys: HashMap<Arc<[u8]>, (), ahash::RandomState>,
 
 	/// A counter with the number of elements that got evicted from the cache.
 	///
@@ -491,7 +491,7 @@ impl<H: Eq + std::hash::Hash + Clone + Copy + AsRef<[u8]>> SharedValueCache<H> {
 					max_inline_size,
 					max_heap_size,
 					heap_size: 0,
-					known_storage_keys: Default::default(),
+					known_storage_keys: HashMap::with_hasher(RANDOM_STATE.clone()),
 					items_evicted: 0,
 					max_items_evicted: 0, // Will be set during `update`.
 				},
