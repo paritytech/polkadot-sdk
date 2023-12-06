@@ -507,7 +507,7 @@ impl OnNewHead for Tuple {
 }
 
 pub trait OnCodeUpgrade {
-	/// A function to execute some custom logic once the pre-chekcing is successfully completed.
+	/// A function to execute some custom logic once the pre-checking is successfully completed.
 	///
 	/// This is currently used by the registrar pallet to perform refunds upon validation code
 	/// size reduction.
