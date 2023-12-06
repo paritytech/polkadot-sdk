@@ -137,9 +137,6 @@ pub trait Delegator {
 		delegatee: &Self::AccountId,
 		value: Self::Balance,
 	) -> DispatchResult;
-
-	/// Unbond stake.
-	fn unbond(delegatee: &Self::AccountId, value: Self::Balance) -> DispatchResult;
 }
 
 /// Something that provides delegation support to core staking.

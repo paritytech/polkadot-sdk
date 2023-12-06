@@ -29,7 +29,7 @@ use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen,
 };
-use pallet_staking::{CurrentEra, RewardDestination};
+use pallet_staking::CurrentEra;
 use sp_staking::delegation::{Delegatee, Delegator, StakingDelegationSupport};
 
 pub type T = Runtime;
@@ -259,10 +259,7 @@ pub(crate) fn setup_delegation_stake(
 	}
 
 	// sanity checks
-	assert_eq!(
-		DelegatedStaking::stakeable_balance(&delegatee),
-		delegated_amount
-	);
+	assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), delegated_amount);
 	assert_eq!(DelegatedStaking::unbonded_balance(&delegatee), 0);
 
 	delegated_amount

@@ -27,16 +27,20 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
-use frame_support::{pallet_prelude::*, traits::{
-	fungible::{hold::Mutate as FunHoldMutate, Inspect as FunInspect, Mutate as FunMutate},
-	tokens::{Fortitude, Precision, Preservation},
-	DefensiveOption,
-}, transactional};
+use frame_support::{
+	pallet_prelude::*,
+	traits::{
+		fungible::{hold::Mutate as FunHoldMutate, Inspect as FunInspect, Mutate as FunMutate},
+		tokens::{Fortitude, Precision, Preservation},
+		DefensiveOption,
+	},
+	transactional,
+};
 use pallet::*;
 use sp_runtime::{traits::Zero, DispatchResult, RuntimeDebug, Saturating};
 use sp_staking::{
 	delegation::{Delegatee, Delegator, StakeBalanceType, StakingDelegationSupport},
-	StakerStatus, StakingInterface,
+	EraIndex, Stake, StakerStatus, StakingInterface,
 };
 use sp_std::{convert::TryInto, prelude::*};
 
@@ -46,7 +50,6 @@ pub type BalanceOf<T> =
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use sp_staking::delegation::StakingDelegationSupport;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
@@ -93,6 +96,8 @@ pub mod pallet {
 		UnappliedSlash,
 		/// Failed to withdraw amount from Core Staking Ledger.
 		WithdrawFailed,
+		/// This operation is not supported with Delegation Staking.
+		NotSupported,
 	}
 
 	/// A reason for placing a hold on funds.
@@ -119,7 +124,7 @@ pub mod pallet {
 		Withdrawn { delegatee: T::AccountId, delegator: T::AccountId, amount: BalanceOf<T> },
 	}
 
-	/// Map of Delegators to their delegation.
+	/// Map of Delegators to their delegation, i.e. (delegatee, delegation_amount).
 	///
 	/// Note: We are not using a double map with delegator and delegatee account as keys since we
 	/// want to restrict delegators to delegate only to one account.
@@ -277,7 +282,7 @@ impl<T: Config> Delegatee for Pallet<T> {
 		})
 	}
 
-	fn kill_delegatee(delegatee: &Self::AccountId) -> DispatchResult {
+	fn kill_delegatee(_delegatee: &Self::AccountId) -> DispatchResult {
 		todo!()
 	}
 
@@ -286,13 +291,10 @@ impl<T: Config> Delegatee for Pallet<T> {
 		let amount_to_bond = delegatee.unbonded_balance();
 
 		match T::CoreStaking::stake(who) {
-			Ok(stake) => {
-				T::CoreStaking::bond_extra(who, amount_to_bond)
-			},
-			Err(_) => {
-				// If stake not found, it means this is the first bond
-				T::CoreStaking::bond(who, amount_to_bond, &delegatee.payee)
-			},
+			// already bonded
+			Ok(_) => T::CoreStaking::bond_extra(who, amount_to_bond),
+			// first bond
+			Err(_) => T::CoreStaking::bond(who, amount_to_bond, &delegatee.payee),
 		}
 	}
 
@@ -304,15 +306,17 @@ impl<T: Config> Delegatee for Pallet<T> {
 		num_slashing_spans: u32,
 	) -> DispatchResult {
 		// fixme(ank4n) handle killing of stash
-		let _stash_killed: bool = T::CoreStaking::withdraw_exact(delegatee, value, num_slashing_spans).map_err(|_| Error::<T>::WithdrawFailed)?;
+		let _stash_killed: bool =
+			T::CoreStaking::withdraw_exact(delegatee, value, num_slashing_spans)
+				.map_err(|_| Error::<T>::WithdrawFailed)?;
 		Self::delegation_withdraw(delegator, delegatee, value)
 	}
 
 	fn apply_slash(
-		delegatee: &Self::AccountId,
-		delegator: &Self::AccountId,
-		value: Self::Balance,
-		reporter: Option<Self::AccountId>,
+		_delegatee: &Self::AccountId,
+		_delegator: &Self::AccountId,
+		_value: Self::Balance,
+		_reporter: Option<Self::AccountId>,
 	) -> DispatchResult {
 		todo!()
 	}
@@ -383,10 +387,6 @@ impl<T: Config> Delegator for Pallet<T> {
 		T::Currency::hold(&HoldReason::Delegating.into(), &delegator, value)?;
 
 		Ok(())
-	}
-
-	fn unbond(delegatee: &Self::AccountId, value: Self::Balance) -> DispatchResult {
-		T::CoreStaking::unbond(delegatee, value)
 	}
 }
 
@@ -461,9 +461,205 @@ impl<T: Config> StakingDelegationSupport for Pallet<T> {
 	}
 }
 
+/// StakingInterface implementation with delegation support.
+///
+/// Only supports Nominators via Delegated Bonds. It is possible for a nominator to migrate to a
+/// Delegatee.
+impl<T: Config> StakingInterface for Pallet<T> {
+	type Balance = BalanceOf<T>;
+	type AccountId = T::AccountId;
+	type CurrencyToVote = <T::CoreStaking as StakingInterface>::CurrencyToVote;
+
+	fn minimum_nominator_bond() -> Self::Balance {
+		T::CoreStaking::minimum_nominator_bond()
+	}
+
+	fn minimum_validator_bond() -> Self::Balance {
+		defensive_assert!(false, "not supported for delegated impl of staking interface");
+		T::CoreStaking::minimum_validator_bond()
+	}
+
+	fn stash_by_ctrl(_controller: &Self::AccountId) -> Result<Self::AccountId, DispatchError> {
+		defensive_assert!(false, "not supported for delegated impl of staking interface");
+		// ctrl are deprecated, just return err.
+		Err(Error::<T>::NotSupported.into())
+	}
+
+	fn bonding_duration() -> EraIndex {
+		T::CoreStaking::bonding_duration()
+	}
+
+	fn current_era() -> EraIndex {
+		T::CoreStaking::current_era()
+	}
+
+	fn stake(who: &Self::AccountId) -> Result<Stake<Self::Balance>, DispatchError> {
+		if Self::is_delegatee(who) {
+			return T::CoreStaking::stake(who);
+		}
+
+		Err(Error::<T>::NotSupported.into())
+	}
+
+	fn total_stake(who: &Self::AccountId) -> Result<Self::Balance, DispatchError> {
+		if Self::is_delegatee(who) {
+			return T::CoreStaking::total_stake(who);
+		}
+
+		if Self::is_delegator(who) {
+			let (_, delegation_amount) =
+				<Delegators<T>>::get(who).defensive_ok_or(Error::<T>::BadState)?;
+			return Ok(delegation_amount)
+		}
+
+		Err(Error::<T>::NotSupported.into())
+	}
+
+	fn active_stake(who: &Self::AccountId) -> Result<Self::Balance, DispatchError> {
+		T::CoreStaking::active_stake(who)
+	}
+
+	fn is_unbonding(who: &Self::AccountId) -> Result<bool, DispatchError> {
+		T::CoreStaking::is_unbonding(who)
+	}
+
+	fn fully_unbond(who: &Self::AccountId) -> DispatchResult {
+		if Self::is_delegatee(who) {
+			return T::CoreStaking::fully_unbond(who);
+		}
+
+		Err(Error::<T>::NotSupported.into())
+	}
+
+	fn bond(
+		who: &Self::AccountId,
+		value: Self::Balance,
+		payee: &Self::AccountId,
+	) -> DispatchResult {
+		// ensure who is not already staked
+		ensure!(T::CoreStaking::status(who).is_err(), Error::<T>::NotDelegatee);
+		let delegation_register = <Delegatees<T>>::get(who).ok_or(Error::<T>::NotDelegatee)?;
+
+		ensure!(delegation_register.unbonded_balance() >= value, Error::<T>::NotEnoughFunds);
+		ensure!(delegation_register.payee == *payee, Error::<T>::InvalidRewardDestination);
+
+		T::CoreStaking::bond(who, value, payee)
+	}
+
+	fn nominate(who: &Self::AccountId, validators: Vec<Self::AccountId>) -> DispatchResult {
+		if Self::is_delegatee(who) {
+			return T::CoreStaking::nominate(who, validators);
+		}
+
+		Err(Error::<T>::NotSupported.into())
+	}
+
+	fn chill(who: &Self::AccountId) -> DispatchResult {
+		if Self::is_delegatee(who) {
+			return T::CoreStaking::chill(who);
+		}
+
+		Err(Error::<T>::NotSupported.into())
+	}
+
+	fn bond_extra(who: &Self::AccountId, extra: Self::Balance) -> DispatchResult {
+		let delegation_register = <Delegatees<T>>::get(who).ok_or(Error::<T>::NotDelegatee)?;
+		ensure!(delegation_register.unbonded_balance() >= extra, Error::<T>::NotEnoughFunds);
+
+		T::CoreStaking::bond_extra(who, extra)
+	}
+
+	fn unbond(stash: &Self::AccountId, value: Self::Balance) -> DispatchResult {
+		let delegation_register = <Delegatees<T>>::get(stash).ok_or(Error::<T>::NotDelegatee)?;
+		ensure!(delegation_register.hold >= value, Error::<T>::NotEnoughFunds);
+
+		T::CoreStaking::unbond(stash, value)
+	}
+
+	/// Not supported, call [`Delegatee::withdraw`]
+	fn withdraw_unbonded(
+		_stash: Self::AccountId,
+		_num_slashing_spans: u32,
+	) -> Result<bool, DispatchError> {
+		defensive_assert!(false, "not supported for delegated impl of staking interface");
+		Err(Error::<T>::NotSupported.into())
+	}
+
+	/// Not supported, call [`Delegatee::withdraw`]
+	fn withdraw_exact(
+		_stash: &Self::AccountId,
+		_amount: Self::Balance,
+		_num_slashing_spans: u32,
+	) -> Result<bool, DispatchError> {
+		defensive_assert!(false, "not supported for delegated impl of staking interface");
+		Err(Error::<T>::NotSupported.into())
+	}
+
+	fn desired_validator_count() -> u32 {
+		defensive_assert!(false, "not supported for delegated impl of staking interface");
+		T::CoreStaking::desired_validator_count()
+	}
+
+	fn election_ongoing() -> bool {
+		defensive_assert!(false, "not supported for delegated impl of staking interface");
+		T::CoreStaking::election_ongoing()
+	}
+
+	fn force_unstake(_who: Self::AccountId) -> DispatchResult {
+		defensive_assert!(false, "not supported for delegated impl of staking interface");
+		Err(Error::<T>::NotSupported.into())
+	}
+
+	fn is_exposed_in_era(who: &Self::AccountId, era: &EraIndex) -> bool {
+		defensive_assert!(false, "not supported for delegated impl of staking interface");
+		T::CoreStaking::is_exposed_in_era(who, era)
+	}
+
+	fn status(who: &Self::AccountId) -> Result<StakerStatus<Self::AccountId>, DispatchError> {
+		ensure!(Self::is_delegatee(who), Error::<T>::NotSupported);
+		T::CoreStaking::status(who)
+	}
+
+	fn is_validator(who: &Self::AccountId) -> bool {
+		defensive_assert!(false, "not supported for delegated impl of staking interface");
+		T::CoreStaking::is_validator(who)
+	}
+
+	fn nominations(who: &Self::AccountId) -> Option<Vec<Self::AccountId>> {
+		T::CoreStaking::nominations(who)
+	}
+
+	fn force_unlock(_who: &Self::AccountId) -> DispatchResult {
+		defensive_assert!(false, "not supported for delegated impl of staking interface");
+		Err(Error::<T>::NotSupported.into())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn max_exposure_page_size() -> sp_staking::Page {
+		T::CoreStaking::max_exposure_page_size()
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn add_era_stakers(
+		current_era: &EraIndex,
+		stash: &Self::AccountId,
+		exposures: Vec<(Self::AccountId, Self::Balance)>,
+	) {
+		T::CoreStaking::add_era_stakers(current_era, stash, exposures)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_current_era(era: EraIndex) {
+		T::CoreStaking::set_current_era(era)
+	}
+}
 impl<T: Config> Pallet<T> {
 	fn is_delegatee(who: &T::AccountId) -> bool {
 		<Delegatees<T>>::contains_key(who)
+	}
+
+	fn is_delegator(who: &T::AccountId) -> bool {
+		<Delegators<T>>::contains_key(who)
 	}
 
 	fn delegation_withdraw(

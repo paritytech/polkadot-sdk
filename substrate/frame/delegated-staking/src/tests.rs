@@ -119,7 +119,6 @@ fn distribute_rewards() {
 /// Integration tests with pallet-staking.
 mod integration {
 	use super::*;
-	use pallet_staking::RewardDestination;
 	use sp_staking::Stake;
 
 	#[test]
@@ -193,7 +192,7 @@ mod integration {
 			assert_ok!(DelegatedStaking::unbond(&delegatee, 200));
 
 			// active stake is now reduced..
-			let mut expected_active = total_staked - (50 + 100 + 200);
+			let expected_active = total_staked - (50 + 100 + 200);
 			assert!(eq_stake(delegatee, total_staked, expected_active));
 
 			// nothing to withdraw at era 4
@@ -257,6 +256,7 @@ mod integration {
 		ExtBuilder::default().build_and_execute(|| assert!(true));
 	}
 
+	#[test]
 	fn nominate_test() {
 		ExtBuilder::default().build_and_execute(|| assert!(true));
 	}
