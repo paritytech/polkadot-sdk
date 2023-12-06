@@ -66,6 +66,7 @@ use polkadot_parachain_primitives::primitives::ValidationCodeHash;
 use polkadot_primitives::ExecutorParamsHash;
 use std::{
 	collections::HashMap,
+	io,
 	path::{Path, PathBuf},
 	str::FromStr as _,
 	time::{Duration, SystemTime},
@@ -290,7 +291,17 @@ impl Artifacts {
 		}
 
 		// Make sure that the cache path directory and all its parents are created.
-		let _ = tokio::fs::create_dir_all(cache_path).await;
+		if let Err(err) = tokio::fs::create_dir_all(cache_path).await {
+			if err.kind() != io::ErrorKind::AlreadyExists {
+				gum::error!(
+					target: LOG_TARGET,
+					?err,
+					"failed to create dir {:?}",
+					cache_path,
+				);
+				return
+			}
+		}
 
 		let mut dir = match tokio::fs::read_dir(cache_path).await {
 			Ok(dir) => dir,

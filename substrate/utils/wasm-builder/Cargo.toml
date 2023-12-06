@@ -4,7 +4,6 @@ version = "5.0.0-dev"
 authors.workspace = true
 description = "Utility for building WASM binaries"
 edition.workspace = true
-readme = "README.md"
 repository.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"

@@ -20,7 +20,7 @@
 	(func $assert (param i32)
 		(block $ok
 			(br_if $ok
-				(get_local 0)
+				(local.get 0)
 			)
 			(unreachable)
 		)

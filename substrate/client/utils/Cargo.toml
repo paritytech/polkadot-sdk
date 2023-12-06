@@ -17,10 +17,10 @@ lazy_static = "1.4.0"
 log = "0.4"
 parking_lot = "0.12.1"
 prometheus = { version = "0.13.0", default-features = false }
-sp-arithmetic = { path = "../../primitives/arithmetic", default-features = false}
+sp-arithmetic = { path = "../../primitives/arithmetic", default-features = false }
 
 [features]
-default = [ "metered" ]
+default = ["metered"]
 metered = []
 
 [dev-dependencies]
