@@ -30,7 +30,7 @@ sp-tracing = { path = "../tracing", default-features = false }
 log = { version = "0.4.17", optional = true }
 secp256k1 = { version = "0.28.0", features = ["global-context", "recovery"], optional = true }
 tracing = { version = "0.1.29", default-features = false }
-tracing-core = { version = "0.1.28", default-features = false }
+tracing-core = { version = "0.1.32", default-features = false }
 
 # Required for backwards compatibility reason, but only used for verifying when `UseDalekExt` is set.
 ed25519-dalek = { version = "2.0", default-features = false, optional = true }
