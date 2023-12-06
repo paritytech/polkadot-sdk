@@ -6876,20 +6876,20 @@ mod ledger {
 			let start = 1001;
 			let mut controllers: Vec<_> = vec![];
 			for n in start..(start + MaxControllersInDeprecationBatch::get()).into() {
-				let ctlr: u64 = n.into();
+				let ctrl: u64 = n.into();
 				let stash: u64 = (n + 10000).into();
 
 				Ledger::<Test>::insert(
-					ctlr,
+					ctrl,
 					StakingLedger {
 						controller: None,
-						total: (10 + ctlr).into(),
-						active: (10 + ctlr).into(),
+						total: (10 + ctrl).into(),
+						active: (10 + ctrl).into(),
 						..StakingLedger::default_from(stash)
 					},
 				);
-				Bonded::<Test>::insert(stash, ctlr);
-				controllers.push(ctlr);
+				Bonded::<Test>::insert(stash, ctrl);
+				controllers.push(ctrl);
 			}
 
 			// When:
@@ -6921,11 +6921,11 @@ mod ledger {
 			// Then:
 
 			for n in start..(start + MaxControllersInDeprecationBatch::get()).into() {
-				let ctlr: u64 = n.into();
+				let ctrl: u64 = n.into();
 				let stash: u64 = (n + 10000).into();
 
 				// Ledger no longer keyed by controller.
-				assert_eq!(Ledger::<Test>::get(ctlr), None);
+				assert_eq!(Ledger::<Test>::get(ctrl), None);
 				// Bonded now maps to the stash.
 				assert_eq!(Bonded::<Test>::get(stash), Some(stash));
 
@@ -6934,8 +6934,8 @@ mod ledger {
 				assert_eq!(ledger_updated.stash, stash);
 
 				// Check `active` and `total` values match the original ledger set by controller.
-				assert_eq!(ledger_updated.active, (10 + ctlr).into());
-				assert_eq!(ledger_updated.total, (10 + ctlr).into());
+				assert_eq!(ledger_updated.active, (10 + ctrl).into());
+				assert_eq!(ledger_updated.total, (10 + ctrl).into());
 			}
 		})
 	}
@@ -6948,17 +6948,17 @@ mod ledger {
 			let start = 1001;
 			let mut controllers: Vec<_> = vec![];
 			for n in start..(start + MaxControllersInDeprecationBatch::get()).into() {
-				let ctlr: u64 = n.into();
+				let ctrl: u64 = n.into();
 
 				// Only half of entries are unique pairs.
-				let stash: u64 = if n % 2 == 0 { (n + 10000).into() } else { ctlr };
+				let stash: u64 = if n % 2 == 0 { (n + 10000).into() } else { ctrl };
 
 				Ledger::<Test>::insert(
-					ctlr,
+					ctrl,
 					StakingLedger { controller: None, ..StakingLedger::default_from(stash) },
 				);
-				Bonded::<Test>::insert(stash, ctlr);
-				controllers.push(ctlr);
+				Bonded::<Test>::insert(stash, ctrl);
+				controllers.push(ctrl);
 			}
 
 			// When:
@@ -6979,12 +6979,12 @@ mod ledger {
 
 			for n in start..(start + MaxControllersInDeprecationBatch::get()).into() {
 				let unique_pair = n % 2 == 0;
-				let ctlr: u64 = n.into();
-				let stash: u64 = if unique_pair { (n + 10000).into() } else { ctlr };
+				let ctrl: u64 = n.into();
+				let stash: u64 = if unique_pair { (n + 10000).into() } else { ctrl };
 
 				// Side effect of migration for unique pair.
 				if unique_pair {
-					assert_eq!(Ledger::<Test>::get(ctlr), None);
+					assert_eq!(Ledger::<Test>::get(ctrl), None);
 				}
 				// Bonded maps to the stash.
 				assert_eq!(Bonded::<Test>::get(stash), Some(stash));
