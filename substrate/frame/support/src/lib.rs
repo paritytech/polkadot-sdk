@@ -2229,10 +2229,33 @@ pub use frame_support_procedural::pallet;
 pub mod pallet_macros {
 	pub use frame_support_procedural::{
 		composite_enum, config, disable_frame_system_supertrait_check, extra_constants,
-		generate_deposit, generate_store, getter, hooks, import_section, inherent, no_default,
+		generate_store, getter, hooks, import_section, inherent, no_default,
 		no_default_bounds, origin, pallet_section, storage_prefix, storage_version, type_value,
 		unbounded, validate_unsigned, weight, whitelist_storage,
 	};
+
+	/// The attribute `#[pallet::generate_deposit($visibility fn deposit_event)]` generates a
+	/// helper function on `Pallet` that handles deposit events.
+	///
+	/// NOTE: For instantiable pallets, the event must be generic over `T` and `I`.
+	///
+	/// ## Macro expansion
+	///
+	/// The macro will add on enum `Event` the attributes:
+	/// * `#[derive(`[`frame_support::CloneNoBound`]`)]`
+	/// * `#[derive(`[`frame_support::EqNoBound`]`)]`
+	/// * `#[derive(`[`frame_support::PartialEqNoBound`]`)]`
+	/// * `#[derive(`[`frame_support::RuntimeDebugNoBound`]`)]`
+	/// * `#[derive(`[`codec::Encode`]`)]`
+	/// * `#[derive(`[`codec::Decode`]`)]`
+	///
+	/// The macro implements `From<Event<..>>` for ().
+	///
+	/// The macro implements a metadata function on `Event` returning the `EventMetadata`.
+	///
+	/// If `#[pallet::generate_deposit]` is present then the macro implements `fn deposit_event` on
+	/// `Pallet`.
+	pub use frame_support_procedural::generate_deposit;
 
 	/// Each dispatchable may be annotated with the `#[pallet::feeless_if($closure)]` attribute,
 	/// which explicitly defines the condition for the dispatchable to be feeless.
