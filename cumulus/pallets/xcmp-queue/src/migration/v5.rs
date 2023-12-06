@@ -33,7 +33,7 @@ pub trait V5Config: Config {
 pub type MigrateV4ToV5<T> = frame_support::migrations::VersionedMigration<
 	3,
 	4,
-	UncheckedMigrateV4ToV5<T>,
+	unversioned::UncheckedMigrateV4ToV5<T>,
 	Pallet<T>,
 	<T as frame_system::Config>::DbWeight,
 >;
@@ -62,10 +62,13 @@ mod v4 {
 		StorageMap<Pallet<T>, Blake2_128Concat, ParaId, Vec<u8>, ValueQuery>;
 }
 
-/// Please use [`MigrateV4ToV5`] instead.
-pub struct UncheckedMigrateV4ToV5<T: V5Config>(core::marker::PhantomData<T>);
+// Private module to hide the migration.
+mod unversioned {
+	/// Please use [`MigrateV4ToV5`] instead.
+	pub struct UncheckedMigrateV4ToV5<T: super::V5Config>(core::marker::PhantomData<T>);
+}
 
-impl<T: V5Config> OnRuntimeUpgrade for UncheckedMigrateV4ToV5<T> {
+impl<T: V5Config> OnRuntimeUpgrade for unversioned::UncheckedMigrateV4ToV5<T> {
 	fn on_runtime_upgrade() -> frame_support::weights::Weight {
 		Default::default()
 	}

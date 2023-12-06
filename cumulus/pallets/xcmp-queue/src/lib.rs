@@ -137,7 +137,8 @@ pub mod pallet {
 		/// have a message queued. This should be set to the expected maximum of outbound channels
 		/// which is determined by [`Self::ChannelInfo`]. It is important to set this correctly,
 		/// since otherwise the congestion control protocol will not work as intended and messages
-		/// may be dropped.
+		/// may be dropped. This value increases the PoV and should therefore not be picked too
+		/// high.
 		#[pallet::constant]
 		type MaxActiveOutboundChannels: Get<u32>;
 
