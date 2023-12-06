@@ -66,7 +66,7 @@ pub struct TasksDef {
 impl syn::parse::Parse for TasksDef {
 	fn parse(input: ParseStream) -> Result<Self> {
 		let item_impl: ItemImpl = input.parse()?;
-		let (tasks_attrs, normal_attrs) = extract_tasks_attrs(&item_impl);
+		let (tasks_attrs, normal_attrs) = partition_tasks_attrs(&item_impl);
 		let tasks_attr = match tasks_attrs.first() {
 			Some(attr) => Some(parse2::<PalletTasksAttr>(attr.to_token_stream())?),
 			None => None,
@@ -156,38 +156,7 @@ pub struct TaskEnumDef {
 impl syn::parse::Parse for TaskEnumDef {
 	fn parse(input: ParseStream) -> Result<Self> {
 		let mut item_enum = input.parse::<ItemEnum>()?;
-		let mut attr = None;
-		let mut duplicate = None;
-		item_enum.attrs = item_enum
-			.attrs
-			.iter()
-			.filter(|found_attr| {
-				let segs = found_attr
-					.path()
-					.segments
-					.iter()
-					.map(|seg| seg.ident.clone())
-					.collect::<Vec<_>>();
-				let (Some(seg1), Some(_), None) = (segs.get(0), segs.get(1), segs.get(2)) else {
-					return true
-				};
-				if seg1 != "pallet" {
-					return true
-				}
-				if attr.is_some() {
-					duplicate = Some(found_attr.span());
-				}
-				attr = Some(found_attr.to_token_stream());
-				false
-			})
-			.cloned()
-			.collect();
-		if let Some(span) = duplicate {
-			return Err(Error::new(
-				span,
-				"only one `#[pallet::_]` attribute is supported on this item",
-			))
-		}
+		let attr = extract_pallet_attr(&mut item_enum)?;	
 		let attr = match attr {
 			Some(attr) => Some(parse2(attr)?),
 			None => None,
@@ -220,7 +189,7 @@ impl syn::parse::Parse for TaskDef {
 		let item = input.parse::<ImplItemFn>()?;
 		// we only want to activate TaskAttrType parsing errors for tasks-related attributes,
 		// so we filter them here
-		let (task_attrs, normal_attrs) = extract_task_attrs(&item);
+		let (task_attrs, normal_attrs) = partition_task_attrs(&item);
 
 		let task_attrs: Vec<TaskAttr> = task_attrs
 			.into_iter()
@@ -527,7 +496,43 @@ impl TryFrom<PalletTaskAttr<TaskAttrMeta>> for TaskListAttr {
 	}
 }
 
-fn extract_tasks_attrs(item_impl: &ItemImpl) -> (Vec<syn::Attribute>, Vec<syn::Attribute>) {
+fn extract_pallet_attr(item_enum: &mut ItemEnum) -> Result<Option<TokenStream2>> {
+	let mut duplicate = None;
+	let mut attr = None;
+	item_enum.attrs = item_enum
+		.attrs
+		.iter()
+		.filter(|found_attr| {
+			let segs = found_attr
+				.path()
+				.segments
+				.iter()
+				.map(|seg| seg.ident.clone())
+				.collect::<Vec<_>>();
+			let (Some(seg1), Some(_), None) = (segs.get(0), segs.get(1), segs.get(2)) else {
+				return true
+			};
+			if seg1 != "pallet" {
+				return true
+			}
+			if attr.is_some() {
+				duplicate = Some(found_attr.span());
+			}
+			attr = Some(found_attr.to_token_stream());
+			false
+		})
+		.cloned()
+		.collect();
+	if let Some(span) = duplicate {
+		return Err(Error::new(
+			span,
+			"only one `#[pallet::_]` attribute is supported on this item",
+		))
+	}
+	Ok(attr)
+}
+
+fn partition_tasks_attrs(item_impl: &ItemImpl) -> (Vec<syn::Attribute>, Vec<syn::Attribute>) {
 	item_impl.attrs.clone().into_iter().partition(|attr| {
 		let mut path_segs = attr.path().segments.iter();
 		let (Some(prefix), Some(suffix), None) =
@@ -539,7 +544,7 @@ fn extract_tasks_attrs(item_impl: &ItemImpl) -> (Vec<syn::Attribute>, Vec<syn::A
 	})
 }
 
-fn extract_task_attrs(item: &ImplItemFn) -> (Vec<syn::Attribute>, Vec<syn::Attribute>) {
+fn partition_task_attrs(item: &ImplItemFn) -> (Vec<syn::Attribute>, Vec<syn::Attribute>) {
 	item.attrs.clone().into_iter().partition(|attr| {
 		let mut path_segs = attr.path().segments.iter();
 		let (Some(prefix), Some(suffix)) = (path_segs.next(), path_segs.next()) else {

@@ -1,7 +1,4 @@
-# Schema: Parity PR Documentation Schema (prdoc)
-# See doc at https://github.com/paritytech/prdoc
-
-title: Tasks API: A general system for recognizing and executing service work
+title: Tasks API - A general system for recognizing and executing service work
 
 doc:
   - audience: Runtime Dev
