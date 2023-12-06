@@ -132,9 +132,7 @@ impl<T: Config> Pallet<T> {
 		let new_total = ledger.total;
 
 		if let Some(amount) = maybe_amount {
-			ensure!(
-			old_total.saturating_sub(new_total) == amount,
-			Error::<T>::NotEnoughFunds);
+			ensure!(old_total.saturating_sub(new_total) == amount, Error::<T>::NotEnoughFunds);
 		};
 		let used_weight =
 			if ledger.unlocking.is_empty() && ledger.active < T::Currency::minimum_balance() {

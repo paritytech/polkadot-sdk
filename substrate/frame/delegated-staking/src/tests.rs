@@ -267,8 +267,6 @@ mod integration {
 			start_era(1);
 
 			// delegatee is slashed
-
-
 		});
 	}
 
@@ -276,5 +274,4 @@ mod integration {
 	fn migration_works() {
 		ExtBuilder::default().build_and_execute(|| assert!(true));
 	}
-
 }
