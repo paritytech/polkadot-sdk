@@ -119,8 +119,8 @@ impl<D: DispatchBlob> HaulBlob for TestBridge<D> {
 	}
 }
 impl<D: DispatchBlob> GetVersion for TestBridge<D> {
-	fn get_version_for(dest: &MultiLocation, handle_unknown: bool) -> Option<Version> {
-		AlwaysLatest::get_version_for(dest, handle_unknown)
+	fn get_version_for(dest: &MultiLocation) -> Option<Version> {
+		AlwaysLatest::get_version_for(dest)
 	}
 }
 
