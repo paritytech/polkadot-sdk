@@ -1,4 +1,4 @@
-//! # Polkadot Developer Hub Guides
+//! # Polkadot SDK Docs Guides
 //!
 //! This crate contains a collection of guides that are foundational to the developers of
 //! Polkadot SDK. They common user-journeys that are traversed in the Polkadot ecosystem.
