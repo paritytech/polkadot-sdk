@@ -435,11 +435,11 @@ pub mod pallet {
 		/// Can be called by Root, the parachain, or the parachain manager if the parachain is
 		/// unlocked.
 		///
-		/// In case the call is made by the parachain manager or the parachain itself the upgrade
-		/// fee will be charged.
+		/// In case the call is made by the parachain manager or the parachain itself, there will be
+		/// associated upgrade costs.
 		///
-		/// The caller will receive a refund or be required to reserve an additional deposit,
-		/// depending on the size of the new validation code.
+		/// Depending on the size of the new validation code, the caller's reserved deposit might be
+		/// adjusted to account for the size difference.
 		#[pallet::call_index(7)]
 		#[pallet::weight(<T as Config>::WeightInfo::schedule_code_upgrade(new_code.0.len() as u32))]
 		pub fn schedule_code_upgrade(
@@ -449,18 +449,18 @@ pub mod pallet {
 		) -> DispatchResult {
 			Self::ensure_root_para_or_owner(origin.clone(), para)?;
 
-			let fee_payer = if ensure_root(origin.clone()).is_ok() ||
+			let upgrade_cost_payer = if ensure_root(origin.clone()).is_ok() ||
 				Self::parachains().contains(&para)
 			{
-				// There are two cases where we do not require any upgrade costs from the initiator
+				// There are two cases where we do not charge any upgrade costs from the initiator
 				// of the upgrade:
 				//
 				// 1. Root doesn't pay. This also means that system parachains do not pay for
 				//    upgrade fees.
 				//
 				// 2. All lease-holding parachains are permitted to do upgrades for free. This is
-				//    introduced to avoid
-				// causing a breaking change to the system once para upgrade fees are required.
+				//    introduced to avoid causing a breaking change to the system once para upgrade
+				//    fees are required.
 
 				None
 			} else if let Ok(caller) = ensure_signed(origin) {
@@ -475,7 +475,7 @@ pub mod pallet {
 				Some(sovereign_account)
 			};
 
-			Self::do_schedule_code_upgrade(para, new_code, fee_payer)
+			Self::do_schedule_code_upgrade(para, new_code, upgrade_cost_payer)
 		}
 
 		/// Set the parachain's current head.
@@ -708,15 +708,15 @@ impl<T: Config> Pallet<T> {
 
 	/// Schedules a code upgrade for a parachain.
 	///
-	/// If `maybe_caller` isn't specified, the caller won't be charged any fees or have its deposit
-	/// reserved.
+	/// If `upgrade_cost_payer` isn't specified, there won't be any extra deposit or fees charged
+	/// for scheduling the code upgrade.
 	///
 	/// If the size of the validation is reduced and the upgrade is successful the caller will be
 	/// eligible for receiving back a portion of their deposit that is no longer required.
 	fn do_schedule_code_upgrade(
 		para: ParaId,
 		new_code: ValidationCode,
-		maybe_caller: Option<T::AccountId>,
+		upgrade_cost_payer: Option<T::AccountId>,
 	) -> DispatchResult {
 		// Before doing anything we ensure that a code upgrade is allowed at the moment for the
 		// specific parachain.
@@ -737,9 +737,9 @@ impl<T: Config> Pallet<T> {
 		let current_deposit = info.deposit;
 		let current_depositor = current_deposit_info.depositor.clone();
 
-		if let Some(caller) = maybe_caller.clone() {
-			let new_deposit_info = if caller != current_depositor {
-				// If the caller is not the one who had their funds reserved for this parachain, we
+		if let Some(payer) = upgrade_cost_payer.clone() {
+			let new_deposit_info = if payer != current_depositor {
+				// If the payer is not the one who had their funds reserved for this parachain, we
 				// will unreserve all funds from the original depositor and reserve the required
 				// amount from the new depositor.
 				//
@@ -748,9 +748,9 @@ impl<T: Config> Pallet<T> {
 				// manager and the parachain itself could unnecessarily complicate refunds.
 
 				// Update the depositor to the caller.
-				DepositInfo { depositor: caller.clone(), pending_refund: None }
+				DepositInfo { depositor: payer.clone(), pending_refund: None }
 			} else if current_deposit > new_deposit {
-				// The caller is the current depositor and the existing deposit exceeds the required
+				// The payer is the current depositor and the existing deposit exceeds the required
 				// amount.
 				//
 				// The excess deposit will be refunded to the caller upon the success of the code
@@ -765,7 +765,7 @@ impl<T: Config> Pallet<T> {
 				// the old code would remain on-chain even though there is no deposit to cover it.
 
 				DepositInfo {
-					depositor: caller.clone(),
+					depositor: payer.clone(),
 					pending_refund: Some((
 						current_depositor.clone(),
 						current_deposit.saturating_sub(new_deposit),
@@ -782,7 +782,7 @@ impl<T: Config> Pallet<T> {
 			// TODO: Check before charging the fee.
 
 			<T as Config>::Currency::withdraw(
-				&caller,
+				&payer,
 				T::UpgradeFee::get(),
 				WithdrawReasons::FEE,
 				ExistenceRequirement::KeepAlive,
@@ -793,9 +793,9 @@ impl<T: Config> Pallet<T> {
 				DispatchError::Token(TokenError::FundsUnavailable)
 			);
 
-			let additional_deposit = if caller != current_depositor {
-				// Since the depositor changed the additional deposit needs to account for storing
-				// the new entire validation code.
+			let additional_deposit = if payer != current_depositor {
+				// Since the account covering the costs of storing the validation code has changed,
+				// the entire required deposit will now be reserved from the new account.
 				new_deposit
 			} else {
 				// The depositor did not change, so we only have to reserve the difference to
@@ -803,11 +803,11 @@ impl<T: Config> Pallet<T> {
 				new_deposit.saturating_sub(current_deposit)
 			};
 
-			<T as Config>::Currency::reserve(&caller, additional_deposit)?;
+			<T as Config>::Currency::reserve(&payer, additional_deposit)?;
 
-			if caller != current_depositor {
+			if payer != current_depositor {
 				// After reserving the required funds from the new depositor we can now safely
-				// refund the old depositor.
+				// refund the old account.
 				<T as Config>::Currency::unreserve(&current_depositor, current_deposit);
 			}
 
