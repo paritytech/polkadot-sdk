@@ -79,7 +79,10 @@ pub trait Delegatee {
 	/// Update bond whenever there is a new delegate funds that are not staked.
 	fn update_bond(delegatee: &Self::AccountId) -> DispatchResult;
 
-	/// Request removal of delegated stake.
+	/// Request withdrawal of unbonded stake of `delegatee` belonging to the provided `delegator`.
+	///
+	/// Important: It is upto `delegatee` to enforce which `delegator` can withdraw `value`. The
+	/// withdrawn value is released in `delegator`'s account.
 	fn withdraw(
 		delegatee: &Self::AccountId,
 		delegator: &Self::AccountId,

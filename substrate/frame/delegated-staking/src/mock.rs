@@ -29,7 +29,7 @@ use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen,
 };
-use pallet_staking::{RewardDestination, CurrentEra};
+use pallet_staking::{CurrentEra, RewardDestination};
 use sp_staking::delegation::{Delegatee, Delegator, StakingDelegationSupport};
 
 pub type T = Runtime;
@@ -233,18 +233,27 @@ pub(crate) fn fund(who: &AccountId, amount: Balance) -> &AccountId {
 	who
 }
 
-pub(crate) fn setup_delegation(
+/// Sets up delegation for passed delegators, returns total delegated amount.
+///
+/// `delegate_amount` is incremented by the amount `increment` starting with `base_delegate_amount`
+/// from lower index to higher index of delegators.
+pub(crate) fn setup_delegation_stake(
 	delegatee: AccountId,
 	reward_acc: AccountId,
 	delegators: Vec<AccountId>,
-	delegate_amount: Balance,
-) {
+	base_delegate_amount: Balance,
+	increment: Balance,
+) -> Balance {
 	assert_ok!(DelegatedStaking::accept_delegations(fund(&delegatee, 100), &reward_acc));
-	for delegator in &delegators {
+	let mut delegated_amount: Balance = 0;
+	for (index, delegator) in delegators.iter().enumerate() {
+		let amount_to_delegate = base_delegate_amount + increment * index as Balance;
+		delegated_amount += amount_to_delegate;
+
 		assert_ok!(DelegatedStaking::delegate(
-			fund(delegator, delegate_amount + ExistentialDeposit::get()),
+			fund(delegator, amount_to_delegate + ExistentialDeposit::get()),
 			&delegatee,
-			delegate_amount
+			amount_to_delegate
 		));
 		assert_ok!(DelegatedStaking::update_bond(&delegatee));
 	}
@@ -252,9 +261,11 @@ pub(crate) fn setup_delegation(
 	// sanity checks
 	assert_eq!(
 		DelegatedStaking::stakeable_balance(&delegatee),
-		delegate_amount * delegators.len() as Balance
+		delegated_amount
 	);
 	assert_eq!(DelegatedStaking::unbonded_balance(&delegatee), 0);
+
+	delegated_amount
 }
 
 pub(crate) fn start_era(era: sp_staking::EraIndex) {
@@ -262,6 +273,6 @@ pub(crate) fn start_era(era: sp_staking::EraIndex) {
 }
 
 pub(crate) fn eq_stake(who: AccountId, total: Balance, active: Balance) -> bool {
-	use sp_staking::{StakingInterface, Stake};
+	use sp_staking::{Stake, StakingInterface};
 	Staking::stake(&who).unwrap() == Stake { total, active }
 }

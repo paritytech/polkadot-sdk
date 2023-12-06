@@ -27,14 +27,11 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
-use frame_support::{
-	pallet_prelude::*,
-	traits::{
-		fungible::{hold::Mutate as FunHoldMutate, Inspect as FunInspect, Mutate as FunMutate},
-		tokens::{Fortitude, Precision, Preservation},
-		DefensiveOption,
-	},
-};
+use frame_support::{pallet_prelude::*, traits::{
+	fungible::{hold::Mutate as FunHoldMutate, Inspect as FunInspect, Mutate as FunMutate},
+	tokens::{Fortitude, Precision, Preservation},
+	DefensiveOption,
+}, transactional};
 use pallet::*;
 use sp_runtime::{traits::Zero, DispatchResult, RuntimeDebug, Saturating};
 use sp_staking::{
@@ -94,6 +91,8 @@ pub mod pallet {
 		BadState,
 		/// Unapplied pending slash restricts operation on delegatee.
 		UnappliedSlash,
+		/// Failed to withdraw amount from Core Staking Ledger.
+		WithdrawFailed,
 	}
 
 	/// A reason for placing a hold on funds.
@@ -297,6 +296,7 @@ impl<T: Config> Delegatee for Pallet<T> {
 		}
 	}
 
+	#[transactional]
 	fn withdraw(
 		delegator: &Self::AccountId,
 		delegatee: &Self::AccountId,
@@ -304,7 +304,7 @@ impl<T: Config> Delegatee for Pallet<T> {
 		num_slashing_spans: u32,
 	) -> DispatchResult {
 		// fixme(ank4n) handle killing of stash
-		let _ = T::CoreStaking::withdraw_exact(delegatee, value, num_slashing_spans);
+		let _stash_killed: bool = T::CoreStaking::withdraw_exact(delegatee, value, num_slashing_spans).map_err(|_| Error::<T>::WithdrawFailed)?;
 		Self::delegation_withdraw(delegator, delegatee, value)
 	}
 
@@ -319,6 +319,7 @@ impl<T: Config> Delegatee for Pallet<T> {
 
 	/// Move funds from proxy delegator to actual delegator.
 	// TODO: Keep track of proxy delegator and only allow movement from proxy -> new delegator
+	#[transactional]
 	fn migrate_delegator(
 		delegatee: &Self::AccountId,
 		existing_delegator: &Self::AccountId,
@@ -401,9 +402,9 @@ impl<T: Config> sp_staking::StakingHoldProvider for Pallet<T> {
 		// delegation register should exist since `who` is a delegatee.
 		let delegation_register =
 			<Delegatees<T>>::get(who).defensive_ok_or(Error::<T>::BadState)?;
+
 		ensure!(delegation_register.total_delegated >= amount, Error::<T>::NotEnoughFunds);
 		ensure!(delegation_register.pending_slash <= amount, Error::<T>::UnappliedSlash);
-
 		let updated_register = delegation_register.update_hold(amount);
 		<Delegatees<T>>::insert(who, updated_register);
 

@@ -148,10 +148,7 @@ mod integration {
 					100
 				);
 
-				assert_eq!(
-					DelegatedStaking::stakeable_balance(&delegatee),
-					delegated_balance
-				);
+				assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), delegated_balance);
 
 				// unbonded balance is the newly delegated 100
 				assert_eq!(DelegatedStaking::unbonded_balance(&delegatee), 100);
@@ -174,44 +171,89 @@ mod integration {
 			start_era(1);
 			let delegatee: AccountId = 200;
 			let reward_acc: AccountId = 201;
-			let delegators: Vec<AccountId> = (300..400).collect();
-			let delegate_amount: Balance = 500;
-			setup_delegation(delegatee, reward_acc, delegators.clone(), delegate_amount);
-			let expected_staked = delegate_amount * delegators.len() as Balance;
+			let delegators: Vec<AccountId> = (301..=350).collect();
+			let total_staked =
+				setup_delegation_stake(delegatee, reward_acc, delegators.clone(), 10, 10);
 
 			// lets go to a new era
 			start_era(2);
 
-			assert!(eq_stake(delegatee, expected_staked, expected_staked));
-			// Withdrawing without unbonding would not do anything
-			assert_ok!(DelegatedStaking::withdraw(&300, &delegatee, 50, 0));
-			// assert_noop!(DelegatedStaking::withdraw(&200, &delegatee, 50, 0), Error::<T>::NotAllowed);
-			// active and total stake remains same
-			assert!(eq_stake(delegatee, expected_staked, expected_staked));
+			assert!(eq_stake(delegatee, total_staked, total_staked));
+			// Withdrawing without unbonding would fail.
+			assert_noop!(
+				DelegatedStaking::withdraw(&300, &delegatee, 50, 0),
+				Error::<T>::WithdrawFailed
+			);
+			// assert_noop!(DelegatedStaking::withdraw(&200, &delegatee, 50, 0),
+			// Error::<T>::NotAllowed); active and total stake remains same
+			assert!(eq_stake(delegatee, total_staked, total_staked));
 
-			// 300 wants to unbond 50 in era 2, withdrawable in era 5.
+			// 305 wants to unbond 50 in era 2, withdrawable in era 5.
 			assert_ok!(DelegatedStaking::unbond(&delegatee, 50));
-			// 301 wants to unbond 100 in era 3, withdrawable in era 6.
+			// 310 wants to unbond 100 in era 3, withdrawable in era 6.
 			start_era(3);
 			assert_ok!(DelegatedStaking::unbond(&delegatee, 100));
-			// 302 wants to unbond 100 in era 4, withdrawable in era 7.
+			// 320 wants to unbond 200 in era 4, withdrawable in era 7.
 			start_era(4);
 			assert_ok!(DelegatedStaking::unbond(&delegatee, 200));
 
 			// active stake is now reduced..
-			let mut expected_active = expected_staked - (50 + 100 + 200);
-			assert!(eq_stake(delegatee, expected_staked, expected_active));
+			let mut expected_active = total_staked - (50 + 100 + 200);
+			assert!(eq_stake(delegatee, total_staked, expected_active));
 
-			// lets try withdrawing now, still should do nothing as we are at era 4.
-			assert_ok!(DelegatedStaking::withdraw(&300, &delegatee, 50, 0));
-			assert!(eq_stake(delegatee, expected_staked, expected_active));
+			// nothing to withdraw at era 4
+			assert_noop!(
+				DelegatedStaking::withdraw(&305, &delegatee, 50, 0),
+				Error::<T>::WithdrawFailed
+			);
+
+			assert!(eq_stake(delegatee, total_staked, expected_active));
 			assert_eq!(DelegatedStaking::unbonded_balance(&delegatee), 0);
 			// full amount is still delegated
-			assert_eq!(DelegatedStaking::delegated_balance(&delegatee), expected_staked);
+			assert_eq!(DelegatedStaking::delegated_balance(&delegatee), total_staked);
 
 			start_era(5);
-			// at era 5, 50 tokens are withdrawable
-			assert_ok!(DelegatedStaking::withdraw(&300, &delegatee, 50, 0));
+			// at era 5, 50 tokens are withdrawable, cannot withdraw more.
+			assert_noop!(
+				DelegatedStaking::withdraw(&305, &delegatee, 51, 0),
+				Error::<T>::WithdrawFailed
+			);
+			// less is possible
+			assert_ok!(DelegatedStaking::withdraw(&305, &delegatee, 30, 0));
+			assert_ok!(DelegatedStaking::withdraw(&305, &delegatee, 20, 0));
+
+			// Lets go to future era where everything is unbonded. Withdrawable amount: 100 + 200
+			start_era(7);
+			// 305 has no more amount delegated so it cannot withdraw.
+			assert_noop!(
+				DelegatedStaking::withdraw(&305, &delegatee, 5, 0),
+				Error::<T>::NotDelegator
+			);
+			// 309 is an active delegator but has total delegation of 90, so it cannot withdraw more
+			// than that.
+			assert_noop!(
+				DelegatedStaking::withdraw(&309, &delegatee, 91, 0),
+				Error::<T>::NotEnoughFunds
+			);
+			// 310 cannot withdraw more than delegated funds.
+			assert_noop!(
+				DelegatedStaking::withdraw(&310, &delegatee, 101, 0),
+				Error::<T>::NotEnoughFunds
+			);
+			// but can withdraw all its delegation amount.
+			assert_ok!(DelegatedStaking::withdraw(&310, &delegatee, 100, 0));
+			// 320 can withdraw all its delegation amount.
+			assert_ok!(DelegatedStaking::withdraw(&320, &delegatee, 200, 0));
+
+			// cannot withdraw anything more..
+			assert_noop!(
+				DelegatedStaking::withdraw(&301, &delegatee, 1, 0),
+				Error::<T>::WithdrawFailed
+			);
+			assert_noop!(
+				DelegatedStaking::withdraw(&350, &delegatee, 1, 0),
+				Error::<T>::WithdrawFailed
+			);
 		});
 	}
 
