@@ -14,7 +14,7 @@ requires = ["phase-0"]
 items = [
 	{ label = "Buffer submitted parachain candidate until considered available." },
 	{ label = "Validators submit signed bitfields re: availability of parachains" },
-	{ label = "relay chain fully includes candidate once considered available" }
+	{ label = "relay chain fully includes candidate once considered available" },
 ]
 
 [[group]]
@@ -23,8 +23,8 @@ label = "Secondary checks and self-selection by validators"
 requires = ["two-phase-inclusion"]
 items = [
 	{ label = "Extract #VCheck for all checkable candidates" },
-	{ label = "Maintain a frontier of candidates that are likely to be checked soon" },
 	{ label = "Listen for new reports on candidates and new checks to update frontier" },
+	{ label = "Maintain a frontier of candidates that are likely to be checked soon" },
 ]
 
 [[group]]
@@ -32,8 +32,8 @@ name = "runtime-availability-validity-slashing"
 label = "Availability and Validity slashing in the runtime"
 requires = ["two-phase-inclusion"]
 items = [
+	{ label = "Submit secondary checks to runtime", port = "submitsecondary", requires = ["secondary-checking"] },
 	{ label = "Track all candidates within the slash period as well as their session" },
-	{ label = "Submit secondary checks to runtime", port = "submitsecondary", requires = ["secondary-checking"]},
 	{ label = "Track reports and attestatations for candidates" },
 ]
 
@@ -41,10 +41,10 @@ items = [
 name = "non-direct-ancestor"
 label = "Allow candidates with non-direct ancestor"
 items = [
-	{ label = "Extend GlobalValidationData with random seed and session index"},
 	{ label = "Block author can provide minimally-attested candidate with older relay parent" },
-	{ label = "Runtime can accept and process candidates with older relay-parent" },
+	{ label = "Extend GlobalValidationData with random seed and session index" },
 	{ label = "Revise availability-store pruning to ensure only needed data is kept" },
+	{ label = "Runtime can accept and process candidates with older relay-parent" },
 ]
 
 [[group]]
@@ -52,13 +52,13 @@ name = "grandpa-voting-rule"
 label = "GRANDPA voting rule to follow valid/available chains"
 requires = ["runtime-availability-validity-slashing"]
 items = [
-	{ label = "Add a utility to flag a block and all of its ancestors as abandoned" },
 	{ label = "Accept new blocks on abandoned but mark them abandoned as well." },
+	{ label = "Add a utility to flag a block and all of its ancestors as abandoned" },
 	{ label = "Do not vote or build on abandoned chains" },
 ]
 
 [[group]]
 name = "phase-1"
 label = "Phase 1: Availability and Validity"
-requires = ["non-direct-ancestor", "grandpa-voting-rule", "runtime-availability-validity-slashing"]
+requires = ["grandpa-voting-rule", "non-direct-ancestor", "runtime-availability-validity-slashing"]
 items = []

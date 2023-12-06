@@ -28,5 +28,5 @@ fn ui() {
 	std::env::set_var("SKIP_WASM_BUILD", "1");
 
 	let t = trybuild::TestCases::new();
-	t.compile_fail("tests/ui/*.rs");
+	t.compile_fail("tests/ui/**/*.rs");
 }
