@@ -8,6 +8,7 @@ license.workspace = true
 
 [dependencies]
 always-assert = "0.1"
+blake3 = "1.5"
 cfg-if = "1.0"
 futures = "0.3.21"
 futures-timer = "3.0.2"
@@ -38,7 +39,7 @@ polkadot-node-core-pvf-execute-worker = { path = "execute-worker", optional = tr
 
 [dev-dependencies]
 assert_matches = "1.4.0"
-criterion = { version = "0.4.0", default-features = false, features = ["cargo_bench_support", "async_tokio"] }
+criterion = { version = "0.4.0", default-features = false, features = ["async_tokio", "cargo_bench_support"] }
 hex-literal = "0.4.1"
 
 polkadot-node-core-pvf-common = { path = "common", features = ["test-utils"] }
@@ -53,6 +54,7 @@ halt = { package = "test-parachain-halt", path = "../../../parachain/test-parach
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 procfs = "0.16.0"
 rusty-fork = "0.3.0"
+sc-sysinfo = { path = "../../../../substrate/client/sysinfo" }
 
 [[bench]]
 name = "host_prepare_rococo_runtime"
@@ -60,7 +62,7 @@ harness = false
 
 [features]
 ci-only-tests = []
-jemalloc-allocator = [ "polkadot-node-core-pvf-common/jemalloc-allocator" ]
+jemalloc-allocator = ["polkadot-node-core-pvf-common/jemalloc-allocator"]
 # This feature is used to export test code to other crates without putting it in the production build.
 test-utils = [
 	"polkadot-node-core-pvf-execute-worker",

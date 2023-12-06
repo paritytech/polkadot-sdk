@@ -50,4 +50,4 @@ decl_test_parachains! {
 
 // BridgeHubRococo implementation
 impl_accounts_helpers_for_parachain!(BridgeHubRococo);
-impl_assert_events_helpers_for_parachain!(BridgeHubRococo, false);
+impl_assert_events_helpers_for_parachain!(BridgeHubRococo);

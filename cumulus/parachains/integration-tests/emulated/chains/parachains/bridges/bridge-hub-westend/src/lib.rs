@@ -47,4 +47,4 @@ decl_test_parachains! {
 
 // BridgeHubWestend implementation
 impl_accounts_helpers_for_parachain!(BridgeHubWestend);
-impl_assert_events_helpers_for_parachain!(BridgeHubWestend, false);
+impl_assert_events_helpers_for_parachain!(BridgeHubWestend);

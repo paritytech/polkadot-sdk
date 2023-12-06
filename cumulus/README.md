@@ -142,8 +142,8 @@ zombienet --provider native spawn ./zombienet/examples/small_network.toml
 # Clone
 git clone https://github.com/paritytech/polkadot-sdk
 
-# Compile Polkadot
-cargo build --release --bin polkadot
+# Compile Polkadot's required binaries
+cargo build --release -p polkadot
 
 # Generate a raw chain spec
 ./target/release/polkadot build-spec --chain rococo-local --disable-default-bootnode --raw > rococo-local-cfde.json
@@ -158,11 +158,8 @@ cargo build --release --bin polkadot
 #### Launch the Parachain
 
 ```bash
-# Clone
-git clone https://github.com/paritytech/polkadot-sdk
-
 # Compile
-cargo build --release --bin polkadot-parachain
+cargo build --release -p polkadot-parachain-bin
 
 # Export genesis state
 ./target/release/polkadot-parachain export-genesis-state > genesis-state
@@ -172,15 +169,15 @@ cargo build --release --bin polkadot-parachain
 
 # Collator1
 ./target/release/polkadot-parachain --collator --alice --force-authoring \
-  --tmp --port 40335 --rpc-port 9946 -- --chain ../polkadot/rococo-local-cfde.json --port 30335
+  --tmp --port 40335 --rpc-port 9946 -- --chain rococo-local-cfde.json --port 30335
 
 # Collator2
 ./target/release/polkadot-parachain --collator --bob --force-authoring \
-  --tmp --port 40336 --rpc-port 9947 -- --chain ../polkadot/rococo-local-cfde.json --port 30336
+  --tmp --port 40336 --rpc-port 9947 -- --chain rococo-local-cfde.json --port 30336
 
 # Parachain Full Node 1
 ./target/release/polkadot-parachain --tmp --port 40337 --rpc-port 9948 -- \
-  --chain ../polkadot/rococo-local-cfde.json --port 30337
+  --chain rococo-local-cfde.json --port 30337
 ```
 
 #### Register the parachain

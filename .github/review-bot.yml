@@ -9,7 +9,7 @@ rules:
         - ^\.config/nextest.toml
         - ^\.cargo/.*
       exclude: 
-        - ^./gitlab/pipeline/zombienet.*
+        - ^\.gitlab/pipeline/zombienet.*
     minApprovals: 2
     type: basic
     teams:

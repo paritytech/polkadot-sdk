@@ -25,6 +25,7 @@ use emulated_integration_tests_common::{
 	impl_assets_helpers_for_parachain, impls::Parachain, xcm_emulator::decl_test_parachains,
 };
 use rococo_emulated_chain::Rococo;
+use westend_emulated_chain::Westend;
 
 // Penpal Parachain declaration
 decl_test_parachains! {
@@ -71,5 +72,6 @@ decl_test_parachains! {
 // Penpal implementation
 impl_accounts_helpers_for_parachain!(PenpalA);
 impl_assets_helpers_for_parachain!(PenpalA, Rococo);
-impl_assert_events_helpers_for_parachain!(PenpalA, true);
-impl_assert_events_helpers_for_parachain!(PenpalB, true);
+impl_assets_helpers_for_parachain!(PenpalB, Westend);
+impl_assert_events_helpers_for_parachain!(PenpalA);
+impl_assert_events_helpers_for_parachain!(PenpalB);

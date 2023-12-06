@@ -30,8 +30,7 @@ variables:
   RUSTY_CACHIER_COMPRESSION_METHOD: zstd
   NEXTEST_FAILURE_OUTPUT: immediate-final
   NEXTEST_SUCCESS_OUTPUT: final
-  ZOMBIENET_IMAGE: "docker.io/paritytech/zombienet:v1.3.79"
-  DOCKER_IMAGES_VERSION: "${CI_COMMIT_SHA}"
+  DOCKER_IMAGES_VERSION: "${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}"
 
 default:
   retry:
@@ -70,7 +69,6 @@ default:
 .common-before-script:
   before_script:
     - !reference [.job-switcher, before_script]
-    - !reference [.timestamp, before_script]
     - !reference [.pipeline-stopper-vars, script]
 
 .job-switcher:
@@ -199,9 +197,6 @@ default:
     - if: $CI_COMMIT_REF_NAME =~ /^[0-9]+$/ # PRs
     - if: $CI_COMMIT_REF_NAME =~ /^gh-readonly-queue.*$/ # merge queues
 
-.zombienet-refs:
-  extends: .build-refs
-
 include:
   # check jobs
   - .gitlab/pipeline/check.yml
@@ -215,10 +210,6 @@ include:
   - .gitlab/pipeline/publish.yml
   # zombienet jobs
   - .gitlab/pipeline/zombienet.yml
-  # timestamp handler
-  - project: parity/infrastructure/ci_cd/shared
-    ref: v0.2
-    file: /common/timestamp.yml
   # ci image
   - project: parity/infrastructure/ci_cd/shared
     ref: main
