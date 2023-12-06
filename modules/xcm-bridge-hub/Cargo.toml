@@ -1,0 +1,74 @@
+[package]
+name = "pallet-xcm-bridge-hub"
+description = "Module that adds dynamic bridges/lanes support to XCM infrastucture at the bridge hub."
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.1.5", default-features = false }
+log = { version = "0.4.20", default-features = false }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+
+# Bridge Dependencies
+bp-messages = { path = "../../primitives/messages", default-features = false }
+bp-runtime = { path = "../../primitives/runtime", default-features = false }
+bp-xcm-bridge-hub = { path = "../../primitives/xcm-bridge-hub", default-features = false }
+pallet-bridge-messages = { path = "../messages", default-features = false }
+bridge-runtime-common = { path = "../../bin/runtime-common", default-features = false }
+
+# Substrate Dependencies
+frame-support = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
+frame-system = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
+sp-core = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
+sp-std = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
+
+# Polkadot Dependencies
+xcm = { package = "staging-xcm", git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
+xcm-executor = { package = "staging-xcm-executor", git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
+
+[dev-dependencies]
+bp-header-chain = { path = "../../primitives/header-chain" }
+pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+sp-io = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+
+[features]
+default = ["std"]
+std = [
+	"bp-messages/std",
+	"bp-runtime/std",
+	"bp-xcm-bridge-hub/std",
+	"bridge-runtime-common/std",
+	"codec/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"pallet-bridge-messages/std",
+	"scale-info/std",
+	"sp-core/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"xcm-builder/std",
+	"xcm-executor/std",
+	"xcm/std",
+]
+runtime-benchmarks = [
+	"bridge-runtime-common/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-bridge-messages/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-bridge-messages/try-runtime",
+	"sp-runtime/try-runtime",
+]
