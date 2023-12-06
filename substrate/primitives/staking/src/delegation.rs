@@ -22,7 +22,7 @@ use sp_runtime::{DispatchResult, Saturating};
 use sp_std::ops::Sub;
 
 /// Allows an account to accept stake delegations and manage its operations.
-pub trait Delegatee {
+pub trait DelegationInterface {
 	/// Balance type used by the staking system.
 	type Balance: Sub<Output = Self::Balance>
 		+ Ord

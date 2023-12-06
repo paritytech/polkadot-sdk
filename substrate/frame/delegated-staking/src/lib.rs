@@ -39,7 +39,7 @@ use frame_support::{
 use pallet::*;
 use sp_runtime::{traits::Zero, DispatchResult, RuntimeDebug, Saturating};
 use sp_staking::{
-	delegation::{Delegatee, StakingDelegationSupport},
+	delegation::{DelegationInterface, StakingDelegationSupport},
 	EraIndex, Stake, StakerStatus, StakingInterface,
 };
 use sp_std::{convert::TryInto, prelude::*};
@@ -179,7 +179,7 @@ impl<T: Config> DelegationRegister<T> {
 	}
 }
 
-impl<T: Config> Delegatee for Pallet<T> {
+impl<T: Config> DelegationInterface for Pallet<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
 
@@ -383,7 +383,6 @@ impl<T: Config> Delegatee for Pallet<T> {
 
 		Ok(())
 	}
-
 }
 
 impl<T: Config> sp_staking::StakingHoldProvider for Pallet<T> {
@@ -407,9 +406,9 @@ impl<T: Config> sp_staking::StakingHoldProvider for Pallet<T> {
 		Ok(())
 	}
 
-	fn release(who: &Self::AccountId) {
+	fn release_all(who: &Self::AccountId) {
 		if !Self::is_delegatee(who) {
-			T::CoreStaking::release(who);
+			T::CoreStaking::release_all(who);
 		}
 
 		let _delegation_register = <Delegatees<T>>::get(who);

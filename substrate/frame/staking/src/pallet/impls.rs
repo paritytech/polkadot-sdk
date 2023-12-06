@@ -1834,7 +1834,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn force_unlock(who: &Self::AccountId) -> sp_runtime::DispatchResult {
-		T::DelegationSupport::release(who);
+		T::DelegationSupport::release_all(who);
 		Ok(())
 	}
 }
@@ -1848,7 +1848,7 @@ impl<T: Config> StakingHoldProvider for Pallet<T> {
 		Ok(())
 	}
 
-	fn release(who: &Self::AccountId) {
+	fn release_all(who: &Self::AccountId) {
 		T::Currency::remove_lock(crate::STAKING_ID, who)
 	}
 }
@@ -1864,8 +1864,8 @@ impl<T: Config> StakingHoldProvider for NoDelegation<T> {
 		Pallet::<T>::update_hold(who, amount)
 	}
 
-	fn release(who: &Self::AccountId) {
-		Pallet::<T>::release(who)
+	fn release_all(who: &Self::AccountId) {
+		Pallet::<T>::release_all(who)
 	}
 }
 
@@ -1873,7 +1873,9 @@ impl<T: Config> StakingDelegationSupport for NoDelegation<T> {
 	fn stakeable_balance(who: &Self::AccountId) -> Self::Balance {
 		T::Currency::free_balance(who)
 	}
-	fn is_delegatee(_who: &Self::AccountId) -> bool { false }
+	fn is_delegatee(_who: &Self::AccountId) -> bool {
+		false
+	}
 }
 
 #[cfg(any(test, feature = "try-runtime"))]

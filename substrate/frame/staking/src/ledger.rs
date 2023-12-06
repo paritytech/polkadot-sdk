@@ -197,7 +197,7 @@ impl<T: Config> StakingLedger<T> {
 		let controller = <Bonded<T>>::get(stash).ok_or(Error::<T>::NotStash)?;
 
 		<Ledger<T>>::get(&controller).ok_or(Error::<T>::NotController).map(|ledger| {
-			T::DelegationSupport::release(&ledger.stash);
+			T::DelegationSupport::release_all(&ledger.stash);
 			Ledger::<T>::remove(controller);
 
 			<Bonded<T>>::remove(&stash);

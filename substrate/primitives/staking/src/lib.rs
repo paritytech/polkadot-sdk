@@ -440,6 +440,6 @@ pub trait StakingHoldProvider {
 	fn update_hold(who: &Self::AccountId, amount: Self::Balance) -> DispatchResult;
 
 	/// Release all amount held for stake.
-	fn release(who: &Self::AccountId);
+	fn release_all(who: &Self::AccountId);
 }
 sp_core::generate_feature_enabled_macro!(runtime_benchmarks_enabled, feature = "runtime-benchmarks", $);

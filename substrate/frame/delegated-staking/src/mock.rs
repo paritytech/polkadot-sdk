@@ -30,7 +30,7 @@ use frame_election_provider_support::{
 	onchain, SequentialPhragmen,
 };
 use pallet_staking::CurrentEra;
-use sp_staking::delegation::{Delegatee, StakingDelegationSupport};
+use sp_staking::delegation::{DelegationInterface, StakingDelegationSupport};
 
 pub type T = Runtime;
 type Block = frame_system::mocking::MockBlock<Runtime>;
