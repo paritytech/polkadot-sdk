@@ -359,7 +359,7 @@ pub fn benchmark(_attrs: TokenStream, _tokens: TokenStream) -> TokenStream {
 /// used as a boundary designating where the benchmark setup code ends, and the benchmark
 /// verification code begins.
 ///
-/// See `frame_benchmarking::v2` for more info.
+/// See [`frame_benchmarking::v2`](../../frame_benchmarking/v2/index.html) for more info.
 #[proc_macro_attribute]
 pub fn extrinsic_call(_attrs: TokenStream, _tokens: TokenStream) -> TokenStream {
 	quote!(compile_error!(
