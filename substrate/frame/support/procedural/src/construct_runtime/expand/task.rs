@@ -30,37 +30,41 @@ pub fn expand_outer_task(
 	let mut variant_names = Vec::new();
 	let mut task_paths = Vec::new();
 	for decl in pallet_decls {
-		if let Some(_) = decl.find_part("Task") {
-			let variant_name = &decl.name;
-			let path = &decl.path;
-			let index = decl.index;
-
-			from_impls.push(quote! {
-				impl From<#path::Task<#runtime_name>> for RuntimeTask {
-					fn from(hr: #path::Task<#runtime_name>) -> Self {
-						RuntimeTask::#variant_name(hr)
-					}
-				}
-
-				impl From<RuntimeTask> for Option<#path::Task<#runtime_name>> {
-					fn from(rt: RuntimeTask) -> Self {
-						match rt {
-							RuntimeTask::#variant_name(hr) => Some(hr),
-							_ => None,
-						}
-					}
-				}
-			});
-
-			task_variants.push(quote! {
-				#[codec(index = #index)]
-				#variant_name(#path::Task<#runtime_name>),
-			});
-
-			variant_names.push(quote!(#variant_name));
-
-			task_paths.push(quote!(#path::Task));
+		if decl.find_part("Task").is_none() {
+			continue;
 		}
+
+		let variant_name = &decl.name;
+		let path = &decl.path;
+		let index = decl.index;
+
+		from_impls.push(quote! {
+			impl From<#path::Task<#runtime_name>> for RuntimeTask {
+				fn from(hr: #path::Task<#runtime_name>) -> Self {
+					RuntimeTask::#variant_name(hr)
+				}
+			}
+
+			impl TryInto<#path::Task<#runtime_name>> for RuntimeTask {
+				type Error = ();
+
+				fn try_into(self) -> Result<#path::Task<#runtime_name>, Self::Error> {
+					match self {
+						RuntimeTask::#variant_name(hr) => Ok(hr),
+						_ => Err(()),
+					}
+				}
+			}
+		});
+
+		task_variants.push(quote! {
+			#[codec(index = #index)]
+			#variant_name(#path::Task<#runtime_name>),
+		});
+
+		variant_names.push(quote!(#variant_name));
+
+		task_paths.push(quote!(#path::Task));
 	}
 
 	let prelude = quote!(#scrate::traits::tasks::prelude);

@@ -17,6 +17,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Home of the expansion code for the Tasks API
+
 use crate::pallet::{parse::tasks::*, Def};
 use derive_syn_parse::Parse;
 use inflector::Inflector;
@@ -33,27 +35,28 @@ impl TaskEnumDef {
 		type_decl_bounded_generics: TokenStream2,
 		type_use_generics: TokenStream2,
 	) -> Self {
-		let variants = match tasks.tasks_attr.is_some() {
-			true => tasks
-				.tasks
-				.iter()
-				.map(|task| {
-					let ident = &task.item.sig.ident;
-					let ident =
-						format_ident!("{}", ident.to_string().to_class_case(), span = ident.span());
+		let variants = if tasks.tasks_attr.is_some() {
+			tasks
+			.tasks
+			.iter()
+			.map(|task| {
+				let ident = &task.item.sig.ident;
+				let ident =
+					format_ident!("{}", ident.to_string().to_class_case(), span = ident.span());
 
-					let args = task.item.sig.inputs.iter().collect::<Vec<_>>();
+				let args = task.item.sig.inputs.iter().collect::<Vec<_>>();
 
-					if args.is_empty() {
-						quote!(#ident)
-					} else {
-						quote!(#ident {
-							#(#args),*
-						})
-					}
-				})
-				.collect::<Vec<_>>(),
-			false => Vec::new(),
+				if args.is_empty() {
+					quote!(#ident)
+				} else {
+					quote!(#ident {
+						#(#args),*
+					})
+				}
+			})
+			.collect::<Vec<_>>()
+		} else {
+			Vec::new()
 		};
 		let mut task_enum_def: TaskEnumDef = parse_quote! {
 			/// Auto-generated enum that encapsulates all tasks defined by this pallet.

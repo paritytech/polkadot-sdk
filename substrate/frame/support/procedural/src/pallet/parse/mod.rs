@@ -138,10 +138,10 @@ impl Def {
 					let item_tokens = get_tokens(item);
 					// `TasksDef::parse` needs to know if attr was provided so we artificially
 					// re-insert it here
-					tasks = Some(syn::parse2::<tasks::TasksDef>(quote::quote! {
+					tasks = Some(syn::parse_quote! {
 						#[pallet::tasks]
 						#item_tokens
-					})?);
+					});
 
 					// replace item with a no-op because it will be handled by the expansion of tasks
 					*item = syn::Item::Verbatim(quote::quote!());
@@ -311,15 +311,14 @@ impl Def {
 		let (Some(seg), None) = (type_path.get(0), type_path.get(1)) else { return Ok(()) };
 		let mut result = None;
 		for item in items {
-			if let syn::Item::Enum(item_enum) = item {
-				if item_enum.ident == seg.ident {
-					result = Some(syn::parse2::<tasks::TaskEnumDef>(item_enum.to_token_stream())?);
-					// replace item with a no-op because it will be handled by the expansion of
-					// `task_enum`. We use a no-op instead of simply removing it from the vec
-					// so that any indices collected by `Def::try_from` remain accurate
-					*item = syn::Item::Verbatim(quote::quote!());
-					break
-				}
+			let syn::Item::Enum(item_enum) = item else { continue };
+			if item_enum.ident == seg.ident {
+				result = Some(syn::parse2::<tasks::TaskEnumDef>(item_enum.to_token_stream())?);
+				// replace item with a no-op because it will be handled by the expansion of
+				// `task_enum`. We use a no-op instead of simply removing it from the vec
+				// so that any indices collected by `Def::try_from` remain accurate
+				*item = syn::Item::Verbatim(quote::quote!());
+				break
 			}
 		}
 		*task_enum = result;
@@ -336,22 +335,21 @@ impl Def {
 		let None = tasks else { return Ok(()) };
 		let mut result = None;
 		for item in items {
-			if let syn::Item::Impl(item_impl) = item {
-				let Some((_, path, _)) = &item_impl.trait_ else { continue };
-				let Some(trait_last_seg) = path.segments.last() else { continue };
-				let syn::Type::Path(target_path) = &*item_impl.self_ty else { continue };
-				let target_path = target_path.path.segments.iter().collect::<Vec<_>>();
-				let (Some(target_ident), None) = (target_path.get(0), target_path.get(1)) else {
-					continue
-				};
-				let matches_task_enum = match task_enum {
-					Some(task_enum) => task_enum.item_enum.ident == target_ident.ident,
-					None => true,
-				};
-				if trait_last_seg.ident == "Task" && matches_task_enum {
-					result = Some(syn::parse2::<tasks::TasksDef>(item_impl.to_token_stream())?);
-					break
-				}
+			let syn::Item::Impl(item_impl) = item else { continue };
+			let Some((_, path, _)) = &item_impl.trait_ else { continue };
+			let Some(trait_last_seg) = path.segments.last() else { continue };
+			let syn::Type::Path(target_path) = &*item_impl.self_ty else { continue };
+			let target_path = target_path.path.segments.iter().collect::<Vec<_>>();
+			let (Some(target_ident), None) = (target_path.get(0), target_path.get(1)) else {
+				continue
+			};
+			let matches_task_enum = match task_enum {
+				Some(task_enum) => task_enum.item_enum.ident == target_ident.ident,
+				None => true,
+			};
+			if trait_last_seg.ident == "Task" && matches_task_enum {
+				result = Some(syn::parse2::<tasks::TasksDef>(item_impl.to_token_stream())?);
+				break
 			}
 		}
 		*tasks = result;

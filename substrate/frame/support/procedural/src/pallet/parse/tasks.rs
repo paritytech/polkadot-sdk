@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Home of the parsing code for the Tasks API
+
 use std::collections::HashSet;
 
 #[cfg(test)]
