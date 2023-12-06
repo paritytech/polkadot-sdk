@@ -18,15 +18,15 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 ] }
 log = { version = "0.4.14", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true}
-frame-support = { path = "../support", default-features = false}
-frame-system = { path = "../system", default-features = false}
-sp-core = { path = "../../primitives/core", default-features = false}
-sp-io = { path = "../../primitives/io", default-features = false}
-sp-npos-elections = { path = "../../primitives/npos-elections", default-features = false}
-sp-runtime = { path = "../../primitives/runtime", default-features = false}
-sp-std = { path = "../../primitives/std", default-features = false}
-sp-staking = { path = "../../primitives/staking", default-features = false}
+frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
+frame-support = { path = "../support", default-features = false }
+frame-system = { path = "../system", default-features = false }
+sp-core = { path = "../../primitives/core", default-features = false }
+sp-io = { path = "../../primitives/io", default-features = false }
+sp-npos-elections = { path = "../../primitives/npos-elections", default-features = false }
+sp-runtime = { path = "../../primitives/runtime", default-features = false }
+sp-std = { path = "../../primitives/std", default-features = false }
+sp-staking = { path = "../../primitives/staking", default-features = false }
 
 [dev-dependencies]
 pallet-balances = { path = "../balances" }
@@ -35,7 +35,7 @@ sp-tracing = { path = "../../primitives/tracing" }
 substrate-test-utils = { path = "../../test-utils" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",

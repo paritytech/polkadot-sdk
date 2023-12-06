@@ -120,18 +120,18 @@ impl LocalKeystore {
 		Ok(sig)
 	}
 
-	fn vrf_output<T: CorePair + VrfSecret>(
+	fn vrf_pre_output<T: CorePair + VrfSecret>(
 		&self,
 		key_type: KeyTypeId,
 		public: &T::Public,
 		input: &T::VrfInput,
-	) -> std::result::Result<Option<T::VrfOutput>, TraitError> {
-		let preout = self
+	) -> std::result::Result<Option<T::VrfPreOutput>, TraitError> {
+		let pre_output = self
 			.0
 			.read()
 			.key_pair_by_type::<T>(public, key_type)?
-			.map(|pair| pair.vrf_output(input));
-		Ok(preout)
+			.map(|pair| pair.vrf_pre_output(input));
+		Ok(pre_output)
 	}
 }
 
@@ -188,13 +188,13 @@ impl Keystore for LocalKeystore {
 		self.vrf_sign::<sr25519::Pair>(key_type, public, data)
 	}
 
-	fn sr25519_vrf_output(
+	fn sr25519_vrf_pre_output(
 		&self,
 		key_type: KeyTypeId,
 		public: &sr25519::Public,
 		input: &sr25519::vrf::VrfInput,
-	) -> std::result::Result<Option<sr25519::vrf::VrfOutput>, TraitError> {
-		self.vrf_output::<sr25519::Pair>(key_type, public, input)
+	) -> std::result::Result<Option<sr25519::vrf::VrfPreOutput>, TraitError> {
+		self.vrf_pre_output::<sr25519::Pair>(key_type, public, input)
 	}
 
 	fn ed25519_public_keys(&self, key_type: KeyTypeId) -> Vec<ed25519::Public> {
@@ -293,13 +293,13 @@ impl Keystore for LocalKeystore {
 			self.vrf_sign::<bandersnatch::Pair>(key_type, public, data)
 		}
 
-		fn bandersnatch_vrf_output(
+		fn bandersnatch_vrf_pre_output(
 			&self,
 			key_type: KeyTypeId,
 			public: &bandersnatch::Public,
 			input: &bandersnatch::vrf::VrfInput,
-		) -> std::result::Result<Option<bandersnatch::vrf::VrfOutput>, TraitError> {
-			self.vrf_output::<bandersnatch::Pair>(key_type, public, input)
+		) -> std::result::Result<Option<bandersnatch::vrf::VrfPreOutput>, TraitError> {
+			self.vrf_pre_output::<bandersnatch::Pair>(key_type, public, input)
 		}
 
 		fn bandersnatch_ring_vrf_sign(

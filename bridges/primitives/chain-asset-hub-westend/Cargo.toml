@@ -17,7 +17,7 @@ frame-support = { path = "../../../substrate/frame/support", default-features = 
 bp-xcm-bridge-hub-router = { path = "../xcm-bridge-hub-router", default-features = false }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"bp-xcm-bridge-hub-router/std",
 	"codec/std",
