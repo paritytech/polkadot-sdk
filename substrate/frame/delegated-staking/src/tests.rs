@@ -253,13 +253,23 @@ mod integration {
 	}
 
 	#[test]
-	fn claim_reward() {
+	fn reward_destination_cannot_be_delegatee() {
 		ExtBuilder::default().build_and_execute(|| assert!(true));
 	}
 
+	fn nominate_test() {
+		ExtBuilder::default().build_and_execute(|| assert!(true));
+	}
 	#[test]
 	fn slash_works() {
-		ExtBuilder::default().build_and_execute(|| assert!(true));
+		ExtBuilder::default().build_and_execute(|| {
+			setup_delegation_stake(200, 201, (210..250).collect(), 100, 0);
+			start_era(1);
+
+			// delegatee is slashed
+
+
+		});
 	}
 
 	#[test]
