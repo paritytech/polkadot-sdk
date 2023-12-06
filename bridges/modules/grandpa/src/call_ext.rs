@@ -15,7 +15,10 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{weights::WeightInfo, BridgedBlockNumber, BridgedHeader, Config, Error, Pallet};
-use bp_header_chain::{justification::GrandpaJustification, ChainWithGrandpa};
+use bp_header_chain::{
+	justification::GrandpaJustification, max_expected_submit_finality_proof_arguments_size,
+	ChainWithGrandpa, GrandpaConsensusLogReader,
+};
 use bp_runtime::{BlockNumberOf, OwnedBridgeModule};
 use codec::Encode;
 use frame_support::{dispatch::CallableCallFor, traits::IsSubType, weights::Weight};
@@ -169,26 +172,26 @@ pub(crate) fn submit_finality_proof_info_from_args<T: Config<I>, I: 'static>(
 			Weight::zero()
 		};
 
+	// check if the `finality_target` is a mandatory header. If so, we are ready to refund larger
+	// size
+	let is_mandatory_finality_target =
+		GrandpaConsensusLogReader::<BridgedBlockNumber<T, I>>::find_scheduled_change(
+			finality_target.digest(),
+		)
+		.is_some();
+
 	// we can estimate extra call size easily, without any additional significant overhead
 	let actual_call_size: u32 = finality_target
 		.encoded_size()
 		.saturating_add(justification.encoded_size())
 		.saturated_into();
-	let max_expected_call_size = max_expected_call_size::<T, I>(required_precommits);
+	let max_expected_call_size = max_expected_submit_finality_proof_arguments_size::<T::BridgedChain>(
+		is_mandatory_finality_target,
+		required_precommits,
+	);
 	let extra_size = actual_call_size.saturating_sub(max_expected_call_size);
 
 	SubmitFinalityProofInfo { block_number, extra_weight, extra_size }
-}
-
-/// Returns maximal expected size of `submit_finality_proof` call arguments.
-fn max_expected_call_size<T: Config<I>, I: 'static>(required_precommits: u32) -> u32 {
-	let max_expected_justification_size =
-		GrandpaJustification::<BridgedHeader<T, I>>::max_reasonable_size::<T::BridgedChain>(
-			required_precommits,
-		);
-
-	// call arguments are header and justification
-	T::BridgedChain::MAX_HEADER_SIZE.saturating_add(max_expected_justification_size)
 }
 
 #[cfg(test)]
