@@ -7,14 +7,14 @@
 protocol by automating the Fiat-Shamir transform for challenge generation.
 A good explaination of the topic can be found in Merlin <a href="https://merlin.cool/">docs</a></p>
 <p>The <code>inputs</code> is a sequence of <a href="struct.VrfInput.html" title="struct sp_core::bandersnatch::vrf::VrfInput"><code>VrfInput</code></a>s which, during the signing procedure, are
-first transformed to <a href="struct.VrfOutput.html" title="struct sp_core::bandersnatch::vrf::VrfOutput"><code>VrfOutput</code></a>s. Both inputs and outputs are then appended to
+first transformed to <a href="struct.VrfPreOutput.html" title="struct sp_core::bandersnatch::vrf::VrfPreOutput"><code>VrfPreOutput</code></a>s. Both inputs and pre-outputs are then appended to
 the transcript before signing the Fiat-Shamir transform result (the challenge).</p>
 <p>In practice, as a user, all these technical details can be easily ignored.
 What is important to remember is:</p>
 <ul>
 <li><em>Transcript</em> is an object defining the protocol and used to produce the signature. This
-object doesn’t influence the <code>VrfOutput</code>s values.</li>
-<li><em>Vrf inputs</em> is some additional data which is used to produce <em>vrf outputs</em>. This data
+object doesn’t influence the <code>VrfPreOutput</code>s values.</li>
+<li><em>Vrf inputs</em> is some additional data which is used to produce <em>vrf pre-outputs</em>. This data
 will contribute to the signature as well.</li>
 </ul>
 </div></details><h2 id="fields" class="fields small-section-header">Fields<a href="#fields" class="anchor">§</a></h2><span id="structfield.transcript" class="structfield small-section-header"><a href="#structfield.transcript" class="anchor field">§</a><code>transcript: Transcript</code></span><div class="docblock"><p>Associated protocol transcript.</p>

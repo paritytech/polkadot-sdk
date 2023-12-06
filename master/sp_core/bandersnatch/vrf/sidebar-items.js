@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["MAX_VRF_IOS"],"struct":["VrfInput","VrfOutput","VrfSignData","VrfSignature"],"type":["VrfIosVec"]};
+window.SIDEBAR_ITEMS = {"constant":["MAX_VRF_IOS"],"struct":["VrfInput","VrfPreOutput","VrfSignData","VrfSignature"],"type":["VrfIosVec"]};

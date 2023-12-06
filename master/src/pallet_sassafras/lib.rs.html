@@ -1353,11 +1353,11 @@
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub type </span>RingVerifierData&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, vrf::RingVerifierData&gt;;
 
-	<span class="doccomment">/// Slot claim vrf-preoutput used to generate per-slot randomness.
+	<span class="doccomment">/// Slot claim VRF pre-output used to generate per-slot randomness.
 	///
 	/// The value is ephemeral and is cleared on block finalization.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>ClaimTemporaryData&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, vrf::VrfOutput&gt;;
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>ClaimTemporaryData&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, vrf::VrfPreOutput&gt;;
 
 	<span class="doccomment">/// Genesis configuration for Sassafras protocol.
 	</span><span class="attr">#[pallet::genesis_config]
@@ -1405,12 +1405,12 @@
 				<span class="self">Self</span>::post_genesis_initialize(claim.slot);
 			}
 
-			<span class="kw">let </span>randomness_output = claim
+			<span class="kw">let </span>randomness_pre_output = claim
 				.vrf_signature
-				.outputs
+				.pre_outputs
 				.get(<span class="number">0</span>)
-				.expect(<span class="string">&quot;Valid claim must have vrf signature; qed&quot;</span>);
-			ClaimTemporaryData::&lt;T&gt;::put(randomness_output);
+				.expect(<span class="string">&quot;Valid claim must have VRF signature; qed&quot;</span>);
+			ClaimTemporaryData::&lt;T&gt;::put(randomness_pre_output);
 
 			<span class="kw">let </span>trigger_weight = T::EpochChangeTrigger::trigger::&lt;T&gt;(block_num);
 
@@ -1427,9 +1427,9 @@
 				CurrentSlot::&lt;T&gt;::get(),
 				EpochIndex::&lt;T&gt;::get(),
 			);
-			<span class="kw">let </span>randomness_output = ClaimTemporaryData::&lt;T&gt;::take()
+			<span class="kw">let </span>randomness_pre_output = ClaimTemporaryData::&lt;T&gt;::take()
 				.expect(<span class="string">&quot;Unconditionally populated in `on_initialize`; `on_finalize` is always called after; qed&quot;</span>);
-			<span class="kw">let </span>randomness = randomness_output
+			<span class="kw">let </span>randomness = randomness_pre_output
 				.make_bytes::&lt;RANDOMNESS_LENGTH&gt;(RANDOMNESS_VRF_CONTEXT, <span class="kw-2">&amp;</span>randomness_input);
 			<span class="self">Self</span>::deposit_slot_randomness(<span class="kw-2">&amp;</span>randomness);
 
@@ -1503,15 +1503,15 @@
 			<span class="kw">for </span>ticket <span class="kw">in </span>tickets {
 				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Checking ring proof&quot;</span>);
 
-				<span class="kw">let </span><span class="prelude-val">Some</span>(ticket_id_output) = ticket.signature.outputs.get(<span class="number">0</span>) <span class="kw">else </span>{
-					<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Missing ticket vrf output from ring signature&quot;</span>);
+				<span class="kw">let </span><span class="prelude-val">Some</span>(ticket_id_pre_output) = ticket.signature.pre_outputs.get(<span class="number">0</span>) <span class="kw">else </span>{
+					<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Missing ticket VRF pre-output from ring signature&quot;</span>);
 					<span class="kw">continue
 				</span>};
 				<span class="kw">let </span>ticket_id_input =
 					vrf::ticket_id_input(<span class="kw-2">&amp;</span>randomness, ticket.body.attempt_idx, epoch_idx);
 
 				<span class="comment">// Check threshold constraint
-				</span><span class="kw">let </span>ticket_id = vrf::make_ticket_id(<span class="kw-2">&amp;</span>ticket_id_input, <span class="kw-2">&amp;</span>ticket_id_output);
+				</span><span class="kw">let </span>ticket_id = vrf::make_ticket_id(<span class="kw-2">&amp;</span>ticket_id_input, <span class="kw-2">&amp;</span>ticket_id_pre_output);
 				<span class="kw">if </span>ticket_id &gt;= ticket_threshold {
 					<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Ignoring ticket over threshold ({:032x} &gt;= {:032x})&quot;</span>, ticket_id, ticket_threshold);
 					<span class="kw">continue

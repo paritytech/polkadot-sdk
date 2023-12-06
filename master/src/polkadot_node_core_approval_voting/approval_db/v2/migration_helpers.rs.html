@@ -242,6 +242,10 @@
 <a href="#242" id="242">242</a>
 <a href="#243" id="243">243</a>
 <a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -262,7 +266,8 @@
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::backend::Backend;
 <span class="kw">use </span>polkadot_node_primitives::approval::v1::{
-	AssignmentCert, AssignmentCertKind, VrfOutput, VrfProof, VrfSignature, RELAY_VRF_MODULO_CONTEXT,
+	AssignmentCert, AssignmentCertKind, VrfPreOutput, VrfProof, VrfSignature,
+	RELAY_VRF_MODULO_CONTEXT,
 };
 <span class="kw">use </span>polkadot_node_subsystem_util::database::Database;
 <span class="kw">use </span>sp_application_crypto::sp_core::H256;
@@ -274,9 +279,12 @@
 	<span class="kw">let </span><span class="kw-2">mut </span>prng = rand_core::OsRng;
 	<span class="kw">let </span>keypair = schnorrkel::Keypair::generate_with(<span class="kw-2">&amp;mut </span>prng);
 	<span class="kw">let </span>(inout, proof, <span class="kw">_</span>) = keypair.vrf_sign(ctx.bytes(msg));
-	<span class="kw">let </span>out = inout.to_output();
+	<span class="kw">let </span>preout = inout.to_output();
 
-	AssignmentCert { kind, vrf: VrfSignature { output: VrfOutput(out), proof: VrfProof(proof) } }
+	AssignmentCert {
+		kind,
+		vrf: VrfSignature { pre_output: VrfPreOutput(preout), proof: VrfProof(proof) },
+	}
 }
 
 <span class="kw">fn </span>make_block_entry_v1(

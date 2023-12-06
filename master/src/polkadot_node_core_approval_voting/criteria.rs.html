@@ -1231,6 +1231,8 @@
 <a href="#1231" id="1231">1231</a>
 <a href="#1232" id="1232">1232</a>
 <a href="#1233" id="1233">1233</a>
+<a href="#1234" id="1234">1234</a>
+<a href="#1235" id="1235">1235</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1254,7 +1256,9 @@
 <span class="kw">use </span>polkadot_node_primitives::approval::{
 	<span class="self">self </span><span class="kw">as </span>approval_types,
 	v1::{AssignmentCert, AssignmentCertKind, DelayTranche, RelayVRFStory},
-	v2::{AssignmentCertKindV2, AssignmentCertV2, CoreBitfield, VrfOutput, VrfProof, VrfSignature},
+	v2::{
+		AssignmentCertKindV2, AssignmentCertV2, CoreBitfield, VrfPreOutput, VrfProof, VrfSignature,
+	},
 };
 <span class="kw">use </span>polkadot_primitives::{
 	AssignmentId, AssignmentPair, CandidateHash, CoreIndex, GroupIndex, IndexedVec, SessionInfo,
@@ -1692,7 +1696,7 @@
 			</span><span class="kw">let </span>cert = AssignmentCert {
 				kind: AssignmentCertKind::RelayVRFModulo { sample: rvm_sample },
 				vrf: VrfSignature {
-					output: VrfOutput(vrf_in_out.to_output()),
+					pre_output: VrfPreOutput(vrf_in_out.to_output()),
 					proof: VrfProof(vrf_proof),
 				},
 			};
@@ -1772,7 +1776,7 @@
 				core_bitfield: assignment_bitfield.clone(),
 			},
 			vrf: VrfSignature {
-				output: VrfOutput(vrf_in_out.to_output()),
+				pre_output: VrfPreOutput(vrf_in_out.to_output()),
 				proof: VrfProof(vrf_proof),
 			},
 		};
@@ -1807,7 +1811,7 @@
 		<span class="kw">let </span>cert = AssignmentCertV2 {
 			kind: AssignmentCertKindV2::RelayVRFDelay { core_index: core },
 			vrf: VrfSignature {
-				output: VrfOutput(vrf_in_out.to_output()),
+				pre_output: VrfPreOutput(vrf_in_out.to_output()),
 				proof: VrfProof(vrf_proof),
 			},
 		};
@@ -1922,7 +1926,7 @@
 		}
 	}
 
-	<span class="kw">let </span>vrf_output = <span class="kw-2">&amp;</span>assignment.vrf.output;
+	<span class="kw">let </span>vrf_pre_output = <span class="kw-2">&amp;</span>assignment.vrf.pre_output;
 	<span class="kw">let </span>vrf_proof = <span class="kw-2">&amp;</span>assignment.vrf.proof;
 	<span class="kw">let </span>first_claimed_core_index =
 		claimed_core_indices.first_one().expect(<span class="string">&quot;Checked above; qed&quot;</span>) <span class="kw">as </span>u32;
@@ -1937,7 +1941,7 @@
 			<span class="kw">let </span>(vrf_in_out, <span class="kw">_</span>) = public
 				.vrf_verify_extra(
 					relay_vrf_modulo_transcript_v2(relay_vrf_story),
-					<span class="kw-2">&amp;</span>vrf_output.<span class="number">0</span>,
+					<span class="kw-2">&amp;</span>vrf_pre_output.<span class="number">0</span>,
 					<span class="kw-2">&amp;</span>vrf_proof.<span class="number">0</span>,
 					assigned_cores_transcript(core_bitfield),
 				)
@@ -1986,7 +1990,7 @@
 			<span class="kw">let </span>(vrf_in_out, <span class="kw">_</span>) = public
 				.vrf_verify_extra(
 					relay_vrf_modulo_transcript_v1(relay_vrf_story, <span class="kw-2">*</span>sample),
-					<span class="kw-2">&amp;</span>vrf_output.<span class="number">0</span>,
+					<span class="kw-2">&amp;</span>vrf_pre_output.<span class="number">0</span>,
 					<span class="kw-2">&amp;</span>vrf_proof.<span class="number">0</span>,
 					assigned_core_transcript(CoreIndex(first_claimed_core_index)),
 				)
@@ -2024,7 +2028,7 @@
 			<span class="kw">let </span>(vrf_in_out, <span class="kw">_</span>) = public
 				.vrf_verify(
 					relay_vrf_delay_transcript(relay_vrf_story, <span class="kw-2">*</span>core_index),
-					<span class="kw-2">&amp;</span>vrf_output.<span class="number">0</span>,
+					<span class="kw-2">&amp;</span>vrf_pre_output.<span class="number">0</span>,
 					<span class="kw-2">&amp;</span>vrf_proof.<span class="number">0</span>,
 				)
 				.map_err(|<span class="kw">_</span>| InvalidAssignment(Reason::VRFDelayOutputMismatch))<span class="question-mark">?</span>;

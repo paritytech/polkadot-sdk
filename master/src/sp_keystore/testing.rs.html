@@ -556,6 +556,7 @@
 <a href="#556" id="556">556</a>
 <a href="#557" id="557">557</a>
 <a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -671,14 +672,14 @@
 		<span class="prelude-val">Ok</span>(sig)
 	}
 
-	<span class="kw">fn </span>vrf_output&lt;T: Pair + VrfSecret&gt;(
+	<span class="kw">fn </span>vrf_pre_output&lt;T: Pair + VrfSecret&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key_type: KeyTypeId,
 		public: <span class="kw-2">&amp;</span>T::Public,
 		input: <span class="kw-2">&amp;</span>T::VrfInput,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;T::VrfOutput&gt;, Error&gt; {
-		<span class="kw">let </span>preout = <span class="self">self</span>.pair::&lt;T&gt;(key_type, public).map(|pair| pair.vrf_output(input));
-		<span class="prelude-val">Ok</span>(preout)
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;T::VrfPreOutput&gt;, Error&gt; {
+		<span class="kw">let </span>pre_output = <span class="self">self</span>.pair::&lt;T&gt;(key_type, public).map(|pair| pair.vrf_pre_output(input));
+		<span class="prelude-val">Ok</span>(pre_output)
 	}
 }
 
@@ -713,13 +714,13 @@
 		<span class="self">self</span>.vrf_sign::&lt;sr25519::Pair&gt;(key_type, public, data)
 	}
 
-	<span class="kw">fn </span>sr25519_vrf_output(
+	<span class="kw">fn </span>sr25519_vrf_pre_output(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key_type: KeyTypeId,
 		public: <span class="kw-2">&amp;</span>sr25519::Public,
 		input: <span class="kw-2">&amp;</span>sr25519::vrf::VrfInput,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;sr25519::vrf::VrfOutput&gt;, Error&gt; {
-		<span class="self">self</span>.vrf_output::&lt;sr25519::Pair&gt;(key_type, public, input)
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;sr25519::vrf::VrfPreOutput&gt;, Error&gt; {
+		<span class="self">self</span>.vrf_pre_output::&lt;sr25519::Pair&gt;(key_type, public, input)
 	}
 
 	<span class="kw">fn </span>ed25519_public_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, key_type: KeyTypeId) -&gt; Vec&lt;ed25519::Public&gt; {
@@ -823,13 +824,13 @@
 	}
 
 	<span class="attr">#[cfg(feature = <span class="string">&quot;bandersnatch-experimental&quot;</span>)]
-	</span><span class="kw">fn </span>bandersnatch_vrf_output(
+	</span><span class="kw">fn </span>bandersnatch_vrf_pre_output(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key_type: KeyTypeId,
 		public: <span class="kw-2">&amp;</span>bandersnatch::Public,
 		input: <span class="kw-2">&amp;</span>bandersnatch::vrf::VrfInput,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;bandersnatch::vrf::VrfOutput&gt;, Error&gt; {
-		<span class="self">self</span>.vrf_output::&lt;bandersnatch::Pair&gt;(key_type, public, input)
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;bandersnatch::vrf::VrfPreOutput&gt;, Error&gt; {
+		<span class="self">self</span>.vrf_pre_output::&lt;bandersnatch::Pair&gt;(key_type, public, input)
 	}
 
 	<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
@@ -1001,7 +1002,7 @@
 	}
 
 	<span class="attr">#[test]
-	</span><span class="kw">fn </span>sr25519_vrf_output() {
+	</span><span class="kw">fn </span>sr25519_vrf_pre_output() {
 		<span class="kw">let </span>store = MemoryKeystore::new();
 
 		<span class="kw">let </span>secret_uri = <span class="string">&quot;//Alice&quot;</span>;
@@ -1016,16 +1017,17 @@
 			],
 		);
 
-		<span class="kw">let </span>result = store.sr25519_vrf_output(SR25519, <span class="kw-2">&amp;</span>pair.public(), <span class="kw-2">&amp;</span>input);
+		<span class="kw">let </span>result = store.sr25519_vrf_pre_output(SR25519, <span class="kw-2">&amp;</span>pair.public(), <span class="kw-2">&amp;</span>input);
 		<span class="macro">assert!</span>(result.unwrap().is_none());
 
 		store
 			.insert(SR25519, secret_uri, pair.public().as_ref())
 			.expect(<span class="string">&quot;Inserts unknown key&quot;</span>);
 
-		<span class="kw">let </span>preout = store.sr25519_vrf_output(SR25519, <span class="kw-2">&amp;</span>pair.public(), <span class="kw-2">&amp;</span>input).unwrap().unwrap();
+		<span class="kw">let </span>pre_output =
+			store.sr25519_vrf_pre_output(SR25519, <span class="kw-2">&amp;</span>pair.public(), <span class="kw-2">&amp;</span>input).unwrap().unwrap();
 
-		<span class="kw">let </span>result = preout.make_bytes::&lt;<span class="number">32</span>&gt;(<span class="string">b&quot;rand&quot;</span>, <span class="kw-2">&amp;</span>input, <span class="kw-2">&amp;</span>pair.public());
+		<span class="kw">let </span>result = pre_output.make_bytes::&lt;<span class="number">32</span>&gt;(<span class="string">b&quot;rand&quot;</span>, <span class="kw-2">&amp;</span>input, <span class="kw-2">&amp;</span>pair.public());
 		<span class="macro">assert!</span>(result.is_ok());
 	}
 

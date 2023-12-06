@@ -558,7 +558,7 @@
 				.make_bytes::&lt;AUTHORING_SCORE_LENGTH&gt;(
 					AUTHORING_SCORE_VRF_CONTEXT,
 					<span class="kw-2">&amp;</span>data.as_ref(),
-					<span class="kw-2">&amp;</span>vrf_signature.output,
+					<span class="kw-2">&amp;</span>vrf_signature.pre_output,
 				)
 				.map(|bytes| u128::from_le_bytes(bytes) &lt; threshold)
 				.unwrap_or_default();

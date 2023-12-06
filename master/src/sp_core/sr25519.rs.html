@@ -1145,6 +1145,8 @@
 <a href="#1145" id="1145">1145</a>
 <a href="#1146" id="1146">1146</a>
 <a href="#1147" id="1147">1147</a>
+<a href="#1148" id="1148">1148</a>
+<a href="#1149" id="1149">1149</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1775,36 +1777,36 @@
 	<span class="doccomment">/// VRF signature data
 	</span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
 	</span><span class="kw">pub struct </span>VrfSignature {
-		<span class="doccomment">/// VRF output.
-		</span><span class="kw">pub </span>output: VrfOutput,
+		<span class="doccomment">/// VRF pre-output.
+		</span><span class="kw">pub </span>pre_output: VrfPreOutput,
 		<span class="doccomment">/// VRF proof.
 		</span><span class="kw">pub </span>proof: VrfProof,
 	}
 
-	<span class="doccomment">/// VRF output type suitable for schnorrkel operations.
+	<span class="doccomment">/// VRF pre-output type suitable for schnorrkel operations.
 	</span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq)]
-	</span><span class="kw">pub struct </span>VrfOutput(<span class="kw">pub </span>schnorrkel::vrf::VRFOutput);
+	</span><span class="kw">pub struct </span>VrfPreOutput(<span class="kw">pub </span>schnorrkel::vrf::VRFOutput);
 
-	<span class="kw">impl </span>Encode <span class="kw">for </span>VrfOutput {
+	<span class="kw">impl </span>Encode <span class="kw">for </span>VrfPreOutput {
 		<span class="kw">fn </span>encode(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;u8&gt; {
 			<span class="self">self</span>.<span class="number">0</span>.as_bytes().encode()
 		}
 	}
 
-	<span class="kw">impl </span>Decode <span class="kw">for </span>VrfOutput {
+	<span class="kw">impl </span>Decode <span class="kw">for </span>VrfPreOutput {
 		<span class="kw">fn </span>decode&lt;R: codec::Input&gt;(i: <span class="kw-2">&amp;mut </span>R) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, codec::Error&gt; {
 			<span class="kw">let </span>decoded = &lt;[u8; VRF_OUTPUT_LENGTH]&gt;::decode(i)<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(<span class="self">Self</span>(schnorrkel::vrf::VRFOutput::from_bytes(<span class="kw-2">&amp;</span>decoded).map_err(convert_error)<span class="question-mark">?</span>))
 		}
 	}
 
-	<span class="kw">impl </span>MaxEncodedLen <span class="kw">for </span>VrfOutput {
+	<span class="kw">impl </span>MaxEncodedLen <span class="kw">for </span>VrfPreOutput {
 		<span class="kw">fn </span>max_encoded_len() -&gt; usize {
 			&lt;[u8; VRF_OUTPUT_LENGTH]&gt;::max_encoded_len()
 		}
 	}
 
-	<span class="kw">impl </span>TypeInfo <span class="kw">for </span>VrfOutput {
+	<span class="kw">impl </span>TypeInfo <span class="kw">for </span>VrfPreOutput {
 		<span class="kw">type </span>Identity = [u8; VRF_OUTPUT_LENGTH];
 
 		<span class="kw">fn </span>type_info() -&gt; scale_info::Type {
@@ -1846,7 +1848,7 @@
 	<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 	</span><span class="kw">impl </span>VrfCrypto <span class="kw">for </span>Pair {
 		<span class="kw">type </span>VrfInput = VrfTranscript;
-		<span class="kw">type </span>VrfOutput = VrfOutput;
+		<span class="kw">type </span>VrfPreOutput = VrfPreOutput;
 		<span class="kw">type </span>VrfSignData = VrfSignData;
 		<span class="kw">type </span>VrfSignature = VrfSignature;
 	}
@@ -1864,18 +1866,18 @@
 
 			<span class="kw">let </span>proof = <span class="self">self</span>.<span class="number">0</span>.dleq_proove(extra, <span class="kw-2">&amp;</span>inout, <span class="bool-val">true</span>).<span class="number">0</span>;
 
-			VrfSignature { output: VrfOutput(inout.to_output()), proof: VrfProof(proof) }
+			VrfSignature { pre_output: VrfPreOutput(inout.to_output()), proof: VrfProof(proof) }
 		}
 
-		<span class="kw">fn </span>vrf_output(<span class="kw-2">&amp;</span><span class="self">self</span>, input: <span class="kw-2">&amp;</span><span class="self">Self</span>::VrfInput) -&gt; <span class="self">Self</span>::VrfOutput {
-			<span class="kw">let </span>output = <span class="self">self</span>.<span class="number">0</span>.vrf_create_hash(input.<span class="number">0</span>.clone()).to_output();
-			VrfOutput(output)
+		<span class="kw">fn </span>vrf_pre_output(<span class="kw-2">&amp;</span><span class="self">self</span>, input: <span class="kw-2">&amp;</span><span class="self">Self</span>::VrfInput) -&gt; <span class="self">Self</span>::VrfPreOutput {
+			<span class="kw">let </span>pre_output = <span class="self">self</span>.<span class="number">0</span>.vrf_create_hash(input.<span class="number">0</span>.clone()).to_output();
+			VrfPreOutput(pre_output)
 		}
 	}
 
 	<span class="kw">impl </span>VrfCrypto <span class="kw">for </span>Public {
 		<span class="kw">type </span>VrfInput = VrfTranscript;
-		<span class="kw">type </span>VrfOutput = VrfOutput;
+		<span class="kw">type </span>VrfPreOutput = VrfPreOutput;
 		<span class="kw">type </span>VrfSignData = VrfSignData;
 		<span class="kw">type </span>VrfSignature = VrfSignature;
 	}
@@ -1886,7 +1888,7 @@
 				<span class="kw">let </span>public = schnorrkel::PublicKey::from_bytes(<span class="self">self</span>)<span class="question-mark">?</span>;
 
 				<span class="kw">let </span>inout =
-					signature.output.<span class="number">0</span>.attach_input_hash(<span class="kw-2">&amp;</span>public, data.transcript.<span class="number">0</span>.clone())<span class="question-mark">?</span>;
+					signature.pre_output.<span class="number">0</span>.attach_input_hash(<span class="kw-2">&amp;</span>public, data.transcript.<span class="number">0</span>.clone())<span class="question-mark">?</span>;
 
 				<span class="kw">let </span>extra = data
 					.extra
@@ -1949,19 +1951,21 @@
 			<span class="kw-2">&amp;</span><span class="self">self</span>,
 			context: <span class="kw-2">&amp;</span>[u8],
 			input: <span class="kw-2">&amp;</span>VrfInput,
-			output: <span class="kw-2">&amp;</span>VrfOutput,
+			pre_output: <span class="kw-2">&amp;</span>VrfPreOutput,
 		) -&gt; <span class="prelude-ty">Result</span>&lt;[u8; N], codec::Error&gt;
 		<span class="kw">where
 			</span>[u8; N]: Default,
 		{
 			<span class="kw">let </span>pubkey = schnorrkel::PublicKey::from_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>).map_err(convert_error)<span class="question-mark">?</span>;
-			<span class="kw">let </span>inout =
-				output.<span class="number">0</span>.attach_input_hash(<span class="kw-2">&amp;</span>pubkey, input.<span class="number">0</span>.clone()).map_err(convert_error)<span class="question-mark">?</span>;
+			<span class="kw">let </span>inout = pre_output
+				.<span class="number">0
+				</span>.attach_input_hash(<span class="kw-2">&amp;</span>pubkey, input.<span class="number">0</span>.clone())
+				.map_err(convert_error)<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(inout.make_bytes::&lt;[u8; N]&gt;(context))
 		}
 	}
 
-	<span class="kw">impl </span>VrfOutput {
+	<span class="kw">impl </span>VrfPreOutput {
 		<span class="doccomment">/// Generate output bytes from the given VRF configuration.
 		</span><span class="kw">pub fn </span>make_bytes&lt;<span class="kw">const </span>N: usize&gt;(
 			<span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -2244,10 +2248,10 @@
 
 		<span class="kw">let </span>input = VrfTranscript::new(<span class="string">b&quot;label&quot;</span>, <span class="kw-2">&amp;</span>[(<span class="string">b&quot;domain1&quot;</span>, <span class="string">b&quot;data1&quot;</span>)]);
 
-		<span class="kw">let </span>output = pair.vrf_output(<span class="kw-2">&amp;</span>input);
+		<span class="kw">let </span>pre_output = pair.vrf_pre_output(<span class="kw-2">&amp;</span>input);
 
 		<span class="kw">let </span>out1 = pair.make_bytes::&lt;<span class="number">32</span>&gt;(ctx, <span class="kw-2">&amp;</span>input);
-		<span class="kw">let </span>out2 = output.make_bytes::&lt;<span class="number">32</span>&gt;(ctx, <span class="kw-2">&amp;</span>input, <span class="kw-2">&amp;</span>public).unwrap();
+		<span class="kw">let </span>out2 = pre_output.make_bytes::&lt;<span class="number">32</span>&gt;(ctx, <span class="kw-2">&amp;</span>input, <span class="kw-2">&amp;</span>public).unwrap();
 		<span class="macro">assert_eq!</span>(out1, out2);
 
 		<span class="kw">let </span>extra = VrfTranscript::new(<span class="string">b&quot;extra&quot;</span>, <span class="kw-2">&amp;</span>[(<span class="string">b&quot;domain2&quot;</span>, <span class="string">b&quot;data2&quot;</span>)]);
@@ -2255,7 +2259,7 @@
 		<span class="kw">let </span>signature = pair.vrf_sign(<span class="kw-2">&amp;</span>data);
 		<span class="macro">assert!</span>(public.vrf_verify(<span class="kw-2">&amp;</span>data, <span class="kw-2">&amp;</span>signature));
 
-		<span class="kw">let </span>out3 = public.make_bytes::&lt;<span class="number">32</span>&gt;(ctx, <span class="kw-2">&amp;</span>input, <span class="kw-2">&amp;</span>signature.output).unwrap();
+		<span class="kw">let </span>out3 = public.make_bytes::&lt;<span class="number">32</span>&gt;(ctx, <span class="kw-2">&amp;</span>input, <span class="kw-2">&amp;</span>signature.pre_output).unwrap();
 		<span class="macro">assert_eq!</span>(out2, out3);
 	}
 
@@ -2273,7 +2277,7 @@
 		<span class="macro">assert!</span>(public.vrf_verify(<span class="kw-2">&amp;</span>data, <span class="kw-2">&amp;</span>signature));
 
 		<span class="kw">let </span>out1 = pair.make_bytes::&lt;<span class="number">32</span>&gt;(ctx, <span class="kw-2">&amp;</span>input);
-		<span class="kw">let </span>out2 = public.make_bytes::&lt;<span class="number">32</span>&gt;(ctx, <span class="kw-2">&amp;</span>input, <span class="kw-2">&amp;</span>signature.output).unwrap();
+		<span class="kw">let </span>out2 = public.make_bytes::&lt;<span class="number">32</span>&gt;(ctx, <span class="kw-2">&amp;</span>input, <span class="kw-2">&amp;</span>signature.pre_output).unwrap();
 		<span class="macro">assert_eq!</span>(out1, out2);
 
 		<span class="comment">// Direct call to backend version of sign after check with extra params
@@ -2286,10 +2290,10 @@
 			})
 			.unwrap();
 		<span class="kw">let </span>signature2 =
-			VrfSignature { output: VrfOutput(inout.to_output()), proof: VrfProof(proof) };
+			VrfSignature { pre_output: VrfPreOutput(inout.to_output()), proof: VrfProof(proof) };
 
 		<span class="macro">assert!</span>(public.vrf_verify(<span class="kw-2">&amp;</span>data, <span class="kw-2">&amp;</span>signature2));
-		<span class="macro">assert_eq!</span>(signature.output, signature2.output);
+		<span class="macro">assert_eq!</span>(signature.pre_output, signature2.pre_output);
 	}
 }
 </code></pre></div></section></main></body></html>

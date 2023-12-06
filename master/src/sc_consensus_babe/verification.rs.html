@@ -448,7 +448,7 @@
 		.make_bytes::&lt;AUTHORING_SCORE_LENGTH&gt;(
 			AUTHORING_SCORE_VRF_CONTEXT,
 			<span class="kw-2">&amp;</span>data.as_ref(),
-			<span class="kw-2">&amp;</span>pre_digest.vrf_signature.output,
+			<span class="kw-2">&amp;</span>pre_digest.vrf_signature.pre_output,
 		)
 		.map(u128::from_le_bytes)
 		.map_err(|<span class="kw">_</span>| babe_err(Error::VrfVerificationFailed))<span class="question-mark">?</span>;

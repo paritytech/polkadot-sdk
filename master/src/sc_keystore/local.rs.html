@@ -938,18 +938,18 @@
 		<span class="prelude-val">Ok</span>(sig)
 	}
 
-	<span class="kw">fn </span>vrf_output&lt;T: CorePair + VrfSecret&gt;(
+	<span class="kw">fn </span>vrf_pre_output&lt;T: CorePair + VrfSecret&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key_type: KeyTypeId,
 		public: <span class="kw-2">&amp;</span>T::Public,
 		input: <span class="kw-2">&amp;</span>T::VrfInput,
-	) -&gt; std::result::Result&lt;<span class="prelude-ty">Option</span>&lt;T::VrfOutput&gt;, TraitError&gt; {
-		<span class="kw">let </span>preout = <span class="self">self
+	) -&gt; std::result::Result&lt;<span class="prelude-ty">Option</span>&lt;T::VrfPreOutput&gt;, TraitError&gt; {
+		<span class="kw">let </span>pre_output = <span class="self">self
 			</span>.<span class="number">0
 			</span>.read()
 			.key_pair_by_type::&lt;T&gt;(public, key_type)<span class="question-mark">?
-			</span>.map(|pair| pair.vrf_output(input));
-		<span class="prelude-val">Ok</span>(preout)
+			</span>.map(|pair| pair.vrf_pre_output(input));
+		<span class="prelude-val">Ok</span>(pre_output)
 	}
 }
 
@@ -1006,13 +1006,13 @@
 		<span class="self">self</span>.vrf_sign::&lt;sr25519::Pair&gt;(key_type, public, data)
 	}
 
-	<span class="kw">fn </span>sr25519_vrf_output(
+	<span class="kw">fn </span>sr25519_vrf_pre_output(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key_type: KeyTypeId,
 		public: <span class="kw-2">&amp;</span>sr25519::Public,
 		input: <span class="kw-2">&amp;</span>sr25519::vrf::VrfInput,
-	) -&gt; std::result::Result&lt;<span class="prelude-ty">Option</span>&lt;sr25519::vrf::VrfOutput&gt;, TraitError&gt; {
-		<span class="self">self</span>.vrf_output::&lt;sr25519::Pair&gt;(key_type, public, input)
+	) -&gt; std::result::Result&lt;<span class="prelude-ty">Option</span>&lt;sr25519::vrf::VrfPreOutput&gt;, TraitError&gt; {
+		<span class="self">self</span>.vrf_pre_output::&lt;sr25519::Pair&gt;(key_type, public, input)
 	}
 
 	<span class="kw">fn </span>ed25519_public_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, key_type: KeyTypeId) -&gt; Vec&lt;ed25519::Public&gt; {
@@ -1111,13 +1111,13 @@
 			<span class="self">self</span>.vrf_sign::&lt;bandersnatch::Pair&gt;(key_type, public, data)
 		}
 
-		<span class="kw">fn </span>bandersnatch_vrf_output(
+		<span class="kw">fn </span>bandersnatch_vrf_pre_output(
 			<span class="kw-2">&amp;</span><span class="self">self</span>,
 			key_type: KeyTypeId,
 			public: <span class="kw-2">&amp;</span>bandersnatch::Public,
 			input: <span class="kw-2">&amp;</span>bandersnatch::vrf::VrfInput,
-		) -&gt; std::result::Result&lt;<span class="prelude-ty">Option</span>&lt;bandersnatch::vrf::VrfOutput&gt;, TraitError&gt; {
-			<span class="self">self</span>.vrf_output::&lt;bandersnatch::Pair&gt;(key_type, public, input)
+		) -&gt; std::result::Result&lt;<span class="prelude-ty">Option</span>&lt;bandersnatch::vrf::VrfPreOutput&gt;, TraitError&gt; {
+			<span class="self">self</span>.vrf_pre_output::&lt;bandersnatch::Pair&gt;(key_type, public, input)
 		}
 
 		<span class="kw">fn </span>bandersnatch_ring_vrf_sign(

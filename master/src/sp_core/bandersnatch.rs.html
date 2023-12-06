@@ -1217,6 +1217,8 @@
 <a href="#1217" id="1217">1217</a>
 <a href="#1218" id="1218">1218</a>
 <a href="#1219" id="1219">1219</a>
+<a href="#1220" id="1220">1220</a>
+<a href="#1221" id="1221">1221</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1514,7 +1516,7 @@
 	<span class="kw">fn </span>verify&lt;M: AsRef&lt;[u8]&gt;&gt;(signature: <span class="kw-2">&amp;</span>Signature, data: M, public: <span class="kw-2">&amp;</span>Public) -&gt; bool {
 		<span class="kw">let </span>data = vrf::VrfSignData::new_unchecked(SIGNING_CTX, <span class="kw-2">&amp;</span>[data.as_ref()], <span class="prelude-val">None</span>);
 		<span class="kw">let </span>signature =
-			vrf::VrfSignature { signature: <span class="kw-2">*</span>signature, outputs: vrf::VrfIosVec::default() };
+			vrf::VrfSignature { signature: <span class="kw-2">*</span>signature, pre_outputs: vrf::VrfIosVec::default() };
 		public.vrf_verify(<span class="kw-2">&amp;</span>data, <span class="kw-2">&amp;</span>signature)
 	}
 
@@ -1538,18 +1540,18 @@
 		ThinVrfSignature, Transcript,
 	};
 
-	<span class="doccomment">/// Max number of inputs/outputs which can be handled by the VRF signing procedures.
+	<span class="doccomment">/// Max number of inputs/pre-outputs which can be handled by the VRF signing procedures.
 	///
 	/// The number is quite arbitrary and chosen to fulfill the use cases found so far.
 	/// If required it can be extended in the future.
 	</span><span class="kw">pub const </span>MAX_VRF_IOS: u32 = <span class="number">3</span>;
 
-	<span class="doccomment">/// Bounded vector used for VRF inputs and outputs.
+	<span class="doccomment">/// Bounded vector used for VRF inputs and pre-outputs.
 	///
 	/// Can contain at most [`MAX_VRF_IOS`] elements.
 	</span><span class="kw">pub type </span>VrfIosVec&lt;T&gt; = BoundedVec&lt;T, ConstU32&lt;MAX_VRF_IOS&gt;&gt;;
 
-	<span class="doccomment">/// VRF input to construct a [`VrfOutput`] instance and embeddable in [`VrfSignData`].
+	<span class="doccomment">/// VRF input to construct a [`VrfPreOutput`] instance and embeddable in [`VrfSignData`].
 	</span><span class="attr">#[derive(Clone, Debug)]
 	</span><span class="kw">pub struct </span>VrfInput(<span class="kw">pub</span>(<span class="kw">super</span>) bandersnatch_vrfs::VrfInput);
 
@@ -1561,15 +1563,15 @@
 		}
 	}
 
-	<span class="doccomment">/// VRF (pre)output derived from [`VrfInput`] using a [`VrfSecret`].
+	<span class="doccomment">/// VRF pre-output derived from [`VrfInput`] using a [`VrfSecret`].
 	///
 	/// This object is used to produce an arbitrary number of verifiable pseudo random
 	/// bytes and is often called pre-output to emphasize that this is not the actual
 	/// output of the VRF but an object capable of generating the output.
 	</span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq)]
-	</span><span class="kw">pub struct </span>VrfOutput(<span class="kw">pub</span>(<span class="kw">super</span>) bandersnatch_vrfs::VrfPreOut);
+	</span><span class="kw">pub struct </span>VrfPreOutput(<span class="kw">pub</span>(<span class="kw">super</span>) bandersnatch_vrfs::VrfPreOut);
 
-	<span class="kw">impl </span>Encode <span class="kw">for </span>VrfOutput {
+	<span class="kw">impl </span>Encode <span class="kw">for </span>VrfPreOutput {
 		<span class="kw">fn </span>encode(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;u8&gt; {
 			<span class="kw">let </span><span class="kw-2">mut </span>bytes = [<span class="number">0</span>; PREOUT_SERIALIZED_SIZE];
 			<span class="self">self</span>.<span class="number">0
@@ -1579,25 +1581,25 @@
 		}
 	}
 
-	<span class="kw">impl </span>Decode <span class="kw">for </span>VrfOutput {
+	<span class="kw">impl </span>Decode <span class="kw">for </span>VrfPreOutput {
 		<span class="kw">fn </span>decode&lt;R: codec::Input&gt;(i: <span class="kw-2">&amp;mut </span>R) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, codec::Error&gt; {
 			<span class="kw">let </span>buf = &lt;[u8; PREOUT_SERIALIZED_SIZE]&gt;::decode(i)<span class="question-mark">?</span>;
 			<span class="kw">let </span>preout =
 				bandersnatch_vrfs::VrfPreOut::deserialize_compressed_unchecked(buf.as_slice())
 					.map_err(|<span class="kw">_</span>| <span class="string">&quot;vrf-preout decode error: bad preout&quot;</span>)<span class="question-mark">?</span>;
-			<span class="prelude-val">Ok</span>(VrfOutput(preout))
+			<span class="prelude-val">Ok</span>(VrfPreOutput(preout))
 		}
 	}
 
-	<span class="kw">impl </span>EncodeLike <span class="kw">for </span>VrfOutput {}
+	<span class="kw">impl </span>EncodeLike <span class="kw">for </span>VrfPreOutput {}
 
-	<span class="kw">impl </span>MaxEncodedLen <span class="kw">for </span>VrfOutput {
+	<span class="kw">impl </span>MaxEncodedLen <span class="kw">for </span>VrfPreOutput {
 		<span class="kw">fn </span>max_encoded_len() -&gt; usize {
 			&lt;[u8; PREOUT_SERIALIZED_SIZE]&gt;::max_encoded_len()
 		}
 	}
 
-	<span class="kw">impl </span>TypeInfo <span class="kw">for </span>VrfOutput {
+	<span class="kw">impl </span>TypeInfo <span class="kw">for </span>VrfPreOutput {
 		<span class="kw">type </span>Identity = [u8; PREOUT_SERIALIZED_SIZE];
 
 		<span class="kw">fn </span>type_info() -&gt; scale_info::Type {
@@ -1614,14 +1616,14 @@
 	/// A good explaination of the topic can be found in Merlin [docs](https://merlin.cool/)
 	///
 	/// The `inputs` is a sequence of [`VrfInput`]s which, during the signing procedure, are
-	/// first transformed to [`VrfOutput`]s. Both inputs and outputs are then appended to
+	/// first transformed to [`VrfPreOutput`]s. Both inputs and pre-outputs are then appended to
 	/// the transcript before signing the Fiat-Shamir transform result (the challenge).
 	///
 	/// In practice, as a user, all these technical details can be easily ignored.
 	/// What is important to remember is:
 	/// - *Transcript* is an object defining the protocol and used to produce the signature. This
-	///   object doesn&#39;t influence the `VrfOutput`s values.
-	/// - *Vrf inputs* is some additional data which is used to produce *vrf outputs*. This data
+	///   object doesn&#39;t influence the `VrfPreOutput`s values.
+	/// - *Vrf inputs* is some additional data which is used to produce *vrf pre-outputs*. This data
 	///   will contribute to the signature as well.
 	</span><span class="attr">#[derive(Clone)]
 	</span><span class="kw">pub struct </span>VrfSignData {
@@ -1692,7 +1694,7 @@
 
 	<span class="doccomment">/// VRF signature.
 	///
-	/// Includes both the transcript `signature` and the `outputs` generated from the
+	/// Includes both the transcript `signature` and the `pre-outputs` generated from the
 	/// [`VrfSignData::inputs`].
 	///
 	/// Refer to [`VrfSignData`] for more details.
@@ -1700,14 +1702,14 @@
 	</span><span class="kw">pub struct </span>VrfSignature {
 		<span class="doccomment">/// Transcript signature.
 		</span><span class="kw">pub </span>signature: Signature,
-		<span class="doccomment">/// VRF (pre)outputs.
-		</span><span class="kw">pub </span>outputs: VrfIosVec&lt;VrfOutput&gt;,
+		<span class="doccomment">/// VRF pre-outputs.
+		</span><span class="kw">pub </span>pre_outputs: VrfIosVec&lt;VrfPreOutput&gt;,
 	}
 
 	<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 	</span><span class="kw">impl </span>VrfCrypto <span class="kw">for </span>Pair {
 		<span class="kw">type </span>VrfInput = VrfInput;
-		<span class="kw">type </span>VrfOutput = VrfOutput;
+		<span class="kw">type </span>VrfPreOutput = VrfPreOutput;
 		<span class="kw">type </span>VrfSignData = VrfSignData;
 		<span class="kw">type </span>VrfSignature = VrfSignature;
 	}
@@ -1726,15 +1728,15 @@
 			}
 		}
 
-		<span class="kw">fn </span>vrf_output(<span class="kw-2">&amp;</span><span class="self">self</span>, input: <span class="kw-2">&amp;</span><span class="self">Self</span>::VrfInput) -&gt; <span class="self">Self</span>::VrfOutput {
-			<span class="kw">let </span>output = <span class="self">self</span>.secret.vrf_preout(<span class="kw-2">&amp;</span>input.<span class="number">0</span>);
-			VrfOutput(output)
+		<span class="kw">fn </span>vrf_pre_output(<span class="kw-2">&amp;</span><span class="self">self</span>, input: <span class="kw-2">&amp;</span><span class="self">Self</span>::VrfInput) -&gt; <span class="self">Self</span>::VrfPreOutput {
+			<span class="kw">let </span>pre_output = <span class="self">self</span>.secret.vrf_preout(<span class="kw-2">&amp;</span>input.<span class="number">0</span>);
+			VrfPreOutput(pre_output)
 		}
 	}
 
 	<span class="kw">impl </span>VrfCrypto <span class="kw">for </span>Public {
 		<span class="kw">type </span>VrfInput = VrfInput;
-		<span class="kw">type </span>VrfOutput = VrfOutput;
+		<span class="kw">type </span>VrfPreOutput = VrfPreOutput;
 		<span class="kw">type </span>VrfSignData = VrfSignData;
 		<span class="kw">type </span>VrfSignature = VrfSignature;
 	}
@@ -1742,12 +1744,12 @@
 	<span class="kw">impl </span>VrfPublic <span class="kw">for </span>Public {
 		<span class="kw">fn </span>vrf_verify(<span class="kw-2">&amp;</span><span class="self">self</span>, data: <span class="kw-2">&amp;</span><span class="self">Self</span>::VrfSignData, signature: <span class="kw-2">&amp;</span><span class="self">Self</span>::VrfSignature) -&gt; bool {
 			<span class="kw">const _</span>: () = <span class="macro">assert!</span>(MAX_VRF_IOS == <span class="number">3</span>, <span class="string">&quot;`MAX_VRF_IOS` expected to be 3&quot;</span>);
-			<span class="kw">let </span>outputs_len = signature.outputs.len();
-			<span class="kw">if </span>outputs_len != data.inputs.len() {
+			<span class="kw">let </span>pre_outputs_len = signature.pre_outputs.len();
+			<span class="kw">if </span>pre_outputs_len != data.inputs.len() {
 				<span class="kw">return </span><span class="bool-val">false
 			</span>}
 			<span class="comment">// Workaround to overcome backend signature generic over the number of IOs.
-			</span><span class="kw">match </span>outputs_len {
+			</span><span class="kw">match </span>pre_outputs_len {
 				<span class="number">0 </span>=&gt; <span class="self">self</span>.vrf_verify_gen::&lt;<span class="number">0</span>&gt;(data, signature),
 				<span class="number">1 </span>=&gt; <span class="self">self</span>.vrf_verify_gen::&lt;<span class="number">1</span>&gt;(data, signature),
 				<span class="number">2 </span>=&gt; <span class="self">self</span>.vrf_verify_gen::&lt;<span class="number">2</span>&gt;(data, signature),
@@ -1765,11 +1767,12 @@
 			<span class="kw">let </span>thin_signature: ThinVrfSignature&lt;N&gt; =
 				<span class="self">self</span>.secret.sign_thin_vrf(data.transcript.clone(), <span class="kw-2">&amp;</span>ios);
 
-			<span class="kw">let </span>outputs: Vec&lt;<span class="kw">_</span>&gt; = thin_signature.preouts.into_iter().map(VrfOutput).collect();
-			<span class="kw">let </span>outputs = VrfIosVec::truncate_from(outputs);
+			<span class="kw">let </span>pre_outputs: Vec&lt;<span class="kw">_</span>&gt; =
+				thin_signature.preouts.into_iter().map(VrfPreOutput).collect();
+			<span class="kw">let </span>pre_outputs = VrfIosVec::truncate_from(pre_outputs);
 
 			<span class="kw">let </span><span class="kw-2">mut </span>signature =
-				VrfSignature { signature: Signature([<span class="number">0</span>; SIGNATURE_SERIALIZED_SIZE]), outputs };
+				VrfSignature { signature: Signature([<span class="number">0</span>; SIGNATURE_SERIALIZED_SIZE]), pre_outputs };
 
 			thin_signature
 				.proof
@@ -1802,7 +1805,7 @@
 			</span>};
 
 			<span class="kw">let </span>preouts: [bandersnatch_vrfs::VrfPreOut; N] =
-				core::array::from_fn(|i| signature.outputs[i].<span class="number">0</span>);
+				core::array::from_fn(|i| signature.pre_outputs[i].<span class="number">0</span>);
 
 			<span class="comment">// Deserialize only the proof, the rest has already been deserialized
 			// This is another hack used because backend signature type is generic over
@@ -1821,7 +1824,7 @@
 		}
 	}
 
-	<span class="kw">impl </span>VrfOutput {
+	<span class="kw">impl </span>VrfPreOutput {
 		<span class="doccomment">/// Generate an arbitrary number of bytes from the given `context` and VRF `input`.
 		</span><span class="kw">pub fn </span>make_bytes&lt;<span class="kw">const </span>N: usize&gt;(
 			<span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -2023,8 +2026,8 @@
 	</span><span class="kw">pub struct </span>RingVrfSignature {
 		<span class="doccomment">/// Ring signature.
 		</span><span class="kw">pub </span>signature: [u8; RING_SIGNATURE_SERIALIZED_SIZE],
-		<span class="doccomment">/// VRF (pre)outputs.
-		</span><span class="kw">pub </span>outputs: VrfIosVec&lt;VrfOutput&gt;,
+		<span class="doccomment">/// VRF pre-outputs.
+		</span><span class="kw">pub </span>pre_outputs: VrfIosVec&lt;VrfPreOutput&gt;,
 	}
 
 	<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
@@ -2057,11 +2060,12 @@
 				bandersnatch_vrfs::RingProver { ring_prover: prover, secret: <span class="kw-2">&amp;</span><span class="self">self</span>.secret }
 					.sign_ring_vrf(data.transcript.clone(), <span class="kw-2">&amp;</span>ios);
 
-			<span class="kw">let </span>outputs: Vec&lt;<span class="kw">_</span>&gt; = ring_signature.preouts.into_iter().map(VrfOutput).collect();
-			<span class="kw">let </span>outputs = VrfIosVec::truncate_from(outputs);
+			<span class="kw">let </span>pre_outputs: Vec&lt;<span class="kw">_</span>&gt; =
+				ring_signature.preouts.into_iter().map(VrfPreOutput).collect();
+			<span class="kw">let </span>pre_outputs = VrfIosVec::truncate_from(pre_outputs);
 
 			<span class="kw">let </span><span class="kw-2">mut </span>signature =
-				RingVrfSignature { outputs, signature: [<span class="number">0</span>; RING_SIGNATURE_SERIALIZED_SIZE] };
+				RingVrfSignature { pre_outputs, signature: [<span class="number">0</span>; RING_SIGNATURE_SERIALIZED_SIZE] };
 
 			ring_signature
 				.proof
@@ -2079,7 +2083,7 @@
 		/// from which the [`RingVerifier`] has been constructed.
 		</span><span class="kw">pub fn </span>ring_vrf_verify(<span class="kw-2">&amp;</span><span class="self">self</span>, data: <span class="kw-2">&amp;</span>VrfSignData, verifier: <span class="kw-2">&amp;</span>RingVerifier) -&gt; bool {
 			<span class="kw">const _</span>: () = <span class="macro">assert!</span>(MAX_VRF_IOS == <span class="number">3</span>, <span class="string">&quot;`MAX_VRF_IOS` expected to be 3&quot;</span>);
-			<span class="kw">let </span>preouts_len = <span class="self">self</span>.outputs.len();
+			<span class="kw">let </span>preouts_len = <span class="self">self</span>.pre_outputs.len();
 			<span class="kw">if </span>preouts_len != data.inputs.len() {
 				<span class="kw">return </span><span class="bool-val">false
 			</span>}
@@ -2107,7 +2111,7 @@
 			</span>};
 
 			<span class="kw">let </span>preouts: [bandersnatch_vrfs::VrfPreOut; N] =
-				core::array::from_fn(|i| <span class="self">self</span>.outputs[i].<span class="number">0</span>);
+				core::array::from_fn(|i| <span class="self">self</span>.pre_outputs[i].<span class="number">0</span>);
 
 			<span class="kw">let </span>signature =
 				bandersnatch_vrfs::RingVrfSignature { proof: vrf_signature.proof, preouts };
@@ -2257,11 +2261,11 @@
 		<span class="kw">let </span>signature = pair.vrf_sign(<span class="kw-2">&amp;</span>data);
 
 		<span class="kw">let </span>o10 = pair.make_bytes::&lt;<span class="number">32</span>&gt;(<span class="string">b&quot;ctx1&quot;</span>, <span class="kw-2">&amp;</span>i1);
-		<span class="kw">let </span>o11 = signature.outputs[<span class="number">0</span>].make_bytes::&lt;<span class="number">32</span>&gt;(<span class="string">b&quot;ctx1&quot;</span>, <span class="kw-2">&amp;</span>i1);
+		<span class="kw">let </span>o11 = signature.pre_outputs[<span class="number">0</span>].make_bytes::&lt;<span class="number">32</span>&gt;(<span class="string">b&quot;ctx1&quot;</span>, <span class="kw-2">&amp;</span>i1);
 		<span class="macro">assert_eq!</span>(o10, o11);
 
 		<span class="kw">let </span>o20 = pair.make_bytes::&lt;<span class="number">48</span>&gt;(<span class="string">b&quot;ctx2&quot;</span>, <span class="kw-2">&amp;</span>i2);
-		<span class="kw">let </span>o21 = signature.outputs[<span class="number">1</span>].make_bytes::&lt;<span class="number">48</span>&gt;(<span class="string">b&quot;ctx2&quot;</span>, <span class="kw-2">&amp;</span>i2);
+		<span class="kw">let </span>o21 = signature.pre_outputs[<span class="number">1</span>].make_bytes::&lt;<span class="number">48</span>&gt;(<span class="string">b&quot;ctx2&quot;</span>, <span class="kw-2">&amp;</span>i2);
 		<span class="macro">assert_eq!</span>(o20, o21);
 	}
 
@@ -2361,11 +2365,11 @@
 		<span class="kw">let </span>signature = pair.ring_vrf_sign(<span class="kw-2">&amp;</span>data, <span class="kw-2">&amp;</span>prover);
 
 		<span class="kw">let </span>o10 = pair.make_bytes::&lt;<span class="number">32</span>&gt;(<span class="string">b&quot;ctx1&quot;</span>, <span class="kw-2">&amp;</span>i1);
-		<span class="kw">let </span>o11 = signature.outputs[<span class="number">0</span>].make_bytes::&lt;<span class="number">32</span>&gt;(<span class="string">b&quot;ctx1&quot;</span>, <span class="kw-2">&amp;</span>i1);
+		<span class="kw">let </span>o11 = signature.pre_outputs[<span class="number">0</span>].make_bytes::&lt;<span class="number">32</span>&gt;(<span class="string">b&quot;ctx1&quot;</span>, <span class="kw-2">&amp;</span>i1);
 		<span class="macro">assert_eq!</span>(o10, o11);
 
 		<span class="kw">let </span>o20 = pair.make_bytes::&lt;<span class="number">48</span>&gt;(<span class="string">b&quot;ctx2&quot;</span>, <span class="kw-2">&amp;</span>i2);
-		<span class="kw">let </span>o21 = signature.outputs[<span class="number">1</span>].make_bytes::&lt;<span class="number">48</span>&gt;(<span class="string">b&quot;ctx2&quot;</span>, <span class="kw-2">&amp;</span>i2);
+		<span class="kw">let </span>o21 = signature.pre_outputs[<span class="number">1</span>].make_bytes::&lt;<span class="number">48</span>&gt;(<span class="string">b&quot;ctx2&quot;</span>, <span class="kw-2">&amp;</span>i2);
 		<span class="macro">assert_eq!</span>(o20, o21);
 	}
 

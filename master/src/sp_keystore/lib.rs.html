@@ -801,19 +801,19 @@
 		data: <span class="kw-2">&amp;</span>sr25519::vrf::VrfSignData,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;sr25519::vrf::VrfSignature&gt;, Error&gt;;
 
-	<span class="doccomment">/// Generate an sr25519 VRF output for a given input data.
+	<span class="doccomment">/// Generate an sr25519 VRF pre-output for a given input data.
 	///
 	/// Receives [`KeyTypeId`] and an [`sr25519::Public`] key to be able to map
 	/// them to a private key that exists in the keystore.
 	///
 	/// Returns `None` if the given `key_type` and `public` combination doesn&#39;t
 	/// exist in the keystore or an `Err` when something failed.
-	</span><span class="kw">fn </span>sr25519_vrf_output(
+	</span><span class="kw">fn </span>sr25519_vrf_pre_output(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key_type: KeyTypeId,
 		public: <span class="kw-2">&amp;</span>sr25519::Public,
 		input: <span class="kw-2">&amp;</span>sr25519::vrf::VrfInput,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;sr25519::vrf::VrfOutput&gt;, Error&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;sr25519::vrf::VrfPreOutput&gt;, Error&gt;;
 
 	<span class="doccomment">/// Returns all ed25519 public keys for the given key type.
 	</span><span class="kw">fn </span>ed25519_public_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, key_type: KeyTypeId) -&gt; Vec&lt;ed25519::Public&gt;;
@@ -932,7 +932,7 @@
 		input: <span class="kw-2">&amp;</span>bandersnatch::vrf::VrfSignData,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;bandersnatch::vrf::VrfSignature&gt;, Error&gt;;
 
-	<span class="doccomment">/// Generate a bandersnatch VRF (pre)output for a given input data.
+	<span class="doccomment">/// Generate a bandersnatch VRF pre-output for a given input data.
 	///
 	/// Receives [`KeyTypeId`] and an [`bandersnatch::Public`] key to be able to map
 	/// them to a private key that exists in the keystore.
@@ -940,12 +940,12 @@
 	/// Returns `None` if the given `key_type` and `public` combination doesn&#39;t
 	/// exist in the keystore or an `Err` when something failed.
 	</span><span class="attr">#[cfg(feature = <span class="string">&quot;bandersnatch-experimental&quot;</span>)]
-	</span><span class="kw">fn </span>bandersnatch_vrf_output(
+	</span><span class="kw">fn </span>bandersnatch_vrf_pre_output(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key_type: KeyTypeId,
 		public: <span class="kw-2">&amp;</span>bandersnatch::Public,
 		input: <span class="kw-2">&amp;</span>bandersnatch::vrf::VrfInput,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;bandersnatch::vrf::VrfOutput&gt;, Error&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;bandersnatch::vrf::VrfPreOutput&gt;, Error&gt;;
 
 	<span class="doccomment">/// Generate a bandersnatch ring-VRF signature for the given data.
 	///
@@ -1183,13 +1183,13 @@
 		(<span class="kw-2">**</span><span class="self">self</span>).sr25519_vrf_sign(key_type, public, data)
 	}
 
-	<span class="kw">fn </span>sr25519_vrf_output(
+	<span class="kw">fn </span>sr25519_vrf_pre_output(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key_type: KeyTypeId,
 		public: <span class="kw-2">&amp;</span>sr25519::Public,
 		input: <span class="kw-2">&amp;</span>sr25519::vrf::VrfInput,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;sr25519::vrf::VrfOutput&gt;, Error&gt; {
-		(<span class="kw-2">**</span><span class="self">self</span>).sr25519_vrf_output(key_type, public, input)
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;sr25519::vrf::VrfPreOutput&gt;, Error&gt; {
+		(<span class="kw-2">**</span><span class="self">self</span>).sr25519_vrf_pre_output(key_type, public, input)
 	}
 
 	<span class="kw">fn </span>ed25519_public_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, key_type: KeyTypeId) -&gt; Vec&lt;ed25519::Public&gt; {
@@ -1278,13 +1278,13 @@
 	}
 
 	<span class="attr">#[cfg(feature = <span class="string">&quot;bandersnatch-experimental&quot;</span>)]
-	</span><span class="kw">fn </span>bandersnatch_vrf_output(
+	</span><span class="kw">fn </span>bandersnatch_vrf_pre_output(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key_type: KeyTypeId,
 		public: <span class="kw-2">&amp;</span>bandersnatch::Public,
 		input: <span class="kw-2">&amp;</span>bandersnatch::vrf::VrfInput,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;bandersnatch::vrf::VrfOutput&gt;, Error&gt; {
-		(<span class="kw-2">**</span><span class="self">self</span>).bandersnatch_vrf_output(key_type, public, input)
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;bandersnatch::vrf::VrfPreOutput&gt;, Error&gt; {
+		(<span class="kw-2">**</span><span class="self">self</span>).bandersnatch_vrf_pre_output(key_type, public, input)
 	}
 
 	<span class="attr">#[cfg(feature = <span class="string">&quot;bandersnatch-experimental&quot;</span>)]
