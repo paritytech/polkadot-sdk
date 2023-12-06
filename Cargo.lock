@@ -231,7 +231,7 @@ checksum = "c0391754c09fab4eae3404d19d0d297aa1c670c1775ab51d8a5312afeca23157"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.38",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -246,7 +246,7 @@ dependencies = [
  "proc-macro-error",
  "proc-macro2",
  "quote",
- "syn 2.0.38",
+ "syn 2.0.39",
  "syn-solidity",
  "tiny-keccak",
 ]
@@ -1959,10 +1959,10 @@ dependencies = [
 [[package]]
 name = "bp-runtime"
 version = "0.1.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
- "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "frame-system 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "frame-system 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "hash-db",
  "impl-trait-for-tuples",
  "log",
@@ -1970,12 +1970,12 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-state-machine 0.28.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-trie 22.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-state-machine 0.28.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-trie 22.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "trie-db",
 ]
 
@@ -2045,17 +2045,17 @@ dependencies = [
 [[package]]
 name = "bridge-hub-common"
 version = "0.1.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
- "cumulus-primitives-core 0.1.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "pallet-message-queue 7.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "cumulus-primitives-core 0.1.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "pallet-message-queue 7.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "parity-scale-codec",
  "scale-info",
  "snowbridge-core",
- "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "staging-xcm 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "staging-xcm 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
@@ -2074,8 +2074,8 @@ dependencies = [
  "snowbridge-outbound-queue",
  "snowbridge-router-primitives",
  "snowbridge-system",
- "sp-core",
- "sp-runtime",
+ "sp-core 21.0.0",
+ "sp-runtime 24.0.0",
 ]
 
 [[package]]
@@ -2111,9 +2111,9 @@ dependencies = [
  "snowbridge-rococo-common",
  "snowbridge-router-primitives",
  "snowbridge-system",
- "sp-core",
- "staging-xcm",
- "staging-xcm-executor",
+ "sp-core 21.0.0",
+ "staging-xcm 1.0.0",
+ "staging-xcm-executor 1.0.0",
 ]
 
 [[package]]
@@ -2189,7 +2189,7 @@ dependencies = [
  "snowbridge-runtime-common",
  "snowbridge-system",
  "snowbridge-system-runtime-api",
- "sp-api",
+ "sp-api 4.0.0-dev",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core 21.0.0",
@@ -3776,7 +3776,7 @@ dependencies = [
  "cumulus-client-consensus-common",
  "cumulus-client-network",
  "cumulus-client-pov-recovery",
- "cumulus-primitives-core",
+ "cumulus-primitives-core 0.1.0",
  "cumulus-primitives-proof-size-hostfunction",
  "cumulus-relay-chain-inprocess-interface",
  "cumulus-relay-chain-interface",
@@ -4009,18 +4009,18 @@ dependencies = [
 [[package]]
 name = "cumulus-primitives-core"
 version = "0.1.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "parity-scale-codec",
- "polkadot-core-primitives 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "polkadot-parachain-primitives 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "polkadot-primitives 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "polkadot-core-primitives 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "polkadot-parachain-primitives 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "polkadot-primitives 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "scale-info",
- "sp-api 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-trie 22.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "staging-xcm 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-api 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-trie 22.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "staging-xcm 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
@@ -4049,12 +4049,12 @@ dependencies = [
 name = "cumulus-primitives-proof-size-hostfunction"
 version = "0.1.0"
 dependencies = [
- "sp-core",
+ "sp-core 21.0.0",
  "sp-externalities 0.19.0",
- "sp-io",
+ "sp-io 23.0.0",
  "sp-runtime-interface 17.0.0",
- "sp-state-machine",
- "sp-trie",
+ "sp-state-machine 0.28.0",
+ "sp-trie 22.0.0",
 ]
 
 [[package]]
@@ -4163,7 +4163,7 @@ dependencies = [
  "sc-service",
  "sc-tracing",
  "sc-utils",
- "sp-api",
+ "sp-api 4.0.0-dev",
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-babe",
@@ -4203,7 +4203,7 @@ dependencies = [
  "sp-runtime 24.0.0",
  "sp-state-machine 0.28.0",
  "sp-storage 13.0.0",
- "sp-version",
+ "sp-version 22.0.0",
  "thiserror",
  "tokio",
  "tokio-util",
@@ -5557,8 +5557,8 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "simple-mermaid 0.1.0 (git+https://github.com/kianenigma/simple-mermaid.git?rev=e48b187bcfd5cc75111acd9d241f1bd36604344b)",
- "sp-api",
- "sp-arithmetic",
+ "sp-api 4.0.0-dev",
+ "sp-arithmetic 16.0.0",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-consensus-grandpa",
@@ -5603,25 +5603,25 @@ dependencies = [
 [[package]]
 name = "frame-benchmarking"
 version = "4.0.0-dev"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
- "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "frame-support-procedural 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "frame-system 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "frame-support-procedural 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "frame-system 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "linregress",
  "log",
  "parity-scale-codec",
  "paste",
  "scale-info",
  "serde",
- "sp-api 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-application-crypto 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-runtime-interface 17.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-storage 13.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-api 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-application-crypto 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-runtime-interface 17.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-storage 13.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "static_assertions",
 ]
 
@@ -5697,7 +5697,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "scale-info",
- "sp-arithmetic",
+ "sp-arithmetic 16.0.0",
  "syn 2.0.39",
  "trybuild",
 ]
@@ -5838,7 +5838,7 @@ dependencies = [
 [[package]]
 name = "frame-support"
 version = "4.0.0-dev"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "aquamarine",
  "array-bytes 6.1.0",
@@ -5846,7 +5846,7 @@ dependencies = [
  "docify",
  "environmental",
  "frame-metadata",
- "frame-support-procedural 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "frame-support-procedural 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "impl-trait-for-tuples",
  "k256",
  "log",
@@ -5857,21 +5857,21 @@ dependencies = [
  "serde",
  "serde_json",
  "smallvec",
- "sp-api 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-arithmetic 16.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-core-hashing-proc-macro 9.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-debug-derive 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-genesis-builder 0.1.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-inherents 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-metadata-ir 0.1.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-staking 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-state-machine 0.28.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-tracing 10.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-weights 20.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-api 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-arithmetic 16.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-core-hashing-proc-macro 9.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-debug-derive 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-genesis-builder 0.1.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-inherents 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-metadata-ir 0.1.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-staking 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-state-machine 0.28.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-tracing 10.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-weights 20.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "static_assertions",
  "tt-call",
 ]
@@ -5890,7 +5890,26 @@ dependencies = [
  "proc-macro-warning",
  "proc-macro2",
  "quote",
- "sp-core-hashing",
+ "sp-core-hashing 9.0.0",
+ "syn 2.0.39",
+]
+
+[[package]]
+name = "frame-support-procedural"
+version = "4.0.0-dev"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
+dependencies = [
+ "Inflector",
+ "cfg-expr",
+ "derive-syn-parse",
+ "expander 2.0.0",
+ "frame-support-procedural-tools 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "itertools 0.10.5",
+ "macro_magic",
+ "proc-macro-warning",
+ "proc-macro2",
+ "quote",
+ "sp-core-hashing 9.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "syn 2.0.39",
 ]
 
@@ -5898,7 +5917,7 @@ dependencies = [
 name = "frame-support-procedural-tools"
 version = "4.0.0-dev"
 dependencies = [
- "frame-support-procedural-tools-derive",
+ "frame-support-procedural-tools-derive 3.0.0",
  "proc-macro-crate 2.0.0",
  "proc-macro2",
  "quote",
@@ -5908,13 +5927,13 @@ dependencies = [
 [[package]]
 name = "frame-support-procedural-tools"
 version = "4.0.0-dev"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
- "frame-support-procedural-tools-derive 3.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "proc-macro-crate",
+ "frame-support-procedural-tools-derive 3.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "proc-macro-crate 2.0.0",
  "proc-macro2",
  "quote",
- "syn 2.0.38",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -5923,13 +5942,13 @@ version = "3.0.0"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.38",
+ "syn 2.0.39",
 ]
 
 [[package]]
 name = "frame-support-procedural-tools-derive"
 version = "3.0.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6023,21 +6042,21 @@ dependencies = [
 [[package]]
 name = "frame-system"
 version = "4.0.0-dev"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "cfg-if",
  "docify",
- "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "log",
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-version 22.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-weights 20.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-version 22.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-weights 20.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
@@ -8968,7 +8987,7 @@ name = "node-template"
 version = "4.0.0-dev"
 dependencies = [
  "clap 4.4.10",
- "frame-benchmarking",
+ "frame-benchmarking 4.0.0-dev",
  "frame-benchmarking-cli",
  "frame-system 4.0.0-dev",
  "futures",
@@ -9090,8 +9109,8 @@ dependencies = [
  "sp-inherents 4.0.0-dev",
  "sp-io 23.0.0",
  "sp-keyring",
- "sp-runtime",
- "sp-timestamp",
+ "sp-runtime 24.0.0",
+ "sp-timestamp 4.0.0-dev",
  "staging-node-cli",
  "substrate-test-client",
  "tempfile",
@@ -9670,16 +9689,16 @@ dependencies = [
 [[package]]
 name = "pallet-balances"
 version = "4.0.0-dev"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "frame-system 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "frame-benchmarking 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "frame-system 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
@@ -9982,9 +10001,9 @@ version = "1.0.0"
 dependencies = [
  "anyhow",
  "cfg-if",
- "frame-system",
+ "frame-system 4.0.0-dev",
  "parity-wasm",
- "sp-runtime",
+ "sp-runtime 24.0.0",
  "tempfile",
  "toml 0.8.8",
  "twox-hash",
@@ -10490,9 +10509,9 @@ dependencies = [
 name = "pallet-message-queue"
 version = "7.0.0-dev"
 dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-benchmarking 4.0.0-dev",
+ "frame-support 4.0.0-dev",
+ "frame-system 4.0.0-dev",
  "log",
  "parity-scale-codec",
  "rand 0.8.5",
@@ -10511,21 +10530,20 @@ dependencies = [
 [[package]]
 name = "pallet-message-queue"
 version = "7.0.0-dev"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
- "environmental",
- "frame-benchmarking 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "frame-system 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "frame-benchmarking 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "frame-system 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-arithmetic 16.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-weights 20.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-arithmetic 16.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-weights 20.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
@@ -10627,7 +10645,7 @@ version = "4.0.0-dev"
 dependencies = [
  "pallet-nfts",
  "parity-scale-codec",
- "sp-api",
+ "sp-api 4.0.0-dev",
  "sp-std 8.0.0",
 ]
 
@@ -11002,10 +11020,10 @@ name = "pallet-safe-mode"
 version = "4.0.0-dev"
 dependencies = [
  "docify",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "pallet-balances",
+ "frame-benchmarking 4.0.0-dev",
+ "frame-support 4.0.0-dev",
+ "frame-system 4.0.0-dev",
+ "pallet-balances 4.0.0-dev",
  "pallet-proxy",
  "pallet-utility",
  "parity-scale-codec",
@@ -11039,16 +11057,16 @@ name = "pallet-sassafras"
 version = "0.3.5-dev"
 dependencies = [
  "array-bytes 6.1.0",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-benchmarking 4.0.0-dev",
+ "frame-support 4.0.0-dev",
+ "frame-system 4.0.0-dev",
  "log",
  "parity-scale-codec",
  "scale-info",
  "sp-consensus-sassafras",
- "sp-core",
- "sp-io",
- "sp-runtime",
+ "sp-core 21.0.0",
+ "sp-io 23.0.0",
+ "sp-runtime 24.0.0",
  "sp-std 8.0.0",
 ]
 
@@ -11200,7 +11218,7 @@ dependencies = [
  "proc-macro-crate 2.0.0",
  "proc-macro2",
  "quote",
- "sp-runtime",
+ "sp-runtime 24.0.0",
  "syn 2.0.39",
 ]
 
@@ -11318,21 +11336,21 @@ dependencies = [
 [[package]]
 name = "pallet-timestamp"
 version = "4.0.0-dev"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "docify",
- "frame-benchmarking 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "frame-system 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "frame-benchmarking 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "frame-system 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-inherents 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-storage 13.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-timestamp 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-inherents 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-storage 13.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-timestamp 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
@@ -11375,17 +11393,17 @@ dependencies = [
 [[package]]
 name = "pallet-transaction-payment"
 version = "4.0.0-dev"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
- "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "frame-system 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "frame-system 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
@@ -11460,10 +11478,10 @@ name = "pallet-tx-pause"
 version = "4.0.0-dev"
 dependencies = [
  "docify",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "pallet-balances",
+ "frame-benchmarking 4.0.0-dev",
+ "frame-support 4.0.0-dev",
+ "frame-system 4.0.0-dev",
+ "pallet-balances 4.0.0-dev",
  "pallet-proxy",
  "pallet-utility",
  "parity-scale-codec",
@@ -11601,23 +11619,23 @@ version = "0.1.0"
 dependencies = [
  "bp-header-chain",
  "bp-messages",
- "bp-runtime",
+ "bp-runtime 0.1.0",
  "bp-xcm-bridge-hub",
  "bridge-runtime-common",
- "frame-support",
- "frame-system",
+ "frame-support 4.0.0-dev",
+ "frame-system 4.0.0-dev",
  "log",
- "pallet-balances",
+ "pallet-balances 4.0.0-dev",
  "pallet-bridge-messages",
  "parity-scale-codec",
  "scale-info",
- "sp-core",
- "sp-io",
- "sp-runtime",
+ "sp-core 21.0.0",
+ "sp-io 23.0.0",
+ "sp-runtime 24.0.0",
  "sp-std 8.0.0",
- "staging-xcm",
- "staging-xcm-builder",
- "staging-xcm-executor",
+ "staging-xcm 1.0.0",
+ "staging-xcm-builder 1.0.0",
+ "staging-xcm-executor 1.0.0",
 ]
 
 [[package]]
@@ -12035,8 +12053,8 @@ dependencies = [
  "penpal-runtime",
  "rococo-emulated-chain",
  "serde_json",
- "sp-core",
- "sp-runtime",
+ "sp-core 21.0.0",
+ "sp-runtime 24.0.0",
  "westend-emulated-chain",
 ]
 
@@ -12083,7 +12101,7 @@ dependencies = [
  "scale-info",
  "smallvec",
  "snowbridge-rococo-common",
- "sp-api",
+ "sp-api 4.0.0-dev",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core 21.0.0",
@@ -12470,13 +12488,13 @@ dependencies = [
 [[package]]
 name = "polkadot-core-primitives"
 version = "1.0.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
- "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
@@ -12539,7 +12557,7 @@ dependencies = [
  "polkadot-node-subsystem",
  "polkadot-node-subsystem-test-helpers",
  "polkadot-node-subsystem-util",
- "polkadot-primitives",
+ "polkadot-primitives 1.0.0",
  "quickcheck",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
@@ -12758,7 +12776,7 @@ dependencies = [
  "polkadot-node-subsystem",
  "polkadot-node-subsystem-test-helpers",
  "polkadot-node-subsystem-types",
- "polkadot-primitives",
+ "polkadot-primitives 1.0.0",
  "sc-client-api",
  "sc-consensus-babe",
  "sp-blockchain",
@@ -13165,11 +13183,11 @@ dependencies = [
  "sc-network",
  "sc-transaction-pool-api",
  "smallvec",
- "sp-api",
- "sp-authority-discovery",
+ "sp-api 4.0.0-dev",
+ "sp-authority-discovery 4.0.0-dev",
  "sp-blockchain",
  "sp-consensus-babe",
- "sp-runtime",
+ "sp-runtime 24.0.0",
  "substrate-prometheus-endpoint",
  "thiserror",
 ]
@@ -13270,7 +13288,7 @@ dependencies = [
  "cumulus-relay-chain-interface",
  "frame-benchmarking 4.0.0-dev",
  "frame-benchmarking-cli",
- "frame-support",
+ "frame-support 4.0.0-dev",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "futures",
@@ -13279,7 +13297,7 @@ dependencies = [
  "jsonrpsee",
  "log",
  "nix 0.26.2",
- "pallet-transaction-payment",
+ "pallet-transaction-payment 4.0.0-dev",
  "pallet-transaction-payment-rpc",
  "pallet-transaction-payment-rpc-runtime-api",
  "parachains-common",
@@ -13312,20 +13330,20 @@ dependencies = [
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus-aura",
- "sp-core",
- "sp-genesis-builder",
- "sp-inherents",
- "sp-io",
- "sp-keystore",
+ "sp-core 21.0.0",
+ "sp-genesis-builder 0.1.0",
+ "sp-inherents 4.0.0-dev",
+ "sp-io 23.0.0",
+ "sp-keystore 0.27.0",
  "sp-offchain",
  "sp-runtime 24.0.0",
  "sp-session",
  "sp-std 8.0.0",
- "sp-timestamp",
+ "sp-timestamp 4.0.0-dev",
  "sp-tracing 10.0.0",
  "sp-transaction-pool",
- "sp-version",
- "staging-xcm",
+ "sp-version 22.0.0",
+ "staging-xcm 1.0.0",
  "substrate-build-script-utils",
  "substrate-frame-rpc-system",
  "substrate-prometheus-endpoint",
@@ -13354,18 +13372,18 @@ dependencies = [
 [[package]]
 name = "polkadot-parachain-primitives"
 version = "1.0.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "bounded-collections",
  "derive_more",
  "parity-scale-codec",
- "polkadot-core-primitives 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "polkadot-core-primitives 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "scale-info",
  "serde",
- "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-weights 20.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-weights 20.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
@@ -13396,27 +13414,27 @@ dependencies = [
 [[package]]
 name = "polkadot-primitives"
 version = "1.0.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "bitvec",
  "hex-literal",
  "parity-scale-codec",
- "polkadot-core-primitives 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "polkadot-parachain-primitives 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "polkadot-core-primitives 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "polkadot-parachain-primitives 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "scale-info",
  "serde",
- "sp-api 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-application-crypto 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-arithmetic 16.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-authority-discovery 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-consensus-slots 0.10.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-inherents 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-keystore 0.27.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-staking 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-api 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-application-crypto 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-arithmetic 16.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-authority-discovery 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-consensus-slots 0.10.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-inherents 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-keystore 0.27.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-staking 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
@@ -13598,7 +13616,7 @@ dependencies = [
  "pallet-aura",
  "pallet-default-config-example",
  "pallet-examples",
- "pallet-timestamp",
+ "pallet-timestamp 4.0.0-dev",
  "parity-scale-codec",
  "sc-cli",
  "sc-client-db",
@@ -13613,11 +13631,11 @@ dependencies = [
  "sc-rpc-api",
  "scale-info",
  "simple-mermaid 0.1.0 (git+https://github.com/kianenigma/simple-mermaid.git?branch=main)",
- "sp-api",
- "sp-core",
- "sp-io",
+ "sp-api 4.0.0-dev",
+ "sp-core 21.0.0",
+ "sp-io 23.0.0",
  "sp-keyring",
- "sp-runtime",
+ "sp-runtime 24.0.0",
  "staging-chain-spec-builder",
  "staging-node-cli",
  "staging-parachain-info",
@@ -14813,17 +14831,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08c74e62047bb2de4ff487b251e4a92e24f48745648451635cec7d591162d9f"
 
 [[package]]
-name = "regex-syntax"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c08c74e62047bb2de4ff487b251e4a92e24f48745648451635cec7d591162d9f"
-
-[[package]]
 name = "remote-ext-tests-bags-list"
 version = "1.0.0"
 dependencies = [
  "clap 4.4.10",
- "frame-system",
+ "frame-system 4.0.0-dev",
  "log",
  "pallet-bags-list-remote-tests",
  "sp-core 21.0.0",
@@ -14999,7 +15011,7 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "cumulus-ping",
  "cumulus-primitives-aura",
- "cumulus-primitives-core",
+ "cumulus-primitives-core 0.1.0",
  "cumulus-primitives-utility",
  "frame-benchmarking 4.0.0-dev",
  "frame-executive",
@@ -15592,11 +15604,11 @@ dependencies = [
  "sp-api 4.0.0-dev",
  "sp-block-builder",
  "sp-blockchain",
- "sp-core",
- "sp-inherents",
- "sp-runtime",
- "sp-state-machine",
- "sp-trie",
+ "sp-core 21.0.0",
+ "sp-inherents 4.0.0-dev",
+ "sp-runtime 24.0.0",
+ "sp-state-machine 0.28.0",
+ "sp-trie 22.0.0",
  "substrate-test-runtime-client",
 ]
 
@@ -16630,7 +16642,7 @@ dependencies = [
  "sp-api 4.0.0-dev",
  "sp-blockchain",
  "sp-consensus",
- "sp-core",
+ "sp-core 21.0.0",
  "sp-externalities 0.19.0",
  "sp-maybe-compressed-blob",
  "sp-rpc",
@@ -17740,11 +17752,11 @@ dependencies = [
 [[package]]
 name = "snowbridge-beacon-primitives"
 version = "0.0.1"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "byte-slice-cast",
- "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "frame-system 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "frame-system 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "hex",
  "milagro_bls",
  "parity-scale-codec",
@@ -17752,10 +17764,10 @@ dependencies = [
  "scale-info",
  "serde",
  "snowbridge-ethereum",
- "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "ssz_rs",
  "ssz_rs_derive",
  "static_assertions",
@@ -17764,30 +17776,30 @@ dependencies = [
 [[package]]
 name = "snowbridge-core"
 version = "0.1.1"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "ethabi-decode",
- "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "frame-system 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "frame-system 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "hex-literal",
  "parity-scale-codec",
- "polkadot-parachain-primitives 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "polkadot-parachain-primitives 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "scale-info",
  "serde",
  "snowbridge-beacon-primitives",
- "sp-arithmetic 16.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "staging-xcm 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "staging-xcm-builder 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-arithmetic 16.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "staging-xcm 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "staging-xcm-builder 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
 name = "snowbridge-ethereum"
 version = "0.1.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "ethabi-decode",
  "ethbloom",
@@ -17800,25 +17812,25 @@ dependencies = [
  "scale-info",
  "serde",
  "serde-big-array",
- "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
 name = "snowbridge-ethereum-beacon-client"
 version = "0.0.1"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
- "bp-runtime 0.1.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "bp-runtime 0.1.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "byte-slice-cast",
- "frame-benchmarking 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "frame-system 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "frame-benchmarking 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "frame-system 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "hex-literal",
  "log",
- "pallet-timestamp 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "pallet-timestamp 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "parity-scale-codec",
  "rlp",
  "scale-info",
@@ -17826,10 +17838,10 @@ dependencies = [
  "snowbridge-beacon-primitives",
  "snowbridge-core",
  "snowbridge-ethereum",
- "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "ssz_rs",
  "ssz_rs_derive",
  "static_assertions",
@@ -17838,18 +17850,18 @@ dependencies = [
 [[package]]
 name = "snowbridge-inbound-queue"
 version = "0.1.1"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
  "alloy-sol-types",
- "frame-benchmarking 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "frame-system 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "frame-benchmarking 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "frame-system 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "hex-literal",
  "log",
  "num-traits",
- "pallet-balances 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "pallet-balances 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -17857,142 +17869,145 @@ dependencies = [
  "snowbridge-core",
  "snowbridge-ethereum",
  "snowbridge-router-primitives",
- "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "staging-xcm 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "staging-xcm-builder 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "staging-xcm 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "staging-xcm-builder 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
 name = "snowbridge-outbound-queue"
 version = "0.1.1"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
- "bridge-hub-common 0.1.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "bridge-hub-common 0.1.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "ethabi-decode",
- "frame-benchmarking 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "frame-system 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "frame-benchmarking 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "frame-system 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "hex-literal",
  "parity-scale-codec",
  "scale-info",
  "serde",
  "snowbridge-core",
  "snowbridge-outbound-queue-merkle-tree",
- "sp-arithmetic 16.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "staging-xcm 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-arithmetic 16.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "staging-xcm 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
 name = "snowbridge-outbound-queue-merkle-tree"
 version = "0.1.1"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
- "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
 name = "snowbridge-outbound-queue-runtime-api"
 version = "0.1.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
- "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "parity-scale-codec",
  "snowbridge-core",
  "snowbridge-outbound-queue-merkle-tree",
- "sp-api 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "staging-xcm 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-api 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "staging-xcm 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
 name = "snowbridge-rococo-common"
 version = "0.0.1"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
- "frame-support",
+ "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "log",
- "staging-xcm",
+ "staging-xcm 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
 name = "snowbridge-router-primitives"
 version = "0.1.1"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "ethabi-decode",
- "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "frame-system 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "frame-system 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "hex-literal",
  "log",
  "parity-scale-codec",
  "scale-info",
  "serde",
  "snowbridge-core",
- "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "staging-xcm 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "staging-xcm-builder 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "staging-xcm-executor 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "staging-xcm 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "staging-xcm-builder 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "staging-xcm-executor 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
 name = "snowbridge-runtime-common"
 version = "0.1.1"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
- "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "frame-system 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "frame-system 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "log",
  "snowbridge-core",
- "sp-arithmetic 16.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "staging-xcm 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "staging-xcm-builder 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "staging-xcm-executor 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-arithmetic 16.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "staging-xcm 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "staging-xcm-builder 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "staging-xcm-executor 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
 name = "snowbridge-system"
 version = "0.1.1"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "ethabi-decode",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
+ "frame-benchmarking 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "frame-system 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "log",
  "parity-scale-codec",
  "scale-info",
  "snowbridge-core",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std 8.0.0",
- "staging-xcm",
- "staging-xcm-builder",
- "staging-xcm-executor",
+ "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "staging-xcm 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "staging-xcm-builder 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "staging-xcm-executor 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
 name = "snowbridge-system-runtime-api"
 version = "0.1.0"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "parity-scale-codec",
  "snowbridge-core",
- "sp-api",
- "sp-core",
- "sp-std 8.0.0",
- "staging-xcm",
+ "sp-api 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "staging-xcm 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
@@ -18056,21 +18071,21 @@ dependencies = [
 [[package]]
 name = "sp-api"
 version = "4.0.0-dev"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "hash-db",
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-api-proc-macro 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-externalities 0.19.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-metadata-ir 0.1.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-state-machine 0.28.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-trie 22.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-version 22.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-api-proc-macro 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-externalities 0.19.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-metadata-ir 0.1.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-state-machine 0.28.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-trie 22.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-version 22.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "thiserror",
 ]
 
@@ -18091,15 +18106,15 @@ dependencies = [
 [[package]]
 name = "sp-api-proc-macro"
 version = "4.0.0-dev"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "Inflector",
  "blake2 0.10.6",
  "expander 2.0.0",
- "proc-macro-crate",
+ "proc-macro-crate 2.0.0",
  "proc-macro2",
  "quote",
- "syn 2.0.38",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -18140,14 +18155,14 @@ dependencies = [
 [[package]]
 name = "sp-application-crypto"
 version = "23.0.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
@@ -18181,14 +18196,14 @@ dependencies = [
 [[package]]
 name = "sp-arithmetic"
 version = "16.0.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "integer-sqrt",
  "num-traits",
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "static_assertions",
 ]
 
@@ -18236,14 +18251,14 @@ dependencies = [
 [[package]]
 name = "sp-authority-discovery"
 version = "4.0.0-dev"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
- "sp-api 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-application-crypto 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-api 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-application-crypto 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
@@ -18399,13 +18414,13 @@ dependencies = [
 [[package]]
 name = "sp-consensus-slots"
 version = "0.10.0-dev"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-timestamp 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-timestamp 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
@@ -18461,7 +18476,7 @@ dependencies = [
 [[package]]
 name = "sp-core"
 version = "21.0.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "array-bytes 6.1.0",
  "bandersnatch_vrfs",
@@ -18477,7 +18492,6 @@ dependencies = [
  "hash256-std-hasher",
  "impl-serde",
  "itertools 0.10.5",
- "lazy_static",
  "libsecp256k1",
  "log",
  "merlin 2.0.1",
@@ -18486,18 +18500,17 @@ dependencies = [
  "paste",
  "primitive-types",
  "rand 0.8.5",
- "regex",
  "scale-info",
  "schnorrkel 0.9.1",
  "secp256k1",
  "secrecy",
  "serde",
- "sp-core-hashing 9.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-debug-derive 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-externalities 0.19.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-runtime-interface 17.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-storage 13.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-core-hashing 9.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-debug-derive 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-externalities 0.19.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-runtime-interface 17.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-storage 13.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "ss58-registry",
  "substrate-bip39",
  "thiserror",
@@ -18513,7 +18526,7 @@ dependencies = [
  "lazy_static",
  "libfuzzer-sys",
  "regex",
- "sp-core",
+ "sp-core 21.0.0",
 ]
 
 [[package]]
@@ -18531,7 +18544,7 @@ dependencies = [
 [[package]]
 name = "sp-core-hashing"
 version = "9.0.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "blake2b_simd",
  "byteorder",
@@ -18547,16 +18560,16 @@ version = "9.0.0"
 dependencies = [
  "quote",
  "sp-core-hashing 9.0.0",
- "syn 2.0.38",
+ "syn 2.0.39",
 ]
 
 [[package]]
 name = "sp-core-hashing-proc-macro"
 version = "9.0.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "quote",
- "sp-core-hashing",
+ "sp-core-hashing 9.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "syn 2.0.39",
 ]
 
@@ -18621,11 +18634,11 @@ dependencies = [
 [[package]]
 name = "sp-debug-derive"
 version = "8.0.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.38",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -18651,12 +18664,12 @@ dependencies = [
 [[package]]
 name = "sp-externalities"
 version = "0.19.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "environmental",
  "parity-scale-codec",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-storage 13.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-storage 13.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
@@ -18683,12 +18696,12 @@ dependencies = [
 [[package]]
 name = "sp-genesis-builder"
 version = "0.1.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "serde_json",
- "sp-api 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-api 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
@@ -18708,14 +18721,14 @@ dependencies = [
 [[package]]
 name = "sp-inherents"
 version = "4.0.0-dev"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "async-trait",
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "scale-info",
- "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "thiserror",
 ]
 
@@ -18745,7 +18758,7 @@ dependencies = [
 [[package]]
 name = "sp-io"
 version = "23.0.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "bytes",
  "ed25519-dalek",
@@ -18754,14 +18767,14 @@ dependencies = [
  "parity-scale-codec",
  "rustversion",
  "secp256k1",
- "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-externalities 0.19.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-keystore 0.27.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-runtime-interface 17.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-state-machine 0.28.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-tracing 10.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-trie 22.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-externalities 0.19.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-keystore 0.27.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-runtime-interface 17.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-state-machine 0.28.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-tracing 10.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-trie 22.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "tracing",
  "tracing-core",
 ]
@@ -18792,12 +18805,12 @@ dependencies = [
 [[package]]
 name = "sp-keystore"
 version = "0.27.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.1",
- "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-externalities 0.19.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-externalities 0.19.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "thiserror",
 ]
 
@@ -18822,12 +18835,12 @@ dependencies = [
 [[package]]
 name = "sp-metadata-ir"
 version = "0.1.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "frame-metadata",
  "parity-scale-codec",
  "scale-info",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
@@ -18906,7 +18919,7 @@ dependencies = [
 [[package]]
 name = "sp-panic-handler"
 version = "8.0.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "backtrace",
  "lazy_static",
@@ -18939,12 +18952,12 @@ dependencies = [
  "serde",
  "serde_json",
  "simple-mermaid 0.1.0 (git+https://github.com/kianenigma/simple-mermaid.git?branch=main)",
- "sp-api",
- "sp-application-crypto",
- "sp-arithmetic",
- "sp-core",
- "sp-io",
- "sp-state-machine",
+ "sp-api 4.0.0-dev",
+ "sp-application-crypto 23.0.0",
+ "sp-arithmetic 16.0.0",
+ "sp-core 21.0.0",
+ "sp-io 23.0.0",
+ "sp-state-machine 0.28.0",
  "sp-std 8.0.0",
  "sp-tracing 10.0.0",
  "sp-weights 20.0.0",
@@ -18955,8 +18968,9 @@ dependencies = [
 [[package]]
 name = "sp-runtime"
 version = "24.0.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
+ "docify",
  "either",
  "hash256-std-hasher",
  "impl-trait-for-tuples",
@@ -18966,12 +18980,13 @@ dependencies = [
  "rand 0.8.5",
  "scale-info",
  "serde",
- "sp-application-crypto 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-arithmetic 16.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-weights 20.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "simple-mermaid 0.1.0 (git+https://github.com/kianenigma/simple-mermaid.git?branch=main)",
+ "sp-application-crypto 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-arithmetic 16.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-weights 20.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
@@ -19000,18 +19015,18 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface"
 version = "17.0.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "bytes",
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "primitive-types",
- "sp-externalities 0.19.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-runtime-interface-proc-macro 11.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-storage 13.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-tracing 10.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-wasm-interface 14.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-externalities 0.19.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-runtime-interface-proc-macro 11.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-storage 13.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-tracing 10.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-wasm-interface 14.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "static_assertions",
 ]
 
@@ -19048,13 +19063,14 @@ dependencies = [
 [[package]]
 name = "sp-runtime-interface-proc-macro"
 version = "11.0.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "Inflector",
- "proc-macro-crate",
+ "expander 2.0.0",
+ "proc-macro-crate 2.0.0",
  "proc-macro2",
  "quote",
- "syn 2.0.38",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -19137,15 +19153,15 @@ dependencies = [
 [[package]]
 name = "sp-staking"
 version = "4.0.0-dev"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
@@ -19175,7 +19191,7 @@ dependencies = [
 [[package]]
 name = "sp-state-machine"
 version = "0.28.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "hash-db",
  "log",
@@ -19183,11 +19199,11 @@ dependencies = [
  "parking_lot 0.12.1",
  "rand 0.8.5",
  "smallvec",
- "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-externalities 0.19.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-panic-handler 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-trie 22.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-externalities 0.19.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-panic-handler 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-trie 22.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "thiserror",
  "tracing",
  "trie-db",
@@ -19223,7 +19239,7 @@ version = "8.0.0"
 [[package]]
 name = "sp-std"
 version = "8.0.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 
 [[package]]
 name = "sp-std"
@@ -19245,14 +19261,14 @@ dependencies = [
 [[package]]
 name = "sp-storage"
 version = "13.0.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "impl-serde",
  "parity-scale-codec",
  "ref-cast",
  "serde",
- "sp-debug-derive 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-debug-derive 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
@@ -19296,13 +19312,13 @@ dependencies = [
 [[package]]
 name = "sp-timestamp"
 version = "4.0.0-dev"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "async-trait",
  "parity-scale-codec",
- "sp-inherents 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-inherents 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "thiserror",
 ]
 
@@ -19320,10 +19336,10 @@ dependencies = [
 [[package]]
 name = "sp-tracing"
 version = "10.0.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "parity-scale-codec",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "tracing",
  "tracing-core",
  "tracing-subscriber",
@@ -19380,9 +19396,9 @@ dependencies = [
  "rand 0.8.5",
  "scale-info",
  "schnellru",
- "sp-core",
+ "sp-core 21.0.0",
  "sp-externalities 0.19.0",
- "sp-runtime",
+ "sp-runtime 24.0.0",
  "sp-std 8.0.0",
  "thiserror",
  "tracing",
@@ -19395,7 +19411,7 @@ dependencies = [
 [[package]]
 name = "sp-trie"
 version = "22.0.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "ahash 0.8.3",
  "hash-db",
@@ -19408,8 +19424,9 @@ dependencies = [
  "rand 0.8.5",
  "scale-info",
  "schnellru",
- "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-externalities 0.19.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "thiserror",
  "tracing",
  "trie-db",
@@ -19435,17 +19452,17 @@ dependencies = [
 [[package]]
 name = "sp-version"
 version = "22.0.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "impl-serde",
  "parity-scale-codec",
  "parity-wasm",
  "scale-info",
  "serde",
- "sp-core-hashing-proc-macro 9.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-version-proc-macro 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-core-hashing-proc-macro 9.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-version-proc-macro 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "thiserror",
 ]
 
@@ -19456,7 +19473,18 @@ dependencies = [
  "parity-scale-codec",
  "proc-macro2",
  "quote",
- "sp-version",
+ "sp-version 22.0.0",
+ "syn 2.0.39",
+]
+
+[[package]]
+name = "sp-version-proc-macro"
+version = "8.0.0"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
+dependencies = [
+ "parity-scale-codec",
+ "proc-macro2",
+ "quote",
  "syn 2.0.39",
 ]
 
@@ -19475,13 +19503,13 @@ dependencies = [
 [[package]]
 name = "sp-wasm-interface"
 version = "14.0.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "anyhow",
  "impl-trait-for-tuples",
  "log",
  "parity-scale-codec",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "wasmtime",
 ]
 
@@ -19507,7 +19535,7 @@ dependencies = [
  "scale-info",
  "serde",
  "smallvec",
- "sp-arithmetic",
+ "sp-arithmetic 16.0.0",
  "sp-debug-derive 8.0.0",
  "sp-std 8.0.0",
 ]
@@ -19515,16 +19543,16 @@ dependencies = [
 [[package]]
 name = "sp-weights"
 version = "20.0.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
  "smallvec",
- "sp-arithmetic 16.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-debug-derive 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-arithmetic 16.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-debug-derive 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
@@ -19634,10 +19662,10 @@ dependencies = [
  "clap 4.4.10",
  "clap_complete",
  "criterion 0.4.0",
- "frame-benchmarking",
+ "frame-benchmarking 4.0.0-dev",
  "frame-benchmarking-cli",
- "frame-support",
- "frame-system",
+ "frame-support 4.0.0-dev",
+ "frame-system 4.0.0-dev",
  "frame-system-rpc-runtime-api",
  "futures",
  "jsonrpsee",
@@ -19650,15 +19678,15 @@ dependencies = [
  "pallet-asset-conversion-tx-payment",
  "pallet-asset-tx-payment",
  "pallet-assets",
- "pallet-balances",
+ "pallet-balances 4.0.0-dev",
  "pallet-contracts",
  "pallet-glutton",
  "pallet-im-online",
  "pallet-root-testing",
  "pallet-skip-feeless-payment",
  "pallet-sudo",
- "pallet-timestamp",
- "pallet-transaction-payment",
+ "pallet-timestamp 4.0.0-dev",
+ "pallet-transaction-payment 4.0.0-dev",
  "pallet-treasury",
  "parity-scale-codec",
  "platforms",
@@ -19698,27 +19726,27 @@ dependencies = [
  "serde",
  "serde_json",
  "soketto",
- "sp-api",
- "sp-application-crypto",
- "sp-authority-discovery",
+ "sp-api 4.0.0-dev",
+ "sp-application-crypto 23.0.0",
+ "sp-authority-discovery 4.0.0-dev",
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-babe",
  "sp-consensus-grandpa",
- "sp-core",
+ "sp-core 21.0.0",
  "sp-externalities 0.19.0",
- "sp-inherents",
- "sp-io",
+ "sp-inherents 4.0.0-dev",
+ "sp-io 23.0.0",
  "sp-keyring",
  "sp-keystore 0.27.0",
  "sp-mixnet",
- "sp-runtime",
- "sp-state-machine",
+ "sp-runtime 24.0.0",
+ "sp-state-machine 0.28.0",
  "sp-statement-store",
  "sp-timestamp 4.0.0-dev",
  "sp-tracing 10.0.0",
  "sp-transaction-storage-proof",
- "sp-trie",
+ "sp-trie 22.0.0",
  "staging-node-inspect",
  "substrate-build-script-utils",
  "substrate-cli-test-utils",
@@ -19742,9 +19770,9 @@ dependencies = [
  "sc-client-api",
  "sc-service",
  "sp-blockchain",
- "sp-core",
- "sp-io",
- "sp-runtime",
+ "sp-core 21.0.0",
+ "sp-io 23.0.0",
+ "sp-runtime 24.0.0",
  "sp-statement-store",
  "thiserror",
 ]
@@ -19788,7 +19816,7 @@ dependencies = [
 [[package]]
 name = "staging-xcm"
 version = "1.0.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "bounded-collections",
  "derivative",
@@ -19798,8 +19826,8 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-weights 20.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "xcm-procedural 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-weights 20.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "xcm-procedural 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
@@ -19835,23 +19863,23 @@ dependencies = [
 [[package]]
 name = "staging-xcm-builder"
 version = "1.0.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
- "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "frame-system 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "frame-system 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "impl-trait-for-tuples",
  "log",
- "pallet-transaction-payment 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "pallet-transaction-payment 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "parity-scale-codec",
- "polkadot-parachain-primitives 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "polkadot-parachain-primitives 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "scale-info",
- "sp-arithmetic 16.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-weights 20.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "staging-xcm 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "staging-xcm-executor 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-arithmetic 16.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-weights 20.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "staging-xcm 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "staging-xcm-executor 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
@@ -19877,22 +19905,22 @@ dependencies = [
 [[package]]
 name = "staging-xcm-executor"
 version = "1.0.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "environmental",
- "frame-benchmarking 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "frame-benchmarking 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "frame-support 4.0.0-dev (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
  "impl-trait-for-tuples",
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-arithmetic 16.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "sp-weights 20.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
- "staging-xcm 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?branch=main)",
+ "sp-arithmetic 16.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-core 21.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-io 23.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-runtime 24.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-std 8.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "sp-weights 20.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
+ "staging-xcm 1.0.0 (git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0)",
 ]
 
 [[package]]
@@ -20061,8 +20089,8 @@ name = "substrate-frame-cli"
 version = "4.0.0-dev"
 dependencies = [
  "clap 4.4.10",
- "frame-support",
- "frame-system",
+ "frame-support 4.0.0-dev",
+ "frame-system 4.0.0-dev",
  "sc-cli",
  "sp-core 21.0.0",
  "sp-runtime 24.0.0",
@@ -20433,7 +20461,7 @@ dependencies = [
  "paste",
  "proc-macro2",
  "quote",
- "syn 2.0.38",
+ "syn 2.0.39",
 ]
 
 [[package]]
@@ -22878,7 +22906,7 @@ dependencies = [
  "frame-support 4.0.0-dev",
  "frame-system 4.0.0-dev",
  "futures",
- "pallet-transaction-payment",
+ "pallet-transaction-payment 4.0.0-dev",
  "pallet-xcm",
  "parity-scale-codec",
  "polkadot-test-client",
@@ -22900,7 +22928,7 @@ dependencies = [
  "Inflector",
  "proc-macro2",
  "quote",
- "staging-xcm",
+ "staging-xcm 1.0.0",
  "syn 2.0.39",
  "trybuild",
 ]
@@ -22908,12 +22936,12 @@ dependencies = [
 [[package]]
 name = "xcm-procedural"
 version = "1.0.0"
-source = "git+https://github.com/Snowfork/snowbridge.git?branch=main#9d28d963ec0dc0ac4ccac1e84ca87b8016620469"
+source = "git+https://github.com/Snowfork/snowbridge.git?tag=v0.9.0#738ae56e59dda0e49d46b9b994e8751cd4234155"
 dependencies = [
  "Inflector",
  "proc-macro2",
  "quote",
- "syn 2.0.38",
+ "syn 2.0.39",
 ]
 
 [[package]]
