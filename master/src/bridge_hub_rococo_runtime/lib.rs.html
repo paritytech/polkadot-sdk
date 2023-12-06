@@ -1134,6 +1134,14 @@
 <a href="#1134" id="1134">1134</a>
 <a href="#1135" id="1135">1135</a>
 <a href="#1136" id="1136">1136</a>
+<a href="#1137" id="1137">1137</a>
+<a href="#1138" id="1138">1138</a>
+<a href="#1139" id="1139">1139</a>
+<a href="#1140" id="1140">1140</a>
+<a href="#1141" id="1141">1141</a>
+<a href="#1142" id="1142">1142</a>
+<a href="#1143" id="1143">1143</a>
+<a href="#1144" id="1144">1144</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1636,6 +1644,8 @@
 
 		BridgeRelayers: pallet_bridge_relayers::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">47</span>,
 
+		XcmOverBridgeHubWestend: pallet_xcm_bridge_hub::&lt;Instance1&gt;::{Pallet} = <span class="number">52</span>,
+
 		<span class="comment">// Message Queue. Importantly, is registered last so that messages are processed after
 		// the `on_initialize` hooks of bridging pallets.
 		</span>MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">250</span>,
@@ -2067,7 +2077,13 @@
 
 				<span class="kw">fn </span>export_message_origin_and_destination(
 				) -&gt; <span class="prelude-ty">Result</span>&lt;(MultiLocation, NetworkId, InteriorMultiLocation), BenchmarkError&gt; {
-					<span class="prelude-val">Ok</span>((TokenLocation::get(), NetworkId::Westend, X1(Parachain(<span class="number">100</span>))))
+					<span class="prelude-val">Ok</span>(
+						(
+							bridge_to_westend_config::FromAssetHubRococoToAssetHubWestendRoute::get().location,
+							NetworkId::Westend,
+							X1(Parachain(bridge_to_westend_config::AssetHubWestendParaId::get().into()))
+						)
+					)
 				}
 
 				<span class="kw">fn </span>alias_origin() -&gt; <span class="prelude-ty">Result</span>&lt;(MultiLocation, MultiLocation), BenchmarkError&gt; {

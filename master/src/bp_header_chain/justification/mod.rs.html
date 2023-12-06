@@ -214,8 +214,8 @@
 			.saturating_add(BlockNumberOf::&lt;C&gt;::max_encoded_len().saturated_into())
 			.saturating_add(HashOf::&lt;C&gt;::max_encoded_len().saturated_into());
 
-		<span class="kw">let </span>max_expected_votes_ancestries_size = C::REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY
-			.saturating_mul(C::AVERAGE_HEADER_SIZE_IN_JUSTIFICATION);
+		<span class="kw">let </span>max_expected_votes_ancestries_size =
+			C::REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY.saturating_mul(C::AVERAGE_HEADER_SIZE);
 
 		<span class="comment">// justification is round number (u64=8b), a signed GRANDPA commit and the
 		// `votes_ancestries` vector

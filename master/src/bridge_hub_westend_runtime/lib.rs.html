@@ -1125,6 +1125,13 @@
 <a href="#1125" id="1125">1125</a>
 <a href="#1126" id="1126">1126</a>
 <a href="#1127" id="1127">1127</a>
+<a href="#1128" id="1128">1128</a>
+<a href="#1129" id="1129">1129</a>
+<a href="#1130" id="1130">1130</a>
+<a href="#1131" id="1131">1131</a>
+<a href="#1132" id="1132">1132</a>
+<a href="#1133" id="1133">1133</a>
+<a href="#1134" id="1134">1134</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1615,6 +1622,7 @@
 		BridgeRococoGrandpa: pallet_bridge_grandpa::&lt;Instance1&gt;::{Pallet, Call, Storage, Event&lt;T&gt;, Config&lt;T&gt;} = <span class="number">42</span>,
 		BridgeRococoParachains: pallet_bridge_parachains::&lt;Instance1&gt;::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">43</span>,
 		BridgeRococoMessages: pallet_bridge_messages::&lt;Instance1&gt;::{Pallet, Call, Storage, Event&lt;T&gt;, Config&lt;T&gt;} = <span class="number">44</span>,
+		XcmOverBridgeHubRococo: pallet_xcm_bridge_hub::&lt;Instance1&gt;::{Pallet} = <span class="number">45</span>,
 
 		<span class="comment">// Message Queue. Importantly, is registered last so that messages are processed after
 		// the `on_initialize` hooks of bridging pallets.
@@ -2048,7 +2056,13 @@
 
 				<span class="kw">fn </span>export_message_origin_and_destination(
 				) -&gt; <span class="prelude-ty">Result</span>&lt;(MultiLocation, NetworkId, InteriorMultiLocation), BenchmarkError&gt; {
-					<span class="prelude-val">Ok</span>((WestendLocation::get(), NetworkId::Rococo, X1(Parachain(<span class="number">100</span>))))
+					<span class="prelude-val">Ok</span>(
+						(
+							bridge_to_rococo_config::FromAssetHubWestendToAssetHubRococoRoute::get().location,
+							NetworkId::Rococo,
+							X1(Parachain(bridge_to_rococo_config::AssetHubRococoParaId::get().into()))
+						)
+					)
 				}
 
 				<span class="kw">fn </span>alias_origin() -&gt; <span class="prelude-ty">Result</span>&lt;(MultiLocation, MultiLocation), BenchmarkError&gt; {

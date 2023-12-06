@@ -30,6 +30,7 @@ var srcIndex = JSON.parse('{\
 "bp_runtime":["",[],["chain.rs","extensions.rs","lib.rs","messages.rs","storage_proof.rs","storage_types.rs"]],\
 "bp_test_utils":["",[],["keyring.rs","lib.rs"]],\
 "bp_westend":["",[],["lib.rs"]],\
+"bp_xcm_bridge_hub":["",[],["lib.rs"]],\
 "bp_xcm_bridge_hub_router":["",[],["lib.rs"]],\
 "bridge_hub_rococo_emulated_chain":["",[],["genesis.rs","lib.rs"]],\
 "bridge_hub_rococo_integration_tests":["",[],["lib.rs"]],\
@@ -231,6 +232,7 @@ var srcIndex = JSON.parse('{\
 "pallet_whitelist":["",[],["lib.rs","weights.rs"]],\
 "pallet_xcm":["",[],["lib.rs","migration.rs"]],\
 "pallet_xcm_benchmarks":["",[["fungible",[],["mod.rs"]],["generic",[],["mod.rs"]]],["lib.rs"]],\
+"pallet_xcm_bridge_hub":["",[],["exporter.rs","lib.rs"]],\
 "pallet_xcm_bridge_hub_router":["",[],["lib.rs","weights.rs"]],\
 "parachain_template_node":["",[],["chain_spec.rs","cli.rs","command.rs","main.rs","rpc.rs","service.rs"]],\
 "parachain_template_runtime":["",[["weights",[],["block_weights.rs","extrinsic_weights.rs","mod.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["lib.rs","xcm_config.rs"]],\

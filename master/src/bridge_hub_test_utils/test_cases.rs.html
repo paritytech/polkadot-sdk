@@ -3021,9 +3021,9 @@
 			);
 		<span class="comment">// to compute proper cost of GRANDPA call, let&#39;s add some dummy bytes to header, so that the
 		// `submit_finality_proof` call size would be close to maximal expected (and refundable)
-		</span><span class="kw">let </span>expected_bytes_in_grandpa_call = BridgedRelayChain::AVERAGE_HEADER_SIZE_IN_JUSTIFICATION
+		</span><span class="kw">let </span>expected_bytes_in_grandpa_call = BridgedRelayChain::AVERAGE_HEADER_SIZE
 			.saturating_mul(BridgedRelayChain::REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY)
-			.saturating_add(BridgedRelayChain::MAX_HEADER_SIZE)
+			.saturating_add(BridgedRelayChain::MAX_MANDATORY_HEADER_SIZE)
 			<span class="kw">as </span>usize;
 		<span class="kw">let </span>extra_bytes_required =
 			expected_bytes_in_grandpa_call.saturating_sub(relay_chain_header.encoded_size());

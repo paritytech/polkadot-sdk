@@ -326,6 +326,9 @@
 <a href="#326" id="326">326</a>
 <a href="#327" id="327">327</a>
 <a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -343,7 +346,10 @@
 // along with Parity Bridges Common.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
 </span><span class="kw">use crate</span>::{weights::WeightInfo, BridgedBlockNumber, BridgedHeader, Config, Error, Pallet};
-<span class="kw">use </span>bp_header_chain::{justification::GrandpaJustification, ChainWithGrandpa};
+<span class="kw">use </span>bp_header_chain::{
+	justification::GrandpaJustification, max_expected_submit_finality_proof_arguments_size,
+	ChainWithGrandpa, GrandpaConsensusLogReader,
+};
 <span class="kw">use </span>bp_runtime::{BlockNumberOf, OwnedBridgeModule};
 <span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>frame_support::{dispatch::CallableCallFor, traits::IsSubType, weights::Weight};
@@ -497,26 +503,26 @@
 			Weight::zero()
 		};
 
+	<span class="comment">// check if the `finality_target` is a mandatory header. If so, we are ready to refund larger
+	// size
+	</span><span class="kw">let </span>is_mandatory_finality_target =
+		GrandpaConsensusLogReader::&lt;BridgedBlockNumber&lt;T, I&gt;&gt;::find_scheduled_change(
+			finality_target.digest(),
+		)
+		.is_some();
+
 	<span class="comment">// we can estimate extra call size easily, without any additional significant overhead
 	</span><span class="kw">let </span>actual_call_size: u32 = finality_target
 		.encoded_size()
 		.saturating_add(justification.encoded_size())
 		.saturated_into();
-	<span class="kw">let </span>max_expected_call_size = max_expected_call_size::&lt;T, I&gt;(required_precommits);
+	<span class="kw">let </span>max_expected_call_size = max_expected_submit_finality_proof_arguments_size::&lt;T::BridgedChain&gt;(
+		is_mandatory_finality_target,
+		required_precommits,
+	);
 	<span class="kw">let </span>extra_size = actual_call_size.saturating_sub(max_expected_call_size);
 
 	SubmitFinalityProofInfo { block_number, extra_weight, extra_size }
-}
-
-<span class="doccomment">/// Returns maximal expected size of `submit_finality_proof` call arguments.
-</span><span class="kw">fn </span>max_expected_call_size&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(required_precommits: u32) -&gt; u32 {
-	<span class="kw">let </span>max_expected_justification_size =
-		GrandpaJustification::&lt;BridgedHeader&lt;T, I&gt;&gt;::max_reasonable_size::&lt;T::BridgedChain&gt;(
-			required_precommits,
-		);
-
-	<span class="comment">// call arguments are header and justification
-	</span>T::BridgedChain::MAX_HEADER_SIZE.saturating_add(max_expected_justification_size)
 }
 
 <span class="attr">#[cfg(test)]
