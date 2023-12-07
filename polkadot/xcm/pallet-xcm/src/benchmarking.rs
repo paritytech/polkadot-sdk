@@ -44,7 +44,7 @@ pub trait Config: crate::Config {
 	///
 	/// Implementation should also make sure `dest` is reachable/connected.
 	///
-	/// If `None`, the benchmarks that depend on this will be skipped.
+	/// If `None`, the benchmarks that depend on this will default to `Weight::MAX`.
 	fn teleportable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
 		None
 	}
@@ -54,8 +54,25 @@ pub trait Config: crate::Config {
 	///
 	/// Implementation should also make sure `dest` is reachable/connected.
 	///
-	/// If `None`, the benchmarks that depend on this will be skipped.
+	/// If `None`, the benchmarks that depend on this will default to `Weight::MAX`.
 	fn reserve_transferable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
+		None
+	}
+
+	/// Sets up a complex transfer (usually consisting of a teleport and reserve-based transfer), so
+	/// that runtime can properly benchmark `transfer_assets()` extrinsic. Should return a tuple
+	/// `(MultiAsset, u32, MultiLocation, dyn FnOnce())` representing the assets to transfer, the
+	/// `u32` index of the asset to be used for fees, the destination chain for the transfer, and a
+	/// `verify()` closure to verify the intended transfer side-effects.
+	///
+	/// Implementation should make sure the provided assets can be transacted by the runtime, there
+	/// are enough balances in the involved accounts, and that `dest` is reachable/connected.
+	///
+	/// Used only in benchmarks.
+	///
+	/// If `None`, the benchmarks that depend on this will default to `Weight::MAX`.
+	fn set_up_complex_asset_transfer(
+	) -> Option<(MultiAssets, u32, MultiLocation, Box<dyn FnOnce()>)> {
 		None
 	}
 }
@@ -156,6 +173,23 @@ benchmarks! {
 	verify {
 		// verify balance after transfer, decreased by transferred amount (+ maybe XCM delivery fees)
 		assert!(pallet_balances::Pallet::<T>::free_balance(&caller) <= balance - transferred_amount);
+	}
+
+	transfer_assets {
+		let (assets, fee_index, destination, verify) = T::set_up_complex_asset_transfer().ok_or(
+			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)),
+		)?;
+		let caller: T::AccountId = whitelisted_caller();
+		let send_origin = RawOrigin::Signed(caller.clone());
+		let recipient = [0u8; 32];
+		let versioned_dest: VersionedMultiLocation = destination.into();
+		let versioned_beneficiary: VersionedMultiLocation =
+			AccountId32 { network: None, id: recipient.into() }.into();
+		let versioned_assets: VersionedMultiAssets = assets.into();
+	}: _<RuntimeOrigin<T>>(send_origin.into(), Box::new(versioned_dest), Box::new(versioned_beneficiary), Box::new(versioned_assets), 0, WeightLimit::Unlimited)
+	verify {
+		// run provided verification function
+		verify();
 	}
 
 	execute {
@@ -301,4 +335,37 @@ benchmarks! {
 		crate::mock::new_test_ext_with_balances(Vec::new()),
 		crate::mock::Test
 	);
+}
+
+pub mod helpers {
+	use super::*;
+	pub fn native_teleport_as_asset_transfer<T>(
+		native_asset_location: MultiLocation,
+		destination: MultiLocation,
+	) -> Option<(MultiAssets, u32, MultiLocation, Box<dyn FnOnce()>)>
+	where
+		T: Config + pallet_balances::Config,
+		u128: From<<T as pallet_balances::Config>::Balance>,
+	{
+		// Relay/native token can be teleported to/from AH.
+		let amount = T::ExistentialDeposit::get() * 100u32.into();
+		let assets: MultiAssets =
+			MultiAsset { fun: Fungible(amount.into()), id: Concrete(native_asset_location) }.into();
+		let fee_index = 0u32;
+
+		// Give some multiple of transferred amount
+		let balance = amount * 10u32.into();
+		let who = whitelisted_caller();
+		let _ =
+			<pallet_balances::Pallet::<T> as frame_support::traits::Currency<_>>::make_free_balance_be(&who, balance);
+		// verify initial balance
+		assert_eq!(pallet_balances::Pallet::<T>::free_balance(&who), balance);
+
+		// verify transferred successfully
+		let verify = Box::new(move || {
+			// verify balance after transfer, decreased by transferred amount (and delivery fees)
+			assert!(pallet_balances::Pallet::<T>::free_balance(&who) <= balance - amount);
+		});
+		Some((assets, fee_index, destination, verify))
+	}
 }

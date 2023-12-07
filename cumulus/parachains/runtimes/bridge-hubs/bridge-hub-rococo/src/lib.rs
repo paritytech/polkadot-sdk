@@ -500,6 +500,8 @@ construct_runtime!(
 
 		BridgeRelayers: pallet_bridge_relayers::{Pallet, Call, Storage, Event<T>} = 47,
 
+		XcmOverBridgeHubWestend: pallet_xcm_bridge_hub::<Instance1>::{Pallet} = 52,
+
 		// Message Queue. Importantly, is registered last so that messages are processed after
 		// the `on_initialize` hooks of bridging pallets.
 		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>} = 250,
@@ -823,6 +825,18 @@ impl_runtime_apis! {
 					// Reserve transfers are disabled on BH.
 					None
 				}
+
+				fn set_up_complex_asset_transfer(
+				) -> Option<(MultiAssets, u32, MultiLocation, Box<dyn FnOnce()>)> {
+					// BH only supports teleports to system parachain.
+					// Relay/native token can be teleported between BH and Relay.
+					let native_location = Parent.into();
+					let dest = Parent.into();
+					pallet_xcm::benchmarking::helpers::native_teleport_as_asset_transfer::<Runtime>(
+						native_location,
+						dest
+					)
+				}
 			}
 
 			use xcm::latest::prelude::*;
@@ -919,7 +933,13 @@ impl_runtime_apis! {
 
 				fn export_message_origin_and_destination(
 				) -> Result<(MultiLocation, NetworkId, InteriorMultiLocation), BenchmarkError> {
-					Ok((TokenLocation::get(), NetworkId::Westend, X1(Parachain(100))))
+					Ok(
+						(
+							bridge_to_westend_config::FromAssetHubRococoToAssetHubWestendRoute::get().location,
+							NetworkId::Westend,
+							X1(Parachain(bridge_to_westend_config::AssetHubWestendParaId::get().into()))
+						)
+					)
 				}
 
 				fn alias_origin() -> Result<(MultiLocation, MultiLocation), BenchmarkError> {
