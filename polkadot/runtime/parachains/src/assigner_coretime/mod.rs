@@ -383,7 +383,7 @@ impl<T: Config> Pallet<T> {
 		// Update is needed:
 		let update = CoreSchedules::<T>::take((next_scheduled, core_idx));
 		let new_first = update.as_ref().and_then(|u| u.next_schedule);
-		descriptor.current_work = update.map(|u| u.into());
+		descriptor.current_work = update.map(Into::into);
 
 		descriptor.queue = new_first.map(|new_first| {
 			QueueDescriptor {
