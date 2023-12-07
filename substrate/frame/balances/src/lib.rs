@@ -549,6 +549,10 @@ pub mod pallet {
 				"The existential deposit must be greater than zero!"
 			);
 
+			let runtime: sp_version::RuntimeVersion = <T as frame_system::Config>::Version::get();
+			let max_holds: u32 = T::MaxHolds::get();
+			let hold_reason_variant_count: u32 = <T::RuntimeHoldReason as VariantCount>::VARIANT_COUNT;
+			println!("Runtime: {:?} - T::MaxHolds({:?} - hold_reason_variant_count({:?})", runtime, max_holds, hold_reason_variant_count);
 			assert!(
 				T::MaxHolds::get() >= <T::RuntimeHoldReason as VariantCount>::VARIANT_COUNT,
 				"MaxHolds should be greater than or equal to the number of hold reasons: {} < {}",

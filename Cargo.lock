@@ -9299,6 +9299,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 8.0.0",
+ "sp-version",
 ]
 
 [[package]]
