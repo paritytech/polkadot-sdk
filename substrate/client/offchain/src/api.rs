@@ -243,11 +243,15 @@ mod tests {
 			unimplemented!();
 		}
 
-		fn report_peer(&self, _who: PeerId, _cost_benefit: ReputationChange) {
+		fn report_peer(&self, _peer_id: PeerId, _cost_benefit: ReputationChange) {
 			unimplemented!();
 		}
 
-		fn disconnect_peer(&self, _who: PeerId, _protocol: ProtocolName) {
+		fn peer_reputation(&self, _peer_id: &PeerId) -> i32 {
+			unimplemented!()
+		}
+
+		fn disconnect_peer(&self, _peer_id: PeerId, _protocol: ProtocolName) {
 			unimplemented!();
 		}
 
