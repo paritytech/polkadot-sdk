@@ -273,13 +273,8 @@ pub(crate) fn compute_slash<T: Config>(
 		let target_span = spans.compare_and_update_span_slash(params.slash_era, own_slash);
 
 		if target_span == Some(spans.span_index()) {
-			// misbehavior occurred within the current slashing span - take appropriate
-			// actions.
-
-			// chill the validator - it misbehaved in the current span and should
-			// not continue in the next election. also end the slashing span.
+			// Check https://github.com/paritytech/polkadot-sdk/issues/2650 for details
 			spans.end_span(params.now);
-			<Pallet<T>>::chill_stash(params.stash);
 		}
 	}
 
@@ -312,8 +307,8 @@ fn kick_out_if_recent<T: Config>(params: SlashParams<T>) {
 	);
 
 	if spans.era_span(params.slash_era).map(|s| s.index) == Some(spans.span_index()) {
+		// Check https://github.com/paritytech/polkadot-sdk/issues/2650 for details
 		spans.end_span(params.now);
-		<Pallet<T>>::chill_stash(params.stash);
 	}
 
 	add_offending_validator::<T>(params.stash);
