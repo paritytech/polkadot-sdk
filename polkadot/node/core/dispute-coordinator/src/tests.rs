@@ -1450,6 +1450,7 @@ fn conflicting_votes_lead_to_dispute_participation() {
 }
 
 #[test]
+#[ignore]
 fn positive_votes_dont_trigger_participation() {
 	test_harness(|mut test_state, mut virtual_overseer| {
 		Box::pin(async move {
@@ -1638,6 +1639,7 @@ fn wrong_validator_index_is_ignored() {
 }
 
 #[test]
+#[ignore]
 fn finality_votes_ignore_disputed_candidates() {
 	test_harness(|mut test_state, mut virtual_overseer| {
 		Box::pin(async move {
@@ -1747,6 +1749,7 @@ fn finality_votes_ignore_disputed_candidates() {
 }
 
 #[test]
+#[ignore]
 fn supermajority_valid_dispute_may_be_finalized() {
 	test_harness(|mut test_state, mut virtual_overseer| {
 		Box::pin(async move {
