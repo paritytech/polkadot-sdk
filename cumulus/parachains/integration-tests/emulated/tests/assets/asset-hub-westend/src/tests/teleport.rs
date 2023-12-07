@@ -595,7 +595,7 @@ fn bidirectional_teleport_foreign_assets_between_para_and_asset_hub() {
 	let penpal_to_ah_test_args = TestContext {
 		sender: PenpalBSender::get(),
 		receiver: AssetHubWestendReceiver::get(),
-		args: para_test_args(
+		args: TestArgs::new_para(
 			ah_as_seen_by_penpal,
 			penpal_to_ah_beneficiary_id,
 			asset_amount_to_send,
@@ -687,7 +687,7 @@ fn bidirectional_teleport_foreign_assets_between_para_and_asset_hub() {
 	let ah_to_penpal_test_args = TestContext {
 		sender: AssetHubWestendSender::get(),
 		receiver: PenpalBReceiver::get(),
-		args: para_test_args(
+		args: TestArgs::new_para(
 			penpal_as_seen_by_ah,
 			ah_to_penpal_beneficiary_id,
 			asset_amount_to_send,
