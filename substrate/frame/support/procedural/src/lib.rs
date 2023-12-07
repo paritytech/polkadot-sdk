@@ -346,7 +346,7 @@ pub fn instance_benchmarks(attr: TokenStream, tokens: TokenStream) -> TokenStrea
 /// attached to a function definition containing an `#[extrinsic_call]` or `#[block]`
 /// attribute.
 ///
-/// See `frame_benchmarking::v2` for more info.
+/// See [`frame_benchmarking::v2`](../../frame_benchmarking/v2/index.html) for more info.
 #[proc_macro_attribute]
 pub fn benchmark(_attrs: TokenStream, _tokens: TokenStream) -> TokenStream {
 	quote!(compile_error!(
@@ -1388,8 +1388,8 @@ pub fn validate_unsigned(_: TokenStream, _: TokenStream) -> TokenStream {
 /// ```
 ///
 /// **WARNING**: modifying origin changes the outer runtime origin. This outer runtime origin
-/// can be stored on-chain (e.g. in `pallet-scheduler`), thus any change must be done with care
-/// as it might require some migration.
+/// can be stored on-chain (e.g. in [`pallet_scheduler`](../pallet_scheduler/index.html)),
+/// thus any change must be done with care as it might require some migration.
 ///
 /// NOTE: for instantiable pallets, the origin must be generic over `T` and `I`.
 #[proc_macro_attribute]
