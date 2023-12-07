@@ -13,6 +13,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.193", optional = true, features = ["derive"] }
 log = { version = "0.4.17", default-features = false }
+environmental = { version = "1.1.4", default-features = false }
 
 sp-core = { path = "../../primitives/core", default-features = false }
 sp-io = { path = "../../primitives/io", default-features = false }
@@ -34,6 +35,7 @@ rand_distr = "0.4.3"
 default = ["std"]
 std = [
 	"codec/std",
+	"environmental/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",

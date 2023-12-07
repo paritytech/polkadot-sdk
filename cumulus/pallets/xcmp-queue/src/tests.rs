@@ -22,8 +22,7 @@ use XcmpMessageFormat::*;
 use codec::Input;
 use cumulus_primitives_core::{ParaId, XcmpMessageHandler};
 use frame_support::{
-	assert_err, assert_noop, assert_ok, assert_storage_noop, hypothetically,
-	traits::{Footprint, Hooks},
+	assert_err, assert_noop, assert_ok, assert_storage_noop, hypothetically, traits::Hooks,
 	StorageNoopGuard,
 };
 use mock::{new_test_ext, ParachainSystem, RuntimeOrigin as Origin, Test, XcmpQueue};
@@ -100,7 +99,7 @@ fn xcm_enqueueing_multiple_times_works() {
 }
 
 #[test]
-#[cfg_attr(debug_assertions, should_panic = "Defensive failure")]
+#[cfg_attr(debug_assertions, should_panic = "Could not enqueue XCMP messages.")]
 fn xcm_enqueueing_starts_dropping_on_overflow() {
 	new_test_ext().execute_with(|| {
 		let xcm = VersionedXcm::<Test>::from(Xcm::<Test>(vec![ClearOrigin]));
@@ -111,12 +110,6 @@ fn xcm_enqueueing_starts_dropping_on_overflow() {
 		XcmpQueue::handle_xcmp_messages(
 			repeat((1000.into(), 1, data.as_slice())).take(limit * 2),
 			Weight::MAX,
-		);
-		assert_eq!(EnqueuedMessages::get().len(), limit);
-		// The drop threshold for pages is 48, the others numbers dont really matter:
-		assert_eq!(
-			<Test as Config>::XcmpQueue::footprint(1000.into()),
-			QueueFootprint { storage: Footprint { count: 256, size: 768 }, pages: 48 }
 		);
 	})
 }
