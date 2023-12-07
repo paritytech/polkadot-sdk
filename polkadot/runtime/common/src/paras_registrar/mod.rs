@@ -930,7 +930,7 @@ impl<T: Config> OnCodeUpgrade for Pallet<T> {
 		let mut info = maybe_info
 			.expect("Ensured above that the deposit info is stored for the parachain; qed");
 
-		if let Some(rebate) = info.pending_refund.clone() {
+		if let Some(rebate) = info.pending_refund {
 			if let Some(billing_account) = info.billing_account.clone() {
 				<T as Config>::Currency::unreserve(&billing_account, rebate);
 				info.pending_refund = None;
@@ -1710,6 +1710,60 @@ mod tests {
 
 			assert!(Parachains::is_parathread(para_1));
 			assert!(Parachains::is_parathread(para_2));
+		});
+	}
+
+	#[test]
+	fn billing_account_has_to_be_explicitly_set() {
+		new_test_ext().execute_with(|| {
+			const START_SESSION_INDEX: SessionIndex = 1;
+			run_to_session(START_SESSION_INDEX);
+
+			let para_id = LOWEST_PUBLIC_ID;
+			assert!(!Parachains::is_parathread(para_id));
+
+			let validation_code = test_validation_code(32);
+			assert_ok!(Registrar::reserve(RuntimeOrigin::signed(1)));
+			assert_ok!(Registrar::register(
+				RuntimeOrigin::signed(1),
+				para_id,
+				test_genesis_head(32),
+				validation_code.clone(),
+			));
+			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
+
+			run_to_session(START_SESSION_INDEX + 2);
+			assert!(Parachains::is_parathread(para_id));
+
+			assert_ok!(Registrar::make_parachain(para_id));
+			run_to_session(START_SESSION_INDEX + 4);
+			assert!(Parachains::is_parachain(para_id));
+
+			// Legacy lease holding parachains won't have their billing account set. So if a
+			// parachain no longer has a parachain slot, the billing account must be explicitly
+			// set before initiating code upgrades.
+
+			// Downgrade the lease holding parachain to a parathread.
+			assert_ok!(Registrar::make_parathread(para_id));
+			run_to_session(START_SESSION_INDEX + 6);
+			assert!(Registrar::is_parathread(para_id));
+
+			// To simulate this we will have to manually set the billing account to `None`.
+			Paras::<Test>::mutate_exists(para_id, |maybe_info| {
+				if let Some(info) = maybe_info {
+					info.billing_account = None
+				}
+			});
+
+			let validation_code = test_validation_code(42);
+			assert_noop!(
+				Registrar::schedule_code_upgrade(
+					RuntimeOrigin::signed(1),
+					ParaId::from(para_id),
+					validation_code
+				),
+				paras_registrar::Error::<Test>::BillingAccountNotSet
+			);
 		});
 	}
 }
