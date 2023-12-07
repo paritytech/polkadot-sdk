@@ -14,6 +14,9 @@ export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_ROCOCO=$POLKADOT_PARACHAIN_B
 export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_WESTEND=$POLKADOT_PARACHAIN_BINARY_PATH
 export ZOMBIENET_BINARY_PATH=~/local_bridge_testing/bin/zombienet-linux
 
+# check if `wait` supports -p flag
+if [ `printf "$BASH_VERSION\n5.1" | sort -V | head -n 1` = "5.1" ]; then IS_BASH_5_1=1; else IS_BASH_5_1=0; fi
+
 # bridge configuration
 export LANE_ID="00000002"
 
@@ -66,12 +69,19 @@ do
     # wait until all tests are completed
     relay_exited=0
     for n in `seq 1 $TEST_COPROCS_COUNT`; do
-        wait -n -p COPROC_PID
-        exit_code=$?
-        coproc_name=${TEST_COPROCS[$COPROC_PID, 0]}
-        coproc_log=${TEST_COPROCS[$COPROC_PID, 1]}
-        coproc_stdout=$(cat $coproc_log)
-        relay_exited=$(expr "${coproc_name}" == "relay")
+        if [ "$IS_BASH_5_1" -eq 1 ]; then
+            wait -n -p COPROC_PID
+            exit_code=$?
+            coproc_name=${TEST_COPROCS[$COPROC_PID, 0]}
+            coproc_log=${TEST_COPROCS[$COPROC_PID, 1]}
+            coproc_stdout=$(cat $coproc_log)
+            relay_exited=$(expr "${coproc_name}" == "relay")
+        else
+            wait -n
+            exit_code=$?
+            coproc_name="<unknown>"
+            coproc_stdout="<unknown>"
+        fi
         echo "Process $coproc_name has finished with exit code: $exit_code"
 
         # if exit code is not zero, exit
