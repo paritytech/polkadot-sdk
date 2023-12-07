@@ -46,7 +46,7 @@ pub mod __private {
 /// ```ignore
 /// assert_parse_error_matches!(
 /// 	parse2::<TasksDef>(quote! {
-/// 		#[pallet::tasks]
+/// 		#[pallet::tasks_experimental]
 /// 		impl<T: Config<I>, I: 'static> Pallet<T, I> {
 /// 			#[pallet::task_condition(|i| i % 2 == 0)]
 /// 			#[pallet::task_index(0)]

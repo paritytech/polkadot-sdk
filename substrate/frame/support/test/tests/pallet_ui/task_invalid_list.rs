@@ -26,7 +26,7 @@ mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T>(core::marker::PhantomData<T>);
 
-    #[pallet::tasks]
+    #[pallet::tasks_experimental]
 	impl<T: Config> Pallet<T> {
 		#[pallet::task_index(0)]
 		#[pallet::task_condition(|| true)]

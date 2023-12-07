@@ -21,7 +21,7 @@ use syn::parse_quote;
 fn test_parse_pallet_with_task_enum_missing_impl() {
 	assert_pallet_parse_error! {
 		#[manifest_dir("../../examples/basic")]
-		#[error_regex("Missing `\\#\\[pallet::tasks\\]` impl")]
+		#[error_regex("Missing `\\#\\[pallet::tasks_experimental\\]` impl")]
 		#[frame_support::pallet]
 		pub mod pallet {
 			#[pallet::task_enum]
@@ -71,7 +71,7 @@ fn test_parse_pallet_missing_task_enum() {
 		#[manifest_dir("../../examples/basic")]
 		#[frame_support::pallet]
 		pub mod pallet {
-			#[pallet::tasks]
+			#[pallet::tasks_experimental]
 			#[cfg(test)] // aha, this means it's being eaten
 			impl<T: Config> frame_support::traits::Task for Task<T>
 			where
@@ -150,7 +150,7 @@ fn test_parse_pallet_manual_task_enum_non_manual_impl() {
 				Something,
 			}
 
-			#[pallet::tasks]
+			#[pallet::tasks_experimental]
 			impl<T: Config> frame_support::traits::Task for MyCustomTaskEnum<T>
 			where
 				T: TypeInfo,
@@ -224,7 +224,7 @@ fn test_parse_pallet_manual_task_enum_mismatch_ident() {
 				Something,
 			}
 
-			#[pallet::tasks]
+			#[pallet::tasks_experimental]
 			impl<T: Config> frame_support::traits::Task for MyCustomTaskEnum<T>
 			where
 				T: TypeInfo,

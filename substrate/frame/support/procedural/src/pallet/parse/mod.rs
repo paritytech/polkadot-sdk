@@ -131,10 +131,10 @@ impl Def {
 					let item_tokens = item.to_token_stream();
 					// `TasksDef::parse` needs to know if attr was provided so we artificially
 					// re-insert it here
-					tasks = Some(syn::parse_quote! {
-						#[pallet::tasks]
+					tasks = Some(syn::parse2::<tasks::TasksDef>(quote::quote! {
+						#[pallet::tasks_experimental]
 						#item_tokens
-					});
+					})?);
 
 					// replace item with a no-op because it will be handled by the expansion of tasks
 					*item = syn::Item::Verbatim(quote::quote!());
@@ -259,7 +259,7 @@ impl Def {
 		Ok(def)
 	}
 
-	/// Performs extra logic checks necessary for the `#[pallet::tasks]` feature.
+	/// Performs extra logic checks necessary for the `#[pallet::tasks_experimental]` feature.
 	fn resolve_tasks(
 		item_span: &proc_macro2::Span,
 		tasks: &mut Option<tasks::TasksDef>,
@@ -275,12 +275,12 @@ impl Def {
 		// ensure that if `task_enum` is specified, `tasks` is also specified
 		match (&task_enum, &tasks) {
 			(Some(_), None) =>
-				return Err(syn::Error::new(*item_span, "Missing `#[pallet::tasks]` impl")),
+				return Err(syn::Error::new(*item_span, "Missing `#[pallet::tasks_experimental]` impl")),
 			(None, Some(tasks)) =>
 				if tasks.tasks_attr.is_none() {
 					return Err(syn::Error::new(
 						tasks.item_impl.impl_token.span(),
-						"A `#[pallet::tasks]` attribute must be attached to your `Task` impl if the \
+						"A `#[pallet::tasks_experimental]` attribute must be attached to your `Task` impl if the \
 						task enum has been omitted",
 					))
 				} else {
@@ -537,7 +537,7 @@ impl GenericKind {
 mod keyword {
 	syn::custom_keyword!(origin);
 	syn::custom_keyword!(call);
-	syn::custom_keyword!(tasks);
+	syn::custom_keyword!(tasks_experimental);
 	syn::custom_keyword!(task_enum);
 	syn::custom_keyword!(task_list);
 	syn::custom_keyword!(task_condition);
@@ -679,8 +679,8 @@ impl syn::parse::Parse for PalletAttr {
 				false => Some(InheritedCallWeightAttr::parse(&content)?),
 			};
 			Ok(PalletAttr::RuntimeCall(attr, span))
-		} else if lookahead.peek(keyword::tasks) {
-			Ok(PalletAttr::Tasks(content.parse::<keyword::tasks>()?.span()))
+		} else if lookahead.peek(keyword::tasks_experimental) {
+			Ok(PalletAttr::Tasks(content.parse::<keyword::tasks_experimental>()?.span()))
 		} else if lookahead.peek(keyword::task_enum) {
 			Ok(PalletAttr::RuntimeTask(content.parse::<keyword::task_enum>()?.span()))
 		} else if lookahead.peek(keyword::task_condition) {

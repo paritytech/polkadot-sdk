@@ -1522,9 +1522,9 @@ pub fn composite_enum(_: TokenStream, _: TokenStream) -> TokenStream {
 /// ---
 ///
 /// **Rust-Analyzer users**: See the documentation of the Rust item in
-/// `frame_support::pallet_macros::tasks`.
+/// `frame_support::pallet_macros::tasks_experimental`.
 #[proc_macro_attribute]
-pub fn tasks(_: TokenStream, _: TokenStream) -> TokenStream {
+pub fn tasks_experimental(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 

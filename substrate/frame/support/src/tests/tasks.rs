@@ -27,7 +27,7 @@ use frame_support_procedural::pallet_section;
 #[pallet_section]
 mod tasks_example {
 	#[docify::export(tasks_example)]
-	#[pallet::tasks]
+	#[pallet::tasks_experimental]
 	impl<T: Config> Pallet<T> {
 		/// Add a pair of numbers into the totals and remove them.
 		#[pallet::task_list(Numbers::<T>::iter_keys())]
