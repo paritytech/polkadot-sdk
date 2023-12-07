@@ -839,9 +839,6 @@ where
 			self.on_head_deactivated(deactivated)
 		}
 
-		self.broadcast_signal(OverseerSignal::BlockFinalized(block.hash, block.number))
-			.await?;
-
 		// If there are no leaves being deactivated, we don't need to send an update.
 		//
 		// Our peers will be informed about our finalized block the next time we
