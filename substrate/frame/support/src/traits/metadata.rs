@@ -303,7 +303,7 @@ pub trait GetStorageVersion {
 	type InCodeStorageVersion;
 
 	#[deprecated(
-		note = "Deprecated and will be removed after March 2024. Use `in_code_storage_version` instead."
+		note = "This method has been renamed to `in_code_storage_version` and will be removed after March 2024."
 	)]
 	/// DEPRECATED: Use [`Self::current_storage_version`] instead.
 	///
