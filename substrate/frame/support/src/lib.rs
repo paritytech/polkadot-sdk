@@ -2229,9 +2229,9 @@ pub use frame_support_procedural::pallet;
 pub mod pallet_macros {
 	pub use frame_support_procedural::{
 		composite_enum, config, disable_frame_system_supertrait_check, extra_constants,
-		generate_store, getter, hooks, import_section, inherent, no_default,
-		no_default_bounds, origin, pallet_section, storage_prefix, storage_version, type_value,
-		unbounded, validate_unsigned, weight, whitelist_storage,
+		generate_store, getter, hooks, import_section, inherent, no_default, no_default_bounds,
+		origin, pallet_section, storage_prefix, storage_version, type_value, unbounded,
+		validate_unsigned, weight, whitelist_storage,
 	};
 
 	/// The attribute `#[pallet::generate_deposit($visibility fn deposit_event)]` generates a
@@ -2253,14 +2253,15 @@ pub mod pallet_macros {
 	///
 	/// The macro implements a metadata function on `Event` returning the `EventMetadata`.
 	///
-	/// If `#[pallet::generate_deposit]` is present then the macro implements `fn deposit_event` on
-	/// `Pallet`.
+	/// If `#[pallet::generate_deposit]` is present then the macro implements `fn
+	/// deposit_event` on `Pallet`.
 	pub use frame_support_procedural::generate_deposit;
 
-	/// Each dispatchable may be annotated with the `#[pallet::feeless_if($closure)]` attribute,
-	/// which explicitly defines the condition for the dispatchable to be feeless.
+	/// Each dispatchable may be annotated with the `#[pallet::feeless_if($closure)]`
+	/// attribute, which explicitly defines the condition for the dispatchable to be feeless.
 	///
-	/// The arguments for the closure must be the referenced arguments of the dispatchable function.
+	/// The arguments for the closure must be the referenced arguments of the dispatchable
+	/// function.
 	///
 	/// The closure must return `bool`.
 	///
@@ -2274,9 +2275,10 @@ pub mod pallet_macros {
 	/// }
 	/// ```
 	///
-	/// Please note that this only works for signed dispatchables and requires a signed extension
-	/// such as [`pallet_skip_feeless_payment::SkipCheckIfFeeless`] to wrap the existing payment
-	/// extension. Else, this is completely ignored and the dispatchable is still charged.
+	/// Please note that this only works for signed dispatchables and requires a signed
+	/// extension such as [`pallet_skip_feeless_payment::SkipCheckIfFeeless`] to wrap the
+	/// existing payment extension. Else, this is completely ignored and the dispatchable is
+	/// still charged.
 	///
 	/// ### Macro expansion
 	///

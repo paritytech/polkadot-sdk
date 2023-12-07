@@ -1003,7 +1003,8 @@ pub fn constant(_: TokenStream, _: TokenStream) -> TokenStream {
 /// ---
 ///
 /// Rust-Analyzer Users: Documentation for this macro can be found at
-/// [`frame_support::pallet_macros::constant_name`](../frame_support/pallet_macros/attr.constant_name.html).
+/// [`frame_support::pallet_macros::constant_name`](../frame_support/pallet_macros/attr.
+/// constant_name.html).
 #[proc_macro_attribute]
 pub fn constant_name(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1133,7 +1134,8 @@ pub fn call(_: TokenStream, _: TokenStream) -> TokenStream {
 /// ---
 ///
 /// Rust-Analyzer Users: Documentation for this macro can be found at
-/// [`frame_support::pallet_macros::call_index`](../frame_support/pallet_macros/attr.call_index.html).
+/// [`frame_support::pallet_macros::call_index`](../frame_support/pallet_macros/attr.call_index.
+/// html).
 #[proc_macro_attribute]
 pub fn call_index(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1144,7 +1146,8 @@ pub fn call_index(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// Rust-Analyzer Users: Documentation for this macro can be found at
 ///
-/// [`frame_support::pallet_macros::feeless_if`](../frame_support/pallet_macros/attr.feeless_if.html).
+/// [`frame_support::pallet_macros::feeless_if`](../frame_support/pallet_macros/attr.feeless_if.
+/// html).
 #[proc_macro_attribute]
 pub fn feeless_if(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1199,7 +1202,8 @@ pub fn event(_: TokenStream, _: TokenStream) -> TokenStream {
 /// ---
 ///
 /// Rust-Analyzer Users: Documentation for this macro can be found at
-/// [`frame_support::pallet_macros::generate_deposit`](../frame_support/pallet_macros/attr.generate_deposit.html).
+/// [`frame_support::pallet_macros::generate_deposit`](../frame_support/pallet_macros/attr.
+/// generate_deposit.html).
 #[proc_macro_attribute]
 pub fn generate_deposit(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1316,7 +1320,8 @@ pub fn type_value(_: TokenStream, _: TokenStream) -> TokenStream {
 /// ---
 ///
 /// Rust-Analyzer Users: Documentation for this macro can be found at
-/// [`frame_support::pallet_macros::genesis_config`](../frame_support/pallet_macros/attr.genesis_config.html).
+/// [`frame_support::pallet_macros::genesis_config`](../frame_support/pallet_macros/attr.
+/// genesis_config.html).
 #[proc_macro_attribute]
 pub fn genesis_config(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1326,7 +1331,8 @@ pub fn genesis_config(_: TokenStream, _: TokenStream) -> TokenStream {
 /// ---
 ///
 /// Rust-Analyzer Users: Documentation for this macro can be found at
-/// [`frame_support::pallet_macros::genesis_build`](../frame_support/pallet_macros/attr.genesis_build.html).
+/// [`frame_support::pallet_macros::genesis_build`](../frame_support/pallet_macros/attr.
+/// genesis_build.html).
 #[proc_macro_attribute]
 pub fn genesis_build(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
