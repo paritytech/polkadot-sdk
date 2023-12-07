@@ -24,7 +24,7 @@ use frame_support::{
 	weights::{constants::WEIGHT_REF_TIME_PER_MILLIS, Weight},
 };
 
-/// The current storage version.
+/// The in-code storage version.
 pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
 
 pub const LOG: &str = "runtime::xcmp-queue-migration";
