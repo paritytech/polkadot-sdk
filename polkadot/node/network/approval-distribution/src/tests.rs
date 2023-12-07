@@ -25,7 +25,7 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_primitives::approval::{
 	v1::{
-		AssignmentCert, AssignmentCertKind, IndirectAssignmentCert, VrfOutput, VrfProof,
+		AssignmentCert, AssignmentCertKind, IndirectAssignmentCert, VrfPreOutput, VrfProof,
 		VrfSignature,
 	},
 	v2::{
@@ -298,14 +298,14 @@ fn fake_assignment_cert(block_hash: Hash, validator: ValidatorIndex) -> Indirect
 	let mut prng = rand_core::OsRng;
 	let keypair = schnorrkel::Keypair::generate_with(&mut prng);
 	let (inout, proof, _) = keypair.vrf_sign(ctx.bytes(msg));
-	let out = inout.to_output();
+	let preout = inout.to_output();
 
 	IndirectAssignmentCert {
 		block_hash,
 		validator,
 		cert: AssignmentCert {
 			kind: AssignmentCertKind::RelayVRFModulo { sample: 1 },
-			vrf: VrfSignature { output: VrfOutput(out), proof: VrfProof(proof) },
+			vrf: VrfSignature { pre_output: VrfPreOutput(preout), proof: VrfProof(proof) },
 		},
 	}
 }
@@ -320,14 +320,14 @@ fn fake_assignment_cert_v2(
 	let mut prng = rand_core::OsRng;
 	let keypair = schnorrkel::Keypair::generate_with(&mut prng);
 	let (inout, proof, _) = keypair.vrf_sign(ctx.bytes(msg));
-	let out = inout.to_output();
+	let preout = inout.to_output();
 
 	IndirectAssignmentCertV2 {
 		block_hash,
 		validator,
 		cert: AssignmentCertV2 {
 			kind: AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield },
-			vrf: VrfSignature { output: VrfOutput(out), proof: VrfProof(proof) },
+			vrf: VrfSignature { pre_output: VrfPreOutput(preout), proof: VrfProof(proof) },
 		},
 	}
 }
