@@ -341,7 +341,7 @@ fn setting_pending_config_members() {
 		Configuration::set_max_pov_size(RuntimeOrigin::root(), new_config.max_pov_size).unwrap();
 		Configuration::set_max_head_data_size(RuntimeOrigin::root(), new_config.max_head_data_size)
 			.unwrap();
-		Configuration::set_on_demand_cores(RuntimeOrigin::root(), new_config.coretime_cores)
+		Configuration::set_coretime_cores(RuntimeOrigin::root(), new_config.coretime_cores)
 			.unwrap();
 		Configuration::set_on_demand_retries(RuntimeOrigin::root(), new_config.on_demand_retries)
 			.unwrap();
