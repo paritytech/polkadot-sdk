@@ -24,12 +24,14 @@ pub struct TestSequenceOptions {
 	pub path: String,
 }
 
-/// Define the supported benchmarks targets
+/// Supported test objectives
 #[derive(Debug, Clone, clap::Parser, Serialize, Deserialize)]
 #[command(rename_all = "kebab-case")]
 pub enum TestObjective {
 	/// Benchmark availability recovery strategies.
 	DataAvailabilityRead(DataAvailabilityReadOptions),
+	/// Benchmark availability and bitfield distribution.
+	DataAvailabilityWrite,
 	/// Run a test sequence specified in a file
 	TestSequence(TestSequenceOptions),
 }

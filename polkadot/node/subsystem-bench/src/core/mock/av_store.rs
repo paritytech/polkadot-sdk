@@ -128,6 +128,10 @@ impl MockAvailabilityStore {
 						.encoded_size();
 						let _ = tx.send(Some(chunk_size));
 					},
+					AvailabilityStoreMessage::StoreChunk { candidate_hash, chunk, tx } => {
+						gum::debug!(target: LOG_TARGET, chunk_index = ?chunk.index ,candidate_hash = ?candidate_hash, "Responding to StoreChunk");
+						let _ = tx.send(Ok(()));
+					},
 					_ => {
 						unimplemented!("Unexpected av-store message")
 					},

@@ -279,16 +279,12 @@ impl TestEnvironment {
 	pub async fn stop(&mut self) {
 		self.overseer_handle.stop().await;
 	}
-}
 
-impl Display for TestEnvironment {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+	// Print CPU usage stats in the CLI.
+	pub fn display_cpu_usage(&self, subsystems_under_test: &[&str]) {
 		let stats = self.network().stats();
-
-		writeln!(f, "\n")?;
-		writeln!(
-			f,
-			"Total received from network: {}",
+		println!(
+			"\nTotal received from network: {}",
 			format!(
 				"{} MiB",
 				stats
@@ -298,36 +294,40 @@ impl Display for TestEnvironment {
 					.sum::<u128>() / (1024 * 1024)
 			)
 			.cyan()
-		)?;
-		writeln!(
-			f,
+		);
+		println!(
 			"Total sent to network: {}",
 			format!("{} KiB", stats[0].tx_bytes_total / (1024)).cyan()
-		)?;
+		);
 
 		let test_metrics = super::display::parse_metrics(self.registry());
-		let subsystem_cpu_metrics =
-			test_metrics.subset_with_label_value("task_group", "availability-recovery");
-		let total_cpu = subsystem_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum");
-		writeln!(f, "Total subsystem CPU usage {}", format!("{:.2}s", total_cpu).bright_purple())?;
-		writeln!(
-			f,
-			"CPU usage per block {}",
-			format!("{:.2}s", total_cpu / self.config().num_blocks as f64).bright_purple()
-		)?;
+
+		for subsystem in subsystems_under_test.into_iter() {
+			let subsystem_cpu_metrics =
+				test_metrics.subset_with_label_value("task_group", subsystem);
+			let total_cpu = subsystem_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum");
+			println!(
+				"{} CPU usage {}",
+				format!("{}", subsystem).bright_green(),
+				format!("{:.3}s", total_cpu).bright_purple()
+			);
+			println!(
+				"{} CPU usage per block {}",
+				format!("{}", subsystem).bright_green(),
+				format!("{:.3}s", total_cpu / self.config().num_blocks as f64).bright_purple()
+			);
+		}
 
 		let test_env_cpu_metrics =
 			test_metrics.subset_with_label_value("task_group", "test-environment");
 		let total_cpu = test_env_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum");
-		writeln!(
-			f,
+		println!(
 			"Total test environment CPU usage {}",
-			format!("{:.2}s", total_cpu).bright_purple()
-		)?;
-		writeln!(
-			f,
-			"CPU usage per block {}",
-			format!("{:.2}s", total_cpu / self.config().num_blocks as f64).bright_purple()
+			format!("{:.3}s", total_cpu).bright_purple()
+		);
+		println!(
+			"Test environment CPU usage per block {}",
+			format!("{:.3}s", total_cpu / self.config().num_blocks as f64).bright_purple()
 		)
 	}
 }

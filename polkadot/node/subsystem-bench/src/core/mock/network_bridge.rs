@@ -273,7 +273,6 @@ impl MockNetworkBridgeTx {
 				async move {
 					while let Some(action) = ingress_rx.recv().await {
 						let size = action.size();
-
 						// account for our node receiving the data.
 						our_network.inc_received(size);
 						rx_limiter.reap(size).await;

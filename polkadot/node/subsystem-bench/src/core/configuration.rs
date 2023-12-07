@@ -58,6 +58,11 @@ fn default_connectivity() -> usize {
 	100
 }
 
+// Default backing group size
+fn default_backing_group_size() -> usize {
+	5
+}
+
 /// The test input parameters
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TestConfiguration {
@@ -67,6 +72,9 @@ pub struct TestConfiguration {
 	pub n_validators: usize,
 	/// Number of cores
 	pub n_cores: usize,
+	/// Maximum backing group size
+	#[serde(default = "default_backing_group_size")]
+	pub max_validators_per_core: usize,
 	/// The min PoV size
 	#[serde(default = "default_pov_size")]
 	pub min_pov_size: usize,
@@ -129,7 +137,7 @@ impl TestSequence {
 /// Helper struct for authority related state.
 #[derive(Clone)]
 pub struct TestAuthorities {
-	pub keyrings: Vec<Keyring>,
+	pub keyring: Keyring,
 	pub validator_public: Vec<ValidatorId>,
 	pub validator_authority_id: Vec<AuthorityDiscoveryId>,
 }
@@ -149,23 +157,20 @@ impl TestConfiguration {
 
 	/// Generates the authority keys we need for the network emulation.
 	pub fn generate_authorities(&self) -> TestAuthorities {
-		let keyrings = (0..self.n_validators)
-			.map(|peer_index| Keyring::new(format!("Node{}", peer_index).into()))
+		let keyring = Keyring::default();
+
+		let keys = (0..self.n_validators)
+			.map(|peer_index| keyring.sr25519_new(format!("Node{}", peer_index).into()))
 			.collect::<Vec<_>>();
 
 		// Generate `AuthorityDiscoveryId`` for each peer
-		let validator_public: Vec<ValidatorId> = keyrings
-			.iter()
-			.map(|keyring: &Keyring| keyring.clone().public().into())
-			.collect::<Vec<_>>();
+		let validator_public: Vec<ValidatorId> =
+			keys.iter().map(|key| key.clone().into()).collect::<Vec<_>>();
 
-		let validator_authority_id: Vec<AuthorityDiscoveryId> = keyrings
-			.iter()
-			.map(|keyring| keyring.clone().public().into())
-			.collect::<Vec<_>>()
-			.into();
+		let validator_authority_id: Vec<AuthorityDiscoveryId> =
+			keys.iter().map(|key| key.clone().into()).collect::<Vec<_>>().into();
 
-		TestAuthorities { keyrings, validator_public, validator_authority_id }
+		TestAuthorities { keyring, validator_public, validator_authority_id }
 	}
 
 	/// An unconstrained standard configuration matching Polkadot/Kusama
@@ -181,6 +186,7 @@ impl TestConfiguration {
 			objective,
 			n_cores,
 			n_validators,
+			max_validators_per_core: 5,
 			pov_sizes: generate_pov_sizes(n_cores, min_pov_size, max_pov_size),
 			bandwidth: 50 * 1024 * 1024,
 			peer_bandwidth: 50 * 1024 * 1024,
@@ -206,6 +212,7 @@ impl TestConfiguration {
 			objective,
 			n_cores,
 			n_validators,
+			max_validators_per_core: 5,
 			pov_sizes: generate_pov_sizes(n_cores, min_pov_size, max_pov_size),
 			bandwidth: 50 * 1024 * 1024,
 			peer_bandwidth: 50 * 1024 * 1024,
@@ -233,6 +240,7 @@ impl TestConfiguration {
 			objective,
 			n_cores,
 			n_validators,
+			max_validators_per_core: 5,
 			pov_sizes: generate_pov_sizes(n_cores, min_pov_size, max_pov_size),
 			bandwidth: 50 * 1024 * 1024,
 			peer_bandwidth: 50 * 1024 * 1024,

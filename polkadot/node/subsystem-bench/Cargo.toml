@@ -23,6 +23,10 @@ polkadot-node-primitives = { path = "../primitives" }
 polkadot-primitives = { path = "../../primitives" }
 polkadot-node-network-protocol = { path = "../network/protocol" }
 polkadot-availability-recovery = { path = "../network/availability-recovery", features=["subsystem-benchmarks"]}
+polkadot-availability-distribution = { path = "../network/availability-distribution"}
+polkadot-node-core-av-store = { path = "../core/av-store"}
+polkadot-node-core-chain-api = { path = "../core/chain-api"}
+polkadot-availability-bitfield-distribution = { path = "../network/bitfield-distribution"}
 color-eyre = { version = "0.6.1", default-features = false }
 polkadot-overseer =  { path = "../overseer" }
 colored = "2.0.4"
@@ -56,6 +60,9 @@ serde = "1.0.192"
 serde_yaml = "0.9"
 paste = "1.0.14"
 orchestra = { version = "0.3.3", default-features = false, features=["futures_channel"] }
+kvdb-memorydb = "0.13.0"
+sp-consensus = { path = "../../../substrate/primitives/consensus/common", default-features = false }
+bitvec = "1.0.0"
 
 [features]
 default = []

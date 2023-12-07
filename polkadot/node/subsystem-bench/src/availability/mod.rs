@@ -13,12 +13,14 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+use crate::{core::mock::ChainApiState, TestEnvironment};
 use itertools::Itertools;
-use std::{collections::HashMap, iter::Cycle, ops::Sub, sync::Arc, time::Instant};
-
-use crate::TestEnvironment;
+use polkadot_availability_bitfield_distribution::BitfieldDistribution;
+use polkadot_node_core_av_store::AvailabilityStoreSubsystem;
 use polkadot_node_subsystem::{Overseer, OverseerConnector, SpawnGlue};
 use polkadot_overseer::Handle as OverseerHandle;
+use sp_core::H256;
+use std::{collections::HashMap, iter::Cycle, ops::Sub, sync::Arc, time::Instant};
 
 use sc_network::request_responses::ProtocolConfig;
 
@@ -26,6 +28,11 @@ use colored::Colorize;
 
 use futures::{channel::oneshot, stream::FuturesUnordered, StreamExt};
 use polkadot_node_metrics::metrics::Metrics;
+
+use av_store_helpers::new_av_store;
+use polkadot_availability_distribution::{
+	AvailabilityDistributionSubsystem, IncomingRequestReceivers,
+};
 
 use polkadot_availability_recovery::AvailabilityRecoverySubsystem;
 
@@ -41,7 +48,7 @@ use crate::core::{
 	mock::{
 		av_store,
 		network_bridge::{self, MockNetworkBridgeTx, NetworkAvailabilityState},
-		runtime_api, MockAvailabilityStore, MockRuntimeApi,
+		runtime_api, MockAvailabilityStore, MockChainApi, MockRuntimeApi,
 	},
 };
 
@@ -52,18 +59,19 @@ const LOG_TARGET: &str = "subsystem-bench::availability";
 use polkadot_node_primitives::{AvailableData, ErasureChunk};
 
 use super::{cli::TestObjective, core::mock::AlwaysSupportsParachains};
-use polkadot_node_subsystem_test_helpers::mock::new_block_import_info;
+use polkadot_node_subsystem_test_helpers::mock::{make_ferdie_keystore, new_block_import_info};
 use polkadot_primitives::{
-	CandidateHash, CandidateReceipt, GroupIndex, Hash, HeadData, PersistedValidationData,
-	ValidatorIndex,
+	BlockNumber, CandidateHash, CandidateReceipt, GroupIndex, Hash, HeadData, Header,
+	PersistedValidationData, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 use sc_service::SpawnTaskHandle;
 
+mod av_store_helpers;
 mod cli;
 pub use cli::{DataAvailabilityReadOptions, NetworkEmulation};
 
-fn build_overseer(
+fn build_overseer_for_availability_read(
 	spawn_task_handle: SpawnTaskHandle,
 	runtime_api: MockRuntimeApi,
 	av_store: MockAvailabilityStore,
@@ -84,11 +92,38 @@ fn build_overseer(
 	(overseer, OverseerHandle::new(raw_handle))
 }
 
+fn build_overseer_for_availability_write(
+	spawn_task_handle: SpawnTaskHandle,
+	runtime_api: MockRuntimeApi,
+	av_store: MockAvailabilityStore,
+	network_bridge: MockNetworkBridgeTx,
+	availability_distribution: AvailabilityDistributionSubsystem,
+	chain_api: MockChainApi,
+	availability_store: AvailabilityStoreSubsystem,
+	bitfield_distribution: BitfieldDistribution,
+) -> (Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>, OverseerHandle) {
+	let overseer_connector = OverseerConnector::with_event_capacity(64000);
+	let dummy = dummy_builder!(spawn_task_handle);
+	let builder = dummy
+		.replace_runtime_api(|_| runtime_api)
+		.replace_availability_store(|_| availability_store)
+		.replace_network_bridge_tx(|_| network_bridge)
+		.replace_chain_api(|_| chain_api)
+		.replace_bitfield_distribution(|_| bitfield_distribution)
+		// This is needed to test own chunk recovery for `n_cores`.
+		.replace_availability_distribution(|_| availability_distribution);
+
+	let (overseer, raw_handle) =
+		builder.build_with_connector(overseer_connector).expect("Should not fail");
+
+	(overseer, OverseerHandle::new(raw_handle))
+}
+
 /// Takes a test configuration and uses it to creates the `TestEnvironment`.
 pub fn prepare_test(
 	config: TestConfiguration,
 	state: &mut TestState,
-) -> (TestEnvironment, ProtocolConfig) {
+) -> (TestEnvironment, Vec<ProtocolConfig>) {
 	prepare_test_inner(config, state, TestEnvironmentDependencies::default())
 }
 
@@ -96,11 +131,27 @@ fn prepare_test_inner(
 	config: TestConfiguration,
 	state: &mut TestState,
 	dependencies: TestEnvironmentDependencies,
-) -> (TestEnvironment, ProtocolConfig) {
+) -> (TestEnvironment, Vec<ProtocolConfig>) {
 	// Generate test authorities.
 	let test_authorities = config.generate_authorities();
 
-	let runtime_api = runtime_api::MockRuntimeApi::new(config.clone(), test_authorities.clone());
+	let mut candidate_hashes: HashMap<H256, Vec<CandidateReceipt>> = HashMap::new();
+
+	// Prepare per block candidates.
+	for block_num in 0..config.num_blocks {
+		for _ in 0..config.n_cores {
+			candidate_hashes
+				.entry(Hash::repeat_byte(block_num as u8))
+				.or_default()
+				.push(state.next_candidate().expect("Cycle iterator"))
+		}
+	}
+
+	let runtime_api = runtime_api::MockRuntimeApi::new(
+		config.clone(),
+		test_authorities.clone(),
+		candidate_hashes,
+	);
 
 	let av_store =
 		av_store::MockAvailabilityStore::new(state.chunks.clone(), state.candidate_hashes.clone());
@@ -119,35 +170,91 @@ fn prepare_test_inner(
 		network.clone(),
 	);
 
-	let use_fast_path = match &state.config().objective {
-		TestObjective::DataAvailabilityRead(options) => options.fetch_from_backers,
-		_ => panic!("Unexpected objective"),
+	let mut req_cfgs = Vec::new();
+
+	let (overseer, overseer_handle) = match &state.config().objective {
+		TestObjective::DataAvailabilityRead(_options) => {
+			let use_fast_path = match &state.config().objective {
+				TestObjective::DataAvailabilityRead(options) => options.fetch_from_backers,
+				_ => panic!("Unexpected objective"),
+			};
+
+			let (collation_req_receiver, req_cfg) =
+				IncomingRequest::get_config_receiver(&ReqProtocolNames::new(&GENESIS_HASH, None));
+			req_cfgs.push(req_cfg);
+
+			let subsystem = if use_fast_path {
+				AvailabilityRecoverySubsystem::with_fast_path(
+					collation_req_receiver,
+					Metrics::try_register(&dependencies.registry).unwrap(),
+				)
+			} else {
+				AvailabilityRecoverySubsystem::with_chunks_only(
+					collation_req_receiver,
+					Metrics::try_register(&dependencies.registry).unwrap(),
+				)
+			};
+
+			build_overseer_for_availability_read(
+				dependencies.task_manager.spawn_handle(),
+				runtime_api,
+				av_store,
+				network_bridge_tx,
+				subsystem,
+			)
+		},
+		TestObjective::DataAvailabilityWrite => {
+			let (pov_req_receiver, pov_req_cfg) =
+				IncomingRequest::get_config_receiver(&ReqProtocolNames::new(&GENESIS_HASH, None));
+			let (chunk_req_receiver, chunk_req_cfg) =
+				IncomingRequest::get_config_receiver(&ReqProtocolNames::new(&GENESIS_HASH, None));
+			req_cfgs.push(pov_req_cfg);
+			req_cfgs.push(chunk_req_cfg);
+
+			let availability_distribution = AvailabilityDistributionSubsystem::new(
+				test_authorities.keyring.keystore(),
+				IncomingRequestReceivers { pov_req_receiver, chunk_req_receiver },
+				Metrics::try_register(&dependencies.registry).unwrap(),
+			);
+			let availability_store = new_av_store(&dependencies);
+
+			let block_headers = (0..config.num_blocks)
+				.map(|block_number| {
+					(
+						Hash::repeat_byte(block_number as u8),
+						Header {
+							digest: Default::default(),
+							number: block_number as BlockNumber,
+							parent_hash: Default::default(),
+							extrinsics_root: Default::default(),
+							state_root: Default::default(),
+						},
+					)
+				})
+				.collect::<HashMap<_, _>>();
+
+			let chain_api_state = ChainApiState { block_headers };
+			let chain_api = MockChainApi::new(config.clone(), chain_api_state);
+
+			let bitfield_distribution =
+				BitfieldDistribution::new(Metrics::try_register(&dependencies.registry).unwrap());
+			build_overseer_for_availability_write(
+				dependencies.task_manager.spawn_handle(),
+				runtime_api,
+				av_store,
+				network_bridge_tx,
+				availability_distribution,
+				chain_api,
+				availability_store,
+				bitfield_distribution,
+			)
+		},
+		_ => {
+			unimplemented!("Invalid test objective")
+		},
 	};
 
-	let (collation_req_receiver, req_cfg) =
-		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(&GENESIS_HASH, None));
-
-	let subsystem = if use_fast_path {
-		AvailabilityRecoverySubsystem::with_fast_path(
-			collation_req_receiver,
-			Metrics::try_register(&dependencies.registry).unwrap(),
-		)
-	} else {
-		AvailabilityRecoverySubsystem::with_chunks_only(
-			collation_req_receiver,
-			Metrics::try_register(&dependencies.registry).unwrap(),
-		)
-	};
-
-	let (overseer, overseer_handle) = build_overseer(
-		dependencies.task_manager.spawn_handle(),
-		runtime_api,
-		av_store,
-		network_bridge_tx,
-		subsystem,
-	);
-
-	(TestEnvironment::new(dependencies, config, network, overseer, overseer_handle), req_cfg)
+	(TestEnvironment::new(dependencies, config, network, overseer, overseer_handle), req_cfgs)
 }
 
 #[derive(Clone)]
@@ -362,6 +469,54 @@ pub async fn benchmark_availability_read(env: &mut TestEnvironment, mut state: T
 			.red()
 	);
 
-	gum::info!("{}", &env);
+	env.display_cpu_usage(&["availability-recovery"]);
+	env.stop().await;
+}
+
+pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: TestState) {
+	let config = env.config().clone();
+	let start_marker = Instant::now();
+	let mut availability_bytes = 0u128;
+
+	env.metrics().set_n_validators(config.n_validators);
+	env.metrics().set_n_cores(config.n_cores);
+
+	for block_num in 0..env.config().num_blocks {
+		gum::info!(target: LOG_TARGET, "Current block {}/{}", block_num + 1, env.config().num_blocks);
+		env.metrics().set_current_block(block_num);
+
+		let block_start_ts = Instant::now();
+
+		env.import_block(new_block_import_info(
+			Hash::repeat_byte(block_num as u8),
+			block_num as BlockNumber,
+		))
+		.await;
+
+		tokio::time::sleep(std::time::Duration::from_secs(6)).await;
+
+		let block_time = Instant::now().sub(block_start_ts).as_millis() as u64;
+		env.metrics().set_block_time(block_time);
+		gum::info!("All work for block completed in {}", format!("{:?}ms", block_time).cyan());
+	}
+
+	let duration: u128 = start_marker.elapsed().as_millis();
+	let availability_bytes = availability_bytes / 1024;
+	gum::info!("All blocks processed in {}", format!("{:?}ms", duration).cyan());
+	gum::info!(
+		"Throughput: {}",
+		format!("{} KiB/block", availability_bytes / env.config().num_blocks as u128).bright_red()
+	);
+	gum::info!(
+		"Block time: {}",
+		format!("{} ms", start_marker.elapsed().as_millis() / env.config().num_blocks as u128)
+			.red()
+	);
+
+	env.display_cpu_usage(&[
+		"availability-distribution",
+		"bitfield-distribution",
+		"availability-store",
+	]);
 	env.stop().await;
 }

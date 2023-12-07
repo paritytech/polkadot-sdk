@@ -26,7 +26,7 @@ pub(crate) mod availability;
 pub(crate) mod cli;
 pub(crate) mod core;
 
-use availability::{prepare_test, NetworkEmulation, TestState};
+use crate::availability::{prepare_test, NetworkEmulation, TestState};
 use cli::TestObjective;
 
 use core::{
@@ -81,8 +81,39 @@ struct BenchCli {
 }
 
 impl BenchCli {
+	fn create_test_configuration(&self) -> TestConfiguration {
+		let configuration = &self.standard_configuration;
+
+		match self.network {
+			NetworkEmulation::Healthy => TestConfiguration::healthy_network(
+				self.objective.clone(),
+				configuration.num_blocks,
+				configuration.n_validators,
+				configuration.n_cores,
+				configuration.min_pov_size,
+				configuration.max_pov_size,
+			),
+			NetworkEmulation::Degraded => TestConfiguration::degraded_network(
+				self.objective.clone(),
+				configuration.num_blocks,
+				configuration.n_validators,
+				configuration.n_cores,
+				configuration.min_pov_size,
+				configuration.max_pov_size,
+			),
+			NetworkEmulation::Ideal => TestConfiguration::ideal_network(
+				self.objective.clone(),
+				configuration.num_blocks,
+				configuration.n_validators,
+				configuration.n_cores,
+				configuration.min_pov_size,
+				configuration.max_pov_size,
+			),
+		}
+	}
+
 	fn launch(self) -> eyre::Result<()> {
-		let configuration = self.standard_configuration;
+		let configuration = &self.standard_configuration;
 		let mut test_config = match self.objective {
 			TestObjective::TestSequence(options) => {
 				let test_sequence =
@@ -105,32 +136,8 @@ impl BenchCli {
 				}
 				return Ok(())
 			},
-			TestObjective::DataAvailabilityRead(ref _options) => match self.network {
-				NetworkEmulation::Healthy => TestConfiguration::healthy_network(
-					self.objective,
-					configuration.num_blocks,
-					configuration.n_validators,
-					configuration.n_cores,
-					configuration.min_pov_size,
-					configuration.max_pov_size,
-				),
-				NetworkEmulation::Degraded => TestConfiguration::degraded_network(
-					self.objective,
-					configuration.num_blocks,
-					configuration.n_validators,
-					configuration.n_cores,
-					configuration.min_pov_size,
-					configuration.max_pov_size,
-				),
-				NetworkEmulation::Ideal => TestConfiguration::ideal_network(
-					self.objective,
-					configuration.num_blocks,
-					configuration.n_validators,
-					configuration.n_cores,
-					configuration.min_pov_size,
-					configuration.max_pov_size,
-				),
-			},
+			TestObjective::DataAvailabilityRead(ref _options) => self.create_test_configuration(),
+			TestObjective::DataAvailabilityWrite => self.create_test_configuration(),
 		};
 
 		let mut latency_config = test_config.latency.clone().unwrap_or_default();
@@ -161,9 +168,18 @@ impl BenchCli {
 
 		let mut state = TestState::new(&test_config);
 		let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
-		// test_config.write_to_disk();
-		env.runtime()
-			.block_on(availability::benchmark_availability_read(&mut env, state));
+
+		match self.objective {
+			TestObjective::DataAvailabilityRead(_options) => {
+				env.runtime()
+					.block_on(availability::benchmark_availability_read(&mut env, state));
+			},
+			TestObjective::DataAvailabilityWrite => {
+				env.runtime()
+					.block_on(availability::benchmark_availability_write(&mut env, state));
+			},
+			TestObjective::TestSequence(_options) => {},
+		}
 
 		Ok(())
 	}

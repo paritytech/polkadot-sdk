@@ -194,6 +194,7 @@ impl PeerEmulator {
 }
 
 pub type ActionFuture = std::pin::Pin<Box<dyn futures::Future<Output = ()> + std::marker::Send>>;
+
 /// An network action to be completed by the emulator task.
 pub struct NetworkAction {
 	// The function that performs the action
