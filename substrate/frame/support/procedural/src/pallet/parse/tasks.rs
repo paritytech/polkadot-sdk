@@ -50,8 +50,8 @@ pub mod keywords {
 	custom_keyword!(pallet);
 }
 
-/// Represents the `#[pallet::tasks_experimental]` attribute and its attached item. Also includes metadata
-/// about the linked [`TaskEnumDef`] if applicable.
+/// Represents the `#[pallet::tasks_experimental]` attribute and its attached item. Also includes
+/// metadata about the linked [`TaskEnumDef`] if applicable.
 #[derive(Clone, Debug)]
 pub struct TasksDef {
 	pub tasks_attr: Option<PalletTasksAttr>,
@@ -125,7 +125,8 @@ impl syn::parse::Parse for TasksDef {
 /// Parsing for a `#[pallet::tasks_experimental]` attr.
 pub type PalletTasksAttr = PalletTaskAttr<keywords::tasks_experimental>;
 
-/// Parsing for any of the attributes that can be used within a `#[pallet::tasks_experimental]` [`ItemImpl`].
+/// Parsing for any of the attributes that can be used within a `#[pallet::tasks_experimental]`
+/// [`ItemImpl`].
 pub type TaskAttr = PalletTaskAttr<TaskAttrMeta>;
 
 /// Parsing for a `#[pallet::task_index]` attr.
