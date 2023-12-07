@@ -15,8 +15,8 @@
 
 use crate::*;
 use asset_hub_westend_runtime::xcm_config::XcmConfig as AssetHubWestendXcmConfig;
-use penpal_runtime::xcm_config::XcmConfig as PenpalWestendXcmConfig;
 use westend_runtime::xcm_config::XcmConfig as WestendXcmConfig;
+use westend_system_emulated_network::penpal_emulated_chain::XcmConfig as PenpalWestendXcmConfig;
 
 fn relay_to_para_sender_assertions(t: RelayToParaTest) {
 	type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
@@ -162,7 +162,7 @@ fn system_para_to_para_assets_receiver_assertions<Test>(_: Test) {
 	);
 }
 
-fn relay_to_para_limited_reserve_transfer_assets(t: RelayToParaTest) -> DispatchResult {
+fn relay_to_para_reserve_transfer_assets(t: RelayToParaTest) -> DispatchResult {
 	<Westend as WestendPallet>::XcmPallet::limited_reserve_transfer_assets(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
@@ -173,7 +173,7 @@ fn relay_to_para_limited_reserve_transfer_assets(t: RelayToParaTest) -> Dispatch
 	)
 }
 
-fn system_para_to_para_limited_reserve_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
+fn system_para_to_para_reserve_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
 	<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::limited_reserve_transfer_assets(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
@@ -184,7 +184,7 @@ fn system_para_to_para_limited_reserve_transfer_assets(t: SystemParaToParaTest) 
 	)
 }
 
-fn para_to_system_para_limited_reserve_transfer_assets(t: ParaToSystemParaTest) -> DispatchResult {
+fn para_to_system_para_reserve_transfer_assets(t: ParaToSystemParaTest) -> DispatchResult {
 	<PenpalB as PenpalBPallet>::PolkadotXcm::limited_reserve_transfer_assets(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
@@ -284,7 +284,7 @@ fn reserve_transfer_native_asset_from_relay_to_para() {
 
 	test.set_assertion::<Westend>(relay_to_para_sender_assertions);
 	test.set_assertion::<PenpalB>(para_receiver_assertions);
-	test.set_dispatchable::<Westend>(relay_to_para_limited_reserve_transfer_assets);
+	test.set_dispatchable::<Westend>(relay_to_para_reserve_transfer_assets);
 	test.assert();
 
 	let delivery_fees = Westend::execute_with(|| {
@@ -328,7 +328,7 @@ fn reserve_transfer_native_asset_from_system_para_to_para() {
 
 	test.set_assertion::<AssetHubWestend>(system_para_to_para_sender_assertions);
 	test.set_assertion::<PenpalB>(para_receiver_assertions);
-	test.set_dispatchable::<AssetHubWestend>(system_para_to_para_limited_reserve_transfer_assets);
+	test.set_dispatchable::<AssetHubWestend>(system_para_to_para_reserve_transfer_assets);
 	test.assert();
 
 	let sender_balance_after = test.sender.balance;
@@ -379,7 +379,7 @@ fn reserve_transfer_native_asset_from_para_to_system_para() {
 
 	test.set_assertion::<PenpalB>(para_to_system_para_sender_assertions);
 	test.set_assertion::<AssetHubWestend>(para_to_system_para_receiver_assertions);
-	test.set_dispatchable::<PenpalB>(para_to_system_para_limited_reserve_transfer_assets);
+	test.set_dispatchable::<PenpalB>(para_to_system_para_reserve_transfer_assets);
 	test.assert();
 
 	let sender_balance_after = test.sender.balance;
@@ -474,7 +474,7 @@ fn reserve_transfer_assets_from_system_para_to_para() {
 
 	test.set_assertion::<AssetHubWestend>(system_para_to_para_assets_sender_assertions);
 	test.set_assertion::<PenpalB>(system_para_to_para_assets_receiver_assertions);
-	test.set_dispatchable::<AssetHubWestend>(system_para_to_para_limited_reserve_transfer_assets);
+	test.set_dispatchable::<AssetHubWestend>(system_para_to_para_reserve_transfer_assets);
 	test.assert();
 
 	let sender_balance_after = test.sender.balance;
