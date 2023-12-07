@@ -542,6 +542,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ark-scale"
+version = "0.0.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5f69c00b3b529be29528a6f2fd5fa7b1790f8bed81b9cdca17e326538545a179"
+dependencies = [
+ "ark-ec",
+ "ark-ff",
+ "ark-serialize",
+ "ark-std",
+ "parity-scale-codec",
+ "scale-info",
+]
+
+[[package]]
 name = "ark-secret-scalar"
 version = "0.0.2"
 source = "git+https://github.com/w3f/ring-vrf?rev=2019248#2019248785389b3246d55b1c3b0e9bdef4454cb7"
@@ -4500,7 +4514,7 @@ source = "git+https://github.com/w3f/ring-vrf?rev=2019248#2019248785389b3246d55b
 dependencies = [
  "ark-ec",
  "ark-ff",
- "ark-scale",
+ "ark-scale 0.0.11",
  "ark-secret-scalar",
  "ark-serialize",
  "ark-std",
@@ -17474,7 +17488,7 @@ dependencies = [
  "ark-ed-on-bls12-377-ext",
  "ark-ed-on-bls12-381-bandersnatch",
  "ark-ed-on-bls12-381-bandersnatch-ext",
- "ark-scale",
+ "ark-scale 0.0.12",
  "sp-runtime-interface 17.0.0",
  "sp-std 8.0.0",
 ]
@@ -17495,7 +17509,7 @@ dependencies = [
  "ark-ed-on-bls12-377-ext",
  "ark-ed-on-bls12-381-bandersnatch",
  "ark-ed-on-bls12-381-bandersnatch-ext",
- "ark-scale",
+ "ark-scale 0.0.11",
  "sp-runtime-interface 17.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
  "sp-std 8.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
 ]
