@@ -25,7 +25,6 @@ use polkadot_node_subsystem_types::OverseerSignal;
 use sp_core::H256;
 use std::collections::HashMap;
 
-use crate::core::configuration::{TestAuthorities, TestConfiguration};
 use futures::FutureExt;
 
 const LOG_TARGET: &str = "subsystem-bench::chain-api-mock";
@@ -37,12 +36,11 @@ pub struct ChainApiState {
 
 pub struct MockChainApi {
 	state: ChainApiState,
-	config: TestConfiguration,
 }
 
 impl MockChainApi {
-	pub fn new(config: TestConfiguration, state: ChainApiState) -> MockChainApi {
-		Self { state, config }
+	pub fn new(state: ChainApiState) -> MockChainApi {
+		Self { state }
 	}
 }
 

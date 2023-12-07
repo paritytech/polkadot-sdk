@@ -56,8 +56,6 @@ pub fn new_av_store(dependencies: &TestEnvironmentDependencies) -> AvailabilityS
 	AvailabilityStoreSubsystem::new(test_store(), TEST_CONFIG, Box::new(DumbOracle), metrics)
 }
 
-const TIMEOUT: Duration = Duration::from_millis(100);
-
 fn test_store() -> Arc<dyn Database> {
 	let db = kvdb_memorydb::create(columns::NUM_COLUMNS);
 	let db =

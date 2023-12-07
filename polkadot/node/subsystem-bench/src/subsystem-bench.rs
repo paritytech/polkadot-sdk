@@ -113,7 +113,6 @@ impl BenchCli {
 	}
 
 	fn launch(self) -> eyre::Result<()> {
-		let configuration = &self.standard_configuration;
 		let mut test_config = match self.objective {
 			TestObjective::TestSequence(options) => {
 				let test_sequence =

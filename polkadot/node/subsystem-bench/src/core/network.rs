@@ -195,7 +195,7 @@ impl PeerEmulator {
 
 pub type ActionFuture = std::pin::Pin<Box<dyn futures::Future<Output = ()> + std::marker::Send>>;
 
-/// An network action to be completed by the emulator task.
+/// A network action to be completed by the emulator task.
 pub struct NetworkAction {
 	// The function that performs the action
 	run: ActionFuture,
@@ -211,46 +211,24 @@ unsafe impl Send for NetworkAction {}
 
 /// Book keeping of sent and received bytes.
 pub struct PeerEmulatorStats {
-	rx_bytes_total: AtomicU64,
-	tx_bytes_total: AtomicU64,
 	metrics: Metrics,
 	peer_index: usize,
 }
 
 impl PeerEmulatorStats {
 	pub(crate) fn new(peer_index: usize, metrics: Metrics) -> Self {
-		Self {
-			metrics,
-			rx_bytes_total: AtomicU64::from(0),
-			tx_bytes_total: AtomicU64::from(0),
-			peer_index,
-		}
+		Self { metrics, peer_index }
 	}
 
 	pub fn inc_sent(&self, bytes: usize) {
-		self.tx_bytes_total.fetch_add(bytes as u64, Ordering::Relaxed);
 		self.metrics.on_peer_sent(self.peer_index, bytes);
 	}
 
 	pub fn inc_received(&self, bytes: usize) {
-		self.rx_bytes_total.fetch_add(bytes as u64, Ordering::Relaxed);
 		self.metrics.on_peer_received(self.peer_index, bytes);
 	}
-
-	pub fn sent(&self) -> u64 {
-		self.tx_bytes_total.load(Ordering::Relaxed)
-	}
-
-	pub fn received(&self) -> u64 {
-		self.rx_bytes_total.load(Ordering::Relaxed)
-	}
 }
 
-#[derive(Debug, Default)]
-pub struct PeerStats {
-	pub rx_bytes_total: u64,
-	pub tx_bytes_total: u64,
-}
 impl NetworkAction {
 	pub fn new(
 		peer: AuthorityDiscoveryId,
@@ -409,28 +387,15 @@ impl NetworkEmulator {
 		self.stats[peer_index].clone()
 	}
 
-	// Returns the sent/received stats for all peers.
-	pub fn stats(&self) -> Vec<PeerStats> {
-		let r = self
-			.stats
-			.iter()
-			.map(|stats| PeerStats {
-				rx_bytes_total: stats.received(),
-				tx_bytes_total: stats.sent(),
-			})
-			.collect::<Vec<_>>();
-		r
-	}
-
 	// Increment bytes sent by our node (the node that contains the subsystem under test)
 	pub fn inc_sent(&self, bytes: usize) {
-		// Our node always is peer 0.
+		// Our node is always peer 0.
 		self.peer_stats(0).inc_sent(bytes);
 	}
 
 	// Increment bytes received by our node (the node that contains the subsystem under test)
 	pub fn inc_received(&self, bytes: usize) {
-		// Our node always is peer 0.
+		// Our node is always peer 0.
 		self.peer_stats(0).inc_received(bytes);
 	}
 }

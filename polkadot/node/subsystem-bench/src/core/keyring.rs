@@ -45,7 +45,7 @@ impl Keyring {
 			.expect("Insert key into keystore")
 	}
 
-	pub fn keystore(&self) -> Arc<LocalKeystore> {
+	pub fn keystore(&self) -> Arc<dyn Keystore> {
 		self.keystore.clone()
 	}
 }

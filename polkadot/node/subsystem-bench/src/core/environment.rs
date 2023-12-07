@@ -37,6 +37,8 @@ use std::{
 };
 use tokio::runtime::Handle;
 
+use super::configuration::TestAuthorities;
+
 const MIB: f64 = 1024.0 * 1024.0;
 
 /// Test environment/configuration metrics
@@ -150,7 +152,7 @@ pub const GENESIS_HASH: Hash = Hash::repeat_byte(0xff);
 // We use this to bail out sending messages to the subsystem if it is overloaded such that
 // the time of flight is breaches 5s.
 // This should eventually be a test parameter.
-const MAX_TIME_OF_FLIGHT: Duration = Duration::from_millis(5000);
+pub const MAX_TIME_OF_FLIGHT: Duration = Duration::from_millis(5000);
 
 /// The test environment is the high level wrapper of all things required to test
 /// a certain subsystem.
@@ -192,6 +194,8 @@ pub struct TestEnvironment {
 	network: NetworkEmulator,
 	/// Configuration/env metrics
 	metrics: TestEnvironmentMetrics,
+	/// Test authorities generated from the configuration.
+	authorities: TestAuthorities,
 }
 
 impl TestEnvironment {
@@ -202,6 +206,7 @@ impl TestEnvironment {
 		network: NetworkEmulator,
 		overseer: Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>,
 		overseer_handle: OverseerHandle,
+		authorities: TestAuthorities,
 	) -> Self {
 		let metrics = TestEnvironmentMetrics::new(&dependencies.registry)
 			.expect("Metrics need to be registered");
@@ -230,6 +235,7 @@ impl TestEnvironment {
 			config,
 			network,
 			metrics,
+			authorities,
 		}
 	}
 
@@ -239,6 +245,10 @@ impl TestEnvironment {
 
 	pub fn network(&self) -> &NetworkEmulator {
 		&self.network
+	}
+
+	pub fn network_mut(&mut self) -> &mut NetworkEmulator {
+		&mut self.network
 	}
 
 	pub fn registry(&self) -> &Registry {
@@ -251,6 +261,14 @@ impl TestEnvironment {
 
 	pub fn runtime(&self) -> Handle {
 		self.runtime_handle.clone()
+	}
+
+	pub fn authorities(&self) -> &TestAuthorities {
+		&self.authorities
+	}
+
+	pub fn overseer_handle(&self) -> OverseerHandle {
+		self.overseer_handle.clone()
 	}
 
 	// Send a message to the subsystem under test environment.
@@ -280,26 +298,35 @@ impl TestEnvironment {
 		self.overseer_handle.stop().await;
 	}
 
-	// Print CPU usage stats in the CLI.
-	pub fn display_cpu_usage(&self, subsystems_under_test: &[&str]) {
-		let stats = self.network().stats();
+	pub fn display_network_usage(&self) {
+		let test_metrics = super::display::parse_metrics(self.registry());
+
+		let node_receive_metrics = test_metrics.subset_with_label_value("peer", "node0");
+		let total_node_received =
+			node_receive_metrics.sum_by("subsystem_benchmark_network_peer_total_bytes_received");
+
+		let node_send_metrics = test_metrics.subset_with_label_value("peer", "node0");
+		let total_node_sent =
+			node_send_metrics.sum_by("subsystem_benchmark_network_peer_total_bytes_sent");
+
+		let total_node_received = total_node_received / MIB;
+		let total_node_sent = total_node_sent / MIB;
+
 		println!(
-			"\nTotal received from network: {}",
-			format!(
-				"{} MiB",
-				stats
-					.iter()
-					.enumerate()
-					.map(|(_index, stats)| stats.tx_bytes_total as u128)
-					.sum::<u128>() / (1024 * 1024)
-			)
-			.cyan()
-		);
-		println!(
-			"Total sent to network: {}",
-			format!("{} KiB", stats[0].tx_bytes_total / (1024)).cyan()
+			"\nPayload bytes received from peers: {}, {}",
+			format!("{:.2} MiB total", total_node_received).blue(),
+			format!("{:.2} MiB/block", total_node_received / self.config().num_blocks as f64).bright_blue()
 		);
 
+		println!(
+			"Payload bytes sent to peers: {}, {}",
+			format!("{:.2} MiB total", total_node_sent).blue(),
+			format!("{:.2} MiB/block", total_node_sent / self.config().num_blocks as f64).bright_blue()
+		);
+	}
+
+	// Print CPU usage stats in the CLI.
+	pub fn display_cpu_usage(&self, subsystems_under_test: &[&str]) {
 		let test_metrics = super::display::parse_metrics(self.registry());
 
 		for subsystem in subsystems_under_test.into_iter() {

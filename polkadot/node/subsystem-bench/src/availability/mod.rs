@@ -13,33 +13,43 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+use super::core::environment::MAX_TIME_OF_FLIGHT;
 use crate::{core::mock::ChainApiState, TestEnvironment};
+use bitvec::bitvec;
+use colored::Colorize;
 use itertools::Itertools;
 use polkadot_availability_bitfield_distribution::BitfieldDistribution;
 use polkadot_node_core_av_store::AvailabilityStoreSubsystem;
 use polkadot_node_subsystem::{Overseer, OverseerConnector, SpawnGlue};
+use polkadot_node_subsystem_types::{
+	messages::{AvailabilityStoreMessage, NetworkBridgeEvent},
+	Span,
+};
 use polkadot_overseer::Handle as OverseerHandle;
+use sc_network::{request_responses::ProtocolConfig, PeerId};
 use sp_core::H256;
-use std::{collections::HashMap, iter::Cycle, ops::Sub, sync::Arc, time::Instant};
-
-use sc_network::request_responses::ProtocolConfig;
-
-use colored::Colorize;
-
-use futures::{channel::oneshot, stream::FuturesUnordered, StreamExt};
-use polkadot_node_metrics::metrics::Metrics;
+use std::{collections::HashMap, iter::Cycle, ops::Sub, pin::Pin, sync::Arc, time::Instant};
 
 use av_store_helpers::new_av_store;
+use futures::{channel::oneshot, stream::FuturesUnordered, Future, StreamExt};
 use polkadot_availability_distribution::{
 	AvailabilityDistributionSubsystem, IncomingRequestReceivers,
 };
+use polkadot_node_metrics::metrics::Metrics;
+use polkadot_node_subsystem::TimeoutExt;
 
 use polkadot_availability_recovery::AvailabilityRecoverySubsystem;
 
 use crate::GENESIS_HASH;
+use futures::FutureExt;
 use parity_scale_codec::Encode;
 use polkadot_erasure_coding::{branches, obtain_chunks_v1 as obtain_chunks};
-use polkadot_node_network_protocol::request_response::{IncomingRequest, ReqProtocolNames};
+use polkadot_node_network_protocol::{
+	request_response::{
+		v1::ChunkFetchingRequest, IncomingRequest, OutgoingRequest, ReqProtocolNames, Requests,
+	},
+	BitfieldDistributionMessage, OurView, Versioned, View,
+};
 use polkadot_node_primitives::{BlockData, PoV, Proof};
 use polkadot_node_subsystem::messages::{AllMessages, AvailabilityRecoveryMessage};
 
@@ -59,10 +69,10 @@ const LOG_TARGET: &str = "subsystem-bench::availability";
 use polkadot_node_primitives::{AvailableData, ErasureChunk};
 
 use super::{cli::TestObjective, core::mock::AlwaysSupportsParachains};
-use polkadot_node_subsystem_test_helpers::mock::{make_ferdie_keystore, new_block_import_info};
+use polkadot_node_subsystem_test_helpers::mock::new_block_import_info;
 use polkadot_primitives::{
-	BlockNumber, CandidateHash, CandidateReceipt, GroupIndex, Hash, HeadData, Header,
-	PersistedValidationData, ValidatorIndex,
+	AvailabilityBitfield, BlockNumber, CandidateHash, CandidateReceipt, GroupIndex, Hash, HeadData,
+	Header, PersistedValidationData, Signed, SigningContext, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 use sc_service::SpawnTaskHandle;
@@ -95,7 +105,6 @@ fn build_overseer_for_availability_read(
 fn build_overseer_for_availability_write(
 	spawn_task_handle: SpawnTaskHandle,
 	runtime_api: MockRuntimeApi,
-	av_store: MockAvailabilityStore,
 	network_bridge: MockNetworkBridgeTx,
 	availability_distribution: AvailabilityDistributionSubsystem,
 	chain_api: MockChainApi,
@@ -145,6 +154,16 @@ fn prepare_test_inner(
 				.or_default()
 				.push(state.next_candidate().expect("Cycle iterator"))
 		}
+
+		// First candidate is our backed candidate.
+		state.backed_candidates.push(
+			candidate_hashes
+				.get(&Hash::repeat_byte(block_num as u8))
+				.expect("just inserted above")
+				.get(0)
+				.expect("just inserted above")
+				.clone(),
+		);
 	}
 
 	let runtime_api = runtime_api::MockRuntimeApi::new(
@@ -152,9 +171,6 @@ fn prepare_test_inner(
 		test_authorities.clone(),
 		candidate_hashes,
 	);
-
-	let av_store =
-		av_store::MockAvailabilityStore::new(state.chunks.clone(), state.candidate_hashes.clone());
 
 	let availability_state = NetworkAvailabilityState {
 		candidate_hashes: state.candidate_hashes.clone(),
@@ -195,6 +211,13 @@ fn prepare_test_inner(
 				)
 			};
 
+			// Use a mocked av-store.
+			// TODO: switch to real av-store.
+			let av_store = av_store::MockAvailabilityStore::new(
+				state.chunks.clone(),
+				state.candidate_hashes.clone(),
+			);
+
 			build_overseer_for_availability_read(
 				dependencies.task_manager.spawn_handle(),
 				runtime_api,
@@ -209,14 +232,14 @@ fn prepare_test_inner(
 			let (chunk_req_receiver, chunk_req_cfg) =
 				IncomingRequest::get_config_receiver(&ReqProtocolNames::new(&GENESIS_HASH, None));
 			req_cfgs.push(pov_req_cfg);
-			req_cfgs.push(chunk_req_cfg);
+
+			state.set_chunk_request_protocol(chunk_req_cfg);
 
 			let availability_distribution = AvailabilityDistributionSubsystem::new(
 				test_authorities.keyring.keystore(),
 				IncomingRequestReceivers { pov_req_receiver, chunk_req_receiver },
 				Metrics::try_register(&dependencies.registry).unwrap(),
 			);
-			let availability_store = new_av_store(&dependencies);
 
 			let block_headers = (0..config.num_blocks)
 				.map(|block_number| {
@@ -234,18 +257,16 @@ fn prepare_test_inner(
 				.collect::<HashMap<_, _>>();
 
 			let chain_api_state = ChainApiState { block_headers };
-			let chain_api = MockChainApi::new(config.clone(), chain_api_state);
-
+			let chain_api = MockChainApi::new(chain_api_state);
 			let bitfield_distribution =
 				BitfieldDistribution::new(Metrics::try_register(&dependencies.registry).unwrap());
 			build_overseer_for_availability_write(
 				dependencies.task_manager.spawn_handle(),
 				runtime_api,
-				av_store,
 				network_bridge_tx,
 				availability_distribution,
 				chain_api,
-				availability_store,
+				new_av_store(&dependencies),
 				bitfield_distribution,
 			)
 		},
@@ -254,7 +275,17 @@ fn prepare_test_inner(
 		},
 	};
 
-	(TestEnvironment::new(dependencies, config, network, overseer, overseer_handle), req_cfgs)
+	(
+		TestEnvironment::new(
+			dependencies,
+			config,
+			network,
+			overseer,
+			overseer_handle,
+			test_authorities,
+		),
+		req_cfgs,
+	)
 }
 
 #[derive(Clone)]
@@ -276,6 +307,12 @@ pub struct TestState {
 	available_data: Vec<AvailableData>,
 	// Per candiadte index chunks
 	chunks: Vec<Vec<ErasureChunk>>,
+	// Availability distribution
+	chunk_request_protocol: Option<ProtocolConfig>,
+	// Availability distribution.
+	pov_request_protocol: Option<ProtocolConfig>,
+	// Per relay chain block - our backed candidate
+	backed_candidates: Vec<CandidateReceipt>,
 }
 
 impl TestState {
@@ -374,10 +411,29 @@ impl TestState {
 			pov_sizes,
 			candidate_hashes: HashMap::new(),
 			candidates: Vec::new().into_iter().cycle(),
+			chunk_request_protocol: None,
+			pov_request_protocol: None,
+			backed_candidates: Vec::new(),
 		};
 
 		_self.generate_candidates();
 		_self
+	}
+
+	pub fn backed_candidates(&mut self) -> &mut Vec<CandidateReceipt> {
+		&mut self.backed_candidates
+	}
+
+	pub fn set_chunk_request_protocol(&mut self, config: ProtocolConfig) {
+		self.chunk_request_protocol = Some(config);
+	}
+
+	pub fn set_pov_request_protocol(&mut self, config: ProtocolConfig) {
+		self.pov_request_protocol = Some(config);
+	}
+
+	pub fn chunk_request_protocol(&self) -> Option<ProtocolConfig> {
+		self.chunk_request_protocol.clone()
 	}
 }
 
@@ -469,6 +525,7 @@ pub async fn benchmark_availability_read(env: &mut TestEnvironment, mut state: T
 			.red()
 	);
 
+	env.display_network_usage();
 	env.display_cpu_usage(&["availability-recovery"]);
 	env.stop().await;
 }
@@ -481,19 +538,131 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 	env.metrics().set_n_validators(config.n_validators);
 	env.metrics().set_n_cores(config.n_cores);
 
+	gum::info!("Seeding availability store with candidates ...");
+	for backed_candidate in state.backed_candidates().clone() {
+		let candidate_index = *state.candidate_hashes.get(&backed_candidate.hash()).unwrap();
+		let available_data = state.available_data[candidate_index].clone();
+		let (tx, rx) = oneshot::channel();
+		env.send_message(AllMessages::AvailabilityStore(
+			AvailabilityStoreMessage::StoreAvailableData {
+				candidate_hash: backed_candidate.hash(),
+				n_validators: config.n_validators as u32,
+				available_data,
+				expected_erasure_root: backed_candidate.descriptor().erasure_root,
+				tx,
+			},
+		))
+		.await;
+
+		let _ = rx
+			.await
+			.unwrap()
+			.expect("Test candidates are stored nicely in availability store");
+	}
+
+	gum::info!("Done");
+
 	for block_num in 0..env.config().num_blocks {
 		gum::info!(target: LOG_TARGET, "Current block {}/{}", block_num + 1, env.config().num_blocks);
 		env.metrics().set_current_block(block_num);
 
 		let block_start_ts = Instant::now();
+		let relay_block_hash = Hash::repeat_byte(block_num as u8);
+		env.import_block(new_block_import_info(relay_block_hash, block_num as BlockNumber))
+			.await;
 
-		env.import_block(new_block_import_info(
-			Hash::repeat_byte(block_num as u8),
-			block_num as BlockNumber,
-		))
-		.await;
+		let mut chunk_request_protocol =
+			state.chunk_request_protocol().expect("No chunk fetching protocol configured");
 
-		tokio::time::sleep(std::time::Duration::from_secs(6)).await;
+		// Inform bitfield distribution about our view of current test block
+		let message = polkadot_node_subsystem_types::messages::BitfieldDistributionMessage::NetworkBridgeUpdate(
+			NetworkBridgeEvent::OurViewChange(OurView::new(vec![(relay_block_hash, Arc::new(Span::Disabled))], 0))
+		);
+		env.send_message(AllMessages::BitfieldDistribution(message)).await;
+
+		// Request chunks of backed candidate from all validators
+		let mut receivers = Vec::new();
+		for index in 1..config.n_validators {
+			let (pending_response, pending_response_receiver) = oneshot::channel();
+
+			// Our backed candidate is first in candidate hashes entry for current block.
+			let payload = ChunkFetchingRequest {
+				candidate_hash: state.backed_candidates()[block_num].hash(),
+				index: ValidatorIndex(index as u32),
+			};
+			// We don't really care.
+			let peer = PeerId::random();
+
+			// They sent it.
+			env.network().peer_stats(index).inc_sent(payload.encoded_size());
+			// We received it.
+			env.network().inc_received(payload.encoded_size());
+
+			// TODO: implement TX rate limiter
+			if let Some(sender) = chunk_request_protocol.inbound_queue.clone() {
+				receivers.push(pending_response_receiver);
+				let _ = sender
+					.send(
+						IncomingRequest::new(PeerId::random(), payload, pending_response)
+							.into_raw(),
+					)
+					.await;
+			}
+		}
+
+		gum::info!("Waiting for all emulated peers to receive their chunk from us ...");
+		for (index, receiver) in receivers.into_iter().enumerate() {
+			let response = receiver.await.expect("Chunk is always served succesfully");
+			assert!(response.result.is_ok());
+			env.network().peer_stats(index).inc_received(response.result.encoded_size());
+			env.network().inc_sent(response.result.encoded_size());
+		}
+
+		gum::info!("All chunks sent");
+
+		// This reflects the bitfield sign timer, we expect bitfields to come in from the network
+		// after it expires.
+		tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+		let signing_context = SigningContext { session_index: 0, parent_hash: relay_block_hash };
+
+		// Generate `n_validator` - 1 messages and inject them to the subsystem via overseer.
+		for index in 1..config.n_validators {
+			let validator_public = env
+				.authorities()
+				.validator_public
+				.get(index)
+				.expect("All validator keys are known");
+
+			// Node has all the chunks in the world.
+			let payload: AvailabilityBitfield =
+				AvailabilityBitfield(bitvec![u8, bitvec::order::Lsb0; 1u8; 32]);
+			let signed_bitfield = Signed::<AvailabilityBitfield>::sign(
+				&env.authorities().keyring.keystore(),
+				payload,
+				&signing_context,
+				ValidatorIndex(index as u32),
+				&validator_public.clone().into(),
+			)
+			.ok()
+			.flatten()
+			.expect("should be signed");
+
+			let overseer_handle = env.overseer_handle();
+
+			let (run, size) =
+				send_peer_bitfield(overseer_handle, relay_block_hash, signed_bitfield);
+			let network_action = NetworkAction::new(
+				env.authorities()
+					.validator_authority_id
+					.get(index)
+					.cloned()
+					.expect("All validator keys are known"),
+				run,
+				size,
+				None,
+			);
+			env.network_mut().submit_peer_action(network_action.peer(), network_action);
+		}
 
 		let block_time = Instant::now().sub(block_start_ts).as_millis() as u64;
 		env.metrics().set_block_time(block_time);
@@ -513,10 +682,44 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 			.red()
 	);
 
+	env.display_network_usage();
+
 	env.display_cpu_usage(&[
 		"availability-distribution",
 		"bitfield-distribution",
 		"availability-store",
 	]);
+
 	env.stop().await;
+}
+
+pub fn send_peer_bitfield(
+	mut overseer_handle: OverseerHandle,
+	relay_hash: H256,
+	signed_bitfield: Signed<AvailabilityBitfield>,
+) -> (Pin<Box<(dyn Future<Output = ()> + std::marker::Send + 'static)>>, usize) {
+	let bitfield = polkadot_node_network_protocol::v2::BitfieldDistributionMessage::Bitfield(
+		relay_hash,
+		signed_bitfield.into(),
+	);
+	let payload_size = bitfield.encoded_size();
+
+	let message =
+		polkadot_node_subsystem_types::messages::BitfieldDistributionMessage::NetworkBridgeUpdate(
+			NetworkBridgeEvent::PeerMessage(PeerId::random(), Versioned::V2(bitfield)),
+		);
+
+	(
+		async move {
+			overseer_handle
+				.send_msg(AllMessages::BitfieldDistribution(message), LOG_TARGET)
+				.timeout(MAX_TIME_OF_FLIGHT)
+				.await
+				.unwrap_or_else(|| {
+					panic!("{}ms maximum time of flight breached", MAX_TIME_OF_FLIGHT.as_millis())
+				});
+		}
+		.boxed(),
+		payload_size,
+	)
 }
