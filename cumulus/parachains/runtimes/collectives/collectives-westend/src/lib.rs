@@ -971,6 +971,18 @@ impl_runtime_apis! {
 					// Reserve transfers are disabled on Collectives.
 					None
 				}
+
+				fn set_up_complex_asset_transfer(
+				) -> Option<(MultiAssets, u32, MultiLocation, Box<dyn FnOnce()>)> {
+					// Collectives only supports teleports to system parachain.
+					// Relay/native token can be teleported between Collectives and Relay.
+					let native_location = Parent.into();
+					let dest = Parent.into();
+					pallet_xcm::benchmarking::helpers::native_teleport_as_asset_transfer::<Runtime>(
+						native_location,
+						dest
+					)
+				}
 			}
 
 			let whitelist: Vec<TrackedStorageKey> = vec![

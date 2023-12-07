@@ -13,23 +13,23 @@ documentation = "https://docs.rs/sp-wasm-interface"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+bounded-collections = { version = "0.1.4", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.193", default-features = false, optional = true, features = ["alloc", "derive"] }
 smallvec = "1.11.0"
 sp-arithmetic = { path = "../arithmetic", default-features = false }
-sp-core = { path = "../core", default-features = false }
 sp-debug-derive = { path = "../debug-derive", default-features = false }
 sp-std = { path = "../std", default-features = false }
 
 [features]
 default = ["std"]
 std = [
+	"bounded-collections/std",
 	"codec/std",
 	"scale-info/std",
 	"serde/std",
 	"sp-arithmetic/std",
-	"sp-core/std",
 	"sp-debug-derive/std",
 	"sp-std/std",
 ]
@@ -39,8 +39,8 @@ full-metadata-docs = ["scale-info/docs"]
 
 # Serde support without relying on std features.
 serde = [
+	"bounded-collections/serde",
 	"dep:serde",
 	"scale-info/serde",
 	"sp-arithmetic/serde",
-	"sp-core/serde",
 ]
