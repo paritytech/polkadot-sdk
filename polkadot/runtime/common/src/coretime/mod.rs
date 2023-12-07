@@ -66,7 +66,7 @@ impl WeightInfo for TestWeightInfo {
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-#[frame_support::pallet(dev_mode)]
+#[frame_support::pallet]
 pub mod pallet {
 
 	use super::*;
@@ -113,37 +113,37 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		// TODO Impl me!
 		//#[pallet::weight(<T as Config>::WeightInfo::request_core_count())]
-		#[pallet::call_index(1)]
-		pub fn request_core_count(origin: OriginFor<T>, _count: u16) -> DispatchResult {
-			// Ignore requests not coming from the broker parachain or root.
-			Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
-			Ok(())
-		}
+		//#[pallet::call_index(1)]
+		//pub fn request_core_count(origin: OriginFor<T>, _count: u16) -> DispatchResult {
+		//	// Ignore requests not coming from the broker parachain or root.
+		//	Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
+		//	Ok(())
+		//}
 
-		// TODO Impl me!
-		//#[pallet::weight(<T as Config>::WeightInfo::request_revenue_info_at())]
-		#[pallet::call_index(2)]
-		pub fn request_revenue_info_at(
-			origin: OriginFor<T>,
-			_when: BlockNumberFor<T>,
-		) -> DispatchResult {
-			// Ignore requests not coming from the broker parachain or root.
-			Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
-			Ok(())
-		}
+		//// TODO Impl me!
+		////#[pallet::weight(<T as Config>::WeightInfo::request_revenue_info_at())]
+		//#[pallet::call_index(2)]
+		//pub fn request_revenue_info_at(
+		//	origin: OriginFor<T>,
+		//	_when: BlockNumberFor<T>,
+		//) -> DispatchResult {
+		//	// Ignore requests not coming from the broker parachain or root.
+		//	Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
+		//	Ok(())
+		//}
 
-		// TODO Impl me!
-		//#[pallet::weight(<T as Config>::WeightInfo::credit_account())]
-		#[pallet::call_index(3)]
-		pub fn credit_account(
-			origin: OriginFor<T>,
-			_who: T::AccountId,
-			_amount: BalanceOf<T>,
-		) -> DispatchResult {
-			// Ignore requests not coming from the broker parachain or root.
-			Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
-			Ok(())
-		}
+		//// TODO Impl me!
+		////#[pallet::weight(<T as Config>::WeightInfo::credit_account())]
+		//#[pallet::call_index(3)]
+		//pub fn credit_account(
+		//	origin: OriginFor<T>,
+		//	_who: T::AccountId,
+		//	_amount: BalanceOf<T>,
+		//) -> DispatchResult {
+		//	// Ignore requests not coming from the broker parachain or root.
+		//	Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
+		//	Ok(())
+		//}
 
 		/// Receive instructions from the `ExternalBrokerOrigin`, detailing how a specific core is
 		/// to be used.
@@ -168,7 +168,6 @@ pub mod pallet {
 			// Ignore requests not coming from the broker parachain or root.
 			Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
 
-			// Relay chain `CoreIndex` implements `From` for `u32`
 			let core = u32::from(core).into();
 
 			<assigner_coretime::Pallet<T>>::assign_core(core, begin, assignment, end_hint)?;
