@@ -821,32 +821,7 @@ where
 		Ok(())
 	}
 
-	async fn block_finalized(&mut self, block: BlockInfo) -> SubsystemResult<()> {
-		let mut update = ActiveLeavesUpdate::default();
-
-		self.active_leaves.retain(|h, n| {
-			// prune all orphaned leaves, but don't prune
-			// the finalized block if it is itself a leaf.
-			if *n <= block.number && *h != block.hash {
-				update.deactivated.push(*h);
-				false
-			} else {
-				true
-			}
-		});
-
-		for deactivated in &update.deactivated {
-			self.on_head_deactivated(deactivated)
-		}
-
-		// If there are no leaves being deactivated, we don't need to send an update.
-		//
-		// Our peers will be informed about our finalized block the next time we
-		// activating/deactivating some leaf.
-		if !update.is_empty() {
-			self.broadcast_signal(OverseerSignal::ActiveLeaves(update)).await?;
-		}
-
+	async fn block_finalized(&mut self, _block: BlockInfo) -> SubsystemResult<()> {
 		Ok(())
 	}
 
