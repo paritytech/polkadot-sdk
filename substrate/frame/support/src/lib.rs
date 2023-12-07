@@ -1024,8 +1024,33 @@ pub mod pallet_macros {
 	pub use frame_support_procedural::{
 		composite_enum, config, disable_frame_system_supertrait_check, extra_constants,
 		generate_store, getter, import_section, inherent, no_default, no_default_bounds, origin,
-		pallet_section, storage_prefix, unbounded, validate_unsigned, weight, whitelist_storage,
+		pallet_section, storage_prefix, unbounded, weight, whitelist_storage,
 	};
+
+	/// The `#[pallet::validate_unsigned]` attribute allows the pallet to validate some
+	/// unsigned transaction:
+	///
+	/// Item must be defined as:
+	///
+	/// ```ignore
+	/// #[pallet::validate_unsigned]
+	/// impl<T: Config> ValidateUnsigned for Pallet<T> {
+	/// 	// ... regular trait implementation
+	/// }
+	/// ```
+	///
+	/// I.e. a trait implementation with bound `T: Config`, of trait
+	/// [`ValidateUnsigned`](frame_support::pallet_prelude::ValidateUnsigned) for
+	/// type `Pallet<T>`, and some optional where clause.
+	///
+	/// NOTE: There is also the `sp_runtime::traits::SignedExtension` trait that can be used to
+	/// add some specific logic for transaction validation.
+	///
+	/// ## Macro expansion
+	///
+	/// The macro currently makes no use of this information, but it might use this information
+	/// in the future to give information directly to [`frame_support::construct_runtime`].
+	pub use frame_support_procedural::validate_unsigned;
 
 	/// The `#[pallet::type_value]` attribute lets you define a struct implementing the
 	/// [`Get`](frame_support::traits::Get) trait to ease the use of storage types. This

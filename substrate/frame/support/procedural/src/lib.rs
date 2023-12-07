@@ -1213,28 +1213,12 @@ pub fn inherent(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// The `#[pallet::validate_unsigned]` attribute allows the pallet to validate some unsigned
-/// transaction:
+#[rustfmt::skip]
 ///
-/// Item must be defined as:
+/// ---
 ///
-/// ```ignore
-/// #[pallet::validate_unsigned]
-/// impl<T: Config> ValidateUnsigned for Pallet<T> {
-/// 	// ... regular trait implementation
-/// }
-/// ```
-///
-/// I.e. a trait implementation with bound `T: Config`, of trait `ValidateUnsigned` for type
-/// `Pallet<T>`, and some optional where clause.
-///
-/// NOTE: There is also the `sp_runtime::traits::SignedExtension` trait that can be used to add
-/// some specific logic for transaction validation.
-///
-/// ## Macro expansion
-///
-/// The macro currently makes no use of this information, but it might use this information in
-/// the future to give information directly to `construct_runtime`.
+/// Rust-Analyzer Users: Documentation for this macro can be found at
+/// [`frame_support::pallet_macros::validate_unsigned`](../frame_support/pallet_macros/attr.validate_unsigned.html).
 #[proc_macro_attribute]
 pub fn validate_unsigned(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
