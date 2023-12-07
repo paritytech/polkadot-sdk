@@ -1521,13 +1521,14 @@ dependencies = [
 
 [[package]]
 name = "bounded-collections"
-version = "0.1.8"
+version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb5b05133427c07c4776906f673ccf36c21b102c9829c641a5b56bd151d44fd6"
+checksum = "ca548b6163b872067dc5eb82fd130c56881435e30367d2073594a3d9744120dd"
 dependencies = [
  "log",
  "parity-scale-codec",
  "scale-info",
+ "schemars",
  "serde",
 ]
 
@@ -2667,7 +2668,6 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
- "testnets-common",
  "westend-runtime-constants",
 ]
 
@@ -10034,6 +10034,7 @@ dependencies = [
 name = "pallet-message-queue"
 version = "7.0.0-dev"
 dependencies = [
+ "environmental",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -16345,6 +16346,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "schemars"
+version = "0.8.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "763f8cd0d4c71ed8389c90cb8100cba87e763bd01a8e614d4f0af97bcd50a161"
+dependencies = [
+ "dyn-clone",
+ "schemars_derive",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "schemars_derive"
+version = "0.8.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec0f696e21e10fa546b7ffb1c9672c6de8fbc7a81acf59524386d8639bf12737"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "serde_derive_internals",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "schnellru"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -16612,6 +16637,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.39",
+]
+
+[[package]]
+name = "serde_derive_internals"
+version = "0.26.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "85bf8229e7920a9f636479437026331ce11aa132b4dde37d121944a44d6e5f3c"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -18117,6 +18153,7 @@ dependencies = [
  "bounded-collections",
  "parity-scale-codec",
  "scale-info",
+ "schemars",
  "serde",
  "smallvec",
  "sp-arithmetic",
@@ -18353,6 +18390,7 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "scale-info",
+ "schemars",
  "serde",
  "sp-io",
  "sp-weights",
@@ -19141,19 +19179,6 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "sp-weights",
-]
-
-[[package]]
-name = "testnets-common"
-version = "1.0.0"
-dependencies = [
- "frame-support",
- "polkadot-core-primitives",
- "rococo-runtime-constants",
- "smallvec",
- "sp-runtime",
- "substrate-wasm-builder",
- "westend-runtime-constants",
 ]
 
 [[package]]
