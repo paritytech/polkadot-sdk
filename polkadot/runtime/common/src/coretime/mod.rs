@@ -82,8 +82,6 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The runtime's definition of a Currency.
 		type Currency: Currency<Self::AccountId>;
-		/// Something that provides the weight of this pallet.
-		//type WeightInfo: WeightInfo;
 		/// The ParaId of the broker system parachain.
 		#[pallet::constant]
 		type BrokerId: Get<u32>;
