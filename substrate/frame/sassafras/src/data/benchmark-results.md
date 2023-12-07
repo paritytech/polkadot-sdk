@@ -42,7 +42,7 @@
 
 ---
 
-## Recompute Ring Verifier Key (on epoch change)
+## Update Ring Verifier Key (on epoch change)
 
 `x` = Ring size
 

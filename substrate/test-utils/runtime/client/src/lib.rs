@@ -54,7 +54,10 @@ pub mod prelude {
 pub struct LocalExecutorDispatch;
 
 impl sc_executor::NativeExecutionDispatch for LocalExecutorDispatch {
-	type ExtendHostFunctions = ();
+	type ExtendHostFunctions = (
+		sp_crypto_ec_utils::bls12_381::host_calls::HostFunctions,
+		sp_crypto_ec_utils::ed_on_bls12_381_bandersnatch::host_calls::HostFunctions,
+	);
 
 	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
 		substrate_test_runtime::api::dispatch(method, data)

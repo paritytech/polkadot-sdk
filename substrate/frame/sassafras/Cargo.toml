@@ -20,6 +20,7 @@ frame-benchmarking = { path = "../benchmarking", default-features = false, optio
 frame-support = { path = "../support", default-features = false }
 frame-system = { path = "../system", default-features = false }
 log = { version = "0.4.17", default-features = false }
+pallet-session = { path = "../session", default-features = false, optional = true }
 sp-consensus-sassafras = { path = "../../primitives/consensus/sassafras", default-features = false, features = ["serde"] }
 sp-io = { path = "../../primitives/io", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }
@@ -36,6 +37,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
+	"pallet-session?/std",
 	"scale-codec/std",
 	"scale-info/std",
 	"sp-consensus-sassafras/std",
@@ -47,13 +49,16 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-session?/try-runtime",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"pallet-session?/try-runtime",
 	"sp-runtime/try-runtime",
 ]
 # Construct dummy ring context on genesis.
 # Mostly used for testing and development.
 construct-dummy-ring-context = []
+session-pallet-support = ["pallet-session"]

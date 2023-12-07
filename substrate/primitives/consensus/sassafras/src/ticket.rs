@@ -100,10 +100,7 @@ pub fn ticket_id_threshold(
 mod tests {
 	use super::*;
 
-	// This is a trivial example/check which just better explain explains the rationale
-	// behind the threshold.
-	//
-	// After this reading the formula should become obvious.
+	// A trivial example/test to better explain the threshold computation.
 	#[test]
 	fn ticket_id_threshold_trivial_check() {
 		// For an epoch with `s` slots we want to accept a number of tickets equal to ~s·r
