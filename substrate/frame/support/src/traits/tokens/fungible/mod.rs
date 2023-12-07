@@ -73,7 +73,8 @@ use crate::{
 	traits::{Consideration, Footprint},
 };
 
-/// Extension for `Consideration` trait.
+/// Extension for the `Consideration` trait to migrate legacy `Currency` deposits.
+///
 /// Provides a `new_from_exact` method for those types using a `fungible` balance frozen,
 /// This method is useful when a new ticket needs to be created with a precise balance, instead of
 /// deriving it from a footprint.
