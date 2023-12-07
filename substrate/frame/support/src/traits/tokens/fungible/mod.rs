@@ -128,6 +128,7 @@ impl<
 	TypeInfo,
 	MaxEncodedLen,
 	RuntimeDebugNoBound,
+	Default,
 )]
 #[scale_info(skip_type_params(A, F, R, D))]
 #[codec(mel_bound())]
