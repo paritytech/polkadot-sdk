@@ -313,7 +313,7 @@ node-bench-regression-guard:
   after_script: [""]
 
 # if this fails run `bot update-ui` in the Pull Request or "./scripts/update-ui-tests.sh" locally
-# see ./docs/CONTRIBUTING.md#ui-tests
+# see ./docs/contributor/CONTRIBUTING.md#ui-tests
 test-frame-ui:
   stage: test
   extends:
@@ -395,7 +395,6 @@ test-linux-stable-int:
     RUN_UI_TESTS: 1
   script:
     - WASM_BUILD_NO_COLOR=1
-      RUST_LOG=sync=trace,consensus=trace,client=trace,state-db=trace,db=trace,forks=trace,state_db=trace,storage_cache=trace
       time cargo test -p staging-node-cli --release --locked -- --ignored
 
 # more information about this job can be found here:

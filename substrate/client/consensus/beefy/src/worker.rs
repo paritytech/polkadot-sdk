@@ -1168,6 +1168,9 @@ pub(crate) mod tests {
 			payload_provider: payload_provider.clone(),
 			_phantom: PhantomData,
 		};
+		let notification_service = peer
+			.take_notification_service(&crate::tests::beefy_gossip_proto_name())
+			.unwrap();
 		let known_peers = Arc::new(Mutex::new(KnownPeers::new()));
 		let (gossip_validator, gossip_report_stream) =
 			GossipValidator::new(known_peers.clone(), fisherman);
@@ -1175,6 +1178,7 @@ pub(crate) mod tests {
 		let gossip_engine = GossipEngine::new(
 			network.clone(),
 			sync.clone(),
+			notification_service,
 			"/beefy/1",
 			gossip_validator.clone(),
 			None,

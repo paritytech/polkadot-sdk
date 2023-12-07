@@ -16,7 +16,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 log = { version = "0.4.17", default-features = false }
 mmr-lib = { package = "ckb-merkle-mountain-range", git = "https://github.com/Lederstrumpf/merkle-mountain-range.git", branch = "leaf-node-proof-split", default-features = false }
-serde = { version = "1.0.188", features = ["derive", "alloc"], default-features = false, optional = true }
+serde = { version = "1.0.193", features = ["alloc", "derive"], default-features = false, optional = true }
 sp-api = { path = "../api", default-features = false}
 sp-core = { path = "../core", default-features = false}
 sp-debug-derive = { path = "../debug-derive", default-features = false}
@@ -28,7 +28,7 @@ thiserror = "1.0"
 array-bytes = "6.1"
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"log/std",
@@ -43,4 +43,4 @@ std = [
 ]
 
 # Serde support without relying on std features.
-serde = [ "dep:serde", "scale-info/serde", "sp-core/serde", "sp-runtime/serde" ]
+serde = ["dep:serde", "scale-info/serde", "sp-core/serde", "sp-runtime/serde"]
