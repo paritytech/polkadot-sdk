@@ -28,7 +28,7 @@ use crate::common::{
 		ArchiveStorageMethodErr, ArchiveStorageMethodOk, ArchiveStorageResult,
 		PaginatedStorageQuery, StorageQueryType,
 	},
-	storage::{is_key_queryable, IterQueryType, QueryIter, Storage},
+	storage::{IterQueryType, QueryIter, Storage},
 };
 
 /// Generates the events of the `chainHead_storage` method.
@@ -65,24 +65,11 @@ where
 		mut items: Vec<PaginatedStorageQuery<StorageKey>>,
 		child_key: Option<ChildInfo>,
 	) -> ArchiveStorageResult {
-		if let Some(child_key) = child_key.as_ref() {
-			if !is_key_queryable(child_key.storage_key()) {
-				return ArchiveStorageResult::Ok(ArchiveStorageMethodOk {
-					result: Vec::new(),
-					discarded_items: 0,
-				})
-			}
-		}
-
 		let discarded_items = items.len().saturating_sub(self.storage_max_queried_items);
 		items.truncate(self.storage_max_queried_items);
 
 		let mut storage_results = Vec::with_capacity(items.len());
 		for item in items {
-			if !is_key_queryable(&item.key.0) {
-				continue
-			}
-
 			match item.query_type {
 				StorageQueryType::Value => {
 					match self.client.query_value(hash, &item.key, child_key.as_ref()) {

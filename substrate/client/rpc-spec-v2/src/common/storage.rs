@@ -59,16 +59,6 @@ pub enum IterQueryType {
 	Hash,
 }
 
-/// Checks if the provided key (main or child key) is valid
-/// for queries.
-///
-/// Keys that are identical to `:child_storage:` or `:child_storage:default:`
-/// are not queryable.
-pub fn is_key_queryable(key: &[u8]) -> bool {
-	!well_known_keys::is_default_child_storage_key(key) &&
-		!well_known_keys::is_child_storage_key(key)
-}
-
 /// The result of making a query call.
 pub type QueryResult = Result<Option<StorageResult>, String>;
 

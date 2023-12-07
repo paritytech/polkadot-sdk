@@ -32,7 +32,7 @@ use crate::{
 	},
 	common::{
 		events::{StorageQuery, StorageQueryType},
-		storage::{is_key_queryable, IterQueryType, QueryIter, QueryIterResult, Storage},
+		storage::{ IterQueryType, QueryIter, QueryIterResult, Storage},
 	},
 };
 
@@ -139,22 +139,8 @@ where
 		let sender = block_guard.response_sender();
 		let operation = block_guard.operation();
 
-		if let Some(child_key) = child_key.as_ref() {
-			if !is_key_queryable(child_key.storage_key()) {
-				let _ = sender.unbounded_send(FollowEvent::<Block::Hash>::OperationStorageDone(
-					OperationId { operation_id: operation.operation_id() },
-				));
-				return
-			}
-		}
-
 		let mut storage_results = Vec::with_capacity(items.len());
 		for item in items {
-			if !is_key_queryable(&item.key.0) {
-				continue
-			}
-
-			match item.query_type {
 				StorageQueryType::Value => {
 					match self.client.query_value(hash, &item.key, child_key.as_ref()) {
 						Ok(Some(value)) => storage_results.push(value),
