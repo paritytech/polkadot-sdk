@@ -49,23 +49,15 @@ use xcm_executor::traits::ConvertLocation;
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, TypeInfo)]
 pub struct ParaInfo<Account, Balance> {
 	/// The account that has placed a deposit for registering this para.
+	///
+	/// The given account ID is responsible for registering the code and initial head data, but may
+	/// only do so if it isn't yet registered. (After that, it's up to governance to do so.)
 	pub(crate) manager: Account,
 	/// The total amount reserved for this para.
 	deposit: Balance,
 	/// Whether the para registration should be locked from being controlled by the manager.
 	/// None means the lock had not been explicitly set, and should be treated as false.
 	locked: Option<bool>,
-}
-
-impl<Account, Balance> ParaInfo<Account, Balance> {
-	/// Returns if the para is locked.
-	pub fn is_locked(&self) -> bool {
-		self.locked.unwrap_or(false)
-	}
-}
-
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, TypeInfo)]
-pub struct BillingInfo<AccountId, Balance> {
 	/// The billing account of a parachain. This account is responsible for holding the required
 	/// deposit for this registered parachain.
 	///
@@ -75,10 +67,17 @@ pub struct BillingInfo<AccountId, Balance> {
 	/// When a parachain is newly registered, this will be set to the parachain manager. However,
 	/// at a later point, this can be updated by calling the
 	/// `set_parachain_billing_account_to_self` extrinsic.
-	billing_account: AccountId,
-	/// In case there is a pending refund, this stores information about the account and the
-	/// amount that will be refunded upon a successful code upgrade.
-	pending_refund: Option<(AccountId, Balance)>,
+	billing_account: Account,
+	/// In case there is a pending refund for the current billing account, this stores information
+	/// about the amount that will be refunded upon a successful code upgrade.
+	pending_refund: Option<Balance>,
+}
+
+impl<Account, Balance> ParaInfo<Account, Balance> {
+	/// Returns if the para is locked.
+	pub fn is_locked(&self) -> bool {
+		self.locked.unwrap_or(false)
+	}
 }
 
 type BalanceOf<T> =
@@ -231,10 +230,8 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type PendingSwap<T> = StorageMap<_, Twox64Concat, ParaId, ParaId>;
 
-	/// Amount held on deposit for each para and the original billing account.
-	///
-	/// The given account ID is responsible for registering the code and initial head data, but may
-	/// only do so if it isn't yet registered. (After that, it's up to governance to do so.)
+	/// Stores all the registration, code upgrade permission, and billing-related information for
+	/// the parachain
 	#[pallet::storage]
 	pub type Paras<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, ParaInfo<T::AccountId, BalanceOf<T>>>;
@@ -242,12 +239,6 @@ pub mod pallet {
 	/// The next free `ParaId`.
 	#[pallet::storage]
 	pub type NextFreeParaId<T> = StorageValue<_, ParaId, ValueQuery>;
-
-	/// Stores all the necessary information about the current billing account of the parachain, as
-	/// well as whether there are any pending refunds.
-	#[pallet::storage]
-	pub type ParaBillings<T: Config> =
-		StorageMap<_, Twox64Concat, ParaId, BillingInfo<T::AccountId, BalanceOf<T>>>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -698,7 +689,13 @@ impl<T: Config> Pallet<T> {
 
 		let deposit = deposit_override.unwrap_or_else(T::ParaDeposit::get);
 		<T as Config>::Currency::reserve(&who, deposit)?;
-		let info = ParaInfo { manager: who.clone(), deposit, locked: None };
+		let info = ParaInfo {
+			manager: who.clone(),
+			deposit,
+			locked: None,
+			billing_account: who.clone(),
+			pending_refund: None,
+		};
 
 		Paras::<T>::insert(id, info);
 		Self::deposit_event(Event::<T>::Reserved { para_id: id, who });
@@ -733,11 +730,15 @@ impl<T: Config> Pallet<T> {
 		} else if let Some(rebate) = deposited.checked_sub(&deposit) {
 			<T as Config>::Currency::unreserve(&who, rebate);
 		};
-		let info = ParaInfo { manager: who.clone(), deposit, locked: None };
-		let billing_info = BillingInfo { billing_account: who.clone(), pending_refund: None };
+		let info = ParaInfo {
+			manager: who.clone(),
+			deposit,
+			locked: None,
+			billing_account: who.clone(),
+			pending_refund: None,
+		};
 
 		Paras::<T>::insert(id, info);
-		ParaBillings::<T>::insert(id, billing_info);
 		// We check above that para has no lifecycle, so this should not fail.
 		let res = runtime_parachains::schedule_para_initialize::<T>(id, genesis);
 		debug_assert!(res.is_ok());
@@ -789,25 +790,21 @@ impl<T: Config> Pallet<T> {
 			.saturating_add(per_byte_fee.saturating_mul((new_code.0.len() as u32).into()));
 
 		let mut info = Paras::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
-		let mut billing_info =
-			ParaBillings::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
-
 		let current_deposit = info.deposit;
 
 		if !free_upgrade {
 			<T as Config>::Currency::withdraw(
-				&billing_info.billing_account,
+				&info.billing_account,
 				T::UpgradeFee::get(),
 				WithdrawReasons::FEE,
 				ExistenceRequirement::KeepAlive,
 			)?;
 
 			let additional_deposit = new_deposit.saturating_sub(current_deposit);
-			<T as Config>::Currency::reserve(&billing_info.billing_account, additional_deposit)?;
+			<T as Config>::Currency::reserve(&info.billing_account, additional_deposit)?;
 
 			// Update the deposit to the new appropriate amount.
 			info.deposit = new_deposit;
-			Paras::<T>::insert(para, info);
 		}
 
 		if current_deposit > new_deposit {
@@ -825,13 +822,10 @@ impl<T: Config> Pallet<T> {
 			// code to an empty blob. In such a case, the pre-checking process would fail, so
 			// the old code would remain on-chain even though there is no deposit to cover it.
 
-			billing_info.pending_refund = Some((
-				billing_info.billing_account.clone(),
-				current_deposit.saturating_sub(new_deposit),
-			));
-			ParaBillings::<T>::insert(para, billing_info);
+			info.pending_refund = Some(current_deposit.saturating_sub(new_deposit));
 		}
 
+		Paras::<T>::insert(para, info);
 		runtime_parachains::schedule_code_upgrade::<T>(para, new_code, SetGoAhead::No)
 	}
 
@@ -877,9 +871,7 @@ impl<T: Config> Pallet<T> {
 		para: ParaId,
 		new_billing_account: T::AccountId,
 	) -> DispatchResult {
-		let info = Paras::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
-		let mut billing_info =
-			ParaBillings::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
+		let mut info = Paras::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
 
 		// When updating the account responsible for all code upgrade costs, we unreserve all
 		// funds associated with the registered parachain from the original billing account and
@@ -889,10 +881,10 @@ impl<T: Config> Pallet<T> {
 
 		// After reserving the required funds from the new billing account we can now safely
 		// refund the old account.
-		<T as Config>::Currency::unreserve(&billing_info.billing_account, info.deposit);
+		<T as Config>::Currency::unreserve(&info.billing_account, info.deposit);
 
-		billing_info.billing_account = new_billing_account;
-		ParaBillings::<T>::insert(para, billing_info);
+		info.billing_account = new_billing_account;
+		Paras::<T>::insert(para, info);
 
 		Ok(())
 	}
@@ -915,18 +907,18 @@ impl<T: Config> OnNewHead for Pallet<T> {
 
 impl<T: Config> OnCodeUpgrade for Pallet<T> {
 	fn on_code_upgrade(id: ParaId) -> Weight {
-		let maybe_billing_info = ParaBillings::<T>::get(id);
-		if maybe_billing_info.is_none() {
+		let maybe_info = Paras::<T>::get(id);
+		if maybe_info.is_none() {
 			return T::DbWeight::get().reads(1)
 		}
 
-		let mut billing_info = maybe_billing_info
+		let mut info = maybe_info
 			.expect("Ensured above that the deposit info is stored for the parachain; qed");
 
-		if let Some((who, rebate)) = billing_info.pending_refund {
-			<T as Config>::Currency::unreserve(&who, rebate);
-			billing_info.pending_refund = None;
-			ParaBillings::<T>::insert(id, billing_info);
+		if let Some(rebate) = info.pending_refund {
+			<T as Config>::Currency::unreserve(&info.billing_account, rebate);
+			info.pending_refund = None;
+			Paras::<T>::insert(id, info);
 
 			return T::DbWeight::get().reads_writes(2, 2)
 		}
@@ -1874,10 +1866,7 @@ mod benchmarking {
 			let para_origin: runtime_parachains::Origin = u32::from(LOWEST_PUBLIC_ID).into();
 		}: _(para_origin, para)
 		verify {
-			assert_eq!(ParaBillings::<T>::get(para), Some(BillingInfo {
-				billing_account: sovereign_account,
-				pending_refund: None
-			}));
+			assert_eq!(ParaInfo::<T>::get(para).billing_account, sovereign_account);
 		}
 
 		force_set_parachain_billing_account {
@@ -1892,10 +1881,7 @@ mod benchmarking {
 			T::Currency::make_free_balance_be(&sovereign_account, BalanceOf::<T>::max_value());
 		}: _(RawOrigin::Root, para, sovereign_account.clone())
 		verify {
-			assert_eq!(ParaBillings::<T>::get(para), Some(BillingInfo {
-				billing_account: sovereign_account,
-				pending_refund: None
-			}));
+			assert_eq!(ParaInfo::<T>::get(para).billing_account, sovereign_account);
 		}
 
 		impl_benchmark_test_suite!(

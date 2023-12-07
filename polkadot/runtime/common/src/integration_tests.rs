@@ -932,9 +932,9 @@ fn setting_parachain_billing_account_to_self_works() {
 			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
 		);
 
-		// CASE 1: Attempting to set the billing account for the parachain to the parachain
-		// sovereign account with an insufficient balance to cover the required deposit should
-		// result in a failure.
+		// CASE 1: Parachain origin attempting to assign the billing account to it itself will
+		// fail if the balance of the sovereign account is insufficient to cover the required
+		// deposit amount
 
 		let location: MultiLocation = (Parent, Parachain(para_id.into())).into();
 		let sovereign_account =
@@ -1040,8 +1040,8 @@ fn force_set_parachain_billing_account_works() {
 			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
 		);
 
-		// CASE 1: Attempting to set the billing account with an insufficient balance to cover
-		// the required deposit should result in a failure.
+		// CASE 1: Attempting to set the billing account to an account with an insufficient balance
+		// to cover the required deposit should result in a failure.
 
 		assert_noop!(
 			Registrar::force_set_parachain_billing_account(
@@ -1052,9 +1052,9 @@ fn force_set_parachain_billing_account_works() {
 			BalancesError::<Test>::InsufficientBalance
 		);
 
-		// CASE 2: The happy path.. The new billing account is sufficiently funded, so the
-		// reserve will be successful, and the old account will be refunded.
-		Balances::make_free_balance_be(&&account_id(2), free_balance);
+		// CASE 2: The new billing account is sufficiently funded, so the reserve will be
+		// successful, and the old account will be refunded.
+		Balances::make_free_balance_be(&account_id(2), free_balance);
 
 		assert_ok!(Registrar::force_set_parachain_billing_account(
 			RuntimeOrigin::root(),
