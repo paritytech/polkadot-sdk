@@ -164,7 +164,7 @@ pub mod pallet {
 			end_hint: Option<BlockNumberFor<T>>,
 		) -> DispatchResult {
 			// Ignore requests not coming from the broker parachain or root.
-			Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
+			Self::ensure_root_or_para(origin, T::BrokerId::get().into())?;
 
 			let core = u32::from(core).into();
 
