@@ -1024,9 +1024,25 @@ pub mod pallet_macros {
 	pub use frame_support_procedural::{
 		composite_enum, config, disable_frame_system_supertrait_check, extra_constants,
 		generate_store, getter, import_section, inherent, no_default, no_default_bounds, origin,
-		pallet_section, storage_prefix, storage_version, type_value, unbounded, validate_unsigned,
-		weight, whitelist_storage,
+		pallet_section, storage_prefix, type_value, unbounded, validate_unsigned, weight,
+		whitelist_storage,
 	};
+
+	/// Because the `pallet::pallet` macro implements
+	/// [`GetStorageVersion`](frame_support::traits::GetStorageVersion), the current storage
+	/// version needs to be communicated to the macro. This can be done by using the
+	/// `pallet::storage_version` attribute:
+	///
+	/// ```ignore
+	/// const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
+	///
+	/// #[pallet::pallet]
+	/// #[pallet::storage_version(STORAGE_VERSION)]
+	/// pub struct Pallet<T>(_);
+	/// ```
+	///
+	/// If not present, the current storage version is set to the default value.
+	pub use frame_support_procedural::storage_version;
 
 	/// The `#[pallet::hooks]` attribute allows you to specify a `Hooks` implementation for
 	/// `Pallet` that specifies pallet-specific logic.

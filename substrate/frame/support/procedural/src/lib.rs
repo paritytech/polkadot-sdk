@@ -944,19 +944,12 @@ pub fn generate_store(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// Because the `pallet::pallet` macro implements `GetStorageVersion`, the current storage
-/// version needs to be communicated to the macro. This can be done by using the
-/// `pallet::storage_version` attribute:
+#[rustfmt::skip]
 ///
-/// ```ignore
-/// const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
+/// ---
 ///
-/// #[pallet::pallet]
-/// #[pallet::storage_version(STORAGE_VERSION)]
-/// pub struct Pallet<T>(_);
-/// ```
-///
-/// If not present, the current storage version is set to the default value.
+/// Rust-Analyzer Users: Documentation for this macro can be found at
+/// [`frame_support::pallet_macros::storage_version`](../frame_support/pallet_macros/attr.storage_version.html).
 #[proc_macro_attribute]
 pub fn storage_version(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
