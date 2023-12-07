@@ -448,14 +448,20 @@ pub mod pallet {
 
 		/// Schedule a parachain upgrade.
 		///
-		/// Can be called by Root, the parachain, or the parachain manager if the parachain is
-		/// unlocked.
+		/// ## Arguments
+		/// - `origin`: Can be called by Root, the parachain, or the parachain manager if the
+		///   parachain is unlocked.
+		/// - `para`: The parachain's ID for which the code upgrade is scheduled.
+		/// - `new_code`: The new validation code of the parachain.
 		///
+		/// ## Deposits/Fees
 		/// In case the call is made by the parachain manager or the parachain itself, there will be
-		/// associated upgrade costs.
+		/// associated upgrade costs. Depending on the size of the new validation code, the caller's
+		/// reserved deposit might be adjusted to account for the size difference.
 		///
-		/// Depending on the size of the new validation code, the caller's reserved deposit might be
-		/// adjusted to account for the size difference.
+		/// ## Events
+		/// The `CodeUpgradeScheduled` event is emitted in case of success, containing information
+		/// about the new total deposit reserved for the parachain.
 		#[pallet::call_index(7)]
 		#[pallet::weight(<T as Config>::WeightInfo::schedule_code_upgrade(new_code.0.len() as u32))]
 		pub fn schedule_code_upgrade(
@@ -498,12 +504,17 @@ pub mod pallet {
 
 		/// Changes the billing account of a parachain to the caller.
 		///
+		/// ## Arguments
+		/// - `origin`: Can be called by Root, the parachain, or the parachain manager if the
+		///   parachain is unlocked.
+		/// - `para`: The parachain's ID for which the billing account is set.
+		///
 		/// ## Deposits/Fees
 		/// For this call to be successful, the caller account must have a sufficient balance
 		/// to cover the current deposit required for this parachain.
 		///
-		/// Can be called by Root, the parachain, or the parachain manager if the parachain is
-		/// unlocked.
+		/// ## Events
+		/// The `BillingAccountSet` event is emitted in case of success.
 		#[pallet::call_index(9)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_parachain_billing_account_to_self())]
 		pub fn set_parachain_billing_account_to_self(
@@ -533,23 +544,30 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Sets the billing account of a parachain to the caller.
+		/// Sets the billing account of a parachain to a specific account.
+		///
+		/// ## Arguments
+		/// - `origin`: Must be Root.
+		/// - `para`: The parachain's ID for which the billing account is set.
+		/// - `billing_account`: The account that will be responsible for covering all parachain
+		///   related costs.
 		///
 		/// ## Deposits/Fees
-		/// For this call to be successful, the `new_billing_account` account must have a sufficient
+		/// For this call to be successful, the `billing_account` account must have a sufficient
 		/// balance to cover the current deposit required for this parachain.
 		///
-		/// Can only be called by Root.
+		/// ## Events
+		/// The `BillingAccountSet` event is emitted in case of success.
 		#[pallet::call_index(10)]
 		#[pallet::weight(<T as Config>::WeightInfo::force_set_parachain_billing_account())]
 		pub fn force_set_parachain_billing_account(
 			origin: OriginFor<T>,
 			para: ParaId,
-			new_billing_account: T::AccountId,
+			billing_account: T::AccountId,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
-			Self::set_parachain_billing_account(para, new_billing_account)?;
+			Self::set_parachain_billing_account(para, billing_account)?;
 
 			Ok(())
 		}
