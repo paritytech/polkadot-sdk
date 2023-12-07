@@ -641,6 +641,7 @@
 <a href="#641" id="641">641</a>
 <a href="#642" id="642">642</a>
 <a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -666,6 +667,7 @@
 
 <span class="attr">#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Eq, PartialEq, Copy, Clone, Debug, Default)]
 #[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">&quot;json-schema&quot;</span>, derive(schemars::JsonSchema))]
 </span><span class="kw">pub struct </span>Weight {
 	<span class="attr">#[codec(compact)]
 	</span><span class="doccomment">/// The weight of computational time used based on some reference hardware.

@@ -186,6 +186,10 @@
 <a href="#186" id="186">186</a>
 <a href="#187" id="187">187</a>
 <a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -202,6 +206,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+</span><span class="attr">#![allow(missing_docs)]
 
 </span><span class="doccomment">//! Std setup helpers for testing and benchmarking.
 //!
@@ -276,11 +282,13 @@
 	PageOf::&lt;T&gt;::from_message::&lt;T&gt;(msg.try_into().unwrap())
 }
 
-<span class="kw">pub fn </span>single_page_book&lt;T: Config&gt;() -&gt; BookStateOf&lt;T&gt; {
+<span class="doccomment">/// Create a book with a single message of one byte.
+</span><span class="kw">pub fn </span>single_page_book&lt;T: Config&gt;() -&gt; BookStateOf&lt;T&gt; {
 	BookState { begin: <span class="number">0</span>, end: <span class="number">1</span>, count: <span class="number">1</span>, message_count: <span class="number">1</span>, size: <span class="number">1</span>, ..Default::default() }
 }
 
-<span class="kw">pub fn </span>empty_book&lt;T: Config&gt;() -&gt; BookStateOf&lt;T&gt; {
+<span class="doccomment">/// Create an empty book.
+</span><span class="kw">pub fn </span>empty_book&lt;T: Config&gt;() -&gt; BookStateOf&lt;T&gt; {
 	BookState { begin: <span class="number">0</span>, end: <span class="number">1</span>, count: <span class="number">1</span>, ..Default::default() }
 }
 

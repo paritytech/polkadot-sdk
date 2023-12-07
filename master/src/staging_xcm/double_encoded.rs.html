@@ -133,6 +133,7 @@
 <a href="#133" id="133">133</a>
 <a href="#134" id="134">134</a>
 <a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -160,6 +161,7 @@
 #[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(T))]
 #[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
+#[cfg_attr(feature = <span class="string">&quot;json-schema&quot;</span>, derive(schemars::JsonSchema))]
 </span><span class="kw">pub struct </span>DoubleEncoded&lt;T&gt; {
 	encoded: Vec&lt;u8&gt;,
 	<span class="attr">#[codec(skip)]

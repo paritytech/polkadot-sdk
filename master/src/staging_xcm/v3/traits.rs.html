@@ -600,6 +600,7 @@
 <a href="#600" id="600">600</a>
 <a href="#601" id="601">601</a>
 <a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -632,6 +633,7 @@
 /// they will retain the same index over time.
 </span><span class="attr">#[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
 #[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
+#[cfg_attr(feature = <span class="string">&quot;json-schema&quot;</span>, derive(schemars::JsonSchema))]
 </span><span class="kw">pub enum </span>Error {
 	<span class="comment">// Errors that happen due to instructions being executed. These alone are defined in the
 	// XCM specification.

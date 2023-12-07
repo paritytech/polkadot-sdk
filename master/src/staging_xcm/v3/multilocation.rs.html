@@ -774,6 +774,7 @@
 <a href="#774" id="774">774</a>
 <a href="#775" id="775">775</a>
 <a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -842,6 +843,7 @@
 	serde::Serialize,
 	serde::Deserialize,
 )]
+#[cfg_attr(feature = <span class="string">&quot;json-schema&quot;</span>, derive(schemars::JsonSchema))]
 </span><span class="kw">pub struct </span>MultiLocation {
 	<span class="doccomment">/// The number of parent junctions at the beginning of this `MultiLocation`.
 	</span><span class="kw">pub </span>parents: u8,

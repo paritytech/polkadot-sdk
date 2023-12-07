@@ -1503,6 +1503,16 @@
 <a href="#1503" id="1503">1503</a>
 <a href="#1504" id="1504">1504</a>
 <a href="#1505" id="1505">1505</a>
+<a href="#1506" id="1506">1506</a>
+<a href="#1507" id="1507">1507</a>
+<a href="#1508" id="1508">1508</a>
+<a href="#1509" id="1509">1509</a>
+<a href="#1510" id="1510">1510</a>
+<a href="#1511" id="1511">1511</a>
+<a href="#1512" id="1512">1512</a>
+<a href="#1513" id="1513">1513</a>
+<a href="#1514" id="1514">1514</a>
+<a href="#1515" id="1515">1515</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1574,6 +1584,7 @@
 #[codec(encode_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
 #[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
+#[cfg_attr(feature = <span class="string">&quot;json-schema&quot;</span>, derive(schemars::JsonSchema))]
 </span><span class="kw">pub struct </span>Xcm&lt;Call&gt;(<span class="kw">pub </span>Vec&lt;Instruction&lt;Call&gt;&gt;);
 
 <span class="doccomment">/// The maximal number of instructions in an XCM before decoding fails.
@@ -1737,15 +1748,19 @@
 }
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub </span>MaxPalletNameLen: u32 = <span class="number">48</span>;
+	<span class="attr">#[cfg_attr(feature = <span class="string">&quot;json-schema&quot;</span>, derive(schemars::JsonSchema))]
+	</span><span class="kw">pub </span>MaxPalletNameLen: u32 = <span class="number">48</span>;
 	<span class="doccomment">/// Maximum size of the encoded error code coming from a `Dispatch` result, used for
 	/// `MaybeErrorCode`. This is not (yet) enforced, so it&#39;s just an indication of expectation.
+	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;json-schema&quot;</span>, derive(schemars::JsonSchema))]
 	</span><span class="kw">pub </span>MaxDispatchErrorLen: u32 = <span class="number">128</span>;
-	<span class="kw">pub </span>MaxPalletsInfo: u32 = <span class="number">64</span>;
+	<span class="attr">#[cfg_attr(feature = <span class="string">&quot;json-schema&quot;</span>, derive(schemars::JsonSchema))]
+	</span><span class="kw">pub </span>MaxPalletsInfo: u32 = <span class="number">64</span>;
 }
 
 <span class="attr">#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 #[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
+#[cfg_attr(feature = <span class="string">&quot;json-schema&quot;</span>, derive(schemars::JsonSchema))]
 </span><span class="kw">pub struct </span>PalletInfo {
 	<span class="attr">#[codec(compact)]
 	</span><span class="kw">pub </span>index: u32,
@@ -1777,6 +1792,7 @@
 
 <span class="attr">#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 #[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
+#[cfg_attr(feature = <span class="string">&quot;json-schema&quot;</span>, derive(schemars::JsonSchema))]
 </span><span class="kw">pub enum </span>MaybeErrorCode {
 	Success,
 	Error(BoundedVec&lt;u8, MaxDispatchErrorLen&gt;),
@@ -1801,6 +1817,7 @@
 <span class="doccomment">/// Response data to a query.
 </span><span class="attr">#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 #[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
+#[cfg_attr(feature = <span class="string">&quot;json-schema&quot;</span>, derive(schemars::JsonSchema))]
 </span><span class="kw">pub enum </span>Response {
 	<span class="doccomment">/// No response. Serves as a neutral default.
 	</span>Null,
@@ -1825,6 +1842,7 @@
 <span class="doccomment">/// Information regarding the composition of a query response.
 </span><span class="attr">#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
 #[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
+#[cfg_attr(feature = <span class="string">&quot;json-schema&quot;</span>, derive(schemars::JsonSchema))]
 </span><span class="kw">pub struct </span>QueryResponseInfo {
 	<span class="doccomment">/// The destination to which the query response message should be send.
 	</span><span class="kw">pub </span>destination: MultiLocation,
@@ -1838,6 +1856,7 @@
 <span class="doccomment">/// An optional weight limit.
 </span><span class="attr">#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
 #[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
+#[cfg_attr(feature = <span class="string">&quot;json-schema&quot;</span>, derive(schemars::JsonSchema))]
 </span><span class="kw">pub enum </span>WeightLimit {
 	<span class="doccomment">/// No weight limit imposed.
 	</span>Unlimited,
@@ -1922,6 +1941,7 @@
 #[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
 #[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
+#[cfg_attr(feature = <span class="string">&quot;json-schema&quot;</span>, derive(schemars::JsonSchema))]
 </span><span class="kw">pub enum </span>Instruction&lt;Call&gt; {
 	<span class="doccomment">/// Withdraw asset(s) (`assets`) from the ownership of `origin` and place them into the Holding
 	/// Register.
