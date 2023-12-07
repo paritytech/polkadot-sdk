@@ -623,11 +623,15 @@ where
 #[cfg(test)]
 mod test {
 	use super::*;
+	use sc_block_builder::BlockBuilderBuilder;
 	use sp_blockchain::{BlockStatus, Error as BlockchainError, HeaderBackend, Info};
 	use sp_consensus_grandpa::{AuthorityList, SetId};
 	use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
-	use std::sync::Arc;
-	use substrate_test_runtime_client::runtime::{Block, Hash};
+	use std::{io::ErrorKind, sync::Arc};
+	use substrate_test_runtime_client::{
+		runtime::{Block, Hash},
+		DefaultTestClientBuilderExt, TestClientBuilder, TestClientBuilderExt,
+	};
 
 	mockall::mock! {
 		pub Client<B: BlockT> {}
@@ -697,6 +701,18 @@ mod test {
 		client
 	}
 
+	fn single_action<B: BlockT, Client>(warp_sync: &mut WarpSync<B, Client>) -> WarpSyncAction<B>
+	where
+		B: BlockT,
+		Client: HeaderBackend<B> + 'static,
+	{
+		let mut actions = warp_sync.actions().collect::<Vec<_>>();
+		if actions.len() != 1 {
+			panic!("Got {} actions (1 expected).", actions.len());
+		}
+		actions.pop().unwrap()
+	}
+
 	#[test]
 	fn warp_sync_with_provider_for_db_with_finalized_state_is_noop() {
 		let client = mock_client_with_state();
@@ -720,9 +736,7 @@ mod test {
 		let mut warp_sync = WarpSync::new(Arc::new(client), config);
 
 		// Warp sync instantly finishes
-		let actions = warp_sync.actions().collect::<Vec<_>>();
-		assert_eq!(actions.len(), 1);
-		assert!(matches!(actions[0], WarpSyncAction::Finished));
+		assert!(matches!(single_action(&mut warp_sync), WarpSyncAction::Finished));
 
 		// ... with no result.
 		assert!(warp_sync.take_result().is_none());
@@ -833,7 +847,7 @@ mod test {
 	}
 
 	#[test]
-	fn no_warp_proof_request_if_another_phase() {
+	fn no_warp_proof_request_in_another_phase() {
 		let client = mock_client_without_state();
 		let mut provider = MockWarpSyncProvider::<Block>::new();
 		provider
@@ -907,6 +921,127 @@ mod test {
 		assert!(warp_sync.warp_proof_request().is_some());
 		// Second request is not made.
 		assert!(warp_sync.warp_proof_request().is_none());
+	}
+
+	#[test]
+	fn bad_warp_proof_response_drops_peer() {
+		let client = mock_client_without_state();
+		let mut provider = MockWarpSyncProvider::<Block>::new();
+		provider
+			.expect_current_authorities()
+			.once()
+			.return_const(AuthorityList::default());
+		// Warp proof verification fails.
+		provider.expect_verify().return_once(|_proof, _set_id, _authorities| {
+			Err(Box::new(std::io::Error::new(ErrorKind::Other, "test-verification-failure")))
+		});
+		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
+		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+
+		// Make sure we have enough peers to make a request.
+		for best_number in 1..11 {
+			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+		}
+		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
+
+		// Consume `SendWarpProofRequest` action.
+		let actions = warp_sync.actions().collect::<Vec<_>>();
+		assert_eq!(actions.len(), 1);
+		let WarpSyncAction::SendWarpProofRequest { peer_id: request_peer_id, .. } = actions[0]
+		else {
+			panic!("Invalid action");
+		};
+
+		warp_sync.on_warp_proof_response(&request_peer_id, EncodedProof(Vec::new()));
+
+		// The first action is a "drop peer" action, the second is the next warp proof request
+		// we are not interested in.
+		let actions = warp_sync.actions().collect::<Vec<_>>();
+		assert!(matches!(
+			actions[0],
+			WarpSyncAction::DropPeer(BadPeer(peer_id, _rep)) if peer_id == request_peer_id
+		));
+	}
+
+	#[test]
+	fn partial_warp_proof_doesnt_advance_phase() {
+		let client = mock_client_without_state();
+		let mut provider = MockWarpSyncProvider::<Block>::new();
+		provider
+			.expect_current_authorities()
+			.once()
+			.return_const(AuthorityList::default());
+		// Warp proof is partial.
+		provider.expect_verify().return_once(|_proof, set_id, authorities| {
+			Ok(VerificationResult::Partial(set_id, authorities, Hash::random()))
+		});
+		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
+		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+
+		// Make sure we have enough peers to make a request.
+		for best_number in 1..11 {
+			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+		}
+		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
+
+		// Consume `SendWarpProofRequest` action.
+		let actions = warp_sync.actions().collect::<Vec<_>>();
+		assert_eq!(actions.len(), 1);
+		let WarpSyncAction::SendWarpProofRequest { peer_id: request_peer_id, .. } = actions[0]
+		else {
+			panic!("Invalid action");
+		};
+
+		warp_sync.on_warp_proof_response(&request_peer_id, EncodedProof(Vec::new()));
+
+		assert!(warp_sync.actions.is_empty(), "No extra actions generated");
+		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
+	}
+
+	#[test]
+	fn complete_warp_proof_advances_phase() {
+		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
+		let mut provider = MockWarpSyncProvider::<Block>::new();
+		provider
+			.expect_current_authorities()
+			.once()
+			.return_const(AuthorityList::default());
+		let target_block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().best_hash)
+			.with_parent_block_number(client.chain_info().best_number)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		let target_header = target_block.header().clone();
+		// Warp proof is complete.
+		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
+			Ok(VerificationResult::Complete(set_id, authorities, target_header))
+		});
+		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
+		let mut warp_sync = WarpSync::new(client, config);
+
+		// Make sure we have enough peers to make a request.
+		for best_number in 1..11 {
+			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+		}
+		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
+
+		// Consume `SendWarpProofRequest` action.
+		let actions = warp_sync.actions().collect::<Vec<_>>();
+		assert_eq!(actions.len(), 1);
+		let WarpSyncAction::SendWarpProofRequest { peer_id: request_peer_id, .. } = actions[0]
+		else {
+			panic!("Invalid action");
+		};
+
+		warp_sync.on_warp_proof_response(&request_peer_id, EncodedProof(Vec::new()));
+
+		assert!(warp_sync.actions.is_empty(), "No extra actions generated");
+		assert!(
+			matches!(warp_sync.phase, Phase::TargetBlock(header) if header == *target_block.header())
+		);
 	}
 
 	// TODO
