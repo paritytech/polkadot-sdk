@@ -132,8 +132,6 @@ pub struct NetworkService<B: BlockT + 'static, H: ExHashT> {
 	protocol_handles: Vec<protocol_controller::ProtocolHandle>,
 	/// Shortcut to sync protocol handle (`protocol_handles[0]`).
 	sync_protocol_handle: protocol_controller::ProtocolHandle,
-	/// Handle to `PeerStore`.
-	peer_store_handle: PeerStoreHandle,
 	/// Marker to pin the `H` generic. Serves no purpose except to not break backwards
 	/// compatibility.
 	_marker: PhantomData<H>,
@@ -523,7 +521,6 @@ where
 			peer_store_handle: params.peer_store.clone(),
 			_marker: PhantomData,
 			_block: Default::default(),
-			peer_store_handle: params.peer_store.clone(),
 		});
 
 		Ok(NetworkWorker {
