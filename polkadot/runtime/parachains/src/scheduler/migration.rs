@@ -97,7 +97,7 @@ pub mod assignment_version {
 			if AssignmentVersion::get::<Pallet<T>>() == M::ON_CHAIN_STORAGE_VERSION {
 				let mut weight = migrate_assignments::<T, M>();
 
-				log::info!(target: scheduler::LOG_TARGET, "Migrating para scheduler assginments to {:?}", M::STORAGE_VERSION);
+				log::info!(target: scheduler::LOG_TARGET, "Migrating para scheduler assignments to {:?}", M::STORAGE_VERSION);
 				M::STORAGE_VERSION.put::<Pallet<T>>();
 
 				weight += T::DbWeight::get().reads_writes(1, 1);

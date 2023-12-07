@@ -268,10 +268,7 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 		CoreDescriptors::<T>::mutate(core_idx, |core_state| {
 			Self::ensure_workload(now, core_idx, core_state);
 
-			let work_state = match &mut core_state.current_work {
-				None => return None,
-				Some(w) => w,
-			};
+			let mut work_state = core_state.current_work.as_mut()?;
 
 			work_state.pos = work_state.pos % work_state.assignments.len() as u16;
 			let (a_type, a_state) = &mut work_state
@@ -290,14 +287,14 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 			}
 
 			match a_type {
-				CoreAssignment::Idle => return None,
+				CoreAssignment::Idle => None,
 				CoreAssignment::Pool =>
-					return <assigner_on_demand::Pallet<T> as AssignmentProvider<
+					<assigner_on_demand::Pallet<T> as AssignmentProvider<
 						BlockNumberFor<T>,
 					>>::pop_assignment_for_core(core_idx)
 					.map(|assignment| CoretimeAssignment::Pool(assignment)),
 				CoreAssignment::Task(para_id) =>
-					return Some(CoretimeAssignment::Bulk((*para_id).into())),
+					Some(CoretimeAssignment::Bulk((*para_id).into())),
 			}
 		})
 	}
@@ -341,7 +338,7 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	fn get_mock_assignment(_: CoreIndex, para_id: ParaId) -> Self::AssignmentType {
 		// Given that we are not tracking anything in `Bulk` assignments, it is safe to always
 		// return a bulk assignment.
-		return CoretimeAssignment::Bulk(para_id)
+		CoretimeAssignment::Bulk(para_id)
 	}
 }
 
@@ -382,7 +379,7 @@ impl<T: Config> Pallet<T> {
 		// Update is needed:
 		let update = CoreSchedules::<T>::take((next_scheduled, core_idx));
 		let new_first = update.as_ref().and_then(|u| u.next_schedule);
-		descriptor.current_work = update.map(|u| u.into());
+		descriptor.current_work = update.map(Into::into);
 
 		descriptor.queue = new_first.map(|new_first| {
 			QueueDescriptor {
