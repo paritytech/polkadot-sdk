@@ -65,11 +65,7 @@ test-rust-features:
     - .kubernetes-env
     - .test-refs-no-trigger-prs-only
   script:
-    - git clone
-      --depth=1
-      --branch="master"
-      https://github.com/paritytech/pipeline-scripts
-    - bash ./pipeline-scripts/rust-features.sh .
+    - bash .gitlab/rust-features.sh .
 
 job-starter:
   stage: check
