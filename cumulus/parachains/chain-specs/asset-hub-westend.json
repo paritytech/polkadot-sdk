@@ -20,7 +20,10 @@
     "/dns/westmint-boot-ng.dwellir.com/tcp/30345/p2p/12D3KooWFZ9xqApB1wnFYkbe1qJ5Jqwxe2f3i8W25F3tKNXy59ux",
     "/dns/westmint-boot-ng.dwellir.com/tcp/443/wss/p2p/12D3KooWFZ9xqApB1wnFYkbe1qJ5Jqwxe2f3i8W25F3tKNXy59ux",
     "/dns/westmint-bootnode.radiumblock.com/tcp/30336/wss/p2p/12D3KooWDoq4PVdWm5nzRSvEz3DSSKjVgRhWVUaKyi5JMKwJKYbk",
-    "/dns/westmint-bootnode.radiumblock.com/tcp/30333/p2p/12D3KooWDoq4PVdWm5nzRSvEz3DSSKjVgRhWVUaKyi5JMKwJKYbk"
+    "/dns/westmint-bootnode.radiumblock.com/tcp/30333/p2p/12D3KooWDoq4PVdWm5nzRSvEz3DSSKjVgRhWVUaKyi5JMKwJKYbk",
+    "/dns/wmint14.rotko.net/tcp/33534/p2p/12D3KooWE4UDXqgtTcMCyUQ8S4uvaT8VMzzTBA6NWmKuYwTacWuN",
+    "/dns/wmint14.rotko.net/tcp/34534/ws/p2p/12D3KooWE4UDXqgtTcMCyUQ8S4uvaT8VMzzTBA6NWmKuYwTacWuN",
+    "/dns/wmint14.rotko.net/tcp/35534/wss/p2p/12D3KooWE4UDXqgtTcMCyUQ8S4uvaT8VMzzTBA6NWmKuYwTacWuN"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

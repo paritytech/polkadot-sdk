@@ -51,7 +51,7 @@ use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{AccountIdConversion, AccountIdLookup, BlakeTwo256, Block as BlockT},
+	traits::{AccountIdConversion, BlakeTwo256, Block as BlockT},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, Perbill,
 };
@@ -64,7 +64,7 @@ use sp_version::RuntimeVersion;
 use codec::{Decode, Encode, MaxEncodedLen};
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::{
-	construct_runtime,
+	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
@@ -156,25 +156,18 @@ parameter_types! {
 }
 
 // Configure FRAME pallets to include in runtime.
+#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
-	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = RuntimeBlockWeights;
 	type BlockLength = RuntimeBlockLength;
 	type AccountId = AccountId;
 	type RuntimeCall = RuntimeCall;
-	type Lookup = AccountIdLookup<AccountId, ()>;
 	type Nonce = Nonce;
 	type Hash = Hash;
-	type Hashing = BlakeTwo256;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeOrigin = RuntimeOrigin;
 	type BlockHashCount = BlockHashCount;
 	type DbWeight = RocksDbWeight;
 	type Version = Version;
-	type PalletInfo = PalletInfo;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
 	type AccountData = pallet_balances::AccountData<Balance>;
 	type SystemWeightInfo = weights::frame_system::WeightInfo<Runtime>;
 	type SS58Prefix = ConstU16<0>;
@@ -728,6 +721,8 @@ pub type UncheckedExtrinsic =
 type Migrations = (
 	// unreleased
 	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
+	// unreleased
+	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.
@@ -996,6 +991,18 @@ impl_runtime_apis! {
 				fn reserve_transferable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
 					// Reserve transfers are disabled on Collectives.
 					None
+				}
+
+				fn set_up_complex_asset_transfer(
+				) -> Option<(MultiAssets, u32, MultiLocation, Box<dyn FnOnce()>)> {
+					// Collectives only supports teleports to system parachain.
+					// Relay/native token can be teleported between Collectives and Relay.
+					let native_location = Parent.into();
+					let dest = Parent.into();
+					pallet_xcm::benchmarking::helpers::native_teleport_as_asset_transfer::<Runtime>(
+						native_location,
+						dest
+					)
 				}
 			}
 

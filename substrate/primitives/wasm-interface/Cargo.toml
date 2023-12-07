@@ -19,9 +19,9 @@ impl-trait-for-tuples = "0.2.2"
 log = { version = "0.4.17", optional = true }
 wasmtime = { version = "8.0.1", default-features = false, optional = true }
 anyhow = { version = "1.0.68", optional = true }
-sp-std = { path = "../std", default-features = false}
+sp-std = { path = "../std", default-features = false }
 
 [features]
-default = [ "std" ]
-std = [ "codec/std", "log/std", "sp-std/std", "wasmtime" ]
-wasmtime = [ "anyhow", "dep:wasmtime" ]
+default = ["std"]
+std = ["codec/std", "log/std", "sp-std/std", "wasmtime"]
+wasmtime = ["anyhow", "dep:wasmtime"]
