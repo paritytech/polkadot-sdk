@@ -244,7 +244,7 @@ impl ExtBuilder {
 				(v, Exposure { total: 0, own: 0, others })
 			})
 			.for_each(|(validator, exposure)| {
-				pallet_staking::ErasStakers::<T>::insert(era, validator, exposure);
+				pallet_staking::EraInfo::<T>::set_exposure(era, &validator, exposure);
 			});
 	}
 
@@ -342,10 +342,11 @@ pub fn assert_unstaked(stash: &AccountId) {
 }
 
 pub fn create_exposed_nominator(exposed: AccountId, era: u32) {
-	// create an exposed nominator in era 1
-	pallet_staking::ErasStakers::<T>::mutate(era, VALIDATORS_PER_ERA, |expo| {
-		expo.others.push(IndividualExposure { who: exposed, value: 0 as Balance });
-	});
+	// create an exposed nominator in passed era
+	let mut exposure = pallet_staking::EraInfo::<T>::get_full_exposure(era, &VALIDATORS_PER_ERA);
+	exposure.others.push(IndividualExposure { who: exposed, value: 0 as Balance });
+	pallet_staking::EraInfo::<T>::set_exposure(era, &VALIDATORS_PER_ERA, exposure);
+
 	Balances::make_free_balance_be(&exposed, 100);
 	assert_ok!(Staking::bond(
 		RuntimeOrigin::signed(exposed),

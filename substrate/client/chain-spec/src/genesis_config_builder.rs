@@ -76,7 +76,6 @@ where
 				&RuntimeCode { heap_pages: None, code_fetcher: self, hash: self.code_hash.clone() },
 				method,
 				data,
-				false,
 				CallContext::Offchain,
 			)
 			.0

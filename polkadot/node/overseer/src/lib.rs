@@ -87,8 +87,8 @@ use polkadot_node_subsystem_types::messages::{
 
 pub use polkadot_node_subsystem_types::{
 	errors::{SubsystemError, SubsystemResult},
-	jaeger, ActivatedLeaf, ActiveLeavesUpdate, OverseerSignal, RuntimeApiSubsystemClient,
-	UnpinHandle,
+	jaeger, ActivatedLeaf, ActiveLeavesUpdate, ChainApiBackend, OverseerSignal,
+	RuntimeApiSubsystemClient, UnpinHandle,
 };
 
 pub mod metrics;

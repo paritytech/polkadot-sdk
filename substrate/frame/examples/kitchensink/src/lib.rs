@@ -292,9 +292,8 @@ pub mod pallet {
 		}
 	}
 
-	/// Allows you to define an enum on the pallet which will then instruct
-	/// `construct_runtime` to amalgamate all similarly-named enums from other
-	/// pallets into an aggregate enum.
+	/// Allows you to define an enum on the pallet which will then instruct `construct_runtime` to
+	/// amalgamate all similarly-named enums from other pallets into an aggregate enum.
 	#[pallet::composite_enum]
 	pub enum HoldReason {
 		Staking,

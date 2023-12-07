@@ -1,0 +1,61 @@
+name: Release - Announce release to Matrix rooms
+on:
+  release:
+    types:
+      - published
+      - prereleased
+
+jobs:
+  ping_matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        channel:
+          # Internal
+          - name: 'RelEng: Cumulus Release Coordination'
+            room: '!NAEMyPAHWOiOQHsvus:parity.io'
+            pre-releases: true
+          - name: "RelEng: Polkadot Release Coordination"
+            room: '!cqAmzdIcbOFwrdrubV:parity.io'
+            pre-release: true
+          - name: 'General: Rust, Polkadot, Substrate'
+            room: '!aJymqQYtCjjqImFLSb:parity.io'
+            pre-release: false
+          - name: 'Team: DevOps'
+            room: '!lUslSijLMgNcEKcAiE:parity.io'
+            pre-release: true
+
+         # External
+          - name: 'Ledger <> Polkadot Coordination'
+            room: '!EoIhaKfGPmFOBrNSHT:web3.foundation'
+            pre-release: true
+
+          # Public
+          # - name: '#KusamaValidatorLounge:polkadot.builders'
+          #   room: '!LhjZccBOqFNYKLdmbb:polkadot.builders'
+          #   pre-releases: false
+          # - name: '#kusama-announcements:matrix.parity.io'
+          #   room: '!FMwxpQnYhRCNDRsYGI:matrix.parity.io'
+          #   pre-release: false
+          # - name: '#polkadotvalidatorlounge:web3.foundation'
+          #   room: '!NZrbtteFeqYKCUGQtr:matrix.parity.io'
+          #   pre-release: false
+          # - name: '#polkadot-announcements:matrix.parity.io'
+          #   room: '!UqHPWiCBGZWxrmYBkF:matrix.parity.io'
+          #   pre-release: false
+
+    steps:
+      - name: Matrix notification to ${{ matrix.channel.name }}
+        if: github.event.release.prerelease == false || matrix.channel.pre-release
+        uses: s3krit/matrix-message-action@70ad3fb812ee0e45ff8999d6af11cafad11a6ecf # v0.0.3
+        with:
+          room_id: ${{ matrix.channel.room }}
+          access_token: ${{ secrets.RELEASENOTES_MATRIX_V2_ACCESS_TOKEN }}
+          server: m.parity.io
+          message: |
+            A (pre)release has been ${{github.event.action}} in **${{github.event.repository.full_name}}:**<br/>
+            Release version: [${{github.event.release.tag_name}}](${{github.event.release.html_url}})
+
+            -----
+
+            ${{github.event.release.body}}
