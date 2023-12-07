@@ -76,7 +76,7 @@ pallet-collator-selection = { path = "../../../../pallets/collator-selection", d
 parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false }
 parachains-common = { path = "../../../common", default-features = false }
 assets-common = { path = "../../assets/common", default-features = false }
-snowbridge-rococo-common = { git = "https://github.com/Snowfork/snowbridge.git", branch = "rococo-merge",, default-features = false}
+snowbridge-rococo-common = { git = "https://github.com/Snowfork/snowbridge.git", branch = "rococo-merge", default-features = false}
 
 [features]
 default = ["std"]

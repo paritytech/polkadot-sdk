@@ -44,9 +44,9 @@ penpal-runtime = { path = "../../../../../runtimes/testing/penpal" }
 rococo-system-emulated-network ={ path = "../../../networks/rococo-system" }
 
 # Snowbridge
-snowbridge-core = { git = "https://github.com/Snowfork/snowbridge.git", branch = "rococo-merge",, default-features = false }
-snowbridge-router-primitives = { git = "https://github.com/Snowfork/snowbridge.git", branch = "rococo-merge",, default-features = false }
-snowbridge-system = { git = "https://github.com/Snowfork/snowbridge.git", branch = "rococo-merge",, default-features = false }
-snowbridge-inbound-queue = { git = "https://github.com/Snowfork/snowbridge.git", branch = "rococo-merge",, default-features = false }
-snowbridge-outbound-queue = { git = "https://github.com/Snowfork/snowbridge.git", branch = "rococo-merge",, default-features = false }
-snowbridge-rococo-common = { git = "https://github.com/Snowfork/snowbridge.git", branch = "rococo-merge",, default-features = false }
+snowbridge-core = { git = "https://github.com/Snowfork/snowbridge.git", branch = "rococo-merge", default-features = false }
+snowbridge-router-primitives = { git = "https://github.com/Snowfork/snowbridge.git", branch = "rococo-merge", default-features = false }
+snowbridge-system = { git = "https://github.com/Snowfork/snowbridge.git", branch = "rococo-merge", default-features = false }
+snowbridge-inbound-queue = { git = "https://github.com/Snowfork/snowbridge.git", branch = "rococo-merge", default-features = false }
+snowbridge-outbound-queue = { git = "https://github.com/Snowfork/snowbridge.git", branch = "rococo-merge", default-features = false }
+snowbridge-rococo-common = { git = "https://github.com/Snowfork/snowbridge.git", branch = "rococo-merge", default-features = false }
