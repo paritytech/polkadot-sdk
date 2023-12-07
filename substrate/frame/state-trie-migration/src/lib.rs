@@ -655,10 +655,6 @@ pub mod pallet {
 
 			// ensure they can pay more than the fee.
 			let deposit = T::SignedDepositPerItem::get().saturating_mul(limits.item.into());
-			sp_std::if_std! {
-				use frame_support::traits::tokens::{Fortitude, Preservation};
-				println!("+ {:?} / {:?} / {:?}", who, deposit, T::Currency::reducible_balance(&who, Preservation::Protect, Fortitude::Force));
-			}
 			ensure!(
 				T::Currency::can_hold(&HoldReason::SlashForContinueMigrate.into(), &who, deposit),
 				Error::<T>::NotEnoughFunds
@@ -731,10 +727,6 @@ pub mod pallet {
 			let deposit = T::SignedDepositBase::get().saturating_add(
 				T::SignedDepositPerItem::get().saturating_mul((keys.len() as u32).into()),
 			);
-			sp_std::if_std! {
-				use frame_support::traits::tokens::{Fortitude, Preservation};
-				println!("+ {:?} / {:?} / {:?}", who, deposit, T::Currency::reducible_balance(&who, Preservation::Protect, Fortitude::Force));
-			}
 			ensure!(
 				T::Currency::can_hold(&HoldReason::SlashForMigrateCustomTop.into(), &who, deposit),
 				Error::<T>::NotEnoughFunds
@@ -799,10 +791,6 @@ pub mod pallet {
 			let deposit = T::SignedDepositBase::get().saturating_add(
 				T::SignedDepositPerItem::get().saturating_mul((child_keys.len() as u32).into()),
 			);
-			sp_std::if_std! {
-				use frame_support::traits::tokens::{Fortitude, Preservation};
-				println!("+ {:?} / {:?} / {:?}", who, deposit, T::Currency::reducible_balance(&who, Preservation::Protect, Fortitude::Force));
-			}
 			ensure!(
 				T::Currency::can_hold(
 					&HoldReason::SlashForMigrateCustomChild.into(),
