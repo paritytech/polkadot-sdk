@@ -125,7 +125,7 @@ impl_runtime_apis! {
 			RuntimeExecutive::initialize_block(header)
 		}
 	}
-	impl apis::Metadata<Block> for Runtime {
+	impl apis::Metadata for Runtime {
 		fn metadata() -> OpaqueMetadata {
 			OpaqueMetadata::new(Runtime::metadata().into())
 		}
@@ -188,14 +188,13 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl apis::AccountNonceApi<Block, interface::AccountId, interface::Nonce> for Runtime {
+	impl apis::AccountNonceApi<interface::AccountId, interface::Nonce> for Runtime {
 		fn account_nonce(account: interface::AccountId) -> interface::Nonce {
 			System::account_nonce(account)
 		}
 	}
 
 	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<
-		Block,
 		interface::Balance,
 	> for Runtime {
 		fn query_info(uxt: ExtrinsicFor<Runtime>, len: u32) -> RuntimeDispatchInfo<interface::Balance> {
@@ -212,7 +211,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
+	impl sp_genesis_builder::GenesisBuilder for Runtime {
 		fn create_default_config() -> Vec<u8> {
 			create_default_config::<RuntimeGenesisConfig>()
 		}

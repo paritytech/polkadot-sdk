@@ -53,9 +53,12 @@ use sc_consensus::{
 	BasicQueue, BlockCheckParams, BlockImport, BlockImportParams, BoxBlockImport,
 	BoxJustificationImport, ForkChoiceStrategy, ImportResult, Verifier,
 };
+use sp_api::{RuntimeInstance, CallApiAt};
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::HeaderBackend;
-use sp_consensus::{Environment, Error as ConsensusError, Proposer, SelectChain, SyncOracle};
+use sp_consensus::{
+	Environment, Error as ConsensusError, ProofOf, Proposer, SelectChain, SyncOracle,
+};
 use sp_consensus_pow::{Seal, TotalDifficulty, POW_ENGINE_ID};
 use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
 use sp_runtime::{
@@ -238,8 +241,7 @@ where
 	B: BlockT,
 	I: BlockImport<B> + Send + Sync,
 	I::Error: Into<ConsensusError>,
-	C: Send + Sync + HeaderBackend<B> + AuxStore + BlockOf,
-	C::Api: BlockBuilderApi<B>,
+	C: Send + Sync + HeaderBackend<B> + AuxStore + BlockOf + CallApiAt<B>,
 	Algorithm: PowAlgorithm<B>,
 	CIDP: CreateInherentDataProviders<B, ()>,
 {
@@ -277,11 +279,12 @@ where
 			.await
 			.map_err(|e| Error::CreateInherents(e))?;
 
-		let inherent_res = self
-			.client
-			.runtime_api()
-			.check_inherents(at_hash, block, inherent_data)
-			.map_err(|e| Error::Client(e.into()))?;
+		let mut runtime_api =
+			RuntimeInstance::builder(&self.client, at_hash).off_chain_context().build();
+
+		let inherent_res =
+			BlockBuilderApi::<B>::check_inherents(&mut runtime_api, block, inherent_data)
+				.map_err(|e| Error::Client(e.into()))?;
 
 		if !inherent_res.ok() {
 			for (identifier, error) in inherent_res.into_errors() {
@@ -303,8 +306,7 @@ where
 	I: BlockImport<B> + Send + Sync,
 	I::Error: Into<ConsensusError>,
 	S: SelectChain<B>,
-	C: Send + Sync + HeaderBackend<B> + AuxStore + BlockOf,
-	C::Api: BlockBuilderApi<B>,
+	C: Send + Sync + HeaderBackend<B> + AuxStore + BlockOf + CallApiAt<B>,
 	Algorithm: PowAlgorithm<B> + Send + Sync,
 	Algorithm::Difficulty: 'static + Send,
 	CIDP: CreateInherentDataProviders<B, ()> + Send + Sync,
@@ -499,10 +501,7 @@ pub fn start_mining_worker<Block, C, S, Algorithm, E, SO, L, CIDP>(
 	create_inherent_data_providers: CIDP,
 	timeout: Duration,
 	build_time: Duration,
-) -> (
-	MiningHandle<Block, Algorithm, L, <E::Proposer as Proposer<Block>>::Proof>,
-	impl Future<Output = ()>,
-)
+) -> (MiningHandle<Block, Algorithm, L, ProofOf<E::Proposer, Block>>, impl Future<Output = ()>)
 where
 	Block: BlockT,
 	C: BlockchainEvents<Block> + 'static,

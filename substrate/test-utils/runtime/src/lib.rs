@@ -1021,6 +1021,7 @@ mod tests {
 	use codec::Encode;
 	use frame_support::dispatch::DispatchInfo;
 	use sc_block_builder::BlockBuilderBuilder;
+	use sp_api::RuntimeInstance;
 	use sp_consensus::BlockOrigin;
 	use sp_core::{storage::well_known_keys::HEAP_PAGES, traits::CallContext};
 	use sp_keyring::AccountKeyring;
@@ -1042,10 +1043,12 @@ mod tests {
 
 		// Try to allocate 1024k of memory on heap. This is going to fail since it is twice larger
 		// than the heap.
-		let mut runtime_api = client.runtime_api();
-		// This is currently required to allocate the 1024k of memory as configured above.
-		runtime_api.set_call_context(CallContext::Onchain);
-		let ret = runtime_api.vec_with_capacity(best_hash, 1048576);
+		let mut runtime_api = RuntimeInstance::builder(&client, best_hash)
+			// This is currently required to allocate the 1024k of memory as configured above.
+			.on_chain_context()
+			.build();
+
+		let ret = runtime_api.vec_with_capacity(1048576);
 		assert!(ret.is_err());
 
 		// Create a block that sets the `:heap_pages` to 32 pages of memory which corresponds to
@@ -1065,17 +1068,20 @@ mod tests {
 		futures::executor::block_on(client.import(BlockOrigin::Own, block)).unwrap();
 
 		// Allocation of 1024k while having ~2048k should succeed.
-		let ret = client.runtime_api().vec_with_capacity(new_at_hash, 1048576);
+		let ret = RuntimeInstance::builder(&client, new_at_hash)
+			.off_chain_context()
+			.build()
+			.vec_with_capacity(1048576);
 		assert!(ret.is_ok());
 	}
 
 	#[test]
 	fn test_storage() {
 		let client = TestClientBuilder::new().build();
-		let runtime_api = client.runtime_api();
 		let best_hash = client.chain_info().best_hash;
+		let mut runtime_api = RuntimeInstance::builder(&client, best_hash).off_chain_context().build();
 
-		runtime_api.test_storage(best_hash).unwrap();
+		runtime_api.test_storage().unwrap();
 	}
 
 	fn witness_backend() -> (sp_trie::MemoryDB<crate::Hashing>, crate::Hash) {
@@ -1097,10 +1103,10 @@ mod tests {
 			sp_state_machine::TrieBackendBuilder::<_, crate::Hashing>::new(db, root).build();
 		let proof = sp_state_machine::prove_read(backend, vec![b"value3"]).unwrap();
 		let client = TestClientBuilder::new().build();
-		let runtime_api = client.runtime_api();
 		let best_hash = client.chain_info().best_hash;
+		let runtime_api = RuntimeInstance::builder(&client, best_hash).off_chain_context().build();
 
-		runtime_api.test_witness(best_hash, proof, root).unwrap();
+		runtime_api.test_witness(proof, root).unwrap();
 	}
 
 	pub fn new_test_ext() -> sp_io::TestExternalities {

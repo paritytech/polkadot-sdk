@@ -118,17 +118,12 @@ where
 		}: BuildAuraConsensusParams<PF, BI, CIDP, Client, BS, SO>,
 	) -> Box<dyn ParachainConsensus<B>>
 	where
-		Client:
-			BlockOf + AuxStore + HeaderBackend<B> + CallApiAt<B> + Send + Sync + 'static,
+		Client: BlockOf + AuxStore + HeaderBackend<B> + CallApiAt<B> + Send + Sync + 'static,
 		BI: BlockImport<B> + ParachainBlockImportMarker + Send + Sync + 'static,
 		SO: SyncOracle + Send + Sync + Clone + 'static,
 		BS: BackoffAuthoringBlocksStrategy<NumberFor<B>> + Send + Sync + 'static,
 		PF: Environment<B, Error = Error> + Send + Sync + 'static,
-		PF::Proposer: Proposer<
-			B,
-			Error = Error,
-			ProofRecording = EnableProofRecording<B>,
-		>,
+		PF::Proposer: Proposer<B, Error = Error, ProofRecording = EnableProofRecording<B>>,
 		Error: std::error::Error + Send + From<sp_consensus::Error> + 'static,
 		P: Pair + 'static,
 		P::Public: AppPublic + Member + Codec,
@@ -196,7 +191,7 @@ where
 	CIDP: CreateInherentDataProviders<B, (PHash, PersistedValidationData)> + Send + Sync + 'static,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send,
 	W: SimpleSlotWorker<B> + Send + Sync,
-	W::Proposer: Proposer<B>,
+	W::Proposer: Proposer<B, ProofRecording = EnableProofRecording<B>>,
 {
 	async fn produce_candidate(
 		&mut self,
