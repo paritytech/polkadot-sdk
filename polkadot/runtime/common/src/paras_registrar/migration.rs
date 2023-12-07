@@ -38,7 +38,7 @@ impl<T: Config, UnlockParaIds: Contains<ParaId>> OnRuntimeUpgrade
 				manager: v1.manager.clone(),
 				deposit: v1.deposit,
 				locked: if UnlockParaIds::contains(&key) { None } else { Some(v1.locked) },
-				billing_account: v1.manager,
+				billing_account: None,
 				pending_refund: None,
 			})
 		});
