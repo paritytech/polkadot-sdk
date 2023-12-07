@@ -230,6 +230,7 @@ fn invoke_riscv_build(current_dir: &Path) -> Result<()> {
 		.env("PATH", env::var("PATH").unwrap())
 		.env("CARGO_ENCODED_RUSTFLAGS", encoded_rustflags)
 		.env("RUSTUP_TOOLCHAIN", toolchain)
+		.env("RUSTUP_HOME", env::var("RUSTUP_HOME").unwrap())
 		.args(&["build", "--release", "--target=riscv32em-unknown-none-elf"])
 		.output()
 		.expect("failed to execute process");
