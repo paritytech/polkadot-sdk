@@ -14,9 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! The parachain bulk assignment module.
+//! The parachain coretime assignment module.
 //!
-//! Handles scheduling of bulk core time.
+//! Handles scheduling of assignments coming from the coretime/broker chain. For on-demand
+//! assignments it relies on the separate on-demand assignment provider, where it forwards requests
+//! to.
 //!
 //! Invariant: For efficiency the schedule, starting from the current workload always form a linked
 //! list.
@@ -228,37 +230,37 @@ pub mod pallet {
 /// Assignments as provided by our `AssignmentProvider` implementation.
 #[derive(Encode, Decode, TypeInfo, Debug)]
 #[cfg_attr(test, derive(PartialEq))]
-pub enum BulkAssignment<OnDemand> {
-	/// Assignment was an instantaneous core time assignment.
-	Instantaneous(OnDemand),
-	/// Assignment was served directly from a core managed directly by bulk.
+pub enum CoretimeAssignment<OnDemand> {
+	/// Assignment was a pool `Coretime` assignment.
+	Pool(OnDemand),
+	/// Assignment was served directly from a core managed directly by this assignment provider.
 	Bulk(ParaId),
 }
 
-type BulkAssignmentType<T> = BulkAssignment<
+type CoretimeAssignmentType<T> = CoretimeAssignment<
 	<assigner_on_demand::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::AssignmentType,
 >;
 
-impl<OnDemand: Assignment> Assignment for BulkAssignment<OnDemand> {
+impl<OnDemand: Assignment> Assignment for CoretimeAssignment<OnDemand> {
 	fn para_id(&self) -> ParaId {
 		match self {
-			Self::Instantaneous(on_demand) => on_demand.para_id(),
+			Self::Pool(on_demand) => on_demand.para_id(),
 			Self::Bulk(para_id) => *para_id,
 		}
 	}
 }
 
-impl BulkAssignment<assigner_on_demand::OnDemandAssignment> {
+impl CoretimeAssignment<assigner_on_demand::OnDemandAssignment> {
 	pub(crate) fn from_v0_assignment(v0: V0Assignment, core_index: CoreIndex) -> Self {
 		// There have been no bulk cores previously:
-		BulkAssignment::Instantaneous(assigner_on_demand::OnDemandAssignment::from_v0_assignment(
+		CoretimeAssignment::Pool(assigner_on_demand::OnDemandAssignment::from_v0_assignment(
 			v0, core_index,
 		))
 	}
 }
 
 impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
-	type AssignmentType = BulkAssignmentType<T>;
+	type AssignmentType = CoretimeAssignmentType<T>;
 
 	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Self::AssignmentType> {
 		let now = <frame_system::Pallet<T>>::block_number();
@@ -293,17 +295,17 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 					return <assigner_on_demand::Pallet<T> as AssignmentProvider<
 						BlockNumberFor<T>,
 					>>::pop_assignment_for_core(core_idx)
-					.map(|assignment| BulkAssignment::Instantaneous(assignment)),
+					.map(|assignment| CoretimeAssignment::Pool(assignment)),
 				CoreAssignment::Task(para_id) =>
-					return Some(BulkAssignment::Bulk((*para_id).into())),
+					return Some(CoretimeAssignment::Bulk((*para_id).into())),
 			}
 		})
 	}
 
 	fn report_processed(assignment: Self::AssignmentType) {
 		match assignment {
-			BulkAssignment::Instantaneous(on_demand) => <assigner_on_demand::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::report_processed(on_demand),
-			BulkAssignment::Bulk(_) => {}
+			CoretimeAssignment::Pool(on_demand) => <assigner_on_demand::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::report_processed(on_demand),
+			CoretimeAssignment::Bulk(_) => {}
 		}
 	}
 
@@ -314,11 +316,11 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	/// - `assignment`: The on demand assignment.
 	fn push_back_assignment(assignment: Self::AssignmentType) {
 		match assignment {
-			BulkAssignment::Instantaneous(on_demand) =>
+			CoretimeAssignment::Pool(on_demand) =>
 				<assigner_on_demand::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::push_back_assignment(
 				on_demand,
 			),
-			BulkAssignment::Bulk(_) => {
+			CoretimeAssignment::Bulk(_) => {
 				// Session changes are rough. We just drop assignments that did not make it on a session boundary.
 				// This seems sensible as bulk is region based. Meaning, even if we made the effort catching up on
 				// those dropped assignments, this would very likely lead to other assignments not getting served at the
@@ -339,7 +341,7 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	fn get_mock_assignment(_: CoreIndex, para_id: ParaId) -> Self::AssignmentType {
 		// Given that we are not tracking anything in `Bulk` assignments, it is safe to always
 		// return a bulk assignment.
-		return BulkAssignment::Bulk(para_id)
+		return CoretimeAssignment::Bulk(para_id)
 	}
 }
 

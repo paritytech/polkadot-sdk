@@ -27,7 +27,7 @@ use frame_system::pallet_prelude::*;
 use pallet_broker::{CoreAssignment, CoreIndex as BrokerCoreIndex};
 use primitives::{CoreIndex, Id as ParaId};
 use runtime_parachains::{
-	assigner_bulk::{self, PartsOf57600},
+	assigner_coretime::{self, PartsOf57600},
 	origin::{ensure_parachain, Origin},
 };
 
@@ -76,7 +76,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + assigner_bulk::Config {
+	pub trait Config: frame_system::Config + assigner_coretime::Config {
 		type RuntimeOrigin: From<<Self as frame_system::Config>::RuntimeOrigin>
 			+ Into<result::Result<Origin, <Self as Config>::RuntimeOrigin>>;
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
@@ -171,7 +171,7 @@ pub mod pallet {
 			// Relay chain `CoreIndex` implements `From` for `u32`
 			let core = u32::from(core).into();
 
-			<assigner_bulk::Pallet<T>>::assign_core(core, begin, assignment, end_hint)?;
+			<assigner_coretime::Pallet<T>>::assign_core(core, begin, assignment, end_hint)?;
 			Self::deposit_event(Event::<T>::CoreAssigned { core });
 			Ok(())
 		}

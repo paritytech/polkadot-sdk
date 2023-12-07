@@ -19,7 +19,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::{Pallet, *};
-use assigner_bulk::MAX_ASSIGNMENTS_PER_SCHEDULE;
+use assigner_coretime::MAX_ASSIGNMENTS_PER_SCHEDULE;
 use frame_benchmarking::v2::*;
 use frame_support::traits::OriginTrait;
 use pallet_broker::CoreIndex as BrokerCoreIndex;

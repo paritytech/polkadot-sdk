@@ -64,7 +64,8 @@ use runtime_common::{
 };
 use runtime_parachains::{
 	assigner::v1 as parachains_assigner_v1,
-	assigner_bulk as parachains_assigner_bulk, assigner_on_demand as parachains_assigner_on_demand,
+	assigner_coretime as parachains_assigner_coretime,
+	assigner_on_demand as parachains_assigner_on_demand,
 	assigner_parachains as parachains_assigner_parachains,
 	configuration as parachains_configuration, disputes as parachains_disputes,
 	disputes::slashing as parachains_slashing,
@@ -1239,7 +1240,7 @@ impl parachains_assigner_on_demand::Config for Runtime {
 	type WeightInfo = weights::runtime_parachains_assigner_on_demand::WeightInfo<Runtime>;
 }
 
-impl parachains_assigner_bulk::Config for Runtime {}
+impl parachains_assigner_coretime::Config for Runtime {}
 
 impl parachains_assigner_parachains::Config for Runtime {}
 
@@ -1515,7 +1516,7 @@ construct_runtime! {
 		ParaAssignmentProvider: parachains_assigner_v1::{Pallet, Storage} = 55,
 		OnDemandAssignmentProvider: parachains_assigner_on_demand::{Pallet, Call, Storage, Event<T>} = 56,
 		ParachainsAssignmentProvider: parachains_assigner_parachains::{Pallet} = 57,
-		CoreTimeAssignmentProvider: parachains_assigner_bulk::{Pallet} = 58,
+		CoreTimeAssignmentProvider: parachains_assigner_coretime::{Pallet} = 58,
 
 		// Parachain Onboarding Pallets. Start indices at 60 to leave room.
 		Registrar: paras_registrar::{Pallet, Call, Storage, Event<T>, Config<T>} = 60,

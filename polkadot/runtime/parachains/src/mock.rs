@@ -18,7 +18,7 @@
 
 use crate::{
 	assigner::v1 as assigner_v1,
-	assigner_bulk, assigner_on_demand, assigner_parachains, configuration, disputes, dmp, hrmp,
+	assigner_coretime, assigner_on_demand, assigner_parachains, configuration, disputes, dmp, hrmp,
 	inclusion::{self, AggregateMessageOrigin, UmpQueueId},
 	initializer, origin, paras,
 	paras::ParaKind,
@@ -74,7 +74,7 @@ frame_support::construct_runtime!(
 		Assigner: assigner_v1,
 		ParachainsAssigner: assigner_parachains,
 		OnDemandAssigner: assigner_on_demand,
-		BulkAssigner: assigner_bulk,
+		CoretimeAssigner: assigner_coretime,
 		Initializer: initializer,
 		Dmp: dmp,
 		Hrmp: hrmp,
@@ -367,7 +367,7 @@ impl assigner_on_demand::Config for Test {
 	type WeightInfo = crate::assigner_on_demand::TestWeightInfo;
 }
 
-impl assigner_bulk::Config for Test {}
+impl assigner_coretime::Config for Test {}
 
 impl crate::inclusion::Config for Test {
 	type WeightInfo = ();

@@ -17,12 +17,12 @@
 use super::*;
 
 use crate::{
-	assigner_bulk::{mock_helpers::GenesisConfigBuilder, pallet::Error, Schedule},
+	assigner_coretime::{mock_helpers::GenesisConfigBuilder, pallet::Error, Schedule},
 	assigner_on_demand::OnDemandAssignment,
 	initializer::SessionChangeNotification,
 	mock::{
-		new_test_ext, Balances, BulkAssigner, OnDemandAssigner, Paras, ParasShared, RuntimeOrigin,
-		Scheduler, System, Test,
+		new_test_ext, Balances, CoretimeAssigner, OnDemandAssigner, Paras, ParasShared,
+		RuntimeOrigin, Scheduler, System, Test,
 	},
 	paras::{ParaGenesisArgs, ParaKind},
 };
@@ -96,7 +96,7 @@ fn assign_core_works_with_no_prior_schedule() {
 		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
 
 		// Call assign_core
-		assert_ok!(BulkAssigner::assign_core(
+		assert_ok!(CoretimeAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(11u32),
 			default_test_assignments(),
@@ -135,14 +135,14 @@ fn assign_core_works_with_prior_schedule() {
 			Schedule { next_schedule: Some(15u32), ..default_test_schedule() };
 
 		// Call assign_core twice
-		assert_ok!(BulkAssigner::assign_core(
+		assert_ok!(CoretimeAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(11u32),
 			default_test_assignments(),
 			None,
 		));
 
-		assert_ok!(BulkAssigner::assign_core(
+		assert_ok!(CoretimeAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(15u32),
 			default_test_assignments(),
@@ -185,14 +185,14 @@ fn assign_core_enforces_higher_block_number() {
 		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
 
 		// Call assign core twice to establish some schedules
-		assert_ok!(BulkAssigner::assign_core(
+		assert_ok!(CoretimeAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(12u32),
 			default_test_assignments(),
 			None,
 		));
 
-		assert_ok!(BulkAssigner::assign_core(
+		assert_ok!(CoretimeAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(15u32),
 			default_test_assignments(),
@@ -201,7 +201,7 @@ fn assign_core_enforces_higher_block_number() {
 
 		// Call assign core with block number before QueueDescriptor first, expecting an error
 		assert_noop!(
-			BulkAssigner::assign_core(
+			CoretimeAssigner::assign_core(
 				core_idx,
 				BlockNumberFor::<Test>::from(11u32),
 				default_test_assignments(),
@@ -213,7 +213,7 @@ fn assign_core_enforces_higher_block_number() {
 		// Call assign core with block number between already scheduled assignments, expecting an
 		// error
 		assert_noop!(
-			BulkAssigner::assign_core(
+			CoretimeAssigner::assign_core(
 				core_idx,
 				BlockNumberFor::<Test>::from(13u32),
 				default_test_assignments(),
@@ -252,7 +252,7 @@ fn assign_core_enforces_well_formed_schedule() {
 		// Attempting assign_core with malformed assignments such that all error cases
 		// are tested
 		assert_noop!(
-			BulkAssigner::assign_core(
+			CoretimeAssigner::assign_core(
 				core_idx,
 				BlockNumberFor::<Test>::from(11u32),
 				empty_assignments,
@@ -261,7 +261,7 @@ fn assign_core_enforces_well_formed_schedule() {
 			Error::<Test>::AssignmentsEmpty
 		);
 		assert_noop!(
-			BulkAssigner::assign_core(
+			CoretimeAssigner::assign_core(
 				core_idx,
 				BlockNumberFor::<Test>::from(11u32),
 				too_many_assignments,
@@ -270,7 +270,7 @@ fn assign_core_enforces_well_formed_schedule() {
 			Error::<Test>::TooManyAssignments
 		);
 		assert_noop!(
-			BulkAssigner::assign_core(
+			CoretimeAssigner::assign_core(
 				core_idx,
 				BlockNumberFor::<Test>::from(11u32),
 				overscheduled,
@@ -279,7 +279,7 @@ fn assign_core_enforces_well_formed_schedule() {
 			Error::<Test>::OverScheduled
 		);
 		assert_noop!(
-			BulkAssigner::assign_core(
+			CoretimeAssigner::assign_core(
 				core_idx,
 				BlockNumberFor::<Test>::from(11u32),
 				underscheduled,
@@ -288,7 +288,7 @@ fn assign_core_enforces_well_formed_schedule() {
 			Error::<Test>::UnderScheduled
 		);
 		assert_noop!(
-			BulkAssigner::assign_core(
+			CoretimeAssigner::assign_core(
 				core_idx,
 				BlockNumberFor::<Test>::from(11u32),
 				not_unique,
@@ -297,7 +297,7 @@ fn assign_core_enforces_well_formed_schedule() {
 			Error::<Test>::AssignmentsNotUnique
 		);
 		assert_noop!(
-			BulkAssigner::assign_core(
+			CoretimeAssigner::assign_core(
 				core_idx,
 				BlockNumberFor::<Test>::from(11u32),
 				not_sorted,
@@ -327,35 +327,35 @@ fn next_schedule_always_points_to_next_work_plan_item() {
 		let expected_schedule_5 = default_test_schedule();
 
 		// Call assign_core for each of five schedules
-		assert_ok!(BulkAssigner::assign_core(
+		assert_ok!(CoretimeAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(start_1),
 			default_test_assignments(),
 			None,
 		));
 
-		assert_ok!(BulkAssigner::assign_core(
+		assert_ok!(CoretimeAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(start_2),
 			default_test_assignments(),
 			None,
 		));
 
-		assert_ok!(BulkAssigner::assign_core(
+		assert_ok!(CoretimeAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(start_3),
 			default_test_assignments(),
 			None,
 		));
 
-		assert_ok!(BulkAssigner::assign_core(
+		assert_ok!(CoretimeAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(start_4),
 			default_test_assignments(),
 			None,
 		));
 
-		assert_ok!(BulkAssigner::assign_core(
+		assert_ok!(CoretimeAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(start_5),
 			default_test_assignments(),
@@ -364,9 +364,9 @@ fn next_schedule_always_points_to_next_work_plan_item() {
 
 		// Rotate through the first two schedules
 		run_to_block(start_1, |n| if n == start_1 { Some(Default::default()) } else { None });
-		BulkAssigner::pop_assignment_for_core(core_idx);
+		CoretimeAssigner::pop_assignment_for_core(core_idx);
 		run_to_block(start_2, |n| if n == start_2 { Some(Default::default()) } else { None });
-		BulkAssigner::pop_assignment_for_core(core_idx);
+		CoretimeAssigner::pop_assignment_for_core(core_idx);
 
 		// Use saved starting block numbers to check that schedules chain
 		// together correctly
@@ -431,12 +431,12 @@ fn ensure_workload_works() {
 		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
 
 		// Case 1: No new schedule in CoreSchedules for core
-		BulkAssigner::ensure_workload(10u32, core_idx, &mut core_descriptor);
+		CoretimeAssigner::ensure_workload(10u32, core_idx, &mut core_descriptor);
 		assert_eq!(core_descriptor, empty_descriptor);
 
 		// Case 2: New schedule exists in CoreSchedules for core, but new
 		// schedule start is not yet reached.
-		assert_ok!(BulkAssigner::assign_core(
+		assert_ok!(CoretimeAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(11u32),
 			vec![(CoreAssignment::Pool, PartsOf57600::from(57600u16))],
@@ -447,18 +447,18 @@ fn ensure_workload_works() {
 		// pop_assignment_for_core would handle this.
 		core_descriptor = CoreDescriptors::<Test>::get(core_idx);
 
-		BulkAssigner::ensure_workload(10u32, core_idx, &mut core_descriptor);
+		CoretimeAssigner::ensure_workload(10u32, core_idx, &mut core_descriptor);
 		assert_eq!(core_descriptor, assignments_queued_descriptor);
 
 		// Case 3: Next schedule exists in CoreSchedules for core. Next starting
 		// block has been reached. Swaps new WorkState into CoreDescriptors from
 		// CoreSchedules.
-		BulkAssigner::ensure_workload(11u32, core_idx, &mut core_descriptor);
+		CoretimeAssigner::ensure_workload(11u32, core_idx, &mut core_descriptor);
 		assert_eq!(core_descriptor, assignments_active_descriptor);
 
 		// Case 4: end_hint reached but new schedule start not yet reached. WorkState in
 		// CoreDescriptor is cleared
-		BulkAssigner::ensure_workload(15u32, core_idx, &mut core_descriptor);
+		CoretimeAssigner::ensure_workload(15u32, core_idx, &mut core_descriptor);
 		assert_eq!(core_descriptor, empty_descriptor);
 	});
 }
@@ -477,7 +477,7 @@ fn pop_assignment_for_core_works() {
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		// Initialize the parathread, wait for it to be ready, then add an
-		// on demand order to later pop with our bulk assigner.
+		// on demand order to later pop with our Coretime assigner.
 		schedule_blank_para(para_id, ParaKind::Parathread);
 		Balances::make_free_balance_be(&alice, amt);
 		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
@@ -488,7 +488,7 @@ fn pop_assignment_for_core_works() {
 		));
 
 		// Case 1: Assignment idle
-		assert_ok!(BulkAssigner::assign_core(
+		assert_ok!(CoretimeAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(11u32),
 			default_test_assignments(), // Default is Idle
@@ -497,10 +497,10 @@ fn pop_assignment_for_core_works() {
 
 		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
 
-		assert_eq!(BulkAssigner::pop_assignment_for_core(core_idx), None);
+		assert_eq!(CoretimeAssigner::pop_assignment_for_core(core_idx), None);
 
 		// Case 2: Assignment pool
-		assert_ok!(BulkAssigner::assign_core(
+		assert_ok!(CoretimeAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(21u32),
 			assignments_pool,
@@ -510,12 +510,12 @@ fn pop_assignment_for_core_works() {
 		run_to_block(21, |n| if n == 21 { Some(Default::default()) } else { None });
 
 		assert_eq!(
-			BulkAssigner::pop_assignment_for_core(core_idx),
-			Some(BulkAssignment::Instantaneous(on_demand_assignment))
+			CoretimeAssigner::pop_assignment_for_core(core_idx),
+			Some(CoretimeAssignment::Pool(on_demand_assignment))
 		);
 
 		// Case 3: Assignment task
-		assert_ok!(BulkAssigner::assign_core(
+		assert_ok!(CoretimeAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(31u32),
 			assignments_task,
@@ -525,8 +525,8 @@ fn pop_assignment_for_core_works() {
 		run_to_block(31, |n| if n == 31 { Some(Default::default()) } else { None });
 
 		assert_eq!(
-			BulkAssigner::pop_assignment_for_core(core_idx),
-			Some(BulkAssignment::Bulk(para_id))
+			CoretimeAssigner::pop_assignment_for_core(core_idx),
+			Some(CoretimeAssignment::Bulk(para_id))
 		);
 	});
 }
@@ -546,7 +546,7 @@ fn assignment_proportions_in_core_state_work() {
 			(CoreAssignment::Task(task_2), PartsOf57600::from(57600u16 / 3)),
 		];
 
-		assert_ok!(BulkAssigner::assign_core(
+		assert_ok!(CoretimeAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(11u32),
 			test_assignments,
@@ -558,8 +558,8 @@ fn assignment_proportions_in_core_state_work() {
 		// Case 1: Current assignment remaining >= step after pop
 		{
 			assert_eq!(
-				BulkAssigner::pop_assignment_for_core(core_idx),
-				Some(BulkAssignment::Bulk(task_1.into()))
+				CoretimeAssigner::pop_assignment_for_core(core_idx),
+				Some(CoretimeAssignment::Bulk(task_1.into()))
 			);
 
 			assert_eq!(
@@ -582,8 +582,8 @@ fn assignment_proportions_in_core_state_work() {
 		// Case 2: Current assignment remaning < step after pop
 		{
 			assert_eq!(
-				BulkAssigner::pop_assignment_for_core(core_idx),
-				Some(BulkAssignment::Bulk(task_1.into()))
+				CoretimeAssigner::pop_assignment_for_core(core_idx),
+				Some(CoretimeAssignment::Bulk(task_1.into()))
 			);
 			// Pos should have incremented, as assignment had remaining < step
 			assert_eq!(
@@ -606,8 +606,8 @@ fn assignment_proportions_in_core_state_work() {
 
 		// Final check, task 2's turn to be served
 		assert_eq!(
-			BulkAssigner::pop_assignment_for_core(core_idx),
-			Some(BulkAssignment::Bulk(task_2.into()))
+			CoretimeAssigner::pop_assignment_for_core(core_idx),
+			Some(CoretimeAssignment::Bulk(task_2.into()))
 		);
 	});
 }
@@ -627,7 +627,7 @@ fn equal_assignments_served_equally() {
 			(CoreAssignment::Task(task_2), PartsOf57600::from(57600u16 / 2)),
 		];
 
-		assert_ok!(BulkAssigner::assign_core(
+		assert_ok!(CoretimeAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(11u32),
 			test_assignments,
@@ -638,33 +638,33 @@ fn equal_assignments_served_equally() {
 
 		// Test that popped assignments alternate between tasks 1 and 2
 		assert_eq!(
-			BulkAssigner::pop_assignment_for_core(core_idx),
-			Some(BulkAssignment::Bulk(task_1.into()))
+			CoretimeAssigner::pop_assignment_for_core(core_idx),
+			Some(CoretimeAssignment::Bulk(task_1.into()))
 		);
 
 		assert_eq!(
-			BulkAssigner::pop_assignment_for_core(core_idx),
-			Some(BulkAssignment::Bulk(task_2.into()))
+			CoretimeAssigner::pop_assignment_for_core(core_idx),
+			Some(CoretimeAssignment::Bulk(task_2.into()))
 		);
 
 		assert_eq!(
-			BulkAssigner::pop_assignment_for_core(core_idx),
-			Some(BulkAssignment::Bulk(task_1.into()))
+			CoretimeAssigner::pop_assignment_for_core(core_idx),
+			Some(CoretimeAssignment::Bulk(task_1.into()))
 		);
 
 		assert_eq!(
-			BulkAssigner::pop_assignment_for_core(core_idx),
-			Some(BulkAssignment::Bulk(task_2.into()))
+			CoretimeAssigner::pop_assignment_for_core(core_idx),
+			Some(CoretimeAssignment::Bulk(task_2.into()))
 		);
 
 		assert_eq!(
-			BulkAssigner::pop_assignment_for_core(core_idx),
-			Some(BulkAssignment::Bulk(task_1.into()))
+			CoretimeAssigner::pop_assignment_for_core(core_idx),
+			Some(CoretimeAssignment::Bulk(task_1.into()))
 		);
 
 		assert_eq!(
-			BulkAssigner::pop_assignment_for_core(core_idx),
-			Some(BulkAssignment::Bulk(task_2.into()))
+			CoretimeAssigner::pop_assignment_for_core(core_idx),
+			Some(CoretimeAssignment::Bulk(task_2.into()))
 		);
 	});
 }
@@ -687,7 +687,7 @@ fn assignment_proportions_indivisible_by_step_work() {
 		let test_assignments =
 			vec![(CoreAssignment::Task(task_1), ratio_1), (CoreAssignment::Task(task_2), ratio_2)];
 
-		assert_ok!(BulkAssigner::assign_core(
+		assert_ok!(CoretimeAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(11u32),
 			test_assignments,
@@ -700,28 +700,28 @@ fn assignment_proportions_indivisible_by_step_work() {
 		// 1, 2, 1, 1, 2. The remaining parts for each assignment should be same
 		// at the end as in the beginning.
 		assert_eq!(
-			BulkAssigner::pop_assignment_for_core(core_idx),
-			Some(BulkAssignment::Bulk(task_1.into()))
+			CoretimeAssigner::pop_assignment_for_core(core_idx),
+			Some(CoretimeAssignment::Bulk(task_1.into()))
 		);
 
 		assert_eq!(
-			BulkAssigner::pop_assignment_for_core(core_idx),
-			Some(BulkAssignment::Bulk(task_2.into()))
+			CoretimeAssigner::pop_assignment_for_core(core_idx),
+			Some(CoretimeAssignment::Bulk(task_2.into()))
 		);
 
 		assert_eq!(
-			BulkAssigner::pop_assignment_for_core(core_idx),
-			Some(BulkAssignment::Bulk(task_1.into()))
+			CoretimeAssigner::pop_assignment_for_core(core_idx),
+			Some(CoretimeAssignment::Bulk(task_1.into()))
 		);
 
 		assert_eq!(
-			BulkAssigner::pop_assignment_for_core(core_idx),
-			Some(BulkAssignment::Bulk(task_1.into()))
+			CoretimeAssigner::pop_assignment_for_core(core_idx),
+			Some(CoretimeAssignment::Bulk(task_1.into()))
 		);
 
 		assert_eq!(
-			BulkAssigner::pop_assignment_for_core(core_idx),
-			Some(BulkAssignment::Bulk(task_2.into()))
+			CoretimeAssigner::pop_assignment_for_core(core_idx),
+			Some(CoretimeAssignment::Bulk(task_2.into()))
 		);
 
 		// Remaining should equal ratio for both assignments.

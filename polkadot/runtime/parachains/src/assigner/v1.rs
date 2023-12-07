@@ -15,7 +15,8 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! The Polkadot multiplexing assignment provider.
-//! Provides blockspace assignments for both bulk and on demand parachains.
+//! Provides blockspace assignments for both coretime (including on-demand) and legacy auction
+//! assignments.
 
 use scale_info::TypeInfo;
 
@@ -28,7 +29,7 @@ use sp_runtime::{
 use primitives::{CoreIndex, Id as ParaId};
 
 use crate::{
-	assigner_bulk, assigner_parachains as assigner_legacy, configuration, paras,
+	assigner_coretime, assigner_parachains as assigner_legacy, configuration, paras,
 	scheduler::common::{
 		Assignment, AssignmentProvider, AssignmentProviderConfig, FixedAssignmentProvider,
 		V0Assignment,
@@ -50,7 +51,7 @@ pub mod pallet {
 		frame_system::Config
 		+ configuration::Config
 		+ paras::Config
-		+ assigner_bulk::Config
+		+ assigner_coretime::Config
 		+ assigner_legacy::Config
 	{
 	}
@@ -58,12 +59,12 @@ pub mod pallet {
 
 /// Assignments as of this top-level assignment provider.
 #[derive(Encode, Decode, TypeInfo, RuntimeDebug, PartialEq, Clone)]
-pub enum UnifiedAssignment<Bulk, Legacy> {
-	/// Assignment came from new bulk assignment provider.
+pub enum UnifiedAssignment<Coretime, Legacy> {
+	/// Assignment came from new Coretime assignment provider.
 	#[codec(index = 0)]
-	Bulk(Bulk),
-	// Assignment came from new bulk assignment provider.
-	// Bulk(Bulk::BulkAssignmentProvider::AssignmentType),
+	Coretime(Coretime),
+	// Assignment came from new Coretime assignment provider.
+	// Coretime(Coretime::CoretimeAssignmentProvider::AssignmentType),
 	/// Assignment came from legacy auction based assignment provider.
 	#[codec(index = 99)]
 	LegacyAuction(Legacy),
@@ -71,15 +72,14 @@ pub enum UnifiedAssignment<Bulk, Legacy> {
 
 /// Convenience type definition for `UnifiedAssignmentType`.
 pub type UnifiedAssignmentType<T> = UnifiedAssignment<
-	<assigner_bulk::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::AssignmentType,
+	<assigner_coretime::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::AssignmentType,
 	<assigner_legacy::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::AssignmentType,
 >;
 
 impl<OnDemand: Assignment, Legacy: Assignment> Assignment for UnifiedAssignment<OnDemand, Legacy> {
 	fn para_id(&self) -> ParaId {
 		match &self {
-			Self::Bulk(bulk) => bulk.para_id(),
-			// Self::Bulk(bulk) => bulk.para_id(),
+			Self::Coretime(coretime) => coretime.para_id(),
 			Self::LegacyAuction(legacy) => legacy.para_id(),
 		}
 	}
@@ -101,10 +101,10 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 		} else {
 			let core_idx = CoreIndex(core_idx.0 - legacy_cores);
 
-			<assigner_bulk::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::pop_assignment_for_core(
+			<assigner_coretime::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::pop_assignment_for_core(
 				core_idx,
 			)
-			.map(UnifiedAssignment::Bulk)
+			.map(UnifiedAssignment::Coretime)
 		}
 	}
 
@@ -114,8 +114,8 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 				<assigner_legacy::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::report_processed(
 					assignment,
 				),
-			UnifiedAssignment::Bulk(assignment) =>
-				<assigner_bulk::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::report_processed(
+			UnifiedAssignment::Coretime(assignment) =>
+				<assigner_coretime::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::report_processed(
 					assignment,
 				),
 		}
@@ -127,8 +127,8 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 				<assigner_legacy::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::push_back_assignment(
 					assignment,
 			),
-			UnifiedAssignment::Bulk(assignment) =>
-				<assigner_bulk::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::push_back_assignment(
+			UnifiedAssignment::Coretime(assignment) =>
+				<assigner_coretime::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::push_back_assignment(
 				assignment,
 			),
 		}
@@ -146,7 +146,7 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 		} else {
 			let core_idx = CoreIndex(core_idx.0 - legacy_cores);
 
-			<assigner_bulk::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::get_provider_config(
+			<assigner_coretime::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::get_provider_config(
 				core_idx,
 			)
 		}
@@ -164,7 +164,7 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 		} else {
 			let core_idx = CoreIndex(core_idx.0 - legacy_cores);
 
-			UnifiedAssignment::Bulk(<assigner_bulk::Pallet<T> as AssignmentProvider<
+			UnifiedAssignment::Coretime(<assigner_coretime::Pallet<T> as AssignmentProvider<
 				BlockNumberFor<T>,
 			>>::get_mock_assignment(core_idx, para_id))
 		}
@@ -176,11 +176,11 @@ impl<T: Config> FixedAssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 		let legacy_cores = <assigner_legacy::Pallet<T> as FixedAssignmentProvider<
 			BlockNumberFor<T>,
 		>>::session_core_count();
-		let bulk_cores =
-			<assigner_bulk::Pallet<T> as FixedAssignmentProvider<BlockNumberFor<T>>>::session_core_count(
-			);
+		let coretime_cores = <assigner_coretime::Pallet<T> as FixedAssignmentProvider<
+			BlockNumberFor<T>,
+		>>::session_core_count();
 
-		legacy_cores.saturating_add(bulk_cores)
+		legacy_cores.saturating_add(coretime_cores)
 	}
 }
 
@@ -200,6 +200,8 @@ pub fn migrate_assignment_v0_to_v1<T: Config>(
 		// We are not subtracting `legacy_cores` from `core` here, as this was not done before for
 		// on-demand. Therefore we keep it as is, so the book keeping will affect the correct core
 		// in the underlying on-demand assignment provider.
-		UnifiedAssignment::Bulk(assigner_bulk::BulkAssignment::from_v0_assignment(old, core))
+		UnifiedAssignment::Coretime(assigner_coretime::CoretimeAssignment::from_v0_assignment(
+			old, core,
+		))
 	}
 }
