@@ -89,6 +89,16 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 		Weight::from_parts(18_446_744_073_709_551_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
+	fn transfer_assets() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `496`
+		//  Estimated: `6208`
+		// Minimum execution time: 146_932_000 picoseconds.
+		Weight::from_parts(153_200_000, 0)
+			.saturating_add(Weight::from_parts(0, 6208))
+			.saturating_add(T::DbWeight::get().reads(12))
+			.saturating_add(T::DbWeight::get().writes(7))
+	}
 	/// Storage: Benchmark Override (r:0 w:0)
 	/// Proof Skipped: Benchmark Override (max_values: None, max_size: None, mode: Measured)
 	fn execute() -> Weight {
