@@ -502,5 +502,3 @@ pub fn migrate_to_v1<T: crate::scheduler::Config>() -> Weight {
 
 	weight
 }
-
-// TODO: Tests!

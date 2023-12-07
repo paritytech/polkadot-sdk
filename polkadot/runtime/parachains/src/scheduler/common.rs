@@ -118,10 +118,6 @@ impl AssignmentVersion {
 
 		storage::unhashed::get_or_default(&key)
 	}
-
-	pub const fn saturating_add(&self, other: AssignmentVersion) -> AssignmentVersion {
-		AssignmentVersion(self.0.saturating_add(other.0))
-	}
 }
 
 #[derive(Encode, Decode, TypeInfo)]
