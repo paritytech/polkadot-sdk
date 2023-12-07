@@ -221,7 +221,7 @@ fn invoke_riscv_build(current_dir: &Path) -> Result<()> {
 	let toolchain = if cfg!(target_os = "macos") {
 		"riscv32em-nightly-2023-04-05-r0-x86_64-apple-darwin"
 	} else {
-		"riscv32em-nightly-2023-04-05-r0-x86_64-unknown-linux-gnu"
+		"rv32e-nightly-2023-04-05"
 	};
 
 	let build_res = Command::new(env::var("CARGO")?)
