@@ -127,7 +127,7 @@ default:
     - shopt -s expand_aliases    
     - export PATH=$PATH:$(pwd)
     - |
-      if [ "$FORKLIFT_BYPASS" != "true" ]; then
+      if [ "$FORKLIFT_BYPASS_ALT" != "true" ]; then
       echo "FORKLIFT_BYPASS not set, creating alias cargo='forklift cargo'"
       alias cargo="forklift cargo"
       fi
