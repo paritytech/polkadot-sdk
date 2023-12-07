@@ -268,10 +268,7 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 		CoreDescriptors::<T>::mutate(core_idx, |core_state| {
 			Self::ensure_workload(now, core_idx, core_state);
 
-			let work_state = match &mut core_state.current_work {
-				None => return None,
-				Some(w) => w,
-			};
+			let mut work_state = core_state.current_work.as_mut()?;
 
 			work_state.pos = work_state.pos % work_state.assignments.len() as u16;
 			let (a_type, a_state) = &mut work_state
