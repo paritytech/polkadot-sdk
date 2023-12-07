@@ -645,8 +645,25 @@ fn para_upgrade_initiated_by_manager_works() {
 			ParaId::from(para_id),
 			code_1.clone(),
 		));
-		conclude_pvf_checking::<Test>(&code_1, VALIDATORS, START_SESSION_INDEX + 2, true);
 
+		// The reserved deposit should cover for the size difference of the new validation code.
+		let total_bytes_stored = code_size as u32 + head_size as u32;
+		assert_eq!(
+			last_event(),
+			paras_registrar::Event::<Test>::CodeUpgradeScheduled {
+				para_id,
+				new_deposit: ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
+			}
+			.into(),
+		);
+		assert_eq!(
+			Balances::reserved_balance(&account_id(1)),
+			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
+		);
+		// An additional upgrade fee should also be deducted from the caller's balance.
+		assert_eq!(Balances::total_balance(&account_id(1)), free_balance - UpgradeFee::get());
+
+		conclude_pvf_checking::<Test>(&code_1, VALIDATORS, START_SESSION_INDEX + 2, true);
 		// After two more sessions the parachain can be upgraded.
 		run_to_session(START_SESSION_INDEX + 4);
 		// Force a new head to enact the code upgrade.
@@ -656,15 +673,6 @@ fn para_upgrade_initiated_by_manager_works() {
 			genesis_head.clone()
 		));
 		assert_eq!(Paras::current_code(&para_id), Some(code_1.clone()));
-
-		// The reserved deposit should cover for the size difference of the new validation code.
-		let total_bytes_stored = code_size as u32 + head_size as u32;
-		assert_eq!(
-			Balances::reserved_balance(&account_id(1)),
-			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
-		);
-		// An additional upgrade fee should also be deducted from the caller's balance.
-		assert_eq!(Balances::total_balance(&account_id(1)), free_balance - UpgradeFee::get());
 
 		// CASE 2: After successfully upgrading the validation code to twice the size of the
 		// previous one, we will now proceed to upgrade the validation code to a smaller size. It is
@@ -690,11 +698,22 @@ fn para_upgrade_initiated_by_manager_works() {
 		));
 		assert_eq!(Paras::current_code(&para_id), Some(code_2.clone()));
 
+		let updated_total_bytes_stored = code_size as u32 + head_size as u32;
+		let expected_rebate =
+			(total_bytes_stored - updated_total_bytes_stored) * DataDepositPerByte::get();
+
+		assert!(contains_event(
+			paras_registrar::Event::<Test>::Refunded {
+				para_id,
+				who: account_id(1),
+				amount: expected_rebate
+			}
+			.into()
+		),);
 		// The reserved deposit should cover only the size of the new validation code.
-		let total_bytes_stored = code_size as u32 + head_size as u32;
 		assert_eq!(
 			Balances::reserved_balance(&account_id(1)),
-			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
+			ParaDeposit::get() + (updated_total_bytes_stored * DataDepositPerByte::get())
 		);
 		// An additional upgrade fee should also be deducted from the caller's balance.
 		assert_eq!(Balances::total_balance(&account_id(1)), free_balance - (2 * UpgradeFee::get()));
@@ -717,7 +736,7 @@ fn para_upgrade_initiated_by_manager_works() {
 		assert_eq!(Paras::current_code(&para_id), Some(code_2.clone()));
 		assert_eq!(
 			Balances::reserved_balance(&account_id(1)),
-			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
+			ParaDeposit::get() + (updated_total_bytes_stored * DataDepositPerByte::get())
 		);
 		// Even though the upgrade failed the upgrade fee is deducted from the caller's balance.
 		assert_eq!(Balances::total_balance(&account_id(1)), free_balance - (3 * UpgradeFee::get()));
@@ -958,6 +977,14 @@ fn setting_parachain_billing_account_to_self_works() {
 			para_origin.into(),
 			ParaId::from(para_id),
 		));
+		assert_eq!(
+			last_event(),
+			paras_registrar::Event::<Test>::BillingAccountSet {
+				para_id,
+				who: sovereign_account.clone()
+			}
+			.into(),
+		);
 
 		assert_eq!(
 			Balances::reserved_balance(&sovereign_account),
@@ -1061,6 +1088,11 @@ fn force_set_parachain_billing_account_works() {
 			ParaId::from(para_id),
 			account_id(2)
 		));
+		assert_eq!(
+			last_event(),
+			paras_registrar::Event::<Test>::BillingAccountSet { para_id, who: account_id(2) }
+				.into(),
+		);
 
 		assert_eq!(
 			Balances::reserved_balance(&account_id(2)),

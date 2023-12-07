@@ -195,6 +195,9 @@ pub mod pallet {
 		Deregistered { para_id: ParaId },
 		Reserved { para_id: ParaId, who: T::AccountId },
 		Swapped { para_id: ParaId, other_id: ParaId },
+		BillingAccountSet { para_id: ParaId, who: T::AccountId },
+		Refunded { para_id: ParaId, who: T::AccountId, amount: BalanceOf<T> },
+		CodeUpgradeScheduled { para_id: ParaId, new_deposit: BalanceOf<T> },
 	}
 
 	#[pallet::error]
@@ -840,7 +843,10 @@ impl<T: Config> Pallet<T> {
 		}
 
 		Paras::<T>::insert(para, info);
-		runtime_parachains::schedule_code_upgrade::<T>(para, new_code, SetGoAhead::No)
+		runtime_parachains::schedule_code_upgrade::<T>(para, new_code, SetGoAhead::No)?;
+
+		Self::deposit_event(Event::<T>::CodeUpgradeScheduled { para_id: para, new_deposit });
+		Ok(())
 	}
 
 	/// Verifies the onboarding data is valid for a para.
@@ -898,9 +904,13 @@ impl<T: Config> Pallet<T> {
 		let current_deposit_holder = info.billing_account.clone().unwrap_or(info.manager.clone());
 		<T as Config>::Currency::unreserve(&current_deposit_holder, info.deposit);
 
-		info.billing_account = Some(new_billing_account);
-		Paras::<T>::insert(para, info);
+		info.billing_account = Some(new_billing_account.clone());
+		Paras::<T>::insert(para, info.clone());
 
+		Self::deposit_event(Event::<T>::BillingAccountSet {
+			para_id: para,
+			who: new_billing_account,
+		});
 		Ok(())
 	}
 }
@@ -936,6 +946,11 @@ impl<T: Config> OnCodeUpgrade for Pallet<T> {
 				info.pending_refund = None;
 				Paras::<T>::insert(id, info);
 
+				Self::deposit_event(Event::<T>::Refunded {
+					para_id: id,
+					who: billing_account,
+					amount: rebate,
+				});
 				return T::DbWeight::get().reads_writes(2, 2)
 			}
 		}
