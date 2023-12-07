@@ -194,8 +194,9 @@ use frame_support::{
 	defensive,
 	pallet_prelude::*,
 	traits::{
-		DefensiveTruncateFrom, EnqueueMessage, ExecuteOverweightError, Footprint, ProcessMessage,
-		ProcessMessageError, QueueFootprint, QueuePausedQuery, ServiceQueues,
+		DefensiveSaturating, DefensiveTruncateFrom, EnqueueMessage, ExecuteOverweightError,
+		Footprint, ProcessMessage, ProcessMessageError, QueueFootprint, QueuePausedQuery,
+		ServiceQueues,
 	},
 	BoundedSlice, CloneNoBound, DefaultNoBound,
 };
@@ -427,6 +428,7 @@ impl<MessageOrigin> From<BookState<MessageOrigin>> for QueueFootprint {
 	fn from(book: BookState<MessageOrigin>) -> Self {
 		QueueFootprint {
 			pages: book.count,
+			ready_pages: book.end.defensive_saturating_sub(book.begin),
 			storage: Footprint { count: book.message_count, size: book.size },
 		}
 	}
@@ -1180,6 +1182,13 @@ impl<T: Config> Pallet<T> {
 			Pages::<T>::iter_keys().count() == Pages::<T>::iter_values().count(),
 			"Memory Corruption in Pages"
 		);
+
+		// Basic checks for each book
+		for book in BookStateFor::<T>::iter_values() {
+			let fp: QueueFootprint = book.into();
+
+			ensure!(fp.ready_pages <= fp.pages, "There can be no more ready than total pages");
+		}
 
 		// No state to check
 		if ServiceHead::<T>::get().is_none() {
