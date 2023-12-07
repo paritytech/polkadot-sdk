@@ -102,17 +102,17 @@ pallet-xcm-bridge-hub = { path = "../../../../../bridges/modules/xcm-bridge-hub"
 bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common", default-features = false }
 
 # Ethereum Bridge (Snowbridge)
-snowbridge-beacon-primitives = { git = "https://github.com/Snowfork/snowbridge.git", tag = "v0.9.0", default-features = false }
-snowbridge-system = { git = "https://github.com/Snowfork/snowbridge.git", tag = "v0.9.0", default-features = false }
-snowbridge-system-runtime-api = { git = "https://github.com/Snowfork/snowbridge.git", tag = "v0.9.0", default-features = false }
-snowbridge-core = { git = "https://github.com/Snowfork/snowbridge.git", tag = "v0.9.0", default-features = false }
-snowbridge-ethereum-beacon-client = { git = "https://github.com/Snowfork/snowbridge.git", tag = "v0.9.0", default-features = false }
-snowbridge-inbound-queue = { git = "https://github.com/Snowfork/snowbridge.git", tag = "v0.9.0", default-features = false }
-snowbridge-outbound-queue = { git = "https://github.com/Snowfork/snowbridge.git", tag = "v0.9.0", default-features = false }
-snowbridge-outbound-queue-runtime-api = { git = "https://github.com/Snowfork/snowbridge.git", tag = "v0.9.0", default-features = false }
-snowbridge-router-primitives = { git = "https://github.com/Snowfork/snowbridge.git", tag = "v0.9.0", default-features = false }
-snowbridge-runtime-common = { git = "https://github.com/Snowfork/snowbridge.git", tag = "v0.9.0", default-features = false }
-snowbridge-rococo-common = { git = "https://github.com/Snowfork/snowbridge.git", tag = "v0.9.0", default-features = false }
+snowbridge-beacon-primitives = { git = "https://github.com/Snowfork/snowbridge.git", branch = "rococo-merge",, default-features = false }
+snowbridge-system = { git = "https://github.com/Snowfork/snowbridge.git", branch = "rococo-merge",, default-features = false }
+snowbridge-system-runtime-api = { git = "https://github.com/Snowfork/snowbridge.git", branch = "rococo-merge",, default-features = false }
+snowbridge-core = { git = "https://github.com/Snowfork/snowbridge.git", branch = "rococo-merge",, default-features = false }
+snowbridge-ethereum-beacon-client = { git = "https://github.com/Snowfork/snowbridge.git", branch = "rococo-merge",, default-features = false }
+snowbridge-inbound-queue = { git = "https://github.com/Snowfork/snowbridge.git", branch = "rococo-merge",, default-features = false }
+snowbridge-outbound-queue = { git = "https://github.com/Snowfork/snowbridge.git", branch = "rococo-merge",, default-features = false }
+snowbridge-outbound-queue-runtime-api = { git = "https://github.com/Snowfork/snowbridge.git", branch = "rococo-merge",, default-features = false }
+snowbridge-router-primitives = { git = "https://github.com/Snowfork/snowbridge.git", branch = "rococo-merge",, default-features = false }
+snowbridge-runtime-common = { git = "https://github.com/Snowfork/snowbridge.git", branch = "rococo-merge",, default-features = false }
+snowbridge-rococo-common = { git = "https://github.com/Snowfork/snowbridge.git", branch = "rococo-merge",, default-features = false }
 
 bridge-hub-common = { path = "../common", default-features = false }
 
