@@ -290,14 +290,14 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 			}
 
 			match a_type {
-				CoreAssignment::Idle => return None,
+				CoreAssignment::Idle => None,
 				CoreAssignment::Pool =>
-					return <assigner_on_demand::Pallet<T> as AssignmentProvider<
+					<assigner_on_demand::Pallet<T> as AssignmentProvider<
 						BlockNumberFor<T>,
 					>>::pop_assignment_for_core(core_idx)
 					.map(|assignment| CoretimeAssignment::Pool(assignment)),
 				CoreAssignment::Task(para_id) =>
-					return Some(CoretimeAssignment::Bulk((*para_id).into())),
+					Some(CoretimeAssignment::Bulk((*para_id).into())),
 			}
 		})
 	}
