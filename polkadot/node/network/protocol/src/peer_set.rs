@@ -127,13 +127,6 @@ impl PeerSet {
 	/// Networking layer relies on `get_main_version()` being the version
 	/// of the main protocol name reported by [`PeerSetProtocolNames::get_main_name()`].
 	pub fn get_main_version(self) -> ProtocolVersion {
-		#[cfg(not(feature = "network-protocol-staging"))]
-		match self {
-			PeerSet::Validation => ValidationVersion::V2.into(),
-			PeerSet::Collation => CollationVersion::V2.into(),
-		}
-
-		#[cfg(feature = "network-protocol-staging")]
 		match self {
 			PeerSet::Validation => ValidationVersion::V3.into(),
 			PeerSet::Collation => CollationVersion::V2.into(),
