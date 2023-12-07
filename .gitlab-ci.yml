@@ -131,7 +131,6 @@ default:
       echo "FORKLIFT_BYPASS not set, creating alias cargo='forklift cargo'"
       alias cargo="forklift cargo"
       fi
-    - ls -al
     - rm -f forklift.sock
     - forklift clean
     #
