@@ -103,7 +103,7 @@ fn run_to_end_of_block(
 
 fn default_config() -> HostConfiguration<BlockNumber> {
 	HostConfiguration {
-		on_demand_cores: 3,
+		coretime_cores: 3,
 		group_rotation_frequency: 10,
 		paras_availability_period: 3,
 		scheduling_lookahead: 2,

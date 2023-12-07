@@ -347,9 +347,8 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 
 impl<T: Config> FixedAssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	fn session_core_count() -> u32 {
-		// TODO: Rename this config (migration): https://github.com/paritytech/polkadot-sdk/issues/2268
 		let config = <configuration::Pallet<T>>::config();
-		config.on_demand_cores
+		config.coretime_cores
 	}
 }
 
@@ -483,15 +482,3 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-// Tests/Invariant:
-// - next_schedule always points to next item in CoreSchedules. (handled by
-//   next_schedule_always_points_to_next_work_plan_item)
-// - Test insertion in the middle, beginning and end: Should fail in all cases but the last.
-//   (handled by assign_core_enforces_higher_block_number)
-// - Test insertion on empty queue. (handled by assign_core_works_with_no_prior_schedule)
-// - Test that assignments are served correctly. E.g. two equal assignments will be served as ABABAB
-//   (handled by equal_assignments_served_equally)
-// - Have a test that checks that core is shared fairly, even in case of `ratio` not being divisible
-//   by `step` (over multiple rounds). (handled by assignment_proportions_indivisible_by_step_work)
-// - Test overwrite vs insert: Overwrite no longer allowed - should fail with error. (handled using
-//   Error::DuplicateInsert, though earlier errors should prevent this error from ever triggering)

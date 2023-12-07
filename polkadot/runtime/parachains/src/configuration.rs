@@ -171,8 +171,8 @@ pub struct HostConfiguration<BlockNumber> {
 	/// How long to keep code on-chain, in blocks. This should be sufficiently long that disputes
 	/// have concluded.
 	pub code_retention_period: BlockNumber,
-	/// The amount of execution cores to dedicate to on demand execution.
-	pub on_demand_cores: u32,
+	/// How many cores are managed by the coretime chain.
+	pub coretime_cores: u32,
 	/// The number of retries that a on demand author has to submit their block.
 	pub on_demand_retries: u32,
 	/// The maximum queue size of the pay as you go module.
@@ -281,7 +281,7 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			max_code_size: Default::default(),
 			max_pov_size: Default::default(),
 			max_head_data_size: Default::default(),
-			on_demand_cores: Default::default(),
+			coretime_cores: Default::default(),
 			on_demand_retries: Default::default(),
 			scheduling_lookahead: 1,
 			max_validators_per_core: Default::default(),
@@ -660,16 +660,19 @@ pub mod pallet {
 			})
 		}
 
-		/// Set the number of on demand execution cores.
+		/// Set the number of coretime execution cores.
+		///
+		/// Note that this configuration is managed by the coretime chain. Only manually change
+		/// this, if you really know what you are doing!
 		#[pallet::call_index(6)]
 		#[pallet::weight((
 			T::WeightInfo::set_config_with_u32(),
 			DispatchClass::Operational,
 		))]
-		pub fn set_on_demand_cores(origin: OriginFor<T>, new: u32) -> DispatchResult {
+		pub fn set_coretime_cores(origin: OriginFor<T>, new: u32) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.on_demand_cores = new;
+				config.coretime_cores = new;
 			})
 		}
 
