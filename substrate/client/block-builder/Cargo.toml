@@ -20,6 +20,7 @@ sp-api = { path = "../../primitives/api" }
 sp-block-builder = { path = "../../primitives/block-builder" }
 sp-blockchain = { path = "../../primitives/blockchain" }
 sp-core = { path = "../../primitives/core" }
+sp-trie = { path = "../../primitives/trie" }
 sp-inherents = { path = "../../primitives/inherents" }
 sp-runtime = { path = "../../primitives/runtime" }
 

@@ -99,7 +99,7 @@ fn build_nodes() -> (Swarm<CustomProtoWithAddr>, Swarm<CustomProtoWithAddr>) {
 			inner: Notifications::new(
 				vec![controller_handle],
 				from_controller,
-				&None,
+				None,
 				iter::once((
 					ProtocolConfig {
 						name: "/foo".into(),
