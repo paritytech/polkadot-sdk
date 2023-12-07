@@ -218,12 +218,18 @@ fn invoke_riscv_build(current_dir: &Path) -> Result<()> {
 
 	fs::write(current_dir.join("memory.ld"), include_bytes!("./build/riscv_memory_layout.ld"))?;
 
+	let toolchain = if cfg!(target_os = "macos") {
+		"riscv32em-nightly-2023-04-05-r0-x86_64-apple-darwin"
+	} else {
+		"riscv32em-nightly-2023-04-05-r0-x86_64-unknown-linux-gnu"
+	};
+
 	let build_res = Command::new(env::var("CARGO")?)
 		.current_dir(current_dir)
 		.env_clear()
 		.env("PATH", env::var("PATH").unwrap())
 		.env("CARGO_ENCODED_RUSTFLAGS", encoded_rustflags)
-		.env("RUSTUP_TOOLCHAIN", "rv32e-nightly-2023-04-05")
+		.env("RUSTUP_TOOLCHAIN", toolchain)
 		.args(&["build", "--offline", "--release", "--target=riscv32em-unknown-none-elf"])
 		.output()
 		.expect("failed to execute process");
