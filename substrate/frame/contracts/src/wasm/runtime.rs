@@ -24,7 +24,7 @@ use crate::{
 	schedule::HostFnWeights,
 	BalanceOf, CodeHash, Config, DebugBufferVec, Error, SENTINEL,
 };
-use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeLimit, Encode};
 use frame_support::{
 	dispatch::DispatchInfo,
 	ensure,
@@ -577,15 +577,14 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 	///
 	/// The weight of reading a fixed value is included in the overall weight of any
 	/// contract callable function.
-	pub fn read_sandbox_memory_as<D: Decode + MaxEncodedLen>(
+	pub fn read_sandbox_memory_as<D: Decode>(
 		&self,
 		memory: &[u8],
 		ptr: u32,
 	) -> Result<D, DispatchError> {
 		let ptr = ptr as usize;
-		let mut bound_checked = memory
-			.get(ptr..ptr + D::max_encoded_len() as usize)
-			.ok_or_else(|| Error::<E::T>::OutOfBounds)?;
+		let mut bound_checked = memory.get(ptr..).ok_or_else(|| Error::<E::T>::OutOfBounds)?;
+
 		let decoded = D::decode_with_depth_limit(MAX_DECODE_NESTING, &mut bound_checked)
 			.map_err(|_| DispatchError::from(Error::<E::T>::DecodingFailed))?;
 		Ok(decoded)

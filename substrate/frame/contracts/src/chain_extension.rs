@@ -289,27 +289,9 @@ impl<'a, 'b, E: Ext> Environment<'a, 'b, E, InitState> {
 
 /// Functions to use the input arguments as integers.
 impl<'a, 'b, E: Ext, S: PrimIn> Environment<'a, 'b, E, S> {
-	/// The `input_ptr` argument.
-	pub fn val0(&self) -> u32 {
-		self.inner.input_ptr
-	}
-
 	/// The `input_len` argument.
-	pub fn val1(&self) -> u32 {
+	pub fn input_len(&self) -> u32 {
 		self.inner.input_len
-	}
-}
-
-/// Functions to use the output arguments as integers.
-impl<'a, 'b, E: Ext, S: PrimOut> Environment<'a, 'b, E, S> {
-	/// The `output_ptr` argument.
-	pub fn val2(&self) -> u32 {
-		self.inner.output_ptr
-	}
-
-	/// The `output_len_ptr` argument.
-	pub fn val3(&self) -> u32 {
-		self.inner.output_len_ptr
 	}
 }
 

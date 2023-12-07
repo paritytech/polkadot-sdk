@@ -2460,7 +2460,7 @@ mod tests {
 		assert_eq!(
 			result,
 			Err(ExecError {
-				error: Error::<Test>::OutOfBounds.into(),
+				error: Error::<Test>::DecodingFailed.into(),
 				origin: ErrorOrigin::Caller,
 			})
 		);
