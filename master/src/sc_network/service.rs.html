@@ -1745,6 +1745,9 @@
 <a href="#1745" id="1745">1745</a>
 <a href="#1746" id="1746">1746</a>
 <a href="#1747" id="1747">1747</a>
+<a href="#1748" id="1748">1748</a>
+<a href="#1749" id="1749">1749</a>
+<a href="#1750" id="1750">1750</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1867,6 +1870,8 @@
 	</span>local_identity: Keypair,
 	<span class="doccomment">/// Bandwidth logging system. Can be queried to know the average bandwidth consumed.
 	</span>bandwidth: Arc&lt;transport::BandwidthSinks&gt;,
+	<span class="doccomment">/// Used to query and report reputation changes.
+	</span>peer_store_handle: PeerStoreHandle,
 	<span class="doccomment">/// Channel that sends messages to the actual worker.
 	</span>to_worker: TracingUnboundedSender&lt;ServiceToWorkerMsg&gt;,
 	<span class="doccomment">/// Protocol name -&gt; `SetId` mapping for notification protocols. The map never changes after
@@ -1877,8 +1882,6 @@
 	</span>protocol_handles: Vec&lt;protocol_controller::ProtocolHandle&gt;,
 	<span class="doccomment">/// Shortcut to sync protocol handle (`protocol_handles[0]`).
 	</span>sync_protocol_handle: protocol_controller::ProtocolHandle,
-	<span class="doccomment">/// Handle to `PeerStore`.
-	</span>peer_store_handle: PeerStoreHandle,
 	<span class="doccomment">/// Marker to pin the `H` generic. Serves no purpose except to not break backwards
 	/// compatibility.
 	</span>_marker: PhantomData&lt;H&gt;,
@@ -2612,12 +2615,18 @@
 			.unbounded_send(ServiceToWorkerMsg::AddKnownAddress(peer_id, addr));
 	}
 
-	<span class="kw">fn </span>report_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, who: PeerId, cost_benefit: ReputationChange) {
-		<span class="kw">let _ </span>= <span class="self">self</span>.to_worker.unbounded_send(ServiceToWorkerMsg::ReportPeer(who, cost_benefit));
+	<span class="kw">fn </span>report_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: PeerId, cost_benefit: ReputationChange) {
+		<span class="self">self</span>.peer_store_handle.clone().report_peer(peer_id, cost_benefit);
 	}
 
-	<span class="kw">fn </span>disconnect_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, who: PeerId, protocol: ProtocolName) {
-		<span class="kw">let _ </span>= <span class="self">self</span>.to_worker.unbounded_send(ServiceToWorkerMsg::DisconnectPeer(who, protocol));
+	<span class="kw">fn </span>peer_reputation(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>PeerId) -&gt; i32 {
+		<span class="self">self</span>.peer_store_handle.peer_reputation(peer_id)
+	}
+
+	<span class="kw">fn </span>disconnect_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: PeerId, protocol: ProtocolName) {
+		<span class="kw">let _ </span>= <span class="self">self
+			</span>.to_worker
+			.unbounded_send(ServiceToWorkerMsg::DisconnectPeer(peer_id, protocol));
 	}
 
 	<span class="kw">fn </span>accept_unreserved_peers(<span class="kw-2">&amp;</span><span class="self">self</span>) {
@@ -2896,7 +2905,6 @@
 	GetValue(KademliaKey),
 	PutValue(KademliaKey, Vec&lt;u8&gt;),
 	AddKnownAddress(PeerId, Multiaddr),
-	ReportPeer(PeerId, ReputationChange),
 	EventStream(out_events::Sender),
 	Request {
 		target: PeerId,
@@ -3024,8 +3032,6 @@
 				<span class="self">self</span>.network_service.behaviour_mut().put_value(key, value),
 			ServiceToWorkerMsg::AddKnownAddress(peer_id, addr) =&gt;
 				<span class="self">self</span>.network_service.behaviour_mut().add_known_address(peer_id, addr),
-			ServiceToWorkerMsg::ReportPeer(peer_id, reputation_change) =&gt;
-				<span class="self">self</span>.peer_store_handle.report_peer(peer_id, reputation_change),
 			ServiceToWorkerMsg::EventStream(sender) =&gt; <span class="self">self</span>.event_streams.push(sender),
 			ServiceToWorkerMsg::Request {
 				target,

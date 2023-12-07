@@ -903,6 +903,10 @@
 <a href="#903" id="903">903</a>
 <a href="#904" id="904">904</a>
 <a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1299,9 +1303,13 @@
 			<span class="macro">unimplemented!</span>();
 		}
 
-		<span class="kw">fn </span>report_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, _who: PeerId, _cost_benefit: ReputationChange) {}
+		<span class="kw">fn </span>report_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, _peer_id: PeerId, _cost_benefit: ReputationChange) {}
 
-		<span class="kw">fn </span>disconnect_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, _who: PeerId, _protocol: ProtocolName) {
+		<span class="kw">fn </span>peer_reputation(<span class="kw-2">&amp;</span><span class="self">self</span>, _peer_id: <span class="kw-2">&amp;</span>PeerId) -&gt; i32 {
+			<span class="macro">unimplemented!</span>()
+		}
+
+		<span class="kw">fn </span>disconnect_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, _peer_id: PeerId, _protocol: ProtocolName) {
 			<span class="macro">unimplemented!</span>();
 		}
 

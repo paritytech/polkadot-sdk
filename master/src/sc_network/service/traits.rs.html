@@ -814,6 +814,9 @@
 <a href="#814" id="814">814</a>
 <a href="#815" id="815">815</a>
 <a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 //
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -971,12 +974,15 @@
 
 	<span class="doccomment">/// Report a given peer as either beneficial (+) or costly (-) according to the
 	/// given scalar.
-	</span><span class="kw">fn </span>report_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, who: PeerId, cost_benefit: ReputationChange);
+	</span><span class="kw">fn </span>report_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: PeerId, cost_benefit: ReputationChange);
+
+	<span class="doccomment">/// Get peer reputation.
+	</span><span class="kw">fn </span>peer_reputation(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>PeerId) -&gt; i32;
 
 	<span class="doccomment">/// Disconnect from a node as soon as possible.
 	///
 	/// This triggers the same effects as if the connection had closed itself spontaneously.
-	</span><span class="kw">fn </span>disconnect_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, who: PeerId, protocol: ProtocolName);
+	</span><span class="kw">fn </span>disconnect_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: PeerId, protocol: ProtocolName);
 
 	<span class="doccomment">/// Connect to unreserved peers and allow unreserved peers to connect for syncing purposes.
 	</span><span class="kw">fn </span>accept_unreserved_peers(<span class="kw-2">&amp;</span><span class="self">self</span>);
@@ -1070,16 +1076,16 @@
 		T::add_known_address(<span class="self">self</span>, peer_id, addr)
 	}
 
-	<span class="kw">fn </span>report_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, who: PeerId, cost_benefit: ReputationChange) {
-		<span class="comment">// TODO: when we get rid of `Peerset`, we&#39;ll likely need to add some kind of async
-		// interface to `PeerStore`, otherwise we&#39;ll have trouble calling functions accepting
-		// `&amp;mut self` via `Arc`.
-		// See https://github.com/paritytech/substrate/issues/14170.
-		</span>T::report_peer(<span class="self">self</span>, who, cost_benefit)
+	<span class="kw">fn </span>report_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: PeerId, cost_benefit: ReputationChange) {
+		T::report_peer(<span class="self">self</span>, peer_id, cost_benefit)
 	}
 
-	<span class="kw">fn </span>disconnect_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, who: PeerId, protocol: ProtocolName) {
-		T::disconnect_peer(<span class="self">self</span>, who, protocol)
+	<span class="kw">fn </span>peer_reputation(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>PeerId) -&gt; i32 {
+		T::peer_reputation(<span class="self">self</span>, peer_id)
+	}
+
+	<span class="kw">fn </span>disconnect_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: PeerId, protocol: ProtocolName) {
+		T::disconnect_peer(<span class="self">self</span>, peer_id, protocol)
 	}
 
 	<span class="kw">fn </span>accept_unreserved_peers(<span class="kw-2">&amp;</span><span class="self">self</span>) {
