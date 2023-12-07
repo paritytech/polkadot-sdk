@@ -885,6 +885,12 @@ pub fn register_default_impl(attrs: TokenStream, tokens: TokenStream) -> TokenSt
 	}
 }
 
+#[rustfmt::skip]
+///
+/// ---
+///
+/// Rust-Analyzer Users: Documentation for this macro can be found at
+/// [`frame_support::pallet_prelude::inject_runtime_type`](../frame_support/pallet_prelude/attr.inject_runtime_type.html).
 #[proc_macro_attribute]
 pub fn inject_runtime_type(_: TokenStream, tokens: TokenStream) -> TokenStream {
 	let item = tokens.clone();
