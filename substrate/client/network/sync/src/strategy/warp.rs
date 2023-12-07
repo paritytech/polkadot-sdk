@@ -622,7 +622,7 @@ where
 
 #[cfg(test)]
 mod test {
-	use super::{EncodedProof, VerificationResult, WarpSync, WarpSyncAction, WarpSyncConfig};
+	use super::*;
 	use sp_blockchain::{BlockStatus, Error as BlockchainError, HeaderBackend, Info};
 	use sp_consensus_grandpa::{AuthorityList, SetId};
 	use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
@@ -683,7 +683,7 @@ mod test {
 	fn mock_client_without_state() -> MockClient<Block> {
 		let mut client = MockClient::<Block>::new();
 		let genesis_hash = Hash::random();
-		client.expect_info().return_once(move || Info {
+		client.expect_info().returning(move || Info {
 			best_hash: genesis_hash,
 			best_number: 0,
 			genesis_hash,
@@ -747,6 +747,166 @@ mod test {
 
 		// No actions are emitted.
 		assert_eq!(warp_sync.actions().count(), 0)
+	}
+
+	#[test]
+	fn warp_sync_is_started_only_when_there_is_enough_peers() {
+		let client = mock_client_without_state();
+		let mut provider = MockWarpSyncProvider::<Block>::new();
+		provider
+			.expect_current_authorities()
+			.once()
+			.return_const(AuthorityList::default());
+		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
+		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+
+		// Warp sync is not started when there is not enough peers.
+		for _ in 0..(MIN_PEERS_TO_START_WARP_SYNC - 1) {
+			warp_sync.add_peer(PeerId::random(), Hash::random(), 10);
+			assert!(matches!(warp_sync.phase, Phase::WaitingForPeers { .. }))
+		}
+
+		// Now we have enough peers and warp sync is started.
+		warp_sync.add_peer(PeerId::random(), Hash::random(), 10);
+		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }))
+	}
+
+	#[test]
+	fn no_peer_is_scheduled_if_no_peers_connected() {
+		let client = mock_client_without_state();
+		let provider = MockWarpSyncProvider::<Block>::new();
+		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
+		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+
+		assert!(warp_sync.schedule_next_peer(PeerState::DownloadingProofs, None).is_none());
+	}
+
+	#[test]
+	fn enough_peers_are_used_in_tests() {
+		// Tests below use 10 peers. Fail early if it's less than a threshold for warp sync.
+		assert!(
+			10 >= MIN_PEERS_TO_START_WARP_SYNC,
+			"Tests must be updated to use that many initial peers.",
+		);
+	}
+
+	#[test]
+	fn at_least_median_synced_peer_is_scheduled() {
+		for _ in 0..100 {
+			let client = mock_client_without_state();
+			let mut provider = MockWarpSyncProvider::<Block>::new();
+			provider
+				.expect_current_authorities()
+				.once()
+				.return_const(AuthorityList::default());
+			let config = WarpSyncConfig::WithProvider(Arc::new(provider));
+			let mut warp_sync = WarpSync::new(Arc::new(client), config);
+
+			for best_number in 1..11 {
+				warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+			}
+
+			let peer_id = warp_sync.schedule_next_peer(PeerState::DownloadingProofs, None);
+			assert!(warp_sync.peers.get(&peer_id.unwrap()).unwrap().best_number >= 6);
+		}
+	}
+
+	#[test]
+	fn min_best_number_peer_is_scheduled() {
+		for _ in 0..10 {
+			let client = mock_client_without_state();
+			let mut provider = MockWarpSyncProvider::<Block>::new();
+			provider
+				.expect_current_authorities()
+				.once()
+				.return_const(AuthorityList::default());
+			let config = WarpSyncConfig::WithProvider(Arc::new(provider));
+			let mut warp_sync = WarpSync::new(Arc::new(client), config);
+
+			for best_number in 1..11 {
+				warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+			}
+
+			let peer_id = warp_sync.schedule_next_peer(PeerState::DownloadingProofs, Some(10));
+			assert!(warp_sync.peers.get(&peer_id.unwrap()).unwrap().best_number == 10);
+		}
+	}
+
+	#[test]
+	fn no_warp_proof_request_if_another_phase() {
+		let client = mock_client_without_state();
+		let mut provider = MockWarpSyncProvider::<Block>::new();
+		provider
+			.expect_current_authorities()
+			.once()
+			.return_const(AuthorityList::default());
+		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
+		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+
+		// Make sure we have enough peers to make a request.
+		for best_number in 1..11 {
+			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+		}
+
+		// Manually set to another phase.
+		warp_sync.phase = Phase::PendingTargetBlock;
+
+		// No request is made.
+		assert!(warp_sync.warp_proof_request().is_none());
+	}
+
+	#[test]
+	fn warp_proof_request_starts_at_last_hash() {
+		let client = mock_client_without_state();
+		let mut provider = MockWarpSyncProvider::<Block>::new();
+		provider
+			.expect_current_authorities()
+			.once()
+			.return_const(AuthorityList::default());
+		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
+		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+
+		// Make sure we have enough peers to make a request.
+		for best_number in 1..11 {
+			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+		}
+		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
+
+		let known_last_hash = Hash::random();
+
+		// Manually set last hash to known value.
+		match &mut warp_sync.phase {
+			Phase::WarpProof { last_hash, .. } => {
+				*last_hash = known_last_hash;
+			},
+			_ => panic!("Invalid phase."),
+		}
+
+		let (_peer_id, request) = warp_sync.warp_proof_request().unwrap();
+		assert_eq!(request.begin, known_last_hash);
+	}
+
+	#[test]
+	fn no_parallel_warp_proof_requests() {
+		let client = mock_client_without_state();
+		let mut provider = MockWarpSyncProvider::<Block>::new();
+		provider
+			.expect_current_authorities()
+			.once()
+			.return_const(AuthorityList::default());
+		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
+		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+
+		// Make sure we have enough peers to make requests.
+		for best_number in 1..11 {
+			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+		}
+		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
+
+		// First request is made.
+		assert!(warp_sync.warp_proof_request().is_some());
+		// Second request is not made.
+		assert!(warp_sync.warp_proof_request().is_none());
 	}
 
 	// TODO
