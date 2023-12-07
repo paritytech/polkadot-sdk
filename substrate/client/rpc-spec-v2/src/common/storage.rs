@@ -21,7 +21,6 @@
 use std::{marker::PhantomData, sync::Arc};
 
 use sc_client_api::{Backend, ChildInfo, StorageKey, StorageProvider};
-use sp_core::storage::well_known_keys;
 use sp_runtime::traits::Block as BlockT;
 
 use super::events::{StorageResult, StorageResultType};
