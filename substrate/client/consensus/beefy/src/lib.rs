@@ -56,6 +56,7 @@ use std::{
 	collections::{BTreeMap, VecDeque},
 	marker::PhantomData,
 	sync::Arc,
+	time::Duration,
 };
 
 mod aux_schema;
@@ -77,6 +78,8 @@ pub use communication::beefy_protocol_name::{
 mod tests;
 
 const LOG_TARGET: &str = "beefy";
+
+const HEADER_SYNC_DELAY: Duration = Duration::from_secs(30);
 
 /// A convenience BEEFY client trait that defines all the type bounds a BEEFY client
 /// has to satisfy. Ideally that should actually be a trait alias. Unfortunately as
@@ -292,21 +295,35 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 	// select recoverable errors.
 	loop {
 		// Wait for BEEFY pallet to be active before starting voter.
-		let persisted_state = match wait_for_runtime_pallet(
+		let (beefy_genesis, best_grandpa) = match wait_for_runtime_pallet(
 			&*runtime,
 			&mut beefy_comms.gossip_engine,
 			&mut finality_notifications,
 		)
 		.await
-		.and_then(|(beefy_genesis, best_grandpa)| {
-			load_or_init_voter_state(
-				&*backend,
-				&*runtime,
-				beefy_genesis,
-				best_grandpa,
-				min_block_delta,
-			)
-		}) {
+		{
+			Ok(res) => res,
+			Err(e) => {
+				error!(target: LOG_TARGET, "Error: {:?}. Terminating.", e);
+				return
+			},
+		};
+
+		if let Err(e) =
+			wait_for_headers_sync(&*backend, beefy_genesis, best_grandpa.clone(), HEADER_SYNC_DELAY)
+				.await
+		{
+			error!(target: LOG_TARGET, "Error: {:?}. Terminating.", e);
+			return
+		}
+
+		let persisted_state = match load_or_init_voter_state(
+			&*backend,
+			&*runtime,
+			beefy_genesis,
+			best_grandpa,
+			min_block_delta,
+		) {
 			Ok(state) => state,
 			Err(e) => {
 				error!(target: LOG_TARGET, "Error: {:?}. Terminating.", e);
@@ -388,6 +405,53 @@ where
 		})
 }
 
+async fn wait_for_parent_header<B, BE>(
+	backend: &BE,
+	current: <B as Block>::Header,
+	delay: Duration,
+) -> ClientResult<<B as Block>::Header>
+where
+	B: Block,
+	BE: Backend<B>,
+{
+	let blockchain = backend.blockchain();
+	loop {
+		match blockchain.header(*current.parent_hash())? {
+			Some(parent) => return Ok(parent),
+			None => {
+				info!(
+					target: LOG_TARGET,
+					"🥩 Parent of header {} not found. BEEFY gadget waiting for header sync to finish ...",
+					current.number()
+				);
+				tokio::time::sleep(delay).await;
+			},
+		}
+	}
+}
+
+async fn wait_for_headers_sync<B, BE>(
+	backend: &BE,
+	start: NumberFor<B>,
+	end: <B as Block>::Header,
+	delay: Duration,
+) -> ClientResult<()>
+where
+	B: Block,
+	BE: Backend<B>,
+{
+	let mut header = end.clone();
+	while *header.number() >= start {
+		header = wait_for_parent_header(backend, header, delay).await?;
+	}
+
+	info!(
+		target: LOG_TARGET,
+		"🥩 Headers sync finished. BEEFY gadget resuming.",
+	);
+	Ok(())
+}
+
 // If no persisted state present, walk back the chain from first GRANDPA notification to either:
 //  - latest BEEFY finalized block, or if none found on the way,
 //  - BEEFY pallet genesis;
@@ -405,6 +469,8 @@ where
 	R: ProvideRuntimeApi<B>,
 	R::Api: BeefyApi<B, AuthorityId>,
 {
+	let blockchain = backend.blockchain();
+
 	let beefy_genesis = runtime
 		.runtime_api()
 		.beefy_genesis(best_grandpa.hash())
@@ -414,7 +480,6 @@ where
 		.ok_or_else(|| ClientError::Backend("BEEFY pallet expected to be active.".into()))?;
 	// Walk back the imported blocks and initialize voter either, at the last block with
 	// a BEEFY justification, or at pallet genesis block; voter will resume from there.
-	let blockchain = backend.blockchain();
 	let mut sessions = VecDeque::new();
 	let mut header = best_grandpa.clone();
 	let state = loop {
