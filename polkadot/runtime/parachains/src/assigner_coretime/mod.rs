@@ -268,7 +268,7 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 		CoreDescriptors::<T>::mutate(core_idx, |core_state| {
 			Self::ensure_workload(now, core_idx, core_state);
 
-			let mut work_state = core_state.current_work.as_mut()?;
+			let work_state = core_state.current_work.as_mut()?;
 
 			work_state.pos = work_state.pos % work_state.assignments.len() as u16;
 			let (a_type, a_state) = &mut work_state
@@ -288,13 +288,11 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 
 			match a_type {
 				CoreAssignment::Idle => None,
-				CoreAssignment::Pool =>
-					<assigner_on_demand::Pallet<T> as AssignmentProvider<
-						BlockNumberFor<T>,
-					>>::pop_assignment_for_core(core_idx)
-					.map(|assignment| CoretimeAssignment::Pool(assignment)),
-				CoreAssignment::Task(para_id) =>
-					Some(CoretimeAssignment::Bulk((*para_id).into())),
+				CoreAssignment::Pool => <assigner_on_demand::Pallet<T> as AssignmentProvider<
+					BlockNumberFor<T>,
+				>>::pop_assignment_for_core(core_idx)
+				.map(|assignment| CoretimeAssignment::Pool(assignment)),
+				CoreAssignment::Task(para_id) => Some(CoretimeAssignment::Bulk((*para_id).into())),
 			}
 		})
 	}
@@ -478,4 +476,3 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 }
-
