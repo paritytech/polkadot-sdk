@@ -9,5 +9,6 @@ doc:
       `frame_support::traits::GetStorageVersion::current_storage_version` has been renamed `frame_support::traits::GetStorageVersion::in_code_storage_version`.
       A simple find-replace is sufficient to handle this change.
 
-crates: [ frame_support ]
+crates:
+  - name: "frame-support"
 
