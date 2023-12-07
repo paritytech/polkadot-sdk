@@ -10,6 +10,7 @@ error: use of deprecated constant `pallet::warnings::ConstantWeight_0::_w`:
    |                          ^
    |
    = note: `-D deprecated` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(deprecated)]`
 
 error[E0277]: `<T as pallet::Config>::Bar` doesn't implement `std::fmt::Debug`
   --> tests/pallet_ui/call_argument_invalid_bound_2.rs:38:36
@@ -45,9 +46,9 @@ error[E0277]: the trait bound `<T as pallet::Config>::Bar: WrapperTypeEncode` is
    = note: required for `<T as pallet::Config>::Bar` to implement `Encode`
 
 error[E0277]: the trait bound `<T as pallet::Config>::Bar: WrapperTypeDecode` is not satisfied
-  --> tests/pallet_ui/call_argument_invalid_bound_2.rs:34:12
+  --> tests/pallet_ui/call_argument_invalid_bound_2.rs:38:42
    |
-34 |     #[pallet::call]
-   |               ^^^^ the trait `WrapperTypeDecode` is not implemented for `<T as pallet::Config>::Bar`
+38 |         pub fn foo(origin: OriginFor<T>, _bar: T::Bar) -> DispatchResultWithPostInfo {
+   |                                                ^^^^^^ the trait `WrapperTypeDecode` is not implemented for `<T as pallet::Config>::Bar`
    |
    = note: required for `<T as pallet::Config>::Bar` to implement `Decode`
