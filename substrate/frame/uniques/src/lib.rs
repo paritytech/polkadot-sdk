@@ -856,34 +856,37 @@ pub mod pallet {
 		pub fn transfer_ownership(
 			origin: OriginFor<T>,
 			collection: T::CollectionId,
-			owner: AccountIdLookupOf<T>,
+			new_owner: AccountIdLookupOf<T>,
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
-			let owner = T::Lookup::lookup(owner)?;
+			let new_owner = T::Lookup::lookup(new_owner)?;
 
-			let acceptable_collection = OwnershipAcceptance::<T, I>::get(&owner);
+			let acceptable_collection = OwnershipAcceptance::<T, I>::get(&new_owner);
 			ensure!(acceptable_collection.as_ref() == Some(&collection), Error::<T, I>::Unaccepted);
 
 			Collection::<T, I>::try_mutate(collection.clone(), |maybe_details| {
 				let details = maybe_details.as_mut().ok_or(Error::<T, I>::UnknownCollection)?;
 				ensure!(origin == details.owner, Error::<T, I>::NoPermission);
-				if details.owner == owner {
+				if details.owner == new_owner {
 					return Ok(())
 				}
 
 				// Move the deposit to the new owner.
 				T::Currency::repatriate_reserved(
 					&details.owner,
-					&owner,
+					&new_owner,
 					details.total_deposit,
 					Reserved,
 				)?;
-				CollectionAccount::<T, I>::remove(&details.owner, &collection);
-				CollectionAccount::<T, I>::insert(&owner, &collection, ());
-				details.owner = owner.clone();
-				OwnershipAcceptance::<T, I>::remove(&owner);
 
-				Self::deposit_event(Event::OwnerChanged { collection, new_owner: owner });
+				CollectionAccount::<T, I>::remove(&details.owner, &collection);
+				CollectionAccount::<T, I>::insert(&new_owner, &collection, ());
+
+				details.owner = new_owner.clone();
+				OwnershipAcceptance::<T, I>::remove(&new_owner);
+				frame_system::Pallet::<T>::dec_consumers(&new_owner);
+
+				Self::deposit_event(Event::OwnerChanged { collection, new_owner });
 				Ok(())
 			})
 		}
