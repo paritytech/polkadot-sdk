@@ -341,7 +341,7 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	fn get_mock_assignment(_: CoreIndex, para_id: ParaId) -> Self::AssignmentType {
 		// Given that we are not tracking anything in `Bulk` assignments, it is safe to always
 		// return a bulk assignment.
-		return CoretimeAssignment::Bulk(para_id)
+		CoretimeAssignment::Bulk(para_id)
 	}
 }
 
