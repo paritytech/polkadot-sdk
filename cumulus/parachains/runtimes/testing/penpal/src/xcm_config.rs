@@ -292,7 +292,7 @@ parameter_types! {
 		0,
 		X2(PalletInstance(50), GeneralIndex(TELEPORTABLE_ASSET_ID.into()))
 	);
-	pub EthereumLocation: MultiLocation = MultiLocation::new(2, X1(GlobalConsensus(EthereumNetwork::get())));
+	pub EthereumLocation: MultiLocation = MultiLocation::new(2, X1(GlobalConsensus(NetworkId::Ethereum { chain_id: 11155111 })));
 }
 
 /// Accepts asset with ID `AssetLocation` and is coming from `Origin` chain.
