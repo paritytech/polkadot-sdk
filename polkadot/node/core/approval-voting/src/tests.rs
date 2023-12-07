@@ -20,7 +20,7 @@ use crate::backend::V1ReadBackend;
 use polkadot_node_primitives::{
 	approval::{
 		v1::{
-			AssignmentCert, AssignmentCertKind, DelayTranche, VrfOutput, VrfProof, VrfSignature,
+			AssignmentCert, AssignmentCertKind, DelayTranche, VrfPreOutput, VrfProof, VrfSignature,
 			RELAY_VRF_MODULO_CONTEXT,
 		},
 		v2::{AssignmentCertKindV2, AssignmentCertV2},
@@ -415,9 +415,12 @@ fn garbage_assignment_cert(kind: AssignmentCertKind) -> AssignmentCert {
 	let mut prng = rand_core::OsRng;
 	let keypair = schnorrkel::Keypair::generate_with(&mut prng);
 	let (inout, proof, _) = keypair.vrf_sign(ctx.bytes(msg));
-	let out = inout.to_output();
+	let preout = inout.to_output();
 
-	AssignmentCert { kind, vrf: VrfSignature { output: VrfOutput(out), proof: VrfProof(proof) } }
+	AssignmentCert {
+		kind,
+		vrf: VrfSignature { pre_output: VrfPreOutput(preout), proof: VrfProof(proof) },
+	}
 }
 
 fn garbage_assignment_cert_v2(kind: AssignmentCertKindV2) -> AssignmentCertV2 {
@@ -426,9 +429,12 @@ fn garbage_assignment_cert_v2(kind: AssignmentCertKindV2) -> AssignmentCertV2 {
 	let mut prng = rand_core::OsRng;
 	let keypair = schnorrkel::Keypair::generate_with(&mut prng);
 	let (inout, proof, _) = keypair.vrf_sign(ctx.bytes(msg));
-	let out = inout.to_output();
+	let preout = inout.to_output();
 
-	AssignmentCertV2 { kind, vrf: VrfSignature { output: VrfOutput(out), proof: VrfProof(proof) } }
+	AssignmentCertV2 {
+		kind,
+		vrf: VrfSignature { pre_output: VrfPreOutput(preout), proof: VrfProof(proof) },
+	}
 }
 
 fn sign_approval(
@@ -2705,10 +2711,10 @@ async fn handle_double_assignment_import(
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
 		AllMessages::CandidateValidation(CandidateValidationMessage::ValidateFromExhaustive {
-			exec_timeout_kind,
+			exec_kind,
 			response_sender,
 			..
-		}) if exec_timeout_kind == PvfExecTimeoutKind::Approval => {
+		}) if exec_kind == PvfExecKind::Approval => {
 			response_sender.send(Ok(ValidationResult::Valid(Default::default(), Default::default())))
 				.unwrap();
 		}

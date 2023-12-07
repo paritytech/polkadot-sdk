@@ -25,7 +25,7 @@ use crate::{
 };
 
 use frame_support::{
-	assert_ok, parameter_types,
+	assert_ok, derive_impl, parameter_types,
 	traits::{
 		Currency, ProcessMessage, ProcessMessageError, ValidatorSet, ValidatorSetWithIdentification,
 	},
@@ -94,6 +94,7 @@ parameter_types! {
 
 pub type AccountId = u64;
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = BlockWeights;
@@ -183,7 +184,22 @@ impl crate::configuration::Config for Test {
 	type WeightInfo = crate::configuration::TestWeightInfo;
 }
 
-impl crate::shared::Config for Test {}
+pub struct MockDisabledValidators {}
+impl frame_support::traits::DisabledValidators for MockDisabledValidators {
+	/// Returns true if the given validator is disabled.
+	fn is_disabled(index: u32) -> bool {
+		disabled_validators().iter().any(|v| *v == index)
+	}
+
+	/// Returns a hardcoded list (`DISABLED_VALIDATORS`) of disabled validators
+	fn disabled_validators() -> Vec<u32> {
+		disabled_validators()
+	}
+}
+
+impl crate::shared::Config for Test {
+	type DisabledValidators = MockDisabledValidators;
+}
 
 impl origin::Config for Test {}
 
@@ -431,6 +447,8 @@ thread_local! {
 
 	pub static AVAILABILITY_REWARDS: RefCell<HashMap<ValidatorIndex, usize>>
 		= RefCell::new(HashMap::new());
+
+	pub static DISABLED_VALIDATORS: RefCell<Vec<u32>> = RefCell::new(vec![]);
 }
 
 pub fn backing_rewards() -> HashMap<ValidatorIndex, usize> {
@@ -439,6 +457,10 @@ pub fn backing_rewards() -> HashMap<ValidatorIndex, usize> {
 
 pub fn availability_rewards() -> HashMap<ValidatorIndex, usize> {
 	AVAILABILITY_REWARDS.with(|r| r.borrow().clone())
+}
+
+pub fn disabled_validators() -> Vec<u32> {
+	DISABLED_VALIDATORS.with(|r| r.borrow().clone())
 }
 
 parameter_types! {
@@ -579,4 +601,8 @@ pub(crate) fn deregister_parachain(id: ParaId) {
 /// Calls `schedule_para_cleanup` in a new storage transactions, since it assumes rollback on error.
 pub(crate) fn try_deregister_parachain(id: ParaId) -> crate::DispatchResult {
 	frame_support::storage::transactional::with_storage_layer(|| Paras::schedule_para_cleanup(id))
+}
+
+pub(crate) fn set_disabled_validators(disabled: Vec<u32>) {
+	DISABLED_VALIDATORS.with(|d| *d.borrow_mut() = disabled)
 }
