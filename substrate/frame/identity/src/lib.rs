@@ -74,7 +74,7 @@
 
 mod benchmarking;
 pub mod legacy;
-mod migration;
+pub mod migration;
 #[cfg(test)]
 mod tests;
 mod types;
