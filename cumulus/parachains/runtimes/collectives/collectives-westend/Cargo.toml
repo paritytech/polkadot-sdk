@@ -77,7 +77,6 @@ pallet-collator-selection = { path = "../../../../pallets/collator-selection", d
 pallet-collective-content = { path = "../../../pallets/collective-content", default-features = false }
 parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false }
 parachains-common = { path = "../../../common", default-features = false }
-testnets-common = { path = "../../../testnets-common", default-features = false }
 
 [build-dependencies]
 substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder", optional = true }
@@ -118,7 +117,6 @@ runtime-benchmarks = [
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"testnets-common/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 ]
@@ -216,7 +214,6 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
-	"testnets-common/std",
 	"westend-runtime-constants/std",
 	"xcm-builder/std",
 	"xcm-executor/std",

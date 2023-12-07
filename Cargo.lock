@@ -2668,7 +2668,6 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
- "testnets-common",
  "westend-runtime-constants",
 ]
 
@@ -19180,19 +19179,6 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "sp-weights",
-]
-
-[[package]]
-name = "testnets-common"
-version = "1.0.0"
-dependencies = [
- "frame-support",
- "polkadot-core-primitives",
- "rococo-runtime-constants",
- "smallvec",
- "sp-runtime",
- "substrate-wasm-builder",
- "westend-runtime-constants",
 ]
 
 [[package]]
