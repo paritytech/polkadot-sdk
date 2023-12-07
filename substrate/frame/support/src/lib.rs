@@ -2229,10 +2229,49 @@ pub use frame_support_procedural::pallet;
 pub mod pallet_macros {
 	pub use frame_support_procedural::{
 		composite_enum, config, disable_frame_system_supertrait_check, extra_constants,
-		generate_store, getter, hooks, import_section, inherent, no_default, no_default_bounds,
-		origin, pallet_section, storage_prefix, storage_version, type_value, unbounded,
-		validate_unsigned, weight, whitelist_storage,
+		generate_store, getter, import_section, inherent, no_default, no_default_bounds, origin,
+		pallet_section, storage_prefix, storage_version, type_value, unbounded, validate_unsigned,
+		weight, whitelist_storage,
 	};
+
+	/// The `#[pallet::hooks]` attribute allows you to specify a `Hooks` implementation for
+	/// `Pallet` that specifies pallet-specific logic.
+	///
+	/// The item the attribute attaches to must be defined as follows:
+	/// ```ignore
+	/// #[pallet::hooks]
+	/// impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> $optional_where_clause {
+	///     ...
+	/// }
+	/// ```
+	/// I.e. a regular trait implementation with generic bound: `T: Config`, for the trait
+	/// `Hooks<BlockNumberFor<T>>` (they are defined in preludes), for the type `Pallet<T>` and
+	/// with an optional where clause.
+	///
+	/// If no `#[pallet::hooks]` exists, then the following default implementation is
+	/// automatically generated:
+	/// ```ignore
+	/// #[pallet::hooks]
+	/// impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
+	/// ```
+	///
+	/// ## Macro expansion
+	///
+	/// The macro implements the traits
+	/// [`OnInitialize`](frame_support::traits::OnInitialize),
+	/// [`OnIdle`](frame_support::traits::OnIdle),
+	/// [`OnFinalize`](frame_support::traits::OnFinalize),
+	/// [`OnRuntimeUpgrade`](frame_support::traits::OnRuntimeUpgrade),
+	/// [`OffchainWorker`](frame_support::traits::OffchainWorker), and
+	/// [`IntegrityTest`](frame_support::traits::IntegrityTest) using
+	/// the provided [`Hooks`](frame_support::traits::Hooks) implementation.
+	///
+	/// NOTE: `OnRuntimeUpgrade` is implemented with `Hooks::on_runtime_upgrade` and some
+	/// additional logic. E.g. logic to write the pallet version into storage.
+	///
+	/// NOTE: The macro also adds some tracing logic when implementing the above traits. The
+	/// following hooks emit traces: `on_initialize`, `on_finalize` and `on_runtime_upgrade`.
+	pub use frame_support_procedural::hooks;
 
 	/// The attribute `#[pallet::generate_deposit($visibility fn deposit_event)]` generates a
 	/// helper function on `Pallet` that handles deposit events.
