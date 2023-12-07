@@ -135,7 +135,7 @@ impl PeerSet {
 
 		#[cfg(feature = "network-protocol-staging")]
 		match self {
-			PeerSet::Validation => ValidationVersion::VStaging.into(),
+			PeerSet::Validation => ValidationVersion::V3.into(),
 			PeerSet::Collation => CollationVersion::V2.into(),
 		}
 	}
@@ -163,7 +163,7 @@ impl PeerSet {
 					Some("validation/1")
 				} else if version == ValidationVersion::V2.into() {
 					Some("validation/2")
-				} else if version == ValidationVersion::VStaging.into() {
+				} else if version == ValidationVersion::V3.into() {
 					Some("validation/3")
 				} else {
 					None
@@ -236,9 +236,10 @@ pub enum ValidationVersion {
 	V1 = 1,
 	/// The second version.
 	V2 = 2,
-	/// The staging version to gather changes
-	/// that before the release become v3.
-	VStaging = 3,
+	/// The third version where changes to ApprovalDistributionMessage had been made.
+	/// The changes are translatable to V2 format untill assignments v2 and approvals
+	/// coalescing is enabled through a runtime upgrade.
+	V3 = 3,
 }
 
 /// Supported collation protocol versions. Only versions defined here must be used in the codebase.

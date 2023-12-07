@@ -224,7 +224,7 @@ impl TestNetworkHandle {
 				PeerSet::Validation => Some(ProtocolName::from("/polkadot/validation/1")),
 				PeerSet::Collation => Some(ProtocolName::from("/polkadot/collation/1")),
 			},
-			ValidationVersion::VStaging => match peer_set {
+			ValidationVersion::V3 => match peer_set {
 				PeerSet::Validation => Some(ProtocolName::from("/polkadot/validation/3")),
 				PeerSet::Collation => unreachable!(),
 			},
@@ -1433,8 +1433,8 @@ fn network_protocol_versioning_view_update() {
 				ValidationVersion::V2 =>
 					WireMessage::<protocol_v2::ValidationProtocol>::ViewUpdate(view.clone())
 						.encode(),
-				ValidationVersion::VStaging =>
-					WireMessage::<protocol_vstaging::ValidationProtocol>::ViewUpdate(view.clone())
+				ValidationVersion::V3 =>
+					WireMessage::<protocol_v3::ValidationProtocol>::ViewUpdate(view.clone())
 						.encode(),
 			};
 			assert_network_actions_contains(
