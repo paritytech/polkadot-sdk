@@ -576,11 +576,6 @@ mod tests {
 		type SS58Prefix = ();
 		type OnSetCode = ();
 		type MaxConsumers = ConstU32<16>;
-		type SingleBlockMigrations = ();
-		type MultiBlockMigrator = ();
-		type PreInherents = ();
-		type PostInherents = ();
-		type PostTransactions = ();
 	}
 	ord_parameter_types! {
 		pub const One: u64 = 1;

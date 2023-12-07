@@ -214,11 +214,6 @@ mod tests {
 		type SS58Prefix = ();
 		type OnSetCode = ();
 		type MaxConsumers = ConstU32<16>;
-		type SingleBlockMigrations = ();
-		type MultiBlockMigrator = ();
-		type PreInherents = ();
-		type PostInherents = ();
-		type PostTransactions = ();
 	}
 
 	impl pallet_insecure_randomness_collective_flip::Config for Test {}
