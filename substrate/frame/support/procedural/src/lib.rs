@@ -285,6 +285,12 @@ pub fn transactional(attr: TokenStream, input: TokenStream) -> TokenStream {
 	transactional::transactional(attr, input).unwrap_or_else(|e| e.to_compile_error().into())
 }
 
+#[rustfmt::skip]
+///
+/// ---
+///
+/// Rust-Analyzer Users: Documentation for this macro can be found at
+/// [`frame_support::require_transactional`](../frame_support/attr.require_transactional.html).
 #[proc_macro_attribute]
 pub fn require_transactional(attr: TokenStream, input: TokenStream) -> TokenStream {
 	transactional::require_transactional(attr, input)
