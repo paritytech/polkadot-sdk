@@ -20,7 +20,7 @@
 pub mod v1 {
 	use sp_consensus_babe as babe_primitives;
 	pub use sp_consensus_babe::{
-		Randomness, Slot, VrfOutput, VrfProof, VrfSignature, VrfTranscript,
+		Randomness, Slot, VrfPreOutput, VrfProof, VrfSignature, VrfTranscript,
 	};
 
 	use parity_scale_codec::{Decode, Encode};
@@ -145,14 +145,14 @@ pub mod v1 {
 		AuthorityOutOfBounds(usize),
 	}
 
-	/// An unsafe VRF output. Provide BABE Epoch info to create a `RelayVRFStory`.
-	pub struct UnsafeVRFOutput {
-		vrf_output: VrfOutput,
+	/// An unsafe VRF pre-output. Provide BABE Epoch info to create a `RelayVRFStory`.
+	pub struct UnsafeVRFPreOutput {
+		vrf_pre_output: VrfPreOutput,
 		slot: Slot,
 		authority_index: u32,
 	}
 
-	impl UnsafeVRFOutput {
+	impl UnsafeVRFPreOutput {
 		/// Get the slot.
 		pub fn slot(&self) -> Slot {
 			self.slot
@@ -177,7 +177,7 @@ pub mod v1 {
 				sp_consensus_babe::make_vrf_transcript(randomness, self.slot, epoch_index);
 
 			let inout = self
-				.vrf_output
+				.vrf_pre_output
 				.0
 				.attach_input_hash(&pubkey, transcript.0)
 				.map_err(ApprovalError::SchnorrkelSignature)?;
@@ -190,7 +190,7 @@ pub mod v1 {
 	/// This fails if either there is no BABE `PreRuntime` digest or
 	/// the digest has type `SecondaryPlain`, which Substrate nodes do
 	/// not produce or accept anymore.
-	pub fn babe_unsafe_vrf_info(header: &Header) -> Option<UnsafeVRFOutput> {
+	pub fn babe_unsafe_vrf_info(header: &Header) -> Option<UnsafeVRFPreOutput> {
 		use babe_primitives::digests::CompatibleDigestItem;
 
 		for digest in &header.digest.logs {
@@ -198,8 +198,8 @@ pub mod v1 {
 				let slot = pre.slot();
 				let authority_index = pre.authority_index();
 
-				return pre.vrf_signature().map(|sig| UnsafeVRFOutput {
-					vrf_output: sig.output.clone(),
+				return pre.vrf_signature().map(|sig| UnsafeVRFPreOutput {
+					vrf_pre_output: sig.pre_output.clone(),
 					slot,
 					authority_index,
 				})
@@ -214,7 +214,7 @@ pub mod v1 {
 pub mod v2 {
 	use parity_scale_codec::{Decode, Encode};
 	pub use sp_consensus_babe::{
-		Randomness, Slot, VrfOutput, VrfProof, VrfSignature, VrfTranscript,
+		Randomness, Slot, VrfPreOutput, VrfProof, VrfSignature, VrfTranscript,
 	};
 	use std::ops::BitOr;
 
