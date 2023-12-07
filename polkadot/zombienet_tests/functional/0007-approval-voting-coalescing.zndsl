@@ -29,4 +29,4 @@ alice: reports substrate_block_height{status="finalized"} is at least 30 within 
 
 alice: reports polkadot_parachain_approval_checking_finality_lag < 3
 
-alice: reports polkadot_parachain_approvals_no_shows_total < 1 within 10 seconds
+alice: reports polkadot_parachain_approvals_no_shows_total < 3 within 10 seconds

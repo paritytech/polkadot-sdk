@@ -44,6 +44,12 @@ pub struct ApprovalVotingParams {
 	pub max_approval_coalesce_count: u32,
 }
 
+impl Default for ApprovalVotingParams {
+	fn default() -> Self {
+		Self { max_approval_coalesce_count: 1 }
+	}
+}
+
 use bitvec::vec::BitVec;
 
 /// Bit indices in the `HostConfiguration.node_features` that correspond to different node features.
