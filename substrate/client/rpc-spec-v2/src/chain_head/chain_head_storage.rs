@@ -32,7 +32,7 @@ use crate::{
 	},
 	common::{
 		events::{StorageQuery, StorageQueryType},
-		storage::{ IterQueryType, QueryIter, QueryIterResult, Storage},
+		storage::{IterQueryType, QueryIter, QueryIterResult, Storage},
 	},
 };
 
@@ -141,6 +141,7 @@ where
 
 		let mut storage_results = Vec::with_capacity(items.len());
 		for item in items {
+			match item.query_type {
 				StorageQueryType::Value => {
 					match self.client.query_value(hash, &item.key, child_key.as_ref()) {
 						Ok(Some(value)) => storage_results.push(value),
