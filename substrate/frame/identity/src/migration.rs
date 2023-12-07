@@ -16,10 +16,11 @@
 //! Storage migrations for the Identity pallet.
 
 use super::*;
-use codec::{Decode, Encode};
 use frame_support::{pallet_prelude::*, traits::OnRuntimeUpgrade};
 use log;
 
+#[cfg(feature = "try-runtime")]
+use codec::{Decode, Encode};
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 
