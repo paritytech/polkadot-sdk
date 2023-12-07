@@ -183,7 +183,7 @@ fn invoke_wasm_build(current_dir: &Path) -> Result<()> {
 	let build_res = Command::new(env::var("CARGO")?)
 		.current_dir(current_dir)
 		.env("CARGO_ENCODED_RUSTFLAGS", encoded_rustflags)
-		.args(&["build", "--offline", "--release", "--target=wasm32-unknown-unknown"])
+		.args(&["build", "--release", "--target=wasm32-unknown-unknown"])
 		.output()
 		.expect("failed to execute process");
 
@@ -230,7 +230,7 @@ fn invoke_riscv_build(current_dir: &Path) -> Result<()> {
 		.env("PATH", env::var("PATH").unwrap())
 		.env("CARGO_ENCODED_RUSTFLAGS", encoded_rustflags)
 		.env("RUSTUP_TOOLCHAIN", toolchain)
-		.args(&["build", "--offline", "--release", "--target=riscv32em-unknown-none-elf"])
+		.args(&["build", "--release", "--target=riscv32em-unknown-none-elf"])
 		.output()
 		.expect("failed to execute process");
 

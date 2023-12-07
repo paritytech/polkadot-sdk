@@ -14,7 +14,6 @@ sp-runtime = { path = "../../../primitives/runtime" }
 anyhow = "1.0.0"
 
 [build-dependencies]
-polkavm-derive = "0.2.0"
 polkavm-linker = "0.2.0"
 parity-wasm = "0.45.0"
 tempfile = "3.8.1"
