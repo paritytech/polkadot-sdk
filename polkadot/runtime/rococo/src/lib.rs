@@ -43,7 +43,6 @@ use scale_info::TypeInfo;
 use sp_std::{cmp::Ordering, collections::btree_map::BTreeMap, prelude::*};
 
 use runtime_parachains::{
-	assigner::v1 as parachains_assigner_v1,
 	assigner_coretime as parachains_assigner_coretime,
 	assigner_on_demand as parachains_assigner_on_demand,
 	assigner_parachains as parachains_assigner_parachains,
@@ -1014,7 +1013,7 @@ impl parachains_paras_inherent::Config for Runtime {
 impl parachains_scheduler::Config for Runtime {
 	// If you change this, make sure the `Assignment` type of the new provider is binary compatible,
 	// otherwise provide a migration.
-	type AssignmentProvider = ParaAssignmentProvider;
+	type AssignmentProvider = CoretimeAssignmentProvider;
 }
 
 parameter_types! {
@@ -1040,11 +1039,9 @@ impl coretime::Config for Runtime {
 	type WeightInfo = weights::runtime_common_coretime::WeightInfo<Runtime>;
 }
 
-impl parachains_assigner_coretime::Config for Runtime {}
-
 impl parachains_assigner_parachains::Config for Runtime {}
 
-impl parachains_assigner_v1::Config for Runtime {}
+impl parachains_assigner_coretime::Config for Runtime {}
 
 impl parachains_initializer::Config for Runtime {
 	type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
@@ -1429,10 +1426,9 @@ construct_runtime! {
 		ParasDisputes: parachains_disputes::{Pallet, Call, Storage, Event<T>} = 62,
 		ParasSlashing: parachains_slashing::{Pallet, Call, Storage, ValidateUnsigned} = 63,
 		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>} = 64,
-		ParaAssignmentProvider: parachains_assigner_v1::{Pallet, Storage} = 65,
 		OnDemandAssignmentProvider: parachains_assigner_on_demand::{Pallet, Call, Storage, Event<T>} = 66,
 		ParachainsAssignmentProvider: parachains_assigner_parachains::{Pallet} = 67,
-		CoreTimeAssignmentProvider: parachains_assigner_coretime::{Pallet, Storage} = 68,
+		CoretimeAssignmentProvider: parachains_assigner_coretime::{Pallet, Storage} = 68,
 
 		// Parachain Onboarding Pallets. Start indices at 70 to leave room.
 		Registrar: paras_registrar::{Pallet, Call, Storage, Event<T>, Config<T>} = 70,
@@ -1673,10 +1669,10 @@ pub mod migrations {
 		const STORAGE_VERSION: AssignmentVersion = AssignmentVersion::new(1);
 
 		type OldType = parachains_scheduler::common::V0Assignment;
-		type NewType = parachains_assigner_v1::UnifiedAssignmentType<Runtime>;
+		type NewType = parachains_assigner_coretime::CoretimeAssignmentType<Runtime>;
 
 		fn migrate(core_idx: CoreIndex, old: Self::OldType) -> Self::NewType {
-			parachains_assigner_v1::migrate_assignment_v0_to_v1::<Runtime>(old, core_idx)
+			parachains_assigner_coretime::migrate_legacy_v0_assignment::<Runtime>(old, core_idx)
 		}
 	}
 }

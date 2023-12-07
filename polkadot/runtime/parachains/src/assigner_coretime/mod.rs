@@ -31,7 +31,7 @@ mod mock_helpers;
 mod tests;
 
 use crate::{
-	assigner_on_demand, configuration, paras,
+	assigner_on_demand, assigner_parachains as assigner_legacy, configuration, paras,
 	scheduler::common::{
 		Assignment, AssignmentProvider, AssignmentProviderConfig, FixedAssignmentProvider,
 		V0Assignment,
@@ -237,7 +237,7 @@ pub enum CoretimeAssignment<OnDemand> {
 	Bulk(ParaId),
 }
 
-type CoretimeAssignmentType<T> = CoretimeAssignment<
+pub type CoretimeAssignmentType<T> = CoretimeAssignment<
 	<assigner_on_demand::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::AssignmentType,
 >;
 
@@ -250,15 +250,6 @@ impl<OnDemand: Assignment> Assignment for CoretimeAssignment<OnDemand> {
 	}
 }
 
-impl CoretimeAssignment<assigner_on_demand::OnDemandAssignment> {
-	pub(crate) fn from_v0_assignment(v0: V0Assignment, core_index: CoreIndex) -> Self {
-		// There have been no bulk cores previously:
-		CoretimeAssignment::Pool(assigner_on_demand::OnDemandAssignment::from_v0_assignment(
-			v0, core_index,
-		))
-	}
-}
-
 impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	type AssignmentType = CoretimeAssignmentType<T>;
 
@@ -268,7 +259,7 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 		CoreDescriptors::<T>::mutate(core_idx, |core_state| {
 			Self::ensure_workload(now, core_idx, core_state);
 
-			let mut work_state = core_state.current_work.as_mut()?;
+			let work_state = core_state.current_work.as_mut()?;
 
 			work_state.pos = work_state.pos % work_state.assignments.len() as u16;
 			let (a_type, a_state) = &mut work_state
@@ -288,13 +279,11 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 
 			match a_type {
 				CoreAssignment::Idle => None,
-				CoreAssignment::Pool =>
-					<assigner_on_demand::Pallet<T> as AssignmentProvider<
-						BlockNumberFor<T>,
-					>>::pop_assignment_for_core(core_idx)
-					.map(|assignment| CoretimeAssignment::Pool(assignment)),
-				CoreAssignment::Task(para_id) =>
-					Some(CoretimeAssignment::Bulk((*para_id).into())),
+				CoreAssignment::Pool => <assigner_on_demand::Pallet<T> as AssignmentProvider<
+					BlockNumberFor<T>,
+				>>::pop_assignment_for_core(core_idx)
+				.map(|assignment| CoretimeAssignment::Pool(assignment)),
+				CoreAssignment::Task(para_id) => Some(CoretimeAssignment::Bulk((*para_id).into())),
 			}
 		})
 	}
@@ -479,3 +468,19 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
+pub fn migrate_legacy_v0_assignment<T: Config + assigner_legacy::Config>(
+	old: V0Assignment,
+	core: CoreIndex,
+) -> CoretimeAssignmentType<T> {
+	let legacy_cores = <assigner_legacy::Pallet<T> as FixedAssignmentProvider<
+		BlockNumberFor<T>,
+		>>::session_core_count();
+
+	if core.0 < legacy_cores {
+		CoretimeAssignment::Bulk(old.para_id())
+	} else {
+		CoretimeAssignment::Pool(assigner_on_demand::OnDemandAssignment::from_v0_assignment(
+			old, core,
+		))
+	}
+}

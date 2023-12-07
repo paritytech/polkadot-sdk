@@ -63,8 +63,8 @@ impl WeightInfo for TestWeightInfo {
 }
 
 /// Shorthand for the Balance type the runtime is using.
-type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+// type BalanceOf<T> =
+//     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 #[frame_support::pallet]
 pub mod pallet {

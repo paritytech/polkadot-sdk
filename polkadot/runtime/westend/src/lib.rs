@@ -63,7 +63,6 @@ use runtime_common::{
 	BlockLength, CurrencyToVote, SlowAdjustingFeeUpdate, U256ToBalance,
 };
 use runtime_parachains::{
-	assigner::v1 as parachains_assigner_v1,
 	assigner_coretime as parachains_assigner_coretime,
 	assigner_on_demand as parachains_assigner_on_demand,
 	assigner_parachains as parachains_assigner_parachains,
@@ -1226,7 +1225,7 @@ impl parachains_paras_inherent::Config for Runtime {
 impl parachains_scheduler::Config for Runtime {
 	// If you change this, make sure the `Assignment` type of the new provider is binary compatible,
 	// otherwise provide a migration.
-	type AssignmentProvider = ParaAssignmentProvider;
+	type AssignmentProvider = CoretimeAssignmentProvider;
 }
 
 parameter_types! {
@@ -1243,8 +1242,6 @@ impl parachains_assigner_on_demand::Config for Runtime {
 impl parachains_assigner_coretime::Config for Runtime {}
 
 impl parachains_assigner_parachains::Config for Runtime {}
-
-impl parachains_assigner_v1::Config for Runtime {}
 
 impl parachains_initializer::Config for Runtime {
 	type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
@@ -1511,12 +1508,9 @@ construct_runtime! {
 		ParaSessionInfo: parachains_session_info::{Pallet, Storage} = 52,
 		ParasDisputes: parachains_disputes::{Pallet, Call, Storage, Event<T>} = 53,
 		ParasSlashing: parachains_slashing::{Pallet, Call, Storage, ValidateUnsigned} = 54,
-		// TODO: I just swapped out the pallet here (keeping the same number). I assume this is
-		// fine as we are not exposing any calls, events nor origins, but I am not 100% sure.
-		ParaAssignmentProvider: parachains_assigner_v1::{Pallet, Storage} = 55,
 		OnDemandAssignmentProvider: parachains_assigner_on_demand::{Pallet, Call, Storage, Event<T>} = 56,
 		ParachainsAssignmentProvider: parachains_assigner_parachains::{Pallet} = 57,
-		CoreTimeAssignmentProvider: parachains_assigner_coretime::{Pallet} = 58,
+		CoretimeAssignmentProvider: parachains_assigner_coretime::{Pallet} = 58,
 
 		// Parachain Onboarding Pallets. Start indices at 60 to leave room.
 		Registrar: paras_registrar::{Pallet, Call, Storage, Event<T>, Config<T>} = 60,
@@ -1699,15 +1693,15 @@ pub mod migrations {
 		const STORAGE_VERSION: AssignmentVersion = AssignmentVersion::new(1);
 
 		type OldType = parachains_scheduler::common::V0Assignment;
-		type NewType = parachains_assigner_v1::UnifiedAssignmentType<Runtime>;
+		type NewType = parachains_assigner_coretime::CoretimeAssignmentType<Runtime>;
 
 		fn migrate(core_idx: CoreIndex, old: Self::OldType) -> Self::NewType {
 			// While previously the plain legacy assigner was in place (as opposed to v0 top-level
 			// assigner as on Rococo), the assignment format changed exactly the same, so the v0 to
-			// v1 migration of the top-level assigner fits the bill here as well.
+			// coretime assignment type migration fits the bill here as well.
 			//
 			// The same is true for Kusama and Polkadot later.
-			parachains_assigner_v1::migrate_assignment_v0_to_v1::<Runtime>(old, core_idx)
+			parachains_assigner_coretime::migrate_legacy_v0_assignment::<Runtime>(old, core_idx)
 		}
 	}
 }

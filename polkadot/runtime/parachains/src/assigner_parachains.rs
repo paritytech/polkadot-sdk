@@ -31,7 +31,6 @@ use crate::{
 	configuration, paras,
 	scheduler::common::{
 		Assignment, AssignmentProvider, AssignmentProviderConfig, FixedAssignmentProvider,
-		V0Assignment,
 	},
 };
 
@@ -57,10 +56,6 @@ pub struct ParachainsAssignment {
 impl ParachainsAssignment {
 	fn new(para_id: ParaId) -> Self {
 		Self { para_id }
-	}
-
-	pub(crate) fn from_v0_assignment(v0: V0Assignment) -> Self {
-		Self { para_id: v0.para_id }
 	}
 }
 
