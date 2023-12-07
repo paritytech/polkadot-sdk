@@ -135,10 +135,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("coretime-rococo"),
 	impl_name: create_runtime_str!("coretime-rococo"),
 	authoring_version: 1,
-	spec_version: 9430,
+	spec_version: 1_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 3,
+	transaction_version: 0,
 	state_version: 1,
 };
 

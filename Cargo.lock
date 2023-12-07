@@ -2906,7 +2906,7 @@ dependencies = [
 
 [[package]]
 name = "coretime-rococo-runtime"
-version = "1.0.0"
+version = "0.1.0"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
@@ -2969,7 +2969,7 @@ dependencies = [
 
 [[package]]
 name = "coretime-westend-runtime"
-version = "1.0.0"
+version = "0.1.0"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
