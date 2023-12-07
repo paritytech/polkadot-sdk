@@ -78,7 +78,7 @@ fn run_to_block(
 
 // This and the scheduler test schedule_schedules_including_just_freed together
 // ensure that next_up_on_available and next_up_on_time_out will always be
-// filled with scheduler cliams for lease holding parachains. (Removes the need
+// filled with scheduler claims for lease holding parachains. (Removes the need
 // for two other scheduler tests)
 #[test]
 fn parachains_assigner_pop_assignment_is_always_some() {
