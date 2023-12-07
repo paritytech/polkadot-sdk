@@ -1,7 +1,3 @@
-//! Temporary home while we wait for sdk-docs / polkadot-developer-hub to merge.
-//!
-//! Reference docs for understanding Runtime Upgrades and writing Migrations.
-//!
 //! # Runtime Upgrades
 //!
 //! At their core, blockchain logic consists of
@@ -56,7 +52,7 @@
 //! - Are simply implementations of [`OnRuntimeUpgrade`].
 //!
 //! To learn best practices for writing single block pallet storage migrations, see the
-//! [Single Block Migration Example Pallet](crate).
+//! [Single Block Migration Example Pallet](pallet_example_single_block_migrations).
 //!
 //! ### Scheduling the Single Block Migrations to Run Next Runtime Upgrade
 //!
@@ -136,4 +132,4 @@
 //! [`OnRuntimeUpgrade`]: frame_support::traits::OnRuntimeUpgrade
 //! [`StorageVersion`]: frame_support::traits::StorageVersion
 //! [`set_code`]: frame_system::Call::set_code
-//! [`set_code_without_checks`]: frame_system::Call:set_code_without_checks
+//! [`set_code_without_checks`]: frame_system::Call::set_code_without_checks

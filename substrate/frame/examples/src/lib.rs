@@ -43,7 +43,7 @@
 //! - [`pallet_example_frame_crate`]: Example pallet showcasing how one can be
 //! built using only the `frame` umbrella crate.
 //!
-//! - [`pallet-example-single-block-migrations`]: An example pallet demonstrating best-practices for
+//! - [`pallet_example_single_block_migrations`]: An example pallet demonstrating best-practices for
 //!   writing storage migrations.
 //!
 //! **Tip**: Use `cargo doc --package <pallet-name> --open` to view each pallet's documentation.

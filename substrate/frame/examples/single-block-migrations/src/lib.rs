@@ -20,9 +20,6 @@
 //! An example pallet demonstrating best-practices for writing single-block migrations in the
 //! context of upgrading pallet storage.
 //!
-//! Read more about runtime upgrades and migrations by reading the [Runtime Upgrade Reference
-//! Docs](runtime_upgrade_reference_docs).
-//!
 //! ## Forwarning
 //!
 //! Single block migrations **MUST** execute in a single block, therefore when executed on a
@@ -151,8 +148,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 // allow non-camel-case names for storage version V0 value
 #![allow(non_camel_case_types)]
-
-pub mod runtime_upgrade_reference_docs;
 
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;
