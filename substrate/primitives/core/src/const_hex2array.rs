@@ -23,7 +23,7 @@
 /// Valid characters are `[0-9a-fA-F]`, and the hex string should not start
 /// with the `0x` prefix.
 #[macro_export]
-macro_rules! hex2arr {
+macro_rules! hex2array {
 	($input:expr) => {{
 		const PUBLIC_BYTES: [u8; $input.len() >> 1] = $crate::const_hex2array::hex2array($input);
 		PUBLIC_BYTES
@@ -44,7 +44,7 @@ macro_rules! hex2arr {
 /// The function will panic at runtime when used in a non-const context if the above conditions are
 /// met.
 #[doc(hidden)]
-pub const fn hex2array<const N: usize>(hex: &str) -> [u8; N] {
+pub const fn private_hex2array<const N: usize>(hex: &str) -> [u8; N] {
 	const fn c2b(c: u8) -> u8 {
 		match c as char {
 			'0'..='9' => c - 48,
