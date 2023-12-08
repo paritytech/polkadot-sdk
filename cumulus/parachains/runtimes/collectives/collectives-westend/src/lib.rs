@@ -89,14 +89,16 @@ use parachains_common::{
 	SLOT_DURATION,
 };
 use sp_runtime::RuntimeDebug;
-use xcm_config::{GovernanceLocation, XcmOriginToTransactDispatchOrigin};
+use xcm_config::{GovernanceLocation, TreasurerBodyId, XcmOriginToTransactDispatchOrigin};
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 
 // Polkadot imports
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
-use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
+use polkadot_runtime_common::{
+	impls::VersionedLocatableAsset, BlockHashCount, SlowAdjustingFeeUpdate,
+};
 use xcm::latest::{prelude::*, BodyId};
 
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
@@ -325,6 +327,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 					RuntimeCall::FellowshipReferenda { .. } |
 					RuntimeCall::FellowshipCore { .. } |
 					RuntimeCall::FellowshipSalary { .. } |
+					RuntimeCall::FellowshipTreasury { .. } |
 					RuntimeCall::Utility { .. } |
 					RuntimeCall::Multisig { .. }
 			),
@@ -613,6 +616,21 @@ impl pallet_preimage::Config for Runtime {
 	>;
 }
 
+impl pallet_asset_rate::Config for Runtime {
+	type WeightInfo = weights::pallet_asset_rate::WeightInfo<Runtime>;
+	type RuntimeEvent = RuntimeEvent;
+	type CreateOrigin = EitherOfDiverse<
+		EnsureRoot<AccountId>,
+		EitherOfDiverse<EnsureXcm<IsVoiceOfBody<GovernanceLocation, TreasurerBodyId>>, Fellows>,
+	>;
+	type RemoveOrigin = Self::CreateOrigin;
+	type UpdateOrigin = Self::CreateOrigin;
+	type Currency = Balances;
+	type AssetKind = VersionedLocatableAsset;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::AssetRateArguments;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -648,6 +666,7 @@ construct_runtime!(
 		Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>} = 42,
 		Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>, HoldReason} = 43,
 		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 44,
+		AssetRate: pallet_asset_rate::{Pallet, Call, Storage, Event<T>} = 45,
 
 		// The main stage.
 
@@ -665,6 +684,8 @@ construct_runtime!(
 		FellowshipCore: pallet_core_fellowship::<Instance1>::{Pallet, Call, Storage, Event<T>} = 63,
 		// pub type FellowshipSalaryInstance = pallet_salary::Instance1;
 		FellowshipSalary: pallet_salary::<Instance1>::{Pallet, Call, Storage, Event<T>} = 64,
+		// pub type FellowshipTreasuryInstance = pallet_treasury::Instance1;
+		FellowshipTreasury: pallet_treasury::<Instance1>::{Pallet, Call, Storage, Event<T>} = 65,
 
 		// Ambassador Program.
 		AmbassadorCollective: pallet_ranked_collective::<Instance2>::{Pallet, Call, Storage, Event<T>} = 70,
@@ -744,6 +765,8 @@ mod benches {
 		[pallet_collective_content, AmbassadorContent]
 		[pallet_core_fellowship, AmbassadorCore]
 		[pallet_salary, AmbassadorSalary]
+		[pallet_treasury, FellowshipTreasury]
+		[pallet_asset_rate, AssetRate]
 	);
 }
 
