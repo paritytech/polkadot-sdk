@@ -30,7 +30,7 @@ pub mod versioned {
 	pub type V0ToV1<T> = VersionedMigration<
 		0,
 		1,
-		v1::MigrateV0ToV1<T>,
+		v1::VersionUncheckedMigrateV0ToV1<T>,
 		crate::pallet::Pallet<T>,
 		<T as frame_system::Config>::DbWeight,
 	>;
@@ -43,8 +43,8 @@ pub mod v1 {
 	const TARGET: &'static str = "runtime::identity::migration::v1";
 
 	/// Migration to add usernames to Identity info.
-	pub struct MigrateV0ToV1<T>(PhantomData<T>);
-	impl<T: Config> OnRuntimeUpgrade for MigrateV0ToV1<T> {
+	pub struct VersionUncheckedMigrateV0ToV1<T>(PhantomData<T>);
+	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV0ToV1<T> {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
 			let identities = IdentityOf::<T>::iter().count();
@@ -57,12 +57,12 @@ pub mod v1 {
 		}
 
 		fn on_runtime_upgrade() -> Weight {
-			let mut weight = T::DbWeight::get().reads(1);
 			log::info!(
 				target: TARGET,
 				"running storage migration from version 0 to version 1."
 			);
 
+			let mut weight = T::DbWeight::get().reads(1);
 			let mut translated: u64 = 0;
 
 			IdentityOf::<T>::translate::<
@@ -80,8 +80,6 @@ pub mod v1 {
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
-			let onchain_version = Pallet::<T>::on_chain_storage_version();
-			ensure!(onchain_version == 1, "must upgrade from version 0 to 1.");
 			let identities_to_migrate: u32 = Decode::decode(&mut &state[..])
 				.expect("failed to decode the state from pre-upgrade.");
 			let identities = IdentityOf::<T>::iter().count() as u32;
