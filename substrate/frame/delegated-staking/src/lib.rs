@@ -282,8 +282,8 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 		.map_err(|_| Error::<T>::BadState)?;
 
 		// delegate from new delegator to staker.
+		// todo(ank4n) : inline this fn and propagate payee to core staking..
 		Self::accept_delegations(new_delegatee, payee)?;
-		// todo(ank4n): for existing nominators, how this payee should be propagated to CoreStaking?
 
 		Self::delegate(proxy_delegator, new_delegatee, stake.total)?;
 		Self::update_bond(new_delegatee)
