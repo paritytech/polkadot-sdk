@@ -1,6 +1,6 @@
 # Release
 
-The output of a release are the `polkadot` node, runtimes for the Westend & Rococo networks and new crate versions published to `crates.io`.
+The outputs of a release are the `polkadot` and `polkadot-parachain` nodes, runtimes for the Westend & Rococo networks, including their system parachains, and new crate versions published to `crates.io`.
 
 ## Versioning
 
