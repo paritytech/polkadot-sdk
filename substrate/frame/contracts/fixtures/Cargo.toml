@@ -16,7 +16,7 @@ anyhow = "1.0.0"
 [build-dependencies]
 parity-wasm = "0.45.0"
 tempfile = "3.8.1"
-toml = "0.8.8"
+toml = "0.8.2"
 twox-hash = "1.6.3"
 anyhow = "1.0.0"
 cfg-if = { version = "1.0", default-features = false }
