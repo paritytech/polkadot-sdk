@@ -30,4 +30,3 @@ snowbridge-router-primitives = { git = "https://github.com/Snowfork/snowbridge.g
 snowbridge-system = { git = "https://github.com/Snowfork/snowbridge.git", branch = "rococo-merge", default-features = false }
 snowbridge-inbound-queue = { git = "https://github.com/Snowfork/snowbridge.git", branch = "rococo-merge", default-features = false }
 snowbridge-outbound-queue = { git = "https://github.com/Snowfork/snowbridge.git", branch = "rococo-merge", default-features = false }
-

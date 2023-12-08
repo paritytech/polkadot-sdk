@@ -13,28 +13,28 @@ frame-support = { path = "../../../../../substrate/frame/support", default-featu
 sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
 sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false }
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
-xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false}
-pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
+pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false }
 snowbridge-core = { git = "https://github.com/Snowfork/snowbridge.git", branch = "rococo-merge", default-features = false }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
-	"scale-info/std",
-	"frame-support/std",
-	"sp-std/std",
-	"sp-runtime/std",
 	"cumulus-primitives-core/std",
-	"xcm/std",
+	"frame-support/std",
 	"pallet-message-queue/std",
-	"snowbridge-core/std"
+	"scale-info/std",
+	"snowbridge-core/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"xcm/std",
 ]
 
 runtime-benchmarks = [
-	"frame-support/runtime-benchmarks",
 	"cumulus-primitives-core/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
-	"snowbridge-core/runtime-benchmarks"
+	"snowbridge-core/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
