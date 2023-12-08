@@ -16,13 +16,25 @@
 //! Storage migrations for the Identity pallet.
 
 use super::*;
-use frame_support::{pallet_prelude::*, traits::OnRuntimeUpgrade};
+use frame_support::{migrations::VersionedMigration, pallet_prelude::*, traits::OnRuntimeUpgrade};
 use log;
 
 #[cfg(feature = "try-runtime")]
 use codec::{Decode, Encode};
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
+
+pub mod versioned {
+	use super::*;
+
+	pub type V0ToV1<T> = VersionedMigration<
+		0,
+		1,
+		v1::MigrateV0ToV1<T>,
+		crate::pallet::Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+}
 
 pub mod v1 {
 	use super::*;
@@ -45,19 +57,11 @@ pub mod v1 {
 		}
 
 		fn on_runtime_upgrade() -> Weight {
-			let current_version = Pallet::<T>::current_storage_version();
-			let onchain_version = Pallet::<T>::on_chain_storage_version();
 			let mut weight = T::DbWeight::get().reads(1);
 			log::info!(
 				target: TARGET,
-				"running storage migration from on-chain version {:?} to current version {:?}.",
-				onchain_version,
-				current_version
+				"running storage migration from version 0 to version 1."
 			);
-			if onchain_version != 0 {
-				log::warn!(target: TARGET, "skipping migration from v0 to v1.");
-				return weight
-			}
 
 			let mut translated: u64 = 0;
 
@@ -68,9 +72,8 @@ pub mod v1 {
 				translated.saturating_inc();
 				Some((registration, None::<Username>))
 			});
-			weight.saturating_accrue(T::DbWeight::get().reads_writes(translated, translated));
 
-			StorageVersion::new(1).put::<Pallet<T>>();
+			weight.saturating_accrue(T::DbWeight::get().reads_writes(translated, translated));
 			weight.saturating_accrue(T::DbWeight::get().writes(1));
 			weight
 		}

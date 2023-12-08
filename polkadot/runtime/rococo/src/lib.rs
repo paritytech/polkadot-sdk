@@ -1636,7 +1636,7 @@ pub mod migrations {
 		frame_support::migrations::RemovePallet<ImOnlinePalletName, <Runtime as frame_system::Config>::DbWeight>,
 
 		// Migrate Identity pallet for Usernames
-		pallet_identity::migration::v1::MigrateV0ToV1<Runtime>,
+		pallet_identity::migration::versioned::V0ToV1<Runtime>,
 	);
 }
 
