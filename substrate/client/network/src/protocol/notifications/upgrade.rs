@@ -19,10 +19,13 @@
 pub use self::{
 	collec::UpgradeCollec,
 	notifications::{
-		NotificationsHandshakeError, NotificationsIn, NotificationsInOpen,
-		NotificationsInSubstream, NotificationsInSubstreamHandshake, NotificationsOut,
-		NotificationsOutError, NotificationsOutOpen, NotificationsOutSubstream,
+		NotificationsIn, NotificationsInSubstream, NotificationsOut, NotificationsOutSubstream,
 	},
+};
+
+#[cfg(test)]
+pub use self::notifications::{
+	NotificationsInOpen, NotificationsInSubstreamHandshake, NotificationsOutOpen,
 };
 
 mod collec;

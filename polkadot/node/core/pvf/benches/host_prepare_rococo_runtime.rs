@@ -27,6 +27,7 @@ use tokio::{runtime::Handle, sync::Mutex};
 
 const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(30);
 
+#[allow(dead_code)]
 struct TestHost {
 	// Keep a reference to the tempdir as it gets deleted on drop.
 	cache_dir: tempfile::TempDir,
