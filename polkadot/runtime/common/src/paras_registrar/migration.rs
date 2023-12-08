@@ -21,29 +21,29 @@ use frame_support::traits::{Contains, OnRuntimeUpgrade};
 pub struct ParaInfoV1<Account, Balance> {
 	manager: Account,
 	deposit: Balance,
-	locked: bool,
+	locked: Option<bool>,
 }
 
-pub struct VersionUncheckedMigrateToV1<T, UnlockParaIds>(
+pub struct VersionUncheckedMigrateToV2<T, UnlockParaIds>(
 	sp_std::marker::PhantomData<(T, UnlockParaIds)>,
 );
 impl<T: Config, UnlockParaIds: Contains<ParaId>> OnRuntimeUpgrade
-	for VersionUncheckedMigrateToV1<T, UnlockParaIds>
+	for VersionUncheckedMigrateToV2<T, UnlockParaIds>
 {
 	fn on_runtime_upgrade() -> Weight {
 		let mut count = 0u64;
-		Paras::<T>::translate::<ParaInfoV1<T::AccountId, BalanceOf<T>>, _>(|key, v1| {
+		Paras::<T>::translate::<ParaInfoV1<T::AccountId, BalanceOf<T>>, _>(|_key, v1| {
 			count.saturating_inc();
 			Some(ParaInfo {
 				manager: v1.manager.clone(),
 				deposit: v1.deposit,
-				locked: if UnlockParaIds::contains(&key) { None } else { Some(v1.locked) },
+				locked: v1.locked,
 				billing_account: None,
 				pending_refund: None,
 			})
 		});
 
-		log::info!(target: "runtime::registrar", "Upgraded {} storages to version 1", count);
+		log::info!(target: "runtime::registrar", "Upgraded {} storages to version 2", count);
 		T::DbWeight::get().reads_writes(count, count)
 	}
 
@@ -58,14 +58,24 @@ impl<T: Config, UnlockParaIds: Contains<ParaId>> OnRuntimeUpgrade
 		let new_count = Paras::<T>::iter_values().count() as u32;
 
 		ensure!(old_count == new_count, "Paras count should not change");
-		Ok(())
+
+		Paras::<T>::iter_keys().try_for_each(|para_id| -> Result<(), _> {
+			let info = Paras::<T>::get(para_id).unwrap();
+			ensure!(
+				info.billing_account.is_none(),
+				"The billing account must be set to the para manager"
+			);
+			ensure!(info.pending_refund.is_none(), "There should be no pending refund");
+
+			Ok(())
+		})
 	}
 }
 
-pub type MigrateToV1<T, UnlockParaIds> = frame_support::migrations::VersionedMigration<
-	0,
+pub type MigrateToV2<T, UnlockParaIds> = frame_support::migrations::VersionedMigration<
 	1,
-	VersionUncheckedMigrateToV1<T, UnlockParaIds>,
+	2,
+	VersionUncheckedMigrateToV2<T, UnlockParaIds>,
 	super::Pallet<T>,
 	<T as frame_system::Config>::DbWeight,
 >;
