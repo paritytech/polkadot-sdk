@@ -61,16 +61,17 @@ pub async fn spawn(
 		security_status,
 	)
 	.await?;
-	send_handshake(&mut idle_worker.stream, Handshake { executor_params })
+	send_execute_handshake(&mut idle_worker.stream, Handshake { executor_params })
 		.await
 		.map_err(|error| {
+			let err = SpawnErr::Handshake { err: error.to_string() };
 			gum::warn!(
 				target: LOG_TARGET,
 				worker_pid = %idle_worker.pid,
 				"failed to send a handshake to the spawned worker: {}",
 				error,
 			);
-			SpawnErr::Handshake
+			err
 		})?;
 	Ok((idle_worker, worker_handle))
 }
@@ -279,7 +280,8 @@ where
 	result
 }
 
-async fn send_handshake(stream: &mut UnixStream, handshake: Handshake) -> io::Result<()> {
+/// Sends a handshake with information specific to the execute worker.
+async fn send_execute_handshake(stream: &mut UnixStream, handshake: Handshake) -> io::Result<()> {
 	framed_send(stream, &handshake.encode()).await
 }
 

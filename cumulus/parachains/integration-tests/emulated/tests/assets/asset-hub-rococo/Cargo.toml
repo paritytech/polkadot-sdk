@@ -30,5 +30,4 @@ asset-test-utils = { path = "../../../../../runtimes/assets/test-utils" }
 parachains-common = { path = "../../../../../../parachains/common" }
 asset-hub-rococo-runtime = { path = "../../../../../runtimes/assets/asset-hub-rococo" }
 emulated-integration-tests-common = { path = "../../../common", default-features = false }
-penpal-runtime = { path = "../../../../../runtimes/testing/penpal" }
 rococo-system-emulated-network = { path = "../../../networks/rococo-system" }
