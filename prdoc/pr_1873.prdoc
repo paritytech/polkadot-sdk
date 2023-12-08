@@ -1,15 +1,9 @@
 title: Message Queue use proper overweight limit
 
 doc:
-  - audience: Core Dev
+  - audience: Node Dev
     description: |
       Changed the overweight cutoff limit from the full `Config::ServiceWeight` to a lower value that is calculated based on the weight of the functions being called.
 
-migrations:
-  db: []
-
-  runtime: []
-
-crates: ["pallet-message-queue", patch]
-
-host_functions: []
+crates:
+  - name: pallet-message-queue

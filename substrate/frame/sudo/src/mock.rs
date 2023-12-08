@@ -19,7 +19,10 @@
 
 use super::*;
 use crate as sudo;
-use frame_support::traits::{ConstU32, Contains};
+use frame_support::{
+	derive_impl,
+	traits::{ConstU32, Contains},
+};
 use sp_core::{ConstU64, H256};
 use sp_io;
 use sp_runtime::{
@@ -108,6 +111,7 @@ impl Contains<RuntimeCall> for BlockEverything {
 	}
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = BlockEverything;
 	type BlockWeights = ();

@@ -24,7 +24,7 @@ use crate::{
 	artifacts::{ArtifactId, ArtifactPathId, ArtifactState, Artifacts},
 	execute::{self, PendingExecutionRequest},
 	metrics::Metrics,
-	prepare, security, Priority, ValidationError, LOG_TARGET,
+	prepare, security, Priority, SecurityStatus, ValidationError, LOG_TARGET,
 };
 use always_assert::never;
 use futures::{
@@ -36,7 +36,7 @@ use polkadot_node_core_pvf_common::{
 	prepare::PrepareSuccess,
 	pvf::PvfPrepData,
 };
-use polkadot_node_subsystem::SubsystemResult;
+use polkadot_node_subsystem::{SubsystemError, SubsystemResult};
 use polkadot_parachain_primitives::primitives::ValidationResult;
 use std::{
 	collections::HashMap,
@@ -70,6 +70,8 @@ pub(crate) type PrecheckResultSender = oneshot::Sender<PrecheckResult>;
 #[derive(Clone)]
 pub struct ValidationHost {
 	to_host_tx: mpsc::Sender<ToHost>,
+	/// Available security features, detected by the host during startup.
+	pub security_status: SecurityStatus,
 }
 
 impl ValidationHost {
@@ -154,6 +156,8 @@ pub struct Config {
 	pub cache_path: PathBuf,
 	/// The version of the node. `None` can be passed to skip the version check (only for tests).
 	pub node_version: Option<String>,
+	/// Whether the node is attempting to run as a secure validator.
+	pub secure_validator_mode: bool,
 
 	/// The path to the program that can be used to spawn the prepare workers.
 	pub prepare_worker_program_path: PathBuf,
@@ -178,12 +182,14 @@ impl Config {
 	pub fn new(
 		cache_path: PathBuf,
 		node_version: Option<String>,
+		secure_validator_mode: bool,
 		prepare_worker_program_path: PathBuf,
 		execute_worker_program_path: PathBuf,
 	) -> Self {
 		Self {
 			cache_path,
 			node_version,
+			secure_validator_mode,
 
 			prepare_worker_program_path,
 			prepare_worker_spawn_timeout: Duration::from_secs(3),
@@ -211,12 +217,16 @@ pub async fn start(
 ) -> SubsystemResult<(ValidationHost, impl Future<Output = ()>)> {
 	gum::debug!(target: LOG_TARGET, ?config, "starting PVF validation host");
 
-	// Run checks for supported security features once per host startup. Warn here if not enabled.
-	let security_status = security::check_security_status(&config).await;
+	// Run checks for supported security features once per host startup. If some checks fail, warn
+	// if Secure Validator Mode is disabled and return an error otherwise.
+	let security_status = match security::check_security_status(&config).await {
+		Ok(ok) => ok,
+		Err(err) => return Err(SubsystemError::Context(err)),
+	};
 
 	let (to_host_tx, to_host_rx) = mpsc::channel(10);
 
-	let validation_host = ValidationHost { to_host_tx };
+	let validation_host = ValidationHost { to_host_tx, security_status: security_status.clone() };
 
 	let (to_prepare_pool, from_prepare_pool, run_prepare_pool) = prepare::start_pool(
 		metrics.clone(),
@@ -978,7 +988,8 @@ pub(crate) mod tests {
 
 		fn host_handle(&mut self) -> ValidationHost {
 			let to_host_tx = self.to_host_tx.take().unwrap();
-			ValidationHost { to_host_tx }
+			let security_status = Default::default();
+			ValidationHost { to_host_tx, security_status }
 		}
 
 		async fn poll_and_recv_result<T>(&mut self, result_rx: oneshot::Receiver<T>) -> T
