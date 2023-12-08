@@ -25,9 +25,8 @@
 #[macro_export]
 macro_rules! hex2array {
 	($input:expr) => {{
-		const PUBLIC_BYTES: [u8; $input.len() >> 1] =
-			$crate::const_hex2array::private_hex2array($input);
-		PUBLIC_BYTES
+		const BYTES: [u8; $input.len() >> 1] = $crate::const_hex2array::private_hex2array($input);
+		BYTES
 	}};
 }
 
