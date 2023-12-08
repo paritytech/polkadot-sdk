@@ -62,7 +62,6 @@ fn main() -> Result<()> {
 						is_parachain_node: polkadot_service::IsParachainNode::Collator(
 							collator.collator_key(),
 						),
-						grandpa_pause: None,
 						enable_beefy: false,
 						force_authoring_backoff: false,
 						jaeger_agent: None,
@@ -70,6 +69,7 @@ fn main() -> Result<()> {
 
 						// Collators don't spawn PVF workers, so we can disable version checks.
 						node_version: None,
+						secure_validator_mode: false,
 						workers_path: None,
 						workers_names: None,
 

@@ -1272,52 +1272,6 @@ fn pallet_hooks_expand() {
 }
 
 #[test]
-fn all_pallets_type_reversed_order_is_correct() {
-	TestExternalities::default().execute_with(|| {
-		frame_system::Pallet::<Runtime>::set_block_number(1);
-
-		#[allow(deprecated)]
-		{
-			assert_eq!(
-				AllPalletsWithoutSystemReversed::on_initialize(1),
-				Weight::from_parts(10, 0)
-			);
-			AllPalletsWithoutSystemReversed::on_finalize(1);
-
-			assert_eq!(
-				AllPalletsWithoutSystemReversed::on_runtime_upgrade(),
-				Weight::from_parts(30, 0)
-			);
-		}
-
-		assert_eq!(
-			frame_system::Pallet::<Runtime>::events()[0].event,
-			RuntimeEvent::Example2(pallet2::Event::Something(11)),
-		);
-		assert_eq!(
-			frame_system::Pallet::<Runtime>::events()[1].event,
-			RuntimeEvent::Example(pallet::Event::Something(10)),
-		);
-		assert_eq!(
-			frame_system::Pallet::<Runtime>::events()[2].event,
-			RuntimeEvent::Example2(pallet2::Event::Something(21)),
-		);
-		assert_eq!(
-			frame_system::Pallet::<Runtime>::events()[3].event,
-			RuntimeEvent::Example(pallet::Event::Something(20)),
-		);
-		assert_eq!(
-			frame_system::Pallet::<Runtime>::events()[4].event,
-			RuntimeEvent::Example2(pallet2::Event::Something(31)),
-		);
-		assert_eq!(
-			frame_system::Pallet::<Runtime>::events()[5].event,
-			RuntimeEvent::Example(pallet::Event::Something(30)),
-		);
-	})
-}
-
-#[test]
 fn pallet_on_genesis() {
 	TestExternalities::default().execute_with(|| {
 		assert_eq!(pallet::Pallet::<Runtime>::on_chain_storage_version(), StorageVersion::new(0));
@@ -2187,31 +2141,6 @@ fn test_storage_info() {
 }
 
 #[test]
-fn assert_type_all_pallets_reversed_with_system_first_is_correct() {
-	// Just ensure the 2 types are same.
-	#[allow(deprecated)]
-	fn _a(_t: AllPalletsReversedWithSystemFirst) {}
-	#[cfg(all(not(feature = "frame-feature-testing"), not(feature = "frame-feature-testing-2")))]
-	fn _b(t: (System, Example4, Example2, Example)) {
-		_a(t)
-	}
-	#[cfg(all(feature = "frame-feature-testing", not(feature = "frame-feature-testing-2")))]
-	fn _b(t: (System, Example4, Example3, Example2, Example)) {
-		_a(t)
-	}
-
-	#[cfg(all(not(feature = "frame-feature-testing"), feature = "frame-feature-testing-2"))]
-	fn _b(t: (System, Example5, Example4, Example2, Example)) {
-		_a(t)
-	}
-
-	#[cfg(all(feature = "frame-feature-testing", feature = "frame-feature-testing-2"))]
-	fn _b(t: (System, Example5, Example4, Example3, Example2, Example)) {
-		_a(t)
-	}
-}
-
-#[test]
 fn assert_type_all_pallets_with_system_is_correct() {
 	// Just ensure the 2 types are same.
 	fn _a(_t: AllPalletsWithSystem) {}
@@ -2251,52 +2180,6 @@ fn assert_type_all_pallets_without_system_is_correct() {
 	}
 	#[cfg(all(feature = "frame-feature-testing", feature = "frame-feature-testing-2"))]
 	fn _b(t: (Example, Example2, Example3, Example4, Example5)) {
-		_a(t)
-	}
-}
-
-#[test]
-fn assert_type_all_pallets_with_system_reversed_is_correct() {
-	// Just ensure the 2 types are same.
-	#[allow(deprecated)]
-	fn _a(_t: AllPalletsWithSystemReversed) {}
-	#[cfg(all(not(feature = "frame-feature-testing"), not(feature = "frame-feature-testing-2")))]
-	fn _b(t: (Example4, Example2, Example, System)) {
-		_a(t)
-	}
-	#[cfg(all(feature = "frame-feature-testing", not(feature = "frame-feature-testing-2")))]
-	fn _b(t: (Example4, Example3, Example2, Example, System)) {
-		_a(t)
-	}
-	#[cfg(all(not(feature = "frame-feature-testing"), feature = "frame-feature-testing-2"))]
-	fn _b(t: (Example5, Example4, Example2, Example, System)) {
-		_a(t)
-	}
-	#[cfg(all(feature = "frame-feature-testing", feature = "frame-feature-testing-2"))]
-	fn _b(t: (Example5, Example4, Example3, Example2, Example, System)) {
-		_a(t)
-	}
-}
-
-#[test]
-fn assert_type_all_pallets_without_system_reversed_is_correct() {
-	// Just ensure the 2 types are same.
-	#[allow(deprecated)]
-	fn _a(_t: AllPalletsWithoutSystemReversed) {}
-	#[cfg(all(not(feature = "frame-feature-testing"), not(feature = "frame-feature-testing-2")))]
-	fn _b(t: (Example4, Example2, Example)) {
-		_a(t)
-	}
-	#[cfg(all(feature = "frame-feature-testing", not(feature = "frame-feature-testing-2")))]
-	fn _b(t: (Example4, Example3, Example2, Example)) {
-		_a(t)
-	}
-	#[cfg(all(not(feature = "frame-feature-testing"), feature = "frame-feature-testing-2"))]
-	fn _b(t: (Example5, Example4, Example2, Example)) {
-		_a(t)
-	}
-	#[cfg(all(feature = "frame-feature-testing", feature = "frame-feature-testing-2"))]
-	fn _b(t: (Example5, Example4, Example3, Example2, Example)) {
 		_a(t)
 	}
 }
