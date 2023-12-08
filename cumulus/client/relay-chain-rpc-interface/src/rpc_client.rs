@@ -19,7 +19,7 @@ use futures::channel::{
 	oneshot::Sender as OneshotSender,
 };
 use jsonrpsee::{
-	core::{params::ArrayParams, Error as JsonRpseeError},
+	core::{params::ArrayParams, ClientError as JsonRpseeError},
 	rpc_params,
 };
 use serde::de::DeserializeOwned;
