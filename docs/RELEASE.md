@@ -15,7 +15,7 @@ the versioning story for the crates, node and Westend & Rococo. To easily refer 
 
 ## Crate
 
-We try to follow SemVer<sup>3</sup> as best as possible for versioning our crates' public APIs.  
+We try to follow SemVer<sup>1</sup> as best as possible for versioning our crates' public APIs.  
 
 👉 The public API of our library crates is defined as all public items that are not inside a `__private` module.
 
@@ -48,7 +48,7 @@ Should not be needed. The `release` branch can get out of sync and will be synce
 
 # Processes
 
-The following processes are necessary to actualize our releases. Each process has a *Cadence* on which it must execute and an *Responsible* that is responsible for autonomously doing so and reporting back any error in the RelEng<sup>1</sup> channel.
+The following processes are necessary to actualize our releases. Each process has a *Cadence* on which it must execute and an *Responsible* that is responsible for autonomously doing so and reporting back any error in the RelEng<sup>2</sup> channel.
 
 ## Crate Bumping
 
@@ -73,19 +73,17 @@ This process aims to release the `release` branch as a *Mainline* release every 
 
 1. Check if process [Clobbering](#clobbering) needs to happen and do so, if that is the case.
 2. Check out the latest commit of `release`.
-3. Verify all CI checks of that commit.
-4. Update the `CHANGELOG.md` version, date and compile the content using the prdoc files.
-5. Open a Merge Request against `release` for visibility.
-6. Check if there were any changes since the last release and abort, if not.
-7. Run `cargo semver-checks` and `cargo public-api` again to ensure that there are no SemVer breaks.
-8. Internal QA from the release team can happen here.
-9. Do a dry-run release to ensure that it *should* work.
-10. Merge it into `release`.
-11. Verify all CI checks.
-12. Comment that a *Mainline* release will happen from the merged commit hash.
-13. Release all changed crates to crates.io.
-14. Create a release on GitHub.
-15. Notify Devops so that they can update Westend to the new runtime.
+3. Update the `CHANGELOG.md` version, date and compile the content using the prdoc files.
+4. Open a Merge Request against `release` for visibility.
+5. Check if there were any changes since the last release and abort, if not.
+6. Run `cargo semver-checks` and `cargo public-api` again to ensure that there are no SemVer breaks.
+7. Internal QA from the release team can happen here.
+8. Do a dry-run release to ensure that it *should* work.
+9.  Merge it into `release`.
+10. Comment that a *Mainline* release will happen from the merged commit hash.
+11. Release all changed crates to crates.io.
+12. Create a release on GitHub.
+13. Notify Devops so that they can update Westend to the new runtime.
 
 ## Nightly Release
 
@@ -94,15 +92,13 @@ Cadence: every day at 00:00 UTC+1. Responsible: Release Team
 This process aims to release the `master` branch as a *Nightly* release. The process can start at 00:00 UTC+1 and should automatically do the following steps.
 
 1. Check out the latest commit of branch `master`.
-2. Verify all CI checks of that commit.
-3. Compare this commit to the latest `nightly*` tag and abort if there are no changes detected.
-4. Set the version of all crates to `major.0.0-nightlyYYMMDD` where `major` is the last released `major` version of that crate plus one.
-5. Tag this commit as `nightlyYYMMDD`.
-9. Do a dry-run release to ensure that it *should* work.
-7. Push this tag (the commit will not belong to any branch).
-8. Announce the intent to do a *Nightly* release from that tag in the RelEng chat.
-9. Release all crates that had changed since the last nightly release to crates.io.
-10. Create a pre-release on GitHub.
+2. Compare this commit to the latest `nightly*` tag and abort if there are no changes detected.
+3. Set the version of all crates to `major.0.0-nightlyYYMMDD` where `major` is the last released `major` version of that crate plus one.
+4. Tag this commit as `nightlyYYMMDD`.
+5. Do a dry-run release to ensure that it *should* work.
+6. Push this tag (the commit will not belong to any branch).
+8. Release all crates that had changed since the last nightly release to crates.io.
+9.  Create a pre-release on GitHub.
 
 ## Clobbering
 
@@ -136,6 +132,5 @@ Describes how developers should merge bug and security fixes.
 
 # Footnotes
 
-1: `RelEng`: The *RelEng: Polkadot Release Coordination* Matrix channel.  
-2: `General`: The *General* Matrix channel.  
-3: `SemVer`: Semantic Versioning v2.0.0 as defined on https://semver.org/.
+1: `SemVer`: Semantic Versioning v2.0.0 as defined on https://semver.org/.  
+2: `RelEng`: The *RelEng: Polkadot Release Coordination* Matrix channel.  
