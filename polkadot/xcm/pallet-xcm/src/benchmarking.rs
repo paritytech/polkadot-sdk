@@ -61,7 +61,7 @@ pub trait Config: crate::Config {
 
 	/// Sets up a complex transfer (usually consisting of a teleport and reserve-based transfer), so
 	/// that runtime can properly benchmark `transfer_assets()` extrinsic. Should return a tuple
-	/// `(MultiAsset, u32, MultiLocation, dyn FnOnce())` representing the assets to transfer, the
+	/// `(Asset, u32, Location, dyn FnOnce())` representing the assets to transfer, the
 	/// `u32` index of the asset to be used for fees, the destination chain for the transfer, and a
 	/// `verify()` closure to verify the intended transfer side-effects.
 	///
@@ -72,7 +72,7 @@ pub trait Config: crate::Config {
 	///
 	/// If `None`, the benchmarks that depend on this will default to `Weight::MAX`.
 	fn set_up_complex_asset_transfer(
-	) -> Option<(MultiAssets, u32, MultiLocation, Box<dyn FnOnce()>)> {
+	) -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)> {
 		None
 	}
 }
@@ -182,10 +182,10 @@ benchmarks! {
 		let caller: T::AccountId = whitelisted_caller();
 		let send_origin = RawOrigin::Signed(caller.clone());
 		let recipient = [0u8; 32];
-		let versioned_dest: VersionedMultiLocation = destination.into();
-		let versioned_beneficiary: VersionedMultiLocation =
+		let versioned_dest: VersionedLocation = destination.into();
+		let versioned_beneficiary: VersionedLocation =
 			AccountId32 { network: None, id: recipient.into() }.into();
-		let versioned_assets: VersionedMultiAssets = assets.into();
+		let versioned_assets: VersionedAssets = assets.into();
 	}: _<RuntimeOrigin<T>>(send_origin.into(), Box::new(versioned_dest), Box::new(versioned_beneficiary), Box::new(versioned_assets), 0, WeightLimit::Unlimited)
 	verify {
 		// run provided verification function
@@ -340,17 +340,17 @@ benchmarks! {
 pub mod helpers {
 	use super::*;
 	pub fn native_teleport_as_asset_transfer<T>(
-		native_asset_location: MultiLocation,
-		destination: MultiLocation,
-	) -> Option<(MultiAssets, u32, MultiLocation, Box<dyn FnOnce()>)>
+		native_asset_location: Location,
+		destination: Location,
+	) -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)>
 	where
 		T: Config + pallet_balances::Config,
 		u128: From<<T as pallet_balances::Config>::Balance>,
 	{
 		// Relay/native token can be teleported to/from AH.
 		let amount = T::ExistentialDeposit::get() * 100u32.into();
-		let assets: MultiAssets =
-			MultiAsset { fun: Fungible(amount.into()), id: Concrete(native_asset_location) }.into();
+		let assets: Assets =
+			Asset { fun: Fungible(amount.into()), id: AssetId(native_asset_location) }.into();
 		let fee_index = 0u32;
 
 		// Give some multiple of transferred amount

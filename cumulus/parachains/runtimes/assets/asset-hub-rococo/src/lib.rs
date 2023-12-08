@@ -81,7 +81,8 @@ use parachains_common::{
 use sp_runtime::{Perbill, RuntimeDebug};
 use xcm_config::{
 	ForeignAssetsConvertedConcreteId, GovernanceLocation, PoolAssetsConvertedConcreteId,
-	TokenLocation, TrustBackedAssetsConvertedConcreteId,
+	TokenLocation, TrustBackedAssetsConvertedConcreteId, TokenLocationV3, TrustBackedAssetsPalletLocationV3,
+	ForeignCreatorsSovereignAccountOf, LocalAndForeignAssetsLocationMatcher,
 };
 
 #[cfg(any(feature = "std", test))]
@@ -92,10 +93,6 @@ use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use xcm::latest::prelude::*;
 
-use crate::xcm_config::{
-	ForeignCreatorsSovereignAccountOf, LocalAndForeignAssetsLocationMatcher,
-	TrustBackedAssetsPalletLocation,
-};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
 impl_opaque_keys! {
@@ -319,11 +316,12 @@ impl pallet_asset_conversion::Config for Runtime {
 	type HigherPrecisionBalance = sp_core::U256;
 	type Currency = Balances;
 	type AssetBalance = Balance;
-	type AssetId = xcm::v3::MultiLocation;
+	type AssetId = xcm::v3::Location;
 	type Assets = LocalAndForeignAssets<
 		Assets,
-		AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation>,
+		AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocationV3>,
 		ForeignAssets,
+		xcm::v3::Location,
 	>;
 	type PoolAssets = PoolAssets;
 	type PoolAssetId = u32;
@@ -335,9 +333,9 @@ impl pallet_asset_conversion::Config for Runtime {
 	type PalletId = AssetConversionPalletId;
 	type AllowMultiAssetPools = AllowMultiAssetPools;
 	type MaxSwapPathLength = ConstU32<4>;
-	type MultiAssetId = Box<xcm::v3::MultiLocation>;
+	type MultiAssetId = Box<xcm::v3::Location>;
 	type MultiAssetIdConverter =
-		LocationConverter<TokenLocation, LocalAndForeignAssetsLocationMatcher>;
+		LocationConverter<TokenLocationV3, LocalAndForeignAssetsLocationMatcher, xcm::v3::Location>;
 	type MintMinLiquidity = ConstU128<100>;
 	type WeightInfo = weights::pallet_asset_conversion::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -367,9 +365,10 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type AssetIdParameter = xcm::v3::MultiLocation;
 	type Currency = Balances;
 	type CreateOrigin = ForeignCreators<
-		(FromSiblingParachain<parachain_info::Pallet<Runtime>>,),
+		FromSiblingParachain<parachain_info::Pallet<Runtime>, xcm::v3::Location>,
 		ForeignCreatorsSovereignAccountOf,
 		AccountId,
+		xcm::v3::Location
 	>;
 	type ForceOrigin = AssetsForceOrigin;
 	type AssetDeposit = ForeignAssetsAssetDeposit;
@@ -734,8 +733,9 @@ impl pallet_asset_conversion_tx_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Fungibles = LocalAndForeignAssets<
 		Assets,
-		AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation>,
+		AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocationV3>,
 		ForeignAssets,
+		xcm::v3::Location,
 	>;
 	type OnChargeAssetTransaction = AssetConversionAdapter<Balances, AssetConversion>;
 }

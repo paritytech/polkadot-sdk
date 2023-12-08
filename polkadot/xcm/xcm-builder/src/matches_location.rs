@@ -22,10 +22,20 @@ use xcm::latest::{InteriorLocation, Location, NetworkId};
 
 /// An implementation of `Contains` that checks for `Location` or
 /// `InteriorLocation` if starts with the provided type `T`.
-pub struct StartsWith<T>(sp_std::marker::PhantomData<T>);
-impl<T: Get<Location>> Contains<Location> for StartsWith<T> {
-	fn contains(t: &Location) -> bool {
-		t.starts_with(&T::get())
+pub struct StartsWith<T, L = Location>(sp_std::marker::PhantomData<(T, L)>);
+impl<T: Get<L>, L: TryInto<Location> + Clone> Contains<L> for StartsWith<T, L> {
+	fn contains(location: &L) -> bool {
+		let latest_location: Location = if let Ok(location) = (*location).clone().try_into() {
+			location
+		} else {
+			return false;
+		};
+		let latest_t = if let Ok(location) = T::get().try_into() {
+			location
+		} else {
+			return false;
+		};
+		latest_location.starts_with(&latest_t)
 	}
 }
 impl<T: Get<InteriorLocation>> Contains<InteriorLocation> for StartsWith<T> {

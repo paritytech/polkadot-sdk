@@ -24,11 +24,14 @@ pub mod runtime_api;
 use crate::matching::{LocalLocationPattern, ParentLocation};
 use frame_support::traits::{Equals, EverythingBut};
 use parachains_common::AssetIdForTrustBackedAssets;
-use xcm_builder::{AsPrefixedGeneralIndex, MatchedConvertedConcreteId, StartsWith};
-use xcm_executor::traits::{Identity, JustTry};
+use xcm_builder::{AsPrefixedGeneralIndex, MatchedConvertedConcreteId, V4V3LocationConverter, StartsWith};
+use xcm_executor::traits::JustTry;
 
 /// `Location` vs `AssetIdForTrustBackedAssets` converter for `TrustBackedAssets`
 pub type AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation> =
+	AsPrefixedGeneralIndex<TrustBackedAssetsPalletLocation, AssetIdForTrustBackedAssets, JustTry, xcm::v3::Location>;
+
+pub type AssetIdForTrustBackedAssetsConvertLatest<TrustBackedAssetsPalletLocation> =
 	AsPrefixedGeneralIndex<TrustBackedAssetsPalletLocation, AssetIdForTrustBackedAssets, JustTry>;
 
 /// [`MatchedConvertedConcreteId`] converter dedicated for `TrustBackedAssets`
@@ -37,13 +40,13 @@ pub type TrustBackedAssetsConvertedConcreteId<TrustBackedAssetsPalletLocation, B
 		AssetIdForTrustBackedAssets,
 		Balance,
 		StartsWith<TrustBackedAssetsPalletLocation>,
-		AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation>,
+		AssetIdForTrustBackedAssetsConvertLatest<TrustBackedAssetsPalletLocation>,
 		JustTry,
 	>;
 
 /// [`MatchedConvertedConcreteId`] converter dedicated for storing `AssetId` as `Location`.
 pub type LocationConvertedConcreteId<LocationFilter, Balance> =
-	MatchedConvertedConcreteId<xcm::v3::MultiLocation, Balance, LocationFilter, Identity, JustTry>;
+	MatchedConvertedConcreteId<xcm::v3::MultiLocation, Balance, LocationFilter, V4V3LocationConverter, JustTry>;
 
 /// [`MatchedConvertedConcreteId`] converter dedicated for storing `ForeignAssets` with `AssetId` as
 /// `Location`.

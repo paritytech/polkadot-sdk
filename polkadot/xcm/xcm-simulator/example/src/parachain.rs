@@ -127,8 +127,8 @@ impl pallet_uniques::BenchmarkHelper<Location, AssetInstance> for UniquesHelper 
 
 impl pallet_uniques::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type CollectionId = Location;
-	type ItemId = AssetInstance;
+	type CollectionId = xcm::v3::Location; // <- Using a v4::Location. Can I pin it to v3?
+	type ItemId = xcm::v3::AssetInstance;
 	type Currency = Balances;
 	type CreateOrigin = ForeignCreators;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
@@ -149,18 +149,19 @@ impl pallet_uniques::Config for Runtime {
 // `EnsureOriginWithArg` impl for `CreateOrigin` which allows only XCM origins
 // which are locations containing the class location.
 pub struct ForeignCreators;
-impl EnsureOriginWithArg<RuntimeOrigin, Location> for ForeignCreators {
+impl EnsureOriginWithArg<RuntimeOrigin, xcm::v3::Location> for ForeignCreators {
 	type Success = AccountId;
 
 	fn try_origin(
 		o: RuntimeOrigin,
-		a: &Location,
+		a: &xcm::v3::Location,
 	) -> sp_std::result::Result<Self::Success, RuntimeOrigin> {
-		let origin_location = pallet_xcm::EnsureXcm::<Everything>::try_origin(o.clone())?;
+		let origin_location = pallet_xcm::EnsureXcm::<Everything, xcm::v3::Location>::try_origin(o.clone())?;
 		if !a.starts_with(&origin_location) {
 			return Err(o)
 		}
-		SovereignAccountOf::convert_location(&origin_location).ok_or(o)
+		let latest_location: Location = origin_location.clone().try_into().map_err(|_| o.clone())?;
+		SovereignAccountOf::convert_location(&latest_location).ok_or(o)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -205,7 +206,7 @@ pub type LocalAssetTransactor = (
 	XcmCurrencyAdapter<Balances, IsConcrete<KsmLocation>, LocationToAccountId, AccountId, ()>,
 	NonFungiblesAdapter<
 		ForeignUniques,
-		ConvertedConcreteId<Location, AssetInstance, JustTry, JustTry>,
+		ConvertedConcreteId<xcm::v3::Location, xcm::v3::AssetInstance, JustTry, JustTry>,
 		SovereignAccountOf,
 		AccountId,
 		NoChecking,

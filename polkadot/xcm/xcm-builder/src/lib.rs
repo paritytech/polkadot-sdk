@@ -50,7 +50,7 @@ mod asset_conversion;
 #[allow(deprecated)]
 pub use asset_conversion::ConvertedConcreteAssetId;
 pub use asset_conversion::{
-	AsPrefixedGeneralIndex, ConvertedConcreteId, MatchedConvertedConcreteId,
+	AsPrefixedGeneralIndex, ConvertedConcreteId, MatchedConvertedConcreteId, V4V3LocationConverter,
 };
 
 mod barriers;

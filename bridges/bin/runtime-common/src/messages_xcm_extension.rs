@@ -168,7 +168,7 @@ pub struct XcmBlobHaulerAdapter<XcmBlobHauler, Lanes>(
 
 impl<
 		H: XcmBlobHauler,
-		Lanes: Get<sp_std::vec::Vec<(SenderAndLane, (NetworkId, InteriorMultiLocation))>>,
+		Lanes: Get<sp_std::vec::Vec<(SenderAndLane, (NetworkId, InteriorLocation))>>,
 	> OnMessagesDelivered for XcmBlobHaulerAdapter<H, Lanes>
 {
 	fn on_messages_delivered(lane: LaneId, enqueued_messages: MessageNonce) {
@@ -323,8 +323,8 @@ mod tests {
 			location: Location::new(1, [Parachain(1000)]),
 			lane: TEST_LANE_ID,
 		};
-		pub TestLanes: sp_std::vec::Vec<(SenderAndLane, (NetworkId, InteriorMultiLocation))> = sp_std::vec![
-			(TestSenderAndLane::get(), (NetworkId::ByGenesis([0; 32]), InteriorMultiLocation::Here))
+		pub TestLanes: sp_std::vec::Vec<(SenderAndLane, (NetworkId, InteriorLocation))> = sp_std::vec![
+			(TestSenderAndLane::get(), (NetworkId::ByGenesis([0; 32]), InteriorLocation::Here))
 		];
 		pub DummyXcmMessage: Xcm<()> = Xcm::new();
 	}

@@ -216,7 +216,7 @@ pub mod prelude {
 			Junctions::{self, *},
 			MaybeErrorCode, MultiAsset,
 			MultiAssetFilter::{self, *},
-			MultiAssets, MultiLocation,
+			MultiAssets, MultiLocation, Location,
 			NetworkId::{self, *},
 			OriginKind, Outcome, PalletInfo, Parent, ParentThen, PreparedMessage, QueryId,
 			QueryResponseInfo, Response, Result as XcmResult, SendError, SendResult, SendXcm,

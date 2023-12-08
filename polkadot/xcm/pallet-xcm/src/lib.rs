@@ -1265,8 +1265,8 @@ pub mod pallet {
 		/// - `weight_limit`: The remote-side weight limit, if any, for the XCM fee purchase.
 		#[pallet::call_index(11)]
 		#[pallet::weight({
-			let maybe_assets: Result<MultiAssets, ()> = (*assets.clone()).try_into();
-			let maybe_dest: Result<MultiLocation, ()> = (*dest.clone()).try_into();
+			let maybe_assets: Result<Assets, ()> = (*assets.clone()).try_into();
+			let maybe_dest: Result<Location, ()> = (*dest.clone()).try_into();
 			match (maybe_assets, maybe_dest) {
 				(Ok(assets), Ok(dest)) => {
 					use sp_std::vec;
@@ -1286,17 +1286,17 @@ pub mod pallet {
 		})]
 		pub fn transfer_assets(
 			origin: OriginFor<T>,
-			dest: Box<VersionedMultiLocation>,
-			beneficiary: Box<VersionedMultiLocation>,
-			assets: Box<VersionedMultiAssets>,
+			dest: Box<VersionedLocation>,
+			beneficiary: Box<VersionedLocation>,
+			assets: Box<VersionedAssets>,
 			fee_asset_item: u32,
 			weight_limit: WeightLimit,
 		) -> DispatchResult {
 			let origin = T::ExecuteXcmOrigin::ensure_origin(origin)?;
 			let dest = (*dest).try_into().map_err(|()| Error::<T>::BadVersion)?;
-			let beneficiary: MultiLocation =
+			let beneficiary: Location =
 				(*beneficiary).try_into().map_err(|()| Error::<T>::BadVersion)?;
-			let assets: MultiAssets = (*assets).try_into().map_err(|()| Error::<T>::BadVersion)?;
+			let assets: Assets = (*assets).try_into().map_err(|()| Error::<T>::BadVersion)?;
 			log::debug!(
 				target: "xcm::pallet_xcm::transfer_assets",
 				"origin {:?}, dest {:?}, beneficiary {:?}, assets {:?}, fee-idx {:?}, weight_limit {:?}",
@@ -1331,16 +1331,16 @@ pub mod pallet {
 				let fees = assets.remove(fee_asset_item);
 				let (local_xcm, remote_xcm) = match fees_transfer_type {
 					TransferType::LocalReserve =>
-						Self::local_reserve_fees_instructions(origin, dest, fees, weight_limit)?,
+						Self::local_reserve_fees_instructions(origin.clone(), dest.clone(), fees, weight_limit)?,
 					TransferType::DestinationReserve =>
 						Self::destination_reserve_fees_instructions(
-							origin,
-							dest,
+							origin.clone(),
+							dest.clone(),
 							fees,
 							weight_limit,
 						)?,
 					TransferType::Teleport =>
-						Self::teleport_fees_instructions(origin, dest, fees, weight_limit)?,
+						Self::teleport_fees_instructions(origin.clone(), dest.clone(), fees, weight_limit)?,
 					TransferType::RemoteReserve(_) =>
 						return Err(Error::<T>::InvalidAssetUnsupportedReserve.into()),
 				};
@@ -1367,7 +1367,7 @@ const MAX_ASSETS_FOR_TRANSFER: usize = 2;
 #[derive(Clone, PartialEq)]
 enum FeesHandling<T: Config> {
 	/// `fees` asset can be batch-transferred with rest of assets using same XCM instructions.
-	Batched { fees: MultiAsset },
+	Batched { fees: Asset },
 	/// fees cannot be batched, they are handled separately using XCM programs here.
 	Separate { local_xcm: Xcm<<T as Config>::RuntimeCall>, remote_xcm: Xcm<()> },
 }
@@ -1479,7 +1479,7 @@ impl<T: Config> Pallet<T> {
 		}
 		// single asset also marked as fee item
 		if assets.len() == 1 {
-			assets_transfer_type = fees_transfer_type
+			assets_transfer_type = fees_transfer_type.clone()
 		}
 		Ok((
 			fees_transfer_type.ok_or(Error::<T>::Empty)?,
@@ -1618,7 +1618,7 @@ impl<T: Config> Pallet<T> {
 					_ => return Err(Error::<T>::InvalidAssetUnsupportedReserve.into()),
 				};
 				let local = Self::remote_reserve_transfer_program(
-					origin,
+					origin.clone(),
 					reserve,
 					dest.clone(),
 					beneficiary,
@@ -1680,7 +1680,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn add_fees_to_xcm(
-		dest: MultiLocation,
+		dest: Location,
 		fees: FeesHandling<T>,
 		weight_limit: WeightLimit,
 		local: &mut Xcm<<T as Config>::RuntimeCall>,
@@ -1692,7 +1692,7 @@ impl<T: Config> Pallet<T> {
 				// no custom fees instructions, they are batched together with `assets` transfer;
 				// BuyExecution happens after receiving all `assets`
 				let reanchored_fees =
-					fees.reanchored(&dest, context).map_err(|_| Error::<T>::CannotReanchor)?;
+					fees.reanchored(&dest, &context).map_err(|_| Error::<T>::CannotReanchor)?;
 				// buy execution using `fees` batched together with above `reanchored_assets`
 				remote.inner_mut().push(BuyExecution { fees: reanchored_fees, weight_limit });
 			},
@@ -1762,7 +1762,7 @@ impl<T: Config> Pallet<T> {
 		// XCM instructions to be executed on local chain
 		let mut local_execute_xcm = Xcm(vec![
 			// locally move `assets` to `dest`s local sovereign account
-			TransferAsset { assets, beneficiary: dest },
+			TransferAsset { assets, beneficiary: dest.clone() },
 		]);
 		// XCM instructions to be executed on destination chain
 		let mut xcm_on_dest = Xcm(vec![
@@ -1975,10 +1975,10 @@ impl<T: Config> Pallet<T> {
 		let max_assets =
 			assets.len() as u32 + if matches!(&fees, FeesHandling::Batched { .. }) { 0 } else { 1 };
 		let context = T::UniversalLocation::get();
-		let assets: MultiAssets = assets.into();
+		let assets: Assets = assets.into();
 		let mut reanchored_assets = assets.clone();
 		reanchored_assets
-			.reanchor(&dest, context)
+			.reanchor(&dest, &context)
 			.map_err(|_| Error::<T>::CannotReanchor)?;
 
 		// XcmContext irrelevant in teleports checks
@@ -2937,17 +2937,17 @@ impl<Prefix: Get<Location>, Body: Get<BodyId>> Contains<Location> for IsVoiceOfB
 
 /// `EnsureOrigin` implementation succeeding with a `Location` value to recognize and filter
 /// the `Origin::Xcm` item.
-pub struct EnsureXcm<F>(PhantomData<F>);
-impl<O: OriginTrait + From<Origin>, F: Contains<Location>> EnsureOrigin<O> for EnsureXcm<F>
+pub struct EnsureXcm<F, L = Location>(PhantomData<(F, L)>);
+impl<O: OriginTrait + From<Origin>, F: Contains<L>, L: TryFrom<Location> + TryInto<Location> + Clone> EnsureOrigin<O> for EnsureXcm<F, L>
 where
 	O::PalletsOrigin: From<Origin> + TryInto<Origin, Error = O::PalletsOrigin>,
 {
-	type Success = Location;
+	type Success = L;
 
 	fn try_origin(outer: O) -> Result<Self::Success, O> {
 		outer.try_with_caller(|caller| {
 			caller.try_into().and_then(|o| match o {
-				Origin::Xcm(location) if F::contains(&location) => Ok(location),
+				Origin::Xcm(ref location) if F::contains(&location.clone().try_into().map_err(|_| o.clone().into())?) => Ok(location.clone().try_into().map_err(|_| o.clone().into())?),
 				Origin::Xcm(location) => Err(Origin::Xcm(location).into()),
 				o => Err(o.into()),
 			})

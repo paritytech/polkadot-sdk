@@ -189,6 +189,6 @@ fn ensure_type_info_is_correct() {
 	let type_info = VersionedXcm::<()>::type_info();
 	assert_eq!(type_info.path.segments, vec!["xcm", "VersionedXcm"]);
 
-	let type_info = VersionedAssetId::<()>::type_info();
+	let type_info = VersionedAssetId::type_info();
 	assert_eq!(type_info.path.segments, vec!["xcm", "VersionedAssetId"]);
 }

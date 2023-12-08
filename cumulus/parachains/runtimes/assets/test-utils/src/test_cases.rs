@@ -359,9 +359,9 @@ pub fn teleports_for_foreign_assets_works<
 	<WeightToFee as frame_support::weights::WeightToFee>::Balance: From<u128> + Into<u128>,
 	SovereignAccountOf: ConvertLocation<AccountIdOf<Runtime>>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetId:
-		From<Location> + Into<Location>,
+		From<xcm::v3::Location> + Into<xcm::v3::Location>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetIdParameter:
-		From<Location> + Into<Location>,
+		From<xcm::v3::Location> + Into<xcm::v3::Location>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::Balance:
 		From<Balance> + Into<u128>,
 	<Runtime as frame_system::Config>::AccountId:
@@ -373,9 +373,9 @@ pub fn teleports_for_foreign_assets_works<
 {
 	// foreign parachain with the same consensus currency as asset
 	let foreign_para_id = 2222;
-	let foreign_asset_id_location = Location {
+	let foreign_asset_id_location = xcm::v3::Location {
 		parents: 1,
-		interior: [Parachain(foreign_para_id), GeneralIndex(1234567)].into(),
+		interior: [xcm::v3::Junction::Parachain(foreign_para_id), xcm::v3::Junction::GeneralIndex(1234567)].into(),
 	};
 
 	// foreign creator, which can be sibling parachain to match ForeignCreators
@@ -461,6 +461,8 @@ pub fn teleports_for_foreign_assets_works<
 			>(foreign_asset_id_location.clone(), 0, 0);
 			assert!(teleported_foreign_asset_amount > asset_minimum_asset_balance);
 
+			let foreign_asset_id_location_latest: Location = foreign_asset_id_location.clone().try_into().unwrap();
+
 			// 1. process received teleported assets from sibling parachain (foreign_para_id)
 			let xcm = Xcm(vec![
 				// BuyExecution with relaychain native token
@@ -474,12 +476,12 @@ pub fn teleports_for_foreign_assets_works<
 				},
 				// Process teleported asset
 				ReceiveTeleportedAsset(Assets::from(vec![Asset {
-					id: AssetId(foreign_asset_id_location.clone()),
+					id: AssetId(foreign_asset_id_location_latest.clone()),
 					fun: Fungible(teleported_foreign_asset_amount),
 				}])),
 				DepositAsset {
 					assets: Wild(AllOf {
-						id: AssetId(foreign_asset_id_location.clone()),
+						id: AssetId(foreign_asset_id_location_latest.clone()),
 						fun: WildFungibility::Fungible,
 					}),
 					beneficiary: Location {
@@ -565,7 +567,7 @@ pub fn teleports_for_foreign_assets_works<
 				// Make sure the target account has enough native asset to pay for delivery fees
 				let delivery_fees =
 					xcm_helpers::transfer_assets_delivery_fees::<XcmConfig::XcmSender>(
-						(foreign_asset_id_location.clone(), asset_to_teleport_away).into(),
+						(foreign_asset_id_location_latest.clone(), asset_to_teleport_away).into(),
 						0,
 						Unlimited,
 						dest_beneficiary.clone(),
@@ -581,7 +583,7 @@ pub fn teleports_for_foreign_assets_works<
 					RuntimeHelper::<Runtime>::origin_of(target_account.clone()),
 					dest,
 					dest_beneficiary,
-					(foreign_asset_id_location.clone(), asset_to_teleport_away),
+					(foreign_asset_id_location_latest.clone(), asset_to_teleport_away),
 					Some((runtime_para_id, foreign_para_id)),
 					included_head,
 					&alice,

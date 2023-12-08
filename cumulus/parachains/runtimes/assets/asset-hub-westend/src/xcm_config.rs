@@ -61,6 +61,7 @@ use {cumulus_primitives_core::ParaId, sp_core::Get};
 
 parameter_types! {
 	pub const WestendLocation: Location = Location::parent();
+	pub const WestendLocationV3: xcm::v3::Location = xcm::v3::Location::parent();
 	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::Westend);
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation =
@@ -68,6 +69,8 @@ parameter_types! {
 	pub UniversalLocationNetworkId: NetworkId = UniversalLocation::get().global_consensus().unwrap();
 	pub TrustBackedAssetsPalletLocation: Location =
 		PalletInstance(<Assets as PalletInfoAccess>::index() as u8).into();
+	pub TrustBackedAssetsPalletLocationV3: xcm::v3::Location =
+		xcm::v3::Junction::PalletInstance(<Assets as PalletInfoAccess>::index() as u8).into();
 	pub ForeignAssetsPalletLocation: Location =
 		PalletInstance(<ForeignAssets as PalletInfoAccess>::index() as u8).into();
 	pub PoolAssetsPalletLocation: Location =
@@ -188,19 +191,29 @@ pub type AssetTransactors =
 
 /// Simple `Location` matcher for Local and Foreign asset `Location`.
 pub struct LocalAndForeignAssetsLocationMatcher;
-impl MatchesLocalAndForeignAssetsLocation for LocalAndForeignAssetsLocationMatcher {
-	fn is_local(location: &Location) -> bool {
+impl MatchesLocalAndForeignAssetsLocation<xcm::v3::Location> for LocalAndForeignAssetsLocationMatcher {
+	fn is_local(location: &xcm::v3::Location) -> bool {
 		use assets_common::fungible_conversion::MatchesLocation;
-		TrustBackedAssetsConvertedConcreteId::contains(location)
+		let latest_location: Location = if let Ok(location) = (*location).clone().try_into() {
+			location
+		} else {
+			return false;
+		};
+		TrustBackedAssetsConvertedConcreteId::contains(&latest_location)
 	}
 
-	fn is_foreign(location: &Location) -> bool {
+	fn is_foreign(location: &xcm::v3::Location) -> bool {
 		use assets_common::fungible_conversion::MatchesLocation;
-		ForeignAssetsConvertedConcreteId::contains(location)
+		let latest_location: Location = if let Ok(location) = (*location).clone().try_into() {
+			location
+		} else {
+			return false;
+		};
+		ForeignAssetsConvertedConcreteId::contains(&latest_location)
 	}
 }
-impl Contains<Location> for LocalAndForeignAssetsLocationMatcher {
-	fn contains(location: &Location) -> bool {
+impl Contains<xcm::v3::Location> for LocalAndForeignAssetsLocationMatcher {
+	fn contains(location: &xcm::v3::Location) -> bool {
 		Self::is_local(location) || Self::is_foreign(location)
 	}
 }

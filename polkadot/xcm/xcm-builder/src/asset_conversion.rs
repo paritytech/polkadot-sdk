@@ -25,33 +25,36 @@ use xcm_executor::traits::{Error as MatchError, MatchesFungibles, MatchesNonFung
 /// Converter struct implementing `AssetIdConversion` converting a numeric asset ID (must be
 /// `TryFrom/TryInto<u128>`) into a `GeneralIndex` junction, prefixed by some `Location` value.
 /// The `Location` value will typically be a `PalletInstance` junction.
-pub struct AsPrefixedGeneralIndex<Prefix, AssetId, ConvertAssetId>(
-	PhantomData<(Prefix, AssetId, ConvertAssetId)>,
+pub struct AsPrefixedGeneralIndex<Prefix, AssetId, ConvertAssetId, L = Location>(
+	PhantomData<(Prefix, AssetId, ConvertAssetId, L)>,
 );
-impl<Prefix: Get<Location>, AssetId: Clone, ConvertAssetId: MaybeEquivalence<u128, AssetId>>
-	MaybeEquivalence<Location, AssetId> for AsPrefixedGeneralIndex<Prefix, AssetId, ConvertAssetId>
+impl<Prefix: Get<L>, AssetId: Clone, ConvertAssetId: MaybeEquivalence<u128, AssetId>, L: TryInto<Location> + TryFrom<Location> + Clone>
+	MaybeEquivalence<L, AssetId> for AsPrefixedGeneralIndex<Prefix, AssetId, ConvertAssetId, L>
 {
-	fn convert(id: &Location) -> Option<AssetId> {
+	fn convert(id: &L) -> Option<AssetId> {
 		let prefix = Prefix::get();
-		if prefix.parent_count() != id.parent_count() ||
-			prefix
+		let latest_prefix: Location = prefix.try_into().ok()?;
+		let latest_id: Location = (*id).clone().try_into().ok()?;
+		if latest_prefix.parent_count() != latest_id.parent_count() ||
+			latest_prefix
 				.interior()
 				.iter()
 				.enumerate()
-				.any(|(index, junction)| id.interior().at(index) != Some(junction))
+				.any(|(index, junction)| latest_id.interior().at(index) != Some(junction))
 		{
 			return None
 		}
-		match id.interior().at(prefix.interior().len()) {
-			Some(Junction::GeneralIndex(id)) => ConvertAssetId::convert(id),
+		match latest_id.interior().at(latest_prefix.interior().len()) {
+			Some(Junction::GeneralIndex(id)) => ConvertAssetId::convert(&id),
 			_ => None,
 		}
 	}
-	fn convert_back(what: &AssetId) -> Option<Location> {
-		let mut location = Prefix::get();
+	fn convert_back(what: &AssetId) -> Option<L> {
+		let location = Prefix::get();
+		let mut latest_location: Location = location.try_into().ok()?;
 		let id = ConvertAssetId::convert_back(what)?;
-		location.push_interior(Junction::GeneralIndex(id)).ok()?;
-		Some(location)
+		latest_location.push_interior(Junction::GeneralIndex(id)).ok()?;
+		Some(latest_location.try_into().ok()?)
 	}
 }
 
@@ -99,6 +102,17 @@ impl<
 
 #[deprecated = "Use `ConvertedConcreteId` instead"]
 pub type ConvertedConcreteAssetId<A, B, C, O> = ConvertedConcreteId<A, B, C, O>;
+
+pub struct V4V3LocationConverter;
+impl MaybeEquivalence<xcm::v4::Location, xcm::v3::Location> for V4V3LocationConverter {
+	fn convert(old: &xcm::v4::Location) -> Option<xcm::v3::Location> {
+		(*old).clone().try_into().ok()
+	}
+
+	fn convert_back(new: &xcm::v3::Location) -> Option<xcm::v4::Location> {
+		(*new).clone().try_into().ok()
+	}
+}
 
 pub struct MatchedConvertedConcreteId<AssetId, Balance, MatchAssetId, ConvertAssetId, ConvertOther>(
 	PhantomData<(AssetId, Balance, MatchAssetId, ConvertAssetId, ConvertOther)>,

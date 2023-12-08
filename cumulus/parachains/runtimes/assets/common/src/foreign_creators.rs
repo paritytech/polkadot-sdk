@@ -22,15 +22,16 @@ use xcm_executor::traits::ConvertLocation;
 
 /// `EnsureOriginWithArg` impl for `CreateOrigin` that allows only XCM origins that are locations
 /// containing the class location.
-pub struct ForeignCreators<IsForeign, AccountOf, AccountId>(
-	sp_std::marker::PhantomData<(IsForeign, AccountOf, AccountId)>,
+pub struct ForeignCreators<IsForeign, AccountOf, AccountId, L = Location>(
+	sp_std::marker::PhantomData<(IsForeign, AccountOf, AccountId, L)>,
 );
 impl<
-		IsForeign: ContainsPair<Location, Location>,
+		IsForeign: ContainsPair<L, L>,
 		AccountOf: ConvertLocation<AccountId>,
 		AccountId: Clone,
 		RuntimeOrigin: From<XcmOrigin> + OriginTrait + Clone,
-	> EnsureOriginWithArg<RuntimeOrigin, Location> for ForeignCreators<IsForeign, AccountOf, AccountId>
+		L: TryFrom<Location> + TryInto<Location> + Clone,
+	> EnsureOriginWithArg<RuntimeOrigin, L> for ForeignCreators<IsForeign, AccountOf, AccountId, L>
 where
 	RuntimeOrigin::PalletsOrigin:
 		From<XcmOrigin> + TryInto<XcmOrigin, Error = RuntimeOrigin::PalletsOrigin>,
@@ -39,13 +40,14 @@ where
 
 	fn try_origin(
 		origin: RuntimeOrigin,
-		asset_location: &Location,
+		asset_location: &L,
 	) -> sp_std::result::Result<Self::Success, RuntimeOrigin> {
-		let origin_location = EnsureXcm::<Everything>::try_origin(origin.clone())?;
+		let origin_location = EnsureXcm::<Everything, L>::try_origin(origin.clone())?;
 		if !IsForeign::contains(asset_location, &origin_location) {
 			return Err(origin)
 		}
-		AccountOf::convert_location(&origin_location).ok_or(origin)
+		let latest_location: Location = origin_location.clone().try_into().map_err(|_| origin.clone())?;
+		AccountOf::convert_location(&latest_location).ok_or(origin)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

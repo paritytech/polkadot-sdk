@@ -60,19 +60,30 @@ impl<IsForeign: ContainsPair<Location, Location>> ContainsPair<Asset, Location>
 
 /// Checks if `a` is from sibling location `b`. Checks that `Location-a` starts with
 /// `Location-b`, and that the `ParaId` of `b` is not equal to `a`.
-pub struct FromSiblingParachain<SelfParaId>(sp_std::marker::PhantomData<SelfParaId>);
-impl<SelfParaId: Get<ParaId>> ContainsPair<Location, Location>
-	for FromSiblingParachain<SelfParaId>
+pub struct FromSiblingParachain<SelfParaId, L = Location>(sp_std::marker::PhantomData<(SelfParaId, L)>);
+impl<SelfParaId: Get<ParaId>, L: TryFrom<Location> + TryInto<Location> + Clone> ContainsPair<L, L>
+	for FromSiblingParachain<SelfParaId, L>
 {
-	fn contains(a: &Location, b: &Location) -> bool {
+	fn contains(a: &L, b: &L) -> bool {
+		let a: Location = if let Ok(location) = (*a).clone().try_into() {
+			location
+		} else {
+			return false;
+		};
+		let b: Location = if let Ok(location) = (*b).clone().try_into() {
+			location
+		} else {
+			return false;
+		};
+
 		// `a` needs to be from `b` at least
-		if !a.starts_with(b) {
-			return false
+		if !a.starts_with(&b) {
+			return false;
 		}
 
 		// here we check if sibling
-		match a {
-			Location { parents: 1, interior } =>
+		match a.unpack() {
+			(1, interior) =>
 				matches!(interior.first(), Some(Parachain(sibling_para_id)) if sibling_para_id.ne(&u32::from(SelfParaId::get()))),
 			_ => false,
 		}

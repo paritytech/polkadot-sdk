@@ -326,7 +326,7 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 		foreign_asset_id_location,
 		transfered_foreign_asset_id_amount,
 		foreign_asset_id_minimum_balance,
-	): (Location, u128, u128),
+	): (xcm::v3::Location, u128, u128),
 	prepare_configuration: fn() -> TestBridgingConfig,
 	(bridge_instance, universal_origin, descend_origin): (Junctions, Junction, Junctions), /* bridge adds origin manipulation on the way */
 ) where
@@ -347,9 +347,9 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 	XcmConfig: xcm_executor::Config,
 	LocationToAccountId: ConvertLocation<AccountIdOf<Runtime>>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetId:
-		From<Location> + Into<Location>,
+		From<xcm::v3::Location> + Into<xcm::v3::Location>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetIdParameter:
-		From<Location> + Into<Location>,
+		From<xcm::v3::Location> + Into<xcm::v3::Location>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::Balance:
 		From<Balance> + Into<u128> + From<u128>,
 	<Runtime as frame_system::Config>::AccountId: Into<<<Runtime as frame_system::Config>::RuntimeOrigin as OriginTrait>::AccountId>
@@ -439,8 +439,10 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 				0.into()
 			);
 
+			let foreign_asset_id_location_latest: Location = foreign_asset_id_location.clone().try_into().unwrap();
+
 			let expected_assets = Assets::from(vec![Asset {
-				id: AssetId(foreign_asset_id_location.clone()),
+				id: AssetId(foreign_asset_id_location_latest.clone()),
 				fun: Fungible(transfered_foreign_asset_id_amount),
 			}]);
 			let expected_beneficiary = Location::new(
@@ -457,7 +459,7 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 				ClearOrigin,
 				BuyExecution {
 					fees: Asset {
-						id: foreign_asset_id_location.clone().into(),
+						id: AssetId(foreign_asset_id_location_latest.clone()),
 						fun: Fungible(transfered_foreign_asset_id_amount),
 					},
 					weight_limit: Unlimited,
