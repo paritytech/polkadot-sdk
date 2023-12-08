@@ -161,6 +161,7 @@ fn distribute_rewards() {
 
 /// Integration tests with pallet-staking.
 mod integration {
+	use pallet_staking::RewardDestination;
 	use super::*;
 	use sp_staking::Stake;
 
@@ -320,12 +321,43 @@ mod integration {
 
 	#[test]
 	fn reward_destination_restrictions() {
-		ExtBuilder::default().build_and_execute(|| assert!(true));
+		ExtBuilder::default().build_and_execute(|| {
+			// give some funds to 200
+			fund(&200, 1000);
+			let balance_200 = Balances::free_balance(200);
+
+			// delegatee cannot be reward destination
+			assert_noop!(DelegatedStaking::accept_delegations(&200, &200), Error::<T>::InvalidRewardDestination);
+
+			// different reward account works
+			assert_ok!(DelegatedStaking::accept_delegations(&200, &201));
+			// add some delegations to it
+			assert_ok!(DelegatedStaking::delegate(fund(&300, 1000), &200, 100));
+
+
+			// if delegatee calls Staking pallet directly with a different reward destination, it fails.
+			assert_noop!(Staking::bond(RuntimeOrigin::signed(200), 100, RewardDestination::Stash), StakingError::<T>::RewardDestinationRestricted);
+			// non stash account different than one passed to DelegatedStaking also does not work..
+			assert_noop!(Staking::bond(RuntimeOrigin::signed(200), 100, RewardDestination::Account(202)), StakingError::<T>::RewardDestinationRestricted);
+			// passing correct reward destination works
+			assert_ok!(Staking::bond(RuntimeOrigin::signed(200), 100, RewardDestination::Account(201)));
+			// amount is staked correctly
+			assert!(eq_stake(200, 100, 100));
+			assert_eq!(DelegatedStaking::unbonded_balance(&200), 0);
+			assert_eq!(DelegatedStaking::delegated_balance(&200), 100);
+
+			// free balance of delegatee is untouched
+			assert_eq!(Balances::free_balance(200), balance_200);
+		});
 	}
 
 	#[test]
-	fn nominate_test() {
-		ExtBuilder::default().build_and_execute(|| assert!(true));
+	fn delegatee_restrictions() {
+		ExtBuilder::default().build_and_execute(|| {
+			// delegatee cannot be reward destination
+			assert_noop!(DelegatedStaking::accept_delegations(fund(&200, 1000), &200), Error::<T>::InvalidRewardDestination);
+
+		});
 	}
 
 	#[test]
