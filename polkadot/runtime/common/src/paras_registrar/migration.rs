@@ -39,7 +39,7 @@ impl<T: Config, UnlockParaIds: Contains<ParaId>> OnRuntimeUpgrade
 				deposit: v1.deposit,
 				locked: v1.locked,
 				billing_account: None,
-				pending_refund: None,
+				pending_deposit_refund: None,
 			})
 		});
 
@@ -65,7 +65,7 @@ impl<T: Config, UnlockParaIds: Contains<ParaId>> OnRuntimeUpgrade
 				info.billing_account.is_none(),
 				"The billing account must be set to the para manager"
 			);
-			ensure!(info.pending_refund.is_none(), "There should be no pending refund");
+			ensure!(info.pending_deposit_refund.is_none(), "There should be no pending refund");
 
 			Ok(())
 		})

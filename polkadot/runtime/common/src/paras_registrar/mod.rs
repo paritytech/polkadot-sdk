@@ -68,14 +68,13 @@ pub struct ParaInfo<Account, Balance> {
 	/// at a later point, this can be updated by calling the
 	/// `set_parachain_billing_account_to_self` extrinsic.
 	///
-	/// None means that the billing account hasn't been explicitly set. In such a case, if the
-	/// parachain intends to schedule a code upgrade and is not a lease-holding parachain, either
-	/// the parachain manager or the parachain itself has to explicitly set itself as the billing
-	/// account by calling the `set_parachain_billing_account_to_self` extrinsic.
+	/// None indicates that the billing account hasn't been set, which is the case for all legacy
+	/// parachains. Attempting to schedule a parachain upgrade will fail if the billing account is
+	/// set to None, except in the case where the parachain is not a lease-holding parachain.
 	billing_account: Option<Account>,
 	/// In case there is a pending refund for the current billing account, this stores information
 	/// about the amount that will be refunded upon a successful code upgrade.
-	pending_refund: Option<Balance>,
+	pending_deposit_refund: Option<Balance>,
 }
 
 impl<Account, Balance> ParaInfo<Account, Balance> {
@@ -723,7 +722,7 @@ impl<T: Config> Pallet<T> {
 			deposit,
 			locked: None,
 			billing_account: Some(who.clone()),
-			pending_refund: None,
+			pending_deposit_refund: None,
 		};
 
 		Paras::<T>::insert(id, info);
@@ -764,7 +763,7 @@ impl<T: Config> Pallet<T> {
 			deposit,
 			locked: None,
 			billing_account: Some(who.clone()),
-			pending_refund: None,
+			pending_deposit_refund: None,
 		};
 
 		Paras::<T>::insert(id, info);
@@ -857,7 +856,7 @@ impl<T: Config> Pallet<T> {
 			// code to an empty blob. In such a case, the pre-checking process would fail, so
 			// the old code would remain on-chain even though there is no deposit to cover it.
 
-			info.pending_refund = Some(current_deposit.saturating_sub(new_deposit));
+			info.pending_deposit_refund = Some(current_deposit.saturating_sub(new_deposit));
 		}
 
 		Paras::<T>::insert(para, info);
@@ -958,10 +957,10 @@ impl<T: Config> OnCodeUpgrade for Pallet<T> {
 		let mut info = maybe_info
 			.expect("Ensured above that the deposit info is stored for the parachain; qed");
 
-		if let Some(rebate) = info.pending_refund {
+		if let Some(rebate) = info.pending_deposit_refund {
 			if let Some(billing_account) = info.billing_account.clone() {
 				<T as Config>::Currency::unreserve(&billing_account, rebate);
-				info.pending_refund = None;
+				info.pending_deposit_refund = None;
 				Paras::<T>::insert(id, info);
 
 				Self::deposit_event(Event::<T>::Refunded {
