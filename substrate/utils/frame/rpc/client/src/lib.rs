@@ -46,7 +46,7 @@ pub use jsonrpsee::{
 	core::{
 		client::{ClientT, Subscription, SubscriptionClientT},
 		params::BatchRequestBuilder,
-		Error, RpcResult,
+		ClientError, RpcResult,
 	},
 	rpc_params,
 	ws_client::{WsClient, WsClientBuilder},

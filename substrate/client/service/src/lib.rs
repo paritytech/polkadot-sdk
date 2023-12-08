@@ -38,7 +38,7 @@ use std::{collections::HashMap, net::SocketAddr};
 
 use codec::{Decode, Encode};
 use futures::{pin_mut, FutureExt, StreamExt};
-use jsonrpsee::{core::Error as JsonRpseeError, RpcModule};
+use jsonrpsee::RpcModule;
 use log::{debug, error, warn};
 use sc_client_api::{blockchain::HeaderBackend, BlockBackend, BlockchainEvents, ProofProvider};
 use sc_network::{
@@ -109,7 +109,7 @@ impl RpcHandlers {
 	pub async fn rpc_query(
 		&self,
 		json_query: &str,
-	) -> Result<(String, tokio::sync::mpsc::Receiver<String>), JsonRpseeError> {
+	) -> Result<(String, tokio::sync::mpsc::Receiver<String>), serde_json::Error> {
 		self.0
 			.raw_json_request(json_query, tokio::sync::Semaphore::MAX_PERMITS)
 			.await

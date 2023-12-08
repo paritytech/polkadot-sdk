@@ -21,7 +21,7 @@ use super::*;
 use crate::testing::{test_executor, timeout_secs};
 use assert_matches::assert_matches;
 use futures::executor;
-use jsonrpsee::core::{EmptyServerParams as EmptyParams, Error as RpcError};
+use jsonrpsee::core::{EmptyServerParams as EmptyParams, MethodsError as RpcError};
 use sc_block_builder::BlockBuilderBuilder;
 use sc_rpc_api::DenyUnsafe;
 use sp_consensus::BlockOrigin;

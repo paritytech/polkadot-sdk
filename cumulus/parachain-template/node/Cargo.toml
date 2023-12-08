@@ -15,7 +15,7 @@ clap = { version = "4.4.10", features = ["derive"] }
 log = "0.4.20"
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 serde = { version = "1.0.193", features = ["derive"] }
-jsonrpsee = { version = "0.20", features = ["server"] }
+jsonrpsee = { version = "0.21", features = ["server"] }
 futures = "0.3.28"
 serde_json = "1.0.108"
 

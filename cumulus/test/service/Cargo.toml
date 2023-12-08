@@ -14,7 +14,7 @@ async-trait = "0.1.73"
 clap = { version = "4.4.10", features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 criterion = { version = "0.5.1", features = ["async_tokio"] }
-jsonrpsee = { version = "0.20", features = ["server"] }
+jsonrpsee = { version = "0.21", features = ["server"] }
 rand = "0.8.5"
 serde = { version = "1.0.193", features = ["derive"] }
 serde_json = "1.0.108"
