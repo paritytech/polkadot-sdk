@@ -81,12 +81,14 @@ use frame_system::{
 };
 pub use parachains_common as common;
 use parachains_common::{
-	impls::DealWithFees, message_queue::*, AccountId, AuraId, Balance, BlockNumber, Hash, Header,
-	Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS, MAXIMUM_BLOCK_WEIGHT, MINUTES,
-	NORMAL_DISPATCH_RATIO, SLOT_DURATION,
+	impls::DealWithFees,
+	message_queue::*,
+	westend::{account::*, consensus::*, currency::*, fee::WeightToFee},
+	AccountId, AuraId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
+	AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS, MAXIMUM_BLOCK_WEIGHT, MINUTES, NORMAL_DISPATCH_RATIO,
+	SLOT_DURATION,
 };
 use sp_runtime::RuntimeDebug;
-use testnets_common::westend::{account::*, consensus::*, currency::*, fee::WeightToFee};
 use xcm_config::{GovernanceLocation, XcmOriginToTransactDispatchOrigin};
 
 #[cfg(any(feature = "std", test))]
@@ -968,6 +970,18 @@ impl_runtime_apis! {
 				fn reserve_transferable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
 					// Reserve transfers are disabled on Collectives.
 					None
+				}
+
+				fn set_up_complex_asset_transfer(
+				) -> Option<(MultiAssets, u32, MultiLocation, Box<dyn FnOnce()>)> {
+					// Collectives only supports teleports to system parachain.
+					// Relay/native token can be teleported between Collectives and Relay.
+					let native_location = Parent.into();
+					let dest = Parent.into();
+					pallet_xcm::benchmarking::helpers::native_teleport_as_asset_transfer::<Runtime>(
+						native_location,
+						dest
+					)
 				}
 			}
 
