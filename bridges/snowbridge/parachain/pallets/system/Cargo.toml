@@ -14,7 +14,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 	"derive",
 ] }
 scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
-frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true}
+frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true }
 frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
 frame-system = { path = "../../../../../substrate/frame/system", default-features = false }
 log = { version = "0.4.20", default-features = false }
@@ -44,19 +44,19 @@ snowbridge-outbound-queue = { path = "../outbound-queue" }
 default = ["std"]
 std = [
 	"codec/std",
+	"ethabi/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
 	"scale-info/std",
+	"snowbridge-core/std",
 	"sp-core/std",
-	"sp-std/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"xcm/std",
+	"sp-std/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
-	"ethabi/std",
-	"snowbridge-core/std"
+	"xcm/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

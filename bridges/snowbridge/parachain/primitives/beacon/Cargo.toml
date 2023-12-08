@@ -18,13 +18,13 @@ sp-core = { path = "../../../../../substrate/primitives/core", default-features 
 sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
 sp-io = { path = "../../../../../substrate/primitives/io", default-features = false }
 
-ssz_rs = { version="0.9.0", default-features = false }
-ssz_rs_derive = { version="0.9.0", default-features = false }
+ssz_rs = { version = "0.9.0", default-features = false }
+ssz_rs_derive = { version = "0.9.0", default-features = false }
 byte-slice-cast = { version = "1.2.1", default-features = false }
 
 snowbridge-ethereum = { path = "../../primitives/ethereum", default-features = false }
 static_assertions = { version = "1.1.0" }
-milagro_bls = { git = "https://github.com/snowfork/milagro_bls", default-features = false, rev="a6d66e4eb89015e352fb1c9f7b661ecdbb5b2176"}
+milagro_bls = { git = "https://github.com/snowfork/milagro_bls", default-features = false, rev = "a6d66e4eb89015e352fb1c9f7b661ecdbb5b2176" }
 
 [dev-dependencies]
 hex-literal = { version = "0.4.1" }
@@ -32,18 +32,18 @@ hex-literal = { version = "0.4.1" }
 [features]
 default = ["std"]
 std = [
-    "serde",
-    "codec/std",
-    "scale-info/std",
-    "frame-support/std",
-    "frame-system/std",
-    "sp-std/std",
-    "sp-core/std",
-    "sp-runtime/std",
-    "sp-io/std",
-    "rlp/std",
-    "snowbridge-ethereum/std",
-    "ssz_rs/std",
-    "byte-slice-cast/std",
-    "milagro_bls/std",
+	"byte-slice-cast/std",
+	"codec/std",
+	"frame-support/std",
+	"frame-system/std",
+	"milagro_bls/std",
+	"rlp/std",
+	"scale-info/std",
+	"serde",
+	"snowbridge-ethereum/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"ssz_rs/std",
 ]

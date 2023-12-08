@@ -11,8 +11,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 serde = { version = "1.0.188", optional = true }
-codec = { version = "3.6.1", package = "parity-scale-codec", default-features = false, features = [ "derive" ] }
-scale-info = { version = "2.9.0", default-features = false, features = [ "derive" ] }
+codec = { version = "3.6.1", package = "parity-scale-codec", default-features = false, features = ["derive"] }
+scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
 hex-literal = { version = "0.4.1", optional = true }
 log = { version = "0.4.20", default-features = false }
 alloy-primitives = { version = "0.4.2", default-features = false, features = ["rlp"] }
@@ -47,34 +47,34 @@ hex-literal = { version = "0.4.1" }
 [features]
 default = ["std"]
 std = [
-    "serde",
-    "log/std",
-    "codec/std",
-    "scale-info/std",
-    "alloy-primitives/std",
-    "alloy-sol-types/std",
-    "alloy-rlp/std",
-    "frame-support/std",
-    "frame-system/std",
-    "pallet-balances/std",
-    "frame-benchmarking/std",
-    "sp-core/std",
-    "sp-runtime/std",
-    "sp-std/std",
-    "sp-io/std",
-    "num-traits/std",
-    "snowbridge-core/std",
-    "snowbridge-ethereum/std",
-    "snowbridge-router-primitives/std",
-    "xcm/std",
-    "xcm-builder/std",
+	"alloy-primitives/std",
+	"alloy-rlp/std",
+	"alloy-sol-types/std",
+	"codec/std",
+	"frame-benchmarking/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"num-traits/std",
+	"pallet-balances/std",
+	"scale-info/std",
+	"serde",
+	"snowbridge-core/std",
+	"snowbridge-ethereum/std",
+	"snowbridge-router-primitives/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"xcm-builder/std",
+	"xcm/std",
 ]
 runtime-benchmarks = [
-    "snowbridge-core/runtime-benchmarks",
-    "frame-benchmarking",
-    "frame-support/runtime-benchmarks",
-    "frame-system/runtime-benchmarks",
-    "hex-literal",
-    "snowbridge-beacon-primitives",
-    "xcm-builder/runtime-benchmarks",
+	"frame-benchmarking",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"hex-literal",
+	"snowbridge-beacon-primitives",
+	"snowbridge-core/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
 ]

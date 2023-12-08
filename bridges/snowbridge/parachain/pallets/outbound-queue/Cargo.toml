@@ -10,12 +10,12 @@ repository = "https://github.com/Snowfork/snowbridge"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-serde = { version = "1.0.188", features = ["derive", "alloc"], default-features = false }
-codec = { version = "3.6.1", package = "parity-scale-codec", default-features = false, features = [ "derive" ] }
-scale-info = { version = "2.9.0", default-features = false, features = [ "derive" ] }
+serde = { version = "1.0.188", features = ["alloc", "derive"], default-features = false }
+codec = { version = "3.6.1", package = "parity-scale-codec", default-features = false, features = ["derive"] }
+scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
 hex-literal = { version = "0.4.1", optional = true }
 
-frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true}
+frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true }
 frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
 frame-system = { path = "../../../../../substrate/frame/system", default-features = false }
 sp-core = { path = "../../../../../substrate/primitives/core", default-features = false }
@@ -40,28 +40,28 @@ hex-literal = { version = "0.4.1" }
 [features]
 default = ["std"]
 std = [
-    "serde/std",
-    "codec/std",
-    "scale-info/std",
-    "frame-support/std",
-    "frame-system/std",
-    "frame-benchmarking/std",
-    "sp-core/std",
-    "sp-runtime/std",
-    "sp-arithmetic/std",
-    "sp-std/std",
-    "sp-io/std",
-    "snowbridge-core/std",
-    "snowbridge-outbound-queue-merkle-tree/std",
-    "ethabi/std",
-    "xcm/std",
-    "bridge-hub-common/std",
+	"bridge-hub-common/std",
+	"codec/std",
+	"ethabi/std",
+	"frame-benchmarking/std",
+	"frame-support/std",
+	"frame-system/std",
+	"scale-info/std",
+	"serde/std",
+	"snowbridge-core/std",
+	"snowbridge-outbound-queue-merkle-tree/std",
+	"sp-arithmetic/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"xcm/std",
 ]
 runtime-benchmarks = [
-    "snowbridge-core/runtime-benchmarks",
-    "frame-benchmarking",
-    "frame-support/runtime-benchmarks",
-    "frame-system/runtime-benchmarks",
-    "hex-literal",
-    "bridge-hub-common/runtime-benchmarks",
+	"bridge-hub-common/runtime-benchmarks",
+	"frame-benchmarking",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"hex-literal",
+	"snowbridge-core/runtime-benchmarks",
 ]

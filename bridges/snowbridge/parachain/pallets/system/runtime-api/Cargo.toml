@@ -22,9 +22,9 @@ snowbridge-core = { path = "../../../primitives/core", default-features = false 
 default = ["std"]
 std = [
 	"codec/std",
-	"sp-core/std",
+	"snowbridge-core/std",
 	"sp-api/std",
+	"sp-core/std",
 	"sp-std/std",
 	"xcm/std",
-	"snowbridge-core/std",
 ]
