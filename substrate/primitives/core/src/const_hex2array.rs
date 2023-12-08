@@ -25,7 +25,8 @@
 #[macro_export]
 macro_rules! hex2array {
 	($input:expr) => {{
-		const PUBLIC_BYTES: [u8; $input.len() >> 1] = $crate::const_hex2array::hex2array($input);
+		const PUBLIC_BYTES: [u8; $input.len() >> 1] =
+			$crate::const_hex2array::private_hex2array($input);
 		PUBLIC_BYTES
 	}};
 }
@@ -67,18 +68,18 @@ pub const fn private_hex2array<const N: usize>(hex: &str) -> [u8; N] {
 
 #[cfg(test)]
 mod testh2b {
-	use super::hex2array;
+	use super::private_hex2array;
 
 	#[test]
 	fn t00() {
-		const T0: [u8; 0] = hex2array("");
+		const T0: [u8; 0] = private_hex2array("");
 		const EMPTY: [u8; 0] = [];
 		assert_eq!(T0, EMPTY);
 	}
 
 	macro_rules! test_byte {
 		($a:expr, $b:expr) => {{
-			const X: [u8; 1] = hex2array($a);
+			const X: [u8; 1] = private_hex2array($a);
 			assert_eq!(X, [$b]);
 		}};
 	}
@@ -111,25 +112,25 @@ mod testh2b {
 
 	#[test]
 	fn t02() {
-		const T0: [u8; 2] = hex2array("0a10");
+		const T0: [u8; 2] = private_hex2array("0a10");
 		assert_eq!(T0, [10, 16]);
-		const T1: [u8; 2] = hex2array("4545");
+		const T1: [u8; 2] = private_hex2array("4545");
 		assert_eq!(T1, [69, 69]);
 	}
 
 	#[test]
 	fn t02m() {
-		assert_eq!(hex2arr!("0a10"), [10, 16]);
-		assert_eq!(hex2arr!("4545"), [69, 69]);
+		assert_eq!(hex2array!("0a10"), [10, 16]);
+		assert_eq!(hex2array!("4545"), [69, 69]);
 		assert_eq!(
-			hex2arr!("000102030405060708090a0b0c0d0e0f"),
+			hex2array!("000102030405060708090a0b0c0d0e0f"),
 			[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 		);
 	}
 
 	#[test]
 	fn t16() {
-		const T16: [u8; 16] = hex2array("000102030405060708090a0b0c0d0e0f");
+		const T16: [u8; 16] = private_hex2array("000102030405060708090a0b0c0d0e0f");
 
 		assert_eq!(T16, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
 	}
@@ -137,7 +138,7 @@ mod testh2b {
 	#[test]
 	fn t33() {
 		const T33: [u8; 33] =
-			hex2array("9c8af77d3a4e3f6f076853922985b9e6724fc9675329087f47aff1ceaaae772180");
+			private_hex2array("9c8af77d3a4e3f6f076853922985b9e6724fc9675329087f47aff1ceaaae772180");
 
 		assert_eq!(
 			T33,
@@ -151,12 +152,12 @@ mod testh2b {
 	#[test]
 	#[should_panic = "hex string length is not valid"]
 	fn t_panic_incorrect_length2() {
-		let _ = hex2array::<2>("454");
+		let _ = private_hex2array::<2>("454");
 	}
 
 	#[test]
 	#[should_panic = "hex string contains invalid character"]
 	fn t_panic_invalid_character() {
-		let _ = hex2array::<2>("45ag");
+		let _ = private_hex2array::<2>("45ag");
 	}
 }
