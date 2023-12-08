@@ -40,6 +40,7 @@ std = [
 	"scale-info/std",
 	"serde/std",
 	"snowbridge-beacon-primitives/std",
+	"sp-arithmetic/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
@@ -49,5 +50,9 @@ std = [
 ]
 serde = ["dep:serde", "scale-info/serde"]
 runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 ]

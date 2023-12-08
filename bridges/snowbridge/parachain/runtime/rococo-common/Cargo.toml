@@ -16,6 +16,9 @@ xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-f
 default = ["std"]
 std = [
 	"frame-support/std",
+	"log/std",
 	"xcm/std",
 ]
-runtime-benchmarks = []
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+]

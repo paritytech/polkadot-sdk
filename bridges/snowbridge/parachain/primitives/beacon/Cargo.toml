@@ -36,6 +36,7 @@ std = [
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
+	"hex/std",
 	"milagro_bls/std",
 	"rlp/std",
 	"scale-info/std",
