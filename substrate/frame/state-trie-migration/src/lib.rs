@@ -974,7 +974,7 @@ pub mod pallet {
 mod benchmarks {
 	use super::{pallet::Pallet as StateTrieMigration, *};
 	use frame_support::traits::{
-		fungible::{Inspect as FunInspect, Mutate as FunMutate},
+		fungible::{Inspect, Mutate},
 		Get,
 	};
 	use sp_runtime::traits::Saturating;
