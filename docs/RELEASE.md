@@ -60,7 +60,7 @@ This process aims to release the `release` branch as a *Mainline* release every 
 1. Check if process [Clobbering](#clobbering) needs to happen and do so, if that is the case.
 2. Check out the latest commit of `release`.
 3. Verify all CI checks of that commit.
-4. Update the `CHANGELOG.md` version and date. <!-- Here we could aggregate the PrDocs into the CHANGELOG -->
+4. Update the `CHANGELOG.md` version, date and compile the content using the prdoc files.
 5. Open a Merge Request against `release` for visibility.
 6. Check if there were any changes since the last release and abort, if not.
 7. Run `cargo semver-checks` and `cargo public-api` again to ensure that there are no SemVer breaks.
