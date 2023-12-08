@@ -588,11 +588,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5f69c00b3b529be29528a6f2fd5fa7b1790f8bed81b9cdca17e326538545a179"
 dependencies = [
  "ark-ec",
- "ark-ff",
- "ark-serialize",
- "ark-std",
+ "ark-ff 0.4.2",
+ "ark-serialize 0.4.2",
+ "ark-std 0.4.0",
  "parity-scale-codec",
  "scale-info",
+]
+
+[[package]]
+name = "ark-secret-scalar"
+version = "0.0.2"
+source = "git+https://github.com/w3f/ring-vrf?rev=2019248#2019248785389b3246d55b1c3b0e9bdef4454cb7"
+dependencies = [
+ "ark-ec",
+ "ark-ff 0.4.2",
+ "ark-serialize 0.4.2",
+ "ark-std 0.4.0",
+ "ark-transcript 0.0.2 (git+https://github.com/w3f/ring-vrf?rev=2019248)",
+ "digest 0.10.7",
+ "getrandom_or_panic",
+ "zeroize",
 ]
 
 [[package]]
@@ -604,7 +619,7 @@ dependencies = [
  "ark-ff 0.4.2",
  "ark-serialize 0.4.2",
  "ark-std 0.4.0",
- "ark-transcript",
+ "ark-transcript 0.0.2 (git+https://github.com/w3f/ring-vrf?rev=e9782f9)",
  "digest 0.10.7",
  "getrandom_or_panic",
  "zeroize",
@@ -662,6 +677,19 @@ dependencies = [
  "num-traits",
  "rand 0.8.5",
  "rayon",
+]
+
+[[package]]
+name = "ark-transcript"
+version = "0.0.2"
+source = "git+https://github.com/w3f/ring-vrf?rev=2019248#2019248785389b3246d55b1c3b0e9bdef4454cb7"
+dependencies = [
+ "ark-ff 0.4.2",
+ "ark-serialize 0.4.2",
+ "ark-std 0.4.0",
+ "digest 0.10.7",
+ "rand_core 0.6.4",
+ "sha3",
 ]
 
 [[package]]
@@ -1343,6 +1371,29 @@ dependencies = [
 [[package]]
 name = "bandersnatch_vrfs"
 version = "0.0.4"
+source = "git+https://github.com/w3f/ring-vrf?rev=2019248#2019248785389b3246d55b1c3b0e9bdef4454cb7"
+dependencies = [
+ "ark-bls12-381",
+ "ark-ec",
+ "ark-ed-on-bls12-381-bandersnatch",
+ "ark-ff 0.4.2",
+ "ark-serialize 0.4.2",
+ "ark-std 0.4.0",
+ "dleq_vrf 0.0.2 (git+https://github.com/w3f/ring-vrf?rev=2019248)",
+ "fflonk",
+ "merlin 3.0.0",
+ "rand_chacha 0.3.1",
+ "rand_core 0.6.4",
+ "ring 0.1.0",
+ "sha2 0.10.8",
+ "sp-ark-bls12-381",
+ "sp-ark-ed-on-bls12-381-bandersnatch",
+ "zeroize",
+]
+
+[[package]]
+name = "bandersnatch_vrfs"
+version = "0.0.4"
 source = "git+https://github.com/w3f/ring-vrf?rev=e9782f9#e9782f938629c90f3adb3fff2358bc8d1386af3e"
 dependencies = [
  "ark-bls12-381",
@@ -1351,7 +1402,7 @@ dependencies = [
  "ark-ff 0.4.2",
  "ark-serialize 0.4.2",
  "ark-std 0.4.0",
- "dleq_vrf",
+ "dleq_vrf 0.0.2 (git+https://github.com/w3f/ring-vrf?rev=e9782f9)",
  "fflonk",
  "merlin 3.0.0",
  "rand_chacha 0.3.1",
@@ -2775,13 +2826,13 @@ name = "collectives-westend-emulated-chain"
 version = "0.0.0"
 dependencies = [
  "collectives-westend-runtime",
- "cumulus-primitives-core",
+ "cumulus-primitives-core 0.1.0",
  "emulated-integration-tests-common",
- "frame-support",
+ "frame-support 4.0.0-dev",
  "parachains-common",
  "serde_json",
- "sp-core",
- "sp-runtime",
+ "sp-core 21.0.0",
+ "sp-runtime 24.0.0",
  "westend-emulated-chain",
 ]
 
@@ -4572,15 +4623,31 @@ checksum = "86e3bdc80eee6e16b2b6b0f87fbc98c04bee3455e35174c0de1a125d0688c632"
 [[package]]
 name = "dleq_vrf"
 version = "0.0.2"
+source = "git+https://github.com/w3f/ring-vrf?rev=2019248#2019248785389b3246d55b1c3b0e9bdef4454cb7"
+dependencies = [
+ "ark-ec",
+ "ark-ff 0.4.2",
+ "ark-scale 0.0.11",
+ "ark-secret-scalar 0.0.2 (git+https://github.com/w3f/ring-vrf?rev=2019248)",
+ "ark-serialize 0.4.2",
+ "ark-std 0.4.0",
+ "ark-transcript 0.0.2 (git+https://github.com/w3f/ring-vrf?rev=2019248)",
+ "arrayvec 0.7.4",
+ "zeroize",
+]
+
+[[package]]
+name = "dleq_vrf"
+version = "0.0.2"
 source = "git+https://github.com/w3f/ring-vrf?rev=e9782f9#e9782f938629c90f3adb3fff2358bc8d1386af3e"
 dependencies = [
  "ark-ec",
- "ark-ff",
+ "ark-ff 0.4.2",
  "ark-scale 0.0.12",
- "ark-secret-scalar",
+ "ark-secret-scalar 0.0.2 (git+https://github.com/w3f/ring-vrf?rev=e9782f9)",
  "ark-serialize 0.4.2",
  "ark-std 0.4.0",
- "ark-transcript",
+ "ark-transcript 0.0.2 (git+https://github.com/w3f/ring-vrf?rev=e9782f9)",
  "arrayvec 0.7.4",
  "zeroize",
 ]
@@ -4623,7 +4690,7 @@ dependencies = [
  "regex",
  "syn 2.0.39",
  "termcolor",
- "toml 0.8.8",
+ "toml 0.8.2",
  "walkdir",
 ]
 
@@ -5683,7 +5750,7 @@ name = "frame-support-procedural-tools"
 version = "4.0.0-dev"
 dependencies = [
  "frame-support-procedural-tools-derive 3.0.0",
- "proc-macro-crate 2.0.0",
+ "proc-macro-crate 2.0.1",
  "proc-macro2",
  "quote",
  "syn 2.0.39",
@@ -5694,7 +5761,7 @@ name = "frame-support-procedural-tools"
 version = "4.0.0-dev"
 source = "git+https://github.com/snowfork/polkadot-sdk.git?branch=merge-to-upstream#47f4d5ca784bc53d926d18818b91d014e0ad75e8"
 dependencies = [
- "frame-support-procedural-tools-derive",
+ "frame-support-procedural-tools-derive 3.0.0 (git+https://github.com/snowfork/polkadot-sdk.git?branch=merge-to-upstream)",
  "proc-macro-crate 2.0.1",
  "proc-macro2",
  "quote",
@@ -11587,7 +11654,7 @@ version = "3.6.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be30eaf4b0a9fba5336683b38de57bb86d179a35862ba6bfcf57625d006bde5b"
 dependencies = [
- "proc-macro-crate 2.0.0",
+ "proc-macro-crate 2.0.1",
  "proc-macro2",
  "quote",
  "syn 1.0.109",
@@ -17702,7 +17769,7 @@ dependencies = [
  "Inflector",
  "blake2 0.10.6",
  "expander 2.0.0",
- "proc-macro-crate 2.0.0",
+ "proc-macro-crate 2.0.1",
  "proc-macro2",
  "quote",
  "syn 2.0.39",
@@ -18019,7 +18086,7 @@ name = "sp-core"
 version = "21.0.0"
 dependencies = [
  "array-bytes 6.2.2",
- "bandersnatch_vrfs",
+ "bandersnatch_vrfs 0.0.4 (git+https://github.com/w3f/ring-vrf?rev=e9782f9)",
  "bip39",
  "bitflags 1.3.2",
  "blake2 0.10.6",
@@ -18070,7 +18137,7 @@ version = "21.0.0"
 source = "git+https://github.com/snowfork/polkadot-sdk.git?branch=merge-to-upstream#47f4d5ca784bc53d926d18818b91d014e0ad75e8"
 dependencies = [
  "array-bytes 6.2.2",
- "bandersnatch_vrfs",
+ "bandersnatch_vrfs 0.0.4 (git+https://github.com/w3f/ring-vrf?rev=2019248)",
  "bip39",
  "bitflags 1.3.2",
  "blake2 0.10.6",
@@ -18658,7 +18725,7 @@ source = "git+https://github.com/snowfork/polkadot-sdk.git?branch=merge-to-upstr
 dependencies = [
  "Inflector",
  "expander 2.0.0",
- "proc-macro-crate 2.0.0",
+ "proc-macro-crate 2.0.1",
  "proc-macro2",
  "quote",
  "syn 2.0.39",
@@ -18671,7 +18738,7 @@ source = "git+https://github.com/paritytech/polkadot-sdk#4d5832f7299a908c3e873ff
 dependencies = [
  "Inflector",
  "expander 2.0.0",
- "proc-macro-crate 2.0.0",
+ "proc-macro-crate 2.0.1",
  "proc-macro2",
  "quote",
  "syn 2.0.39",
