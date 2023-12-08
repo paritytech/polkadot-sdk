@@ -40,7 +40,7 @@ use pallet::*;
 use sp_runtime::{traits::Zero, DispatchResult, RuntimeDebug, Saturating};
 use sp_staking::{
 	delegation::{DelegationInterface, StakingDelegationSupport},
-	EraIndex, Stake, StakerStatus, StakingInterface, StakingHoldProvider,
+	EraIndex, Stake, StakerStatus, StakingHoldProvider, StakingInterface,
 };
 use sp_std::{convert::TryInto, prelude::*};
 
@@ -317,7 +317,8 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 		num_slashing_spans: u32,
 	) -> DispatchResult {
 		// check how much is already unbonded
-		let delegation_register = <Delegatees<T>>::get(delegatee).ok_or(Error::<T>::NotDelegatee)?;
+		let delegation_register =
+			<Delegatees<T>>::get(delegatee).ok_or(Error::<T>::NotDelegatee)?;
 		let unbonded_balance = delegation_register.unbonded_balance();
 
 		if unbonded_balance < value {
@@ -352,7 +353,8 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 
 		// ensure delegatee exists.
 		ensure!(!<Delegatees<T>>::contains_key(delegatee), Error::<T>::NotDelegatee);
-		let proxy_delegator = <DelegateeMigration<T>>::get(delegatee).ok_or(Error::<T>::NotMigrating)?;
+		let proxy_delegator =
+			<DelegateeMigration<T>>::get(delegatee).ok_or(Error::<T>::NotMigrating)?;
 
 		// remove delegation of `value` from `proxy_delegator`.
 		Self::delegation_withdraw(&proxy_delegator, delegatee, value)?;
@@ -678,14 +680,15 @@ impl<T: Config> Pallet<T> {
 		delegatee: &T::AccountId,
 		value: BalanceOf<T>,
 	) -> DispatchResult {
-
-		let mut delegation_register = <Delegatees<T>>::get(delegatee).ok_or(Error::<T>::NotDelegatee)?;
+		let mut delegation_register =
+			<Delegatees<T>>::get(delegatee).ok_or(Error::<T>::NotDelegatee)?;
 		ensure!(delegation_register.unbonded_balance() >= value, Error::<T>::BadState);
 
 		delegation_register.total_delegated.saturating_reduce(value);
 		<Delegatees<T>>::insert(delegatee, delegation_register);
 
-		let (assigned_delegatee, delegate_balance) = <Delegators<T>>::get(delegator).ok_or(Error::<T>::NotDelegator)?;
+		let (assigned_delegatee, delegate_balance) =
+			<Delegators<T>>::get(delegator).ok_or(Error::<T>::NotDelegator)?;
 		// delegator should already be delegating to delegatee
 		ensure!(&assigned_delegatee == delegatee, Error::<T>::NotDelegatee);
 		ensure!(delegate_balance >= value, Error::<T>::NotEnoughFunds);
