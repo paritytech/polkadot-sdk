@@ -630,7 +630,7 @@ mod test {
 	use std::{io::ErrorKind, sync::Arc};
 	use substrate_test_runtime_client::{
 		runtime::{Block, Hash},
-		DefaultTestClientBuilderExt, TestClientBuilder, TestClientBuilderExt,
+		BlockBuilderExt, DefaultTestClientBuilderExt, TestClientBuilder, TestClientBuilderExt,
 	};
 
 	mockall::mock! {
@@ -954,13 +954,14 @@ mod test {
 
 		warp_sync.on_warp_proof_response(&request_peer_id, EncodedProof(Vec::new()));
 
-		// The first action is a "drop peer" action, the second is the next warp proof request
-		// we are not interested in.
-		let actions = warp_sync.actions().collect::<Vec<_>>();
+		// We only interested in alredy generated actions, not new requests.
+		let actions = std::mem::take(&mut warp_sync.actions);
+		assert_eq!(actions.len(), 1);
 		assert!(matches!(
 			actions[0],
 			WarpSyncAction::DropPeer(BadPeer(peer_id, _rep)) if peer_id == request_peer_id
 		));
+		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
 	}
 
 	#[test]
@@ -1033,16 +1034,396 @@ mod test {
 		assert_eq!(actions.len(), 1);
 		let WarpSyncAction::SendWarpProofRequest { peer_id: request_peer_id, .. } = actions[0]
 		else {
-			panic!("Invalid action");
+			panic!("Invalid action.");
 		};
 
 		warp_sync.on_warp_proof_response(&request_peer_id, EncodedProof(Vec::new()));
 
-		assert!(warp_sync.actions.is_empty(), "No extra actions generated");
+		assert!(warp_sync.actions.is_empty(), "No extra actions generated.");
 		assert!(
 			matches!(warp_sync.phase, Phase::TargetBlock(header) if header == *target_block.header())
 		);
 	}
 
-	// TODO
+	#[test]
+	fn no_target_block_requests_in_another_phase() {
+		let client = mock_client_without_state();
+		let mut provider = MockWarpSyncProvider::<Block>::new();
+		provider
+			.expect_current_authorities()
+			.once()
+			.return_const(AuthorityList::default());
+		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
+		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+
+		// Make sure we have enough peers to make a request.
+		for best_number in 1..11 {
+			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+		}
+		// We are not in `Phase::TargetBlock`
+		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
+
+		// No request is made.
+		assert!(warp_sync.target_block_request().is_none());
+	}
+
+	#[test]
+	fn target_block_request_is_correct() {
+		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
+		let mut provider = MockWarpSyncProvider::<Block>::new();
+		provider
+			.expect_current_authorities()
+			.once()
+			.return_const(AuthorityList::default());
+		let target_block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().best_hash)
+			.with_parent_block_number(client.chain_info().best_number)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		let target_header = target_block.header().clone();
+		// Warp proof is complete.
+		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
+			Ok(VerificationResult::Complete(set_id, authorities, target_header))
+		});
+		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
+		let mut warp_sync = WarpSync::new(client, config);
+
+		// Make sure we have enough peers to make a request.
+		for best_number in 1..11 {
+			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+		}
+
+		// Manually set `TargetBlock` phase.
+		warp_sync.phase = Phase::TargetBlock(target_block.header().clone());
+
+		let (_peer_id, request) = warp_sync.target_block_request().unwrap();
+		assert_eq!(request.from, FromBlock::Hash(target_block.header().hash()));
+		assert_eq!(
+			request.fields,
+			BlockAttributes::HEADER | BlockAttributes::BODY | BlockAttributes::JUSTIFICATION
+		);
+		assert_eq!(request.max, Some(1));
+	}
+
+	#[test]
+	fn externally_set_target_block_is_requested() {
+		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
+		let target_block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().best_hash)
+			.with_parent_block_number(client.chain_info().best_number)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		let target_header = target_block.header().clone();
+		let config = WarpSyncConfig::WaitForTarget;
+		let mut warp_sync = WarpSync::new(client, config);
+
+		// Make sure we have enough peers to make a request.
+		for best_number in 1..11 {
+			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+		}
+
+		// No actions generated so far.
+		assert_eq!(warp_sync.actions().count(), 0);
+
+		warp_sync.set_target_block(target_header);
+		assert!(matches!(warp_sync.phase, Phase::TargetBlock(_)));
+
+		let (_peer_id, request) = warp_sync.target_block_request().unwrap();
+		assert_eq!(request.from, FromBlock::Hash(target_block.header().hash()));
+		assert_eq!(
+			request.fields,
+			BlockAttributes::HEADER | BlockAttributes::BODY | BlockAttributes::JUSTIFICATION
+		);
+		assert_eq!(request.max, Some(1));
+	}
+
+	#[test]
+	fn no_parallel_target_block_requests() {
+		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
+		let mut provider = MockWarpSyncProvider::<Block>::new();
+		provider
+			.expect_current_authorities()
+			.once()
+			.return_const(AuthorityList::default());
+		let target_block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().best_hash)
+			.with_parent_block_number(client.chain_info().best_number)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		let target_header = target_block.header().clone();
+		// Warp proof is complete.
+		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
+			Ok(VerificationResult::Complete(set_id, authorities, target_header))
+		});
+		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
+		let mut warp_sync = WarpSync::new(client, config);
+
+		// Make sure we have enough peers to make a request.
+		for best_number in 1..11 {
+			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+		}
+
+		// Manually set `TargetBlock` phase.
+		warp_sync.phase = Phase::TargetBlock(target_block.header().clone());
+
+		// First target block request is made.
+		assert!(warp_sync.target_block_request().is_some());
+		// No parallel request is made.
+		assert!(warp_sync.target_block_request().is_none());
+	}
+
+	#[test]
+	fn target_block_response_with_no_blocks_drops_peer() {
+		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
+		let mut provider = MockWarpSyncProvider::<Block>::new();
+		provider
+			.expect_current_authorities()
+			.once()
+			.return_const(AuthorityList::default());
+		let target_block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().best_hash)
+			.with_parent_block_number(client.chain_info().best_number)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		let target_header = target_block.header().clone();
+		// Warp proof is complete.
+		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
+			Ok(VerificationResult::Complete(set_id, authorities, target_header))
+		});
+		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
+		let mut warp_sync = WarpSync::new(client, config);
+
+		// Make sure we have enough peers to make a request.
+		for best_number in 1..11 {
+			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+		}
+
+		// Manually set `TargetBlock` phase.
+		warp_sync.phase = Phase::TargetBlock(target_block.header().clone());
+
+		let (peer_id, request) = warp_sync.target_block_request().unwrap();
+
+		// Empty block response received.
+		let response = Vec::new();
+		// Peer is dropped.
+		assert!(matches!(
+			warp_sync.on_block_response_inner(peer_id, request, response),
+			Err(BadPeer(id, _rep)) if id == peer_id,
+		));
+	}
+
+	#[test]
+	fn target_block_response_with_extra_blocks_drops_peer() {
+		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
+		let mut provider = MockWarpSyncProvider::<Block>::new();
+		provider
+			.expect_current_authorities()
+			.once()
+			.return_const(AuthorityList::default());
+		let target_block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().best_hash)
+			.with_parent_block_number(client.chain_info().best_number)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+
+		let mut extra_block_builder = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().best_hash)
+			.with_parent_block_number(client.chain_info().best_number)
+			.build()
+			.unwrap();
+		extra_block_builder
+			.push_storage_change(vec![1, 2, 3], Some(vec![4, 5, 6]))
+			.unwrap();
+		let extra_block = extra_block_builder.build().unwrap().block;
+
+		let target_header = target_block.header().clone();
+		// Warp proof is complete.
+		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
+			Ok(VerificationResult::Complete(set_id, authorities, target_header))
+		});
+		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
+		let mut warp_sync = WarpSync::new(client, config);
+
+		// Make sure we have enough peers to make a request.
+		for best_number in 1..11 {
+			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+		}
+
+		// Manually set `TargetBlock` phase.
+		warp_sync.phase = Phase::TargetBlock(target_block.header().clone());
+
+		let (peer_id, request) = warp_sync.target_block_request().unwrap();
+
+		// Block response with extra blocks received.
+		let response = vec![
+			BlockData::<Block> {
+				hash: target_block.header().hash(),
+				header: Some(target_block.header().clone()),
+				body: Some(target_block.extrinsics().iter().cloned().collect::<Vec<_>>()),
+				indexed_body: None,
+				receipt: None,
+				message_queue: None,
+				justification: None,
+				justifications: None,
+			},
+			BlockData::<Block> {
+				hash: extra_block.header().hash(),
+				header: Some(extra_block.header().clone()),
+				body: Some(extra_block.extrinsics().iter().cloned().collect::<Vec<_>>()),
+				indexed_body: None,
+				receipt: None,
+				message_queue: None,
+				justification: None,
+				justifications: None,
+			},
+		];
+		// Peer is dropped.
+		assert!(matches!(
+			warp_sync.on_block_response_inner(peer_id, request, response),
+			Err(BadPeer(id, _rep)) if id == peer_id,
+		));
+	}
+
+	#[test]
+	fn target_block_response_with_wrong_block_drops_peer() {
+		sp_tracing::try_init_simple();
+
+		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
+		let mut provider = MockWarpSyncProvider::<Block>::new();
+		provider
+			.expect_current_authorities()
+			.once()
+			.return_const(AuthorityList::default());
+		let target_block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().best_hash)
+			.with_parent_block_number(client.chain_info().best_number)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+
+		let mut wrong_block_builder = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().best_hash)
+			.with_parent_block_number(client.chain_info().best_number)
+			.build()
+			.unwrap();
+		wrong_block_builder
+			.push_storage_change(vec![1, 2, 3], Some(vec![4, 5, 6]))
+			.unwrap();
+		let wrong_block = wrong_block_builder.build().unwrap().block;
+
+		let target_header = target_block.header().clone();
+		// Warp proof is complete.
+		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
+			Ok(VerificationResult::Complete(set_id, authorities, target_header))
+		});
+		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
+		let mut warp_sync = WarpSync::new(client, config);
+
+		// Make sure we have enough peers to make a request.
+		for best_number in 1..11 {
+			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+		}
+
+		// Manually set `TargetBlock` phase.
+		warp_sync.phase = Phase::TargetBlock(target_block.header().clone());
+
+		let (peer_id, request) = warp_sync.target_block_request().unwrap();
+
+		// Wrong block received.
+		let response = vec![BlockData::<Block> {
+			hash: wrong_block.header().hash(),
+			header: Some(wrong_block.header().clone()),
+			body: Some(wrong_block.extrinsics().iter().cloned().collect::<Vec<_>>()),
+			indexed_body: None,
+			receipt: None,
+			message_queue: None,
+			justification: None,
+			justifications: None,
+		}];
+		// Peer is dropped.
+		assert!(matches!(
+			warp_sync.on_block_response_inner(peer_id, request, response),
+			Err(BadPeer(id, _rep)) if id == peer_id,
+		));
+	}
+
+	#[test]
+	fn correct_target_block_response_sets_strategy_result() {
+		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
+		let mut provider = MockWarpSyncProvider::<Block>::new();
+		provider
+			.expect_current_authorities()
+			.once()
+			.return_const(AuthorityList::default());
+		let mut target_block_builder = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().best_hash)
+			.with_parent_block_number(client.chain_info().best_number)
+			.build()
+			.unwrap();
+		target_block_builder
+			.push_storage_change(vec![1, 2, 3], Some(vec![4, 5, 6]))
+			.unwrap();
+		let target_block = target_block_builder.build().unwrap().block;
+		let target_header = target_block.header().clone();
+		// Warp proof is complete.
+		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
+			Ok(VerificationResult::Complete(set_id, authorities, target_header))
+		});
+		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
+		let mut warp_sync = WarpSync::new(client, config);
+
+		// Make sure we have enough peers to make a request.
+		for best_number in 1..11 {
+			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+		}
+
+		// Manually set `TargetBlock` phase.
+		warp_sync.phase = Phase::TargetBlock(target_block.header().clone());
+
+		let (peer_id, request) = warp_sync.target_block_request().unwrap();
+
+		// Correct block received.
+		let body = Some(target_block.extrinsics().iter().cloned().collect::<Vec<_>>());
+		let justifications = Some(Justifications::from((*b"FRNK", Vec::new())));
+		let response = vec![BlockData::<Block> {
+			hash: target_block.header().hash(),
+			header: Some(target_block.header().clone()),
+			body: body.clone(),
+			indexed_body: None,
+			receipt: None,
+			message_queue: None,
+			justification: None,
+			justifications: justifications.clone(),
+		}];
+
+		assert!(warp_sync.on_block_response_inner(peer_id, request, response).is_ok());
+
+		// Strategy finishes.
+		let actions = warp_sync.actions().collect::<Vec<_>>();
+		assert_eq!(actions.len(), 1);
+		assert!(matches!(actions[0], WarpSyncAction::Finished));
+
+		// With correct result.
+		let result = warp_sync.take_result().unwrap();
+		assert_eq!(result.target_header, *target_block.header());
+		assert_eq!(result.target_body, body);
+		assert_eq!(result.target_justifications, justifications);
+	}
 }
