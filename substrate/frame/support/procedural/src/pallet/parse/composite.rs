@@ -26,11 +26,14 @@ pub mod keyword {
 	syn::custom_keyword!(HoldReason);
 	syn::custom_keyword!(LockId);
 	syn::custom_keyword!(SlashReason);
+	syn::custom_keyword!(Task);
+
 	pub enum CompositeKeyword {
 		FreezeReason(FreezeReason),
 		HoldReason(HoldReason),
 		LockId(LockId),
 		SlashReason(SlashReason),
+		Task(Task),
 	}
 
 	impl ToTokens for CompositeKeyword {
@@ -41,6 +44,7 @@ pub mod keyword {
 				HoldReason(inner) => inner.to_tokens(tokens),
 				LockId(inner) => inner.to_tokens(tokens),
 				SlashReason(inner) => inner.to_tokens(tokens),
+				Task(inner) => inner.to_tokens(tokens),
 			}
 		}
 	}
@@ -56,6 +60,8 @@ pub mod keyword {
 				Ok(Self::LockId(input.parse()?))
 			} else if lookahead.peek(SlashReason) {
 				Ok(Self::SlashReason(input.parse()?))
+			} else if lookahead.peek(Task) {
+				Ok(Self::Task(input.parse()?))
 			} else {
 				Err(lookahead.error())
 			}
@@ -71,6 +77,7 @@ pub mod keyword {
 				match self {
 					FreezeReason(_) => "FreezeReason",
 					HoldReason(_) => "HoldReason",
+					Task(_) => "Task",
 					LockId(_) => "LockId",
 					SlashReason(_) => "SlashReason",
 				}
@@ -80,7 +87,7 @@ pub mod keyword {
 }
 
 pub struct CompositeDef {
-	/// The index of the HoldReason item in the pallet module.
+	/// The index of the CompositeDef item in the pallet module.
 	pub index: usize,
 	/// The composite keyword used (contains span).
 	pub composite_keyword: keyword::CompositeKeyword,

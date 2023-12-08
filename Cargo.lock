@@ -2686,7 +2686,6 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
- "testnets-common",
  "westend-runtime-constants",
 ]
 
@@ -5524,6 +5523,7 @@ dependencies = [
  "proc-macro-warning",
  "proc-macro2",
  "quote",
+ "regex",
  "sp-core-hashing",
  "syn 2.0.39",
 ]
@@ -6898,6 +6898,7 @@ dependencies = [
  "pallet-election-provider-multi-phase",
  "pallet-election-provider-support-benchmarking",
  "pallet-elections-phragmen",
+ "pallet-example-tasks",
  "pallet-fast-unstake",
  "pallet-glutton",
  "pallet-grandpa",
@@ -9862,6 +9863,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-example-tasks"
+version = "1.0.0-dev"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 8.0.0",
+]
+
+[[package]]
 name = "pallet-examples"
 version = "4.0.0-dev"
 dependencies = [
@@ -9872,6 +9889,7 @@ dependencies = [
  "pallet-example-kitchensink",
  "pallet-example-offchain-worker",
  "pallet-example-split",
+ "pallet-example-tasks",
 ]
 
 [[package]]
@@ -18092,7 +18110,6 @@ dependencies = [
  "array-bytes 6.1.0",
  "criterion 0.4.0",
  "hash-db",
- "hashbrown 0.13.2",
  "lazy_static",
  "memory-db",
  "nohash-hasher",
@@ -19198,19 +19215,6 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "sp-weights",
-]
-
-[[package]]
-name = "testnets-common"
-version = "1.0.0"
-dependencies = [
- "frame-support",
- "polkadot-core-primitives",
- "rococo-runtime-constants",
- "smallvec",
- "sp-runtime",
- "substrate-wasm-builder",
- "westend-runtime-constants",
 ]
 
 [[package]]
