@@ -1,5 +1,5 @@
 Description: Approval voting coalescing does not lag finality
-Network: ./0007-approval-voting-coalescing.toml
+Network: ./0009-approval-voting-coalescing.toml
 Creds: config
 
 # Check authority status.
