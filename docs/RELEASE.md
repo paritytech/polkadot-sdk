@@ -2,19 +2,24 @@
 
 The outputs of a release are the `polkadot` and `polkadot-parachain` nodes, runtimes for the Westend & Rococo networks, including their system parachains, and new crate versions published to `crates.io`.
 
-## Versioning
+# Setup
+
+We have two branches: `master` and `release`. `master` is the main development branch where normal merge requests are opened. Developers need to mostly only care about this branch.  
+The `release` branch contains a version of the code that is ready to be released. Its contents are always audited. Merging to it is restricted to [Backports](#backports).
+
+# Versioning
 
 We are releasing multiple different things from this repository in one release, but 
 we don't want to use the same version for everything. Thus, in the following we explain
-the versioning story for the crates, node and Westend & Rococo. To easily refer to a release, we shall use the node version of it.
+the versioning story for the crates, node and Westend & Rococo. To easily refer to a release, it shall be named by its date in the form `stableYYMMDD`.
 
-### Crate
+## Crate
 
 We try to follow SemVer<sup>3</sup> as best as possible for versioning our crates' public APIs.  
 
 👉 The public API of our library crates is defined as all public items that are not inside a `__private` module.
 
-### Node
+## Node
 
 The versioning of the node is done most of the time by only incrementing the `minor` version. 
 The `major` version is only bumped for special releases and the `patch` can be used for an 
@@ -23,14 +28,23 @@ This means that the version doesn't express if there are any breaking changes in
 interface or similar. The node version is declared in the `NODE_VERSION` variable in 
 `polkadot/node/primitives/src/lib.rs`.
 
-### Westend & Rococo
+## Westend & Rococo
 
 For the these networks, in addition to incrementing the Cargo.toml version we also increment the `spec_version` and sometimes the `transaction_version`. The spec version is also following
-the node version. Its schema is: `M_mmm_ppp` and for example `1_002_000` is the node release `1.2.0`. This versioning has no further meaning, and is only done to map from an on chain `spec_version` easily to the release in this repository. 
+the node version. Its schema is: `M_mmm_ppp` and for example `1_002_000` is the node release `1.2.0`. This versioning has no further meaning, and is only done to map from an on chain `spec_version` easily to the release in this repository.  
+The Westend testnet will be updated to the new runtime version immediately after a `mainline` release happened.
 
-## Backports
+# Backports
 
-Backports should be rare. We should only backport [critical bug fixes](#bug-and-security-fix) and then release the fixed crates. There should be no need to backport anything from a release branch.
+Backporting refers to the practice of re-applying a patch to a branch that is behind the branch where the patch was originally applied.
+
+## From `master` to `release`
+
+Backports in this direction can be anything that is audited and not a breaking SemVer change. Specifically, [security fixes](#bug-and-security-fix) should be prioritized over Features/Improvements.
+
+## From `release` to `master`
+
+Should not be needed. The `release` branch can get out of sync and will be synced with the [Clobbering](#clobbering) process.
 
 # Processes
 
@@ -71,6 +85,7 @@ This process aims to release the `release` branch as a *Mainline* release every 
 12. Comment that a *Mainline* release will happen from the merged commit hash.
 13. Release all changed crates to crates.io.
 14. Create a release on GitHub.
+15. Notify Devops so that they can update Westend to the new runtime.
 
 ## Nightly Release
 
@@ -87,7 +102,7 @@ This process aims to release the `master` branch as a *Nightly* release. The pro
 7. Push this tag (the commit will not belong to any branch).
 8. Announce the intent to do a *Nightly* release from that tag in the RelEng chat.
 9. Release all crates that had changed since the last nightly release to crates.io.
-10. Create a release on GitHub.
+10. Create a pre-release on GitHub.
 
 ## Clobbering
 
