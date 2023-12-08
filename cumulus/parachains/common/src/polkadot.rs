@@ -31,6 +31,8 @@ pub mod account {
 	/// It is used as a temporarily place to deposit a slashed imbalance
 	/// before the teleport to the Treasury.
 	pub const AMBASSADOR_REFERENDA_PALLET_ID: PalletId = PalletId(*b"py/amref");
+	/// Fellowship treasury pallet ID
+	pub const FELLOWSHIP_TREASURY_PALLET_ID: PalletId = PalletId(*b"py/feltr");
 }
 
 /// Consensus-related.

@@ -21,6 +21,7 @@ frame-system = { path = "../../../../../substrate/frame/system", default-feature
 frame-system-benchmarking = { path = "../../../../../substrate/frame/system/benchmarking", default-features = false, optional = true }
 frame-system-rpc-runtime-api = { path = "../../../../../substrate/frame/system/rpc/runtime-api", default-features = false }
 frame-try-runtime = { path = "../../../../../substrate/frame/try-runtime", default-features = false, optional = true }
+pallet-asset-rate = { path = "../../../../../substrate/frame/asset-rate", default-features = false }
 pallet-alliance = { path = "../../../../../substrate/frame/alliance", default-features = false }
 pallet-aura = { path = "../../../../../substrate/frame/aura", default-features = false }
 pallet-authorship = { path = "../../../../../substrate/frame/authorship", default-features = false }
@@ -34,6 +35,7 @@ pallet-session = { path = "../../../../../substrate/frame/session", default-feat
 pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false }
 pallet-transaction-payment = { path = "../../../../../substrate/frame/transaction-payment", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { path = "../../../../../substrate/frame/transaction-payment/rpc/runtime-api", default-features = false }
+pallet-treasury = { path = "../../../../../substrate/frame/treasury", default-features = false }
 pallet-utility = { path = "../../../../../substrate/frame/utility", default-features = false }
 pallet-referenda = { path = "../../../../../substrate/frame/referenda", default-features = false }
 pallet-ranked-collective = { path = "../../../../../substrate/frame/ranked-collective", default-features = false }
@@ -97,6 +99,7 @@ runtime-benchmarks = [
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-alliance/runtime-benchmarks",
+	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
 	"pallet-collective-content/runtime-benchmarks",
@@ -111,6 +114,7 @@ runtime-benchmarks = [
 	"pallet-salary/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
+	"pallet-treasury/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
@@ -130,6 +134,7 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"frame-try-runtime/try-runtime",
 	"pallet-alliance/try-runtime",
+	"pallet-asset-rate/try-runtime",
 	"pallet-aura/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-balances/try-runtime",
@@ -148,6 +153,7 @@ try-runtime = [
 	"pallet-session/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
+	"pallet-treasury/try-runtime",
 	"pallet-utility/try-runtime",
 	"pallet-xcm/try-runtime",
 	"parachain-info/try-runtime",
@@ -172,6 +178,7 @@ std = [
 	"frame-try-runtime?/std",
 	"log/std",
 	"pallet-alliance/std",
+	"pallet-asset-rate/std",
 	"pallet-aura/std",
 	"pallet-authorship/std",
 	"pallet-balances/std",
@@ -191,6 +198,7 @@ std = [
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
+	"pallet-treasury/std",
 	"pallet-utility/std",
 	"pallet-xcm/std",
 	"parachain-info/std",
