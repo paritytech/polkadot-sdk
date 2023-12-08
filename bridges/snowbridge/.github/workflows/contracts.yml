@@ -1,0 +1,36 @@
+name: contracts
+
+on:
+  push:
+    paths:
+      - "contracts/**"
+      - "!contracts/**/README.md"
+    branches:
+      - main
+  pull_request:
+    paths:
+      - "contracts/**"
+      - "!contracts/**/README.md"
+
+jobs:
+  build:
+    runs-on: snowbridge-runner
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v1
+        with:
+          fetch-depth: 2
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+      - name: Test
+        working-directory: contracts
+        run: forge test
+      - name: Coverage
+        working-directory: contracts
+        run: forge coverage --report=lcov --via-ir
+      - name: Upload coverage reports to Codecov with GitHub Action
+        uses: codecov/codecov-action@v3
+        with:
+          working-directory: contracts
+          files: lcov.info
+          flags: solidity

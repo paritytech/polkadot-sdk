@@ -1,0 +1,242 @@
+name: parachain
+
+on:
+  push:
+    paths:
+      - "parachain/**"
+      - "!parachain/README.md"
+      - "!parachain/LICENSE"
+    branches:
+      - main
+  pull_request:
+    paths:
+      - "parachain/**"
+      - "!parachain/README.md"
+      - "!parachain/LICENSE"
+  workflow_dispatch:
+
+env:
+  FUZZ_MAX_LEN: 10000000000
+  FUZZ_MAX_RUNS: 30000
+  RUST_NIGHTLY: "2023-05-23"
+
+jobs:
+  check:
+    runs-on: snowbridge-runner
+    env:
+      CARGO_INCREMENTAL: 0
+      RUST_BACKTRACE: 1
+      RUSTFLAGS: -C debuginfo=1
+      SKIP_WASM_BUILD: 1
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: "true"
+      - uses: arduino/setup-protoc@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/cache@v1
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('parachain/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+      - name: setup rust toolchain
+        run: rustup show
+      - name: cargo check
+        working-directory: parachain
+        run: >
+          cargo check
+          --workspace
+          --features runtime-benchmarks
+          --exclude snowbridge-runtime-tests
+      - name: clippy
+        working-directory: parachain
+        run: cargo clippy -- -D warnings
+
+  test:
+    needs: check
+    runs-on: snowbridge-runner
+    env:
+      CARGO_INCREMENTAL: 0
+      RUST_BACKTRACE: 1
+      RUSTFLAGS: -C debuginfo=1
+      SKIP_WASM_BUILD: 1
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.head_ref }}
+          submodules: "true"
+      - uses: arduino/setup-protoc@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/cache@v1
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('parachain/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+      - name: setup rust toolchain
+        run: rustup show
+      # Increase stack limit for beacon light client tests
+      - run: sudo prlimit --pid $$ --stack=32768
+      # Run tests for everything except the beacon light client
+      - name: Tests for everything except the beacon light client
+        working-directory: parachain
+        run: >
+          cargo test
+          --workspace
+          --features runtime-benchmarks
+          --exclude snowbridge-ethereum-beacon-client
+          --exclude snowbridge-runtime-tests
+      # Run tests for beacon light client, excluding benchmark tests
+      - name: Tests for beacon light client excluding benchmark tests
+        working-directory: parachain
+        run: >
+          cargo test
+          --package snowbridge-ethereum-beacon-client
+      # Run benchmark tests for beacon light client
+      - name: Benchmark tests for beacon light client
+        working-directory: parachain
+        run: >
+          cargo test
+          --release
+          --features runtime-benchmarks
+          --package snowbridge-ethereum-beacon-client
+
+  coverage:
+    needs: check
+    runs-on: snowbridge-runner
+    env:
+      CARGO_INCREMENTAL: 0
+      RUST_BACKTRACE: 1
+      RUSTFLAGS: -C debuginfo=1
+      SKIP_WASM_BUILD: 1
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.head_ref }}
+          submodules: "true"
+      - uses: arduino/setup-protoc@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: setup rust toolchain
+        run: rustup show
+      - name: run coverage test
+        working-directory: parachain
+        run: >
+          cargo install cargo-tarpaulin@0.27.0 &&
+          cargo tarpaulin
+          --workspace
+          --engine llvm
+          --out xml
+      - name: Upload coverage reports to Codecov with GitHub Action
+        uses: codecov/codecov-action@v3
+        with:
+          working-directory: parachain
+          files: cobertura.xml
+          flags: rust
+
+  check-cumulus-bridgehub:
+    runs-on: snowbridge-runner
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: "true"
+      - uses: arduino/setup-protoc@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: setup rust toolchain
+        run: rustup show
+      - name: check bridge-hub runtime
+        working-directory: polkadot-sdk
+        run: >
+          cargo check
+          --release --verbose
+          --package bridge-hub-rococo-runtime
+          --features runtime-benchmarks
+
+  runtime-tests:
+    needs: check
+    runs-on: snowbridge-runner
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: "true"
+      - uses: arduino/setup-protoc@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: setup rust toolchain
+        run: rustup show
+      - name: snowbridge runtime tests
+        working-directory: parachain/runtime/tests
+        run: >
+          cargo test 
+          -p snowbridge-runtime-tests
+          -- --nocapture
+
+  integration-tests:
+    needs: check
+    runs-on: snowbridge-runner
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: "true"
+      - uses: arduino/setup-protoc@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: setup rust toolchain
+        run: rustup show
+      - name: bridge-hub and asset-hub integration tests
+        working-directory: polkadot-sdk
+        run: >
+          RUST_LOG=xcm=trace cargo test 
+          -p bridge-hub-rococo-integration-tests
+          -p asset-hub-rococo-integration-tests
+          -- --nocapture
+
+  beacon-fuzz:
+    if: false
+    needs: test
+    runs-on: snowbridge-runner
+    env:
+      CARGO_INCREMENTAL: 0
+      RUST_BACKTRACE: 1
+      RUSTFLAGS: -C debuginfo=1
+      SKIP_WASM_BUILD: 1
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.head_ref }}
+          submodules: "true"
+      - uses: actions/cache@v1
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('parachain/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+      - name: install nightly
+        run: rustup install --profile minimal nightly-$RUST_NIGHTLY
+      - name: Install cargo-fuzz from crates.io
+        uses: baptiste0928/cargo-install@v2
+        with:
+          crate: cargo-fuzz
+          version: "^0.11.2"
+      - name: Fuzz force checkpoint extrinsic
+        run: >
+          cd parachain/pallets/ethereum-beacon-client && cargo +nightly-$RUST_NIGHTLY fuzz run fuzz_force_checkpoint --
+          -max_len=$FUZZ_MAX_LEN -runs=$FUZZ_MAX_RUNS
+      - name: Fuzz submit extrinsic
+        run: >
+          cd parachain/pallets/ethereum-beacon-client && cargo +nightly-$RUST_NIGHTLY fuzz run fuzz_submit --
+          -max_len=$FUZZ_MAX_LEN -runs=$FUZZ_MAX_RUNS
+      - name: Fuzz submit execution header extrinsic
+        run: >
+          cd parachain/pallets/ethereum-beacon-client && cargo +nightly-$RUST_NIGHTLY fuzz run fuzz_submit_execution_header --
+          -max_len=$FUZZ_MAX_LEN -runs=$FUZZ_MAX_RUNS

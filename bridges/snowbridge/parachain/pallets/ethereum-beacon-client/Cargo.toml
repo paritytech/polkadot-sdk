@@ -1,0 +1,88 @@
+[package]
+name = "snowbridge-ethereum-beacon-client"
+description = "Snowbridge Beacon Client Pallet"
+version = "0.0.1"
+edition = "2021"
+authors = ["Snowfork <contact@snowfork.com>"]
+repository = "https://github.com/Snowfork/snowbridge"
+license = "PENDING/TBC"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+serde = { version = "1.0.188", optional = true }
+serde_json = { version = "1.0.96", optional = true }
+codec = { version = "3.6.1", package = "parity-scale-codec", default-features = false, features = [ "derive" ] }
+scale-info = { version = "2.9.0", default-features = false, features = [ "derive" ] }
+ssz_rs = { version="0.9.0", default-features = false }
+ssz_rs_derive = { version="0.9.0", default-features = false }
+byte-slice-cast = { version = "1.2.1", default-features = false }
+rlp = { version = "0.5.2", default-features = false }
+hex-literal = { version = "0.4.1", optional = true }
+log = { version = "0.4.20", default-features = false }
+
+frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false, optional = true}
+frame-support = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
+frame-system = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
+sp-core = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
+sp-std = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
+sp-io = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false, optional = true }
+
+snowbridge-core = { path = "../../primitives/core", default-features = false }
+snowbridge-ethereum = { path = "../../primitives/ethereum", default-features = false }
+primitives = { package = "snowbridge-beacon-primitives", path = "../../primitives/beacon", default-features = false }
+static_assertions = { version = "1.1.0", default-features = false }
+bp-runtime = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
+pallet-timestamp = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false, optional = true}
+
+[dev-dependencies]
+rand = "0.8.5"
+sp-keyring = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
+serde_json = "1.0.96"
+hex-literal = "0.4.1"
+pallet-timestamp = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
+sp-io = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
+serde = "1.0.188"
+
+[features]
+default = ["std"]
+fuzzing = [
+    "sp-io",
+    "pallet-timestamp",
+    "serde",
+    "serde_json",
+    "hex-literal"
+]
+std = [
+    "serde",
+    "codec/std",
+    "scale-info/std",
+    "frame-support/std",
+    "frame-system/std",
+    'frame-benchmarking/std',
+    "sp-core/std",
+    "sp-runtime/std",
+    "sp-std/std",
+    "sp-io/std",
+    "snowbridge-core/std",
+    "snowbridge-ethereum/std",
+    "primitives/std",
+    "ssz_rs/std",
+    "byte-slice-cast/std",
+    "bp-runtime/std",
+    "byte-slice-cast/std",
+    "rlp/std",
+    "log/std",
+    "pallet-timestamp/std",
+]
+runtime-benchmarks = [
+    "beacon-spec-mainnet",
+    "frame-benchmarking/runtime-benchmarks",
+    "frame-support/runtime-benchmarks",
+    "frame-system/runtime-benchmarks",
+    "hex-literal",
+    "snowbridge-core/runtime-benchmarks",
+]
+beacon-spec-mainnet = []
