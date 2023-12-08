@@ -1627,6 +1627,7 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "scale-info",
+ "schemars",
  "serde",
 ]
 
@@ -2823,7 +2824,6 @@ dependencies = [
  "staging-xcm-builder 1.0.0",
  "staging-xcm-executor 1.0.0",
  "substrate-wasm-builder",
- "testnets-common",
  "westend-runtime-constants",
 ]
 
@@ -5622,6 +5622,7 @@ dependencies = [
  "proc-macro-warning",
  "proc-macro2",
  "quote",
+ "regex",
  "sp-core-hashing 9.0.0",
  "syn 2.0.39",
 ]
@@ -7036,6 +7037,7 @@ dependencies = [
  "pallet-election-provider-multi-phase",
  "pallet-election-provider-support-benchmarking",
  "pallet-elections-phragmen",
+ "pallet-example-tasks",
  "pallet-fast-unstake",
  "pallet-glutton",
  "pallet-grandpa",
@@ -9966,6 +9968,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-example-tasks"
+version = "1.0.0-dev"
+dependencies = [
+ "frame-benchmarking 4.0.0-dev",
+ "frame-support 4.0.0-dev",
+ "frame-system 4.0.0-dev",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 21.0.0",
+ "sp-io 23.0.0",
+ "sp-runtime 24.0.0",
+ "sp-std 8.0.0",
+]
+
+[[package]]
 name = "pallet-examples"
 version = "4.0.0-dev"
 dependencies = [
@@ -9976,6 +9994,7 @@ dependencies = [
  "pallet-example-kitchensink",
  "pallet-example-offchain-worker",
  "pallet-example-split",
+ "pallet-example-tasks",
 ]
 
 [[package]]
@@ -10157,6 +10176,7 @@ dependencies = [
 name = "pallet-message-queue"
 version = "7.0.0-dev"
 dependencies = [
+ "environmental",
  "frame-benchmarking 4.0.0-dev",
  "frame-support 4.0.0-dev",
  "frame-system 4.0.0-dev",
@@ -16565,6 +16585,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "schemars"
+version = "0.8.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "45a28f4c49489add4ce10783f7911893516f15afe45d015608d41faca6bc4d29"
+dependencies = [
+ "dyn-clone",
+ "schemars_derive",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "schemars_derive"
+version = "0.8.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c767fd6fa65d9ccf9cf026122c1b555f2ef9a4f0cea69da4d7dbc3e258d30967"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "serde_derive_internals",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "schnellru"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -16823,6 +16867,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.39",
+]
+
+[[package]]
+name = "serde_derive_internals"
+version = "0.26.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "85bf8229e7920a9f636479437026331ce11aa132b4dde37d121944a44d6e5f3c"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -18298,7 +18353,7 @@ version = "0.27.0"
 dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.1",
- "rand 0.7.3",
+ "rand 0.8.5",
  "rand_chacha 0.2.2",
  "sp-core 21.0.0",
  "sp-externalities 0.19.0",
@@ -18891,7 +18946,6 @@ dependencies = [
  "array-bytes 6.2.2",
  "criterion 0.4.0",
  "hash-db",
- "hashbrown 0.13.2",
  "lazy_static",
  "memory-db",
  "nohash-hasher",
@@ -19037,6 +19091,7 @@ dependencies = [
  "bounded-collections",
  "parity-scale-codec",
  "scale-info",
+ "schemars",
  "serde",
  "smallvec",
  "sp-arithmetic 16.0.0",
@@ -19301,6 +19356,7 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "scale-info",
+ "schemars",
  "serde",
  "sp-io 23.0.0",
  "sp-weights 20.0.0",
@@ -20127,19 +20183,6 @@ dependencies = [
  "sp-core 21.0.0",
  "sp-runtime 24.0.0",
  "sp-weights 20.0.0",
-]
-
-[[package]]
-name = "testnets-common"
-version = "1.0.0"
-dependencies = [
- "frame-support 4.0.0-dev",
- "polkadot-core-primitives 1.0.0",
- "rococo-runtime-constants",
- "smallvec",
- "sp-runtime 24.0.0",
- "substrate-wasm-builder",
- "westend-runtime-constants",
 ]
 
 [[package]]
