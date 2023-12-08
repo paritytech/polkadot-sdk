@@ -1,0 +1,53 @@
+[package]
+name = "snowbridge-core"
+version = "0.1.1"
+authors = ["Snowfork <contact@snowfork.com>"]
+edition = "2021"
+
+[dependencies]
+serde = { version = "1.0.188", optional = true, features = [ "derive", "alloc" ], default-features = false }
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
+scale-info = { version = "2.9.0", default-features = false, features = [ "derive" ] }
+hex-literal = { version = "0.4.1" }
+
+polkadot-parachain-primitives = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
+xcm = { package = "staging-xcm", git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
+
+frame-support = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
+frame-system = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
+sp-std = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
+sp-io = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
+sp-core = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
+sp-arithmetic = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
+
+snowbridge-beacon-primitives = { path = "../../primitives/beacon", default-features = false }
+
+ethabi = { git = "https://github.com/Snowfork/ethabi-decode.git", package = "ethabi-decode", branch = "master", default-features = false }
+
+[dev-dependencies]
+hex = { version = "0.4.3" }
+
+[features]
+default = ["std"]
+std = [
+    "serde/std",
+    "codec/std",
+    "scale-info/std",
+    "frame-support/std",
+    "frame-system/std",
+    "polkadot-parachain-primitives/std",
+    "sp-std/std",
+    "sp-io/std",
+    "sp-core/std",
+    "sp-runtime/std",
+    "snowbridge-beacon-primitives/std",
+    "xcm/std",
+    "ethabi/std",
+    "xcm-builder/std",
+]
+serde = ["dep:serde", "scale-info/serde"]
+runtime-benchmarks = [
+    "xcm-builder/runtime-benchmarks",
+]

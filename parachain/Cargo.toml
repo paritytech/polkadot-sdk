@@ -1,0 +1,34 @@
+[workspace]
+resolver = "2"
+members = [
+    "primitives/beacon",
+    "primitives/core",
+    "primitives/ethereum",
+    "primitives/router",
+    "pallets/inbound-queue",
+    "pallets/outbound-queue",
+    "pallets/outbound-queue/runtime-api",
+    "pallets/outbound-queue/merkle-tree",
+    "pallets/ethereum-beacon-client",
+    "pallets/system",
+    "pallets/system/runtime-api",
+    "runtime/runtime-common",
+    "runtime/rococo-common",
+    "runtime/tests",
+]
+
+[patch.'https://github.com/snowfork/snowbridge']
+snowbridge-beacon-primitives = { path = "./primitives/beacon" }
+snowbridge-system = { path = "./pallets/system" }
+snowbridge-system-runtime-api = { path = "./pallets/system/runtime-api" }
+snowbridge-core = { path = "./primitives/core" }
+snowbridge-ethereum-beacon-client = { path = "./pallets/ethereum-beacon-client" }
+snowbridge-inbound-queue = { path = "./pallets/inbound-queue" }
+snowbridge-outbound-queue = { path = "./pallets/outbound-queue" }
+snowbridge-outbound-queue-runtime-api = { path = "./pallets/outbound-queue/runtime-api" }
+snowbridge-router-primitives = { path = "./primitives/router" }
+snowbridge-runtime-common = { path = "./runtime/runtime-common" }
+snowbridge-rococo-common = { path = "./runtime/rococo-common" }
+
+[patch.'https://github.com/paritytech/polkadot-sdk']
+bridge-hub-common = { git = "https://github.com/snowfork/polkadot-sdk.git", branch = "merge-to-upstream", default-features = false }

@@ -1,0 +1,25 @@
+{
+  "source": {
+    "beacon": {
+      "endpoint": "http://127.0.0.1:9596",
+      "spec": {
+        "minimal": {
+          "slotsInEpoch": 8,
+          "epochsPerSyncCommitteePeriod": 8
+        },
+        "mainnet": {
+          "slotsInEpoch": 32,
+          "epochsPerSyncCommitteePeriod": 256
+        }
+      },
+      "activeSpec": "minimal"
+    }
+  },
+  "sink": {
+    "parachain": {
+      "endpoint": "ws://127.0.0.1:11144",
+      "maxWatchedExtrinsics": 8,
+      "maxBatchCallSize": 8
+    }
+  }
+}

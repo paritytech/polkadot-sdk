@@ -1,0 +1,6 @@
+canonical-weth/=lib/canonical-weth/contracts/
+ds-test/=lib/ds-test/src/
+forge-std/=lib/forge-std/src/
+openzeppelin-contracts/=lib/openzeppelin-contracts/
+openzeppelin/=lib/openzeppelin-contracts/contracts/
+prb/math/=lib/prb-math/
