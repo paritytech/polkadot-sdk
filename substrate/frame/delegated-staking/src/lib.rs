@@ -215,11 +215,11 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 		// A delegator cannot become a delegatee.
 		ensure!(!<Delegators<T>>::contains_key(who), Error::<T>::NotAllowed);
 
-		// make sure they are not already a direct staker
-		ensure!(T::CoreStaking::status(who).is_err(), Error::<T>::AlreadyStaker);
-
 		// payee account cannot be same as delegatee
 		ensure!(reward_destination != who, Error::<T>::InvalidRewardDestination);
+
+		// make sure they are not already a direct staker or they are migrating.
+		ensure!(T::CoreStaking::status(who).is_err() || <DelegateeMigration<T>>::contains_key(who), Error::<T>::AlreadyStaker);
 
 		// already checked delegatees exist
 		<Delegatees<T>>::insert(
@@ -280,7 +280,10 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 
 		// delegate from new delegator to staker.
 		Self::accept_delegations(new_delegatee, payee)?;
-		Self::delegate(proxy_delegator, new_delegatee, stake.total)
+		// todo(ank4n): for existing nominators, how this payee should be propagated to CoreStaking?
+
+		Self::delegate(proxy_delegator, new_delegatee, stake.total)?;
+		Self::update_bond(new_delegatee)
 	}
 
 	fn block_delegations(delegatee: &Self::AccountId) -> DispatchResult {
@@ -356,21 +359,52 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 		value: Self::Balance,
 	) -> DispatchResult {
 		ensure!(value >= T::Currency::minimum_balance(), Error::<T>::NotEnoughFunds);
-
-		// ensure delegatee exists.
-		ensure!(!<Delegatees<T>>::contains_key(delegatee), Error::<T>::NotDelegatee);
+		// make sure new delegator is not an existing delegator or a delegatee
+		ensure!(!<Delegatees<T>>::contains_key(new_delegator), Error::<T>::NotAllowed);
+		ensure!(!<Delegators<T>>::contains_key(new_delegator), Error::<T>::NotAllowed);
+		// ensure we are migrating
 		let proxy_delegator =
 			<DelegateeMigration<T>>::get(delegatee).ok_or(Error::<T>::NotMigrating)?;
+		// proxy delegator must exist
+		let (assigned_delegatee, delegate_balance) =
+			<Delegators<T>>::get(&proxy_delegator).ok_or(Error::<T>::BadState)?;
+		ensure!(assigned_delegatee == *delegatee, Error::<T>::BadState);
+
+		// make sure proxy delegator has enough balance to support this migration.
+		ensure!(delegate_balance >= value, Error::<T>::NotEnoughFunds);
 
 		// remove delegation of `value` from `proxy_delegator`.
-		Self::delegation_withdraw(&proxy_delegator, delegatee, value)?;
+		let updated_delegate_balance = delegate_balance.saturating_sub(value);
+
+		// if all funds are migrated out of proxy delegator, clean up.
+		if updated_delegate_balance == BalanceOf::<T>::zero() {
+			<Delegators<T>>::remove(&proxy_delegator);
+			<DelegateeMigration<T>>::remove(delegatee);
+		} else {
+			// else update proxy delegator
+			<Delegators<T>>::insert(&proxy_delegator, (delegatee, updated_delegate_balance));
+		}
+
+		let released = T::Currency::release(
+			&HoldReason::Delegating.into(),
+			&proxy_delegator,
+			value,
+			Precision::BestEffort,
+		)?;
+
+		defensive_assert!(released == value, "hold should have been released fully");
 
 		// transfer the withdrawn value to `new_delegator`.
 		T::Currency::transfer(&proxy_delegator, new_delegator, value, Preservation::Expendable)
 			.map_err(|_| Error::<T>::BadState)?;
 
+
 		// add the above removed delegation to `new_delegator`.
-		Self::delegate(new_delegator, delegatee, value)
+		<Delegators<T>>::insert(new_delegator, (delegatee, value));
+		// hold the funds again in the new delegator account.
+		T::Currency::hold(&HoldReason::Delegating.into(), &new_delegator, value)?;
+
+		Ok(())
 	}
 
 	fn delegate(
@@ -680,6 +714,10 @@ impl<T: Config> Pallet<T> {
 
 	fn is_delegator(who: &T::AccountId) -> bool {
 		<Delegators<T>>::contains_key(who)
+	}
+
+	fn is_migrating(delegatee: &T::AccountId) -> bool {
+		<DelegateeMigration<T>>::contains_key(delegatee)
 	}
 
 	fn delegation_withdraw(

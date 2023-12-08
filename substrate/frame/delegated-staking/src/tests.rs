@@ -424,6 +424,74 @@ mod integration {
 
 	#[test]
 	fn migration_works() {
-		ExtBuilder::default().build_and_execute(|| todo!());
+		ExtBuilder::default().build_and_execute(|| {
+			// add a nominator
+			fund(&200, 5000);
+			let staked_amount = 4000;
+			assert_ok!(Staking::bond(
+				RuntimeOrigin::signed(200),
+				staked_amount,
+				RewardDestination::Account(201)
+			));
+			assert_ok!(Staking::nominate(
+				RuntimeOrigin::signed(200),
+				vec![GENESIS_VALIDATOR],
+			));
+			let init_stake = Staking::stake(&200).unwrap();
+
+			// scenario: 200 is a pool account, and the stake comes from its 4 delegators (300..304)
+			// in equal parts. lets try to migrate this nominator into delegatee based stake.
+
+			// all balance currently is in 200
+			assert_eq!(Balances::free_balance(200), 5000);
+
+			// to migrate, nominator needs to set an account as a proxy delegator where staked funds
+			// will be moved and delegated back to this old nominator account. This should be funded
+			// with at least ED.
+			let proxy_delegator = fund(&202, ExistentialDeposit::get());
+
+			assert_ok!(DelegatedStaking::migrate_accept_delegations(&200, &proxy_delegator, &201));
+			assert!(DelegatedStaking::is_migrating(&200));
+
+			// verify all went well
+			let mut expected_proxy_delegated_amount = staked_amount;
+			assert_eq!(
+				Balances::balance_on_hold(&HoldReason::Delegating.into(), &proxy_delegator),
+				expected_proxy_delegated_amount
+			);
+			assert_eq!(Balances::free_balance(200), 5000 - staked_amount);
+			assert_eq!(DelegatedStaking::stake(&200).unwrap(), init_stake);
+			assert_eq!(DelegatedStaking::delegated_balance(&200), 4000);
+			assert_eq!(DelegatedStaking::unbonded_balance(&200), 0);
+
+			// now lets migrate the delegators
+			let delegator_share = staked_amount/4;
+			for delegator in 300..304 {
+				assert_eq!(Balances::free_balance(delegator), 0);
+				// fund them with ED
+				fund(&delegator, ExistentialDeposit::get());
+				// migrate 1/4th amount into each delegator
+				assert_ok!(DelegatedStaking::migrate_delegator(&200, &delegator, delegator_share));
+				assert_eq!(
+					Balances::balance_on_hold(&HoldReason::Delegating.into(), &delegator),
+					delegator_share
+				);
+				expected_proxy_delegated_amount -= delegator_share;
+				assert_eq!(
+					Balances::balance_on_hold(&HoldReason::Delegating.into(), &proxy_delegator),
+					expected_proxy_delegated_amount
+				);
+
+				// delegatee stake is unchanged.
+				assert_eq!(DelegatedStaking::stake(&200).unwrap(), init_stake);
+				assert_eq!(DelegatedStaking::delegated_balance(&200), 4000);
+				assert_eq!(DelegatedStaking::unbonded_balance(&200), 0);
+			}
+
+			assert!(!DelegatedStaking::is_migrating(&200));
+
+			// cannot use migrate delegator anymore
+			assert_noop!(DelegatedStaking::migrate_delegator(&200, &305, 1), Error::<T>::NotMigrating);
+		});
 	}
 }
