@@ -84,6 +84,7 @@ pub mod pallet {
 				hold::Balanced as FunBalanced, Inspect as FunInspect,
 				InspectHold as FunInspectHold, Mutate as FunMutate, MutateHold as FunMutateHold,
 			},
+			tokens::{Fortitude, Precision},
 			Get,
 		},
 	};
@@ -677,10 +678,14 @@ pub mod pallet {
 			if real_size_upper < task.dyn_size {
 				T::Currency::hold(&HoldReason::SlashForContinueMigrate.into(), &who, deposit)?;
 				// let the imbalance burn.
-				let (_imbalance, _remainder) =
-					T::Currency::slash(&HoldReason::SlashForContinueMigrate.into(), &who, deposit);
+				let _burned = T::Currency::burn_all_held(
+					&HoldReason::SlashForContinueMigrate.into(),
+					&who,
+					Precision::BestEffort,
+					Fortitude::Force,
+				)?;
+				debug_assert!(deposit.saturating_sub(_burned).is_zero());
 				Self::deposit_event(Event::<T>::Slashed { who, amount: deposit });
-				debug_assert!(_remainder.is_zero());
 				return Ok(().into())
 			}
 
@@ -742,10 +747,14 @@ pub mod pallet {
 
 			if dyn_size > witness_size {
 				T::Currency::hold(&HoldReason::SlashForMigrateCustomTop.into(), &who, deposit)?;
-				let (_imbalance, _remainder) =
-					T::Currency::slash(&HoldReason::SlashForMigrateCustomTop.into(), &who, deposit);
+				let _burned = T::Currency::burn_all_held(
+					&HoldReason::SlashForMigrateCustomTop.into(),
+					&who,
+					Precision::BestEffort,
+					Fortitude::Force,
+				)?;
+				debug_assert!(deposit.saturating_sub(_burned).is_zero());
 				Self::deposit_event(Event::<T>::Slashed { who, amount: deposit });
-				debug_assert!(_remainder.is_zero());
 				Ok(().into())
 			} else {
 				Self::deposit_event(Event::<T>::Migrated {
@@ -811,12 +820,13 @@ pub mod pallet {
 
 			if dyn_size != total_size {
 				T::Currency::hold(&HoldReason::SlashForMigrateCustomChild.into(), &who, deposit)?;
-				let (_imbalance, _remainder) = T::Currency::slash(
+				let _burned = T::Currency::burn_all_held(
 					&HoldReason::SlashForMigrateCustomChild.into(),
 					&who,
-					deposit,
-				);
-				debug_assert!(_remainder.is_zero());
+					Precision::BestEffort,
+					Fortitude::Force,
+				)?;
+				debug_assert!(deposit.saturating_sub(_burned).is_zero());
 				Self::deposit_event(Event::<T>::Slashed { who, amount: deposit });
 				Ok(PostDispatchInfo {
 					actual_weight: Some(T::WeightInfo::migrate_custom_child_fail()),
@@ -1571,23 +1581,20 @@ mod test {
 			// first we compute the task to get the accurate consumption.
 			let mut task = StateTrieMigration::migration_process();
 			assert_ok!(task.migrate_until_exhaustion(
-					StateTrieMigration::signed_migration_max_limits().unwrap(),
-				));
+				StateTrieMigration::signed_migration_max_limits().unwrap(),
+			));
 
 			// can't submit with `real_size_upper` < `task.dyn_size` expect slashing
 			frame_support::assert_ok!(StateTrieMigration::continue_migrate(
-					RuntimeOrigin::signed(1),
-					StateTrieMigration::signed_migration_max_limits().unwrap(),
-					task.dyn_size - 1,
-					MigrationProcess::<Test>::get()
+				RuntimeOrigin::signed(1),
+				StateTrieMigration::signed_migration_max_limits().unwrap(),
+				task.dyn_size - 1,
+				MigrationProcess::<Test>::get()
 			));
 			// no funds should remain reserved.
 			assert_eq!(Balances::reserved_balance(&1), 0);
 			// user was slashed
-			assert_eq!(
-				Balances::free_balance(&1),
-				1000 - (5 * SignedDepositPerItem::get())
-			);
+			assert_eq!(Balances::free_balance(&1), 1000 - (5 * SignedDepositPerItem::get()));
 		});
 	}
 
