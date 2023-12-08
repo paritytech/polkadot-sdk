@@ -216,6 +216,7 @@ std = [
 ]
 
 runtime-benchmarks = [
+	"bridge-hub-common/runtime-benchmarks",
 	"bridge-runtime-common/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-session-benchmarking/runtime-benchmarks",
@@ -246,14 +247,13 @@ runtime-benchmarks = [
 	"snowbridge-ethereum-beacon-client/runtime-benchmarks",
 	"snowbridge-inbound-queue/runtime-benchmarks",
 	"snowbridge-outbound-queue/runtime-benchmarks",
+	"snowbridge-rococo-common/runtime-benchmarks",
+	"snowbridge-router-primitives/runtime-benchmarks",
 	"snowbridge-runtime-common/runtime-benchmarks",
 	"snowbridge-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
-	"bridge-hub-common/runtime-benchmarks",
-	"snowbridge-rococo-common/runtime-benchmarks",
-	"snowbridge-router-primitives/runtime-benchmarks"
 ]
 
 try-runtime = [
