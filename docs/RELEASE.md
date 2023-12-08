@@ -48,7 +48,7 @@ Should not be needed. The `release` branch can get out of sync and will be synce
 
 # Processes
 
-The following processes are necessary to actualize our releases. Each process has a *Cadence* on which it must execute and an *Responsible* that is responsible for autonomously doing so and reporting back any error in the RelEng<sup>2</sup> channel.
+The following processes are necessary to actualize our releases. Each process has a *Cadence* on which it must execute and a *Responsible* that is responsible for autonomously doing so and reporting back any error in the RelEng<sup>2</sup> channel.
 
 ## Crate Bumping
 
