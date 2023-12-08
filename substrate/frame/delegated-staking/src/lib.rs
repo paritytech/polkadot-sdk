@@ -100,6 +100,8 @@ pub mod pallet {
 		NotSupported,
 		/// This delegatee is not set as a migrating account.
 		NotMigrating,
+		/// Delegatee no longer accepting new delegations.
+		DelegationsBlocked,
 	}
 
 	/// A reason for placing a hold on funds.
@@ -207,8 +209,11 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 		who: &Self::AccountId,
 		reward_destination: &Self::AccountId,
 	) -> DispatchResult {
-		// Existing delegatee cannot accept delegation
+		// Existing delegatee cannot register again.
 		ensure!(!<Delegatees<T>>::contains_key(who), Error::<T>::NotAllowed);
+
+		// A delegator cannot become a delegatee.
+		ensure!(!<Delegators<T>>::contains_key(who), Error::<T>::NotAllowed);
 
 		// make sure they are not already a direct staker
 		ensure!(T::CoreStaking::status(who).is_err(), Error::<T>::AlreadyStaker);
@@ -216,21 +221,17 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 		// payee account cannot be same as delegatee
 		ensure!(reward_destination != who, Error::<T>::InvalidRewardDestination);
 
-		// if already a delegator, unblock and return success
-		<Delegatees<T>>::mutate(who, |maybe_register| {
-			if let Some(register) = maybe_register {
-				register.blocked = false;
-				register.payee = reward_destination.clone();
-			} else {
-				*maybe_register = Some(DelegationRegister {
-					payee: reward_destination.clone(),
-					total_delegated: Zero::zero(),
-					hold: Zero::zero(),
-					pending_slash: Zero::zero(),
-					blocked: false,
-				});
-			}
-		});
+		// already checked delegatees exist
+		<Delegatees<T>>::insert(
+			who,
+			DelegationRegister {
+				payee: reward_destination.clone(),
+				total_delegated: Zero::zero(),
+				hold: Zero::zero(),
+				pending_slash: Zero::zero(),
+				blocked: false,
+			},
+		);
 
 		Ok(())
 	}
@@ -283,14 +284,19 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 	}
 
 	fn block_delegations(delegatee: &Self::AccountId) -> DispatchResult {
-		<Delegatees<T>>::mutate(delegatee, |maybe_register| {
-			if let Some(register) = maybe_register {
-				register.blocked = true;
-				Ok(())
-			} else {
-				Err(Error::<T>::NotDelegatee.into())
-			}
-		})
+		let mut register = <Delegatees<T>>::get(delegatee).ok_or(Error::<T>::NotDelegatee)?;
+		register.blocked = true;
+		<Delegatees<T>>::insert(delegatee, register);
+
+		Ok(())
+	}
+
+	fn unblock_delegations(delegatee: &Self::AccountId) -> DispatchResult {
+		let mut register = <Delegatees<T>>::get(delegatee).ok_or(Error::<T>::NotDelegatee)?;
+		register.blocked = false;
+		<Delegatees<T>>::insert(delegatee, register);
+
+		Ok(())
 	}
 
 	fn kill_delegatee(_delegatee: &Self::AccountId) -> DispatchResult {
@@ -377,7 +383,10 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 		ensure!(value >= T::Currency::minimum_balance(), Error::<T>::NotEnoughFunds);
 		ensure!(delegator_balance >= value, Error::<T>::NotEnoughFunds);
 		ensure!(delegatee != delegator, Error::<T>::InvalidDelegation);
-		ensure!(<Delegatees<T>>::contains_key(delegatee), Error::<T>::NotDelegatee);
+
+		let mut delegation_register =
+			<Delegatees<T>>::get(delegatee).ok_or(Error::<T>::NotDelegatee)?;
+		ensure!(!delegation_register.blocked, Error::<T>::DelegationsBlocked);
 
 		// A delegatee cannot delegate.
 		if <Delegatees<T>>::contains_key(delegator) {
@@ -393,12 +402,10 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 			value
 		};
 
+		delegation_register.total_delegated.saturating_accrue(value);
+
 		<Delegators<T>>::insert(delegator, (delegatee, new_delegation_amount));
-		<Delegatees<T>>::mutate(delegatee, |maybe_register| {
-			if let Some(register) = maybe_register {
-				register.total_delegated.saturating_accrue(value);
-			}
-		});
+		<Delegatees<T>>::insert(delegatee, delegation_register);
 
 		T::Currency::hold(&HoldReason::Delegating.into(), &delegator, value)?;
 

@@ -147,22 +147,13 @@ fn delegate_restrictions() {
 
 #[test]
 fn apply_pending_slash() {
-	ExtBuilder::default().build_and_execute(|| {
-		todo!()
-	});
-}
-
-#[test]
-fn distribute_rewards() {
-	ExtBuilder::default().build_and_execute(|| {
-		todo!()
-	});
+	ExtBuilder::default().build_and_execute(|| todo!());
 }
 
 /// Integration tests with pallet-staking.
 mod integration {
-	use pallet_staking::RewardDestination;
 	use super::*;
+	use pallet_staking::RewardDestination;
 	use sp_staking::Stake;
 
 	#[test]
@@ -327,20 +318,33 @@ mod integration {
 			let balance_200 = Balances::free_balance(200);
 
 			// delegatee cannot be reward destination
-			assert_noop!(DelegatedStaking::accept_delegations(&200, &200), Error::<T>::InvalidRewardDestination);
+			assert_noop!(
+				DelegatedStaking::accept_delegations(&200, &200),
+				Error::<T>::InvalidRewardDestination
+			);
 
 			// different reward account works
 			assert_ok!(DelegatedStaking::accept_delegations(&200, &201));
 			// add some delegations to it
 			assert_ok!(DelegatedStaking::delegate(fund(&300, 1000), &200, 100));
 
-
-			// if delegatee calls Staking pallet directly with a different reward destination, it fails.
-			assert_noop!(Staking::bond(RuntimeOrigin::signed(200), 100, RewardDestination::Stash), StakingError::<T>::RewardDestinationRestricted);
+			// if delegatee calls Staking pallet directly with a different reward destination, it
+			// fails.
+			assert_noop!(
+				Staking::bond(RuntimeOrigin::signed(200), 100, RewardDestination::Stash),
+				StakingError::<T>::RewardDestinationRestricted
+			);
 			// non stash account different than one passed to DelegatedStaking also does not work..
-			assert_noop!(Staking::bond(RuntimeOrigin::signed(200), 100, RewardDestination::Account(202)), StakingError::<T>::RewardDestinationRestricted);
+			assert_noop!(
+				Staking::bond(RuntimeOrigin::signed(200), 100, RewardDestination::Account(202)),
+				StakingError::<T>::RewardDestinationRestricted
+			);
 			// passing correct reward destination works
-			assert_ok!(Staking::bond(RuntimeOrigin::signed(200), 100, RewardDestination::Account(201)));
+			assert_ok!(Staking::bond(
+				RuntimeOrigin::signed(200),
+				100,
+				RewardDestination::Account(201)
+			));
 			// amount is staked correctly
 			assert!(eq_stake(200, 100, 100));
 			assert_eq!(DelegatedStaking::unbonded_balance(&200), 0);
@@ -348,15 +352,62 @@ mod integration {
 
 			// free balance of delegatee is untouched
 			assert_eq!(Balances::free_balance(200), balance_200);
+
+			// trying to change reward destination later directly via staking does not work.
+			assert_noop!(
+				Staking::set_payee(RuntimeOrigin::signed(200), RewardDestination::Staked),
+				StakingError::<T>::RewardDestinationRestricted
+			);
+			assert_noop!(
+				Staking::set_payee(RuntimeOrigin::signed(200), RewardDestination::Account(300)),
+				StakingError::<T>::RewardDestinationRestricted
+			);
 		});
 	}
 
 	#[test]
 	fn delegatee_restrictions() {
 		ExtBuilder::default().build_and_execute(|| {
-			// delegatee cannot be reward destination
-			assert_noop!(DelegatedStaking::accept_delegations(fund(&200, 1000), &200), Error::<T>::InvalidRewardDestination);
+			setup_delegation_stake(200, 201, (202..203).collect(), 100, 0);
 
+			// Registering again is noop
+			assert_noop!(DelegatedStaking::accept_delegations(&200, &201), Error::<T>::NotAllowed);
+			// a delegator cannot become delegatee
+			assert_noop!(DelegatedStaking::accept_delegations(&202, &203), Error::<T>::NotAllowed);
+			// existing staker cannot become a delegatee
+			assert_noop!(
+				DelegatedStaking::accept_delegations(&GENESIS_NOMINATOR_ONE, &201),
+				Error::<T>::AlreadyStaker
+			);
+			assert_noop!(
+				DelegatedStaking::accept_delegations(&GENESIS_VALIDATOR, &201),
+				Error::<T>::AlreadyStaker
+			);
+		});
+	}
+
+	#[test]
+	fn block_delegations() {
+		ExtBuilder::default().build_and_execute(|| {
+			assert_ok!(DelegatedStaking::accept_delegations(&200, &201));
+
+			// delegation works
+			assert_ok!(DelegatedStaking::delegate(fund(&300, 1000), &200, 100));
+
+			// delegatee blocks delegation
+			assert_ok!(DelegatedStaking::block_delegations(&200));
+
+			// cannot delegate to it anymore
+			assert_noop!(
+				DelegatedStaking::delegate(&300, &200, 100),
+				Error::<T>::DelegationsBlocked
+			);
+
+			// delegatee can unblock delegation
+			assert_ok!(DelegatedStaking::unblock_delegations(&200));
+
+			// delegation works again
+			assert_ok!(DelegatedStaking::delegate(&300, &200, 100));
 		});
 	}
 
@@ -373,8 +424,6 @@ mod integration {
 
 	#[test]
 	fn migration_works() {
-		ExtBuilder::default().build_and_execute(|| {
-			todo!()
-		});
+		ExtBuilder::default().build_and_execute(|| todo!());
 	}
 }

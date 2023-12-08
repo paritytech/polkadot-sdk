@@ -68,8 +68,11 @@ pub trait DelegationInterface {
 		payee: &Self::AccountId,
 	) -> DispatchResult;
 
-	/// Stop accepting new delegations on this account.
+	/// Stop accepting new delegations to this account.
 	fn block_delegations(delegatee: &Self::AccountId) -> DispatchResult;
+
+	/// Unblock delegations to this account.
+	fn unblock_delegations(delegatee: &Self::AccountId) -> DispatchResult;
 
 	/// Remove oneself as Delegatee.
 	///
