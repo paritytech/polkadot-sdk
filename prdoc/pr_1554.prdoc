@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Runtime Upgrade ref docs and Single Block Migration example pallet
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      `frame_support::traits::GetStorageVersion::current_storage_version` has been renamed `frame_support::traits::GetStorageVersion::in_code_storage_version`.
+      A simple find-replace is sufficient to handle this change.
+
+crates:
+  - name: "frame-support"
+

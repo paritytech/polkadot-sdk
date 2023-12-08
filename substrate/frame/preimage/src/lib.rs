@@ -102,7 +102,7 @@ pub const MAX_HASH_UPGRADE_BULK_COUNT: u32 = 1024;
 pub mod pallet {
 	use super::*;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::config]

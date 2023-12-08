@@ -15,30 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[frame_support::pallet]
-mod pallet {
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
-
-	#[pallet::config]
-	pub trait Config: frame_system::Config {}
-
-	#[pallet::pallet]
-	pub struct Pallet<T>(core::marker::PhantomData<T>);
-
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_runtime_upgrade() -> Weight {
-			if Self::in_code_storage_version() != Self::on_chain_storage_version() {
-
-			}
-
-			Default::default()
-		}
-	}
-
-	#[pallet::call]
-	impl<T: Config> Pallet<T> {}
-}
-
-fn main() {}
+/// Module containing all logic associated with the example migration from
+/// [`StorageVersion`](frame_support::traits::StorageVersion) V0 to V1.
+pub mod v1;

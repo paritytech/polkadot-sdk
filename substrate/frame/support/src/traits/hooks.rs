@@ -90,7 +90,7 @@ impl<BlockNumber: Copy + AtLeast32BitUnsigned> OnIdle<BlockNumber> for Tuple {
 ///
 /// Implementing this trait for a pallet let's you express operations that should
 /// happen at genesis. It will be called in an externalities provided environment and
-/// will see the genesis state after all pallets have written their genesis state.
+/// will set the genesis state after all pallets have written their genesis state.
 #[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
 #[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
 #[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
@@ -306,19 +306,23 @@ pub trait IntegrityTest {
 /// end
 /// ```
 ///
-/// * `OnRuntimeUpgrade` is only executed before everything else if a code
-/// * `OnRuntimeUpgrade` is mandatorily at the beginning of the block body (extrinsics) being
-///   processed. change is detected.
-/// * Extrinsics start with inherents, and continue with other signed or unsigned extrinsics.
-/// * `OnIdle` optionally comes after extrinsics.
-/// `OnFinalize` mandatorily comes after `OnIdle`.
+/// * [`OnRuntimeUpgrade`](Hooks::OnRuntimeUpgrade) hooks are only executed when a code change is
+///   detected.
+/// * [`OnRuntimeUpgrade`](Hooks::OnRuntimeUpgrade) hooks are mandatorily executed at the very
+///   beginning of the block body, before any extrinsics are processed.
+/// * [`Inherents`](sp_inherents) are always executed before any other other signed or unsigned
+///   extrinsics.
+/// * [`OnIdle`](Hooks::OnIdle) hooks are executed after extrinsics if there is weight remaining in
+///   the block.
+/// * [`OnFinalize`](Hooks::OnFinalize) hooks are mandatorily executed after
+///   [`OnIdle`](Hooks::OnIdle).
 ///
-/// > `OffchainWorker` is not part of this flow, as it is not really part of the consensus/main
-/// > block import path, and is called optionally, and in other circumstances. See
-/// > [`crate::traits::misc::OffchainWorker`] for more information.
+/// > [`OffchainWorker`](crate::traits::misc::OffchainWorker) hooks are not part of this flow,
+/// > because they are not part of the consensus/main block building logic. See
+/// > [`OffchainWorker`](crate::traits::misc::OffchainWorker) for more information.
 ///
-/// To learn more about the execution of hooks see `frame-executive` as this component is is charge
-/// of dispatching extrinsics and placing the hooks in the correct order.
+/// To learn more about the execution of hooks see the FRAME `Executive` pallet which is in charge
+/// of dispatching extrinsics and calling hooks in the correct order.
 pub trait Hooks<BlockNumber> {
 	/// Block initialization hook. This is called at the very beginning of block execution.
 	///
@@ -370,30 +374,38 @@ pub trait Hooks<BlockNumber> {
 		Weight::zero()
 	}
 
-	/// Hook executed when a code change (aka. a "runtime upgrade") is detected by FRAME.
+	/// Hook executed when a code change (aka. a "runtime upgrade") is detected by the FRAME
+	/// `Executive` pallet.
 	///
 	/// Be aware that this is called before [`Hooks::on_initialize`] of any pallet; therefore, a lot
 	/// of the critical storage items such as `block_number` in system pallet might have not been
-	/// set.
+	/// set yet.
 	///
-	/// Vert similar to [`Hooks::on_initialize`], any code in this block is mandatory and MUST
-	/// execute. Use with care.
+	/// Similar to [`Hooks::on_initialize`], any code in this block is mandatory and MUST execute.
+	/// It is strongly recommended to dry-run the execution of these hooks using
+	/// [try-runtime-cli](https://github.com/paritytech/try-runtime-cli) to ensure they will not
+	/// produce and overweight block which can brick your chain. Use with care!
 	///
-	/// ## Implementation Note: Versioning
+	/// ## Implementation Note: Standalone Migrations
 	///
-	/// 1. An implementation of this should typically follow a pattern where the version of the
-	/// pallet is checked against the onchain version, and a decision is made about what needs to be
-	/// done. This is helpful to prevent accidental repetitive execution of this hook, which can be
-	/// catastrophic.
+	/// Additional migrations can be created by directly implementing [`OnRuntimeUpgrade`] on
+	/// structs and passing them to `Executive`.
 	///
-	/// Alternatively, [`frame_support::migrations::VersionedMigration`] can be used to assist with
-	/// this.
+	/// ## Implementation Note: Pallet Versioning
 	///
-	/// ## Implementation Note: Runtime Level Migration
+	/// Implementations of this hook are typically wrapped in
+	/// [`crate::migrations::VersionedMigration`] to ensure the migration is executed exactly
+	/// once and only when it is supposed to.
 	///
-	/// Additional "upgrade hooks" can be created by pallets by a manual implementation of
-	/// [`Hooks::on_runtime_upgrade`] which can be passed on to `Executive` at the top level
-	/// runtime.
+	/// Alternatively, developers can manually implement version checks.
+	///
+	/// Failure to adequately check storage versions can result in accidental repetitive execution
+	/// of the hook, which can be catastrophic.
+	///
+	/// ## Implementation Note: Weight
+	///
+	/// Typically, implementations of this method are simple enough that weights can be calculated
+	/// manually. However, if required, a benchmark can also be used.
 	fn on_runtime_upgrade() -> Weight {
 		Weight::zero()
 	}
@@ -403,7 +415,7 @@ pub trait Hooks<BlockNumber> {
 	/// It should focus on certain checks to ensure that the state is sensible. This is never
 	/// executed in a consensus code-path, therefore it can consume as much weight as it needs.
 	///
-	/// This hook should not alter any storage.
+	/// This hook must not alter any storage.
 	#[cfg(feature = "try-runtime")]
 	fn try_state(_n: BlockNumber) -> Result<(), TryRuntimeError> {
 		Ok(())
@@ -415,7 +427,7 @@ pub trait Hooks<BlockNumber> {
 	/// which will be passed to `post_upgrade` after upgrading for post-check. An empty vector
 	/// should be returned if there is no such need.
 	///
-	/// This hook is never meant to be executed on-chain but is meant to be used by testing tools.
+	/// This hook is never executed on-chain but instead used by testing tools.
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
 		Ok(Vec::new())

@@ -44,7 +44,7 @@ pub struct PalletStructDef {
 	/// Whether to specify the storages max encoded len when implementing `StorageInfoTrait`.
 	/// Contains the span of the attribute.
 	pub without_storage_info: Option<proc_macro2::Span>,
-	/// The current storage version of the pallet.
+	/// The in-code storage version of the pallet.
 	pub storage_version: Option<syn::Path>,
 }
 

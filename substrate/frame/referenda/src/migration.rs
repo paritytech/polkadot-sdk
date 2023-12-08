@@ -109,13 +109,13 @@ pub mod v1 {
 		}
 
 		fn on_runtime_upgrade() -> Weight {
-			let current_version = Pallet::<T, I>::current_storage_version();
+			let in_code_version = Pallet::<T, I>::in_code_storage_version();
 			let onchain_version = Pallet::<T, I>::on_chain_storage_version();
 			let mut weight = T::DbWeight::get().reads(1);
 			log::info!(
 				target: TARGET,
-				"running migration with current storage version {:?} / onchain {:?}.",
-				current_version,
+				"running migration with in-code storage version {:?} / onchain {:?}.",
+				in_code_version,
 				onchain_version
 			);
 			if onchain_version != 0 {

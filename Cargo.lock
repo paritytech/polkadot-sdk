@@ -9828,6 +9828,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-example-single-block-migrations"
+version = "0.0.1"
+dependencies = [
+ "docify",
+ "frame-executive",
+ "frame-support",
+ "frame-system",
+ "frame-try-runtime",
+ "log",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 8.0.0",
+ "sp-version",
+]
+
+[[package]]
 name = "pallet-example-split"
 version = "4.0.0-dev"
 dependencies = [
@@ -9852,6 +9872,7 @@ dependencies = [
  "pallet-example-frame-crate",
  "pallet-example-kitchensink",
  "pallet-example-offchain-worker",
+ "pallet-example-single-block-migrations",
  "pallet-example-split",
 ]
 
@@ -13020,9 +13041,13 @@ dependencies = [
  "cumulus-pallet-parachain-system",
  "docify",
  "frame",
+ "frame-executive",
+ "frame-support",
+ "frame-system",
  "kitchensink-runtime",
  "pallet-aura",
  "pallet-default-config-example",
+ "pallet-example-single-block-migrations",
  "pallet-examples",
  "pallet-timestamp",
  "parity-scale-codec",
@@ -13044,6 +13069,7 @@ dependencies = [
  "sp-io",
  "sp-keyring",
  "sp-runtime",
+ "sp-version",
  "staging-chain-spec-builder",
  "staging-node-cli",
  "staging-parachain-info",
