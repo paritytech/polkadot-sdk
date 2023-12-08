@@ -39,6 +39,7 @@ pub use origins::{
 };
 use pallet_ranked_collective::EnsureOfRank;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
+use parachains_common::westend::{account, currency::GRAND};
 use polkadot_runtime_common::impls::{
 	LocatableAssetConverter, VersionedLocatableAsset, VersionedMultiLocationConverter,
 };
@@ -47,7 +48,6 @@ use sp_core::{ConstU128, ConstU32};
 use sp_runtime::traits::{
 	AccountIdConversion, ConstU16, ConvertToValue, IdentityLookup, Replace, TakeFirst,
 };
-use testnets_common::westend::{account, currency::GRAND};
 use westend_runtime_constants::time::HOURS;
 use xcm::prelude::*;
 use xcm_builder::{AliasesIntoAccountId32, PayOverXcm};
