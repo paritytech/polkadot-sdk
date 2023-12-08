@@ -191,6 +191,7 @@ fn main() -> eyre::Result<()> {
 		// Avoid `Terminating due to subsystem exit subsystem` warnings
 		.filter(Some("polkadot_overseer"), log::LevelFilter::Error)
 		.filter(None, log::LevelFilter::Info)
+		.format_timestamp_millis()
 		// .filter(None, log::LevelFilter::Trace)
 		.try_init()
 		.unwrap();

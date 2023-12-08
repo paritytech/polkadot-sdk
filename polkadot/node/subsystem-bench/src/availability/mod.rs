@@ -533,7 +533,6 @@ pub async fn benchmark_availability_read(env: &mut TestEnvironment, mut state: T
 pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: TestState) {
 	let config = env.config().clone();
 	let start_marker = Instant::now();
-	let mut availability_bytes = 0u128;
 
 	env.metrics().set_n_validators(config.n_validators);
 	env.metrics().set_n_cores(config.n_cores);
@@ -563,7 +562,7 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 	gum::info!("Done");
 
 	for block_num in 0..env.config().num_blocks {
-		gum::info!(target: LOG_TARGET, "Current block {}/{}", block_num + 1, env.config().num_blocks);
+		gum::info!(target: LOG_TARGET, "Current block #{}", block_num);
 		env.metrics().set_current_block(block_num);
 
 		let block_start_ts = Instant::now();
@@ -610,7 +609,7 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 			}
 		}
 
-		gum::info!("Waiting for all emulated peers to receive their chunk from us ...");
+		gum::info!(target: LOG_TARGET, "Waiting for all emulated peers to receive their chunk from us ...");
 		for (index, receiver) in receivers.into_iter().enumerate() {
 			let response = receiver.await.expect("Chunk is always served succesfully");
 			assert!(response.result.is_ok());
@@ -664,18 +663,20 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 			env.network_mut().submit_peer_action(network_action.peer(), network_action);
 		}
 
+		// Wait for all bitfields to be processed.
+		env.wait_until_metric_ge(
+			"polkadot_parachain_received_availabilty_bitfields_total",
+			(config.n_validators - 1) * (block_num + 1),
+		)
+		.await;
+
 		let block_time = Instant::now().sub(block_start_ts).as_millis() as u64;
 		env.metrics().set_block_time(block_time);
 		gum::info!("All work for block completed in {}", format!("{:?}ms", block_time).cyan());
 	}
 
 	let duration: u128 = start_marker.elapsed().as_millis();
-	let availability_bytes = availability_bytes / 1024;
 	gum::info!("All blocks processed in {}", format!("{:?}ms", duration).cyan());
-	gum::info!(
-		"Throughput: {}",
-		format!("{} KiB/block", availability_bytes / env.config().num_blocks as u128).bright_red()
-	);
 	gum::info!(
 		"Block time: {}",
 		format!("{} ms", start_marker.elapsed().as_millis() / env.config().num_blocks as u128)

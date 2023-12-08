@@ -29,7 +29,6 @@ use polkadot_node_subsystem_util::metrics::prometheus::{
 	self, Gauge, Histogram, PrometheusError, Registry, U64,
 };
 
-use sc_network::peer_store::LOG_TARGET;
 use sc_service::{SpawnTaskHandle, TaskManager};
 use std::{
 	fmt::Display,
@@ -37,6 +36,7 @@ use std::{
 };
 use tokio::runtime::Handle;
 
+const LOG_TARGET: &str = "subsystem-bench::environment";
 use super::configuration::TestAuthorities;
 
 const MIB: f64 = 1024.0 * 1024.0;
@@ -298,6 +298,23 @@ impl TestEnvironment {
 		self.overseer_handle.stop().await;
 	}
 
+	// Blocks until `metric_name` >= `value`
+	pub async fn wait_until_metric_ge(&self, metric_name: &str, value: usize) {
+		let value = value as f64;
+		loop {
+			let test_metrics = super::display::parse_metrics(self.registry());
+			let current_value = test_metrics.sum_by(metric_name);
+
+			gum::debug!(target: LOG_TARGET, metric_name, current_value, value, "Waiting for metric");
+			if current_value >= value {
+				break
+			}
+
+			// Check value every 50ms.
+			tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+		}
+	}
+
 	pub fn display_network_usage(&self) {
 		let test_metrics = super::display::parse_metrics(self.registry());
 
@@ -315,13 +332,15 @@ impl TestEnvironment {
 		println!(
 			"\nPayload bytes received from peers: {}, {}",
 			format!("{:.2} MiB total", total_node_received).blue(),
-			format!("{:.2} MiB/block", total_node_received / self.config().num_blocks as f64).bright_blue()
+			format!("{:.2} MiB/block", total_node_received / self.config().num_blocks as f64)
+				.bright_blue()
 		);
 
 		println!(
 			"Payload bytes sent to peers: {}, {}",
 			format!("{:.2} MiB total", total_node_sent).blue(),
-			format!("{:.2} MiB/block", total_node_sent / self.config().num_blocks as f64).bright_blue()
+			format!("{:.2} MiB/block", total_node_sent / self.config().num_blocks as f64)
+				.bright_blue()
 		);
 	}
 
