@@ -18,7 +18,19 @@
 //! Provides a const function for converting a hex string to a `u8` array at compile time, when used
 //! in the proper context.
 
-/// Util that generates array from (static) string literal.
+/// Provides a const array from given string literal.
+///
+/// Valid characters are `[0-9a-fA-F]`, and the hex string should not start
+/// with the `0x` prefix.
+#[macro_export]
+macro_rules! hex2arr {
+	($input:expr) => {{
+		const PUBLIC_BYTES: [u8; $input.len() >> 1] = $crate::const_hex2array::hex2array($input);
+		PUBLIC_BYTES
+	}};
+}
+
+/// Generates array from (static) string literal.
 ///
 /// Valid characters are `[0-9a-fA-F]`, and the hex string should not start
 /// with the `0x` prefix.
@@ -31,6 +43,7 @@
 ///
 /// The function will panic at runtime when used in a non-const context if the above conditions are
 /// met.
+#[doc(hidden)]
 pub const fn hex2array<const N: usize>(hex: &str) -> [u8; N] {
 	const fn c2b(c: u8) -> u8 {
 		match c as char {
@@ -102,6 +115,16 @@ mod testh2b {
 		assert_eq!(T0, [10, 16]);
 		const T1: [u8; 2] = hex2array("4545");
 		assert_eq!(T1, [69, 69]);
+	}
+
+	#[test]
+	fn t02m() {
+		assert_eq!(hex2arr!("0a10"), [10, 16]);
+		assert_eq!(hex2arr!("4545"), [69, 69]);
+		assert_eq!(
+			hex2arr!("000102030405060708090a0b0c0d0e0f"),
+			[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+		);
 	}
 
 	#[test]

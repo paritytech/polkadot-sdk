@@ -19,9 +19,8 @@
 
 pub use sp_core::ed25519;
 use sp_core::{
-	const_hex2array::hex2array as hex2arr,
 	ed25519::{Pair, Public, Signature},
-	ByteArray, Pair as PairT, H256,
+	hex2arr, ByteArray, Pair as PairT, H256,
 };
 use sp_runtime::AccountId32;
 
@@ -145,20 +144,13 @@ impl From<Keyring> for Pair {
 	}
 }
 
-macro_rules! hex2arr {
-	($input:expr) => {{
-		const PUBLIC_BYTES: [u8; 32] = hex2arr($input);
-		PUBLIC_BYTES
-	}};
-}
-
 impl From<Keyring> for [u8; 32] {
 	fn from(k: Keyring) -> Self {
 		match k {
 			Keyring::Alice =>
 				hex2arr!("88dc3417d5058ec4b4503e0c12ea1a0a89be200fe98922423d4334014fa6b0ee"),
 			Keyring::Bob =>
-				hex2arr("d17c2d7823ebf260fd138f2d7e27d114c0145d968b5ff5006125f2414fadae69"),
+				hex2arr!("d17c2d7823ebf260fd138f2d7e27d114c0145d968b5ff5006125f2414fadae69"),
 			Keyring::Charlie =>
 				hex2arr!("439660b36c6c03afafca027b910b4fecf99801834c62a5e6006f27d978de234f"),
 			Keyring::Dave =>

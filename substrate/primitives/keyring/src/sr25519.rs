@@ -19,7 +19,7 @@
 
 pub use sp_core::sr25519;
 use sp_core::{
-	const_hex2array::hex2array as hex2arr,
+	hex2arr,
 	sr25519::{Pair, Public, Signature},
 	ByteArray, Pair as PairT, H256,
 };
@@ -180,13 +180,6 @@ impl From<Keyring> for Pair {
 	fn from(k: Keyring) -> Self {
 		k.pair()
 	}
-}
-
-macro_rules! hex2arr {
-	($input:expr) => {{
-		const PUBLIC_BYTES: [u8; 32] = hex2arr($input);
-		PUBLIC_BYTES
-	}};
 }
 
 impl From<Keyring> for [u8; 32] {

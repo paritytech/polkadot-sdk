@@ -20,9 +20,8 @@
 pub use sp_core::bandersnatch;
 use sp_core::{
 	bandersnatch::{Pair, Public, Signature},
-	const_hex2array::hex2array as hex2arr,
 	crypto::UncheckedFrom,
-	ByteArray, Pair as PairT,
+	hex2arr, ByteArray, Pair as PairT,
 };
 
 /// Set of test accounts.
@@ -137,13 +136,6 @@ impl From<Keyring> for Pair {
 	fn from(k: Keyring) -> Self {
 		k.pair()
 	}
-}
-
-macro_rules! hex2arr {
-	($input:expr) => {{
-		const PUBLIC_BYTES: [u8; PUBLIC_RAW_LEN] = hex2arr($input);
-		PUBLIC_BYTES
-	}};
 }
 
 impl From<Keyring> for [u8; PUBLIC_RAW_LEN] {
