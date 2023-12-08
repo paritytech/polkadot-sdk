@@ -522,19 +522,28 @@ impl OnCodeUpgrade for () {
 	}
 }
 
-pub trait PreCodeUpgradeChecker {
-	/// A function that performs custom logic to determine whether a code upgrade is allowed to be
-	/// performed.
+pub trait PreCodeUpgrade {
+	/// A function that performs custom logic to before performing a code upgrade.
 	///
 	/// This is currently utilized by the registrar pallet to ensure that the necessary validation
 	/// code upgrade costs are covered.
-	fn can_upgrade(id: ParaId, new_code: ValidationCode) -> DispatchResultWithPostInfo;
+	///
+	/// TODO: docs
+	fn pre_code_upgrade(
+		id: ParaId,
+		new_code: ValidationCode,
+		skip_checks: bool,
+	) -> DispatchResultWithPostInfo;
 }
 
 /// An empty implementation of the trait where there are no checks performed before scheduling a
 /// code upgrade.
-impl PreCodeUpgradeChecker for () {
-	fn can_upgrade(_id: ParaId, _new_code: ValidationCode) -> DispatchResultWithPostInfo {
+impl PreCodeUpgrade for () {
+	fn pre_code_upgrade(
+		_id: ParaId,
+		_new_code: ValidationCode,
+		_skip_checks: bool,
+	) -> DispatchResultWithPostInfo {
 		Ok(().into())
 	}
 }
@@ -638,7 +647,7 @@ pub mod pallet {
 
 		/// A type that performs custom logic to determine whether a code upgrade is allowed to be
 		/// performed.
-		type PreCodeUpgradeChecker: PreCodeUpgradeChecker;
+		type PreCodeUpgrade: PreCodeUpgrade;
 
 		/// Type that executes some custom logic upon a successful code upgrade.
 		type OnCodeUpgrade: OnCodeUpgrade;

@@ -22,14 +22,14 @@ pub mod migration;
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
-	pallet_prelude::Weight,
+	pallet_prelude::{DispatchResultWithPostInfo, Weight},
 	traits::{Currency, ExistenceRequirement, Get, ReservableCurrency, WithdrawReasons},
 };
 use frame_system::{self, ensure_root, ensure_signed};
 use primitives::{HeadData, Id as ParaId, ValidationCode, LOWEST_PUBLIC_ID};
 use runtime_parachains::{
 	configuration, ensure_parachain,
-	paras::{self, OnCodeUpgrade, ParaGenesisArgs, SetGoAhead},
+	paras::{self, OnCodeUpgrade, ParaGenesisArgs, PreCodeUpgrade, SetGoAhead},
 	Origin, ParaLifecycle,
 };
 use sp_std::{prelude::*, result};
@@ -470,19 +470,10 @@ pub mod pallet {
 		) -> DispatchResult {
 			Self::ensure_root_para_or_owner(origin.clone(), para)?;
 
-			// There are two cases where we do not charge any upgrade costs from the initiator
-			// of the upgrade:
-			//
-			// 1. Root doesn't pay. This also means that system parachains do not pay for upgrade
-			//    fees.
-			//
-			// 2. All lease-holding parachains are permitted to do upgrades for free. This is
-			//    introduced to avoid causing a breaking change to the system once para upgrade fees
-			//    are required.
-			let free_upgrade =
-				ensure_root(origin.clone()).is_ok() || Self::parachains().contains(&para);
+			// Root doesn't pay, hence all the pre checking logic is skipped.
+			let skip_checks = ensure_root(origin.clone()).is_ok();
 
-			Self::do_schedule_code_upgrade(para, new_code, free_upgrade)
+			Self::do_schedule_code_upgrade(para, new_code, skip_checks)
 		}
 
 		/// Set the parachain's current head.
@@ -795,74 +786,25 @@ impl<T: Config> Pallet<T> {
 
 	/// Schedules a code upgrade for a parachain.
 	///
-	/// If `free_upgrade` is set to true, there won't be any extra deposit or fees charged
-	/// for scheduling the code upgrade.
+	/// If `skip_pre_upgrade` is set to true all the pre code upgrade logic will be skipped.
 	///
 	/// If the size of the validation is reduced and the upgrade is successful the caller will be
 	/// eligible for receiving back a portion of their deposit that is no longer required.
 	fn do_schedule_code_upgrade(
 		para: ParaId,
 		new_code: ValidationCode,
-		free_upgrade: bool,
+		skip_checks: bool,
 	) -> DispatchResult {
 		// Before doing anything we ensure that a code upgrade is allowed at the moment for the
 		// specific parachain.
 		ensure!(paras::Pallet::<T>::can_upgrade_validation_code(para), Error::<T>::CannotUpgrade);
 
-		let head =
-			paras::Pallet::<T>::para_head(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
-
-		let per_byte_fee = T::DataDepositPerByte::get();
-		let new_deposit = T::ParaDeposit::get()
-			.saturating_add(per_byte_fee.saturating_mul((head.0.len() as u32).into()))
-			.saturating_add(per_byte_fee.saturating_mul((new_code.0.len() as u32).into()));
-
-		let mut info = Paras::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
-
-		let billing_account = info.billing_account.clone();
-		ensure!(billing_account.clone().is_some(), Error::<T>::BillingAccountNotSet);
-		let billing_account =
-			billing_account.expect("Ensured above that the billing account is set to some; qed");
-
-		let current_deposit = info.deposit;
-
-		if !free_upgrade {
-			<T as Config>::Currency::withdraw(
-				&billing_account,
-				T::UpgradeFee::get(),
-				WithdrawReasons::FEE,
-				ExistenceRequirement::KeepAlive,
-			)?;
-
-			let additional_deposit = new_deposit.saturating_sub(current_deposit);
-			<T as Config>::Currency::reserve(&billing_account, additional_deposit)?;
-
-			// Update the deposit to the new appropriate amount.
-			info.deposit = new_deposit;
-		}
-
-		if current_deposit > new_deposit {
-			// The billing account should receive a refund if the current deposit exceeds the new
-			// required deposit, even if they did not initiate the upgrade.
-			//
-			// The excess deposit will be refunded to the caller upon the success of the code
-			// upgrade.
-			//
-			// The reason why the deposit is not instantly refunded is that scheduling a code
-			// upgrade doesn't guarantee the success of it.
-			//
-			// If we returned the deposit here, a possible attack scenario would be to register
-			// the validation code of a parachain and then schedule a code upgrade to set the
-			// code to an empty blob. In such a case, the pre-checking process would fail, so
-			// the old code would remain on-chain even though there is no deposit to cover it.
-
-			info.pending_deposit_refund = Some(current_deposit.saturating_sub(new_deposit));
-		}
-
-		Paras::<T>::insert(para, info);
+		T::PreCodeUpgrade::pre_code_upgrade(para, new_code.clone(), skip_checks)
+			.map_err(|e| e.error)?;
 		runtime_parachains::schedule_code_upgrade::<T>(para, new_code, SetGoAhead::No)?;
 
-		Self::deposit_event(Event::<T>::CodeUpgradeScheduled { para_id: para, new_deposit });
+		// TODO:
+		//Self::deposit_event(Event::<T>::CodeUpgradeScheduled { para_id: para, new_deposit });
 		Ok(())
 	}
 
@@ -944,6 +886,80 @@ impl<T: Config> OnNewHead for Pallet<T> {
 			}
 		}
 		T::DbWeight::get().reads_writes(1, writes)
+	}
+}
+
+impl<T: Config> PreCodeUpgrade for Pallet<T> {
+	fn pre_code_upgrade(
+		para: ParaId,
+		new_code: ValidationCode,
+		skip_checks: bool,
+	) -> DispatchResultWithPostInfo {
+		let head =
+			paras::Pallet::<T>::para_head(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
+
+		let per_byte_fee = T::DataDepositPerByte::get();
+		let new_deposit = T::ParaDeposit::get()
+			.saturating_add(per_byte_fee.saturating_mul((head.0.len() as u32).into()))
+			.saturating_add(per_byte_fee.saturating_mul((new_code.0.len() as u32).into()));
+
+		let mut info = Paras::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
+
+		let billing_account = info.billing_account.clone();
+		ensure!(billing_account.clone().is_some(), Error::<T>::BillingAccountNotSet);
+		let billing_account =
+			billing_account.expect("Ensured above that the billing account is set to some; qed");
+
+		let current_deposit = info.deposit;
+
+		// There are three cases where we do not charge any upgrade costs from the initiator
+		// of the upgrade:
+		//
+		// 1. `skip_checks` is set to true.
+		//
+		// 2. System parachains do not pay for upgrade fees.
+		//
+		// 2. All lease-holding parachains are permitted to do upgrades for free. This is introduced
+		//    to avoid causing a breaking change to the system once para upgrade fees are required.
+		let free_upgrade =
+			skip_checks || para < LOWEST_PUBLIC_ID || Self::parachains().contains(&para);
+
+		if !free_upgrade {
+			<T as Config>::Currency::withdraw(
+				&billing_account,
+				T::UpgradeFee::get(),
+				WithdrawReasons::FEE,
+				ExistenceRequirement::KeepAlive,
+			)?;
+
+			let additional_deposit = new_deposit.saturating_sub(current_deposit);
+			<T as Config>::Currency::reserve(&billing_account, additional_deposit)?;
+
+			// Update the deposit to the new appropriate amount.
+			info.deposit = new_deposit;
+		}
+
+		if current_deposit > new_deposit {
+			// The billing account should receive a refund if the current deposit exceeds the new
+			// required deposit, even if they did not initiate the upgrade.
+			//
+			// The excess deposit will be refunded to the caller upon the success of the code
+			// upgrade.
+			//
+			// The reason why the deposit is not instantly refunded is that scheduling a code
+			// upgrade doesn't guarantee the success of it.
+			//
+			// If we returned the deposit here, a possible attack scenario would be to register
+			// the validation code of a parachain and then schedule a code upgrade to set the
+			// code to an empty blob. In such a case, the pre-checking process would fail, so
+			// the old code would remain on-chain even though there is no deposit to cover it.
+
+			info.pending_deposit_refund = Some(current_deposit.saturating_sub(new_deposit));
+		}
+
+		Paras::<T>::insert(para, info);
+
+		Ok(().into()) // FIXME: actual weight
 	}
 }
 
@@ -1097,7 +1113,7 @@ mod tests {
 		type UnsignedPriority = ParasUnsignedPriority;
 		type QueueFootprinter = ();
 		type NextSessionRotation = crate::mock::TestNextSessionRotation;
-		type PreCodeUpgradeChecker = ();
+		type PreCodeUpgrade = Registrar;
 		type OnCodeUpgrade = ();
 		type OnNewHead = ();
 	}
