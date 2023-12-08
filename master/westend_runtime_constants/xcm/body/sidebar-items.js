@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["FELLOWSHIP_ADMIN_INDEX"]};
+window.SIDEBAR_ITEMS = {"constant":["FELLOWSHIP_ADMIN_INDEX","TREASURER_INDEX"]};

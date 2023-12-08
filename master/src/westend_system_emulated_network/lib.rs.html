@@ -49,6 +49,10 @@
 <a href="#49" id="49">49</a>
 <a href="#50" id="50">50</a>
 <a href="#51" id="51">51</a>
+<a href="#52" id="52">52</a>
+<a href="#53" id="53">53</a>
+<a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -66,11 +70,13 @@
 
 </span><span class="kw">pub use </span>asset_hub_westend_emulated_chain;
 <span class="kw">pub use </span>bridge_hub_westend_emulated_chain;
+<span class="kw">pub use </span>collectives_westend_emulated_chain;
 <span class="kw">pub use </span>penpal_emulated_chain;
 <span class="kw">pub use </span>westend_emulated_chain;
 
 <span class="kw">use </span>asset_hub_westend_emulated_chain::AssetHubWestend;
 <span class="kw">use </span>bridge_hub_westend_emulated_chain::BridgeHubWestend;
+<span class="kw">use </span>collectives_westend_emulated_chain::CollectivesWestend;
 <span class="kw">use </span>penpal_emulated_chain::{PenpalA, PenpalB};
 <span class="kw">use </span>westend_emulated_chain::Westend;
 
@@ -86,6 +92,7 @@
 		parachains = <span class="macro">vec!</span>[
 			AssetHubWestend,
 			BridgeHubWestend,
+			CollectivesWestend,
 			PenpalA,
 			PenpalB,
 		],
@@ -97,6 +104,7 @@
 	WestendRelay { sender: ALICE, receiver: BOB },
 	AssetHubWestendPara { sender: ALICE, receiver: BOB },
 	BridgeHubWestendPara { sender: ALICE, receiver: BOB },
+	CollectivesWestendPara { sender: ALICE, receiver: BOB },
 	PenpalAPara { sender: ALICE, receiver: BOB },
 	PenpalBPara { sender: ALICE, receiver: BOB }
 }

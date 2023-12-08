@@ -841,6 +841,22 @@
 <a href="#841" id="841">841</a>
 <a href="#842" id="842">842</a>
 <a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1081,6 +1097,18 @@
 	<span class="kw">pub type </span>ParentOrParentsPlurality: <span class="kw">impl </span>Contains&lt;MultiLocation&gt; = {
 		MultiLocation { parents: <span class="number">1</span>, interior: Here } |
 		MultiLocation { parents: <span class="number">1</span>, interior: X1(Plurality { .. }) }
+	};
+	<span class="kw">pub type </span>FellowshipEntities: <span class="kw">impl </span>Contains&lt;MultiLocation&gt; = {
+		<span class="comment">// Fellowship Plurality
+		</span>MultiLocation { parents: <span class="number">1</span>, interior: X2(Parachain(<span class="number">1001</span>), Plurality { id: BodyId::Technical, ..}) } |
+		<span class="comment">// Fellowship Salary Pallet
+		</span>MultiLocation { parents: <span class="number">1</span>, interior: X2(Parachain(<span class="number">1001</span>), PalletInstance(<span class="number">64</span>)) } |
+		<span class="comment">// Fellowship Treasury Pallet
+		</span>MultiLocation { parents: <span class="number">1</span>, interior: X2(Parachain(<span class="number">1001</span>), PalletInstance(<span class="number">65</span>)) }
+	};
+	<span class="kw">pub type </span>AmbassadorEntities: <span class="kw">impl </span>Contains&lt;MultiLocation&gt; = {
+		<span class="comment">// Ambassador Salary Pallet
+		</span>MultiLocation { parents: <span class="number">1</span>, interior: X2(Parachain(<span class="number">1001</span>), PalletInstance(<span class="number">74</span>)) }
 	};
 }
 
@@ -1330,6 +1358,8 @@
 						ParentOrParentsPlurality,
 						Equals&lt;RelayTreasuryLocation&gt;,
 						Equals&lt;bridging::SiblingBridgeHub&gt;,
+						FellowshipEntities,
+						AmbassadorEntities,
 					)&gt;,
 					<span class="comment">// Subscriptions for version tracking are OK.
 					</span>AllowSubscriptionsFrom&lt;Everything&gt;,
@@ -1368,6 +1398,8 @@
 </span><span class="kw">pub type </span>WaivedLocations = (
 	RelayOrOtherSystemParachains&lt;AllSiblingSystemParachains, Runtime&gt;,
 	Equals&lt;RelayTreasuryLocation&gt;,
+	FellowshipEntities,
+	AmbassadorEntities,
 );
 
 <span class="doccomment">/// Cases where a remote origin is accepted as trusted Teleporter for a given asset:

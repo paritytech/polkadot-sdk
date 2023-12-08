@@ -140,6 +140,8 @@
 <a href="#140" id="140">140</a>
 <a href="#141" id="141">141</a>
 <a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -173,6 +175,8 @@
 	/// It is used as a temporarily place to deposit a slashed imbalance
 	/// before the teleport to the Treasury.
 	</span><span class="kw">pub const </span>AMBASSADOR_REFERENDA_PALLET_ID: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b&quot;py/amref&quot;</span>);
+	<span class="doccomment">/// Fellowship treasury pallet ID
+	</span><span class="kw">pub const </span>FELLOWSHIP_TREASURY_PALLET_ID: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b&quot;py/feltr&quot;</span>);
 }
 
 <span class="doccomment">/// Consensus-related.

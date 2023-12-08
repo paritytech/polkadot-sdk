@@ -1022,6 +1022,29 @@
 <a href="#1022" id="1022">1022</a>
 <a href="#1023" id="1023">1023</a>
 <a href="#1024" id="1024">1024</a>
+<a href="#1025" id="1025">1025</a>
+<a href="#1026" id="1026">1026</a>
+<a href="#1027" id="1027">1027</a>
+<a href="#1028" id="1028">1028</a>
+<a href="#1029" id="1029">1029</a>
+<a href="#1030" id="1030">1030</a>
+<a href="#1031" id="1031">1031</a>
+<a href="#1032" id="1032">1032</a>
+<a href="#1033" id="1033">1033</a>
+<a href="#1034" id="1034">1034</a>
+<a href="#1035" id="1035">1035</a>
+<a href="#1036" id="1036">1036</a>
+<a href="#1037" id="1037">1037</a>
+<a href="#1038" id="1038">1038</a>
+<a href="#1039" id="1039">1039</a>
+<a href="#1040" id="1040">1040</a>
+<a href="#1041" id="1041">1041</a>
+<a href="#1042" id="1042">1042</a>
+<a href="#1043" id="1043">1043</a>
+<a href="#1044" id="1044">1044</a>
+<a href="#1045" id="1045">1045</a>
+<a href="#1046" id="1046">1046</a>
+<a href="#1047" id="1047">1047</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1113,14 +1136,16 @@
 	SLOT_DURATION,
 };
 <span class="kw">use </span>sp_runtime::RuntimeDebug;
-<span class="kw">use </span>xcm_config::{GovernanceLocation, XcmOriginToTransactDispatchOrigin};
+<span class="kw">use </span>xcm_config::{GovernanceLocation, TreasurerBodyId, XcmOriginToTransactDispatchOrigin};
 
 <span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
 </span><span class="kw">pub use </span>sp_runtime::BuildStorage;
 
 <span class="comment">// Polkadot imports
 </span><span class="kw">use </span>pallet_xcm::{EnsureXcm, IsVoiceOfBody};
-<span class="kw">use </span>polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
+<span class="kw">use </span>polkadot_runtime_common::{
+	impls::VersionedLocatableAsset, BlockHashCount, SlowAdjustingFeeUpdate,
+};
 <span class="kw">use </span>xcm::latest::{prelude::<span class="kw-2">*</span>, BodyId};
 
 <span class="kw">use </span>weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
@@ -1349,6 +1374,7 @@
 					RuntimeCall::FellowshipReferenda { .. } |
 					RuntimeCall::FellowshipCore { .. } |
 					RuntimeCall::FellowshipSalary { .. } |
+					RuntimeCall::FellowshipTreasury { .. } |
 					RuntimeCall::Utility { .. } |
 					RuntimeCall::Multisig { .. }
 			),
@@ -1637,6 +1663,21 @@
 	&gt;;
 }
 
+<span class="kw">impl </span>pallet_asset_rate::Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>WeightInfo = weights::pallet_asset_rate::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+	<span class="kw">type </span>CreateOrigin = EitherOfDiverse&lt;
+		EnsureRoot&lt;AccountId&gt;,
+		EitherOfDiverse&lt;EnsureXcm&lt;IsVoiceOfBody&lt;GovernanceLocation, TreasurerBodyId&gt;&gt;, Fellows&gt;,
+	&gt;;
+	<span class="kw">type </span>RemoveOrigin = <span class="self">Self</span>::CreateOrigin;
+	<span class="kw">type </span>UpdateOrigin = <span class="self">Self</span>::CreateOrigin;
+	<span class="kw">type </span>Currency = Balances;
+	<span class="kw">type </span>AssetKind = VersionedLocatableAsset;
+	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="kw">type </span>BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::AssetRateArguments;
+}
+
 <span class="comment">// Create the runtime by composing the FRAME pallets that were previously configured.
 </span><span class="macro">construct_runtime!</span>(
 	<span class="kw">pub enum </span>Runtime
@@ -1672,6 +1713,7 @@
 		Proxy: pallet_proxy::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">42</span>,
 		Preimage: pallet_preimage::{Pallet, Call, Storage, Event&lt;T&gt;, HoldReason} = <span class="number">43</span>,
 		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">44</span>,
+		AssetRate: pallet_asset_rate::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">45</span>,
 
 		<span class="comment">// The main stage.
 
@@ -1689,6 +1731,8 @@
 		</span>FellowshipCore: pallet_core_fellowship::&lt;Instance1&gt;::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">63</span>,
 		<span class="comment">// pub type FellowshipSalaryInstance = pallet_salary::Instance1;
 		</span>FellowshipSalary: pallet_salary::&lt;Instance1&gt;::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">64</span>,
+		<span class="comment">// pub type FellowshipTreasuryInstance = pallet_treasury::Instance1;
+		</span>FellowshipTreasury: pallet_treasury::&lt;Instance1&gt;::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">65</span>,
 
 		<span class="comment">// Ambassador Program.
 		</span>AmbassadorCollective: pallet_ranked_collective::&lt;Instance2&gt;::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">70</span>,
@@ -1768,6 +1812,8 @@
 		[pallet_collective_content, AmbassadorContent]
 		[pallet_core_fellowship, AmbassadorCore]
 		[pallet_salary, AmbassadorSalary]
+		[pallet_treasury, FellowshipTreasury]
+		[pallet_asset_rate, AssetRate]
 	);
 }
 

@@ -389,6 +389,7 @@
 };
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::Sibling;
 <span class="kw">use </span>polkadot_runtime_common::xcm_sender::ExponentialPrice;
+<span class="kw">use </span>westend_runtime_constants::xcm <span class="kw">as </span>xcm_constants;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
@@ -402,8 +403,6 @@
 };
 <span class="kw">use </span>xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
-<span class="kw">const </span>FELLOWSHIP_ADMIN_INDEX: u32 = <span class="number">1</span>;
-
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>WndLocation: MultiLocation = MultiLocation::parent();
 	<span class="kw">pub const </span>RelayNetwork: <span class="prelude-ty">Option</span>&lt;NetworkId&gt; = <span class="prelude-val">Some</span>(NetworkId::Westend);
@@ -413,7 +412,8 @@
 	<span class="kw">pub </span>RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
 	<span class="kw">pub </span>CheckingAccount: AccountId = PolkadotXcm::check_account();
 	<span class="kw">pub const </span>GovernanceLocation: MultiLocation = MultiLocation::parent();
-	<span class="kw">pub const </span>FellowshipAdminBodyId: BodyId = BodyId::Index(FELLOWSHIP_ADMIN_INDEX);
+	<span class="kw">pub const </span>FellowshipAdminBodyId: BodyId = BodyId::Index(xcm_constants::body::FELLOWSHIP_ADMIN_INDEX);
+	<span class="kw">pub const </span>TreasurerBodyId: BodyId = BodyId::Index(xcm_constants::body::TREASURER_INDEX);
 	<span class="kw">pub </span>AssetHub: MultiLocation = (Parent, Parachain(<span class="number">1000</span>)).into();
 	<span class="kw">pub </span>AssetHubUsdtId: AssetId = (PalletInstance(<span class="number">50</span>), GeneralIndex(<span class="number">1984</span>)).into();
 	<span class="kw">pub </span>UsdtAssetHub: LocatableAssetId = LocatableAssetId {
