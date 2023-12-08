@@ -17,7 +17,6 @@
 //! Mocks for all the traits.
 
 use crate::{
-	assigner::v1 as assigner_v1,
 	assigner_coretime, assigner_on_demand, assigner_parachains, configuration, disputes, dmp, hrmp,
 	inclusion::{self, AggregateMessageOrigin, UmpQueueId},
 	initializer, origin, paras,
@@ -71,7 +70,6 @@ frame_support::construct_runtime!(
 		ParaInherent: paras_inherent,
 		Scheduler: scheduler,
 		MockAssigner: mock_assigner,
-		Assigner: assigner_v1,
 		ParachainsAssigner: assigner_parachains,
 		OnDemandAssigner: assigner_on_demand,
 		CoretimeAssigner: assigner_coretime,
@@ -355,8 +353,6 @@ impl pallet_message_queue::Config for Test {
 parameter_types! {
 	pub const OnDemandTrafficDefaultValue: FixedU128 = FixedU128::from_u32(1);
 }
-
-impl assigner_v1::Config for Test {}
 
 impl assigner_parachains::Config for Test {}
 

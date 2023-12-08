@@ -218,7 +218,7 @@ pub(crate) fn run_to_block(
 }
 
 pub(crate) fn expected_bits() -> usize {
-	Paras::parachains().len() + Configuration::config().on_demand_cores as usize
+	Paras::parachains().len() + Configuration::config().coretime_cores as usize
 }
 
 fn default_bitfield() -> AvailabilityBitfield {
