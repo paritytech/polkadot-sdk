@@ -1306,6 +1306,7 @@ mod mock {
 #[cfg(test)]
 mod test {
 	use super::{mock::*, *};
+	use frame_support::assert_ok;
 	use sp_runtime::{bounded_vec, traits::Bounded, StateVersion};
 
 	#[test]
@@ -1535,10 +1536,9 @@ mod test {
 			while !MigrationProcess::<Test>::get().finished() {
 				// first we compute the task to get the accurate consumption.
 				let mut task = StateTrieMigration::migration_process();
-				let result = task.migrate_until_exhaustion(
+				assert_ok!(task.migrate_until_exhaustion(
 					StateTrieMigration::signed_migration_max_limits().unwrap(),
-				);
-				assert!(result.is_ok());
+				));
 
 				frame_support::assert_ok!(StateTrieMigration::continue_migrate(
 					RuntimeOrigin::signed(1),
@@ -1549,6 +1549,7 @@ mod test {
 
 				// no funds should remain reserved.
 				assert_eq!(Balances::reserved_balance(&1), 0);
+				assert_eq!(Balances::free_balance(&1), 1000);
 
 				// and the task should be updated
 				assert!(matches!(
@@ -1556,6 +1557,37 @@ mod test {
 					MigrationTask { size: x, .. } if x > 0,
 				));
 			}
+		});
+	}
+
+	#[test]
+	fn continue_migrate_slashing_works() {
+		new_test_ext(StateVersion::V0, true, None, None).execute_with(|| {
+			assert_eq!(MigrationProcess::<Test>::get(), Default::default());
+
+			// Allow signed migrations.
+			SignedMigrationMaxLimits::<Test>::put(MigrationLimits { size: 1024, item: 5 });
+
+			// first we compute the task to get the accurate consumption.
+			let mut task = StateTrieMigration::migration_process();
+			assert_ok!(task.migrate_until_exhaustion(
+					StateTrieMigration::signed_migration_max_limits().unwrap(),
+				));
+
+			// can't submit with `real_size_upper` < `task.dyn_size` expect slashing
+			frame_support::assert_ok!(StateTrieMigration::continue_migrate(
+					RuntimeOrigin::signed(1),
+					StateTrieMigration::signed_migration_max_limits().unwrap(),
+					task.dyn_size - 1,
+					MigrationProcess::<Test>::get()
+			));
+			// no funds should remain reserved.
+			assert_eq!(Balances::reserved_balance(&1), 0);
+			// user was slashed
+			assert_eq!(
+				Balances::free_balance(&1),
+				1000 - (5 * SignedDepositPerItem::get())
+			);
 		});
 	}
 
