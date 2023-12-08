@@ -286,7 +286,7 @@ where
 			.header(hash)
 			.map(|opt_header| opt_header.map(|h| hex_string(&h.encode())))
 			.map_err(|err| ChainHeadRpcError::InternalError(err.to_string()))
-    }
+	}
 
 	fn chain_head_unstable_storage(
 		&self,

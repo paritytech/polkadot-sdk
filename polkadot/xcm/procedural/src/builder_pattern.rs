@@ -148,9 +148,7 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 		.iter()
 		.map(|variant| {
 			let maybe_builder_attr = variant.attrs.iter().find(|attr| match attr.meta {
-				Meta::List(ref list) => {
-					return list.path.is_ident("builder");
-				},
+				Meta::List(ref list) => return list.path.is_ident("builder"),
 				_ => false,
 			});
 			let builder_attr = match maybe_builder_attr {

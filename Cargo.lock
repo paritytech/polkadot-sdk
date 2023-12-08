@@ -6524,7 +6524,7 @@ version = "0.21.0"
 source = "git+https://github.com/paritytech/jsonrpsee?branch=master#073aa2815f0581d5669ab5910e8313f508e543b5"
 dependencies = [
  "heck",
- "proc-macro-crate 2.0.0",
+ "proc-macro-crate 2.0.1",
  "proc-macro2",
  "quote",
  "syn 1.0.109",
