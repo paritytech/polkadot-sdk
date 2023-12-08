@@ -15,9 +15,11 @@ the versioning story for the crates, node and Westend & Rococo. To easily refer 
 
 ## Crate
 
-We try to follow SemVer<sup>1</sup> as best as possible for versioning our crates' public APIs.  
+We try to follow SemVer<sup>1</sup> as best as possible for versioning our crates. SemVer requires a piece of software to first declare a public API. The public API of the Polkadot SDK is hereby declared as the sum of all crates' public APIs, with the exception of the following internal crates:
 
-👉 The public API of our library crates is defined as all public items that are not inside a `__private` module.
+- @bkchr the list of node internals please
+
+The public API of our library crates is declared as all public items that are not inside a `__private` module.
 
 ## Node
 
