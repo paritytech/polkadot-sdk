@@ -4,7 +4,7 @@
 //!
 //! ## Overview
 //!
-//! XCM is a language angostic standard, whose specification lives in the [xcm format repo](https://github.com/paritytech/xcm-format).
+//! XCM is a language agnostic standard, whose specification lives in the [xcm format repo](https://github.com/paritytech/xcm-format).
 //!
 //! It enables different consensus systems to communicate with each other in an expressive manner.
 //! Consensus systems include blockchains, smart contracts, and any other state machine that achieves consensus in some way.
