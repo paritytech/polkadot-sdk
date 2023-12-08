@@ -28,6 +28,9 @@ proc-macro-warning = { version = "1.0.0", default-features = false }
 expander = "2.0.0"
 sp-core-hashing = { path = "../../../primitives/core/hashing" }
 
+[dev-dependencies]
+regex = "1"
+
 [features]
 default = ["std"]
 std = []

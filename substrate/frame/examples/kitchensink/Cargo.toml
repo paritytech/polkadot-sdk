@@ -7,6 +7,7 @@ license = "MIT-0"
 homepage = "https://substrate.io"
 repository.workspace = true
 description = "FRAME example kitchensink pallet"
+publish = false
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
