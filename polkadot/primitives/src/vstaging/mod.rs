@@ -30,7 +30,7 @@ pub mod node_features {
 	#[repr(u8)]
 	pub enum FeatureIndex {
 		/// Tells if tranch0 assignments could be sent in a single certificate.
-		/// Reserved for: https://github.com/paritytech/polkadot-sdk/issues/628
+		/// Reserved for: `<https://github.com/paritytech/polkadot-sdk/issues/628>`
 		EnableAssignmentsV2 = 0,
 		/// First unassigned feature bit.
 		/// Every time a new feature flag is assigned it should take this value.
