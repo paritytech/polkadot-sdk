@@ -316,10 +316,18 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 		value: Self::Balance,
 		num_slashing_spans: u32,
 	) -> DispatchResult {
-		// fixme(ank4n) handle killing of stash
-		let _stash_killed: bool =
-			T::CoreStaking::withdraw_exact(delegatee, value, num_slashing_spans)
-				.map_err(|_| Error::<T>::WithdrawFailed)?;
+		// check how much is already unbonded
+		let delegation_register = <Delegatees<T>>::get(delegatee).ok_or(Error::<T>::NotDelegatee)?;
+		let unbonded_balance = delegation_register.unbonded_balance();
+
+		if unbonded_balance < value {
+			// fixme(ank4n) handle killing of stash
+			let amount_to_withdraw = value.saturating_sub(unbonded_balance);
+			let _stash_killed: bool =
+				T::CoreStaking::withdraw_exact(delegatee, amount_to_withdraw, num_slashing_spans)
+					.map_err(|_| Error::<T>::WithdrawFailed)?;
+		}
+
 		Self::delegation_withdraw(delegator, delegatee, value)
 	}
 
@@ -369,7 +377,7 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 		ensure!(delegatee != delegator, Error::<T>::InvalidDelegation);
 		ensure!(<Delegatees<T>>::contains_key(delegatee), Error::<T>::NotDelegatee);
 
-		// cannot delegate to another delegatee.
+		// A delegatee cannot delegate.
 		if <Delegatees<T>>::contains_key(delegator) {
 			return Err(Error::<T>::InvalidDelegation.into())
 		}
@@ -670,34 +678,25 @@ impl<T: Config> Pallet<T> {
 		delegatee: &T::AccountId,
 		value: BalanceOf<T>,
 	) -> DispatchResult {
-		<Delegators<T>>::mutate_exists(delegator, |maybe_delegate| match maybe_delegate {
-			Some((current_delegatee, delegate_balance)) => {
-				ensure!(&current_delegatee.clone() == delegatee, Error::<T>::NotDelegatee);
-				ensure!(*delegate_balance >= value, Error::<T>::NotEnoughFunds);
 
-				delegate_balance.saturating_reduce(value);
+		let mut delegation_register = <Delegatees<T>>::get(delegatee).ok_or(Error::<T>::NotDelegatee)?;
+		ensure!(delegation_register.unbonded_balance() >= value, Error::<T>::BadState);
 
-				if *delegate_balance == BalanceOf::<T>::zero() {
-					*maybe_delegate = None;
-				}
-				Ok(())
-			},
-			None => {
-				// delegator does not exist
-				return Err(Error::<T>::NotDelegator)
-			},
-		})?;
+		delegation_register.total_delegated.saturating_reduce(value);
+		<Delegatees<T>>::insert(delegatee, delegation_register);
 
-		<Delegatees<T>>::mutate(delegatee, |maybe_register| match maybe_register {
-			Some(ledger) => {
-				ledger.total_delegated.saturating_reduce(value);
-				Ok(())
-			},
-			None => {
-				// Delegatee not found
-				return Err(Error::<T>::NotDelegatee)
-			},
-		})?;
+		let (assigned_delegatee, delegate_balance) = <Delegators<T>>::get(delegator).ok_or(Error::<T>::NotDelegator)?;
+		// delegator should already be delegating to delegatee
+		ensure!(&assigned_delegatee == delegatee, Error::<T>::NotDelegatee);
+		ensure!(delegate_balance >= value, Error::<T>::NotEnoughFunds);
+		let updated_delegate_balance = delegate_balance.saturating_sub(value);
+
+		// remove delegator if nothing delegated anymore
+		if updated_delegate_balance == BalanceOf::<T>::zero() {
+			<Delegators<T>>::remove(delegator);
+		} else {
+			<Delegators<T>>::insert(delegator, (delegatee, updated_delegate_balance));
+		}
 
 		let released = T::Currency::release(
 			&HoldReason::Delegating.into(),

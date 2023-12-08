@@ -101,9 +101,29 @@ fn create_multiple_delegators() {
 }
 
 #[test]
-fn withdraw_delegation() {
+fn delegate_restrictions() {
 	// Similar to creating a nomination pool
-	ExtBuilder::default().build_and_execute(|| assert!(true));
+	ExtBuilder::default().build_and_execute(|| {
+		let delegatee_one = 200;
+		let delegator_one = 210;
+		assert_ok!(DelegatedStaking::accept_delegations(fund(&delegatee_one, 100), &(delegatee_one+1)));
+		assert_ok!(DelegatedStaking::delegate(fund(&delegator_one, 200), &delegatee_one, 100));
+
+		let delegatee_two = 300;
+		let delegator_two = 310;
+		assert_ok!(DelegatedStaking::accept_delegations(fund(&delegatee_two, 100), &(delegatee_two+1)));
+		assert_ok!(DelegatedStaking::delegate(fund(&delegator_two, 200), &delegatee_two, 100));
+
+		// delegatee one tries to delegate to delegatee 2
+		assert_noop!(DelegatedStaking::delegate(&delegatee_one, &delegatee_two, 10), Error::<T>::InvalidDelegation);
+
+		// delegatee one tries to delegate to a delegator
+		assert_noop!(DelegatedStaking::delegate(&delegatee_one, &delegator_one, 10), Error::<T>::NotDelegatee);
+		assert_noop!(DelegatedStaking::delegate(&delegatee_one, &delegator_two, 10), Error::<T>::NotDelegatee);
+
+		// delegator one tries to delegate to delegatee 2 as well (it already delegates to delegatee 1)
+		assert_noop!(DelegatedStaking::delegate(&delegator_one, &delegatee_two, 10), Error::<T>::InvalidDelegation);
+	});
 }
 
 #[test]
@@ -252,8 +272,24 @@ mod integration {
 	}
 
 	#[test]
-	fn direct_withdraw_ends_up_in_limbo() {
+	fn withdraw_happens_with_unbonded_balance_first() {
+		ExtBuilder::default().build_and_execute(|| {
+			let delegatee = 200;
+			setup_delegation_stake(delegatee, 201, (300..350).collect(), 100, 0);
 
+			// verify withdraw not possible yet
+			assert_noop!(DelegatedStaking::withdraw(&300, &delegatee, 100, 0), Error::<T>::WithdrawFailed);
+
+			// add new delegation that is not staked
+			assert_ok!(DelegatedStaking::delegate(fund(&300, 1000), &delegatee, 100));
+
+			// verify unbonded balance
+			assert_eq!(DelegatedStaking::unbonded_balance(&delegatee), 100);
+
+			// withdraw works now without unbonding
+			assert_ok!(DelegatedStaking::withdraw(&300, &delegatee, 100, 0));
+			assert_eq!(DelegatedStaking::unbonded_balance(&delegatee), 0);
+		});
 	}
 
 	#[test]
