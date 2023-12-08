@@ -1148,6 +1148,7 @@ impl parachains_paras::Config for Runtime {
 	type UnsignedPriority = ParasUnsignedPriority;
 	type QueueFootprinter = ParaInclusion;
 	type NextSessionRotation = Babe;
+	type PreCodeUpgradeChecker = Registrar;
 	type OnCodeUpgrade = Registrar;
 	type OnNewHead = ();
 }

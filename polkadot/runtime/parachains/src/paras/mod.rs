@@ -522,6 +522,23 @@ impl OnCodeUpgrade for () {
 	}
 }
 
+pub trait PreCodeUpgradeChecker {
+	/// A function that performs custom logic to determine whether a code upgrade is allowed to be
+	/// performed.
+	///
+	/// This is currently utilized by the registrar pallet to ensure that the necessary validation
+	/// code upgrade costs are covered.
+	fn can_upgrade(id: ParaId, new_code: ValidationCode) -> DispatchResultWithPostInfo;
+}
+
+/// An empty implementation of the trait where there are no checks performed before scheduling a
+/// code upgrade.
+impl PreCodeUpgradeChecker for () {
+	fn can_upgrade(_id: ParaId, _new_code: ValidationCode) -> DispatchResultWithPostInfo {
+		Ok(().into())
+	}
+}
+
 pub trait WeightInfo {
 	fn force_set_current_code(c: u32) -> Weight;
 	fn force_set_current_head(s: u32) -> Weight;
@@ -618,6 +635,10 @@ pub mod pallet {
 
 		/// Runtime hook for when a parachain head is updated.
 		type OnNewHead: OnNewHead;
+
+		/// A type that performs custom logic to determine whether a code upgrade is allowed to be
+		/// performed.
+		type PreCodeUpgradeChecker: PreCodeUpgradeChecker;
 
 		/// Type that executes some custom logic upon a successful code upgrade.
 		type OnCodeUpgrade: OnCodeUpgrade;
