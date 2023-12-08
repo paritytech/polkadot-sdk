@@ -25,7 +25,7 @@
 #[macro_export]
 macro_rules! hex2array {
 	($input:expr) => {{
-		const BYTES: [u8; $input.len() >> 1] = $crate::const_hex2array::private_hex2array($input);
+		const BYTES: [u8; $input.len() / 2] = $crate::const_hex2array::private_hex2array($input);
 		BYTES
 	}};
 }
@@ -47,9 +47,9 @@ macro_rules! hex2array {
 pub const fn private_hex2array<const N: usize>(hex: &str) -> [u8; N] {
 	const fn c2b(c: u8) -> u8 {
 		match c as char {
-			'0'..='9' => c - 48,
-			'a'..='f' => c - 87,
-			'A'..='F' => c - 55,
+			'0'..='9' => c - b'0',
+			'a'..='f' => c - (b'a' - 10),
+			'A'..='F' => c - (b'A' - 10),
 			_ => panic!("hex string contains invalid character"),
 		}
 	}
