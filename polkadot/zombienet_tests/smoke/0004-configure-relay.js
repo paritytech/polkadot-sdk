@@ -10,7 +10,7 @@ async function run(nodeName, networkInfo, _jsArgs) {
   const keyring = new zombie.Keyring({ type: "sr25519" });
   const alice = keyring.addFromUri("//Alice");
 
-  const calls = [api.tx.configuration.setOnDemandCores({ new: 1 })];
+  const calls = [api.tx.configuration.setCoretimeCores({ new: 1 })];
   const sudo_batch = api.tx.sudo.sudo(api.tx.utility.batch(calls));
 
   await new Promise(async (resolve, reject) => {
