@@ -219,7 +219,10 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 		ensure!(reward_destination != who, Error::<T>::InvalidRewardDestination);
 
 		// make sure they are not already a direct staker or they are migrating.
-		ensure!(T::CoreStaking::status(who).is_err() || <DelegateeMigration<T>>::contains_key(who), Error::<T>::AlreadyStaker);
+		ensure!(
+			T::CoreStaking::status(who).is_err() || <DelegateeMigration<T>>::contains_key(who),
+			Error::<T>::AlreadyStaker
+		);
 
 		// already checked delegatees exist
 		<Delegatees<T>>::insert(
@@ -397,7 +400,6 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 		// transfer the withdrawn value to `new_delegator`.
 		T::Currency::transfer(&proxy_delegator, new_delegator, value, Preservation::Expendable)
 			.map_err(|_| Error::<T>::BadState)?;
-
 
 		// add the above removed delegation to `new_delegator`.
 		<Delegators<T>>::insert(new_delegator, (delegatee, value));

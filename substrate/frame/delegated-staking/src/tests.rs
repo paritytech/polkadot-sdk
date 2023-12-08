@@ -433,10 +433,7 @@ mod integration {
 				staked_amount,
 				RewardDestination::Account(201)
 			));
-			assert_ok!(Staking::nominate(
-				RuntimeOrigin::signed(200),
-				vec![GENESIS_VALIDATOR],
-			));
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(200), vec![GENESIS_VALIDATOR],));
 			let init_stake = Staking::stake(&200).unwrap();
 
 			// scenario: 200 is a pool account, and the stake comes from its 4 delegators (300..304)
@@ -465,7 +462,7 @@ mod integration {
 			assert_eq!(DelegatedStaking::unbonded_balance(&200), 0);
 
 			// now lets migrate the delegators
-			let delegator_share = staked_amount/4;
+			let delegator_share = staked_amount / 4;
 			for delegator in 300..304 {
 				assert_eq!(Balances::free_balance(delegator), 0);
 				// fund them with ED
@@ -491,7 +488,10 @@ mod integration {
 			assert!(!DelegatedStaking::is_migrating(&200));
 
 			// cannot use migrate delegator anymore
-			assert_noop!(DelegatedStaking::migrate_delegator(&200, &305, 1), Error::<T>::NotMigrating);
+			assert_noop!(
+				DelegatedStaking::migrate_delegator(&200, &305, 1),
+				Error::<T>::NotMigrating
+			);
 		});
 	}
 }
