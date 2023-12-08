@@ -12658,6 +12658,8 @@ dependencies = [
  "async-trait",
  "futures",
  "parking_lot 0.12.1",
+ "polkadot-erasure-coding",
+ "polkadot-node-primitives",
  "polkadot-node-subsystem",
  "polkadot-node-subsystem-util",
  "polkadot-primitives",

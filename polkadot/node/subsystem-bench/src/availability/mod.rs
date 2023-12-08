@@ -18,8 +18,8 @@ use std::{collections::HashMap, iter::Cycle, ops::Sub, sync::Arc, time::Instant}
 
 use crate::TestEnvironment;
 use polkadot_node_subsystem::{Overseer, OverseerConnector, SpawnGlue};
+use polkadot_node_subsystem_test_helpers::derive_erasure_chunks_with_proofs_and_root;
 use polkadot_overseer::Handle as OverseerHandle;
-
 use sc_network::request_responses::ProtocolConfig;
 
 use colored::Colorize;
@@ -31,9 +31,8 @@ use polkadot_availability_recovery::AvailabilityRecoverySubsystem;
 
 use crate::GENESIS_HASH;
 use parity_scale_codec::Encode;
-use polkadot_erasure_coding::{branches, obtain_chunks_v1 as obtain_chunks};
 use polkadot_node_network_protocol::request_response::{IncomingRequest, ReqProtocolNames};
-use polkadot_node_primitives::{BlockData, PoV, Proof};
+use polkadot_node_primitives::{BlockData, PoV};
 use polkadot_node_subsystem::messages::{AllMessages, AvailabilityRecoveryMessage};
 
 use crate::core::{
@@ -55,7 +54,6 @@ use super::{cli::TestObjective, core::mock::AlwaysSupportsParachains};
 use polkadot_node_subsystem_test_helpers::mock::new_block_import_info;
 use polkadot_primitives::{
 	CandidateHash, CandidateReceipt, GroupIndex, Hash, HeadData, PersistedValidationData,
-	ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 use sc_service::SpawnTaskHandle;
@@ -272,33 +270,6 @@ impl TestState {
 		_self.generate_candidates();
 		_self
 	}
-}
-
-fn derive_erasure_chunks_with_proofs_and_root(
-	n_validators: usize,
-	available_data: &AvailableData,
-	alter_chunk: impl Fn(usize, &mut Vec<u8>),
-) -> (Vec<ErasureChunk>, Hash) {
-	let mut chunks: Vec<Vec<u8>> = obtain_chunks(n_validators, available_data).unwrap();
-
-	for (i, chunk) in chunks.iter_mut().enumerate() {
-		alter_chunk(i, chunk)
-	}
-
-	// create proofs for each erasure chunk
-	let branches = branches(chunks.as_ref());
-
-	let root = branches.root();
-	let erasure_chunks = branches
-		.enumerate()
-		.map(|(index, (proof, chunk))| ErasureChunk {
-			chunk: chunk.to_vec(),
-			index: ValidatorIndex(index as _),
-			proof: Proof::try_from(proof).unwrap(),
-		})
-		.collect::<Vec<ErasureChunk>>();
-
-	(erasure_chunks, root)
 }
 
 pub async fn benchmark_availability_read(env: &mut TestEnvironment, mut state: TestState) {
