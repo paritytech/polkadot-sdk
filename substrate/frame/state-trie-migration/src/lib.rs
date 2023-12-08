@@ -80,10 +80,7 @@ pub mod pallet {
 		ensure,
 		pallet_prelude::*,
 		traits::{
-			fungible::{
-				hold::Balanced as FunBalanced, Inspect as FunInspect,
-				InspectHold as FunInspectHold, Mutate as FunMutate, MutateHold as FunMutateHold,
-			},
+			fungible::{hold::Balanced, Inspect, InspectHold, Mutate, MutateHold},
 			tokens::{Fortitude, Precision},
 			Get,
 		},
@@ -99,7 +96,7 @@ pub mod pallet {
 	use sp_std::{ops::Deref, prelude::*};
 
 	pub(crate) type BalanceOf<T> =
-		<<T as Config>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
+		<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 	/// The progress of either the top or child keys.
 	#[derive(
@@ -498,10 +495,10 @@ pub mod pallet {
 
 		/// The currency provider type.
 		#[pallet::no_default]
-		type Currency: FunInspectHold<Self::AccountId>
-			+ FunMutate<Self::AccountId>
-			+ FunMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
-			+ FunBalanced<Self::AccountId>;
+		type Currency: InspectHold<Self::AccountId>
+			+ Mutate<Self::AccountId>
+			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ Balanced<Self::AccountId>;
 
 		/// The overarching runtime hold reason.
 		#[pallet::no_default_bounds]
