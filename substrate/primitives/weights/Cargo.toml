@@ -21,6 +21,7 @@ smallvec = "1.11.0"
 sp-arithmetic = { path = "../arithmetic", default-features = false }
 sp-debug-derive = { path = "../debug-derive", default-features = false }
 sp-std = { path = "../std", default-features = false }
+schemars = { version = "0.8.3", default-features = false, optional = true }
 
 [features]
 default = ["std"]
@@ -43,4 +44,8 @@ serde = [
 	"dep:serde",
 	"scale-info/serde",
 	"sp-arithmetic/serde",
+]
+
+json-schema = [
+	"dep:schemars",
 ]
