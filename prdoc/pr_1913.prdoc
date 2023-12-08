@@ -7,13 +7,6 @@ doc:
       If experiencing stability issues caused by BEEFY, it can be disabled using `--no-beefy` flag.
       BEEFY doesn't (yet) support warp sync. So, attempting to Warp sync as a validator will throw an error.
 
-migrations:
-  db: []
-
-  runtime: []
-
 crates:
   - name: polkadot-cli
   - name: polkadot-service
-
-host_functions: []

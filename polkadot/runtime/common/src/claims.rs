@@ -710,7 +710,7 @@ mod tests {
 	use crate::claims;
 	use claims::Call as ClaimsCall;
 	use frame_support::{
-		assert_err, assert_noop, assert_ok,
+		assert_err, assert_noop, assert_ok, derive_impl,
 		dispatch::{GetDispatchInfo, Pays},
 		ord_parameter_types, parameter_types,
 		traits::{ConstU32, ExistenceRequirement, WithdrawReasons},
@@ -739,6 +739,8 @@ mod tests {
 	parameter_types! {
 		pub const BlockHashCount: u32 = 250;
 	}
+
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();
