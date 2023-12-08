@@ -13,7 +13,7 @@ arbitrary = { version = "1", optional = true, features = ["derive"] }
 snowbridge-ethereum-beacon-client = {path = "..", features = [ "fuzzing" ]}
 snowbridge-beacon-primitives= {path = "../../../primitives/beacon"}
 hex-literal = "0.4.1"
-sp-core = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
+sp-core = { path = "../../../../../../substrate/primitives/core", default-features = false }
 
 # Prevent this from interfering with workspaces
 [workspace]

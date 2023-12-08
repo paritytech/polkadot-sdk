@@ -10,17 +10,17 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 scale-info = { version = "2.9.0", default-features = false, features = [ "derive" ] }
 hex-literal = { version = "0.4.1" }
 
-polkadot-parachain-primitives = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
-xcm = { package = "staging-xcm", git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
-xcm-builder = { package = "staging-xcm-builder", git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
+polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false }
+xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false }
 
-frame-support = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
-frame-system = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
-sp-std = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
-sp-io = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
-sp-core = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
-sp-arithmetic = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
+frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
+frame-system = { path = "../../../../../substrate/frame/system", default-features = false }
+sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false }
+sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
+sp-io = { path = "../../../../../substrate/primitives/io", default-features = false }
+sp-core = { path = "../../../../../substrate/primitives/core", default-features = false }
+sp-arithmetic = { path = "../../../../../substrate/primitives/arithmetic", default-features = false }
 
 snowbridge-beacon-primitives = { path = "../../primitives/beacon", default-features = false }
 
