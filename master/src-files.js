@@ -461,7 +461,6 @@ var srcIndex = JSON.parse('{\
 "test_parachain_undying_collator":["",[],["lib.rs"]],\
 "test_parachains":["",[],["lib.rs"]],\
 "test_runtime_constants":["",[["weights",[],["block_weights.rs","extrinsic_weights.rs","mod.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["lib.rs"]],\
-"testnets_common":["",[],["lib.rs","rococo.rs","westend.rs","wococo.rs"]],\
 "tracing_gum":["",[],["lib.rs"]],\
 "tracing_gum_proc_macro":["",[],["lib.rs","types.rs"]],\
 "try_runtime_cli":["",[["commands",[],["create_snapshot.rs","execute_block.rs","fast_forward.rs","follow_chain.rs","mod.rs","offchain_worker.rs","on_runtime_upgrade.rs"]]],["block_building_info.rs","lib.rs","parse.rs"]],\

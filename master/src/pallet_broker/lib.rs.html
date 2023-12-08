@@ -778,10 +778,6 @@
 <a href="#778" id="778">778</a>
 <a href="#779" id="779">779</a>
 <a href="#780" id="780">780</a>
-<a href="#781" id="781">781</a>
-<a href="#782" id="782">782</a>
-<a href="#783" id="783">783</a>
-<a href="#784" id="784">784</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1500,55 +1496,51 @@
 
 		<span class="doccomment">/// Drop an expired Region from the chain.
 		///
-		/// - `origin`: Must be a Signed origin.
+		/// - `origin`: Can be any kind of origin.
 		/// - `region_id`: The Region which has expired.
 		</span><span class="attr">#[pallet::call_index(<span class="number">14</span>)]
 		</span><span class="kw">pub fn </span>drop_region(
-			origin: OriginFor&lt;T&gt;,
+			_origin: OriginFor&lt;T&gt;,
 			region_id: RegionId,
 		) -&gt; DispatchResultWithPostInfo {
-			<span class="kw">let _ </span>= ensure_signed(origin)<span class="question-mark">?</span>;
 			<span class="self">Self</span>::do_drop_region(region_id)<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(Pays::No.into())
 		}
 
 		<span class="doccomment">/// Drop an expired Instantaneous Pool Contribution record from the chain.
 		///
-		/// - `origin`: Must be a Signed origin.
+		/// - `origin`: Can be any kind of origin.
 		/// - `region_id`: The Region identifying the Pool Contribution which has expired.
 		</span><span class="attr">#[pallet::call_index(<span class="number">15</span>)]
 		</span><span class="kw">pub fn </span>drop_contribution(
-			origin: OriginFor&lt;T&gt;,
+			_origin: OriginFor&lt;T&gt;,
 			region_id: RegionId,
 		) -&gt; DispatchResultWithPostInfo {
-			<span class="kw">let _ </span>= ensure_signed(origin)<span class="question-mark">?</span>;
 			<span class="self">Self</span>::do_drop_contribution(region_id)<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(Pays::No.into())
 		}
 
 		<span class="doccomment">/// Drop an expired Instantaneous Pool History record from the chain.
 		///
-		/// - `origin`: Must be a Signed origin.
+		/// - `origin`: Can be any kind of origin.
 		/// - `region_id`: The time of the Pool History record which has expired.
 		</span><span class="attr">#[pallet::call_index(<span class="number">16</span>)]
-		</span><span class="kw">pub fn </span>drop_history(origin: OriginFor&lt;T&gt;, when: Timeslice) -&gt; DispatchResultWithPostInfo {
-			<span class="kw">let _ </span>= ensure_signed(origin)<span class="question-mark">?</span>;
+		</span><span class="kw">pub fn </span>drop_history(_origin: OriginFor&lt;T&gt;, when: Timeslice) -&gt; DispatchResultWithPostInfo {
 			<span class="self">Self</span>::do_drop_history(when)<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(Pays::No.into())
 		}
 
 		<span class="doccomment">/// Drop an expired Allowed Renewal record from the chain.
 		///
-		/// - `origin`: Must be a Signed origin of the account which owns the Region `region_id`.
+		/// - `origin`: Can be any kind of origin.
 		/// - `core`: The core to which the expired renewal refers.
 		/// - `when`: The timeslice to which the expired renewal refers. This must have passed.
 		</span><span class="attr">#[pallet::call_index(<span class="number">17</span>)]
 		</span><span class="kw">pub fn </span>drop_renewal(
-			origin: OriginFor&lt;T&gt;,
+			_origin: OriginFor&lt;T&gt;,
 			core: CoreIndex,
 			when: Timeslice,
 		) -&gt; DispatchResultWithPostInfo {
-			<span class="kw">let _ </span>= ensure_signed(origin)<span class="question-mark">?</span>;
 			<span class="self">Self</span>::do_drop_renewal(core, when)<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(Pays::No.into())
 		}

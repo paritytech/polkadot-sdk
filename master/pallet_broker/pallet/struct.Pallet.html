@@ -6,7 +6,7 @@ functions within the pallet.</p>
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.74.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="type" href="../type.Timeslice.html" title="type pallet_broker::Timeslice">Timeslice</a>&gt;</h4></section><section id="method.account_id" class="method"><a class="src rightside" href="../../src/pallet_broker/utility_impls.rs.html#59-61">source</a><h4 class="code-header">pub fn <a href="#method.account_id" class="fn">account_id</a>() -&gt; T::<a class="associatedtype" href="../../frame_system/pallet/trait.Config.html#associatedtype.AccountId" title="type frame_system::pallet::Config::AccountId">AccountId</a></h4></section><section id="method.sale_price" class="method"><a class="src rightside" href="../../src/pallet_broker/utility_impls.rs.html#63-67">source</a><h4 class="code-header">pub fn <a href="#method.sale_price" class="fn">sale_price</a>(
     sale: &amp;<a class="type" href="../type.SaleInfoRecordOf.html" title="type pallet_broker::SaleInfoRecordOf">SaleInfoRecordOf</a>&lt;T&gt;,
     now: <a class="type" href="../../frame_system/pallet_prelude/type.BlockNumberFor.html" title="type frame_system::pallet_prelude::BlockNumberFor">BlockNumberFor</a>&lt;T&gt;
-) -&gt; <a class="type" href="../type.BalanceOf.html" title="type pallet_broker::BalanceOf">BalanceOf</a>&lt;T&gt;</h4></section></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-Pallet%3CT%3E-1" class="impl"><a class="src rightside" href="../../src/pallet_broker/lib.rs.html#485-783">source</a><a href="#impl-Pallet%3CT%3E-1" class="anchor">§</a><h3 class="code-header">impl&lt;T: <a class="trait" href="trait.Config.html" title="trait pallet_broker::pallet::Config">Config</a>&gt; <a class="struct" href="struct.Pallet.html" title="struct pallet_broker::pallet::Pallet">Pallet</a>&lt;T&gt;</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.configure" class="method"><a class="src rightside" href="../../src/pallet_broker/lib.rs.html#49">source</a><h4 class="code-header">pub fn <a href="#method.configure" class="fn">configure</a>(
+) -&gt; <a class="type" href="../type.BalanceOf.html" title="type pallet_broker::BalanceOf">BalanceOf</a>&lt;T&gt;</h4></section></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-Pallet%3CT%3E-1" class="impl"><a class="src rightside" href="../../src/pallet_broker/lib.rs.html#485-779">source</a><a href="#impl-Pallet%3CT%3E-1" class="anchor">§</a><h3 class="code-header">impl&lt;T: <a class="trait" href="trait.Config.html" title="trait pallet_broker::pallet::Config">Config</a>&gt; <a class="struct" href="struct.Pallet.html" title="struct pallet_broker::pallet::Pallet">Pallet</a>&lt;T&gt;</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.configure" class="method"><a class="src rightside" href="../../src/pallet_broker/lib.rs.html#49">source</a><h4 class="code-header">pub fn <a href="#method.configure" class="fn">configure</a>(
     origin: <a class="type" href="../../frame_system/pallet_prelude/type.OriginFor.html" title="type frame_system::pallet_prelude::OriginFor">OriginFor</a>&lt;T&gt;,
     config: <a class="type" href="../type.ConfigRecordOf.html" title="type pallet_broker::ConfigRecordOf">ConfigRecordOf</a>&lt;T&gt;
 ) -&gt; <a class="type" href="../../frame_support/dispatch/type.DispatchResultWithPostInfo.html" title="type frame_support::dispatch::DispatchResultWithPostInfo">DispatchResultWithPostInfo</a></h4></section></summary><div class="docblock"><p>Configure the pallet.</p>
@@ -160,36 +160,36 @@ collected.</li>
 this will be the collator’s hot wallet).</li>
 </ul>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.drop_region" class="method"><a class="src rightside" href="../../src/pallet_broker/lib.rs.html#49">source</a><h4 class="code-header">pub fn <a href="#method.drop_region" class="fn">drop_region</a>(
-    origin: <a class="type" href="../../frame_system/pallet_prelude/type.OriginFor.html" title="type frame_system::pallet_prelude::OriginFor">OriginFor</a>&lt;T&gt;,
+    _origin: <a class="type" href="../../frame_system/pallet_prelude/type.OriginFor.html" title="type frame_system::pallet_prelude::OriginFor">OriginFor</a>&lt;T&gt;,
     region_id: <a class="struct" href="../struct.RegionId.html" title="struct pallet_broker::RegionId">RegionId</a>
 ) -&gt; <a class="type" href="../../frame_support/dispatch/type.DispatchResultWithPostInfo.html" title="type frame_support::dispatch::DispatchResultWithPostInfo">DispatchResultWithPostInfo</a></h4></section></summary><div class="docblock"><p>Drop an expired Region from the chain.</p>
 <ul>
-<li><code>origin</code>: Must be a Signed origin.</li>
+<li><code>origin</code>: Can be any kind of origin.</li>
 <li><code>region_id</code>: The Region which has expired.</li>
 </ul>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.drop_contribution" class="method"><a class="src rightside" href="../../src/pallet_broker/lib.rs.html#49">source</a><h4 class="code-header">pub fn <a href="#method.drop_contribution" class="fn">drop_contribution</a>(
-    origin: <a class="type" href="../../frame_system/pallet_prelude/type.OriginFor.html" title="type frame_system::pallet_prelude::OriginFor">OriginFor</a>&lt;T&gt;,
+    _origin: <a class="type" href="../../frame_system/pallet_prelude/type.OriginFor.html" title="type frame_system::pallet_prelude::OriginFor">OriginFor</a>&lt;T&gt;,
     region_id: <a class="struct" href="../struct.RegionId.html" title="struct pallet_broker::RegionId">RegionId</a>
 ) -&gt; <a class="type" href="../../frame_support/dispatch/type.DispatchResultWithPostInfo.html" title="type frame_support::dispatch::DispatchResultWithPostInfo">DispatchResultWithPostInfo</a></h4></section></summary><div class="docblock"><p>Drop an expired Instantaneous Pool Contribution record from the chain.</p>
 <ul>
-<li><code>origin</code>: Must be a Signed origin.</li>
+<li><code>origin</code>: Can be any kind of origin.</li>
 <li><code>region_id</code>: The Region identifying the Pool Contribution which has expired.</li>
 </ul>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.drop_history" class="method"><a class="src rightside" href="../../src/pallet_broker/lib.rs.html#49">source</a><h4 class="code-header">pub fn <a href="#method.drop_history" class="fn">drop_history</a>(
-    origin: <a class="type" href="../../frame_system/pallet_prelude/type.OriginFor.html" title="type frame_system::pallet_prelude::OriginFor">OriginFor</a>&lt;T&gt;,
+    _origin: <a class="type" href="../../frame_system/pallet_prelude/type.OriginFor.html" title="type frame_system::pallet_prelude::OriginFor">OriginFor</a>&lt;T&gt;,
     when: <a class="type" href="../type.Timeslice.html" title="type pallet_broker::Timeslice">Timeslice</a>
 ) -&gt; <a class="type" href="../../frame_support/dispatch/type.DispatchResultWithPostInfo.html" title="type frame_support::dispatch::DispatchResultWithPostInfo">DispatchResultWithPostInfo</a></h4></section></summary><div class="docblock"><p>Drop an expired Instantaneous Pool History record from the chain.</p>
 <ul>
-<li><code>origin</code>: Must be a Signed origin.</li>
+<li><code>origin</code>: Can be any kind of origin.</li>
 <li><code>region_id</code>: The time of the Pool History record which has expired.</li>
 </ul>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.drop_renewal" class="method"><a class="src rightside" href="../../src/pallet_broker/lib.rs.html#49">source</a><h4 class="code-header">pub fn <a href="#method.drop_renewal" class="fn">drop_renewal</a>(
-    origin: <a class="type" href="../../frame_system/pallet_prelude/type.OriginFor.html" title="type frame_system::pallet_prelude::OriginFor">OriginFor</a>&lt;T&gt;,
+    _origin: <a class="type" href="../../frame_system/pallet_prelude/type.OriginFor.html" title="type frame_system::pallet_prelude::OriginFor">OriginFor</a>&lt;T&gt;,
     core: <a class="type" href="../type.CoreIndex.html" title="type pallet_broker::CoreIndex">CoreIndex</a>,
     when: <a class="type" href="../type.Timeslice.html" title="type pallet_broker::Timeslice">Timeslice</a>
 ) -&gt; <a class="type" href="../../frame_support/dispatch/type.DispatchResultWithPostInfo.html" title="type frame_support::dispatch::DispatchResultWithPostInfo">DispatchResultWithPostInfo</a></h4></section></summary><div class="docblock"><p>Drop an expired Allowed Renewal record from the chain.</p>
 <ul>
-<li><code>origin</code>: Must be a Signed origin of the account which owns the Region <code>region_id</code>.</li>
+<li><code>origin</code>: Can be any kind of origin.</li>
 <li><code>core</code>: The core to which the expired renewal refers.</li>
 <li><code>when</code>: The timeslice to which the expired renewal refers. This must have passed.</li>
 </ul>

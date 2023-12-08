@@ -119,6 +119,25 @@
 <a href="#119" id="119">119</a>
 <a href="#120" id="120">120</a>
 <a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -134,7 +153,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">pub mod </span>currency {
+</span><span class="doccomment">/// Universally recognized accounts.
+</span><span class="kw">pub mod </span>account {
+	<span class="kw">use </span>frame_support::PalletId;
+
+	<span class="doccomment">/// Westend treasury pallet id, used to convert into AccountId - in Westend as a destination for
+	/// slashed funds.
+	</span><span class="kw">pub const </span>WESTEND_TREASURY_PALLET_ID: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b&quot;py/trsry&quot;</span>);
+	<span class="doccomment">/// Alliance pallet ID - used as a temporary place to deposit a slashed imbalance before the
+	/// teleport to the Treasury.
+	</span><span class="kw">pub const </span>ALLIANCE_PALLET_ID: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b&quot;py/allia&quot;</span>);
+	<span class="doccomment">/// Referenda pallet ID - used as a temporary place to deposit a slashed imbalance before the
+	/// teleport to the Treasury.
+	</span><span class="kw">pub const </span>REFERENDA_PALLET_ID: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b&quot;py/refer&quot;</span>);
+	<span class="doccomment">/// Ambassador Referenda pallet ID - used as a temporary place to deposit a slashed imbalance
+	/// before the teleport to the Treasury.
+	</span><span class="kw">pub const </span>AMBASSADOR_REFERENDA_PALLET_ID: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b&quot;py/amref&quot;</span>);
+}
+
+<span class="kw">pub mod </span>currency {
 	<span class="kw">use </span>polkadot_core_primitives::Balance;
 	<span class="kw">use </span>westend_runtime_constants <span class="kw">as </span>constants;
 
@@ -142,7 +179,8 @@
 	</span><span class="kw">pub const </span>EXISTENTIAL_DEPOSIT: Balance = constants::currency::EXISTENTIAL_DEPOSIT / <span class="number">10</span>;
 
 	<span class="kw">pub const </span>UNITS: Balance = constants::currency::UNITS;
-	<span class="kw">pub const </span>CENTS: Balance = constants::currency::CENTS;
+	<span class="kw">pub const </span>DOLLARS: Balance = UNITS; <span class="comment">// 1_000_000_000_000
+	</span><span class="kw">pub const </span>CENTS: Balance = constants::currency::CENTS;
 	<span class="kw">pub const </span>MILLICENTS: Balance = constants::currency::MILLICENTS;
 	<span class="kw">pub const </span>GRAND: Balance = constants::currency::GRAND;
 
@@ -165,7 +203,7 @@
 	<span class="kw">use </span>smallvec::smallvec;
 	<span class="kw">pub use </span>sp_runtime::Perbill;
 
-	<span class="doccomment">/// The block saturation level. Fees will be updates based on this value.
+	<span class="doccomment">/// The block saturation level. Fees will be updated based on this value.
 	</span><span class="kw">pub const </span>TARGET_BLOCK_FULLNESS: Perbill = Perbill::from_percent(<span class="number">25</span>);
 
 	<span class="doccomment">/// Handles converting a weight scalar to a fee value, based on the scale and granularity of the
@@ -231,11 +269,11 @@
 
 <span class="doccomment">/// Consensus-related.
 </span><span class="kw">pub mod </span>consensus {
-	<span class="doccomment">/// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
-	/// into the relay chain.
+	<span class="doccomment">/// Maximum number of blocks simultaneously accepted by the Runtime, not yet included into the
+	/// relay chain.
 	</span><span class="kw">pub const </span>UNINCLUDED_SEGMENT_CAPACITY: u32 = <span class="number">1</span>;
-	<span class="doccomment">/// How many parachain blocks are processed by the relay chain per parent. Limits the
-	/// number of blocks authored per slot.
+	<span class="doccomment">/// How many parachain blocks are processed by the relay chain per parent. Limits the number of
+	/// blocks authored per slot.
 	</span><span class="kw">pub const </span>BLOCK_PROCESSING_VELOCITY: u32 = <span class="number">1</span>;
 	<span class="doccomment">/// Relay chain slot duration, in milliseconds.
 	</span><span class="kw">pub const </span>RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = <span class="number">6000</span>;

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["CENTS","EXISTENTIAL_DEPOSIT","MILLICENTS","UNITS"],"fn":["deposit"]};
