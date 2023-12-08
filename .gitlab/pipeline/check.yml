@@ -7,7 +7,7 @@ cargo-clippy:
   variables:
     RUSTFLAGS: "-Dwarnings"
   script:
-    - SKIP_WASM_BUILD=1 env -u RUSTFLAGS cargo clippy --all-targets --locked --workspace
+    - SKIP_WASM_BUILD=1 cargo clippy --all-targets --locked --workspace
 
 check-try-runtime:
   stage: check
