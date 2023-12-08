@@ -79,7 +79,6 @@ This process aims to release the `release` branch as a *Mainline* release every 
 6. Run `cargo semver-checks` and `cargo public-api` again to ensure that there are no SemVer breaks.
 7. Internal QA from the release team can happen here.
 8. Do a dry-run release to ensure that it *should* work.
-9.  Merge it into `release`.
 10. Comment that a *Mainline* release will happen from the merged commit hash.
 11. Release all changed crates to crates.io.
 12. Create a release on GitHub.
@@ -98,7 +97,6 @@ This process aims to release the `master` branch as a *Nightly* release. The pro
 5. Do a dry-run release to ensure that it *should* work.
 6. Push this tag (the commit will not belong to any branch).
 8. Release all crates that had changed since the last nightly release to crates.io.
-9.  Create a pre-release on GitHub.
 
 ## Clobbering
 
