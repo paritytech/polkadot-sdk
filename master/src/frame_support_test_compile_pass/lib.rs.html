@@ -86,6 +86,7 @@
 <a href="#86" id="86">86</a>
 <a href="#87" id="87">87</a>
 <a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -110,7 +111,7 @@
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
 </span><span class="kw">use </span>renamed_frame_support::{
-	construct_runtime, parameter_types,
+	construct_runtime, derive_impl, parameter_types,
 	traits::{ConstU16, ConstU32, ConstU64, Everything},
 };
 <span class="kw">use </span>sp_core::{sr25519, H256};
@@ -139,7 +140,8 @@
 	<span class="kw">pub const </span>Version: RuntimeVersion = VERSION;
 }
 
-<span class="kw">impl </span>renamed_frame_system::Config <span class="kw">for </span>Runtime {
+<span class="attr">#[derive_impl(renamed_frame_system::config_preludes::TestDefaultConfig <span class="kw">as </span>renamed_frame_system::DefaultConfig)]
+</span><span class="kw">impl </span>renamed_frame_system::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>BaseCallFilter = Everything;
 	<span class="kw">type </span>BlockWeights = ();
 	<span class="kw">type </span>BlockLength = ();

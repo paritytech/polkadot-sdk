@@ -2874,6 +2874,13 @@
 <a href="#2874" id="2874">2874</a>
 <a href="#2875" id="2875">2875</a>
 <a href="#2876" id="2876">2876</a>
+<a href="#2877" id="2877">2877</a>
+<a href="#2878" id="2878">2878</a>
+<a href="#2879" id="2879">2879</a>
+<a href="#2880" id="2880">2880</a>
+<a href="#2881" id="2881">2881</a>
+<a href="#2882" id="2882">2882</a>
+<a href="#2883" id="2883">2883</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3179,6 +3186,11 @@
 }
 
 <span class="kw">impl </span>pallet_insecure_randomness_collective_flip::Config <span class="kw">for </span>Runtime {}
+
+<span class="kw">impl </span>pallet_example_tasks::Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>RuntimeTask = RuntimeTask;
+	<span class="kw">type </span>WeightInfo = pallet_example_tasks::weights::SubstrateWeight&lt;Runtime&gt;;
+}
 
 <span class="kw">impl </span>pallet_utility::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
@@ -5011,6 +5023,7 @@
 		SafeMode: pallet_safe_mode,
 		Statement: pallet_statement,
 		Broker: pallet_broker,
+		TasksExample: pallet_example_tasks,
 		Mixnet: pallet_mixnet,
 		SkipFeelessPayment: pallet_skip_feeless_payment,
 	}
@@ -5103,6 +5116,7 @@
 		[pallet_conviction_voting, ConvictionVoting]
 		[pallet_contracts, Contracts]
 		[pallet_core_fellowship, CoreFellowship]
+		[tasks_example, TasksExample]
 		[pallet_democracy, Democracy]
 		[pallet_asset_conversion, AssetConversion]
 		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]

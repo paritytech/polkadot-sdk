@@ -1105,6 +1105,8 @@
 <a href="#1105" id="1105">1105</a>
 <a href="#1106" id="1106">1106</a>
 <a href="#1107" id="1107">1107</a>
+<a href="#1108" id="1108">1108</a>
+<a href="#1109" id="1109">1109</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1802,6 +1804,7 @@
 			<span class="kw">type </span>BaseCallFilter: <span class="kw">crate</span>::traits::Contains&lt;<span class="self">Self</span>::RuntimeCall&gt;;
 			<span class="kw">type </span>RuntimeOrigin;
 			<span class="kw">type </span>RuntimeCall;
+			<span class="kw">type </span>RuntimeTask;
 			<span class="kw">type </span>PalletInfo: <span class="kw">crate</span>::traits::PalletInfo;
 			<span class="kw">type </span>DbWeight: Get&lt;<span class="kw">crate</span>::weights::RuntimeDbWeight&gt;;
 		}
@@ -1898,6 +1901,7 @@
 		<span class="kw">type </span>BaseCallFilter = <span class="kw">crate</span>::traits::Everything;
 		<span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;
 		<span class="kw">type </span>RuntimeCall = RuntimeCall;
+		<span class="kw">type </span>RuntimeTask = RuntimeTask;
 		<span class="kw">type </span>DbWeight = DbWeight;
 		<span class="kw">type </span>PalletInfo = PalletInfo;
 	}

@@ -39,6 +39,8 @@
 <a href="#39" id="39">39</a>
 <a href="#40" id="40">40</a>
 <a href="#41" id="41">41</a>
+<a href="#42" id="42">42</a>
+<a href="#43" id="43">43</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -67,6 +69,7 @@
 <span class="kw">mod </span>origin;
 <span class="kw">mod </span>outer_enums;
 <span class="kw">mod </span>slash_reason;
+<span class="kw">mod </span>task;
 <span class="kw">mod </span>unsigned;
 
 <span class="kw">pub use </span>call::expand_outer_dispatch;
@@ -79,5 +82,6 @@
 <span class="kw">pub use </span>origin::expand_outer_origin;
 <span class="kw">pub use </span>outer_enums::{expand_outer_enum, OuterEnumType};
 <span class="kw">pub use </span>slash_reason::expand_outer_slash_reason;
+<span class="kw">pub use </span>task::expand_outer_task;
 <span class="kw">pub use </span>unsigned::expand_outer_validate_unsigned;
 </code></pre></div></section></main></body></html>

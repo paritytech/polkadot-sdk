@@ -125,6 +125,9 @@
 <a href="#125" id="125">125</a>
 <a href="#126" id="126">126</a>
 <a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -158,6 +161,7 @@
 <span class="kw">mod </span>pallet_struct;
 <span class="kw">mod </span>storage;
 <span class="kw">mod </span>store_trait;
+<span class="kw">mod </span>tasks;
 <span class="kw">mod </span>tt_default_parts;
 <span class="kw">mod </span>type_value;
 <span class="kw">mod </span>validate_unsigned;
@@ -187,6 +191,7 @@
 	<span class="kw">let </span>pallet_struct = pallet_struct::expand_pallet_struct(<span class="kw-2">&amp;mut </span>def);
 	<span class="kw">let </span>config = config::expand_config(<span class="kw-2">&amp;mut </span>def);
 	<span class="kw">let </span>call = call::expand_call(<span class="kw-2">&amp;mut </span>def);
+	<span class="kw">let </span>tasks = tasks::expand_tasks(<span class="kw-2">&amp;mut </span>def);
 	<span class="kw">let </span>error = error::expand_error(<span class="kw-2">&amp;mut </span>def);
 	<span class="kw">let </span>event = event::expand_event(<span class="kw-2">&amp;mut </span>def);
 	<span class="kw">let </span>storages = storage::expand_storages(<span class="kw-2">&amp;mut </span>def);
@@ -227,6 +232,7 @@ storage item. Otherwise, all storage items are listed among [*Type Definitions*]
 		#pallet_struct
 		#config
 		#call
+		#tasks
 		#error
 		#event
 		#storages

@@ -2785,6 +2785,61 @@
 <a href="#2785" id="2785">2785</a>
 <a href="#2786" id="2786">2786</a>
 <a href="#2787" id="2787">2787</a>
+<a href="#2788" id="2788">2788</a>
+<a href="#2789" id="2789">2789</a>
+<a href="#2790" id="2790">2790</a>
+<a href="#2791" id="2791">2791</a>
+<a href="#2792" id="2792">2792</a>
+<a href="#2793" id="2793">2793</a>
+<a href="#2794" id="2794">2794</a>
+<a href="#2795" id="2795">2795</a>
+<a href="#2796" id="2796">2796</a>
+<a href="#2797" id="2797">2797</a>
+<a href="#2798" id="2798">2798</a>
+<a href="#2799" id="2799">2799</a>
+<a href="#2800" id="2800">2800</a>
+<a href="#2801" id="2801">2801</a>
+<a href="#2802" id="2802">2802</a>
+<a href="#2803" id="2803">2803</a>
+<a href="#2804" id="2804">2804</a>
+<a href="#2805" id="2805">2805</a>
+<a href="#2806" id="2806">2806</a>
+<a href="#2807" id="2807">2807</a>
+<a href="#2808" id="2808">2808</a>
+<a href="#2809" id="2809">2809</a>
+<a href="#2810" id="2810">2810</a>
+<a href="#2811" id="2811">2811</a>
+<a href="#2812" id="2812">2812</a>
+<a href="#2813" id="2813">2813</a>
+<a href="#2814" id="2814">2814</a>
+<a href="#2815" id="2815">2815</a>
+<a href="#2816" id="2816">2816</a>
+<a href="#2817" id="2817">2817</a>
+<a href="#2818" id="2818">2818</a>
+<a href="#2819" id="2819">2819</a>
+<a href="#2820" id="2820">2820</a>
+<a href="#2821" id="2821">2821</a>
+<a href="#2822" id="2822">2822</a>
+<a href="#2823" id="2823">2823</a>
+<a href="#2824" id="2824">2824</a>
+<a href="#2825" id="2825">2825</a>
+<a href="#2826" id="2826">2826</a>
+<a href="#2827" id="2827">2827</a>
+<a href="#2828" id="2828">2828</a>
+<a href="#2829" id="2829">2829</a>
+<a href="#2830" id="2830">2830</a>
+<a href="#2831" id="2831">2831</a>
+<a href="#2832" id="2832">2832</a>
+<a href="#2833" id="2833">2833</a>
+<a href="#2834" id="2834">2834</a>
+<a href="#2835" id="2835">2835</a>
+<a href="#2836" id="2836">2836</a>
+<a href="#2837" id="2837">2837</a>
+<a href="#2838" id="2838">2838</a>
+<a href="#2839" id="2839">2839</a>
+<a href="#2840" id="2840">2840</a>
+<a href="#2841" id="2841">2841</a>
+<a href="#2842" id="2842">2842</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3636,7 +3691,7 @@
 		},
 		traits::{
 			BuildGenesisConfig, ConstU32, EnsureOrigin, Get, GetDefault, GetStorageVersion, Hooks,
-			IsType, PalletInfoAccess, StorageInfoTrait, StorageVersion, TypedGet,
+			IsType, PalletInfoAccess, StorageInfoTrait, StorageVersion, Task, TypedGet,
 		},
 		Blake2_128, Blake2_128Concat, Blake2_256, CloneNoBound, DebugNoBound, EqNoBound, Identity,
 		PartialEqNoBound, RuntimeDebugNoBound, Twox128, Twox256, Twox64Concat,
@@ -5461,6 +5516,61 @@
 	/// }
 	/// ```
 	</span><span class="kw">pub use </span>frame_support_procedural::storage;
+	<span class="doccomment">/// This attribute is attached to a function inside an `impl` block annoated with
+	/// [`pallet::tasks_experimental`](`tasks_experimental`) to define the conditions for a
+	/// given work item to be valid.
+	///
+	/// It takes a closure as input, which is then used to define the condition. The closure
+	/// should have the same signature as the function it is attached to, except that it should
+	/// return a `bool` instead.
+	</span><span class="kw">pub use </span>frame_support_procedural::task_condition;
+	<span class="doccomment">/// This attribute is attached to a function inside an `impl` block annoated with
+	/// [`pallet::tasks_experimental`](`tasks_experimental`) to define the index of a given
+	/// work item.
+	///
+	/// It takes an integer literal as input, which is then used to define the index. This
+	/// index should be unique for each function in the `impl` block.
+	</span><span class="kw">pub use </span>frame_support_procedural::task_index;
+	<span class="doccomment">/// This attribute is attached to a function inside an `impl` block annoated with
+	/// [`pallet::tasks_experimental`](`tasks_experimental`) to define an iterator over the
+	/// available work items for a task.
+	///
+	/// It takes an iterator as input that yields a tuple with same types as the function
+	/// arguments.
+	</span><span class="kw">pub use </span>frame_support_procedural::task_list;
+	<span class="doccomment">/// This attribute is attached to a function inside an `impl` block annoated with
+	/// [`pallet::tasks_experimental`](`tasks_experimental`) define the weight of a given work
+	/// item.
+	///
+	/// It takes a closure as input, which should return a `Weight` value.
+	</span><span class="kw">pub use </span>frame_support_procedural::task_weight;
+	<span class="doccomment">/// Allows you to define some service work that can be recognized by a script or an
+	/// off-chain worker. Such a script can then create and submit all such work items at any
+	/// given time.
+	///
+	/// These work items are defined as instances of the [`Task`](frame_support::traits::Task)
+	/// trait. [`pallet:tasks_experimental`](`tasks_experimental`) when attached to an `impl`
+	/// block inside a pallet, will generate an enum `Task&lt;T&gt;` whose variants are mapped to
+	/// functions inside this `impl` block.
+	///
+	/// Each such function must have the following set of attributes:
+	///
+	/// * [`pallet::task_list`](`task_list`)
+	/// * [`pallet::task_condition`](`task_condition`)
+	/// * [`pallet::task_weight`](`task_weight`)
+	/// * [`pallet::task_index`](`task_index`)
+	///
+	/// All of such Tasks are then aggregated into a `RuntimeTask` by
+	/// [`construct_runtime`](frame_support::construct_runtime).
+	///
+	/// Finally, the `RuntimeTask` can then used by a script or off-chain worker to create and
+	/// submit such tasks via an extrinsic defined in `frame_system` called `do_task`.
+	///
+	/// ## Example
+	</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;src/tests/tasks.rs&quot;</span>, tasks_example)]
+	</span><span class="doccomment">/// Now, this can be executed as follows:
+	</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;src/tests/tasks.rs&quot;</span>, tasks_work)]
+	</span><span class="kw">pub use </span>frame_support_procedural::tasks_experimental;
 }
 
 <span class="attr">#[deprecated(note = <span class="string">&quot;Will be removed after July 2023; Use `sp_runtime::traits` directly instead.&quot;</span>)]

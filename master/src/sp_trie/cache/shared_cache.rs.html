@@ -857,6 +857,12 @@
 <a href="#857" id="857">857</a>
 <a href="#858" id="858">858</a>
 <a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -878,11 +884,11 @@
 ///! that combines both caches and is exported to the outside.
 </span><span class="kw">use super</span>::{CacheSize, NodeCached};
 <span class="kw">use </span>hash_db::Hasher;
-<span class="kw">use </span>hashbrown::{hash_set::Entry <span class="kw">as </span>SetEntry, HashSet};
 <span class="kw">use </span>nohash_hasher::BuildNoHashHasher;
 <span class="kw">use </span>parking_lot::{Mutex, RwLock, RwLockWriteGuard};
 <span class="kw">use </span>schnellru::LruMap;
 <span class="kw">use </span>std::{
+	collections::{hash_map::Entry <span class="kw">as </span>SetEntry, HashMap},
 	hash::{BuildHasher, Hasher <span class="kw">as _</span>},
 	sync::Arc,
 };
@@ -1007,7 +1013,7 @@
 	</span>heap_size: usize,
 
 	<span class="doccomment">/// A set with all of the keys deduplicated to save on memory.
-	</span>known_storage_keys: HashSet&lt;Arc&lt;[u8]&gt;&gt;,
+	</span>known_storage_keys: HashMap&lt;Arc&lt;[u8]&gt;, (), ahash::RandomState&gt;,
 
 	<span class="doccomment">/// A counter with the number of elements that got evicted from the cache.
 	///
@@ -1048,10 +1054,10 @@
 				</span>}
 
 				<span class="self">self</span>.heap_size += new_item_heap_size;
-				entry.insert();
+				entry.insert(());
 			},
 			SetEntry::Occupied(entry) =&gt; {
-				key.storage_key = entry.get().clone();
+				key.storage_key = entry.key().clone();
 			},
 		}
 
@@ -1350,7 +1356,7 @@
 					max_inline_size,
 					max_heap_size,
 					heap_size: <span class="number">0</span>,
-					known_storage_keys: Default::default(),
+					known_storage_keys: HashMap::with_hasher(RANDOM_STATE.clone()),
 					items_evicted: <span class="number">0</span>,
 					max_items_evicted: <span class="number">0</span>, <span class="comment">// Will be set during `update`.
 				</span>},
@@ -1637,7 +1643,9 @@
 		</span><span class="macro">assert_eq!</span>(<span class="number">1</span>, cache.lru.limiter_mut().known_storage_keys.len());
 		<span class="macro">assert_eq!</span>(
 			<span class="number">3</span>, <span class="comment">// Two instances inside the cache + one extra in `known_storage_keys`.
-			</span>Arc::strong_count(cache.lru.limiter_mut().known_storage_keys.get(<span class="kw-2">&amp;</span>key[..]).unwrap())
+			</span>Arc::strong_count(
+				cache.lru.limiter_mut().known_storage_keys.get_key_value(<span class="kw-2">&amp;</span>key[..]).unwrap().<span class="number">0
+			</span>)
 		);
 		<span class="macro">assert_eq!</span>(key.len(), cache.lru.limiter().heap_size);
 		<span class="macro">assert_eq!</span>(cache.lru.len(), <span class="number">2</span>);
@@ -1651,7 +1659,9 @@
 		<span class="macro">assert_eq!</span>(<span class="number">1</span>, cache.lru.limiter_mut().known_storage_keys.len());
 		<span class="macro">assert_eq!</span>(
 			<span class="number">3</span>,
-			Arc::strong_count(cache.lru.limiter_mut().known_storage_keys.get(<span class="kw-2">&amp;</span>key[..]).unwrap())
+			Arc::strong_count(
+				cache.lru.limiter_mut().known_storage_keys.get_key_value(<span class="kw-2">&amp;</span>key[..]).unwrap().<span class="number">0
+			</span>)
 		);
 		<span class="macro">assert_eq!</span>(key.len(), cache.lru.limiter().heap_size);
 		<span class="macro">assert_eq!</span>(cache.lru.len(), <span class="number">2</span>);
@@ -1671,7 +1681,9 @@
 		<span class="macro">assert_eq!</span>(<span class="number">1</span>, cache.lru.limiter_mut().known_storage_keys.len());
 		<span class="macro">assert_eq!</span>(
 			<span class="number">3</span>,
-			Arc::strong_count(cache.lru.limiter_mut().known_storage_keys.get(<span class="kw-2">&amp;</span>key[..]).unwrap())
+			Arc::strong_count(
+				cache.lru.limiter_mut().known_storage_keys.get_key_value(<span class="kw-2">&amp;</span>key[..]).unwrap().<span class="number">0
+			</span>)
 		);
 		<span class="macro">assert_eq!</span>(key.len(), cache.lru.limiter().heap_size);
 		<span class="macro">assert_eq!</span>(cache.lru.len(), <span class="number">2</span>);
@@ -1692,7 +1704,7 @@
 		<span class="macro">assert_eq!</span>(cache.lru.limiter().items_evicted, <span class="number">2</span>);
 		<span class="macro">assert_eq!</span>(<span class="number">10</span>, cache.lru.len());
 		<span class="macro">assert_eq!</span>(<span class="number">10</span>, cache.lru.limiter_mut().known_storage_keys.len());
-		<span class="macro">assert!</span>(cache.lru.limiter_mut().known_storage_keys.get(<span class="kw-2">&amp;</span>key[..]).is_none());
+		<span class="macro">assert!</span>(cache.lru.limiter_mut().known_storage_keys.get_key_value(<span class="kw-2">&amp;</span>key[..]).is_none());
 		<span class="macro">assert_eq!</span>(key.len() * <span class="number">10</span>, cache.lru.limiter().heap_size);
 		<span class="macro">assert_eq!</span>(cache.lru.len(), <span class="number">10</span>);
 		<span class="macro">assert!</span>(cache.lru.limiter().heap_size &lt;= cache.lru.limiter().max_heap_size);
@@ -1713,7 +1725,7 @@
 			<span class="macro">vec!</span>[],
 		);
 
-		<span class="macro">assert!</span>(cache.lru.limiter_mut().known_storage_keys.get(<span class="kw-2">&amp;</span>key[..]).is_none());
+		<span class="macro">assert!</span>(cache.lru.limiter_mut().known_storage_keys.get_key_value(<span class="kw-2">&amp;</span>key[..]).is_none());
 	}
 }
 </code></pre></div></section></main></body></html>

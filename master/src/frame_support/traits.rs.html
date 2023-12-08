@@ -130,6 +130,9 @@
 <a href="#130" id="130">130</a>
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -254,6 +257,9 @@
 
 <span class="kw">mod </span>tx_pause;
 <span class="kw">pub use </span>tx_pause::{TransactionPause, TransactionPauseError};
+
+<span class="kw">pub mod </span>tasks;
+<span class="kw">pub use </span>tasks::Task;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 </span><span class="kw">mod </span>try_runtime;

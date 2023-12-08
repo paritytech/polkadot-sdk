@@ -1959,6 +1959,46 @@
 <a href="#1959" id="1959">1959</a>
 <a href="#1960" id="1960">1960</a>
 <a href="#1961" id="1961">1961</a>
+<a href="#1962" id="1962">1962</a>
+<a href="#1963" id="1963">1963</a>
+<a href="#1964" id="1964">1964</a>
+<a href="#1965" id="1965">1965</a>
+<a href="#1966" id="1966">1966</a>
+<a href="#1967" id="1967">1967</a>
+<a href="#1968" id="1968">1968</a>
+<a href="#1969" id="1969">1969</a>
+<a href="#1970" id="1970">1970</a>
+<a href="#1971" id="1971">1971</a>
+<a href="#1972" id="1972">1972</a>
+<a href="#1973" id="1973">1973</a>
+<a href="#1974" id="1974">1974</a>
+<a href="#1975" id="1975">1975</a>
+<a href="#1976" id="1976">1976</a>
+<a href="#1977" id="1977">1977</a>
+<a href="#1978" id="1978">1978</a>
+<a href="#1979" id="1979">1979</a>
+<a href="#1980" id="1980">1980</a>
+<a href="#1981" id="1981">1981</a>
+<a href="#1982" id="1982">1982</a>
+<a href="#1983" id="1983">1983</a>
+<a href="#1984" id="1984">1984</a>
+<a href="#1985" id="1985">1985</a>
+<a href="#1986" id="1986">1986</a>
+<a href="#1987" id="1987">1987</a>
+<a href="#1988" id="1988">1988</a>
+<a href="#1989" id="1989">1989</a>
+<a href="#1990" id="1990">1990</a>
+<a href="#1991" id="1991">1991</a>
+<a href="#1992" id="1992">1992</a>
+<a href="#1993" id="1993">1993</a>
+<a href="#1994" id="1994">1994</a>
+<a href="#1995" id="1995">1995</a>
+<a href="#1996" id="1996">1996</a>
+<a href="#1997" id="1997">1997</a>
+<a href="#1998" id="1998">1998</a>
+<a href="#1999" id="1999">1999</a>
+<a href="#2000" id="2000">2000</a>
+<a href="#2001" id="2001">2001</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2202,6 +2242,8 @@
 			</span><span class="kw">type </span>RuntimeCall = ();
 			<span class="attr">#[inject_runtime_type]
 			</span><span class="kw">type </span>PalletInfo = ();
+			<span class="attr">#[inject_runtime_type]
+			</span><span class="kw">type </span>RuntimeTask = ();
 			<span class="kw">type </span>BaseCallFilter = frame_support::traits::Everything;
 			<span class="kw">type </span>BlockHashCount = frame_support::traits::ConstU64&lt;<span class="number">10</span>&gt;;
 			<span class="kw">type </span>OnSetCode = ();
@@ -2284,6 +2326,8 @@
 
 			<span class="doccomment">/// Converts a module to the index of the module, injected by `construct_runtime!`.
 			</span><span class="attr">#[inject_runtime_type]
+			</span><span class="kw">type </span>RuntimeTask = ();
+			<span class="attr">#[inject_runtime_type]
 			</span><span class="kw">type </span>PalletInfo = ();
 
 			<span class="doccomment">/// The basic call filter to use in dispatchable. Supports everything as the default.
@@ -2360,6 +2404,10 @@
 			+ Dispatchable&lt;RuntimeOrigin = <span class="self">Self</span>::RuntimeOrigin&gt;
 			+ Debug
 			+ From&lt;Call&lt;<span class="self">Self</span>&gt;&gt;;
+
+		<span class="doccomment">/// The aggregated `RuntimeTask` type.
+		</span><span class="attr">#[pallet::no_default_bounds]
+		</span><span class="kw">type </span>RuntimeTask: Task;
 
 		<span class="doccomment">/// This stores the number of previous transactions associated with a sender account.
 		</span><span class="kw">type </span>Nonce: Parameter
@@ -2589,6 +2637,28 @@
 			<span class="self">Self</span>::deposit_event(Event::Remarked { sender: who, hash });
 			<span class="prelude-val">Ok</span>(().into())
 		}
+
+		<span class="attr">#[pallet::call_index(<span class="number">8</span>)]
+		#[pallet::weight(task.weight())]
+		</span><span class="kw">pub fn </span>do_task(origin: OriginFor&lt;T&gt;, task: T::RuntimeTask) -&gt; DispatchResultWithPostInfo {
+			ensure_signed(origin)<span class="question-mark">?</span>;
+
+			<span class="kw">if </span>!task.is_valid() {
+				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::InvalidTask.into())
+			}
+
+			<span class="self">Self</span>::deposit_event(Event::TaskStarted { task: task.clone() });
+			<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = task.run() {
+				<span class="self">Self</span>::deposit_event(Event::TaskFailed { task, err });
+				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::FailedTask.into())
+			}
+
+			<span class="comment">// Emit a success event, if your design includes events for this pallet.
+			</span><span class="self">Self</span>::deposit_event(Event::TaskCompleted { task });
+
+			<span class="comment">// Return success.
+			</span><span class="prelude-val">Ok</span>(().into())
+		}
 	}
 
 	<span class="doccomment">/// Event for the System pallet.
@@ -2606,6 +2676,12 @@
 		</span>KilledAccount { account: T::AccountId },
 		<span class="doccomment">/// On on-chain remark happened.
 		</span>Remarked { sender: T::AccountId, hash: T::Hash },
+		<span class="doccomment">/// A [`Task`] has started executing
+		</span>TaskStarted { task: T::RuntimeTask },
+		<span class="doccomment">/// A [`Task`] has finished executing.
+		</span>TaskCompleted { task: T::RuntimeTask },
+		<span class="doccomment">/// A [`Task`] failed during execution.
+		</span>TaskFailed { task: T::RuntimeTask, err: DispatchError },
 	}
 
 	<span class="doccomment">/// Error for the System pallet
@@ -2627,6 +2703,10 @@
 		</span>NonZeroRefCount,
 		<span class="doccomment">/// The origin filter prevent the call to be dispatched.
 		</span>CallFiltered,
+		<span class="doccomment">/// The specified [`Task`] is not valid.
+		</span>InvalidTask,
+		<span class="doccomment">/// The specified [`Task`] failed during execution.
+		</span>FailedTask,
 	}
 
 	<span class="doccomment">/// Exposed trait-generic origin type.

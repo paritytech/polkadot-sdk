@@ -778,6 +778,12 @@
 <a href="#778" id="778">778</a>
 <a href="#779" id="779">779</a>
 <a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -822,6 +828,7 @@
 	<span class="macro">syn::custom_keyword!</span>(ValidateUnsigned);
 	<span class="macro">syn::custom_keyword!</span>(FreezeReason);
 	<span class="macro">syn::custom_keyword!</span>(HoldReason);
+	<span class="macro">syn::custom_keyword!</span>(Task);
 	<span class="macro">syn::custom_keyword!</span>(LockId);
 	<span class="macro">syn::custom_keyword!</span>(SlashReason);
 	<span class="macro">syn::custom_keyword!</span>(exclude_parts);
@@ -1184,6 +1191,7 @@
 	ValidateUnsigned(keyword::ValidateUnsigned),
 	FreezeReason(keyword::FreezeReason),
 	HoldReason(keyword::HoldReason),
+	Task(keyword::Task),
 	LockId(keyword::LockId),
 	SlashReason(keyword::SlashReason),
 }
@@ -1214,6 +1222,8 @@
 			<span class="prelude-val">Ok</span>(<span class="self">Self</span>::FreezeReason(input.parse()<span class="question-mark">?</span>))
 		} <span class="kw">else if </span>lookahead.peek(keyword::HoldReason) {
 			<span class="prelude-val">Ok</span>(<span class="self">Self</span>::HoldReason(input.parse()<span class="question-mark">?</span>))
+		} <span class="kw">else if </span>lookahead.peek(keyword::Task) {
+			<span class="prelude-val">Ok</span>(<span class="self">Self</span>::Task(input.parse()<span class="question-mark">?</span>))
 		} <span class="kw">else if </span>lookahead.peek(keyword::LockId) {
 			<span class="prelude-val">Ok</span>(<span class="self">Self</span>::LockId(input.parse()<span class="question-mark">?</span>))
 		} <span class="kw">else if </span>lookahead.peek(keyword::SlashReason) {
@@ -1239,6 +1249,7 @@
 			<span class="self">Self</span>::ValidateUnsigned(<span class="kw">_</span>) =&gt; <span class="string">&quot;ValidateUnsigned&quot;</span>,
 			<span class="self">Self</span>::FreezeReason(<span class="kw">_</span>) =&gt; <span class="string">&quot;FreezeReason&quot;</span>,
 			<span class="self">Self</span>::HoldReason(<span class="kw">_</span>) =&gt; <span class="string">&quot;HoldReason&quot;</span>,
+			<span class="self">Self</span>::Task(<span class="kw">_</span>) =&gt; <span class="string">&quot;Task&quot;</span>,
 			<span class="self">Self</span>::LockId(<span class="kw">_</span>) =&gt; <span class="string">&quot;LockId&quot;</span>,
 			<span class="self">Self</span>::SlashReason(<span class="kw">_</span>) =&gt; <span class="string">&quot;SlashReason&quot;</span>,
 		}
@@ -1251,7 +1262,7 @@
 
 	<span class="doccomment">/// Returns the names of all pallet parts that allow to have a generic argument.
 	</span><span class="kw">fn </span>all_generic_arg() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str] {
-		<span class="kw-2">&amp;</span>[<span class="string">&quot;Event&quot;</span>, <span class="string">&quot;Error&quot;</span>, <span class="string">&quot;Origin&quot;</span>, <span class="string">&quot;Config&quot;</span>]
+		<span class="kw-2">&amp;</span>[<span class="string">&quot;Event&quot;</span>, <span class="string">&quot;Error&quot;</span>, <span class="string">&quot;Origin&quot;</span>, <span class="string">&quot;Config&quot;</span>, <span class="string">&quot;Task&quot;</span>]
 	}
 }
 
@@ -1269,6 +1280,7 @@
 			<span class="self">Self</span>::ValidateUnsigned(inner) =&gt; inner.to_tokens(tokens),
 			<span class="self">Self</span>::FreezeReason(inner) =&gt; inner.to_tokens(tokens),
 			<span class="self">Self</span>::HoldReason(inner) =&gt; inner.to_tokens(tokens),
+			<span class="self">Self</span>::Task(inner) =&gt; inner.to_tokens(tokens),
 			<span class="self">Self</span>::LockId(inner) =&gt; inner.to_tokens(tokens),
 			<span class="self">Self</span>::SlashReason(inner) =&gt; inner.to_tokens(tokens),
 		}

@@ -790,6 +790,9 @@
 <a href="#790" id="790">790</a>
 <a href="#791" id="791">791</a>
 <a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1178,6 +1181,7 @@
 	<span class="kw">let </span>pallet_to_index = decl_pallet_runtime_setup(<span class="kw-2">&amp;</span>name, <span class="kw-2">&amp;</span>pallets, <span class="kw-2">&amp;</span>scrate);
 
 	<span class="kw">let </span>dispatch = expand::expand_outer_dispatch(<span class="kw-2">&amp;</span>name, system_pallet, <span class="kw-2">&amp;</span>pallets, <span class="kw-2">&amp;</span>scrate);
+	<span class="kw">let </span>tasks = expand::expand_outer_task(<span class="kw-2">&amp;</span>name, <span class="kw-2">&amp;</span>pallets, <span class="kw-2">&amp;</span>scrate);
 	<span class="kw">let </span>metadata = expand::expand_runtime_metadata(
 		<span class="kw-2">&amp;</span>name,
 		<span class="kw-2">&amp;</span>pallets,
@@ -1266,6 +1270,8 @@
 		#pallet_to_index
 
 		#dispatch
+
+		#tasks
 
 		#metadata
 
