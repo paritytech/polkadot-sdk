@@ -1648,6 +1648,7 @@ pub mod migrations {
 			ImOnlinePalletName,
 			<Runtime as frame_system::Config>::DbWeight,
 		>,
+		parachains_configuration::migration::v11::MigrateToV11<Runtime>,
 	);
 }
 

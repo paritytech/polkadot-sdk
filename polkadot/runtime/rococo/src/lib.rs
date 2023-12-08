@@ -1631,6 +1631,7 @@ pub mod migrations {
 
 		// Remove `im-online` pallet on-chain storage
 		frame_support::migrations::RemovePallet<ImOnlinePalletName, <Runtime as frame_system::Config>::DbWeight>,
+		parachains_configuration::migration::v11::MigrateToV11<Runtime>,
 	);
 }
 
