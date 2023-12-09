@@ -2142,11 +2142,11 @@ pub mod pallet {
 		/// # Note
 		///
 		/// If there are too many unlocking chunks to unbond with the pool account,
-		/// [`Call::pool_withdraw_unbonded`] can be called to try and minimize unlocking chunks.
-		/// The [`StakingInterface::unbond`] will implicitly call [`Call::pool_withdraw_unbonded`]
-		/// to try to free chunks if necessary (ie. if unbound was called and no unlocking chunks
-		/// are available). However, it may not be possible to release the current unlocking chunks,
-		/// in which case, the result of this call will likely be the `NoMoreChunks` error from the
+		/// [`Call::pool_withdraw_unbonded`] can be called to try and minimize unlocking chunks. The
+		/// [`StakingInterface::unbond`] will implicitly call [`Call::pool_withdraw_unbonded`] to
+		/// try to free chunks if necessary (ie. if unbond was called and no unlocking chunks are
+		/// available). However, it may not be possible to release the current unlocking chunks, in
+		/// which case, the result of this call will likely be the `NoMoreChunks` error from the
 		/// staking system.
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::unbond())]
@@ -2934,12 +2934,12 @@ pub mod pallet {
 			});
 
 			// TODO: plug into weight function.
-			let removed_chunks = initial_chunks
+			let _removed_chunks = initial_chunks
 				.saturating_sub(member.unbonding_eras.len() as u32)
 				// for the case where the last iterated chunk is not removed
 				.max(1u32);
 
-			// write the modified item back to storage
+			// write the modified item back to storage.
 			SubPoolsStorage::insert(&member.pool_id, sub_pools);
 			Self::put_member_with_pools(&who, member, bonded_pool, reward_pool);
 
