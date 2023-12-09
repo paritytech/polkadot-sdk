@@ -153,8 +153,11 @@ impl TryConvert<&VersionedLocation, xcm::latest::Location> for VersionedLocation
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarks {
 	use super::VersionedLocatableAsset;
+	use core::marker::PhantomData;
+	use frame_support::traits::Get;
 	use pallet_asset_rate::AssetKindFactory;
 	use pallet_treasury::ArgumentsFactory as TreasuryArgumentsFactory;
+	use sp_core::{ConstU32, ConstU8};
 	use xcm::prelude::*;
 
 	/// Provides a factory method for the [`VersionedLocatableAsset`].
@@ -179,10 +182,22 @@ pub mod benchmarks {
 	/// Provide factory methods for the [`VersionedLocatableAsset`] and the `Beneficiary` of the
 	/// [`VersionedLocation`]. The location of the asset is determined as a Parachain with an
 	/// ID equal to the passed seed.
-	pub struct TreasuryArguments;
-	impl TreasuryArgumentsFactory<VersionedLocatableAsset, VersionedLocation> for TreasuryArguments {
+	pub struct TreasuryArguments<Parents = ConstU8<0>, ParaId = ConstU32<0>>(
+		PhantomData<(Parents, ParaId)>,
+	);
+	impl<Parents: Get<u8>, ParaId: Get<u32>>
+		TreasuryArgumentsFactory<VersionedLocatableAsset, VersionedLocation>
+		for TreasuryArguments<Parents, ParaId>
+	{
 		fn create_asset_kind(seed: u32) -> VersionedLocatableAsset {
-			AssetRateArguments::create_asset_kind(seed)
+			VersionedLocatableAsset::V3 {
+				location: xcm::v3::MultiLocation::new(Parents::get(), [Parachain(ParaId::get())]),
+				asset_id: xcm::v3::MultiLocation::new(
+					0,
+					[xcm::v3::Junction::PalletInstance(seed.try_into().unwrap()), xcm::v3::Junction::GeneralIndex(seed.into())],
+				)
+				.into(),
+			}
 		}
 		fn create_beneficiary(seed: [u8; 32]) -> VersionedLocation {
 			VersionedLocation::V4(xcm::v4::Location::new(

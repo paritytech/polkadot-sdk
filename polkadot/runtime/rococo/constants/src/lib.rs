@@ -103,8 +103,8 @@ pub mod fee {
 
 /// System Parachains.
 pub mod system_parachain {
-	use frame_support::traits::Contains;
-	use xcm::latest::prelude::*;
+	use primitives::Id;
+	use xcm_builder::IsChildSystemParachain;
 
 	/// Network's Asset Hub parachain ID.
 	pub const ASSET_HUB_ID: u32 = 1000;
@@ -115,15 +115,8 @@ pub mod system_parachain {
 	/// BridgeHub parachain ID.
 	pub const BRIDGE_HUB_ID: u32 = 1013;
 
-	pub struct SystemParachains;
-	impl Contains<Location> for SystemParachains {
-		fn contains(location: &Location) -> bool {
-			matches!(
-				location.unpack(),
-				(0, [Parachain(ASSET_HUB_ID | CONTRACTS_ID | ENCOINTER_ID | BRIDGE_HUB_ID)])
-			)
-		}
-	}
+	/// All system parachains of Rococo.
+	pub type SystemParachains = IsChildSystemParachain<Id>;
 }
 
 /// Rococo Treasury pallet instance.
