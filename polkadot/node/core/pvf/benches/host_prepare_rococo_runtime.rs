@@ -29,6 +29,7 @@ const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(30);
 
 struct TestHost {
 	// Keep a reference to the tempdir as it gets deleted on drop.
+	#[allow(dead_code)]
 	cache_dir: tempfile::TempDir,
 	host: Mutex<ValidationHost>,
 }
