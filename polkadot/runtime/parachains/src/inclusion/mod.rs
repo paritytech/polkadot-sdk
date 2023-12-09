@@ -887,11 +887,11 @@ impl<T: Config> Pallet<T> {
 				new_code.clone(),
 				false,
 			) {
-				Ok(info) => weight.saturating_accrue(info.actual_weight.unwrap_or_default()),
-				Err(err) => {
+				Ok(consumed_weight) => weight.saturating_accrue(consumed_weight),
+				Err(consumed_weight) => {
 					// The execution of the pre code upgrade logic failed, so we cannot proceed with
 					// scheduling the upgrade.
-					return weight.saturating_add(err.post_info.actual_weight.unwrap_or_default())
+					return weight.saturating_add(consumed_weight)
 				},
 			};
 

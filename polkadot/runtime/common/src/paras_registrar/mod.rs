@@ -93,6 +93,7 @@ pub trait WeightInfo {
 	fn force_register() -> Weight;
 	fn deregister() -> Weight;
 	fn swap() -> Weight;
+	fn pre_code_upgrade() -> Weight;
 	fn schedule_code_upgrade(b: u32) -> Weight;
 	fn set_current_head(b: u32) -> Weight;
 	fn set_parachain_billing_account_to_self() -> Weight;
@@ -114,6 +115,9 @@ impl WeightInfo for TestWeightInfo {
 		Weight::zero()
 	}
 	fn swap() -> Weight {
+		Weight::zero()
+	}
+	fn pre_code_upgrade() -> Weight {
 		Weight::zero()
 	}
 	fn schedule_code_upgrade(_b: u32) -> Weight {
@@ -795,8 +799,10 @@ impl<T: Config> Pallet<T> {
 		// specific parachain.
 		ensure!(paras::Pallet::<T>::can_upgrade_validation_code(para), Error::<T>::CannotUpgrade);
 
-		T::PreCodeUpgrade::pre_code_upgrade(para, new_code.clone(), skip_checks)
-			.map_err(|e| e.error)?;
+		ensure!(
+			T::PreCodeUpgrade::pre_code_upgrade(para, new_code.clone(), skip_checks).is_ok(),
+			Error::<T>::CannotUpgrade
+		);
 		runtime_parachains::schedule_code_upgrade::<T>(para, new_code, SetGoAhead::No)?;
 
 		Ok(())
@@ -894,21 +900,21 @@ impl<T: Config> PreCodeUpgrade for Pallet<T> {
 		para: ParaId,
 		new_code: ValidationCode,
 		skip_checks: bool,
-	) -> DispatchResultWithPostInfo {
-		let head =
-			paras::Pallet::<T>::para_head(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
+	) -> Result<Weight, Weight> {
+		let Some(head) = paras::Pallet::<T>::para_head(para) else {
+			return Err(T::DbWeight::get().reads(1))
+		};
+
+		let Some(mut info) = Paras::<T>::get(para) else { return Err(T::DbWeight::get().reads(2)) };
+
+		let Some(billing_account) = info.billing_account.clone() else {
+			return Err(T::DbWeight::get().reads(3))
+		};
 
 		let per_byte_fee = T::DataDepositPerByte::get();
 		let new_deposit = T::ParaDeposit::get()
 			.saturating_add(per_byte_fee.saturating_mul((head.0.len() as u32).into()))
 			.saturating_add(per_byte_fee.saturating_mul((new_code.0.len() as u32).into()));
-
-		let mut info = Paras::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
-
-		let billing_account = info.billing_account.clone();
-		ensure!(billing_account.clone().is_some(), Error::<T>::BillingAccountNotSet);
-		let billing_account =
-			billing_account.expect("Ensured above that the billing account is set to some; qed");
 
 		let current_deposit = info.deposit;
 
@@ -930,10 +936,10 @@ impl<T: Config> PreCodeUpgrade for Pallet<T> {
 				T::UpgradeFee::get(),
 				WithdrawReasons::FEE,
 				ExistenceRequirement::KeepAlive,
-			)?;
+			)/*?*/;
 
 			let additional_deposit = new_deposit.saturating_sub(current_deposit);
-			<T as Config>::Currency::reserve(&billing_account, additional_deposit)?;
+			<T as Config>::Currency::reserve(&billing_account, additional_deposit)/*?*/;
 
 			// Update the deposit to the new appropriate amount.
 			info.deposit = new_deposit;
@@ -959,7 +965,7 @@ impl<T: Config> PreCodeUpgrade for Pallet<T> {
 
 		Paras::<T>::insert(para, info);
 
-		Ok(().into()) // FIXME: actual weight
+		Ok(<T as Config>::WeightInfo::pre_code_upgrade())
 	}
 }
 
@@ -1965,6 +1971,16 @@ mod benchmarking {
 			// Actually finish registration process
 			next_scheduled_session::<T>();
 		}: _(RawOrigin::Root, para, new_code)
+
+		/*
+		pre_code_upgrade {
+			let para = register_para::<T>(LOWEST_PUBLIC_ID.into());
+			let new_code = ValidationCode(vec![0; b as usize]);
+
+			// Actually finish registration process
+			next_scheduled_session::<T>();
+		}: T::pre_code_upgrade(para, new_code, false)
+		*/
 
 		set_current_head {
 			let b in 1 .. MAX_HEAD_DATA_SIZE;

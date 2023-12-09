@@ -530,11 +530,14 @@ pub trait PreCodeUpgrade {
 	///
 	/// `skip_checks` signals that the pre code upgrade checks performed by this function can be
 	/// skipped.
+	///
+	/// As a result, it indicates either the success or failure of executing the pre-code upgrade
+	/// logic. In both cases, it returns the consumed weight.
 	fn pre_code_upgrade(
 		id: ParaId,
 		new_code: ValidationCode,
 		skip_checks: bool,
-	) -> DispatchResultWithPostInfo;
+	) -> Result<Weight, Weight>;
 }
 
 /// An empty implementation of the trait where there are no checks performed before scheduling a
@@ -544,8 +547,8 @@ impl PreCodeUpgrade for () {
 		_id: ParaId,
 		_new_code: ValidationCode,
 		_skip_checks: bool,
-	) -> DispatchResultWithPostInfo {
-		Ok(().into())
+	) -> Result<Weight, Weight> {
+		Ok(Weight::zero())
 	}
 }
 
