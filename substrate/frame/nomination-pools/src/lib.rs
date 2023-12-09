@@ -2943,7 +2943,9 @@ pub mod pallet {
 			SubPoolsStorage::insert(&member.pool_id, sub_pools);
 			Self::put_member_with_pools(&who, member, bonded_pool, reward_pool);
 
+			// TODO: use proper weight.
 			// Ok(Some(T::WeightInfo::rebond(removed_chunks)).into())
+			Ok(())
 		}
 	}
 
