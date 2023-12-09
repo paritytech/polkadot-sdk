@@ -27,7 +27,7 @@
 //!
 //! Users must ensure that they register this pallet as an inherent provider.
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo,
 	GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage, MessageSendError,
@@ -49,11 +49,8 @@ use polkadot_runtime_parachains::FeeTracker;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Block as BlockT, BlockNumberProvider, Hash},
-	transaction_validity::{
-		InvalidTransaction, TransactionLongevity, TransactionSource, TransactionValidity,
-		ValidTransaction,
-	},
-	BoundedSlice, DispatchError, FixedU128, RuntimeDebug, Saturating,
+	transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity},
+	BoundedSlice, FixedU128, RuntimeDebug, Saturating,
 };
 use sp_std::{cmp, collections::btree_map::BTreeMap, prelude::*};
 use xcm::latest::XcmHash;
@@ -167,20 +164,6 @@ impl CheckAssociatedRelayNumber for RelayNumberMonotonicallyIncreases {
 			panic!("Relay chain block number needs to monotonically increase between Parachain blocks!")
 		}
 	}
-}
-
-/// Information needed when a new runtime binary is submitted and needs to be authorized before
-/// replacing the current runtime.
-#[derive(Decode, Encode, Default, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
-#[scale_info(skip_type_params(T))]
-struct CodeUpgradeAuthorization<T>
-where
-	T: Config,
-{
-	/// Hash of the new runtime binary.
-	code_hash: T::Hash,
-	/// Whether or not to carry out version checks.
-	check_version: bool,
 }
 
 /// The max length of a DMP message.
@@ -667,49 +650,6 @@ pub mod pallet {
 			let _ = Self::send_upward_message(message);
 			Ok(())
 		}
-
-		/// Authorize an upgrade to a given `code_hash` for the runtime. The runtime can be supplied
-		/// later.
-		///
-		/// The `check_version` parameter sets a boolean flag for whether or not the runtime's spec
-		/// version and name should be verified on upgrade. Since the authorization only has a hash,
-		/// it cannot actually perform the verification.
-		///
-		/// This call requires Root origin.
-		#[pallet::call_index(2)]
-		#[pallet::weight((1_000_000, DispatchClass::Operational))]
-		pub fn authorize_upgrade(
-			origin: OriginFor<T>,
-			code_hash: T::Hash,
-			check_version: bool,
-		) -> DispatchResult {
-			ensure_root(origin)?;
-			AuthorizedUpgrade::<T>::put(CodeUpgradeAuthorization { code_hash, check_version });
-
-			Self::deposit_event(Event::UpgradeAuthorized { code_hash });
-			Ok(())
-		}
-
-		/// Provide the preimage (runtime binary) `code` for an upgrade that has been authorized.
-		///
-		/// If the authorization required a version check, this call will ensure the spec name
-		/// remains unchanged and that the spec version has increased.
-		///
-		/// Note that this function will not apply the new `code`, but only attempt to schedule the
-		/// upgrade with the Relay Chain.
-		///
-		/// All origins are allowed.
-		#[pallet::call_index(3)]
-		#[pallet::weight({1_000_000})]
-		pub fn enact_authorized_upgrade(
-			_: OriginFor<T>,
-			code: Vec<u8>,
-		) -> DispatchResultWithPostInfo {
-			Self::validate_authorized_upgrade(&code[..])?;
-			Self::schedule_code_upgrade(code)?;
-			AuthorizedUpgrade::<T>::kill();
-			Ok(Pays::No.into())
-		}
 	}
 
 	#[pallet::event]
@@ -721,8 +661,6 @@ pub mod pallet {
 		ValidationFunctionApplied { relay_chain_block_num: RelayChainBlockNumber },
 		/// The relay-chain aborted the upgrade process.
 		ValidationFunctionDiscarded,
-		/// An upgrade has been authorized.
-		UpgradeAuthorized { code_hash: T::Hash },
 		/// Some downward messages have been received and will be processed.
 		DownwardMessagesReceived { count: u32 },
 		/// Downward messages were processed using the given weight.
@@ -928,10 +866,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type ReservedDmpWeightOverride<T: Config> = StorageValue<_, Weight>;
 
-	/// The next authorized upgrade, if there is one.
-	#[pallet::storage]
-	pub(super) type AuthorizedUpgrade<T: Config> = StorageValue<_, CodeUpgradeAuthorization<T>>;
-
 	/// A custom head data that should be returned as result of `validate_block`.
 	///
 	/// See `Pallet::set_custom_validation_head_data` for more information.
@@ -981,17 +915,6 @@ pub mod pallet {
 		type Call = Call<T>;
 
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			if let Call::enact_authorized_upgrade { ref code } = call {
-				if let Ok(hash) = Self::validate_authorized_upgrade(code) {
-					return Ok(ValidTransaction {
-						priority: 100,
-						requires: Vec::new(),
-						provides: vec![hash.as_ref().to_vec()],
-						longevity: TransactionLongevity::max_value(),
-						propagate: true,
-					})
-				}
-			}
 			if let Call::set_validation_data { .. } = call {
 				return Ok(Default::default())
 			}
@@ -1001,21 +924,6 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-	fn validate_authorized_upgrade(code: &[u8]) -> Result<T::Hash, DispatchError> {
-		let authorization = AuthorizedUpgrade::<T>::get().ok_or(Error::<T>::NothingAuthorized)?;
-
-		// ensure that the actual hash matches the authorized hash
-		let actual_hash = T::Hashing::hash(code);
-		ensure!(actual_hash == authorization.code_hash, Error::<T>::Unauthorized);
-
-		// check versions if required as part of the authorization
-		if authorization.check_version {
-			frame_system::Pallet::<T>::can_set_code(code)?;
-		}
-
-		Ok(actual_hash)
-	}
-
 	/// Get the unincluded segment size after the given hash.
 	///
 	/// If the unincluded segment doesn't contain the given hash, this returns the
@@ -1563,8 +1471,8 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
+/// Type that implements `SetCode`
 pub struct ParachainSetCode<T>(sp_std::marker::PhantomData<T>);
-
 impl<T: Config> frame_system::SetCode<T> for ParachainSetCode<T> {
 	fn set_code(code: Vec<u8>) -> DispatchResult {
 		Pallet::<T>::schedule_code_upgrade(code)
