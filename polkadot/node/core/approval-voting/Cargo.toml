@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-node-core-approval-voting"
-version = "1.0.0"
+version = "6.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -10,7 +10,7 @@ description = "Approval Voting Subsystem of the Polkadot node"
 futures = "0.3.21"
 futures-timer = "3.0.2"
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["bit-vec", "derive"] }
-gum = { package = "tracing-gum", path = "../../gum" }
+gum = { package = "tracing-gum", path = "../../gum", version = "6.0.0" }
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
 schnellru = "0.2.1"
 merlin = "2.0"
@@ -19,19 +19,18 @@ kvdb = "0.13.0"
 derive_more = "0.99.17"
 thiserror = "1.0.48"
 itertools = "0.10.5"
+polkadot-node-subsystem = { version = "6.0.0", path = "../../subsystem" }
+polkadot-node-subsystem-util = { version = "6.0.0", path = "../../subsystem-util" }
+polkadot-overseer = { version = "6.0.0", path = "../../overseer" }
+polkadot-primitives = { version = "6.0.0", path = "../../../primitives" }
+polkadot-node-primitives = { version = "6.0.0", path = "../../primitives" }
+polkadot-node-jaeger = { version = "6.0.0", path = "../../jaeger" }
 
-polkadot-node-subsystem = { path = "../../subsystem" }
-polkadot-node-subsystem-util = { path = "../../subsystem-util" }
-polkadot-overseer = { path = "../../overseer" }
-polkadot-primitives = { path = "../../../primitives" }
-polkadot-node-primitives = { path = "../../primitives" }
-polkadot-node-jaeger = { path = "../../jaeger" }
-
-sc-keystore = { path = "../../../../substrate/client/keystore", default-features = false }
-sp-consensus = { path = "../../../../substrate/primitives/consensus/common", default-features = false }
-sp-consensus-slots = { path = "../../../../substrate/primitives/consensus/slots", default-features = false }
-sp-application-crypto = { path = "../../../../substrate/primitives/application-crypto", default-features = false, features = ["full_crypto"] }
-sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
+sc-keystore = { path = "../../../../substrate/client/keystore", default-features = false, version = "24.0.0" }
+sp-consensus = { path = "../../../../substrate/primitives/consensus/common", default-features = false, version = "0.31.0" }
+sp-consensus-slots = { path = "../../../../substrate/primitives/consensus/slots", default-features = false, version = "0.31.0" }
+sp-application-crypto = { path = "../../../../substrate/primitives/application-crypto", default-features = false, features = ["full_crypto"], version = "29.0.0" }
+sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false, version = "30.0.0" }
 rand_core = "0.5.1"
 rand_chacha = { version = "0.3.1" }
 rand = "0.8.5"

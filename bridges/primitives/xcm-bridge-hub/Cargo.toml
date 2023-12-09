@@ -9,7 +9,7 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 [dependencies]
 
 # Substrate Dependencies
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "13.0.0" }
 
 [features]
 default = ["std"]

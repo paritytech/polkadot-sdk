@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-node-core-chain-api"
-version = "1.0.0"
+version = "6.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,12 +8,12 @@ description = "The Chain API subsystem provides access to chain related utility 
 
 [dependencies]
 futures = "0.3.21"
-gum = { package = "tracing-gum", path = "../../gum" }
-polkadot-node-metrics = { path = "../../metrics" }
-polkadot-node-subsystem = { path = "../../subsystem" }
-polkadot-node-subsystem-types = { path = "../../subsystem-types" }
-sc-client-api = { path = "../../../../substrate/client/api" }
-sc-consensus-babe = { path = "../../../../substrate/client/consensus/babe" }
+gum = { package = "tracing-gum", path = "../../gum", version = "6.0.0" }
+polkadot-node-metrics = { version = "6.0.0", path = "../../metrics" }
+polkadot-node-subsystem = { version = "6.0.0", path = "../../subsystem" }
+polkadot-node-subsystem-types = { version = "6.0.0", path = "../../subsystem-types" }
+sc-client-api = { version = "27.0.0", path = "../../../../substrate/client/api" }
+sc-consensus-babe = { version = "0.33.0", path = "../../../../substrate/client/consensus/babe" }
 
 [dev-dependencies]
 futures = { version = "0.3.21", features = ["thread-pool"] }

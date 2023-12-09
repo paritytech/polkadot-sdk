@@ -12,23 +12,23 @@ log = { version = "0.4.20", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
 # Bridge Dependencies
-bp-messages = { path = "../../primitives/messages", default-features = false }
-bp-runtime = { path = "../../primitives/runtime", default-features = false }
-bp-xcm-bridge-hub = { path = "../../primitives/xcm-bridge-hub", default-features = false }
-pallet-bridge-messages = { path = "../messages", default-features = false }
-bridge-runtime-common = { path = "../../bin/runtime-common", default-features = false }
+bp-messages = { path = "../../primitives/messages", default-features = false, version = "0.6.0" }
+bp-runtime = { path = "../../primitives/runtime", default-features = false, version = "0.6.0" }
+bp-xcm-bridge-hub = { path = "../../primitives/xcm-bridge-hub", default-features = false, version = "0.1.0" }
+pallet-bridge-messages = { path = "../messages", default-features = false, version = "0.6.0" }
+bridge-runtime-common = { path = "../../bin/runtime-common", default-features = false, version = "0.6.0" }
 
 # Substrate Dependencies
-frame-support = { path = "../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../substrate/frame/system", default-features = false }
-sp-core = { path = "../../../substrate/primitives/core", default-features = false }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
+frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "27.0.0" }
+frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "27.0.0" }
+sp-core = { path = "../../../substrate/primitives/core", default-features = false, version = "27.0.0" }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "30.0.0" }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "13.0.0" }
 
 # Polkadot Dependencies
-xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false }
-xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", default-features = false }
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false, version = "6.0.0" }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false, version = "6.0.0" }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", default-features = false, version = "6.0.0" }
 
 [dev-dependencies]
 bp-header-chain = { path = "../../primitives/header-chain" }
@@ -59,7 +59,6 @@ runtime-benchmarks = [
 	"bridge-runtime-common/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 	"pallet-bridge-messages/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
@@ -68,7 +67,6 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
 	"pallet-bridge-messages/try-runtime",
 	"sp-runtime/try-runtime",
 ]
