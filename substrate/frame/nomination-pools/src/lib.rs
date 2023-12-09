@@ -2825,7 +2825,7 @@ pub mod pallet {
 		///
 		/// Called by a pool member to rebond funds that are currently unlocking.
 		#[pallet::call_index(23)]
-		#[pallet::weight(0)]
+		#[pallet::weight(T::WeightInfo::unbond())] // TODO: plug in real weight
 		pub fn rebond(origin: OriginFor<T>, points: BalanceOf<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let (mut member, mut bonded_pool, mut reward_pool) = Self::get_member_with_pools(&who)?;
