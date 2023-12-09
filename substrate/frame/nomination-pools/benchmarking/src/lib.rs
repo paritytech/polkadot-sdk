@@ -119,6 +119,13 @@ fn vote_to_balance<T: pallet_nomination_pools::Config>(
 	vote.try_into().map_err(|_| "could not convert u64 to Balance")
 }
 
+fn pool_unlocking_funds<T: pallet_nomination_pools::Config>(
+	pool_account: &T::AccountId,
+) -> BalanceOf<T> {
+	T::StakingInterface::total_stake(pool_account).unwrap() -
+		T::StakingInterface::active_stake(pool_account).unwrap()
+}
+
 #[allow(unused)]
 struct ListScenario<T: pallet_nomination_pools::Config> {
 	/// Stash/Controller that is expected to be moved.
