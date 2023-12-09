@@ -36,6 +36,7 @@ rustflags = [
 	"-Aclippy::stable_sort_primitive",            # prefer stable sort
 	"-Aclippy::extra-unused-type-parameters",     # stylistic
 	"-Aclippy::default_constructed_unit_structs", # stylistic
+	"-Dwarnings",                                 # deny all warnings for clippy
 ]
 
 [env]
