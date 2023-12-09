@@ -490,23 +490,21 @@ fn reserve_transfer_token() {
 		assert!(
 			events
 				.iter()
-				.find(|&event| matches!(
+				.any(|event| matches!(
 					event,
 					RuntimeEvent::Balances(pallet_balances::Event::Deposit{ who, amount })
 						if *who == TREASURY_ACCOUNT.into() && *amount == 16903333
-				))
-				.is_some(),
+				)),
 			"Snowbridge sovereign takes local fee."
 		);
 		assert!(
 			events
 				.iter()
-				.find(|&event| matches!(
+				.any(|event| matches!(
 					event,
 					RuntimeEvent::Balances(pallet_balances::Event::Deposit{ who, amount })
-						if who == &assethub_sovereign && *amount == 2680000000000
-				))
-				.is_some(),
+						if *who == assethub_sovereign && *amount == 2680000000000
+				)),
 			"Assethub sovereign takes remote fee."
 		);
 	});
