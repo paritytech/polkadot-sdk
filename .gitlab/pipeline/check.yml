@@ -5,6 +5,7 @@ cargo-clippy:
     - .common-refs
     - .pipeline-stopper-artifacts
   script:
+    # The removal of `RUSTFLAGS` is related to the configuration of `cargo-clippy` in `.cargo/config.toml`.
     - SKIP_WASM_BUILD=1 env -u RUSTFLAGS cargo clippy --all-targets --locked --workspace
 
 check-try-runtime:
