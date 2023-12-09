@@ -650,14 +650,6 @@ fn para_upgrade_initiated_by_manager_works() {
 		// The reserved deposit should cover for the size difference of the new validation code.
 		let total_bytes_stored = code_size as u32 + head_size as u32;
 		assert_eq!(
-			last_event(),
-			paras_registrar::Event::<Test>::CodeUpgradeScheduled {
-				para_id,
-				new_deposit: ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
-			}
-			.into(),
-		);
-		assert_eq!(
 			Balances::reserved_balance(&account_id(1)),
 			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
 		);

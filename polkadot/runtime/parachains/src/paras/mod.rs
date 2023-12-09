@@ -528,7 +528,8 @@ pub trait PreCodeUpgrade {
 	/// This is currently utilized by the registrar pallet to ensure that the necessary validation
 	/// code upgrade costs are covered.
 	///
-	/// TODO: docs
+	/// `skip_checks` signals that the pre code upgrade checks performed by this function can be
+	/// skipped.
 	fn pre_code_upgrade(
 		id: ParaId,
 		new_code: ValidationCode,

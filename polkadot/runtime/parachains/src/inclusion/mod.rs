@@ -22,7 +22,7 @@
 use crate::{
 	configuration::{self, HostConfiguration},
 	disputes, dmp, hrmp,
-	paras::{self, SetGoAhead},
+	paras::{self, PreCodeUpgrade, SetGoAhead},
 	scheduler::{self, AvailabilityTimeoutStatus},
 	shared::{self, AllowedRelayParentsTracker},
 };
@@ -882,7 +882,20 @@ impl<T: Config> Pallet<T> {
 			// Block number of candidate's inclusion.
 			let now = <frame_system::Pallet<T>>::block_number();
 
-			weight.saturating_add(<paras::Pallet<T>>::schedule_code_upgrade(
+			match <T as paras::Config>::PreCodeUpgrade::pre_code_upgrade(
+				receipt.descriptor.para_id,
+				new_code.clone(),
+				false,
+			) {
+				Ok(info) => weight.saturating_accrue(info.actual_weight.unwrap_or_default()),
+				Err(err) => {
+					// The execution of the pre code upgrade logic failed, so we cannot proceed with
+					// scheduling the upgrade.
+					return weight.saturating_add(err.post_info.actual_weight.unwrap_or_default())
+				},
+			};
+
+			weight.saturating_accrue(<paras::Pallet<T>>::schedule_code_upgrade(
 				receipt.descriptor.para_id,
 				new_code,
 				now,
