@@ -114,7 +114,7 @@ impl MaybeEquivalence<xcm::v4::Location, xcm::v3::Location> for V4V3LocationConv
 	}
 
 	fn convert_back(new: &xcm::v3::Location) -> Option<xcm::v4::Location> {
-		(*new).clone().try_into().ok()
+		(*new).try_into().ok()
 	}
 }
 
