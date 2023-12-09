@@ -360,7 +360,7 @@ frame_benchmarking::benchmarks! {
 
 		// bond the `extra` amount to be rebonded.
 		CurrencyOf::<T>::set_balance(&member_id, extra + CurrencyOf::<T>::minimum_balance());
-		Pools::<T>::bond_extra(Origin::Signed(member_id.clone()).into(), BondExtra::FreeBalance(extra)).unwrap();
+		Pools::<T>::bond_extra(RuntimeOrigin::Signed(member_id.clone()).into(), BondExtra::FreeBalance(extra)).unwrap();
 
 		// create `l` unlocking chunks and distribute funds between them. The distribution of funds is
 		// not important, as long as the sum of them equal to `extra`.
@@ -376,7 +376,7 @@ frame_benchmarking::benchmarks! {
 			};
 
 			Pools::<T>::unbond(
-				Origin::Signed(member_id.clone()).into(),
+				RuntimeOrigin::Signed(member_id.clone()).into(),
 				member_id_lookup.clone(),
 				amount
 			).unwrap();
@@ -388,7 +388,7 @@ frame_benchmarking::benchmarks! {
 		assert_eq!(pool_unlocking_funds::<T>(&scenario.origin1), origin_unlocking_funds + extra);
 
 		whitelist_account!(member_id);
-	}: _(Origin::Signed(member_id.clone()), extra)
+	}: _(RuntimeOrigin::Signed(member_id.clone()), extra)
 	verify {
 		let member = PoolMembers::<T>::get(&member_id).unwrap();
 		assert_eq!(member.points, extra * 2u32.into());
