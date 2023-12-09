@@ -122,8 +122,8 @@ fn vote_to_balance<T: pallet_nomination_pools::Config>(
 fn pool_unlocking_funds<T: pallet_nomination_pools::Config>(
 	pool_account: &T::AccountId,
 ) -> BalanceOf<T> {
-	T::StakingInterface::total_stake(pool_account).unwrap() -
-		T::StakingInterface::active_stake(pool_account).unwrap()
+	T::Staking::total_stake(pool_account).unwrap() -
+		T::Staking::active_stake(pool_account).unwrap()
 }
 
 #[allow(unused)]
@@ -349,7 +349,7 @@ frame_benchmarking::benchmarks! {
 		let l in 1 .. T::MaxUnbonding::get() as u32;
 
 		// setup the worst case list scenario.
-		let origin_weight = min_create_bond::<T>() * 2u32.into();
+		let origin_weight = Pools::<T>::depositor_min_bond() * 2u32.into();
 		let scenario = ListScenario::<T>::new(origin_weight, true)?;
 		// This is used as the `bond_extra` balance.
 		let extra = scenario.dest_weight - origin_weight;
@@ -360,7 +360,7 @@ frame_benchmarking::benchmarks! {
 		let origin_unlocking_funds = pool_unlocking_funds::<T>(&scenario.origin1);
 
 		// bond the `extra` amount to be rebonded.
-		CurrencyOf::<T>::make_free_balance_be(&member_id, extra + CurrencyOf::<T>::minimum_balance());
+		CurrencyOf::<T>::set_balance(&member_id, extra + CurrencyOf::<T>::minimum_balance());
 		Pools::<T>::bond_extra(Origin::Signed(member_id.clone()).into(), BondExtra::FreeBalance(extra)).unwrap();
 
 		// create `l` unlocking chunks and distribute funds between them. The distribution of funds is
