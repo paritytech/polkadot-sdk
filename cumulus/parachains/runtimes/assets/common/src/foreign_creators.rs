@@ -46,7 +46,8 @@ where
 		if !IsForeign::contains(asset_location, &origin_location) {
 			return Err(origin)
 		}
-		let latest_location: Location = origin_location.clone().try_into().map_err(|_| origin.clone())?;
+		let latest_location: Location =
+			origin_location.clone().try_into().map_err(|_| origin.clone())?;
 		AccountOf::convert_location(&latest_location).ok_or(origin)
 	}
 

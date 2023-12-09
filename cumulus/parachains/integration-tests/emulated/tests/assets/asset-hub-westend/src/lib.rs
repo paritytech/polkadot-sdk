@@ -28,7 +28,7 @@ pub use frame_support::{
 // Polkadot
 pub use xcm::{
 	prelude::{AccountId32 as AccountId32Junction, *},
-	v3::{Error, NetworkId::Westend as WestendId, self},
+	v3::{self, Error, NetworkId::Westend as WestendId},
 };
 
 // Cumulus
@@ -74,11 +74,7 @@ pub type SystemParaToParaTest = Test<AssetHubWestend, PenpalB>;
 pub type ParaToSystemParaTest = Test<PenpalB, AssetHubWestend>;
 
 /// Returns a `TestArgs` instance to be used for the Relay Chain across integration tests
-pub fn relay_test_args(
-	dest: Location,
-	beneficiary_id: AccountId32,
-	amount: Balance,
-) -> TestArgs {
+pub fn relay_test_args(dest: Location, beneficiary_id: AccountId32, amount: Balance) -> TestArgs {
 	TestArgs {
 		dest,
 		beneficiary: AccountId32Junction { network: None, id: beneficiary_id.into() }.into(),

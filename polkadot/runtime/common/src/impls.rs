@@ -194,7 +194,10 @@ pub mod benchmarks {
 				location: xcm::v3::MultiLocation::new(Parents::get(), [Parachain(ParaId::get())]),
 				asset_id: xcm::v3::MultiLocation::new(
 					0,
-					[xcm::v3::Junction::PalletInstance(seed.try_into().unwrap()), xcm::v3::Junction::GeneralIndex(seed.into())],
+					[
+						xcm::v3::Junction::PalletInstance(seed.try_into().unwrap()),
+						xcm::v3::Junction::GeneralIndex(seed.into()),
+					],
 				)
 				.into(),
 			}

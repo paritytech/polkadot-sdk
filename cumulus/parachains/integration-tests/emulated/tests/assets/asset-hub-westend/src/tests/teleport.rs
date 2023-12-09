@@ -17,9 +17,7 @@ use crate::*;
 use asset_hub_westend_runtime::xcm_config::XcmConfig as AssetHubWestendXcmConfig;
 use emulated_integration_tests_common::xcm_helpers::non_fee_asset;
 use westend_runtime::xcm_config::XcmConfig as WestendXcmConfig;
-use westend_system_emulated_network::penpal_emulated_chain::{
-	LocalTeleportableToAssetHubV3 as PenpalLocalTeleportableToAssetHubV3,
-};
+use westend_system_emulated_network::penpal_emulated_chain::LocalTeleportableToAssetHubV3 as PenpalLocalTeleportableToAssetHubV3;
 
 fn relay_origin_assertions(t: RelayToSystemParaTest) {
 	type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
@@ -675,7 +673,8 @@ fn bidirectional_teleport_foreign_assets_between_para_and_asset_hub() {
 		));
 	});
 
-	let foreign_asset_at_asset_hub_westend_latest: Location = foreign_asset_at_asset_hub_westend.clone().try_into().unwrap();
+	let foreign_asset_at_asset_hub_westend_latest: Location =
+		foreign_asset_at_asset_hub_westend.clone().try_into().unwrap();
 	let ah_to_penpal_beneficiary_id = PenpalBReceiver::get();
 	let penpal_as_seen_by_ah = AssetHubWestend::sibling_location_of(PenpalB::para_id());
 	let ah_assets: Assets = vec![

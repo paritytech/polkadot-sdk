@@ -582,8 +582,7 @@ impl super::benchmarking::Config for Test {
 		))
 	}
 
-	fn set_up_complex_asset_transfer(
-	) -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)> {
+	fn set_up_complex_asset_transfer() -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)> {
 		use crate::tests::assets_transfer::{into_assets_checked, set_up_foreign_asset};
 		// Transfer native asset (local reserve) to `USDT_PARA_ID`. Using teleport-trusted USDT for
 		// fees.

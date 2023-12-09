@@ -192,7 +192,9 @@ pub type AssetTransactors =
 
 /// Simple `Location` matcher for Local and Foreign asset `Location`.
 pub struct LocalAndForeignAssetsLocationMatcher;
-impl MatchesLocalAndForeignAssetsLocation<xcm::v3::Location> for LocalAndForeignAssetsLocationMatcher {
+impl MatchesLocalAndForeignAssetsLocation<xcm::v3::Location>
+	for LocalAndForeignAssetsLocationMatcher
+{
 	fn is_local(location: &xcm::v3::Location) -> bool {
 		use assets_common::fungible_conversion::MatchesLocation;
 		let latest_location: Location = if let Ok(location) = (*location).clone().try_into() {
@@ -698,8 +700,11 @@ pub struct BenchmarkLocationConverter<SelfParaId> {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-impl<SelfParaId> pallet_asset_conversion::BenchmarkHelper<xcm::v3::Location, sp_std::boxed::Box<xcm::v3::Location>>
-	for BenchmarkLocationConverter<SelfParaId>
+impl<SelfParaId>
+	pallet_asset_conversion::BenchmarkHelper<
+		xcm::v3::Location,
+		sp_std::boxed::Box<xcm::v3::Location>,
+	> for BenchmarkLocationConverter<SelfParaId>
 where
 	SelfParaId: frame_support::traits::Get<ParaId>,
 {

@@ -17,9 +17,7 @@ use crate::*;
 use asset_hub_rococo_runtime::xcm_config::XcmConfig as AssetHubRococoXcmConfig;
 use emulated_integration_tests_common::xcm_helpers::non_fee_asset;
 use rococo_runtime::xcm_config::XcmConfig as RococoXcmConfig;
-use rococo_system_emulated_network::penpal_emulated_chain::{
-	LocalTeleportableToAssetHubV3 as PenpalLocalTeleportableToAssetHubV3,
-};
+use rococo_system_emulated_network::penpal_emulated_chain::LocalTeleportableToAssetHubV3 as PenpalLocalTeleportableToAssetHubV3;
 
 fn relay_origin_assertions(t: RelayToSystemParaTest) {
 	type RuntimeEvent = <Rococo as Chain>::RuntimeEvent;
@@ -675,7 +673,8 @@ fn bidirectional_teleport_foreign_assets_between_para_and_asset_hub() {
 		));
 	});
 
-	let foreign_asset_at_asset_hub_rococo_latest: Location = foreign_asset_at_asset_hub_rococo.clone().try_into().unwrap();
+	let foreign_asset_at_asset_hub_rococo_latest: Location =
+		foreign_asset_at_asset_hub_rococo.clone().try_into().unwrap();
 	let ah_to_penpal_beneficiary_id = PenpalAReceiver::get();
 	let penpal_as_seen_by_ah = AssetHubRococo::sibling_location_of(PenpalA::para_id());
 	let ah_assets: Assets = vec![

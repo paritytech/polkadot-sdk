@@ -71,8 +71,7 @@ pub trait Config: crate::Config {
 	/// Used only in benchmarks.
 	///
 	/// If `None`, the benchmarks that depend on this will default to `Weight::MAX`.
-	fn set_up_complex_asset_transfer(
-	) -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)> {
+	fn set_up_complex_asset_transfer() -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)> {
 		None
 	}
 }

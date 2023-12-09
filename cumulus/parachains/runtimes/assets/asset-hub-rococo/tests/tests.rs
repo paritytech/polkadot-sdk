@@ -46,8 +46,8 @@ use parachains_common::{
 };
 use sp_runtime::traits::MaybeEquivalence;
 use xcm::latest::prelude::{Assets as XcmAssets, *};
-use xcm_executor::traits::{JustTry, WeightTrader};
 use xcm_builder::V4V3LocationConverter;
+use xcm_executor::traits::{JustTry, WeightTrader};
 
 const ALICE: [u8; 32] = [1u8; 32];
 const SOME_ASSET_ADMIN: [u8; 32] = [5u8; 32];
@@ -185,7 +185,8 @@ fn test_asset_xcm_trader_with_refund() {
 			// We are going to buy 4e9 weight
 			let bought = Weight::from_parts(4_000_000_000u64, 0);
 
-			let asset_location = AssetIdForTrustBackedAssetsConvertLatest::convert_back(&1).unwrap();
+			let asset_location =
+				AssetIdForTrustBackedAssetsConvertLatest::convert_back(&1).unwrap();
 
 			// lets calculate amount needed
 			let amount_bought = WeightToFee::weight_to_fee(&bought);
@@ -257,7 +258,8 @@ fn test_asset_xcm_trader_refund_not_possible_since_amount_less_than_ed() {
 			// We are going to buy small amount
 			let bought = Weight::from_parts(500_000_000u64, 0);
 
-			let asset_location = AssetIdForTrustBackedAssetsConvertLatest::convert_back(&1).unwrap();
+			let asset_location =
+				AssetIdForTrustBackedAssetsConvertLatest::convert_back(&1).unwrap();
 
 			let amount_bought = WeightToFee::weight_to_fee(&bought);
 
@@ -309,7 +311,8 @@ fn test_that_buying_ed_refund_does_not_refund() {
 			// We are gonna buy ED
 			let bought = Weight::from_parts(ExistentialDeposit::get().try_into().unwrap(), 0);
 
-			let asset_location = AssetIdForTrustBackedAssetsConvertLatest::convert_back(&1).unwrap();
+			let asset_location =
+				AssetIdForTrustBackedAssetsConvertLatest::convert_back(&1).unwrap();
 
 			let amount_bought = WeightToFee::weight_to_fee(&bought);
 
@@ -385,7 +388,8 @@ fn test_asset_xcm_trader_not_possible_for_non_sufficient_assets() {
 			// lets calculate amount needed
 			let asset_amount_needed = WeightToFee::weight_to_fee(&bought);
 
-			let asset_location = AssetIdForTrustBackedAssetsConvertLatest::convert_back(&1).unwrap();
+			let asset_location =
+				AssetIdForTrustBackedAssetsConvertLatest::convert_back(&1).unwrap();
 
 			let asset: Asset = (asset_location, asset_amount_needed).into();
 
@@ -417,8 +421,10 @@ fn test_assets_balances_api_works() {
 		.build()
 		.execute_with(|| {
 			let local_asset_id = 1;
-			let foreign_asset_id_location =
-				xcm::v3::Location::new(1, [xcm::v3::Junction::Parachain(1234), xcm::v3::Junction::GeneralIndex(12345)]);
+			let foreign_asset_id_location = xcm::v3::Location::new(
+				1,
+				[xcm::v3::Junction::Parachain(1234), xcm::v3::Junction::GeneralIndex(12345)],
+			);
 
 			// check before
 			assert_eq!(Assets::balance(local_asset_id, AccountId::from(ALICE)), 0);
@@ -505,12 +511,11 @@ fn test_assets_balances_api_works() {
 			)
 				.into())));
 			// check foreign asset
-			assert!(
-				result.inner().iter().any(|asset| asset.eq(&(
-					V4V3LocationConverter::convert_back(&foreign_asset_id_location).unwrap(),
-					6 * foreign_asset_minimum_asset_balance
-				).into()))
-			);
+			assert!(result.inner().iter().any(|asset| asset.eq(&(
+				V4V3LocationConverter::convert_back(&foreign_asset_id_location).unwrap(),
+				6 * foreign_asset_minimum_asset_balance
+			)
+				.into())));
 		});
 }
 
@@ -599,7 +604,10 @@ asset_test_utils::include_asset_transactor_transfer_with_pallet_assets_instance_
 	JustTry,
 	collator_session_keys(),
 	ExistentialDeposit::get(),
-	xcm::v3::Location::new(1, [xcm::v3::Junction::Parachain(1313), xcm::v3::Junction::GeneralIndex(12345)]),
+	xcm::v3::Location::new(
+		1,
+		[xcm::v3::Junction::Parachain(1313), xcm::v3::Junction::GeneralIndex(12345)]
+	),
 	Box::new(|| {
 		assert!(Assets::asset_ids().collect::<Vec<_>>().is_empty());
 	}),

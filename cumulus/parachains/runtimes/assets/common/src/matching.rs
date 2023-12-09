@@ -60,7 +60,9 @@ impl<IsForeign: ContainsPair<Location, Location>> ContainsPair<Asset, Location>
 
 /// Checks if `a` is from sibling location `b`. Checks that `Location-a` starts with
 /// `Location-b`, and that the `ParaId` of `b` is not equal to `a`.
-pub struct FromSiblingParachain<SelfParaId, L = Location>(sp_std::marker::PhantomData<(SelfParaId, L)>);
+pub struct FromSiblingParachain<SelfParaId, L = Location>(
+	sp_std::marker::PhantomData<(SelfParaId, L)>,
+);
 impl<SelfParaId: Get<ParaId>, L: TryFrom<Location> + TryInto<Location> + Clone> ContainsPair<L, L>
 	for FromSiblingParachain<SelfParaId, L>
 {

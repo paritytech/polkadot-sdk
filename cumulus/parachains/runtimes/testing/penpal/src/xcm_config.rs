@@ -277,12 +277,13 @@ parameter_types! {
 
 /// Accepts asset with ID `AssetLocation` and is coming from `Origin` chain.
 pub struct AssetFromChain<AssetLocation, Origin>(PhantomData<(AssetLocation, Origin)>);
-impl<AssetLocation: Get<Location>, Origin: Get<Location>>
-	ContainsPair<Asset, Location> for AssetFromChain<AssetLocation, Origin>
+impl<AssetLocation: Get<Location>, Origin: Get<Location>> ContainsPair<Asset, Location>
+	for AssetFromChain<AssetLocation, Origin>
 {
 	fn contains(asset: &Asset, origin: &Location) -> bool {
 		log::trace!(target: "xcm::contains", "AssetFromChain asset: {:?}, origin: {:?}", asset, origin);
-		*origin == Origin::get() && matches!(asset.id.clone(), AssetId(id) if id == AssetLocation::get())
+		*origin == Origin::get() &&
+			matches!(asset.id.clone(), AssetId(id) if id == AssetLocation::get())
 	}
 }
 

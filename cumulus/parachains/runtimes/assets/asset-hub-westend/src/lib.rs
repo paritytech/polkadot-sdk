@@ -75,22 +75,21 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use xcm_config::{
-	ForeignAssetsConvertedConcreteId, PoolAssetsConvertedConcreteId,
-	TrustBackedAssetsConvertedConcreteId, WestendLocation, XcmOriginToTransactDispatchOrigin,
-	WestendLocationV3, TrustBackedAssetsPalletLocationV3, LocalAndForeignAssetsLocationMatcher,
+	ForeignAssetsConvertedConcreteId, LocalAndForeignAssetsLocationMatcher,
+	PoolAssetsConvertedConcreteId, TrustBackedAssetsConvertedConcreteId,
+	TrustBackedAssetsPalletLocationV3, WestendLocation, WestendLocationV3,
+	XcmOriginToTransactDispatchOrigin,
 };
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 
-use assets_common::{
-	foreign_creators::ForeignCreators, matching::FromSiblingParachain,
-};
+use assets_common::{foreign_creators::ForeignCreators, matching::FromSiblingParachain};
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 // We exclude `Assets` since it's the name of a pallet
 use xcm::latest::prelude::{
-	Junction, Junction::*, Parent, ParentThen, AssetId, Location, Fungible, Asset,
-	NetworkId, Here, NonFungible, Response, InteriorLocation,
+	Asset, AssetId, Fungible, Here, InteriorLocation, Junction, Junction::*, Location, NetworkId,
+	NonFungible, Parent, ParentThen, Response,
 };
 
 use crate::xcm_config::ForeignCreatorsSovereignAccountOf;
@@ -321,8 +320,11 @@ impl pallet_asset_conversion::Config for Runtime {
 	type AllowMultiAssetPools = AllowMultiAssetPools;
 	type MaxSwapPathLength = ConstU32<4>;
 	type MultiAssetId = Box<xcm::v3::Location>;
-	type MultiAssetIdConverter =
-		LocationConverter<WestendLocationV3, LocalAndForeignAssetsLocationMatcher, xcm::v3::Location>;
+	type MultiAssetIdConverter = LocationConverter<
+		WestendLocationV3,
+		LocalAndForeignAssetsLocationMatcher,
+		xcm::v3::Location,
+	>;
 	type MintMinLiquidity = ConstU128<100>;
 	type WeightInfo = weights::pallet_asset_conversion::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]

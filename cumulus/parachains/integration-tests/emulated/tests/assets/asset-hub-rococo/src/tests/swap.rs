@@ -16,9 +16,7 @@
 use crate::*;
 use frame_support::BoundedVec;
 use parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
-use rococo_system_emulated_network::penpal_emulated_chain::{
-	LocalTeleportableToAssetHubV3 as PenpalLocalTeleportableToAssetHubV3,
-};
+use rococo_system_emulated_network::penpal_emulated_chain::LocalTeleportableToAssetHubV3 as PenpalLocalTeleportableToAssetHubV3;
 use sp_runtime::ModuleError;
 
 #[test]
@@ -26,7 +24,10 @@ fn swap_locally_on_chain_using_local_assets() {
 	let asset_native = Box::new(asset_hub_rococo_runtime::xcm_config::TokenLocationV3::get());
 	let asset_one = Box::new(v3::Location::new(
 		0,
-		[v3::Junction::PalletInstance(ASSETS_PALLET_ID), v3::Junction::GeneralIndex(ASSET_ID.into())],
+		[
+			v3::Junction::PalletInstance(ASSETS_PALLET_ID),
+			v3::Junction::GeneralIndex(ASSET_ID.into()),
+		],
 	));
 
 	AssetHubRococo::execute_with(|| {
@@ -247,7 +248,9 @@ fn swap_locally_on_chain_using_foreign_assets() {
 fn cannot_create_pool_from_pool_assets() {
 	let asset_native = Box::new(asset_hub_rococo_runtime::xcm_config::TokenLocationV3::get());
 	let mut asset_one = asset_hub_rococo_runtime::xcm_config::PoolAssetsPalletLocationV3::get();
-	asset_one.append_with(v3::Junction::GeneralIndex(ASSET_ID.into())).expect("pool assets");
+	asset_one
+		.append_with(v3::Junction::GeneralIndex(ASSET_ID.into()))
+		.expect("pool assets");
 
 	AssetHubRococo::execute_with(|| {
 		let pool_owner_account_id = asset_hub_rococo_runtime::AssetConversionOrigin::get();

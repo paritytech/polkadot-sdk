@@ -39,9 +39,9 @@ pub use polkadot_runtime_parachains::{
 };
 pub use xcm::{
 	prelude::{Location, OriginKind, Outcome, VersionedXcm},
+	v3,
 	v4::Error as XcmError,
 	DoubleEncoded,
-	v3,
 };
 
 // Cumulus

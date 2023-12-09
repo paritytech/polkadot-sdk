@@ -82,7 +82,8 @@ fn send_asset_from_asset_hub_rococo_to_asset_hub_westend(id: Location, amount: u
 #[test]
 fn send_rocs_from_asset_hub_rococo_to_asset_hub_westend() {
 	let roc_at_asset_hub_rococo: v3::Location = v3::Parent.into();
-	let roc_at_asset_hub_westend = v3::Location::new(2, [v3::Junction::GlobalConsensus(v3::NetworkId::Rococo)]);
+	let roc_at_asset_hub_westend =
+		v3::Location::new(2, [v3::Junction::GlobalConsensus(v3::NetworkId::Rococo)]);
 	let owner: AccountId = AssetHubWestend::account_id_of(ALICE);
 	AssetHubWestend::force_create_foreign_asset(
 		roc_at_asset_hub_westend.clone(),
@@ -108,7 +109,8 @@ fn send_rocs_from_asset_hub_rococo_to_asset_hub_westend() {
 		)
 	});
 
-	let roc_at_asset_hub_rococo_latest: Location = roc_at_asset_hub_rococo.clone().try_into().unwrap();
+	let roc_at_asset_hub_rococo_latest: Location =
+		roc_at_asset_hub_rococo.clone().try_into().unwrap();
 	let amount = ASSET_HUB_ROCOCO_ED * 1_000;
 	send_asset_from_asset_hub_rococo_to_asset_hub_westend(roc_at_asset_hub_rococo_latest, amount);
 	AssetHubWestend::execute_with(|| {
@@ -152,7 +154,8 @@ fn send_rocs_from_asset_hub_rococo_to_asset_hub_westend() {
 #[test]
 fn send_wnds_from_asset_hub_rococo_to_asset_hub_westend() {
 	let prefund_amount = 10_000_000_000_000u128;
-	let wnd_at_asset_hub_rococo = v3::Location::new(2, [v3::Junction::GlobalConsensus(v3::NetworkId::Westend)]);
+	let wnd_at_asset_hub_rococo =
+		v3::Location::new(2, [v3::Junction::GlobalConsensus(v3::NetworkId::Westend)]);
 	let owner: AccountId = AssetHubWestend::account_id_of(ALICE);
 	AssetHubRococo::force_create_foreign_asset(
 		wnd_at_asset_hub_rococo.clone(),
@@ -183,7 +186,8 @@ fn send_wnds_from_asset_hub_rococo_to_asset_hub_westend() {
 	let receiver_wnds_before =
 		<AssetHubWestend as Chain>::account_data_of(AssetHubWestendReceiver::get()).free;
 
-	let wnd_at_asset_hub_rococo_latest: Location = wnd_at_asset_hub_rococo.clone().try_into().unwrap();
+	let wnd_at_asset_hub_rococo_latest: Location =
+		wnd_at_asset_hub_rococo.clone().try_into().unwrap();
 	let amount_to_send = ASSET_HUB_WESTEND_ED * 1_000;
 	send_asset_from_asset_hub_rococo_to_asset_hub_westend(
 		wnd_at_asset_hub_rococo_latest.clone(),

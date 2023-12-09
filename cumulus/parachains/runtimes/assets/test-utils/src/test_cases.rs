@@ -375,7 +375,11 @@ pub fn teleports_for_foreign_assets_works<
 	let foreign_para_id = 2222;
 	let foreign_asset_id_location = xcm::v3::Location {
 		parents: 1,
-		interior: [xcm::v3::Junction::Parachain(foreign_para_id), xcm::v3::Junction::GeneralIndex(1234567)].into(),
+		interior: [
+			xcm::v3::Junction::Parachain(foreign_para_id),
+			xcm::v3::Junction::GeneralIndex(1234567),
+		]
+		.into(),
 	};
 
 	// foreign creator, which can be sibling parachain to match ForeignCreators
@@ -461,7 +465,8 @@ pub fn teleports_for_foreign_assets_works<
 			>(foreign_asset_id_location.clone(), 0, 0);
 			assert!(teleported_foreign_asset_amount > asset_minimum_asset_balance);
 
-			let foreign_asset_id_location_latest: Location = foreign_asset_id_location.clone().try_into().unwrap();
+			let foreign_asset_id_location_latest: Location =
+				foreign_asset_id_location.clone().try_into().unwrap();
 
 			// 1. process received teleported assets from sibling parachain (foreign_para_id)
 			let xcm = Xcm(vec![

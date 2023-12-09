@@ -14,16 +14,18 @@
 // limitations under the License.
 
 use crate::*;
-use westend_system_emulated_network::penpal_emulated_chain::{
-	LocalTeleportableToAssetHubV3 as PenpalLocalTeleportableToAssetHubV3,
-};
+use westend_system_emulated_network::penpal_emulated_chain::LocalTeleportableToAssetHubV3 as PenpalLocalTeleportableToAssetHubV3;
 
 #[test]
 fn swap_locally_on_chain_using_local_assets() {
 	let asset_native = Box::new(asset_hub_westend_runtime::xcm_config::WestendLocationV3::get());
 	let asset_one = Box::new(v3::Location {
 		parents: 0,
-		interior: [v3::Junction::PalletInstance(ASSETS_PALLET_ID), v3::Junction::GeneralIndex(ASSET_ID.into())].into(),
+		interior: [
+			v3::Junction::PalletInstance(ASSETS_PALLET_ID),
+			v3::Junction::GeneralIndex(ASSET_ID.into()),
+		]
+		.into(),
 	});
 
 	AssetHubWestend::execute_with(|| {
@@ -240,7 +242,9 @@ fn swap_locally_on_chain_using_foreign_assets() {
 fn cannot_create_pool_from_pool_assets() {
 	let asset_native = Box::new(asset_hub_westend_runtime::xcm_config::WestendLocationV3::get());
 	let mut asset_one = asset_hub_westend_runtime::xcm_config::PoolAssetsPalletLocationV3::get();
-	asset_one.append_with(v3::Junction::GeneralIndex(ASSET_ID.into())).expect("pool assets");
+	asset_one
+		.append_with(v3::Junction::GeneralIndex(ASSET_ID.into()))
+		.expect("pool assets");
 
 	AssetHubWestend::execute_with(|| {
 		let pool_owner_account_id = asset_hub_westend_runtime::AssetConversionOrigin::get();

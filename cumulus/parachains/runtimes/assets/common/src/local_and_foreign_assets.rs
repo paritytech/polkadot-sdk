@@ -16,8 +16,8 @@
 use frame_support::traits::{
 	fungibles::{Balanced, Create, HandleImbalanceDrop, Inspect, Mutate, Unbalanced},
 	tokens::{
-		DepositConsequence, Fortitude, Precision, Preservation, Provenance, WithdrawConsequence,
-		AssetId as AssetIdTrait,
+		AssetId as AssetIdTrait, DepositConsequence, Fortitude, Precision, Preservation,
+		Provenance, WithdrawConsequence,
 	},
 	AccountTouch, Contains, ContainsPair, Get, PalletInfoAccess,
 };
@@ -31,8 +31,11 @@ pub struct LocationConverter<NativeAssetLocation: Get<L>, LocationMatcher, L = L
 	_phantom: PhantomData<(NativeAssetLocation, LocationMatcher, L)>,
 }
 
-impl<NativeAssetLocation, LocationMatcher, L: TryFrom<Location> + TryInto<Location> + Clone + PartialEq> MultiAssetIdConverter<Box<L>, L>
-	for LocationConverter<NativeAssetLocation, LocationMatcher, L>
+impl<
+		NativeAssetLocation,
+		LocationMatcher,
+		L: TryFrom<Location> + TryInto<Location> + Clone + PartialEq,
+	> MultiAssetIdConverter<Box<L>, L> for LocationConverter<NativeAssetLocation, LocationMatcher, L>
 where
 	NativeAssetLocation: Get<L>,
 	LocationMatcher: Contains<L>,
@@ -45,9 +48,7 @@ where
 		*asset_id == Self::get_native()
 	}
 
-	fn try_convert(
-		asset_id: &Box<L>,
-	) -> MultiAssetIdConversionResult<Box<L>, L> {
+	fn try_convert(asset_id: &Box<L>) -> MultiAssetIdConversionResult<Box<L>, L> {
 		if Self::is_native(&asset_id) {
 			return MultiAssetIdConversionResult::Native
 		}
@@ -313,9 +314,7 @@ where
 {
 	type Balance = u128;
 
-	fn deposit_required(
-		asset_id: L,
-	) -> <Self as AccountTouch<L, AccountId>>::Balance {
+	fn deposit_required(asset_id: L) -> <Self as AccountTouch<L, AccountId>>::Balance {
 		if let Some(asset_id) = LocalAssetIdConverter::convert(&asset_id) {
 			Assets::deposit_required(asset_id)
 		} else {
@@ -323,11 +322,7 @@ where
 		}
 	}
 
-	fn touch(
-		asset_id: L,
-		who: AccountId,
-		depositor: AccountId,
-	) -> Result<(), DispatchError> {
+	fn touch(asset_id: L, who: AccountId, depositor: AccountId) -> Result<(), DispatchError> {
 		if let Some(asset_id) = LocalAssetIdConverter::convert(&asset_id) {
 			Assets::touch(asset_id, who, depositor)
 		} else {

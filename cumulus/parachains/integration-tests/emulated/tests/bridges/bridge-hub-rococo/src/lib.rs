@@ -20,9 +20,8 @@ pub use frame_support::assert_ok;
 pub use xcm::{
 	prelude::{AccountId32 as AccountId32Junction, *},
 	v3::{
-		Error,
+		self, Error,
 		NetworkId::{Rococo as RococoId, Westend as WestendId},
-		self,
 	},
 };
 

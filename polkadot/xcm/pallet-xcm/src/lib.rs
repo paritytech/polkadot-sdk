@@ -1330,8 +1330,12 @@ pub mod pallet {
 				// added to assets transfers XCM programs
 				let fees = assets.remove(fee_asset_item);
 				let (local_xcm, remote_xcm) = match fees_transfer_type {
-					TransferType::LocalReserve =>
-						Self::local_reserve_fees_instructions(origin.clone(), dest.clone(), fees, weight_limit)?,
+					TransferType::LocalReserve => Self::local_reserve_fees_instructions(
+						origin.clone(),
+						dest.clone(),
+						fees,
+						weight_limit,
+					)?,
 					TransferType::DestinationReserve =>
 						Self::destination_reserve_fees_instructions(
 							origin.clone(),
@@ -1339,8 +1343,12 @@ pub mod pallet {
 							fees,
 							weight_limit,
 						)?,
-					TransferType::Teleport =>
-						Self::teleport_fees_instructions(origin.clone(), dest.clone(), fees, weight_limit)?,
+					TransferType::Teleport => Self::teleport_fees_instructions(
+						origin.clone(),
+						dest.clone(),
+						fees,
+						weight_limit,
+					)?,
 					TransferType::RemoteReserve(_) =>
 						return Err(Error::<T>::InvalidAssetUnsupportedReserve.into()),
 				};
@@ -2938,7 +2946,11 @@ impl<Prefix: Get<Location>, Body: Get<BodyId>> Contains<Location> for IsVoiceOfB
 /// `EnsureOrigin` implementation succeeding with a `Location` value to recognize and filter
 /// the `Origin::Xcm` item.
 pub struct EnsureXcm<F, L = Location>(PhantomData<(F, L)>);
-impl<O: OriginTrait + From<Origin>, F: Contains<L>, L: TryFrom<Location> + TryInto<Location> + Clone> EnsureOrigin<O> for EnsureXcm<F, L>
+impl<
+		O: OriginTrait + From<Origin>,
+		F: Contains<L>,
+		L: TryFrom<Location> + TryInto<Location> + Clone,
+	> EnsureOrigin<O> for EnsureXcm<F, L>
 where
 	O::PalletsOrigin: From<Origin> + TryInto<Origin, Error = O::PalletsOrigin>,
 {
@@ -2947,7 +2959,9 @@ where
 	fn try_origin(outer: O) -> Result<Self::Success, O> {
 		outer.try_with_caller(|caller| {
 			caller.try_into().and_then(|o| match o {
-				Origin::Xcm(ref location) if F::contains(&location.clone().try_into().map_err(|_| o.clone().into())?) => Ok(location.clone().try_into().map_err(|_| o.clone().into())?),
+				Origin::Xcm(ref location)
+					if F::contains(&location.clone().try_into().map_err(|_| o.clone().into())?) =>
+					Ok(location.clone().try_into().map_err(|_| o.clone().into())?),
 				Origin::Xcm(location) => Err(Origin::Xcm(location).into()),
 				o => Err(o.into()),
 			})

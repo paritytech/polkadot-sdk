@@ -142,8 +142,8 @@ mod tests {
 	use frame_support::{parameter_types, traits::Contains};
 
 	use super::{
-		AllSiblingSystemParachains, Asset, ConcreteAssetFromSystem, ContainsPair, GeneralIndex, Here, Location, PalletInstance,
-		Parachain, Parent,
+		AllSiblingSystemParachains, Asset, ConcreteAssetFromSystem, ContainsPair, GeneralIndex,
+		Here, Location, PalletInstance, Parachain, Parent,
 	};
 	use polkadot_primitives::LOWEST_PUBLIC_ID;
 	use xcm::latest::prelude::*;

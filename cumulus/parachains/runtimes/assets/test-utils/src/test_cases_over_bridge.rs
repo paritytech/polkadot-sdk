@@ -439,7 +439,8 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 				0.into()
 			);
 
-			let foreign_asset_id_location_latest: Location = foreign_asset_id_location.clone().try_into().unwrap();
+			let foreign_asset_id_location_latest: Location =
+				foreign_asset_id_location.clone().try_into().unwrap();
 
 			let expected_assets = Assets::from(vec![Asset {
 				id: AssetId(foreign_asset_id_location_latest.clone()),

@@ -80,9 +80,9 @@ use parachains_common::{
 };
 use sp_runtime::{Perbill, RuntimeDebug};
 use xcm_config::{
-	ForeignAssetsConvertedConcreteId, GovernanceLocation, PoolAssetsConvertedConcreteId,
-	TokenLocation, TrustBackedAssetsConvertedConcreteId, TokenLocationV3, TrustBackedAssetsPalletLocationV3,
-	ForeignCreatorsSovereignAccountOf, LocalAndForeignAssetsLocationMatcher,
+	ForeignAssetsConvertedConcreteId, ForeignCreatorsSovereignAccountOf, GovernanceLocation,
+	LocalAndForeignAssetsLocationMatcher, PoolAssetsConvertedConcreteId, TokenLocation,
+	TokenLocationV3, TrustBackedAssetsConvertedConcreteId, TrustBackedAssetsPalletLocationV3,
 };
 
 #[cfg(any(feature = "std", test))]
@@ -93,8 +93,8 @@ use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 // We exclude `Assets` since it's the name of a pallet
 use xcm::latest::prelude::{
-	Junction, Junction::*, Parent, ParentThen, AssetId, Location, Fungible, Asset,
-	BodyId, NetworkId, Here, NonFungible, Response, InteriorLocation,
+	Asset, AssetId, BodyId, Fungible, Here, InteriorLocation, Junction, Junction::*, Location,
+	NetworkId, NonFungible, Parent, ParentThen, Response,
 };
 
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
@@ -372,7 +372,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 		FromSiblingParachain<parachain_info::Pallet<Runtime>, xcm::v3::Location>,
 		ForeignCreatorsSovereignAccountOf,
 		AccountId,
-		xcm::v3::Location
+		xcm::v3::Location,
 	>;
 	type ForceOrigin = AssetsForceOrigin;
 	type AssetDeposit = ForeignAssetsAssetDeposit;
