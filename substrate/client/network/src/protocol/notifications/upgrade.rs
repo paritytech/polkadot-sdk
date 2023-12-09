@@ -19,9 +19,7 @@
 pub use self::{
 	collec::UpgradeCollec,
 	notifications::{
-		NotificationsIn,
-		NotificationsInSubstream, NotificationsOut,
-		NotificationsOutSubstream,
+		NotificationsIn, NotificationsInSubstream, NotificationsOut, NotificationsOutSubstream,
 	},
 };
 
