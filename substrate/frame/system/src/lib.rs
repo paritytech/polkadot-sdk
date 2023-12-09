@@ -77,6 +77,10 @@ use sp_runtime::{
 		Hash, Header, Lookup, LookupError, MaybeDisplay, MaybeSerializeDeserialize, Member, One,
 		Saturating, SimpleBitOps, StaticLookup, Zero,
 	},
+	transaction_validity::{
+		InvalidTransaction, TransactionLongevity, TransactionSource, TransactionValidity,
+		ValidTransaction,
+	},
 	DispatchError, RuntimeDebug,
 };
 #[cfg(any(feature = "std", test))]
@@ -90,9 +94,9 @@ use frame_support::traits::BuildGenesisConfig;
 use frame_support::{
 	dispatch::{
 		extract_actual_pays_fee, extract_actual_weight, DispatchClass, DispatchInfo,
-		DispatchResult, DispatchResultWithPostInfo, PerDispatchClass,
+		DispatchResult, DispatchResultWithPostInfo, PerDispatchClass, PostDispatchInfo,
 	},
-	impl_ensure_origin_with_arg_ignoring_arg,
+	ensure, impl_ensure_origin_with_arg_ignoring_arg,
 	storage::{self, StorageStreamIter},
 	traits::{
 		ConstU32, Contains, EnsureOrigin, EnsureOriginWithArg, Get, HandleLifetime,
@@ -196,6 +200,20 @@ impl<MaxNormal: Get<u32>, MaxOverflow: Get<u32>> ConsumerLimits for (MaxNormal, 
 	fn max_overflow() -> RefCount {
 		MaxOverflow::get()
 	}
+}
+
+/// Information needed when a new runtime binary is submitted and needs to be authorized before
+/// replacing the current runtime.
+#[derive(Decode, Encode, Default, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
+#[scale_info(skip_type_params(T))]
+struct CodeUpgradeAuthorization<T>
+where
+	T: Config,
+{
+	/// Hash of the new runtime binary.
+	code_hash: T::Hash,
+	/// Whether or not to carry out version checks.
+	check_version: bool,
 }
 
 #[frame_support::pallet]
@@ -658,29 +676,86 @@ pub mod pallet {
 			// Return success.
 			Ok(().into())
 		}
+
+		/// Authorize new runtime code.
+		#[pallet::call_index(9)]
+		#[pallet::weight((T::SystemWeightInfo::authorize_upgrade(), DispatchClass::Operational))]
+		pub fn authorize_upgrade(
+			origin: OriginFor<T>,
+			code_hash: T::Hash,
+			check_version: bool,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			AuthorizedUpgrade::<T>::put(CodeUpgradeAuthorization { code_hash, check_version });
+			Self::deposit_event(Event::UpgradeAuthorized { code_hash, check_version });
+			Ok(())
+		}
+
+		/// Set new, authorized runtime code.
+		#[pallet::call_index(10)]
+		#[pallet::weight((T::SystemWeightInfo::apply_authorized_upgrade(), DispatchClass::Operational))]
+		pub fn apply_authorized_upgrade(
+			_: OriginFor<T>,
+			code: Vec<u8>,
+		) -> DispatchResultWithPostInfo {
+			Self::validate_authorized_upgrade(&code[..])?;
+			T::OnSetCode::set_code(code)?;
+			AuthorizedUpgrade::<T>::kill();
+			let post = PostDispatchInfo {
+				// consume the rest of the block to prevent further transactions
+				actual_weight: Some(T::BlockWeights::get().max_block),
+				// no fee for valid upgrade
+				pays_fee: Pays::No,
+			};
+			Ok(post)
+		}
 	}
 
 	/// Event for the System pallet.
 	#[pallet::event]
 	pub enum Event<T: Config> {
 		/// An extrinsic completed successfully.
-		ExtrinsicSuccess { dispatch_info: DispatchInfo },
+		ExtrinsicSuccess {
+			dispatch_info: DispatchInfo,
+		},
 		/// An extrinsic failed.
-		ExtrinsicFailed { dispatch_error: DispatchError, dispatch_info: DispatchInfo },
+		ExtrinsicFailed {
+			dispatch_error: DispatchError,
+			dispatch_info: DispatchInfo,
+		},
 		/// `:code` was updated.
 		CodeUpdated,
 		/// A new account was created.
-		NewAccount { account: T::AccountId },
+		NewAccount {
+			account: T::AccountId,
+		},
 		/// An account was reaped.
-		KilledAccount { account: T::AccountId },
+		KilledAccount {
+			account: T::AccountId,
+		},
 		/// On on-chain remark happened.
-		Remarked { sender: T::AccountId, hash: T::Hash },
+		Remarked {
+			sender: T::AccountId,
+			hash: T::Hash,
+		},
 		/// A [`Task`] has started executing
-		TaskStarted { task: T::RuntimeTask },
+		TaskStarted {
+			task: T::RuntimeTask,
+		},
 		/// A [`Task`] has finished executing.
-		TaskCompleted { task: T::RuntimeTask },
+		TaskCompleted {
+			task: T::RuntimeTask,
+		},
 		/// A [`Task`] failed during execution.
-		TaskFailed { task: T::RuntimeTask, err: DispatchError },
+		TaskFailed {
+			task: T::RuntimeTask,
+			err: DispatchError,
+		},
+		// Upgrade authorized.
+		UpgradeAuthorized {
+			code_hash: T::Hash,
+			check_version: bool,
+		},
 	}
 
 	/// Error for the System pallet
@@ -706,6 +781,10 @@ pub mod pallet {
 		InvalidTask,
 		/// The specified [`Task`] failed during execution.
 		FailedTask,
+		/// No upgrade authorized.
+		NothingAuthorized,
+		/// The submitted code is not authorized.
+		Unauthorized,
 	}
 
 	/// Exposed trait-generic origin type.
@@ -821,6 +900,11 @@ pub mod pallet {
 	#[pallet::whitelist_storage]
 	pub(super) type ExecutionPhase<T: Config> = StorageValue<_, Phase>;
 
+	/// `Some` if a code upgrade has been authorized.
+	#[pallet::storage]
+	pub(super) type AuthorizedUpgrade<T: Config> =
+		StorageValue<_, CodeUpgradeAuthorization<T>, OptionQuery>;
+
 	#[derive(frame_support::DefaultNoBound)]
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -838,6 +922,25 @@ pub mod pallet {
 			<UpgradedToTripleRefCount<T>>::put(true);
 
 			sp_io::storage::set(well_known_keys::EXTRINSIC_INDEX, &0u32.encode());
+		}
+	}
+
+	#[pallet::validate_unsigned]
+	impl<T: Config> sp_runtime::traits::ValidateUnsigned for Pallet<T> {
+		type Call = Call<T>;
+		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+			if let Call::apply_authorized_upgrade { ref code } = call {
+				if let Ok(hash) = Self::validate_authorized_upgrade(&code[..]) {
+					return Ok(ValidTransaction {
+						priority: 100,
+						requires: Vec::new(),
+						provides: vec![hash.as_ref().to_vec()],
+						longevity: TransactionLongevity::max_value(),
+						propagate: true,
+					})
+				}
+			}
+			Err(InvalidTransaction::Call.into())
 		}
 	}
 }
@@ -1863,6 +1966,16 @@ impl<T: Config> Pallet<T> {
 				Ok(())
 			}
 		}
+	}
+
+	fn validate_authorized_upgrade(code: &[u8]) -> Result<T::Hash, DispatchError> {
+		let authorization = AuthorizedUpgrade::<T>::get().ok_or(Error::<T>::NothingAuthorized)?;
+		let actual_hash = T::Hashing::hash(code);
+		ensure!(actual_hash == authorization.code_hash, Error::<T>::Unauthorized);
+		if authorization.check_version {
+			Self::can_set_code(code)?
+		}
+		Ok(actual_hash)
 	}
 }
 

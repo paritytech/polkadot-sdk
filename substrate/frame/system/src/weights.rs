@@ -57,6 +57,8 @@ pub trait WeightInfo {
 	fn set_storage(i: u32, ) -> Weight;
 	fn kill_storage(i: u32, ) -> Weight;
 	fn kill_prefix(p: u32, ) -> Weight;
+	fn authorize_upgrade() -> Weight;
+	fn apply_authorized_upgrade() -> Weight;
 }
 
 /// Weights for frame_system using the Substrate node and recommended hardware.
@@ -149,6 +151,12 @@ impl<T: crate::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(p.into())))
 			.saturating_add(Weight::from_parts(0, 70).saturating_mul(p.into()))
 	}
+	fn authorize_upgrade() -> Weight {
+		Weight::zero()
+	}
+	fn apply_authorized_upgrade() -> Weight {
+		Weight::zero()
+	}
 }
 
 // For backwards compatibility and tests
@@ -239,5 +247,11 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(p.into())))
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(p.into())))
 			.saturating_add(Weight::from_parts(0, 70).saturating_mul(p.into()))
+	}
+	fn authorize_upgrade() -> Weight {
+		Weight::zero()
+	}
+	fn apply_authorized_upgrade() -> Weight {
+		Weight::zero()
 	}
 }
