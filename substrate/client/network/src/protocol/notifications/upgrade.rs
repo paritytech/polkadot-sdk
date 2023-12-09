@@ -22,6 +22,10 @@ pub use self::{
 		NotificationsIn, NotificationsInSubstream, NotificationsOut, NotificationsOutSubstream,
 	},
 };
+#[cfg(test)]
+pub(crate) use self::{
+	notifications::{NotificationsInOpen, NotificationsInSubstreamHandshake, NotificationsOutOpen}
+};
 
 mod collec;
 mod notifications;
