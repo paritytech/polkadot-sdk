@@ -414,7 +414,7 @@ where
 mod tests {
 	use crate::{
 		local_and_foreign_assets::LocationConverter, AssetIdForPoolAssetsConvert,
-		AssetIdForTrustBackedAssetsConvert,
+		AssetIdForTrustBackedAssetsConvertLatest,
 	};
 	use frame_support::traits::EverythingBut;
 	use pallet_asset_conversion::{MultiAssetIdConversionResult, MultiAssetIdConverter};
@@ -435,7 +435,7 @@ mod tests {
 
 		let native_asset = WestendLocation::get();
 		let local_asset =
-			AssetIdForTrustBackedAssetsConvert::<TrustBackedAssetsPalletLocation>::convert_back(
+			AssetIdForTrustBackedAssetsConvertLatest::<TrustBackedAssetsPalletLocation>::convert_back(
 				&123,
 			)
 			.unwrap();

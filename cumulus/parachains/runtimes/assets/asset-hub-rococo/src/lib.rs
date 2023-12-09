@@ -91,7 +91,11 @@ pub use sp_runtime::BuildStorage;
 // Polkadot imports
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
-use xcm::latest::prelude::*;
+// We exclude `Assets` since it's the name of a pallet
+use xcm::latest::prelude::{
+	Junction, Junction::*, Parent, ParentThen, AssetId, Location, Fungible, Asset,
+	BodyId, NetworkId, Here, NonFungible, Response, InteriorLocation,
+};
 
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
@@ -1141,16 +1145,16 @@ impl_runtime_apis! {
 		Block,
 		Balance,
 		u128,
-		Box<xcm::v3::MultiLocation>,
+		Box<xcm::v3::Location>,
 	> for Runtime
 	{
-		fn quote_price_exact_tokens_for_tokens(asset1: Box<xcm::v3::MultiLocation>, asset2: Box<xcm::v3::MultiLocation>, amount: u128, include_fee: bool) -> Option<Balance> {
+		fn quote_price_exact_tokens_for_tokens(asset1: Box<xcm::v3::Location>, asset2: Box<xcm::v3::Location>, amount: u128, include_fee: bool) -> Option<Balance> {
 			AssetConversion::quote_price_exact_tokens_for_tokens(asset1, asset2, amount, include_fee)
 		}
-		fn quote_price_tokens_for_exact_tokens(asset1: Box<xcm::v3::MultiLocation>, asset2: Box<xcm::v3::MultiLocation>, amount: u128, include_fee: bool) -> Option<Balance> {
+		fn quote_price_tokens_for_exact_tokens(asset1: Box<xcm::v3::Location>, asset2: Box<xcm::v3::Location>, amount: u128, include_fee: bool) -> Option<Balance> {
 			AssetConversion::quote_price_tokens_for_exact_tokens(asset1, asset2, amount, include_fee)
 		}
-		fn get_reserves(asset1: Box<xcm::v3::MultiLocation>, asset2: Box<xcm::v3::MultiLocation>) -> Option<(Balance, Balance)> {
+		fn get_reserves(asset1: Box<xcm::v3::Location>, asset2: Box<xcm::v3::Location>) -> Option<(Balance, Balance)> {
 			AssetConversion::get_reserves(&asset1, &asset2).ok()
 		}
 	}
@@ -1359,14 +1363,14 @@ impl_runtime_apis! {
 				}
 
 				fn set_up_complex_asset_transfer(
-				) -> Option<(MultiAssets, u32, MultiLocation, Box<dyn FnOnce()>)> {
+				) -> Option<(xcm::v4::Assets, u32, Location, Box<dyn FnOnce()>)> {
 					// Transfer to Relay some local AH asset (local-reserve-transfer) while paying
 					// fees using teleported native token.
 					// (We don't care that Relay doesn't accept incoming unknown AH local asset)
 					let dest = Parent.into();
 
 					let fee_amount = EXISTENTIAL_DEPOSIT;
-					let fee_asset: MultiAsset = (MultiLocation::parent(), fee_amount).into();
+					let fee_asset: Asset = (Location::parent(), fee_amount).into();
 
 					let who = frame_benchmarking::whitelisted_caller();
 					// Give some multiple of the existential deposit
@@ -1384,13 +1388,13 @@ impl_runtime_apis! {
 						Runtime,
 						pallet_assets::Instance1
 					>(true, initial_asset_amount);
-					let asset_location = MultiLocation::new(
+					let asset_location = Location::new(
 						0,
-						X2(PalletInstance(50), GeneralIndex(u32::from(asset_id).into()))
+						[PalletInstance(50), GeneralIndex(u32::from(asset_id).into())]
 					);
-					let transfer_asset: MultiAsset = (asset_location, asset_amount).into();
+					let transfer_asset: Asset = (asset_location, asset_amount).into();
 
-					let assets: MultiAssets = vec![fee_asset.clone(), transfer_asset].into();
+					let assets: xcm::v4::Assets = vec![fee_asset.clone(), transfer_asset].into();
 					let fee_index = if assets.get(0).unwrap().eq(&fee_asset) { 0 } else { 1 };
 
 					// verify transferred successfully
@@ -1422,7 +1426,6 @@ impl_runtime_apis! {
 				}
 			}
 
-			use xcm::latest::prelude::*;
 			use xcm_config::{TokenLocation, MaxAssetsIntoHolding};
 			use pallet_xcm_benchmarks::asset_instance_from;
 
@@ -1444,7 +1447,7 @@ impl_runtime_apis! {
 				fn valid_destination() -> Result<Location, BenchmarkError> {
 					Ok(TokenLocation::get())
 				}
-				fn worst_case_holding(depositable_count: u32) -> Assets {
+				fn worst_case_holding(depositable_count: u32) -> xcm::v4::Assets {
 					// A mix of fungible, non-fungible, and concrete assets.
 					let holding_non_fungibles = MaxAssetsIntoHolding::get() / 2 - depositable_count;
 					let holding_fungibles = holding_non_fungibles.saturating_sub(1);
@@ -1509,7 +1512,7 @@ impl_runtime_apis! {
 					(0u64, Response::Version(Default::default()))
 				}
 
-				fn worst_case_asset_exchange() -> Result<(Assets, Assets), BenchmarkError> {
+				fn worst_case_asset_exchange() -> Result<(xcm::v4::Assets, xcm::v4::Assets), BenchmarkError> {
 					Err(BenchmarkError::Skip)
 				}
 
@@ -1528,9 +1531,9 @@ impl_runtime_apis! {
 					Ok(TokenLocation::get())
 				}
 
-				fn claimable_asset() -> Result<(Location, Location, Assets), BenchmarkError> {
+				fn claimable_asset() -> Result<(Location, Location, xcm::v4::Assets), BenchmarkError> {
 					let origin = TokenLocation::get();
-					let assets: Assets = (TokenLocation::get(), 1_000 * UNITS).into();
+					let assets: xcm::v4::Assets = (TokenLocation::get(), 1_000 * UNITS).into();
 					let ticket = Location { parents: 0, interior: Here };
 					Ok((origin, ticket, assets))
 				}

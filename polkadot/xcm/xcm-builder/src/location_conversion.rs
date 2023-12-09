@@ -511,7 +511,7 @@ mod tests {
 			pub UniversalLocation: InteriorLocation = [account20(), account20()].into();
 		}
 
-		let input = Location::grandparent();
+		let input = Location::new(2, Here);
 		let inverted = UniversalLocation::get().invert_target(&input).unwrap();
 		assert_eq!(inverted, [account20(), account20()].into());
 	}
@@ -526,7 +526,7 @@ mod tests {
 			pub UniversalLocation: InteriorLocation = PalletInstance(5).into();
 		}
 
-		let input = Location::grandparent();
+		let input = Location::new(2, Here);
 		let inverted = UniversalLocation::get().invert_target(&input).unwrap();
 		assert_eq!(inverted, (OnlyChild, PalletInstance(5)).into());
 	}

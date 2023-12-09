@@ -41,6 +41,7 @@ pub use xcm::{
 	prelude::{Location, OriginKind, Outcome, VersionedXcm},
 	v4::Error as XcmError,
 	DoubleEncoded,
+	v3,
 };
 
 // Cumulus
@@ -716,7 +717,7 @@ macro_rules! impl_foreign_assets_helpers_for_parachain {
 			impl<N: $crate::impls::Network> $chain<N> {
 				/// Create foreign assets using sudo `ForeignAssets::force_create()`
 				pub fn force_create_foreign_asset(
-					id: $crate::impls::Location,
+					id: $crate::impls::v3::Location,
 					owner: $crate::impls::AccountId,
 					is_sufficient: bool,
 					min_balance: u128,
@@ -758,7 +759,7 @@ macro_rules! impl_foreign_assets_helpers_for_parachain {
 				/// Mint assets making use of the ForeignAssets pallet-assets instance
 				pub fn mint_foreign_asset(
 					signed_origin: <Self as $crate::impls::Chain>::RuntimeOrigin,
-					id: $crate::impls::Location,
+					id: $crate::impls::v3::Location,
 					beneficiary: $crate::impls::AccountId,
 					amount_to_mint: u128,
 				) {

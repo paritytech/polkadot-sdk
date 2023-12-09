@@ -735,7 +735,7 @@ fn xcmp_queue_send_xcm_works() {
 fn xcmp_queue_send_too_big_xcm_fails() {
 	new_test_ext().execute_with(|| {
 		let sibling_para_id = ParaId::from(12345);
-		let dest = (Parent, X1(Parachain(sibling_para_id.into()))).into();
+		let dest = (Parent, Parachain(sibling_para_id.into())).into();
 
 		let max_message_size = 100_u32;
 

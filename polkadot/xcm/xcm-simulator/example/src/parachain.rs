@@ -127,8 +127,8 @@ impl pallet_uniques::BenchmarkHelper<Location, AssetInstance> for UniquesHelper 
 
 impl pallet_uniques::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type CollectionId = xcm::v3::Location; // <- Using a v4::Location. Can I pin it to v3?
-	type ItemId = xcm::v3::AssetInstance;
+	type CollectionId = Location;
+	type ItemId = AssetInstance;
 	type Currency = Balances;
 	type CreateOrigin = ForeignCreators;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
@@ -149,19 +149,18 @@ impl pallet_uniques::Config for Runtime {
 // `EnsureOriginWithArg` impl for `CreateOrigin` which allows only XCM origins
 // which are locations containing the class location.
 pub struct ForeignCreators;
-impl EnsureOriginWithArg<RuntimeOrigin, xcm::v3::Location> for ForeignCreators {
+impl EnsureOriginWithArg<RuntimeOrigin, Location> for ForeignCreators {
 	type Success = AccountId;
 
 	fn try_origin(
 		o: RuntimeOrigin,
-		a: &xcm::v3::Location,
+		a: &Location,
 	) -> sp_std::result::Result<Self::Success, RuntimeOrigin> {
-		let origin_location = pallet_xcm::EnsureXcm::<Everything, xcm::v3::Location>::try_origin(o.clone())?;
+		let origin_location = pallet_xcm::EnsureXcm::<Everything>::try_origin(o.clone())?;
 		if !a.starts_with(&origin_location) {
 			return Err(o)
 		}
-		let latest_location: Location = origin_location.clone().try_into().map_err(|_| o.clone())?;
-		SovereignAccountOf::convert_location(&latest_location).ok_or(o)
+		SovereignAccountOf::convert_location(&origin_location).ok_or(o)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -206,7 +205,7 @@ pub type LocalAssetTransactor = (
 	XcmCurrencyAdapter<Balances, IsConcrete<KsmLocation>, LocationToAccountId, AccountId, ()>,
 	NonFungiblesAdapter<
 		ForeignUniques,
-		ConvertedConcreteId<xcm::v3::Location, xcm::v3::AssetInstance, JustTry, JustTry>,
+		ConvertedConcreteId<Location, AssetInstance, JustTry, JustTry>,
 		SovereignAccountOf,
 		AccountId,
 		NoChecking,
@@ -327,19 +326,12 @@ pub mod mock_msg_queue {
 			let (result, event) = match Xcm::<T::RuntimeCall>::try_from(xcm) {
 				Ok(xcm) => {
 					let location = (Parent, Parachain(sender.into()));
-					match T::XcmExecutor::prepare_and_execute(
-						location,
-						xcm,
-						&mut message_hash,
-						max_weight,
-						Weight::zero(),
-					) {
+					match T::XcmExecutor::prepare_and_execute(location, xcm, &mut message_hash, max_weight, max_weight) {
 						Outcome::Error { error } => (Err(error), Event::Fail(Some(hash), error)),
 						Outcome::Complete { used } => (Ok(used), Event::Success(Some(hash))),
 						// As far as the caller is concerned, this was dispatched without error, so
 						// we just report the weight used.
-						Outcome::Incomplete { used, error } =>
-							(Ok(used), Event::Fail(Some(hash), error)),
+						Outcome::Incomplete { used, error } => (Ok(used), Event::Fail(Some(hash), error)),
 					}
 				},
 				Err(()) => (Err(XcmError::UnhandledXcmVersion), Event::BadVersion(Some(hash))),
@@ -389,13 +381,7 @@ pub mod mock_msg_queue {
 					Ok(versioned) => match Xcm::try_from(versioned) {
 						Err(()) => Self::deposit_event(Event::UnsupportedVersion(id)),
 						Ok(x) => {
-							let outcome = T::XcmExecutor::prepare_and_execute(
-								Parent,
-								x.clone(),
-								&mut id,
-								limit,
-								Weight::zero(),
-							);
+							let outcome = T::XcmExecutor::prepare_and_execute(Parent, x.clone(), &mut id, limit, limit);
 							<ReceivedDmp<T>>::append(x);
 							Self::deposit_event(Event::ExecutedDownward(id, outcome));
 						},
@@ -415,7 +401,9 @@ impl mock_msg_queue::Config for Runtime {
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, RelayNetwork>;
 
 pub struct TrustedLockerCase<T>(PhantomData<T>);
-impl<T: Get<(Location, AssetFilter)>> ContainsPair<Location, Asset> for TrustedLockerCase<T> {
+impl<T: Get<(Location, AssetFilter)>> ContainsPair<Location, Asset>
+	for TrustedLockerCase<T>
+{
 	fn contains(origin: &Location, asset: &Asset) -> bool {
 		let (o, a) = T::get();
 		a.matches(asset) && &o == origin

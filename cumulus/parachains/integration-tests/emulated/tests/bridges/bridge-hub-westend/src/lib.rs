@@ -23,6 +23,7 @@ pub use xcm::{
 		Error,
 		NetworkId::{Rococo as RococoId, Westend as WestendId},
 	},
+	v3,
 };
 
 // Bridges

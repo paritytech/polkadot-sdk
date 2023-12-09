@@ -61,15 +61,11 @@ pub fn xcm_transact_unpaid_execution(
 }
 
 /// Helper method to get the non-fee asset used in multiple assets transfer
-pub fn non_fee_asset(assets: &MultiAssets, fee_idx: usize) -> Option<(MultiLocation, u128)> {
+pub fn non_fee_asset(assets: &Assets, fee_idx: usize) -> Option<(Location, u128)> {
 	let asset = assets.inner().into_iter().enumerate().find(|a| a.0 != fee_idx)?.1.clone();
-	let asset_id = match asset.id {
-		Concrete(id) => id,
-		_ => return None,
-	};
 	let asset_amount = match asset.fun {
 		Fungible(amount) => amount,
 		_ => return None,
 	};
-	Some((asset_id, asset_amount))
+	Some((asset.id.0, asset_amount))
 }

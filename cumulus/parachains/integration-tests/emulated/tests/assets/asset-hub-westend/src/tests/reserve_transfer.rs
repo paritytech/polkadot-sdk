@@ -32,7 +32,7 @@ fn relay_to_para_sender_assertions(t: RelayToParaTest) {
 			) => {
 				from: *from == t.sender.account_id,
 				to: *to == Westend::sovereign_account_id_of(
-					t.args.dest
+					t.args.dest.clone()
 				),
 				amount: *amount == t.args.amount,
 			},
@@ -428,9 +428,9 @@ fn reserve_transfer_assets_from_system_para_to_para() {
 	let beneficiary_id = PenpalBReceiver::get();
 	let fee_amount_to_send = ASSET_HUB_WESTEND_ED * 1000;
 	let asset_amount_to_send = ASSET_MIN_BALANCE * 1000;
-	let assets: MultiAssets = vec![
+	let assets: Assets = vec![
 		(Parent, fee_amount_to_send).into(),
-		(PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into()), asset_amount_to_send)
+		([PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())], asset_amount_to_send)
 			.into(),
 	]
 	.into();

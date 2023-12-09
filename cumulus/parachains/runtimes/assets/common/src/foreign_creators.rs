@@ -51,7 +51,8 @@ where
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn try_successful_origin(a: &Location) -> Result<RuntimeOrigin, ()> {
-		Ok(pallet_xcm::Origin::Xcm(a.clone()).into())
+	fn try_successful_origin(a: &L) -> Result<RuntimeOrigin, ()> {
+		let latest_location: Location = (*a).clone().try_into().map_err(|_| ())?;
+		Ok(pallet_xcm::Origin::Xcm(latest_location).into())
 	}
 }

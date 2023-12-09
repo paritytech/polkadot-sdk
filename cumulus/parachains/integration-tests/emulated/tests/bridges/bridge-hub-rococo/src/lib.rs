@@ -22,6 +22,7 @@ pub use xcm::{
 	v3::{
 		Error,
 		NetworkId::{Rococo as RococoId, Westend as WestendId},
+		self,
 	},
 };
 

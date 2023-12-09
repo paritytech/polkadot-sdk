@@ -75,6 +75,8 @@ parameter_types! {
 		PalletInstance(<ForeignAssets as PalletInfoAccess>::index() as u8).into();
 	pub PoolAssetsPalletLocation: Location =
 		PalletInstance(<PoolAssets as PalletInfoAccess>::index() as u8).into();
+	pub PoolAssetsPalletLocationV3: xcm::v3::Location =
+		xcm::v3::Junction::PalletInstance(<PoolAssets as PalletInfoAccess>::index() as u8).into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
 	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
@@ -691,9 +693,9 @@ pub type ForeignCreatorsSovereignAccountOf = (
 /// Simple conversion of `u32` into an `AssetId` for use in benchmarking.
 pub struct XcmBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_assets::BenchmarkHelper<Location> for XcmBenchmarkHelper {
-	fn create_asset_id_parameter(id: u32) -> Location {
-		Location { parents: 1, interior: [Parachain(id)].into() }
+impl pallet_assets::BenchmarkHelper<xcm::v3::Location> for XcmBenchmarkHelper {
+	fn create_asset_id_parameter(id: u32) -> xcm::v3::Location {
+		xcm::v3::Location::new(1, [xcm::v3::Junction::Parachain(id)])
 	}
 }
 
@@ -703,12 +705,13 @@ pub struct BenchmarkLocationConverter<SelfParaId> {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-impl<SelfParaId> pallet_asset_conversion::BenchmarkHelper<Location, sp_std::boxed::Box<Location>>
+impl<SelfParaId> pallet_asset_conversion::BenchmarkHelper<xcm::v3::Location, sp_std::boxed::Box<xcm::v3::Location>>
 	for BenchmarkLocationConverter<SelfParaId>
 where
 	SelfParaId: Get<ParaId>,
 {
-	fn asset_id(asset_id: u32) -> Location {
+	fn asset_id(asset_id: u32) -> xcm::v3::Location {
+		use xcm::v3::prelude::*;
 		Location {
 			parents: 1,
 			interior: [
@@ -720,7 +723,7 @@ where
 		}
 	}
 
-	fn multiasset_id(asset_id: u32) -> sp_std::boxed::Box<Location> {
+	fn multiasset_id(asset_id: u32) -> sp_std::boxed::Box<xcm::v3::Location> {
 		sp_std::boxed::Box::new(Self::asset_id(asset_id))
 	}
 }

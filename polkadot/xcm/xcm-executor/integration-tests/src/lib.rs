@@ -147,7 +147,7 @@ fn transact_recursion_limit_works() {
 				.filter(|r| matches!(
 					r.event,
 					polkadot_test_runtime::RuntimeEvent::Xcm(pallet_xcm::Event::Attempted {
-						outcome: Outcome::Complete(_)
+						outcome: Outcome::Complete { .. }
 					}),
 				))
 				.count(),

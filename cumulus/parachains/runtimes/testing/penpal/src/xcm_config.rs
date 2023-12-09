@@ -112,7 +112,7 @@ pub type FungiblesTransactor = FungiblesAdapter<
 			JustTry,
 		>,
 	),
-	// Convert an XCM MultiLocation into a local account id:
+	// Convert an XCM Location into a local account id:
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
@@ -269,16 +269,20 @@ parameter_types! {
 		0,
 		[PalletInstance(50), GeneralIndex(TELEPORTABLE_ASSET_ID.into())]
 	);
+	pub LocalTeleportableToAssetHubV3: xcm::v3::Location = xcm::v3::Location::new(
+		0,
+		[xcm::v3::Junction::PalletInstance(50), xcm::v3::Junction::GeneralIndex(TELEPORTABLE_ASSET_ID.into())]
+	);
 }
 
 /// Accepts asset with ID `AssetLocation` and is coming from `Origin` chain.
 pub struct AssetFromChain<AssetLocation, Origin>(PhantomData<(AssetLocation, Origin)>);
-impl<AssetLocation: Get<MultiLocation>, Origin: Get<MultiLocation>>
-	ContainsPair<MultiAsset, MultiLocation> for AssetFromChain<AssetLocation, Origin>
+impl<AssetLocation: Get<Location>, Origin: Get<Location>>
+	ContainsPair<Asset, Location> for AssetFromChain<AssetLocation, Origin>
 {
-	fn contains(asset: &MultiAsset, origin: &MultiLocation) -> bool {
+	fn contains(asset: &Asset, origin: &Location) -> bool {
 		log::trace!(target: "xcm::contains", "AssetFromChain asset: {:?}, origin: {:?}", asset, origin);
-		*origin == Origin::get() && matches!(asset.id, Concrete(id) if id == AssetLocation::get())
+		*origin == Origin::get() && matches!(asset.id.clone(), AssetId(id) if id == AssetLocation::get())
 	}
 }
 

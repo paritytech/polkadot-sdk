@@ -827,7 +827,7 @@ impl_runtime_apis! {
 				}
 
 				fn set_up_complex_asset_transfer(
-				) -> Option<(MultiAssets, u32, MultiLocation, Box<dyn FnOnce()>)> {
+				) -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)> {
 					// BH only supports teleports to system parachain.
 					// Relay/native token can be teleported between BH and Relay.
 					let native_location = Parent.into();
@@ -933,7 +933,6 @@ impl_runtime_apis! {
 
 				fn export_message_origin_and_destination(
 				) -> Result<(Location, NetworkId, InteriorLocation), BenchmarkError> {
-					Ok((TokenLocation::get(), NetworkId::Westend, [Parachain(100)].into()))
 					Ok(
 						(
 							bridge_to_westend_config::FromAssetHubRococoToAssetHubWestendRoute::get().location,

@@ -90,7 +90,7 @@ pub type PoolAssetsConvertedConcreteId<PoolAssetsPalletLocation, Balance> =
 mod tests {
 	use super::*;
 	use sp_runtime::traits::MaybeEquivalence;
-	use xcm::v3::prelude::*;
+	use xcm::prelude::*;
 	use xcm_builder::StartsWithExplicitGlobalConsensus;
 	use xcm_executor::traits::{Error as MatchError, MatchesFungibles};
 
@@ -104,14 +104,14 @@ mod tests {
 			Location::new(5, [PalletInstance(13), GeneralIndex(local_asset_id.into())]);
 
 		assert_eq!(
-			AssetIdForTrustBackedAssetsConvert::<TrustBackedAssetsPalletLocation>::convert_back(
+			AssetIdForTrustBackedAssetsConvertLatest::<TrustBackedAssetsPalletLocation>::convert_back(
 				&local_asset_id
 			)
 			.unwrap(),
 			expected_reverse_ref
 		);
 		assert_eq!(
-			AssetIdForTrustBackedAssetsConvert::<TrustBackedAssetsPalletLocation>::convert(
+			AssetIdForTrustBackedAssetsConvertLatest::<TrustBackedAssetsPalletLocation>::convert(
 				&expected_reverse_ref
 			)
 			.unwrap(),
@@ -201,7 +201,7 @@ mod tests {
 
 		for (asset, expected_result) in test_data {
 			assert_eq!(
-				<TrustBackedAssetsConvert as MatchesFungibles<AssetIdForTrustBackedAssets, u128>>::matches_fungibles(&asset.try_into().unwrap()),
+				<TrustBackedAssetsConvert as MatchesFungibles<AssetIdForTrustBackedAssets, u128>>::matches_fungibles(&asset.clone().try_into().unwrap()),
 				expected_result, "asset: {:?}", asset);
 		}
 	}
@@ -264,19 +264,19 @@ mod tests {
 				Err(MatchError::AssetNotHandled),
 			),
 			// ok
-			(ma_1000(1, [Parachain(200)].into()), Ok((xcm::v3::MultiLocation::new(1, [Parachain(200)]), 1000))),
-			(ma_1000(2, [Parachain(200)].into()), Ok((xcm::v3::MultiLocation::new(2, [Parachain(200)]), 1000))),
+			(ma_1000(1, [Parachain(200)].into()), Ok((xcm::v3::Location::new(1, [xcm::v3::Junction::Parachain(200)]), 1000))),
+			(ma_1000(2, [Parachain(200)].into()), Ok((xcm::v3::Location::new(2, [xcm::v3::Junction::Parachain(200)]), 1000))),
 			(
 				ma_1000(1, [Parachain(200), GeneralIndex(1234)].into()),
-				Ok((xcm::v3::MultiLocation::new(1, [Parachain(200), GeneralIndex(1234)]), 1000)),
+				Ok((xcm::v3::Location::new(1, [xcm::v3::Junction::Parachain(200), xcm::v3::Junction::GeneralIndex(1234)]), 1000)),
 			),
 			(
 				ma_1000(2, [Parachain(200), GeneralIndex(1234)].into()),
-				Ok((xcm::v3::MultiLocation::new(2, [Parachain(200), GeneralIndex(1234)]), 1000)),
+				Ok((xcm::v3::Location::new(2, [xcm::v3::Junction::Parachain(200), xcm::v3::Junction::GeneralIndex(1234)]), 1000)),
 			),
 			(
 				ma_1000(2, [GlobalConsensus(NetworkId::ByGenesis([7; 32]))].into()),
-				Ok((xcm::v3::MultiLocation::new(2, [GlobalConsensus(NetworkId::ByGenesis([7; 32]))]), 1000)),
+				Ok((xcm::v3::Location::new(2, [xcm::v3::Junction::GlobalConsensus(xcm::v3::NetworkId::ByGenesis([7; 32]))]), 1000)),
 			),
 			(
 				ma_1000(
@@ -289,12 +289,12 @@ mod tests {
 					.into(),
 				),
 				Ok((
-					xcm::v3::MultiLocation::new(
+					xcm::v3::Location::new(
 						2,
 						[
-							GlobalConsensus(NetworkId::ByGenesis([7; 32])),
-							Parachain(200),
-							GeneralIndex(1234),
+							xcm::v3::Junction::GlobalConsensus(xcm::v3::NetworkId::ByGenesis([7; 32])),
+							xcm::v3::Junction::Parachain(200),
+							xcm::v3::Junction::GeneralIndex(1234),
 						],
 					),
 					1000,
@@ -304,7 +304,7 @@ mod tests {
 
 		for (asset, expected_result) in test_data {
 			assert_eq!(
-				<Convert as MatchesFungibles<xcm::v3::MultiLocation, u128>>::matches_fungibles(&asset.try_into().unwrap()),
+				<Convert as MatchesFungibles<xcm::v3::MultiLocation, u128>>::matches_fungibles(&asset.clone().try_into().unwrap()),
 				expected_result,
 				"asset: {:?}",
 				asset
@@ -313,7 +313,7 @@ mod tests {
 	}
 
 	// Create Asset
-	fn ma_1000(parents: u8, interior: xcm::v3::Junctions) -> xcm::v3::MultiAsset {
-		(xcm::v3::MultiLocation::new(parents, interior), 1000).into()
+	fn ma_1000(parents: u8, interior: Junctions) -> Asset {
+		(Location::new(parents, interior), 1000).into()
 	}
 }

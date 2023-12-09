@@ -583,8 +583,8 @@ impl super::benchmarking::Config for Test {
 	}
 
 	fn set_up_complex_asset_transfer(
-	) -> Option<(MultiAssets, u32, MultiLocation, Box<dyn FnOnce()>)> {
-		use crate::tests::assets_transfer::{into_multiassets_checked, set_up_foreign_asset};
+	) -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)> {
+		use crate::tests::assets_transfer::{into_assets_checked, set_up_foreign_asset};
 		// Transfer native asset (local reserve) to `USDT_PARA_ID`. Using teleport-trusted USDT for
 		// fees.
 
@@ -593,16 +593,16 @@ impl super::benchmarking::Config for Test {
 
 		// create sufficient foreign asset USDT
 		let usdt_initial_local_amount = fee_amount * 10;
-		let (usdt_chain, _, usdt_id_multilocation) =
+		let (usdt_chain, _, usdt_id_location) =
 			set_up_foreign_asset(USDT_PARA_ID, None, usdt_initial_local_amount, true);
 
 		// native assets transfer destination is USDT chain (teleport trust only for USDT)
 		let dest = usdt_chain;
-		let (assets, fee_index, _, _) = into_multiassets_checked(
+		let (assets, fee_index, _, _) = into_assets_checked(
 			// USDT for fees (is sufficient on local chain too) - teleported
-			(usdt_id_multilocation, fee_amount).into(),
+			(usdt_id_location.clone(), fee_amount).into(),
 			// native asset to transfer (not used for fees) - local reserve
-			(MultiLocation::here(), asset_amount).into(),
+			(Location::here(), asset_amount).into(),
 		);
 
 		let existential_deposit = ExistentialDeposit::get();
@@ -620,7 +620,7 @@ impl super::benchmarking::Config for Test {
 			// verify balance after transfer, decreased by transferred amount
 			assert_eq!(Balances::free_balance(&caller), balance - asset_amount);
 			assert_eq!(
-				Assets::balance(usdt_id_multilocation, &caller),
+				AssetsPallet::balance(usdt_id_location, &caller),
 				usdt_initial_local_amount - fee_amount
 			);
 		});
