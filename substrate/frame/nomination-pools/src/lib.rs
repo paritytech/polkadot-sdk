@@ -1297,7 +1297,7 @@ impl<T: Config> BondedPool<T> {
 		}
 		self.ok_to_be_open()?;
 		Ok(())
-  }
+	}
 
 	/// Withdraw all the funds that are already unlocked from staking for the
 	/// [`BondedPool::bonded_account`].
@@ -2780,10 +2780,49 @@ pub mod pallet {
 			Self::do_claim_commission(who, pool_id)
 		}
 
+		/// Top up the deficit or withdraw the excess ED from the pool.
+		///
+		/// When a pool is created, the pool depositor transfers ED to the reward account of the
+		/// pool. ED is subject to change and over time, the deposit in the reward account may be
+		/// insufficient to cover the ED deficit of the pool or vice-versa where there is excess
+		/// deposit to the pool. This call allows anyone to adjust the ED deposit of the
+		/// pool by either topping up the deficit or claiming the excess.
+		#[pallet::call_index(21)]
+		#[pallet::weight(T::WeightInfo::adjust_pool_deposit())]
+		pub fn adjust_pool_deposit(origin: OriginFor<T>, pool_id: PoolId) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::do_adjust_pool_deposit(who, pool_id)
+		}
+
+		/// Set or remove a pool's commission claim permission.
+		///
+		/// Determines who can claim the pool's pending commission. Only the `Root` role of the pool
+		/// is able to conifigure commission claim permissions.
+		#[pallet::call_index(22)]
+		#[pallet::weight(T::WeightInfo::set_commission_claim_permission())]
+		pub fn set_commission_claim_permission(
+			origin: OriginFor<T>,
+			pool_id: PoolId,
+			permission: Option<CommissionClaimPermission<T::AccountId>>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let mut bonded_pool = BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?;
+			ensure!(bonded_pool.can_manage_commission(&who), Error::<T>::DoesNotHavePermission);
+
+			bonded_pool.commission.claim_permission = permission.clone();
+			bonded_pool.put();
+
+			Self::deposit_event(Event::<T>::PoolCommissionClaimPermissionUpdated {
+				pool_id,
+				permission,
+			});
+			Ok(())
+		}
+
 		/// Rebond an unlock chunk from the unbonding queue.
 		///
 		/// Called by a pool member to rebond funds that are currently unlocking.
-		#[pallet::call_index(21)]
+		#[pallet::call_index(23)]
 		#[pallet::weight(0)]
 		pub fn rebond(origin: OriginFor<T>, points: BalanceOf<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -2903,45 +2942,6 @@ pub mod pallet {
 			Self::put_member_with_pools(&who, member, bonded_pool, reward_pool);
 
 			// Ok(Some(T::WeightInfo::rebond(removed_chunks)).into())
-  }
-    
-		/// Top up the deficit or withdraw the excess ED from the pool.
-		///
-		/// When a pool is created, the pool depositor transfers ED to the reward account of the
-		/// pool. ED is subject to change and over time, the deposit in the reward account may be
-		/// insufficient to cover the ED deficit of the pool or vice-versa where there is excess
-		/// deposit to the pool. This call allows anyone to adjust the ED deposit of the
-		/// pool by either topping up the deficit or claiming the excess.
-		#[pallet::call_index(21)]
-		#[pallet::weight(T::WeightInfo::adjust_pool_deposit())]
-		pub fn adjust_pool_deposit(origin: OriginFor<T>, pool_id: PoolId) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-			Self::do_adjust_pool_deposit(who, pool_id)
-		}
-
-		/// Set or remove a pool's commission claim permission.
-		///
-		/// Determines who can claim the pool's pending commission. Only the `Root` role of the pool
-		/// is able to conifigure commission claim permissions.
-		#[pallet::call_index(22)]
-		#[pallet::weight(T::WeightInfo::set_commission_claim_permission())]
-		pub fn set_commission_claim_permission(
-			origin: OriginFor<T>,
-			pool_id: PoolId,
-			permission: Option<CommissionClaimPermission<T::AccountId>>,
-		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-			let mut bonded_pool = BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?;
-			ensure!(bonded_pool.can_manage_commission(&who), Error::<T>::DoesNotHavePermission);
-
-			bonded_pool.commission.claim_permission = permission.clone();
-			bonded_pool.put();
-
-			Self::deposit_event(Event::<T>::PoolCommissionClaimPermissionUpdated {
-				pool_id,
-				permission,
-			});
-			Ok(())
 		}
 	}
 
