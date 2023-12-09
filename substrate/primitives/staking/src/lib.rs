@@ -237,6 +237,9 @@ pub trait StakingInterface {
 	/// balance.
 	fn bond_extra(who: &Self::AccountId, extra: Self::Balance) -> DispatchResult;
 
+	/// Rebond a portion of funds scheduled to be unlocked.
+	fn rebond(stash: Self::AccountId, value: Self::Balance) -> DispatchResult;
+
 	/// Schedule a portion of the active bonded balance to be unlocked at era
 	/// [Self::current_era] + [`Self::bonding_duration`].
 	///
