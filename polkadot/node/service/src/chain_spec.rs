@@ -102,6 +102,10 @@ pub fn westend_config() -> Result<WestendChainSpec, String> {
 	WestendChainSpec::from_json_bytes(&include_bytes!("../chain-specs/westend.json")[..])
 }
 
+pub fn paseo_config() -> Result<GenericChainSpec, String> {
+	unimplemented!("Paseo chain spec is not yet available here. Please use the raw file instead.");
+}
+
 pub fn rococo_config() -> Result<RococoChainSpec, String> {
 	RococoChainSpec::from_json_bytes(&include_bytes!("../chain-specs/rococo.json")[..])
 }
