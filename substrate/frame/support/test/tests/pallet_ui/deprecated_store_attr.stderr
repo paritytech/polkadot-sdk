@@ -7,3 +7,4 @@ error: use of deprecated struct `pallet::_::Store`:
    |      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = note: `-D deprecated` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(deprecated)]`

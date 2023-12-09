@@ -28,12 +28,12 @@ use pallet_xcm::XcmPassthrough;
 use parachains_common::{
 	impls::ToStakingPot,
 	xcm_config::{
-		ConcreteAssetFromSystem, ParentRelayOrSiblingParachains, RelayOrOtherSystemParachains,
+		AllSiblingSystemParachains, ConcreteAssetFromSystem, ParentRelayOrSiblingParachains, RelayOrOtherSystemParachains,
 	},
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-use westend_runtime_constants::system_parachain;
+use westend_runtime_constants::xcm as xcm_constants;
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
@@ -47,8 +47,6 @@ use xcm_builder::{
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
-const FELLOWSHIP_ADMIN_INDEX: u32 = 1;
-
 parameter_types! {
 	pub const WndLocation: MultiLocation = MultiLocation::parent();
 	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::Westend);
@@ -58,7 +56,8 @@ parameter_types! {
 	pub RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 	pub const GovernanceLocation: MultiLocation = MultiLocation::parent();
-	pub const FellowshipAdminBodyId: BodyId = BodyId::Index(FELLOWSHIP_ADMIN_INDEX);
+	pub const FellowshipAdminBodyId: BodyId = BodyId::Index(xcm_constants::body::FELLOWSHIP_ADMIN_INDEX);
+	pub const TreasurerBodyId: BodyId = BodyId::Index(xcm_constants::body::TREASURER_INDEX);
 	pub AssetHub: MultiLocation = (Parent, Parachain(1000)).into();
 	pub AssetHubUsdtId: AssetId = (PalletInstance(50), GeneralIndex(1984)).into();
 	pub UsdtAssetHub: LocatableAssetId = LocatableAssetId {
@@ -248,24 +247,13 @@ pub type Barrier = TrailingSetTopicAsId<
 	>,
 >;
 
-match_types! {
-	pub type SystemParachains: impl Contains<MultiLocation> = {
-		MultiLocation {
-			parents: 1,
-			interior: X1(Parachain(
-				system_parachain::ASSET_HUB_ID |
-				system_parachain::BRIDGE_HUB_ID |
-				system_parachain::COLLECTIVES_ID
-			)),
-		}
-	};
-}
-
 /// Locations that will not be charged fees in the executor,
 /// either execution or delivery.
 /// We only waive fees for system functions, which these locations represent.
-pub type WaivedLocations =
-	(RelayOrOtherSystemParachains<SystemParachains, Runtime>, Equals<RelayTreasuryLocation>);
+pub type WaivedLocations = (
+	RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
+	Equals<RelayTreasuryLocation>,
+);
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
 /// - DOT with the parent Relay Chain and sibling parachains.
