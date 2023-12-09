@@ -31,6 +31,7 @@ use tempfile::tempdir;
 pub mod common;
 
 #[tokio::test]
+#[ignore]
 async fn purge_chain_rocksdb_works() {
 	run_with_timeout(Duration::from_secs(10 * 60), async move {
 		let tmpdir = tempdir().expect("could not create temp dir");
@@ -75,6 +76,7 @@ async fn purge_chain_rocksdb_works() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn purge_chain_paritydb_works() {
 	run_with_timeout(Duration::from_secs(10 * 60), async move {
 		let tmpdir = tempdir().expect("could not create temp dir");

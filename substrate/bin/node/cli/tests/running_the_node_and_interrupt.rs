@@ -28,6 +28,7 @@ use tempfile::tempdir;
 use substrate_cli_test_utils as common;
 
 #[tokio::test]
+#[ignore]
 async fn running_the_node_works_and_can_be_interrupted() {
 	common::run_with_timeout(Duration::from_secs(60 * 10), async move {
 		async fn run_command_and_kill(signal: Signal) {

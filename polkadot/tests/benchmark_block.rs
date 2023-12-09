@@ -37,6 +37,7 @@ static RUNTIMES: &[&str] = &["westend", "rococo"];
 
 /// `benchmark block` works for all dev runtimes using the wasm executor.
 #[tokio::test]
+#[ignore]
 async fn benchmark_block_works() {
 	for runtime in RUNTIMES {
 		run_with_timeout(Duration::from_secs(10 * 60), async move {

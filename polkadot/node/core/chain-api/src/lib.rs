@@ -85,6 +85,8 @@ async fn run<Client, Context>(
 where
 	Client: HeaderBackend<Block> + AuxStore,
 {
+	let mut fake_finalized = None;
+
 	loop {
 		match ctx.recv().await? {
 			FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
@@ -119,7 +121,12 @@ where
 				},
 				ChainApiMessage::FinalizedBlockNumber(response_channel) => {
 					let _timer = subsystem.metrics.time_finalized_block_number();
-					let result = subsystem.client.info().finalized_number;
+					let result = if let Some(fake) = fake_finalized {
+						fake
+					} else {
+						fake_finalized = Some(subsystem.client.info().finalized_number);
+						fake_finalized.unwrap()
+					};
 					// always succeeds
 					subsystem.metrics.on_request(true);
 					let _ = response_channel.send(Ok(result));

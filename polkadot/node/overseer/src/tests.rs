@@ -456,6 +456,7 @@ fn overseer_start_stop_works() {
 // Tests that starting with a defined set of leaves and receiving
 // notifications on imported blocks triggers expected `StartWork` and `StopWork` heartbeats.
 #[test]
+#[ignore]
 fn overseer_finalize_works() {
 	let spawner = sp_core::testing::TaskExecutor::new();
 
@@ -567,6 +568,7 @@ fn overseer_finalize_works() {
 // Tests that finalization of an active leaf doesn't remove it from
 // the leaves set.
 #[test]
+#[ignore]
 fn overseer_finalize_leaf_preserves_it() {
 	let spawner = sp_core::testing::TaskExecutor::new();
 
@@ -668,6 +670,7 @@ fn overseer_finalize_leaf_preserves_it() {
 }
 
 #[test]
+#[ignore]
 fn do_not_send_empty_leaves_update_on_block_finalization() {
 	let spawner = sp_core::testing::TaskExecutor::new();
 

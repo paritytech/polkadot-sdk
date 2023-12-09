@@ -34,7 +34,7 @@ use polkadot_node_primitives::{
 };
 use polkadot_node_subsystem::{
 	messages::{
-		ApprovalVotingMessage, BlockDescription, ChainSelectionMessage, DisputeCoordinatorMessage,
+		ApprovalVotingMessage, ChainSelectionMessage, DisputeCoordinatorMessage,
 		DisputeDistributionMessage, ImportStatementsResult,
 	},
 	overseer, ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, RuntimeApiError,
@@ -43,7 +43,7 @@ use polkadot_node_subsystem_util::runtime::{
 	self, key_ownership_proof, submit_report_dispute_lost, RuntimeInfo,
 };
 use polkadot_primitives::{
-	slashing, BlockNumber, CandidateHash, CandidateReceipt, CompactStatement, DisputeStatement,
+	slashing, CandidateHash, CandidateReceipt, CompactStatement, DisputeStatement,
 	DisputeStatementSet, Hash, ScrapedOnChainVotes, SessionIndex, ValidDisputeStatementKind,
 	ValidatorId, ValidatorIndex,
 };
@@ -896,23 +896,16 @@ impl Initialized {
 				.await?;
 			},
 			DisputeCoordinatorMessage::DetermineUndisputedChain {
-				base: (base_number, base_hash),
-				block_descriptions,
-				tx,
+				base: (_base_number, _base_hash),
+				block_descriptions: _,
+				tx: _,
 			} => {
 				gum::trace!(
 					target: LOG_TARGET,
 					"DisputeCoordinatorMessage::DetermineUndisputedChain"
 				);
 
-				let undisputed_chain = determine_undisputed_chain(
-					overlay_db,
-					base_number,
-					base_hash,
-					block_descriptions,
-				)?;
-
-				let _ = tx.send(undisputed_chain);
+				return Err(crate::error::Error::SessionInfo);
 			},
 		}
 
@@ -1550,44 +1543,4 @@ impl MaybeCandidateReceipt {
 			Self::AssumeBackingVotePresent(hash) => *hash,
 		}
 	}
-}
-
-/// Determine the best block and its block number.
-/// Assumes `block_descriptions` are sorted from the one
-/// with the lowest `BlockNumber` to the highest.
-fn determine_undisputed_chain(
-	overlay_db: &mut OverlayedBackend<'_, impl Backend>,
-	base_number: BlockNumber,
-	base_hash: Hash,
-	block_descriptions: Vec<BlockDescription>,
-) -> Result<(BlockNumber, Hash)> {
-	let last = block_descriptions
-		.last()
-		.map(|e| (base_number + block_descriptions.len() as BlockNumber, e.block_hash))
-		.unwrap_or((base_number, base_hash));
-
-	// Fast path for no disputes.
-	let recent_disputes = match overlay_db.load_recent_disputes()? {
-		None => return Ok(last),
-		Some(a) if a.is_empty() => return Ok(last),
-		Some(a) => a,
-	};
-
-	let is_possibly_invalid = |session, candidate_hash| {
-		recent_disputes
-			.get(&(session, candidate_hash))
-			.map_or(false, |status| status.is_possibly_invalid())
-	};
-
-	for (i, BlockDescription { session, candidates, .. }) in block_descriptions.iter().enumerate() {
-		if candidates.iter().any(|c| is_possibly_invalid(*session, *c)) {
-			if i == 0 {
-				return Ok((base_number, base_hash))
-			} else {
-				return Ok((base_number + i as BlockNumber, block_descriptions[i - 1].block_hash))
-			}
-		}
-	}
-
-	Ok(last)
 }
