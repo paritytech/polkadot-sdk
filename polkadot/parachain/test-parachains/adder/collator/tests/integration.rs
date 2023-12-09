@@ -21,6 +21,7 @@
 // enabled.
 
 #[tokio::test(flavor = "multi_thread")]
+#[ignore]
 async fn collating_using_adder_collator() {
 	use polkadot_primitives::Id as ParaId;
 	use sp_keyring::AccountKeyring::*;

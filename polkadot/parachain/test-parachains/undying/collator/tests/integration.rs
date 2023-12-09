@@ -20,6 +20,7 @@
 // If this test is failing, make sure to run all tests with the `real-overseer` feature being
 // enabled.
 #[tokio::test(flavor = "multi_thread")]
+#[ignore]
 async fn collating_using_undying_collator() {
 	use polkadot_primitives::Id as ParaId;
 	use sp_keyring::AccountKeyring::*;

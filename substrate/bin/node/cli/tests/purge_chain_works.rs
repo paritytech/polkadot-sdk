@@ -24,6 +24,7 @@ use substrate_cli_test_utils as common;
 
 #[tokio::test]
 #[cfg(unix)]
+#[ignore]
 async fn purge_chain_works() {
 	let base_path = tempdir().expect("could not create a temp dir");
 

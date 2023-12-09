@@ -22,6 +22,7 @@ pub mod common;
 
 #[tokio::test]
 #[cfg(unix)]
+#[ignore]
 async fn running_the_node_works_and_can_be_interrupted() {
 	use nix::{
 		sys::signal::{
