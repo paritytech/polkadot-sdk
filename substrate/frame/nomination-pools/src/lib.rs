@@ -1292,7 +1292,9 @@ impl<T: Config> BondedPool<T> {
 	// A member cannot rebond if the pool state is `Blocked`, or if the member has no active points
 	// in the pool. Also checks that the pool is ok to be open.
 	fn ok_to_rebond(&self, member: &PoolMember<T>) -> Result<(), DispatchError> {
-		if matches!(self.state, PoolState::Blocked) && member.active_points().is_zero() {
+		if matches!(self.state, PoolState::Blocked | PoolState::Destroying) &&
+			member.active_points().is_zero()
+		{
 			return Err(Error::<T>::FullyUnbonding.into())
 		}
 		self.ok_to_be_open()?;
