@@ -44,12 +44,11 @@ use codec::{DecodeLimit, Encode, FullCodec};
 use frame_support::{
 	dispatch::{GetDispatchInfo, PostDispatchInfo},
 	ensure,
-	traits::{Hash as PreimageHash, QueryPreimage, StorePreimage},
+	traits::{QueryPreimage, StorePreimage},
 	weights::Weight,
-	Hashable,
 };
 use scale_info::TypeInfo;
-use sp_runtime::traits::Dispatchable;
+use sp_runtime::traits::{Dispatchable, Hash};
 use sp_std::prelude::*;
 
 pub use pallet::*;
@@ -81,7 +80,7 @@ pub mod pallet {
 		type DispatchWhitelistedOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// The handler of pre-images.
-		type Preimages: QueryPreimage + StorePreimage;
+		type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
 
 		/// The weight information for this pallet.
 		type WeightInfo: WeightInfo;
@@ -93,9 +92,9 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		CallWhitelisted { call_hash: PreimageHash },
-		WhitelistedCallRemoved { call_hash: PreimageHash },
-		WhitelistedCallDispatched { call_hash: PreimageHash, result: DispatchResultWithPostInfo },
+		CallWhitelisted { call_hash: T::Hash },
+		WhitelistedCallRemoved { call_hash: T::Hash },
+		WhitelistedCallDispatched { call_hash: T::Hash, result: DispatchResultWithPostInfo },
 	}
 
 	#[pallet::error]
@@ -113,14 +112,13 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
-	pub type WhitelistedCall<T: Config> =
-		StorageMap<_, Twox64Concat, PreimageHash, (), OptionQuery>;
+	pub type WhitelistedCall<T: Config> = StorageMap<_, Twox64Concat, T::Hash, (), OptionQuery>;
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::whitelist_call())]
-		pub fn whitelist_call(origin: OriginFor<T>, call_hash: PreimageHash) -> DispatchResult {
+		pub fn whitelist_call(origin: OriginFor<T>, call_hash: T::Hash) -> DispatchResult {
 			T::WhitelistOrigin::ensure_origin(origin)?;
 
 			ensure!(
@@ -138,10 +136,7 @@ pub mod pallet {
 
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::remove_whitelisted_call())]
-		pub fn remove_whitelisted_call(
-			origin: OriginFor<T>,
-			call_hash: PreimageHash,
-		) -> DispatchResult {
+		pub fn remove_whitelisted_call(origin: OriginFor<T>, call_hash: T::Hash) -> DispatchResult {
 			T::WhitelistOrigin::ensure_origin(origin)?;
 
 			WhitelistedCall::<T>::take(call_hash).ok_or(Error::<T>::CallIsNotWhitelisted)?;
@@ -160,7 +155,7 @@ pub mod pallet {
 		)]
 		pub fn dispatch_whitelisted_call(
 			origin: OriginFor<T>,
-			call_hash: PreimageHash,
+			call_hash: T::Hash,
 			call_encoded_len: u32,
 			call_weight_witness: Weight,
 		) -> DispatchResultWithPostInfo {
@@ -206,7 +201,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			T::DispatchWhitelistedOrigin::ensure_origin(origin)?;
 
-			let call_hash = call.blake2_256().into();
+			let call_hash = T::Hashing::hash_of(&call).into();
 
 			ensure!(
 				WhitelistedCall::<T>::contains_key(call_hash),
@@ -227,10 +222,7 @@ impl<T: Config> Pallet<T> {
 	/// Clean whitelisting/preimage and dispatch call.
 	///
 	/// Return the call actual weight of the dispatched call if there is some.
-	fn clean_and_dispatch(
-		call_hash: PreimageHash,
-		call: <T as Config>::RuntimeCall,
-	) -> Option<Weight> {
+	fn clean_and_dispatch(call_hash: T::Hash, call: <T as Config>::RuntimeCall) -> Option<Weight> {
 		WhitelistedCall::<T>::remove(call_hash);
 
 		T::Preimages::unrequest(&call_hash);

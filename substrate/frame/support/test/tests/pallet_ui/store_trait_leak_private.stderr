@@ -7,6 +7,7 @@ error: use of deprecated struct `pallet::_::Store`:
    |      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = note: `-D deprecated` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(deprecated)]`
 
 error[E0446]: private type `_GeneratedPrefixForStorageFoo<T>` in public interface
   --> tests/pallet_ui/store_trait_leak_private.rs:28:37

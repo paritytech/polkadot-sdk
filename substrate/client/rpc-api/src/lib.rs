@@ -31,6 +31,7 @@ pub mod author;
 pub mod chain;
 pub mod child_state;
 pub mod dev;
+pub mod mixnet;
 pub mod offchain;
 pub mod state;
 pub mod statement;

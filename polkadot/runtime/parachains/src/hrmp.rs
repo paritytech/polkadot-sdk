@@ -278,24 +278,34 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Open HRMP channel requested.
-		/// `[sender, recipient, proposed_max_capacity, proposed_max_message_size]`
-		OpenChannelRequested(ParaId, ParaId, u32, u32),
+		OpenChannelRequested {
+			sender: ParaId,
+			recipient: ParaId,
+			proposed_max_capacity: u32,
+			proposed_max_message_size: u32,
+		},
 		/// An HRMP channel request sent by the receiver was canceled by either party.
-		/// `[by_parachain, channel_id]`
-		OpenChannelCanceled(ParaId, HrmpChannelId),
-		/// Open HRMP channel accepted. `[sender, recipient]`
-		OpenChannelAccepted(ParaId, ParaId),
-		/// HRMP channel closed. `[by_parachain, channel_id]`
-		ChannelClosed(ParaId, HrmpChannelId),
+		OpenChannelCanceled { by_parachain: ParaId, channel_id: HrmpChannelId },
+		/// Open HRMP channel accepted.
+		OpenChannelAccepted { sender: ParaId, recipient: ParaId },
+		/// HRMP channel closed.
+		ChannelClosed { by_parachain: ParaId, channel_id: HrmpChannelId },
 		/// An HRMP channel was opened via Root origin.
-		/// `[sender, recipient, proposed_max_capacity, proposed_max_message_size]`
-		HrmpChannelForceOpened(ParaId, ParaId, u32, u32),
+		HrmpChannelForceOpened {
+			sender: ParaId,
+			recipient: ParaId,
+			proposed_max_capacity: u32,
+			proposed_max_message_size: u32,
+		},
 		/// An HRMP channel was opened between two system chains.
-		/// `[sender, recipient, proposed_max_capacity, proposed_max_message_size]`
-		HrmpSystemChannelOpened(ParaId, ParaId, u32, u32),
+		HrmpSystemChannelOpened {
+			sender: ParaId,
+			recipient: ParaId,
+			proposed_max_capacity: u32,
+			proposed_max_message_size: u32,
+		},
 		/// An HRMP channel's deposits were updated.
-		/// `[sender, recipient]`
-		OpenChannelDepositsUpdated(ParaId, ParaId),
+		OpenChannelDepositsUpdated { sender: ParaId, recipient: ParaId },
 	}
 
 	#[pallet::error]
@@ -499,12 +509,12 @@ pub mod pallet {
 				proposed_max_capacity,
 				proposed_max_message_size,
 			)?;
-			Self::deposit_event(Event::OpenChannelRequested(
-				origin,
+			Self::deposit_event(Event::OpenChannelRequested {
+				sender: origin,
 				recipient,
 				proposed_max_capacity,
 				proposed_max_message_size,
-			));
+			});
 			Ok(())
 		}
 
@@ -516,7 +526,7 @@ pub mod pallet {
 		pub fn hrmp_accept_open_channel(origin: OriginFor<T>, sender: ParaId) -> DispatchResult {
 			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
 			Self::accept_open_channel(origin, sender)?;
-			Self::deposit_event(Event::OpenChannelAccepted(sender, origin));
+			Self::deposit_event(Event::OpenChannelAccepted { sender, recipient: origin });
 			Ok(())
 		}
 
@@ -532,7 +542,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
 			Self::close_channel(origin, channel_id.clone())?;
-			Self::deposit_event(Event::ChannelClosed(origin, channel_id));
+			Self::deposit_event(Event::ChannelClosed { by_parachain: origin, channel_id });
 			Ok(())
 		}
 
@@ -544,14 +554,26 @@ pub mod pallet {
 		///
 		/// Origin must be the `ChannelManager`.
 		#[pallet::call_index(3)]
-		#[pallet::weight(<T as Config>::WeightInfo::force_clean_hrmp(*_inbound, *_outbound))]
+		#[pallet::weight(<T as Config>::WeightInfo::force_clean_hrmp(*num_inbound, *num_outbound))]
 		pub fn force_clean_hrmp(
 			origin: OriginFor<T>,
 			para: ParaId,
-			_inbound: u32,
-			_outbound: u32,
+			num_inbound: u32,
+			num_outbound: u32,
 		) -> DispatchResult {
 			T::ChannelManager::ensure_origin(origin)?;
+
+			ensure!(
+				HrmpIngressChannelsIndex::<T>::decode_len(para).unwrap_or_default() <=
+					num_inbound as usize,
+				Error::<T>::WrongWitness
+			);
+			ensure!(
+				HrmpEgressChannelsIndex::<T>::decode_len(para).unwrap_or_default() <=
+					num_outbound as usize,
+				Error::<T>::WrongWitness
+			);
+
 			Self::clean_hrmp_after_outgoing(&para);
 			Ok(())
 		}
@@ -565,9 +587,16 @@ pub mod pallet {
 		///
 		/// Origin must be the `ChannelManager`.
 		#[pallet::call_index(4)]
-		#[pallet::weight(<T as Config>::WeightInfo::force_process_hrmp_open(*_channels))]
-		pub fn force_process_hrmp_open(origin: OriginFor<T>, _channels: u32) -> DispatchResult {
+		#[pallet::weight(<T as Config>::WeightInfo::force_process_hrmp_open(*channels))]
+		pub fn force_process_hrmp_open(origin: OriginFor<T>, channels: u32) -> DispatchResult {
 			T::ChannelManager::ensure_origin(origin)?;
+
+			ensure!(
+				HrmpOpenChannelRequestsList::<T>::decode_len().unwrap_or_default() as u32 <=
+					channels,
+				Error::<T>::WrongWitness
+			);
+
 			let host_config = configuration::Pallet::<T>::config();
 			Self::process_hrmp_open_channel_requests(&host_config);
 			Ok(())
@@ -582,9 +611,16 @@ pub mod pallet {
 		///
 		/// Origin must be the `ChannelManager`.
 		#[pallet::call_index(5)]
-		#[pallet::weight(<T as Config>::WeightInfo::force_process_hrmp_close(*_channels))]
-		pub fn force_process_hrmp_close(origin: OriginFor<T>, _channels: u32) -> DispatchResult {
+		#[pallet::weight(<T as Config>::WeightInfo::force_process_hrmp_close(*channels))]
+		pub fn force_process_hrmp_close(origin: OriginFor<T>, channels: u32) -> DispatchResult {
 			T::ChannelManager::ensure_origin(origin)?;
+
+			ensure!(
+				HrmpCloseChannelRequestsList::<T>::decode_len().unwrap_or_default() as u32 <=
+					channels,
+				Error::<T>::WrongWitness
+			);
+
 			Self::process_hrmp_close_channel_requests();
 			Ok(())
 		}
@@ -611,7 +647,7 @@ pub mod pallet {
 				Error::<T>::WrongWitness
 			);
 			Self::cancel_open_request(origin, channel_id.clone())?;
-			Self::deposit_event(Event::OpenChannelCanceled(origin, channel_id));
+			Self::deposit_event(Event::OpenChannelCanceled { by_parachain: origin, channel_id });
 			Ok(())
 		}
 
@@ -651,12 +687,12 @@ pub mod pallet {
 			// that it will not require deposits from either member.
 			Self::init_open_channel(sender, recipient, max_capacity, max_message_size)?;
 			Self::accept_open_channel(recipient, sender)?;
-			Self::deposit_event(Event::HrmpChannelForceOpened(
+			Self::deposit_event(Event::HrmpChannelForceOpened {
 				sender,
 				recipient,
-				max_capacity,
-				max_message_size,
-			));
+				proposed_max_capacity: max_capacity,
+				proposed_max_message_size: max_message_size,
+			});
 
 			Ok(Some(<T as Config>::WeightInfo::force_open_hrmp_channel(cancel_request)).into())
 		}
@@ -695,12 +731,12 @@ pub mod pallet {
 			Self::init_open_channel(sender, recipient, max_capacity, max_message_size)?;
 			Self::accept_open_channel(recipient, sender)?;
 
-			Self::deposit_event(Event::HrmpSystemChannelOpened(
+			Self::deposit_event(Event::HrmpSystemChannelOpened {
 				sender,
 				recipient,
-				max_capacity,
-				max_message_size,
-			));
+				proposed_max_capacity: max_capacity,
+				proposed_max_message_size: max_message_size,
+			});
 
 			Ok(Pays::No.into())
 		}
@@ -796,7 +832,7 @@ pub mod pallet {
 				Ok(())
 			})?;
 
-			Self::deposit_event(Event::OpenChannelDepositsUpdated(sender, recipient));
+			Self::deposit_event(Event::OpenChannelDepositsUpdated { sender, recipient });
 
 			Ok(())
 		}

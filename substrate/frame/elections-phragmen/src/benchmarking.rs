@@ -379,7 +379,7 @@ benchmarks! {
 		let root = RawOrigin::Root;
 	}: _(root, v, d)
 	verify {
-		assert_eq!(<Voting<T>>::iter().count() as u32, 0);
+		assert_eq!(<Voting<T>>::iter().count() as u32, v - d);
 	}
 
 	election_phragmen {

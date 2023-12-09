@@ -26,11 +26,9 @@ use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 use frame_system_rpc_runtime_api::AccountNonceApi;
 use futures::prelude::*;
 use kitchensink_runtime::RuntimeApi;
-use node_executor::ExecutorDispatch;
 use node_primitives::Block;
 use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_babe::{self, SlotProportion};
-use sc_executor::NativeElseWasmExecutor;
 use sc_network::{event::Event, NetworkEventStream, NetworkService};
 use sc_network_sync::{warp::WarpSyncParams, SyncingService};
 use sc_service::{config::Configuration, error::Error as ServiceError, RpcHandlers, TaskManager};
@@ -42,9 +40,25 @@ use sp_core::crypto::Pair;
 use sp_runtime::{generic, traits::Block as BlockT, SaturatedConversion};
 use std::sync::Arc;
 
+/// Host functions required for kitchensink runtime and Substrate node.
+#[cfg(not(feature = "runtime-benchmarks"))]
+pub type HostFunctions =
+	(sp_io::SubstrateHostFunctions, sp_statement_store::runtime_api::HostFunctions);
+
+/// Host functions required for kitchensink runtime and Substrate node.
+#[cfg(feature = "runtime-benchmarks")]
+pub type HostFunctions = (
+	sp_io::SubstrateHostFunctions,
+	sp_statement_store::runtime_api::HostFunctions,
+	frame_benchmarking::benchmarking::HostFunctions,
+);
+
+/// A specialized `WasmExecutor` intended to use accross substrate node. It provides all required
+/// HostFunctions.
+pub type RuntimeExecutor = sc_executor::WasmExecutor<HostFunctions>;
+
 /// The full client type definition.
-pub type FullClient =
-	sc_service::TFullClient<Block, RuntimeApi, NativeElseWasmExecutor<ExecutorDispatch>>;
+pub type FullClient = sc_service::TFullClient<Block, RuntimeApi, RuntimeExecutor>;
 type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 type FullGrandpaBlockImport =
@@ -91,21 +105,24 @@ pub fn create_extrinsic(
 		.map(|c| c / 2)
 		.unwrap_or(2) as u64;
 	let tip = 0;
-	let extra: kitchensink_runtime::SignedExtra = (
-		frame_system::CheckNonZeroSender::<kitchensink_runtime::Runtime>::new(),
-		frame_system::CheckSpecVersion::<kitchensink_runtime::Runtime>::new(),
-		frame_system::CheckTxVersion::<kitchensink_runtime::Runtime>::new(),
-		frame_system::CheckGenesis::<kitchensink_runtime::Runtime>::new(),
-		frame_system::CheckEra::<kitchensink_runtime::Runtime>::from(generic::Era::mortal(
-			period,
-			best_block.saturated_into(),
-		)),
-		frame_system::CheckNonce::<kitchensink_runtime::Runtime>::from(nonce),
-		frame_system::CheckWeight::<kitchensink_runtime::Runtime>::new(),
-		pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<kitchensink_runtime::Runtime>::from(
-			tip, None,
-		),
-	);
+	let extra: kitchensink_runtime::SignedExtra =
+		(
+			frame_system::CheckNonZeroSender::<kitchensink_runtime::Runtime>::new(),
+			frame_system::CheckSpecVersion::<kitchensink_runtime::Runtime>::new(),
+			frame_system::CheckTxVersion::<kitchensink_runtime::Runtime>::new(),
+			frame_system::CheckGenesis::<kitchensink_runtime::Runtime>::new(),
+			frame_system::CheckEra::<kitchensink_runtime::Runtime>::from(generic::Era::mortal(
+				period,
+				best_block.saturated_into(),
+			)),
+			frame_system::CheckNonce::<kitchensink_runtime::Runtime>::from(nonce),
+			frame_system::CheckWeight::<kitchensink_runtime::Runtime>::new(),
+			pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
+				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<
+					kitchensink_runtime::Runtime,
+				>::from(tip, None),
+			),
+		);
 
 	let raw_payload = kitchensink_runtime::SignedPayload::from_raw(
 		function.clone(),
@@ -134,6 +151,7 @@ pub fn create_extrinsic(
 /// Creates a new partial node.
 pub fn new_partial(
 	config: &Configuration,
+	mixnet_config: Option<&sc_mixnet::Config>,
 ) -> Result<
 	sc_service::PartialComponents<
 		FullClient,
@@ -154,6 +172,7 @@ pub fn new_partial(
 			grandpa::SharedVoterState,
 			Option<Telemetry>,
 			Arc<StatementStore>,
+			Option<sc_mixnet::ApiBackend>,
 		),
 	>,
 	ServiceError,
@@ -169,7 +188,7 @@ pub fn new_partial(
 		})
 		.transpose()?;
 
-	let executor = sc_service::new_native_or_wasm_executor(&config);
+	let executor = sc_service::new_wasm_executor(&config);
 
 	let (client, backend, keystore_container, task_manager) =
 		sc_service::new_full_parts::<Block, RuntimeApi, _>(
@@ -246,6 +265,8 @@ pub fn new_partial(
 	)
 	.map_err(|e| ServiceError::Other(format!("Statement store error: {:?}", e)))?;
 
+	let (mixnet_api, mixnet_api_backend) = mixnet_config.map(sc_mixnet::Api::new).unzip();
+
 	let (rpc_extensions_builder, rpc_setup) = {
 		let (_, grandpa_link, _) = &import_setup;
 
@@ -287,6 +308,7 @@ pub fn new_partial(
 				},
 				statement_store: rpc_statement_store.clone(),
 				backend: rpc_backend.clone(),
+				mixnet_api: mixnet_api.as_ref().cloned(),
 			};
 
 			node_rpc::create_full(deps).map_err(Into::into)
@@ -303,7 +325,14 @@ pub fn new_partial(
 		select_chain,
 		import_queue,
 		transaction_pool,
-		other: (rpc_extensions_builder, import_setup, rpc_setup, telemetry, statement_store),
+		other: (
+			rpc_extensions_builder,
+			import_setup,
+			rpc_setup,
+			telemetry,
+			statement_store,
+			mixnet_api_backend,
+		),
 	})
 }
 
@@ -326,6 +355,7 @@ pub struct NewFullBase {
 /// Creates a full service from the configuration.
 pub fn new_full_base(
 	config: Configuration,
+	mixnet_config: Option<sc_mixnet::Config>,
 	disable_hardware_benchmarks: bool,
 	with_startup_data: impl FnOnce(
 		&sc_consensus_babe::BabeBlockImport<Block, FullClient, FullGrandpaBlockImport>,
@@ -347,30 +377,35 @@ pub fn new_full_base(
 		keystore_container,
 		select_chain,
 		transaction_pool,
-		other: (rpc_builder, import_setup, rpc_setup, mut telemetry, statement_store),
-	} = new_partial(&config)?;
+		other:
+			(rpc_builder, import_setup, rpc_setup, mut telemetry, statement_store, mixnet_api_backend),
+	} = new_partial(&config, mixnet_config.as_ref())?;
 
 	let shared_voter_state = rpc_setup;
 	let auth_disc_publish_non_global_ips = config.network.allow_non_globals_in_dht;
 	let mut net_config = sc_network::config::FullNetworkConfiguration::new(&config.network);
+	let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");
 
-	let grandpa_protocol_name = grandpa::protocol_standard_name(
-		&client.block_hash(0).ok().flatten().expect("Genesis block exists; qed"),
-		&config.chain_spec,
-	);
-	net_config.add_notification_protocol(grandpa::grandpa_peers_set_config(
-		grandpa_protocol_name.clone(),
-	));
+	let grandpa_protocol_name = grandpa::protocol_standard_name(&genesis_hash, &config.chain_spec);
+	let (grandpa_protocol_config, grandpa_notification_service) =
+		grandpa::grandpa_peers_set_config(grandpa_protocol_name.clone());
+	net_config.add_notification_protocol(grandpa_protocol_config);
 
-	let statement_handler_proto = sc_network_statement::StatementHandlerPrototype::new(
-		client
-			.block_hash(0u32.into())
-			.ok()
-			.flatten()
-			.expect("Genesis block exists; qed"),
-		config.chain_spec.fork_id(),
-	);
-	net_config.add_notification_protocol(statement_handler_proto.set_config());
+	let (statement_handler_proto, statement_config) =
+		sc_network_statement::StatementHandlerPrototype::new(
+			genesis_hash,
+			config.chain_spec.fork_id(),
+		);
+	net_config.add_notification_protocol(statement_config);
+
+	let mixnet_protocol_name =
+		sc_mixnet::protocol_name(genesis_hash.as_ref(), config.chain_spec.fork_id());
+	let mixnet_notification_service = mixnet_config.as_ref().map(|mixnet_config| {
+		let (config, notification_service) =
+			sc_mixnet::peers_set_config(mixnet_protocol_name.clone(), mixnet_config);
+		net_config.add_notification_protocol(config);
+		notification_service
+	});
 
 	let warp_sync = Arc::new(grandpa::warp_proof::NetworkProvider::new(
 		backend.clone(),
@@ -390,6 +425,22 @@ pub fn new_full_base(
 			warp_sync_params: Some(WarpSyncParams::WithProvider(warp_sync)),
 			block_relay: None,
 		})?;
+
+	if let Some(mixnet_config) = mixnet_config {
+		let mixnet = sc_mixnet::run(
+			mixnet_config,
+			mixnet_api_backend.expect("Mixnet API backend created if mixnet enabled"),
+			client.clone(),
+			sync_service.clone(),
+			network.clone(),
+			mixnet_protocol_name,
+			transaction_pool.clone(),
+			Some(keystore_container.keystore()),
+			mixnet_notification_service
+				.expect("`NotificationService` exists since mixnet was enabled; qed"),
+		);
+		task_manager.spawn_handle().spawn("mixnet", None, mixnet);
+	}
 
 	let role = config.role.clone();
 	let force_authoring = config.force_authoring;
@@ -417,10 +468,14 @@ pub fn new_full_base(
 
 	if let Some(hwbench) = hwbench {
 		sc_sysinfo::print_hwbench(&hwbench);
-		if !SUBSTRATE_REFERENCE_HARDWARE.check_hardware(&hwbench) && role.is_authority() {
-			log::warn!(
-				"⚠️  The hardware does not meet the minimal requirements for role 'Authority'."
-			);
+		match SUBSTRATE_REFERENCE_HARDWARE.check_hardware(&hwbench) {
+			Err(err) if role.is_authority() => {
+				log::warn!(
+					"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority'.",
+					err
+				);
+			},
+			_ => {},
 		}
 
 		if let Some(ref mut telemetry) = telemetry {
@@ -546,11 +601,12 @@ pub fn new_full_base(
 		// and vote data availability than the observer. The observer has not
 		// been tested extensively yet and having most nodes in a network run it
 		// could lead to finality stalls.
-		let grandpa_config = grandpa::GrandpaParams {
+		let grandpa_params = grandpa::GrandpaParams {
 			config: grandpa_config,
 			link: grandpa_link,
 			network: network.clone(),
 			sync: Arc::new(sync_service.clone()),
+			notification_service: grandpa_notification_service,
 			telemetry: telemetry.as_ref().map(|x| x.handle()),
 			voting_rule: grandpa::VotingRulesBuilder::default().build(),
 			prometheus_registry: prometheus_registry.clone(),
@@ -563,7 +619,7 @@ pub fn new_full_base(
 		task_manager.spawn_essential_handle().spawn_blocking(
 			"grandpa-voter",
 			None,
-			grandpa::run_grandpa_voter(grandpa_config)?,
+			grandpa::run_grandpa_voter(grandpa_params)?,
 		);
 	}
 
@@ -623,8 +679,9 @@ pub fn new_full_base(
 
 /// Builds a new service for a full client.
 pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceError> {
+	let mixnet_config = cli.mixnet_params.config(config.role.is_authority());
 	let database_source = config.database.clone();
-	let task_manager = new_full_base(config, cli.no_hardware_benchmarks, |_, _| ())
+	let task_manager = new_full_base(config, mixnet_config, cli.no_hardware_benchmarks, |_, _| ())
 		.map(|NewFullBase { task_manager, .. }| task_manager)?;
 
 	sc_storage_monitor::StorageMonitorService::try_spawn(
@@ -702,6 +759,7 @@ mod tests {
 				let NewFullBase { task_manager, client, network, sync, transaction_pool, .. } =
 					new_full_base(
 						config,
+						None,
 						false,
 						|block_import: &sc_consensus_babe::BabeBlockImport<Block, _, _>,
 						 babe_link: &sc_consensus_babe::BabeLink<Block>| {
@@ -841,8 +899,9 @@ mod tests {
 				let check_era = frame_system::CheckEra::from(Era::Immortal);
 				let check_nonce = frame_system::CheckNonce::from(index);
 				let check_weight = frame_system::CheckWeight::new();
-				let tx_payment =
-					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(0, None);
+				let tx_payment = pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
+					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(0, None),
+				);
 				let extra = (
 					check_non_zero_sender,
 					check_spec_version,
@@ -876,7 +935,7 @@ mod tests {
 			crate::chain_spec::tests::integration_test_config_with_two_authorities(),
 			|config| {
 				let NewFullBase { task_manager, client, network, sync, transaction_pool, .. } =
-					new_full_base(config, false, |_, _| ())?;
+					new_full_base(config, None, false, |_, _| ())?;
 				Ok(sc_service_test::TestNetComponents::new(
 					task_manager,
 					client,

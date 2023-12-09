@@ -26,7 +26,7 @@ use bp_runtime::{
 };
 use frame_support::dispatch::DispatchClass;
 use sp_runtime::{MultiAddress, MultiSigner, RuntimeDebug};
-use sp_std::prelude::Vec;
+
 /// BridgeHubRococo parachain.
 #[derive(RuntimeDebug)]
 pub struct BridgeHubRococo;
@@ -74,5 +74,23 @@ pub const WITH_BRIDGE_HUB_ROCOCO_MESSAGES_PALLET_NAME: &str = "BridgeRococoMessa
 /// chains.
 pub const WITH_BRIDGE_HUB_ROCOCO_RELAYERS_PALLET_NAME: &str = "BridgeRelayers";
 
+/// Pallet index of `BridgeWestendMessages: pallet_bridge_messages::<Instance3>`.
+pub const WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX: u8 = 51;
+
 decl_bridge_finality_runtime_apis!(bridge_hub_rococo);
 decl_bridge_messages_runtime_apis!(bridge_hub_rococo);
+
+frame_support::parameter_types! {
+	/// The XCM fee that is paid for executing XCM program (with `ExportMessage` instruction) at the Rococo
+	/// BridgeHub.
+	/// (initially was calculated by test `BridgeHubRococo::can_calculate_weight_for_paid_export_message_with_reserve_transfer` + `33%`)
+	pub const BridgeHubRococoBaseXcmFeeInRocs: u128 = 1628875538;
+
+	/// Transaction fee that is paid at the Rococo BridgeHub for delivering single inbound message.
+	/// (initially was calculated by test `BridgeHubRococo::can_calculate_fee_for_complex_message_delivery_transaction` + `33%`)
+	pub const BridgeHubRococoBaseDeliveryFeeInRocs: u128 = 6417262881;
+
+	/// Transaction fee that is paid at the Rococo BridgeHub for delivering single outbound message confirmation.
+	/// (initially was calculated by test `BridgeHubRococo::can_calculate_fee_for_complex_message_confirmation_transaction` + `33%`)
+	pub const BridgeHubRococoBaseConfirmationFeeInRocs: u128 = 6159996668;
+}

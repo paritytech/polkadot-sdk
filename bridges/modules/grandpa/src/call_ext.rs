@@ -15,8 +15,11 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{weights::WeightInfo, BridgedBlockNumber, BridgedHeader, Config, Error, Pallet};
-use bp_header_chain::{justification::GrandpaJustification, ChainWithGrandpa};
-use bp_runtime::BlockNumberOf;
+use bp_header_chain::{
+	justification::GrandpaJustification, max_expected_submit_finality_proof_arguments_size,
+	ChainWithGrandpa, GrandpaConsensusLogReader,
+};
+use bp_runtime::{BlockNumberOf, OwnedBridgeModule};
 use codec::Encode;
 use frame_support::{dispatch::CallableCallFor, traits::IsSubType, weights::Weight};
 use sp_runtime::{
@@ -126,6 +129,10 @@ pub trait CallSubType<T: Config<I, RuntimeCall = Self>, I: 'static>:
 			_ => return Ok(ValidTransaction::default()),
 		};
 
+		if Pallet::<T, I>::ensure_not_halted().is_err() {
+			return InvalidTransaction::Call.into()
+		}
+
 		match SubmitFinalityProofHelper::<T, I>::check_obsolete(finality_target.block_number) {
 			Ok(_) => Ok(ValidTransaction::default()),
 			Err(Error::<T, I>::OldHeader) => InvalidTransaction::Stale.into(),
@@ -165,26 +172,26 @@ pub(crate) fn submit_finality_proof_info_from_args<T: Config<I>, I: 'static>(
 			Weight::zero()
 		};
 
+	// check if the `finality_target` is a mandatory header. If so, we are ready to refund larger
+	// size
+	let is_mandatory_finality_target =
+		GrandpaConsensusLogReader::<BridgedBlockNumber<T, I>>::find_scheduled_change(
+			finality_target.digest(),
+		)
+		.is_some();
+
 	// we can estimate extra call size easily, without any additional significant overhead
 	let actual_call_size: u32 = finality_target
 		.encoded_size()
 		.saturating_add(justification.encoded_size())
 		.saturated_into();
-	let max_expected_call_size = max_expected_call_size::<T, I>(required_precommits);
+	let max_expected_call_size = max_expected_submit_finality_proof_arguments_size::<T::BridgedChain>(
+		is_mandatory_finality_target,
+		required_precommits,
+	);
 	let extra_size = actual_call_size.saturating_sub(max_expected_call_size);
 
 	SubmitFinalityProofInfo { block_number, extra_weight, extra_size }
-}
-
-/// Returns maximal expected size of `submit_finality_proof` call arguments.
-fn max_expected_call_size<T: Config<I>, I: 'static>(required_precommits: u32) -> u32 {
-	let max_expected_justification_size =
-		GrandpaJustification::<BridgedHeader<T, I>>::max_reasonable_size::<T::BridgedChain>(
-			required_precommits,
-		);
-
-	// call arguments are header and justification
-	T::BridgedChain::MAX_HEADER_SIZE.saturating_add(max_expected_justification_size)
 }
 
 #[cfg(test)]
@@ -192,10 +199,10 @@ mod tests {
 	use crate::{
 		call_ext::CallSubType,
 		mock::{run_test, test_header, RuntimeCall, TestBridgedChain, TestNumber, TestRuntime},
-		BestFinalized, Config, WeightInfo,
+		BestFinalized, Config, PalletOperatingMode, WeightInfo,
 	};
 	use bp_header_chain::ChainWithGrandpa;
-	use bp_runtime::HeaderId;
+	use bp_runtime::{BasicOperatingMode, HeaderId};
 	use bp_test_utils::{
 		make_default_justification, make_justification_for_header, JustificationGeneratorParams,
 	};
@@ -235,6 +242,17 @@ mod tests {
 			// rejected
 			sync_to_header_10();
 			assert!(!validate_block_submit(10));
+		});
+	}
+
+	#[test]
+	fn extension_rejects_new_header_if_pallet_is_halted() {
+		run_test(|| {
+			// when pallet is halted => tx is rejected
+			sync_to_header_10();
+			PalletOperatingMode::<TestRuntime, ()>::put(BasicOperatingMode::Halted);
+
+			assert!(!validate_block_submit(15));
 		});
 	}
 

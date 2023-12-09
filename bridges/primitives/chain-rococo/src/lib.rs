@@ -23,7 +23,6 @@ pub use bp_polkadot_core::*;
 use bp_header_chain::ChainWithGrandpa;
 use bp_runtime::{decl_bridge_finality_runtime_apis, Chain};
 use frame_support::{parameter_types, weights::Weight};
-use sp_std::prelude::Vec;
 
 /// Rococo Chain
 pub struct Rococo;
@@ -53,8 +52,8 @@ impl ChainWithGrandpa for Rococo {
 	const MAX_AUTHORITIES_COUNT: u32 = MAX_AUTHORITIES_COUNT;
 	const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 =
 		REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY;
-	const MAX_HEADER_SIZE: u32 = MAX_HEADER_SIZE;
-	const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 = AVERAGE_HEADER_SIZE_IN_JUSTIFICATION;
+	const MAX_MANDATORY_HEADER_SIZE: u32 = MAX_MANDATORY_HEADER_SIZE;
+	const AVERAGE_HEADER_SIZE: u32 = AVERAGE_HEADER_SIZE;
 }
 
 parameter_types! {

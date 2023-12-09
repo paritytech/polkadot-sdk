@@ -41,7 +41,7 @@ use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_core::Bytes;
 use sp_keystore::{KeystoreExt, KeystorePtr};
-use sp_runtime::{generic, traits::Block as BlockT};
+use sp_runtime::traits::Block as BlockT;
 use sp_session::SessionKeys;
 
 use self::error::{Error, Result};
@@ -97,15 +97,12 @@ where
 			Err(err) => return Err(Error::Client(Box::new(err)).into()),
 		};
 		let best_block_hash = self.client.info().best_hash;
-		self.pool
-			.submit_one(&generic::BlockId::hash(best_block_hash), TX_SOURCE, xt)
-			.await
-			.map_err(|e| {
-				e.into_pool_error()
-					.map(|e| Error::Pool(e))
-					.unwrap_or_else(|e| Error::Verification(Box::new(e)))
-					.into()
-			})
+		self.pool.submit_one(best_block_hash, TX_SOURCE, xt).await.map_err(|e| {
+			e.into_pool_error()
+				.map(|e| Error::Pool(e))
+				.unwrap_or_else(|e| Error::Verification(Box::new(e)))
+				.into()
+		})
 	}
 
 	fn insert_key(&self, key_type: String, suri: String, public: Bytes) -> RpcResult<()> {
@@ -191,14 +188,11 @@ where
 			},
 		};
 
-		let submit = self
-			.pool
-			.submit_and_watch(&generic::BlockId::hash(best_block_hash), TX_SOURCE, dxt)
-			.map_err(|e| {
-				e.into_pool_error()
-					.map(error::Error::from)
-					.unwrap_or_else(|e| error::Error::Verification(Box::new(e)))
-			});
+		let submit = self.pool.submit_and_watch(best_block_hash, TX_SOURCE, dxt).map_err(|e| {
+			e.into_pool_error()
+				.map(error::Error::from)
+				.unwrap_or_else(|e| error::Error::Verification(Box::new(e)))
+		});
 
 		let fut = async move {
 			let stream = match submit.await {

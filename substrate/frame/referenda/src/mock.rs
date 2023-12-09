@@ -21,7 +21,7 @@ use super::*;
 use crate as pallet_referenda;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-	assert_ok, ord_parameter_types, parameter_types,
+	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
 		ConstU32, ConstU64, Contains, EqualPrivilegeOnly, OnInitialize, OriginTrait, Polling,
 		SortedMembers,
@@ -59,6 +59,7 @@ impl Contains<RuntimeCall> for BaseFilter {
 parameter_types! {
 	pub MaxWeight: Weight = Weight::from_parts(2_000_000_000_000, u64::MAX);
 }
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = BaseFilter;
 	type BlockWeights = ();
@@ -116,6 +117,7 @@ impl pallet_balances::Config for Test {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
+	type RuntimeFreezeReason = ();
 	type MaxHolds = ();
 }
 parameter_types! {
@@ -473,7 +475,7 @@ impl RefState {
 }
 
 /// note a new preimage without registering.
-pub fn note_preimage(who: u64) -> PreimageHash {
+pub fn note_preimage(who: u64) -> <Test as frame_system::Config>::Hash {
 	use std::sync::atomic::{AtomicU8, Ordering};
 	// note a new preimage on every function invoke.
 	static COUNTER: AtomicU8 = AtomicU8::new(0);

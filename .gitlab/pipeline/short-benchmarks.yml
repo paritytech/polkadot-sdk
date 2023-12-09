@@ -15,6 +15,12 @@ short-benchmark-westend: &short-bench
       artifacts: true
   variables:
     RUNTIME: westend
+    # Enable debug assertions since we are running optimized builds for testing
+    # but still want to have debug assertions.
+    RUSTFLAGS: "-C debug-assertions -D warnings"
+    RUST_BACKTRACE: "full"
+    WASM_BUILD_NO_COLOR: 1
+    WASM_BUILD_RUSTFLAGS: "-C debug-assertions -D warnings"
   tags:
     - benchmark
   script:
@@ -32,47 +38,43 @@ short-benchmark-westend: &short-bench
       artifacts: true
   variables:
     RUNTIME_CHAIN: benchmarked-runtime-chain
+    # Enable debug assertions since we are running optimized builds for testing
+    # but still want to have debug assertions.
+    RUSTFLAGS: "-C debug-assertions -D warnings"
+    RUST_BACKTRACE: "full"
+    WASM_BUILD_NO_COLOR: 1
+    WASM_BUILD_RUSTFLAGS: "-C debug-assertions -D warnings"
   tags:
     - benchmark
   script:
     - ./artifacts/polkadot-parachain benchmark pallet --chain $RUNTIME_CHAIN --pallet "*" --extrinsic "*" --steps 2 --repeat 1
 
-short-benchmark-asset-hub-polkadot:
+short-benchmark-asset-hub-rococo:
   <<: *short-bench-cumulus
   variables:
-    RUNTIME_CHAIN: asset-hub-polkadot-dev
-
-short-benchmark-asset-hub-kusama:
-  <<: *short-bench-cumulus
-  variables:
-    RUNTIME_CHAIN: asset-hub-kusama-dev
+    RUNTIME_CHAIN: asset-hub-rococo-dev
 
 short-benchmark-asset-hub-westend:
   <<: *short-bench-cumulus
   variables:
     RUNTIME_CHAIN: asset-hub-westend-dev
 
-short-benchmark-bridge-hub-polkadot:
-  <<: *short-bench-cumulus
-  variables:
-    RUNTIME_CHAIN: bridge-hub-polkadot-dev
-
-short-benchmark-bridge-hub-kusama:
-  <<: *short-bench-cumulus
-  variables:
-    RUNTIME_CHAIN: bridge-hub-kusama-dev
-
 short-benchmark-bridge-hub-rococo:
   <<: *short-bench-cumulus
   variables:
     RUNTIME_CHAIN: bridge-hub-rococo-dev
 
-short-benchmark-collectives-polkadot:
+short-benchmark-bridge-hub-westend:
   <<: *short-bench-cumulus
   variables:
-    RUNTIME_CHAIN: collectives-polkadot-dev
+    RUNTIME_CHAIN: bridge-hub-westend-dev
 
-short-benchmark-glutton-kusama:
+short-benchmark-collectives-westend:
   <<: *short-bench-cumulus
   variables:
-    RUNTIME_CHAIN: glutton-kusama-dev-1300
+    RUNTIME_CHAIN: collectives-westend-dev
+
+short-benchmark-glutton-westend:
+  <<: *short-bench-cumulus
+  variables:
+    RUNTIME_CHAIN: glutton-westend-dev-1300

@@ -2365,7 +2365,7 @@ mod tests {
 			assert_eq!(MultiPhase::desired_targets().unwrap(), 2);
 
 			// mine seq_phragmen solution with 2 iters.
-			let (solution, witness) = MultiPhase::mine_solution().unwrap();
+			let (solution, witness, _) = MultiPhase::mine_solution().unwrap();
 
 			// ensure this solution is valid.
 			assert!(MultiPhase::queued_solution().is_none());
@@ -2647,7 +2647,7 @@ mod tests {
 			// set the solution balancing to get the desired score.
 			crate::mock::Balancing::set(Some(BalancingConfig { iterations: 2, tolerance: 0 }));
 
-			let (solution, _) = MultiPhase::mine_solution().unwrap();
+			let (solution, _, _) = MultiPhase::mine_solution().unwrap();
 			// Default solution's score.
 			assert!(matches!(solution.score, ElectionScore { minimal_stake: 50, .. }));
 

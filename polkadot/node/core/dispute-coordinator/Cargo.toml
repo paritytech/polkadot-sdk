@@ -1,6 +1,7 @@
 [package]
 name = "polkadot-node-core-dispute-coordinator"
 version = "1.0.0"
+description = "The node-side components that participate in disputes"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true

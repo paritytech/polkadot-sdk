@@ -83,7 +83,7 @@ pub mod v3 {
 	/// Migrate the scheduler pallet from V3 to V4.
 	pub struct MigrateToV4<T>(sp_std::marker::PhantomData<T>);
 
-	impl<T: Config<Hash = PreimageHash>> OnRuntimeUpgrade for MigrateToV4<T> {
+	impl<T: Config> OnRuntimeUpgrade for MigrateToV4<T> {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
 			ensure!(StorageVersion::get::<Pallet<T>>() == 3, "Can only upgrade from version 3");
