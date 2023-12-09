@@ -122,8 +122,7 @@ fn vote_to_balance<T: pallet_nomination_pools::Config>(
 fn pool_unlocking_funds<T: pallet_nomination_pools::Config>(
 	pool_account: &T::AccountId,
 ) -> BalanceOf<T> {
-	T::Staking::total_stake(pool_account).unwrap() -
-		T::Staking::active_stake(pool_account).unwrap()
+	T::Staking::total_stake(pool_account).unwrap() - T::Staking::active_stake(pool_account).unwrap()
 }
 
 #[allow(unused)]
