@@ -206,7 +206,7 @@ impl<MaxNormal: Get<u32>, MaxOverflow: Get<u32>> ConsumerLimits for (MaxNormal, 
 /// replacing the current runtime.
 #[derive(Decode, Encode, Default, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
 #[scale_info(skip_type_params(T))]
-struct CodeUpgradeAuthorization<T>
+pub struct CodeUpgradeAuthorization<T>
 where
 	T: Config,
 {
@@ -1968,6 +1968,13 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
+	/// Return an upgrade authorization, if it exists.
+	pub fn authorized_upgrade() -> Option<CodeUpgradeAuthorization<T>> {
+		AuthorizedUpgrade::<T>::get()
+	}
+
+	/// Check that provided `code` can be upgraded to. Namely, check that its hash matches an
+	/// existing authorization and that it meets the specification requirements of `can_set_code`.
 	fn validate_authorized_upgrade(code: &[u8]) -> Result<T::Hash, DispatchError> {
 		let authorization = AuthorizedUpgrade::<T>::get().ok_or(Error::<T>::NothingAuthorized)?;
 		let actual_hash = T::Hashing::hash(code);
