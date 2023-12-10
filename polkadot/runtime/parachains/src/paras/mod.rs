@@ -528,15 +528,15 @@ pub trait PreCodeUpgrade {
 	/// This is currently utilized by the registrar pallet to ensure that the necessary validation
 	/// code upgrade costs are covered.
 	///
-	/// `skip_checks` signals that the pre code upgrade checks performed by this function can be
-	/// skipped.
+	/// `skip_requirements` signals that the pre code upgrade requirements by this function can be
+	/// ignored.
 	///
 	/// As a result, it indicates either the success or failure of executing the pre code upgrade
 	/// scheduling logic. In both cases, it returns the consumed weight.
 	fn pre_code_upgrade(
 		id: ParaId,
 		new_code: ValidationCode,
-		skip_checks: bool,
+		skip_requirements: bool,
 	) -> Result<Weight, Weight>;
 }
 
@@ -546,7 +546,7 @@ impl PreCodeUpgrade for () {
 	fn pre_code_upgrade(
 		_id: ParaId,
 		_new_code: ValidationCode,
-		_skip_checks: bool,
+		_skip_requirements: bool,
 	) -> Result<Weight, Weight> {
 		Ok(Weight::zero())
 	}

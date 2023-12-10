@@ -483,9 +483,9 @@ pub mod pallet {
 
 			// Upgrades initiated by the root origin do not have any upgrade cost-related
 			// requirements. For this reason we can skip all the pre code upgrade checks.
-			let skip_checks = ensure_root(origin.clone()).is_ok();
+			let skip_requirements = ensure_root(origin.clone()).is_ok();
 
-			Self::do_schedule_code_upgrade(para, new_code, skip_checks)
+			Self::do_schedule_code_upgrade(para, new_code, skip_requirements)
 		}
 
 		/// Set the parachain's current head.
@@ -798,21 +798,22 @@ impl<T: Config> Pallet<T> {
 
 	/// Schedules a code upgrade for a parachain.
 	///
-	/// If `skip_pre_upgrade` is set to true all the pre code upgrade logic will be skipped.
+	/// If `skip_requirements` is set to true all the pre code upgrade cost related requierments
+	/// will be ignored.
 	///
 	/// If the size of the validation is reduced and the upgrade is successful the caller will be
 	/// eligible for receiving back a portion of their deposit that is no longer required.
 	fn do_schedule_code_upgrade(
 		para: ParaId,
 		new_code: ValidationCode,
-		skip_checks: bool,
+		skip_requirements: bool,
 	) -> DispatchResult {
 		// Before doing anything we ensure that a code upgrade is allowed at the moment for the
 		// specific parachain.
 		ensure!(paras::Pallet::<T>::can_upgrade_validation_code(para), Error::<T>::CannotUpgrade);
 
 		ensure!(
-			T::PreCodeUpgrade::pre_code_upgrade(para, new_code.clone(), skip_checks).is_ok(),
+			T::PreCodeUpgrade::pre_code_upgrade(para, new_code.clone(), skip_requirements).is_ok(),
 			Error::<T>::CannotUpgrade
 		);
 		runtime_parachains::schedule_code_upgrade::<T>(para, new_code, SetGoAhead::No)?;
@@ -908,7 +909,7 @@ impl<T: Config> PreCodeUpgrade for Pallet<T> {
 	// There are three cases where we do not charge any upgrade costs from the initiator
 	// of the upgrade:
 	//
-	// 1. `skip_checks` is explicitly set to true. This This should occur when the upgrade is
+	// 1. `skip_requirements` is explicitly set to true. This This should occur when the upgrade is
 	//    scheduled by the Root.
 	//
 	// 2. System parachains do not pay for upgrade fees.
@@ -918,7 +919,7 @@ impl<T: Config> PreCodeUpgrade for Pallet<T> {
 	fn pre_code_upgrade(
 		para: ParaId,
 		new_code: ValidationCode,
-		skip_checks: bool,
+		skip_requirements: bool,
 	) -> Result<Weight, Weight> {
 		let Some(head) = paras::Pallet::<T>::para_head(para) else {
 			return Err(T::DbWeight::get().reads(1))
@@ -941,7 +942,7 @@ impl<T: Config> PreCodeUpgrade for Pallet<T> {
 		let current_deposit = info.deposit;
 
 		let free_upgrade =
-			skip_checks || para < LOWEST_PUBLIC_ID || Self::parachains().contains(&para);
+			skip_requirements || para < LOWEST_PUBLIC_ID || Self::parachains().contains(&para);
 
 		if !free_upgrade {
 			if let Err(_) = <T as Config>::Currency::withdraw(
