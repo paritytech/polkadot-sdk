@@ -63,7 +63,7 @@ impl<T: Config, UnlockParaIds: Contains<ParaId>> OnRuntimeUpgrade
 			let info = Paras::<T>::get(para_id).unwrap();
 			ensure!(
 				info.billing_account.is_none(),
-				"The billing account must be set to the para manager"
+				"The billing account must be set to the None"
 			);
 			ensure!(info.pending_deposit_refund.is_none(), "There should be no pending refund");
 
