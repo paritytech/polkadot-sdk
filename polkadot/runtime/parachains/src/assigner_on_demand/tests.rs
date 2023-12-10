@@ -606,30 +606,6 @@ fn affinity_prohibits_parallel_scheduling() {
 	});
 }
 
-#[test]
-fn cannot_place_order_when_no_on_demand_cores() {
-	let mut genesis = GenesisConfigBuilder::default();
-	genesis.on_demand_cores = 0;
-	let para_id = ParaId::from(10);
-	let alice = 1u64;
-	let amt = 10_000_000u128;
-
-	new_test_ext(genesis.build()).execute_with(|| {
-		schedule_blank_para(para_id, ParaKind::Parathread);
-		Balances::make_free_balance_be(&alice, amt);
-
-		assert!(!Paras::is_parathread(para_id));
-
-		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
-
-		assert!(Paras::is_parathread(para_id));
-
-		// assert_noop!(
-		// 	OnDemandAssigner::place_order_allow_death(RuntimeOrigin::signed(alice), amt, para_id),
-		// 	Error::<Test>::NoOnDemandCores
-		// );
-	});
-}
 
 #[test]
 fn on_demand_orders_cannot_be_popped_if_lifecycle_changes() {
