@@ -104,14 +104,12 @@ impl<SystemParachainMatcher: Contains<Location>, Runtime: parachain_info::Config
 /// This structure can only be used at a parachain level. In the Relay Chain, please use
 /// the `xcm_builder::IsChildSystemParachain` matcher.
 pub struct AllSiblingSystemParachains;
-
-impl Contains<MultiLocation> for AllSiblingSystemParachains {
-	fn contains(l: &MultiLocation) -> bool {
+impl Contains<Location> for AllSiblingSystemParachains {
+	fn contains(l: &Location) -> bool {
 		log::trace!(target: "xcm::contains", "AllSiblingSystemParachains location: {:?}", l);
-		match *l {
+		match l.unpack() {
 			// System parachain
-			MultiLocation { parents: 1, interior: X1(Parachain(id)) } =>
-				ParaId::from(id).is_system(),
+			(1, [Parachain(id)]) =>	ParaId::from(id).is_system(),
 			// Everything else
 			_ => false,
 		}
@@ -203,15 +201,15 @@ mod tests {
 	#[test]
 	fn all_sibling_system_parachains_works() {
 		// system parachain
-		assert!(AllSiblingSystemParachains::contains(&MultiLocation::new(1, X1(Parachain(1)))));
+		assert!(AllSiblingSystemParachains::contains(&Location::new(1, [Parachain(1)])));
 		// non-system parachain
-		assert!(!AllSiblingSystemParachains::contains(&MultiLocation::new(
+		assert!(!AllSiblingSystemParachains::contains(&Location::new(
 			1,
-			X1(Parachain(LOWEST_PUBLIC_ID.into()))
+			[Parachain(LOWEST_PUBLIC_ID.into())]
 		)));
 		// when used at relay chain
-		assert!(!AllSiblingSystemParachains::contains(&MultiLocation::new(0, X1(Parachain(1)))));
+		assert!(!AllSiblingSystemParachains::contains(&Location::new(0, [Parachain(1)])));
 		// when used with non-parachain
-		assert!(!AllSiblingSystemParachains::contains(&MultiLocation::new(1, X1(OnlyChild))));
+		assert!(!AllSiblingSystemParachains::contains(&Location::new(1, [OnlyChild])));
 	}
 }
