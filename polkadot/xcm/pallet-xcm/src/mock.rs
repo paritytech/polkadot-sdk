@@ -517,10 +517,6 @@ impl xcm_executor::Config for XcmConfig {
 
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, AnyNetwork>;
 
-parameter_types! {
-	pub static AdvertisedXcmVersion: pallet_xcm::XcmVersion = 3;
-}
-
 pub struct XcmTeleportFiltered;
 impl Contains<(MultiLocation, Vec<MultiAsset>)> for XcmTeleportFiltered {
 	fn contains(t: &(MultiLocation, Vec<MultiAsset>)) -> bool {
@@ -529,30 +525,19 @@ impl Contains<(MultiLocation, Vec<MultiAsset>)> for XcmTeleportFiltered {
 	}
 }
 
+#[derive_impl(pallet_xcm::config_preludes::TestDefaultConfig as pallet_xcm::DefaultConfig)]
 impl pallet_xcm::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
 	type SendXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
 	type XcmRouter = XcmRouter;
 	type ExecuteXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
-	type XcmExecuteFilter = Everything;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type XcmTeleportFilter = EverythingBut<XcmTeleportFiltered>;
 	type XcmReserveTransferFilter = Everything;
 	type Weigher = FixedWeightBounds<BaseXcmWeight, RuntimeCall, MaxInstructions>;
 	type UniversalLocation = UniversalLocation;
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 100;
-	type AdvertisedXcmVersion = AdvertisedXcmVersion;
 	type AdminOrigin = EnsureRoot<AccountId>;
-	type TrustedLockers = ();
 	type SovereignAccountOf = AccountId32Aliases<(), AccountId32>;
 	type Currency = Balances;
-	type CurrencyMatcher = IsConcrete<RelayLocation>;
-	type MaxLockers = frame_support::traits::ConstU32<8>;
-	type MaxRemoteLockConsumers = frame_support::traits::ConstU32<0>;
-	type RemoteLockConsumerIdentifier = ();
-	type WeightInfo = TestWeightInfo;
 }
 
 impl origin::Config for Test {}
