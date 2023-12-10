@@ -25,8 +25,8 @@ use polkadot_node_primitives::{BlockData, ErasureChunk, PoV};
 use polkadot_node_subsystem_test_helpers::mock::new_leaf;
 use polkadot_node_subsystem_util::runtime::RuntimeInfo;
 use polkadot_primitives::{
-	BlockNumber, CoreState, ExecutorParams, GroupIndex, Hash, Id as ParaId, ScheduledCore,
-	SessionIndex, SessionInfo,
+	vstaging::NodeFeatures, BlockNumber, CoreState, ExecutorParams, GroupIndex, Hash, Id as ParaId,
+	ScheduledCore, SessionIndex, SessionInfo,
 };
 use sp_core::traits::SpawnNamed;
 
@@ -123,6 +123,10 @@ fn spawn_virtual_overseer(
 							},
 							RuntimeApiRequest::SessionExecutorParams(_, tx) => {
 								tx.send(Ok(Some(ExecutorParams::default())))
+									.expect("Receiver should be alive.");
+							},
+							RuntimeApiRequest::NodeFeatures(_, tx) => {
+								tx.send(Ok(NodeFeatures::EMPTY))
 									.expect("Receiver should be alive.");
 							},
 							RuntimeApiRequest::AvailabilityCores(tx) => {
