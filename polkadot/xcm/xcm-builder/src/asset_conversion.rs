@@ -58,7 +58,7 @@ impl<
 		let mut latest_location: Location = location.try_into().ok()?;
 		let id = ConvertAssetId::convert_back(what)?;
 		latest_location.push_interior(Junction::GeneralIndex(id)).ok()?;
-		Some(latest_location.try_into().ok()?)
+		latest_location.try_into().ok()
 	}
 }
 
