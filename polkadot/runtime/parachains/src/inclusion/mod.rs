@@ -887,21 +887,26 @@ impl<T: Config> Pallet<T> {
 				new_code.clone(),
 				false,
 			) {
-				Ok(consumed_weight) => weight.saturating_accrue(consumed_weight),
+				Ok(consumed_weight) => {
+					weight.saturating_accrue(consumed_weight);
+
+					weight.saturating_accrue(<paras::Pallet<T>>::schedule_code_upgrade(
+						receipt.descriptor.para_id,
+						new_code,
+						now,
+						&config,
+						SetGoAhead::Yes,
+					));
+				},
 				Err(consumed_weight) => {
-					// The execution of the pre code upgrade logic failed, so we cannot proceed with
-					// scheduling the upgrade.
-					return weight.saturating_add(consumed_weight)
+					log::debug!(
+						target: LOG_TARGET,
+						"Failed to schedule a code upgrade for paraID: {}",
+						receipt.descriptor.para_id,
+					);
+					weight.saturating_accrue(consumed_weight);
 				},
 			};
-
-			weight.saturating_accrue(<paras::Pallet<T>>::schedule_code_upgrade(
-				receipt.descriptor.para_id,
-				new_code,
-				now,
-				&config,
-				SetGoAhead::Yes,
-			));
 		}
 
 		// enact the messaging facet of the candidate.

@@ -61,10 +61,7 @@ impl<T: Config, UnlockParaIds: Contains<ParaId>> OnRuntimeUpgrade
 
 		Paras::<T>::iter_keys().try_for_each(|para_id| -> Result<(), _> {
 			let info = Paras::<T>::get(para_id).unwrap();
-			ensure!(
-				info.billing_account.is_none(),
-				"The billing account must be set to the None"
-			);
+			ensure!(info.billing_account.is_none(), "The billing account must be set to the None");
 			ensure!(info.pending_deposit_refund.is_none(), "There should be no pending refund");
 
 			Ok(())
