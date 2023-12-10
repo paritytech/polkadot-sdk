@@ -798,7 +798,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Schedules a code upgrade for a parachain.
 	///
-	/// If `skip_requirements` is set to true all the pre code upgrade cost related requierments
+	/// If `skip_requirements` is set to true all the code upgrade cost related requierments
 	/// will be ignored.
 	///
 	/// If the size of the validation is reduced and the upgrade is successful the caller will be
@@ -906,16 +906,16 @@ impl<T: Config> PreCodeUpgrade for Pallet<T> {
 	/// Ensures that all upgrade-related costs are covered for the specific parachain.
 	///
 	/// Upon success, it updates the deposit-related state for the parachain.
-	// There are three cases where we do not charge any upgrade costs from the initiator
-	// of the upgrade:
-	//
-	// 1. `skip_requirements` is explicitly set to true. This This should occur when the upgrade is
-	//    scheduled by the Root.
-	//
-	// 2. System parachains do not pay for upgrade fees.
-	//
-	// 3. All lease-holding parachains are permitted to do upgrades for free. This is introduced to
-	//    avoid causing a breaking change to the system once para upgrade fees are required.
+	/// There are three cases where we do not charge any upgrade costs from the initiator
+	/// of the upgrade:
+	///
+	/// 1. `skip_requirements` is explicitly set to true. This This should occur when the upgrade is
+	///    scheduled by the Root.
+	///
+	/// 2. System parachains do not pay for upgrade fees.
+	///
+	/// 3. All lease-holding parachains are permitted to do upgrades for free. This is introduced to
+	///    avoid causing a breaking change to the system once para upgrade fees are required.
 	fn pre_code_upgrade(
 		para: ParaId,
 		new_code: ValidationCode,
