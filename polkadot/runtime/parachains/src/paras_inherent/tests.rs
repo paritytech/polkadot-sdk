@@ -40,6 +40,7 @@ mod enter {
 		backed_and_concluding: BTreeMap<u32, u32>,
 		num_validators_per_core: u32,
 		code_upgrade: Option<u32>,
+		fill_claimqueue: bool,
 	}
 
 	fn make_inherent_data(
@@ -49,6 +50,7 @@ mod enter {
 			backed_and_concluding,
 			num_validators_per_core,
 			code_upgrade,
+			fill_claimqueue,
 		}: TestConfig,
 	) -> Bench<Test> {
 		let builder = BenchBuilder::<Test>::new()
@@ -59,7 +61,8 @@ mod enter {
 			.set_max_validators_per_core(num_validators_per_core)
 			.set_dispute_statements(dispute_statements)
 			.set_backed_and_concluding_cores(backed_and_concluding)
-			.set_dispute_sessions(&dispute_sessions[..]);
+			.set_dispute_sessions(&dispute_sessions[..])
+			.set_fill_claimqueue(fill_claimqueue);
 
 		// Setup some assignments as needed:
 		mock_assigner::Pallet::<Test>::set_core_count(builder.max_cores());
@@ -98,6 +101,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 1,
 				code_upgrade: None,
+				fill_claimqueue: false,
 			});
 
 			// We expect the scenario to have cores 0 & 1 with pending availability. The backed
@@ -248,6 +252,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
+				fill_claimqueue: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -318,6 +323,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 6,
 				code_upgrade: None,
+				fill_claimqueue: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -386,6 +392,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 4,
 				code_upgrade: None,
+				fill_claimqueue: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -470,6 +477,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
+				fill_claimqueue: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -554,6 +562,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
+				fill_claimqueue: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -637,6 +646,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
+				fill_claimqueue: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -722,6 +732,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
+				fill_claimqueue: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -787,6 +798,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
+				fill_claimqueue: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -850,6 +862,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
+				fill_claimqueue: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -914,6 +927,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
+				fill_claimqueue: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();

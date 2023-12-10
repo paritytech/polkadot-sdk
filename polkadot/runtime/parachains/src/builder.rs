@@ -96,6 +96,8 @@ pub(crate) struct BenchBuilder<T: paras_inherent::Config> {
 	/// Make every candidate include a code upgrade by setting this to `Some` where the interior
 	/// value is the byte length of the new code.
 	code_upgrade: Option<u32>,
+	/// Specifies whether the claimqueue should be filled.
+	fill_claimqueue: bool,
 	_phantom: sp_std::marker::PhantomData<T>,
 }
 
@@ -122,6 +124,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			dispute_sessions: Default::default(),
 			backed_and_concluding_cores: Default::default(),
 			code_upgrade: None,
+			fill_claimqueue: true,
 			_phantom: sp_std::marker::PhantomData::<T>,
 		}
 	}
@@ -223,6 +226,13 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 	/// Get the maximum number of cores we expect from this configuration.
 	pub(crate) fn max_cores(&self) -> u32 {
 		self.max_validators() / self.max_validators_per_core()
+	}
+
+	/// Set whether the claim queue should be filled.
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	pub(crate) fn set_fill_claimqueue(mut self, f: bool) -> Self {
+		self.fill_claimqueue = f;
+		self
 	}
 
 	/// Get the minimum number of validity votes in order for a backed candidate to be included.
@@ -667,6 +677,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		let used_cores =
 			(self.dispute_sessions.len() + self.backed_and_concluding_cores.len()) as u32;
 		assert!(used_cores <= max_cores);
+		let fill_claimqueue = self.fill_claimqueue;
 
 		// NOTE: there is an n+2 session delay for these actions to take effect.
 		// We are currently in Session 0, so these changes will take effect in Session 2.
@@ -711,21 +722,24 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			})
 			.collect();
 		scheduler::AvailabilityCores::<T>::set(cores);
-		// Add items to claim queue as well:
-		let cores = (0..used_cores)
-			.into_iter()
-			.map(|i| {
-				let AssignmentProviderConfig { ttl, .. } =
-					scheduler::Pallet::<T>::assignment_provider_config(CoreIndex(i));
-				// Load an assignment into provider so that one is present to pop
-				let assignment = <T as scheduler::Config>::AssignmentProvider::get_mock_assignment(
-					CoreIndex(i),
-					ParaId::from(i),
-				);
-				(CoreIndex(i), [ParasEntry::new(assignment, now + ttl)].into())
-			})
-			.collect();
-		scheduler::ClaimQueue::<T>::set(cores);
+		if fill_claimqueue {
+			// Add items to claim queue as well:
+			let cores = (0..used_cores)
+				.into_iter()
+				.map(|i| {
+					let AssignmentProviderConfig { ttl, .. } =
+						scheduler::Pallet::<T>::assignment_provider_config(CoreIndex(i));
+					// Load an assignment into provider so that one is present to pop
+					let assignment =
+						<T as scheduler::Config>::AssignmentProvider::get_mock_assignment(
+							CoreIndex(i),
+							ParaId::from(i),
+						);
+					(CoreIndex(i), [ParasEntry::new(assignment, now + ttl)].into())
+				})
+				.collect();
+			scheduler::ClaimQueue::<T>::set(cores);
+		}
 
 		Bench::<T> {
 			data: ParachainsInherentData {

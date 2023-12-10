@@ -606,7 +606,6 @@ fn affinity_prohibits_parallel_scheduling() {
 	});
 }
 
-
 #[test]
 fn on_demand_orders_cannot_be_popped_if_lifecycle_changes() {
 	let para_id = ParaId::from(10);
