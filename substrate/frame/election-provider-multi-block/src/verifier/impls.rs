@@ -15,11 +15,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! # Verifier sub-pallet
+//!
+//! This pallet implements the NPoS solution verification logic. It supports both synchronous and
+//! asynchronous verification of paged solutions. Moreover, it also manages and ultimately stores
+//! the best correct solution in a round, which can be requested by the election provider at the
+//! time of the election.
+//!
+//! The paged solution data to be verified is retrieved through [`T::SolutionDataProvider`].
+//!
+//! ## Per-page and per-solution checks
+//!
+//! > TODO
+//!
+//! ## Queued solutions
+//!
+//! > TODO
+
 // TODO(gpestana): clean up imports.
 use frame_election_provider_support::{
 	ElectionProvider, NposSolution, PageIndex, TryIntoBoundedSupports,
 };
-use frame_support::{ensure, pallet_prelude::Weight, traits::Defensive};
+use frame_support::{
+	ensure,
+	pallet_prelude::Weight,
+	traits::{Defensive, TryCollect},
+};
 use sp_runtime::{traits::Zero, Perbill};
 use sp_std::collections::btree_map::BTreeMap;
 
@@ -53,8 +74,8 @@ pub(crate) mod pallet {
 		/// in one page of a solution.
 		type MaxWinnersPerPage: Get<u32>;
 
-		/// Maximum number of voters that a solution can support, across ALL the solution pages.
-		/// Thus, this can only be verified when processing the last solution page.
+		/// Maximum number of voters that can support a single target, across ALL the solution
+		/// pages. Thus, this can only be verified when processing the last solution page.
 		///
 		/// This limit must be set so that the memory limits of the rest of the system are
 		/// respected.
@@ -76,7 +97,7 @@ pub(crate) mod pallet {
 		/// all the single pages passed the feasibility checks.
 		FinalVerificationFailed(FeasibilityError),
 		/// The given page has been correctly verified, with the number of backers that are part of
-		/// the apage.
+		/// the page.
 		Verified(PageIndex, u32),
 		/// A new solution with the given score has replaced the previous best solution, if any.
 		Queued(ElectionScore, Option<ElectionScore>),
@@ -107,8 +128,6 @@ pub(crate) mod pallet {
 		/// Clear all relevant storage items.
 		pub(crate) fn kill() {
 			Self::mutate_checked(|| {
-				// TODO(gpestana): should we set a reasonable clear limit here or can we assume
-				// that u32::MAX is safe?
 				let _ = QueuedSolutionX::<T>::clear(u32::MAX, None);
 				let _ = QueuedSolutionY::<T>::clear(u32::MAX, None);
 				QueuedValidVariant::<T>::kill();
@@ -140,7 +159,6 @@ pub(crate) mod pallet {
 		///
 		/// It should be called only once the page has been verified to be 100% correct.
 		pub(crate) fn set_page(page: PageIndex, supports: SupportsOf<Pallet<T>>) {
-			use frame_support::traits::TryCollect;
 			Self::mutate_checked(|| {
 				let backings: BoundedVec<_, _> = supports
                     .iter()
@@ -233,20 +251,20 @@ pub(crate) mod pallet {
 
 		pub(crate) fn sanity_check() -> Result<(), &'static str> {
 			// TODO(gpestana)
-			todo!()
+			Ok(())
 		}
 	}
-	#[cfg(any(test, debug_assertions))]
-	impl<T: Config> QueuedSolution<T> {
-		// TODO(gpestana): test helpers
-	}
 
-	// TODO
+	/// Supports of the solution of the variant X.
+	///
+	/// A potential valid or invalid solution may be stored in this variant during the round.
 	#[pallet::storage]
 	pub type QueuedSolutionX<T: Config> =
 		StorageMap<_, Twox64Concat, PageIndex, SupportsOf<Pallet<T>>>;
 
-	// TODO
+	/// Supports of the solution of the variant Y.
+	///
+	/// A potential valid or invalid solution may be stored in this variant during the round.
 	#[pallet::storage]
 	pub type QueuedSolutionY<T: Config> =
 		StorageMap<_, Twox64Concat, PageIndex, SupportsOf<Pallet<T>>>;
@@ -263,12 +281,11 @@ pub(crate) mod pallet {
 	#[pallet::storage]
 	type QueuedSolutionScore<T: Config> = StorageValue<_, ElectionScore>;
 
-	// TODO
+	/// Pointer for the storage variant (X or Y) that stores the current valid variant.
 	#[pallet::storage]
 	type QueuedValidVariant<T: Config> = StorageValue<_, SolutionPointer, ValueQuery>;
 
 	/// The minimum score that each solution must have to be considered feasible.
-	/// TODO(gpestana): should probably be part of the params pallet
 	#[pallet::storage]
 	pub(crate) type MinimumScore<T: Config> = StorageValue<_, ElectionScore>;
 
@@ -292,6 +309,11 @@ pub(crate) mod pallet {
 				T::MaxBackersPerWinner::get(),
 				<Self as Verifier>::MaxBackersPerWinner::get()
 			);
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
 		}
 	}
 }
@@ -613,5 +635,23 @@ impl<T: impls::pallet::Config> Pallet<T> {
 			.try_into_bounded_supports()
 			.map_err(|_| FeasibilityError::WrongWinnerCount)?;
 		Ok(bounded_supports)
+	}
+}
+
+#[cfg(feature = "try-runtime")]
+impl<T: Config> Pallet<T> {
+	pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		Self::check_variants()
+	}
+
+	/// Invariants:
+	///
+	/// 1. The valid and invalid solution pointers are always different.
+	fn check_variants() -> Result<(), sp_runtime::TryRuntimeError> {
+		ensure!(
+			QueuedSolution::<T>::valid() != QueuedSolution::<T>::invalid(),
+			"valid and invalid solution pointers are the same"
+		);
+		Ok(())
 	}
 }

@@ -110,8 +110,9 @@ const LOG_PREFIX: &'static str = "runtime::multiblock-election";
 
 pub mod signed;
 pub mod types;
-//pub mod unsigned;
+pub mod unsigned;
 pub mod verifier;
+
 pub use pallet::*;
 pub use types::*;
 
@@ -398,7 +399,7 @@ impl<T: Config> Snapshot<T> {
 		PagedVoterSnapshot::<T>::get(page)
 	}
 
-	/// Sets a page of voters in the snapshot's storage.
+	/// Sets a apgege of voters in the snapshot's storage.
 	fn set_voters(
 		page: PageIndex,
 		voters: BoundedVec<VoterOf<T::DataProvider>, T::VoterSnapshotPerBlock>,

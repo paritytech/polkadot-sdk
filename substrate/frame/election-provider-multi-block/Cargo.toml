@@ -35,26 +35,27 @@ sp-npos-elections = { default-features = false, path = "../../primitives/npos-el
 [dev-dependencies]
 sp-tracing = { path = "../../primitives/tracing" }
 pallet-balances = { path = "../balances", default-features = false}
-#pallet-staking = { path = "../staking", default-features = false}
 
 [features]
-default = ["std"]
+default = [ "std" ]
 std = [
 	"codec/std",
 	"scale-info/std",
 	"log/std",
-
 	"frame-support/std",
 	"frame-system/std",
-
 	"sp-std/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-
 	"frame-election-provider-support/std",
 	"sp-npos-elections/std",
-
 	"pallet-balances/std",
-	#"pallet-staking/std",
+]
+try-runtime = [
+	"frame-election-provider-support/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-balances/try-runtime",
+	"sp-runtime/try-runtime",
 ]

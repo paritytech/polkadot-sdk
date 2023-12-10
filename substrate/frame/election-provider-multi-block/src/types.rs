@@ -20,6 +20,7 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{BoundedVec, DebugNoBound};
 use scale_info::TypeInfo;
+use sp_npos_elections::ElectionScore;
 
 use crate::Verifier;
 
@@ -108,4 +109,46 @@ impl<Bn: PartialEq + Eq> Phase<Bn> {
 	pub(crate) fn is_unsigned_open_at(&self, at: Bn) -> bool {
 		matches!(self, Phase::Unsigned(real) if *real == at)
 	}
+}
+
+use frame_support::{
+	CloneNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+};
+
+/// Encodes the length of a page of either a solution or a snapshot.
+///
+/// This is stored automatically on-chain, and it contains the **size of the entire snapshot page**.
+/// This is also used in dispatchables as weight witness data and should **only contain the size of
+/// the presented solution page**, not the entire snapshot or page snaphsot.
+#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, Debug, Default, TypeInfo)]
+pub struct PageSize {
+	/// The length of voters.
+	#[codec(compact)]
+	pub voters: u32,
+	/// The length of targets.
+	#[codec(compact)]
+	pub targets: u32,
+}
+
+/// A paged raw solution which is the input type for on and off-chain election solutions.
+///
+/// A raw solution has not been checked for correctness.
+#[derive(
+	TypeInfo,
+	Encode,
+	Decode,
+	RuntimeDebugNoBound,
+	CloneNoBound,
+	EqNoBound,
+	PartialEqNoBound,
+	MaxEncodedLen,
+	DefaultNoBound,
+)]
+#[codec(mel_bound(T: crate::Config))]
+#[scale_info(skip_type_params(T))]
+pub struct PagedRawSolution<T: crate::Config> {
+	pub solution: SolutionOf<T>,
+	pub score: ElectionScore,
+	pub page: PageIndex,
+	pub round: u32,
 }

@@ -81,6 +81,25 @@ pub fn voter_index_fn<T: Config>(
 	}
 }
 
+/// Create a function that returns the index of a target in the snapshot.
+///
+/// The returned index type is the same as the one defined in `T::Solution::Target`.
+///
+/// Note: to the extent possible, the returned function should be cached and reused. Producing that
+/// function requires a `O(n log n)` data transform. Each invocation of that function completes
+/// in `O(log n)`.
+pub fn target_index_fn<T: Config>(
+	snapshot: &Vec<T::AccountId>,
+) -> impl Fn(&T::AccountId) -> Option<SolutionTargetIndexOf<T>> + '_ {
+	let cache: BTreeMap<_, _> =
+		snapshot.iter().enumerate().map(|(idx, account_id)| (account_id, idx)).collect();
+	move |who| {
+		cache
+			.get(who)
+			.and_then(|i| <usize as TryInto<SolutionTargetIndexOf<T>>>::try_into(*i).ok())
+	}
+}
+
 /// Create a function that can map a voter index ([`SolutionVoterIndexOf`]) to the actual voter
 /// account using a linearly indexible snapshot.
 pub fn voter_at_fn<T: Config>(

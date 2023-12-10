@@ -77,7 +77,8 @@ impl Default for Status {
 	}
 }
 
-#[derive(Encode, Decode, scale_info::TypeInfo, Clone, Copy, MaxEncodedLen)]
+#[derive(Encode, Decode, scale_info::TypeInfo, Clone, Copy, MaxEncodedLen, Debug, PartialEq)]
+
 pub enum SolutionPointer {
 	X,
 	Y,

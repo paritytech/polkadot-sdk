@@ -15,9 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod signed;
 mod staking;
-// mod unsigned;
 
 use frame_election_provider_support::{bounds::ElectionBounds, onchain, SequentialPhragmen};
 pub use staking::*;
@@ -191,7 +189,10 @@ impl ElectionProvider for MockFallback {
 }
 
 #[derive(Default)]
-pub struct ExtBuilder;
+pub struct ExtBuilder {
+	with_verifier: bool,
+}
+
 impl ExtBuilder {
 	pub(crate) fn pages(self, pages: u32) -> Self {
 		Pages::set(pages);
@@ -218,6 +219,10 @@ impl ExtBuilder {
 		self
 	}
 
+	pub(crate) fn verifier() -> Self {
+		ExtBuilder { with_verifier: true }
+	}
+
 	pub(crate) fn build(self) -> sp_io::TestExternalities {
 		sp_tracing::try_init_simple();
 
@@ -239,12 +244,24 @@ impl ExtBuilder {
 		}
 		.assimilate_storage(&mut storage);
 
+		if self.with_verifier {
+			// nothing special for now
+		}
+
 		sp_io::TestExternalities::from(storage)
 	}
 	pub(crate) fn build_and_execute(self, test: impl FnOnce() -> ()) {
 		let mut ext = self.build();
 		ext.execute_with(test);
-		// TODO(gpestana): add sanity checks and try_runtimes
+
+		#[cfg(feature = "try-runtime")]
+		ext.execute_with(|| {
+			//MultiPhase::do_try_state().unwrap();
+			// etc..
+
+			let _ = VerifierPallet::do_try_state()
+				.map_err(|err| println!(" 🕵️‍♂️  Verifier `try_state` failure: {:?}", err));
+		});
 	}
 }
 
@@ -270,7 +287,6 @@ pub(crate) fn roll_to(n: BlockNumber) {
 		//SignedPallet::on_initialize(bn);
 		//UnsignedPallet::on_initialize(bn);
 
-		// TODO(gpestana): implement sanity check for all pallets.
-		//all_pallets_sanity_checks();
+		// TODO: maybe add try-checks for all pallets here too, as we progress the blocks.
 	}
 }
