@@ -14,7 +14,7 @@
 // limitations under the License.
 
 use super::{
-	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, BaseDeliveryFee,
+	AccountId, AllPalletsWithSystem, Assets, Uniques, Authorship, Balance, Balances, BaseDeliveryFee,
 	FeeAssetId, ForeignAssets, ForeignAssetsInstance, ParachainInfo, ParachainSystem, PolkadotXcm,
 	PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, ToWestendXcmRouter,
 	TransactionByteFee, TrustBackedAssetsInstance, WeightToFee, XcmpQueue,
@@ -51,7 +51,7 @@ use xcm_builder::{
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, StartsWith,
 	StartsWithExplicitGlobalConsensus, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
 	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
-	XcmFeeToAccount,
+	XcmFeeToAccount, NonFungiblesAdapter,
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
@@ -71,6 +71,8 @@ parameter_types! {
 		PalletInstance(<ForeignAssets as PalletInfoAccess>::index() as u8).into();
 	pub PoolAssetsPalletLocation: MultiLocation =
 		PalletInstance(<PoolAssets as PalletInfoAccess>::index() as u8).into();
+	pub TrustBackedUniquesPalletLocation: MultiLocation =
+		PalletInstance(<Uniques as PalletInfoAccess>::index() as u8).into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 	pub const GovernanceLocation: MultiLocation = MultiLocation::parent();
 	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
@@ -112,6 +114,9 @@ pub type CurrencyTransactor = CurrencyAdapter<
 pub type TrustBackedAssetsConvertedConcreteId =
 	assets_common::TrustBackedAssetsConvertedConcreteId<TrustBackedAssetsPalletLocation, Balance>;
 
+pub type TrustBackedUniquesConvertedConcreteId =
+	assets_common::TrustBackedUniquesConvertedConcreteId<TrustBackedUniquesPalletLocation, u32>;
+
 /// Means for transacting assets besides the native currency on this chain.
 pub type FungiblesTransactor = FungiblesAdapter<
 	// Use this fungibles implementation:
@@ -125,6 +130,22 @@ pub type FungiblesTransactor = FungiblesAdapter<
 	// We only want to allow teleports of known assets. We use non-zero issuance as an indication
 	// that this asset is known.
 	LocalMint<parachains_common::impls::NonZeroIssuance<AccountId, Assets>>,
+	// The account to use for tracking teleports.
+	CheckingAccount,
+>;
+
+/// Means for transacting assets besides the native currency on this chain.
+pub type NonFungiblesTransactor = NonFungiblesAdapter<
+	// Use this fungibles implementation:
+	Uniques,
+	// Use this currency when it is a fungible asset matching the given location or name:
+	TrustBackedUniquesConvertedConcreteId,
+	// Convert an XCM MultiLocation into a local account id:
+	LocationToAccountId,
+	// Our chain's account ID type (we can't get away without mentioning it explicitly):
+	AccountId,
+	// Allow no teleports
+	(),
 	// The account to use for tracking teleports.
 	CheckingAccount,
 >;

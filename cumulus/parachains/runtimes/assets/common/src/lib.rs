@@ -23,7 +23,7 @@ pub mod runtime_api;
 
 use crate::matching::{LocalMultiLocationPattern, ParentLocation};
 use frame_support::traits::{Equals, EverythingBut};
-use parachains_common::AssetIdForTrustBackedAssets;
+use parachains_common::{AssetIdForTrustBackedAssets, UniquesIdForTrustBackedAssets};
 use xcm::prelude::MultiLocation;
 use xcm_builder::{AsPrefixedGeneralIndex, MatchedConvertedConcreteId, StartsWith};
 use xcm_executor::traits::{Identity, JustTry};
@@ -32,6 +32,10 @@ use xcm_executor::traits::{Identity, JustTry};
 pub type AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation> =
 	AsPrefixedGeneralIndex<TrustBackedAssetsPalletLocation, AssetIdForTrustBackedAssets, JustTry>;
 
+/// `MultiLocation` vs `AssetIdForTrustBackedAssets` converter for `TrustBackedUniques`
+pub type CollectionIdForTrustBackedUniquesConvert<TrustBackedUniquesPalletLocation> =
+	AsPrefixedGeneralIndex<TrustBackedUniquesPalletLocation, UniquesIdForTrustBackedAssets, JustTry>;
+
 /// [`MatchedConvertedConcreteId`] converter dedicated for `TrustBackedAssets`
 pub type TrustBackedAssetsConvertedConcreteId<TrustBackedAssetsPalletLocation, Balance> =
 	MatchedConvertedConcreteId<
@@ -39,6 +43,16 @@ pub type TrustBackedAssetsConvertedConcreteId<TrustBackedAssetsPalletLocation, B
 		Balance,
 		StartsWith<TrustBackedAssetsPalletLocation>,
 		AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation>,
+		JustTry,
+	>;
+
+/// [`MatchedConvertedConcreteId`] converter dedicated for `TrustBackedUniques`
+pub type TrustBackedUniquesConvertedConcreteId<TrustBackedUniquesPalletLocation, UniquesIdForTrustBackedAssets> =
+	MatchedConvertedConcreteId<
+		AssetIdForTrustBackedAssets,
+		UniquesIdForTrustBackedAssets,
+		StartsWith<TrustBackedUniquesPalletLocation>,
+		CollectionIdForTrustBackedUniquesConvert<TrustBackedUniquesPalletLocation>,
 		JustTry,
 	>;
 

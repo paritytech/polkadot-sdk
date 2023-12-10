@@ -69,6 +69,9 @@ mod types {
 
 	// Id used for identifying assets.
 	pub type AssetIdForTrustBackedAssets = u32;
+
+	// Id used for identifying unique assets.
+	pub type UniquesIdForTrustBackedAssets = u32;
 }
 
 /// Common constants of parachains.
