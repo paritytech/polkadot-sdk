@@ -22,7 +22,7 @@ pub mod migration;
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
-	pallet_prelude::{DispatchResultWithPostInfo, Weight},
+	pallet_prelude::Weight,
 	traits::{Currency, ExistenceRequirement, Get, ReservableCurrency, WithdrawReasons},
 };
 use frame_system::{self, ensure_root, ensure_signed};
@@ -82,6 +82,17 @@ impl<Account, Balance> ParaInfo<Account, Balance> {
 	pub fn is_locked(&self) -> bool {
 		self.locked.unwrap_or(false)
 	}
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+pub enum CodeUpgradeScheduleError {
+	/// The parachain billing account has to be explicitly set before being able to schedule a
+	/// code upgrade.
+	BillingAccountNotSet,
+	/// Failed to pay the upgrade fee for scheduling the code upgrade.
+	FailedToPayUpgradeFee,
+	/// Failed to reserve the appropriate deposit for the new validation code.
+	FailedToReserveDeposit,
 }
 
 type BalanceOf<T> =
@@ -200,6 +211,10 @@ pub mod pallet {
 		Swapped { para_id: ParaId, other_id: ParaId },
 		BillingAccountSet { para_id: ParaId, who: T::AccountId },
 		Refunded { para_id: ParaId, who: T::AccountId, amount: BalanceOf<T> },
+		// NOTE: This event won't be emitted if the upgrade is scheduled using the extrinsic,
+		// since failed dispatchables can't emit events. This is useful for upgrades that are
+		// triggered from the parachain inclusion pallet, which is almost always the case anyway.
+		CodeUpgradeScheduleFailed(CodeUpgradeScheduleError),
 	}
 
 	#[pallet::error]
@@ -234,9 +249,6 @@ pub mod pallet {
 		/// Cannot perform a parachain slot / lifecycle swap. Check that the state of both paras
 		/// are correct for the swap to work.
 		CannotSwap,
-		/// The parachain billing account has to be explicitly set before being able to schedule a
-		/// code upgrade.
-		BillingAccountNotSet,
 	}
 
 	/// Pending swap operations.
@@ -908,6 +920,9 @@ impl<T: Config> PreCodeUpgrade for Pallet<T> {
 		let Some(mut info) = Paras::<T>::get(para) else { return Err(T::DbWeight::get().reads(2)) };
 
 		let Some(billing_account) = info.billing_account.clone() else {
+			Self::deposit_event(Event::<T>::CodeUpgradeScheduleFailed(
+				CodeUpgradeScheduleError::BillingAccountNotSet,
+			));
 			return Err(T::DbWeight::get().reads(3))
 		};
 
@@ -931,15 +946,29 @@ impl<T: Config> PreCodeUpgrade for Pallet<T> {
 			skip_checks || para < LOWEST_PUBLIC_ID || Self::parachains().contains(&para);
 
 		if !free_upgrade {
-			<T as Config>::Currency::withdraw(
+			if let Err(_) = <T as Config>::Currency::withdraw(
 				&billing_account,
 				T::UpgradeFee::get(),
 				WithdrawReasons::FEE,
 				ExistenceRequirement::KeepAlive,
-			)/*?*/;
+			) {
+				Self::deposit_event(Event::<T>::CodeUpgradeScheduleFailed(
+					CodeUpgradeScheduleError::FailedToPayUpgradeFee,
+				));
+				// This is an overestimate of the used weight, but it's better to be safe than
+				// sorry.
+				return Err(<T as Config>::WeightInfo::pre_code_upgrade())
+			}
 
 			let additional_deposit = new_deposit.saturating_sub(current_deposit);
-			<T as Config>::Currency::reserve(&billing_account, additional_deposit)/*?*/;
+			if let Err(_) = <T as Config>::Currency::reserve(&billing_account, additional_deposit) {
+				Self::deposit_event(Event::<T>::CodeUpgradeScheduleFailed(
+					CodeUpgradeScheduleError::FailedToReserveDeposit,
+				));
+				// This is an overestimate of the used weight, but it's better to be safe than
+				// sorry.
+				return Err(<T as Config>::WeightInfo::pre_code_upgrade())
+			}
 
 			// Update the deposit to the new appropriate amount.
 			info.deposit = new_deposit;
@@ -1817,7 +1846,7 @@ mod tests {
 					ParaId::from(para_id),
 					validation_code
 				),
-				paras_registrar::Error::<Test>::BillingAccountNotSet
+				paras_registrar::Error::<Test>::CannotUpgrade
 			);
 		});
 	}
@@ -1972,15 +2001,15 @@ mod benchmarking {
 			next_scheduled_session::<T>();
 		}: _(RawOrigin::Root, para, new_code)
 
-		/*
 		pre_code_upgrade {
 			let para = register_para::<T>(LOWEST_PUBLIC_ID.into());
-			let new_code = ValidationCode(vec![0; b as usize]);
+			let new_code = ValidationCode(vec![0]);
 
 			// Actually finish registration process
 			next_scheduled_session::<T>();
-		}: T::pre_code_upgrade(para, new_code, false)
-		*/
+		}: {
+			let _ = T::PreCodeUpgrade::pre_code_upgrade(para, new_code, false);
+		}
 
 		set_current_head {
 			let b in 1 .. MAX_HEAD_DATA_SIZE;
@@ -2002,7 +2031,7 @@ mod benchmarking {
 			let para_origin: runtime_parachains::Origin = u32::from(LOWEST_PUBLIC_ID).into();
 		}: _(para_origin, para)
 		verify {
-			assert_eq!(ParaInfo::<T>::get(para).billing_account, Some(sovereign_account));
+			assert_eq!(Paras::<T>::get(para).unwrap().billing_account, Some(sovereign_account));
 		}
 
 		force_set_parachain_billing_account {
@@ -2017,7 +2046,7 @@ mod benchmarking {
 			T::Currency::make_free_balance_be(&sovereign_account, BalanceOf::<T>::max_value());
 		}: _(RawOrigin::Root, para, sovereign_account.clone())
 		verify {
-			assert_eq!(ParaInfo::<T>::get(para).billing_account, Some(sovereign_account));
+			assert_eq!(Paras::<T>::get(para).unwrap().billing_account, Some(sovereign_account));
 		}
 
 		impl_benchmark_test_suite!(
