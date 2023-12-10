@@ -1944,7 +1944,14 @@ pub mod pallet {
 				.filter_map(|controller| {
 					let ledger = Self::ledger(StakingAccount::Controller(controller.clone()));
 					ledger.ok().map_or(None, |ledger| {
-						if ledger.stash != *controller {
+						// If the controller `RewardDestination` is still the deprecated
+						// `Controller` variant, skip deprecating this account.
+						let payee_deprecated = Payee::<T>::get(&ledger.stash) == {
+							#[allow(deprecated)]
+							RewardDestination::Controller
+						};
+
+						if ledger.stash != *controller && !payee_deprecated {
 							Some((controller.clone(), ledger))
 						} else {
 							None
