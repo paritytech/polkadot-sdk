@@ -523,7 +523,7 @@ impl OnCodeUpgrade for () {
 }
 
 pub trait PreCodeUpgrade {
-	/// A function that performs custom logic to before performing a code upgrade.
+	/// A function that performs custom logic to before sceduling a code upgrade.
 	///
 	/// This is currently utilized by the registrar pallet to ensure that the necessary validation
 	/// code upgrade costs are covered.
@@ -531,8 +531,8 @@ pub trait PreCodeUpgrade {
 	/// `skip_checks` signals that the pre code upgrade checks performed by this function can be
 	/// skipped.
 	///
-	/// As a result, it indicates either the success or failure of executing the pre-code upgrade
-	/// logic. In both cases, it returns the consumed weight.
+	/// As a result, it indicates either the success or failure of executing the pre code upgrade
+	/// scheduling logic. In both cases, it returns the consumed weight.
 	fn pre_code_upgrade(
 		id: ParaId,
 		new_code: ValidationCode,

@@ -905,9 +905,16 @@ impl<T: Config> PreCodeUpgrade for Pallet<T> {
 	/// Ensures that all upgrade-related costs are covered for the specific parachain.
 	///
 	/// Upon success, it updates the deposit-related state for the parachain.
-	///
-	/// `skip_checks` signals that the upgrade can be scheduled for free. This should occur when the
-	/// upgrade is scheduled by the Root.
+	// There are three cases where we do not charge any upgrade costs from the initiator
+	// of the upgrade:
+	//
+	// 1. `skip_checks` is explicitly set to true. This This should occur when the upgrade is
+	//    scheduled by the Root.
+	//
+	// 2. System parachains do not pay for upgrade fees.
+	//
+	// 3. All lease-holding parachains are permitted to do upgrades for free. This is introduced to
+	//    avoid causing a breaking change to the system once para upgrade fees are required.
 	fn pre_code_upgrade(
 		para: ParaId,
 		new_code: ValidationCode,
@@ -933,15 +940,6 @@ impl<T: Config> PreCodeUpgrade for Pallet<T> {
 
 		let current_deposit = info.deposit;
 
-		// There are three cases where we do not charge any upgrade costs from the initiator
-		// of the upgrade:
-		//
-		// 1. `skip_checks` is set to true.
-		//
-		// 2. System parachains do not pay for upgrade fees.
-		//
-		// 3. All lease-holding parachains are permitted to do upgrades for free. This is introduced
-		//    to avoid causing a breaking change to the system once para upgrade fees are required.
 		let free_upgrade =
 			skip_checks || para < LOWEST_PUBLIC_ID || Self::parachains().contains(&para);
 
@@ -993,7 +991,6 @@ impl<T: Config> PreCodeUpgrade for Pallet<T> {
 		}
 
 		Paras::<T>::insert(para, info);
-
 		Ok(<T as Config>::WeightInfo::pre_code_upgrade())
 	}
 }
