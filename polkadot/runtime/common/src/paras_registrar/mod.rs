@@ -70,7 +70,7 @@ pub struct ParaInfo<Account, Balance> {
 	///
 	/// None indicates that the billing account hasn't been set, which is the case for all legacy
 	/// parachains. Attempting to schedule a parachain upgrade will fail if the billing account is
-	/// set to None, except in the case where the parachain is not a lease-holding parachain.
+	/// set to None, except in the case where the parachain is a lease-holding parachain.
 	billing_account: Option<Account>,
 	/// In case there is a pending refund for the current billing account, this stores information
 	/// about the amount that will be refunded upon a successful code upgrade.
