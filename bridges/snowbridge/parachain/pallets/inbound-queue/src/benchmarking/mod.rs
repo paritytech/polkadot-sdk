@@ -7,7 +7,6 @@ use super::*;
 use crate::Pallet as InboundQueue;
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
-use sp_std::vec;
 
 #[benchmarks]
 mod benchmarks {
