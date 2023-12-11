@@ -1,14 +1,21 @@
 error[E0277]: the trait bound `Bar: WrapperTypeDecode` is not satisfied
   --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:27:12
    |
-27 |     #[pallet::without_storage_info]
-   |               ^^^^^^^^^^^^^^^^^^^^ the trait `WrapperTypeDecode` is not implemented for `Bar`
+27 |       #[pallet::without_storage_info]
+   |  _______________^
+28 | |     pub struct Pallet<T>(core::marker::PhantomData<T>);
+29 | |
+30 | |     #[pallet::hooks]
+...  |
+38 | |     #[pallet::storage]
+39 | |     type Foo<T> = StorageValue<Value = Bar>;
+   | |____________^ the trait `WrapperTypeDecode` is not implemented for `Bar`
    |
    = help: the following other types implement trait `WrapperTypeDecode`:
-             Arc<T>
              Box<T>
              Rc<T>
              frame_support::sp_runtime::sp_application_crypto::sp_core::Bytes
+             Arc<T>
    = note: required for `Bar` to implement `Decode`
    = note: required for `Bar` to implement `FullCodec`
    = note: required for `frame_support::pallet_prelude::StorageValue<_GeneratedPrefixForStorageFoo<T>, Bar>` to implement `PartialStorageInfoTrait`
@@ -16,18 +23,25 @@ error[E0277]: the trait bound `Bar: WrapperTypeDecode` is not satisfied
 error[E0277]: the trait bound `Bar: EncodeLike` is not satisfied
   --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:27:12
    |
-27 |     #[pallet::without_storage_info]
-   |               ^^^^^^^^^^^^^^^^^^^^ the trait `EncodeLike` is not implemented for `Bar`
+27 |       #[pallet::without_storage_info]
+   |  _______________^
+28 | |     pub struct Pallet<T>(core::marker::PhantomData<T>);
+29 | |
+30 | |     #[pallet::hooks]
+...  |
+38 | |     #[pallet::storage]
+39 | |     type Foo<T> = StorageValue<Value = Bar>;
+   | |____________^ the trait `EncodeLike` is not implemented for `Bar`
    |
    = help: the following other types implement trait `EncodeLike<T>`:
-             <&&T as EncodeLike<T>>
-             <&T as EncodeLike<T>>
-             <&T as EncodeLike>
-             <&[(K, V)] as EncodeLike<BTreeMap<LikeK, LikeV>>>
-             <&[(T,)] as EncodeLike<BTreeSet<LikeT>>>
-             <&[(T,)] as EncodeLike<BinaryHeap<LikeT>>>
-             <&[(T,)] as EncodeLike<LinkedList<LikeT>>>
-             <&[T] as EncodeLike<Vec<U>>>
+             <bool as EncodeLike>
+             <i8 as EncodeLike>
+             <i16 as EncodeLike>
+             <i32 as EncodeLike>
+             <i64 as EncodeLike>
+             <i128 as EncodeLike>
+             <u8 as EncodeLike>
+             <u16 as EncodeLike>
            and $N others
    = note: required for `Bar` to implement `FullEncode`
    = note: required for `Bar` to implement `FullCodec`
@@ -36,18 +50,25 @@ error[E0277]: the trait bound `Bar: EncodeLike` is not satisfied
 error[E0277]: the trait bound `Bar: WrapperTypeEncode` is not satisfied
   --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:27:12
    |
-27 |     #[pallet::without_storage_info]
-   |               ^^^^^^^^^^^^^^^^^^^^ the trait `WrapperTypeEncode` is not implemented for `Bar`
+27 |       #[pallet::without_storage_info]
+   |  _______________^
+28 | |     pub struct Pallet<T>(core::marker::PhantomData<T>);
+29 | |
+30 | |     #[pallet::hooks]
+...  |
+38 | |     #[pallet::storage]
+39 | |     type Foo<T> = StorageValue<Value = Bar>;
+   | |____________^ the trait `WrapperTypeEncode` is not implemented for `Bar`
    |
    = help: the following other types implement trait `WrapperTypeEncode`:
-             &T
-             &mut T
-             Arc<T>
              Box<T>
-             Cow<'a, T>
-             Rc<T>
-             Vec<T>
              bytes::bytes::Bytes
+             Cow<'a, T>
+             parity_scale_codec::Ref<'a, T, U>
+             Rc<T>
+             frame_support::sp_runtime::sp_application_crypto::sp_core::Bytes
+             Arc<T>
+             Vec<T>
            and $N others
    = note: required for `Bar` to implement `Encode`
    = note: required for `Bar` to implement `FullEncode`
@@ -57,18 +78,20 @@ error[E0277]: the trait bound `Bar: WrapperTypeEncode` is not satisfied
 error[E0277]: the trait bound `Bar: TypeInfo` is not satisfied
   --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:38:12
    |
-38 |     #[pallet::storage]
-   |               ^^^^^^^ the trait `TypeInfo` is not implemented for `Bar`
+38 |       #[pallet::storage]
+   |  _______________^
+39 | |     type Foo<T> = StorageValue<Value = Bar>;
+   | |____________^ the trait `TypeInfo` is not implemented for `Bar`
    |
    = help: the following other types implement trait `TypeInfo`:
-             &T
-             &mut T
-             ()
-             (A, B)
-             (A, B, C)
-             (A, B, C, D)
-             (A, B, C, D, E)
-             (A, B, C, D, E, F)
+             bool
+             char
+             i8
+             i16
+             i32
+             i64
+             i128
+             u8
            and $N others
    = note: required for `Bar` to implement `StaticTypeInfo`
    = note: required for `frame_support::pallet_prelude::StorageValue<_GeneratedPrefixForStorageFoo<T>, Bar>` to implement `StorageEntryMetadataBuilder`
@@ -76,14 +99,16 @@ error[E0277]: the trait bound `Bar: TypeInfo` is not satisfied
 error[E0277]: the trait bound `Bar: WrapperTypeDecode` is not satisfied
   --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:38:12
    |
-38 |     #[pallet::storage]
-   |               ^^^^^^^ the trait `WrapperTypeDecode` is not implemented for `Bar`
+38 |       #[pallet::storage]
+   |  _______________^
+39 | |     type Foo<T> = StorageValue<Value = Bar>;
+   | |____________^ the trait `WrapperTypeDecode` is not implemented for `Bar`
    |
    = help: the following other types implement trait `WrapperTypeDecode`:
-             Arc<T>
              Box<T>
              Rc<T>
              frame_support::sp_runtime::sp_application_crypto::sp_core::Bytes
+             Arc<T>
    = note: required for `Bar` to implement `Decode`
    = note: required for `Bar` to implement `FullCodec`
    = note: required for `frame_support::pallet_prelude::StorageValue<_GeneratedPrefixForStorageFoo<T>, Bar>` to implement `StorageEntryMetadataBuilder`
@@ -91,18 +116,20 @@ error[E0277]: the trait bound `Bar: WrapperTypeDecode` is not satisfied
 error[E0277]: the trait bound `Bar: EncodeLike` is not satisfied
   --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:38:12
    |
-38 |     #[pallet::storage]
-   |               ^^^^^^^ the trait `EncodeLike` is not implemented for `Bar`
+38 |       #[pallet::storage]
+   |  _______________^
+39 | |     type Foo<T> = StorageValue<Value = Bar>;
+   | |____________^ the trait `EncodeLike` is not implemented for `Bar`
    |
    = help: the following other types implement trait `EncodeLike<T>`:
-             <&&T as EncodeLike<T>>
-             <&T as EncodeLike<T>>
-             <&T as EncodeLike>
-             <&[(K, V)] as EncodeLike<BTreeMap<LikeK, LikeV>>>
-             <&[(T,)] as EncodeLike<BTreeSet<LikeT>>>
-             <&[(T,)] as EncodeLike<BinaryHeap<LikeT>>>
-             <&[(T,)] as EncodeLike<LinkedList<LikeT>>>
-             <&[T] as EncodeLike<Vec<U>>>
+             <bool as EncodeLike>
+             <i8 as EncodeLike>
+             <i16 as EncodeLike>
+             <i32 as EncodeLike>
+             <i64 as EncodeLike>
+             <i128 as EncodeLike>
+             <u8 as EncodeLike>
+             <u16 as EncodeLike>
            and $N others
    = note: required for `Bar` to implement `FullEncode`
    = note: required for `Bar` to implement `FullCodec`
@@ -111,20 +138,84 @@ error[E0277]: the trait bound `Bar: EncodeLike` is not satisfied
 error[E0277]: the trait bound `Bar: WrapperTypeEncode` is not satisfied
   --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:38:12
    |
-38 |     #[pallet::storage]
-   |               ^^^^^^^ the trait `WrapperTypeEncode` is not implemented for `Bar`
+38 |       #[pallet::storage]
+   |  _______________^
+39 | |     type Foo<T> = StorageValue<Value = Bar>;
+   | |____________^ the trait `WrapperTypeEncode` is not implemented for `Bar`
    |
    = help: the following other types implement trait `WrapperTypeEncode`:
-             &T
-             &mut T
-             Arc<T>
              Box<T>
-             Cow<'a, T>
-             Rc<T>
-             Vec<T>
              bytes::bytes::Bytes
+             Cow<'a, T>
+             parity_scale_codec::Ref<'a, T, U>
+             Rc<T>
+             frame_support::sp_runtime::sp_application_crypto::sp_core::Bytes
+             Arc<T>
+             Vec<T>
            and $N others
    = note: required for `Bar` to implement `Encode`
    = note: required for `Bar` to implement `FullEncode`
    = note: required for `Bar` to implement `FullCodec`
    = note: required for `frame_support::pallet_prelude::StorageValue<_GeneratedPrefixForStorageFoo<T>, Bar>` to implement `StorageEntryMetadataBuilder`
+
+error[E0277]: the trait bound `Bar: WrapperTypeDecode` is not satisfied
+  --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:38:12
+   |
+38 |       #[pallet::storage]
+   |  _______________^
+39 | |     type Foo<T> = StorageValue<Value = Bar>;
+   | |____________^ the trait `WrapperTypeDecode` is not implemented for `Bar`
+   |
+   = help: the following other types implement trait `WrapperTypeDecode`:
+             Box<T>
+             Rc<T>
+             frame_support::sp_runtime::sp_application_crypto::sp_core::Bytes
+             Arc<T>
+   = note: required for `Bar` to implement `Decode`
+   = note: required for `Bar` to implement `FullCodec`
+   = note: required for `frame_support::pallet_prelude::StorageValue<_GeneratedPrefixForStorageFoo<T>, Bar>` to implement `TryDecodeEntireStorage`
+
+error[E0277]: the trait bound `Bar: EncodeLike` is not satisfied
+  --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:38:12
+   |
+38 |       #[pallet::storage]
+   |  _______________^
+39 | |     type Foo<T> = StorageValue<Value = Bar>;
+   | |____________^ the trait `EncodeLike` is not implemented for `Bar`
+   |
+   = help: the following other types implement trait `EncodeLike<T>`:
+             <bool as EncodeLike>
+             <i8 as EncodeLike>
+             <i16 as EncodeLike>
+             <i32 as EncodeLike>
+             <i64 as EncodeLike>
+             <i128 as EncodeLike>
+             <u8 as EncodeLike>
+             <u16 as EncodeLike>
+           and $N others
+   = note: required for `Bar` to implement `FullEncode`
+   = note: required for `Bar` to implement `FullCodec`
+   = note: required for `frame_support::pallet_prelude::StorageValue<_GeneratedPrefixForStorageFoo<T>, Bar>` to implement `TryDecodeEntireStorage`
+
+error[E0277]: the trait bound `Bar: WrapperTypeEncode` is not satisfied
+  --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:38:12
+   |
+38 |       #[pallet::storage]
+   |  _______________^
+39 | |     type Foo<T> = StorageValue<Value = Bar>;
+   | |____________^ the trait `WrapperTypeEncode` is not implemented for `Bar`
+   |
+   = help: the following other types implement trait `WrapperTypeEncode`:
+             Box<T>
+             bytes::bytes::Bytes
+             Cow<'a, T>
+             parity_scale_codec::Ref<'a, T, U>
+             Rc<T>
+             frame_support::sp_runtime::sp_application_crypto::sp_core::Bytes
+             Arc<T>
+             Vec<T>
+           and $N others
+   = note: required for `Bar` to implement `Encode`
+   = note: required for `Bar` to implement `FullEncode`
+   = note: required for `Bar` to implement `FullCodec`
+   = note: required for `frame_support::pallet_prelude::StorageValue<_GeneratedPrefixForStorageFoo<T>, Bar>` to implement `TryDecodeEntireStorage`

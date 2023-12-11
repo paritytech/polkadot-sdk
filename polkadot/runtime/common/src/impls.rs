@@ -18,8 +18,10 @@
 
 use crate::NegativeImbalance;
 use frame_support::traits::{Currency, Imbalance, OnUnbalanced};
+use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use primitives::Balance;
-use sp_runtime::Perquintill;
+use sp_runtime::{traits::TryConvert, Perquintill, RuntimeDebug};
+use xcm::VersionedMultiLocation;
 
 /// Logic for the author to get a portion of fees.
 pub struct ToAuthor<R>(sp_std::marker::PhantomData<R>);
@@ -98,13 +100,118 @@ pub fn era_payout(
 	(staking_payout, rest)
 }
 
+/// Versioned locatable asset type which contains both an XCM `location` and `asset_id` to identify
+/// an asset which exists on some chain.
+#[derive(
+	Encode, Decode, Eq, PartialEq, Clone, RuntimeDebug, scale_info::TypeInfo, MaxEncodedLen,
+)]
+pub enum VersionedLocatableAsset {
+	#[codec(index = 3)]
+	V3 {
+		/// The (relative) location in which the asset ID is meaningful.
+		location: xcm::v3::MultiLocation,
+		/// The asset's ID.
+		asset_id: xcm::v3::AssetId,
+	},
+}
+
+/// Converts the [`VersionedLocatableAsset`] to the [`xcm_builder::LocatableAssetId`].
+pub struct LocatableAssetConverter;
+impl TryConvert<VersionedLocatableAsset, xcm_builder::LocatableAssetId>
+	for LocatableAssetConverter
+{
+	fn try_convert(
+		asset: VersionedLocatableAsset,
+	) -> Result<xcm_builder::LocatableAssetId, VersionedLocatableAsset> {
+		match asset {
+			VersionedLocatableAsset::V3 { location, asset_id } =>
+				Ok(xcm_builder::LocatableAssetId { asset_id, location }),
+		}
+	}
+}
+
+/// Converts the [`VersionedMultiLocation`] to the [`xcm::latest::MultiLocation`].
+pub struct VersionedMultiLocationConverter;
+impl TryConvert<&VersionedMultiLocation, xcm::latest::MultiLocation>
+	for VersionedMultiLocationConverter
+{
+	fn try_convert(
+		location: &VersionedMultiLocation,
+	) -> Result<xcm::latest::MultiLocation, &VersionedMultiLocation> {
+		let latest = match location.clone() {
+			VersionedMultiLocation::V2(l) => l.try_into().map_err(|_| location)?,
+			VersionedMultiLocation::V3(l) => l,
+		};
+		Ok(latest)
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarks {
+	use super::VersionedLocatableAsset;
+	use core::marker::PhantomData;
+	use frame_support::traits::Get;
+	use pallet_asset_rate::AssetKindFactory;
+	use pallet_treasury::ArgumentsFactory as TreasuryArgumentsFactory;
+	use sp_core::{ConstU32, ConstU8};
+	use xcm::prelude::*;
+
+	/// Provides a factory method for the [`VersionedLocatableAsset`].
+	/// The location of the asset is determined as a Parachain with an ID equal to the passed seed.
+	pub struct AssetRateArguments;
+	impl AssetKindFactory<VersionedLocatableAsset> for AssetRateArguments {
+		fn create_asset_kind(seed: u32) -> VersionedLocatableAsset {
+			VersionedLocatableAsset::V3 {
+				location: xcm::v3::MultiLocation::new(0, X1(Parachain(seed))),
+				asset_id: xcm::v3::MultiLocation::new(
+					0,
+					X2(PalletInstance(seed.try_into().unwrap()), GeneralIndex(seed.into())),
+				)
+				.into(),
+			}
+		}
+	}
+
+	/// Provide factory methods for the [`VersionedLocatableAsset`] and the `Beneficiary` of the
+	/// [`VersionedMultiLocation`]. The location of the asset is determined as a Parachain with an
+	/// ID equal to the passed seed.
+	pub struct TreasuryArguments<Parents = ConstU8<0>, ParaId = ConstU32<0>>(
+		PhantomData<(Parents, ParaId)>,
+	);
+	impl<Parents: Get<u8>, ParaId: Get<u32>>
+		TreasuryArgumentsFactory<VersionedLocatableAsset, VersionedMultiLocation>
+		for TreasuryArguments<Parents, ParaId>
+	{
+		fn create_asset_kind(seed: u32) -> VersionedLocatableAsset {
+			VersionedLocatableAsset::V3 {
+				location: xcm::v3::MultiLocation::new(Parents::get(), X1(Parachain(ParaId::get()))),
+				asset_id: xcm::v3::MultiLocation::new(
+					0,
+					X2(PalletInstance(seed.try_into().unwrap()), GeneralIndex(seed.into())),
+				)
+				.into(),
+			}
+		}
+		fn create_beneficiary(seed: [u8; 32]) -> VersionedMultiLocation {
+			VersionedMultiLocation::V3(xcm::v3::MultiLocation::new(
+				0,
+				X1(AccountId32 { network: None, id: seed }),
+			))
+		}
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use frame_support::{
+		derive_impl,
 		dispatch::DispatchClass,
 		parameter_types,
-		traits::{ConstU32, FindAuthor},
+		traits::{
+			tokens::{PayFromAccount, UnityAssetBalanceConversion},
+			ConstU32, FindAuthor,
+		},
 		weights::Weight,
 		PalletId,
 	};
@@ -144,6 +251,7 @@ mod tests {
 		pub const AvailableBlockRatio: Perbill = Perbill::one();
 	}
 
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type RuntimeOrigin = RuntimeOrigin;
@@ -181,6 +289,7 @@ mod tests {
 		type ReserveIdentifier = [u8; 8];
 		type WeightInfo = ();
 		type RuntimeHoldReason = RuntimeHoldReason;
+		type RuntimeFreezeReason = RuntimeFreezeReason;
 		type FreezeIdentifier = ();
 		type MaxHolds = ConstU32<1>;
 		type MaxFreezes = ConstU32<1>;
@@ -189,6 +298,7 @@ mod tests {
 	parameter_types! {
 		pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 		pub const MaxApprovals: u32 = 100;
+		pub TreasuryAccount: AccountId = Treasury::account_id();
 	}
 
 	impl pallet_treasury::Config for Test {
@@ -208,6 +318,14 @@ mod tests {
 		type MaxApprovals = MaxApprovals;
 		type WeightInfo = ();
 		type SpendOrigin = frame_support::traits::NeverEnsureOrigin<u64>;
+		type AssetKind = ();
+		type Beneficiary = Self::AccountId;
+		type BeneficiaryLookup = IdentityLookup<Self::AccountId>;
+		type Paymaster = PayFromAccount<Balances, TreasuryAccount>;
+		type BalanceConverter = UnityAssetBalanceConversion;
+		type PayoutPeriod = ConstU64<0>;
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper = ();
 	}
 
 	pub struct OneAuthor;

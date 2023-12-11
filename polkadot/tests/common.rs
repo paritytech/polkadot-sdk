@@ -33,9 +33,7 @@ pub async fn wait_n_finalized_blocks(n: usize, url: &str) {
 	let mut interval = tokio::time::interval(Duration::from_secs(6));
 
 	loop {
-		let Ok(rpc) = ws_client(url).await else {
-			continue;
-		};
+		let Ok(rpc) = ws_client(url).await else { continue };
 
 		if let Ok(block) = ChainApi::<(), Hash, Header, Block>::finalized_head(&rpc).await {
 			built_blocks.insert(block);

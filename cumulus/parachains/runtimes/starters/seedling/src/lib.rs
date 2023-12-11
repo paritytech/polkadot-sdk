@@ -44,8 +44,9 @@ use sp_version::RuntimeVersion;
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
-	construct_runtime,
+	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
+	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
 	traits::{ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, IsInVec, Randomness},
 	weights::{
@@ -74,7 +75,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("seedling"),
 	impl_name: create_runtime_str!("seedling"),
 	authoring_version: 1,
-	spec_version: 10000,
+	spec_version: 1,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 2,
@@ -133,6 +134,8 @@ parameter_types! {
 		.build_or_panic();
 	pub const SS58Prefix: u8 = 42;
 }
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	/// The identifier used to distinguish between accounts.
 	type AccountId = AccountId;
@@ -182,11 +185,13 @@ impl cumulus_pallet_solo_to_para::Config for Runtime {
 }
 
 impl cumulus_pallet_parachain_system::Config for Runtime {
+	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
 	type OnSystemEvent = cumulus_pallet_solo_to_para::Pallet<Runtime>;
 	type SelfParaId = parachain_info::Pallet<Runtime>;
 	type OutboundXcmpMessageSource = ();
-	type DmpMessageHandler = ();
+	// Ignore all DMP messages by enqueueing them into `()`:
+	type DmpQueue = frame_support::traits::EnqueueWithOrigin<(), sp_core::ConstU8<0>>;
 	type ReservedDmpWeight = ();
 	type XcmpMessageHandler = ();
 	type ReservedXcmpWeight = ();
@@ -215,7 +220,10 @@ impl pallet_aura::Config for Runtime {
 impl pallet_timestamp::Config for Runtime {
 	type Moment = u64;
 	type OnTimestampSet = Aura;
+	#[cfg(feature = "experimental")]
 	type MinimumPeriod = ConstU64<0>;
+	#[cfg(not(feature = "experimental"))]
+	type MinimumPeriod = ConstU64<{ parachains_common::SLOT_DURATION / 2 }>;
 	type WeightInfo = ();
 }
 
@@ -364,6 +372,16 @@ impl_runtime_apis! {
 	impl cumulus_primitives_core::CollectCollationInfo<Block> for Runtime {
 		fn collect_collation_info(header: &<Block as BlockT>::Header) -> cumulus_primitives_core::CollationInfo {
 			ParachainSystem::collect_collation_info(header)
+		}
+	}
+
+	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
+		fn create_default_config() -> Vec<u8> {
+			create_default_config::<RuntimeGenesisConfig>()
+		}
+
+		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
+			build_config::<RuntimeGenesisConfig>(config)
 		}
 	}
 }

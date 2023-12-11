@@ -42,8 +42,8 @@ where
 				.to_string()],
 			at: None,
 			hashed_prefixes: vec![
-				<pallet_staking::Bonded<Runtime>>::prefix_hash(),
-				<pallet_staking::Ledger<Runtime>>::prefix_hash(),
+				<pallet_staking::Bonded<Runtime>>::prefix_hash().to_vec(),
+				<pallet_staking::Ledger<Runtime>>::prefix_hash().to_vec(),
 				<pallet_staking::Validators<Runtime>>::map_storage_final_prefix(),
 				<pallet_staking::Nominators<Runtime>>::map_storage_final_prefix(),
 			],

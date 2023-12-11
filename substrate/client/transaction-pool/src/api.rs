@@ -133,13 +133,12 @@ where
 
 	fn validate_transaction(
 		&self,
-		at: &BlockId<Self::Block>,
+		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		uxt: graph::ExtrinsicFor<Self>,
 	) -> Self::ValidationFuture {
 		let (tx, rx) = oneshot::channel();
 		let client = self.client.clone();
-		let at = *at;
 		let validation_pool = self.validation_pool.clone();
 		let metrics = self.metrics.clone();
 
@@ -151,7 +150,7 @@ where
 				.await
 				.send(
 					async move {
-						let res = validate_transaction_blocking(&*client, &at, source, uxt);
+						let res = validate_transaction_blocking(&*client, at, source, uxt);
 						let _ = tx.send(res);
 						metrics.report(|m| m.validations_finished.inc());
 					}
@@ -209,7 +208,7 @@ where
 /// This method will call into the runtime to perform the validation.
 fn validate_transaction_blocking<Client, Block>(
 	client: &Client,
-	at: &BlockId<Block>,
+	at: Block::Hash,
 	source: TransactionSource,
 	uxt: graph::ExtrinsicFor<FullChainApi<Client, Block>>,
 ) -> error::Result<TransactionValidity>
@@ -225,14 +224,10 @@ where
 {
 	sp_tracing::within_span!(sp_tracing::Level::TRACE, "validate_transaction";
 	{
-		let block_hash = client.to_hash(at)
-			.map_err(|e| Error::RuntimeApi(e.to_string()))?
-			.ok_or_else(|| Error::RuntimeApi(format!("Could not get hash for block `{:?}`.", at)))?;
-
 		let runtime_api = client.runtime_api();
 		let api_version = sp_tracing::within_span! { sp_tracing::Level::TRACE, "check_version";
 			runtime_api
-				.api_version::<dyn TaggedTransactionQueue<Block>>(block_hash)
+				.api_version::<dyn TaggedTransactionQueue<Block>>(at)
 				.map_err(|e| Error::RuntimeApi(e.to_string()))?
 				.ok_or_else(|| Error::RuntimeApi(
 					format!("Could not find `TaggedTransactionQueue` api for block `{:?}`.", at)
@@ -245,31 +240,31 @@ where
 			sp_tracing::Level::TRACE, "runtime::validate_transaction";
 		{
 			if api_version >= 3 {
-				runtime_api.validate_transaction(block_hash, source, uxt, block_hash)
+				runtime_api.validate_transaction(at, source, uxt, at)
 					.map_err(|e| Error::RuntimeApi(e.to_string()))
 			} else {
-				let block_number = client.to_number(at)
+				let block_number = client.to_number(&BlockId::Hash(at))
 					.map_err(|e| Error::RuntimeApi(e.to_string()))?
 					.ok_or_else(||
 						Error::RuntimeApi(format!("Could not get number for block `{:?}`.", at))
 					)?;
 
 				// The old versions require us to call `initialize_block` before.
-				runtime_api.initialize_block(block_hash, &sp_runtime::traits::Header::new(
+				runtime_api.initialize_block(at, &sp_runtime::traits::Header::new(
 					block_number + sp_runtime::traits::One::one(),
 					Default::default(),
 					Default::default(),
-					block_hash,
+					at,
 					Default::default()),
 				).map_err(|e| Error::RuntimeApi(e.to_string()))?;
 
 				if api_version == 2 {
 					#[allow(deprecated)] // old validate_transaction
-					runtime_api.validate_transaction_before_version_3(block_hash, source, uxt)
+					runtime_api.validate_transaction_before_version_3(at, source, uxt)
 						.map_err(|e| Error::RuntimeApi(e.to_string()))
 				} else {
 					#[allow(deprecated)] // old validate_transaction
-					runtime_api.validate_transaction_before_version_2(block_hash, uxt)
+					runtime_api.validate_transaction_before_version_2(at, uxt)
 						.map_err(|e| Error::RuntimeApi(e.to_string()))
 				}
 			}
@@ -294,7 +289,7 @@ where
 	/// the runtime locally.
 	pub fn validate_transaction_blocking(
 		&self,
-		at: &BlockId<Block>,
+		at: Block::Hash,
 		source: TransactionSource,
 		uxt: graph::ExtrinsicFor<Self>,
 	) -> error::Result<TransactionValidity> {

@@ -10,6 +10,7 @@ error: use of deprecated constant `pallet::warnings::ConstantWeight_0::_w`:
    |                          ^
    |
    = note: `-D deprecated` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(deprecated)]`
 
 error[E0277]: `Bar` doesn't implement `std::fmt::Debug`
   --> tests/pallet_ui/call_argument_invalid_bound_3.rs:40:36
@@ -20,7 +21,7 @@ error[E0277]: `Bar` doesn't implement `std::fmt::Debug`
    = help: the trait `std::fmt::Debug` is not implemented for `Bar`
    = note: add `#[derive(Debug)]` to `Bar` or manually `impl std::fmt::Debug for Bar`
    = note: required for `&Bar` to implement `std::fmt::Debug`
-   = note: required for the cast from `&Bar` to the object type `dyn std::fmt::Debug`
+   = note: required for the cast from `&&Bar` to `&dyn std::fmt::Debug`
 help: consider annotating `Bar` with `#[derive(Debug)]`
    |
 34 +     #[derive(Debug)]

@@ -20,12 +20,12 @@ use polkadot_node_subsystem::{
 	messages::{ChainApiMessage, FragmentTreeMembership},
 	ActivatedLeaf, TimeoutExt,
 };
-use polkadot_primitives::{vstaging as vstaging_primitives, BlockNumber, Header, OccupiedCore};
+use polkadot_primitives::{AsyncBackingParams, BlockNumber, Header, OccupiedCore};
 
 use super::*;
 
-const ASYNC_BACKING_PARAMETERS: vstaging_primitives::AsyncBackingParams =
-	vstaging_primitives::AsyncBackingParams { max_candidate_depth: 4, allowed_ancestry_len: 3 };
+const ASYNC_BACKING_PARAMETERS: AsyncBackingParams =
+	AsyncBackingParams { max_candidate_depth: 4, allowed_ancestry_len: 3 };
 
 struct TestLeaf {
 	activated: ActivatedLeaf,
@@ -56,7 +56,7 @@ async fn activate_leaf(
 	assert_matches!(
 		virtual_overseer.recv().await,
 		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(parent, RuntimeApiRequest::StagingAsyncBackingParams(tx))
+			RuntimeApiMessage::Request(parent, RuntimeApiRequest::AsyncBackingParams(tx))
 		) if parent == leaf_hash => {
 			tx.send(Ok(ASYNC_BACKING_PARAMETERS)).unwrap();
 		}
@@ -202,13 +202,13 @@ async fn assert_validate_seconded_candidate(
 	virtual_overseer: &mut VirtualOverseer,
 	relay_parent: Hash,
 	candidate: &CommittedCandidateReceipt,
-	pov: &PoV,
-	pvd: &PersistedValidationData,
-	validation_code: &ValidationCode,
+	assert_pov: &PoV,
+	assert_pvd: &PersistedValidationData,
+	assert_validation_code: &ValidationCode,
 	expected_head_data: &HeadData,
 	fetch_pov: bool,
 ) {
-	assert_validation_requests(virtual_overseer, validation_code.clone()).await;
+	assert_validation_requests(virtual_overseer, assert_validation_code.clone()).await;
 
 	if fetch_pov {
 		assert_matches!(
@@ -220,29 +220,29 @@ async fn assert_validate_seconded_candidate(
 					..
 				}
 			) if hash == relay_parent => {
-				tx.send(pov.clone()).unwrap();
+				tx.send(assert_pov.clone()).unwrap();
 			}
 		);
 	}
 
 	assert_matches!(
 		virtual_overseer.recv().await,
-		AllMessages::CandidateValidation(CandidateValidationMessage::ValidateFromExhaustive(
-			_pvd,
-			_validation_code,
+		AllMessages::CandidateValidation(CandidateValidationMessage::ValidateFromExhaustive {
+			validation_data,
+			validation_code,
 			candidate_receipt,
-			_pov,
-			_,
-			timeout,
-			tx,
-		)) if &_pvd == pvd &&
-			&_validation_code == validation_code &&
-			&*_pov == pov &&
+			pov,
+			exec_kind,
+			response_sender,
+			..
+		}) if &validation_data == assert_pvd &&
+			&validation_code == assert_validation_code &&
+			&*pov == assert_pov &&
 			&candidate_receipt.descriptor == candidate.descriptor() &&
-			timeout == PvfExecTimeoutKind::Backing &&
+			exec_kind == PvfExecKind::Backing &&
 			candidate.commitments.hash() == candidate_receipt.commitments_hash =>
 		{
-			tx.send(Ok(ValidationResult::Valid(
+			response_sender.send(Ok(ValidationResult::Valid(
 				CandidateCommitments {
 					head_data: expected_head_data.clone(),
 					horizontal_messages: Default::default(),
@@ -251,7 +251,7 @@ async fn assert_validate_seconded_candidate(
 					processed_downward_messages: 0,
 					hrmp_watermark: 0,
 				},
-				pvd.clone(),
+				assert_pvd.clone(),
 			)))
 			.unwrap();
 		}
@@ -1293,9 +1293,13 @@ fn concurrent_dependent_candidates() {
 					tx.send(pov.clone()).unwrap();
 				},
 				AllMessages::CandidateValidation(
-					CandidateValidationMessage::ValidateFromExhaustive(.., candidate, _, _, _, tx),
+					CandidateValidationMessage::ValidateFromExhaustive {
+						candidate_receipt,
+						response_sender,
+						..
+					},
 				) => {
-					let candidate_hash = candidate.hash();
+					let candidate_hash = candidate_receipt.hash();
 					let (head_data, pvd) = if candidate_hash == candidate_a_hash {
 						(&head_data[1], &pvd_a)
 					} else if candidate_hash == candidate_b_hash {
@@ -1303,18 +1307,19 @@ fn concurrent_dependent_candidates() {
 					} else {
 						panic!("unknown candidate hash")
 					};
-					tx.send(Ok(ValidationResult::Valid(
-						CandidateCommitments {
-							head_data: head_data.clone(),
-							horizontal_messages: Default::default(),
-							upward_messages: Default::default(),
-							new_validation_code: None,
-							processed_downward_messages: 0,
-							hrmp_watermark: 0,
-						},
-						pvd.clone(),
-					)))
-					.unwrap();
+					response_sender
+						.send(Ok(ValidationResult::Valid(
+							CandidateCommitments {
+								head_data: head_data.clone(),
+								horizontal_messages: Default::default(),
+								upward_messages: Default::default(),
+								new_validation_code: None,
+								processed_downward_messages: 0,
+								hrmp_watermark: 0,
+							},
+							pvd.clone(),
+						)))
+						.unwrap();
 				},
 				AllMessages::AvailabilityStore(AvailabilityStoreMessage::StoreAvailableData {
 					tx,

@@ -387,6 +387,8 @@ pub mod v3 {
 	pub trait Anon<BlockNumber, Call, Origin> {
 		/// An address which can be used for removing a scheduled task.
 		type Address: Codec + MaxEncodedLen + Clone + Eq + EncodeLike + Debug + TypeInfo;
+		/// The hasher used in the runtime.
+		type Hasher: sp_runtime::traits::Hash;
 
 		/// Schedule a dispatch to happen at the beginning of some block in the future.
 		///
@@ -396,7 +398,7 @@ pub mod v3 {
 			maybe_periodic: Option<Period<BlockNumber>>,
 			priority: Priority,
 			origin: Origin,
-			call: Bounded<Call>,
+			call: Bounded<Call, Self::Hasher>,
 		) -> Result<Self::Address, DispatchError>;
 
 		/// Cancel a scheduled task. If periodic, then it will cancel all further instances of that,
@@ -434,6 +436,8 @@ pub mod v3 {
 	pub trait Named<BlockNumber, Call, Origin> {
 		/// An address which can be used for removing a scheduled task.
 		type Address: Codec + MaxEncodedLen + Clone + Eq + EncodeLike + sp_std::fmt::Debug;
+		/// The hasher used in the runtime.
+		type Hasher: sp_runtime::traits::Hash;
 
 		/// Schedule a dispatch to happen at the beginning of some block in the future.
 		///
@@ -446,7 +450,7 @@ pub mod v3 {
 			maybe_periodic: Option<Period<BlockNumber>>,
 			priority: Priority,
 			origin: Origin,
-			call: Bounded<Call>,
+			call: Bounded<Call, Self::Hasher>,
 		) -> Result<Self::Address, DispatchError>;
 
 		/// Cancel a scheduled, named task. If periodic, then it will cancel all further instances

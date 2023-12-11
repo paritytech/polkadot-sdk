@@ -14,12 +14,22 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-use substrate_wasm_builder::WasmBuilder;
-
+#[cfg(feature = "std")]
 fn main() {
-	WasmBuilder::new()
+	substrate_wasm_builder::WasmBuilder::new()
 		.with_current_project()
 		.import_memory()
 		.export_heap_base()
-		.build()
+		.build();
+
+	substrate_wasm_builder::WasmBuilder::new()
+		.with_current_project()
+		.set_file_name("fast_runtime_binary.rs")
+		.enable_feature("fast-runtime")
+		.import_memory()
+		.export_heap_base()
+		.build();
 }
+
+#[cfg(not(feature = "std"))]
+fn main() {}
