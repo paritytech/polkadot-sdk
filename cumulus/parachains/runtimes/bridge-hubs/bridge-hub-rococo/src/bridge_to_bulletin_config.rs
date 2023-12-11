@@ -59,7 +59,7 @@ parameter_types! {
 	pub const MaxUnrewardedRelayerEntriesAtInboundLane: bp_messages::MessageNonce =
 		bp_polkadot_bulletin::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
 	/// Maximal number of unconfirmed messages at the Rococo Bridge Hub. It matches the maximal number of
-	/// uncinfirmed messages that the single confirmation transaction at Rococo Bulletin Chain may process.
+	/// unconfirmed messages that the single confirmation transaction at Rococo Bulletin Chain may process.
 	pub const MaxUnconfirmedMessagesAtInboundLane: bp_messages::MessageNonce =
 		bp_polkadot_bulletin::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 	/// Bridge specific chain (network) identifier of the Rococo Bulletin Chain.
