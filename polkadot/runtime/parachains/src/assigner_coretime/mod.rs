@@ -52,7 +52,7 @@ pub const MAX_ASSIGNMENTS_PER_SCHEDULE: u32 = 100;
 /// Fraction expressed as a nominator with an assumed denominator of 57,600.
 pub type PartsOf57600 = u16;
 
-/// AssignmentSets as they are scheduled by block number
+/// Assignments as they are scheduled by block number
 ///
 /// for a particular core.
 #[derive(Encode, Decode, TypeInfo)]
