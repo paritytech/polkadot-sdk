@@ -17,9 +17,8 @@
 //! Parachain runtime mock.
 
 use codec::{Decode, Encode};
-use frame::prelude::*;
 
-use polkadot_parachain::primitives::{
+use polkadot_parachain_primitives::primitives::{
     DmpMessageHandler, Id as ParaId, XcmpMessageFormat, XcmpMessageHandler,
 };
 use polkadot_primitives::BlockNumber as RelayBlockNumber;
@@ -28,10 +27,13 @@ use sp_runtime::traits::{Get, Hash};
 use sp_std::prelude::*;
 use xcm::{latest::prelude::*, VersionedXcm};
 
-#[frame_support::pallet]
+pub use pallet::*;
+
+#[frame::pallet]
 pub mod pallet {
     use super::*;
-    use frame_support::pallet_prelude::*;
+    use frame::prelude::*;
+    use frame::deps::frame_system;
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
@@ -147,8 +149,8 @@ pub mod pallet {
     impl<T: Config> DmpMessageHandler for Pallet<T> {
         fn handle_dmp_messages(
             iter: impl Iterator<Item = (RelayBlockNumber, Vec<u8>)>,
-            limit: xcm::latest::Weight,
-        ) -> xcm::latest::Weight {
+            limit: frame::prelude::Weight,
+        ) -> frame::prelude::Weight {
             for (_i, (_sent_at, data)) in iter.enumerate() {
                 let id = sp_io::hashing::blake2_256(&data[..]);
                 let maybe_versioned = VersionedXcm::<T::RuntimeCall>::decode(&mut &data[..]);
