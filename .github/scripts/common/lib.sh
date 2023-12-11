@@ -264,3 +264,41 @@ function check_gpg() {
     echo "Checking GPG Signature for $1"
     gpg --no-tty --verify -q $1.asc $1
 }
+
+# GITHUB_REF will typically be like:
+# - refs/heads/release-v1.2.3
+# - refs/heads/release-polkadot-v1.2.3-rc2
+# This function extracts the version
+function get_version_from_ghref() {
+  GITHUB_REF=$1
+  stripped=${GITHUB_REF#refs/heads/release-}
+  re="v([0-9]+\.[0-9]+\.[0-9]+)"
+  if [[ $stripped =~ $re ]]; then
+    echo ${BASH_REMATCH[0]};
+    return 0
+  else
+    return 1
+  fi
+}
+
+# Get latest rc tag based on the release version and product
+function get_latest_rc_tag() {
+  version=$1
+  product=$2
+
+  if [[ "$product" == "polkadot" ]]; then
+    last_rc=$(git tag -l "$version-rc*" | sort -V | tail -n 1)
+  elif [[ "$product" == "polkadot-parachain"  ]]; then
+    last_rc=$(git tag -l "polkadot-parachains-$version-rc*" | sort -V | tail -n 1)
+  fi
+  echo "${last_rc}"
+}
+
+# Increment rc tag number based on the value of a suffix of the current rc tag
+function increment_rc_tag() {
+  last_rc=$1
+
+  suffix=$(echo "$last_rc" | grep -Eo '[0-9]+$')
+  ((suffix++))
+  echo $suffix
+}

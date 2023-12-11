@@ -100,6 +100,25 @@ impl<SystemParachainMatcher: Contains<MultiLocation>, Runtime: parachain_info::C
 	}
 }
 
+/// Contains all sibling system parachains, including the one where this matcher is used.
+///
+/// This structure can only be used at a parachain level. In the Relay Chain, please use
+/// the `xcm_builder::IsChildSystemParachain` matcher.
+pub struct AllSiblingSystemParachains;
+
+impl Contains<MultiLocation> for AllSiblingSystemParachains {
+	fn contains(l: &MultiLocation) -> bool {
+		log::trace!(target: "xcm::contains", "AllSiblingSystemParachains location: {:?}", l);
+		match *l {
+			// System parachain
+			MultiLocation { parents: 1, interior: X1(Parachain(id)) } =>
+				ParaId::from(id).is_system(),
+			// Everything else
+			_ => false,
+		}
+	}
+}
+
 /// Accepts an asset if it is a concrete asset from the system (Relay Chain or system parachain).
 pub struct ConcreteAssetFromSystem<AssetLocation>(PhantomData<AssetLocation>);
 impl<AssetLocation: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation>
@@ -122,12 +141,14 @@ impl<AssetLocation: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation>
 
 #[cfg(test)]
 mod tests {
-	use frame_support::parameter_types;
+	use frame_support::{parameter_types, traits::Contains};
 
 	use super::{
-		ConcreteAssetFromSystem, ContainsPair, GeneralIndex, Here, MultiAsset, MultiLocation,
-		PalletInstance, Parachain, Parent,
+		AllSiblingSystemParachains, ConcreteAssetFromSystem, ContainsPair, GeneralIndex, Here,
+		MultiAsset, MultiLocation, PalletInstance, Parachain, Parent,
 	};
+	use polkadot_primitives::LOWEST_PUBLIC_ID;
+	use xcm::latest::prelude::*;
 
 	parameter_types! {
 		pub const RelayLocation: MultiLocation = MultiLocation::parent();
@@ -179,5 +200,20 @@ mod tests {
 				<ConcreteAssetFromSystem<RelayLocation>>::contains(&expected_asset, &origin)
 			);
 		}
+	}
+
+	#[test]
+	fn all_sibling_system_parachains_works() {
+		// system parachain
+		assert!(AllSiblingSystemParachains::contains(&MultiLocation::new(1, X1(Parachain(1)))));
+		// non-system parachain
+		assert!(!AllSiblingSystemParachains::contains(&MultiLocation::new(
+			1,
+			X1(Parachain(LOWEST_PUBLIC_ID.into()))
+		)));
+		// when used at relay chain
+		assert!(!AllSiblingSystemParachains::contains(&MultiLocation::new(0, X1(Parachain(1)))));
+		// when used with non-parachain
+		assert!(!AllSiblingSystemParachains::contains(&MultiLocation::new(1, X1(OnlyChild))));
 	}
 }

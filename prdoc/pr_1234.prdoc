@@ -4,17 +4,10 @@
 title: Introduce XcmFeesToAccount fee manager
 
 doc:
-  - audience: Builder
+  - audience: Runtime User
     description: |
       Now all XCM sending, unless done by the system for the system, will be charged delivery fees.
       All runtimes are now configured to send these delivery fees to a treasury account.
       The fee formula is `delivery_fee_factor * (base_fee + encoded_msg_len * per_byte_fee)`.
 
-migrations:
-  db: []
-
-  runtime: []
-
-crates: []
-
-host_functions: []
+crates: [ ]
