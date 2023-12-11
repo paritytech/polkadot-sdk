@@ -674,7 +674,7 @@ fn bidirectional_teleport_foreign_assets_between_para_and_asset_hub() {
 	});
 
 	let foreign_asset_at_asset_hub_westend_latest: Location =
-		foreign_asset_at_asset_hub_westend.clone().try_into().unwrap();
+		foreign_asset_at_asset_hub_westend.try_into().unwrap();
 	let ah_to_penpal_beneficiary_id = PenpalBReceiver::get();
 	let penpal_as_seen_by_ah = AssetHubWestend::sibling_location_of(PenpalB::para_id());
 	let ah_assets: Assets = vec![

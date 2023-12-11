@@ -674,7 +674,7 @@ fn bidirectional_teleport_foreign_assets_between_para_and_asset_hub() {
 	});
 
 	let foreign_asset_at_asset_hub_rococo_latest: Location =
-		foreign_asset_at_asset_hub_rococo.clone().try_into().unwrap();
+		foreign_asset_at_asset_hub_rococo.try_into().unwrap();
 	let ah_to_penpal_beneficiary_id = PenpalAReceiver::get();
 	let penpal_as_seen_by_ah = AssetHubRococo::sibling_location_of(PenpalA::para_id());
 	let ah_assets: Assets = vec![

@@ -86,7 +86,7 @@ fn send_rocs_from_asset_hub_rococo_to_asset_hub_westend() {
 		v3::Location::new(2, [v3::Junction::GlobalConsensus(v3::NetworkId::Rococo)]);
 	let owner: AccountId = AssetHubWestend::account_id_of(ALICE);
 	AssetHubWestend::force_create_foreign_asset(
-		roc_at_asset_hub_westend.clone(),
+		roc_at_asset_hub_westend,
 		owner,
 		true,
 		ASSET_MIN_BALANCE,
@@ -104,13 +104,13 @@ fn send_rocs_from_asset_hub_rococo_to_asset_hub_westend() {
 	let receiver_rocs_before = AssetHubWestend::execute_with(|| {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
 		<Assets as Inspect<_>>::balance(
-			roc_at_asset_hub_westend.clone(),
+			roc_at_asset_hub_westend,
 			&AssetHubWestendReceiver::get(),
 		)
 	});
 
 	let roc_at_asset_hub_rococo_latest: Location =
-		roc_at_asset_hub_rococo.clone().try_into().unwrap();
+		roc_at_asset_hub_rococo.try_into().unwrap();
 	let amount = ASSET_HUB_ROCOCO_ED * 1_000;
 	send_asset_from_asset_hub_rococo_to_asset_hub_westend(roc_at_asset_hub_rococo_latest, amount);
 	AssetHubWestend::execute_with(|| {
@@ -136,7 +136,7 @@ fn send_rocs_from_asset_hub_rococo_to_asset_hub_westend() {
 	let receiver_rocs_after = AssetHubWestend::execute_with(|| {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
 		<Assets as Inspect<_>>::balance(
-			roc_at_asset_hub_westend.clone(),
+			roc_at_asset_hub_westend,
 			&AssetHubWestendReceiver::get(),
 		)
 	});
@@ -158,7 +158,7 @@ fn send_wnds_from_asset_hub_rococo_to_asset_hub_westend() {
 		v3::Location::new(2, [v3::Junction::GlobalConsensus(v3::NetworkId::Westend)]);
 	let owner: AccountId = AssetHubWestend::account_id_of(ALICE);
 	AssetHubRococo::force_create_foreign_asset(
-		wnd_at_asset_hub_rococo.clone(),
+		wnd_at_asset_hub_rococo,
 		owner,
 		true,
 		ASSET_MIN_BALANCE,
@@ -178,7 +178,7 @@ fn send_wnds_from_asset_hub_rococo_to_asset_hub_westend() {
 	let sender_wnds_before = AssetHubRococo::execute_with(|| {
 		type Assets = <AssetHubRococo as AssetHubRococoPallet>::ForeignAssets;
 		<Assets as Inspect<_>>::balance(
-			wnd_at_asset_hub_rococo.clone(),
+			wnd_at_asset_hub_rococo,
 			&AssetHubRococoSender::get(),
 		)
 	});
@@ -187,7 +187,7 @@ fn send_wnds_from_asset_hub_rococo_to_asset_hub_westend() {
 		<AssetHubWestend as Chain>::account_data_of(AssetHubWestendReceiver::get()).free;
 
 	let wnd_at_asset_hub_rococo_latest: Location =
-		wnd_at_asset_hub_rococo.clone().try_into().unwrap();
+		wnd_at_asset_hub_rococo.try_into().unwrap();
 	let amount_to_send = ASSET_HUB_WESTEND_ED * 1_000;
 	send_asset_from_asset_hub_rococo_to_asset_hub_westend(
 		wnd_at_asset_hub_rococo_latest.clone(),

@@ -429,7 +429,7 @@ fn test_assets_balances_api_works() {
 			// check before
 			assert_eq!(Assets::balance(local_asset_id, AccountId::from(ALICE)), 0);
 			assert_eq!(
-				ForeignAssets::balance(foreign_asset_id_location.clone(), AccountId::from(ALICE)),
+				ForeignAssets::balance(foreign_asset_id_location, AccountId::from(ALICE)),
 				0
 			);
 			assert_eq!(Balances::free_balance(AccountId::from(ALICE)), 0);
@@ -466,7 +466,7 @@ fn test_assets_balances_api_works() {
 			let foreign_asset_minimum_asset_balance = 3333333_u128;
 			assert_ok!(ForeignAssets::force_create(
 				RuntimeHelper::root_origin(),
-				foreign_asset_id_location.clone(),
+				foreign_asset_id_location,
 				AccountId::from(SOME_ASSET_ADMIN).into(),
 				false,
 				foreign_asset_minimum_asset_balance
@@ -475,7 +475,7 @@ fn test_assets_balances_api_works() {
 			// We first mint enough asset for the account to exist for assets
 			assert_ok!(ForeignAssets::mint(
 				RuntimeHelper::origin_of(AccountId::from(SOME_ASSET_ADMIN)),
-				foreign_asset_id_location.clone(),
+				foreign_asset_id_location,
 				AccountId::from(ALICE).into(),
 				6 * foreign_asset_minimum_asset_balance
 			));
@@ -486,7 +486,7 @@ fn test_assets_balances_api_works() {
 				minimum_asset_balance
 			);
 			assert_eq!(
-				ForeignAssets::balance(foreign_asset_id_location.clone(), AccountId::from(ALICE)),
+				ForeignAssets::balance(foreign_asset_id_location, AccountId::from(ALICE)),
 				6 * minimum_asset_balance
 			);
 			assert_eq!(Balances::free_balance(AccountId::from(ALICE)), some_currency);
