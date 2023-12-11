@@ -37,7 +37,7 @@ parameter_types! {
 type TheBridge = TestBridge<
 	BridgeBlobDispatcher<TestRemoteIncomingRouter, RemoteParaBridgeUniversalLocation, ()>,
 >;
-type RelayExporter = HaulBlobExporter<TheBridge, RemoteNetwork, ()>;
+type RelayExporter = HaulBlobExporter<TheBridge, RemoteNetwork, AlwaysLatest, ()>;
 type LocalInnerRouter =
 	UnpaidExecutingRouter<UniversalLocation, ParaBridgeUniversalLocation, RelayExporter>;
 type LocalBridgingRouter =

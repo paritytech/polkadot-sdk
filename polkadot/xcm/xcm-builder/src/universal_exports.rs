@@ -422,23 +422,25 @@ impl<
 	}
 }
 
-pub struct HaulBlobExporter<Bridge, BridgedNetwork, Price>(
-	PhantomData<(Bridge, BridgedNetwork, Price)>,
+pub struct HaulBlobExporter<Bridge, BridgedNetwork, DestinationVersion, Price>(
+	PhantomData<(Bridge, BridgedNetwork, DestinationVersion, Price)>,
 );
 /// `ExportXcm` implementation for `HaulBlobExporter`.
 ///
 /// # Type Parameters
 ///
 /// ```text
-/// - Bridge: Implements HaulBlob and GetVersion for retrieving XCM version for the destination.
-/// - BridgedNetwork: The relative location of the bridged consensus system with the expected GlobalConsensus junction.
+/// - Bridge: Implements `HaulBlob`.
+/// - BridgedNetwork: The relative location of the bridged consensus system with the expected `GlobalConsensus` junction.
+/// - DestinationVersion: Implements `GetVersion` for retrieving XCM version for the destination.
 /// - Price: potential fees for exporting.
 /// ```
 impl<
-		Bridge: HaulBlob + GetVersion,
+		Bridge: HaulBlob,
 		BridgedNetwork: Get<MultiLocation>,
+		DestinationVersion:  GetVersion,
 		Price: Get<MultiAssets>,
-	> ExportXcm for HaulBlobExporter<Bridge, BridgedNetwork, Price>
+	> ExportXcm for HaulBlobExporter<Bridge, BridgedNetwork, DestinationVersion, Price>
 {
 	type Ticket = (Vec<u8>, XcmHash);
 
@@ -465,7 +467,7 @@ impl<
 		let (universal_dest, version) =
 			match dest.pushed_front_with(GlobalConsensus(bridged_network)) {
 				Ok(d) => {
-					let version = Bridge::get_version_for(&MultiLocation::from(AncestorThen(
+					let version = DestinationVersion::get_version_for(&MultiLocation::from(AncestorThen(
 						bridged_network_location_parents,
 						d,
 					)))

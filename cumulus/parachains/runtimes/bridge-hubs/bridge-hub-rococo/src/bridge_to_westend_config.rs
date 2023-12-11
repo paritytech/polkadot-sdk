@@ -18,7 +18,7 @@
 
 use crate::{
 	bridge_common_config::{BridgeParachainWestendInstance, DeliveryRewardInBalance},
-	weights, AccountId, BridgeWestendMessages, ParachainInfo, PolkadotXcm, Runtime, RuntimeEvent,
+	weights, AccountId, BridgeWestendMessages, PolkadotXcm, Runtime, RuntimeEvent,
 	RuntimeOrigin, XcmRouter,
 	xcm_config::UniversalLocation,
 	XcmOverBridgeHubWestend,
@@ -132,9 +132,6 @@ pub struct ToBridgeHubWestendXcmBlobHauler;
 impl XcmBlobHauler for ToBridgeHubWestendXcmBlobHauler {
 	type Runtime = Runtime;
 	type MessagesInstance = WithBridgeHubWestendMessagesInstance;
-	type DestinationVersion =
-		MinXcmVersionOfDestinationAndRemoteBridgeHub<PolkadotXcm, BridgeHubWestendLocation>;
-
 	type ToSourceChainSender = XcmRouter;
 	type CongestedMessage = CongestedMessage;
 	type UncongestedMessage = UncongestedMessage;
@@ -248,9 +245,10 @@ impl pallet_bridge_messages::Config<WithBridgeHubWestendMessagesInstance> for Ru
 pub type XcmOverBridgeHubWestendInstance = pallet_xcm_bridge_hub::Instance1;
 impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubWestendInstance> for Runtime {
 	type UniversalLocation = UniversalLocation;
-	type BridgedNetworkId = WestendGlobalConsensusNetwork;
+	type BridgedNetwork = WestendGlobalConsensusNetworkLocation;
 	type BridgeMessagesPalletInstance = WithBridgeHubWestendMessagesInstance;
 	type MessageExportPrice = ();
+	type DestinationVersion = MinXcmVersionOfDestinationAndRemoteBridgeHub<PolkadotXcm, BridgeHubWestendLocation>;
 	type Lanes = ActiveLanes;
 	type LanesSupport = ToBridgeHubWestendXcmBlobHauler;
 }

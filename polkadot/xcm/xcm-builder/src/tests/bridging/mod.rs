@@ -20,7 +20,7 @@ use super::mock::*;
 use crate::{universal_exports::*, WithTopicSource};
 use frame_support::{parameter_types, traits::Get};
 use std::{cell::RefCell, marker::PhantomData};
-use xcm::{AlwaysLatest, GetVersion, Version};
+use xcm::AlwaysLatest;
 use xcm_executor::{
 	traits::{export_xcm, validate_export},
 	XcmExecutor,
@@ -116,11 +116,6 @@ impl<D: DispatchBlob> HaulBlob for TestBridge<D> {
 	fn haul_blob(blob: Vec<u8>) -> Result<(), HaulBlobError> {
 		BRIDGE_TRAFFIC.with(|t| t.borrow_mut().push(blob));
 		Ok(())
-	}
-}
-impl<D: DispatchBlob> GetVersion for TestBridge<D> {
-	fn get_version_for(dest: &MultiLocation) -> Option<Version> {
-		AlwaysLatest::get_version_for(dest)
 	}
 }
 

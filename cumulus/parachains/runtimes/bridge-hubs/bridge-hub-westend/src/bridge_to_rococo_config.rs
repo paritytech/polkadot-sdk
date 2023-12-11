@@ -18,7 +18,7 @@
 
 use crate::{
 	bridge_common_config::DeliveryRewardInBalance, weights, AccountId, BridgeRococoMessages,
-	ParachainInfo, PolkadotXcm, Runtime, RuntimeEvent, RuntimeOrigin, XcmRouter,
+	PolkadotXcm, Runtime, RuntimeEvent, RuntimeOrigin, XcmRouter,
 	xcm_config::UniversalLocation,
 	XcmOverBridgeHubRococo,
 };
@@ -273,9 +273,10 @@ impl pallet_bridge_messages::Config<WithBridgeHubRococoMessagesInstance> for Run
 pub type XcmOverBridgeHubRococoInstance = pallet_xcm_bridge_hub::Instance1;
 impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubRococoInstance> for Runtime {
 	type UniversalLocation = UniversalLocation;
-	type BridgedNetworkId = RococoGlobalConsensusNetwork;
+	type BridgedNetwork = RococoGlobalConsensusNetworkLocation;
 	type BridgeMessagesPalletInstance = WithBridgeHubRococoMessagesInstance;
 	type MessageExportPrice = ();
+	type DestinationVersion = MinXcmVersionOfDestinationAndRemoteBridgeHub<PolkadotXcm, BridgeHubRococoLocation>;
 	type Lanes = ActiveLanes;
 	type LanesSupport = ToBridgeHubRococoXcmBlobHauler;
 }

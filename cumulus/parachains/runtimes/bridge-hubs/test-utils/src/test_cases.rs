@@ -57,7 +57,7 @@ use sp_runtime::{
 };
 use xcm::{
 	latest::prelude::*,
-	prelude::{AlwaysLatest, GetVersion, XcmVersion},
+	prelude::{AlwaysLatest, GetVersion},
 };
 use xcm_builder::DispatchBlobError;
 use xcm_executor::{
@@ -327,7 +327,11 @@ pub fn message_dispatch_routing_works<
 			);
 			// 1. this message is sent from other global consensus with destination of this Runtime relay chain (UMP)
 			let bridging_message =
-				test_data::simulate_message_exporter_on_bridged_chain::<BridgedNetwork, NetworkWithParentCount<RuntimeNetwork, NetworkDistanceAsParentCount>>(
+				test_data::simulate_message_exporter_on_bridged_chain::<
+					BridgedNetwork,
+					NetworkWithParentCount<RuntimeNetwork, NetworkDistanceAsParentCount>,
+					AlwaysLatest,
+				>(
 					(RuntimeNetwork::get(), Here)
 				);
 			let result = <<Runtime as pallet_bridge_messages::Config<MessagesPalletInstance>>::MessageDispatch>::dispatch(
@@ -345,7 +349,11 @@ pub fn message_dispatch_routing_works<
 
 			// 2. this message is sent from other global consensus with destination of this Runtime sibling parachain (HRMP)
 			let bridging_message =
-				test_data::simulate_message_exporter_on_bridged_chain::<BridgedNetwork, NetworkWithParentCount<RuntimeNetwork, NetworkDistanceAsParentCount>>(
+				test_data::simulate_message_exporter_on_bridged_chain::<
+					BridgedNetwork,
+					NetworkWithParentCount<RuntimeNetwork, NetworkDistanceAsParentCount>,
+					AlwaysLatest,
+				>(
 					(RuntimeNetwork::get(), X1(Parachain(sibling_parachain_id))),
 				);
 
@@ -1527,11 +1535,6 @@ pub mod test_data {
 					Ok(())
 				}
 			}
-			impl GetVersion for $name {
-				fn get_version_for(dest: &MultiLocation) -> Option<XcmVersion> {
-					AlwaysLatest::get_version_for(dest)
-				}
-			}
 		}
 	);
 
@@ -1540,6 +1543,7 @@ pub mod test_data {
 	pub(crate) fn simulate_message_exporter_on_bridged_chain<
 		SourceNetwork: Get<NetworkId>,
 		DestinationNetwork: Get<MultiLocation>,
+		DestinationVersion: GetVersion,
 	>(
 		(destination_network, destination_junctions): (NetworkId, Junctions),
 	) -> Vec<u8> {
@@ -1552,7 +1556,7 @@ pub mod test_data {
 
 		// simulate XCM message export
 		let (ticket, fee) =
-			validate_export::<HaulBlobExporter<GrabbingHaulBlob, DestinationNetwork, ()>>(
+			validate_export::<HaulBlobExporter<GrabbingHaulBlob, DestinationNetwork, DestinationVersion, ()>>(
 				destination_network,
 				channel,
 				universal_source_on_bridged_chain,
@@ -1566,7 +1570,7 @@ pub mod test_data {
 			fee
 		);
 		let xcm_hash =
-			HaulBlobExporter::<GrabbingHaulBlob, DestinationNetwork, ()>::deliver(ticket)
+			HaulBlobExporter::<GrabbingHaulBlob, DestinationNetwork, DestinationVersion, ()>::deliver(ticket)
 				.expect("deliver to pass");
 		log::info!(
 			target: "simulate_message_exporter_on_bridged_chain",
