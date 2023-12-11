@@ -48,7 +48,7 @@ use polkadot_node_network_protocol::{
 		GridNeighbors, RandomRouting, RequiredRouting, SessionGridTopology, TopologyPeerInfo,
 	},
 	peer_set::{ProtocolVersion, ValidationVersion},
-	vstaging as protocol_vstaging, ObservedRole, Versioned, View,
+	v3 as protocol_v3, ObservedRole, Versioned, View,
 };
 use polkadot_node_subsystem::{overseer, AllMessages, Overseer, OverseerConnector, SpawnGlue};
 use polkadot_node_subsystem_test_helpers::mock::new_block_import_info;
@@ -739,9 +739,7 @@ fn issue_approvals(
 		.map(|(_index, message)| match &message.msg {
 			ApprovalDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
 				_,
-				Versioned::VStaging(protocol_vstaging::ApprovalDistributionMessage::Assignments(
-					assignments,
-				)),
+				Versioned::V3(protocol_v3::ApprovalDistributionMessage::Assignments(assignments)),
 			)) => {
 				let mut approvals_to_create = Vec::new();
 
@@ -847,11 +845,11 @@ fn sign_candidates(
 		validator: current_validator_index,
 		signature,
 	};
-	let msg = protocol_vstaging::ApprovalDistributionMessage::Approvals(vec![indirect]);
+	let msg = protocol_v3::ApprovalDistributionMessage::Approvals(vec![indirect]);
 	TestMessage {
 		msg: ApprovalDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
 			keyring.1,
-			Versioned::VStaging(msg),
+			Versioned::V3(msg),
 		)),
 		sent_by,
 		tranche: tranche_trigger_timestamp,
@@ -1042,14 +1040,14 @@ fn generate_assignments(
 		.flatten()
 		.map(|indirect| {
 			let validator_index = indirect.0.validator.0;
-			let msg = protocol_vstaging::ApprovalDistributionMessage::Assignments(vec![(
+			let msg = protocol_v3::ApprovalDistributionMessage::Assignments(vec![(
 				indirect.0, indirect.1,
 			)]);
 			TestMessage {
 				msg: ApprovalDistributionMessage::NetworkBridgeUpdate(
 					NetworkBridgeEvent::PeerMessage(
 						keyrings[validator_index as usize].1,
-						Versioned::VStaging(msg),
+						Versioned::V3(msg),
 					),
 				),
 				sent_by: indirect.2,
@@ -1140,7 +1138,7 @@ fn generate_peer_connected(
 			let network = NetworkBridgeEvent::PeerConnected(
 				peer_id,
 				ObservedRole::Full,
-				ProtocolVersion::from(ValidationVersion::VStaging),
+				ProtocolVersion::from(ValidationVersion::V3),
 				None,
 			);
 			TestMessage {
