@@ -100,6 +100,7 @@ pub trait WeightInfo {
 	fn deregister() -> Weight;
 	fn swap() -> Weight;
 	fn pre_code_upgrade() -> Weight;
+	fn on_code_upgrade() -> Weight;
 	fn schedule_code_upgrade(b: u32) -> Weight;
 	fn set_current_head(b: u32) -> Weight;
 	fn set_parachain_billing_account_to_self() -> Weight;
@@ -124,6 +125,9 @@ impl WeightInfo for TestWeightInfo {
 		Weight::zero()
 	}
 	fn pre_code_upgrade() -> Weight {
+		Weight::zero()
+	}
+	fn on_code_upgrade() -> Weight {
 		Weight::zero()
 	}
 	fn schedule_code_upgrade(_b: u32) -> Weight {
@@ -1018,7 +1022,7 @@ impl<T: Config> OnCodeUpgrade for Pallet<T> {
 					who: billing_account,
 					amount: rebate,
 				});
-				return T::DbWeight::get().reads_writes(2, 2) // FIXME: This is inaccurate weight
+				return <T as Config>::WeightInfo::on_code_upgrade()
 			}
 		}
 
@@ -1944,16 +1948,34 @@ mod benchmarking {
 
 			// Actually finish registration process
 			next_scheduled_session::<T>();
-		}: _(RawOrigin::Root, para, new_code)
+			// Set the billing account
+			let caller: T::AccountId = whitelisted_caller();
+			assert_ok!(Registrar::<T>::force_set_parachain_billing_account(RawOrigin::Root.into(), para, caller.clone()));
+		}: _(RawOrigin::Signed(caller), para, new_code)
 
 		pre_code_upgrade {
 			let para = register_para::<T>(LOWEST_PUBLIC_ID.into());
-			let new_code = ValidationCode(vec![0]);
+			let new_small_code = ValidationCode(vec![0]);
 
 			// Actually finish registration process
 			next_scheduled_session::<T>();
 		}: {
-			let _ = T::PreCodeUpgrade::pre_code_upgrade(para, new_code, false);
+			let _ = T::PreCodeUpgrade::pre_code_upgrade(para, new_small_code, false);
+		}
+
+		on_code_upgrade {
+			let para = register_para::<T>(LOWEST_PUBLIC_ID.into());
+			let new_small_code = ValidationCode(vec![0]);
+
+			// Actually finish registration process
+			next_scheduled_session::<T>();
+			// Set the billing account
+			assert_ok!(Registrar::<T>::force_set_parachain_billing_account(RawOrigin::Root.into(), para, whitelisted_caller()));
+
+			assert_ok!(Registrar::<T>::schedule_code_upgrade(RawOrigin::Root.into(), para, new_small_code));
+			assert!(Paras::<T>::get(para).unwrap().pending_deposit_refund.is_some());
+		}: {
+			let _ = T::OnCodeUpgrade::on_code_upgrade(para);
 		}
 
 		set_current_head {
