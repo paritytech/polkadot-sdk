@@ -167,9 +167,12 @@ runtime-benchmarks = [
 	"asset-hub-rococo-runtime/runtime-benchmarks",
 	"assets-common/runtime-benchmarks",
 	"bridge-hub-rococo-runtime/runtime-benchmarks",
+	"bridge-runtime-common/runtime-benchmarks",
+	"cumulus-pallet-dmp-queue/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-session-benchmarking/runtime-benchmarks",
 	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
 	"cumulus-primitives-utility/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
@@ -177,6 +180,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
@@ -189,6 +193,7 @@ runtime-benchmarks = [
 	"snowbridge-ethereum-beacon-client/runtime-benchmarks",
 	"snowbridge-inbound-queue/runtime-benchmarks",
 	"snowbridge-outbound-queue/runtime-benchmarks",
+	"snowbridge-router-primitives/runtime-benchmarks",
 	"snowbridge-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
@@ -196,6 +201,8 @@ runtime-benchmarks = [
 ]
 
 try-runtime = [
+	"asset-hub-rococo-runtime/try-runtime",
+	"bridge-hub-rococo-runtime/try-runtime",
 	"cumulus-pallet-aura-ext/try-runtime",
 	"cumulus-pallet-dmp-queue/try-runtime",
 	"cumulus-pallet-parachain-system/try-runtime",
@@ -209,6 +216,7 @@ try-runtime = [
 	"pallet-authorship/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-collator-selection/try-runtime",
+	"pallet-message-queue/try-runtime",
 	"pallet-multisig/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-timestamp/try-runtime",
@@ -217,6 +225,10 @@ try-runtime = [
 	"pallet-xcm/try-runtime",
 	"parachain-info/try-runtime",
 	"polkadot-runtime-common/try-runtime",
+	"snowbridge-ethereum-beacon-client/try-runtime",
+	"snowbridge-inbound-queue/try-runtime",
+	"snowbridge-outbound-queue/try-runtime",
+	"snowbridge-system/try-runtime",
 	"sp-runtime/try-runtime",
 ]
 beacon-spec-mainnet = [
