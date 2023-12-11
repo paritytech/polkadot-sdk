@@ -5,6 +5,7 @@ error: unused import: `frame_system::pallet_prelude::OriginFor`
    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = note: `-D unused-imports` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(unused_imports)]`
 
 error[E0308]: mismatched types
   --> tests/pallet_ui/task_condition_invalid_arg.rs:35:10
