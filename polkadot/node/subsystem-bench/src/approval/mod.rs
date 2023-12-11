@@ -25,7 +25,7 @@ use std::{
 };
 
 use colored::Colorize;
-use futures::{channel::oneshot, FutureExt};
+use futures::{channel::oneshot, lock::Mutex, FutureExt};
 use itertools::Itertools;
 use orchestra::TimeoutExt;
 use overseer::{metrics::Metrics as OverseerMetrics, MetricsTrait};
@@ -56,7 +56,8 @@ use polkadot_overseer::Handle as OverseerHandleReal;
 
 use polkadot_node_core_approval_voting::Config as ApprovalVotingConfig;
 use polkadot_node_subsystem_types::messages::{
-	network_bridge_event::NewGossipTopology, ApprovalDistributionMessage, NetworkBridgeEvent,
+	network_bridge_event::NewGossipTopology, ApprovalDistributionMessage, ApprovalVotingMessage,
+	NetworkBridgeEvent,
 };
 
 use rand::{seq::SliceRandom, RngCore, SeedableRng};
@@ -94,7 +95,10 @@ use crate::{
 		configuration::{TestAuthorities, TestConfiguration},
 		environment::{TestEnvironment, TestEnvironmentDependencies, MAX_TIME_OF_FLIGHT},
 		keyring::Keyring,
-		mock::{dummy_builder, AlwaysSupportsParachains, MockNetworkBridgeTx, TestSyncOracle},
+		mock::{
+			dummy_builder, AlwaysSupportsParachains, MockNetworkBridgeTx, RespondToRequestsInfo,
+			TestSyncOracle,
+		},
 		network::{NetworkAction, NetworkEmulator},
 	},
 };
@@ -170,6 +174,7 @@ struct BlockTestData {
 	/// selection mock subsystem.
 	approved: Arc<AtomicBool>,
 	prev_candidates: u64,
+	votes: Arc<Vec<Vec<AtomicBool>>>,
 }
 
 /// Approval test state used by all mock subsystems to be able to answer messages emitted
@@ -290,6 +295,15 @@ impl ApprovalTestState {
 				relay_vrf_story,
 				approved: Arc::new(AtomicBool::new(false)),
 				prev_candidates,
+				votes: Arc::new(
+					(0..self.configuration.n_validators)
+						.map(|_| {
+							(0..self.configuration.n_cores)
+								.map(|_| AtomicBool::new(false))
+								.collect_vec()
+						})
+						.collect_vec(),
+				),
 			};
 			prev_candidates += block_info.candidates.len() as u64;
 			self.per_slot_heads.push(block_info)
@@ -384,6 +398,45 @@ impl TestMessage {
 			MessageType::Approval => None,
 			MessageType::Assignment => None,
 			MessageType::Other => None,
+		}
+	}
+
+	fn record_vote(&self, state: &BlockTestData) {
+		if let MessageType::Approval = self.typ {
+			match &self.msg {
+				ApprovalDistributionMessage::NewBlocks(_) => todo!(),
+				ApprovalDistributionMessage::DistributeAssignment(_, _) => todo!(),
+				ApprovalDistributionMessage::DistributeApproval(_) => todo!(),
+				ApprovalDistributionMessage::NetworkBridgeUpdate(msg) => match msg {
+					NetworkBridgeEvent::PeerConnected(_, _, _, _) => todo!(),
+					NetworkBridgeEvent::PeerDisconnected(_) => todo!(),
+					NetworkBridgeEvent::NewGossipTopology(_) => todo!(),
+					NetworkBridgeEvent::PeerMessage(peer, msg) => match msg {
+						Versioned::V1(_) => todo!(),
+						Versioned::V2(_) => todo!(),
+						Versioned::V3(msg) => match msg {
+							protocol_v3::ApprovalDistributionMessage::Assignments(_) => todo!(),
+							protocol_v3::ApprovalDistributionMessage::Approvals(approvals) =>
+								for approval in approvals {
+									for candidate_index in approval.candidate_indices.iter_ones() {
+										state
+											.votes
+											.get(approval.validator.0 as usize)
+											.unwrap()
+											.get(candidate_index)
+											.unwrap()
+											.store(true, std::sync::atomic::Ordering::SeqCst);
+									}
+								},
+						},
+					},
+					NetworkBridgeEvent::PeerViewChange(_, _) => todo!(),
+					NetworkBridgeEvent::OurViewChange(_) => todo!(),
+					NetworkBridgeEvent::UpdatedAuthorityIds(_, _) => todo!(),
+				},
+				ApprovalDistributionMessage::GetApprovalSignatures(_, _) => todo!(),
+				ApprovalDistributionMessage::ApprovalCheckingLagUpdate(_) => todo!(),
+			}
 		}
 	}
 
@@ -556,6 +609,8 @@ impl PeerMessagesGenerator {
 								(!self.options.stop_when_approved &&
 									message.tranche <= self.options.send_till_tranche)
 							{
+								message.record_vote(block_info);
+
 								for (peer, messages) in message.split_by_peer_id() {
 									for message in messages {
 										let latency = message.get_latency();
@@ -1363,6 +1418,49 @@ pub async fn bench_approvals(env: &mut TestEnvironment, state: ApprovalTestState
 			state.last_approved_block.load(std::sync::atomic::Ordering::SeqCst)
 		);
 		tokio::time::sleep(Duration::from_secs(6)).await;
+	}
+	tokio::time::sleep(Duration::from_secs(6)).await;
+	tokio::time::sleep(Duration::from_secs(6)).await;
+
+	for info in &state.per_slot_heads {
+		for (index, candidates) in info.candidates.iter().enumerate() {
+			match candidates {
+				CandidateEvent::CandidateBacked(_, _, _, _) => todo!(),
+				CandidateEvent::CandidateIncluded(receipt_fetch, head, _, _) => {
+					let (tx, rx) = oneshot::channel();
+
+					let msg = ApprovalVotingMessage::GetApprovalSignaturesForCandidate(
+						receipt_fetch.hash(),
+						tx,
+					);
+					env.send_message(AllMessages::ApprovalVoting(msg)).await;
+					let result = rx.await.unwrap();
+
+					for (validator, votes) in result.iter() {
+						let result = info
+							.votes
+							.get(validator.0 as usize)
+							.unwrap()
+							.get(index)
+							.unwrap()
+							.store(false, std::sync::atomic::Ordering::SeqCst);
+					}
+				},
+
+				CandidateEvent::CandidateTimedOut(_, _, _) => todo!(),
+			};
+		}
+	}
+
+	for state in &state.per_slot_heads {
+		for (validator, votes) in state.votes.as_ref().iter().enumerate() {
+			for (index, candidate) in votes.iter().enumerate() {
+				assert_eq!(
+					(validator, index, candidate.load(std::sync::atomic::Ordering::SeqCst)),
+					(validator, index, false)
+				);
+			}
+		}
 	}
 
 	env.stop().await;
