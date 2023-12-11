@@ -20,7 +20,7 @@ futures = "0.3.21"
 log = "0.4.17"
 num-bigint = "0.4.3"
 num-rational = "0.4.1"
-num-traits = "0.2.8"
+num-traits = "0.2.17"
 parking_lot = "0.12.1"
 thiserror = "1.0"
 fork-tree = { path = "../../../utils/fork-tree" }
