@@ -41,7 +41,7 @@ use pallet_ranked_collective::EnsureOfRank;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use parachains_common::westend::{account, currency::GRAND};
 use polkadot_runtime_common::impls::{
-	LocatableAssetConverter, VersionedLocatableAsset, VersionedMultiLocationConverter,
+	LocatableAssetConverter, VersionedLocatableAsset, VersionedLocationConverter,
 };
 use sp_arithmetic::Permill;
 use sp_core::{ConstU128, ConstU32};
@@ -255,7 +255,7 @@ parameter_types! {
 	pub const MaxBalance: Balance = Balance::max_value();
 	// The asset's interior location for the paying account. This is the Fellowship Treasury
 	// pallet instance (which sits at index 65).
-	pub FellowshipTreasuryInteriorLocation: InteriorMultiLocation = PalletInstance(65).into();
+	pub FellowshipTreasuryInteriorLocation: InteriorLocation = PalletInstance(65).into();
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -274,10 +274,10 @@ pub type FellowshipTreasuryPaymaster = PayOverXcm<
 	crate::xcm_config::XcmRouter,
 	crate::PolkadotXcm,
 	ConstU32<{ 6 * HOURS }>,
-	VersionedMultiLocation,
+	VersionedLocation,
 	VersionedLocatableAsset,
 	LocatableAssetConverter,
-	VersionedMultiLocationConverter,
+	VersionedLocationConverter,
 >;
 
 pub type FellowshipTreasuryInstance = pallet_treasury::Instance1;
@@ -332,7 +332,7 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 		>,
 	>;
 	type AssetKind = VersionedLocatableAsset;
-	type Beneficiary = VersionedMultiLocation;
+	type Beneficiary = VersionedLocation;
 	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Paymaster = FellowshipTreasuryPaymaster;

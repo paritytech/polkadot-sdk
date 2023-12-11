@@ -109,7 +109,7 @@ impl Contains<Location> for AllSiblingSystemParachains {
 		log::trace!(target: "xcm::contains", "AllSiblingSystemParachains location: {:?}", l);
 		match l.unpack() {
 			// System parachain
-			(1, [Parachain(id)]) =>	ParaId::from(id).is_system(),
+			(1, [Parachain(id)]) =>	ParaId::from(*id).is_system(),
 			// Everything else
 			_ => false,
 		}

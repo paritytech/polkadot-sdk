@@ -548,15 +548,6 @@ pub type AssetFeeAsExistentialDepositMultiplierFeeCharger = AssetFeeAsExistentia
 	TrustBackedAssetsInstance,
 >;
 
-pub struct SystemParachains;
-impl Contains<Location> for SystemParachains {
-	fn contains(location: &Location) -> bool {
-		use system_parachain::{ASSET_HUB_ID, BRIDGE_HUB_ID, COLLECTIVES_ID};
-
-		matches!(location.unpack(), (1, [Parachain(ASSET_HUB_ID | COLLECTIVES_ID | BRIDGE_HUB_ID)]))
-	}
-}
-
 /// Multiplier used for dedicated `TakeFirstAssetTrader` with `ForeignAssets` instance.
 pub type ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger =
 	AssetFeeAsExistentialDepositMultiplier<

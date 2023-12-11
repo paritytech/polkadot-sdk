@@ -618,7 +618,7 @@ impl super::benchmarking::Config for Test {
 		);
 		// verify initial balances
 		assert_eq!(Balances::free_balance(&caller), balance);
-		assert_eq!(Assets::balance(usdt_id_location, &caller), usdt_initial_local_amount);
+		assert_eq!(AssetsPallet::balance(usdt_id_location.clone(), &caller), usdt_initial_local_amount);
 
 		// verify transferred successfully
 		let verify = Box::new(move || {

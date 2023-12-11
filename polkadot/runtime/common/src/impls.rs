@@ -191,7 +191,7 @@ pub mod benchmarks {
 	{
 		fn create_asset_kind(seed: u32) -> VersionedLocatableAsset {
 			VersionedLocatableAsset::V3 {
-				location: xcm::v3::MultiLocation::new(Parents::get(), [Parachain(ParaId::get())]),
+				location: xcm::v3::MultiLocation::new(Parents::get(), [xcm::v3::Junction::Parachain(ParaId::get())]),
 				asset_id: xcm::v3::MultiLocation::new(
 					0,
 					[
