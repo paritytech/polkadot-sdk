@@ -189,6 +189,12 @@ impl Config for Test {
 		// Members can demote up to the rank of 3 below them.
 		MapSuccess<EnsureRanked<Test, (), 3>, ReduceBy<ConstU16<3>>>,
 	>;
+	type ExchangeOrigin = EitherOf<
+		// Root can exchange arbitrarily.
+		frame_system::EnsureRootWithSuccess<Self::AccountId, ConstU16<65535>>,
+			// Members can exchange up to the rank of 2 below them.
+			MapSuccess<EnsureRanked<Test, (), 2>, ReduceBy<ConstU16<2>>>,
+			>;
 	type Polls = TestPolls;
 	type MinRankOfClass = MinRankOfClass<MinRankOfClassDelta>;
 	type VoteWeight = Geometric;
@@ -580,7 +586,7 @@ fn exchange_member_works() {
 		assert_eq!(Members::<Test>::get(1), Some(member_record.clone()));
 		assert_eq!(Members::<Test>::get(2), None);
 
-		assert_ok!(Club::exchange_member(RuntimeOrigin::root(), 1, 2, 2));
+		assert_ok!(Club::exchange_member(RuntimeOrigin::root(), 1, 2));
 		assert_eq!(member_count(0), 1);
 
 		assert_eq!(Members::<Test>::get(1), None);

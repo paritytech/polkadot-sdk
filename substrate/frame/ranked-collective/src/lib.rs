@@ -390,6 +390,10 @@ pub mod pallet {
 		/// maximum rank *from which* the demotion/removal may be.
 		type DemoteOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Rank>;
 
+		/// The origin required to exchange an account for a member. The success value indicates the
+		/// maximum rank *from which* the exhange may be.
+		type ExchangeOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Rank>;
+
 		/// The polling system used for our voting.
 		type Polls: Polling<TallyOf<Self, I>, Votes = Votes, Moment = BlockNumberFor<Self>>;
 
@@ -455,7 +459,7 @@ pub mod pallet {
 		/// `tally`.
 		Voted { who: T::AccountId, poll: PollIndexOf<T, I>, vote: VoteRecord, tally: TallyOf<T, I> },
 		/// The member `who` of given `rank` has been exchanged from the collective.
-		MemberExchanged { who: T::AccountId, new_who: T::AccountId, rank: Rank },
+		MemberExchanged { who: T::AccountId, new_who: T::AccountId },
 	}
 
 	#[pallet::error]
@@ -667,14 +671,11 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			who: AccountIdLookupOf<T>,
 			new_who: AccountIdLookupOf<T>,
-			min_rank: Rank,
 		) -> DispatchResult {
 			// remove who
-			let max_rank = T::DemoteOrigin::ensure_origin(origin)?;
+			let max_rank = T::ExchangeOrigin::ensure_origin(origin)?;
 			let who = T::Lookup::lookup(who)?;
 			let MemberRecord { rank, .. } = Self::ensure_member(&who)?;
-			ensure!(min_rank >= rank, Error::<T, I>::InvalidWitness);
-			ensure!(max_rank >= rank, Error::<T, I>::NoPermission);
 
 			for r in 0..=rank {
 				Self::remove_from_rank(&who, r)?;
@@ -687,10 +688,10 @@ pub mod pallet {
 
 			// promotes new_who to the rank of who
 			for _i in 1..=rank {
-				let _ = Self::do_promote_member(new_who.clone(), Some(max_rank.clone()))?;
+				let _ = Self::do_promote_member(new_who.clone(), Some(max_rank))?;
 			}
 
-			Self::deposit_event(Event::MemberExchanged { who, new_who: new_who.clone(), rank });
+			Self::deposit_event(Event::MemberExchanged { who, new_who });
 			Ok(())
 		}
 	}
