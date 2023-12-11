@@ -19,7 +19,7 @@
 //!
 //! #### Smart Contracts in Substrate
 //! Smart Contracts are autonomous, programmable constructs deployed on the blockchain.
-//! In [FRAME](frame), Smart Contracts capabilities can be realized through the
+//! In [FRAME](frame), Smart Contracts infrastructure is implemented by the
 //! [`pallet_contracts`](../../../pallet_contracts/index.html) for WASM-based contracts or the
 //! [`pallet_evm`](../../../pallet_evm/index.html) for EVM-compatible contracts. These pallets
 //! enable Smart Contract developers to build applications and systems on top of a Substrate-based
@@ -34,7 +34,7 @@
 //!
 //! | Aspect                | Runtime                                                                 | Smart Contracts                                                      |
 //! |-----------------------|-------------------------------------------------------------------------|----------------------------------------------------------------------|
-//! | **Design Philosophy** | Core logic of a blockchain, allowing broad and deep customization.      | Designed for DApps on top of the the blockchain.|
+//! | **Design Philosophy** | Core logic of a blockchain, allowing broad and deep customization.      | Designed for DApps deployed on the blockchain runtime.|
 //! | **Development Complexity** | Requires in-depth knowledge of Rust and Substrate. Suitable for complex blockchain architectures.         | Easier to develop with knowledge of Smart Contract languages like Solidity or [ink!](https://use.ink/). |
 //! | **Upgradeability and Flexibility** | Offers seamless upgradeability, allowing entire blockchain logic modifications without hard forks. | Less flexible in upgrading but offers more straightforward deployment and iteration. |
 //! | **Performance and Efficiency** | More efficient, optimized for specific needs of the blockchain.        | Can be less efficient due to its generic nature (e.g. the overhead of a virtual machine).     |
@@ -46,7 +46,7 @@
 //! ## Design Philosophy
 //! Runtimes and Smart Contracts are designed for different purposes. Runtimes are the core logic
 //! of a blockchain, while Smart Contracts are designed for DApps on top of the blockchain.
-//! Runtimes are more complex, but also more flexible and efficient, while Smart Contracts are
+//! Runtimes can be more complex, but also more flexible and efficient, while Smart Contracts are
 //! easier to develop and deploy.
 //!
 //! #### Runtime Design Philosophy
@@ -170,10 +170,10 @@
 //! the ecosystem is more open to potentially malicious or vulnerable code.
 //!
 //! ## Weighing and Metering
-//! Both mechanisms designed to limit the resources used by external actors. However, there are
-//! fundamental differences in how these resources are handled in FRAME-based Runtimes and how
-//! they are handled in Smart Contracts, while Runtime operations are weighed, Smart Contract
-//! executions must be metered.
+//! Weighing and metering are mechanisms designed to limit the resources used by external actors.
+//! However, there are fundamental differences in how these resources are handled in FRAME-based
+//! Runtimes and how they are handled in Smart Contracts, while Runtime operations are weighed,
+//! Smart Contract executions must be metered.
 //!
 //! #### Weighing
 //! In FRAME-based Runtimes, operations are *weighed*. This means that each operation in the Runtime
