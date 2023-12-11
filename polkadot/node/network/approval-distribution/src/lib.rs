@@ -599,17 +599,29 @@ impl BlockEntry {
 		&self,
 		candidate_index: CandidateIndex,
 	) -> Vec<IndirectSignedApprovalVoteV2> {
-		let result: Option<HashMap<CandidateBitfield, IndirectSignedApprovalVoteV2>> =
-			self.candidates.get(candidate_index as usize).map(|candidate_entry| {
-				candidate_entry
-					.assignments
-					.iter()
-					.filter_map(|(validator, assignment_bitfield)| {
-						self.approval_entries.get(&(*validator, assignment_bitfield.clone()))
-					})
-					.flat_map(|approval_entry| approval_entry.approvals.clone().into_iter())
-					.collect()
-			});
+		let result: Option<
+			HashMap<(ValidatorIndex, CandidateBitfield), IndirectSignedApprovalVoteV2>,
+		> = self.candidates.get(candidate_index as usize).map(|candidate_entry| {
+			candidate_entry
+				.assignments
+				.iter()
+				.filter_map(|(validator, assignment_bitfield)| {
+					self.approval_entries.get(&(*validator, assignment_bitfield.clone()))
+				})
+				.flat_map(|approval_entry| {
+					approval_entry
+						.approvals
+						.clone()
+						.into_iter()
+						.filter(|(approved_candidates, _)| {
+							approved_candidates.bit_at(candidate_index.as_bit_index())
+						})
+						.map(|(approved_candidates, vote)| {
+							((approval_entry.validator_index, approved_candidates), vote)
+						})
+				})
+				.collect()
+		});
 
 		result.map(|result| result.into_values().collect_vec()).unwrap_or_default()
 	}
