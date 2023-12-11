@@ -176,7 +176,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl apis::SessionKeys<Block> for Runtime {
+	impl apis::SessionKeys for Runtime {
 		fn generate_session_keys(_seed: Option<Vec<u8>>) -> Vec<u8> {
 			Default::default()
 		}
@@ -195,6 +195,7 @@ impl_runtime_apis! {
 	}
 
 	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<
+		Block,
 		interface::Balance,
 	> for Runtime {
 		fn query_info(uxt: ExtrinsicFor<Runtime>, len: u32) -> RuntimeDispatchInfo<interface::Balance> {

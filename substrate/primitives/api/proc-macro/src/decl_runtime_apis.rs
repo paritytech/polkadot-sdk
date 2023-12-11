@@ -17,7 +17,7 @@
 
 use crate::{
 	common::{
-		API_VERSION_ATTRIBUTE, CHANGED_IN_ATTRIBUTE, CORE_TRAIT_ATTRIBUTE, RENAMED_ATTRIBUTE,
+		API_VERSION_ATTRIBUTE, CHANGED_IN_ATTRIBUTE, RENAMED_ATTRIBUTE,
 		SUPPORTED_ATTRIBUTE_NAMES,
 	},
 	utils::{
@@ -39,7 +39,7 @@ use syn::{
 	spanned::Spanned,
 	token::Comma,
 	visit::{self, Visit},
-	Attribute, FnArg, Generics, Ident, ItemTrait, LitInt, LitStr, TraitBound, TraitItem,
+	Attribute, FnArg, Ident, ItemTrait, LitInt, LitStr, TraitItem,
 	TraitItemFn,
 };
 
@@ -293,10 +293,10 @@ struct ToClientSideDecl<'a> {
 impl<'a> ToClientSideDecl<'a> {
 	/// Process the given [`ItemTrait`].
 	fn process(mut self, decl: ItemTrait) -> ItemTrait {
-		let mut decl = self.fold_item_trait(decl);
+		let decl = self.fold_item_trait(decl);
 
-		let block_hash = self.block_hash;
-		let crate_ = self.crate_;
+		let _block_hash = self.block_hash;
+		let _crate_ = self.crate_;
 
 		decl
 	}
@@ -329,7 +329,7 @@ impl<'a> ToClientSideDecl<'a> {
 		mut method: TraitItemFn,
 		trait_generics_num: usize,
 	) -> TraitItemFn {
-		let params = match extract_parameter_names_types_and_borrows(
+		let _params = match extract_parameter_names_types_and_borrows(
 			&method.sig,
 			AllowSelfRefInParameters::No,
 		) {
@@ -339,11 +339,11 @@ impl<'a> ToClientSideDecl<'a> {
 				Vec::new()
 			},
 		};
-		let ret_type = return_type_extract_type(&method.sig.output);
+		let _ret_type = return_type_extract_type(&method.sig.output);
 
 		fold_fn_decl_for_client_side(&mut method.sig, self.block_hash, self.crate_);
 
-		let crate_ = self.crate_;
+		let _crate_ = self.crate_;
 
 		let found_attributes = remove_supported_attributes(&mut method.attrs);
 
@@ -359,7 +359,7 @@ impl<'a> ToClientSideDecl<'a> {
 		}
 
 		renames.sort_by(|l, r| r.cmp(l));
-		let (versions, old_names) = renames.into_iter().fold(
+		let (_versions, _old_names) = renames.into_iter().fold(
 			(Vec::new(), Vec::new()),
 			|(mut versions, mut old_names), (version, old_name)| {
 				versions.push(version);
@@ -370,7 +370,7 @@ impl<'a> ToClientSideDecl<'a> {
 
 		// Generate the function name before we may rename it below to
 		// `function_name_before_version_{}`.
-		let function_name = prefix_function_with_trait(&self.trait_, &method.sig.ident);
+		let _function_name = prefix_function_with_trait(&self.trait_, &method.sig.ident);
 
 		// If the method has a `changed_in` attribute, we need to alter the method name to
 		// `method_before_version_VERSION`.
@@ -402,8 +402,8 @@ impl<'a> ToClientSideDecl<'a> {
 
 		// The module where the runtime relevant stuff is declared.
 		let trait_name = &self.trait_;
-		let runtime_mod = generate_runtime_mod_name_for_trait(trait_name);
-		let underscores = (0..trait_generics_num).map(|_| quote!(_));
+		let _runtime_mod = generate_runtime_mod_name_for_trait(trait_name);
+		let _underscores = (0..trait_generics_num).map(|_| quote!(_));
 
 		method
 	}
@@ -447,7 +447,7 @@ impl<'a> ToClientSideDeclV2<'a> {
 			parse_quote!( __RuntimeInstanceProofRecorder__: #crate_::ProofRecording<__RuntimeInstanceBlock__> ),
 		);
 
-		let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+		let (impl_generics, _ty_generics, where_clause) = generics.split_for_impl();
 
 		let items = decl.items.into_iter().filter(|i| !matches!(i, TraitItem::Type(_)));
 
@@ -494,7 +494,7 @@ impl<'a> ToClientSideDeclV2<'a> {
 				Vec::new()
 			},
 		};
-		let ret_type = return_type_extract_type(&method.sig.output);
+		let _ret_type = return_type_extract_type(&method.sig.output);
 
 		fold_fn_decl_for_client_side(&mut method.sig, self.block_hash, self.crate_);
 
@@ -557,7 +557,7 @@ impl<'a> ToClientSideDeclV2<'a> {
 		// The module where the runtime relevant stuff is declared.
 		let trait_name = &self.trait_;
 		let runtime_mod = generate_runtime_mod_name_for_trait(trait_name);
-		let underscores = (0..trait_generics_num).map(|_| quote!(_));
+		let _underscores = (0..trait_generics_num).map(|_| quote!(_));
 
 		// Generate the default implementation that calls the `method_runtime_api_impl` method.
 		method.default = Some(parse_quote! {

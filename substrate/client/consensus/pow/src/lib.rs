@@ -53,7 +53,7 @@ use sc_consensus::{
 	BasicQueue, BlockCheckParams, BlockImport, BlockImportParams, BoxBlockImport,
 	BoxJustificationImport, ForkChoiceStrategy, ImportResult, Verifier,
 };
-use sp_api::{RuntimeInstance, CallApiAt};
+use sp_api::{CallApiAt, RuntimeInstance};
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::{

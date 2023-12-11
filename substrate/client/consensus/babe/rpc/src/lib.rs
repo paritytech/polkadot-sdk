@@ -94,8 +94,8 @@ where
 			.off_chain_context()
 			.build();
 
-		let epoch_start =
-			BabeRuntimeApi::<B>::current_epoch_start(&mut runtime_api).map_err(|_| Error::FetchEpoch)?;
+		let epoch_start = BabeRuntimeApi::<B>::current_epoch_start(&mut runtime_api)
+			.map_err(|_| Error::FetchEpoch)?;
 
 		let epoch = self
 			.babe_worker_handle

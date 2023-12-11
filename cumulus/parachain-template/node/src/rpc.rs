@@ -11,7 +11,7 @@ use parachain_template_runtime::{opaque::Block, AccountId, Balance, Nonce};
 
 pub use sc_rpc::{DenyUnsafe, SubscriptionTaskExecutor};
 use sc_transaction_pool_api::TransactionPool;
-use sp_block_builder::BlockBuilder;
+use sp_api::CallApiAt;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 
 /// A type representing all RPC extensions.
@@ -32,15 +32,12 @@ pub fn create_full<C, P>(
 	deps: FullDeps<C, P>,
 ) -> Result<RpcExtension, Box<dyn std::error::Error + Send + Sync>>
 where
-	C
-		+ HeaderBackend<Block>
+	C: HeaderBackend<Block>
 		+ HeaderMetadata<Block, Error = BlockChainError>
+		+ CallApiAt<Block>
 		+ Send
 		+ Sync
 		+ 'static,
-	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
-	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
-	C::Api: BlockBuilder<Block>,
 	P: TransactionPool + Sync + Send + 'static,
 {
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
@@ -49,7 +46,9 @@ where
 	let mut module = RpcExtension::new(());
 	let FullDeps { client, pool, deny_unsafe } = deps;
 
-	module.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
-	module.merge(TransactionPayment::new(client).into_rpc())?;
+	module.merge(
+		System::<_, _, _, Nonce, AccountId>::new(client.clone(), pool, deny_unsafe).into_rpc(),
+	)?;
+	module.merge(TransactionPayment::<_, _, Balance>::new(client).into_rpc())?;
 	Ok(module)
 }

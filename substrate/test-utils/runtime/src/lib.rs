@@ -1023,7 +1023,7 @@ mod tests {
 	use sc_block_builder::BlockBuilderBuilder;
 	use sp_api::RuntimeInstance;
 	use sp_consensus::BlockOrigin;
-	use sp_core::{storage::well_known_keys::HEAP_PAGES, traits::CallContext};
+	use sp_core::{storage::well_known_keys::HEAP_PAGES};
 	use sp_keyring::AccountKeyring;
 	use sp_runtime::{
 		traits::{Hash as _, SignedExtension},
@@ -1079,7 +1079,8 @@ mod tests {
 	fn test_storage() {
 		let client = TestClientBuilder::new().build();
 		let best_hash = client.chain_info().best_hash;
-		let mut runtime_api = RuntimeInstance::builder(&client, best_hash).off_chain_context().build();
+		let mut runtime_api =
+			RuntimeInstance::builder(&client, best_hash).off_chain_context().build();
 
 		runtime_api.test_storage().unwrap();
 	}
@@ -1104,7 +1105,8 @@ mod tests {
 		let proof = sp_state_machine::prove_read(backend, vec![b"value3"]).unwrap();
 		let client = TestClientBuilder::new().build();
 		let best_hash = client.chain_info().best_hash;
-		let runtime_api = RuntimeInstance::builder(&client, best_hash).off_chain_context().build();
+		let mut runtime_api =
+			RuntimeInstance::builder(&client, best_hash).off_chain_context().build();
 
 		runtime_api.test_witness(proof, root).unwrap();
 	}

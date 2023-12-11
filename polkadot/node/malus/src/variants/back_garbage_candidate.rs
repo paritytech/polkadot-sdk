@@ -28,6 +28,7 @@ use polkadot_cli::{
 };
 use polkadot_node_subsystem::SpawnGlue;
 use polkadot_node_subsystem_types::DefaultSubsystemClient;
+use sp_api::CallApiAt;
 use sp_core::traits::SpawnNamed;
 
 use crate::{
@@ -67,8 +68,7 @@ impl OverseerGen for BackGarbageCandidates {
 		Error,
 	>
 	where
-		RuntimeClient: 'static + HeaderBackend<Block> + AuxStore,
-		RuntimeClient::Api: ParachainHost<Block> + BabeApi<Block> + AuthorityDiscoveryApi<Block>,
+		RuntimeClient: 'static + HeaderBackend<Block> + AuxStore + CallApiAt<Block>,
 		Spawner: 'static + SpawnNamed + Clone + Unpin,
 	{
 		let spawner = args.spawner.clone();

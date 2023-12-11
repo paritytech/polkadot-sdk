@@ -35,9 +35,8 @@ use futures::channel::oneshot;
 use polkadot_cli::{
 	prepared_overseer_builder,
 	service::{
-		AuthorityDiscoveryApi, AuxStore, BabeApi, Block, Error, HeaderBackend, Overseer,
-		OverseerConnector, OverseerGen, OverseerGenArgs, OverseerHandle, ParachainHost,
-		ProvideRuntimeApi,
+		AuxStore, Block, Error, HeaderBackend, Overseer, OverseerConnector, OverseerGen,
+		OverseerGenArgs, OverseerHandle,
 	},
 	Cli,
 };
@@ -45,6 +44,7 @@ use polkadot_node_subsystem::{messages::ApprovalVotingMessage, SpawnGlue};
 use polkadot_node_subsystem_types::{DefaultSubsystemClient, OverseerSignal};
 use polkadot_node_subsystem_util::request_candidate_events;
 use polkadot_primitives::CandidateEvent;
+use sp_api::CallApiAt;
 use sp_core::traits::SpawnNamed;
 
 // Filter wrapping related types.
@@ -242,8 +242,7 @@ impl OverseerGen for DisputeFinalizedCandidates {
 		Error,
 	>
 	where
-		RuntimeClient: 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block> + AuxStore,
-		RuntimeClient::Api: ParachainHost<Block> + BabeApi<Block> + AuthorityDiscoveryApi<Block>,
+		RuntimeClient: 'static + HeaderBackend<Block> + AuxStore + CallApiAt<Block>,
 		Spawner: 'static + SpawnNamed + Clone + Unpin,
 	{
 		gum::info!(

@@ -38,9 +38,12 @@ async fn block_stats_work() {
 
 	let (expected_witness_len, expected_witness_compact_len, expected_block_len) = {
 		let genesis_hash = client.chain_info().genesis_hash;
-		let mut runtime_api = RuntimeInstance::builder(&client, genesis_hash).off_chain_context().enable_proof_recording().build();
+		let mut runtime_api = RuntimeInstance::builder(&client, genesis_hash)
+			.off_chain_context()
+			.enable_proof_recording()
+			.build();
 		Core::<Block>::execute_block(&mut runtime_api, block.clone()).unwrap();
-		let witness = runtime_api.extract_proof().unwrap();
+		let witness = runtime_api.extract_proof();
 		let pre_root = *client.header(genesis_hash).unwrap().unwrap().state_root();
 
 		(

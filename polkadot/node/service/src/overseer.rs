@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use super::{AuthorityDiscoveryApi, Block, Error, Hash, IsParachainNode, Registry};
+use super::{Block, Error, Hash, IsParachainNode, Registry};
 use polkadot_node_subsystem_types::DefaultSubsystemClient;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::CallApiAt;
@@ -43,13 +43,11 @@ use polkadot_overseer::{
 };
 
 use parking_lot::Mutex;
-use polkadot_primitives::runtime_api::ParachainHost;
 use sc_authority_discovery::Service as AuthorityDiscoveryService;
 use sc_client_api::AuxStore;
 use sc_keystore::LocalKeystore;
 use sc_network::{NetworkStateInfo, NotificationService};
 use sp_blockchain::HeaderBackend;
-use sp_consensus_babe::BabeApi;
 use std::{collections::HashMap, sync::Arc};
 
 pub use polkadot_approval_distribution::ApprovalDistribution as ApprovalDistributionSubsystem;

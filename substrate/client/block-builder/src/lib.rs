@@ -40,7 +40,6 @@ use sp_runtime::{
 use std::marker::PhantomData;
 
 pub use sp_block_builder::BlockBuilder as BlockBuilderApi;
-use sp_trie::proof_size_extension::ProofSizeExt;
 
 /// A builder for creating an instance of [`BlockBuilder`].
 pub struct BlockBuilderBuilder<B, C> {
@@ -380,7 +379,7 @@ mod tests {
 			.build()
 			.unwrap();
 
-		let proof = block.proof.expect("Proof is build on request");
+		let proof = block.proof;
 		let genesis_state_root = client.header(genesis_hash).unwrap().unwrap().state_root;
 
 		let backend =
@@ -410,7 +409,7 @@ mod tests {
 
 		let block = block_builder.build().unwrap();
 
-		let proof_with_panic = block.proof.expect("Proof is build on request").encoded_size();
+		let proof_with_panic = block.proof.encoded_size();
 
 		let mut block_builder = BlockBuilderBuilder::new(&client)
 			.on_parent_block(genesis_hash)
@@ -423,7 +422,7 @@ mod tests {
 
 		let block = block_builder.build().unwrap();
 
-		let proof_without_panic = block.proof.expect("Proof is build on request").encoded_size();
+		let proof_without_panic = block.proof.encoded_size();
 
 		let block = BlockBuilderBuilder::new(&client)
 			.on_parent_block(genesis_hash)

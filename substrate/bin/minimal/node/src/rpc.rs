@@ -25,6 +25,7 @@
 use jsonrpsee::RpcModule;
 use runtime::interface::{AccountId, Nonce, OpaqueBlock};
 use sc_transaction_pool_api::TransactionPool;
+use sp_api::CallApiAt;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use std::sync::Arc;
 use substrate_frame_rpc_system::{System, SystemApiServer};
@@ -48,18 +49,19 @@ pub fn create_full<C, P>(
 where
 	C: Send
 		+ Sync
-		+ 'static
 		+ HeaderBackend<OpaqueBlock>
 		+ HeaderMetadata<OpaqueBlock, Error = BlockChainError>
+		+ CallApiAt<OpaqueBlock>
 		+ 'static,
-	C::Api: sp_block_builder::BlockBuilder<OpaqueBlock>,
-	C::Api: substrate_frame_rpc_system::AccountNonceApi<OpaqueBlock, AccountId, Nonce>,
 	P: TransactionPool + 'static,
 {
 	let mut module = RpcModule::new(());
 	let FullDeps { client, pool, deny_unsafe } = deps;
 
-	module.merge(System::new(client.clone(), pool.clone(), deny_unsafe).into_rpc())?;
+	module.merge(
+		System::<_, _, _, Nonce, AccountId>::new(client.clone(), pool.clone(), deny_unsafe)
+			.into_rpc(),
+	)?;
 
 	Ok(module)
 }

@@ -312,7 +312,9 @@ where
 
 	fn metadata(&self, block: Option<Block::Hash>) -> std::result::Result<Bytes, Error> {
 		self.block_or_best(block).map_err(client_err).and_then(|block| {
-			RuntimeInstance::builder(&self.client, block).off_chain_context().build()
+			RuntimeInstance::builder(&self.client, block)
+				.off_chain_context()
+				.build()
 				.metadata()
 				.map(Into::into)
 				.map_err(|e| Error::Client(Box::new(e)))

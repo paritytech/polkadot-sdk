@@ -77,7 +77,7 @@ pub fn replace_wild_card_parameter_names(input: &mut Signature) {
 /// Fold the given `Signature` to make it usable on the client side.
 pub fn fold_fn_decl_for_client_side(
 	input: &mut Signature,
-	block_hash: &TokenStream,
+	_block_hash: &TokenStream,
 	crate_: &TokenStream,
 ) {
 	replace_wild_card_parameter_names(input);

@@ -45,7 +45,7 @@ use sc_consensus_aura::standalone as aura_internal;
 use sp_api::{CallApiAt, RuntimeInstance};
 use sp_application_crypto::AppPublic;
 use sp_consensus::BlockOrigin;
-use sp_consensus_aura::{Slot, SlotDuration, AuraApi};
+use sp_consensus_aura::{AuraApi, Slot, SlotDuration};
 use sp_core::crypto::Pair;
 use sp_inherents::{CreateInherentDataProviders, InherentData, InherentDataProvider};
 use sp_keystore::KeystorePtr;

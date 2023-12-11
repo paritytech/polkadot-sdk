@@ -25,8 +25,8 @@
 use polkadot_cli::{
 	prepared_overseer_builder,
 	service::{
-		AuthorityDiscoveryApi, AuxStore, BabeApi, Block, Error, HeaderBackend, Overseer,
-		OverseerConnector, OverseerGen, OverseerGenArgs, OverseerHandle, ParachainHost,
+		 AuxStore,  Block, Error, HeaderBackend, Overseer,
+		OverseerConnector, OverseerGen, OverseerGenArgs, OverseerHandle,
 	},
 	Cli,
 };
@@ -36,6 +36,7 @@ use polkadot_node_subsystem_types::DefaultSubsystemClient;
 use polkadot_primitives::{CandidateDescriptor, CandidateReceipt};
 
 use polkadot_node_subsystem_util::request_validators;
+use sp_api::CallApiAt;
 use sp_core::traits::SpawnNamed;
 
 use rand::distributions::{Bernoulli, Distribution};
@@ -270,8 +271,7 @@ impl OverseerGen for SuggestGarbageCandidates {
 		Error,
 	>
 	where
-		RuntimeClient: 'static + HeaderBackend<Block> + AuxStore,
-		RuntimeClient::Api: ParachainHost<Block> + BabeApi<Block> + AuthorityDiscoveryApi<Block>,
+		RuntimeClient: 'static + HeaderBackend<Block> + AuxStore + CallApiAt<Block>,
 		Spawner: 'static + SpawnNamed + Clone + Unpin,
 	{
 		gum::info!(

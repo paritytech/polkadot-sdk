@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use futures::FutureExt;
-use runtime::{self, interface::OpaqueBlock as Block, RuntimeApi};
+use runtime::{self, interface::OpaqueBlock as Block};
 use sc_client_api::backend::Backend;
 use sc_executor::WasmExecutor;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
@@ -33,8 +33,7 @@ type HostFunctions =
 #[cfg(not(feature = "runtime-benchmarks"))]
 type HostFunctions = sp_io::SubstrateHostFunctions;
 
-pub(crate) type FullClient =
-	sc_service::TFullClient<Block, RuntimeApi, WasmExecutor<HostFunctions>>;
+pub(crate) type FullClient = sc_service::TFullClient<Block, WasmExecutor<HostFunctions>>;
 type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 
@@ -64,12 +63,11 @@ pub fn new_partial(
 
 	let executor = sc_service::new_wasm_executor(&config);
 
-	let (client, backend, keystore_container, task_manager) =
-		sc_service::new_full_parts::<Block, RuntimeApi, _>(
-			config,
-			telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
-			executor,
-		)?;
+	let (client, backend, keystore_container, task_manager) = sc_service::new_full_parts::<Block, _>(
+		config,
+		telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
+		executor,
+	)?;
 	let client = Arc::new(client);
 
 	let telemetry = telemetry.map(|(worker, telemetry)| {

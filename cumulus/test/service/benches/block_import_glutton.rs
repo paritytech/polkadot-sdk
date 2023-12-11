@@ -17,7 +17,7 @@
 
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 
-use sp_api::{Core};
+use sp_api::Core;
 use sp_arithmetic::{
 	traits::{One, Zero},
 	FixedPointNumber,

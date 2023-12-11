@@ -77,10 +77,8 @@ mod tests {
 			log::set_max_level(log::LevelFilter::from_str(&env::var("RUST_LOG").unwrap()).unwrap());
 
 			let client = TestClientBuilder::new().build();
-			let runtime_api = client.runtime_api();
-			runtime_api
-				.do_trace_log(client.chain_info().genesis_hash)
-				.expect("Logging should not fail");
+			let runtime_api = RuntimeInstance::builder(&client, client.chain_info().genesis_hash);
+			runtime_api.do_trace_log().expect("Logging should not fail");
 		} else {
 			for (level, should_print) in &[("trace", true), ("info", false)] {
 				let executable = std::env::current_exe().unwrap();

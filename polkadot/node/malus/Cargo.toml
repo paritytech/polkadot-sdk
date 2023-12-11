@@ -40,6 +40,7 @@ assert_matches = "1.5"
 async-trait = "0.1.57"
 sp-keystore = { path = "../../../substrate/primitives/keystore" }
 sp-core = { path = "../../../substrate/primitives/core" }
+sp-api = { path = "../../../substrate/primitives/api" }
 clap = { version = "4.4.10", features = ["derive"] }
 futures = "0.3.21"
 futures-timer = "3.0.2"
@@ -54,7 +55,6 @@ polkadot-node-core-pvf-prepare-worker = { path = "../core/pvf/prepare-worker" }
 
 [dev-dependencies]
 polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
-sp-core = { path = "../../../substrate/primitives/core" }
 futures = { version = "0.3.21", features = ["thread-pool"] }
 
 [build-dependencies]

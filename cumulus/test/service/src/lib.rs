@@ -26,6 +26,7 @@ mod genesis;
 
 use runtime::AccountId;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
+use sp_api::RuntimeInstance;
 use std::{
 	collections::HashSet,
 	future::Future,
@@ -125,11 +126,8 @@ impl sc_executor::NativeExecutionDispatch for RuntimeExecutor {
 }
 
 /// The client type being used by the test service.
-pub type Client = TFullClient<
-	runtime::NodeBlock,
-	runtime::RuntimeApi,
-	sc_executor::NativeElseWasmExecutor<RuntimeExecutor>,
->;
+pub type Client =
+	TFullClient<runtime::NodeBlock, sc_executor::NativeElseWasmExecutor<RuntimeExecutor>>;
 
 /// The backend type being used by the test service.
 pub type Backend = TFullBackend<Block>;
@@ -214,7 +212,7 @@ pub fn new_partial(
 		sc_executor::NativeElseWasmExecutor::<RuntimeExecutor>::new_with_wasm_executor(wasm);
 
 	let (client, backend, keystore_container, task_manager) =
-		sc_service::new_full_parts_record_import::<Block, RuntimeApi, _>(
+		sc_service::new_full_parts_record_import::<Block, _>(
 			config,
 			None,
 			executor,
@@ -857,9 +855,10 @@ impl TestNode {
 /// Fetch account nonce for key pair
 pub fn fetch_nonce(client: &Client, account: sp_core::sr25519::Public) -> u32 {
 	let best_hash = client.chain_info().best_hash;
-	client
-		.runtime_api()
-		.account_nonce(best_hash, account.into())
+	let mut runtime_api = RuntimeInstance::builder(client, best_hash).off_chain_context().build();
+
+	runtime_api
+		.account_nonce(account.into())
 		.expect("Fetching account nonce works; qed")
 }
 
