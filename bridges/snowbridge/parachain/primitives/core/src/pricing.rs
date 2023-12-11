@@ -47,7 +47,7 @@ where
 	}
 }
 
-/// Holder for fixed point number implemented in https://github.com/PaulRBerg/prb-math
+/// Holder for fixed point number implemented in <https://github.com/PaulRBerg/prb-math>
 #[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub struct UD60x18(U256);

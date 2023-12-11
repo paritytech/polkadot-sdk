@@ -147,7 +147,7 @@ impl Header {
 
 	/// Returns header RLP with or without seals.
 	/// For EIP-1559 baseFee addition refer to:
-	/// https://github.com/openethereum/openethereum/blob/193b25a22d5ff07759c6431129e95235510516f9/crates/ethcore/types/src/header.rs#L341
+	/// <https://github.com/openethereum/openethereum/blob/193b25a22d5ff07759c6431129e95235510516f9/crates/ethcore/types/src/header.rs#L341>
 	fn rlp(&self, with_seal: bool) -> Bytes {
 		let mut s = RlpStream::new();
 
@@ -285,7 +285,7 @@ mod tests {
 
 	#[test]
 	fn header_compute_hash_pow() {
-		// https://etherscan.io/block/11090290
+		// <https://etherscan.io/block/11090290>
 		let nonce = hex!("6935bbe7b63c4f8e").to_vec();
 		let mix_hash =
 			hex!("be3adfb0087be62b28b716e2cdf3c79329df5caa04c9eee035d35b5d52102815").to_vec();

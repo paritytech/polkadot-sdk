@@ -83,3 +83,10 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 ]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-balances/try-runtime",
+	"snowbridge-ethereum-beacon-client/try-runtime",
+	"sp-runtime/try-runtime",
+]

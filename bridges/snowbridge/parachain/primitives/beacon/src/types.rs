@@ -303,7 +303,7 @@ impl<const COMMITTEE_SIZE: usize, const COMMITTEE_BITS_SIZE: usize>
 }
 
 /// ExecutionPayloadHeader
-/// https://github.com/ethereum/annotated-spec/blob/master/capella/beacon-chain.md#executionpayloadheader
+/// <https://github.com/ethereum/annotated-spec/blob/master/capella/beacon-chain.md#executionpayloadheader>
 #[derive(
 	Default, Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
 )]

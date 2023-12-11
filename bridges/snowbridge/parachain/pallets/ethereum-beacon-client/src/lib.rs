@@ -356,7 +356,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// References and strictly follows https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#validate_light_client_update
+		/// References and strictly follows <https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#validate_light_client_update>
 		/// Verifies that provided next sync committee is valid through a series of checks
 		/// (including checking that a sync committee period isn't skipped and that the header is
 		/// signed by the current sync committee.
@@ -468,7 +468,7 @@ pub mod pallet {
 				Self::validators_root(),
 				update.signature_slot,
 			)?;
-			// Improvement here per https://eth2book.info/capella/part2/building_blocks/signatures/#sync-aggregates
+			// Improvement here per <https://eth2book.info/capella/part2/building_blocks/signatures/#sync-aggregates>
 			// suggested start from the full set aggregate_pubkey then subtracting the absolute
 			// minority that did not participate.
 			fast_aggregate_verify(
@@ -482,7 +482,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Reference and strictly follows https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#apply_light_client_update
+		/// Reference and strictly follows <https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#apply_light_client_update
 		/// Applies a finalized beacon header update to the beacon client. If a next sync committee
 		/// is present in the update, verify the sync committee by converting it to a
 		/// SyncCommitteePrepared type. Stores the provided finalized header.
@@ -722,16 +722,16 @@ pub mod pallet {
 		/// Stores the validators root in storage. Validators root is the hash tree root of all the
 		/// validators at genesis and is used to used to identify the chain that we are on
 		/// (used in conjunction with the fork version).
-		/// https://eth2book.info/capella/part3/containers/state/#genesis_validators_root
+		/// <https://eth2book.info/capella/part3/containers/state/#genesis_validators_root>
 		fn store_validators_root(validators_root: H256) {
 			<ValidatorsRoot<T>>::set(validators_root);
 		}
 
 		/// Returns the domain for the domain_type and fork_version. The domain is used to
 		/// distinguish between the different players in the chain (see DomainTypes
-		/// https://eth2book.info/capella/part3/config/constants/#domain-types) and to ensure we are
+		/// <https://eth2book.info/capella/part3/config/constants/#domain-types>) and to ensure we are
 		/// addressing the correct chain.
-		/// https://eth2book.info/capella/part3/helper/misc/#compute_domain
+		/// <https://eth2book.info/capella/part3/helper/misc/#compute_domain>
 		pub(super) fn compute_domain(
 			domain_type: Vec<u8>,
 			fork_version: ForkVersion,

@@ -283,6 +283,9 @@ try-runtime = [
 	"pallet-xcm/try-runtime",
 	"parachain-info/try-runtime",
 	"polkadot-runtime-common/try-runtime",
+	"snowbridge-ethereum-beacon-client/try-runtime",
+	"snowbridge-inbound-queue/try-runtime",
+	"snowbridge-outbound-queue/try-runtime",
 	"snowbridge-system/try-runtime",
 	"sp-runtime/try-runtime",
 ]

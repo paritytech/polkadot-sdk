@@ -47,7 +47,7 @@ pub const MAX_FEE_RECIPIENT_SIZE: usize = 20;
 pub const MAX_BRANCH_PROOF_SIZE: usize = 20;
 
 /// DomainType('0x07000000')
-/// https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/beacon-chain.md#domain-types
+/// <https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/beacon-chain.md#domain-types>
 pub const DOMAIN_SYNC_COMMITTEE: [u8; 4] = [7, 0, 0, 0];
 
 pub const PUBKEY_SIZE: usize = 48;
