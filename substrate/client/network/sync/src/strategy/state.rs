@@ -367,7 +367,7 @@ mod test {
 			let peers = (1..=10)
 				.map(|best_number| (PeerId::random(), best_number))
 				.collect::<HashMap<_, _>>();
-			let initial_peers = peers.iter().map(|(p, n)| (p.clone(), n.clone()));
+			let initial_peers = peers.iter().map(|(p, n)| (*p, *n));
 
 			let mut state_strategy = StateStrategy::new(
 				client.clone(),
@@ -400,7 +400,7 @@ mod test {
 			let peers = (1..=10)
 				.map(|best_number| (PeerId::random(), best_number))
 				.collect::<HashMap<_, _>>();
-			let initial_peers = peers.iter().map(|(p, n)| (p.clone(), n.clone()));
+			let initial_peers = peers.iter().map(|(p, n)| (*p, *n));
 
 			let mut state_strategy = StateStrategy::new(
 				client.clone(),
@@ -431,7 +431,7 @@ mod test {
 		let peers = (1..=10)
 			.map(|best_number| (PeerId::random(), best_number))
 			.collect::<HashMap<_, _>>();
-		let initial_peers = peers.iter().map(|(p, n)| (p.clone(), n.clone()));
+		let initial_peers = peers.iter().map(|(p, n)| (*p, *n));
 
 		let mut state_strategy = StateStrategy::new(
 			client.clone(),
@@ -464,7 +464,7 @@ mod test {
 		let peers = (1..=10)
 			.map(|best_number| (PeerId::random(), best_number))
 			.collect::<HashMap<_, _>>();
-		let initial_peers = peers.iter().map(|(p, n)| (p.clone(), n.clone()));
+		let initial_peers = peers.iter().map(|(p, n)| (*p, *n));
 
 		let mut state_strategy = StateStrategy::new(
 			client.clone(),
