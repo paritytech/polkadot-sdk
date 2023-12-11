@@ -114,13 +114,29 @@ impl<Runtime: frame_system::Config + pallet_balances::Config + pallet_session::C
 	}
 }
 
-// Basic builder based on balances, collators and pallet_sessopm
+/// A set of traits for a minimal parachain runtime, that may be used in conjunction with the `ExtBuilder` and the `RuntimeHelper`.
+pub trait BasicParachainRuntime: frame_system::Config
+	+ pallet_balances::Config
+	+ pallet_session::Config
+	+ pallet_xcm::Config
+	+ parachain_info::Config
+	+ pallet_collator_selection::Config
+	+ cumulus_pallet_parachain_system::Config
+{}
+
+impl<T> BasicParachainRuntime for T where T: frame_system::Config
+	+ pallet_balances::Config
+	+ pallet_session::Config
+	+ pallet_xcm::Config
+	+ parachain_info::Config
+	+ pallet_collator_selection::Config
+	+ cumulus_pallet_parachain_system::Config,
+	ValidatorIdOf<T>: From<AccountIdOf<T>>,
+{}
+
+/// Basic builder based on balances, collators and pallet_session.
 pub struct ExtBuilder<
-	Runtime: frame_system::Config
-		+ pallet_balances::Config
-		+ pallet_session::Config
-		+ pallet_xcm::Config
-		+ parachain_info::Config,
+	Runtime: BasicParachainRuntime,
 > {
 	// endowed accounts with balances
 	balances: Vec<(AccountIdOf<Runtime>, BalanceOf<Runtime>)>,
@@ -136,11 +152,7 @@ pub struct ExtBuilder<
 }
 
 impl<
-		Runtime: frame_system::Config
-			+ pallet_balances::Config
-			+ pallet_session::Config
-			+ pallet_xcm::Config
-			+ parachain_info::Config,
+		Runtime: BasicParachainRuntime,
 	> Default for ExtBuilder<Runtime>
 {
 	fn default() -> ExtBuilder<Runtime> {
@@ -156,11 +168,7 @@ impl<
 }
 
 impl<
-		Runtime: frame_system::Config
-			+ pallet_balances::Config
-			+ pallet_session::Config
-			+ pallet_xcm::Config
-			+ parachain_info::Config,
+		Runtime: BasicParachainRuntime,
 	> ExtBuilder<Runtime>
 {
 	pub fn with_balances(
@@ -198,12 +206,7 @@ impl<
 		self
 	}
 
-	pub fn build(self) -> sp_io::TestExternalities
-	where
-		Runtime:
-			pallet_collator_selection::Config + pallet_balances::Config + pallet_session::Config,
-		ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
-	{
+	pub fn build(self) -> sp_io::TestExternalities {
 		let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 
 		pallet_xcm::GenesisConfig::<Runtime> {
