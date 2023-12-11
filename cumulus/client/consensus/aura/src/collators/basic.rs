@@ -28,7 +28,7 @@ use cumulus_client_collator::{
 };
 use cumulus_client_consensus_common::ParachainBlockImportMarker;
 use cumulus_client_consensus_proposer::ProposerInterface;
-use cumulus_primitives_core::{relay_chain::BlockId as RBlockId, CollectCollationInfo};
+use cumulus_primitives_core::relay_chain::BlockId as RBlockId;
 use cumulus_relay_chain_interface::RelayChainInterface;
 
 use polkadot_node_primitives::CollationResult;
@@ -42,7 +42,7 @@ use sp_api::CallApiAt;
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::SyncOracle;
-use sp_consensus_aura::{AuraApi, SlotDuration};
+use sp_consensus_aura::SlotDuration;
 use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;

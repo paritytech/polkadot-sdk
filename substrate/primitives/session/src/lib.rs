@@ -98,22 +98,22 @@ pub fn generate_initial_session_keys<Block, T>(
 ) -> Result<(), sp_api::ApiError>
 where
 	Block: BlockT,
+	T: sp_api::CallApiAt<Block>,
 {
-	use sp_api::ApiExt;
+	use sp_api::RuntimeInstance;
 
 	if seeds.is_empty() {
 		return Ok(())
 	}
 
-	/*
-	let mut runtime_api = client.runtime_api();
-
-	runtime_api.register_extension(sp_keystore::KeystoreExt::from(keystore));
+	let mut runtime_api = RuntimeInstance::builder(&*client, at)
+		.off_chain_context()
+		.register_extension(sp_keystore::KeystoreExt::from(keystore))
+		.build();
 
 	for seed in seeds {
-		// runtime_api.generate_session_keys(at, Some(seed.as_bytes().to_vec()))?;
+		runtime_api.generate_session_keys(Some(seed.as_bytes().to_vec()))?;
 	}
-	*/
 
 	Ok(())
 }

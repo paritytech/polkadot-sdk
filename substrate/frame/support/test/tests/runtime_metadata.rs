@@ -65,7 +65,7 @@ sp_api::decl_runtime_apis! {
 	/// ApiWithCustomVersion trait documentation
 	///
 	/// Documentation on multiline.
-	pub trait Api {
+	pub trait Api<Block: BlockT> {
 		fn test(data: u64);
 		/// something_with_block.
 		fn something_with_block(block: Block) -> Block;

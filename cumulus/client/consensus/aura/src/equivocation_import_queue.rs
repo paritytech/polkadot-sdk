@@ -29,9 +29,10 @@ use sc_consensus::{
 };
 use sc_consensus_aura::standalone as aura_internal;
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_TRACE};
+use sp_api::{CallApiAt, RuntimeInstance};
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_consensus::error::Error as ConsensusError;
-use sp_consensus_aura::{AuraApi, Slot, SlotDuration};
+use sp_consensus_aura::{Slot, SlotDuration};
 use sp_core::crypto::Pair;
 use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
@@ -82,7 +83,7 @@ where
 	P::Signature: Codec,
 	P::Public: Codec + Debug,
 	Block: BlockT,
-	Client: Send + Sync,
+	Client: CallApiAt<Block> + Send + Sync,
 
 	CIDP: CreateInherentDataProviders<Block, ()>,
 {
@@ -174,11 +175,12 @@ where
 				.await
 				.map_err(|e| format!("Could not create inherent data {:?}", e))?;
 
-			let inherent_res = self
-				.client
-				.runtime_api()
-				.check_inherents(parent_hash, block, inherent_data)
-				.map_err(|e| format!("Unable to check block inherents {:?}", e))?;
+			let mut runtime_api =
+				RuntimeInstance::builder(&self.client, parent_hash).off_chain_context().build();
+
+			let inherent_res =
+				BlockBuilderApi::<Block>::check_inherents(&mut runtime_api, block, inherent_data)
+					.map_err(|e| format!("Unable to check block inherents {:?}", e))?;
 
 			if !inherent_res.ok() {
 				for (i, e) in inherent_res.into_errors() {
@@ -230,7 +232,7 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Client: Send + Sync + 'static,
+	Client: CallApiAt<Block> + Send + Sync + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 {
 	let verifier = Verifier::<P, _, _, _> {

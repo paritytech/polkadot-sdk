@@ -41,9 +41,7 @@ use cumulus_primitives_core::{relay_chain::Hash as PHash, ParaId, PersistedValid
 use cumulus_relay_chain_interface::RelayChainInterface;
 
 use sc_consensus::{BlockImport, BlockImportParams};
-use sp_consensus::{
-	BlockOrigin, EnableProofRecording, Environment, ProofRecording, Proposal, Proposer,
-};
+use sp_consensus::{BlockOrigin, EnableProofRecording, Environment, Proposal, Proposer};
 use sp_inherents::{CreateInherentDataProviders, InherentData, InherentDataProvider};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 

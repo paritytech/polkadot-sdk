@@ -39,9 +39,7 @@ use cumulus_client_consensus_common::{
 };
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::{
-	relay_chain::Hash as PHash, CollectCollationInfo, PersistedValidationData,
-};
+use cumulus_primitives_core::{relay_chain::Hash as PHash, PersistedValidationData};
 use cumulus_relay_chain_interface::RelayChainInterface;
 
 use polkadot_node_primitives::SubmitCollationParams;
@@ -55,6 +53,7 @@ use futures::{channel::oneshot, prelude::*};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 use sc_consensus::BlockImport;
 use sc_consensus_aura::standalone as aura_internal;
+use sp_api::{CallApiAt, RuntimeInstance};
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::SyncOracle;
@@ -112,16 +111,14 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, SO, Proposer, CS>(
 ) -> impl Future<Output = ()> + Send + 'static
 where
 	Block: BlockT,
-	Client: 
-		+ BlockOf
+	Client: BlockOf
 		+ AuxStore
 		+ HeaderBackend<Block>
 		+ BlockBackend<Block>
+		+ CallApiAt<Block>
 		+ Send
 		+ Sync
 		+ 'static,
-	Client::Api:
-		AuraApi<Block, P::Public> + CollectCollationInfo<Block> + AuraUnincludedSegmentApi<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
@@ -407,20 +404,27 @@ async fn can_build_upon<Block: BlockT, Client, P>(
 	keystore: &KeystorePtr,
 ) -> Option<SlotClaim<P::Public>>
 where
-	Client::Api: AuraApi<Block, P::Public> + AuraUnincludedSegmentApi<Block>,
+	Client: CallApiAt<Block>,
 	P: Pair,
 	P::Public: Codec,
 	P::Signature: Codec,
 {
-	let runtime_api = client.runtime_api();
-	let authorities = runtime_api.authorities(parent_hash).ok()?;
+	let mut runtime_api =
+		RuntimeInstance::builder(&client, parent_hash).off_chain_context().build();
+	let authorities = AuraApi::authorities(&mut runtime_api).ok()?;
 	let author_pub = aura_internal::claim_slot::<P>(slot, &authorities, keystore).await?;
 
 	// Here we lean on the property that building on an empty unincluded segment must always
 	// be legal. Skipping the runtime API query here allows us to seamlessly run this
 	// collator against chains which have not yet upgraded their runtime.
 	if parent_hash != included_block {
-		if !runtime_api.can_build_upon(parent_hash, included_block, slot).ok()? {
+		if !AuraUnincludedSegmentApi::<Block>::can_build_upon(
+			&mut runtime_api,
+			included_block,
+			slot,
+		)
+		.ok()?
+		{
 			return None
 		}
 	}

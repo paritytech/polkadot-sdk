@@ -42,9 +42,10 @@ use polkadot_primitives::{Header as PHeader, Id as ParaId};
 use futures::prelude::*;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, StateAction};
 use sc_consensus_aura::standalone as aura_internal;
+use sp_api::{CallApiAt, RuntimeInstance};
 use sp_application_crypto::AppPublic;
 use sp_consensus::BlockOrigin;
-use sp_consensus_aura::{Slot, SlotDuration};
+use sp_consensus_aura::{Slot, SlotDuration, AuraApi};
 use sp_core::crypto::Pair;
 use sp_inherents::{CreateInherentDataProviders, InherentData, InherentDataProvider};
 use sp_keystore::KeystorePtr;
@@ -295,13 +296,14 @@ pub async fn claim_slot<B, C, P>(
 ) -> Result<Option<SlotClaim<P::Public>>, Box<dyn Error>>
 where
 	B: BlockT,
-	C: Send + Sync + 'static,
+	C: CallApiAt<B> + Send + Sync + 'static,
 	P: Pair,
 	P::Public: Codec,
 	P::Signature: Codec,
 {
+	let mut runtime_api = RuntimeInstance::builder(client, parent_hash).off_chain_context().build();
 	// load authorities
-	let authorities = client.runtime_api().authorities(parent_hash).map_err(Box::new)?;
+	let authorities = AuraApi::authorities(&mut runtime_api).map_err(Box::new)?;
 
 	// Determine the current slot and timestamp based on the relay-parent's.
 	let (slot_now, timestamp) = match consensus_common::relay_slot_and_timestamp(
