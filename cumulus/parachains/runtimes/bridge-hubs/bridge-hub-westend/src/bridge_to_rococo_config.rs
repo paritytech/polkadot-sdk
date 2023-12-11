@@ -32,7 +32,7 @@ use bridge_runtime_common::{
 		MessageBridge, ThisChainWithMessages, UnderlyingChainProvider,
 	},
 	messages_xcm_extension::{
-		MinXcmVersionOfDestinationAndRemoteBridgeHub, SenderAndLane, XcmAsPlainPayload,
+		XcmVersionOfDestAndRemoteBridge, SenderAndLane, XcmAsPlainPayload,
 		XcmBlobHauler, XcmBlobHaulerAdapter, XcmBlobMessageDispatch,
 	},
 	refund_relayer_extension::{
@@ -276,7 +276,7 @@ impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubRococoInstance> for Runtime {
 	type BridgedNetwork = RococoGlobalConsensusNetworkLocation;
 	type BridgeMessagesPalletInstance = WithBridgeHubRococoMessagesInstance;
 	type MessageExportPrice = ();
-	type DestinationVersion = MinXcmVersionOfDestinationAndRemoteBridgeHub<PolkadotXcm, BridgeHubRococoLocation>;
+	type DestinationVersion = XcmVersionOfDestAndRemoteBridge<PolkadotXcm, BridgeHubRococoLocation>;
 	type Lanes = ActiveLanes;
 	type LanesSupport = ToBridgeHubRococoXcmBlobHauler;
 }

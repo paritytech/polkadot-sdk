@@ -312,15 +312,15 @@ impl<H: XcmBlobHauler> LocalXcmQueueManager<H> {
 /// Adapter for the implementation of `GetVersion`, which attempts to find the minimal
 /// configured XCM version between the destination `dest` and the bridge hub location provided as
 /// `Get<Location>`.
-pub struct MinXcmVersionOfDestinationAndRemoteBridgeHub<Version, RemoteBridgeHub>(
-	sp_std::marker::PhantomData<(Version, RemoteBridgeHub)>,
+pub struct XcmVersionOfDestAndRemoteBridge<Version, RemoteBridge>(
+	sp_std::marker::PhantomData<(Version, RemoteBridge)>,
 );
-impl<Version: GetVersion, RemoteBridgeHub: Get<MultiLocation>> GetVersion
-	for MinXcmVersionOfDestinationAndRemoteBridgeHub<Version, RemoteBridgeHub>
+impl<Version: GetVersion, RemoteBridge: Get<MultiLocation>> GetVersion
+	for XcmVersionOfDestAndRemoteBridge<Version, RemoteBridge>
 {
 	fn get_version_for(dest: &MultiLocation) -> Option<XcmVersion> {
 		let dest_version = Version::get_version_for(dest);
-		let bridge_hub_version = Version::get_version_for(&RemoteBridgeHub::get());
+		let bridge_hub_version = Version::get_version_for(&RemoteBridge::get());
 
 		match (dest_version, bridge_hub_version) {
 			(Some(dv), Some(bhv)) => Some(sp_std::cmp::min(dv, bhv)),

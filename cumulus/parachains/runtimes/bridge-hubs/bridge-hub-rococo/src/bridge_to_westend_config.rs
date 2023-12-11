@@ -32,7 +32,7 @@ use bridge_runtime_common::{
 		MessageBridge, ThisChainWithMessages, UnderlyingChainProvider,
 	},
 	messages_xcm_extension::{
-		MinXcmVersionOfDestinationAndRemoteBridgeHub, SenderAndLane, XcmAsPlainPayload,
+		XcmVersionOfDestAndRemoteBridge, SenderAndLane, XcmAsPlainPayload,
 		XcmBlobHauler, XcmBlobHaulerAdapter, XcmBlobMessageDispatch,
 	},
 	refund_relayer_extension::{
@@ -248,7 +248,7 @@ impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubWestendInstance> for Runtime 
 	type BridgedNetwork = WestendGlobalConsensusNetworkLocation;
 	type BridgeMessagesPalletInstance = WithBridgeHubWestendMessagesInstance;
 	type MessageExportPrice = ();
-	type DestinationVersion = MinXcmVersionOfDestinationAndRemoteBridgeHub<PolkadotXcm, BridgeHubWestendLocation>;
+	type DestinationVersion = XcmVersionOfDestAndRemoteBridge<PolkadotXcm, BridgeHubWestendLocation>;
 	type Lanes = ActiveLanes;
 	type LanesSupport = ToBridgeHubWestendXcmBlobHauler;
 }
