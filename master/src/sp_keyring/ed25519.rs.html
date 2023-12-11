@@ -233,14 +233,12 @@
 
 </span><span class="doccomment">//! Support code for the runtime. A set of test accounts.
 
-</span><span class="kw">use </span>lazy_static::lazy_static;
-<span class="kw">pub use </span>sp_core::ed25519;
+</span><span class="kw">pub use </span>sp_core::ed25519;
 <span class="kw">use </span>sp_core::{
 	ed25519::{Pair, Public, Signature},
-	ByteArray, Pair <span class="kw">as </span>PairT, H256,
+	hex2array, ByteArray, Pair <span class="kw">as </span>PairT, H256,
 };
 <span class="kw">use </span>sp_runtime::AccountId32;
-<span class="kw">use </span>std::{collections::HashMap, ops::Deref};
 
 <span class="doccomment">/// Set of test accounts.
 </span><span class="attr">#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::Display, strum::EnumIter)]
@@ -309,7 +307,7 @@
 	}
 
 	<span class="kw">pub fn </span>public(<span class="self">self</span>) -&gt; Public {
-		<span class="self">self</span>.pair().public()
+		Public::from(<span class="self">self</span>)
 	}
 
 	<span class="kw">pub fn </span>to_seed(<span class="self">self</span>) -&gt; String {
@@ -344,16 +342,9 @@
 	}
 }
 
-<span class="macro">lazy_static! </span>{
-	<span class="kw">static </span><span class="kw-2">ref </span>PRIVATE_KEYS: HashMap&lt;Keyring, Pair&gt; =
-		Keyring::iter().map(|i| (i, i.pair())).collect();
-	<span class="kw">static </span><span class="kw-2">ref </span>PUBLIC_KEYS: HashMap&lt;Keyring, Public&gt; =
-		PRIVATE_KEYS.iter().map(|(<span class="kw-2">&amp;</span>name, pair)| (name, pair.public())).collect();
-}
-
 <span class="kw">impl </span>From&lt;Keyring&gt; <span class="kw">for </span>Public {
 	<span class="kw">fn </span>from(k: Keyring) -&gt; <span class="self">Self </span>{
-		<span class="kw-2">*</span>(<span class="kw-2">*</span>PUBLIC_KEYS).get(<span class="kw-2">&amp;</span>k).unwrap()
+		Public::from_raw(k.into())
 	}
 }
 
@@ -371,38 +362,42 @@
 
 <span class="kw">impl </span>From&lt;Keyring&gt; <span class="kw">for </span>[u8; <span class="number">32</span>] {
 	<span class="kw">fn </span>from(k: Keyring) -&gt; <span class="self">Self </span>{
-		<span class="kw-2">*</span>(<span class="kw-2">*</span>PUBLIC_KEYS).get(<span class="kw-2">&amp;</span>k).unwrap().as_array_ref()
+		<span class="kw">match </span>k {
+			Keyring::Alice =&gt;
+				<span class="macro">hex2array!</span>(<span class="string">&quot;88dc3417d5058ec4b4503e0c12ea1a0a89be200fe98922423d4334014fa6b0ee&quot;</span>),
+			Keyring::Bob =&gt;
+				<span class="macro">hex2array!</span>(<span class="string">&quot;d17c2d7823ebf260fd138f2d7e27d114c0145d968b5ff5006125f2414fadae69&quot;</span>),
+			Keyring::Charlie =&gt;
+				<span class="macro">hex2array!</span>(<span class="string">&quot;439660b36c6c03afafca027b910b4fecf99801834c62a5e6006f27d978de234f&quot;</span>),
+			Keyring::Dave =&gt;
+				<span class="macro">hex2array!</span>(<span class="string">&quot;5e639b43e0052c47447dac87d6fd2b6ec50bdd4d0f614e4299c665249bbd09d9&quot;</span>),
+			Keyring::Eve =&gt;
+				<span class="macro">hex2array!</span>(<span class="string">&quot;1dfe3e22cc0d45c70779c1095f7489a8ef3cf52d62fbd8c2fa38c9f1723502b5&quot;</span>),
+			Keyring::Ferdie =&gt;
+				<span class="macro">hex2array!</span>(<span class="string">&quot;568cb4a574c6d178feb39c27dfc8b3f789e5f5423e19c71633c748b9acf086b5&quot;</span>),
+			Keyring::AliceStash =&gt;
+				<span class="macro">hex2array!</span>(<span class="string">&quot;451781cd0c5504504f69ceec484cc66e4c22a2b6a9d20fb1a426d91ad074a2a8&quot;</span>),
+			Keyring::BobStash =&gt;
+				<span class="macro">hex2array!</span>(<span class="string">&quot;292684abbb28def63807c5f6e84e9e8689769eb37b1ab130d79dbfbf1b9a0d44&quot;</span>),
+			Keyring::CharlieStash =&gt;
+				<span class="macro">hex2array!</span>(<span class="string">&quot;dd6a6118b6c11c9c9e5a4f34ed3d545e2c74190f90365c60c230fa82e9423bb9&quot;</span>),
+			Keyring::DaveStash =&gt;
+				<span class="macro">hex2array!</span>(<span class="string">&quot;1d0432d75331ab299065bee79cdb1bdc2497c597a3087b4d955c67e3c000c1e2&quot;</span>),
+			Keyring::EveStash =&gt;
+				<span class="macro">hex2array!</span>(<span class="string">&quot;c833bdd2e1a7a18acc1c11f8596e2e697bb9b42d6b6051e474091a1d43a294d7&quot;</span>),
+			Keyring::FerdieStash =&gt;
+				<span class="macro">hex2array!</span>(<span class="string">&quot;199d749dbf4b8135cb1f3c8fd697a390fc0679881a8a110c1d06375b3b62cd09&quot;</span>),
+			Keyring::One =&gt;
+				<span class="macro">hex2array!</span>(<span class="string">&quot;16f97016bbea8f7b45ae6757b49efc1080accc175d8f018f9ba719b60b0815e4&quot;</span>),
+			Keyring::Two =&gt;
+				<span class="macro">hex2array!</span>(<span class="string">&quot;5079bcd20fd97d7d2f752c4607012600b401950260a91821f73e692071c82bf5&quot;</span>),
+		}
 	}
 }
 
 <span class="kw">impl </span>From&lt;Keyring&gt; <span class="kw">for </span>H256 {
 	<span class="kw">fn </span>from(k: Keyring) -&gt; <span class="self">Self </span>{
-		(<span class="kw-2">*</span>PUBLIC_KEYS).get(<span class="kw-2">&amp;</span>k).unwrap().as_array_ref().into()
-	}
-}
-
-<span class="kw">impl </span>From&lt;Keyring&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8; <span class="number">32</span>] {
-	<span class="kw">fn </span>from(k: Keyring) -&gt; <span class="self">Self </span>{
-		(<span class="kw-2">*</span>PUBLIC_KEYS).get(<span class="kw-2">&amp;</span>k).unwrap().as_array_ref()
-	}
-}
-
-<span class="kw">impl </span>AsRef&lt;[u8; <span class="number">32</span>]&gt; <span class="kw">for </span>Keyring {
-	<span class="kw">fn </span>as_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8; <span class="number">32</span>] {
-		(<span class="kw-2">*</span>PUBLIC_KEYS).get(<span class="self">self</span>).unwrap().as_array_ref()
-	}
-}
-
-<span class="kw">impl </span>AsRef&lt;Public&gt; <span class="kw">for </span>Keyring {
-	<span class="kw">fn </span>as_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Public {
-		(<span class="kw-2">*</span>PUBLIC_KEYS).get(<span class="self">self</span>).unwrap()
-	}
-}
-
-<span class="kw">impl </span>Deref <span class="kw">for </span>Keyring {
-	<span class="kw">type </span>Target = [u8; <span class="number">32</span>];
-	<span class="kw">fn </span>deref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8; <span class="number">32</span>] {
-		(<span class="kw-2">*</span>PUBLIC_KEYS).get(<span class="self">self</span>).unwrap().as_array_ref()
+		k.into()
 	}
 }
 
@@ -428,6 +423,11 @@
 			<span class="string">b&quot;I am Alice!&quot;</span>,
 			<span class="kw-2">&amp;</span>Keyring::Bob.public(),
 		));
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>verify_static_public_keys() {
+		<span class="macro">assert!</span>(Keyring::iter().all(|k| { k.pair().public().as_ref() == &lt;[u8; <span class="number">32</span>]&gt;::from(k) }));
 	}
 }
 </code></pre></div></section></main></body></html>

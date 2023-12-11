@@ -389,7 +389,7 @@ var srcIndex = JSON.parse('{\
 "sp_consensus_pow":["",[],["lib.rs"]],\
 "sp_consensus_sassafras":["",[],["digests.rs","lib.rs","ticket.rs","vrf.rs"]],\
 "sp_consensus_slots":["",[],["lib.rs"]],\
-"sp_core":["",[["offchain",[],["mod.rs","storage.rs","testing.rs"]]],["address_uri.rs","bandersnatch.rs","crypto.rs","defer.rs","ecdsa.rs","ed25519.rs","hash.rs","hasher.rs","hashing.rs","hexdisplay.rs","lib.rs","paired_crypto.rs","sr25519.rs","testing.rs","traits.rs","uint.rs"]],\
+"sp_core":["",[["offchain",[],["mod.rs","storage.rs","testing.rs"]]],["address_uri.rs","bandersnatch.rs","const_hex2array.rs","crypto.rs","defer.rs","ecdsa.rs","ed25519.rs","hash.rs","hasher.rs","hashing.rs","hexdisplay.rs","lib.rs","paired_crypto.rs","sr25519.rs","testing.rs","traits.rs","uint.rs"]],\
 "sp_core_hashing":["",[],["lib.rs"]],\
 "sp_core_hashing_proc_macro":["",[],["impls.rs","lib.rs"]],\
 "sp_crypto_ec_utils":["",[],["lib.rs"]],\
