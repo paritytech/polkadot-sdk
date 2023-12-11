@@ -248,6 +248,7 @@ fn reserve_transfer_assets_with_paid_router_works() {
 pub(crate) fn set_up_foreign_asset(
 	reserve_para_id: u32,
 	inner_junction: Option<Junction>,
+	benficiary: AccountId,
 	initial_amount: u128,
 	is_sufficient: bool,
 ) -> (Location, AccountId, Location) {
@@ -275,7 +276,7 @@ pub(crate) fn set_up_foreign_asset(
 	assert_ok!(AssetsPallet::mint(
 		RuntimeOrigin::signed(BOB),
 		foreign_asset_id_location.clone(),
-		ALICE,
+		benficiary,
 		initial_amount
 	));
 
@@ -449,6 +450,7 @@ fn destination_asset_reserve_and_local_fee_reserve_call<Call>(
 			set_up_foreign_asset(
 				FOREIGN_ASSET_RESERVE_PARA_ID,
 				Some(FOREIGN_ASSET_INNER_JUNCTION),
+				ALICE,
 				foreign_initial_amount,
 				false,
 			);
@@ -615,6 +617,7 @@ fn remote_asset_reserve_and_local_fee_reserve_call_disallowed<Call>(
 		let (_, _, foreign_asset_id_location) = set_up_foreign_asset(
 			FOREIGN_ASSET_RESERVE_PARA_ID,
 			Some(FOREIGN_ASSET_INNER_JUNCTION),
+			ALICE,
 			foreign_initial_amount,
 			false,
 		);
@@ -742,6 +745,7 @@ fn local_asset_reserve_and_destination_fee_reserve_call<Call>(
 			set_up_foreign_asset(
 				USDC_RESERVE_PARA_ID,
 				Some(USDC_INNER_JUNCTION),
+				ALICE,
 				usdc_initial_local_amount,
 				true,
 			);
@@ -909,6 +913,7 @@ fn destination_asset_reserve_and_destination_fee_reserve_call<Call>(
 			set_up_foreign_asset(
 				FOREIGN_ASSET_RESERVE_PARA_ID,
 				Some(FOREIGN_ASSET_INNER_JUNCTION),
+				ALICE,
 				foreign_initial_amount,
 				true,
 			);
@@ -1063,6 +1068,7 @@ fn remote_asset_reserve_and_destination_fee_reserve_call_disallowed<Call>(
 		let (usdc_chain, _, usdc_id_location) = set_up_foreign_asset(
 			USDC_RESERVE_PARA_ID,
 			Some(USDC_INNER_JUNCTION),
+			ALICE,
 			usdc_initial_local_amount,
 			true,
 		);
@@ -1072,6 +1078,7 @@ fn remote_asset_reserve_and_destination_fee_reserve_call_disallowed<Call>(
 		let (_, _, foreign_asset_id_location) = set_up_foreign_asset(
 			FOREIGN_ASSET_RESERVE_PARA_ID,
 			Some(FOREIGN_ASSET_INNER_JUNCTION),
+			ALICE,
 			foreign_initial_amount,
 			false,
 		);
@@ -1200,6 +1207,7 @@ fn local_asset_reserve_and_remote_fee_reserve_call_disallowed<Call>(
 		let (_, usdc_chain_sovereign_account, usdc_id_location) = set_up_foreign_asset(
 			USDC_RESERVE_PARA_ID,
 			Some(USDC_INNER_JUNCTION),
+			ALICE,
 			usdc_initial_local_amount,
 			true,
 		);
@@ -1318,6 +1326,7 @@ fn destination_asset_reserve_and_remote_fee_reserve_call_disallowed<Call>(
 		let (_, usdc_chain_sovereign_account, usdc_id_location) = set_up_foreign_asset(
 			USDC_RESERVE_PARA_ID,
 			Some(USDC_INNER_JUNCTION),
+			ALICE,
 			usdc_initial_local_amount,
 			true,
 		);
@@ -1328,6 +1337,7 @@ fn destination_asset_reserve_and_remote_fee_reserve_call_disallowed<Call>(
 			set_up_foreign_asset(
 				FOREIGN_ASSET_RESERVE_PARA_ID,
 				Some(FOREIGN_ASSET_INNER_JUNCTION),
+				ALICE,
 				foreign_initial_amount,
 				false,
 			);
@@ -1471,12 +1481,14 @@ fn remote_asset_reserve_and_remote_fee_reserve_call<Call>(
 	new_test_ext_with_balances(balances).execute_with(|| {
 		// create sufficient foreign asset USDC
 		let usdc_initial_local_amount = 142;
-		let (usdc_chain, usdc_chain_sovereign_account, usdc_id_location) = set_up_foreign_asset(
-			USDC_RESERVE_PARA_ID,
-			Some(USDC_INNER_JUNCTION),
-			usdc_initial_local_amount,
-			true,
-		);
+		let (usdc_chain, usdc_chain_sovereign_account, usdc_id_location) =
+			set_up_foreign_asset(
+				USDC_RESERVE_PARA_ID,
+				Some(USDC_INNER_JUNCTION),
+				ALICE,
+				usdc_initial_local_amount,
+				true,
+			);
 
 		// transfer destination is some other parachain
 		let dest = RelayLocation::get().pushed_with_interior(Parachain(OTHER_PARA_ID)).unwrap();
@@ -1624,7 +1636,7 @@ fn local_asset_reserve_and_teleported_fee_call<Call>(
 		// create sufficient foreign asset USDT
 		let usdt_initial_local_amount = 42;
 		let (usdt_chain, usdt_chain_sovereign_account, usdt_id_location) =
-			set_up_foreign_asset(USDT_PARA_ID, None, usdt_initial_local_amount, true);
+			set_up_foreign_asset(USDT_PARA_ID, None, ALICE, usdt_initial_local_amount, true);
 
 		// native assets transfer destination is USDT chain (teleport trust only for USDT)
 		let dest = usdt_chain;
@@ -1782,7 +1794,7 @@ fn destination_asset_reserve_and_teleported_fee_call<Call>(
 		// create sufficient foreign asset USDT
 		let usdt_initial_local_amount = 42;
 		let (_, usdt_chain_sovereign_account, usdt_id_location) =
-			set_up_foreign_asset(USDT_PARA_ID, None, usdt_initial_local_amount, true);
+			set_up_foreign_asset(USDT_PARA_ID, None, ALICE, usdt_initial_local_amount, true);
 
 		// create non-sufficient foreign asset BLA
 		let foreign_initial_amount = 142;
@@ -1790,6 +1802,7 @@ fn destination_asset_reserve_and_teleported_fee_call<Call>(
 			set_up_foreign_asset(
 				FOREIGN_ASSET_RESERVE_PARA_ID,
 				Some(FOREIGN_ASSET_INNER_JUNCTION),
+				ALICE,
 				foreign_initial_amount,
 				false,
 			);
@@ -1966,13 +1979,14 @@ fn remote_asset_reserve_and_teleported_fee_reserve_call_disallowed<Call>(
 		// create sufficient foreign asset USDT
 		let usdt_initial_local_amount = 42;
 		let (usdt_chain, usdt_chain_sovereign_account, usdt_id_location) =
-			set_up_foreign_asset(USDT_PARA_ID, None, usdt_initial_local_amount, true);
+			set_up_foreign_asset(USDT_PARA_ID, None, ALICE, usdt_initial_local_amount, true);
 
 		// create non-sufficient foreign asset BLA
 		let foreign_initial_amount = 142;
 		let (_, reserve_sovereign_account, foreign_asset_id_location) = set_up_foreign_asset(
 			FOREIGN_ASSET_RESERVE_PARA_ID,
 			Some(FOREIGN_ASSET_INNER_JUNCTION),
+			ALICE,
 			foreign_initial_amount,
 			false,
 		);
@@ -2091,7 +2105,7 @@ fn reserve_transfer_assets_with_teleportable_asset_disallowed() {
 		// create sufficient foreign asset USDT
 		let usdt_initial_local_amount = 42;
 		let (usdt_chain, usdt_chain_sovereign_account, usdt_id_location) =
-			set_up_foreign_asset(USDT_PARA_ID, None, usdt_initial_local_amount, true);
+			set_up_foreign_asset(USDT_PARA_ID, None, ALICE, usdt_initial_local_amount, true);
 
 		// transfer destination is USDT chain (foreign asset needs to go through its reserve chain)
 		let dest = usdt_chain;
@@ -2188,6 +2202,7 @@ fn intermediary_error_reverts_side_effects() {
 		let (_, usdc_chain_sovereign_account, usdc_id_location) = set_up_foreign_asset(
 			USDC_RESERVE_PARA_ID,
 			Some(USDC_INNER_JUNCTION),
+			ALICE,
 			usdc_initial_local_amount,
 			true,
 		);
@@ -2269,7 +2284,7 @@ fn teleport_asset_using_local_fee_reserve_call<Call>(
 		// create non-sufficient foreign asset USDT
 		let usdt_initial_local_amount = 42;
 		let (usdt_chain, usdt_chain_sovereign_account, usdt_id_location) =
-			set_up_foreign_asset(USDT_PARA_ID, None, usdt_initial_local_amount, false);
+			set_up_foreign_asset(USDT_PARA_ID, None, ALICE, usdt_initial_local_amount, false);
 
 		// transfer destination is reserve location (no teleport trust)
 		let dest = usdt_chain;
@@ -2429,6 +2444,7 @@ fn teleported_asset_using_destination_reserve_fee_call<Call>(
 			set_up_foreign_asset(
 				FOREIGN_ASSET_RESERVE_PARA_ID,
 				Some(FOREIGN_ASSET_INNER_JUNCTION),
+				ALICE,
 				foreign_initial_amount,
 				true,
 			);
@@ -2436,7 +2452,7 @@ fn teleported_asset_using_destination_reserve_fee_call<Call>(
 		// create non-sufficient foreign asset USDT
 		let usdt_initial_local_amount = 42;
 		let (_, usdt_chain_sovereign_account, usdt_id_location) =
-			set_up_foreign_asset(USDT_PARA_ID, None, usdt_initial_local_amount, false);
+			set_up_foreign_asset(USDT_PARA_ID, None, ALICE, usdt_initial_local_amount, false);
 
 		// transfer destination is BLA reserve location
 		let dest = reserve_location;
