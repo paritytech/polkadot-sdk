@@ -241,6 +241,14 @@
 <a href="#241" id="241">241</a>
 <a href="#242" id="242">242</a>
 <a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -389,7 +397,9 @@
 		AllMessages, AvailabilityDistributionMessage, RuntimeApiMessage, RuntimeApiRequest,
 	};
 	<span class="kw">use </span>polkadot_node_subsystem_test_helpers <span class="kw">as </span>test_helpers;
-	<span class="kw">use </span>polkadot_primitives::{CandidateHash, ExecutorParams, Hash, ValidatorIndex};
+	<span class="kw">use </span>polkadot_primitives::{
+		vstaging::NodeFeatures, CandidateHash, ExecutorParams, Hash, ValidatorIndex,
+	};
 	<span class="kw">use </span>test_helpers::mock::make_ferdie_keystore;
 
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -456,6 +466,12 @@
 						RuntimeApiRequest::SessionExecutorParams(<span class="kw">_</span>, tx),
 					)) =&gt; {
 						tx.send(<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(ExecutorParams::default()))).unwrap();
+					},
+					AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+						<span class="kw">_</span>,
+						RuntimeApiRequest::NodeFeatures(<span class="kw">_</span>, si_tx),
+					)) =&gt; {
+						si_tx.send(<span class="prelude-val">Ok</span>(NodeFeatures::EMPTY)).unwrap();
 					},
 					AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendRequests(
 						<span class="kw-2">mut </span>reqs,

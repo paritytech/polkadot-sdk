@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"type":["NodeFeatures"]};
+window.SIDEBAR_ITEMS = {"mod":["node_features"],"type":["NodeFeatures"]};

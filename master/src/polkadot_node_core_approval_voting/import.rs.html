@@ -1451,6 +1451,61 @@
 <a href="#1451" id="1451">1451</a>
 <a href="#1452" id="1452">1452</a>
 <a href="#1453" id="1453">1453</a>
+<a href="#1454" id="1454">1454</a>
+<a href="#1455" id="1455">1455</a>
+<a href="#1456" id="1456">1456</a>
+<a href="#1457" id="1457">1457</a>
+<a href="#1458" id="1458">1458</a>
+<a href="#1459" id="1459">1459</a>
+<a href="#1460" id="1460">1460</a>
+<a href="#1461" id="1461">1461</a>
+<a href="#1462" id="1462">1462</a>
+<a href="#1463" id="1463">1463</a>
+<a href="#1464" id="1464">1464</a>
+<a href="#1465" id="1465">1465</a>
+<a href="#1466" id="1466">1466</a>
+<a href="#1467" id="1467">1467</a>
+<a href="#1468" id="1468">1468</a>
+<a href="#1469" id="1469">1469</a>
+<a href="#1470" id="1470">1470</a>
+<a href="#1471" id="1471">1471</a>
+<a href="#1472" id="1472">1472</a>
+<a href="#1473" id="1473">1473</a>
+<a href="#1474" id="1474">1474</a>
+<a href="#1475" id="1475">1475</a>
+<a href="#1476" id="1476">1476</a>
+<a href="#1477" id="1477">1477</a>
+<a href="#1478" id="1478">1478</a>
+<a href="#1479" id="1479">1479</a>
+<a href="#1480" id="1480">1480</a>
+<a href="#1481" id="1481">1481</a>
+<a href="#1482" id="1482">1482</a>
+<a href="#1483" id="1483">1483</a>
+<a href="#1484" id="1484">1484</a>
+<a href="#1485" id="1485">1485</a>
+<a href="#1486" id="1486">1486</a>
+<a href="#1487" id="1487">1487</a>
+<a href="#1488" id="1488">1488</a>
+<a href="#1489" id="1489">1489</a>
+<a href="#1490" id="1490">1490</a>
+<a href="#1491" id="1491">1491</a>
+<a href="#1492" id="1492">1492</a>
+<a href="#1493" id="1493">1493</a>
+<a href="#1494" id="1494">1494</a>
+<a href="#1495" id="1495">1495</a>
+<a href="#1496" id="1496">1496</a>
+<a href="#1497" id="1497">1497</a>
+<a href="#1498" id="1498">1498</a>
+<a href="#1499" id="1499">1499</a>
+<a href="#1500" id="1500">1500</a>
+<a href="#1501" id="1501">1501</a>
+<a href="#1502" id="1502">1502</a>
+<a href="#1503" id="1503">1503</a>
+<a href="#1504" id="1504">1504</a>
+<a href="#1505" id="1505">1505</a>
+<a href="#1506" id="1506">1506</a>
+<a href="#1507" id="1507">1507</a>
+<a href="#1508" id="1508">1508</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1498,8 +1553,8 @@
 };
 <span class="kw">use </span>polkadot_node_subsystem_util::{determine_new_blocks, runtime::RuntimeInfo};
 <span class="kw">use </span>polkadot_primitives::{
-	BlockNumber, CandidateEvent, CandidateHash, CandidateReceipt, ConsensusLog, CoreIndex,
-	GroupIndex, Hash, Header, SessionIndex,
+	vstaging::node_features, BlockNumber, CandidateEvent, CandidateHash, CandidateReceipt,
+	ConsensusLog, CoreIndex, GroupIndex, Hash, Header, SessionIndex,
 };
 <span class="kw">use </span>sc_keystore::LocalKeystore;
 <span class="kw">use </span>sp_consensus_slots::Slot;
@@ -1513,7 +1568,7 @@
 <span class="kw">use crate</span>::{
 	backend::{Backend, OverlayedBackend},
 	criteria::{AssignmentCriteria, OurAssignment},
-	get_session_info,
+	get_extended_session_info, get_session_info,
 	persisted_entries::CandidateEntry,
 	time::{slot_number_to_tick, Tick},
 };
@@ -1667,10 +1722,21 @@
 		}
 	};
 
+	<span class="kw">let </span>extended_session_info =
+		get_extended_session_info(env.runtime_info, ctx.sender(), block_hash, session_index).<span class="kw">await</span>;
+	<span class="kw">let </span>enable_v2_assignments = extended_session_info.map_or(<span class="bool-val">false</span>, |extended_session_info| {
+		<span class="kw-2">*</span>extended_session_info
+			.node_features
+			.get(node_features::FeatureIndex::EnableAssignmentsV2 <span class="kw">as </span>usize)
+			.as_deref()
+			.unwrap_or(<span class="kw-2">&amp;</span><span class="bool-val">false</span>)
+	});
+
 	<span class="kw">let </span>session_info = get_session_info(env.runtime_info, ctx.sender(), block_hash, session_index)
 		.<span class="kw">await
 		</span>.ok_or(ImportedBlockInfoError::SessionInfoUnavailable)<span class="question-mark">?</span>;
 
+	<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>enable_v2_assignments, <span class="string">&quot;V2 assignments&quot;</span>);
 	<span class="kw">let </span>(assignments, slot, relay_vrf_story) = {
 		<span class="kw">let </span>unsafe_vrf = approval_types::v1::babe_unsafe_vrf_info(<span class="kw-2">&amp;</span>block_header);
 
@@ -1692,6 +1758,7 @@
 								.iter()
 								.map(|(c_hash, <span class="kw">_</span>, core, group)| (<span class="kw-2">*</span>c_hash, <span class="kw-2">*</span>core, <span class="kw-2">*</span>group))
 								.collect(),
+							enable_v2_assignments,
 						);
 
 						(assignments, slot, relay_vrf)
@@ -2056,6 +2123,7 @@
 	<span class="kw">use </span>polkadot_node_subsystem_test_helpers::make_subsystem_context;
 	<span class="kw">use </span>polkadot_node_subsystem_util::database::Database;
 	<span class="kw">use </span>polkadot_primitives::{
+		vstaging::{node_features::FeatureIndex, NodeFeatures},
 		ExecutorParams, Id <span class="kw">as </span>ParaId, IndexedVec, SessionInfo, ValidatorId, ValidatorIndex,
 	};
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>sp_consensus_babe::{
@@ -2092,7 +2160,7 @@
 			keystore: Arc::new(LocalKeystore::in_memory()),
 			slot_duration_millis: <span class="number">6_000</span>,
 			clock: Box::new(MockClock::default()),
-			assignment_criteria: Box::new(MockAssignmentCriteria),
+			assignment_criteria: Box::new(MockAssignmentCriteria::default()),
 			spans: HashMap::new(),
 		}
 	}
@@ -2107,7 +2175,10 @@
 		)
 	}
 
-	<span class="kw">struct </span>MockAssignmentCriteria;
+	<span class="attr">#[derive(Default)]
+	</span><span class="kw">struct </span>MockAssignmentCriteria {
+		enable_v2: bool,
+	}
 
 	<span class="kw">impl </span>AssignmentCriteria <span class="kw">for </span>MockAssignmentCriteria {
 		<span class="kw">fn </span>compute_assignments(
@@ -2120,7 +2191,9 @@
 				polkadot_primitives::CoreIndex,
 				polkadot_primitives::GroupIndex,
 			)&gt;,
+			enable_assignments_v2: bool,
 		) -&gt; HashMap&lt;polkadot_primitives::CoreIndex, criteria::OurAssignment&gt; {
+			<span class="macro">assert_eq!</span>(enable_assignments_v2, <span class="self">self</span>.enable_v2);
 			HashMap::new()
 		}
 
@@ -2164,154 +2237,164 @@
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>imported_block_info_is_good() {
-		<span class="kw">let </span>pool = TaskExecutor::new();
-		<span class="kw">let </span>(<span class="kw-2">mut </span>ctx, <span class="kw-2">mut </span>handle) =
-			make_subsystem_context::&lt;ApprovalVotingMessage, <span class="kw">_</span>&gt;(pool.clone());
+		<span class="kw">for </span>enable_v2 <span class="kw">in </span>[<span class="bool-val">false</span>, <span class="bool-val">true</span>] {
+			<span class="kw">let </span>pool = TaskExecutor::new();
+			<span class="kw">let </span>(<span class="kw-2">mut </span>ctx, <span class="kw-2">mut </span>handle) =
+				make_subsystem_context::&lt;ApprovalVotingMessage, <span class="kw">_</span>&gt;(pool.clone());
 
-		<span class="kw">let </span>session = <span class="number">5</span>;
-		<span class="kw">let </span>session_info = dummy_session_info(session);
+			<span class="kw">let </span>session = <span class="number">5</span>;
+			<span class="kw">let </span>session_info = dummy_session_info(session);
 
-		<span class="kw">let </span>slot = Slot::from(<span class="number">10</span>);
+			<span class="kw">let </span>slot = Slot::from(<span class="number">10</span>);
+			<span class="kw">let </span>header = Header {
+				digest: {
+					<span class="kw">let </span><span class="kw-2">mut </span>d = Digest::default();
+					<span class="kw">let </span>vrf_signature = garbage_vrf_signature();
+					d.push(DigestItem::babe_pre_digest(PreDigest::SecondaryVRF(
+						SecondaryVRFPreDigest { authority_index: <span class="number">0</span>, slot, vrf_signature },
+					)));
 
-		<span class="kw">let </span>header = Header {
-			digest: {
-				<span class="kw">let </span><span class="kw-2">mut </span>d = Digest::default();
-				<span class="kw">let </span>vrf_signature = garbage_vrf_signature();
-				d.push(DigestItem::babe_pre_digest(PreDigest::SecondaryVRF(
-					SecondaryVRFPreDigest { authority_index: <span class="number">0</span>, slot, vrf_signature },
-				)));
+					d
+				},
+				extrinsics_root: Default::default(),
+				number: <span class="number">5</span>,
+				state_root: Default::default(),
+				parent_hash: Default::default(),
+			};
 
-				d
-			},
-			extrinsics_root: Default::default(),
-			number: <span class="number">5</span>,
-			state_root: Default::default(),
-			parent_hash: Default::default(),
-		};
+			<span class="kw">let </span>hash = header.hash();
+			<span class="kw">let </span>make_candidate = |para_id| {
+				<span class="kw">let </span><span class="kw-2">mut </span>r = dummy_candidate_receipt(dummy_hash());
+				r.descriptor.para_id = para_id;
+				r.descriptor.relay_parent = hash;
+				r
+			};
+			<span class="kw">let </span>candidates = <span class="macro">vec!</span>[
+				(make_candidate(<span class="number">1</span>.into()), CoreIndex(<span class="number">0</span>), GroupIndex(<span class="number">2</span>)),
+				(make_candidate(<span class="number">2</span>.into()), CoreIndex(<span class="number">1</span>), GroupIndex(<span class="number">3</span>)),
+			];
 
-		<span class="kw">let </span>hash = header.hash();
-		<span class="kw">let </span>make_candidate = |para_id| {
-			<span class="kw">let </span><span class="kw-2">mut </span>r = dummy_candidate_receipt(dummy_hash());
-			r.descriptor.para_id = para_id;
-			r.descriptor.relay_parent = hash;
-			r
-		};
-		<span class="kw">let </span>candidates = <span class="macro">vec!</span>[
-			(make_candidate(<span class="number">1</span>.into()), CoreIndex(<span class="number">0</span>), GroupIndex(<span class="number">2</span>)),
-			(make_candidate(<span class="number">2</span>.into()), CoreIndex(<span class="number">1</span>), GroupIndex(<span class="number">3</span>)),
-		];
-
-		<span class="kw">let </span>inclusion_events = candidates
-			.iter()
-			.cloned()
-			.map(|(r, c, g)| CandidateEvent::CandidateIncluded(r, Vec::new().into(), c, g))
-			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-
-		<span class="kw">let </span>test_fut = {
-			<span class="kw">let </span>included_candidates = candidates
+			<span class="kw">let </span>inclusion_events = candidates
 				.iter()
-				.map(|(r, c, g)| (r.hash(), r.clone(), <span class="kw-2">*</span>c, <span class="kw-2">*</span>g))
+				.cloned()
+				.map(|(r, c, g)| CandidateEvent::CandidateIncluded(r, Vec::new().into(), c, g))
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-			<span class="kw">let </span><span class="kw-2">mut </span>runtime_info = RuntimeInfo::new_with_config(RuntimeInfoConfig {
-				keystore: <span class="prelude-val">None</span>,
-				session_cache_lru_size: DISPUTE_WINDOW.get(),
+			<span class="kw">let </span>test_fut = {
+				<span class="kw">let </span>included_candidates = candidates
+					.iter()
+					.map(|(r, c, g)| (r.hash(), r.clone(), <span class="kw-2">*</span>c, <span class="kw-2">*</span>g))
+					.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+
+				<span class="kw">let </span><span class="kw-2">mut </span>runtime_info = RuntimeInfo::new_with_config(RuntimeInfoConfig {
+					keystore: <span class="prelude-val">None</span>,
+					session_cache_lru_size: DISPUTE_WINDOW.get(),
+				});
+
+				<span class="kw">let </span>header = header.clone();
+				Box::pin(<span class="kw">async move </span>{
+					<span class="kw">let </span>env = ImportedBlockInfoEnv {
+						runtime_info: <span class="kw-2">&amp;mut </span>runtime_info,
+						assignment_criteria: <span class="kw-2">&amp;</span>MockAssignmentCriteria { enable_v2 },
+						keystore: <span class="kw-2">&amp;</span>LocalKeystore::in_memory(),
+					};
+
+					<span class="kw">let </span>info =
+						imported_block_info(<span class="kw-2">&amp;mut </span>ctx, env, hash, <span class="kw-2">&amp;</span>header, <span class="kw-2">&amp;</span><span class="prelude-val">Some</span>(<span class="number">4</span>)).<span class="kw">await</span>.unwrap();
+
+					<span class="macro">assert_eq!</span>(info.included_candidates, included_candidates);
+					<span class="macro">assert_eq!</span>(info.session_index, session);
+					<span class="macro">assert!</span>(info.assignments.is_empty());
+					<span class="macro">assert_eq!</span>(info.n_validators, <span class="number">0</span>);
+					<span class="macro">assert_eq!</span>(info.slot, slot);
+					<span class="macro">assert!</span>(info.force_approve.is_none());
+				})
+			};
+
+			<span class="kw">let </span>aux_fut = Box::pin(<span class="kw">async move </span>{
+				<span class="macro">assert_matches!</span>(
+					handle.recv().<span class="kw">await</span>,
+					AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+						h,
+						RuntimeApiRequest::CandidateEvents(c_tx),
+					)) =&gt; {
+						<span class="macro">assert_eq!</span>(h, hash);
+						<span class="kw">let _ </span>= c_tx.send(<span class="prelude-val">Ok</span>(inclusion_events));
+					}
+				);
+
+				<span class="macro">assert_matches!</span>(
+					handle.recv().<span class="kw">await</span>,
+					AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+						h,
+						RuntimeApiRequest::SessionIndexForChild(c_tx),
+					)) =&gt; {
+						<span class="macro">assert_eq!</span>(h, header.parent_hash);
+						<span class="kw">let _ </span>= c_tx.send(<span class="prelude-val">Ok</span>(session));
+					}
+				);
+
+				<span class="macro">assert_matches!</span>(
+					handle.recv().<span class="kw">await</span>,
+					AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+						h,
+						RuntimeApiRequest::CurrentBabeEpoch(c_tx),
+					)) =&gt; {
+						<span class="macro">assert_eq!</span>(h, hash);
+						<span class="kw">let _ </span>= c_tx.send(<span class="prelude-val">Ok</span>(BabeEpoch {
+							epoch_index: session <span class="kw">as _</span>,
+							start_slot: Slot::from(<span class="number">0</span>),
+							duration: <span class="number">200</span>,
+							authorities: <span class="macro">vec!</span>[(Sr25519Keyring::Alice.public().into(), <span class="number">1</span>)],
+							randomness: [<span class="number">0u8</span>; <span class="number">32</span>],
+							config: BabeEpochConfiguration {
+								c: (<span class="number">1</span>, <span class="number">4</span>),
+								allowed_slots: AllowedSlots::PrimarySlots,
+							},
+						}));
+					}
+				);
+
+				<span class="macro">assert_matches!</span>(
+					handle.recv().<span class="kw">await</span>,
+					AllMessages::RuntimeApi(
+						RuntimeApiMessage::Request(
+							req_block_hash,
+							RuntimeApiRequest::SessionInfo(idx, si_tx),
+						)
+					) =&gt; {
+						<span class="macro">assert_eq!</span>(session, idx);
+						<span class="macro">assert_eq!</span>(req_block_hash, hash);
+						si_tx.send(<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(session_info.clone()))).unwrap();
+					}
+				);
+
+				<span class="macro">assert_matches!</span>(
+					handle.recv().<span class="kw">await</span>,
+					AllMessages::RuntimeApi(
+						RuntimeApiMessage::Request(
+							req_block_hash,
+							RuntimeApiRequest::SessionExecutorParams(idx, si_tx),
+						)
+					) =&gt; {
+						<span class="macro">assert_eq!</span>(session, idx);
+						<span class="macro">assert_eq!</span>(req_block_hash, hash);
+						si_tx.send(<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(ExecutorParams::default()))).unwrap();
+					}
+				);
+
+				<span class="macro">assert_matches!</span>(
+					handle.recv().<span class="kw">await</span>,
+					AllMessages::RuntimeApi(
+						RuntimeApiMessage::Request(<span class="kw">_</span>, RuntimeApiRequest::NodeFeatures(<span class="kw">_</span>, si_tx), )
+					) =&gt; {
+						si_tx.send(<span class="prelude-val">Ok</span>(NodeFeatures::repeat(enable_v2, FeatureIndex::EnableAssignmentsV2 <span class="kw">as </span>usize + <span class="number">1</span>))).unwrap();
+					}
+				);
 			});
 
-			<span class="kw">let </span>header = header.clone();
-			Box::pin(<span class="kw">async move </span>{
-				<span class="kw">let </span>env = ImportedBlockInfoEnv {
-					runtime_info: <span class="kw-2">&amp;mut </span>runtime_info,
-					assignment_criteria: <span class="kw-2">&amp;</span>MockAssignmentCriteria,
-					keystore: <span class="kw-2">&amp;</span>LocalKeystore::in_memory(),
-				};
-
-				<span class="kw">let </span>info =
-					imported_block_info(<span class="kw-2">&amp;mut </span>ctx, env, hash, <span class="kw-2">&amp;</span>header, <span class="kw-2">&amp;</span><span class="prelude-val">Some</span>(<span class="number">4</span>)).<span class="kw">await</span>.unwrap();
-
-				<span class="macro">assert_eq!</span>(info.included_candidates, included_candidates);
-				<span class="macro">assert_eq!</span>(info.session_index, session);
-				<span class="macro">assert!</span>(info.assignments.is_empty());
-				<span class="macro">assert_eq!</span>(info.n_validators, <span class="number">0</span>);
-				<span class="macro">assert_eq!</span>(info.slot, slot);
-				<span class="macro">assert!</span>(info.force_approve.is_none());
-			})
-		};
-
-		<span class="kw">let </span>aux_fut = Box::pin(<span class="kw">async move </span>{
-			<span class="macro">assert_matches!</span>(
-				handle.recv().<span class="kw">await</span>,
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					h,
-					RuntimeApiRequest::CandidateEvents(c_tx),
-				)) =&gt; {
-					<span class="macro">assert_eq!</span>(h, hash);
-					<span class="kw">let _ </span>= c_tx.send(<span class="prelude-val">Ok</span>(inclusion_events));
-				}
-			);
-
-			<span class="macro">assert_matches!</span>(
-				handle.recv().<span class="kw">await</span>,
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					h,
-					RuntimeApiRequest::SessionIndexForChild(c_tx),
-				)) =&gt; {
-					<span class="macro">assert_eq!</span>(h, header.parent_hash);
-					<span class="kw">let _ </span>= c_tx.send(<span class="prelude-val">Ok</span>(session));
-				}
-			);
-
-			<span class="macro">assert_matches!</span>(
-				handle.recv().<span class="kw">await</span>,
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					h,
-					RuntimeApiRequest::CurrentBabeEpoch(c_tx),
-				)) =&gt; {
-					<span class="macro">assert_eq!</span>(h, hash);
-					<span class="kw">let _ </span>= c_tx.send(<span class="prelude-val">Ok</span>(BabeEpoch {
-						epoch_index: session <span class="kw">as _</span>,
-						start_slot: Slot::from(<span class="number">0</span>),
-						duration: <span class="number">200</span>,
-						authorities: <span class="macro">vec!</span>[(Sr25519Keyring::Alice.public().into(), <span class="number">1</span>)],
-						randomness: [<span class="number">0u8</span>; <span class="number">32</span>],
-						config: BabeEpochConfiguration {
-							c: (<span class="number">1</span>, <span class="number">4</span>),
-							allowed_slots: AllowedSlots::PrimarySlots,
-						},
-					}));
-				}
-			);
-
-			<span class="macro">assert_matches!</span>(
-				handle.recv().<span class="kw">await</span>,
-				AllMessages::RuntimeApi(
-					RuntimeApiMessage::Request(
-						req_block_hash,
-						RuntimeApiRequest::SessionInfo(idx, si_tx),
-					)
-				) =&gt; {
-					<span class="macro">assert_eq!</span>(session, idx);
-					<span class="macro">assert_eq!</span>(req_block_hash, hash);
-					si_tx.send(<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(session_info.clone()))).unwrap();
-				}
-			);
-
-			<span class="macro">assert_matches!</span>(
-				handle.recv().<span class="kw">await</span>,
-				AllMessages::RuntimeApi(
-					RuntimeApiMessage::Request(
-						req_block_hash,
-						RuntimeApiRequest::SessionExecutorParams(idx, si_tx),
-					)
-				) =&gt; {
-					<span class="macro">assert_eq!</span>(session, idx);
-					<span class="macro">assert_eq!</span>(req_block_hash, hash);
-					si_tx.send(<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(ExecutorParams::default()))).unwrap();
-				}
-			);
-		});
-
-		futures::executor::block_on(futures::future::join(test_fut, aux_fut));
+			futures::executor::block_on(futures::future::join(test_fut, aux_fut));
+		}
 	}
 
 	<span class="attr">#[test]
@@ -2359,7 +2442,7 @@
 			Box::pin(<span class="kw">async move </span>{
 				<span class="kw">let </span>env = ImportedBlockInfoEnv {
 					runtime_info: <span class="kw-2">&amp;mut </span>runtime_info,
-					assignment_criteria: <span class="kw-2">&amp;</span>MockAssignmentCriteria,
+					assignment_criteria: <span class="kw-2">&amp;</span>MockAssignmentCriteria::default(),
 					keystore: <span class="kw-2">&amp;</span>LocalKeystore::in_memory(),
 				};
 
@@ -2440,6 +2523,15 @@
 					si_tx.send(<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(ExecutorParams::default()))).unwrap();
 				}
 			);
+
+			<span class="macro">assert_matches!</span>(
+				handle.recv().<span class="kw">await</span>,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(<span class="kw">_</span>, RuntimeApiRequest::NodeFeatures(<span class="kw">_</span>, si_tx), )
+				) =&gt; {
+					si_tx.send(<span class="prelude-val">Ok</span>(NodeFeatures::EMPTY)).unwrap();
+				}
+			);
 		});
 
 		futures::executor::block_on(futures::future::join(test_fut, aux_fut));
@@ -2489,7 +2581,7 @@
 			Box::pin(<span class="kw">async move </span>{
 				<span class="kw">let </span>env = ImportedBlockInfoEnv {
 					runtime_info: <span class="kw-2">&amp;mut </span>runtime_info,
-					assignment_criteria: <span class="kw-2">&amp;</span>MockAssignmentCriteria,
+					assignment_criteria: <span class="kw-2">&amp;</span>MockAssignmentCriteria::default(),
 					keystore: <span class="kw-2">&amp;</span>LocalKeystore::in_memory(),
 				};
 
@@ -2587,7 +2679,7 @@
 			Box::pin(<span class="kw">async move </span>{
 				<span class="kw">let </span>env = ImportedBlockInfoEnv {
 					runtime_info: <span class="kw-2">&amp;mut </span>runtime_info,
-					assignment_criteria: <span class="kw-2">&amp;</span>MockAssignmentCriteria,
+					assignment_criteria: <span class="kw-2">&amp;</span>MockAssignmentCriteria::default(),
 					keystore: <span class="kw-2">&amp;</span>LocalKeystore::in_memory(),
 				};
 
@@ -2672,6 +2764,15 @@
 					<span class="macro">assert_eq!</span>(session, idx);
 					<span class="macro">assert_eq!</span>(req_block_hash, hash);
 					si_tx.send(<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(ExecutorParams::default()))).unwrap();
+				}
+			);
+
+			<span class="macro">assert_matches!</span>(
+				handle.recv().<span class="kw">await</span>,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(<span class="kw">_</span>, RuntimeApiRequest::NodeFeatures(<span class="kw">_</span>, si_tx), )
+				) =&gt; {
+					si_tx.send(<span class="prelude-val">Ok</span>(NodeFeatures::EMPTY)).unwrap();
 				}
 			);
 		});
@@ -2888,6 +2989,15 @@
 					<span class="macro">assert_eq!</span>(session, idx);
 					<span class="macro">assert_eq!</span>(req_block_hash, hash);
 					si_tx.send(<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(ExecutorParams::default()))).unwrap();
+				}
+			);
+
+			<span class="macro">assert_matches!</span>(
+				handle.recv().<span class="kw">await</span>,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(<span class="kw">_</span>, RuntimeApiRequest::NodeFeatures(<span class="kw">_</span>, si_tx), )
+				) =&gt; {
+					si_tx.send(<span class="prelude-val">Ok</span>(NodeFeatures::EMPTY)).unwrap();
 				}
 			);
 
