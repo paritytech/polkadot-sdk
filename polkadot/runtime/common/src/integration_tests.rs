@@ -637,7 +637,20 @@ fn para_upgrade_initiated_by_manager_works() {
 			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
 		);
 
-		// CASE 1: Schedule a para upgrade to set the validation code to a new one which is twice
+		// CASE 1: Attempting to schedule a parachain upgrade without setting the billing account
+		// beforehand will result in failure.
+		assert_noop!(
+			Registrar::schedule_code_upgrade(signed(1), ParaId::from(para_id), code_0,),
+			paras_registrar::Error::<Test>::CannotUpgrade
+		);
+
+		// Set the billing account to be able to schedule code upgrades.
+		assert_ok!(Registrar::set_parachain_billing_account_to_self(
+			signed(1),
+			ParaId::from(para_id),
+		));
+
+		// CASE 2: Schedule a para upgrade to set the validation code to a new one which is twice
 		// the size.
 		code_size *= 2;
 		let code_1 = validation_code(code_size);
@@ -667,7 +680,7 @@ fn para_upgrade_initiated_by_manager_works() {
 		));
 		assert_eq!(Paras::current_code(&para_id), Some(code_1.clone()));
 
-		// CASE 2: After successfully upgrading the validation code to twice the size of the
+		// CASE 3: After successfully upgrading the validation code to twice the size of the
 		// previous one, we will now proceed to upgrade the validation code to a smaller size. It is
 		// expected that the parachain manager will receive a refund upon the successful completion
 		// of the upgrade.
@@ -711,7 +724,7 @@ fn para_upgrade_initiated_by_manager_works() {
 		// An additional upgrade fee should also be deducted from the caller's balance.
 		assert_eq!(Balances::total_balance(&account_id(1)), free_balance - (2 * UpgradeFee::get()));
 
-		// CASE 3: Para manager won't get refunded if the code upgrade fails
+		// CASE 4: Para manager won't get refunded if the code upgrade fails
 		let code_3 = validation_code(42);
 		assert_ok!(Registrar::schedule_code_upgrade(
 			signed(1),
@@ -772,6 +785,12 @@ fn root_upgrading_parachain_works() {
 			Balances::reserved_balance(&account_id(1)),
 			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
 		);
+
+		// Set the billing account to be able to schedule code upgrades.
+		assert_ok!(Registrar::set_parachain_billing_account_to_self(
+			signed(1),
+			ParaId::from(para_id),
+		));
 
 		// CASE 1: Root schedules a para upgrade to set the validation code to a new one which is
 		// twice the size.

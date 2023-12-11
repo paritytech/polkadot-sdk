@@ -921,13 +921,15 @@ impl<T: Config> PreCodeUpgrade for Pallet<T> {
 		};
 
 		let Some(mut info) = Paras::<T>::get(para) else { return Err(T::DbWeight::get().reads(2)) };
+		let lease_holding = Self::is_parachain(para);
 
-		let Some(billing_account) = info.billing_account.clone() else {
+		// The billing account doesn't need to be set for lease holding parachains.
+		if info.billing_account.is_none() && !lease_holding {
 			Self::deposit_event(Event::<T>::CodeUpgradeScheduleFailed(
 				CodeUpgradeScheduleError::BillingAccountNotSet,
 			));
 			return Err(T::DbWeight::get().reads(3))
-		};
+		}
 
 		let per_byte_fee = T::DataDepositPerByte::get();
 		let new_deposit = T::ParaDeposit::get()
@@ -936,10 +938,14 @@ impl<T: Config> PreCodeUpgrade for Pallet<T> {
 
 		let current_deposit = info.deposit;
 
-		let free_upgrade =
-			skip_requirements || para < LOWEST_PUBLIC_ID || Self::parachains().contains(&para);
+		let free_upgrade = skip_requirements || para < LOWEST_PUBLIC_ID || lease_holding;
 
-		if !free_upgrade {
+		if !free_upgrade && info.billing_account.clone().is_some() {
+			let billing_account = info
+				.billing_account
+				.clone()
+				.expect("Ensured above that the billing account is defined; qed");
+
 			if let Err(_) = <T as Config>::Currency::withdraw(
 				&billing_account,
 				T::UpgradeFee::get(),
@@ -1012,7 +1018,7 @@ impl<T: Config> OnCodeUpgrade for Pallet<T> {
 					who: billing_account,
 					amount: rebate,
 				});
-				return T::DbWeight::get().reads_writes(2, 2) // FIXME: This is inaccurate weight 
+				return T::DbWeight::get().reads_writes(2, 2) // FIXME: This is inaccurate weight
 			}
 		}
 
@@ -1787,60 +1793,6 @@ mod tests {
 
 			assert!(Parachains::is_parathread(para_1));
 			assert!(Parachains::is_parathread(para_2));
-		});
-	}
-
-	#[test]
-	fn billing_account_has_to_be_explicitly_set() {
-		new_test_ext().execute_with(|| {
-			const START_SESSION_INDEX: SessionIndex = 1;
-			run_to_session(START_SESSION_INDEX);
-
-			let para_id = LOWEST_PUBLIC_ID;
-			assert!(!Parachains::is_parathread(para_id));
-
-			let validation_code = test_validation_code(32);
-			assert_ok!(Registrar::reserve(RuntimeOrigin::signed(1)));
-			assert_ok!(Registrar::register(
-				RuntimeOrigin::signed(1),
-				para_id,
-				test_genesis_head(32),
-				validation_code.clone(),
-			));
-			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
-
-			run_to_session(START_SESSION_INDEX + 2);
-			assert!(Parachains::is_parathread(para_id));
-
-			assert_ok!(Registrar::make_parachain(para_id));
-			run_to_session(START_SESSION_INDEX + 4);
-			assert!(Parachains::is_parachain(para_id));
-
-			// Legacy lease holding parachains won't have their billing account set. So if a
-			// parachain no longer has a parachain slot, the billing account must be explicitly
-			// set before initiating code upgrades.
-
-			// Downgrade the lease holding parachain to a parathread.
-			assert_ok!(Registrar::make_parathread(para_id));
-			run_to_session(START_SESSION_INDEX + 6);
-			assert!(Registrar::is_parathread(para_id));
-
-			// To simulate this we will have to manually set the billing account to `None`.
-			Paras::<Test>::mutate_exists(para_id, |maybe_info| {
-				if let Some(info) = maybe_info {
-					info.billing_account = None
-				}
-			});
-
-			let validation_code = test_validation_code(42);
-			assert_noop!(
-				Registrar::schedule_code_upgrade(
-					RuntimeOrigin::signed(1),
-					ParaId::from(para_id),
-					validation_code
-				),
-				paras_registrar::Error::<Test>::CannotUpgrade
-			);
 		});
 	}
 }
