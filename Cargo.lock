@@ -17698,7 +17698,6 @@ dependencies = [
 name = "sp-keyring"
 version = "24.0.0"
 dependencies = [
- "lazy_static",
  "sp-core",
  "sp-runtime",
  "strum",
