@@ -1072,7 +1072,7 @@ impl ApprovalVote {
 
 /// A vote of approval for multiple candidates.
 #[derive(Clone, RuntimeDebug)]
-pub struct ApprovalVoteMultipleCandidates<'a>(pub &'a Vec<CandidateHash>);
+pub struct ApprovalVoteMultipleCandidates<'a>(pub &'a [CandidateHash]);
 
 impl<'a> ApprovalVoteMultipleCandidates<'a> {
 	/// Yields the signing payload for this approval vote.

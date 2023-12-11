@@ -16,10 +16,10 @@
 
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 
-use polkadot_node_primitives::approval::v1::{
-	AssignmentCert, AssignmentCertKind, VrfOutput, VrfProof, VrfSignature, RELAY_VRF_MODULO_CONTEXT,
+use polkadot_node_primitives::approval::{
+	v1::{AssignmentCert, AssignmentCertKind, VrfProof, VrfSignature, RELAY_VRF_MODULO_CONTEXT},
+	v2::VrfPreOutput,
 };
-
 pub fn make_bitvec(len: usize) -> BitVec<u8, BitOrderLsb0> {
 	bitvec::bitvec![u8, BitOrderLsb0; 0; len]
 }
@@ -32,5 +32,8 @@ pub fn dummy_assignment_cert(kind: AssignmentCertKind) -> AssignmentCert {
 	let (inout, proof, _) = keypair.vrf_sign(ctx.bytes(msg));
 	let out = inout.to_output();
 
-	AssignmentCert { kind, vrf: VrfSignature { output: VrfOutput(out), proof: VrfProof(proof) } }
+	AssignmentCert {
+		kind,
+		vrf: VrfSignature { pre_output: VrfPreOutput(out), proof: VrfProof(proof) },
+	}
 }

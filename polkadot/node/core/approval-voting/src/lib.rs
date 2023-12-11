@@ -174,7 +174,7 @@ struct MetricsInner {
 	approved_by_one_third: prometheus::Counter<prometheus::U64>,
 	wakeups_triggered_total: prometheus::Counter<prometheus::U64>,
 	coalesced_approvals_buckets: prometheus::Histogram,
-	coalesced_approvals_waiting_times: prometheus::Histogram,
+	coalesced_approvals_delay: prometheus::Histogram,
 	candidate_approval_time_ticks: prometheus::Histogram,
 	block_approval_time_ticks: prometheus::Histogram,
 	time_db_transaction: prometheus::Histogram,
@@ -219,7 +219,7 @@ impl Metrics {
 
 	fn on_delayed_approval(&self, delayed_ticks: u64) {
 		if let Some(metrics) = &self.0 {
-			metrics.coalesced_approvals_waiting_times.observe(delayed_ticks as f64)
+			metrics.coalesced_approvals_delay.observe(delayed_ticks as f64)
 		}
 	}
 
@@ -380,10 +380,10 @@ impl metrics::Metrics for Metrics {
 				)?,
 				registry,
 			)?,
-			coalesced_approvals_waiting_times: prometheus::register(
+			coalesced_approvals_delay: prometheus::register(
 				prometheus::Histogram::with_opts(
 					prometheus::HistogramOpts::new(
-						"polkadot_parachain_approvals_coalesced_approvals_waiting_times",
+						"polkadot_parachain_approvals_coalescing_delay",
 						"Number of ticks we delay the sending of a candidate approval",
 					).buckets(vec![1.1, 2.1, 3.1, 4.1, 6.1, 8.1, 12.1, 20.1, 32.1]),
 				)?,
@@ -847,7 +847,7 @@ impl State {
 		ctx: &mut Context,
 		session_index: SessionIndex,
 		block_hash: Hash,
-	) -> ApprovalVotingParams {
+	) -> Option<ApprovalVotingParams> {
 		let (s_tx, s_rx) = oneshot::channel();
 
 		ctx.send_message(RuntimeApiMessage::Request(
@@ -864,23 +864,23 @@ impl State {
 					session = ?session_index,
 					"Using the following subsystem params"
 				);
-				params
+				Some(params)
 			},
 			Ok(Err(err)) => {
 				gum::debug!(
 					target: LOG_TARGET,
 					?err,
-					"Could not request approval voting params from runtime using defaults"
+					"Could not request approval voting params from runtime"
 				);
-				ApprovalVotingParams { max_approval_coalesce_count: 1 }
+				None
 			},
 			Err(err) => {
 				gum::debug!(
 					target: LOG_TARGET,
 					?err,
-					"Could not request approval voting params from runtime using defaults"
+					"Could not request approval voting params from runtime"
 				);
-				ApprovalVotingParams { max_approval_coalesce_count: 1 }
+				None
 			},
 		}
 	}
@@ -3418,7 +3418,8 @@ async fn maybe_create_signature<Context>(
 
 	let approval_params = state
 		.get_approval_voting_params_or_default(ctx, block_entry.session(), block_hash)
-		.await;
+		.await
+		.unwrap_or_default();
 
 	gum::trace!(
 		target: LOG_TARGET,
@@ -3471,7 +3472,7 @@ async fn maybe_create_signature<Context>(
 	let signature = match sign_approval(
 		&state.keystore,
 		&validator_pubkey,
-		candidates_hashes.clone(),
+		&candidates_hashes,
 		block_entry.session(),
 	) {
 		Some(sig) => sig,
@@ -3541,12 +3542,12 @@ async fn maybe_create_signature<Context>(
 fn sign_approval(
 	keystore: &LocalKeystore,
 	public: &ValidatorId,
-	candidate_hashes: Vec<CandidateHash>,
+	candidate_hashes: &[CandidateHash],
 	session_index: SessionIndex,
 ) -> Option<ValidatorSignature> {
 	let key = keystore.key_pair::<ValidatorPair>(public).ok().flatten()?;
 
-	let payload = ApprovalVoteMultipleCandidates(&candidate_hashes).signing_payload(session_index);
+	let payload = ApprovalVoteMultipleCandidates(candidate_hashes).signing_payload(session_index);
 
 	Some(key.sign(&payload[..]))
 }
