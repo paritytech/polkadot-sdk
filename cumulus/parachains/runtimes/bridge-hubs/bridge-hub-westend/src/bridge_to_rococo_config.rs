@@ -17,10 +17,9 @@
 //! Bridge definitions used on BridgeHub with the Westend flavor.
 
 use crate::{
-	bridge_common_config::DeliveryRewardInBalance, weights, AccountId, BridgeRococoMessages,
-	PolkadotXcm, Runtime, RuntimeEvent, RuntimeOrigin, XcmRouter,
-	xcm_config::UniversalLocation,
-	XcmOverBridgeHubRococo,
+	bridge_common_config::DeliveryRewardInBalance, weights, xcm_config::UniversalLocation,
+	AccountId, BridgeRococoMessages, PolkadotXcm, Runtime, RuntimeEvent, RuntimeOrigin,
+	XcmOverBridgeHubRococo, XcmRouter,
 };
 use bp_messages::LaneId;
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
@@ -32,8 +31,8 @@ use bridge_runtime_common::{
 		MessageBridge, ThisChainWithMessages, UnderlyingChainProvider,
 	},
 	messages_xcm_extension::{
-		XcmVersionOfDestAndRemoteBridge, SenderAndLane, XcmAsPlainPayload,
-		XcmBlobHauler, XcmBlobHaulerAdapter, XcmBlobMessageDispatch,
+		SenderAndLane, XcmAsPlainPayload, XcmBlobHauler, XcmBlobHaulerAdapter,
+		XcmBlobMessageDispatch, XcmVersionOfDestAndRemoteBridge,
 	},
 	refund_relayer_extension::{
 		ActualFeeRefund, RefundBridgedParachainMessages, RefundSignedExtensionAdapter,

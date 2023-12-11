@@ -28,7 +28,10 @@ parameter_types! {
 type TheBridge =
 	TestBridge<BridgeBlobDispatcher<TestRemoteIncomingRouter, RemoteUniversalLocation, ()>>;
 type Router = TestTopic<
-	UnpaidLocalExporter<HaulBlobExporter<TheBridge, RemoteNetwork, AlwaysLatest, Price>, UniversalLocation>,
+	UnpaidLocalExporter<
+		HaulBlobExporter<TheBridge, RemoteNetwork, AlwaysLatest, Price>,
+		UniversalLocation,
+	>,
 >;
 
 /// ```nocompile

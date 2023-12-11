@@ -18,10 +18,10 @@
 
 use crate::{
 	bridge_common_config::{BridgeParachainWestendInstance, DeliveryRewardInBalance},
-	weights, AccountId, BridgeWestendMessages, PolkadotXcm, Runtime, RuntimeEvent,
-	RuntimeOrigin, XcmRouter,
+	weights,
 	xcm_config::UniversalLocation,
-	XcmOverBridgeHubWestend,
+	AccountId, BridgeWestendMessages, PolkadotXcm, Runtime, RuntimeEvent, RuntimeOrigin,
+	XcmOverBridgeHubWestend, XcmRouter,
 };
 use bp_messages::LaneId;
 use bridge_runtime_common::{
@@ -32,8 +32,8 @@ use bridge_runtime_common::{
 		MessageBridge, ThisChainWithMessages, UnderlyingChainProvider,
 	},
 	messages_xcm_extension::{
-		XcmVersionOfDestAndRemoteBridge, SenderAndLane, XcmAsPlainPayload,
-		XcmBlobHauler, XcmBlobHaulerAdapter, XcmBlobMessageDispatch,
+		SenderAndLane, XcmAsPlainPayload, XcmBlobHauler, XcmBlobHaulerAdapter,
+		XcmBlobMessageDispatch, XcmVersionOfDestAndRemoteBridge,
 	},
 	refund_relayer_extension::{
 		ActualFeeRefund, RefundBridgedParachainMessages, RefundSignedExtensionAdapter,
@@ -248,7 +248,8 @@ impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubWestendInstance> for Runtime 
 	type BridgedNetwork = WestendGlobalConsensusNetworkLocation;
 	type BridgeMessagesPalletInstance = WithBridgeHubWestendMessagesInstance;
 	type MessageExportPrice = ();
-	type DestinationVersion = XcmVersionOfDestAndRemoteBridge<PolkadotXcm, BridgeHubWestendLocation>;
+	type DestinationVersion =
+		XcmVersionOfDestAndRemoteBridge<PolkadotXcm, BridgeHubWestendLocation>;
 	type Lanes = ActiveLanes;
 	type LanesSupport = ToBridgeHubWestendXcmBlobHauler;
 }

@@ -111,7 +111,7 @@ pub mod pallet {
 		fn bridged_network_id() -> Option<NetworkId> {
 			match T::BridgedNetwork::get().take_first_interior() {
 				Some(GlobalConsensus(network)) => Some(network),
-				_ => None
+				_ => None,
 			}
 		}
 	}

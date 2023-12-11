@@ -438,7 +438,7 @@ pub struct HaulBlobExporter<Bridge, BridgedNetwork, DestinationVersion, Price>(
 impl<
 		Bridge: HaulBlob,
 		BridgedNetwork: Get<MultiLocation>,
-		DestinationVersion:  GetVersion,
+		DestinationVersion: GetVersion,
 		Price: Get<MultiAssets>,
 	> ExportXcm for HaulBlobExporter<Bridge, BridgedNetwork, DestinationVersion, Price>
 {
@@ -467,10 +467,9 @@ impl<
 		let (universal_dest, version) =
 			match dest.pushed_front_with(GlobalConsensus(bridged_network)) {
 				Ok(d) => {
-					let version = DestinationVersion::get_version_for(&MultiLocation::from(AncestorThen(
-						bridged_network_location_parents,
-						d,
-					)))
+					let version = DestinationVersion::get_version_for(&MultiLocation::from(
+						AncestorThen(bridged_network_location_parents, d),
+					))
 					.ok_or(SendError::DestinationUnsupported)?;
 					(d, version)
 				},
