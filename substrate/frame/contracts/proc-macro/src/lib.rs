@@ -74,7 +74,7 @@ fn derive_debug(input: TokenStream, fmt: impl Fn(&Ident) -> TokenStream2) -> Tok
 	#[cfg(not(feature = "full"))]
 	let fields = {
 		drop(fmt);
-		drop(data);
+		let _ = data;
 		TokenStream2::new()
 	};
 
