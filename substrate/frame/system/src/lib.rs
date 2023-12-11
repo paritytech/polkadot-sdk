@@ -1975,12 +1975,16 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// x
+	/// To be called after any origin/privilege checks. Put the code upgrade authorization into
+	/// storage and emit an event. Infallible.
 	pub fn do_authorize_upgrade(code_hash: T::Hash, check_version: bool) {
 		AuthorizedUpgrade::<T>::put(CodeUpgradeAuthorization { code_hash, check_version });
 		Self::deposit_event(Event::UpgradeAuthorized { code_hash, check_version });
 	}
 
+	/// Apply an authorized upgrade, performing any validation checks, and remove the authorization.
+	/// Whether or not the code is set directly depends on the `OnSetCode` configuration of the
+	/// runtime.
 	pub fn do_apply_authorize_upgrade(code: Vec<u8>) -> Result<PostDispatchInfo, DispatchError> {
 		Self::validate_authorized_upgrade(&code[..])?;
 		T::OnSetCode::set_code(code)?;
