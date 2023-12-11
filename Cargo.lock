@@ -12673,6 +12673,7 @@ dependencies = [
  "sp-transaction-pool",
  "sp-version",
  "staging-xcm",
+ "staking-rococo-runtime",
  "substrate-build-script-utils",
  "substrate-frame-rpc-system",
  "substrate-prometheus-endpoint",

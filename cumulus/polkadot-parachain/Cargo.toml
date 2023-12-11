@@ -33,6 +33,7 @@ contracts-rococo-runtime = { path = "../parachains/runtimes/contracts/contracts-
 bridge-hub-rococo-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-rococo" }
 bridge-hub-westend-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-westend" }
 penpal-runtime = { path = "../parachains/runtimes/testing/penpal" }
+staking-rococo-runtime = { path = "../parachains/runtimes/staking/staking-rococo" }
 jsonrpsee = { version = "0.16.2", features = ["server"] }
 parachains-common = { path = "../parachains/common" }
 
@@ -128,6 +129,7 @@ runtime-benchmarks = [
 	"glutton-westend-runtime/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
 	"penpal-runtime/runtime-benchmarks",
+	"staking-rococo-runtime/runtime-benchmarks",
 	"polkadot-cli/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-service/runtime-benchmarks",
@@ -147,6 +149,7 @@ try-runtime = [
 	"glutton-westend-runtime/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"penpal-runtime/try-runtime",
+	"staking-rococo-runtime/try-runtime",
 	"polkadot-cli/try-runtime",
 	"polkadot-service/try-runtime",
 	"shell-runtime/try-runtime",

@@ -55,6 +55,7 @@ enum Runtime {
 	Glutton,
 	GluttonWestend,
 	BridgeHub(chain_spec::bridge_hubs::BridgeHubRuntimeType),
+	StakingRococo,
 }
 
 trait RuntimeResolver {
@@ -117,6 +118,8 @@ fn runtime(id: &str) -> Runtime {
 		Runtime::GluttonWestend
 	} else if id.starts_with("glutton") {
 		Runtime::Glutton
+	} else if id.starts_with("staking-rococo") {
+		Runtime::StakingRococo
 	} else {
 		log::warn!("No specific runtime was recognized for ChainSpec's id: '{}', so Runtime::default() will be used", id);
 		Runtime::default()
@@ -201,6 +204,10 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 		"contracts-rococo" => Box::new(GenericChainSpec::from_json_bytes(
 			&include_bytes!("../chain-specs/contracts-rococo.json")[..],
 		)?),
+
+		// -- Staking Rococo
+		"staking-rococo-dev" =>
+			Box::new(chain_spec::staking::staking_rococo_development_config()),
 
 		// -- BridgeHub
 		bridge_like_id
@@ -376,6 +383,7 @@ macro_rules! construct_partials {
 			Runtime::AssetHubKusama |
 			Runtime::AssetHubRococo |
 			Runtime::AssetHubWestend |
+			Runtime::StakingRococo |
 			Runtime::BridgeHub(_) |
 			Runtime::CollectivesPolkadot |
 			Runtime::CollectivesWestend => {
@@ -427,6 +435,7 @@ macro_rules! construct_async_run {
 			Runtime::AssetHubWestend |
 			Runtime::AssetHubRococo |
 			Runtime::AssetHubKusama |
+			Runtime::StakingRococo |
 			Runtime::CollectivesPolkadot |
 			Runtime::CollectivesWestend |
 			Runtime::BridgeHub(_) => {
@@ -694,6 +703,13 @@ pub fn run() -> Result<()> {
 							RuntimeApi,
 							AuraId,
 						>(config, polkadot_config, collator_options, id, hwbench)
+						.await
+						.map(|r| r.0)
+						.map_err(Into::into),
+					Runtime::StakingRococo => crate::service::start_generic_aura_node::<
+						RuntimeApi,
+						AuraId,
+					>(config, polkadot_config, collator_options, id, hwbench)
 						.await
 						.map(|r| r.0)
 						.map_err(Into::into),
