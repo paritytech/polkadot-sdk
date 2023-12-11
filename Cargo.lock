@@ -12917,6 +12917,7 @@ dependencies = [
  "pallet-vesting",
  "pallet-xcm-benchmarks",
  "parity-scale-codec",
+ "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
  "polkadot-runtime-parachains",

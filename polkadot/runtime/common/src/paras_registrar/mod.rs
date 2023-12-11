@@ -26,6 +26,7 @@ use frame_support::{
 	traits::{Currency, ExistenceRequirement, Get, ReservableCurrency, WithdrawReasons},
 };
 use frame_system::{self, ensure_root, ensure_signed};
+use polkadot_parachain_primitives::primitives::IsSystem;
 use primitives::{HeadData, Id as ParaId, ValidationCode, LOWEST_PUBLIC_ID};
 use runtime_parachains::{
 	configuration, ensure_parachain,
@@ -946,7 +947,7 @@ impl<T: Config> PreCodeUpgrade for Pallet<T> {
 		let current_deposit = info.deposit;
 
 		let free_upgrade = requirements == UpgradeRequirements::SkipRequirements ||
-			para < LOWEST_PUBLIC_ID ||
+			para.is_system() ||
 			lease_holding;
 
 		match (free_upgrade, info.billing_account.clone()) {

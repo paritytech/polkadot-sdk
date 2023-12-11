@@ -42,6 +42,7 @@ pallet-transaction-payment = { path = "../../../substrate/frame/transaction-paym
 pallet-treasury = { path = "../../../substrate/frame/treasury", default-features = false }
 pallet-asset-rate = { path = "../../../substrate/frame/asset-rate", default-features = false, optional = true }
 pallet-election-provider-multi-phase = { path = "../../../substrate/frame/election-provider-multi-phase", default-features = false }
+polkadot-parachain-primitives = { path = "../../parachain", default-features = false }
 frame-election-provider-support = { path = "../../../substrate/frame/election-provider-support", default-features = false }
 
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
