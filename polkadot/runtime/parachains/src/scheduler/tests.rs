@@ -123,7 +123,7 @@ fn genesis_config(config: &HostConfiguration<BlockNumber>) -> MockGenesisConfig 
 	}
 }
 
-pub(crate) fn claimqueue_contains_para_ids<T: Config>(pids: Vec<ParaId>) -> bool {
+fn claimqueue_contains_para_ids<T: Config>(pids: Vec<ParaId>) -> bool {
 	let set: BTreeSet<ParaId> = ClaimQueue::<T>::get()
 		.into_iter()
 		.flat_map(|(_, paras_entries)| paras_entries.into_iter().map(|pe| pe.assignment.para_id()))
@@ -132,7 +132,7 @@ pub(crate) fn claimqueue_contains_para_ids<T: Config>(pids: Vec<ParaId>) -> bool
 	pids.into_iter().all(|pid| set.contains(&pid))
 }
 
-pub(crate) fn availability_cores_contains_para_ids<T: Config>(pids: Vec<ParaId>) -> bool {
+fn availability_cores_contains_para_ids<T: Config>(pids: Vec<ParaId>) -> bool {
 	let set: BTreeSet<ParaId> = AvailabilityCores::<T>::get()
 		.into_iter()
 		.filter_map(|core| match core {
@@ -145,7 +145,7 @@ pub(crate) fn availability_cores_contains_para_ids<T: Config>(pids: Vec<ParaId>)
 }
 
 /// Internal access to entries at the top of the claim queue.
-pub(crate) fn scheduled_entries(
+fn scheduled_entries(
 ) -> impl Iterator<Item = (CoreIndex, ParasEntry<BlockNumberFor<Test>, TestAssignment>)> {
 	let claimqueue = ClaimQueue::<Test>::get();
 	claimqueue

@@ -362,7 +362,7 @@ fn pop_assignment_for_core_works() {
 		let assignment_b = OnDemandAssignment::new(para_b, CoreIndex(1));
 
 		// Pop should return none with empty queue
-		assert!(OnDemandAssigner::pop_assignment_for_core(CoreIndex(0)) == None);
+		assert_eq!(OnDemandAssigner::pop_assignment_for_core(CoreIndex(0)), None);
 
 		// Add enough assignments to the order queue.
 		for _ in 0..2 {
@@ -378,7 +378,7 @@ fn pop_assignment_for_core_works() {
 			let queue: Vec<EnqueuedOrder> = OnDemandQueue::<Test>::get().into_iter().collect();
 			assert_eq!(
 				queue,
-				vec![order_a.clone(), order_b.clone(), order_a.clone(), order_b.clone(),]
+				vec![order_a.clone(), order_b.clone(), order_a.clone(), order_b.clone()]
 			);
 		}
 
@@ -638,6 +638,6 @@ fn on_demand_orders_cannot_be_popped_if_lifecycle_changes() {
 
 		// Second pop should be None.
 		OnDemandAssigner::report_processed(assignment.clone());
-		assert!(OnDemandAssigner::pop_assignment_for_core(core_index) == None);
+		assert_eq!(OnDemandAssigner::pop_assignment_for_core(core_index), None);
 	});
 }

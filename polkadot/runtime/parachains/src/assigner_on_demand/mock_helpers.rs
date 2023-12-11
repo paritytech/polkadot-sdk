@@ -27,7 +27,7 @@ use crate::{
 
 use primitives::{Balance, HeadData, ValidationCode};
 
-pub fn default_genesis_config() -> MockGenesisConfig {
+fn default_genesis_config() -> MockGenesisConfig {
 	MockGenesisConfig {
 		configuration: crate::configuration::GenesisConfig {
 			config: crate::configuration::HostConfiguration { ..Default::default() },

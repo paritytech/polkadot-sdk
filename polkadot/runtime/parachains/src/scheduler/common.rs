@@ -33,7 +33,7 @@ use crate::configuration::HostConfiguration;
 /// Assignments (ParaId -> CoreIndex) as provided by the assignment provider.
 ///
 /// Assignments themselves are opaque types. Assignment providers can keep necessary state in them,
-/// in order to keep properly keep track of assignments over their lifetime.
+/// in order to properly keep track of assignments over their lifetime.
 pub trait Assignment {
 	/// Para id this assignment refers to.
 	fn para_id(&self) -> ParaId;
