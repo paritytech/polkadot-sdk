@@ -167,9 +167,9 @@ impl Config for Test {
 	type ExchangeOrigin = EitherOf<
 		// Root can exchange arbitrarily.
 		frame_system::EnsureRootWithSuccess<Self::AccountId, ConstU16<65535>>,
-			// Members can exchange up to the rank of 2 below them.
-			MapSuccess<EnsureRanked<Test, (), 2>, ReduceBy<ConstU16<2>>>,
-			>;
+		// Members can exchange up to the rank of 2 below them.
+		MapSuccess<EnsureRanked<Test, (), 2>, ReduceBy<ConstU16<2>>>,
+	>;
 	type Polls = TestPolls;
 	type MinRankOfClass = MinRankOfClass<MinRankOfClassDelta>;
 	type VoteWeight = Geometric;
