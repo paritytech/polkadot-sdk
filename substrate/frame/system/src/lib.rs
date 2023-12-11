@@ -97,6 +97,7 @@ use frame_support::{
 		DispatchResult, DispatchResultWithPostInfo, PerDispatchClass, PostDispatchInfo,
 	},
 	ensure, impl_ensure_origin_with_arg_ignoring_arg,
+	pallet_prelude::Pays,
 	storage::{self, StorageStreamIter},
 	traits::{
 		ConstU32, Contains, EnsureOrigin, EnsureOriginWithArg, Get, HandleLifetime,
@@ -677,7 +678,14 @@ pub mod pallet {
 			Ok(().into())
 		}
 
-		/// Authorize new runtime code.
+		/// Authorize an upgrade to a given `code_hash` for the runtime. The runtime can be supplied
+		/// later.
+		///
+		/// The `check_version` parameter sets a boolean flag for whether or not the runtime's spec
+		/// version and name should be verified on upgrade. Since the authorization only has a hash,
+		/// it cannot actually perform the verification.
+		///
+		/// This call requires Root origin.
 		#[pallet::call_index(9)]
 		#[pallet::weight((T::SystemWeightInfo::authorize_upgrade(), DispatchClass::Operational))]
 		pub fn authorize_upgrade(
@@ -686,27 +694,26 @@ pub mod pallet {
 			check_version: bool,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			AuthorizedUpgrade::<T>::put(CodeUpgradeAuthorization { code_hash, check_version });
-			Self::deposit_event(Event::UpgradeAuthorized { code_hash, check_version });
+			Self::do_authorize_upgrade(code_hash, check_version);
 			Ok(())
 		}
 
-		/// Set new, authorized runtime code.
+		/// Provide the preimage (runtime binary) `code` for an upgrade that has been authorized.
+		///
+		/// If the authorization required a version check, this call will ensure the spec name
+		/// remains unchanged and that the spec version has increased.
+		///
+		/// Depending on the runtime's `OnSetCode` configuration, this function may directly apply
+		/// the new `code` in the same block or attempt to schedule the upgrade.
+		///
+		/// All origins are allowed.
 		#[pallet::call_index(10)]
 		#[pallet::weight((T::SystemWeightInfo::apply_authorized_upgrade(), DispatchClass::Operational))]
 		pub fn apply_authorized_upgrade(
 			_: OriginFor<T>,
 			code: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
-			Self::validate_authorized_upgrade(&code[..])?;
-			T::OnSetCode::set_code(code)?;
-			AuthorizedUpgrade::<T>::kill();
-			let post = PostDispatchInfo {
-				// consume the rest of the block to prevent further transactions
-				actual_weight: Some(T::BlockWeights::get().max_block),
-				// no fee for valid upgrade
-				pays_fee: Pays::No,
-			};
+			let post = Self::do_apply_authorize_upgrade(code)?;
 			Ok(post)
 		}
 	}
@@ -1968,6 +1975,25 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
+	/// x
+	pub fn do_authorize_upgrade(code_hash: T::Hash, check_version: bool) {
+		AuthorizedUpgrade::<T>::put(CodeUpgradeAuthorization { code_hash, check_version });
+		Self::deposit_event(Event::UpgradeAuthorized { code_hash, check_version });
+	}
+
+	pub fn do_apply_authorize_upgrade(code: Vec<u8>) -> Result<PostDispatchInfo, DispatchError> {
+		Self::validate_authorized_upgrade(&code[..])?;
+		T::OnSetCode::set_code(code)?;
+		AuthorizedUpgrade::<T>::kill();
+		let post = PostDispatchInfo {
+			// consume the rest of the block to prevent further transactions
+			actual_weight: Some(T::BlockWeights::get().max_block),
+			// no fee for valid upgrade
+			pays_fee: Pays::No,
+		};
+		Ok(post)
+	}
+
 	/// Return an upgrade authorization, if it exists.
 	pub fn authorized_upgrade() -> Option<CodeUpgradeAuthorization<T>> {
 		AuthorizedUpgrade::<T>::get()
@@ -1975,7 +2001,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Check that provided `code` can be upgraded to. Namely, check that its hash matches an
 	/// existing authorization and that it meets the specification requirements of `can_set_code`.
-	fn validate_authorized_upgrade(code: &[u8]) -> Result<T::Hash, DispatchError> {
+	pub fn validate_authorized_upgrade(code: &[u8]) -> Result<T::Hash, DispatchError> {
 		let authorization = AuthorizedUpgrade::<T>::get().ok_or(Error::<T>::NothingAuthorized)?;
 		let actual_hash = T::Hashing::hash(code);
 		ensure!(actual_hash == authorization.code_hash, Error::<T>::Unauthorized);

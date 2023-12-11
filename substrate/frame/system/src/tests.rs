@@ -686,13 +686,29 @@ fn set_code_via_authorization_works() {
 
 		let runtime = substrate_test_runtime_client::runtime::wasm_binary_unwrap().to_vec();
 		let hash = <mock::Test as pallet::Config>::Hashing::hash(&runtime);
-		assert_ok!(System::authorize_upgrade(RawOrigin::Root.into(), hash, true));
 
+		// Can't apply before authorization
+		assert_noop!(
+			System::apply_authorized_upgrade(RawOrigin::None.into(), runtime.clone()),
+			Error::<Test>::NothingAuthorized,
+		);
+
+		// Can authorize
+		assert_ok!(System::authorize_upgrade(RawOrigin::Root.into(), hash, true));
 		System::assert_has_event(
 			SysEvent::UpgradeAuthorized { code_hash: hash, check_version: true }.into(),
 		);
 		assert!(System::authorized_upgrade().is_some());
 
+		// Can't be sneaky
+		let mut bad_runtime = substrate_test_runtime_client::runtime::wasm_binary_unwrap().to_vec();
+		bad_runtime.extend(b"sneaky");
+		assert_noop!(
+			System::apply_authorized_upgrade(RawOrigin::None.into(), bad_runtime),
+			Error::<Test>::Unauthorized,
+		);
+
+		// Can apply correct runtime
 		assert_ok!(System::apply_authorized_upgrade(RawOrigin::None.into(), runtime));
 		System::assert_has_event(SysEvent::CodeUpdated.into());
 		assert!(System::authorized_upgrade().is_none());
