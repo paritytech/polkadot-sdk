@@ -22,7 +22,7 @@
 use crate::{
 	configuration::{self, HostConfiguration},
 	disputes, dmp, hrmp,
-	paras::{self, PreCodeUpgrade, SetGoAhead},
+	paras::{self, PreCodeUpgrade, SetGoAhead, UpgradeRequirements},
 	scheduler::{self, AvailabilityTimeoutStatus},
 	shared::{self, AllowedRelayParentsTracker},
 };
@@ -885,7 +885,7 @@ impl<T: Config> Pallet<T> {
 			match <T as paras::Config>::PreCodeUpgrade::pre_code_upgrade(
 				receipt.descriptor.para_id,
 				new_code.clone(),
-				false,
+				UpgradeRequirements::EnforceRequirements,
 			) {
 				Ok(consumed_weight) => {
 					weight.saturating_accrue(consumed_weight);

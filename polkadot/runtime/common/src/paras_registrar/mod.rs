@@ -37,7 +37,7 @@ use sp_std::{prelude::*, result};
 use crate::traits::{OnSwap, Registrar};
 pub use pallet::*;
 use parity_scale_codec::{Decode, Encode};
-use runtime_parachains::paras::{OnNewHead, ParaKind};
+use runtime_parachains::paras::{OnNewHead, ParaKind, UpgradeRequirements};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{CheckedSub, Saturating},
@@ -480,11 +480,15 @@ pub mod pallet {
 		) -> DispatchResult {
 			Self::ensure_root_para_or_owner(origin.clone(), para)?;
 
-			// Upgrades initiated by the root origin do not have any upgrade cost-related
-			// requirements. For this reason we can skip all the pre code upgrade checks.
-			let skip_requirements = ensure_root(origin.clone()).is_ok();
+			let requierments = if ensure_root(origin.clone()).is_ok() {
+				// Upgrades initiated by the root origin do not have any upgrade cost-related
+				// requirements. For this reason we can skip all the pre code upgrade checks.
+				UpgradeRequirements::SkipRequirements
+			} else {
+				UpgradeRequirements::EnforceRequirements
+			};
 
-			Self::do_schedule_code_upgrade(para, new_code, skip_requirements)
+			Self::do_schedule_code_upgrade(para, new_code, requierments)
 		}
 
 		/// Set the parachain's current head.
@@ -797,22 +801,22 @@ impl<T: Config> Pallet<T> {
 
 	/// Schedules a code upgrade for a parachain.
 	///
-	/// If `skip_requirements` is set to true all the code upgrade cost related requierments
-	/// will be ignored.
+	/// If `requirements` is set to `UpgradeRequirements::SkipRequirements` all the code upgrade
+	/// cost related requierments will be ignored.
 	///
 	/// If the size of the validation is reduced and the upgrade is successful the caller will be
 	/// eligible for receiving back a portion of their deposit that is no longer required.
 	fn do_schedule_code_upgrade(
 		para: ParaId,
 		new_code: ValidationCode,
-		skip_requirements: bool,
+		requirements: UpgradeRequirements,
 	) -> DispatchResult {
 		// Before doing anything we ensure that a code upgrade is allowed at the moment for the
 		// specific parachain.
 		ensure!(paras::Pallet::<T>::can_upgrade_validation_code(para), Error::<T>::CannotUpgrade);
 
 		ensure!(
-			T::PreCodeUpgrade::pre_code_upgrade(para, new_code.clone(), skip_requirements).is_ok(),
+			T::PreCodeUpgrade::pre_code_upgrade(para, new_code.clone(), requirements).is_ok(),
 			Error::<T>::CannotUpgrade
 		);
 		runtime_parachains::schedule_code_upgrade::<T>(para, new_code, SetGoAhead::No)?;
@@ -908,8 +912,7 @@ impl<T: Config> PreCodeUpgrade for Pallet<T> {
 	/// There are three cases where we do not charge any upgrade costs from the initiator
 	/// of the upgrade:
 	///
-	/// 1. `skip_requirements` is explicitly set to true. This This should occur when the upgrade is
-	///    scheduled by the Root.
+	/// 1. `requirements` is explicitly set to `UpgradeRequirements::SkipRequirements`.
 	///
 	/// 2. System parachains do not pay for upgrade fees.
 	///
@@ -918,7 +921,7 @@ impl<T: Config> PreCodeUpgrade for Pallet<T> {
 	fn pre_code_upgrade(
 		para: ParaId,
 		new_code: ValidationCode,
-		skip_requirements: bool,
+		requirements: UpgradeRequirements,
 	) -> Result<Weight, Weight> {
 		let Some(head) = paras::Pallet::<T>::para_head(para) else {
 			return Err(T::DbWeight::get().reads(1))
@@ -942,40 +945,44 @@ impl<T: Config> PreCodeUpgrade for Pallet<T> {
 
 		let current_deposit = info.deposit;
 
-		let free_upgrade = skip_requirements || para < LOWEST_PUBLIC_ID || lease_holding;
+		let free_upgrade = requirements == UpgradeRequirements::SkipRequirements ||
+			para < LOWEST_PUBLIC_ID ||
+			lease_holding;
 
-		if !free_upgrade && info.billing_account.clone().is_some() {
-			let billing_account = info
-				.billing_account
-				.clone()
-				.expect("Ensured above that the billing account is defined; qed");
+		match (free_upgrade, info.billing_account.clone()) {
+			(false, Some(billing_account)) => {
+				if let Err(_) = <T as Config>::Currency::withdraw(
+					&billing_account,
+					T::UpgradeFee::get(),
+					WithdrawReasons::FEE,
+					ExistenceRequirement::KeepAlive,
+				) {
+					Self::deposit_event(Event::<T>::CodeUpgradeScheduleFailed(
+						CodeUpgradeScheduleError::FailedToPayUpgradeFee,
+					));
+					// This is an overestimate of the used weight, but it's better to be safe than
+					// sorry.
+					return Err(<T as Config>::WeightInfo::pre_code_upgrade())
+				}
 
-			if let Err(_) = <T as Config>::Currency::withdraw(
-				&billing_account,
-				T::UpgradeFee::get(),
-				WithdrawReasons::FEE,
-				ExistenceRequirement::KeepAlive,
-			) {
-				Self::deposit_event(Event::<T>::CodeUpgradeScheduleFailed(
-					CodeUpgradeScheduleError::FailedToPayUpgradeFee,
-				));
-				// This is an overestimate of the used weight, but it's better to be safe than
-				// sorry.
-				return Err(<T as Config>::WeightInfo::pre_code_upgrade())
-			}
+				let additional_deposit = new_deposit.saturating_sub(current_deposit);
+				if let Err(_) =
+					<T as Config>::Currency::reserve(&billing_account, additional_deposit)
+				{
+					Self::deposit_event(Event::<T>::CodeUpgradeScheduleFailed(
+						CodeUpgradeScheduleError::FailedToReserveDeposit,
+					));
+					// This is an overestimate of the used weight, but it's better to be safe than
+					// sorry.
+					return Err(<T as Config>::WeightInfo::pre_code_upgrade())
+				}
 
-			let additional_deposit = new_deposit.saturating_sub(current_deposit);
-			if let Err(_) = <T as Config>::Currency::reserve(&billing_account, additional_deposit) {
-				Self::deposit_event(Event::<T>::CodeUpgradeScheduleFailed(
-					CodeUpgradeScheduleError::FailedToReserveDeposit,
-				));
-				// This is an overestimate of the used weight, but it's better to be safe than
-				// sorry.
-				return Err(<T as Config>::WeightInfo::pre_code_upgrade())
-			}
-
-			// Update the deposit to the new appropriate amount.
-			info.deposit = new_deposit;
+				// Update the deposit to the new appropriate amount.
+				info.deposit = new_deposit;
+			},
+			_ => {
+				// No upgrade costs are required.
+			},
 		}
 
 		if current_deposit > new_deposit {
@@ -1960,7 +1967,7 @@ mod benchmarking {
 			// Actually finish registration process
 			next_scheduled_session::<T>();
 		}: {
-			let _ = T::PreCodeUpgrade::pre_code_upgrade(para, new_small_code, false);
+			let _ = T::PreCodeUpgrade::pre_code_upgrade(para, new_small_code, UpgradeRequirements::EnforceRequirements);
 		}
 
 		on_code_upgrade {

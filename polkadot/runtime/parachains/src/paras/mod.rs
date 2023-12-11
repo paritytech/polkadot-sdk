@@ -415,6 +415,12 @@ enum PvfCheckOutcome {
 	Rejected,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, TypeInfo, Decode, Encode)]
+pub enum UpgradeRequirements {
+	SkipRequirements,
+	EnforceRequirements,
+}
+
 /// This struct describes the current state of an in-progress PVF pre-checking vote.
 #[derive(Encode, Decode, TypeInfo)]
 pub(crate) struct PvfCheckActiveVoteState<BlockNumber> {
@@ -528,15 +534,14 @@ pub trait PreCodeUpgrade {
 	/// This is currently utilized by the registrar pallet to ensure that the necessary validation
 	/// code upgrade costs are covered.
 	///
-	/// `skip_requirements` signals that the pre code upgrade requirements by this function can be
-	/// ignored.
+	/// `requirements` signals whether to enforce the pre code upgrade requirements.
 	///
 	/// As a result, it indicates either the success or failure of executing the pre code upgrade
 	/// scheduling logic. In both cases, it returns the consumed weight.
 	fn pre_code_upgrade(
 		id: ParaId,
 		new_code: ValidationCode,
-		skip_requirements: bool,
+		requirements: UpgradeRequirements,
 	) -> Result<Weight, Weight>;
 }
 
@@ -546,7 +551,7 @@ impl PreCodeUpgrade for () {
 	fn pre_code_upgrade(
 		_id: ParaId,
 		_new_code: ValidationCode,
-		_skip_requirements: bool,
+		_requirements: UpgradeRequirements,
 	) -> Result<Weight, Weight> {
 		Ok(Weight::zero())
 	}
