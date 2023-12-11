@@ -9884,6 +9884,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-examples-pallet-mbm"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+]
+
+[[package]]
+name = "pallet-examples-runtime-mbm"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-examples-pallet-mbm",
+ "pallet-migrations",
+ "parity-scale-codec",
+ "scale-info",
+ "substrate-wasm-builder",
+]
+
+[[package]]
 name = "pallet-fast-unstake"
 version = "4.0.0-dev"
 dependencies = [
