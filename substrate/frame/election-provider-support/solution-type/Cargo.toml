@@ -18,7 +18,7 @@ proc-macro = true
 syn = { version = "2.0.39", features = ["full", "visit"] }
 quote = "1.0.28"
 proc-macro2 = "1.0.56"
-proc-macro-crate = "2.0.0"
+proc-macro-crate = "2.0.1"
 
 [dev-dependencies]
 parity-scale-codec = "3.6.1"
