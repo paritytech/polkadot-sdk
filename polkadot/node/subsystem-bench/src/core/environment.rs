@@ -39,7 +39,7 @@ use tokio::runtime::Handle;
 const LOG_TARGET: &str = "subsystem-bench::environment";
 use super::configuration::TestAuthorities;
 
-const MIB: f64 = 1024.0 * 1024.0;
+const MIB: usize = 1024 * 1024;
 
 /// Test environment/configuration metrics
 #[derive(Clone)]
@@ -60,7 +60,6 @@ impl TestEnvironmentMetrics {
 	pub fn new(registry: &Registry) -> Result<Self, PrometheusError> {
 		let mut buckets = prometheus::exponential_buckets(16384.0, 2.0, 9)
 			.expect("arguments are always valid; qed");
-		buckets.extend(vec![5.0 * MIB, 6.0 * MIB, 7.0 * MIB, 8.0 * MIB, 9.0 * MIB, 10.0 * MIB]);
 
 		Ok(Self {
 			n_validators: prometheus::register(
@@ -318,29 +317,22 @@ impl TestEnvironment {
 	pub fn display_network_usage(&self) {
 		let test_metrics = super::display::parse_metrics(self.registry());
 
-		let node_receive_metrics = test_metrics.subset_with_label_value("peer", "node0");
-		let total_node_received =
-			node_receive_metrics.sum_by("subsystem_benchmark_network_peer_total_bytes_received");
+		let stats = self.network().peer_stats(0);
 
-		let node_send_metrics = test_metrics.subset_with_label_value("peer", "node0");
-		let total_node_sent =
-			node_send_metrics.sum_by("subsystem_benchmark_network_peer_total_bytes_sent");
-
-		let total_node_received = total_node_received / MIB;
-		let total_node_sent = total_node_sent / MIB;
+		let total_node_received = stats.received() / MIB;
+		let total_node_sent = stats.sent() / MIB;
 
 		println!(
 			"\nPayload bytes received from peers: {}, {}",
 			format!("{:.2} MiB total", total_node_received).blue(),
-			format!("{:.2} MiB/block", total_node_received / self.config().num_blocks as f64)
+			format!("{:.2} MiB/block", total_node_received / self.config().num_blocks)
 				.bright_blue()
 		);
 
 		println!(
 			"Payload bytes sent to peers: {}, {}",
 			format!("{:.2} MiB total", total_node_sent).blue(),
-			format!("{:.2} MiB/block", total_node_sent / self.config().num_blocks as f64)
-				.bright_blue()
+			format!("{:.2} MiB/block", total_node_sent / self.config().num_blocks).bright_blue()
 		);
 	}
 

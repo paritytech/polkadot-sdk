@@ -68,7 +68,9 @@ const LOG_TARGET: &str = "subsystem-bench::availability";
 use polkadot_node_primitives::{AvailableData, ErasureChunk};
 
 use super::{cli::TestObjective, core::mock::AlwaysSupportsParachains};
-use polkadot_node_subsystem_test_helpers::mock::new_block_import_info;
+use polkadot_node_subsystem_test_helpers::{
+	derive_erasure_chunks_with_proofs_and_root, mock::new_block_import_info,
+};
 use polkadot_primitives::{
 	AvailabilityBitfield, BlockNumber, CandidateHash, CandidateReceipt, GroupIndex, Hash, HeadData,
 	Header, PersistedValidationData, Signed, SigningContext, ValidatorIndex,
