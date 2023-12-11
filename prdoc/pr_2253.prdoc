@@ -4,7 +4,7 @@
 title: Different builder pattern constructors for XCM
 
 doc:
-  - audience: Core Dev
+  - audience: Runtime Dev
     description: |
       The `builder()` constructor for XCM programs now only allows building messages that pay for fees,
       i.e. messages that would pass the `AllowTopLevelPaidExecutionFrom` barrier.
