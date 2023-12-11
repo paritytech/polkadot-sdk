@@ -15,11 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # V1 spec about runtime abi
+//! # Spec about runtime allocator
 //!
 //! Export the `alloc`/`dealloc`/`realloc` primitive functions inside the runtime to host.
 //!
-//! In runtime crate, must use the following sp-io features:
+//! When enable this crate, the following features will be set:
 //! - disable_allocator
 //! - disable_panic_handler
 //! - disable_oom

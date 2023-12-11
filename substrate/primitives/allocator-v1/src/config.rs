@@ -16,11 +16,10 @@
 // limitations under the License.
 
 use core::alloc::GlobalAlloc;
-use lol_alloc::{AssumeSingleThreaded, FreeListAllocator};
+use dlmalloc::GlobalDlmalloc;
 
 #[global_allocator]
-pub static ALLOCATOR: AssumeSingleThreaded<FreeListAllocator> =
-	unsafe { AssumeSingleThreaded::new(FreeListAllocator::new()) };
+pub static ALLOCATOR: GlobalDlmalloc = GlobalDlmalloc;
 
 #[no_mangle]
 unsafe fn alloc(size: usize) -> *mut u8 {
@@ -61,7 +60,6 @@ pub fn panic(info: &core::panic::PanicInfo) -> ! {
 	}
 }
 
-
 /// A default OOM handler for WASM environment.
 #[cfg(all(not(feature = "disable_oom"), enable_alloc_error_handler))]
 #[alloc_error_handler]
@@ -72,7 +70,11 @@ pub fn oom(_layout: core::alloc::Layout) -> ! {
 	}
 	#[cfg(not(feature = "improved_panic_error_reporting"))]
 	{
-		sp_io::logging::log(sp_core::LogLevel::Error, "runtime", b"Runtime memory exhausted. Aborting");
+		sp_io::logging::log(
+			sp_core::LogLevel::Error,
+			"runtime",
+			b"Runtime memory exhausted. Aborting",
+		);
 		core::arch::wasm32::unreachable();
 	}
 }

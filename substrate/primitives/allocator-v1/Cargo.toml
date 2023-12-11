@@ -14,7 +14,7 @@ readme = "README.md"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-lol_alloc = { version = "0.4", optional = true }
+dlmalloc = { version = "0.2.4", optional = true, features = ["global"] }
 
 sp-io = { path = "../io", default-features = false }
 sp-std = { path = "../std", default-features = false }
@@ -31,7 +31,7 @@ std = [
 improved_panic_error_reporting = []
 
 allocator-v1 = [
-	"dep:lol_alloc",
+	"dep:dlmalloc",
 	"sp-io/disable_allocator",
 	"sp-io/disable_panic_handler",
 	"sp-io/disable_oom",
