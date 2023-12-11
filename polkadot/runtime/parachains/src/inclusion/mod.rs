@@ -901,8 +901,8 @@ impl<T: Config> Pallet<T> {
 				Err(consumed_weight) => {
 					log::debug!(
 						target: LOG_TARGET,
-						"Failed to schedule a code upgrade for paraID: {}",
-						receipt.descriptor.para_id,
+						"Failed to schedule a code upgrade for parachain {}",
+						u32::from(receipt.descriptor.para_id),
 					);
 					weight.saturating_accrue(consumed_weight);
 				},

@@ -48,7 +48,7 @@ use xcm_executor::traits::ConvertLocation;
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, TypeInfo)]
 pub struct ParaInfo<Account, Balance> {
-	/// The account that has placed a deposit for registering this para.
+	/// The account that has initially placed a deposit for registering this para.
 	///
 	/// The given account ID is responsible for registering the code and initial head data, but may
 	/// only do so if it isn't yet registered. (After that, it's up to governance to do so.)
@@ -58,22 +58,17 @@ pub struct ParaInfo<Account, Balance> {
 	/// Whether the para registration should be locked from being controlled by the manager.
 	/// None means the lock had not been explicitly set, and should be treated as false.
 	locked: Option<bool>,
-	/// The billing account of a parachain. This account is responsible for holding the required
-	/// deposit for this registered parachain.
+	/// The billing account for a parachain. This account is responsible for holding the required
+	/// deposit and covering all associated costs related to scheduling parachain validation code
+	/// upgrades.
 	///
-	/// This account will be responsible for covering all associated costs related to performing
-	/// parachain validation code upgrades.
+	/// This account must be explicitly set using the `set_parachain_billing_account_to_self`
+	/// extrinsic
 	///
-	/// When a parachain is newly registered, this will be set to the parachain manager. However,
-	/// at a later point, this can be updated by calling the
-	/// `set_parachain_billing_account_to_self` extrinsic.
-	///
-	/// None indicates that the billing account hasn't been set, which is the case for all legacy
-	/// parachains. Attempting to schedule a parachain upgrade will fail if the billing account is
-	/// set to None, except in the case where the parachain is a lease-holding parachain.
+	/// None indicates that the billing account hasn't been set, and attempting to schedule a
+	/// parachain upgrade will result in failure.
 	billing_account: Option<Account>,
-	/// In case there is a pending refund for the current billing account, this stores information
-	/// about the amount that will be refunded upon a successful code upgrade.
+	/// The deposit that will be refunded upon a successful code upgrade.
 	pending_deposit_refund: Option<Balance>,
 }
 
@@ -724,7 +719,7 @@ impl<T: Config> Pallet<T> {
 			manager: who.clone(),
 			deposit,
 			locked: None,
-			billing_account: Some(who.clone()),
+			billing_account: None,
 			pending_deposit_refund: None,
 		};
 
@@ -765,7 +760,7 @@ impl<T: Config> Pallet<T> {
 			manager: who.clone(),
 			deposit,
 			locked: None,
-			billing_account: Some(who.clone()),
+			billing_account: None,
 			pending_deposit_refund: None,
 		};
 
@@ -903,9 +898,9 @@ impl<T: Config> OnNewHead for Pallet<T> {
 }
 
 impl<T: Config> PreCodeUpgrade for Pallet<T> {
-	/// Ensures that all upgrade-related costs are covered for the specific parachain.
+	/// Ensures that all upgrade-related costs are covered for the specific parachain. Upon success,
+	/// it updates the deposit-related state for the parachain.
 	///
-	/// Upon success, it updates the deposit-related state for the parachain.
 	/// There are three cases where we do not charge any upgrade costs from the initiator
 	/// of the upgrade:
 	///
@@ -1017,7 +1012,7 @@ impl<T: Config> OnCodeUpgrade for Pallet<T> {
 					who: billing_account,
 					amount: rebate,
 				});
-				return T::DbWeight::get().reads_writes(2, 2)
+				return T::DbWeight::get().reads_writes(2, 2) // FIXME: This is inaccurate weight 
 			}
 		}
 
