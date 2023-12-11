@@ -1361,8 +1361,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93f2635620bf0b9d4576eb7bb9a38a55df78bd1205d26fa994b25911a69f212f"
 dependencies = [
  "bitcoin_hashes",
- "rand 0.7.3",
- "rand_core 0.5.1",
+ "rand 0.8.5",
+ "rand_core 0.6.4",
  "serde",
  "unicode-normalization",
 ]
@@ -8797,9 +8797,9 @@ dependencies = [
 
 [[package]]
 name = "num-traits"
-version = "0.2.16"
+version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f30b0abd723be7e2ffca1272140fac1a2f084c77ec3e123c192b66af1ee9e6c2"
+checksum = "39e3200413f237f41ab11ad6d161bc7239c84dcb631773ccd7de3dfe4b5c267c"
 dependencies = [
  "autocfg",
  "libm",
@@ -17687,7 +17687,6 @@ dependencies = [
 name = "sp-keyring"
 version = "24.0.0"
 dependencies = [
- "lazy_static",
  "sp-core",
  "sp-runtime",
  "strum",
@@ -19951,7 +19950,7 @@ checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
  "cfg-if",
  "digest 0.10.7",
- "rand 0.7.3",
+ "rand 0.8.5",
  "static_assertions",
 ]
 
