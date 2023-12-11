@@ -197,7 +197,7 @@ impl MatchesLocalAndForeignAssetsLocation<xcm::v3::Location>
 {
 	fn is_local(location: &xcm::v3::Location) -> bool {
 		use assets_common::fungible_conversion::MatchesLocation;
-		let latest_location: Location = if let Ok(location) = (*location).clone().try_into() {
+		let latest_location: Location = if let Ok(location) = (*location).try_into() {
 			location
 		} else {
 			return false;
@@ -206,7 +206,7 @@ impl MatchesLocalAndForeignAssetsLocation<xcm::v3::Location>
 	}
 	fn is_foreign(location: &xcm::v3::Location) -> bool {
 		use assets_common::fungible_conversion::MatchesLocation;
-		let latest_location: Location = if let Ok(location) = (*location).clone().try_into() {
+		let latest_location: Location = if let Ok(location) = (*location).try_into() {
 			location
 		} else {
 			return false;
