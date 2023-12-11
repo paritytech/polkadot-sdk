@@ -5,6 +5,7 @@ error: unused import: `frame_system::pallet_prelude::OriginFor`
    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = note: `-D unused-imports` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(unused_imports)]`
 
 error[E0689]: can't call method `map` on ambiguous numeric type `{integer}`
   --> tests/pallet_ui/task_invalid_list.rs:18:1
