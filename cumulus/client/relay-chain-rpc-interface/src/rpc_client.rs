@@ -32,8 +32,7 @@ use cumulus_primitives_core::{
 	relay_chain::{
 		async_backing::{AsyncBackingParams, BackingState},
 		slashing,
-		vstaging::ApprovalVotingParams,
-		vstaging::NodeFeatures,
+		vstaging::{ApprovalVotingParams, NodeFeatures},
 		BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
 		CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo,
 		Hash as RelayHash, Header as RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption,
