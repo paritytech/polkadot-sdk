@@ -701,18 +701,6 @@ mod test {
 		client
 	}
 
-	fn single_action<B: BlockT, Client>(warp_sync: &mut WarpSync<B, Client>) -> WarpSyncAction<B>
-	where
-		B: BlockT,
-		Client: HeaderBackend<B> + 'static,
-	{
-		let mut actions = warp_sync.actions().collect::<Vec<_>>();
-		if actions.len() != 1 {
-			panic!("Got {} actions (1 expected).", actions.len());
-		}
-		actions.pop().unwrap()
-	}
-
 	#[test]
 	fn warp_sync_with_provider_for_db_with_finalized_state_is_noop() {
 		let client = mock_client_with_state();
@@ -736,7 +724,9 @@ mod test {
 		let mut warp_sync = WarpSync::new(Arc::new(client), config);
 
 		// Warp sync instantly finishes
-		assert!(matches!(single_action(&mut warp_sync), WarpSyncAction::Finished));
+		let actions = warp_sync.actions().collect::<Vec<_>>();
+		assert_eq!(actions.len(), 1);
+		assert!(matches!(actions[0], WarpSyncAction::Finished));
 
 		// ... with no result.
 		assert!(warp_sync.take_result().is_none());

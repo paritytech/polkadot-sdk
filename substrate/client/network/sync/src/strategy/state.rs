@@ -230,7 +230,6 @@ where
 						target: LOG_TARGET,
 						"State sync failed. Falling back to full sync.",
 					);
-					// TODO: Test this scenario.
 				},
 			}
 			self.actions.push(StateStrategyAction::Finished);
@@ -316,5 +315,102 @@ where
 		self.actions.extend(state_request);
 
 		std::mem::take(&mut self.actions).into_iter()
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+	use sc_block_builder::BlockBuilderBuilder;
+	use sp_runtime::traits::Zero;
+	use substrate_test_runtime_client::{
+		runtime::{Block, Hash},
+		BlockBuilderExt, DefaultTestClientBuilderExt, TestClientBuilder, TestClientBuilderExt,
+	};
+
+	#[test]
+	fn no_peer_is_scheduled_if_no_peers_connected() {
+		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
+		let target_block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().best_hash)
+			.with_parent_block_number(client.chain_info().best_number)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		let target_header = target_block.header().clone();
+
+		let mut state_strategy =
+			StateStrategy::new(client, target_header, None, None, false, std::iter::empty());
+
+		assert!(state_strategy
+			.schedule_next_peer(PeerState::DownloadingState, Zero::zero())
+			.is_none());
+	}
+
+	#[test]
+	fn at_least_median_synced_peer_is_scheduled() {
+		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
+		let target_block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().best_hash)
+			.with_parent_block_number(client.chain_info().best_number)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+
+		for _ in 0..100 {
+			let peers = (1..=10)
+				.map(|best_number| (PeerId::random(), best_number))
+				.collect::<HashMap<_, _>>();
+			let initial_peers = peers.iter().map(|(p, n)| (p.clone(), n.clone()));
+
+			let mut state_strategy = StateStrategy::new(
+				client.clone(),
+				target_block.header().clone(),
+				None,
+				None,
+				false,
+				initial_peers,
+			);
+
+			let peer_id =
+				state_strategy.schedule_next_peer(PeerState::DownloadingState, Zero::zero());
+			assert!(*peers.get(&peer_id.unwrap()).unwrap() >= 6);
+		}
+	}
+
+	#[test]
+	fn min_best_number_peer_is_scheduled() {
+		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
+		let target_block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().best_hash)
+			.with_parent_block_number(client.chain_info().best_number)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+
+		for _ in 0..10 {
+			let peers = (1..=10)
+				.map(|best_number| (PeerId::random(), best_number))
+				.collect::<HashMap<_, _>>();
+			let initial_peers = peers.iter().map(|(p, n)| (p.clone(), n.clone()));
+
+			let mut state_strategy = StateStrategy::new(
+				client.clone(),
+				target_block.header().clone(),
+				None,
+				None,
+				false,
+				initial_peers,
+			);
+
+			let peer_id = state_strategy.schedule_next_peer(PeerState::DownloadingState, 10);
+			assert!(*peers.get(&peer_id.unwrap()).unwrap() == 10);
+		}
 	}
 }
