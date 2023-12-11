@@ -32,8 +32,8 @@ sp-core-hashing = { path = "../../../primitives/core/hashing", default-features 
 regex = "1"
 
 [features]
-default = [ "std" ]
-std = [ "sp-core-hashing/std" ]
+default = ["std"]
+std = ["sp-core-hashing/std"]
 no-metadata-docs = []
 # Generate impl-trait for tuples with the given number of tuples. Will be needed as the number of
 # pallets in a runtime grows. Does increase the compile time!
