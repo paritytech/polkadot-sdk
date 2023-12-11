@@ -395,7 +395,7 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 			assert_ok!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::force_create(
 					RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::root_origin(),
-					foreign_asset_id_location.clone().into(),
+					foreign_asset_id_location.into(),
 					sovereign_account_as_owner_of_foreign_asset.clone().into(),
 					true, // is_sufficient=true
 					foreign_asset_id_minimum_balance.into()
@@ -419,28 +419,28 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 			// ForeignAssets balances before
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_location.clone().into(),
+					foreign_asset_id_location.into(),
 					&target_account
 				),
 				0.into()
 			);
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_location.clone().into(),
+					foreign_asset_id_location.into(),
 					&block_author_account
 				),
 				0.into()
 			);
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_location.clone().into(),
+					foreign_asset_id_location.into(),
 					&staking_pot
 				),
 				0.into()
 			);
 
 			let foreign_asset_id_location_latest: Location =
-				foreign_asset_id_location.clone().try_into().unwrap();
+				foreign_asset_id_location.try_into().unwrap();
 
 			let expected_assets = Assets::from(vec![Asset {
 				id: AssetId(foreign_asset_id_location_latest.clone()),
@@ -499,7 +499,7 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 			// author actual balance after (received fees from Trader for ForeignAssets)
 			let author_received_fees =
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_location.clone().into(),
+					foreign_asset_id_location.into(),
 					&block_author_account,
 				);
 
@@ -520,14 +520,14 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 			// ForeignAssets balances after
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_location.clone().into(),
+					foreign_asset_id_location.into(),
 					&target_account
 				),
 				(transfered_foreign_asset_id_amount - author_received_fees.into()).into()
 			);
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_location.clone().into(),
+					foreign_asset_id_location.into(),
 					&block_author_account
 				),
 				author_received_fees
