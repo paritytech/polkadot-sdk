@@ -11,7 +11,7 @@
 //! compilation targets.
 //!
 //! Merkle Tree is constructed from arbitrary-length leaves, that are initially hashed using the
-//! same [Hasher] as the inner nodes.
+//! same `\[`Hasher`\]` as the inner nodes.
 //! Inner nodes are created by concatenating child hashes and hashing again. The implementation
 //! does not perform any sorting of the input data (leaves) nor when inner nodes are created.
 //!
