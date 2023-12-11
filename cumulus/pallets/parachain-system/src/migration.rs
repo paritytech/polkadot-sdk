@@ -45,45 +45,9 @@ impl<T: Config> OnRuntimeUpgrade for Migration<T> {
 			StorageVersion::new(2).put::<Pallet<T>>();
 		}
 
-		// if StorageVersion::get::<Pallet<T>>() == 2 {
-		// 	weight = weight
-		// 		.saturating_add(v3::migrate::<T>())
-		// 		.saturating_add(T::DbWeight::get().writes(1));
-		// 	StorageVersion::new(3).put::<Pallet<T>>();
-		// }
-
 		weight
 	}
 }
-
-// todo: how to make it aware of a storage item that doesn't exist anymore? do we just need to keep
-// this storage item here for another release cycle, or is is there a better way?
-// ```
-// error[E0433]: failed to resolve: use of undeclared type `AuthorizedUpgrade`
-//   --> cumulus/pallets/parachain-system/src/migration.rs:77:37
-//    |
-// 77 |         if let Some(authorized_upgrade) = AuthorizedUpgrade::<T>::take() {
-//    |                                           ^^^^^^^^^^^^^^^^^ use of undeclared type `AuthorizedUpgrade`
-
-// For more information about this error, try `rustc --explain E0433`.
-// ```
-
-// /// V3: Deprecation of parachain-system's upgrade authorization.
-// mod v3 {
-// 	use super::*;
-
-// 	pub fn migrate<T: Config>() -> Weight {
-// 		let mut weight = T::DbWeight::get().reads(1);
-// 		if let Some(authorized_upgrade) = AuthorizedUpgrade::<T>::take() {
-// 			frame_system::Pallet::<T>::do_authorize_upgrade(
-// 				authorized_upgrade.code_hash,
-// 				authorized_upgrade.check_version,
-// 			);
-// 			weight.saturating_add(T::DbWeight::get().writes(1));
-// 		}
-// 		weight
-// 	}
-// }
 
 /// V2: Migrate to 2D weights for ReservedXcmpWeightOverride and ReservedDmpWeightOverride.
 mod v2 {
