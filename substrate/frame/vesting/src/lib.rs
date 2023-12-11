@@ -414,7 +414,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			if schedule1_index == schedule2_index {
-				return Ok(());
+				return Ok(())
 			};
 			let schedule1_index = schedule1_index as usize;
 			let schedule2_index = schedule2_index as usize;
@@ -522,7 +522,7 @@ impl<T: Config> Pallet<T> {
 		// Validate user inputs.
 		ensure!(schedule.locked() >= T::MinVestedTransfer::get(), Error::<T>::AmountLow);
 		if !schedule.is_valid() {
-			return Err(Error::<T>::InvalidScheduleParams.into());
+			return Err(Error::<T>::InvalidScheduleParams.into())
 		};
 		let target = T::Lookup::lookup(target)?;
 		let source = T::Lookup::lookup(source)?;
@@ -717,13 +717,13 @@ where
 		starting_block: BlockNumberFor<T>,
 	) -> DispatchResult {
 		if locked.is_zero() {
-			return Ok(());
+			return Ok(())
 		}
 
 		let vesting_schedule = VestingInfo::new(locked, per_block, starting_block);
 		// Check for `per_block` or `locked` of 0.
 		if !vesting_schedule.is_valid() {
-			return Err(Error::<T>::InvalidScheduleParams.into());
+			return Err(Error::<T>::InvalidScheduleParams.into())
 		};
 
 		let mut schedules = Self::vesting(who).unwrap_or_default();
@@ -751,7 +751,7 @@ where
 	) -> DispatchResult {
 		// Check for `per_block` or `locked` of 0.
 		if !VestingInfo::new(locked, per_block, starting_block).is_valid() {
-			return Err(Error::<T>::InvalidScheduleParams.into());
+			return Err(Error::<T>::InvalidScheduleParams.into())
 		}
 
 		ensure!(

@@ -216,7 +216,7 @@ pub struct OriginPrivilegeCmp;
 impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
 	fn cmp_privilege(left: &OriginCaller, right: &OriginCaller) -> Option<Ordering> {
 		if left == right {
-			return Some(Ordering::Equal);
+			return Some(Ordering::Equal)
 		}
 
 		match (left, right) {
@@ -2407,7 +2407,7 @@ mod remote_tests {
 	#[tokio::test]
 	async fn run_migrations() {
 		if var("RUN_MIGRATION_TESTS").is_err() {
-			return;
+			return
 		}
 
 		sp_tracing::try_init_simple();
