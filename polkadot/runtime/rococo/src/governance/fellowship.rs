@@ -343,11 +343,11 @@ impl pallet_ranked_collective::Config<FellowshipCollectiveInstance> for Runtime 
 	// - a vote by the rank *above* the new rank.
 	type ExchangeOrigin = EitherOf<
 		frame_system::EnsureRootWithSuccess<Self::AccountId, ConstU16<65535>>,
-			EitherOf<
-				MapSuccess<FellowshipAdmin, Replace<ConstU16<9>>>,
-					TryMapSuccess<origins::EnsureFellowship, CheckedReduceBy<ConstU16<1>>>,
-					>,
-					>;
+		EitherOf<
+			MapSuccess<FellowshipAdmin, Replace<ConstU16<9>>>,
+			TryMapSuccess<origins::EnsureFellowship, CheckedReduceBy<ConstU16<1>>>,
+		>,
+	>;
 	type Polls = FellowshipReferenda;
 	type MinRankOfClass = sp_runtime::traits::Identity;
 	type VoteWeight = pallet_ranked_collective::Geometric;
