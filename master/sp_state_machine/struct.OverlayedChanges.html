@@ -39,7 +39,7 @@ is no open transaction that can be committed.</p>
 <p>This protects all existing transactions from being removed by the runtime.
 Calling this while already inside the runtime will return an error.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.exit_runtime" class="method"><a class="src rightside" href="../src/sp_state_machine/overlayed_changes/mod.rs.html#503-515">source</a><h4 class="code-header">pub fn <a href="#method.exit_runtime" class="fn">exit_runtime</a>(&amp;mut self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.74.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.74.0/std/primitive.unit.html">()</a>, NotInRuntime&gt;</h4></section></summary><div class="docblock"><p>Call this when control returns from the runtime.</p>
-<p>This commits all dangling transaction left open by the runtime.
+<p>This rollbacks all dangling transaction left open by the runtime.
 Calling this while outside the runtime will return an error.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.offchain_drain_committed" class="method"><a class="src rightside" href="../src/sp_state_machine/overlayed_changes/mod.rs.html#523-527">source</a><h4 class="code-header">pub fn <a href="#method.offchain_drain_committed" class="fn">offchain_drain_committed</a>(
     &amp;mut self

@@ -1999,6 +1999,11 @@
 <a href="#1999" id="1999">1999</a>
 <a href="#2000" id="2000">2000</a>
 <a href="#2001" id="2001">2001</a>
+<a href="#2002" id="2002">2002</a>
+<a href="#2003" id="2003">2003</a>
+<a href="#2004" id="2004">2004</a>
+<a href="#2005" id="2005">2005</a>
+<a href="#2006" id="2006">2006</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3919,6 +3924,11 @@
 
 	<span class="kw">fn </span>current_block_number() -&gt; <span class="self">Self</span>::BlockNumber {
 		Pallet::&lt;T&gt;::block_number()
+	}
+
+	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="kw">fn </span>set_block_number(n: BlockNumberFor&lt;T&gt;) {
+		<span class="self">Self</span>::set_block_number(n)
 	}
 }
 

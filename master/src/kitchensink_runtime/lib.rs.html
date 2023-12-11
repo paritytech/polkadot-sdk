@@ -2881,6 +2881,7 @@
 <a href="#2881" id="2881">2881</a>
 <a href="#2882" id="2882">2882</a>
 <a href="#2883" id="2883">2883</a>
+<a href="#2884" id="2884">2884</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4435,6 +4436,7 @@
 	<span class="kw">type </span>MinVestedTransfer = MinVestedTransfer;
 	<span class="kw">type </span>WeightInfo = pallet_vesting::weights::SubstrateWeight&lt;Runtime&gt;;
 	<span class="kw">type </span>UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
+	<span class="kw">type </span>BlockNumberProvider = System;
 	<span class="comment">// `VestingInfo` encode length is 36bytes. 28 schedules gets encoded as 1009 bytes, which is the
 	// highest number of schedules that encodes less than 2^10.
 	</span><span class="kw">const </span>MAX_VESTING_SCHEDULES: u32 = <span class="number">28</span>;

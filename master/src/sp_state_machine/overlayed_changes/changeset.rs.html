@@ -1153,7 +1153,7 @@
 
 	<span class="doccomment">/// Call this when control returns from the runtime.
 	///
-	/// This commits all dangling transaction left open by the runtime.
+	/// This rollbacks all dangling transaction left open by the runtime.
 	/// Calling this while already outside the runtime will return an error.
 	</span><span class="kw">pub fn </span>exit_runtime(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), NotInRuntime&gt; {
 		<span class="kw">if let </span>ExecutionMode::Client = <span class="self">self</span>.execution_mode {
