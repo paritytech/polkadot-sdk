@@ -32,7 +32,6 @@ use bridge_to_rococo_config::{
 };
 use codec::{Decode, Encode};
 use frame_support::{dispatch::GetDispatchInfo, parameter_types};
-use frame_system::pallet_prelude::HeaderFor;
 use parachains_common::{westend::fee::WeightToFee, AccountId, AuraId, Balance};
 use sp_keyring::AccountKeyring::Alice;
 use sp_runtime::{
@@ -52,13 +51,16 @@ fn construct_extrinsic(
 	sender: sp_keyring::AccountKeyring,
 	call: RuntimeCall,
 ) -> UncheckedExtrinsic {
+	let account_id = AccountId32::from(sender.public());
 	let extra: SignedExtra = (
 		frame_system::CheckNonZeroSender::<Runtime>::new(),
 		frame_system::CheckSpecVersion::<Runtime>::new(),
 		frame_system::CheckTxVersion::<Runtime>::new(),
 		frame_system::CheckGenesis::<Runtime>::new(),
 		frame_system::CheckEra::<Runtime>::from(Era::immortal()),
-		frame_system::CheckNonce::<Runtime>::from(0),
+		frame_system::CheckNonce::<Runtime>::from(
+			frame_system::Pallet::<Runtime>::account(&account_id).nonce
+		),
 		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
 		BridgeRejectObsoleteHeadersAndMessages::default(),
@@ -68,7 +70,7 @@ fn construct_extrinsic(
 	let signature = payload.using_encoded(|e| sender.sign(e));
 	UncheckedExtrinsic::new_signed(
 		call,
-		AccountId32::from(sender.public()).into(),
+		account_id.into(),
 		Signature::Sr25519(signature.clone()),
 		extra,
 	)
@@ -76,10 +78,9 @@ fn construct_extrinsic(
 
 fn construct_and_apply_extrinsic(
 	relayer_at_target: sp_keyring::AccountKeyring,
-	batch: pallet_utility::Call<Runtime>,
+	call: RuntimeCall,
 ) -> sp_runtime::DispatchOutcome {
-	let batch_call = RuntimeCall::Utility(batch);
-	let xt = construct_extrinsic(relayer_at_target, batch_call);
+	let xt = construct_extrinsic(relayer_at_target, call);
 	let r = Executive::apply_extrinsic(xt);
 	r.unwrap()
 }
@@ -89,10 +90,6 @@ fn construct_and_estimate_extrinsic_fee(batch: pallet_utility::Call<Runtime>) ->
 	let batch_info = batch_call.get_dispatch_info();
 	let xt = construct_extrinsic(Alice, batch_call);
 	TransactionPayment::compute_fee(xt.encoded_size() as _, &batch_info, 0)
-}
-
-fn executive_init_block(header: &HeaderFor<Runtime>) {
-	Executive::initialize_block(header)
 }
 
 fn collator_session_keys() -> bridge_hub_test_utils::CollatorSessionKeys<Runtime> {
@@ -221,10 +218,9 @@ fn message_dispatch_routing_works() {
 
 #[test]
 fn relayed_incoming_message_works() {
-	bridge_hub_test_utils::test_cases::relayed_incoming_message_works::<
+	bridge_hub_test_utils::test_cases::from_parachain::relayed_incoming_message_works::<
 		Runtime,
 		AllPalletsWithoutSystem,
-		XcmConfig,
 		ParachainSystem,
 		BridgeGrandpaRococoInstance,
 		BridgeParachainRococoInstance,
@@ -234,16 +230,18 @@ fn relayed_incoming_message_works() {
 		collator_session_keys(),
 		bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
 		bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
+		BridgeHubRococoChainId::get(),
 		SIBLING_PARACHAIN_ID,
 		Westend,
 		XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO,
 		|| (),
+		construct_and_apply_extrinsic
 	)
 }
 
 #[test]
 pub fn complex_relay_extrinsic_works() {
-	bridge_hub_test_utils::test_cases::complex_relay_extrinsic_works::<
+	bridge_hub_test_utils::test_cases::from_parachain::complex_relay_extrinsic_works::<
 		Runtime,
 		AllPalletsWithoutSystem,
 		XcmConfig,
@@ -260,10 +258,8 @@ pub fn complex_relay_extrinsic_works() {
 		BridgeHubRococoChainId::get(),
 		Westend,
 		XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO,
-		ExistentialDeposit::get(),
-		executive_init_block,
-		construct_and_apply_extrinsic,
 		|| (),
+		construct_and_apply_extrinsic,
 	);
 }
 
@@ -287,7 +283,7 @@ pub fn can_calculate_weight_for_paid_export_message_with_reserve_transfer() {
 
 #[test]
 pub fn can_calculate_fee_for_complex_message_delivery_transaction() {
-	let estimated = bridge_hub_test_utils::test_cases::can_calculate_fee_for_complex_message_delivery_transaction::<
+	let estimated = bridge_hub_test_utils::test_cases::from_parachain::can_calculate_fee_for_complex_message_delivery_transaction::<
 		Runtime,
 		BridgeGrandpaRococoInstance,
 		BridgeParachainRococoInstance,
@@ -310,7 +306,7 @@ pub fn can_calculate_fee_for_complex_message_delivery_transaction() {
 
 #[test]
 pub fn can_calculate_fee_for_complex_message_confirmation_transaction() {
-	let estimated = bridge_hub_test_utils::test_cases::can_calculate_fee_for_complex_message_confirmation_transaction::<
+	let estimated = bridge_hub_test_utils::test_cases::from_parachain::can_calculate_fee_for_complex_message_confirmation_transaction::<
 		Runtime,
 		BridgeGrandpaRococoInstance,
 		BridgeParachainRococoInstance,
