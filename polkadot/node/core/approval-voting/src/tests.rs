@@ -20,7 +20,7 @@ use crate::backend::V1ReadBackend;
 use polkadot_node_primitives::{
 	approval::{
 		v1::{
-			AssignmentCert, AssignmentCertKind, DelayTranche, VrfOutput, VrfProof, VrfSignature,
+			AssignmentCert, AssignmentCertKind, DelayTranche, VrfPreOutput, VrfProof, VrfSignature,
 			RELAY_VRF_MODULO_CONTEXT,
 		},
 		v2::{AssignmentCertKindV2, AssignmentCertV2},
@@ -37,8 +37,8 @@ use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_overseer::HeadSupportsParachains;
 use polkadot_primitives::{
-	CandidateCommitments, CandidateEvent, CoreIndex, GroupIndex, Header, Id as ParaId, IndexedVec,
-	ValidationCode, ValidatorSignature,
+	vstaging::NodeFeatures, CandidateCommitments, CandidateEvent, CoreIndex, GroupIndex, Header,
+	Id as ParaId, IndexedVec, ValidationCode, ValidatorSignature,
 };
 use std::time::Duration;
 
@@ -243,6 +243,7 @@ where
 			polkadot_primitives::CoreIndex,
 			polkadot_primitives::GroupIndex,
 		)>,
+		_enable_assignments_v2: bool,
 	) -> HashMap<polkadot_primitives::CoreIndex, criteria::OurAssignment> {
 		self.0()
 	}
@@ -415,9 +416,12 @@ fn garbage_assignment_cert(kind: AssignmentCertKind) -> AssignmentCert {
 	let mut prng = rand_core::OsRng;
 	let keypair = schnorrkel::Keypair::generate_with(&mut prng);
 	let (inout, proof, _) = keypair.vrf_sign(ctx.bytes(msg));
-	let out = inout.to_output();
+	let preout = inout.to_output();
 
-	AssignmentCert { kind, vrf: VrfSignature { output: VrfOutput(out), proof: VrfProof(proof) } }
+	AssignmentCert {
+		kind,
+		vrf: VrfSignature { pre_output: VrfPreOutput(preout), proof: VrfProof(proof) },
+	}
 }
 
 fn garbage_assignment_cert_v2(kind: AssignmentCertKindV2) -> AssignmentCertV2 {
@@ -426,9 +430,12 @@ fn garbage_assignment_cert_v2(kind: AssignmentCertKindV2) -> AssignmentCertV2 {
 	let mut prng = rand_core::OsRng;
 	let keypair = schnorrkel::Keypair::generate_with(&mut prng);
 	let (inout, proof, _) = keypair.vrf_sign(ctx.bytes(msg));
-	let out = inout.to_output();
+	let preout = inout.to_output();
 
-	AssignmentCertV2 { kind, vrf: VrfSignature { output: VrfOutput(out), proof: VrfProof(proof) } }
+	AssignmentCertV2 {
+		kind,
+		vrf: VrfSignature { pre_output: VrfPreOutput(preout), proof: VrfProof(proof) },
+	}
 }
 
 fn sign_approval(
@@ -995,6 +1002,15 @@ async fn import_block(
 					// Make sure all SessionExecutorParams calls are not made for the leaf (but for its relay parent)
 					assert_ne!(req_block_hash, hashes[(number-1) as usize].0);
 					si_tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
+				}
+			);
+
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
+				) => {
+					si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
 				}
 			);
 		}

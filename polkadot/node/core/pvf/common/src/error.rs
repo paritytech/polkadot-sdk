@@ -77,7 +77,7 @@ pub enum PrepareError {
 	#[codec(index = 9)]
 	ClearWorkerDir(String),
 	/// The preparation job process died, due to OOM, a seccomp violation, or some other factor.
-	JobDied(String),
+	JobDied { err: String, job_pid: i32 },
 	#[codec(index = 10)]
 	/// Some error occurred when interfacing with the kernel.
 	#[codec(index = 11)]
@@ -96,7 +96,7 @@ impl PrepareError {
 		match self {
 			Prevalidation(_) | Preparation(_) | JobError(_) | OutOfMemory => true,
 			IoErr(_) |
-			JobDied(_) |
+			JobDied { .. } |
 			CreateTmpFile(_) |
 			RenameTmpFile { .. } |
 			ClearWorkerDir(_) |
@@ -119,7 +119,8 @@ impl fmt::Display for PrepareError {
 			JobError(err) => write!(f, "panic: {}", err),
 			TimedOut => write!(f, "prepare: timeout"),
 			IoErr(err) => write!(f, "prepare: io error while receiving response: {}", err),
-			JobDied(err) => write!(f, "prepare: prepare job died: {}", err),
+			JobDied { err, job_pid } =>
+				write!(f, "prepare: prepare job with pid {job_pid} died: {err}"),
 			CreateTmpFile(err) => write!(f, "prepare: error creating tmp file: {}", err),
 			RenameTmpFile { err, src, dest } =>
 				write!(f, "prepare: error renaming tmp file ({:?} -> {:?}): {}", src, dest, err),
