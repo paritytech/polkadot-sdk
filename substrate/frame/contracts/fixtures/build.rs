@@ -218,6 +218,7 @@ fn invoke_riscv_build(current_dir: &Path) -> Result<()> {
 
 	fs::write(current_dir.join("memory.ld"), include_bytes!("./build/riscv_memory_layout.ld"))?;
 
+	//
 	let build_res = Command::new(env::var("CARGO")?)
 		.current_dir(current_dir)
 		.env_clear()
@@ -234,7 +235,14 @@ fn invoke_riscv_build(current_dir: &Path) -> Result<()> {
 	}
 
 	let stderr = String::from_utf8_lossy(&build_res.stderr);
-	eprintln!("{}", stderr);
+
+	if stderr.contains("'rve-nightly' is not installed") {
+		eprintln!("RISC-V toolchain is not installed.\nDownload and install toolchain from https://github.com/paritytech/rustc-rv32e-toolchain/releases.");
+		eprintln!("{}", stderr);
+	} else {
+		eprintln!("{}", stderr);
+	}
+
 	bail!("Failed to build contracts");
 }
 /// Post-process the compiled wasm contracts.
