@@ -460,7 +460,7 @@ pub enum ClaimPermission {
 	PermissionlessCompound,
 	/// Anyone can withdraw rewards on a pool member's behalf.
 	PermissionlessWithdraw,
-	/// Anyone can withdraw and compound rewards on a member's behalf.
+	/// Anyone can withdraw and compound rewards on a pool member's behalf.
 	PermissionlessAll,
 }
 
