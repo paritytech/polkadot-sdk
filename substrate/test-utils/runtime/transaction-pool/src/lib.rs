@@ -79,7 +79,7 @@ impl From<bool> for IsBestBlock {
 pub struct ChainState {
 	pub block_by_number: BTreeMap<BlockNumber, Vec<(Block, IsBestBlock)>>,
 	pub block_by_hash: HashMap<Hash, Block>,
-	pub nonces: HashMap<AccountId, u64>,
+	pub nonces: HashMap<Hash, HashMap<AccountId, u64>>,
 	pub invalid_hashes: HashSet<Hash>,
 	pub priorities: HashMap<Hash, u64>,
 }
@@ -95,8 +95,15 @@ impl TestApi {
 	/// Test Api with Alice nonce set initially.
 	pub fn with_alice_nonce(nonce: u64) -> Self {
 		let api = Self::empty();
+		assert_eq!(api.chain.read().block_by_hash.len(), 1);
+		assert_eq!(api.chain.read().nonces.len(), 1);
 
-		api.chain.write().nonces.insert(Alice.into(), nonce);
+		api.chain
+			.write()
+			.nonces
+			.values_mut()
+			.nth(0)
+			.map(|h| h.insert(Alice.into(), nonce));
 
 		api
 	}
@@ -111,6 +118,9 @@ impl TestApi {
 
 		// Push genesis block
 		api.push_block(0, Vec::new(), true);
+
+		let hash0 = api.chain.read().block_by_hash.keys().nth(0).unwrap().clone();
+		api.chain.write().nonces.insert(hash0, Default::default());
 
 		api
 	}
@@ -184,6 +194,16 @@ impl TestApi {
 		let mut chain = self.chain.write();
 		chain.block_by_hash.insert(hash, block.clone());
 
+		if *block_number > 0 {
+			// copy nonces to new block
+			let prev_nonces = chain
+				.nonces
+				.get(block.header.parent_hash())
+				.expect("there shall be nonces for parent block")
+				.clone();
+			chain.nonces.insert(hash, prev_nonces);
+		}
+
 		if is_best_block {
 			chain
 				.block_by_number
@@ -241,10 +261,22 @@ impl TestApi {
 		&self.chain
 	}
 
+	/// Increment nonce in the inner state for given block.
+	pub fn increment_nonce_at_block(&self, at: Hash, account: AccountId) {
+		let mut chain = self.chain.write();
+		// chain.nonces.values().map(|h| h.entry(account).and_modify(|n| *n += 1).or_insert(1));
+		chain.nonces.entry(at).and_modify(|h| {
+			h.entry(account).and_modify(|n| *n += 1).or_insert(1);
+		});
+	}
+
 	/// Increment nonce in the inner state.
 	pub fn increment_nonce(&self, account: AccountId) {
 		let mut chain = self.chain.write();
-		chain.nonces.entry(account).and_modify(|n| *n += 1).or_insert(1);
+		// if no particular block was given, then update nonce everywhere
+		chain.nonces.values_mut().for_each(|h| {
+			h.entry(account).and_modify(|n| *n += 1).or_insert(1);
+		})
 	}
 
 	/// Calculate a tree route between the two given blocks.
@@ -303,9 +335,20 @@ impl ChainApi for TestApi {
 		}
 
 		let (requires, provides) = if let Ok(transfer) = TransferData::try_from(&uxt) {
-			let chain_nonce = self.chain.read().nonces.get(&transfer.from).cloned().unwrap_or(0);
-			let requires =
-				if chain_nonce == transfer.nonce { vec![] } else { vec![vec![chain_nonce as u8]] };
+			let chain_nonce = self
+				.chain
+				.read()
+				.nonces
+				.get(&at)
+				.expect("nonces must be there for every block")
+				.get(&transfer.from)
+				.cloned()
+				.unwrap_or(0);
+			let requires = if chain_nonce == transfer.nonce {
+				vec![]
+			} else {
+				vec![vec![(transfer.nonce - 1) as u8]]
+			};
 			let provides = vec![vec![transfer.nonce as u8]];
 
 			(requires, provides)
