@@ -21,7 +21,7 @@ use frame_election_provider_support::{
 	bounds::{DataProviderBounds, ElectionBounds},
 	data_provider, onchain, ElectionDataProvider, NposSolution, SequentialPhragmen,
 };
-pub use frame_support::derive_impl;
+pub use frame_support::{assert_noop, assert_ok, derive_impl, pallet_prelude::GetDefault};
 use frame_support::{
 	parameter_types,
 	traits::{ConstU32, Hooks},
