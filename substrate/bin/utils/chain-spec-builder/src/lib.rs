@@ -33,9 +33,9 @@
 //!	Query the default genesis config from the provided `runtime.wasm` and use it in the chain
 //! spec. Tool can also store runtime's default genesis config in given file:
 //!	```text
-//! chain-spec-builder create -r runtime.wasm default /dev/stdout
+//! chain-spec-builder --chain_spec_path /dev/stdout create -r runtime.wasm default
 //! ```
-//! 
+//!
 //! _Note:_ [`GenesisBuilder::create_default_config`][sp-genesis-builder-create] runtime function is called.
 //!
 //!
@@ -46,7 +46,7 @@
 //! ```text
 //! chain-spec-builder create -s -r runtime.wasm patch patch.json
 //! ```
-//! 
+//!
 //! _Note:_ [`GenesisBuilder::build_config`][sp-genesis-builder-build] runtime function is called.
 //!
 //! ##### Generate raw storage chain spec using full genesis config.
@@ -55,19 +55,19 @@
 //! ```text
 //! chain-spec-builder create -s -r runtime.wasm full full-genesis-config.json
 //! ```
-//! 
+//!
 //! _Note_: [`GenesisBuilder::build_config`][sp-genesis-builder-build] runtime function is called.
 //!
 //! ##### Generate human readable chain spec using provided genesis config patch.
 //! ```text
 //! chain-spec-builder create -r runtime.wasm patch patch.json
 //! ```
-//! 
+//!
 //! ##### Generate human readable chain spec using provided full genesis config.
 //! ```text
 //! chain-spec-builder create -r runtime.wasm full full-genesis-config.json
 //! ```
-//! 
+//!
 //! ##### Extra tools.
 //! The `chain-spec-builder` provides also some extra utilities: [`VerifyCmd`], [`ConvertToRawCmd`], [`UpdateCodeCmd`].
 //!
