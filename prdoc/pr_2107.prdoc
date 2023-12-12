@@ -4,14 +4,16 @@
 title: Add a builder pattern to create XCM programs
 
 doc:
-  - audience: Core Dev
+  - audience: Runtime Dev
     description: |
       XCMs can now be built using a builder pattern like so:
+      ```
       Xcm::builder()
         .withdraw_asset(assets)
         .buy_execution(fees, weight_limit)
         .deposit_asset(assets, beneficiary)
         .build();
+      ```
 
 migrations:
   db: []

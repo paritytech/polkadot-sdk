@@ -13,9 +13,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod fellowship_treasury;
 mod reserve_transfer;
 mod send;
 mod set_xcm_versions;
 mod swap;
 mod teleport;
 mod treasury;
+
+use crate::*;
+emulated_integration_tests_common::include_penpal_create_foreign_asset_on_asset_hub!(
+	PenpalB,
+	AssetHubWestend,
+	WESTEND_ED,
+	parachains_common::westend::fee::WeightToFee
+);

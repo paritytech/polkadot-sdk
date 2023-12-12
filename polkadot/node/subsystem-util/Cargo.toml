@@ -29,7 +29,7 @@ polkadot-node-network-protocol = { path = "../network/protocol" }
 polkadot-primitives = { path = "../../primitives" }
 polkadot-node-primitives = { path = "../primitives" }
 polkadot-overseer = { path = "../overseer" }
-metered = { package = "prioritized-metered-channel", version = "0.5.1", default-features = false, features=["futures_channel"] }
+metered = { package = "prioritized-metered-channel", version = "0.5.1", default-features = false, features = ["futures_channel"] }
 
 sp-core = { path = "../../../substrate/primitives/core" }
 sp-application-crypto = { path = "../../../substrate/primitives/application-crypto" }
@@ -37,7 +37,7 @@ sp-keystore = { path = "../../../substrate/primitives/keystore" }
 sc-client-api = { path = "../../../substrate/client/api" }
 
 kvdb = "0.13.0"
-parity-db = { version = "0.4.8"}
+parity-db = { version = "0.4.12" }
 
 [dev-dependencies]
 assert_matches = "1.4.0"

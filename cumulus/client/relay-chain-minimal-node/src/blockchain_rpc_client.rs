@@ -28,8 +28,9 @@ use polkadot_primitives::{
 };
 use sc_authority_discovery::{AuthorityDiscovery, Error as AuthorityDiscoveryError};
 use sc_client_api::AuxStore;
-use sp_api::{ApiError, BlockT, HeaderT, NumberFor, RuntimeApiInfo};
+use sp_api::{ApiError, RuntimeApiInfo};
 use sp_blockchain::Info;
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
 
 #[derive(Clone)]
 pub struct BlockChainRpcClient {

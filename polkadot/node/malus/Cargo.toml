@@ -26,7 +26,7 @@ path = "../../src/bin/prepare-worker.rs"
 doc = false
 
 [dependencies]
-polkadot-cli = { path = "../../cli", features = [ "malus", "rococo-native", "westend-native" ] }
+polkadot-cli = { path = "../../cli", features = ["malus", "rococo-native", "westend-native"] }
 polkadot-node-subsystem = { path = "../subsystem" }
 polkadot-node-subsystem-util = { path = "../subsystem-util" }
 polkadot-node-subsystem-types = { path = "../subsystem-types" }
@@ -40,7 +40,7 @@ assert_matches = "1.5"
 async-trait = "0.1.57"
 sp-keystore = { path = "../../../substrate/primitives/keystore" }
 sp-core = { path = "../../../substrate/primitives/core" }
-clap = { version = "4.4.6", features = ["derive"] }
+clap = { version = "4.4.11", features = ["derive"] }
 futures = "0.3.21"
 futures-timer = "3.0.2"
 gum = { package = "tracing-gum", path = "../gum" }
@@ -62,4 +62,4 @@ substrate-build-script-utils = { path = "../../../substrate/utils/build-script-u
 
 [features]
 default = []
-fast-runtime = [ "polkadot-cli/fast-runtime" ]
+fast-runtime = ["polkadot-cli/fast-runtime"]

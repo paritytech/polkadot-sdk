@@ -442,7 +442,7 @@ pub struct CollationSecondedSignal {
 	pub relay_parent: Hash,
 	/// The statement about seconding the collation.
 	///
-	/// Anything else than [`Statement::Seconded`](Statement::Seconded) is forbidden here.
+	/// Anything else than [`Statement::Seconded`] is forbidden here.
 	pub statement: SignedFullStatement,
 }
 

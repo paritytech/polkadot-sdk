@@ -25,10 +25,11 @@ use polkadot_primitives::{
 };
 use sc_client_api::HeaderBackend;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use sp_api::{ApiError, ApiExt, HeaderT, NumberFor, ProvideRuntimeApi};
+use sp_api::{ApiError, ApiExt, ProvideRuntimeApi};
 use sp_authority_discovery::AuthorityDiscoveryApi;
 use sp_blockchain::Info;
 use sp_consensus_babe::{BabeApi, Epoch};
+use sp_runtime::traits::{Header as HeaderT, NumberFor};
 use std::{collections::BTreeMap, sync::Arc};
 
 /// Offers header utilities.
