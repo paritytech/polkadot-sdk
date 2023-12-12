@@ -20,7 +20,7 @@
 
 use crate::{
 	schema::v1::StateResponse,
-	strategy::state_sync::{ImportResult, StateSync},
+	strategy::state_sync::{ImportResult, StateSync, StateSyncProvider},
 	types::{BadPeer, OpaqueStateRequest, OpaqueStateResponse, SyncState, SyncStatus},
 	LOG_TARGET,
 };
@@ -74,40 +74,57 @@ struct Peer<B: BlockT> {
 }
 
 /// Syncing strategy that downloads and imports a recent state directly.
-pub struct StateStrategy<B: BlockT, Client> {
-	state_sync: StateSync<B, Client>,
+pub struct StateStrategy<B: BlockT> {
+	state_sync: Box<dyn StateSyncProvider<B>>,
 	peers: HashMap<PeerId, Peer<B>>,
 	actions: Vec<StateStrategyAction<B>>,
 }
 
-impl<B, Client> StateStrategy<B, Client>
-where
-	B: BlockT,
-	Client: ProofProvider<B> + Send + Sync + 'static,
-{
-	// Create a new instance.
-	pub fn new(
+impl<B: BlockT> StateStrategy<B> {
+	/// Create a new instance.
+	pub fn new<Client>(
 		client: Arc<Client>,
 		target_header: B::Header,
 		target_body: Option<Vec<B::Extrinsic>>,
 		target_justifications: Option<Justifications>,
 		skip_proof: bool,
 		initial_peers: impl Iterator<Item = (PeerId, NumberFor<B>)>,
-	) -> Self {
+	) -> Self
+	where
+		Client: ProofProvider<B> + Send + Sync + 'static,
+	{
 		let peers = initial_peers
 			.map(|(peer_id, best_number)| {
 				(peer_id, Peer { best_number, state: PeerState::Available })
 			})
 			.collect();
 		Self {
-			state_sync: StateSync::new(
+			state_sync: Box::new(StateSync::new(
 				client,
 				target_header,
 				target_body,
 				target_justifications,
 				skip_proof,
-			),
+			)),
 			peers,
+			actions: Vec::new(),
+		}
+	}
+
+	// Create a new instance with a custom state sync provider.
+	// Used in tests.
+	#[cfg(test)]
+	fn new_with_provider(
+		state_sync_provider: Box<dyn StateSyncProvider<B>>,
+		initial_peers: impl Iterator<Item = (PeerId, NumberFor<B>)>,
+	) -> Self {
+		Self {
+			state_sync: state_sync_provider,
+			peers: initial_peers
+				.map(|(peer_id, best_number)| {
+					(peer_id, Peer { best_number, state: PeerState::Available })
+				})
+				.collect(),
 			actions: Vec::new(),
 		}
 	}
@@ -197,7 +214,7 @@ where
 		let results = results
 			.into_iter()
 			.filter_map(|(result, hash)| {
-				if hash == self.state_sync.target() {
+				if hash == self.state_sync.target_hash() {
 					Some(result)
 				} else {
 					debug!(
@@ -251,8 +268,8 @@ where
 			return None
 		}
 
-		let peer_id = self
-			.schedule_next_peer(PeerState::DownloadingState, self.state_sync.target_block_num())?;
+		let peer_id =
+			self.schedule_next_peer(PeerState::DownloadingState, self.state_sync.target_number())?;
 		let request = self.state_sync.next_request();
 		trace!(
 			target: LOG_TARGET,
@@ -289,9 +306,9 @@ where
 			state: if self.state_sync.is_complete() {
 				SyncState::Idle
 			} else {
-				SyncState::Downloading { target: self.state_sync.target_block_num() }
+				SyncState::Downloading { target: self.state_sync.target_number() }
 			},
-			best_seen_block: Some(self.state_sync.target_block_num()),
+			best_seen_block: Some(self.state_sync.target_number()),
 			num_peers: self.peers.len().saturated_into(),
 			num_connected_peers: self.peers.len().saturated_into(),
 			queued_blocks: 0,

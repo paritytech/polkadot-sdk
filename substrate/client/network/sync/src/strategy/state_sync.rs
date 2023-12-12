@@ -35,6 +35,32 @@ use sp_runtime::{
 };
 use std::{collections::HashMap, sync::Arc};
 
+/// Generic state sync provider. Used for mocking in tests.
+pub trait StateSyncProvider<B: BlockT>: Send + Sync {
+	/// Validate and import a state response.
+	fn import(&mut self, response: StateResponse) -> ImportResult<B>;
+	/// Produce next state request.
+	fn next_request(&self) -> StateRequest;
+	/// Check if the state is complete.
+	fn is_complete(&self) -> bool;
+	/// Returns target block number.
+	fn target_number(&self) -> NumberFor<B>;
+	/// Returns target block hash.
+	fn target_hash(&self) -> B::Hash;
+	/// Returns state sync estimated progress.
+	fn progress(&self) -> StateDownloadProgress;
+}
+
+/// Import state chunk result.
+pub enum ImportResult<B: BlockT> {
+	/// State is complete and ready for import.
+	Import(B::Hash, B::Header, ImportedState<B>, Option<Vec<B::Extrinsic>>, Option<Justifications>),
+	/// Continue downloading.
+	Continue,
+	/// Bad state chunk.
+	BadResponse,
+}
+
 /// State sync state machine. Accumulates partial state data until it
 /// is ready to be imported.
 pub struct StateSync<B: BlockT, Client> {
@@ -49,16 +75,6 @@ pub struct StateSync<B: BlockT, Client> {
 	client: Arc<Client>,
 	imported_bytes: u64,
 	skip_proof: bool,
-}
-
-/// Import state chunk result.
-pub enum ImportResult<B: BlockT> {
-	/// State is complete and ready for import.
-	Import(B::Hash, B::Header, ImportedState<B>, Option<Vec<B::Extrinsic>>, Option<Justifications>),
-	/// Continue downloading.
-	Continue,
-	/// Bad state chunk.
-	BadResponse,
 }
 
 impl<B, Client> StateSync<B, Client>
@@ -88,9 +104,15 @@ where
 			skip_proof,
 		}
 	}
+}
 
+impl<B, Client> StateSyncProvider<B> for StateSync<B, Client>
+where
+	B: BlockT,
+	Client: ProofProvider<B> + Send + Sync + 'static,
+{
 	///  Validate and import a state response.
-	pub fn import(&mut self, response: StateResponse) -> ImportResult<B> {
+	fn import(&mut self, response: StateResponse) -> ImportResult<B> {
 		if response.entries.is_empty() && response.proof.is_empty() {
 			debug!(target: LOG_TARGET, "Bad state response");
 			return ImportResult::BadResponse
@@ -238,7 +260,7 @@ where
 	}
 
 	/// Produce next state request.
-	pub fn next_request(&self) -> StateRequest {
+	fn next_request(&self) -> StateRequest {
 		StateRequest {
 			block: self.target_block.encode(),
 			start: self.last_key.clone().into_vec(),
@@ -247,22 +269,22 @@ where
 	}
 
 	/// Check if the state is complete.
-	pub fn is_complete(&self) -> bool {
+	fn is_complete(&self) -> bool {
 		self.complete
 	}
 
 	/// Returns target block number.
-	pub fn target_block_num(&self) -> NumberFor<B> {
+	fn target_number(&self) -> NumberFor<B> {
 		*self.target_header.number()
 	}
 
 	/// Returns target block hash.
-	pub fn target(&self) -> B::Hash {
+	fn target_hash(&self) -> B::Hash {
 		self.target_block
 	}
 
 	/// Returns state sync estimated progress.
-	pub fn progress(&self) -> StateDownloadProgress {
+	fn progress(&self) -> StateDownloadProgress {
 		let cursor = *self.last_key.get(0).and_then(|last| last.get(0)).unwrap_or(&0u8);
 		let percent_done = cursor as u32 * 100 / 256;
 		StateDownloadProgress { percentage: percent_done, size: self.imported_bytes }

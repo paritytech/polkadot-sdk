@@ -99,7 +99,7 @@ pub enum SyncingAction<B: BlockT> {
 /// Proxy to specific syncing strategies.
 pub enum SyncingStrategy<B: BlockT, Client> {
 	WarpSyncStrategy(WarpSync<B, Client>),
-	StateSyncStrategy(StateStrategy<B, Client>),
+	StateSyncStrategy(StateStrategy<B>),
 	ChainSyncStrategy(ChainSync<B, Client>),
 }
 

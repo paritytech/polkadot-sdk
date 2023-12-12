@@ -33,7 +33,7 @@ use crate::{
 	extra_requests::ExtraRequests,
 	schema::v1::StateResponse,
 	strategy::{
-		state_sync::{ImportResult, StateSync},
+		state_sync::{ImportResult, StateSync, StateSyncProvider},
 		warp::{WarpSyncPhase, WarpSyncProgress},
 	},
 	types::{BadPeer, OpaqueStateRequest, OpaqueStateResponse, SyncState, SyncStatus},
@@ -1650,7 +1650,7 @@ where
 			}
 
 			for (id, peer) in self.peers.iter_mut() {
-				if peer.state.is_available() && peer.common_number >= sync.target_block_num() {
+				if peer.state.is_available() && peer.common_number >= sync.target_number() {
 					peer.state = PeerSyncState::DownloadingState;
 					let request = sync.next_request();
 					trace!(target: LOG_TARGET, "New StateRequest for {}: {:?}", id, request);
@@ -1787,7 +1787,7 @@ where
 						self.update_peer_common_number(&peer, number);
 					}
 					let state_sync_complete =
-						self.state_sync.as_ref().map_or(false, |s| s.target() == hash);
+						self.state_sync.as_ref().map_or(false, |s| s.target_hash() == hash);
 					if state_sync_complete {
 						info!(
 							target: LOG_TARGET,
