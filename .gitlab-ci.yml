@@ -21,7 +21,9 @@ workflow:
     - if: $CI_COMMIT_BRANCH
 
 variables:
-  CI_IMAGE: !reference [.ci-unified, variables, CI_IMAGE]
+  # CI_IMAGE: !reference [.ci-unified, variables, CI_IMAGE]
+  # REMOVE ME, for tests
+  CI_IMAGE: "paritytech/ci-unified:bullseye-1.74.0-2023-11-01-v20231211"
   # BUILDAH_IMAGE is defined in group variables
   BUILDAH_COMMAND: "buildah --storage-driver overlay2"
   RELENG_SCRIPTS_BRANCH: "master"
