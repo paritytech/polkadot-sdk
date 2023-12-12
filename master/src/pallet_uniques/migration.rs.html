@@ -52,6 +52,7 @@
 <a href="#52" id="52">52</a>
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -71,39 +72,40 @@
 
 </span><span class="doccomment">//! Various pieces of common functionality.
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
-<span class="kw">use </span>frame_support::traits::{Get, GetStorageVersion, PalletInfoAccess, StorageVersion};
+<span class="kw">use </span>frame_support::traits::{Get, OnRuntimeUpgrade};
+<span class="kw">use </span>sp_std::marker::PhantomData;
 
-<span class="doccomment">/// Migrate the pallet storage to v1.
-</span><span class="kw">pub fn </span>migrate_to_v1&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>, P: GetStorageVersion + PalletInfoAccess&gt;(
-) -&gt; frame_support::weights::Weight {
-	<span class="kw">let </span>on_chain_storage_version = &lt;P <span class="kw">as </span>GetStorageVersion&gt;::on_chain_storage_version();
-	<span class="macro">log::info!</span>(
-		target: LOG_TARGET,
-		<span class="string">&quot;Running migration storage v1 for uniques with storage version {:?}&quot;</span>,
-		on_chain_storage_version,
-	);
+<span class="kw">mod </span>v1 {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-	<span class="kw">if </span>on_chain_storage_version &lt; <span class="number">1 </span>{
-		<span class="kw">let </span><span class="kw-2">mut </span>count = <span class="number">0</span>;
-		<span class="kw">for </span>(collection, detail) <span class="kw">in </span>Collection::&lt;T, I&gt;::iter() {
-			CollectionAccount::&lt;T, I&gt;::insert(<span class="kw-2">&amp;</span>detail.owner, <span class="kw-2">&amp;</span>collection, ());
-			count += <span class="number">1</span>;
+	<span class="doccomment">/// Actual implementation of the storage migration.
+	</span><span class="kw">pub struct </span>MigrateToV1Impl&lt;T, I&gt;(PhantomData&lt;(T, I)&gt;);
+
+	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; OnRuntimeUpgrade <span class="kw">for </span>MigrateToV1Impl&lt;T, I&gt; {
+		<span class="kw">fn </span>on_runtime_upgrade() -&gt; frame_support::weights::Weight {
+			<span class="kw">let </span><span class="kw-2">mut </span>count = <span class="number">0</span>;
+			<span class="kw">for </span>(collection, detail) <span class="kw">in </span>Collection::&lt;T, I&gt;::iter() {
+				CollectionAccount::&lt;T, I&gt;::insert(<span class="kw-2">&amp;</span>detail.owner, <span class="kw-2">&amp;</span>collection, ());
+				count += <span class="number">1</span>;
+			}
+
+			<span class="macro">log::info!</span>(
+				target: LOG_TARGET,
+				<span class="string">&quot;Storage migration v1 for uniques finished.&quot;</span>,
+			);
+
+			<span class="comment">// calculate and return migration weights
+			</span>T::DbWeight::get().reads_writes(count <span class="kw">as </span>u64 + <span class="number">1</span>, count <span class="kw">as </span>u64 + <span class="number">1</span>)
 		}
-		StorageVersion::new(<span class="number">1</span>).put::&lt;P&gt;();
-		<span class="macro">log::info!</span>(
-			target: LOG_TARGET,
-			<span class="string">&quot;Running migration storage v1 for uniques with storage version {:?} was complete&quot;</span>,
-			on_chain_storage_version,
-		);
-		<span class="comment">// calculate and return migration weights
-		</span>T::DbWeight::get().reads_writes(count <span class="kw">as </span>u64 + <span class="number">1</span>, count <span class="kw">as </span>u64 + <span class="number">1</span>)
-	} <span class="kw">else </span>{
-		<span class="macro">log::warn!</span>(
-			target: LOG_TARGET,
-			<span class="string">&quot;Attempted to apply migration to v1 but failed because storage version is {:?}&quot;</span>,
-			on_chain_storage_version,
-		);
-		T::DbWeight::get().reads(<span class="number">1</span>)
 	}
 }
+
+<span class="doccomment">/// Migrate the pallet storage from `0` to `1`.
+</span><span class="kw">pub type </span>MigrateV0ToV1&lt;T, I&gt; = frame_support::migrations::VersionedMigration&lt;
+	<span class="number">0</span>,
+	<span class="number">1</span>,
+	v1::MigrateToV1Impl&lt;T, I&gt;,
+	Pallet&lt;T, I&gt;,
+	&lt;T <span class="kw">as </span>frame_system::Config&gt;::DbWeight,
+&gt;;
 </code></pre></div></section></main></body></html>
