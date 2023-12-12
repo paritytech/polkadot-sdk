@@ -3007,6 +3007,12 @@
 <a href="#3007" id="3007">3007</a>
 <a href="#3008" id="3008">3008</a>
 <a href="#3009" id="3009">3009</a>
+<a href="#3010" id="3010">3010</a>
+<a href="#3011" id="3011">3011</a>
+<a href="#3012" id="3012">3012</a>
+<a href="#3013" id="3013">3013</a>
+<a href="#3014" id="3014">3014</a>
+<a href="#3015" id="3015">3015</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -5600,7 +5606,7 @@
 		dest: <span class="kw-2">&amp;</span>MultiLocation,
 		xcm: <span class="kw">impl </span>Into&lt;VersionedXcm&lt;RuntimeCall&gt;&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;VersionedXcm&lt;RuntimeCall&gt;, ()&gt; {
-		SupportedVersion::&lt;T&gt;::get(XCM_VERSION, LatestVersionedMultiLocation(dest))
+		<span class="self">Self</span>::get_version_for(dest)
 			.or_else(|| {
 				<span class="self">Self</span>::note_unknown_version(dest);
 				SafeXcmVersion::&lt;T&gt;::get()
@@ -5614,6 +5620,12 @@
 				()
 			})
 			.and_then(|v| xcm.into().into_version(v.min(XCM_VERSION)))
+	}
+}
+
+<span class="kw">impl</span>&lt;T: Config&gt; GetVersion <span class="kw">for </span>Pallet&lt;T&gt; {
+	<span class="kw">fn </span>get_version_for(dest: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;XcmVersion&gt; {
+		SupportedVersion::&lt;T&gt;::get(XCM_VERSION, LatestVersionedMultiLocation(dest))
 	}
 }
 

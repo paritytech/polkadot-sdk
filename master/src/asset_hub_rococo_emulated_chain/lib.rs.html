@@ -55,6 +55,7 @@
 <a href="#55" id="55">55</a>
 <a href="#56" id="56">56</a>
 <a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -78,8 +79,8 @@
 <span class="comment">// Cumulus
 </span><span class="kw">use </span>emulated_integration_tests_common::{
 	impl_accounts_helpers_for_parachain, impl_assert_events_helpers_for_parachain,
-	impl_assets_helpers_for_parachain, impl_foreign_assets_helpers_for_parachain, impls::Parachain,
-	xcm_emulator::decl_test_parachains,
+	impl_assets_helpers_for_parachain, impl_foreign_assets_helpers_for_parachain,
+	impl_xcm_helpers_for_parachain, impls::Parachain, xcm_emulator::decl_test_parachains,
 };
 <span class="kw">use </span>rococo_emulated_chain::Rococo;
 
@@ -112,4 +113,5 @@
 <span class="macro">impl_assert_events_helpers_for_parachain!</span>(AssetHubRococo);
 <span class="macro">impl_assets_helpers_for_parachain!</span>(AssetHubRococo, Rococo);
 <span class="macro">impl_foreign_assets_helpers_for_parachain!</span>(AssetHubRococo, Rococo);
+<span class="macro">impl_xcm_helpers_for_parachain!</span>(AssetHubRococo);
 </code></pre></div></section></main></body></html>

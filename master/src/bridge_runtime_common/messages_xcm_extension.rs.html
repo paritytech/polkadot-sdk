@@ -475,6 +475,28 @@
 <a href="#475" id="475">475</a>
 <a href="#476" id="476">476</a>
 <a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
+<a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -783,6 +805,28 @@
 			);
 		}
 		<span class="prelude-val">Ok</span>(())
+	}
+}
+
+<span class="doccomment">/// Adapter for the implementation of `GetVersion`, which attempts to find the minimal
+/// configured XCM version between the destination `dest` and the bridge hub location provided as
+/// `Get&lt;Location&gt;`.
+</span><span class="kw">pub struct </span>XcmVersionOfDestAndRemoteBridge&lt;Version, RemoteBridge&gt;(
+	sp_std::marker::PhantomData&lt;(Version, RemoteBridge)&gt;,
+);
+<span class="kw">impl</span>&lt;Version: GetVersion, RemoteBridge: Get&lt;MultiLocation&gt;&gt; GetVersion
+	<span class="kw">for </span>XcmVersionOfDestAndRemoteBridge&lt;Version, RemoteBridge&gt;
+{
+	<span class="kw">fn </span>get_version_for(dest: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;XcmVersion&gt; {
+		<span class="kw">let </span>dest_version = Version::get_version_for(dest);
+		<span class="kw">let </span>bridge_hub_version = Version::get_version_for(<span class="kw-2">&amp;</span>RemoteBridge::get());
+
+		<span class="kw">match </span>(dest_version, bridge_hub_version) {
+			(<span class="prelude-val">Some</span>(dv), <span class="prelude-val">Some</span>(bhv)) =&gt; <span class="prelude-val">Some</span>(sp_std::cmp::min(dv, bhv)),
+			(<span class="prelude-val">Some</span>(dv), <span class="prelude-val">None</span>) =&gt; <span class="prelude-val">Some</span>(dv),
+			(<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(bhv)) =&gt; <span class="prelude-val">Some</span>(bhv),
+			(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>) =&gt; <span class="prelude-val">None</span>,
+		}
 	}
 }
 

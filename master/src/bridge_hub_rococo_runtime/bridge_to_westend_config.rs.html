@@ -332,6 +332,19 @@
 <a href="#332" id="332">332</a>
 <a href="#333" id="333">333</a>
 <a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -354,7 +367,7 @@
 	bridge_common_config::{BridgeParachainWestendInstance, DeliveryRewardInBalance},
 	weights,
 	xcm_config::UniversalLocation,
-	AccountId, BridgeWestendMessages, Runtime, RuntimeEvent, RuntimeOrigin,
+	AccountId, BridgeWestendMessages, PolkadotXcm, Runtime, RuntimeEvent, RuntimeOrigin,
 	XcmOverBridgeHubWestend, XcmRouter,
 };
 <span class="kw">use </span>bp_messages::LaneId;
@@ -367,7 +380,7 @@
 	},
 	messages_xcm_extension::{
 		SenderAndLane, XcmAsPlainPayload, XcmBlobHauler, XcmBlobHaulerAdapter,
-		XcmBlobMessageDispatch,
+		XcmBlobMessageDispatch, XcmVersionOfDestAndRemoteBridge,
 	},
 	refund_relayer_extension::{
 		ActualFeeRefund, RefundBridgedParachainMessages, RefundSignedExtensionAdapter,
@@ -392,6 +405,10 @@
 	<span class="kw">pub const </span>BridgeHubWestendChainId: bp_runtime::ChainId = bp_runtime::BRIDGE_HUB_WESTEND_CHAIN_ID;
 	<span class="kw">pub </span>BridgeRococoToWestendMessagesPalletInstance: InteriorMultiLocation = X1(PalletInstance(&lt;BridgeWestendMessages <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8));
 	<span class="kw">pub </span>WestendGlobalConsensusNetwork: NetworkId = NetworkId::Westend;
+	<span class="kw">pub </span>WestendGlobalConsensusNetworkLocation: MultiLocation = MultiLocation {
+		parents: <span class="number">2</span>,
+		interior: X1(GlobalConsensus(WestendGlobalConsensusNetwork::get()))
+	};
 	<span class="comment">// see the `FEE_BOOST_PER_MESSAGE` constant to get the meaning of this value
 	</span><span class="kw">pub </span>PriorityBoostPerMessage: u64 = <span class="number">182_044_444_444_444</span>;
 
@@ -414,6 +431,14 @@
 
 	<span class="kw">pub </span>CongestedMessage: Xcm&lt;()&gt; = build_congestion_message(<span class="bool-val">true</span>).into();
 	<span class="kw">pub </span>UncongestedMessage: Xcm&lt;()&gt; = build_congestion_message(<span class="bool-val">false</span>).into();
+
+	<span class="kw">pub </span>BridgeHubWestendLocation: MultiLocation = MultiLocation {
+		parents: <span class="number">2</span>,
+		interior: X2(
+			GlobalConsensus(WestendGlobalConsensusNetwork::get()),
+			Parachain(&lt;bp_bridge_hub_westend::BridgeHubWestend <span class="kw">as </span>bp_runtime::Parachain&gt;::PARACHAIN_ID)
+		)
+	};
 }
 <span class="kw">pub const </span>XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND: LaneId = LaneId([<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">2</span>]);
 
@@ -454,7 +479,6 @@
 <span class="kw">impl </span>XcmBlobHauler <span class="kw">for </span>ToBridgeHubWestendXcmBlobHauler {
 	<span class="kw">type </span>Runtime = Runtime;
 	<span class="kw">type </span>MessagesInstance = WithBridgeHubWestendMessagesInstance;
-
 	<span class="kw">type </span>ToSourceChainSender = XcmRouter;
 	<span class="kw">type </span>CongestedMessage = CongestedMessage;
 	<span class="kw">type </span>UncongestedMessage = UncongestedMessage;
@@ -568,9 +592,11 @@
 </span><span class="kw">pub type </span>XcmOverBridgeHubWestendInstance = pallet_xcm_bridge_hub::Instance1;
 <span class="kw">impl </span>pallet_xcm_bridge_hub::Config&lt;XcmOverBridgeHubWestendInstance&gt; <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>UniversalLocation = UniversalLocation;
-	<span class="kw">type </span>BridgedNetworkId = WestendGlobalConsensusNetwork;
+	<span class="kw">type </span>BridgedNetwork = WestendGlobalConsensusNetworkLocation;
 	<span class="kw">type </span>BridgeMessagesPalletInstance = WithBridgeHubWestendMessagesInstance;
 	<span class="kw">type </span>MessageExportPrice = ();
+	<span class="kw">type </span>DestinationVersion =
+		XcmVersionOfDestAndRemoteBridge&lt;PolkadotXcm, BridgeHubWestendLocation&gt;;
 	<span class="kw">type </span>Lanes = ActiveLanes;
 	<span class="kw">type </span>LanesSupport = ToBridgeHubWestendXcmBlobHauler;
 }

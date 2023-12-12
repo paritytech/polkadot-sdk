@@ -356,6 +356,19 @@
 <a href="#356" id="356">356</a>
 <a href="#357" id="357">357</a>
 <a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -376,8 +389,8 @@
 
 </span><span class="kw">use crate</span>::{
 	bridge_common_config::DeliveryRewardInBalance, weights, xcm_config::UniversalLocation,
-	AccountId, BridgeRococoMessages, Runtime, RuntimeEvent, RuntimeOrigin, XcmOverBridgeHubRococo,
-	XcmRouter,
+	AccountId, BridgeRococoMessages, PolkadotXcm, Runtime, RuntimeEvent, RuntimeOrigin,
+	XcmOverBridgeHubRococo, XcmRouter,
 };
 <span class="kw">use </span>bp_messages::LaneId;
 <span class="kw">use </span>bp_parachains::SingleParaStoredHeaderDataBuilder;
@@ -390,7 +403,7 @@
 	},
 	messages_xcm_extension::{
 		SenderAndLane, XcmAsPlainPayload, XcmBlobHauler, XcmBlobHaulerAdapter,
-		XcmBlobMessageDispatch,
+		XcmBlobMessageDispatch, XcmVersionOfDestAndRemoteBridge,
 	},
 	refund_relayer_extension::{
 		ActualFeeRefund, RefundBridgedParachainMessages, RefundSignedExtensionAdapter,
@@ -423,6 +436,10 @@
 	<span class="kw">pub const </span>BridgeHubRococoChainId: bp_runtime::ChainId = bp_runtime::BRIDGE_HUB_ROCOCO_CHAIN_ID;
 	<span class="kw">pub </span>BridgeWestendToRococoMessagesPalletInstance: InteriorMultiLocation = X1(PalletInstance(&lt;BridgeRococoMessages <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8));
 	<span class="kw">pub </span>RococoGlobalConsensusNetwork: NetworkId = NetworkId::Rococo;
+	<span class="kw">pub </span>RococoGlobalConsensusNetworkLocation: MultiLocation = MultiLocation {
+		parents: <span class="number">2</span>,
+		interior: X1(GlobalConsensus(RococoGlobalConsensusNetwork::get()))
+	};
 	<span class="comment">// see the `FEE_BOOST_PER_MESSAGE` constant to get the meaning of this value
 	</span><span class="kw">pub </span>PriorityBoostPerMessage: u64 = <span class="number">182_044_444_444_444</span>;
 
@@ -445,6 +462,14 @@
 
 	<span class="kw">pub </span>CongestedMessage: Xcm&lt;()&gt; = build_congestion_message(<span class="bool-val">true</span>).into();
 	<span class="kw">pub </span>UncongestedMessage: Xcm&lt;()&gt; = build_congestion_message(<span class="bool-val">false</span>).into();
+
+	<span class="kw">pub </span>BridgeHubRococoLocation: MultiLocation = MultiLocation {
+		parents: <span class="number">2</span>,
+		interior: X2(
+			GlobalConsensus(RococoGlobalConsensusNetwork::get()),
+			Parachain(&lt;bp_bridge_hub_rococo::BridgeHubRococo <span class="kw">as </span>bp_runtime::Parachain&gt;::PARACHAIN_ID)
+		)
+	};
 }
 <span class="kw">pub const </span>XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO: LaneId = LaneId([<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">2</span>]);
 
@@ -618,9 +643,10 @@
 </span><span class="kw">pub type </span>XcmOverBridgeHubRococoInstance = pallet_xcm_bridge_hub::Instance1;
 <span class="kw">impl </span>pallet_xcm_bridge_hub::Config&lt;XcmOverBridgeHubRococoInstance&gt; <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>UniversalLocation = UniversalLocation;
-	<span class="kw">type </span>BridgedNetworkId = RococoGlobalConsensusNetwork;
+	<span class="kw">type </span>BridgedNetwork = RococoGlobalConsensusNetworkLocation;
 	<span class="kw">type </span>BridgeMessagesPalletInstance = WithBridgeHubRococoMessagesInstance;
 	<span class="kw">type </span>MessageExportPrice = ();
+	<span class="kw">type </span>DestinationVersion = XcmVersionOfDestAndRemoteBridge&lt;PolkadotXcm, BridgeHubRococoLocation&gt;;
 	<span class="kw">type </span>Lanes = ActiveLanes;
 	<span class="kw">type </span>LanesSupport = ToBridgeHubRococoXcmBlobHauler;
 }

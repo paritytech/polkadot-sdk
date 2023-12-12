@@ -1792,6 +1792,22 @@
 <a href="#1792" id="1792">1792</a>
 <a href="#1793" id="1793">1793</a>
 <a href="#1794" id="1794">1794</a>
+<a href="#1795" id="1795">1795</a>
+<a href="#1796" id="1796">1796</a>
+<a href="#1797" id="1797">1797</a>
+<a href="#1798" id="1798">1798</a>
+<a href="#1799" id="1799">1799</a>
+<a href="#1800" id="1800">1800</a>
+<a href="#1801" id="1801">1801</a>
+<a href="#1802" id="1802">1802</a>
+<a href="#1803" id="1803">1803</a>
+<a href="#1804" id="1804">1804</a>
+<a href="#1805" id="1805">1805</a>
+<a href="#1806" id="1806">1806</a>
+<a href="#1807" id="1807">1807</a>
+<a href="#1808" id="1808">1808</a>
+<a href="#1809" id="1809">1809</a>
+<a href="#1810" id="1810">1810</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -2616,6 +2632,7 @@
 	<span class="kw">type </span>UniversalLocation = xcm_config::UniversalLocation;
 	<span class="kw">type </span>BridgedNetworkId = xcm_config::bridging::to_rococo::RococoNetwork;
 	<span class="kw">type </span>Bridges = xcm_config::bridging::NetworkExportTable;
+	<span class="kw">type </span>DestinationVersion = PolkadotXcm;
 
 	<span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
 	</span><span class="kw">type </span>BridgeHubOrigin = EnsureXcm&lt;Equals&lt;xcm_config::bridging::SiblingBridgeHub&gt;&gt;;
@@ -3287,11 +3304,26 @@
 						xcm_config::bridging::SiblingBridgeHubParaId::get().into()
 					);
 				}
-				<span class="kw">fn </span>ensure_bridged_target_destination() -&gt; MultiLocation {
+				<span class="kw">fn </span>ensure_bridged_target_destination() -&gt; <span class="prelude-ty">Result</span>&lt;MultiLocation, BenchmarkError&gt; {
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
 						xcm_config::bridging::SiblingBridgeHubParaId::get().into()
 					);
-					xcm_config::bridging::to_rococo::AssetHubRococo::get()
+					<span class="kw">let </span>bridged_asset_hub = xcm_config::bridging::to_rococo::AssetHubRococo::get();
+					<span class="kw">let _ </span>= PolkadotXcm::force_xcm_version(
+						RuntimeOrigin::root(),
+						Box::new(bridged_asset_hub),
+						XCM_VERSION,
+					).map_err(|e| {
+						<span class="macro">log::error!</span>(
+							<span class="string">&quot;Failed to dispatch `force_xcm_version({:?}, {:?}, {:?})`, error: {:?}&quot;</span>,
+							RuntimeOrigin::root(),
+							bridged_asset_hub,
+							XCM_VERSION,
+							e
+						);
+						BenchmarkError::Stop(<span class="string">&quot;XcmVersion was not stored!&quot;</span>)
+					})<span class="question-mark">?</span>;
+					<span class="prelude-val">Ok</span>(bridged_asset_hub)
 				}
 			}
 

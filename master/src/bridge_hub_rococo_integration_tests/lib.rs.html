@@ -65,6 +65,8 @@
 <a href="#65" id="65">65</a>
 <a href="#66" id="66">66</a>
 <a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -81,10 +83,12 @@
 // limitations under the License.
 
 // Substrate
-</span><span class="kw">pub use </span>frame_support::assert_ok;
+</span><span class="kw">pub use </span>frame_support::{assert_err, assert_ok, pallet_prelude::DispatchResult};
+<span class="kw">pub use </span>sp_runtime::DispatchError;
 
 <span class="comment">// Polkadot
 </span><span class="kw">pub use </span>xcm::{
+	latest::ParentThen,
 	prelude::{AccountId32 <span class="kw">as </span>AccountId32Junction, <span class="kw-2">*</span>},
 	v3::{
 		Error,

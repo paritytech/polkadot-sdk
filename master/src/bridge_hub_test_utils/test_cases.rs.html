@@ -1562,6 +1562,30 @@
 <a href="#1562" id="1562">1562</a>
 <a href="#1563" id="1563">1563</a>
 <a href="#1564" id="1564">1564</a>
+<a href="#1565" id="1565">1565</a>
+<a href="#1566" id="1566">1566</a>
+<a href="#1567" id="1567">1567</a>
+<a href="#1568" id="1568">1568</a>
+<a href="#1569" id="1569">1569</a>
+<a href="#1570" id="1570">1570</a>
+<a href="#1571" id="1571">1571</a>
+<a href="#1572" id="1572">1572</a>
+<a href="#1573" id="1573">1573</a>
+<a href="#1574" id="1574">1574</a>
+<a href="#1575" id="1575">1575</a>
+<a href="#1576" id="1576">1576</a>
+<a href="#1577" id="1577">1577</a>
+<a href="#1578" id="1578">1578</a>
+<a href="#1579" id="1579">1579</a>
+<a href="#1580" id="1580">1580</a>
+<a href="#1581" id="1581">1581</a>
+<a href="#1582" id="1582">1582</a>
+<a href="#1583" id="1583">1583</a>
+<a href="#1584" id="1584">1584</a>
+<a href="#1585" id="1585">1585</a>
+<a href="#1586" id="1586">1586</a>
+<a href="#1587" id="1587">1587</a>
+<a href="#1588" id="1588">1588</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1619,7 +1643,10 @@
 	traits::{Header <span class="kw">as </span>HeaderT, Zero},
 	AccountId32,
 };
-<span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
+<span class="kw">use </span>xcm::{
+	latest::prelude::<span class="kw-2">*</span>,
+	prelude::{AlwaysLatest, GetVersion},
+};
 <span class="kw">use </span>xcm_builder::DispatchBlobError;
 <span class="kw">use </span>xcm_executor::{
 	traits::{TransactAsset, WeightBounds},
@@ -1822,6 +1849,7 @@
 	MessagesPalletInstance,
 	RuntimeNetwork,
 	BridgedNetwork,
+	NetworkDistanceAsParentCount,
 &gt;(
 	collator_session_key: CollatorSessionKeys&lt;Runtime&gt;,
 	runtime_para_id: u32,
@@ -1855,12 +1883,18 @@
 	HrmpChannelOpener: frame_support::inherent::ProvideInherent&lt;
 		Call = cumulus_pallet_parachain_system::Call&lt;Runtime&gt;,
 	&gt;,
-	<span class="comment">// MessageDispatcher: MessageDispatch&lt;AccountIdOf&lt;Runtime&gt;, DispatchLevelResult =
-	// XcmBlobMessageDispatchResult, DispatchPayload = XcmAsPlainPayload&gt;,
-	</span>RuntimeNetwork: Get&lt;NetworkId&gt;,
+	RuntimeNetwork: Get&lt;NetworkId&gt;,
 	BridgedNetwork: Get&lt;NetworkId&gt;,
+	NetworkDistanceAsParentCount: Get&lt;u8&gt;,
 {
 	<span class="macro">assert_ne!</span>(runtime_para_id, sibling_parachain_id);
+
+	<span class="kw">struct </span>NetworkWithParentCount&lt;N, C&gt;(core::marker::PhantomData&lt;(N, C)&gt;);
+	<span class="kw">impl</span>&lt;N: Get&lt;NetworkId&gt;, C: Get&lt;u8&gt;&gt; Get&lt;MultiLocation&gt; <span class="kw">for </span>NetworkWithParentCount&lt;N, C&gt; {
+		<span class="kw">fn </span>get() -&gt; MultiLocation {
+			MultiLocation { parents: C::get(), interior: X1(GlobalConsensus(N::get())) }
+		}
+	}
 
 	ExtBuilder::&lt;Runtime&gt;::default()
 		.with_collators(collator_session_key.collators())
@@ -1881,7 +1915,11 @@
 			);
 			<span class="comment">// 1. this message is sent from other global consensus with destination of this Runtime relay chain (UMP)
 			</span><span class="kw">let </span>bridging_message =
-				test_data::simulate_message_exporter_on_bridged_chain::&lt;BridgedNetwork, RuntimeNetwork&gt;(
+				test_data::simulate_message_exporter_on_bridged_chain::&lt;
+					BridgedNetwork,
+					NetworkWithParentCount&lt;RuntimeNetwork, NetworkDistanceAsParentCount&gt;,
+					AlwaysLatest,
+				&gt;(
 					(RuntimeNetwork::get(), Here)
 				);
 			<span class="kw">let </span>result = &lt;&lt;Runtime <span class="kw">as </span>pallet_bridge_messages::Config&lt;MessagesPalletInstance&gt;&gt;::MessageDispatch&gt;::dispatch(
@@ -1899,7 +1937,11 @@
 
 			<span class="comment">// 2. this message is sent from other global consensus with destination of this Runtime sibling parachain (HRMP)
 			</span><span class="kw">let </span>bridging_message =
-				test_data::simulate_message_exporter_on_bridged_chain::&lt;BridgedNetwork, RuntimeNetwork&gt;(
+				test_data::simulate_message_exporter_on_bridged_chain::&lt;
+					BridgedNetwork,
+					NetworkWithParentCount&lt;RuntimeNetwork, NetworkDistanceAsParentCount&gt;,
+					AlwaysLatest,
+				&gt;(
 					(RuntimeNetwork::get(), X1(Parachain(sibling_parachain_id))),
 				);
 
@@ -3088,7 +3130,8 @@
 	/// which are transferred over bridge.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>simulate_message_exporter_on_bridged_chain&lt;
 		SourceNetwork: Get&lt;NetworkId&gt;,
-		DestinationNetwork: Get&lt;NetworkId&gt;,
+		DestinationNetwork: Get&lt;MultiLocation&gt;,
+		DestinationVersion: GetVersion,
 	&gt;(
 		(destination_network, destination_junctions): (NetworkId, Junctions),
 	) -&gt; Vec&lt;u8&gt; {
@@ -3100,23 +3143,28 @@
 		<span class="kw">let </span>channel = <span class="number">1_u32</span>;
 
 		<span class="comment">// simulate XCM message export
-		</span><span class="kw">let </span>(ticket, fee) =
-			validate_export::&lt;HaulBlobExporter&lt;GrabbingHaulBlob, DestinationNetwork, ()&gt;&gt;(
-				destination_network,
-				channel,
-				universal_source_on_bridged_chain,
-				destination_junctions,
-				dummy_xcm(),
-			)
-			.expect(<span class="string">&quot;validate_export to pass&quot;</span>);
+		</span><span class="kw">let </span>(ticket, fee) = validate_export::&lt;
+			HaulBlobExporter&lt;GrabbingHaulBlob, DestinationNetwork, DestinationVersion, ()&gt;,
+		&gt;(
+			destination_network,
+			channel,
+			universal_source_on_bridged_chain,
+			destination_junctions,
+			dummy_xcm(),
+		)
+		.expect(<span class="string">&quot;validate_export to pass&quot;</span>);
 		<span class="macro">log::info!</span>(
 			target: <span class="string">&quot;simulate_message_exporter_on_bridged_chain&quot;</span>,
 			<span class="string">&quot;HaulBlobExporter::validate fee: {:?}&quot;</span>,
 			fee
 		);
-		<span class="kw">let </span>xcm_hash =
-			HaulBlobExporter::&lt;GrabbingHaulBlob, DestinationNetwork, ()&gt;::deliver(ticket)
-				.expect(<span class="string">&quot;deliver to pass&quot;</span>);
+		<span class="kw">let </span>xcm_hash = HaulBlobExporter::&lt;
+			GrabbingHaulBlob,
+			DestinationNetwork,
+			DestinationVersion,
+			(),
+		&gt;::deliver(ticket)
+		.expect(<span class="string">&quot;deliver to pass&quot;</span>);
 		<span class="macro">log::info!</span>(
 			target: <span class="string">&quot;simulate_message_exporter_on_bridged_chain&quot;</span>,
 			<span class="string">&quot;HaulBlobExporter::deliver xcm_hash: {:?}&quot;</span>,

@@ -555,6 +555,26 @@
 <a href="#555" id="555">555</a>
 <a href="#556" id="556">556</a>
 <a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -646,6 +666,8 @@
 		/// **possible fee**. Allows to externalize better control over allowed **bridged
 		/// networks/locations**.
 		</span><span class="kw">type </span>Bridges: ExporterFor;
+		<span class="doccomment">/// Checks the XCM version for the destination.
+		</span><span class="kw">type </span>DestinationVersion: GetVersion;
 
 		<span class="doccomment">/// Origin of the sibling bridge hub that is allowed to report bridge status.
 		</span><span class="kw">type </span>BridgeHubOrigin: EnsureOrigin&lt;<span class="self">Self</span>::RuntimeOrigin&gt;;
@@ -876,18 +898,31 @@
 		dest: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;MultiLocation&gt;,
 		xcm: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Xcm&lt;()&gt;&gt;,
 	) -&gt; SendResult&lt;<span class="self">Self</span>::Ticket&gt; {
-		<span class="comment">// we won&#39;t have an access to `dest` and `xcm` in the `delvier` method, so precompute
+		<span class="comment">// `dest` and `xcm` are required here
+		</span><span class="kw">let </span>dest_ref = dest.as_ref().ok_or(SendError::MissingArgument)<span class="question-mark">?</span>;
+		<span class="kw">let </span>xcm_ref = xcm.as_ref().ok_or(SendError::MissingArgument)<span class="question-mark">?</span>;
+
+		<span class="comment">// we won&#39;t have an access to `dest` and `xcm` in the `deliver` method, so precompute
 		// everything required here
-		</span><span class="kw">let </span>message_size = xcm
-			.as_ref()
-			.map(|xcm| xcm.encoded_size() <span class="kw">as _</span>)
-			.ok_or(SendError::MissingArgument)<span class="question-mark">?</span>;
+		</span><span class="kw">let </span>message_size = xcm_ref.encoded_size() <span class="kw">as _</span>;
 
 		<span class="comment">// bridge doesn&#39;t support oversized/overweight messages now. So it is better to drop such
 		// messages here than at the bridge hub. Let&#39;s check the message size.
 		</span><span class="kw">if </span>message_size &gt; HARD_MESSAGE_SIZE_LIMIT {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(SendError::ExceedsMaxMessageSize)
 		}
+
+		<span class="comment">// We need to ensure that the known `dest`&#39;s XCM version can comprehend the current `xcm`
+		// program. This may seem like an additional, unnecessary check, but it is not. A similar
+		// check is probably performed by the `ViaBridgeHubExporter`, which attempts to send a
+		// versioned message to the sibling bridge hub. However, the local bridge hub may have a
+		// higher XCM version than the remote `dest`. Once again, it is better to discard such
+		// messages here than at the bridge hub (e.g., to avoid losing funds).
+		</span><span class="kw">let </span>destination_version = T::DestinationVersion::get_version_for(dest_ref)
+			.ok_or(SendError::DestinationUnsupported)<span class="question-mark">?</span>;
+		<span class="kw">let _ </span>= VersionedXcm::from(xcm_ref.clone())
+			.into_version(destination_version)
+			.map_err(|()| SendError::DestinationUnsupported)<span class="question-mark">?</span>;
 
 		<span class="comment">// just use exporter to validate destination and insert instructions to pay message fee
 		// at the sibling/child bridge hub
@@ -915,6 +950,7 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+	<span class="kw">use </span>frame_support::assert_ok;
 	<span class="kw">use </span>mock::<span class="kw-2">*</span>;
 
 	<span class="kw">use </span>frame_support::traits::Hooks;
@@ -1009,6 +1045,19 @@
 	}
 
 	<span class="attr">#[test]
+	</span><span class="kw">fn </span>destination_unsupported_if_wrap_version_fails() {
+		run_test(|| {
+			<span class="macro">assert_eq!</span>(
+				send_xcm::&lt;XcmBridgeHubRouter&gt;(
+					UnknownXcmVersionLocation::get(),
+					<span class="macro">vec!</span>[ClearOrigin].into(),
+				),
+				<span class="prelude-val">Err</span>(SendError::DestinationUnsupported),
+			);
+		});
+	}
+
+	<span class="attr">#[test]
 	</span><span class="kw">fn </span>returns_proper_delivery_price() {
 		run_test(|| {
 			<span class="kw">let </span>dest = MultiLocation::new(<span class="number">2</span>, X1(GlobalConsensus(BridgedNetworkId::get())));
@@ -1045,17 +1094,14 @@
 	</span><span class="kw">fn </span>sent_message_doesnt_increase_factor_if_xcm_channel_is_uncongested() {
 		run_test(|| {
 			<span class="kw">let </span>old_bridge = XcmBridgeHubRouter::bridge();
-			<span class="macro">assert_eq!</span>(
-				send_xcm::&lt;XcmBridgeHubRouter&gt;(
-					MultiLocation::new(
-						<span class="number">2</span>,
-						X2(GlobalConsensus(BridgedNetworkId::get()), Parachain(<span class="number">1000</span>))
-					),
-					<span class="macro">vec!</span>[ClearOrigin].into(),
-				)
-				.map(drop),
-				<span class="prelude-val">Ok</span>(()),
-			);
+			<span class="macro">assert_ok!</span>(send_xcm::&lt;XcmBridgeHubRouter&gt;(
+				MultiLocation::new(
+					<span class="number">2</span>,
+					X2(GlobalConsensus(BridgedNetworkId::get()), Parachain(<span class="number">1000</span>))
+				),
+				<span class="macro">vec!</span>[ClearOrigin].into(),
+			)
+			.map(drop));
 
 			<span class="macro">assert!</span>(TestToBridgeHubSender::is_message_sent());
 			<span class="macro">assert_eq!</span>(old_bridge, XcmBridgeHubRouter::bridge());
@@ -1068,17 +1114,14 @@
 			TestWithBridgeHubChannel::make_congested();
 
 			<span class="kw">let </span>old_bridge = XcmBridgeHubRouter::bridge();
-			<span class="macro">assert_eq!</span>(
-				send_xcm::&lt;XcmBridgeHubRouter&gt;(
-					MultiLocation::new(
-						<span class="number">2</span>,
-						X2(GlobalConsensus(BridgedNetworkId::get()), Parachain(<span class="number">1000</span>))
-					),
-					<span class="macro">vec!</span>[ClearOrigin].into(),
-				)
-				.map(drop),
-				<span class="prelude-val">Ok</span>(()),
-			);
+			<span class="macro">assert_ok!</span>(send_xcm::&lt;XcmBridgeHubRouter&gt;(
+				MultiLocation::new(
+					<span class="number">2</span>,
+					X2(GlobalConsensus(BridgedNetworkId::get()), Parachain(<span class="number">1000</span>))
+				),
+				<span class="macro">vec!</span>[ClearOrigin].into(),
+			)
+			.map(drop));
 
 			<span class="macro">assert!</span>(TestToBridgeHubSender::is_message_sent());
 			<span class="macro">assert!</span>(
@@ -1093,17 +1136,14 @@
 			Bridge::&lt;TestRuntime, ()&gt;::put(congested_bridge(MINIMAL_DELIVERY_FEE_FACTOR));
 
 			<span class="kw">let </span>old_bridge = XcmBridgeHubRouter::bridge();
-			<span class="macro">assert_eq!</span>(
-				send_xcm::&lt;XcmBridgeHubRouter&gt;(
-					MultiLocation::new(
-						<span class="number">2</span>,
-						X2(GlobalConsensus(BridgedNetworkId::get()), Parachain(<span class="number">1000</span>))
-					),
-					<span class="macro">vec!</span>[ClearOrigin].into(),
-				)
-				.map(drop),
-				<span class="prelude-val">Ok</span>(()),
-			);
+			<span class="macro">assert_ok!</span>(send_xcm::&lt;XcmBridgeHubRouter&gt;(
+				MultiLocation::new(
+					<span class="number">2</span>,
+					X2(GlobalConsensus(BridgedNetworkId::get()), Parachain(<span class="number">1000</span>))
+				),
+				<span class="macro">vec!</span>[ClearOrigin].into(),
+			)
+			.map(drop));
 
 			<span class="macro">assert!</span>(TestToBridgeHubSender::is_message_sent());
 			<span class="macro">assert!</span>(

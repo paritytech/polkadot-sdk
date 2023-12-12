@@ -647,6 +647,48 @@
 <a href="#647" id="647">647</a>
 <a href="#648" id="648">648</a>
 <a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1071,11 +1113,25 @@
 	}
 }
 
-<span class="kw">pub struct </span>HaulBlobExporter&lt;Bridge, BridgedNetwork, Price&gt;(
-	PhantomData&lt;(Bridge, BridgedNetwork, Price)&gt;,
+<span class="kw">pub struct </span>HaulBlobExporter&lt;Bridge, BridgedNetwork, DestinationVersion, Price&gt;(
+	PhantomData&lt;(Bridge, BridgedNetwork, DestinationVersion, Price)&gt;,
 );
-<span class="kw">impl</span>&lt;Bridge: HaulBlob, BridgedNetwork: Get&lt;NetworkId&gt;, Price: Get&lt;MultiAssets&gt;&gt; ExportXcm
-	<span class="kw">for </span>HaulBlobExporter&lt;Bridge, BridgedNetwork, Price&gt;
+<span class="doccomment">/// `ExportXcm` implementation for `HaulBlobExporter`.
+///
+/// # Type Parameters
+///
+/// ```text
+/// - Bridge: Implements `HaulBlob`.
+/// - BridgedNetwork: The relative location of the bridged consensus system with the expected `GlobalConsensus` junction.
+/// - DestinationVersion: Implements `GetVersion` for retrieving XCM version for the destination.
+/// - Price: potential fees for exporting.
+/// ```
+</span><span class="kw">impl</span>&lt;
+		Bridge: HaulBlob,
+		BridgedNetwork: Get&lt;MultiLocation&gt;,
+		DestinationVersion: GetVersion,
+		Price: Get&lt;MultiAssets&gt;,
+	&gt; ExportXcm <span class="kw">for </span>HaulBlobExporter&lt;Bridge, BridgedNetwork, DestinationVersion, Price&gt;
 {
 	<span class="kw">type </span>Ticket = (Vec&lt;u8&gt;, XcmHash);
 
@@ -1086,18 +1142,36 @@
 		destination: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;InteriorMultiLocation&gt;,
 		message: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Xcm&lt;()&gt;&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;((Vec&lt;u8&gt;, XcmHash), MultiAssets), SendError&gt; {
-		<span class="kw">let </span>bridged_network = BridgedNetwork::get();
+		<span class="kw">let </span>(bridged_network, bridged_network_location_parents) = {
+			<span class="kw">let </span>MultiLocation { parents, interior: <span class="kw-2">mut </span>junctions } = BridgedNetwork::get();
+			<span class="kw">match </span>junctions.take_first() {
+				<span class="prelude-val">Some</span>(GlobalConsensus(network)) =&gt; (network, parents),
+				<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(SendError::NotApplicable),
+			}
+		};
 		<span class="macro">ensure!</span>(<span class="kw-2">&amp;</span>network == <span class="kw-2">&amp;</span>bridged_network, SendError::NotApplicable);
 		<span class="comment">// We don&#39;t/can&#39;t use the `channel` for this adapter.
 		</span><span class="kw">let </span>dest = destination.take().ok_or(SendError::MissingArgument)<span class="question-mark">?</span>;
-		<span class="kw">let </span>universal_dest = <span class="kw">match </span>dest.pushed_front_with(GlobalConsensus(bridged_network)) {
-			<span class="prelude-val">Ok</span>(d) =&gt; d.into(),
-			<span class="prelude-val">Err</span>((dest, <span class="kw">_</span>)) =&gt; {
-				<span class="kw-2">*</span>destination = <span class="prelude-val">Some</span>(dest);
-				<span class="kw">return </span><span class="prelude-val">Err</span>(SendError::NotApplicable)
-			},
-		};
-		<span class="kw">let </span>(local_net, local_sub) = universal_source
+
+		<span class="comment">// Let&#39;s resolve the known/supported XCM version for the destination because we don&#39;t know
+		// if it supports the same/latest version.
+		</span><span class="kw">let </span>(universal_dest, version) =
+			<span class="kw">match </span>dest.pushed_front_with(GlobalConsensus(bridged_network)) {
+				<span class="prelude-val">Ok</span>(d) =&gt; {
+					<span class="kw">let </span>version = DestinationVersion::get_version_for(<span class="kw-2">&amp;</span>MultiLocation::from(
+						AncestorThen(bridged_network_location_parents, d),
+					))
+					.ok_or(SendError::DestinationUnsupported)<span class="question-mark">?</span>;
+					(d, version)
+				},
+				<span class="prelude-val">Err</span>((dest, <span class="kw">_</span>)) =&gt; {
+					<span class="kw-2">*</span>destination = <span class="prelude-val">Some</span>(dest);
+					<span class="kw">return </span><span class="prelude-val">Err</span>(SendError::NotApplicable)
+				},
+			};
+
+		<span class="comment">// Let&#39;s adjust XCM with `UniversalOrigin`, `DescendOrigin` and`SetTopic`.
+		</span><span class="kw">let </span>(local_net, local_sub) = universal_source
 			.take()
 			.ok_or(SendError::MissingArgument)<span class="question-mark">?
 			</span>.split_global()
@@ -1111,7 +1185,17 @@
 		<span class="kw">if </span>local_sub != Here {
 			message.<span class="number">0</span>.insert(<span class="number">1</span>, DescendOrigin(local_sub));
 		}
-		<span class="kw">let </span>message = VersionedXcm::from(message);
+
+		<span class="comment">// We cannot use the latest `Versioned` because we don&#39;t know if the target chain already
+		// supports the same version. Therefore, we better control the destination version with best
+		// efforts.
+		</span><span class="kw">let </span>message = VersionedXcm::from(message)
+			.into_version(version)
+			.map_err(|()| SendError::DestinationUnsupported)<span class="question-mark">?</span>;
+		<span class="kw">let </span>universal_dest = VersionedInteriorMultiLocation::from(universal_dest)
+			.into_version(version)
+			.map_err(|()| SendError::DestinationUnsupported)<span class="question-mark">?</span>;
+
 		<span class="kw">let </span>id = maybe_id.unwrap_or_else(|| message.using_encoded(sp_io::hashing::blake2_256));
 		<span class="kw">let </span>blob = BridgeMessage { universal_dest, message }.encode();
 		<span class="prelude-val">Ok</span>(((blob, id), Price::get()))

@@ -94,6 +94,28 @@
 <a href="#94" id="94">94</a>
 <a href="#95" id="95">95</a>
 <a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -133,6 +155,7 @@
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>bridge_runtime_common::messages_xcm_extension::SenderAndLane;
 	<span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
+	<span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
 
 	<span class="attr">#[pallet::config]
 	#[pallet::disable_frame_system_supertrait_check]
@@ -144,15 +167,17 @@
 		<span class="comment">// TODO: https://github.com/paritytech/parity-bridges-common/issues/1666 remove `ChainId` and
 		// replace it with the `NetworkId` - then we&#39;ll be able to use
 		// `T as pallet_bridge_messages::Config&lt;T::BridgeMessagesPalletInstance&gt;::BridgedChain::NetworkId`
-		</span><span class="doccomment">/// Bridged network id.
+		</span><span class="doccomment">/// Bridged network as relative location of bridged `GlobalConsensus`.
 		</span><span class="attr">#[pallet::constant]
-		</span><span class="kw">type </span>BridgedNetworkId: Get&lt;NetworkId&gt;;
+		</span><span class="kw">type </span>BridgedNetwork: Get&lt;MultiLocation&gt;;
 		<span class="doccomment">/// Associated messages pallet instance that bridges us with the
 		/// `BridgedNetworkId` consensus.
 		</span><span class="kw">type </span>BridgeMessagesPalletInstance: <span class="lifetime">&#39;static</span>;
 
 		<span class="doccomment">/// Price of single message export to the bridged consensus (`Self::BridgedNetworkId`).
 		</span><span class="kw">type </span>MessageExportPrice: Get&lt;MultiAssets&gt;;
+		<span class="doccomment">/// Checks the XCM version for the destination.
+		</span><span class="kw">type </span>DestinationVersion: GetVersion;
 
 		<span class="doccomment">/// Get point-to-point links with bridged consensus (`Self::BridgedNetworkId`).
 		/// (this will be replaced with dynamic on-chain bridges - `Bridges V2`)
@@ -164,6 +189,17 @@
 
 	<span class="attr">#[pallet::pallet]
 	</span><span class="kw">pub struct </span>Pallet&lt;T, I = ()&gt;(PhantomData&lt;(T, I)&gt;);
+
+	<span class="attr">#[pallet::hooks]
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
+		<span class="kw">fn </span>integrity_test() {
+			<span class="macro">assert!</span>(
+				<span class="self">Self</span>::bridged_network_id().is_some(),
+				<span class="string">&quot;Configured `T::BridgedNetwork`: {:?} does not contain `GlobalConsensus` junction with `NetworkId`&quot;</span>,
+				T::BridgedNetwork::get()
+			)
+		}
+	}
 
 	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
 		<span class="doccomment">/// Returns dedicated/configured lane identifier.
@@ -179,7 +215,7 @@
 				.find_map(|(lane_source, (lane_dest_network, lane_dest))| {
 					<span class="kw">if </span>lane_source.location == source &amp;&amp;
 						<span class="kw-2">&amp;</span>lane_dest_network == dest.<span class="number">0 </span>&amp;&amp;
-						<span class="kw-2">&amp;</span>T::BridgedNetworkId::get() == dest.<span class="number">0 </span>&amp;&amp;
+						<span class="self">Self</span>::bridged_network_id().as_ref() == <span class="prelude-val">Some</span>(dest.<span class="number">0</span>) &amp;&amp;
 						<span class="kw-2">&amp;</span>lane_dest == dest.<span class="number">1
 					</span>{
 						<span class="prelude-val">Some</span>(lane_source)
@@ -187,6 +223,14 @@
 						<span class="prelude-val">None
 					</span>}
 				})
+		}
+
+		<span class="doccomment">/// Returns some `NetworkId` if contains `GlobalConsensus` junction.
+		</span><span class="kw">fn </span>bridged_network_id() -&gt; <span class="prelude-ty">Option</span>&lt;NetworkId&gt; {
+			<span class="kw">match </span>T::BridgedNetwork::get().take_first_interior() {
+				<span class="prelude-val">Some</span>(GlobalConsensus(network)) =&gt; <span class="prelude-val">Some</span>(network),
+				<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+			}
 		}
 	}
 }
