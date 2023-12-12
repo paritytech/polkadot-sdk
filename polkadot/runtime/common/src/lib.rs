@@ -21,7 +21,6 @@
 pub mod assigned_slots;
 pub mod auctions;
 pub mod claims;
-pub mod coretime;
 pub mod crowdloan;
 pub mod elections;
 pub mod identity_migrator;

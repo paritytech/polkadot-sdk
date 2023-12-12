@@ -53,9 +53,7 @@ use primitives::{
 	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature, PARACHAIN_KEY_TYPE_ID,
 };
 use runtime_common::{
-	assigned_slots, auctions, coretime,
-	coretime::WeightInfo as CoretimeWeightInfo,
-	crowdloan,
+	assigned_slots, auctions, crowdloan,
 	elections::OnChainAccuracy,
 	identity_migrator, impl_runtime_weights,
 	impls::{
@@ -68,7 +66,9 @@ use runtime_parachains::{
 	assigner_coretime as parachains_assigner_coretime,
 	assigner_on_demand as parachains_assigner_on_demand,
 	assigner_parachains as parachains_assigner_parachains,
-	configuration as parachains_configuration, disputes as parachains_disputes,
+	configuration as parachains_configuration, coretime,
+	coretime::WeightInfo as CoretimeWeightInfo,
+	disputes as parachains_disputes,
 	disputes::slashing as parachains_slashing,
 	dmp as parachains_dmp, hrmp as parachains_hrmp, inclusion as parachains_inclusion,
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
@@ -1230,7 +1230,7 @@ impl coretime::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type BrokerId = BrokerId;
-	type WeightInfo = weights::runtime_common_coretime::WeightInfo<Runtime>;
+	type WeightInfo = weights::runtime_parachains_coretime::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -1248,7 +1248,7 @@ impl parachains_assigner_parachains::Config for Runtime {}
 
 impl parachains_assigner_coretime::Config for Runtime {
 	fn assign_core_weight(s: u32) -> Weight {
-		weights::runtime_common_coretime::WeightInfo::<Runtime>::assign_core(s)
+		weights::runtime_parachains_coretime::WeightInfo::<Runtime>::assign_core(s)
 	}
 }
 

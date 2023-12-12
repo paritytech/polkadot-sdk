@@ -22,21 +22,21 @@ mod benchmarking;
 // #[cfg(test)]
 // mod tests;
 
+use crate::{
+	assigner_coretime::{self, PartsOf57600},
+	origin::{ensure_parachain, Origin},
+};
 use frame_support::{pallet_prelude::*, traits::Currency};
 use frame_system::pallet_prelude::*;
 use pallet_broker::{CoreAssignment, CoreIndex as BrokerCoreIndex};
 use primitives::{CoreIndex, Id as ParaId};
-use runtime_parachains::{
-	assigner_coretime::{self, PartsOf57600},
-	origin::{ensure_parachain, Origin},
-};
 
 use sp_std::{prelude::*, result};
 
 pub use pallet::*;
 
 pub trait WeightInfo {
-	//fn request_core_count() -> Weight;
+	fn request_core_count() -> Weight;
 	//fn request_revenue_info_at() -> Weight;
 	//fn credit_account() -> Weight;
 	fn assign_core(s: u32) -> Weight;
@@ -46,12 +46,12 @@ pub trait WeightInfo {
 pub struct TestWeightInfo;
 
 impl WeightInfo for TestWeightInfo {
-	// TODO: Add real benchmarking functionality for each of these to
-	// benchmarking.rs, then uncomment here and in trait definition.
-	/*fn request_core_count() -> Weight {
+	fn request_core_count() -> Weight {
 		Weight::MAX
 	}
-	fn request_revenue_info_at() -> Weight {
+	// TODO: Add real benchmarking functionality for each of these to
+	// benchmarking.rs, then uncomment here and in trait definition.
+	/*fn request_revenue_info_at() -> Weight {
 		Weight::MAX
 	}
 	fn credit_account() -> Weight {
@@ -68,6 +68,8 @@ impl WeightInfo for TestWeightInfo {
 
 #[frame_support::pallet]
 pub mod pallet {
+
+	use crate::configuration;
 
 	use super::*;
 
@@ -89,6 +91,12 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 	}
 
+	/// Has a new core count been requested?
+	///
+	/// If so, what was the old value? (In order to detect when the change took effect.)
+	#[pallet::storage]
+	pub(super) type CoreCountRequested<T: Config> = StorageValue<_, u32, OptionQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -109,14 +117,15 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		// TODO Impl me!
-		//#[pallet::weight(<T as Config>::WeightInfo::request_core_count())]
-		//#[pallet::call_index(1)]
-		//pub fn request_core_count(origin: OriginFor<T>, _count: u16) -> DispatchResult {
-		//	// Ignore requests not coming from the broker parachain or root.
-		//	Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
-		//	Ok(())
-		//}
+		#[pallet::weight(<T as Config>::WeightInfo::request_core_count())]
+		#[pallet::call_index(1)]
+		pub fn request_core_count(origin: OriginFor<T>, count: u16) -> DispatchResult {
+			// Ignore requests not coming from the broker parachain or root.
+			Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
+			let old_value = configuration::Pallet::<T>::config().coretime_cores;
+			CoreCountRequested::<T>::put(old_value);
+			configuration::Pallet::<T>::set_coretime_cores_unchecked(u32::from(count))
+		}
 
 		//// TODO Impl me!
 		////#[pallet::weight(<T as Config>::WeightInfo::request_revenue_info_at())]
