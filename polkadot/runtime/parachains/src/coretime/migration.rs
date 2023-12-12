@@ -16,6 +16,9 @@
 
 //! Migration of legacy parachains to Coretime.
 
+#[cfg(feature = "no_std")]
+use sp_std::{vec, vec::Vec};
+
 use sp_core::Get;
 
 use frame_support::weights::Weight;
@@ -28,6 +31,12 @@ use super::{Config, Pallet, PartsOf57600, WeightInfo};
 use crate::assigner_coretime;
 
 pub mod v_coretime {
+
+	#[cfg(feature = "no_std")]
+	use sp_std::vec::Vec;
+
+	#[cfg(feature = "try-runtime")]
+	use frame_support::ensure;
 	use frame_support::{
 		migrations::VersionedMigration, traits::OnRuntimeUpgrade, weights::Weight,
 	};

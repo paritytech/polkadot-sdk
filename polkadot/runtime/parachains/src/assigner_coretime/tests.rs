@@ -424,8 +424,7 @@ fn ensure_workload_works() {
 	};
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
-		let mut core_descriptor: CoreDescriptor<BlockNumberFor<Test>> =
-			CoreDescriptor { queue: None, current_work: None };
+		let mut core_descriptor: CoreDescriptor<BlockNumberFor<Test>> = empty_descriptor.clone();
 		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
 
 		// Case 1: No new schedule in CoreSchedules for core

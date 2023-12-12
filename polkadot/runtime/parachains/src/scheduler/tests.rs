@@ -365,7 +365,7 @@ fn fill_claimqueue_fills() {
 			_ => None,
 		});
 
-		// add a couple of para assignments.
+		// add some para assignments.
 		MockAssigner::add_test_assignment(assignment_a.clone());
 		MockAssigner::add_test_assignment(assignment_b.clone());
 		MockAssigner::add_test_assignment(assignment_c.clone());
@@ -429,7 +429,7 @@ fn schedule_schedules_including_just_freed() {
 	new_test_ext(genesis_config).execute_with(|| {
 		MockAssigner::set_core_count(3);
 
-		// and 5 paras
+		// add 5 paras
 		schedule_blank_para(para_a);
 		schedule_blank_para(para_b);
 		schedule_blank_para(para_c);
@@ -645,8 +645,8 @@ fn schedule_clears_availability_cores() {
 				vec![ParasEntry::new(assignment_a, entry_ttl as u32)].into_iter().collect();
 			let queue_2_expectation: VecDeque<ParasEntryType<Test>> =
 				vec![ParasEntry::new(assignment_c, entry_ttl as u32)].into_iter().collect();
-			assert_eq!(claimqueue_0, queue_0_expectation,);
-			assert_eq!(claimqueue_2, queue_2_expectation,);
+			assert_eq!(claimqueue_0, queue_0_expectation);
+			assert_eq!(claimqueue_2, queue_2_expectation);
 
 			// The freed cores should be `Free` in `AvailabilityCores`.
 			let cores = AvailabilityCores::<Test>::get();
