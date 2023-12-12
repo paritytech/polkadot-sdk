@@ -106,11 +106,11 @@ function forceCreateAsset(endpoint, outputFile, assetId, assetOwnerAccountId, is
 		});
 }
 
-function setStorage(endpoint, outputFile, items) {
-	console.log(`Generating setStorage from RPC endpoint: ${endpoint} to outputFile: ${outputFile}, items: ${items}`);
+function forceXcmVersion(endpoint, outputFile, dest, xcm_version) {
+	console.log(`Generating forceXcmVersion from RPC endpoint: ${endpoint} to outputFile: ${outputFile}, dest: ${dest}, xcm_version: ${xcm_version}`);
 	connect(endpoint)
 		.then((api) => {
-			const call = api.tx.system.setStorage(JSON.parse(items));
+			const call = api.tx.polkadotXcm.forceXcmVersion(JSON.parse(dest), xcm_version);
 			writeHexEncodedBytesToOutput(call.method, outputFile);
 			exit(0);
 		})
@@ -154,8 +154,8 @@ switch (type) {
 	case 'force-create-asset':
 		forceCreateAsset(rpcEnpoint, output, inputArgs[0], inputArgs[1], inputArgs[2], inputArgs[3]);
 		break;
-	case 'set-storage':
-		setStorage(rpcEnpoint, output, inputArgs[0]);
+	case 'force-xcm-version':
+		forceXcmVersion(rpcEnpoint, output, inputArgs[0], inputArgs[1]);
 		break;
 	case 'check':
 		console.log(`Checking nodejs installation, if you see this everything is ready!`);

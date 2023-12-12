@@ -673,9 +673,16 @@ fn limited_reserve_transfer_assets_for_native_asset_over_bridge_works(
 
 mod asset_hub_rococo_tests {
 	use super::*;
+	use asset_hub_rococo_runtime::{PolkadotXcm, RuntimeOrigin};
 
 	fn bridging_to_asset_hub_westend() -> TestBridgingConfig {
-		asset_test_utils::test_cases_over_bridge::TestBridgingConfig {
+		let _ = PolkadotXcm::force_xcm_version(
+			RuntimeOrigin::root(),
+			Box::new(bridging::to_westend::AssetHubWestend::get()),
+			XCM_VERSION,
+		)
+		.expect("version saved!");
+		TestBridgingConfig {
 			bridged_network: bridging::to_westend::WestendNetwork::get(),
 			local_bridge_hub_para_id: bridging::SiblingBridgeHubParaId::get(),
 			local_bridge_hub_location: bridging::SiblingBridgeHub::get(),
