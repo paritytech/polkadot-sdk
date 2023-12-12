@@ -224,46 +224,6 @@ impl<
 /// [`TransactAsset`] implementation that allows the use of a [`fungible`] implementation for
 /// handling an asset in the XCM executor.
 /// Works for everything, transfers and teleport bookkeeping.
-/// This type can be used as `type AssetTransactor` in `xcm::Config`.
-///
-/// # Example
-/// ```
-/// use parity_scale_codec::Decode;
-/// use frame_support::{parameter_types, PalletId};
-/// use sp_runtime::traits::{AccountIdConversion, TrailingZeroInput};
-/// use xcm::latest::prelude::*;
-/// use staging_xcm_builder::{ParentIsPreset, FungibleAdapter, IsConcrete};
-///
-/// /// Our chain's account id.
-/// type AccountId = sp_runtime::AccountId32;
-///
-/// /// Our relay chain's location.
-/// parameter_types! {
-///     pub RelayChain: MultiLocation = Parent.into();
-///     pub CheckingAccount: AccountId = PalletId(*b"checking").into_account_truncating();
-/// }
-///
-/// /// Some items that implement `ConvertLocation<AccountId>`. Can be more, but for now we just assume we accept
-/// /// messages from the parent (relay chain).
-/// pub type LocationConverter = (ParentIsPreset<AccountId>);
-///
-/// /// Just a dummy implementation of `fungible::Mutate`. Normally this would be the balances pallet.
-/// pub type FungibleImpl = ();
-///
-/// /// Final currency adapter. This can be used in `xcm::Config` to specify how asset related transactions happen.
-/// pub type AssetTransactor = FungibleAdapter<
-///     // Use this `fungible::Mutate` impl instance:
-///     FungibleImpl,
-///     // The matcher: use the currency when the asset is a concrete asset in our relay chain.
-///     IsConcrete<RelayChain>,
-///     // The local converter: default account of the parent relay chain.
-///     LocationConverter,
-///     // Our chain's account ID type.
-///     AccountId,
-///     // The checking account. Can be any deterministic inaccessible account.
-///     CheckingAccount,
-/// >;
-/// ```
 pub struct FungibleAdapter<Fungible, Matcher, AccountIdConverter, AccountId, CheckingAccount>(
 	PhantomData<(Fungible, Matcher, AccountIdConverter, AccountId, CheckingAccount)>,
 );
