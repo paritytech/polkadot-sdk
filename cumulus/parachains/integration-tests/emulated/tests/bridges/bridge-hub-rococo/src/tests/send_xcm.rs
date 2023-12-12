@@ -88,16 +88,34 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 
 	// set destination version
 	AssetHubRococo::force_xcm_version(destination, xcm::v3::prelude::XCM_VERSION);
-	// send XCM from AssetHubRococo - fails - BridgeHubRococo is set to `2` which does not have
-	// `ExportMessage` instruction so if default v2 is changed to 3, then this assert can go away
-	assert_err!(
-		send_asset_from_asset_hub_rococo(destination, (native_token, amount)),
-		DispatchError::Module(sp_runtime::ModuleError {
-			index: 31,
-			error: [1, 0, 0, 0],
-			message: Some("SendFailure")
-		})
-	);
+
+	// TODO: remove this block, when removing `xcm:v2`
+	{
+		// send XCM from AssetHubRococo - fails - AssetHubRococo is set to the default/safe `2` version, which does not have the `ExportMessage` instruction. If the default `2` is changed to `3`, then this assert can go away"
+		assert_err!(
+			send_asset_from_asset_hub_rococo(destination, (native_token, amount)),
+			DispatchError::Module(sp_runtime::ModuleError {
+				index: 31,
+				error: [1, 0, 0, 0],
+				message: Some("SendFailure")
+			})
+		);
+
+		// set exact version for BridgeHubWestend to `2` without `ExportMessage` instruction
+		AssetHubRococo::force_xcm_version(
+			ParentThen(Parachain(BridgeHubRococo::para_id().into()).into()).into(),
+			xcm::v2::prelude::XCM_VERSION,
+		);
+		// send XCM from AssetHubRococo - fails - `ExportMessage` is not in `2`
+		assert_err!(
+			send_asset_from_asset_hub_rococo(destination, (native_token, amount)),
+			DispatchError::Module(sp_runtime::ModuleError {
+				index: 31,
+				error: [1, 0, 0, 0],
+				message: Some("SendFailure")
+			})
+		);
+	}
 
 	// set version with `ExportMessage` for BridgeHubRococo
 	AssetHubRococo::force_xcm_version(
@@ -138,4 +156,18 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 			]
 		);
 	});
+
+	// TODO: remove this block, when removing `xcm:v2`
+	{
+		// set `2` version for remote BridgeHub on BridgeHubRococo, which does not have `UniversalOrigin` and `DescendOrigin`
+		BridgeHubRococo::force_xcm_version(
+			bridge_hub_westend_location(),
+			xcm::v2::prelude::XCM_VERSION,
+		);
+
+		// send XCM from AssetHubRococo - ok
+		assert_ok!(send_asset_from_asset_hub_rococo(destination, (native_token, amount)));
+		// message is not accepted on the local BridgeHub (`DestinationUnsupported`) because we cannot add `UniversalOrigin` and `DescendOrigin`
+		assert_bridge_hub_rococo_message_accepted(false);
+	}
 }
