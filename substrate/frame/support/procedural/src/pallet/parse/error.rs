@@ -101,9 +101,9 @@ impl ErrorDef {
 				}
 				let cfg_attrs: Vec<syn::Attribute> = helper::get_item_cfg_attrs(&variant.attrs);
 
-				Ok(VariantDef { 
-					ident: variant.ident.clone(), 
-					field: field_ty, 
+				Ok(VariantDef {
+					ident: variant.ident.clone(),
+					field: field_ty,
 					docs: get_doc_literals(&variant.attrs),
 					cfg_attrs,
 				})
