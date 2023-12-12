@@ -96,8 +96,8 @@ use xcm::latest::prelude::{AssetId, BodyId};
 
 #[cfg(feature = "runtime-benchmarks")]
 use xcm::latest::prelude::{
-	Asset, Fungible, Here, InteriorLocation, Junction, Junction::*, Location,
-	NetworkId, NonFungible, Parent, ParentThen, Response,
+	Asset, Fungible, Here, InteriorLocation, Junction, Junction::*, Location, NetworkId,
+	NonFungible, Parent, ParentThen, Response,
 };
 
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};

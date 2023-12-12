@@ -24,10 +24,8 @@ fn create_and_claim_treasury_spend() {
 	const ASSET_ID: u32 = 1984;
 	const SPEND_AMOUNT: u128 = 1_000_000;
 	// treasury location from a sibling parachain.
-	let treasury_location: Location = Location::new(
-		1,
-		[Parachain(CollectivesWestend::para_id().into()), PalletInstance(65)],
-	);
+	let treasury_location: Location =
+		Location::new(1, [Parachain(CollectivesWestend::para_id().into()), PalletInstance(65)]);
 	// treasury account on a sibling parachain.
 	let treasury_account =
 		asset_hub_westend_runtime::xcm_config::LocationToAccountId::convert_location(

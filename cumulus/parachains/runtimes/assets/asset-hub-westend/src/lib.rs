@@ -91,8 +91,8 @@ use xcm::latest::prelude::AssetId;
 
 #[cfg(feature = "runtime-benchmarks")]
 use xcm::latest::prelude::{
-	Asset, Fungible, Here, InteriorLocation, Junction, Junction::*, Location,
-	NetworkId, NonFungible, Parent, ParentThen, Response,
+	Asset, Fungible, Here, InteriorLocation, Junction, Junction::*, Location, NetworkId,
+	NonFungible, Parent, ParentThen, Response,
 };
 
 use crate::xcm_config::ForeignCreatorsSovereignAccountOf;

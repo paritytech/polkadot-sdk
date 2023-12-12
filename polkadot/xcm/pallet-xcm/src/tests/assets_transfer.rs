@@ -1481,14 +1481,13 @@ fn remote_asset_reserve_and_remote_fee_reserve_call<Call>(
 	new_test_ext_with_balances(balances).execute_with(|| {
 		// create sufficient foreign asset USDC
 		let usdc_initial_local_amount = 142;
-		let (usdc_chain, usdc_chain_sovereign_account, usdc_id_location) =
-			set_up_foreign_asset(
-				USDC_RESERVE_PARA_ID,
-				Some(USDC_INNER_JUNCTION),
-				ALICE,
-				usdc_initial_local_amount,
-				true,
-			);
+		let (usdc_chain, usdc_chain_sovereign_account, usdc_id_location) = set_up_foreign_asset(
+			USDC_RESERVE_PARA_ID,
+			Some(USDC_INNER_JUNCTION),
+			ALICE,
+			usdc_initial_local_amount,
+			true,
+		);
 
 		// transfer destination is some other parachain
 		let dest = RelayLocation::get().pushed_with_interior(Parachain(OTHER_PARA_ID)).unwrap();
