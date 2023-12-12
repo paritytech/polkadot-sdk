@@ -6,7 +6,22 @@ title: Agile Coretime Base Relaychain Functionality
 doc:
   - audience: Runtime User
     description: |
-      The relay chain is now capable of receiving assignments from the coretime chain and will schedule parachains and on-demand orders accordingly.
-      Existing leases and system chains are preserved. They get a reserved coretime core via a migration.
+      The relay chain is now capable of receiving assignments from the coretime
+      chain and will schedule parachains and on-demand orders accordingly.
+      Existing leases and system chains are preserved. They get a reserved
+      coretime core via a migration. For the broker pallet we now expose a
+      `notify_core_count` extrinsic callable by the relay chain to allow for
+      implementation of RFC-5.
 
-crates: [ ]
+migrations: 
+  db: []
+  runtime: 
+    - reference: polkadot-runtime-parachains
+      description: |
+        Claim queue in scheduler now no longer contains Option values and
+        assignments now contain information necessary to accomodate for coretime
+        features. Also all existing parachains are converted to coretime
+        assignments.
+
+crates:
+  - name: polkadot-runtime-parachains
