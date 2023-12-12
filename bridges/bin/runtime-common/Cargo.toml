@@ -34,6 +34,7 @@ pallet-bridge-relayers = { path = "../../modules/relayers", default-features = f
 
 # Substrate dependencies
 
+frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true}
 frame-support = { path = "../../../substrate/frame/support", default-features = false }
 frame-system = { path = "../../../substrate/frame/system", default-features = false }
 pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment", default-features = false }
@@ -65,6 +66,7 @@ std = [
 	"bp-xcm-bridge-hub-router/std",
 	"bp-xcm-bridge-hub/std",
 	"codec/std",
+	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
 	"hash-db/std",
@@ -86,6 +88,7 @@ std = [
 	"xcm/std",
 ]
 runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
