@@ -18,7 +18,8 @@
 
 //! Substrate fork-aware transaction pool implementation.
 
-#![warn(missing_docs)]
+//todo:
+#![allow(missing_docs)]
 #![warn(unused_extern_crates)]
 //todo:
 #![allow(unused_imports)]
@@ -67,7 +68,17 @@ use sp_blockchain::{HashAndNumber, TreeRoute};
 
 pub(crate) const LOG_TARGET: &str = "txpool";
 
+//todo: View probably needs a hash? parent hash? number?
 pub struct View<PoolApi: graph::ChainApi>(graph::Pool<PoolApi>);
+
+impl<PoolApi> View<PoolApi>
+where
+	PoolApi: graph::ChainApi,
+{
+	fn new(api: Arc<PoolApi>) -> Self {
+		Self(graph::Pool::new(Default::default(), true.into(), api))
+	}
+}
 
 pub struct ViewManager<PoolApi, Block>
 where
@@ -79,6 +90,7 @@ where
 }
 
 pub enum ViewCreationError {
+	AlreadyExists,
 	Unknown,
 }
 
@@ -95,29 +107,87 @@ where
 	pub async fn create_new_view_at(
 		&self,
 		event: ChainEvent<Block>,
+		xts: Arc<RwLock<Vec<Block::Extrinsic>>>,
 	) -> Result<(), ViewCreationError> {
-		// let pool = Arc::new(graph::Pool::new(Default::default(), true.into(), pool_api.clone()));
-		unimplemented!()
+		let hash = match event {
+			ChainEvent::Finalized { hash, .. } | ChainEvent::NewBestBlock { hash, .. } => hash,
+		};
+		if self.views.read().contains_key(&hash) {
+			return Err(ViewCreationError::AlreadyExists)
+		}
+
+		let view = Arc::new(View::new(self.api.clone()));
+
+		//todo: lock or clone?
+		//todo: source?
+		let source = TransactionSource::External;
+
+		//todo: internal checked banned: not required any more?
+		let xts = xts.read().clone();
+		let _ = view.0.submit_at(hash, source, xts).await;
+		self.views.write().insert(hash, view);
+
+		// brute force: just revalidate all xts against block
+		// target: find parent, extract all provided tags on enacted path and recompute graph
+
+		Ok(())
 	}
 
-	/// Imports a bunch of unverified extrinsics to the pool
+	/// Imports a bunch of unverified extrinsics to every view
 	pub async fn submit_at(
 		&self,
 		at: Block::Hash,
 		source: TransactionSource,
-		xts: impl IntoIterator<Item = Block::Extrinsic>,
-	) -> Result<Vec<Result<ExtrinsicHash<PoolApi>, PoolApi::Error>>, PoolApi::Error> {
-		unimplemented!()
+		xts: impl IntoIterator<Item = Block::Extrinsic> + Clone,
+	) -> HashMap<
+		Block::Hash,
+		Result<Vec<Result<ExtrinsicHash<PoolApi>, PoolApi::Error>>, PoolApi::Error>,
+	> {
+		//todo: Result<Vec,Error> is not really needed. submit_at should take HashAndNumber.
+		let futs = {
+			let g = self.views.read();
+			let futs = g
+				.iter()
+				.map(|(hash, view)| {
+					let view = view.clone();
+					//todo: remove this clone (Arc?)
+					let xts = xts.clone();
+					let hash = hash.clone();
+					async move { (hash, view.0.submit_at(hash, source, xts.clone()).await) }
+				})
+				.collect::<Vec<_>>();
+			futs
+		};
+		let results = futures::future::join_all(futs).await;
+
+		HashMap::<_, _>::from_iter(results.into_iter())
 	}
 
-	/// Imports one unverified extrinsic to the pool
+	/// Imports one unverified extrinsic to every view
 	pub async fn submit_one(
 		&self,
 		at: Block::Hash,
 		source: TransactionSource,
 		xt: Block::Extrinsic,
-	) -> Result<ExtrinsicHash<PoolApi>, PoolApi::Error> {
-		unimplemented!()
+	) -> HashMap<Block::Hash, Result<ExtrinsicHash<PoolApi>, PoolApi::Error>> {
+		//todo: Result<ExtrinsicHash,Error> is not really needed. submit_at should take
+		// HashAndNumber.
+		let futs = {
+			let g = self.views.read();
+			let futs = g
+				.iter()
+				.map(|(hash, view)| {
+					let view = view.clone();
+					let hash = hash.clone();
+					let xt = xt.clone();
+					async move { (hash, view.0.submit_one(hash, source, xt.clone()).await) }
+				})
+				.collect::<Vec<_>>();
+			futs
+		};
+		let results = futures::future::join_all(futs).await;
+
+		HashMap::<_, _>::from_iter(results.into_iter())
 	}
 
 	/// Import a single extrinsic and starts to watch its progress in the pool.
@@ -129,6 +199,14 @@ where
 	) -> Result<Watcher<ExtrinsicHash<PoolApi>, ExtrinsicHash<PoolApi>>, PoolApi::Error> {
 		unimplemented!()
 	}
+
+	pub fn status(&self) -> HashMap<Block::Hash, PoolStatus> {
+		self.views
+			.read()
+			.iter()
+			.map(|(h, v)| (*h, v.0.validated_pool().status()))
+			.collect()
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -139,7 +217,7 @@ where
 	PoolApi: graph::ChainApi<Block = Block>,
 {
 	api: Arc<PoolApi>,
-	xts: RwLock<Vec<Block::Extrinsic>>,
+	xts: Arc<RwLock<Vec<Block::Extrinsic>>>,
 	views: Arc<ViewManager<PoolApi, Block>>,
 	// todo:
 	// map: hash -> view
@@ -177,6 +255,34 @@ where
 	pub fn api(&self) -> &PoolApi {
 		&self.api
 	}
+
+	pub fn status_all(&self) -> HashMap<Block::Hash, PoolStatus> {
+		self.views.status()
+	}
+}
+
+fn xxxx() {
+	// in:
+	// HashMap<
+	//    Hash,
+	//    Result<
+	//      Vec<
+	//        Result<
+	//          ExtrinsicHash<PoolApi>,
+	//          PoolApi::Error
+	//        >
+	//      >,
+	//      PoolApi::Error
+	//    >
+	// >
+	//
+	// out:
+	//  Vec<
+	//    Result<
+	//      ExtrinsicHash<PoolApi>,
+	//      PoolApi::Error
+	//    >
+	//  >
 }
 
 impl<PoolApi, Block> TransactionPool for ForkAwareTxPool<PoolApi, Block>
@@ -202,7 +308,15 @@ where
 		// self.metrics
 		// 	.report(|metrics| metrics.submitted_transactions.inc_by(xts.len() as u64));
 
-		async move { views.submit_at(at, source, xts).await }.boxed()
+		async move {
+			// HashMap< Hash, Result<Vec<Result<ExtrinsicHash<PoolApi>, PoolApi::Error>>,
+			// PoolApi::Error>
+
+			let mut results_map = views.submit_at(at, source, xts).await;
+			//todo: unwrap
+			results_map.remove(&at).unwrap()
+		}
+		.boxed()
 	}
 
 	fn submit_one(
@@ -217,7 +331,12 @@ where
 		let views = self.views.clone();
 		self.xts.write().push(xt.clone());
 
-		async move { views.submit_one(at, source, xt).await }.boxed()
+		async move {
+			let mut results = views.submit_one(at, source, xt).await;
+			//todo: unwrap
+			results.remove(&at).unwrap()
+		}
+		.boxed()
 	}
 
 	fn submit_and_watch(
@@ -339,7 +458,7 @@ where
 	PoolApi: 'static + graph::ChainApi<Block = Block>,
 {
 	async fn maintain(&self, event: ChainEvent<Self::Block>) {
-		unimplemented!();
+		self.views.create_new_view_at(event, self.xts.clone()).await;
 	}
 }
 
