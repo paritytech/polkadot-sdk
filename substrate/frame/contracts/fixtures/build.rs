@@ -218,7 +218,6 @@ fn invoke_riscv_build(current_dir: &Path) -> Result<()> {
 
 	fs::write(current_dir.join("memory.ld"), include_bytes!("./build/riscv_memory_layout.ld"))?;
 
-	//
 	let build_res = Command::new(env::var("CARGO")?)
 		.current_dir(current_dir)
 		.env_clear()
