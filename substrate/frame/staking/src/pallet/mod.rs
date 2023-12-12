@@ -1948,7 +1948,7 @@ pub mod pallet {
 						// `Controller` variant, skip deprecating this account.
 						let payee_deprecated = Payee::<T>::get(&ledger.stash) == {
 							#[allow(deprecated)]
-							RewardDestination::Controller
+							Some(RewardDestination::Controller)
 						};
 
 						if ledger.stash != *controller && !payee_deprecated {

@@ -7084,6 +7084,10 @@ mod ledger {
 			// Ledger is still keyed by controller.
 			let ledger_updated = Ledger::<Test>::get(ctlr).unwrap();
 			assert_eq!(ledger_updated.stash, stash);
+
+			// this test manually inserts a ledger in storage. Let's skip the try-state assertions
+			// at the end of the test, as we expect them to fail.
+			skip_try_state_checks();
 		})
 	}
 }
