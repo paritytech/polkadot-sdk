@@ -6,10 +6,10 @@ title: Extract warp sync strategy from `ChainSync`
 doc:
   - audience: Node Dev
     description: |
-      `WarpSync` (and `StateSync` as the logical part of warp sync) is extracted from  `ChainSync`
-      as independent syncing strategy. `SyncingStrategy` enum is introduced as a proxy between
-      `SyncingEngine` and specific syncing strategies. `SyncingStrategy` may be replaced by a trait
-      in a follow-up PRs.
+      `WarpSync`, and `StateSync` as the logical part of warp sync, are extracted from  `ChainSync`
+      as independent syncing strategies. `SyncingStrategy` enum is introduced as a proxy between
+      `SyncingEngine` and specific strategies. `SyncingStrategy` may be replaced by a trait in a
+      follow-up PRs.
 
 crates: 
   - name: sc-network-sync
