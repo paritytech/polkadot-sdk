@@ -1499,7 +1499,7 @@
 	/// `None` can be used to delete a value specified by the given key.
 	///
 	/// Can be rolled back or committed when called inside a transaction.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>set_child_storage(
+	</span><span class="kw">pub fn </span>set_child_storage(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		child_info: <span class="kw-2">&amp;</span>ChildInfo,
 		key: StorageKey,
@@ -1524,7 +1524,7 @@
 	<span class="doccomment">/// Clear child storage of given storage key.
 	///
 	/// Can be rolled back or committed when called inside a transaction.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>clear_child_storage(<span class="kw-2">&amp;mut </span><span class="self">self</span>, child_info: <span class="kw-2">&amp;</span>ChildInfo) -&gt; u32 {
+	</span><span class="kw">pub fn </span>clear_child_storage(<span class="kw-2">&amp;mut </span><span class="self">self</span>, child_info: <span class="kw-2">&amp;</span>ChildInfo) -&gt; u32 {
 		<span class="self">self</span>.mark_dirty();
 
 		<span class="kw">let </span>extrinsic_index = <span class="self">self</span>.extrinsic_index();
@@ -1542,7 +1542,7 @@
 	<span class="doccomment">/// Removes all key-value pairs which keys share the given prefix.
 	///
 	/// Can be rolled back or committed when called inside a transaction.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>clear_prefix(<span class="kw-2">&amp;mut </span><span class="self">self</span>, prefix: <span class="kw-2">&amp;</span>[u8]) -&gt; u32 {
+	</span><span class="kw">pub fn </span>clear_prefix(<span class="kw-2">&amp;mut </span><span class="self">self</span>, prefix: <span class="kw-2">&amp;</span>[u8]) -&gt; u32 {
 		<span class="self">self</span>.mark_dirty();
 
 		<span class="self">self</span>.top.clear_where(|key, <span class="kw">_</span>| key.starts_with(prefix), <span class="self">self</span>.extrinsic_index())
@@ -1551,7 +1551,7 @@
 	<span class="doccomment">/// Removes all key-value pairs which keys share the given prefix.
 	///
 	/// Can be rolled back or committed when called inside a transaction
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>clear_child_prefix(<span class="kw-2">&amp;mut </span><span class="self">self</span>, child_info: <span class="kw-2">&amp;</span>ChildInfo, prefix: <span class="kw-2">&amp;</span>[u8]) -&gt; u32 {
+	</span><span class="kw">pub fn </span>clear_child_prefix(<span class="kw-2">&amp;mut </span><span class="self">self</span>, child_info: <span class="kw-2">&amp;</span>ChildInfo, prefix: <span class="kw-2">&amp;</span>[u8]) -&gt; u32 {
 		<span class="self">self</span>.mark_dirty();
 
 		<span class="kw">let </span>extrinsic_index = <span class="self">self</span>.extrinsic_index();
