@@ -173,10 +173,14 @@ macro_rules! impl_accounts_helpers_for_relay_chain {
 				pub fn fund_accounts(accounts: Vec<($crate::impls::AccountId, $crate::impls::Balance)>) {
 					<Self as $crate::impls::TestExt>::execute_with(|| {
 						for account in accounts {
+							let who = account.0;
+							let actual = <Self as [<$chain RelayPallet>]>::Balances::free_balance(&who);
+							let actual = actual.saturating_add(<Self as [<$chain RelayPallet>]>::Balances::reserved_balance(&who));
+
 							$crate::impls::assert_ok!(<Self as [<$chain RelayPallet>]>::Balances::force_set_balance(
 								<Self as $crate::impls::Chain>::RuntimeOrigin::root(),
-								account.0.into(),
-								account.1,
+								who.into(),
+								actual.saturating_add(account.1),
 							));
 						}
 					});
@@ -386,10 +390,14 @@ macro_rules! impl_accounts_helpers_for_parachain {
 				pub fn fund_accounts(accounts: Vec<($crate::impls::AccountId, $crate::impls::Balance)>) {
 					<Self as $crate::impls::TestExt>::execute_with(|| {
 						for account in accounts {
+							let who = account.0;
+							let actual = <Self as [<$chain ParaPallet>]>::Balances::free_balance(&who);
+							let actual = actual.saturating_add(<Self as [<$chain ParaPallet>]>::Balances::reserved_balance(&who));
+
 							$crate::impls::assert_ok!(<Self as [<$chain ParaPallet>]>::Balances::force_set_balance(
 								<Self as $crate::impls::Chain>::RuntimeOrigin::root(),
-								account.0.into(),
-								account.1,
+								who.into(),
+								actual.saturating_add(account.1),
 							));
 						}
 					});
