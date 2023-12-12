@@ -63,6 +63,7 @@ use sp_storage::{StorageData, StorageKey};
 /// # 	type Lookup = IdentityLookup<Self::AccountId>;
 /// # 	type Block = frame_system::mocking::MockBlock<TestRuntime>;
 /// # 	type RuntimeEvent = RuntimeEvent;
+/// # 	type RuntimeTask = RuntimeTask;
 /// # 	type BlockHashCount = ();
 /// # 	type DbWeight = ();
 /// # 	type Version = ();
