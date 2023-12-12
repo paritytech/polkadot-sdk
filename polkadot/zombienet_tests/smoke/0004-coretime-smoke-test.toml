@@ -14,6 +14,10 @@ command = "polkadot"
   name = "bob"
   args = ["-lruntime=debug,parachain=trace" ]
 
+  [[relaychain.nodes]]
+  name = "charlie"
+  args = ["-lruntime=debug,parachain=trace" ]
+
 [[parachains]]
 id = 1005
 chain = "coretime-rococo-dev"

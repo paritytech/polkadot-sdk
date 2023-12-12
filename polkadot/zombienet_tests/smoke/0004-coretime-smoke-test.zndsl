@@ -9,12 +9,9 @@ coretime-collator: is up
 alice: js-script ./0004-configure-relay.js with "" return is 0 within 30 secs
 
 # Wait 1 session. The parachain doesn't start block production immediately.
-sleep 60 seconds
+alice: log line contains "New session detected session_index=1" within 75 seconds
 
 # configure broker chain
 coretime-collator: js-script ./0004-configure-broker.js with "" return is 0 within 60 secs
 
-sleep 3600 seconds
-
-# This isn't working for parathread lifecycles for some reason
-#alice: parachain 100 block height is at least 10 within 600 seconds
+alice: parachain 100 block height is at least 10 within 600 seconds

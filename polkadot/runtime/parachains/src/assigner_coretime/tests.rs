@@ -80,7 +80,7 @@ fn run_to_block(
 }
 
 fn default_test_assignments() -> Vec<(CoreAssignment, PartsOf57600)> {
-	vec![(CoreAssignment::Idle, PartsOf57600::from(57600u16))]
+	vec![(CoreAssignment::Idle, PartsOf57600::FULL)]
 }
 
 fn default_test_schedule() -> Schedule<BlockNumberFor<Test>> {
@@ -233,20 +233,20 @@ fn assign_core_enforces_well_formed_schedule() {
 		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
 
 		let empty_assignments: Vec<(CoreAssignment, PartsOf57600)> = vec![];
-		let too_many_assignments = vec![(CoreAssignment::Pool, PartsOf57600::from(288u16)); 200];
+		let too_many_assignments = vec![(CoreAssignment::Pool, PartsOf57600(288)); 200];
 		let overscheduled = vec![
-			(CoreAssignment::Pool, PartsOf57600::from(57600u16)),
-			(CoreAssignment::Task(para_id.into()), PartsOf57600::from(57600u16)),
+			(CoreAssignment::Pool, PartsOf57600::FULL),
+			(CoreAssignment::Task(para_id.into()), PartsOf57600::FULL),
 		];
-		let underscheduled = vec![(CoreAssignment::Pool, PartsOf57600::from(30000u16))];
+		let underscheduled = vec![(CoreAssignment::Pool, PartsOf57600(30000))];
 		let not_unique = vec![
-			(CoreAssignment::Pool, PartsOf57600::from(57600u16 / 2)),
-			(CoreAssignment::Pool, PartsOf57600::from(57600u16 / 2)),
+			(CoreAssignment::Pool, PartsOf57600::FULL / 2),
+			(CoreAssignment::Pool, PartsOf57600::FULL / 2),
 		];
 		let not_sorted = vec![
-			(CoreAssignment::Task(para_id.into()), PartsOf57600::from(19200u16)),
-			(CoreAssignment::Pool, PartsOf57600::from(19200u16)),
-			(CoreAssignment::Idle, PartsOf57600::from(19200u16)),
+			(CoreAssignment::Task(para_id.into()), PartsOf57600(19200)),
+			(CoreAssignment::Pool, PartsOf57600(19200)),
+			(CoreAssignment::Idle, PartsOf57600(19200)),
 		];
 
 		// Attempting assign_core with malformed assignments such that all error cases
@@ -401,10 +401,8 @@ fn next_schedule_always_points_to_next_work_plan_item() {
 #[test]
 fn ensure_workload_works() {
 	let core_idx = CoreIndex(0);
-	let test_assignment_state = AssignmentState {
-		ratio: PartsOf57600::from(57600u16),
-		remaining: PartsOf57600::from(57600u16),
-	};
+	let test_assignment_state =
+		AssignmentState { ratio: PartsOf57600::FULL, remaining: PartsOf57600::FULL };
 
 	let empty_descriptor: CoreDescriptor<BlockNumberFor<Test>> =
 		CoreDescriptor { queue: None, current_work: None };
@@ -421,7 +419,7 @@ fn ensure_workload_works() {
 			assignments: vec![(CoreAssignment::Pool, test_assignment_state)],
 			end_hint: Some(BlockNumberFor::<Test>::from(15u32)),
 			pos: 0,
-			step: PartsOf57600::from(57600u16),
+			step: PartsOf57600::FULL,
 		}),
 	};
 
@@ -439,7 +437,7 @@ fn ensure_workload_works() {
 		assert_ok!(CoretimeAssigner::assign_core(
 			core_idx,
 			BlockNumberFor::<Test>::from(11u32),
-			vec![(CoreAssignment::Pool, PartsOf57600::from(57600u16))],
+			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
 			Some(BlockNumberFor::<Test>::from(15u32)),
 		));
 
@@ -471,9 +469,8 @@ fn pop_assignment_for_core_works() {
 	let amt = 10_000_000u128;
 	let on_demand_assignment = OnDemandAssignment::new(para_id, CoreIndex(0));
 
-	let assignments_pool = vec![(CoreAssignment::Pool, PartsOf57600::from(57600u16))];
-	let assignments_task =
-		vec![(CoreAssignment::Task(para_id.into()), PartsOf57600::from(57600u16))];
+	let assignments_pool = vec![(CoreAssignment::Pool, PartsOf57600::FULL)];
+	let assignments_task = vec![(CoreAssignment::Task(para_id.into()), PartsOf57600::FULL)];
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		// Initialize the parathread, wait for it to be ready, then add an
@@ -542,8 +539,8 @@ fn assignment_proportions_in_core_state_work() {
 
 		// Task 1 gets 2/3 core usage, while task 2 gets 1/3
 		let test_assignments = vec![
-			(CoreAssignment::Task(task_1), PartsOf57600::from(57600u16 / 3 * 2)),
-			(CoreAssignment::Task(task_2), PartsOf57600::from(57600u16 / 3)),
+			(CoreAssignment::Task(task_1), PartsOf57600::FULL / 3 * 2),
+			(CoreAssignment::Task(task_2), PartsOf57600::FULL / 3),
 		];
 
 		assert_ok!(CoretimeAssigner::assign_core(
@@ -575,7 +572,7 @@ fn assignment_proportions_in_core_state_work() {
 					.current_work
 					.as_ref()
 					.and_then(|w| Some(w.assignments[0].1.remaining)),
-				Some(PartsOf57600::from(57600u16 / 3))
+				Some(PartsOf57600::FULL / 3)
 			);
 		}
 
@@ -600,7 +597,7 @@ fn assignment_proportions_in_core_state_work() {
 					.current_work
 					.as_ref()
 					.and_then(|w| Some(w.assignments[0].1.remaining)),
-				Some(PartsOf57600::from(57600u16 / 3 * 2))
+				Some(PartsOf57600::FULL / 3 * 2)
 			);
 		}
 
@@ -623,8 +620,8 @@ fn equal_assignments_served_equally() {
 
 		// Tasks 1 and 2 get equal work parts
 		let test_assignments = vec![
-			(CoreAssignment::Task(task_1), PartsOf57600::from(57600u16 / 2)),
-			(CoreAssignment::Task(task_2), PartsOf57600::from(57600u16 / 2)),
+			(CoreAssignment::Task(task_1), PartsOf57600::FULL / 2),
+			(CoreAssignment::Task(task_2), PartsOf57600::FULL / 2),
 		];
 
 		assert_ok!(CoretimeAssigner::assign_core(
@@ -675,8 +672,8 @@ fn equal_assignments_served_equally() {
 fn assignment_proportions_indivisible_by_step_work() {
 	let core_idx = CoreIndex(0);
 	let task_1 = TaskId::from(1u32);
-	let ratio_1 = PartsOf57600::from(57600u16 / 5 * 3);
-	let ratio_2 = PartsOf57600::from(57600u16 / 5 * 2);
+	let ratio_1 = PartsOf57600::FULL / 5 * 3;
+	let ratio_2 = PartsOf57600::FULL / 5 * 2;
 	let task_2 = TaskId::from(2u32);
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {

@@ -24,11 +24,10 @@ use pallet_broker::CoreAssignment;
 use crate::{configuration, paras};
 use primitives::CoreIndex;
 
-use super::{Config, Pallet, WeightInfo};
+use super::{Config, Pallet, PartsOf57600, WeightInfo};
 use crate::assigner_coretime;
 
 pub mod v_coretime {
-
 	use frame_support::{
 		migrations::VersionedMigration, traits::OnRuntimeUpgrade, weights::Weight,
 	};
@@ -90,7 +89,7 @@ pub fn migrate_to_coretime<T: Config>() -> Weight {
 		let r = assigner_coretime::Pallet::<T>::assign_core(
 			CoreIndex(core as u32),
 			now,
-			vec![(CoreAssignment::Task(para_id.into()), 57600)],
+			vec![(CoreAssignment::Task(para_id.into()), PartsOf57600::FULL)],
 			None,
 		);
 		if let Err(err) = r {
@@ -109,7 +108,7 @@ pub fn migrate_to_coretime<T: Config>() -> Weight {
 		let r = assigner_coretime::Pallet::<T>::assign_core(
 			core,
 			now,
-			vec![(CoreAssignment::Pool, 57600)],
+			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
 			None,
 		);
 		if let Err(err) = r {
