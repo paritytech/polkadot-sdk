@@ -326,6 +326,7 @@
 <a href="#326" id="326">326</a>
 <a href="#327" id="327">327</a>
 <a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -347,7 +348,7 @@
 <span class="kw">use </span>inflector::Inflector;
 <span class="kw">use </span>proc_macro2::{Span, TokenStream};
 <span class="kw">use </span>proc_macro_crate::{crate_name, FoundCrate};
-<span class="kw">use </span>quote::{format_ident, quote, ToTokens};
+<span class="kw">use </span>quote::{format_ident, quote};
 <span class="kw">use </span>syn::{
 	parse_quote, spanned::Spanned, token::And, Attribute, Error, FnArg, GenericArgument, Ident,
 	ImplItem, ItemImpl, Pat, Path, PathArguments, <span class="prelude-ty">Result</span>, ReturnType, Signature, Type, TypePath,
@@ -589,6 +590,7 @@
 <span class="doccomment">/// Extract the documentation from the provided attributes.
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;frame-metadata&quot;</span>)]
 </span><span class="kw">pub fn </span>get_doc_literals(attrs: <span class="kw-2">&amp;</span>[syn::Attribute]) -&gt; Vec&lt;syn::Lit&gt; {
+	<span class="kw">use </span>quote::ToTokens;
 	attrs
 		.iter()
 		.filter_map(|attr| {

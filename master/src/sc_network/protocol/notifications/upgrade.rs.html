@@ -27,6 +27,8 @@
 <a href="#27" id="27">27</a>
 <a href="#28" id="28">28</a>
 <a href="#29" id="29">29</a>
+<a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -45,12 +47,14 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">pub use </span><span class="self">self</span>::{
+</span><span class="attr">#[cfg(test)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span><span class="self">self</span>::notifications::{
+	NotificationsInOpen, NotificationsInSubstreamHandshake, NotificationsOutOpen,
+};
+<span class="kw">pub use </span><span class="self">self</span>::{
 	collec::UpgradeCollec,
 	notifications::{
-		NotificationsHandshakeError, NotificationsIn, NotificationsInOpen,
-		NotificationsInSubstream, NotificationsInSubstreamHandshake, NotificationsOut,
-		NotificationsOutError, NotificationsOutOpen, NotificationsOutSubstream,
+		NotificationsIn, NotificationsInSubstream, NotificationsOut, NotificationsOutSubstream,
 	},
 };
 

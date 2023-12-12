@@ -936,7 +936,7 @@
 	<span class="attr">#[cfg(not(feature = <span class="string">&quot;full&quot;</span>))]
 	</span><span class="kw">let </span>fields = {
 		drop(fmt);
-		drop(data);
+		<span class="kw">let _ </span>= data;
 		TokenStream2::new()
 	};
 

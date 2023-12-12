@@ -285,10 +285,6 @@
 <a href="#285" id="285">285</a>
 <a href="#286" id="286">286</a>
 <a href="#287" id="287">287</a>
-<a href="#288" id="288">288</a>
-<a href="#289" id="289">289</a>
-<a href="#290" id="290">290</a>
-<a href="#291" id="291">291</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -310,11 +306,7 @@
 </span><span class="doccomment">//! Network packet message types. These get serialized and put into the lower level protocol
 //! payload.
 
-</span><span class="kw">pub use </span><span class="self">self</span>::generic::{
-	RemoteCallRequest, RemoteChangesRequest, RemoteChangesResponse, RemoteHeaderRequest,
-	RemoteHeaderResponse, RemoteReadChildRequest, RemoteReadRequest,
-};
-<span class="kw">use </span>codec::{Decode, Encode};
+</span><span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>sc_client_api::StorageProof;
 <span class="kw">use </span>sc_network_common::message::RequestId;
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, Header <span class="kw">as </span>HeaderT};
