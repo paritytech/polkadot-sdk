@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 export PRODUCT=polkadot
-export VERSION=${VERSION:-v1.5.0}
+export VERSION=${VERSION:-1.5.0}
 
 PROJECT_ROOT=`git rev-parse --show-toplevel`
 echo $PROJECT_ROOT
@@ -16,7 +16,7 @@ echo "TEMPLATE_AUDIENCE=$TEMPLATE_AUDIENCE"
 echo "DATA_JSON=$DATA_JSON"
 echo "CONTEXT_JSON=$CONTEXT_JSON"
 
-prdoc load -d "$PROJECT_ROOT/prdoc" --json > $DATA_JSON
+prdoc load -d "$PROJECT_ROOT/prdoc/$VERSION" --json > $DATA_JSON
 # ls -al $DATA_JSON
 
 cat $DATA_JSON | jq ' { "prdoc" : .}' > $CONTEXT_JSON

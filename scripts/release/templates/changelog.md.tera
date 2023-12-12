@@ -5,5 +5,5 @@
 {% for file in prdoc -%}
 {%- set author= file.content.author | default(value="n/a") -%}
 {%- set topic= file.content.topic | default(value="n/a") -%}
-- #{{file.doc_filename.number}}: {{ file.content.title }} from @{{ author }} [{{ topic }}]
+- #{{file.doc_filename.number}}: {{ file.content.title }} (@{{ author }}) [{{ topic }}]
 {% endfor %}

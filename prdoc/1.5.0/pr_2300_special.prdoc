@@ -2,5 +2,7 @@ title: "[testnet] Remove Wococo stuff from BridgeHubRococo/AssetHubRococo"
 author: foobar
 topic: baz
 
-doc: []
+doc:
+  - description: n/a
+
 crates: []

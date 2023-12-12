@@ -3,6 +3,9 @@
 
 title: Add new flexible `pallet_xcm::transfer_assets()` call/extrinsic
 
+author: acatangiu
+topic: runtime
+
 doc:
   - audience: Runtime Dev
     description: |
