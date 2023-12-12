@@ -89,6 +89,7 @@ pub struct TestApi {
 	valid_modifier: RwLock<Box<dyn Fn(&mut ValidTransaction) + Send + Sync>>,
 	chain: RwLock<ChainState>,
 	validation_requests: RwLock<Vec<Extrinsic>>,
+	enable_stale_check: bool,
 }
 
 impl TestApi {
@@ -114,6 +115,7 @@ impl TestApi {
 			valid_modifier: RwLock::new(Box::new(|_| {})),
 			chain: Default::default(),
 			validation_requests: RwLock::new(Default::default()),
+			enable_stale_check: false,
 		};
 
 		// Push genesis block
@@ -123,6 +125,11 @@ impl TestApi {
 		api.chain.write().nonces.insert(hash0, Default::default());
 
 		api
+	}
+
+	pub fn enable_stale_check(mut self) -> Self {
+		self.enable_stale_check = true;
+		self
 	}
 
 	/// Set hook on modify valid result of transaction.
@@ -194,6 +201,13 @@ impl TestApi {
 		let mut chain = self.chain.write();
 		chain.block_by_hash.insert(hash, block.clone());
 
+		log::info!(
+			"add_block: {:?} {:?} nonces:{:#?}",
+			hash,
+			block.header.parent_hash(),
+			chain.nonces
+		);
+
 		if *block_number > 0 {
 			// copy nonces to new block
 			let prev_nonces = chain
@@ -262,12 +276,23 @@ impl TestApi {
 	}
 
 	/// Increment nonce in the inner state for given block.
+	pub fn set_nonce(&self, at: Hash, account: AccountId, nonce: u64) {
+		let mut chain = self.chain.write();
+		chain.nonces.entry(at).and_modify(|h| {
+			h.insert(account, nonce);
+		});
+
+		log::info!("set_nonce: {:?} nonces:{:#?}", at, chain.nonces);
+	}
+
+	/// Increment nonce in the inner state for given block.
 	pub fn increment_nonce_at_block(&self, at: Hash, account: AccountId) {
 		let mut chain = self.chain.write();
-		// chain.nonces.values().map(|h| h.entry(account).and_modify(|n| *n += 1).or_insert(1));
 		chain.nonces.entry(at).and_modify(|h| {
 			h.entry(account).and_modify(|n| *n += 1).or_insert(1);
 		});
+
+		log::info!("increment_nonce_at_block: {:?} nonces:{:#?}", at, chain.nonces);
 	}
 
 	/// Increment nonce in the inner state.
@@ -292,6 +317,11 @@ impl TestApi {
 	pub fn expect_hash_from_number(&self, n: BlockNumber) -> Hash {
 		self.block_id_to_hash(&BlockId::Number(n)).unwrap().unwrap()
 	}
+
+	/// Helper function for getting genesis hash
+	pub fn genesis_hash(&self) -> Hash {
+		self.expect_hash_from_number(0)
+	}
 }
 
 impl ChainApi for TestApi {
@@ -307,6 +337,7 @@ impl ChainApi for TestApi {
 		uxt: <Self::Block as BlockT>::Extrinsic,
 	) -> Self::ValidationFuture {
 		self.validation_requests.write().push(uxt.clone());
+		let mut block_number = None;
 
 		match self.block_id_to_number(&BlockId::Hash(at)) {
 			Ok(Some(number)) => {
@@ -317,6 +348,7 @@ impl ChainApi for TestApi {
 					.get(&number)
 					.map(|blocks| blocks.iter().any(|b| b.1.is_best()))
 					.unwrap_or(false);
+				block_number = Some(number);
 
 				// If there is no best block, we don't know based on which block we should validate
 				// the transaction. (This is not required for this test function, but in real
@@ -350,6 +382,20 @@ impl ChainApi for TestApi {
 				vec![vec![(transfer.nonce - 1) as u8]]
 			};
 			let provides = vec![vec![transfer.nonce as u8]];
+
+			log::info!(
+				"test_api::validate_transaction: n:{:?} cn:{:?} tn:{:?} r:{:?} p:{:?}",
+				block_number,
+				chain_nonce,
+				transfer.nonce,
+				requires,
+				provides,
+			);
+
+			if self.enable_stale_check && transfer.nonce < chain_nonce {
+				// return InvalidTransaction::Stale.into()
+				return ready(Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Stale))))
+			}
 
 			(requires, provides)
 		} else {
