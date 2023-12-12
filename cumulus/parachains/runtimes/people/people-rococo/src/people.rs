@@ -87,8 +87,8 @@ pub enum IdentityField {
 #[codec(mel_bound())]
 #[cfg_attr(test, derive(frame_support::DefaultNoBound))]
 pub struct IdentityInfo {
-	/// A reasonable display name for the controller of the account. This should be whatever it is
-	/// that it is typically known as and should not be confusable with other entities, given
+	/// A reasonable display name for the controller of the account. This should be whatever the  
+	/// account is typically known as and should not be confusable with other entities, given  
 	/// reasonable context.
 	///
 	/// Stored as UTF-8.

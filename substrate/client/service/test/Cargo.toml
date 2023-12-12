@@ -23,12 +23,12 @@ tempfile = "3.1.0"
 tokio = { version = "1.22.0", features = ["time"] }
 sc-block-builder = { path = "../../block-builder" }
 sc-client-api = { path = "../../api" }
-sc-client-db = { path = "../../db", default-features = false}
+sc-client-db = { path = "../../db", default-features = false }
 sc-consensus = { path = "../../consensus/common" }
 sc-executor = { path = "../../executor" }
 sc-network = { path = "../../network" }
 sc-network-sync = { path = "../../network/sync" }
-sc-service = { path = "..", features = ["test-helpers"]}
+sc-service = { path = "..", features = ["test-helpers"] }
 sc-transaction-pool-api = { path = "../../transaction-pool/api" }
 sp-api = { path = "../../../primitives/api" }
 sp-blockchain = { path = "../../../primitives/blockchain" }

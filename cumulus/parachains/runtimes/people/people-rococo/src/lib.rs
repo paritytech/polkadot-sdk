@@ -18,10 +18,11 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-mod messages_generator;
-mod people;
-mod weights;
+pub mod people;
 pub mod xcm_config;
+
+mod messages_generator;
+mod weights;
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
@@ -79,7 +80,7 @@ pub type Address = MultiAddress<AccountId, ()>;
 /// Block type as expected by this runtime.
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 
-/// A Block signed with a Justification
+/// A Block signed with an [`sp_runtime::Justification`].
 pub type SignedBlock = generic::SignedBlock<Block>;
 
 /// BlockId type as expected by this runtime.
@@ -125,7 +126,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("people-rococo"),
 	impl_name: create_runtime_str!("people-rococo"),
 	authoring_version: 1,
-	spec_version: 10000,
+	spec_version: 1_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 0,
@@ -231,7 +232,7 @@ impl pallet_balances::Config for Runtime {
 }
 
 parameter_types! {
-	/// Relay Chain `TransactionByteFee` / 10
+	/// Relay Chain `TransactionByteFee` / 10.
 	pub const TransactionByteFee: Balance = MILLICENTS;
 }
 

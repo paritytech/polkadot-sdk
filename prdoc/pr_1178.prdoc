@@ -6,9 +6,9 @@ doc:
       Changed approval-voting, approval-distribution to send all messages tranche0 assignments in one message.
       This required:
       * A new parachains_db version.
-      * A new validation protocol to support the new message types. 
+      * A new validation protocol to support the new message types.
       The new logic will be disabled and will be enabled at a later date after all validators have upgraded.
-   
+
 migrations:
   db:
     - name: Parachains database change from v3 to v4.
@@ -18,6 +18,5 @@ migrations:
 
 crates:
   - name: "polkadot"
-    semver: patch
 
 host_functions: []

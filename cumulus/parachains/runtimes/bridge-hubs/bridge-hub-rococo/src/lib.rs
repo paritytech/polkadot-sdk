@@ -39,7 +39,7 @@ use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT},
+	traits::Block as BlockT,
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
@@ -51,11 +51,11 @@ use sp_version::RuntimeVersion;
 
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::{
-	construct_runtime,
+	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
-	traits::{ConstBool, ConstU32, ConstU64, ConstU8, Everything, TransformOrigin},
+	traits::{ConstBool, ConstU32, ConstU64, ConstU8, TransformOrigin},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
 };
@@ -123,6 +123,7 @@ pub type Migrations = (
 	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
 	pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
 	InitStorageVersions,
+	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
 );
 
 /// Migration to initialize storage versions for pallets added after genesis.
@@ -215,41 +216,24 @@ parameter_types! {
 
 // Configure FRAME pallets to include in runtime.
 
+#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	/// The identifier used to distinguish between accounts.
 	type AccountId = AccountId;
-	/// The aggregated dispatch type that is available for extrinsics.
-	type RuntimeCall = RuntimeCall;
-	/// The lookup mechanism to get account ID from whatever is passed in dispatchers.
-	type Lookup = AccountIdLookup<AccountId, ()>;
 	/// The index type for storing how many extrinsics an account has signed.
 	type Nonce = Nonce;
 	/// The type for hashing blocks and tries.
 	type Hash = Hash;
-	/// The hashing algorithm used.
-	type Hashing = BlakeTwo256;
 	/// The block type.
 	type Block = Block;
-	/// The ubiquitous event type.
-	type RuntimeEvent = RuntimeEvent;
-	/// The ubiquitous origin type.
-	type RuntimeOrigin = RuntimeOrigin;
 	/// Maximum number of block number to block hash mappings to keep (oldest pruned first).
 	type BlockHashCount = BlockHashCount;
 	/// Runtime version.
 	type Version = Version;
-	/// Converts a module to an index of this module in the runtime.
-	type PalletInfo = PalletInfo;
 	/// The data to be stored in an account.
 	type AccountData = pallet_balances::AccountData<Balance>;
-	/// What to do if a new account is created.
-	type OnNewAccount = ();
-	/// What to do if an account is fully reaped from the system.
-	type OnKilledAccount = ();
 	/// The weight of database operations that the runtime can invoke.
 	type DbWeight = RocksDbWeight;
-	/// The basic call filter to use in dispatchable.
-	type BaseCallFilter = Everything;
 	/// Weight information for the extrinsics of this pallet.
 	type SystemWeightInfo = weights::frame_system::WeightInfo<Runtime>;
 	/// Block & extrinsics weights: base values and limits.
@@ -508,13 +492,14 @@ construct_runtime!(
 		//  - BridgeWestendGrandpa + BridgePolkadotBulletinGrandpa
 		//  - BridgeWestendParachains
 		//  - BridgeWestendMessages + BridgePolkadotBulletinMessages
+		//  - XcmOverBridgeHubWestend + XcmOverRococoBulletin
 		//  - BridgeRelayers
 
 		// GRANDPA bridge modules.
 		BridgeWestendGrandpa: pallet_bridge_grandpa::<Instance3>::{Pallet, Call, Storage, Event<T>, Config<T>} = 48,
 		// we can't use `BridgeRococoBulletinGrandpa` name here, because the same Bulletin runtime will be
 		// used for both Rococo and Polkadot Bulletin chains
-		BridgePolkadotBulletinGrandpa: pallet_bridge_grandpa::<Instance4>::{Pallet, Call, Storage, Event<T>, Config<T>} = 52,
+		BridgePolkadotBulletinGrandpa: pallet_bridge_grandpa::<Instance4>::{Pallet, Call, Storage, Event<T>, Config<T>} = 54, // TODO: change relayer code
 
 		// Parachain bridge modules.
 		BridgeWestendParachains: pallet_bridge_parachains::<Instance3>::{Pallet, Call, Storage, Event<T>} = 49,
@@ -524,6 +509,9 @@ construct_runtime!(
 		// we can't use `BridgeRococoBulletinMessages` name here, because the same Bulletin runtime will be
 		// used for both Rococo and Polkadot Bulletin chains
 		BridgePolkadotBulletinMessages: pallet_bridge_messages::<Instance4>::{Pallet, Call, Storage, Event<T>, Config<T>} = 53,
+
+		XcmOverBridgeHubWestend: pallet_xcm_bridge_hub::<Instance1>::{Pallet} = 52,
+		XcmOverRococoBulletin: pallet_xcm_bridge_hub::<Instance2>::{Pallet} = 55,
 
 		BridgeRelayers: pallet_bridge_relayers::{Pallet, Call, Storage, Event<T>} = 47,
 
@@ -895,6 +883,18 @@ impl_runtime_apis! {
 					// Reserve transfers are disabled on BH.
 					None
 				}
+
+				fn set_up_complex_asset_transfer(
+				) -> Option<(MultiAssets, u32, MultiLocation, Box<dyn FnOnce()>)> {
+					// BH only supports teleports to system parachain.
+					// Relay/native token can be teleported between BH and Relay.
+					let native_location = Parent.into();
+					let dest = Parent.into();
+					pallet_xcm::benchmarking::helpers::native_teleport_as_asset_transfer::<Runtime>(
+						native_location,
+						dest
+					)
+				}
 			}
 
 			use xcm::latest::prelude::*;
@@ -991,7 +991,13 @@ impl_runtime_apis! {
 
 				fn export_message_origin_and_destination(
 				) -> Result<(MultiLocation, NetworkId, InteriorMultiLocation), BenchmarkError> {
-					Ok((TokenLocation::get(), NetworkId::Westend, X1(Parachain(100))))
+					Ok(
+						(
+							bridge_to_westend_config::FromAssetHubRococoToAssetHubWestendRoute::get().location,
+							NetworkId::Westend,
+							X1(Parachain(bridge_to_westend_config::AssetHubWestendParaId::get().into()))
+						)
+					)
 				}
 
 				fn alias_origin() -> Result<(MultiLocation, MultiLocation), BenchmarkError> {

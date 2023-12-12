@@ -215,12 +215,6 @@ where
 
 	set_default_ss58_version(chain_spec);
 
-	let grandpa_pause = if cli.run.grandpa_pause.is_empty() {
-		None
-	} else {
-		Some((cli.run.grandpa_pause[0], cli.run.grandpa_pause[1]))
-	};
-
 	if chain_spec.is_kusama() {
 		info!("----------------------------");
 		info!("This chain is not in any way");
@@ -244,6 +238,8 @@ where
 	let node_version =
 		if cli.run.disable_worker_version_check { None } else { Some(NODE_VERSION.to_string()) };
 
+	let secure_validator_mode = cli.run.base.validator && !cli.run.insecure_validator;
+
 	runner.run_node_until_exit(move |config| async move {
 		let hwbench = (!cli.run.no_hardware_benchmarks)
 			.then_some(config.database.path().map(|database_path| {
@@ -257,11 +253,12 @@ where
 			config,
 			service::NewFullParams {
 				is_parachain_node: service::IsParachainNode::No,
-				grandpa_pause,
 				enable_beefy,
+				force_authoring_backoff: cli.run.force_authoring_backoff,
 				jaeger_agent,
 				telemetry_worker_handle: None,
 				node_version,
+				secure_validator_mode,
 				workers_path: cli.run.workers_path,
 				workers_names: None,
 				overseer_gen,

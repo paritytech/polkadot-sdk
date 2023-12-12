@@ -676,6 +676,13 @@ pub struct PoolRoles<AccountId> {
 	pub bouncer: Option<AccountId>,
 }
 
+// A pool's possible commission claiming permissions.
+#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub enum CommissionClaimPermission<AccountId> {
+	Permissionless,
+	Account(AccountId),
+}
+
 /// Pool commission.
 ///
 /// The pool `root` can set commission configuration after pool creation. By default, all commission
@@ -705,6 +712,9 @@ pub struct Commission<T: Config> {
 	/// The block from where throttling should be checked from. This value will be updated on all
 	/// commission updates and when setting an initial `change_rate`.
 	pub throttle_from: Option<BlockNumberFor<T>>,
+	// Whether commission can be claimed permissionlessly, or whether an account can claim
+	// commission. `Root` role can always claim.
+	pub claim_permission: Option<CommissionClaimPermission<T::AccountId>>,
 }
 
 impl<T: Config> Commission<T> {
@@ -1076,6 +1086,17 @@ impl<T: Config> BondedPool<T> {
 
 	fn can_manage_commission(&self, who: &T::AccountId) -> bool {
 		self.is_root(who)
+	}
+
+	fn can_claim_commission(&self, who: &T::AccountId) -> bool {
+		if let Some(permission) = self.commission.claim_permission.as_ref() {
+			match permission {
+				CommissionClaimPermission::Permissionless => true,
+				CommissionClaimPermission::Account(account) => account == who || self.is_root(who),
+			}
+		} else {
+			self.is_root(who)
+		}
 	}
 
 	fn is_destroying(&self) -> bool {
@@ -1572,7 +1593,7 @@ pub mod pallet {
 	use sp_runtime::Perbill;
 
 	/// The current storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(7);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(8);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -1849,6 +1870,11 @@ pub mod pallet {
 		PoolCommissionChangeRateUpdated {
 			pool_id: PoolId,
 			change_rate: CommissionChangeRate<BlockNumberFor<T>>,
+		},
+		/// Pool commission claim permission has been updated.
+		PoolCommissionClaimPermissionUpdated {
+			pool_id: PoolId,
+			permission: Option<CommissionClaimPermission<T::AccountId>>,
 		},
 		/// Pool commission has been claimed.
 		PoolCommissionClaimed { pool_id: PoolId, commission: BalanceOf<T> },
@@ -2742,6 +2768,32 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			Self::do_adjust_pool_deposit(who, pool_id)
 		}
+
+		/// Set or remove a pool's commission claim permission.
+		///
+		/// Determines who can claim the pool's pending commission. Only the `Root` role of the pool
+		/// is able to conifigure commission claim permissions.
+		#[pallet::call_index(22)]
+		#[pallet::weight(T::WeightInfo::set_commission_claim_permission())]
+		pub fn set_commission_claim_permission(
+			origin: OriginFor<T>,
+			pool_id: PoolId,
+			permission: Option<CommissionClaimPermission<T::AccountId>>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let mut bonded_pool = BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?;
+			ensure!(bonded_pool.can_manage_commission(&who), Error::<T>::DoesNotHavePermission);
+
+			bonded_pool.commission.claim_permission = permission.clone();
+			bonded_pool.put();
+
+			Self::deposit_event(Event::<T>::PoolCommissionClaimPermissionUpdated {
+				pool_id,
+				permission,
+			});
+
+			Ok(())
+		}
 	}
 
 	#[pallet::hooks]
@@ -3106,12 +3158,12 @@ impl<T: Config> Pallet<T> {
 
 	fn do_claim_commission(who: T::AccountId, pool_id: PoolId) -> DispatchResult {
 		let bonded_pool = BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?;
-		ensure!(bonded_pool.can_manage_commission(&who), Error::<T>::DoesNotHavePermission);
+		ensure!(bonded_pool.can_claim_commission(&who), Error::<T>::DoesNotHavePermission);
 
 		let mut reward_pool = RewardPools::<T>::get(pool_id)
 			.defensive_ok_or::<Error<T>>(DefensiveError::RewardPoolNotFound.into())?;
 
-		// IMPORTANT: make sure that any newly pending commission not yet processed is added to
+		// IMPORTANT: ensure newly pending commission not yet processed is added to
 		// `total_commission_pending`.
 		reward_pool.update_records(
 			pool_id,

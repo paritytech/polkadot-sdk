@@ -147,27 +147,11 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 		"seedling" => Box::new(chain_spec::seedling::get_seedling_chain_spec()),
 
 		// -- Asset Hub Polkadot
-		"asset-hub-polkadot-dev" | "statemint-dev" =>
-			Box::new(chain_spec::asset_hubs::asset_hub_polkadot_development_config()),
-		"asset-hub-polkadot-local" | "statemint-local" =>
-			Box::new(chain_spec::asset_hubs::asset_hub_polkadot_local_config()),
-		// the chain spec as used for generating the upgrade genesis values
-		"asset-hub-polkadot-genesis" | "statemint-genesis" =>
-			Box::new(chain_spec::asset_hubs::asset_hub_polkadot_config()),
-		// the shell-based chain spec as used for syncing
 		"asset-hub-polkadot" | "statemint" => Box::new(GenericChainSpec::from_json_bytes(
 			&include_bytes!("../chain-specs/asset-hub-polkadot.json")[..],
 		)?),
 
 		// -- Asset Hub Kusama
-		"asset-hub-kusama-dev" | "statemine-dev" =>
-			Box::new(chain_spec::asset_hubs::asset_hub_kusama_development_config()),
-		"asset-hub-kusama-local" | "statemine-local" =>
-			Box::new(chain_spec::asset_hubs::asset_hub_kusama_local_config()),
-		// the chain spec as used for generating the upgrade genesis values
-		"asset-hub-kusama-genesis" | "statemine-genesis" =>
-			Box::new(chain_spec::asset_hubs::asset_hub_kusama_config()),
-		// the shell-based chain spec as used for syncing
 		"asset-hub-kusama" | "statemine" => Box::new(GenericChainSpec::from_json_bytes(
 			&include_bytes!("../chain-specs/asset-hub-kusama.json")[..],
 		)?),
@@ -198,13 +182,11 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 		)?),
 
 		// -- Polkadot Collectives
-		"collectives-polkadot-dev" =>
-			Box::new(chain_spec::collectives::collectives_polkadot_development_config()),
-		"collectives-polkadot-local" =>
-			Box::new(chain_spec::collectives::collectives_polkadot_local_config()),
 		"collectives-polkadot" => Box::new(GenericChainSpec::from_json_bytes(
 			&include_bytes!("../chain-specs/collectives-polkadot.json")[..],
 		)?),
+
+		// -- Westend Collectives
 		"collectives-westend-dev" =>
 			Box::new(chain_spec::collectives::collectives_westend_development_config()),
 		"collectives-westend-local" =>
@@ -233,13 +215,13 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 				.load_config()?,
 
 		// -- Penpal
-		"penpal-kusama" => Box::new(chain_spec::penpal::get_penpal_chain_spec(
+		"penpal-rococo" => Box::new(chain_spec::penpal::get_penpal_chain_spec(
 			para_id.expect("Must specify parachain id"),
-			"kusama-local",
+			"rococo-local",
 		)),
-		"penpal-polkadot" => Box::new(chain_spec::penpal::get_penpal_chain_spec(
+		"penpal-westend" => Box::new(chain_spec::penpal::get_penpal_chain_spec(
 			para_id.expect("Must specify parachain id"),
-			"polkadot-local",
+			"westend-local",
 		)),
 
 		// -- Glutton Westend
@@ -254,17 +236,13 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 			para_id.expect("Must specify parachain id"),
 		)),
 
-		// -- Glutton
-		"glutton-kusama-dev" => Box::new(chain_spec::glutton::glutton_development_config(
-			para_id.expect("Must specify parachain id"),
-		)),
-		"glutton-kusama-local" => Box::new(chain_spec::glutton::glutton_local_config(
-			para_id.expect("Must specify parachain id"),
-		)),
-		// the chain spec as used for generating the upgrade genesis values
-		"glutton-kusama-genesis" => Box::new(chain_spec::glutton::glutton_config(
-			para_id.expect("Must specify parachain id"),
-		)),
+		// -- People
+		people_like_id
+			if people_like_id.starts_with(chain_spec::people::PeopleRuntimeType::ID_PREFIX) =>
+			people_like_id
+				.parse::<chain_spec::people::PeopleRuntimeType>()
+				.expect("invalid value")
+				.load_config()?,
 
 		// -- People
 		people_like_id
@@ -747,20 +725,15 @@ pub fn run() -> Result<()> {
 					.await
 					.map(|r| r.0)
 					.map_err(Into::into),
-
-					BridgeHub(bridge_hub_runtime_type) => match bridge_hub_runtime_type {
-						chain_spec::bridge_hubs::BridgeHubRuntimeType::Polkadot |
-						chain_spec::bridge_hubs::BridgeHubRuntimeType::PolkadotLocal |
-						chain_spec::bridge_hubs::BridgeHubRuntimeType::PolkadotDevelopment =>
+					Runtime::BridgeHub(bridge_hub_runtime_type) => match bridge_hub_runtime_type {
+						chain_spec::bridge_hubs::BridgeHubRuntimeType::Polkadot =>
 							crate::service::start_generic_aura_node::<
 								RuntimeApi,
 								AuraId,
 							>(config, polkadot_config, collator_options, id, hwbench)
 								.await
 								.map(|r| r.0),
-						chain_spec::bridge_hubs::BridgeHubRuntimeType::Kusama |
-						chain_spec::bridge_hubs::BridgeHubRuntimeType::KusamaLocal |
-						chain_spec::bridge_hubs::BridgeHubRuntimeType::KusamaDevelopment =>
+						chain_spec::bridge_hubs::BridgeHubRuntimeType::Kusama =>
 							crate::service::start_generic_aura_node::<
 								RuntimeApi,
 								AuraId,
@@ -811,15 +784,11 @@ pub fn run() -> Result<()> {
 
 					People(people_runtime_type) => match people_runtime_type {
 						chain_spec::people::PeopleRuntimeType::Rococo |
-						chain_spec::people::PeopleRuntimeType::RococoLocal =>
-							crate::service::start_generic_aura_node::<
-								RuntimeApi,
-								AuraId,
-							>(config, polkadot_config, collator_options, id, hwbench)
-							.await
-							.map(|r| r.0),
+						chain_spec::people::PeopleRuntimeType::RococoLocal |
+						chain_spec::people::PeopleRuntimeType::RococoDevelopment |
 						chain_spec::people::PeopleRuntimeType::Westend |
-						chain_spec::people::PeopleRuntimeType::WestendLocal =>
+						chain_spec::people::PeopleRuntimeType::WestendLocal |
+						chain_spec::people::PeopleRuntimeType::WestendDevelopment =>
 							crate::service::start_generic_aura_node::<
 								RuntimeApi,
 								AuraId,
@@ -1054,12 +1023,6 @@ mod tests {
 			Box::new(crate::chain_spec::rococo_parachain::rococo_parachain_local_config()),
 		);
 		assert_eq!(Runtime::Default, path.runtime());
-
-		let path = store_configuration(
-			&temp_dir,
-			Box::new(crate::chain_spec::asset_hubs::asset_hub_kusama_local_config()),
-		);
-		assert_eq!(Runtime::AssetHubKusama, path.runtime());
 
 		let path = store_configuration(
 			&temp_dir,
