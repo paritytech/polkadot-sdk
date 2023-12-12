@@ -17,7 +17,7 @@ finality-grandpa = { version = "0.16.2", default-features = false }
 sp-application-crypto = { path = "../../../substrate/primitives/application-crypto", default-features = false, version = "29.0.0" }
 sp-consensus-grandpa = { path = "../../../substrate/primitives/consensus/grandpa", default-features = false, version = "12.0.0" }
 sp-core = { path = "../../../substrate/primitives/core", default-features = false, version = "27.0.0" }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "30.0.0" }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "30.0.1" }
 sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "13.0.0" }
 sp-trie = { path = "../../../substrate/primitives/trie", default-features = false, version = "28.0.0" }
 

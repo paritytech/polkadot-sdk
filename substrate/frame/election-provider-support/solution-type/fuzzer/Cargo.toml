@@ -22,7 +22,7 @@ scale-info = { version = "2.10.0", default-features = false, features = ["derive
 frame-election-provider-solution-type = { version = "12.0.0", path = ".." }
 frame-election-provider-support = { version = "27.0.0", path = "../.." }
 sp-arithmetic = { version = "22.0.0", path = "../../../../primitives/arithmetic" }
-sp-runtime = { version = "30.0.0", path = "../../../../primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../../../primitives/runtime" }
 # used by generate_solution_type:
 sp-npos-elections = { path = "../../../../primitives/npos-elections", default-features = false, version = "25.0.0" }
 frame-support = { version = "27.0.0", path = "../../../support" }

@@ -22,7 +22,7 @@ sc-consensus-grandpa = { version = "0.18.0", path = ".." }
 sc-rpc = { version = "28.0.0", path = "../../../rpc" }
 sp-blockchain = { version = "27.0.0", path = "../../../../primitives/blockchain" }
 sp-core = { version = "27.0.0", path = "../../../../primitives/core" }
-sp-runtime = { version = "30.0.0", path = "../../../../primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../../../primitives/runtime" }
 
 [dev-dependencies]
 sc-block-builder = { path = "../../../block-builder" }

@@ -33,5 +33,5 @@ sp-consensus = { version = "0.31.0", path = "../../primitives/consensus/common" 
 sp-core = { version = "27.0.0", path = "../../primitives/core" }
 sp-keystore = { version = "0.33.0", path = "../../primitives/keystore" }
 sp-mixnet = { version = "0.3.0", path = "../../primitives/mixnet" }
-sp-runtime = { version = "30.0.0", path = "../../primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../primitives/runtime" }
 thiserror = "1.0"

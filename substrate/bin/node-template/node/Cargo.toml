@@ -35,7 +35,7 @@ sc-consensus = { version = "0.32.0", path = "../../../client/consensus/common" }
 sc-consensus-grandpa = { version = "0.18.0", path = "../../../client/consensus/grandpa" }
 sp-consensus-grandpa = { version = "12.0.0", path = "../../../primitives/consensus/grandpa" }
 sc-client-api = { version = "27.0.0", path = "../../../client/api" }
-sp-runtime = { version = "30.0.0", path = "../../../primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../../primitives/runtime" }
 sp-io = { version = "29.0.0", path = "../../../primitives/io" }
 sp-timestamp = { version = "25.0.0", path = "../../../primitives/timestamp" }
 sp-inherents = { version = "25.0.0", path = "../../../primitives/inherents" }

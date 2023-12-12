@@ -26,7 +26,7 @@ pallet-im-online = { path = "../../im-online", default-features = false, version
 pallet-offences = { path = "..", default-features = false, version = "26.0.0" }
 pallet-session = { path = "../../session", default-features = false, version = "27.0.0" }
 pallet-staking = { path = "../../staking", default-features = false, version = "27.0.0" }
-sp-runtime = { path = "../../../primitives/runtime", default-features = false, version = "30.0.0" }
+sp-runtime = { path = "../../../primitives/runtime", default-features = false, version = "30.0.1" }
 sp-staking = { path = "../../../primitives/staking", default-features = false, version = "25.0.0" }
 sp-std = { path = "../../../primitives/std", default-features = false, version = "13.0.0" }
 log = { version = "0.4.17", default-features = false }

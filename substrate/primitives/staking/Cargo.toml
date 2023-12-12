@@ -19,7 +19,7 @@ scale-info = { version = "2.10.0", default-features = false, features = ["derive
 impl-trait-for-tuples = "0.2.2"
 
 sp-core = { path = "../core", default-features = false, version = "27.0.0" }
-sp-runtime = { path = "../runtime", default-features = false, version = "30.0.0" }
+sp-runtime = { path = "../runtime", default-features = false, version = "30.0.1" }
 sp-std = { path = "../std", default-features = false, version = "13.0.0" }
 
 [features]

@@ -23,7 +23,7 @@ sp-std = { path = "../../primitives/std", default-features = false, version = "1
 sp-core = { path = "../../primitives/core", default-features = false, version = "27.0.0" }
 sp-core-hashing = { path = "../../primitives/core/hashing", default-features = false, optional = true, version = "14.0.0" }
 sp-io = { path = "../../primitives/io", default-features = false, version = "29.0.0" }
-sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "30.0.0" }
+sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "30.0.1" }
 
 frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true, version = "27.0.0" }
 frame-support = { path = "../support", default-features = false, version = "27.0.0" }

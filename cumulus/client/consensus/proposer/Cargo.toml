@@ -12,6 +12,6 @@ async-trait = "0.1.73"
 thiserror = "1.0.48"
 sp-consensus = { version = "0.31.0", path = "../../../../substrate/primitives/consensus/common" }
 sp-inherents = { version = "25.0.0", path = "../../../../substrate/primitives/inherents" }
-sp-runtime = { version = "30.0.0", path = "../../../../substrate/primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../../../substrate/primitives/runtime" }
 sp-state-machine = { version = "0.34.0", path = "../../../../substrate/primitives/state-machine" }
 cumulus-primitives-parachain-inherent = { version = "0.6.0", path = "../../../primitives/parachain-inherent" }

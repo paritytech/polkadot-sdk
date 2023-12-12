@@ -18,4 +18,4 @@ fork-tree = { version = "11.0.0", path = "../../../utils/fork-tree" }
 sc-client-api = { version = "27.0.0", path = "../../api" }
 sc-consensus = { version = "0.32.0", path = "../common" }
 sp-blockchain = { version = "27.0.0", path = "../../../primitives/blockchain" }
-sp-runtime = { version = "30.0.0", path = "../../../primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../../primitives/runtime" }

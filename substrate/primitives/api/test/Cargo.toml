@@ -17,7 +17,7 @@ sp-api = { version = "25.0.0", path = ".." }
 substrate-test-runtime-client = { version = "0.1.0", path = "../../../test-utils/runtime/client" }
 sp-version = { version = "28.0.0", path = "../../version" }
 sp-tracing = { version = "15.0.0", path = "../../tracing" }
-sp-runtime = { version = "30.0.0", path = "../../runtime" }
+sp-runtime = { version = "30.0.1", path = "../../runtime" }
 sp-consensus = { version = "0.31.0", path = "../../consensus/common" }
 sc-block-builder = { version = "0.32.0", path = "../../../client/block-builder" }
 codec = { package = "parity-scale-codec", version = "3.6.1" }

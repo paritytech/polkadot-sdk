@@ -41,7 +41,7 @@ sp-api = { version = "25.0.0", path = "../../../primitives/api" }
 sp-blockchain = { version = "27.0.0", path = "../../../primitives/blockchain" }
 sp-block-builder = { version = "25.0.0", path = "../../../primitives/block-builder" }
 sp-io = { version = "29.0.0", path = "../../../primitives/io" }
-sp-runtime = { version = "30.0.0", path = "../../../primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../../primitives/runtime" }
 substrate-frame-rpc-system = { version = "27.0.0", path = "../../../utils/frame/rpc/system" }
 
 frame = { path = "../../../frame", features = ["experimental", "runtime"], version = "0.1.0" }

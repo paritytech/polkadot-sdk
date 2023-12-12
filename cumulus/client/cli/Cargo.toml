@@ -15,4 +15,4 @@ sc-client-api = { version = "27.0.0", path = "../../../substrate/client/api" }
 sc-chain-spec = { version = "26.0.0", path = "../../../substrate/client/chain-spec" }
 sc-service = { version = "0.34.0", path = "../../../substrate/client/service" }
 sp-core = { version = "27.0.0", path = "../../../substrate/primitives/core" }
-sp-runtime = { version = "30.0.0", path = "../../../substrate/primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../../substrate/primitives/runtime" }

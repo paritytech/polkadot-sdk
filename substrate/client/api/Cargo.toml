@@ -31,7 +31,7 @@ sp-consensus = { version = "0.31.0", path = "../../primitives/consensus/common" 
 sp-core = { path = "../../primitives/core", default-features = false, version = "27.0.0" }
 sp-database = { version = "9.0.0", path = "../../primitives/database" }
 sp-externalities = { version = "0.24.0", path = "../../primitives/externalities" }
-sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "30.0.0" }
+sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "30.0.1" }
 sp-state-machine = { version = "0.34.0", path = "../../primitives/state-machine" }
 sp-statement-store = { version = "9.0.0", path = "../../primitives/statement-store" }
 sp-storage = { version = "18.0.0", path = "../../primitives/storage" }

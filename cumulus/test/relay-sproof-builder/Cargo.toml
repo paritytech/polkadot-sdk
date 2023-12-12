@@ -10,7 +10,7 @@ description = "Mocked relay state proof builder for testing Cumulus."
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 
 # Substrate
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "30.0.0" }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "30.0.1" }
 sp-state-machine = { path = "../../../substrate/primitives/state-machine", default-features = false, version = "0.34.0" }
 sp-trie = { path = "../../../substrate/primitives/trie", default-features = false, version = "28.0.0" }
 sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "13.0.0" }

@@ -12,7 +12,7 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 # Substrate
 sp-api = { path = "../../../substrate/primitives/api", default-features = false, version = "25.0.0" }
 sp-consensus-aura = { path = "../../../substrate/primitives/consensus/aura", default-features = false, version = "0.31.0" }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "30.0.0" }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "30.0.1" }
 sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "13.0.0" }
 
 # Polkadot

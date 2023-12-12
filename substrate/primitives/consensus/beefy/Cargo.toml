@@ -20,7 +20,7 @@ sp-application-crypto = { path = "../../application-crypto", default-features = 
 sp-core = { path = "../../core", default-features = false, version = "27.0.0" }
 sp-io = { path = "../../io", default-features = false, version = "29.0.0" }
 sp-mmr-primitives = { path = "../../merkle-mountain-range", default-features = false, version = "25.0.0" }
-sp-runtime = { path = "../../runtime", default-features = false, version = "30.0.0" }
+sp-runtime = { path = "../../runtime", default-features = false, version = "30.0.1" }
 sp-std = { path = "../../std", default-features = false, version = "13.0.0" }
 strum = { version = "0.24.1", features = ["derive"], default-features = false }
 lazy_static = "1.4.0"

@@ -23,5 +23,5 @@ sc-network = { version = "0.33.0", path = ".." }
 sc-network-common = { version = "0.32.0", path = "../common" }
 sc-network-sync = { version = "0.32.0", path = "../sync" }
 sc-utils = { version = "13.0.0", path = "../../utils" }
-sp-runtime = { version = "30.0.0", path = "../../../primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../../primitives/runtime" }
 sp-consensus = { version = "0.31.0", path = "../../../primitives/consensus/common" }

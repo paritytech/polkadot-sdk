@@ -43,7 +43,7 @@ sp-core = { version = "27.0.0", path = "../../../substrate/primitives/core" }
 sp-io = { version = "29.0.0", path = "../../../substrate/primitives/io" }
 sp-api = { version = "25.0.0", path = "../../../substrate/primitives/api" }
 sp-keyring = { version = "30.0.0", path = "../../../substrate/primitives/keyring" }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "30.0.0" }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "30.0.1" }
 sp-state-machine = { version = "0.34.0", path = "../../../substrate/primitives/state-machine" }
 sp-tracing = { version = "15.0.0", path = "../../../substrate/primitives/tracing" }
 sp-timestamp = { version = "25.0.0", path = "../../../substrate/primitives/timestamp" }

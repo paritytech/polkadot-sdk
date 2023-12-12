@@ -16,7 +16,7 @@ frame-support = { version = "27.0.0", path = "../../../frame/support" }
 frame-system = { version = "27.0.0", path = "../../../frame/system" }
 sc-cli = { version = "0.35.0", path = "../../../client/cli" }
 sp-core = { version = "27.0.0", path = "../../../primitives/core" }
-sp-runtime = { version = "30.0.0", path = "../../../primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../../primitives/runtime" }
 
 [features]
 default = []

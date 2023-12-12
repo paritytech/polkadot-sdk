@@ -21,6 +21,6 @@ sp-api = { version = "25.0.0", path = "../../../primitives/api" }
 sp-blockchain = { version = "27.0.0", path = "../../../primitives/blockchain" }
 sp-consensus = { version = "0.31.0", path = "../../../primitives/consensus/common" }
 sp-core = { version = "27.0.0", path = "../../../primitives/core" }
-sp-runtime = { version = "30.0.0", path = "../../../primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../../primitives/runtime" }
 substrate-test-client = { version = "0.1.0", path = "../../client" }
 substrate-test-runtime = { version = "0.1.0", path = ".." }

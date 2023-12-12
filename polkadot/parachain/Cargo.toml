@@ -13,7 +13,7 @@ version = "5.0.0"
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive", "serde"] }
 sp-std = { path = "../../substrate/primitives/std", default-features = false, version = "13.0.0" }
-sp-runtime = { path = "../../substrate/primitives/runtime", default-features = false, features = ["serde"], version = "30.0.0" }
+sp-runtime = { path = "../../substrate/primitives/runtime", default-features = false, features = ["serde"], version = "30.0.1" }
 sp-core = { path = "../../substrate/primitives/core", default-features = false, features = ["serde"], version = "27.0.0" }
 sp-weights = { path = "../../substrate/primitives/weights", default-features = false, version = "26.0.0" }
 polkadot-core-primitives = { path = "../core-primitives", default-features = false, version = "6.0.0" }

@@ -18,7 +18,7 @@ log = { version = "0.4.17", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 sp-std = { path = "../../primitives/std", default-features = false, version = "13.0.0" }
 # Needed for various traits. In our case, `OnFinalize`.
-sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "30.0.0" }
+sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "30.0.1" }
 # Needed for type-safe access to storage DB.
 frame-support = { path = "../support", default-features = false, version = "27.0.0" }
 # `system` module provides us with all sorts of useful stuff and macros depend on it being around.

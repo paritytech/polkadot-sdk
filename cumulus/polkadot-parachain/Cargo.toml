@@ -35,7 +35,7 @@ jsonrpsee = { version = "0.16.2", features = ["server"] }
 parachains-common = { version = "6.0.0", path = "../parachains/common" }
 frame-benchmarking = { version = "27.0.0", path = "../../substrate/frame/benchmarking" }
 frame-benchmarking-cli = { version = "31.0.0", path = "../../substrate/utils/frame/benchmarking-cli" }
-sp-runtime = { path = "../../substrate/primitives/runtime", default-features = false, version = "30.0.0" }
+sp-runtime = { path = "../../substrate/primitives/runtime", default-features = false, version = "30.0.1" }
 sp-io = { version = "29.0.0", path = "../../substrate/primitives/io" }
 sp-core = { version = "27.0.0", path = "../../substrate/primitives/core" }
 sp-session = { version = "26.0.0", path = "../../substrate/primitives/session" }

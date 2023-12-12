@@ -19,7 +19,7 @@ sc-block-builder = { version = "0.32.0", path = "../../../../substrate/client/bl
 sc-consensus = { version = "0.32.0", path = "../../../../substrate/client/consensus/common" }
 sc-offchain = { version = "28.0.0", path = "../../../../substrate/client/offchain" }
 sp-blockchain = { version = "27.0.0", path = "../../../../substrate/primitives/blockchain" }
-sp-runtime = { version = "30.0.0", path = "../../../../substrate/primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../../../substrate/primitives/runtime" }
 sp-inherents = { version = "25.0.0", path = "../../../../substrate/primitives/inherents" }
 sp-core = { version = "27.0.0", path = "../../../../substrate/primitives/core" }
 sp-api = { version = "25.0.0", path = "../../../../substrate/primitives/api" }

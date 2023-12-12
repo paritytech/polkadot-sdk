@@ -30,7 +30,7 @@ sc-utils = { version = "13.0.0", path = "../../../substrate/client/utils" }
 sp-api = { version = "25.0.0", path = "../../../substrate/primitives/api" }
 sp-consensus-babe = { version = "0.31.0", path = "../../../substrate/primitives/consensus/babe" }
 sp-consensus = { version = "0.31.0", path = "../../../substrate/primitives/consensus/common" }
-sp-runtime = { version = "30.0.0", path = "../../../substrate/primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../../substrate/primitives/runtime" }
 sp-blockchain = { version = "27.0.0", path = "../../../substrate/primitives/blockchain" }
 tokio = { version = "1.32.0", features = ["macros"] }
 cumulus-relay-chain-interface = { version = "0.6.0", path = "../relay-chain-interface" }

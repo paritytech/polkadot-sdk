@@ -12,7 +12,7 @@ polkadot-primitives = { version = "6.0.0", path = "../primitives" }
 sc-client-api = { version = "27.0.0", path = "../../substrate/client/api" }
 sp-blockchain = { version = "27.0.0", path = "../../substrate/primitives/blockchain" }
 sp-keystore = { version = "0.33.0", path = "../../substrate/primitives/keystore" }
-sp-runtime = { version = "30.0.0", path = "../../substrate/primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../substrate/primitives/runtime" }
 sp-api = { version = "25.0.0", path = "../../substrate/primitives/api" }
 sp-consensus = { version = "0.31.0", path = "../../substrate/primitives/consensus/common" }
 sp-consensus-babe = { version = "0.31.0", path = "../../substrate/primitives/consensus/babe" }

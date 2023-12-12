@@ -19,7 +19,7 @@ node-primitives = { version = "2.0.0", path = "../primitives" }
 node-testing = { version = "0.1.0", path = "../testing" }
 kitchensink-runtime = { version = "0.1.0", path = "../runtime" }
 sc-client-api = { version = "27.0.0", path = "../../../client/api" }
-sp-runtime = { version = "30.0.0", path = "../../../primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../../primitives/runtime" }
 sp-state-machine = { version = "0.34.0", path = "../../../primitives/state-machine" }
 serde = "1.0.193"
 serde_json = "1.0.108"

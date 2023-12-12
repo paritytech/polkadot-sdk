@@ -22,7 +22,7 @@ prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../..
 sp-api = { version = "25.0.0", path = "../../primitives/api" }
 sp-blockchain = { version = "27.0.0", path = "../../primitives/blockchain" }
 sp-core = { version = "27.0.0", path = "../../primitives/core" }
-sp-runtime = { version = "30.0.0", path = "../../primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../primitives/runtime" }
 sc-client-api = { version = "27.0.0", path = "../api" }
 sc-keystore = { version = "24.0.0", path = "../keystore" }
 

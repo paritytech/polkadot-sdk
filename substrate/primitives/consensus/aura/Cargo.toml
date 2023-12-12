@@ -20,7 +20,7 @@ sp-api = { path = "../../api", default-features = false, version = "25.0.0" }
 sp-application-crypto = { path = "../../application-crypto", default-features = false, version = "29.0.0" }
 sp-consensus-slots = { path = "../slots", default-features = false, version = "0.31.0" }
 sp-inherents = { path = "../../inherents", default-features = false, version = "25.0.0" }
-sp-runtime = { path = "../../runtime", default-features = false, version = "30.0.0" }
+sp-runtime = { path = "../../runtime", default-features = false, version = "30.0.1" }
 sp-std = { path = "../../std", default-features = false, version = "13.0.0" }
 sp-timestamp = { path = "../../timestamp", default-features = false, version = "25.0.0" }
 

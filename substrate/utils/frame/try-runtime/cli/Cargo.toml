@@ -22,7 +22,7 @@ sp-externalities = { version = "0.24.0", path = "../../../../primitives/external
 sp-inherents = { version = "25.0.0", path = "../../../../primitives/inherents" }
 sp-io = { version = "29.0.0", path = "../../../../primitives/io" }
 sp-keystore = { version = "0.33.0", path = "../../../../primitives/keystore" }
-sp-runtime = { version = "30.0.0", path = "../../../../primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../../../primitives/runtime" }
 sp-rpc = { version = "25.0.0", path = "../../../../primitives/rpc" }
 sp-state-machine = { version = "0.34.0", path = "../../../../primitives/state-machine" }
 sp-timestamp = { version = "25.0.0", path = "../../../../primitives/timestamp" }

@@ -25,7 +25,7 @@ sp-application-crypto = { path = "../../primitives/application-crypto", default-
 sp-consensus-grandpa = { path = "../../primitives/consensus/grandpa", default-features = false, features = ["serde"], version = "12.0.0" }
 sp-core = { path = "../../primitives/core", default-features = false, features = ["serde"], version = "27.0.0" }
 sp-io = { path = "../../primitives/io", default-features = false, version = "29.0.0" }
-sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"], version = "30.0.0" }
+sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"], version = "30.0.1" }
 sp-session = { path = "../../primitives/session", default-features = false, version = "26.0.0" }
 sp-staking = { path = "../../primitives/staking", default-features = false, features = ["serde"], version = "25.0.0" }
 sp-std = { path = "../../primitives/std", default-features = false, version = "13.0.0" }

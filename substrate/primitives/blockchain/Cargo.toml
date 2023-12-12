@@ -23,5 +23,5 @@ thiserror = "1.0.48"
 sp-api = { version = "25.0.0", path = "../api" }
 sp-consensus = { version = "0.31.0", path = "../consensus/common" }
 sp-database = { version = "9.0.0", path = "../database" }
-sp-runtime = { version = "30.0.0", path = "../runtime" }
+sp-runtime = { version = "30.0.1", path = "../runtime" }
 sp-state-machine = { version = "0.34.0", path = "../state-machine" }

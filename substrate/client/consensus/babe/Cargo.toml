@@ -41,7 +41,7 @@ sp-consensus-slots = { version = "0.31.0", path = "../../../primitives/consensus
 sp-core = { version = "27.0.0", path = "../../../primitives/core" }
 sp-inherents = { version = "25.0.0", path = "../../../primitives/inherents" }
 sp-keystore = { version = "0.33.0", path = "../../../primitives/keystore" }
-sp-runtime = { version = "30.0.0", path = "../../../primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../../primitives/runtime" }
 
 [dev-dependencies]
 sc-block-builder = { path = "../../block-builder" }

@@ -17,7 +17,7 @@ jsonrpsee = { version = "0.16.2", features = ["client-core", "macros", "server"]
 sc-chain-spec = { version = "26.0.0", path = "../chain-spec" }
 sc-transaction-pool-api = { version = "27.0.0", path = "../transaction-pool/api" }
 sp-core = { version = "27.0.0", path = "../../primitives/core" }
-sp-runtime = { version = "30.0.0", path = "../../primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../primitives/runtime" }
 sp-api = { version = "25.0.0", path = "../../primitives/api" }
 sp-rpc = { version = "25.0.0", path = "../../primitives/rpc" }
 sp-blockchain = { version = "27.0.0", path = "../../primitives/blockchain" }

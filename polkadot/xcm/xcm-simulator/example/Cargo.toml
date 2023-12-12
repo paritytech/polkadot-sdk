@@ -17,7 +17,7 @@ pallet-message-queue = { version = "30.0.0", path = "../../../../substrate/frame
 pallet-uniques = { version = "27.0.0", path = "../../../../substrate/frame/uniques" }
 sp-std = { version = "13.0.0", path = "../../../../substrate/primitives/std" }
 sp-core = { version = "27.0.0", path = "../../../../substrate/primitives/core" }
-sp-runtime = { version = "30.0.0", path = "../../../../substrate/primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../../../substrate/primitives/runtime" }
 sp-io = { version = "29.0.0", path = "../../../../substrate/primitives/io" }
 sp-tracing = { version = "15.0.0", path = "../../../../substrate/primitives/tracing" }
 

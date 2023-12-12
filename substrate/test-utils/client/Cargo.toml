@@ -30,5 +30,5 @@ sp-consensus = { version = "0.31.0", path = "../../primitives/consensus/common" 
 sp-core = { version = "27.0.0", path = "../../primitives/core" }
 sp-keyring = { version = "30.0.0", path = "../../primitives/keyring" }
 sp-keystore = { version = "0.33.0", path = "../../primitives/keystore" }
-sp-runtime = { version = "30.0.0", path = "../../primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../primitives/runtime" }
 sp-state-machine = { version = "0.34.0", path = "../../primitives/state-machine" }

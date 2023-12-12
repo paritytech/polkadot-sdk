@@ -47,7 +47,7 @@ sp-database = { version = "9.0.0", path = "../../../primitives/database" }
 sp-externalities = { version = "0.24.0", path = "../../../primitives/externalities" }
 sp-inherents = { version = "25.0.0", path = "../../../primitives/inherents" }
 sp-keystore = { version = "0.33.0", path = "../../../primitives/keystore" }
-sp-runtime = { version = "30.0.0", path = "../../../primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../../primitives/runtime" }
 sp-state-machine = { version = "0.34.0", path = "../../../primitives/state-machine" }
 sp-storage = { version = "18.0.0", path = "../../../primitives/storage" }
 sp-trie = { version = "28.0.0", path = "../../../primitives/trie" }

@@ -38,7 +38,7 @@ sp-authority-discovery = { version = "25.0.0", path = "../../primitives/authorit
 sp-blockchain = { version = "27.0.0", path = "../../primitives/blockchain" }
 sp-core = { version = "27.0.0", path = "../../primitives/core" }
 sp-keystore = { version = "0.33.0", path = "../../primitives/keystore" }
-sp-runtime = { version = "30.0.0", path = "../../primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../primitives/runtime" }
 async-trait = "0.1.56"
 multihash-codetable = { version = "0.1.1", features = [
 	"digest",

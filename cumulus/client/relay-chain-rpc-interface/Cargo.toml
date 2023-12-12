@@ -17,7 +17,7 @@ sp-consensus-babe = { version = "0.31.0", path = "../../../substrate/primitives/
 sp-authority-discovery = { version = "25.0.0", path = "../../../substrate/primitives/authority-discovery" }
 sp-state-machine = { version = "0.34.0", path = "../../../substrate/primitives/state-machine" }
 sp-storage = { version = "18.0.0", path = "../../../substrate/primitives/storage" }
-sp-runtime = { version = "30.0.0", path = "../../../substrate/primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../../substrate/primitives/runtime" }
 sp-version = { version = "28.0.0", path = "../../../substrate/primitives/version" }
 sc-client-api = { version = "27.0.0", path = "../../../substrate/client/api" }
 sc-rpc-api = { version = "0.32.0", path = "../../../substrate/client/rpc-api" }

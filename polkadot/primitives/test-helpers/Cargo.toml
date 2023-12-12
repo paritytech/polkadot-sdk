@@ -10,7 +10,7 @@ description = "polkadot-primitives-test-helpers"
 [dependencies]
 sp-keyring = { version = "30.0.0", path = "../../../substrate/primitives/keyring" }
 sp-application-crypto = { package = "sp-application-crypto", path = "../../../substrate/primitives/application-crypto", default-features = false, version = "29.0.0" }
-sp-runtime = { version = "30.0.0", path = "../../../substrate/primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../../substrate/primitives/runtime" }
 sp-core = { path = "../../../substrate/primitives/core", features = ["std"], version = "27.0.0" }
 polkadot-primitives = { version = "6.0.0", path = ".." }
 rand = "0.8.5"

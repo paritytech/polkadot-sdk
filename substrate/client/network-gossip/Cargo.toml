@@ -25,7 +25,7 @@ prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../..
 sc-network = { version = "0.33.0", path = "../network" }
 sc-network-common = { version = "0.32.0", path = "../network/common" }
 sc-network-sync = { version = "0.32.0", path = "../network/sync" }
-sp-runtime = { version = "30.0.0", path = "../../primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../primitives/runtime" }
 
 [dev-dependencies]
 tokio = "1.22.0"

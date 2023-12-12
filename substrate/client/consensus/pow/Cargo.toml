@@ -30,4 +30,4 @@ sp-consensus = { version = "0.31.0", path = "../../../primitives/consensus/commo
 sp-consensus-pow = { version = "0.31.0", path = "../../../primitives/consensus/pow" }
 sp-core = { version = "27.0.0", path = "../../../primitives/core" }
 sp-inherents = { version = "25.0.0", path = "../../../primitives/inherents" }
-sp-runtime = { version = "30.0.0", path = "../../../primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../../primitives/runtime" }

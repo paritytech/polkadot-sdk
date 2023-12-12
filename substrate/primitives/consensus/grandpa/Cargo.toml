@@ -23,7 +23,7 @@ sp-api = { path = "../../api", default-features = false, version = "25.0.0" }
 sp-application-crypto = { path = "../../application-crypto", default-features = false, version = "29.0.0" }
 sp-core = { path = "../../core", default-features = false, version = "27.0.0" }
 sp-keystore = { path = "../../keystore", default-features = false, optional = true, version = "0.33.0" }
-sp-runtime = { path = "../../runtime", default-features = false, version = "30.0.0" }
+sp-runtime = { path = "../../runtime", default-features = false, version = "30.0.1" }
 sp-std = { path = "../../std", default-features = false, version = "13.0.0" }
 
 [features]

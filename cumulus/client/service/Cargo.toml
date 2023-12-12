@@ -23,7 +23,7 @@ sp-api = { version = "25.0.0", path = "../../../substrate/primitives/api" }
 sp-blockchain = { version = "27.0.0", path = "../../../substrate/primitives/blockchain" }
 sp-consensus = { version = "0.31.0", path = "../../../substrate/primitives/consensus/common" }
 sp-core = { version = "27.0.0", path = "../../../substrate/primitives/core" }
-sp-runtime = { version = "30.0.0", path = "../../../substrate/primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../../substrate/primitives/runtime" }
 sp-transaction-pool = { version = "25.0.0", path = "../../../substrate/primitives/transaction-pool" }
 polkadot-primitives = { version = "6.0.0", path = "../../../polkadot/primitives" }
 cumulus-client-cli = { version = "0.6.0", path = "../cli" }

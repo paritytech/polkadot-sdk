@@ -12,7 +12,7 @@ codec = { package = "parity-scale-codec", version = "3.4.0", default-features = 
 assert_matches = "1.5.0"
 
 # Substrate
-sp-runtime = { path = "../../../../../../../substrate/primitives/runtime", default-features = false, version = "30.0.0" }
+sp-runtime = { path = "../../../../../../../substrate/primitives/runtime", default-features = false, version = "30.0.1" }
 frame-support = { path = "../../../../../../../substrate/frame/support", default-features = false, version = "27.0.0" }
 pallet-balances = { path = "../../../../../../../substrate/frame/balances", default-features = false, version = "27.0.0" }
 pallet-assets = { path = "../../../../../../../substrate/frame/assets", default-features = false, version = "28.0.0" }

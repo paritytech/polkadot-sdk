@@ -20,7 +20,7 @@ log = "0.4.17"
 thiserror = "1.0.48"
 sp-core = { version = "27.0.0", path = "../../core" }
 sp-inherents = { version = "25.0.0", path = "../../inherents" }
-sp-runtime = { version = "30.0.0", path = "../../runtime" }
+sp-runtime = { version = "30.0.1", path = "../../runtime" }
 sp-state-machine = { version = "0.34.0", path = "../../state-machine" }
 
 [dev-dependencies]

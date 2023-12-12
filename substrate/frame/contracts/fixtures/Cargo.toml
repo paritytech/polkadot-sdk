@@ -10,7 +10,7 @@ description = "Fixtures for testing contracts pallet."
 [dependencies]
 wat = "1"
 frame-system = { version = "27.0.0", path = "../../system" }
-sp-runtime = { version = "30.0.0", path = "../../../primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../../primitives/runtime" }
 anyhow = "1.0.0"
 
 [build-dependencies]

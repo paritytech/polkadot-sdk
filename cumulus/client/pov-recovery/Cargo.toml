@@ -16,7 +16,7 @@ sc-client-api = { version = "27.0.0", path = "../../../substrate/client/api" }
 sc-consensus = { version = "0.32.0", path = "../../../substrate/client/consensus/common" }
 sp-consensus = { version = "0.31.0", path = "../../../substrate/primitives/consensus/common" }
 sp-maybe-compressed-blob = { version = "10.0.0", path = "../../../substrate/primitives/maybe-compressed-blob" }
-sp-runtime = { version = "30.0.0", path = "../../../substrate/primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../../substrate/primitives/runtime" }
 polkadot-node-primitives = { version = "6.0.0", path = "../../../polkadot/node/primitives" }
 polkadot-node-subsystem = { version = "6.0.0", path = "../../../polkadot/node/subsystem" }
 polkadot-overseer = { version = "6.0.0", path = "../../../polkadot/node/overseer" }

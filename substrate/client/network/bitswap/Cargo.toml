@@ -27,7 +27,7 @@ unsigned-varint = { version = "0.7.1", features = ["asynchronous_codec", "future
 sc-client-api = { version = "27.0.0", path = "../../api" }
 sc-network = { version = "0.33.0", path = ".." }
 sp-blockchain = { version = "27.0.0", path = "../../../primitives/blockchain" }
-sp-runtime = { version = "30.0.0", path = "../../../primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../../primitives/runtime" }
 
 [dev-dependencies]
 tokio = { version = "1.22.0", features = ["full"] }

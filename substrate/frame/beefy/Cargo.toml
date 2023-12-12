@@ -18,7 +18,7 @@ frame-system = { path = "../system", default-features = false, version = "27.0.0
 pallet-authorship = { path = "../authorship", default-features = false, version = "27.0.0" }
 pallet-session = { path = "../session", default-features = false, version = "27.0.0" }
 sp-consensus-beefy = { path = "../../primitives/consensus/beefy", default-features = false, features = ["serde"], version = "12.0.0" }
-sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"], version = "30.0.0" }
+sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"], version = "30.0.1" }
 sp-session = { path = "../../primitives/session", default-features = false, version = "26.0.0" }
 sp-staking = { path = "../../primitives/staking", default-features = false, features = ["serde"], version = "25.0.0" }
 sp-std = { path = "../../primitives/std", default-features = false, version = "13.0.0" }

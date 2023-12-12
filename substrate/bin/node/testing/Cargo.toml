@@ -41,6 +41,6 @@ sp-core = { version = "27.0.0", path = "../../../primitives/core" }
 sp-inherents = { version = "25.0.0", path = "../../../primitives/inherents" }
 sp-io = { version = "29.0.0", path = "../../../primitives/io" }
 sp-keyring = { version = "30.0.0", path = "../../../primitives/keyring" }
-sp-runtime = { version = "30.0.0", path = "../../../primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../../primitives/runtime" }
 sp-timestamp = { path = "../../../primitives/timestamp", default-features = false, version = "25.0.0" }
 substrate-test-client = { version = "0.1.0", path = "../../../test-utils/client" }

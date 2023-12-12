@@ -22,7 +22,7 @@ bridge-runtime-common = { path = "../../bin/runtime-common", default-features = 
 frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "27.0.0" }
 frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "27.0.0" }
 sp-core = { path = "../../../substrate/primitives/core", default-features = false, version = "27.0.0" }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "30.0.0" }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "30.0.1" }
 sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "13.0.0" }
 
 # Polkadot Dependencies

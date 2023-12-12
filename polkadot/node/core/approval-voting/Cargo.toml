@@ -30,7 +30,7 @@ sc-keystore = { path = "../../../../substrate/client/keystore", default-features
 sp-consensus = { path = "../../../../substrate/primitives/consensus/common", default-features = false, version = "0.31.0" }
 sp-consensus-slots = { path = "../../../../substrate/primitives/consensus/slots", default-features = false, version = "0.31.0" }
 sp-application-crypto = { path = "../../../../substrate/primitives/application-crypto", default-features = false, features = ["full_crypto"], version = "29.0.0" }
-sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false, version = "30.0.0" }
+sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false, version = "30.0.1" }
 rand_core = "0.5.1"
 rand_chacha = { version = "0.3.1" }
 rand = "0.8.5"

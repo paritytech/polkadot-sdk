@@ -16,7 +16,7 @@ sp-application-crypto = { version = "29.0.0", path = "../../../substrate/primiti
 sp-consensus-babe = { version = "0.31.0", path = "../../../substrate/primitives/consensus/babe" }
 sp-keystore = { version = "0.33.0", path = "../../../substrate/primitives/keystore" }
 sp-maybe-compressed-blob = { version = "10.0.0", path = "../../../substrate/primitives/maybe-compressed-blob" }
-sp-runtime = { version = "30.0.0", path = "../../../substrate/primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../../substrate/primitives/runtime" }
 polkadot-parachain-primitives = { path = "../../parachain", default-features = false, version = "5.0.0" }
 schnorrkel = "0.9.1"
 thiserror = "1.0.48"

@@ -35,7 +35,7 @@ sp-consensus-beefy = { version = "12.0.0", path = "../../../primitives/consensus
 sp-core = { version = "27.0.0", path = "../../../primitives/core" }
 sp-keystore = { version = "0.33.0", path = "../../../primitives/keystore" }
 sp-mmr-primitives = { version = "25.0.0", path = "../../../primitives/merkle-mountain-range" }
-sp-runtime = { version = "30.0.0", path = "../../../primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../../primitives/runtime" }
 
 [dev-dependencies]
 serde = "1.0.193"

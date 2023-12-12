@@ -24,7 +24,7 @@ sp-application-crypto = { default-features = false, path = "../../primitives/app
 sp-arithmetic = { default-features = false, path = "../../primitives/arithmetic", version = "22.0.0" }
 sp-io = { default-features = false, path = "../../primitives/io", version = "29.0.0" }
 sp-mixnet = { default-features = false, path = "../../primitives/mixnet", version = "0.3.0" }
-sp-runtime = { default-features = false, path = "../../primitives/runtime", version = "30.0.0" }
+sp-runtime = { default-features = false, path = "../../primitives/runtime", version = "30.0.1" }
 sp-std = { default-features = false, path = "../../primitives/std", version = "13.0.0" }
 
 [features]

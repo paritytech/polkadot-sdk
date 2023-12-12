@@ -27,7 +27,7 @@ sp-consensus-aura = { version = "0.31.0", path = "../../../../substrate/primitiv
 sp-core = { version = "27.0.0", path = "../../../../substrate/primitives/core" }
 sp-inherents = { version = "25.0.0", path = "../../../../substrate/primitives/inherents" }
 sp-keystore = { version = "0.33.0", path = "../../../../substrate/primitives/keystore" }
-sp-runtime = { version = "30.0.0", path = "../../../../substrate/primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../../../substrate/primitives/runtime" }
 sp-timestamp = { version = "25.0.0", path = "../../../../substrate/primitives/timestamp" }
 sp-state-machine = { version = "0.34.0", path = "../../../../substrate/primitives/state-machine" }
 substrate-prometheus-endpoint = { version = "0.16.0", path = "../../../../substrate/utils/prometheus" }

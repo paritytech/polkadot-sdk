@@ -20,7 +20,7 @@ sp-blockchain = { version = "27.0.0", path = "../../../../substrate/primitives/b
 sp-consensus = { version = "0.31.0", path = "../../../../substrate/primitives/consensus/common" }
 sp-consensus-slots = { version = "0.31.0", path = "../../../../substrate/primitives/consensus/slots" }
 sp-core = { version = "27.0.0", path = "../../../../substrate/primitives/core" }
-sp-runtime = { version = "30.0.0", path = "../../../../substrate/primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../../../substrate/primitives/runtime" }
 sp-timestamp = { version = "25.0.0", path = "../../../../substrate/primitives/timestamp" }
 sp-trie = { version = "28.0.0", path = "../../../../substrate/primitives/trie" }
 substrate-prometheus-endpoint = { version = "0.16.0", path = "../../../../substrate/utils/prometheus" }

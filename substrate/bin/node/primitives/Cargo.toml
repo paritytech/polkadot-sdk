@@ -14,7 +14,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 sp-core = { path = "../../../primitives/core", default-features = false, version = "27.0.0" }
-sp-runtime = { path = "../../../primitives/runtime", default-features = false, version = "30.0.0" }
+sp-runtime = { path = "../../../primitives/runtime", default-features = false, version = "30.0.1" }
 
 [features]
 default = ["std"]

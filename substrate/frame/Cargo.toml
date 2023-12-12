@@ -20,7 +20,7 @@ parity-scale-codec = { version = "3.2.2", default-features = false, features = [
 scale-info = { version = "2.6.0", default-features = false, features = ["derive"] }
 
 # primitive deps, used for developing FRAME pallets.
-sp-runtime = { default-features = false, path = "../primitives/runtime", version = "30.0.0" }
+sp-runtime = { default-features = false, path = "../primitives/runtime", version = "30.0.1" }
 sp-std = { default-features = false, path = "../primitives/std", version = "13.0.0" }
 sp-io = { default-features = false, path = "../primitives/io", version = "29.0.0" }
 sp-core = { default-features = false, path = "../primitives/core", version = "27.0.0" }

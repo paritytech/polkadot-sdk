@@ -22,7 +22,7 @@ sp-blockchain = { version = "27.0.0", path = "../../primitives/blockchain" }
 sp-core = { version = "27.0.0", path = "../../primitives/core" }
 sp-trie = { version = "28.0.0", path = "../../primitives/trie" }
 sp-inherents = { version = "25.0.0", path = "../../primitives/inherents" }
-sp-runtime = { version = "30.0.0", path = "../../primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../primitives/runtime" }
 
 [dev-dependencies]
 sp-state-machine = { path = "../../primitives/state-machine" }

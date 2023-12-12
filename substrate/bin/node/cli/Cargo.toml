@@ -50,7 +50,7 @@ sp-consensus-babe = { version = "0.31.0", path = "../../../primitives/consensus/
 grandpa-primitives = { package = "sp-consensus-grandpa", path = "../../../primitives/consensus/grandpa", version = "12.0.0" }
 sp-api = { version = "25.0.0", path = "../../../primitives/api" }
 sp-core = { version = "27.0.0", path = "../../../primitives/core" }
-sp-runtime = { version = "30.0.0", path = "../../../primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../../primitives/runtime" }
 sp-timestamp = { version = "25.0.0", path = "../../../primitives/timestamp" }
 sp-inherents = { version = "25.0.0", path = "../../../primitives/inherents" }
 sp-keyring = { version = "30.0.0", path = "../../../primitives/keyring" }

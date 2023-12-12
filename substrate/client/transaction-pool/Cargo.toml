@@ -29,7 +29,7 @@ sc-utils = { version = "13.0.0", path = "../utils" }
 sp-api = { version = "25.0.0", path = "../../primitives/api" }
 sp-blockchain = { version = "27.0.0", path = "../../primitives/blockchain" }
 sp-core = { version = "27.0.0", path = "../../primitives/core" }
-sp-runtime = { version = "30.0.0", path = "../../primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../primitives/runtime" }
 sp-tracing = { version = "15.0.0", path = "../../primitives/tracing" }
 sp-transaction-pool = { version = "25.0.0", path = "../../primitives/transaction-pool" }
 

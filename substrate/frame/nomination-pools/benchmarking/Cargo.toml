@@ -27,7 +27,7 @@ pallet-staking = { path = "../../staking", default-features = false, version = "
 pallet-nomination-pools = { path = "..", default-features = false, version = "24.0.0" }
 
 # Substrate Primitives
-sp-runtime = { path = "../../../primitives/runtime", default-features = false, version = "30.0.0" }
+sp-runtime = { path = "../../../primitives/runtime", default-features = false, version = "30.0.1" }
 sp-runtime-interface = { path = "../../../primitives/runtime-interface", default-features = false, version = "23.0.0" }
 sp-staking = { path = "../../../primitives/staking", default-features = false, version = "25.0.0" }
 sp-std = { path = "../../../primitives/std", default-features = false, version = "13.0.0" }

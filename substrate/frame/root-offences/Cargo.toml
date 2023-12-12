@@ -21,7 +21,7 @@ pallet-staking = { path = "../staking", default-features = false, version = "27.
 
 frame-support = { path = "../support", default-features = false, version = "27.0.0" }
 frame-system = { path = "../system", default-features = false, version = "27.0.0" }
-sp-runtime = { version = "30.0.0", path = "../../primitives/runtime" }
+sp-runtime = { version = "30.0.1", path = "../../primitives/runtime" }
 sp-staking = { path = "../../primitives/staking", default-features = false, version = "25.0.0" }
 
 [dev-dependencies]
