@@ -26,8 +26,8 @@ use pallet_broker::CoreIndex as BrokerCoreIndex;
 
 #[benchmarks]
 mod benchmarks {
-    use assigner_coretime::PartsOf57600;
 	use super::*;
+	use assigner_coretime::PartsOf57600;
 
 	#[benchmark]
 	fn request_core_count() {
