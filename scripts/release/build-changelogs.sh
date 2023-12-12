@@ -38,8 +38,7 @@ mkdir -p $OUTPUT
 # Generate a changelog
 echo "Generating changelog..."
 tera -t "${TEMPLATE_CHANGELOG}" --env --env-key env "${CONTEXT_JSON}" > "$OUTPUT/changelog.md"
-
-code $OUTPUT/changelog.md
+echo "Changelog ready in $OUTPUT/changelog.md"
 
 # Generate a release notes doc per audience
 for audience in "${audiences[@]}"; do

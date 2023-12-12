@@ -4,9 +4,9 @@ Changelog for `{{ env.TARGET_AUDIENCE }}`.
 
 {% for file in prdoc -%}
 #### PR #{{file.doc_filename.number}}: {{ file.content.title }}
-{% for audience in file.content.doc %}
-{%- if audience.audience == env.TARGET_AUDIENCE %}
-{{ audience.description }}
+{% for doc_item in file.content.doc %}
+{%- if doc_item.audience == env.TARGET_AUDIENCE %}
+{{ doc_item.description }}
 {% endif -%}
 
 {%- endfor %}
