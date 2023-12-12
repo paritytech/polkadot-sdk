@@ -922,6 +922,21 @@ impl_runtime_apis! {
 
 				fn export_message_origin_and_destination(
 				) -> Result<(MultiLocation, NetworkId, InteriorMultiLocation), BenchmarkError> {
+					// save XCM version for remote bridge hub
+					let _ = PolkadotXcm::force_xcm_version(
+						RuntimeOrigin::root(),
+						Box::new(bridge_to_rococo_config::BridgeHubRococoLocation::get()),
+						XCM_VERSION,
+					).map_err(|e| {
+						log::error!(
+							"Failed to dispatch `force_xcm_version({:?}, {:?}, {:?})`, error: {:?}",
+							RuntimeOrigin::root(),
+							bridge_to_rococo_config::BridgeHubRococoLocation::get(),
+							XCM_VERSION,
+							e
+						);
+						BenchmarkError::Stop("XcmVersion was not stored!")
+					})?;
 					Ok(
 						(
 							bridge_to_rococo_config::FromAssetHubWestendToAssetHubRococoRoute::get().location,

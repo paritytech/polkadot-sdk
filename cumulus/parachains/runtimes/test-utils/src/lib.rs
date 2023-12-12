@@ -128,7 +128,7 @@ pub struct ExtBuilder<
 	collators: Vec<AccountIdOf<Runtime>>,
 	// keys added to pallet session
 	keys: Vec<(AccountIdOf<Runtime>, ValidatorIdOf<Runtime>, SessionKeysOf<Runtime>)>,
-	// safe xcm version for pallet_xcm
+	// safe XCM version for pallet_xcm
 	safe_xcm_version: Option<XcmVersion>,
 	// para id
 	para_id: Option<ParaId>,
