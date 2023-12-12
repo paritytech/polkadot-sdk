@@ -247,8 +247,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			let attrs =
 				method.cfg_attrs.iter().map(|attr| attr.to_token_stream()).collect::<Vec<_>>();
 			quote::quote!( #( #attrs )* )
-		})
-		.collect::<Vec<_>>();
+		});
 
 	let feeless_check = methods.iter().map(|method| &method.feeless_check).collect::<Vec<_>>();
 	let feeless_check_result =
