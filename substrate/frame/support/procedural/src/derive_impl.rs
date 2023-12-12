@@ -140,7 +140,7 @@ fn combine_impls(
 					.attrs
 					.iter()
 					.filter(|attr| {
-						attr.path().get_ident().map(|ident| ident == "cfg").unwrap_or_default()
+						attr.path().get_ident().map_or(false, |ident| ident == "cfg")
 					})
 					.map(|attr| attr.to_token_stream())
 					.collect::<Vec<_>>();
