@@ -846,7 +846,7 @@ fn impl_runtime_apis_impl_inner(api_impls: &[ItemImpl]) -> Result<TokenStream> {
 	);
 
 	let impl_ = expander::Expander::new("impl_runtime_apis")
-		.dry(std::env::var("SP_API_EXPAND").is_err())
+		.dry(std::env::var("EXPAND_MACROS").is_err())
 		.verbose(true)
 		.write_to_out_dir(impl_)
 		.expect("Does not fail because of IO in OUT_DIR; qed");

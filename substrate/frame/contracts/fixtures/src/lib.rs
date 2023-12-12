@@ -16,9 +16,9 @@
 // limitations under the License.
 
 use sp_runtime::traits::Hash;
-use std::{env::var, path::PathBuf};
+use std::{env::var, fs, path::PathBuf};
 
-fn fixtures_root_dir() -> PathBuf {
+fn wat_root_dir() -> PathBuf {
 	match (var("CARGO_MANIFEST_DIR"), var("CARGO_PKG_NAME")) {
 		// When `CARGO_MANIFEST_DIR` is not set, Rust resolves relative paths from the root folder
 		(Err(_), _) => "substrate/frame/contracts/fixtures/data".into(),
@@ -33,12 +33,44 @@ fn fixtures_root_dir() -> PathBuf {
 /// with it's hash.
 ///
 /// The fixture files are located under the `fixtures/` directory.
-pub fn compile_module<T>(fixture_name: &str) -> wat::Result<(Vec<u8>, <T::Hashing as Hash>::Output)>
+fn legacy_compile_module<T>(
+	fixture_name: &str,
+) -> anyhow::Result<(Vec<u8>, <T::Hashing as Hash>::Output)>
 where
 	T: frame_system::Config,
 {
-	let fixture_path = fixtures_root_dir().join(format!("{fixture_name}.wat"));
+	let fixture_path = wat_root_dir().join(format!("{fixture_name}.wat"));
 	let wasm_binary = wat::parse_file(fixture_path)?;
 	let code_hash = T::Hashing::hash(&wasm_binary);
 	Ok((wasm_binary, code_hash))
+}
+
+/// Load a given wasm module and returns a wasm binary contents along with it's hash.
+/// Use the legacy compile_module as fallback, if the rust fixture does not exist yet.
+pub fn compile_module<T>(
+	fixture_name: &str,
+) -> anyhow::Result<(Vec<u8>, <T::Hashing as Hash>::Output)>
+where
+	T: frame_system::Config,
+{
+	let out_dir: std::path::PathBuf = env!("OUT_DIR").into();
+	let fixture_path = out_dir.join(format!("{fixture_name}.wasm"));
+	match fs::read(fixture_path) {
+		Ok(wasm_binary) => {
+			let code_hash = T::Hashing::hash(&wasm_binary);
+			Ok((wasm_binary, code_hash))
+		},
+		Err(_) => legacy_compile_module::<T>(fixture_name),
+	}
+}
+
+#[cfg(test)]
+mod test {
+	#[test]
+	fn out_dir_should_have_compiled_mocks() {
+		let out_dir: std::path::PathBuf = env!("OUT_DIR").into();
+		let dummy_wasm = out_dir.join("dummy.wasm");
+		println!("dummy_wasm: {:?}", dummy_wasm);
+		assert!(dummy_wasm.exists());
+	}
 }
