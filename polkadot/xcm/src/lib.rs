@@ -522,7 +522,7 @@ impl WrapVersion for AlwaysV2 {
 	}
 }
 impl GetVersion for AlwaysV2 {
-	fn get_version_for(_dest: &latest::MultiLocation) -> Option<Version> {
+	fn get_version_for(_dest: &latest::Location) -> Option<Version> {
 		Some(v2::VERSION)
 	}
 }
@@ -539,7 +539,7 @@ impl WrapVersion for AlwaysV3 {
 	}
 }
 impl GetVersion for AlwaysV3 {
-	fn get_version_for(_dest: &latest::MultiLocation) -> Option<Version> {
+	fn get_version_for(_dest: &latest::Location) -> Option<Version> {
 		Some(v3::VERSION)
 	}
 }
@@ -553,6 +553,11 @@ impl WrapVersion for AlwaysV4 {
 		xcm: impl Into<VersionedXcm<Call>>,
 	) -> Result<VersionedXcm<Call>, ()> {
 		Ok(VersionedXcm::<Call>::V4(xcm.into().try_into()?))
+	}
+}
+impl GetVersion for AlwaysV4 {
+	fn get_version_for(_dest: &latest::Location) -> Option<Version> {
+		Some(v4::VERSION)
 	}
 }
 
