@@ -19,7 +19,7 @@ use crate::common::API_VERSION_ATTRIBUTE;
 use inflector::Inflector;
 use proc_macro2::{Span, TokenStream};
 use proc_macro_crate::{crate_name, FoundCrate};
-use quote::{format_ident, quote, ToTokens};
+use quote::{format_ident, quote};
 use syn::{
 	parse_quote, spanned::Spanned, token::And, Attribute, Error, FnArg, GenericArgument, Ident,
 	ImplItem, ItemImpl, Pat, Path, PathArguments, Result, ReturnType, Signature, Type, TypePath,
@@ -261,6 +261,7 @@ pub fn versioned_trait_name(trait_ident: &Ident, version: u64) -> Ident {
 /// Extract the documentation from the provided attributes.
 #[cfg(feature = "frame-metadata")]
 pub fn get_doc_literals(attrs: &[syn::Attribute]) -> Vec<syn::Lit> {
+	use quote::ToTokens;
 	attrs
 		.iter()
 		.filter_map(|attr| {

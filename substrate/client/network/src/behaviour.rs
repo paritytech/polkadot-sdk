@@ -39,7 +39,7 @@ use sc_network_common::role::{ObservedRole, Roles};
 use sp_runtime::traits::Block as BlockT;
 use std::{collections::HashSet, sync::Arc, time::Duration};
 
-pub use crate::request_responses::{InboundFailure, OutboundFailure, RequestId, ResponseFailure};
+pub use crate::request_responses::{InboundFailure, OutboundFailure, ResponseFailure};
 
 /// General behaviour of the network. Combines all protocols together.
 #[derive(NetworkBehaviour)]

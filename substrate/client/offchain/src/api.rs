@@ -30,7 +30,6 @@ use sp_core::{
 	},
 	OpaquePeerId,
 };
-pub use sp_offchain::STORAGE_PREFIX;
 
 mod http;
 
