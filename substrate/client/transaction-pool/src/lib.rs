@@ -271,7 +271,12 @@ where
 		self.metrics
 			.report(|metrics| metrics.submitted_transactions.inc_by(xts.len() as u64));
 
-		async move { pool.submit_at(at, source, xts).await }.boxed()
+		let number = self.api.resolve_block_number(at);
+		async move {
+			let at = HashAndNumber { hash: at, number: number? };
+			Ok(pool.submit_at(&at, source, xts).await)
+		}
+		.boxed()
 	}
 
 	fn submit_one(
@@ -284,7 +289,12 @@ where
 
 		self.metrics.report(|metrics| metrics.submitted_transactions.inc());
 
-		async move { pool.submit_one(at, source, xt).await }.boxed()
+		let number = self.api.resolve_block_number(at);
+		async move {
+			let at = HashAndNumber { hash: at, number: number? };
+			pool.submit_one(&at, source, xt).await
+		}
+		.boxed()
 	}
 
 	fn submit_and_watch(
@@ -297,8 +307,11 @@ where
 
 		self.metrics.report(|metrics| metrics.submitted_transactions.inc());
 
+		let number = self.api.resolve_block_number(at);
+
 		async move {
-			let watcher = pool.submit_and_watch(at, source, xt).await?;
+			let at = HashAndNumber { hash: at, number: number? };
+			let watcher = pool.submit_and_watch(&at, source, xt).await?;
 
 			Ok(watcher.into_stream().boxed())
 		}
@@ -549,12 +562,12 @@ impl<N: Clone + Copy + AtLeast32Bit> RevalidationStatus<N> {
 
 /// Prune the known txs for the given block.
 async fn prune_known_txs_for_block<Block: BlockT, Api: graph::ChainApi<Block = Block>>(
-	block_hash: Block::Hash,
+	at: &HashAndNumber<Block>,
 	api: &Api,
 	pool: &graph::Pool<Api>,
 ) -> Vec<ExtrinsicHash<Api>> {
 	let extrinsics = api
-		.block_body(block_hash)
+		.block_body(at.hash)
 		.await
 		.unwrap_or_else(|e| {
 			log::warn!("Prune known transactions: error request: {}", e);
@@ -566,22 +579,19 @@ async fn prune_known_txs_for_block<Block: BlockT, Api: graph::ChainApi<Block = B
 
 	log::trace!(target: LOG_TARGET, "Pruning transactions: {:?}", hashes);
 
-	let header = match api.block_header(block_hash) {
+	let header = match api.block_header(at.hash) {
 		Ok(Some(h)) => h,
 		Ok(None) => {
-			log::debug!(target: LOG_TARGET, "Could not find header for {:?}.", block_hash);
+			log::debug!(target: LOG_TARGET, "Could not find header for {:?}.", at.hash);
 			return hashes
 		},
 		Err(e) => {
-			log::debug!(target: LOG_TARGET, "Error retrieving header for {:?}: {}", block_hash, e);
+			log::debug!(target: LOG_TARGET, "Error retrieving header for {:?}: {}", at.hash, e);
 			return hashes
 		},
 	};
 
-	if let Err(e) = pool.prune(block_hash, *header.parent_hash(), &extrinsics).await {
-		log::error!("Cannot prune known in the pool: {}", e);
-	}
-
+	pool.prune(at, *header.parent_hash(), &extrinsics).await;
 	hashes
 }
 
@@ -598,8 +608,8 @@ where
 		let pool = self.pool.clone();
 		let api = self.api.clone();
 
-		let (hash, block_number) = match tree_route.last() {
-			Some(HashAndNumber { hash, number }) => (hash, number),
+		let hash_and_number = match tree_route.last() {
+			Some(hash_and_number) => hash_and_number,
 			None => {
 				log::warn!(
 					target: LOG_TARGET,
@@ -611,7 +621,7 @@ where
 		};
 
 		let next_action = self.revalidation_strategy.lock().next(
-			*block_number,
+			hash_and_number.number,
 			Some(std::time::Duration::from_secs(60)),
 			Some(20u32.into()),
 		);
@@ -631,10 +641,7 @@ where
 		}
 
 		future::join_all(
-			tree_route
-				.enacted()
-				.iter()
-				.map(|h| prune_known_txs_for_block(h.hash, &*api, &*pool)),
+			tree_route.enacted().iter().map(|h| prune_known_txs_for_block(h, &*api, &*pool)),
 		)
 		.await
 		.into_iter()
@@ -687,23 +694,14 @@ where
 				});
 			}
 
-			if let Err(e) = pool
-				.resubmit_at(
-					*hash,
-					// These transactions are coming from retracted blocks, we should
-					// simply consider them external.
-					TransactionSource::External,
-					resubmit_transactions,
-				)
-				.await
-			{
-				log::debug!(
-					target: LOG_TARGET,
-					"[{:?}] Error re-submitting transactions: {}",
-					hash,
-					e,
-				)
-			}
+			pool.resubmit_at(
+				&hash_and_number,
+				// These transactions are coming from retracted blocks, we should
+				// simply consider them external.
+				TransactionSource::External,
+				resubmit_transactions,
+			)
+			.await;
 		}
 
 		let extra_pool = pool.clone();
@@ -711,11 +709,11 @@ where
 		// handler of "all blocks notification".
 		self.ready_poll
 			.lock()
-			.trigger(*block_number, move || Box::new(extra_pool.validated_pool().ready()));
+			.trigger(hash_and_number.number, move || Box::new(extra_pool.validated_pool().ready()));
 
 		if next_action.revalidate {
 			let hashes = pool.validated_pool().ready().map(|tx| tx.hash).collect();
-			self.revalidation_queue.revalidate_later(*hash, hashes).await;
+			self.revalidation_queue.revalidate_later(hash_and_number.hash, hashes).await;
 
 			self.revalidation_strategy.lock().clear();
 		}

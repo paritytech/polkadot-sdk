@@ -27,8 +27,8 @@ use futures::channel::mpsc::{channel, Sender};
 use parking_lot::{Mutex, RwLock};
 use sc_transaction_pool_api::{error, PoolStatus, ReadyTransactions};
 use serde::Serialize;
+use sp_blockchain::HashAndNumber;
 use sp_runtime::{
-	generic::BlockId,
 	traits::{self, SaturatedConversion},
 	transaction_validity::{TransactionSource, TransactionTag as Tag, ValidTransaction},
 };
@@ -451,7 +451,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 	pub fn prune_tags(
 		&self,
 		tags: impl IntoIterator<Item = Tag>,
-	) -> Result<PruneStatus<ExtrinsicHash<B>, ExtrinsicFor<B>>, B::Error> {
+	) -> PruneStatus<ExtrinsicHash<B>, ExtrinsicFor<B>> {
 		// Perform tag-based pruning in the base pool
 		let status = self.pool.write().prune_tags(tags);
 		// Notify event listeners of all transactions
@@ -466,17 +466,17 @@ impl<B: ChainApi> ValidatedPool<B> {
 			}
 		}
 
-		Ok(status)
+		status
 	}
 
 	/// Resubmit transactions that have been revalidated after prune_tags call.
 	pub fn resubmit_pruned(
 		&self,
-		at: &BlockId<B::Block>,
+		at: &HashAndNumber<B::Block>,
 		known_imported_hashes: impl IntoIterator<Item = ExtrinsicHash<B>> + Clone,
 		pruned_hashes: Vec<ExtrinsicHash<B>>,
 		pruned_xts: Vec<ValidatedTransactionFor<B>>,
-	) -> Result<(), B::Error> {
+	) {
 		debug_assert_eq!(pruned_hashes.len(), pruned_xts.len());
 
 		// Resubmit pruned transactions
@@ -493,35 +493,29 @@ impl<B: ChainApi> ValidatedPool<B> {
 		// Fire `pruned` notifications for collected hashes and make sure to include
 		// `known_imported_hashes` since they were just imported as part of the block.
 		let hashes = hashes.chain(known_imported_hashes.into_iter());
-		self.fire_pruned(at, hashes)?;
+		self.fire_pruned(at, hashes);
 
 		// perform regular cleanup of old transactions in the pool
 		// and update temporary bans.
-		self.clear_stale(at)?;
-		Ok(())
+		self.clear_stale(at);
 	}
 
 	/// Fire notifications for pruned transactions.
 	pub fn fire_pruned(
 		&self,
-		at: &BlockId<B::Block>,
+		at: &HashAndNumber<B::Block>,
 		hashes: impl Iterator<Item = ExtrinsicHash<B>>,
-	) -> Result<(), B::Error> {
-		let header_hash = self
-			.api
-			.block_id_to_hash(at)?
-			.ok_or_else(|| error::Error::InvalidBlockId(format!("{:?}", at)))?;
+	) {
 		let mut listener = self.listener.write();
 		let mut set = HashSet::with_capacity(hashes.size_hint().0);
 		for h in hashes {
 			// `hashes` has possibly duplicate hashes.
 			// we'd like to send out the `InBlock` notification only once.
 			if !set.contains(&h) {
-				listener.pruned(header_hash, &h);
+				listener.pruned(at.hash, &h);
 				set.insert(h);
 			}
 		}
-		Ok(())
 	}
 
 	/// Removes stale transactions from the pool.
@@ -529,16 +523,13 @@ impl<B: ChainApi> ValidatedPool<B> {
 	/// Stale transactions are transaction beyond their longevity period.
 	/// Note this function does not remove transactions that are already included in the chain.
 	/// See `prune_tags` if you want this.
-	pub fn clear_stale(&self, at: &BlockId<B::Block>) -> Result<(), B::Error> {
-		let block_number = self
-			.api
-			.block_id_to_number(at)?
-			.ok_or_else(|| error::Error::InvalidBlockId(format!("{:?}", at)))?
-			.saturated_into::<u64>();
+	pub fn clear_stale(&self, at: &HashAndNumber<B::Block>) {
+		let HashAndNumber { number, .. } = *at;
+		let number = number.saturated_into::<u64>();
 		let now = Instant::now();
 		let to_remove = {
 			self.ready()
-				.filter(|tx| self.rotator.ban_if_stale(&now, block_number, tx))
+				.filter(|tx| self.rotator.ban_if_stale(&now, number, tx))
 				.map(|tx| tx.hash)
 				.collect::<Vec<_>>()
 		};
@@ -546,7 +537,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 			let p = self.pool.read();
 			let mut hashes = Vec::new();
 			for tx in p.futures() {
-				if self.rotator.ban_if_stale(&now, block_number, tx) {
+				if self.rotator.ban_if_stale(&now, number, tx) {
 					hashes.push(tx.hash);
 				}
 			}
@@ -557,8 +548,6 @@ impl<B: ChainApi> ValidatedPool<B> {
 		self.remove_invalid(&futures_to_remove);
 		// clear banned transactions timeouts
 		self.rotator.clear_timeouts(&now);
-
-		Ok(())
 	}
 
 	/// Get api reference.

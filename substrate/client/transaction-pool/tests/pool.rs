@@ -85,7 +85,7 @@ const SOURCE: TransactionSource = TransactionSource::External;
 #[test]
 fn submission_should_work() {
 	let (pool, api) = pool();
-	block_on(pool.submit_one(api.expect_hash_from_number(0), SOURCE, uxt(Alice, 209))).unwrap();
+	block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt(Alice, 209))).unwrap();
 
 	let pending: Vec<_> = pool
 		.validated_pool()
@@ -98,8 +98,8 @@ fn submission_should_work() {
 #[test]
 fn multiple_submission_should_work() {
 	let (pool, api) = pool();
-	block_on(pool.submit_one(api.expect_hash_from_number(0), SOURCE, uxt(Alice, 209))).unwrap();
-	block_on(pool.submit_one(api.expect_hash_from_number(0), SOURCE, uxt(Alice, 210))).unwrap();
+	block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt(Alice, 209))).unwrap();
+	block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt(Alice, 210))).unwrap();
 
 	let pending: Vec<_> = pool
 		.validated_pool()
@@ -113,7 +113,7 @@ fn multiple_submission_should_work() {
 fn early_nonce_should_be_culled() {
 	sp_tracing::try_init_simple();
 	let (pool, api) = pool();
-	block_on(pool.submit_one(api.expect_hash_from_number(0), SOURCE, uxt(Alice, 208))).unwrap();
+	block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt(Alice, 208))).unwrap();
 
 	log::info!("-> {:?}", pool.validated_pool().status());
 	let pending: Vec<_> = pool
@@ -128,7 +128,7 @@ fn early_nonce_should_be_culled() {
 fn late_nonce_should_be_queued() {
 	let (pool, api) = pool();
 
-	block_on(pool.submit_one(api.expect_hash_from_number(0), SOURCE, uxt(Alice, 210))).unwrap();
+	block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt(Alice, 210))).unwrap();
 	let pending: Vec<_> = pool
 		.validated_pool()
 		.ready()
@@ -136,7 +136,7 @@ fn late_nonce_should_be_queued() {
 		.collect();
 	assert_eq!(pending, Vec::<Nonce>::new());
 
-	block_on(pool.submit_one(api.expect_hash_from_number(0), SOURCE, uxt(Alice, 209))).unwrap();
+	block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt(Alice, 209))).unwrap();
 	let pending: Vec<_> = pool
 		.validated_pool()
 		.ready()
@@ -149,8 +149,9 @@ fn late_nonce_should_be_queued() {
 fn prune_tags_should_work() {
 	let (pool, api) = pool();
 	let hash209 =
-		block_on(pool.submit_one(api.expect_hash_from_number(0), SOURCE, uxt(Alice, 209))).unwrap();
-	block_on(pool.submit_one(api.expect_hash_from_number(0), SOURCE, uxt(Alice, 210))).unwrap();
+		block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt(Alice, 209)))
+			.unwrap();
+	block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt(Alice, 210))).unwrap();
 
 	let pending: Vec<_> = pool
 		.validated_pool()
@@ -160,8 +161,7 @@ fn prune_tags_should_work() {
 	assert_eq!(pending, vec![209, 210]);
 
 	pool.validated_pool().api().push_block(1, Vec::new(), true);
-	block_on(pool.prune_tags(api.expect_hash_from_number(1), vec![vec![209]], vec![hash209]))
-		.expect("Prune tags");
+	block_on(pool.prune_tags(&api.expect_hash_and_number(1), vec![vec![209]], vec![hash209]));
 
 	let pending: Vec<_> = pool
 		.validated_pool()
@@ -176,9 +176,9 @@ fn should_ban_invalid_transactions() {
 	let (pool, api) = pool();
 	let uxt = uxt(Alice, 209);
 	let hash =
-		block_on(pool.submit_one(api.expect_hash_from_number(0), SOURCE, uxt.clone())).unwrap();
+		block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt.clone())).unwrap();
 	pool.validated_pool().remove_invalid(&[hash]);
-	block_on(pool.submit_one(api.expect_hash_from_number(0), SOURCE, uxt.clone())).unwrap_err();
+	block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt.clone())).unwrap_err();
 
 	// when
 	let pending: Vec<_> = pool
@@ -189,7 +189,7 @@ fn should_ban_invalid_transactions() {
 	assert_eq!(pending, Vec::<Nonce>::new());
 
 	// then
-	block_on(pool.submit_one(api.expect_hash_from_number(0), SOURCE, uxt.clone())).unwrap_err();
+	block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt.clone())).unwrap_err();
 }
 
 #[test]
@@ -216,15 +216,14 @@ fn should_correctly_prune_transactions_providing_more_than_one_tag() {
 	}));
 	let pool = Pool::new(Default::default(), true.into(), api.clone());
 	let xt = uxt(Alice, 209);
-	block_on(pool.submit_one(api.expect_hash_from_number(0), SOURCE, xt.clone()))
+	block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, xt.clone()))
 		.expect("1. Imported");
 	assert_eq!(pool.validated_pool().status().ready, 1);
 
 	// remove the transaction that just got imported.
 	api.increment_nonce(Alice.into());
 	api.push_block(1, Vec::new(), true);
-	block_on(pool.prune_tags(api.expect_hash_from_number(1), vec![vec![209]], vec![]))
-		.expect("1. Pruned");
+	block_on(pool.prune_tags(&api.expect_hash_and_number(1), vec![vec![209]], vec![]));
 	assert_eq!(pool.validated_pool().status().ready, 0);
 	// it's re-imported to future
 	assert_eq!(pool.validated_pool().status().future, 1);
@@ -233,7 +232,7 @@ fn should_correctly_prune_transactions_providing_more_than_one_tag() {
 	api.increment_nonce(Alice.into());
 	api.push_block(2, Vec::new(), true);
 	let xt = uxt(Alice, 211);
-	block_on(pool.submit_one(api.expect_hash_from_number(2), SOURCE, xt.clone()))
+	block_on(pool.submit_one(&api.expect_hash_and_number(2), SOURCE, xt.clone()))
 		.expect("2. Imported");
 	assert_eq!(pool.validated_pool().status().ready, 1);
 	assert_eq!(pool.validated_pool().status().future, 1);
@@ -247,8 +246,7 @@ fn should_correctly_prune_transactions_providing_more_than_one_tag() {
 	// prune it and make sure the pool is empty
 	api.increment_nonce(Alice.into());
 	api.push_block(3, Vec::new(), true);
-	block_on(pool.prune_tags(api.expect_hash_from_number(3), vec![vec![155]], vec![]))
-		.expect("2. Pruned");
+	block_on(pool.prune_tags(&api.expect_hash_and_number(3), vec![vec![155]], vec![]));
 	assert_eq!(pool.validated_pool().status().ready, 0);
 	assert_eq!(pool.validated_pool().status().future, 2);
 }
@@ -298,7 +296,7 @@ fn should_revalidate_during_maintenance() {
 		.expect("1. Imported");
 	let watcher =
 		block_on(pool.submit_and_watch(api.expect_hash_from_number(0), SOURCE, xt2.clone()))
-			.expect("2. Imported");
+			.expect("import"); //todo
 	assert_eq!(pool.status().ready, 2);
 	assert_eq!(api.validation_requests().len(), 2);
 

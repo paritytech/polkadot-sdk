@@ -391,13 +391,13 @@ mod tests {
 			nonce: 0,
 		});
 
-		let hash_of_block0 = api.expect_hash_from_number(0);
+		let han_of_block0 = api.expect_hash_and_number(0);
 
 		let uxt_hash =
-			block_on(pool.submit_one(hash_of_block0, TransactionSource::External, uxt.clone()))
+			block_on(pool.submit_one(&han_of_block0, TransactionSource::External, uxt.clone()))
 				.expect("Should be valid");
 
-		block_on(queue.revalidate_later(hash_of_block0, vec![uxt_hash]));
+		block_on(queue.revalidate_later(han_of_block0.hash, vec![uxt_hash]));
 
 		// revalidated in sync offload 2nd time
 		assert_eq!(api.validation_requests().len(), 2);
@@ -424,12 +424,11 @@ mod tests {
 			nonce: 1,
 		});
 
-		let hash_of_block0 = api.expect_hash_from_number(0);
+		let han_of_block0 = api.expect_hash_and_number(0);
 		let unknown_block = H256::repeat_byte(0x13);
 
 		let uxt_hashes =
-			block_on(pool.submit_at(hash_of_block0, TransactionSource::External, vec![uxt0, uxt1]))
-				.expect("Should be valid")
+			block_on(pool.submit_at(&han_of_block0, TransactionSource::External, vec![uxt0, uxt1]))
 				.into_iter()
 				.map(|r| r.expect("Should be valid"))
 				.collect::<Vec<_>>();
@@ -438,7 +437,7 @@ mod tests {
 		assert_eq!(pool.validated_pool().status().ready, 2);
 
 		// revalidation works fine for block 0:
-		block_on(queue.revalidate_later(hash_of_block0, uxt_hashes.clone()));
+		block_on(queue.revalidate_later(han_of_block0.hash, uxt_hashes.clone()));
 		assert_eq!(api.validation_requests().len(), 4);
 		assert_eq!(pool.validated_pool().status().ready, 2);
 
