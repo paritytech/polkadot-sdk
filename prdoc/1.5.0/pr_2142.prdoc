@@ -1,5 +1,8 @@
 title: Cleanup XCMP `QueueConfigData`
 
+author: serban300
+topic: runtime
+
 doc:
   - audience: Runtime Dev
     description: Removes obsolete fields from the `QueueConfigData` structure. For the remaining fields, if they use the old defaults, we replace them with the new defaults.
