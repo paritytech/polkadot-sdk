@@ -602,7 +602,6 @@ mod tests {
 				MultiPhase::submit(RuntimeOrigin::signed(10), Box::new(solution)),
 				Error::<Runtime>::PreDispatchDifferentRound,
 			);
-
 		})
 	}
 
