@@ -14,7 +14,6 @@ readme = "README.md"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-lazy_static = "1.4.0"
 strum = { version = "0.24.1", features = ["derive"], default-features = false }
 sp-core = { path = "../core" }
 sp-runtime = { path = "../runtime" }
