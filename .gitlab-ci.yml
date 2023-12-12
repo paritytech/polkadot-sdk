@@ -113,9 +113,6 @@ default:
     - !reference [.prepare-env, before_script]
     - !reference [.rust-info-script, script]
     - !reference [.forklift-cache, before_script]
-    - echo "deb http://deb.debian.org/debian unstable main non-free contrib" >> /etc/apt/sources.list
-    - apt update
-    - apt-get install -y openssl
   tags:
     - linux-docker
 
