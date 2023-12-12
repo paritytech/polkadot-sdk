@@ -87,12 +87,12 @@ pub use sp_runtime::BuildStorage;
 use assets_common::{foreign_creators::ForeignCreators, matching::FromSiblingParachain};
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 // We exclude `Assets` since it's the name of a pallet
-use xcm::latest::prelude::{AssetId, XCM_VERSION};
+use xcm::latest::prelude::AssetId;
 
 #[cfg(feature = "runtime-benchmarks")]
 use xcm::latest::prelude::{
 	Asset, Fungible, Here, InteriorLocation, Junction, Junction::*, Location, NetworkId,
-	NonFungible, Parent, ParentThen, Response,
+	NonFungible, Parent, ParentThen, Response, XCM_VERSION,
 };
 
 use crate::xcm_config::ForeignCreatorsSovereignAccountOf;

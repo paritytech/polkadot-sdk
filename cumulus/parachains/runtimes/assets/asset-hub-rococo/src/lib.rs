@@ -92,12 +92,12 @@ pub use sp_runtime::BuildStorage;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 // We exclude `Assets` since it's the name of a pallet
-use xcm::latest::prelude::{AssetId, BodyId, XCM_VERSION};
+use xcm::latest::prelude::{AssetId, BodyId};
 
 #[cfg(feature = "runtime-benchmarks")]
 use xcm::latest::prelude::{
 	Asset, Fungible, Here, InteriorLocation, Junction, Junction::*, Location, NetworkId,
-	NonFungible, Parent, ParentThen, Response,
+	NonFungible, Parent, ParentThen, Response, XCM_VERSION,
 };
 
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
