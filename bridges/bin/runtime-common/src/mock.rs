@@ -419,3 +419,79 @@ impl BridgedChainWithMessages for BridgedChain {}
 pub fn run_test(test: impl FnOnce()) {
 	sp_io::TestExternalities::new(Default::default()).execute_with(test)
 }
+
+/// Run test within test externalities.
+pub fn new_test_ext() -> sp_io::TestExternalities {
+	sp_io::TestExternalities::new(Default::default())
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl crate::refund_relayer_extension::ExtBenchmarkingConfig for TestRuntime {
+	fn setup_environment() {
+		crate::refund_relayer_extension::tests::initialize_environment(100, 100, 100);
+	}
+
+	fn run_extension(choice: u32) {
+		use sp_runtime::traits::{DispatchTransaction, TransactionExtension};
+
+		let call = match choice {
+			0 => crate::refund_relayer_extension::tests::message_delivery_call(200),
+			1 => crate::refund_relayer_extension::tests::message_confirmation_call(200),
+			_ => unreachable!("only 2 types of messages"),
+		};
+		let mut dispatch_info = crate::refund_relayer_extension::tests::dispatch_info();
+		dispatch_info.weight = Weight::from_parts(
+			frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND * 2,
+			0,
+		);
+		let pre_dispatch_data = crate::refund_relayer_extension::tests::pre_dispatch_data_get();
+
+		let extension = crate::refund_relayer_extension::tests::parachain_extension();
+		let _ = extension
+			.validate_and_prepare(Some(0).into(), &call, &dispatch_info, 0)
+			.map(|(pre, _)| pre);
+		let _ = crate::refund_relayer_extension::mock::TestExtension::post_dispatch(
+			Some(pre_dispatch_data),
+			&dispatch_info,
+			&frame_support::dispatch::PostDispatchInfo {
+				actual_weight: None,
+				pays_fee: frame_support::dispatch::Pays::Yes,
+			},
+			1024,
+			&Ok(()),
+			&(),
+		);
+	}
+
+	fn run_grandpa_extension(choice: u32) {
+		use sp_runtime::traits::{DispatchTransaction, TransactionExtension};
+
+		let call = match choice {
+			0 => crate::refund_relayer_extension::tests::message_delivery_call(200),
+			1 => crate::refund_relayer_extension::tests::message_confirmation_call(200),
+			_ => unreachable!("only 2 types of messages"),
+		};
+		let mut dispatch_info = crate::refund_relayer_extension::tests::dispatch_info();
+		dispatch_info.weight = Weight::from_parts(
+			frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND * 2,
+			0,
+		);
+		let pre_dispatch_data = crate::refund_relayer_extension::tests::pre_dispatch_data_get();
+
+		let extension = crate::refund_relayer_extension::tests::grandpa_extension();
+		let _ = extension
+			.validate_and_prepare(Some(0).into(), &call, &dispatch_info, 0)
+			.map(|(pre, _)| pre);
+		let _ = crate::refund_relayer_extension::mock::TestExtension::post_dispatch(
+			Some(pre_dispatch_data),
+			&dispatch_info,
+			&frame_support::dispatch::PostDispatchInfo {
+				actual_weight: None,
+				pays_fee: frame_support::dispatch::Pays::Yes,
+			},
+			1024,
+			&Ok(()),
+			&(),
+		);
+	}
+}

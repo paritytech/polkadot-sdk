@@ -2397,6 +2397,7 @@ dependencies = [
  "bp-runtime",
  "bp-test-utils",
  "bp-xcm-bridge-hub-router",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "hash-db",
