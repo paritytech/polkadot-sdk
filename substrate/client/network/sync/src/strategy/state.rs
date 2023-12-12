@@ -579,7 +579,7 @@ mod test {
 		block_builder.push_storage_change(vec![1, 2, 3], Some(vec![4, 5, 6])).unwrap();
 		let block = block_builder.build().unwrap().block;
 		let header = block.header().clone();
-		let hash = header.hash().clone();
+		let hash = header.hash();
 		let body = Some(block.extrinsics().iter().cloned().collect::<Vec<_>>());
 		let state = ImportedState { block: hash, state: KeyValueStates(Vec::new()) };
 		let justifications = Some(Justifications::from((*b"FRNK", Vec::new())));
@@ -587,7 +587,7 @@ mod test {
 		// Prepare `StateSync`
 		let mut state_sync_provider = MockStateSync::<Block>::new();
 		let import = ImportResult::Import(
-			hash.clone(),
+			hash,
 			header.clone(),
 			state.clone(),
 			body.clone(),
@@ -659,7 +659,7 @@ mod test {
 	fn importing_target_block_finishes_strategy() {
 		let target_hash = Hash::random();
 		let mut state_sync_provider = MockStateSync::<Block>::new();
-		state_sync_provider.expect_target_hash().return_const(target_hash.clone());
+		state_sync_provider.expect_target_hash().return_const(target_hash);
 
 		let mut state_strategy =
 			StateStrategy::new_with_provider(Box::new(state_sync_provider), std::iter::empty());
@@ -683,7 +683,7 @@ mod test {
 	fn finished_strategy_doesnt_generate_more_actions() {
 		let target_hash = Hash::random();
 		let mut state_sync_provider = MockStateSync::<Block>::new();
-		state_sync_provider.expect_target_hash().return_const(target_hash.clone());
+		state_sync_provider.expect_target_hash().return_const(target_hash);
 		state_sync_provider.expect_is_complete().return_const(true);
 
 		// Get enough peers for possible spurious requests.
