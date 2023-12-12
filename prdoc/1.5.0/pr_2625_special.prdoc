@@ -1,0 +1,10 @@
+title: Bridges update subtree
+
+author: bkontur
+topic: bridges
+
+doc:
+  - audience: Runtime Dev
+    description: n/a
+
+crates: []
