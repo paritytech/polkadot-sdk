@@ -72,6 +72,9 @@ pub use fee_handling::{
 	deposit_or_burn_fee, HandleFee, XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 
+mod fungible_adapter;
+pub use fungible_adapter::{FungibleAdapter, FungibleMutateAdapter, FungibleTransferAdapter};
+
 mod fungibles_adapter;
 pub use fungibles_adapter::{
 	AssetChecking, DualMint, FungiblesAdapter, FungiblesMutateAdapter, FungiblesTransferAdapter,

@@ -40,10 +40,10 @@ use polkadot_parachain_primitives::primitives::{
 use xcm::{latest::prelude::*, VersionedXcm};
 use xcm_builder::{
 	Account32Hash, AccountId32Aliases, AllowUnpaidExecutionFrom, ConvertedConcreteId,
-	CurrencyAdapter as XcmCurrencyAdapter, EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds,
+	EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds,
 	IsConcrete, NativeAsset, NoChecking, NonFungiblesAdapter, ParentIsPreset,
 	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation,
+	SovereignSignedViaLocation, FungibleAdapter,
 };
 use xcm_executor::{
 	traits::{ConvertLocation, JustTry},
@@ -202,7 +202,7 @@ parameter_types! {
 }
 
 pub type LocalAssetTransactor = (
-	XcmCurrencyAdapter<Balances, IsConcrete<KsmLocation>, LocationToAccountId, AccountId, ()>,
+	FungibleAdapter<Balances, IsConcrete<KsmLocation>, LocationToAccountId, AccountId, ()>,
 	NonFungiblesAdapter<
 		ForeignUniques,
 		ConvertedConcreteId<MultiLocation, AssetInstance, JustTry, JustTry>,
