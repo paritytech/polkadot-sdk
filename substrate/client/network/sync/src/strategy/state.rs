@@ -338,14 +338,33 @@ impl<B: BlockT> StateStrategy<B> {
 #[cfg(test)]
 mod test {
 	use super::*;
-	use crate::schema::v1::StateRequest;
-	use codec::{Decode, Encode};
+	use crate::{
+		schema::v1::{StateRequest, StateResponse},
+		strategy::state_sync::{ImportResult, StateSyncProvider},
+		types::StateDownloadProgress,
+	};
+	use codec::Decode;
 	use sc_block_builder::BlockBuilderBuilder;
+	use sc_client_api::KeyValueStates;
+	use sc_consensus::{ImportedAux, ImportedState};
 	use sp_runtime::traits::Zero;
 	use substrate_test_runtime_client::{
 		runtime::{Block, Hash},
 		BlockBuilderExt, DefaultTestClientBuilderExt, TestClientBuilder, TestClientBuilderExt,
 	};
+
+	mockall::mock! {
+		pub StateSync<B: BlockT> {}
+
+		impl<B: BlockT> StateSyncProvider<B> for StateSync<B> {
+			fn import(&mut self, response: StateResponse) -> ImportResult<B>;
+			fn next_request(&self) -> StateRequest;
+			fn is_complete(&self) -> bool;
+			fn target_number(&self) -> NumberFor<B>;
+			fn target_hash(&self) -> B::Hash;
+			fn progress(&self) -> StateDownloadProgress;
+		}
+	}
 
 	#[test]
 	fn no_peer_is_scheduled_if_no_peers_connected() {
@@ -445,10 +464,7 @@ mod test {
 			.unwrap()
 			.block;
 
-		let peers = (1..=10)
-			.map(|best_number| (PeerId::random(), best_number))
-			.collect::<HashMap<_, _>>();
-		let initial_peers = peers.iter().map(|(p, n)| (*p, *n));
+		let initial_peers = (1..=10).map(|best_number| (PeerId::random(), best_number));
 
 		let mut state_strategy = StateStrategy::new(
 			client.clone(),
@@ -478,10 +494,7 @@ mod test {
 			.unwrap()
 			.block;
 
-		let peers = (1..=10)
-			.map(|best_number| (PeerId::random(), best_number))
-			.collect::<HashMap<_, _>>();
-		let initial_peers = peers.iter().map(|(p, n)| (*p, *n));
+		let initial_peers = (1..=10).map(|best_number| (PeerId::random(), best_number));
 
 		let mut state_strategy = StateStrategy::new(
 			client.clone(),
@@ -497,5 +510,203 @@ mod test {
 
 		// No parallel request is sent.
 		assert!(state_strategy.state_request().is_none());
+	}
+
+	#[test]
+	fn received_state_response_makes_peer_available_again() {
+		let mut state_sync_provider = MockStateSync::<Block>::new();
+		state_sync_provider.expect_import().return_once(|_| ImportResult::Continue);
+		let peer_id = PeerId::random();
+		let initial_peers = std::iter::once((peer_id, 10));
+		let mut state_strategy =
+			StateStrategy::new_with_provider(Box::new(state_sync_provider), initial_peers);
+		// Manually set the peer's state.
+		state_strategy.peers.get_mut(&peer_id).unwrap().state = PeerState::DownloadingState;
+
+		let dummy_response = OpaqueStateResponse(Box::new(StateResponse::default()));
+		state_strategy.on_state_response(peer_id, dummy_response);
+
+		assert!(state_strategy.peers.get(&peer_id).unwrap().state.is_available());
+	}
+
+	#[test]
+	fn bad_state_response_drops_peer() {
+		let mut state_sync_provider = MockStateSync::<Block>::new();
+		// Provider says that state response is bad.
+		state_sync_provider.expect_import().return_once(|_| ImportResult::BadResponse);
+		let peer_id = PeerId::random();
+		let initial_peers = std::iter::once((peer_id, 10));
+		let mut state_strategy =
+			StateStrategy::new_with_provider(Box::new(state_sync_provider), initial_peers);
+		// Manually set the peer's state.
+		state_strategy.peers.get_mut(&peer_id).unwrap().state = PeerState::DownloadingState;
+		let dummy_response = OpaqueStateResponse(Box::new(StateResponse::default()));
+		// Receiving response drops the peer.
+		assert!(matches!(
+			state_strategy.on_state_response_inner(peer_id, dummy_response),
+			Err(BadPeer(id, _rep)) if id == peer_id,
+		));
+	}
+
+	#[test]
+	fn partial_state_response_doesnt_generate_actions() {
+		let mut state_sync_provider = MockStateSync::<Block>::new();
+		// Sync provider says that the response is partial.
+		state_sync_provider.expect_import().return_once(|_| ImportResult::Continue);
+		let peer_id = PeerId::random();
+		let initial_peers = std::iter::once((peer_id, 10));
+		let mut state_strategy =
+			StateStrategy::new_with_provider(Box::new(state_sync_provider), initial_peers);
+		// Manually set the peer's state .
+		state_strategy.peers.get_mut(&peer_id).unwrap().state = PeerState::DownloadingState;
+
+		let dummy_response = OpaqueStateResponse(Box::new(StateResponse::default()));
+		state_strategy.on_state_response(peer_id, dummy_response);
+
+		// No actions generated.
+		assert_eq!(state_strategy.actions.len(), 0)
+	}
+
+	#[test]
+	fn complete_state_response_leads_to_block_import() {
+		// Build block to use for checks.
+		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
+		let mut block_builder = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().best_hash)
+			.with_parent_block_number(client.chain_info().best_number)
+			.build()
+			.unwrap();
+		block_builder.push_storage_change(vec![1, 2, 3], Some(vec![4, 5, 6])).unwrap();
+		let block = block_builder.build().unwrap().block;
+		let header = block.header().clone();
+		let hash = header.hash().clone();
+		let body = Some(block.extrinsics().iter().cloned().collect::<Vec<_>>());
+		let state = ImportedState { block: hash, state: KeyValueStates(Vec::new()) };
+		let justifications = Some(Justifications::from((*b"FRNK", Vec::new())));
+
+		// Prepare `StateSync`
+		let mut state_sync_provider = MockStateSync::<Block>::new();
+		let import = ImportResult::Import(
+			hash.clone(),
+			header.clone(),
+			state.clone(),
+			body.clone(),
+			justifications.clone(),
+		);
+		state_sync_provider.expect_import().return_once(move |_| import);
+
+		// Reference values to check against.
+		let expected_origin = BlockOrigin::NetworkInitialSync;
+		let expected_block = IncomingBlock {
+			hash,
+			header: Some(header),
+			body,
+			indexed_body: None,
+			justifications,
+			origin: None,
+			allow_missing_state: true,
+			import_existing: true,
+			skip_execution: true,
+			state: Some(state),
+		};
+		let expected_blocks = vec![expected_block];
+
+		// Prepare `StateStrategy`.
+		let peer_id = PeerId::random();
+		let initial_peers = std::iter::once((peer_id, 10));
+		let mut state_strategy =
+			StateStrategy::new_with_provider(Box::new(state_sync_provider), initial_peers);
+		// Manually set the peer's state .
+		state_strategy.peers.get_mut(&peer_id).unwrap().state = PeerState::DownloadingState;
+
+		// Receive response.
+		let dummy_response = OpaqueStateResponse(Box::new(StateResponse::default()));
+		state_strategy.on_state_response(peer_id, dummy_response);
+
+		assert_eq!(state_strategy.actions.len(), 1);
+		assert!(matches!(
+			&state_strategy.actions[0],
+			StateStrategyAction::ImportBlocks { origin, blocks }
+				if *origin == expected_origin && *blocks == expected_blocks,
+		));
+	}
+
+	#[test]
+	fn importing_unknown_block_doesnt_finish_strategy() {
+		let target_hash = Hash::random();
+		let unknown_hash = Hash::random();
+		let mut state_sync_provider = MockStateSync::<Block>::new();
+		state_sync_provider.expect_target_hash().return_const(target_hash);
+
+		let mut state_strategy =
+			StateStrategy::new_with_provider(Box::new(state_sync_provider), std::iter::empty());
+
+		// Unknown block imported.
+		state_strategy.on_blocks_processed(
+			1,
+			1,
+			vec![(
+				Ok(BlockImportStatus::ImportedUnknown(1, ImportedAux::default(), None)),
+				unknown_hash,
+			)],
+		);
+
+		// No actions generated.
+		assert_eq!(state_strategy.actions.len(), 0);
+	}
+
+	#[test]
+	fn importing_target_block_finishes_strategy() {
+		let target_hash = Hash::random();
+		let mut state_sync_provider = MockStateSync::<Block>::new();
+		state_sync_provider.expect_target_hash().return_const(target_hash.clone());
+
+		let mut state_strategy =
+			StateStrategy::new_with_provider(Box::new(state_sync_provider), std::iter::empty());
+
+		// Target block imported.
+		state_strategy.on_blocks_processed(
+			1,
+			1,
+			vec![(
+				Ok(BlockImportStatus::ImportedUnknown(1, ImportedAux::default(), None)),
+				target_hash,
+			)],
+		);
+
+		// Strategy finishes.
+		assert_eq!(state_strategy.actions.len(), 1);
+		assert!(matches!(&state_strategy.actions[0], StateStrategyAction::Finished));
+	}
+
+	#[test]
+	fn finished_strategy_doesnt_generate_more_actions() {
+		let target_hash = Hash::random();
+		let mut state_sync_provider = MockStateSync::<Block>::new();
+		state_sync_provider.expect_target_hash().return_const(target_hash.clone());
+		state_sync_provider.expect_is_complete().return_const(true);
+
+		// Get enough peers for possible spurious requests.
+		let initial_peers = (1..=10).map(|best_number| (PeerId::random(), best_number));
+
+		let mut state_strategy =
+			StateStrategy::new_with_provider(Box::new(state_sync_provider), initial_peers);
+
+		state_strategy.on_blocks_processed(
+			1,
+			1,
+			vec![(
+				Ok(BlockImportStatus::ImportedUnknown(1, ImportedAux::default(), None)),
+				target_hash,
+			)],
+		);
+
+		// Strategy finishes.
+		let actions = state_strategy.actions().collect::<Vec<_>>();
+		assert_eq!(actions.len(), 1);
+		assert!(matches!(&actions[0], StateStrategyAction::Finished));
+
+		// No more actions generated.
+		assert_eq!(state_strategy.actions().count(), 0);
 	}
 }
