@@ -326,13 +326,14 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 
 			let work_state = core_state.current_work.as_mut()?;
 
+			// Wrap around:
 			work_state.pos = work_state.pos % work_state.assignments.len() as u16;
 			let (a_type, a_state) = &mut work_state
 				.assignments
 				.get_mut(work_state.pos as usize)
 				.expect("We limited pos to the size of the vec one line above. qed");
 
-			// advance:
+			// advance for next pop:
 			a_state.remaining = a_state.remaining.saturating_sub(work_state.step);
 			if a_state.remaining < work_state.step {
 				// Assignment exhausted, need to move to the next and credit remaining for
