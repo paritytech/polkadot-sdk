@@ -38,7 +38,7 @@ pub use origins::pallet_origins as pallet_ambassador_origins;
 use origins::pallet_origins::{
 	EnsureAmbassadorsVoice, EnsureAmbassadorsVoiceFrom, EnsureHeadAmbassadorsVoice, Origin,
 };
-use parachains_common::polkadot::account;
+use parachains_common::westend::account;
 use sp_core::ConstU128;
 use sp_runtime::traits::{CheckedReduceBy, ConstU16, ConvertToValue, Replace};
 use xcm::prelude::*;
