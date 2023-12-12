@@ -50,7 +50,12 @@ fn main() -> Result<(), sc_cli::Error> {
 
 			let spec =
 				cli.load_spec(&params.base.shared_params.chain.clone().unwrap_or_default())?;
-			let state_version = cumulus_test_service::runtime::VERSION.state_version();
+			let wasm_executor: WasmExecutor<sp_io::SubstrateHostFunctions> =
+				WasmExecutor::builder().build();
+			let state_version = sc_chain_spec::resolve_state_version_from_wasm(
+				&spec.build_storage()?,
+				&wasm_executor,
+			)?;
 
 			let block: parachains_common::Block = generate_genesis_block(&*spec, state_version)?;
 			let raw_header = block.header().encode();
