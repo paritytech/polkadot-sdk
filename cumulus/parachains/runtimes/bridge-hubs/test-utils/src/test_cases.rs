@@ -55,7 +55,10 @@ use sp_runtime::{
 	traits::{Header as HeaderT, Zero},
 	AccountId32,
 };
-use xcm::latest::prelude::*;
+use xcm::{
+	latest::prelude::*,
+	prelude::{AlwaysLatest, GetVersion},
+};
 use xcm_builder::DispatchBlobError;
 use xcm_executor::{
 	traits::{TransactAsset, WeightBounds},
@@ -258,6 +261,7 @@ pub fn message_dispatch_routing_works<
 	MessagesPalletInstance,
 	RuntimeNetwork,
 	BridgedNetwork,
+	NetworkDistanceAsParentCount,
 >(
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
@@ -291,12 +295,18 @@ pub fn message_dispatch_routing_works<
 	HrmpChannelOpener: frame_support::inherent::ProvideInherent<
 		Call = cumulus_pallet_parachain_system::Call<Runtime>,
 	>,
-	// MessageDispatcher: MessageDispatch<AccountIdOf<Runtime>, DispatchLevelResult =
-	// XcmBlobMessageDispatchResult, DispatchPayload = XcmAsPlainPayload>,
 	RuntimeNetwork: Get<NetworkId>,
 	BridgedNetwork: Get<NetworkId>,
+	NetworkDistanceAsParentCount: Get<u8>,
 {
 	assert_ne!(runtime_para_id, sibling_parachain_id);
+
+	struct NetworkWithParentCount<N, C>(core::marker::PhantomData<(N, C)>);
+	impl<N: Get<NetworkId>, C: Get<u8>> Get<MultiLocation> for NetworkWithParentCount<N, C> {
+		fn get() -> MultiLocation {
+			MultiLocation { parents: C::get(), interior: X1(GlobalConsensus(N::get())) }
+		}
+	}
 
 	ExtBuilder::<Runtime>::default()
 		.with_collators(collator_session_key.collators())
@@ -317,7 +327,11 @@ pub fn message_dispatch_routing_works<
 			);
 			// 1. this message is sent from other global consensus with destination of this Runtime relay chain (UMP)
 			let bridging_message =
-				test_data::simulate_message_exporter_on_bridged_chain::<BridgedNetwork, RuntimeNetwork>(
+				test_data::simulate_message_exporter_on_bridged_chain::<
+					BridgedNetwork,
+					NetworkWithParentCount<RuntimeNetwork, NetworkDistanceAsParentCount>,
+					AlwaysLatest,
+				>(
 					(RuntimeNetwork::get(), Here)
 				);
 			let result = <<Runtime as pallet_bridge_messages::Config<MessagesPalletInstance>>::MessageDispatch>::dispatch(
@@ -335,7 +349,11 @@ pub fn message_dispatch_routing_works<
 
 			// 2. this message is sent from other global consensus with destination of this Runtime sibling parachain (HRMP)
 			let bridging_message =
-				test_data::simulate_message_exporter_on_bridged_chain::<BridgedNetwork, RuntimeNetwork>(
+				test_data::simulate_message_exporter_on_bridged_chain::<
+					BridgedNetwork,
+					NetworkWithParentCount<RuntimeNetwork, NetworkDistanceAsParentCount>,
+					AlwaysLatest,
+				>(
 					(RuntimeNetwork::get(), X1(Parachain(sibling_parachain_id))),
 				);
 
@@ -1524,7 +1542,8 @@ pub mod test_data {
 	/// which are transferred over bridge.
 	pub(crate) fn simulate_message_exporter_on_bridged_chain<
 		SourceNetwork: Get<NetworkId>,
-		DestinationNetwork: Get<NetworkId>,
+		DestinationNetwork: Get<MultiLocation>,
+		DestinationVersion: GetVersion,
 	>(
 		(destination_network, destination_junctions): (NetworkId, Junctions),
 	) -> Vec<u8> {
@@ -1536,23 +1555,28 @@ pub mod test_data {
 		let channel = 1_u32;
 
 		// simulate XCM message export
-		let (ticket, fee) =
-			validate_export::<HaulBlobExporter<GrabbingHaulBlob, DestinationNetwork, ()>>(
-				destination_network,
-				channel,
-				universal_source_on_bridged_chain,
-				destination_junctions,
-				dummy_xcm(),
-			)
-			.expect("validate_export to pass");
+		let (ticket, fee) = validate_export::<
+			HaulBlobExporter<GrabbingHaulBlob, DestinationNetwork, DestinationVersion, ()>,
+		>(
+			destination_network,
+			channel,
+			universal_source_on_bridged_chain,
+			destination_junctions,
+			dummy_xcm(),
+		)
+		.expect("validate_export to pass");
 		log::info!(
 			target: "simulate_message_exporter_on_bridged_chain",
 			"HaulBlobExporter::validate fee: {:?}",
 			fee
 		);
-		let xcm_hash =
-			HaulBlobExporter::<GrabbingHaulBlob, DestinationNetwork, ()>::deliver(ticket)
-				.expect("deliver to pass");
+		let xcm_hash = HaulBlobExporter::<
+			GrabbingHaulBlob,
+			DestinationNetwork,
+			DestinationVersion,
+			(),
+		>::deliver(ticket)
+		.expect("deliver to pass");
 		log::info!(
 			target: "simulate_message_exporter_on_bridged_chain",
 			"HaulBlobExporter::deliver xcm_hash: {:?}",
