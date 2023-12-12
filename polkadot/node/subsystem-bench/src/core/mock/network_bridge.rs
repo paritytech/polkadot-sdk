@@ -191,7 +191,7 @@ impl MockNetworkBridgeTx {
 
 				// If peer is disconnected return an error
 				if !self.network.is_peer_connected(&authority_discovery_id) {
-					let future = async move {
+					let future: Pin<Box<dyn Future<Output = ()> + Send>> = async move {
 						let _ = outgoing_request
 							.pending_response
 							.send(Err(RequestFailure::NotConnected));
