@@ -1,9 +1,9 @@
 title: "PVF: Add test instructions"
-author: @mrcnski
+author: mrcnski
 topic: Node
 
 doc:
   - audience: Runtime Dev
-     description: n/a
+    description: n/a
 
 crates: []

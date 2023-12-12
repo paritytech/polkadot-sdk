@@ -1,9 +1,9 @@
 title: "fix typo"
-author: @cuteolaf
+author: cuteolaf
 topic: Documentation
 
 doc:
   - audience: Runtime Dev
-     description: n/a
+    description: n/a
 
 crates: []

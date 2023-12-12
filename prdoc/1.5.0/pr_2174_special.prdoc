@@ -1,9 +1,9 @@
 title: "chain-spec-builder: cleanup"
-author: @michalkucharczyk
+author: michalkucharczyk
 topic: Node
 
 doc:
   - audience: Runtime Dev
-     description: n/a
+    description: n/a
 
 crates: []

@@ -1,9 +1,9 @@
 title: "crypto: lazy_static removed, light parser for address URI added"
-author: @michalkucharczyk
+author: michalkucharczyk
 topic: Node
 
 doc:
   - audience: Runtime Dev
-     description: n/a
+    description: n/a
 
 crates: []

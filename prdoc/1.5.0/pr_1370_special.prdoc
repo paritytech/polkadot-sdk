@@ -1,9 +1,9 @@
 title: "Rework the event system of sc-network"
-author: @altonen
+author: altonen
 topic: Node
 
 doc:
   - audience: Runtime Dev
-     description: n/a
+    description: n/a
 
 crates: []

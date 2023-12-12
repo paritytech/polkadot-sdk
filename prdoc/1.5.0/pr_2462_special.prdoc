@@ -1,9 +1,9 @@
 title: "relay-chain-consensus: set a fork_choice"
-author: @michalkucharczyk
+author: michalkucharczyk
 topic: Node
 
 doc:
   - audience: Runtime Dev
-     description: n/a
+    description: n/a
 
 crates: []

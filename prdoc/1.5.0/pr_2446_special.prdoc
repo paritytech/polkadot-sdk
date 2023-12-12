@@ -1,9 +1,9 @@
 title: "sp-api: Move macro related re-exports to __private"
-author: @bkchr
+author: bkchr
 topic: Runtime API
 
 doc:
   - audience: Runtime Dev
-     description: n/a
+    description: n/a
 
 crates: []

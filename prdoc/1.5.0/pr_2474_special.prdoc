@@ -1,9 +1,9 @@
 title: "Pools: Add ability to configure commission claiming permissions"
-author: @rossbulat
+author: rossbulat
 topic: Pallets
 
 doc:
   - audience: Runtime Dev
-     description: n/a
+    description: n/a
 
 crates: []

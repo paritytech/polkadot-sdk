@@ -1,9 +1,9 @@
-title: "Make collator RPC mode non-experimental"
-author: @skunert
+title: Make collator RPC mode non-experimental
+author: skunert
 topic: Cumulus
 
 doc:
   - audience: Runtime Dev
-     description: n/a
+    description: n/a
 
 crates: []

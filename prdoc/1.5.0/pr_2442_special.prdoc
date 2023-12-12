@@ -1,9 +1,9 @@
 title: "Fixes cumulus README instructions"
-author: @gpestana
+author: gpestana
 topic: Documentation
 
 doc:
   - audience: Runtime Dev
-     description: n/a
+    description: n/a
 
 crates: []

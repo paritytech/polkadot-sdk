@@ -1,9 +1,9 @@
 title: "pallet-staking: Converts all math operations to safe"
-author: @gpestanaar
+author: gpestanaar
 topic: Pallets
 
 doc:
   - audience: Runtime Dev
-     description: n/a
+    description: n/a
 
 crates: []
