@@ -349,7 +349,9 @@ mod bridge_hub_bulletin_tests {
 	use super::*;
 	use bridge_common_config::BridgeGrandpaRococoBulletinInstance;
 	use bridge_to_bulletin_config::{
+		RococoBulletinChainId,
 		RococoBulletinGlobalConsensusNetwork,
+		WithRococoBulletinMessageBridge,
 		WithRococoBulletinMessagesInstance,
 		XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN,
 	};
@@ -431,54 +433,49 @@ mod bridge_hub_bulletin_tests {
 			|| (),
 		)
 	}
-	/*
+
 	#[test]
 	fn relayed_incoming_message_works() {
-		// from Bulletin
-		bridge_hub_test_utils::test_cases::relayed_incoming_message_works::<
+		// from Westend
+		bridge_hub_test_utils::test_cases::from_grandpa_chain::relayed_incoming_message_works::<
 			Runtime,
 			AllPalletsWithoutSystem,
-			XcmConfig,
 			ParachainSystem,
 			BridgeGrandpaRococoBulletinInstance,
-			BridgeParachainWestendInstance,
-			WithBridgeHubWestendMessagesInstance,
-			WithBridgeHubWestendMessageBridge,
+			WithRococoBulletinMessagesInstance,
+			WithRococoBulletinMessageBridge,
 		>(
 			collator_session_keys(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
-			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
+			RococoBulletinChainId::get(),
 			SIBLING_PARACHAIN_ID,
 			Rococo,
-			XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND,
+			XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN,
 			|| (),
+			construct_and_apply_extrinsic,
 		)
 	}
 
 	#[test]
 	pub fn complex_relay_extrinsic_works() {
 		// for Westend
-		bridge_hub_test_utils::test_cases::complex_relay_extrinsic_works::<
+		bridge_hub_test_utils::test_cases::from_grandpa_chain::complex_relay_extrinsic_works::<
 			Runtime,
 			AllPalletsWithoutSystem,
 			XcmConfig,
 			ParachainSystem,
-			BridgeGrandpaWestendInstance,
-			BridgeParachainWestendInstance,
-			WithBridgeHubWestendMessagesInstance,
-			WithBridgeHubWestendMessageBridge,
+			BridgeGrandpaRococoBulletinInstance,
+			WithRococoBulletinMessagesInstance,
+			WithRococoBulletinMessageBridge,
 		>(
 			collator_session_keys(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
-			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
 			SIBLING_PARACHAIN_ID,
-			BridgeHubWestendChainId::get(),
+			RococoBulletinChainId::get(),
 			Rococo,
-			XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND,
-			ExistentialDeposit::get(),
-			executive_init_block,
-			construct_and_apply_extrinsic,
+			XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN,
 			|| (),
+			construct_and_apply_extrinsic,
 		);
 	}
 
@@ -502,12 +499,11 @@ mod bridge_hub_bulletin_tests {
 
 	#[test]
 	pub fn can_calculate_fee_for_complex_message_delivery_transaction() {
-		let estimated = bridge_hub_test_utils::test_cases::can_calculate_fee_for_complex_message_delivery_transaction::<
+		let estimated = bridge_hub_test_utils::test_cases::from_grandpa_chain::can_calculate_fee_for_complex_message_delivery_transaction::<
 			Runtime,
-			BridgeGrandpaWestendInstance,
-			BridgeParachainWestendInstance,
-			WithBridgeHubWestendMessagesInstance,
-			WithBridgeHubWestendMessageBridge,
+			BridgeGrandpaRococoBulletinInstance,
+			WithRococoBulletinMessagesInstance,
+			WithRococoBulletinMessageBridge,
 		>(
 			collator_session_keys(),
 			construct_and_estimate_extrinsic_fee
@@ -525,12 +521,11 @@ mod bridge_hub_bulletin_tests {
 
 	#[test]
 	pub fn can_calculate_fee_for_complex_message_confirmation_transaction() {
-		let estimated = bridge_hub_test_utils::test_cases::can_calculate_fee_for_complex_message_confirmation_transaction::<
+		let estimated = bridge_hub_test_utils::test_cases::from_grandpa_chain::can_calculate_fee_for_complex_message_confirmation_transaction::<
 			Runtime,
-			BridgeGrandpaWestendInstance,
-			BridgeParachainWestendInstance,
-			WithBridgeHubWestendMessagesInstance,
-			WithBridgeHubWestendMessageBridge,
+			BridgeGrandpaRococoBulletinInstance,
+			WithRococoBulletinMessagesInstance,
+			WithRococoBulletinMessageBridge,
 		>(
 			collator_session_keys(),
 			construct_and_estimate_extrinsic_fee
@@ -544,5 +539,5 @@ mod bridge_hub_bulletin_tests {
 			estimated,
 			max_expected
 		);
-	}*/
+	}
 }
