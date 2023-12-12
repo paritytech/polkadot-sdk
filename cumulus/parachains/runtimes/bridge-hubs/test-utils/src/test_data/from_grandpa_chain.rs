@@ -97,7 +97,6 @@ where
 		+ pallet_utility::Config,
 	GPI: 'static,
 	MPI: 'static,
-	//	<Runtime as pallet_bridge_grandpa::Config<GPI>>::BridgedChain: ChainWithGrandpa,
 	<Runtime as pallet_bridge_messages::Config<MPI>>::TargetHeaderChain: TargetHeaderChain<
 		XcmAsPlainPayload,
 		Runtime::AccountId,
@@ -238,7 +237,8 @@ where
 
 /// Maximal expected `submit_finality_proof` call size.
 pub fn maximal_expected_submit_finality_proof_call_size<BridgedChain: ChainWithGrandpa>() -> usize {
-	BridgedChain::AVERAGE_HEADER_SIZE
-		.saturating_mul(BridgedChain::REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY.saturating_add(1))
-		as usize
+	bp_header_chain::max_expected_submit_finality_proof_arguments_size::<BridgedChain>(
+		false,
+		BridgedChain::MAX_AUTHORITIES_COUNT * 2 / 3 + 1,
+	) as usize
 }
