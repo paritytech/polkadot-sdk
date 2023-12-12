@@ -24,10 +24,9 @@ use pallet_broker::CoreAssignment;
 use crate::{configuration, paras};
 use primitives::CoreIndex;
 
-use super::{Config, Pallet};
+use super::{Config, Pallet, PartsOf57600};
 
 pub mod v_coretime {
-
 	use frame_support::{
 		migrations::VersionedMigration, traits::OnRuntimeUpgrade, weights::Weight,
 	};
@@ -89,7 +88,7 @@ pub fn migrate_to_coretime<T: Config>() -> Weight {
 		let r = Pallet::<T>::assign_core(
 			CoreIndex(core as u32),
 			now,
-			vec![(CoreAssignment::Task(para_id.into()), 57600)],
+			vec![(CoreAssignment::Task(para_id.into()), PartsOf57600::FULL)],
 			None,
 		);
 		if let Err(err) = r {
@@ -105,7 +104,12 @@ pub fn migrate_to_coretime<T: Config>() -> Weight {
 	// Was coretime_cores was on_demand_cores until now:
 	for on_demand in 0..config.coretime_cores {
 		let core = CoreIndex(legacy_count.saturating_add(on_demand as _));
-		let r = Pallet::<T>::assign_core(core, now, vec![(CoreAssignment::Pool, 57600)], None);
+		let r = Pallet::<T>::assign_core(
+			core,
+			now,
+			vec![(CoreAssignment::Pool, PartsOf57600::FULL)],
+			None,
+		);
 		if let Err(err) = r {
 			log::error!("Creating assignment for existing on-demand core, failed: {:?}", err);
 		}

@@ -52,7 +52,43 @@ pub use pallet::*;
 pub const MAX_ASSIGNMENTS_PER_SCHEDULE: u32 = 100;
 
 /// Fraction expressed as a nominator with an assumed denominator of 57,600.
-pub type PartsOf57600 = u16;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, TypeInfo)]
+pub struct PartsOf57600(u16);
+
+impl PartsOf57600 {
+	pub const ZERO: Self = Self(0);
+	pub const FULL: Self = Self(57600);
+
+	pub fn saturating_add(self, rhs: Self) -> Self {
+		Self(self.0.saturating_add(rhs.0))
+	}
+
+	pub fn saturating_sub(self, rhs: Self) -> Self {
+		Self(self.0.saturating_sub(rhs.0))
+	}
+}
+
+#[cfg(test)]
+impl std::ops::Div<u16> for PartsOf57600 {
+	type Output = Self;
+
+	fn div(self, rhs: u16) -> Self::Output {
+		if rhs == 0 {
+			panic!("Cannot divide by zero!");
+		}
+
+		Self(self.0 / rhs)
+	}
+}
+
+#[cfg(test)]
+impl std::ops::Mul<u16> for PartsOf57600 {
+	type Output = Self;
+
+	fn mul(self, rhs: u16) -> Self {
+		Self(self.0 * rhs)
+	}
+}
 
 /// Assignments as they are scheduled by block number
 ///
@@ -153,7 +189,7 @@ impl<N> From<Schedule<N>> for WorkState<N> {
 			} else {
 				// Assignments empty, should not exist. In any case step size does not matter here:
 				log::debug!("assignments of a `Schedule` should never be empty.");
-				1
+				PartsOf57600(1)
 			};
 		let assignments = assignments
 			.into_iter()
@@ -277,13 +313,13 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 				.expect("We limited pos to the size of the vec one line above. qed");
 
 			// advance:
-			a_state.remaining -= work_state.step;
+			a_state.remaining = a_state.remaining.saturating_sub(work_state.step);
 			if a_state.remaining < work_state.step {
 				// Assignment exhausted, need to move to the next and credit remaining for
 				// next round.
 				work_state.pos += 1;
 				// Reset to ratio + still remaining "credits":
-				a_state.remaining += a_state.ratio;
+				a_state.remaining = a_state.remaining.saturating_add(a_state.ratio);
 			}
 
 			match a_type {
@@ -432,9 +468,9 @@ impl<T: Config> Pallet<T> {
 		let parts_sum = assignments
 			.iter()
 			.map(|assignment| assignment.1)
-			.fold(PartsOf57600::from(0u16), |sum, parts| sum.saturating_add(parts));
-		ensure!(parts_sum <= PartsOf57600::from(57600u16), Error::<T>::OverScheduled);
-		ensure!(parts_sum >= PartsOf57600::from(57600u16), Error::<T>::UnderScheduled);
+			.fold(PartsOf57600::ZERO, |sum, parts| sum.saturating_add(parts));
+		ensure!(parts_sum <= PartsOf57600::FULL, Error::<T>::OverScheduled);
+		ensure!(parts_sum >= PartsOf57600::FULL, Error::<T>::UnderScheduled);
 
 		CoreDescriptors::<T>::mutate(core_idx, |core_descriptor| {
 			let new_queue = match core_descriptor.queue {
