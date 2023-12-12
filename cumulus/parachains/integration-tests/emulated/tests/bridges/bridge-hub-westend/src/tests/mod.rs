@@ -39,7 +39,10 @@ pub(crate) fn bridge_hub_rococo_location() -> MultiLocation {
 	}
 }
 
-pub(crate) fn send_asset_from_asset_hub_westend(destination: MultiLocation, (id, amount): (MultiLocation, u128)) -> DispatchResult {
+pub(crate) fn send_asset_from_asset_hub_westend(
+	destination: MultiLocation,
+	(id, amount): (MultiLocation, u128),
+) -> DispatchResult {
 	let signed_origin =
 		<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get().into());
 
@@ -57,7 +60,8 @@ pub(crate) fn send_asset_from_asset_hub_westend(destination: MultiLocation, (id,
 			bx!(assets.into()),
 			fee_asset_item,
 			WeightLimit::Unlimited,
-		)})
+		)
+	})
 }
 
 pub(crate) fn assert_bridge_hub_westend_message_accepted(expected_processed: bool) {
