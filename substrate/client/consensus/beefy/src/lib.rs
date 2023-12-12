@@ -79,7 +79,7 @@ mod tests;
 
 const LOG_TARGET: &str = "beefy";
 
-const HEADER_SYNC_DELAY: Duration = Duration::from_secs(30);
+const HEADER_SYNC_DELAY: Duration = Duration::from_secs(60);
 
 /// A convenience BEEFY client trait that defines all the type bounds a BEEFY client
 /// has to satisfy. Ideally that should actually be a trait alias. Unfortunately as
@@ -309,21 +309,15 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 			},
 		};
 
-		if let Err(e) =
-			wait_for_headers_sync(&*backend, beefy_genesis, best_grandpa.clone(), HEADER_SYNC_DELAY)
-				.await
-		{
-			error!(target: LOG_TARGET, "Error: {:?}. Terminating.", e);
-			return
-		}
-
 		let persisted_state = match load_or_init_voter_state(
 			&*backend,
 			&*runtime,
 			beefy_genesis,
 			best_grandpa,
 			min_block_delta,
-		) {
+		)
+		.await
+		{
 			Ok(state) => state,
 			Err(e) => {
 				error!(target: LOG_TARGET, "Error: {:?}. Terminating.", e);
@@ -374,7 +368,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 	}
 }
 
-fn load_or_init_voter_state<B, BE, R>(
+async fn load_or_init_voter_state<B, BE, R>(
 	backend: &BE,
 	runtime: &R,
 	beefy_genesis: NumberFor<B>,
@@ -388,7 +382,7 @@ where
 	R::Api: BeefyApi<B, AuthorityId>,
 {
 	// Initialize voter state from AUX DB if compatible.
-	crate::aux_schema::load_persistent(backend)?
+	let maybe_persisted_state = crate::aux_schema::load_persistent(backend)?
 		// Verify state pallet genesis matches runtime.
 		.filter(|state| state.pallet_genesis() == beefy_genesis)
 		.and_then(|mut state| {
@@ -398,30 +392,38 @@ where
 			state.set_min_block_delta(min_block_delta);
 			info!(target: LOG_TARGET, "🥩 Loading BEEFY voter state from db: {:?}.", state);
 			Some(Ok(state))
-		})
-		// No valid voter-state persisted, re-initialize from pallet genesis.
-		.unwrap_or_else(|| {
-			initialize_voter_state(backend, runtime, beefy_genesis, best_grandpa, min_block_delta)
-		})
+		});
+	if let Some(persisted_state) = maybe_persisted_state {
+		return persisted_state;
+	}
+
+	// No valid voter-state persisted, re-initialize from pallet genesis.
+	initialize_voter_state(backend, runtime, beefy_genesis, best_grandpa, min_block_delta).await
 }
 
-async fn wait_for_parent_header<B, BE>(
-	backend: &BE,
+/// Waits until the parent header of `current` is available and returns it.
+///
+/// When the node uses GRANDPA warp sync it initially downloads only the mandatory GRANDPA headers.
+/// The rest of the headers (gap sync) are lazily downloaded later. But the BEEFY voter also needs
+/// the headers in range `[beefy_genesis..=best_grandpa]` to be available. This helper method
+/// enables us to wait until these headers have been synced.
+async fn wait_for_parent_header<B, BC>(
+	blockchain: &BC,
 	current: <B as Block>::Header,
 	delay: Duration,
 ) -> ClientResult<<B as Block>::Header>
 where
 	B: Block,
-	BE: Backend<B>,
+	BC: BlockchainBackend<B>,
 {
-	let blockchain = backend.blockchain();
 	loop {
 		match blockchain.header(*current.parent_hash())? {
 			Some(parent) => return Ok(parent),
 			None => {
 				info!(
 					target: LOG_TARGET,
-					"🥩 Parent of header {} not found. BEEFY gadget waiting for header sync to finish ...",
+					"🥩 Parent of header number {} not found. \
+					BEEFY gadget waiting for header sync to finish ...",
 					current.number()
 				);
 				tokio::time::sleep(delay).await;
@@ -430,33 +432,11 @@ where
 	}
 }
 
-async fn wait_for_headers_sync<B, BE>(
-	backend: &BE,
-	start: NumberFor<B>,
-	end: <B as Block>::Header,
-	delay: Duration,
-) -> ClientResult<()>
-where
-	B: Block,
-	BE: Backend<B>,
-{
-	let mut header = end.clone();
-	while *header.number() >= start {
-		header = wait_for_parent_header(backend, header, delay).await?;
-	}
-
-	info!(
-		target: LOG_TARGET,
-		"🥩 Headers sync finished. BEEFY gadget resuming.",
-	);
-	Ok(())
-}
-
 // If no persisted state present, walk back the chain from first GRANDPA notification to either:
 //  - latest BEEFY finalized block, or if none found on the way,
 //  - BEEFY pallet genesis;
 // Enqueue any BEEFY mandatory blocks (session boundaries) found on the way, for voter to finalize.
-fn initialize_voter_state<B, BE, R>(
+async fn initialize_voter_state<B, BE, R>(
 	backend: &BE,
 	runtime: &R,
 	beefy_genesis: NumberFor<B>,
@@ -546,7 +526,7 @@ where
 		}
 
 		// Move up the chain.
-		header = blockchain.expect_header(*header.parent_hash())?;
+		header = wait_for_parent_header(blockchain, header, HEADER_SYNC_DELAY).await?;
 	};
 
 	aux_schema::write_current_version(backend)?;

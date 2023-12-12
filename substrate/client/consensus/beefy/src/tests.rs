@@ -378,7 +378,7 @@ async fn voter_init_setup(
 	);
 	let (beefy_genesis, best_grandpa) =
 		wait_for_runtime_pallet(api, &mut gossip_engine, finality).await.unwrap();
-	load_or_init_voter_state(&*backend, api, beefy_genesis, best_grandpa, 1)
+	load_or_init_voter_state(&*backend, api, beefy_genesis, best_grandpa, 1).await
 }
 
 // Spawns beefy voters. Returns a future to spawn on the runtime.
@@ -1072,8 +1072,9 @@ async fn should_initialize_voter_at_custom_genesis() {
 	);
 	let (beefy_genesis, best_grandpa) =
 		wait_for_runtime_pallet(&api, &mut gossip_engine, &mut finality).await.unwrap();
-	let persisted_state =
-		load_or_init_voter_state(&*backend, &api, beefy_genesis, best_grandpa, 1).unwrap();
+	let persisted_state = load_or_init_voter_state(&*backend, &api, beefy_genesis, best_grandpa, 1)
+		.await
+		.unwrap();
 
 	// Test initialization at session boundary.
 	// verify voter initialized with single session starting at block `custom_pallet_genesis` (7)
@@ -1107,7 +1108,9 @@ async fn should_initialize_voter_at_custom_genesis() {
 	let (beefy_genesis, best_grandpa) =
 		wait_for_runtime_pallet(&api, &mut gossip_engine, &mut finality).await.unwrap();
 	let new_persisted_state =
-		load_or_init_voter_state(&*backend, &api, beefy_genesis, best_grandpa, 1).unwrap();
+		load_or_init_voter_state(&*backend, &api, beefy_genesis, best_grandpa, 1)
+			.await
+			.unwrap();
 
 	// verify voter initialized with single session starting at block `new_pallet_genesis` (10)
 	let sessions = new_persisted_state.voting_oracle().sessions();
