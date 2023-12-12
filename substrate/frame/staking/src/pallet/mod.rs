@@ -1929,7 +1929,7 @@ pub mod pallet {
 		///
 		/// Effects will be felt instantly (as soon as this function is completed successfully).
 		///
-		/// The dispatch origin must be [`T::AdminOrigin`].
+		/// The dispatch origin must be `T::AdminOrigin`.
 		#[pallet::call_index(28)]
 		#[pallet::weight(T::WeightInfo::deprecate_controller_batch(controllers.len() as u32))]
 		pub fn deprecate_controller_batch(
