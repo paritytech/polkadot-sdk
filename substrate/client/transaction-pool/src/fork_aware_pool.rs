@@ -92,6 +92,7 @@ where
 pub enum ViewCreationError {
 	AlreadyExists,
 	Unknown,
+	BlockIdConversion,
 }
 
 impl<PoolApi, Block> ViewManager<PoolApi, Block>
@@ -122,9 +123,15 @@ where
 		//todo: source?
 		let source = TransactionSource::External;
 
+		let number = self
+			.api
+			.resolve_block_number(hash)
+			.map_err(|_| ViewCreationError::BlockIdConversion)?;
+		let at = HashAndNumber { hash, number };
+
 		//todo: internal checked banned: not required any more?
 		let xts = xts.read().clone();
-		let _ = view.0.submit_at(hash, source, xts).await;
+		let _ = view.0.submit_at(&at, source, xts).await;
 		self.views.write().insert(hash, view);
 
 		// brute force: just revalidate all xts against block
@@ -136,13 +143,10 @@ where
 	/// Imports a bunch of unverified extrinsics to every view
 	pub async fn submit_at(
 		&self,
-		at: Block::Hash,
+		at: &HashAndNumber<Block>,
 		source: TransactionSource,
 		xts: impl IntoIterator<Item = Block::Extrinsic> + Clone,
-	) -> HashMap<
-		Block::Hash,
-		Result<Vec<Result<ExtrinsicHash<PoolApi>, PoolApi::Error>>, PoolApi::Error>,
-	> {
+	) -> HashMap<Block::Hash, Vec<Result<ExtrinsicHash<PoolApi>, PoolApi::Error>>> {
 		//todo: Result<Vec,Error> is not really needed. submit_at should take HashAndNumber.
 		let futs = {
 			let g = self.views.read();
@@ -153,7 +157,8 @@ where
 					//todo: remove this clone (Arc?)
 					let xts = xts.clone();
 					let hash = hash.clone();
-					async move { (hash, view.0.submit_at(hash, source, xts.clone()).await) }
+					let at = at.clone();
+					async move { (hash, view.0.submit_at(&at, source, xts.clone()).await) }
 				})
 				.collect::<Vec<_>>();
 			futs
@@ -166,7 +171,7 @@ where
 	/// Imports one unverified extrinsic to every view
 	pub async fn submit_one(
 		&self,
-		at: Block::Hash,
+		at: &HashAndNumber<Block>,
 		source: TransactionSource,
 		xt: Block::Extrinsic,
 	) -> HashMap<Block::Hash, Result<ExtrinsicHash<PoolApi>, PoolApi::Error>> {
@@ -178,9 +183,10 @@ where
 				.iter()
 				.map(|(hash, view)| {
 					let view = view.clone();
-					let hash = hash.clone();
+					let at = at.clone();
 					let xt = xt.clone();
-					async move { (hash, view.0.submit_one(hash, source, xt.clone()).await) }
+					let hash = hash.clone();
+					async move { (hash, view.0.submit_one(&at, source, xt.clone()).await) }
 				})
 				.collect::<Vec<_>>();
 			futs
@@ -308,13 +314,16 @@ where
 		// self.metrics
 		// 	.report(|metrics| metrics.submitted_transactions.inc_by(xts.len() as u64));
 
+		let number = self.api.resolve_block_number(at);
+
 		async move {
+			let at = HashAndNumber { hash: at, number: number? };
 			// HashMap< Hash, Result<Vec<Result<ExtrinsicHash<PoolApi>, PoolApi::Error>>,
 			// PoolApi::Error>
 
-			let mut results_map = views.submit_at(at, source, xts).await;
+			let mut results_map = views.submit_at(&at, source, xts).await;
 			//todo: unwrap
-			results_map.remove(&at).unwrap()
+			Ok(results_map.remove(&at.hash).unwrap())
 		}
 		.boxed()
 	}
@@ -330,11 +339,13 @@ where
 
 		let views = self.views.clone();
 		self.xts.write().push(xt.clone());
+		let number = self.api.resolve_block_number(at);
 
 		async move {
-			let mut results = views.submit_one(at, source, xt).await;
+			let at = HashAndNumber { hash: at, number: number? };
+			let mut results = views.submit_one(&at, source, xt).await;
 			//todo: unwrap
-			results.remove(&at).unwrap()
+			results.remove(&at.hash).unwrap()
 		}
 		.boxed()
 	}
@@ -458,7 +469,8 @@ where
 	PoolApi: 'static + graph::ChainApi<Block = Block>,
 {
 	async fn maintain(&self, event: ChainEvent<Self::Block>) {
-		self.views.create_new_view_at(event, self.xts.clone()).await;
+		//todo: print error?
+		let _ = self.views.create_new_view_at(event, self.xts.clone()).await;
 	}
 }
 

@@ -19,10 +19,8 @@
 //! Tests for top-level transaction pool api
 
 use futures::executor::block_on;
-use sc_transaction_pool_api::{
-	ChainEvent, MaintainedTransactionPool, TransactionPool, TransactionStatus,
-};
-use sp_runtime::{traits::Block as _, transaction_validity::TransactionSource};
+use sc_transaction_pool_api::{ChainEvent, MaintainedTransactionPool, TransactionPool};
+use sp_runtime::transaction_validity::TransactionSource;
 use std::sync::Arc;
 use substrate_test_runtime_client::{runtime::Block, AccountKeyring::*};
 use substrate_test_runtime_transaction_pool::{uxt, TestApi};
