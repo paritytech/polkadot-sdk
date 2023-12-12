@@ -68,8 +68,9 @@ fn test_harness<T: Future<Output = ()>>(
 
 pub fn node_features_with_shuffling() -> NodeFeatures {
 	let mut node_features = NodeFeatures::new();
-	node_features.resize(node_features::AVAILABILITY_CHUNK_SHUFFLING as usize + 1, false);
-	node_features.set(node_features::AVAILABILITY_CHUNK_SHUFFLING.into(), true);
+	node_features
+		.resize(node_features::FeatureIndex::AvailabilityChunkShuffling as usize + 1, false);
+	node_features.set(node_features::FeatureIndex::AvailabilityChunkShuffling.into(), true);
 	node_features
 }
 

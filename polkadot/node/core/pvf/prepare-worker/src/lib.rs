@@ -18,7 +18,7 @@
 
 mod memory_stats;
 
-use polkadot_node_core_pvf_common::executor_intf::{prepare, prevalidate};
+use polkadot_node_core_pvf_common::executor_interface::{prepare, prevalidate};
 
 // NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-prepare-worker=trace`.
@@ -41,7 +41,7 @@ use os_pipe::{self, PipeReader, PipeWriter};
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareWorkerResult},
-	executor_intf::create_runtime_from_artifact_bytes,
+	executor_interface::create_runtime_from_artifact_bytes,
 	framed_recv_blocking, framed_send_blocking,
 	prepare::{MemoryStats, PrepareJobKind, PrepareStats, PrepareWorkerSuccess},
 	pvf::PvfPrepData,
@@ -50,7 +50,7 @@ use polkadot_node_core_pvf_common::{
 		thread::{self, spawn_worker_thread, WaitOutcome},
 		WorkerKind,
 	},
-	worker_dir, ProcessTime, SecurityStatus,
+	worker_dir, ProcessTime,
 };
 use polkadot_primitives::ExecutorParams;
 use std::{
@@ -193,7 +193,6 @@ pub fn worker_entrypoint(
 	worker_dir_path: PathBuf,
 	node_version: Option<&str>,
 	worker_version: Option<&str>,
-	security_status: SecurityStatus,
 ) {
 	run_worker(
 		WorkerKind::Prepare,
@@ -201,7 +200,6 @@ pub fn worker_entrypoint(
 		worker_dir_path,
 		node_version,
 		worker_version,
-		&security_status,
 		|mut stream, worker_dir_path| {
 			let worker_pid = process::id();
 			let temp_artifact_dest = worker_dir::prepare_tmp_artifact(&worker_dir_path);
@@ -257,9 +255,9 @@ pub fn worker_entrypoint(
 
 						handle_parent_process(
 							pipe_reader,
+							worker_pid,
 							child,
 							temp_artifact_dest.clone(),
-							worker_pid,
 							usage_before,
 							preparation_timeout,
 						)
@@ -506,9 +504,9 @@ fn handle_child_process(
 /// - If the child process timeout, it returns `PrepareError::TimedOut`.
 fn handle_parent_process(
 	mut pipe_read: PipeReader,
-	child: Pid,
-	temp_artifact_dest: PathBuf,
 	worker_pid: u32,
+	job_pid: Pid,
+	temp_artifact_dest: PathBuf,
 	usage_before: Usage,
 	timeout: Duration,
 ) -> Result<PrepareWorkerSuccess, PrepareError> {
@@ -518,10 +516,11 @@ fn handle_parent_process(
 		.read_to_end(&mut received_data)
 		.map_err(|err| PrepareError::IoErr(err.to_string()))?;
 
-	let status = nix::sys::wait::waitpid(child, None);
+	let status = nix::sys::wait::waitpid(job_pid, None);
 	gum::trace!(
 		target: LOG_TARGET,
 		%worker_pid,
+		%job_pid,
 		"prepare worker received wait status from job: {:?}",
 		status,
 	);
@@ -539,6 +538,7 @@ fn handle_parent_process(
 		gum::warn!(
 			target: LOG_TARGET,
 			%worker_pid,
+			%job_pid,
 			"prepare job took {}ms cpu time, exceeded prepare timeout {}ms",
 			cpu_tv.as_millis(),
 			timeout.as_millis(),
@@ -573,6 +573,7 @@ fn handle_parent_process(
 					gum::debug!(
 						target: LOG_TARGET,
 						%worker_pid,
+						%job_pid,
 						"worker: writing artifact to {}",
 						temp_artifact_dest.display(),
 					);
@@ -593,15 +594,18 @@ fn handle_parent_process(
 		//
 		// The job gets SIGSYS on seccomp violations, but this signal may have been sent for some
 		// other reason, so we still need to check for seccomp violations elsewhere.
-		Ok(WaitStatus::Signaled(_pid, signal, _core_dump)) =>
-			Err(PrepareError::JobDied(format!("received signal: {signal:?}"))),
+		Ok(WaitStatus::Signaled(_pid, signal, _core_dump)) => Err(PrepareError::JobDied {
+			err: format!("received signal: {signal:?}"),
+			job_pid: job_pid.as_raw(),
+		}),
 		Err(errno) => Err(error_from_errno("waitpid", errno)),
 
 		// An attacker can make the child process return any exit status it wants. So we can treat
 		// all unexpected cases the same way.
-		Ok(unexpected_wait_status) => Err(PrepareError::JobDied(format!(
-			"unexpected status from wait: {unexpected_wait_status:?}"
-		))),
+		Ok(unexpected_wait_status) => Err(PrepareError::JobDied {
+			err: format!("unexpected status from wait: {unexpected_wait_status:?}"),
+			job_pid: job_pid.as_raw(),
+		}),
 	}
 }
 

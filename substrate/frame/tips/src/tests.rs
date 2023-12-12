@@ -27,7 +27,7 @@ use sp_runtime::{
 use sp_storage::Storage;
 
 use frame_support::{
-	assert_noop, assert_ok, parameter_types,
+	assert_noop, assert_ok, derive_impl, parameter_types,
 	storage::StoragePrefixedMap,
 	traits::{
 		tokens::{PayFromAccount, UnityAssetBalanceConversion},
@@ -56,6 +56,8 @@ frame_support::construct_runtime!(
 parameter_types! {
 	pub const AvailableBlockRatio: Perbill = Perbill::one();
 }
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();

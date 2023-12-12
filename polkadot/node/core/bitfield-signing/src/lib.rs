@@ -139,13 +139,13 @@ async fn get_core_availability(
 				.map_err(Error::from)?;
 
 		// Init this to all zeros. It won't be used unless
-		// `AVAILABILITY_CHUNK_SHUFFLING` is enabled. We do this to avoid querying
+		// `AvailabilityChunkShuffling` is enabled. We do this to avoid querying
 		// the runtime API for session index and session info unless the feature is enabled.
 		let mut babe_randomness = [0; 32];
 
 		if let Some(ref node_features) = maybe_node_features {
 			if let Some(&true) = node_features
-				.get(usize::from(node_features::AVAILABILITY_CHUNK_SHUFFLING))
+				.get(usize::from(node_features::FeatureIndex::AvailabilityChunkShuffling))
 				.as_deref()
 			{
 				let Some(session_info) = recv_runtime(

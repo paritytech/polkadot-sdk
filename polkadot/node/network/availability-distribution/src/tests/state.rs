@@ -277,6 +277,9 @@ impl TestState {
 							tx.send(Ok(Some(ExecutorParams::default())))
 								.expect("Receiver should be alive.");
 						},
+						RuntimeApiRequest::NodeFeatures(_, si_tx) => {
+							si_tx.send(Ok(NodeFeatures::EMPTY)).expect("Receiver should be alive.");
+						},
 						RuntimeApiRequest::AvailabilityCores(tx) => {
 							gum::trace!(target: LOG_TARGET, cores= ?self.cores[&hash], hash = ?hash, "Sending out cores for hash");
 							tx.send(Ok(self.cores[&hash].clone()))

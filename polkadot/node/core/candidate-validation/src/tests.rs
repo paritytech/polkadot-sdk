@@ -480,9 +480,9 @@ fn candidate_validation_bad_return_is_invalid() {
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
 
 	let v = executor::block_on(validate_candidate_exhaustive(
-		MockValidateCandidateBackend::with_hardcoded_result(Err(
-			ValidationError::InvalidCandidate(WasmInvalidCandidate::HardTimeout),
-		)),
+		MockValidateCandidateBackend::with_hardcoded_result(Err(ValidationError::Invalid(
+			WasmInvalidCandidate::HardTimeout,
+		))),
 		validation_data,
 		validation_code,
 		candidate_receipt,
@@ -561,7 +561,7 @@ fn candidate_validation_one_ambiguous_error_is_valid() {
 
 	let v = executor::block_on(validate_candidate_exhaustive(
 		MockValidateCandidateBackend::with_hardcoded_result_list(vec![
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
 			Ok(validation_result),
 		]),
 		validation_data.clone(),
@@ -602,8 +602,8 @@ fn candidate_validation_multiple_ambiguous_errors_is_invalid() {
 
 	let v = executor::block_on(validate_candidate_exhaustive(
 		MockValidateCandidateBackend::with_hardcoded_result_list(vec![
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
 		]),
 		validation_data,
 		validation_code,
@@ -626,7 +626,7 @@ fn candidate_validation_retry_internal_errors() {
 		vec![
 			Err(InternalValidationError::HostCommunication("foo".into()).into()),
 			// Throw an AJD error, we should still retry again.
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousJobDeath(
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousJobDeath(
 				"baz".into(),
 			))),
 			// Throw another internal error.
@@ -644,7 +644,7 @@ fn candidate_validation_dont_retry_internal_errors() {
 		vec![
 			Err(InternalValidationError::HostCommunication("foo".into()).into()),
 			// Throw an AWD error, we should still retry again.
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
 			// Throw another internal error.
 			Err(InternalValidationError::HostCommunication("bar".into()).into()),
 		],
@@ -659,11 +659,11 @@ fn candidate_validation_retry_panic_errors() {
 	let v = candidate_validation_retry_on_error_helper(
 		PvfExecKind::Approval,
 		vec![
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::JobError("foo".into()))),
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError("foo".into()))),
 			// Throw an AWD error, we should still retry again.
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
 			// Throw another panic error.
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::JobError("bar".into()))),
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError("bar".into()))),
 		],
 	);
 
@@ -676,11 +676,11 @@ fn candidate_validation_dont_retry_panic_errors() {
 	let v = candidate_validation_retry_on_error_helper(
 		PvfExecKind::Backing,
 		vec![
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::JobError("foo".into()))),
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError("foo".into()))),
 			// Throw an AWD error, we should still retry again.
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)),
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
 			// Throw another panic error.
-			Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::JobError("bar".into()))),
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError("bar".into()))),
 		],
 	);
 
@@ -758,9 +758,9 @@ fn candidate_validation_timeout_is_internal_error() {
 	let candidate_receipt = CandidateReceipt { descriptor, commitments_hash: Hash::zero() };
 
 	let v = executor::block_on(validate_candidate_exhaustive(
-		MockValidateCandidateBackend::with_hardcoded_result(Err(
-			ValidationError::InvalidCandidate(WasmInvalidCandidate::HardTimeout),
-		)),
+		MockValidateCandidateBackend::with_hardcoded_result(Err(ValidationError::Invalid(
+			WasmInvalidCandidate::HardTimeout,
+		))),
 		validation_data,
 		validation_code,
 		candidate_receipt,
@@ -852,9 +852,9 @@ fn candidate_validation_code_mismatch_is_invalid() {
 	let (_ctx, _ctx_handle) = test_helpers::make_subsystem_context::<AllMessages, _>(pool.clone());
 
 	let v = executor::block_on(validate_candidate_exhaustive(
-		MockValidateCandidateBackend::with_hardcoded_result(Err(
-			ValidationError::InvalidCandidate(WasmInvalidCandidate::HardTimeout),
-		)),
+		MockValidateCandidateBackend::with_hardcoded_result(Err(ValidationError::Invalid(
+			WasmInvalidCandidate::HardTimeout,
+		))),
 		validation_data,
 		validation_code,
 		candidate_receipt,

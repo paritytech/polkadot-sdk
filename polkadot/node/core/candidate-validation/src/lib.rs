@@ -24,8 +24,8 @@
 #![warn(missing_docs)]
 
 use polkadot_node_core_pvf::{
-	InternalValidationError, InvalidCandidate as WasmInvalidCandidate, PrepareError,
-	PrepareJobKind, PvfPrepData, ValidationError, ValidationHost,
+	InternalValidationError, InvalidCandidate as WasmInvalidCandidate, PossiblyInvalidError,
+	PrepareError, PrepareJobKind, PvfPrepData, ValidationError, ValidationHost,
 };
 use polkadot_node_primitives::{
 	BlockData, InvalidCandidate, PoV, ValidationResult, POV_BOMB_LIMIT, VALIDATION_CODE_BOMB_LIMIT,
@@ -88,6 +88,8 @@ pub struct Config {
 	pub artifacts_cache_path: PathBuf,
 	/// The version of the node. `None` can be passed to skip the version check (only for tests).
 	pub node_version: Option<String>,
+	/// Whether the node is attempting to run as a secure validator.
+	pub secure_validator_mode: bool,
 	/// Path to the preparation worker binary
 	pub prep_worker_path: PathBuf,
 	/// Path to the execution worker binary
@@ -133,12 +135,19 @@ async fn run<Context>(
 	mut ctx: Context,
 	metrics: Metrics,
 	pvf_metrics: polkadot_node_core_pvf::Metrics,
-	Config { artifacts_cache_path, node_version, prep_worker_path, exec_worker_path }: Config,
+	Config {
+		artifacts_cache_path,
+		node_version,
+		secure_validator_mode,
+		prep_worker_path,
+		exec_worker_path,
+	}: Config,
 ) -> SubsystemResult<()> {
 	let (validation_host, task) = polkadot_node_core_pvf::start(
 		polkadot_node_core_pvf::Config::new(
 			artifacts_cache_path,
 			node_version,
+			secure_validator_mode,
 			prep_worker_path,
 			exec_worker_path,
 		),
@@ -642,7 +651,7 @@ async fn validate_candidate_exhaustive(
 	}
 
 	match result {
-		Err(ValidationError::InternalError(e)) => {
+		Err(ValidationError::Internal(e)) => {
 			gum::warn!(
 				target: LOG_TARGET,
 				?para_id,
@@ -651,34 +660,29 @@ async fn validate_candidate_exhaustive(
 			);
 			Err(ValidationFailed(e.to_string()))
 		},
-		Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::HardTimeout)) =>
+		Err(ValidationError::Invalid(WasmInvalidCandidate::HardTimeout)) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::Timeout)),
-		Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::WorkerReportedInvalid(e))) =>
+		Err(ValidationError::Invalid(WasmInvalidCandidate::WorkerReportedInvalid(e))) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(e))),
-		Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousWorkerDeath)) =>
+		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(
 				"ambiguous worker death".to_string(),
 			))),
-		Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::JobError(err))) =>
+		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(err))) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err))),
 
-		Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::AmbiguousJobDeath(err))) =>
+		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousJobDeath(err))) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(format!(
 				"ambiguous job death: {err}"
 			)))),
-		Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::PrepareError(e))) => {
-			// In principle if preparation of the `WASM` fails, the current candidate can not be the
-			// reason for that. So we can't say whether it is invalid or not. In addition, with
-			// pre-checking enabled only valid runtimes should ever get enacted, so we can be
-			// reasonably sure that this is some local problem on the current node. However, as this
-			// particular error *seems* to indicate a deterministic error, we raise a warning.
+		Err(ValidationError::Preparation(e)) => {
 			gum::warn!(
 				target: LOG_TARGET,
 				?para_id,
 				?e,
 				"Deterministic error occurred during preparation (should have been ruled out by pre-checking phase)",
 			);
-			Err(ValidationFailed(e))
+			Err(ValidationFailed(e.to_string()))
 		},
 		Ok(res) =>
 			if res.head_data.hash() != candidate_receipt.descriptor.para_head {
@@ -762,16 +766,31 @@ trait ValidationBackend {
 			}
 
 			match validation_result {
-				Err(ValidationError::InvalidCandidate(
-					WasmInvalidCandidate::AmbiguousWorkerDeath |
-					WasmInvalidCandidate::AmbiguousJobDeath(_),
-				)) if num_death_retries_left > 0 => num_death_retries_left -= 1,
-				Err(ValidationError::InvalidCandidate(WasmInvalidCandidate::JobError(_)))
-					if num_job_error_retries_left > 0 =>
-					num_job_error_retries_left -= 1,
-				Err(ValidationError::InternalError(_)) if num_internal_retries_left > 0 =>
-					num_internal_retries_left -= 1,
-				_ => break,
+				Err(ValidationError::PossiblyInvalid(
+					PossiblyInvalidError::AmbiguousWorkerDeath |
+					PossiblyInvalidError::AmbiguousJobDeath(_),
+				)) =>
+					if num_death_retries_left > 0 {
+						num_death_retries_left -= 1;
+					} else {
+						break;
+					},
+
+				Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(_))) =>
+					if num_job_error_retries_left > 0 {
+						num_job_error_retries_left -= 1;
+					} else {
+						break;
+					},
+
+				Err(ValidationError::Internal(_)) =>
+					if num_internal_retries_left > 0 {
+						num_internal_retries_left -= 1;
+					} else {
+						break;
+					},
+
+				Ok(_) | Err(ValidationError::Invalid(_) | ValidationError::Preparation(_)) => break,
 			}
 
 			// If we got a possibly transient error, retry once after a brief delay, on the

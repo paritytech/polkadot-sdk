@@ -483,7 +483,7 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 					XcmReceivedFrom::Sibling,
 				),
 			);
-			assert_eq!(outcome.ensure_complete(), Ok(()));
+			assert_ok!(outcome.ensure_complete());
 
 			// author actual balance after (received fees from Trader for ForeignAssets)
 			let author_received_fees =
@@ -588,7 +588,7 @@ pub fn report_bridge_status_from_xcm_bridge_router_works<
 					hash,
 					RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::xcm_max_weight(XcmReceivedFrom::Sibling),
 				);
-				assert_eq!(outcome.ensure_complete(), Ok(()));
+				assert_ok!(outcome.ensure_complete());
 				assert_eq!(is_congested, pallet_xcm_bridge_hub_router::Pallet::<Runtime, XcmBridgeHubRouterInstance>::bridge().is_congested);
 			};
 

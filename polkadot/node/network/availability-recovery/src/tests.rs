@@ -215,8 +215,9 @@ impl TestState {
 
 	async fn test_runtime_api_node_features(&self, virtual_overseer: &mut VirtualOverseer) {
 		let mut node_features = NodeFeatures::new();
-		node_features.resize(node_features::AVAILABILITY_CHUNK_SHUFFLING as usize + 1, false);
-		node_features.set(node_features::AVAILABILITY_CHUNK_SHUFFLING.into(), true);
+		node_features
+			.resize(node_features::FeatureIndex::AvailabilityChunkShuffling as usize + 1, false);
+		node_features.set(node_features::FeatureIndex::AvailabilityChunkShuffling.into(), true);
 
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
