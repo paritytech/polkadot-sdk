@@ -16,8 +16,7 @@
 
 //! Migration of legacy parachains to Coretime.
 
-#[cfg(feature = "no_std")]
-use sp_std::{vec, vec::Vec};
+use sp_std::prelude::*;
 
 use sp_core::Get;
 
@@ -41,6 +40,11 @@ pub mod v_coretime {
 		migrations::VersionedMigration, traits::OnRuntimeUpgrade, weights::Weight,
 	};
 
+	#[cfg(feature = "try-runtime")]
+	use crate::{
+		assigner_coretime, configuration, paras, scheduler::common::FixedAssignmentProvider,
+	};
+
 	use super::{Config, Pallet};
 
 	#[allow(deprecated)]
@@ -62,9 +66,9 @@ pub mod v_coretime {
 
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::DispatchError> {
-			let legacy_paras = paras::<T>::Parachains.get();
+			let legacy_paras = paras::Parachains::<T>::get();
 			let config = <configuration::Pallet<T>>::config();
-			let total_core_count = config.coretime_cores + legacy_paras.len();
+			let total_core_count = config.coretime_cores + legacy_paras.len() as u32;
 
 			let bytes = u32::to_be_bytes(total_core_count as u32);
 
@@ -76,11 +80,8 @@ pub mod v_coretime {
 			log::trace!("Running post_upgrade()");
 
 			let prev_core_count = u32::from_be_bytes(state.try_into().unwrap());
-			let new_core_count = Pallet::<T>::core_count();
-			ensure!(
-				new_core_count == prev_core_count
-				"Total number of cores need to not change."
-			);
+			let new_core_count = assigner_coretime::Pallet::<T>::session_core_count();
+			ensure!(new_core_count == prev_core_count, "Total number of cores need to not change.");
 
 			Ok(())
 		}
