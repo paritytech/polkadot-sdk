@@ -12,9 +12,14 @@ TEMPLATE_CHANGELOG="${PROJECT_ROOT}/scripts/release/templates/changelog.md.tera"
 
 DATA_JSON="${TMP}/data.json"
 CONTEXT_JSON="${TMP}/context.json"
-echo "TEMPLATE_AUDIENCE=$TEMPLATE_AUDIENCE"
-echo "DATA_JSON=$DATA_JSON"
-echo "CONTEXT_JSON=$CONTEXT_JSON"
+echo -e "TEMPLATE_AUDIENCE: \t$TEMPLATE_AUDIENCE"
+echo -e "DATA_JSON: \t\t$DATA_JSON"
+echo -e "CONTEXT_JSON: \t\t$CONTEXT_JSON"
+
+# Create output folder
+OUTPUT="${TMP}/changelogs/$PRODUCT/$VERSION"
+echo -e "OUTPUT: \t\t$OUTPUT"
+mkdir -p $OUTPUT
 
 prdoc load -d "$PROJECT_ROOT/prdoc/$VERSION" --json > $DATA_JSON
 # ls -al $DATA_JSON
@@ -30,10 +35,6 @@ AUDIENCE_ARRAY=$(echo -E $SCHEMA | jq -r '."$defs".audience.oneOf[] | .const')
 readarray -t audiences < <(echo "$AUDIENCE_ARRAY")
 declare -p audiences
 
-# Create output folder
-OUTPUT="${TMP}/changelogs/$PRODUCT/$VERSION"
-echo "OUTPUT=$OUTPUT"
-mkdir -p $OUTPUT
 
 # Generate a changelog
 echo "Generating changelog..."

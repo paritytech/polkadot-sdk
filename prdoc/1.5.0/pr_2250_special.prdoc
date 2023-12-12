@@ -1,4 +1,4 @@
-title: "crypto: lazy_static removed, light parser for address URI added"
+title: "crypto: `lazy_static` removed, light parser for address URI added"
 author: michalkucharczyk
 topic: Node
 

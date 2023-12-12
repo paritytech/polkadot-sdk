@@ -1,4 +1,4 @@
-title: "cumulus-consensus-common: block import: delayed_best_block flag added"
+title: "cumulus-consensus-common: block import: `delayed_best_block` flag added"
 author: michalkucharczyk
 topic: Node
 

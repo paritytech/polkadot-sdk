@@ -1,4 +1,4 @@
-title: Remove dependency on rand's SliceRandom shuffle implementation in gossip-support
+title: Remove dependency on rand's SliceRandom shuffle implementation in `gossip-support`
 
 author: rphmeier
 topic: node

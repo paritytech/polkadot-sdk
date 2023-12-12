@@ -1,4 +1,4 @@
-title: '[NPoS] Use EraInfo to manipulate exposure in fast-unstake tests'
+title: '[NPoS] Use `EraInfo` to manipulate exposure in fast-unstake tests'
 author: Ank4n
 topic: Pallets,Tests
 

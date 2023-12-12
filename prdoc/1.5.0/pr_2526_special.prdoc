@@ -1,4 +1,4 @@
-title: Remove pov-recovery race condition/Improve zombienet test
+title: Remove `pov-recovery` race condition/Improve zombienet test
 
 author: skunert
 topic: testing

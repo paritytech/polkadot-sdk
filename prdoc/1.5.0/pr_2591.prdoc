@@ -1,4 +1,4 @@
-title: Ensure to cleanup state in remove_member
+title: Ensure to cleanup state in `remove_member`
 
 author: bkchr
 topic: runtime
