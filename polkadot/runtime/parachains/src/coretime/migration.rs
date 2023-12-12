@@ -31,7 +31,7 @@ use crate::assigner_coretime;
 
 pub mod v_coretime {
 
-	#[cfg(feature = "no_std")]
+	#[cfg(feature = "try-runtime")]
 	use sp_std::vec::Vec;
 
 	#[cfg(feature = "try-runtime")]
@@ -104,7 +104,7 @@ pub fn migrate_to_coretime<T: Config>() -> Weight {
 		);
 		if let Err(err) = r {
 			log::error!(
-				"Creating assignment for existing para failed: {}, error: {:?}",
+				"Creating assignment for existing para failed: {:?}, error: {:?}",
 				para_id,
 				err
 			);
