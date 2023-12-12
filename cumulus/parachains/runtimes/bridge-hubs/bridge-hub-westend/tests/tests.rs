@@ -59,7 +59,7 @@ fn construct_extrinsic(
 		frame_system::CheckGenesis::<Runtime>::new(),
 		frame_system::CheckEra::<Runtime>::from(Era::immortal()),
 		frame_system::CheckNonce::<Runtime>::from(
-			frame_system::Pallet::<Runtime>::account(&account_id).nonce
+			frame_system::Pallet::<Runtime>::account(&account_id).nonce,
 		),
 		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
@@ -235,7 +235,7 @@ fn relayed_incoming_message_works() {
 		Westend,
 		XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO,
 		|| (),
-		construct_and_apply_extrinsic
+		construct_and_apply_extrinsic,
 	)
 }
 

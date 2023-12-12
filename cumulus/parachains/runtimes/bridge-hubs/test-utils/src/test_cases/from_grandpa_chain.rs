@@ -211,8 +211,9 @@ pub fn complex_relay_extrinsic_works<
 		Call = cumulus_pallet_parachain_system::Call<Runtime>,
 	>,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
-	<Runtime as pallet_bridge_messages::Config<MPI>>::SourceHeaderChain:
-		SourceHeaderChain<MessagesProof = FromBridgedChainMessagesProof<HashOf<MessageBridgedChain<MB>>>>,
+	<Runtime as pallet_bridge_messages::Config<MPI>>::SourceHeaderChain: SourceHeaderChain<
+		MessagesProof = FromBridgedChainMessagesProof<HashOf<MessageBridgedChain<MB>>>,
+	>,
 	<Runtime as frame_system::Config>::AccountId:
 		Into<<<Runtime as frame_system::Config>::RuntimeOrigin as OriginTrait>::AccountId>,
 	<Runtime as frame_system::Config>::AccountId: From<AccountId32>,

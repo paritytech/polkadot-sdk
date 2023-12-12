@@ -114,30 +114,34 @@ impl<Runtime: frame_system::Config + pallet_balances::Config + pallet_session::C
 	}
 }
 
-/// A set of traits for a minimal parachain runtime, that may be used in conjunction with the `ExtBuilder` and the `RuntimeHelper`.
-pub trait BasicParachainRuntime: frame_system::Config
+/// A set of traits for a minimal parachain runtime, that may be used in conjunction with the
+/// `ExtBuilder` and the `RuntimeHelper`.
+pub trait BasicParachainRuntime:
+	frame_system::Config
 	+ pallet_balances::Config
 	+ pallet_session::Config
 	+ pallet_xcm::Config
 	+ parachain_info::Config
 	+ pallet_collator_selection::Config
 	+ cumulus_pallet_parachain_system::Config
-{}
+{
+}
 
-impl<T> BasicParachainRuntime for T where T: frame_system::Config
-	+ pallet_balances::Config
-	+ pallet_session::Config
-	+ pallet_xcm::Config
-	+ parachain_info::Config
-	+ pallet_collator_selection::Config
-	+ cumulus_pallet_parachain_system::Config,
+impl<T> BasicParachainRuntime for T
+where
+	T: frame_system::Config
+		+ pallet_balances::Config
+		+ pallet_session::Config
+		+ pallet_xcm::Config
+		+ parachain_info::Config
+		+ pallet_collator_selection::Config
+		+ cumulus_pallet_parachain_system::Config,
 	ValidatorIdOf<T>: From<AccountIdOf<T>>,
-{}
+{
+}
 
 /// Basic builder based on balances, collators and pallet_session.
-pub struct ExtBuilder<
-	Runtime: BasicParachainRuntime,
-> {
+pub struct ExtBuilder<Runtime: BasicParachainRuntime> {
 	// endowed accounts with balances
 	balances: Vec<(AccountIdOf<Runtime>, BalanceOf<Runtime>)>,
 	// collators to test block prod
@@ -151,10 +155,7 @@ pub struct ExtBuilder<
 	_runtime: PhantomData<Runtime>,
 }
 
-impl<
-		Runtime: BasicParachainRuntime,
-	> Default for ExtBuilder<Runtime>
-{
+impl<Runtime: BasicParachainRuntime> Default for ExtBuilder<Runtime> {
 	fn default() -> ExtBuilder<Runtime> {
 		ExtBuilder {
 			balances: vec![],
@@ -167,10 +168,7 @@ impl<
 	}
 }
 
-impl<
-		Runtime: BasicParachainRuntime,
-	> ExtBuilder<Runtime>
-{
+impl<Runtime: BasicParachainRuntime> ExtBuilder<Runtime> {
 	pub fn with_balances(
 		mut self,
 		balances: Vec<(AccountIdOf<Runtime>, BalanceOf<Runtime>)>,
