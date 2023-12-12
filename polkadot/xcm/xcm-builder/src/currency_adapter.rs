@@ -85,6 +85,7 @@ impl From<Error> for XcmError {
 ///     CheckingAccount,
 /// >;
 /// ```
+#[deprecated = "Use `FungibleAdapter` instead"]
 pub struct CurrencyAdapter<Currency, Matcher, AccountIdConverter, AccountId, CheckedAccount>(
 	PhantomData<(Currency, Matcher, AccountIdConverter, AccountId, CheckedAccount)>,
 );
