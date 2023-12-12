@@ -363,7 +363,11 @@ impl assigner_on_demand::Config for Test {
 	type WeightInfo = crate::assigner_on_demand::TestWeightInfo;
 }
 
-impl assigner_coretime::Config for Test {}
+impl assigner_coretime::Config for Test {
+	fn assign_core_weight(_s: u32) -> Weight {
+		Weight::MAX
+	}
+}
 
 impl crate::inclusion::Config for Test {
 	type WeightInfo = ();

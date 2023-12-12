@@ -30,6 +30,8 @@ mod mock_helpers;
 #[cfg(test)]
 mod tests;
 
+pub mod migration;
+
 use crate::{
 	assigner_on_demand, assigner_parachains as assigner_legacy, configuration, paras,
 	scheduler::common::{
@@ -167,14 +169,21 @@ pub mod pallet {
 
 	use super::*;
 
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
 	pub trait Config:
 		frame_system::Config + configuration::Config + paras::Config + assigner_on_demand::Config
 	{
+		/// Weight for the `assign_core` call.
+		///
+		/// Only temporarily needed for migration.
+		fn assign_core_weight(s: u32) -> Weight;
 	}
 
 	/// Scheduled assignment sets.

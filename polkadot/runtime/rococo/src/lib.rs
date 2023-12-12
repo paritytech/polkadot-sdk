@@ -32,7 +32,9 @@ use primitives::{
 };
 use rococo_runtime_constants::system_parachain::BROKER_ID;
 use runtime_common::{
-	assigned_slots, auctions, claims, coretime, crowdloan, identity_migrator, impl_runtime_weights,
+	assigned_slots, auctions, claims, coretime,
+	coretime::WeightInfo as CoretimeWeightInfo,
+	crowdloan, identity_migrator, impl_runtime_weights,
 	impls::{
 		LocatableAssetConverter, ToAuthor, VersionedLocatableAsset, VersionedMultiLocationConverter,
 	},
@@ -1007,17 +1009,6 @@ impl parachains_scheduler::Config for Runtime {
 }
 
 parameter_types! {
-	pub const OnDemandTrafficDefaultValue: FixedU128 = FixedU128::from_u32(1);
-}
-
-impl parachains_assigner_on_demand::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
-	type TrafficDefaultValue = OnDemandTrafficDefaultValue;
-	type WeightInfo = weights::runtime_parachains_assigner_on_demand::WeightInfo<Runtime>;
-}
-
-parameter_types! {
 	pub const BrokerId: u32 = BROKER_ID;
 }
 
@@ -1029,9 +1020,24 @@ impl coretime::Config for Runtime {
 	type WeightInfo = weights::runtime_common_coretime::WeightInfo<Runtime>;
 }
 
+parameter_types! {
+	pub const OnDemandTrafficDefaultValue: FixedU128 = FixedU128::from_u32(1);
+}
+
+impl parachains_assigner_on_demand::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type TrafficDefaultValue = OnDemandTrafficDefaultValue;
+	type WeightInfo = weights::runtime_parachains_assigner_on_demand::WeightInfo<Runtime>;
+}
+
 impl parachains_assigner_parachains::Config for Runtime {}
 
-impl parachains_assigner_coretime::Config for Runtime {}
+impl parachains_assigner_coretime::Config for Runtime {
+	fn assign_core_weight(s: u32) -> Weight {
+		weights::runtime_common_coretime::WeightInfo::<Runtime>::assign_core(s)
+	}
+}
 
 impl parachains_initializer::Config for Runtime {
 	type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
@@ -1619,6 +1625,7 @@ pub mod migrations {
 		parachains_scheduler::migration::v1::MigrateToV1<Runtime>,
 		parachains_scheduler::migration::v2::MigrateToV2<Runtime>,
 		parachains_scheduler::migration::assignment_version::MigrateAssignment<Runtime, SchedulerAssignmentMigration<Runtime>>,
+		parachains_assigner_coretime::migration::v_coretime::MigrateToCoretime<Runtime>,
 		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
 		paras_registrar::migration::MigrateToV1<Runtime, ()>,

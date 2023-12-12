@@ -53,7 +53,9 @@ use primitives::{
 	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature, PARACHAIN_KEY_TYPE_ID,
 };
 use runtime_common::{
-	assigned_slots, auctions, crowdloan,
+	assigned_slots, auctions, coretime,
+	coretime::WeightInfo as CoretimeWeightInfo,
+	crowdloan,
 	elections::OnChainAccuracy,
 	identity_migrator, impl_runtime_weights,
 	impls::{
@@ -115,7 +117,7 @@ use sp_runtime::traits::Get;
 pub use sp_runtime::BuildStorage;
 
 /// Constant values used within the runtime.
-use westend_runtime_constants::{currency::*, fee::*, time::*};
+use westend_runtime_constants::{currency::*, fee::*, system_parachain::BROKER_ID, time::*};
 
 mod bag_thresholds;
 mod weights;
@@ -1220,6 +1222,18 @@ impl parachains_scheduler::Config for Runtime {
 }
 
 parameter_types! {
+	pub const BrokerId: u32 = BROKER_ID;
+}
+
+impl coretime::Config for Runtime {
+	type RuntimeOrigin = RuntimeOrigin;
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type BrokerId = BrokerId;
+	type WeightInfo = weights::runtime_common_coretime::WeightInfo<Runtime>;
+}
+
+parameter_types! {
 	pub const OnDemandTrafficDefaultValue: FixedU128 = FixedU128::from_u32(1);
 }
 
@@ -1230,9 +1244,13 @@ impl parachains_assigner_on_demand::Config for Runtime {
 	type WeightInfo = weights::runtime_parachains_assigner_on_demand::WeightInfo<Runtime>;
 }
 
-impl parachains_assigner_coretime::Config for Runtime {}
-
 impl parachains_assigner_parachains::Config for Runtime {}
+
+impl parachains_assigner_coretime::Config for Runtime {
+	fn assign_core_weight(s: u32) -> Weight {
+		weights::runtime_common_coretime::WeightInfo::<Runtime>::assign_core(s)
+	}
+}
 
 impl parachains_initializer::Config for Runtime {
 	type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
@@ -1510,6 +1528,7 @@ construct_runtime! {
 		Auctions: auctions::{Pallet, Call, Storage, Event<T>} = 63,
 		Crowdloan: crowdloan::{Pallet, Call, Storage, Event<T>} = 64,
 		AssignedSlots: assigned_slots::{Pallet, Call, Storage, Event<T>, Config<T>} = 65,
+		Coretime: coretime::{Pallet, Call, Event<T>} = 66,
 
 		// Pallet for sending XCM.
 		XcmPallet: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config<T>} = 99,
@@ -1661,6 +1680,7 @@ pub mod migrations {
 			Runtime,
 			SchedulerAssignmentMigration<Runtime>,
 		>,
+		parachains_assigner_coretime::migration::v_coretime::MigrateToCoretime<Runtime>,
 		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
 		paras_registrar::migration::MigrateToV1<Runtime, ()>,
