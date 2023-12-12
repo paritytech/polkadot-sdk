@@ -395,6 +395,13 @@ macro_rules! impl_accounts_helpers_for_parachain {
 					});
 				}
 
+				/// Fund a sovereign account of sibling para.
+				pub fn fund_para_sovereign(sibling_para_id: $crate::impls::ParaId, balance: $crate::impls::Balance) {
+					let sibling_location = Self::sibling_location_of(sibling_para_id);
+					let sovereign_account = Self::sovereign_account_id_of(sibling_location);
+					Self::fund_accounts(vec![(sovereign_account.into(), balance)])
+				}
+
 				/// Return local sovereign account of `para_id` on other `network_id`
 				pub fn sovereign_account_of_parachain_on_other_global_consensus(
 					network_id: $crate::impls::NetworkId,
@@ -796,12 +803,22 @@ macro_rules! impl_xcm_helpers_for_parachain {
 	( $chain:ident ) => {
 		$crate::impls::paste::paste! {
 			impl<N: $crate::impls::Network> $chain<N> {
-				/// Set XCM version for destination
+				/// Set XCM version for destination.
 				pub fn force_xcm_version(dest: $crate::impls::MultiLocation, version: $crate::impls::XcmVersion) {
 					<Self as $crate::impls::TestExt>::execute_with(|| {
 						$crate::impls::assert_ok!(<Self as [<$chain ParaPallet>]>::PolkadotXcm::force_xcm_version(
 							<Self as $crate::impls::Chain>::RuntimeOrigin::root(),
 							$crate::impls::bx!(dest),
+							version,
+						));
+					});
+				}
+
+				/// Set default/safe XCM version for runtime.
+				pub fn force_default_xcm_version(version: Option<$crate::impls::XcmVersion>) {
+					<Self as $crate::impls::TestExt>::execute_with(|| {
+						$crate::impls::assert_ok!(<Self as [<$chain ParaPallet>]>::PolkadotXcm::force_default_xcm_version(
+							<Self as $crate::impls::Chain>::RuntimeOrigin::root(),
 							version,
 						));
 					});
