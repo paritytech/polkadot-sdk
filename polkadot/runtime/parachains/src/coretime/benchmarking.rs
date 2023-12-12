@@ -26,6 +26,7 @@ use pallet_broker::CoreIndex as BrokerCoreIndex;
 
 #[benchmarks]
 mod benchmarks {
+    use assigner_coretime::PartsOf57600;
 	use super::*;
 
 	#[benchmark]
@@ -50,12 +51,14 @@ mod benchmarks {
 		let mut assignments: Vec<(CoreAssignment, PartsOf57600)> = vec![0u16; s as usize - 1]
 			.into_iter()
 			.enumerate()
-			.map(|(index, parts)| (CoreAssignment::Task(index as u32), parts))
+			.map(|(index, parts)| {
+				(CoreAssignment::Task(index as u32), PartsOf57600::new_saturating(parts))
+			})
 			.collect();
 		// Parts must add up to exactly 57600. Here we add all the parts in one assignment, as
 		// it won't effect the weight and splitting up the parts into even groupings may not
 		// work for every value `s`.
-		assignments.push((CoreAssignment::Task(s as u32), 57600u16));
+		assignments.push((CoreAssignment::Task(s as u32), PartsOf57600::FULL));
 
 		let core_index: BrokerCoreIndex = 0;
 

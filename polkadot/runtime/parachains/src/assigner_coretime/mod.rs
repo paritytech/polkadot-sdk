@@ -57,6 +57,10 @@ impl PartsOf57600 {
 	pub const ZERO: Self = Self(0);
 	pub const FULL: Self = Self(57600);
 
+	pub fn new_saturating(v: u16) -> Self {
+		Self::ZERO.saturating_add(Self(v))
+	}
+
 	pub fn is_full(&self) -> bool {
 		*self == Self::FULL
 	}
