@@ -23,7 +23,7 @@ jobs:
           - { name: glutton-westend, package: glutton-westend-runtime, path: cumulus/parachains/runtimes/glutton/glutton-westend }
         build_config:
           # Release build has logging disabled and no dev features
-          - { type: on-chain-release, opts: --features on-chain-release-build } 
+          - { type: on-chain-release, opts: --features on-chain-release-build }
           # Debug build has logging enabled and developer features
           - { type: dev-debug-build, opts: --features try-runtime }
 
