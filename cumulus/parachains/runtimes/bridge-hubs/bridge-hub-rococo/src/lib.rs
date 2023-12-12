@@ -853,7 +853,7 @@ impl_runtime_apis! {
 				type XcmConfig = xcm_config::XcmConfig;
 				type AccountIdConverter = xcm_config::LocationToAccountId;
 				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
-				xcm_config::XcmConfig,
+					xcm_config::XcmConfig,
 					ExistentialDepositMultiAsset,
 					xcm_config::PriceForParentDelivery,
 				>;
@@ -933,6 +933,21 @@ impl_runtime_apis! {
 
 				fn export_message_origin_and_destination(
 				) -> Result<(MultiLocation, NetworkId, InteriorMultiLocation), BenchmarkError> {
+					// save XCM version for remote bridge hub
+					let _ = PolkadotXcm::force_xcm_version(
+						RuntimeOrigin::root(),
+						Box::new(bridge_to_westend_config::BridgeHubWestendLocation::get()),
+						XCM_VERSION,
+					).map_err(|e| {
+						log::error!(
+							"Failed to dispatch `force_xcm_version({:?}, {:?}, {:?})`, error: {:?}",
+							RuntimeOrigin::root(),
+							bridge_to_westend_config::BridgeHubWestendLocation::get(),
+							XCM_VERSION,
+							e
+						);
+						BenchmarkError::Stop("XcmVersion was not stored!")
+					})?;
 					Ok(
 						(
 							bridge_to_westend_config::FromAssetHubRococoToAssetHubWestendRoute::get().location,

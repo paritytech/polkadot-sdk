@@ -1883,6 +1883,7 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "rococo-westend-system-emulated-network",
+ "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
 ]
@@ -2048,6 +2049,7 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "rococo-westend-system-emulated-network",
+ "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
 ]
