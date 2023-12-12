@@ -386,7 +386,7 @@ impl<T: Config> Pallet<T> {
 		ensure!(
 			Self::queued_solution().map_or(true, |q: ReadySolution<_, _>| raw_solution
 				.score
-				.strict_threshold_better(q.score, T::BetterUnsignedThreshold::get())),
+				.strict_threshold_better(q.score, sp_runtime::Perbill::zero())),
 			Error::<T>::PreDispatchWeakSubmission,
 		);
 
@@ -1025,7 +1025,7 @@ mod tests {
 		bounded_vec,
 		offchain::storage_lock::{BlockAndTime, StorageLock},
 		traits::{Dispatchable, ValidateUnsigned, Zero},
-		ModuleError, PerU16, Perbill,
+		ModuleError, PerU16,
 	};
 
 	type Assignment = crate::unsigned::Assignment<Runtime>;
@@ -1360,7 +1360,6 @@ mod tests {
 			.desired_targets(1)
 			.add_voter(7, 2, bounded_vec![10])
 			.add_voter(8, 5, bounded_vec![10])
-			.better_unsigned_threshold(Perbill::from_percent(50))
 			.build_and_execute(|| {
 				roll_to_unsigned();
 				assert!(MultiPhase::current_phase().is_unsigned());
@@ -1368,12 +1367,15 @@ mod tests {
 
 				// an initial solution
 				let result = ElectionResult {
-					// note: This second element of backing stake is not important here.
-					winners: vec![(10, 10)],
-					assignments: vec![Assignment {
-						who: 10,
-						distribution: vec![(10, PerU16::one())],
-					}],
+					winners: vec![(10, 12)],
+					assignments: vec![
+						Assignment { who: 10, distribution: vec![(10, PerU16::one())] },
+						Assignment {
+							who: 7,
+							// note: this percent doesn't even matter, in solution it is 100%.
+							distribution: vec![(10, PerU16::one())],
+						},
+					],
 				};
 
 				let RoundSnapshot { voters, targets } = MultiPhase::snapshot().unwrap();
@@ -1394,19 +1396,16 @@ mod tests {
 					Box::new(solution),
 					witness
 				));
-				assert_eq!(MultiPhase::queued_solution().unwrap().score.minimal_stake, 10);
+				assert_eq!(MultiPhase::queued_solution().unwrap().score.minimal_stake, 12);
 
-				// trial 1: a solution who's score is only 2, i.e. 20% better in the first element.
+				// trial 1: a solution who's minimal stake is 10, i.e. 16% worse than the first
+				// solution.
 				let result = ElectionResult {
-					winners: vec![(10, 12)],
-					assignments: vec![
-						Assignment { who: 10, distribution: vec![(10, PerU16::one())] },
-						Assignment {
-							who: 7,
-							// note: this percent doesn't even matter, in solution it is 100%.
-							distribution: vec![(10, PerU16::one())],
-						},
-					],
+					winners: vec![(10, 10)],
+					assignments: vec![Assignment {
+						who: 10,
+						distribution: vec![(10, PerU16::one())],
+					}],
 				};
 				let (raw, score, _, _) = Miner::<Runtime>::prepare_election_result_with_snapshot(
 					result,
@@ -1416,15 +1415,16 @@ mod tests {
 				)
 				.unwrap();
 				let solution = RawSolution { solution: raw, score, round: MultiPhase::round() };
-				// 12 is not 50% more than 10
-				assert_eq!(solution.score.minimal_stake, 12);
+				// 10 is not better than 12
+				assert_eq!(solution.score.minimal_stake, 10);
 				assert_noop!(
 					MultiPhase::unsigned_pre_dispatch_checks(&solution),
 					Error::<Runtime>::PreDispatchWeakSubmission,
 				);
 				// submitting this will actually panic.
 
-				// trial 2: a solution who's score is only 7, i.e. 70% better in the first element.
+				// trial 2: a solution who's minimal stake is 17, i.e. 5 better than the first
+				// solution.
 				let result = ElectionResult {
 					winners: vec![(10, 12)],
 					assignments: vec![

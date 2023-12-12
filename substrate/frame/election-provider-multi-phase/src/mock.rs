@@ -21,7 +21,7 @@ use frame_election_provider_support::{
 	bounds::{DataProviderBounds, ElectionBounds},
 	data_provider, onchain, ElectionDataProvider, NposSolution, SequentialPhragmen,
 };
-pub use frame_support::{assert_noop, assert_ok, derive_impl, pallet_prelude::GetDefault};
+pub use frame_support::derive_impl;
 use frame_support::{
 	parameter_types,
 	traits::{ConstU32, Hooks},
@@ -292,7 +292,6 @@ parameter_types! {
 	pub static SignedMaxWeight: Weight = BlockWeights::get().max_block;
 	pub static MinerTxPriority: u64 = 100;
 	pub static BetterSignedThreshold: Perbill = Perbill::zero();
-	pub static BetterUnsignedThreshold: Perbill = Perbill::zero();
 	pub static OffchainRepeat: BlockNumber = 5;
 	pub static MinerMaxWeight: Weight = BlockWeights::get().max_block;
 	pub static MinerMaxLength: u32 = 256;
@@ -390,7 +389,6 @@ impl crate::Config for Runtime {
 	type EstimateCallFee = frame_support::traits::ConstU32<8>;
 	type SignedPhase = SignedPhase;
 	type UnsignedPhase = UnsignedPhase;
-	type BetterUnsignedThreshold = BetterUnsignedThreshold;
 	type BetterSignedThreshold = BetterSignedThreshold;
 	type OffchainRepeat = OffchainRepeat;
 	type MinerTxPriority = MinerTxPriority;
@@ -529,10 +527,7 @@ impl ExtBuilder {
 		<BetterSignedThreshold>::set(p);
 		self
 	}
-	pub fn better_unsigned_threshold(self, p: Perbill) -> Self {
-		<BetterUnsignedThreshold>::set(p);
-		self
-	}
+
 	pub fn phases(self, signed: BlockNumber, unsigned: BlockNumber) -> Self {
 		<SignedPhase>::set(signed);
 		<UnsignedPhase>::set(unsigned);
