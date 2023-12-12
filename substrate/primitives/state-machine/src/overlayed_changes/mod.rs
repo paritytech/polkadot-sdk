@@ -498,7 +498,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 
 	/// Call this when control returns from the runtime.
 	///
-	/// This commits all dangling transaction left open by the runtime.
+	/// This rollbacks all dangling transaction left open by the runtime.
 	/// Calling this while outside the runtime will return an error.
 	pub fn exit_runtime(&mut self) -> Result<(), NotInRuntime> {
 		self.top.exit_runtime()?;
