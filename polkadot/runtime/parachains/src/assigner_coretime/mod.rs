@@ -59,12 +59,25 @@ impl PartsOf57600 {
 	pub const ZERO: Self = Self(0);
 	pub const FULL: Self = Self(57600);
 
+	pub fn is_full(&self) -> bool {
+		*self == Self::FULL
+	}
+
 	pub fn saturating_add(self, rhs: Self) -> Self {
 		Self(self.0.saturating_add(rhs.0))
 	}
 
 	pub fn saturating_sub(self, rhs: Self) -> Self {
 		Self(self.0.saturating_sub(rhs.0))
+	}
+
+	pub fn checked_add(self, rhs: Self) -> Option<Self> {
+		let inner = self.0.saturating_add(rhs.0);
+		if inner > 57600 {
+			None
+		} else {
+			Some(Self(inner))
+		}
 	}
 }
 
@@ -468,14 +481,15 @@ impl<T: Config> Pallet<T> {
 		let parts_sum = assignments
 			.iter()
 			.map(|assignment| assignment.1)
-			.fold(PartsOf57600::ZERO, |sum, parts| sum.saturating_add(parts));
-		ensure!(parts_sum <= PartsOf57600::FULL, Error::<T>::OverScheduled);
-		ensure!(parts_sum >= PartsOf57600::FULL, Error::<T>::UnderScheduled);
+			.try_fold(PartsOf57600::ZERO, |sum, parts| {
+				sum.checked_add(parts).ok_or(Error::<T>::OverScheduled)
+			})?;
+		ensure!(parts_sum.is_full(), Error::<T>::UnderScheduled);
 
 		CoreDescriptors::<T>::mutate(core_idx, |core_descriptor| {
 			let new_queue = match core_descriptor.queue {
 				Some(queue) => {
-					ensure!(begin > queue.last, Error::<T>::DisallowedInsert,);
+					ensure!(begin > queue.last, Error::<T>::DisallowedInsert);
 
 					CoreSchedules::<T>::try_mutate((queue.last, core_idx), |schedule| {
 						if let Some(schedule) = schedule.as_mut() {
