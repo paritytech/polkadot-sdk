@@ -3,7 +3,7 @@
   "id": "staking-rococo-dev",
   "chainType": "Local",
   "bootNodes": [
-    "/ip4/127.0.0.1/tcp/30333/p2p/12D3KooWAXSiayVLdC2Yw2M125YEkuLdTV2mqwsGn1tYrFWaBRUZ"
+    "/ip4/127.0.0.1/tcp/30333/p2p/12D3KooWAGnBQ85Su6PWhJeMev7sQZhXAWmWtqBPU2BQyZKZFfoE"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
@@ -13,7 +13,7 @@
     "tokenSymbol": "ROC"
   },
   "relay_chain": "rococo-dev",
-  "para_id": 1000,
+  "para_id": 2000,
   "codeSubstitutes": {},
   "genesis": {
     "raw": {

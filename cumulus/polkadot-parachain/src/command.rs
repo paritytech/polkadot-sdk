@@ -383,7 +383,6 @@ macro_rules! construct_partials {
 			Runtime::AssetHubKusama |
 			Runtime::AssetHubRococo |
 			Runtime::AssetHubWestend |
-			Runtime::StakingRococo |
 			Runtime::BridgeHub(_) |
 			Runtime::CollectivesPolkadot |
 			Runtime::CollectivesWestend => {
@@ -407,7 +406,7 @@ macro_rules! construct_partials {
 				)?;
 				$code
 			},
-			Runtime::Penpal(_) | Runtime::Default => {
+			Runtime::StakingRococo | Runtime::Penpal(_) | Runtime::Default => {
 				let $partials = new_partial::<RuntimeApi, _>(
 					&$config,
 					crate::service::rococo_parachain_build_import_queue,
@@ -435,7 +434,6 @@ macro_rules! construct_async_run {
 			Runtime::AssetHubWestend |
 			Runtime::AssetHubRococo |
 			Runtime::AssetHubKusama |
-			Runtime::StakingRococo |
 			Runtime::CollectivesPolkadot |
 			Runtime::CollectivesWestend |
 			Runtime::BridgeHub(_) => {
@@ -471,7 +469,7 @@ macro_rules! construct_async_run {
 					{ $( $code )* }.map(|v| (v, task_manager))
 				})
 			},
-			Runtime::Penpal(_) | Runtime::Default => {
+			Runtime::StakingRococo | Runtime::Penpal(_) | Runtime::Default => {
 				runner.async_run(|$config| {
 					let $components = new_partial::<
 						RuntimeApi,
