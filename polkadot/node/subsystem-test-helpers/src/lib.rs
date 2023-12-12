@@ -19,7 +19,7 @@
 #![warn(missing_docs)]
 
 use polkadot_erasure_coding::{branches, obtain_chunks_v1 as obtain_chunks};
-use polkadot_node_primitives::{AvailableData, BlockData, ErasureChunk, PoV, Proof};
+use polkadot_node_primitives::{AvailableData, ErasureChunk, Proof};
 use polkadot_node_subsystem::{
 	messages::AllMessages, overseer, FromOrchestra, OverseerSignal, SpawnGlue, SpawnedSubsystem,
 	SubsystemError, SubsystemResult, TrySendError,
@@ -443,7 +443,7 @@ impl Future for Yield {
 	}
 }
 
-// Helper for chunking available data.
+/// Helper for chunking available data.
 pub fn derive_erasure_chunks_with_proofs_and_root(
 	n_validators: usize,
 	available_data: &AvailableData,
