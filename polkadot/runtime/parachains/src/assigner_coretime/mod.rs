@@ -64,7 +64,12 @@ impl PartsOf57600 {
 	}
 
 	pub fn saturating_add(self, rhs: Self) -> Self {
-		Self(self.0.saturating_add(rhs.0))
+		let inner = self.0.saturating_add(rhs.0);
+		if inner > 57600 {
+			Self(57600)
+		} else {
+			Self(inner)
+		}
 	}
 
 	pub fn saturating_sub(self, rhs: Self) -> Self {
@@ -101,6 +106,14 @@ impl std::ops::Mul<u16> for PartsOf57600 {
 	fn mul(self, rhs: u16) -> Self {
 		Self(self.0 * rhs)
 	}
+}
+
+#[test]
+fn parts_of_57600_ops() {
+	assert!(PartsOf57600::FULL.saturating_add(PartsOf57600(1)).is_full());
+	assert_eq!(PartsOf57600::ZERO.saturating_sub(PartsOf57600(1)), PartsOf57600::ZERO);
+	assert_eq!(PartsOf57600::FULL.checked_add(PartsOf57600(0)), Some(PartsOf57600::FULL));
+	assert_eq!(PartsOf57600::FULL.checked_add(PartsOf57600(1)), None);
 }
 
 /// Assignments as they are scheduled by block number
