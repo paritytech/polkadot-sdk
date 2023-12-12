@@ -656,13 +656,24 @@ pub(crate) fn buy_limited_execution<C>(
 pub(crate) fn new_test_ext_with_balances(
 	balances: Vec<(AccountId, Balance)>,
 ) -> sp_io::TestExternalities {
+	new_test_ext_with_balances_and_xcm_version(
+		balances,
+		// By default set actual latest XCM version
+		Some(XCM_VERSION),
+	)
+}
+
+pub(crate) fn new_test_ext_with_balances_and_xcm_version(
+	balances: Vec<(AccountId, Balance)>,
+	safe_xcm_version: Option<XcmVersion>,
+) -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	pallet_balances::GenesisConfig::<Test> { balances }
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-	pallet_xcm::GenesisConfig::<Test> { safe_xcm_version: Some(2), ..Default::default() }
+	pallet_xcm::GenesisConfig::<Test> { safe_xcm_version, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 
