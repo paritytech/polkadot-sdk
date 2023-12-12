@@ -264,8 +264,7 @@ impl pallet_babe::Config for Runtime {
 	type MaxAuthorities = MaxAuthorities;
 	type MaxNominators = MaxNominators;
 
-	type KeyOwnerProof =
-		<Historical as KeyOwnerProofSystem<(KeyTypeId, pallet_babe::AuthorityId)>>::Proof;
+	type KeyOwnerProof = sp_session::MembershipProof;
 
 	type EquivocationReportSystem =
 		pallet_babe::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
@@ -317,7 +316,7 @@ impl pallet_beefy::Config for Runtime {
 	type MaxSetIdSessionEntries = BeefySetIdSessionEntries;
 	type OnNewValidatorSet = BeefyMmrLeaf;
 	type WeightInfo = ();
-	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, BeefyId)>>::Proof;
+	type KeyOwnerProof = sp_session::MembershipProof;
 	type EquivocationReportSystem =
 		pallet_beefy::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
 }
@@ -673,6 +672,7 @@ parameter_types! {
 	pub const MaxNominators: u32 = 64;
 	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
+	pub const MaxControllersInDeprecationBatch: u32 = 751;
 }
 
 impl pallet_staking::Config for Runtime {
@@ -687,7 +687,7 @@ impl pallet_staking::Config for Runtime {
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;
-	type AdminOrigin = EnsureRoot<AccountId>;
+	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
 	type SessionInterface = Self;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type MaxExposurePageSize = MaxExposurePageSize;
@@ -700,6 +700,7 @@ impl pallet_staking::Config for Runtime {
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<{ MaxNominations::get() }>;
 	type MaxUnlockingChunks = frame_support::traits::ConstU32<32>;
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
+	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type BenchmarkingConfig = runtime_common::StakingBenchmarkingConfig;
 	type EventListeners = NominationPools;
 	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
@@ -801,7 +802,7 @@ impl pallet_grandpa::Config for Runtime {
 	type MaxNominators = MaxNominators;
 	type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
 
-	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
+	type KeyOwnerProof = sp_session::MembershipProof;
 
 	type EquivocationReportSystem =
 		pallet_grandpa::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
@@ -949,6 +950,7 @@ impl pallet_vesting::Config for Runtime {
 	type MinVestedTransfer = MinVestedTransfer;
 	type WeightInfo = weights::pallet_vesting::WeightInfo<Runtime>;
 	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
+	type BlockNumberProvider = System;
 	const MAX_VESTING_SCHEDULES: u32 = 28;
 }
 

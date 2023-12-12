@@ -23,7 +23,7 @@ ark-ed-on-bls12-381-bandersnatch-ext = { version = "0.4.1", default-features = f
 ark-ed-on-bls12-381-bandersnatch = { version = "0.4.0", default-features = false, optional = true }
 ark-ed-on-bls12-377-ext = { version = "0.4.1", default-features = false, optional = true }
 ark-ed-on-bls12-377 = { version = "0.4.0", default-features = false, optional = true }
-ark-scale = { version = "0.0.11", default-features = false, features = ["hazmat"], optional = true }
+ark-scale = { version = "0.0.12", default-features = false, features = ["hazmat"], optional = true }
 sp-runtime-interface = { path = "../../runtime-interface", default-features = false, optional = true }
 sp-std = { path = "../../std", default-features = false, optional = true }
 

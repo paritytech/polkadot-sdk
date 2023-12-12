@@ -13,10 +13,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 proc-macro = true
 
 [dependencies]
-syn = { version = "2.0.39", features = ["extra-traits", "full"] }
+syn = { version = "2.0.40", features = ["extra-traits", "full"] }
 quote = "1.0.28"
 proc-macro2 = "1.0.56"
-proc-macro-crate = "2.0.0"
+proc-macro-crate = "2.0.1"
 expander = "2.0.0"
 
 [dev-dependencies]
