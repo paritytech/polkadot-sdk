@@ -531,24 +531,13 @@ impl<AccountId> Inspect<AccountId> for () {
 	fn balance(_: &AccountId) -> Self::Balance {
 		0
 	}
-	fn reducible_balance(
-		_: &AccountId,
-		_: Preservation,
-		_: Fortitude,
-	) -> Self::Balance {
+	fn reducible_balance(_: &AccountId, _: Preservation, _: Fortitude) -> Self::Balance {
 		0
 	}
-	fn can_deposit(
-		_: &AccountId,
-		_: Self::Balance,
-		_: Provenance,
-	) -> DepositConsequence {
+	fn can_deposit(_: &AccountId, _: Self::Balance, _: Provenance) -> DepositConsequence {
 		DepositConsequence::Success
 	}
-	fn can_withdraw(
-		_: &AccountId,
-		_: Self::Balance,
-	) -> WithdrawConsequence<Self::Balance> {
+	fn can_withdraw(_: &AccountId, _: Self::Balance) -> WithdrawConsequence<Self::Balance> {
 		WithdrawConsequence::Success
 	}
 }
