@@ -235,7 +235,7 @@ fn invoke_riscv_build(current_dir: &Path) -> Result<()> {
 	let stderr = String::from_utf8_lossy(&build_res.stderr);
 
 	if stderr.contains("'rve-nightly' is not installed") {
-		eprintln!("RISC-V toolchain is not installed.\nDownload and install toolchain from https://github.com/paritytech/rustc-rv32e-toolchain/releases.");
+		eprintln!("RISC-V toolchain is not installed.\nDownload and install toolchain from https://github.com/paritytech/rustc-rv32e-toolchain.");
 		eprintln!("{}", stderr);
 	} else {
 		eprintln!("{}", stderr);
