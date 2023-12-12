@@ -309,9 +309,6 @@
 <a href="#309" id="309">309</a>
 <a href="#310" id="310">310</a>
 <a href="#311" id="311">311</a>
-<a href="#312" id="312">312</a>
-<a href="#313" id="313">313</a>
-<a href="#314" id="314">314</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -343,7 +340,8 @@
 <span class="kw">use </span>parachains_common::{
 	impls::ToStakingPot,
 	xcm_config::{
-		AllSiblingSystemParachains, ConcreteAssetFromSystem, RelayOrOtherSystemParachains,
+		AllSiblingSystemParachains, ConcreteAssetFromSystem, ParentRelayOrSiblingParachains,
+		RelayOrOtherSystemParachains,
 	},
 	TREASURY_PALLET_ID,
 };
@@ -429,10 +427,6 @@
 		MultiLocation { parents: <span class="number">1</span>, interior: Here } |
 		MultiLocation { parents: <span class="number">1</span>, interior: X1(Plurality { .. }) }
 	};
-	<span class="kw">pub type </span>ParentOrSiblings: <span class="kw">impl </span>Contains&lt;MultiLocation&gt; = {
-		MultiLocation { parents: <span class="number">1</span>, interior: Here } |
-		MultiLocation { parents: <span class="number">1</span>, interior: X1(<span class="kw">_</span>) }
-	};
 }
 
 <span class="doccomment">/// A call filter for the XCM Transact instruction. This is a temporary measure until we properly
@@ -515,7 +509,7 @@
 						Equals&lt;RelayTreasuryLocation&gt;,
 					)&gt;,
 					<span class="comment">// Subscriptions for version tracking are OK.
-					</span>AllowSubscriptionsFrom&lt;ParentOrSiblings&gt;,
+					</span>AllowSubscriptionsFrom&lt;ParentRelayOrSiblingParachains&gt;,
 				),
 				UniversalLocation,
 				ConstU32&lt;<span class="number">8</span>&gt;,

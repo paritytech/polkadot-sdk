@@ -217,6 +217,21 @@
 <a href="#217" id="217">217</a>
 <a href="#218" id="218">218</a>
 <a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -355,6 +370,21 @@
 			</span><span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
 		};
 		<span class="macro">matches!</span>(asset.id, Concrete(id) <span class="kw">if </span>id == AssetLocation::get()) &amp;&amp; is_system
+	}
+}
+
+<span class="doccomment">/// Filter to check if a given location is the parent Relay Chain or a sibling parachain.
+///
+/// This type should only be used within the context of a parachain, since it does not verify that
+/// the parent is indeed a Relay Chain.
+</span><span class="kw">pub struct </span>ParentRelayOrSiblingParachains;
+<span class="kw">impl </span>Contains&lt;MultiLocation&gt; <span class="kw">for </span>ParentRelayOrSiblingParachains {
+	<span class="kw">fn </span>contains(location: <span class="kw-2">&amp;</span>MultiLocation) -&gt; bool {
+		<span class="macro">matches!</span>(
+			location,
+			MultiLocation { parents: <span class="number">1</span>, interior: Here } |
+				MultiLocation { parents: <span class="number">1</span>, interior: X1(Parachain(<span class="kw">_</span>)) }
+		)
 	}
 }
 

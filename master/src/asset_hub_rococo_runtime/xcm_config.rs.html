@@ -837,10 +837,6 @@
 <a href="#837" id="837">837</a>
 <a href="#838" id="838">838</a>
 <a href="#839" id="839">839</a>
-<a href="#840" id="840">840</a>
-<a href="#841" id="841">841</a>
-<a href="#842" id="842">842</a>
-<a href="#843" id="843">843</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -876,7 +872,7 @@
 	impls::ToStakingPot,
 	xcm_config::{
 		AllSiblingSystemParachains, AssetFeeAsExistentialDepositMultiplier,
-		ConcreteAssetFromSystem, RelayOrOtherSystemParachains,
+		ConcreteAssetFromSystem, ParentRelayOrSiblingParachains, RelayOrOtherSystemParachains,
 	},
 	TREASURY_PALLET_ID,
 };
@@ -1080,10 +1076,6 @@
 	<span class="kw">pub type </span>ParentOrParentsPlurality: <span class="kw">impl </span>Contains&lt;MultiLocation&gt; = {
 		MultiLocation { parents: <span class="number">1</span>, interior: Here } |
 		MultiLocation { parents: <span class="number">1</span>, interior: X1(Plurality { .. }) }
-	};
-	<span class="kw">pub type </span>ParentOrSiblings: <span class="kw">impl </span>Contains&lt;MultiLocation&gt; = {
-		MultiLocation { parents: <span class="number">1</span>, interior: Here } |
-		MultiLocation { parents: <span class="number">1</span>, interior: X1(<span class="kw">_</span>) }
 	};
 }
 
@@ -1329,7 +1321,7 @@
 						Equals&lt;bridging::SiblingBridgeHub&gt;,
 					)&gt;,
 					<span class="comment">// Subscriptions for version tracking are OK.
-					</span>AllowSubscriptionsFrom&lt;ParentOrSiblings&gt;,
+					</span>AllowSubscriptionsFrom&lt;ParentRelayOrSiblingParachains&gt;,
 				),
 				UniversalLocation,
 				ConstU32&lt;<span class="number">8</span>&gt;,

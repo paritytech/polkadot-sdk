@@ -351,9 +351,6 @@
 <a href="#351" id="351">351</a>
 <a href="#352" id="352">352</a>
 <a href="#353" id="353">353</a>
-<a href="#354" id="354">354</a>
-<a href="#355" id="355">355</a>
-<a href="#356" id="356">356</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -384,7 +381,8 @@
 <span class="kw">use </span>parachains_common::{
 	impls::ToStakingPot,
 	xcm_config::{
-		AllSiblingSystemParachains, ConcreteAssetFromSystem, RelayOrOtherSystemParachains,
+		AllSiblingSystemParachains, ConcreteAssetFromSystem, ParentRelayOrSiblingParachains,
+		RelayOrOtherSystemParachains,
 	},
 };
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::Sibling;
@@ -493,10 +491,6 @@
 		MultiLocation { parents: <span class="number">1</span>, interior: Here } |
 		MultiLocation { parents: <span class="number">1</span>, interior: X1(Plurality { .. }) }
 	};
-	<span class="kw">pub type </span>ParentOrSiblings: <span class="kw">impl </span>Contains&lt;MultiLocation&gt; = {
-		MultiLocation { parents: <span class="number">1</span>, interior: Here } |
-		MultiLocation { parents: <span class="number">1</span>, interior: X1(<span class="kw">_</span>) }
-	};
 }
 
 <span class="doccomment">/// A call filter for the XCM Transact instruction. This is a temporary measure until we properly
@@ -598,7 +592,7 @@
 					<span class="comment">// Parent and its pluralities (i.e. governance bodies) get free execution.
 					</span>AllowExplicitUnpaidExecutionFrom&lt;ParentOrParentsPlurality&gt;,
 					<span class="comment">// Subscriptions for version tracking are OK.
-					</span>AllowSubscriptionsFrom&lt;ParentOrSiblings&gt;,
+					</span>AllowSubscriptionsFrom&lt;ParentRelayOrSiblingParachains&gt;,
 				),
 				UniversalLocation,
 				ConstU32&lt;<span class="number">8</span>&gt;,
