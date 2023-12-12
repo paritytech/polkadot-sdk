@@ -1143,6 +1143,7 @@
 <a href="#1143" id="1143">1143</a>
 <a href="#1144" id="1144">1144</a>
 <a href="#1145" id="1145">1145</a>
+<a href="#1146" id="1146">1146</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1501,6 +1502,7 @@
 	<span class="kw">type </span>TargetList = pallet_staking::UseValidatorsMap&lt;Runtime&gt;;
 	<span class="kw">type </span>NominationsQuota = pallet_staking::FixedNominationsQuota&lt;MAX_QUOTA_NOMINATIONS&gt;;
 	<span class="kw">type </span>MaxUnlockingChunks = frame_support::traits::ConstU32&lt;<span class="number">32</span>&gt;;
+	<span class="kw">type </span>MaxControllersInDeprecationBatch = ConstU32&lt;<span class="number">5900</span>&gt;;
 	<span class="kw">type </span>HistoryDepth = frame_support::traits::ConstU32&lt;<span class="number">84</span>&gt;;
 	<span class="kw">type </span>BenchmarkingConfig = runtime_common::StakingBenchmarkingConfig;
 	<span class="kw">type </span>EventListeners = ();

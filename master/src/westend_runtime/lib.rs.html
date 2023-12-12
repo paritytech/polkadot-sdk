@@ -2534,6 +2534,8 @@
 <a href="#2534" id="2534">2534</a>
 <a href="#2535" id="2535">2535</a>
 <a href="#2536" id="2536">2536</a>
+<a href="#2537" id="2537">2537</a>
+<a href="#2538" id="2538">2538</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3208,6 +3210,7 @@
 	</span><span class="kw">pub const </span>MaxNominators: u32 = <span class="number">64</span>;
 	<span class="kw">pub const </span>OffendingValidatorsThreshold: Perbill = Perbill::from_percent(<span class="number">17</span>);
 	<span class="kw">pub const </span>MaxNominations: u32 = &lt;NposCompactSolution16 <span class="kw">as </span>frame_election_provider_support::NposSolution&gt;::LIMIT <span class="kw">as </span>u32;
+	<span class="kw">pub const </span>MaxControllersInDeprecationBatch: u32 = <span class="number">751</span>;
 }
 
 <span class="kw">impl </span>pallet_staking::Config <span class="kw">for </span>Runtime {
@@ -3222,7 +3225,7 @@
 	<span class="kw">type </span>SessionsPerEra = SessionsPerEra;
 	<span class="kw">type </span>BondingDuration = BondingDuration;
 	<span class="kw">type </span>SlashDeferDuration = SlashDeferDuration;
-	<span class="kw">type </span>AdminOrigin = EnsureRoot&lt;AccountId&gt;;
+	<span class="kw">type </span>AdminOrigin = EitherOf&lt;EnsureRoot&lt;AccountId&gt;, StakingAdmin&gt;;
 	<span class="kw">type </span>SessionInterface = <span class="self">Self</span>;
 	<span class="kw">type </span>EraPayout = pallet_staking::ConvertCurve&lt;RewardCurve&gt;;
 	<span class="kw">type </span>MaxExposurePageSize = MaxExposurePageSize;
@@ -3235,6 +3238,7 @@
 	<span class="kw">type </span>NominationsQuota = pallet_staking::FixedNominationsQuota&lt;{ MaxNominations::get() }&gt;;
 	<span class="kw">type </span>MaxUnlockingChunks = frame_support::traits::ConstU32&lt;<span class="number">32</span>&gt;;
 	<span class="kw">type </span>HistoryDepth = frame_support::traits::ConstU32&lt;<span class="number">84</span>&gt;;
+	<span class="kw">type </span>MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	<span class="kw">type </span>BenchmarkingConfig = runtime_common::StakingBenchmarkingConfig;
 	<span class="kw">type </span>EventListeners = NominationPools;
 	<span class="kw">type </span>WeightInfo = weights::pallet_staking::WeightInfo&lt;Runtime&gt;;

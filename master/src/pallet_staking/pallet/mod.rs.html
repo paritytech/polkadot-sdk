@@ -1927,6 +1927,56 @@
 <a href="#1927" id="1927">1927</a>
 <a href="#1928" id="1928">1928</a>
 <a href="#1929" id="1929">1929</a>
+<a href="#1930" id="1930">1930</a>
+<a href="#1931" id="1931">1931</a>
+<a href="#1932" id="1932">1932</a>
+<a href="#1933" id="1933">1933</a>
+<a href="#1934" id="1934">1934</a>
+<a href="#1935" id="1935">1935</a>
+<a href="#1936" id="1936">1936</a>
+<a href="#1937" id="1937">1937</a>
+<a href="#1938" id="1938">1938</a>
+<a href="#1939" id="1939">1939</a>
+<a href="#1940" id="1940">1940</a>
+<a href="#1941" id="1941">1941</a>
+<a href="#1942" id="1942">1942</a>
+<a href="#1943" id="1943">1943</a>
+<a href="#1944" id="1944">1944</a>
+<a href="#1945" id="1945">1945</a>
+<a href="#1946" id="1946">1946</a>
+<a href="#1947" id="1947">1947</a>
+<a href="#1948" id="1948">1948</a>
+<a href="#1949" id="1949">1949</a>
+<a href="#1950" id="1950">1950</a>
+<a href="#1951" id="1951">1951</a>
+<a href="#1952" id="1952">1952</a>
+<a href="#1953" id="1953">1953</a>
+<a href="#1954" id="1954">1954</a>
+<a href="#1955" id="1955">1955</a>
+<a href="#1956" id="1956">1956</a>
+<a href="#1957" id="1957">1957</a>
+<a href="#1958" id="1958">1958</a>
+<a href="#1959" id="1959">1959</a>
+<a href="#1960" id="1960">1960</a>
+<a href="#1961" id="1961">1961</a>
+<a href="#1962" id="1962">1962</a>
+<a href="#1963" id="1963">1963</a>
+<a href="#1964" id="1964">1964</a>
+<a href="#1965" id="1965">1965</a>
+<a href="#1966" id="1966">1966</a>
+<a href="#1967" id="1967">1967</a>
+<a href="#1968" id="1968">1968</a>
+<a href="#1969" id="1969">1969</a>
+<a href="#1970" id="1970">1970</a>
+<a href="#1971" id="1971">1971</a>
+<a href="#1972" id="1972">1972</a>
+<a href="#1973" id="1973">1973</a>
+<a href="#1974" id="1974">1974</a>
+<a href="#1975" id="1975">1975</a>
+<a href="#1976" id="1976">1976</a>
+<a href="#1977" id="1977">1977</a>
+<a href="#1978" id="1978">1978</a>
+<a href="#1979" id="1979">1979</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2197,6 +2247,9 @@
 		/// this effect.
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>MaxUnlockingChunks: Get&lt;u32&gt;;
+
+		<span class="doccomment">/// The maximum amount of controller accounts that can be deprecated in one call.
+		</span><span class="kw">type </span>MaxControllersInDeprecationBatch: Get&lt;u32&gt;;
 
 		<span class="doccomment">/// Something that listens to staking updates and performs actions based on the data it
 		/// receives.
@@ -3252,7 +3305,7 @@
 		</span><span class="kw">pub fn </span>set_controller(origin: OriginFor&lt;T&gt;) -&gt; DispatchResult {
 			<span class="kw">let </span>stash = ensure_signed(origin)<span class="question-mark">?</span>;
 
-			<span class="comment">// the bonded map and ledger are mutated directly as this extrinsic is related to a
+			<span class="comment">// The bonded map and ledger are mutated directly as this extrinsic is related to a
 			// (temporary) passive migration.
 			</span><span class="self">Self</span>::ledger(StakingAccount::Stash(stash.clone())).map(|ledger| {
 				<span class="kw">let </span>controller = ledger.controller()
@@ -3260,11 +3313,10 @@
                     .ok_or(Error::&lt;T&gt;::NotController)<span class="question-mark">?</span>;
 
 				<span class="kw">if </span>controller == stash {
-					<span class="comment">// stash is already its own controller.
+					<span class="comment">// Stash is already its own controller.
 					</span><span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::AlreadyPaired.into())
 				}
-				<span class="comment">// update bond and ledger.
-				</span>&lt;Ledger&lt;T&gt;&gt;::remove(controller);
+				&lt;Ledger&lt;T&gt;&gt;::remove(controller);
 				&lt;Bonded&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>stash, <span class="kw-2">&amp;</span>stash);
 				&lt;Ledger&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>stash, ledger);
 				<span class="prelude-val">Ok</span>(())
@@ -3848,6 +3900,54 @@
 				.defensive_proof(<span class="string">&quot;ledger should have been previously retrieved from storage.&quot;</span>)<span class="question-mark">?</span>;
 
 			<span class="prelude-val">Ok</span>(Pays::No.into())
+		}
+
+		<span class="doccomment">/// Updates a batch of controller accounts to their corresponding stash account if they are
+		/// not the same. Ignores any controller accounts that do not exist, and does not operate if
+		/// the stash and controller are already the same.
+		///
+		/// Effects will be felt instantly (as soon as this function is completed successfully).
+		///
+		/// The dispatch origin must be `T::AdminOrigin`.
+		</span><span class="attr">#[pallet::call_index(<span class="number">28</span>)]
+		#[pallet::weight(T::WeightInfo::deprecate_controller_batch(controllers.len() <span class="kw">as </span>u32))]
+		</span><span class="kw">pub fn </span>deprecate_controller_batch(
+			origin: OriginFor&lt;T&gt;,
+			controllers: BoundedVec&lt;T::AccountId, T::MaxControllersInDeprecationBatch&gt;,
+		) -&gt; DispatchResultWithPostInfo {
+			T::AdminOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
+
+			<span class="comment">// Ignore controllers that do not exist or are already the same as stash.
+			</span><span class="kw">let </span>filtered_batch_with_ledger: Vec&lt;<span class="kw">_</span>&gt; = controllers
+				.iter()
+				.filter_map(|controller| {
+					<span class="kw">let </span>ledger = <span class="self">Self</span>::ledger(StakingAccount::Controller(controller.clone()));
+					ledger.ok().map_or(<span class="prelude-val">None</span>, |ledger| {
+						<span class="comment">// If the controller `RewardDestination` is still the deprecated
+						// `Controller` variant, skip deprecating this account.
+						</span><span class="kw">let </span>payee_deprecated = Payee::&lt;T&gt;::get(<span class="kw-2">&amp;</span>ledger.stash) == {
+							<span class="attr">#[allow(deprecated)]
+							</span>RewardDestination::Controller
+						};
+
+						<span class="kw">if </span>ledger.stash != <span class="kw-2">*</span>controller &amp;&amp; !payee_deprecated {
+							<span class="prelude-val">Some</span>((controller.clone(), ledger))
+						} <span class="kw">else </span>{
+							<span class="prelude-val">None
+						</span>}
+					})
+				})
+				.collect();
+
+			<span class="comment">// Update unique pairs.
+			</span><span class="kw">for </span>(controller, ledger) <span class="kw">in </span>filtered_batch_with_ledger {
+				<span class="kw">let </span>stash = ledger.stash.clone();
+
+				&lt;Bonded&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>stash, <span class="kw-2">&amp;</span>stash);
+				&lt;Ledger&lt;T&gt;&gt;::remove(controller);
+				&lt;Ledger&lt;T&gt;&gt;::insert(stash, ledger);
+			}
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(T::WeightInfo::deprecate_controller_batch(controllers.len() <span class="kw">as </span>u32)).into())
 		}
 	}
 }
