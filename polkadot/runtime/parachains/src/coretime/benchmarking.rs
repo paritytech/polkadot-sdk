@@ -27,6 +27,20 @@ use pallet_broker::CoreIndex as BrokerCoreIndex;
 #[benchmarks]
 mod benchmarks {
 	use super::*;
+
+	#[benchmark]
+	fn request_core_count() {
+		// Setup
+		let root_origin = <T as frame_system::Config>::RuntimeOrigin::root();
+
+		#[extrinsic_call]
+		_(
+			root_origin as <T as frame_system::Config>::RuntimeOrigin,
+			// random core count
+			100,
+		)
+	}
+
 	#[benchmark]
 	fn assign_core(s: Linear<1, MAX_ASSIGNMENTS_PER_SCHEDULE>) {
 		// Setup

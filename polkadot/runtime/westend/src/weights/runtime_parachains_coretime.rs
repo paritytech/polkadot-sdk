@@ -45,9 +45,14 @@
 use frame_support::{traits::Get, weights::Weight};
 use core::marker::PhantomData;
 
+use runtime_parachains::configuration::{self, WeightInfo as ConfigWeightInfo};
+
 /// Weight functions for `runtime_common::coretime`.
 pub struct WeightInfo<T>(PhantomData<T>);
-impl<T: frame_system::Config> runtime_parachains::coretime::WeightInfo for WeightInfo<T> {
+impl<T: frame_system::Config + configuration::Config> runtime_parachains::coretime::WeightInfo for WeightInfo<T> {
+	fn request_core_count() -> Weight {
+		<T as configuration::Config>::WeightInfo::set_config_with_u32()
+	}
 	/// Storage: `CoreTimeAssignmentProvider::CoreDescriptors` (r:1 w:1)
 	/// Proof: `CoreTimeAssignmentProvider::CoreDescriptors` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `CoreTimeAssignmentProvider::CoreSchedules` (r:0 w:1)

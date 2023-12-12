@@ -46,9 +46,7 @@ use runtime_parachains::{
 	assigner_coretime as parachains_assigner_coretime,
 	assigner_on_demand as parachains_assigner_on_demand,
 	assigner_parachains as parachains_assigner_parachains,
-	configuration as parachains_configuration, coretime,
-	coretime::WeightInfo as CoretimeWeightInfo,
-	disputes as parachains_disputes,
+	configuration as parachains_configuration, coretime, disputes as parachains_disputes,
 	disputes::slashing as parachains_slashing,
 	dmp as parachains_dmp, hrmp as parachains_hrmp, inclusion as parachains_inclusion,
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
@@ -1033,11 +1031,7 @@ impl parachains_assigner_on_demand::Config for Runtime {
 
 impl parachains_assigner_parachains::Config for Runtime {}
 
-impl parachains_assigner_coretime::Config for Runtime {
-	fn assign_core_weight(s: u32) -> Weight {
-		weights::runtime_parachains_coretime::WeightInfo::<Runtime>::assign_core(s)
-	}
-}
+impl parachains_assigner_coretime::Config for Runtime {}
 
 impl parachains_initializer::Config for Runtime {
 	type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
@@ -1625,7 +1619,7 @@ pub mod migrations {
 		parachains_scheduler::migration::v1::MigrateToV1<Runtime>,
 		parachains_scheduler::migration::v2::MigrateToV2<Runtime>,
 		parachains_scheduler::migration::assignment_version::MigrateAssignment<Runtime, SchedulerAssignmentMigration<Runtime>>,
-		parachains_assigner_coretime::migration::v_coretime::MigrateToCoretime<Runtime>,
+		coretime::migration::v_coretime::MigrateToCoretime<Runtime>,
 		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
 		paras_registrar::migration::MigrateToV1<Runtime, ()>,

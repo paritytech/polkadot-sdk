@@ -22,6 +22,7 @@
 
 use crate::{
 	configuration::{self, HostConfiguration},
+	coretime,
 	disputes::{self, DisputesHandler as _, SlashingHandler as _},
 	dmp, hrmp, inclusion, paras, scheduler, session_info, shared,
 };
@@ -115,6 +116,7 @@ pub mod pallet {
 		+ disputes::Config
 		+ dmp::Config
 		+ hrmp::Config
+		+ coretime::Config
 	{
 		/// A randomness beacon.
 		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self>>;
@@ -271,6 +273,7 @@ impl<T: Config> Pallet<T> {
 		T::SlashingHandler::initializer_on_new_session(session_index);
 		dmp::Pallet::<T>::initializer_on_new_session(&notification, &outgoing_paras);
 		hrmp::Pallet::<T>::initializer_on_new_session(&notification, &outgoing_paras);
+		coretime::Pallet::<T>::initializer_on_new_session(&notification);
 	}
 
 	/// Should be called when a new session occurs. Buffers the session notification to be applied

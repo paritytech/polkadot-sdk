@@ -24,6 +24,7 @@ mod benchmarking;
 
 use crate::{
 	assigner_coretime::{self, PartsOf57600},
+	initializer::SessionChangeNotification,
 	origin::{ensure_parachain, Origin},
 };
 use frame_support::{pallet_prelude::*, traits::Currency};
@@ -34,6 +35,8 @@ use primitives::{CoreIndex, Id as ParaId};
 use sp_std::{prelude::*, result};
 
 pub use pallet::*;
+
+pub mod migration;
 
 pub trait WeightInfo {
 	fn request_core_count() -> Weight;
@@ -73,8 +76,11 @@ pub mod pallet {
 
 	use super::*;
 
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -90,12 +96,6 @@ pub mod pallet {
 		/// Something that provides the weight of this pallet.
 		type WeightInfo: WeightInfo;
 	}
-
-	/// Has a new core count been requested?
-	///
-	/// If so, what was the old value? (In order to detect when the change took effect.)
-	#[pallet::storage]
-	pub(super) type CoreCountRequested<T: Config> = StorageValue<_, u32, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -122,8 +122,7 @@ pub mod pallet {
 		pub fn request_core_count(origin: OriginFor<T>, count: u16) -> DispatchResult {
 			// Ignore requests not coming from the broker parachain or root.
 			Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
-			let old_value = configuration::Pallet::<T>::config().coretime_cores;
-			CoreCountRequested::<T>::put(old_value);
+
 			configuration::Pallet::<T>::set_coretime_cores_unchecked(u32::from(count))
 		}
 
@@ -199,5 +198,13 @@ impl<T: Config> Pallet<T> {
 			ensure_root(origin.clone())?;
 		}
 		Ok(())
+	}
+
+	pub fn initializer_on_new_session(notification: &SessionChangeNotification<BlockNumberFor<T>>) {
+		let old_core_count = notification.prev_config.coretime_cores;
+		let new_core_count = notification.new_config.coretime_cores;
+		if new_core_count != old_core_count {
+			// TODO: call notify_core_count
+		}
 	}
 }

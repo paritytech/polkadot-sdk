@@ -17,7 +17,8 @@
 //! Mocks for all the traits.
 
 use crate::{
-	assigner_coretime, assigner_on_demand, assigner_parachains, configuration, disputes, dmp, hrmp,
+	assigner_coretime, assigner_on_demand, assigner_parachains, configuration, coretime, disputes,
+	dmp, hrmp,
 	inclusion::{self, AggregateMessageOrigin, UmpQueueId},
 	initializer, origin, paras,
 	paras::ParaKind,
@@ -73,6 +74,7 @@ frame_support::construct_runtime!(
 		ParachainsAssigner: assigner_parachains,
 		OnDemandAssigner: assigner_on_demand,
 		CoretimeAssigner: assigner_coretime,
+		Coretime: coretime,
 		Initializer: initializer,
 		Dmp: dmp,
 		Hrmp: hrmp,
@@ -363,10 +365,17 @@ impl assigner_on_demand::Config for Test {
 	type WeightInfo = crate::assigner_on_demand::TestWeightInfo;
 }
 
-impl assigner_coretime::Config for Test {
-	fn assign_core_weight(_s: u32) -> Weight {
-		Weight::MAX
-	}
+impl assigner_coretime::Config for Test {}
+
+parameter_types! {
+	pub const BrokerId: u32 = 10u32;
+}
+impl coretime::Config for Test {
+	type RuntimeOrigin = RuntimeOrigin;
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = pallet_balances::Pallet<Test>;
+	type BrokerId = BrokerId;
+	type WeightInfo = crate::coretime::TestWeightInfo;
 }
 
 impl crate::inclusion::Config for Test {

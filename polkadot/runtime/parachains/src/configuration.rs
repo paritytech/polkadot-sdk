@@ -671,9 +671,7 @@ pub mod pallet {
 		))]
 		pub fn set_coretime_cores(origin: OriginFor<T>, new: u32) -> DispatchResult {
 			ensure_root(origin)?;
-			Self::schedule_config_update(|config| {
-				config.coretime_cores = new;
-			})
+			Self::set_coretime_cores_unchecked(new)
 		}
 
 		/// Set the number of retries for a particular on demand.
@@ -1221,6 +1219,17 @@ pub mod pallet {
 					config.node_features.resize(index + 1, false);
 				}
 				config.node_features.set(index, value);
+			})
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		/// Set coretime cores.
+		///
+		/// To be used if authorization is checked otherwise.
+		pub fn set_coretime_cores_unchecked(new: u32) -> DispatchResult {
+			Self::schedule_config_update(|config| {
+				config.coretime_cores = new;
 			})
 		}
 	}

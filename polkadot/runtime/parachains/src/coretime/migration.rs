@@ -24,7 +24,8 @@ use pallet_broker::CoreAssignment;
 use crate::{configuration, paras};
 use primitives::CoreIndex;
 
-use super::{Config, Pallet};
+use super::{Config, Pallet, WeightInfo};
+use crate::assigner_coretime;
 
 pub mod v_coretime {
 
@@ -86,7 +87,7 @@ pub fn migrate_to_coretime<T: Config>() -> Weight {
 	let legacy_count = legacy_paras.len() as u32;
 	let now = <frame_system::Pallet<T>>::block_number();
 	for (core, para_id) in legacy_paras.into_iter().enumerate() {
-		let r = Pallet::<T>::assign_core(
+		let r = assigner_coretime::Pallet::<T>::assign_core(
 			CoreIndex(core as u32),
 			now,
 			vec![(CoreAssignment::Task(para_id.into()), 57600)],
@@ -105,7 +106,12 @@ pub fn migrate_to_coretime<T: Config>() -> Weight {
 	// Was coretime_cores was on_demand_cores until now:
 	for on_demand in 0..config.coretime_cores {
 		let core = CoreIndex(legacy_count.saturating_add(on_demand as _));
-		let r = Pallet::<T>::assign_core(core, now, vec![(CoreAssignment::Pool, 57600)], None);
+		let r = assigner_coretime::Pallet::<T>::assign_core(
+			core,
+			now,
+			vec![(CoreAssignment::Pool, 57600)],
+			None,
+		);
 		if let Err(err) = r {
 			log::error!("Creating assignment for existing on-demand core, failed: {:?}", err);
 		}
@@ -115,7 +121,7 @@ pub fn migrate_to_coretime<T: Config>() -> Weight {
 		c.coretime_cores = total_cores;
 	});
 
-	let single_weight = T::assign_core_weight(1);
+	let single_weight = <T as Config>::WeightInfo::assign_core(1);
 	single_weight
 		.saturating_mul(u64::from(legacy_count.saturating_add(config.coretime_cores)))
 		.saturating_add(T::DbWeight::get().reads_writes(1, 1))
