@@ -16,15 +16,14 @@
 
 mod cli;
 
-use std::{io::Write, sync::Arc};
+use std::sync::Arc;
 
 use cli::{RelayChainCli, Subcommand, TestCollatorCli};
 use cumulus_primitives_core::{relay_chain::CollatorPair, ParaId};
-use cumulus_test_service::{genesis::generate_genesis_block, AnnounceBlockFn};
+use cumulus_test_service::{new_partial, AnnounceBlockFn};
 use polkadot_service::runtime_traits::AccountIdConversion;
 use sc_cli::{CliConfiguration, SubstrateCli};
-use sp_core::{hexdisplay::HexDisplay, Encode, Pair};
-use sp_runtime::traits::Block;
+use sp_core::Pair;
 
 pub fn wrap_announce_block() -> Box<dyn FnOnce(AnnounceBlockFn) -> AnnounceBlockFn> {
 	tracing::info!("Block announcements disabled.");
@@ -43,35 +42,12 @@ fn main() -> Result<(), sc_cli::Error> {
 			runner.sync_run(|config| cmd.run(config.chain_spec, config.network))
 		},
 
-		Some(Subcommand::ExportGenesisState(params)) => {
-			let mut builder = sc_cli::LoggerBuilder::new("");
-			builder.with_profiling(sc_tracing::TracingReceiver::Log, "");
-			let _ = builder.init();
-
-			let spec =
-				cli.load_spec(&params.base.shared_params.chain.clone().unwrap_or_default())?;
-			let wasm_executor: WasmExecutor<sp_io::SubstrateHostFunctions> =
-				WasmExecutor::builder().build();
-			let state_version = sc_chain_spec::resolve_state_version_from_wasm(
-				&spec.build_storage()?,
-				&wasm_executor,
-			)?;
-
-			let block: parachains_common::Block = generate_genesis_block(&*spec, state_version)?;
-			let raw_header = block.header().encode();
-			let output_buf = if params.base.raw {
-				raw_header
-			} else {
-				format!("0x{:?}", HexDisplay::from(&block.header().encode())).into_bytes()
-			};
-
-			if let Some(output) = &params.base.output {
-				std::fs::write(output, output_buf)?;
-			} else {
-				std::io::stdout().write_all(&output_buf)?;
-			}
-
-			Ok(())
+		Some(Subcommand::ExportGenesisHead(cmd)) => {
+			let runner = cli.create_runner(cmd)?;
+			runner.sync_run(|mut config| {
+				let partial = new_partial(&mut config, false)?;
+				cmd.run(partial.client)
+			})
 		},
 		Some(Subcommand::ExportGenesisWasm(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
