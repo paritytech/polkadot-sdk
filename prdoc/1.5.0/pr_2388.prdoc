@@ -3,8 +3,11 @@
 
 title: Add new flexible `pallet_xcm::transfer_assets()` call/extrinsic
 
+author: acatangiu
+topic: runtime
+
 doc:
-  - audience: Builder
+  - audience: Runtime Dev
     description: |
       For complex combinations of asset transfers where assets and fees may have different reserves or
       different reserve/teleport trust configurations, users can use the newly added `transfer_assets()`
@@ -21,6 +24,7 @@ migrations:
 
   runtime: []
 
-crates: pallet-xcm
+crates:
+  - name: pallet-xcm
 
 host_functions: []
