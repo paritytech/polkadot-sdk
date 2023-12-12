@@ -382,19 +382,23 @@ where
 	R::Api: BeefyApi<B, AuthorityId>,
 {
 	// Initialize voter state from AUX DB if compatible.
-	let maybe_persisted_state = crate::aux_schema::load_persistent(backend)?
+	if let Some(mut state) = crate::aux_schema::load_persistent(backend)?
 		// Verify state pallet genesis matches runtime.
 		.filter(|state| state.pallet_genesis() == beefy_genesis)
-		.and_then(|mut state| {
-			// Overwrite persisted state with current best GRANDPA block.
-			state.set_best_grandpa(best_grandpa.clone());
-			// Overwrite persisted data with newly provided `min_block_delta`.
-			state.set_min_block_delta(min_block_delta);
-			info!(target: LOG_TARGET, "🥩 Loading BEEFY voter state from db: {:?}.", state);
-			Some(Ok(state))
-		});
-	if let Some(persisted_state) = maybe_persisted_state {
-		return persisted_state;
+	{
+		// Overwrite persisted state with current best GRANDPA block.
+		state.set_best_grandpa(best_grandpa.clone());
+		// Overwrite persisted data with newly provided `min_block_delta`.
+		state.set_min_block_delta(min_block_delta);
+		info!(target: LOG_TARGET, "🥩 Loading BEEFY voter state from db: {:?}.", state);
+
+		// Make sure that all the headers that we need have been synced.
+		let mut header = best_grandpa.clone();
+		while *header.number() > state.best_beefy() {
+			header =
+				wait_for_parent_header(backend.blockchain(), header, HEADER_SYNC_DELAY).await?;
+		}
+		return Ok(state);
 	}
 
 	// No valid voter-state persisted, re-initialize from pallet genesis.

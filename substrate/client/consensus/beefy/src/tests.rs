@@ -1026,7 +1026,7 @@ async fn should_initialize_voter_at_genesis() {
 	assert_eq!(rounds.validator_set_id(), validator_set.id());
 
 	// verify next vote target is mandatory block 1
-	assert_eq!(persisted_state.best_beefy_block(), 0);
+	assert_eq!(persisted_state.best_beefy(), 0);
 	assert_eq!(persisted_state.best_grandpa_number(), 13);
 	assert_eq!(persisted_state.voting_oracle().voting_target(), Some(1));
 
@@ -1086,7 +1086,7 @@ async fn should_initialize_voter_at_custom_genesis() {
 	assert_eq!(rounds.validator_set_id(), validator_set.id());
 
 	// verify next vote target is mandatory block 7
-	assert_eq!(persisted_state.best_beefy_block(), 0);
+	assert_eq!(persisted_state.best_beefy(), 0);
 	assert_eq!(persisted_state.best_grandpa_number(), 8);
 	assert_eq!(persisted_state.voting_oracle().voting_target(), Some(custom_pallet_genesis));
 
@@ -1121,7 +1121,7 @@ async fn should_initialize_voter_at_custom_genesis() {
 	assert_eq!(rounds.validator_set_id(), new_validator_set.id());
 
 	// verify next vote target is mandatory block 10
-	assert_eq!(new_persisted_state.best_beefy_block(), 0);
+	assert_eq!(new_persisted_state.best_beefy(), 0);
 	assert_eq!(new_persisted_state.best_grandpa_number(), 10);
 	assert_eq!(new_persisted_state.voting_oracle().voting_target(), Some(new_pallet_genesis));
 
@@ -1174,7 +1174,7 @@ async fn should_initialize_voter_when_last_final_is_session_boundary() {
 	assert_eq!(rounds.validator_set_id(), validator_set.id());
 
 	// verify block 10 is correctly marked as finalized
-	assert_eq!(persisted_state.best_beefy_block(), 10);
+	assert_eq!(persisted_state.best_beefy(), 10);
 	assert_eq!(persisted_state.best_grandpa_number(), 13);
 	// verify next vote target is diff-power-of-two block 12
 	assert_eq!(persisted_state.voting_oracle().voting_target(), Some(12));
@@ -1227,7 +1227,7 @@ async fn should_initialize_voter_at_latest_finalized() {
 	assert_eq!(rounds.validator_set_id(), validator_set.id());
 
 	// verify next vote target is 13
-	assert_eq!(persisted_state.best_beefy_block(), 12);
+	assert_eq!(persisted_state.best_beefy(), 12);
 	assert_eq!(persisted_state.best_grandpa_number(), 13);
 	assert_eq!(persisted_state.voting_oracle().voting_target(), Some(13));
 
@@ -1275,7 +1275,7 @@ async fn should_initialize_voter_at_custom_genesis_when_state_unavailable() {
 	assert_eq!(rounds.validator_set_id(), validator_set.id());
 
 	// verify next vote target is mandatory block 7 (genesis)
-	assert_eq!(persisted_state.best_beefy_block(), 0);
+	assert_eq!(persisted_state.best_beefy(), 0);
 	assert_eq!(persisted_state.best_grandpa_number(), 30);
 	assert_eq!(persisted_state.voting_oracle().voting_target(), Some(custom_pallet_genesis));
 

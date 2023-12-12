@@ -298,6 +298,10 @@ impl<B: Block> PersistedState<B> {
 		self.voting_oracle.min_block_delta = min_block_delta.max(1);
 	}
 
+	pub fn best_beefy(&self) -> NumberFor<B> {
+		self.voting_oracle.best_beefy_block
+	}
+
 	pub(crate) fn set_best_beefy(&mut self, best_beefy: NumberFor<B>) {
 		self.voting_oracle.best_beefy_block = best_beefy;
 	}
@@ -1094,10 +1098,6 @@ pub(crate) mod tests {
 			self.voting_oracle.active_rounds()
 		}
 
-		pub fn best_beefy_block(&self) -> NumberFor<B> {
-			self.voting_oracle.best_beefy_block
-		}
-
 		pub fn best_grandpa_number(&self) -> NumberFor<B> {
 			*self.voting_oracle.best_grandpa_block_header.number()
 		}
@@ -1511,7 +1511,7 @@ pub(crate) mod tests {
 		};
 
 		// no 'best beefy block' or finality proofs
-		assert_eq!(worker.persisted_state.best_beefy_block(), 0);
+		assert_eq!(worker.persisted_state.best_beefy(), 0);
 		poll_fn(move |cx| {
 			assert_eq!(best_block_stream.poll_next_unpin(cx), Poll::Pending);
 			assert_eq!(finality_proof.poll_next_unpin(cx), Poll::Pending);
@@ -1534,7 +1534,7 @@ pub(crate) mod tests {
 		// try to finalize block #1
 		worker.finalize(justif.clone()).unwrap();
 		// verify block finalized
-		assert_eq!(worker.persisted_state.best_beefy_block(), 1);
+		assert_eq!(worker.persisted_state.best_beefy(), 1);
 		poll_fn(move |cx| {
 			// expect Some(hash-of-block-1)
 			match best_block_stream.poll_next_unpin(cx) {
@@ -1571,7 +1571,7 @@ pub(crate) mod tests {
 		// new session starting at #2 is in front
 		assert_eq!(worker.active_rounds().unwrap().session_start(), 2);
 		// verify block finalized
-		assert_eq!(worker.persisted_state.best_beefy_block(), 2);
+		assert_eq!(worker.persisted_state.best_beefy(), 2);
 		poll_fn(move |cx| {
 			match best_block_stream.poll_next_unpin(cx) {
 				// expect Some(hash-of-block-2)
