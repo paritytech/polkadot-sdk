@@ -142,8 +142,7 @@ fn combine_impls(
 					.filter(|attr| {
 						attr.path().get_ident().map_or(false, |ident| ident == "cfg")
 					})
-					.map(|attr| attr.to_token_stream())
-					.collect::<Vec<_>>();
+					.map(|attr| attr.to_token_stream());
 				if is_runtime_type(&typ) {
 					let item: ImplItem = if inject_runtime_types {
 						parse_quote! {
