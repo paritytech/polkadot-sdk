@@ -250,7 +250,7 @@ mod tests {
 		let ext1 = new_transaction(1);
 		block_on(pool.submit_one(hash_of_block0, source, ext1)).unwrap();
 
-		let accounts = System::<_, _, Block>::new(client, pool, DenyUnsafe::Yes);
+		let accounts = System::<_, _, Block, Nonce, AccountId>::new(client, pool, DenyUnsafe::Yes);
 
 		// when
 		let nonce: Nonce = accounts.nonce(AccountId::from(AccountKeyring::Alice)).await.unwrap();
@@ -269,7 +269,7 @@ mod tests {
 		let pool =
 			BasicPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
 
-		let accounts = System::<_, _, Block>::new(client, pool, DenyUnsafe::Yes);
+		let accounts = System::<_, _, Block, Nonce, AccountId>::new(client, pool, DenyUnsafe::Yes);
 
 		// when
 		let res =
@@ -289,7 +289,7 @@ mod tests {
 		let pool =
 			BasicPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
 
-		let accounts = System::<_, _, Block>::new(client, pool, DenyUnsafe::No);
+		let accounts = System::<_, _, Block, Nonce, AccountId>::new(client, pool, DenyUnsafe::No);
 
 		let tx = Transfer {
 			from: AccountKeyring::Alice.into(),

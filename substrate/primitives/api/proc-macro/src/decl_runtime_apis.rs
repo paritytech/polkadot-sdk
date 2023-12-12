@@ -17,8 +17,7 @@
 
 use crate::{
 	common::{
-		API_VERSION_ATTRIBUTE, CHANGED_IN_ATTRIBUTE, RENAMED_ATTRIBUTE,
-		SUPPORTED_ATTRIBUTE_NAMES,
+		API_VERSION_ATTRIBUTE, CHANGED_IN_ATTRIBUTE, RENAMED_ATTRIBUTE, SUPPORTED_ATTRIBUTE_NAMES,
 	},
 	utils::{
 		extract_parameter_names_types_and_borrows, fold_fn_decl_for_client_side,
@@ -39,8 +38,7 @@ use syn::{
 	spanned::Spanned,
 	token::Comma,
 	visit::{self, Visit},
-	Attribute, FnArg, Ident, ItemTrait, LitInt, LitStr, TraitItem,
-	TraitItemFn,
+	Attribute, FnArg, Ident, ItemTrait, LitInt, LitStr, TraitItem, TraitItemFn,
 };
 
 use std::collections::{BTreeMap, HashMap};

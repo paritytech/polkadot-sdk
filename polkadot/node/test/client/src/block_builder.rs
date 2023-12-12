@@ -17,10 +17,9 @@
 use crate::Client;
 use parity_scale_codec::{Decode, Encode};
 use polkadot_primitives::{Block, InherentData as ParachainsInherentData};
-use polkadot_test_runtime::UncheckedExtrinsic;
-use polkadot_test_service::GetLastTimestamp;
+use polkadot_test_runtime::{GetLastTimestamp, UncheckedExtrinsic};
 use sc_block_builder::{BlockBuilder, BlockBuilderBuilder};
-use sp_api::DisableProofRecording;
+use sp_api::{DisableProofRecording, RuntimeInstance};
 use sp_consensus_babe::{
 	digests::{PreDigest, SecondaryPlainPreDigest},
 	BABE_ENGINE_ID,
@@ -36,7 +35,7 @@ pub trait InitPolkadotBlockBuilder {
 	/// the test runtime.
 	fn init_polkadot_block_builder(
 		&self,
-	) -> sc_block_builder::BlockBuilder<Block, Client, DisableProofRecording>;
+	) -> sc_block_builder::BlockBuilder<Block, &Client, DisableProofRecording>;
 
 	/// Init a Polkadot specific block builder at a specific block that works for the test runtime.
 	///
@@ -45,11 +44,11 @@ pub trait InitPolkadotBlockBuilder {
 	fn init_polkadot_block_builder_at(
 		&self,
 		hash: <Block as BlockT>::Hash,
-	) -> sc_block_builder::BlockBuilder<Block, Client, DisableProofRecording>;
+	) -> sc_block_builder::BlockBuilder<Block, &Client, DisableProofRecording>;
 }
 
 impl InitPolkadotBlockBuilder for Client {
-	fn init_polkadot_block_builder(&self) -> BlockBuilder<Block, Client, DisableProofRecording> {
+	fn init_polkadot_block_builder(&self) -> BlockBuilder<Block, &Client, DisableProofRecording> {
 		let chain_info = self.chain_info();
 		self.init_polkadot_block_builder_at(chain_info.best_hash)
 	}
@@ -57,7 +56,7 @@ impl InitPolkadotBlockBuilder for Client {
 	fn init_polkadot_block_builder_at(
 		&self,
 		hash: <Block as BlockT>::Hash,
-	) -> BlockBuilder<Block, Client, DisableProofRecording> {
+	) -> BlockBuilder<Block, &Client, DisableProofRecording> {
 		let mut runtime_api = RuntimeInstance::builder(self, hash).off_chain_context().build();
 		let last_timestamp = runtime_api.get_last_timestamp().expect("Get last timestamp");
 
@@ -148,7 +147,7 @@ pub trait BlockBuilderExt {
 	) -> Result<(), sp_blockchain::Error>;
 }
 
-impl BlockBuilderExt for BlockBuilder<Block, Client, DisableProofRecording> {
+impl BlockBuilderExt for BlockBuilder<Block, &Client, DisableProofRecording> {
 	fn push_polkadot_extrinsic(
 		&mut self,
 		ext: UncheckedExtrinsic,

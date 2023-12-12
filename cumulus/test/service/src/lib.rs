@@ -858,7 +858,7 @@ pub fn fetch_nonce(client: &Client, account: sp_core::sr25519::Public) -> u32 {
 	let mut runtime_api = RuntimeInstance::builder(client, best_hash).off_chain_context().build();
 
 	runtime_api
-		.account_nonce(account.into())
+		.account_nonce(AccountId::from(account))
 		.expect("Fetching account nonce works; qed")
 }
 

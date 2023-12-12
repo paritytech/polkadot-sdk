@@ -433,7 +433,7 @@ mod tests {
 			.build()
 			.unwrap();
 
-		let proof_empty_block = block.proof.expect("Proof is build on request").encoded_size();
+		let proof_empty_block = block.proof.encoded_size();
 
 		// Ensure that we rolled back the changes of the panicked transaction.
 		assert!(proof_without_panic > proof_with_panic);

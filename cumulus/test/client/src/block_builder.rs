@@ -21,6 +21,7 @@ use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use cumulus_test_runtime::{Block, GetLastTimestamp, Hash, Header};
 use polkadot_primitives::{BlockNumber as PBlockNumber, Hash as PHash};
 use sc_block_builder::{BlockBuilder, BlockBuilderBuilder};
+use sp_api::EnableProofRecording;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 /// An extension for the Cumulus test client to init a block builder.
@@ -36,7 +37,7 @@ pub trait InitBlockBuilder {
 		&self,
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -> sc_block_builder::BlockBuilder<Block, Client>;
+	) -> sc_block_builder::BlockBuilder<Block, &Client, EnableProofRecording<Block>>;
 
 	/// Init a specific block builder at a specific block that works for the test runtime.
 	///
@@ -47,7 +48,7 @@ pub trait InitBlockBuilder {
 		at: Hash,
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -> sc_block_builder::BlockBuilder<Block, Client>;
+	) -> sc_block_builder::BlockBuilder<Block, &Client, EnableProofRecording<Block>>;
 
 	/// Init a specific block builder that works for the test runtime.
 	///
@@ -60,7 +61,7 @@ pub trait InitBlockBuilder {
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 		timestamp: u64,
-	) -> sc_block_builder::BlockBuilder<Block, Client>;
+	) -> sc_block_builder::BlockBuilder<Block, &Client, EnableProofRecording<Block>>;
 }
 
 fn init_block_builder(
@@ -69,7 +70,7 @@ fn init_block_builder(
 	validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 	relay_sproof_builder: RelayStateSproofBuilder,
 	timestamp: u64,
-) -> BlockBuilder<'_, Block, Client> {
+) -> BlockBuilder<Block, &Client, EnableProofRecording<Block>> {
 	let mut block_builder = BlockBuilderBuilder::new(client)
 		.on_parent_block(at)
 		.fetch_parent_block_number(client)
@@ -121,7 +122,7 @@ impl InitBlockBuilder for Client {
 		&self,
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -> BlockBuilder<Block, Client> {
+	) -> BlockBuilder<Block, &Client, EnableProofRecording<Block>> {
 		let chain_info = self.chain_info();
 		self.init_block_builder_at(chain_info.best_hash, validation_data, relay_sproof_builder)
 	}
@@ -131,7 +132,7 @@ impl InitBlockBuilder for Client {
 		at: Hash,
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -> BlockBuilder<Block, Client> {
+	) -> BlockBuilder<Block, &Client, EnableProofRecording<Block>> {
 		let last_timestamp = self.runtime_api().get_last_timestamp(at).expect("Get last timestamp");
 
 		let timestamp = last_timestamp + cumulus_test_runtime::MinimumPeriod::get();
@@ -145,7 +146,7 @@ impl InitBlockBuilder for Client {
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 		timestamp: u64,
-	) -> sc_block_builder::BlockBuilder<Block, Client> {
+	) -> sc_block_builder::BlockBuilder<Block, &Client, EnableProofRecording<Block>> {
 		init_block_builder(self, at, validation_data, relay_sproof_builder, timestamp)
 	}
 }
@@ -158,7 +159,9 @@ pub trait BuildParachainBlockData {
 	fn build_parachain_block(self, parent_state_root: Hash) -> ParachainBlockData<Block>;
 }
 
-impl<'a> BuildParachainBlockData for sc_block_builder::BlockBuilder<'a, Block, Client> {
+impl<'a> BuildParachainBlockData
+	for sc_block_builder::BlockBuilder<Block, &Client, EnableProofRecording<Block>>
+{
 	fn build_parachain_block(self, parent_state_root: Hash) -> ParachainBlockData<Block> {
 		let built_block = self.build().expect("Builds the block");
 

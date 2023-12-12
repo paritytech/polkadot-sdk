@@ -24,7 +24,7 @@ use parachains_common::{AccountId, Balance, Block, Nonce};
 use sc_client_api::AuxStore;
 pub use sc_rpc::{DenyUnsafe, SubscriptionTaskExecutor};
 use sc_transaction_pool_api::TransactionPool;
-use sp_block_builder::BlockBuilder;
+use sp_api::CallApiAt;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 
 /// A type representing all RPC extensions.
@@ -49,6 +49,7 @@ where
 	C: HeaderBackend<Block>
 		+ AuxStore
 		+ HeaderMetadata<Block, Error = BlockChainError>
+		+ CallApiAt<Block>
 		+ Send
 		+ Sync
 		+ 'static,
@@ -63,8 +64,10 @@ where
 	let mut module = RpcExtension::new(());
 	let FullDeps { client, pool, deny_unsafe } = deps;
 
-	module.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
-	module.merge(TransactionPayment::new(client.clone()).into_rpc())?;
+	module.merge(
+		System::<_, _, _, Nonce, AccountId>::new(client.clone(), pool, deny_unsafe).into_rpc(),
+	)?;
+	module.merge(TransactionPayment::<_, _, Balance>::new(client.clone()).into_rpc())?;
 	module.merge(StateMigration::new(client, backend, deny_unsafe).into_rpc())?;
 
 	Ok(module)
@@ -79,6 +82,7 @@ where
 		+ HeaderBackend<Block>
 		+ AuxStore
 		+ HeaderMetadata<Block, Error = BlockChainError>
+		+ CallApiAt<Block>
 		+ Send
 		+ Sync
 		+ 'static,
@@ -91,8 +95,8 @@ where
 	let mut module = RpcExtension::new(());
 	let FullDeps { client, pool, deny_unsafe } = deps;
 
-	module.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
-	module.merge(TransactionPayment::new(client.clone()).into_rpc())?;
+	module.merge(System::<_, _, _, Nonce, AccountId>::new(client.clone(), pool, deny_unsafe).into_rpc())?;
+	module.merge(TransactionPayment::<_, _, Balance>::new(client.clone()).into_rpc())?;
 	module.merge(Dev::new(client, deny_unsafe).into_rpc())?;
 
 	Ok(module)

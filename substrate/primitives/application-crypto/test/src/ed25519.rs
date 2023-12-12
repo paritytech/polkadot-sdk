@@ -17,6 +17,7 @@
 
 //! Integration tests for ed25519
 
+use sp_api::RuntimeInstance;
 use sp_application_crypto::ed25519::AppPair;
 use sp_core::{
 	crypto::{ByteArray, Pair},
@@ -33,11 +34,14 @@ fn ed25519_works_in_runtime() {
 	let keystore = Arc::new(MemoryKeystore::new());
 	let test_client = TestClientBuilder::new().build();
 
-	let mut runtime_api = test_client.runtime_api();
-	runtime_api.register_extension(KeystoreExt::new(keystore.clone()));
+	let mut runtime_api =
+		RuntimeInstance::builder(&test_client, test_client.chain_info().genesis_hash)
+			.off_chain_context()
+			.register_extension(KeystoreExt::new(keystore.clone()))
+			.build();
 
 	let (signature, public) = runtime_api
-		.test_ed25519_crypto(test_client.chain_info().genesis_hash)
+		.test_ed25519_crypto()
 		.expect("Tests `ed25519` crypto.");
 
 	let supported_keys = keystore.keys(ED25519).unwrap();

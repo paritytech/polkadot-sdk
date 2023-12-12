@@ -1023,7 +1023,7 @@ mod tests {
 	use sc_block_builder::BlockBuilderBuilder;
 	use sp_api::RuntimeInstance;
 	use sp_consensus::BlockOrigin;
-	use sp_core::{storage::well_known_keys::HEAP_PAGES};
+	use sp_core::storage::well_known_keys::HEAP_PAGES;
 	use sp_keyring::AccountKeyring;
 	use sp_runtime::{
 		traits::{Hash as _, SignedExtension},

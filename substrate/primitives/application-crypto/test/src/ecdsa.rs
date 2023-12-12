@@ -16,6 +16,7 @@
 // limitations under the License.
 
 //! Integration tests for ecdsa
+use sp_api::RuntimeInstance;
 use sp_application_crypto::ecdsa::AppPair;
 use sp_core::{
 	crypto::{ByteArray, Pair},
@@ -32,12 +33,13 @@ fn ecdsa_works_in_runtime() {
 	let keystore = Arc::new(MemoryKeystore::new());
 	let test_client = TestClientBuilder::new().build();
 
-	let mut runtime_api = test_client.runtime_api();
-	runtime_api.register_extension(KeystoreExt::new(keystore.clone()));
+	let mut runtime_api =
+		RuntimeInstance::builder(&test_client, test_client.chain_info().genesis_hash)
+			.off_chain_context()
+			.register_extension(KeystoreExt::new(keystore.clone()))
+			.build();
 
-	let (signature, public) = runtime_api
-		.test_ecdsa_crypto(test_client.chain_info().genesis_hash)
-		.expect("Tests `ecdsa` crypto.");
+	let (signature, public) = runtime_api.test_ecdsa_crypto().expect("Tests `ecdsa` crypto.");
 
 	let supported_keys = keystore.keys(ECDSA).unwrap();
 	assert!(supported_keys.contains(&public.to_raw_vec()));

@@ -112,12 +112,8 @@ pub trait Proposer<B: BlockT> {
 	/// Error type which can occur when proposing or evaluating.
 	type Error: From<Error> + std::error::Error + 'static;
 	/// Future that resolves to a committed proposal with an optional proof.
-	type Proposal: Future<
-			Output = Result<
-				Proposal<B, ProofOf<Self, B>>,
-				Self::Error,
-			>,
-		> + Send
+	type Proposal: Future<Output = Result<Proposal<B, ProofOf<Self, B>>, Self::Error>>
+		+ Send
 		+ Unpin
 		+ 'static;
 	/// The supported proof recording by the implementator of this trait. See [`ProofRecording`]

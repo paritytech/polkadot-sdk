@@ -2345,7 +2345,7 @@ async fn pin_block_references() {
 	.unwrap();
 
 	let mut client = Arc::new(
-		new_in_mem::<_, Block, _, RuntimeApi>(
+		new_in_mem::<_, Block, _>(
 			backend.clone(),
 			executor,
 			genesis_block_builder,

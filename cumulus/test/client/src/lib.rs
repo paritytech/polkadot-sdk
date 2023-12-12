@@ -75,7 +75,7 @@ pub type TestClientBuilder =
 pub type LongestChain = sc_consensus::LongestChain<Backend, Block>;
 
 /// Test client type with `LocalExecutor` and generic Backend.
-pub type Client = client::Client<Backend, Executor, Block, runtime::RuntimeApi>;
+pub type Client = client::Client<Backend, Executor, Block>;
 
 /// Parameters of test-client builder with test-runtime.
 #[derive(Default)]

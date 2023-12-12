@@ -18,9 +18,6 @@ use crate::{
 	chain_spec,
 	chain_spec::GenericChainSpec,
 	cli::{Cli, RelayChainCli, Subcommand},
-	fake_runtime_api::{
-		asset_hub_polkadot_aura::RuntimeApi as AssetHubPolkadotRuntimeApi, aura::RuntimeApi,
-	},
 	service::{new_partial, Block},
 };
 use cumulus_primitives_core::ParaId;
@@ -367,9 +364,9 @@ macro_rules! construct_partials {
 	($config:expr, |$partials:ident| $code:expr) => {
 		match $config.chain_spec.runtime() {
 			Runtime::AssetHubPolkadot => {
-				let $partials = new_partial::<AssetHubPolkadotRuntimeApi, _>(
+				let $partials = new_partial(
 					&$config,
-					crate::service::aura_build_import_queue::<_, AssetHubPolkadotAuraId>,
+					crate::service::aura_build_import_queue::<AssetHubPolkadotAuraId>,
 				)?;
 				$code
 			},
@@ -379,28 +376,28 @@ macro_rules! construct_partials {
 			Runtime::BridgeHub(_) |
 			Runtime::CollectivesPolkadot |
 			Runtime::CollectivesWestend => {
-				let $partials = new_partial::<RuntimeApi, _>(
+				let $partials = new_partial(
 					&$config,
-					crate::service::aura_build_import_queue::<_, AuraId>,
+					crate::service::aura_build_import_queue::<AuraId>,
 				)?;
 				$code
 			},
 			Runtime::GluttonWestend | Runtime::Glutton | Runtime::Shell | Runtime::Seedling => {
-				let $partials = new_partial::<RuntimeApi, _>(
+				let $partials = new_partial(
 					&$config,
 					crate::service::shell_build_import_queue,
 				)?;
 				$code
 			},
 			Runtime::ContractsRococo => {
-				let $partials = new_partial::<RuntimeApi, _>(
+				let $partials = new_partial(
 					&$config,
 					crate::service::contracts_rococo_build_import_queue,
 				)?;
 				$code
 			},
 			Runtime::Penpal(_) | Runtime::Default => {
-				let $partials = new_partial::<RuntimeApi, _>(
+				let $partials = new_partial(
 					&$config,
 					crate::service::rococo_parachain_build_import_queue,
 				)?;
@@ -416,9 +413,9 @@ macro_rules! construct_async_run {
 		match runner.config().chain_spec.runtime() {
 			Runtime::AssetHubPolkadot => {
 				runner.async_run(|$config| {
-					let $components = new_partial::<AssetHubPolkadotRuntimeApi, _>(
+					let $components = new_partial(
 						&$config,
-						crate::service::aura_build_import_queue::<_, AssetHubPolkadotAuraId>,
+						crate::service::aura_build_import_queue::<AssetHubPolkadotAuraId>,
 					)?;
 					let task_manager = $components.task_manager;
 					{ $( $code )* }.map(|v| (v, task_manager))
@@ -431,9 +428,9 @@ macro_rules! construct_async_run {
 			Runtime::CollectivesWestend |
 			Runtime::BridgeHub(_) => {
 				runner.async_run(|$config| {
-					let $components = new_partial::<RuntimeApi, _>(
+					let $components = new_partial(
 						&$config,
-						crate::service::aura_build_import_queue::<_, AuraId>,
+						crate::service::aura_build_import_queue::<AuraId>,
 					)?;
 					let task_manager = $components.task_manager;
 					{ $( $code )* }.map(|v| (v, task_manager))
@@ -444,7 +441,7 @@ macro_rules! construct_async_run {
 			Runtime::GluttonWestend |
 			Runtime::Glutton => {
 				runner.async_run(|$config| {
-					let $components = new_partial::<RuntimeApi, _>(
+					let $components = new_partial(
 						&$config,
 						crate::service::shell_build_import_queue,
 					)?;
@@ -454,7 +451,7 @@ macro_rules! construct_async_run {
 			}
 			Runtime::ContractsRococo => {
 				runner.async_run(|$config| {
-					let $components = new_partial::<RuntimeApi, _>(
+					let $components = new_partial(
 						&$config,
 						crate::service::contracts_rococo_build_import_queue,
 					)?;
@@ -464,10 +461,7 @@ macro_rules! construct_async_run {
 			},
 			Runtime::Penpal(_) | Runtime::Default => {
 				runner.async_run(|$config| {
-					let $components = new_partial::<
-						RuntimeApi,
-						_,
-					>(
+					let $components = new_partial(
 						&$config,
 						crate::service::rococo_parachain_build_import_queue,
 					)?;
@@ -654,28 +648,24 @@ pub fn run() -> Result<()> {
 
 				match config.chain_spec.runtime() {
 					Runtime::AssetHubPolkadot => crate::service::start_asset_hub_node::<
-						AssetHubPolkadotRuntimeApi,
 						AssetHubPolkadotAuraId,
 					>(config, polkadot_config, collator_options, id, hwbench)
 					.await
 					.map(|r| r.0)
 					.map_err(Into::into),
 					Runtime::AssetHubKusama => crate::service::start_asset_hub_node::<
-						RuntimeApi,
 						AuraId,
 					>(config, polkadot_config, collator_options, id, hwbench)
 					.await
 					.map(|r| r.0)
 					.map_err(Into::into),
 					Runtime::AssetHubRococo => crate::service::start_asset_hub_node::<
-						RuntimeApi,
 						AuraId,
 					>(config, polkadot_config, collator_options, id, hwbench)
 						.await
 						.map(|r| r.0)
 						.map_err(Into::into),
 					Runtime::AssetHubWestend => crate::service::start_asset_hub_node::<
-						RuntimeApi,
 						AuraId,
 					>(config, polkadot_config, collator_options, id, hwbench)
 					.await
@@ -683,7 +673,6 @@ pub fn run() -> Result<()> {
 					.map_err(Into::into),
 					Runtime::CollectivesPolkadot =>
 						crate::service::start_generic_aura_node::<
-							RuntimeApi,
 							AuraId,
 						>(config, polkadot_config, collator_options, id, hwbench)
 						.await
@@ -691,14 +680,13 @@ pub fn run() -> Result<()> {
 						.map_err(Into::into),
 					Runtime::CollectivesWestend =>
 						crate::service::start_generic_aura_node::<
-							RuntimeApi,
 							AuraId,
 						>(config, polkadot_config, collator_options, id, hwbench)
 						.await
 						.map(|r| r.0)
 						.map_err(Into::into),
 					Runtime::Shell =>
-						crate::service::start_shell_node::<RuntimeApi>(
+						crate::service::start_shell_node(
 							config,
 							polkadot_config,
 							collator_options,
@@ -709,7 +697,7 @@ pub fn run() -> Result<()> {
 						.map(|r| r.0)
 						.map_err(Into::into),
 					Runtime::Seedling =>
-						crate::service::start_shell_node::<RuntimeApi>(
+						crate::service::start_shell_node(
 							config,
 							polkadot_config,
 							collator_options,
@@ -732,14 +720,12 @@ pub fn run() -> Result<()> {
 					Runtime::BridgeHub(bridge_hub_runtime_type) => match bridge_hub_runtime_type {
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::Polkadot =>
 							crate::service::start_generic_aura_node::<
-								RuntimeApi,
 								AuraId,
 							>(config, polkadot_config, collator_options, id, hwbench)
 								.await
 								.map(|r| r.0),
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::Kusama =>
 							crate::service::start_generic_aura_node::<
-								RuntimeApi,
 								AuraId,
 							>(config, polkadot_config, collator_options, id, hwbench)
 							.await
@@ -748,7 +734,6 @@ pub fn run() -> Result<()> {
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendLocal |
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendDevelopment =>
 							crate::service::start_generic_aura_node::<
-								RuntimeApi,
 								AuraId,
 							>(config, polkadot_config, collator_options, id, hwbench)
 							.await
@@ -757,7 +742,6 @@ pub fn run() -> Result<()> {
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::RococoLocal |
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::RococoDevelopment =>
 							crate::service::start_generic_aura_node::<
-								RuntimeApi,
 								AuraId,
 							>(config, polkadot_config, collator_options, id, hwbench)
 							.await
@@ -777,7 +761,6 @@ pub fn run() -> Result<()> {
 						.map_err(Into::into),
 					Runtime::GluttonWestend =>
 						crate::service::start_basic_lookahead_node::<
-							RuntimeApi,
 							AuraId,
 						>(config, polkadot_config, collator_options, id, hwbench)
 						.await
@@ -785,7 +768,6 @@ pub fn run() -> Result<()> {
 						.map_err(Into::into),
 					Runtime::Glutton =>
 						crate::service::start_basic_lookahead_node::<
-							RuntimeApi,
 							AuraId,
 						>(config, polkadot_config, collator_options, id, hwbench)
 						.await

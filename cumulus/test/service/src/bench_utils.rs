@@ -17,6 +17,7 @@
 
 use codec::Encode;
 use sc_block_builder::BlockBuilderBuilder;
+use sp_api::RuntimeInstance;
 
 use crate::{construct_extrinsic, Client as TestClient};
 use cumulus_primitives_core::{relay_chain::AccountId, PersistedValidationData};
@@ -214,9 +215,10 @@ pub fn set_glutton_parameters(
 	let parent_hash = client.usage_info().chain.best_hash;
 	let parent_header = client.header(parent_hash).expect("Just fetched this hash.").unwrap();
 
-	let mut last_nonce = client
-		.runtime_api()
-		.account_nonce(parent_hash, Alice.into())
+	let mut last_nonce = RuntimeInstance::builder(client, parent_hash)
+		.off_chain_context()
+		.build()
+		.account_nonce(AccountId::from(Alice))
 		.expect("Fetching account nonce works; qed");
 
 	let mut extrinsics = vec![];
