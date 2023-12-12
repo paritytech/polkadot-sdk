@@ -1042,9 +1042,9 @@ fn subscription_side_upgrades_work_with_multistage_notify() {
 #[test]
 fn get_and_wrap_version_works() {
 	new_test_ext_with_balances_and_xcm_version(vec![], None).execute_with(|| {
-		let remote_a: MultiLocation = Parachain(1000).into();
-		let remote_b: MultiLocation = Parachain(1001).into();
-		let remote_c: MultiLocation = Parachain(1002).into();
+		let remote_a: Location = Parachain(1000).into();
+		let remote_b: Location = Parachain(1001).into();
+		let remote_c: Location = Parachain(1002).into();
 
 		// no `safe_xcm_version` version at `GenesisConfig`
 		assert_eq!(XcmPallet::get_version_for(&remote_a), None);
@@ -1062,7 +1062,7 @@ fn get_and_wrap_version_works() {
 		// set XCM version only for `remote_a`
 		assert_ok!(XcmPallet::force_xcm_version(
 			RuntimeOrigin::root(),
-			Box::new(remote_a),
+			Box::new(remote_a.clone()),
 			XCM_VERSION
 		));
 		assert_eq!(XcmPallet::get_version_for(&remote_a), Some(XCM_VERSION));
@@ -1080,7 +1080,7 @@ fn get_and_wrap_version_works() {
 		// does not work because remote_b has unknown version and default is set to 1, and
 		// `XCM_VERSION` cannot be wrapped to the `1`
 		assert_eq!(XcmPallet::wrap_version(&remote_b, xcm.clone()), Err(()));
-		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![(remote_b.into(), 1)]);
+		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![(remote_b.clone().into(), 1)]);
 
 		// set default to the `XCM_VERSION`
 		assert_ok!(XcmPallet::force_default_xcm_version(RuntimeOrigin::root(), Some(XCM_VERSION)));
@@ -1092,10 +1092,10 @@ fn get_and_wrap_version_works() {
 			XcmPallet::wrap_version(&remote_b, xcm.clone()),
 			Ok(VersionedXcm::from(xcm.clone()))
 		);
-		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![(remote_b.into(), 2)]);
+		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![(remote_b.clone().into(), 2)]);
 
 		// change remote_c to `1`
-		assert_ok!(XcmPallet::force_xcm_version(RuntimeOrigin::root(), Box::new(remote_c), 1));
+		assert_ok!(XcmPallet::force_xcm_version(RuntimeOrigin::root(), Box::new(remote_c.clone()), 1));
 
 		// does not work because remote_c has `1` and default is `XCM_VERSION` which cannot be
 		// wrapped to the `1`

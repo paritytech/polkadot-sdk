@@ -92,7 +92,7 @@ pub use sp_runtime::BuildStorage;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 // We exclude `Assets` since it's the name of a pallet
-use xcm::latest::prelude::{AssetId, BodyId};
+use xcm::latest::prelude::{AssetId, BodyId, XCM_VERSION};
 
 #[cfg(feature = "runtime-benchmarks")]
 use xcm::latest::prelude::{
@@ -1429,7 +1429,7 @@ impl_runtime_apis! {
 					let bridged_asset_hub = xcm_config::bridging::to_westend::AssetHubWestend::get();
 					let _ = PolkadotXcm::force_xcm_version(
 						RuntimeOrigin::root(),
-						Box::new(bridged_asset_hub),
+						Box::new(bridged_asset_hub.clone()),
 						XCM_VERSION,
 					).map_err(|e| {
 						log::error!(

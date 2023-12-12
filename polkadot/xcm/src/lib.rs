@@ -496,7 +496,7 @@ pub trait WrapVersion {
 /// Check and return the `Version` that should be used for the `Xcm` datum for the destination
 /// `MultiLocation`, which will interpret it.
 pub trait GetVersion {
-	fn get_version_for(dest: &latest::MultiLocation) -> Option<Version>;
+	fn get_version_for(dest: &latest::Location) -> Option<Version>;
 }
 
 /// `()` implementation does nothing with the XCM, just sending with whatever version it was

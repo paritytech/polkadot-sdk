@@ -51,7 +51,7 @@ pub mod pallet {
 		// `T as pallet_bridge_messages::Config<T::BridgeMessagesPalletInstance>::BridgedChain::NetworkId`
 		/// Bridged network as relative location of bridged `GlobalConsensus`.
 		#[pallet::constant]
-		type BridgedNetwork: Get<MultiLocation>;
+		type BridgedNetwork: Get<Location>;
 		/// Associated messages pallet instance that bridges us with the
 		/// `BridgedNetworkId` consensus.
 		type BridgeMessagesPalletInstance: 'static;

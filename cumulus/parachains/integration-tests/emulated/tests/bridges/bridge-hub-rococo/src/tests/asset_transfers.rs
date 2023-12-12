@@ -22,7 +22,7 @@ fn send_asset_from_asset_hub_rococo_to_asset_hub_westend(id: Location, amount: u
 	BridgeHubRococo::fund_para_sovereign(AssetHubRococo::para_id(), 10_000_000_000_000u128);
 
 	// set XCM versions
-	AssetHubRococo::force_xcm_version(destination, XCM_VERSION);
+	AssetHubRococo::force_xcm_version(destination.clone(), XCM_VERSION);
 	BridgeHubRococo::force_xcm_version(bridge_hub_westend_location(), XCM_VERSION);
 
 	// send message over bridge

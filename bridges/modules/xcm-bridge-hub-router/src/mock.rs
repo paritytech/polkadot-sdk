@@ -61,7 +61,7 @@ parameter_types! {
 				Some((BridgeFeeAsset::get(), BASE_FEE).into())
 			)
 		];
-	pub UnknownXcmVersionLocation: MultiLocation = MultiLocation::new(2, X2(GlobalConsensus(BridgedNetworkId::get()), Parachain(9999)));
+	pub UnknownXcmVersionLocation: Location = Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(9999)]);
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
@@ -87,11 +87,11 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 }
 
 pub struct LatestOrNoneForLocationVersionChecker<Location>(sp_std::marker::PhantomData<Location>);
-impl<Location: Contains<MultiLocation>> GetVersion
-	for LatestOrNoneForLocationVersionChecker<Location>
+impl<LocationValue: Contains<Location>> GetVersion
+	for LatestOrNoneForLocationVersionChecker<LocationValue>
 {
-	fn get_version_for(dest: &MultiLocation) -> Option<XcmVersion> {
-		if Location::contains(dest) {
+	fn get_version_for(dest: &Location) -> Option<XcmVersion> {
+		if LocationValue::contains(dest) {
 			return None
 		}
 		Some(XCM_VERSION)

@@ -65,10 +65,10 @@ parameter_types! {
 	pub const BridgeHubRococoChainId: bp_runtime::ChainId = bp_runtime::BRIDGE_HUB_ROCOCO_CHAIN_ID;
 	pub BridgeWestendToRococoMessagesPalletInstance: InteriorLocation = [PalletInstance(<BridgeRococoMessages as PalletInfoAccess>::index() as u8)].into();
 	pub RococoGlobalConsensusNetwork: NetworkId = NetworkId::Rococo;
-	pub RococoGlobalConsensusNetworkLocation: MultiLocation = MultiLocation {
-		parents: 2,
-		interior: X1(GlobalConsensus(RococoGlobalConsensusNetwork::get()))
-	};
+	pub RococoGlobalConsensusNetworkLocation: Location = Location::new(
+		2,
+		[GlobalConsensus(RococoGlobalConsensusNetwork::get())]
+	);
 	// see the `FEE_BOOST_PER_MESSAGE` constant to get the meaning of this value
 	pub PriorityBoostPerMessage: u64 = 182_044_444_444_444;
 
@@ -92,13 +92,13 @@ parameter_types! {
 	pub CongestedMessage: Xcm<()> = build_congestion_message(true).into();
 	pub UncongestedMessage: Xcm<()> = build_congestion_message(false).into();
 
-	pub BridgeHubRococoLocation: MultiLocation = MultiLocation {
-		parents: 2,
-		interior: X2(
+	pub BridgeHubRococoLocation: Location = Location::new(
+		2,
+		[
 			GlobalConsensus(RococoGlobalConsensusNetwork::get()),
 			Parachain(<bp_bridge_hub_rococo::BridgeHubRococo as bp_runtime::Parachain>::PARACHAIN_ID)
-		)
-	};
+		]
+	);
 }
 pub const XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO: LaneId = LaneId([0, 0, 0, 2]);
 

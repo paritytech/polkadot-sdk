@@ -2601,8 +2601,8 @@ impl<T: Config> WrapVersion for Pallet<T> {
 }
 
 impl<T: Config> GetVersion for Pallet<T> {
-	fn get_version_for(dest: &MultiLocation) -> Option<XcmVersion> {
-		SupportedVersion::<T>::get(XCM_VERSION, LatestVersionedMultiLocation(dest))
+	fn get_version_for(dest: &Location) -> Option<XcmVersion> {
+		SupportedVersion::<T>::get(XCM_VERSION, LatestVersionedLocation(dest))
 	}
 }
 

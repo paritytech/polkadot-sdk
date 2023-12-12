@@ -315,10 +315,10 @@ impl<H: XcmBlobHauler> LocalXcmQueueManager<H> {
 pub struct XcmVersionOfDestAndRemoteBridge<Version, RemoteBridge>(
 	sp_std::marker::PhantomData<(Version, RemoteBridge)>,
 );
-impl<Version: GetVersion, RemoteBridge: Get<MultiLocation>> GetVersion
+impl<Version: GetVersion, RemoteBridge: Get<Location>> GetVersion
 	for XcmVersionOfDestAndRemoteBridge<Version, RemoteBridge>
 {
-	fn get_version_for(dest: &MultiLocation) -> Option<XcmVersion> {
+	fn get_version_for(dest: &Location) -> Option<XcmVersion> {
 		let dest_version = Version::get_version_for(dest);
 		let bridge_hub_version = Version::get_version_for(&RemoteBridge::get());
 

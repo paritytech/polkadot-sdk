@@ -468,8 +468,8 @@ impl<
 		let (universal_dest, version) =
 			match dest.pushed_front_with(GlobalConsensus(bridged_network)) {
 				Ok(d) => {
-					let version = DestinationVersion::get_version_for(&MultiLocation::from(
-						AncestorThen(bridged_network_location_parents, d),
+					let version = DestinationVersion::get_version_for(&Location::from(
+						AncestorThen(bridged_network_location_parents, d.clone()),
 					))
 					.ok_or(SendError::DestinationUnsupported)?;
 					(d, version)
@@ -502,7 +502,7 @@ impl<
 		let message = VersionedXcm::from(message)
 			.into_version(version)
 			.map_err(|()| SendError::DestinationUnsupported)?;
-		let universal_dest = VersionedInteriorMultiLocation::from(universal_dest)
+		let universal_dest = VersionedInteriorLocation::from(universal_dest)
 			.into_version(version)
 			.map_err(|()| SendError::DestinationUnsupported)?;
 
