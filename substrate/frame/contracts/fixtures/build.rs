@@ -126,7 +126,6 @@ fn create_cargo_toml<'a>(
 	);
 
 	let cargo_toml = toml::to_string_pretty(&cargo_toml)?;
-	// eprintln!("cargo_toml: {}", cargo_toml);
 	fs::write(output_dir.join("Cargo.toml"), cargo_toml).map_err(Into::into)
 }
 
