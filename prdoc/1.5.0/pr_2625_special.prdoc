@@ -1,4 +1,4 @@
-title: Bridges update subtree
+title: Improved `ExportXcm::validate` implementation for BridgeHubs
 
 author: bkontur
 topic: bridges
