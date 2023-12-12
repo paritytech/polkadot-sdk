@@ -553,6 +553,7 @@ impl<AccountId> Inspect<AccountId> for () {
 	}
 }
 
+/// Dummy implementation of [`Unbalanced`]
 #[cfg(feature = "std")]
 impl<AccountId> Unbalanced<AccountId> for () {
 	fn handle_dust(_: Dust<AccountId, Self>) {}
@@ -565,5 +566,6 @@ impl<AccountId> Unbalanced<AccountId> for () {
 	fn set_total_issuance(_: Self::Balance) {}
 }
 
+/// Dummy implementation of [`Mutate`]
 #[cfg(feature = "std")]
 impl<AccountId: Eq> Mutate<AccountId> for () {}
