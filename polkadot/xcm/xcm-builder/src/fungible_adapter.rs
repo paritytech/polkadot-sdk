@@ -27,7 +27,9 @@ use sp_std::{marker::PhantomData, prelude::*, result};
 use xcm::latest::prelude::*;
 use xcm_executor::traits::{ConvertLocation, Error as MatchError, MatchesFungible, TransactAsset};
 
-/// [`TransactAsset`] implementation to convert a [`fungible`] implementation to become usable in XCM.
+/// [`TransactAsset`] implementation that allows the use of a [`fungible`] implementation for
+/// handling an asset in the XCM executor.
+/// Only works for transfers.
 pub struct FungibleTransferAdapter<Fungible, Matcher, AccountIdConverter, AccountId>(
     PhantomData<(Fungible, Matcher, AccountIdConverter, AccountId)>,
 );
@@ -60,6 +62,9 @@ impl<
     }
 }
 
+/// [`TransactAsset`] implementation that allows the use of a [`fungible`] implementation for
+/// handling an asset in the XCM executor.
+/// Works for everything but transfers.
 pub struct FungibleMutateAdapter<
     Fungible,
     Matcher,
@@ -234,6 +239,9 @@ impl<
     }
 }
 
+/// [`TransactAsset`] implementation that allows the use of a [`fungible`] implementation for
+/// handling an asset in the XCM executor.
+/// Works for everything, transfers and teleport bookkeeping.
 pub struct FungibleAdapter<
     Fungible,
     Matcher,
