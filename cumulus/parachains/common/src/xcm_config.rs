@@ -140,12 +140,11 @@ impl<AssetLocation: Get<Location>> ContainsPair<Asset, Location>
 /// This type should only be used within the context of a parachain, since it does not verify that
 /// the parent is indeed a Relay Chain.
 pub struct ParentRelayOrSiblingParachains;
-impl Contains<MultiLocation> for ParentRelayOrSiblingParachains {
-	fn contains(location: &MultiLocation) -> bool {
+impl Contains<Location> for ParentRelayOrSiblingParachains {
+	fn contains(location: &Location) -> bool {
 		matches!(
-			location,
-			MultiLocation { parents: 1, interior: Here } |
-				MultiLocation { parents: 1, interior: X1(Parachain(_)) }
+			location.unpack(),
+			(1, []) | (1, [Parachain(_)])
 		)
 	}
 }
