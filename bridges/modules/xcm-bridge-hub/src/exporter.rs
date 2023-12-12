@@ -33,7 +33,8 @@ use xcm_executor::traits::ExportXcm;
 /// An easy way to access `HaulBlobExporter`.
 pub type PalletAsHaulBlobExporter<T, I> = HaulBlobExporter<
 	DummyHaulBlob,
-	<T as Config<I>>::BridgedNetworkId,
+	<T as Config<I>>::BridgedNetwork,
+	<T as Config<I>>::DestinationVersion,
 	<T as Config<I>>::MessageExportPrice,
 >;
 /// An easy way to access associated messages pallet.

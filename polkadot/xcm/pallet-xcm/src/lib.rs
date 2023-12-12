@@ -2583,7 +2583,7 @@ impl<T: Config> WrapVersion for Pallet<T> {
 		dest: &Location,
 		xcm: impl Into<VersionedXcm<RuntimeCall>>,
 	) -> Result<VersionedXcm<RuntimeCall>, ()> {
-		SupportedVersion::<T>::get(XCM_VERSION, LatestVersionedLocation(dest))
+		Self::get_version_for(dest)
 			.or_else(|| {
 				Self::note_unknown_version(dest);
 				SafeXcmVersion::<T>::get()
@@ -2597,6 +2597,12 @@ impl<T: Config> WrapVersion for Pallet<T> {
 				()
 			})
 			.and_then(|v| xcm.into().into_version(v.min(XCM_VERSION)))
+	}
+}
+
+impl<T: Config> GetVersion for Pallet<T> {
+	fn get_version_for(dest: &MultiLocation) -> Option<XcmVersion> {
+		SupportedVersion::<T>::get(XCM_VERSION, LatestVersionedMultiLocation(dest))
 	}
 }
 

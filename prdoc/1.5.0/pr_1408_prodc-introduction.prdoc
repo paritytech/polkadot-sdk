@@ -1,6 +1,9 @@
 # This PR does not need a prdoc but it is provided in order to test
 title: PRdoc check
 
+author: chevdor
+topic: documentation
+
 doc:
   - audience: Node Dev
     description: |

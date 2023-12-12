@@ -1361,8 +1361,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93f2635620bf0b9d4576eb7bb9a38a55df78bd1205d26fa994b25911a69f212f"
 dependencies = [
  "bitcoin_hashes",
- "rand 0.8.5",
- "rand_core 0.6.4",
+ "rand 0.7.3",
+ "rand_core 0.5.1",
  "serde",
  "unicode-normalization",
 ]
@@ -1883,6 +1883,7 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "rococo-westend-system-emulated-network",
+ "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
 ]
@@ -2048,6 +2049,7 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "rococo-westend-system-emulated-network",
+ "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
 ]
@@ -8339,15 +8341,6 @@ dependencies = [
 
 [[package]]
 name = "names"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7d66043b25d4a6cccb23619d10c19c25304b355a7dccd4a8e11423dd2382146"
-dependencies = [
- "rand 0.8.5",
-]
-
-[[package]]
-name = "names"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7bddcd3bf5144b6392de80e04c347cd7fab2508f6df16a85fc496ecd5cec39bc"
@@ -11795,7 +11788,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot"
-version = "1.1.0"
+version = "1.5.0"
 dependencies = [
  "assert_cmd",
  "color-eyre",
@@ -12765,7 +12758,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-parachain-bin"
-version = "1.1.0"
+version = "1.5.0"
 dependencies = [
  "assert_cmd",
  "asset-hub-rococo-runtime",
@@ -13882,7 +13875,7 @@ dependencies = [
  "libc",
  "libflate",
  "log",
- "names 0.14.0",
+ "names",
  "prost",
  "reqwest",
  "thiserror",
@@ -15056,7 +15049,7 @@ dependencies = [
  "itertools 0.10.5",
  "libp2p-identity",
  "log",
- "names 0.13.0",
+ "names",
  "parity-scale-codec",
  "rand 0.8.5",
  "regex",
@@ -19950,7 +19943,7 @@ checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
  "cfg-if",
  "digest 0.10.7",
- "rand 0.8.5",
+ "rand 0.7.3",
  "static_assertions",
 ]
 
