@@ -25,8 +25,8 @@ use parity_scale_codec::Encode;
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 use polkadot_runtime_parachains::{
-	assigner_parachains as parachains_assigner_parachains,
-	configuration as parachains_configuration, disputes as parachains_disputes,
+	assigner_coretime, assigner_on_demand, assigner_parachains as parachains_assigner_parachains,
+	configuration as parachains_configuration, coretime, disputes as parachains_disputes,
 	disputes::slashing as parachains_slashing, dmp as parachains_dmp, hrmp as parachains_hrmp,
 	inclusion as parachains_inclusion, initializer as parachains_initializer,
 	origin as parachains_origin, paras as parachains_paras,
@@ -74,7 +74,7 @@ use sp_runtime::{
 		SaturatedConversion, StaticLookup, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, KeyTypeId, Perbill,
+	ApplyExtrinsicResult, FixedU128, KeyTypeId, Perbill,
 };
 use sp_staking::SessionIndex;
 #[cfg(any(feature = "std", test))]
@@ -539,6 +539,31 @@ impl parachains_paras::Config for Runtime {
 	type OnNewHead = ();
 }
 
+parameter_types! {
+	pub const BrokerId: u32 = 10u32;
+}
+
+impl coretime::Config for Runtime {
+	type RuntimeOrigin = RuntimeOrigin;
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = pallet_balances::Pallet<Runtime>;
+	type BrokerId = BrokerId;
+	type WeightInfo = coretime::TestWeightInfo;
+}
+
+parameter_types! {
+	pub const OnDemandTrafficDefaultValue: FixedU128 = FixedU128::from_u32(1);
+}
+
+impl assigner_on_demand::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type TrafficDefaultValue = OnDemandTrafficDefaultValue;
+	type WeightInfo = assigner_on_demand::TestWeightInfo;
+}
+
+impl assigner_coretime::Config for Runtime {}
+
 impl parachains_dmp::Config for Runtime {}
 
 parameter_types! {
@@ -704,6 +729,9 @@ construct_runtime! {
 		Sudo: pallet_sudo::{Pallet, Call, Storage, Config<T>, Event<T>},
 
 		TestNotifier: pallet_test_notifier::{Pallet, Call, Event<T>},
+		Coretime: coretime,
+		AssignerCoretime: assigner_coretime,
+		AssignerOnDemand: assigner_on_demand,
 	}
 }
 
