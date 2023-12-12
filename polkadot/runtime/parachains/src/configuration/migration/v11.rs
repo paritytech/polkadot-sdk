@@ -71,22 +71,22 @@ pub struct UncheckedMigrateToV11<T>(sp_std::marker::PhantomData<T>);
 impl<T: Config> OnRuntimeUpgrade for UncheckedMigrateToV11<T> {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-		log::trace!(target: crate::configuration::LOG_TARGET, "Running pre_upgrade() for HostConfiguration MigrateToV10");
+		log::trace!(target: crate::configuration::LOG_TARGET, "Running pre_upgrade() for HostConfiguration MigrateToV11");
 		Ok(Vec::new())
 	}
 
 	fn on_runtime_upgrade() -> Weight {
-		log::info!(target: configuration::LOG_TARGET, "HostConfiguration MigrateToV10 started");
+		log::info!(target: configuration::LOG_TARGET, "HostConfiguration MigrateToV11 started");
 		let weight_consumed = migrate_to_v11::<T>();
 
-		log::info!(target: configuration::LOG_TARGET, "HostConfiguration MigrateToV10 executed successfully");
+		log::info!(target: configuration::LOG_TARGET, "HostConfiguration MigrateToV11 executed successfully");
 
 		weight_consumed
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-		log::trace!(target: crate::configuration::LOG_TARGET, "Running post_upgrade() for HostConfiguration MigrateToV10");
+		log::trace!(target: crate::configuration::LOG_TARGET, "Running post_upgrade() for HostConfiguration MigrateToV11");
 		ensure!(
 			StorageVersion::get::<Pallet<T>>() >= 11,
 			"Storage version should be >= 11 after the migration"

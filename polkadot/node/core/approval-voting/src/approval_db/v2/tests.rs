@@ -18,7 +18,7 @@
 
 use crate::{
 	approval_db::{
-		common::{DbBackend, StoredBlockRange, *, migration_helpers::make_bitvec},
+		common::{migration_helpers::make_bitvec, DbBackend, StoredBlockRange, *},
 		v2::*,
 		v3::{load_block_entry_v2, load_candidate_entry_v2},
 	},

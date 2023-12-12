@@ -37,8 +37,8 @@ use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_overseer::HeadSupportsParachains;
 use polkadot_primitives::{
-	ApprovalVote, CandidateCommitments, CandidateEvent, CoreIndex, GroupIndex, Header,
-	Id as ParaId, IndexedVec, ValidationCode, ValidatorSignature,
+	vstaging::NodeFeatures, ApprovalVote, CandidateCommitments, CandidateEvent, CoreIndex,
+	GroupIndex, Header, Id as ParaId, IndexedVec, ValidationCode, ValidatorSignature,
 };
 use std::time::Duration;
 
@@ -243,6 +243,7 @@ where
 			polkadot_primitives::CoreIndex,
 			polkadot_primitives::GroupIndex,
 		)>,
+		_enable_assignments_v2: bool,
 	) -> HashMap<polkadot_primitives::CoreIndex, criteria::OurAssignment> {
 		self.0()
 	}
@@ -1017,6 +1018,15 @@ async fn import_block(
 					// Make sure all SessionExecutorParams calls are not made for the leaf (but for its relay parent)
 					assert_ne!(req_block_hash, hashes[(number-1) as usize].0);
 					si_tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
+				}
+			);
+
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
+				) => {
+					si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
 				}
 			);
 		}

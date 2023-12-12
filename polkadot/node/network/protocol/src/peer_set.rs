@@ -73,7 +73,11 @@ impl PeerSet {
 		// Networking layer relies on `get_main_name()` being the main name of the protocol
 		// for peersets and connection management.
 		let protocol = peerset_protocol_names.get_main_name(self);
-		let fallback_names = PeerSetProtocolNames::get_fallback_names(self);
+		let fallback_names = PeerSetProtocolNames::get_fallback_names(
+			self,
+			&peerset_protocol_names.genesis_hash,
+			peerset_protocol_names.fork_id.as_deref(),
+		);
 		let max_notification_size = self.get_max_notification_size(is_authority);
 
 		match self {
@@ -293,6 +297,8 @@ impl From<CollationVersion> for ProtocolVersion {
 pub struct PeerSetProtocolNames {
 	protocols: HashMap<ProtocolName, (PeerSet, ProtocolVersion)>,
 	names: HashMap<(PeerSet, ProtocolVersion), ProtocolName>,
+	genesis_hash: Hash,
+	fork_id: Option<String>,
 }
 
 impl PeerSetProtocolNames {
@@ -327,7 +333,7 @@ impl PeerSetProtocolNames {
 			}
 			Self::register_legacy_protocol(&mut protocols, protocol);
 		}
-		Self { protocols, names }
+		Self { protocols, names, genesis_hash, fork_id: fork_id.map(|fork_id| fork_id.into()) }
 	}
 
 	/// Helper function to register main protocol.
@@ -431,9 +437,30 @@ impl PeerSetProtocolNames {
 	}
 
 	/// Get the protocol fallback names. Currently only holds the legacy name
-	/// for `LEGACY_PROTOCOL_VERSION` = 1.
-	fn get_fallback_names(protocol: PeerSet) -> Vec<ProtocolName> {
-		std::iter::once(Self::get_legacy_name(protocol)).collect()
+	/// for `LEGACY_PROTOCOL_VERSION` = 1 and v2 for validation.
+	fn get_fallback_names(
+		protocol: PeerSet,
+		genesis_hash: &Hash,
+		fork_id: Option<&str>,
+	) -> Vec<ProtocolName> {
+		let mut fallbacks = vec![Self::get_legacy_name(protocol)];
+		match protocol {
+			PeerSet::Validation => {
+				// Fallbacks are tried one by one, till one matches so push v2 at the top, so
+				// that it is used ahead of the legacy one(v1).
+				fallbacks.insert(
+					0,
+					Self::generate_name(
+						genesis_hash,
+						fork_id,
+						protocol,
+						ValidationVersion::V2.into(),
+					),
+				)
+			},
+			PeerSet::Collation => {},
+		};
+		fallbacks
 	}
 }
 

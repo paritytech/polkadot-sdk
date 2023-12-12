@@ -61,10 +61,11 @@ use polkadot_node_subsystem_test_helpers::{
 	make_buffered_subsystem_context, mock::new_leaf, TestSubsystemContextHandle,
 };
 use polkadot_primitives::{
-	ApprovalVote, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-	CandidateReceipt, CoreIndex, DisputeStatement, ExecutorParams, GroupIndex, Hash, HeadData,
-	Header, IndexedVec, MultiDisputeStatementSet, ScrapedOnChainVotes, SessionIndex, SessionInfo,
-	SigningContext, ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorSignature,
+	vstaging::NodeFeatures, ApprovalVote, BlockNumber, CandidateCommitments, CandidateEvent,
+	CandidateHash, CandidateReceipt, CoreIndex, DisputeStatement, ExecutorParams, GroupIndex, Hash,
+	HeadData, Header, IndexedVec, MultiDisputeStatementSet, ScrapedOnChainVotes, SessionIndex,
+	SessionInfo, SigningContext, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
+	ValidatorSignature,
 };
 
 use crate::{
@@ -350,6 +351,15 @@ impl TestState {
 									assert_eq!(h, block_hash);
 									assert_eq!(session_index, i);
 									let _ = tx.send(Ok(Some(ExecutorParams::default())));
+								}
+							);
+
+							assert_matches!(
+								overseer_recv(virtual_overseer).await,
+								AllMessages::RuntimeApi(
+									RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
+								) => {
+									si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
 								}
 							);
 						}
@@ -3495,6 +3505,14 @@ fn session_info_is_requested_only_once() {
 					let _ = tx.send(Ok(Some(ExecutorParams::default())));
 				}
 			);
+			assert_matches!(
+				virtual_overseer.recv().await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
+				) => {
+					si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+				}
+			);
 			test_state
 		})
 	});
@@ -3555,6 +3573,15 @@ fn session_info_big_jump_works() {
 						let _ = tx.send(Ok(Some(ExecutorParams::default())));
 					}
 				);
+
+				assert_matches!(
+					virtual_overseer.recv().await,
+					AllMessages::RuntimeApi(
+						RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
+					) => {
+						si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+					}
+				);
 			}
 			test_state
 		})
@@ -3613,6 +3640,14 @@ fn session_info_small_jump_works() {
 					)) => {
 						assert_eq!(session_index, expected_idx);
 						let _ = tx.send(Ok(Some(ExecutorParams::default())));
+					}
+				);
+				assert_matches!(
+					virtual_overseer.recv().await,
+					AllMessages::RuntimeApi(
+						RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
+					) => {
+						si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
 					}
 				);
 			}

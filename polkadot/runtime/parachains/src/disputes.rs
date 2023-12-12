@@ -1017,8 +1017,10 @@ impl<T: Config> Pallet<T> {
 					set.session,
 					statement,
 					signature,
-					// This is here to prevent malicious nodes of generating `ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates`
-					// before that is enabled, via setting `max_approval_coalesce_count` in the parachain host config.
+					// This is here to prevent malicious nodes of generating
+					// `ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates` before that
+					// is enabled, via setting `max_approval_coalesce_count` in the parachain host
+					// config.
 					config.approval_voting_params.max_approval_coalesce_count > 1,
 				) {
 					log::warn!("Failed to check dispute signature");
