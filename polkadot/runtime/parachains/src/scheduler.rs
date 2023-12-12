@@ -621,7 +621,7 @@ impl<T: Config> Pallet<T> {
 			if let Some(concluded_para) = concluded_paras.remove(&core_idx) {
 				T::AssignmentProvider::report_processed(concluded_para);
 			}
-			// We  consider occupied cores to be part of the claimqueue
+			// We consider occupied cores to be part of the claimqueue
 			let n_lookahead_used = cq.get(&core_idx).map_or(0, |v| v.len() as u32) +
 				if Self::is_core_occupied(core_idx) { 1 } else { 0 };
 			for _ in n_lookahead_used..n_lookahead {
