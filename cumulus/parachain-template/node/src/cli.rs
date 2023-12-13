@@ -25,8 +25,8 @@ pub enum Subcommand {
 	PurgeChain(cumulus_client_cli::PurgeChainCmd),
 
 	/// Export the genesis head data of the parachain.
+	///
 	/// Head data is the encoded block header.
-	/// This is the same as the old, poorly named, ExportGenesisState command.
 	#[command(alias = "export-genesis-state")]
 	ExportGenesisHead(cumulus_client_cli::ExportGenesisHeadCommand),
 
