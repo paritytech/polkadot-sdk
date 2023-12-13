@@ -3,7 +3,7 @@ name: Build and Attach Runtimes to Releases/RC
 on:
   release:
     types:
-      - created
+      - published
 
 env:
   PROFILE: production
@@ -35,7 +35,7 @@ jobs:
 
     - name: Build ${{ matrix.runtime.name }} ${{ matrix.build_config.type }}
       id: srtool_build
-      uses: chevdor/srtool-actions@v0.9.0
+      uses: chevdor/srtool-actions@v0.9.1
       env:
         BUILD_OPTS: ${{ matrix.build_config.opts }}
       with:
@@ -43,12 +43,6 @@ jobs:
         package: ${{ matrix.runtime.package }}
         runtime_dir: ${{ matrix.runtime.path }}
         profile: ${{ env.PROFILE }}
-
-    - name: Build Summary
-      run: |
-        echo "${{ steps.srtool_build.outputs.json }}" | jq . > ${{ matrix.runtime.name }}-srtool-digest.json
-        cat ${{ matrix.runtime.name }}-srtool-digest.json
-        echo "Runtime location: ${{ steps.srtool_build.outputs.wasm }}"
 
     - name: Set up paths and runtime names
       id: setup

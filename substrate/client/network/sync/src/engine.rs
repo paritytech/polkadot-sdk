@@ -38,7 +38,7 @@ use crate::{
 	warp::{EncodedProof, WarpProofRequest, WarpSyncParams},
 };
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeAll, Encode};
 use futures::{
 	channel::oneshot,
 	future::{BoxFuture, Fuse},
@@ -61,9 +61,12 @@ use sc_network::{
 		FullNetworkConfiguration, NonDefaultSetConfig, NonReservedPeerMode, NotificationHandshake,
 		ProtocolId, SetConfig,
 	},
+	peer_store::{PeerStoreHandle, PeerStoreProvider},
 	request_responses::{IfDisconnected, RequestFailure},
+	service::traits::{Direction, NotificationEvent, ValidationResult},
+	types::ProtocolName,
 	utils::LruHashSet,
-	NotificationsSink, ProtocolName, ReputationChange,
+	NotificationService, ReputationChange,
 };
 use sc_network_common::{
 	role::Roles,
@@ -88,14 +91,14 @@ use std::{
 	time::{Duration, Instant},
 };
 
-/// Log target for this file.
-const LOG_TARGET: &'static str = "sync";
-
 /// Interval at which we perform time based maintenance
 const TICK_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(1100);
 
 /// Maximum number of known block hashes to keep for a peer.
 const MAX_KNOWN_BLOCKS: usize = 1024; // ~32kb per peer + LruHashSet overhead
+
+/// Logging target for the file.
+const LOG_TARGET: &str = "sync";
 
 /// If the block announces stream to peer has been inactive for 30 seconds meaning local node
 /// has not sent or received block announcements to/from the peer, report the node for inactivity,
@@ -226,8 +229,6 @@ pub struct Peer<B: BlockT> {
 	pub info: ExtendedPeerInfo<B>,
 	/// Holds a set of blocks known to this peer.
 	pub known_blocks: LruHashSet<B::Hash>,
-	/// Notification sink.
-	sink: NotificationsSink,
 	/// Is the peer inbound.
 	inbound: bool,
 }
@@ -251,9 +252,6 @@ pub struct SyncingEngine<B: BlockT, Client> {
 
 	/// Channel for receiving service commands
 	service_rx: TracingUnboundedReceiver<ToServiceCommand<B>>,
-
-	/// Channel for receiving inbound connections from `Protocol`.
-	sync_events_rx: sc_utils::mpsc::TracingUnboundedReceiver<sc_network::SyncEvent<B>>,
 
 	/// Assigned roles.
 	roles: Roles,
@@ -312,11 +310,17 @@ pub struct SyncingEngine<B: BlockT, Client> {
 	/// Prometheus metrics.
 	metrics: Option<Metrics>,
 
+	/// Handle that is used to communicate with `sc_network::Notifications`.
+	notification_service: Box<dyn NotificationService>,
+
 	/// When the syncing was started.
 	///
 	/// Stored as an `Option<Instant>` so once the initial wait has passed, `SyncingEngine`
 	/// can reset the peer timers and continue with the normal eviction process.
 	syncing_started: Option<Instant>,
+
+	/// Handle to `PeerStore`.
+	peer_store_handle: PeerStoreHandle,
 
 	/// Instant when the last notification was sent or received.
 	last_notification_io: Instant,
@@ -362,7 +366,7 @@ where
 		block_downloader: Arc<dyn BlockDownloader<B>>,
 		state_request_protocol_name: ProtocolName,
 		warp_sync_protocol_name: Option<ProtocolName>,
-		sync_events_rx: sc_utils::mpsc::TracingUnboundedReceiver<sc_network::SyncEvent<B>>,
+		peer_store_handle: PeerStoreHandle,
 	) -> Result<(Self, SyncingService<B>, NonDefaultSetConfig), ClientError> {
 		let mode = net_config.network_config.sync_mode;
 		let max_parallel_downloads = net_config.network_config.max_parallel_downloads;
@@ -387,7 +391,7 @@ where
 			}
 			for config in net_config.notification_protocols() {
 				let peer_ids = config
-					.set_config
+					.set_config()
 					.reserved_nodes
 					.iter()
 					.map(|info| info.peer_id)
@@ -438,7 +442,7 @@ where
 		let warp_sync_target_block_header_rx_fused = warp_sync_target_block_header_rx
 			.map_or(futures::future::pending().boxed().fuse(), |rx| rx.boxed().fuse());
 
-		let block_announce_config = Self::get_block_announce_proto_config(
+		let (block_announce_config, notification_service) = Self::get_block_announce_proto_config(
 			protocol_id,
 			fork_id,
 			roles,
@@ -450,7 +454,6 @@ where
 				.flatten()
 				.expect("Genesis block exists; qed"),
 		);
-		let block_announce_protocol_name = block_announce_config.notifications_protocol.clone();
 
 		let chain_sync = ChainSync::new(
 			mode,
@@ -460,6 +463,7 @@ where
 			warp_sync_config,
 		)?;
 
+		let block_announce_protocol_name = block_announce_config.protocol_name().clone();
 		let (tx, service_rx) = tracing_unbounded("mpsc_chain_sync", 100_000);
 		let num_connected = Arc::new(AtomicUsize::new(0));
 		let is_major_syncing = Arc::new(AtomicBool::new(false));
@@ -496,7 +500,6 @@ where
 				num_connected: num_connected.clone(),
 				is_major_syncing: is_major_syncing.clone(),
 				service_rx,
-				sync_events_rx,
 				genesis_hash,
 				important_peers,
 				default_peers_set_no_slot_connected_peers: HashSet::new(),
@@ -508,8 +511,10 @@ where
 				num_in_peers: 0usize,
 				max_in_peers,
 				event_streams: Vec::new(),
+				notification_service,
 				tick_timeout,
 				syncing_started: None,
+				peer_store_handle,
 				last_notification_io: Instant::now(),
 				metrics: if let Some(r) = metrics_registry {
 					match Metrics::register(r, is_major_syncing.clone()) {
@@ -673,21 +678,9 @@ where
 				};
 
 				self.last_notification_io = Instant::now();
-				peer.sink.send_sync_notification(message.encode());
+				let _ = self.notification_service.send_sync_notification(peer_id, message.encode());
 			}
 		}
-	}
-
-	/// Inform sync about new best imported block.
-	pub fn new_best_block_imported(&mut self, hash: B::Hash, number: NumberFor<B>) {
-		log::debug!(target: LOG_TARGET, "New best block imported {hash:?}/#{number}");
-
-		self.chain_sync.update_chain_info(&hash, number);
-		self.network_service.set_notification_handshake(
-			self.block_announce_protocol_name.clone(),
-			BlockAnnouncesHandshake::<B>::build(self.roles, number, hash, self.genesis_hash)
-				.encode(),
-		)
 	}
 
 	pub async fn run(mut self) {
@@ -698,8 +691,10 @@ where
 				_ = self.tick_timeout.tick() => self.perform_periodic_actions(),
 				command = self.service_rx.select_next_some() =>
 					self.process_service_command(command),
-				sync_event = self.sync_events_rx.select_next_some() =>
-					self.process_sync_event(sync_event),
+				notification_event = self.notification_service.next_event() => match notification_event {
+					Some(event) => self.process_notification_event(event),
+					None => return,
+				},
 				warp_target_block_header = &mut self.warp_sync_target_block_header_rx_fused =>
 					self.pass_warp_sync_target_block_header(warp_target_block_header),
 				response_event = self.pending_responses.select_next_some() =>
@@ -853,8 +848,20 @@ where
 				}
 			},
 			ToServiceCommand::AnnounceBlock(hash, data) => self.announce_block(hash, data),
-			ToServiceCommand::NewBestBlockImported(hash, number) =>
-				self.new_best_block_imported(hash, number),
+			ToServiceCommand::NewBestBlockImported(hash, number) => {
+				log::debug!(target: "sync", "New best block imported {:?}/#{}", hash, number);
+
+				self.chain_sync.update_chain_info(&hash, number);
+				let _ = self.notification_service.try_set_handshake(
+					BlockAnnouncesHandshake::<B>::build(
+						self.roles,
+						number,
+						hash,
+						self.genesis_hash,
+					)
+					.encode(),
+				);
+			},
 			ToServiceCommand::Status(tx) => {
 				let mut status = self.chain_sync.status();
 				status.num_connected_peers = self.peers.len() as u32;
@@ -894,56 +901,60 @@ where
 		}
 	}
 
-	fn process_sync_event(&mut self, event: sc_network::SyncEvent<B>) {
+	fn process_notification_event(&mut self, event: NotificationEvent) {
 		match event {
-			sc_network::SyncEvent::NotificationStreamOpened {
-				remote,
-				received_handshake,
-				sink,
-				inbound,
-				tx,
-			} => match self.on_sync_peer_connected(remote, &received_handshake, sink, inbound) {
-				Ok(()) => {
-					let _ = tx.send(true);
-				},
-				Err(()) => {
-					log::debug!(
-						target: LOG_TARGET,
-						"Failed to register peer {remote:?}: {received_handshake:?}",
-					);
-					let _ = tx.send(false);
-				},
+			NotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx } => {
+				let validation_result = self
+					.validate_connection(&peer, handshake, Direction::Inbound)
+					.map_or(ValidationResult::Reject, |_| ValidationResult::Accept);
+
+				let _ = result_tx.send(validation_result);
 			},
-			sc_network::SyncEvent::NotificationStreamClosed { remote } => {
-				if self.on_sync_peer_disconnected(remote).is_err() {
-					log::trace!(
-						target: LOG_TARGET,
-						"Disconnected peer which had earlier been refused by on_sync_peer_connected {}",
-						remote
-					);
-				}
-			},
-			sc_network::SyncEvent::NotificationsReceived { remote, messages } => {
-				for message in messages {
-					if self.peers.contains_key(&remote) {
-						if let Ok(announce) = BlockAnnounce::decode(&mut message.as_ref()) {
-							self.last_notification_io = Instant::now();
-							self.push_block_announce_validation(remote, announce);
-						} else {
-							log::warn!(target: "sub-libp2p", "Failed to decode block announce");
+			NotificationEvent::NotificationStreamOpened { peer, handshake, direction, .. } => {
+				log::debug!(
+					target: LOG_TARGET,
+					"Substream opened for {peer}, handshake {handshake:?}"
+				);
+
+				match self.validate_connection(&peer, handshake, direction) {
+					Ok(handshake) => {
+						if self.on_sync_peer_connected(peer, &handshake, direction).is_err() {
+							log::debug!(target: LOG_TARGET, "Failed to register peer {peer}");
+							self.network_service
+								.disconnect_peer(peer, self.block_announce_protocol_name.clone());
 						}
-					} else {
-						log::trace!(
-							target: LOG_TARGET,
-							"Received sync for peer earlier refused by sync layer: {remote}",
-						);
-					}
+					},
+					Err(wrong_genesis) => {
+						log::debug!(target: LOG_TARGET, "`SyncingEngine` rejected {peer}");
+
+						if wrong_genesis {
+							self.peer_store_handle.report_peer(peer, rep::GENESIS_MISMATCH);
+						}
+
+						self.network_service
+							.disconnect_peer(peer, self.block_announce_protocol_name.clone());
+					},
 				}
 			},
-			sc_network::SyncEvent::NotificationSinkReplaced { remote, sink } => {
-				if let Some(peer) = self.peers.get_mut(&remote) {
-					peer.sink = sink;
+			NotificationEvent::NotificationStreamClosed { peer } => {
+				self.on_sync_peer_disconnected(peer);
+			},
+			NotificationEvent::NotificationReceived { peer, notification } => {
+				if !self.peers.contains_key(&peer) {
+					log::error!(
+						target: LOG_TARGET,
+						"received notification from {peer} who had been earlier refused by `SyncingEngine`",
+					);
+					return
 				}
+
+				let Ok(announce) = BlockAnnounce::decode(&mut notification.as_ref()) else {
+					log::warn!(target: LOG_TARGET, "failed to decode block announce");
+					return
+				};
+
+				self.last_notification_io = Instant::now();
+				self.push_block_announce_validation(peer, announce);
 			},
 		}
 	}
@@ -965,41 +976,152 @@ where
 	/// Called by peer when it is disconnecting.
 	///
 	/// Returns a result if the handshake of this peer was indeed accepted.
-	fn on_sync_peer_disconnected(&mut self, peer_id: PeerId) -> Result<(), ()> {
-		if let Some(info) = self.peers.remove(&peer_id) {
-			if self.important_peers.contains(&peer_id) {
-				log::warn!(target: LOG_TARGET, "Reserved peer {peer_id} disconnected");
-			} else {
-				log::debug!(target: LOG_TARGET, "{peer_id} disconnected");
-			}
+	fn on_sync_peer_disconnected(&mut self, peer_id: PeerId) {
+		let Some(info) = self.peers.remove(&peer_id) else {
+			log::debug!(target: LOG_TARGET, "{peer_id} does not exist in `SyncingEngine`");
+			return
+		};
 
-			if !self.default_peers_set_no_slot_connected_peers.remove(&peer_id) &&
-				info.inbound && info.info.roles.is_full()
-			{
-				match self.num_in_peers.checked_sub(1) {
-					Some(value) => {
-						self.num_in_peers = value;
-					},
-					None => {
-						log::error!(
-							target: LOG_TARGET,
-							"trying to disconnect an inbound node which is not counted as inbound"
-						);
-						debug_assert!(false);
-					},
-				}
-			}
-
-			self.chain_sync.peer_disconnected(&peer_id);
-
-			self.pending_responses.remove(&peer_id);
-			self.event_streams.retain(|stream| {
-				stream.unbounded_send(SyncEvent::PeerDisconnected(peer_id)).is_ok()
-			});
-			Ok(())
+		if self.important_peers.contains(&peer_id) {
+			log::warn!(target: LOG_TARGET, "Reserved peer {peer_id} disconnected");
 		} else {
-			Err(())
+			log::debug!(target: LOG_TARGET, "{peer_id} disconnected");
 		}
+
+		if !self.default_peers_set_no_slot_connected_peers.remove(&peer_id) &&
+			info.inbound && info.info.roles.is_full()
+		{
+			match self.num_in_peers.checked_sub(1) {
+				Some(value) => {
+					self.num_in_peers = value;
+				},
+				None => {
+					log::error!(
+						target: LOG_TARGET,
+						"trying to disconnect an inbound node which is not counted as inbound"
+					);
+					debug_assert!(false);
+				},
+			}
+		}
+
+		self.chain_sync.peer_disconnected(&peer_id);
+		self.pending_responses.remove(&peer_id);
+		self.event_streams
+			.retain(|stream| stream.unbounded_send(SyncEvent::PeerDisconnected(peer_id)).is_ok());
+	}
+
+	/// Validate received handshake.
+	fn validate_handshake(
+		&mut self,
+		peer_id: &PeerId,
+		handshake: Vec<u8>,
+	) -> Result<BlockAnnouncesHandshake<B>, bool> {
+		log::trace!(target: LOG_TARGET, "Validate handshake for {peer_id}");
+
+		let handshake = <BlockAnnouncesHandshake<B> as DecodeAll>::decode_all(&mut &handshake[..])
+			.map_err(|error| {
+				log::debug!(target: LOG_TARGET, "Failed to decode handshake for {peer_id}: {error:?}");
+				false
+			})?;
+
+		if handshake.genesis_hash != self.genesis_hash {
+			if self.important_peers.contains(&peer_id) {
+				log::error!(
+					target: LOG_TARGET,
+					"Reserved peer id `{peer_id}` is on a different chain (our genesis: {} theirs: {})",
+					self.genesis_hash,
+					handshake.genesis_hash,
+				);
+			} else if self.boot_node_ids.contains(&peer_id) {
+				log::error!(
+					target: LOG_TARGET,
+					"Bootnode with peer id `{peer_id}` is on a different chain (our genesis: {} theirs: {})",
+					self.genesis_hash,
+					handshake.genesis_hash,
+				);
+			} else {
+				log::debug!(
+					target: LOG_TARGET,
+					"Peer is on different chain (our genesis: {} theirs: {})",
+					self.genesis_hash,
+					handshake.genesis_hash
+				);
+			}
+
+			return Err(true)
+		}
+
+		Ok(handshake)
+	}
+
+	/// Validate connection.
+	// NOTE Returning `Err(bool)` is a really ugly hack to work around the issue
+	// that `ProtocolController` thinks the peer is connected when in fact it can
+	// still be under validation. If the peer has different genesis than the
+	// local node the validation fails but the peer cannot be reported in
+	// `validate_connection()` as that is also called by
+	// `ValiateInboundSubstream` which means that the peer is still being
+	// validated and banning the peer when handling that event would
+	// result in peer getting dropped twice.
+	//
+	// The proper way to fix this is to integrate `ProtocolController` more
+	// tightly with `NotificationService` or add an additional API call for
+	// banning pre-accepted peers (which is not desirable)
+	fn validate_connection(
+		&mut self,
+		peer_id: &PeerId,
+		handshake: Vec<u8>,
+		direction: Direction,
+	) -> Result<BlockAnnouncesHandshake<B>, bool> {
+		log::trace!(target: LOG_TARGET, "New peer {peer_id} {handshake:?}");
+
+		let handshake = self.validate_handshake(peer_id, handshake)?;
+
+		if self.peers.contains_key(&peer_id) {
+			log::error!(
+				target: LOG_TARGET,
+				"Called `validate_connection()` with already connected peer {peer_id}",
+			);
+			debug_assert!(false);
+			return Err(false)
+		}
+
+		let no_slot_peer = self.default_peers_set_no_slot_peers.contains(&peer_id);
+		let this_peer_reserved_slot: usize = if no_slot_peer { 1 } else { 0 };
+
+		if handshake.roles.is_full() &&
+			self.chain_sync.num_peers() >=
+				self.default_peers_set_num_full +
+					self.default_peers_set_no_slot_connected_peers.len() +
+					this_peer_reserved_slot
+		{
+			log::debug!(target: LOG_TARGET, "Too many full nodes, rejecting {peer_id}");
+			return Err(false)
+		}
+
+		// make sure to accept no more than `--in-peers` many full nodes
+		if !no_slot_peer &&
+			handshake.roles.is_full() &&
+			direction.is_inbound() &&
+			self.num_in_peers == self.max_in_peers
+		{
+			log::debug!(target: LOG_TARGET, "All inbound slots have been consumed, rejecting {peer_id}");
+			return Err(false)
+		}
+
+		// make sure that all slots are not occupied by light peers
+		//
+		// `ChainSync` only accepts full peers whereas `SyncingEngine` accepts both full and light
+		// peers. Verify that there is a slot in `SyncingEngine` for the inbound light peer
+		if handshake.roles.is_light() &&
+			(self.peers.len() - self.chain_sync.num_peers()) >= self.default_peers_set_num_light
+		{
+			log::debug!(target: LOG_TARGET, "Too many light nodes, rejecting {peer_id}");
+			return Err(false)
+		}
+
+		Ok(handshake)
 	}
 
 	/// Called on the first connection between two peers on the default set, after their exchange
@@ -1011,82 +1133,9 @@ where
 		&mut self,
 		peer_id: PeerId,
 		status: &BlockAnnouncesHandshake<B>,
-		sink: NotificationsSink,
-		inbound: bool,
+		direction: Direction,
 	) -> Result<(), ()> {
 		log::trace!(target: LOG_TARGET, "New peer {peer_id} {status:?}");
-
-		if self.peers.contains_key(&peer_id) {
-			log::error!(
-				target: LOG_TARGET,
-				"Called on_sync_peer_connected with already connected peer {peer_id}",
-			);
-			debug_assert!(false);
-			return Err(())
-		}
-
-		if status.genesis_hash != self.genesis_hash {
-			self.network_service.report_peer(peer_id, rep::GENESIS_MISMATCH);
-
-			if self.important_peers.contains(&peer_id) {
-				log::error!(
-					target: LOG_TARGET,
-					"Reserved peer id `{}` is on a different chain (our genesis: {} theirs: {})",
-					peer_id,
-					self.genesis_hash,
-					status.genesis_hash,
-				);
-			} else if self.boot_node_ids.contains(&peer_id) {
-				log::error!(
-					target: LOG_TARGET,
-					"Bootnode with peer id `{}` is on a different chain (our genesis: {} theirs: {})",
-					peer_id,
-					self.genesis_hash,
-					status.genesis_hash,
-				);
-			} else {
-				log::debug!(
-					target: LOG_TARGET,
-					"Peer is on different chain (our genesis: {} theirs: {})",
-					self.genesis_hash, status.genesis_hash
-				);
-			}
-
-			return Err(())
-		}
-
-		let no_slot_peer = self.default_peers_set_no_slot_peers.contains(&peer_id);
-		let this_peer_reserved_slot: usize = if no_slot_peer { 1 } else { 0 };
-
-		// make sure to accept no more than `--in-peers` many full nodes
-		if !no_slot_peer &&
-			status.roles.is_full() &&
-			inbound && self.num_in_peers == self.max_in_peers
-		{
-			log::debug!(
-				target: LOG_TARGET,
-				"All inbound slots have been consumed, rejecting {peer_id}",
-			);
-			return Err(())
-		}
-
-		if status.roles.is_full() &&
-			self.chain_sync.num_peers() >=
-				self.default_peers_set_num_full +
-					self.default_peers_set_no_slot_connected_peers.len() +
-					this_peer_reserved_slot
-		{
-			log::debug!(target: LOG_TARGET, "Too many full nodes, rejecting {peer_id}");
-			return Err(())
-		}
-
-		if status.roles.is_light() &&
-			(self.peers.len() - self.chain_sync.num_peers()) >= self.default_peers_set_num_light
-		{
-			// Make sure that not all slots are occupied by light clients.
-			log::debug!(target: LOG_TARGET, "Too many light nodes, rejecting {peer_id}");
-			return Err(())
-		}
 
 		let peer = Peer {
 			info: ExtendedPeerInfo {
@@ -1097,8 +1146,7 @@ where
 			known_blocks: LruHashSet::new(
 				NonZeroUsize::new(MAX_KNOWN_BLOCKS).expect("Constant is nonzero"),
 			),
-			sink,
-			inbound,
+			inbound: direction.is_inbound(),
 		};
 
 		self.chain_sync.new_peer(peer_id, peer.info.best_hash, peer.info.best_number);
@@ -1106,10 +1154,11 @@ where
 		log::debug!(target: LOG_TARGET, "Connected {peer_id}");
 
 		self.peers.insert(peer_id, peer);
+		self.peer_store_handle.set_peer_role(&peer_id, status.roles.into());
 
-		if no_slot_peer {
+		if self.default_peers_set_no_slot_peers.contains(&peer_id) {
 			self.default_peers_set_no_slot_connected_peers.insert(peer_id);
-		} else if inbound && status.roles.is_full() {
+		} else if direction.is_inbound() && status.roles.is_full() {
 			self.num_in_peers += 1;
 		}
 
@@ -1333,7 +1382,7 @@ where
 		best_number: NumberFor<B>,
 		best_hash: B::Hash,
 		genesis_hash: B::Hash,
-	) -> NonDefaultSetConfig {
+	) -> (NonDefaultSetConfig, Box<dyn NotificationService>) {
 		let block_announces_protocol = {
 			let genesis_hash = genesis_hash.as_ref();
 			if let Some(ref fork_id) = fork_id {
@@ -1347,14 +1396,11 @@ where
 			}
 		};
 
-		NonDefaultSetConfig {
-			notifications_protocol: block_announces_protocol.into(),
-			fallback_names: iter::once(
-				format!("/{}/block-announces/1", protocol_id.as_ref()).into(),
-			)
-			.collect(),
-			max_notification_size: MAX_BLOCK_ANNOUNCE_SIZE,
-			handshake: Some(NotificationHandshake::new(BlockAnnouncesHandshake::<B>::build(
+		NonDefaultSetConfig::new(
+			block_announces_protocol.into(),
+			iter::once(format!("/{}/block-announces/1", protocol_id.as_ref()).into()).collect(),
+			MAX_BLOCK_ANNOUNCE_SIZE,
+			Some(NotificationHandshake::new(BlockAnnouncesHandshake::<B>::build(
 				roles,
 				best_number,
 				best_hash,
@@ -1362,13 +1408,13 @@ where
 			))),
 			// NOTE: `set_config` will be ignored by `protocol.rs` as the block announcement
 			// protocol is still hardcoded into the peerset.
-			set_config: SetConfig {
+			SetConfig {
 				in_peers: 0,
 				out_peers: 0,
 				reserved_nodes: Vec::new(),
 				non_reserved_mode: NonReservedPeerMode::Deny,
 			},
-		}
+		)
 	}
 
 	/// Import blocks.

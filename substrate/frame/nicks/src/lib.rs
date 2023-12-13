@@ -253,7 +253,7 @@ mod tests {
 	use crate as pallet_nicks;
 
 	use frame_support::{
-		assert_noop, assert_ok, ord_parameter_types,
+		assert_noop, assert_ok, derive_impl, ord_parameter_types,
 		traits::{ConstU32, ConstU64},
 	};
 	use frame_system::EnsureSignedBy;
@@ -274,6 +274,7 @@ mod tests {
 		}
 	);
 
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();
