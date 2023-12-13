@@ -514,6 +514,26 @@ fn unreserving_balance_should_work() {
 }
 
 #[test]
+fn unreserving_balance_should_not_touch_provider_count() {
+	ExtBuilder::default().build_and_execute_with(|| {
+		use frame_system::Pallet as System;
+		let _ = Balances::deposit_creating(&1, 100);
+		assert_eq!(System::<Test>::account(&1).providers, 1);
+
+		// Set up a legacy account where free = 0 reserved = 100.
+		EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = 0);
+		assert_ok!(Balances::reserve(&1, 100));
+		EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = 1);
+		assert_eq!(System::<Test>::account(&1).providers, 1);
+
+		Balances::unreserve(&1, 100);
+		assert_eq!(System::<Test>::account(&1).providers, 1); // <- this fails
+		assert_eq!(Balances::reserved_balance(1), 0);
+		assert_eq!(Balances::free_balance(1), 100);
+	});
+}
+
+#[test]
 fn slashing_reserved_balance_should_work() {
 	ExtBuilder::default().build_and_execute_with(|| {
 		let _ = Balances::deposit_creating(&1, 112);
