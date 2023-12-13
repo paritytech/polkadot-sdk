@@ -514,17 +514,16 @@ fn unreserving_balance_should_work() {
 }
 
 #[test]
-fn unreserving_balance_should_not_touch_provider_count() {
+fn unreserving_balance_legacy_account_work() {
 	ExtBuilder::default().build_and_execute_with(|| {
 		use frame_system::Pallet as System;
 		let _ = Balances::deposit_creating(&1, 100);
-		assert_eq!(System::<Test>::account(&1).providers, 1);
 
-		// Set up a legacy account where free = 0 reserved = 100.
+		// Accounts now require the Existential Deposit in addition to any amount to be reserved.
+		// Temporary set the ED to 0 to setup an account where free = 0 and reserved = 100.
 		EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = 0);
 		assert_ok!(Balances::reserve(&1, 100));
 		EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = 1);
-		assert_eq!(System::<Test>::account(&1).providers, 1);
 
 		Balances::unreserve(&1, 100);
 		assert_eq!(System::<Test>::account(&1).providers, 1);
