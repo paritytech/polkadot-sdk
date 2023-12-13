@@ -33,7 +33,7 @@ use parachains_common::{
 	impls::ToStakingPot,
 	xcm_config::{
 		AllSiblingSystemParachains, AssetFeeAsExistentialDepositMultiplier,
-		ConcreteAssetFromSystem, RelayOrOtherSystemParachains,
+		ConcreteAssetFromSystem, ParentRelayOrSiblingParachains, RelayOrOtherSystemParachains,
 	},
 	TREASURY_PALLET_ID,
 };
@@ -237,10 +237,6 @@ match_types! {
 	pub type ParentOrParentsPlurality: impl Contains<MultiLocation> = {
 		MultiLocation { parents: 1, interior: Here } |
 		MultiLocation { parents: 1, interior: X1(Plurality { .. }) }
-	};
-	pub type ParentOrSiblings: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 1, interior: Here } |
-		MultiLocation { parents: 1, interior: X1(_) }
 	};
 }
 
@@ -486,7 +482,7 @@ pub type Barrier = TrailingSetTopicAsId<
 						Equals<bridging::SiblingBridgeHub>,
 					)>,
 					// Subscriptions for version tracking are OK.
-					AllowSubscriptionsFrom<ParentOrSiblings>,
+					AllowSubscriptionsFrom<ParentRelayOrSiblingParachains>,
 				),
 				UniversalLocation,
 				ConstU32<8>,
