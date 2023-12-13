@@ -41,10 +41,9 @@ use xcm::latest::prelude::*;
 use xcm_builder::CurrencyAdapter as XcmCurrencyAdapter;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowTopLevelPaidExecutionFrom,
-	ConvertedConcreteId, EnsureXcmOrigin,
-	FixedRateOfFungible, FixedWeightBounds, FungiblesAdapter, IsConcrete, NativeAsset, NoChecking,
-	ParentAsSuperuser, ParentIsPreset, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation, WithComputedOrigin,
+	ConvertedConcreteId, EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds, FungiblesAdapter,
+	IsConcrete, NativeAsset, NoChecking, ParentAsSuperuser, ParentIsPreset,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, WithComputedOrigin,
 };
 use xcm_executor::{traits::JustTry, Config, XcmExecutor};
 
