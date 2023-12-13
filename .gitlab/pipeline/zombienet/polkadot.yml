@@ -131,6 +131,14 @@ zombienet-polkadot-functional-0008-dispute-old-finalized:
       --local-dir="${LOCAL_DIR}/functional"
       --test="0008-dispute-old-finalized.zndsl"
 
+zombienet-polkadot-functional-0009-approval-voting-coalescing:
+  extends:
+    - .zombienet-polkadot-common
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/functional"
+      --test="0009-approval-voting-coalescing.zndsl"
+
 zombienet-polkadot-smoke-0001-parachains-smoke-test:
   extends:
     - .zombienet-polkadot-common
