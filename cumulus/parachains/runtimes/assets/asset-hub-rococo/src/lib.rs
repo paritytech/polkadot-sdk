@@ -1488,22 +1488,6 @@ impl_runtime_apis! {
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
 						xcm_config::bridging::SiblingBridgeHubParaId::get().into()
 					);
-					let bridge_hub = xcm_config::bridging::SiblingBridgeHub::get();
-					let _ = PolkadotXcm::force_xcm_version(
-						RuntimeOrigin::root(),
-						Box::new(bridge_hub),
-						XCM_VERSION,
-					).map_err(|e| {
-						log::error!(
-							"Failed to dispatch `force_xcm_version({:?}, {:?}, {:?})`, error: {:?}",
-							RuntimeOrigin::root(),
-							bridge_hub,
-							XCM_VERSION,
-							e
-						);
-						BenchmarkError::Stop("XcmVersion was not stored!")
-					})?;
-					Ok(bridge_hub)
 				}
 			}
 
