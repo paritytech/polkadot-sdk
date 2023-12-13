@@ -24,7 +24,7 @@ use frame_support::{
 	dispatch::DispatchClass,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{fungibles::Mutate, AsEnsureOriginWithArg, ConstU32, ConstU64, ConstU8, FindAuthor},
+	traits::{AsEnsureOriginWithArg, ConstU32, ConstU64, ConstU8, FindAuthor},
 	weights::{Weight, WeightToFee as WeightToFeeT},
 	ConsensusEngineId,
 };
@@ -32,9 +32,7 @@ use frame_system as system;
 use frame_system::EnsureRoot;
 use pallet_transaction_payment::CurrencyAdapter;
 use sp_core::H256;
-use sp_runtime::traits::{
-	BlakeTwo256, ConvertInto, IdentityLookup, SaturatedConversion, StaticLookup,
-};
+use sp_runtime::traits::{BlakeTwo256, ConvertInto, IdentityLookup, SaturatedConversion};
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
 type Balance = u64;
@@ -212,6 +210,7 @@ impl Config for Runtime {
 	>;
 }
 
+#[cfg(feature = "runtime-benchmarks")]
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let base_weight = 5;
 	let balance_factor = 100;
@@ -236,7 +235,8 @@ impl ExtConfig for Runtime {
 		asset_id: <<Self as Config>::Fungibles as Inspect<Self::AccountId>>::AssetId,
 		account: Self::AccountId,
 	) {
-		use frame_support::assert_ok;
+		use frame_support::{assert_ok, traits::fungibles::Mutate};
+		use sp_runtime::traits::StaticLookup;
 		let min_balance = 1;
 		assert_ok!(Assets::force_create(
 			RuntimeOrigin::root(),

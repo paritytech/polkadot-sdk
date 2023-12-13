@@ -26,10 +26,7 @@ use frame_support::{
 	ord_parameter_types,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{
-		fungibles::Mutate, AsEnsureOriginWithArg, ConstU32, ConstU64, ConstU8, Imbalance,
-		OnUnbalanced,
-	},
+	traits::{AsEnsureOriginWithArg, ConstU32, ConstU64, ConstU8, Imbalance, OnUnbalanced},
 	weights::{Weight, WeightToFee as WeightToFeeT},
 	PalletId,
 };
@@ -39,7 +36,7 @@ use pallet_asset_conversion::{NativeOrAssetId, NativeOrAssetIdConverter};
 use pallet_transaction_payment::CurrencyAdapter;
 use sp_core::H256;
 use sp_runtime::{
-	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup, SaturatedConversion, StaticLookup},
+	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup, SaturatedConversion},
 	Permill,
 };
 
@@ -275,6 +272,7 @@ impl Config for Runtime {
 	type OnChargeAssetTransaction = AssetConversionAdapter<Balances, AssetConversion>;
 }
 
+#[cfg(feature = "runtime-benchmarks")]
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let base_weight = 5;
 	let balance_factor = 100;
@@ -299,7 +297,8 @@ impl ExtConfig for Runtime {
 		asset_id: <<Self as Config>::Fungibles as Inspect<Self::AccountId>>::AssetId,
 		account: Self::AccountId,
 	) {
-		use frame_support::assert_ok;
+		use frame_support::{assert_ok, traits::fungibles::Mutate};
+		use sp_runtime::traits::StaticLookup;
 		assert_ok!(Assets::force_create(
 			RuntimeOrigin::root(),
 			asset_id.into(),

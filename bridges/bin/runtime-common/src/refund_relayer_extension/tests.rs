@@ -553,10 +553,12 @@ fn expected_confirmation_reward() -> ThisChainBalance {
 	)
 }
 
+#[cfg(feature = "runtime-benchmarks")]
 pub(crate) fn parachain_extension() -> TestExtension {
 	RefundTransactionExtensionAdapter(RefundBridgedParachainMessages(PhantomData))
 }
 
+#[cfg(feature = "runtime-benchmarks")]
 pub(crate) fn grandpa_extension() -> TestGrandpaExtension {
 	RefundTransactionExtensionAdapter(RefundBridgedGrandpaMessages(PhantomData))
 }
@@ -930,6 +932,7 @@ fn pre_dispatch_parses_message_transaction() {
 	});
 }
 
+#[cfg(feature = "runtime-benchmarks")]
 pub(crate) fn pre_dispatch_data_get() -> PreDispatchData<AccountIdOf<TestRuntime>> {
 	let mut pre_dispatch_data = PreDispatchData {
 		relayer: relayer_account_at_this_chain(),
