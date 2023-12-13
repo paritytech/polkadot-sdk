@@ -216,6 +216,7 @@ std = [
 ]
 
 runtime-benchmarks = [
+	"beacon-spec-mainnet",
 	"bridge-hub-common/runtime-benchmarks",
 	"bridge-runtime-common/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
@@ -254,7 +255,6 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
-	"beacon-spec-mainnet"
 ]
 
 try-runtime = [

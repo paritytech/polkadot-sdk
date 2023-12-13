@@ -114,11 +114,12 @@ wait-timeout = "0.2"
 
 [features]
 default = [
-	"beacon-spec-mainnet"
+	"beacon-spec-mainnet",
 ]
 runtime-benchmarks = [
 	"asset-hub-rococo-runtime/runtime-benchmarks",
 	"asset-hub-westend-runtime/runtime-benchmarks",
+	"beacon-spec-mainnet",
 	"bridge-hub-rococo-runtime/runtime-benchmarks",
 	"bridge-hub-westend-runtime/runtime-benchmarks",
 	"collectives-westend-runtime/runtime-benchmarks",
@@ -136,7 +137,6 @@ runtime-benchmarks = [
 	"rococo-parachain-runtime/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"beacon-spec-mainnet"
 ]
 try-runtime = [
 	"asset-hub-rococo-runtime/try-runtime",
@@ -156,5 +156,5 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 beacon-spec-mainnet = [
-	"bridge-hub-rococo-runtime/beacon-spec-mainnet"
+	"bridge-hub-rococo-runtime/beacon-spec-mainnet",
 ]
