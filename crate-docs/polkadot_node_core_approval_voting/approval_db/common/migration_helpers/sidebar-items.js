@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["dummy_assignment_cert","make_bitvec"]};

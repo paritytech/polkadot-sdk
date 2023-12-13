@@ -1506,6 +1506,10 @@
 <a href="#1506" id="1506">1506</a>
 <a href="#1507" id="1507">1507</a>
 <a href="#1508" id="1508">1508</a>
+<a href="#1509" id="1509">1509</a>
+<a href="#1510" id="1510">1510</a>
+<a href="#1511" id="1511">1511</a>
+<a href="#1512" id="1512">1512</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1564,7 +1568,7 @@
 
 <span class="kw">use </span>std::collections::HashMap;
 
-<span class="kw">use </span><span class="kw">super</span>::approval_db::v2;
+<span class="kw">use </span><span class="kw">super</span>::approval_db::v3;
 <span class="kw">use crate</span>::{
 	backend::{Backend, OverlayedBackend},
 	criteria::{AssignmentCriteria, OurAssignment},
@@ -2020,7 +2024,7 @@
 			ctx.send_message(ChainSelectionMessage::Approved(block_hash)).<span class="kw">await</span>;
 		}
 
-		<span class="kw">let </span>block_entry = v2::BlockEntry {
+		<span class="kw">let </span>block_entry = v3::BlockEntry {
 			block_hash,
 			parent_hash: block_header.parent_hash,
 			block_number: block_header.number,
@@ -2033,6 +2037,7 @@
 				.collect(),
 			approved_bitfield,
 			children: Vec::new(),
+			candidates_pending_signature: Default::default(),
 			distributed_assignments: Default::default(),
 		};
 
@@ -2112,7 +2117,10 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use crate</span>::{approval_db::v2::DbBackend, RuntimeInfo, RuntimeInfoConfig};
+	<span class="kw">use crate</span>::{
+		approval_db::common::{load_block_entry, DbBackend},
+		RuntimeInfo, RuntimeInfoConfig,
+	};
 	<span class="kw">use </span>::test_helpers::{dummy_candidate_receipt, dummy_hash};
 	<span class="kw">use </span>assert_matches::assert_matches;
 	<span class="kw">use </span>polkadot_node_primitives::{
@@ -2135,7 +2143,7 @@
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>sp_runtime::{Digest, DigestItem};
 	<span class="kw">use </span>std::{pin::Pin, sync::Arc};
 
-	<span class="kw">use crate</span>::{approval_db::v2::Config <span class="kw">as </span>DatabaseConfig, criteria, BlockEntry};
+	<span class="kw">use crate</span>::{approval_db::common::Config <span class="kw">as </span>DatabaseConfig, criteria, BlockEntry};
 
 	<span class="kw">const </span>DATA_COL: u32 = <span class="number">0</span>;
 
@@ -2855,7 +2863,7 @@
 
 		<span class="kw">let </span>(state, <span class="kw-2">mut </span>session_info_provider) = single_session_state();
 		overlay_db.write_block_entry(
-			v2::BlockEntry {
+			v3::BlockEntry {
 				block_hash: parent_hash,
 				parent_hash: Default::default(),
 				block_number: <span class="number">4</span>,
@@ -2865,6 +2873,7 @@
 				candidates: Vec::new(),
 				approved_bitfield: Default::default(),
 				children: Vec::new(),
+				candidates_pending_signature: Default::default(),
 				distributed_assignments: Default::default(),
 			}
 			.into(),
@@ -2897,11 +2906,10 @@
 				<span class="macro">assert_eq!</span>(candidates[<span class="number">1</span>].<span class="number">1</span>.approvals().len(), <span class="number">6</span>);
 				<span class="comment">// the first candidate should be insta-approved
 				// the second should not
-				</span><span class="kw">let </span>entry: BlockEntry =
-					v2::load_block_entry(db_writer.as_ref(), <span class="kw-2">&amp;</span>TEST_CONFIG, <span class="kw-2">&amp;</span>hash)
-						.unwrap()
-						.unwrap()
-						.into();
+				</span><span class="kw">let </span>entry: BlockEntry = load_block_entry(db_writer.as_ref(), <span class="kw-2">&amp;</span>TEST_CONFIG, <span class="kw-2">&amp;</span>hash)
+					.unwrap()
+					.unwrap()
+					.into();
 				<span class="macro">assert!</span>(entry.is_candidate_approved(<span class="kw-2">&amp;</span>candidates[<span class="number">0</span>].<span class="number">0</span>));
 				<span class="macro">assert!</span>(!entry.is_candidate_approved(<span class="kw-2">&amp;</span>candidates[<span class="number">1</span>].<span class="number">0</span>));
 			})

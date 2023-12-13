@@ -1012,7 +1012,7 @@
 		GridNeighbors, RandomRouting, RequiredRouting, SessionBoundGridTopologyStorage,
 	},
 	peer_set::{ProtocolVersion, ValidationVersion},
-	v1 <span class="kw">as </span>protocol_v1, v2 <span class="kw">as </span>protocol_v2, vstaging <span class="kw">as </span>protocol_vstaging, OurView, PeerId,
+	v1 <span class="kw">as </span>protocol_v1, v2 <span class="kw">as </span>protocol_v2, v3 <span class="kw">as </span>protocol_v3, OurView, PeerId,
 	UnifiedReputationChange <span class="kw">as </span>Rep, Versioned, View,
 };
 <span class="kw">use </span>polkadot_node_subsystem::{
@@ -1082,8 +1082,8 @@
 					<span class="self">self</span>.relay_parent,
 					<span class="self">self</span>.signed_availability.into(),
 				)),
-			<span class="prelude-val">Some</span>(ValidationVersion::VStaging) =&gt;
-				Versioned::VStaging(protocol_vstaging::BitfieldDistributionMessage::Bitfield(
+			<span class="prelude-val">Some</span>(ValidationVersion::V3) =&gt;
+				Versioned::V3(protocol_v3::BitfieldDistributionMessage::Bitfield(
 					<span class="self">self</span>.relay_parent,
 					<span class="self">self</span>.signed_availability.into(),
 				)),
@@ -1483,8 +1483,8 @@
 		<span class="kw">let </span>v2_interested_peers =
 			filter_by_peer_version(<span class="kw-2">&amp;</span>interested_peers, ValidationVersion::V2.into());
 
-		<span class="kw">let </span>vstaging_interested_peers =
-			filter_by_peer_version(<span class="kw-2">&amp;</span>interested_peers, ValidationVersion::VStaging.into());
+		<span class="kw">let </span>v3_interested_peers =
+			filter_by_peer_version(<span class="kw-2">&amp;</span>interested_peers, ValidationVersion::V3.into());
 
 		<span class="kw">if </span>!v1_interested_peers.is_empty() {
 			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
@@ -1502,10 +1502,10 @@
 			.<span class="kw">await
 		</span>}
 
-		<span class="kw">if </span>!vstaging_interested_peers.is_empty() {
+		<span class="kw">if </span>!v3_interested_peers.is_empty() {
 			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-				vstaging_interested_peers,
-				message.into_validation_protocol(ValidationVersion::VStaging.into()),
+				v3_interested_peers,
+				message.into_validation_protocol(ValidationVersion::V3.into()),
 			))
 			.<span class="kw">await
 		</span>}
@@ -1531,7 +1531,7 @@
 			relay_parent,
 			bitfield,
 		)) |
-		Versioned::VStaging(protocol_vstaging::BitfieldDistributionMessage::Bitfield(
+		Versioned::V3(protocol_v3::BitfieldDistributionMessage::Bitfield(
 			relay_parent,
 			bitfield,
 		)) =&gt; (relay_parent, bitfield),

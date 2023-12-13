@@ -2235,7 +2235,7 @@
 						};
 					<span class="macro">debug_assert!</span>(
 						SignedDisputeStatement::new_checked(
-							DisputeStatement::Valid(valid_statement_kind),
+							DisputeStatement::Valid(valid_statement_kind.clone()),
 							candidate_hash,
 							session,
 							validator_public.clone(),
@@ -2249,7 +2249,7 @@
 					);
 					<span class="kw">let </span>signed_dispute_statement =
 						SignedDisputeStatement::new_unchecked_from_trusted_source(
-							DisputeStatement::Valid(valid_statement_kind),
+							DisputeStatement::Valid(valid_statement_kind.clone()),
 							candidate_hash,
 							session,
 							validator_public,

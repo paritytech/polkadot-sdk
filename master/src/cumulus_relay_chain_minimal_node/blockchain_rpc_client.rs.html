@@ -486,6 +486,18 @@
 <a href="#486" id="486">486</a>
 <a href="#487" id="487">487</a>
 <a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -512,7 +524,7 @@
 <span class="kw">use </span>polkadot_primitives::{
 	async_backing::{AsyncBackingParams, BackingState},
 	slashing,
-	vstaging::NodeFeatures,
+	vstaging::{ApprovalVotingParams, NodeFeatures},
 };
 <span class="kw">use </span>sc_authority_discovery::{AuthorityDiscovery, Error <span class="kw">as </span>AuthorityDiscoveryError};
 <span class="kw">use </span>sc_client_api::AuxStore;
@@ -913,6 +925,18 @@
 		para_id: cumulus_primitives_core::ParaId,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;BackingState&gt;, ApiError&gt; {
 		<span class="prelude-val">Ok</span>(<span class="self">self</span>.rpc_client.parachain_host_para_backing_state(at, para_id).<span class="kw">await</span><span class="question-mark">?</span>)
+	}
+
+	<span class="doccomment">/// Approval voting configuration parameters
+	</span><span class="kw">async fn </span>approval_voting_params(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		at: Hash,
+		session_index: polkadot_primitives::SessionIndex,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;ApprovalVotingParams, ApiError&gt; {
+		<span class="prelude-val">Ok</span>(<span class="self">self
+			</span>.rpc_client
+			.parachain_host_staging_approval_voting_params(at, session_index)
+			.<span class="kw">await</span><span class="question-mark">?</span>)
 	}
 
 	<span class="kw">async fn </span>node_features(<span class="kw-2">&amp;</span><span class="self">self</span>, at: Hash) -&gt; <span class="prelude-ty">Result</span>&lt;NodeFeatures, ApiError&gt; {

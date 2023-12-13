@@ -2380,7 +2380,7 @@
 	<span class="kw">match </span>msg {
 		Versioned::V1(V1::Declare(..)) |
 		Versioned::V2(V2::Declare(..)) |
-		Versioned::VStaging(V2::Declare(..)) =&gt; {
+		Versioned::V3(V2::Declare(..)) =&gt; {
 			<span class="macro">gum::trace!</span>(
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>origin,
@@ -2393,7 +2393,7 @@
 		},
 		Versioned::V1(V1::AdvertiseCollation(<span class="kw">_</span>)) |
 		Versioned::V2(V2::AdvertiseCollation { .. }) |
-		Versioned::VStaging(V2::AdvertiseCollation { .. }) =&gt; {
+		Versioned::V3(V2::AdvertiseCollation { .. }) =&gt; {
 			<span class="macro">gum::trace!</span>(
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>origin,
@@ -2409,7 +2409,7 @@
 		},
 		Versioned::V1(V1::CollationSeconded(relay_parent, statement)) |
 		Versioned::V2(V2::CollationSeconded(relay_parent, statement)) |
-		Versioned::VStaging(V2::CollationSeconded(relay_parent, statement)) =&gt; {
+		Versioned::V3(V2::CollationSeconded(relay_parent, statement)) =&gt; {
 			<span class="kw">if </span>!<span class="macro">matches!</span>(statement.unchecked_payload(), Statement::Seconded(<span class="kw">_</span>)) {
 				<span class="macro">gum::warn!</span>(
 					target: LOG_TARGET,

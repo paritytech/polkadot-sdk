@@ -706,6 +706,55 @@
 <a href="#706" id="706">706</a>
 <a href="#707" id="707">707</a>
 <a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -728,10 +777,16 @@
 	fs, io,
 	path::{Path, PathBuf},
 	str::FromStr,
+	sync::Arc,
 };
 
-<span class="kw">use </span>polkadot_node_core_approval_voting::approval_db::v2::{
-	migration_helpers::v1_to_v2, Config <span class="kw">as </span>ApprovalDbConfig,
+<span class="kw">use </span>polkadot_node_core_approval_voting::approval_db::{
+	common::{Config <span class="kw">as </span>ApprovalDbConfig, <span class="prelude-ty">Result </span><span class="kw">as </span>ApprovalDbResult},
+	v2::migration_helpers::v1_to_latest,
+	v3::migration_helpers::v2_to_latest,
+};
+<span class="kw">use </span>polkadot_node_subsystem_util::database::{
+	kvdb_impl::DbAdapter <span class="kw">as </span>RocksDbAdapter, paritydb_impl::DbAdapter <span class="kw">as </span>ParityDbAdapter, Database,
 };
 <span class="kw">type </span>Version = u32;
 
@@ -740,7 +795,9 @@
 
 <span class="doccomment">/// Current db version.
 /// Version 4 changes approval db format for `OurAssignment`.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CURRENT_VERSION: Version = <span class="number">4</span>;
+/// Version 5 changes approval db format to hold some additional
+/// information about delayed approvals.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CURRENT_VERSION: Version = <span class="number">5</span>;
 
 <span class="attr">#[derive(thiserror::Error, Debug)]
 </span><span class="kw">pub enum </span>Error {
@@ -809,7 +866,8 @@
 			<span class="comment">// 2 -&gt; 3 migration
 			</span><span class="prelude-val">Some</span>(<span class="number">2</span>) =&gt; migrate_from_version_2_to_3(db_path, db_kind)<span class="question-mark">?</span>,
 			<span class="comment">// 3 -&gt; 4 migration
-			</span><span class="prelude-val">Some</span>(<span class="number">3</span>) =&gt; migrate_from_version_3_to_4(db_path, db_kind)<span class="question-mark">?</span>,
+			</span><span class="prelude-val">Some</span>(<span class="number">3</span>) =&gt; migrate_from_version_3_or_4_to_5(db_path, db_kind, v1_to_latest)<span class="question-mark">?</span>,
+			<span class="prelude-val">Some</span>(<span class="number">4</span>) =&gt; migrate_from_version_3_or_4_to_5(db_path, db_kind, v2_to_latest)<span class="question-mark">?</span>,
 			<span class="comment">// Already at current version, do nothing.
 			</span><span class="prelude-val">Some</span>(CURRENT_VERSION) =&gt; CURRENT_VERSION,
 			<span class="comment">// This is an arbitrary future version, we don&#39;t handle it.
@@ -882,14 +940,19 @@
 	})
 }
 
-<span class="comment">// Migrade approval voting database. `OurAssignment` has been changed to support the v2 assignments.
+<span class="comment">// Migrade approval voting database.
+// In 4  `OurAssignment` has been changed to support the v2 assignments.
+// In 5, `BlockEntry` has been changed to store the number of delayed approvals.
 // As these are backwards compatible, we&#39;ll convert the old entries in the new format.
-</span><span class="kw">fn </span>migrate_from_version_3_to_4(path: <span class="kw-2">&amp;</span>Path, db_kind: DatabaseKind) -&gt; <span class="prelude-ty">Result</span>&lt;Version, Error&gt; {
+</span><span class="kw">fn </span>migrate_from_version_3_or_4_to_5&lt;F&gt;(
+	path: <span class="kw-2">&amp;</span>Path,
+	db_kind: DatabaseKind,
+	migration_function: F,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Version, Error&gt;
+<span class="kw">where
+	</span>F: Fn(Arc&lt;<span class="kw">dyn </span>Database&gt;, ApprovalDbConfig) -&gt; ApprovalDbResult&lt;()&gt;,
+{
 	<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">&quot;Migrating parachains db from version 3 to version 4 ...&quot;</span>);
-	<span class="kw">use </span>polkadot_node_subsystem_util::database::{
-		kvdb_impl::DbAdapter <span class="kw">as </span>RocksDbAdapter, paritydb_impl::DbAdapter <span class="kw">as </span>ParityDbAdapter,
-	};
-	<span class="kw">use </span>std::sync::Arc;
 
 	<span class="kw">let </span>approval_db_config =
 		ApprovalDbConfig { col_approval_data: <span class="kw">super</span>::REAL_COLUMNS.col_approval_data };
@@ -902,7 +965,8 @@
 				<span class="kw">super</span>::columns::v3::ORDERED_COL,
 			);
 
-			v1_to_v2(Arc::new(db), approval_db_config).map_err(|<span class="kw">_</span>| Error::MigrationFailed)<span class="question-mark">?</span>;
+			migration_function(Arc::new(db), approval_db_config)
+				.map_err(|<span class="kw">_</span>| Error::MigrationFailed)<span class="question-mark">?</span>;
 		},
 		DatabaseKind::RocksDB =&gt; {
 			<span class="kw">let </span>db_path = path
@@ -915,7 +979,8 @@
 				<span class="kw-2">&amp;</span><span class="kw">super</span>::columns::v3::ORDERED_COL,
 			);
 
-			v1_to_v2(Arc::new(db), approval_db_config).map_err(|<span class="kw">_</span>| Error::MigrationFailed)<span class="question-mark">?</span>;
+			migration_function(Arc::new(db), approval_db_config)
+				.map_err(|<span class="kw">_</span>| Error::MigrationFailed)<span class="question-mark">?</span>;
 		},
 	};
 
@@ -1149,7 +1214,12 @@
 		columns::{v2::COL_SESSION_WINDOW_DATA, v4::<span class="kw-2">*</span>},
 		<span class="kw-2">*</span>,
 	};
-	<span class="kw">use </span>polkadot_node_core_approval_voting::approval_db::v2::migration_helpers::v1_to_v2_fill_test_data;
+	<span class="kw">use </span>kvdb_rocksdb::{Database, DatabaseConfig};
+	<span class="kw">use </span>polkadot_node_core_approval_voting::approval_db::{
+		v2::migration_helpers::v1_fill_test_data,
+		v3::migration_helpers::{v1_to_latest_sanity_check, v2_fill_test_data},
+	};
+	<span class="kw">use </span>polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter;
 	<span class="kw">use </span>test_helpers::dummy_candidate_receipt;
 
 	<span class="attr">#[test]
@@ -1288,11 +1358,7 @@
 	}
 
 	<span class="attr">#[test]
-	</span><span class="kw">fn </span>test_migrate_3_to_4() {
-		<span class="kw">use </span>kvdb_rocksdb::{Database, DatabaseConfig};
-		<span class="kw">use </span>polkadot_node_core_approval_voting::approval_db::v2::migration_helpers::v1_to_v2_sanity_check;
-		<span class="kw">use </span>polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter;
-
+	</span><span class="kw">fn </span>test_migrate_3_to_5() {
 		<span class="kw">let </span>db_dir = tempfile::tempdir().unwrap();
 		<span class="kw">let </span>db_path = db_dir.path().to_str().unwrap();
 		<span class="kw">let </span>db_cfg: DatabaseConfig = DatabaseConfig::with_columns(<span class="kw">super</span>::columns::v3::NUM_COLUMNS);
@@ -1308,28 +1374,60 @@
 			<span class="macro">assert_eq!</span>(db.num_columns(), <span class="kw">super</span>::columns::v3::NUM_COLUMNS <span class="kw">as </span>u32);
 			<span class="kw">let </span>db = DbAdapter::new(db, columns::v3::ORDERED_COL);
 			<span class="comment">// Fill the approval voting column with test data.
-			</span>v1_to_v2_fill_test_data(std::sync::Arc::new(db), approval_cfg, dummy_candidate_receipt)
+			</span>v1_fill_test_data(std::sync::Arc::new(db), approval_cfg, dummy_candidate_receipt)
 				.unwrap()
 		};
 
-		try_upgrade_db(<span class="kw-2">&amp;</span>db_dir.path(), DatabaseKind::RocksDB, <span class="number">4</span>).unwrap();
+		try_upgrade_db(<span class="kw-2">&amp;</span>db_dir.path(), DatabaseKind::RocksDB, <span class="number">5</span>).unwrap();
 
 		<span class="kw">let </span>db_cfg = DatabaseConfig::with_columns(<span class="kw">super</span>::columns::v4::NUM_COLUMNS);
 		<span class="kw">let </span>db = Database::open(<span class="kw-2">&amp;</span>db_cfg, db_path).unwrap();
 		<span class="kw">let </span>db = DbAdapter::new(db, columns::v4::ORDERED_COL);
 
-		v1_to_v2_sanity_check(std::sync::Arc::new(db), approval_cfg, expected_candidates).unwrap();
+		v1_to_latest_sanity_check(std::sync::Arc::new(db), approval_cfg, expected_candidates)
+			.unwrap();
 	}
 
 	<span class="attr">#[test]
-	</span><span class="kw">fn </span>test_rocksdb_migrate_0_to_4() {
+	</span><span class="kw">fn </span>test_migrate_4_to_5() {
+		<span class="kw">let </span>db_dir = tempfile::tempdir().unwrap();
+		<span class="kw">let </span>db_path = db_dir.path().to_str().unwrap();
+		<span class="kw">let </span>db_cfg: DatabaseConfig = DatabaseConfig::with_columns(<span class="kw">super</span>::columns::v3::NUM_COLUMNS);
+
+		<span class="kw">let </span>approval_cfg = ApprovalDbConfig {
+			col_approval_data: <span class="kw">crate</span>::parachains_db::REAL_COLUMNS.col_approval_data,
+		};
+
+		<span class="comment">// We need to properly set db version for upgrade to work.
+		</span>fs::write(version_file_path(db_dir.path()), <span class="string">&quot;4&quot;</span>).expect(<span class="string">&quot;Failed to write DB version&quot;</span>);
+		<span class="kw">let </span>expected_candidates = {
+			<span class="kw">let </span>db = Database::open(<span class="kw-2">&amp;</span>db_cfg, db_path).unwrap();
+			<span class="macro">assert_eq!</span>(db.num_columns(), <span class="kw">super</span>::columns::v3::NUM_COLUMNS <span class="kw">as </span>u32);
+			<span class="kw">let </span>db = DbAdapter::new(db, columns::v3::ORDERED_COL);
+			<span class="comment">// Fill the approval voting column with test data.
+			</span>v2_fill_test_data(std::sync::Arc::new(db), approval_cfg, dummy_candidate_receipt)
+				.unwrap()
+		};
+
+		try_upgrade_db(<span class="kw-2">&amp;</span>db_dir.path(), DatabaseKind::RocksDB, <span class="number">5</span>).unwrap();
+
+		<span class="kw">let </span>db_cfg = DatabaseConfig::with_columns(<span class="kw">super</span>::columns::v4::NUM_COLUMNS);
+		<span class="kw">let </span>db = Database::open(<span class="kw-2">&amp;</span>db_cfg, db_path).unwrap();
+		<span class="kw">let </span>db = DbAdapter::new(db, columns::v4::ORDERED_COL);
+
+		v1_to_latest_sanity_check(std::sync::Arc::new(db), approval_cfg, expected_candidates)
+			.unwrap();
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>test_rocksdb_migrate_0_to_5() {
 		<span class="kw">use </span>kvdb_rocksdb::{Database, DatabaseConfig};
 
 		<span class="kw">let </span>db_dir = tempfile::tempdir().unwrap();
 		<span class="kw">let </span>db_path = db_dir.path().to_str().unwrap();
 
 		fs::write(version_file_path(db_dir.path()), <span class="string">&quot;0&quot;</span>).expect(<span class="string">&quot;Failed to write DB version&quot;</span>);
-		try_upgrade_db(<span class="kw-2">&amp;</span>db_dir.path(), DatabaseKind::RocksDB, <span class="number">4</span>).unwrap();
+		try_upgrade_db(<span class="kw-2">&amp;</span>db_dir.path(), DatabaseKind::RocksDB, <span class="number">5</span>).unwrap();
 
 		<span class="kw">let </span>db_cfg = DatabaseConfig::with_columns(<span class="kw">super</span>::columns::v4::NUM_COLUMNS);
 		<span class="kw">let </span>db = Database::open(<span class="kw-2">&amp;</span>db_cfg, db_path).unwrap();
@@ -1338,7 +1436,7 @@
 	}
 
 	<span class="attr">#[test]
-	</span><span class="kw">fn </span>test_paritydb_migrate_0_to_4() {
+	</span><span class="kw">fn </span>test_paritydb_migrate_0_to_5() {
 		<span class="kw">use </span>parity_db::Db;
 
 		<span class="kw">let </span>db_dir = tempfile::tempdir().unwrap();
@@ -1352,7 +1450,7 @@
 			<span class="macro">assert_eq!</span>(db.num_columns(), columns::v0::NUM_COLUMNS <span class="kw">as </span>u8);
 		}
 
-		try_upgrade_db(<span class="kw-2">&amp;</span>path, DatabaseKind::ParityDB, <span class="number">4</span>).unwrap();
+		try_upgrade_db(<span class="kw-2">&amp;</span>path, DatabaseKind::ParityDB, <span class="number">5</span>).unwrap();
 
 		<span class="kw">let </span>db = Db::open(<span class="kw-2">&amp;</span>paritydb_version_3_config(<span class="kw-2">&amp;</span>path)).unwrap();
 		<span class="macro">assert_eq!</span>(db.num_columns(), columns::v4::NUM_COLUMNS <span class="kw">as </span>u8);

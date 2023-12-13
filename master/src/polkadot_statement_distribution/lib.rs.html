@@ -464,7 +464,7 @@
 
 <span class="kw">use </span>polkadot_node_network_protocol::{
 	request_response::{v1 <span class="kw">as </span>request_v1, v2::AttestedCandidateRequest, IncomingRequestReceiver},
-	v2 <span class="kw">as </span>protocol_v2, vstaging <span class="kw">as </span>protocol_vstaging, Versioned,
+	v2 <span class="kw">as </span>protocol_v2, v3 <span class="kw">as </span>protocol_v3, Versioned,
 };
 <span class="kw">use </span>polkadot_node_primitives::StatementWithPVD;
 <span class="kw">use </span>polkadot_node_subsystem::{
@@ -837,11 +837,11 @@
 							Versioned::V2(
 								protocol_v2::StatementDistributionMessage::V1Compatibility(<span class="kw">_</span>),
 							) |
-							Versioned::VStaging(
-								protocol_vstaging::StatementDistributionMessage::V1Compatibility(<span class="kw">_</span>),
+							Versioned::V3(
+								protocol_v3::StatementDistributionMessage::V1Compatibility(<span class="kw">_</span>),
 							) =&gt; VersionTarget::Legacy,
 							Versioned::V1(<span class="kw">_</span>) =&gt; VersionTarget::Legacy,
-							Versioned::V2(<span class="kw">_</span>) | Versioned::VStaging(<span class="kw">_</span>) =&gt; VersionTarget::Current,
+							Versioned::V2(<span class="kw">_</span>) | Versioned::V3(<span class="kw">_</span>) =&gt; VersionTarget::Current,
 						},
 						<span class="kw">_ </span>=&gt; VersionTarget::Both,
 					};

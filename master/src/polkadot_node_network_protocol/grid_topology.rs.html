@@ -575,6 +575,25 @@
 <a href="#575" id="575">575</a>
 <a href="#576" id="576">576</a>
 <a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -650,12 +669,20 @@
 	</span>shuffled_indices: Vec&lt;usize&gt;,
 	<span class="doccomment">/// The canonical shuffling of validators for the session.
 	</span>canonical_shuffling: Vec&lt;TopologyPeerInfo&gt;,
+	<span class="doccomment">/// The list of peer-ids in an efficient way to search.
+	</span>peer_ids: HashSet&lt;PeerId&gt;,
 }
 
 <span class="kw">impl </span>SessionGridTopology {
 	<span class="doccomment">/// Create a new session grid topology.
 	</span><span class="kw">pub fn </span>new(shuffled_indices: Vec&lt;usize&gt;, canonical_shuffling: Vec&lt;TopologyPeerInfo&gt;) -&gt; <span class="self">Self </span>{
-		SessionGridTopology { shuffled_indices, canonical_shuffling }
+		<span class="kw">let </span><span class="kw-2">mut </span>peer_ids = HashSet::new();
+		<span class="kw">for </span>peer_info <span class="kw">in </span>canonical_shuffling.iter() {
+			<span class="kw">for </span>peer_id <span class="kw">in </span>peer_info.peer_ids.iter() {
+				peer_ids.insert(<span class="kw-2">*</span>peer_id);
+			}
+		}
+		SessionGridTopology { shuffled_indices, canonical_shuffling, peer_ids }
 	}
 
 	<span class="doccomment">/// Produces the outgoing routing logic for a particular peer.
@@ -687,6 +714,11 @@
 		}
 
 		<span class="prelude-val">Some</span>(grid_subset)
+	}
+
+	<span class="doccomment">/// Tells if a given peer id is validator in a session
+	</span><span class="kw">pub fn </span>is_validator(<span class="kw-2">&amp;</span><span class="self">self</span>, peer: <span class="kw-2">&amp;</span>PeerId) -&gt; bool {
+		<span class="self">self</span>.peer_ids.contains(peer)
 	}
 }
 
@@ -850,6 +882,11 @@
 	</span><span class="kw">pub fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>SessionGridTopology {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.topology
 	}
+
+	<span class="doccomment">/// Tells if a given peer id is validator in a session
+	</span><span class="kw">pub fn </span>is_validator(<span class="kw-2">&amp;</span><span class="self">self</span>, peer: <span class="kw-2">&amp;</span>PeerId) -&gt; bool {
+		<span class="self">self</span>.topology.is_validator(peer)
+	}
 }
 
 <span class="doccomment">/// A set of topologies indexed by session
@@ -924,6 +961,7 @@
 					topology: SessionGridTopology {
 						shuffled_indices: Vec::new(),
 						canonical_shuffling: Vec::new(),
+						peer_ids: Default::default(),
 					},
 					local_neighbors: GridNeighbors::empty(),
 				},

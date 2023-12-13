@@ -1291,6 +1291,24 @@
 <a href="#1291" id="1291">1291</a>
 <a href="#1292" id="1292">1292</a>
 <a href="#1293" id="1293">1293</a>
+<a href="#1294" id="1294">1294</a>
+<a href="#1295" id="1295">1295</a>
+<a href="#1296" id="1296">1296</a>
+<a href="#1297" id="1297">1297</a>
+<a href="#1298" id="1298">1298</a>
+<a href="#1299" id="1299">1299</a>
+<a href="#1300" id="1300">1300</a>
+<a href="#1301" id="1301">1301</a>
+<a href="#1302" id="1302">1302</a>
+<a href="#1303" id="1303">1303</a>
+<a href="#1304" id="1304">1304</a>
+<a href="#1305" id="1305">1305</a>
+<a href="#1306" id="1306">1306</a>
+<a href="#1307" id="1307">1307</a>
+<a href="#1308" id="1308">1308</a>
+<a href="#1309" id="1309">1309</a>
+<a href="#1310" id="1310">1310</a>
+<a href="#1311" id="1311">1311</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1318,11 +1336,11 @@
 <span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>polkadot_runtime_metrics::get_current_time;
 <span class="kw">use </span>primitives::{
-	byzantine_threshold, supermajority_threshold, ApprovalVote, CandidateHash,
-	CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CompactStatement, ConsensusLog,
-	DisputeState, DisputeStatement, DisputeStatementSet, ExplicitDisputeStatement,
-	InvalidDisputeStatementKind, MultiDisputeStatementSet, SessionIndex, SigningContext,
-	ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorSignature,
+	byzantine_threshold, supermajority_threshold, vstaging::ApprovalVoteMultipleCandidates,
+	ApprovalVote, CandidateHash, CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet,
+	CompactStatement, ConsensusLog, DisputeState, DisputeStatement, DisputeStatementSet,
+	ExplicitDisputeStatement, InvalidDisputeStatementKind, MultiDisputeStatementSet, SessionIndex,
+	SigningContext, ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::{
@@ -2245,6 +2263,8 @@
 			<span class="prelude-val">None </span>=&gt; <span class="kw">return </span>StatementSetFilter::RemoveAll,
 		};
 
+		<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
+
 		<span class="kw">let </span>n_validators = session_info.validators.len();
 
 		<span class="comment">// Check for ancient.
@@ -2308,7 +2328,14 @@
 					set.session,
 					statement,
 					signature,
+					<span class="comment">// This is here to prevent malicious nodes of generating
+					// `ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates` before that
+					// is enabled, via setting `max_approval_coalesce_count` in the parachain host
+					// config.
+					</span>config.approval_voting_params.max_approval_coalesce_count &gt; <span class="number">1</span>,
 				) {
+					<span class="macro">log::warn!</span>(<span class="string">&quot;Failed to check dispute signature&quot;</span>);
+
 					importer.undo(undo);
 					filter.remove_index(i);
 					<span class="kw">continue
@@ -2553,22 +2580,31 @@
 	session: SessionIndex,
 	statement: <span class="kw-2">&amp;</span>DisputeStatement,
 	validator_signature: <span class="kw-2">&amp;</span>ValidatorSignature,
+	approval_multiple_candidates_enabled: bool,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
-	<span class="kw">let </span>payload = <span class="kw">match </span><span class="kw-2">*</span>statement {
+	<span class="kw">let </span>payload = <span class="kw">match </span>statement {
 		DisputeStatement::Valid(ValidDisputeStatementKind::Explicit) =&gt;
 			ExplicitDisputeStatement { valid: <span class="bool-val">true</span>, candidate_hash, session }.signing_payload(),
 		DisputeStatement::Valid(ValidDisputeStatementKind::BackingSeconded(inclusion_parent)) =&gt;
 			CompactStatement::Seconded(candidate_hash).signing_payload(<span class="kw-2">&amp;</span>SigningContext {
 				session_index: session,
-				parent_hash: inclusion_parent,
+				parent_hash: <span class="kw-2">*</span>inclusion_parent,
 			}),
 		DisputeStatement::Valid(ValidDisputeStatementKind::BackingValid(inclusion_parent)) =&gt;
 			CompactStatement::Valid(candidate_hash).signing_payload(<span class="kw-2">&amp;</span>SigningContext {
 				session_index: session,
-				parent_hash: inclusion_parent,
+				parent_hash: <span class="kw-2">*</span>inclusion_parent,
 			}),
 		DisputeStatement::Valid(ValidDisputeStatementKind::ApprovalChecking) =&gt;
 			ApprovalVote(candidate_hash).signing_payload(session),
+		DisputeStatement::Valid(ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(
+			candidates,
+		)) =&gt;
+			<span class="kw">if </span>approval_multiple_candidates_enabled &amp;&amp; candidates.contains(<span class="kw-2">&amp;</span>candidate_hash) {
+				ApprovalVoteMultipleCandidates(candidates).signing_payload(session)
+			} <span class="kw">else </span>{
+				<span class="kw">return </span><span class="prelude-val">Err</span>(())
+			},
 		DisputeStatement::Invalid(InvalidDisputeStatementKind::Explicit) =&gt;
 			ExplicitDisputeStatement { valid: <span class="bool-val">false</span>, candidate_hash, session }.signing_payload(),
 	};

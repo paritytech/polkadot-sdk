@@ -385,6 +385,19 @@ assignment then they avoid creating &quot;no shows&quot; and the workload progre
 <p>We strongly prefer if postponements come from tranches higher aka less important than zero because tranche zero checks
 provide somewhat more security.</p>
 <p>TODO: When?  Is this optimal for the network?  etc.</p>
+<h2 id="approval-coalescing"><a class="header" href="#approval-coalescing">Approval coalescing</a></h2>
+<p>To reduce the necessary network bandwidth and cpu time when a validator has more than one candidate to approve we are
+doing our best effort to send a single message that approves all available candidates with a single signature.
+The implemented heuristic, is that each time we are ready to create a signature and send a vote for a candidate we
+delay sending it until one of three things happen:</p>
+<ul>
+<li>We gathered a maximum of <code>MAX_APPROVAL_COALESCE_COUNT</code> candidates that we have already checked and we are
+ready to sign approval for.</li>
+<li><code>MAX_APPROVAL_COALESCE_WAIT_TICKS</code> have passed since checking oldest candidate and we were ready to sign
+and send the approval message.</li>
+<li>We are already in the last third of the no-show period in order to avoid creating accidental no-shows, which in
+turn might trigger other assignments.</li>
+</ul>
 <h2 id="on-chain-verification"><a class="header" href="#on-chain-verification">On-chain verification</a></h2>
 <p>We should verify approval on-chain to reward approval checkers. We therefore require the &quot;no show&quot; timeout to be longer
 than a relay chain slot so that we can witness &quot;no shows&quot; on-chain, which helps with this goal. The major challenge with
@@ -456,7 +469,7 @@ this, we should discover if reconstruction performs adequately with a complete g
 restrictions.  At this point, an assignment notices could implicitly request pieces from a random 1/3rd, perhaps
 topology restricted, which saves one gossip round.  If this preliminary fast reconstruction fails, then nodes' request
 alternative pieces directly.  There is an interesting design space in how this overlaps with &quot;slow availability&quot; claims.</p>
-<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/4caa3d8d8e">4caa3d8d8e</a></footer>
+<footer id="last-change">Last change: 2023-12-13, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a84dd0dba5">a84dd0dba5</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

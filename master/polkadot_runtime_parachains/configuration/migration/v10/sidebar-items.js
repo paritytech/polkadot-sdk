@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["VersionUncheckedMigrateToV10"],"type":["MigrateToV10"]};
+window.SIDEBAR_ITEMS = {"struct":["V10HostConfiguration","VersionUncheckedMigrateToV10"],"type":["MigrateToV10"]};

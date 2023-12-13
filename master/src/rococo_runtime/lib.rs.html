@@ -2433,6 +2433,12 @@
 <a href="#2433" id="2433">2433</a>
 <a href="#2434" id="2434">2434</a>
 <a href="#2435" id="2435">2435</a>
+<a href="#2436" id="2436">2436</a>
+<a href="#2437" id="2437">2437</a>
+<a href="#2438" id="2438">2438</a>
+<a href="#2439" id="2439">2439</a>
+<a href="#2440" id="2440">2440</a>
+<a href="#2441" id="2441">2441</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2458,12 +2464,13 @@
 </span><span class="kw">use </span>pallet_nis::WithMaximumOf;
 <span class="kw">use </span>parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>primitives::{
-	slashing, vstaging::NodeFeatures, AccountId, AccountIndex, Balance, BlockNumber,
-	CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState,
-	ExecutorParams, GroupRotationInfo, Hash, Id <span class="kw">as </span>ParaId, InboundDownwardMessage,
-	InboundHrmpMessage, Moment, Nonce, OccupiedCoreAssumption, PersistedValidationData,
-	ScrapedOnChainVotes, SessionInfo, Signature, ValidationCode, ValidationCodeHash, ValidatorId,
-	ValidatorIndex, PARACHAIN_KEY_TYPE_ID,
+	slashing,
+	vstaging::{ApprovalVotingParams, NodeFeatures},
+	AccountId, AccountIndex, Balance, BlockNumber, CandidateEvent, CandidateHash,
+	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash,
+	Id <span class="kw">as </span>ParaId, InboundDownwardMessage, InboundHrmpMessage, Moment, Nonce,
+	OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes, SessionInfo, Signature,
+	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, PARACHAIN_KEY_TYPE_ID,
 };
 <span class="kw">use </span>runtime_common::{
 	assigned_slots, auctions, claims, crowdloan, identity_migrator, impl_runtime_weights,
@@ -4066,6 +4073,7 @@
 
 		<span class="comment">// Remove `im-online` pallet on-chain storage
 		</span>frame_support::migrations::RemovePallet&lt;ImOnlinePalletName, &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight&gt;,
+		parachains_configuration::migration::v11::MigrateToV11&lt;Runtime&gt;,
 	);
 }
 
@@ -4227,7 +4235,7 @@
 		}
 	}
 
-	<span class="attr">#[api_version(<span class="number">9</span>)]
+	<span class="attr">#[api_version(<span class="number">10</span>)]
 	</span><span class="kw">impl </span>primitives::runtime_api::ParachainHost&lt;Block&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>validators() -&gt; Vec&lt;ValidatorId&gt; {
 			parachains_runtime_api_impl::validators::&lt;Runtime&gt;()
@@ -4369,6 +4377,10 @@
 
 		<span class="kw">fn </span>async_backing_params() -&gt; primitives::AsyncBackingParams {
 			parachains_runtime_api_impl::async_backing_params::&lt;Runtime&gt;()
+		}
+
+		<span class="kw">fn </span>approval_voting_params() -&gt; ApprovalVotingParams {
+			parachains_staging_runtime_api_impl::approval_voting_params::&lt;Runtime&gt;()
 		}
 
 		<span class="kw">fn </span>disabled_validators() -&gt; Vec&lt;ValidatorIndex&gt; {

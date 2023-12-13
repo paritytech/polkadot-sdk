@@ -200,52 +200,6 @@
 <a href="#200" id="200">200</a>
 <a href="#201" id="201">201</a>
 <a href="#202" id="202">202</a>
-<a href="#203" id="203">203</a>
-<a href="#204" id="204">204</a>
-<a href="#205" id="205">205</a>
-<a href="#206" id="206">206</a>
-<a href="#207" id="207">207</a>
-<a href="#208" id="208">208</a>
-<a href="#209" id="209">209</a>
-<a href="#210" id="210">210</a>
-<a href="#211" id="211">211</a>
-<a href="#212" id="212">212</a>
-<a href="#213" id="213">213</a>
-<a href="#214" id="214">214</a>
-<a href="#215" id="215">215</a>
-<a href="#216" id="216">216</a>
-<a href="#217" id="217">217</a>
-<a href="#218" id="218">218</a>
-<a href="#219" id="219">219</a>
-<a href="#220" id="220">220</a>
-<a href="#221" id="221">221</a>
-<a href="#222" id="222">222</a>
-<a href="#223" id="223">223</a>
-<a href="#224" id="224">224</a>
-<a href="#225" id="225">225</a>
-<a href="#226" id="226">226</a>
-<a href="#227" id="227">227</a>
-<a href="#228" id="228">228</a>
-<a href="#229" id="229">229</a>
-<a href="#230" id="230">230</a>
-<a href="#231" id="231">231</a>
-<a href="#232" id="232">232</a>
-<a href="#233" id="233">233</a>
-<a href="#234" id="234">234</a>
-<a href="#235" id="235">235</a>
-<a href="#236" id="236">236</a>
-<a href="#237" id="237">237</a>
-<a href="#238" id="238">238</a>
-<a href="#239" id="239">239</a>
-<a href="#240" id="240">240</a>
-<a href="#241" id="241">241</a>
-<a href="#242" id="242">242</a>
-<a href="#243" id="243">243</a>
-<a href="#244" id="244">244</a>
-<a href="#245" id="245">245</a>
-<a href="#246" id="246">246</a>
-<a href="#247" id="247">247</a>
-<a href="#248" id="248">248</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -264,28 +218,18 @@
 
 </span><span class="doccomment">//! Approval DB migration helpers.
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
-<span class="kw">use </span><span class="kw">crate</span>::backend::Backend;
-<span class="kw">use </span>polkadot_node_primitives::approval::v1::{
-	AssignmentCert, AssignmentCertKind, VrfPreOutput, VrfProof, VrfSignature,
-	RELAY_VRF_MODULO_CONTEXT,
+<span class="kw">use crate</span>::{
+	approval_db::common::{
+		migration_helpers::{dummy_assignment_cert, make_bitvec},
+		Error, <span class="prelude-ty">Result</span>, StoredBlockRange,
+	},
+	backend::Backend,
 };
+
+<span class="kw">use </span>polkadot_node_primitives::approval::v1::AssignmentCertKind;
 <span class="kw">use </span>polkadot_node_subsystem_util::database::Database;
 <span class="kw">use </span>sp_application_crypto::sp_core::H256;
 <span class="kw">use </span>std::{collections::HashSet, sync::Arc};
-
-<span class="kw">fn </span>dummy_assignment_cert(kind: AssignmentCertKind) -&gt; AssignmentCert {
-	<span class="kw">let </span>ctx = schnorrkel::signing_context(RELAY_VRF_MODULO_CONTEXT);
-	<span class="kw">let </span>msg = <span class="string">b&quot;test-garbage&quot;</span>;
-	<span class="kw">let </span><span class="kw-2">mut </span>prng = rand_core::OsRng;
-	<span class="kw">let </span>keypair = schnorrkel::Keypair::generate_with(<span class="kw-2">&amp;mut </span>prng);
-	<span class="kw">let </span>(inout, proof, <span class="kw">_</span>) = keypair.vrf_sign(ctx.bytes(msg));
-	<span class="kw">let </span>preout = inout.to_output();
-
-	AssignmentCert {
-		kind,
-		vrf: VrfSignature { pre_output: VrfPreOutput(preout), proof: VrfProof(proof) },
-	}
-}
 
 <span class="kw">fn </span>make_block_entry_v1(
 	block_hash: Hash,
@@ -306,14 +250,10 @@
 	}
 }
 
-<span class="kw">fn </span>make_bitvec(len: usize) -&gt; BitVec&lt;u8, BitOrderLsb0&gt; {
-	<span class="macro">bitvec::bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; len]
-}
-
 <span class="doccomment">/// Migrates `OurAssignment`, `CandidateEntry` and `ApprovalEntry` to version 2.
 /// Returns on any error.
 /// Must only be used in parachains DB migration code - `polkadot-service` crate.
-</span><span class="kw">pub fn </span>v1_to_v2(db: Arc&lt;<span class="kw">dyn </span>Database&gt;, config: Config) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+</span><span class="kw">pub fn </span>v1_to_latest(db: Arc&lt;<span class="kw">dyn </span>Database&gt;, config: Config) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
 	<span class="kw">let </span><span class="kw-2">mut </span>backend = <span class="kw">crate</span>::DbBackend::new(db, config);
 	<span class="kw">let </span>all_blocks = backend
 		.load_all_blocks()
@@ -337,11 +277,13 @@
 	<span class="kw">let </span><span class="kw-2">mut </span>counter = <span class="number">0</span>;
 	<span class="comment">// Get all candidate entries, approval entries and convert each of them.
 	</span><span class="kw">for </span>block <span class="kw">in </span>all_blocks {
-		<span class="kw">for </span>(_core_index, candidate_hash) <span class="kw">in </span>block.candidates() {
+		<span class="kw">for </span>(candidate_index, (_core_index, candidate_hash)) <span class="kw">in
+			</span>block.candidates().iter().enumerate()
+		{
 			<span class="comment">// Loading the candidate will also perform the conversion to the updated format and
 			// return that represantation.
 			</span><span class="kw">if let </span><span class="prelude-val">Some</span>(candidate_entry) = backend
-				.load_candidate_entry_v1(<span class="kw-2">&amp;</span>candidate_hash)
+				.load_candidate_entry_v1(<span class="kw-2">&amp;</span>candidate_hash, candidate_index <span class="kw">as </span>CandidateIndex)
 				.map_err(|e| Error::InternalError(e))<span class="question-mark">?
 			</span>{
 				<span class="comment">// Write the updated representation.
@@ -361,42 +303,8 @@
 	<span class="prelude-val">Ok</span>(())
 }
 
-<span class="comment">// Checks if the migration doesn&#39;t leave the DB in an unsane state.
-// This function is to be used in tests.
-</span><span class="kw">pub fn </span>v1_to_v2_sanity_check(
-	db: Arc&lt;<span class="kw">dyn </span>Database&gt;,
-	config: Config,
-	expected_candidates: HashSet&lt;CandidateHash&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-	<span class="kw">let </span>backend = <span class="kw">crate</span>::DbBackend::new(db, config);
-
-	<span class="kw">let </span>all_blocks = backend
-		.load_all_blocks()
-		.unwrap()
-		.iter()
-		.map(|block_hash| backend.load_block_entry(block_hash).unwrap().unwrap())
-		.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-
-	<span class="kw">let </span><span class="kw-2">mut </span>candidates = HashSet::new();
-
-	<span class="comment">// Iterate all blocks and approval entries.
-	</span><span class="kw">for </span>block <span class="kw">in </span>all_blocks {
-		<span class="kw">for </span>(_core_index, candidate_hash) <span class="kw">in </span>block.candidates() {
-			<span class="comment">// Loading the candidate will also perform the conversion to the updated format and
-			// return that represantation.
-			</span><span class="kw">if let </span><span class="prelude-val">Some</span>(candidate_entry) = backend.load_candidate_entry(<span class="kw-2">&amp;</span>candidate_hash).unwrap() {
-				candidates.insert(candidate_entry.candidate.hash());
-			}
-		}
-	}
-
-	<span class="macro">assert_eq!</span>(candidates, expected_candidates);
-
-	<span class="prelude-val">Ok</span>(())
-}
-
 <span class="comment">// Fills the db with dummy data in v1 scheme.
-</span><span class="kw">pub fn </span>v1_to_v2_fill_test_data&lt;F&gt;(
+</span><span class="kw">pub fn </span>v1_fill_test_data&lt;F&gt;(
 	db: Arc&lt;<span class="kw">dyn </span>Database&gt;,
 	config: Config,
 	dummy_candidate_create: F,

@@ -383,7 +383,7 @@
 <span class="kw">use </span>polkadot_node_network_protocol::{
 	peer_set::{CollationVersion, PeerSet, ProtocolVersion, ValidationVersion},
 	request_response::{OutgoingRequest, Recipient, ReqProtocolNames, Requests},
-	v1 <span class="kw">as </span>protocol_v1, v2 <span class="kw">as </span>protocol_v2, vstaging <span class="kw">as </span>protocol_vstaging, PeerId,
+	v1 <span class="kw">as </span>protocol_v1, v2 <span class="kw">as </span>protocol_v2, v3 <span class="kw">as </span>protocol_v3, PeerId,
 };
 <span class="kw">use </span>polkadot_primitives::{AuthorityDiscoveryId, Block, Hash};
 
@@ -412,20 +412,20 @@
 	);
 }
 
-<span class="comment">// Helper function to send a validation vstaging message to a list of peers.
+<span class="comment">// Helper function to send a validation v3 message to a list of peers.
 // Messages are always sent via the main protocol, even legacy protocol messages.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>send_validation_message_vstaging(
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>send_validation_message_v3(
 	peers: Vec&lt;PeerId&gt;,
-	message: WireMessage&lt;protocol_vstaging::ValidationProtocol&gt;,
+	message: WireMessage&lt;protocol_v3::ValidationProtocol&gt;,
 	metrics: <span class="kw-2">&amp;</span>Metrics,
 	notification_sinks: <span class="kw-2">&amp;</span>Arc&lt;Mutex&lt;HashMap&lt;(PeerSet, PeerId), Box&lt;<span class="kw">dyn </span>MessageSink&gt;&gt;&gt;&gt;,
 ) {
-	<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peers, <span class="question-mark">?</span>message, <span class="string">&quot;Sending validation vstaging message to peers&quot;</span>,);
+	<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peers, <span class="question-mark">?</span>message, <span class="string">&quot;Sending validation v3 message to peers&quot;</span>,);
 
 	send_message(
 		peers,
 		PeerSet::Validation,
-		ValidationVersion::VStaging.into(),
+		ValidationVersion::V3.into(),
 		message,
 		metrics,
 		notification_sinks,

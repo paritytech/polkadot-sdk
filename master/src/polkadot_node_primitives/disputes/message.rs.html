@@ -437,7 +437,7 @@
 		<span class="kw">let </span>valid_vote = ValidDisputeVote {
 			validator_index: valid_index,
 			signature: valid_statement.validator_signature().clone(),
-			kind: <span class="kw-2">*</span>valid_kind,
+			kind: valid_kind.clone(),
 		};
 
 		<span class="kw">let </span>invalid_vote = InvalidDisputeVote {

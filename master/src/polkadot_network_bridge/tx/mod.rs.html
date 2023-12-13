@@ -444,7 +444,7 @@
 /// Defines the `Network` trait with an implementation for an `Arc&lt;NetworkService&gt;`.
 </span><span class="kw">use </span><span class="kw">crate</span>::network::{
 	send_collation_message_v1, send_collation_message_v2, send_validation_message_v1,
-	send_validation_message_v2, send_validation_message_vstaging, Network,
+	send_validation_message_v2, send_validation_message_v3, Network,
 };
 
 <span class="kw">use </span><span class="kw">crate</span>::metrics::Metrics;
@@ -608,7 +608,7 @@
 					<span class="kw-2">&amp;</span>metrics,
 					notification_sinks,
 				),
-				Versioned::VStaging(msg) =&gt; send_validation_message_vstaging(
+				Versioned::V3(msg) =&gt; send_validation_message_v3(
 					peers,
 					WireMessage::ProtocolMessage(msg),
 					<span class="kw-2">&amp;</span>metrics,
@@ -638,7 +638,7 @@
 						<span class="kw-2">&amp;</span>metrics,
 						notification_sinks,
 					),
-					Versioned::VStaging(msg) =&gt; send_validation_message_vstaging(
+					Versioned::V3(msg) =&gt; send_validation_message_v3(
 						peers,
 						WireMessage::ProtocolMessage(msg),
 						<span class="kw-2">&amp;</span>metrics,
@@ -667,7 +667,7 @@
 					<span class="kw-2">&amp;</span>metrics,
 					notification_sinks,
 				),
-				Versioned::V2(msg) | Versioned::VStaging(msg) =&gt; send_collation_message_v2(
+				Versioned::V2(msg) | Versioned::V3(msg) =&gt; send_collation_message_v2(
 					peers,
 					WireMessage::ProtocolMessage(msg),
 					<span class="kw-2">&amp;</span>metrics,
@@ -690,7 +690,7 @@
 						<span class="kw-2">&amp;</span>metrics,
 						notification_sinks,
 					),
-					Versioned::V2(msg) | Versioned::VStaging(msg) =&gt; send_collation_message_v2(
+					Versioned::V2(msg) | Versioned::V3(msg) =&gt; send_collation_message_v2(
 						peers,
 						WireMessage::ProtocolMessage(msg),
 						<span class="kw-2">&amp;</span>metrics,

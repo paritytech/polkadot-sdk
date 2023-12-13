@@ -2202,10 +2202,6 @@
 <a href="#2202" id="2202">2202</a>
 <a href="#2203" id="2203">2203</a>
 <a href="#2204" id="2204">2204</a>
-<a href="#2205" id="2205">2205</a>
-<a href="#2206" id="2206">2206</a>
-<a href="#2207" id="2207">2207</a>
-<a href="#2208" id="2208">2208</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2230,8 +2226,8 @@
 	grid_topology::{GridNeighbors, RequiredRouting, SessionBoundGridTopologyStorage},
 	peer_set::{IsAuthority, PeerSet, ValidationVersion},
 	v1::{<span class="self">self </span><span class="kw">as </span>protocol_v1, StatementMetadata},
-	v2 <span class="kw">as </span>protocol_v2, vstaging <span class="kw">as </span>protocol_vstaging, IfDisconnected, PeerId,
-	UnifiedReputationChange <span class="kw">as </span>Rep, Versioned, View,
+	v2 <span class="kw">as </span>protocol_v2, v3 <span class="kw">as </span>protocol_v3, IfDisconnected, PeerId, UnifiedReputationChange <span class="kw">as </span>Rep,
+	Versioned, View,
 };
 <span class="kw">use </span>polkadot_node_primitives::{
 	SignedFullStatement, Statement, StatementWithPVD, UncheckedSignedFullStatement,
@@ -3283,7 +3279,7 @@
 		})
 		.partition::&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;(|(<span class="kw">_</span>, <span class="kw">_</span>, version)| <span class="kw">match </span>version {
 			ValidationVersion::V1 =&gt; <span class="bool-val">true</span>,
-			ValidationVersion::V2 | ValidationVersion::VStaging =&gt; <span class="bool-val">false</span>,
+			ValidationVersion::V2 | ValidationVersion::V3 =&gt; <span class="bool-val">false</span>,
 		}); <span class="comment">// partition is handy here but not if we add more protocol versions
 
 	</span><span class="kw">let </span>payload = v1_statement_message(relay_parent, stored.statement.clone(), metrics);
@@ -3316,8 +3312,7 @@
 		.collect();
 
 	<span class="kw">let </span>v2_peers_to_send = filter_by_peer_version(<span class="kw-2">&amp;</span>peers_to_send, ValidationVersion::V2.into());
-	<span class="kw">let </span>vstaging_to_send =
-		filter_by_peer_version(<span class="kw-2">&amp;</span>peers_to_send, ValidationVersion::VStaging.into());
+	<span class="kw">let </span>v3_to_send = filter_by_peer_version(<span class="kw-2">&amp;</span>peers_to_send, ValidationVersion::V3.into());
 
 	<span class="kw">if </span>!v2_peers_to_send.is_empty() {
 		<span class="macro">gum::trace!</span>(
@@ -3334,17 +3329,17 @@
 		.<span class="kw">await</span>;
 	}
 
-	<span class="kw">if </span>!vstaging_to_send.is_empty() {
+	<span class="kw">if </span>!v3_to_send.is_empty() {
 		<span class="macro">gum::trace!</span>(
 			target: LOG_TARGET,
-			<span class="question-mark">?</span>vstaging_to_send,
+			<span class="question-mark">?</span>v3_to_send,
 			<span class="question-mark">?</span>relay_parent,
 			statement = <span class="question-mark">?</span>stored.statement,
-			<span class="string">&quot;Sending statement to vstaging peers&quot;</span>,
+			<span class="string">&quot;Sending statement to v3 peers&quot;</span>,
 		);
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-			vstaging_to_send,
-			compatible_v1_message(ValidationVersion::VStaging, payload.clone()).into(),
+			v3_to_send,
+			compatible_v1_message(ValidationVersion::V3, payload.clone()).into(),
 		))
 		.<span class="kw">await</span>;
 	}
@@ -3680,10 +3675,8 @@
 	<span class="kw">let </span>message = <span class="kw">match </span>message {
 		Versioned::V1(m) =&gt; m,
 		Versioned::V2(protocol_v2::StatementDistributionMessage::V1Compatibility(m)) |
-		Versioned::VStaging(protocol_vstaging::StatementDistributionMessage::V1Compatibility(
-			m,
-		)) =&gt; m,
-		Versioned::V2(<span class="kw">_</span>) | Versioned::VStaging(<span class="kw">_</span>) =&gt; {
+		Versioned::V3(protocol_v3::StatementDistributionMessage::V1Compatibility(m)) =&gt; m,
+		Versioned::V2(<span class="kw">_</span>) | Versioned::V3(<span class="kw">_</span>) =&gt; {
 			<span class="comment">// The higher-level subsystem code is supposed to filter out
 			// all non v1 messages.
 			</span><span class="macro">gum::debug!</span>(
@@ -4409,9 +4402,8 @@
 		ValidationVersion::V1 =&gt; Versioned::V1(message),
 		ValidationVersion::V2 =&gt;
 			Versioned::V2(protocol_v2::StatementDistributionMessage::V1Compatibility(message)),
-		ValidationVersion::VStaging =&gt; Versioned::VStaging(
-			protocol_vstaging::StatementDistributionMessage::V1Compatibility(message),
-		),
+		ValidationVersion::V3 =&gt;
+			Versioned::V3(protocol_v3::StatementDistributionMessage::V1Compatibility(message)),
 	}
 }
 </code></pre></div></section></main></body></html>

@@ -586,6 +586,22 @@
 <a href="#586" id="586">586</a>
 <a href="#587" id="587">587</a>
 <a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -622,9 +638,9 @@
 <span class="kw">use </span>polkadot_node_subsystem::overseer;
 <span class="kw">use </span>polkadot_node_subsystem_util::runtime::RuntimeInfo;
 <span class="kw">use </span>polkadot_primitives::{
-	CandidateReceipt, DisputeStatement, ExecutorParams, Hash, IndexedVec, SessionIndex,
-	SessionInfo, ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorPair,
-	ValidatorSignature,
+	CandidateHash, CandidateReceipt, DisputeStatement, ExecutorParams, Hash, IndexedVec,
+	SessionIndex, SessionInfo, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
+	ValidatorPair, ValidatorSignature,
 };
 <span class="kw">use </span>sc_keystore::LocalKeystore;
 
@@ -714,7 +730,9 @@
 		<span class="kw">let </span>our_valid_votes = controlled_indices
 			.iter()
 			.filter_map(|i| votes.valid.raw().get_key_value(i))
-			.map(|(index, (kind, sig))| (<span class="kw-2">*</span>index, (DisputeStatement::Valid(<span class="kw-2">*</span>kind), sig.clone())));
+			.map(|(index, (kind, sig))| {
+				(<span class="kw-2">*</span>index, (DisputeStatement::Valid(kind.clone()), sig.clone()))
+			});
 		<span class="kw">let </span>our_invalid_votes = controlled_indices
 			.iter()
 			.filter_map(|i| votes.invalid.get_key_value(i))
@@ -893,7 +911,7 @@
 				DisputeStatement::Valid(valid_kind) =&gt; {
 					<span class="kw">let </span>fresh = votes.valid.insert_vote(
 						val_index,
-						<span class="kw-2">*</span>valid_kind,
+						valid_kind.clone(),
 						statement.into_validator_signature(),
 					);
 					<span class="kw">if </span>fresh {
@@ -1099,7 +1117,7 @@
 	</span><span class="kw">pub fn </span>import_approval_votes(
 		<span class="self">self</span>,
 		env: <span class="kw-2">&amp;</span>CandidateEnvironment,
-		approval_votes: HashMap&lt;ValidatorIndex, ValidatorSignature&gt;,
+		approval_votes: HashMap&lt;ValidatorIndex, (Vec&lt;CandidateHash&gt;, ValidatorSignature)&gt;,
 		now: Timestamp,
 	) -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span><span class="self">Self </span>{
@@ -1113,19 +1131,33 @@
 
 		<span class="kw">let </span>(<span class="kw-2">mut </span>votes, <span class="kw">_</span>) = new_state.into_old_state();
 
-		<span class="kw">for </span>(index, sig) <span class="kw">in </span>approval_votes.into_iter() {
+		<span class="kw">for </span>(index, (candidate_hashes, sig)) <span class="kw">in </span>approval_votes.into_iter() {
 			<span class="macro">debug_assert!</span>(
 				{
 					<span class="kw">let </span>pub_key = <span class="kw-2">&amp;</span>env.session_info().validators.get(index).expect(<span class="string">&quot;indices are validated by approval-voting subsystem; qed&quot;</span>);
-					<span class="kw">let </span>candidate_hash = votes.candidate_receipt.hash();
 					<span class="kw">let </span>session_index = env.session_index();
-					DisputeStatement::Valid(ValidDisputeStatementKind::ApprovalChecking)
-						.check_signature(pub_key, candidate_hash, session_index, <span class="kw-2">&amp;</span>sig)
+					candidate_hashes.contains(<span class="kw-2">&amp;</span>votes.candidate_receipt.hash()) &amp;&amp; DisputeStatement::Valid(ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(candidate_hashes.clone()))
+						.check_signature(pub_key, <span class="kw-2">*</span>candidate_hashes.first().expect(<span class="string">&quot;Valid votes have at least one candidate; qed&quot;</span>), session_index, <span class="kw-2">&amp;</span>sig)
 						.is_ok()
 				},
 				<span class="string">&quot;Signature check for imported approval votes failed! This is a serious bug. Session: {:?}, candidate hash: {:?}, validator index: {:?}&quot;</span>, env.session_index(), votes.candidate_receipt.hash(), index
 			);
-			<span class="kw">if </span>votes.valid.insert_vote(index, ValidDisputeStatementKind::ApprovalChecking, sig) {
+			<span class="kw">if </span>votes.valid.insert_vote(
+				index,
+				<span class="comment">// There is a hidden dependency here between approval-voting and this subsystem.
+				// We should be able to start emitting
+				// ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates only after:
+				// 1. Runtime have been upgraded to know about the new format.
+				// 2. All nodes have been upgraded to know about the new format.
+				// Once those two requirements have been met we should be able to increase
+				// max_approval_coalesce_count to values greater than 1.
+				</span><span class="kw">if </span>candidate_hashes.len() &gt; <span class="number">1 </span>{
+					ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(candidate_hashes)
+				} <span class="kw">else </span>{
+					ValidDisputeStatementKind::ApprovalChecking
+				},
+				sig,
+			) {
 				imported_valid_votes += <span class="number">1</span>;
 				imported_approval_votes += <span class="number">1</span>;
 			}

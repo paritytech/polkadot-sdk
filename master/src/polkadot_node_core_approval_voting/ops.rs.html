@@ -451,7 +451,7 @@
 <span class="kw">use </span>std::collections::{hash_map::Entry, BTreeMap, HashMap};
 
 <span class="kw">use super</span>::{
-	approval_db::v2::{OurAssignment, StoredBlockRange},
+	approval_db::{common::StoredBlockRange, v2::OurAssignment},
 	backend::{Backend, OverlayedBackend},
 	persisted_entries::{ApprovalEntry, BlockEntry, CandidateEntry},
 	LOG_TARGET,

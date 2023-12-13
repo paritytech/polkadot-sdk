@@ -233,6 +233,20 @@
 <a href="#233" id="233">233</a>
 <a href="#234" id="234">234</a>
 <a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -257,12 +271,12 @@
 //! before any commit to the underlying storage is made.
 
 </span><span class="kw">use </span>polkadot_node_subsystem::SubsystemResult;
-<span class="kw">use </span>polkadot_primitives::{BlockNumber, CandidateHash, Hash};
+<span class="kw">use </span>polkadot_primitives::{BlockNumber, CandidateHash, CandidateIndex, Hash};
 
 <span class="kw">use </span>std::collections::HashMap;
 
 <span class="kw">use super</span>::{
-	approval_db::v2::StoredBlockRange,
+	approval_db::common::StoredBlockRange,
 	persisted_entries::{BlockEntry, CandidateEntry},
 };
 
@@ -307,10 +321,24 @@
 	</span><span class="kw">fn </span>load_candidate_entry_v1(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		candidate_hash: <span class="kw-2">&amp;</span>CandidateHash,
+		candidate_index: CandidateIndex,
 	) -&gt; SubsystemResult&lt;<span class="prelude-ty">Option</span>&lt;CandidateEntry&gt;&gt;;
 
 	<span class="doccomment">/// Load a block entry from the DB with scheme version 1.
 	</span><span class="kw">fn </span>load_block_entry_v1(<span class="kw-2">&amp;</span><span class="self">self</span>, block_hash: <span class="kw-2">&amp;</span>Hash) -&gt; SubsystemResult&lt;<span class="prelude-ty">Option</span>&lt;BlockEntry&gt;&gt;;
+}
+
+<span class="doccomment">/// A read only backend to enable db migration from version 2 of DB.
+</span><span class="kw">pub trait </span>V2ReadBackend: Backend {
+	<span class="doccomment">/// Load a candidate entry from the DB with scheme version 1.
+	</span><span class="kw">fn </span>load_candidate_entry_v2(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		candidate_hash: <span class="kw-2">&amp;</span>CandidateHash,
+		candidate_index: CandidateIndex,
+	) -&gt; SubsystemResult&lt;<span class="prelude-ty">Option</span>&lt;CandidateEntry&gt;&gt;;
+
+	<span class="doccomment">/// Load a block entry from the DB with scheme version 1.
+	</span><span class="kw">fn </span>load_block_entry_v2(<span class="kw-2">&amp;</span><span class="self">self</span>, block_hash: <span class="kw-2">&amp;</span>Hash) -&gt; SubsystemResult&lt;<span class="prelude-ty">Option</span>&lt;BlockEntry&gt;&gt;;
 }
 
 <span class="comment">// Status of block range in the `OverlayedBackend`.

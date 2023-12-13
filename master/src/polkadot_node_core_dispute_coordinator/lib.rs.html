@@ -1177,7 +1177,7 @@
 				.next()
 				.ok_or(DisputeMessageCreationError::NoOppositeVote)<span class="question-mark">?</span>;
 			<span class="kw">let </span>other_vote = SignedDisputeStatement::new_checked(
-				DisputeStatement::Valid(<span class="kw-2">*</span>statement_kind),
+				DisputeStatement::Valid(statement_kind.clone()),
 				<span class="kw-2">*</span>our_vote.candidate_hash(),
 				our_vote.session_index(),
 				validators

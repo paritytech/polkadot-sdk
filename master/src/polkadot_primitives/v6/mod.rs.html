@@ -1878,6 +1878,50 @@
 <a href="#1878" id="1878">1878</a>
 <a href="#1879" id="1879">1879</a>
 <a href="#1880" id="1880">1880</a>
+<a href="#1881" id="1881">1881</a>
+<a href="#1882" id="1882">1882</a>
+<a href="#1883" id="1883">1883</a>
+<a href="#1884" id="1884">1884</a>
+<a href="#1885" id="1885">1885</a>
+<a href="#1886" id="1886">1886</a>
+<a href="#1887" id="1887">1887</a>
+<a href="#1888" id="1888">1888</a>
+<a href="#1889" id="1889">1889</a>
+<a href="#1890" id="1890">1890</a>
+<a href="#1891" id="1891">1891</a>
+<a href="#1892" id="1892">1892</a>
+<a href="#1893" id="1893">1893</a>
+<a href="#1894" id="1894">1894</a>
+<a href="#1895" id="1895">1895</a>
+<a href="#1896" id="1896">1896</a>
+<a href="#1897" id="1897">1897</a>
+<a href="#1898" id="1898">1898</a>
+<a href="#1899" id="1899">1899</a>
+<a href="#1900" id="1900">1900</a>
+<a href="#1901" id="1901">1901</a>
+<a href="#1902" id="1902">1902</a>
+<a href="#1903" id="1903">1903</a>
+<a href="#1904" id="1904">1904</a>
+<a href="#1905" id="1905">1905</a>
+<a href="#1906" id="1906">1906</a>
+<a href="#1907" id="1907">1907</a>
+<a href="#1908" id="1908">1908</a>
+<a href="#1909" id="1909">1909</a>
+<a href="#1910" id="1910">1910</a>
+<a href="#1911" id="1911">1911</a>
+<a href="#1912" id="1912">1912</a>
+<a href="#1913" id="1913">1913</a>
+<a href="#1914" id="1914">1914</a>
+<a href="#1915" id="1915">1915</a>
+<a href="#1916" id="1916">1916</a>
+<a href="#1917" id="1917">1917</a>
+<a href="#1918" id="1918">1918</a>
+<a href="#1919" id="1919">1919</a>
+<a href="#1920" id="1920">1920</a>
+<a href="#1921" id="1921">1921</a>
+<a href="#1922" id="1922">1922</a>
+<a href="#1923" id="1923">1923</a>
+<a href="#1924" id="1924">1924</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2950,6 +2994,26 @@
 	}
 }
 
+<span class="doccomment">/// A vote of approval for multiple candidates.
+</span><span class="attr">#[derive(Clone, RuntimeDebug)]
+</span><span class="kw">pub struct </span>ApprovalVoteMultipleCandidates&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw">pub </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[CandidateHash]);
+
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; ApprovalVoteMultipleCandidates&lt;<span class="lifetime">&#39;a</span>&gt; {
+	<span class="doccomment">/// Yields the signing payload for this approval vote.
+	</span><span class="kw">pub fn </span>signing_payload(<span class="kw-2">&amp;</span><span class="self">self</span>, session_index: SessionIndex) -&gt; Vec&lt;u8&gt; {
+		<span class="kw">const </span>MAGIC: [u8; <span class="number">4</span>] = <span class="kw-2">*</span><span class="string">b&quot;APPR&quot;</span>;
+		<span class="comment">// Make this backwards compatible with `ApprovalVote` so if we have just on candidate the
+		// signature will look the same.
+		// This gives us the nice benefit that old nodes can still check signatures when len is 1
+		// and the new node can check the signature coming from old nodes.
+		</span><span class="kw">if </span><span class="self">self</span>.<span class="number">0</span>.len() == <span class="number">1 </span>{
+			(MAGIC, <span class="self">self</span>.<span class="number">0</span>.first().expect(<span class="string">&quot;QED: we just checked&quot;</span>), session_index).encode()
+		} <span class="kw">else </span>{
+			(MAGIC, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, session_index).encode()
+		}
+	}
+}
+
 <span class="doccomment">/// Custom validity errors used in Polkadot while validating transactions.
 </span><span class="attr">#[repr(u8)]
 </span><span class="kw">pub enum </span>ValidityError {
@@ -3126,25 +3190,42 @@
 
 <span class="kw">impl </span>DisputeStatement {
 	<span class="doccomment">/// Get the payload data for this type of dispute statement.
-	</span><span class="kw">pub fn </span>payload_data(<span class="kw-2">&amp;</span><span class="self">self</span>, candidate_hash: CandidateHash, session: SessionIndex) -&gt; Vec&lt;u8&gt; {
-		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
+	///
+	/// Returns Error if the candidate_hash is not included in the list of signed
+	/// candidate from ApprovalCheckingMultipleCandidate.
+	</span><span class="kw">pub fn </span>payload_data(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		candidate_hash: CandidateHash,
+		session: SessionIndex,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, ()&gt; {
+		<span class="kw">match </span><span class="self">self </span>{
 			DisputeStatement::Valid(ValidDisputeStatementKind::Explicit) =&gt;
-				ExplicitDisputeStatement { valid: <span class="bool-val">true</span>, candidate_hash, session }.signing_payload(),
+				<span class="prelude-val">Ok</span>(ExplicitDisputeStatement { valid: <span class="bool-val">true</span>, candidate_hash, session }
+					.signing_payload()),
 			DisputeStatement::Valid(ValidDisputeStatementKind::BackingSeconded(
 				inclusion_parent,
-			)) =&gt; CompactStatement::Seconded(candidate_hash).signing_payload(<span class="kw-2">&amp;</span>SigningContext {
+			)) =&gt; <span class="prelude-val">Ok</span>(CompactStatement::Seconded(candidate_hash).signing_payload(<span class="kw-2">&amp;</span>SigningContext {
 				session_index: session,
-				parent_hash: inclusion_parent,
-			}),
+				parent_hash: <span class="kw-2">*</span>inclusion_parent,
+			})),
 			DisputeStatement::Valid(ValidDisputeStatementKind::BackingValid(inclusion_parent)) =&gt;
-				CompactStatement::Valid(candidate_hash).signing_payload(<span class="kw-2">&amp;</span>SigningContext {
+				<span class="prelude-val">Ok</span>(CompactStatement::Valid(candidate_hash).signing_payload(<span class="kw-2">&amp;</span>SigningContext {
 					session_index: session,
-					parent_hash: inclusion_parent,
-				}),
+					parent_hash: <span class="kw-2">*</span>inclusion_parent,
+				})),
 			DisputeStatement::Valid(ValidDisputeStatementKind::ApprovalChecking) =&gt;
-				ApprovalVote(candidate_hash).signing_payload(session),
+				<span class="prelude-val">Ok</span>(ApprovalVote(candidate_hash).signing_payload(session)),
+			DisputeStatement::Valid(
+				ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(candidate_hashes),
+			) =&gt;
+				<span class="kw">if </span>candidate_hashes.contains(<span class="kw-2">&amp;</span>candidate_hash) {
+					<span class="prelude-val">Ok</span>(ApprovalVoteMultipleCandidates(candidate_hashes).signing_payload(session))
+				} <span class="kw">else </span>{
+					<span class="prelude-val">Err</span>(())
+				},
 			DisputeStatement::Invalid(InvalidDisputeStatementKind::Explicit) =&gt;
-				ExplicitDisputeStatement { valid: <span class="bool-val">false</span>, candidate_hash, session }.signing_payload(),
+				<span class="prelude-val">Ok</span>(ExplicitDisputeStatement { valid: <span class="bool-val">false</span>, candidate_hash, session }
+					.signing_payload()),
 		}
 	}
 
@@ -3156,7 +3237,7 @@
 		session: SessionIndex,
 		validator_signature: <span class="kw-2">&amp;</span>ValidatorSignature,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
-		<span class="kw">let </span>payload = <span class="self">self</span>.payload_data(candidate_hash, session);
+		<span class="kw">let </span>payload = <span class="self">self</span>.payload_data(candidate_hash, session)<span class="question-mark">?</span>;
 
 		<span class="kw">if </span>validator_signature.verify(<span class="kw-2">&amp;</span>payload[..], <span class="kw-2">&amp;</span>validator_public) {
 			<span class="prelude-val">Ok</span>(())
@@ -3188,13 +3269,14 @@
 			<span class="self">Self</span>::Valid(ValidDisputeStatementKind::BackingValid(<span class="kw">_</span>)) =&gt; <span class="bool-val">true</span>,
 			<span class="self">Self</span>::Valid(ValidDisputeStatementKind::Explicit) |
 			<span class="self">Self</span>::Valid(ValidDisputeStatementKind::ApprovalChecking) |
+			<span class="self">Self</span>::Valid(ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(<span class="kw">_</span>)) |
 			<span class="self">Self</span>::Invalid(<span class="kw">_</span>) =&gt; <span class="bool-val">false</span>,
 		}
 	}
 }
 
 <span class="doccomment">/// Different kinds of statements of validity on  a candidate.
-</span><span class="attr">#[derive(Encode, Decode, Copy, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+</span><span class="attr">#[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug, TypeInfo)]
 </span><span class="kw">pub enum </span>ValidDisputeStatementKind {
 	<span class="doccomment">/// An explicit statement issued as part of a dispute.
 	</span><span class="attr">#[codec(index = <span class="number">0</span>)]
@@ -3208,6 +3290,12 @@
 	<span class="doccomment">/// An approval vote from the approval checking phase.
 	</span><span class="attr">#[codec(index = <span class="number">3</span>)]
 	</span>ApprovalChecking,
+	<span class="doccomment">/// An approval vote from the new version.
+	/// We can&#39;t create this version untill all nodes
+	/// have been updated to support it and max_approval_coalesce_count
+	/// is set to more than 1.
+	</span><span class="attr">#[codec(index = <span class="number">4</span>)]
+	</span>ApprovalCheckingMultipleCandidates(Vec&lt;CandidateHash&gt;),
 }
 
 <span class="doccomment">/// Different kinds of statements of invalidity on a candidate.

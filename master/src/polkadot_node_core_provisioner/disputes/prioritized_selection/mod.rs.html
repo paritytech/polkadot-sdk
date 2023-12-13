@@ -737,7 +737,7 @@
 				votes.valid.retain(|validator_idx, (statement_kind, <span class="kw">_</span>)| {
 					is_vote_worth_to_keep(
 						validator_idx,
-						DisputeStatement::Valid(<span class="kw-2">*</span>statement_kind),
+						DisputeStatement::Valid(statement_kind.clone()),
 						<span class="kw-2">&amp;</span>onchain_state,
 					)
 				});

@@ -1167,7 +1167,6 @@
 <a href="#1167" id="1167">1167</a>
 <a href="#1168" id="1168">1168</a>
 <a href="#1169" id="1169">1169</a>
-<a href="#1170" id="1170">1170</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1207,8 +1206,8 @@
 		CollationVersion, PeerSet, PeerSetProtocolNames, PerPeerSet, ProtocolVersion,
 		ValidationVersion,
 	},
-	v1 <span class="kw">as </span>protocol_v1, v2 <span class="kw">as </span>protocol_v2, vstaging <span class="kw">as </span>protocol_vstaging, ObservedRole, OurView,
-	PeerId, UnifiedReputationChange <span class="kw">as </span>Rep, View,
+	v1 <span class="kw">as </span>protocol_v1, v2 <span class="kw">as </span>protocol_v2, v3 <span class="kw">as </span>protocol_v3, ObservedRole, OurView, PeerId,
+	UnifiedReputationChange <span class="kw">as </span>Rep, View,
 };
 
 <span class="kw">use </span>polkadot_node_subsystem::{
@@ -1240,7 +1239,7 @@
 /// Defines the `Network` trait with an implementation for an `Arc&lt;NetworkService&gt;`.
 </span><span class="kw">use </span><span class="kw">crate</span>::network::{
 	send_collation_message_v1, send_collation_message_v2, send_validation_message_v1,
-	send_validation_message_v2, send_validation_message_vstaging, Network,
+	send_validation_message_v2, send_validation_message_v3, Network,
 };
 <span class="kw">use crate</span>::{network::get_peer_id_by_authority_id, WireMessage};
 
@@ -1464,9 +1463,9 @@
 					metrics,
 					notification_sinks,
 				),
-				ValidationVersion::VStaging =&gt; send_validation_message_vstaging(
+				ValidationVersion::V3 =&gt; send_validation_message_v3(
 					<span class="macro">vec!</span>[peer],
-					WireMessage::&lt;protocol_vstaging::ValidationProtocol&gt;::ViewUpdate(local_view),
+					WireMessage::&lt;protocol_v3::ValidationProtocol&gt;::ViewUpdate(local_view),
 					metrics,
 					notification_sinks,
 				),
@@ -1530,48 +1529,47 @@
 				<span class="question-mark">?</span>peer,
 			);
 
-			<span class="kw">let </span>(events, reports) =
-				<span class="kw">if </span>expected_versions[PeerSet::Validation] == <span class="prelude-val">Some</span>(ValidationVersion::V1.into()) {
-					handle_peer_messages::&lt;protocol_v1::ValidationProtocol, <span class="kw">_</span>&gt;(
-						peer,
-						PeerSet::Validation,
-						<span class="kw-2">&amp;mut </span>shared.<span class="number">0</span>.lock().validation_peers,
-						<span class="macro">vec!</span>[notification.into()],
-						metrics,
-					)
-				} <span class="kw">else if </span>expected_versions[PeerSet::Validation] ==
-					<span class="prelude-val">Some</span>(ValidationVersion::V2.into())
-				{
-					handle_peer_messages::&lt;protocol_v2::ValidationProtocol, <span class="kw">_</span>&gt;(
-						peer,
-						PeerSet::Validation,
-						<span class="kw-2">&amp;mut </span>shared.<span class="number">0</span>.lock().validation_peers,
-						<span class="macro">vec!</span>[notification.into()],
-						metrics,
-					)
-				} <span class="kw">else if </span>expected_versions[PeerSet::Validation] ==
-					<span class="prelude-val">Some</span>(ValidationVersion::VStaging.into())
-				{
-					handle_peer_messages::&lt;protocol_vstaging::ValidationProtocol, <span class="kw">_</span>&gt;(
-						peer,
-						PeerSet::Validation,
-						<span class="kw-2">&amp;mut </span>shared.<span class="number">0</span>.lock().validation_peers,
-						<span class="macro">vec!</span>[notification.into()],
-						metrics,
-					)
-				} <span class="kw">else </span>{
-					<span class="macro">gum::warn!</span>(
-						target: LOG_TARGET,
-						version = <span class="question-mark">?</span>expected_versions[PeerSet::Validation],
-						<span class="string">&quot;Major logic bug. Peer somehow has unsupported validation protocol version.&quot;
-					</span>);
+			<span class="kw">let </span>(events, reports) = <span class="kw">if </span>expected_versions[PeerSet::Validation] ==
+				<span class="prelude-val">Some</span>(ValidationVersion::V1.into())
+			{
+				handle_peer_messages::&lt;protocol_v1::ValidationProtocol, <span class="kw">_</span>&gt;(
+					peer,
+					PeerSet::Validation,
+					<span class="kw-2">&amp;mut </span>shared.<span class="number">0</span>.lock().validation_peers,
+					<span class="macro">vec!</span>[notification.into()],
+					metrics,
+				)
+			} <span class="kw">else if </span>expected_versions[PeerSet::Validation] == <span class="prelude-val">Some</span>(ValidationVersion::V2.into()) {
+				handle_peer_messages::&lt;protocol_v2::ValidationProtocol, <span class="kw">_</span>&gt;(
+					peer,
+					PeerSet::Validation,
+					<span class="kw-2">&amp;mut </span>shared.<span class="number">0</span>.lock().validation_peers,
+					<span class="macro">vec!</span>[notification.into()],
+					metrics,
+				)
+			} <span class="kw">else if </span>expected_versions[PeerSet::Validation] == <span class="prelude-val">Some</span>(ValidationVersion::V3.into()) {
+				handle_peer_messages::&lt;protocol_v3::ValidationProtocol, <span class="kw">_</span>&gt;(
+					peer,
+					PeerSet::Validation,
+					<span class="kw-2">&amp;mut </span>shared.<span class="number">0</span>.lock().validation_peers,
+					<span class="macro">vec!</span>[notification.into()],
+					metrics,
+				)
+			} <span class="kw">else </span>{
+				<span class="macro">gum::warn!</span>(
+					target: LOG_TARGET,
+					version = <span class="question-mark">?</span>expected_versions[PeerSet::Validation],
+					<span class="string">&quot;Major logic bug. Peer somehow has unsupported validation protocol version.&quot;
+				</span>);
 
-					<span class="macro">never!</span>(<span class="string">&quot;Only versions 1 and 2 are supported; peer set connection checked above; qed&quot;</span>);
+				<span class="macro">never!</span>(
+					<span class="string">&quot;Only versions 1 and 2 are supported; peer set connection checked above; qed&quot;
+				</span>);
 
-					<span class="comment">// If a peer somehow triggers this, we&#39;ll disconnect them
-					// eventually.
-					</span>(Vec::new(), <span class="macro">vec!</span>[UNCONNECTED_PEERSET_COST])
-				};
+				<span class="comment">// If a peer somehow triggers this, we&#39;ll disconnect them
+				// eventually.
+				</span>(Vec::new(), <span class="macro">vec!</span>[UNCONNECTED_PEERSET_COST])
+			};
 
 			<span class="kw">for </span>report <span class="kw">in </span>reports {
 				network_service.report_peer(peer, report.into());
@@ -2150,8 +2148,8 @@
 		filter_by_peer_version(<span class="kw-2">&amp;</span>validation_peers, ValidationVersion::V2.into());
 	<span class="kw">let </span>v2_collation_peers = filter_by_peer_version(<span class="kw-2">&amp;</span>collation_peers, CollationVersion::V2.into());
 
-	<span class="kw">let </span>vstaging_validation_peers =
-		filter_by_peer_version(<span class="kw-2">&amp;</span>validation_peers, ValidationVersion::VStaging.into());
+	<span class="kw">let </span>v3_validation_peers =
+		filter_by_peer_version(<span class="kw-2">&amp;</span>validation_peers, ValidationVersion::V3.into());
 
 	send_validation_message_v1(
 		v1_validation_peers,
@@ -2181,8 +2179,8 @@
 		notification_sinks,
 	);
 
-	send_validation_message_vstaging(
-		vstaging_validation_peers,
+	send_validation_message_v3(
+		v3_validation_peers,
 		WireMessage::ViewUpdate(new_view.clone()),
 		metrics,
 		notification_sinks,

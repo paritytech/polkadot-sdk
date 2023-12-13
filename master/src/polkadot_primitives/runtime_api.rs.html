@@ -276,6 +276,13 @@
 <a href="#276" id="276">276</a>
 <a href="#277" id="277">277</a>
 <a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -392,12 +399,14 @@
 //! separated from the stable primitives.
 
 </span><span class="kw">use crate</span>::{
-	async_backing, slashing, vstaging, AsyncBackingParams, BlockNumber, CandidateCommitments,
-	CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState,
-	ExecutorParams, GroupRotationInfo, Hash, OccupiedCoreAssumption, PersistedValidationData,
-	PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
-	ValidatorSignature,
+	async_backing, slashing,
+	vstaging::{<span class="self">self</span>, ApprovalVotingParams},
+	AsyncBackingParams, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
+	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash,
+	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
+	SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
+
 <span class="kw">use </span>polkadot_core_primitives <span class="kw">as </span>pcp;
 <span class="kw">use </span>polkadot_parachain_primitives::primitives <span class="kw">as </span>ppp;
 <span class="kw">use </span>sp_std::{collections::btree_map::BTreeMap, prelude::<span class="kw-2">*</span>};
@@ -552,6 +561,11 @@
 		/// This is a staging method! Do not use on production runtimes!
 		</span><span class="attr">#[api_version(<span class="number">9</span>)]
 		</span><span class="kw">fn </span>node_features() -&gt; vstaging::NodeFeatures;
+
+		<span class="comment">/***** Added in v10 *****/
+		</span><span class="doccomment">/// Approval voting configuration parameters
+		</span><span class="attr">#[api_version(<span class="number">10</span>)]
+		</span><span class="kw">fn </span>approval_voting_params() -&gt; ApprovalVotingParams;
 	}
 }
 </code></pre></div></section></main></body></html>

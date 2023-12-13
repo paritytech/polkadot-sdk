@@ -2536,6 +2536,13 @@
 <a href="#2536" id="2536">2536</a>
 <a href="#2537" id="2537">2537</a>
 <a href="#2538" id="2538">2538</a>
+<a href="#2539" id="2539">2539</a>
+<a href="#2540" id="2540">2540</a>
+<a href="#2541" id="2541">2541</a>
+<a href="#2542" id="2542">2542</a>
+<a href="#2543" id="2543">2543</a>
+<a href="#2544" id="2544">2544</a>
+<a href="#2545" id="2545">2545</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2583,12 +2590,14 @@
 <span class="kw">use </span>pallet_transaction_payment::{CurrencyAdapter, FeeDetails, RuntimeDispatchInfo};
 <span class="kw">use </span>parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>primitives::{
-	slashing, vstaging::NodeFeatures, AccountId, AccountIndex, Balance, BlockNumber,
-	CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState,
-	ExecutorParams, GroupRotationInfo, Hash, Id <span class="kw">as </span>ParaId, InboundDownwardMessage,
-	InboundHrmpMessage, Moment, Nonce, OccupiedCoreAssumption, PersistedValidationData,
-	PvfCheckStatement, ScrapedOnChainVotes, SessionInfo, Signature, ValidationCode,
-	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature, PARACHAIN_KEY_TYPE_ID,
+	slashing,
+	vstaging::{ApprovalVotingParams, NodeFeatures},
+	AccountId, AccountIndex, Balance, BlockNumber, CandidateEvent, CandidateHash,
+	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash,
+	Id <span class="kw">as </span>ParaId, InboundDownwardMessage, InboundHrmpMessage, Moment, Nonce,
+	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
+	SessionInfo, Signature, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
+	ValidatorSignature, PARACHAIN_KEY_TYPE_ID,
 };
 <span class="kw">use </span>runtime_common::{
 	assigned_slots, auctions, crowdloan,
@@ -4187,6 +4196,7 @@
 			ImOnlinePalletName,
 			&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight,
 		&gt;,
+		parachains_configuration::migration::v11::MigrateToV11&lt;Runtime&gt;,
 	);
 }
 
@@ -4327,7 +4337,7 @@
 		}
 	}
 
-	<span class="attr">#[api_version(<span class="number">9</span>)]
+	<span class="attr">#[api_version(<span class="number">10</span>)]
 	</span><span class="kw">impl </span>primitives::runtime_api::ParachainHost&lt;Block&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>validators() -&gt; Vec&lt;ValidatorId&gt; {
 			parachains_runtime_api_impl::validators::&lt;Runtime&gt;()
@@ -4469,6 +4479,10 @@
 
 		<span class="kw">fn </span>async_backing_params() -&gt; primitives::AsyncBackingParams {
 			parachains_runtime_api_impl::async_backing_params::&lt;Runtime&gt;()
+		}
+
+		<span class="kw">fn </span>approval_voting_params() -&gt; ApprovalVotingParams {
+			parachains_staging_runtime_api_impl::approval_voting_params::&lt;Runtime&gt;()
 		}
 
 		<span class="kw">fn </span>disabled_validators() -&gt; Vec&lt;ValidatorIndex&gt; {

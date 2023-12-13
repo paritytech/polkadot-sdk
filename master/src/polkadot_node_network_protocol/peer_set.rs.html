@@ -599,6 +599,27 @@
 <a href="#599" id="599">599</a>
 <a href="#600" id="600">600</a>
 <a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -674,7 +695,11 @@
 		<span class="comment">// Networking layer relies on `get_main_name()` being the main name of the protocol
 		// for peersets and connection management.
 		</span><span class="kw">let </span>protocol = peerset_protocol_names.get_main_name(<span class="self">self</span>);
-		<span class="kw">let </span>fallback_names = PeerSetProtocolNames::get_fallback_names(<span class="self">self</span>);
+		<span class="kw">let </span>fallback_names = PeerSetProtocolNames::get_fallback_names(
+			<span class="self">self</span>,
+			<span class="kw-2">&amp;</span>peerset_protocol_names.genesis_hash,
+			peerset_protocol_names.fork_id.as_deref(),
+		);
 		<span class="kw">let </span>max_notification_size = <span class="self">self</span>.get_max_notification_size(is_authority);
 
 		<span class="kw">match </span><span class="self">self </span>{
@@ -728,15 +753,8 @@
 	/// Networking layer relies on `get_main_version()` being the version
 	/// of the main protocol name reported by [`PeerSetProtocolNames::get_main_name()`].
 	</span><span class="kw">pub fn </span>get_main_version(<span class="self">self</span>) -&gt; ProtocolVersion {
-		<span class="attr">#[cfg(not(feature = <span class="string">&quot;network-protocol-staging&quot;</span>))]
-		</span><span class="kw">match </span><span class="self">self </span>{
-			PeerSet::Validation =&gt; ValidationVersion::V2.into(),
-			PeerSet::Collation =&gt; CollationVersion::V2.into(),
-		}
-
-		<span class="attr">#[cfg(feature = <span class="string">&quot;network-protocol-staging&quot;</span>)]
-		</span><span class="kw">match </span><span class="self">self </span>{
-			PeerSet::Validation =&gt; ValidationVersion::VStaging.into(),
+		<span class="kw">match </span><span class="self">self </span>{
+			PeerSet::Validation =&gt; ValidationVersion::V3.into(),
 			PeerSet::Collation =&gt; CollationVersion::V2.into(),
 		}
 	}
@@ -764,7 +782,7 @@
 					<span class="prelude-val">Some</span>(<span class="string">&quot;validation/1&quot;</span>)
 				} <span class="kw">else if </span>version == ValidationVersion::V2.into() {
 					<span class="prelude-val">Some</span>(<span class="string">&quot;validation/2&quot;</span>)
-				} <span class="kw">else if </span>version == ValidationVersion::VStaging.into() {
+				} <span class="kw">else if </span>version == ValidationVersion::V3.into() {
 					<span class="prelude-val">Some</span>(<span class="string">&quot;validation/3&quot;</span>)
 				} <span class="kw">else </span>{
 					<span class="prelude-val">None
@@ -837,9 +855,10 @@
 	</span>V1 = <span class="number">1</span>,
 	<span class="doccomment">/// The second version.
 	</span>V2 = <span class="number">2</span>,
-	<span class="doccomment">/// The staging version to gather changes
-	/// that before the release become v3.
-	</span>VStaging = <span class="number">3</span>,
+	<span class="doccomment">/// The third version where changes to ApprovalDistributionMessage had been made.
+	/// The changes are translatable to V2 format untill assignments v2 and approvals
+	/// coalescing is enabled through a runtime upgrade.
+	</span>V3 = <span class="number">3</span>,
 }
 
 <span class="doccomment">/// Supported collation protocol versions. Only versions defined here must be used in the codebase.
@@ -900,6 +919,8 @@
 </span><span class="kw">pub struct </span>PeerSetProtocolNames {
 	protocols: HashMap&lt;ProtocolName, (PeerSet, ProtocolVersion)&gt;,
 	names: HashMap&lt;(PeerSet, ProtocolVersion), ProtocolName&gt;,
+	genesis_hash: Hash,
+	fork_id: <span class="prelude-ty">Option</span>&lt;String&gt;,
 }
 
 <span class="kw">impl </span>PeerSetProtocolNames {
@@ -934,7 +955,7 @@
 			}
 			<span class="self">Self</span>::register_legacy_protocol(<span class="kw-2">&amp;mut </span>protocols, protocol);
 		}
-		<span class="self">Self </span>{ protocols, names }
+		<span class="self">Self </span>{ protocols, names, genesis_hash, fork_id: fork_id.map(|fork_id| fork_id.into()) }
 	}
 
 	<span class="doccomment">/// Helper function to register main protocol.
@@ -1038,9 +1059,30 @@
 	}
 
 	<span class="doccomment">/// Get the protocol fallback names. Currently only holds the legacy name
-	/// for `LEGACY_PROTOCOL_VERSION` = 1.
-	</span><span class="kw">fn </span>get_fallback_names(protocol: PeerSet) -&gt; Vec&lt;ProtocolName&gt; {
-		std::iter::once(<span class="self">Self</span>::get_legacy_name(protocol)).collect()
+	/// for `LEGACY_PROTOCOL_VERSION` = 1 and v2 for validation.
+	</span><span class="kw">fn </span>get_fallback_names(
+		protocol: PeerSet,
+		genesis_hash: <span class="kw-2">&amp;</span>Hash,
+		fork_id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+	) -&gt; Vec&lt;ProtocolName&gt; {
+		<span class="kw">let </span><span class="kw-2">mut </span>fallbacks = <span class="macro">vec!</span>[<span class="self">Self</span>::get_legacy_name(protocol)];
+		<span class="kw">match </span>protocol {
+			PeerSet::Validation =&gt; {
+				<span class="comment">// Fallbacks are tried one by one, till one matches so push v2 at the top, so
+				// that it is used ahead of the legacy one(v1).
+				</span>fallbacks.insert(
+					<span class="number">0</span>,
+					<span class="self">Self</span>::generate_name(
+						genesis_hash,
+						fork_id,
+						protocol,
+						ValidationVersion::V2.into(),
+					),
+				)
+			},
+			PeerSet::Collation =&gt; {},
+		};
+		fallbacks
 	}
 }
 

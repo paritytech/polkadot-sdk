@@ -1381,6 +1381,52 @@
 <a href="#1381" id="1381">1381</a>
 <a href="#1382" id="1382">1382</a>
 <a href="#1383" id="1383">1383</a>
+<a href="#1384" id="1384">1384</a>
+<a href="#1385" id="1385">1385</a>
+<a href="#1386" id="1386">1386</a>
+<a href="#1387" id="1387">1387</a>
+<a href="#1388" id="1388">1388</a>
+<a href="#1389" id="1389">1389</a>
+<a href="#1390" id="1390">1390</a>
+<a href="#1391" id="1391">1391</a>
+<a href="#1392" id="1392">1392</a>
+<a href="#1393" id="1393">1393</a>
+<a href="#1394" id="1394">1394</a>
+<a href="#1395" id="1395">1395</a>
+<a href="#1396" id="1396">1396</a>
+<a href="#1397" id="1397">1397</a>
+<a href="#1398" id="1398">1398</a>
+<a href="#1399" id="1399">1399</a>
+<a href="#1400" id="1400">1400</a>
+<a href="#1401" id="1401">1401</a>
+<a href="#1402" id="1402">1402</a>
+<a href="#1403" id="1403">1403</a>
+<a href="#1404" id="1404">1404</a>
+<a href="#1405" id="1405">1405</a>
+<a href="#1406" id="1406">1406</a>
+<a href="#1407" id="1407">1407</a>
+<a href="#1408" id="1408">1408</a>
+<a href="#1409" id="1409">1409</a>
+<a href="#1410" id="1410">1410</a>
+<a href="#1411" id="1411">1411</a>
+<a href="#1412" id="1412">1412</a>
+<a href="#1413" id="1413">1413</a>
+<a href="#1414" id="1414">1414</a>
+<a href="#1415" id="1415">1415</a>
+<a href="#1416" id="1416">1416</a>
+<a href="#1417" id="1417">1417</a>
+<a href="#1418" id="1418">1418</a>
+<a href="#1419" id="1419">1419</a>
+<a href="#1420" id="1420">1420</a>
+<a href="#1421" id="1421">1421</a>
+<a href="#1422" id="1422">1422</a>
+<a href="#1423" id="1423">1423</a>
+<a href="#1424" id="1424">1424</a>
+<a href="#1425" id="1425">1425</a>
+<a href="#1426" id="1426">1426</a>
+<a href="#1427" id="1427">1427</a>
+<a href="#1428" id="1428">1428</a>
+<a href="#1429" id="1429">1429</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1407,6 +1453,15 @@
 	persisted_entries::{ApprovalEntry, CandidateEntry, TrancheEntry},
 	time::Tick,
 };
+
+<span class="doccomment">/// Result of counting the necessary tranches needed for approving a block.
+</span><span class="attr">#[derive(Debug, PartialEq, Clone)]
+</span><span class="kw">pub struct </span>TranchesToApproveResult {
+	<span class="doccomment">/// The required tranches for approving this block
+	</span><span class="kw">pub </span>required_tranches: RequiredTranches,
+	<span class="doccomment">/// The total number of no_shows at the moment we are doing the counting.
+	</span><span class="kw">pub </span>total_observed_no_shows: usize,
+}
 
 <span class="doccomment">/// The required tranches of assignments needed to determine whether a candidate is approved.
 </span><span class="attr">#[derive(Debug, PartialEq, Clone)]
@@ -1447,7 +1502,7 @@
 }
 
 <span class="doccomment">/// The result of a check.
-</span><span class="attr">#[derive(Debug, Clone, Copy)]
+</span><span class="attr">#[derive(Debug, Clone, Copy, PartialEq)]
 </span><span class="kw">pub enum </span>Check {
 	<span class="doccomment">/// The candidate is unapproved.
 	</span>Unapproved,
@@ -1561,6 +1616,7 @@
 	</span>next_no_show: <span class="prelude-ty">Option</span>&lt;Tick&gt;,
 	<span class="doccomment">/// The last tick at which a considered assignment was received.
 	</span>last_assignment_tick: <span class="prelude-ty">Option</span>&lt;Tick&gt;,
+	total_observed_no_shows: usize,
 }
 
 <span class="kw">impl </span>State {
@@ -1570,41 +1626,53 @@
 		needed_approvals: usize,
 		n_validators: usize,
 		no_show_duration: Tick,
-	) -&gt; RequiredTranches {
+	) -&gt; TranchesToApproveResult {
 		<span class="kw">let </span>covering = <span class="kw">if </span><span class="self">self</span>.depth == <span class="number">0 </span>{ <span class="number">0 </span>} <span class="kw">else </span>{ <span class="self">self</span>.covering };
 		<span class="kw">if </span><span class="self">self</span>.depth != <span class="number">0 </span>&amp;&amp; <span class="self">self</span>.assignments + covering + <span class="self">self</span>.uncovered &gt;= n_validators {
-			<span class="kw">return </span>RequiredTranches::All
+			<span class="kw">return </span>TranchesToApproveResult {
+				required_tranches: RequiredTranches::All,
+				total_observed_no_shows: <span class="self">self</span>.total_observed_no_shows,
+			}
 		}
 
 		<span class="comment">// If we have enough assignments and all no-shows are covered, we have reached the number
 		// of tranches that we need to have.
 		</span><span class="kw">if </span><span class="self">self</span>.assignments &gt;= needed_approvals &amp;&amp; (covering + <span class="self">self</span>.uncovered) == <span class="number">0 </span>{
-			<span class="kw">return </span>RequiredTranches::Exact {
-				needed: tranche,
-				tolerated_missing: <span class="self">self</span>.covered,
-				next_no_show: <span class="self">self</span>.next_no_show,
-				last_assignment_tick: <span class="self">self</span>.last_assignment_tick,
+			<span class="kw">return </span>TranchesToApproveResult {
+				required_tranches: RequiredTranches::Exact {
+					needed: tranche,
+					tolerated_missing: <span class="self">self</span>.covered,
+					next_no_show: <span class="self">self</span>.next_no_show,
+					last_assignment_tick: <span class="self">self</span>.last_assignment_tick,
+				},
+				total_observed_no_shows: <span class="self">self</span>.total_observed_no_shows,
 			}
 		}
 
 		<span class="comment">// We&#39;re pending more assignments and should look at more tranches.
 		</span><span class="kw">let </span>clock_drift = <span class="self">self</span>.clock_drift(no_show_duration);
 		<span class="kw">if </span><span class="self">self</span>.depth == <span class="number">0 </span>{
-			RequiredTranches::Pending {
-				considered: tranche,
-				next_no_show: <span class="self">self</span>.next_no_show,
-				<span class="comment">// during the initial assignment-gathering phase, we want to accept assignments
-				// from any tranche. Note that honest validators will still not broadcast their
-				// assignment until it is time to do so, regardless of this value.
-				</span>maximum_broadcast: DelayTranche::max_value(),
-				clock_drift,
+			TranchesToApproveResult {
+				required_tranches: RequiredTranches::Pending {
+					considered: tranche,
+					next_no_show: <span class="self">self</span>.next_no_show,
+					<span class="comment">// during the initial assignment-gathering phase, we want to accept assignments
+					// from any tranche. Note that honest validators will still not broadcast their
+					// assignment until it is time to do so, regardless of this value.
+					</span>maximum_broadcast: DelayTranche::max_value(),
+					clock_drift,
+				},
+				total_observed_no_shows: <span class="self">self</span>.total_observed_no_shows,
 			}
 		} <span class="kw">else </span>{
-			RequiredTranches::Pending {
-				considered: tranche,
-				next_no_show: <span class="self">self</span>.next_no_show,
-				maximum_broadcast: tranche + (covering + <span class="self">self</span>.uncovered) <span class="kw">as </span>DelayTranche,
-				clock_drift,
+			TranchesToApproveResult {
+				required_tranches: RequiredTranches::Pending {
+					considered: tranche,
+					next_no_show: <span class="self">self</span>.next_no_show,
+					maximum_broadcast: tranche + (covering + <span class="self">self</span>.uncovered) <span class="kw">as </span>DelayTranche,
+					clock_drift,
+				},
+				total_observed_no_shows: <span class="self">self</span>.total_observed_no_shows,
 			}
 		}
 	}
@@ -1659,6 +1727,7 @@
 			uncovered,
 			next_no_show,
 			last_assignment_tick,
+			total_observed_no_shows: <span class="self">self</span>.total_observed_no_shows + new_no_shows,
 		}
 	}
 }
@@ -1755,7 +1824,7 @@
 	block_tick: Tick,
 	no_show_duration: Tick,
 	needed_approvals: usize,
-) -&gt; RequiredTranches {
+) -&gt; TranchesToApproveResult {
 	<span class="kw">let </span>tick_now = tranche_now <span class="kw">as </span>Tick + block_tick;
 	<span class="kw">let </span>n_validators = approval_entry.n_validators();
 
@@ -1767,6 +1836,7 @@
 		uncovered: <span class="number">0</span>,
 		next_no_show: <span class="prelude-val">None</span>,
 		last_assignment_tick: <span class="prelude-val">None</span>,
+		total_observed_no_shows: <span class="number">0</span>,
 	};
 
 	<span class="comment">// The `ApprovalEntry` doesn&#39;t have any data for empty tranches. We still want to iterate over
@@ -1817,7 +1887,7 @@
 			<span class="kw">let </span>s = s.advance(n_assignments, no_shows, next_no_show, last_assignment_tick);
 			<span class="kw">let </span>output = s.output(tranche, needed_approvals, n_validators, no_show_duration);
 
-			<span class="kw-2">*</span>state = <span class="kw">match </span>output {
+			<span class="kw-2">*</span>state = <span class="kw">match </span>output.required_tranches {
 				RequiredTranches::Exact { .. } | RequiredTranches::All =&gt; {
 					<span class="comment">// Wipe the state clean so the next iteration of this closure will terminate
 					// the iterator. This guarantees that we can call `last` further down to see
@@ -1847,15 +1917,17 @@
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>pending_is_not_approved() {
-		<span class="kw">let </span>candidate = approval_db::v1::CandidateEntry {
-			candidate: dummy_candidate_receipt(dummy_hash()),
-			session: <span class="number">0</span>,
-			block_assignments: BTreeMap::default(),
-			approvals: BitVec::default(),
-		}
-		.into();
+		<span class="kw">let </span>candidate = CandidateEntry::from_v1(
+			approval_db::v1::CandidateEntry {
+				candidate: dummy_candidate_receipt(dummy_hash()),
+				session: <span class="number">0</span>,
+				block_assignments: BTreeMap::default(),
+				approvals: BitVec::default(),
+			},
+			<span class="number">0</span>,
+		);
 
-		<span class="kw">let </span>approval_entry = approval_db::v2::ApprovalEntry {
+		<span class="kw">let </span>approval_entry = approval_db::v3::ApprovalEntry {
 			tranches: Vec::new(),
 			assigned_validators: BitVec::default(),
 			our_assignment: <span class="prelude-val">None</span>,
@@ -1880,29 +1952,31 @@
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>exact_takes_only_assignments_up_to() {
-		<span class="kw">let </span><span class="kw-2">mut </span>candidate: CandidateEntry = approval_db::v1::CandidateEntry {
-			candidate: dummy_candidate_receipt(dummy_hash()),
-			session: <span class="number">0</span>,
-			block_assignments: BTreeMap::default(),
-			approvals: <span class="macro">bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; <span class="number">10</span>],
-		}
-		.into();
+		<span class="kw">let </span><span class="kw-2">mut </span>candidate: CandidateEntry = CandidateEntry::from_v1(
+			approval_db::v1::CandidateEntry {
+				candidate: dummy_candidate_receipt(dummy_hash()),
+				session: <span class="number">0</span>,
+				block_assignments: BTreeMap::default(),
+				approvals: <span class="macro">bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; <span class="number">10</span>],
+			},
+			<span class="number">0</span>,
+		);
 
 		<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..<span class="number">3 </span>{
 			candidate.mark_approval(ValidatorIndex(i));
 		}
 
-		<span class="kw">let </span>approval_entry = approval_db::v2::ApprovalEntry {
+		<span class="kw">let </span>approval_entry = approval_db::v3::ApprovalEntry {
 			tranches: <span class="macro">vec!</span>[
-				approval_db::v2::TrancheEntry {
+				approval_db::v3::TrancheEntry {
 					tranche: <span class="number">0</span>,
 					assignments: (<span class="number">0</span>..<span class="number">2</span>).map(|i| (ValidatorIndex(i), <span class="number">0</span>.into())).collect(),
 				},
-				approval_db::v2::TrancheEntry {
+				approval_db::v3::TrancheEntry {
 					tranche: <span class="number">1</span>,
 					assignments: (<span class="number">2</span>..<span class="number">5</span>).map(|i| (ValidatorIndex(i), <span class="number">1</span>.into())).collect(),
 				},
-				approval_db::v2::TrancheEntry {
+				approval_db::v3::TrancheEntry {
 					tranche: <span class="number">2</span>,
 					assignments: (<span class="number">5</span>..<span class="number">10</span>).map(|i| (ValidatorIndex(i), <span class="number">0</span>.into())).collect(),
 				},
@@ -1952,29 +2026,31 @@
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>one_honest_node_always_approves() {
-		<span class="kw">let </span><span class="kw-2">mut </span>candidate: CandidateEntry = approval_db::v1::CandidateEntry {
-			candidate: dummy_candidate_receipt(dummy_hash()),
-			session: <span class="number">0</span>,
-			block_assignments: BTreeMap::default(),
-			approvals: <span class="macro">bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; <span class="number">10</span>],
-		}
-		.into();
+		<span class="kw">let </span><span class="kw-2">mut </span>candidate: CandidateEntry = CandidateEntry::from_v1(
+			approval_db::v1::CandidateEntry {
+				candidate: dummy_candidate_receipt(dummy_hash()),
+				session: <span class="number">0</span>,
+				block_assignments: BTreeMap::default(),
+				approvals: <span class="macro">bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; <span class="number">10</span>],
+			},
+			<span class="number">0</span>,
+		);
 
 		<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..<span class="number">3 </span>{
 			candidate.mark_approval(ValidatorIndex(i));
 		}
 
-		<span class="kw">let </span>approval_entry = approval_db::v2::ApprovalEntry {
+		<span class="kw">let </span>approval_entry = approval_db::v3::ApprovalEntry {
 			tranches: <span class="macro">vec!</span>[
-				approval_db::v2::TrancheEntry {
+				approval_db::v3::TrancheEntry {
 					tranche: <span class="number">0</span>,
 					assignments: (<span class="number">0</span>..<span class="number">4</span>).map(|i| (ValidatorIndex(i), <span class="number">0</span>.into())).collect(),
 				},
-				approval_db::v2::TrancheEntry {
+				approval_db::v3::TrancheEntry {
 					tranche: <span class="number">1</span>,
 					assignments: (<span class="number">4</span>..<span class="number">6</span>).map(|i| (ValidatorIndex(i), <span class="number">1</span>.into())).collect(),
 				},
-				approval_db::v2::TrancheEntry {
+				approval_db::v3::TrancheEntry {
 					tranche: <span class="number">2</span>,
 					assignments: (<span class="number">6</span>..<span class="number">10</span>).map(|i| (ValidatorIndex(i), <span class="number">0</span>.into())).collect(),
 				},
@@ -2030,7 +2106,7 @@
 		<span class="kw">let </span>no_show_duration = <span class="number">10</span>;
 		<span class="kw">let </span>needed_approvals = <span class="number">4</span>;
 
-		<span class="kw">let </span><span class="kw-2">mut </span>approval_entry: ApprovalEntry = approval_db::v2::ApprovalEntry {
+		<span class="kw">let </span><span class="kw-2">mut </span>approval_entry: ApprovalEntry = approval_db::v3::ApprovalEntry {
 			tranches: Vec::new(),
 			assigned_validators: <span class="macro">bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; <span class="number">5</span>],
 			our_assignment: <span class="prelude-val">None</span>,
@@ -2058,7 +2134,8 @@
 				block_tick,
 				no_show_duration,
 				needed_approvals,
-			),
+			)
+			.required_tranches,
 			RequiredTranches::Exact {
 				needed: <span class="number">1</span>,
 				tolerated_missing: <span class="number">0</span>,
@@ -2074,7 +2151,7 @@
 		<span class="kw">let </span>no_show_duration = <span class="number">10</span>;
 		<span class="kw">let </span>needed_approvals = <span class="number">4</span>;
 
-		<span class="kw">let </span><span class="kw-2">mut </span>approval_entry: ApprovalEntry = approval_db::v2::ApprovalEntry {
+		<span class="kw">let </span><span class="kw-2">mut </span>approval_entry: ApprovalEntry = approval_db::v3::ApprovalEntry {
 			tranches: Vec::new(),
 			assigned_validators: <span class="macro">bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; <span class="number">10</span>],
 			our_assignment: <span class="prelude-val">None</span>,
@@ -2098,7 +2175,8 @@
 				block_tick,
 				no_show_duration,
 				needed_approvals,
-			),
+			)
+			.required_tranches,
 			RequiredTranches::Pending {
 				considered: <span class="number">2</span>,
 				next_no_show: <span class="prelude-val">Some</span>(block_tick + no_show_duration),
@@ -2114,7 +2192,7 @@
 		<span class="kw">let </span>no_show_duration = <span class="number">10</span>;
 		<span class="kw">let </span>needed_approvals = <span class="number">4</span>;
 
-		<span class="kw">let </span><span class="kw-2">mut </span>approval_entry: ApprovalEntry = approval_db::v2::ApprovalEntry {
+		<span class="kw">let </span><span class="kw-2">mut </span>approval_entry: ApprovalEntry = approval_db::v3::ApprovalEntry {
 			tranches: Vec::new(),
 			assigned_validators: <span class="macro">bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; <span class="number">10</span>],
 			our_assignment: <span class="prelude-val">None</span>,
@@ -2142,7 +2220,8 @@
 				block_tick,
 				no_show_duration,
 				needed_approvals,
-			),
+			)
+			.required_tranches,
 			RequiredTranches::Pending {
 				considered: <span class="number">11</span>,
 				next_no_show: <span class="prelude-val">None</span>,
@@ -2159,7 +2238,7 @@
 		<span class="kw">let </span>needed_approvals = <span class="number">4</span>;
 		<span class="kw">let </span>n_validators = <span class="number">8</span>;
 
-		<span class="kw">let </span><span class="kw-2">mut </span>approval_entry: ApprovalEntry = approval_db::v2::ApprovalEntry {
+		<span class="kw">let </span><span class="kw-2">mut </span>approval_entry: ApprovalEntry = approval_db::v3::ApprovalEntry {
 			tranches: Vec::new(),
 			assigned_validators: <span class="macro">bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; n_validators],
 			our_assignment: <span class="prelude-val">None</span>,
@@ -2190,7 +2269,8 @@
 				block_tick,
 				no_show_duration,
 				needed_approvals,
-			),
+			)
+			.required_tranches,
 			RequiredTranches::Pending {
 				considered: <span class="number">1</span>,
 				next_no_show: <span class="prelude-val">None</span>,
@@ -2209,7 +2289,8 @@
 				block_tick,
 				no_show_duration,
 				needed_approvals,
-			),
+			)
+			.required_tranches,
 			RequiredTranches::Pending {
 				considered: <span class="number">1</span>,
 				next_no_show: <span class="prelude-val">None</span>,
@@ -2226,7 +2307,7 @@
 		<span class="kw">let </span>needed_approvals = <span class="number">4</span>;
 		<span class="kw">let </span>n_validators = <span class="number">8</span>;
 
-		<span class="kw">let </span><span class="kw-2">mut </span>approval_entry: ApprovalEntry = approval_db::v2::ApprovalEntry {
+		<span class="kw">let </span><span class="kw-2">mut </span>approval_entry: ApprovalEntry = approval_db::v3::ApprovalEntry {
 			tranches: Vec::new(),
 			assigned_validators: <span class="macro">bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; n_validators],
 			our_assignment: <span class="prelude-val">None</span>,
@@ -2262,7 +2343,8 @@
 				block_tick,
 				no_show_duration,
 				needed_approvals,
-			),
+			)
+			.required_tranches,
 			RequiredTranches::Exact {
 				needed: <span class="number">1</span>,
 				tolerated_missing: <span class="number">0</span>,
@@ -2281,7 +2363,8 @@
 				block_tick,
 				no_show_duration,
 				needed_approvals,
-			),
+			)
+			.required_tranches,
 			RequiredTranches::Exact {
 				needed: <span class="number">2</span>,
 				tolerated_missing: <span class="number">1</span>,
@@ -2300,7 +2383,8 @@
 				block_tick,
 				no_show_duration,
 				needed_approvals,
-			),
+			)
+			.required_tranches,
 			RequiredTranches::Pending {
 				considered: <span class="number">2</span>,
 				next_no_show: <span class="prelude-val">None</span>,
@@ -2317,7 +2401,7 @@
 		<span class="kw">let </span>needed_approvals = <span class="number">4</span>;
 		<span class="kw">let </span>n_validators = <span class="number">8</span>;
 
-		<span class="kw">let </span><span class="kw-2">mut </span>approval_entry: ApprovalEntry = approval_db::v2::ApprovalEntry {
+		<span class="kw">let </span><span class="kw-2">mut </span>approval_entry: ApprovalEntry = approval_db::v3::ApprovalEntry {
 			tranches: Vec::new(),
 			assigned_validators: <span class="macro">bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; n_validators],
 			our_assignment: <span class="prelude-val">None</span>,
@@ -2353,7 +2437,8 @@
 				block_tick,
 				no_show_duration,
 				needed_approvals,
-			),
+			)
+			.required_tranches,
 			RequiredTranches::Exact {
 				needed: <span class="number">2</span>,
 				tolerated_missing: <span class="number">1</span>,
@@ -2375,7 +2460,8 @@
 				block_tick,
 				no_show_duration,
 				needed_approvals,
-			),
+			)
+			.required_tranches,
 			RequiredTranches::Pending {
 				considered: <span class="number">2</span>,
 				next_no_show: <span class="prelude-val">None</span>,
@@ -2396,7 +2482,8 @@
 				block_tick,
 				no_show_duration,
 				needed_approvals,
-			),
+			)
+			.required_tranches,
 			RequiredTranches::Exact {
 				needed: <span class="number">3</span>,
 				tolerated_missing: <span class="number">2</span>,
@@ -2412,22 +2499,24 @@
 		<span class="kw">let </span>no_show_duration = <span class="number">10</span>;
 		<span class="kw">let </span>needed_approvals = <span class="number">3</span>;
 
-		<span class="kw">let </span><span class="kw-2">mut </span>candidate: CandidateEntry = approval_db::v1::CandidateEntry {
-			candidate: dummy_candidate_receipt(dummy_hash()),
-			session: <span class="number">0</span>,
-			block_assignments: BTreeMap::default(),
-			approvals: <span class="macro">bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; <span class="number">3</span>],
-		}
-		.into();
+		<span class="kw">let </span><span class="kw-2">mut </span>candidate: CandidateEntry = CandidateEntry::from_v1(
+			approval_db::v1::CandidateEntry {
+				candidate: dummy_candidate_receipt(dummy_hash()),
+				session: <span class="number">0</span>,
+				block_assignments: BTreeMap::default(),
+				approvals: <span class="macro">bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; <span class="number">3</span>],
+			},
+			<span class="number">0</span>,
+		);
 
 		<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..<span class="number">3 </span>{
 			candidate.mark_approval(ValidatorIndex(i));
 		}
 
-		<span class="kw">let </span>approval_entry = approval_db::v2::ApprovalEntry {
+		<span class="kw">let </span>approval_entry = approval_db::v3::ApprovalEntry {
 			tranches: <span class="macro">vec!</span>[
 				<span class="comment">// Assignments with invalid validator indexes.
-				</span>approval_db::v2::TrancheEntry {
+				</span>approval_db::v3::TrancheEntry {
 					tranche: <span class="number">1</span>,
 					assignments: (<span class="number">2</span>..<span class="number">5</span>).map(|i| (ValidatorIndex(i), <span class="number">1</span>.into())).collect(),
 				},
@@ -2451,7 +2540,8 @@
 				block_tick,
 				no_show_duration,
 				needed_approvals,
-			),
+			)
+			.required_tranches,
 			RequiredTranches::Pending {
 				considered: <span class="number">10</span>,
 				next_no_show: <span class="prelude-val">None</span>,
@@ -2477,7 +2567,7 @@
 		</span>];
 
 		<span class="kw">for </span>test_tranche <span class="kw">in </span>test_tranches {
-			<span class="kw">let </span><span class="kw-2">mut </span>approval_entry: ApprovalEntry = approval_db::v2::ApprovalEntry {
+			<span class="kw">let </span><span class="kw-2">mut </span>approval_entry: ApprovalEntry = approval_db::v3::ApprovalEntry {
 				tranches: Vec::new(),
 				backing_group: GroupIndex(<span class="number">0</span>),
 				our_assignment: <span class="prelude-val">None</span>,
@@ -2728,10 +2818,11 @@
 			uncovered: <span class="number">0</span>,
 			next_no_show: <span class="prelude-val">None</span>,
 			last_assignment_tick: <span class="prelude-val">None</span>,
+			total_observed_no_shows: <span class="number">0</span>,
 		};
 
 		<span class="macro">assert_eq!</span>(
-			state.output(<span class="number">0</span>, <span class="number">10</span>, <span class="number">10</span>, <span class="number">20</span>),
+			state.output(<span class="number">0</span>, <span class="number">10</span>, <span class="number">10</span>, <span class="number">20</span>).required_tranches,
 			RequiredTranches::Pending {
 				considered: <span class="number">0</span>,
 				next_no_show: <span class="prelude-val">None</span>,
@@ -2751,10 +2842,11 @@
 			uncovered: <span class="number">0</span>,
 			next_no_show: <span class="prelude-val">None</span>,
 			last_assignment_tick: <span class="prelude-val">None</span>,
+			total_observed_no_shows: <span class="number">0</span>,
 		};
 
 		<span class="macro">assert_eq!</span>(
-			state.output(<span class="number">0</span>, <span class="number">10</span>, <span class="number">10</span>, <span class="number">20</span>),
+			state.output(<span class="number">0</span>, <span class="number">10</span>, <span class="number">10</span>, <span class="number">20</span>).required_tranches,
 			RequiredTranches::Exact {
 				needed: <span class="number">0</span>,
 				tolerated_missing: <span class="number">0</span>,

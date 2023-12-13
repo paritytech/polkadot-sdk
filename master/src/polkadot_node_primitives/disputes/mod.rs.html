@@ -328,6 +328,19 @@
 <a href="#328" id="328">328</a>
 <a href="#329" id="329">329</a>
 <a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -374,6 +387,15 @@
 	validator_public: ValidatorId,
 	validator_signature: ValidatorSignature,
 	session_index: SessionIndex,
+}
+
+<span class="doccomment">/// Errors encountered while signing a dispute statement
+</span><span class="attr">#[derive(Debug)]
+</span><span class="kw">pub enum </span>SignedDisputeStatementError {
+	<span class="doccomment">/// Encountered a keystore error while signing
+	</span>KeyStoreError(KeystoreError),
+	<span class="doccomment">/// Could not generate signing payload
+	</span>PayloadError,
 }
 
 <span class="doccomment">/// Tracked votes on candidates, for the purposes of dispute resolution.
@@ -437,8 +459,9 @@
 				ValidDisputeStatementKind::BackingValid(<span class="kw">_</span>) |
 				ValidDisputeStatementKind::BackingSeconded(<span class="kw">_</span>) =&gt; <span class="bool-val">false</span>,
 				ValidDisputeStatementKind::Explicit |
-				ValidDisputeStatementKind::ApprovalChecking =&gt; {
-					occupied.insert((kind, sig));
+				ValidDisputeStatementKind::ApprovalChecking |
+				ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(<span class="kw">_</span>) =&gt; {
+					occupied.insert((kind.clone(), sig));
 					kind != occupied.get().<span class="number">0
 				</span>},
 			},
@@ -543,16 +566,19 @@
 		candidate_hash: CandidateHash,
 		session_index: SessionIndex,
 		validator_public: ValidatorId,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;, KeystoreError&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;, SignedDisputeStatementError&gt; {
 		<span class="kw">let </span>dispute_statement = <span class="kw">if </span>valid {
 			DisputeStatement::Valid(ValidDisputeStatementKind::Explicit)
 		} <span class="kw">else </span>{
 			DisputeStatement::Invalid(InvalidDisputeStatementKind::Explicit)
 		};
 
-		<span class="kw">let </span>data = dispute_statement.payload_data(candidate_hash, session_index);
+		<span class="kw">let </span>data = dispute_statement
+			.payload_data(candidate_hash, session_index)
+			.map_err(|<span class="kw">_</span>| SignedDisputeStatementError::PayloadError)<span class="question-mark">?</span>;
 		<span class="kw">let </span>signature = keystore
-			.sr25519_sign(ValidatorId::ID, validator_public.as_ref(), <span class="kw-2">&amp;</span>data)<span class="question-mark">?
+			.sr25519_sign(ValidatorId::ID, validator_public.as_ref(), <span class="kw-2">&amp;</span>data)
+			.map_err(SignedDisputeStatementError::KeyStoreError)<span class="question-mark">?
 			</span>.map(|sig| <span class="self">Self </span>{
 				dispute_statement,
 				candidate_hash,

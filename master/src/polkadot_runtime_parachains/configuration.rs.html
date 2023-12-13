@@ -1411,6 +1411,29 @@
 <a href="#1411" id="1411">1411</a>
 <a href="#1412" id="1412">1412</a>
 <a href="#1413" id="1413">1413</a>
+<a href="#1414" id="1414">1414</a>
+<a href="#1415" id="1415">1415</a>
+<a href="#1416" id="1416">1416</a>
+<a href="#1417" id="1417">1417</a>
+<a href="#1418" id="1418">1418</a>
+<a href="#1419" id="1419">1419</a>
+<a href="#1420" id="1420">1420</a>
+<a href="#1421" id="1421">1421</a>
+<a href="#1422" id="1422">1422</a>
+<a href="#1423" id="1423">1423</a>
+<a href="#1424" id="1424">1424</a>
+<a href="#1425" id="1425">1425</a>
+<a href="#1426" id="1426">1426</a>
+<a href="#1427" id="1427">1427</a>
+<a href="#1428" id="1428">1428</a>
+<a href="#1429" id="1429">1429</a>
+<a href="#1430" id="1430">1430</a>
+<a href="#1431" id="1431">1431</a>
+<a href="#1432" id="1432">1432</a>
+<a href="#1433" id="1433">1433</a>
+<a href="#1434" id="1434">1434</a>
+<a href="#1435" id="1435">1435</a>
+<a href="#1436" id="1436">1436</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1439,8 +1462,9 @@
 	MAX_HORIZONTAL_MESSAGE_NUM, MAX_UPWARD_MESSAGE_NUM,
 };
 <span class="kw">use </span>primitives::{
-	vstaging::NodeFeatures, AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams,
-	SessionIndex, LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE,
+	vstaging::{ApprovalVotingParams, NodeFeatures},
+	AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams, SessionIndex,
+	LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE,
 	ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
 <span class="kw">use </span>sp_runtime::{traits::Zero, Perbill};
@@ -1676,6 +1700,8 @@
 	</span><span class="kw">pub </span>minimum_backing_votes: u32,
 	<span class="doccomment">/// Node features enablement.
 	</span><span class="kw">pub </span>node_features: NodeFeatures,
+	<span class="doccomment">/// Params used by approval-voting
+	</span><span class="kw">pub </span>approval_voting_params: ApprovalVotingParams,
 }
 
 <span class="kw">impl</span>&lt;BlockNumber: Default + From&lt;u32&gt;&gt; Default <span class="kw">for </span>HostConfiguration&lt;BlockNumber&gt; {
@@ -1721,6 +1747,7 @@
 			pvf_voting_ttl: <span class="number">2u32</span>.into(),
 			minimum_validation_upgrade_delay: <span class="number">2</span>.into(),
 			executor_params: Default::default(),
+			approval_voting_params: ApprovalVotingParams { max_approval_coalesce_count: <span class="number">1 </span>},
 			on_demand_queue_max_size: ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 			on_demand_base_fee: <span class="number">10_000_000u128</span>,
 			on_demand_fee_variability: Perbill::from_percent(<span class="number">3</span>),
@@ -1928,7 +1955,8 @@
 	/// v7-v8:  &lt;https://github.com/paritytech/polkadot/pull/6969&gt;
 	/// v8-v9:  &lt;https://github.com/paritytech/polkadot/pull/7577&gt;
 	/// v9-v10: &lt;https://github.com/paritytech/polkadot-sdk/pull/2177&gt;
-	</span><span class="kw">const </span>STORAGE_VERSION: StorageVersion = StorageVersion::new(<span class="number">10</span>);
+	/// v10-11: &lt;https://github.com/paritytech/polkadot-sdk/pull/1191&gt;
+	</span><span class="kw">const </span>STORAGE_VERSION: StorageVersion = StorageVersion::new(<span class="number">11</span>);
 
 	<span class="attr">#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -2604,6 +2632,7 @@
 				config.on_demand_ttl = new;
 			})
 		}
+
 		<span class="doccomment">/// Set the minimum backing votes threshold.
 		</span><span class="attr">#[pallet::call_index(<span class="number">52</span>)]
 		#[pallet::weight((
@@ -2616,6 +2645,7 @@
 				config.minimum_backing_votes = new;
 			})
 		}
+
 		<span class="doccomment">/// Set/Unset a node feature.
 		</span><span class="attr">#[pallet::call_index(<span class="number">53</span>)]
 		#[pallet::weight((
@@ -2631,6 +2661,22 @@
 					config.node_features.resize(index + <span class="number">1</span>, <span class="bool-val">false</span>);
 				}
 				config.node_features.set(index, value);
+			})
+		}
+
+		<span class="doccomment">/// Set approval-voting-params.
+		</span><span class="attr">#[pallet::call_index(<span class="number">54</span>)]
+		#[pallet::weight((
+			T::WeightInfo::set_config_with_executor_params(),
+			DispatchClass::Operational,
+		))]
+		</span><span class="kw">pub fn </span>set_approval_voting_params(
+			origin: OriginFor&lt;T&gt;,
+			new: ApprovalVotingParams,
+		) -&gt; DispatchResult {
+			ensure_root(origin)<span class="question-mark">?</span>;
+			<span class="self">Self</span>::schedule_config_update(|config| {
+				config.approval_voting_params = new;
 			})
 		}
 	}

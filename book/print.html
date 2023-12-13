@@ -568,6 +568,19 @@ assignment then they avoid creating &quot;no shows&quot; and the workload progre
 <p>We strongly prefer if postponements come from tranches higher aka less important than zero because tranche zero checks
 provide somewhat more security.</p>
 <p>TODO: When?  Is this optimal for the network?  etc.</p>
+<h2 id="approval-coalescing"><a class="header" href="#approval-coalescing">Approval coalescing</a></h2>
+<p>To reduce the necessary network bandwidth and cpu time when a validator has more than one candidate to approve we are
+doing our best effort to send a single message that approves all available candidates with a single signature.
+The implemented heuristic, is that each time we are ready to create a signature and send a vote for a candidate we
+delay sending it until one of three things happen:</p>
+<ul>
+<li>We gathered a maximum of <code>MAX_APPROVAL_COALESCE_COUNT</code> candidates that we have already checked and we are
+ready to sign approval for.</li>
+<li><code>MAX_APPROVAL_COALESCE_WAIT_TICKS</code> have passed since checking oldest candidate and we were ready to sign
+and send the approval message.</li>
+<li>We are already in the last third of the no-show period in order to avoid creating accidental no-shows, which in
+turn might trigger other assignments.</li>
+</ul>
 <h2 id="on-chain-verification"><a class="header" href="#on-chain-verification">On-chain verification</a></h2>
 <p>We should verify approval on-chain to reward approval checkers. We therefore require the &quot;no show&quot; timeout to be longer
 than a relay chain slot so that we can witness &quot;no shows&quot; on-chain, which helps with this goal. The major challenge with
@@ -639,7 +652,7 @@ this, we should discover if reconstruction performs adequately with a complete g
 restrictions.  At this point, an assignment notices could implicitly request pieces from a random 1/3rd, perhaps
 topology restricted, which saves one gossip round.  If this preliminary fast reconstruction fails, then nodes' request
 alternative pieces directly.  There is an interesting design space in how this overlaps with &quot;slow availability&quot; claims.</p>
-<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="disputes"><a class="header" href="#disputes">Disputes</a></h1>
+<footer id="last-change">Last change: 2023-12-13, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a84dd0dba5">a84dd0dba5</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="disputes"><a class="header" href="#disputes">Disputes</a></h1>
 <p>Fast forward to <a href="./disputes-flow.html">more detailed disputes requirements</a>.</p>
 <h2 id="motivation-and-background"><a class="header" href="#motivation-and-background">Motivation and Background</a></h2>
 <p>All parachain blocks that end up in the finalized relay chain should be valid. This does not apply to blocks that are
@@ -5256,10 +5269,13 @@ observed votes (backing, approval, and dispute-specific) by all validators on al
 <p>Reading the <a href="node/approval/../../protocol-approval.html">section on the approval protocol</a> will likely be necessary to understand the
 aims of this subsystem.</p>
 <p>Approval votes are split into two parts: Assignments and Approvals. Validators first broadcast their assignment to
-indicate intent to check a candidate. Upon successfully checking, they broadcast an approval vote. If a validator
-doesn't broadcast their approval vote shortly after issuing an assignment, this is an indication that they are being
-prevented from recovering or validating the block data and that more validators should self-select to check the
-candidate. This is known as a &quot;no-show&quot;.</p>
+indicate intent to check a candidate. Upon successfully checking, they don't immediately send the vote instead
+they queue the check for a short period of time <code>MAX_APPROVAL_COALESCE_WAIT_TICKS</code> to give the opportunity of the
+validator to vote for more than one candidate. Once MAX_APPROVAL_COALESCE_WAIT_TICKS have passed or at least
+<code>MAX_APPROVAL_COALESCE_COUNT</code> are ready they broadcast an approval vote for all candidates. If a validator
+doesn't broadcast their approval vote shortly after issuing an assignment, this is an indication that they are
+being prevented from recovering or validating the block data and that more validators should self-select to
+check the candidate. This is known as a &quot;no-show&quot;.</p>
 <p>The core of this subsystem is a Tick-based timer loop, where Ticks are 500ms. We also reason about time in terms of
 <code>DelayTranche</code>s, which measure the number of ticks elapsed since a block was produced. We track metadata for all
 un-finalized but included candidates. We compute our local assignments to check each candidate, as well as which
@@ -5366,6 +5382,13 @@ struct BlockEntry {
     // this block. The block can be considered approved has all bits set to 1
     approved_bitfield: Bitfield,
     children: Vec&lt;Hash&gt;,
+    // A list of candidates we have checked, but didn't not sign and
+    // advertise the vote yet.
+    candidates_pending_signature: BTreeMap&lt;CandidateIndex, CandidateSigningContext&gt;,
+    // Assignments we already distributed. A 1 bit means the candidate index for which
+    // we already have sent out an assignment. We need this to avoid distributing
+    // multiple core assignments more than once.
+    distributed_assignments: Bitfield,
 }
 
 // slot_duration * 2 + DelayTranche gives the number of delay tranches since the
@@ -5580,12 +5603,12 @@ candidate. The delay tranche for the assignment is determined by reducing
 <p>On receiving a <code>CheckAndImportApproval(indirect_approval_vote, response_channel)</code> message:</p>
 <ul>
 <li>Fetch the <code>BlockEntry</code> from the indirect approval vote's <code>block_hash</code>. If none, return <code>ApprovalCheckResult::Bad</code>.</li>
-<li>Fetch the <code>CandidateEntry</code> from the indirect approval vote's <code>candidate_index</code>. If the block did not trigger
+<li>Fetch all <code>CandidateEntry</code> from the indirect approval vote's <code>candidate_indices</code>. If the block did not trigger
 inclusion of enough candidates, return <code>ApprovalCheckResult::Bad</code>.</li>
-<li>Construct a <code>SignedApprovalVote</code> using the candidate hash and check against the validator's approval key, based on
-the session info of the block. If invalid or no such validator, return <code>ApprovalCheckResult::Bad</code>.</li>
+<li>Construct a <code>SignedApprovalVote</code> using the candidates hashes and check against the validator's approval key,
+based on the session info of the block. If invalid or no such validator, return <code>ApprovalCheckResult::Bad</code>.</li>
 <li>Send <code>ApprovalCheckResult::Accepted</code></li>
-<li><a href="node/approval/approval-voting.html#import-checked-approval">Import the checked approval vote</a></li>
+<li><a href="node/approval/approval-voting.html#import-checked-approval">Import the checked approval vote</a> for all candidates</li>
 </ul>
 <h4 id="approvalvotingmessageapprovedancestor"><a class="header" href="#approvalvotingmessageapprovedancestor"><code>ApprovalVotingMessage::ApprovedAncestor</code></a></h4>
 <p>On receiving an <code>ApprovedAncestor(Hash, BlockNumber, response_channel)</code>:</p>
@@ -5691,10 +5714,38 @@ with <code>valid = false</code> to initiate a dispute.</li>
 <h4 id="issue-approval-vote"><a class="header" href="#issue-approval-vote">Issue Approval Vote</a></h4>
 <ul>
 <li>Fetch the block entry and candidate entry. Ignore if <code>None</code> - we've probably just lost a race with finality.</li>
-<li>Construct a <code>SignedApprovalVote</code> with the validator index for the session.</li>
 <li><a href="node/approval/approval-voting.html#import-checked-approval">Import the checked approval vote</a>. It is &quot;checked&quot; as we've just issued the signature.</li>
+<li>IF <code>MAX_APPROVAL_COALESCE_COUNT</code>  candidates are in the waiting queue
+<ul>
+<li>Construct a <code>SignedApprovalVote</code> with the validator index for the session and all candidate hashes in the waiting queue.</li>
 <li>Construct a <code>IndirectSignedApprovalVote</code> using the information about the vote.</li>
 <li>Dispatch <code>ApprovalDistributionMessage::DistributeApproval</code>.</li>
+</ul>
+</li>
+<li>ELSE
+<ul>
+<li>Queue the candidate in the <code>BlockEntry::candidates_pending_signature</code></li>
+<li>Arm a per BlockEntry timer with latest tick we can send the vote.</li>
+</ul>
+</li>
+</ul>
+<h3 id="delayed-vote-distribution"><a class="header" href="#delayed-vote-distribution">Delayed vote distribution</a></h3>
+<ul>
+<li><a href="node/approval/approval-voting.html#issue-approval-vote">Issue Approval Vote</a> arms once a per block timer if there are no requirements to send the
+vote immediately.</li>
+<li>When the timer wakes up it will either:</li>
+<li>IF there is a candidate in the queue past its sending tick:
+<ul>
+<li>Construct a <code>SignedApprovalVote</code> with the validator index for the session and all candidate hashes in the waiting queue.</li>
+<li>Construct a <code>IndirectSignedApprovalVote</code> using the information about the vote.</li>
+<li>Dispatch <code>ApprovalDistributionMessage::DistributeApproval</code>.</li>
+</ul>
+</li>
+<li>ELSE
+<ul>
+<li>Re-arm the timer with latest tick we have the send a the vote.</li>
+</ul>
+</li>
 </ul>
 <h3 id="determining-approval-of-candidate"><a class="header" href="#determining-approval-of-candidate">Determining Approval of Candidate</a></h3>
 <h4 id="determine-required-tranches"><a class="header" href="#determine-required-tranches">Determine Required Tranches</a></h4>
@@ -5811,7 +5862,7 @@ false.</li>
 <li>Given the slot number of a block, and the current time, this informs about the current tranche.</li>
 <li>Convert <code>time.saturating_sub(slot_number.to_time())</code> to a delay tranches value</li>
 </ul>
-<footer id="last-change">Last change: 2023-11-06, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/0570b6fa9e">0570b6fa9e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="approval-distribution"><a class="header" href="#approval-distribution">Approval Distribution</a></h1>
+<footer id="last-change">Last change: 2023-12-13, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a84dd0dba5">a84dd0dba5</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="approval-distribution"><a class="header" href="#approval-distribution">Approval Distribution</a></h1>
 <p>A subsystem for the distribution of assignments and approvals for approval checks on candidates over the network.</p>
 <p>The <a href="node/approval/approval-voting.html">Approval Voting</a> subsystem is responsible for active participation in a protocol designed to
 select a sufficient number of validators to check each and every candidate which appears in the relay chain. Statements
