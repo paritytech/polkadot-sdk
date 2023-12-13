@@ -134,6 +134,7 @@ runtime-benchmarks = [
 	"rococo-parachain-runtime/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"beacon-spec-mainnet"
 ]
 try-runtime = [
 	"asset-hub-rococo-runtime/try-runtime",
