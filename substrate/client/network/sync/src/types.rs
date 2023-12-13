@@ -29,8 +29,6 @@ use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 use std::{any::Any, fmt, fmt::Formatter, pin::Pin, sync::Arc};
 
-pub use sc_network_common::sync::SyncMode;
-
 /// The sync status of a peer we are trying to sync with
 #[derive(Debug)]
 pub struct PeerInfo<Block: BlockT> {
