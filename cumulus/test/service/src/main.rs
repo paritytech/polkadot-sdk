@@ -51,9 +51,7 @@ fn main() -> Result<(), sc_cli::Error> {
 		},
 		Some(Subcommand::ExportGenesisWasm(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
-			runner.sync_run(|config| {
-				cmd.run(&*config.chain_spec)
-			})
+			runner.sync_run(|config| cmd.run(&*config.chain_spec))
 		},
 		None => {
 			let log_filters = cli.run.normalize().log_filters();
