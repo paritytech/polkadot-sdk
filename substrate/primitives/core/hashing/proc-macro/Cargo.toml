@@ -9,6 +9,9 @@ repository.workspace = true
 description = "This crate provides procedural macros for calculating static hash."
 documentation = "https://docs.rs/sp-core-hashing-proc-macro"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 

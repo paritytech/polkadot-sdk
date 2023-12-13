@@ -7,6 +7,9 @@ edition.workspace = true
 license.workspace = true
 description = "Fixtures for testing contracts pallet."
 
+[lints]
+workspace = true
+
 [dependencies]
 wat = "1"
 frame-system = { path = "../../system" }
