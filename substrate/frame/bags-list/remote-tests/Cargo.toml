@@ -9,6 +9,9 @@ repository.workspace = true
 description = "FRAME pallet bags list remote test"
 publish = false
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 

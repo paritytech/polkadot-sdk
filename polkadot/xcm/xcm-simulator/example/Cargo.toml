@@ -6,6 +6,9 @@ edition.workspace = true
 license.workspace = true
 version = "1.0.0"
 
+[lints]
+workspace = true
+
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 scale-info = { version = "2.10.0", features = ["derive"] }

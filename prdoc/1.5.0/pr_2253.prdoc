@@ -3,6 +3,9 @@
 
 title: Different builder pattern constructors for XCM
 
+author: franciscoaguirre
+topic: runtime
+
 doc:
   - audience: Runtime Dev
     description: |

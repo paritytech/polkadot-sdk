@@ -124,6 +124,7 @@ pub mod xcm {
 		const ROOT_INDEX: u32 = 0;
 		// The bodies corresponding to the Polkadot OpenGov Origins.
 		pub const FELLOWSHIP_ADMIN_INDEX: u32 = 1;
+		pub const TREASURER_INDEX: u32 = 2;
 	}
 }
 
