@@ -11,10 +11,10 @@ build = "build.rs"
 publish = false
 
 [dependencies]
-clap = { version = "4.4.6", features = ["derive"] }
+clap = { version = "4.4.11", features = ["derive"] }
 log = "0.4.20"
 codec = { package = "parity-scale-codec", version = "3.0.0" }
-serde = { version = "1.0.188", features = ["derive"] }
+serde = { version = "1.0.193", features = ["derive"] }
 jsonrpsee = { version = "0.16.2", features = ["server"] }
 futures = "0.3.28"
 serde_json = "1.0.108"
@@ -57,7 +57,7 @@ substrate-prometheus-endpoint = { path = "../../../substrate/utils/prometheus" }
 # Polkadot
 polkadot-cli = { path = "../../../polkadot/cli", features = ["rococo-native"] }
 polkadot-primitives = { path = "../../../polkadot/primitives" }
-xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false }
 
 # Cumulus
 cumulus-client-cli = { path = "../../client/cli" }
@@ -91,4 +91,3 @@ try-runtime = [
 	"polkadot-cli/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-

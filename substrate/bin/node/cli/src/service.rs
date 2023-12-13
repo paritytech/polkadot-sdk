@@ -26,11 +26,9 @@ use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 use frame_system_rpc_runtime_api::AccountNonceApi;
 use futures::prelude::*;
 use kitchensink_runtime::RuntimeApi;
-use node_executor::ExecutorDispatch;
 use node_primitives::Block;
 use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_babe::{self, SlotProportion};
-use sc_executor::NativeElseWasmExecutor;
 use sc_network::{event::Event, NetworkEventStream, NetworkService};
 use sc_network_sync::{warp::WarpSyncParams, SyncingService};
 use sc_service::{config::Configuration, error::Error as ServiceError, RpcHandlers, TaskManager};
@@ -42,9 +40,25 @@ use sp_core::crypto::Pair;
 use sp_runtime::{generic, traits::Block as BlockT, SaturatedConversion};
 use std::sync::Arc;
 
+/// Host functions required for kitchensink runtime and Substrate node.
+#[cfg(not(feature = "runtime-benchmarks"))]
+pub type HostFunctions =
+	(sp_io::SubstrateHostFunctions, sp_statement_store::runtime_api::HostFunctions);
+
+/// Host functions required for kitchensink runtime and Substrate node.
+#[cfg(feature = "runtime-benchmarks")]
+pub type HostFunctions = (
+	sp_io::SubstrateHostFunctions,
+	sp_statement_store::runtime_api::HostFunctions,
+	frame_benchmarking::benchmarking::HostFunctions,
+);
+
+/// A specialized `WasmExecutor` intended to use accross substrate node. It provides all required
+/// HostFunctions.
+pub type RuntimeExecutor = sc_executor::WasmExecutor<HostFunctions>;
+
 /// The full client type definition.
-pub type FullClient =
-	sc_service::TFullClient<Block, RuntimeApi, NativeElseWasmExecutor<ExecutorDispatch>>;
+pub type FullClient = sc_service::TFullClient<Block, RuntimeApi, RuntimeExecutor>;
 type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 type FullGrandpaBlockImport =
@@ -179,7 +193,7 @@ pub fn new_partial(
 		})
 		.transpose()?;
 
-	let executor = sc_service::new_native_or_wasm_executor(&config);
+	let executor = sc_service::new_wasm_executor(&config);
 
 	let (client, backend, keystore_container, task_manager) =
 		sc_service::new_full_parts::<Block, RuntimeApi, _>(
@@ -375,28 +389,28 @@ pub fn new_full_base(
 	let shared_voter_state = rpc_setup;
 	let auth_disc_publish_non_global_ips = config.network.allow_non_globals_in_dht;
 	let mut net_config = sc_network::config::FullNetworkConfiguration::new(&config.network);
-
 	let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");
 
 	let grandpa_protocol_name = grandpa::protocol_standard_name(&genesis_hash, &config.chain_spec);
-	net_config.add_notification_protocol(grandpa::grandpa_peers_set_config(
-		grandpa_protocol_name.clone(),
-	));
+	let (grandpa_protocol_config, grandpa_notification_service) =
+		grandpa::grandpa_peers_set_config(grandpa_protocol_name.clone());
+	net_config.add_notification_protocol(grandpa_protocol_config);
 
-	let statement_handler_proto = sc_network_statement::StatementHandlerPrototype::new(
-		genesis_hash,
-		config.chain_spec.fork_id(),
-	);
-	net_config.add_notification_protocol(statement_handler_proto.set_config());
+	let (statement_handler_proto, statement_config) =
+		sc_network_statement::StatementHandlerPrototype::new(
+			genesis_hash,
+			config.chain_spec.fork_id(),
+		);
+	net_config.add_notification_protocol(statement_config);
 
 	let mixnet_protocol_name =
 		sc_mixnet::protocol_name(genesis_hash.as_ref(), config.chain_spec.fork_id());
-	if let Some(mixnet_config) = &mixnet_config {
-		net_config.add_notification_protocol(sc_mixnet::peers_set_config(
-			mixnet_protocol_name.clone(),
-			mixnet_config,
-		));
-	}
+	let mixnet_notification_service = mixnet_config.as_ref().map(|mixnet_config| {
+		let (config, notification_service) =
+			sc_mixnet::peers_set_config(mixnet_protocol_name.clone(), mixnet_config);
+		net_config.add_notification_protocol(config);
+		notification_service
+	});
 
 	let warp_sync = Arc::new(grandpa::warp_proof::NetworkProvider::new(
 		backend.clone(),
@@ -427,6 +441,8 @@ pub fn new_full_base(
 			mixnet_protocol_name,
 			transaction_pool.clone(),
 			Some(keystore_container.keystore()),
+			mixnet_notification_service
+				.expect("`NotificationService` exists since mixnet was enabled; qed"),
 		);
 		task_manager.spawn_handle().spawn("mixnet", None, mixnet);
 	}
@@ -595,6 +611,7 @@ pub fn new_full_base(
 			link: grandpa_link,
 			network: network.clone(),
 			sync: Arc::new(sync_service.clone()),
+			notification_service: grandpa_notification_service,
 			telemetry: telemetry.as_ref().map(|x| x.handle()),
 			voting_rule: grandpa::VotingRulesBuilder::default().build(),
 			prometheus_registry: prometheus_registry.clone(),

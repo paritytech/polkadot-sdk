@@ -47,6 +47,8 @@ pub mod __private {
 	pub use sp_core::{OpaqueMetadata, Void};
 	pub use sp_core_hashing_proc_macro;
 	pub use sp_inherents;
+	#[cfg(feature = "std")]
+	pub use sp_io::TestExternalities;
 	pub use sp_io::{self, hashing, storage::root as storage_root};
 	pub use sp_metadata_ir as metadata_ir;
 	#[cfg(feature = "std")]
@@ -849,7 +851,7 @@ pub mod pallet_prelude {
 		},
 		traits::{
 			BuildGenesisConfig, ConstU32, EnsureOrigin, Get, GetDefault, GetStorageVersion, Hooks,
-			IsType, PalletInfoAccess, StorageInfoTrait, StorageVersion, TypedGet,
+			IsType, PalletInfoAccess, StorageInfoTrait, StorageVersion, Task, TypedGet,
 		},
 		Blake2_128, Blake2_128Concat, Blake2_256, CloneNoBound, DebugNoBound, EqNoBound, Identity,
 		PartialEqNoBound, RuntimeDebugNoBound, Twox128, Twox256, Twox64Concat,
@@ -2228,12 +2230,158 @@ pub use frame_support_procedural::pallet;
 /// Contains macro stubs for all of the pallet:: macros
 pub mod pallet_macros {
 	pub use frame_support_procedural::{
-		call_index, compact, composite_enum, config, disable_frame_system_supertrait_check, error,
-		event, extra_constants, feeless_if, generate_deposit, generate_store, getter, hooks,
+		composite_enum, config, disable_frame_system_supertrait_check, error, event,
+		extra_constants, feeless_if, generate_deposit, generate_store, getter, hooks,
 		import_section, inherent, no_default, no_default_bounds, origin, pallet_section,
 		storage_prefix, storage_version, type_value, unbounded, validate_unsigned, weight,
 		whitelist_storage,
 	};
+
+	/// Allows a pallet to declare a set of functions as a *dispatchable extrinsic*. In
+	/// slightly simplified terms, this macro declares the set of "transactions" of a pallet.
+	///
+	/// > The exact definition of **extrinsic** can be found in
+	/// > [`sp_runtime::generic::UncheckedExtrinsic`].
+	///
+	/// A **dispatchable** is a common term in FRAME, referring to process of constructing a
+	/// function, and dispatching it with the correct inputs. This is commonly used with
+	/// extrinsics, for example "an extrinsic has been dispatched". See
+	/// [`sp_runtime::traits::Dispatchable`] and [`crate::traits::UnfilteredDispatchable`].
+	///
+	/// ## Call Enum
+	///
+	/// The macro is called `call` (rather than `#[pallet::extrinsics]`) because of the
+	/// generation of a `enum Call`. This enum contains only the encoding of the function
+	/// arguments of the dispatchable, alongside the information needed to route it to the
+	/// correct function.
+	///
+	/// ```
+	/// #[frame_support::pallet(dev_mode)]
+	/// pub mod custom_pallet {
+	/// #   use frame_support::pallet_prelude::*;
+	/// #   use frame_system::pallet_prelude::*;
+	/// #   #[pallet::config]
+	/// #   pub trait Config: frame_system::Config {}
+	/// #   #[pallet::pallet]
+	/// #   pub struct Pallet<T>(_);
+	/// #   use frame_support::traits::BuildGenesisConfig;
+	///     #[pallet::call]
+	///     impl<T: Config> Pallet<T> {
+	///         pub fn some_dispatchable(_origin: OriginFor<T>, _input: u32) -> DispatchResult {
+	///             Ok(())
+	///         }
+	///         pub fn other(_origin: OriginFor<T>, _input: u64) -> DispatchResult {
+	///             Ok(())
+	///         }
+	///     }
+	///
+	///     // generates something like:
+	///     // enum Call<T: Config> {
+	///     //  some_dispatchable { input: u32 }
+	///     //  other { input: u64 }
+	///     // }
+	/// }
+	///
+	/// fn main() {
+	/// #   use frame_support::{derive_impl, construct_runtime};
+	/// #   use frame_support::__private::codec::Encode;
+	/// #   use frame_support::__private::TestExternalities;
+	/// #   use frame_support::traits::UnfilteredDispatchable;
+	/// #    impl custom_pallet::Config for Runtime {}
+	/// #    #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	/// #    impl frame_system::Config for Runtime {
+	/// #        type Block = frame_system::mocking::MockBlock<Self>;
+	/// #    }
+	///     construct_runtime! {
+	///         pub struct Runtime {
+	///             System: frame_system,
+	///             Custom: custom_pallet
+	///         }
+	///     }
+	///
+	/// #    TestExternalities::new_empty().execute_with(|| {
+	///     let origin: RuntimeOrigin = frame_system::RawOrigin::Signed(10).into();
+	///     // calling into a dispatchable from within the runtime is simply a function call.
+	///         let _ = custom_pallet::Pallet::<Runtime>::some_dispatchable(origin.clone(), 10);
+	///
+	///     // calling into a dispatchable from the outer world involves constructing the bytes of
+	///     let call = custom_pallet::Call::<Runtime>::some_dispatchable { input: 10 };
+	///     let _ = call.clone().dispatch_bypass_filter(origin);
+	///
+	///     // the routing of a dispatchable is simply done through encoding of the `Call` enum,
+	///     // which is the index of the variant, followed by the arguments.
+	///     assert_eq!(call.encode(), vec![0u8, 10, 0, 0, 0]);
+	///
+	///     // notice how in the encoding of the second function, the first byte is different and
+	///     // referring to the second variant of `enum Call`.
+	///     let call = custom_pallet::Call::<Runtime>::other { input: 10 };
+	///     assert_eq!(call.encode(), vec![1u8, 10, 0, 0, 0, 0, 0, 0, 0]);
+	///     #    });
+	/// }
+	/// ```
+	///
+	/// Further properties of dispatchable functions are as follows:
+	///
+	/// - Unless if annotated by `dev_mode`, it must contain [`weight`] to denote the
+	///   pre-dispatch weight consumed.
+	/// - The dispatchable must declare its index via [`call_index`], which can override the
+	///   position of a function in `enum Call`.
+	/// - The first argument is always an `OriginFor` (or `T::RuntimeOrigin`).
+	/// - The return type is always [`crate::dispatch::DispatchResult`] (or
+	///   [`crate::dispatch::DispatchResultWithPostInfo`]).
+	///
+	/// **WARNING**: modifying dispatchables, changing their order (i.e. using [`call_index`]),
+	/// removing some, etc., must be done with care. This will change the encoding of the , and
+	/// the call can be stored on-chain (e.g. in `pallet-scheduler`). Thus, migration might be
+	/// needed. This is why the use of `call_index` is mandatory by default in FRAME.
+	///
+	/// ## Default Behavior
+	///
+	/// If no `#[pallet::call]` exists, then a default implementation corresponding to the
+	/// following code is automatically generated:
+	///
+	/// ```ignore
+	/// #[pallet::call]
+	/// impl<T: Config> Pallet<T> {}
+	/// ```
+	pub use frame_support_procedural::call;
+
+	/// Enforce the index of a variant in the generated `enum Call`. See [`call`] for more
+	/// information.
+	///
+	/// All call indexes start from 0, until it encounters a dispatchable function with a
+	/// defined call index. The dispatchable function that lexically follows the function with
+	/// a defined call index will have that call index, but incremented by 1, e.g. if there are
+	/// 3 dispatchable functions `fn foo`, `fn bar` and `fn qux` in that order, and only `fn
+	/// bar` has a call index of 10, then `fn qux` will have an index of 11, instead of 1.
+	pub use frame_support_procedural::call_index;
+
+	/// Declares the arguments of a [`call`] function to be encoded using
+	/// [`codec::Compact`]. This will results in smaller extrinsic encoding.
+	///
+	/// A common example of `compact` is for numeric values that are often times far far away
+	/// from their theoretical maximum. For example, in the context of a crypto-currency, the
+	/// balance of an individual account is oftentimes way less than what the numeric type
+	/// allows. In all such cases, using `compact` is sensible.
+	///
+	/// ```
+	/// #[frame_support::pallet(dev_mode)]
+	/// pub mod custom_pallet {
+	/// #   use frame_support::pallet_prelude::*;
+	/// #   use frame_system::pallet_prelude::*;
+	/// #   #[pallet::config]
+	/// #   pub trait Config: frame_system::Config {}
+	/// #   #[pallet::pallet]
+	/// #   pub struct Pallet<T>(_);
+	/// #   use frame_support::traits::BuildGenesisConfig;
+	///     #[pallet::call]
+	///     impl<T: Config> Pallet<T> {
+	///         pub fn some_dispatchable(_origin: OriginFor<T>, #[pallet::compact] _input: u32) -> DispatchResult {
+	///             Ok(())
+	///         }
+	///     }
+	/// }
+	pub use frame_support_procedural::compact;
 
 	/// Allows you to define the genesis configuration for the pallet.
 	///
@@ -2528,6 +2676,61 @@ pub mod pallet_macros {
 	/// }
 	/// ```
 	pub use frame_support_procedural::storage;
+	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// [`pallet::tasks_experimental`](`tasks_experimental`) to define the conditions for a
+	/// given work item to be valid.
+	///
+	/// It takes a closure as input, which is then used to define the condition. The closure
+	/// should have the same signature as the function it is attached to, except that it should
+	/// return a `bool` instead.
+	pub use frame_support_procedural::task_condition;
+	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// [`pallet::tasks_experimental`](`tasks_experimental`) to define the index of a given
+	/// work item.
+	///
+	/// It takes an integer literal as input, which is then used to define the index. This
+	/// index should be unique for each function in the `impl` block.
+	pub use frame_support_procedural::task_index;
+	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// [`pallet::tasks_experimental`](`tasks_experimental`) to define an iterator over the
+	/// available work items for a task.
+	///
+	/// It takes an iterator as input that yields a tuple with same types as the function
+	/// arguments.
+	pub use frame_support_procedural::task_list;
+	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// [`pallet::tasks_experimental`](`tasks_experimental`) define the weight of a given work
+	/// item.
+	///
+	/// It takes a closure as input, which should return a `Weight` value.
+	pub use frame_support_procedural::task_weight;
+	/// Allows you to define some service work that can be recognized by a script or an
+	/// off-chain worker. Such a script can then create and submit all such work items at any
+	/// given time.
+	///
+	/// These work items are defined as instances of the [`Task`](frame_support::traits::Task)
+	/// trait. [`pallet:tasks_experimental`](`tasks_experimental`) when attached to an `impl`
+	/// block inside a pallet, will generate an enum `Task<T>` whose variants are mapped to
+	/// functions inside this `impl` block.
+	///
+	/// Each such function must have the following set of attributes:
+	///
+	/// * [`pallet::task_list`](`task_list`)
+	/// * [`pallet::task_condition`](`task_condition`)
+	/// * [`pallet::task_weight`](`task_weight`)
+	/// * [`pallet::task_index`](`task_index`)
+	///
+	/// All of such Tasks are then aggregated into a `RuntimeTask` by
+	/// [`construct_runtime`](frame_support::construct_runtime).
+	///
+	/// Finally, the `RuntimeTask` can then used by a script or off-chain worker to create and
+	/// submit such tasks via an extrinsic defined in `frame_system` called `do_task`.
+	///
+	/// ## Example
+	#[doc = docify::embed!("src/tests/tasks.rs", tasks_example)]
+	/// Now, this can be executed as follows:
+	#[doc = docify::embed!("src/tests/tasks.rs", tasks_work)]
+	pub use frame_support_procedural::tasks_experimental;
 }
 
 #[deprecated(note = "Will be removed after July 2023; Use `sp_runtime::traits` directly instead.")]

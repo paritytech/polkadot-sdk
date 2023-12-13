@@ -25,6 +25,7 @@ use codec::Decode;
 use frame_election_provider_support::{bounds::DataProviderBounds, SortedListProvider};
 use frame_support::{
 	pallet_prelude::*,
+	storage::bounded_vec::BoundedVec,
 	traits::{Currency, Get, Imbalance, UnfilteredDispatchable},
 };
 use sp_runtime::{
@@ -525,6 +526,39 @@ benchmarks! {
 		assert_eq!(Invulnerables::<T>::get().len(), v as usize);
 	}
 
+	deprecate_controller_batch {
+		// We pass a dynamic number of controllers to the benchmark, up to
+		// `MaxControllersInDeprecationBatch`.
+		let i in 0 .. T::MaxControllersInDeprecationBatch::get();
+
+		let mut controllers: Vec<_> = vec![];
+		let mut stashes: Vec<_> = vec![];
+		for n in 0..i as u32 {
+			let (stash, controller) = create_unique_stash_controller::<T>(
+				n,
+				100,
+				RewardDestination::Staked,
+				false
+			)?;
+			controllers.push(controller);
+			stashes.push(stash);
+		}
+		let bounded_controllers: BoundedVec<_, T::MaxControllersInDeprecationBatch> =
+			BoundedVec::try_from(controllers.clone()).unwrap();
+	}: _(RawOrigin::Root, bounded_controllers)
+	verify {
+		for n in 0..i as u32 {
+			let stash = &stashes[n as usize];
+			let controller = &controllers[n as usize];
+			// Ledger no longer keyed by controller.
+			assert_eq!(Ledger::<T>::get(controller), None);
+			// Bonded now maps to the stash.
+			assert_eq!(Bonded::<T>::get(stash), Some(stash.clone()));
+			// Ledger is now keyed by stash.
+			assert_eq!(Ledger::<T>::get(stash).unwrap().stash, *stash);
+		}
+	}
+
 	force_unstake {
 		// Slashing Spans
 		let s in 0 .. MAX_SPANS;
@@ -873,7 +907,7 @@ benchmarks! {
 		)?;
 
 		let caller = whitelisted_caller();
-	}: _(RawOrigin::Signed(caller), controller)
+	}: _(RawOrigin::Signed(caller), stash.clone())
 	verify {
 		assert!(!T::VoterList::contains(&stash));
 	}

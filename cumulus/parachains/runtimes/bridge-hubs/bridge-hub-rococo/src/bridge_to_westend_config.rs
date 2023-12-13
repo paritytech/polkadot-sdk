@@ -18,8 +18,10 @@
 
 use crate::{
 	bridge_common_config::{BridgeParachainWestendInstance, DeliveryRewardInBalance},
-	weights, AccountId, BridgeWestendMessages, ParachainInfo, Runtime, RuntimeEvent, RuntimeOrigin,
-	XcmRouter,
+	weights,
+	xcm_config::UniversalLocation,
+	AccountId, BridgeWestendMessages, PolkadotXcm, Runtime, RuntimeEvent, RuntimeOrigin,
+	XcmOverBridgeHubWestend, XcmRouter,
 };
 use bp_messages::LaneId;
 use bridge_runtime_common::{
@@ -31,7 +33,7 @@ use bridge_runtime_common::{
 	},
 	messages_xcm_extension::{
 		SenderAndLane, XcmAsPlainPayload, XcmBlobHauler, XcmBlobHaulerAdapter,
-		XcmBlobMessageDispatch,
+		XcmBlobMessageDispatch, XcmVersionOfDestAndRemoteBridge,
 	},
 	refund_relayer_extension::{
 		ActualFeeRefund, RefundBridgedParachainMessages, RefundTransactionExtensionAdapter,
@@ -46,7 +48,7 @@ use xcm::{
 	latest::prelude::*,
 	prelude::{InteriorMultiLocation, NetworkId},
 };
-use xcm_builder::{BridgeBlobDispatcher, HaulBlobExporter};
+use xcm_builder::BridgeBlobDispatcher;
 
 parameter_types! {
 	pub const MaxUnrewardedRelayerEntriesAtInboundLane: bp_messages::MessageNonce =
@@ -55,24 +57,41 @@ parameter_types! {
 		bp_bridge_hub_rococo::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 	pub const BridgeHubWestendChainId: bp_runtime::ChainId = bp_runtime::BRIDGE_HUB_WESTEND_CHAIN_ID;
 	pub BridgeRococoToWestendMessagesPalletInstance: InteriorMultiLocation = X1(PalletInstance(<BridgeWestendMessages as PalletInfoAccess>::index() as u8));
-	pub BridgeHubRococoUniversalLocation: InteriorMultiLocation = X2(GlobalConsensus(Rococo), Parachain(ParachainInfo::parachain_id().into()));
 	pub WestendGlobalConsensusNetwork: NetworkId = NetworkId::Westend;
-	pub ActiveOutboundLanesToBridgeHubWestend: &'static [bp_messages::LaneId] = &[XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND];
-	pub const AssetHubRococoToAssetHubWestendMessagesLane: bp_messages::LaneId = XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND;
+	pub WestendGlobalConsensusNetworkLocation: MultiLocation = MultiLocation {
+		parents: 2,
+		interior: X1(GlobalConsensus(WestendGlobalConsensusNetwork::get()))
+	};
 	// see the `FEE_BOOST_PER_MESSAGE` constant to get the meaning of this value
 	pub PriorityBoostPerMessage: u64 = 182_044_444_444_444;
 
 	pub AssetHubRococoParaId: cumulus_primitives_core::ParaId = bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID.into();
 	pub AssetHubWestendParaId: cumulus_primitives_core::ParaId = bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID.into();
 
+	// Lanes
+	pub ActiveOutboundLanesToBridgeHubWestend: &'static [bp_messages::LaneId] = &[XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND];
+	pub const AssetHubRococoToAssetHubWestendMessagesLane: bp_messages::LaneId = XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND;
 	pub FromAssetHubRococoToAssetHubWestendRoute: SenderAndLane = SenderAndLane::new(
 		ParentThen(X1(Parachain(AssetHubRococoParaId::get().into()))).into(),
 		XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND,
 	);
+	pub ActiveLanes: sp_std::vec::Vec<(SenderAndLane, (NetworkId, InteriorMultiLocation))> = sp_std::vec![
+			(
+				FromAssetHubRococoToAssetHubWestendRoute::get(),
+				(WestendGlobalConsensusNetwork::get(), X1(Parachain(AssetHubWestendParaId::get().into())))
+			)
+	];
 
 	pub CongestedMessage: Xcm<()> = build_congestion_message(true).into();
-
 	pub UncongestedMessage: Xcm<()> = build_congestion_message(false).into();
+
+	pub BridgeHubWestendLocation: MultiLocation = MultiLocation {
+		parents: 2,
+		interior: X2(
+			GlobalConsensus(WestendGlobalConsensusNetwork::get()),
+			Parachain(<bp_bridge_hub_westend::BridgeHubWestend as bp_runtime::Parachain>::PARACHAIN_ID)
+		)
+	};
 }
 pub const XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND: LaneId = LaneId([0, 0, 0, 2]);
 
@@ -103,31 +122,24 @@ pub type ToWestendBridgeHubMessagesDeliveryProof =
 	FromBridgedChainMessagesDeliveryProof<bp_bridge_hub_westend::Hash>;
 
 /// Dispatches received XCM messages from other bridge
-type FromWestendMessageBlobDispatcher = BridgeBlobDispatcher<
-	XcmRouter,
-	BridgeHubRococoUniversalLocation,
-	BridgeRococoToWestendMessagesPalletInstance,
->;
+type FromWestendMessageBlobDispatcher =
+	BridgeBlobDispatcher<XcmRouter, UniversalLocation, BridgeRococoToWestendMessagesPalletInstance>;
 
 /// Export XCM messages to be relayed to the other side
-pub type ToBridgeHubWestendHaulBlobExporter = HaulBlobExporter<
-	XcmBlobHaulerAdapter<ToBridgeHubWestendXcmBlobHauler>,
-	WestendGlobalConsensusNetwork,
-	(),
->;
+pub type ToBridgeHubWestendHaulBlobExporter = XcmOverBridgeHubWestend;
+
 pub struct ToBridgeHubWestendXcmBlobHauler;
 impl XcmBlobHauler for ToBridgeHubWestendXcmBlobHauler {
 	type Runtime = Runtime;
 	type MessagesInstance = WithBridgeHubWestendMessagesInstance;
-	type SenderAndLane = FromAssetHubRococoToAssetHubWestendRoute;
-
 	type ToSourceChainSender = XcmRouter;
 	type CongestedMessage = CongestedMessage;
 	type UncongestedMessage = UncongestedMessage;
 }
 
 /// On messages delivered callback.
-type OnMessagesDeliveredFromWestend = XcmBlobHaulerAdapter<ToBridgeHubWestendXcmBlobHauler>;
+type OnMessagesDeliveredFromWestend =
+	XcmBlobHaulerAdapter<ToBridgeHubWestendXcmBlobHauler, ActiveLanes>;
 
 /// Messaging Bridge configuration for BridgeHubRococo -> BridgeHubWestend
 pub struct WithBridgeHubWestendMessageBridge;
@@ -227,6 +239,19 @@ impl pallet_bridge_messages::Config<WithBridgeHubWestendMessagesInstance> for Ru
 		>,
 	>;
 	type OnMessagesDelivered = OnMessagesDeliveredFromWestend;
+}
+
+/// Add support for the export and dispatch of XCM programs.
+pub type XcmOverBridgeHubWestendInstance = pallet_xcm_bridge_hub::Instance1;
+impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubWestendInstance> for Runtime {
+	type UniversalLocation = UniversalLocation;
+	type BridgedNetwork = WestendGlobalConsensusNetworkLocation;
+	type BridgeMessagesPalletInstance = WithBridgeHubWestendMessagesInstance;
+	type MessageExportPrice = ();
+	type DestinationVersion =
+		XcmVersionOfDestAndRemoteBridge<PolkadotXcm, BridgeHubWestendLocation>;
+	type Lanes = ActiveLanes;
+	type LanesSupport = ToBridgeHubWestendXcmBlobHauler;
 }
 
 #[cfg(test)]

@@ -25,7 +25,7 @@ wasmtime = { version = "8.0.1", default-features = false, features = [
 	"cranelift",
 	"jitdump",
 	"parallel-compilation",
-	"pooling-allocator"
+	"pooling-allocator",
 ] }
 anyhow = "1.0.68"
 sc-allocator = { path = "../../allocator" }
@@ -39,7 +39,7 @@ sp-wasm-interface = { path = "../../../primitives/wasm-interface", features = ["
 # By default rustix directly calls the appropriate syscalls completely bypassing libc;
 # this doesn't have any actual benefits for us besides making it harder to debug memory
 # problems (since then `mmap` etc. cannot be easily hooked into).
-rustix = { version = "0.36.7", default-features = false, features = ["std", "mm", "fs", "param", "use-libc"] }
+rustix = { version = "0.36.7", default-features = false, features = ["fs", "mm", "param", "std", "use-libc"] }
 
 [dev-dependencies]
 wat = "1.0"

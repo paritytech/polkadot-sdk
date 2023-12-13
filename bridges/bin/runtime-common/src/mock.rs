@@ -376,8 +376,8 @@ impl ChainWithGrandpa for BridgedUnderlyingChain {
 	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = "";
 	const MAX_AUTHORITIES_COUNT: u32 = 16;
 	const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 = 8;
-	const MAX_HEADER_SIZE: u32 = 256;
-	const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 = 64;
+	const MAX_MANDATORY_HEADER_SIZE: u32 = 256;
+	const AVERAGE_HEADER_SIZE: u32 = 64;
 }
 
 impl Chain for BridgedUnderlyingParachain {

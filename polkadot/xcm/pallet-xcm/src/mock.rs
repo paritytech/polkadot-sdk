@@ -16,7 +16,7 @@
 
 use codec::Encode;
 use frame_support::{
-	construct_runtime, match_types, parameter_types,
+	construct_runtime, derive_impl, match_types, parameter_types,
 	traits::{
 		AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, Equals, Everything, EverythingBut,
 		Nothing,
@@ -246,6 +246,7 @@ parameter_types! {
 	pub const BlockHashCount: u64 = 250;
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
@@ -578,6 +579,57 @@ impl super::benchmarking::Config for Test {
 			Parachain(OTHER_PARA_ID).into(),
 		))
 	}
+
+	fn set_up_complex_asset_transfer(
+	) -> Option<(MultiAssets, u32, MultiLocation, Box<dyn FnOnce()>)> {
+		use crate::tests::assets_transfer::{into_multiassets_checked, set_up_foreign_asset};
+		// Transfer native asset (local reserve) to `USDT_PARA_ID`. Using teleport-trusted USDT for
+		// fees.
+
+		let asset_amount = 10u128;
+		let fee_amount = 2u128;
+
+		let existential_deposit = ExistentialDeposit::get();
+		let caller = frame_benchmarking::whitelisted_caller();
+
+		// Give some multiple of the existential deposit
+		let balance = asset_amount + existential_deposit * 1000;
+		let _ = <Balances as frame_support::traits::Currency<_>>::make_free_balance_be(
+			&caller, balance,
+		);
+		// create sufficient foreign asset USDT
+		let usdt_initial_local_amount = fee_amount * 10;
+		let (usdt_chain, _, usdt_id_multilocation) = set_up_foreign_asset(
+			USDT_PARA_ID,
+			None,
+			caller.clone(),
+			usdt_initial_local_amount,
+			true,
+		);
+
+		// native assets transfer destination is USDT chain (teleport trust only for USDT)
+		let dest = usdt_chain;
+		let (assets, fee_index, _, _) = into_multiassets_checked(
+			// USDT for fees (is sufficient on local chain too) - teleported
+			(usdt_id_multilocation, fee_amount).into(),
+			// native asset to transfer (not used for fees) - local reserve
+			(MultiLocation::here(), asset_amount).into(),
+		);
+		// verify initial balances
+		assert_eq!(Balances::free_balance(&caller), balance);
+		assert_eq!(Assets::balance(usdt_id_multilocation, &caller), usdt_initial_local_amount);
+
+		// verify transferred successfully
+		let verify = Box::new(move || {
+			// verify balances after transfer, decreased by transferred amounts
+			assert_eq!(Balances::free_balance(&caller), balance - asset_amount);
+			assert_eq!(
+				Assets::balance(usdt_id_multilocation, &caller),
+				usdt_initial_local_amount - fee_amount
+			);
+		});
+		Some((assets, fee_index as u32, dest, verify))
+	}
 }
 
 pub(crate) fn last_event() -> RuntimeEvent {
@@ -604,13 +656,24 @@ pub(crate) fn buy_limited_execution<C>(
 pub(crate) fn new_test_ext_with_balances(
 	balances: Vec<(AccountId, Balance)>,
 ) -> sp_io::TestExternalities {
+	new_test_ext_with_balances_and_xcm_version(
+		balances,
+		// By default set actual latest XCM version
+		Some(XCM_VERSION),
+	)
+}
+
+pub(crate) fn new_test_ext_with_balances_and_xcm_version(
+	balances: Vec<(AccountId, Balance)>,
+	safe_xcm_version: Option<XcmVersion>,
+) -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	pallet_balances::GenesisConfig::<Test> { balances }
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-	pallet_xcm::GenesisConfig::<Test> { safe_xcm_version: Some(2), ..Default::default() }
+	pallet_xcm::GenesisConfig::<Test> { safe_xcm_version, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 
