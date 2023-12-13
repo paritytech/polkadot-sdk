@@ -589,10 +589,23 @@ impl super::benchmarking::Config for Test {
 		let asset_amount = 10u128;
 		let fee_amount = 2u128;
 
+		let existential_deposit = ExistentialDeposit::get();
+		let caller = frame_benchmarking::whitelisted_caller();
+
+		// Give some multiple of the existential deposit
+		let balance = asset_amount + existential_deposit * 1000;
+		let _ = <Balances as frame_support::traits::Currency<_>>::make_free_balance_be(
+			&caller, balance,
+		);
 		// create sufficient foreign asset USDT
 		let usdt_initial_local_amount = fee_amount * 10;
-		let (usdt_chain, _, usdt_id_multilocation) =
-			set_up_foreign_asset(USDT_PARA_ID, None, usdt_initial_local_amount, true);
+		let (usdt_chain, _, usdt_id_multilocation) = set_up_foreign_asset(
+			USDT_PARA_ID,
+			None,
+			caller.clone(),
+			usdt_initial_local_amount,
+			true,
+		);
 
 		// native assets transfer destination is USDT chain (teleport trust only for USDT)
 		let dest = usdt_chain;
@@ -602,20 +615,13 @@ impl super::benchmarking::Config for Test {
 			// native asset to transfer (not used for fees) - local reserve
 			(MultiLocation::here(), asset_amount).into(),
 		);
-
-		let existential_deposit = ExistentialDeposit::get();
-		let caller = frame_benchmarking::whitelisted_caller();
-		// Give some multiple of the existential deposit
-		let balance = asset_amount + existential_deposit * 1000;
-		let _ = <Balances as frame_support::traits::Currency<_>>::make_free_balance_be(
-			&caller, balance,
-		);
-		// verify initial balance
+		// verify initial balances
 		assert_eq!(Balances::free_balance(&caller), balance);
+		assert_eq!(Assets::balance(usdt_id_multilocation, &caller), usdt_initial_local_amount);
 
 		// verify transferred successfully
 		let verify = Box::new(move || {
-			// verify balance after transfer, decreased by transferred amount
+			// verify balances after transfer, decreased by transferred amounts
 			assert_eq!(Balances::free_balance(&caller), balance - asset_amount);
 			assert_eq!(
 				Assets::balance(usdt_id_multilocation, &caller),
@@ -650,13 +656,24 @@ pub(crate) fn buy_limited_execution<C>(
 pub(crate) fn new_test_ext_with_balances(
 	balances: Vec<(AccountId, Balance)>,
 ) -> sp_io::TestExternalities {
+	new_test_ext_with_balances_and_xcm_version(
+		balances,
+		// By default set actual latest XCM version
+		Some(XCM_VERSION),
+	)
+}
+
+pub(crate) fn new_test_ext_with_balances_and_xcm_version(
+	balances: Vec<(AccountId, Balance)>,
+	safe_xcm_version: Option<XcmVersion>,
+) -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	pallet_balances::GenesisConfig::<Test> { balances }
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-	pallet_xcm::GenesisConfig::<Test> { safe_xcm_version: Some(2), ..Default::default() }
+	pallet_xcm::GenesisConfig::<Test> { safe_xcm_version, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 
