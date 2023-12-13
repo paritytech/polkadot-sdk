@@ -276,6 +276,7 @@ impl pallet_staking::Config for Runtime {
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<MAX_QUOTA_NOMINATIONS>;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 	type MaxUnlockingChunks = ConstU32<32>;
+	type MaxControllersInDeprecationBatch = ConstU32<100>;
 	type HistoryDepth = HistoryDepth;
 	type EventListeners = ();
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;

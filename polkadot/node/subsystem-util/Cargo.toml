@@ -6,6 +6,9 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
 async-trait = "0.1.57"
 futures = "0.3.21"
@@ -37,7 +40,7 @@ sp-keystore = { path = "../../../substrate/primitives/keystore" }
 sc-client-api = { path = "../../../substrate/client/api" }
 
 kvdb = "0.13.0"
-parity-db = { version = "0.4.8" }
+parity-db = { version = "0.4.12" }
 
 [dev-dependencies]
 assert_matches = "1.4.0"

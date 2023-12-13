@@ -445,3 +445,21 @@ async fn all_security_features_work() {
 		}
 	);
 }
+
+// Regression test to make sure the unshare-pivot-root capability does not depend on the PVF
+// artifacts cache existing.
+#[cfg(all(feature = "ci-only-tests", target_os = "linux"))]
+#[tokio::test]
+async fn nonexistant_cache_dir() {
+	let host = TestHost::new_with_config(|cfg| {
+		cfg.cache_path = cfg.cache_path.join("nonexistant_cache_dir");
+	})
+	.await;
+
+	assert!(host.security_status().await.can_unshare_user_namespace_and_change_root);
+
+	let _stats = host
+		.precheck_pvf(::adder::wasm_binary_unwrap(), Default::default())
+		.await
+		.unwrap();
+}

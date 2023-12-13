@@ -27,12 +27,14 @@ use frame_support::{
 use frame_system::EnsureRoot;
 use pallet_xcm::{EnsureXcm, IsMajorityOfBody, XcmPassthrough};
 use parachains_common::{
-	xcm_config::{ConcreteAssetFromSystem, RelayOrOtherSystemParachains},
+	xcm_config::{
+		AllSiblingSystemParachains, ConcreteAssetFromSystem, ParentRelayOrSiblingParachains,
+		RelayOrOtherSystemParachains,
+	},
 	TREASURY_PALLET_ID,
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-use rococo_runtime_constants::system_parachain;
 use sp_runtime::traits::AccountIdConversion;
 use xcm::latest::prelude::*;
 use xcm_builder::{
@@ -123,10 +125,6 @@ match_types! {
 		MultiLocation { parents: 1, interior: Here } |
 		MultiLocation { parents: 1, interior: X1(Plurality { .. }) }
 	};
-	pub type ParentOrSiblings: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 1, interior: Here } |
-		MultiLocation { parents: 1, interior: X1(_) }
-	};
 }
 
 pub type Barrier = TrailingSetTopicAsId<
@@ -149,7 +147,7 @@ pub type Barrier = TrailingSetTopicAsId<
 						Equals<RelayTreasuryLocation>,
 					)>,
 					// Subscriptions for version tracking are OK.
-					AllowSubscriptionsFrom<ParentOrSiblings>,
+					AllowSubscriptionsFrom<ParentRelayOrSiblingParachains>,
 				),
 				UniversalLocation,
 				ConstU32<8>,
@@ -158,25 +156,13 @@ pub type Barrier = TrailingSetTopicAsId<
 	>,
 >;
 
-match_types! {
-	pub type SystemParachains: impl Contains<MultiLocation> = {
-		MultiLocation {
-			parents: 1,
-			interior: X1(Parachain(
-				system_parachain::ASSET_HUB_ID |
-				system_parachain::BRIDGE_HUB_ID |
-				system_parachain::CONTRACTS_ID |
-				system_parachain::ENCOINTER_ID
-			)),
-		}
-	};
-}
-
 /// Locations that will not be charged fees in the executor,
 /// either execution or delivery.
 /// We only waive fees for system functions, which these locations represent.
-pub type WaivedLocations =
-	(RelayOrOtherSystemParachains<SystemParachains, Runtime>, Equals<RelayTreasuryLocation>);
+pub type WaivedLocations = (
+	RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
+	Equals<RelayTreasuryLocation>,
+);
 
 pub type TrustedTeleporter = ConcreteAssetFromSystem<RelayLocation>;
 
