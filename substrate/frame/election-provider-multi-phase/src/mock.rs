@@ -112,6 +112,15 @@ pub fn roll_to_with_ocw(n: BlockNumber) {
 	}
 }
 
+pub fn roll_to_round(n: u32) {
+	assert!(MultiPhase::round() <= n);
+
+	while MultiPhase::round() != n {
+		roll_to_signed();
+		assert_ok!(MultiPhase::elect());
+	}
+}
+
 pub struct TrimHelpers {
 	pub voters: Vec<VoterOf<Runtime>>,
 	pub assignments: Vec<IndexAssignmentOf<Runtime>>,
