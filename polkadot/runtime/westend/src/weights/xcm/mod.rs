@@ -166,6 +166,9 @@ impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for WestendXcmWeight<RuntimeCall> {
 	fn initiate_teleport(assets: &AssetFilter, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
 		assets.weigh_assets(XcmBalancesWeight::<Runtime>::initiate_teleport())
 	}
+	fn initiate_unpaid_teleport(assets: &AssetFilter, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
+		assets.weigh_assets(XcmBalancesWeight::<Runtime>::initiate_teleport())
+	}
 	fn report_holding(_response_info: &QueryResponseInfo, _assets: &AssetFilter) -> Weight {
 		XcmGeneric::<Runtime>::report_holding()
 	}

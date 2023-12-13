@@ -1467,6 +1467,12 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 				weight_limit,
 				check_origin: check_origin.map(|origin| origin.try_into()).transpose()?,
 			},
+			InitiateUnpaidTeleport { assets, dest, xcm } => {
+				let assets = assets.try_into()?;
+				let dest = dest.try_into()?;
+				let xcm = xcm.try_into()?;
+				Self::InitiateTeleport { assets, dest, xcm }
+			},
 		})
 	}
 }

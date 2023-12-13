@@ -132,6 +132,9 @@ impl<Call> XcmWeightInfo<Call> for AssetHubWestendXcmWeight<Call> {
 	fn initiate_teleport(assets: &AssetFilter, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
 		assets.weigh_assets(XcmFungibleWeight::<Runtime>::initiate_teleport())
 	}
+	fn initiate_unpaid_teleport(assets: &AssetFilter, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
+		assets.weigh_assets(XcmFungibleWeight::<Runtime>::initiate_teleport())
+	}
 	fn report_holding(_response_info: &QueryResponseInfo, _assets: &AssetFilter) -> Weight {
 		XcmGeneric::<Runtime>::report_holding()
 	}

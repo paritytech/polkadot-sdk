@@ -1019,6 +1019,25 @@ pub enum Instruction<Call> {
 	///
 	/// Errors: If the given origin is `Some` and not equal to the current Origin register.
 	UnpaidExecution { weight_limit: WeightLimit, check_origin: Option<Location> },
+
+	/// Remove the asset(s) (`assets`) from holding and send a `ReceiveTeleportedAsset` XCM message
+	/// to a `dest` location. Unlike `InitiateTeleport`, it will request explicit unpaid execution
+	/// at the `dest`.
+	///
+	/// - `assets`: The asset(s) to remove from holding.
+	/// - `dest`: A valid location that respects teleports coming from this location.
+	/// - `xcm`: The instructions to execute on the assets once arrived *on the destination
+	///   location*.
+	///
+	/// NOTE: The `dest` location *MUST* respect this origin as a valid teleportation origin for
+	/// all `assets`. If it does not, then the assets may be lost.
+	///
+	/// NOTE: The `dest` location *MUST* allow unpaid execution from this origin.
+	///
+	/// Kind: *Command*
+	///
+	/// Errors:
+	InitiateUnpaidTeleport { assets: AssetFilter, dest: Location, xcm: Xcm<()> },
 }
 
 impl<Call> Xcm<Call> {
@@ -1096,6 +1115,8 @@ impl<Call> Instruction<Call> {
 			AliasOrigin(location) => AliasOrigin(location),
 			UnpaidExecution { weight_limit, check_origin } =>
 				UnpaidExecution { weight_limit, check_origin },
+			InitiateUnpaidTeleport { assets, dest, xcm } =>
+				InitiateUnpaidTeleport { assets, dest, xcm },
 		}
 	}
 }
@@ -1165,6 +1186,8 @@ impl<Call, W: XcmWeightInfo<Call>> GetWeight<W> for Instruction<Call> {
 			AliasOrigin(location) => W::alias_origin(location),
 			UnpaidExecution { weight_limit, check_origin } =>
 				W::unpaid_execution(weight_limit, check_origin),
+			InitiateUnpaidTeleport { assets, dest, xcm } =>
+				W::initiate_unpaid_teleport(assets, dest, xcm),
 		}
 	}
 }
