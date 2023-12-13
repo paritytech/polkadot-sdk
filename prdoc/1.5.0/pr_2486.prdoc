@@ -1,5 +1,8 @@
 title: "PVF: Add Secure Validator Mode"
 
+author: mrcnski
+topic: node
+
 doc:
   - audience: Node Operator
     description: |
