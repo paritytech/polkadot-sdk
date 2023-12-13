@@ -387,7 +387,7 @@ mod tests {
 				.await
 				.expect("Imports the block");
 
-			Some(ParachainCandidate { block, proof: proof.expect("Proof is returned") })
+			Some(ParachainCandidate { block, proof })
 		}
 	}
 

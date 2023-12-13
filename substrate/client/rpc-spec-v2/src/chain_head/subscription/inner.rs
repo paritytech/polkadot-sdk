@@ -826,7 +826,7 @@ mod tests {
 	use sp_core::{testing::TaskExecutor, H256};
 	use substrate_test_runtime_client::{
 		prelude::*,
-		runtime::{Block, RuntimeApi},
+		runtime::{Block},
 		Client, ClientBlockImportExt, GenesisInit,
 	};
 

@@ -29,6 +29,7 @@ use polkadot_primitives::HeadData;
 use sc_client_api::UsageProvider;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, ImportResult, StateAction};
 use sc_executor_common::wasm_runtime::WasmModule;
+use sp_api::RuntimeInstance;
 
 use frame_system_rpc_runtime_api::AccountNonceApi;
 use sp_arithmetic::{
@@ -149,9 +150,10 @@ fn set_glutton_parameters(
 	let parent_hash = client.usage_info().chain.best_hash;
 	let parent_header = client.header(parent_hash).expect("Just fetched this hash.").unwrap();
 
-	let mut last_nonce = client
-		.runtime_api()
-		.account_nonce(parent_hash, Alice.into())
+	let mut last_nonce = RuntimeInstance::builder(&client, parent_hash)
+		.off_chain_context()
+		.build()
+		.account_nonce(AccountId::from(Alice))
 		.expect("Fetching account nonce works; qed");
 
 	let validation_data = PersistedValidationData {

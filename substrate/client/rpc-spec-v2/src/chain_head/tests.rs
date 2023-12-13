@@ -51,7 +51,7 @@ use std::{
 };
 use substrate_test_runtime::Transfer;
 use substrate_test_runtime_client::{
-	prelude::*, runtime, runtime::RuntimeApi, Backend, BlockBuilderExt, Client,
+	prelude::*, runtime, Backend, BlockBuilderExt, Client,
 	ClientBlockImportExt, GenesisInit,
 };
 

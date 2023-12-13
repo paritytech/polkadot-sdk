@@ -54,7 +54,7 @@ use cumulus_relay_chain_minimal_node::{
 	build_minimal_relay_chain_node_light_client, build_minimal_relay_chain_node_with_rpc,
 };
 
-use cumulus_test_runtime::{Hash, Header, NodeBlock as Block, RuntimeApi};
+use cumulus_test_runtime::{Hash, Header, NodeBlock as Block};
 
 use frame_system_rpc_runtime_api::AccountNonceApi;
 use polkadot_node_subsystem::{errors::RecoveryError, messages::AvailabilityRecoveryMessage};

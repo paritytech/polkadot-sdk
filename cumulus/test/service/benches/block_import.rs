@@ -23,10 +23,10 @@ use sc_client_api::UsageProvider;
 use core::time::Duration;
 use cumulus_primitives_core::ParaId;
 
-use sp_api::Core;
+use sp_api::{Core, RuntimeInstance};
 use sp_keyring::Sr25519Keyring::{Alice, Bob};
 
-use cumulus_test_service::bench_utils as utils;
+use cumulus_test_service::{bench_utils as utils, runtime::NodeBlock as Block};
 
 fn benchmark_block_import(c: &mut Criterion) {
 	sp_tracing::try_init_simple();
@@ -88,7 +88,10 @@ fn benchmark_block_import(c: &mut Criterion) {
 						benchmark_block.block.clone()
 					},
 					|block| {
-						client.runtime_api().execute_block(parent_hash, block).unwrap();
+						let mut runtime_api = RuntimeInstance::builder(&client, parent_hash)
+							.off_chain_context()
+							.build();
+						Core::<Block>::execute_block(&mut runtime_api, block).unwrap();
 					},
 					BatchSize::SmallInput,
 				)

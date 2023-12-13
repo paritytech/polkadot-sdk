@@ -133,7 +133,11 @@ impl InitBlockBuilder for Client {
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 	) -> BlockBuilder<Block, &Client, EnableProofRecording<Block>> {
-		let last_timestamp = self.runtime_api().get_last_timestamp(at).expect("Get last timestamp");
+		let last_timestamp = sp_api::RuntimeInstance::builder(self, at)
+			.off_chain_context()
+			.build()
+			.get_last_timestamp()
+			.expect("Get last timestamp");
 
 		let timestamp = last_timestamp + cumulus_test_runtime::MinimumPeriod::get();
 
@@ -167,7 +171,6 @@ impl<'a> BuildParachainBlockData
 
 		let storage_proof = built_block
 			.proof
-			.expect("We enabled proof recording before.")
 			.into_compact_proof::<<Header as HeaderT>::Hashing>(parent_state_root)
 			.expect("Creates the compact proof");
 
