@@ -42,12 +42,31 @@ pub mod v1 {
 	/// The log target.
 	const TARGET: &'static str = "runtime::identity::migration::v1";
 
+	/// The old identity type, useful in pre-upgrade.
+	mod v0 {
+		use super::*;
+		use frame_support::storage_alias;
+
+		#[storage_alias]
+		pub type IdentityOf<T: Config> = StorageMap<
+			Pallet<T>,
+			Twox64Concat,
+			<T as frame_system::Config>::AccountId,
+			Registration<
+				BalanceOf<T>,
+				<T as pallet::Config>::MaxRegistrars,
+				<T as pallet::Config>::IdentityInformation,
+			>,
+			OptionQuery,
+		>;
+	}
+
 	/// Migration to add usernames to Identity info.
 	pub struct VersionUncheckedMigrateV0ToV1<T>(PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV0ToV1<T> {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
-			let identities = IdentityOf::<T>::iter().count();
+			let identities = v0::IdentityOf::<T>::iter().count();
 			log::info!(
 				target: TARGET,
 				"pre-upgrade state contains '{}' identities.",
@@ -72,6 +91,7 @@ pub mod v1 {
 				translated.saturating_inc();
 				Some((registration, None::<Username>))
 			});
+			log::info!("translated {} identities", translated);
 
 			weight.saturating_accrue(T::DbWeight::get().reads_writes(translated, translated));
 			weight.saturating_accrue(T::DbWeight::get().writes(1));
@@ -83,6 +103,7 @@ pub mod v1 {
 			let identities_to_migrate: u32 = Decode::decode(&mut &state[..])
 				.expect("failed to decode the state from pre-upgrade.");
 			let identities = IdentityOf::<T>::iter().count() as u32;
+			log::info!("post-upgrade expects '{}' identities to have been migrated.", identities);
 			ensure!(identities_to_migrate == identities, "must migrate all identities.");
 			log::info!(target: TARGET, "migrated all identities.");
 			Ok(())
