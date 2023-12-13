@@ -10,6 +10,9 @@ description = "Common utilities for building and using consensus engines in subs
 documentation = "https://docs.rs/sp-consensus/"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
