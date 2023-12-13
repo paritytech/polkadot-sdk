@@ -7,6 +7,9 @@ version = "1.0.0"
 authors.workspace = true
 publish = false
 
+[lints]
+workspace = true
+
 [[bin]]
 name = "undying-collator"
 path = "src/main.rs"
@@ -39,6 +42,3 @@ sc-service = { path = "../../../../../substrate/client/service" }
 sp-keyring = { path = "../../../../../substrate/primitives/keyring" }
 
 tokio = { version = "1.24.2", features = ["macros"] }
-
-[features]
-network-protocol-staging = ["polkadot-cli/network-protocol-staging"]
