@@ -688,7 +688,7 @@ mod test {
 		let mut state_strategy =
 			StateStrategy::new_with_provider(Box::new(state_sync_provider), std::iter::empty());
 
-		// Target block imported.
+		// Target block import failed.
 		state_strategy.on_blocks_processed(
 			1,
 			1,
