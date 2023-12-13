@@ -397,7 +397,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			}
 
 			fn get_call_names() -> &'static [&'static str] {
-				&[ #( stringify!(#fn_name), )* ]
+				&[ #( #cfg_attrs stringify!(#fn_name), )* ]
 			}
 		}
 
@@ -412,7 +412,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			}
 
 			fn get_call_indices() -> &'static [u8] {
-				&[ #( #call_index, )* ]
+				&[ #( #cfg_attrs #call_index, )* ]
 			}
 		}
 
