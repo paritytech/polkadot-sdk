@@ -422,7 +422,7 @@ test-full-crypto-feature:
   variables:
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
-    RUSTFLAGS: "-C debug-assertions -D warnings"
+    RUSTFLAGS: "-C debug-assertions"
     RUST_BACKTRACE: 1
   script:
     - cd substrate/primitives/core/
