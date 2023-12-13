@@ -250,6 +250,13 @@
 <a href="#250" id="250">250</a>
 <a href="#251" id="251">251</a>
 <a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -388,9 +395,15 @@
 				</span><span class="kw">return </span><span class="prelude-val">None
 			</span>}
 			<span class="kw">if let </span>ImplItem::Type(typ) = item.clone() {
+				<span class="kw">let </span>cfg_attrs = typ
+					.attrs
+					.iter()
+					.filter(|attr| attr.path().get_ident().map_or(<span class="bool-val">false</span>, |ident| ident == <span class="string">&quot;cfg&quot;</span>))
+					.map(|attr| attr.to_token_stream());
 				<span class="kw">if </span>is_runtime_type(<span class="kw-2">&amp;</span>typ) {
 					<span class="kw">let </span>item: ImplItem = <span class="kw">if </span>inject_runtime_types {
 						<span class="macro">parse_quote! </span>{
+							#( #cfg_attrs )*
 							<span class="kw">type </span>#ident = #ident;
 						}
 					} <span class="kw">else </span>{
@@ -400,6 +413,7 @@
 				}
 				<span class="comment">// modify and insert uncolliding type items
 				</span><span class="kw">let </span>modified_item: ImplItem = <span class="macro">parse_quote! </span>{
+					#( #cfg_attrs )*
 					<span class="kw">type </span>#ident = &lt;#default_impl_path <span class="kw">as </span>#disambiguation_path&gt;::#ident;
 				};
 				<span class="kw">return </span><span class="prelude-val">Some</span>(modified_item)

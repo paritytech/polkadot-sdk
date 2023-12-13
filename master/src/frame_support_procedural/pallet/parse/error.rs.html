@@ -95,6 +95,24 @@
 <a href="#95" id="95">95</a>
 <a href="#96" id="96">96</a>
 <a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -122,10 +140,22 @@
 	<span class="macro">syn::custom_keyword!</span>(Error);
 }
 
-<span class="doccomment">/// Records information about the error enum variants.
+<span class="doccomment">/// Records information about the error enum variant field.
 </span><span class="kw">pub struct </span>VariantField {
 	<span class="doccomment">/// Whether or not the field is named, i.e. whether it is a tuple variant or struct variant.
 	</span><span class="kw">pub </span>is_named: bool,
+}
+
+<span class="doccomment">/// Records information about the error enum variants.
+</span><span class="kw">pub struct </span>VariantDef {
+	<span class="doccomment">/// The variant ident.
+	</span><span class="kw">pub </span>ident: syn::Ident,
+	<span class="doccomment">/// The variant field, if any.
+	</span><span class="kw">pub </span>field: <span class="prelude-ty">Option</span>&lt;VariantField&gt;,
+	<span class="doccomment">/// The variant doc literals.
+	</span><span class="kw">pub </span>docs: Vec&lt;syn::Expr&gt;,
+	<span class="doccomment">/// The `cfg` attributes.
+	</span><span class="kw">pub </span>cfg_attrs: Vec&lt;syn::Attribute&gt;,
 }
 
 <span class="doccomment">/// This checks error declaration as a enum declaration with only variants without fields nor
@@ -133,8 +163,8 @@
 </span><span class="kw">pub struct </span>ErrorDef {
 	<span class="doccomment">/// The index of error item in pallet module.
 	</span><span class="kw">pub </span>index: usize,
-	<span class="doccomment">/// Variants ident, optional field and doc literals (ordered as declaration order)
-	</span><span class="kw">pub </span>variants: Vec&lt;(syn::Ident, <span class="prelude-ty">Option</span>&lt;VariantField&gt;, Vec&lt;syn::Expr&gt;)&gt;,
+	<span class="doccomment">/// Variant definitions.
+	</span><span class="kw">pub </span>variants: Vec&lt;VariantDef&gt;,
 	<span class="doccomment">/// A set of usage of instance, must be check for consistency with trait.
 	</span><span class="kw">pub </span>instances: Vec&lt;helper::InstanceUsage&gt;,
 	<span class="doccomment">/// The keyword error used (contains span).
@@ -184,8 +214,14 @@
 					<span class="kw">let </span>span = variant.discriminant.as_ref().unwrap().<span class="number">0</span>.span();
 					<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(span, msg))
 				}
+				<span class="kw">let </span>cfg_attrs: Vec&lt;syn::Attribute&gt; = helper::get_item_cfg_attrs(<span class="kw-2">&amp;</span>variant.attrs);
 
-				<span class="prelude-val">Ok</span>((variant.ident.clone(), field_ty, get_doc_literals(<span class="kw-2">&amp;</span>variant.attrs)))
+				<span class="prelude-val">Ok</span>(VariantDef {
+					ident: variant.ident.clone(),
+					field: field_ty,
+					docs: get_doc_literals(<span class="kw-2">&amp;</span>variant.attrs),
+					cfg_attrs,
+				})
 			})
 			.collect::&lt;<span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
 

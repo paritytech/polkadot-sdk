@@ -182,6 +182,13 @@
 <a href="#182" id="182">182</a>
 <a href="#183" id="183">183</a>
 <a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -200,10 +207,14 @@
 // limitations under the License.
 
 </span><span class="kw">use crate</span>::{
-	pallet::{parse::error::VariantField, Def},
+	pallet::{
+		parse::error::{VariantDef, VariantField},
+		Def,
+	},
 	COUNTER,
 };
 <span class="kw">use </span>frame_support_procedural_tools::get_doc_literals;
+<span class="kw">use </span>quote::ToTokens;
 <span class="kw">use </span>syn::spanned::Spanned;
 
 <span class="doccomment">///
@@ -251,20 +262,23 @@
 		)
 	);
 
-	<span class="kw">let </span>as_str_matches = error.variants.iter().map(|(variant, field_ty, <span class="kw">_</span>)| {
-		<span class="kw">let </span>variant_str = variant.to_string();
-		<span class="kw">match </span>field_ty {
-			<span class="prelude-val">Some</span>(VariantField { is_named: <span class="bool-val">true </span>}) =&gt; {
-				<span class="macro">quote::quote_spanned!</span>(error.attr_span =&gt; <span class="self">Self</span>::#variant { .. } =&gt; #variant_str,)
-			},
-			<span class="prelude-val">Some</span>(VariantField { is_named: <span class="bool-val">false </span>}) =&gt; {
-				<span class="macro">quote::quote_spanned!</span>(error.attr_span =&gt; <span class="self">Self</span>::#variant(..) =&gt; #variant_str,)
-			},
-			<span class="prelude-val">None </span>=&gt; {
-				<span class="macro">quote::quote_spanned!</span>(error.attr_span =&gt; <span class="self">Self</span>::#variant =&gt; #variant_str,)
-			},
-		}
-	});
+	<span class="kw">let </span>as_str_matches = error.variants.iter().map(
+		|VariantDef { ident: variant, field: field_ty, docs: <span class="kw">_</span>, cfg_attrs }| {
+			<span class="kw">let </span>variant_str = variant.to_string();
+			<span class="kw">let </span>cfg_attrs = cfg_attrs.iter().map(|attr| attr.to_token_stream());
+			<span class="kw">match </span>field_ty {
+				<span class="prelude-val">Some</span>(VariantField { is_named: <span class="bool-val">true </span>}) =&gt; {
+					<span class="macro">quote::quote_spanned!</span>(error.attr_span =&gt; #( #cfg_attrs )* <span class="self">Self</span>::#variant { .. } =&gt; #variant_str,)
+				},
+				<span class="prelude-val">Some</span>(VariantField { is_named: <span class="bool-val">false </span>}) =&gt; {
+					<span class="macro">quote::quote_spanned!</span>(error.attr_span =&gt; #( #cfg_attrs )* <span class="self">Self</span>::#variant(..) =&gt; #variant_str,)
+				},
+				<span class="prelude-val">None </span>=&gt; {
+					<span class="macro">quote::quote_spanned!</span>(error.attr_span =&gt; #( #cfg_attrs )* <span class="self">Self</span>::#variant =&gt; #variant_str,)
+				},
+			}
+		},
+	);
 
 	<span class="kw">let </span>error_item = {
 		<span class="kw">let </span>item = <span class="kw-2">&amp;mut </span>def.item.content.as_mut().expect(<span class="string">&quot;Checked by def parser&quot;</span>).<span class="number">1</span>[error.index];

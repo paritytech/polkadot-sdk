@@ -461,6 +461,10 @@
 <a href="#461" id="461">461</a>
 <a href="#462" id="462">462</a>
 <a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
+<a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -548,6 +552,8 @@
 	</span><span class="kw">pub </span>docs: Vec&lt;syn::Expr&gt;,
 	<span class="doccomment">/// Attributes annotated at the top of the dispatchable function.
 	</span><span class="kw">pub </span>attrs: Vec&lt;syn::Attribute&gt;,
+	<span class="doccomment">/// The `cfg` attributes.
+	</span><span class="kw">pub </span>cfg_attrs: Vec&lt;syn::Attribute&gt;,
 	<span class="doccomment">/// The optional `feeless_if` attribute on the `pallet::call`.
 	</span><span class="kw">pub </span>feeless_check: <span class="prelude-ty">Option</span>&lt;syn::ExprClosure&gt;,
 }
@@ -729,6 +735,7 @@
 					<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(method.sig.span(), msg))
 				}
 
+				<span class="kw">let </span>cfg_attrs: Vec&lt;syn::Attribute&gt; = helper::get_item_cfg_attrs(<span class="kw-2">&amp;</span>method.attrs);
 				<span class="kw">let </span><span class="kw-2">mut </span>call_idx_attrs = <span class="macro">vec!</span>[];
 				<span class="kw">let </span><span class="kw-2">mut </span>weight_attrs = <span class="macro">vec!</span>[];
 				<span class="kw">let </span><span class="kw-2">mut </span>feeless_attrs = <span class="macro">vec!</span>[];
@@ -905,6 +912,7 @@
 					args,
 					docs,
 					attrs: method.attrs.clone(),
+					cfg_attrs,
 					feeless_check,
 				});
 			} <span class="kw">else </span>{
