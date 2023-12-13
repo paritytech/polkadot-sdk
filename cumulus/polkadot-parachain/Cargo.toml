@@ -113,7 +113,9 @@ tokio = { version = "1.32.0", features = ["macros", "parking_lot", "time"] }
 wait-timeout = "0.2"
 
 [features]
-default = []
+default = [
+	"beacon-spec-mainnet"
+]
 runtime-benchmarks = [
 	"asset-hub-rococo-runtime/runtime-benchmarks",
 	"asset-hub-westend-runtime/runtime-benchmarks",
@@ -153,4 +155,6 @@ try-runtime = [
 	"shell-runtime/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-beacon-spec-mainnet = []
+beacon-spec-mainnet = [
+	"bridge-hub-rococo-runtime/beacon-spec-mainnet"
+]
