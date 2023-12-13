@@ -8,6 +8,7 @@ license = "Apache-2.0"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
+impl-trait-for-tuples = "0.2"
 log = { version = "0.4.20", default-features = false }
 
 # Substrate
@@ -19,6 +20,7 @@ sp-core = { path = "../../../../../substrate/primitives/core", default-features 
 sp-io = { path = "../../../../../substrate/primitives/io", default-features = false }
 sp-keyring = { path = "../../../../../substrate/primitives/keyring" }
 sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false }
+sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
 sp-tracing = { path = "../../../../../substrate/primitives/tracing" }
 pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false }
 pallet-utility = { path = "../../../../../substrate/frame/utility", default-features = false }
@@ -90,6 +92,7 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
+	"sp-std/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",

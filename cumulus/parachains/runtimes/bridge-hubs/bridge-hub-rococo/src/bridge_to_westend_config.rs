@@ -20,7 +20,7 @@ use crate::{
 	bridge_common_config::{BridgeParachainWestendInstance, DeliveryRewardInBalance},
 	weights,
 	xcm_config::UniversalLocation,
-	AccountId, BridgeWestendMessages, Runtime, RuntimeEvent, RuntimeOrigin,
+	AccountId, BridgeWestendMessages, PolkadotXcm, Runtime, RuntimeEvent, RuntimeOrigin,
 	XcmOverBridgeHubWestend, XcmRouter,
 };
 use bp_messages::LaneId;
@@ -33,7 +33,7 @@ use bridge_runtime_common::{
 	},
 	messages_xcm_extension::{
 		SenderAndLane, XcmAsPlainPayload, XcmBlobHauler, XcmBlobHaulerAdapter,
-		XcmBlobMessageDispatch,
+		XcmBlobMessageDispatch, XcmVersionOfDestAndRemoteBridge,
 	},
 	refund_relayer_extension::{
 		ActualFeeRefund, RefundBridgedParachainMessages, RefundSignedExtensionAdapter,
@@ -58,6 +58,10 @@ parameter_types! {
 	pub const BridgeHubWestendChainId: bp_runtime::ChainId = bp_runtime::BRIDGE_HUB_WESTEND_CHAIN_ID;
 	pub BridgeRococoToWestendMessagesPalletInstance: InteriorMultiLocation = X1(PalletInstance(<BridgeWestendMessages as PalletInfoAccess>::index() as u8));
 	pub WestendGlobalConsensusNetwork: NetworkId = NetworkId::Westend;
+	pub WestendGlobalConsensusNetworkLocation: MultiLocation = MultiLocation {
+		parents: 2,
+		interior: X1(GlobalConsensus(WestendGlobalConsensusNetwork::get()))
+	};
 	// see the `FEE_BOOST_PER_MESSAGE` constant to get the meaning of this value
 	pub PriorityBoostPerMessage: u64 = 182_044_444_444_444;
 
@@ -80,6 +84,14 @@ parameter_types! {
 
 	pub CongestedMessage: Xcm<()> = build_congestion_message(true).into();
 	pub UncongestedMessage: Xcm<()> = build_congestion_message(false).into();
+
+	pub BridgeHubWestendLocation: MultiLocation = MultiLocation {
+		parents: 2,
+		interior: X2(
+			GlobalConsensus(WestendGlobalConsensusNetwork::get()),
+			Parachain(<bp_bridge_hub_westend::BridgeHubWestend as bp_runtime::Parachain>::PARACHAIN_ID)
+		)
+	};
 }
 pub const XCM_LANE_FOR_ASSET_HUB_ROCOCO_TO_ASSET_HUB_WESTEND: LaneId = LaneId([0, 0, 0, 2]);
 
@@ -120,7 +132,6 @@ pub struct ToBridgeHubWestendXcmBlobHauler;
 impl XcmBlobHauler for ToBridgeHubWestendXcmBlobHauler {
 	type Runtime = Runtime;
 	type MessagesInstance = WithBridgeHubWestendMessagesInstance;
-
 	type ToSourceChainSender = XcmRouter;
 	type CongestedMessage = CongestedMessage;
 	type UncongestedMessage = UncongestedMessage;
@@ -234,9 +245,11 @@ impl pallet_bridge_messages::Config<WithBridgeHubWestendMessagesInstance> for Ru
 pub type XcmOverBridgeHubWestendInstance = pallet_xcm_bridge_hub::Instance1;
 impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubWestendInstance> for Runtime {
 	type UniversalLocation = UniversalLocation;
-	type BridgedNetworkId = WestendGlobalConsensusNetwork;
+	type BridgedNetwork = WestendGlobalConsensusNetworkLocation;
 	type BridgeMessagesPalletInstance = WithBridgeHubWestendMessagesInstance;
 	type MessageExportPrice = ();
+	type DestinationVersion =
+		XcmVersionOfDestAndRemoteBridge<PolkadotXcm, BridgeHubWestendLocation>;
 	type Lanes = ActiveLanes;
 	type LanesSupport = ToBridgeHubWestendXcmBlobHauler;
 }
