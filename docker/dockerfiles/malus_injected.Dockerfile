@@ -1,4 +1,4 @@
-FROM debian:bullseye-slim
+FROM debian:bookworm-20231120-slim
 
 # metadata
 ARG VCS_REF
