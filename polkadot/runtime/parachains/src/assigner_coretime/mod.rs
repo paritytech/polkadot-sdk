@@ -208,31 +208,23 @@ struct AssignmentState {
 	remaining: PartsOf57600,
 }
 
-impl<N> CoreDescriptor<N> {
-	fn update_from_schedule(&mut self, schedule: Schedule<N>, queue_last: N) {
-		let Schedule { assignments, end_hint, next_schedule } = schedule;
-
-		let step = if let Some(min_step_assignment) = assignments.iter().map(|a| a.1).min() {
-			min_step_assignment
-		} else {
-			// Assignments empty, should not exist. In any case step size does not matter here:
-			log::debug!("assignments of a `Schedule` should never be empty.");
-			PartsOf57600(1)
-		};
+impl<N> From<Schedule<N>> for WorkState<N> {
+	fn from(schedule: Schedule<N>) -> Self {
+		let Schedule { assignments, end_hint, next_schedule: _ } = schedule;
+		let step =
+			if let Some(min_step_assignment) = assignments.iter().min_by(|a, b| a.1.cmp(&b.1)) {
+				min_step_assignment.1
+			} else {
+				// Assignments empty, should not exist. In any case step size does not matter here:
+				log::debug!("assignments of a `Schedule` should never be empty.");
+				PartsOf57600(1)
+			};
 		let assignments = assignments
 			.into_iter()
 			.map(|(a, ratio)| (a, AssignmentState { ratio, remaining: ratio }))
 			.collect();
 
-		self.current_work = Some(WorkState { assignments, end_hint, pos: 0, step });
-
-		self.queue = next_schedule.map(|new_first| {
-			QueueDescriptor {
-				first: new_first,
-				// `last` stays unaffected, if not empty:
-				last: queue_last,
-			}
-		});
+		Self { assignments, end_hint, pos: 0, step }
 	}
 }
 
@@ -445,11 +437,16 @@ impl<T: Config> Pallet<T> {
 
 		// Update is needed:
 		let update = CoreSchedules::<T>::take((next_scheduled, core_idx));
-		if let Some(update) = update {
-			descriptor.update_from_schedule(update, queue.last);
-		} else {
-			*descriptor = CoreDescriptor { current_work: None, queue: None };
-		}
+		let new_first = update.as_ref().and_then(|u| u.next_schedule);
+		descriptor.current_work = update.map(Into::into);
+
+		descriptor.queue = new_first.map(|new_first| {
+			QueueDescriptor {
+				first: new_first,
+				// `last` stays unaffected, if not empty:
+				last: queue.last,
+			}
+		});
 	}
 
 	/// Append another assignment for a core.
