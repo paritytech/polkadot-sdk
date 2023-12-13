@@ -1124,7 +1124,8 @@ fn find_potential_parents_aligned_with_pending() {
 
 	let backend = Arc::new(Backend::new_test(1000, 1));
 	let client = Arc::new(TestClientBuilder::with_backend(backend.clone()).build());
-	let mut para_import = ParachainBlockImport::new(client.clone(), backend.clone());
+	let mut para_import =
+		ParachainBlockImport::new_with_delayed_best_block(client.clone(), backend.clone());
 
 	let relay_parent = relay_hash_from_block_num(10);
 	// Choose different relay parent for alternative chain to get new hashes.
@@ -1279,7 +1280,8 @@ fn find_potential_parents_aligned_no_pending() {
 
 	let backend = Arc::new(Backend::new_test(1000, 1));
 	let client = Arc::new(TestClientBuilder::with_backend(backend.clone()).build());
-	let mut para_import = ParachainBlockImport::new(client.clone(), backend.clone());
+	let mut para_import =
+		ParachainBlockImport::new_with_delayed_best_block(client.clone(), backend.clone());
 
 	let relay_parent = relay_hash_from_block_num(10);
 	// Choose different relay parent for alternative chain to get new hashes.

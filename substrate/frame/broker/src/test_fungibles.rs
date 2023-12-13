@@ -168,7 +168,7 @@ where
 
 impl<
 		Instance: Get<u32>,
-		AccountId: Encode,
+		AccountId: Encode + Eq,
 		AssetId: tokens::AssetId + Copy,
 		MinimumBalance: TypedGet,
 		HoldReason,

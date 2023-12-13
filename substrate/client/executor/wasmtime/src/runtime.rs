@@ -24,6 +24,7 @@ use crate::{
 	util::{self, replace_strategy_if_broken},
 };
 
+use parking_lot::Mutex;
 use sc_allocator::{AllocationStats, FreeingBumpHeapAllocator};
 use sc_executor_common::{
 	error::{Error, Result, WasmError},
@@ -41,6 +42,8 @@ use std::{
 	},
 };
 use wasmtime::{AsContext, Engine, Memory, Table};
+
+const MAX_INSTANCE_COUNT: u32 = 64;
 
 #[derive(Default)]
 pub(crate) struct StoreData {
@@ -73,11 +76,59 @@ enum Strategy {
 struct InstanceCreator {
 	engine: Engine,
 	instance_pre: Arc<wasmtime::InstancePre<StoreData>>,
+	instance_counter: Arc<InstanceCounter>,
 }
 
 impl InstanceCreator {
 	fn instantiate(&mut self) -> Result<InstanceWrapper> {
-		InstanceWrapper::new(&self.engine, &self.instance_pre)
+		InstanceWrapper::new(&self.engine, &self.instance_pre, self.instance_counter.clone())
+	}
+}
+
+/// A handle for releasing an instance acquired by [`InstanceCounter::acquire_instance`].
+pub(crate) struct ReleaseInstanceHandle {
+	counter: Arc<InstanceCounter>,
+}
+
+impl Drop for ReleaseInstanceHandle {
+	fn drop(&mut self) {
+		{
+			let mut counter = self.counter.counter.lock();
+			*counter = counter.saturating_sub(1);
+		}
+
+		self.counter.wait_for_instance.notify_one();
+	}
+}
+
+/// Keeps track on the number of parallel instances.
+///
+/// The runtime cache keeps track on the number of parallel instances. The maximum number in the
+/// cache is less than what we have configured as [`MAX_INSTANCE_COUNT`] for wasmtime. However, the
+/// cache will create on demand instances if required. This instance counter will ensure that we are
+/// blocking when we are trying to create too many instances.
+#[derive(Default)]
+pub(crate) struct InstanceCounter {
+	counter: Mutex<u32>,
+	wait_for_instance: parking_lot::Condvar,
+}
+
+impl InstanceCounter {
+	/// Acquire an instance.
+	///
+	/// Blocks if there is no free instance available.
+	///
+	/// The returned [`ReleaseInstanceHandle`] should be dropped when the instance isn't used
+	/// anymore.
+	pub fn acquire_instance(self: Arc<Self>) -> ReleaseInstanceHandle {
+		let mut counter = self.counter.lock();
+
+		while *counter >= MAX_INSTANCE_COUNT {
+			self.wait_for_instance.wait(&mut counter);
+		}
+		*counter += 1;
+
+		ReleaseInstanceHandle { counter: self.clone() }
 	}
 }
 
@@ -87,6 +138,7 @@ pub struct WasmtimeRuntime {
 	engine: Engine,
 	instance_pre: Arc<wasmtime::InstancePre<StoreData>>,
 	instantiation_strategy: InternalInstantiationStrategy,
+	instance_counter: Arc<InstanceCounter>,
 }
 
 impl WasmModule for WasmtimeRuntime {
@@ -95,6 +147,7 @@ impl WasmModule for WasmtimeRuntime {
 			InternalInstantiationStrategy::Builtin => Strategy::RecreateInstance(InstanceCreator {
 				engine: self.engine.clone(),
 				instance_pre: self.instance_pre.clone(),
+				instance_counter: self.instance_counter.clone(),
 			}),
 		};
 
@@ -277,7 +330,7 @@ fn common_config(semantics: &Semantics) -> std::result::Result<wasmtime::Config,
 			.instance_memories(1)
 			// This determines how many instances of the module can be
 			// instantiated in parallel from the same `Module`.
-			.instance_count(32);
+			.instance_count(MAX_INSTANCE_COUNT);
 
 		config.allocation_strategy(wasmtime::InstanceAllocationStrategy::Pooling(pooling_config));
 	}
@@ -587,7 +640,12 @@ where
 		.instantiate_pre(&module)
 		.map_err(|e| WasmError::Other(format!("cannot preinstantiate module: {:#}", e)))?;
 
-	Ok(WasmtimeRuntime { engine, instance_pre: Arc::new(instance_pre), instantiation_strategy })
+	Ok(WasmtimeRuntime {
+		engine,
+		instance_pre: Arc::new(instance_pre),
+		instantiation_strategy,
+		instance_counter: Default::default(),
+	})
 }
 
 fn prepare_blob_for_compilation(

@@ -30,17 +30,17 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo,
-	DmpMessageHandler, GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage,
-	MessageSendError, OutboundHrmpMessage, ParaId, PersistedValidationData, UpwardMessage,
-	UpwardMessageSender, XcmpMessageHandler, XcmpMessageSource,
+	GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage, MessageSendError,
+	OutboundHrmpMessage, ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender,
+	XcmpMessageHandler, XcmpMessageSource,
 };
 use cumulus_primitives_parachain_inherent::{MessageQueueChain, ParachainInherentData};
 use frame_support::{
+	defensive,
 	dispatch::{DispatchResult, Pays, PostDispatchInfo},
 	ensure,
 	inherent::{InherentData, InherentIdentifier, ProvideInherent},
-	storage,
-	traits::Get,
+	traits::{Get, HandleMessage},
 	weights::Weight,
 };
 use frame_system::{ensure_none, ensure_root, pallet_prelude::HeaderFor};
@@ -53,15 +53,20 @@ use sp_runtime::{
 		InvalidTransaction, TransactionLongevity, TransactionSource, TransactionValidity,
 		ValidTransaction,
 	},
-	DispatchError, FixedU128, RuntimeDebug, Saturating,
+	BoundedSlice, DispatchError, FixedU128, RuntimeDebug, Saturating,
 };
 use sp_std::{cmp, collections::btree_map::BTreeMap, prelude::*};
 use xcm::latest::XcmHash;
 
+mod benchmarking;
 pub mod migration;
-
+mod mock;
 #[cfg(test)]
 mod tests;
+pub mod weights;
+
+pub use weights::WeightInfo;
+
 mod unincluded_segment;
 
 pub mod consensus_hook;
@@ -178,6 +183,9 @@ where
 	check_version: bool,
 }
 
+/// The max length of a DMP message.
+pub type MaxDmpMessageLenOf<T> = <<T as Config>::DmpQueue as HandleMessage>::MaxMessageLen;
+
 pub mod ump_constants {
 	use super::FixedU128;
 
@@ -217,17 +225,18 @@ pub mod pallet {
 		/// The place where outbound XCMP messages come from. This is queried in `finalize_block`.
 		type OutboundXcmpMessageSource: XcmpMessageSource;
 
-		/// The message handler that will be invoked when messages are received via DMP.
-		type DmpMessageHandler: DmpMessageHandler;
+		/// Queues inbound downward messages for delayed processing.
+		///
+		/// All inbound DMP messages from the relay are pushed into this. The handler is expected to
+		/// eventually process all the messages that are pushed to it.
+		type DmpQueue: HandleMessage;
 
 		/// The weight we reserve at the beginning of the block for processing DMP messages.
 		type ReservedDmpWeight: Get<Weight>;
 
 		/// The message handler that will be invoked when messages are received via XCMP.
 		///
-		/// The messages are dispatched in the order they were relayed by the relay chain. If
-		/// multiple messages were relayed at one block, these will be dispatched in ascending
-		/// order of the sender's para ID.
+		/// This should normally link to the XCMP Queue pallet.
 		type XcmpMessageHandler: XcmpMessageHandler;
 
 		/// The weight we reserve at the beginning of the block for processing XCMP messages.
@@ -235,6 +244,9 @@ pub mod pallet {
 
 		/// Something that can check the associated relay parent block number.
 		type CheckAssociatedRelayNumber: CheckAssociatedRelayNumber;
+
+		/// Weight info for functions and calls.
+		type WeightInfo: WeightInfo;
 
 		/// An entry-point for higher-level logic to manage the backlog of unincluded parachain
 		/// blocks and authorship rights for those blocks.
@@ -598,7 +610,7 @@ pub mod pallet {
 					);
 					let validation_code = <PendingValidationCode<T>>::take();
 
-					Self::put_parachain_code(&validation_code);
+					frame_system::Pallet::<T>::update_code_in_storage(&validation_code);
 					<T::OnSystemEvent as OnSystemEvent>::on_validation_code_applied();
 					Self::deposit_event(Event::ValidationFunctionApplied {
 						relay_chain_block_num: vfp.relay_parent_number,
@@ -632,15 +644,15 @@ pub mod pallet {
 
 			<T::OnSystemEvent as OnSystemEvent>::on_validation_data(&vfp);
 
-			total_weight += Self::process_inbound_downward_messages(
+			total_weight.saturating_accrue(Self::enqueue_inbound_downward_messages(
 				relevant_messaging_state.dmq_mqc_head,
 				downward_messages,
-			);
-			total_weight += Self::process_inbound_horizontal_messages(
+			));
+			total_weight.saturating_accrue(Self::enqueue_inbound_horizontal_messages(
 				&relevant_messaging_state.ingress_channels,
 				horizontal_messages,
 				vfp.relay_parent_number,
-			);
+			));
 
 			Ok(PostDispatchInfo { actual_weight: Some(total_weight), pays_fee: Pays::No })
 		}
@@ -1131,7 +1143,7 @@ impl<T: Config> Pallet<T> {
 		// inherent.
 	}
 
-	/// Process all inbound downward messages relayed by the collator.
+	/// Enqueue all inbound downward messages relayed by the collator into the MQ pallet.
 	///
 	/// Checks if the sequence of the messages is valid, dispatches them and communicates the
 	/// number of processed messages to the collator via a storage update.
@@ -1140,26 +1152,33 @@ impl<T: Config> Pallet<T> {
 	///
 	/// If it turns out that after processing all messages the Message Queue Chain
 	/// hash doesn't match the expected.
-	fn process_inbound_downward_messages(
+	fn enqueue_inbound_downward_messages(
 		expected_dmq_mqc_head: relay_chain::Hash,
 		downward_messages: Vec<InboundDownwardMessage>,
 	) -> Weight {
 		let dm_count = downward_messages.len() as u32;
 		let mut dmq_head = <LastDmqMqcHead<T>>::get();
 
-		let mut weight_used = Weight::zero();
+		let weight_used = T::WeightInfo::enqueue_inbound_downward_messages(dm_count);
 		if dm_count != 0 {
 			Self::deposit_event(Event::DownwardMessagesReceived { count: dm_count });
-			let max_weight =
-				<ReservedDmpWeightOverride<T>>::get().unwrap_or_else(T::ReservedDmpWeight::get);
 
-			let message_iter = downward_messages
-				.into_iter()
-				.inspect(|m| {
-					dmq_head.extend_downward(m);
-				})
-				.map(|m| (m.sent_at, m.msg));
-			weight_used += T::DmpMessageHandler::handle_dmp_messages(message_iter, max_weight);
+			// Eagerly update the MQC head hash:
+			for m in &downward_messages {
+				dmq_head.extend_downward(m);
+			}
+			let bounded = downward_messages
+				.iter()
+				// Note: we are not using `.defensive()` here since that prints the whole value to
+				// console. In case that the message is too long, this clogs up the log quite badly.
+				.filter_map(|m| match BoundedSlice::try_from(&m.msg[..]) {
+					Ok(bounded) => Some(bounded),
+					Err(_) => {
+						defensive!("Inbound Downward message was too long; dropping");
+						None
+					},
+				});
+			T::DmpQueue::handle_messages(bounded);
 			<LastDmqMqcHead<T>>::put(&dmq_head);
 
 			Self::deposit_event(Event::DownwardMessagesProcessed {
@@ -1182,14 +1201,15 @@ impl<T: Config> Pallet<T> {
 
 	/// Process all inbound horizontal messages relayed by the collator.
 	///
-	/// This is similar to `Pallet::process_inbound_downward_messages`, but works on multiple
-	/// inbound channels.
+	/// This is similar to [`enqueue_inbound_downward_messages`], but works with multiple inbound
+	/// channels. It immediately dispatches signals and queues all other XCMs. Blob messages are
+	/// ignored.
 	///
 	/// **Panics** if either any of horizontal messages submitted by the collator was sent from
 	///            a para which has no open channel to this parachain or if after processing
 	///            messages across all inbound channels MQCs were obtained which do not
 	///            correspond to the ones found on the relay-chain.
-	fn process_inbound_horizontal_messages(
+	fn enqueue_inbound_horizontal_messages(
 		ingress_channels: &[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
 		horizontal_messages: BTreeMap<ParaId, Vec<InboundHrmpMessage>>,
 		relay_parent_number: relay_chain::BlockNumber,
@@ -1397,12 +1417,6 @@ impl<T: Config> Pallet<T> {
 	fn notify_polkadot_of_pending_upgrade(code: &[u8]) {
 		NewValidationCode::<T>::put(code);
 		<DidSetValidationCode<T>>::put(true);
-	}
-
-	/// Put a new validation function into a particular location where this
-	/// parachain will execute it on subsequent blocks.
-	fn put_parachain_code(code: &[u8]) {
-		storage::unhashed::put_raw(sp_core::storage::well_known_keys::CODE, code);
 	}
 
 	/// The maximum code size permitted, in bytes.

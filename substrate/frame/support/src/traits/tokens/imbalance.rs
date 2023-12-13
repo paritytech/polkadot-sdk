@@ -25,7 +25,7 @@ use sp_std::ops::Div;
 mod on_unbalanced;
 mod signed_imbalance;
 mod split_two_ways;
-pub use on_unbalanced::OnUnbalanced;
+pub use on_unbalanced::{OnUnbalanced, ResolveAssetTo, ResolveTo};
 pub use signed_imbalance::SignedImbalance;
 pub use split_two_ways::SplitTwoWays;
 

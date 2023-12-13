@@ -26,7 +26,7 @@ use polkadot_node_core_candidate_validation::Config as CandidateValidationConfig
 use polkadot_node_core_chain_selection::Config as ChainSelectionConfig;
 use polkadot_node_core_dispute_coordinator::Config as DisputeCoordinatorConfig;
 use polkadot_node_network_protocol::{
-	peer_set::PeerSetProtocolNames,
+	peer_set::{PeerSet, PeerSetProtocolNames},
 	request_response::{
 		v1 as request_v1, v2 as request_v2, IncomingRequestReceiver, ReqProtocolNames,
 	},
@@ -40,17 +40,17 @@ use polkadot_overseer::{
 	metrics::Metrics as OverseerMetrics, InitializedOverseerBuilder, MetricsTrait, Overseer,
 	OverseerConnector, OverseerHandle, SpawnGlue,
 };
-use schnellru::{ByLength, LruMap};
 
+use parking_lot::Mutex;
 use polkadot_primitives::runtime_api::ParachainHost;
 use sc_authority_discovery::Service as AuthorityDiscoveryService;
 use sc_client_api::AuxStore;
 use sc_keystore::LocalKeystore;
-use sc_network::NetworkStateInfo;
+use sc_network::{NetworkStateInfo, NotificationService};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_babe::BabeApi;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 pub use polkadot_approval_distribution::ApprovalDistribution as ApprovalDistributionSubsystem;
 pub use polkadot_availability_bitfield_distribution::BitfieldDistribution as BitfieldDistributionSubsystem;
@@ -141,6 +141,8 @@ where
 	pub peerset_protocol_names: PeerSetProtocolNames,
 	/// The offchain transaction pool factory.
 	pub offchain_transaction_pool_factory: OffchainTransactionPoolFactory<Block>,
+	/// Notification services for validation/collation protocols.
+	pub notification_services: HashMap<PeerSet, Box<dyn NotificationService>>,
 }
 
 /// Obtain a prepared `OverseerBuilder`, that is initialized
@@ -174,6 +176,7 @@ pub fn prepared_overseer_builder<Spawner, RuntimeClient>(
 		req_protocol_names,
 		peerset_protocol_names,
 		offchain_transaction_pool_factory,
+		notification_services,
 	}: OverseerGenArgs<Spawner, RuntimeClient>,
 ) -> Result<
 	InitializedOverseerBuilder<
@@ -219,6 +222,7 @@ where
 	use polkadot_node_subsystem_util::metrics::Metrics;
 
 	let metrics = <OverseerMetrics as MetricsTrait>::register(registry)?;
+	let notification_sinks = Arc::new(Mutex::new(HashMap::new()));
 
 	let spawner = SpawnGlue(spawner);
 
@@ -236,6 +240,7 @@ where
 			network_bridge_metrics.clone(),
 			req_protocol_names,
 			peerset_protocol_names.clone(),
+			notification_sinks.clone(),
 		))
 		.network_bridge_rx(NetworkBridgeRxSubsystem::new(
 			network_service.clone(),
@@ -243,6 +248,8 @@ where
 			Box::new(sync_service.clone()),
 			network_bridge_metrics,
 			peerset_protocol_names,
+			notification_services,
+			notification_sinks,
 		))
 		.availability_distribution(AvailabilityDistributionSubsystem::new(
 			keystore.clone(),
@@ -342,7 +349,6 @@ where
 		.span_per_active_leaf(Default::default())
 		.active_leaves(Default::default())
 		.supports_parachains(runtime_api_client)
-		.known_leaves(LruMap::new(ByLength::new(KNOWN_LEAVES_CACHE_SIZE)))
 		.metrics(metrics)
 		.spawner(spawner);
 
@@ -379,8 +385,6 @@ pub trait OverseerGen {
 	// but the amount of generic arguments that would be required as
 	// as consequence make this rather annoying to implement and use.
 }
-
-use polkadot_overseer::KNOWN_LEAVES_CACHE_SIZE;
 
 /// The regular set of subsystems.
 pub struct RealOverseerGen;

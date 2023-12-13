@@ -81,6 +81,8 @@ pub use traits::{Error, ExecuteXcm, GetWeight, Outcome, Result, SendError, SendR
 
 /// Basically just the XCM (more general) version of `ParachainDispatchOrigin`.
 #[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub enum OriginKind {
 	/// Origin should just be the native dispatch origin representation for the sender in the
 	/// local runtime framework. For Cumulus/Frame chains this is the `Parachain` or `Relay` origin
@@ -105,6 +107,7 @@ pub enum OriginKind {
 /// A global identifier of an account-bearing consensus system.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum NetworkId {
 	/// Unidentified/any.
 	Any,
@@ -141,6 +144,7 @@ impl TryFrom<NewNetworkId> for NetworkId {
 /// An identifier of a pluralistic body.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum BodyId {
 	/// The only body in its context.
 	Unit,
@@ -195,6 +199,7 @@ impl From<NewBodyId> for BodyId {
 /// A part of a pluralistic body.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum BodyPart {
 	/// The body's declaration, under whatever means it decides.
 	Voice,
@@ -262,6 +267,7 @@ pub type QueryId = u64;
 #[codec(encode_bound())]
 #[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(RuntimeCall))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub struct Xcm<RuntimeCall>(pub Vec<Instruction<RuntimeCall>>);
 
 impl<RuntimeCall> Xcm<RuntimeCall> {
@@ -357,6 +363,7 @@ pub mod prelude {
 
 /// Response data to a query.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum Response {
 	/// No response. Serves as a neutral default.
 	Null,
@@ -376,6 +383,7 @@ impl Default for Response {
 
 /// An optional weight limit.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum WeightLimit {
 	/// No weight limit imposed.
 	Unlimited,
@@ -428,6 +436,7 @@ pub type Weight = u64;
 #[codec(encode_bound())]
 #[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(RuntimeCall))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum Instruction<RuntimeCall> {
 	/// Withdraw asset(s) (`assets`) from the ownership of `origin` and place them into the Holding
 	/// Register.
