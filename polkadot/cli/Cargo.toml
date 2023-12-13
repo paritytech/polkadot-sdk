@@ -16,7 +16,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 cfg-if = "1.0"
-clap = { version = "4.4.10", features = ["derive"], optional = true }
+clap = { version = "4.4.11", features = ["derive"], optional = true }
 log = "0.4.17"
 thiserror = "1.0.48"
 futures = "0.3.21"
@@ -75,5 +75,3 @@ runtime-metrics = [
 	"polkadot-node-metrics/runtime-metrics",
 	"service/runtime-metrics",
 ]
-
-network-protocol-staging = ["service/network-protocol-staging"]

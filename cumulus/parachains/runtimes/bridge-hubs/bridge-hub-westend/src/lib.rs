@@ -227,7 +227,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("bridge-hub-westend"),
 	impl_name: create_runtime_str!("bridge-hub-westend"),
 	authoring_version: 1,
-	spec_version: 1_004_000,
+	spec_version: 1_005_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 3,
@@ -543,6 +543,7 @@ construct_runtime!(
 		BridgeRococoGrandpa: pallet_bridge_grandpa::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 42,
 		BridgeRococoParachains: pallet_bridge_parachains::<Instance1>::{Pallet, Call, Storage, Event<T>} = 43,
 		BridgeRococoMessages: pallet_bridge_messages::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 44,
+		XcmOverBridgeHubRococo: pallet_xcm_bridge_hub::<Instance1>::{Pallet} = 45,
 
 		// Message Queue. Importantly, is registered last so that messages are processed after
 		// the `on_initialize` hooks of bridging pallets.
@@ -868,6 +869,18 @@ impl_runtime_apis! {
 					// Reserve transfers are disabled on BH.
 					None
 				}
+
+				fn set_up_complex_asset_transfer(
+				) -> Option<(MultiAssets, u32, MultiLocation, Box<dyn FnOnce()>)> {
+					// BH only supports teleports to system parachain.
+					// Relay/native token can be teleported between BH and Relay.
+					let native_location = Parent.into();
+					let dest = Parent.into();
+					pallet_xcm::benchmarking::helpers::native_teleport_as_asset_transfer::<Runtime>(
+						native_location,
+						dest
+					)
+				}
 			}
 
 			use xcm::latest::prelude::*;
@@ -964,7 +977,28 @@ impl_runtime_apis! {
 
 				fn export_message_origin_and_destination(
 				) -> Result<(MultiLocation, NetworkId, InteriorMultiLocation), BenchmarkError> {
-					Ok((WestendLocation::get(), NetworkId::Rococo, X1(Parachain(100))))
+					// save XCM version for remote bridge hub
+					let _ = PolkadotXcm::force_xcm_version(
+						RuntimeOrigin::root(),
+						Box::new(bridge_to_rococo_config::BridgeHubRococoLocation::get()),
+						XCM_VERSION,
+					).map_err(|e| {
+						log::error!(
+							"Failed to dispatch `force_xcm_version({:?}, {:?}, {:?})`, error: {:?}",
+							RuntimeOrigin::root(),
+							bridge_to_rococo_config::BridgeHubRococoLocation::get(),
+							XCM_VERSION,
+							e
+						);
+						BenchmarkError::Stop("XcmVersion was not stored!")
+					})?;
+					Ok(
+						(
+							bridge_to_rococo_config::FromAssetHubWestendToAssetHubRococoRoute::get().location,
+							NetworkId::Rococo,
+							X1(Parachain(bridge_to_rococo_config::AssetHubRococoParaId::get().into()))
+						)
+					)
 				}
 
 				fn alias_origin() -> Result<(MultiLocation, MultiLocation), BenchmarkError> {
