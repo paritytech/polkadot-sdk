@@ -119,6 +119,7 @@ impl pallet_staking::Config for Runtime {
 	type VoterList = VoterList;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<16>;
+	type MaxControllersInDeprecationBatch = ConstU32<100>;
 	type MaxUnlockingChunks = ConstU32<32>;
 	type HistoryDepth = ConstU32<84>;
 	type EventListeners = Pools;

@@ -1919,6 +1919,11 @@ impl<T: Config> BlockNumberProvider for Pallet<T> {
 	fn current_block_number() -> Self::BlockNumber {
 		Pallet::<T>::block_number()
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_block_number(n: BlockNumberFor<T>) {
+		Self::set_block_number(n)
+	}
 }
 
 /// Implement StoredMap for a simple single-item, provide-when-not-default system. This works fine

@@ -46,7 +46,7 @@ use parachains_runtimes_test_utils::{
 	XcmReceivedFrom,
 };
 use sp_runtime::{traits::Zero, AccountId32};
-use xcm::latest::prelude::*;
+use xcm::{latest::prelude::*, AlwaysLatest};
 use xcm_builder::DispatchBlobError;
 use xcm_executor::{
 	traits::{TransactAsset, WeightBounds},
@@ -243,6 +243,7 @@ pub fn message_dispatch_routing_works<
 	MessagesPalletInstance,
 	RuntimeNetwork,
 	BridgedNetwork,
+	NetworkDistanceAsParentCount,
 >(
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
@@ -272,7 +273,15 @@ pub fn message_dispatch_routing_works<
 	>,
 	RuntimeNetwork: Get<NetworkId>,
 	BridgedNetwork: Get<NetworkId>,
+	NetworkDistanceAsParentCount: Get<u8>,
 {
+	struct NetworkWithParentCount<N, C>(core::marker::PhantomData<(N, C)>);
+	impl<N: Get<NetworkId>, C: Get<u8>> Get<MultiLocation> for NetworkWithParentCount<N, C> {
+		fn get() -> MultiLocation {
+			MultiLocation { parents: C::get(), interior: X1(GlobalConsensus(N::get())) }
+		}
+	}
+
 	assert_ne!(runtime_para_id, sibling_parachain_id);
 
 	run_test::<Runtime, _>(collator_session_key, runtime_para_id, vec![], || {
@@ -289,7 +298,8 @@ pub fn message_dispatch_routing_works<
 		//    relay chain (UMP)
 		let bridging_message = test_data::simulate_message_exporter_on_bridged_chain::<
 			BridgedNetwork,
-			RuntimeNetwork,
+			NetworkWithParentCount<RuntimeNetwork, NetworkDistanceAsParentCount>,
+			AlwaysLatest,
 		>((RuntimeNetwork::get(), Here));
 		let result = <<Runtime as pallet_bridge_messages::Config<MessagesPalletInstance>>::MessageDispatch>::dispatch(
 			test_data::dispatch_message(expected_lane_id, 1, bridging_message)
@@ -312,7 +322,8 @@ pub fn message_dispatch_routing_works<
 		//    sibling parachain (HRMP)
 		let bridging_message = test_data::simulate_message_exporter_on_bridged_chain::<
 			BridgedNetwork,
-			RuntimeNetwork,
+			NetworkWithParentCount<RuntimeNetwork, NetworkDistanceAsParentCount>,
+			AlwaysLatest,
 		>((RuntimeNetwork::get(), X1(Parachain(sibling_parachain_id))));
 
 		// 2.1. WITHOUT opened hrmp channel -> RoutingError

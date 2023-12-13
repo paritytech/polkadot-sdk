@@ -31,6 +31,7 @@ use xcm::latest::prelude::*;
 use bp_messages::MessageNonce;
 use bp_runtime::BasicOperatingMode;
 use bp_test_utils::authority_list;
+use xcm::GetVersion;
 use xcm_builder::{HaulBlob, HaulBlobError, HaulBlobExporter};
 use xcm_executor::traits::{validate_export, ExportXcm};
 
@@ -100,7 +101,8 @@ macro_rules! grab_haul_blob (
 /// which are transferred over bridge.
 pub(crate) fn simulate_message_exporter_on_bridged_chain<
 	SourceNetwork: Get<NetworkId>,
-	DestinationNetwork: Get<NetworkId>,
+	DestinationNetwork: Get<MultiLocation>,
+	DestinationVersion: GetVersion,
 >(
 	(destination_network, destination_junctions): (NetworkId, Junctions),
 ) -> Vec<u8> {
@@ -113,7 +115,7 @@ pub(crate) fn simulate_message_exporter_on_bridged_chain<
 
 	// simulate XCM message export
 	let (ticket, fee) =
-		validate_export::<HaulBlobExporter<GrabbingHaulBlob, DestinationNetwork, ()>>(
+		validate_export::<HaulBlobExporter<GrabbingHaulBlob, DestinationNetwork, DestinationVersion, ()>>(
 			destination_network,
 			channel,
 			universal_source_on_bridged_chain,
@@ -126,7 +128,7 @@ pub(crate) fn simulate_message_exporter_on_bridged_chain<
 		"HaulBlobExporter::validate fee: {:?}",
 		fee
 	);
-	let xcm_hash = HaulBlobExporter::<GrabbingHaulBlob, DestinationNetwork, ()>::deliver(ticket)
+	let xcm_hash = HaulBlobExporter::<GrabbingHaulBlob, DestinationNetwork, DestinationVersion, ()>::deliver(ticket)
 		.expect("deliver to pass");
 	log::info!(
 		target: "simulate_message_exporter_on_bridged_chain",
