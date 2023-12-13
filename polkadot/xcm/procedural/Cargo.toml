@@ -7,6 +7,9 @@ license.workspace = true
 version = "1.0.0"
 publish = true
 
+[lints]
+workspace = true
+
 [lib]
 proc-macro = true
 
