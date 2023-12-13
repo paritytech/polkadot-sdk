@@ -201,11 +201,12 @@ pub fn handle_export_message_from_system_parachain_to_outbound_queue_works<
 		};
 
 		// execute XCM
-		let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
-		assert_ok!(XcmExecutor::<XcmConfig>::execute_xcm(
+		let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+		assert_ok!(XcmExecutor::<XcmConfig>::prepare_and_execute(
 			sibling_parachain_location,
 			xcm,
-			hash,
+			&mut hash,
+			RuntimeHelper::<Runtime>::xcm_max_weight(XcmReceivedFrom::Sibling),
 			RuntimeHelper::<Runtime>::xcm_max_weight(XcmReceivedFrom::Sibling),
 		)
 		.ensure_complete());

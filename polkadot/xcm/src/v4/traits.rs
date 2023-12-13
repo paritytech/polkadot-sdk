@@ -100,53 +100,6 @@ pub trait ExecuteXcm<Call> {
 		Self::execute(origin, pre, id, weight_credit)
 	}
 
-	/// Execute some XCM `message` with the message `hash` from `origin` using no more than
-	/// `weight_limit` weight.
-	///
-	/// The weight limit is a basic hard-limit and the implementation may place further
-	/// restrictions or requirements on weight and other aspects.
-	#[deprecated = "Use `prepare_and_execute` instead"]
-	fn execute_xcm(
-		origin: impl Into<Location>,
-		message: Xcm<Call>,
-		mut hash: XcmHash,
-		weight_limit: Weight,
-	) -> Outcome {
-		let origin = origin.into();
-		log::debug!(
-			target: "xcm::execute_xcm",
-			"origin: {:?}, message: {:?}, weight_limit: {:?}",
-			origin,
-			message,
-			weight_limit,
-		);
-		Self::prepare_and_execute(origin, message, &mut hash, weight_limit, Weight::zero())
-	}
-
-	/// Execute some XCM `message` with the message `hash` from `origin` using no more than
-	/// `weight_limit` weight.
-	///
-	/// Some amount of `weight_credit` may be provided which, depending on the implementation, may
-	/// allow execution without associated payment.
-	#[deprecated = "Use `prepare_and_execute` instead"]
-	fn execute_xcm_in_credit(
-		origin: impl Into<Location>,
-		message: Xcm<Call>,
-		mut hash: XcmHash,
-		weight_limit: Weight,
-		weight_credit: Weight,
-	) -> Outcome {
-		let pre = match Self::prepare(message) {
-			Ok(x) => x,
-			Err(_) => return Outcome::Error { error: Error::WeightNotComputable },
-		};
-		let xcm_weight = pre.weight_of();
-		if xcm_weight.any_gt(weight_limit) {
-			return Outcome::Error { error: Error::WeightLimitReached(xcm_weight) }
-		}
-		Self::execute(origin, pre, &mut hash, weight_credit)
-	}
-
 	/// Deduct some `fees` to the sovereign account of the given `location` and place them as per
 	/// the convention for fees.
 	fn charge_fees(location: impl Into<Location>, fees: Assets) -> Result;
