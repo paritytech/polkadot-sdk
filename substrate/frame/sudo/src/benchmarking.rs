@@ -20,8 +20,8 @@
 use super::*;
 use crate::Pallet;
 use frame_benchmarking::v2::*;
-use frame_system::RawOrigin;
 use frame_support::dispatch::DispatchInfo;
+use frame_system::RawOrigin;
 use sp_runtime::traits::{AsSystemOriginSigner, DispatchTransaction, Dispatchable};
 
 fn assert_last_event<T: Config>(generic_event: crate::Event<T>) {
@@ -29,7 +29,7 @@ fn assert_last_event<T: Config>(generic_event: crate::Event<T>) {
 	frame_system::Pallet::<T>::assert_last_event(re.into());
 }
 
-#[benchmarks(where 
+#[benchmarks(where
 	T: Config + Send + Sync,
 	<T as Config>::RuntimeCall: From<frame_system::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo>,
@@ -105,7 +105,8 @@ mod benchmarks {
 
 		#[block]
 		{
-			assert!(ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, 0, |_| Ok(().into()))
+			assert!(ext
+				.test_run(RawOrigin::Signed(caller).into(), &call, &info, 0, |_| Ok(().into()))
 				.unwrap()
 				.is_ok());
 		}
