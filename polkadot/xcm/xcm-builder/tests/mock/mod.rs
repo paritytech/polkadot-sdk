@@ -32,10 +32,12 @@ use xcm_executor::XcmExecutor;
 
 use staging_xcm_builder as xcm_builder;
 
+#[allow(deprecated)]
+use xcm_builder::CurrencyAdapter as XcmCurrencyAdapter;
 use xcm_builder::{
 	AccountId32Aliases, AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom,
 	ChildParachainAsNative, ChildParachainConvertsVia, ChildSystemParachainAsSuperuser,
-	CurrencyAdapter as XcmCurrencyAdapter, FixedRateOfFungible, FixedWeightBounds,
+	FixedRateOfFungible, FixedWeightBounds,
 	IsChildSystemParachain, IsConcrete, MintLocation, RespectSuspension, SignedAccountId32AsNative,
 	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 };
@@ -143,6 +145,7 @@ parameter_types! {
 pub type SovereignAccountOf =
 	(ChildParachainConvertsVia<ParaId, AccountId>, AccountId32Aliases<KusamaNetwork, AccountId>);
 
+#[allow(deprecated)]
 pub type LocalCurrencyAdapter = XcmCurrencyAdapter<
 	Balances,
 	IsConcrete<KsmLocation>,

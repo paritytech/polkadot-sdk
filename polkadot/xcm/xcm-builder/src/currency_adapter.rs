@@ -16,6 +16,8 @@
 
 //! Adapters to work with `frame_support::traits::Currency` through XCM.
 
+#![allow(deprecated)]
+
 use super::MintLocation;
 use frame_support::traits::{ExistenceRequirement::AllowDeath, Get, WithdrawReasons};
 use sp_runtime::traits::CheckedSub;

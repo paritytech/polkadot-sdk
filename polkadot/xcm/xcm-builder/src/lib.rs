@@ -65,6 +65,7 @@ mod process_xcm_message;
 pub use process_xcm_message::ProcessXcmMessage;
 
 mod currency_adapter;
+#[allow(deprecated)]
 pub use currency_adapter::CurrencyAdapter;
 
 mod fee_handling;
