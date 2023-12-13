@@ -25,6 +25,7 @@ struct SomeRectangle {}
 
 #[frame_support::register_default_impl(SomeRectangle)]
 impl Shape for SomeRectangle {
+    #[cfg(not(feature = "feature-frame-testing"))]
 	fn area(&self) -> u32 {
 		10
 	}
@@ -43,10 +44,9 @@ impl Shape for SomeSquare {}
 #[test]
 fn test_feature_parsing() {
 	let square = SomeSquare {};
+    #[cfg(not(feature = "feature-frame-testing"))]
 	assert_eq!(square.area(), 10);
 
 	#[cfg(feature = "feature-frame-testing")]
-	{
-		assert_eq!(square.area(), 0);
-	}
+    assert_eq!(square.area(), 0);
 }
