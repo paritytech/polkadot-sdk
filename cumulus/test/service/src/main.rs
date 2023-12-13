@@ -51,10 +51,8 @@ fn main() -> Result<(), sc_cli::Error> {
 		},
 		Some(Subcommand::ExportGenesisWasm(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
-			runner.sync_run(|_config| {
-				let parachain_id = ParaId::from(cmd.parachain_id);
-				let spec = cumulus_test_service::get_chain_spec(Some(parachain_id));
-				cmd.base.run(&spec)
+			runner.sync_run(|config| {
+				cmd.run(&*config.chain_spec)
 			})
 		},
 		None => {
