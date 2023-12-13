@@ -486,15 +486,13 @@ impl<T: Config> Pallet<T> {
 
 		// Checking for sort and unique manually, since we don't have access to iterator tools.
 		// This way of checking uniqueness only works since we also check sortedness.
-		let assignment_targets = assignments.iter().map(|x| &x.0);
-		let mut maybe_prior = None;
-		for target in assignment_targets {
-			if let Some(prior) = maybe_prior {
-				ensure!(target != prior, Error::<T>::AssignmentsNotUnique);
-				ensure!(target > prior, Error::<T>::AssignmentsNotSorted);
-			}
-			maybe_prior = Some(target);
-		}
+		assignments.iter().map(|x| &x.0).try_fold(None, |prev, cur| {
+		    if prev.map_or(false, |p| p >= cur) {
+		        Err(Error::<T>::AssignmentsNotSorted)
+		    } else {
+		         Ok(cur)
+		    }
+		})?;
 
 		// Check that the total parts between all assignments are equal to 57600
 		let parts_sum = assignments
