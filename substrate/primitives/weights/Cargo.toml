@@ -9,6 +9,9 @@ repository.workspace = true
 description = "Types and traits for interfacing between the host and the wasm runtime."
 documentation = "https://docs.rs/sp-wasm-interface"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
@@ -21,6 +24,7 @@ smallvec = "1.11.0"
 sp-arithmetic = { path = "../arithmetic", default-features = false }
 sp-debug-derive = { path = "../debug-derive", default-features = false }
 sp-std = { path = "../std", default-features = false }
+schemars = { version = "0.8.3", default-features = false, optional = true }
 
 [features]
 default = ["std"]
@@ -43,4 +47,8 @@ serde = [
 	"dep:serde",
 	"scale-info/serde",
 	"sp-arithmetic/serde",
+]
+
+json-schema = [
+	"dep:schemars",
 ]
