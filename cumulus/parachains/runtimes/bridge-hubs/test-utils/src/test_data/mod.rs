@@ -114,21 +114,25 @@ pub(crate) fn simulate_message_exporter_on_bridged_chain<
 	let channel = 1_u32;
 
 	// simulate XCM message export
-	let (ticket, fee) =
-		validate_export::<HaulBlobExporter<GrabbingHaulBlob, DestinationNetwork, DestinationVersion, ()>>(
-			destination_network,
-			channel,
-			universal_source_on_bridged_chain,
-			destination_junctions,
-			dummy_xcm(),
-		)
-		.expect("validate_export to pass");
+	let (ticket, fee) = validate_export::<
+		HaulBlobExporter<GrabbingHaulBlob, DestinationNetwork, DestinationVersion, ()>,
+	>(
+		destination_network,
+		channel,
+		universal_source_on_bridged_chain,
+		destination_junctions,
+		dummy_xcm(),
+	)
+	.expect("validate_export to pass");
 	log::info!(
 		target: "simulate_message_exporter_on_bridged_chain",
 		"HaulBlobExporter::validate fee: {:?}",
 		fee
 	);
-	let xcm_hash = HaulBlobExporter::<GrabbingHaulBlob, DestinationNetwork, DestinationVersion, ()>::deliver(ticket)
+	let xcm_hash =
+		HaulBlobExporter::<GrabbingHaulBlob, DestinationNetwork, DestinationVersion, ()>::deliver(
+			ticket,
+		)
 		.expect("deliver to pass");
 	log::info!(
 		target: "simulate_message_exporter_on_bridged_chain",
