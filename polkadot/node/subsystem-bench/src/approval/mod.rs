@@ -14,9 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use std::{
+	alloc::System,
 	collections::{BTreeMap, HashMap, HashSet},
+	fs,
+	io::Write,
 	sync::{
 		atomic::{AtomicBool, AtomicU32, AtomicU64},
 		Arc,
@@ -25,16 +29,19 @@ use std::{
 };
 
 use colored::Colorize;
-use futures::{channel::oneshot, lock::Mutex, FutureExt};
+use futures::{channel::oneshot, lock::Mutex, Future, FutureExt, StreamExt};
 use itertools::Itertools;
 use orchestra::TimeoutExt;
-use overseer::{metrics::Metrics as OverseerMetrics, MetricsTrait};
+use overseer::{messages, metrics::Metrics as OverseerMetrics, MetricsTrait};
 use polkadot_approval_distribution::{
 	metrics::Metrics as ApprovalDistributionMetrics, ApprovalDistribution,
 };
 use polkadot_node_core_approval_voting::{
 	criteria::{compute_assignments, Config},
-	time::{ClockExt, SystemClock},
+	time::{
+		slot_number_to_tick, tick_to_slot_number, tranche_to_tick, Clock, ClockExt, SystemClock,
+		Tick,
+	},
 	ApprovalVotingSubsystem, Metrics as ApprovalVotingMetrics,
 };
 use polkadot_node_primitives::approval::{
@@ -105,6 +112,7 @@ use crate::{
 
 use tokio::time::sleep;
 
+mod message_generator;
 mod mock_chain_api;
 mod mock_chain_selection;
 mod mock_runtime_api;
@@ -231,7 +239,7 @@ impl ApprovalTestState {
 
 		let delta_to_first_slot_under_test = Timestamp::new(BUFFER_FOR_GENERATION_MILLIS);
 		let initial_slot = Slot::from_timestamp(
-			Timestamp::current() + delta_to_first_slot_under_test,
+			(*Timestamp::current() - *delta_to_first_slot_under_test).into(),
 			SlotDuration::from_millis(SLOT_DURATION_MILLIS),
 		);
 
@@ -340,6 +348,74 @@ impl ApprovalTestState {
 			peer_message_source.generate_messages(&spawn_task_handle);
 		}
 	}
+
+	/// Starts the generation of messages(Assignments & Approvals) needed for approving blocks.
+	fn generate_messages(
+		&mut self,
+		network_emulator: &NetworkEmulator,
+		overseer_handle: OverseerHandleReal,
+		spawn_task_handle: &SpawnTaskHandle,
+	) {
+		gum::info!(target: LOG_TARGET, "Generate messages");
+
+		let topology = generate_topology(&self.test_authorities);
+
+		let topology_node_under_test =
+			topology.compute_grid_neighbors_for(ValidatorIndex(NODE_UNDER_TEST)).unwrap();
+		let (tx, mut rx) = futures::channel::mpsc::unbounded();
+		for current_validator_index in 1..self.test_authorities.keyrings.len() {
+			let peer_message_source = message_generator::PeerMessagesGenerator {
+				topology_node_under_test: topology_node_under_test.clone(),
+				topology: topology.clone(),
+				validator_index: ValidatorIndex(current_validator_index as u32),
+				network: network_emulator.clone(),
+				overseer_handle: overseer_handle.clone(),
+				state: self.clone(),
+				options: self.options.clone(),
+				tx_messages: tx.clone(),
+			};
+
+			peer_message_source.generate_messages(&spawn_task_handle);
+		}
+		std::mem::drop(tx);
+
+		let mut file = fs::OpenOptions::new()
+			.write(true)
+			.create(true)
+			.truncate(true)
+			.open(format!("/tmp/all_messages").as_str())
+			.unwrap();
+
+		let mut all_messages: BTreeMap<u64, Vec<TestMessage>> = BTreeMap::new();
+
+		loop {
+			match rx.try_next() {
+				Ok(Some((block_hash, messages))) =>
+					for message in messages {
+						let block_info = self.get_info_by_hash(block_hash);
+						let tick_to_send =
+							tranche_to_tick(SLOT_DURATION_MILLIS, block_info.slot, message.tranche);
+						if all_messages.contains_key(&tick_to_send) {
+							all_messages.get_mut(&tick_to_send).unwrap().push(message);
+						} else {
+							all_messages.insert(tick_to_send, vec![message]);
+						}
+					},
+				Ok(None) => break,
+				Err(_) => {
+					std::thread::sleep(Duration::from_millis(50));
+				},
+			}
+		}
+		let mut count = 0;
+		for message in all_messages {
+			for message in message.1 {
+				count += 1;
+				file.write_all(&message.serialize());
+			}
+		}
+		gum::info!("Took something like {:}", count);
+	}
 }
 
 impl ApprovalTestState {
@@ -368,7 +444,8 @@ impl ApprovalTestState {
 }
 
 /// Type of generated messages.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Encode, Decode, PartialEq, Eq)]
+
 enum MessageType {
 	Approval,
 	Assignment,
@@ -383,6 +460,22 @@ struct TestMessage {
 	/// It includes both the peers that would send the message because of the topology
 	/// or because of randomly chosing so.
 	sent_by: HashSet<(ValidatorIndex, PeerId)>,
+	/// The tranche at which this message should be sent.
+	tranche: u32,
+	/// The block hash this message refers to.
+	block_hash: Hash,
+	/// The type of the message.
+	typ: MessageType,
+}
+
+#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
+struct TestMessage2 {
+	/// The actual message
+	msg: protocol_v3::ApprovalDistributionMessage,
+	/// The list of peers that would sends this message in a real topology.
+	/// It includes both the peers that would send the message because of the topology
+	/// or because of randomly chosing so.
+	sent_by: Vec<ValidatorIndex>,
 	/// The tranche at which this message should be sent.
 	tranche: u32,
 	/// The block hash this message refers to.
@@ -468,6 +561,29 @@ impl TestMessage {
 		}
 		result
 	}
+
+	fn serialize(&self) -> Vec<u8> {
+		match &self.msg {
+			ApprovalDistributionMessage::NewBlocks(_) => todo!(),
+			ApprovalDistributionMessage::DistributeAssignment(_, _) => todo!(),
+			ApprovalDistributionMessage::DistributeApproval(_) => todo!(),
+			ApprovalDistributionMessage::NetworkBridgeUpdate(msg) => match msg {
+				NetworkBridgeEvent::PeerConnected(_, _, _, _) => todo!(),
+				NetworkBridgeEvent::PeerDisconnected(_) => todo!(),
+				NetworkBridgeEvent::NewGossipTopology(_) => todo!(),
+				NetworkBridgeEvent::PeerMessage(peer, msg) => match msg {
+					Versioned::V1(_) => todo!(),
+					Versioned::V2(_) => todo!(),
+					Versioned::V3(msg) => msg.encode(),
+				},
+				NetworkBridgeEvent::PeerViewChange(_, _) => todo!(),
+				NetworkBridgeEvent::OurViewChange(_) => todo!(),
+				NetworkBridgeEvent::UpdatedAuthorityIds(_, _) => todo!(),
+			},
+			ApprovalDistributionMessage::GetApprovalSignatures(_, _) => todo!(),
+			ApprovalDistributionMessage::ApprovalCheckingLagUpdate(_) => todo!(),
+		}
+	}
 }
 
 /// A generator of messages coming from a given Peer/Validator
@@ -496,15 +612,19 @@ impl PeerMessagesGenerator {
 		spawn_task_handle.spawn_blocking("generate-messages", "generate-messages", async move {
 			let mut messages_to_send = Vec::new();
 			let mut already_generated = HashSet::new();
-			let system_clock = SystemClock {};
+			let real_system_clock = SystemClock {};
+
+			let system_clock = FakeSystemClock::new(
+				SystemClock {},
+				real_system_clock.tick_now() -
+					slot_number_to_tick(SLOT_DURATION_MILLIS, self.state.initial_slot),
+			);
 
 			loop {
 				sleep(Duration::from_millis(50)).await;
 
-				let current_slot = Slot::from_timestamp(
-					Timestamp::current(),
-					SlotDuration::from_millis(SLOT_DURATION_MILLIS),
-				);
+				let current_slot =
+					tick_to_slot_number(SLOT_DURATION_MILLIS, system_clock.tick_now());
 
 				let block_info =
 					self.state.get_info_by_slot(current_slot).map(|block| block.clone());
@@ -577,7 +697,16 @@ impl PeerMessagesGenerator {
 							&self.options,
 							&mut rand_chacha,
 						);
-
+						let mut file = fs::OpenOptions::new()
+							.write(true)
+							.create(true)
+							.truncate(true)
+							.open(format!("/tmp/validator{}", self.validator_index.0).as_str())
+							.unwrap();
+						for assignment in assignments.iter().chain(approvals.iter()) {
+							let bytes = assignment.serialize();
+							file.write_all(&bytes);
+						}
 						let generated_assignments = assignments.into_iter().peekable();
 						let approvals = approvals.into_iter().peekable();
 
@@ -591,10 +720,8 @@ impl PeerMessagesGenerator {
 					// Messages are sorted per block and per tranches, so earlier blocks would be
 					// at the front of messages_to_send, so we always prefer to send all messages
 					// we can send for older blocks.
-					let current_slot = Slot::from_timestamp(
-						Timestamp::current(),
-						SlotDuration::from_millis(SLOT_DURATION_MILLIS),
-					);
+					let current_slot =
+						tick_to_slot_number(SLOT_DURATION_MILLIS, system_clock.tick_now());
 
 					for message_to_send in messages_to_send.iter_mut() {
 						if message_to_send
@@ -1315,12 +1442,19 @@ fn build_overseer(
 	let db: polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter<kvdb_memorydb::InMemory> =
 		polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter::new(db, &[]);
 	let keystore = LocalKeystore::in_memory();
+	let real_system_clock = SystemClock {};
+	let system_clock = FakeSystemClock::new(
+		SystemClock {},
+		real_system_clock.tick_now() -
+			slot_number_to_tick(SLOT_DURATION_MILLIS, state.initial_slot),
+	);
 	let approval_voting = ApprovalVotingSubsystem::with_config(
 		TEST_CONFIG,
 		Arc::new(db),
 		Arc::new(keystore),
 		Box::new(TestSyncOracle {}),
 		state.approval_voting_metrics.clone(),
+		Box::new(system_clock),
 	);
 
 	let approval_distribution = ApprovalDistribution::new(
@@ -1370,12 +1504,17 @@ fn prepare_test_inner(
 
 	let (overseer, overseer_handle) = build_overseer(&state, &network, &config, &dependencies);
 
-	state.start_message_generation(
+	// state.start_message_generation(
+	// 	&network,
+	// 	overseer_handle.clone(),
+	// 	&dependencies.task_manager.spawn_handle(),
+	// );
+
+	state.generate_messages(
 		&network,
 		overseer_handle.clone(),
 		&dependencies.task_manager.spawn_handle(),
 	);
-
 	(TestEnvironment::new(dependencies, config, network, overseer, overseer_handle), state)
 }
 
@@ -1402,19 +1541,21 @@ pub async fn bench_approvals(env: &mut TestEnvironment, state: ApprovalTestState
 
 	let start_marker = Instant::now();
 
+	let real_system_clock = SystemClock {};
+	let system_clock = FakeSystemClock::new(
+		SystemClock {},
+		real_system_clock.tick_now() -
+			slot_number_to_tick(SLOT_DURATION_MILLIS, state.initial_slot),
+	);
+
 	for block_num in 0..env.config().num_blocks {
-		let mut current_slot = Slot::from_timestamp(
-			Timestamp::current(),
-			SlotDuration::from_millis(SLOT_DURATION_MILLIS),
-		);
+		gum::info!("TICK NOW === {:?}", system_clock.tick_now());
+		let mut current_slot = tick_to_slot_number(SLOT_DURATION_MILLIS, system_clock.tick_now());
 
 		// Wait untill the time arrieves at the first slot under test.
 		while current_slot < state.initial_slot {
 			sleep(Duration::from_millis(5)).await;
-			current_slot = Slot::from_timestamp(
-				Timestamp::current(),
-				SlotDuration::from_millis(SLOT_DURATION_MILLIS),
-			);
+			current_slot = tick_to_slot_number(SLOT_DURATION_MILLIS, system_clock.tick_now());
 		}
 
 		gum::info!(target: LOG_TARGET, "Current block {}/{}", block_num + 1, env.config().num_blocks);
@@ -1426,14 +1567,22 @@ pub async fn bench_approvals(env: &mut TestEnvironment, state: ApprovalTestState
 				.await;
 		}
 
-		let block_time_delta = Duration::from_millis(
-			(*current_slot + 1) * SLOT_DURATION_MILLIS - Timestamp::current().as_millis(),
-		);
+		// let block_time_delta = Duration::from_millis(
+		// 	(*current_slot + 1) * SLOT_DURATION_MILLIS - Timestamp::current().as_millis(),
+		// );
 		let block_time = Instant::now().sub(block_start_ts).as_millis() as u64;
 		env.metrics().set_block_time(block_time);
 		gum::info!("Block time {}", format!("{:?}ms", block_time).cyan());
-		gum::info!(target: LOG_TARGET,"{}", format!("Sleeping till end of block ({}ms)", block_time_delta.as_millis()).bright_black());
-		tokio::time::sleep(block_time_delta).await;
+		// gum::info!(target: LOG_TARGET,"{}", format!("Sleeping till end of block ({}ms)",
+		// block_time_delta.as_millis()).bright_black()); tokio::time::sleep(block_time_delta).
+		// await;
+		gum::info!(
+			"Next slot tick {:?}",
+			slot_number_to_tick(SLOT_DURATION_MILLIS, current_slot + 1)
+		);
+		system_clock
+			.wait(slot_number_to_tick(SLOT_DURATION_MILLIS, current_slot + 1))
+			.await;
 	}
 
 	// Wait for all blocks to be approved before exiting.
@@ -1502,4 +1651,29 @@ pub async fn bench_approvals(env: &mut TestEnvironment, state: ApprovalTestState
 	);
 
 	gum::info!("{}", &env);
+}
+
+struct FakeSystemClock {
+	real_system_clock: SystemClock,
+	delta_ticks: Tick,
+}
+
+impl FakeSystemClock {
+	fn new(real_system_clock: SystemClock, delta_ticks: Tick) -> Self {
+		gum::info!("Delta tick is {:}", delta_ticks);
+		FakeSystemClock { real_system_clock, delta_ticks }
+	}
+}
+
+impl Clock for FakeSystemClock {
+	fn tick_now(&self) -> Tick {
+		self.real_system_clock.tick_now() - self.delta_ticks
+	}
+
+	fn wait(
+		&self,
+		tick: Tick,
+	) -> std::pin::Pin<Box<dyn futures::prelude::Future<Output = ()> + Send + 'static>> {
+		self.real_system_clock.wait(tick + self.delta_ticks)
+	}
 }

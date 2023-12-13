@@ -36,11 +36,11 @@ use polkadot_primitives::{Hash, ValidatorIndex};
 const TICK_DURATION_MILLIS: u64 = 500;
 
 /// A base unit of time, starting from the Unix epoch, split into half-second intervals.
-pub(crate) type Tick = u64;
+pub type Tick = u64;
 
 /// A clock which allows querying of the current tick as well as
 /// waiting for a tick to be reached.
-pub(crate) trait Clock {
+pub trait Clock {
 	/// Yields the current tick.
 	fn tick_now(&self) -> Tick;
 
@@ -61,6 +61,7 @@ impl<C: Clock + ?Sized> ClockExt for C {
 }
 
 /// A clock which uses the actual underlying system clock.
+#[derive(Clone)]
 pub struct SystemClock;
 
 impl Clock for SystemClock {
@@ -93,9 +94,18 @@ fn tick_to_time(tick: Tick) -> SystemTime {
 }
 
 /// assumes `slot_duration_millis` evenly divided by tick duration.
-pub(crate) fn slot_number_to_tick(slot_duration_millis: u64, slot: Slot) -> Tick {
+pub fn slot_number_to_tick(slot_duration_millis: u64, slot: Slot) -> Tick {
 	let ticks_per_slot = slot_duration_millis / TICK_DURATION_MILLIS;
 	u64::from(slot) * ticks_per_slot
+}
+
+pub fn tick_to_slot_number(slot_duration_millis: u64, tick: Tick) -> Slot {
+	let ticks_per_slot = slot_duration_millis / TICK_DURATION_MILLIS;
+	(tick / ticks_per_slot).into()
+}
+
+pub fn tranche_to_tick(slot_duration_millis: u64, slot: Slot, tranche: u32) -> Tick {
+	slot_number_to_tick(slot_duration_millis, slot) + tranche as u64
 }
 
 /// A list of delayed futures that gets triggered when the waiting time has expired and it is
