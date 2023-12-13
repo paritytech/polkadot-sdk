@@ -18,40 +18,21 @@
 use super::*;
 use crate::{
 	approval_db::common::{
+		block_entry_key, candidate_entry_key,
 		migration_helpers::{dummy_assignment_cert, make_bitvec},
-		Error, Result, StoredBlockRange,
+		Config, Error, Result, StoredBlockRange,
 	},
-	backend::Backend,
+	backend::{Backend, V2ReadBackend},
 };
-
 use polkadot_node_primitives::approval::v1::AssignmentCertKind;
 use polkadot_node_subsystem_util::database::Database;
 use sp_application_crypto::sp_core::H256;
 use std::{collections::HashSet, sync::Arc};
 
-fn make_block_entry_v1(
-	block_hash: Hash,
-	parent_hash: Hash,
-	block_number: BlockNumber,
-	candidates: Vec<(CoreIndex, CandidateHash)>,
-) -> crate::approval_db::v1::BlockEntry {
-	crate::approval_db::v1::BlockEntry {
-		block_hash,
-		parent_hash,
-		block_number,
-		session: 1,
-		slot: Slot::from(1),
-		relay_vrf_story: [0u8; 32],
-		approved_bitfield: make_bitvec(candidates.len()),
-		candidates,
-		children: Vec::new(),
-	}
-}
-
-/// Migrates `OurAssignment`, `CandidateEntry` and `ApprovalEntry` to version 2.
+/// Migrates `BlockEntry`, `CandidateEntry`, `ApprovalEntry` and `OurApproval` to version 3.
 /// Returns on any error.
 /// Must only be used in parachains DB migration code - `polkadot-service` crate.
-pub fn v1_to_latest(db: Arc<dyn Database>, config: Config) -> Result<()> {
+pub fn v2_to_latest(db: Arc<dyn Database>, config: Config) -> Result<()> {
 	let mut backend = crate::DbBackend::new(db, config);
 	let all_blocks = backend
 		.load_all_blocks()
@@ -59,7 +40,7 @@ pub fn v1_to_latest(db: Arc<dyn Database>, config: Config) -> Result<()> {
 		.iter()
 		.filter_map(|block_hash| {
 			backend
-				.load_block_entry_v1(block_hash)
+				.load_block_entry_v2(block_hash)
 				.map_err(|e| Error::InternalError(e))
 				.ok()?
 		})
@@ -81,7 +62,7 @@ pub fn v1_to_latest(db: Arc<dyn Database>, config: Config) -> Result<()> {
 			// Loading the candidate will also perform the conversion to the updated format and
 			// return that represantation.
 			if let Some(candidate_entry) = backend
-				.load_candidate_entry_v1(&candidate_hash, candidate_index as CandidateIndex)
+				.load_candidate_entry_v2(&candidate_hash, candidate_index as CandidateIndex)
 				.map_err(|e| Error::InternalError(e))?
 			{
 				// Write the updated representation.
@@ -101,8 +82,42 @@ pub fn v1_to_latest(db: Arc<dyn Database>, config: Config) -> Result<()> {
 	Ok(())
 }
 
-// Fills the db with dummy data in v1 scheme.
-pub fn v1_fill_test_data<F>(
+// Checks if the migration doesn't leave the DB in an unsane state.
+// This function is to be used in tests.
+pub fn v1_to_latest_sanity_check(
+	db: Arc<dyn Database>,
+	config: Config,
+	expected_candidates: HashSet<CandidateHash>,
+) -> Result<()> {
+	let backend = crate::DbBackend::new(db, config);
+
+	let all_blocks = backend
+		.load_all_blocks()
+		.unwrap()
+		.iter()
+		.map(|block_hash| backend.load_block_entry(block_hash).unwrap().unwrap())
+		.collect::<Vec<_>>();
+
+	let mut candidates = HashSet::new();
+
+	// Iterate all blocks and approval entries.
+	for block in all_blocks {
+		for (_core_index, candidate_hash) in block.candidates() {
+			// Loading the candidate will also perform the conversion to the updated format and
+			// return that represantation.
+			if let Some(candidate_entry) = backend.load_candidate_entry(&candidate_hash).unwrap() {
+				candidates.insert(candidate_entry.candidate.hash());
+			}
+		}
+	}
+
+	assert_eq!(candidates, expected_candidates);
+
+	Ok(())
+}
+
+// Fills the db with dummy data in v2 scheme.
+pub fn v2_fill_test_data<F>(
 	db: Arc<dyn Database>,
 	config: Config,
 	dummy_candidate_create: F,
@@ -127,32 +142,32 @@ where
 
 		let at_height = vec![relay_hash];
 
-		let block_entry = make_block_entry_v1(
+		let block_entry = make_block_entry_v2(
 			relay_hash,
 			Default::default(),
 			relay_number,
 			vec![(assignment_core_index, candidate_hash)],
 		);
 
-		let dummy_assignment = crate::approval_db::v1::OurAssignment {
+		let dummy_assignment = crate::approval_db::v2::OurAssignment {
 			cert: dummy_assignment_cert(AssignmentCertKind::RelayVRFModulo { sample: 0 }).into(),
 			tranche: 0,
 			validator_index: ValidatorIndex(0),
 			triggered: false,
 		};
 
-		let candidate_entry = crate::approval_db::v1::CandidateEntry {
+		let candidate_entry = crate::approval_db::v2::CandidateEntry {
 			candidate,
 			session: 123,
 			block_assignments: vec![(
 				relay_hash,
-				crate::approval_db::v1::ApprovalEntry {
+				crate::approval_db::v2::ApprovalEntry {
 					tranches: Vec::new(),
 					backing_group: GroupIndex(1),
 					our_assignment: Some(dummy_assignment),
 					our_approval_sig: None,
-					assignments: Default::default(),
 					approved: false,
+					assigned_validators: make_bitvec(1),
 				},
 			)]
 			.into_iter()
@@ -163,8 +178,8 @@ where
 		overlay_db.write_blocks_at_height(relay_number, at_height.clone());
 		expected_candidates.insert(candidate_entry.candidate.hash());
 
-		db.write(write_candidate_entry_v1(candidate_entry, config)).unwrap();
-		db.write(write_block_entry_v1(block_entry, config)).unwrap();
+		db.write(write_candidate_entry_v2(candidate_entry, config)).unwrap();
+		db.write(write_block_entry_v2(block_entry, config)).unwrap();
 	}
 
 	let write_ops = overlay_db.into_write_ops();
@@ -173,9 +188,29 @@ where
 	Ok(expected_candidates)
 }
 
+fn make_block_entry_v2(
+	block_hash: Hash,
+	parent_hash: Hash,
+	block_number: BlockNumber,
+	candidates: Vec<(CoreIndex, CandidateHash)>,
+) -> crate::approval_db::v2::BlockEntry {
+	crate::approval_db::v2::BlockEntry {
+		block_hash,
+		parent_hash,
+		block_number,
+		session: 1,
+		slot: Slot::from(1),
+		relay_vrf_story: [0u8; 32],
+		approved_bitfield: make_bitvec(candidates.len()),
+		distributed_assignments: make_bitvec(candidates.len()),
+		candidates,
+		children: Vec::new(),
+	}
+}
+
 // Low level DB helper to write a candidate entry in v1 scheme.
-fn write_candidate_entry_v1(
-	candidate_entry: crate::approval_db::v1::CandidateEntry,
+fn write_candidate_entry_v2(
+	candidate_entry: crate::approval_db::v2::CandidateEntry,
 	config: Config,
 ) -> DBTransaction {
 	let mut tx = DBTransaction::new();
@@ -188,8 +223,8 @@ fn write_candidate_entry_v1(
 }
 
 // Low level DB helper to write a block entry in v1 scheme.
-fn write_block_entry_v1(
-	block_entry: crate::approval_db::v1::BlockEntry,
+fn write_block_entry_v2(
+	block_entry: crate::approval_db::v2::BlockEntry,
 	config: Config,
 ) -> DBTransaction {
 	let mut tx = DBTransaction::new();
