@@ -23,7 +23,6 @@ pub(crate) const LOG_TARGET: &str = "tests::e2e-epm";
 use frame_support::{assert_err, assert_noop, assert_ok};
 use mock::*;
 use sp_core::Get;
-use sp_npos_elections::{to_supports, StakedAssignment};
 use sp_runtime::Perbill;
 
 use crate::mock::RuntimeOrigin;
@@ -127,75 +126,35 @@ fn offchainify_works() {
 }
 
 #[test]
-/// Replicates the Kusama incident of 8th Dec 2022 and its resolution through the governance
+/// Inspired by the Kusama incident of 8th Dec 2022 and its resolution through the governance
 /// fallback.
 ///
-/// After enough slashes exceeded the `Staking::OffendingValidatorsThreshold`, the staking pallet
-/// set `Forcing::ForceNew`. When a new session starts, staking will start to force a new era and
-/// calls <EPM as election_provider>::elect(). If at this point EPM and the staking miners did not
-/// have enough time to queue a new solution (snapshot + solution submission), the election request
-/// fails. If there is no election fallback mechanism in place, EPM enters in emergency mode.
-/// Recovery: Once EPM is in emergency mode, subsequent calls to `elect()` will fail until a new
-/// solution is added to EPM's `QueuedSolution` queue. This can be achieved through
-/// `Call::set_emergency_election_result` or `Call::governance_fallback` dispatchables. Once a new
-/// solution is added to the queue, EPM phase transitions to `Phase::Off` and the election flow
-/// restarts. Note that in this test case, the emergency throttling is disabled.
-fn enters_emergency_phase_after_forcing_before_elect() {
+/// Mass slash of validators shoudn't disable more than 1/3 of them (the byzantine threshold). Also
+/// no new era should be forced which could lead to EPM entering emergency mode.
+fn mass_slash_doesnt_enter_emergency_phase() {
 	let epm_builder = EpmExtBuilder::default().disable_emergency_throttling();
-	let (mut ext, pool_state, _) = ExtBuilder::default().epm(epm_builder).build_offchainify();
+	let staking_builder = StakingExtBuilder::default().validator_count(7);
+	let (mut ext, _, _) = ExtBuilder::default()
+		.epm(epm_builder)
+		.staking(staking_builder)
+		.build_offchainify();
 
 	ext.execute_with(|| {
-		log!(
-			trace,
-			"current validators (staking): {:?}",
-			<Runtime as pallet_staking::SessionInterface<AccountId>>::validators()
+		assert_eq!(pallet_staking::ForceEra::<Runtime>::get(), pallet_staking::Forcing::NotForcing);
+
+		// Slash more than 1/3 of the active validators
+		slash_half_the_active_set();
+
+		// We are not forcing a new era
+		assert_eq!(pallet_staking::ForceEra::<Runtime>::get(), pallet_staking::Forcing::NotForcing);
+
+		// And no more than `1/3` of the validators are disabled
+		assert_eq!(
+			Session::disabled_validators().len(),
+			pallet_staking::UpToByzantineThresholdDisablingStrategy::byzantine_threshold(
+				Session::validators().len()
+			)
 		);
-		let session_validators_before = Session::validators();
-
-		roll_to_epm_off();
-		assert!(ElectionProviderMultiPhase::current_phase().is_off());
-
-		assert_eq!(pallet_staking::ForceEra::<Runtime>::get(), pallet_staking::Forcing::NotForcing);
-		// slashes so that staking goes into `Forcing::ForceNew`.
-		slash_through_offending_threshold();
-
-		assert_eq!(pallet_staking::ForceEra::<Runtime>::get(), pallet_staking::Forcing::NotForcing);
-
-		advance_session_delayed_solution(pool_state.clone());
-		assert!(ElectionProviderMultiPhase::current_phase().is_emergency());
-		log_current_time();
-
-		let era_before_delayed_next = Staking::current_era();
-		// try to advance 2 eras.
-		assert!(start_next_active_era_delayed_solution(pool_state.clone()).is_ok());
-		assert_eq!(Staking::current_era(), era_before_delayed_next);
-		assert!(start_next_active_era(pool_state).is_err());
-		assert_eq!(Staking::current_era(), era_before_delayed_next);
-
-		// EPM is still in emergency phase.
-		assert!(ElectionProviderMultiPhase::current_phase().is_emergency());
-
-		// session validator set remains the same.
-		assert_eq!(Session::validators(), session_validators_before);
-
-		// performs recovery through the set emergency result.
-		let supports = to_supports(&vec![
-			StakedAssignment { who: 21, distribution: vec![(21, 10)] },
-			StakedAssignment { who: 31, distribution: vec![(21, 10), (31, 10)] },
-			StakedAssignment { who: 41, distribution: vec![(41, 10)] },
-		]);
-		assert!(ElectionProviderMultiPhase::set_emergency_election_result(
-			RuntimeOrigin::root(),
-			supports
-		)
-		.is_ok());
-
-		// EPM can now roll to signed phase to proceed with elections. The validator set is the
-		// expected (ie. set through `set_emergency_election_result`).
-		roll_to_epm_signed();
-		//assert!(ElectionProviderMultiPhase::current_phase().is_signed());
-		assert_eq!(Session::validators(), vec![21, 31, 41]);
-		assert_eq!(Staking::current_era(), era_before_delayed_next.map(|e| e + 1));
 	});
 }
 

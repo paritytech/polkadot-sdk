@@ -813,13 +813,10 @@ pub(crate) fn add_slash(who: &AccountId) {
 	);
 }
 
-// Slashes enough validators to cross the `Staking::OffendingValidatorsThreshold`.
-pub(crate) fn slash_through_offending_threshold() {
+// Slashes 1/2 of the active set
+pub(crate) fn slash_half_the_active_set() {
 	let validators = Session::validators();
-	let mut remaining_slashes =
-		pallet_staking::UpToByzantineThresholdDisablingStrategy::byzantine_threshold(
-			validators.len(),
-		);
+	let mut remaining_slashes = validators.len() / 2;
 
 	for v in validators.into_iter() {
 		if remaining_slashes != 0 {
