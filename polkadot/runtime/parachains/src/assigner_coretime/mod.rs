@@ -20,11 +20,8 @@
 //! assignments it relies on the separate on-demand assignment provider, where it forwards requests
 //! to.
 //!
-//! Invariant: For efficiency the schedule, starting from the current workload always form a linked
-//! list.
-//!
-//! `CoreDescriptor` contains pointers to the begin and the end of the list, together with the
-//! currently active assignments.
+//! `CoreDescriptor` contains pointers to the begin and the end of a list of schedules, together
+//! with the currently active assignments.
 
 mod mock_helpers;
 #[cfg(test)]
@@ -47,10 +44,8 @@ use sp_std::prelude::*;
 
 pub use pallet::*;
 
-pub const MAX_ASSIGNMENTS_PER_SCHEDULE: u32 = 100;
-
 /// Fraction expressed as a nominator with an assumed denominator of 57,600.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, TypeInfo)]
+#[derive(RuntimeDebug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, TypeInfo)]
 pub struct PartsOf57600(u16);
 
 impl PartsOf57600 {
@@ -279,7 +274,6 @@ pub mod pallet {
 	#[pallet::error]
 	pub enum Error<T> {
 		AssignmentsEmpty,
-		TooManyAssignments,
 		/// Assignments together exceeded 57600.
 		OverScheduled,
 		/// Assignments together less than 57600
@@ -297,7 +291,7 @@ pub mod pallet {
 }
 
 /// Assignments as provided by our `AssignmentProvider` implementation.
-#[derive(Encode, Decode, TypeInfo, Debug)]
+#[derive(Encode, Decode, TypeInfo, RuntimeDebug)]
 #[cfg_attr(test, derive(PartialEq))]
 pub enum CoretimeAssignment<OnDemand> {
 	/// Assignment was a pool `Coretime` assignment.
@@ -416,19 +410,21 @@ impl<T: Config> Pallet<T> {
 		descriptor: &mut CoreDescriptor<BlockNumberFor<T>>,
 	) {
 		// Workload expired?
-		if let Some(end_hint) = descriptor.current_work.as_ref().and_then(|w| w.end_hint) {
-			if end_hint >= now {
-				descriptor.current_work = None;
-			}
+		if descriptor
+			.current_work
+			.as_ref()
+			.and_then(|w| w.end_hint)
+			.map_or(false, |e| e <= now)
+		{
+			descriptor.current_work = None;
 		}
 
-		let queue = match descriptor.queue {
-			// No queue => Nothing to do.
-			None => return,
-			Some(q) => q,
+		let Some(queue) = descriptor.queue else {
+			// No queue.
+			return
 		};
 
-		let next_scheduled = queue.first;
+		let mut next_scheduled = queue.first;
 
 		if next_scheduled > now {
 			// Not yet ready.
@@ -436,7 +432,22 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// Update is needed:
-		let update = CoreSchedules::<T>::take((next_scheduled, core_idx));
+		let update = loop {
+			let Some(update) = CoreSchedules::<T>::take((next_scheduled, core_idx)) else {
+				break None
+			};
+			// Still good?
+			if update.end_hint.map_or(true, |e| e > now) {
+				break Some(update)
+			}
+			// Move on if possible:
+			if let Some(n) = update.next_schedule {
+				next_scheduled = n;
+			} else {
+				break None
+			}
+		};
+
 		let new_first = update.as_ref().and_then(|u| u.next_schedule);
 		descriptor.current_work = update.map(Into::into);
 
@@ -470,12 +481,8 @@ impl<T: Config> Pallet<T> {
 		// TODO: Add this assert once the calls `request_core_count` and `notify_core_count`
 		// have been established. assert!(core < core_count);
 
-		// There should be at least one assignment and at most 100
-		ensure!(assignments.len() > 0usize, Error::<T>::AssignmentsEmpty);
-		ensure!(
-			assignments.len() <= MAX_ASSIGNMENTS_PER_SCHEDULE as usize,
-			Error::<T>::TooManyAssignments
-		);
+		// There should be at least one assignment.
+		ensure!(!assignments.is_empty(), Error::<T>::AssignmentsEmpty);
 
 		// Checking for sort and unique manually, since we don't have access to iterator tools.
 		// This way of checking uniqueness only works since we also check sortedness.

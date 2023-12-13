@@ -125,6 +125,64 @@ fn assign_core_works_with_no_prior_schedule() {
 }
 
 #[test]
+fn end_hint_is_properly_honored() {
+	let core_idx = CoreIndex(0);
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
+
+		assert_ok!(CoretimeAssigner::assign_core(
+			core_idx,
+			BlockNumberFor::<Test>::from(11u32),
+			vec![(CoreAssignment::Task(1), PartsOf57600::FULL)],
+			Some(15u32),
+		));
+
+		assert!(
+			CoretimeAssigner::pop_assignment_for_core(core_idx).is_none(),
+			"No assignment yet in effect"
+		);
+
+		run_to_block(11, |_| None);
+
+		assert_eq!(
+			CoretimeAssigner::pop_assignment_for_core(core_idx),
+			Some(CoretimeAssignment::Bulk(1.into())),
+			"Assignment should now be present"
+		);
+
+		assert_eq!(
+			CoretimeAssigner::pop_assignment_for_core(core_idx),
+			Some(CoretimeAssignment::Bulk(1.into())),
+			"Nothing changed, assignment should still be present"
+		);
+
+		run_to_block(15, |_| None);
+
+		assert_eq!(
+			CoretimeAssigner::pop_assignment_for_core(core_idx),
+			None,
+			"Assignment should now be gone"
+		);
+
+		// Insert assignment that is already dead:
+		assert_ok!(CoretimeAssigner::assign_core(
+			core_idx,
+			BlockNumberFor::<Test>::from(11u32),
+			vec![(CoreAssignment::Task(1), PartsOf57600::FULL)],
+			Some(15u32),
+		));
+
+		// Core should still be empty:
+		assert_eq!(
+			CoretimeAssigner::pop_assignment_for_core(core_idx),
+			None,
+			"Assignment should now be gone"
+		);
+	});
+}
+
+#[test]
 // Should update last in QueueDescriptor and add new schedule to CoreSchedules
 fn assign_core_works_with_prior_schedule() {
 	let core_idx = CoreIndex(0);
@@ -233,7 +291,6 @@ fn assign_core_enforces_well_formed_schedule() {
 		run_to_block(1, |n| if n == 1 { Some(Default::default()) } else { None });
 
 		let empty_assignments: Vec<(CoreAssignment, PartsOf57600)> = vec![];
-		let too_many_assignments = vec![(CoreAssignment::Pool, PartsOf57600(288)); 200];
 		let overscheduled = vec![
 			(CoreAssignment::Pool, PartsOf57600::FULL),
 			(CoreAssignment::Task(para_id.into()), PartsOf57600::FULL),
@@ -259,15 +316,6 @@ fn assign_core_enforces_well_formed_schedule() {
 				None,
 			),
 			Error::<Test>::AssignmentsEmpty
-		);
-		assert_noop!(
-			CoretimeAssigner::assign_core(
-				core_idx,
-				BlockNumberFor::<Test>::from(11u32),
-				too_many_assignments,
-				None,
-			),
-			Error::<Test>::TooManyAssignments
 		);
 		assert_noop!(
 			CoretimeAssigner::assign_core(
