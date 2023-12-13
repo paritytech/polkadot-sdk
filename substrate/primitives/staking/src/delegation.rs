@@ -136,6 +136,5 @@ pub trait StakingDelegationSupport: StakingHoldProvider {
 		false
 	}
 
-	#[cfg(feature = "std")]
 	fn is_delegatee(_who: &Self::AccountId) -> bool;
 }

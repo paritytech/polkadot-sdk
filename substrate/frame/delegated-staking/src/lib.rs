@@ -66,7 +66,7 @@ pub mod pallet {
 
 		/// Core staking implementation.
 		type CoreStaking: StakingInterface<Balance = BalanceOf<Self>, AccountId = Self::AccountId>
-			+ sp_staking::StakingHoldProvider<Balance = BalanceOf<Self>, AccountId = Self::AccountId>;
+			+ StakingHoldProvider<Balance = BalanceOf<Self>, AccountId = Self::AccountId>;
 	}
 
 	#[pallet::error]
@@ -183,11 +183,6 @@ impl<T: Config> DelegationRegister<T> {
 	/// balance that is delegated but not bonded.
 	pub fn unbonded_balance(&self) -> BalanceOf<T> {
 		self.total_delegated.saturating_sub(self.hold)
-	}
-
-	/// consumes self and returns Delegation Register with updated hold amount.
-	pub fn update_hold(self, amount: BalanceOf<T>) -> Self {
-		DelegationRegister { hold: amount, ..self }
 	}
 }
 
@@ -455,7 +450,7 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 	}
 }
 
-impl<T: Config> sp_staking::StakingHoldProvider for Pallet<T> {
+impl<T: Config> StakingHoldProvider for Pallet<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
 
@@ -470,7 +465,7 @@ impl<T: Config> sp_staking::StakingHoldProvider for Pallet<T> {
 
 		ensure!(delegation_register.total_delegated >= amount, Error::<T>::NotEnoughFunds);
 		ensure!(delegation_register.pending_slash <= amount, Error::<T>::UnappliedSlash);
-		let updated_register = delegation_register.update_hold(amount);
+		let updated_register = DelegationRegister { hold: amount, ..delegation_register };
 		<Delegatees<T>>::insert(who, updated_register);
 
 		Ok(())
@@ -516,7 +511,6 @@ impl<T: Config> StakingDelegationSupport for Pallet<T> {
 		register.payee != reward_acc
 	}
 
-	#[cfg(feature = "std")]
 	fn is_delegatee(who: &Self::AccountId) -> bool {
 		Self::is_delegatee(who)
 	}
