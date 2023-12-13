@@ -23,7 +23,7 @@ workflow:
 variables:
   # CI_IMAGE: !reference [.ci-unified, variables, CI_IMAGE]
   # REMOVE ME, for tests
-  CI_IMAGE: "paritypr/ci-unified:616-af90bf09-bookworm-1.74.0"
+  CI_IMAGE: "paritypr/ci-unified:616-1c97bfc2-bookworm-1.74.0"
   # BUILDAH_IMAGE is defined in group variables
   BUILDAH_COMMAND: "buildah --storage-driver overlay2"
   RELENG_SCRIPTS_BRANCH: "master"
