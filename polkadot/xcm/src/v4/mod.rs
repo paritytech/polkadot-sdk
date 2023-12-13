@@ -1248,14 +1248,12 @@ impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
 				Self::ExchangeAsset { give, want, maximal }
 			},
 			InitiateReserveWithdraw { assets, reserve, xcm } => {
-				// No `max_assets` here, so if there's a connt, then we cannot translate.
 				let assets = assets.try_into()?;
 				let reserve = reserve.try_into()?;
 				let xcm = xcm.try_into()?;
 				Self::InitiateReserveWithdraw { assets, reserve, xcm }
 			},
 			InitiateTeleport { assets, dest, xcm } => {
-				// No `max_assets` here, so if there's a connt, then we cannot translate.
 				let assets = assets.try_into()?;
 				let dest = dest.try_into()?;
 				let xcm = xcm.try_into()?;
