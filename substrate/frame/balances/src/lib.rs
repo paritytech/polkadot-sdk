@@ -911,8 +911,8 @@ pub mod pallet {
 			let result = T::AccountStore::try_mutate_exists(who, |maybe_account| {
 				let is_new = maybe_account.is_none();
 				let mut account = maybe_account.take().unwrap_or_default();
-				let did_provide =
-					(account.reserved + account.free) >= Self::ed() && Self::have_providers_or_no_zero_ed(who);
+				let did_provide = (account.reserved + account.free) >= Self::ed() &&
+					Self::have_providers_or_no_zero_ed(who);
 				let did_consume =
 					!is_new && (!account.reserved.is_zero() || !account.frozen.is_zero());
 
