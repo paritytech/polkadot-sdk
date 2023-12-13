@@ -6,6 +6,9 @@ edition.workspace = true
 description = "Common functions used to assemble the components of a parachain node."
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
+[lints]
+workspace = true
+
 [dependencies]
 futures = "0.3.28"
 

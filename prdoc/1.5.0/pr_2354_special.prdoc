@@ -1,0 +1,9 @@
+title: "Fix Typo: `PalletXcmExtrinsicsBenchmark`"
+author: joepetrowski
+topic: Benchmarks
+
+doc:
+  - audience: Runtime Dev
+    description: n/a
+
+crates: []
