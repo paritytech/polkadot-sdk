@@ -8,6 +8,7 @@ cargo-clippy:
     RUSTFLAGS: "-D warnings"
   script:
     - SKIP_WASM_BUILD=1 cargo clippy --all-targets --locked --workspace
+    - SKIP_WASM_BUILD=1 cargo clippy --all-targets --all-features --locked --workspace
 
 check-try-runtime:
   stage: check
