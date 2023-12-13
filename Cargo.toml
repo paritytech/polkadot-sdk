@@ -489,6 +489,7 @@ type_complexity = { level = "allow", priority = 2 }                  # raison d'
 nonminimal-bool = { level = "allow", priority = 2 }                  # maybe
 borrowed-box = { level = "allow", priority = 2 }                     # Reasonable to fix this one
 too-many-arguments = { level = "allow", priority = 2 }               # (Turning this on would lead to)
+needless-lifetimes = { level = "allow", priority = 2 }               # generated code
 unnecessary_cast = { level = "allow", priority = 2 }                 # Types may change
 identity-op = { level = "allow", priority = 2 }                      # One case where we do 0 +
 useless_conversion = { level = "allow", priority = 2 }               # Types may change
