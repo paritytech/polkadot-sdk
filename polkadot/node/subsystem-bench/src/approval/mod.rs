@@ -122,7 +122,7 @@ pub const NODE_UNDER_TEST: u32 = 0;
 
 /// Start generating messages for a slot into the future, so that the
 /// generation nevers falls behind the current slot.
-const BUFFER_FOR_GENERATION_MILLIS: u64 = 6_000;
+const BUFFER_FOR_GENERATION_MILLIS: u64 = 30_000;
 
 /// Parameters specific to the approvals benchmark
 #[derive(Debug, Clone, Serialize, Deserialize, clap::Parser)]
@@ -140,6 +140,8 @@ pub struct ApprovalsOptions {
 	#[clap(short, long, default_value_t = 1)]
 	/// Max candidate to be signed in a single approval.
 	pub max_coalesce: u32,
+	/// The maximum tranche diff between approvals coalesced toghther.
+	pub coalesce_tranche_diff: u32,
 	#[clap(short, long, default_value_t = false)]
 	/// Enable assignments v2.
 	pub enable_assignments_v2: bool,
@@ -554,6 +556,13 @@ impl PeerMessagesGenerator {
 							self.options.last_considered_tranche,
 						);
 
+						let bytes = self.validator_index.0.to_be_bytes();
+						let seed = [
+							bytes[0], bytes[1], bytes[2], bytes[3], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+							0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+						];
+
+						let mut rand_chacha = ChaCha20Rng::from_seed(seed);
 						let approvals = issue_approvals(
 							&assignments,
 							block_info.hash,
@@ -566,6 +575,7 @@ impl PeerMessagesGenerator {
 								.collect_vec(),
 							block_info.candidates.clone(),
 							&self.options,
+							&mut rand_chacha,
 						);
 
 						let generated_assignments = assignments.into_iter().peekable();
@@ -770,11 +780,13 @@ fn session_info_for_peers(
 
 /// Helper function to randomly determine how many approvals we coalesce together in a single
 /// message.
-fn coalesce_approvals_len(min_coalesce: u32, max_coalesce: u32) -> usize {
-	let seed = [7u8; 32];
-	let mut rand_chacha = ChaCha20Rng::from_seed(seed);
+fn coalesce_approvals_len(
+	min_coalesce: u32,
+	max_coalesce: u32,
+	rand_chacha: &mut ChaCha20Rng,
+) -> usize {
 	let mut sampling: Vec<usize> = (min_coalesce as usize..max_coalesce as usize + 1).collect_vec();
-	*(sampling.partial_shuffle(&mut rand_chacha, 1).0.first().unwrap())
+	*(sampling.partial_shuffle(rand_chacha, 1).0.first().unwrap())
 }
 
 /// Helper function to create approvals signatures for all assignments passed as arguments.
@@ -785,9 +797,11 @@ fn issue_approvals(
 	keyrings: Vec<(Keyring, PeerId)>,
 	candidates: Vec<CandidateEvent>,
 	options: &ApprovalsOptions,
+	rand_chacha: &mut ChaCha20Rng,
 ) -> Vec<TestMessage> {
 	let mut to_sign: Vec<TestSignInfo> = Vec::new();
-
+	let mut num_coalesce =
+		coalesce_approvals_len(options.min_coalesce, options.max_coalesce, rand_chacha);
 	let result = assignments
 		.iter()
 		.enumerate()
@@ -806,10 +820,18 @@ fn issue_approvals(
 
 				let assignment = assignments.first().unwrap();
 
-				if to_sign.len() >=
-					coalesce_approvals_len(options.min_coalesce, options.max_coalesce) as usize ||
-					(!to_sign.is_empty() && current_validator_index != assignment.0.validator)
+				let earliest_tranche =
+					to_sign.first().map(|val| val.tranche).unwrap_or(message.tranche);
+
+				if to_sign.len() >= num_coalesce as usize ||
+					(!to_sign.is_empty() && current_validator_index != assignment.0.validator) ||
+					message.tranche - earliest_tranche >= options.coalesce_tranche_diff
 				{
+					num_coalesce = coalesce_approvals_len(
+						options.min_coalesce,
+						options.max_coalesce,
+						rand_chacha,
+					);
 					approvals_to_create.push(sign_candidates(&mut to_sign, &keyrings, block_hash))
 				}
 
@@ -824,11 +846,17 @@ fn issue_approvals(
 							sent_by: message.sent_by.clone(),
 							tranche: message.tranche,
 						});
+						let earliest_tranche =
+							to_sign.first().map(|val| val.tranche).unwrap_or(message.tranche);
 
-						if to_sign.len() >=
-							coalesce_approvals_len(options.min_coalesce, options.max_coalesce)
-								as usize
+						if to_sign.len() >= num_coalesce ||
+							message.tranche - earliest_tranche >= options.coalesce_tranche_diff
 						{
+							num_coalesce = coalesce_approvals_len(
+								options.min_coalesce,
+								options.max_coalesce,
+								rand_chacha,
+							);
 							approvals_to_create.push(sign_candidates(
 								&mut to_sign,
 								&keyrings,
@@ -1279,7 +1307,7 @@ fn build_overseer(
 	config: &TestConfiguration,
 	dependencies: &TestEnvironmentDependencies,
 ) -> (Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>, OverseerHandleReal) {
-	let overseer_connector = OverseerConnector::with_event_capacity(640000);
+	let overseer_connector = OverseerConnector::with_event_capacity(6400000);
 
 	let spawn_task_handle = dependencies.task_manager.spawn_handle();
 
@@ -1414,13 +1442,14 @@ pub async fn bench_approvals(env: &mut TestEnvironment, state: ApprovalTestState
 		env.config().num_blocks as u32
 	{
 		gum::info!(
-			"Waiting for all blocks to be approved current approved {:}",
-			state.last_approved_block.load(std::sync::atomic::Ordering::SeqCst)
+			"Waiting for all blocks to be approved current approved {:} num_sent {:}",
+			state.last_approved_block.load(std::sync::atomic::Ordering::SeqCst),
+			state.total_sent_messages.load(std::sync::atomic::Ordering::SeqCst)
 		);
 		tokio::time::sleep(Duration::from_secs(6)).await;
 	}
 	tokio::time::sleep(Duration::from_secs(6)).await;
-	tokio::time::sleep(Duration::from_secs(6)).await;
+	tokio::time::sleep(Duration::from_secs(60)).await;
 
 	for info in &state.per_slot_heads {
 		for (index, candidates) in info.candidates.iter().enumerate() {

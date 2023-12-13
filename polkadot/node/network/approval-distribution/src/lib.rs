@@ -351,6 +351,7 @@ struct State {
 
 	/// Aggregated reputation change
 	reputation: ReputationAggregator,
+	total_num_messages: u64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -714,7 +715,12 @@ impl State {
 				});
 			},
 			NetworkBridgeEvent::PeerMessage(peer_id, message) => {
+				self.total_num_messages += 1;
 				self.process_incoming_peer_message(ctx, metrics, peer_id, message, rng).await;
+
+				if self.total_num_messages % 100000 == 0 {
+					gum::info!(target: LOG_TARGET, total_num_messages = self.total_num_messages,  "Processed 100k");
+				}
 			},
 			NetworkBridgeEvent::UpdatedAuthorityIds { .. } => {
 				// The approval-distribution subsystem doesn't deal with `AuthorityDiscoveryId`s.

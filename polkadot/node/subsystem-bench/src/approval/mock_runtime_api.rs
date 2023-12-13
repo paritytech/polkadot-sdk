@@ -18,7 +18,7 @@ use super::ApprovalTestState;
 use futures::FutureExt;
 use polkadot_node_subsystem::{overseer, SpawnedSubsystem, SubsystemError};
 use polkadot_node_subsystem_types::messages::{RuntimeApiMessage, RuntimeApiRequest};
-use polkadot_primitives::ExecutorParams;
+use polkadot_primitives::{vstaging::NodeFeatures, ExecutorParams};
 
 /// Mock RuntimeApi subsystem used to answer request made by the approval-voting subsystem,
 /// during benchmark. All the necessary information to answer the requests is stored in the `state`
@@ -62,6 +62,12 @@ impl MockRuntimeApi {
 						RuntimeApiRequest::SessionInfo(_session_index, sender),
 					) => {
 						let _ = sender.send(Ok(Some(self.state.session_info.clone())));
+					},
+					RuntimeApiMessage::Request(
+						_request,
+						RuntimeApiRequest::NodeFeatures(_session_index, sender),
+					) => {
+						let _ = sender.send(Ok(NodeFeatures::EMPTY));
 					},
 					RuntimeApiMessage::Request(
 						_request,
