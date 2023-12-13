@@ -9,6 +9,9 @@ repository.workspace = true
 description = "Macros for declaring and implementing runtime apis."
 documentation = "https://docs.rs/sp-api-proc-macro"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
