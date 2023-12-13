@@ -1503,7 +1503,7 @@ impl_runtime_apis! {
 						);
 						BenchmarkError::Stop("XcmVersion was not stored!")
 					})?;
-					Ok(bridged_asset_hub)
+					Ok(bridge_hub)
 				}
 			}
 
