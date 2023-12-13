@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["initialization_data","prepare_inbound_xcm"],"mod":["from_grandpa_chain","from_parachain"]};
