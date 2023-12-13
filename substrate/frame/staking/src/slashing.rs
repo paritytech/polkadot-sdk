@@ -50,9 +50,9 @@
 //! Based on research at <https://research.web3.foundation/en/latest/polkadot/slashing/npos.html>
 
 use crate::{
-	BalanceOf, Config, DisabledValidators, DisablingDecision, DisablingStrategy, Error, Exposure,
-	NegativeImbalanceOf, NominatorSlashInEra, Pallet, Perbill, SessionInterface, SpanSlash,
-	UnappliedSlash, ValidatorSlashInEra,
+	BalanceOf, Config, DisabledValidators, DisablingDecision, DisablingDecisionContext,
+	DisablingStrategy, Error, Exposure, NegativeImbalanceOf, NominatorSlashInEra, Pallet, Perbill,
+	SessionInterface, SpanSlash, UnappliedSlash, ValidatorSlashInEra,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
@@ -283,7 +283,7 @@ pub(crate) fn compute_slash<T: Config>(
 		}
 	}
 
-	add_offending_validator::<T>(params.stash);
+	add_offending_validator::<T>(&params);
 
 	let mut nominators_slashed = Vec::new();
 	reward_payout += slash_nominators::<T>(params.clone(), prior_slash_p, &mut nominators_slashed);
@@ -316,13 +316,14 @@ fn kick_out_if_recent<T: Config>(params: SlashParams<T>) {
 		spans.end_span(params.now);
 	}
 
-	add_offending_validator::<T>(params.stash);
+	add_offending_validator::<T>(&params);
 }
 
 /// Add the given validator to the offenders list and optionally disable it.
 /// If after adding the validator `OffendingValidatorsThreshold` is reached
 /// a new era will be forced.
-fn add_offending_validator<T: Config>(stash: &T::AccountId) {
+fn add_offending_validator<T: Config>(params: &SlashParams<T>) {
+	let stash = params.stash;
 	DisabledValidators::<T>::mutate(|disabled| {
 		let validators = T::SessionInterface::validators();
 		let validator_index = match validators.iter().position(|i| i == stash) {
@@ -333,7 +334,11 @@ fn add_offending_validator<T: Config>(stash: &T::AccountId) {
 		let validator_index_u32 = validator_index as u32;
 
 		let DisablingDecision { disable_offenders } = T::DisablingStrategy::make_disabling_decision(
-			validator_index as u32,
+			DisablingDecisionContext {
+				offender_idx: validator_index as u32,
+				slash_era: params.slash_era,
+				era_now: params.now,
+			},
 			&disabled,
 			&validators,
 		);

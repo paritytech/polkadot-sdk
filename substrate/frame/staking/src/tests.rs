@@ -2389,7 +2389,7 @@ fn slashing_performed_according_exposure() {
 }
 
 #[test]
-fn slash_in_old_span_does_not_deselect() {
+fn validator_is_not_disabled_for_an_offence_in_previous_era() {
 	ExtBuilder::default()
 		.validator_count(4)
 		.set_status(41, StakerStatus::Validator)
@@ -2412,16 +2412,15 @@ fn slash_in_old_span_does_not_deselect() {
 
 			mock::start_active_era(2);
 
-			// Staking::validate(RuntimeOrigin::signed(11), Default::default()).unwrap();
-			// assert_eq!(Staking::force_era(), Forcing::NotForcing);
-			// assert!(<Validators<Test>>::contains_key(11));
-			// assert!(!Session::validators().contains(&11));
-			//
-			// mock::start_active_era(3);
+			// the validator is not disabled in the new era
+			Staking::validate(RuntimeOrigin::signed(11), Default::default()).unwrap();
+			assert_eq!(Staking::force_era(), Forcing::NotForcing);
+			assert!(<Validators<Test>>::contains_key(11));
+			assert!(Session::validators().contains(&11));
 
-			// this staker is in a new slashing span now, having re-registered after
-			// their prior slash.
+			mock::start_active_era(3);
 
+			// an offence committed in era 1 is reported in era 3
 			on_offence_in_era(
 				&[OffenceDetails {
 					offender: (11, Staking::eras_stakers(active_era(), &11)),
@@ -2431,10 +2430,11 @@ fn slash_in_old_span_does_not_deselect() {
 				1,
 			);
 
-			// the validator doesn't get chilled again
+			// the validator doesn't get disabled for an old offence
 			assert!(Validators::<Test>::iter().any(|(stash, _)| stash == 11));
+			assert!(!is_disabled(11));
 
-			// but we are still forcing a new era
+			// and we are not forcing a new era
 			assert_eq!(Staking::force_era(), Forcing::NotForcing);
 
 			on_offence_in_era(
@@ -2447,12 +2447,10 @@ fn slash_in_old_span_does_not_deselect() {
 				1,
 			);
 
-			// the validator doesn't get chilled again
+			// the validator doesn't get disabled again
 			assert!(Validators::<Test>::iter().any(|(stash, _)| stash == 11));
-
-			// but it's disabled
-			assert!(is_disabled(11));
-			// and we are still forcing a new era
+			assert!(!is_disabled(11));
+			// and we are still not forcing a new era
 			assert_eq!(Staking::force_era(), Forcing::NotForcing);
 		});
 }

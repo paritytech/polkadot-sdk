@@ -1230,12 +1230,20 @@ pub struct DisablingDecision {
 	disable_offenders: Vec<u32>,
 }
 
+/// Input data for [`make_disabling_decision`]. Provides information about the offence so that the
+/// implementation of [`DisablingStrategy`] can make a decision how to handle the offender.
+pub struct DisablingDecisionContext {
+	pub offender_idx: u32,
+	pub slash_era: EraIndex,
+	pub era_now: EraIndex,
+}
+
 /// Controls validator disabling
 pub trait DisablingStrategy<T: Config> {
 	/// Make a decision if an offender should be disabled or not. The result is an instance of
 	/// `[DisablingDecision]`
 	fn make_disabling_decision(
-		offender_idx: u32,
+		offence_ctx: DisablingDecisionContext,
 		currently_disabled: &Vec<u32>,
 		active_set: &Vec<T::AccountId>,
 	) -> DisablingDecision;
@@ -1255,17 +1263,21 @@ impl UpToByzantineThresholdDisablingStrategy {
 
 impl<T: Config> DisablingStrategy<T> for UpToByzantineThresholdDisablingStrategy {
 	fn make_disabling_decision(
-		offender_idx: u32,
+		offence_ctx: DisablingDecisionContext,
 		currently_disabled: &Vec<u32>,
 		active_set: &Vec<T::AccountId>,
 	) -> DisablingDecision {
-		// we don't want to disable more offenders than the byzantine threshold
-		let disable_offenders =
-			if currently_disabled.len() >= Self::byzantine_threshold(active_set.len()) as usize {
-				vec![]
-			} else {
-				vec![offender_idx]
-			};
+		// We don't disable more than 1/3 of the validators in the active set
+		let over_byzantine_threshold =
+			currently_disabled.len() >= Self::byzantine_threshold(active_set.len());
+		// We don't disable for offences in previous eras
+		let ancient_offence = offence_ctx.era_now > offence_ctx.slash_era;
+
+		let disable_offenders = if over_byzantine_threshold || ancient_offence {
+			vec![]
+		} else {
+			vec![offence_ctx.offender_idx]
+		};
 
 		DisablingDecision { disable_offenders }
 	}
