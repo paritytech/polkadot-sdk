@@ -1484,11 +1484,26 @@ impl_runtime_apis! {
 						xcm_config::bridging::SiblingBridgeHubParaId::get().into()
 					);
 				}
-				fn ensure_bridged_target_destination() -> MultiLocation {
+				fn ensure_bridged_target_destination() -> Result<MultiLocation, BenchmarkError> {
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
 						xcm_config::bridging::SiblingBridgeHubParaId::get().into()
 					);
-					xcm_config::bridging::to_ethereum::EthereumLocation::get()
+					let bridge_hub = xcm_config::bridging::SiblingBridgeHub::get();
+					let _ = PolkadotXcm::force_xcm_version(
+						RuntimeOrigin::root(),
+						Box::new(bridge_hub),
+						XCM_VERSION,
+					).map_err(|e| {
+						log::error!(
+							"Failed to dispatch `force_xcm_version({:?}, {:?}, {:?})`, error: {:?}",
+							RuntimeOrigin::root(),
+							bridge_hub,
+							XCM_VERSION,
+							e
+						);
+						BenchmarkError::Stop("XcmVersion was not stored!")
+					})?;
+					Ok(bridged_asset_hub)
 				}
 			}
 
