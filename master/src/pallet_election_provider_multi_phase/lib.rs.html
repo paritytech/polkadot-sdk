@@ -2696,6 +2696,9 @@
 <a href="#2696" id="2696">2696</a>
 <a href="#2697" id="2697">2697</a>
 <a href="#2698" id="2698">2698</a>
+<a href="#2699" id="2699">2699</a>
+<a href="#2700" id="2700">2700</a>
+<a href="#2701" id="2701">2701</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3722,6 +3725,7 @@
 
 			<span class="comment">// ensure solution is timely.
 			</span><span class="macro">ensure!</span>(<span class="self">Self</span>::current_phase().is_signed(), Error::&lt;T&gt;::PreDispatchEarlySubmission);
+			<span class="macro">ensure!</span>(raw_solution.round == <span class="self">Self</span>::round(), Error::&lt;T&gt;::PreDispatchDifferentRound);
 
 			<span class="comment">// NOTE: this is the only case where having separate snapshot would have been better
 			// because could do just decode_len. But we can create abstractions to do this.
@@ -3895,6 +3899,8 @@
 		</span>BoundNotMet,
 		<span class="doccomment">/// Submitted solution has too many winners
 		</span>TooManyWinners,
+		<span class="doccomment">/// Sumission was prepared for a different round.
+		</span>PreDispatchDifferentRound,
 	}
 
 	<span class="attr">#[pallet::validate_unsigned]
