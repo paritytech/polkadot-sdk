@@ -30,6 +30,3 @@ bitvec = "1"
 
 [dev-dependencies]
 rand_chacha = "0.3.1"
-
-[features]
-network-protocol-staging = []
