@@ -220,7 +220,7 @@ fn translate<T: Config>(pre: V9HostConfiguration<BlockNumberFor<T>>) -> V10HostC
 		hrmp_max_parachain_outbound_channels     : pre.hrmp_max_parachain_outbound_channels,
 		hrmp_channel_max_message_size            : pre.hrmp_channel_max_message_size,
 		code_retention_period                    : pre.code_retention_period,
-		coretime_cores                          : pre.on_demand_cores,
+		on_demand_cores                          : pre.on_demand_cores,
 		on_demand_retries                        : pre.on_demand_retries,
 		group_rotation_frequency                 : pre.group_rotation_frequency,
 		paras_availability_period                : pre.paras_availability_period,
@@ -313,7 +313,7 @@ mod tests {
 		assert_eq!(v10.n_delay_tranches, 25);
 		assert_eq!(v10.minimum_validation_upgrade_delay, 5);
 		assert_eq!(v10.group_rotation_frequency, 20);
-		assert_eq!(v10.coretime_cores, 0);
+		assert_eq!(v10.on_demand_cores, 0);
 		assert_eq!(v10.on_demand_base_fee, 10_000_000);
 		assert_eq!(v10.minimum_backing_votes, LEGACY_MIN_BACKING_VOTES);
 		assert_eq!(v10.node_features, NodeFeatures::EMPTY);

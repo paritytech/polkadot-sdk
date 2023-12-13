@@ -342,7 +342,7 @@ fn assign_core_enforces_well_formed_schedule() {
 				not_unique,
 				None,
 			),
-			Error::<Test>::AssignmentsNotUnique
+			Error::<Test>::AssignmentsNotSorted
 		);
 		assert_noop!(
 			CoretimeAssigner::assign_core(

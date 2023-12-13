@@ -285,8 +285,6 @@ pub mod pallet {
 		DuplicateInsert,
 		/// Tried to add an unsorted set of assignments
 		AssignmentsNotSorted,
-		/// Two or more of the same assignment contained in assignment set
-		AssignmentsNotUnique,
 	}
 }
 
@@ -487,11 +485,11 @@ impl<T: Config> Pallet<T> {
 		// Checking for sort and unique manually, since we don't have access to iterator tools.
 		// This way of checking uniqueness only works since we also check sortedness.
 		assignments.iter().map(|x| &x.0).try_fold(None, |prev, cur| {
-		    if prev.map_or(false, |p| p >= cur) {
-		        Err(Error::<T>::AssignmentsNotSorted)
-		    } else {
-		         Ok(cur)
-		    }
+			if prev.map_or(false, |p| p >= cur) {
+				Err(Error::<T>::AssignmentsNotSorted)
+			} else {
+				Ok(Some(cur))
+			}
 		})?;
 
 		// Check that the total parts between all assignments are equal to 57600

@@ -126,7 +126,7 @@ hrmp_max_parachain_inbound_channels      : pre.hrmp_max_parachain_inbound_channe
 hrmp_max_parachain_outbound_channels     : pre.hrmp_max_parachain_outbound_channels,
 hrmp_channel_max_message_size            : pre.hrmp_channel_max_message_size,
 code_retention_period                    : pre.code_retention_period,
-on_demand_cores                          : pre.on_demand_cores,
+coretime_cores                           : pre.on_demand_cores,
 on_demand_retries                        : pre.on_demand_retries,
 group_rotation_frequency                 : pre.group_rotation_frequency,
 paras_availability_period                : pre.paras_availability_period,
