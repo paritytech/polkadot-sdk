@@ -197,6 +197,7 @@ impl frame_system::Config for Runtime {
 	type Version = Version;
 	type AccountData = pallet_balances::AccountData<Balance>;
 	type SystemWeightInfo = weights::frame_system::WeightInfo<Runtime>;
+	type SystemExtensionsWeightInfo = weights::frame_system_extensions::WeightInfo<Runtime>;
 	type SS58Prefix = SS58Prefix;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
@@ -1672,6 +1673,20 @@ pub type Executive = frame_executive::Executive<
 pub type SignedPayload = generic::SignedPayload<RuntimeCall, TxExtension>;
 
 #[cfg(feature = "runtime-benchmarks")]
+impl frame_system_benchmarking::extensions::Config for Runtime {
+	fn default_call() -> Self::RuntimeCall {
+		RuntimeCall::System(frame_system::Call::set_heap_pages { pages: 0u64 })
+	}
+
+	fn dispatch_info(
+		weight: Weight,
+		class: frame_support::pallet_prelude::DispatchClass,
+	) -> <Self::RuntimeCall as sp_runtime::traits::Dispatchable>::Info {
+		frame_support::dispatch::DispatchInfo { weight, class, ..Default::default() }
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
 mod benches {
 	frame_benchmarking::define_benchmarks!(
 		// Polkadot
@@ -1713,6 +1728,7 @@ mod benches {
 		[pallet_staking, Staking]
 		[pallet_sudo, Sudo]
 		[frame_system, SystemBench::<Runtime>]
+		[frame_system_extensions, SystemExtensionsBench::<Runtime>]
 		[pallet_timestamp, Timestamp]
 		[pallet_treasury, Treasury]
 		[pallet_utility, Utility]
@@ -2249,6 +2265,7 @@ sp_api::impl_runtime_apis! {
 			use pallet_election_provider_support_benchmarking::Pallet as ElectionProviderBench;
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			use frame_system_benchmarking::Pallet as SystemBench;
+			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			use pallet_nomination_pools_benchmarking::Pallet as NominationPoolsBench;
 
 			type XcmBalances = pallet_xcm_benchmarks::fungible::Pallet::<Runtime>;
@@ -2277,6 +2294,7 @@ sp_api::impl_runtime_apis! {
 			use pallet_election_provider_support_benchmarking::Pallet as ElectionProviderBench;
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			use frame_system_benchmarking::Pallet as SystemBench;
+			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			use pallet_nomination_pools_benchmarking::Pallet as NominationPoolsBench;
 
 			impl pallet_session_benchmarking::Config for Runtime {}

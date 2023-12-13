@@ -200,6 +200,7 @@ impl frame_system::Config for Runtime {
 	type Version = Version;
 	type AccountData = pallet_balances::AccountData<Balance>;
 	type SystemWeightInfo = weights::frame_system::WeightInfo<Runtime>;
+	type SystemExtensionsWeightInfo = weights::frame_system_extensions::WeightInfo<Runtime>;
 	type SS58Prefix = SS58Prefix;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
@@ -642,6 +643,22 @@ impl claims::Config for Runtime {
 	type Prefix = Prefix;
 	type MoveClaimOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = weights::runtime_common_claims::WeightInfo<Runtime>;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl claims::ExtConfig for Runtime {
+	fn default_call_and_info(
+	) -> (Self::RuntimeCall, sp_runtime::traits::DispatchInfoOf<Self::RuntimeCall>) {
+		use frame_support::dispatch::GetDispatchInfo;
+		let call = RuntimeCall::Claims(claims::Call::attest {
+			statement: claims::StatementKind::Regular.to_text().to_vec(),
+		});
+		let info = call.get_dispatch_info();
+		(call, info)
+	}
+	fn default_post_info() -> <Self::RuntimeCall as sp_runtime::traits::Dispatchable>::PostInfo {
+		Default::default()
+	}
 }
 
 parameter_types! {
@@ -1675,6 +1692,20 @@ frame_support::ord_parameter_types! {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
+impl frame_system_benchmarking::extensions::Config for Runtime {
+	fn default_call() -> Self::RuntimeCall {
+		RuntimeCall::System(frame_system::Call::set_heap_pages { pages: 0u64 })
+	}
+
+	fn dispatch_info(
+		weight: Weight,
+		class: frame_support::pallet_prelude::DispatchClass,
+	) -> <Self::RuntimeCall as sp_runtime::traits::Dispatchable>::Info {
+		frame_support::dispatch::DispatchInfo { weight, class, ..Default::default() }
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
 mod benches {
 	frame_benchmarking::define_benchmarks!(
 		// Polkadot
@@ -1716,6 +1747,7 @@ mod benches {
 		[pallet_scheduler, Scheduler]
 		[pallet_sudo, Sudo]
 		[frame_system, SystemBench::<Runtime>]
+		[frame_system_extensions, SystemExtensionsBench::<Runtime>]
 		[pallet_timestamp, Timestamp]
 		[pallet_treasury, Treasury]
 		[pallet_utility, Utility]
@@ -2204,6 +2236,7 @@ sp_api::impl_runtime_apis! {
 			use frame_support::traits::StorageInfoTrait;
 
 			use frame_system_benchmarking::Pallet as SystemBench;
+			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			use frame_benchmarking::baseline::Pallet as Baseline;
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
@@ -2224,6 +2257,7 @@ sp_api::impl_runtime_apis! {
 			use frame_support::traits::WhitelistedStorageKeys;
 			use frame_benchmarking::{Benchmarking, BenchmarkBatch, BenchmarkError};
 			use frame_system_benchmarking::Pallet as SystemBench;
+			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			use frame_benchmarking::baseline::Pallet as Baseline;
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			use sp_storage::TrackedStorageKey;

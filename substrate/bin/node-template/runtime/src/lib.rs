@@ -21,10 +21,7 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
-use frame_support::{
-	dispatch::DispatchInfo,
-	genesis_builder_helper::{build_config, create_default_config},
-};
+use frame_support::genesis_builder_helper::{build_config, create_default_config};
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
@@ -327,7 +324,7 @@ impl frame_system_benchmarking::extensions::Config for Runtime {
 		weight: Weight,
 		class: frame_support::pallet_prelude::DispatchClass,
 	) -> <Self::RuntimeCall as sp_runtime::traits::Dispatchable>::Info {
-		DispatchInfo { weight, class, ..Default::default() }
+		frame_support::dispatch::DispatchInfo { weight, class, ..Default::default() }
 	}
 }
 

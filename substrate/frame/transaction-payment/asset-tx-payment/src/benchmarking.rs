@@ -59,8 +59,11 @@ mod benchmarks {
 		let ext: ChargeAssetTxPayment<T> = ChargeAssetTxPayment::from(0u32.into(), None);
 		let inner = frame_system::Call::remark { remark: vec![] };
 		let call = T::RuntimeCall::from(inner);
-		let info =
-			DispatchInfo { weight: 0.into(), class: DispatchClass::Normal, pays_fee: Pays::No };
+		let info = DispatchInfo {
+			weight: Weight::zero(),
+			class: DispatchClass::Normal,
+			pays_fee: Pays::No,
+		};
 		let post_info = PostDispatchInfo { actual_weight: None, pays_fee: Pays::No };
 		#[block]
 		{
