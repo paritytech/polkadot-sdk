@@ -881,6 +881,7 @@ impl pallet_xcm_bridge_hub_router::Config<ToEthereumXcmRouterInstance> for Runti
 	type UniversalLocation = xcm_config::UniversalLocation;
 	type BridgedNetworkId = snowbridge_rococo_common::EthereumNetwork;
 	type Bridges = xcm_config::bridging::NetworkExportTable;
+	type DestinationVersion = PolkadotXcm;
 
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type BridgeHubOrigin = EnsureXcm<Equals<xcm_config::bridging::SiblingBridgeHub>>;
