@@ -8,6 +8,9 @@ repository.workspace = true
 description = "BEEFY FRAME pallet"
 homepage = "https://substrate.io"
 
+[lints]
+workspace = true
+
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 log = { version = "0.4.17", default-features = false }
