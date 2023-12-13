@@ -1488,6 +1488,7 @@ impl_runtime_apis! {
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
 						xcm_config::bridging::SiblingBridgeHubParaId::get().into()
 					);
+					Ok(xcm_config::bridging::to_ethereum::EthereumLocation::get())
 				}
 			}
 
