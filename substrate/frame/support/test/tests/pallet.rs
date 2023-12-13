@@ -866,6 +866,11 @@ fn error_expand() {
 		}),
 	);
 	assert_eq!(<pallet::Error::<Runtime> as PalletError>::MAX_ENCODED_SIZE, 3);
+	#[cfg(feature = "frame-feature-testing")]
+	assert_eq!(
+		format!("{:?}", pallet::Error::<Runtime>::FeatureTest),
+		String::from("FeatureTest"),
+	);
 }
 
 #[test]
@@ -2406,4 +2411,33 @@ fn test_dispatch_context() {
 		assert_ok!(RuntimeCall::from(pallet::Call::<Runtime>::check_for_dispatch_context {})
 			.dispatch(RuntimeOrigin::root()));
 	});
+}
+
+#[test]
+fn test_call_feature_parsing() {
+	let call= pallet::Call::<Runtime>::check_for_dispatch_context {};
+	match call {
+		pallet::Call::<Runtime>::check_for_dispatch_context { } |
+		pallet::Call::<Runtime>::foo { .. } |
+		pallet::Call::foo_storage_layer { .. } |
+		pallet::Call::foo_index_out_of_order {  } | pallet::Call::foo_no_post_info {  } => (),
+		#[cfg(feature = "frame-feature-testing")]
+		pallet::Call::foo_feature_test {  } => (),
+		pallet::Call::__Ignore(_, _) => (),
+	}
+}
+
+#[test]
+fn test_error_feature_parsing() {
+	let err = pallet::Error::<Runtime>::InsufficientProposersBalance;
+	match err {
+		pallet::Error::InsufficientProposersBalance |
+		pallet::Error::NonExistentStorageValue |
+		pallet::Error::Code(_) |
+		pallet::Error::Skipped(_) |
+		pallet::Error::CompactU8(_) => (),
+		#[cfg(feature = "frame-feature-testing")]
+		pallet::Error::FeatureTest => (),
+		pallet::Error::__Ignore(_, _) => (),
+	}
 }
