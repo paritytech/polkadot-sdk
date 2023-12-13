@@ -13295,7 +13295,7 @@ version = "1.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
- "clap 4.4.10",
+ "clap 4.4.11",
  "clap-num",
  "color-eyre",
  "colored",
