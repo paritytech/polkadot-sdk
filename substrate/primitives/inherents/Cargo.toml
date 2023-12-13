@@ -10,6 +10,9 @@ description = "Provides types and traits for creating and checking inherents."
 documentation = "https://docs.rs/sp-inherents"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
