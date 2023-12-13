@@ -656,7 +656,7 @@ mod test {
 	}
 
 	#[test]
-	fn importing_target_block_finishes_strategy() {
+	fn succesfully_importing_target_block_finishes_strategy() {
 		let target_hash = Hash::random();
 		let mut state_sync_provider = MockStateSync::<Block>::new();
 		state_sync_provider.expect_target_hash().return_const(target_hash);
@@ -670,6 +670,30 @@ mod test {
 			1,
 			vec![(
 				Ok(BlockImportStatus::ImportedUnknown(1, ImportedAux::default(), None)),
+				target_hash,
+			)],
+		);
+
+		// Strategy finishes.
+		assert_eq!(state_strategy.actions.len(), 1);
+		assert!(matches!(&state_strategy.actions[0], StateStrategyAction::Finished));
+	}
+
+	#[test]
+	fn failure_to_import_target_block_finishes_strategy() {
+		let target_hash = Hash::random();
+		let mut state_sync_provider = MockStateSync::<Block>::new();
+		state_sync_provider.expect_target_hash().return_const(target_hash);
+
+		let mut state_strategy =
+			StateStrategy::new_with_provider(Box::new(state_sync_provider), std::iter::empty());
+
+		// Target block imported.
+		state_strategy.on_blocks_processed(
+			1,
+			1,
+			vec![(
+				Err(BlockImportError::VerificationFailed(None, String::from("test-error"))),
 				target_hash,
 			)],
 		);
