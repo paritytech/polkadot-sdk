@@ -63,6 +63,10 @@ impl<T: Config> sp_std::fmt::Debug for CheckNonce<T> {
 impl<T: Config + Send + Sync> TransactionExtensionBase for CheckNonce<T> {
 	const IDENTIFIER: &'static str = "CheckNonce";
 	type Implicit = ();
+	fn weight(&self) -> sp_weights::Weight {
+		use super::WeightInfo;
+		T::SystemExtensionsWeightInfo::check_nonce()
+	}
 }
 impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Context>
 	for CheckNonce<T>
