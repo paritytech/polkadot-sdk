@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Subcommand"],"struct":["Cli","ExportGenesisStateCommand","ExportGenesisWasmCommand","RunCmd"]};
+window.SIDEBAR_ITEMS = {"enum":["Subcommand"],"struct":["Cli","ExportGenesisHeadCommand","ExportGenesisWasmCommand","RunCmd"]};

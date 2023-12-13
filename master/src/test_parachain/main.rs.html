@@ -126,30 +126,6 @@
 <a href="#126" id="126">126</a>
 <a href="#127" id="127">127</a>
 <a href="#128" id="128">128</a>
-<a href="#129" id="129">129</a>
-<a href="#130" id="130">130</a>
-<a href="#131" id="131">131</a>
-<a href="#132" id="132">132</a>
-<a href="#133" id="133">133</a>
-<a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a>
-<a href="#136" id="136">136</a>
-<a href="#137" id="137">137</a>
-<a href="#138" id="138">138</a>
-<a href="#139" id="139">139</a>
-<a href="#140" id="140">140</a>
-<a href="#141" id="141">141</a>
-<a href="#142" id="142">142</a>
-<a href="#143" id="143">143</a>
-<a href="#144" id="144">144</a>
-<a href="#145" id="145">145</a>
-<a href="#146" id="146">146</a>
-<a href="#147" id="147">147</a>
-<a href="#148" id="148">148</a>
-<a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
-<a href="#152" id="152">152</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -168,16 +144,14 @@
 
 </span><span class="kw">mod </span>cli;
 
-<span class="kw">use </span>std::{io::Write, sync::Arc};
+<span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>cli::{RelayChainCli, Subcommand, TestCollatorCli};
-<span class="kw">use </span>cumulus_client_cli::generate_genesis_block;
 <span class="kw">use </span>cumulus_primitives_core::{relay_chain::CollatorPair, ParaId};
-<span class="kw">use </span>cumulus_test_service::AnnounceBlockFn;
+<span class="kw">use </span>cumulus_test_service::{new_partial, AnnounceBlockFn};
 <span class="kw">use </span>polkadot_service::runtime_traits::AccountIdConversion;
 <span class="kw">use </span>sc_cli::{CliConfiguration, SubstrateCli};
-<span class="kw">use </span>sp_core::{hexdisplay::HexDisplay, Encode, Pair};
-<span class="kw">use </span>sp_runtime::traits::Block;
+<span class="kw">use </span>sp_core::Pair;
 
 <span class="kw">pub fn </span>wrap_announce_block() -&gt; Box&lt;<span class="kw">dyn </span>FnOnce(AnnounceBlockFn) -&gt; AnnounceBlockFn&gt; {
 	<span class="macro">tracing::info!</span>(<span class="string">&quot;Block announcements disabled.&quot;</span>);
@@ -196,38 +170,16 @@
 			runner.sync_run(|config| cmd.run(config.chain_spec, config.network))
 		},
 
-		<span class="prelude-val">Some</span>(Subcommand::ExportGenesisState(params)) =&gt; {
-			<span class="kw">let </span><span class="kw-2">mut </span>builder = sc_cli::LoggerBuilder::new(<span class="string">&quot;&quot;</span>);
-			builder.with_profiling(sc_tracing::TracingReceiver::Log, <span class="string">&quot;&quot;</span>);
-			<span class="kw">let _ </span>= builder.init();
-
-			<span class="kw">let </span>spec =
-				cli.load_spec(<span class="kw-2">&amp;</span>params.base.shared_params.chain.clone().unwrap_or_default())<span class="question-mark">?</span>;
-			<span class="kw">let </span>state_version = cumulus_test_service::runtime::VERSION.state_version();
-
-			<span class="kw">let </span>block: parachains_common::Block = generate_genesis_block(<span class="kw-2">&amp;*</span>spec, state_version)<span class="question-mark">?</span>;
-			<span class="kw">let </span>raw_header = block.header().encode();
-			<span class="kw">let </span>output_buf = <span class="kw">if </span>params.base.raw {
-				raw_header
-			} <span class="kw">else </span>{
-				<span class="macro">format!</span>(<span class="string">&quot;0x{:?}&quot;</span>, HexDisplay::from(<span class="kw-2">&amp;</span>block.header().encode())).into_bytes()
-			};
-
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(output) = <span class="kw-2">&amp;</span>params.base.output {
-				std::fs::write(output, output_buf)<span class="question-mark">?</span>;
-			} <span class="kw">else </span>{
-				std::io::stdout().write_all(<span class="kw-2">&amp;</span>output_buf)<span class="question-mark">?</span>;
-			}
-
-			<span class="prelude-val">Ok</span>(())
+		<span class="prelude-val">Some</span>(Subcommand::ExportGenesisHead(cmd)) =&gt; {
+			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
+			runner.sync_run(|<span class="kw-2">mut </span>config| {
+				<span class="kw">let </span>partial = new_partial(<span class="kw-2">&amp;mut </span>config, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
+				cmd.run(partial.client)
+			})
 		},
 		<span class="prelude-val">Some</span>(Subcommand::ExportGenesisWasm(cmd)) =&gt; {
 			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
-			runner.sync_run(|_config| {
-				<span class="kw">let </span>parachain_id = ParaId::from(cmd.parachain_id);
-				<span class="kw">let </span>spec = cumulus_test_service::get_chain_spec(<span class="prelude-val">Some</span>(parachain_id));
-				cmd.base.run(<span class="kw-2">&amp;</span>spec)
-			})
+			runner.sync_run(|config| cmd.run(<span class="kw-2">&amp;*</span>config.chain_spec))
 		},
 		<span class="prelude-val">None </span>=&gt; {
 			<span class="kw">let </span>log_filters = cli.run.normalize().log_filters();

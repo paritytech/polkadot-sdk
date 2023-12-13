@@ -164,16 +164,16 @@
 </span><span class="kw">pub enum </span>Subcommand {
 	<span class="doccomment">/// Export the genesis state of the parachain.
 	</span><span class="attr">#[command(name = <span class="string">&quot;export-genesis-state&quot;</span>)]
-	</span>ExportGenesisState(ExportGenesisStateCommand),
+	</span>ExportGenesisState(ExportGenesisHeadCommand),
 
 	<span class="doccomment">/// Export the genesis wasm of the parachain.
 	</span><span class="attr">#[command(name = <span class="string">&quot;export-genesis-wasm&quot;</span>)]
 	</span>ExportGenesisWasm(ExportGenesisWasmCommand),
 }
 
-<span class="doccomment">/// Command for exporting the genesis state of the parachain
+<span class="doccomment">/// Command for exporting the genesis head data of the parachain
 </span><span class="attr">#[derive(Debug, Parser)]
-</span><span class="kw">pub struct </span>ExportGenesisStateCommand {
+</span><span class="kw">pub struct </span>ExportGenesisHeadCommand {
 	<span class="doccomment">/// Output file name or stdout if unspecified.
 	</span><span class="attr">#[arg()]
 	</span><span class="kw">pub </span>output: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,

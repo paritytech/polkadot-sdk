@@ -936,6 +936,8 @@
 <a href="#936" id="936">936</a>
 <a href="#937" id="937">937</a>
 <a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -960,7 +962,9 @@
 </span><span class="kw">pub mod </span>bench_utils;
 
 <span class="kw">pub mod </span>chain_spec;
-<span class="kw">mod </span>genesis;
+
+<span class="doccomment">/// Utilities for creating test genesis block and head data
+</span><span class="kw">pub mod </span>genesis;
 
 <span class="kw">use </span>runtime::AccountId;
 <span class="kw">use </span>sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};

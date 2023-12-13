@@ -556,12 +556,12 @@
 				cmd.run(config, polkadot_config)
 			})
 		},
-		<span class="prelude-val">Some</span>(Subcommand::ExportGenesisState(cmd)) =&gt; {
+		<span class="prelude-val">Some</span>(Subcommand::ExportGenesisHead(cmd)) =&gt; {
 			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
 			runner.sync_run(|config| {
 				<span class="kw">let </span>partials = new_partial(<span class="kw-2">&amp;</span>config)<span class="question-mark">?</span>;
 
-				cmd.run(<span class="kw-2">&amp;*</span>config.chain_spec, <span class="kw-2">&amp;*</span>partials.client)
+				cmd.run(partials.client)
 			})
 		},
 		<span class="prelude-val">Some</span>(Subcommand::ExportGenesisWasm(cmd)) =&gt; {
