@@ -139,9 +139,7 @@ fn combine_impls(
 				let cfg_attrs = typ
 					.attrs
 					.iter()
-					.filter(|attr| {
-						attr.path().get_ident().map_or(false, |ident| ident == "cfg")
-					})
+					.filter(|attr| attr.path().get_ident().map_or(false, |ident| ident == "cfg"))
 					.map(|attr| attr.to_token_stream());
 				if is_runtime_type(&typ) {
 					let item: ImplItem = if inject_runtime_types {

@@ -18,21 +18,21 @@
 use frame_support::derive_impl;
 
 trait Shape {
-    fn area(&self) -> u32;
+	fn area(&self) -> u32;
 }
 
 struct SomeRectangle {}
 
 #[frame_support::register_default_impl(SomeRectangle)]
 impl Shape for SomeRectangle {
-    fn area(&self) -> u32 {
-        10
-    }
+	fn area(&self) -> u32 {
+		10
+	}
 
-    #[cfg(feature = "feature-frame-testing")]
-    fn area(&self) -> u32 {
-        0
-    }
+	#[cfg(feature = "feature-frame-testing")]
+	fn area(&self) -> u32 {
+		0
+	}
 }
 
 struct SomeSquare {}
@@ -42,11 +42,11 @@ impl Shape for SomeSquare {}
 
 #[test]
 fn test_feature_parsing() {
-    let square = SomeSquare { };
-    assert_eq!(square.area(), 10);
+	let square = SomeSquare {};
+	assert_eq!(square.area(), 10);
 
-    #[cfg(feature = "feature-frame-testing")]
-    {
-        assert_eq!(square.area(), 0);
-    }
+	#[cfg(feature = "feature-frame-testing")]
+	{
+		assert_eq!(square.area(), 0);
+	}
 }
