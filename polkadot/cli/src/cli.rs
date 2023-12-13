@@ -88,6 +88,12 @@ pub struct RunCmd {
 	#[arg(long)]
 	pub no_beefy: bool,
 
+	/// Allows a validator to run insecurely outside of Secure Validator Mode. Security features
+	/// are still enabled on a best-effort basis, but missing features are no longer required. For
+	/// more information see <https://github.com/w3f/polkadot-wiki/issues/4881>.
+	#[arg(long = "insecure-validator-i-know-what-i-do", requires = "validator")]
+	pub insecure_validator: bool,
+
 	/// Enable the block authoring backoff that is triggered when finality is lagging.
 	#[arg(long)]
 	pub force_authoring_backoff: bool,
