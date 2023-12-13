@@ -205,14 +205,10 @@ impl Artifacts {
 	/// Create the cache directory on-disk if it doesn't exist.
 	pub async fn new_and_prune(cache_path: &Path) -> Self {
 		let mut artifacts = Self { inner: HashMap::new() };
-		match artifacts.insert_and_prune(cache_path).await {
-			Ok(()) => (),
-			Err(err) => gum::error!(
+		artifacts.insert_and_prune(cache_path).await.map_err(|err| gum::error!(
 				target: LOG_TARGET,
-				"could not initialize artifacts cache: {}",
-				err,
-			),
-		}
+				"could not initialize artifacts cache: {err}",
+			));
 		artifacts
 	}
 
