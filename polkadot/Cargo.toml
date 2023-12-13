@@ -18,7 +18,7 @@ rust-version = "1.64.0"
 readme = "README.md"
 authors.workspace = true
 edition.workspace = true
-version = "1.1.0"
+version = "1.5.0"
 default-run = "polkadot"
 
 [dependencies]
@@ -64,7 +64,6 @@ jemalloc-allocator = [
 	"polkadot-node-core-pvf/jemalloc-allocator",
 	"polkadot-overseer/jemalloc-allocator",
 ]
-network-protocol-staging = ["polkadot-cli/network-protocol-staging"]
 
 
 # Enables timeout-based tests supposed to be run only in CI environment as they may be flaky

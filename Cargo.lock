@@ -1883,6 +1883,7 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "rococo-westend-system-emulated-network",
+ "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
 ]
@@ -1990,6 +1991,7 @@ dependencies = [
  "frame-executive",
  "frame-support",
  "frame-system",
+ "impl-trait-for-tuples",
  "log",
  "pallet-balances",
  "pallet-bridge-grandpa",
@@ -2008,6 +2010,7 @@ dependencies = [
  "sp-io",
  "sp-keyring",
  "sp-runtime",
+ "sp-std 8.0.0",
  "sp-tracing 10.0.0",
  "staging-parachain-info",
  "staging-xcm",
@@ -2048,6 +2051,7 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "rococo-westend-system-emulated-network",
+ "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
 ]
@@ -3322,6 +3326,7 @@ dependencies = [
  "sc-cli",
  "sc-client-api",
  "sc-service",
+ "sp-blockchain",
  "sp-core",
  "sp-runtime",
  "url",
@@ -11786,7 +11791,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot"
-version = "1.1.0"
+version = "1.5.0"
 dependencies = [
  "assert_cmd",
  "color-eyre",
@@ -12756,7 +12761,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-parachain-bin"
-version = "1.1.0"
+version = "1.5.0"
 dependencies = [
  "assert_cmd",
  "asset-hub-rococo-runtime",

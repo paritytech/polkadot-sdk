@@ -85,6 +85,8 @@ pub struct CallVariantDef {
 	pub docs: Vec<syn::Expr>,
 	/// Attributes annotated at the top of the dispatchable function.
 	pub attrs: Vec<syn::Attribute>,
+	/// The `cfg` attributes.
+	pub cfg_attrs: Vec<syn::Attribute>,
 	/// The optional `feeless_if` attribute on the `pallet::call`.
 	pub feeless_check: Option<syn::ExprClosure>,
 }
@@ -266,6 +268,7 @@ impl CallDef {
 					return Err(syn::Error::new(method.sig.span(), msg))
 				}
 
+				let cfg_attrs: Vec<syn::Attribute> = helper::get_item_cfg_attrs(&method.attrs);
 				let mut call_idx_attrs = vec![];
 				let mut weight_attrs = vec![];
 				let mut feeless_attrs = vec![];
@@ -442,6 +445,7 @@ impl CallDef {
 					args,
 					docs,
 					attrs: method.attrs.clone(),
+					cfg_attrs,
 					feeless_check,
 				});
 			} else {
