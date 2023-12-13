@@ -527,7 +527,7 @@ fn unreserving_balance_should_not_touch_provider_count() {
 		assert_eq!(System::<Test>::account(&1).providers, 1);
 
 		Balances::unreserve(&1, 100);
-		assert_eq!(System::<Test>::account(&1).providers, 1); // <- this fails
+		assert_eq!(System::<Test>::account(&1).providers, 1);
 		assert_eq!(Balances::reserved_balance(1), 0);
 		assert_eq!(Balances::free_balance(1), 100);
 	});
