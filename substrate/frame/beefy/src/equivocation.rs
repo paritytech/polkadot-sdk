@@ -372,13 +372,10 @@ impl<T: Config> Pallet<T> {
 					*equivocation_proof.clone(),
 					key_owner_proofs.clone(),
 				);
-				log::error!("checking evidence");
 				T::EquivocationReportSystem::check_evidence(evidence)?;
 
-				log::error!("passed evidence check");
 				let longevity =
 					<T::EquivocationReportSystem as OffenceReportSystem<_, _>>::Longevity::get();
-				log::error!("retrieved longevity");
 
 				ValidTransaction::with_tag_prefix("BeefyEquivocation")
 					// We assign the maximum priority for any equivocation report.
@@ -394,13 +391,7 @@ impl<T: Config> Pallet<T> {
 					.propagate(false)
 					.build()
 			},
-			_ => {
-				log::error!(
-					target: LOG_TARGET,
-					"lolalol"
-				);
-				InvalidTransaction::Call.into()
-			},
+			_ => InvalidTransaction::Call.into(),
 		}
 	}
 
