@@ -1024,6 +1024,7 @@ pub mod pallet {
 
 			// ensure solution is timely.
 			ensure!(Self::current_phase().is_signed(), Error::<T>::PreDispatchEarlySubmission);
+			ensure!(raw_solution.round == Self::round(), Error::<T>::PreDispatchDifferentRound);
 
 			// NOTE: this is the only case where having separate snapshot would have been better
 			// because could do just decode_len. But we can create abstractions to do this.
@@ -1197,6 +1198,8 @@ pub mod pallet {
 		BoundNotMet,
 		/// Submitted solution has too many winners
 		TooManyWinners,
+		/// Sumission was prepared for a different round.
+		PreDispatchDifferentRound,
 	}
 
 	#[pallet::validate_unsigned]

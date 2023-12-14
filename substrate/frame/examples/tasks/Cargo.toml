@@ -7,6 +7,9 @@ license.workspace = true
 repository.workspace = true
 description = "Pallet to demonstrate the usage of Tasks to recongnize and execute service work"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
