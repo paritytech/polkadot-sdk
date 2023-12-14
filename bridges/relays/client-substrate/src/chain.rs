@@ -169,6 +169,24 @@ impl<C: Chain> UnsignedTransaction<C> {
 		Self { call, nonce, era: TransactionEra::Immortal, tip: Zero::zero() }
 	}
 
+	/// Convert to the transaction of the other compatible chain.
+	pub fn switch_chain<Other>(self) -> UnsignedTransaction<Other>
+	where
+		Other: Chain<
+			Nonce = C::Nonce,
+			Balance = C::Balance,
+			BlockNumber = C::BlockNumber,
+			Hash = C::Hash,
+		>,
+	{
+		UnsignedTransaction {
+			call: EncodedOrDecodedCall::Encoded(self.call.into_encoded()),
+			nonce: self.nonce,
+			tip: self.tip,
+			era: self.era,
+		}
+	}
+
 	/// Set transaction tip.
 	#[must_use]
 	pub fn tip(mut self, tip: C::Balance) -> Self {

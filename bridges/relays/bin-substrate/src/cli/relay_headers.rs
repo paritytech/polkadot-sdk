@@ -27,6 +27,10 @@ use crate::bridges::{
 		polkadot_bulletin_headers_to_bridge_hub_polkadot::PolkadotBulletinToBridgeHubPolkadotCliBridge,
 		polkadot_headers_to_polkadot_bulletin::PolkadotToPolkadotBulletinCliBridge,
 	},
+	rococo_bulletin::{
+		rococo_bulletin_headers_to_bridge_hub_rococo::RococoBulletinToBridgeHubRococoCliBridge,
+		rococo_headers_to_rococo_bulletin::RococoToRococoBulletinCliBridge,
+	},
 };
 use relay_utils::metrics::{GlobalMetrics, StandaloneMetric};
 use substrate_relay_helper::finality::SubstrateFinalitySyncPipeline;
@@ -61,6 +65,8 @@ pub enum RelayHeadersBridge {
 	PolkadotToBridgeHubKusama,
 	PolkadotToPolkadotBulletin,
 	PolkadotBulletinToBridgeHubPolkadot,
+	RococoToRococoBulletin,
+	RococoBulletinToBridgeHubRococo,
 }
 
 #[async_trait]
@@ -98,6 +104,8 @@ impl HeadersRelayer for KusamaToBridgeHubPolkadotCliBridge {}
 impl HeadersRelayer for PolkadotToBridgeHubKusamaCliBridge {}
 impl HeadersRelayer for PolkadotToPolkadotBulletinCliBridge {}
 impl HeadersRelayer for PolkadotBulletinToBridgeHubPolkadotCliBridge {}
+impl HeadersRelayer for RococoToRococoBulletinCliBridge {}
+impl HeadersRelayer for RococoBulletinToBridgeHubRococoCliBridge {}
 
 impl RelayHeaders {
 	/// Run the command.
@@ -111,6 +119,10 @@ impl RelayHeaders {
 				PolkadotToPolkadotBulletinCliBridge::relay_headers(self),
 			RelayHeadersBridge::PolkadotBulletinToBridgeHubPolkadot =>
 				PolkadotBulletinToBridgeHubPolkadotCliBridge::relay_headers(self),
+			RelayHeadersBridge::RococoToRococoBulletin =>
+				RococoToRococoBulletinCliBridge::relay_headers(self),
+			RelayHeadersBridge::RococoBulletinToBridgeHubRococo =>
+				RococoBulletinToBridgeHubRococoCliBridge::relay_headers(self),
 		}
 		.await
 	}

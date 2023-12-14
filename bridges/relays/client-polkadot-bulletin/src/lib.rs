@@ -44,7 +44,7 @@ pub type BridgePolkadotGrandpaCall = runtime_types::pallet_bridge_grandpa::palle
 /// Call of the with-PolkadotBridgeHub bridge parachains pallet.
 pub type BridgePolkadotParachainsCall = runtime_types::pallet_bridge_parachains::pallet::Call;
 /// Call of the with-PolkadotBridgeHub bridge messages pallet.
-pub type BridgePolkadotBridgeHubMessagesCall = runtime_types::pallet_bridge_messages::pallet::Call;
+pub type BridgePolkadotMessagesCall = runtime_types::pallet_bridge_messages::pallet::Call;
 
 /// Polkadot header id.
 pub type HeaderId =
