@@ -31,8 +31,6 @@ mod benchmarks {
 			.try_into()
 			.unwrap_or_else(|_| panic!("unable to cast minimum balance to u32"));
 
-		let sovereign_balance = (minimum_balance_u32 * 2) + 5000;
-
 		// So that the receiving account exists
 		let _ = T::Token::mint_into(&caller, minimum_balance.into());
 		// Fund the sovereign account (parachain sovereign account) so it can transfer a reward
