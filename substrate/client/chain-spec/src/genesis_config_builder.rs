@@ -84,15 +84,15 @@ where
 	/// Returns the default `GenesisConfig` provided by the `runtime`.
 	///
 	/// Calls [`GenesisBuilder::create_default_config`](sp_genesis_builder::GenesisBuilder::create_default_config) in the `runtime`.
-	fn get_default_config(&self) -> core::result::Result<Value, String> {
-		self.get_named_patch(None)
+	pub fn get_default_config(&self) -> core::result::Result<Value, String> {
+		self.get_named_preset(None)
 	}
 
 	/// Returns a JSON blob representation of the builtin `GenesisConfig` identified by `id`.
 	///
 	/// Calls [`GenesisBuilder::get_preset`](sp_genesis_builder::GenesisBuilder::get_preset)
 	/// provided by the `runtime`.
-	pub fn get_named_patch(&self, id: Option<&String>) -> core::result::Result<Value, String> {
+	pub fn get_named_preset(&self, id: Option<&String>) -> core::result::Result<Value, String> {
 		let mut t = BasicExternalities::new_empty();
 		let call_result = self
 			.call(&mut t, "GenesisBuilder_get_preset", &id.encode())
@@ -151,7 +151,19 @@ where
 		&self,
 		name: Option<&String>,
 	) -> core::result::Result<Storage, String> {
-		self.get_storage_for_patch(self.get_named_patch(name)?)
+		self.get_storage_for_patch(self.get_named_preset(name)?)
+	}
+
+	pub fn preset_names(&self) -> core::result::Result<Vec<sp_runtime::RuntimeString>, String> {
+		let mut t = BasicExternalities::new_empty();
+		let call_result = self
+			.call(&mut t, "GenesisBuilder_preset_names", &vec![])
+			.map_err(|e| format!("wasm call error {e}"))?;
+
+		let preset_names = Vec::<sp_runtime::RuntimeString>::decode(&mut &call_result[..])
+			.map_err(|e| format!("scale codec error: {e}"))?;
+
+		Ok(preset_names)
 	}
 }
 
@@ -160,6 +172,17 @@ mod tests {
 	use super::*;
 	use serde_json::{from_str, json};
 	pub use sp_consensus_babe::{AllowedSlots, BabeEpochConfiguration, Slot};
+	pub use sp_runtime::RuntimeString;
+
+	#[test]
+	fn list_presets_works() {
+		sp_tracing::try_init_simple();
+		let presets =
+			<GenesisConfigBuilderRuntimeCaller>::new(substrate_test_runtime::wasm_binary_unwrap())
+				.preset_names()
+				.unwrap();
+		assert_eq!(presets, vec![RuntimeString::from("foobar"), RuntimeString::from("staging"),]);
+	}
 
 	#[test]
 	fn get_default_config_works() {
@@ -176,7 +199,7 @@ mod tests {
 		sp_tracing::try_init_simple();
 		let config =
 			<GenesisConfigBuilderRuntimeCaller>::new(substrate_test_runtime::wasm_binary_unwrap())
-				.get_named_patch(Some(&"foobar".to_string()))
+				.get_named_preset(Some(&"foobar".to_string()))
 				.unwrap();
 		let expected = r#"{"foo":"bar"}"#;
 		assert_eq!(from_str::<Value>(expected).unwrap(), config);
