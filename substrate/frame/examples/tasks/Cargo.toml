@@ -50,3 +50,4 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"sp-runtime/try-runtime",
 ]
+experimental = ["frame-system/experimental", "frame-support/experimental"]
