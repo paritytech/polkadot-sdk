@@ -33,13 +33,16 @@ pub enum SyncMode {
 		storage_chain_mode: bool,
 	},
 	/// Warp sync - verify authority set transitions and the latest state.
-	Warp,
+	Warp {
+		/// Download block history as well
+		block_history: bool,
+	},
 }
 
 impl SyncMode {
 	/// Returns `true` if `self` is [`Self::Warp`].
 	pub fn is_warp(&self) -> bool {
-		matches!(self, Self::Warp)
+		matches!(self, Self::Warp { .. })
 	}
 
 	/// Returns `true` if `self` is [`Self::LightState`].

@@ -453,16 +453,15 @@ where
 	RCInterface: RelayChainInterface + Clone + 'static,
 	IQ: ImportQueue<Block> + 'static,
 {
-	let warp_sync_params = match parachain_config.network.sync_mode {
-		SyncMode::Warp => {
-			let target_block = warp_sync_get::<Block, RCInterface>(
-				para_id,
-				relay_chain_interface.clone(),
-				spawn_handle.clone(),
-			);
-			Some(WarpSyncParams::WaitForTarget(target_block))
-		},
-		_ => None,
+	let warp_sync_params = if parachain_config.network.sync_mode.is_warp() {
+		let target_block = warp_sync_get::<Block, RCInterface>(
+			para_id,
+			relay_chain_interface.clone(),
+			spawn_handle.clone(),
+		);
+		Some(WarpSyncParams::WaitForTarget(target_block))
+	} else {
+		None
 	};
 
 	let block_announce_validator = match sybil_resistance_level {

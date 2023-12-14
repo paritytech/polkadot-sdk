@@ -253,6 +253,8 @@ pub struct ChainSync<B: BlockT, Client> {
 	import_existing: bool,
 	/// Gap download process.
 	gap_sync: Option<GapSync<B>>,
+	/// Flag to remember that block history has been disabled
+	skipped_gap_sync: bool,
 	/// Pending actions.
 	actions: Vec<ChainSyncAction<B>>,
 }
@@ -367,6 +369,7 @@ where
 			warp_sync: None,
 			import_existing: false,
 			gap_sync: None,
+			skipped_gap_sync: false,
 			warp_sync_config,
 			warp_sync_target_block_header: None,
 			actions: Vec::new(),
@@ -412,7 +415,7 @@ where
 				phase: WarpSyncPhase::DownloadingBlocks(gap_sync.best_queued_number),
 				total_bytes: 0,
 			}),
-			(None, SyncMode::Warp, _) => Some(WarpSyncProgress {
+			(None, SyncMode::Warp { .. }, _) => Some(WarpSyncProgress {
 				phase: WarpSyncPhase::AwaitingPeers {
 					required_peers: MIN_PEERS_TO_START_WARP_SYNC,
 				},
@@ -554,7 +557,7 @@ where
 					},
 				);
 
-				if let SyncMode::Warp = self.mode {
+				if self.mode.is_warp() {
 					if self.peers.len() >= MIN_PEERS_TO_START_WARP_SYNC && self.warp_sync.is_none()
 					{
 						log::debug!(target: LOG_TARGET, "Starting warp state sync.");
@@ -1204,7 +1207,7 @@ where
 		match self.mode {
 			SyncMode::Full =>
 				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY,
-			SyncMode::LightState { storage_chain_mode: false, .. } | SyncMode::Warp =>
+			SyncMode::LightState { storage_chain_mode: false, .. } | SyncMode::Warp { .. } =>
 				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY,
 			SyncMode::LightState { storage_chain_mode: true, .. } =>
 				BlockAttributes::HEADER |
@@ -1217,7 +1220,7 @@ where
 		match self.mode {
 			SyncMode::Full => false,
 			SyncMode::LightState { .. } => true,
-			SyncMode::Warp => true,
+			SyncMode::Warp { .. } => true,
 		}
 	}
 
@@ -1360,7 +1363,7 @@ where
 			);
 			self.mode = SyncMode::Full;
 		}
-		if matches!(self.mode, SyncMode::Warp) && info.finalized_state.is_some() {
+		if self.mode.is_warp() && info.finalized_state.is_some() {
 			warn!(
 				target: LOG_TARGET,
 				"Can't use warp sync mode with a partially synced database. Reverting to full sync mode."
@@ -1388,12 +1391,17 @@ where
 		}
 
 		if let Some((start, end)) = info.block_gap {
-			debug!(target: LOG_TARGET, "Starting gap sync #{start} - #{end}");
-			self.gap_sync = Some(GapSync {
-				best_queued_number: start - One::one(),
-				target: end,
-				blocks: BlockCollection::new(),
-			});
+			if let SyncMode::Warp { block_history: false } = self.mode {
+				// Skip block history
+				self.skipped_gap_sync = true;
+			} else {
+				debug!(target: LOG_TARGET, "Starting gap sync #{start} - #{end}");
+				self.gap_sync = Some(GapSync {
+					best_queued_number: start - One::one(),
+					target: end,
+					blocks: BlockCollection::new(),
+				});
+			}
 		}
 		trace!(
 			target: LOG_TARGET,
@@ -1564,7 +1572,7 @@ where
 
 	/// Get block requests scheduled by sync to be sent out.
 	fn block_requests(&mut self) -> Vec<(PeerId, BlockRequest<B>)> {
-		if self.mode == SyncMode::Warp {
+		if self.mode.is_warp() {
 			return self
 				.warp_target_block_request()
 				.map_or_else(|| Vec::new(), |req| Vec::from([req]))
@@ -1962,10 +1970,17 @@ where
 					let gap_sync_complete =
 						self.gap_sync.as_ref().map_or(false, |s| s.target == number);
 					if gap_sync_complete {
-						info!(
-							target: LOG_TARGET,
-							"Block history download is complete."
-						);
+						if self.skipped_gap_sync {
+							info!(
+								target: LOG_TARGET,
+								"Block history download has been skipped."
+							);
+						} else {
+							info!(
+								target: LOG_TARGET,
+								"Block history download is complete."
+							);
+						}
 						self.gap_sync = None;
 					}
 				},
