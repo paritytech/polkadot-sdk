@@ -1,0 +1,9 @@
+title: "Update documentation for `SafeMode` and `TxPause` Pallets"
+author: wilwade
+topic: Documentation
+
+doc:
+  - audience: Runtime Dev
+    description: n/a
+
+crates: []

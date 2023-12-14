@@ -193,11 +193,9 @@ fn panic_execution_with_foreign_code_gives_error() {
 	t.insert(<pallet_balances::TotalIssuance<Runtime>>::hashed_key().to_vec(), 69_u128.encode());
 	t.insert(<frame_system::BlockHash<Runtime>>::hashed_key_for(0), vec![0u8; 32]);
 
-	let r =
-		executor_call(&mut t, "Core_initialize_block", &vec![].and(&from_block_number(1u32)), true)
-			.0;
+	let r = executor_call(&mut t, "Core_initialize_block", &vec![].and(&from_block_number(1u32))).0;
 	assert!(r.is_ok());
-	let v = executor_call(&mut t, "BlockBuilder_apply_extrinsic", &vec![].and(&xt()), true)
+	let v = executor_call(&mut t, "BlockBuilder_apply_extrinsic", &vec![].and(&xt()))
 		.0
 		.unwrap();
 	let r = ApplyExtrinsicResult::decode(&mut &v[..]).unwrap();
@@ -219,11 +217,9 @@ fn bad_extrinsic_with_native_equivalent_code_gives_error() {
 	t.insert(<pallet_balances::TotalIssuance<Runtime>>::hashed_key().to_vec(), 69u128.encode());
 	t.insert(<frame_system::BlockHash<Runtime>>::hashed_key_for(0), vec![0u8; 32]);
 
-	let r =
-		executor_call(&mut t, "Core_initialize_block", &vec![].and(&from_block_number(1u32)), true)
-			.0;
+	let r = executor_call(&mut t, "Core_initialize_block", &vec![].and(&from_block_number(1u32))).0;
 	assert!(r.is_ok());
-	let v = executor_call(&mut t, "BlockBuilder_apply_extrinsic", &vec![].and(&xt()), true)
+	let v = executor_call(&mut t, "BlockBuilder_apply_extrinsic", &vec![].and(&xt()))
 		.0
 		.unwrap();
 	let r = ApplyExtrinsicResult::decode(&mut &v[..]).unwrap();
@@ -256,14 +252,12 @@ fn successful_execution_with_native_equivalent_code_gives_ok() {
 	);
 	t.insert(<frame_system::BlockHash<Runtime>>::hashed_key_for(0), vec![0u8; 32]);
 
-	let r =
-		executor_call(&mut t, "Core_initialize_block", &vec![].and(&from_block_number(1u32)), true)
-			.0;
+	let r = executor_call(&mut t, "Core_initialize_block", &vec![].and(&from_block_number(1u32))).0;
 	assert!(r.is_ok());
 
 	let fees = t.execute_with(|| transfer_fee(&xt()));
 
-	let r = executor_call(&mut t, "BlockBuilder_apply_extrinsic", &vec![].and(&xt()), true).0;
+	let r = executor_call(&mut t, "BlockBuilder_apply_extrinsic", &vec![].and(&xt())).0;
 	assert!(r.is_ok());
 
 	t.execute_with(|| {
@@ -298,14 +292,12 @@ fn successful_execution_with_foreign_code_gives_ok() {
 	);
 	t.insert(<frame_system::BlockHash<Runtime>>::hashed_key_for(0), vec![0u8; 32]);
 
-	let r =
-		executor_call(&mut t, "Core_initialize_block", &vec![].and(&from_block_number(1u32)), true)
-			.0;
+	let r = executor_call(&mut t, "Core_initialize_block", &vec![].and(&from_block_number(1u32))).0;
 	assert!(r.is_ok());
 
 	let fees = t.execute_with(|| transfer_fee(&xt()));
 
-	let r = executor_call(&mut t, "BlockBuilder_apply_extrinsic", &vec![].and(&xt()), true).0;
+	let r = executor_call(&mut t, "BlockBuilder_apply_extrinsic", &vec![].and(&xt())).0;
 	assert!(r.is_ok());
 
 	t.execute_with(|| {
@@ -337,7 +329,7 @@ fn full_native_block_import_works() {
 				.base_extrinsic,
 		);
 
-	executor_call(&mut t, "Core_execute_block", &block1.0, true).0.unwrap();
+	executor_call(&mut t, "Core_execute_block", &block1.0).0.unwrap();
 
 	t.execute_with(|| {
 		assert_eq!(Balances::total_balance(&alice()), 42 * DOLLARS - fees);
@@ -412,7 +404,7 @@ fn full_native_block_import_works() {
 	fees = t.execute_with(|| transfer_fee(&xt()));
 	let pot = t.execute_with(|| Treasury::pot());
 
-	executor_call(&mut t, "Core_execute_block", &block2.0, true).0.unwrap();
+	executor_call(&mut t, "Core_execute_block", &block2.0).0.unwrap();
 
 	t.execute_with(|| {
 		assert_eq!(
@@ -554,7 +546,7 @@ fn full_wasm_block_import_works() {
 	let mut alice_last_known_balance: Balance = Default::default();
 	let mut fees = t.execute_with(|| transfer_fee(&xt()));
 
-	executor_call(&mut t, "Core_execute_block", &block1.0, false).0.unwrap();
+	executor_call(&mut t, "Core_execute_block", &block1.0).0.unwrap();
 
 	t.execute_with(|| {
 		assert_eq!(Balances::total_balance(&alice()), 42 * DOLLARS - fees);
@@ -564,7 +556,7 @@ fn full_wasm_block_import_works() {
 
 	fees = t.execute_with(|| transfer_fee(&xt()));
 
-	executor_call(&mut t, "Core_execute_block", &block2.0, false).0.unwrap();
+	executor_call(&mut t, "Core_execute_block", &block2.0).0.unwrap();
 
 	t.execute_with(|| {
 		assert_eq!(
@@ -717,7 +709,7 @@ fn deploying_wasm_contract_should_work() {
 
 	let mut t = new_test_ext(compact_code_unwrap());
 
-	executor_call(&mut t, "Core_execute_block", &b.0, false).0.unwrap();
+	executor_call(&mut t, "Core_execute_block", &b.0).0.unwrap();
 
 	t.execute_with(|| {
 		// Verify that the contract does exist by querying some of its storage items
@@ -732,8 +724,7 @@ fn wasm_big_block_import_fails() {
 
 	set_heap_pages(&mut t.ext(), 4);
 
-	let result =
-		executor_call(&mut t, "Core_execute_block", &block_with_size(42, 0, 120_000).0, false).0;
+	let result = executor_call(&mut t, "Core_execute_block", &block_with_size(42, 0, 120_000).0).0;
 	assert!(result.is_err()); // Err(Wasmi(Trap(Trap { kind: Host(AllocatorOutOfSpace) })))
 }
 
@@ -741,7 +732,7 @@ fn wasm_big_block_import_fails() {
 fn native_big_block_import_succeeds() {
 	let mut t = new_test_ext(compact_code_unwrap());
 
-	executor_call(&mut t, "Core_execute_block", &block_with_size(42, 0, 120_000).0, true)
+	executor_call(&mut t, "Core_execute_block", &block_with_size(42, 0, 120_000).0)
 		.0
 		.unwrap();
 }
@@ -754,11 +745,9 @@ fn native_big_block_import_fails_on_fallback() {
 	// block.
 	set_heap_pages(&mut t.ext(), 8);
 
-	assert!(
-		executor_call(&mut t, "Core_execute_block", &block_with_size(42, 0, 120_000).0, false,)
-			.0
-			.is_err()
-	);
+	assert!(executor_call(&mut t, "Core_execute_block", &block_with_size(42, 0, 120_000).0)
+		.0
+		.is_err());
 }
 
 #[test]
@@ -775,15 +764,9 @@ fn panic_execution_gives_error() {
 	t.insert(<pallet_balances::TotalIssuance<Runtime>>::hashed_key().to_vec(), 0_u128.encode());
 	t.insert(<frame_system::BlockHash<Runtime>>::hashed_key_for(0), vec![0u8; 32]);
 
-	let r = executor_call(
-		&mut t,
-		"Core_initialize_block",
-		&vec![].and(&from_block_number(1u32)),
-		false,
-	)
-	.0;
+	let r = executor_call(&mut t, "Core_initialize_block", &vec![].and(&from_block_number(1u32))).0;
 	assert!(r.is_ok());
-	let r = executor_call(&mut t, "BlockBuilder_apply_extrinsic", &vec![].and(&xt()), false)
+	let r = executor_call(&mut t, "BlockBuilder_apply_extrinsic", &vec![].and(&xt()))
 		.0
 		.unwrap();
 	let r = ApplyExtrinsicResult::decode(&mut &r[..]).unwrap();
@@ -816,13 +799,7 @@ fn successful_execution_gives_ok() {
 	);
 	t.insert(<frame_system::BlockHash<Runtime>>::hashed_key_for(0), vec![0u8; 32]);
 
-	let r = executor_call(
-		&mut t,
-		"Core_initialize_block",
-		&vec![].and(&from_block_number(1u32)),
-		false,
-	)
-	.0;
+	let r = executor_call(&mut t, "Core_initialize_block", &vec![].and(&from_block_number(1u32))).0;
 	assert!(r.is_ok());
 	t.execute_with(|| {
 		assert_eq!(Balances::total_balance(&alice()), 111 * DOLLARS);
@@ -830,7 +807,7 @@ fn successful_execution_gives_ok() {
 
 	let fees = t.execute_with(|| transfer_fee(&xt()));
 
-	let r = executor_call(&mut t, "BlockBuilder_apply_extrinsic", &vec![].and(&xt()), false)
+	let r = executor_call(&mut t, "BlockBuilder_apply_extrinsic", &vec![].and(&xt()))
 		.0
 		.unwrap();
 	ApplyExtrinsicResult::decode(&mut &r[..])
@@ -861,7 +838,7 @@ fn should_import_block_with_test_client() {
 #[test]
 fn default_config_as_json_works() {
 	let mut t = new_test_ext(compact_code_unwrap());
-	let r = executor_call(&mut t, "GenesisBuilder_create_default_config", &vec![], false)
+	let r = executor_call(&mut t, "GenesisBuilder_create_default_config", &vec![])
 		.0
 		.unwrap();
 	let r = Vec::<u8>::decode(&mut &r[..]).unwrap();
