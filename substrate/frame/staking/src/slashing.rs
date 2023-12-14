@@ -320,9 +320,8 @@ fn kick_out_if_recent<T: Config>(params: SlashParams<T>) {
 	add_offending_validator::<T>(&params);
 }
 
-/// Add the given validator to the offenders list and optionally disable it.
-/// If after adding the validator `OffendingValidatorsThreshold` is reached
-/// a new era will be forced.
+/// Inform the [`DisablingStrategy`] implementation about the new offender and disable the list of
+/// validators provided by [`DisablingDecision`].
 fn add_offending_validator<T: Config>(params: &SlashParams<T>) {
 	let stash = params.stash;
 	DisabledValidators::<T>::mutate(|disabled| {
