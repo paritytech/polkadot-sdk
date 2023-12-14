@@ -104,6 +104,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-im-online/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
 	"polkadot-cli/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
@@ -112,7 +113,6 @@ runtime-benchmarks = [
 	"rococo-parachain-runtime/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"pallet-transaction-payment/runtime-benchmarks"
 ]
 
 [[bench]]

@@ -188,6 +188,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"kitchensink-runtime/runtime-benchmarks",
 	"node-inspect?/runtime-benchmarks",
+	"pallet-asset-conversion-tx-payment/runtime-benchmarks",
 	"pallet-asset-tx-payment/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
@@ -197,12 +198,11 @@ runtime-benchmarks = [
 	"pallet-skip-feeless-payment/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"sc-client-db/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"pallet-asset-conversion-tx-payment/runtime-benchmarks",
-	"pallet-transaction-payment/runtime-benchmarks"
 ]
 # Enable features that allow the runtime to be tried and debugged. Name might be subject to change
 # in the near future.

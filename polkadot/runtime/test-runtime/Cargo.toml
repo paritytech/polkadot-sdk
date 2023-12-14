@@ -152,6 +152,7 @@ runtime-benchmarks = [
 	"pallet-staking/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-vesting/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
@@ -162,5 +163,4 @@ runtime-benchmarks = [
 	"sp-staking/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
-	"pallet-transaction-payment/runtime-benchmarks"
 ]

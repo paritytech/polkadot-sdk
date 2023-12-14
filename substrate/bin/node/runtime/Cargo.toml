@@ -263,6 +263,7 @@ runtime-benchmarks = [
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-alliance/runtime-benchmarks",
+	"pallet-asset-conversion-tx-payment/runtime-benchmarks",
 	"pallet-asset-conversion/runtime-benchmarks",
 	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-asset-tx-payment/runtime-benchmarks",
@@ -318,6 +319,7 @@ runtime-benchmarks = [
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-tips/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-transaction-storage/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-tx-pause/runtime-benchmarks",
@@ -327,8 +329,6 @@ runtime-benchmarks = [
 	"pallet-whitelist/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
-	"pallet-asset-conversion-tx-payment/runtime-benchmarks",
-	"pallet-transaction-payment/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-benchmarking-pallet-pov/try-runtime",

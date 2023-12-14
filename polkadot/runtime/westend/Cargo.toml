@@ -267,6 +267,7 @@ runtime-benchmarks = [
 	"pallet-state-trie-migration/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"pallet-vesting/runtime-benchmarks",
@@ -281,7 +282,6 @@ runtime-benchmarks = [
 	"sp-staking/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
-	"pallet-transaction-payment/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",

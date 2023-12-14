@@ -192,6 +192,7 @@ runtime-benchmarks = [
 	"pallet-babe/runtime-benchmarks",
 	"pallet-im-online/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
@@ -201,7 +202,6 @@ runtime-benchmarks = [
 	"service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"westend-runtime?/runtime-benchmarks",
-	"pallet-transaction-payment/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",

@@ -114,6 +114,7 @@ runtime-benchmarks = [
 	"pallet-salary/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
@@ -123,7 +124,6 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
-	"pallet-transaction-payment/runtime-benchmarks"
 ]
 try-runtime = [
 	"cumulus-pallet-aura-ext/try-runtime",
