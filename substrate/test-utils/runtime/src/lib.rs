@@ -42,6 +42,7 @@ use frame_system::{
 	CheckNonce, CheckWeight,
 };
 use scale_info::TypeInfo;
+use sp_runtime::RuntimeString;
 use sp_std::prelude::*;
 #[cfg(not(feature = "std"))]
 use sp_std::vec;
@@ -751,20 +752,24 @@ impl_runtime_apis! {
 			build_state::<RuntimeGenesisConfig>(config)
 		}
 
-		fn get_named_preset(params: Option<sp_std::vec::Vec<u8>>) -> sp_std::vec::Vec<u8> {
+		fn get_preset(params: Option<sp_std::vec::Vec<u8>>) -> Option<sp_std::vec::Vec<u8>> {
 			log::info!("xxx: create_default_config2: {:?} {:?}", params, "staging".as_bytes());
-			if let Some(params) = params {
+			Some(if let Some(params) = params {
 				let patch = match params {
 					s if s == "staging".as_bytes() => substrate_test_genesis_config_patch(),
 					s if s == "foobar".as_bytes() => json!({"foo":"bar"}),
-					_ => json!({}),
+					_ => return None,
 				};
 				serde_json::to_string(&patch)
 					.expect("serialization to json is expected to work. qed.")
 					.into_bytes()
 			} else {
 				create_default_config::<RuntimeGenesisConfig>()
-			}
+			})
+		}
+
+		fn preset_names() -> Vec<RuntimeString> {
+			vec![RuntimeString::from("foobar"), RuntimeString::from("staging")]
 		}
 	}
 }
@@ -1333,19 +1338,30 @@ mod tests {
 		}
 
 		#[test]
+		fn preset_names_listing_works() {
+			sp_tracing::try_init_simple();
+			let mut t = BasicExternalities::new_empty();
+			let r = executor_call(&mut t, "GenesisBuilder_preset_names", &vec![]).unwrap();
+			let r = Vec::<RuntimeString>::decode(&mut &r[..]).unwrap();
+			assert_eq!(r, vec![RuntimeString::from("foobar"), RuntimeString::from("staging"),]);
+			log::info!("r: {:#?}", r);
+		}
+
+		#[test]
 		fn named_config_works() {
+			sp_tracing::try_init_simple();
 			let f = |cfg_name: &str, expected: &str| {
-				sp_tracing::try_init_simple();
 				let mut t = BasicExternalities::new_empty();
 				let name = cfg_name.to_string();
 				let r = executor_call(
 					&mut t,
-					"GenesisBuilder_get_named_preset",
+					"GenesisBuilder_get_preset",
 					&Some(name.as_bytes()).encode(),
 				)
 				.unwrap();
-				let r = Vec::<u8>::decode(&mut &r[..]).unwrap();
-				let json = String::from_utf8(r.into()).expect("returned value is json. qed.");
+				let r = Option::<Vec<u8>>::decode(&mut &r[..]).unwrap();
+				let json =
+					String::from_utf8(r.unwrap().into()).expect("returned value is json. qed.");
 				log::info!("json: {:#?}", json);
 				assert_eq!(expected.to_string(), json);
 			};
