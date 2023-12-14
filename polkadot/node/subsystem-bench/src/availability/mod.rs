@@ -123,7 +123,7 @@ fn prepare_test_inner(
 	};
 
 	let (collation_req_receiver, req_cfg) =
-		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(&GENESIS_HASH, None));
+		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
 
 	let subsystem = if use_fast_path {
 		AvailabilityRecoverySubsystem::with_fast_path(

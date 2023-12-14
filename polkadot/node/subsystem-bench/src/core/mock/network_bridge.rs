@@ -133,11 +133,10 @@ impl MockNetworkBridgeTx {
 					.expect("candidate was generated previously; qed");
 				gum::warn!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
 
-				let chunk: ChunkResponse =
-					self.availabilty.chunks.get(*candidate_index as usize).unwrap()
-						[validator_index]
-						.clone()
-						.into();
+				let chunk: ChunkResponse = self.availabilty.chunks.get(*candidate_index).unwrap()
+					[validator_index]
+					.clone()
+					.into();
 				let mut size = chunk.encoded_size();
 
 				let response = if random_error(self.config.error) {
@@ -206,7 +205,7 @@ impl MockNetworkBridgeTx {
 					.inc_received(outgoing_request.payload.encoded_size());
 
 				let available_data =
-					self.availabilty.available_data.get(*candidate_index as usize).unwrap().clone();
+					self.availabilty.available_data.get(*candidate_index).unwrap().clone();
 
 				let size = available_data.encoded_size();
 
@@ -267,22 +266,21 @@ impl MockNetworkBridgeTx {
 		let our_network = self.network.clone();
 
 		// This task will handle node messages receipt from the simulated network.
-		let _ = ctx
-			.spawn_blocking(
-				"network-receive",
-				async move {
-					while let Some(action) = ingress_rx.recv().await {
-						let size = action.size();
+		ctx.spawn_blocking(
+			"network-receive",
+			async move {
+				while let Some(action) = ingress_rx.recv().await {
+					let size = action.size();
 
-						// account for our node receiving the data.
-						our_network.inc_received(size);
-						rx_limiter.reap(size).await;
-						action.run().await;
-					}
+					// account for our node receiving the data.
+					our_network.inc_received(size);
+					rx_limiter.reap(size).await;
+					action.run().await;
 				}
-				.boxed(),
-			)
-			.expect("We never fail to spawn tasks");
+			}
+			.boxed(),
+		)
+		.expect("We never fail to spawn tasks");
 
 		// Main subsystem loop.
 		loop {
