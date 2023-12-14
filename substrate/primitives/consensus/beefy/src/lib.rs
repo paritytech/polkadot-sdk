@@ -387,28 +387,28 @@ where
 	return valid_first && valid_second
 }
 
-/// Checks wether the provided header's payload differs from the commitment's payload.
+/// Checks whether the provided header's payload differs from the commitment's payload.
 fn check_header_proof<Header>(
 	commitment: &Commitment<Header::Number>,
 	canonical_header: &Option<Header>,
-	expected_header_hash: &Header::Hash,
+	canonical_header_hash: &Header::Hash,
 ) -> bool
 where
 	Header: HeaderT,
 {
 	if let Some(canonical_header) = canonical_header {
-		let expected_mmr_root_digest = mmr::find_mmr_root_digest::<Header>(canonical_header);
-		let expected_payload = expected_mmr_root_digest.map(|mmr_root| {
+		let canonical_mmr_root_digest = mmr::find_mmr_root_digest::<Header>(canonical_header);
+		let canonical_payload = canonical_mmr_root_digest.map(|mmr_root| {
 			Payload::from_single_entry(known_payloads::MMR_ROOT_ID, mmr_root.encode())
 		});
 		// Check header's hash and that `payload` of the `commitment` is different that the
-		// `expected_payload`. Note that if the signatories signed a payload when there should be
-		// none (for instance for a block prior to BEEFY activation), then expected_payload = None,
+		// `canonical_payload`. Note that if the signatories signed a payload when there should be
+		// none (for instance for a block prior to BEEFY activation), then canonical_payload = None,
 		// and they will likewise be slashed.
 		// Note that we can only check this if a valid header has been provided - we cannot
 		// slash for this with an ancestry proof - by necessity)
-		if canonical_header.hash() == *expected_header_hash &&
-			Some(&commitment.payload) != expected_payload.as_ref()
+		if canonical_header.hash() == *canonical_header_hash &&
+			Some(&commitment.payload) != canonical_payload.as_ref()
 		{
 			return true
 		}
@@ -423,7 +423,7 @@ fn check_ancestry_proof<Header, NodeHash, Hasher>(
 	commitment: &Commitment<Header::Number>,
 	ancestry_proof: &Option<AncestryProof<Hasher::Item>>,
 	first_mmr_block_num: Header::Number,
-	expected_root: Hasher::Item,
+	canonical_root: Hasher::Item,
 	mmr_size: u64,
 ) -> bool
 where
@@ -453,7 +453,7 @@ where
 				return false
 			}
 			if sp_mmr_primitives::utils::verify_ancestry_proof::<NodeHash, Hasher>(
-				expected_root,
+				canonical_root,
 				mmr_size,
 				ancestry_proof.clone(),
 			) != Ok(true)
@@ -487,7 +487,7 @@ where
 /// - if the commitment is to a block in our history, then at least a header or an ancestry proof is
 ///   provided:
 ///   - a `canonical_header` is correct if it's at height `commitment.block_number` and
-///   commitment.payload` != `expected_payload(canonical_header)`
+///   commitment.payload` != `canonical_payload(canonical_header)`
 ///   - an `ancestry_proof` is correct if it proves mmr_root(commitment.block_number) !=
 ///   mmr_root(commitment.payload)`
 /// - `commitment` is signed by all claimed signatories
@@ -507,9 +507,9 @@ pub fn check_fork_equivocation_proof<Id, MsgHash, Header, NodeHash, Hasher>(
 		Header,
 		NodeHash,
 	>,
-	expected_root: Hasher::Item,
+	canonical_root: Hasher::Item,
 	mmr_size: u64,
-	expected_header_hash: &Header::Hash,
+	canonical_header_hash: &Header::Hash,
 	first_mmr_block_num: Header::Number,
 	best_block_num: Header::Number,
 ) -> bool
@@ -532,12 +532,12 @@ where
 
 		// if neither the ancestry proof nor the header proof is correct, the proof is invalid
 		// avoid verifying the ancestry proof if a valid header proof has been provided
-		if !check_header_proof(commitment, canonical_header, expected_header_hash) &&
+		if !check_header_proof(commitment, canonical_header, canonical_header_hash) &&
 			!check_ancestry_proof::<Header, NodeHash, Hasher>(
 				commitment,
 				ancestry_proof,
 				first_mmr_block_num,
-				expected_root,
+				canonical_root,
 				mmr_size,
 			) {
 			return false;

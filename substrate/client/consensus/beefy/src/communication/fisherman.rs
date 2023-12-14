@@ -40,19 +40,19 @@ use sp_runtime::{
 use std::{marker::PhantomData, sync::Arc};
 
 pub(crate) trait BeefyFisherman<B: Block>: Send + Sync {
-	/// Check `vote` for contained block against expected payload.
+	/// Check `vote` for contained block against canonical payload.
 	fn check_vote(
 		&self,
 		vote: VoteMessage<NumberFor<B>, AuthorityId, Signature>,
 	) -> Result<(), Error>;
 
-	/// Check `signed_commitment` for contained block against expected payload.
+	/// Check `signed_commitment` for contained block against canonical payload.
 	fn check_signed_commitment(
 		&self,
 		signed_commitment: SignedCommitment<NumberFor<B>, Signature>,
 	) -> Result<(), Error>;
 
-	/// Check `proof` for contained block against expected payload.
+	/// Check `proof` for contained block against canonical payload.
 	fn check_proof(&self, proof: BeefyVersionedFinalityProof<B>) -> Result<(), Error>;
 }
 
@@ -74,7 +74,7 @@ where
 	R: ProvideRuntimeApi<B> + Send + Sync,
 	R::Api: BeefyApi<B, AuthorityId, MmrRootHash> + MmrApi<B, MmrRootHash, NumberFor<B>>,
 {
-	fn expected_hash_header_payload_tuple(
+	fn canonical_hash_header_payload_tuple(
 		&self,
 		number: NumberFor<B>,
 	) -> Result<(B::Hash, B::Header, Payload), Error> {
@@ -116,7 +116,7 @@ where
 		// if the commitment is for a block number exceeding our best block number, we assume the
 		// equivocators are part of the current validator set, hence we use the validator set at the
 		// best block
-		let expected_commitment_block_hash = if best_block_number < proof.commitment.block_number {
+		let canonical_commitment_block_hash = if best_block_number < proof.commitment.block_number {
 			best_block_hash
 		} else {
 			self.backend
@@ -125,7 +125,7 @@ where
 				.map_err(|e| Error::Backend(e.to_string()))?
 		};
 
-		let validator_set = self.active_validator_set_at(expected_commitment_block_hash)?;
+		let validator_set = self.active_validator_set_at(canonical_commitment_block_hash)?;
 		let set_id = validator_set.id();
 
 		let best_mmr_root = self
@@ -160,7 +160,7 @@ where
 				&proof,
 				best_mmr_root,
 				leaf_count,
-				&expected_commitment_block_hash,
+				&canonical_commitment_block_hash,
 				first_mmr_block_num,
 				best_block_number,
 			) {
@@ -185,7 +185,7 @@ where
 			.cloned()
 			.filter_map(|id| {
 				match runtime_api.generate_key_ownership_proof(
-					expected_commitment_block_hash,
+					canonical_commitment_block_hash,
 					set_id,
 					id.clone(),
 				) {
@@ -230,7 +230,7 @@ where
 	R: ProvideRuntimeApi<B> + Send + Sync,
 	R::Api: BeefyApi<B, AuthorityId, MmrRootHash> + MmrApi<B, MmrRootHash, NumberFor<B>>,
 {
-	/// Check `vote` for contained block against expected payload.
+	/// Check `vote` for contained block against canonical payload.
 	fn check_vote(
 		&self,
 		vote: VoteMessage<NumberFor<B>, AuthorityId, Signature>,
@@ -247,9 +247,9 @@ where
 			};
 			self.report_fork_equivocation(proof)?;
 		} else {
-			let (correct_hash, canonical_header, expected_payload) =
-				self.expected_hash_header_payload_tuple(number)?;
-			if vote.commitment.payload != expected_payload {
+			let (correct_hash, canonical_header, canonical_payload) =
+				self.canonical_hash_header_payload_tuple(number)?;
+			if vote.commitment.payload != canonical_payload {
 				let ancestry_proof: Option<_> = match self
 					.runtime
 					.runtime_api()
@@ -277,7 +277,7 @@ where
 		Ok(())
 	}
 
-	/// Check `signed_commitment` for contained block against expected payload.
+	/// Check `signed_commitment` for contained block against canonical payload.
 	fn check_signed_commitment(
 		&self,
 		signed_commitment: SignedCommitment<NumberFor<B>, Signature>,
@@ -309,9 +309,9 @@ where
 				self.report_fork_equivocation(proof)?;
 			}
 		} else {
-			let (correct_hash, canonical_header, expected_payload) =
-				self.expected_hash_header_payload_tuple(number)?;
-			if commitment.payload != expected_payload {
+			let (correct_hash, canonical_header, canonical_payload) =
+				self.canonical_hash_header_payload_tuple(number)?;
+			if commitment.payload != canonical_payload {
 				let ancestry_proof = match self.runtime.runtime_api().generate_ancestry_proof(
 					correct_hash,
 					number,
@@ -355,7 +355,7 @@ where
 		Ok(())
 	}
 
-	/// Check `proof` for contained block against expected payload.
+	/// Check `proof` for contained block against canonical payload.
 	fn check_proof(&self, proof: BeefyVersionedFinalityProof<B>) -> Result<(), Error> {
 		match proof {
 			BeefyVersionedFinalityProof::<B>::V1(signed_commitment) =>
