@@ -543,16 +543,17 @@ where
 	R: ProvideRuntimeApi<B>,
 	R::Api: BeefyApi<B, AuthorityId>,
 {
-	debug!(target: LOG_TARGET, "🥩 Try to find validator set active at header: {:?}", at_header);
-	// walk up the chain looking for the validator set active 'at_header' -  try both state and
-	// header digests
 	let blockchain = backend.blockchain();
+
+	// Walk up the chain looking for the validator set active at 'at_header'. Process both state and
+	// header digests.
+	debug!(target: LOG_TARGET, "🥩 Trying to find validator set active at header: {:?}", at_header);
 	let mut header = at_header.clone();
 	loop {
-		debug!(target: LOG_TARGET, "🥩 look for auth set change in block number: {:?}", *header.number());
-		if let Some(active) = runtime.runtime_api().validator_set(at_header.hash()).ok().flatten() {
+		if let Ok(Some(active)) = runtime.runtime_api().validator_set(at_header.hash()) {
 			return Ok(active)
 		} else {
+			debug!(target: LOG_TARGET, "🥩 Looking for auth set change at block number: {:?}", *header.number());
 			match worker::find_authorities_change::<B>(&header) {
 				Some(active) => return Ok(active),
 				// Move up the chain. Ultimately we'll get it from chain genesis state, or error out
