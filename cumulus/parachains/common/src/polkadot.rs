@@ -31,6 +31,8 @@ pub mod account {
 	/// Identity pallet ID.
 	/// Used as a temporary place to deposit a slashed imbalance before teleporting to the Treasury.
 	pub const IDENTITY_PALLET_ID: PalletId = PalletId(*b"py/ident");
+	/// Fellowship treasury pallet ID
+	pub const FELLOWSHIP_TREASURY_PALLET_ID: PalletId = PalletId(*b"py/feltr");
 }
 
 /// Consensus-related.

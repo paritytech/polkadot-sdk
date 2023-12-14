@@ -9,6 +9,9 @@ repository.workspace = true
 description = "Substrate transaction pool implementation."
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
