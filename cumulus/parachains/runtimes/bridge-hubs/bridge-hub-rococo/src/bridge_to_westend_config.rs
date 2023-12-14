@@ -17,11 +17,13 @@
 //! Bridge definitions used on BridgeHubRococo for bridging to BridgeHubWestend.
 
 use crate::{
-	bridge_common_config::{BridgeParachainWestendInstance, DeliveryRewardInBalance},
+	bridge_common_config::{
+		BridgeHubRococo, BridgeParachainWestendInstance, DeliveryRewardInBalance,
+	},
 	weights,
 	xcm_config::UniversalLocation,
-	AccountId, BridgeWestendMessages, PolkadotXcm, Runtime, RuntimeEvent, RuntimeOrigin,
-	XcmOverBridgeHubWestend, XcmRouter,
+	AccountId, BridgeWestendMessages, PolkadotXcm, Runtime, RuntimeEvent, XcmOverBridgeHubWestend,
+	XcmRouter,
 };
 use bp_messages::LaneId;
 use bridge_runtime_common::{

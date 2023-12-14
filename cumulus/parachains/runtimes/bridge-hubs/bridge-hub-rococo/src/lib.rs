@@ -488,32 +488,32 @@ construct_runtime!(
 		Utility: pallet_utility::{Pallet, Call, Event} = 40,
 		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 36,
 
-		// BridgeHubRococo uses:
-		//  - BridgeWestendGrandpa + BridgePolkadotBulletinGrandpa
-		//  - BridgeWestendParachains
-		//  - BridgeWestendMessages + BridgePolkadotBulletinMessages
-		//  - BridgeRelayers
+		// Bridge relayers pallet, used by several bridges here.
+		BridgeRelayers: pallet_bridge_relayers::{Pallet, Call, Storage, Event<T>} = 47,
 
-		// GRANDPA bridge modules.
+		// With-Westend GRANDPA bridge module.
 		BridgeWestendGrandpa: pallet_bridge_grandpa::<Instance3>::{Pallet, Call, Storage, Event<T>, Config<T>} = 48,
+		// With-Westend parachain bridge module.
+		BridgeWestendParachains: pallet_bridge_parachains::<Instance3>::{Pallet, Call, Storage, Event<T>} = 49,
+		// With-Westend messaging bridge module.
+		BridgeWestendMessages: pallet_bridge_messages::<Instance3>::{Pallet, Call, Storage, Event<T>, Config<T>} = 51,
+		// With-Westend bridge hub pallet.
+		XcmOverBridgeHubWestend: pallet_xcm_bridge_hub::<Instance1>::{Pallet} = 52,
+
+		// With-Rococo Bulletin GRANDPA bridge module.
+		//
 		// we can't use `BridgeRococoBulletinGrandpa` name here, because the same Bulletin runtime will be
 		// used for both Rococo and Polkadot Bulletin chains AND this name affects runtime storage keys, used
 		// by the relayer process
-		BridgePolkadotBulletinGrandpa: pallet_bridge_grandpa::<Instance4>::{Pallet, Call, Storage, Event<T>, Config<T>} = 52,
-
-		// Parachain bridge modules.
-		BridgeWestendParachains: pallet_bridge_parachains::<Instance3>::{Pallet, Call, Storage, Event<T>} = 49,
-
-		// Messaging bridge modules.
-		BridgeWestendMessages: pallet_bridge_messages::<Instance3>::{Pallet, Call, Storage, Event<T>, Config<T>} = 51,
+		BridgePolkadotBulletinGrandpa: pallet_bridge_grandpa::<Instance4>::{Pallet, Call, Storage, Event<T>, Config<T>} = 60,
+		// With-Rococo Bulletin messaging bridge module.
+		//
 		// we can't use `BridgeRococoBulletinMessages` name here, because the same Bulletin runtime will be
 		// used for both Rococo and Polkadot Bulletin chains AND this name affects runtime storage keys, used
 		// by this runtime and the relayer process
-		BridgePolkadotBulletinMessages: pallet_bridge_messages::<Instance4>::{Pallet, Call, Storage, Event<T>, Config<T>} = 53,
-
-		BridgeRelayers: pallet_bridge_relayers::{Pallet, Call, Storage, Event<T>} = 47,
-
-		XcmOverBridgeHubWestend: pallet_xcm_bridge_hub::<Instance1>::{Pallet} = 52,
+		BridgePolkadotBulletinMessages: pallet_bridge_messages::<Instance4>::{Pallet, Call, Storage, Event<T>, Config<T>} = 61,
+		// With-Rococo Bulletin bridge hub pallet.
+		XcmOverPolkadotBulletin: pallet_xcm_bridge_hub::<Instance2>::{Pallet} = 62,
 
 		// Message Queue. Importantly, is registered last so that messages are processed after
 		// the `on_initialize` hooks of bridging pallets.
@@ -525,6 +525,8 @@ construct_runtime!(
 pub type BridgeRococoBulletinGrandpa = BridgePolkadotBulletinGrandpa;
 /// Proper alias for bridge messages pallet used to bridge with the bulletin chain.
 pub type BridgeRococoBulletinMessages = BridgePolkadotBulletinMessages;
+/// Proper alias for bridge messages pallet used to bridge with the bulletin chain.
+pub type XcmOverRococoBulletin = XcmOverPolkadotBulletin;
 
 bridge_runtime_common::generate_bridge_reject_obsolete_headers_and_messages! {
 	RuntimeCall, AccountId,

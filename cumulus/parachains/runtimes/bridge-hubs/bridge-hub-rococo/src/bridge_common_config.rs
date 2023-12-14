@@ -22,15 +22,13 @@
 //! GRANDPA tracking pallet only needs to be aware of one chain.
 
 use super::{
-	weights, AccountId, Balance, Balances, BlockNumber, ParachainInfo, Runtime, RuntimeEvent,
-	RuntimeOrigin,
+	weights, AccountId, Balance, Balances, BlockNumber, Runtime, RuntimeEvent, RuntimeOrigin,
 };
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
 use bp_runtime::UnderlyingChainProvider;
 use bridge_runtime_common::messages::ThisChainWithMessages;
 use frame_support::{parameter_types, traits::ConstU32};
 use sp_runtime::RuntimeDebug;
-use xcm::latest::prelude::*;
 
 parameter_types! {
 	pub const RelayChainHeadersToKeep: u32 = 1024;
