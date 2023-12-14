@@ -39,19 +39,19 @@ use sp_runtime::{
 use std::{marker::PhantomData, sync::Arc};
 
 pub(crate) trait BeefyFisherman<B: Block>: Send + Sync {
-	/// Check `vote` for contained block against expected payload.
+	/// Check `vote` for contained block against canonical payload.
 	fn check_vote(
 		&self,
 		vote: VoteMessage<NumberFor<B>, AuthorityId, Signature>,
 	) -> Result<(), Error>;
 
-	/// Check `signed_commitment` for contained block against expected payload.
+	/// Check `signed_commitment` for contained block against canonical payload.
 	fn check_signed_commitment(
 		&self,
 		signed_commitment: SignedCommitment<NumberFor<B>, Signature>,
 	) -> Result<(), Error>;
 
-	/// Check `proof` for contained block against expected payload.
+	/// Check `proof` for contained block against canonical payload.
 	fn check_proof(&self, proof: BeefyVersionedFinalityProof<B>) -> Result<(), Error>;
 }
 
@@ -73,7 +73,7 @@ where
 	R: ProvideRuntimeApi<B> + Send + Sync,
 	R::Api: BeefyApi<B, AuthorityId>,
 {
-	fn expected_header_and_payload(
+	fn canonical_header_and_payload(
 		&self,
 		number: NumberFor<B>,
 	) -> Result<(B::Header, Payload), Error> {
@@ -183,14 +183,14 @@ where
 	R: ProvideRuntimeApi<B> + Send + Sync,
 	R::Api: BeefyApi<B, AuthorityId>,
 {
-	/// Check `vote` for contained block against expected payload.
+	/// Check `vote` for contained block against canonical payload.
 	fn check_vote(
 		&self,
 		vote: VoteMessage<NumberFor<B>, AuthorityId, Signature>,
 	) -> Result<(), Error> {
 		let number = vote.commitment.block_number;
-		let (canonical_header, expected_payload) = self.expected_header_and_payload(number)?;
-		if vote.commitment.payload != expected_payload {
+		let (canonical_header, canonical_payload) = self.canonical_header_and_payload(number)?;
+		if vote.commitment.payload != canonical_payload {
 			let proof = ForkEquivocationProof {
 				commitment: vote.commitment,
 				signatories: vec![(vote.id, vote.signature)],
@@ -201,15 +201,15 @@ where
 		Ok(())
 	}
 
-	/// Check `signed_commitment` for contained block against expected payload.
+	/// Check `signed_commitment` for contained block against canonical payload.
 	fn check_signed_commitment(
 		&self,
 		signed_commitment: SignedCommitment<NumberFor<B>, Signature>,
 	) -> Result<(), Error> {
 		let SignedCommitment { commitment, signatures } = signed_commitment;
 		let number = commitment.block_number;
-		let (canonical_header, expected_payload) = self.expected_header_and_payload(number)?;
-		if commitment.payload != expected_payload {
+		let (canonical_header, canonical_payload) = self.canonical_header_and_payload(number)?;
+		if commitment.payload != canonical_payload {
 			let validator_set = self.active_validator_set_at(&canonical_header)?;
 			if signatures.len() != validator_set.validators().len() {
 				// invalid proof
@@ -234,7 +234,7 @@ where
 		Ok(())
 	}
 
-	/// Check `proof` for contained block against expected payload.
+	/// Check `proof` for contained block against canonical payload.
 	fn check_proof(&self, proof: BeefyVersionedFinalityProof<B>) -> Result<(), Error> {
 		match proof {
 			BeefyVersionedFinalityProof::<B>::V1(signed_commitment) =>

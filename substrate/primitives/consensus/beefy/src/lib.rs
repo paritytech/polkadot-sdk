@@ -386,7 +386,7 @@ where
 /// Validates [ForkEquivocationProof] by checking:
 /// 1. `commitment` is signed,
 /// 2. `canonical_header` is valid and matches `commitment.block_number`.
-/// 2. `commitment.payload` != `expected_payload(canonical_header)`.
+/// 2. `commitment.payload` != `canonical_payload(canonical_header)`.
 /// NOTE: GRANDPA finalization proof is not checked, which leads to slashing on forks.
 /// This is fine since honest validators will not be slashed on the chain finalized
 /// by GRANDPA, which is the only chain that ultimately matters.
@@ -397,7 +397,7 @@ where
 /// finalized by GRANDPA.
 pub fn check_fork_equivocation_proof<Number, Id, MsgHash, Header>(
 	proof: &ForkEquivocationProof<Number, Id, <Id as RuntimeAppPublic>::Signature, Header>,
-	expected_header_hash: &Header::Hash,
+	canonical_header_hash: &Header::Hash,
 ) -> bool
 where
 	Id: BeefyAuthorityId<MsgHash> + PartialEq,
@@ -407,20 +407,20 @@ where
 {
 	let ForkEquivocationProof { commitment, signatories, canonical_header } = proof;
 
-	if canonical_header.hash() != *expected_header_hash {
+	if canonical_header.hash() != *canonical_header_hash {
 		return false
 	}
 
-	let expected_mmr_root_digest = mmr::find_mmr_root_digest::<Header>(canonical_header);
-	let expected_payload = expected_mmr_root_digest
+	let canonical_mmr_root_digest = mmr::find_mmr_root_digest::<Header>(canonical_header);
+	let canonical_payload = canonical_mmr_root_digest
 		.map(|mmr_root| Payload::from_single_entry(known_payloads::MMR_ROOT_ID, mmr_root.encode()));
 
 	// cheap failfasts:
-	// 1. check that `payload` on the `vote` is different that the `expected_payload`
+	// 1. check that `payload` on the `vote` is different that the `canonical_payload`
 	// 2. if the signatories signed a payload when there should be none (for
-	// instance for a block prior to BEEFY activation), then expected_payload =
+	// instance for a block prior to BEEFY activation), then canonical_payload =
 	// None, and they will likewise be slashed
-	if Some(&commitment.payload) != expected_payload.as_ref() {
+	if Some(&commitment.payload) != canonical_payload.as_ref() {
 		// check check each signatory's signature on the commitment.
 		// if any are invalid, equivocation report is invalid
 		// TODO: refactor check_commitment_signature to take a slice of signatories
