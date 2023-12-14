@@ -1894,11 +1894,13 @@ version = "0.1.0"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
+ "bp-bridge-hub-polkadot",
  "bp-bridge-hub-rococo",
  "bp-bridge-hub-westend",
  "bp-header-chain",
  "bp-messages",
  "bp-parachains",
+ "bp-polkadot-bulletin",
  "bp-polkadot-core",
  "bp-relayers",
  "bp-rococo",
