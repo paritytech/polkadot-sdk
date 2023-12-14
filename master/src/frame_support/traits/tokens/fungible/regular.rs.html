@@ -514,6 +514,50 @@
 <a href="#514" id="514">514</a>
 <a href="#515" id="515">515</a>
 <a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1030,4 +1074,48 @@
 	<span class="kw">fn </span>done_deposit(_who: <span class="kw-2">&amp;</span>AccountId, _amount: <span class="self">Self</span>::Balance) {}
 	<span class="kw">fn </span>done_withdraw(_who: <span class="kw-2">&amp;</span>AccountId, _amount: <span class="self">Self</span>::Balance) {}
 }
+
+<span class="doccomment">/// Dummy implementation of [`Inspect`]
+</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="kw">impl</span>&lt;AccountId&gt; Inspect&lt;AccountId&gt; <span class="kw">for </span>() {
+	<span class="kw">type </span>Balance = u32;
+	<span class="kw">fn </span>total_issuance() -&gt; <span class="self">Self</span>::Balance {
+		<span class="number">0
+	</span>}
+	<span class="kw">fn </span>minimum_balance() -&gt; <span class="self">Self</span>::Balance {
+		<span class="number">0
+	</span>}
+	<span class="kw">fn </span>total_balance(<span class="kw">_</span>: <span class="kw-2">&amp;</span>AccountId) -&gt; <span class="self">Self</span>::Balance {
+		<span class="number">0
+	</span>}
+	<span class="kw">fn </span>balance(<span class="kw">_</span>: <span class="kw-2">&amp;</span>AccountId) -&gt; <span class="self">Self</span>::Balance {
+		<span class="number">0
+	</span>}
+	<span class="kw">fn </span>reducible_balance(<span class="kw">_</span>: <span class="kw-2">&amp;</span>AccountId, <span class="kw">_</span>: Preservation, <span class="kw">_</span>: Fortitude) -&gt; <span class="self">Self</span>::Balance {
+		<span class="number">0
+	</span>}
+	<span class="kw">fn </span>can_deposit(<span class="kw">_</span>: <span class="kw-2">&amp;</span>AccountId, <span class="kw">_</span>: <span class="self">Self</span>::Balance, <span class="kw">_</span>: Provenance) -&gt; DepositConsequence {
+		DepositConsequence::Success
+	}
+	<span class="kw">fn </span>can_withdraw(<span class="kw">_</span>: <span class="kw-2">&amp;</span>AccountId, <span class="kw">_</span>: <span class="self">Self</span>::Balance) -&gt; WithdrawConsequence&lt;<span class="self">Self</span>::Balance&gt; {
+		WithdrawConsequence::Success
+	}
+}
+
+<span class="doccomment">/// Dummy implementation of [`Unbalanced`]
+</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="kw">impl</span>&lt;AccountId&gt; Unbalanced&lt;AccountId&gt; <span class="kw">for </span>() {
+	<span class="kw">fn </span>handle_dust(<span class="kw">_</span>: Dust&lt;AccountId, <span class="self">Self</span>&gt;) {}
+	<span class="kw">fn </span>write_balance(
+		<span class="kw">_</span>: <span class="kw-2">&amp;</span>AccountId,
+		<span class="kw">_</span>: <span class="self">Self</span>::Balance,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Balance&gt;, DispatchError&gt; {
+		<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+	}
+	<span class="kw">fn </span>set_total_issuance(<span class="kw">_</span>: <span class="self">Self</span>::Balance) {}
+}
+
+<span class="doccomment">/// Dummy implementation of [`Mutate`]
+</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="kw">impl</span>&lt;AccountId: Eq&gt; Mutate&lt;AccountId&gt; <span class="kw">for </span>() {}
 </code></pre></div></section></main></body></html>
