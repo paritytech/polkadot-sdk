@@ -30,21 +30,23 @@
 //! ## Typical use-cases.
 //! ##### Get default config from runtime.
 //!
-//!	Query the default genesis config from the provided `runtime.wasm` and use it in the chain
-//! spec. Tool can also store runtime's default genesis config in the given file (which is `/dev/stdout` in the following example):
-//!	```text
-//! chain-spec-builder create -r runtime.wasm default /dev/stdout
+//! Query the default genesis config from the provided `runtime.wasm` and use it in the chain
+//! spec. The tool allows specifying where to write the chain spec, and optionally also where the
+//! write the default genesis state config (which is `/dev/stdout` in the following example):
+//! ```text
+//! chain-spec-builder --chain_spec_path ./my_chain_spec.json create -r runtime.wasm default /dev/stdout
 //! ```
 //!
-//! _Note:_ [`GenesisBuilder::create_default_config`][sp-genesis-builder-create] runtime function is called.
+//! _Note:_ [`GenesisBuilder::create_default_config`][sp-genesis-builder-create] runtime function is
+//! called.
 //!
 //!
 //! ##### Generate raw storage chain spec using genesis config patch.
 //!
 //! Patch the runtime's default genesis config with provided `patch.json` and generate raw
 //! storage (`-s`) version of chain spec:
-//! ```text
-//! chain-spec-builder create -s -r runtime.wasm patch patch.json
+//!/
+/! chain-spec-builder create -s -r runtime.wasm patch patch.json
 //! ```
 //!
 //! _Note:_ [`GenesisBuilder::build_config`][sp-genesis-builder-build] runtime function is called.
@@ -52,24 +54,25 @@
 //! ##### Generate raw storage chain spec using full genesis config.
 //!
 //! Build the chain spec using provided full genesis config json file. No defaults will be used:
-//! ```text
-//! chain-spec-builder create -s -r runtime.wasm full full-genesis-config.json
+//!/
+/! chain-spec-builder create -s -r runtime.wasm full full-genesis-config.json
 //! ```
 //!
 //! _Note_: [`GenesisBuilder::build_config`][sp-genesis-builder-build] runtime function is called.
 //!
 //! ##### Generate human readable chain spec using provided genesis config patch.
-//! ```text
-//! chain-spec-builder create -r runtime.wasm patch patch.json
+//!/
+/! chain-spec-builder create -r runtime.wasm patch patch.json
 //! ```
 //!
 //! ##### Generate human readable chain spec using provided full genesis config.
-//! ```text
-//! chain-spec-builder create -r runtime.wasm full full-genesis-config.json
+//!/
+/! chain-spec-builder create -r runtime.wasm full full-genesis-config.json
 //! ```
 //!
 //! ##### Extra tools.
-//! The `chain-spec-builder` provides also some extra utilities: [`VerifyCmd`], [`ConvertToRawCmd`], [`UpdateCodeCmd`].
+//! The `chain-spec-builder` provides also some extra utilities: [`VerifyCmd`], [`ConvertToRawCmd`],
+//! [`UpdateCodeCmd`].
 //!
 //! [`sc-chain-spec`]: ../sc_chain_spec/index.html
 //! [`node-cli`]: ../node_cli/index.html
