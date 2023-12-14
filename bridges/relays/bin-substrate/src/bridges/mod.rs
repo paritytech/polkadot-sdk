@@ -18,4 +18,5 @@
 
 pub mod kusama_polkadot;
 pub mod polkadot_bulletin;
+pub mod rococo_bulletin;
 pub mod rococo_westend;

@@ -47,6 +47,11 @@ use crate::{
 			polkadot_bulletin_headers_to_bridge_hub_polkadot::PolkadotBulletinToBridgeHubPolkadotCliBridge,
 			polkadot_parachains_to_polkadot_bulletin::PolkadotToPolkadotBulletinCliBridge,
 		},
+		rococo_bulletin::{
+			rococo_bulletin_headers_to_bridge_hub_rococo::RococoBulletinToBridgeHubRococoCliBridge,
+			rococo_parachains_to_rococo_bulletin::RococoToRococoBulletinCliBridge,
+			BridgeHubRococoAsBridgeHubPolkadot,
+		},
 		rococo_westend::{
 			rococo_parachains_to_bridge_hub_westend::BridgeHubRococoToBridgeHubWestendCliBridge,
 			westend_parachains_to_bridge_hub_rococo::BridgeHubWestendToBridgeHubRococoCliBridge,
@@ -199,6 +204,7 @@ declare_chain_cli_schema!(BridgeHubKusama, bridge_hub_kusama);
 declare_chain_cli_schema!(Polkadot, polkadot);
 declare_chain_cli_schema!(BridgeHubPolkadot, bridge_hub_polkadot);
 declare_chain_cli_schema!(PolkadotBulletin, polkadot_bulletin);
+declare_chain_cli_schema!(RococoBulletin, rococo_bulletin);
 // Means to override signers of different layer transactions.
 declare_chain_cli_schema!(RococoHeadersToBridgeHubWestend, rococo_headers_to_bridge_hub_westend);
 declare_chain_cli_schema!(
@@ -224,15 +230,22 @@ declare_chain_cli_schema!(
 	PolkadotBulletinHeadersToBridgeHubPolkadot,
 	polkadot_bulletin_headers_to_bridge_hub_polkadot
 );
+declare_chain_cli_schema!(
+	RococoBulletinHeadersToBridgeHubRococo,
+	rococo_bulletin_headers_to_bridge_hub_rococo
+);
 declare_chain_cli_schema!(PolkadotHeadersToPolkadotBulletin, polkadot_headers_to_polkadot_bulletin);
+declare_chain_cli_schema!(RococoHeadersToRococoBulletin, rococo_headers_to_rococo_bulletin);
 declare_chain_cli_schema!(
 	PolkadotParachainsToPolkadotBulletin,
 	polkadot_parachains_to_polkadot_bulletin
 );
+declare_chain_cli_schema!(RococoParachainsToRococoBulletin, rococo_parachains_to_rococo_bulletin);
 // All supported bridges.
 declare_parachain_to_parachain_bridge_schema!(BridgeHubRococo, Rococo, BridgeHubWestend, Westend);
 declare_parachain_to_parachain_bridge_schema!(BridgeHubKusama, Kusama, BridgeHubPolkadot, Polkadot);
 declare_relay_to_parachain_bridge_schema!(PolkadotBulletin, BridgeHubPolkadot, Polkadot);
+declare_relay_to_parachain_bridge_schema!(RococoBulletin, BridgeHubRococo, Rococo);
 
 /// Base portion of the bidirectional complex relay.
 ///
@@ -477,6 +490,32 @@ impl Full2WayBridge for PolkadotBulletinBridgeHubPolkadotFull2WayBridge {
 	}
 }
 
+/// `RococoBulletin` <> `BridgeHubRococo` complex relay.
+pub struct RococoBulletinBridgeHubRococoFull2WayBridge {
+	base: <Self as Full2WayBridge>::Base,
+}
+
+#[async_trait]
+impl Full2WayBridge for RococoBulletinBridgeHubRococoFull2WayBridge {
+	type Base = RelayToParachainBridge<Self::L2R, Self::R2L>;
+	type Left = relay_polkadot_bulletin_client::PolkadotBulletin;
+	type Right = BridgeHubRococoAsBridgeHubPolkadot;
+	type L2R = RococoBulletinToBridgeHubRococoCliBridge;
+	type R2L = RococoToRococoBulletinCliBridge;
+
+	fn new(base: Self::Base) -> anyhow::Result<Self> {
+		Ok(Self { base })
+	}
+
+	fn base(&self) -> &Self::Base {
+		&self.base
+	}
+
+	fn mut_base(&mut self) -> &mut Self::Base {
+		&mut self.base
+	}
+}
+
 /// Complex headers+messages relay.
 #[derive(Debug, PartialEq, StructOpt)]
 pub enum RelayHeadersAndMessages {
@@ -484,6 +523,8 @@ pub enum RelayHeadersAndMessages {
 	BridgeHubKusamaBridgeHubPolkadot(BridgeHubKusamaBridgeHubPolkadotHeadersAndMessages),
 	/// `PolkadotBulletin` <> `BridgeHubPolkadot` relay.
 	PolkadotBulletinBridgeHubPolkadot(PolkadotBulletinBridgeHubPolkadotHeadersAndMessages),
+	/// `RococoBulletin` <> `BridgeHubRococo` relay.
+	RococoBulletinBridgeHubRococo(RococoBulletinBridgeHubRococoHeadersAndMessages),
 	/// BridgeHubRococo <> BridgeHubWestend relay.
 	BridgeHubRococoBridgeHubWestend(BridgeHubRococoBridgeHubWestendHeadersAndMessages),
 }
@@ -502,6 +543,10 @@ impl RelayHeadersAndMessages {
 					.await,
 			RelayHeadersAndMessages::PolkadotBulletinBridgeHubPolkadot(params) =>
 				PolkadotBulletinBridgeHubPolkadotFull2WayBridge::new(params.into_bridge().await?)?
+					.run()
+					.await,
+			RelayHeadersAndMessages::RococoBulletinBridgeHubRococo(params) =>
+				RococoBulletinBridgeHubRococoFull2WayBridge::new(params.into_bridge().await?)?
 					.run()
 					.await,
 		}
