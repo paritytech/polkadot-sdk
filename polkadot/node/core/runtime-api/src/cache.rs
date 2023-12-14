@@ -20,12 +20,13 @@ use schnellru::{ByLength, LruMap};
 use sp_consensus_babe::Epoch;
 
 use polkadot_primitives::{
-	async_backing, slashing, vstaging, AuthorityDiscoveryId, BlockNumber, CandidateCommitments,
-	CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState,
-	ExecutorParams, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,
-	InboundHrmpMessage, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
-	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
-	ValidatorId, ValidatorIndex, ValidatorSignature,
+	async_backing, slashing,
+	vstaging::{self, ApprovalVotingParams},
+	AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
+	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash,
+	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption,
+	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
+	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 
 /// For consistency we have the same capacity for all caches. We use 128 as we'll only need that
@@ -68,6 +69,7 @@ pub(crate) struct RequestResultCache {
 	para_backing_state: LruMap<(Hash, ParaId), Option<async_backing::BackingState>>,
 	async_backing_params: LruMap<Hash, async_backing::AsyncBackingParams>,
 	node_features: LruMap<SessionIndex, vstaging::NodeFeatures>,
+	approval_voting_params: LruMap<SessionIndex, ApprovalVotingParams>,
 }
 
 impl Default for RequestResultCache {
@@ -98,6 +100,7 @@ impl Default for RequestResultCache {
 			unapplied_slashes: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			key_ownership_proof: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			minimum_backing_votes: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			approval_voting_params: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			disabled_validators: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			para_backing_state: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			async_backing_params: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
@@ -507,6 +510,21 @@ impl RequestResultCache {
 	) {
 		self.async_backing_params.insert(key, value);
 	}
+
+	pub(crate) fn approval_voting_params(
+		&mut self,
+		key: (Hash, SessionIndex),
+	) -> Option<&ApprovalVotingParams> {
+		self.approval_voting_params.get(&key.1).map(|v| &*v)
+	}
+
+	pub(crate) fn cache_approval_voting_params(
+		&mut self,
+		session_index: SessionIndex,
+		value: ApprovalVotingParams,
+	) {
+		self.approval_voting_params.insert(session_index, value);
+	}
 }
 
 pub(crate) enum RequestResult {
@@ -554,6 +572,7 @@ pub(crate) enum RequestResult {
 		slashing::OpaqueKeyOwnershipProof,
 		Option<()>,
 	),
+	ApprovalVotingParams(Hash, SessionIndex, ApprovalVotingParams),
 	DisabledValidators(Hash, Vec<ValidatorIndex>),
 	ParaBackingState(Hash, ParaId, Option<async_backing::BackingState>),
 	AsyncBackingParams(Hash, async_backing::AsyncBackingParams),

@@ -56,7 +56,7 @@ use futures::{channel::oneshot, prelude::*};
 
 use std::collections::HashMap;
 
-use super::approval_db::v2;
+use super::approval_db::v3;
 use crate::{
 	backend::{Backend, OverlayedBackend},
 	criteria::{AssignmentCriteria, OurAssignment},
@@ -512,7 +512,7 @@ pub(crate) async fn handle_new_head<Context, B: Backend>(
 			ctx.send_message(ChainSelectionMessage::Approved(block_hash)).await;
 		}
 
-		let block_entry = v2::BlockEntry {
+		let block_entry = v3::BlockEntry {
 			block_hash,
 			parent_hash: block_header.parent_hash,
 			block_number: block_header.number,
@@ -525,6 +525,7 @@ pub(crate) async fn handle_new_head<Context, B: Backend>(
 				.collect(),
 			approved_bitfield,
 			children: Vec::new(),
+			candidates_pending_signature: Default::default(),
 			distributed_assignments: Default::default(),
 		};
 
@@ -604,7 +605,10 @@ pub(crate) async fn handle_new_head<Context, B: Backend>(
 #[cfg(test)]
 pub(crate) mod tests {
 	use super::*;
-	use crate::{approval_db::v2::DbBackend, RuntimeInfo, RuntimeInfoConfig};
+	use crate::{
+		approval_db::common::{load_block_entry, DbBackend},
+		RuntimeInfo, RuntimeInfoConfig,
+	};
 	use ::test_helpers::{dummy_candidate_receipt, dummy_hash};
 	use assert_matches::assert_matches;
 	use polkadot_node_primitives::{
@@ -627,7 +631,7 @@ pub(crate) mod tests {
 	pub(crate) use sp_runtime::{Digest, DigestItem};
 	use std::{pin::Pin, sync::Arc};
 
-	use crate::{approval_db::v2::Config as DatabaseConfig, criteria, BlockEntry};
+	use crate::{approval_db::common::Config as DatabaseConfig, criteria, BlockEntry};
 
 	const DATA_COL: u32 = 0;
 
@@ -1347,7 +1351,7 @@ pub(crate) mod tests {
 
 		let (state, mut session_info_provider) = single_session_state();
 		overlay_db.write_block_entry(
-			v2::BlockEntry {
+			v3::BlockEntry {
 				block_hash: parent_hash,
 				parent_hash: Default::default(),
 				block_number: 4,
@@ -1357,6 +1361,7 @@ pub(crate) mod tests {
 				candidates: Vec::new(),
 				approved_bitfield: Default::default(),
 				children: Vec::new(),
+				candidates_pending_signature: Default::default(),
 				distributed_assignments: Default::default(),
 			}
 			.into(),
@@ -1389,11 +1394,10 @@ pub(crate) mod tests {
 				assert_eq!(candidates[1].1.approvals().len(), 6);
 				// the first candidate should be insta-approved
 				// the second should not
-				let entry: BlockEntry =
-					v2::load_block_entry(db_writer.as_ref(), &TEST_CONFIG, &hash)
-						.unwrap()
-						.unwrap()
-						.into();
+				let entry: BlockEntry = load_block_entry(db_writer.as_ref(), &TEST_CONFIG, &hash)
+					.unwrap()
+					.unwrap()
+					.into();
 				assert!(entry.is_candidate_approved(&candidates[0].0));
 				assert!(!entry.is_candidate_approved(&candidates[1].0));
 			})

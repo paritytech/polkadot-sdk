@@ -14,10 +14,12 @@
 // limitations under the License.
 
 // Substrate
-pub use frame_support::assert_ok;
+pub use frame_support::{assert_err, assert_ok, pallet_prelude::DispatchResult};
+pub use sp_runtime::DispatchError;
 
 // Polkadot
 pub use xcm::{
+	latest::ParentThen,
 	prelude::{AccountId32 as AccountId32Junction, *},
 	v3::{
 		Error,

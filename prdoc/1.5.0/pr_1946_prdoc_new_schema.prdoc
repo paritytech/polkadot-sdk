@@ -3,6 +3,9 @@
 
 title: New PRDoc Schema
 
+author: chevdor
+topic: documentation
+
 doc:
   - audience: Node Dev
     description:  &desc |

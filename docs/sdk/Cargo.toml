@@ -10,6 +10,9 @@ edition.workspace = true
 publish = false
 version = "0.0.1"
 
+[lints]
+workspace = true
+
 [dependencies]
 # Needed for all FRAME-based code
 parity-scale-codec = { version = "3.0.0", default-features = false }
