@@ -1591,6 +1591,7 @@ pub mod pallet {
 	use frame_support::traits::StorageVersion;
 	use frame_system::{ensure_signed, pallet_prelude::*};
 	use sp_runtime::Perbill;
+	use sp_staking::delegation::DelegationInterface;
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(8);
@@ -1658,7 +1659,7 @@ pub mod pallet {
 		type U256ToBalance: Convert<U256, BalanceOf<Self>>;
 
 		/// The interface for nominating.
-		type Staking: StakingInterface<Balance = BalanceOf<Self>, AccountId = Self::AccountId>;
+		type Staking: StakingInterface<Balance = BalanceOf<Self>, AccountId = Self::AccountId> + DelegationInterface<Balance = BalanceOf<Self>, AccountId = Self::AccountId>;
 
 		/// The amount of eras a `SubPools::with_era` pool can exist before it gets merged into the
 		/// `SubPools::no_era` pool. In other words, this is the amount of eras a member will be
