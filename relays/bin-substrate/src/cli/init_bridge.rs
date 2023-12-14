@@ -27,6 +27,10 @@ use crate::{
 			polkadot_bulletin_headers_to_bridge_hub_polkadot::PolkadotBulletinToBridgeHubPolkadotCliBridge,
 			polkadot_headers_to_polkadot_bulletin::PolkadotToPolkadotBulletinCliBridge,
 		},
+		rococo_bulletin::{
+			rococo_bulletin_headers_to_bridge_hub_rococo::RococoBulletinToBridgeHubRococoCliBridge,
+			rococo_headers_to_rococo_bulletin::RococoToRococoBulletinCliBridge,
+		},
 		rococo_westend::{
 			rococo_headers_to_bridge_hub_westend::RococoToBridgeHubWestendCliBridge,
 			westend_headers_to_bridge_hub_rococo::WestendToBridgeHubRococoCliBridge,
@@ -66,6 +70,8 @@ pub enum InitBridgeName {
 	PolkadotToBridgeHubKusama,
 	PolkadotToPolkadotBulletin,
 	PolkadotBulletinToBridgeHubPolkadot,
+	RococoToRococoBulletin,
+	RococoBulletinToBridgeHubRococo,
 	RococoToBridgeHubWestend,
 	WestendToBridgeHubRococo,
 }
@@ -195,6 +201,35 @@ impl BridgeInitializer for PolkadotBulletinToBridgeHubPolkadotCliBridge {
 	}
 }
 
+impl BridgeInitializer for RococoToRococoBulletinCliBridge {
+	type Engine = GrandpaFinalityEngine<Self::Source>;
+
+	fn encode_init_bridge(
+		init_data: <Self::Engine as Engine<Self::Source>>::InitializationData,
+	) -> <Self::Target as Chain>::Call {
+		type RuntimeCall = relay_polkadot_bulletin_client::RuntimeCall;
+		type BridgePolkadotGrandpaCall = relay_polkadot_bulletin_client::BridgePolkadotGrandpaCall;
+		type SudoCall = relay_polkadot_bulletin_client::SudoCall;
+
+		let initialize_call =
+			RuntimeCall::BridgePolkadotGrandpa(BridgePolkadotGrandpaCall::initialize { init_data });
+
+		RuntimeCall::Sudo(SudoCall::sudo { call: Box::new(initialize_call) })
+	}
+}
+
+impl BridgeInitializer for RococoBulletinToBridgeHubRococoCliBridge {
+	type Engine = GrandpaFinalityEngine<Self::Source>;
+
+	fn encode_init_bridge(
+		init_data: <Self::Engine as Engine<Self::Source>>::InitializationData,
+	) -> <Self::Target as Chain>::Call {
+		relay_bridge_hub_rococo_client::RuntimeCall::BridgePolkadotBulletinGrandpa(
+			relay_bridge_hub_rococo_client::BridgeBulletinGrandpaCall::initialize { init_data },
+		)
+	}
+}
+
 impl InitBridge {
 	/// Run the command.
 	pub async fn run(self) -> anyhow::Result<()> {
@@ -207,6 +242,10 @@ impl InitBridge {
 				PolkadotToPolkadotBulletinCliBridge::init_bridge(self),
 			InitBridgeName::PolkadotBulletinToBridgeHubPolkadot =>
 				PolkadotBulletinToBridgeHubPolkadotCliBridge::init_bridge(self),
+			InitBridgeName::RococoToRococoBulletin =>
+				RococoToRococoBulletinCliBridge::init_bridge(self),
+			InitBridgeName::RococoBulletinToBridgeHubRococo =>
+				RococoBulletinToBridgeHubRococoCliBridge::init_bridge(self),
 			InitBridgeName::RococoToBridgeHubWestend =>
 				RococoToBridgeHubWestendCliBridge::init_bridge(self),
 			InitBridgeName::WestendToBridgeHubRococo =>

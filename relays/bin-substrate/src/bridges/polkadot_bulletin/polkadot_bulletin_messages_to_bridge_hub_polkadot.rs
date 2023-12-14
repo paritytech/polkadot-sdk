@@ -43,8 +43,8 @@ substrate_relay_helper::generate_receive_message_proof_call_builder!(
 substrate_relay_helper::generate_receive_message_delivery_proof_call_builder!(
 	PolkadotBulletinMessagesToBridgeHubPolkadotMessageLane,
 	PolkadotBulletinMessagesToBridgeHubPolkadotMessageLaneReceiveMessagesDeliveryProofCallBuilder,
-	relay_polkadot_bulletin_client::RuntimeCall::BridgePolkadotBridgeHubMessages,
-	relay_polkadot_bulletin_client::BridgePolkadotBridgeHubMessagesCall::receive_messages_delivery_proof
+	relay_polkadot_bulletin_client::RuntimeCall::BridgePolkadotMessages,
+	relay_polkadot_bulletin_client::BridgePolkadotMessagesCall::receive_messages_delivery_proof
 );
 
 /// PolkadotBulletin-to-BridgeHubPolkadot messages lane.

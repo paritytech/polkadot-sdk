@@ -36,7 +36,9 @@ pub use codegen_runtime::api::runtime_types;
 
 pub type RuntimeCall = runtime_types::bridge_hub_rococo_runtime::RuntimeCall;
 pub type BridgeMessagesCall = runtime_types::pallet_bridge_messages::pallet::Call;
+pub type BridgeBulletinMessagesCall = runtime_types::pallet_bridge_messages::pallet::Call2;
 pub type BridgeGrandpaCall = runtime_types::pallet_bridge_grandpa::pallet::Call;
+pub type BridgeBulletinGrandpaCall = runtime_types::pallet_bridge_grandpa::pallet::Call2;
 pub type BridgeParachainCall = runtime_types::pallet_bridge_parachains::pallet::Call;
 type UncheckedExtrinsic = bp_bridge_hub_rococo::UncheckedExtrinsic<RuntimeCall, SignedExtension>;
 type UtilityCall = runtime_types::pallet_utility::pallet::Call;

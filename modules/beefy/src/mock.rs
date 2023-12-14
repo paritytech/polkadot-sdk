@@ -163,7 +163,7 @@ pub fn validator_ids(index: u32, count: u32) -> Vec<BeefyId> {
 	validator_pairs(index, count).into_iter().map(|pair| pair.public()).collect()
 }
 
-pub fn authority_set_info(id: u64, validators: &Vec<BeefyId>) -> TestBridgedAuthoritySetInfo {
+pub fn authority_set_info(id: u64, validators: &[BeefyId]) -> TestBridgedAuthoritySetInfo {
 	let merkle_root = get_authorities_mmr_root::<TestRuntime, (), _>(validators.iter());
 
 	TestBridgedAuthoritySetInfo { id, len: validators.len() as u32, keyset_commitment: merkle_root }
