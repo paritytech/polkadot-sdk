@@ -40,17 +40,26 @@ use std::{
 	sync::Arc,
 };
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-enum GenesisBuildAction {
+enum GenesisBuildAction<EHF> {
 	Patch(json::Value),
 	Full(json::Value),
-	// name of the patch, runtime code (todo: shared ref)
-	NamedPatch(String),
+	NamedPatch(String, PhantomData<EHF>),
+}
+
+impl<EHF> Clone for GenesisBuildAction<EHF> {
+	fn clone(&self) -> Self {
+		match self {
+			Self::Patch(ref p) => Self::Patch(p.clone()),
+			Self::Full(ref f) => Self::Full(f.clone()),
+			Self::NamedPatch(ref p, _) => Self::NamedPatch(p.clone(), Default::default()),
+		}
+	}
 }
 
 #[allow(deprecated)]
-enum GenesisSource<G> {
+enum GenesisSource<G, EHF> {
 	File(PathBuf),
 	Binary(Cow<'static, [u8]>),
 	/// factory function + code
@@ -58,10 +67,10 @@ enum GenesisSource<G> {
 	Factory(Arc<dyn Fn() -> G + Send + Sync>, Vec<u8>),
 	Storage(Storage),
 	/// build action + code
-	GenesisBuilderApi(GenesisBuildAction, Vec<u8>),
+	GenesisBuilderApi(GenesisBuildAction<EHF>, Vec<u8>),
 }
 
-impl<G> Clone for GenesisSource<G> {
+impl<G, EHF> Clone for GenesisSource<G, EHF> {
 	fn clone(&self) -> Self {
 		match *self {
 			Self::File(ref path) => Self::File(path.clone()),
@@ -73,7 +82,7 @@ impl<G> Clone for GenesisSource<G> {
 	}
 }
 
-impl<G: RuntimeGenesis> GenesisSource<G> {
+impl<G: RuntimeGenesis, EHF: HostFunctions> GenesisSource<G, EHF> {
 	fn resolve(&self) -> Result<Genesis<G>, String> {
 		/// helper container for deserializing genesis from the JSON file (ChainSpec JSON file is
 		/// also supported here)
@@ -120,8 +129,8 @@ impl<G: RuntimeGenesis> GenesisSource<G> {
 					json_blob: RuntimeGenesisConfigJson::Patch(patch.clone()),
 					code: code.clone(),
 				})),
-			Self::GenesisBuilderApi(GenesisBuildAction::NamedPatch(name), code) => {
-				let patch = RuntimeCaller::new(&code[..]).get_named_patch(name)?;
+			Self::GenesisBuilderApi(GenesisBuildAction::NamedPatch(name, _), code) => {
+				let patch = RuntimeCaller::<EHF>::new(&code[..]).get_named_patch(name)?;
 				Ok(Genesis::RuntimeGenesis(RuntimeGenesisInner {
 					json_blob: RuntimeGenesisConfigJson::Patch(patch),
 					code: code.clone(),
@@ -340,13 +349,13 @@ pub struct ChainSpecBuilder<G, E = NoExtension, EHF = ()> {
 	name: String,
 	id: String,
 	chain_type: ChainType,
-	genesis_build_action: GenesisBuildAction,
+	genesis_build_action: GenesisBuildAction<EHF>,
 	boot_nodes: Option<Vec<MultiaddrWithPeerId>>,
 	telemetry_endpoints: Option<TelemetryEndpoints>,
 	protocol_id: Option<String>,
 	fork_id: Option<String>,
 	properties: Option<Properties>,
-	_genesis: PhantomData<(G, EHF)>,
+	_genesis: PhantomData<G>,
 }
 
 impl<G, E, EHF> ChainSpecBuilder<G, E, EHF> {
@@ -436,7 +445,7 @@ impl<G, E, EHF> ChainSpecBuilder<G, E, EHF> {
 
 	/// Sets the name of runtime-provided JSON patch for runtime's GenesisConfig.
 	pub fn with_genesis_config_patch_name(mut self, name: String) -> Self {
-		self.genesis_build_action = GenesisBuildAction::NamedPatch(name);
+		self.genesis_build_action = GenesisBuildAction::NamedPatch(name, Default::default());
 		self
 	}
 
@@ -478,7 +487,7 @@ impl<G, E, EHF> ChainSpecBuilder<G, E, EHF> {
 /// runtime is using the non-standard host function during genesis state creation.
 pub struct ChainSpec<G, E = NoExtension, EHF = ()> {
 	client_spec: ClientSpec<E>,
-	genesis: GenesisSource<G>,
+	genesis: GenesisSource<G, EHF>,
 	_host_functions: PhantomData<EHF>,
 }
 
