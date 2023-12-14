@@ -16,23 +16,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Substrate RPC interfaces.
-//!
-//! A collection of RPC methods and subscriptions supported by all substrate clients.
+//! RPC middleware to collect prometheus metrics on RPC calls.
 
-#![warn(missing_docs)]
+/// Grafana metrics middleware.
+pub mod metrics;
+/// Rate limit middleware.
+pub mod rate_limit;
 
-mod error;
-mod policy;
-
-pub use policy::{DenyUnsafe, UnsafeRpcError};
-
-pub mod author;
-pub mod chain;
-pub mod child_state;
-pub mod dev;
-pub mod mixnet;
-pub mod offchain;
-pub mod state;
-pub mod statement;
-pub mod system;
+pub use metrics::*;
+pub use rate_limit::*;

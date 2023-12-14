@@ -23,7 +23,7 @@
 use codec::{DecodeAll, FullCodec, FullEncode};
 use core::marker::PhantomData;
 use frame_support::storage::generator::{StorageDoubleMap, StorageMap, StorageValue};
-use jsonrpsee::core::Error as RpcError;
+use jsonrpsee::core::ClientError as RpcError;
 use sc_rpc_api::state::StateApiClient;
 use serde::{de::DeserializeOwned, Serialize};
 use sp_storage::{StorageData, StorageKey};

@@ -25,7 +25,7 @@ use crate::{
 	},
 	CliConfiguration, PrometheusParams, RuntimeParams, TelemetryParams,
 	RPC_DEFAULT_MAX_CONNECTIONS, RPC_DEFAULT_MAX_REQUEST_SIZE_MB, RPC_DEFAULT_MAX_RESPONSE_SIZE_MB,
-	RPC_DEFAULT_MAX_SUBS_PER_CONN,
+	RPC_DEFAULT_MAX_SUBS_PER_CONN, RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN,
 };
 use clap::Parser;
 use regex::Regex;
@@ -82,6 +82,16 @@ pub struct RunCmd {
 	)]
 	pub rpc_methods: RpcMethods,
 
+	/// Rate limit the number of RPC calls a connection is allowed
+	/// to perform per minute.
+	///
+	/// This is disabled by default.
+	///
+	/// For example `--rpc-rate-limit 10` will allow
+	/// 10 calls per minute.
+	#[arg(long)]
+	pub rpc_rate_limit: Option<u32>,
+
 	/// Set the maximum RPC request payload size for both HTTP and WS in megabytes.
 	#[arg(long, default_value_t = RPC_DEFAULT_MAX_REQUEST_SIZE_MB)]
 	pub rpc_max_request_size: u32,
@@ -102,9 +112,20 @@ pub struct RunCmd {
 	#[arg(long, value_name = "COUNT", default_value_t = RPC_DEFAULT_MAX_CONNECTIONS)]
 	pub rpc_max_connections: u32,
 
-	/// Specify browser *origins* allowed to access the HTTP and WS RPC servers.
+	/// The number of messages the RPC server is allowed to keep in memory.
 	///
-	/// A comma-separated list of origins (`protocol://domain` or special `null`
+	/// If the buffer becomes full then the server will not process
+	/// new messages until the connected client start reading the
+	/// underlying messages.
+	///
+	/// This applies per connection which includes both
+	/// JSON-RPC methods calls and subscriptions.
+	#[arg(long, default_value_t = RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN)]
+	pub rpc_message_buffer_capacity_per_connection: u32,
+
+	/// Specify browser *origins* allowed to access the HTTP & WS RPC servers.
+	///
+	/// A comma-separated list of origins (protocol://domain or special `null`
 	/// value). Value of `all` will disable origin validation. Default is to
 	/// allow localhost and <https://polkadot.js.org> origins. When running in
 	/// `--dev` mode the default is to allow all origins.
@@ -386,6 +407,10 @@ impl CliConfiguration for RunCmd {
 
 	fn rpc_max_subscriptions_per_connection(&self) -> Result<u32> {
 		Ok(self.rpc_max_subscriptions_per_connection)
+	}
+
+	fn rpc_rate_limit(&self) -> Result<Option<u32>> {
+		Ok(self.rpc_rate_limit)
 	}
 
 	fn transaction_pool(&self, is_dev: bool) -> Result<TransactionPoolOptions> {

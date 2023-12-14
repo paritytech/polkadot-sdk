@@ -773,21 +773,21 @@ trait ValidationBackend {
 					if num_death_retries_left > 0 {
 						num_death_retries_left -= 1;
 					} else {
-						break;
+						break
 					},
 
 				Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(_))) =>
 					if num_job_error_retries_left > 0 {
 						num_job_error_retries_left -= 1;
 					} else {
-						break;
+						break
 					},
 
 				Err(ValidationError::Internal(_)) =>
 					if num_internal_retries_left > 0 {
 						num_internal_retries_left -= 1;
 					} else {
-						break;
+						break
 					},
 
 				Ok(_) | Err(ValidationError::Invalid(_) | ValidationError::Preparation(_)) => break,
