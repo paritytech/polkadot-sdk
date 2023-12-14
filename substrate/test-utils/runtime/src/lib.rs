@@ -54,6 +54,7 @@ use sp_trie::{
 };
 use trie_db::{Trie, TrieMut};
 
+use serde_json::json;
 use sp_api::{decl_runtime_apis, impl_runtime_apis};
 pub use sp_core::hash::H256;
 use sp_inherents::{CheckInherentsResult, InherentData};
@@ -470,14 +471,9 @@ pub const TEST_RUNTIME_BABE_EPOCH_CONFIGURATION: BabeEpochConfiguration = BabeEp
 	allowed_slots: AllowedSlots::PrimaryAndSecondaryPlainSlots,
 };
 
-use hex_literal::hex;
-use serde_json::json;
-use sp_application_crypto::Ss58Codec;
-use sp_core::crypto::UncheckedInto;
-use sp_keyring::AccountKeyring;
 fn substrate_test_genesis_config_patch() -> serde_json::Value {
 	let endowed_accounts: sp_std::vec::Vec<AccountId> =
-		vec![AccountKeyring::Ferdie.public().into(), AccountKeyring::Alice.public().into()];
+		vec![AccountKeyring::Bob.public().into(), AccountKeyring::Charlie.public().into()];
 	log::info!("xxx: {} {}", file!(), line!());
 
 	let patch = json!({
@@ -486,8 +482,8 @@ fn substrate_test_genesis_config_patch() -> serde_json::Value {
 		},
 		"substrateTest": {
 			"authorities": [
-				AccountKeyring::Ferdie.public().to_ss58check(),
-				AccountKeyring::Alice.public().to_ss58check()
+				AccountKeyring::Alice.public().to_ss58check(),
+				AccountKeyring::Ferdie.public().to_ss58check()
 			],
 		}
 	});
@@ -1355,7 +1351,7 @@ mod tests {
 			f("foobar", r#"{"foo":"bar"}"#);
 			f(
 				"staging",
-				r#"{"babe":{"epochConfig":{"allowed_slots":"PrimaryAndSecondaryPlainSlots","c":[7,10]}},"balances":{"balances":[["5DwBmEFPXRESyEam5SsQF1zbWSCn2kCjyLW51hJHXe9vW4xs",1000000000000000],["5EHZkbp22djdbuMFH9qt1DVzSCvqi3zWpj6DAYfANa828oei",1000000000000000],["5DvH8oEjQPYhzCoQVo7WDU91qmQfLZvxe9wJcrojmJKebCmG",1000000000000000],["5FPMzsezo1PRxYbVpJMWK7HNbR2kUxidsAAxH4BosHa4wd6S",1000000000000000]]},"substrateTest":{"authorities":["5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL","5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"]}}"#,
+				r#"{"balances":{"balances":[["5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",1000000000000000],["5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y",1000000000000000]]},"substrateTest":{"authorities":["5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY","5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL"]}}"#,
 			);
 		}
 
