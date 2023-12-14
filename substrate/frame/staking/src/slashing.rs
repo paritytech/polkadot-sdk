@@ -619,8 +619,7 @@ pub fn do_slash<T: Config>(
 		// If delegated staking, report slash and move on.
 		T::DelegationSupport::report_slash(stash, value);
 	} else {
-		let (imbalance, missing) =
-			T::Currency::slash(stash, value);
+		let (imbalance, missing) = T::Currency::slash(stash, value);
 		slashed_imbalance.subsume(imbalance);
 
 		if !missing.is_zero() {
