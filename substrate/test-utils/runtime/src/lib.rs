@@ -90,7 +90,7 @@ pub mod wasm_binary_logging_disabled {
 #[cfg(feature = "std")]
 pub fn wasm_binary_unwrap() -> &'static [u8] {
 	WASM_BINARY.expect(
-		"Development wasm binary is not available. Testing is only supported with the flag \
+		"Development wasm binary is not available. Testing is only supported with the flag
 		 disabled.",
 	)
 }
@@ -99,7 +99,7 @@ pub fn wasm_binary_unwrap() -> &'static [u8] {
 #[cfg(feature = "std")]
 pub fn wasm_binary_logging_disabled_unwrap() -> &'static [u8] {
 	wasm_binary_logging_disabled::WASM_BINARY.expect(
-		"Development wasm binary is not available. Testing is only supported with the flag \
+		"Development wasm binary is not available. Testing is only supported with the flag
 		 disabled.",
 	)
 }
@@ -476,30 +476,13 @@ use sp_application_crypto::Ss58Codec;
 use sp_core::crypto::UncheckedInto;
 use sp_keyring::AccountKeyring;
 fn substrate_test_genesis_config_patch() -> serde_json::Value {
-	let endowed_accounts: sp_std::vec::Vec<AccountId> = vec![
-		// 5DwBmEFPXRESyEam5SsQF1zbWSCn2kCjyLW51hJHXe9vW4xs
-		hex!["52bc71c1eca5353749542dfdf0af97bf764f9c2f44e860cd485f1cd86400f649"].unchecked_into(),
-		//5EHZkbp22djdbuMFH9qt1DVzSCvqi3zWpj6DAYfANa828oei
-		hex!["62475fe5406a7cb6a64c51d0af9d3ab5c2151bcae982fb812f7a76b706914d6a"].unchecked_into(),
-		//5DvH8oEjQPYhzCoQVo7WDU91qmQfLZvxe9wJcrojmJKebCmG
-		hex!["520b48452969f6ddf263b664de0adb0c729d0e0ad3b0e5f3cb636c541bc9022a"].unchecked_into(),
-		//5FPMzsezo1PRxYbVpJMWK7HNbR2kUxidsAAxH4BosHa4wd6S
-		hex!["92ef83665b39d7a565e11bf8d18d41d45a8011601c339e57a8ea88c8ff7bba6f"].unchecked_into(),
-	];
+	let endowed_accounts: sp_std::vec::Vec<AccountId> =
+		vec![AccountKeyring::Ferdie.public().into(), AccountKeyring::Alice.public().into()];
 	log::info!("xxx: {} {}", file!(), line!());
 
 	let patch = json!({
 		"balances": {
 			"balances": endowed_accounts.iter().map(|k| (k.clone(), 10 * currency::DOLLARS)).collect::<Vec<_>>(),
-		},
-		"babe": {
-			"epochConfig": {
-				"c": [
-					7,
-					10
-				],
-				"allowed_slots": "PrimaryAndSecondaryPlainSlots"
-			}
 		},
 		"substrateTest": {
 			"authorities": [
@@ -1349,6 +1332,31 @@ mod tests {
 
 			let expected = r#"{"system":{},"babe":{"authorities":[],"epochConfig":null},"substrateTest":{"authorities":[]},"balances":{"balances":[]}}"#;
 			assert_eq!(expected.to_string(), json);
+		}
+
+		#[test]
+		fn named_config_works() {
+			let f = |cfg_name: &str, expected: &str| {
+				sp_tracing::try_init_simple();
+				let mut t = BasicExternalities::new_empty();
+				let name = cfg_name.to_string();
+				let r = executor_call(
+					&mut t,
+					"GenesisBuilder_create_default_config2",
+					&name.as_bytes().encode(),
+				)
+				.unwrap();
+				let r = Vec::<u8>::decode(&mut &r[..]).unwrap();
+				let json = String::from_utf8(r.into()).expect("returned value is json. qed.");
+				log::info!("json: {:#?}", json);
+				assert_eq!(expected.to_string(), json);
+			};
+
+			f("foobar", r#"{"foo":"bar"}"#);
+			f(
+				"staging",
+				r#"{"babe":{"epochConfig":{"allowed_slots":"PrimaryAndSecondaryPlainSlots","c":[7,10]}},"balances":{"balances":[["5DwBmEFPXRESyEam5SsQF1zbWSCn2kCjyLW51hJHXe9vW4xs",1000000000000000],["5EHZkbp22djdbuMFH9qt1DVzSCvqi3zWpj6DAYfANa828oei",1000000000000000],["5DvH8oEjQPYhzCoQVo7WDU91qmQfLZvxe9wJcrojmJKebCmG",1000000000000000],["5FPMzsezo1PRxYbVpJMWK7HNbR2kUxidsAAxH4BosHa4wd6S",1000000000000000]]},"substrateTest":{"authorities":["5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL","5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"]}}"#,
+			);
 		}
 
 		#[test]
