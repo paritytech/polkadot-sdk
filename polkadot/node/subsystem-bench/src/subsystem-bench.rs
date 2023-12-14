@@ -88,7 +88,7 @@ impl BenchCli {
 				let test_sequence =
 					core::configuration::TestSequence::new_from_file(Path::new(&options.path))
 						.expect("File exists")
-						.to_vec();
+						.into_vec();
 				let num_steps = test_sequence.len();
 				gum::info!(
 					"{}",

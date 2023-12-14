@@ -44,7 +44,7 @@ impl MetricCollection {
 	pub fn sum_by(&self, name: &str) -> f64 {
 		self.all()
 			.iter()
-			.filter(|metric| &metric.name == name)
+			.filter(|metric| metric.name == name)
 			.map(|metric| metric.value)
 			.sum()
 	}

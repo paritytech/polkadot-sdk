@@ -117,7 +117,7 @@ mod tests {
 		let mut reap_amount = 0;
 		while rate_limiter.total_ticks < tick_rate {
 			reap_amount += 1;
-			reap_amount = reap_amount % 100;
+			reap_amount %= 100;
 
 			rate_limiter.reap(reap_amount).await;
 			total_sent += reap_amount;
@@ -290,11 +290,7 @@ impl Peer {
 	}
 
 	pub fn is_connected(&self) -> bool {
-		if let Peer::Connected(_) = self {
-			true
-		} else {
-			false
-		}
+		matches!(self, Peer::Connected(_))
 	}
 
 	pub fn emulator(&mut self) -> &mut PeerEmulator {
@@ -333,7 +329,7 @@ impl NetworkEmulator {
 
 		// Create a `PeerEmulator` for each peer.
 		let (stats, mut peers): (_, Vec<_>) = (0..n_peers)
-			.zip(authorities.validator_authority_id.clone().into_iter())
+			.zip(authorities.validator_authority_id.clone())
 			.map(|(peer_index, authority_id)| {
 				validator_authority_id_mapping.insert(authority_id, peer_index);
 				let stats = Arc::new(PeerEmulatorStats::new(peer_index, metrics.clone()));

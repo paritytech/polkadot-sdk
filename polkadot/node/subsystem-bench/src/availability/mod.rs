@@ -253,7 +253,8 @@ impl TestState {
 			candidate_receipt_templates.push(candidate_receipt);
 		}
 
-		let pov_sizes = config.pov_sizes().to_vec().into_iter().cycle();
+		let pov_sizes = config.pov_sizes().to_owned();
+		let pov_sizes = pov_sizes.into_iter().cycle();
 		gum::info!(target: LOG_TARGET, "{}","Created test environment.".bright_blue());
 
 		let mut _self = Self {

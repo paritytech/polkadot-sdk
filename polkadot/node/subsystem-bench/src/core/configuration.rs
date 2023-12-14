@@ -107,7 +107,7 @@ pub struct TestSequence {
 }
 
 impl TestSequence {
-	pub fn to_vec(self) -> Vec<TestConfiguration> {
+	pub fn into_vec(self) -> Vec<TestConfiguration> {
 		self.test_configurations
 			.into_iter()
 			.map(|mut config| {
