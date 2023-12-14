@@ -1095,6 +1095,25 @@ impl<T: Config> Pallet<T> {
 	) -> Exposure<T::AccountId, BalanceOf<T>> {
 		EraInfo::<T>::get_full_exposure(era, account)
 	}
+
+	pub(crate) fn stakeable_balance(who: &T::AccountId) -> BalanceOf<T> {
+		if T::DelegationSupport::is_delegatee(who) {
+			return T::DelegationSupport::stakeable_balance(who);
+		}
+
+		T::Currency::free_balance(who)
+	}
+
+	pub(crate) fn restrict_reward_destination(
+		who: &T::AccountId,
+		reward_destination: Option<T::AccountId>,
+	) -> bool {
+		if T::DelegationSupport::is_delegatee(who) {
+			return T::DelegationSupport::restrict_reward_destination(who, reward_destination);
+		}
+
+		false
+	}
 }
 
 impl<T: Config> Pallet<T> {
@@ -1839,11 +1858,19 @@ impl<T: Config> StakingHoldProvider for Pallet<T> {
 	type AccountId = T::AccountId;
 
 	fn update_hold(who: &Self::AccountId, amount: Self::Balance) -> sp_runtime::DispatchResult {
+		if T::DelegationSupport::is_delegatee(who) {
+			return T::DelegationSupport::update_hold(who, amount);
+		}
+
 		T::Currency::set_lock(crate::STAKING_ID, who, amount, WithdrawReasons::all());
 		Ok(())
 	}
 
 	fn release_all(who: &Self::AccountId) {
+		if T::DelegationSupport::is_delegatee(who) {
+			return T::DelegationSupport::release_all(who);
+		}
+
 		T::Currency::remove_lock(crate::STAKING_ID, who)
 	}
 }
@@ -1855,18 +1882,19 @@ impl<T: Config> StakingHoldProvider for NoDelegation<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
 
-	fn update_hold(who: &Self::AccountId, amount: Self::Balance) -> sp_runtime::DispatchResult {
-		Pallet::<T>::update_hold(who, amount)
+	fn update_hold(_who: &Self::AccountId, _amount: Self::Balance) -> sp_runtime::DispatchResult {
+		defensive_assert!(true, "delegation update_hold should not be called for NoDelegation");
+		Err(Error::<T>::NotEnoughFunds.into())
 	}
 
-	fn release_all(who: &Self::AccountId) {
-		Pallet::<T>::release_all(who)
+	fn release_all(_who: &Self::AccountId) {
+		defensive_assert!(true, "delegation release_all should not be called for NoDelegation");
 	}
 }
 
 impl<T: Config> StakingDelegationSupport for NoDelegation<T> {
-	fn stakeable_balance(who: &Self::AccountId) -> Self::Balance {
-		T::Currency::free_balance(who)
+	fn stakeable_balance(_who: &Self::AccountId) -> Self::Balance {
+		BalanceOf::<T>::zero()
 	}
 	fn is_delegatee(_who: &Self::AccountId) -> bool {
 		false

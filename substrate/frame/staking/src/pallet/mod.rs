@@ -105,8 +105,7 @@ pub mod pallet {
 			+ TypeInfo
 			+ MaxEncodedLen;
 
-		/// Something that provides stakeable balance of an account as well as a way to hold and
-		/// release this stake.
+		/// Something that provides delegation support to staking pallet.
 		type DelegationSupport: StakingDelegationSupport<
 			Balance = Self::CurrencyBalance,
 			AccountId = Self::AccountId,
@@ -712,7 +711,7 @@ pub mod pallet {
 					status
 				);
 				assert!(
-					T::DelegationSupport::stakeable_balance(stash) >= balance,
+					Pallet::<T>::stakeable_balance(stash) >= balance,
 					"Stash does not have enough balance to bond."
 				);
 				frame_support::assert_ok!(<Pallet<T>>::bond(
@@ -950,7 +949,7 @@ pub mod pallet {
 
 			frame_system::Pallet::<T>::inc_consumers(&stash).map_err(|_| Error::<T>::BadState)?;
 
-			let stash_balance = T::DelegationSupport::stakeable_balance(&stash);
+			let stash_balance = Self::stakeable_balance(&stash);
 			let value = value.min(stash_balance);
 			Self::deposit_event(Event::<T>::Bonded { stash: stash.clone(), amount: value });
 			let ledger = StakingLedger::<T>::new(stash.clone(), value);
@@ -986,7 +985,7 @@ pub mod pallet {
 
 			let mut ledger = Self::ledger(StakingAccount::Stash(stash.clone()))?;
 
-			let stash_balance = T::DelegationSupport::stakeable_balance(&stash);
+			let stash_balance = Self::stakeable_balance(&stash);
 			if let Some(extra) = stash_balance.checked_sub(&ledger.total) {
 				let extra = extra.min(max_additional);
 				ledger.total += extra;
