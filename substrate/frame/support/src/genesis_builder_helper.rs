@@ -42,3 +42,16 @@ pub fn build_state<GC: BuildGenesisConfig>(json: sp_std::vec::Vec<u8>) -> BuildR
 	<GC as BuildGenesisConfig>::build(&gc);
 	Ok(())
 }
+
+/// Returns a JSON blob representation of the builtin `GenesisConfig` identified by `id`.
+/// For more info refer to [`sp_genesis_builder::GenesisBuilder::get_preset`].
+pub fn get_preset<GC>(id: Option<sp_std::vec::Vec<u8>>) -> Option<sp_std::vec::Vec<u8>>
+where
+	GC: BuildGenesisConfig + Default,
+{
+	if id.is_none() {
+		Some(create_default_config::<GC>())
+	} else {
+		None
+	}
+}
