@@ -43,40 +43,13 @@
 //! allows for handling multiple types of currencies or assets, offering greater flexibility in
 //! multi-asset environments.
 //!
-//! #### Fungible Trait:
-//!
-//! This trait includes key methods for asset management, like transfer, balance check, and minting.
-//! It's particularly useful in scenarios involving a single currency type, simplifying the
-//! implementation and management process.
-//!
-//! #### Fungibles Trait:
-//!
-//! Offers a comprehensive solution for managing multiple asset types within a single system.
-//! It's more complex than the
-//! [`fungible`](../../../frame_support/traits/tokens/fungible/index.html) trait, suited for
-//! environments where diverse asset types coexist and interact. This trait is essential in
-//! multi-currency contexts, providing the necessary tools for intricate asset management.
-//!
 //! #### Holds and Freezes
 //!
-//! *Holds* are explicitly designed to be infallibly slashed. They do not contribute to the ED but
-//! do require a provider reference, removing any possibility of account reference counting from
-//! being problematic for a slash. They are also always named, ensuring different holds do not
-//! accidentally slash each other's balances. E.g. some balance is held when it is put to staking,
-//! it does not contribute to the ED, but it is slashed when the staker misbehaves.
-//!
-//! *Freezes* can overlap with *Holds*. Since *Holds* are designed to be infallibly slashed, this
-//! means that any logic using a *Freeze* must handle the possibility of the frozen amount being
-//! reduced, potentially to zero. A permissionless function should be provided in order to allow
-//! bookkeeping to be updated in this instance. E.g. some balance is frozen when it is used for
-//! voting, one could use held balance for voting, but nothing prevents this frozen balance from
-//! being reduced if the overlapping hold is slashed.
-//!
-//! Both *Holds* and *Freezes* require an identifier, `HoldReason` and `FreezeReason` respectively,
-//! which is configurable and is expected to be an enum aggregated across all pallet instances of
-//! the runtime.
-//!
-//! To understand this with an example
+//! Learn more about this two concepts in
+//! [frame_support::traits::tokens::fungible::hold](../../../frame_support/traits/tokens/fungible/
+//! hold/index.html) and
+//! [frame_support::traits::tokens::fungible::freeze](../../../frame_support/traits/tokens/fungible/
+//! freeze/index.html).
 //!
 //! ## Common Pallets
 //!

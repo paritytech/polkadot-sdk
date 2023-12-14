@@ -15,7 +15,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! # Freeze
+//!
 //! The traits for putting freezes within a single fungible token class.
+//!
+//! Freezes can overlap with [Holds](crate::traits::fungible::hold). Since Holds are designed to be
+//! infallibly slashed, this means that any logic using a `Freeze` must handle the possibility of
+//! the frozen amount being reduced, potentially to zero. A permissionless function should be
+//! provided in order to allow bookkeeping to be updated in this instance. E.g. some balance is
+//! frozen when it is used for voting, one could use held balance for voting, but nothing prevents
+//! this frozen balance from being reduced if the overlapping hold is slashed.
+//!
+//! ```
+//! |__total__________________________________|
+//! |__on_hold__|_____________free____________|
+//! |__________frozen___________|
+//! |__on_hold__|__ed__|  
+//! ```
+//!
+//! Freezes require a `Reason`, which is configurable and is expected to be an enum aggregated
+//! across all pallet instances of the runtime.
 
 use scale_info::TypeInfo;
 use sp_arithmetic::{

@@ -15,7 +15,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The traits for sets of fungible tokens and any associated types.
+//! # Fungibles Traits
+//!
+//! **The traits for sets of fungible tokens and any associated types.**
+//!
+//! Offers a comprehensive solution for managing multiple asset types within a single system.
+//! It's more complex than the [`fungible`](crate::traits::tokens::fungible) trait, suited for
+//! environments where diverse asset types coexist and interact. This trait is essential in
+//! multi-currency contexts, providing the necessary tools for intricate asset management.
 
 pub mod approvals;
 mod enumerable;

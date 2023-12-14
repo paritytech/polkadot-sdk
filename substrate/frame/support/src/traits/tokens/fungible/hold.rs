@@ -15,7 +15,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! # Holds
+//!
 //! The traits for putting holds within a single fungible token class.
+//!
+//! Holds are explicitly designed to be infallibly slashed. They do not contribute to the ED but
+//! do require a provider reference, removing any possibility of account reference counting from
+//! being problematic for a slash. They are also always named, ensuring different holds do not
+//! accidentally slash each other's balances. E.g. some balance is held when it is put to staking,
+//! it does not contribute to the ED, but it is slashed when the staker misbehaves.
+//!
+//! Holds require a `Reason`, which is configurable and is expected to be an enum aggregated across
+//! all pallet instances of the runtime.
 
 use crate::{
 	ensure,
