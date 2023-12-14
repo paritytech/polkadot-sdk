@@ -188,7 +188,10 @@ pub mod rococo {
 			},
 			"polkadotXcm": {
 				"safeXcmVersion": Some(SAFE_XCM_VERSION),
-			}
+			},
+			"sudo": {
+				"key": Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
+			},
 		})
 	}
 }
