@@ -96,7 +96,7 @@ where
 
 	/// Build the given `GenesisConfig` and returns the genesis state.
 	///
-	/// Calls [`GenesisBuilder::build_config`](sp_genesis_builder::GenesisBuilder::build_config)
+	/// Calls [`GenesisBuilder::build_state`](sp_genesis_builder::GenesisBuilder::build_state)
 	/// provided by the `runtime`.
 	pub fn get_named_patch(&self, name: &String) -> core::result::Result<Value, String> {
 		let mut t = BasicExternalities::new_empty();
@@ -109,7 +109,7 @@ where
 		Ok(from_slice(&named_patch[..]).expect("returned value is json. qed."))
 	}
 
-	/// Calls [`sp_genesis_builder::GenesisBuilder::build_config`] provided by runtime.
+	/// Calls [`sp_genesis_builder::GenesisBuilder::build_state`] provided by runtime.
 	pub fn get_storage_for_config(&self, config: Value) -> core::result::Result<Storage, String> {
 		let mut ext = BasicExternalities::new_empty();
 

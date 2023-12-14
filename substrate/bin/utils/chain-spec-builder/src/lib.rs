@@ -47,7 +47,7 @@
 //! chain-spec-builder create -s -r runtime.wasm patch patch.json
 //! ```
 //! 
-//! _Note:_ [`GenesisBuilder::build_config`][sp-genesis-builder-build] runtime function is called.
+//! _Note:_ [`GenesisBuilder::build_state`][sp-genesis-builder-build] runtime function is called.
 //!
 //! ##### Generate raw storage chain spec using full genesis config.
 //!
@@ -56,7 +56,7 @@
 //! chain-spec-builder create -s -r runtime.wasm full full-genesis-config.json
 //! ```
 //! 
-//! _Note_: [`GenesisBuilder::build_config`][sp-genesis-builder-build] runtime function is called.
+//! _Note_: [`GenesisBuilder::build_state`][sp-genesis-builder-build] runtime function is called.
 //!
 //! ##### Generate human readable chain spec using provided genesis config patch.
 //! ```text
@@ -75,7 +75,7 @@
 //! [`node-cli`]: ../node_cli/index.html
 //! [`sp-genesis-builder`]: ../sp_genesis_builder/index.html
 //! [sp-genesis-builder-create]: ../sp_genesis_builder/trait.GenesisBuilder.html#method.create_default_config
-//! [sp-genesis-builder-build]: ../sp_genesis_builder/trait.GenesisBuilder.html#method.build_config
+//! [sp-genesis-builder-build]: ../sp_genesis_builder/trait.GenesisBuilder.html#method.build_state
 
 use std::{fs, path::PathBuf};
 

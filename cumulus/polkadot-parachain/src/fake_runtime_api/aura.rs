@@ -193,7 +193,7 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
-		fn build_config(_: Vec<u8>) -> sp_genesis_builder::Result {
+		fn build_state(_: Vec<u8>) -> sp_genesis_builder::Result {
 			unimplemented!()
 		}
 	}

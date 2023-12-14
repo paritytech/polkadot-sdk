@@ -31,7 +31,7 @@ use frame::{
 		prelude::*,
 	},
 };
-use frame_support::genesis_builder_helper::{build_config, create_default_config};
+use frame_support::genesis_builder_helper::{build_state, create_default_config};
 
 #[runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
@@ -217,8 +217,8 @@ impl_runtime_apis! {
 			create_default_config::<RuntimeGenesisConfig>()
 		}
 
-		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
-			build_config::<RuntimeGenesisConfig>(config)
+		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
+			build_state::<RuntimeGenesisConfig>(config)
 		}
 	}
 }
