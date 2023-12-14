@@ -3467,7 +3467,13 @@ impl<T: Config> Pallet<T> {
 	/// Check if any pool have an incorrect amount of ED frozen.
 	///
 	/// This can happen if the ED has changed since the pool was created.
-	#[cfg(any(feature = "try-runtime", feature = "runtime-benchmarks", test, debug_assertions))]
+	#[cfg(any(
+		feature = "try-runtime",
+		feature = "runtime-benchmarks",
+		feature = "fuzzing",
+		test,
+		debug_assertions
+	))]
 	pub fn check_ed_imbalance() -> Result<(), DispatchError> {
 		let mut failed: u32 = 0;
 		BondedPools::<T>::iter_keys().for_each(|id| {
