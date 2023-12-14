@@ -1818,7 +1818,8 @@ impl<T: Config> Pallet<T> {
 		Self::check_exposures()?;
 		Self::check_paged_exposures()?;
 		Self::check_ledgers()?;
-		Self::check_count()
+		Self::check_count()?;
+		Self::ensure_disabled_validators_sorted()
 	}
 
 	fn check_count() -> Result<(), TryRuntimeError> {
@@ -1999,6 +2000,14 @@ impl<T: Config> Pallet<T> {
 			ledger.unlocking.iter().fold(ledger.active, |a, c| a + c.value);
 		ensure!(real_total == ledger.total, "ledger.total corrupt");
 
+		Ok(())
+	}
+
+	fn ensure_disabled_validators_sorted() -> Result<(), TryRuntimeError> {
+		ensure!(
+			DisabledValidators::<T>::get().windows(2).all(|pair| pair[0] <= pair[1]),
+			"DisabledValidators is not sorted"
+		);
 		Ok(())
 	}
 }
