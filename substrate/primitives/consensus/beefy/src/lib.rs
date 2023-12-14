@@ -420,16 +420,13 @@ where
 	// 2. if the signatories signed a payload when there should be none (for
 	// instance for a block prior to BEEFY activation), then canonical_payload =
 	// None, and they will likewise be slashed
-	if Some(&commitment.payload) != canonical_payload.as_ref() {
-		// check check each signatory's signature on the commitment.
-		// if any are invalid, equivocation report is invalid
-		// TODO: refactor check_commitment_signature to take a slice of signatories
-		return signatories.iter().all(|(authority_id, signature)| {
-			check_commitment_signature(&commitment, authority_id, signature)
-		})
-	} else {
-		false
+	if Some(&commitment.payload) == canonical_payload.as_ref() {
+		return false
 	}
+
+	signatories.iter().all(|(authority_id, signature)| {
+		check_commitment_signature(&commitment, authority_id, signature)
+	})
 }
 
 /// New BEEFY validator set notification hook.
