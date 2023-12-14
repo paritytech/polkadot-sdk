@@ -137,6 +137,7 @@ impl pallet_staking::Config for Runtime {
 impl delegated_staking::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
+	type OnSlash = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type CoreStaking = Staking;
 }

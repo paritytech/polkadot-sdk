@@ -30,14 +30,17 @@ mod benchmarking;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		fungible::{hold::Mutate as FunHoldMutate, Inspect as FunInspect, Mutate as FunMutate},
-		tokens::{Fortitude, Precision, Preservation},
-		DefensiveOption,
+		fungible::{
+			hold::{Balanced as FunHoldBalanced, Mutate as FunHoldMutate},
+			Balanced, Inspect as FunInspect, Mutate as FunMutate,
+		},
+		tokens::{Fortitude, Precision, Preservation, fungible::Credit},
+		DefensiveOption, Imbalance, OnUnbalanced,
 	},
 	transactional,
 };
 use pallet::*;
-use sp_runtime::{traits::Zero, DispatchResult, RuntimeDebug, Saturating};
+use sp_runtime::{traits::Zero, DispatchResult, Perbill, RuntimeDebug, Saturating};
 use sp_staking::{
 	delegation::{DelegationInterface, StakingDelegationSupport},
 	EraIndex, Stake, StakerStatus, StakingHoldProvider, StakingInterface,
@@ -60,7 +63,11 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		type Currency: FunHoldMutate<Self::AccountId, Reason = Self::RuntimeHoldReason>
-			+ FunMutate<Self::AccountId>;
+			+ FunMutate<Self::AccountId>
+			+ FunHoldBalanced<Self::AccountId>;
+
+		/// Handler for the unbalanced reduction when slashing a delegator.
+		type OnSlash: OnUnbalanced<Credit<Self::AccountId, Self::Currency>>;
 		/// Overarching hold reason.
 		type RuntimeHoldReason: From<HoldReason>;
 
@@ -340,12 +347,36 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 	}
 
 	fn apply_slash(
-		_delegatee: &Self::AccountId,
-		_delegator: &Self::AccountId,
-		_value: Self::Balance,
-		_reporter: Option<Self::AccountId>,
+		delegatee: &Self::AccountId,
+		delegator: &Self::AccountId,
+		value: Self::Balance,
+		maybe_reporter: Option<Self::AccountId>,
 	) -> DispatchResult {
-		todo!()
+		let mut delegation_register =
+			<Delegatees<T>>::get(delegatee).ok_or(Error::<T>::NotDelegatee)?;
+		let (assigned_delegatee, delegate_balance) =
+			<Delegators<T>>::get(delegator).ok_or(Error::<T>::NotDelegator)?;
+
+		ensure!(&assigned_delegatee == delegatee, Error::<T>::NotDelegatee);
+		ensure!(delegate_balance >= value, Error::<T>::NotEnoughFunds);
+
+		let (mut credit, _missing) =
+			T::Currency::slash(&HoldReason::Delegating.into(), &delegator, value);
+		let actual_slash = credit.peek();
+		// remove the slashed amount
+		delegation_register.pending_slash.saturating_sub(actual_slash);
+
+		if let Some(reporter) = maybe_reporter {
+			let reward_payout: BalanceOf<T> =
+				T::CoreStaking::slash_reward_fraction() * actual_slash;
+			let (reporter_reward, rest) = credit.split(reward_payout);
+			credit = rest;
+			// fixme(ank4n): handle error
+			let _ = T::Currency::resolve(&reporter, reporter_reward);
+		}
+
+		T::OnSlash::on_unbalanced(credit);
+		Ok(())
 	}
 
 	/// Move funds from proxy delegator to actual delegator.
@@ -676,6 +707,10 @@ impl<T: Config> StakingInterface for Pallet<T> {
 
 	fn nominations(who: &Self::AccountId) -> Option<Vec<Self::AccountId>> {
 		T::CoreStaking::nominations(who)
+	}
+
+	fn slash_reward_fraction() -> Perbill {
+		T::CoreStaking::slash_reward_fraction()
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

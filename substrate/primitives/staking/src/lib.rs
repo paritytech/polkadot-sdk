@@ -23,10 +23,7 @@
 use crate::currency_to_vote::CurrencyToVote;
 use codec::{Decode, Encode, FullCodec, HasCompact, MaxEncodedLen};
 use scale_info::TypeInfo;
-use sp_runtime::{
-	traits::{AtLeast32BitUnsigned, Zero},
-	DispatchError, DispatchResult, RuntimeDebug, Saturating,
-};
+use sp_runtime::{traits::{AtLeast32BitUnsigned, Zero}, DispatchError, DispatchResult, RuntimeDebug, Saturating, Perbill};
 use sp_std::{collections::btree_map::BTreeMap, ops::Sub, vec, vec::Vec};
 
 pub mod offence;
@@ -284,6 +281,9 @@ pub trait StakingInterface {
 			_ => None,
 		}
 	}
+
+	/// Returns the fraction of the slash to be rewarded to reporter.
+	fn slash_reward_fraction() -> Perbill;
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn max_exposure_page_size() -> Page;

@@ -1851,6 +1851,10 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			T::MaxExposurePageSize::get()
 		}
 	}
+
+	fn slash_reward_fraction() -> Perbill {
+		SlashRewardFraction::<T>::get()
+	}
 }
 
 impl<T: Config> StakingHoldProvider for Pallet<T> {
