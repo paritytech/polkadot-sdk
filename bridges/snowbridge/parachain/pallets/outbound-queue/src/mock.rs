@@ -19,6 +19,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup, Keccak256},
 	AccountId32, BuildStorage, FixedU128,
 };
+use sp_std::marker::PhantomData;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 type AccountId = AccountId32;
@@ -86,7 +87,7 @@ parameter_types! {
 	pub Parameters: PricingParameters<u128> = PricingParameters {
 		exchange_rate: FixedU128::from_rational(1, 400),
 		fee_per_gas: gwei(20),
-		rewards: Rewards { local: 1 * DOT, remote: meth(1) }
+		rewards: Rewards { local: DOT, remote: meth(1) }
 	};
 }
 
@@ -113,7 +114,7 @@ fn setup() {
 pub fn new_tester() -> sp_io::TestExternalities {
 	let storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	let mut ext: sp_io::TestExternalities = storage.into();
-	ext.execute_with(|| setup());
+	ext.execute_with(setup);
 	ext
 }
 
@@ -137,6 +138,8 @@ pub fn mock_governance_message<T>() -> Message
 where
 	T: Config,
 {
+	let _marker = PhantomData::<T>; // for clippy
+
 	Message {
 		id: None,
 		channel_id: PRIMARY_GOVERNANCE_CHANNEL,
@@ -153,6 +156,8 @@ pub fn mock_invalid_governance_message<T>() -> Message
 where
 	T: Config,
 {
+	let _marker = PhantomData::<T>; // for clippy
+
 	Message {
 		id: None,
 		channel_id: PRIMARY_GOVERNANCE_CHANNEL,

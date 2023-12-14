@@ -203,7 +203,7 @@ parameter_types! {
 	pub Parameters: PricingParameters<u128> = PricingParameters {
 		exchange_rate: FixedU128::from_rational(1, 400),
 		fee_per_gas: gwei(20),
-		rewards: Rewards { local: 1 * DOT, remote: meth(1) }
+		rewards: Rewards { local: DOT, remote: meth(1) }
 	};
 	pub const InboundDeliveryCost: u128 = 1_000_000_000;
 
@@ -244,7 +244,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	.unwrap();
 
 	let mut ext: sp_io::TestExternalities = storage.into();
-	let initial_amount = InitialFunding::get().into();
+	let initial_amount = InitialFunding::get();
 	let test_para_id = TestParaId::get();
 	let sovereign_account = sibling_sovereign_account::<Test>(test_para_id.into());
 	let treasury_account = TreasuryAccount::get();

@@ -571,10 +571,10 @@ fn charge_fee_for_create_agent() {
 
 		// and treasury_balance increased
 		let treasury_balance = Balances::balance(&TreasuryAccount::get());
-		assert_eq!(treasury_balance > InitialFunding::get(), true);
+		assert!(treasury_balance > InitialFunding::get());
 
 		// (sovereign_balance + treasury_balance) keeps the same
-		assert_eq!(sovereign_balance + treasury_balance, (InitialFunding::get() * 2) as u128);
+		assert_eq!(sovereign_balance + treasury_balance, { InitialFunding::get() * 2 });
 	});
 }
 

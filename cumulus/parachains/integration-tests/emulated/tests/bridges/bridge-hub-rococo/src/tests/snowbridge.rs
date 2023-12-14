@@ -488,23 +488,19 @@ fn reserve_transfer_token() {
 		);
 		let events = BridgeHubRococo::events();
 		assert!(
-			events
-				.iter()
-				.any(|event| matches!(
-					event,
-					RuntimeEvent::Balances(pallet_balances::Event::Deposit{ who, amount })
-						if *who == TREASURY_ACCOUNT.into() && *amount == 16903333
-				)),
+			events.iter().any(|event| matches!(
+				event,
+				RuntimeEvent::Balances(pallet_balances::Event::Deposit{ who, amount })
+					if *who == TREASURY_ACCOUNT.into() && *amount == 16903333
+			)),
 			"Snowbridge sovereign takes local fee."
 		);
 		assert!(
-			events
-				.iter()
-				.any(|event| matches!(
-					event,
-					RuntimeEvent::Balances(pallet_balances::Event::Deposit{ who, amount })
-						if *who == assethub_sovereign && *amount == 2680000000000
-				)),
+			events.iter().any(|event| matches!(
+				event,
+				RuntimeEvent::Balances(pallet_balances::Event::Deposit{ who, amount })
+					if *who == assethub_sovereign && *amount == 2680000000000
+			)),
 			"Assethub sovereign takes remote fee."
 		);
 	});

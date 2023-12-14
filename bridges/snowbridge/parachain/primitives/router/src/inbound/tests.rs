@@ -10,7 +10,7 @@ const NETWORK: NetworkId = Ethereum { chain_id: 11155111 };
 const SS58_FORMAT: u16 = 2;
 const EXPECTED_SOVEREIGN_KEY: [u8; 32] =
 	hex!("ce796ae65569a670d0c1cc1ac12515a3ce21b5fbf729d63d7b289baad070139d");
-const EXPECTED_SOVEREIGN_ADDRESS: &'static str = "HF3T62xRQvoCCowYamEQweEyWbD5yt4mkET8UkNWxfMbvJE";
+const EXPECTED_SOVEREIGN_ADDRESS: &str = "HF3T62xRQvoCCowYamEQweEyWbD5yt4mkET8UkNWxfMbvJE";
 
 parameter_types! {
 	pub EthereumNetwork: NetworkId = NETWORK;

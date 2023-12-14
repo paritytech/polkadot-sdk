@@ -324,11 +324,14 @@ mod tests {
 		let nonce: H64 = hex!("6935bbe7b63c4f8e").into();
 		let mix_hash: H256 =
 			hex!("be3adfb0087be62b28b716e2cdf3c79329df5caa04c9eee035d35b5d52102815").into();
-		let mut header: Header = Default::default();
-		header.seal = vec![
-			rlp::encode(&mix_hash.0.to_vec()).to_vec(),
-			rlp::encode(&nonce.0.to_vec()).to_vec(),
-		];
+		let header = Header {
+			seal: vec![
+				rlp::encode(&mix_hash.0.to_vec()).to_vec(),
+				rlp::encode(&nonce.0.to_vec()).to_vec(),
+			],
+			..Default::default()
+		};
+
 		assert_eq!(header.nonce().unwrap(), nonce);
 		assert_eq!(header.mix_hash().unwrap(), mix_hash);
 	}
@@ -338,8 +341,10 @@ mod tests {
 		let nonce = hex!("696935bbe7b63c4f8e").to_vec();
 		let mix_hash =
 			hex!("bebe3adfb0087be62b28b716e2cdf3c79329df5caa04c9eee035d35b5d52102815").to_vec();
-		let mut header: Header = Default::default();
-		header.seal = vec![rlp::encode(&mix_hash).to_vec(), rlp::encode(&nonce).to_vec()];
+		let mut header = Header {
+			seal: vec![rlp::encode(&mix_hash).to_vec(), rlp::encode(&nonce).to_vec()],
+			..Default::default()
+		};
 		assert_eq!(header.nonce(), None);
 		assert_eq!(header.mix_hash(), None);
 
@@ -350,9 +355,11 @@ mod tests {
 
 	#[test]
 	fn header_check_receipt_proof() {
-		let mut header: Header = Default::default();
-		header.receipts_root =
-			hex!("fd5e397a84884641f53c496804f24b5276cbb8c5c9cfc2342246be8e3ce5ad02").into();
+		let header = Header {
+			receipts_root: hex!("fd5e397a84884641f53c496804f24b5276cbb8c5c9cfc2342246be8e3ce5ad02")
+				.into(),
+			..Default::default()
+		};
 
 		// Valid proof
 		let proof_receipt5 = vec!(
@@ -388,9 +395,11 @@ mod tests {
 
 	#[test]
 	fn header_check_receipt_proof_with_intermediate_short_node() {
-		let mut header: Header = Default::default();
-		header.receipts_root =
-			hex!("d128e3a57142d2bf15bc0cbcac7ad54f40750d571b5c3097e425882c10c9ba66").into();
+		let header = Header {
+			receipts_root: hex!("d128e3a57142d2bf15bc0cbcac7ad54f40750d571b5c3097e425882c10c9ba66")
+				.into(),
+			..Default::default()
+		};
 
 		let proof_receipt263 = vec![
 			hex!("f90131a00d3cb8d3f57ac1c0e12918a2ebe0cafed8c273577b9dd73e7ed1079b403ef494a0678b9835b834f8a287c0dd33a8fca9146e456ca688555ed4ec1361a2180b778da0fe42da181a46677a043b3d9d4b8bb05a6a17b7b5c010c17e7c1d31cfb7c4f911a0c89f0e2c53241cdb578e1f2b4caf6ba36e00500bdc57fecd66b84a6a58394c19a086c3c1fae5a0575940b5d38e111c469d07883106c26856f3ef608469a2081f13a06c5992ff00aab6226a70a032fd2f571ba22f797321f45e2daa73020d638d21b0a050861e9503ef68728f6c90a44f7fe1bceb2a9bdab6957bbe7136166bd849561ea006aa6eaca8a07e57176e9aa41e6a09edfb7678d1a112404e0ec779d7e567e82ea0bb0b430d303ba21b0af11c487b8a218bd75db54c98940b3f11bad8ff47cad3ef8080808080808080").to_vec(),

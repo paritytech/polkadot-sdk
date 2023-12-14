@@ -329,7 +329,7 @@ mod tests {
 	use sp_runtime::traits::Keccak256;
 
 	fn make_leaves(count: u64) -> Vec<H256> {
-		(0..count).into_iter().map(|i| keccak_256(&i.to_le_bytes()).into()).collect()
+		(0..count).map(|i| keccak_256(&i.to_le_bytes()).into()).collect()
 	}
 
 	#[test]
@@ -343,7 +343,7 @@ mod tests {
 
 		// then
 		assert_eq!(
-			hex::encode(&out),
+			hex::encode(out),
 			"0000000000000000000000000000000000000000000000000000000000000000"
 		);
 	}
@@ -359,7 +359,7 @@ mod tests {
 
 		// then
 		assert_eq!(
-			hex::encode(&out),
+			hex::encode(out),
 			"011b4d03dd8c01f1049143cf9c4c817e4b167f1d1b83e5c6f0f10d89ba1e7bce"
 		);
 	}
@@ -375,7 +375,7 @@ mod tests {
 
 		// then
 		assert_eq!(
-			hex::encode(&out),
+			hex::encode(out),
 			"e497bd1c13b13a60af56fa0d2703517c232fde213ad20d2c3dd60735c6604512"
 		);
 	}
@@ -385,7 +385,7 @@ mod tests {
 		let _ = env_logger::try_init();
 		let test = |root, data: Vec<H256>| {
 			assert_eq!(
-				array_bytes::bytes2hex("", &merkle_root::<Keccak256, _>(data.into_iter()).as_ref()),
+				array_bytes::bytes2hex("", merkle_root::<Keccak256, _>(data.into_iter()).as_ref()),
 				root
 			);
 		};
