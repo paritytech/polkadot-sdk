@@ -2955,9 +2955,12 @@ impl<T: Config> Pallet<T> {
 			},
 			(false, false) => {
 				// Equivalent to (current_points / current_balance) * new_funds
-				balance(u256(current_points).saturating_mul(u256(new_funds)))
-					// We check for zero above
-					.div(current_balance)
+				balance(
+					u256(current_points)
+						.saturating_mul(u256(new_funds))
+						// We check for zero above
+						.div(u256(current_balance)),
+				)
 			},
 		}
 	}
