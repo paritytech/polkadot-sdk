@@ -19,6 +19,11 @@
 
 //! Substrate genesis config builder
 //!
+//! The runtime may provide a number of partial `GenesisConfig` configurations in form of patches
+//! which shall be applied on top of the default GenesisConfig. This presets are sometimes refered
+//! to as patches. This allows the runtime to provide a number of predefined configuration (e.g. for
+//! different testnets) without leaking the runtime types outside the runtime.
+//!
 //! This Runtime API allows to construct `GenesisConfig`, in particular:
 //! - serialize the runtime default `GenesisConfig` struct into json format,
 //! - put the GenesisConfig struct into the storage. Internally this operation calls
