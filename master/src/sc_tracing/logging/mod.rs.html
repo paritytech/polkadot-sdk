@@ -676,6 +676,7 @@
 <a href="#676" id="676">676</a>
 <a href="#677" id="677">677</a>
 <a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -711,6 +712,7 @@
 <span class="kw">pub use </span>directives::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>sc_tracing_proc_macro::<span class="kw-2">*</span>;
 
+<span class="kw">use </span>is_terminal::IsTerminal;
 <span class="kw">use </span>std::io;
 <span class="kw">use </span>tracing::Subscriber;
 <span class="kw">use </span>tracing_subscriber::{
@@ -848,7 +850,7 @@
 		<span class="kw">_ </span>=&gt; <span class="bool-val">true</span>,
 	} || detailed_output;
 
-	<span class="kw">let </span>enable_color = force_colors.unwrap_or_else(|| atty::is(atty::Stream::Stderr));
+	<span class="kw">let </span>enable_color = force_colors.unwrap_or_else(|| io::stderr().is_terminal());
 	<span class="kw">let </span>timer = fast_local_time::FastLocalTime { with_fractional: detailed_output };
 
 	<span class="kw">let </span>event_format = EventFormat {
@@ -857,7 +859,7 @@
 		display_level: detailed_output,
 		display_thread_name: detailed_output,
 		enable_color,
-		dup_to_stdout: !atty::is(atty::Stream::Stderr) &amp;&amp; atty::is(atty::Stream::Stdout),
+		dup_to_stdout: !io::stderr().is_terminal() &amp;&amp; io::stdout().is_terminal(),
 	};
 	<span class="kw">let </span>builder = FmtSubscriber::builder().with_env_filter(env_filter);
 

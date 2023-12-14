@@ -1899,7 +1899,7 @@
 			// Accept any vote for a GRANDPA finalized block in a better round.
 			</span><span class="prelude-val">Ok</span>((
 				rounds.session_start().max(<span class="self">self</span>.best_beefy_block),
-				(<span class="kw-2">*</span><span class="self">self</span>.best_grandpa_block_header.number()).into(),
+				(<span class="kw-2">*</span><span class="self">self</span>.best_grandpa_block_header.number()),
 			))
 		} <span class="kw">else </span>{
 			<span class="comment">// Current session has mandatory not done.

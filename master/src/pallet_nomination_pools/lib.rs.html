@@ -3590,6 +3590,12 @@
 <a href="#3590" id="3590">3590</a>
 <a href="#3591" id="3591">3591</a>
 <a href="#3592" id="3592">3592</a>
+<a href="#3593" id="3593">3593</a>
+<a href="#3594" id="3594">3594</a>
+<a href="#3595" id="3595">3595</a>
+<a href="#3596" id="3596">3596</a>
+<a href="#3597" id="3597">3597</a>
+<a href="#3598" id="3598">3598</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -7059,7 +7065,13 @@
 	<span class="doccomment">/// Check if any pool have an incorrect amount of ED frozen.
 	///
 	/// This can happen if the ED has changed since the pool was created.
-	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;try-runtime&quot;</span>, feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, test, debug_assertions))]
+	</span><span class="attr">#[cfg(any(
+		feature = <span class="string">&quot;try-runtime&quot;</span>,
+		feature = <span class="string">&quot;runtime-benchmarks&quot;</span>,
+		feature = <span class="string">&quot;fuzzing&quot;</span>,
+		test,
+		debug_assertions
+	))]
 	</span><span class="kw">pub fn </span>check_ed_imbalance() -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>failed: u32 = <span class="number">0</span>;
 		BondedPools::&lt;T&gt;::iter_keys().for_each(|id| {

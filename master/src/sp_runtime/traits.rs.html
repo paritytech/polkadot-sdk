@@ -2452,6 +2452,33 @@
 <a href="#2452" id="2452">2452</a>
 <a href="#2453" id="2453">2453</a>
 <a href="#2454" id="2454">2454</a>
+<a href="#2455" id="2455">2455</a>
+<a href="#2456" id="2456">2456</a>
+<a href="#2457" id="2457">2457</a>
+<a href="#2458" id="2458">2458</a>
+<a href="#2459" id="2459">2459</a>
+<a href="#2460" id="2460">2460</a>
+<a href="#2461" id="2461">2461</a>
+<a href="#2462" id="2462">2462</a>
+<a href="#2463" id="2463">2463</a>
+<a href="#2464" id="2464">2464</a>
+<a href="#2465" id="2465">2465</a>
+<a href="#2466" id="2466">2466</a>
+<a href="#2467" id="2467">2467</a>
+<a href="#2468" id="2468">2468</a>
+<a href="#2469" id="2469">2469</a>
+<a href="#2470" id="2470">2470</a>
+<a href="#2471" id="2471">2471</a>
+<a href="#2472" id="2472">2472</a>
+<a href="#2473" id="2473">2473</a>
+<a href="#2474" id="2474">2474</a>
+<a href="#2475" id="2475">2475</a>
+<a href="#2476" id="2476">2476</a>
+<a href="#2477" id="2477">2477</a>
+<a href="#2478" id="2478">2478</a>
+<a href="#2479" id="2479">2479</a>
+<a href="#2480" id="2480">2480</a>
+<a href="#2481" id="2481">2481</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2492,7 +2519,7 @@
 	EnsureOp, EnsureOpAssign, EnsureSub, EnsureSubAssign, IntegerSquareRoot, One,
 	SaturatedConversion, Saturating, UniqueSaturatedFrom, UniqueSaturatedInto, Zero,
 };
-<span class="kw">use </span>sp_core::{<span class="self">self</span>, storage::StateVersion, Hasher, RuntimeDebug, TypeId};
+<span class="kw">use </span>sp_core::{<span class="self">self</span>, storage::StateVersion, Hasher, RuntimeDebug, TypeId, U256};
 <span class="attr">#[doc(hidden)]
 </span><span class="kw">pub use </span>sp_core::{
 	parameter_types, ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstU128,
@@ -3603,6 +3630,44 @@
 	</span><span class="kw">fn </span>is_member(member_id: <span class="kw-2">&amp;</span>MemberId) -&gt; bool;
 }
 
+<span class="doccomment">/// Super trait with all the attributes for a block number.
+</span><span class="kw">pub trait </span>BlockNumber:
+	Member
+	+ MaybeSerializeDeserialize
+	+ MaybeFromStr
+	+ Debug
+	+ sp_std::hash::Hash
+	+ Copy
+	+ MaybeDisplay
+	+ AtLeast32BitUnsigned
+	+ Into&lt;U256&gt;
+	+ TryFrom&lt;U256&gt;
+	+ Default
+	+ TypeInfo
+	+ MaxEncodedLen
+	+ FullCodec
+{
+}
+
+<span class="kw">impl</span>&lt;
+		T: Member
+			+ MaybeSerializeDeserialize
+			+ MaybeFromStr
+			+ Debug
+			+ sp_std::hash::Hash
+			+ Copy
+			+ MaybeDisplay
+			+ AtLeast32BitUnsigned
+			+ Into&lt;U256&gt;
+			+ TryFrom&lt;U256&gt;
+			+ Default
+			+ TypeInfo
+			+ MaxEncodedLen
+			+ FullCodec,
+	&gt; BlockNumber <span class="kw">for </span>T
+{
+}
+
 <span class="doccomment">/// Something which fulfills the abstract idea of a Substrate header. It has types for a `Number`,
 /// a `Hash` and a `Hashing`. It provides access to an `extrinsics_root`, `state_root` and
 /// `parent_hash`, as well as a `digest` and a block `number`.
@@ -3612,18 +3677,7 @@
 	Clone + Send + Sync + Codec + Eq + MaybeSerialize + Debug + TypeInfo + <span class="lifetime">&#39;static
 </span>{
 	<span class="doccomment">/// Header number.
-	</span><span class="kw">type </span>Number: Member
-		+ MaybeSerializeDeserialize
-		+ MaybeFromStr
-		+ Debug
-		+ sp_std::hash::Hash
-		+ Copy
-		+ MaybeDisplay
-		+ AtLeast32BitUnsigned
-		+ Default
-		+ TypeInfo
-		+ MaxEncodedLen
-		+ FullCodec;
+	</span><span class="kw">type </span>Number: BlockNumber;
 	<span class="doccomment">/// Header hash type
 	</span><span class="kw">type </span>Hash: HashOutput;
 	<span class="doccomment">/// Hashing algorithm

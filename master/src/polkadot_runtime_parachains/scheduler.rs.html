@@ -1192,7 +1192,7 @@
 		</span>}
 
 		<span class="kw">let </span>rotations_since_session_start: BlockNumberFor&lt;T&gt; =
-			(at - session_start_block) / config.group_rotation_frequency.into();
+			(at - session_start_block) / config.group_rotation_frequency;
 
 		<span class="kw">let </span>rotations_since_session_start =
 			&lt;BlockNumberFor&lt;T&gt; <span class="kw">as </span>TryInto&lt;u32&gt;&gt;::try_into(rotations_since_session_start)
