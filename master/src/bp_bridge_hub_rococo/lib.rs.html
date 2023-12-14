@@ -94,6 +94,8 @@
 <a href="#94" id="94">94</a>
 <a href="#95" id="95">95</a>
 <a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -172,6 +174,8 @@
 
 <span class="doccomment">/// Pallet index of `BridgeWestendMessages: pallet_bridge_messages::&lt;Instance3&gt;`.
 </span><span class="kw">pub const </span>WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX: u8 = <span class="number">51</span>;
+<span class="doccomment">/// Pallet index of `BridgePolkadotBulletinMessages: pallet_bridge_messages::&lt;Instance4&gt;`.
+</span><span class="kw">pub const </span>WITH_BRIDGE_ROCOCO_TO_BULLETIN_MESSAGES_PALLET_INDEX: u8 = <span class="number">61</span>;
 
 <span class="macro">decl_bridge_finality_runtime_apis!</span>(bridge_hub_rococo);
 <span class="macro">decl_bridge_messages_runtime_apis!</span>(bridge_hub_rococo);

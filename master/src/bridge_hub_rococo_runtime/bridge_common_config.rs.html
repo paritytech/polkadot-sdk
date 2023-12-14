@@ -78,6 +78,41 @@
 <a href="#78" id="78">78</a>
 <a href="#79" id="79">79</a>
 <a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -101,15 +136,20 @@
 //! For example, the messaging pallet needs to know the sending and receiving chains, but the
 //! GRANDPA tracking pallet only needs to be aware of one chain.
 
-</span><span class="kw">use super</span>::{weights, AccountId, Balance, Balances, BlockNumber, Runtime, RuntimeEvent};
+</span><span class="kw">use super</span>::{
+	weights, AccountId, Balance, Balances, BlockNumber, Runtime, RuntimeEvent, RuntimeOrigin,
+};
 <span class="kw">use </span>bp_parachains::SingleParaStoredHeaderDataBuilder;
+<span class="kw">use </span>bp_runtime::UnderlyingChainProvider;
+<span class="kw">use </span>bridge_runtime_common::messages::ThisChainWithMessages;
 <span class="kw">use </span>frame_support::{parameter_types, traits::ConstU32};
+<span class="kw">use </span>sp_runtime::RuntimeDebug;
 
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>RelayChainHeadersToKeep: u32 = <span class="number">1024</span>;
 	<span class="kw">pub const </span>ParachainHeadsToKeep: u32 = <span class="number">64</span>;
 
-	<span class="kw">pub const </span>WestendBridgeParachainPalletName: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;Paras&quot;</span>;
+	<span class="kw">pub const </span>WestendBridgeParachainPalletName: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = bp_westend::PARAS_PALLET_NAME;
 	<span class="kw">pub const </span>MaxWestendParaHeadDataSize: u32 = bp_westend::MAX_NESTED_PARACHAIN_HEAD_DATA_SIZE;
 
 	<span class="kw">pub </span>storage RequiredStakeForStakeAndSlash: Balance = <span class="number">1_000_000</span>;
@@ -157,5 +197,35 @@
 		RelayerStakeLease,
 	&gt;;
 	<span class="kw">type </span>WeightInfo = weights::pallet_bridge_relayers::WeightInfo&lt;Runtime&gt;;
+}
+
+<span class="doccomment">/// Add GRANDPA bridge pallet to track Rococo Bulletin chain.
+</span><span class="kw">pub type </span>BridgeGrandpaRococoBulletinInstance = pallet_bridge_grandpa::Instance4;
+<span class="kw">impl </span>pallet_bridge_grandpa::Config&lt;BridgeGrandpaRococoBulletinInstance&gt; <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+	<span class="kw">type </span>BridgedChain = bp_polkadot_bulletin::PolkadotBulletin;
+	<span class="kw">type </span>MaxFreeMandatoryHeadersPerBlock = ConstU32&lt;<span class="number">4</span>&gt;;
+	<span class="kw">type </span>HeadersToKeep = RelayChainHeadersToKeep;
+	<span class="comment">// Technically this is incorrect - we have two pallet instances and ideally we shall
+	// benchmark every instance separately. But the benchmarking engine has a flaw - it
+	// messes with components. E.g. in Kusama maximal validators count is 1024 and in
+	// Bulletin chain it is 100. But benchmarking engine runs Bulletin benchmarks using
+	// components range, computed for Kusama =&gt; it causes an error.
+	//
+	// In practice, however, GRANDPA pallet works the same way for all bridged chains, so
+	// weights are also the same for both bridges.
+	</span><span class="kw">type </span>WeightInfo = weights::pallet_bridge_grandpa::WeightInfo&lt;Runtime&gt;;
+}
+
+<span class="doccomment">/// BridgeHubRococo chain from message lane point of view.
+</span><span class="attr">#[derive(RuntimeDebug, Clone, Copy)]
+</span><span class="kw">pub struct </span>BridgeHubRococo;
+
+<span class="kw">impl </span>UnderlyingChainProvider <span class="kw">for </span>BridgeHubRococo {
+	<span class="kw">type </span>Chain = bp_bridge_hub_rococo::BridgeHubRococo;
+}
+
+<span class="kw">impl </span>ThisChainWithMessages <span class="kw">for </span>BridgeHubRococo {
+	<span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;
 }
 </code></pre></div></section></main></body></html>

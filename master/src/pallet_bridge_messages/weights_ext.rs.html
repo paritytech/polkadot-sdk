@@ -485,6 +485,7 @@
 <a href="#485" id="485">485</a>
 <a href="#486" id="486">486</a>
 <a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -547,8 +548,9 @@
 	<span class="comment">// W::receive_messages_delivery_proof_messages_overhead(1).ref_time() may be zero because:
 	// there&#39;s no code that iterates over confirmed messages in confirmation transaction
 	</span><span class="macro">assert_eq!</span>(W::receive_messages_delivery_proof_messages_overhead(<span class="number">1</span>).proof_size(), <span class="number">0</span>);
-	<span class="macro">assert_ne!</span>(W::receive_messages_delivery_proof_relayers_overhead(<span class="number">1</span>).ref_time(), <span class="number">0</span>);
-	<span class="comment">// W::receive_messages_delivery_proof_relayers_overhead(1).proof_size() is an exception
+	<span class="comment">// W::receive_messages_delivery_proof_relayers_overhead(1).ref_time() may be zero because:
+	// runtime **can** choose not to pay any rewards to relayers
+	// W::receive_messages_delivery_proof_relayers_overhead(1).proof_size() is an exception
 	// it may or may not cause additional db reads, so proof size may vary
 	</span><span class="macro">assert_ne!</span>(W::storage_proof_size_overhead(<span class="number">1</span>).ref_time(), <span class="number">0</span>);
 	<span class="macro">assert_eq!</span>(W::storage_proof_size_overhead(<span class="number">1</span>).proof_size(), <span class="number">0</span>);
