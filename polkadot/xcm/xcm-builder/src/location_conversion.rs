@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::universal_exports::ensure_is_remote;
-use frame_support::traits::Get;
+use frame_support::traits::{Contains, Get};
 use parity_scale_codec::{Compact, Decode, Encode};
 use sp_io::hashing::blake2_256;
 use sp_runtime::traits::{AccountIdConversion, TrailingZeroInput, TryConvert};
@@ -123,6 +123,7 @@ pub struct DescribeFamily<DescribeInterior>(PhantomData<DescribeInterior>);
 impl<Suffix: DescribeLocation> DescribeLocation for DescribeFamily<Suffix> {
 	fn describe_location(l: &MultiLocation) -> Option<Vec<u8>> {
 		match (l.parents, l.interior.first()) {
+			(0, None) => Some(b"LocalChain".encode()),
 			(0, Some(Parachain(index))) => {
 				let tail = l.interior.split_first().0;
 				let interior = Suffix::describe_location(&tail.into())?;
@@ -139,6 +140,45 @@ impl<Suffix: DescribeLocation> DescribeLocation for DescribeFamily<Suffix> {
 				Some((b"ParentChain", interior).encode())
 			},
 			_ => return None,
+		}
+	}
+}
+
+pub struct DescribeLocal<Describe>(PhantomData<Describe>);
+impl<Describe: DescribeLocation> DescribeLocation for DescribeLocal<Describe> {
+	fn describe_location(l: &MultiLocation) -> Option<Vec<u8>> {
+		match (l.parents, l.interior.first()) {
+			(0, None) => {
+				let here = Describe::describe_location(l)?;
+				Some((b"LocalChain", here).encode())
+			},
+			(0, Some(Plurality { .. })) if l.interior.len() == 1 => {
+				let body = Describe::describe_location(&l)?;
+				Some((b"LocalChain", body).encode())
+			},
+			(0, Some(PalletInstance(index))) => {
+				let tail = l.interior.split_first().0;
+				let interior = Describe::describe_location(&tail.into())?;
+				let pallet = Describe::describe_location(&PalletInstance(*index).into())?;
+				Some((b"LocalChain", pallet, interior).encode())
+			},
+			_ => return None,
+		}
+	}
+}
+
+pub struct DescribeWithPrefix<Prefix, Location, Describe>(
+	PhantomData<(Prefix, Location, Describe)>,
+);
+impl<Prefix: Get<[u8; 8]>, Location: Contains<MultiLocation>, Describe: DescribeLocation>
+	DescribeLocation for DescribeWithPrefix<Prefix, Location, Describe>
+{
+	fn describe_location(l: &MultiLocation) -> Option<Vec<u8>> {
+		if Location::contains(l) {
+			let body = Describe::describe_location(&l)?;
+			Some((Prefix::get(), body).encode())
+		} else {
+			None
 		}
 	}
 }
