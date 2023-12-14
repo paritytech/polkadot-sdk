@@ -544,24 +544,21 @@ where
 	R::Api: BeefyApi<B, AuthorityId>,
 {
 	debug!(target: LOG_TARGET, "🥩 Try to find validator set active at header: {:?}", at_header);
-	runtime
-		.runtime_api()
-		.validator_set(at_header.hash())
-		.ok()
-		.flatten()
-		.or_else(|| {
-			// if state unavailable, fallback to walking up the chain looking for the header
-			// Digest emitted when validator set active 'at_header' was enacted.
-			let blockchain = backend.blockchain();
-			let mut header = at_header.clone();
-			loop {
-				debug!(target: LOG_TARGET, "🥩 look for auth set change digest in header number: {:?}", *header.number());
-				match worker::find_authorities_change::<B>(&header) {
-					Some(active) => return Some(active),
-					// Move up the chain.
-					None => header = blockchain.expect_header(*header.parent_hash()).ok()?,
-				}
+	// walk up the chain looking for the validator set active 'at_header' -  try both state and
+	// header digests
+	let blockchain = backend.blockchain();
+	let mut header = at_header.clone();
+	loop {
+		debug!(target: LOG_TARGET, "🥩 look for auth set change in block number: {:?}", *header.number());
+		if let Some(active) = runtime.runtime_api().validator_set(at_header.hash()).ok().flatten() {
+			return Ok(active)
+		} else {
+			match worker::find_authorities_change::<B>(&header) {
+				Some(active) => return Ok(active),
+				// Move up the chain. Ultimately we'll get it from chain genesis state, or error out
+				// here.
+				None => header = blockchain.expect_header(*header.parent_hash())?,
 			}
-		})
-		.ok_or_else(|| ClientError::Backend("Could not find initial validator set".into()))
+		}
+	}
 }
