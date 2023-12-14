@@ -472,7 +472,9 @@ pub const TEST_RUNTIME_BABE_EPOCH_CONFIGURATION: BabeEpochConfiguration = BabeEp
 
 use hex_literal::hex;
 use serde_json::json;
+use sp_application_crypto::Ss58Codec;
 use sp_core::crypto::UncheckedInto;
+use sp_keyring::AccountKeyring;
 fn substrate_test_genesis_config_patch() -> serde_json::Value {
 	let endowed_accounts: sp_std::vec::Vec<AccountId> = vec![
 		// 5DwBmEFPXRESyEam5SsQF1zbWSCn2kCjyLW51hJHXe9vW4xs
@@ -484,6 +486,7 @@ fn substrate_test_genesis_config_patch() -> serde_json::Value {
 		//5FPMzsezo1PRxYbVpJMWK7HNbR2kUxidsAAxH4BosHa4wd6S
 		hex!["92ef83665b39d7a565e11bf8d18d41d45a8011601c339e57a8ea88c8ff7bba6f"].unchecked_into(),
 	];
+	log::info!("xxx: {} {}", file!(), line!());
 
 	let patch = json!({
 		"balances": {
@@ -498,12 +501,12 @@ fn substrate_test_genesis_config_patch() -> serde_json::Value {
 				"allowed_slots": "PrimaryAndSecondaryPlainSlots"
 			}
 		},
-		// "substrateTest": {
-		// 	"authorities": [
-		// 		AccountKeyring::Ferdie.public().to_ss58check(),
-		// 		AccountKeyring::Alice.public().to_ss58check()
-		// 	],
-		// }
+		"substrateTest": {
+			"authorities": [
+				AccountKeyring::Ferdie.public().to_ss58check(),
+				AccountKeyring::Alice.public().to_ss58check()
+			],
+		}
 	});
 	patch
 }

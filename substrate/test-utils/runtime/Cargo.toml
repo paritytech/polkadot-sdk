@@ -99,7 +99,6 @@ std = [
 	"sp-genesis-builder/std",
 	"sp-inherents/std",
 	"sp-io/std",
-	"sp-keyring",
 	"sp-offchain/std",
 	"sp-runtime/std",
 	"sp-session/std",
