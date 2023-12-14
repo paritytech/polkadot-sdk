@@ -116,7 +116,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl runtime_api::ParachainHost<Block, Hash, BlockNumber> for Runtime {
+	impl runtime_api::ParachainHost<Block> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			unimplemented!()
 		}

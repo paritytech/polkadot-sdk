@@ -20,6 +20,7 @@ use super::mock::*;
 use crate::{universal_exports::*, WithTopicSource};
 use frame_support::{parameter_types, traits::Get};
 use std::{cell::RefCell, marker::PhantomData};
+use xcm::AlwaysLatest;
 use xcm_executor::{
 	traits::{export_xcm, validate_export},
 	XcmExecutor,

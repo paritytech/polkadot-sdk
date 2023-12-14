@@ -19,7 +19,7 @@
 
 use crate::*;
 use frame_support::{
-	assert_ok,
+	assert_ok, derive_impl,
 	dispatch::{DispatchInfo, GetDispatchInfo},
 	traits::{ConstU64, OnInitialize},
 };
@@ -45,6 +45,7 @@ frame_support::construct_runtime!(
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();

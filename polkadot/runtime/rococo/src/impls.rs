@@ -79,6 +79,8 @@ impl<Runtime, AccountId> ToParachainIdentityReaper<Runtime, AccountId> {
 	}
 }
 
+// Note / Warning: This implementation should only be used in a transactional context. If not, then
+// an error could result in assets being burned.
 impl<Runtime, AccountId> OnReapIdentity<AccountId> for ToParachainIdentityReaper<Runtime, AccountId>
 where
 	Runtime: frame_system::Config + pallet_xcm::Config,
@@ -100,6 +102,19 @@ where
 		// Do `check_out` accounting since the XCM Executor's `InitiateTeleport` doesn't support
 		// unpaid teleports.
 
+		// withdraw the asset from `who`
+		let who_origin =
+			Junction::AccountId32 { network: None, id: who.clone().into() }.into_location();
+		let _withdrawn = xcm_config::LocalAssetTransactor::withdraw_asset(&roc, &who_origin, None)
+			.map_err(|err| {
+				log::error!(
+					target: "runtime::on_reap_identity",
+					"withdraw_asset(what: {:?}, who_origin: {:?}) error: {:?}",
+					roc, who_origin, err
+				);
+				pallet_xcm::Error::<Runtime>::LowBalance
+			})?;
+
 		// check out
 		xcm_config::LocalAssetTransactor::can_check_out(
 			&destination,
@@ -107,7 +122,14 @@ where
 			// not used in AssetTransactor
 			&XcmContext { origin: None, message_id: [0; 32], topic: None },
 		)
-		.map_err(|_| pallet_xcm::Error::<Runtime>::CannotCheckOutTeleport)?;
+		.map_err(|err| {
+			log::error!(
+				target: "runtime::on_reap_identity",
+				"can_check_out(destination: {:?}, asset: {:?}, _) error: {:?}",
+				destination, roc, err
+			);
+			pallet_xcm::Error::<Runtime>::CannotCheckOutTeleport
+		})?;
 		xcm_config::LocalAssetTransactor::check_out(
 			&destination,
 			&roc,

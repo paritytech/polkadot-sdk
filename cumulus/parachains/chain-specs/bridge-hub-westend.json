@@ -16,7 +16,10 @@
     "/dns/boot-node.helikon.io/tcp/9220/p2p/12D3KooWK3K1Mu5Jjg96Lt9DUzg84KsWnZo44V4KB7mvhGqi6xnp",
     "/dns/boot-node.helikon.io/tcp/9222/wss/p2p/12D3KooWK3K1Mu5Jjg96Lt9DUzg84KsWnZo44V4KB7mvhGqi6xnp",
     "/dns/bridgehub-westend-bootnode.radiumblock.com/tcp/30333/p2p/12D3KooWBsBArCMxmQyo3feCEqMWuwyhb2LTRK8hmCCJxgrNeMke",
-    "/dns/bridgehub-westend-bootnode.radiumblock.com/tcp/30336/wss/p2p/12D3KooWBsBArCMxmQyo3feCEqMWuwyhb2LTRK8hmCCJxgrNeMke"
+    "/dns/bridgehub-westend-bootnode.radiumblock.com/tcp/30336/wss/p2p/12D3KooWBsBArCMxmQyo3feCEqMWuwyhb2LTRK8hmCCJxgrNeMke",
+    "/dns/wbr13.rotko.net/tcp/33563/p2p/12D3KooWJyeRHpxZZbfBCNEgeUFzmRC5AMSAs2tJhjJS1k5hULkD",
+    "/dns/wbr13.rotko.net/tcp/34563/ws/p2p/12D3KooWJyeRHpxZZbfBCNEgeUFzmRC5AMSAs2tJhjJS1k5hULkD",
+    "/dns/wbr13.rotko.net/tcp/35563/wss/p2p/12D3KooWJyeRHpxZZbfBCNEgeUFzmRC5AMSAs2tJhjJS1k5hULkD"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
