@@ -1041,6 +1041,14 @@ mod tests {
 		.build();
 
 		let actual = output.as_json(false).unwrap();
+		let mut file = std::fs::OpenOptions::new()
+			.create(true)
+			.write(true)
+			.open("/tmp/default_genesis_config.json")
+			.unwrap();
+		use std::io::Write;
+		file.write_all(actual.clone().as_bytes()).unwrap();
+
 		let expected =
 			from_str::<Value>(include_str!("../res/substrate_test_runtime_from_named_patch.json"))
 				.unwrap();
