@@ -28,8 +28,8 @@ use parachains_common::{impls::AccountIdOf, AccountId, Balance, BlockNumber};
 use sp_std::marker::PhantomData;
 use xcm::latest::prelude::*;
 
-pub struct CreditToStakingPot<R>(PhantomData<R>);
-impl<R> OnUnbalanced<Credit<AccountIdOf<R>, Balances>> for CreditToStakingPot<R>
+pub struct CreditToCollatorPot<R>(PhantomData<R>);
+impl<R> OnUnbalanced<Credit<AccountIdOf<R>, Balances>> for CreditToCollatorPot<R>
 where
 	R: pallet_balances::Config
 		+ pallet_collator_selection::Config
@@ -285,7 +285,7 @@ impl CoretimeInterface for CoretimeAllocator {
 impl pallet_broker::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
-	type OnRevenue = CreditToStakingPot<Runtime>;
+	type OnRevenue = CreditToCollatorPot<Runtime>;
 	type TimeslicePeriod = ConstU32<2>;
 	type MaxLeasedCores = ConstU32<5>;
 	type MaxReservedCores = ConstU32<5>;
