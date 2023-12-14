@@ -314,7 +314,7 @@ pub struct ForkEquivocationProof<Number, Id, Signature, Header> {
 	/// 1. the header is in our chain
 	/// 2. its digest's payload != commitment.payload
 	/// 3. commitment is signed by signatories
-	pub correct_header: Header,
+	pub canonical_header: Header,
 }
 
 impl<Number, Id, Signature, H: HeaderT> ForkEquivocationProof<Number, Id, Signature, H> {
@@ -385,8 +385,8 @@ where
 
 /// Validates [ForkEquivocationProof] by checking:
 /// 1. `commitment` is signed,
-/// 2. `correct_header` is valid and matches `commitment.block_number`.
-/// 2. `commitment.payload` != `expected_payload(correct_header)`.
+/// 2. `canonical_header` is valid and matches `commitment.block_number`.
+/// 2. `commitment.payload` != `expected_payload(canonical_header)`.
 /// NOTE: GRANDPA finalization proof is not checked, which leads to slashing on forks.
 /// This is fine since honest validators will not be slashed on the chain finalized
 /// by GRANDPA, which is the only chain that ultimately matters.
@@ -405,13 +405,13 @@ where
 	MsgHash: Hash,
 	Header: HeaderT,
 {
-	let ForkEquivocationProof { commitment, signatories, correct_header } = proof;
+	let ForkEquivocationProof { commitment, signatories, canonical_header } = proof;
 
-	if correct_header.hash() != *expected_header_hash {
+	if canonical_header.hash() != *expected_header_hash {
 		return false
 	}
 
-	let expected_mmr_root_digest = mmr::find_mmr_root_digest::<Header>(correct_header);
+	let expected_mmr_root_digest = mmr::find_mmr_root_digest::<Header>(canonical_header);
 	let expected_payload = expected_mmr_root_digest
 		.map(|mmr_root| Payload::from_single_entry(known_payloads::MMR_ROOT_ID, mmr_root.encode()));
 

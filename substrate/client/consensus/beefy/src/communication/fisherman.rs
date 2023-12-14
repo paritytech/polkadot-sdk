@@ -109,7 +109,7 @@ where
 		&self,
 		proof: ForkEquivocationProof<NumberFor<B>, AuthorityId, Signature, B::Header>,
 	) -> Result<(), Error> {
-		let validator_set = self.active_validator_set_at(&proof.correct_header)?;
+		let validator_set = self.active_validator_set_at(&proof.canonical_header)?;
 		let set_id = validator_set.id();
 
 		let expected_header_hash = self
@@ -139,7 +139,7 @@ where
 			}
 		}
 
-		let hash = proof.correct_header.hash();
+		let hash = proof.canonical_header.hash();
 		let runtime_api = self.runtime.runtime_api();
 
 		// generate key ownership proof at that block
@@ -189,12 +189,12 @@ where
 		vote: VoteMessage<NumberFor<B>, AuthorityId, Signature>,
 	) -> Result<(), Error> {
 		let number = vote.commitment.block_number;
-		let (correct_header, expected_payload) = self.expected_header_and_payload(number)?;
+		let (canonical_header, expected_payload) = self.expected_header_and_payload(number)?;
 		if vote.commitment.payload != expected_payload {
 			let proof = ForkEquivocationProof {
 				commitment: vote.commitment,
 				signatories: vec![(vote.id, vote.signature)],
-				correct_header: correct_header.clone(),
+				canonical_header: canonical_header.clone(),
 			};
 			self.report_fork_equivocation(proof)?;
 		}
@@ -208,9 +208,9 @@ where
 	) -> Result<(), Error> {
 		let SignedCommitment { commitment, signatures } = signed_commitment;
 		let number = commitment.block_number;
-		let (correct_header, expected_payload) = self.expected_header_and_payload(number)?;
+		let (canonical_header, expected_payload) = self.expected_header_and_payload(number)?;
 		if commitment.payload != expected_payload {
-			let validator_set = self.active_validator_set_at(&correct_header)?;
+			let validator_set = self.active_validator_set_at(&canonical_header)?;
 			if signatures.len() != validator_set.validators().len() {
 				// invalid proof
 				return Ok(())
@@ -227,7 +227,7 @@ where
 			let proof = ForkEquivocationProof {
 				commitment,
 				signatories,
-				correct_header: correct_header.clone(),
+				canonical_header: canonical_header.clone(),
 			};
 			self.report_fork_equivocation(proof)?;
 		}
