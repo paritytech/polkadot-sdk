@@ -1398,7 +1398,8 @@ mod tests {
 				));
 				assert_eq!(MultiPhase::queued_solution().unwrap().score.minimal_stake, 12);
 
-				// trial 1: a solution who's minimal stake is 10, i.e. worse than the first solution of 12.
+				// trial 1: a solution who's minimal stake is 10, i.e. worse than the first solution
+				// of 12.
 				let result = ElectionResult {
 					winners: vec![(10, 10)],
 					assignments: vec![Assignment {
@@ -1422,7 +1423,8 @@ mod tests {
 					Error::<Runtime>::PreDispatchWeakSubmission,
 				);
 
-				// trial 2: try resubmitting another solution with same score (12) as the queued solution.
+				// trial 2: try resubmitting another solution with same score (12) as the queued
+				// solution.
 				let result = ElectionResult {
 					winners: vec![(10, 12)],
 					assignments: vec![
@@ -1441,7 +1443,7 @@ mod tests {
 					targets.clone(),
 					desired_targets,
 				)
-					.unwrap();
+				.unwrap();
 				let solution = RawSolution { solution: raw, score, round: MultiPhase::round() };
 				// 12 is not better than 12. We need score of atleast 13 to be accepted.
 				assert_eq!(solution.score.minimal_stake, 12);
@@ -1451,13 +1453,14 @@ mod tests {
 					Error::<Runtime>::PreDispatchWeakSubmission,
 				);
 
-				// trial 3: a solution who's minimal stake is 13, i.e. 1 better than the queued solution of 12.
+				// trial 3: a solution who's minimal stake is 13, i.e. 1 better than the queued
+				// solution of 12.
 				let result = ElectionResult {
 					winners: vec![(10, 12)],
 					assignments: vec![
-						Assignment { who: 10, distribution: vec![(10, PerU16::one())]},
-						Assignment { who: 7, distribution: vec![(10, PerU16::one())]},
-						Assignment { who: 9, distribution: vec![(10, PerU16::one())]},
+						Assignment { who: 10, distribution: vec![(10, PerU16::one())] },
+						Assignment { who: 7, distribution: vec![(10, PerU16::one())] },
+						Assignment { who: 9, distribution: vec![(10, PerU16::one())] },
 					],
 				};
 				let (raw, score, witness, _) =
@@ -1467,7 +1470,7 @@ mod tests {
 						targets.clone(),
 						desired_targets,
 					)
-						.unwrap();
+					.unwrap();
 				let solution = RawSolution { solution: raw, score, round: MultiPhase::round() };
 				assert_eq!(solution.score.minimal_stake, 13);
 
@@ -1479,7 +1482,8 @@ mod tests {
 					witness
 				));
 
-				// trial 4: a solution who's minimal stake is 17, i.e. 4 better than the last soluton.
+				// trial 4: a solution who's minimal stake is 17, i.e. 4 better than the last
+				// soluton.
 				let result = ElectionResult {
 					winners: vec![(10, 12)],
 					assignments: vec![
