@@ -90,7 +90,7 @@ parameter_types! {
 	pub PriorityBoostPerMessage: u64 = 182_044_444_444_444;
 
 	/// Identifier of the sibling Rococo People parachain.
-	pub RococoPeopleParaId: cumulus_primitives_core::ParaId = 1004.into();
+	pub RococoPeopleParaId: cumulus_primitives_core::ParaId = rococo_runtime_constants::system_parachain::PEOPLE_ID.into();
 	/// A route (XCM location and bridge lane) that the Rococo People Chain -> Rococo Bulletin Chain
 	/// message is following.
 	pub FromRococoPeopleToRococoBulletinRoute: SenderAndLane = SenderAndLane::new(

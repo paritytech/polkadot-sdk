@@ -357,7 +357,7 @@ mod bridge_hub_bulletin_tests {
 	};
 
 	// Para id of sibling chain used in tests.
-	pub const SIBLING_PARACHAIN_ID: u32 = 1004;
+	pub const SIBLING_PARACHAIN_ID: u32 = rococo_runtime_constants::system_parachain::PEOPLE_ID;
 
 	#[test]
 	fn initialize_bridge_by_governance_works() {
