@@ -636,8 +636,9 @@ pub mod pallet {
 	pub type CurrentPlannedSession<T> = StorageValue<_, SessionIndex, ValueQuery>;
 
 	/// Indices of validators that have offended in the active era. The offenders are disabled for a
-	/// whole era. For this reason they are kept here - only staking pallet knows about eras. No
-	/// more than `byzantine_threshold` validators are disabled at a given era.
+	/// whole era. For this reason they are kept here - only staking pallet knows about eras. The
+	/// implementor of [`DisablingStrategy`] defines if a validator should be disabled which
+	/// implicitly means that the implementor also controls the max number of disabled validators.
 	///
 	/// The vec is always kept sorted so that we can find whether a given validator has previously
 	/// offended using binary search.
