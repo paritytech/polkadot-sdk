@@ -130,11 +130,34 @@ mod bridge_hub_rococo_tests {
 		bridge_hub_test_utils::test_cases::initialize_bridge_by_governance_works::<
 			Runtime,
 			BridgeGrandpaWestendInstance,
-		>(
-			collator_session_keys(),
-			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
-			Box::new(|call| RuntimeCall::BridgeWestendGrandpa(call).encode()),
-		)
+		>(collator_session_keys(), bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID)
+	}
+
+	#[test]
+	fn change_bridge_grandpa_pallet_mode_by_governance_works() {
+		// for Westend finality
+		bridge_hub_test_utils::test_cases::change_bridge_grandpa_pallet_mode_by_governance_works::<
+			Runtime,
+			BridgeGrandpaWestendInstance,
+		>(collator_session_keys(), bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID)
+	}
+
+	#[test]
+	fn change_bridge_parachains_pallet_mode_by_governance_works() {
+		// for Westend finality
+		bridge_hub_test_utils::test_cases::change_bridge_parachains_pallet_mode_by_governance_works::<
+			Runtime,
+			BridgeParachainWestendInstance,
+		>(collator_session_keys(), bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID)
+	}
+
+	#[test]
+	fn change_bridge_messages_pallet_mode_by_governance_works() {
+		// for Westend finality
+		bridge_hub_test_utils::test_cases::change_bridge_messages_pallet_mode_by_governance_works::<
+			Runtime,
+			WithBridgeHubWestendMessagesInstance,
+		>(collator_session_keys(), bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID)
 	}
 
 	#[test]

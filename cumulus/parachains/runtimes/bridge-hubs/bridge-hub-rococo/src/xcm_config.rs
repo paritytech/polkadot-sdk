@@ -19,8 +19,12 @@ use super::{
 	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
 	TransactionByteFee, WeightToFee, XcmpQueue,
 };
-use crate::bridge_common_config::{
-	BridgeGrandpaWestendInstance, DeliveryRewardInBalance, RequiredStakeForStakeAndSlash,
+use crate::{
+	bridge_common_config::{
+		BridgeGrandpaWestendInstance, BridgeParachainWestendInstance, DeliveryRewardInBalance,
+		RequiredStakeForStakeAndSlash,
+	},
+	bridge_to_westend_config::WithBridgeHubWestendMessagesInstance,
 };
 use bp_messages::LaneId;
 use bp_relayers::{PayRewardFromAccount, RewardsAccountOwner, RewardsAccountParams};
@@ -184,7 +188,19 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 				RuntimeCall::BridgeWestendGrandpa(pallet_bridge_grandpa::Call::<
 					Runtime,
 					BridgeGrandpaWestendInstance,
-				>::initialize { .. })
+				>::initialize { .. }) |
+				RuntimeCall::BridgeWestendGrandpa(pallet_bridge_grandpa::Call::<
+					Runtime,
+					BridgeGrandpaWestendInstance,
+				>::set_operating_mode { .. }) |
+				RuntimeCall::BridgeWestendParachains(pallet_bridge_parachains::Call::<
+					Runtime,
+					BridgeParachainWestendInstance,
+				>::set_operating_mode { .. }) |
+				RuntimeCall::BridgeWestendMessages(pallet_bridge_messages::Call::<
+					Runtime,
+					WithBridgeHubWestendMessagesInstance,
+				>::set_operating_mode { .. })
 		)
 	}
 }
