@@ -26,6 +26,8 @@
 //!   pallet's author.
 //! - deserialize the `GenesisConfig` from given json blob and put `GenesisConfig` into the state
 //!   storage. Allows to build customized configuration.
+//! - provide a named, built-in, predefined preset of `GenesisConfig`,
+//! - provide the list of preset names,
 //!
 //! Providing externalities with empty storage and putting `GenesisConfig` into storage allows to
 //! catch and build the raw storage of `GenesisConfig` which is the foundation for genesis block.
@@ -57,8 +59,15 @@ sp_api::decl_runtime_apis! {
 		///
 		/// If `id` is `None` the function instantiates the default `GenesisConfig` struct for the runtime and serializes it into a JSON
 		/// blob. It returns a `Vec<u8>` containing the JSON representation of the default `GenesisConfig`.
-		/// Otherwise returns a JSON representation of the runtime provided, named, pre-configured `GenesisConfig`.
+		/// Otherwise returns a JSON representation of the built-in, named, pre-configured `GenesisConfig` value.
 		#[api_version(2)]
-		fn get_named_preset(params: Option<sp_std::vec::Vec<u8>>) -> sp_std::vec::Vec<u8>;
+		fn get_preset(id: Option<sp_std::vec::Vec<u8>>) -> Option<sp_std::vec::Vec<u8>>;
+
+		/// Returns a list of available builtin `GenesisConfig` presets.
+		///
+		/// The presets from the list can be queried with [`GenesisBuilder::get_preset`] method. If no named presets are
+		/// provided by the runtime the list is empty.
+		#[api_version(2)]
+		fn preset_names() -> sp_std::vec::Vec<sp_runtime::RuntimeString>;
 	}
 }
