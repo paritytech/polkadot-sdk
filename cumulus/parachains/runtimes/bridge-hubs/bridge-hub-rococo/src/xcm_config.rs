@@ -26,6 +26,7 @@ use crate::{
 	},
 	bridge_to_bulletin_config::WithRococoBulletinMessagesInstance,
 	bridge_to_westend_config::WithBridgeHubWestendMessagesInstance,
+	EthereumGatewayAddress,
 };
 use bp_messages::LaneId;
 use bp_relayers::{PayRewardFromAccount, RewardsAccountOwner, RewardsAccountParams};
@@ -160,10 +161,11 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 		// Allow to change dedicated storage items (called by governance-like)
 		match call {
 			RuntimeCall::System(frame_system::Call::set_storage { items })
-			if items.iter().all(|(k, _)| {
-				k.eq(&DeliveryRewardInBalance::key()) |
-					k.eq(&RequiredStakeForStakeAndSlash::key())
-			}) =>
+				if items.iter().all(|(k, _)| {
+					k.eq(&DeliveryRewardInBalance::key()) |
+						k.eq(&RequiredStakeForStakeAndSlash::key()) |
+						k.eq(&EthereumGatewayAddress::key())
+				}) =>
 				return true,
 			_ => (),
 		};

@@ -522,7 +522,7 @@ impl snowbridge_inbound_queue::Config for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type XcmSender = DoNothingRouter;
 	type ChannelLookup = EthereumSystem;
-	type GatewayAddress = GatewayAddress;
+	type GatewayAddress = EthereumGatewayAddress;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Runtime;
 	type MessageConverter = MessageToXcm<
