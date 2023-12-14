@@ -123,6 +123,7 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = Pools;
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type WeightInfo = ();
+	type DisablingStrategy = pallet_staking::UpToByzantineThresholdDisablingStrategy;
 }
 
 parameter_types! {
