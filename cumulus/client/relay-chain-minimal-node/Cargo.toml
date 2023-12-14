@@ -6,6 +6,9 @@ edition.workspace = true
 description = "Minimal node implementation to be used in tandem with RPC or light-client mode."
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
+[lints]
+workspace = true
+
 [dependencies]
 # polkadot deps
 polkadot-primitives = { path = "../../../polkadot/primitives" }
