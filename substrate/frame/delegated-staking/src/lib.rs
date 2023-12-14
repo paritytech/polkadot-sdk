@@ -455,9 +455,7 @@ impl<T: Config> StakingHoldProvider for Pallet<T> {
 	type AccountId = T::AccountId;
 
 	fn update_hold(who: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
-		if !Self::is_delegatee(who) {
-			return T::CoreStaking::update_hold(who, amount);
-		}
+		ensure!(Self::is_delegatee(who), Error::<T>::NotSupported);
 
 		// delegation register should exist since `who` is a delegatee.
 		let delegation_register =
@@ -482,10 +480,9 @@ impl<T: Config> StakingHoldProvider for Pallet<T> {
 }
 impl<T: Config> StakingDelegationSupport for Pallet<T> {
 	fn stakeable_balance(who: &Self::AccountId) -> Self::Balance {
-		<Delegatees<T>>::get(who).map_or_else(
-			|| T::Currency::reducible_balance(who, Preservation::Expendable, Fortitude::Polite),
-			|delegatee| delegatee.delegated_balance(),
-		)
+		<Delegatees<T>>::get(who)
+			.map(|delegatee| delegatee.delegated_balance())
+			.unwrap_or_default()
 	}
 
 	fn restrict_reward_destination(
@@ -549,11 +546,8 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn stake(who: &Self::AccountId) -> Result<Stake<Self::Balance>, DispatchError> {
-		if Self::is_delegatee(who) {
-			return T::CoreStaking::stake(who);
-		}
-
-		Err(Error::<T>::NotSupported.into())
+		ensure!(Self::is_delegatee(who), Error::<T>::NotSupported);
+		return T::CoreStaking::stake(who);
 	}
 
 	fn total_stake(who: &Self::AccountId) -> Result<Self::Balance, DispatchError> {
@@ -579,11 +573,8 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn fully_unbond(who: &Self::AccountId) -> DispatchResult {
-		if Self::is_delegatee(who) {
-			return T::CoreStaking::fully_unbond(who);
-		}
-
-		Err(Error::<T>::NotSupported.into())
+		ensure!(Self::is_delegatee(who), Error::<T>::NotSupported);
+		return T::CoreStaking::fully_unbond(who);
 	}
 
 	fn bond(
@@ -602,19 +593,13 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn nominate(who: &Self::AccountId, validators: Vec<Self::AccountId>) -> DispatchResult {
-		if Self::is_delegatee(who) {
-			return T::CoreStaking::nominate(who, validators);
-		}
-
-		Err(Error::<T>::NotSupported.into())
+		ensure!(Self::is_delegatee(who), Error::<T>::NotSupported);
+		return T::CoreStaking::nominate(who, validators);
 	}
 
 	fn chill(who: &Self::AccountId) -> DispatchResult {
-		if Self::is_delegatee(who) {
-			return T::CoreStaking::chill(who);
-		}
-
-		Err(Error::<T>::NotSupported.into())
+		ensure!(Self::is_delegatee(who), Error::<T>::NotSupported);
+		return T::CoreStaking::chill(who);
 	}
 
 	fn bond_extra(who: &Self::AccountId, extra: Self::Balance) -> DispatchResult {

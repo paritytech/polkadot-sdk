@@ -21,7 +21,9 @@ use frame_support::defensive;
 use sp_staking::{StakingAccount, StakingHoldProvider};
 use sp_std::prelude::*;
 
-use crate::{BalanceOf, Bonded, Config, Error, Ledger, Pallet, Payee, RewardDestination, StakingLedger};
+use crate::{
+	BalanceOf, Bonded, Config, Error, Ledger, Pallet, Payee, RewardDestination, StakingLedger,
+};
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
 use sp_runtime::traits::Zero;
@@ -141,8 +143,7 @@ impl<T: Config> StakingLedger<T> {
 			return Err(Error::<T>::NotStash)
 		}
 
-		Pallet::<T>::update_hold(&self.stash, self.total)
-			.map_err(|_| Error::<T>::BadState)?;
+		Pallet::<T>::update_hold(&self.stash, self.total).map_err(|_| Error::<T>::BadState)?;
 
 		Ledger::<T>::insert(
 			&self.controller().ok_or_else(|| {
@@ -163,10 +164,7 @@ impl<T: Config> StakingLedger<T> {
 			return Err(Error::<T>::AlreadyBonded);
 		}
 
-		if Pallet::<T>::restrict_reward_destination(
-			&self.stash,
-			payee.clone().from(&self.stash),
-		) {
+		if Pallet::<T>::restrict_reward_destination(&self.stash, payee.clone().from(&self.stash)) {
 			return Err(Error::<T>::RewardDestinationRestricted);
 		}
 
@@ -181,10 +179,7 @@ impl<T: Config> StakingLedger<T> {
 			return Err(Error::<T>::NotStash);
 		}
 
-		if Pallet::<T>::restrict_reward_destination(
-			&self.stash,
-			payee.clone().from(&self.stash),
-		) {
+		if Pallet::<T>::restrict_reward_destination(&self.stash, payee.clone().from(&self.stash)) {
 			return Err(Error::<T>::RewardDestinationRestricted);
 		}
 

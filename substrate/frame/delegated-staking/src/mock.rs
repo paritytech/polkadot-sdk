@@ -228,9 +228,8 @@ impl ExtBuilder {
 }
 
 /// fund and return who.
-pub(crate) fn fund(who: &AccountId, amount: Balance) -> &AccountId {
+pub(crate) fn fund(who: &AccountId, amount: Balance) {
 	let _ = Balances::deposit_creating(who, amount);
-	who
 }
 
 /// Sets up delegation for passed delegators, returns total delegated amount.
@@ -244,17 +243,15 @@ pub(crate) fn setup_delegation_stake(
 	base_delegate_amount: Balance,
 	increment: Balance,
 ) -> Balance {
-	assert_ok!(DelegatedStaking::accept_delegations(fund(&delegatee, 100), &reward_acc));
+	fund(&delegatee, 100);
+	assert_ok!(DelegatedStaking::accept_delegations(&delegatee, &reward_acc));
 	let mut delegated_amount: Balance = 0;
 	for (index, delegator) in delegators.iter().enumerate() {
 		let amount_to_delegate = base_delegate_amount + increment * index as Balance;
 		delegated_amount += amount_to_delegate;
 
-		assert_ok!(DelegatedStaking::delegate(
-			fund(delegator, amount_to_delegate + ExistentialDeposit::get()),
-			&delegatee,
-			amount_to_delegate
-		));
+		fund(delegator, amount_to_delegate + ExistentialDeposit::get());
+		assert_ok!(DelegatedStaking::delegate(delegator, &delegatee, amount_to_delegate));
 		assert_ok!(DelegatedStaking::update_bond(&delegatee));
 	}
 

@@ -31,10 +31,12 @@ fn create_a_delegatee_with_first_delegator() {
 		let delegator: AccountId = 202;
 
 		// set intention to accept delegation.
-		assert_ok!(DelegatedStaking::accept_delegations(fund(&delegatee, 1000), &reward_account));
+		fund(&delegatee, 1000);
+		assert_ok!(DelegatedStaking::accept_delegations(&delegatee, &reward_account));
 
 		// delegate to this account
-		assert_ok!(DelegatedStaking::delegate(fund(&delegator, 1000), &delegatee, 100));
+		fund(&delegator, 1000);
+		assert_ok!(DelegatedStaking::delegate(&delegator, &delegatee, 100));
 
 		// verify
 		assert!(DelegatedStaking::is_delegatee(&delegatee));
@@ -76,20 +78,18 @@ fn create_multiple_delegators() {
 		let delegatee: AccountId = 200;
 		let reward_account: AccountId = 201;
 
-		// before becoming a delegatee, stakeable balance is only direct balance.
-		assert!(!DelegatedStaking::is_delegatee(fund(&delegatee, 1000)));
-		assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), 1000);
+		// stakeable balance is 0 for non delegatee
+		fund(&delegatee, 1000);
+		assert!(!DelegatedStaking::is_delegatee(&delegatee));
+		assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), 0);
 
 		// set intention to accept delegation.
 		assert_ok!(DelegatedStaking::accept_delegations(&delegatee, &reward_account));
 
 		// create 100 delegators
 		for i in 202..302 {
-			assert_ok!(DelegatedStaking::delegate(
-				fund(&i, 100 + ExistentialDeposit::get()),
-				&delegatee,
-				100
-			));
+			fund(&i, 100 + ExistentialDeposit::get());
+			assert_ok!(DelegatedStaking::delegate(&i, &delegatee, 100));
 			// Balance of 100 held on delegator account for delegating to the delegatee.
 			assert_eq!(Balances::balance_on_hold(&HoldReason::Delegating.into(), &i), 100);
 		}
@@ -106,19 +106,17 @@ fn delegate_restrictions() {
 	ExtBuilder::default().build_and_execute(|| {
 		let delegatee_one = 200;
 		let delegator_one = 210;
-		assert_ok!(DelegatedStaking::accept_delegations(
-			fund(&delegatee_one, 100),
-			&(delegatee_one + 1)
-		));
-		assert_ok!(DelegatedStaking::delegate(fund(&delegator_one, 200), &delegatee_one, 100));
+		fund(&delegatee_one, 100);
+		assert_ok!(DelegatedStaking::accept_delegations(&delegatee_one, &(delegatee_one + 1)));
+		fund(&delegator_one, 200);
+		assert_ok!(DelegatedStaking::delegate(&delegator_one, &delegatee_one, 100));
 
 		let delegatee_two = 300;
 		let delegator_two = 310;
-		assert_ok!(DelegatedStaking::accept_delegations(
-			fund(&delegatee_two, 100),
-			&(delegatee_two + 1)
-		));
-		assert_ok!(DelegatedStaking::delegate(fund(&delegator_two, 200), &delegatee_two, 100));
+		fund(&delegatee_two, 100);
+		assert_ok!(DelegatedStaking::accept_delegations(&delegatee_two, &(delegatee_two + 1)));
+		fund(&delegator_two, 200);
+		assert_ok!(DelegatedStaking::delegate(&delegator_two, &delegatee_two, 100));
 
 		// delegatee one tries to delegate to delegatee 2
 		assert_noop!(
@@ -164,13 +162,15 @@ mod integration {
 			assert_eq!(Staking::status(&delegatee), Err(StakingError::<T>::NotStash.into()));
 
 			// set intention to become a delegatee
-			assert_ok!(DelegatedStaking::accept_delegations(fund(&delegatee, 100), &reward_acc));
+			fund(&delegatee, 100);
+			assert_ok!(DelegatedStaking::accept_delegations(&delegatee, &reward_acc));
 			assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), 0);
 
 			let mut delegated_balance: Balance = 0;
 			// set some delegations
 			for delegator in 200..250 {
-				assert_ok!(DelegatedStaking::delegate(fund(&delegator, 200), &delegatee, 100));
+				fund(&delegator, 200);
+				assert_ok!(DelegatedStaking::delegate(&delegator, &delegatee, 100));
 				delegated_balance += 100;
 				assert_eq!(
 					Balances::balance_on_hold(&HoldReason::Delegating.into(), &delegator),
@@ -299,7 +299,8 @@ mod integration {
 			);
 
 			// add new delegation that is not staked
-			assert_ok!(DelegatedStaking::delegate(fund(&300, 1000), &delegatee, 100));
+			fund(&300, 1000);
+			assert_ok!(DelegatedStaking::delegate(&300, &delegatee, 100));
 
 			// verify unbonded balance
 			assert_eq!(DelegatedStaking::unbonded_balance(&delegatee), 100);
@@ -326,7 +327,8 @@ mod integration {
 			// different reward account works
 			assert_ok!(DelegatedStaking::accept_delegations(&200, &201));
 			// add some delegations to it
-			assert_ok!(DelegatedStaking::delegate(fund(&300, 1000), &200, 100));
+			fund(&300, 1000);
+			assert_ok!(DelegatedStaking::delegate(&300, &200, 100));
 
 			// if delegatee calls Staking pallet directly with a different reward destination, it
 			// fails.
@@ -392,7 +394,8 @@ mod integration {
 			assert_ok!(DelegatedStaking::accept_delegations(&200, &201));
 
 			// delegation works
-			assert_ok!(DelegatedStaking::delegate(fund(&300, 1000), &200, 100));
+			fund(&300, 1000);
+			assert_ok!(DelegatedStaking::delegate(&300, &200, 100));
 
 			// delegatee blocks delegation
 			assert_ok!(DelegatedStaking::block_delegations(&200));
@@ -445,7 +448,8 @@ mod integration {
 			// to migrate, nominator needs to set an account as a proxy delegator where staked funds
 			// will be moved and delegated back to this old nominator account. This should be funded
 			// with at least ED.
-			let proxy_delegator = fund(&202, ExistentialDeposit::get());
+			let proxy_delegator = 202;
+			fund(&proxy_delegator, ExistentialDeposit::get());
 
 			assert_ok!(DelegatedStaking::migrate_accept_delegations(&200, &proxy_delegator, &201));
 			assert!(DelegatedStaking::is_migrating(&200));
