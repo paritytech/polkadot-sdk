@@ -45,8 +45,9 @@
 //!
 //! Patch the runtime's default genesis config with provided `patch.json` and generate raw
 //! storage (`-s`) version of chain spec:
-//!/
-/! chain-spec-builder create -s -r runtime.wasm patch patch.json
+//!
+//! ```bash
+//! chain-spec-builder create -s -r runtime.wasm patch patch.json
 //! ```
 //!
 //! _Note:_ [`GenesisBuilder::build_config`][sp-genesis-builder-build] runtime function is called.
