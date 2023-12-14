@@ -51,10 +51,7 @@ where
 {
 	type Ticket = Vec<u8>;
 
-	fn validate(
-		dest: &mut Option<MultiLocation>,
-		msg: &mut Option<Xcm<()>>,
-	) -> SendResult<Vec<u8>> {
+	fn validate(dest: &mut Option<Location>, msg: &mut Option<Xcm<()>>) -> SendResult<Vec<u8>> {
 		let d = dest.take().ok_or(SendError::MissingArgument)?;
 
 		if d.contains_parents_only(1) {
@@ -90,14 +87,14 @@ struct AssetTraderRefunder {
 	// The amount of weight bought minus the weigh already refunded
 	weight_outstanding: Weight,
 	// The concrete asset containing the asset location and outstanding balance
-	outstanding_concrete_asset: MultiAsset,
+	outstanding_concrete_asset: Asset,
 }
 
-/// Charges for execution in the first multiasset of those selected for fee payment
+/// Charges for execution in the first asset of those selected for fee payment
 /// Only succeeds for Concrete Fungible Assets
-/// First tries to convert the this MultiAsset into a local assetId
+/// First tries to convert the this Asset into a local assetId
 /// Then charges for this assetId as described by FeeCharger
-/// Weight, paid balance, local asset Id and the multilocation is stored for
+/// Weight, paid balance, local asset Id and the location is stored for
 /// later refund purposes
 /// Important: Errors if the Trader is being called twice by 2 BuyExecution instructions
 /// Alternatively we could just return payment in the aforementioned case
@@ -123,15 +120,15 @@ impl<
 	fn new() -> Self {
 		Self(None, PhantomData)
 	}
-	// We take first multiasset
+	// We take first asset
 	// Check whether we can convert fee to asset_fee (is_sufficient, min_deposit)
 	// If everything goes well, we charge.
 	fn buy_weight(
 		&mut self,
 		weight: Weight,
-		payment: xcm_executor::Assets,
+		payment: xcm_executor::AssetsInHolding,
 		context: &XcmContext,
-	) -> Result<xcm_executor::Assets, XcmError> {
+	) -> Result<xcm_executor::AssetsInHolding, XcmError> {
 		log::trace!(target: "xcm::weight", "TakeFirstAssetTrader::buy_weight weight: {:?}, payment: {:?}, context: {:?}", weight, payment, context);
 
 		// Make sure we dont enter twice
@@ -139,12 +136,12 @@ impl<
 			return Err(XcmError::NotWithdrawable)
 		}
 
-		// We take the very first multiasset from payment
+		// We take the very first asset from payment
 		// (assets are sorted by fungibility/amount after this conversion)
-		let multiassets: MultiAssets = payment.clone().into();
+		let assets: Assets = payment.clone().into();
 
-		// Take the first multiasset from the selected MultiAssets
-		let first = multiassets.get(0).ok_or(XcmError::AssetNotFound)?;
+		// Take the first asset from the selected Assets
+		let first = assets.get(0).ok_or(XcmError::AssetNotFound)?;
 
 		// Get the local asset id in which we can pay for fees
 		let (local_asset_id, _) =
@@ -166,13 +163,13 @@ impl<
 				.try_into()
 				.map_err(|_| XcmError::Overflow)?;
 
-		// Convert to the same kind of multiasset, with the required fungible balance
-		let required = first.id.into_multiasset(asset_balance.into());
+		// Convert to the same kind of asset, with the required fungible balance
+		let required = first.id.clone().into_asset(asset_balance.into());
 
 		// Substract payment
 		let unused = payment.checked_sub(required.clone()).map_err(|_| XcmError::TooExpensive)?;
 
-		// record weight and multiasset
+		// record weight and asset
 		self.0 = Some(AssetTraderRefunder {
 			weight_outstanding: weight,
 			outstanding_concrete_asset: required,
@@ -181,16 +178,16 @@ impl<
 		Ok(unused)
 	}
 
-	fn refund_weight(&mut self, weight: Weight, context: &XcmContext) -> Option<MultiAsset> {
+	fn refund_weight(&mut self, weight: Weight, context: &XcmContext) -> Option<Asset> {
 		log::trace!(target: "xcm::weight", "TakeFirstAssetTrader::refund_weight weight: {:?}, context: {:?}", weight, context);
 		if let Some(AssetTraderRefunder {
 			mut weight_outstanding,
-			outstanding_concrete_asset: MultiAsset { id, fun },
+			outstanding_concrete_asset: Asset { id, fun },
 		}) = self.0.clone()
 		{
 			// Get the local asset id in which we can refund fees
 			let (local_asset_id, outstanding_balance) =
-				Matcher::matches_fungibles(&(id, fun).into()).ok()?;
+				Matcher::matches_fungibles(&(id.clone(), fun).into()).ok()?;
 
 			let minimum_balance = ConcreteAssets::minimum_balance(local_asset_id.clone());
 
@@ -220,7 +217,8 @@ impl<
 
 			// Construct outstanding_concrete_asset with the same location id and substracted
 			// balance
-			let outstanding_concrete_asset: MultiAsset = (id, outstanding_minus_substracted).into();
+			let outstanding_concrete_asset: Asset =
+				(id.clone(), outstanding_minus_substracted).into();
 
 			// Substract from existing weight and balance
 			weight_outstanding = weight_outstanding.saturating_sub(weight);
@@ -267,11 +265,11 @@ impl<
 		ReceiverAccount: Get<Option<AccountId>>,
 	> TakeRevenue for XcmFeesTo32ByteAccount<FungiblesMutateAdapter, AccountId, ReceiverAccount>
 {
-	fn take_revenue(revenue: MultiAsset) {
+	fn take_revenue(revenue: Asset) {
 		if let Some(receiver) = ReceiverAccount::get() {
 			let ok = FungiblesMutateAdapter::deposit_asset(
 				&revenue,
-				&(X1(AccountId32 { network: None, id: receiver.into() }).into()),
+				&([AccountId32 { network: None, id: receiver.into() }].into()),
 				None,
 			)
 			.is_ok();
@@ -302,18 +300,18 @@ mod tests {
 		},
 	};
 	use sp_runtime::DispatchError;
-	use xcm_executor::{traits::Error, Assets};
+	use xcm_executor::{traits::Error, AssetsInHolding};
 
 	/// Validates [`validate`] for required Some(destination) and Some(message)
 	struct OkFixedXcmHashWithAssertingRequiredInputsSender;
 	impl OkFixedXcmHashWithAssertingRequiredInputsSender {
 		const FIXED_XCM_HASH: [u8; 32] = [9; 32];
 
-		fn fixed_delivery_asset() -> MultiAssets {
-			MultiAssets::new()
+		fn fixed_delivery_asset() -> Assets {
+			Assets::new()
 		}
 
-		fn expected_delivery_result() -> Result<(XcmHash, MultiAssets), SendError> {
+		fn expected_delivery_result() -> Result<(XcmHash, Assets), SendError> {
 			Ok((Self::FIXED_XCM_HASH, Self::fixed_delivery_asset()))
 		}
 	}
@@ -321,7 +319,7 @@ mod tests {
 		type Ticket = ();
 
 		fn validate(
-			destination: &mut Option<MultiLocation>,
+			destination: &mut Option<Location>,
 			message: &mut Option<Xcm<()>>,
 		) -> SendResult<Self::Ticket> {
 			assert!(destination.is_some());
@@ -377,7 +375,7 @@ mod tests {
 
 		// ParentAsUmp - check dest/msg is valid
 		let dest = (Parent, Here);
-		let mut dest_wrapper = Some(dest.into());
+		let mut dest_wrapper = Some(dest.clone().into());
 		let mut msg_wrapper = Some(message.clone());
 		assert!(<ParentAsUmp<(), (), ()> as SendXcm>::validate(
 			&mut dest_wrapper,
@@ -409,9 +407,9 @@ mod tests {
 		type TestBalance = u128;
 		struct TestAssets;
 		impl MatchesFungibles<TestAssetId, TestBalance> for TestAssets {
-			fn matches_fungibles(a: &MultiAsset) -> Result<(TestAssetId, TestBalance), Error> {
+			fn matches_fungibles(a: &Asset) -> Result<(TestAssetId, TestBalance), Error> {
 				match a {
-					MultiAsset { fun: Fungible(amount), id: Concrete(_id) } => Ok((1, *amount)),
+					Asset { fun: Fungible(amount), id: AssetId(_id) } => Ok((1, *amount)),
 					_ => Err(Error::AssetNotHandled),
 				}
 			}
@@ -498,7 +496,7 @@ mod tests {
 			}
 		}
 		impl TakeRevenue for FeeChargerAssetsHandleRefund {
-			fn take_revenue(_: MultiAsset) {}
+			fn take_revenue(_: Asset) {}
 		}
 
 		// create new instance
@@ -513,8 +511,8 @@ mod tests {
 		let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
 
 		// prepare test data
-		let asset: MultiAsset = (Here, AMOUNT).into();
-		let payment = Assets::from(asset);
+		let asset: Asset = (Here, AMOUNT).into();
+		let payment = AssetsInHolding::from(asset);
 		let weight_to_buy = Weight::from_parts(1_000, 1_000);
 
 		// lets do first call (success)
@@ -537,17 +535,17 @@ pub struct ToParentDeliveryHelper<XcmConfig, ExistentialDeposit, PriceForDeliver
 #[cfg(feature = "runtime-benchmarks")]
 impl<
 		XcmConfig: xcm_executor::Config,
-		ExistentialDeposit: Get<Option<MultiAsset>>,
+		ExistentialDeposit: Get<Option<Asset>>,
 		PriceForDelivery: PriceForMessageDelivery<Id = ()>,
 	> pallet_xcm_benchmarks::EnsureDelivery
 	for ToParentDeliveryHelper<XcmConfig, ExistentialDeposit, PriceForDelivery>
 {
 	fn ensure_successful_delivery(
-		origin_ref: &MultiLocation,
-		_dest: &MultiLocation,
+		origin_ref: &Location,
+		_dest: &Location,
 		fee_reason: xcm_executor::traits::FeeReason,
-	) -> (Option<xcm_executor::FeesMode>, Option<MultiAssets>) {
-		use xcm::latest::{MAX_INSTRUCTIONS_TO_DECODE, MAX_ITEMS_IN_MULTIASSETS};
+	) -> (Option<xcm_executor::FeesMode>, Option<Assets>) {
+		use xcm::latest::{MAX_INSTRUCTIONS_TO_DECODE, MAX_ITEMS_IN_ASSETS};
 		use xcm_executor::{traits::FeeManager, FeesMode};
 
 		let mut fees_mode = None;
@@ -560,8 +558,8 @@ impl<
 			}
 
 			// overestimate delivery fee
-			let mut max_assets: Vec<MultiAsset> = Vec::new();
-			for i in 0..MAX_ITEMS_IN_MULTIASSETS {
+			let mut max_assets: Vec<Asset> = Vec::new();
+			for i in 0..MAX_ITEMS_IN_ASSETS {
 				max_assets.push((GeneralIndex(i as u128), 100u128).into());
 			}
 			let overestimated_xcm =

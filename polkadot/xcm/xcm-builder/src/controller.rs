@@ -45,7 +45,7 @@ pub trait ExecuteControllerWeightInfo {
 /// Execute an XCM locally, for a given origin.
 ///
 /// An implementation of that trait will handle the low-level details of the execution, such as:
-/// - Validating and Converting the origin to a MultiLocation.
+/// - Validating and Converting the origin to a Location.
 /// - Handling versioning.
 /// - Calling  the internal executor, which implements [`ExecuteXcm`].
 pub trait ExecuteController<Origin, RuntimeCall> {
@@ -92,7 +92,7 @@ pub trait SendController<Origin> {
 	/// - `msg`: the XCM to be sent.
 	fn send(
 		origin: Origin,
-		dest: Box<VersionedMultiLocation>,
+		dest: Box<VersionedLocation>,
 		message: Box<VersionedXcm<()>>,
 	) -> Result<XcmHash, DispatchError>;
 }
@@ -127,7 +127,7 @@ pub trait QueryController<Origin, Timeout>: QueryHandler {
 	fn query(
 		origin: Origin,
 		timeout: Timeout,
-		match_querier: VersionedMultiLocation,
+		match_querier: VersionedLocation,
 	) -> Result<Self::QueryId, DispatchError>;
 }
 
@@ -138,7 +138,7 @@ impl<Origin, RuntimeCall> ExecuteController<Origin, RuntimeCall> for () {
 		_message: Box<VersionedXcm<RuntimeCall>>,
 		_max_weight: Weight,
 	) -> Result<Outcome, DispatchError> {
-		Ok(Outcome::Error(XcmError::Unimplemented))
+		Ok(Outcome::Error { error: XcmError::Unimplemented })
 	}
 }
 
@@ -152,7 +152,7 @@ impl<Origin> SendController<Origin> for () {
 	type WeightInfo = ();
 	fn send(
 		_origin: Origin,
-		_dest: Box<VersionedMultiLocation>,
+		_dest: Box<VersionedLocation>,
 		_message: Box<VersionedXcm<()>>,
 	) -> Result<XcmHash, DispatchError> {
 		Ok(Default::default())
@@ -180,7 +180,7 @@ impl<Origin, Timeout> QueryController<Origin, Timeout> for () {
 	fn query(
 		_origin: Origin,
 		_timeout: Timeout,
-		_match_querier: VersionedMultiLocation,
+		_match_querier: VersionedLocation,
 	) -> Result<Self::QueryId, DispatchError> {
 		Ok(Default::default())
 	}

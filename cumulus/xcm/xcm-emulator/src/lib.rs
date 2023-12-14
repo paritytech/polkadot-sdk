@@ -59,9 +59,9 @@ pub use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueu
 
 // Polkadot
 pub use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
-pub use xcm::v3::prelude::{
-	Ancestor, MultiAssets, MultiLocation, Parachain as ParachainJunction, Parent, WeightLimit,
-	XcmHash, X1,
+pub use xcm::latest::prelude::{
+	Ancestor, Assets, Junctions, Location, Parachain as ParachainJunction, Parent, WeightLimit,
+	XcmHash,
 };
 pub use xcm_executor::traits::ConvertLocation;
 
@@ -227,11 +227,11 @@ pub trait RelayChain: Chain {
 
 	fn init();
 
-	fn child_location_of(id: ParaId) -> MultiLocation {
+	fn child_location_of(id: ParaId) -> Location {
 		(Ancestor(0), ParachainJunction(id.into())).into()
 	}
 
-	fn sovereign_account_id_of(location: MultiLocation) -> AccountIdOf<Self::Runtime> {
+	fn sovereign_account_id_of(location: Location) -> AccountIdOf<Self::Runtime> {
 		Self::SovereignAccountOf::convert_location(&location).unwrap()
 	}
 
@@ -259,15 +259,15 @@ pub trait Parachain: Chain {
 		Self::ext_wrapper(|| Self::ParachainInfo::get())
 	}
 
-	fn parent_location() -> MultiLocation {
+	fn parent_location() -> Location {
 		(Parent).into()
 	}
 
-	fn sibling_location_of(para_id: ParaId) -> MultiLocation {
-		(Parent, X1(ParachainJunction(para_id.into()))).into()
+	fn sibling_location_of(para_id: ParaId) -> Location {
+		(Parent, ParachainJunction(para_id.into())).into()
 	}
 
-	fn sovereign_account_id_of(location: MultiLocation) -> AccountIdOf<Self::Runtime> {
+	fn sovereign_account_id_of(location: Location) -> AccountIdOf<Self::Runtime> {
 		Self::LocationToAccountId::convert_location(&location).unwrap()
 	}
 }
@@ -1422,10 +1422,10 @@ pub struct TestAccount<R: Chain> {
 /// Default `Args` provided by xcm-emulator to be stored in a `Test` instance
 #[derive(Clone)]
 pub struct TestArgs {
-	pub dest: MultiLocation,
-	pub beneficiary: MultiLocation,
+	pub dest: Location,
+	pub beneficiary: Location,
 	pub amount: Balance,
-	pub assets: MultiAssets,
+	pub assets: Assets,
 	pub asset_id: Option<u32>,
 	pub fee_asset_item: u32,
 	pub weight_limit: WeightLimit,

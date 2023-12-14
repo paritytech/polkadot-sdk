@@ -65,7 +65,7 @@ fn basic_buy_fees_message_executes() {
 		assert!(polkadot_test_runtime::System::events().iter().any(|r| matches!(
 			r.event,
 			polkadot_test_runtime::RuntimeEvent::Xcm(pallet_xcm::Event::Attempted {
-				outcome: Outcome::Complete(_)
+				outcome: Outcome::Complete { .. }
 			}),
 		)));
 	});
@@ -147,7 +147,7 @@ fn transact_recursion_limit_works() {
 				.filter(|r| matches!(
 					r.event,
 					polkadot_test_runtime::RuntimeEvent::Xcm(pallet_xcm::Event::Attempted {
-						outcome: Outcome::Complete(_)
+						outcome: Outcome::Complete { .. }
 					}),
 				))
 				.count(),
@@ -242,7 +242,7 @@ fn query_response_fires() {
 		assert_eq!(
 			polkadot_test_runtime::Xcm::query(query_id),
 			Some(QueryStatus::Ready {
-				response: VersionedResponse::V3(Response::ExecutionResult(None)),
+				response: VersionedResponse::V4(Response::ExecutionResult(None)),
 				at: 2u32.into()
 			}),
 		)
@@ -314,12 +314,12 @@ fn query_response_elicits_handler() {
 
 	client.state_at(block_hash).expect("state should exist").inspect_state(|| {
 		assert!(polkadot_test_runtime::System::events().iter().any(|r| matches!(
-			r.event,
+			&r.event,
 			TestNotifier(ResponseReceived(
-				MultiLocation { parents: 0, interior: X1(Junction::AccountId32 { .. }) },
+				location,
 				q,
 				Response::ExecutionResult(None),
-			)) if q == query_id,
+			)) if *q == query_id && matches!(location.unpack(), (0, [Junction::AccountId32 { .. }])),
 		)));
 	});
 }

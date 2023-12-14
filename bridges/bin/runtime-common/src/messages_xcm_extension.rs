@@ -123,14 +123,14 @@ impl<
 #[cfg_attr(feature = "std", derive(Debug, Eq, PartialEq))]
 pub struct SenderAndLane {
 	/// Sending chain relative location.
-	pub location: MultiLocation,
+	pub location: Location,
 	/// Message lane, used by the sending chain.
 	pub lane: LaneId,
 }
 
 impl SenderAndLane {
 	/// Create new object using provided location and lane.
-	pub fn new(location: MultiLocation, lane: LaneId) -> Self {
+	pub fn new(location: Location, lane: LaneId) -> Self {
 		SenderAndLane { location, lane }
 	}
 }
@@ -168,7 +168,7 @@ pub struct XcmBlobHaulerAdapter<XcmBlobHauler, Lanes>(
 
 impl<
 		H: XcmBlobHauler,
-		Lanes: Get<sp_std::vec::Vec<(SenderAndLane, (NetworkId, InteriorMultiLocation))>>,
+		Lanes: Get<sp_std::vec::Vec<(SenderAndLane, (NetworkId, InteriorLocation))>>,
 	> OnMessagesDelivered for XcmBlobHaulerAdapter<H, Lanes>
 {
 	fn on_messages_delivered(lane: LaneId, enqueued_messages: MessageNonce) {
@@ -288,7 +288,7 @@ impl<H: XcmBlobHauler> LocalXcmQueueManager<H> {
 	/// Send congested signal to the `sending_chain_location`.
 	fn send_congested_signal(sender_and_lane: &SenderAndLane) -> Result<(), SendError> {
 		if let Some(msg) = H::CongestedMessage::get() {
-			send_xcm::<H::ToSourceChainSender>(sender_and_lane.location, msg)?;
+			send_xcm::<H::ToSourceChainSender>(sender_and_lane.location.clone(), msg)?;
 			OutboundLanesCongestedSignals::<H::Runtime, H::MessagesInstance>::insert(
 				sender_and_lane.lane,
 				true,
@@ -300,7 +300,7 @@ impl<H: XcmBlobHauler> LocalXcmQueueManager<H> {
 	/// Send `uncongested` signal to the `sending_chain_location`.
 	fn send_uncongested_signal(sender_and_lane: &SenderAndLane) -> Result<(), SendError> {
 		if let Some(msg) = H::UncongestedMessage::get() {
-			send_xcm::<H::ToSourceChainSender>(sender_and_lane.location, msg)?;
+			send_xcm::<H::ToSourceChainSender>(sender_and_lane.location.clone(), msg)?;
 			OutboundLanesCongestedSignals::<H::Runtime, H::MessagesInstance>::remove(
 				sender_and_lane.lane,
 			);
@@ -315,10 +315,10 @@ impl<H: XcmBlobHauler> LocalXcmQueueManager<H> {
 pub struct XcmVersionOfDestAndRemoteBridge<Version, RemoteBridge>(
 	sp_std::marker::PhantomData<(Version, RemoteBridge)>,
 );
-impl<Version: GetVersion, RemoteBridge: Get<MultiLocation>> GetVersion
+impl<Version: GetVersion, RemoteBridge: Get<Location>> GetVersion
 	for XcmVersionOfDestAndRemoteBridge<Version, RemoteBridge>
 {
-	fn get_version_for(dest: &MultiLocation) -> Option<XcmVersion> {
+	fn get_version_for(dest: &Location) -> Option<XcmVersion> {
 		let dest_version = Version::get_version_for(dest);
 		let bridge_hub_version = Version::get_version_for(&RemoteBridge::get());
 
@@ -342,11 +342,11 @@ mod tests {
 
 	parameter_types! {
 		pub TestSenderAndLane: SenderAndLane = SenderAndLane {
-			location: MultiLocation::new(1, X1(Parachain(1000))),
+			location: Location::new(1, [Parachain(1000)]),
 			lane: TEST_LANE_ID,
 		};
-		pub TestLanes: sp_std::vec::Vec<(SenderAndLane, (NetworkId, InteriorMultiLocation))> = sp_std::vec![
-			(TestSenderAndLane::get(), (NetworkId::ByGenesis([0; 32]), InteriorMultiLocation::Here))
+		pub TestLanes: sp_std::vec::Vec<(SenderAndLane, (NetworkId, InteriorLocation))> = sp_std::vec![
+			(TestSenderAndLane::get(), (NetworkId::ByGenesis([0; 32]), InteriorLocation::Here))
 		];
 		pub DummyXcmMessage: Xcm<()> = Xcm::new();
 	}
@@ -363,7 +363,7 @@ mod tests {
 		type Ticket = ();
 
 		fn validate(
-			_destination: &mut Option<MultiLocation>,
+			_destination: &mut Option<Location>,
 			_message: &mut Option<Xcm<()>>,
 		) -> SendResult<Self::Ticket> {
 			Ok(((), Default::default()))

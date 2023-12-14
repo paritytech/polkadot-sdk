@@ -21,7 +21,8 @@ pub use sp_runtime::DispatchError;
 pub use xcm::{
 	latest::ParentThen,
 	prelude::{AccountId32 as AccountId32Junction, *},
-	v3::{
+	v3,
+	v4::{
 		Error,
 		NetworkId::{Rococo as RococoId, Westend as WestendId},
 	},

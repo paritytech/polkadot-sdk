@@ -29,7 +29,7 @@ use super::{
 };
 use core::marker::PhantomData;
 use frame_support::{
-	match_types, parameter_types,
+	parameter_types,
 	traits::{
 		fungibles::{self, Balanced, Credit},
 		ConstU32, Contains, ContainsPair, Everything, Get, Nothing,
@@ -58,13 +58,13 @@ use xcm_builder::{
 use xcm_executor::{traits::JustTry, XcmExecutor};
 
 parameter_types! {
-	pub const RelayLocation: MultiLocation = MultiLocation::parent();
+	pub const RelayLocation: Location = Location::parent();
 	pub const RelayNetwork: Option<NetworkId> = None;
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
-	pub UniversalLocation: InteriorMultiLocation = X1(Parachain(ParachainInfo::parachain_id().into()));
+	pub UniversalLocation: InteriorLocation = [Parachain(ParachainInfo::parachain_id().into())].into();
 }
 
-/// Type for specifying how a `MultiLocation` can be converted into an `AccountId`. This is used
+/// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
 /// when determining ownership of accounts for asset transacting and when attempting to use XCM
 /// `Transact` in order to determine the dispatch Origin.
 pub type LocationToAccountId = (
@@ -83,7 +83,7 @@ pub type CurrencyTransactor = CurrencyAdapter<
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
 	IsConcrete<RelayLocation>,
-	// Do a simple punn to convert an AccountId32 MultiLocation into a native chain account ID:
+	// Do a simple punn to convert an AccountId32 Location into a native chain account ID:
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
@@ -114,7 +114,7 @@ pub type FungiblesTransactor = FungiblesAdapter<
 			JustTry,
 		>,
 	),
-	// Convert an XCM MultiLocation into a local account id:
+	// Convert an XCM Location into a local account id:
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
@@ -159,14 +159,18 @@ parameter_types! {
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
 
-match_types! {
-	pub type ParentOrParentsExecutivePlurality: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 1, interior: Here } |
-		MultiLocation { parents: 1, interior: X1(Plurality { id: BodyId::Executive, .. }) }
-	};
-	pub type CommonGoodAssetsParachain: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 1, interior: X1(Parachain(1000)) }
-	};
+pub struct ParentOrParentsExecutivePlurality;
+impl Contains<Location> for ParentOrParentsExecutivePlurality {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (1, []) | (1, [Plurality { id: BodyId::Executive, .. }]))
+	}
+}
+
+pub struct CommonGoodAssetsParachain;
+impl Contains<Location> for CommonGoodAssetsParachain {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (1, [Parachain(1000)]))
+	}
 }
 
 pub type Barrier = TrailingSetTopicAsId<
@@ -203,23 +207,23 @@ pub type AccountIdOf<R> = <R as frame_system::Config>::AccountId;
 
 /// Asset filter that allows all assets from a certain location matching asset id.
 pub struct AssetsFrom<T>(PhantomData<T>);
-impl<T: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation> for AssetsFrom<T> {
-	fn contains(asset: &MultiAsset, origin: &MultiLocation) -> bool {
+impl<T: Get<Location>> ContainsPair<Asset, Location> for AssetsFrom<T> {
+	fn contains(asset: &Asset, origin: &Location) -> bool {
 		let loc = T::get();
 		&loc == origin &&
-			matches!(asset, MultiAsset { id: AssetId::Concrete(asset_loc), fun: Fungible(_a) }
+			matches!(asset, Asset { id: AssetId(asset_loc), fun: Fungible(_a) }
 			if asset_loc.starts_with(&loc))
 	}
 }
 
 /// Asset filter that allows native/relay asset if coming from a certain location.
 pub struct NativeAssetFrom<T>(PhantomData<T>);
-impl<T: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation> for NativeAssetFrom<T> {
-	fn contains(asset: &MultiAsset, origin: &MultiLocation) -> bool {
+impl<T: Get<Location>> ContainsPair<Asset, Location> for NativeAssetFrom<T> {
+	fn contains(asset: &Asset, origin: &Location) -> bool {
 		let loc = T::get();
 		&loc == origin &&
-			matches!(asset, MultiAsset { id: AssetId::Concrete(asset_loc), fun: Fungible(_a) }
-			if *asset_loc == MultiLocation::from(Parent))
+			matches!(asset, Asset { id: AssetId(asset_loc), fun: Fungible(_a) }
+			if *asset_loc == Location::from(Parent))
 	}
 }
 
@@ -255,28 +259,33 @@ where
 pub const TELEPORTABLE_ASSET_ID: u32 = 2;
 parameter_types! {
 	/// The location that this chain recognizes as the Relay network's Asset Hub.
-	pub SystemAssetHubLocation: MultiLocation = MultiLocation::new(1, X1(Parachain(1000)));
+	pub SystemAssetHubLocation: Location = Location::new(1, [Parachain(1000)]);
 	// ALWAYS ensure that the index in PalletInstance stays up-to-date with
 	// the Relay Chain's Asset Hub's Assets pallet index
-	pub SystemAssetHubAssetsPalletLocation: MultiLocation =
-		MultiLocation::new(1, X2(Parachain(1000), PalletInstance(50)));
-	pub AssetsPalletLocation: MultiLocation =
-		MultiLocation::new(0, X1(PalletInstance(50)));
+	pub SystemAssetHubAssetsPalletLocation: Location =
+		Location::new(1, [Parachain(1000), PalletInstance(50)]);
+	pub AssetsPalletLocation: Location =
+		Location::new(0, [PalletInstance(50)]);
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
-	pub LocalTeleportableToAssetHub: MultiLocation = MultiLocation::new(
+	pub LocalTeleportableToAssetHub: Location = Location::new(
 		0,
-		X2(PalletInstance(50), GeneralIndex(TELEPORTABLE_ASSET_ID.into()))
+		[PalletInstance(50), GeneralIndex(TELEPORTABLE_ASSET_ID.into())]
+	);
+	pub LocalTeleportableToAssetHubV3: xcm::v3::Location = xcm::v3::Location::new(
+		0,
+		[xcm::v3::Junction::PalletInstance(50), xcm::v3::Junction::GeneralIndex(TELEPORTABLE_ASSET_ID.into())]
 	);
 }
 
 /// Accepts asset with ID `AssetLocation` and is coming from `Origin` chain.
 pub struct AssetFromChain<AssetLocation, Origin>(PhantomData<(AssetLocation, Origin)>);
-impl<AssetLocation: Get<MultiLocation>, Origin: Get<MultiLocation>>
-	ContainsPair<MultiAsset, MultiLocation> for AssetFromChain<AssetLocation, Origin>
+impl<AssetLocation: Get<Location>, Origin: Get<Location>> ContainsPair<Asset, Location>
+	for AssetFromChain<AssetLocation, Origin>
 {
-	fn contains(asset: &MultiAsset, origin: &MultiLocation) -> bool {
+	fn contains(asset: &Asset, origin: &Location) -> bool {
 		log::trace!(target: "xcm::contains", "AssetFromChain asset: {:?}, origin: {:?}", asset, origin);
-		*origin == Origin::get() && matches!(asset.id, Concrete(id) if id == AssetLocation::get())
+		*origin == Origin::get() &&
+			matches!(asset.id.clone(), AssetId(id) if id == AssetLocation::get())
 	}
 }
 

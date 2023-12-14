@@ -25,23 +25,41 @@ fn simple_version_subscriptions_should_work() {
 		SetAppendix(Xcm(vec![])),
 		SubscribeVersion { query_id: 42, max_response_weight: Weight::from_parts(5000, 5000) },
 	]);
-	let hash = fake_message_hash(&message);
+	let mut hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(20, 20);
-	let r = XcmExecutor::<TestConfig>::execute_xcm(origin, message, hash, weight_limit);
-	assert_eq!(r, Outcome::Error(XcmError::Barrier));
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+		origin,
+		message,
+		&mut hash,
+		weight_limit,
+		Weight::zero(),
+	);
+	assert_eq!(r, Outcome::Error { error: XcmError::Barrier });
 
 	let origin = Parachain(1000);
 	let message = Xcm::<TestCall>(vec![SubscribeVersion {
 		query_id: 42,
 		max_response_weight: Weight::from_parts(5000, 5000),
 	}]);
-	let hash = fake_message_hash(&message);
+	let mut hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(10, 10);
-	let r = XcmExecutor::<TestConfig>::execute_xcm(origin, message.clone(), hash, weight_limit);
-	assert_eq!(r, Outcome::Error(XcmError::Barrier));
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+		origin,
+		message.clone(),
+		&mut hash,
+		weight_limit,
+		Weight::zero(),
+	);
+	assert_eq!(r, Outcome::Error { error: XcmError::Barrier });
 
-	let r = XcmExecutor::<TestConfig>::execute_xcm(Parent, message, hash, weight_limit);
-	assert_eq!(r, Outcome::Complete(Weight::from_parts(10, 10)));
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+		Parent,
+		message,
+		&mut hash,
+		weight_limit,
+		Weight::zero(),
+	);
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
 
 	assert_eq!(
 		SubscriptionRequests::get(),
@@ -53,33 +71,36 @@ fn simple_version_subscriptions_should_work() {
 fn version_subscription_instruction_should_work() {
 	let origin = Parachain(1000);
 	let message = Xcm::<TestCall>(vec![
-		DescendOrigin(X1(AccountIndex64 { index: 1, network: None })),
+		DescendOrigin([AccountIndex64 { index: 1, network: None }].into()),
 		SubscribeVersion { query_id: 42, max_response_weight: Weight::from_parts(5000, 5000) },
 	]);
-	let hash = fake_message_hash(&message);
+	let mut hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(20, 20);
-	let r = XcmExecutor::<TestConfig>::execute_xcm_in_credit(
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		origin,
 		message,
-		hash,
+		&mut hash,
 		weight_limit,
 		weight_limit,
 	);
-	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(20, 20), XcmError::BadOrigin));
+	assert_eq!(
+		r,
+		Outcome::Incomplete { used: Weight::from_parts(20, 20), error: XcmError::BadOrigin }
+	);
 
 	let message = Xcm::<TestCall>(vec![
 		SetAppendix(Xcm(vec![])),
 		SubscribeVersion { query_id: 42, max_response_weight: Weight::from_parts(5000, 5000) },
 	]);
-	let hash = fake_message_hash(&message);
-	let r = XcmExecutor::<TestConfig>::execute_xcm_in_credit(
+	let mut hash = fake_message_hash(&message);
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		origin,
 		message,
-		hash,
+		&mut hash,
 		weight_limit,
 		weight_limit,
 	);
-	assert_eq!(r, Outcome::Complete(Weight::from_parts(20, 20)));
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(20, 20) });
 
 	assert_eq!(
 		SubscriptionRequests::get(),
@@ -93,20 +114,38 @@ fn simple_version_unsubscriptions_should_work() {
 
 	let origin = Parachain(1000);
 	let message = Xcm::<TestCall>(vec![SetAppendix(Xcm(vec![])), UnsubscribeVersion]);
-	let hash = fake_message_hash(&message);
+	let mut hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(20, 20);
-	let r = XcmExecutor::<TestConfig>::execute_xcm(origin, message, hash, weight_limit);
-	assert_eq!(r, Outcome::Error(XcmError::Barrier));
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+		origin,
+		message,
+		&mut hash,
+		weight_limit,
+		Weight::zero(),
+	);
+	assert_eq!(r, Outcome::Error { error: XcmError::Barrier });
 
 	let origin = Parachain(1000);
 	let message = Xcm::<TestCall>(vec![UnsubscribeVersion]);
-	let hash = fake_message_hash(&message);
+	let mut hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(10, 10);
-	let r = XcmExecutor::<TestConfig>::execute_xcm(origin, message.clone(), hash, weight_limit);
-	assert_eq!(r, Outcome::Error(XcmError::Barrier));
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+		origin,
+		message.clone(),
+		&mut hash,
+		weight_limit,
+		Weight::zero(),
+	);
+	assert_eq!(r, Outcome::Error { error: XcmError::Barrier });
 
-	let r = XcmExecutor::<TestConfig>::execute_xcm(Parent, message, hash, weight_limit);
-	assert_eq!(r, Outcome::Complete(Weight::from_parts(10, 10)));
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+		Parent,
+		message,
+		&mut hash,
+		weight_limit,
+		Weight::zero(),
+	);
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
 
 	assert_eq!(SubscriptionRequests::get(), vec![(Parent.into(), None)]);
 	assert_eq!(sent_xcm(), vec![]);
@@ -118,31 +157,34 @@ fn version_unsubscription_instruction_should_work() {
 
 	// Not allowed to do it when origin has been changed.
 	let message = Xcm::<TestCall>(vec![
-		DescendOrigin(X1(AccountIndex64 { index: 1, network: None })),
+		DescendOrigin([AccountIndex64 { index: 1, network: None }].into()),
 		UnsubscribeVersion,
 	]);
-	let hash = fake_message_hash(&message);
+	let mut hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(20, 20);
-	let r = XcmExecutor::<TestConfig>::execute_xcm_in_credit(
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		origin,
 		message,
-		hash,
+		&mut hash,
 		weight_limit,
 		weight_limit,
 	);
-	assert_eq!(r, Outcome::Incomplete(Weight::from_parts(20, 20), XcmError::BadOrigin));
+	assert_eq!(
+		r,
+		Outcome::Incomplete { used: Weight::from_parts(20, 20), error: XcmError::BadOrigin }
+	);
 
 	// Fine to do it when origin is untouched.
 	let message = Xcm::<TestCall>(vec![SetAppendix(Xcm(vec![])), UnsubscribeVersion]);
-	let hash = fake_message_hash(&message);
-	let r = XcmExecutor::<TestConfig>::execute_xcm_in_credit(
+	let mut hash = fake_message_hash(&message);
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		origin,
 		message,
-		hash,
+		&mut hash,
 		weight_limit,
 		weight_limit,
 	);
-	assert_eq!(r, Outcome::Complete(Weight::from_parts(20, 20)));
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(20, 20) });
 
 	assert_eq!(SubscriptionRequests::get(), vec![(Parachain(1000).into(), None)]);
 	assert_eq!(sent_xcm(), vec![]);

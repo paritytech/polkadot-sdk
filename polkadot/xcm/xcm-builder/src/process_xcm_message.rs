@@ -31,7 +31,7 @@ pub struct ProcessXcmMessage<MessageOrigin, XcmExecutor, Call>(
 	PhantomData<(MessageOrigin, XcmExecutor, Call)>,
 );
 impl<
-		MessageOrigin: Into<MultiLocation> + FullCodec + MaxEncodedLen + Clone + Eq + PartialEq + TypeInfo + Debug,
+		MessageOrigin: Into<Location> + FullCodec + MaxEncodedLen + Clone + Eq + PartialEq + TypeInfo + Debug,
 		XcmExecutor: ExecuteXcm<Call>,
 		Call,
 	> ProcessMessage for ProcessXcmMessage<MessageOrigin, XcmExecutor, Call>
@@ -56,10 +56,10 @@ impl<
 
 		let (consumed, result) = match XcmExecutor::execute(origin.into(), pre, id, Weight::zero())
 		{
-			Outcome::Complete(w) => (w, Ok(true)),
-			Outcome::Incomplete(w, _) => (w, Ok(false)),
+			Outcome::Complete { used } => (used, Ok(true)),
+			Outcome::Incomplete { used, .. } => (used, Ok(false)),
 			// In the error-case we assume the worst case and consume all possible weight.
-			Outcome::Error(_) => (required, Err(ProcessMessageError::Unsupported)),
+			Outcome::Error { .. } => (required, Err(ProcessMessageError::Unsupported)),
 		};
 		meter.consume(consumed);
 		result

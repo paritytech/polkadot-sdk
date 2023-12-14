@@ -21,9 +21,9 @@
 use super::*;
 
 parameter_types! {
-	pub UniversalLocation: Junctions = X2(GlobalConsensus(Local::get()), Parachain(1));
-	pub RemoteUniversalLocation: Junctions = X2(GlobalConsensus(Remote::get()), Parachain(1));
-	pub RemoteNetwork: MultiLocation = AncestorThen(2, GlobalConsensus(Remote::get())).into();
+	pub UniversalLocation: Junctions = [GlobalConsensus(Local::get()), Parachain(1)].into();
+	pub RemoteUniversalLocation: Junctions = [GlobalConsensus(Remote::get()), Parachain(1)].into();
+	pub RemoteNetwork: Location = AncestorThen(2, GlobalConsensus(Remote::get())).into();
 }
 type TheBridge =
 	TestBridge<BridgeBlobDispatcher<TestRemoteIncomingRouter, RemoteUniversalLocation, ()>>;

@@ -26,7 +26,7 @@ pub use frame_support::{
 // Polkadot
 pub use xcm::{
 	prelude::{AccountId32 as AccountId32Junction, *},
-	v3::{Error, NetworkId::Rococo as RococoId},
+	v3::{self, Error, NetworkId::Rococo as RococoId},
 };
 
 // Cumulus
@@ -67,11 +67,7 @@ pub type SystemParaToParaTest = Test<AssetHubRococo, PenpalA>;
 pub type ParaToSystemParaTest = Test<PenpalA, AssetHubRococo>;
 
 /// Returns a `TestArgs` instance to be used for the Relay Chain across integration tests
-pub fn relay_test_args(
-	dest: MultiLocation,
-	beneficiary_id: AccountId32,
-	amount: Balance,
-) -> TestArgs {
+pub fn relay_test_args(dest: Location, beneficiary_id: AccountId32, amount: Balance) -> TestArgs {
 	TestArgs {
 		dest,
 		beneficiary: AccountId32Junction { network: None, id: beneficiary_id.into() }.into(),
@@ -85,10 +81,10 @@ pub fn relay_test_args(
 
 /// Returns a `TestArgs` instance to be used by parachains across integration tests
 pub fn para_test_args(
-	dest: MultiLocation,
+	dest: Location,
 	beneficiary_id: AccountId32,
 	amount: Balance,
-	assets: MultiAssets,
+	assets: Assets,
 	asset_id: Option<u32>,
 	fee_asset_item: u32,
 ) -> TestArgs {

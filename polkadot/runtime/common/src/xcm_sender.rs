@@ -35,13 +35,13 @@ pub trait PriceForMessageDelivery {
 	/// Type used for charging different prices to different destinations
 	type Id;
 	/// Return the assets required to deliver `message` to the given `para` destination.
-	fn price_for_delivery(id: Self::Id, message: &Xcm<()>) -> MultiAssets;
+	fn price_for_delivery(id: Self::Id, message: &Xcm<()>) -> Assets;
 }
 impl PriceForMessageDelivery for () {
 	type Id = ();
 
-	fn price_for_delivery(_: Self::Id, _: &Xcm<()>) -> MultiAssets {
-		MultiAssets::new()
+	fn price_for_delivery(_: Self::Id, _: &Xcm<()>) -> Assets {
+		Assets::new()
 	}
 }
 
@@ -49,17 +49,17 @@ pub struct NoPriceForMessageDelivery<Id>(PhantomData<Id>);
 impl<Id> PriceForMessageDelivery for NoPriceForMessageDelivery<Id> {
 	type Id = Id;
 
-	fn price_for_delivery(_: Self::Id, _: &Xcm<()>) -> MultiAssets {
-		MultiAssets::new()
+	fn price_for_delivery(_: Self::Id, _: &Xcm<()>) -> Assets {
+		Assets::new()
 	}
 }
 
 /// Implementation of [`PriceForMessageDelivery`] which returns a fixed price.
 pub struct ConstantPrice<T>(sp_std::marker::PhantomData<T>);
-impl<T: Get<MultiAssets>> PriceForMessageDelivery for ConstantPrice<T> {
+impl<T: Get<Assets>> PriceForMessageDelivery for ConstantPrice<T> {
 	type Id = ();
 
-	fn price_for_delivery(_: Self::Id, _: &Xcm<()>) -> MultiAssets {
+	fn price_for_delivery(_: Self::Id, _: &Xcm<()>) -> Assets {
 		T::get()
 	}
 }
@@ -84,7 +84,7 @@ impl<A: Get<AssetId>, B: Get<u128>, M: Get<u128>, F: FeeTracker> PriceForMessage
 {
 	type Id = F::Id;
 
-	fn price_for_delivery(id: Self::Id, msg: &Xcm<()>) -> MultiAssets {
+	fn price_for_delivery(id: Self::Id, msg: &Xcm<()>) -> Assets {
 		let msg_fee = (msg.encoded_size() as u128).saturating_mul(M::get());
 		let fee_sum = B::get().saturating_add(msg_fee);
 		let amount = F::get_fee_factor(id).saturating_mul_int(fee_sum);
@@ -103,11 +103,11 @@ where
 	type Ticket = (HostConfiguration<BlockNumberFor<T>>, ParaId, Vec<u8>);
 
 	fn validate(
-		dest: &mut Option<MultiLocation>,
+		dest: &mut Option<Location>,
 		msg: &mut Option<Xcm<()>>,
 	) -> SendResult<(HostConfiguration<BlockNumberFor<T>>, ParaId, Vec<u8>)> {
 		let d = dest.take().ok_or(MissingArgument)?;
-		let id = if let MultiLocation { parents: 0, interior: X1(Parachain(id)) } = &d {
+		let id = if let (0, [Parachain(id)]) = d.unpack() {
 			*id
 		} else {
 			*dest = Some(d);
@@ -160,7 +160,7 @@ pub struct ToParachainDeliveryHelper<
 #[cfg(feature = "runtime-benchmarks")]
 impl<
 		XcmConfig: xcm_executor::Config,
-		ExistentialDeposit: Get<Option<MultiAsset>>,
+		ExistentialDeposit: Get<Option<Asset>>,
 		PriceForDelivery: PriceForMessageDelivery<Id = ParaId>,
 		Parachain: Get<ParaId>,
 		ToParachainHelper: EnsureForParachain,
@@ -174,10 +174,10 @@ impl<
 	>
 {
 	fn ensure_successful_delivery(
-		origin_ref: &MultiLocation,
-		_dest: &MultiLocation,
+		origin_ref: &Location,
+		_dest: &Location,
 		fee_reason: xcm_executor::traits::FeeReason,
-	) -> (Option<xcm_executor::FeesMode>, Option<MultiAssets>) {
+	) -> (Option<xcm_executor::FeesMode>, Option<Assets>) {
 		use xcm_executor::{
 			traits::{FeeManager, TransactAsset},
 			FeesMode,
@@ -234,7 +234,7 @@ mod tests {
 	parameter_types! {
 		pub const BaseDeliveryFee: u128 = 300_000_000;
 		pub const TransactionByteFee: u128 = 1_000_000;
-		pub FeeAssetId: AssetId = Concrete(Here.into());
+		pub FeeAssetId: AssetId = AssetId(Here.into());
 	}
 
 	struct TestFeeTracker;

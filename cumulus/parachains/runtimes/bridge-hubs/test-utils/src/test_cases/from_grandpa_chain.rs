@@ -332,9 +332,9 @@ where
 		let (relay_chain_header, grandpa_justification, message_proof) =
 			test_data::from_grandpa_chain::make_complex_relayer_delivery_proofs::<MB, ()>(
 				LaneId::default(),
-				vec![xcm::v3::Instruction::<()>::ClearOrigin; 1_024].into(),
+				vec![Instruction::<()>::ClearOrigin; 1_024].into(),
 				1,
-				X2(GlobalConsensus(Polkadot), Parachain(1_000)),
+				[GlobalConsensus(Polkadot), Parachain(1_000)].into(),
 				1u32.into(),
 			);
 
