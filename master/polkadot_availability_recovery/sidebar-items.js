@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["ErasureTask","PostRecoveryCheck","RecoveryStrategyKind"],"struct":["AvailabilityRecoverySubsystem"]};
+window.SIDEBAR_ITEMS = {"enum":["ErasureTask","PostRecoveryCheck","RecoveryStrategyKind"],"struct":["AvailabilityRecoverySubsystem","Metrics"]};

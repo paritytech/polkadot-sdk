@@ -854,6 +854,13 @@
 <a href="#854" id="854">854</a>
 <a href="#855" id="855">855</a>
 <a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -921,7 +928,7 @@
 <span class="kw">mod </span>futures_undead;
 <span class="kw">mod </span>metrics;
 <span class="kw">mod </span>task;
-<span class="kw">use </span>metrics::Metrics;
+<span class="kw">pub use </span>metrics::Metrics;
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
@@ -1459,7 +1466,8 @@
 		}
 	}
 
-	<span class="kw">async fn </span>run&lt;Context&gt;(<span class="self">self</span>, <span class="kw-2">mut </span>ctx: Context) -&gt; SubsystemResult&lt;()&gt; {
+	<span class="doccomment">/// Starts the inner subsystem loop.
+	</span><span class="kw">pub async fn </span>run&lt;Context&gt;(<span class="self">self</span>, <span class="kw-2">mut </span>ctx: Context) -&gt; SubsystemResult&lt;()&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>state = State::default();
 		<span class="kw">let </span><span class="self">Self </span>{
 			<span class="kw-2">mut </span>req_receiver,
@@ -1537,6 +1545,7 @@
 							<span class="kw-2">&amp;mut </span>state,
 							signal,
 						).<span class="kw">await</span><span class="question-mark">? </span>{
+							<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">&quot;subsystem concluded&quot;</span>);
 							<span class="kw">return </span><span class="prelude-val">Ok</span>(());
 						}
 						FromOrchestra::Communication { msg } =&gt; {
@@ -1701,13 +1710,18 @@
 				<span class="kw">let _ </span>= sender.send(maybe_data);
 			},
 			<span class="prelude-val">None </span>=&gt; {
-				<span class="macro">gum::debug!</span>(
+				<span class="macro">gum::trace!</span>(
 					target: LOG_TARGET,
 					<span class="string">&quot;Erasure task channel closed. Node shutting down ?&quot;</span>,
 				);
 				<span class="kw">break
 			</span>},
 		}
+
+		<span class="comment">// In benchmarks this is a very hot loop not yielding at all.
+		// To update CPU metrics for the task we need to yield.
+		</span><span class="attr">#[cfg(feature = <span class="string">&quot;subsystem-benchmarks&quot;</span>)]
+		</span>tokio::task::yield_now().<span class="kw">await</span>;
 	}
 }
 </code></pre></div></section></main></body></html>

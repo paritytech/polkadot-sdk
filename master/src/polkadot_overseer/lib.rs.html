@@ -947,6 +947,8 @@
 <a href="#947" id="947">947</a>
 <a href="#948" id="948">948</a>
 <a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1225,6 +1227,7 @@
 
 <span class="doccomment">/// An event from outside the overseer scope, such
 /// as the substrate framework or user interaction.
+</span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub enum </span>Event {
 	<span class="doccomment">/// A new block was imported.
 	///
@@ -1249,6 +1252,7 @@
 }
 
 <span class="doccomment">/// Some request from outer world.
+</span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub enum </span>ExternalRequest {
 	<span class="doccomment">/// Wait for the activation of a particular hash
 	/// and be notified by means of the return channel.
