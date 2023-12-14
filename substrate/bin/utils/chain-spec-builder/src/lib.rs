@@ -55,20 +55,22 @@
 //! ##### Generate raw storage chain spec using full genesis config.
 //!
 //! Build the chain spec using provided full genesis config json file. No defaults will be used:
-//!/
-/! chain-spec-builder create -s -r runtime.wasm full full-genesis-config.json
+//!
+//! ```bash
+//! chain-spec-builder create -s -r runtime.wasm full full-genesis-config.json
 //! ```
 //!
 //! _Note_: [`GenesisBuilder::build_config`][sp-genesis-builder-build] runtime function is called.
 //!
 //! ##### Generate human readable chain spec using provided genesis config patch.
-//!/
-/! chain-spec-builder create -r runtime.wasm patch patch.json
+//! ```bash
+//! chain-spec-builder create -r runtime.wasm patch patch.json
 //! ```
 //!
 //! ##### Generate human readable chain spec using provided full genesis config.
-//!/
-/! chain-spec-builder create -r runtime.wasm full full-genesis-config.json
+//!
+//! ```bash
+//! chain-spec-builder create -r runtime.wasm full full-genesis-config.json
 //! ```
 //!
 //! ##### Extra tools.
