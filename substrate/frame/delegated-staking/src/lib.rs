@@ -18,6 +18,34 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![deny(rustdoc::broken_intra_doc_links)]
 
+//! An implementation of a delegation system for staking that can be utilised using
+//! [`DelegationInterface`]. In future, if exposed via extrinsic, these primitives could also be
+//! used by off-chain entities, smart contracts or by other parachains via xcm.
+//!
+//! Delegatee: Someone who accepts delegations. An account can set their intention to accept
+//! delegations by calling [`DelegationInterface::accept_delegations`]. This account cannot have
+//! another role in the staking system and once set as delegatee, can only stake with their
+//! delegated balance, i.e. cannot use their own free balance to stake. They can also block new
+//! delegations by calling [`DelegationInterface::block_delegations`] or remove themselves from
+//! being a delegatee by calling [`DelegationInterface::kill_delegatee`] once all delegations to it
+//! are removed.
+//!
+//! Delegatee is also responsible for managing reward distribution and slashes of delegators.
+//!
+//! Delegator: Someone who delegates their funds to a delegatee. A delegator can delegate their
+//! funds to one and only one delegatee. They also can not be a nominator or validator.
+//!
+//! Reward payouts destination: Delegatees are restricted to have a reward payout destination that
+//! is different from the delegatee account. This means, it cannot be auto-compounded and needs to
+//! be staked again as a delegation. However, the reward payouts can then be distributed to
+//! delegators by the delegatee.
+//!
+//! Any slashes to a delegatee are recorded in [`DelegationRegister`] of the Delegatee as a pending
+//! slash. Since the actual amount is held in the delegator's account, this pallet does not know how
+//! to apply slash. It is Delegatee's responsibility to apply slashes for each delegator, one at a
+//! time. Staking pallet ensures the pending slash never exceeds staked amount and would freeze
+//! further withdraws until pending slashes are applied.
+
 #[cfg(test)]
 mod mock;
 
@@ -34,7 +62,7 @@ use frame_support::{
 			hold::{Balanced as FunHoldBalanced, Mutate as FunHoldMutate},
 			Balanced, Inspect as FunInspect, Mutate as FunMutate,
 		},
-		tokens::{Fortitude, Precision, Preservation, fungible::Credit},
+		tokens::{fungible::Credit, Fortitude, Precision, Preservation},
 		DefensiveOption, Imbalance, OnUnbalanced,
 	},
 	transactional,
