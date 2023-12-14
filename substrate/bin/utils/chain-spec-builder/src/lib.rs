@@ -33,7 +33,7 @@
 //!	Query the default genesis config from the provided `runtime.wasm` and use it in the chain
 //! spec. Tool can also store runtime's default genesis config in the given file (which is `/dev/stdout` in the following example):
 //!	```text
-//! chain-spec-builder --chain_spec_path /dev/stdout create -r runtime.wasm default
+//! chain-spec-builder create -r runtime.wasm default /dev/stdout
 //! ```
 //!
 //! _Note:_ [`GenesisBuilder::create_default_config`][sp-genesis-builder-create] runtime function is called.
