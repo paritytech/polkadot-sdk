@@ -943,18 +943,13 @@ impl<T: Config> PreCodeUpgrade for Pallet<T> {
 			lease_holding;
 
 		if !free_upgrade {
-			if info.billing_account.is_none() {
+			let Some(billing_account) = info.billing_account.clone() else {
 				Self::deposit_event(Event::<T>::CodeUpgradeScheduleFailed(
 					CodeUpgradeScheduleError::BillingAccountNotSet,
 				));
 				// An overestimate of the used weight, but it's better to be safe than sorry.
 				return Err(<T as Config>::WeightInfo::pre_code_upgrade())
-			}
-
-			let billing_account = info
-				.billing_account
-				.clone()
-				.expect("Ensured above that the billing account is set; qed");
+			};
 
 			if let Err(_) = <T as Config>::Currency::withdraw(
 				&billing_account,
