@@ -136,5 +136,9 @@ pub trait StakingDelegationSupport: StakingHoldProvider {
 		false
 	}
 
-	fn is_delegatee(_who: &Self::AccountId) -> bool;
+	/// Returns true if `who` accepts delegations for stake.
+	fn is_delegatee(who: &Self::AccountId) -> bool;
+
+	/// Reports an ongoing slash to the delegatee account that would be applied lazily.
+	fn report_slash(who: &Self::AccountId, slash: Self::Balance);
 }

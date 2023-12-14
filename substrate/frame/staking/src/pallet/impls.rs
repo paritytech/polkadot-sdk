@@ -1883,12 +1883,12 @@ impl<T: Config> StakingHoldProvider for NoDelegation<T> {
 	type AccountId = T::AccountId;
 
 	fn update_hold(_who: &Self::AccountId, _amount: Self::Balance) -> sp_runtime::DispatchResult {
-		defensive_assert!(true, "delegation update_hold should not be called for NoDelegation");
+		defensive!("delegation update_hold should not be have been called for NoDelegation");
 		Err(Error::<T>::NotEnoughFunds.into())
 	}
 
 	fn release_all(_who: &Self::AccountId) {
-		defensive_assert!(true, "delegation release_all should not be called for NoDelegation");
+		defensive!("delegation release_all should not have been called for NoDelegation");
 	}
 }
 
@@ -1898,6 +1898,10 @@ impl<T: Config> StakingDelegationSupport for NoDelegation<T> {
 	}
 	fn is_delegatee(_who: &Self::AccountId) -> bool {
 		false
+	}
+
+	fn report_slash(_who: &Self::AccountId, _slash: Self::Balance) {
+		defensive!("delegation report_slash should not be have been called for NoDelegation");
 	}
 }
 

@@ -511,6 +511,15 @@ impl<T: Config> StakingDelegationSupport for Pallet<T> {
 	fn is_delegatee(who: &Self::AccountId) -> bool {
 		Self::is_delegatee(who)
 	}
+
+	fn report_slash(who: &Self::AccountId, slash: Self::Balance) {
+		<Delegatees<T>>::mutate(who, |maybe_register| match maybe_register {
+			Some(register) => register.pending_slash.saturating_accrue(slash),
+			None => {
+				defensive!("should not be called on non-delegatee");
+			},
+		});
+	}
 }
 
 /// StakingInterface implementation with delegation support.
