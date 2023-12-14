@@ -353,6 +353,9 @@ fn add_offending_validator<T: Config>(params: &SlashParams<T>) {
 			}
 		}
 	});
+
+	// `DisabledValidators` should be kept sorted
+	debug_assert!(DisabledValidators::<T>::get().windows(2).all(|pair| pair[0] <= pair[1]));
 }
 
 /// Slash nominators. Accepts general parameters and the prior slash percentage of the validator.
