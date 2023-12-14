@@ -23,7 +23,10 @@
 use crate::currency_to_vote::CurrencyToVote;
 use codec::{Decode, Encode, FullCodec, HasCompact, MaxEncodedLen};
 use scale_info::TypeInfo;
-use sp_runtime::{traits::{AtLeast32BitUnsigned, Zero}, DispatchError, DispatchResult, RuntimeDebug, Saturating, Perbill};
+use sp_runtime::{
+	traits::{AtLeast32BitUnsigned, Zero},
+	DispatchError, DispatchResult, Perbill, RuntimeDebug, Saturating,
+};
 use sp_std::{collections::btree_map::BTreeMap, ops::Sub, vec, vec::Vec};
 
 pub mod offence;
