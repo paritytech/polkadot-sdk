@@ -149,9 +149,6 @@ pub trait OnOffenceHandler<Reporter, Offender, Res> {
 	///
 	/// The `session` parameter is the session index of the offence.
 	///
-	/// NOTE: All offenders are disabled immediately unless there are already `byzantine threshold`
-	/// offenders. In this case they are slashed but not disabled.
-	///
 	/// The receiver might decide to not accept this offence. In this case, the call site is
 	/// responsible for queuing the report and re-submitting again.
 	fn on_offence(
