@@ -821,8 +821,8 @@ fn root_upgrading_parachain_works() {
 		);
 
 		// CASE 2: Root schedules a para upgrade to set the validation code to a new one which has
-		// half the size of the initially registered code. The para manager should get a refund for
-		// the deposit they are no longer required to hold.
+		// half the size of the initially registered code. The billing acount should get a refund
+		// for the deposit they are no longer required to hold.
 
 		let code_2 = validation_code(code_size / 2);
 		assert_ok!(Registrar::schedule_code_upgrade(

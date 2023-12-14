@@ -879,34 +879,11 @@ impl<T: Config> Pallet<T> {
 		// initial weight is config read.
 		let mut weight = T::DbWeight::get().reads_writes(1, 0);
 		if let Some(new_code) = commitments.new_validation_code {
-			// Block number of candidate's inclusion.
-			let now = <frame_system::Pallet<T>>::block_number();
-
-			match <T as paras::Config>::PreCodeUpgrade::pre_code_upgrade(
+			weight.saturating_accrue(Self::try_schedule_code_upgrade(
+				&config,
 				receipt.descriptor.para_id,
-				new_code.clone(),
-				UpgradeRequirements::EnforceRequirements,
-			) {
-				Ok(consumed_weight) => {
-					weight.saturating_accrue(consumed_weight);
-
-					weight.saturating_accrue(<paras::Pallet<T>>::schedule_code_upgrade(
-						receipt.descriptor.para_id,
-						new_code,
-						now,
-						&config,
-						SetGoAhead::Yes,
-					));
-				},
-				Err(consumed_weight) => {
-					log::debug!(
-						target: LOG_TARGET,
-						"Failed to schedule a code upgrade for parachain {}",
-						u32::from(receipt.descriptor.para_id),
-					);
-					weight.saturating_accrue(consumed_weight);
-				},
-			};
+				new_code,
+			));
 		}
 
 		// enact the messaging facet of the candidate.
@@ -1141,6 +1118,41 @@ impl<T: Config> Pallet<T> {
 		para: ParaId,
 	) -> Option<CandidatePendingAvailability<T::Hash, BlockNumberFor<T>>> {
 		<PendingAvailability<T>>::get(&para)
+	}
+
+	/// Attempts to schedule a code upgrade.
+	///
+	/// Returns the consumed weight.
+	fn try_schedule_code_upgrade(
+		config: &HostConfiguration<BlockNumberFor<T>>,
+		para_id: ParaId,
+		new_code: primitives::ValidationCode,
+	) -> Weight {
+		// Block number of candidate's inclusion.
+		let now = <frame_system::Pallet<T>>::block_number();
+
+		match <T as paras::Config>::PreCodeUpgrade::pre_code_upgrade(
+			para_id,
+			new_code.clone(),
+			UpgradeRequirements::EnforceRequirements,
+		) {
+			Ok(consumed_weight) =>
+				consumed_weight.saturating_add(<paras::Pallet<T>>::schedule_code_upgrade(
+					para_id,
+					new_code,
+					now,
+					&config,
+					SetGoAhead::Yes,
+				)),
+			Err(consumed_weight) => {
+				log::debug!(
+					target: LOG_TARGET,
+					"Failed to schedule a code upgrade for parachain {}",
+					u32::from(para_id),
+				);
+				consumed_weight
+			},
+		}
 	}
 }
 
