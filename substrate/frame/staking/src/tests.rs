@@ -39,7 +39,7 @@ use sp_runtime::{
 };
 use sp_staking::{
 	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
-	SessionIndex,
+	SessionIndex, StakingInterface,
 };
 use sp_std::prelude::*;
 use substrate_test_utils::assert_eq_uvec;
@@ -809,11 +809,11 @@ fn double_staking_should_fail() {
 		);
 		// stash => attempting to nominate should fail.
 		assert_noop!(
-			Staking::nominate(RuntimeOrigin::signed(stash), vec![1]),
+			Staking::nominate(RuntimeOrigin::signed(stash), vec![11]),
 			Error::<Test>::NotController
 		);
 		// controller => nominating should work.
-		assert_ok!(Staking::nominate(RuntimeOrigin::signed(controller), vec![1]));
+		assert_ok!(Staking::nominate(RuntimeOrigin::signed(controller), vec![11]));
 	});
 }
 
@@ -1868,10 +1868,10 @@ fn switching_roles() {
 
 		// add 2 nominators
 		assert_ok!(Staking::bond(RuntimeOrigin::signed(1), 2000, RewardDestination::Account(1)));
-		assert_ok!(Staking::nominate(RuntimeOrigin::signed(1), vec![11, 5]));
+		assert_ok!(Staking::nominate(RuntimeOrigin::signed(1), vec![11, 31]));
 
 		assert_ok!(Staking::bond(RuntimeOrigin::signed(3), 500, RewardDestination::Account(3)));
-		assert_ok!(Staking::nominate(RuntimeOrigin::signed(3), vec![21, 1]));
+		assert_ok!(Staking::nominate(RuntimeOrigin::signed(3), vec![21, 31]));
 
 		// add a new validator candidate
 		assert_ok!(Staking::bond(RuntimeOrigin::signed(5), 1000, RewardDestination::Account(5)));
@@ -1884,8 +1884,8 @@ fn switching_roles() {
 
 		mock::start_active_era(1);
 
-		// with current nominators 11 and 5 have the most stake
-		assert_eq_uvec!(validator_controllers(), vec![5, 11]);
+		// with current nominators 11 and 31 have the most stake
+		assert_eq_uvec!(validator_controllers(), vec![11, 31]);
 
 		// 1 decides to be a validator. Consequences:
 		assert_ok!(Staking::validate(RuntimeOrigin::signed(1), ValidatorPrefs::default()));
@@ -1911,7 +1911,7 @@ fn switching_roles() {
 }
 
 #[test]
-fn wrong_vote_is_moot() {
+fn wrong_vote_errors() {
 	ExtBuilder::default()
 		.add_staker(
 			61,
@@ -1919,7 +1919,6 @@ fn wrong_vote_is_moot() {
 			500,
 			StakerStatus::Nominator(vec![
 				11, 21, // good votes
-				1, 2, 15, 1000, 25, // crap votes. No effect.
 			]),
 		)
 		.build_and_execute(|| {
@@ -1932,6 +1931,14 @@ fn wrong_vote_is_moot() {
 			// our new voter is taken into account
 			assert!(Staking::eras_stakers(active_era(), &11).others.iter().any(|i| i.who == 61));
 			assert!(Staking::eras_stakers(active_era(), &21).others.iter().any(|i| i.who == 61));
+
+			// trying to nominate a non-validator will fail.
+			assert_noop!(Staking::nominate(RuntimeOrigin::signed(61), vec![11, 21, 1000]), Error::<Test>::BadTarget);
+
+			// however, nominating an `Idle` validator is OK.
+			assert_eq!(Staking::status(&41), Ok(StakerStatus::Idle));
+			assert_eq!(Staking::status(&31), Ok(StakerStatus::Validator));
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(61), vec![11, 21, 31, 41]));
 		});
 }
 
@@ -5169,7 +5176,7 @@ mod election_data_provider {
 			assert_eq!(<Test as Config>::VoterList::count(), 4);
 
 			assert_ok!(Staking::bond(RuntimeOrigin::signed(4), 5, Default::default(),));
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(4), vec![1]));
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(4), vec![11]));
 			assert_eq!(<Test as Config>::VoterList::count(), 5);
 
 			let voters_before =
@@ -5421,11 +5428,12 @@ mod election_data_provider {
 	fn lazy_quota_npos_voters_works_above_quota() {
 		ExtBuilder::default()
 			.nominate(false)
+			.has_stakers(true)
 			.add_staker(
 				61,
 				60,
 				300, // 300 bond has 16 nomination quota.
-				StakerStatus::<AccountId>::Nominator(vec![21, 22, 23, 24, 25]),
+				StakerStatus::<AccountId>::Nominator(vec![11, 21, 31, 41]),
 			)
 			.build_and_execute(|| {
 				// unbond 78 from stash 60 so that it's bonded balance is 222, which has a lower
@@ -5434,14 +5442,17 @@ mod election_data_provider {
 				assert_eq!(Staking::api_nominations_quota(300 - 78), 2);
 
 				// even through 61 has nomination quota of 2 at the time of the election, all the
-				// nominations (5) will be used.
+				// active nominations (4) will be used.
+				let expected_nominations = Staking::nominations(&61)
+					.unwrap_or(vec![]).len();
+
 				assert_eq!(
 					Staking::electing_voters(DataProviderBounds::default())
 						.unwrap()
 						.iter()
 						.map(|(stash, _, targets)| (*stash, targets.len()))
 						.collect::<Vec<_>>(),
-					vec![(11, 1), (21, 1), (31, 1), (61, 5)],
+					vec![(11, 1), (21, 1), (31, 1), (61, expected_nominations)],
 				);
 			});
 	}
@@ -5450,11 +5461,12 @@ mod election_data_provider {
 	fn nominations_quota_limits_size_work() {
 		ExtBuilder::default()
 			.nominate(false)
+			.has_stakers(true)
 			.add_staker(
 				71,
 				70,
 				333,
-				StakerStatus::<AccountId>::Nominator(vec![16, 15, 14, 13, 12, 11, 10]),
+				StakerStatus::<AccountId>::Nominator(vec![11, 21, 31, 41]),
 			)
 			.build_and_execute(|| {
 				// nominations of controller 70 won't be added due to voter size limit exceeded.
@@ -5482,7 +5494,7 @@ mod election_data_provider {
 						.iter()
 						.map(|(stash, _, targets)| (*stash, targets.len()))
 						.collect::<Vec<_>>(),
-					vec![(11, 1), (21, 1), (31, 1), (71, 7)],
+					vec![(11, 1), (21, 1), (31, 1), (71, 4)],
 				);
 			});
 	}
@@ -5588,7 +5600,7 @@ fn min_bond_checks_work() {
 
 			// 1000 is enough for nominator
 			assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(3), 500));
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(3), vec![1]));
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(3), vec![11]));
 			assert_noop!(
 				Staking::validate(RuntimeOrigin::signed(3), ValidatorPrefs::default()),
 				Error::<Test>::InsufficientBond,
@@ -5596,7 +5608,7 @@ fn min_bond_checks_work() {
 
 			// 1500 is enough for validator
 			assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(3), 500));
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(3), vec![1]));
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(3), vec![11]));
 			assert_ok!(Staking::validate(RuntimeOrigin::signed(3), ValidatorPrefs::default()));
 
 			// Can't unbond anything as validator
@@ -5606,7 +5618,7 @@ fn min_bond_checks_work() {
 			);
 
 			// Once they are a nominator, they can unbond 500
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(3), vec![1]));
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(3), vec![11]));
 			assert_ok!(Staking::unbond(RuntimeOrigin::signed(3), 500));
 			assert_noop!(
 				Staking::unbond(RuntimeOrigin::signed(3), 500),
@@ -5639,7 +5651,7 @@ fn chill_other_works() {
 
 				// Nominator
 				assert_ok!(Staking::bond(RuntimeOrigin::signed(a), 1000, RewardDestination::Stash));
-				assert_ok!(Staking::nominate(RuntimeOrigin::signed(a), vec![1]));
+				assert_ok!(Staking::nominate(RuntimeOrigin::signed(a), vec![11]));
 
 				// Validator
 				assert_ok!(Staking::bond(RuntimeOrigin::signed(b), 1500, RewardDestination::Stash));
@@ -5925,8 +5937,8 @@ fn min_commission_works() {
 fn change_of_absolute_max_nominations() {
 	use frame_election_provider_support::ElectionDataProvider;
 	ExtBuilder::default()
-		.add_staker(61, 61, 10, StakerStatus::Nominator(vec![1]))
-		.add_staker(71, 71, 10, StakerStatus::Nominator(vec![1, 2, 3]))
+		.add_staker(61, 61, 10, StakerStatus::Nominator(vec![11]))
+		.add_staker(71, 71, 10, StakerStatus::Nominator(vec![11, 21, 31]))
 		.balance_factor(10)
 		.build_and_execute(|| {
 			// pre-condition
@@ -6002,7 +6014,7 @@ fn change_of_absolute_max_nominations() {
 			assert_eq!(Staking::electing_voters(bounds).unwrap().len(), 3 + 1);
 
 			// now one of them can revive themselves by re-nominating to a proper value.
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(71), vec![1]));
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(71), vec![11]));
 			assert_eq!(
 				Nominators::<Test>::iter()
 					.map(|(k, n)| (k, n.targets.len()))
@@ -6023,10 +6035,10 @@ fn change_of_absolute_max_nominations() {
 fn nomination_quota_max_changes_decoding() {
 	use frame_election_provider_support::ElectionDataProvider;
 	ExtBuilder::default()
-		.add_staker(60, 61, 10, StakerStatus::Nominator(vec![1]))
-		.add_staker(70, 71, 10, StakerStatus::Nominator(vec![1, 2, 3]))
-		.add_staker(30, 330, 10, StakerStatus::Nominator(vec![1, 2, 3, 4]))
-		.add_staker(50, 550, 10, StakerStatus::Nominator(vec![1, 2, 3, 4]))
+		.add_staker(60, 61, 10, StakerStatus::Nominator(vec![11]))
+		.add_staker(70, 71, 10, StakerStatus::Nominator(vec![11, 21, 31]))
+		.add_staker(30, 330, 10, StakerStatus::Nominator(vec![11, 21, 31, 41]))
+		.add_staker(50, 550, 10, StakerStatus::Nominator(vec![11, 21, 31, 41]))
 		.balance_factor(10)
 		.build_and_execute(|| {
 			// pre-condition.
@@ -7154,8 +7166,7 @@ mod stake_tracker {
 	#[test]
 	fn bond_and_unbond_work() {
 		// Test case: unbond on validator and nominator affects the target list score
-		// accordingly and rebagging may happen. It also adds some moot nominations that are
-		// basically noops.
+		// accordingly and rebagging may happen.
 		// Call paths covered:
 		// * Call::validate()
 		// * Call::nominate()
@@ -7164,11 +7175,7 @@ mod stake_tracker {
 		ExtBuilder::default().build_and_execute(|| {
 			// bond and nominate with stash 61.
 			assert_ok!(Staking::bond(RuntimeOrigin::signed(61), 500, Default::default()));
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(61), vec![31, 7777, 8888]));
-
-			// 7777 and 8888 are moot nominations.
-			assert_noop!(Staking::status(&7777), Error::<Test>::NotStash);
-			assert_noop!(Staking::status(&8888), Error::<Test>::NotStash);
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(61), vec![31]));
 
 			assert_ok!(stake_tracker_sanity_tests());
 

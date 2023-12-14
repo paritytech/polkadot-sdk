@@ -38,7 +38,7 @@ use sp_runtime::{
 
 use sp_staking::{
 	EraIndex, OnStakingUpdate, Page, SessionIndex,
-	StakingAccount::{self, Controller, Stash},
+	StakingAccount::{self, Controller, Stash}, StakingInterface,
 };
 use sp_std::prelude::*;
 
@@ -1081,6 +1081,7 @@ pub mod pallet {
 
 				ledger.update()?;
 
+				// TODO(gpestana): this should not be here bu rather on the ledger.rs
 				// update this staker in the sorted list, if they exist in it.
 				if T::VoterList::contains(&stash) {
 					let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash)).defensive();
@@ -1220,7 +1221,9 @@ pub mod pallet {
 				.map(|t| T::Lookup::lookup(t).map_err(DispatchError::from))
 				.map(|n| {
 					n.and_then(|n| {
-						if old.contains(&n) || !Validators::<T>::get(&n).blocked {
+						// a good target nomination must be a valiator (active or idle). The
+						// validator must not be blocked.
+						if Self::status(&n).is_ok() && (old.contains(&n) || !Validators::<T>::get(&n).blocked) {
 							Ok(n)
 						} else {
 							Err(Error::<T>::BadTarget.into())
