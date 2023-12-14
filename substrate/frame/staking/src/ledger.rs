@@ -18,7 +18,7 @@
 //! A Ledger implementation for stakers.
 
 use frame_support::defensive;
-use sp_staking::{StakingAccount, StakingHoldProvider};
+use sp_staking::{StakingAccount, StakingInterface};
 use sp_std::prelude::*;
 
 use crate::{

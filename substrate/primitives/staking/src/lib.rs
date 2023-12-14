@@ -288,6 +288,11 @@ pub trait StakingInterface {
 	/// Returns the fraction of the slash to be rewarded to reporter.
 	fn slash_reward_fraction() -> Perbill;
 
+	/// Release all funds bonded for stake.
+	///
+	/// Unsafe, only used for migration of delegatee accounts.
+	fn release_all(who: &Self::AccountId);
+
 	#[cfg(feature = "runtime-benchmarks")]
 	fn max_exposure_page_size() -> Page;
 
@@ -420,27 +425,4 @@ pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
 	pub page_count: Page,
 }
 
-/// Something that can hold and release funds for staking.
-pub trait StakingHoldProvider {
-	/// Balance type used by the staking system.
-	type Balance: Sub<Output = Self::Balance>
-		+ Ord
-		+ PartialEq
-		+ Default
-		+ Copy
-		+ MaxEncodedLen
-		+ FullCodec
-		+ TypeInfo
-		+ Saturating;
-
-	/// AccountId type used by the staking system.
-	type AccountId: Clone + sp_std::fmt::Debug;
-
-	/// Update amount held for bonded stake.
-	/// FIXME(ank4n) remove this
-	fn update_hold(who: &Self::AccountId, amount: Self::Balance) -> DispatchResult;
-
-	/// Release all amount held for stake.
-	fn release_all(who: &Self::AccountId);
-}
 sp_core::generate_feature_enabled_macro!(runtime_benchmarks_enabled, feature = "runtime-benchmarks", $);

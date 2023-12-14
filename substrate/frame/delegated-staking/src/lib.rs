@@ -69,11 +69,11 @@ use frame_support::{
 	},
 	transactional,
 };
-use pallet::*;
+
 use sp_runtime::{traits::Zero, DispatchResult, Perbill, RuntimeDebug, Saturating};
 use sp_staking::{
 	delegation::{DelegationInterface, StakingDelegationSupport},
-	EraIndex, Stake, StakerStatus, StakingHoldProvider, StakingInterface,
+	EraIndex, Stake, StakerStatus, StakingInterface,
 };
 use sp_std::{convert::TryInto, prelude::*};
 
@@ -102,8 +102,7 @@ pub mod pallet {
 		type RuntimeHoldReason: From<HoldReason>;
 
 		/// Core staking implementation.
-		type CoreStaking: StakingInterface<Balance = BalanceOf<Self>, AccountId = Self::AccountId>
-			+ StakingHoldProvider<Balance = BalanceOf<Self>, AccountId = Self::AccountId>;
+		type CoreStaking: StakingInterface<Balance = BalanceOf<Self>, AccountId = Self::AccountId>;
 	}
 
 	#[pallet::error]
@@ -512,35 +511,9 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 	}
 }
 
-impl<T: Config> StakingHoldProvider for Pallet<T> {
+impl<T: Config> StakingDelegationSupport for Pallet<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
-
-	fn update_hold(who: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
-		ensure!(Self::is_delegatee(who), Error::<T>::NotSupported);
-
-		// delegation register should exist since `who` is a delegatee.
-		let delegation_register =
-			<Delegatees<T>>::get(who).defensive_ok_or(Error::<T>::BadState)?;
-
-		ensure!(delegation_register.total_delegated >= amount, Error::<T>::NotEnoughFunds);
-		ensure!(delegation_register.pending_slash <= amount, Error::<T>::UnappliedSlash);
-		let updated_register = DelegationLedger { hold: amount, ..delegation_register };
-		<Delegatees<T>>::insert(who, updated_register);
-
-		Ok(())
-	}
-
-	fn release_all(who: &Self::AccountId) {
-		if !Self::is_delegatee(who) {
-			T::CoreStaking::release_all(who);
-		}
-
-		let _delegation_register = <Delegatees<T>>::get(who);
-		todo!("handle kill delegatee")
-	}
-}
-impl<T: Config> StakingDelegationSupport for Pallet<T> {
 	fn stakeable_balance(who: &Self::AccountId) -> Self::Balance {
 		<Delegatees<T>>::get(who)
 			.map(|delegatee| delegatee.delegated_balance())
@@ -572,6 +545,21 @@ impl<T: Config> StakingDelegationSupport for Pallet<T> {
 
 	fn is_delegatee(who: &Self::AccountId) -> bool {
 		Self::is_delegatee(who)
+	}
+
+	fn update_hold(who: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
+		ensure!(Self::is_delegatee(who), Error::<T>::NotSupported);
+
+		// delegation register should exist since `who` is a delegatee.
+		let delegation_register =
+			<Delegatees<T>>::get(who).defensive_ok_or(Error::<T>::BadState)?;
+
+		ensure!(delegation_register.total_delegated >= amount, Error::<T>::NotEnoughFunds);
+		ensure!(delegation_register.pending_slash <= amount, Error::<T>::UnappliedSlash);
+		let updated_register = DelegationLedger { hold: amount, ..delegation_register };
+		<Delegatees<T>>::insert(who, updated_register);
+
+		Ok(())
 	}
 
 	fn report_slash(who: &Self::AccountId, slash: Self::Balance) {
@@ -742,6 +730,10 @@ impl<T: Config> StakingInterface for Pallet<T> {
 
 	fn slash_reward_fraction() -> Perbill {
 		T::CoreStaking::slash_reward_fraction()
+	}
+
+	fn release_all(_who: &Self::AccountId) {
+		defensive_assert!(false, "not supported for delegated impl of staking interface");
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

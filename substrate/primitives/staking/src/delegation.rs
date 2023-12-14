@@ -15,7 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::StakingHoldProvider;
 use codec::{FullCodec, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{DispatchResult, Saturating};
@@ -123,7 +122,21 @@ pub trait DelegationInterface {
 }
 
 /// Something that provides delegation support to core staking.
-pub trait StakingDelegationSupport: StakingHoldProvider {
+pub trait StakingDelegationSupport {
+	/// Balance type used by the staking system.
+	type Balance: Sub<Output = Self::Balance>
+		+ Ord
+		+ PartialEq
+		+ Default
+		+ Copy
+		+ MaxEncodedLen
+		+ FullCodec
+		+ TypeInfo
+		+ Saturating;
+
+	/// AccountId type used by the staking system.
+	type AccountId: Clone + sp_std::fmt::Debug;
+
 	/// Balance of who which is available for stake.
 	fn stakeable_balance(who: &Self::AccountId) -> Self::Balance;
 
@@ -138,6 +151,9 @@ pub trait StakingDelegationSupport: StakingHoldProvider {
 
 	/// Returns true if `who` accepts delegations for stake.
 	fn is_delegatee(who: &Self::AccountId) -> bool;
+
+	/// Update amount held for bonded stake.
+	fn update_hold(who: &Self::AccountId, amount: Self::Balance) -> DispatchResult;
 
 	/// Reports an ongoing slash to the delegatee account that would be applied lazily.
 	fn report_slash(who: &Self::AccountId, slash: Self::Balance);

@@ -44,7 +44,7 @@ use sp_staking::{
 	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
 	EraIndex, Page, SessionIndex, Stake,
 	StakingAccount::{self, Controller, Stash},
-	StakingHoldProvider, StakingInterface,
+	StakingInterface,
 };
 use sp_std::prelude::*;
 
@@ -1114,6 +1114,18 @@ impl<T: Config> Pallet<T> {
 
 		false
 	}
+
+	pub(crate) fn update_hold(
+		who: &T::AccountId,
+		amount: BalanceOf<T>,
+	) -> sp_runtime::DispatchResult {
+		if T::DelegationSupport::is_delegatee(who) {
+			return T::DelegationSupport::update_hold(who, amount);
+		}
+
+		T::Currency::set_lock(crate::STAKING_ID, who, amount, WithdrawReasons::all());
+		Ok(())
+	}
 }
 
 impl<T: Config> Pallet<T> {
@@ -1854,26 +1866,8 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	fn slash_reward_fraction() -> Perbill {
 		SlashRewardFraction::<T>::get()
 	}
-}
-
-impl<T: Config> StakingHoldProvider for Pallet<T> {
-	type Balance = BalanceOf<T>;
-	type AccountId = T::AccountId;
-
-	fn update_hold(who: &Self::AccountId, amount: Self::Balance) -> sp_runtime::DispatchResult {
-		if T::DelegationSupport::is_delegatee(who) {
-			return T::DelegationSupport::update_hold(who, amount);
-		}
-
-		T::Currency::set_lock(crate::STAKING_ID, who, amount, WithdrawReasons::all());
-		Ok(())
-	}
 
 	fn release_all(who: &Self::AccountId) {
-		if T::DelegationSupport::is_delegatee(who) {
-			return T::DelegationSupport::release_all(who);
-		}
-
 		T::Currency::remove_lock(crate::STAKING_ID, who)
 	}
 }
@@ -1881,26 +1875,18 @@ impl<T: Config> StakingHoldProvider for Pallet<T> {
 /// Standard implementation of `StakingDelegationSupport` that supports only direct staking and no
 /// delegated staking.
 pub struct NoDelegation<T>(PhantomData<T>);
-impl<T: Config> StakingHoldProvider for NoDelegation<T> {
+impl<T: Config> StakingDelegationSupport for NoDelegation<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
-
-	fn update_hold(_who: &Self::AccountId, _amount: Self::Balance) -> sp_runtime::DispatchResult {
-		defensive!("delegation update_hold should not be have been called for NoDelegation");
-		Err(Error::<T>::NotEnoughFunds.into())
-	}
-
-	fn release_all(_who: &Self::AccountId) {
-		defensive!("delegation release_all should not have been called for NoDelegation");
-	}
-}
-
-impl<T: Config> StakingDelegationSupport for NoDelegation<T> {
 	fn stakeable_balance(_who: &Self::AccountId) -> Self::Balance {
 		BalanceOf::<T>::zero()
 	}
 	fn is_delegatee(_who: &Self::AccountId) -> bool {
 		false
+	}
+	fn update_hold(_who: &Self::AccountId, _amount: Self::Balance) -> sp_runtime::DispatchResult {
+		defensive!("delegation update_hold should not be have been called for NoDelegation");
+		Err(Error::<T>::NotEnoughFunds.into())
 	}
 
 	fn report_slash(_who: &Self::AccountId, _slash: Self::Balance) {
