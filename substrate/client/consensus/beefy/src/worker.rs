@@ -1817,7 +1817,7 @@ pub(crate) mod tests {
 
 		// test over all permutations of header and ancestry proof being submitted (proof should
 		// be valid as long as at least one is submitted)
-		for (correct_header, ancestry_proof) in [
+		for (canonical_header, ancestry_proof) in [
 			(Some(header.clone()), Some(ancestry_proof.clone())),
 			(Some(header), None),
 			(None, Some(ancestry_proof)),
@@ -1825,7 +1825,7 @@ pub(crate) mod tests {
 			let proof = ForkEquivocationProof {
 				commitment: commitment.clone(),
 				signatories: signatories.clone(),
-				correct_header,
+				canonical_header,
 				ancestry_proof,
 			};
 			// expect fisher (Alice) to successfully process it
@@ -1848,7 +1848,7 @@ pub(crate) mod tests {
 		let proofless_proof = ForkEquivocationProof {
 			commitment: commitment.clone(),
 			signatories: signatories.clone(),
-			correct_header: None,
+			canonical_header: None,
 			ancestry_proof: None,
 		};
 

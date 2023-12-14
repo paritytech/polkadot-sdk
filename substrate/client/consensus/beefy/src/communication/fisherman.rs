@@ -242,12 +242,12 @@ where
 			let proof = ForkEquivocationProof {
 				commitment: vote.commitment,
 				signatories: vec![(vote.id, vote.signature)],
-				correct_header: None,
+				canonical_header: None,
 				ancestry_proof: None,
 			};
 			self.report_fork_equivocation(proof)?;
 		} else {
-			let (correct_hash, correct_header, expected_payload) =
+			let (correct_hash, canonical_header, expected_payload) =
 				self.expected_hash_header_payload_tuple(number)?;
 			if vote.commitment.payload != expected_payload {
 				let ancestry_proof: Option<_> = match self
@@ -268,7 +268,7 @@ where
 				let proof = ForkEquivocationProof {
 					commitment: vote.commitment,
 					signatories: vec![(vote.id, vote.signature)],
-					correct_header: Some(correct_header),
+					canonical_header: Some(canonical_header),
 					ancestry_proof,
 				};
 				self.report_fork_equivocation(proof)?;
@@ -303,13 +303,13 @@ where
 				let proof = ForkEquivocationProof {
 					commitment,
 					signatories,
-					correct_header: None,
+					canonical_header: None,
 					ancestry_proof: None,
 				};
 				self.report_fork_equivocation(proof)?;
 			}
 		} else {
-			let (correct_hash, correct_header, expected_payload) =
+			let (correct_hash, canonical_header, expected_payload) =
 				self.expected_hash_header_payload_tuple(number)?;
 			if commitment.payload != expected_payload {
 				let ancestry_proof = match self.runtime.runtime_api().generate_ancestry_proof(
@@ -345,7 +345,7 @@ where
 					let proof = ForkEquivocationProof {
 						commitment,
 						signatories,
-						correct_header: Some(correct_header),
+						canonical_header: Some(canonical_header),
 						ancestry_proof,
 					};
 					self.report_fork_equivocation(proof)?;

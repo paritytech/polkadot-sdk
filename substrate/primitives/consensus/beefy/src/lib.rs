@@ -313,8 +313,8 @@ pub struct ForkEquivocationProof<Number, Id, Signature, Header, Hash> {
 	pub commitment: Commitment<Number>,
 	/// Signatures on this block
 	pub signatories: Vec<(Id, Signature)>,
-	/// Header at the same height as `commitment.block_number`.
-	pub correct_header: Option<Header>,
+	/// Canonical header at the same height as `commitment.block_number`.
+	pub canonical_header: Option<Header>,
 	/// Ancestry proof showing mmr root
 	pub ancestry_proof: Option<AncestryProof<Hash>>,
 }
@@ -390,14 +390,14 @@ where
 /// Checks wether the provided header's payload differs from the commitment's payload.
 fn check_header_proof<Header>(
 	commitment: &Commitment<Header::Number>,
-	correct_header: &Option<Header>,
+	canonical_header: &Option<Header>,
 	expected_header_hash: &Header::Hash,
 ) -> bool
 where
 	Header: HeaderT,
 {
-	if let Some(correct_header) = correct_header {
-		let expected_mmr_root_digest = mmr::find_mmr_root_digest::<Header>(correct_header);
+	if let Some(canonical_header) = canonical_header {
+		let expected_mmr_root_digest = mmr::find_mmr_root_digest::<Header>(canonical_header);
 		let expected_payload = expected_mmr_root_digest.map(|mmr_root| {
 			Payload::from_single_entry(known_payloads::MMR_ROOT_ID, mmr_root.encode())
 		});
@@ -407,7 +407,7 @@ where
 		// and they will likewise be slashed.
 		// Note that we can only check this if a valid header has been provided - we cannot
 		// slash for this with an ancestry proof - by necessity)
-		if correct_header.hash() == *expected_header_hash &&
+		if canonical_header.hash() == *expected_header_hash &&
 			Some(&commitment.payload) != expected_payload.as_ref()
 		{
 			return true
@@ -486,8 +486,8 @@ where
 /// Validates [ForkEquivocationProof] with the following checks:
 /// - if the commitment is to a block in our history, then at least a header or an ancestry proof is
 ///   provided:
-///   - a `correct_header` is correct if it's at height `commitment.block_number` and
-///   commitment.payload` != `expected_payload(correct_header)`
+///   - a `canonical_header` is correct if it's at height `commitment.block_number` and
+///   commitment.payload` != `expected_payload(canonical_header)`
 ///   - an `ancestry_proof` is correct if it proves mmr_root(commitment.block_number) !=
 ///   mmr_root(commitment.payload)`
 /// - `commitment` is signed by all claimed signatories
@@ -520,11 +520,11 @@ where
 	NodeHash: Clone + Debug + PartialEq + Encode + Decode,
 	Hasher: mmr_lib::Merge<Item = NodeHash>,
 {
-	let ForkEquivocationProof { commitment, signatories, correct_header, ancestry_proof } = proof;
+	let ForkEquivocationProof { commitment, signatories, canonical_header, ancestry_proof } = proof;
 
 	// if commitment is to a block in the future, it's an equivocation as long as it's been signed
 	if commitment.block_number <= best_block_num {
-		if (correct_header, ancestry_proof) == (&None, &None) {
+		if (canonical_header, ancestry_proof) == (&None, &None) {
 			// if commitment isn't to a block number in the future, at least a header or ancestry
 			// proof must be provided, otherwise the proof is entirely invalid
 			return false;
@@ -532,7 +532,7 @@ where
 
 		// if neither the ancestry proof nor the header proof is correct, the proof is invalid
 		// avoid verifying the ancestry proof if a valid header proof has been provided
-		if !check_header_proof(commitment, correct_header, expected_header_hash) &&
+		if !check_header_proof(commitment, canonical_header, expected_header_hash) &&
 			!check_ancestry_proof::<Header, NodeHash, Hasher>(
 				commitment,
 				ancestry_proof,

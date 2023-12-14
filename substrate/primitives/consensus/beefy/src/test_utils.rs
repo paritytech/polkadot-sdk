@@ -117,10 +117,10 @@ pub fn generate_vote_equivocation_proof(
 	VoteEquivocationProof { first, second }
 }
 
-/// Create a new `ForkEquivocationProof` based on vote & correct header.
+/// Create a new `ForkEquivocationProof` based on vote & canonical header.
 pub fn generate_fork_equivocation_proof_vote<Header, Hash>(
 	vote: (u64, Payload, ValidatorSetId, &Keyring),
-	correct_header: Option<Header>,
+	canonical_header: Option<Header>,
 	ancestry_proof: Option<AncestryProof<Hash>>,
 ) -> ForkEquivocationProof<u64, ecdsa_crypto::Public, ecdsa_crypto::Signature, Header, Hash> {
 	let signed_vote = signed_vote(vote.0, vote.1, vote.2, vote.3);
@@ -128,21 +128,21 @@ pub fn generate_fork_equivocation_proof_vote<Header, Hash>(
 	ForkEquivocationProof {
 		commitment: signed_vote.commitment,
 		signatories,
-		correct_header,
+		canonical_header,
 		ancestry_proof,
 	}
 }
 
-/// Create a new `ForkEquivocationProof` based on signed commitment & correct header.
+/// Create a new `ForkEquivocationProof` based on signed commitment & canonical header.
 pub fn generate_fork_equivocation_proof_sc<Header, Hash>(
 	commitment: Commitment<u64>,
 	keyrings: Vec<Keyring>,
-	correct_header: Option<Header>,
+	canonical_header: Option<Header>,
 	ancestry_proof: Option<AncestryProof<Hash>>,
 ) -> ForkEquivocationProof<u64, ecdsa_crypto::Public, ecdsa_crypto::Signature, Header, Hash> {
 	let signatories = keyrings
 		.into_iter()
 		.map(|k| (k.public(), k.sign(&commitment.encode())))
 		.collect::<Vec<_>>();
-	ForkEquivocationProof { commitment, signatories, correct_header, ancestry_proof }
+	ForkEquivocationProof { commitment, signatories, canonical_header, ancestry_proof }
 }
