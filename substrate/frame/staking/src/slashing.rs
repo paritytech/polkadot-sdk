@@ -278,7 +278,8 @@ pub(crate) fn compute_slash<T: Config>(
 		let target_span = spans.compare_and_update_span_slash(params.slash_era, own_slash);
 
 		if target_span == Some(spans.span_index()) {
-			// Check https://github.com/paritytech/polkadot-sdk/issues/2650 for details
+			// misbehavior occurred within the current slashing span - end current span.
+			// Check <https://github.com/paritytech/polkadot-sdk/issues/2650> for details.
 			spans.end_span(params.now);
 		}
 	}
