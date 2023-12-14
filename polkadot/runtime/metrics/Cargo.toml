@@ -6,6 +6,9 @@ edition.workspace = true
 license.workspace = true
 description = "Runtime metric interface for the Polkadot node"
 
+[lints]
+workspace = true
+
 [dependencies]
 sp-std = { package = "sp-std", path = "../../../substrate/primitives/std", default-features = false }
 sp-tracing = { path = "../../../substrate/primitives/tracing", default-features = false }

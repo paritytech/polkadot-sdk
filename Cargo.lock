@@ -2138,6 +2138,7 @@ dependencies = [
  "frame-executive",
  "frame-support",
  "frame-system",
+ "impl-trait-for-tuples",
  "log",
  "pallet-balances",
  "pallet-bridge-grandpa",
@@ -2156,6 +2157,7 @@ dependencies = [
  "sp-io",
  "sp-keyring",
  "sp-runtime",
+ "sp-std 8.0.0",
  "sp-tracing 10.0.0",
  "staging-parachain-info",
  "staging-xcm",
@@ -3410,6 +3412,7 @@ dependencies = [
  "sc-cli",
  "sc-client-api",
  "sc-service",
+ "sp-blockchain",
  "sp-core",
  "sp-runtime",
  "url",
@@ -4579,7 +4582,7 @@ dependencies = [
  "regex",
  "syn 2.0.40",
  "termcolor",
- "toml 0.8.2",
+ "toml 0.7.8",
  "walkdir",
 ]
 
@@ -19123,7 +19126,7 @@ dependencies = [
  "sp-maybe-compressed-blob",
  "strum 0.24.1",
  "tempfile",
- "toml 0.7.8",
+ "toml 0.8.2",
  "walkdir",
  "wasm-opt",
 ]
