@@ -14,7 +14,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
+/*
 use crate::{
 	storage::{self, unhashed, StorageAppend},
 	Never,
@@ -47,7 +47,7 @@ pub trait StorageValue<T: FullCodec> {
 	fn storage_value_final_key() -> [u8; 32];
 }
 
-/*
+
 impl<T: FullCodec, G: StorageValue<T>> storage::StorageValue<T> for G {
 	type Query = G::Query;
 

@@ -20,13 +20,16 @@
 
 use crate::{
 	storage::{
+		self, storage_prefix,
 		types::{
 			EncodeLikeTuple, HasKeyPrefix, HasReversibleKeyPrefix, OptionQuery, QueryKindTrait,
-			StorageEntryMetadataBuilder, TupleToEncodedIter,
+			ReversibleKeyGenerator, StorageEntryMetadataBuilder, TupleToEncodedIter,
 		},
-		KeyGenerator, PrefixIterator, StorageAppend, StorageDecodeLength, StoragePrefixedMap,
+		unhashed, KeyGenerator, KeyPrefixIterator, PrefixIterator, StorageAppend,
+		StorageDecodeLength, StoragePrefixedMap,
 	},
 	traits::{Get, GetDefault, StorageInfo, StorageInstance},
+	Never,
 };
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
 use sp_metadata_ir::{StorageEntryMetadataIR, StorageEntryTypeIR};
@@ -51,6 +54,7 @@ use sp_std::prelude::*;
 /// If the keys are not trusted (e.g. can be set by a user), a cryptographic `hasher`
 /// such as `blake2_128_concat` must be used for the key hashers. Otherwise, other values
 /// in storage can be compromised.
+
 pub struct StorageNMap<
 	Prefix,
 	Key,
@@ -61,8 +65,7 @@ pub struct StorageNMap<
 >(core::marker::PhantomData<(Prefix, Key, Value, QueryKind, OnEmpty, MaxValues)>);
 
 impl<Prefix, Key, Value, QueryKind, OnEmpty, MaxValues>
-	crate::storage::generator::StorageNMap<Key, Value>
-	for StorageNMap<Prefix, Key, Value, QueryKind, OnEmpty, MaxValues>
+	StorageNMap<Prefix, Key, Value, QueryKind, OnEmpty, MaxValues>
 where
 	Prefix: StorageInstance,
 	Key: super::key::KeyGenerator,
@@ -71,21 +74,53 @@ where
 	OnEmpty: Get<QueryKind::Query> + 'static,
 	MaxValues: Get<Option<u32>>,
 {
-	type Query = QueryKind::Query;
 	fn pallet_prefix() -> &'static [u8] {
 		Prefix::pallet_prefix().as_bytes()
 	}
 	fn storage_prefix() -> &'static [u8] {
 		Prefix::STORAGE_PREFIX.as_bytes()
 	}
-	fn prefix_hash() -> [u8; 32] {
+	pub fn prefix_hash() -> [u8; 32] {
 		Prefix::prefix_hash()
 	}
-	fn from_optional_value_to_query(v: Option<Value>) -> Self::Query {
+	fn from_optional_value_to_query(v: Option<Value>) -> QueryKind::Query {
 		QueryKind::from_optional_value_to_query(v)
 	}
-	fn from_query_to_optional_value(v: Self::Query) -> Option<Value> {
+	fn from_query_to_optional_value(v: QueryKind::Query) -> Option<Value> {
 		QueryKind::from_query_to_optional_value(v)
+	}
+
+	/// Generate a partial key used in top storage.
+	fn storage_n_map_partial_key<KP>(key: KP) -> Vec<u8>
+	where
+		Key: HasKeyPrefix<KP>,
+	{
+		let storage_prefix = storage_prefix(Self::pallet_prefix(), Self::storage_prefix());
+		let key_hashed = <Key as HasKeyPrefix<KP>>::partial_key(key);
+
+		let mut final_key = Vec::with_capacity(storage_prefix.len() + key_hashed.len());
+
+		final_key.extend_from_slice(&storage_prefix);
+		final_key.extend_from_slice(key_hashed.as_ref());
+
+		final_key
+	}
+
+	/// Generate the full key used in top storage.
+	fn storage_n_map_final_key<KG, KArg>(key: KArg) -> Vec<u8>
+	where
+		KG: KeyGenerator,
+		KArg: EncodeLikeTuple<KG::KArg> + TupleToEncodedIter,
+	{
+		let storage_prefix = storage_prefix(Self::pallet_prefix(), Self::storage_prefix());
+		let key_hashed = KG::final_key(key);
+
+		let mut final_key = Vec::with_capacity(storage_prefix.len() + key_hashed.len());
+
+		final_key.extend_from_slice(&storage_prefix);
+		final_key.extend_from_slice(key_hashed.as_ref());
+
+		final_key
 	}
 }
 
@@ -100,10 +135,369 @@ where
 	MaxValues: Get<Option<u32>>,
 {
 	fn pallet_prefix() -> &'static [u8] {
-		<Self as crate::storage::generator::StorageNMap<Key, Value>>::pallet_prefix()
+		Self::pallet_prefix()
 	}
 	fn storage_prefix() -> &'static [u8] {
-		<Self as crate::storage::generator::StorageNMap<Key, Value>>::storage_prefix()
+		Self::storage_prefix()
+	}
+}
+
+impl<Prefix, Key, Value, QueryKind, OnEmpty, MaxValues> crate::storage::StorageNMap<Key, Value>
+	for StorageNMap<Prefix, Key, Value, QueryKind, OnEmpty, MaxValues>
+where
+	Prefix: StorageInstance,
+	Key: super::key::KeyGenerator,
+	Value: FullCodec,
+	QueryKind: QueryKindTrait<Value, OnEmpty>,
+	OnEmpty: Get<QueryKind::Query> + 'static,
+	MaxValues: Get<Option<u32>>,
+{
+	type Query = QueryKind::Query;
+
+	fn hashed_key_for<KArg: EncodeLikeTuple<Key::KArg> + TupleToEncodedIter>(key: KArg) -> Vec<u8> {
+		Self::storage_n_map_final_key::<Key, _>(key)
+	}
+
+	fn contains_key<KArg: EncodeLikeTuple<Key::KArg> + TupleToEncodedIter>(key: KArg) -> bool {
+		unhashed::exists(&Self::storage_n_map_final_key::<Key, _>(key))
+	}
+
+	fn get<KArg: EncodeLikeTuple<Key::KArg> + TupleToEncodedIter>(key: KArg) -> Self::Query {
+		Self::from_optional_value_to_query(unhashed::get(&Self::storage_n_map_final_key::<Key, _>(
+			key,
+		)))
+	}
+
+	fn try_get<KArg: EncodeLikeTuple<Key::KArg> + TupleToEncodedIter>(
+		key: KArg,
+	) -> Result<Value, ()> {
+		unhashed::get(&Self::storage_n_map_final_key::<Key, _>(key)).ok_or(())
+	}
+
+	fn set<KArg: EncodeLikeTuple<Key::KArg> + TupleToEncodedIter>(key: KArg, q: Self::Query) {
+		match Self::from_query_to_optional_value(q) {
+			Some(v) => Self::insert(key, v),
+			None => Self::remove(key),
+		}
+	}
+
+	fn take<KArg: EncodeLikeTuple<Key::KArg> + TupleToEncodedIter>(key: KArg) -> Self::Query {
+		let final_key = Self::storage_n_map_final_key::<Key, _>(key);
+
+		let value = unhashed::take(&final_key);
+		Self::from_optional_value_to_query(value)
+	}
+
+	fn swap<KOther, KArg1, KArg2>(key1: KArg1, key2: KArg2)
+	where
+		KOther: KeyGenerator,
+		KArg1: EncodeLikeTuple<Key::KArg> + TupleToEncodedIter,
+		KArg2: EncodeLikeTuple<KOther::KArg> + TupleToEncodedIter,
+	{
+		let final_x_key = Self::storage_n_map_final_key::<Key, _>(key1);
+		let final_y_key = Self::storage_n_map_final_key::<KOther, _>(key2);
+
+		let v1 = unhashed::get_raw(&final_x_key);
+		if let Some(val) = unhashed::get_raw(&final_y_key) {
+			unhashed::put_raw(&final_x_key, &val);
+		} else {
+			unhashed::kill(&final_x_key);
+		}
+		if let Some(val) = v1 {
+			unhashed::put_raw(&final_y_key, &val);
+		} else {
+			unhashed::kill(&final_y_key);
+		}
+	}
+
+	fn insert<KArg, VArg>(key: KArg, val: VArg)
+	where
+		KArg: EncodeLikeTuple<Key::KArg> + TupleToEncodedIter,
+		VArg: EncodeLike<Value>,
+	{
+		unhashed::put(&Self::storage_n_map_final_key::<Key, _>(key), &val);
+	}
+
+	fn remove<KArg: EncodeLikeTuple<Key::KArg> + TupleToEncodedIter>(key: KArg) {
+		unhashed::kill(&Self::storage_n_map_final_key::<Key, _>(key));
+	}
+
+	fn remove_prefix<KP>(partial_key: KP, limit: Option<u32>) -> sp_io::KillStorageResult
+	where
+		Key: HasKeyPrefix<KP>,
+	{
+		unhashed::clear_prefix(&Self::storage_n_map_partial_key(partial_key), limit, None).into()
+	}
+
+	fn clear_prefix<KP>(
+		partial_key: KP,
+		limit: u32,
+		maybe_cursor: Option<&[u8]>,
+	) -> sp_io::MultiRemovalResults
+	where
+		Key: HasKeyPrefix<KP>,
+	{
+		unhashed::clear_prefix(
+			&Self::storage_n_map_partial_key(partial_key),
+			Some(limit),
+			maybe_cursor,
+		)
+	}
+
+	fn contains_prefix<KP>(partial_key: KP) -> bool
+	where
+		Key: HasKeyPrefix<KP>,
+	{
+		unhashed::contains_prefixed_key(&Self::storage_n_map_partial_key(partial_key))
+	}
+
+	fn iter_prefix_values<KP>(partial_key: KP) -> PrefixIterator<Value>
+	where
+		Key: HasKeyPrefix<KP>,
+	{
+		let prefix = Self::storage_n_map_partial_key(partial_key);
+		PrefixIterator {
+			prefix: prefix.clone(),
+			previous_key: prefix,
+			drain: false,
+			closure: |_raw_key, mut raw_value| Value::decode(&mut raw_value),
+			phantom: Default::default(),
+		}
+	}
+
+	fn mutate<KArg, R, F>(key: KArg, f: F) -> R
+	where
+		KArg: EncodeLikeTuple<Key::KArg> + TupleToEncodedIter,
+		F: FnOnce(&mut Self::Query) -> R,
+	{
+		Self::try_mutate(key, |v| Ok::<R, Never>(f(v)))
+			.expect("`Never` can not be constructed; qed")
+	}
+
+	fn try_mutate<KArg, R, E, F>(key: KArg, f: F) -> Result<R, E>
+	where
+		KArg: EncodeLikeTuple<Key::KArg> + TupleToEncodedIter,
+		F: FnOnce(&mut Self::Query) -> Result<R, E>,
+	{
+		let final_key = Self::storage_n_map_final_key::<Key, _>(key);
+		let mut val = Self::from_optional_value_to_query(unhashed::get(final_key.as_ref()));
+
+		let ret = f(&mut val);
+		if ret.is_ok() {
+			match Self::from_query_to_optional_value(val) {
+				Some(ref val) => unhashed::put(final_key.as_ref(), val),
+				None => unhashed::kill(final_key.as_ref()),
+			}
+		}
+		ret
+	}
+
+	fn mutate_exists<KArg, R, F>(key: KArg, f: F) -> R
+	where
+		KArg: EncodeLikeTuple<Key::KArg> + TupleToEncodedIter,
+		F: FnOnce(&mut Option<Value>) -> R,
+	{
+		Self::try_mutate_exists(key, |v| Ok::<R, Never>(f(v)))
+			.expect("`Never` can not be constructed; qed")
+	}
+
+	fn try_mutate_exists<KArg, R, E, F>(key: KArg, f: F) -> Result<R, E>
+	where
+		KArg: EncodeLikeTuple<Key::KArg> + TupleToEncodedIter,
+		F: FnOnce(&mut Option<Value>) -> Result<R, E>,
+	{
+		let final_key = Self::storage_n_map_final_key::<Key, _>(key);
+		let mut val = unhashed::get(final_key.as_ref());
+
+		let ret = f(&mut val);
+		if ret.is_ok() {
+			match val {
+				Some(ref val) => unhashed::put(final_key.as_ref(), val),
+				None => unhashed::kill(final_key.as_ref()),
+			}
+		}
+		ret
+	}
+
+	fn append<Item, EncodeLikeItem, KArg>(key: KArg, item: EncodeLikeItem)
+	where
+		KArg: EncodeLikeTuple<Key::KArg> + TupleToEncodedIter,
+		Item: Encode,
+		EncodeLikeItem: EncodeLike<Item>,
+		Value: StorageAppend<Item>,
+	{
+		let final_key = Self::storage_n_map_final_key::<Key, _>(key);
+		sp_io::storage::append(&final_key, item.encode());
+	}
+
+	fn migrate_keys<KArg>(key: KArg, hash_fns: Key::HArg) -> Option<Value>
+	where
+		KArg: EncodeLikeTuple<Key::KArg> + TupleToEncodedIter,
+	{
+		let old_key = {
+			let storage_prefix = storage_prefix(Self::pallet_prefix(), Self::storage_prefix());
+			let key_hashed = Key::migrate_key(&key, hash_fns);
+
+			let mut final_key = Vec::with_capacity(storage_prefix.len() + key_hashed.len());
+
+			final_key.extend_from_slice(&storage_prefix);
+			final_key.extend_from_slice(key_hashed.as_ref());
+
+			final_key
+		};
+		unhashed::take(old_key.as_ref()).map(|value| {
+			unhashed::put(Self::storage_n_map_final_key::<Key, _>(key).as_ref(), &value);
+			value
+		})
+	}
+}
+
+impl<Prefix, Key, Value, QueryKind, OnEmpty, MaxValues> storage::IterableStorageNMap<Key, Value>
+	for StorageNMap<Prefix, Key, Value, QueryKind, OnEmpty, MaxValues>
+where
+	Prefix: StorageInstance,
+	Key: ReversibleKeyGenerator,
+	Value: FullCodec,
+	QueryKind: QueryKindTrait<Value, OnEmpty>,
+	OnEmpty: Get<QueryKind::Query> + 'static,
+	MaxValues: Get<Option<u32>>,
+{
+	type KeyIterator = KeyPrefixIterator<Key::Key>;
+	type Iterator = PrefixIterator<(Key::Key, Value)>;
+
+	fn iter_prefix<KP>(kp: KP) -> PrefixIterator<(<Key as HasKeyPrefix<KP>>::Suffix, Value)>
+	where
+		Key: HasReversibleKeyPrefix<KP>,
+		// Key: HasKeyPrefix<KP>,
+	{
+		let prefix = Self::storage_n_map_partial_key(kp);
+		PrefixIterator {
+			prefix: prefix.clone(),
+			previous_key: prefix,
+			drain: false,
+			closure: |raw_key_without_prefix, mut raw_value| {
+				let partial_key = Key::decode_partial_key(raw_key_without_prefix)?;
+				Ok((partial_key, Value::decode(&mut raw_value)?))
+			},
+			phantom: Default::default(),
+		}
+	}
+
+	fn iter_prefix_from<KP>(
+		kp: KP,
+		starting_raw_key: Vec<u8>,
+	) -> PrefixIterator<(<Key as HasKeyPrefix<KP>>::Suffix, Value)>
+	where
+		Key: HasReversibleKeyPrefix<KP>,
+	{
+		let mut iter = Self::iter_prefix(kp);
+		iter.set_last_raw_key(starting_raw_key);
+		iter
+	}
+
+	fn iter_key_prefix<KP>(kp: KP) -> KeyPrefixIterator<<Key as HasKeyPrefix<KP>>::Suffix>
+	where
+		Key: HasReversibleKeyPrefix<KP>,
+	{
+		let prefix = Self::storage_n_map_partial_key(kp);
+		KeyPrefixIterator {
+			prefix: prefix.clone(),
+			previous_key: prefix,
+			drain: false,
+			closure: Key::decode_partial_key,
+		}
+	}
+
+	fn iter_key_prefix_from<KP>(
+		kp: KP,
+		starting_raw_key: Vec<u8>,
+	) -> KeyPrefixIterator<<Key as HasKeyPrefix<KP>>::Suffix>
+	where
+		Key: HasReversibleKeyPrefix<KP>,
+	{
+		let mut iter = Self::iter_key_prefix(kp);
+		iter.set_last_raw_key(starting_raw_key);
+		iter
+	}
+
+	fn drain_prefix<KP>(kp: KP) -> PrefixIterator<(<Key as HasKeyPrefix<KP>>::Suffix, Value)>
+	where
+		Key: HasReversibleKeyPrefix<KP>,
+	{
+		let mut iter = Self::iter_prefix(kp);
+		iter.drain = true;
+		iter
+	}
+
+	fn iter() -> Self::Iterator {
+		Self::iter_from(Self::prefix_hash().to_vec())
+	}
+
+	fn iter_from(starting_raw_key: Vec<u8>) -> Self::Iterator {
+		let prefix = Self::prefix_hash().to_vec();
+		Self::Iterator {
+			prefix,
+			previous_key: starting_raw_key,
+			drain: false,
+			closure: |raw_key_without_prefix, mut raw_value| {
+				let (final_key, _) = Key::decode_final_key(raw_key_without_prefix)?;
+				Ok((final_key, Value::decode(&mut raw_value)?))
+			},
+			phantom: Default::default(),
+		}
+	}
+
+	fn iter_keys() -> Self::KeyIterator {
+		Self::iter_keys_from(Self::prefix_hash().to_vec())
+	}
+
+	fn iter_keys_from(starting_raw_key: Vec<u8>) -> Self::KeyIterator {
+		let prefix = Self::prefix_hash().to_vec();
+		Self::KeyIterator {
+			prefix,
+			previous_key: starting_raw_key,
+			drain: false,
+			closure: |raw_key_without_prefix| {
+				let (final_key, _) = Key::decode_final_key(raw_key_without_prefix)?;
+				Ok(final_key)
+			},
+		}
+	}
+
+	fn drain() -> Self::Iterator {
+		let mut iterator = Self::iter();
+		iterator.drain = true;
+		iterator
+	}
+
+	fn translate<O: Decode, F: FnMut(Key::Key, O) -> Option<Value>>(mut f: F) {
+		let prefix = Self::prefix_hash().to_vec();
+		let mut previous_key = prefix.clone();
+		while let Some(next) =
+			sp_io::storage::next_key(&previous_key).filter(|n| n.starts_with(&prefix))
+		{
+			previous_key = next;
+			let value = match unhashed::get::<O>(&previous_key) {
+				Some(value) => value,
+				None => {
+					log::error!("Invalid translate: fail to decode old value");
+					continue;
+				},
+			};
+
+			let final_key = match Key::decode_final_key(&previous_key[prefix.len()..]) {
+				Ok((final_key, _)) => final_key,
+				Err(_) => {
+					log::error!("Invalid translate: fail to decode key");
+					continue;
+				},
+			};
+
+			match f(final_key, value) {
+				Some(new) => unhashed::put::<Value>(&previous_key, &new),
+				None => unhashed::kill(&previous_key),
+			}
+		}
 	}
 }
 

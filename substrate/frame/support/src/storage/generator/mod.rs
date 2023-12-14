@@ -31,7 +31,7 @@ mod value;
 
 pub use double_map::StorageDoubleMap;
 pub use map::StorageMap;
-pub use nmap::StorageNMap;
+//pub use nmap::StorageNMap;
 
 #[cfg(test)]
 mod tests {
