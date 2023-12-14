@@ -36,6 +36,7 @@ pub enum TestObjective {
 	TestSequence(TestSequenceOptions),
 	///
 	ApprovalsTest(ApprovalsOptions),
+	Unimplemented,
 }
 
 #[derive(Debug, clap::Parser)]

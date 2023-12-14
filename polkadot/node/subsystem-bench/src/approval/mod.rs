@@ -21,6 +21,7 @@ use std::{
 	collections::{BTreeMap, HashMap, HashSet},
 	fs,
 	io::{Read, Write},
+	path::Path,
 	sync::{
 		atomic::{AtomicBool, AtomicU32, AtomicU64},
 		Arc,
@@ -49,6 +50,8 @@ use polkadot_node_primitives::approval::{
 	v1::RelayVRFStory,
 	v2::{CoreBitfield, IndirectAssignmentCertV2, IndirectSignedApprovalVoteV2},
 };
+
+use sha1::Digest as Sha1Digest;
 
 use polkadot_node_network_protocol::{
 	grid_topology::{
@@ -99,7 +102,7 @@ use crate::{
 		mock_runtime_api::MockRuntimeApi,
 	},
 	core::{
-		configuration::{TestAuthorities, TestConfiguration},
+		configuration::{TestAuthorities, TestConfiguration, TestObjective},
 		environment::{TestEnvironment, TestEnvironmentDependencies, MAX_TIME_OF_FLIGHT},
 		keyring::Keyring,
 		mock::{
@@ -126,7 +129,7 @@ pub(crate) const TEST_CONFIG: ApprovalVotingConfig = ApprovalVotingConfig {
 	slot_duration_millis: SLOT_DURATION_MILLIS,
 };
 
-const MESSAGES_PATH: &str = "/home/alexggh/messages_tmp/all_messages_shuffled_500";
+const MESSAGES_PATH: &str = "/home/alexggh/messages_tmp/";
 
 pub const NODE_UNDER_TEST: u32 = 0;
 
@@ -161,9 +164,18 @@ pub struct ApprovalsOptions {
 	#[clap(short, long, default_value_t = true)]
 	/// Sends messages only till block is approved.
 	pub stop_when_approved: bool,
-	#[clap(short, long, default_value_t = true)]
-	/// Only generate the messages
-	pub generate_only: bool,
+}
+
+impl ApprovalsOptions {
+	fn gen_key(&self) -> Vec<u8> {
+		let mut bytes = Vec::new();
+		bytes.extend(self.last_considered_tranche.to_be_bytes());
+		bytes.extend(self.min_coalesce.to_be_bytes());
+		bytes.extend(self.max_coalesce.to_be_bytes());
+		bytes.extend(self.coalesce_tranche_diff.to_be_bytes());
+		bytes.extend((self.enable_assignments_v2 as i32).to_be_bytes());
+		bytes
+	}
 }
 
 /// Information about a block. It is part of test state and it is used by the mock
@@ -219,6 +231,7 @@ pub struct ApprovalTestState {
 	total_sent_messages: Arc<AtomicU64>,
 	/// Approval voting metrics.
 	approval_voting_metrics: ApprovalVotingMetrics,
+	delta_tick_from_generated: Arc<AtomicU64>,
 }
 
 impl ApprovalTestState {
@@ -232,39 +245,67 @@ impl ApprovalTestState {
 		let test_authorities = configuration.generate_authorities();
 		let start = Instant::now();
 
-		let generated_state = if !options.generate_only {
-			let mut file = fs::OpenOptions::new().read(true).open(MESSAGES_PATH).unwrap();
-			let mut content = Vec::<u8>::with_capacity(2000000);
+		let mut key = options.gen_key();
+		let mut exclude_objective = configuration.clone();
+		exclude_objective.objective = TestObjective::Unimplemented;
+		let configuration_bytes = bincode::serialize(&exclude_objective).unwrap();
+		key.extend(configuration_bytes);
+		let mut sha1 = sha1::Sha1::new();
+		sha1.update(key);
+		let result = sha1.finalize();
+		let path_name = format!("{}/{}", MESSAGES_PATH, hex::encode(result));
+		let delta_to_first_slot_under_test = Timestamp::new(BUFFER_FOR_GENERATION_MILLIS);
 
-			file.read_to_end(&mut content);
-			let mut content = content.as_slice();
-			let generated_state: GeneratedState =
-				Decode::decode(&mut content).expect("Could not decode messages");
-
-			gum::info!(
-				"It took {:?} ms count {:?}",
-				start.elapsed().as_millis(),
-				generated_state.all_messages.as_ref().map(|val| val.len()).unwrap_or_default()
-			);
-			generated_state
-		} else {
+		let messages = Path::new(&path_name);
+		if !messages.exists() {
+			gum::info!("Generate message because filed does not exist");
 			let delta_to_first_slot_under_test = Timestamp::new(BUFFER_FOR_GENERATION_MILLIS);
+			let initial_slot = Slot::from_timestamp(
+				(*Timestamp::current() - *delta_to_first_slot_under_test).into(),
+				SlotDuration::from_millis(SLOT_DURATION_MILLIS),
+			);
 
-			GeneratedState {
-				initial_slot: Slot::from_timestamp(
-					(*Timestamp::current() - *delta_to_first_slot_under_test).into(),
-					SlotDuration::from_millis(SLOT_DURATION_MILLIS),
-				),
-				all_messages: Default::default(),
-			}
-		};
+			let babe_epoch = generate_babe_epoch(initial_slot, test_authorities.clone());
+			let session_info = session_info_for_peers(configuration, test_authorities.clone());
+			let blocks =
+				Self::generate_blocks_information(configuration, &babe_epoch, initial_slot);
+
+			let generate = ApprovalTestState::generate_messages(
+				initial_slot,
+				&test_authorities,
+				&blocks,
+				&session_info,
+				&options,
+				&dependencies.task_manager.spawn_handle(),
+				&messages,
+			);
+		}
+
+		let mut file = fs::OpenOptions::new().read(true).open(messages).unwrap();
+		let mut content = Vec::<u8>::with_capacity(2000000);
+
+		file.read_to_end(&mut content);
+		let mut content = content.as_slice();
+		let generated_state: GeneratedState =
+			Decode::decode(&mut content).expect("Could not decode messages");
+
+		gum::info!(
+			"It took {:?} ms count {:?}",
+			start.elapsed().as_millis(),
+			generated_state.all_messages.as_ref().map(|val| val.len()).unwrap_or_default()
+		);
 
 		let babe_epoch =
 			generate_babe_epoch(generated_state.initial_slot, test_authorities.clone());
 		let session_info = session_info_for_peers(configuration, test_authorities.clone());
+		let blocks = Self::generate_blocks_information(
+			configuration,
+			&babe_epoch,
+			generated_state.initial_slot,
+		);
 
 		let mut state = ApprovalTestState {
-			per_slot_heads: Default::default(),
+			per_slot_heads: blocks,
 			babe_epoch: babe_epoch.clone(),
 			session_info: session_info.clone(),
 			configuration: configuration.clone(),
@@ -275,8 +316,8 @@ impl ApprovalTestState {
 			options,
 			approval_voting_metrics: ApprovalVotingMetrics::try_register(&dependencies.registry)
 				.unwrap(),
+			delta_tick_from_generated: Arc::new(AtomicU64::new(630720000)),
 		};
-		state.generate_blocks_information();
 		gum::info!("Built testing state");
 
 		state
@@ -284,16 +325,18 @@ impl ApprovalTestState {
 
 	/// Generates the blocks and the information about the blocks that will be used
 	/// to drive this test.
-	fn generate_blocks_information(&mut self) {
+	fn generate_blocks_information(
+		configuration: &TestConfiguration,
+		babe_epoch: &BabeEpoch,
+		initial_slot: Slot,
+	) -> Vec<BlockTestData> {
+		let mut per_block_heads: Vec<BlockTestData> = Vec::new();
 		let mut prev_candidates = 0;
-		for block_number in 1..self.configuration.num_blocks + 1 {
+		for block_number in 1..configuration.num_blocks + 1 {
 			let block_hash = Hash::repeat_byte(block_number as u8);
-			let parent_hash = self
-				.per_slot_heads
-				.last()
-				.map(|val| val.hash)
-				.unwrap_or(Hash::repeat_byte(0xde));
-			let slot_for_block = self.generated_state.initial_slot + (block_number as u64 - 1);
+			let parent_hash =
+				per_block_heads.last().map(|val| val.hash).unwrap_or(Hash::repeat_byte(0xde));
+			let slot_for_block = initial_slot + (block_number as u64 - 1);
 
 			let header = make_header(parent_hash, slot_for_block, block_number as u32);
 
@@ -301,9 +344,9 @@ impl ApprovalTestState {
 				.expect("Can not continue without vrf generator");
 			let relay_vrf_story = unsafe_vrf
 				.compute_randomness(
-					&self.babe_epoch.authorities,
-					&self.babe_epoch.randomness,
-					self.babe_epoch.epoch_index,
+					&babe_epoch.authorities,
+					&babe_epoch.randomness,
+					babe_epoch.epoch_index,
 				)
 				.expect("Can not continue without vrf story");
 
@@ -315,25 +358,24 @@ impl ApprovalTestState {
 				candidates: make_candidates(
 					block_hash,
 					block_number as BlockNumber,
-					self.configuration.n_cores as u32,
-					self.configuration.n_included_candidates as u32,
+					configuration.n_cores as u32,
+					configuration.n_included_candidates as u32,
 				),
 				relay_vrf_story,
 				approved: Arc::new(AtomicBool::new(false)),
 				prev_candidates,
 				votes: Arc::new(
-					(0..self.configuration.n_validators)
+					(0..configuration.n_validators)
 						.map(|_| {
-							(0..self.configuration.n_cores)
-								.map(|_| AtomicBool::new(false))
-								.collect_vec()
+							(0..configuration.n_cores).map(|_| AtomicBool::new(false)).collect_vec()
 						})
 						.collect_vec(),
 				),
 			};
 			prev_candidates += block_info.candidates.len() as u64;
-			self.per_slot_heads.push(block_info)
+			per_block_heads.push(block_info)
 		}
+		per_block_heads
 	}
 
 	/// Starts the generation of messages(Assignments & Approvals) needed for approving blocks.
@@ -368,47 +410,56 @@ impl ApprovalTestState {
 
 	/// Starts the generation of messages(Assignments & Approvals) needed for approving blocks.
 	fn generate_messages(
-		&self,
-		network_emulator: &NetworkEmulator,
-		overseer_handle: OverseerHandleReal,
+		initial_slot: Slot,
+		test_authorities: &TestAuthorities,
+		blocks: &Vec<BlockTestData>,
+		session_info: &SessionInfo,
+		options: &ApprovalsOptions,
 		spawn_task_handle: &SpawnTaskHandle,
+		path: &Path,
 	) {
 		gum::info!(target: LOG_TARGET, "Generate messages");
-
-		let topology = generate_topology(&self.test_authorities);
+		let topology = generate_topology(&test_authorities);
 
 		let random_samplings = random_samplings_to_node_patterns(
 			ValidatorIndex(NODE_UNDER_TEST),
-			self.test_authorities.keyrings.len(),
-			self.test_authorities.keyrings.len() as usize * 2,
+			test_authorities.keyrings.len(),
+			test_authorities.keyrings.len() as usize * 2,
 		);
 
 		let topology_node_under_test =
 			topology.compute_grid_neighbors_for(ValidatorIndex(NODE_UNDER_TEST)).unwrap();
+
 		let (tx, mut rx) = futures::channel::mpsc::unbounded();
-		for current_validator_index in 1..self.test_authorities.keyrings.len() {
+		for current_validator_index in 1..test_authorities.keyrings.len() {
 			let peer_message_source = message_generator::PeerMessagesGenerator {
 				topology_node_under_test: topology_node_under_test.clone(),
 				topology: topology.clone(),
 				validator_index: ValidatorIndex(current_validator_index as u32),
-				network: network_emulator.clone(),
-				overseer_handle: overseer_handle.clone(),
-				state: self.clone(),
-				options: self.options.clone(),
+				test_authorities: test_authorities.clone(),
+				session_info: session_info.clone(),
+				blocks: blocks.clone(),
 				tx_messages: tx.clone(),
 				random_samplings: random_samplings.clone(),
+				enable_assignments_v2: options.enable_assignments_v2,
+				last_considered_tranche: options.last_considered_tranche,
+				min_coalesce: options.min_coalesce,
+				max_coalesce: options.max_coalesce,
+				coalesce_tranche_diff: options.coalesce_tranche_diff,
 			};
 
 			peer_message_source.generate_messages(&spawn_task_handle);
 		}
+
 		std::mem::drop(tx);
+
 		let seed = [0x32; 32];
 		let mut rand_chacha = ChaCha20Rng::from_seed(seed);
 		let mut file = fs::OpenOptions::new()
 			.write(true)
 			.create(true)
 			.truncate(true)
-			.open(MESSAGES_PATH)
+			.open(path)
 			.unwrap();
 
 		let mut all_messages: BTreeMap<u64, (Vec<TestMessageInfo>, Vec<TestMessageInfo>)> =
@@ -418,7 +469,10 @@ impl ApprovalTestState {
 			match rx.try_next() {
 				Ok(Some((block_hash, messages))) =>
 					for message in messages {
-						let block_info = self.get_info_by_hash(block_hash);
+						let block_info = blocks
+							.iter()
+							.find(|val| val.hash == block_hash)
+							.expect("Should find blocks");
 						let tick_to_send =
 							tranche_to_tick(SLOT_DURATION_MILLIS, block_info.slot, message.tranche);
 						if !all_messages.contains_key(&tick_to_send) {
@@ -449,10 +503,7 @@ impl ApprovalTestState {
 			.collect_vec();
 		gum::info!("Took something like {:}", all_messages.len());
 
-		let generated_state = GeneratedState {
-			all_messages: Some(all_messages),
-			initial_slot: self.generated_state.initial_slot,
-		};
+		let generated_state = GeneratedState { all_messages: Some(all_messages), initial_slot };
 
 		file.write_all(&generated_state.encode());
 	}
@@ -597,15 +648,8 @@ impl PeerMessageProducer {
 	) {
 		spawn_task_handle.spawn_blocking("produce-messages", "produce-messages", async move {
 			let mut already_generated = HashSet::new();
-			let real_system_clock = SystemClock {};
-			let system_clock = FakeSystemClock::new(
-				SystemClock {},
-				real_system_clock.tick_now() -
-					slot_number_to_tick(
-						SLOT_DURATION_MILLIS,
-						self.state.generated_state.initial_slot,
-					),
-			);
+			let system_clock =
+				FakeSystemClock::new(SystemClock {}, self.state.delta_tick_from_generated.clone());
 			let mut all_messages = all_messages.into_iter().peekable();
 			while all_messages.peek().is_some() {
 				let current_slot =
@@ -654,16 +698,22 @@ impl PeerMessageProducer {
 							MessageType::Assignment => val.tranche,
 							MessageType::Other => val.tranche,
 						};
-						tranche_to_send <= tranche_now &&
+						(tranche_to_send <= tranche_now &&
 							current_slot >= block_info.slot &&
-							already_generated.contains(&block_info.hash)
+							already_generated.contains(&block_info.hash)) ||
+							((val.tranche > self.options.send_till_tranche ||
+								self.options.stop_when_approved) && block_info
+								.approved
+								.load(std::sync::atomic::Ordering::SeqCst))
 					})
 					.unwrap_or_default()
 				{
 					let message = all_messages.next().unwrap();
 
 					let block_info = self.state.get_info_by_hash(message.block_hash);
-					if !block_info.approved.load(std::sync::atomic::Ordering::SeqCst) ||
+					let block_approved =
+						block_info.approved.load(std::sync::atomic::Ordering::SeqCst);
+					if !block_approved ||
 						(!self.options.stop_when_approved &&
 							message.tranche <= self.options.send_till_tranche)
 					{
@@ -856,12 +906,13 @@ fn issue_approvals(
 	block_hash: Hash,
 	keyrings: Vec<(Keyring, PeerId)>,
 	candidates: Vec<CandidateEvent>,
-	options: &ApprovalsOptions,
+	min_coalesce: u32,
+	max_coalesce: u32,
+	coalesce_tranche_diff: u32,
 	rand_chacha: &mut ChaCha20Rng,
 ) -> Vec<TestMessageInfo> {
 	let mut to_sign: Vec<TestSignInfo> = Vec::new();
-	let mut num_coalesce =
-		coalesce_approvals_len(options.min_coalesce, options.max_coalesce, rand_chacha);
+	let mut num_coalesce = coalesce_approvals_len(min_coalesce, max_coalesce, rand_chacha);
 	let result = assignments
 		.iter()
 		.enumerate()
@@ -882,13 +933,9 @@ fn issue_approvals(
 
 				if to_sign.len() >= num_coalesce as usize ||
 					(!to_sign.is_empty() && current_validator_index != assignment.0.validator) ||
-					message.tranche - earliest_tranche >= options.coalesce_tranche_diff
+					message.tranche - earliest_tranche >= coalesce_tranche_diff
 				{
-					num_coalesce = coalesce_approvals_len(
-						options.min_coalesce,
-						options.max_coalesce,
-						rand_chacha,
-					);
+					num_coalesce = coalesce_approvals_len(min_coalesce, max_coalesce, rand_chacha);
 					approvals_to_create.push(sign_candidates(&mut to_sign, &keyrings, block_hash))
 				}
 
@@ -907,13 +954,10 @@ fn issue_approvals(
 							to_sign.first().map(|val| val.tranche).unwrap_or(message.tranche);
 
 						if to_sign.len() >= num_coalesce ||
-							message.tranche - earliest_tranche >= options.coalesce_tranche_diff
+							message.tranche - earliest_tranche >= coalesce_tranche_diff
 						{
-							num_coalesce = coalesce_approvals_len(
-								options.min_coalesce,
-								options.max_coalesce,
-								rand_chacha,
-							);
+							num_coalesce =
+								coalesce_approvals_len(min_coalesce, max_coalesce, rand_chacha);
 							approvals_to_create.push(sign_candidates(
 								&mut to_sign,
 								&keyrings,
@@ -1353,11 +1397,8 @@ fn build_overseer(
 		polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter::new(db, &[]);
 	let keystore = LocalKeystore::in_memory();
 	let real_system_clock = SystemClock {};
-	let system_clock = FakeSystemClock::new(
-		SystemClock {},
-		real_system_clock.tick_now() -
-			slot_number_to_tick(SLOT_DURATION_MILLIS, state.generated_state.initial_slot),
-	);
+	let system_clock =
+		FakeSystemClock::new(SystemClock {}, state.delta_tick_from_generated.clone());
 	let approval_voting = ApprovalVotingSubsystem::with_config(
 		TEST_CONFIG,
 		Arc::new(db),
@@ -1410,6 +1451,7 @@ fn prepare_test_inner(
 	gum::info!("Build network emulator");
 
 	let network = NetworkEmulator::new(&config, &dependencies, &state.test_authorities);
+
 	gum::info!("Build overseer");
 
 	let (overseer, overseer_handle) = build_overseer(&state, &network, &config, &dependencies);
@@ -1418,18 +1460,10 @@ fn prepare_test_inner(
 }
 
 pub async fn bench_approvals(env: &mut TestEnvironment, mut state: ApprovalTestState) {
-	if state.options.generate_only {
-		state.generate_messages(env.network(), env.overseer_handle().clone(), &env.spawn_handle());
-	} else {
-		let producer_rx = state
-			.start_message_production(
-				env.network(),
-				env.overseer_handle().clone(),
-				&env.spawn_handle(),
-			)
-			.await;
-		bench_approvals_run(env, state, producer_rx).await
-	}
+	let producer_rx = state
+		.start_message_production(env.network(), env.overseer_handle().clone(), &env.spawn_handle())
+		.await;
+	bench_approvals_run(env, state, producer_rx).await
 }
 
 /// Runs the approval benchmark.
@@ -1458,13 +1492,13 @@ pub async fn bench_approvals_run(
 	}
 
 	let start_marker = Instant::now();
-
-	let real_system_clock = SystemClock {};
-	let system_clock = FakeSystemClock::new(
-		SystemClock {},
-		real_system_clock.tick_now() -
+	let real_clock = SystemClock {};
+	state.delta_tick_from_generated.store(
+		real_clock.tick_now() -
 			slot_number_to_tick(SLOT_DURATION_MILLIS, state.generated_state.initial_slot),
+		std::sync::atomic::Ordering::SeqCst,
 	);
+	let system_clock = FakeSystemClock::new(real_clock, state.delta_tick_from_generated.clone());
 
 	for block_num in 0..env.config().num_blocks {
 		let mut current_slot = tick_to_slot_number(SLOT_DURATION_MILLIS, system_clock.tick_now());
@@ -1576,25 +1610,26 @@ pub async fn bench_approvals_run(
 
 struct FakeSystemClock {
 	real_system_clock: SystemClock,
-	delta_ticks: Tick,
+	delta_ticks: Arc<AtomicU64>,
 }
 
 impl FakeSystemClock {
-	fn new(real_system_clock: SystemClock, delta_ticks: Tick) -> Self {
-		gum::info!("Delta tick is {:}", delta_ticks);
+	fn new(real_system_clock: SystemClock, delta_ticks: Arc<AtomicU64>) -> Self {
 		FakeSystemClock { real_system_clock, delta_ticks }
 	}
 }
 
 impl Clock for FakeSystemClock {
 	fn tick_now(&self) -> Tick {
-		self.real_system_clock.tick_now() - self.delta_ticks
+		self.real_system_clock.tick_now() -
+			self.delta_ticks.load(std::sync::atomic::Ordering::SeqCst)
 	}
 
 	fn wait(
 		&self,
 		tick: Tick,
 	) -> std::pin::Pin<Box<dyn futures::prelude::Future<Output = ()> + Send + 'static>> {
-		self.real_system_clock.wait(tick + self.delta_ticks)
+		self.real_system_clock
+			.wait(tick + self.delta_ticks.load(std::sync::atomic::Ordering::SeqCst))
 	}
 }

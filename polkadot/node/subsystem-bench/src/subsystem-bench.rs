@@ -120,6 +120,7 @@ impl BenchCli {
 							});
 						},
 						TestObjective::TestSequence(_) => todo!(),
+						TestObjective::Unimplemented => todo!(),
 					}
 				}
 				return Ok(())
@@ -153,6 +154,7 @@ impl BenchCli {
 			TestObjective::ApprovalsTest(ref options) => {
 				todo!("Not implemented");
 			},
+			TestObjective::Unimplemented => todo!(),
 		};
 
 		let mut latency_config = test_config.latency.clone().unwrap_or_default();
