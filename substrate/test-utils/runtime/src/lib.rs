@@ -29,7 +29,7 @@ use codec::{Decode, Encode};
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
-	genesis_builder_helper::{build_config, create_default_config},
+	genesis_builder_helper::{build_state, create_default_config},
 	parameter_types,
 	traits::{ConstU32, ConstU64},
 	weights::{
@@ -747,22 +747,24 @@ impl_runtime_apis! {
 			create_default_config::<RuntimeGenesisConfig>()
 		}
 
-		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
-			build_config::<RuntimeGenesisConfig>(config)
+		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
+			build_state::<RuntimeGenesisConfig>(config)
 		}
 
-
-		fn create_default_config2(params: sp_std::vec::Vec<u8>) -> sp_std::vec::Vec<u8> {
+		fn get_named_preset(params: Option<sp_std::vec::Vec<u8>>) -> sp_std::vec::Vec<u8> {
 			log::info!("xxx: create_default_config2: {:?} {:?}", params, "staging".as_bytes());
-			let patch = match params {
-				s if s == "staging".as_bytes() => substrate_test_genesis_config_patch(),
-				s if s == "foobar".as_bytes() => json!({"foo":"bar"}),
-				_ => json!({}),
-			};
-
-			serde_json::to_string(&patch)
-				.expect("serialization to json is expected to work. qed.")
-				.into_bytes()
+			if let Some(params) = params {
+				let patch = match params {
+					s if s == "staging".as_bytes() => substrate_test_genesis_config_patch(),
+					s if s == "foobar".as_bytes() => json!({"foo":"bar"}),
+					_ => json!({}),
+				};
+				serde_json::to_string(&patch)
+					.expect("serialization to json is expected to work. qed.")
+					.into_bytes()
+			} else {
+				create_default_config::<RuntimeGenesisConfig>()
+			}
 		}
 	}
 }
@@ -1274,7 +1276,7 @@ mod tests {
 			let default_minimal_json = r#"{"system":{},"babe":{"authorities":[],"epochConfig":{"c": [ 3, 10 ],"allowed_slots":"PrimaryAndSecondaryPlainSlots"}},"substrateTest":{"authorities":[]},"balances":{"balances":[]}}"#;
 			let mut t = BasicExternalities::new_empty();
 
-			executor_call(&mut t, "GenesisBuilder_build_config", &default_minimal_json.encode())
+			executor_call(&mut t, "GenesisBuilder_build_state", &default_minimal_json.encode())
 				.unwrap();
 
 			let mut keys = t.into_storages().top.keys().cloned().map(hex).collect::<Vec<String>>();
@@ -1338,8 +1340,8 @@ mod tests {
 				let name = cfg_name.to_string();
 				let r = executor_call(
 					&mut t,
-					"GenesisBuilder_create_default_config2",
-					&name.as_bytes().encode(),
+					"GenesisBuilder_get_named_preset",
+					&Some(name.as_bytes()).encode(),
 				)
 				.unwrap();
 				let r = Vec::<u8>::decode(&mut &r[..]).unwrap();
@@ -1361,7 +1363,7 @@ mod tests {
 			let j = include_str!("../res/default_genesis_config.json");
 
 			let mut t = BasicExternalities::new_empty();
-			let r = executor_call(&mut t, "GenesisBuilder_build_config", &j.encode()).unwrap();
+			let r = executor_call(&mut t, "GenesisBuilder_build_state", &j.encode()).unwrap();
 			let r = BuildResult::decode(&mut &r[..]);
 			assert!(r.is_ok());
 
@@ -1380,7 +1382,7 @@ mod tests {
 			sp_tracing::try_init_simple();
 			let j = include_str!("../res/default_genesis_config_invalid.json");
 			let mut t = BasicExternalities::new_empty();
-			let r = executor_call(&mut t, "GenesisBuilder_build_config", &j.encode()).unwrap();
+			let r = executor_call(&mut t, "GenesisBuilder_build_state", &j.encode()).unwrap();
 			let r = BuildResult::decode(&mut &r[..]).unwrap();
 			log::info!("result: {:#?}", r);
 			assert_eq!(r, Err(
@@ -1395,7 +1397,7 @@ mod tests {
 			sp_tracing::try_init_simple();
 			let j = include_str!("../res/default_genesis_config_invalid_2.json");
 			let mut t = BasicExternalities::new_empty();
-			let r = executor_call(&mut t, "GenesisBuilder_build_config", &j.encode()).unwrap();
+			let r = executor_call(&mut t, "GenesisBuilder_build_state", &j.encode()).unwrap();
 			let r = BuildResult::decode(&mut &r[..]).unwrap();
 			assert_eq!(r, Err(
 				sp_runtime::RuntimeString::Owned(
@@ -1410,7 +1412,7 @@ mod tests {
 			let j = include_str!("../res/default_genesis_config_incomplete.json");
 
 			let mut t = BasicExternalities::new_empty();
-			let r = executor_call(&mut t, "GenesisBuilder_build_config", &j.encode()).unwrap();
+			let r = executor_call(&mut t, "GenesisBuilder_build_state", &j.encode()).unwrap();
 			let r =
 				core::result::Result::<(), sp_runtime::RuntimeString>::decode(&mut &r[..]).unwrap();
 			assert_eq!(
@@ -1475,7 +1477,7 @@ mod tests {
 			let mut t = BasicExternalities::new_empty();
 			executor_call(
 				&mut t,
-				"GenesisBuilder_build_config",
+				"GenesisBuilder_build_state",
 				&default_config.to_string().encode(),
 			)
 			.unwrap();
