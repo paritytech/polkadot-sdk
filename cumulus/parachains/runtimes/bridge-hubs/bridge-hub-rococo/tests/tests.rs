@@ -20,13 +20,14 @@ use bp_polkadot_core::Signature;
 use bridge_hub_rococo_runtime::{
 	bridge_common_config, bridge_to_bulletin_config, bridge_to_westend_config,
 	xcm_config::{RelayNetwork, TokenLocation, XcmConfig},
-	AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages, Executive, ExistentialDeposit,
-	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
-	SignedExtra, TransactionPayment, UncheckedExtrinsic,
+	AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages, EthereumGatewayAddress,
+	Executive, ExistentialDeposit, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall,
+	RuntimeEvent, SessionKeys, SignedExtra, TransactionPayment, UncheckedExtrinsic,
 };
 use codec::{Decode, Encode};
 use frame_support::{dispatch::GetDispatchInfo, parameter_types, traits::ConstU8};
 use parachains_common::{rococo::fee::WeightToFee, AccountId, AuraId, Balance};
+use sp_core::H160;
 use sp_keyring::AccountKeyring::Alice;
 use sp_runtime::{
 	generic::{Era, SignedPayload},
@@ -180,6 +181,21 @@ mod bridge_hub_westend_tests {
 			Runtime,
 			WithBridgeHubWestendMessagesInstance,
 		>(collator_session_keys(), bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID)
+	}
+
+	#[test]
+	fn change_ethereum_gateway_by_governance_works() {
+		bridge_hub_test_utils::test_cases::change_storage_constant_by_governance_works::<
+			Runtime,
+			EthereumGatewayAddress,
+			H160,
+		>(
+			collator_session_keys(),
+			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
+			Box::new(|call| RuntimeCall::System(call).encode()),
+			|| (EthereumGatewayAddress::key().to_vec(), EthereumGatewayAddress::get()),
+			|_| H160::default(),
+		)
 	}
 
 	#[test]
