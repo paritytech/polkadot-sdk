@@ -19,7 +19,6 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use assigner_coretime::MAX_ASSIGNMENTS_PER_SCHEDULE;
 use frame_benchmarking::v2::*;
 use frame_support::traits::OriginTrait;
 use pallet_broker::CoreIndex as BrokerCoreIndex;
@@ -43,7 +42,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn assign_core(s: Linear<1, MAX_ASSIGNMENTS_PER_SCHEDULE>) {
+	fn assign_core(s: Linear<1, 100>) {
 		// Setup
 		let root_origin = <T as frame_system::Config>::RuntimeOrigin::root();
 
