@@ -254,7 +254,7 @@ pub(crate) fn setup_delegation_stake(
 
 		fund(delegator, amount_to_delegate + ExistentialDeposit::get());
 		assert_ok!(DelegatedStaking::delegate(delegator, &delegatee, amount_to_delegate));
-		assert_ok!(DelegatedStaking::update_bond(&delegatee));
+		assert_ok!(DelegatedStaking::bond_all(&delegatee));
 	}
 
 	// sanity checks

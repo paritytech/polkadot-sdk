@@ -437,6 +437,7 @@ pub trait StakingHoldProvider {
 	type AccountId: Clone + sp_std::fmt::Debug;
 
 	/// Update amount held for bonded stake.
+	/// FIXME(ank4n) remove this
 	fn update_hold(who: &Self::AccountId, amount: Self::Balance) -> DispatchResult;
 
 	/// Release all amount held for stake.

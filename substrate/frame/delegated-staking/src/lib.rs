@@ -40,7 +40,7 @@
 //! be staked again as a delegation. However, the reward payouts can then be distributed to
 //! delegators by the delegatee.
 //!
-//! Any slashes to a delegatee are recorded in [`DelegationRegister`] of the Delegatee as a pending
+//! Any slashes to a delegatee are recorded in [`DelegationLedger`] of the Delegatee as a pending
 //! slash. Since the actual amount is held in the delegator's account, this pallet does not know how
 //! to apply slash. It is Delegatee's responsibility to apply slashes for each delegator, one at a
 //! time. Staking pallet ensures the pending slash never exceeds staked amount and would freeze
@@ -176,7 +176,7 @@ pub mod pallet {
 	/// Map of Delegatee to their Ledger.
 	#[pallet::storage]
 	pub(crate) type Delegatees<T: Config> =
-		CountedStorageMap<_, Twox64Concat, T::AccountId, DelegationRegister<T>, OptionQuery>;
+		CountedStorageMap<_, Twox64Concat, T::AccountId, DelegationLedger<T>, OptionQuery>;
 
 	/// Map of Delegatee and its proxy delegator account while its actual delegators are migrating.
 	///
@@ -194,13 +194,14 @@ pub mod pallet {
 /// among other things.
 #[derive(Default, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
-pub struct DelegationRegister<T: Config> {
+pub struct DelegationLedger<T: Config> {
 	/// Where the reward should be paid out.
 	pub payee: T::AccountId,
 	/// Sum of all delegated funds to this delegatee.
 	#[codec(compact)]
 	pub total_delegated: BalanceOf<T>,
 	/// Amount that is bonded and held.
+	// FIXME(ank4n) (can we remove it)
 	#[codec(compact)]
 	pub hold: BalanceOf<T>,
 	/// Slashes that are not yet applied.
@@ -210,7 +211,7 @@ pub struct DelegationRegister<T: Config> {
 	pub blocked: bool,
 }
 
-impl<T: Config> DelegationRegister<T> {
+impl<T: Config> DelegationLedger<T> {
 	/// balance that can be staked.
 	pub fn delegated_balance(&self) -> BalanceOf<T> {
 		// do not allow to stake more than unapplied slash
@@ -259,7 +260,7 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 		// already checked delegatees exist
 		<Delegatees<T>>::insert(
 			who,
-			DelegationRegister {
+			DelegationLedger {
 				payee: reward_destination.clone(),
 				total_delegated: Zero::zero(),
 				hold: Zero::zero(),
@@ -318,7 +319,7 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 		Self::accept_delegations(new_delegatee, payee)?;
 
 		Self::delegate(proxy_delegator, new_delegatee, stake.total)?;
-		Self::update_bond(new_delegatee)
+		Self::bond_all(new_delegatee)
 	}
 
 	fn block_delegations(delegatee: &Self::AccountId) -> DispatchResult {
@@ -341,7 +342,7 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 		todo!()
 	}
 
-	fn update_bond(who: &Self::AccountId) -> DispatchResult {
+	fn bond_all(who: &Self::AccountId) -> DispatchResult {
 		let delegatee = <Delegatees<T>>::get(who).ok_or(Error::<T>::NotDelegatee)?;
 		let amount_to_bond = delegatee.unbonded_balance();
 
@@ -411,7 +412,6 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 	}
 
 	/// Move funds from proxy delegator to actual delegator.
-	// TODO: Keep track of proxy delegator and only allow movement from proxy -> new delegator
 	#[transactional]
 	fn migrate_delegator(
 		delegatee: &Self::AccountId,
@@ -525,7 +525,7 @@ impl<T: Config> StakingHoldProvider for Pallet<T> {
 
 		ensure!(delegation_register.total_delegated >= amount, Error::<T>::NotEnoughFunds);
 		ensure!(delegation_register.pending_slash <= amount, Error::<T>::UnappliedSlash);
-		let updated_register = DelegationRegister { hold: amount, ..delegation_register };
+		let updated_register = DelegationLedger { hold: amount, ..delegation_register };
 		<Delegatees<T>>::insert(who, updated_register);
 
 		Ok(())

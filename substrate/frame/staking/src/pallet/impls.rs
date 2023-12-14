@@ -1737,7 +1737,6 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		Self::chill(RawOrigin::Signed(ctrl).into())
 	}
 
-	// FIXME(ank4n): Refactor withdraw unbonded to take limit and remove partial_withdraw_unbonded
 	fn withdraw_unbonded(
 		who: Self::AccountId,
 		num_slashing_spans: u32,

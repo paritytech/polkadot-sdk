@@ -181,7 +181,7 @@ mod integration {
 
 				// unbonded balance is the newly delegated 100
 				assert_eq!(DelegatedStaking::unbonded_balance(&delegatee), 100);
-				assert_ok!(DelegatedStaking::update_bond(&delegatee));
+				assert_ok!(DelegatedStaking::bond_all(&delegatee));
 				// after bond, unbonded balance is 0
 				assert_eq!(DelegatedStaking::unbonded_balance(&delegatee), 0);
 			}

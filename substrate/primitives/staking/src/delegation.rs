@@ -79,8 +79,8 @@ pub trait DelegationInterface {
 	/// This will only succeed if all delegations to this delegatee are withdrawn.
 	fn kill_delegatee(delegatee: &Self::AccountId) -> DispatchResult;
 
-	/// Update bond whenever there is a new delegate funds that are not staked.
-	fn update_bond(delegatee: &Self::AccountId) -> DispatchResult;
+	/// Bond all fund that is delegated but not staked.
+	fn bond_all(delegatee: &Self::AccountId) -> DispatchResult;
 
 	/// Request withdrawal of unbonded stake of `delegatee` belonging to the provided `delegator`.
 	///
