@@ -325,9 +325,9 @@
 <span class="kw">use </span>xcm_builder::{
 	Account32Hash, AccountId32Aliases, AllowUnpaidExecutionFrom, AsPrefixedGeneralIndex,
 	ChildParachainAsNative, ChildParachainConvertsVia, ChildSystemParachainAsSuperuser,
-	ConvertedConcreteId, CurrencyAdapter <span class="kw">as </span>XcmCurrencyAdapter, FixedRateOfFungible,
-	FixedWeightBounds, IsConcrete, NoChecking, NonFungiblesAdapter, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation,
+	ConvertedConcreteId, FixedRateOfFungible, FixedWeightBounds, FungibleAdapter, IsConcrete,
+	NoChecking, NonFungiblesAdapter, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation,
 };
 <span class="kw">use </span>xcm_executor::{traits::JustTry, Config, XcmExecutor};
 
@@ -430,7 +430,7 @@
 );
 
 <span class="kw">pub type </span>LocalAssetTransactor = (
-	XcmCurrencyAdapter&lt;Balances, IsConcrete&lt;TokenLocation&gt;, LocationToAccountId, AccountId, ()&gt;,
+	FungibleAdapter&lt;Balances, IsConcrete&lt;TokenLocation&gt;, LocationToAccountId, AccountId, ()&gt;,
 	NonFungiblesAdapter&lt;
 		Uniques,
 		ConvertedConcreteId&lt;u32, u32, AsPrefixedGeneralIndex&lt;(), u32, JustTry&gt;, JustTry&gt;,

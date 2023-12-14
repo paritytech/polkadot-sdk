@@ -235,6 +235,9 @@
 <a href="#235" id="235">235</a>
 <a href="#236" id="236">236</a>
 <a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -266,12 +269,14 @@
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::Id <span class="kw">as </span>ParaId;
 <span class="kw">use </span>polkadot_runtime_parachains::{configuration, origin, shared};
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
+<span class="attr">#[allow(deprecated)]
+</span><span class="kw">use </span>xcm_builder::CurrencyAdapter <span class="kw">as </span>XcmCurrencyAdapter;
 <span class="kw">use </span>xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowSubscriptionsFrom,
 	AllowTopLevelPaidExecutionFrom, ChildParachainAsNative, ChildParachainConvertsVia,
-	ChildSystemParachainAsSuperuser, CurrencyAdapter <span class="kw">as </span>XcmCurrencyAdapter, DescribeAllTerminal,
-	DescribeFamily, FixedRateOfFungible, FixedWeightBounds, HashedDescription, IsConcrete,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, WithComputedOrigin,
+	ChildSystemParachainAsSuperuser, DescribeAllTerminal, DescribeFamily, FixedRateOfFungible,
+	FixedWeightBounds, HashedDescription, IsConcrete, SignedAccountId32AsNative,
+	SignedToAccountId32, SovereignSignedViaLocation, WithComputedOrigin,
 };
 <span class="kw">use </span>xcm_executor::{Config, XcmExecutor};
 
@@ -353,7 +358,8 @@
 	ChildParachainConvertsVia&lt;ParaId, AccountId&gt;,
 );
 
-<span class="kw">pub type </span>LocalBalancesTransactor =
+<span class="attr">#[allow(deprecated)]
+</span><span class="kw">pub type </span>LocalBalancesTransactor =
 	XcmCurrencyAdapter&lt;Balances, IsConcrete&lt;TokenLocation&gt;, SovereignAccountOf, AccountId, ()&gt;;
 
 <span class="kw">pub type </span>AssetTransactors = LocalBalancesTransactor;

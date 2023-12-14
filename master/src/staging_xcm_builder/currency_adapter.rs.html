@@ -237,6 +237,9 @@
 <a href="#237" id="237">237</a>
 <a href="#238" id="238">238</a>
 <a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -254,6 +257,8 @@
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
 </span><span class="doccomment">//! Adapters to work with `frame_support::traits::Currency` through XCM.
+
+</span><span class="attr">#![allow(deprecated)]
 
 </span><span class="kw">use </span><span class="kw">super</span>::MintLocation;
 <span class="kw">use </span>frame_support::traits::{ExistenceRequirement::AllowDeath, Get, WithdrawReasons};
@@ -324,6 +329,7 @@
 ///     CheckingAccount,
 /// &gt;;
 /// ```
+</span><span class="attr">#[deprecated = <span class="string">&quot;Use `FungibleAdapter` instead&quot;</span>]
 </span><span class="kw">pub struct </span>CurrencyAdapter&lt;Currency, Matcher, AccountIdConverter, AccountId, CheckedAccount&gt;(
 	PhantomData&lt;(Currency, Matcher, AccountIdConverter, AccountId, CheckedAccount)&gt;,
 );

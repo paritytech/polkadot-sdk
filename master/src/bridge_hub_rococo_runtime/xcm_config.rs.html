@@ -422,6 +422,9 @@
 <a href="#422" id="422">422</a>
 <a href="#423" id="423">423</a>
 <a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -469,11 +472,13 @@
 <span class="kw">use </span>sp_runtime::traits::AccountIdConversion;
 <span class="kw">use </span>sp_std::marker::PhantomData;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
+<span class="attr">#[allow(deprecated)]
+</span><span class="kw">use </span>xcm_builder::CurrencyAdapter;
 <span class="kw">use </span>xcm_builder::{
 	deposit_or_burn_fee, AccountId32Aliases, AllowExplicitUnpaidExecutionFrom,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
-	CurrencyAdapter, DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, HandleFee,
-	IsConcrete, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
+	DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, HandleFee, IsConcrete,
+	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
 	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
 	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
 	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
@@ -509,6 +514,7 @@
 );
 
 <span class="doccomment">/// Means for transacting the native currency on this chain.
+</span><span class="attr">#[allow(deprecated)]
 </span><span class="kw">pub type </span>CurrencyTransactor = CurrencyAdapter&lt;
 	<span class="comment">// Use this currency:
 	</span>Balances,

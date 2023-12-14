@@ -121,6 +121,10 @@
 <a href="#121" id="121">121</a>
 <a href="#122" id="122">122</a>
 <a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -188,12 +192,16 @@
 <span class="kw">pub use </span>process_xcm_message::ProcessXcmMessage;
 
 <span class="kw">mod </span>currency_adapter;
-<span class="kw">pub use </span>currency_adapter::CurrencyAdapter;
+<span class="attr">#[allow(deprecated)]
+</span><span class="kw">pub use </span>currency_adapter::CurrencyAdapter;
 
 <span class="kw">mod </span>fee_handling;
 <span class="kw">pub use </span>fee_handling::{
 	deposit_or_burn_fee, HandleFee, XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
+
+<span class="kw">mod </span>fungible_adapter;
+<span class="kw">pub use </span>fungible_adapter::{FungibleAdapter, FungibleMutateAdapter, FungibleTransferAdapter};
 
 <span class="kw">mod </span>fungibles_adapter;
 <span class="kw">pub use </span>fungibles_adapter::{
