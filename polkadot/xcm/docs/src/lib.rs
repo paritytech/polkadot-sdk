@@ -38,3 +38,6 @@ pub mod cookbook;
 
 /// Glossary
 pub mod glossary;
+
+/// Mock message queue for some examples
+pub mod mock_message_queue;

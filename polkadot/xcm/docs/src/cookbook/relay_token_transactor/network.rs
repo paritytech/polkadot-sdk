@@ -1,0 +1,76 @@
+//! Mock network
+
+use frame::deps::frame_system;
+use frame::deps::sp_runtime::{BuildStorage, AccountId32};
+use frame::deps::sp_io::TestExternalities;
+use xcm_simulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain, TestExt};
+
+use super::{parachain, relay_chain};
+
+pub const ALICE: AccountId32 = AccountId32::new([0u8; 32]);
+pub const BOB: AccountId32 = AccountId32::new([1u8; 32]);
+pub const UNITS: u64 = 10_000_000_000;
+pub const CENTS: u64 = 100_000_000;
+pub const INITIAL_BALANCE: u64 = 1 * UNITS;
+
+decl_test_parachain! {
+	pub struct ParaA {
+		Runtime = parachain::Runtime,
+		XcmpMessageHandler = parachain::MessageQueue,
+		DmpMessageHandler = parachain::MessageQueue,
+		new_ext = para_ext(),
+	}
+}
+
+decl_test_relay_chain! {
+	pub struct Relay {
+		Runtime = relay_chain::Runtime,
+		RuntimeCall = relay_chain::RuntimeCall,
+		RuntimeEvent = relay_chain::RuntimeEvent,
+		XcmConfig = relay_chain::XcmConfig,
+		MessageQueue = relay_chain::MessageQueue,
+		System = relay_chain::System,
+		new_ext = relay_ext(),
+	}
+}
+
+decl_test_network! {
+	pub struct MockNet {
+		relay_chain = Relay,
+		parachains = vec![
+			(2222, ParaA),
+		],
+	}
+}
+
+pub fn para_ext() -> TestExternalities {
+    use parachain::{MessageQueue, Runtime, System};
+
+    let t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+    let mut ext = frame::deps::sp_io::TestExternalities::new(t);
+    ext.execute_with(|| {
+        System::set_block_number(1);
+        MessageQueue::set_para_id(2222.into());
+    });
+    ext
+}
+
+pub fn relay_ext() -> TestExternalities {
+    use relay_chain::{Runtime, System};
+
+    let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+
+	pallet_balances::GenesisConfig::<Runtime> {
+		balances: vec![
+			(ALICE, INITIAL_BALANCE),
+		],
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
+
+    let mut ext = TestExternalities::new(t);
+    ext.execute_with(|| {
+        System::set_block_number(1);
+    });
+    ext
+}

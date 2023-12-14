@@ -13,6 +13,7 @@ xcm = { path = "../../xcm", package = "staging-xcm" }
 xcm-executor = { path = "../../xcm/xcm-executor", package = "staging-xcm-executor" }
 xcm-builder = { path = "../../xcm/xcm-builder", package = "staging-xcm-builder" }
 xcm-simulator = { path = "../../xcm/xcm-simulator" }
+pallet-xcm = { path = "../../xcm/pallet-xcm" }
 
 # For building FRAME runtimes
 frame = { path = "../../../substrate/frame", features = ["experimental", "runtime"] }
@@ -27,7 +28,11 @@ sp-io = { path = "../../../substrate/primitives/io" }
 
 # Some pallets
 pallet-message-queue = { path = "../../../substrate/frame/message-queue" }
+pallet-balances = { path = "../../../substrate/frame/balances" }
 
 # For building docs
 simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", branch = "main" }
 docify = "0.2.6"
+
+[dev-dependencies]
+test-log = "0.2.14"
