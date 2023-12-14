@@ -45,11 +45,13 @@ use sp_core::Get;
 use sp_runtime::traits::AccountIdConversion;
 use sp_std::marker::PhantomData;
 use xcm::latest::prelude::*;
+#[allow(deprecated)]
+use xcm_builder::CurrencyAdapter;
 use xcm_builder::{
 	deposit_or_burn_fee, AccountId32Aliases, AllowExplicitUnpaidExecutionFrom,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
-	CurrencyAdapter, DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, HandleFee,
-	IsConcrete, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
+	DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, HandleFee, IsConcrete,
+	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
 	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
 	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
 	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
@@ -85,6 +87,7 @@ pub type LocationToAccountId = (
 );
 
 /// Means for transacting the native currency on this chain.
+#[allow(deprecated)]
 pub type CurrencyTransactor = CurrencyAdapter<
 	// Use this currency:
 	Balances,
