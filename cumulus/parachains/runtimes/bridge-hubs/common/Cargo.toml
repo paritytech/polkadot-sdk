@@ -11,6 +11,7 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
 sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
+sp-core = { path = "../../../../../substrate/primitives/core", default-features = false }
 sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false }
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
