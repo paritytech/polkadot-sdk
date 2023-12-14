@@ -35,6 +35,7 @@ pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", 
 pallet-broker = { path = "../../../../../substrate/frame/broker", default-features = false }
 pallet-multisig = { path = "../../../../../substrate/frame/multisig", default-features = false }
 pallet-session = { path = "../../../../../substrate/frame/session", default-features = false }
+pallet-sudo = { path = "../../../../../substrate/frame/sudo", default-features = false }
 pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false }
 pallet-transaction-payment = { path = "../../../../../substrate/frame/transaction-payment", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { path = "../../../../../substrate/frame/transaction-payment/rpc/runtime-api", default-features = false }
@@ -136,6 +137,7 @@ std = [
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
+	"pallet-sudo/std"
 ]
 
 runtime-benchmarks = [
@@ -164,6 +166,7 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"pallet-sudo/runtime-benchmarks"
 ]
 
 try-runtime = [
@@ -191,6 +194,7 @@ try-runtime = [
 	"parachain-info/try-runtime",
 	"polkadot-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-sudo/try-runtime"
 ]
 
 experimental = ["pallet-aura/experimental"]
