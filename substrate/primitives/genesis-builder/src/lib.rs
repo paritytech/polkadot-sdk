@@ -35,13 +35,13 @@ pub type Result = core::result::Result<(), sp_runtime::RuntimeString>;
 
 sp_api::decl_runtime_apis! {
 	/// API to interact with GenesisConfig for the runtime
+	#[api_version(2)]
 	pub trait GenesisBuilder {
 		/// Creates the default `GenesisConfig` and returns it as a JSON blob.
 		///
 		/// This function instantiates the default `GenesisConfig` struct for the runtime and serializes it into a JSON
 		/// blob. It returns a `Vec<u8>` containing the JSON representation of the default `GenesisConfig`.
 		fn create_default_config() -> sp_std::vec::Vec<u8>;
-		fn create_default_config2(params: sp_std::vec::Vec<u8>) -> sp_std::vec::Vec<u8>;
 
 		/// Build `GenesisConfig` from a JSON blob not using any defaults and store it in the storage.
 		///
@@ -50,6 +50,15 @@ sp_api::decl_runtime_apis! {
 		/// It is recommended to log any errors encountered during the process.
 		///
 		/// Please note that provided json blob must contain all `GenesisConfig` fields, no defaults will be used.
-		fn build_config(json: sp_std::vec::Vec<u8>) -> Result;
+		#[renamed("build_config", 2)]
+		fn build_state(json: sp_std::vec::Vec<u8>) -> Result;
+
+		/// Returns a JSON blob representation of the builtin `GenesisConfig` identified by `id`.
+		///
+		/// If `id` is `None` the function instantiates the default `GenesisConfig` struct for the runtime and serializes it into a JSON
+		/// blob. It returns a `Vec<u8>` containing the JSON representation of the default `GenesisConfig`.
+		/// Otherwise returns a JSON representation of the runtime provided, named, pre-configured `GenesisConfig`.
+		#[api_version(2)]
+		fn get_named_preset(params: Option<sp_std::vec::Vec<u8>>) -> sp_std::vec::Vec<u8>;
 	}
 }
