@@ -33,7 +33,7 @@ use std::{
 };
 
 use polkadot_primitives::{Hash, ValidatorIndex};
-const TICK_DURATION_MILLIS: u64 = 500;
+pub const TICK_DURATION_MILLIS: u64 = 500;
 
 /// A base unit of time, starting from the Unix epoch, split into half-second intervals.
 pub type Tick = u64;

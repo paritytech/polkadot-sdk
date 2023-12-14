@@ -16,8 +16,9 @@
 
 use crate::approval::{LOG_TARGET, SLOT_DURATION_MILLIS};
 
-use super::ApprovalTestState;
+use super::{ApprovalTestState, FakeSystemClock};
 use futures::FutureExt;
+use polkadot_node_core_approval_voting::time::{slot_number_to_tick, Clock, TICK_DURATION_MILLIS};
 use polkadot_node_subsystem::{overseer, SpawnedSubsystem, SubsystemError};
 use polkadot_node_subsystem_types::messages::ChainSelectionMessage;
 use sp_timestamp::Timestamp;
@@ -26,6 +27,7 @@ use sp_timestamp::Timestamp;
 /// during benchmark. All the necessary information to answer the requests is stored in the `state`
 pub struct MockChainSelection {
 	pub state: ApprovalTestState,
+	pub clock: FakeSystemClock,
 }
 #[overseer::subsystem(ChainSelection, error=SubsystemError, prefix=self::overseer)]
 impl<Context> MockChainSelection {
@@ -52,9 +54,11 @@ impl MockChainSelection {
 						self.state
 							.last_approved_block
 							.store(approved_number, std::sync::atomic::Ordering::SeqCst);
-						let passed_since_slot_start = Timestamp::current().as_millis() -
-							*block_info.slot * SLOT_DURATION_MILLIS;
-						gum::info!(target: LOG_TARGET, ?hash, "Chain selection approved  after {:} ms", passed_since_slot_start);
+
+						let approved_in_tick = self.clock.tick_now() -
+							slot_number_to_tick(SLOT_DURATION_MILLIS, block_info.slot);
+
+						gum::info!(target: LOG_TARGET, ?hash, "Chain selection approved  after {:} ms", approved_in_tick * TICK_DURATION_MILLIS);
 					},
 					_ => {},
 				},

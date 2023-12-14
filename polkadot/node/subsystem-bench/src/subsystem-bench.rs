@@ -115,9 +115,9 @@ impl BenchCli {
 							let (mut env, state) =
 								approval::prepare_test(test_config.clone(), options.clone());
 
-							// env.runtime().block_on(async {
-							// 	bench_approvals(&mut env, state).await;
-							// });
+							env.runtime().block_on(async {
+								bench_approvals(&mut env, state).await;
+							});
 						},
 						TestObjective::TestSequence(_) => todo!(),
 					}

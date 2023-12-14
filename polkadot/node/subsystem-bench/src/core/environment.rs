@@ -242,6 +242,14 @@ impl TestEnvironment {
 		&self.network
 	}
 
+	pub fn overseer_handle(&self) -> &OverseerHandle {
+		&self.overseer_handle
+	}
+
+	pub fn spawn_handle(&self) -> SpawnTaskHandle {
+		self.dependencies.task_manager.spawn_handle()
+	}
+
 	pub fn registry(&self) -> &Registry {
 		&self.dependencies.registry
 	}

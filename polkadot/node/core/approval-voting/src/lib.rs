@@ -114,7 +114,7 @@ const APPROVAL_CHECKING_TIMEOUT: Duration = Duration::from_secs(120);
 ///
 /// Value rather arbitrarily: Should not be hit in practice, it exists to more easily diagnose dead
 /// lock issues for example.
-const WAIT_FOR_SIGS_TIMEOUT: Duration = Duration::from_millis(500);
+const WAIT_FOR_SIGS_TIMEOUT: Duration = Duration::from_millis(2000);
 const APPROVAL_CACHE_SIZE: u32 = 1024;
 
 const TICK_TOO_FAR_IN_FUTURE: Tick = 20; // 10 seconds.
