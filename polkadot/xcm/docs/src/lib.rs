@@ -5,7 +5,8 @@
 //! Welcome to the Cross-Consensus Messaging documentation!
 //!
 //! XCM is a **language** for communicating **intentions** between **consensus systems**.
-//! Whether you're a developer, a blockchain enthusiast, or just interested in Polkadot, this guide aims to provide you with an easy-to-understand and comprehensive introduction to XCM.
+//! Whether you're a developer, a blockchain enthusiast, or just interested in Polkadot, this guide
+//! aims to provide you with an easy-to-understand and comprehensive introduction to XCM.
 //!
 //! ## Getting started
 //!

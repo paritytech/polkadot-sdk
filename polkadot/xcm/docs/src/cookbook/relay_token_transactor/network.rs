@@ -1,8 +1,10 @@
 //! Mock network
 
-use frame::deps::frame_system;
-use frame::deps::sp_runtime::{BuildStorage, AccountId32};
-use frame::deps::sp_io::TestExternalities;
+use frame::deps::{
+	frame_system,
+	sp_io::TestExternalities,
+	sp_runtime::{AccountId32, BuildStorage},
+};
 use xcm_simulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain, TestExt};
 
 use super::{parachain, relay_chain};
@@ -44,33 +46,29 @@ decl_test_network! {
 }
 
 pub fn para_ext() -> TestExternalities {
-    use parachain::{MessageQueue, Runtime, System};
+	use parachain::{MessageQueue, Runtime, System};
 
-    let t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
-    let mut ext = frame::deps::sp_io::TestExternalities::new(t);
-    ext.execute_with(|| {
-        System::set_block_number(1);
-        MessageQueue::set_para_id(2222.into());
-    });
-    ext
+	let t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+	let mut ext = frame::deps::sp_io::TestExternalities::new(t);
+	ext.execute_with(|| {
+		System::set_block_number(1);
+		MessageQueue::set_para_id(2222.into());
+	});
+	ext
 }
 
 pub fn relay_ext() -> TestExternalities {
-    use relay_chain::{Runtime, System};
+	use relay_chain::{Runtime, System};
 
-    let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+	let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 
-	pallet_balances::GenesisConfig::<Runtime> {
-		balances: vec![
-			(ALICE, INITIAL_BALANCE),
-		],
-	}
-	.assimilate_storage(&mut t)
-	.unwrap();
+	pallet_balances::GenesisConfig::<Runtime> { balances: vec![(ALICE, INITIAL_BALANCE)] }
+		.assimilate_storage(&mut t)
+		.unwrap();
 
-    let mut ext = TestExternalities::new(t);
-    ext.execute_with(|| {
-        System::set_block_number(1);
-    });
-    ext
+	let mut ext = TestExternalities::new(t);
+	ext.execute_with(|| {
+		System::set_block_number(1);
+	});
+	ext
 }
