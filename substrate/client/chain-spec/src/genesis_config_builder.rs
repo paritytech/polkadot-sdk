@@ -84,29 +84,28 @@ where
 	/// Returns the default `GenesisConfig` provided by the `runtime`.
 	///
 	/// Calls [`GenesisBuilder::create_default_config`](sp_genesis_builder::GenesisBuilder::create_default_config) in the `runtime`.
-	pub fn get_default_config(&self) -> core::result::Result<Value, String> {
-		let mut t = BasicExternalities::new_empty();
-		let call_result = self
-			.call(&mut t, "GenesisBuilder_create_default_config", &[])
-			.map_err(|e| format!("wasm call error {e}"))?;
-		let default_config = Vec::<u8>::decode(&mut &call_result[..])
-			.map_err(|e| format!("scale codec error: {e}"))?;
-		Ok(from_slice(&default_config[..]).expect("returned value is json. qed."))
+	fn get_default_config(&self) -> core::result::Result<Value, String> {
+		self.get_named_patch(None)
 	}
 
-	/// Build the given `GenesisConfig` and returns the genesis state.
+	/// Returns a JSON blob representation of the builtin `GenesisConfig` identified by `id`.
 	///
-	/// Calls [`GenesisBuilder::build_state`](sp_genesis_builder::GenesisBuilder::build_state)
+	/// Calls [`GenesisBuilder::get_preset`](sp_genesis_builder::GenesisBuilder::get_preset)
 	/// provided by the `runtime`.
-	pub fn get_named_patch(&self, name: &String) -> core::result::Result<Value, String> {
+	pub fn get_named_patch(&self, id: Option<&String>) -> core::result::Result<Value, String> {
 		let mut t = BasicExternalities::new_empty();
 		let call_result = self
-			.call(&mut t, "GenesisBuilder_create_default_config2", &name.as_bytes().encode())
+			.call(&mut t, "GenesisBuilder_get_preset", &id.encode())
 			.map_err(|e| format!("wasm call error {e}"))?;
 
-		let named_patch = Vec::<u8>::decode(&mut &call_result[..])
+		let named_patch = Option::<Vec<u8>>::decode(&mut &call_result[..])
 			.map_err(|e| format!("scale codec error: {e}"))?;
-		Ok(from_slice(&named_patch[..]).expect("returned value is json. qed."))
+
+		if let Some(named_patch) = named_patch {
+			Ok(from_slice(&named_patch[..]).expect("returned value is json. qed."))
+		} else {
+			Err(format!("The preset with name {id:?} is not available."))
+		}
 	}
 
 	/// Calls [`sp_genesis_builder::GenesisBuilder::build_state`] provided by runtime.
@@ -114,7 +113,7 @@ where
 		let mut ext = BasicExternalities::new_empty();
 
 		let call_result = self
-			.call(&mut ext, "GenesisBuilder_build_config", &config.to_string().encode())
+			.call(&mut ext, "GenesisBuilder_build_state", &config.to_string().encode())
 			.map_err(|e| format!("wasm call error {e}"))?;
 
 		BuildResult::decode(&mut &call_result[..])
@@ -150,9 +149,9 @@ where
 
 	pub fn get_storage_for_named_patch(
 		&self,
-		name: String,
+		name: Option<&String>,
 	) -> core::result::Result<Storage, String> {
-		self.get_storage_for_patch(self.get_named_patch(&name)?)
+		self.get_storage_for_patch(self.get_named_patch(name)?)
 	}
 }
 
@@ -176,8 +175,8 @@ mod tests {
 	fn get_named_patch_works() {
 		sp_tracing::try_init_simple();
 		let config =
-			GenesisConfigBuilderRuntimeCaller::new(substrate_test_runtime::wasm_binary_unwrap())
-				.get_named_patch(&"foobar".to_string())
+			<GenesisConfigBuilderRuntimeCaller>::new(substrate_test_runtime::wasm_binary_unwrap())
+				.get_named_patch(Some(&"foobar".to_string()))
 				.unwrap();
 		let expected = r#"{"foo":"bar"}"#;
 		assert_eq!(from_str::<Value>(expected).unwrap(), config);

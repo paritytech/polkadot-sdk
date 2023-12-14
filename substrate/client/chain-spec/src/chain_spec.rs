@@ -130,7 +130,7 @@ impl<G: RuntimeGenesis, EHF: HostFunctions> GenesisSource<G, EHF> {
 					code: code.clone(),
 				})),
 			Self::GenesisBuilderApi(GenesisBuildAction::NamedPatch(name, _), code) => {
-				let patch = RuntimeCaller::<EHF>::new(&code[..]).get_named_patch(name)?;
+				let patch = RuntimeCaller::<EHF>::new(&code[..]).get_named_patch(Some(name))?;
 				Ok(Genesis::RuntimeGenesis(RuntimeGenesisInner {
 					json_blob: RuntimeGenesisConfigJson::Patch(patch),
 					code: code.clone(),
