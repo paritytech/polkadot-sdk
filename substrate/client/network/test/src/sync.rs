@@ -1225,7 +1225,7 @@ async fn warp_sync() {
 	net.add_full_peer_with_config(Default::default());
 	net.add_full_peer_with_config(Default::default());
 	net.add_full_peer_with_config(FullPeerConfig {
-		sync_mode: SyncMode::Warp,
+		sync_mode: SyncMode::Warp { block_history: true },
 		..Default::default()
 	});
 	let gap_end = net.peer(0).push_blocks(63, false).pop().unwrap();
@@ -1266,7 +1266,7 @@ async fn warp_sync_to_target_block() {
 	let target_block = net.peer(0).client.header(target).unwrap().unwrap();
 
 	net.add_full_peer_with_config(FullPeerConfig {
-		sync_mode: SyncMode::Warp,
+		sync_mode: SyncMode::Warp { block_history: true },
 		target_block: Some(target_block),
 		..Default::default()
 	});
