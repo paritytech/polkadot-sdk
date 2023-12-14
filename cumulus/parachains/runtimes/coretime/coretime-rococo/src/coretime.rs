@@ -287,8 +287,8 @@ impl pallet_broker::Config for Runtime {
 	type Currency = Balances;
 	type OnRevenue = CreditToCollatorPot<Runtime>;
 	type TimeslicePeriod = ConstU32<2>;
-	type MaxLeasedCores = ConstU32<5>;
-	type MaxReservedCores = ConstU32<5>;
+	type MaxLeasedCores = ConstU32<50>;
+	type MaxReservedCores = ConstU32<10>;
 	type Coretime = CoretimeAllocator;
 	type ConvertBalance = sp_runtime::traits::Identity;
 	type WeightInfo = weights::pallet_broker::WeightInfo<Runtime>;
