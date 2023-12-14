@@ -92,7 +92,7 @@ impl CoretimeRuntimeType {
 	}
 }
 
-/// Check if 'id' satisfies Coretime-like format
+/// Check if `id` satisfies Coretime-like format.
 fn ensure_id(id: &str) -> Result<&str, String> {
 	if id.starts_with(CoretimeRuntimeType::ID_PREFIX) {
 		Ok(id)

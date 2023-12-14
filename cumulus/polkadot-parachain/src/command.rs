@@ -624,7 +624,7 @@ pub fn run() -> Result<()> {
 					let old_path = config.base_path.config_dir(old_name);
 
 					if old_path.exists() && new_path.exists() {
-							return Err(format!(
+						return Err(format!(
 							"Found legacy {} path {} and new asset-hub path {}. Delete one path such that only one exists.",
 							old_name, old_path.display(), new_path.display()
 						).into())
