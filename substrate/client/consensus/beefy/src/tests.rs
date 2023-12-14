@@ -1130,8 +1130,9 @@ async fn should_initialize_voter_at_custom_genesis() {
 	// NOTE: code from `voter_init_setup()` is moved here because the new network event system
 	// doesn't allow creating a new `GossipEngine` as the notification handle is consumed by the
 	// first `GossipEngine`
+	let fisherman = DummyFisherman { _phantom: PhantomData::<Block> };
 	let known_peers = Arc::new(Mutex::new(KnownPeers::new()));
-	let (gossip_validator, _) = GossipValidator::new(known_peers);
+	let (gossip_validator, _) = GossipValidator::new(known_peers, fisherman);
 	let gossip_validator = Arc::new(gossip_validator);
 	let mut gossip_engine = sc_network_gossip::GossipEngine::new(
 		net.peer(0).network_service().clone(),
@@ -1461,7 +1462,7 @@ async fn beefy_reports_vote_equivocations() {
 }
 
 #[tokio::test]
-async fn gossipped_finality_proofs() {
+async fn gossiped_finality_proofs() {
 	sp_tracing::try_init_simple();
 
 	let validators = [BeefyKeyring::Alice, BeefyKeyring::Bob, BeefyKeyring::Charlie];
