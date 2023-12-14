@@ -12,7 +12,7 @@ use sp_runtime::SaturatedConversion;
 use xcm::prelude::*;
 
 fn fund_sovereign_account<T: Config>(para_id: ParaId) -> Result<(), BenchmarkError> {
-	let amount: BalanceOf<T> = (5_000_000_000_000_u64).saturated_into::<u128>().saturated_into();
+	let amount: BalanceOf<T> = (10_000_000_000_000_u64).saturated_into::<u128>().saturated_into();
 	let sovereign_account = sibling_sovereign_account::<T>(para_id);
 	T::Token::mint_into(&sovereign_account, amount)?;
 	Ok(())
