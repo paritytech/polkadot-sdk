@@ -44,11 +44,6 @@ parameter_types! {
 	pub const RelayerStakeReserveId: [u8; 8] = *b"brdgrlrs";
 
 	pub storage DeliveryRewardInBalance: u64 = 1_000_000;
-
-	pub BridgeHubRococoUniversalLocation: InteriorMultiLocation = X2(
-		GlobalConsensus(Rococo),
-		Parachain(ParachainInfo::parachain_id().into()),
-	);
 }
 
 /// Add GRANDPA bridge pallet to track Westend relay chain.

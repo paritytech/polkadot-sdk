@@ -20,11 +20,11 @@
 //! are reusing Polkadot Bulletin chain primitives everywhere here.
 
 use crate::{
-	bridge_common_config::{
-		BridgeGrandpaRococoBulletinInstance, BridgeHubRococo, BridgeHubRococoUniversalLocation,
-	},
-	weights, AccountId, BridgeRococoBulletinGrandpa, BridgeRococoBulletinMessages, Runtime,
-	RuntimeEvent, XcmRouter,
+	bridge_common_config::{BridgeGrandpaRococoBulletinInstance, BridgeHubRococo},
+	weights,
+	xcm_config::UniversalLocation,
+	AccountId, BridgeRococoBulletinGrandpa, BridgeRococoBulletinMessages, Runtime, RuntimeEvent,
+	XcmRouter,
 };
 use bp_messages::LaneId;
 use bridge_runtime_common::{
@@ -59,7 +59,7 @@ parameter_types! {
 	pub const MaxUnrewardedRelayerEntriesAtInboundLane: bp_messages::MessageNonce =
 		bp_polkadot_bulletin::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
 	/// Maximal number of unconfirmed messages at the Rococo Bridge Hub. It matches the maximal number of
-	/// unconfirmed messages that the single confirmation transaction at Rococo Bulletin Chain may process.
+	/// uncinfirmed messages that the single confirmation transaction at Rococo Bulletin Chain may process.
 	pub const MaxUnconfirmedMessagesAtInboundLane: bp_messages::MessageNonce =
 		bp_polkadot_bulletin::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 	/// Bridge specific chain (network) identifier of the Rococo Bulletin Chain.
@@ -107,7 +107,7 @@ pub type ToRococoBulletinMessagesDeliveryProof =
 /// Dispatches received XCM messages from other bridge.
 type FromRococoBulletinMessageBlobDispatcher = BridgeBlobDispatcher<
 	XcmRouter,
-	BridgeHubRococoUniversalLocation,
+	UniversalLocation,
 	BridgeRococoToRococoBulletinMessagesPalletInstance,
 >;
 

@@ -18,10 +18,11 @@
 
 use crate::{
 	bridge_common_config::{
-		BridgeHubRococo, BridgeHubRococoUniversalLocation, BridgeParachainWestendInstance,
-		DeliveryRewardInBalance,
+		BridgeHubRococo, BridgeParachainWestendInstance, DeliveryRewardInBalance,
 	},
-	weights, AccountId, BridgeWestendMessages, Runtime, RuntimeEvent, XcmRouter,
+	weights,
+	xcm_config::UniversalLocation,
+	AccountId, BridgeWestendMessages, Runtime, RuntimeEvent, XcmRouter,
 };
 use bp_messages::LaneId;
 use bridge_runtime_common::{
@@ -104,11 +105,8 @@ pub type ToWestendBridgeHubMessagesDeliveryProof =
 	FromBridgedChainMessagesDeliveryProof<bp_bridge_hub_westend::Hash>;
 
 /// Dispatches received XCM messages from other bridge
-type FromWestendMessageBlobDispatcher = BridgeBlobDispatcher<
-	XcmRouter,
-	BridgeHubRococoUniversalLocation,
-	BridgeRococoToWestendMessagesPalletInstance,
->;
+type FromWestendMessageBlobDispatcher =
+	BridgeBlobDispatcher<XcmRouter, UniversalLocation, BridgeRococoToWestendMessagesPalletInstance>;
 
 /// Export XCM messages to be relayed to the other side
 pub type ToBridgeHubWestendHaulBlobExporter = HaulBlobExporter<
