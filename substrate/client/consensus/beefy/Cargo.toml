@@ -8,6 +8,9 @@ repository.workspace = true
 description = "BEEFY Client gadget for substrate"
 homepage = "https://substrate.io"
 
+[lints]
+workspace = true
+
 [dependencies]
 array-bytes = "6.1"
 async-channel = "1.8.0"

@@ -6,6 +6,9 @@ edition.workspace = true
 description = "Common interface for different relay chain datasources."
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
+[lints]
+workspace = true
+
 [dependencies]
 polkadot-overseer = { path = "../../../polkadot/node/overseer" }
 
