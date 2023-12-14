@@ -481,7 +481,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			Self::ensure_root_para_or_owner(origin.clone(), para)?;
 
-			let requierments = if ensure_root(origin.clone()).is_ok() {
+			let requirements = if ensure_root(origin.clone()).is_ok() {
 				// Upgrades initiated by the root origin do not have any upgrade cost-related
 				// requirements. For this reason we can skip all the pre code upgrade checks.
 				UpgradeRequirements::SkipRequirements
@@ -489,7 +489,7 @@ pub mod pallet {
 				UpgradeRequirements::EnforceRequirements
 			};
 
-			Self::do_schedule_code_upgrade(para, new_code, requierments)
+			Self::do_schedule_code_upgrade(para, new_code, requirements)
 		}
 
 		/// Set the parachain's current head.
@@ -803,7 +803,7 @@ impl<T: Config> Pallet<T> {
 	/// Schedules a code upgrade for a parachain.
 	///
 	/// If `requirements` is set to `UpgradeRequirements::SkipRequirements` all the code upgrade
-	/// cost related requierments will be ignored.
+	/// cost related requirements will be ignored.
 	///
 	/// If the size of the validation is reduced and the upgrade is successful the caller will be
 	/// eligible for receiving back a portion of their deposit that is no longer required.
@@ -929,15 +929,6 @@ impl<T: Config> PreCodeUpgrade for Pallet<T> {
 		};
 
 		let Some(mut info) = Paras::<T>::get(para) else { return Err(T::DbWeight::get().reads(2)) };
-		let lease_holding = Self::is_parachain(para);
-
-		// The billing account doesn't need to be set for lease holding parachains.
-		if info.billing_account.is_none() && !lease_holding {
-			Self::deposit_event(Event::<T>::CodeUpgradeScheduleFailed(
-				CodeUpgradeScheduleError::BillingAccountNotSet,
-			));
-			return Err(T::DbWeight::get().reads(3))
-		}
 
 		let per_byte_fee = T::DataDepositPerByte::get();
 		let new_deposit = T::ParaDeposit::get()
@@ -946,44 +937,49 @@ impl<T: Config> PreCodeUpgrade for Pallet<T> {
 
 		let current_deposit = info.deposit;
 
+		let lease_holding = Self::is_parachain(para);
 		let free_upgrade = requirements == UpgradeRequirements::SkipRequirements ||
 			para.is_system() ||
 			lease_holding;
 
-		match (free_upgrade, info.billing_account.clone()) {
-			(false, Some(billing_account)) => {
-				if let Err(_) = <T as Config>::Currency::withdraw(
-					&billing_account,
-					T::UpgradeFee::get(),
-					WithdrawReasons::FEE,
-					ExistenceRequirement::KeepAlive,
-				) {
-					Self::deposit_event(Event::<T>::CodeUpgradeScheduleFailed(
-						CodeUpgradeScheduleError::FailedToPayUpgradeFee,
-					));
-					// This is an overestimate of the used weight, but it's better to be safe than
-					// sorry.
-					return Err(<T as Config>::WeightInfo::pre_code_upgrade())
-				}
+		if !free_upgrade {
+			if info.billing_account.is_none() {
+				Self::deposit_event(Event::<T>::CodeUpgradeScheduleFailed(
+					CodeUpgradeScheduleError::BillingAccountNotSet,
+				));
+				// An overestimate of the used weight, but it's better to be safe than sorry.
+				return Err(<T as Config>::WeightInfo::pre_code_upgrade())
+			}
 
-				let additional_deposit = new_deposit.saturating_sub(current_deposit);
-				if let Err(_) =
-					<T as Config>::Currency::reserve(&billing_account, additional_deposit)
-				{
-					Self::deposit_event(Event::<T>::CodeUpgradeScheduleFailed(
-						CodeUpgradeScheduleError::FailedToReserveDeposit,
-					));
-					// This is an overestimate of the used weight, but it's better to be safe than
-					// sorry.
-					return Err(<T as Config>::WeightInfo::pre_code_upgrade())
-				}
+			let billing_account = info
+				.billing_account
+				.clone()
+				.expect("Ensured above that the billing account is set; qed");
 
-				// Update the deposit to the new appropriate amount.
-				info.deposit = new_deposit;
-			},
-			_ => {
-				// No upgrade costs are required.
-			},
+			if let Err(_) = <T as Config>::Currency::withdraw(
+				&billing_account,
+				T::UpgradeFee::get(),
+				WithdrawReasons::FEE,
+				ExistenceRequirement::KeepAlive,
+			) {
+				Self::deposit_event(Event::<T>::CodeUpgradeScheduleFailed(
+					CodeUpgradeScheduleError::FailedToPayUpgradeFee,
+				));
+				// An overestimate of the used weight, but it's better to be safe than sorry.
+				return Err(<T as Config>::WeightInfo::pre_code_upgrade())
+			}
+
+			let additional_deposit = new_deposit.saturating_sub(current_deposit);
+			if let Err(_) = <T as Config>::Currency::reserve(&billing_account, additional_deposit) {
+				Self::deposit_event(Event::<T>::CodeUpgradeScheduleFailed(
+					CodeUpgradeScheduleError::FailedToReserveDeposit,
+				));
+				// An overestimate of the used weight, but it's better to be safe than sorry.
+				return Err(<T as Config>::WeightInfo::pre_code_upgrade())
+			}
+
+			// Update the deposit to the new appropriate amount.
+			info.deposit = new_deposit;
 		}
 
 		if current_deposit > new_deposit {

@@ -35,7 +35,7 @@ impl<T: Config, UnlockParaIds: Contains<ParaId>> OnRuntimeUpgrade
 		Paras::<T>::translate::<ParaInfoV1<T::AccountId, BalanceOf<T>>, _>(|_key, v1| {
 			count.saturating_inc();
 			Some(ParaInfo {
-				manager: v1.manager.clone(),
+				manager: v1.manager,
 				deposit: v1.deposit,
 				locked: v1.locked,
 				billing_account: None,
