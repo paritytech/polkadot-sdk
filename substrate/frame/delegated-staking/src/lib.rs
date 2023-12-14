@@ -392,7 +392,8 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 			T::Currency::slash(&HoldReason::Delegating.into(), &delegator, value);
 		let actual_slash = credit.peek();
 		// remove the slashed amount
-		delegation_register.pending_slash.saturating_sub(actual_slash);
+		delegation_register.pending_slash.saturating_reduce(actual_slash);
+		<Delegatees<T>>::insert(delegatee, delegation_register);
 
 		if let Some(reporter) = maybe_reporter {
 			let reward_payout: BalanceOf<T> =
