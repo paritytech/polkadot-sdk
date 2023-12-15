@@ -27,9 +27,6 @@ use polkadot_node_subsystem::{
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem,
 };
 
-/// Peer set info for network initialization.
-///
-/// To be passed to [`FullNetworkConfiguration::add_notification_protocol`]().
 use polkadot_node_network_protocol::request_response::Requests;
 use sc_network::{MessageSink, ReputationChange};
 
