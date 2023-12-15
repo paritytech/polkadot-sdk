@@ -40,6 +40,14 @@
   tags:
     - zombienet-polkadot-integration-test
 
+.zombienet-substrate-warp-sync-common:
+  extends:
+    - .zombienet-substrate-common
+  variables:
+    DB_SNAPSHOT: "https://storage.googleapis.com/zombienet-db-snaps/substrate/0004-basic-beefy-warp-sync/chains.tgz"
+    DB_BLOCK_HEIGHT: 46742
+    DB_LATEST_MANDATORY_ROUND: 46616
+
 zombienet-substrate-0000-block-building:
   extends:
     - .zombienet-substrate-common
@@ -50,7 +58,7 @@ zombienet-substrate-0000-block-building:
 
 zombienet-substrate-0001-basic-warp-sync:
   extends:
-    - .zombienet-substrate-common
+    - .zombienet-substrate-warp-sync-common
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
       --local-dir="${LOCAL_DIR}/0001-basic-warp-sync"
@@ -58,7 +66,10 @@ zombienet-substrate-0001-basic-warp-sync:
 
 zombienet-substrate-0002-validators-warp-sync:
   extends:
-    - .zombienet-substrate-common
+    - .zombienet-substrate-warp-sync-common
+  before_script:
+    - !reference [.zombienet-substrate-warp-sync-common, before_script]
+    - cp ${LOCAL_DIR}/0001-basic-warp-sync/chain-spec.json ${LOCAL_DIR}/0002-validators-warp-sync
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
       --local-dir="${LOCAL_DIR}/0002-validators-warp-sync"
@@ -66,8 +77,22 @@ zombienet-substrate-0002-validators-warp-sync:
 
 zombienet-substrate-0003-block-building-warp-sync:
   extends:
-    - .zombienet-substrate-common
+    - .zombienet-substrate-warp-sync-common
+  before_script:
+    - !reference [.zombienet-substrate-warp-sync-common, before_script]
+    - cp ${LOCAL_DIR}/0001-basic-warp-sync/chain-spec.json ${LOCAL_DIR}/0003-block-building-warp-sync
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
       --local-dir="${LOCAL_DIR}/0003-block-building-warp-sync"
       --test="test-block-building-warp-sync.zndsl"
+
+zombienet-substrate-0004-basic-beefy-warp-sync:
+  extends:
+    - .zombienet-substrate-warp-sync-common
+  before_script:
+    - !reference [.zombienet-substrate-warp-sync-common, before_script]
+    - cp ${LOCAL_DIR}/0001-basic-warp-sync/chain-spec.json ${LOCAL_DIR}/0004-basic-beefy-warp-sync
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/0004-basic-beefy-warp-sync"
+      --test="test-warp-sync.zndsl"
