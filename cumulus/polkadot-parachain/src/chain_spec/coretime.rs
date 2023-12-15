@@ -16,11 +16,11 @@
 
 use crate::chain_spec::GenericChainSpec;
 use cumulus_primitives_core::ParaId;
-use sc_chain_spec::ChainSpec;
-use std::str::FromStr;
+use sc_chain_spec::{ChainSpec, ChainType};
+use std::{borrow::Cow, str::FromStr};
 
 /// Collects all supported Coretime configurations.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum CoretimeRuntimeType {
 	// Live
 	Rococo,
@@ -50,6 +50,32 @@ impl FromStr for CoretimeRuntimeType {
 	}
 }
 
+impl From<CoretimeRuntimeType> for &str {
+	fn from(runtime_type: CoretimeRuntimeType) -> Self {
+		match runtime_type {
+			CoretimeRuntimeType::Rococo => rococo::CORETIME_ROCOCO,
+			CoretimeRuntimeType::RococoLocal => rococo::CORETIME_ROCOCO_LOCAL,
+			CoretimeRuntimeType::RococoDevelopment => rococo::CORETIME_ROCOCO_DEVELOPMENT,
+			CoretimeRuntimeType::WestendLocal => westend::CORETIME_WESTEND_LOCAL,
+			CoretimeRuntimeType::WestendDevelopment => westend::CORETIME_WESTEND_DEVELOPMENT,
+		}
+	}
+}
+
+impl From<CoretimeRuntimeType> for ChainType {
+	fn from(runtime_type: CoretimeRuntimeType) -> Self {
+		match runtime_type {
+			CoretimeRuntimeType::Rococo => ChainType::Live,
+			CoretimeRuntimeType::RococoLocal | CoretimeRuntimeType::WestendLocal =>
+				ChainType::Local,
+			CoretimeRuntimeType::RococoDevelopment | CoretimeRuntimeType::WestendDevelopment =>
+				ChainType::Development,
+		}
+	}
+}
+
+pub const CORETIME_PARA_ID: ParaId = ParaId::new(1005);
+
 impl CoretimeRuntimeType {
 	pub const ID_PREFIX: &'static str = "coretime";
 
@@ -58,55 +84,36 @@ impl CoretimeRuntimeType {
 			CoretimeRuntimeType::Rococo => Ok(Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../../parachains/chain-specs/coretime-rococo.json")[..],
 			)?)),
-			CoretimeRuntimeType::RococoLocal => Ok(Box::new(rococo::local_config(
-				rococo::CORETIME_ROCOCO_LOCAL,
-				"Rococo Coretime Local",
-				"rococo-local",
-				ParaId::new(1005),
-			))),
-			CoretimeRuntimeType::RococoDevelopment => Ok(Box::new(rococo::local_config(
-				rococo::CORETIME_ROCOCO_DEVELOPMENT,
-				"Rococo Coretime Development",
-				"rococo-dev",
-				ParaId::new(1005),
-			))),
-			CoretimeRuntimeType::WestendLocal => Ok(Box::new(westend::local_config(
-				westend::CORETIME_WESTEND_DEVELOPMENT,
-				"Westend Coretime Local",
-				"westend-local",
-				ParaId::new(1005),
-			))),
-			CoretimeRuntimeType::WestendDevelopment => Ok(Box::new(westend::local_config(
-				westend::CORETIME_WESTEND_DEVELOPMENT,
-				"Westend Coretime Development",
-				"westend-dev",
-				ParaId::new(1005),
-			))),
+			CoretimeRuntimeType::RococoLocal =>
+				Ok(Box::new(rococo::local_config(self, "rococo-local"))),
+			CoretimeRuntimeType::RococoDevelopment =>
+				Ok(Box::new(rococo::local_config(self, "rococo-dev"))),
+			CoretimeRuntimeType::WestendLocal =>
+				Ok(Box::new(westend::local_config(self, "westend-local"))),
+			CoretimeRuntimeType::WestendDevelopment =>
+				Ok(Box::new(westend::local_config(self, "westend-dev"))),
 		}
 	}
 }
 
-/// Check if `id` satisfies Coretime-like format.
-fn ensure_id(id: &str) -> Result<&str, String> {
-	if id.starts_with(CoretimeRuntimeType::ID_PREFIX) {
-		Ok(id)
-	} else {
-		Err(format!(
-			"Invalid 'id' attribute ({}), should start with prefix: {}",
-			id,
-			CoretimeRuntimeType::ID_PREFIX
-		))
+/// Generate the name directly from the ChainType
+pub fn chain_type_name(chain_type: &ChainType) -> Cow<str> {
+	match chain_type {
+		ChainType::Development => "Development",
+		ChainType::Local => "Local",
+		ChainType::Live => "Live",
+		ChainType::Custom(name) => name,
 	}
+	.into()
 }
 
 /// Sub-module for Rococo setup.
 pub mod rococo {
-	use super::{GenericChainSpec, ParaId};
+	use super::{chain_type_name, CoretimeRuntimeType, GenericChainSpec, ParaId};
 	use crate::chain_spec::{
 		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, SAFE_XCM_VERSION,
 	};
 	use parachains_common::{AccountId, AuraId, Balance};
-	use sc_chain_spec::ChainType;
 	use sp_core::sr25519;
 
 	pub(crate) const CORETIME_ROCOCO: &str = "coretime-rococo";
@@ -114,26 +121,25 @@ pub mod rococo {
 	pub(crate) const CORETIME_ROCOCO_DEVELOPMENT: &str = "coretime-rococo-dev";
 	const CORETIME_ROCOCO_ED: Balance = parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
 
-	pub fn local_config(
-		id: &str,
-		chain_name: &str,
-		relay_chain: &str,
-		para_id: ParaId,
-	) -> GenericChainSpec {
+	pub fn local_config(runtime_type: &CoretimeRuntimeType, relay_chain: &str) -> GenericChainSpec {
 		// Rococo defaults
 		let mut properties = sc_chain_spec::Properties::new();
 		properties.insert("ss58Format".into(), 42.into());
 		properties.insert("tokenSymbol".into(), "ROC".into());
 		properties.insert("tokenDecimals".into(), 12.into());
 
+		let chain_type = runtime_type.clone().into();
+		let chain_name = format!("Coretime Rococo {}", chain_type_name(&chain_type));
+		let para_id = super::CORETIME_PARA_ID;
+
 		GenericChainSpec::builder(
 			coretime_rococo_runtime::WASM_BINARY
 				.expect("WASM binary was not built, please build it!"),
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
 		)
-		.with_name(chain_name)
-		.with_id(super::ensure_id(id).expect("invalid id"))
-		.with_chain_type(ChainType::Local)
+		.with_name(&chain_name)
+		.with_id(runtime_type.clone().into())
+		.with_chain_type(chain_type)
 		.with_genesis_config_patch(genesis(
 			// initial collators.
 			vec![(
@@ -192,38 +198,36 @@ pub mod rococo {
 
 /// Sub-module for Westend setup.
 pub mod westend {
-	use super::{GenericChainSpec, ParaId};
+	use super::{chain_type_name, CoretimeRuntimeType, GenericChainSpec, ParaId};
 	use crate::chain_spec::{
 		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, SAFE_XCM_VERSION,
 	};
 	use parachains_common::{AccountId, AuraId, Balance};
-	use sc_chain_spec::ChainType;
 	use sp_core::sr25519;
 
 	pub(crate) const CORETIME_WESTEND_LOCAL: &str = "coretime-westend-local";
 	pub(crate) const CORETIME_WESTEND_DEVELOPMENT: &str = "coretime-westend-dev";
 	const CORETIME_WESTEND_ED: Balance = parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
 
-	pub fn local_config(
-		id: &str,
-		chain_name: &str,
-		relay_chain: &str,
-		para_id: ParaId,
-	) -> GenericChainSpec {
+	pub fn local_config(runtime_type: &CoretimeRuntimeType, relay_chain: &str) -> GenericChainSpec {
 		// westend defaults
 		let mut properties = sc_chain_spec::Properties::new();
 		properties.insert("ss58Format".into(), 42.into());
 		properties.insert("tokenSymbol".into(), "WND".into());
 		properties.insert("tokenDecimals".into(), 12.into());
 
+		let chain_type = runtime_type.clone().into();
+		let chain_name = format!("Coretime Westend {}", chain_type_name(&chain_type));
+		let para_id = super::CORETIME_PARA_ID;
+
 		GenericChainSpec::builder(
 			coretime_westend_runtime::WASM_BINARY
 				.expect("WASM binary was not built, please build it!"),
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
 		)
-		.with_name(chain_name)
-		.with_id(super::ensure_id(id).expect("invalid id"))
-		.with_chain_type(ChainType::Local)
+		.with_name(&chain_name)
+		.with_id(runtime_type.clone().into())
+		.with_chain_type(chain_type)
 		.with_genesis_config_patch(genesis(
 			// initial collators.
 			vec![(
