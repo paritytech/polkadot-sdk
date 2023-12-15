@@ -117,7 +117,7 @@ pub fn roll_to_round(n: u32) {
 
 	while MultiPhase::round() != n {
 		roll_to_signed();
-		assert_ok!(MultiPhase::elect());
+		frame_support::assert_ok!(MultiPhase::elect());
 	}
 }
 
