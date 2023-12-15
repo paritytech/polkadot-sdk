@@ -431,7 +431,7 @@ pub fn versi_staging_testnet_config() -> Result<RococoChainSpec, String> {
 	.with_name("Versi Staging Testnet")
 	.with_id("versi_staging_testnet")
 	.with_chain_type(ChainType::Live)
-	.with_genesis_config_patch(rococo_staging_testnet_config_genesis())
+	.with_genesis_config_preset_name("staging_testnet")
 	.with_telemetry_endpoints(
 		TelemetryEndpoints::new(vec![(VERSI_STAGING_TELEMETRY_URL.to_string(), 0)])
 			.expect("Versi Staging telemetry url is valid; qed"),
@@ -682,7 +682,7 @@ pub fn versi_development_config() -> Result<RococoChainSpec, String> {
 	.with_name("Development")
 	.with_id("versi_dev")
 	.with_chain_type(ChainType::Development)
-	.with_genesis_config_patch(rococo_development_config_genesis())
+	.with_genesis_config_preset_name("development")
 	.with_protocol_id("versi")
 	.build())
 }
@@ -698,7 +698,7 @@ pub fn wococo_development_config() -> Result<RococoChainSpec, String> {
 	.with_name("Development")
 	.with_id("wococo_dev")
 	.with_chain_type(ChainType::Development)
-	.with_genesis_config_patch(rococo_development_config_genesis())
+	.with_genesis_config_preset_name("development")
 	.with_protocol_id(WOCOCO_DEV_PROTOCOL_ID)
 	.build())
 }
