@@ -6,8 +6,12 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
 futures = "0.3.21"
+tokio = "1.24.2"
 schnellru = "0.2.1"
 rand = "0.8.5"
 fatality = "0.0.6"
@@ -37,3 +41,6 @@ sc-network = { path = "../../../../substrate/client/network" }
 
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
+
+[features]
+subsystem-benchmarks = []

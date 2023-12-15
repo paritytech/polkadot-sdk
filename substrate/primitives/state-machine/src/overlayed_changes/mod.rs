@@ -348,7 +348,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 	/// `None` can be used to delete a value specified by the given key.
 	///
 	/// Can be rolled back or committed when called inside a transaction.
-	pub(crate) fn set_child_storage(
+	pub fn set_child_storage(
 		&mut self,
 		child_info: &ChildInfo,
 		key: StorageKey,
@@ -373,7 +373,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 	/// Clear child storage of given storage key.
 	///
 	/// Can be rolled back or committed when called inside a transaction.
-	pub(crate) fn clear_child_storage(&mut self, child_info: &ChildInfo) -> u32 {
+	pub fn clear_child_storage(&mut self, child_info: &ChildInfo) -> u32 {
 		self.mark_dirty();
 
 		let extrinsic_index = self.extrinsic_index();
@@ -391,7 +391,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 	/// Removes all key-value pairs which keys share the given prefix.
 	///
 	/// Can be rolled back or committed when called inside a transaction.
-	pub(crate) fn clear_prefix(&mut self, prefix: &[u8]) -> u32 {
+	pub fn clear_prefix(&mut self, prefix: &[u8]) -> u32 {
 		self.mark_dirty();
 
 		self.top.clear_where(|key, _| key.starts_with(prefix), self.extrinsic_index())
@@ -400,7 +400,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 	/// Removes all key-value pairs which keys share the given prefix.
 	///
 	/// Can be rolled back or committed when called inside a transaction
-	pub(crate) fn clear_child_prefix(&mut self, child_info: &ChildInfo, prefix: &[u8]) -> u32 {
+	pub fn clear_child_prefix(&mut self, child_info: &ChildInfo, prefix: &[u8]) -> u32 {
 		self.mark_dirty();
 
 		let extrinsic_index = self.extrinsic_index();

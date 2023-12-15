@@ -6,6 +6,9 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
 always-assert = "0.1"
 async-trait = "0.1.57"

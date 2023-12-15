@@ -342,9 +342,11 @@ pub mod pallet {
 			#[inject_runtime_type]
 			type RuntimeCall = ();
 
-			/// Converts a module to the index of the module, injected by `construct_runtime!`.
+			/// The aggregated Task type, injected by `construct_runtime!`.
 			#[inject_runtime_type]
 			type RuntimeTask = ();
+
+			/// Converts a module to the index of the module, injected by `construct_runtime!`.
 			#[inject_runtime_type]
 			type PalletInfo = ();
 
@@ -656,6 +658,7 @@ pub mod pallet {
 			Ok(().into())
 		}
 
+		#[cfg(feature = "experimental")]
 		#[pallet::call_index(8)]
 		#[pallet::weight(task.weight())]
 		pub fn do_task(origin: OriginFor<T>, task: T::RuntimeTask) -> DispatchResultWithPostInfo {
@@ -756,14 +759,17 @@ pub mod pallet {
 			sender: T::AccountId,
 			hash: T::Hash,
 		},
+		#[cfg(feature = "experimental")]
 		/// A [`Task`] has started executing
 		TaskStarted {
 			task: T::RuntimeTask,
 		},
+		#[cfg(feature = "experimental")]
 		/// A [`Task`] has finished executing.
 		TaskCompleted {
 			task: T::RuntimeTask,
 		},
+		#[cfg(feature = "experimental")]
 		/// A [`Task`] failed during execution.
 		TaskFailed {
 			task: T::RuntimeTask,
@@ -795,8 +801,10 @@ pub mod pallet {
 		NonZeroRefCount,
 		/// The origin filter prevent the call to be dispatched.
 		CallFiltered,
+		#[cfg(feature = "experimental")]
 		/// The specified [`Task`] is not valid.
 		InvalidTask,
+		#[cfg(feature = "experimental")]
 		/// The specified [`Task`] failed during execution.
 		FailedTask,
 		/// No upgrade authorized.
@@ -2079,6 +2087,11 @@ impl<T: Config> BlockNumberProvider for Pallet<T> {
 
 	fn current_block_number() -> Self::BlockNumber {
 		Pallet::<T>::block_number()
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_block_number(n: BlockNumberFor<T>) {
+		Self::set_block_number(n)
 	}
 }
 
