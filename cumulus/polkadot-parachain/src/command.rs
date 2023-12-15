@@ -786,7 +786,6 @@ pub fn run() -> Result<()> {
 						chain_spec::coretime::CoretimeRuntimeType::Rococo |
 						chain_spec::coretime::CoretimeRuntimeType::RococoLocal |
 						chain_spec::coretime::CoretimeRuntimeType::RococoDevelopment |
-						chain_spec::coretime::CoretimeRuntimeType::Westend |
 						chain_spec::coretime::CoretimeRuntimeType::WestendLocal |
 						chain_spec::coretime::CoretimeRuntimeType::WestendDevelopment =>
 							crate::service::start_generic_aura_node::<
