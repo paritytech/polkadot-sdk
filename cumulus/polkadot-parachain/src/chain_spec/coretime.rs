@@ -59,7 +59,7 @@ impl CoretimeRuntimeType {
 				&include_bytes!("../../../parachains/chain-specs/coretime-rococo.json")[..],
 			)?)),
 			CoretimeRuntimeType::RococoLocal => Ok(Box::new(rococo::local_config(
-				rococo::CORETIME_ROCOCO_DEVELOPMENT,
+				rococo::CORETIME_ROCOCO_LOCAL,
 				"Rococo Coretime Local",
 				"rococo-local",
 				ParaId::new(1005),
