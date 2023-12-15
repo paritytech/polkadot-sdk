@@ -1,4 +1,4 @@
-// Copyright 2022 Parity Technologies (UK) Ltd.
+// Copyright 2023 Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
 // Cumulus is free software: you can redistribute it and/or modify
@@ -152,7 +152,6 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 				RuntimeCall::CollatorSelection(..) |
 				RuntimeCall::Session(pallet_session::Call::purge_keys { .. }) |
 				RuntimeCall::XcmpQueue(..) |
-				RuntimeCall::DmpQueue(..) |
 				RuntimeCall::Broker(..)
 		)
 	}
