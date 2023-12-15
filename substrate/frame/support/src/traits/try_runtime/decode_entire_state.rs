@@ -116,7 +116,7 @@ fn decode_storage_info<V: Decode>(
 		None => Ok(0),
 		Some(bytes) => {
 			let len = bytes.len();
-			if let Err(e) = <V as DecodeAll>::decode_all(&mut bytes.as_ref()).map_err(|_| {
+			let _ = <V as DecodeAll>::decode_all(&mut bytes.as_ref()).map_err(|_| {
 				TryDecodeEntireStorageError {
 					key: key.to_vec(),
 					raw: Some(bytes.to_vec()),
