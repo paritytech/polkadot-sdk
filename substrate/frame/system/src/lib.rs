@@ -775,7 +775,7 @@ pub mod pallet {
 			task: T::RuntimeTask,
 			err: DispatchError,
 		},
-		// Upgrade authorized.
+		/// An upgrade was authorized.
 		UpgradeAuthorized {
 			code_hash: T::Hash,
 			check_version: bool,

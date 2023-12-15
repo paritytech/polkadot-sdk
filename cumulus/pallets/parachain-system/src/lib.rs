@@ -1528,7 +1528,7 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-/// Type that implements `SetCode`
+/// Type that implements `SetCode`.
 pub struct ParachainSetCode<T>(sp_std::marker::PhantomData<T>);
 impl<T: Config> frame_system::SetCode<T> for ParachainSetCode<T> {
 	fn set_code(code: Vec<u8>) -> DispatchResult {
