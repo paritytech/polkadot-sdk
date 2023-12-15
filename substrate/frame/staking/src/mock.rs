@@ -20,7 +20,8 @@
 use crate::{self as pallet_staking, *};
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
-	onchain, SequentialPhragmen, VoteWeight,
+	onchain, BoundedSupports, SequentialPhragmen, Support, TryIntoBoundedSupports,
+	VoteWeight,
 };
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
@@ -262,8 +263,9 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type Solver = SequentialPhragmen<AccountId, Perbill>;
 	type DataProvider = Staking;
 	type WeightInfo = ();
-	type MaxWinners = MaxWinners;
 	type Bounds = ElectionsBounds;
+	type MaxBackersPerWinner = ConstU32<{ u32::MAX }>;
+	type MaxWinnersPerPage = ConstU32<{ u32::MAX }>;
 }
 
 pub struct MockReward {}
@@ -852,4 +854,14 @@ pub(crate) fn staking_events_since_last_call() -> Vec<crate::Event<Test>> {
 
 pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
 	(Balances::free_balance(who), Balances::reserved_balance(who))
+}
+
+pub(crate) fn to_bounded_supports(
+	supports: Vec<(AccountId, Support<AccountId>)>,
+) -> BoundedSupports<
+	AccountId,
+	<<Test as Config>::ElectionProvider as ElectionProvider>::MaxBackersPerWinner,
+	<<Test as Config>::ElectionProvider as ElectionProvider>::MaxWinnersPerPage,
+> {
+	supports.try_into_bounded_supports().unwrap()
 }
