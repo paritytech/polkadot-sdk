@@ -98,11 +98,11 @@ where
 			.call(&mut t, "GenesisBuilder_get_preset", &id.encode())
 			.map_err(|e| format!("wasm call error {e}"))?;
 
-		let named_patch = Option::<Vec<u8>>::decode(&mut &call_result[..])
+		let named_preset = Option::<Vec<u8>>::decode(&mut &call_result[..])
 			.map_err(|e| format!("scale codec error: {e}"))?;
 
-		if let Some(named_patch) = named_patch {
-			Ok(from_slice(&named_patch[..]).expect("returned value is json. qed."))
+		if let Some(named_preset) = named_preset {
+			Ok(from_slice(&named_preset[..]).expect("returned value is json. qed."))
 		} else {
 			Err(format!("The preset with name {id:?} is not available."))
 		}
@@ -147,7 +147,7 @@ where
 		self.get_storage_for_config(config)
 	}
 
-	pub fn get_storage_for_named_patch(
+	pub fn get_storage_for_named_preset(
 		&self,
 		name: Option<&String>,
 	) -> core::result::Result<Storage, String> {
@@ -195,7 +195,7 @@ mod tests {
 	}
 
 	#[test]
-	fn get_named_patch_works() {
+	fn get_named_preset_works() {
 		sp_tracing::try_init_simple();
 		let config =
 			<GenesisConfigBuilderRuntimeCaller>::new(substrate_test_runtime::wasm_binary_unwrap())

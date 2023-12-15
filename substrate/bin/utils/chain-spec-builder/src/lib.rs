@@ -71,7 +71,7 @@
 //! Patch the runtime's default genesis config with the named preset provided by the runtime and generate the plain
 //! version of chain spec:
 //! ```text
-//! chain-spec-builder create -r runtime.wasm named-patch "staging"
+//! chain-spec-builder create -r runtime.wasm named-preset "staging"
 //! ```
 //!
 //! _Note:_ [`GenesisBuilder::get_preset`][sp-genesis-builder-get-preset] and [`GenesisBuilder::build_state`][sp-genesis-builder-build] runtime functions are called.

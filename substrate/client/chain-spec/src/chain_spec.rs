@@ -45,7 +45,7 @@ use std::{
 enum GenesisBuildAction<EHF> {
 	Patch(json::Value),
 	Full(json::Value),
-	NamedPatch(String, PhantomData<EHF>),
+	NamedPreset(String, PhantomData<EHF>),
 }
 
 impl<EHF> Clone for GenesisBuildAction<EHF> {
@@ -53,7 +53,7 @@ impl<EHF> Clone for GenesisBuildAction<EHF> {
 		match self {
 			Self::Patch(ref p) => Self::Patch(p.clone()),
 			Self::Full(ref f) => Self::Full(f.clone()),
-			Self::NamedPatch(ref p, _) => Self::NamedPatch(p.clone(), Default::default()),
+			Self::NamedPreset(ref p, _) => Self::NamedPreset(p.clone(), Default::default()),
 		}
 	}
 }
@@ -129,7 +129,7 @@ impl<G: RuntimeGenesis, EHF: HostFunctions> GenesisSource<G, EHF> {
 					json_blob: RuntimeGenesisConfigJson::Patch(patch.clone()),
 					code: code.clone(),
 				})),
-			Self::GenesisBuilderApi(GenesisBuildAction::NamedPatch(name, _), code) => {
+			Self::GenesisBuilderApi(GenesisBuildAction::NamedPreset(name, _), code) => {
 				let patch = RuntimeCaller::<EHF>::new(&code[..]).get_named_preset(Some(name))?;
 				Ok(Genesis::RuntimeGenesis(RuntimeGenesisInner {
 					json_blob: RuntimeGenesisConfigJson::Patch(patch),
@@ -445,7 +445,7 @@ impl<G, E, EHF> ChainSpecBuilder<G, E, EHF> {
 
 	/// Sets the name of runtime-provided JSON patch for runtime's GenesisConfig.
 	pub fn with_genesis_config_patch_name(mut self, name: String) -> Self {
-		self.genesis_build_action = GenesisBuildAction::NamedPatch(name, Default::default());
+		self.genesis_build_action = GenesisBuildAction::NamedPreset(name, Default::default());
 		self
 	}
 
@@ -1037,7 +1037,7 @@ mod tests {
 
 	#[docify::export]
 	#[test]
-	fn generate_chain_spec_with_named_patch_works() {
+	fn generate_chain_spec_with_named_preset_works() {
 		sp_tracing::try_init_simple();
 		let output: ChainSpec<()> = ChainSpec::builder(
 			substrate_test_runtime::wasm_binary_unwrap().into(),
@@ -1059,7 +1059,7 @@ mod tests {
 		file.write_all(actual.clone().as_bytes()).unwrap();
 
 		let expected =
-			from_str::<Value>(include_str!("../res/substrate_test_runtime_from_named_patch.json"))
+			from_str::<Value>(include_str!("../res/substrate_test_runtime_from_named_preset.json"))
 				.unwrap();
 
 		//wasm blob may change overtime so let's zero it. Also ensure it is there:
