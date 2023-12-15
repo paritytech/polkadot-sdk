@@ -4,11 +4,11 @@
 # Usage:
 #       ./scripts/update_subtree_snowbridge.sh fetch
 #       ./scripts/update_subtree_snowbridge.sh patch
-#       ./scripts/update_subtree_snowbridge.sh merge
 
 set -e
 
 SNOWBRIDGE_BRANCH="${BRANCH:-main}"
+POLKADOT_SDK_BRANCH="${POLKADOT_SDK_BRANCH:-master}"
 SNOWBRIDGE_TARGET_DIR="${TARGET_DIR:-bridges/snowbridge}"
 
 function fetch() {
@@ -39,44 +39,49 @@ function fetch() {
     git subtree pull --prefix=$SNOWBRIDGE_TARGET_DIR ${snowbridge_remote} $SNOWBRIDGE_BRANCH --squash
 }
 
-function patch() {
+function clean() {
     echo ""
-    echo "Patching/removing unneeded stuff from subtree in target directory: '$$SNOWBRIDGE_TARGET_DIR'"
+    echo "Patching/removing unneeded stuff from subtree in target directory: '$SNOWBRIDGE_TARGET_DIR'"
+    remove_parachain_dir
     $SNOWBRIDGE_TARGET_DIR/scripts/verify-pallets-build.sh --ignore-git-state --no-revert
 }
 
-function merge() {
-    echo ""
-    echo "Merging stuff from subtree in target directory: '$SNOWBRIDGE_TARGET_DIR'"
-
-    # stage all removed by patch: DU, MD, D, AD - only from subtree directory
-    git status -s | awk '$1 == "DU" || $1 == "D" || $1 == "MD" || $1 == "AD" {print $2}' | grep "^$SNOWBRIDGE_TARGET_DIR/" | xargs git rm -q --ignore-unmatch
-
-    echo ""
-    echo "When all conflicts are resolved, do 'git merge --continue'"
+function create_patch() {
+    echo "Creating diff patch file to apply to snowbridge"
+    add_parachain_dir
+    git diff snowbridge/$SNOWBRIDGE_BRANCH $POLKADOT_SDK_BRANCH:bridges/snowbridge --diff-filter=ACM > snowbridge.patch
 }
 
-function amend() {
-    echo ""
-    echo "Amend stuff from subtree in target directory: '$SNOWBRIDGE_TARGET_DIR'"
-    git commit --amend -S -m "updating snowbridge subtree + remove extra folders"
+function remove_parachain_dir() {
+    SOURCE_DIR="bridges/snowbridge/parachain"
+    TARGET_DIR="bridges/snowbridge"
+
+    mv $SOURCE_DIR/* $TARGET_DIR/
+
+    rmdir $SOURCE_DIR
+}
+
+function add_parachain_dir() {
+    SOURCE_DIR="bridges/snowbridge"
+    TARGET_DIR="bridges/snowbridge/parachain"
+
+    mkdir -p $TARGET_DIR
+
+    mv $SOURCE_DIR/* $TARGET_DIR/
 }
 
 case "$1" in
     fetch)
         fetch
         ;;
-    patch)
-        patch
+    clean)
+        clean
         ;;
-    merge)
-        merge
+    create_patch)
+        create_patch
         ;;
-    amend)
-        amend
-        ;;
-    all)
+    update)
         fetch
-        patch
+        clean
         ;;
 esac
