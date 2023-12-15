@@ -24,8 +24,7 @@ use frame_support::{
 	},
 };
 use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600};
-use parachains_common::{impls::AccountIdOf, AccountId, Balance, BlockNumber};
-use sp_std::marker::PhantomData;
+use parachains_common::{AccountId, Balance, BlockNumber};
 use xcm::latest::prelude::*;
 
 pub struct CreditToCollatorPot;
@@ -266,7 +265,7 @@ impl CoretimeInterface for CoretimeAllocator {
 impl pallet_broker::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
-	type OnRevenue = CreditToCollatorPot<Runtime>;
+	type OnRevenue = CreditToCollatorPot;
 	type TimeslicePeriod = ConstU32<2>;
 	type MaxLeasedCores = ConstU32<50>;
 	type MaxReservedCores = ConstU32<10>;
