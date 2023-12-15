@@ -27,10 +27,5 @@ pub use self::{
 	},
 };
 
-#[cfg(test)]
-pub use self::notifications::{
-	NotificationsInOpen, NotificationsInSubstreamHandshake, NotificationsOutOpen,
-};
-
 mod collec;
 mod notifications;
