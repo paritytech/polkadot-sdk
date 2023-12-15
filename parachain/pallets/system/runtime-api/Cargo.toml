@@ -12,19 +12,19 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
 	"derive",
 ] }
-sp-core = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
-sp-std = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
-sp-api = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
-xcm = { package = "staging-xcm", git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
+sp-core = { path = "../../../../polkadot-sdk/substrate/primitives/core", default-features = false }
+sp-std = { path = "../../../../polkadot-sdk/substrate/primitives/std", default-features = false }
+sp-api = { path = "../../../../polkadot-sdk/substrate/primitives/api", default-features = false }
+xcm = { package = "staging-xcm", path = "../../../../polkadot-sdk/polkadot/xcm", default-features = false }
 snowbridge-core = { path = "../../../primitives/core", default-features = false }
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
-	"sp-core/std",
+	"snowbridge-core/std",
 	"sp-api/std",
+	"sp-core/std",
 	"sp-std/std",
 	"xcm/std",
-	"snowbridge-core/std",
 ]

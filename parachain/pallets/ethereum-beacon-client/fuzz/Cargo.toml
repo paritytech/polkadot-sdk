@@ -8,12 +8,12 @@ edition = "2021"
 cargo-fuzz = true
 
 [dependencies]
-libfuzzer-sys = { version = "0.4", features = [ "arbitrary-derive" ]}
+libfuzzer-sys = { version = "0.4", features = ["arbitrary-derive"] }
 arbitrary = { version = "1", optional = true, features = ["derive"] }
-snowbridge-ethereum-beacon-client = {path = "..", features = [ "fuzzing" ]}
-snowbridge-beacon-primitives= {path = "../../../primitives/beacon"}
+snowbridge-ethereum-beacon-client = { path = "..", features = ["fuzzing"] }
+snowbridge-beacon-primitives = { path = "../../../primitives/beacon" }
 hex-literal = "0.4.1"
-sp-core = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
+sp-core = { path = "../../../../polkadot-sdk/substrate/primitives/core", default-features = false }
 
 # Prevent this from interfering with workspaces
 [workspace]

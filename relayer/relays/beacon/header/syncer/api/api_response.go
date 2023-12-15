@@ -97,7 +97,7 @@ type FinalizedCheckpointResponse struct {
 
 type SignedHeaderResponse struct {
 	Message   HeaderResponse `json:"message"`
-	Signature []byte         `json:"signature"`
+	Signature string         `json:"signature"`
 }
 
 type CheckpointResponse struct {
@@ -1169,10 +1169,14 @@ func (s SignedHeaderResponse) ToScale() (scale.SignedHeader, error) {
 	if err != nil {
 		return scale.SignedHeader{}, err
 	}
+	signature, err := util.HexStringToByteArray(s.Signature)
+	if err != nil {
+		return scale.SignedHeader{}, err
+	}
 
 	return scale.SignedHeader{
 		Message:   message,
-		Signature: s.Signature,
+		Signature: signature,
 	}, nil
 }
 
@@ -1181,10 +1185,14 @@ func (s SignedHeaderResponse) ToFastSSZ() (*state.SignedBeaconBlockHeader, error
 	if err != nil {
 		return nil, err
 	}
+	signature, err := util.HexStringToByteArray(s.Signature)
+	if err != nil {
+		return nil, err
+	}
 
 	return &state.SignedBeaconBlockHeader{
 		Header:    message,
-		Signature: s.Signature,
+		Signature: signature,
 	}, nil
 }
 

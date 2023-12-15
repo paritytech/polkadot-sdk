@@ -55,6 +55,14 @@ jobs:
       - name: clippy
         working-directory: parachain
         run: cargo clippy -- -D warnings
+      - name: taplo
+        working-directory: parachain
+        run: |
+          cargo install taplo-cli --locked && taplo format --check --config .config/taplo.toml
+      - name: zepter
+        working-directory: parachain
+        run: |
+          cargo install zepter -f --locked && zepter run check
 
   test:
     needs: check

@@ -11,7 +11,7 @@ sp_api::decl_runtime_apis! {
 	{
 		/// Generate a merkle proof for a committed message identified by `leaf_index`.
 		/// The merkle root is stored in the block header as a
-		/// [`sp_runtime::generic::DigestItem::Other`]
+		/// `\[`sp_runtime::generic::DigestItem::Other`\]`
 		fn prove_message(leaf_index: u64) -> Option<MerkleProof>;
 
 		/// Calculate the delivery fee for `message`

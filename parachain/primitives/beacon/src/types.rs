@@ -303,7 +303,7 @@ impl<const COMMITTEE_SIZE: usize, const COMMITTEE_BITS_SIZE: usize>
 }
 
 /// ExecutionPayloadHeader
-/// https://github.com/ethereum/annotated-spec/blob/master/capella/beacon-chain.md#executionpayloadheader
+/// <https://github.com/ethereum/annotated-spec/blob/master/capella/beacon-chain.md#executionpayloadheader>
 #[derive(
 	Default, Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
 )]
@@ -436,11 +436,10 @@ mod tests {
 	#[test]
 	pub fn test_hash_fork_data() {
 		let hash_root = ForkData {
-			current_version: hex!("83f38a34").into(),
+			current_version: hex!("83f38a34"),
 			genesis_validators_root: hex!(
 				"22370bbbb358800f5711a10ea9845284272d8493bed0348cab87b8ab1e127930"
-			)
-			.into(),
+			),
 		}
 		.hash_tree_root();
 
@@ -470,7 +469,7 @@ mod tests {
 	#[test]
 	pub fn test_hash_sync_aggregate() {
 		let hash_root = SyncAggregate::<512, 64>{
-				sync_committee_bits: hex!("cefffffefffffff767fffbedffffeffffeeffdffffdebffffff7f7dbdf7fffdffffbffcfffdff79dfffbbfefff2ffffff7ddeff7ffffc98ff7fbfffffffffff7").into(),
+				sync_committee_bits: hex!("cefffffefffffff767fffbedffffeffffeeffdffffdebffffff7f7dbdf7fffdffffbffcfffdff79dfffbbfefff2ffffff7ddeff7ffffc98ff7fbfffffffffff7"),
 				sync_committee_signature: hex!("8af1a8577bba419fe054ee49b16ed28e081dda6d3ba41651634685e890992a0b675e20f8d9f2ec137fe9eb50e838aa6117f9f5410e2e1024c4b4f0e098e55144843ce90b7acde52fe7b94f2a1037342c951dc59f501c92acf7ed944cb6d2b5f7").into(),
 		}.hash_tree_root();
 
@@ -489,14 +488,14 @@ mod tests {
                 fee_recipient: hex!("f97e180c050e5ab072211ad2c213eb5aee4df134").into(),
                 state_root: hex!("564fa064c2a324c2b5978d7fdfc5d4224d4f421a45388af1ed405a399c845dff").into(),
                 receipts_root: hex!("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421").into(),
-                logs_bloom: hex!("00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").to_vec().try_into().expect("logs bloom is too long"),
+                logs_bloom: hex!("00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").to_vec(),
                 prev_randao: hex!("6bf538bdfbdf1c96ff528726a40658a91d0bda0f1351448c4c4f3604db2a0ccf").into(),
                 block_number: 477434,
                 gas_limit: 8154925,
                 gas_used: 0,
                 timestamp: 1652816940,
-                extra_data: vec![].try_into().expect("extra data field is too long"),
-                base_fee_per_gas: U256::from(7 as i16),
+                extra_data: vec![],
+                base_fee_per_gas: U256::from(7_i16),
                 block_hash: hex!("cd8df91b4503adb8f2f1c7a4f60e07a1f1a2cbdfa2a95bceba581f3ff65c1968").into(),
                 transactions_root: hex!("7ffe241ea60187fdb0187bfa22de35d1f9bed7ab061d9401fd47e34a54fbede1").into(),
 				withdrawals_root: hex!("28ba1834a3a7b657460ce79fa3a1d909ab8828fd557659d4d0554a9bdbc0ec30").into(),

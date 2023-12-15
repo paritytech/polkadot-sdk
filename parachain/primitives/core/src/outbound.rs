@@ -37,7 +37,7 @@ mod v1 {
 	use sp_core::{RuntimeDebug, H160, H256, U256};
 	use sp_std::{borrow::ToOwned, vec, vec::Vec};
 
-	/// A message which can be accepted by implementations of [`SendMessage`]
+	/// A message which can be accepted by implementations of `/[`SendMessage`\]`
 	#[derive(Encode, Decode, TypeInfo, Clone, RuntimeDebug)]
 	#[cfg_attr(feature = "std", derive(PartialEq))]
 	pub struct Message {

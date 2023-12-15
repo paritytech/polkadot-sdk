@@ -68,6 +68,34 @@ func generateBeaconCheckpointCmd() *cobra.Command {
 	return cmd
 }
 
+func generateExecutionUpdateCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "generate-execution-update",
+		Short: "Generate execution update.",
+		Args:  cobra.ExactArgs(0),
+		RunE:  generateExecutionUpdate,
+	}
+
+	cmd.Flags().String("spec", "", "Valid values are mainnet or minimal")
+	err := cmd.MarkFlagRequired("spec")
+	if err != nil {
+		return nil
+	}
+
+	cmd.Flags().Uint32("slot", 1, "slot number")
+	err = cmd.MarkFlagRequired("slot")
+	if err != nil {
+		return nil
+	}
+
+	cmd.Flags().String("url", "http://127.0.0.1:9596", "Beacon URL")
+	if err != nil {
+		return nil
+	}
+
+	return cmd
+}
+
 type Data struct {
 	CheckpointUpdate      beaconjson.CheckPoint
 	SyncCommitteeUpdate   beaconjson.Update
@@ -347,6 +375,55 @@ func writeBenchmarkDataFile(filename, fileContents string) error {
 
 	if err != nil {
 		return fmt.Errorf("write to file: %w", err)
+	}
+
+	return nil
+}
+
+func generateExecutionUpdate(cmd *cobra.Command, _ []string) error {
+	err := func() error {
+		spec, err := cmd.Flags().GetString("spec")
+		if err != nil {
+			return fmt.Errorf("get active spec: %w", err)
+		}
+		activeSpec, err := config.ToSpec(spec)
+		if err != nil {
+			return fmt.Errorf("get spec: %w", err)
+		}
+
+		endpoint, _ := cmd.Flags().GetString("url")
+		beaconSlot, _ := cmd.Flags().GetUint32("slot")
+
+		viper.SetConfigFile("web/packages/test/config/beacon-relay.json")
+		if err := viper.ReadInConfig(); err != nil {
+			return err
+		}
+		var conf config.Config
+		err = viper.Unmarshal(&conf)
+		if err != nil {
+			return err
+		}
+		specSettings := conf.GetSpecSettingsBySpec(activeSpec)
+		log.WithFields(log.Fields{"spec": activeSpec, "endpoint": endpoint}).Info("connecting to beacon API")
+
+		// generate executionUpdate
+		s := syncer.New(endpoint, specSettings, activeSpec)
+		blockRoot, err := s.Client.GetBeaconBlockRoot(uint64(beaconSlot))
+		if err != nil {
+			return fmt.Errorf("fetch block: %w", err)
+		}
+		headerUpdateScale, err := s.GetHeaderUpdate(blockRoot, nil)
+		if err != nil {
+			return fmt.Errorf("get header update: %w", err)
+		}
+		headerUpdate := headerUpdateScale.ToJSON()
+		writeJSONToFile(headerUpdate, fmt.Sprintf("execution-header-update.%s.json", activeSpec.ToString()))
+		log.Info("created execution update file")
+
+		return nil
+	}()
+	if err != nil {
+		log.WithError(err).Error("error generating beacon execution update")
 	}
 
 	return nil

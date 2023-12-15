@@ -31,6 +31,7 @@ func init() {
 	rootCmd.AddCommand(importExecutionHeaderCmd())
 	rootCmd.AddCommand(generateBeaconDataCmd())
 	rootCmd.AddCommand(generateBeaconCheckpointCmd())
+	rootCmd.AddCommand(generateExecutionUpdateCmd())
 }
 
 func Execute() {

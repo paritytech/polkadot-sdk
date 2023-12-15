@@ -1,20 +1,20 @@
 [workspace]
 resolver = "2"
 members = [
-    "primitives/beacon",
-    "primitives/core",
-    "primitives/ethereum",
-    "primitives/router",
-    "pallets/inbound-queue",
-    "pallets/outbound-queue",
-    "pallets/outbound-queue/runtime-api",
-    "pallets/outbound-queue/merkle-tree",
-    "pallets/ethereum-beacon-client",
-    "pallets/system",
-    "pallets/system/runtime-api",
-    "runtime/runtime-common",
-    "runtime/rococo-common",
-    "runtime/tests",
+	"pallets/ethereum-beacon-client",
+	"pallets/inbound-queue",
+	"pallets/outbound-queue",
+	"pallets/outbound-queue/merkle-tree",
+	"pallets/outbound-queue/runtime-api",
+	"pallets/system",
+	"pallets/system/runtime-api",
+	"primitives/beacon",
+	"primitives/core",
+	"primitives/ethereum",
+	"primitives/router",
+	"runtime/rococo-common",
+	"runtime/runtime-common",
+	"runtime/tests",
 ]
 
 [patch.'https://github.com/snowfork/snowbridge']
@@ -29,6 +29,3 @@ snowbridge-outbound-queue-runtime-api = { path = "./pallets/outbound-queue/runti
 snowbridge-router-primitives = { path = "./primitives/router" }
 snowbridge-runtime-common = { path = "./runtime/runtime-common" }
 snowbridge-rococo-common = { path = "./runtime/rococo-common" }
-
-[patch.'https://github.com/paritytech/polkadot-sdk']
-bridge-hub-common = { git = "https://github.com/snowfork/polkadot-sdk.git", branch = "merge-to-upstream", default-features = false }

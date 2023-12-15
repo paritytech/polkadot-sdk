@@ -579,7 +579,7 @@ fn xcm_converter_with_different_fee_asset_fails() {
 
 	let asset_location = X1(AccountKey20 { network: None, key: token_address }).into();
 	let fee_asset = MultiAsset {
-		id: Concrete(MultiLocation { parents: 0, interior: Here.into() }),
+		id: Concrete(MultiLocation { parents: 0, interior: Here }),
 		fun: Fungible(1000),
 	};
 

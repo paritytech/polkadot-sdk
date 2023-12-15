@@ -10,58 +10,68 @@ repository = "https://github.com/Snowfork/snowbridge"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-serde = { version = "1.0.188", features = ["derive", "alloc"], default-features = false }
-codec = { version = "3.6.1", package = "parity-scale-codec", default-features = false, features = [ "derive" ] }
-scale-info = { version = "2.9.0", default-features = false, features = [ "derive" ] }
+serde = { version = "1.0.188", features = ["alloc", "derive"], default-features = false }
+codec = { version = "3.6.1", package = "parity-scale-codec", default-features = false, features = ["derive"] }
+scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
 hex-literal = { version = "0.4.1", optional = true }
 
-frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false, optional = true}
-frame-support = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
-frame-system = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
-sp-core = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
-sp-std = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
-sp-io = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
-sp-arithmetic = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
+frame-benchmarking = { path = "../../../polkadot-sdk/substrate/frame/benchmarking", default-features = false, optional = true }
+frame-support = { path = "../../../polkadot-sdk/substrate/frame/support", default-features = false }
+frame-system = { path = "../../../polkadot-sdk/substrate/frame/system", default-features = false }
+sp-core = { path = "../../../polkadot-sdk/substrate/primitives/core", default-features = false }
+sp-std = { path = "../../../polkadot-sdk/substrate/primitives/std", default-features = false }
+sp-runtime = { path = "../../../polkadot-sdk/substrate/primitives/runtime", default-features = false }
+sp-io = { path = "../../../polkadot-sdk/substrate/primitives/io", default-features = false }
+sp-arithmetic = { path = "../../../polkadot-sdk/substrate/primitives/arithmetic", default-features = false }
 
-bridge-hub-common = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
+bridge-hub-common = { path = "../../../polkadot-sdk/cumulus/parachains/runtimes/bridge-hubs/common", default-features = false }
 
 snowbridge-core = { path = "../../primitives/core", features = ["serde"], default-features = false }
 snowbridge-outbound-queue-merkle-tree = { path = "merkle-tree", default-features = false }
 ethabi = { git = "https://github.com/Snowfork/ethabi-decode.git", package = "ethabi-decode", branch = "master", default-features = false }
 
-xcm = { package = "staging-xcm", git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
+xcm = { package = "staging-xcm", path = "../../../polkadot-sdk/polkadot/xcm", default-features = false }
 
 [dev-dependencies]
-pallet-message-queue = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", default-features = false }
-sp-keyring = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
+pallet-message-queue = { path = "../../../polkadot-sdk/substrate/frame/message-queue", default-features = false }
+sp-keyring = { path = "../../../polkadot-sdk/substrate/primitives/keyring" }
 hex-literal = { version = "0.4.1" }
 
 [features]
 default = ["std"]
 std = [
-    "serde/std",
-    "codec/std",
-    "scale-info/std",
-    "frame-support/std",
-    "frame-system/std",
-    "frame-benchmarking/std",
-    "sp-core/std",
-    "sp-runtime/std",
-    "sp-arithmetic/std",
-    "sp-std/std",
-    "sp-io/std",
-    "snowbridge-core/std",
-    "snowbridge-outbound-queue-merkle-tree/std",
-    "ethabi/std",
-    "xcm/std",
-    "bridge-hub-common/std",
+	"bridge-hub-common/std",
+	"codec/std",
+	"ethabi/std",
+	"frame-benchmarking/std",
+	"frame-support/std",
+	"frame-system/std",
+	"pallet-message-queue/std",
+	"scale-info/std",
+	"serde/std",
+	"snowbridge-core/std",
+	"snowbridge-outbound-queue-merkle-tree/std",
+	"sp-arithmetic/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"xcm/std",
 ]
 runtime-benchmarks = [
-    "snowbridge-core/runtime-benchmarks",
-    "frame-benchmarking",
-    "frame-support/runtime-benchmarks",
-    "frame-system/runtime-benchmarks",
-    "hex-literal",
-    "bridge-hub-common/runtime-benchmarks",
+	"bridge-hub-common/runtime-benchmarks",
+	"frame-benchmarking",
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"hex-literal",
+	"pallet-message-queue/runtime-benchmarks",
+	"snowbridge-core/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-message-queue/try-runtime",
+	"sp-runtime/try-runtime",
 ]
