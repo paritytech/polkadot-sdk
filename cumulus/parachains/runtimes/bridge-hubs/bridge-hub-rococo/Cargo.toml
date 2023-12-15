@@ -107,17 +107,17 @@ pallet-xcm-bridge-hub = { path = "../../../../../bridges/modules/xcm-bridge-hub"
 bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common", default-features = false }
 
 # Ethereum Bridge (Snowbridge)
-snowbridge-beacon-primitives = { path = "../../../../../bridges/snowbridge/parachain/primitives/beacon", default-features = false }
-snowbridge-system = { path = "../../../../../bridges/snowbridge/parachain/pallets/system", default-features = false }
-snowbridge-system-runtime-api = { path = "../../../../../bridges/snowbridge/parachain/pallets/system/runtime-api", default-features = false }
-snowbridge-core = { path = "../../../../../bridges/snowbridge/parachain/primitives/core", default-features = false }
-snowbridge-ethereum-beacon-client = { path = "../../../../../bridges/snowbridge/parachain/pallets/ethereum-beacon-client", default-features = false }
-snowbridge-inbound-queue = { path = "../../../../../bridges/snowbridge/parachain/pallets/inbound-queue", default-features = false }
-snowbridge-outbound-queue = { path = "../../../../../bridges/snowbridge/parachain/pallets/outbound-queue", default-features = false }
-snowbridge-outbound-queue-runtime-api = { path = "../../../../../bridges/snowbridge/parachain/pallets/outbound-queue/runtime-api", default-features = false }
-snowbridge-router-primitives = { path = "../../../../../bridges/snowbridge/parachain/primitives/router", default-features = false }
-snowbridge-runtime-common = { path = "../../../../../bridges/snowbridge/parachain/runtime/runtime-common", default-features = false }
-snowbridge-rococo-common = { path = "../../../../../bridges/snowbridge/parachain/runtime/rococo-common", default-features = false }
+snowbridge-beacon-primitives = { path = "../../../../../../parachain/primitives/beacon", default-features = false }
+snowbridge-system = { path = "../../../../../../parachain/pallets/system", default-features = false }
+snowbridge-system-runtime-api = { path = "../../../../../../parachain/pallets/system/runtime-api", default-features = false }
+snowbridge-core = { path = "../../../../../../parachain/primitives/core", default-features = false }
+snowbridge-ethereum-beacon-client = { path = "../../../../../../parachain/pallets/ethereum-beacon-client", default-features = false }
+snowbridge-inbound-queue = { path = "../../../../../../parachain/pallets/inbound-queue", default-features = false }
+snowbridge-outbound-queue = { path = "../../../../../../parachain/pallets/outbound-queue", default-features = false }
+snowbridge-outbound-queue-runtime-api = { path = "../../../../../../parachain/pallets/outbound-queue/runtime-api", default-features = false }
+snowbridge-router-primitives = { path = "../../../../../../parachain/primitives/router", default-features = false }
+snowbridge-runtime-common = { path = "../../../../../../parachain/runtime/runtime-common", default-features = false }
+snowbridge-rococo-common = { path = "../../../../../../parachain/runtime/rococo-common", default-features = false }
 
 bridge-hub-common = { path = "../common", default-features = false }
 
