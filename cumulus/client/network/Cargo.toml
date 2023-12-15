@@ -6,6 +6,9 @@ description = "Cumulus-specific networking protocol"
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
+[lints]
+workspace = true
+
 [dependencies]
 async-trait = "0.1.73"
 codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"] }

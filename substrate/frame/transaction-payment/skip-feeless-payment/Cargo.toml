@@ -7,6 +7,9 @@ license.workspace = true
 repository.workspace = true
 description = "Pallet to skip payments for calls annotated with `feeless_if` if the respective conditions are satisfied."
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
