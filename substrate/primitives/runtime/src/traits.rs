@@ -38,7 +38,7 @@ pub use sp_arithmetic::traits::{
 	EnsureOp, EnsureOpAssign, EnsureSub, EnsureSubAssign, IntegerSquareRoot, One,
 	SaturatedConversion, Saturating, UniqueSaturatedFrom, UniqueSaturatedInto, Zero,
 };
-use sp_core::{self, storage::StateVersion, Hasher, RuntimeDebug, TypeId};
+use sp_core::{self, storage::StateVersion, Hasher, RuntimeDebug, TypeId, U256};
 #[doc(hidden)]
 pub use sp_core::{
 	parameter_types, ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstU128,
@@ -1149,6 +1149,44 @@ pub trait IsMember<MemberId> {
 	fn is_member(member_id: &MemberId) -> bool;
 }
 
+/// Super trait with all the attributes for a block number.
+pub trait BlockNumber:
+	Member
+	+ MaybeSerializeDeserialize
+	+ MaybeFromStr
+	+ Debug
+	+ sp_std::hash::Hash
+	+ Copy
+	+ MaybeDisplay
+	+ AtLeast32BitUnsigned
+	+ Into<U256>
+	+ TryFrom<U256>
+	+ Default
+	+ TypeInfo
+	+ MaxEncodedLen
+	+ FullCodec
+{
+}
+
+impl<
+		T: Member
+			+ MaybeSerializeDeserialize
+			+ MaybeFromStr
+			+ Debug
+			+ sp_std::hash::Hash
+			+ Copy
+			+ MaybeDisplay
+			+ AtLeast32BitUnsigned
+			+ Into<U256>
+			+ TryFrom<U256>
+			+ Default
+			+ TypeInfo
+			+ MaxEncodedLen
+			+ FullCodec,
+	> BlockNumber for T
+{
+}
+
 /// Something which fulfills the abstract idea of a Substrate header. It has types for a `Number`,
 /// a `Hash` and a `Hashing`. It provides access to an `extrinsics_root`, `state_root` and
 /// `parent_hash`, as well as a `digest` and a block `number`.
@@ -1158,18 +1196,7 @@ pub trait Header:
 	Clone + Send + Sync + Codec + Eq + MaybeSerialize + Debug + TypeInfo + 'static
 {
 	/// Header number.
-	type Number: Member
-		+ MaybeSerializeDeserialize
-		+ MaybeFromStr
-		+ Debug
-		+ sp_std::hash::Hash
-		+ Copy
-		+ MaybeDisplay
-		+ AtLeast32BitUnsigned
-		+ Default
-		+ TypeInfo
-		+ MaxEncodedLen
-		+ FullCodec;
+	type Number: BlockNumber;
 	/// Header hash type
 	type Hash: HashOutput;
 	/// Hashing algorithm

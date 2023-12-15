@@ -33,11 +33,13 @@ use polkadot_runtime_parachains::{
 	origin, shared,
 };
 use xcm::latest::prelude::*;
+#[allow(deprecated)]
+use xcm_builder::CurrencyAdapter as XcmCurrencyAdapter;
 use xcm_builder::{
 	AccountId32Aliases, AllowUnpaidExecutionFrom, ChildParachainAsNative,
-	ChildParachainConvertsVia, ChildSystemParachainAsSuperuser,
-	CurrencyAdapter as XcmCurrencyAdapter, FixedRateOfFungible, FixedWeightBounds, IsConcrete,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation,
+	ChildParachainConvertsVia, ChildSystemParachainAsSuperuser, FixedRateOfFungible,
+	FixedWeightBounds, IsConcrete, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation,
 };
 use xcm_executor::{Config, XcmExecutor};
 
@@ -114,6 +116,7 @@ parameter_types! {
 pub type SovereignAccountOf =
 	(ChildParachainConvertsVia<ParaId, AccountId>, AccountId32Aliases<ThisNetwork, AccountId>);
 
+#[allow(deprecated)]
 pub type LocalAssetTransactor =
 	XcmCurrencyAdapter<Balances, IsConcrete<TokenLocation>, SovereignAccountOf, AccountId, ()>;
 
