@@ -58,7 +58,7 @@ function remove_parachain_dir() {
 
     mv $SOURCE_DIR/* $TARGET_DIR/
 
-    rmdir $SOURCE_DIR
+    rmdir -r $SOURCE_DIR
 }
 
 function add_parachain_dir() {
