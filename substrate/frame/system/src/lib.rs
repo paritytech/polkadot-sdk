@@ -736,50 +736,28 @@ pub mod pallet {
 	#[pallet::event]
 	pub enum Event<T: Config> {
 		/// An extrinsic completed successfully.
-		ExtrinsicSuccess {
-			dispatch_info: DispatchInfo,
-		},
+		ExtrinsicSuccess { dispatch_info: DispatchInfo },
 		/// An extrinsic failed.
-		ExtrinsicFailed {
-			dispatch_error: DispatchError,
-			dispatch_info: DispatchInfo,
-		},
+		ExtrinsicFailed { dispatch_error: DispatchError, dispatch_info: DispatchInfo },
 		/// `:code` was updated.
 		CodeUpdated,
 		/// A new account was created.
-		NewAccount {
-			account: T::AccountId,
-		},
+		NewAccount { account: T::AccountId },
 		/// An account was reaped.
-		KilledAccount {
-			account: T::AccountId,
-		},
+		KilledAccount { account: T::AccountId },
 		/// On on-chain remark happened.
-		Remarked {
-			sender: T::AccountId,
-			hash: T::Hash,
-		},
+		Remarked { sender: T::AccountId, hash: T::Hash },
 		#[cfg(feature = "experimental")]
 		/// A [`Task`] has started executing
-		TaskStarted {
-			task: T::RuntimeTask,
-		},
+		TaskStarted { task: T::RuntimeTask },
 		#[cfg(feature = "experimental")]
 		/// A [`Task`] has finished executing.
-		TaskCompleted {
-			task: T::RuntimeTask,
-		},
+		TaskCompleted { task: T::RuntimeTask },
 		#[cfg(feature = "experimental")]
 		/// A [`Task`] failed during execution.
-		TaskFailed {
-			task: T::RuntimeTask,
-			err: DispatchError,
-		},
+		TaskFailed { task: T::RuntimeTask, err: DispatchError },
 		/// An upgrade was authorized.
-		UpgradeAuthorized {
-			code_hash: T::Hash,
-			check_version: bool,
-		},
+		UpgradeAuthorized { code_hash: T::Hash, check_version: bool },
 	}
 
 	/// Error for the System pallet
