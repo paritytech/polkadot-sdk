@@ -398,8 +398,17 @@ fn reserve_transfer_token() {
 		interior: X1(Parachain(ASSETHUB_PARA_ID)),
 	});
 
-	BridgeHubRococo::fund_accounts(vec![(assethub_sovereign.clone(), INITIAL_FUND)]);
+	AssetHubRococo::force_default_xcm_version(Some(XCM_VERSION));
+	BridgeHubRococo::force_default_xcm_version(Some(XCM_VERSION));
+	AssetHubRococo::force_xcm_version(
+		MultiLocation {
+			parents: 2,
+			interior: X1(GlobalConsensus(Ethereum { chain_id: CHAIN_ID })),
+		},
+		XCM_VERSION,
+	);
 
+	BridgeHubRococo::fund_accounts(vec![(assethub_sovereign.clone(), INITIAL_FUND)]);
 	AssetHubRococo::fund_accounts(vec![(AssetHubRococoReceiver::get(), INITIAL_FUND)]);
 
 	const WETH_AMOUNT: u128 = 1_000_000_000;
