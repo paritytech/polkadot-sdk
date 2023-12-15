@@ -28,17 +28,10 @@ use parachains_common::{impls::AccountIdOf, AccountId, Balance, BlockNumber};
 use sp_std::marker::PhantomData;
 use xcm::latest::prelude::*;
 
-pub struct CreditToCollatorPot<R>(PhantomData<R>);
-impl<R> OnUnbalanced<Credit<AccountIdOf<R>, Balances>> for CreditToCollatorPot<R>
-where
-	R: pallet_balances::Config
-		+ pallet_collator_selection::Config
-		+ frame_system::Config<AccountId = sp_runtime::AccountId32>,
-	AccountIdOf<R>:
-		From<polkadot_core_primitives::AccountId> + Into<polkadot_core_primitives::AccountId>,
-{
-	fn on_nonzero_unbalanced(credit: Credit<AccountIdOf<R>, Balances>) {
-		let staking_pot = <pallet_collator_selection::Pallet<R>>::account_id();
+pub struct CreditToCollatorPot;
+impl OnUnbalanced<Credit<polkadot_core_primitives::AccountId, Balances>> for CreditToCollatorPot {
+	fn on_nonzero_unbalanced(credit: Credit<polkadot_core_primitives::AccountId, Balances>) {
+		let staking_pot = CollatorSelection::account_id();
 		let _ = <Balances as Balanced<_>>::resolve(&staking_pot, credit);
 	}
 }
@@ -107,7 +100,7 @@ impl CoretimeInterface for CoretimeAllocator {
 	type BlockNumber = BlockNumber;
 
 	fn latest() -> Self::BlockNumber {
-		System::block_number()
+		ParachainSystem::last_relay_block_number()
 	}
 
 	fn request_core_count(count: CoreIndex) {
