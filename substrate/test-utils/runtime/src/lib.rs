@@ -472,25 +472,6 @@ pub const TEST_RUNTIME_BABE_EPOCH_CONFIGURATION: BabeEpochConfiguration = BabeEp
 	allowed_slots: AllowedSlots::PrimaryAndSecondaryPlainSlots,
 };
 
-fn substrate_test_genesis_config_patch() -> serde_json::Value {
-	let endowed_accounts: sp_std::vec::Vec<AccountId> =
-		vec![AccountKeyring::Bob.public().into(), AccountKeyring::Charlie.public().into()];
-	log::info!("xxx: {} {}", file!(), line!());
-
-	let patch = json!({
-		"balances": {
-			"balances": endowed_accounts.iter().map(|k| (k.clone(), 10 * currency::DOLLARS)).collect::<Vec<_>>(),
-		},
-		"substrateTest": {
-			"authorities": [
-				AccountKeyring::Alice.public().to_ss58check(),
-				AccountKeyring::Ferdie.public().to_ss58check()
-			],
-		}
-	});
-	patch
-}
-
 impl_runtime_apis! {
 	impl sp_api::Core<Block> for Runtime {
 		fn version() -> RuntimeVersion {
@@ -753,10 +734,26 @@ impl_runtime_apis! {
 		}
 
 		fn get_preset(params: Option<sp_std::vec::Vec<u8>>) -> Option<sp_std::vec::Vec<u8>> {
-			log::info!("xxx: create_default_config2: {:?} {:?}", params, "staging".as_bytes());
 			Some(if let Some(params) = params {
 				let patch = match params {
-					s if s == "staging".as_bytes() => substrate_test_genesis_config_patch(),
+					s if s == "staging".as_bytes() => {
+						let endowed_accounts: sp_std::vec::Vec<AccountId> = vec![
+							AccountKeyring::Bob.public().into(),
+							AccountKeyring::Charlie.public().into(),
+						];
+
+						json!({
+							"balances": {
+								"balances": endowed_accounts.iter().map(|k| (k.clone(), 10 * currency::DOLLARS)).collect::<Vec<_>>(),
+							},
+							"substrateTest": {
+								"authorities": [
+									AccountKeyring::Alice.public().to_ss58check(),
+									AccountKeyring::Ferdie.public().to_ss58check()
+								],
+							}
+						})
+					},
 					s if s == "foobar".as_bytes() => json!({"foo":"bar"}),
 					_ => return None,
 				};

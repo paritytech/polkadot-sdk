@@ -75,7 +75,7 @@ sp_api::decl_runtime_apis! {
 		/// `RuntimeGenesisConfig` preset identified by `id`, or `None` if such preset does not
 		/// exists. Returned `Vec<u8>` contains bytes of JSON blob.
 		#[api_version(2)]
-		fn get_preset(id: Option<sp_runtime::RuntimeString>) -> Option<sp_std::vec::Vec<u8>>;
+		fn get_preset(id: Option<sp_std::vec::Vec<u8>>) -> Option<sp_std::vec::Vec<u8>>;
 
 		/// Returns a list of names for available builtin `RuntimeGenesisConfig` presets.
 		///
