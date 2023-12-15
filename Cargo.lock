@@ -3040,7 +3040,6 @@ name = "coretime-westend-runtime"
 version = "0.1.0"
 dependencies = [
  "cumulus-pallet-aura-ext",
- "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-session-benchmarking",
  "cumulus-pallet-xcm",
@@ -3063,6 +3062,7 @@ dependencies = [
  "pallet-message-queue",
  "pallet-multisig",
  "pallet-session",
+ "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",

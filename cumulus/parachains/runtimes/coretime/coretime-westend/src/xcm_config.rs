@@ -80,7 +80,7 @@ pub type FungibleTransactor = FungibleAdapter<
 	// Do a simple punn to convert an `AccountId32` `MultiLocation` into a native chain
 	// `AccountId`:
 	LocationToAccountId,
-	// Our chain's account ID type (we can't get away without mentioning it explicitly):
+	// Our chain's `AccountId` type (we can't get away without mentioning it explicitly):
 	AccountId,
 	// We don't track any teleports of `Balances`.
 	(),
@@ -154,8 +154,7 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 				RuntimeCall::Balances(..) |
 				RuntimeCall::CollatorSelection(..) |
 				RuntimeCall::Session(pallet_session::Call::purge_keys { .. }) |
-				RuntimeCall::XcmpQueue(..) |
-				RuntimeCall::DmpQueue(..)
+				RuntimeCall::XcmpQueue(..)
 		)
 	}
 }
@@ -205,7 +204,7 @@ impl xcm_executor::Config for XcmConfig {
 	type XcmSender = XcmRouter;
 	type AssetTransactor = FungibleTransactor;
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
-	// Coretime does not recognize a reserve location for any asset. Users must teleport WND
+	// Coretime chain does not recognize a reserve location for any asset. Users must teleport WND
 	// where allowed (e.g. with the Relay Chain).
 	type IsReserve = ();
 	/// Only allow teleportation of WND.
@@ -256,7 +255,7 @@ pub type XcmRouter = WithUniqueTopic<(
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	// We want to disallow users sending (arbitrary) XCMs from this chain.
+	// We want to disallow users sending (arbitrary) XCM programs from this chain.
 	type SendXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, ()>;
 	type XcmRouter = XcmRouter;
 	// We support local origins dispatching XCM executions in principle...
