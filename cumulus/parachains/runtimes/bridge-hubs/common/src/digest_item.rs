@@ -28,16 +28,6 @@ pub enum CustomDigestItem {
 /// Convert custom application digest item into a concrete digest item
 impl Into<DigestItem> for CustomDigestItem {
 	fn into(self) -> DigestItem {
-		match self {
-			// For snowbridge, we sidestep SCALE-encoding of `CustomDigestItem`, and insert the
-			// merkle root directly into the DigestItem::Other payload. This reduces complexity
-			// and gas costs on the Ethereum side.
-			//
-			// Other light clients can discriminate between custom digest items by checking the
-			// length of the encoded payload. If the length is greater than 32, then its a digest
-			// item inserted by some application other than Snowbridge.
-			CustomDigestItem::Snowbridge(merkle_root) =>
-				DigestItem::Other(merkle_root.to_fixed_bytes().into()),
-		}
+		DigestItem::Other(self.encode())
 	}
 }
