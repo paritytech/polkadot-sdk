@@ -44,15 +44,16 @@ use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::impls::ToAuthor;
 use sp_runtime::traits::Zero;
 use xcm::latest::prelude::*;
+#[allow(deprecated)]
+use xcm_builder::CurrencyAdapter;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, AsPrefixedGeneralIndex,
-	ConvertedConcreteId, CurrencyAdapter, DenyReserveTransferToRelayChain, DenyThenTry,
-	EnsureXcmOrigin, FixedWeightBounds, FungiblesAdapter, IsConcrete, LocalMint, NativeAsset,
-	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
-	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WithComputedOrigin, WithUniqueTopic,
+	ConvertedConcreteId, DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin,
+	FixedWeightBounds, FungiblesAdapter, IsConcrete, LocalMint, NativeAsset, ParentAsSuperuser,
+	ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
+	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
 };
 use xcm_executor::{traits::JustTry, XcmExecutor};
 
@@ -76,6 +77,7 @@ pub type LocationToAccountId = (
 );
 
 /// Means for transacting assets on this chain.
+#[allow(deprecated)]
 pub type CurrencyTransactor = CurrencyAdapter<
 	// Use this currency:
 	Balances,
@@ -94,12 +96,24 @@ pub type FungiblesTransactor = FungiblesAdapter<
 	// Use this fungibles implementation:
 	Assets,
 	// Use this currency when it is a fungible asset matching the given location or name:
-	ConvertedConcreteId<
-		AssetIdPalletAssets,
-		Balance,
-		AsPrefixedGeneralIndex<SystemAssetHubAssetsPalletLocation, AssetIdPalletAssets, JustTry>,
-		JustTry,
-	>,
+	(
+		ConvertedConcreteId<
+			AssetIdPalletAssets,
+			Balance,
+			AsPrefixedGeneralIndex<AssetsPalletLocation, AssetIdPalletAssets, JustTry>,
+			JustTry,
+		>,
+		ConvertedConcreteId<
+			AssetIdPalletAssets,
+			Balance,
+			AsPrefixedGeneralIndex<
+				SystemAssetHubAssetsPalletLocation,
+				AssetIdPalletAssets,
+				JustTry,
+			>,
+			JustTry,
+		>,
+	),
 	// Convert an XCM MultiLocation into a local account id:
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
@@ -237,6 +251,8 @@ where
 	}
 }
 
+// This asset can be added to AH as ForeignAsset and teleported between Penpal and AH
+pub const TELEPORTABLE_ASSET_ID: u32 = 2;
 parameter_types! {
 	/// The location that this chain recognizes as the Relay network's Asset Hub.
 	pub SystemAssetHubLocation: MultiLocation = MultiLocation::new(1, X1(Parachain(1000)));
@@ -244,11 +260,30 @@ parameter_types! {
 	// the Relay Chain's Asset Hub's Assets pallet index
 	pub SystemAssetHubAssetsPalletLocation: MultiLocation =
 		MultiLocation::new(1, X2(Parachain(1000), PalletInstance(50)));
+	pub AssetsPalletLocation: MultiLocation =
+		MultiLocation::new(0, X1(PalletInstance(50)));
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
+	pub LocalTeleportableToAssetHub: MultiLocation = MultiLocation::new(
+		0,
+		X2(PalletInstance(50), GeneralIndex(TELEPORTABLE_ASSET_ID.into()))
+	);
+}
+
+/// Accepts asset with ID `AssetLocation` and is coming from `Origin` chain.
+pub struct AssetFromChain<AssetLocation, Origin>(PhantomData<(AssetLocation, Origin)>);
+impl<AssetLocation: Get<MultiLocation>, Origin: Get<MultiLocation>>
+	ContainsPair<MultiAsset, MultiLocation> for AssetFromChain<AssetLocation, Origin>
+{
+	fn contains(asset: &MultiAsset, origin: &MultiLocation) -> bool {
+		log::trace!(target: "xcm::contains", "AssetFromChain asset: {:?}, origin: {:?}", asset, origin);
+		*origin == Origin::get() && matches!(asset.id, Concrete(id) if id == AssetLocation::get())
+	}
 }
 
 pub type Reserves =
 	(NativeAsset, AssetsFrom<SystemAssetHubLocation>, NativeAssetFrom<SystemAssetHubLocation>);
+pub type TrustedTeleporters =
+	(AssetFromChain<LocalTeleportableToAssetHub, SystemAssetHubLocation>,);
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
@@ -259,7 +294,7 @@ impl xcm_executor::Config for XcmConfig {
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
 	type IsReserve = Reserves;
 	// no teleport trust established with other chains
-	type IsTeleporter = NativeAsset;
+	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;

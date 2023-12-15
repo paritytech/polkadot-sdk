@@ -863,7 +863,7 @@ mod tests {
 	use super::*;
 
 	use frame_support::{
-		assert_noop, assert_ok, parameter_types,
+		assert_noop, assert_ok, derive_impl, parameter_types,
 		traits::{ConstU32, OnFinalize, OnInitialize},
 	};
 	use primitives::Id as ParaId;
@@ -900,6 +900,7 @@ mod tests {
 
 	type BlockNumber = u64;
 
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();
