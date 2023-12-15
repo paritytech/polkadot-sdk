@@ -173,6 +173,7 @@ impl pallet_transaction_payment::Config for Runtime {
 	type LengthToFee = TransactionByteFee;
 	type FeeMultiplierUpdate = ();
 	type OperationalFeeMultiplier = ConstU8<5>;
+	type WeightInfo = ();
 }
 
 type AssetId = u32;

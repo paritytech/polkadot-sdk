@@ -158,6 +158,7 @@ impl Config for Runtime {
 	type WeightToFee = WeightToFee;
 	type LengthToFee = TransactionByteFee;
 	type FeeMultiplierUpdate = ();
+	type WeightInfo = ();
 }
 
 #[cfg(feature = "runtime-benchmarks")]

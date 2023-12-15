@@ -72,6 +72,7 @@ use sp_runtime::{
 };
 use sp_std::prelude::*;
 pub use types::{FeeDetails, InclusionFee, RuntimeDispatchInfo};
+pub use weights::WeightInfo;
 
 #[cfg(test)]
 mod mock;
@@ -83,6 +84,7 @@ mod benchmarking;
 
 mod payment;
 mod types;
+pub mod weights;
 
 /// Fee multiplier.
 pub type Multiplier = FixedU128;
@@ -339,6 +341,7 @@ pub mod pallet {
 			type RuntimeEvent = ();
 			type FeeMultiplierUpdate = ();
 			type OperationalFeeMultiplier = ();
+			type WeightInfo = ();
 		}
 	}
 
@@ -391,6 +394,9 @@ pub mod pallet {
 		/// transactions.
 		#[pallet::constant]
 		type OperationalFeeMultiplier: Get<u8>;
+
+		/// The weight information of this pallet.
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::type_value]
@@ -840,6 +846,10 @@ impl<T: Config> sp_std::fmt::Debug for ChargeTransactionPayment<T> {
 impl<T: Config> TransactionExtensionBase for ChargeTransactionPayment<T> {
 	const IDENTIFIER: &'static str = "ChargeTransactionPayment";
 	type Implicit = ();
+
+	fn weight(&self) -> Weight {
+		T::WeightInfo::charge_transaction_payment()
+	}
 }
 
 impl<T: Config, Context> TransactionExtension<T::RuntimeCall, Context>

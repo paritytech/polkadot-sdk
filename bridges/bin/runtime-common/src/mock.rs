@@ -177,6 +177,7 @@ impl pallet_transaction_payment::Config for TestRuntime {
 		MaximumMultiplier,
 	>;
 	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
 }
 
 impl pallet_bridge_grandpa::Config for TestRuntime {

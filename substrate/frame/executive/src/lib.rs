@@ -972,6 +972,7 @@ mod tests {
 		type WeightToFee = IdentityFee<Balance>;
 		type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 		type FeeMultiplierUpdate = ();
+		type WeightInfo = ();
 	}
 	impl custom::Config for Runtime {}
 

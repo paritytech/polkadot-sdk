@@ -125,6 +125,7 @@ impl pallet_transaction_payment::Config for Test {
 	type WeightToFee = IdentityFee<u64>;
 	type LengthToFee = IdentityFee<u64>;
 	type FeeMultiplierUpdate = ();
+	type WeightInfo = ();
 }
 
 impl Config for Test {
