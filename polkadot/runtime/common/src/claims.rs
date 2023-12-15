@@ -54,6 +54,7 @@ pub trait WeightInfo {
 	fn claim_attest() -> Weight;
 	fn attest() -> Weight;
 	fn move_claim() -> Weight;
+	fn prevalidate_attests() -> Weight;
 }
 
 pub struct TestWeightInfo;
@@ -71,6 +72,9 @@ impl WeightInfo for TestWeightInfo {
 		Weight::zero()
 	}
 	fn move_claim() -> Weight {
+		Weight::zero()
+	}
+	fn prevalidate_attests() -> Weight {
 		Weight::zero()
 	}
 }

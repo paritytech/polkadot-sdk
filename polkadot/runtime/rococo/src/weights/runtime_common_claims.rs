@@ -163,4 +163,14 @@ impl<T: frame_system::Config> runtime_common::claims::WeightInfo for WeightInfo<
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(7))
 	}
+	fn prevalidate_attests() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `440`
+		//  Estimated: `3905`
+		// Minimum execution time: 22_066_000 picoseconds.
+		Weight::from_parts(22_483_000, 0)
+			.saturating_add(Weight::from_parts(0, 3905))
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(7))
+	}
 }
