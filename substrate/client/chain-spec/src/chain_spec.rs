@@ -444,8 +444,9 @@ impl<G, E, EHF> ChainSpecBuilder<G, E, EHF> {
 	}
 
 	/// Sets the name of runtime-provided JSON patch for runtime's GenesisConfig.
-	pub fn with_genesis_config_preset_name(mut self, name: String) -> Self {
-		self.genesis_build_action = GenesisBuildAction::NamedPreset(name, Default::default());
+	pub fn with_genesis_config_preset_name(mut self, name: &str) -> Self {
+		self.genesis_build_action =
+			GenesisBuildAction::NamedPreset(name.to_string(), Default::default());
 		self
 	}
 
@@ -1046,7 +1047,7 @@ mod tests {
 		.with_name("TestName")
 		.with_id("test_id")
 		.with_chain_type(ChainType::Local)
-		.with_genesis_config_preset_name("staging".to_string())
+		.with_genesis_config_preset_name("staging")
 		.build();
 
 		let actual = output.as_json(false).unwrap();
