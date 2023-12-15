@@ -401,7 +401,7 @@ pub fn rococo_staging_testnet_config() -> Result<RococoChainSpec, String> {
 	.with_name("Rococo Staging Testnet")
 	.with_id("rococo_staging_testnet")
 	.with_chain_type(ChainType::Live)
-	.with_genesis_config_patch_name("staging_testnet")
+	.with_genesis_config_preset_name("staging_testnet")
 	.with_telemetry_endpoints(
 		TelemetryEndpoints::new(vec![(ROCOCO_STAGING_TELEMETRY_URL.to_string(), 0)])
 			.expect("Rococo Staging telemetry url is valid; qed"),
@@ -667,7 +667,7 @@ pub fn rococo_development_config() -> Result<RococoChainSpec, String> {
 	.with_name("Development")
 	.with_id("rococo_dev")
 	.with_chain_type(ChainType::Development)
-	.with_genesis_config_patch_name("development")
+	.with_genesis_config_preset_name("development")
 	.with_protocol_id(DEFAULT_PROTOCOL_ID)
 	.build())
 }
@@ -737,7 +737,7 @@ pub fn rococo_local_testnet_config() -> Result<RococoChainSpec, String> {
 	.with_name("Rococo Local Testnet")
 	.with_id("rococo_local_testnet")
 	.with_chain_type(ChainType::Local)
-	.with_genesis_config_patch_name("local_testnet")
+	.with_genesis_config_preset_name("local_testnet")
 	.with_protocol_id(DEFAULT_PROTOCOL_ID)
 	.build())
 }

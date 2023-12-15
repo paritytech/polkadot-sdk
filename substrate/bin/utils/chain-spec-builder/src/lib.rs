@@ -262,7 +262,7 @@ pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String
 
 	let builder = match cmd.action {
 		GenesisBuildAction::NamedPreset(NamedPresetCmd { ref preset_name }) =>
-			builder.with_genesis_config_patch_name(preset_name.clone()),
+			builder.with_genesis_config_preset_name(preset_name.clone()),
 		GenesisBuildAction::Patch(PatchCmd { ref patch_path }) => {
 			let patch = fs::read(patch_path.as_path())
 				.map_err(|e| format!("patch file {patch_path:?} shall be readable: {e}"))?;
