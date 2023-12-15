@@ -681,20 +681,31 @@ pub mod pallet {
 		/// Authorize an upgrade to a given `code_hash` for the runtime. The runtime can be supplied
 		/// later.
 		///
-		/// The `check_version` parameter sets a boolean flag for whether or not the runtime's spec
-		/// version and name should be verified on upgrade. Since the authorization only has a hash,
-		/// it cannot actually perform the verification.
-		///
 		/// This call requires Root origin.
 		#[pallet::call_index(9)]
 		#[pallet::weight((T::SystemWeightInfo::authorize_upgrade(), DispatchClass::Operational))]
-		pub fn authorize_upgrade(
+		pub fn authorize_upgrade(origin: OriginFor<T>, code_hash: T::Hash) -> DispatchResult {
+			ensure_root(origin)?;
+			Self::do_authorize_upgrade(code_hash, true);
+			Ok(())
+		}
+
+		/// Authorize an upgrade to a given `code_hash` for the runtime. The runtime can be supplied
+		/// later.
+		///
+		/// WARNING: This authorizes an upgrade that will take place without any safety checks, for
+		/// example that the spec name remains the same and that the version number increases. Not
+		/// recommended for normal use. Use `authorize_upgrade` instead.
+		///
+		/// This call requires Root origin.
+		#[pallet::call_index(10)]
+		#[pallet::weight((T::SystemWeightInfo::authorize_upgrade(), DispatchClass::Operational))]
+		pub fn authorize_upgrade_without_checks(
 			origin: OriginFor<T>,
 			code_hash: T::Hash,
-			check_version: bool,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			Self::do_authorize_upgrade(code_hash, check_version);
+			Self::do_authorize_upgrade(code_hash, false);
 			Ok(())
 		}
 
@@ -707,7 +718,7 @@ pub mod pallet {
 		/// the new `code` in the same block or attempt to schedule the upgrade.
 		///
 		/// All origins are allowed.
-		#[pallet::call_index(10)]
+		#[pallet::call_index(11)]
 		#[pallet::weight((T::SystemWeightInfo::apply_authorized_upgrade(), DispatchClass::Operational))]
 		pub fn apply_authorized_upgrade(
 			_: OriginFor<T>,

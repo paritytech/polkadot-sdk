@@ -694,7 +694,7 @@ fn set_code_via_authorization_works() {
 		);
 
 		// Can authorize
-		assert_ok!(System::authorize_upgrade(RawOrigin::Root.into(), hash, true));
+		assert_ok!(System::authorize_upgrade(RawOrigin::Root.into(), hash));
 		System::assert_has_event(
 			SysEvent::UpgradeAuthorized { code_hash: hash, check_version: true }.into(),
 		);

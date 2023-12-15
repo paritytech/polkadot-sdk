@@ -208,7 +208,7 @@ mod benchmarks {
 		let hash = T::Hashing::hash(&runtime_blob);
 
 		#[extrinsic_call]
-		authorize_upgrade(RawOrigin::Root, hash, true);
+		authorize_upgrade(RawOrigin::Root, hash);
 
 		assert!(System::<T>::authorized_upgrade().is_some());
 		Ok(())
@@ -219,6 +219,7 @@ mod benchmarks {
 		let runtime_blob = T::prepare_set_code_data();
 		T::setup_set_code_requirements(&runtime_blob)?;
 		let hash = T::Hashing::hash(&runtime_blob);
+		// Will be heavier when it needs to do verification.
 		System::<T>::authorize_upgrade(RawOrigin::Root.into(), hash, true)?;
 
 		#[extrinsic_call]
