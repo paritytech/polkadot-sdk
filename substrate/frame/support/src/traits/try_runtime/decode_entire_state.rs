@@ -67,7 +67,7 @@ impl TryDecodeEntireStorage for Tuple {
 }
 
 /// A value could not be decoded.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct TryDecodeEntireStorageError {
 	/// The key of the undecodable value.
 	pub key: Vec<u8>,
@@ -81,9 +81,22 @@ impl core::fmt::Display for TryDecodeEntireStorageError {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		write!(
 			f,
-			"Failed to decode storage item `{}::{}`",
+			"`{}::{}` key `{}` is undecodable",
 			&sp_std::str::from_utf8(&self.info.pallet_name).unwrap_or("<invalid>"),
 			&sp_std::str::from_utf8(&self.info.storage_name).unwrap_or("<invalid>"),
+			hex::encode(&self.key)
+		)
+	}
+}
+
+impl core::fmt::Debug for TryDecodeEntireStorageError {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		write!(
+			f,
+			"key: {} value: {} info: {:?}",
+			hex::encode(&self.key),
+			hex::encode(self.raw.clone().unwrap_or_default()),
+			self.info
 		)
 	}
 }
@@ -103,30 +116,41 @@ fn decode_storage_info<V: Decode>(
 		None => Ok(0),
 		Some(bytes) => {
 			let len = bytes.len();
-			let _ = <V as DecodeAll>::decode_all(&mut bytes.as_ref()).map_err(|_| {
-				vec![TryDecodeEntireStorageError {
+			if let Err(e) = <V as DecodeAll>::decode_all(&mut bytes.as_ref()).map_err(|_| {
+				TryDecodeEntireStorageError {
 					key: key.to_vec(),
 					raw: Some(bytes.to_vec()),
 					info: info.clone(),
-				}]
-			})?;
+				}
+			}) {
+				return Err(e);
+			};
 
-			Ok::<usize, Vec<_>>(len)
+			Ok::<usize, _>(len)
 		},
 	};
 
-	decoded += decode_key(&next_key)?;
+	let mut errors = vec![];
 	loop {
 		match sp_io::storage::next_key(&next_key) {
 			Some(key) if key.starts_with(&info.prefix) => {
-				decoded += decode_key(&key)?;
+				match decode_key(&key) {
+					Ok(bytes) => {
+						decoded += bytes;
+					},
+					Err(e) => errors.push(e),
+				}
 				next_key = key;
 			},
 			_ => break,
 		}
 	}
 
-	Ok(decoded)
+	if errors.is_empty() {
+		Ok(decoded)
+	} else {
+		Err(errors)
+	}
 }
 
 impl<Prefix, Value, QueryKind, OnEmpty> TryDecodeEntireStorage
