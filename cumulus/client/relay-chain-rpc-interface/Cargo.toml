@@ -6,6 +6,8 @@ edition.workspace = true
 description = "Implementation of the RelayChainInterface trait that connects to a remote RPC-node."
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
+[lints]
+workspace = true
 
 [dependencies]
 polkadot-overseer = { path = "../../../polkadot/node/overseer" }

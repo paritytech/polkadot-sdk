@@ -32,13 +32,15 @@ pub use sp_std::{
 	cell::RefCell, collections::btree_map::BTreeMap, fmt::Debug, marker::PhantomData,
 };
 use xcm::prelude::*;
+#[allow(deprecated)]
+use xcm_builder::CurrencyAdapter as XcmCurrencyAdapter;
 use xcm_builder::{
 	AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom,
 	AllowTopLevelPaidExecutionFrom, Case, ChildParachainAsNative, ChildParachainConvertsVia,
-	ChildSystemParachainAsSuperuser, CurrencyAdapter as XcmCurrencyAdapter, DescribeAllTerminal,
-	FixedRateOfFungible, FixedWeightBounds, FungiblesAdapter, HashedDescription, IsConcrete,
-	MatchedConvertedConcreteId, NoChecking, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation, TakeWeightCredit, XcmFeeManagerFromComponents, XcmFeeToAccount,
+	ChildSystemParachainAsSuperuser, DescribeAllTerminal, FixedRateOfFungible, FixedWeightBounds,
+	FungiblesAdapter, HashedDescription, IsConcrete, MatchedConvertedConcreteId, NoChecking,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
+	XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 use xcm_executor::{
 	traits::{Identity, JustTry},
@@ -428,6 +430,7 @@ pub type ForeignAssetsConvertedConcreteId = MatchedConvertedConcreteId<
 	JustTry,
 >;
 
+#[allow(deprecated)]
 pub type AssetTransactors = (
 	XcmCurrencyAdapter<Balances, IsConcrete<RelayLocation>, SovereignAccountOf, AccountId, ()>,
 	FungiblesAdapter<
@@ -656,13 +659,24 @@ pub(crate) fn buy_limited_execution<C>(
 pub(crate) fn new_test_ext_with_balances(
 	balances: Vec<(AccountId, Balance)>,
 ) -> sp_io::TestExternalities {
+	new_test_ext_with_balances_and_xcm_version(
+		balances,
+		// By default set actual latest XCM version
+		Some(XCM_VERSION),
+	)
+}
+
+pub(crate) fn new_test_ext_with_balances_and_xcm_version(
+	balances: Vec<(AccountId, Balance)>,
+	safe_xcm_version: Option<XcmVersion>,
+) -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	pallet_balances::GenesisConfig::<Test> { balances }
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-	pallet_xcm::GenesisConfig::<Test> { safe_xcm_version: Some(2), ..Default::default() }
+	pallet_xcm::GenesisConfig::<Test> { safe_xcm_version, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 
