@@ -1,9 +1,0 @@
-title: "Breaking: Remove long deprecated `AllPalletsWithoutSystemReversed`"
-author: skunert
-topic:  Frame
-
-doc:
-  - audience: Runtime Dev
-    description: n/a
-
-crates: []

@@ -25,15 +25,6 @@ use crate::{
 	time::Tick,
 };
 
-/// Result of counting the necessary tranches needed for approving a block.
-#[derive(Debug, PartialEq, Clone)]
-pub struct TranchesToApproveResult {
-	/// The required tranches for approving this block
-	pub required_tranches: RequiredTranches,
-	/// The total number of no_shows at the moment we are doing the counting.
-	pub total_observed_no_shows: usize,
-}
-
 /// The required tranches of assignments needed to determine whether a candidate is approved.
 #[derive(Debug, PartialEq, Clone)]
 pub enum RequiredTranches {
@@ -73,7 +64,7 @@ pub enum RequiredTranches {
 }
 
 /// The result of a check.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy)]
 pub enum Check {
 	/// The candidate is unapproved.
 	Unapproved,
@@ -187,7 +178,6 @@ struct State {
 	next_no_show: Option<Tick>,
 	/// The last tick at which a considered assignment was received.
 	last_assignment_tick: Option<Tick>,
-	total_observed_no_shows: usize,
 }
 
 impl State {
@@ -197,53 +187,41 @@ impl State {
 		needed_approvals: usize,
 		n_validators: usize,
 		no_show_duration: Tick,
-	) -> TranchesToApproveResult {
+	) -> RequiredTranches {
 		let covering = if self.depth == 0 { 0 } else { self.covering };
 		if self.depth != 0 && self.assignments + covering + self.uncovered >= n_validators {
-			return TranchesToApproveResult {
-				required_tranches: RequiredTranches::All,
-				total_observed_no_shows: self.total_observed_no_shows,
-			}
+			return RequiredTranches::All
 		}
 
 		// If we have enough assignments and all no-shows are covered, we have reached the number
 		// of tranches that we need to have.
 		if self.assignments >= needed_approvals && (covering + self.uncovered) == 0 {
-			return TranchesToApproveResult {
-				required_tranches: RequiredTranches::Exact {
-					needed: tranche,
-					tolerated_missing: self.covered,
-					next_no_show: self.next_no_show,
-					last_assignment_tick: self.last_assignment_tick,
-				},
-				total_observed_no_shows: self.total_observed_no_shows,
+			return RequiredTranches::Exact {
+				needed: tranche,
+				tolerated_missing: self.covered,
+				next_no_show: self.next_no_show,
+				last_assignment_tick: self.last_assignment_tick,
 			}
 		}
 
 		// We're pending more assignments and should look at more tranches.
 		let clock_drift = self.clock_drift(no_show_duration);
 		if self.depth == 0 {
-			TranchesToApproveResult {
-				required_tranches: RequiredTranches::Pending {
-					considered: tranche,
-					next_no_show: self.next_no_show,
-					// during the initial assignment-gathering phase, we want to accept assignments
-					// from any tranche. Note that honest validators will still not broadcast their
-					// assignment until it is time to do so, regardless of this value.
-					maximum_broadcast: DelayTranche::max_value(),
-					clock_drift,
-				},
-				total_observed_no_shows: self.total_observed_no_shows,
+			RequiredTranches::Pending {
+				considered: tranche,
+				next_no_show: self.next_no_show,
+				// during the initial assignment-gathering phase, we want to accept assignments
+				// from any tranche. Note that honest validators will still not broadcast their
+				// assignment until it is time to do so, regardless of this value.
+				maximum_broadcast: DelayTranche::max_value(),
+				clock_drift,
 			}
 		} else {
-			TranchesToApproveResult {
-				required_tranches: RequiredTranches::Pending {
-					considered: tranche,
-					next_no_show: self.next_no_show,
-					maximum_broadcast: tranche + (covering + self.uncovered) as DelayTranche,
-					clock_drift,
-				},
-				total_observed_no_shows: self.total_observed_no_shows,
+			RequiredTranches::Pending {
+				considered: tranche,
+				next_no_show: self.next_no_show,
+				maximum_broadcast: tranche + (covering + self.uncovered) as DelayTranche,
+				clock_drift,
 			}
 		}
 	}
@@ -298,7 +276,6 @@ impl State {
 			uncovered,
 			next_no_show,
 			last_assignment_tick,
-			total_observed_no_shows: self.total_observed_no_shows + new_no_shows,
 		}
 	}
 }
@@ -395,7 +372,7 @@ pub fn tranches_to_approve(
 	block_tick: Tick,
 	no_show_duration: Tick,
 	needed_approvals: usize,
-) -> TranchesToApproveResult {
+) -> RequiredTranches {
 	let tick_now = tranche_now as Tick + block_tick;
 	let n_validators = approval_entry.n_validators();
 
@@ -407,7 +384,6 @@ pub fn tranches_to_approve(
 		uncovered: 0,
 		next_no_show: None,
 		last_assignment_tick: None,
-		total_observed_no_shows: 0,
 	};
 
 	// The `ApprovalEntry` doesn't have any data for empty tranches. We still want to iterate over
@@ -458,7 +434,7 @@ pub fn tranches_to_approve(
 			let s = s.advance(n_assignments, no_shows, next_no_show, last_assignment_tick);
 			let output = s.output(tranche, needed_approvals, n_validators, no_show_duration);
 
-			*state = match output.required_tranches {
+			*state = match output {
 				RequiredTranches::Exact { .. } | RequiredTranches::All => {
 					// Wipe the state clean so the next iteration of this closure will terminate
 					// the iterator. This guarantees that we can call `last` further down to see
@@ -488,17 +464,15 @@ mod tests {
 
 	#[test]
 	fn pending_is_not_approved() {
-		let candidate = CandidateEntry::from_v1(
-			approval_db::v1::CandidateEntry {
-				candidate: dummy_candidate_receipt(dummy_hash()),
-				session: 0,
-				block_assignments: BTreeMap::default(),
-				approvals: BitVec::default(),
-			},
-			0,
-		);
+		let candidate = approval_db::v1::CandidateEntry {
+			candidate: dummy_candidate_receipt(dummy_hash()),
+			session: 0,
+			block_assignments: BTreeMap::default(),
+			approvals: BitVec::default(),
+		}
+		.into();
 
-		let approval_entry = approval_db::v3::ApprovalEntry {
+		let approval_entry = approval_db::v2::ApprovalEntry {
 			tranches: Vec::new(),
 			assigned_validators: BitVec::default(),
 			our_assignment: None,
@@ -523,31 +497,29 @@ mod tests {
 
 	#[test]
 	fn exact_takes_only_assignments_up_to() {
-		let mut candidate: CandidateEntry = CandidateEntry::from_v1(
-			approval_db::v1::CandidateEntry {
-				candidate: dummy_candidate_receipt(dummy_hash()),
-				session: 0,
-				block_assignments: BTreeMap::default(),
-				approvals: bitvec![u8, BitOrderLsb0; 0; 10],
-			},
-			0,
-		);
+		let mut candidate: CandidateEntry = approval_db::v1::CandidateEntry {
+			candidate: dummy_candidate_receipt(dummy_hash()),
+			session: 0,
+			block_assignments: BTreeMap::default(),
+			approvals: bitvec![u8, BitOrderLsb0; 0; 10],
+		}
+		.into();
 
 		for i in 0..3 {
 			candidate.mark_approval(ValidatorIndex(i));
 		}
 
-		let approval_entry = approval_db::v3::ApprovalEntry {
+		let approval_entry = approval_db::v2::ApprovalEntry {
 			tranches: vec![
-				approval_db::v3::TrancheEntry {
+				approval_db::v2::TrancheEntry {
 					tranche: 0,
 					assignments: (0..2).map(|i| (ValidatorIndex(i), 0.into())).collect(),
 				},
-				approval_db::v3::TrancheEntry {
+				approval_db::v2::TrancheEntry {
 					tranche: 1,
 					assignments: (2..5).map(|i| (ValidatorIndex(i), 1.into())).collect(),
 				},
-				approval_db::v3::TrancheEntry {
+				approval_db::v2::TrancheEntry {
 					tranche: 2,
 					assignments: (5..10).map(|i| (ValidatorIndex(i), 0.into())).collect(),
 				},
@@ -597,31 +569,29 @@ mod tests {
 
 	#[test]
 	fn one_honest_node_always_approves() {
-		let mut candidate: CandidateEntry = CandidateEntry::from_v1(
-			approval_db::v1::CandidateEntry {
-				candidate: dummy_candidate_receipt(dummy_hash()),
-				session: 0,
-				block_assignments: BTreeMap::default(),
-				approvals: bitvec![u8, BitOrderLsb0; 0; 10],
-			},
-			0,
-		);
+		let mut candidate: CandidateEntry = approval_db::v1::CandidateEntry {
+			candidate: dummy_candidate_receipt(dummy_hash()),
+			session: 0,
+			block_assignments: BTreeMap::default(),
+			approvals: bitvec![u8, BitOrderLsb0; 0; 10],
+		}
+		.into();
 
 		for i in 0..3 {
 			candidate.mark_approval(ValidatorIndex(i));
 		}
 
-		let approval_entry = approval_db::v3::ApprovalEntry {
+		let approval_entry = approval_db::v2::ApprovalEntry {
 			tranches: vec![
-				approval_db::v3::TrancheEntry {
+				approval_db::v2::TrancheEntry {
 					tranche: 0,
 					assignments: (0..4).map(|i| (ValidatorIndex(i), 0.into())).collect(),
 				},
-				approval_db::v3::TrancheEntry {
+				approval_db::v2::TrancheEntry {
 					tranche: 1,
 					assignments: (4..6).map(|i| (ValidatorIndex(i), 1.into())).collect(),
 				},
-				approval_db::v3::TrancheEntry {
+				approval_db::v2::TrancheEntry {
 					tranche: 2,
 					assignments: (6..10).map(|i| (ValidatorIndex(i), 0.into())).collect(),
 				},
@@ -677,7 +647,7 @@ mod tests {
 		let no_show_duration = 10;
 		let needed_approvals = 4;
 
-		let mut approval_entry: ApprovalEntry = approval_db::v3::ApprovalEntry {
+		let mut approval_entry: ApprovalEntry = approval_db::v2::ApprovalEntry {
 			tranches: Vec::new(),
 			assigned_validators: bitvec![u8, BitOrderLsb0; 0; 5],
 			our_assignment: None,
@@ -705,8 +675,7 @@ mod tests {
 				block_tick,
 				no_show_duration,
 				needed_approvals,
-			)
-			.required_tranches,
+			),
 			RequiredTranches::Exact {
 				needed: 1,
 				tolerated_missing: 0,
@@ -722,7 +691,7 @@ mod tests {
 		let no_show_duration = 10;
 		let needed_approvals = 4;
 
-		let mut approval_entry: ApprovalEntry = approval_db::v3::ApprovalEntry {
+		let mut approval_entry: ApprovalEntry = approval_db::v2::ApprovalEntry {
 			tranches: Vec::new(),
 			assigned_validators: bitvec![u8, BitOrderLsb0; 0; 10],
 			our_assignment: None,
@@ -746,8 +715,7 @@ mod tests {
 				block_tick,
 				no_show_duration,
 				needed_approvals,
-			)
-			.required_tranches,
+			),
 			RequiredTranches::Pending {
 				considered: 2,
 				next_no_show: Some(block_tick + no_show_duration),
@@ -763,7 +731,7 @@ mod tests {
 		let no_show_duration = 10;
 		let needed_approvals = 4;
 
-		let mut approval_entry: ApprovalEntry = approval_db::v3::ApprovalEntry {
+		let mut approval_entry: ApprovalEntry = approval_db::v2::ApprovalEntry {
 			tranches: Vec::new(),
 			assigned_validators: bitvec![u8, BitOrderLsb0; 0; 10],
 			our_assignment: None,
@@ -791,8 +759,7 @@ mod tests {
 				block_tick,
 				no_show_duration,
 				needed_approvals,
-			)
-			.required_tranches,
+			),
 			RequiredTranches::Pending {
 				considered: 11,
 				next_no_show: None,
@@ -809,7 +776,7 @@ mod tests {
 		let needed_approvals = 4;
 		let n_validators = 8;
 
-		let mut approval_entry: ApprovalEntry = approval_db::v3::ApprovalEntry {
+		let mut approval_entry: ApprovalEntry = approval_db::v2::ApprovalEntry {
 			tranches: Vec::new(),
 			assigned_validators: bitvec![u8, BitOrderLsb0; 0; n_validators],
 			our_assignment: None,
@@ -840,8 +807,7 @@ mod tests {
 				block_tick,
 				no_show_duration,
 				needed_approvals,
-			)
-			.required_tranches,
+			),
 			RequiredTranches::Pending {
 				considered: 1,
 				next_no_show: None,
@@ -860,8 +826,7 @@ mod tests {
 				block_tick,
 				no_show_duration,
 				needed_approvals,
-			)
-			.required_tranches,
+			),
 			RequiredTranches::Pending {
 				considered: 1,
 				next_no_show: None,
@@ -878,7 +843,7 @@ mod tests {
 		let needed_approvals = 4;
 		let n_validators = 8;
 
-		let mut approval_entry: ApprovalEntry = approval_db::v3::ApprovalEntry {
+		let mut approval_entry: ApprovalEntry = approval_db::v2::ApprovalEntry {
 			tranches: Vec::new(),
 			assigned_validators: bitvec![u8, BitOrderLsb0; 0; n_validators],
 			our_assignment: None,
@@ -914,8 +879,7 @@ mod tests {
 				block_tick,
 				no_show_duration,
 				needed_approvals,
-			)
-			.required_tranches,
+			),
 			RequiredTranches::Exact {
 				needed: 1,
 				tolerated_missing: 0,
@@ -934,8 +898,7 @@ mod tests {
 				block_tick,
 				no_show_duration,
 				needed_approvals,
-			)
-			.required_tranches,
+			),
 			RequiredTranches::Exact {
 				needed: 2,
 				tolerated_missing: 1,
@@ -954,8 +917,7 @@ mod tests {
 				block_tick,
 				no_show_duration,
 				needed_approvals,
-			)
-			.required_tranches,
+			),
 			RequiredTranches::Pending {
 				considered: 2,
 				next_no_show: None,
@@ -972,7 +934,7 @@ mod tests {
 		let needed_approvals = 4;
 		let n_validators = 8;
 
-		let mut approval_entry: ApprovalEntry = approval_db::v3::ApprovalEntry {
+		let mut approval_entry: ApprovalEntry = approval_db::v2::ApprovalEntry {
 			tranches: Vec::new(),
 			assigned_validators: bitvec![u8, BitOrderLsb0; 0; n_validators],
 			our_assignment: None,
@@ -1008,8 +970,7 @@ mod tests {
 				block_tick,
 				no_show_duration,
 				needed_approvals,
-			)
-			.required_tranches,
+			),
 			RequiredTranches::Exact {
 				needed: 2,
 				tolerated_missing: 1,
@@ -1031,8 +992,7 @@ mod tests {
 				block_tick,
 				no_show_duration,
 				needed_approvals,
-			)
-			.required_tranches,
+			),
 			RequiredTranches::Pending {
 				considered: 2,
 				next_no_show: None,
@@ -1053,8 +1013,7 @@ mod tests {
 				block_tick,
 				no_show_duration,
 				needed_approvals,
-			)
-			.required_tranches,
+			),
 			RequiredTranches::Exact {
 				needed: 3,
 				tolerated_missing: 2,
@@ -1070,24 +1029,22 @@ mod tests {
 		let no_show_duration = 10;
 		let needed_approvals = 3;
 
-		let mut candidate: CandidateEntry = CandidateEntry::from_v1(
-			approval_db::v1::CandidateEntry {
-				candidate: dummy_candidate_receipt(dummy_hash()),
-				session: 0,
-				block_assignments: BTreeMap::default(),
-				approvals: bitvec![u8, BitOrderLsb0; 0; 3],
-			},
-			0,
-		);
+		let mut candidate: CandidateEntry = approval_db::v1::CandidateEntry {
+			candidate: dummy_candidate_receipt(dummy_hash()),
+			session: 0,
+			block_assignments: BTreeMap::default(),
+			approvals: bitvec![u8, BitOrderLsb0; 0; 3],
+		}
+		.into();
 
 		for i in 0..3 {
 			candidate.mark_approval(ValidatorIndex(i));
 		}
 
-		let approval_entry = approval_db::v3::ApprovalEntry {
+		let approval_entry = approval_db::v2::ApprovalEntry {
 			tranches: vec![
 				// Assignments with invalid validator indexes.
-				approval_db::v3::TrancheEntry {
+				approval_db::v2::TrancheEntry {
 					tranche: 1,
 					assignments: (2..5).map(|i| (ValidatorIndex(i), 1.into())).collect(),
 				},
@@ -1111,8 +1068,7 @@ mod tests {
 				block_tick,
 				no_show_duration,
 				needed_approvals,
-			)
-			.required_tranches,
+			),
 			RequiredTranches::Pending {
 				considered: 10,
 				next_no_show: None,
@@ -1138,7 +1094,7 @@ mod tests {
 		];
 
 		for test_tranche in test_tranches {
-			let mut approval_entry: ApprovalEntry = approval_db::v3::ApprovalEntry {
+			let mut approval_entry: ApprovalEntry = approval_db::v2::ApprovalEntry {
 				tranches: Vec::new(),
 				backing_group: GroupIndex(0),
 				our_assignment: None,
@@ -1389,11 +1345,10 @@ mod tests {
 			uncovered: 0,
 			next_no_show: None,
 			last_assignment_tick: None,
-			total_observed_no_shows: 0,
 		};
 
 		assert_eq!(
-			state.output(0, 10, 10, 20).required_tranches,
+			state.output(0, 10, 10, 20),
 			RequiredTranches::Pending {
 				considered: 0,
 				next_no_show: None,
@@ -1413,11 +1368,10 @@ mod tests {
 			uncovered: 0,
 			next_no_show: None,
 			last_assignment_tick: None,
-			total_observed_no_shows: 0,
 		};
 
 		assert_eq!(
-			state.output(0, 10, 10, 20).required_tranches,
+			state.output(0, 10, 10, 20),
 			RequiredTranches::Exact {
 				needed: 0,
 				tolerated_missing: 0,

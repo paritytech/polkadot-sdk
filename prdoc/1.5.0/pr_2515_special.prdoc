@@ -1,9 +1,0 @@
-title: Set `frame_system::LastRuntimeUpgrade` after running `try-runtime migrations`
-author: liamaharon
-topic: Frame
-
-doc:
-  - audience: Runtime Dev
-    description: n/a
-
-crates: []

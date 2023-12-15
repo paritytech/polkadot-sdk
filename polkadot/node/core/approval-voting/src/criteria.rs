@@ -21,9 +21,7 @@ use parity_scale_codec::{Decode, Encode};
 use polkadot_node_primitives::approval::{
 	self as approval_types,
 	v1::{AssignmentCert, AssignmentCertKind, DelayTranche, RelayVRFStory},
-	v2::{
-		AssignmentCertKindV2, AssignmentCertV2, CoreBitfield, VrfPreOutput, VrfProof, VrfSignature,
-	},
+	v2::{AssignmentCertKindV2, AssignmentCertV2, CoreBitfield, VrfOutput, VrfProof, VrfSignature},
 };
 use polkadot_primitives::{
 	AssignmentId, AssignmentPair, CandidateHash, CoreIndex, GroupIndex, IndexedVec, SessionInfo,
@@ -261,7 +259,6 @@ pub(crate) trait AssignmentCriteria {
 		relay_vrf_story: RelayVRFStory,
 		config: &Config,
 		leaving_cores: Vec<(CandidateHash, CoreIndex, GroupIndex)>,
-		enable_v2_assignments: bool,
 	) -> HashMap<CoreIndex, OurAssignment>;
 
 	fn check_assignment_cert(
@@ -285,9 +282,8 @@ impl AssignmentCriteria for RealAssignmentCriteria {
 		relay_vrf_story: RelayVRFStory,
 		config: &Config,
 		leaving_cores: Vec<(CandidateHash, CoreIndex, GroupIndex)>,
-		enable_v2_assignments: bool,
 	) -> HashMap<CoreIndex, OurAssignment> {
-		compute_assignments(keystore, relay_vrf_story, config, leaving_cores, enable_v2_assignments)
+		compute_assignments(keystore, relay_vrf_story, config, leaving_cores, false)
 	}
 
 	fn check_assignment_cert(
@@ -463,7 +459,7 @@ fn compute_relay_vrf_modulo_assignments_v1(
 			let cert = AssignmentCert {
 				kind: AssignmentCertKind::RelayVRFModulo { sample: rvm_sample },
 				vrf: VrfSignature {
-					pre_output: VrfPreOutput(vrf_in_out.to_output()),
+					output: VrfOutput(vrf_in_out.to_output()),
 					proof: VrfProof(vrf_proof),
 				},
 			};
@@ -543,7 +539,7 @@ fn compute_relay_vrf_modulo_assignments_v2(
 				core_bitfield: assignment_bitfield.clone(),
 			},
 			vrf: VrfSignature {
-				pre_output: VrfPreOutput(vrf_in_out.to_output()),
+				output: VrfOutput(vrf_in_out.to_output()),
 				proof: VrfProof(vrf_proof),
 			},
 		};
@@ -578,7 +574,7 @@ fn compute_relay_vrf_delay_assignments(
 		let cert = AssignmentCertV2 {
 			kind: AssignmentCertKindV2::RelayVRFDelay { core_index: core },
 			vrf: VrfSignature {
-				pre_output: VrfPreOutput(vrf_in_out.to_output()),
+				output: VrfOutput(vrf_in_out.to_output()),
 				proof: VrfProof(vrf_proof),
 			},
 		};
@@ -693,7 +689,7 @@ pub(crate) fn check_assignment_cert(
 		}
 	}
 
-	let vrf_pre_output = &assignment.vrf.pre_output;
+	let vrf_output = &assignment.vrf.output;
 	let vrf_proof = &assignment.vrf.proof;
 	let first_claimed_core_index =
 		claimed_core_indices.first_one().expect("Checked above; qed") as u32;
@@ -708,7 +704,7 @@ pub(crate) fn check_assignment_cert(
 			let (vrf_in_out, _) = public
 				.vrf_verify_extra(
 					relay_vrf_modulo_transcript_v2(relay_vrf_story),
-					&vrf_pre_output.0,
+					&vrf_output.0,
 					&vrf_proof.0,
 					assigned_cores_transcript(core_bitfield),
 				)
@@ -757,7 +753,7 @@ pub(crate) fn check_assignment_cert(
 			let (vrf_in_out, _) = public
 				.vrf_verify_extra(
 					relay_vrf_modulo_transcript_v1(relay_vrf_story, *sample),
-					&vrf_pre_output.0,
+					&vrf_output.0,
 					&vrf_proof.0,
 					assigned_core_transcript(CoreIndex(first_claimed_core_index)),
 				)
@@ -795,7 +791,7 @@ pub(crate) fn check_assignment_cert(
 			let (vrf_in_out, _) = public
 				.vrf_verify(
 					relay_vrf_delay_transcript(relay_vrf_story, *core_index),
-					&vrf_pre_output.0,
+					&vrf_output.0,
 					&vrf_proof.0,
 				)
 				.map_err(|_| InvalidAssignment(Reason::VRFDelayOutputMismatch))?;

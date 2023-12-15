@@ -1,9 +1,0 @@
-title: "polkadot-parachain: one chain-spec for all"
-author: michalkucharczyk
-topic: "System Parachains"
-
-doc:
-  - audience: Runtime Dev
-    description: n/a
-
-crates: []

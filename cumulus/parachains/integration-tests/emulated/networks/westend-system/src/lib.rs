@@ -15,13 +15,11 @@
 
 pub use asset_hub_westend_emulated_chain;
 pub use bridge_hub_westend_emulated_chain;
-pub use collectives_westend_emulated_chain;
 pub use penpal_emulated_chain;
 pub use westend_emulated_chain;
 
 use asset_hub_westend_emulated_chain::AssetHubWestend;
 use bridge_hub_westend_emulated_chain::BridgeHubWestend;
-use collectives_westend_emulated_chain::CollectivesWestend;
 use penpal_emulated_chain::{PenpalA, PenpalB};
 use westend_emulated_chain::Westend;
 
@@ -37,7 +35,6 @@ decl_test_networks! {
 		parachains = vec![
 			AssetHubWestend,
 			BridgeHubWestend,
-			CollectivesWestend,
 			PenpalA,
 			PenpalB,
 		],
@@ -49,7 +46,6 @@ decl_test_sender_receiver_accounts_parameter_types! {
 	WestendRelay { sender: ALICE, receiver: BOB },
 	AssetHubWestendPara { sender: ALICE, receiver: BOB },
 	BridgeHubWestendPara { sender: ALICE, receiver: BOB },
-	CollectivesWestendPara { sender: ALICE, receiver: BOB },
 	PenpalAPara { sender: ALICE, receiver: BOB },
 	PenpalBPara { sender: ALICE, receiver: BOB }
 }

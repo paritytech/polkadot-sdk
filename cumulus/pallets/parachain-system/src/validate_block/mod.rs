@@ -26,10 +26,6 @@ mod tests;
 #[doc(hidden)]
 mod trie_cache;
 
-#[cfg(any(test, not(feature = "std")))]
-#[doc(hidden)]
-mod trie_recorder;
-
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
 pub use bytes;

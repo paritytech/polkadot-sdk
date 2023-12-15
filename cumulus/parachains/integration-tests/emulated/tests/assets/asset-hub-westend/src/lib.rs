@@ -47,17 +47,11 @@ pub use westend_system_emulated_network::{
 	asset_hub_westend_emulated_chain::{
 		genesis::ED as ASSET_HUB_WESTEND_ED, AssetHubWestendParaPallet as AssetHubWestendPallet,
 	},
-	collectives_westend_emulated_chain::{
-		genesis::ED as COLLECTIVES_WESTEND_ED,
-		CollectivesWestendParaPallet as CollectivesWestendPallet,
-	},
-	penpal_emulated_chain::PenpalBParaPallet as PenpalBPallet,
+	penpal_emulated_chain::PenpalAParaPallet as PenpalAPallet,
 	westend_emulated_chain::{genesis::ED as WESTEND_ED, WestendRelayPallet as WestendPallet},
 	AssetHubWestendPara as AssetHubWestend, AssetHubWestendParaReceiver as AssetHubWestendReceiver,
-	AssetHubWestendParaSender as AssetHubWestendSender, BridgeHubWestendPara as BridgeHubWestend,
-	BridgeHubWestendParaReceiver as BridgeHubWestendReceiver,
-	CollectivesWestendPara as CollectivesWestend, PenpalBPara as PenpalB,
-	PenpalBParaReceiver as PenpalBReceiver, PenpalBParaSender as PenpalBSender,
+	AssetHubWestendParaSender as AssetHubWestendSender, PenpalAPara as PenpalA,
+	PenpalAParaReceiver as PenpalAReceiver, PenpalAParaSender as PenpalASender,
 	WestendRelay as Westend, WestendRelayReceiver as WestendReceiver,
 	WestendRelaySender as WestendSender,
 };
@@ -68,20 +62,18 @@ pub const ASSET_MIN_BALANCE: u128 = 1000;
 pub const ASSETS_PALLET_ID: u8 = 50;
 
 pub type RelayToSystemParaTest = Test<Westend, AssetHubWestend>;
-pub type RelayToParaTest = Test<Westend, PenpalB>;
 pub type SystemParaToRelayTest = Test<AssetHubWestend, Westend>;
-pub type SystemParaToParaTest = Test<AssetHubWestend, PenpalB>;
-pub type ParaToSystemParaTest = Test<PenpalB, AssetHubWestend>;
+pub type SystemParaToParaTest = Test<AssetHubWestend, PenpalA>;
 
 /// Returns a `TestArgs` instance to be used for the Relay Chain across integration tests
-pub fn relay_test_args(
-	dest: MultiLocation,
-	beneficiary_id: AccountId32,
-	amount: Balance,
-) -> TestArgs {
+pub fn relay_test_args(amount: Balance) -> TestArgs {
 	TestArgs {
-		dest,
-		beneficiary: AccountId32Junction { network: None, id: beneficiary_id.into() }.into(),
+		dest: Westend::child_location_of(AssetHubWestend::para_id()),
+		beneficiary: AccountId32Junction {
+			network: None,
+			id: AssetHubWestendReceiver::get().into(),
+		}
+		.into(),
 		amount,
 		assets: (Here, amount).into(),
 		asset_id: None,
@@ -90,14 +82,13 @@ pub fn relay_test_args(
 	}
 }
 
-/// Returns a `TestArgs` instance to be used by parachains across integration tests
-pub fn para_test_args(
+/// Returns a `TestArgs` instance to be used for the System Parachain across integration tests
+pub fn system_para_test_args(
 	dest: MultiLocation,
 	beneficiary_id: AccountId32,
 	amount: Balance,
 	assets: MultiAssets,
 	asset_id: Option<u32>,
-	fee_asset_item: u32,
 ) -> TestArgs {
 	TestArgs {
 		dest,
@@ -105,7 +96,7 @@ pub fn para_test_args(
 		amount,
 		assets,
 		asset_id,
-		fee_asset_item,
+		fee_asset_item: 0,
 		weight_limit: WeightLimit::Unlimited,
 	}
 }

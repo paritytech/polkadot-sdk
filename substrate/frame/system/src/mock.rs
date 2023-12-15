@@ -17,7 +17,7 @@
 
 use crate::{self as frame_system, *};
 use frame_support::{
-	derive_impl, parameter_types,
+	parameter_types,
 	traits::{ConstU32, ConstU64},
 };
 use sp_core::H256;
@@ -85,7 +85,6 @@ impl OnKilledAccount<u64> for RecordKilled {
 	}
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = RuntimeBlockWeights;

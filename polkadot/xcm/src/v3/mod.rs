@@ -69,7 +69,6 @@ pub type QueryId = u64;
 #[codec(encode_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
-#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub struct Xcm<Call>(pub Vec<Instruction<Call>>);
 
 /// The maximal number of instructions in an XCM before decoding fails.
@@ -233,19 +232,15 @@ pub mod prelude {
 }
 
 parameter_types! {
-	#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 	pub MaxPalletNameLen: u32 = 48;
 	/// Maximum size of the encoded error code coming from a `Dispatch` result, used for
 	/// `MaybeErrorCode`. This is not (yet) enforced, so it's just an indication of expectation.
-	#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 	pub MaxDispatchErrorLen: u32 = 128;
-	#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 	pub MaxPalletsInfo: u32 = 64;
 }
 
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
-#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub struct PalletInfo {
 	#[codec(compact)]
 	pub index: u32,
@@ -277,7 +272,6 @@ impl PalletInfo {
 
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
-#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub enum MaybeErrorCode {
 	Success,
 	Error(BoundedVec<u8, MaxDispatchErrorLen>),
@@ -302,7 +296,6 @@ impl Default for MaybeErrorCode {
 /// Response data to a query.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
-#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub enum Response {
 	/// No response. Serves as a neutral default.
 	Null,
@@ -327,7 +320,6 @@ impl Default for Response {
 /// Information regarding the composition of a query response.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
-#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub struct QueryResponseInfo {
 	/// The destination to which the query response message should be send.
 	pub destination: MultiLocation,
@@ -341,7 +333,6 @@ pub struct QueryResponseInfo {
 /// An optional weight limit.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
-#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub enum WeightLimit {
 	/// No weight limit imposed.
 	Unlimited,
@@ -426,7 +417,6 @@ impl XcmContext {
 #[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
-#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub enum Instruction<Call> {
 	/// Withdraw asset(s) (`assets`) from the ownership of `origin` and place them into the Holding
 	/// Register.

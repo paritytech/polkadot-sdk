@@ -716,51 +716,55 @@ pub mod pallet {
 
 		/// Drop an expired Region from the chain.
 		///
-		/// - `origin`: Can be any kind of origin.
+		/// - `origin`: Must be a Signed origin.
 		/// - `region_id`: The Region which has expired.
 		#[pallet::call_index(14)]
 		pub fn drop_region(
-			_origin: OriginFor<T>,
+			origin: OriginFor<T>,
 			region_id: RegionId,
 		) -> DispatchResultWithPostInfo {
+			let _ = ensure_signed(origin)?;
 			Self::do_drop_region(region_id)?;
 			Ok(Pays::No.into())
 		}
 
 		/// Drop an expired Instantaneous Pool Contribution record from the chain.
 		///
-		/// - `origin`: Can be any kind of origin.
+		/// - `origin`: Must be a Signed origin.
 		/// - `region_id`: The Region identifying the Pool Contribution which has expired.
 		#[pallet::call_index(15)]
 		pub fn drop_contribution(
-			_origin: OriginFor<T>,
+			origin: OriginFor<T>,
 			region_id: RegionId,
 		) -> DispatchResultWithPostInfo {
+			let _ = ensure_signed(origin)?;
 			Self::do_drop_contribution(region_id)?;
 			Ok(Pays::No.into())
 		}
 
 		/// Drop an expired Instantaneous Pool History record from the chain.
 		///
-		/// - `origin`: Can be any kind of origin.
+		/// - `origin`: Must be a Signed origin.
 		/// - `region_id`: The time of the Pool History record which has expired.
 		#[pallet::call_index(16)]
-		pub fn drop_history(_origin: OriginFor<T>, when: Timeslice) -> DispatchResultWithPostInfo {
+		pub fn drop_history(origin: OriginFor<T>, when: Timeslice) -> DispatchResultWithPostInfo {
+			let _ = ensure_signed(origin)?;
 			Self::do_drop_history(when)?;
 			Ok(Pays::No.into())
 		}
 
 		/// Drop an expired Allowed Renewal record from the chain.
 		///
-		/// - `origin`: Can be any kind of origin.
+		/// - `origin`: Must be a Signed origin of the account which owns the Region `region_id`.
 		/// - `core`: The core to which the expired renewal refers.
 		/// - `when`: The timeslice to which the expired renewal refers. This must have passed.
 		#[pallet::call_index(17)]
 		pub fn drop_renewal(
-			_origin: OriginFor<T>,
+			origin: OriginFor<T>,
 			core: CoreIndex,
 			when: Timeslice,
 		) -> DispatchResultWithPostInfo {
+			let _ = ensure_signed(origin)?;
 			Self::do_drop_renewal(core, when)?;
 			Ok(Pays::No.into())
 		}

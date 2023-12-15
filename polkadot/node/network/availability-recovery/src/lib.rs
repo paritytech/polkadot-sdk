@@ -65,7 +65,7 @@ mod error;
 mod futures_undead;
 mod metrics;
 mod task;
-pub use metrics::Metrics;
+use metrics::Metrics;
 
 #[cfg(test)]
 mod tests;
@@ -603,8 +603,7 @@ impl AvailabilityRecoverySubsystem {
 		}
 	}
 
-	/// Starts the inner subsystem loop.
-	pub async fn run<Context>(self, mut ctx: Context) -> SubsystemResult<()> {
+	async fn run<Context>(self, mut ctx: Context) -> SubsystemResult<()> {
 		let mut state = State::default();
 		let Self {
 			mut req_receiver,
@@ -682,7 +681,6 @@ impl AvailabilityRecoverySubsystem {
 							&mut state,
 							signal,
 						).await? {
-							gum::debug!(target: LOG_TARGET, "subsystem concluded");
 							return Ok(());
 						}
 						FromOrchestra::Communication { msg } => {
@@ -847,17 +845,12 @@ async fn erasure_task_thread(
 				let _ = sender.send(maybe_data);
 			},
 			None => {
-				gum::trace!(
+				gum::debug!(
 					target: LOG_TARGET,
 					"Erasure task channel closed. Node shutting down ?",
 				);
 				break
 			},
 		}
-
-		// In benchmarks this is a very hot loop not yielding at all.
-		// To update CPU metrics for the task we need to yield.
-		#[cfg(feature = "subsystem-benchmarks")]
-		tokio::task::yield_now().await;
 	}
 }

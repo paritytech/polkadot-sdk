@@ -54,7 +54,7 @@ fn create_default_asset<T: Config<I>, I: 'static>(
 	(asset_id, caller, caller_lookup)
 }
 
-pub fn create_default_minted_asset<T: Config<I>, I: 'static>(
+fn create_default_minted_asset<T: Config<I>, I: 'static>(
 	is_sufficient: bool,
 	amount: T::Balance,
 ) -> (T::AssetIdParameter, T::AccountId, AccountIdLookupOf<T>) {

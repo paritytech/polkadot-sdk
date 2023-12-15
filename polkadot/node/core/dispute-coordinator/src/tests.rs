@@ -61,11 +61,10 @@ use polkadot_node_subsystem_test_helpers::{
 	make_buffered_subsystem_context, mock::new_leaf, TestSubsystemContextHandle,
 };
 use polkadot_primitives::{
-	vstaging::NodeFeatures, ApprovalVote, BlockNumber, CandidateCommitments, CandidateEvent,
-	CandidateHash, CandidateReceipt, CoreIndex, DisputeStatement, ExecutorParams, GroupIndex, Hash,
-	HeadData, Header, IndexedVec, MultiDisputeStatementSet, ScrapedOnChainVotes, SessionIndex,
-	SessionInfo, SigningContext, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
-	ValidatorSignature,
+	ApprovalVote, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
+	CandidateReceipt, CoreIndex, DisputeStatement, ExecutorParams, GroupIndex, Hash, HeadData,
+	Header, IndexedVec, MultiDisputeStatementSet, ScrapedOnChainVotes, SessionIndex, SessionInfo,
+	SigningContext, ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 
 use crate::{
@@ -351,15 +350,6 @@ impl TestState {
 									assert_eq!(h, block_hash);
 									assert_eq!(session_index, i);
 									let _ = tx.send(Ok(Some(ExecutorParams::default())));
-								}
-							);
-
-							assert_matches!(
-								overseer_recv(virtual_overseer).await,
-								AllMessages::RuntimeApi(
-									RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
-								) => {
-									si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
 								}
 							);
 						}
@@ -661,7 +651,7 @@ fn make_candidate_included_event(candidate_receipt: CandidateReceipt) -> Candida
 pub async fn handle_approval_vote_request(
 	ctx_handle: &mut VirtualOverseer,
 	expected_hash: &CandidateHash,
-	votes_to_send: HashMap<ValidatorIndex, (Vec<CandidateHash>, ValidatorSignature)>,
+	votes_to_send: HashMap<ValidatorIndex, ValidatorSignature>,
 ) {
 	assert_matches!(
 		ctx_handle.recv().await,
@@ -868,12 +858,9 @@ fn approval_vote_import_works() {
 				.await;
 			gum::trace!("After sending `ImportStatements`");
 
-			let approval_votes = [(
-				ValidatorIndex(4),
-				(vec![candidate_receipt1.hash()], approval_vote.into_validator_signature()),
-			)]
-			.into_iter()
-			.collect();
+			let approval_votes = [(ValidatorIndex(4), approval_vote.into_validator_signature())]
+				.into_iter()
+				.collect();
 
 			handle_approval_vote_request(&mut virtual_overseer, &candidate_hash1, approval_votes)
 				.await;
@@ -3505,14 +3492,6 @@ fn session_info_is_requested_only_once() {
 					let _ = tx.send(Ok(Some(ExecutorParams::default())));
 				}
 			);
-			assert_matches!(
-				virtual_overseer.recv().await,
-				AllMessages::RuntimeApi(
-					RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
-				) => {
-					si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
-				}
-			);
 			test_state
 		})
 	});
@@ -3573,15 +3552,6 @@ fn session_info_big_jump_works() {
 						let _ = tx.send(Ok(Some(ExecutorParams::default())));
 					}
 				);
-
-				assert_matches!(
-					virtual_overseer.recv().await,
-					AllMessages::RuntimeApi(
-						RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
-					) => {
-						si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
-					}
-				);
 			}
 			test_state
 		})
@@ -3640,14 +3610,6 @@ fn session_info_small_jump_works() {
 					)) => {
 						assert_eq!(session_index, expected_idx);
 						let _ = tx.send(Ok(Some(ExecutorParams::default())));
-					}
-				);
-				assert_matches!(
-					virtual_overseer.recv().await,
-					AllMessages::RuntimeApi(
-						RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
-					) => {
-						si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
 					}
 				);
 			}

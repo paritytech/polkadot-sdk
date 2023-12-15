@@ -32,7 +32,7 @@ use polkadot_node_network_protocol::{
 		GridNeighbors, RandomRouting, RequiredRouting, SessionBoundGridTopologyStorage,
 	},
 	peer_set::{ProtocolVersion, ValidationVersion},
-	v1 as protocol_v1, v2 as protocol_v2, v3 as protocol_v3, OurView, PeerId,
+	v1 as protocol_v1, v2 as protocol_v2, vstaging as protocol_vstaging, OurView, PeerId,
 	UnifiedReputationChange as Rep, Versioned, View,
 };
 use polkadot_node_subsystem::{
@@ -102,8 +102,8 @@ impl BitfieldGossipMessage {
 					self.relay_parent,
 					self.signed_availability.into(),
 				)),
-			Some(ValidationVersion::V3) =>
-				Versioned::V3(protocol_v3::BitfieldDistributionMessage::Bitfield(
+			Some(ValidationVersion::VStaging) =>
+				Versioned::VStaging(protocol_vstaging::BitfieldDistributionMessage::Bitfield(
 					self.relay_parent,
 					self.signed_availability.into(),
 				)),
@@ -503,8 +503,8 @@ async fn relay_message<Context>(
 		let v2_interested_peers =
 			filter_by_peer_version(&interested_peers, ValidationVersion::V2.into());
 
-		let v3_interested_peers =
-			filter_by_peer_version(&interested_peers, ValidationVersion::V3.into());
+		let vstaging_interested_peers =
+			filter_by_peer_version(&interested_peers, ValidationVersion::VStaging.into());
 
 		if !v1_interested_peers.is_empty() {
 			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
@@ -522,10 +522,10 @@ async fn relay_message<Context>(
 			.await
 		}
 
-		if !v3_interested_peers.is_empty() {
+		if !vstaging_interested_peers.is_empty() {
 			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-				v3_interested_peers,
-				message.into_validation_protocol(ValidationVersion::V3.into()),
+				vstaging_interested_peers,
+				message.into_validation_protocol(ValidationVersion::VStaging.into()),
 			))
 			.await
 		}
@@ -551,7 +551,7 @@ async fn process_incoming_peer_message<Context>(
 			relay_parent,
 			bitfield,
 		)) |
-		Versioned::V3(protocol_v3::BitfieldDistributionMessage::Bitfield(
+		Versioned::VStaging(protocol_vstaging::BitfieldDistributionMessage::Bitfield(
 			relay_parent,
 			bitfield,
 		)) => (relay_parent, bitfield),

@@ -241,15 +241,6 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 		})
 		.collect::<Vec<_>>();
 
-	let cfg_attrs = methods
-		.iter()
-		.map(|method| {
-			let attrs =
-				method.cfg_attrs.iter().map(|attr| attr.to_token_stream()).collect::<Vec<_>>();
-			quote::quote!( #( #attrs )* )
-		})
-		.collect::<Vec<_>>();
-
 	let feeless_check = methods.iter().map(|method| &method.feeless_check).collect::<Vec<_>>();
 	let feeless_check_result =
 		feeless_check.iter().zip(args_name.iter()).map(|(feeless_check, arg_name)| {
@@ -306,7 +297,6 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 				#frame_support::Never,
 			),
 			#(
-				#cfg_attrs
 				#[doc = #fn_doc]
 				#[codec(index = #call_index)]
 				#fn_name {
@@ -320,7 +310,6 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 
 		impl<#type_impl_gen> #call_ident<#type_use_gen> #where_clause {
 			#(
-				#cfg_attrs
 				#[doc = #new_call_variant_doc]
 				pub fn #new_call_variant_fn_name(
 					#( #args_name_stripped: #args_type ),*
@@ -339,7 +328,6 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			fn get_dispatch_info(&self) -> #frame_support::dispatch::DispatchInfo {
 				match *self {
 					#(
-						#cfg_attrs
 						Self::#fn_name { #( #args_name_pattern_ref, )* } => {
 							let __pallet_base_weight = #fn_weight;
 
@@ -377,7 +365,6 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			fn is_feeless(&self, origin: &Self::Origin) -> bool {
 				match *self {
 					#(
-						#cfg_attrs
 						Self::#fn_name { #( #args_name_pattern_ref, )* } => {
 							#feeless_check_result
 						},
@@ -392,13 +379,13 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 		{
 			fn get_call_name(&self) -> &'static str {
 				match *self {
-					#( #cfg_attrs Self::#fn_name { .. } => stringify!(#fn_name), )*
+					#( Self::#fn_name { .. } => stringify!(#fn_name), )*
 					Self::__Ignore(_, _) => unreachable!("__PhantomItem cannot be used."),
 				}
 			}
 
 			fn get_call_names() -> &'static [&'static str] {
-				&[ #( #cfg_attrs stringify!(#fn_name), )* ]
+				&[ #( stringify!(#fn_name), )* ]
 			}
 		}
 
@@ -407,13 +394,13 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 		{
 			fn get_call_index(&self) -> u8 {
 				match *self {
-					#( #cfg_attrs Self::#fn_name { .. } => #call_index, )*
+					#( Self::#fn_name { .. } => #call_index, )*
 					Self::__Ignore(_, _) => unreachable!("__PhantomItem cannot be used."),
 				}
 			}
 
 			fn get_call_indices() -> &'static [u8] {
-				&[ #( #cfg_attrs #call_index, )* ]
+				&[ #( #call_index, )* ]
 			}
 		}
 
@@ -429,7 +416,6 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 				#frame_support::dispatch_context::run_in_context(|| {
 					match self {
 						#(
-							#cfg_attrs
 							Self::#fn_name { #( #args_name_pattern, )* } => {
 								#frame_support::__private::sp_tracing::enter_span!(
 									#frame_support::__private::sp_tracing::trace_span!(stringify!(#fn_name))

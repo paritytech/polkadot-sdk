@@ -42,7 +42,6 @@ use sp_runtime::{
 use std::marker::PhantomData;
 
 pub use sp_block_builder::BlockBuilder as BlockBuilderApi;
-use sp_trie::proof_size_extension::ProofSizeExt;
 
 /// A builder for creating an instance of [`BlockBuilder`].
 pub struct BlockBuilderBuilder<'a, B, C> {
@@ -236,10 +235,6 @@ where
 
 		if record_proof {
 			api.record_proof();
-			let recorder = api
-				.proof_recorder()
-				.expect("Proof recording is enabled in the line above; qed.");
-			api.register_extension(ProofSizeExt::new(recorder));
 		}
 
 		api.set_call_context(CallContext::Onchain);

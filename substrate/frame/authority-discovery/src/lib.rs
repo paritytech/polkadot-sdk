@@ -169,7 +169,7 @@ mod tests {
 	use super::*;
 	use crate as pallet_authority_discovery;
 	use frame_support::{
-		derive_impl, parameter_types,
+		parameter_types,
 		traits::{ConstU32, ConstU64},
 	};
 	use sp_application_crypto::Pair;
@@ -225,7 +225,6 @@ mod tests {
 		pub const Offset: BlockNumber = 0;
 	}
 
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();

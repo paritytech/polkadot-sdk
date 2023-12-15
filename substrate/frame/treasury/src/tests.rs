@@ -27,7 +27,7 @@ use sp_runtime::{
 };
 
 use frame_support::{
-	assert_err_ignore_postinfo, assert_noop, assert_ok, derive_impl,
+	assert_err_ignore_postinfo, assert_noop, assert_ok,
 	pallet_prelude::Pays,
 	parameter_types,
 	traits::{
@@ -54,7 +54,6 @@ frame_support::construct_runtime!(
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();

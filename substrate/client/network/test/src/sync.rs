@@ -44,16 +44,16 @@ async fn sync_peers_works() {
 	sp_tracing::try_init_simple();
 	let mut net = TestNet::new(3);
 
-	while net.peer(0).num_peers().await != 2 &&
-		net.peer(1).num_peers().await != 2 &&
-		net.peer(2).num_peers().await != 2
-	{
-		futures::future::poll_fn::<(), _>(|cx| {
-			net.poll(cx);
-			Poll::Ready(())
-		})
-		.await;
-	}
+	futures::future::poll_fn::<(), _>(|cx| {
+		net.poll(cx);
+		for peer in 0..3 {
+			if net.peer(peer).num_peers() != 2 {
+				return Poll::Pending
+			}
+		}
+		Poll::Ready(())
+	})
+	.await;
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -412,13 +412,15 @@ async fn can_sync_small_non_best_forks() {
 	assert!(net.peer(1).client().header(small_hash).unwrap().is_none());
 
 	// poll until the two nodes connect, otherwise announcing the block will not work
-	while net.peer(0).num_peers().await == 0 || net.peer(1).num_peers().await == 0 {
-		futures::future::poll_fn::<(), _>(|cx| {
-			net.poll(cx);
+	futures::future::poll_fn::<(), _>(|cx| {
+		net.poll(cx);
+		if net.peer(0).num_peers() == 0 || net.peer(1).num_peers() == 0 {
+			Poll::Pending
+		} else {
 			Poll::Ready(())
-		})
-		.await;
-	}
+		}
+	})
+	.await;
 
 	// synchronization: 0 synced to longer chain and 1 didn't sync to small chain.
 
@@ -463,7 +465,6 @@ async fn can_sync_forks_ahead_of_the_best_chain() {
 	net.peer(1).push_blocks(1, false);
 
 	net.run_until_connected().await;
-
 	// Peer 0 is on 2-block fork which is announced with is_best=false
 	let fork_hash = net
 		.peer(0)
@@ -515,13 +516,15 @@ async fn can_sync_explicit_forks() {
 	assert!(net.peer(1).client().header(small_hash).unwrap().is_none());
 
 	// poll until the two nodes connect, otherwise announcing the block will not work
-	while net.peer(0).num_peers().await == 0 || net.peer(1).num_peers().await == 0 {
-		futures::future::poll_fn::<(), _>(|cx| {
-			net.poll(cx);
+	futures::future::poll_fn::<(), _>(|cx| {
+		net.poll(cx);
+		if net.peer(0).num_peers() == 0 || net.peer(1).num_peers() == 0 {
+			Poll::Pending
+		} else {
 			Poll::Ready(())
-		})
-		.await;
-	}
+		}
+	})
+	.await;
 
 	// synchronization: 0 synced to longer chain and 1 didn't sync to small chain.
 
@@ -610,14 +613,15 @@ async fn full_sync_requires_block_body() {
 
 	net.peer(0).push_headers(1);
 	// Wait for nodes to connect
-	while net.peer(0).num_peers().await == 0 || net.peer(1).num_peers().await == 0 {
-		futures::future::poll_fn::<(), _>(|cx| {
-			net.poll(cx);
+	futures::future::poll_fn::<(), _>(|cx| {
+		net.poll(cx);
+		if net.peer(0).num_peers() == 0 || net.peer(1).num_peers() == 0 {
+			Poll::Pending
+		} else {
 			Poll::Ready(())
-		})
-		.await;
-	}
-
+		}
+	})
+	.await;
 	net.run_until_idle().await;
 	assert_eq!(net.peer(1).client.info().best_number, 0);
 }
@@ -913,16 +917,18 @@ async fn block_announce_data_is_propagated() {
 	});
 
 	// Wait until peer 1 is connected to both nodes.
-	while net.peer(1).num_peers().await != 2 ||
-		net.peer(0).num_peers().await != 1 ||
-		net.peer(2).num_peers().await != 1
-	{
-		futures::future::poll_fn::<(), _>(|cx| {
-			net.poll(cx);
+	futures::future::poll_fn::<(), _>(|cx| {
+		net.poll(cx);
+		if net.peer(1).num_peers() == 2 &&
+			net.peer(0).num_peers() == 1 &&
+			net.peer(2).num_peers() == 1
+		{
 			Poll::Ready(())
-		})
-		.await;
-	}
+		} else {
+			Poll::Pending
+		}
+	})
+	.await;
 
 	let block_hash = net
 		.peer(0)
@@ -1004,7 +1010,7 @@ async fn multiple_requests_are_accepted_as_long_as_they_are_not_fulfilled() {
 		tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 		net.peer(0).push_blocks(1, false);
 		net.run_until_sync().await;
-		assert_eq!(1, net.peer(0).num_peers().await);
+		assert_eq!(1, net.peer(0).num_peers());
 	}
 
 	let hashof10 = hashes[9];

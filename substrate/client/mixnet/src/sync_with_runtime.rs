@@ -196,7 +196,6 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use multiaddr::multiaddr;
 
 	#[test]
 	fn fixup_empty_external_addresses() {

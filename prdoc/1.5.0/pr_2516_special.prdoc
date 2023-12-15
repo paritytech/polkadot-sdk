@@ -1,9 +1,0 @@
-title: Remove `dmp_queue pallet` from Westend SP runtimes
-author: liamaharon
-topic: Frame
-
-doc:
-  - audience: Runtime Dev
-    description: n/a
-
-crates: []

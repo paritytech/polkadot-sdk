@@ -1,7 +1,7 @@
 graph TB
 subgraph Substrate
 	direction LR
-	subgraph Node
+	subgraph Client
 		Database
 		Networking
 		Consensus
@@ -15,6 +15,6 @@ subgraph Substrate
 			Identity
 		end
 	end
-	Node --runtime-api--> Runtime
-	Runtime --host-functions--> Node
+	Client --runtime-api--> Runtime
+	Runtime --host-functions--> Client
 end

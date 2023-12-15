@@ -20,7 +20,7 @@
 #![cfg(test)]
 
 use frame_support::{
-	derive_impl, parameter_types,
+	parameter_types,
 	traits::{ConstU32, ConstU64},
 	weights::Weight,
 };
@@ -113,7 +113,6 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	result
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();

@@ -123,9 +123,6 @@ pub use safe_mode::{SafeMode, SafeModeError, SafeModeNotify};
 mod tx_pause;
 pub use tx_pause::{TransactionPause, TransactionPauseError};
 
-pub mod tasks;
-pub use tasks::Task;
-
 #[cfg(feature = "try-runtime")]
 mod try_runtime;
 #[cfg(feature = "try-runtime")]

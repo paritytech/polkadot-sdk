@@ -25,7 +25,6 @@ use super::{mock_helpers::*, Pallet as MessageQueue, *};
 use frame_benchmarking::v2::*;
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
-use sp_io::hashing::blake2_256;
 use sp_std::prelude::*;
 
 #[benchmarks(
@@ -143,7 +142,7 @@ mod benchmarks {
 		// Check that it was processed.
 		assert_last_event::<T>(
 			Event::Processed {
-				id: blake2_256(&msg).into(),
+				id: sp_io::hashing::blake2_256(&msg),
 				origin: 0.into(),
 				weight_used: 1.into_weight(),
 				success: true,
@@ -228,7 +227,7 @@ mod benchmarks {
 
 		assert_last_event::<T>(
 			Event::Processed {
-				id: blake2_256(&((msgs - 1) as u32).encode()).into(),
+				id: sp_io::hashing::blake2_256(&((msgs - 1) as u32).encode()),
 				origin: 0.into(),
 				weight_used: Weight::from_parts(1, 1),
 				success: true,
@@ -265,7 +264,7 @@ mod benchmarks {
 
 		assert_last_event::<T>(
 			Event::Processed {
-				id: blake2_256(&((msgs - 1) as u32).encode()).into(),
+				id: sp_io::hashing::blake2_256(&((msgs - 1) as u32).encode()),
 				origin: 0.into(),
 				weight_used: Weight::from_parts(1, 1),
 				success: true,

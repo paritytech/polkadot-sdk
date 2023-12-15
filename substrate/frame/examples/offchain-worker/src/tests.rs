@@ -19,7 +19,7 @@ use crate as example_offchain_worker;
 use crate::*;
 use codec::Decode;
 use frame_support::{
-	assert_ok, derive_impl, parameter_types,
+	assert_ok, parameter_types,
 	traits::{ConstU32, ConstU64},
 };
 use sp_core::{
@@ -46,7 +46,6 @@ frame_support::construct_runtime!(
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();

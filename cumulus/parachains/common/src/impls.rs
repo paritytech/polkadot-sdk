@@ -122,7 +122,7 @@ impl<T: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation> for AssetsFr
 mod tests {
 	use super::*;
 	use frame_support::{
-		derive_impl, parameter_types,
+		parameter_types,
 		traits::{ConstU32, FindAuthor, ValidatorRegistration},
 		PalletId,
 	};
@@ -155,7 +155,6 @@ mod tests {
 		pub const MaxReserves: u32 = 50;
 	}
 
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type RuntimeOrigin = RuntimeOrigin;

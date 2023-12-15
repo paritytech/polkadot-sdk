@@ -1051,7 +1051,7 @@ mod mock {
 	use super::*;
 	use crate as pallet_state_trie_migration;
 	use frame_support::{
-		derive_impl, parameter_types,
+		parameter_types,
 		traits::{ConstU32, ConstU64, Hooks},
 		weights::Weight,
 	};
@@ -1081,7 +1081,6 @@ mod mock {
 		pub const SS58Prefix: u8 = 42;
 	}
 
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();

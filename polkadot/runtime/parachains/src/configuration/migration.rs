@@ -17,7 +17,6 @@
 //! A module that is responsible for migration of storage.
 
 pub mod v10;
-pub mod v11;
 pub mod v6;
 pub mod v7;
 pub mod v8;

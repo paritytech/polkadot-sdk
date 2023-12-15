@@ -24,16 +24,16 @@ use sc_cli::SubstrateCli;
 pub enum Subcommand {
 	/// Export the genesis state of the parachain.
 	#[command(name = "export-genesis-state")]
-	ExportGenesisState(ExportGenesisHeadCommand),
+	ExportGenesisState(ExportGenesisStateCommand),
 
 	/// Export the genesis wasm of the parachain.
 	#[command(name = "export-genesis-wasm")]
 	ExportGenesisWasm(ExportGenesisWasmCommand),
 }
 
-/// Command for exporting the genesis head data of the parachain
+/// Command for exporting the genesis state of the parachain
 #[derive(Debug, Parser)]
-pub struct ExportGenesisHeadCommand {}
+pub struct ExportGenesisStateCommand {}
 
 /// Command for exporting the genesis wasm file.
 #[derive(Debug, Parser)]

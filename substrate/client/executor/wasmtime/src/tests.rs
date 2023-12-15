@@ -384,9 +384,7 @@ fn test_max_memory_pages(
 									)
 									(i32.const -1)
 								)
-								(then
-									(unreachable)
-								)
+								(unreachable)
 							)
 
 							(i64.const 0)
@@ -423,9 +421,7 @@ fn test_max_memory_pages(
 										)
 										(i32.const -1)
 									)
-									(then
-										(unreachable)
-									)
+									(unreachable)
 								)
 
 								(i64.const 0)

@@ -51,8 +51,7 @@ use {
 	},
 	polkadot_node_core_dispute_coordinator::Config as DisputeCoordinatorConfig,
 	polkadot_node_network_protocol::{
-		peer_set::{PeerSet, PeerSetProtocolNames},
-		request_response::ReqProtocolNames,
+		peer_set::PeerSetProtocolNames, request_response::ReqProtocolNames,
 	},
 	sc_client_api::BlockBackend,
 	sc_transaction_pool_api::OffchainTransactionPoolFactory,
@@ -75,7 +74,7 @@ pub use {
 #[cfg(feature = "full-node")]
 use polkadot_node_subsystem::jaeger;
 
-use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Duration};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use prometheus_endpoint::Registry;
 #[cfg(feature = "full-node")]
@@ -624,17 +623,13 @@ where
 #[cfg(feature = "full-node")]
 pub struct NewFullParams<OverseerGenerator: OverseerGen> {
 	pub is_parachain_node: IsParachainNode,
+	pub grandpa_pause: Option<(u32, u32)>,
 	pub enable_beefy: bool,
-	/// Whether to enable the block authoring backoff on production networks
-	/// where it isn't enabled by default.
-	pub force_authoring_backoff: bool,
 	pub jaeger_agent: Option<std::net::SocketAddr>,
 	pub telemetry_worker_handle: Option<TelemetryWorkerHandle>,
 	/// The version of the node. TESTING ONLY: `None` can be passed to skip the node/worker version
 	/// check, both on startup and in the workers.
 	pub node_version: Option<String>,
-	/// Whether the node is attempting to run as a secure validator.
-	pub secure_validator_mode: bool,
 	/// An optional path to a directory containing the workers.
 	pub workers_path: Option<std::path::PathBuf>,
 	/// Optional custom names for the prepare and execute workers.
@@ -719,12 +714,11 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 	mut config: Configuration,
 	NewFullParams {
 		is_parachain_node,
+		grandpa_pause,
 		enable_beefy,
-		force_authoring_backoff,
 		jaeger_agent,
 		telemetry_worker_handle,
 		node_version,
-		secure_validator_mode,
 		workers_path,
 		workers_names,
 		overseer_gen,
@@ -739,21 +733,15 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 	let is_offchain_indexing_enabled = config.offchain_worker.indexing_enabled;
 	let role = config.role.clone();
 	let force_authoring = config.force_authoring;
-	let backoff_authoring_blocks = if !force_authoring_backoff &&
-		(config.chain_spec.is_polkadot() || config.chain_spec.is_kusama())
-	{
-		// the block authoring backoff is disabled by default on production networks
-		None
-	} else {
+	let backoff_authoring_blocks = {
 		let mut backoff = sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging::default();
 
 		if config.chain_spec.is_rococo() ||
 			config.chain_spec.is_wococo() ||
-			config.chain_spec.is_versi() ||
-			config.chain_spec.is_dev()
+			config.chain_spec.is_versi()
 		{
-			// on testnets that are in flux (like rococo or versi), finality has stalled
-			// sometimes due to operational issues and it's annoying to slow down block
+			// it's a testnet that's in flux, finality has stalled sometimes due
+			// to operational issues and it's annoying to slow down block
 			// production to 1 block per hour.
 			backoff.max_interval = 10;
 		}
@@ -813,9 +801,9 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 	// anything in terms of behaviour, but makes the logs more consistent with the other
 	// Substrate nodes.
 	let grandpa_protocol_name = grandpa::protocol_standard_name(&genesis_hash, &config.chain_spec);
-	let (grandpa_protocol_config, grandpa_notification_service) =
-		grandpa::grandpa_peers_set_config(grandpa_protocol_name.clone());
-	net_config.add_notification_protocol(grandpa_protocol_config);
+	net_config.add_notification_protocol(grandpa::grandpa_peers_set_config(
+		grandpa_protocol_name.clone(),
+	));
 
 	let beefy_gossip_proto_name =
 		beefy::gossip_protocol_name(&genesis_hash, config.chain_spec.fork_id());
@@ -828,17 +816,12 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 			client.clone(),
 			prometheus_registry.clone(),
 		);
-	let beefy_notification_service = match enable_beefy {
-		false => None,
-		true => {
-			let (beefy_notification_config, beefy_notification_service) =
-				beefy::communication::beefy_peers_set_config(beefy_gossip_proto_name.clone());
-
-			net_config.add_notification_protocol(beefy_notification_config);
-			net_config.add_request_response_protocol(beefy_req_resp_cfg);
-			Some(beefy_notification_service)
-		},
-	};
+	if enable_beefy {
+		net_config.add_notification_protocol(beefy::communication::beefy_peers_set_config(
+			beefy_gossip_proto_name.clone(),
+		));
+		net_config.add_request_response_protocol(beefy_req_resp_cfg);
+	}
 
 	// validation/collation protocols are enabled only if `Overseer` is enabled
 	let peerset_protocol_names =
@@ -849,21 +832,13 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 	//
 	// Collators and parachain full nodes require the collator and validator networking to send
 	// collations and to be able to recover PoVs.
-	let notification_services =
-		if role.is_authority() || is_parachain_node.is_running_alongside_parachain_node() {
-			use polkadot_network_bridge::{peer_sets_info, IsAuthority};
-			let is_authority = if role.is_authority() { IsAuthority::Yes } else { IsAuthority::No };
-
-			peer_sets_info(is_authority, &peerset_protocol_names)
-				.into_iter()
-				.map(|(config, (peerset, service))| {
-					net_config.add_notification_protocol(config);
-					(peerset, service)
-				})
-				.collect::<HashMap<PeerSet, Box<dyn sc_network::NotificationService>>>()
-		} else {
-			std::collections::HashMap::new()
-		};
+	if role.is_authority() || is_parachain_node.is_running_alongside_parachain_node() {
+		use polkadot_network_bridge::{peer_sets_info, IsAuthority};
+		let is_authority = if role.is_authority() { IsAuthority::Yes } else { IsAuthority::No };
+		for config in peer_sets_info(is_authority, &peerset_protocol_names) {
+			net_config.add_notification_protocol(config);
+		}
+	}
 
 	let req_protocol_names = ReqProtocolNames::new(&genesis_hash, config.chain_spec.fork_id());
 
@@ -956,7 +931,6 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 				.ok_or(Error::DatabasePathRequired)?
 				.join("pvf-artifacts"),
 			node_version,
-			secure_validator_mode,
 			prep_worker_path,
 			exec_worker_path,
 		})
@@ -1096,7 +1070,6 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 					offchain_transaction_pool_factory: OffchainTransactionPoolFactory::new(
 						transaction_pool.clone(),
 					),
-					notification_services,
 				},
 			)
 			.map_err(|e| {
@@ -1198,15 +1171,13 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 	// need a keystore, regardless of which protocol we use below.
 	let keystore_opt = if role.is_authority() { Some(keystore_container.keystore()) } else { None };
 
-	// beefy is enabled if its notification service exists
-	if let Some(notification_service) = beefy_notification_service {
+	if enable_beefy {
 		let justifications_protocol_name = beefy_on_demand_justifications_handler.protocol_name();
 		let network_params = beefy::BeefyNetworkParams {
 			network: network.clone(),
 			sync: sync_service.clone(),
 			gossip_protocol_name: beefy_gossip_proto_name,
 			justifications_protocol_name,
-			notification_service,
 			_phantom: core::marker::PhantomData::<Block>,
 		};
 		let payload_provider = beefy_primitives::mmr::MmrRootProvider::new(client.clone());
@@ -1267,14 +1238,32 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 		// provide better guarantees of block and vote data availability than
 		// the observer.
 
-		let mut voting_rules_builder = grandpa::VotingRulesBuilder::default();
+		// add a custom voting rule to temporarily stop voting for new blocks
+		// after the given pause block is finalized and restarting after the
+		// given delay.
+		let mut builder = grandpa::VotingRulesBuilder::default();
 
 		#[cfg(not(feature = "malus"))]
 		let _malus_finality_delay = None;
 
 		if let Some(delay) = _malus_finality_delay {
 			info!(?delay, "Enabling malus finality delay",);
-			voting_rules_builder = voting_rules_builder.add(grandpa::BeforeBestBlockBy(delay));
+			builder = builder.add(grandpa::BeforeBestBlockBy(delay));
+		};
+
+		let voting_rule = match grandpa_pause {
+			Some((block, delay)) => {
+				info!(
+					block_number = %block,
+					delay = %delay,
+					"GRANDPA scheduled voting pause set for block #{} with a duration of {} blocks.",
+					block,
+					delay,
+				);
+
+				builder.add(grandpa_support::PauseAfterBlockFor(block, delay)).build()
+			},
+			None => builder.build(),
 		};
 
 		let grandpa_config = grandpa::GrandpaParams {
@@ -1282,11 +1271,10 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 			link: link_half,
 			network: network.clone(),
 			sync: sync_service.clone(),
-			voting_rule: voting_rules_builder.build(),
+			voting_rule,
 			prometheus_registry: prometheus_registry.clone(),
 			shared_voter_state,
 			telemetry: telemetry.as_ref().map(|x| x.handle()),
-			notification_service: grandpa_notification_service,
 			offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool.clone()),
 		};
 

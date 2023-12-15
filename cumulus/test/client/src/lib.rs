@@ -44,8 +44,7 @@ mod local_executor {
 	pub struct LocalExecutor;
 
 	impl sc_executor::NativeExecutionDispatch for LocalExecutor {
-		type ExtendHostFunctions =
-			cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions;
+		type ExtendHostFunctions = ();
 
 		fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
 			cumulus_test_runtime::api::dispatch(method, data)

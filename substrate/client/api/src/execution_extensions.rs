@@ -91,6 +91,7 @@ impl<Block: BlockT, Ext: Default + Extension> ExtensionsFactory<Block>
 ///
 /// This crate aggregates extensions available for the offchain calls
 /// and is responsible for producing a correct `Extensions` object.
+/// for each call, based on required `Capabilities`.
 pub struct ExecutionExtensions<Block: BlockT> {
 	extensions_factory: RwLock<Box<dyn ExtensionsFactory<Block>>>,
 	read_runtime_version: Arc<dyn ReadRuntimeVersion>,
@@ -115,7 +116,8 @@ impl<Block: BlockT> ExecutionExtensions<Block> {
 		*self.extensions_factory.write() = Box::new(maker);
 	}
 
-	/// Produces default extensions based on the input parameters.
+	/// Based on the execution context and capabilities it produces
+	/// the extensions object to support desired set of APIs.
 	pub fn extensions(
 		&self,
 		block_hash: Block::Hash,
@@ -125,6 +127,7 @@ impl<Block: BlockT> ExecutionExtensions<Block> {
 			self.extensions_factory.read().extensions_for(block_hash, block_number);
 
 		extensions.register(ReadRuntimeVersionExt::new(self.read_runtime_version.clone()));
+
 		extensions
 	}
 }

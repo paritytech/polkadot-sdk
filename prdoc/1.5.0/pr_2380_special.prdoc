@@ -1,9 +1,0 @@
-title: Deprecate `RewardDestination::Controller`
-author: rossbulat
-topic: XCM
-
-doc:
-  - audience: Runtime Dev
-    description: n/a
-
-crates: []

@@ -78,7 +78,8 @@ fn create_approved_proposals<T: Config<I>, I: 'static>(n: u32) -> Result<(), &'s
 		#[allow(deprecated)]
 		Treasury::<T, I>::propose_spend(RawOrigin::Signed(caller).into(), value, lookup)?;
 		let proposal_id = <ProposalCount<T, I>>::get() - 1;
-		Approvals::<T, I>::try_append(proposal_id).unwrap();
+		#[allow(deprecated)]
+		Treasury::<T, I>::approve_proposal(RawOrigin::Root.into(), proposal_id)?;
 	}
 	ensure!(<Approvals<T, I>>::get().len() == n as usize, "Not all approved");
 	Ok(())
@@ -162,8 +163,6 @@ mod benchmarks {
 	fn approve_proposal(
 		p: Linear<0, { T::MaxApprovals::get() - 1 }>,
 	) -> Result<(), BenchmarkError> {
-		let approve_origin =
-			T::ApproveOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		create_approved_proposals::<T, _>(p)?;
 		let (caller, value, beneficiary_lookup) = setup_proposal::<T, _>(SEED);
 		#[allow(deprecated)]
@@ -173,6 +172,8 @@ mod benchmarks {
 			beneficiary_lookup,
 		)?;
 		let proposal_id = Treasury::<T, _>::proposal_count() - 1;
+		let approve_origin =
+			T::ApproveOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
 		#[extrinsic_call]
 		_(approve_origin as T::RuntimeOrigin, proposal_id);
@@ -190,7 +191,8 @@ mod benchmarks {
 			beneficiary_lookup,
 		)?;
 		let proposal_id = Treasury::<T, _>::proposal_count() - 1;
-		Approvals::<T, _>::try_append(proposal_id).unwrap();
+		#[allow(deprecated)]
+		Treasury::<T, I>::approve_proposal(RawOrigin::Root.into(), proposal_id)?;
 		let reject_origin =
 			T::RejectOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 

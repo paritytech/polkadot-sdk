@@ -149,11 +149,8 @@ impl TryConvert<&VersionedMultiLocation, xcm::latest::MultiLocation>
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarks {
 	use super::VersionedLocatableAsset;
-	use core::marker::PhantomData;
-	use frame_support::traits::Get;
 	use pallet_asset_rate::AssetKindFactory;
 	use pallet_treasury::ArgumentsFactory as TreasuryArgumentsFactory;
-	use sp_core::{ConstU32, ConstU8};
 	use xcm::prelude::*;
 
 	/// Provides a factory method for the [`VersionedLocatableAsset`].
@@ -175,22 +172,12 @@ pub mod benchmarks {
 	/// Provide factory methods for the [`VersionedLocatableAsset`] and the `Beneficiary` of the
 	/// [`VersionedMultiLocation`]. The location of the asset is determined as a Parachain with an
 	/// ID equal to the passed seed.
-	pub struct TreasuryArguments<Parents = ConstU8<0>, ParaId = ConstU32<0>>(
-		PhantomData<(Parents, ParaId)>,
-	);
-	impl<Parents: Get<u8>, ParaId: Get<u32>>
-		TreasuryArgumentsFactory<VersionedLocatableAsset, VersionedMultiLocation>
-		for TreasuryArguments<Parents, ParaId>
+	pub struct TreasuryArguments;
+	impl TreasuryArgumentsFactory<VersionedLocatableAsset, VersionedMultiLocation>
+		for TreasuryArguments
 	{
 		fn create_asset_kind(seed: u32) -> VersionedLocatableAsset {
-			VersionedLocatableAsset::V3 {
-				location: xcm::v3::MultiLocation::new(Parents::get(), X1(Parachain(ParaId::get()))),
-				asset_id: xcm::v3::MultiLocation::new(
-					0,
-					X2(PalletInstance(seed.try_into().unwrap()), GeneralIndex(seed.into())),
-				)
-				.into(),
-			}
+			AssetRateArguments::create_asset_kind(seed)
 		}
 		fn create_beneficiary(seed: [u8; 32]) -> VersionedMultiLocation {
 			VersionedMultiLocation::V3(xcm::v3::MultiLocation::new(
@@ -205,7 +192,6 @@ pub mod benchmarks {
 mod tests {
 	use super::*;
 	use frame_support::{
-		derive_impl,
 		dispatch::DispatchClass,
 		parameter_types,
 		traits::{
@@ -251,7 +237,6 @@ mod tests {
 		pub const AvailableBlockRatio: Perbill = Perbill::one();
 	}
 
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type RuntimeOrigin = RuntimeOrigin;

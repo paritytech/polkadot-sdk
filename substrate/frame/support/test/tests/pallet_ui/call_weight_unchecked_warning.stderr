@@ -10,4 +10,3 @@ error: use of deprecated constant `pallet::warnings::UncheckedWeightWitness_0::_
    |                                     ^^^^^^^
    |
    = note: `-D deprecated` implied by `-D warnings`
-   = help: to override `-D warnings` add `#[allow(deprecated)]`

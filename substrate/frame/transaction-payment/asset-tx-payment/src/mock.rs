@@ -18,7 +18,6 @@ use crate as pallet_asset_tx_payment;
 
 use codec;
 use frame_support::{
-	derive_impl,
 	dispatch::DispatchClass,
 	pallet_prelude::*,
 	parameter_types,
@@ -71,7 +70,6 @@ parameter_types! {
 	pub static TransactionByteFee: u64 = 1;
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = BlockWeights;

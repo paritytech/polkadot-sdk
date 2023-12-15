@@ -27,7 +27,6 @@ async fn spawn_immediate_exit() {
 
 	// There's no explicit `exit` subcommand in the worker; it will panic on an unknown
 	// subcommand anyway
-	let spawn_timeout = Duration::from_secs(2);
 	let result = spawn_with_program_path(
 		"integration-test",
 		prepare_worker_path,
@@ -37,28 +36,23 @@ async fn spawn_immediate_exit() {
 		SecurityStatus::default(),
 	)
 	.await;
-	assert!(
-		matches!(result, Err(SpawnErr::AcceptTimeout { spawn_timeout: s }) if s == spawn_timeout)
-	);
+	assert!(matches!(result, Err(SpawnErr::AcceptTimeout)));
 }
 
 #[tokio::test]
 async fn spawn_timeout() {
 	let (_, execute_worker_path) = build_workers_and_get_paths();
 
-	let spawn_timeout = Duration::from_secs(2);
 	let result = spawn_with_program_path(
 		"integration-test",
 		execute_worker_path,
 		&env::temp_dir(),
 		&["test-sleep"],
-		spawn_timeout,
+		Duration::from_secs(2),
 		SecurityStatus::default(),
 	)
 	.await;
-	assert!(
-		matches!(result, Err(SpawnErr::AcceptTimeout { spawn_timeout: s }) if s == spawn_timeout)
-	);
+	assert!(matches!(result, Err(SpawnErr::AcceptTimeout)));
 }
 
 #[tokio::test]

@@ -98,8 +98,7 @@ pub mod fee {
 
 /// System Parachains.
 pub mod system_parachain {
-	use primitives::Id;
-	use xcm_builder::IsChildSystemParachain;
+	use xcm::latest::prelude::*;
 
 	/// Network's Asset Hub parachain ID.
 	pub const ASSET_HUB_ID: u32 = 1000;
@@ -108,8 +107,11 @@ pub mod system_parachain {
 	/// BridgeHub parachain ID.
 	pub const BRIDGE_HUB_ID: u32 = 1002;
 
-	/// All system parachains of Westend.
-	pub type SystemParachains = IsChildSystemParachain<Id>;
+	frame_support::match_types! {
+		pub type SystemParachains: impl Contains<MultiLocation> = {
+			MultiLocation { parents: 0, interior: X1(Parachain(ASSET_HUB_ID | COLLECTIVES_ID | BRIDGE_HUB_ID ))}
+		};
+	}
 }
 
 /// Westend Treasury pallet instance.
@@ -124,7 +126,6 @@ pub mod xcm {
 		const ROOT_INDEX: u32 = 0;
 		// The bodies corresponding to the Polkadot OpenGov Origins.
 		pub const FELLOWSHIP_ADMIN_INDEX: u32 = 1;
-		pub const TREASURER_INDEX: u32 = 2;
 	}
 }
 

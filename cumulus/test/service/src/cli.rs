@@ -16,7 +16,6 @@
 
 use std::{net::SocketAddr, path::PathBuf};
 
-use cumulus_client_cli::{ExportGenesisHeadCommand, ExportGenesisWasmCommand};
 use polkadot_service::{ChainSpec, ParaId, PrometheusConfig};
 use sc_cli::{
 	CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams, NetworkParams,
@@ -61,11 +60,43 @@ pub enum Subcommand {
 	BuildSpec(sc_cli::BuildSpecCmd),
 
 	/// Export the genesis state of the parachain.
-	#[command(alias = "export-genesis-state")]
-	ExportGenesisHead(ExportGenesisHeadCommand),
+	ExportGenesisState(ExportGenesisStateCommand),
 
 	/// Export the genesis wasm of the parachain.
 	ExportGenesisWasm(ExportGenesisWasmCommand),
+}
+
+#[derive(Debug, clap::Parser)]
+#[group(skip)]
+pub struct ExportGenesisStateCommand {
+	#[arg(default_value_t = 2000u32)]
+	pub parachain_id: u32,
+
+	#[command(flatten)]
+	pub base: cumulus_client_cli::ExportGenesisStateCommand,
+}
+
+impl CliConfiguration for ExportGenesisStateCommand {
+	fn shared_params(&self) -> &SharedParams {
+		&self.base.shared_params
+	}
+}
+
+/// Command for exporting the genesis wasm file.
+#[derive(Debug, clap::Parser)]
+#[group(skip)]
+pub struct ExportGenesisWasmCommand {
+	#[arg(default_value_t = 2000u32)]
+	pub parachain_id: u32,
+
+	#[command(flatten)]
+	pub base: cumulus_client_cli::ExportGenesisWasmCommand,
+}
+
+impl CliConfiguration for ExportGenesisWasmCommand {
+	fn shared_params(&self) -> &SharedParams {
+		&self.base.shared_params
+	}
 }
 
 #[derive(Debug)]

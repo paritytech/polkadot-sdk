@@ -141,7 +141,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "runtime-benchmarks")]
-pub mod benchmarking;
+mod benchmarking;
 pub mod migration;
 #[cfg(test)]
 pub mod mock;

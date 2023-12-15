@@ -21,6 +21,6 @@
 //! `polkadot_node_core_pvf_worker::execute_worker_entrypoint`.
 
 mod queue;
-mod worker_interface;
+mod worker_intf;
 
 pub use queue::{start, PendingExecutionRequest, ToQueue};

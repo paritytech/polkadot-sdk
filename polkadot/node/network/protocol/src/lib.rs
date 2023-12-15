@@ -253,29 +253,29 @@ impl View {
 
 /// A protocol-versioned type.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Versioned<V1, V2, V3 = V2> {
+pub enum Versioned<V1, V2, VStaging = V2> {
 	/// V1 type.
 	V1(V1),
 	/// V2 type.
 	V2(V2),
-	/// V3 type
-	V3(V3),
+	/// VStaging type
+	VStaging(VStaging),
 }
 
-impl<V1: Clone, V2: Clone, V3: Clone> Versioned<&'_ V1, &'_ V2, &'_ V3> {
+impl<V1: Clone, V2: Clone, VStaging: Clone> Versioned<&'_ V1, &'_ V2, &'_ VStaging> {
 	/// Convert to a fully-owned version of the message.
-	pub fn clone_inner(&self) -> Versioned<V1, V2, V3> {
+	pub fn clone_inner(&self) -> Versioned<V1, V2, VStaging> {
 		match *self {
 			Versioned::V1(inner) => Versioned::V1(inner.clone()),
 			Versioned::V2(inner) => Versioned::V2(inner.clone()),
-			Versioned::V3(inner) => Versioned::V3(inner.clone()),
+			Versioned::VStaging(inner) => Versioned::VStaging(inner.clone()),
 		}
 	}
 }
 
 /// All supported versions of the validation protocol message.
 pub type VersionedValidationProtocol =
-	Versioned<v1::ValidationProtocol, v2::ValidationProtocol, v3::ValidationProtocol>;
+	Versioned<v1::ValidationProtocol, v2::ValidationProtocol, vstaging::ValidationProtocol>;
 
 impl From<v1::ValidationProtocol> for VersionedValidationProtocol {
 	fn from(v1: v1::ValidationProtocol) -> Self {
@@ -289,9 +289,9 @@ impl From<v2::ValidationProtocol> for VersionedValidationProtocol {
 	}
 }
 
-impl From<v3::ValidationProtocol> for VersionedValidationProtocol {
-	fn from(v3: v3::ValidationProtocol) -> Self {
-		VersionedValidationProtocol::V3(v3)
+impl From<vstaging::ValidationProtocol> for VersionedValidationProtocol {
+	fn from(vstaging: vstaging::ValidationProtocol) -> Self {
+		VersionedValidationProtocol::VStaging(vstaging)
 	}
 }
 
@@ -317,7 +317,7 @@ macro_rules! impl_versioned_full_protocol_from {
 				match versioned_from {
 					Versioned::V1(x) => Versioned::V1(x.into()),
 					Versioned::V2(x) => Versioned::V2(x.into()),
-					Versioned::V3(x) => Versioned::V3(x.into()),
+					Versioned::VStaging(x) => Versioned::VStaging(x.into()),
 				}
 			}
 		}
@@ -331,7 +331,7 @@ macro_rules! impl_versioned_try_from {
 		$out:ty,
 		$v1_pat:pat => $v1_out:expr,
 		$v2_pat:pat => $v2_out:expr,
-		$v3_pat:pat => $v3_out:expr
+		$vstaging_pat:pat => $vstaging_out:expr
 	) => {
 		impl TryFrom<$from> for $out {
 			type Error = crate::WrongVariant;
@@ -341,7 +341,7 @@ macro_rules! impl_versioned_try_from {
 				match x {
 					Versioned::V1($v1_pat) => Ok(Versioned::V1($v1_out)),
 					Versioned::V2($v2_pat) => Ok(Versioned::V2($v2_out)),
-					Versioned::V3($v3_pat) => Ok(Versioned::V3($v3_out)),
+					Versioned::VStaging($vstaging_pat) => Ok(Versioned::VStaging($vstaging_out)),
 					_ => Err(crate::WrongVariant),
 				}
 			}
@@ -355,7 +355,8 @@ macro_rules! impl_versioned_try_from {
 				match x {
 					Versioned::V1($v1_pat) => Ok(Versioned::V1($v1_out.clone())),
 					Versioned::V2($v2_pat) => Ok(Versioned::V2($v2_out.clone())),
-					Versioned::V3($v3_pat) => Ok(Versioned::V3($v3_out.clone())),
+					Versioned::VStaging($vstaging_pat) =>
+						Ok(Versioned::VStaging($vstaging_out.clone())),
 					_ => Err(crate::WrongVariant),
 				}
 			}
@@ -367,7 +368,7 @@ macro_rules! impl_versioned_try_from {
 pub type BitfieldDistributionMessage = Versioned<
 	v1::BitfieldDistributionMessage,
 	v2::BitfieldDistributionMessage,
-	v3::BitfieldDistributionMessage,
+	vstaging::BitfieldDistributionMessage,
 >;
 impl_versioned_full_protocol_from!(
 	BitfieldDistributionMessage,
@@ -379,14 +380,14 @@ impl_versioned_try_from!(
 	BitfieldDistributionMessage,
 	v1::ValidationProtocol::BitfieldDistribution(x) => x,
 	v2::ValidationProtocol::BitfieldDistribution(x) => x,
-	v3::ValidationProtocol::BitfieldDistribution(x) => x
+	vstaging::ValidationProtocol::BitfieldDistribution(x) => x
 );
 
 /// Version-annotated messages used by the statement distribution subsystem.
 pub type StatementDistributionMessage = Versioned<
 	v1::StatementDistributionMessage,
 	v2::StatementDistributionMessage,
-	v3::StatementDistributionMessage,
+	vstaging::StatementDistributionMessage,
 >;
 impl_versioned_full_protocol_from!(
 	StatementDistributionMessage,
@@ -398,14 +399,14 @@ impl_versioned_try_from!(
 	StatementDistributionMessage,
 	v1::ValidationProtocol::StatementDistribution(x) => x,
 	v2::ValidationProtocol::StatementDistribution(x) => x,
-	v3::ValidationProtocol::StatementDistribution(x) => x
+	vstaging::ValidationProtocol::StatementDistribution(x) => x
 );
 
 /// Version-annotated messages used by the approval distribution subsystem.
 pub type ApprovalDistributionMessage = Versioned<
 	v1::ApprovalDistributionMessage,
 	v2::ApprovalDistributionMessage,
-	v3::ApprovalDistributionMessage,
+	vstaging::ApprovalDistributionMessage,
 >;
 impl_versioned_full_protocol_from!(
 	ApprovalDistributionMessage,
@@ -417,7 +418,7 @@ impl_versioned_try_from!(
 	ApprovalDistributionMessage,
 	v1::ValidationProtocol::ApprovalDistribution(x) => x,
 	v2::ValidationProtocol::ApprovalDistribution(x) => x,
-	v3::ValidationProtocol::ApprovalDistribution(x) => x
+	vstaging::ValidationProtocol::ApprovalDistribution(x) => x
 
 );
 
@@ -425,7 +426,7 @@ impl_versioned_try_from!(
 pub type GossipSupportNetworkMessage = Versioned<
 	v1::GossipSupportNetworkMessage,
 	v2::GossipSupportNetworkMessage,
-	v3::GossipSupportNetworkMessage,
+	vstaging::GossipSupportNetworkMessage,
 >;
 
 // This is a void enum placeholder, so never gets sent over the wire.
@@ -870,17 +871,19 @@ pub mod v2 {
 	}
 }
 
-/// v3 network protocol types.
-/// Purpose is for chaning ApprovalDistributionMessage to
-/// include more than one assignment and approval in a message.
-pub mod v3 {
+/// vstaging network protocol types, intended to become v3.
+/// Initial purpose is for chaning ApprovalDistributionMessage to
+/// include more than one assignment in the message.
+pub mod vstaging {
 	use parity_scale_codec::{Decode, Encode};
 
-	use polkadot_node_primitives::approval::v2::{
-		CandidateBitfield, IndirectAssignmentCertV2, IndirectSignedApprovalVoteV2,
+	use polkadot_node_primitives::approval::{
+		v1::IndirectSignedApprovalVote,
+		v2::{CandidateBitfield, IndirectAssignmentCertV2},
 	};
 
-	/// This parts of the protocol did not change from v2, so just alias them in v3.
+	/// This parts of the protocol did not change from v2, so just alias them in vstaging,
+	/// no reason why they can't be change untill vstaging becomes v3 and is released.
 	pub use super::v2::{
 		declare_signature_payload, BackedCandidateAcknowledgement, BackedCandidateManifest,
 		BitfieldDistributionMessage, GossipSupportNetworkMessage, StatementDistributionMessage,
@@ -900,7 +903,7 @@ pub mod v3 {
 		Assignments(Vec<(IndirectAssignmentCertV2, CandidateBitfield)>),
 		/// Approvals for candidates in some recent, unfinalized block.
 		#[codec(index = 1)]
-		Approvals(Vec<IndirectSignedApprovalVoteV2>),
+		Approvals(Vec<IndirectSignedApprovalVote>),
 	}
 
 	/// All network messages on the validation peer-set.

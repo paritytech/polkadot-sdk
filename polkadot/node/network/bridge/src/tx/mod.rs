@@ -32,7 +32,7 @@ use polkadot_node_subsystem::{
 /// To be passed to [`FullNetworkConfiguration::add_notification_protocol`]().
 pub use polkadot_node_network_protocol::peer_set::{peer_sets_info, IsAuthority};
 use polkadot_node_network_protocol::request_response::Requests;
-use sc_network::{MessageSink, ReputationChange};
+use sc_network::ReputationChange;
 
 use crate::validator_discovery;
 
@@ -41,7 +41,7 @@ use crate::validator_discovery;
 /// Defines the `Network` trait with an implementation for an `Arc<NetworkService>`.
 use crate::network::{
 	send_collation_message_v1, send_collation_message_v2, send_validation_message_v1,
-	send_validation_message_v2, send_validation_message_v3, Network,
+	send_validation_message_v2, send_validation_message_vstaging, Network,
 };
 
 use crate::metrics::Metrics;
@@ -60,7 +60,6 @@ pub struct NetworkBridgeTx<N, AD> {
 	metrics: Metrics,
 	req_protocol_names: ReqProtocolNames,
 	peerset_protocol_names: PeerSetProtocolNames,
-	notification_sinks: Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
 }
 
 impl<N, AD> NetworkBridgeTx<N, AD> {
@@ -75,7 +74,6 @@ impl<N, AD> NetworkBridgeTx<N, AD> {
 		metrics: Metrics,
 		req_protocol_names: ReqProtocolNames,
 		peerset_protocol_names: PeerSetProtocolNames,
-		notification_sinks: Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
 	) -> Self {
 		Self {
 			network_service,
@@ -83,7 +81,6 @@ impl<N, AD> NetworkBridgeTx<N, AD> {
 			metrics,
 			req_protocol_names,
 			peerset_protocol_names,
-			notification_sinks,
 		}
 	}
 }
@@ -110,7 +107,6 @@ async fn handle_subsystem_messages<Context, N, AD>(
 	metrics: Metrics,
 	req_protocol_names: ReqProtocolNames,
 	peerset_protocol_names: PeerSetProtocolNames,
-	notification_sinks: Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
 ) -> Result<(), Error>
 where
 	N: Network,
@@ -134,7 +130,6 @@ where
 						&metrics,
 						&req_protocol_names,
 						&peerset_protocol_names,
-						&notification_sinks,
 					)
 					.await;
 			},
@@ -145,14 +140,13 @@ where
 #[overseer::contextbounds(NetworkBridgeTx, prefix = self::overseer)]
 async fn handle_incoming_subsystem_communication<Context, N, AD>(
 	_ctx: &mut Context,
-	network_service: N,
+	mut network_service: N,
 	validator_discovery: &mut validator_discovery::Service<N, AD>,
 	mut authority_discovery_service: AD,
 	msg: NetworkBridgeTxMessage,
 	metrics: &Metrics,
 	req_protocol_names: &ReqProtocolNames,
 	peerset_protocol_names: &PeerSetProtocolNames,
-	notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
 ) -> (N, AD)
 where
 	N: Network,
@@ -200,22 +194,25 @@ where
 
 			match msg {
 				Versioned::V1(msg) => send_validation_message_v1(
+					&mut network_service,
 					peers,
+					peerset_protocol_names,
 					WireMessage::ProtocolMessage(msg),
 					&metrics,
-					notification_sinks,
 				),
-				Versioned::V3(msg) => send_validation_message_v3(
+				Versioned::VStaging(msg) => send_validation_message_vstaging(
+					&mut network_service,
 					peers,
+					peerset_protocol_names,
 					WireMessage::ProtocolMessage(msg),
 					&metrics,
-					notification_sinks,
 				),
 				Versioned::V2(msg) => send_validation_message_v2(
+					&mut network_service,
 					peers,
+					peerset_protocol_names,
 					WireMessage::ProtocolMessage(msg),
 					&metrics,
-					notification_sinks,
 				),
 			}
 		},
@@ -230,22 +227,25 @@ where
 			for (peers, msg) in msgs {
 				match msg {
 					Versioned::V1(msg) => send_validation_message_v1(
+						&mut network_service,
 						peers,
+						peerset_protocol_names,
 						WireMessage::ProtocolMessage(msg),
 						&metrics,
-						notification_sinks,
 					),
-					Versioned::V3(msg) => send_validation_message_v3(
+					Versioned::VStaging(msg) => send_validation_message_vstaging(
+						&mut network_service,
 						peers,
+						peerset_protocol_names,
 						WireMessage::ProtocolMessage(msg),
 						&metrics,
-						notification_sinks,
 					),
 					Versioned::V2(msg) => send_validation_message_v2(
+						&mut network_service,
 						peers,
+						peerset_protocol_names,
 						WireMessage::ProtocolMessage(msg),
 						&metrics,
-						notification_sinks,
 					),
 				}
 			}
@@ -259,16 +259,18 @@ where
 
 			match msg {
 				Versioned::V1(msg) => send_collation_message_v1(
+					&mut network_service,
 					peers,
+					peerset_protocol_names,
 					WireMessage::ProtocolMessage(msg),
 					&metrics,
-					notification_sinks,
 				),
-				Versioned::V2(msg) | Versioned::V3(msg) => send_collation_message_v2(
+				Versioned::V2(msg) | Versioned::VStaging(msg) => send_collation_message_v2(
+					&mut network_service,
 					peers,
+					peerset_protocol_names,
 					WireMessage::ProtocolMessage(msg),
 					&metrics,
-					notification_sinks,
 				),
 			}
 		},
@@ -282,16 +284,18 @@ where
 			for (peers, msg) in msgs {
 				match msg {
 					Versioned::V1(msg) => send_collation_message_v1(
+						&mut network_service,
 						peers,
+						peerset_protocol_names,
 						WireMessage::ProtocolMessage(msg),
 						&metrics,
-						notification_sinks,
 					),
-					Versioned::V2(msg) | Versioned::V3(msg) => send_collation_message_v2(
+					Versioned::V2(msg) | Versioned::VStaging(msg) => send_collation_message_v2(
+						&mut network_service,
 						peers,
+						peerset_protocol_names,
 						WireMessage::ProtocolMessage(msg),
 						&metrics,
-						notification_sinks,
 					),
 				}
 			}
@@ -385,7 +389,6 @@ where
 		metrics,
 		req_protocol_names,
 		peerset_protocol_names,
-		notification_sinks,
 	} = bridge;
 
 	handle_subsystem_messages(
@@ -395,7 +398,6 @@ where
 		metrics,
 		req_protocol_names,
 		peerset_protocol_names,
-		notification_sinks,
 	)
 	.await?;
 

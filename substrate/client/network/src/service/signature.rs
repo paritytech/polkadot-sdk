@@ -18,8 +18,6 @@
 //
 // If you read this, you are very thorough, congratulations.
 
-//! Signature-related code
-
 use libp2p::{
 	identity::{Keypair, PublicKey},
 	PeerId,

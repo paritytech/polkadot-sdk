@@ -384,11 +384,7 @@ pub mod pallet {
 							});
 
 							public
-								.make_bytes(
-									RANDOMNESS_VRF_CONTEXT,
-									&transcript,
-									&signature.pre_output,
-								)
+								.make_bytes(RANDOMNESS_VRF_CONTEXT, &transcript, &signature.output)
 								.ok()
 						});
 

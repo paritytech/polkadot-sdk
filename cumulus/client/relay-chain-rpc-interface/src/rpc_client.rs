@@ -32,7 +32,7 @@ use cumulus_primitives_core::{
 	relay_chain::{
 		async_backing::{AsyncBackingParams, BackingState},
 		slashing,
-		vstaging::{ApprovalVotingParams, NodeFeatures},
+		vstaging::NodeFeatures,
 		BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
 		CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo,
 		Hash as RelayHash, Header as RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption,
@@ -625,19 +625,6 @@ impl RelayChainRpcClient {
 	}
 
 	#[allow(missing_docs)]
-	pub async fn parachain_host_staging_approval_voting_params(
-		&self,
-		at: RelayHash,
-		_session_index: SessionIndex,
-	) -> Result<ApprovalVotingParams, RelayChainError> {
-		self.call_remote_runtime_function(
-			"ParachainHost_staging_approval_voting_params",
-			at,
-			None::<()>,
-		)
-		.await
-	}
-
 	pub async fn parachain_host_para_backing_state(
 		&self,
 		at: RelayHash,

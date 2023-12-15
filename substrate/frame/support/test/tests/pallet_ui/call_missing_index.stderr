@@ -11,7 +11,6 @@ error: use of deprecated constant `pallet::warnings::ImplicitCallIndex_0::_w`:
    |                ^^^
    |
    = note: `-D deprecated` implied by `-D warnings`
-   = help: to override `-D warnings` add `#[allow(deprecated)]`
 
 error: use of deprecated constant `pallet::warnings::ImplicitCallIndex_1::_w`:
                It is deprecated to use implicit call indices.

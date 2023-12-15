@@ -1,9 +1,0 @@
-title: '[NPoS] Use `EraInfo` to manipulate exposure in fast-unstake tests'
-author: Ank4n
-topic: Pallets,Tests
-
-doc:
-  - audience: Runtime Dev
-    description: n/a
-
-crates: []

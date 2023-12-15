@@ -66,7 +66,6 @@ use scale_info::TypeInfo;
 	serde::Serialize,
 	serde::Deserialize,
 )]
-#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub struct MultiLocation {
 	/// The number of parent junctions at the beginning of this `MultiLocation`.
 	pub parents: u8,

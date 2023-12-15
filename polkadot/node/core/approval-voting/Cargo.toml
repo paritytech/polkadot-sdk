@@ -6,9 +6,6 @@ edition.workspace = true
 license.workspace = true
 description = "Approval Voting Subsystem of the Polkadot node"
 
-[lints]
-workspace = true
-
 [dependencies]
 futures = "0.3.21"
 futures-timer = "3.0.2"
@@ -42,8 +39,7 @@ rand = "0.8.5"
 [dev-dependencies]
 async-trait = "0.1.57"
 parking_lot = "0.12.0"
-# rand_core should match schnorrkel
-rand_core = "0.5.1"
+rand_core = "0.5.1" #                                                                       should match schnorrkel
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }
 sp-keystore = { path = "../../../../substrate/primitives/keystore" }
 sp-core = { path = "../../../../substrate/primitives/core" }

@@ -16,7 +16,7 @@
 
 use std::sync::Arc;
 
-use polkadot_node_subsystem::{jaeger, ActivatedLeaf, BlockInfo};
+use polkadot_node_subsystem::{jaeger, ActivatedLeaf};
 use sc_client_api::UnpinHandle;
 use sc_keystore::LocalKeystore;
 use sc_utils::mpsc::tracing_unbounded;
@@ -58,9 +58,4 @@ pub fn new_leaf(hash: Hash, number: BlockNumber) -> ActivatedLeaf {
 		unpin_handle: dummy_unpin_handle(hash),
 		span: Arc::new(jaeger::Span::Disabled),
 	}
-}
-
-/// Create a new leaf with the given hash and number.
-pub fn new_block_import_info(hash: Hash, number: BlockNumber) -> BlockInfo {
-	BlockInfo { hash, parent_hash: Hash::default(), number, unpin_handle: dummy_unpin_handle(hash) }
 }

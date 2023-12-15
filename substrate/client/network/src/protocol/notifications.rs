@@ -22,13 +22,9 @@
 pub use self::{
 	behaviour::{Notifications, NotificationsOut, ProtocolConfig},
 	handler::{NotificationsSink, NotifsHandlerError, Ready},
-	service::{notification_service, ProtocolHandlePair},
 };
-
-pub(crate) use self::service::{metrics, ProtocolHandle};
 
 mod behaviour;
 mod handler;
-mod service;
 mod tests;
 mod upgrade;

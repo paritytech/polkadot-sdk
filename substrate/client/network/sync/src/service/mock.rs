@@ -27,7 +27,6 @@ use sc_network::{
 	NetworkNotification, NetworkPeers, NetworkRequest, NetworkSyncForkRequest,
 	NotificationSenderError, NotificationSenderT, ReputationChange,
 };
-use sc_network_common::role::ObservedRole;
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 use std::collections::HashSet;
@@ -84,9 +83,8 @@ mockall::mock! {
 		fn set_authorized_peers(&self, peers: HashSet<PeerId>);
 		fn set_authorized_only(&self, reserved_only: bool);
 		fn add_known_address(&self, peer_id: PeerId, addr: Multiaddr);
-		fn report_peer(&self, peer_id: PeerId, cost_benefit: ReputationChange);
-		fn peer_reputation(&self, peer_id: &PeerId) -> i32;
-		fn disconnect_peer(&self, peer_id: PeerId, protocol: ProtocolName);
+		fn report_peer(&self, who: PeerId, cost_benefit: ReputationChange);
+		fn disconnect_peer(&self, who: PeerId, protocol: ProtocolName);
 		fn accept_unreserved_peers(&self);
 		fn deny_unreserved_peers(&self);
 		fn add_reserved_peer(&self, peer: MultiaddrWithPeerId) -> Result<(), String>;
@@ -107,7 +105,6 @@ mockall::mock! {
 			peers: Vec<PeerId>
 		) -> Result<(), String>;
 		fn sync_num_connected(&self) -> usize;
-		fn peer_role(&self, peer_id: PeerId, handshake: Vec<u8>) -> Option<ObservedRole>;
 	}
 
 	#[async_trait::async_trait]
