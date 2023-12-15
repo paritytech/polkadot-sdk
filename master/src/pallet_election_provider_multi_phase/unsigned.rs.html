@@ -1952,6 +1952,65 @@
 <a href="#1952" id="1952">1952</a>
 <a href="#1953" id="1953">1953</a>
 <a href="#1954" id="1954">1954</a>
+<a href="#1955" id="1955">1955</a>
+<a href="#1956" id="1956">1956</a>
+<a href="#1957" id="1957">1957</a>
+<a href="#1958" id="1958">1958</a>
+<a href="#1959" id="1959">1959</a>
+<a href="#1960" id="1960">1960</a>
+<a href="#1961" id="1961">1961</a>
+<a href="#1962" id="1962">1962</a>
+<a href="#1963" id="1963">1963</a>
+<a href="#1964" id="1964">1964</a>
+<a href="#1965" id="1965">1965</a>
+<a href="#1966" id="1966">1966</a>
+<a href="#1967" id="1967">1967</a>
+<a href="#1968" id="1968">1968</a>
+<a href="#1969" id="1969">1969</a>
+<a href="#1970" id="1970">1970</a>
+<a href="#1971" id="1971">1971</a>
+<a href="#1972" id="1972">1972</a>
+<a href="#1973" id="1973">1973</a>
+<a href="#1974" id="1974">1974</a>
+<a href="#1975" id="1975">1975</a>
+<a href="#1976" id="1976">1976</a>
+<a href="#1977" id="1977">1977</a>
+<a href="#1978" id="1978">1978</a>
+<a href="#1979" id="1979">1979</a>
+<a href="#1980" id="1980">1980</a>
+<a href="#1981" id="1981">1981</a>
+<a href="#1982" id="1982">1982</a>
+<a href="#1983" id="1983">1983</a>
+<a href="#1984" id="1984">1984</a>
+<a href="#1985" id="1985">1985</a>
+<a href="#1986" id="1986">1986</a>
+<a href="#1987" id="1987">1987</a>
+<a href="#1988" id="1988">1988</a>
+<a href="#1989" id="1989">1989</a>
+<a href="#1990" id="1990">1990</a>
+<a href="#1991" id="1991">1991</a>
+<a href="#1992" id="1992">1992</a>
+<a href="#1993" id="1993">1993</a>
+<a href="#1994" id="1994">1994</a>
+<a href="#1995" id="1995">1995</a>
+<a href="#1996" id="1996">1996</a>
+<a href="#1997" id="1997">1997</a>
+<a href="#1998" id="1998">1998</a>
+<a href="#1999" id="1999">1999</a>
+<a href="#2000" id="2000">2000</a>
+<a href="#2001" id="2001">2001</a>
+<a href="#2002" id="2002">2002</a>
+<a href="#2003" id="2003">2003</a>
+<a href="#2004" id="2004">2004</a>
+<a href="#2005" id="2005">2005</a>
+<a href="#2006" id="2006">2006</a>
+<a href="#2007" id="2007">2007</a>
+<a href="#2008" id="2008">2008</a>
+<a href="#2009" id="2009">2009</a>
+<a href="#2010" id="2010">2010</a>
+<a href="#2011" id="2011">2011</a>
+<a href="#2012" id="2012">2012</a>
+<a href="#2013" id="2013">2013</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2338,9 +2397,8 @@
 
 		<span class="comment">// ensure score is being improved. Panic henceforth.
 		</span><span class="macro">ensure!</span>(
-			<span class="self">Self</span>::queued_solution().map_or(<span class="bool-val">true</span>, |q: ReadySolution&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;| raw_solution
-				.score
-				.strict_threshold_better(q.score, T::BetterUnsignedThreshold::get())),
+			<span class="self">Self</span>::queued_solution()
+				.map_or(<span class="bool-val">true</span>, |q: ReadySolution&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;| raw_solution.score &gt; q.score),
 			Error::&lt;T&gt;::PreDispatchWeakSubmission,
 		);
 
@@ -2979,7 +3037,7 @@
 		bounded_vec,
 		offchain::storage_lock::{BlockAndTime, StorageLock},
 		traits::{Dispatchable, ValidateUnsigned, Zero},
-		ModuleError, PerU16, Perbill,
+		ModuleError, PerU16,
 	};
 
 	<span class="kw">type </span>Assignment = <span class="kw">crate</span>::unsigned::Assignment&lt;Runtime&gt;;
@@ -3314,7 +3372,7 @@
 			.desired_targets(<span class="number">1</span>)
 			.add_voter(<span class="number">7</span>, <span class="number">2</span>, <span class="macro">bounded_vec!</span>[<span class="number">10</span>])
 			.add_voter(<span class="number">8</span>, <span class="number">5</span>, <span class="macro">bounded_vec!</span>[<span class="number">10</span>])
-			.better_unsigned_threshold(Perbill::from_percent(<span class="number">50</span>))
+			.add_voter(<span class="number">9</span>, <span class="number">1</span>, <span class="macro">bounded_vec!</span>[<span class="number">10</span>])
 			.build_and_execute(|| {
 				roll_to_unsigned();
 				<span class="macro">assert!</span>(MultiPhase::current_phase().is_unsigned());
@@ -3322,12 +3380,15 @@
 
 				<span class="comment">// an initial solution
 				</span><span class="kw">let </span>result = ElectionResult {
-					<span class="comment">// note: This second element of backing stake is not important here.
-					</span>winners: <span class="macro">vec!</span>[(<span class="number">10</span>, <span class="number">10</span>)],
-					assignments: <span class="macro">vec!</span>[Assignment {
-						who: <span class="number">10</span>,
-						distribution: <span class="macro">vec!</span>[(<span class="number">10</span>, PerU16::one())],
-					}],
+					winners: <span class="macro">vec!</span>[(<span class="number">10</span>, <span class="number">12</span>)],
+					assignments: <span class="macro">vec!</span>[
+						Assignment { who: <span class="number">10</span>, distribution: <span class="macro">vec!</span>[(<span class="number">10</span>, PerU16::one())] },
+						Assignment {
+							who: <span class="number">7</span>,
+							<span class="comment">// note: this percent doesn&#39;t even matter, in solution it is 100%.
+							</span>distribution: <span class="macro">vec!</span>[(<span class="number">10</span>, PerU16::one())],
+						},
+					],
 				};
 
 				<span class="kw">let </span>RoundSnapshot { voters, targets } = MultiPhase::snapshot().unwrap();
@@ -3348,9 +3409,35 @@
 					Box::new(solution),
 					witness
 				));
-				<span class="macro">assert_eq!</span>(MultiPhase::queued_solution().unwrap().score.minimal_stake, <span class="number">10</span>);
+				<span class="macro">assert_eq!</span>(MultiPhase::queued_solution().unwrap().score.minimal_stake, <span class="number">12</span>);
 
-				<span class="comment">// trial 1: a solution who&#39;s score is only 2, i.e. 20% better in the first element.
+				<span class="comment">// trial 1: a solution who&#39;s minimal stake is 10, i.e. worse than the first solution
+				// of 12.
+				</span><span class="kw">let </span>result = ElectionResult {
+					winners: <span class="macro">vec!</span>[(<span class="number">10</span>, <span class="number">10</span>)],
+					assignments: <span class="macro">vec!</span>[Assignment {
+						who: <span class="number">10</span>,
+						distribution: <span class="macro">vec!</span>[(<span class="number">10</span>, PerU16::one())],
+					}],
+				};
+				<span class="kw">let </span>(raw, score, <span class="kw">_</span>, <span class="kw">_</span>) = Miner::&lt;Runtime&gt;::prepare_election_result_with_snapshot(
+					result,
+					voters.clone(),
+					targets.clone(),
+					desired_targets,
+				)
+				.unwrap();
+				<span class="kw">let </span>solution = RawSolution { solution: raw, score, round: MultiPhase::round() };
+				<span class="comment">// 10 is not better than 12
+				</span><span class="macro">assert_eq!</span>(solution.score.minimal_stake, <span class="number">10</span>);
+				<span class="comment">// submitting this will actually panic.
+				</span><span class="macro">assert_noop!</span>(
+					MultiPhase::unsigned_pre_dispatch_checks(<span class="kw-2">&amp;</span>solution),
+					Error::&lt;Runtime&gt;::PreDispatchWeakSubmission,
+				);
+
+				<span class="comment">// trial 2: try resubmitting another solution with same score (12) as the queued
+				// solution.
 				</span><span class="kw">let </span>result = ElectionResult {
 					winners: <span class="macro">vec!</span>[(<span class="number">10</span>, <span class="number">12</span>)],
 					assignments: <span class="macro">vec!</span>[
@@ -3362,6 +3449,7 @@
 						},
 					],
 				};
+
 				<span class="kw">let </span>(raw, score, <span class="kw">_</span>, <span class="kw">_</span>) = Miner::&lt;Runtime&gt;::prepare_election_result_with_snapshot(
 					result,
 					voters.clone(),
@@ -3370,15 +3458,45 @@
 				)
 				.unwrap();
 				<span class="kw">let </span>solution = RawSolution { solution: raw, score, round: MultiPhase::round() };
-				<span class="comment">// 12 is not 50% more than 10
+				<span class="comment">// 12 is not better than 12. We need score of atleast 13 to be accepted.
 				</span><span class="macro">assert_eq!</span>(solution.score.minimal_stake, <span class="number">12</span>);
-				<span class="macro">assert_noop!</span>(
+				<span class="comment">// submitting this will panic.
+				</span><span class="macro">assert_noop!</span>(
 					MultiPhase::unsigned_pre_dispatch_checks(<span class="kw-2">&amp;</span>solution),
 					Error::&lt;Runtime&gt;::PreDispatchWeakSubmission,
 				);
-				<span class="comment">// submitting this will actually panic.
 
-				// trial 2: a solution who&#39;s score is only 7, i.e. 70% better in the first element.
+				<span class="comment">// trial 3: a solution who&#39;s minimal stake is 13, i.e. 1 better than the queued
+				// solution of 12.
+				</span><span class="kw">let </span>result = ElectionResult {
+					winners: <span class="macro">vec!</span>[(<span class="number">10</span>, <span class="number">12</span>)],
+					assignments: <span class="macro">vec!</span>[
+						Assignment { who: <span class="number">10</span>, distribution: <span class="macro">vec!</span>[(<span class="number">10</span>, PerU16::one())] },
+						Assignment { who: <span class="number">7</span>, distribution: <span class="macro">vec!</span>[(<span class="number">10</span>, PerU16::one())] },
+						Assignment { who: <span class="number">9</span>, distribution: <span class="macro">vec!</span>[(<span class="number">10</span>, PerU16::one())] },
+					],
+				};
+				<span class="kw">let </span>(raw, score, witness, <span class="kw">_</span>) =
+					Miner::&lt;Runtime&gt;::prepare_election_result_with_snapshot(
+						result,
+						voters.clone(),
+						targets.clone(),
+						desired_targets,
+					)
+					.unwrap();
+				<span class="kw">let </span>solution = RawSolution { solution: raw, score, round: MultiPhase::round() };
+				<span class="macro">assert_eq!</span>(solution.score.minimal_stake, <span class="number">13</span>);
+
+				<span class="comment">// this should work
+				</span><span class="macro">assert_ok!</span>(MultiPhase::unsigned_pre_dispatch_checks(<span class="kw-2">&amp;</span>solution));
+				<span class="macro">assert_ok!</span>(MultiPhase::submit_unsigned(
+					RuntimeOrigin::none(),
+					Box::new(solution),
+					witness
+				));
+
+				<span class="comment">// trial 4: a solution who&#39;s minimal stake is 17, i.e. 4 better than the last
+				// soluton.
 				</span><span class="kw">let </span>result = ElectionResult {
 					winners: <span class="macro">vec!</span>[(<span class="number">10</span>, <span class="number">12</span>)],
 					assignments: <span class="macro">vec!</span>[

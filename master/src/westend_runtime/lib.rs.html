@@ -2541,8 +2541,6 @@
 <a href="#2541" id="2541">2541</a>
 <a href="#2542" id="2542">2542</a>
 <a href="#2543" id="2543">2543</a>
-<a href="#2544" id="2544">2544</a>
-<a href="#2545" id="2545">2545</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3076,7 +3074,6 @@
 	<span class="kw">pub const </span>SignedDepositByte: Balance = deposit(<span class="number">0</span>, <span class="number">10</span>) / <span class="number">1024</span>;
 	<span class="comment">// Each good submission will get 1 WND as reward
 	</span><span class="kw">pub </span>SignedRewardBase: Balance = <span class="number">1 </span>* UNITS;
-	<span class="kw">pub </span>BetterUnsignedThreshold: Perbill = Perbill::from_rational(<span class="number">5u32</span>, <span class="number">10_000</span>);
 
 	<span class="comment">// 1 hour session, 15 minutes unsigned phase, 4 offchain executions.
 	</span><span class="kw">pub </span>OffchainRepeat: BlockNumber = UnsignedPhase::get() / <span class="number">4</span>;
@@ -3153,8 +3150,7 @@
 	<span class="kw">type </span>MinerConfig = <span class="self">Self</span>;
 	<span class="kw">type </span>SlashHandler = (); <span class="comment">// burn slashes
 	</span><span class="kw">type </span>RewardHandler = (); <span class="comment">// nothing to do upon rewards
-	</span><span class="kw">type </span>BetterUnsignedThreshold = BetterUnsignedThreshold;
-	<span class="kw">type </span>BetterSignedThreshold = ();
+	</span><span class="kw">type </span>BetterSignedThreshold = ();
 	<span class="kw">type </span>OffchainRepeat = OffchainRepeat;
 	<span class="kw">type </span>MinerTxPriority = NposSolutionPriority;
 	<span class="kw">type </span>DataProvider = Staking;

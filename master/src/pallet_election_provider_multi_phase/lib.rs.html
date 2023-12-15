@@ -2693,12 +2693,6 @@
 <a href="#2693" id="2693">2693</a>
 <a href="#2694" id="2694">2694</a>
 <a href="#2695" id="2695">2695</a>
-<a href="#2696" id="2696">2696</a>
-<a href="#2697" id="2697">2697</a>
-<a href="#2698" id="2698">2698</a>
-<a href="#2699" id="2699">2699</a>
-<a href="#2700" id="2700">2700</a>
-<a href="#2701" id="2701">2701</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2802,9 +2796,8 @@
 //! unsigned transaction, thus the name _unsigned_ phase. This unsigned transaction can never be
 //! valid if propagated, and it acts similar to an inherent.
 //!
-//! Validators will only submit solutions if the one that they have computed is sufficiently better
-//! than the best queued one (see [`pallet::Config::BetterUnsignedThreshold`]) and will limit the
-//! weight of the solution to [`MinerConfig::MaxWeight`].
+//! Validators will only submit solutions if the one that they have computed is strictly better than
+//! the best queued one and will limit the weight of the solution to [`MinerConfig::MaxWeight`].
 //!
 //! The unsigned phase can be made passive depending on how the previous signed phase went, by
 //! setting the first inner value of [`Phase`] to `false`. For now, the signed phase is always
@@ -3298,11 +3291,6 @@
 		/// &quot;better&quot; in the Signed phase.
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>BetterSignedThreshold: Get&lt;Perbill&gt;;
-
-		<span class="doccomment">/// The minimum amount of improvement to the solution score that defines a solution as
-		/// &quot;better&quot; in the Unsigned phase.
-		</span><span class="attr">#[pallet::constant]
-		</span><span class="kw">type </span>BetterUnsignedThreshold: Get&lt;Perbill&gt;;
 
 		<span class="doccomment">/// The repeat threshold of the offchain worker.
 		///
