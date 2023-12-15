@@ -65,9 +65,8 @@ impl bp_header_chain::ChainWithGrandpa for RococoBaseAsPolkadot {
 	const MAX_AUTHORITIES_COUNT: u32 = bp_rococo::Rococo::MAX_AUTHORITIES_COUNT;
 	const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 =
 		bp_rococo::Rococo::REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY;
-	const MAX_HEADER_SIZE: u32 = bp_rococo::Rococo::MAX_HEADER_SIZE;
-	const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 =
-		bp_rococo::Rococo::AVERAGE_HEADER_SIZE_IN_JUSTIFICATION;
+	const MAX_MANDATORY_HEADER_SIZE: u32 = bp_rococo::Rococo::MAX_MANDATORY_HEADER_SIZE;
+	const AVERAGE_HEADER_SIZE: u32 = bp_rococo::Rococo::AVERAGE_HEADER_SIZE;
 }
 
 /// Relay `Chain` implementation of Rococo, pretending to be Polkadot.
