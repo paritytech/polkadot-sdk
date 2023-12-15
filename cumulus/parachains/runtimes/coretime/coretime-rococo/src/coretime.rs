@@ -40,14 +40,8 @@ impl OnUnbalanced<Credit<polkadot_core_primitives::AccountId, Balances>> for Cre
 /// construct any remote calls. The codec index must correspond to the index of `Broker` in the
 /// `construct_runtime` of the Relay chain.
 #[derive(Encode, Decode)]
-enum BrokerRuntimePallets<
-	CoreIndex: Encode + Decode,
-	BlockNumber: Encode + Decode,
-	AccountId: Encode + Decode,
-	Balance: Encode + Decode,
-	CoreAssignment: Encode + Decode,
-	PartsOf57600: Encode + Decode,
-> {
+enum BrokerRuntimePallets<CoreIndex, BlockNumber, AccountId, Balance, CoreAssignment, PartsOf57600>
+{
 	#[codec(index = 74)]
 	Broker(
 		CoretimeProviderCalls<
@@ -63,14 +57,8 @@ enum BrokerRuntimePallets<
 
 /// Call encoding for the calls needed from the Broker pallet.
 #[derive(Encode, Decode)]
-enum CoretimeProviderCalls<
-	CoreIndex: Encode + Decode,
-	BlockNumber: Encode + Decode,
-	AccountId: Encode + Decode,
-	Balance: Encode + Decode,
-	CoreAssignment: Encode + Decode,
-	PartsOf57600: Encode + Decode,
-> {
+enum CoretimeProviderCalls<CoreIndex, BlockNumber, AccountId, Balance, CoreAssignment, PartsOf57600>
+{
 	#[codec(index = 1)]
 	RequestCoreCount(CoreIndex),
 	#[codec(index = 2)]
