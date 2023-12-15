@@ -20,7 +20,8 @@ use super::{
 	TransactionByteFee, WeightToFee, XcmpQueue,
 };
 use crate::bridge_common_config::{
-	BridgeGrandpaWestendInstance, DeliveryRewardInBalance, RequiredStakeForStakeAndSlash,
+	BridgeGrandpaRococoBulletinInstance, BridgeGrandpaWestendInstance, DeliveryRewardInBalance,
+	RequiredStakeForStakeAndSlash,
 };
 use bp_messages::LaneId;
 use bp_relayers::{PayRewardFromAccount, RewardsAccountOwner, RewardsAccountParams};
@@ -48,15 +49,16 @@ use sp_core::{Get, H256};
 use sp_runtime::traits::AccountIdConversion;
 use sp_std::marker::PhantomData;
 use xcm::latest::prelude::*;
+#[allow(deprecated)]
 use xcm_builder::{
 	deposit_or_burn_fee, AccountId32Aliases, AllowExplicitUnpaidExecutionFrom,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
 	CurrencyAdapter, DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal,
-	DescribeFamily, EnsureXcmOrigin, HandleFee, HashedDescription, IsConcrete, ParentAsSuperuser,
+	DescribeFamily, EnsureXcmOrigin, HandleFee,HashedDescription, IsConcrete, ParentAsSuperuser,
 	ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
-	XcmFeeToAccount,
+	XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 use xcm_executor::{
 	traits::{FeeManager, FeeReason, FeeReason::Export, TransactAsset, WithOriginFilter},
@@ -73,6 +75,7 @@ parameter_types! {
 	pub const MaxAssetsIntoHolding: u32 = 64;
 	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
 	pub RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
+	pub SiblingPeople: MultiLocation = (Parent, Parachain(rococo_runtime_constants::system_parachain::PEOPLE_ID)).into();
 }
 
 /// Type for specifying how a `MultiLocation` can be converted into an `AccountId`. This is used
@@ -88,6 +91,7 @@ pub type LocationToAccountId = (
 );
 
 /// Means for transacting the native currency on this chain.
+#[allow(deprecated)]
 pub type CurrencyTransactor = CurrencyAdapter<
 	// Use this currency:
 	Balances,
@@ -188,6 +192,10 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 					Runtime,
 					BridgeGrandpaWestendInstance,
 				>::initialize { .. }) |
+				RuntimeCall::BridgePolkadotBulletinGrandpa(pallet_bridge_grandpa::Call::<
+					Runtime,
+					BridgeGrandpaRococoBulletinInstance,
+				>::initialize { .. }) |
 				RuntimeCall::EthereumBeaconClient(
 					snowbridge_ethereum_beacon_client::Call::force_checkpoint { .. } |
 						snowbridge_ethereum_beacon_client::Call::set_operating_mode { .. },
@@ -213,11 +221,12 @@ pub type Barrier = TrailingSetTopicAsId<
 					// If the message is one that immediately attempts to pay for execution, then
 					// allow it.
 					AllowTopLevelPaidExecutionFrom<Everything>,
-					// Parent, its pluralities (i.e. governance bodies) and relay treasury pallet
-					// get free execution.
+					// Parent, its pluralities (i.e. governance bodies), relay treasury pallet
+					// and sibling People get free execution.
 					AllowExplicitUnpaidExecutionFrom<(
 						ParentOrParentsPlurality,
 						Equals<RelayTreasuryLocation>,
+						Equals<SiblingPeople>,
 					)>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<ParentRelayOrSiblingParachains>,
@@ -291,6 +300,7 @@ impl xcm_executor::Config for XcmConfig {
 	>;
 	type MessageExporter = (
 		crate::bridge_to_westend_config::ToBridgeHubWestendHaulBlobExporter,
+		crate::bridge_to_bulletin_config::ToRococoBulletinHaulBlobExporter,
 		crate::bridge_to_ethereum_config::SnowbridgeExporter,
 	);
 	type UniversalAliases = Nothing;
