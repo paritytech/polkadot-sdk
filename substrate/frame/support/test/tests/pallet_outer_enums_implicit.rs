@@ -90,7 +90,9 @@ fn module_error_outer_enum_expand_implicit() {
 			frame_system::Error::NonDefaultComposite => (),
 			frame_system::Error::NonZeroRefCount => (),
 			frame_system::Error::CallFiltered => (),
+			#[cfg(feature = "experimental")]
 			frame_system::Error::InvalidTask => (),
+			#[cfg(feature = "experimental")]
 			frame_system::Error::FailedTask => (),
 			frame_system::Error::__Ignore(_, _) => (),
 		},
