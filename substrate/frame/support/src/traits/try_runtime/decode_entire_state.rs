@@ -122,9 +122,7 @@ fn decode_storage_info<V: Decode>(
 					raw: Some(bytes.to_vec()),
 					info: info.clone(),
 				}
-			}) {
-				return Err(e);
-			};
+			})?;
 
 			Ok::<usize, _>(len)
 		},
