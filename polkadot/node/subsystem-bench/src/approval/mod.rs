@@ -694,7 +694,7 @@ impl PeerMessageProducer {
 						let tranche_now =
 							system_clock.tranche_now(SLOT_DURATION_MILLIS, block_info.slot);
 						let tranche_to_send = match val.typ {
-							MessageType::Approval => val.tranche + 1,
+							MessageType::Approval => val.tranche,
 							MessageType::Assignment => val.tranche,
 							MessageType::Other => val.tranche,
 						};
