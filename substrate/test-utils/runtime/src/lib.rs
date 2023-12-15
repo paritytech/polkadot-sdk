@@ -744,7 +744,7 @@ impl_runtime_apis! {
 
 						json!({
 							"balances": {
-								"balances": endowed_accounts.iter().map(|k| (k.clone(), 10 * currency::DOLLARS)).collect::<Vec<_>>(),
+								"balances": endowed_accounts.into_iter().map(|k| (k, 10 * currency::DOLLARS)).collect::<Vec<_>>(),
 							},
 							"substrateTest": {
 								"authorities": [
