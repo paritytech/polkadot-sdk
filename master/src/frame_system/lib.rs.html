@@ -2004,6 +2004,14 @@
 <a href="#2004" id="2004">2004</a>
 <a href="#2005" id="2005">2005</a>
 <a href="#2006" id="2006">2006</a>
+<a href="#2007" id="2007">2007</a>
+<a href="#2008" id="2008">2008</a>
+<a href="#2009" id="2009">2009</a>
+<a href="#2010" id="2010">2010</a>
+<a href="#2011" id="2011">2011</a>
+<a href="#2012" id="2012">2012</a>
+<a href="#2013" id="2013">2013</a>
+<a href="#2014" id="2014">2014</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2329,10 +2337,12 @@
 			</span><span class="attr">#[inject_runtime_type]
 			</span><span class="kw">type </span>RuntimeCall = ();
 
-			<span class="doccomment">/// Converts a module to the index of the module, injected by `construct_runtime!`.
+			<span class="doccomment">/// The aggregated Task type, injected by `construct_runtime!`.
 			</span><span class="attr">#[inject_runtime_type]
 			</span><span class="kw">type </span>RuntimeTask = ();
-			<span class="attr">#[inject_runtime_type]
+
+			<span class="doccomment">/// Converts a module to the index of the module, injected by `construct_runtime!`.
+			</span><span class="attr">#[inject_runtime_type]
 			</span><span class="kw">type </span>PalletInfo = ();
 
 			<span class="doccomment">/// The basic call filter to use in dispatchable. Supports everything as the default.
@@ -2643,7 +2653,8 @@
 			<span class="prelude-val">Ok</span>(().into())
 		}
 
-		<span class="attr">#[pallet::call_index(<span class="number">8</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
+		#[pallet::call_index(<span class="number">8</span>)]
 		#[pallet::weight(task.weight())]
 		</span><span class="kw">pub fn </span>do_task(origin: OriginFor&lt;T&gt;, task: T::RuntimeTask) -&gt; DispatchResultWithPostInfo {
 			ensure_signed(origin)<span class="question-mark">?</span>;
@@ -2681,11 +2692,14 @@
 		</span>KilledAccount { account: T::AccountId },
 		<span class="doccomment">/// On on-chain remark happened.
 		</span>Remarked { sender: T::AccountId, hash: T::Hash },
-		<span class="doccomment">/// A [`Task`] has started executing
+		<span class="attr">#[cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
+		</span><span class="doccomment">/// A [`Task`] has started executing
 		</span>TaskStarted { task: T::RuntimeTask },
-		<span class="doccomment">/// A [`Task`] has finished executing.
+		<span class="attr">#[cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
+		</span><span class="doccomment">/// A [`Task`] has finished executing.
 		</span>TaskCompleted { task: T::RuntimeTask },
-		<span class="doccomment">/// A [`Task`] failed during execution.
+		<span class="attr">#[cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
+		</span><span class="doccomment">/// A [`Task`] failed during execution.
 		</span>TaskFailed { task: T::RuntimeTask, err: DispatchError },
 	}
 
@@ -2708,9 +2722,11 @@
 		</span>NonZeroRefCount,
 		<span class="doccomment">/// The origin filter prevent the call to be dispatched.
 		</span>CallFiltered,
-		<span class="doccomment">/// The specified [`Task`] is not valid.
+		<span class="attr">#[cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
+		</span><span class="doccomment">/// The specified [`Task`] is not valid.
 		</span>InvalidTask,
-		<span class="doccomment">/// The specified [`Task`] failed during execution.
+		<span class="attr">#[cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
+		</span><span class="doccomment">/// The specified [`Task`] failed during execution.
 		</span>FailedTask,
 	}
 
