@@ -29,8 +29,9 @@ use crate::test_data;
 use asset_test_utils::BasicParachainRuntime;
 use bp_messages::{
 	target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
-	LaneId, MessageKey, OutboundLaneData,
+	LaneId, MessageKey, MessagesOperatingMode, OutboundLaneData,
 };
+use bp_runtime::BasicOperatingMode;
 use bridge_runtime_common::messages_xcm_extension::{
 	XcmAsPlainPayload, XcmBlobMessageDispatchResult,
 };
@@ -88,13 +89,12 @@ where
 pub fn initialize_bridge_by_governance_works<Runtime, GrandpaPalletInstance>(
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
-	runtime_call_encode: Box<
-		dyn Fn(pallet_bridge_grandpa::Call<Runtime, GrandpaPalletInstance>) -> Vec<u8>,
-	>,
 ) where
 	Runtime: BasicParachainRuntime + pallet_bridge_grandpa::Config<GrandpaPalletInstance>,
 	GrandpaPalletInstance: 'static,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
+	<Runtime as frame_system::Config>::RuntimeCall:
+		From<pallet_bridge_grandpa::Call<Runtime, GrandpaPalletInstance>>,
 {
 	run_test::<Runtime, _>(collator_session_key, runtime_para_id, vec![], || {
 		// check mode before
@@ -104,12 +104,14 @@ pub fn initialize_bridge_by_governance_works<Runtime, GrandpaPalletInstance>(
 		);
 
 		// encode `initialize` call
-		let initialize_call = runtime_call_encode(pallet_bridge_grandpa::Call::<
-			Runtime,
-			GrandpaPalletInstance,
-		>::initialize {
-			init_data: test_data::initialization_data::<Runtime, GrandpaPalletInstance>(12345),
-		});
+		let initialize_call =
+			<Runtime as frame_system::Config>::RuntimeCall::from(pallet_bridge_grandpa::Call::<
+				Runtime,
+				GrandpaPalletInstance,
+			>::initialize {
+				init_data: test_data::initialization_data::<Runtime, GrandpaPalletInstance>(12345),
+			})
+			.encode();
 
 		// overestimate - check weight for `pallet_bridge_grandpa::Pallet::initialize()` call
 		let require_weight_at_most =
@@ -125,9 +127,195 @@ pub fn initialize_bridge_by_governance_works<Runtime, GrandpaPalletInstance>(
 		// check mode after
 		assert_eq!(
 			pallet_bridge_grandpa::PalletOperatingMode::<Runtime, GrandpaPalletInstance>::try_get(),
-			Ok(bp_runtime::BasicOperatingMode::Normal)
+			Ok(BasicOperatingMode::Normal)
 		);
 	})
+}
+
+/// Test-case makes sure that `Runtime` can change bridge GRANDPA pallet operating mode via
+/// governance-like call.
+pub fn change_bridge_grandpa_pallet_mode_by_governance_works<Runtime, GrandpaPalletInstance>(
+	collator_session_key: CollatorSessionKeys<Runtime>,
+	runtime_para_id: u32,
+) where
+	Runtime: BasicParachainRuntime + pallet_bridge_grandpa::Config<GrandpaPalletInstance>,
+	GrandpaPalletInstance: 'static,
+	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
+	<Runtime as frame_system::Config>::RuntimeCall:
+		From<pallet_bridge_grandpa::Call<Runtime, GrandpaPalletInstance>>,
+{
+	run_test::<Runtime, _>(collator_session_key, runtime_para_id, vec![], || {
+		let dispatch_set_operating_mode_call = |old_mode, new_mode| {
+			// check old mode
+			assert_eq!(
+				pallet_bridge_grandpa::PalletOperatingMode::<Runtime, GrandpaPalletInstance>::get(),
+				old_mode,
+			);
+
+			// overestimate - check weight for `pallet_bridge_grandpa::Pallet::set_operating_mode()`
+			// call
+			let require_weight_at_most =
+				<Runtime as frame_system::Config>::DbWeight::get().reads_writes(7, 7);
+
+			// encode `set_operating_mode` call
+			let set_operating_mode_call = <Runtime as frame_system::Config>::RuntimeCall::from(
+				pallet_bridge_grandpa::Call::<Runtime, GrandpaPalletInstance>::set_operating_mode {
+					operating_mode: new_mode,
+				},
+			)
+			.encode();
+
+			// execute XCM with Transacts to `initialize bridge` as governance does
+			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance(
+				set_operating_mode_call,
+				require_weight_at_most
+			)
+			.ensure_complete());
+
+			// check mode after
+			assert_eq!(
+				pallet_bridge_grandpa::PalletOperatingMode::<Runtime, GrandpaPalletInstance>::try_get(),
+				Ok(new_mode)
+			);
+		};
+
+		// check mode before
+		assert_eq!(
+			pallet_bridge_grandpa::PalletOperatingMode::<Runtime, GrandpaPalletInstance>::try_get(),
+			Err(())
+		);
+
+		dispatch_set_operating_mode_call(BasicOperatingMode::Normal, BasicOperatingMode::Halted);
+		dispatch_set_operating_mode_call(BasicOperatingMode::Halted, BasicOperatingMode::Normal);
+	});
+}
+
+/// Test-case makes sure that `Runtime` can change bridge parachains pallet operating mode via
+/// governance-like call.
+pub fn change_bridge_parachains_pallet_mode_by_governance_works<Runtime, ParachainsPalletInstance>(
+	collator_session_key: CollatorSessionKeys<Runtime>,
+	runtime_para_id: u32,
+) where
+	Runtime: BasicParachainRuntime + pallet_bridge_parachains::Config<ParachainsPalletInstance>,
+	ParachainsPalletInstance: 'static,
+	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
+	<Runtime as frame_system::Config>::RuntimeCall:
+		From<pallet_bridge_parachains::Call<Runtime, ParachainsPalletInstance>>,
+{
+	run_test::<Runtime, _>(collator_session_key, runtime_para_id, vec![], || {
+		let dispatch_set_operating_mode_call = |old_mode, new_mode| {
+			// check old mode
+			assert_eq!(
+				pallet_bridge_parachains::PalletOperatingMode::<Runtime, ParachainsPalletInstance>::get(),
+				old_mode,
+			);
+
+			// overestimate - check weight for
+			// `pallet_bridge_parachains::Pallet::set_operating_mode()` call
+			let require_weight_at_most =
+				<Runtime as frame_system::Config>::DbWeight::get().reads_writes(7, 7);
+
+			// encode `set_operating_mode` call
+			let set_operating_mode_call = <Runtime as frame_system::Config>::RuntimeCall::from(pallet_bridge_parachains::Call::<
+				Runtime,
+				ParachainsPalletInstance,
+			>::set_operating_mode {
+				operating_mode: new_mode,
+			}).encode();
+
+			// execute XCM with Transacts to `initialize bridge` as governance does
+			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance(
+				set_operating_mode_call,
+				require_weight_at_most
+			)
+			.ensure_complete());
+
+			// check mode after
+			assert_eq!(
+				pallet_bridge_parachains::PalletOperatingMode::<Runtime, ParachainsPalletInstance>::try_get(),
+				Ok(new_mode)
+			);
+		};
+
+		// check mode before
+		assert_eq!(
+			pallet_bridge_parachains::PalletOperatingMode::<Runtime, ParachainsPalletInstance>::try_get(),
+			Err(())
+		);
+
+		dispatch_set_operating_mode_call(BasicOperatingMode::Normal, BasicOperatingMode::Halted);
+		dispatch_set_operating_mode_call(BasicOperatingMode::Halted, BasicOperatingMode::Normal);
+	});
+}
+
+/// Test-case makes sure that `Runtime` can change bridge messaging pallet operating mode via
+/// governance-like call.
+pub fn change_bridge_messages_pallet_mode_by_governance_works<Runtime, MessagesPalletInstance>(
+	collator_session_key: CollatorSessionKeys<Runtime>,
+	runtime_para_id: u32,
+) where
+	Runtime: BasicParachainRuntime + pallet_bridge_messages::Config<MessagesPalletInstance>,
+	MessagesPalletInstance: 'static,
+	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
+	<Runtime as frame_system::Config>::RuntimeCall:
+		From<pallet_bridge_messages::Call<Runtime, MessagesPalletInstance>>,
+{
+	run_test::<Runtime, _>(collator_session_key, runtime_para_id, vec![], || {
+		let dispatch_set_operating_mode_call = |old_mode, new_mode| {
+			// check old mode
+			assert_eq!(
+				pallet_bridge_messages::PalletOperatingMode::<Runtime, MessagesPalletInstance>::get(
+				),
+				old_mode,
+			);
+
+			// overestimate - check weight for
+			// `pallet_bridge_messages::Pallet::set_operating_mode()` call
+			let require_weight_at_most =
+				<Runtime as frame_system::Config>::DbWeight::get().reads_writes(7, 7);
+
+			// encode `set_operating_mode` call
+			let set_operating_mode_call = <Runtime as frame_system::Config>::RuntimeCall::from(pallet_bridge_messages::Call::<
+				Runtime,
+				MessagesPalletInstance,
+			>::set_operating_mode {
+				operating_mode: new_mode,
+			}).encode();
+
+			// execute XCM with Transacts to `initialize bridge` as governance does
+			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance(
+				set_operating_mode_call,
+				require_weight_at_most
+			)
+			.ensure_complete());
+
+			// check mode after
+			assert_eq!(
+				pallet_bridge_messages::PalletOperatingMode::<Runtime, MessagesPalletInstance>::try_get(),
+				Ok(new_mode)
+			);
+		};
+
+		// check mode before
+		assert_eq!(
+			pallet_bridge_messages::PalletOperatingMode::<Runtime, MessagesPalletInstance>::try_get(
+			),
+			Err(())
+		);
+
+		dispatch_set_operating_mode_call(
+			MessagesOperatingMode::Basic(BasicOperatingMode::Normal),
+			MessagesOperatingMode::RejectingOutboundMessages,
+		);
+		dispatch_set_operating_mode_call(
+			MessagesOperatingMode::RejectingOutboundMessages,
+			MessagesOperatingMode::Basic(BasicOperatingMode::Halted),
+		);
+		dispatch_set_operating_mode_call(
+			MessagesOperatingMode::Basic(BasicOperatingMode::Halted),
+			MessagesOperatingMode::Basic(BasicOperatingMode::Normal),
+		);
+	});
 }
 
 /// Test-case makes sure that `Runtime` can handle xcm `ExportMessage`:

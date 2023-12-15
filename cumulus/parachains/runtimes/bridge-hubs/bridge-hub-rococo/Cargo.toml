@@ -87,11 +87,13 @@ parachains-common = { path = "../../../common", default-features = false }
 # Bridges
 bp-asset-hub-rococo = { path = "../../../../../bridges/primitives/chain-asset-hub-rococo", default-features = false }
 bp-asset-hub-westend = { path = "../../../../../bridges/primitives/chain-asset-hub-westend", default-features = false }
+bp-bridge-hub-polkadot = { path = "../../../../../bridges/primitives/chain-bridge-hub-polkadot", default-features = false }
 bp-bridge-hub-rococo = { path = "../../../../../bridges/primitives/chain-bridge-hub-rococo", default-features = false }
 bp-bridge-hub-westend = { path = "../../../../../bridges/primitives/chain-bridge-hub-westend", default-features = false }
 bp-header-chain = { path = "../../../../../bridges/primitives/header-chain", default-features = false }
 bp-messages = { path = "../../../../../bridges/primitives/messages", default-features = false }
 bp-parachains = { path = "../../../../../bridges/primitives/parachains", default-features = false }
+bp-polkadot-bulletin = { path = "../../../../../bridges/primitives/chain-polkadot-bulletin", default-features = false }
 bp-polkadot-core = { path = "../../../../../bridges/primitives/polkadot-core", default-features = false }
 bp-relayers = { path = "../../../../../bridges/primitives/relayers", default-features = false }
 bp-runtime = { path = "../../../../../bridges/primitives/runtime", default-features = false }
@@ -117,11 +119,13 @@ default = ["std"]
 std = [
 	"bp-asset-hub-rococo/std",
 	"bp-asset-hub-westend/std",
+	"bp-bridge-hub-polkadot/std",
 	"bp-bridge-hub-rococo/std",
 	"bp-bridge-hub-westend/std",
 	"bp-header-chain/std",
 	"bp-messages/std",
 	"bp-parachains/std",
+	"bp-polkadot-bulletin/std",
 	"bp-polkadot-core/std",
 	"bp-relayers/std",
 	"bp-rococo/std",
