@@ -39,9 +39,6 @@ use runtime_common::{
 	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots, BlockHashCount, BlockLength,
 	SlowAdjustingFeeUpdate,
 };
-use scale_info::TypeInfo;
-use sp_std::{cmp::Ordering, collections::btree_map::BTreeMap, prelude::*};
-
 use runtime_parachains::{
 	assigner as parachains_assigner, assigner_on_demand as parachains_assigner_on_demand,
 	assigner_parachains as parachains_assigner_parachains,
@@ -57,6 +54,9 @@ use runtime_parachains::{
 	scheduler as parachains_scheduler, session_info as parachains_session_info,
 	shared as parachains_shared,
 };
+use scale_info::TypeInfo;
+use sp_runtime::RuntimeString;
+use sp_std::{cmp::Ordering, collections::btree_map::BTreeMap, prelude::*};
 
 use authority_discovery_primitives::AuthorityId as AuthorityDiscoveryId;
 use beefy_primitives::{
@@ -128,6 +128,7 @@ use governance::{
 #[cfg(test)]
 mod tests;
 
+mod genesis_configs;
 mod validator_manager;
 
 impl_runtime_weights!(rococo_runtime_constants);
@@ -2397,6 +2398,22 @@ sp_api::impl_runtime_apis! {
 
 		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
 			build_state::<RuntimeGenesisConfig>(config)
+		}
+
+		fn get_preset(id: Option<Vec<u8>>) -> Option<Vec<u8>> {
+			if let Some(id) = id {
+				genesis_configs::get_preset(id)
+			} else {
+				Some(create_default_config::<RuntimeGenesisConfig>())
+			}
+		}
+
+		fn preset_names() -> Vec<sp_runtime::RuntimeString> {
+			vec![
+				RuntimeString::from("local_testnet"),
+				RuntimeString::from("development"),
+				RuntimeString::from("staging_testnet"),
+			]
 		}
 	}
 }

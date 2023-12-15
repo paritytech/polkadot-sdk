@@ -16,12 +16,14 @@ scale-info = { version = "2.10.0", default-features = false, features = ["derive
 log = { version = "0.4.17", default-features = false }
 serde = { version = "1.0.193", default-features = false }
 serde_derive = { version = "1.0.117", optional = true }
+serde_json = { version = "1.0.108", default-features = false, features = ["alloc"] }
 static_assertions = "1.1.0"
 smallvec = "1.8.0"
 
 authority-discovery-primitives = { package = "sp-authority-discovery", path = "../../../substrate/primitives/authority-discovery", default-features = false }
 babe-primitives = { package = "sp-consensus-babe", path = "../../../substrate/primitives/consensus/babe", default-features = false }
 beefy-primitives = { package = "sp-consensus-beefy", path = "../../../substrate/primitives/consensus/beefy", default-features = false }
+grandpa_primitives = { package = "sp-consensus-grandpa", path = "../../../substrate/primitives/consensus/grandpa" , default-features = false }
 binary-merkle-tree = { path = "../../../substrate/utils/binary-merkle-tree", default-features = false }
 rococo-runtime-constants = { package = "rococo-runtime-constants", path = "constants", default-features = false }
 sp-api = { path = "../../../substrate/primitives/api", default-features = false }
@@ -111,7 +113,6 @@ keyring = { package = "sp-keyring", path = "../../../substrate/primitives/keyrin
 remote-externalities = { package = "frame-remote-externalities", path = "../../../substrate/utils/frame/remote-externalities" }
 sp-trie = { path = "../../../substrate/primitives/trie" }
 separator = "0.4.1"
-serde_json = "1.0.108"
 sp-tracing = { path = "../../../substrate/primitives/tracing", default-features = false }
 tokio = { version = "1.24.2", features = ["macros"] }
 
