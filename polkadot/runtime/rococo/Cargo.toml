@@ -23,7 +23,7 @@ smallvec = "1.8.0"
 authority-discovery-primitives = { package = "sp-authority-discovery", path = "../../../substrate/primitives/authority-discovery", default-features = false }
 babe-primitives = { package = "sp-consensus-babe", path = "../../../substrate/primitives/consensus/babe", default-features = false }
 beefy-primitives = { package = "sp-consensus-beefy", path = "../../../substrate/primitives/consensus/beefy", default-features = false }
-grandpa_primitives = { package = "sp-consensus-grandpa", path = "../../../substrate/primitives/consensus/grandpa" , default-features = false }
+grandpa_primitives = { package = "sp-consensus-grandpa", path = "../../../substrate/primitives/consensus/grandpa", default-features = false }
 binary-merkle-tree = { path = "../../../substrate/utils/binary-merkle-tree", default-features = false }
 rococo-runtime-constants = { package = "rococo-runtime-constants", path = "constants", default-features = false }
 sp-api = { path = "../../../substrate/primitives/api", default-features = false }
@@ -135,6 +135,7 @@ std = [
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
 	"frame-try-runtime/std",
+	"grandpa_primitives/std",
 	"inherents/std",
 	"log/std",
 	"offchain-primitives/std",
@@ -192,6 +193,7 @@ std = [
 	"scale-info/std",
 	"serde/std",
 	"serde_derive",
+	"serde_json/std",
 	"sp-api/std",
 	"sp-arithmetic/std",
 	"sp-core/std",
