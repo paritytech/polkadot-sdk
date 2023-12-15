@@ -563,8 +563,6 @@
 <a href="#563" id="563">563</a>
 <a href="#564" id="564">564</a>
 <a href="#565" id="565">565</a>
-<a href="#566" id="566">566</a>
-<a href="#567" id="567">567</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1110,26 +1108,24 @@
 	R: ProvideRuntimeApi&lt;B&gt;,
 	R::Api: BeefyApi&lt;B, AuthorityId&gt;,
 {
-	<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Try to find validator set active at header: {:?}&quot;</span>, at_header);
-	runtime
-		.runtime_api()
-		.validator_set(at_header.hash())
-		.ok()
-		.flatten()
-		.or_else(|| {
-			<span class="comment">// if state unavailable, fallback to walking up the chain looking for the header
-			// Digest emitted when validator set active &#39;at_header&#39; was enacted.
-			</span><span class="kw">let </span>blockchain = backend.blockchain();
-			<span class="kw">let </span><span class="kw-2">mut </span>header = at_header.clone();
-			<span class="kw">loop </span>{
-				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 look for auth set change digest in header number: {:?}&quot;</span>, <span class="kw-2">*</span>header.number());
-				<span class="kw">match </span>worker::find_authorities_change::&lt;B&gt;(<span class="kw-2">&amp;</span>header) {
-					<span class="prelude-val">Some</span>(active) =&gt; <span class="kw">return </span><span class="prelude-val">Some</span>(active),
-					<span class="comment">// Move up the chain.
-					</span><span class="prelude-val">None </span>=&gt; header = blockchain.expect_header(<span class="kw-2">*</span>header.parent_hash()).ok()<span class="question-mark">?</span>,
-				}
+	<span class="kw">let </span>blockchain = backend.blockchain();
+
+	<span class="comment">// Walk up the chain looking for the validator set active at &#39;at_header&#39;. Process both state and
+	// header digests.
+	</span><span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Trying to find validator set active at header: {:?}&quot;</span>, at_header);
+	<span class="kw">let </span><span class="kw-2">mut </span>header = at_header.clone();
+	<span class="kw">loop </span>{
+		<span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(active)) = runtime.runtime_api().validator_set(at_header.hash()) {
+			<span class="kw">return </span><span class="prelude-val">Ok</span>(active)
+		} <span class="kw">else </span>{
+			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Looking for auth set change at block number: {:?}&quot;</span>, <span class="kw-2">*</span>header.number());
+			<span class="kw">match </span>worker::find_authorities_change::&lt;B&gt;(<span class="kw-2">&amp;</span>header) {
+				<span class="prelude-val">Some</span>(active) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(active),
+				<span class="comment">// Move up the chain. Ultimately we&#39;ll get it from chain genesis state, or error out
+				// here.
+				</span><span class="prelude-val">None </span>=&gt; header = blockchain.expect_header(<span class="kw-2">*</span>header.parent_hash())<span class="question-mark">?</span>,
 			}
-		})
-		.ok_or_else(|| ClientError::Backend(<span class="string">&quot;Could not find initial validator set&quot;</span>.into()))
+		}
+	}
 }
 </code></pre></div></section></main></body></html>

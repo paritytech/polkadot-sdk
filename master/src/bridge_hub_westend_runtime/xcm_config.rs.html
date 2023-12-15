@@ -312,6 +312,18 @@
 <a href="#312" id="312">312</a>
 <a href="#313" id="313">313</a>
 <a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -490,7 +502,19 @@
 				RuntimeCall::BridgeRococoGrandpa(pallet_bridge_grandpa::Call::&lt;
 					Runtime,
 					<span class="kw">crate</span>::bridge_to_rococo_config::BridgeGrandpaRococoInstance,
-				&gt;::initialize { .. })
+				&gt;::initialize { .. }) |
+				RuntimeCall::BridgeRococoGrandpa(pallet_bridge_grandpa::Call::&lt;
+					Runtime,
+					<span class="kw">crate</span>::bridge_to_rococo_config::BridgeGrandpaRococoInstance,
+				&gt;::set_operating_mode { .. }) |
+				RuntimeCall::BridgeRococoParachains(pallet_bridge_parachains::Call::&lt;
+					Runtime,
+					<span class="kw">crate</span>::bridge_to_rococo_config::BridgeParachainRococoInstance,
+				&gt;::set_operating_mode { .. }) |
+				RuntimeCall::BridgeRococoMessages(pallet_bridge_messages::Call::&lt;
+					Runtime,
+					<span class="kw">crate</span>::bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance,
+				&gt;::set_operating_mode { .. })
 		)
 	}
 }
