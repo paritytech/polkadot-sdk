@@ -21,7 +21,7 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
-use frame_support::genesis_builder_helper::{build_state, create_default_config};
+use frame_support::genesis_builder_helper::{build_state, create_default_config, get_preset};
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
@@ -564,6 +564,14 @@ impl_runtime_apis! {
 
 		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
 			build_state::<RuntimeGenesisConfig>(config)
+		}
+
+		fn get_preset(id: Option<Vec<u8>>) -> Option<Vec<u8>> {
+			get_preset::<RuntimeGenesisConfig>(id)
+		}
+
+		fn preset_names() -> Vec<sp_runtime::RuntimeString> {
+			vec![]
 		}
 	}
 }

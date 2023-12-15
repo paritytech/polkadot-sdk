@@ -40,7 +40,7 @@ use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
-	genesis_builder_helper::{build_state, create_default_config},
+	genesis_builder_helper::{build_state, create_default_config, get_preset},
 	ord_parameter_types, parameter_types,
 	traits::{
 		tokens::nonfungibles_v2::Inspect, AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32,
@@ -1683,6 +1683,14 @@ impl_runtime_apis! {
 
 		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
 			build_state::<RuntimeGenesisConfig>(config)
+		}
+
+		fn get_preset(id: Option<Vec<u8>>) -> Option<Vec<u8>> {
+			get_preset::<RuntimeGenesisConfig>(id)
+		}
+
+		fn preset_names() -> Vec<sp_runtime::RuntimeString> {
+			vec![]
 		}
 	}
 }

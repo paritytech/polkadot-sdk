@@ -196,5 +196,13 @@ sp_api::impl_runtime_apis! {
 		fn build_state(_: Vec<u8>) -> sp_genesis_builder::Result {
 			unimplemented!()
 		}
+
+		fn get_preset(id: Option<Vec<u8>>) -> Option<Vec<u8>> {
+			get_preset::<RuntimeGenesisConfig>(id)
+		}
+
+		fn preset_names() -> Vec<sp_runtime::RuntimeString> {
+			vec![]
+		}
 	}
 }

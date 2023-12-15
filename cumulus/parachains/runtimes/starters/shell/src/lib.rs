@@ -54,7 +54,7 @@ use sp_version::RuntimeVersion;
 pub use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
-	genesis_builder_helper::{build_state, create_default_config},
+	genesis_builder_helper::{build_state, create_default_config, get_preset},
 	parameter_types,
 	traits::{ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, IsInVec, Randomness},
 	weights::{
@@ -439,6 +439,14 @@ impl_runtime_apis! {
 
 		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
 			build_state::<RuntimeGenesisConfig>(config)
+		}
+
+		fn get_preset(id: Option<Vec<u8>>) -> Option<Vec<u8>> {
+			get_preset::<RuntimeGenesisConfig>(id)
+		}
+
+		fn preset_names() -> Vec<sp_runtime::RuntimeString> {
+			vec![]
 		}
 	}
 }
