@@ -58,7 +58,7 @@ use xcm_builder::{
 	deposit_or_burn_fee, AccountId32Aliases, AllowExplicitUnpaidExecutionFrom,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
 	CurrencyAdapter, DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal,
-	DescribeFamily, EnsureXcmOrigin, HandleFee,HashedDescription, IsConcrete, ParentAsSuperuser,
+	DescribeFamily, EnsureXcmOrigin, HandleFee, HashedDescription, IsConcrete, ParentAsSuperuser,
 	ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
@@ -160,10 +160,10 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 		// Allow to change dedicated storage items (called by governance-like)
 		match call {
 			RuntimeCall::System(frame_system::Call::set_storage { items })
-				if items.iter().all(|(k, _)| {
-					k.eq(&DeliveryRewardInBalance::key()) |
-						k.eq(&RequiredStakeForStakeAndSlash::key())
-				}) =>
+			if items.iter().all(|(k, _)| {
+				k.eq(&DeliveryRewardInBalance::key()) |
+					k.eq(&RequiredStakeForStakeAndSlash::key())
+			}) =>
 				return true,
 			_ => (),
 		};
@@ -292,7 +292,7 @@ impl xcm_executor::Config for XcmConfig {
 		MaxInstructions,
 	>;
 	type Trader =
-		UsingComponents<WeightToFee, TokenLocation, AccountId, Balances, ToStakingPot<Runtime>>;
+	UsingComponents<WeightToFee, TokenLocation, AccountId, Balances, ToStakingPot<Runtime>>;
 	type ResponseHandler = PolkadotXcm;
 	type AssetTrap = PolkadotXcm;
 	type AssetLocker = ();
@@ -334,7 +334,7 @@ impl xcm_executor::Config for XcmConfig {
 }
 
 pub type PriceForParentDelivery =
-	ExponentialPrice<FeeAssetId, BaseDeliveryFee, TransactionByteFee, ParachainSystem>;
+ExponentialPrice<FeeAssetId, BaseDeliveryFee, TransactionByteFee, ParachainSystem>;
 
 /// Converts a local signed origin into an XCM multilocation.
 /// Forms the basis for local origins sending/executing XCMs.
@@ -400,19 +400,19 @@ pub struct XcmExportFeeToRelayerRewardAccounts<
 >(PhantomData<(AssetTransactor, DestNetwork, DestParaId, DestBridgedChainId, BridgeLaneId)>);
 
 impl<
-		AssetTransactor: TransactAsset,
-		DestNetwork: Get<NetworkId>,
-		DestParaId: Get<cumulus_primitives_core::ParaId>,
-		DestBridgedChainId: Get<ChainId>,
-		BridgeLaneId: Get<LaneId>,
-	> HandleFee
-	for XcmExportFeeToRelayerRewardAccounts<
-		AssetTransactor,
-		DestNetwork,
-		DestParaId,
-		DestBridgedChainId,
-		BridgeLaneId,
-	>
+	AssetTransactor: TransactAsset,
+	DestNetwork: Get<NetworkId>,
+	DestParaId: Get<cumulus_primitives_core::ParaId>,
+	DestBridgedChainId: Get<ChainId>,
+	BridgeLaneId: Get<LaneId>,
+> HandleFee
+for XcmExportFeeToRelayerRewardAccounts<
+	AssetTransactor,
+	DestNetwork,
+	DestParaId,
+	DestBridgedChainId,
+	BridgeLaneId,
+>
 {
 	fn handle_fee(
 		fee: MultiAssets,
@@ -485,7 +485,7 @@ pub struct XcmFeeManagerFromComponentsBridgeHub<WaivedLocations, HandleFee>(
 	PhantomData<(WaivedLocations, HandleFee)>,
 );
 impl<WaivedLocations: Contains<MultiLocation>, FeeHandler: HandleFee> FeeManager
-	for XcmFeeManagerFromComponentsBridgeHub<WaivedLocations, FeeHandler>
+for XcmFeeManagerFromComponentsBridgeHub<WaivedLocations, FeeHandler>
 {
 	fn is_waived(origin: Option<&MultiLocation>, fee_reason: FeeReason) -> bool {
 		let Some(loc) = origin else { return false };
