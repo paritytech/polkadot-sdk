@@ -6,6 +6,9 @@ edition.workspace = true
 description = "Common node-side functionality and glue code to collate parachain blocks."
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
+[lints]
+workspace = true
+
 [dependencies]
 parking_lot = "0.12.1"
 codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"] }
