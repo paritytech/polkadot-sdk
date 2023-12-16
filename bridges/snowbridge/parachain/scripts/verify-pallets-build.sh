@@ -47,7 +47,7 @@ done
 # let's avoid any restrictions on where this script can be called for - snowbridge repo may be
 # plugged into any other repo folder. So the script (and other stuff that needs to be removed)
 # may be located either in call dir, or one of it subdirs.
-SNOWBRIDGE_FOLDER="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )/.."
+SNOWBRIDGE_FOLDER="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )/../.."
 
 # let's leave repository/subtree in its original (clean) state if something fails below
 function revert_to_clean_state {
@@ -57,6 +57,7 @@ trap revert_to_clean_state EXIT
 
 # remove everything we think is not required for our needs
 rm -rf $SNOWBRIDGE_FOLDER/.cargo
+rm -rf $SNOWBRIDGE_FOLDER/.config
 rm -rf $SNOWBRIDGE_FOLDER/.github
 rm -rf $SNOWBRIDGE_FOLDER/contracts
 rm -rf $SNOWBRIDGE_FOLDER/codecov.yml

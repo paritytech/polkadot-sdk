@@ -1,16 +1,25 @@
 # Motivation
-Demonstrate that [FastAggregateVerify](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bls-signature-04#section-3.3.4) is the most expensive call in ethereum beacon light client, though in [#13031](https://github.com/paritytech/substrate/pull/13031) Parity team has wrapped some low level host functions for `bls-12381` but adding a high level host function specific for it is super helpful.
+Demonstrate that
+[FastAggregateVerify](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bls-signature-04#section-3.3.4) is the most
+expensive call in ethereum beacon light client, though in [#13031](https://github.com/paritytech/substrate/pull/13031)
+Parity team has wrapped some low level host functions for `bls-12381` but adding a high level host function specific
+for it is super helpful.
 
 # Benchmark
-We add several benchmarks [here](https://github.com/Snowfork/snowbridge/blob/8891ca3cdcf2e04d8118c206588c956541ae4710/parachain/pallets/ethereum-beacon-client/src/benchmarking/mod.rs#L98-L124) as following to demonstrate [bls_fast_aggregate_verify](https://github.com/Snowfork/snowbridge/blob/8891ca3cdcf2e04d8118c206588c956541ae4710/parachain/pallets/ethereum-beacon-client/src/lib.rs#L764) is the main bottleneck. Test data [here](https://github.com/Snowfork/snowbridge/blob/8891ca3cdcf2e04d8118c206588c956541ae4710/parachain/pallets/ethereum-beacon-client/src/benchmarking/data_mainnet.rs#L553-L1120) is real from goerli network which contains 512 public keys from sync committee.
-
+We add several benchmarks
+[here](https://github.com/Snowfork/snowbridge/blob/8891ca3cdcf2e04d8118c206588c956541ae4710/parachain/pallets/ethereum-beacon-client/src/benchmarking/mod.rs#L98-L124)
+as following to demonstrate
+[bls_fast_aggregate_verify](https://github.com/Snowfork/snowbridge/blob/8891ca3cdcf2e04d8118c206588c956541ae4710/parachain/pallets/ethereum-beacon-client/src/lib.rs#L764)
+is the main bottleneck. Test data
+[here](https://github.com/Snowfork/snowbridge/blob/8891ca3cdcf2e04d8118c206588c956541ae4710/parachain/pallets/ethereum-beacon-client/src/benchmarking/data_mainnet.rs#L553-L1120)
+is real from goerli network which contains 512 public keys from sync committee.
 
 ## sync_committee_period_update
 Base line benchmark for extrinsic [sync_committee_period_update](https://github.com/Snowfork/snowbridge/blob/8891ca3cdcf2e04d8118c206588c956541ae4710/parachain/pallets/ethereum-beacon-client/src/lib.rs#L233)
 
-
 ## bls_fast_aggregate_verify
-Subfunction of extrinsic `sync_committee_period_update` which does what [FastAggregateVerify](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bls-signature-04#section-3.3.4) requires.
+Subfunction of extrinsic `sync_committee_period_update` which does what
+[FastAggregateVerify](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bls-signature-04#section-3.3.4) requires.
 
 ## bls_aggregate_pubkey
 Subfunction of `bls_fast_aggregate_verify` which decompress and instantiate G1 pubkeys only.
@@ -22,7 +31,7 @@ Subfunction of `bls_fast_aggregate_verify` which verify the prepared signature o
 # Result
 
 ## hardware spec
-Run benchmark in a EC2 instance 
+Run benchmark in a EC2 instance
 ```
 cargo run --release --bin polkadot-parachain --features runtime-benchmarks -- benchmark machine --base-path /mnt/scratch/benchmark
 
@@ -61,7 +70,7 @@ benchmark pallet \
 
 |extrinsic       | minimum execution time benchmarked(us) |
 | --------------------------------------- |----------------------------------------|
-|sync_committee_period_update | 123_126                                |                              
+|sync_committee_period_update | 123_126                                |
 |bls_fast_aggregate_verify| 121_083                                |
 |bls_aggregate_pubkey | 90_306                                  |
 |bls_verify_message | 28_000                                  |
@@ -74,4 +83,6 @@ benchmark pallet \
 
 # Conclusion
 
-A high level host function specific for  [bls_fast_aggregate_verify](https://github.com/Snowfork/snowbridge/blob/8891ca3cdcf2e04d8118c206588c956541ae4710/parachain/pallets/ethereum-beacon-client/src/lib.rs#L764) is super helpful.
+A high level host function specific for
+[bls_fast_aggregate_verify](https://github.com/Snowfork/snowbridge/blob/8891ca3cdcf2e04d8118c206588c956541ae4710/parachain/pallets/ethereum-beacon-client/src/lib.rs#L764)
+is super helpful.

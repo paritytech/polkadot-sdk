@@ -1,8 +1,10 @@
 [package]
 name = "snowbridge-router-primitives"
+description = "Snowbridge Router Primitives"
 version = "0.1.1"
 authors = ["Snowfork <contact@snowfork.com>"]
 edition = "2021"
+license = "Apache-2.0"
 
 [dependencies]
 serde = { version = "1.0.188", optional = true, features = ["derive"] }

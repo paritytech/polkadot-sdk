@@ -1,8 +1,10 @@
 [package]
 name = "snowbridge-runtime-common"
+description = "Snowbridge Runtime Common"
 version = "0.1.1"
 authors = ["Snowfork <contact@snowfork.com>"]
 edition = "2021"
+license = "Apache-2.0"
 
 [dependencies]
 log = { version = "0.4.20", default-features = false }
