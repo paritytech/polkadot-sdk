@@ -896,7 +896,7 @@ fn change_xcm_bridge_hub_router_base_fee_by_governance_works() {
 fn change_xcm_bridge_hub_ethereum_base_fee_by_governance_works() {
 	asset_test_utils::test_cases::change_storage_constant_by_governance_works::<
 		Runtime,
-		bridging::to_ethereum::BridgeHubEthereumBaseFeeInROC,
+		bridging::to_ethereum::BridgeHubEthereumBaseFee,
 		Balance,
 	>(
 		collator_session_keys(),
@@ -904,8 +904,8 @@ fn change_xcm_bridge_hub_ethereum_base_fee_by_governance_works() {
 		Box::new(|call| RuntimeCall::System(call).encode()),
 		|| {
 			(
-				bridging::to_ethereum::BridgeHubEthereumBaseFeeInROC::key().to_vec(),
-				bridging::to_ethereum::BridgeHubEthereumBaseFeeInROC::get(),
+				bridging::to_ethereum::BridgeHubEthereumBaseFee::key().to_vec(),
+				bridging::to_ethereum::BridgeHubEthereumBaseFee::get(),
 			)
 		},
 		|old_value| {
