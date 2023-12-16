@@ -30,14 +30,14 @@ use sp_std::alloc::format;
 use sp_std::vec::Vec;
 
 /// Helper function to generate a crypto pair from seed
-pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
+fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
 	TPublic::Pair::from_string(&format!("//{}", seed), None)
 		.expect("static values are valid; qed")
 		.public()
 }
 
 /// Helper function to generate an account ID from seed
-pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
+fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
 where
 	AccountPublic: From<<TPublic::Pair as Pair>::Public>,
 {
@@ -45,7 +45,7 @@ where
 }
 
 /// Helper function to generate stash, controller and session key from seed
-pub fn get_authority_keys_from_seed(
+fn get_authority_keys_from_seed(
 	seed: &str,
 ) -> (
 	AccountId,
@@ -62,7 +62,7 @@ pub fn get_authority_keys_from_seed(
 }
 
 /// Helper function to generate stash, controller and session key from seed
-pub fn get_authority_keys_from_seed_no_beefy(
+fn get_authority_keys_from_seed_no_beefy(
 	seed: &str,
 ) -> (AccountId, AccountId, BabeId, GrandpaId, ValidatorId, AssignmentId, AuthorityDiscoveryId) {
 	(
@@ -480,12 +480,44 @@ fn rococo_local_testnet_genesis() -> serde_json::Value {
 	)
 }
 
+/// `Versi` is a temporary testnet that uses the same runtime as rococo.
+// versi_local_testnet
+fn versi_local_testnet_genesis() -> serde_json::Value {
+	rococo_testnet_genesis(
+		Vec::from([
+			get_authority_keys_from_seed("Alice"),
+			get_authority_keys_from_seed("Bob"),
+			get_authority_keys_from_seed("Charlie"),
+			get_authority_keys_from_seed("Dave"),
+		]),
+		get_account_id_from_seed::<sr25519::Public>("Alice"),
+		None,
+	)
+}
+
+/// Wococo is a temporary testnet that uses almost the same runtime as rococo.
+//wococo_local_testnet
+fn wococo_local_testnet_genesis() -> serde_json::Value {
+	rococo_testnet_genesis(
+		Vec::from([
+			get_authority_keys_from_seed("Alice"),
+			get_authority_keys_from_seed("Bob"),
+			get_authority_keys_from_seed("Charlie"),
+			get_authority_keys_from_seed("Dave"),
+		]),
+		get_account_id_from_seed::<sr25519::Public>("Alice"),
+		None,
+	)
+}
+
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: sp_std::vec::Vec<u8>) -> Option<sp_std::vec::Vec<u8>> {
 	let patch = match id {
 		s if s == "local_testnet".as_bytes() => rococo_local_testnet_genesis(),
 		s if s == "development".as_bytes() => rococo_development_config_genesis(),
 		s if s == "staging_testnet".as_bytes() => rococo_staging_testnet_config_genesis(),
+		s if s == "wococo_local_testnet".as_bytes() => wococo_local_testnet_genesis(),
+		s if s == "versi_local_testnet".as_bytes() => versi_local_testnet_genesis(),
 		_ => return None,
 	};
 	Some(

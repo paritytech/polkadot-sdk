@@ -128,7 +128,7 @@ use governance::{
 #[cfg(test)]
 mod tests;
 
-mod genesis_configs;
+mod genesis_config_presets;
 mod validator_manager;
 
 impl_runtime_weights!(rococo_runtime_constants);
@@ -2402,7 +2402,7 @@ sp_api::impl_runtime_apis! {
 
 		fn get_preset(id: Option<Vec<u8>>) -> Option<Vec<u8>> {
 			if let Some(id) = id {
-				genesis_configs::get_preset(id)
+				genesis_config_presets::get_preset(id)
 			} else {
 				Some(create_default_config::<RuntimeGenesisConfig>())
 			}
@@ -2413,6 +2413,8 @@ sp_api::impl_runtime_apis! {
 				RuntimeString::from("local_testnet"),
 				RuntimeString::from("development"),
 				RuntimeString::from("staging_testnet"),
+				RuntimeString::from("wococo_local_testnet"),
+				RuntimeString::from("versi_local_testnet"),
 			]
 		}
 	}

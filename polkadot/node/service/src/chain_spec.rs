@@ -176,25 +176,6 @@ fn westend_session_keys(
 	}
 }
 
-#[cfg(feature = "rococo-native")]
-fn rococo_session_keys(
-	babe: BabeId,
-	grandpa: GrandpaId,
-	para_validator: ValidatorId,
-	para_assignment: AssignmentId,
-	authority_discovery: AuthorityDiscoveryId,
-	beefy: BeefyId,
-) -> rococo_runtime::SessionKeys {
-	rococo_runtime::SessionKeys {
-		babe,
-		grandpa,
-		para_validator,
-		para_assignment,
-		authority_discovery,
-		beefy,
-	}
-}
-
 #[cfg(feature = "westend-native")]
 fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 	use hex_literal::hex;
@@ -574,65 +555,6 @@ pub fn westend_testnet_genesis(
 	})
 }
 
-/// Helper function to create rococo runtime `GenesisConfig` patch for testing
-#[cfg(feature = "rococo-native")]
-pub fn rococo_testnet_genesis(
-	initial_authorities: Vec<(
-		AccountId,
-		AccountId,
-		BabeId,
-		GrandpaId,
-		ValidatorId,
-		AssignmentId,
-		AuthorityDiscoveryId,
-		BeefyId,
-	)>,
-	root_key: AccountId,
-	endowed_accounts: Option<Vec<AccountId>>,
-) -> serde_json::Value {
-	let endowed_accounts: Vec<AccountId> = endowed_accounts.unwrap_or_else(testnet_accounts);
-
-	const ENDOWMENT: u128 = 1_000_000 * ROC;
-
-	serde_json::json!({
-		"balances": {
-			"balances": endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect::<Vec<_>>(),
-		},
-		"session": {
-			"keys": initial_authorities
-				.iter()
-				.map(|x| {
-					(
-						x.0.clone(),
-						x.0.clone(),
-						rococo_session_keys(
-							x.2.clone(),
-							x.3.clone(),
-							x.4.clone(),
-							x.5.clone(),
-							x.6.clone(),
-							x.7.clone(),
-						),
-					)
-				})
-				.collect::<Vec<_>>(),
-		},
-		"babe": {
-			"epochConfig": Some(rococo_runtime::BABE_GENESIS_EPOCH_CONFIG),
-		},
-		"sudo": { "key": Some(root_key.clone()) },
-		"configuration": {
-			"config": polkadot_runtime_parachains::configuration::HostConfiguration {
-				max_validators_per_core: Some(1),
-				..default_parachains_host_configuration()
-			},
-		},
-		"registrar": {
-			"nextFreeParaId": polkadot_primitives::LOWEST_PUBLIC_ID,
-		}
-	})
-}
-
 #[cfg(feature = "westend-native")]
 fn westend_development_config_genesis() -> serde_json::Value {
 	westend_testnet_genesis(
@@ -742,21 +664,6 @@ pub fn rococo_local_testnet_config() -> Result<RococoChainSpec, String> {
 	.build())
 }
 
-/// Wococo is a temporary testnet that uses almost the same runtime as rococo.
-#[cfg(feature = "rococo-native")]
-fn wococo_local_testnet_genesis() -> serde_json::Value {
-	rococo_testnet_genesis(
-		vec![
-			get_authority_keys_from_seed("Alice"),
-			get_authority_keys_from_seed("Bob"),
-			get_authority_keys_from_seed("Charlie"),
-			get_authority_keys_from_seed("Dave"),
-		],
-		get_account_id_from_seed::<sr25519::Public>("Alice"),
-		None,
-	)
-}
-
 /// Wococo local testnet config (multivalidator Alice + Bob + Charlie + Dave)
 #[cfg(feature = "rococo-native")]
 pub fn wococo_local_testnet_config() -> Result<RococoChainSpec, String> {
@@ -767,24 +674,9 @@ pub fn wococo_local_testnet_config() -> Result<RococoChainSpec, String> {
 	.with_name("Wococo Local Testnet")
 	.with_id("wococo_local_testnet")
 	.with_chain_type(ChainType::Local)
-	.with_genesis_config_patch(wococo_local_testnet_genesis())
+	.with_genesis_config_preset_name("wococo_local_testnet")
 	.with_protocol_id(DEFAULT_PROTOCOL_ID)
 	.build())
-}
-
-/// `Versi` is a temporary testnet that uses the same runtime as rococo.
-#[cfg(feature = "rococo-native")]
-fn versi_local_testnet_genesis() -> serde_json::Value {
-	rococo_testnet_genesis(
-		vec![
-			get_authority_keys_from_seed("Alice"),
-			get_authority_keys_from_seed("Bob"),
-			get_authority_keys_from_seed("Charlie"),
-			get_authority_keys_from_seed("Dave"),
-		],
-		get_account_id_from_seed::<sr25519::Public>("Alice"),
-		None,
-	)
 }
 
 /// `Versi` local testnet config (multivalidator Alice + Bob + Charlie + Dave)
