@@ -57,7 +57,6 @@ trap revert_to_clean_state EXIT
 
 # remove everything we think is not required for our needs
 rm -rf $SNOWBRIDGE_FOLDER/.cargo
-rm -rf $SNOWBRIDGE_FOLDER/.config
 rm -rf $SNOWBRIDGE_FOLDER/.github
 rm -rf $SNOWBRIDGE_FOLDER/contracts
 rm -rf $SNOWBRIDGE_FOLDER/codecov.yml
@@ -81,6 +80,7 @@ rm -rf $SNOWBRIDGE_FOLDER/rust-toolchain.toml
 rm -rf $SNOWBRIDGE_FOLDER/parachain/rustfmt.toml
 rm -rf $SNOWBRIDGE_FOLDER/parachain/.gitignore
 rm -rf $SNOWBRIDGE_FOLDER/parachain/templates
+rm -rf $SNOWBRIDGE_FOLDER/parachain/.config
 
 cd bridges/snowbridge/parachain
 
