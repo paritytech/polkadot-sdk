@@ -1703,7 +1703,7 @@
 	<span class="attr">#[pallet::storage]
 	#[pallet::storage_prefix = <span class="string">&quot;Class&quot;</span>]
 	</span><span class="doccomment">/// Details of a collection.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Collection&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageMap&lt;
+	</span><span class="kw">pub type </span>Collection&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageMap&lt;
 		<span class="kw">_</span>,
 		Blake2_128Concat,
 		T::CollectionId,
@@ -1712,7 +1712,7 @@
 
 	<span class="attr">#[pallet::storage]
 	</span><span class="doccomment">/// The collection, if any, of which an account is willing to take ownership.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>OwnershipAcceptance&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>OwnershipAcceptance&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Blake2_128Concat, T::AccountId, T::CollectionId&gt;;
 
 	<span class="attr">#[pallet::storage]
@@ -1746,7 +1746,7 @@
 	<span class="attr">#[pallet::storage]
 	#[pallet::storage_prefix = <span class="string">&quot;Asset&quot;</span>]
 	</span><span class="doccomment">/// The items in existence and their ownership details.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Item&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageDoubleMap&lt;
+	</span><span class="kw">pub type </span>Item&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageDoubleMap&lt;
 		<span class="kw">_</span>,
 		Blake2_128Concat,
 		T::CollectionId,
@@ -1795,7 +1795,7 @@
 
 	<span class="attr">#[pallet::storage]
 	</span><span class="doccomment">/// Price of an asset instance.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ItemPriceOf&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageDoubleMap&lt;
+	</span><span class="kw">pub type </span>ItemPriceOf&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageDoubleMap&lt;
 		<span class="kw">_</span>,
 		Blake2_128Concat,
 		T::CollectionId,
