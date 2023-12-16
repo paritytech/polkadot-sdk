@@ -488,9 +488,18 @@ impl pallet_utility::Config for Runtime {
 
 // Ethereum Bridge
 
+#[cfg(not(feature = "runtime-benchmarks"))]
+parameter_types! {
+	pub storage EthereumGatewayAddress: H160 = H160::zero();
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+parameter_types! {
+	pub storage EthereumGatewayAddress: H160 = H160(hex_literal::hex!("EDa338E4dC46038493b885327842fD3E301CaB39"));
+}
+
 parameter_types! {
 	pub const Reward: u128 = 10;
-	pub const GatewayAddress: H160 = H160(hex_literal::hex!("EDa338E4dC46038493b885327842fD3E301CaB39"));
 	pub const CreateAssetCall: [u8;2] = [53, 0];
 	pub const CreateAssetDeposit: u128 = (UNITS / 10) + EXISTENTIAL_DEPOSIT;
 	pub const InboundQueuePalletInstance: u8 = snowbridge_rococo_common::INBOUND_QUEUE_MESSAGES_PALLET_INDEX;
@@ -517,7 +526,7 @@ impl snowbridge_inbound_queue::Config for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type XcmSender = DoNothingRouter;
 	type ChannelLookup = EthereumSystem;
-	type GatewayAddress = GatewayAddress;
+	type GatewayAddress = EthereumGatewayAddress;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Runtime;
 	type MessageConverter = MessageToXcm<

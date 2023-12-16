@@ -2942,16 +2942,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "console_error_panic_hook"
-version = "0.1.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a06aeb73f470f66dcdbf7223caeebb85984942f22f1adb2a088cf9668146bbbc"
-dependencies = [
- "cfg-if",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "const-hex"
 version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4924,7 +4914,7 @@ dependencies = [
 [[package]]
 name = "ethabi-decode"
 version = "1.4.0"
-source = "git+https://github.com/snowfork/ethabi-decode.git?branch=master#7d215837b626650bd9a076821e57ad488101301f"
+source = "git+https://github.com/Snowfork/ethabi-decode.git?branch=master#7d215837b626650bd9a076821e57ad488101301f"
 dependencies = [
  "ethereum-types",
  "tiny-keccak",
@@ -16456,12 +16446,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "scoped-tls"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e1cf6437eb19a8f4a6cc0f7dca544973b0b78843adbfeb3683d1a94a0024a294"
-
-[[package]]
 name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -17136,7 +17120,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex",
- "hex-literal",
  "milagro_bls",
  "parity-scale-codec",
  "rlp",
@@ -17159,7 +17142,6 @@ dependencies = [
  "ethabi-decode",
  "frame-support",
  "frame-system",
- "hex",
  "hex-literal",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
@@ -17185,18 +17167,15 @@ dependencies = [
  "hex-literal",
  "parity-bytes",
  "parity-scale-codec",
- "rand 0.8.5",
  "rlp",
  "rustc-hex",
  "scale-info",
  "serde",
  "serde-big-array",
- "serde_json",
  "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std 8.0.0",
- "wasm-bindgen-test",
 ]
 
 [[package]]
@@ -17212,17 +17191,14 @@ dependencies = [
  "log",
  "pallet-timestamp",
  "parity-scale-codec",
- "rand 0.8.5",
  "rlp",
  "scale-info",
  "serde",
- "serde_json",
  "snowbridge-beacon-primitives",
  "snowbridge-core",
  "snowbridge-ethereum",
  "sp-core",
  "sp-io",
- "sp-keyring",
  "sp-runtime",
  "sp-std 8.0.0",
  "ssz_rs",
@@ -17250,11 +17226,9 @@ dependencies = [
  "snowbridge-beacon-primitives",
  "snowbridge-core",
  "snowbridge-ethereum",
- "snowbridge-ethereum-beacon-client",
  "snowbridge-router-primitives",
  "sp-core",
  "sp-io",
- "sp-keyring",
  "sp-runtime",
  "sp-std 8.0.0",
  "staging-xcm",
@@ -17271,7 +17245,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
- "pallet-message-queue",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -17280,7 +17253,6 @@ dependencies = [
  "sp-arithmetic",
  "sp-core",
  "sp-io",
- "sp-keyring",
  "sp-runtime",
  "sp-std 8.0.0",
  "staging-xcm",
@@ -17290,10 +17262,6 @@ dependencies = [
 name = "snowbridge-outbound-queue-merkle-tree"
 version = "0.1.1"
 dependencies = [
- "array-bytes 4.2.0",
- "env_logger 0.9.3",
- "hex",
- "hex-literal",
  "parity-scale-codec",
  "scale-info",
  "sp-core",
@@ -17333,7 +17301,6 @@ dependencies = [
  "hex-literal",
  "log",
  "parity-scale-codec",
- "rustc-hex",
  "scale-info",
  "serde",
  "snowbridge-core",
@@ -17361,86 +17328,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "snowbridge-runtime-tests"
-version = "0.1.0"
-dependencies = [
- "asset-hub-rococo-runtime",
- "assets-common",
- "bridge-hub-rococo-runtime",
- "bridge-hub-test-utils",
- "bridge-runtime-common",
- "cumulus-pallet-aura-ext",
- "cumulus-pallet-dmp-queue",
- "cumulus-pallet-parachain-system",
- "cumulus-pallet-session-benchmarking",
- "cumulus-pallet-xcm",
- "cumulus-pallet-xcmp-queue",
- "cumulus-primitives-core",
- "cumulus-primitives-utility",
- "frame-benchmarking",
- "frame-executive",
- "frame-support",
- "frame-system",
- "frame-system-benchmarking",
- "frame-system-rpc-runtime-api",
- "frame-try-runtime",
- "hex-literal",
- "log",
- "pallet-aura",
- "pallet-authorship",
- "pallet-balances",
- "pallet-collator-selection",
- "pallet-message-queue",
- "pallet-multisig",
- "pallet-session",
- "pallet-timestamp",
- "pallet-transaction-payment",
- "pallet-transaction-payment-rpc-runtime-api",
- "pallet-utility",
- "pallet-xcm",
- "pallet-xcm-benchmarks",
- "parachains-common",
- "parachains-runtimes-test-utils",
- "parity-scale-codec",
- "polkadot-core-primitives",
- "polkadot-parachain-primitives",
- "polkadot-runtime-common",
- "rococo-runtime-constants",
- "scale-info",
- "serde",
- "smallvec",
- "snowbridge-beacon-primitives",
- "snowbridge-core",
- "snowbridge-ethereum-beacon-client",
- "snowbridge-inbound-queue",
- "snowbridge-outbound-queue",
- "snowbridge-outbound-queue-runtime-api",
- "snowbridge-router-primitives",
- "snowbridge-system",
- "snowbridge-system-runtime-api",
- "sp-api",
- "sp-block-builder",
- "sp-consensus-aura",
- "sp-core",
- "sp-genesis-builder",
- "sp-inherents",
- "sp-io",
- "sp-keyring",
- "sp-offchain",
- "sp-runtime",
- "sp-session",
- "sp-std 8.0.0",
- "sp-storage 13.0.0",
- "sp-transaction-pool",
- "sp-version",
- "staging-parachain-info",
- "staging-xcm",
- "staging-xcm-builder",
- "staging-xcm-executor",
- "static_assertions",
-]
-
-[[package]]
 name = "snowbridge-system"
 version = "0.1.1"
 dependencies = [
@@ -17448,19 +17335,12 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "hex",
- "hex-literal",
  "log",
- "pallet-balances",
- "pallet-message-queue",
  "parity-scale-codec",
- "polkadot-primitives",
  "scale-info",
  "snowbridge-core",
- "snowbridge-outbound-queue",
  "sp-core",
  "sp-io",
- "sp-keyring",
  "sp-runtime",
  "sp-std 8.0.0",
  "staging-xcm",
@@ -20571,31 +20451,6 @@ name = "wasm-bindgen-shared"
 version = "0.2.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ab9b36309365056cd639da3134bf87fa8f3d86008abf99e612384a6eecd459f"
-
-[[package]]
-name = "wasm-bindgen-test"
-version = "0.3.39"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2cf9242c0d27999b831eae4767b2a146feb0b27d332d553e605864acd2afd403"
-dependencies = [
- "console_error_panic_hook",
- "js-sys",
- "scoped-tls",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "wasm-bindgen-test-macro",
-]
-
-[[package]]
-name = "wasm-bindgen-test-macro"
-version = "0.3.39"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "794645f5408c9a039fd09f4d113cdfb2e7eba5ff1956b07bcf701cf4b394fe89"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.41",
-]
 
 [[package]]
 name = "wasm-encoder"
