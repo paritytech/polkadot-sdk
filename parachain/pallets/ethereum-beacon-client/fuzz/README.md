@@ -17,5 +17,5 @@ cargo install cargo-fuzz
 Note: `max-len` is necessary because the max input length is 4096 bytes. Some of our inputs are larger than this
 default value. When running the tests without an increased max len parameter, no fuzz data will be generated.
 
-The tests will keep running until a crash is found, so in our CI setup the number of runs is limited so that the 
+The tests will keep running until a crash is found, so in our CI setup the number of runs is limited so that the
 test completes.

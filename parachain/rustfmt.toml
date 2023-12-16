@@ -1,4 +1,5 @@
 # Basic
+edition = "2021"
 hard_tabs = true
 max_width = 100
 use_small_heuristics = "Max"
@@ -7,9 +8,6 @@ imports_granularity = "Crate"
 reorder_imports = true
 # Consistency
 newline_style = "Unix"
-# Format comments
-comment_width = 100
-wrap_comments = true
 # Misc
 chain_width = 80
 spaces_around_ranges = false
@@ -21,4 +19,6 @@ match_block_trailing_comma = true
 trailing_comma = "Vertical"
 trailing_semicolon = false
 use_field_init_shorthand = true
-edition = "2021"
+# Format comments
+comment_width = 100
+wrap_comments = true

@@ -4,12 +4,12 @@ use snowbridge_core::inbound::{Log, Message, Proof};
 use sp_std::vec;
 
 pub struct InboundQueueTest {
-	pub execution_header: CompactExecutionHeader,
-	pub message: Message,
+    pub execution_header: CompactExecutionHeader,
+    pub message: Message,
 }
 
 pub fn make_create_message() -> InboundQueueTest {
-	InboundQueueTest{
+    InboundQueueTest{
         execution_header: CompactExecutionHeader{
             parent_hash: hex!("b5608f0af7c3b6fe5c593772fc25436b8d6549eb236adb0855c6ad33e0004e04").into(),
             block_number: 115,

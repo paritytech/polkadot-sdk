@@ -5,7 +5,8 @@
 Note: This section is not necessary for local development, as there are scripts to auto-configure the parachain in the
 [test directory](../web/packages/test).
 
-For a fully operational chain, further configuration of the initial chain spec is required. The specific configuration will depend heavily on your environment, so this guide will remain high-level.
+For a fully operational chain, further configuration of the initial chain spec is required. The specific configuration will
+depend heavily on your environment, so this guide will remain high-level.
 
 After completing a release build of the parachain, build an initial spec for the snowbase runtime:
 
@@ -18,11 +19,13 @@ Now edit the spec and configure the following:
 2. Contract addresses for the Ether, Erc20, and Dot apps.
 3. Authorized principal for the basic channel
 
-For an example configuration, consult the [setup script](https://github.com/Snowfork/snowbridge/blob/main/web/packages/test/scripts/start-services.sh) for our local development stack. Specifically the `start_polkadot_launch` bash function.
+For an example configuration, consult the [setup script](https://github.com/Snowfork/snowbridge/blob/main/web/packages/test/scripts/start-services.sh)
+for our local development stack. Specifically the `start_polkadot_launch` bash function.
 
 ## Tests
 
-To run the parachain tests locally, use `cargo test --workspace`. For the full suite of tests, use `cargo test --workspace --features runtime-benchmarks`.
+To run the parachain tests locally, use `cargo test --workspace`. For the full suite of tests, use
+`cargo test --workspace --features runtime-benchmarks`.
 
 Optionally exclude the top-level and runtime crates:
 
@@ -63,8 +66,8 @@ const decodedEventLog = iface.decodeEventLog(
 console.log(`decoded rawLog.data: ${JSON.stringify(decodedEventLog)}`);
 ```
 
-Place the `encodedLog` string in the `message.data` field in the test data. Use the `decoded rawLog.data` field to update the comments
-with the decoded log data.
+Place the `encodedLog` string in the `message.data` field in the test data. Use the `decoded rawLog.data` field to
+update the comments with the decoded log data.
 
 ## Generating pallet weights from benchmarks
 
@@ -105,7 +108,8 @@ target/release/snowbridge benchmark pallet \
 
 ### Minimal Spec
 
-To generate `minimal` test data and benchmarking data, make sure to start the local E2E setup to spin up a local beacon node instance to connect to:
+To generate `minimal` test data and benchmarking data, make sure to start the local E2E setup to spin up a local beacon
+node instance to connect to:
 
 ```bash
 cd web/packages/test
@@ -117,14 +121,17 @@ Wait for output `Testnet has been initialized`.
 In a separate terminal, from the `snowbridge` directory, run:
 
 ```bash
-mage -d relayer build && relayer/build/snowbridge-relay generate-beacon-data --spec "minimal" && cd parachain && cargo +nightly fmt -- --config-path rustfmt.toml && cd -
+mage -d relayer build && relayer/build/snowbridge-relay generate-beacon-data --spec "minimal" && cd parachain &&
+cargo +nightly fmt -- --config-path rustfmt.toml && cd -
 ```
 
 ### Mainnet Spec
 
 We only use the mainnet spec for generating fixtures for pallet weight benchmarks.
 
-To generate the data we can connect to the Lodestar Goerli public node. The script already connects to the Lodestar node, so no need to start up additional services. In the event of the Lodestar node not being available, you can start up your own stack with these commands:
+To generate the data we can connect to the Lodestar Goerli public node. The script already connects to the Lodestar node,
+so no need to start up additional services. In the event of the Lodestar node not being available, you can start up your
+own stack with these commands:
 
 ```bash
 cd web/packages/test
@@ -134,10 +141,11 @@ cd web/packages/test
 From the `snowbridge` directory, run:
 
 ```bash
-mage -d relayer build && relayer/build/snowbridge-relay generate-beacon-data --spec "mainnet" && cd parachain && cargo +nightly fmt -- --config-path rustfmt.toml && cd -
+mage -d relayer build && relayer/build/snowbridge-relay generate-beacon-data --spec "mainnet" && cd parachain &&
+cargo +nightly fmt -- --config-path rustfmt.toml && cd -
 ```
 
-###  Benchmarking tests
+### Benchmarking tests
 
 To run the benchmark tests
 
