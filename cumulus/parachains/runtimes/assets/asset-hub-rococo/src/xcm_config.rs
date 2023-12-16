@@ -272,7 +272,7 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 				if items.iter().all(|(k, _)| {
 					k.eq(&bridging::XcmBridgeHubRouterByteFee::key()) |
 					k.eq(&bridging::XcmBridgeHubRouterBaseFee::key()) |
-					k.eq(&bridging::to_ethereum::BridgeHubEthereumBaseFeeInROC::key())
+					k.eq(&bridging::to_ethereum::BridgeHubEthereumBaseFee::key())
 				}) =>
 			{
 				return true
@@ -861,7 +861,7 @@ pub mod bridging {
 			/// Needs to be more than fee calculated from DefaultFeeConfig FeeConfigRecord in snowbridge:parachain/pallets/outbound-queue/src/lib.rs
 			/// Polkadot uses 10 decimals, Kusama and Rococo 12 decimals.
 			pub const DefaultBridgeHubEthereumBaseFeeInROC: u128 = 2_750_872_500_000;
-			pub storage BridgeHubEthereumBaseFeeInROC: u128 = DefaultBridgeHubEthereumBaseFeeInROC::get();
+			pub storage BridgeHubEthereumBaseFee: u128 = DefaultBridgeHubEthereumBaseFeeInROC::get();
 			pub SiblingBridgeHubWithEthereumInboundQueueInstance: MultiLocation = MultiLocation::new(
 				1,
 				X2(
@@ -881,7 +881,7 @@ pub mod bridging {
 					SiblingBridgeHub::get(),
 					Some((
 						XcmBridgeHubRouterFeeAssetId::get(),
-						BridgeHubEthereumBaseFeeInROC::get(),
+						BridgeHubEthereumBaseFee::get(),
 					).into())
 				),
 			];
