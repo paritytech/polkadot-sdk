@@ -16,8 +16,8 @@
 use super::{
 	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, BaseDeliveryFee,
 	FeeAssetId, ForeignAssets, ForeignAssetsInstance, ParachainInfo, ParachainSystem, PolkadotXcm,
-	PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, ToEthereumXcmRouter,
-	ToWestendXcmRouter, TransactionByteFee, TrustBackedAssetsInstance, WeightToFee, XcmpQueue,
+	PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, ToWestendXcmRouter,
+	TransactionByteFee, TrustBackedAssetsInstance, WeightToFee, XcmpQueue,
 };
 use assets_common::{
 	local_and_foreign_assets::MatchesLocalAndForeignAssetsMultiLocation,
@@ -53,9 +53,10 @@ use xcm_builder::{
 	GlobalConsensusParachainConvertsFor, HashedDescription, IsConcrete, LocalMint,
 	NetworkExportTableItem, NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
 	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation, StartsWith, StartsWithExplicitGlobalConsensus,
-	TakeWeightCredit, TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin,
-	WithUniqueTopic, XcmFeeManagerFromComponents, XcmFeeToAccount,
+	SignedToAccountId32, SovereignPaidRemoteExporter, SovereignSignedViaLocation, StartsWith,
+	StartsWithExplicitGlobalConsensus, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
+	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
+	XcmFeeToAccount,
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
@@ -271,12 +272,10 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 			RuntimeCall::System(frame_system::Call::set_storage { items })
 				if items.iter().all(|(k, _)| {
 					k.eq(&bridging::XcmBridgeHubRouterByteFee::key()) |
-					k.eq(&bridging::XcmBridgeHubRouterBaseFee::key()) |
-					k.eq(&bridging::to_ethereum::BridgeHubEthereumBaseFee::key())
+						k.eq(&bridging::XcmBridgeHubRouterBaseFee::key()) |
+						k.eq(&bridging::to_ethereum::BridgeHubEthereumBaseFee::key())
 				}) =>
-			{
-				return true
-			},
+				return true,
 			_ => (),
 		};
 
@@ -468,8 +467,6 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 					pallet_uniques::Call::buy_item { .. }
 			) | RuntimeCall::ToWestendXcmRouter(
 				pallet_xcm_bridge_hub_router::Call::report_bridge_status { .. }
-			) | RuntimeCall::ToEthereumXcmRouter(
-				pallet_xcm_bridge_hub_router::Call::report_bridge_status { .. }
 			)
 		)
 	}
@@ -635,7 +632,7 @@ pub type XcmRouter = WithUniqueTopic<(
 	ToWestendXcmRouter,
 	// Router which wraps and sends xcm to BridgeHub to be delivered to the Ethereum
 	// GlobalConsensus
-	ToEthereumXcmRouter,
+	SovereignPaidRemoteExporter<bridging::EthereumNetworkExportTable, XcmpQueue, UniversalLocation>,
 )>;
 
 impl pallet_xcm::Config for Runtime {
@@ -768,11 +765,17 @@ pub mod bridging {
 		pub BridgeTable: sp_std::vec::Vec<NetworkExportTableItem> =
 			sp_std::vec::Vec::new().into_iter()
 			.chain(to_westend::BridgeTable::get())
+			.collect();
+
+		pub EthereumBridgeTable: sp_std::vec::Vec<NetworkExportTableItem> =
+			sp_std::vec::Vec::new().into_iter()
 			.chain(to_ethereum::BridgeTable::get())
 			.collect();
 	}
 
 	pub type NetworkExportTable = xcm_builder::NetworkExportTable<BridgeTable>;
+
+	pub type EthereumNetworkExportTable = xcm_builder::NetworkExportTable<EthereumBridgeTable>;
 
 	pub mod to_westend {
 		use super::*;
@@ -900,17 +903,6 @@ pub mod bridging {
 		impl Contains<(MultiLocation, Junction)> for UniversalAliases {
 			fn contains(alias: &(MultiLocation, Junction)) -> bool {
 				UniversalAliases::get().contains(alias)
-			}
-		}
-
-		impl Contains<RuntimeCall> for ToEthereumXcmRouter {
-			fn contains(call: &RuntimeCall) -> bool {
-				matches!(
-					call,
-					RuntimeCall::ToEthereumXcmRouter(
-						pallet_xcm_bridge_hub_router::Call::report_bridge_status { .. }
-					)
-				)
 			}
 		}
 	}
