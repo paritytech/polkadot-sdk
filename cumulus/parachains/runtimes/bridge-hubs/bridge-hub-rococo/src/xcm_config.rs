@@ -294,7 +294,7 @@ impl xcm_executor::Config for XcmConfig {
 		MaxInstructions,
 	>;
 	type Trader =
-	UsingComponents<WeightToFee, TokenLocation, AccountId, Balances, ToStakingPot<Runtime>>;
+		UsingComponents<WeightToFee, TokenLocation, AccountId, Balances, ToStakingPot<Runtime>>;
 	type ResponseHandler = PolkadotXcm;
 	type AssetTrap = PolkadotXcm;
 	type AssetLocker = ();
@@ -487,7 +487,7 @@ pub struct XcmFeeManagerFromComponentsBridgeHub<WaivedLocations, HandleFee>(
 	PhantomData<(WaivedLocations, HandleFee)>,
 );
 impl<WaivedLocations: Contains<MultiLocation>, FeeHandler: HandleFee> FeeManager
-for XcmFeeManagerFromComponentsBridgeHub<WaivedLocations, FeeHandler>
+	for XcmFeeManagerFromComponentsBridgeHub<WaivedLocations, FeeHandler>
 {
 	fn is_waived(origin: Option<&MultiLocation>, fee_reason: FeeReason) -> bool {
 		let Some(loc) = origin else { return false };
