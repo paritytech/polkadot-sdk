@@ -152,7 +152,7 @@ pub type Migrations = (
 	InitStorageVersions,
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
 	// unreleased
-	snowbridge_system::migration::v1::MigrateToV1<
+	snowbridge_system::migration::v0::InitializeOnUpgrade<
 		Runtime,
 		ConstU32<BRIDGE_HUB_ID>,
 		ConstU32<ASSET_HUB_ID>,
@@ -184,12 +184,7 @@ impl frame_support::traits::OnRuntimeUpgrade for InitStorageVersions {
 			writes.saturating_inc();
 		}
 
-		if EthereumSystem::on_chain_storage_version() == StorageVersion::new(0) {
-			EthereumSystem::current_storage_version().put::<EthereumSystem>();
-			writes.saturating_inc();
-		}
-
-		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(3, writes)
+		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(2, writes)
 	}
 }
 
