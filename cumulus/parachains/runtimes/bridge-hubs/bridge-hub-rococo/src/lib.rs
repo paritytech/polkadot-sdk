@@ -495,7 +495,6 @@ impl pallet_utility::Config for Runtime {
 // Ethereum Bridge
 
 parameter_types! {
-	pub const Reward: u128 = 10;
 	pub const GatewayAddress: H160 = H160(hex_literal::hex!("EDa338E4dC46038493b885327842fD3E301CaB39"));
 	pub const CreateAssetCall: [u8;2] = [53, 0];
 	pub const CreateAssetDeposit: u128 = (UNITS / 10) + EXISTENTIAL_DEPOSIT;
@@ -534,6 +533,8 @@ impl snowbridge_inbound_queue::Config for Runtime {
 		Balance,
 	>;
 	type WeightToFee = WeightToFee;
+	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
+	type MaxMessagePayloadSize = ConstU32<2048>;
 	type WeightInfo = weights::snowbridge_inbound_queue::WeightInfo<Runtime>;
 	type PricingParameters = EthereumSystem;
 }
