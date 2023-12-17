@@ -32,7 +32,7 @@ pub use crate::wasm::runtime::{
 pub use tests::MockExt;
 
 #[cfg(test)]
-pub use crate::wasm::runtime::ReturnErrorCode;
+use crate::wasm::runtime::ReturnErrorCode;
 
 use crate::{
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
