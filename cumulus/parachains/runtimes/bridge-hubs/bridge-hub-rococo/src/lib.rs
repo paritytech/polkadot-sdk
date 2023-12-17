@@ -499,7 +499,6 @@ parameter_types! {
 }
 
 parameter_types! {
-	pub const Reward: u128 = 10;
 	pub const CreateAssetCall: [u8;2] = [53, 0];
 	pub const CreateAssetDeposit: u128 = (UNITS / 10) + EXISTENTIAL_DEPOSIT;
 	pub const InboundQueuePalletInstance: u8 = snowbridge_rococo_common::INBOUND_QUEUE_MESSAGES_PALLET_INDEX;
@@ -537,6 +536,8 @@ impl snowbridge_inbound_queue::Config for Runtime {
 		Balance,
 	>;
 	type WeightToFee = WeightToFee;
+	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
+	type MaxMessagePayloadSize = ConstU32<2048>;
 	type WeightInfo = weights::snowbridge_inbound_queue::WeightInfo<Runtime>;
 	type PricingParameters = EthereumSystem;
 }
