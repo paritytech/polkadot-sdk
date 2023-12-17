@@ -6,6 +6,9 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
 blake3 = "1.5"
 cfg-if = "1.0"

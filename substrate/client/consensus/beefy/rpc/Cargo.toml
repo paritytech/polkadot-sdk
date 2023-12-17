@@ -8,6 +8,9 @@ repository.workspace = true
 description = "RPC for the BEEFY Client gadget for substrate"
 homepage = "https://substrate.io"
 
+[lints]
+workspace = true
+
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"] }
 futures = "0.3.21"

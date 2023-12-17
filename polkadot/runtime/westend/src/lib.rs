@@ -45,12 +45,14 @@ use pallet_session::historical as session_historical;
 use pallet_transaction_payment::{CurrencyAdapter, FeeDetails, RuntimeDispatchInfo};
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use primitives::{
-	slashing, vstaging::NodeFeatures, AccountId, AccountIndex, Balance, BlockNumber,
-	CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState,
-	ExecutorParams, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,
-	InboundHrmpMessage, Moment, Nonce, OccupiedCoreAssumption, PersistedValidationData,
-	PvfCheckStatement, ScrapedOnChainVotes, SessionInfo, Signature, ValidationCode,
-	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature, PARACHAIN_KEY_TYPE_ID,
+	slashing,
+	vstaging::{ApprovalVotingParams, NodeFeatures},
+	AccountId, AccountIndex, Balance, BlockNumber, CandidateEvent, CandidateHash,
+	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash,
+	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, Moment, Nonce,
+	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
+	SessionInfo, Signature, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
+	ValidatorSignature, PARACHAIN_KEY_TYPE_ID,
 };
 use runtime_common::{
 	assigned_slots, auctions, crowdloan,
@@ -145,10 +147,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("westend"),
 	impl_name: create_runtime_str!("parity-westend"),
 	authoring_version: 2,
-	spec_version: 1_004_000,
+	spec_version: 1_005_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 22,
+	transaction_version: 24,
 	state_version: 1,
 };
 
@@ -264,8 +266,7 @@ impl pallet_babe::Config for Runtime {
 	type MaxAuthorities = MaxAuthorities;
 	type MaxNominators = MaxNominators;
 
-	type KeyOwnerProof =
-		<Historical as KeyOwnerProofSystem<(KeyTypeId, pallet_babe::AuthorityId)>>::Proof;
+	type KeyOwnerProof = sp_session::MembershipProof;
 
 	type EquivocationReportSystem =
 		pallet_babe::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
@@ -317,7 +318,7 @@ impl pallet_beefy::Config for Runtime {
 	type MaxSetIdSessionEntries = BeefySetIdSessionEntries;
 	type OnNewValidatorSet = BeefyMmrLeaf;
 	type WeightInfo = ();
-	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, BeefyId)>>::Proof;
+	type KeyOwnerProof = sp_session::MembershipProof;
 	type EquivocationReportSystem =
 		pallet_beefy::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
 }
@@ -530,7 +531,6 @@ parameter_types! {
 	pub const SignedDepositByte: Balance = deposit(0, 10) / 1024;
 	// Each good submission will get 1 WND as reward
 	pub SignedRewardBase: Balance = 1 * UNITS;
-	pub BetterUnsignedThreshold: Perbill = Perbill::from_rational(5u32, 10_000);
 
 	// 1 hour session, 15 minutes unsigned phase, 4 offchain executions.
 	pub OffchainRepeat: BlockNumber = UnsignedPhase::get() / 4;
@@ -607,7 +607,6 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type MinerConfig = Self;
 	type SlashHandler = (); // burn slashes
 	type RewardHandler = (); // nothing to do upon rewards
-	type BetterUnsignedThreshold = BetterUnsignedThreshold;
 	type BetterSignedThreshold = ();
 	type OffchainRepeat = OffchainRepeat;
 	type MinerTxPriority = NposSolutionPriority;
@@ -673,6 +672,7 @@ parameter_types! {
 	pub const MaxNominators: u32 = 64;
 	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
+	pub const MaxControllersInDeprecationBatch: u32 = 751;
 }
 
 impl pallet_staking::Config for Runtime {
@@ -687,7 +687,7 @@ impl pallet_staking::Config for Runtime {
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;
-	type AdminOrigin = EnsureRoot<AccountId>;
+	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
 	type SessionInterface = Self;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type MaxExposurePageSize = MaxExposurePageSize;
@@ -700,6 +700,7 @@ impl pallet_staking::Config for Runtime {
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<{ MaxNominations::get() }>;
 	type MaxUnlockingChunks = frame_support::traits::ConstU32<32>;
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
+	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type BenchmarkingConfig = runtime_common::StakingBenchmarkingConfig;
 	type EventListeners = NominationPools;
 	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
@@ -801,7 +802,7 @@ impl pallet_grandpa::Config for Runtime {
 	type MaxNominators = MaxNominators;
 	type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
 
-	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
+	type KeyOwnerProof = sp_session::MembershipProof;
 
 	type EquivocationReportSystem =
 		pallet_grandpa::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
@@ -949,6 +950,7 @@ impl pallet_vesting::Config for Runtime {
 	type MinVestedTransfer = MinVestedTransfer;
 	type WeightInfo = weights::pallet_vesting::WeightInfo<Runtime>;
 	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
+	type BlockNumberProvider = System;
 	const MAX_VESTING_SCHEDULES: u32 = 28;
 }
 
@@ -1647,6 +1649,7 @@ pub mod migrations {
 			ImOnlinePalletName,
 			<Runtime as frame_system::Config>::DbWeight,
 		>,
+		parachains_configuration::migration::v11::MigrateToV11<Runtime>,
 	);
 }
 
@@ -1787,7 +1790,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(9)]
+	#[api_version(10)]
 	impl primitives::runtime_api::ParachainHost<Block> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			parachains_runtime_api_impl::validators::<Runtime>()
@@ -1929,6 +1932,10 @@ sp_api::impl_runtime_apis! {
 
 		fn async_backing_params() -> primitives::AsyncBackingParams {
 			parachains_runtime_api_impl::async_backing_params::<Runtime>()
+		}
+
+		fn approval_voting_params() -> ApprovalVotingParams {
+			parachains_staging_runtime_api_impl::approval_voting_params::<Runtime>()
 		}
 
 		fn disabled_validators() -> Vec<ValidatorIndex> {
@@ -2294,6 +2301,21 @@ sp_api::impl_runtime_apis! {
 						},
 						crate::Junction::Parachain(43211234).into(),
 					))
+				}
+
+				fn set_up_complex_asset_transfer(
+				) -> Option<(MultiAssets, u32, MultiLocation, Box<dyn FnOnce()>)> {
+					// Relay supports only native token, either reserve transfer it to non-system parachains,
+					// or teleport it to system parachain. Use the teleport case for benchmarking as it's
+					// slightly heavier.
+
+					// Relay/native token can be teleported to/from AH.
+					let native_location = Here.into();
+					let dest = crate::xcm_config::AssetHub::get();
+					pallet_xcm::benchmarking::helpers::native_teleport_as_asset_transfer::<Runtime>(
+						native_location,
+						dest
+					)
 				}
 			}
 			impl frame_system_benchmarking::Config for Runtime {}
