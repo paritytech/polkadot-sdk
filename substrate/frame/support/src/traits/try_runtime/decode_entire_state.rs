@@ -109,7 +109,6 @@ impl core::fmt::Debug for TryDecodeEntireStorageError {
 fn decode_storage_info<V: Decode>(
 	info: StorageInfo,
 ) -> Result<usize, Vec<TryDecodeEntireStorageError>> {
-	let mut next_key = info.prefix.clone();
 	let mut decoded = 0;
 
 	let decode_key = |key: &[u8]| match sp_io::storage::get(key) {
@@ -129,16 +128,17 @@ fn decode_storage_info<V: Decode>(
 	};
 
 	let mut errors = vec![];
+	let mut next_key = Some(info.prefix.clone());
 	loop {
-		match sp_io::storage::next_key(&next_key) {
+		match next_key {
 			Some(key) if key.starts_with(&info.prefix) => {
 				match decode_key(&key) {
 					Ok(bytes) => {
 						decoded += bytes;
 					},
 					Err(e) => errors.push(e),
-				}
-				next_key = key;
+				};
+				next_key = sp_io::storage::next_key(&key);
 			},
 			_ => break,
 		}
