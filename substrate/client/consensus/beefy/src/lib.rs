@@ -550,7 +550,7 @@ where
 	debug!(target: LOG_TARGET, "🥩 Trying to find validator set active at header: {:?}", at_header);
 	let mut header = at_header.clone();
 	loop {
-		if let Ok(Some(active)) = runtime.runtime_api().validator_set(at_header.hash()) {
+		if let Ok(Some(active)) = runtime.runtime_api().validator_set(header.hash()) {
 			return Ok(active)
 		} else {
 			debug!(target: LOG_TARGET, "🥩 Looking for auth set change at block number: {:?}", *header.number());

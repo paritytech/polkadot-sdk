@@ -27,7 +27,7 @@ color-eyre = { version = "0.6.1", default-features = false }
 polkadot-overseer = { path = "../overseer" }
 colored = "2.0.4"
 assert_matches = "1.5"
-async-trait = "0.1.57"
+async-trait = "0.1.74"
 sp-keystore = { path = "../../../substrate/primitives/keystore" }
 sc-keystore = { path = "../../../substrate/client/keystore" }
 sp-core = { path = "../../../substrate/primitives/core" }
