@@ -70,7 +70,7 @@ struct Identity {
 }
 
 impl Identity {
-	fn new<T: frame_support::traits::Get<u32>>(
+	fn new(
 		full: bool,
 		additional: Option<BoundedVec<(Data, Data), MaxAdditionalFields>>,
 		subs: Subs,
@@ -101,7 +101,7 @@ impl Identity {
 				pgp_fingerprint: Some(pgp_fingerprint),
 				image: make_data(b"xcm-test.png", full),
 				twitter: make_data(b"@xcm-test", full),
-				additional: additional.unwrap_or_else(|| BoundedVec::default()),
+				additional: additional.unwrap_or_default(),
 			},
 			para: IdentityInfoParachain {
 				display: make_data(b"xcm-test", full),
@@ -270,9 +270,9 @@ fn assert_set_id_parachain(id: &Identity) {
 		// No amount should be reserved as deposit amounts are set to 0.
 		let reserved_balance = PeopleWestendBalances::reserved_balance(PeopleWestendSender::get());
 		assert_eq!(reserved_balance, 0);
-		assert!(PeopleWestendIdentity::identity(&PeopleWestendSender::get()).is_some());
+		assert!(PeopleWestendIdentity::identity(PeopleWestendSender::get()).is_some());
 
-		let (_, sub_accounts) = PeopleWestendIdentity::subs_of(&PeopleWestendSender::get());
+		let (_, sub_accounts) = PeopleWestendIdentity::subs_of(PeopleWestendSender::get());
 
 		match id.subs {
 			Subs::Zero => assert_eq!(sub_accounts.len(), 0),
@@ -318,10 +318,10 @@ fn assert_reap_id_relay(total_deposit: Balance, id: &Identity) {
 			]
 		);
 		// Identity should be gone.
-		assert!(PeopleWestendIdentity::identity(&WestendRelaySender::get()).is_none());
+		assert!(PeopleWestendIdentity::identity(WestendRelaySender::get()).is_none());
 
 		// Subs should be gone.
-		let (_, sub_accounts) = WestendIdentity::subs_of(&WestendRelaySender::get());
+		let (_, sub_accounts) = WestendIdentity::subs_of(WestendRelaySender::get());
 		assert_eq!(sub_accounts.len(), 0);
 
 		let reserved_balance = WestendBalances::reserved_balance(WestendRelaySender::get());
@@ -478,67 +478,51 @@ fn assert_relay_para_flow(id: &Identity) {
 
 #[test]
 fn on_reap_identity_works_for_minimal_identity_with_zero_subs() {
-	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(false, None, Subs::Zero));
+	assert_relay_para_flow(&Identity::new(false, None, Subs::Zero));
 }
 
 #[test]
 fn on_reap_identity_works_for_minimal_identity() {
-	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(false, None, Subs::Many(1)));
+	assert_relay_para_flow(&Identity::new(false, None, Subs::Many(1)));
 }
 
 #[test]
 fn on_reap_identity_works_for_minimal_identity_with_max_subs() {
-	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(
-		false,
-		None,
-		Subs::Many(MaxSubAccounts::get()),
-	));
+	assert_relay_para_flow(&Identity::new(false, None, Subs::Many(MaxSubAccounts::get())));
 }
 
 // Tests with full `IdentityInfo`.
 
 #[test]
 fn on_reap_identity_works_for_full_identity_no_additional_zero_subs() {
-	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(true, None, Subs::Zero));
+	assert_relay_para_flow(&Identity::new(true, None, Subs::Zero));
 }
 
 #[test]
 fn on_reap_identity_works_for_full_identity_no_additional() {
-	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(true, None, Subs::Many(1)));
+	assert_relay_para_flow(&Identity::new(true, None, Subs::Many(1)));
 }
 
 #[test]
 fn on_reap_identity_works_for_full_identity_no_additional_max_subs() {
-	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(
-		true,
-		None,
-		Subs::Many(MaxSubAccounts::get()),
-	));
+	assert_relay_para_flow(&Identity::new(true, None, Subs::Many(MaxSubAccounts::get())));
 }
 
 // Tests with full `IdentityInfo` and `additional` fields that will _not_ be migrated.
 
 #[test]
 fn on_reap_identity_works_for_full_identity_nonsense_additional_zero_subs() {
-	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(
-		true,
-		Some(nonsensical_additional()),
-		Subs::Zero,
-	));
+	assert_relay_para_flow(&Identity::new(true, Some(nonsensical_additional()), Subs::Zero));
 }
 
 #[test]
 fn on_reap_identity_works_for_full_identity_nonsense_additional() {
-	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(
-		true,
-		Some(nonsensical_additional()),
-		Subs::Many(1),
-	));
+	assert_relay_para_flow(&Identity::new(true, Some(nonsensical_additional()), Subs::Many(1)));
 }
 
 #[test]
 fn on_reap_identity_works_for_full_identity_nonsense_additional_max_subs() {
-	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(
+	assert_relay_para_flow(&Identity::new(
 		true,
 		Some(nonsensical_additional()),
 		Subs::Many(MaxSubAccounts::get()),
@@ -549,25 +533,17 @@ fn on_reap_identity_works_for_full_identity_nonsense_additional_max_subs() {
 
 #[test]
 fn on_reap_identity_works_for_full_identity_meaningful_additional_zero_subs() {
-	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(
-		true,
-		Some(meaningful_additional()),
-		Subs::Zero,
-	));
+	assert_relay_para_flow(&Identity::new(true, Some(meaningful_additional()), Subs::Zero));
 }
 
 #[test]
 fn on_reap_identity_works_for_full_identity_meaningful_additional() {
-	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(
-		true,
-		Some(meaningful_additional()),
-		Subs::Many(1),
-	));
+	assert_relay_para_flow(&Identity::new(true, Some(meaningful_additional()), Subs::Many(1)));
 }
 
 #[test]
 fn on_reap_identity_works_for_full_identity_meaningful_additional_max_subs() {
-	assert_relay_para_flow(&Identity::new::<MaxAdditionalFields>(
+	assert_relay_para_flow(&Identity::new(
 		true,
 		Some(meaningful_additional()),
 		Subs::Many(MaxSubAccounts::get()),

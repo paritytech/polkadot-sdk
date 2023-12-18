@@ -182,7 +182,7 @@ fn limited_teleport_native_assets_back_from_system_para_to_relay_works() {
 	let assets = (Parent, amount_to_send).into();
 
 	// Fund a sender
-	PeopleWestend::fund_accounts(vec![(PeopleWestendSender::get().into(), WESTEND_ED * 2_000u128)]);
+	PeopleWestend::fund_accounts(vec![(PeopleWestendSender::get(), WESTEND_ED * 2_000u128)]);
 
 	let test_args = TestContext {
 		sender: PeopleWestendSender::get(),
@@ -221,12 +221,12 @@ fn limited_teleport_native_assets_back_from_system_para_to_relay_works() {
 fn limited_teleport_native_assets_from_system_para_to_relay_fails() {
 	// Init values for Relay Chain
 	let amount_to_send: Balance = WESTEND_ED * 1000;
-	let destination = PeopleWestend::parent_location().into();
-	let beneficiary_id = WestendReceiver::get().into();
+	let destination = PeopleWestend::parent_location();
+	let beneficiary_id = WestendReceiver::get();
 	let assets = (Parent, amount_to_send).into();
 
 	// Fund a sender
-	PeopleWestend::fund_accounts(vec![(PeopleWestendSender::get().into(), WESTEND_ED * 2_000u128)]);
+	PeopleWestend::fund_accounts(vec![(PeopleWestendSender::get(), WESTEND_ED * 2_000u128)]);
 
 	let test_args = TestContext {
 		sender: PeopleWestendSender::get(),
