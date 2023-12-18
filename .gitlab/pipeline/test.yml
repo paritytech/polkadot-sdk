@@ -303,9 +303,14 @@ node-bench-regression-guard:
       artifacts: true
   variables:
     CI_IMAGE: "paritytech/node-bench-regression-guard:latest"
+    # current git limit is 20, set to 100 to avoid failures (gitlab removes old artifacts)
+    GIT_LIMIT: 100
   before_script: [""]
   script:
-    - ls -la artifacts/benches/
+    - if [ $(ls -la artifacts/benches/ | grep master | wc -l) == 0 ]; then
+      echo "Couldn't find master artifacts, consider increasing GIT_LIMIT variable";
+      exit 1;
+      fi
     - echo "------- IMPORTANT -------"
     - echo "node-bench-regression-guard depends on the results of a cargo-check-benches job"
     - echo "In case of this job failure, check your pipeline's cargo-check-benches"
