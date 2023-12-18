@@ -559,6 +559,7 @@ impl snowbridge_outbound_queue::Config for Runtime {
 	type WeightToFee = WeightToFee;
 	type WeightInfo = weights::snowbridge_outbound_queue::WeightInfo<Runtime>;
 	type PricingParameters = EthereumSystem;
+	type ChannelLookup = EthereumSystem;
 }
 
 #[cfg(not(feature = "beacon-spec-mainnet"))]
