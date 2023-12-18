@@ -241,6 +241,8 @@ pub mod pallet {
 			type RuntimeCall = ();
 			#[inject_runtime_type]
 			type PalletInfo = ();
+			#[inject_runtime_type]
+			type RuntimeTask = ();
 			type BaseCallFilter = frame_support::traits::Everything;
 			type BlockHashCount = frame_support::traits::ConstU64<10>;
 			type OnSetCode = ();
@@ -321,6 +323,10 @@ pub mod pallet {
 			#[inject_runtime_type]
 			type RuntimeCall = ();
 
+			/// The aggregated Task type, injected by `construct_runtime!`.
+			#[inject_runtime_type]
+			type RuntimeTask = ();
+
 			/// Converts a module to the index of the module, injected by `construct_runtime!`.
 			#[inject_runtime_type]
 			type PalletInfo = ();
@@ -399,6 +405,10 @@ pub mod pallet {
 			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
 			+ Debug
 			+ From<Call<Self>>;
+
+		/// The aggregated `RuntimeTask` type.
+		#[pallet::no_default_bounds]
+		type RuntimeTask: Task;
 
 		/// This stores the number of previous transactions associated with a sender account.
 		type Nonce: Parameter
@@ -628,6 +638,29 @@ pub mod pallet {
 			Self::deposit_event(Event::Remarked { sender: who, hash });
 			Ok(().into())
 		}
+
+		#[cfg(feature = "experimental")]
+		#[pallet::call_index(8)]
+		#[pallet::weight(task.weight())]
+		pub fn do_task(origin: OriginFor<T>, task: T::RuntimeTask) -> DispatchResultWithPostInfo {
+			ensure_signed(origin)?;
+
+			if !task.is_valid() {
+				return Err(Error::<T>::InvalidTask.into())
+			}
+
+			Self::deposit_event(Event::TaskStarted { task: task.clone() });
+			if let Err(err) = task.run() {
+				Self::deposit_event(Event::TaskFailed { task, err });
+				return Err(Error::<T>::FailedTask.into())
+			}
+
+			// Emit a success event, if your design includes events for this pallet.
+			Self::deposit_event(Event::TaskCompleted { task });
+
+			// Return success.
+			Ok(().into())
+		}
 	}
 
 	/// Event for the System pallet.
@@ -645,6 +678,15 @@ pub mod pallet {
 		KilledAccount { account: T::AccountId },
 		/// On on-chain remark happened.
 		Remarked { sender: T::AccountId, hash: T::Hash },
+		#[cfg(feature = "experimental")]
+		/// A [`Task`] has started executing
+		TaskStarted { task: T::RuntimeTask },
+		#[cfg(feature = "experimental")]
+		/// A [`Task`] has finished executing.
+		TaskCompleted { task: T::RuntimeTask },
+		#[cfg(feature = "experimental")]
+		/// A [`Task`] failed during execution.
+		TaskFailed { task: T::RuntimeTask, err: DispatchError },
 	}
 
 	/// Error for the System pallet
@@ -666,6 +708,12 @@ pub mod pallet {
 		NonZeroRefCount,
 		/// The origin filter prevent the call to be dispatched.
 		CallFiltered,
+		#[cfg(feature = "experimental")]
+		/// The specified [`Task`] is not valid.
+		InvalidTask,
+		#[cfg(feature = "experimental")]
+		/// The specified [`Task`] failed during execution.
+		FailedTask,
 	}
 
 	/// Exposed trait-generic origin type.
@@ -1878,6 +1926,11 @@ impl<T: Config> BlockNumberProvider for Pallet<T> {
 
 	fn current_block_number() -> Self::BlockNumber {
 		Pallet::<T>::block_number()
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_block_number(n: BlockNumberFor<T>) {
+		Self::set_block_number(n)
 	}
 }
 

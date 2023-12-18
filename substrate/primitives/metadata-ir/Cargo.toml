@@ -9,6 +9,9 @@ repository.workspace = true
 description = "Intermediate representation of the runtime metadata."
 documentation = "https://docs.rs/sp-metadata-ir"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
