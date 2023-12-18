@@ -112,7 +112,7 @@ pub fn migrate_to_coretime<T: Config>() -> Weight {
 	}
 
 	let config = <configuration::Pallet<T>>::config();
-	// Was coretime_cores was on_demand_cores until now:
+	// coretime_cores was on_demand_cores until now:
 	for on_demand in 0..config.coretime_cores {
 		let core = CoreIndex(legacy_count.saturating_add(on_demand as _));
 		let r = assigner_coretime::Pallet::<T>::assign_core(

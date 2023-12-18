@@ -5,6 +5,7 @@ Creds: config
 alice: is up
 coretime-collator: is up
 
+alice: reports block height is at least 3 within 30 seconds
 # configure relay chain
 alice: js-script ./0004-configure-relay.js with "" return is 0 within 30 secs
 
