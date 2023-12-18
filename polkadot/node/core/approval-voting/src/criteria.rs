@@ -261,6 +261,7 @@ pub(crate) trait AssignmentCriteria {
 		relay_vrf_story: RelayVRFStory,
 		config: &Config,
 		leaving_cores: Vec<(CandidateHash, CoreIndex, GroupIndex)>,
+		enable_v2_assignments: bool,
 	) -> HashMap<CoreIndex, OurAssignment>;
 
 	fn check_assignment_cert(
@@ -284,8 +285,9 @@ impl AssignmentCriteria for RealAssignmentCriteria {
 		relay_vrf_story: RelayVRFStory,
 		config: &Config,
 		leaving_cores: Vec<(CandidateHash, CoreIndex, GroupIndex)>,
+		enable_v2_assignments: bool,
 	) -> HashMap<CoreIndex, OurAssignment> {
-		compute_assignments(keystore, relay_vrf_story, config, leaving_cores, false)
+		compute_assignments(keystore, relay_vrf_story, config, leaving_cores, enable_v2_assignments)
 	}
 
 	fn check_assignment_cert(

@@ -129,6 +129,7 @@ ON_BRIDGE_HUB_WESTEND_SOVEREIGN_ACCOUNT_FOR_LANE_00000002_bhro_ThisChain="5EHnXa
 ON_BRIDGE_HUB_WESTEND_SOVEREIGN_ACCOUNT_FOR_LANE_00000002_bhro_BridgedChain="5EHnXaT5BhiSGP5h9RgQci1txJ2BDbp7KBRE9k8xty3BMUSi"
 
 LANE_ID="00000002"
+XCM_VERSION=3
 
 function init_ro_wnd() {
     ensure_relayer
@@ -215,6 +216,14 @@ case "$1" in
           "ws://127.0.0.1:9942" \
           "//Alice" \
           1013 1000 4 524288
+      # set XCM version of remote AssetHubWestend
+      force_xcm_version \
+          "ws://127.0.0.1:9942" \
+          "//Alice" \
+          1000 \
+          "ws://127.0.0.1:9910" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": "Westend" }, { "Parachain": 1000 } ] } }')" \
+          $XCM_VERSION
       ;;
   init-bridge-hub-rococo-local)
       ensure_polkadot_js_api
@@ -236,6 +245,14 @@ case "$1" in
           "//Alice" \
           "$ON_BRIDGE_HUB_ROCOCO_SOVEREIGN_ACCOUNT_FOR_LANE_00000002_bhwd_BridgedChain" \
           $((1000000000000 + 2000000000000))
+      # set XCM version of remote BridgeHubWestend
+      force_xcm_version \
+          "ws://127.0.0.1:9942" \
+          "//Alice" \
+          1013 \
+          "ws://127.0.0.1:8943" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": "Westend" }, { "Parachain": 1002 } ] } }')" \
+          $XCM_VERSION
       ;;
   init-asset-hub-westend-local)
       ensure_polkadot_js_api
@@ -264,6 +281,14 @@ case "$1" in
           "ws://127.0.0.1:9945" \
           "//Alice" \
           1002 1000 4 524288
+      # set XCM version of remote AssetHubRococo
+      force_xcm_version \
+          "ws://127.0.0.1:9945" \
+          "//Alice" \
+          1000 \
+          "ws://127.0.0.1:9010" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": "Rococo" }, { "Parachain": 1000 } ] } }')" \
+          $XCM_VERSION
       ;;
   init-bridge-hub-westend-local)
       # SA of sibling asset hub pays for the execution
@@ -284,6 +309,14 @@ case "$1" in
           "//Alice" \
           "$ON_BRIDGE_HUB_WESTEND_SOVEREIGN_ACCOUNT_FOR_LANE_00000002_bhro_BridgedChain" \
           $((1000000000000000 + 2000000000000))
+      # set XCM version of remote BridgeHubRococo
+      force_xcm_version \
+          "ws://127.0.0.1:9945" \
+          "//Alice" \
+          1002 \
+          "ws://127.0.0.1:8945" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": "Rococo" }, { "Parachain": 1013 } ] } }')" \
+          $XCM_VERSION
       ;;
   reserve-transfer-assets-from-asset-hub-rococo-local)
       ensure_polkadot_js_api

@@ -6,6 +6,9 @@ license.workspace = true
 version = "1.0.0"
 description = "Benchmarks for the XCM pallet"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 

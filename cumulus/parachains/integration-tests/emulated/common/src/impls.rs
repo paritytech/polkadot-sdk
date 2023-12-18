@@ -38,7 +38,7 @@ pub use polkadot_runtime_parachains::{
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
 };
 pub use xcm::{
-	prelude::{MultiLocation, OriginKind, Outcome, VersionedXcm},
+	prelude::{MultiLocation, OriginKind, Outcome, VersionedXcm, XcmVersion},
 	v3::Error,
 	DoubleEncoded,
 };
@@ -173,10 +173,14 @@ macro_rules! impl_accounts_helpers_for_relay_chain {
 				pub fn fund_accounts(accounts: Vec<($crate::impls::AccountId, $crate::impls::Balance)>) {
 					<Self as $crate::impls::TestExt>::execute_with(|| {
 						for account in accounts {
+							let who = account.0;
+							let actual = <Self as [<$chain RelayPallet>]>::Balances::free_balance(&who);
+							let actual = actual.saturating_add(<Self as [<$chain RelayPallet>]>::Balances::reserved_balance(&who));
+
 							$crate::impls::assert_ok!(<Self as [<$chain RelayPallet>]>::Balances::force_set_balance(
 								<Self as $crate::impls::Chain>::RuntimeOrigin::root(),
-								account.0.into(),
-								account.1,
+								who.into(),
+								actual.saturating_add(account.1),
 							));
 						}
 					});
@@ -386,13 +390,24 @@ macro_rules! impl_accounts_helpers_for_parachain {
 				pub fn fund_accounts(accounts: Vec<($crate::impls::AccountId, $crate::impls::Balance)>) {
 					<Self as $crate::impls::TestExt>::execute_with(|| {
 						for account in accounts {
+							let who = account.0;
+							let actual = <Self as [<$chain ParaPallet>]>::Balances::free_balance(&who);
+							let actual = actual.saturating_add(<Self as [<$chain ParaPallet>]>::Balances::reserved_balance(&who));
+
 							$crate::impls::assert_ok!(<Self as [<$chain ParaPallet>]>::Balances::force_set_balance(
 								<Self as $crate::impls::Chain>::RuntimeOrigin::root(),
-								account.0.into(),
-								account.1,
+								who.into(),
+								actual.saturating_add(account.1),
 							));
 						}
 					});
+				}
+
+				/// Fund a sovereign account of sibling para.
+				pub fn fund_para_sovereign(sibling_para_id: $crate::impls::ParaId, balance: $crate::impls::Balance) {
+					let sibling_location = Self::sibling_location_of(sibling_para_id);
+					let sovereign_account = Self::sovereign_account_id_of(sibling_location);
+					Self::fund_accounts(vec![(sovereign_account.into(), balance)])
 				}
 
 				/// Return local sovereign account of `para_id` on other `network_id`
@@ -789,4 +804,34 @@ macro_rules! impl_foreign_assets_helpers_for_parachain {
 			}
 		}
 	};
+}
+
+#[macro_export]
+macro_rules! impl_xcm_helpers_for_parachain {
+	( $chain:ident ) => {
+		$crate::impls::paste::paste! {
+			impl<N: $crate::impls::Network> $chain<N> {
+				/// Set XCM version for destination.
+				pub fn force_xcm_version(dest: $crate::impls::MultiLocation, version: $crate::impls::XcmVersion) {
+					<Self as $crate::impls::TestExt>::execute_with(|| {
+						$crate::impls::assert_ok!(<Self as [<$chain ParaPallet>]>::PolkadotXcm::force_xcm_version(
+							<Self as $crate::impls::Chain>::RuntimeOrigin::root(),
+							$crate::impls::bx!(dest),
+							version,
+						));
+					});
+				}
+
+				/// Set default/safe XCM version for runtime.
+				pub fn force_default_xcm_version(version: Option<$crate::impls::XcmVersion>) {
+					<Self as $crate::impls::TestExt>::execute_with(|| {
+						$crate::impls::assert_ok!(<Self as [<$chain ParaPallet>]>::PolkadotXcm::force_default_xcm_version(
+							<Self as $crate::impls::Chain>::RuntimeOrigin::root(),
+							version,
+						));
+					});
+				}
+			}
+		}
+	}
 }

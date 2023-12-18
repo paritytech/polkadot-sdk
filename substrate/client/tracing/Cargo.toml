@@ -9,12 +9,15 @@ repository.workspace = true
 description = "Instrumentation implementation for substrate."
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 ansi_term = "0.12.1"
-atty = "0.2.13"
+is-terminal = "0.4.9"
 chrono = "0.4.27"
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 lazy_static = "1.4.0"

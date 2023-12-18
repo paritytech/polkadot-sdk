@@ -181,7 +181,7 @@ fn service_queues_failing_messages_works() {
 		assert_eq!(MessageQueue::service_queues(1.into_weight()), 1.into_weight());
 		assert_last_event::<Test>(
 			Event::ProcessingFailed {
-				id: blake2_256(b"badformat"),
+				id: blake2_256(b"badformat").into(),
 				origin: MessageOrigin::Here,
 				error: ProcessMessageError::BadFormat,
 			}
@@ -190,7 +190,7 @@ fn service_queues_failing_messages_works() {
 		assert_eq!(MessageQueue::service_queues(1.into_weight()), 1.into_weight());
 		assert_last_event::<Test>(
 			Event::ProcessingFailed {
-				id: blake2_256(b"corrupt"),
+				id: blake2_256(b"corrupt").into(),
 				origin: MessageOrigin::Here,
 				error: ProcessMessageError::Corrupt,
 			}
@@ -199,7 +199,7 @@ fn service_queues_failing_messages_works() {
 		assert_eq!(MessageQueue::service_queues(1.into_weight()), 1.into_weight());
 		assert_last_event::<Test>(
 			Event::ProcessingFailed {
-				id: blake2_256(b"unsupported"),
+				id: blake2_256(b"unsupported").into(),
 				origin: MessageOrigin::Here,
 				error: ProcessMessageError::Unsupported,
 			}
@@ -1264,7 +1264,7 @@ fn permanently_overweight_limit_is_valid_basic() {
 					RuntimeEvent::MessageQueue(Event::Processed {
 						origin: Here,
 						weight_used: 200.into(),
-						id: blake2_256(m.as_bytes()),
+						id: blake2_256(m.as_bytes()).into(),
 						success: true,
 					})
 				);
@@ -1321,7 +1321,7 @@ fn permanently_overweight_limit_is_valid_fuzzy() {
 						RuntimeEvent::MessageQueue(Event::Processed {
 							origin: Here,
 							weight_used: 200.into(),
-							id: blake2_256(m.as_bytes()),
+							id: blake2_256(m.as_bytes()).into(),
 							success: true,
 						})
 					);
@@ -1592,7 +1592,7 @@ fn execute_overweight_respects_suspension() {
 
 		assert_last_event::<Test>(
 			Event::Processed {
-				id: blake2_256(b"weight=5"),
+				id: blake2_256(b"weight=5").into(),
 				origin,
 				weight_used: 5.into_weight(),
 				success: true,
@@ -1619,7 +1619,7 @@ fn service_queue_suspension_ready_ring_works() {
 		MessageQueue::service_queues(Weight::MAX);
 		assert_last_event::<Test>(
 			Event::Processed {
-				id: blake2_256(b"weight=5"),
+				id: blake2_256(b"weight=5").into(),
 				origin,
 				weight_used: 5.into_weight(),
 				success: true,
@@ -1661,4 +1661,175 @@ fn integrity_test_checks_service_weight() {
 			assert!(MessageQueue::do_integrity_test().is_err());
 		}
 	});
+}
+
+/// Test for <https://github.com/paritytech/polkadot-sdk/issues/2319>.
+#[test]
+fn regression_issue_2319() {
+	build_and_execute::<Test>(|| {
+		Callback::set(Box::new(|_, _| {
+			MessageQueue::enqueue_message(mock_helpers::msg("anothermessage"), There);
+		}));
+
+		use MessageOrigin::*;
+		MessageQueue::enqueue_message(msg("callback=0"), Here);
+
+		// while servicing queue Here, "anothermessage" of origin There is enqueued in
+		// "firstmessage"'s process_message
+		assert_eq!(MessageQueue::service_queues(1.into_weight()), 1.into_weight());
+		assert_eq!(MessagesProcessed::take(), vec![(b"callback=0".to_vec(), Here)]);
+
+		assert_eq!(MessageQueue::service_queues(1.into_weight()), 1.into_weight());
+		// It used to fail here but got fixed.
+		assert_eq!(MessagesProcessed::take(), vec![(b"anothermessage".to_vec(), There)]);
+	});
+}
+
+/// Enqueueing a message from within `service_queues` works.
+#[test]
+fn recursive_enqueue_works() {
+	build_and_execute::<Test>(|| {
+		Callback::set(Box::new(|o, i| match i {
+			0 => {
+				MessageQueue::enqueue_message(msg(&format!("callback={}", 1)), *o);
+			},
+			1 => {
+				for _ in 0..100 {
+					MessageQueue::enqueue_message(msg(&format!("callback={}", 2)), *o);
+				}
+				for i in 0..100 {
+					MessageQueue::enqueue_message(msg(&format!("callback={}", 3)), i.into());
+				}
+			},
+			2 | 3 => {
+				MessageQueue::enqueue_message(msg(&format!("callback={}", 4)), *o);
+			},
+			4 => (),
+			_ => unreachable!(),
+		}));
+
+		MessageQueue::enqueue_message(msg("callback=0"), MessageOrigin::Here);
+
+		for _ in 0..402 {
+			assert_eq!(MessageQueue::service_queues(1.into_weight()), 1.into_weight());
+		}
+		assert_eq!(MessageQueue::service_queues(Weight::MAX), Weight::zero());
+
+		assert_eq!(MessagesProcessed::take().len(), 402);
+	});
+}
+
+/// Calling `service_queues` from within `service_queues` is forbidden.
+#[test]
+fn recursive_service_is_forbidden() {
+	use MessageOrigin::*;
+	build_and_execute::<Test>(|| {
+		Callback::set(Box::new(|_, _| {
+			MessageQueue::enqueue_message(msg("m1"), There);
+			// This call will fail since it is recursive. But it will not mess up the state.
+			assert_storage_noop!(MessageQueue::service_queues(10.into_weight()));
+			MessageQueue::enqueue_message(msg("m2"), There);
+		}));
+
+		for _ in 0..5 {
+			MessageQueue::enqueue_message(msg("callback=0"), Here);
+			MessageQueue::service_queues(3.into_weight());
+
+			// All three messages are correctly processed.
+			assert_eq!(
+				MessagesProcessed::take(),
+				vec![
+					(b"callback=0".to_vec(), Here),
+					(b"m1".to_vec(), There),
+					(b"m2".to_vec(), There)
+				]
+			);
+		}
+	});
+}
+
+/// Calling `service_queues` from within `service_queues` is forbidden.
+#[test]
+fn recursive_overweight_while_service_is_forbidden() {
+	use MessageOrigin::*;
+	build_and_execute::<Test>(|| {
+		Callback::set(Box::new(|_, _| {
+			// Check that the message was permanently overweight.
+			assert_last_event::<Test>(
+				Event::OverweightEnqueued {
+					id: blake2_256(b"weight=10"),
+					origin: There,
+					message_index: 0,
+					page_index: 0,
+				}
+				.into(),
+			);
+			// This call will fail since it is recursive. But it will not mess up the state.
+			assert_noop!(
+				<MessageQueue as ServiceQueues>::execute_overweight(
+					10.into_weight(),
+					(There, 0, 0)
+				),
+				ExecuteOverweightError::RecursiveDisallowed
+			);
+		}));
+
+		MessageQueue::enqueue_message(msg("weight=10"), There);
+		MessageQueue::enqueue_message(msg("callback=0"), Here);
+
+		// Mark it as permanently overweight.
+		MessageQueue::service_queues(5.into_weight());
+		assert_ok!(<MessageQueue as ServiceQueues>::execute_overweight(
+			10.into_weight(),
+			(There, 0, 0)
+		));
+	});
+}
+
+/// Calling `reap_page` from within `service_queues` is forbidden.
+#[test]
+fn recursive_reap_page_is_forbidden() {
+	use MessageOrigin::*;
+	build_and_execute::<Test>(|| {
+		Callback::set(Box::new(|_, _| {
+			// This call will fail since it is recursive. But it will not mess up the state.
+			assert_noop!(MessageQueue::do_reap_page(&Here, 0), Error::<Test>::RecursiveDisallowed);
+		}));
+
+		// Create 10 pages more than the stale limit.
+		let n = (MaxStale::get() + 10) as usize;
+		for _ in 0..n {
+			MessageQueue::enqueue_message(msg("weight=2"), Here);
+		}
+
+		// Mark all pages as stale since their message is permanently overweight.
+		MessageQueue::service_queues(1.into_weight());
+		assert_ok!(MessageQueue::do_reap_page(&Here, 0));
+
+		assert_last_event::<Test>(Event::PageReaped { origin: Here, index: 0 }.into());
+	});
+}
+
+#[test]
+fn with_service_mutex_works() {
+	let mut called = 0;
+	with_service_mutex(|| called = 1).unwrap();
+	assert_eq!(called, 1);
+
+	// The outer one is fine but the inner one errors.
+	with_service_mutex(|| with_service_mutex(|| unreachable!()))
+		.unwrap()
+		.unwrap_err();
+	with_service_mutex(|| with_service_mutex(|| unreachable!()).unwrap_err()).unwrap();
+	with_service_mutex(|| {
+		with_service_mutex(|| unreachable!()).unwrap_err();
+		with_service_mutex(|| unreachable!()).unwrap_err();
+		called = 2;
+	})
+	.unwrap();
+	assert_eq!(called, 2);
+
+	// Still works.
+	with_service_mutex(|| called = 3).unwrap();
+	assert_eq!(called, 3);
 }

@@ -17,5 +17,7 @@
 //! Module contains predefined test-case scenarios for "BridgeHub" `Runtime`s.
 
 pub mod test_cases;
+pub mod test_data;
+
 pub use bp_test_utils::test_header;
 pub use parachains_runtimes_test_utils::*;

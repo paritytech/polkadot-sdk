@@ -1,0 +1,5 @@
+error: expected `impl`
+  --> tests/pallet_ui/task_can_only_be_attached_to_impl.rs:30:5
+   |
+30 |     pub struct Task;
+   |     ^^^

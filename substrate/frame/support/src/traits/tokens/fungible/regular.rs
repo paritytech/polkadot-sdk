@@ -514,3 +514,47 @@ pub trait Balanced<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 	fn done_deposit(_who: &AccountId, _amount: Self::Balance) {}
 	fn done_withdraw(_who: &AccountId, _amount: Self::Balance) {}
 }
+
+/// Dummy implementation of [`Inspect`]
+#[cfg(feature = "std")]
+impl<AccountId> Inspect<AccountId> for () {
+	type Balance = u32;
+	fn total_issuance() -> Self::Balance {
+		0
+	}
+	fn minimum_balance() -> Self::Balance {
+		0
+	}
+	fn total_balance(_: &AccountId) -> Self::Balance {
+		0
+	}
+	fn balance(_: &AccountId) -> Self::Balance {
+		0
+	}
+	fn reducible_balance(_: &AccountId, _: Preservation, _: Fortitude) -> Self::Balance {
+		0
+	}
+	fn can_deposit(_: &AccountId, _: Self::Balance, _: Provenance) -> DepositConsequence {
+		DepositConsequence::Success
+	}
+	fn can_withdraw(_: &AccountId, _: Self::Balance) -> WithdrawConsequence<Self::Balance> {
+		WithdrawConsequence::Success
+	}
+}
+
+/// Dummy implementation of [`Unbalanced`]
+#[cfg(feature = "std")]
+impl<AccountId> Unbalanced<AccountId> for () {
+	fn handle_dust(_: Dust<AccountId, Self>) {}
+	fn write_balance(
+		_: &AccountId,
+		_: Self::Balance,
+	) -> Result<Option<Self::Balance>, DispatchError> {
+		Ok(None)
+	}
+	fn set_total_issuance(_: Self::Balance) {}
+}
+
+/// Dummy implementation of [`Mutate`]
+#[cfg(feature = "std")]
+impl<AccountId: Eq> Mutate<AccountId> for () {}

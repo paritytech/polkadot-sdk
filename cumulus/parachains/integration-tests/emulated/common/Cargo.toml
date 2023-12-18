@@ -6,6 +6,9 @@ edition.workspace = true
 license = "Apache-2.0"
 description = "Common resources for integration testing with xcm-emulator"
 
+[lints]
+workspace = true
+
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
 paste = "1.0.14"

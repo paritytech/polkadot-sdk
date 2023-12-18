@@ -1,9 +1,7 @@
 # Deprecation Checklist
 
-This deprecation checklist makes sense while we don’t use [SemVer](https://semver.org/).
-After that, this document will most likely change.
-As deprecation and removal of existing code can happen on any release, we need to be mindful that external builders
-could be impacted by the changes we make.
+Polkadot SDK is under constant development and improvement, thus deprecation and removal of existing code happen often.
+When creating a breaking change we need to be mindful that external builders could be impacted by this.
 The deprecation checklist tries to mitigate this impact, while still keeping the developer experience, the DevEx, as
 smooth as possible.
 

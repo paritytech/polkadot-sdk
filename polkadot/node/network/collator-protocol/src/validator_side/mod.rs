@@ -777,7 +777,7 @@ async fn process_incoming_peer_message<Context>(
 	match msg {
 		Versioned::V1(V1::Declare(collator_id, para_id, signature)) |
 		Versioned::V2(V2::Declare(collator_id, para_id, signature)) |
-		Versioned::VStaging(V2::Declare(collator_id, para_id, signature)) => {
+		Versioned::V3(V2::Declare(collator_id, para_id, signature)) => {
 			if collator_peer_id(&state.peer_data, &collator_id).is_some() {
 				modify_reputation(
 					&mut state.reputation,
@@ -894,7 +894,7 @@ async fn process_incoming_peer_message<Context>(
 			candidate_hash,
 			parent_head_data_hash,
 		}) |
-		Versioned::VStaging(V2::AdvertiseCollation {
+		Versioned::V3(V2::AdvertiseCollation {
 			relay_parent,
 			candidate_hash,
 			parent_head_data_hash,
@@ -923,7 +923,7 @@ async fn process_incoming_peer_message<Context>(
 			},
 		Versioned::V1(V1::CollationSeconded(..)) |
 		Versioned::V2(V2::CollationSeconded(..)) |
-		Versioned::VStaging(V2::CollationSeconded(..)) => {
+		Versioned::V3(V2::CollationSeconded(..)) => {
 			gum::warn!(
 				target: LOG_TARGET,
 				peer_id = ?origin,

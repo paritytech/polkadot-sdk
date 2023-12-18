@@ -6206,7 +6206,7 @@ fn proportional_ledger_slash_works() {
 #[test]
 fn reducing_max_unlocking_chunks_abrupt() {
 	// Concern is on validators only
-	// By Default 11, 10 are stash and ctrl and 21,20
+	// By Default 11, 10 are stash and ctlr and 21,20
 	ExtBuilder::default().build_and_execute(|| {
 		// given a staker at era=10 and MaxUnlockChunks set to 2
 		MaxUnlockingChunks::set(2);
@@ -6865,6 +6865,183 @@ mod ledger {
 				Error::<Test>::NotController
 			);
 			assert_eq!(Payee::<Test>::get(&21), RewardDestination::Stash);
+		})
+	}
+
+	#[test]
+	fn deprecate_controller_batch_works_full_weight() {
+		ExtBuilder::default().build_and_execute(|| {
+			// Given:
+
+			let start = 1001;
+			let mut controllers: Vec<_> = vec![];
+			for n in start..(start + MaxControllersInDeprecationBatch::get()).into() {
+				let ctlr: u64 = n.into();
+				let stash: u64 = (n + 10000).into();
+
+				Ledger::<Test>::insert(
+					ctlr,
+					StakingLedger {
+						controller: None,
+						total: (10 + ctlr).into(),
+						active: (10 + ctlr).into(),
+						..StakingLedger::default_from(stash)
+					},
+				);
+				Bonded::<Test>::insert(stash, ctlr);
+				Payee::<Test>::insert(stash, RewardDestination::Staked);
+
+				controllers.push(ctlr);
+			}
+
+			// When:
+
+			let bounded_controllers: BoundedVec<
+				_,
+				<Test as Config>::MaxControllersInDeprecationBatch,
+			> = BoundedVec::try_from(controllers).unwrap();
+
+			// Only `AdminOrigin` can sign.
+			assert_noop!(
+				Staking::deprecate_controller_batch(
+					RuntimeOrigin::signed(2),
+					bounded_controllers.clone()
+				),
+				BadOrigin
+			);
+
+			let result =
+				Staking::deprecate_controller_batch(RuntimeOrigin::root(), bounded_controllers);
+			assert_ok!(result);
+			assert_eq!(
+				result.unwrap().actual_weight.unwrap(),
+				<Test as Config>::WeightInfo::deprecate_controller_batch(
+					<Test as Config>::MaxControllersInDeprecationBatch::get()
+				)
+			);
+
+			// Then:
+
+			for n in start..(start + MaxControllersInDeprecationBatch::get()).into() {
+				let ctlr: u64 = n.into();
+				let stash: u64 = (n + 10000).into();
+
+				// Ledger no longer keyed by controller.
+				assert_eq!(Ledger::<Test>::get(ctlr), None);
+				// Bonded now maps to the stash.
+				assert_eq!(Bonded::<Test>::get(stash), Some(stash));
+
+				// Ledger is now keyed by stash.
+				let ledger_updated = Ledger::<Test>::get(stash).unwrap();
+				assert_eq!(ledger_updated.stash, stash);
+
+				// Check `active` and `total` values match the original ledger set by controller.
+				assert_eq!(ledger_updated.active, (10 + ctlr).into());
+				assert_eq!(ledger_updated.total, (10 + ctlr).into());
+			}
+		})
+	}
+
+	#[test]
+	fn deprecate_controller_batch_works_half_weight() {
+		ExtBuilder::default().build_and_execute(|| {
+			// Given:
+
+			let start = 1001;
+			let mut controllers: Vec<_> = vec![];
+			for n in start..(start + MaxControllersInDeprecationBatch::get()).into() {
+				let ctlr: u64 = n.into();
+
+				// Only half of entries are unique pairs.
+				let stash: u64 = if n % 2 == 0 { (n + 10000).into() } else { ctlr };
+
+				Ledger::<Test>::insert(
+					ctlr,
+					StakingLedger { controller: None, ..StakingLedger::default_from(stash) },
+				);
+				Bonded::<Test>::insert(stash, ctlr);
+				Payee::<Test>::insert(stash, RewardDestination::Staked);
+
+				controllers.push(ctlr);
+			}
+
+			// When:
+			let bounded_controllers: BoundedVec<
+				_,
+				<Test as Config>::MaxControllersInDeprecationBatch,
+			> = BoundedVec::try_from(controllers.clone()).unwrap();
+
+			let result =
+				Staking::deprecate_controller_batch(RuntimeOrigin::root(), bounded_controllers);
+			assert_ok!(result);
+			assert_eq!(
+				result.unwrap().actual_weight.unwrap(),
+				<Test as Config>::WeightInfo::deprecate_controller_batch(controllers.len() as u32)
+			);
+
+			// Then:
+
+			for n in start..(start + MaxControllersInDeprecationBatch::get()).into() {
+				let unique_pair = n % 2 == 0;
+				let ctlr: u64 = n.into();
+				let stash: u64 = if unique_pair { (n + 10000).into() } else { ctlr };
+
+				// Side effect of migration for unique pair.
+				if unique_pair {
+					assert_eq!(Ledger::<Test>::get(ctlr), None);
+				}
+				// Bonded maps to the stash.
+				assert_eq!(Bonded::<Test>::get(stash), Some(stash));
+
+				// Ledger is keyed by stash.
+				let ledger_updated = Ledger::<Test>::get(stash).unwrap();
+				assert_eq!(ledger_updated.stash, stash);
+			}
+		})
+	}
+
+	#[test]
+	fn deprecate_controller_batch_skips_unmigrated_controller_payees() {
+		ExtBuilder::default().build_and_execute(|| {
+			// Given:
+
+			let stash: u64 = 1000;
+			let ctlr: u64 = 1001;
+
+			Ledger::<Test>::insert(
+				ctlr,
+				StakingLedger { controller: None, ..StakingLedger::default_from(stash) },
+			);
+			Bonded::<Test>::insert(stash, ctlr);
+			#[allow(deprecated)]
+			Payee::<Test>::insert(stash, RewardDestination::Controller);
+
+			// When:
+
+			let bounded_controllers: BoundedVec<
+				_,
+				<Test as Config>::MaxControllersInDeprecationBatch,
+			> = BoundedVec::try_from(vec![ctlr]).unwrap();
+
+			let result =
+				Staking::deprecate_controller_batch(RuntimeOrigin::root(), bounded_controllers);
+			assert_ok!(result);
+			assert_eq!(
+				result.unwrap().actual_weight.unwrap(),
+				<Test as Config>::WeightInfo::deprecate_controller_batch(1 as u32)
+			);
+
+			// Then:
+
+			// Esure deprecation did not happen.
+			assert_eq!(Ledger::<Test>::get(ctlr).is_some(), true);
+
+			// Bonded still keyed by controller.
+			assert_eq!(Bonded::<Test>::get(stash), Some(ctlr));
+
+			// Ledger is still keyed by controller.
+			let ledger_updated = Ledger::<Test>::get(ctlr).unwrap();
+			assert_eq!(ledger_updated.stash, stash);
 		})
 	}
 }

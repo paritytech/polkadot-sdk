@@ -146,7 +146,9 @@ mod tests {
 		AllMessages, AvailabilityDistributionMessage, RuntimeApiMessage, RuntimeApiRequest,
 	};
 	use polkadot_node_subsystem_test_helpers as test_helpers;
-	use polkadot_primitives::{CandidateHash, ExecutorParams, Hash, ValidatorIndex};
+	use polkadot_primitives::{
+		vstaging::NodeFeatures, CandidateHash, ExecutorParams, Hash, ValidatorIndex,
+	};
 	use test_helpers::mock::make_ferdie_keystore;
 
 	use super::*;
@@ -213,6 +215,12 @@ mod tests {
 						RuntimeApiRequest::SessionExecutorParams(_, tx),
 					)) => {
 						tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
+					},
+					AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+						_,
+						RuntimeApiRequest::NodeFeatures(_, si_tx),
+					)) => {
+						si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
 					},
 					AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendRequests(
 						mut reqs,

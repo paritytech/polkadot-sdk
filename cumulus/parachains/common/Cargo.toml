@@ -6,6 +6,9 @@ edition.workspace = true
 description = "Logic which is common to all parachain runtimes"
 license = "Apache-2.0"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 

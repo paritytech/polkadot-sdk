@@ -9,6 +9,9 @@ repository.workspace = true
 description = "Fuzzer for FRAME pallet bags list"
 publish = false
 
+[lints]
+workspace = true
+
 [dependencies]
 honggfuzz = "0.5"
 rand = { version = "0.8", features = ["small_rng", "std"] }

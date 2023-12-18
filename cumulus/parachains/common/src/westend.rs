@@ -13,6 +13,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/// Universally recognized accounts.
+pub mod account {
+	use frame_support::PalletId;
+
+	/// Westend treasury pallet id, used to convert into AccountId - in Westend as a destination for
+	/// slashed funds.
+	pub const WESTEND_TREASURY_PALLET_ID: PalletId = PalletId(*b"py/trsry");
+	/// Alliance pallet ID - used as a temporary place to deposit a slashed imbalance before the
+	/// teleport to the Treasury.
+	pub const ALLIANCE_PALLET_ID: PalletId = PalletId(*b"py/allia");
+	/// Referenda pallet ID - used as a temporary place to deposit a slashed imbalance before the
+	/// teleport to the Treasury.
+	pub const REFERENDA_PALLET_ID: PalletId = PalletId(*b"py/refer");
+	/// Ambassador Referenda pallet ID - used as a temporary place to deposit a slashed imbalance
+	/// before the teleport to the Treasury.
+	pub const AMBASSADOR_REFERENDA_PALLET_ID: PalletId = PalletId(*b"py/amref");
+	/// Fellowship treasury pallet ID.
+	pub const FELLOWSHIP_TREASURY_PALLET_ID: PalletId = PalletId(*b"py/feltr");
+}
+
 pub mod currency {
 	use polkadot_core_primitives::Balance;
 	use westend_runtime_constants as constants;
@@ -21,6 +41,7 @@ pub mod currency {
 	pub const EXISTENTIAL_DEPOSIT: Balance = constants::currency::EXISTENTIAL_DEPOSIT / 10;
 
 	pub const UNITS: Balance = constants::currency::UNITS;
+	pub const DOLLARS: Balance = UNITS; // 1_000_000_000_000
 	pub const CENTS: Balance = constants::currency::CENTS;
 	pub const MILLICENTS: Balance = constants::currency::MILLICENTS;
 	pub const GRAND: Balance = constants::currency::GRAND;
@@ -44,7 +65,7 @@ pub mod fee {
 	use smallvec::smallvec;
 	pub use sp_runtime::Perbill;
 
-	/// The block saturation level. Fees will be updates based on this value.
+	/// The block saturation level. Fees will be updated based on this value.
 	pub const TARGET_BLOCK_FULLNESS: Perbill = Perbill::from_percent(25);
 
 	/// Handles converting a weight scalar to a fee value, based on the scale and granularity of the
@@ -110,11 +131,11 @@ pub mod fee {
 
 /// Consensus-related.
 pub mod consensus {
-	/// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
-	/// into the relay chain.
+	/// Maximum number of blocks simultaneously accepted by the Runtime, not yet included into the
+	/// relay chain.
 	pub const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
-	/// How many parachain blocks are processed by the relay chain per parent. Limits the
-	/// number of blocks authored per slot.
+	/// How many parachain blocks are processed by the relay chain per parent. Limits the number of
+	/// blocks authored per slot.
 	pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
 	/// Relay chain slot duration, in milliseconds.
 	pub const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;

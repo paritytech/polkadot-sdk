@@ -438,6 +438,7 @@ cargo-check-each-crate:
     - .run-immediately
     # - .collect-artifacts
   variables:
+    RUSTFLAGS: "-D warnings"
     # $CI_JOB_NAME is set manually so that cache could be shared for all jobs
     # "cargo-check-each-crate I/N" jobs
     CI_JOB_NAME: cargo-check-each-crate

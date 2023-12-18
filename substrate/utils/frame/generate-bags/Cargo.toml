@@ -8,6 +8,9 @@ homepage = "https://substrate.io"
 repository.workspace = true
 description = "Bag threshold generation script for pallet-bag-list"
 
+[lints]
+workspace = true
+
 [dependencies]
 # FRAME
 frame-support = { path = "../../../frame/support" }

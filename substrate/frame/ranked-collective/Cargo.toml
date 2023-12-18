@@ -9,6 +9,9 @@ repository.workspace = true
 description = "Ranked collective system: Members of a set of account IDs can make their collective feelings known through dispatched calls from one of two specialized origins."
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 

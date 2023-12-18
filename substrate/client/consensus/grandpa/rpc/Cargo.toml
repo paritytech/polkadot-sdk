@@ -9,6 +9,9 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 readme = "README.md"
 homepage = "https://substrate.io"
 
+[lints]
+workspace = true
+
 [dependencies]
 finality-grandpa = { version = "0.16.2", features = ["derive-codec"] }
 futures = "0.3.16"

@@ -57,8 +57,8 @@ use polkadot_node_subsystem_test_helpers::{
 	subsystem_test_harness, TestSubsystemContextHandle,
 };
 use polkadot_primitives::{
-	AuthorityDiscoveryId, CandidateHash, CandidateReceipt, ExecutorParams, Hash, SessionIndex,
-	SessionInfo,
+	vstaging::NodeFeatures, AuthorityDiscoveryId, CandidateHash, CandidateReceipt, ExecutorParams,
+	Hash, SessionIndex, SessionInfo,
 };
 
 use self::mock::{
@@ -646,6 +646,16 @@ async fn nested_network_dispute_request<'a, F, O>(
 			},
 			unexpected => panic!("Unexpected message {:?}", unexpected),
 		}
+
+		match handle.recv().await {
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::NodeFeatures(_, si_tx),
+			)) => {
+				si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+			},
+			unexpected => panic!("Unexpected message {:?}", unexpected),
+		}
 	}
 
 	// Import should get initiated:
@@ -771,6 +781,14 @@ async fn activate_leaf(
 				assert_eq!(h, activate);
 				assert_eq!(session_index, session_idx);
 				tx.send(Ok(Some(ExecutorParams::default()))).expect("Receiver should stay alive.");
+			}
+		);
+		assert_matches!(
+			handle.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
+			) => {
+				si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
 			}
 		);
 	}

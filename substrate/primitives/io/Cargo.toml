@@ -11,6 +11,9 @@ documentation = "https://docs.rs/sp-io"
 readme = "README.md"
 build = "build.rs"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 

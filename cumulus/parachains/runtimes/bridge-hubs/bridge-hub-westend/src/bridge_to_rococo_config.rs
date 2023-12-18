@@ -18,8 +18,8 @@
 
 use crate::{
 	bridge_common_config::DeliveryRewardInBalance, weights, xcm_config::UniversalLocation,
-	AccountId, BridgeRococoMessages, Runtime, RuntimeEvent, RuntimeOrigin, XcmOverBridgeHubRococo,
-	XcmRouter,
+	AccountId, BridgeRococoMessages, PolkadotXcm, Runtime, RuntimeEvent, RuntimeOrigin,
+	XcmOverBridgeHubRococo, XcmRouter,
 };
 use bp_messages::LaneId;
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
@@ -32,7 +32,7 @@ use bridge_runtime_common::{
 	},
 	messages_xcm_extension::{
 		SenderAndLane, XcmAsPlainPayload, XcmBlobHauler, XcmBlobHaulerAdapter,
-		XcmBlobMessageDispatch,
+		XcmBlobMessageDispatch, XcmVersionOfDestAndRemoteBridge,
 	},
 	refund_relayer_extension::{
 		ActualFeeRefund, RefundBridgedParachainMessages, RefundSignedExtensionAdapter,
@@ -65,6 +65,10 @@ parameter_types! {
 	pub const BridgeHubRococoChainId: bp_runtime::ChainId = bp_runtime::BRIDGE_HUB_ROCOCO_CHAIN_ID;
 	pub BridgeWestendToRococoMessagesPalletInstance: InteriorMultiLocation = X1(PalletInstance(<BridgeRococoMessages as PalletInfoAccess>::index() as u8));
 	pub RococoGlobalConsensusNetwork: NetworkId = NetworkId::Rococo;
+	pub RococoGlobalConsensusNetworkLocation: MultiLocation = MultiLocation {
+		parents: 2,
+		interior: X1(GlobalConsensus(RococoGlobalConsensusNetwork::get()))
+	};
 	// see the `FEE_BOOST_PER_MESSAGE` constant to get the meaning of this value
 	pub PriorityBoostPerMessage: u64 = 182_044_444_444_444;
 
@@ -87,6 +91,14 @@ parameter_types! {
 
 	pub CongestedMessage: Xcm<()> = build_congestion_message(true).into();
 	pub UncongestedMessage: Xcm<()> = build_congestion_message(false).into();
+
+	pub BridgeHubRococoLocation: MultiLocation = MultiLocation {
+		parents: 2,
+		interior: X2(
+			GlobalConsensus(RococoGlobalConsensusNetwork::get()),
+			Parachain(<bp_bridge_hub_rococo::BridgeHubRococo as bp_runtime::Parachain>::PARACHAIN_ID)
+		)
+	};
 }
 pub const XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO: LaneId = LaneId([0, 0, 0, 2]);
 
@@ -260,9 +272,10 @@ impl pallet_bridge_messages::Config<WithBridgeHubRococoMessagesInstance> for Run
 pub type XcmOverBridgeHubRococoInstance = pallet_xcm_bridge_hub::Instance1;
 impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubRococoInstance> for Runtime {
 	type UniversalLocation = UniversalLocation;
-	type BridgedNetworkId = RococoGlobalConsensusNetwork;
+	type BridgedNetwork = RococoGlobalConsensusNetworkLocation;
 	type BridgeMessagesPalletInstance = WithBridgeHubRococoMessagesInstance;
 	type MessageExportPrice = ();
+	type DestinationVersion = XcmVersionOfDestAndRemoteBridge<PolkadotXcm, BridgeHubRococoLocation>;
 	type Lanes = ActiveLanes;
 	type LanesSupport = ToBridgeHubRococoXcmBlobHauler;
 }

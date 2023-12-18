@@ -10,6 +10,9 @@ description = "FRAME Timestamp Module"
 documentation = "https://docs.rs/pallet-timestamp"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 

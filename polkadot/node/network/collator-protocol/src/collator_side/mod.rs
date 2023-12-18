@@ -882,7 +882,7 @@ async fn handle_incoming_peer_message<Context>(
 	match msg {
 		Versioned::V1(V1::Declare(..)) |
 		Versioned::V2(V2::Declare(..)) |
-		Versioned::VStaging(V2::Declare(..)) => {
+		Versioned::V3(V2::Declare(..)) => {
 			gum::trace!(
 				target: LOG_TARGET,
 				?origin,
@@ -895,7 +895,7 @@ async fn handle_incoming_peer_message<Context>(
 		},
 		Versioned::V1(V1::AdvertiseCollation(_)) |
 		Versioned::V2(V2::AdvertiseCollation { .. }) |
-		Versioned::VStaging(V2::AdvertiseCollation { .. }) => {
+		Versioned::V3(V2::AdvertiseCollation { .. }) => {
 			gum::trace!(
 				target: LOG_TARGET,
 				?origin,
@@ -911,7 +911,7 @@ async fn handle_incoming_peer_message<Context>(
 		},
 		Versioned::V1(V1::CollationSeconded(relay_parent, statement)) |
 		Versioned::V2(V2::CollationSeconded(relay_parent, statement)) |
-		Versioned::VStaging(V2::CollationSeconded(relay_parent, statement)) => {
+		Versioned::V3(V2::CollationSeconded(relay_parent, statement)) => {
 			if !matches!(statement.unchecked_payload(), Statement::Seconded(_)) {
 				gum::warn!(
 					target: LOG_TARGET,

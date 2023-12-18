@@ -8,6 +8,9 @@ repository.workspace = true
 description = "A no-std/Substrate compatible library to construct binary merkle tree."
 homepage = "https://substrate.io"
 
+[lints]
+workspace = true
+
 [dependencies]
 array-bytes = { version = "6.1", optional = true }
 log = { version = "0.4", default-features = false, optional = true }

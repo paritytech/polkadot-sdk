@@ -1,0 +1,9 @@
+title: Add `on-chain-release-build` feature for Collectives Westend
+author: liamaharon
+topic: System Parachains
+
+doc:
+  - audience: Runtime Dev
+    description: n/a
+
+crates: []

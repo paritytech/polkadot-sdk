@@ -22,7 +22,9 @@
 pub mod bench_utils;
 
 pub mod chain_spec;
-mod genesis;
+
+/// Utilities for creating test genesis block and head data
+pub mod genesis;
 
 use runtime::AccountId;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};

@@ -89,6 +89,8 @@ pub mod pallet {
 		/// **possible fee**. Allows to externalize better control over allowed **bridged
 		/// networks/locations**.
 		type Bridges: ExporterFor;
+		/// Checks the XCM version for the destination.
+		type DestinationVersion: GetVersion;
 
 		/// Origin of the sibling bridge hub that is allowed to report bridge status.
 		type BridgeHubOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -319,18 +321,31 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 		dest: &mut Option<MultiLocation>,
 		xcm: &mut Option<Xcm<()>>,
 	) -> SendResult<Self::Ticket> {
-		// we won't have an access to `dest` and `xcm` in the `delvier` method, so precompute
+		// `dest` and `xcm` are required here
+		let dest_ref = dest.as_ref().ok_or(SendError::MissingArgument)?;
+		let xcm_ref = xcm.as_ref().ok_or(SendError::MissingArgument)?;
+
+		// we won't have an access to `dest` and `xcm` in the `deliver` method, so precompute
 		// everything required here
-		let message_size = xcm
-			.as_ref()
-			.map(|xcm| xcm.encoded_size() as _)
-			.ok_or(SendError::MissingArgument)?;
+		let message_size = xcm_ref.encoded_size() as _;
 
 		// bridge doesn't support oversized/overweight messages now. So it is better to drop such
 		// messages here than at the bridge hub. Let's check the message size.
 		if message_size > HARD_MESSAGE_SIZE_LIMIT {
 			return Err(SendError::ExceedsMaxMessageSize)
 		}
+
+		// We need to ensure that the known `dest`'s XCM version can comprehend the current `xcm`
+		// program. This may seem like an additional, unnecessary check, but it is not. A similar
+		// check is probably performed by the `ViaBridgeHubExporter`, which attempts to send a
+		// versioned message to the sibling bridge hub. However, the local bridge hub may have a
+		// higher XCM version than the remote `dest`. Once again, it is better to discard such
+		// messages here than at the bridge hub (e.g., to avoid losing funds).
+		let destination_version = T::DestinationVersion::get_version_for(dest_ref)
+			.ok_or(SendError::DestinationUnsupported)?;
+		let _ = VersionedXcm::from(xcm_ref.clone())
+			.into_version(destination_version)
+			.map_err(|()| SendError::DestinationUnsupported)?;
 
 		// just use exporter to validate destination and insert instructions to pay message fee
 		// at the sibling/child bridge hub
@@ -358,6 +373,7 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use frame_support::assert_ok;
 	use mock::*;
 
 	use frame_support::traits::Hooks;
@@ -452,6 +468,19 @@ mod tests {
 	}
 
 	#[test]
+	fn destination_unsupported_if_wrap_version_fails() {
+		run_test(|| {
+			assert_eq!(
+				send_xcm::<XcmBridgeHubRouter>(
+					UnknownXcmVersionLocation::get(),
+					vec![ClearOrigin].into(),
+				),
+				Err(SendError::DestinationUnsupported),
+			);
+		});
+	}
+
+	#[test]
 	fn returns_proper_delivery_price() {
 		run_test(|| {
 			let dest = MultiLocation::new(2, X1(GlobalConsensus(BridgedNetworkId::get())));
@@ -488,17 +517,14 @@ mod tests {
 	fn sent_message_doesnt_increase_factor_if_xcm_channel_is_uncongested() {
 		run_test(|| {
 			let old_bridge = XcmBridgeHubRouter::bridge();
-			assert_eq!(
-				send_xcm::<XcmBridgeHubRouter>(
-					MultiLocation::new(
-						2,
-						X2(GlobalConsensus(BridgedNetworkId::get()), Parachain(1000))
-					),
-					vec![ClearOrigin].into(),
-				)
-				.map(drop),
-				Ok(()),
-			);
+			assert_ok!(send_xcm::<XcmBridgeHubRouter>(
+				MultiLocation::new(
+					2,
+					X2(GlobalConsensus(BridgedNetworkId::get()), Parachain(1000))
+				),
+				vec![ClearOrigin].into(),
+			)
+			.map(drop));
 
 			assert!(TestToBridgeHubSender::is_message_sent());
 			assert_eq!(old_bridge, XcmBridgeHubRouter::bridge());
@@ -511,17 +537,14 @@ mod tests {
 			TestWithBridgeHubChannel::make_congested();
 
 			let old_bridge = XcmBridgeHubRouter::bridge();
-			assert_eq!(
-				send_xcm::<XcmBridgeHubRouter>(
-					MultiLocation::new(
-						2,
-						X2(GlobalConsensus(BridgedNetworkId::get()), Parachain(1000))
-					),
-					vec![ClearOrigin].into(),
-				)
-				.map(drop),
-				Ok(()),
-			);
+			assert_ok!(send_xcm::<XcmBridgeHubRouter>(
+				MultiLocation::new(
+					2,
+					X2(GlobalConsensus(BridgedNetworkId::get()), Parachain(1000))
+				),
+				vec![ClearOrigin].into(),
+			)
+			.map(drop));
 
 			assert!(TestToBridgeHubSender::is_message_sent());
 			assert!(
@@ -536,17 +559,14 @@ mod tests {
 			Bridge::<TestRuntime, ()>::put(congested_bridge(MINIMAL_DELIVERY_FEE_FACTOR));
 
 			let old_bridge = XcmBridgeHubRouter::bridge();
-			assert_eq!(
-				send_xcm::<XcmBridgeHubRouter>(
-					MultiLocation::new(
-						2,
-						X2(GlobalConsensus(BridgedNetworkId::get()), Parachain(1000))
-					),
-					vec![ClearOrigin].into(),
-				)
-				.map(drop),
-				Ok(()),
-			);
+			assert_ok!(send_xcm::<XcmBridgeHubRouter>(
+				MultiLocation::new(
+					2,
+					X2(GlobalConsensus(BridgedNetworkId::get()), Parachain(1000))
+				),
+				vec![ClearOrigin].into(),
+			)
+			.map(drop));
 
 			assert!(TestToBridgeHubSender::is_message_sent());
 			assert!(

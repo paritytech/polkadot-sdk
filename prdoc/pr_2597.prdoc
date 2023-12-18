@@ -1,0 +1,17 @@
+title: Make crate visible methods of `OverlayedChanges` public.
+
+doc:
+  - audience: Node Dev
+    description: | 
+      Make some methods of `OverlayedChanges` namely `set_child_storage`, `clear_child_storage`, `clear_prefix` 
+      and `clear_child_prefix` public which only had crate level visibility.
+
+migrations:
+  db: []
+
+  runtime: []
+
+crates:
+  - name: sp-state-machine
+
+host_functions: []

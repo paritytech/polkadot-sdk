@@ -142,7 +142,6 @@ pub use crate::{
 mod std_reexport {
 	pub use crate::{
 		basic::BasicExternalities,
-		error::{Error, ExecutionError},
 		in_memory_backend::new_in_mem,
 		read_only::{InspectState, ReadOnlyExternalities},
 		testing::TestExternalities,

@@ -7,6 +7,9 @@ license = "Apache-2.0"
 description = "Bridge Hub Rococo emulated chain"
 publish = false
 
+[lints]
+workspace = true
+
 [dependencies]
 serde_json = "1.0.104"
 

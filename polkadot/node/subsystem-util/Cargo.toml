@@ -6,8 +6,11 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
-async-trait = "0.1.57"
+async-trait = "0.1.74"
 futures = "0.3.21"
 futures-channel = "0.3.23"
 itertools = "0.10"

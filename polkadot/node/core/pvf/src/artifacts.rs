@@ -201,13 +201,20 @@ impl Artifacts {
 	/// Create an empty table and populate it with valid artifacts as [`ArtifactState::Prepared`],
 	/// if any. The existing caches will be checked by their file name to determine whether they are
 	/// valid, e.g., matching the current node version. The ones deemed invalid will be pruned.
+	///
+	/// Create the cache directory on-disk if it doesn't exist.
 	pub async fn new_and_prune(cache_path: &Path) -> Self {
 		let mut artifacts = Self { inner: HashMap::new() };
-		artifacts.insert_and_prune(cache_path).await;
+		let _ = artifacts.insert_and_prune(cache_path).await.map_err(|err| {
+			gum::error!(
+				target: LOG_TARGET,
+				"could not initialize artifacts cache: {err}",
+			)
+		});
 		artifacts
 	}
 
-	async fn insert_and_prune(&mut self, cache_path: &Path) {
+	async fn insert_and_prune(&mut self, cache_path: &Path) -> Result<(), String> {
 		async fn is_corrupted(path: &Path) -> bool {
 			let checksum = match tokio::fs::read(path).await {
 				Ok(bytes) => blake3::hash(&bytes),
@@ -237,24 +244,16 @@ impl Artifacts {
 			artifacts: &mut Artifacts,
 			entry: &tokio::fs::DirEntry,
 			cache_path: &Path,
-		) {
+		) -> Result<(), String> {
 			let file_type = entry.file_type().await;
 			let file_name = entry.file_name();
 
 			match file_type {
 				Ok(file_type) =>
 					if !file_type.is_file() {
-						return
+						return Ok(())
 					},
-				Err(err) => {
-					gum::warn!(
-						target: LOG_TARGET,
-						?err,
-						"unable to get file type for {:?}",
-						file_name,
-					);
-					return
-				},
+				Err(err) => return Err(format!("unable to get file type for {file_name:?}: {err}")),
 			}
 
 			if let Some(file_name) = file_name.to_str() {
@@ -262,73 +261,51 @@ impl Artifacts {
 				let path = cache_path.join(file_name);
 
 				if id.is_none() || is_corrupted(&path).await {
-					gum::warn!(
-						target: LOG_TARGET,
-						"discarding invalid artifact {:?}",
-						&path,
-					);
 					let _ = tokio::fs::remove_file(&path).await;
-					return
+					return Err(format!("invalid artifact {path:?}, file deleted"))
 				}
 
-				if let Some(id) = id {
-					gum::debug!(
-						target: LOG_TARGET,
-						"reusing existing {:?} for node version v{}",
-						&path,
-						NODE_VERSION,
-					);
-					artifacts.insert_prepared(id, path, SystemTime::now(), Default::default());
-				}
-			} else {
-				gum::warn!(
+				let id = id.expect("checked is_none() above; qed");
+				gum::debug!(
 					target: LOG_TARGET,
-					"non-Unicode file name {:?} found in {:?}",
-					file_name,
-					cache_path,
+					"reusing existing {:?} for node version v{}",
+					&path,
+					NODE_VERSION,
 				);
+				artifacts.insert_prepared(id, path, SystemTime::now(), Default::default());
+
+				Ok(())
+			} else {
+				Err(format!("non-Unicode file name {file_name:?} found in {cache_path:?}"))
 			}
 		}
 
 		// Make sure that the cache path directory and all its parents are created.
 		if let Err(err) = tokio::fs::create_dir_all(cache_path).await {
 			if err.kind() != io::ErrorKind::AlreadyExists {
-				gum::error!(
-					target: LOG_TARGET,
-					?err,
-					"failed to create dir {:?}",
-					cache_path,
-				);
-				return
+				return Err(format!("failed to create dir {cache_path:?}: {err}"))
 			}
 		}
 
-		let mut dir = match tokio::fs::read_dir(cache_path).await {
-			Ok(dir) => dir,
-			Err(err) => {
-				gum::error!(
-					target: LOG_TARGET,
-					?err,
-					"failed to read dir {:?}",
-					cache_path,
-				);
-				return
-			},
-		};
+		let mut dir = tokio::fs::read_dir(cache_path)
+			.await
+			.map_err(|err| format!("failed to read dir {cache_path:?}: {err}"))?;
 
 		loop {
 			match dir.next_entry().await {
-				Ok(Some(entry)) => insert_or_prune(self, &entry, cache_path).await,
-				Ok(None) => break,
-				Err(err) => {
-					gum::warn!(
-						target: LOG_TARGET,
-						?err,
-						"error processing artifacts in {:?}",
-						cache_path,
-					);
-					break
-				},
+				Ok(Some(entry)) =>
+					if let Err(err) = insert_or_prune(self, &entry, cache_path).await {
+						gum::warn!(
+							target: LOG_TARGET,
+							?cache_path,
+							"could not insert entry {:?} into the artifact cache: {}",
+							entry,
+							err,
+						)
+					},
+				Ok(None) => return Ok(()),
+				Err(err) =>
+					return Err(format!("error processing artifacts in {cache_path:?}: {err}")),
 			}
 		}
 	}

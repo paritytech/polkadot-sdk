@@ -55,7 +55,7 @@ fn add_vesting_schedules<T: Config>(
 	let source_lookup = T::Lookup::unlookup(source.clone());
 	T::Currency::make_free_balance_be(&source, BalanceOf::<T>::max_value());
 
-	System::<T>::set_block_number(BlockNumberFor::<T>::zero());
+	T::BlockNumberProvider::set_block_number(BlockNumberFor::<T>::zero());
 
 	let mut total_locked: BalanceOf<T> = Zero::zero();
 	for _ in 0..n {
@@ -116,7 +116,7 @@ benchmarks! {
 		add_vesting_schedules::<T>(caller_lookup, s)?;
 
 		// At block 21, everything is unlocked.
-		System::<T>::set_block_number(21u32.into());
+		T::BlockNumberProvider::set_block_number(21u32.into());
 		assert_eq!(
 			Vesting::<T>::vesting_balance(&caller),
 			Some(BalanceOf::<T>::zero()),
@@ -173,7 +173,7 @@ benchmarks! {
 		add_locks::<T>(&other, l as u8);
 		add_vesting_schedules::<T>(other_lookup.clone(), s)?;
 		// At block 21 everything is unlocked.
-		System::<T>::set_block_number(21u32.into());
+		T::BlockNumberProvider::set_block_number(21u32.into());
 
 		assert_eq!(
 			Vesting::<T>::vesting_balance(&other),
@@ -335,7 +335,7 @@ benchmarks! {
 		let total_transferred = add_vesting_schedules::<T>(caller_lookup, s)?;
 
 		// Go to about half way through all the schedules duration. (They all start at 1, and have a duration of 20 or 21).
-		System::<T>::set_block_number(11u32.into());
+		T::BlockNumberProvider::set_block_number(11u32.into());
 		// We expect half the original locked balance (+ any remainder that vests on the last block).
 		let expected_balance = total_transferred / 2u32.into();
 		assert_eq!(

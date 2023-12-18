@@ -18,11 +18,14 @@
 
 #![warn(missing_docs)]
 
+use polkadot_erasure_coding::{branches, obtain_chunks_v1 as obtain_chunks};
+use polkadot_node_primitives::{AvailableData, ErasureChunk, Proof};
 use polkadot_node_subsystem::{
 	messages::AllMessages, overseer, FromOrchestra, OverseerSignal, SpawnGlue, SpawnedSubsystem,
 	SubsystemError, SubsystemResult, TrySendError,
 };
 use polkadot_node_subsystem_util::TimeoutExt;
+use polkadot_primitives::{Hash, ValidatorIndex};
 
 use futures::{channel::mpsc, poll, prelude::*};
 use parking_lot::Mutex;
@@ -438,6 +441,34 @@ impl Future for Yield {
 			Poll::Ready(())
 		}
 	}
+}
+
+/// Helper for chunking available data.
+pub fn derive_erasure_chunks_with_proofs_and_root(
+	n_validators: usize,
+	available_data: &AvailableData,
+	alter_chunk: impl Fn(usize, &mut Vec<u8>),
+) -> (Vec<ErasureChunk>, Hash) {
+	let mut chunks: Vec<Vec<u8>> = obtain_chunks(n_validators, available_data).unwrap();
+
+	for (i, chunk) in chunks.iter_mut().enumerate() {
+		alter_chunk(i, chunk)
+	}
+
+	// create proofs for each erasure chunk
+	let branches = branches(chunks.as_ref());
+
+	let root = branches.root();
+	let erasure_chunks = branches
+		.enumerate()
+		.map(|(index, (proof, chunk))| ErasureChunk {
+			chunk: chunk.to_vec(),
+			index: ValidatorIndex(index as _),
+			proof: Proof::try_from(proof).unwrap(),
+		})
+		.collect::<Vec<ErasureChunk>>();
+
+	(erasure_chunks, root)
 }
 
 #[cfg(test)]

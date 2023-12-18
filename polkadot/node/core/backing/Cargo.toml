@@ -6,6 +6,9 @@ edition.workspace = true
 license.workspace = true
 description = "The Candidate Backing Subsystem. Tracks parachain candidates that can be backed, as well as the issuance of statements about candidates."
 
+[lints]
+workspace = true
+
 [dependencies]
 futures = "0.3.21"
 sp-keystore = { path = "../../../../substrate/primitives/keystore" }

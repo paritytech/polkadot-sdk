@@ -25,11 +25,11 @@ use frame_system::pallet_prelude::*;
 use parity_scale_codec::{Decode, Encode};
 use polkadot_runtime_metrics::get_current_time;
 use primitives::{
-	byzantine_threshold, supermajority_threshold, ApprovalVote, CandidateHash,
-	CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CompactStatement, ConsensusLog,
-	DisputeState, DisputeStatement, DisputeStatementSet, ExplicitDisputeStatement,
-	InvalidDisputeStatementKind, MultiDisputeStatementSet, SessionIndex, SigningContext,
-	ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorSignature,
+	byzantine_threshold, supermajority_threshold, vstaging::ApprovalVoteMultipleCandidates,
+	ApprovalVote, CandidateHash, CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet,
+	CompactStatement, ConsensusLog, DisputeState, DisputeStatement, DisputeStatementSet,
+	ExplicitDisputeStatement, InvalidDisputeStatementKind, MultiDisputeStatementSet, SessionIndex,
+	SigningContext, ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -952,6 +952,8 @@ impl<T: Config> Pallet<T> {
 			None => return StatementSetFilter::RemoveAll,
 		};
 
+		let config = <configuration::Pallet<T>>::config();
+
 		let n_validators = session_info.validators.len();
 
 		// Check for ancient.
@@ -1015,7 +1017,14 @@ impl<T: Config> Pallet<T> {
 					set.session,
 					statement,
 					signature,
+					// This is here to prevent malicious nodes of generating
+					// `ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates` before that
+					// is enabled, via setting `max_approval_coalesce_count` in the parachain host
+					// config.
+					config.approval_voting_params.max_approval_coalesce_count > 1,
 				) {
+					log::warn!("Failed to check dispute signature");
+
 					importer.undo(undo);
 					filter.remove_index(i);
 					continue
@@ -1260,22 +1269,31 @@ fn check_signature(
 	session: SessionIndex,
 	statement: &DisputeStatement,
 	validator_signature: &ValidatorSignature,
+	approval_multiple_candidates_enabled: bool,
 ) -> Result<(), ()> {
-	let payload = match *statement {
+	let payload = match statement {
 		DisputeStatement::Valid(ValidDisputeStatementKind::Explicit) =>
 			ExplicitDisputeStatement { valid: true, candidate_hash, session }.signing_payload(),
 		DisputeStatement::Valid(ValidDisputeStatementKind::BackingSeconded(inclusion_parent)) =>
 			CompactStatement::Seconded(candidate_hash).signing_payload(&SigningContext {
 				session_index: session,
-				parent_hash: inclusion_parent,
+				parent_hash: *inclusion_parent,
 			}),
 		DisputeStatement::Valid(ValidDisputeStatementKind::BackingValid(inclusion_parent)) =>
 			CompactStatement::Valid(candidate_hash).signing_payload(&SigningContext {
 				session_index: session,
-				parent_hash: inclusion_parent,
+				parent_hash: *inclusion_parent,
 			}),
 		DisputeStatement::Valid(ValidDisputeStatementKind::ApprovalChecking) =>
 			ApprovalVote(candidate_hash).signing_payload(session),
+		DisputeStatement::Valid(ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(
+			candidates,
+		)) =>
+			if approval_multiple_candidates_enabled && candidates.contains(&candidate_hash) {
+				ApprovalVoteMultipleCandidates(candidates).signing_payload(session)
+			} else {
+				return Err(())
+			},
 		DisputeStatement::Invalid(InvalidDisputeStatementKind::Explicit) =>
 			ExplicitDisputeStatement { valid: false, candidate_hash, session }.signing_payload(),
 	};

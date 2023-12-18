@@ -41,7 +41,7 @@ use crate::validator_discovery;
 /// Defines the `Network` trait with an implementation for an `Arc<NetworkService>`.
 use crate::network::{
 	send_collation_message_v1, send_collation_message_v2, send_validation_message_v1,
-	send_validation_message_v2, send_validation_message_vstaging, Network,
+	send_validation_message_v2, send_validation_message_v3, Network,
 };
 
 use crate::metrics::Metrics;
@@ -205,7 +205,7 @@ where
 					&metrics,
 					notification_sinks,
 				),
-				Versioned::VStaging(msg) => send_validation_message_vstaging(
+				Versioned::V3(msg) => send_validation_message_v3(
 					peers,
 					WireMessage::ProtocolMessage(msg),
 					&metrics,
@@ -235,7 +235,7 @@ where
 						&metrics,
 						notification_sinks,
 					),
-					Versioned::VStaging(msg) => send_validation_message_vstaging(
+					Versioned::V3(msg) => send_validation_message_v3(
 						peers,
 						WireMessage::ProtocolMessage(msg),
 						&metrics,
@@ -264,7 +264,7 @@ where
 					&metrics,
 					notification_sinks,
 				),
-				Versioned::V2(msg) | Versioned::VStaging(msg) => send_collation_message_v2(
+				Versioned::V2(msg) | Versioned::V3(msg) => send_collation_message_v2(
 					peers,
 					WireMessage::ProtocolMessage(msg),
 					&metrics,
@@ -287,7 +287,7 @@ where
 						&metrics,
 						notification_sinks,
 					),
-					Versioned::V2(msg) | Versioned::VStaging(msg) => send_collation_message_v2(
+					Versioned::V2(msg) | Versioned::V3(msg) => send_collation_message_v2(
 						peers,
 						WireMessage::ProtocolMessage(msg),
 						&metrics,

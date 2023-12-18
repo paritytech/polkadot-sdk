@@ -30,10 +30,12 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_types::UnpinHandle;
 use polkadot_primitives::{
-	slashing, vstaging::NodeFeatures, AsyncBackingParams, CandidateEvent, CandidateHash, CoreState,
-	EncodeAs, ExecutorParams, GroupIndex, GroupRotationInfo, Hash, IndexedVec, OccupiedCore,
-	ScrapedOnChainVotes, SessionIndex, SessionInfo, Signed, SigningContext, UncheckedSigned,
-	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, LEGACY_MIN_BACKING_VOTES,
+	slashing,
+	vstaging::{node_features::FeatureIndex, NodeFeatures},
+	AsyncBackingParams, CandidateEvent, CandidateHash, CoreState, EncodeAs, ExecutorParams,
+	GroupIndex, GroupRotationInfo, Hash, IndexedVec, OccupiedCore, ScrapedOnChainVotes,
+	SessionIndex, SessionInfo, Signed, SigningContext, UncheckedSigned, ValidationCode,
+	ValidationCodeHash, ValidatorId, ValidatorIndex, LEGACY_MIN_BACKING_VOTES,
 };
 
 use crate::{
@@ -92,6 +94,8 @@ pub struct ExtendedSessionInfo {
 	pub validator_info: ValidatorInfo,
 	/// Session executor parameters
 	pub executor_params: ExecutorParams,
+	/// Node features
+	pub node_features: NodeFeatures,
 }
 
 /// Information about ourselves, in case we are an `Authority`.
@@ -202,7 +206,20 @@ impl RuntimeInfo {
 
 			let validator_info = self.get_validator_info(&session_info)?;
 
-			let full_info = ExtendedSessionInfo { session_info, validator_info, executor_params };
+			let node_features = request_node_features(parent, session_index, sender)
+				.await?
+				.unwrap_or(NodeFeatures::EMPTY);
+			let last_set_index = node_features.iter_ones().last().unwrap_or_default();
+			if last_set_index >= FeatureIndex::FirstUnassigned as usize {
+				gum::warn!(target: LOG_TARGET, "Runtime requires feature bit {} that node doesn't support, please upgrade node version", last_set_index);
+			}
+
+			let full_info = ExtendedSessionInfo {
+				session_info,
+				validator_info,
+				executor_params,
+				node_features,
+			};
 
 			self.session_info_cache.insert(session_index, full_info);
 		}

@@ -10,6 +10,9 @@ description = "Custom panic hook with bug report link"
 documentation = "https://docs.rs/sp-panic-handler"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 

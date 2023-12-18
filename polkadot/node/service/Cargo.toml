@@ -7,6 +7,9 @@ edition.workspace = true
 license.workspace = true
 description = "Utils to tie different Polkadot components together and allow instantiation of a node."
 
+[lints]
+workspace = true
+
 [dependencies]
 # Substrate Client
 sc-authority-discovery = { path = "../../../substrate/client/authority-discovery" }
@@ -75,7 +78,7 @@ frame-benchmarking-cli = { path = "../../../substrate/utils/frame/benchmarking-c
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking" }
 
 # External Crates
-async-trait = "0.1.57"
+async-trait = "0.1.74"
 futures = "0.3.21"
 hex-literal = "0.4.1"
 is_executable = "1.0.1"
@@ -224,8 +227,4 @@ runtime-metrics = [
 	"polkadot-runtime-parachains/runtime-metrics",
 	"rococo-runtime?/runtime-metrics",
 	"westend-runtime?/runtime-metrics",
-]
-
-network-protocol-staging = [
-	"polkadot-node-network-protocol/network-protocol-staging",
 ]

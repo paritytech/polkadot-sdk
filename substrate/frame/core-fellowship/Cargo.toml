@@ -9,6 +9,9 @@ repository.workspace = true
 description = "Logic as per the description of The Fellowship for core Polkadot technology"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 

@@ -6,6 +6,9 @@ edition.workspace = true
 license.workspace = true
 version = "1.0.0"
 
+[lints]
+workspace = true
+
 [dependencies]
 # note: special care is taken to avoid inclusion of `sp-io` externals when compiling
 # this crate for WASM. This is critical to avoid forcing all parachain WASM into implementing

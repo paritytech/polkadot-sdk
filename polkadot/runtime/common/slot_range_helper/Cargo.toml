@@ -6,6 +6,9 @@ edition.workspace = true
 license.workspace = true
 description = "Helper crate for generating slot ranges for the Polkadot runtime."
 
+[lints]
+workspace = true
+
 [dependencies]
 paste = "1.0"
 enumn = "0.1.12"

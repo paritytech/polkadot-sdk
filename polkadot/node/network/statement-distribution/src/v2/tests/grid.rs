@@ -2830,7 +2830,7 @@ fn inactive_local_participates_in_grid() {
 		send_peer_message(
 			&mut overseer,
 			peer_a.clone(),
-			protocol_vstaging::StatementDistributionMessage::BackedCandidateManifest(manifest),
+			protocol_v3::StatementDistributionMessage::BackedCandidateManifest(manifest),
 		)
 		.await;
 

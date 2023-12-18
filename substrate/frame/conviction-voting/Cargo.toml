@@ -9,6 +9,9 @@ repository.workspace = true
 description = "FRAME pallet for conviction voting in referenda"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 

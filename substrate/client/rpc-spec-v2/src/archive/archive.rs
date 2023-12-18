@@ -124,7 +124,7 @@ where
 		let finalized_num = self.client.info().finalized_number;
 
 		if finalized_num >= height {
-			let Ok(Some(hash)) = self.client.block_hash(height.into()) else { return Ok(vec![]) };
+			let Ok(Some(hash)) = self.client.block_hash(height) else { return Ok(vec![]) };
 			return Ok(vec![hex_string(&hash.as_ref())])
 		}
 

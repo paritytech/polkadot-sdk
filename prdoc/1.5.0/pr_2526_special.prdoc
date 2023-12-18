@@ -1,0 +1,10 @@
+title: Remove `pov-recovery` race condition/Improve zombienet test
+
+author: skunert
+topic: testing
+
+doc:
+  - audience: Runtime Dev
+    description: n/a
+
+crates: []

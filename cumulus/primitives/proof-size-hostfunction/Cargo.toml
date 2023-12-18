@@ -6,6 +6,9 @@ edition.workspace = true
 description = "Hostfunction exposing storage proof size to the runtime."
 license = "Apache-2.0"
 
+[lints]
+workspace = true
+
 [dependencies]
 sp-runtime-interface = { path = "../../../substrate/primitives/runtime-interface", default-features = false }
 sp-externalities = { path = "../../../substrate/primitives/externalities", default-features = false }

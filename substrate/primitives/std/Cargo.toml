@@ -10,6 +10,9 @@ description = "Lowest-abstraction level for the Substrate runtime: just exports 
 documentation = "https://docs.rs/sp-std"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 

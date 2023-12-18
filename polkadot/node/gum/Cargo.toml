@@ -6,6 +6,9 @@ edition.workspace = true
 license.workspace = true
 description = "Stick logs together with the TraceID as provided by tempo"
 
+[lints]
+workspace = true
+
 [dependencies]
 coarsetime = "0.1.22"
 tracing = "0.1.35"

@@ -1,0 +1,17 @@
+title: Rename `ExportGenesisStateCommand` to `ExportGenesisHeadCommand`
+
+doc:
+  - audience: Node Operator
+    description: |
+      The `export-genesis-state` subcommand is now called `export-gensis-head`, but
+      `export-genesis-state` stays as an alias to not break any scripts.
+
+  - audience: Node Dev
+    description: |
+      The struct `ExportGenesisStateCommand` is now called `ExportGenesisHeadCommand`.
+      So, you only need to rename the import and usage. The `run` function is now
+      taking only a `client` as argument to fetch the genesis header. This way
+      the exported genesis head is respecting custom genesis block builders.
+
+crates:
+  - name: "cumulus-client-cli"
