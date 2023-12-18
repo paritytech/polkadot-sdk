@@ -20,7 +20,7 @@ command = "polkadot"
 
 [[parachains]]
 id = 1005
-chain = "coretime-rococo-dev"
+chain = "coretime-rococo-local"
 
   [parachains.collator]
   name = "coretime-collator"
