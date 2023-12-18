@@ -82,11 +82,11 @@ struct BenchCli {
 	/// Enable CPU Profiling with Pyroscope
 	pub profile: bool,
 
-	#[clap(long, default_value_t = String::from("http://localhost:4040"))]
+	#[clap(long, requires = "profile", default_value_t = String::from("http://localhost:4040"))]
 	/// Pyroscope Server URL
 	pub pyroscope_url: String,
 
-	#[clap(long, default_value_t = 113)]
+	#[clap(long, requires = "profile", default_value_t = 113)]
 	/// Pyroscope Sample Rate
 	pub pyroscope_sample_rate: u32,
 
