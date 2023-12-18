@@ -1990,6 +1990,7 @@ name = "bridge-hub-rococo-integration-tests"
 version = "1.0.0"
 dependencies = [
  "asset-hub-rococo-emulated-chain",
+ "asset-hub-rococo-runtime",
  "asset-test-utils",
  "bp-messages",
  "bridge-hub-rococo-emulated-chain",

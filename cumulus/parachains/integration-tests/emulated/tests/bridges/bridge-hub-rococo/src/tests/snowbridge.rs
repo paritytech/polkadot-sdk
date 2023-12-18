@@ -393,6 +393,7 @@ fn send_token() {
 
 #[test]
 fn reserve_transfer_token() {
+	use asset_hub_rococo_runtime::xcm_config::bridging::to_ethereum::DefaultBridgeHubEthereumBaseFee;
 	let assethub_sovereign = BridgeHubRococo::sovereign_account_id_of(MultiLocation {
 		parents: 1,
 		interior: X1(Parachain(ASSETHUB_PARA_ID)),
@@ -476,6 +477,9 @@ fn reserve_transfer_token() {
 			interior: X1(AccountKey20 { network: None, key: ETHEREUM_DESTINATION_ADDRESS.into() }),
 		});
 
+		let free_balance_before = <AssetHubRococo as AssetHubRococoPallet>::Balances::free_balance(
+			AssetHubRococoReceiver::get(),
+		);
 		<AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::reserve_transfer_assets(
 			RuntimeOrigin::signed(AssetHubRococoReceiver::get()),
 			Box::new(destination),
@@ -484,6 +488,12 @@ fn reserve_transfer_token() {
 			0,
 		)
 		.unwrap();
+		let free_balance_after = <AssetHubRococo as AssetHubRococoPallet>::Balances::free_balance(
+			AssetHubRococoReceiver::get(),
+		);
+		// assert at least DefaultBridgeHubEthereumBaseFee charged from the sender
+		let free_balance_diff = free_balance_before - free_balance_after;
+		assert!(free_balance_diff > DefaultBridgeHubEthereumBaseFee::get());
 	});
 
 	BridgeHubRococo::execute_with(|| {
@@ -508,7 +518,7 @@ fn reserve_transfer_token() {
 			events.iter().any(|event| matches!(
 				event,
 				RuntimeEvent::Balances(pallet_balances::Event::Deposit{ who, amount })
-					if *who == assethub_sovereign && *amount == 2680000000000
+					if *who == assethub_sovereign && *amount == 2680000000000,
 			)),
 			"Assethub sovereign takes remote fee."
 		);
