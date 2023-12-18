@@ -247,7 +247,7 @@ where
 		}
 	}
 
-	///  Process warp proof response.
+	/// Process warp proof response.
 	pub fn on_warp_proof_response(&mut self, peer_id: &PeerId, response: EncodedProof) {
 		match self {
 			SyncingStrategy::WarpSyncStrategy(strategy) =>
