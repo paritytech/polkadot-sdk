@@ -8,11 +8,14 @@ repository.workspace = true
 description = "Storage monitor service for substrate"
 homepage = "https://substrate.io"
 
+[lints]
+workspace = true
+
 [dependencies]
-clap = { version = "4.4.6", features = ["derive", "string"] }
+clap = { version = "4.4.11", features = ["derive", "string"] }
 log = "0.4.17"
-fs4 = "0.6.3"
-sc-client-db = { path = "../db", default-features = false}
+fs4 = "0.7.0"
+sc-client-db = { path = "../db", default-features = false }
 sp-core = { path = "../../primitives/core" }
 tokio = "1.22.0"
 thiserror = "1.0.48"

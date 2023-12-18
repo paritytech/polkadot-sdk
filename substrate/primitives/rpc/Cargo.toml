@@ -9,12 +9,15 @@ repository.workspace = true
 description = "Substrate RPC primitives and utilities."
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 rustc-hash = "1.1.0"
-serde = { version = "1.0.188", features = ["derive"] }
+serde = { version = "1.0.193", features = ["derive"] }
 sp-core = { path = "../core" }
 
 [dev-dependencies]

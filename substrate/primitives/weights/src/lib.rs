@@ -27,6 +27,7 @@ extern crate self as sp_weights;
 mod weight_meter;
 mod weight_v2;
 
+use bounded_collections::Get;
 use codec::{CompactAs, Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
@@ -36,7 +37,6 @@ use sp_arithmetic::{
 	traits::{BaseArithmetic, SaturatedConversion, Unsigned},
 	Perbill,
 };
-use sp_core::Get;
 use sp_debug_derive::RuntimeDebug;
 
 pub use weight_meter::*;
@@ -270,7 +270,7 @@ pub type NoFee<T> = FixedFee<0, T>;
 /// # Example
 ///
 /// ```
-/// # use sp_core::ConstU128;
+/// # use bounded_collections::ConstU128;
 /// # use sp_weights::ConstantMultiplier;
 /// // Results in a multiplier of 10 for each unit of weight (or length)
 /// type LengthToFee = ConstantMultiplier::<u128, ConstU128<10u128>>;
@@ -360,7 +360,7 @@ mod tests {
 
 	#[test]
 	fn constant_fee_works() {
-		use sp_core::ConstU128;
+		use bounded_collections::ConstU128;
 		assert_eq!(
 			ConstantMultiplier::<u128, ConstU128<100u128>>::weight_to_fee(&Weight::zero()),
 			0

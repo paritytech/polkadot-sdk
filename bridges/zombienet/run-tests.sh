@@ -23,6 +23,9 @@ export ZOMBIENET_BINARY_PATH=/usr/local/bin/zombie
 # check if `wait` supports -p flag
 if [ `printf "$BASH_VERSION\n5.1" | sort -V | head -n 1` = "5.1" ]; then IS_BASH_5_1=1; else IS_BASH_5_1=0; fi
 
+# check if `wait` supports -p flag
+if [ `printf "$BASH_VERSION\n5.1" | sort -V | head -n 1` = "5.1" ]; then IS_BASH_5_1=1; else IS_BASH_5_1=0; fi
+
 # bridge configuration
 export LANE_ID="00000002"
 
