@@ -226,14 +226,14 @@ pub mod pallet {
 		/// A multisig operation has been approved by someone.
 		MultisigApproval {
 			approving: T::AccountId,
-			timepoint: Timepoint<BlockNumberFor<T>>,
+			timepoint: Option<Timepoint<BlockNumberFor<T>>>,
 			multisig: T::AccountId,
 			call_hash: CallHash,
 		},
 		/// A multisig operation has been executed.
 		MultisigExecuted {
 			approving: T::AccountId,
-			timepoint: Timepoint<BlockNumberFor<T>>,
+			timepoint: Option<Timepoint<BlockNumberFor<T>>>,
 			multisig: T::AccountId,
 			call_hash: CallHash,
 			result: DispatchResult,
@@ -241,7 +241,7 @@ pub mod pallet {
 		/// A multisig operation has been cancelled.
 		MultisigCancelled {
 			cancelling: T::AccountId,
-			timepoint: Timepoint<BlockNumberFor<T>>,
+			timepoint: Option<Timepoint<BlockNumberFor<T>>>,
 			multisig: T::AccountId,
 			call_hash: CallHash,
 		},
@@ -465,7 +465,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			threshold: u16,
 			other_signatories: Vec<T::AccountId>,
-			timepoint: Timepoint<BlockNumberFor<T>>,
+			maybe_timepoint: Option<Timepoint<BlockNumberFor<T>>>,
 			call_hash: [u8; 32],
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -478,7 +478,9 @@ pub mod pallet {
 			let id = Self::multi_account_id(&signatories, threshold);
 
 			let m = <Multisigs<T>>::get(&id, call_hash).ok_or(Error::<T>::NotFound)?;
-			ensure!(m.when == timepoint, Error::<T>::WrongTimepoint);
+			if let Some(timepoint) = maybe_timepoint.as_ref() {
+				ensure!(m.when == *timepoint, Error::<T>::WrongTimepoint);
+			}
 			ensure!(m.depositor == who, Error::<T>::NotOwner);
 
 			let err_amount = T::Currency::unreserve(&m.depositor, m.deposit);
@@ -487,7 +489,7 @@ pub mod pallet {
 
 			Self::deposit_event(Event::MultisigCancelled {
 				cancelling: who,
-				timepoint,
+				timepoint: maybe_timepoint,
 				multisig: id,
 				call_hash,
 			});
@@ -535,9 +537,10 @@ impl<T: Config> Pallet<T> {
 
 		// Branch on whether the operation has already started or not.
 		if let Some(mut m) = <Multisigs<T>>::get(&id, call_hash) {
-			// Yes; ensure that the timepoint exists and agrees.
-			let timepoint = maybe_timepoint.ok_or(Error::<T>::NoTimepoint)?;
-			ensure!(m.when == timepoint, Error::<T>::WrongTimepoint);
+			if let Some(timepoint) = maybe_timepoint.as_ref() {
+				// if the optional timepoint is supplied, it should be the correct one
+				ensure!(m.when == *timepoint, Error::<T>::WrongTimepoint);
+			}
 
 			// Ensure that either we have not yet signed or that it is at threshold.
 			let mut approvals = m.approvals.len() as u16;
@@ -564,7 +567,7 @@ impl<T: Config> Pallet<T> {
 				let result = call.dispatch(RawOrigin::Signed(id.clone()).into());
 				Self::deposit_event(Event::MultisigExecuted {
 					approving: who,
-					timepoint,
+					timepoint: maybe_timepoint,
 					multisig: id,
 					call_hash,
 					result: result.map(|_| ()).map_err(|e| e.error),
@@ -590,7 +593,7 @@ impl<T: Config> Pallet<T> {
 					<Multisigs<T>>::insert(&id, call_hash, m);
 					Self::deposit_event(Event::MultisigApproval {
 						approving: who,
-						timepoint,
+						timepoint: maybe_timepoint,
 						multisig: id,
 						call_hash,
 					});
