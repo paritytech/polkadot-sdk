@@ -518,8 +518,9 @@ fn legacy_account_unreserve_work() {
 	ExtBuilder::default().build_and_execute_with(|| {
 		let _ = Balances::deposit_creating(&1, 100);
 
+		// Set up a legacy account where free = 0 and reserved = 100.
 		// Accounts now require the Existential Deposit in addition to any amount to be reserved.
-		// Increment the provider count so that we can reserve the full balance.
+		// We increment the provider count so that we can reserve the full balance.
 		System::inc_providers(&1);
 		assert_ok!(Balances::reserve(&1, 100));
 		assert_eq!(System::providers(&1), 1);
@@ -529,6 +530,7 @@ fn legacy_account_unreserve_work() {
 
 		Balances::unreserve(&1, 100);
 		assert_eq!(System::providers(&1), 1);
+		assert_eq!(Balances::free_balance(1), 100);
 	});
 }
 
