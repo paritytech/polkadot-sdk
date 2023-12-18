@@ -220,7 +220,7 @@ view the test progress in real time by accessing [this link](http://localhost:30
 
 Now run
 `target/testnet/subsystem-bench test-sequence --path polkadot/node/subsystem-bench/examples/availability_read.yaml`
-and view the metrics in real time and spot differences between different `n_valiator` values.
+and view the metrics in real time and spot differences between different `n_validators` values.
 ## Create new test objectives
 
 This tool is intended to make it easy to write new test objectives that focus individual subsystems,
