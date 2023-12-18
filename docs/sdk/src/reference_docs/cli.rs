@@ -1,134 +1,105 @@
-//! # Command Line Arguments
+//! # Substrate CLI
 //!
+//! Let's see some examples of typical CLI arguments used when setting up and running a
+//! Substrate-based blockchain network. We use the [`substrate-node-template`](https://github.com/substrate-developer-hub/substrate-node-template)
+//! for this purpose.
 //!
-//! Notes:
+//! #### Checking the available CLI arguments
+//! ```bash
+//! ./target/debug/node-template --help
+//! ```
+//! - `--help`: Displays the available CLI arguments.
 //!
-//! - Command line arguments of a typical substrate based chain
-//!   - how to find and learn them.
-//! - How to extend them with your custom stuff.
+//! #### Starting a Local Substrate Node in Development Mode
+//! ```bash
+//! ./target/release/node-template \
+//! --dev
+//! ```
+//! - `--dev`: Runs the node in development mode, using a pre-defined development chain
+//!   specification.
+//! This mode ensures a fresh state by deleting existing data on restart. Example:
 //!
-//! source https://docs.substrate.io/reference/command-line-tools/
+//! #### Generating Custom Chain Specification
+//! ```bash
+//! ./target/debug/node-template \
+//! build-spec \
+//! --disable-default-bootnode \
+//! --chain local \
+//! > customSpec.json
+//! ```
 //!
-//! ## Command-line tools
+//! - `build-spec`: A subcommand to generate a chain specification file.
+//! - `--disable-default-bootnode`: Disables the default bootnodes in the node template.
+//! - `--chain local`: Indicates the chain specification is for a local development chain.
+//! - `> customSpec.json`: Redirects the output into a customSpec.json file.
 //!
-//! | Command Entry Point | Description |
-//! |---------------------|-------------|
-//! | [`archive`](#archive)          | Index and store all blocks, state, and transaction data for a Substrate-based chain in a relational SQL database. |
-//! | `memory-profiler`   | Collect information about memory allocation and the behavior of blockchain applications over time. |
-//! | `node-template`     | Start and manage a Substrate node preconfigured with a subset of commonly-used FRAME pallets. |
-//! | `polkadot-launch`   | Launch a local Polkadot test network. |
-//! | `polkadot-apps`     | Interact with Polkadot or a Substrate node using a browser. |
-//! | `sidecar`           | Use a REST service to interact with blockchain nodes built using FRAME. |
-//! | `srtool`            | Build WASM runtime in a deterministic way, allowing continuous integration pipelines and users to produce a strictly identical WASM runtime. |
-//! | `subkey`            | Generate and manage public and private key pairs for accounts. |
-//! | `subxt`             | Submit extrinsics to a Substrate node using RPC. |
-//! | `try-runtime`       | Query a snapshot of runtime storage to retrieve state. |
-//! | `tx-wrapper`        | Publish chain specific offline transaction generation libraries. |
+//! #### Converting Chain Specification to Raw Format
+//! ```bash
+//! ./target/debug/node-template build-spec \
+//! --chain=customSpec.json \
+//! --raw \
+//! --disable-default-bootnode \
+//! > customSpecRaw.json
+//! ```
 //!
-//! ### `archive`
-//!  
-//! The `archive` program is used to index all blocks, state, and transaction data for a
-//! Substrate-based chain and store the indexed data in a relational SQL database. The database
-//! created by the `archive` program mirrors all data from a running Substrate blockchain. After you
-//! archive the data, you can use database tools to query and retrieve information from the SQL
-//! database about the blockchain state. For examples of queries you might want to run against a
-//! Substrate archive database, see [Useful queries](https://github.com/paritytech/substrate-archive/wiki/Useful-Queries).
+//! - `--chain=customSpec.json`: Uses the custom chain specification as input.
+//! - `--disable-default-bootnode`: Disables the default bootnodes in the node template.
+//! - `--raw`: Converts the chain specification into a raw format with encoded storage keys.
+//! - `> customSpecRaw.json`: Outputs to customSpecRaw.json.
 //!
-//! #### Before you begin
+//! #### Starting the First Node (Bootnode) in a Private Network
+//! ```bash
+//! ./target/debug/node-template \
+//!   --base-path /tmp/node01 \
+//!   --chain ./customSpecRaw.json \
+//!   --port 30333 \
+//!   --ws-port 9945 \
+//!   --rpc-port 9933 \
+//!   --telemetry-url "wss://telemetry.polkadot.io/submit/ 0" \
+//!   --validator \
+//!   --rpc-methods Unsafe \
+//!   --name MyNode01 \
+//!   --password-interactive
+//! ```
 //!
-//! Before you use `archive` to create a database for a Substrate-based chain, you need to prepare
-//! your environment with the required files:
+//! - `--base-path`: Sets the directory for node data.
+//! - `--chain`: Specifies the chain specification file.
+//! - `--port`: TCP port for peer-to-peer communication.
+//! - `--ws-port`: WebSocket port for RPC.
+//! - `--rpc-port`: HTTP port for JSON-RPC.
+//! - `--telemetry-url`: Endpoint for sending telemetry data.
+//! - `--validator`: Indicates the node’s participation in block production.
+//! - `--rpc-methods Unsafe`: Allows potentially unsafe RPC methods.
+//! - `--name`: Sets a human-readable name for the node.
+//! - `--password-interactive`: Interactive password input for key operations.
 //!
-//! - You must have PostgreSQL installed on the computer where you are running a Substrate node.
+//! #### Adding a Second Node to the Network
+//! ```bash
+//! ./target/release/node-template \
+//!   --base-path /tmp/bob \
+//!   --chain local \
+//!   --bob \
+//!   --port 30334 \
+//!   --rpc-port 9946 \
+//!   --telemetry-url "wss://telemetry.polkadot.io/submit/ 0" \
+//!   --validator \
+//!   --bootnodes /ip4/127.0.0.1/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp
+//! ```
 //!
-//!   You can download PostgreSQL packages for different platforms from the PostgreSQL [Downloads](https://www.postgresql.org/download/) page.
+//! - `--base-path`: Sets the directory for node data.
+//! - `--chain`: Specifies the chain specification file.
+//! - `--bob`: Initializes the node with the session keys of the "Bob" account.
+//! - `--port`: TCP port for peer-to-peer communication.
+//! - `--rpc-port`: HTTP port for JSON-RPC.
+//! - `--telemetry-url`: Endpoint for sending telemetry data.
+//! - `--validator`: Indicates the node’s participation in block production.
+//! - `--bootnodes`: Specifies the address of the first node (bootnode) for peer discovery.
 //!
-//!   Depending on your platform, you might be able to install PostgreSQL using a local package
-//! manager.   For example, you can install a PostgreSQL package on a macOS computer by running
-//! `brew install postgresql` in a Terminal.
+//! ---
 //!
-//! - You must have RabbitMQ or Docker Compose installed on the computer where you have PostgreSQL
-//!   installed.
-//!
-//!   Depending on your platform, the instruction and system requirements for installing RabbitMQ or
-//! Docker can vary.   For information about using [RabbitMQ](https://www.rabbitmq.com/) or [Docker](https://www.docker.com/),
-//! see the [Setup](https://github.com/paritytech/substrate-archive/wiki/1-Setup)
-//! `substrate-archive` wiki page.
-//!
-//! - Your Substrate chain must use RocksDB as its backend database.
-//!
-//! #### Install and configure
-//!
-//! To install the `substrate-archive-cli` program:
-//!
-//! 1. Open a terminal shell on your computer.
-//!
-//! 2. Clone the `substrate-archive` repository by running the following command:
-//!
-//!    ```
-//!    git clone https://github.com/paritytech/substrate-archive.git
-//!    ```
-//!
-//! 3. Change to the root directory of the `substrate-archive` repository by running the following
-//!    command:
-//!
-//!    ```
-//!    cd substrate-archive
-//!    ```
-//!
-//! 4. Start the PostgreSQL database (`postgres`) and Postgre administrative process (`pgadmin`) on
-//!    the Substrate node.
-//!
-//!    If you have Docker Compose, you can start the services automatically by running the
-//! `docker-compose up -d` command.
-//!
-//! 5. Start your Substrate node, with `pruning` set to archive.  For example:  ```
-//!    ./target/release/node-template --pruning=archive ```
-//!
-//! 6. Look at the current DBs: `psql -U postgres -hlocalhost -p6432`
-//!
-//! 7. Run `DATABASE_URL=postgres://postgres:123@localhost:6432/local_chain_db sqlx` database create
-//!    in `substrate-archive/src` to create the database.
-//!
-//! 8. Set `CHAIN_DATA_DB="<your_path>"`.
-//!
-//! 9. Set up your `archive.conf` file:
-//!
-//!    - make sure to set your base bath to primary DB
-//!    - tell it where the rocksdb is. State using CHAIN_DATA_DB
-//!    - secondary DB is an optimization
-//!    - postgres url (set to var if in prod)
-//!
-//! 10. (Optional) setup up logging and debugging.
-//!
-//! 11. Run a node template. Make sure you run it in `--release --dev base-path=/tmp/dir
-//!     --pruning=archive`
-//!
-//! 12. Make a transaction with your node template.
-//!
-//! 13. Start up the `substrate-archive` node for your target chain:
-//!    `cargo run --release -- -c archive-conf.toml --chain=polkadot`
-//!
-//! 14. Open a web browser and log in to the Postgres administrative console.
-//!    
-//!    - Default URL:  localhost:16543
-//!    - Default user name: pgadmin4@pgadmin.org
-//!    - Default password: admin
-//!
-//!
-//! 15. Look at the reference to start making your queries.
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//!
-//! ## Extension through Community Tools
-//! The [`substrate-cli-tools`](https://github.com/StakeKat/substrate-cli-tools) repository provides
-//! a set of high-level tools to connect and consume Substrate-based chains. These tools leverage
-//! the `py-substrate-interface`` library and offer functionalities like monitoring events as they
-//! happen, decoding balances, and more. The library provided can also be reused to build your own
-//! commands, offering a higher level of abstraction for easier use​​.
+//! > If you are interested in learning how to extend the CLI with your custom arguments, you can
+//! > check out the [Customize your Substrate chain CLI](https://www.youtube.com/watch?v=IVifko1fqjw)
+//! > seminar.
+//! > Please note that the seminar is based on an older version of Substrate, and [Clap](https://docs.rs/clap/latest/clap/)
+//! > is now used instead of [StructOpt](https://docs.rs/structopt/latest/structopt/) for parsing
+//! > CLI arguments.
