@@ -6,6 +6,9 @@ edition.workspace = true
 description = "Pallet to queue outbound and inbound XCMP messages."
 license = "Apache-2.0"
 
+[lints]
+workspace = true
+
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"], default-features = false }
 log = { version = "0.4.20", default-features = false }
