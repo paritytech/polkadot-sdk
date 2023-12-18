@@ -17,6 +17,7 @@
 
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
 use sp_runtime::traits::Block;
 use sp_std::prelude::*;
 
@@ -39,7 +40,20 @@ pub mod known_payloads {
 /// Identifiers MUST be sorted by the [`BeefyPayloadId`] to allow efficient lookup of expected
 /// value. Duplicated identifiers are disallowed. It's okay for different implementations to only
 /// support a subset of possible values.
-#[derive(Decode, Encode, Debug, PartialEq, Eq, Clone, Ord, PartialOrd, Hash, TypeInfo)]
+#[derive(
+	Decode,
+	Encode,
+	Debug,
+	PartialEq,
+	Eq,
+	Clone,
+	Ord,
+	PartialOrd,
+	Hash,
+	TypeInfo,
+	Serialize,
+	Deserialize,
+)]
 pub struct Payload(Vec<(BeefyPayloadId, Vec<u8>)>);
 
 impl Payload {

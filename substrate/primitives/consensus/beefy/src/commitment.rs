@@ -17,6 +17,8 @@
 
 use codec::{Decode, Encode, Error, Input};
 use scale_info::TypeInfo;
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 use sp_std::{cmp, prelude::*};
 
 use crate::{Payload, ValidatorSetId};
@@ -27,7 +29,7 @@ use crate::{Payload, ValidatorSetId};
 /// height [block_number](Commitment::block_number).
 /// GRANDPA validators collect signatures on commitments and a stream of such signed commitments
 /// (see [SignedCommitment]) forms the BEEFY protocol.
-#[derive(Clone, Debug, PartialEq, Eq, Encode, Decode, TypeInfo)]
+#[derive(Clone, Debug, PartialEq, Eq, Encode, Decode, TypeInfo, Serialize, Deserialize)]
 pub struct Commitment<TBlockNumber> {
 	///  A collection of payloads to be signed, see [`Payload`] for details.
 	///
@@ -86,7 +88,7 @@ where
 /// Note that SCALE-encoding of the structure is optimized for size efficiency over the wire,
 /// please take a look at custom [`Encode`] and [`Decode`] implementations and
 /// `CompactSignedCommitment` struct.
-#[derive(Clone, Debug, PartialEq, Eq, TypeInfo)]
+#[derive(Clone, Debug, PartialEq, Eq, TypeInfo, Serialize, Deserialize)]
 pub struct SignedCommitment<TBlockNumber, TSignature> {
 	/// The commitment signatures are collected for.
 	pub commitment: Commitment<TBlockNumber>,
@@ -234,7 +236,7 @@ where
 ///
 /// Note that this enum is subject to change in the future with introduction
 /// of additional cryptographic primitives to BEEFY.
-#[derive(Clone, Debug, PartialEq, codec::Encode, codec::Decode)]
+#[derive(Clone, Debug, PartialEq, codec::Encode, codec::Decode, Serialize, Deserialize)]
 pub enum VersionedFinalityProof<N, S> {
 	#[codec(index = 1)]
 	/// Current active version
