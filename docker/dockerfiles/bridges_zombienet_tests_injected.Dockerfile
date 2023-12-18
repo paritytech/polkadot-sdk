@@ -40,9 +40,15 @@ COPY ./artifacts/polkadot-prepare-worker /usr/local/bin/
 COPY ./artifacts/polkadot-parachain /usr/local/bin
 # copy substrate-relay to the docker image
 COPY --from=relay-builder /home/user/substrate-relay /usr/local/bin/
-# finally - we need bridges zombienet runner and tests
+# we need bridges zombienet runner and tests
 RUN	mkdir -p /home/nonroot/bridges-polkadot-sdk
 COPY ./artifacts/bridges-polkadot-sdk /home/nonroot/bridges-polkadot-sdk
+# also prepare `generate_hex_encoded_call` for running
+RUN set -eux; \
+	pushd /home/nonroot/polkadot-sdk/cumulus/scripts/generate_hex_encoded_call; \
+	npm install; \
+	popd
+
 
 # check if executable works in this container
 USER nonroot
