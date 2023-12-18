@@ -16,7 +16,7 @@ schnellru = "0.2.1"
 rand = "0.8.5"
 fatality = "0.0.6"
 thiserror = "1.0.48"
-async-trait = "0.1.73"
+async-trait = "0.1.74"
 gum = { package = "tracing-gum", path = "../../gum" }
 
 polkadot-erasure-coding = { path = "../../../erasure-coding" }
