@@ -84,7 +84,7 @@ impl core::fmt::Display for TryDecodeEntireStorageError {
 			"`{}::{}` key `{}` is undecodable",
 			&sp_std::str::from_utf8(&self.info.pallet_name).unwrap_or("<invalid>"),
 			&sp_std::str::from_utf8(&self.info.storage_name).unwrap_or("<invalid>"),
-			hex::encode(&self.key)
+			array_bytes::bytes2hex("0x", &self.key)
 		)
 	}
 }
@@ -94,8 +94,8 @@ impl core::fmt::Debug for TryDecodeEntireStorageError {
 		write!(
 			f,
 			"key: {} value: {} info: {:?}",
-			hex::encode(&self.key),
-			hex::encode(self.raw.clone().unwrap_or_default()),
+			array_bytes::bytes2hex("0x", &self.key),
+			array_bytes::bytes2hex("0x", self.raw.clone().unwrap_or_default()),
 			self.info
 		)
 	}
@@ -375,6 +375,12 @@ mod tests {
 			// two bytes, cannot be decoded into u32.
 			sp_io::storage::set(&Map::hashed_key_for(2), &[0u8, 1]);
 			assert!(Map::try_decode_entire_state().is_err());
+			assert_eq!(Map::try_decode_entire_state().unwrap_err().len(), 1);
+
+			// multiple errs in the same map are be detected
+			sp_io::storage::set(&Map::hashed_key_for(3), &[0u8, 1]);
+			assert!(Map::try_decode_entire_state().is_err());
+			assert_eq!(Map::try_decode_entire_state().unwrap_err().len(), 2);
 		})
 	}
 

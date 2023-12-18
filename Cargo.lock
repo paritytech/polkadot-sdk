@@ -5520,7 +5520,6 @@ dependencies = [
  "frame-metadata",
  "frame-support-procedural",
  "frame-system",
- "hex",
  "impl-trait-for-tuples",
  "k256",
  "log",
