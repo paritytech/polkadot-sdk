@@ -1595,7 +1595,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Get the relay chain block number which was used as an anchor for the last block in this
 	/// chain.
-	pub fn last_relay_block_number(&self) -> RelayChainBlockNumber {
+	pub fn last_relay_block_number() -> RelayChainBlockNumber {
 		LastRelayChainBlockNumber::<T>::get()
 	}
 }
