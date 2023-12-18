@@ -705,18 +705,8 @@ impl_runtime_apis! {
 				}
 
 				fn reserve_transferable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
-					// AH can reserve transfer native token to some random parachain.
-					let random_para_id = 43211234;
-					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
-						random_para_id.into()
-					);
-					Some((
-						MultiAsset {
-							fun: Fungible(EXISTENTIAL_DEPOSIT),
-							id: Concrete(Parent.into())
-						},
-						ParentThen(Parachain(random_para_id).into()).into(),
-					))
+					// Reserve transfers are disabled
+					None
 				}
 			}
 
