@@ -1115,7 +1115,7 @@
 	</span><span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Trying to find validator set active at header: {:?}&quot;</span>, at_header);
 	<span class="kw">let </span><span class="kw-2">mut </span>header = at_header.clone();
 	<span class="kw">loop </span>{
-		<span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(active)) = runtime.runtime_api().validator_set(at_header.hash()) {
+		<span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(active)) = runtime.runtime_api().validator_set(header.hash()) {
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(active)
 		} <span class="kw">else </span>{
 			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Looking for auth set change at block number: {:?}&quot;</span>, <span class="kw-2">*</span>header.number());
