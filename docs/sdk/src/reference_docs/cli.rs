@@ -1,8 +1,8 @@
 //! # Substrate CLI
 //!
 //! Let's see some examples of typical CLI arguments used when setting up and running a
-//! Substrate-based blockchain network. We use the [`substrate-node-template`](https://github.com/substrate-developer-hub/substrate-node-template)
-//! for this purpose.
+//! Substrate-based blockchain. We use the [`substrate-node-template`](https://github.com/substrate-developer-hub/substrate-node-template)
+//! on these examples.
 //!
 //! #### Checking the available CLI arguments
 //! ```bash
@@ -17,7 +17,7 @@
 //! ```
 //! - `--dev`: Runs the node in development mode, using a pre-defined development chain
 //!   specification.
-//! This mode ensures a fresh state by deleting existing data on restart. Example:
+//! This mode ensures a fresh state by deleting existing data on restart.
 //!
 //! #### Generating Custom Chain Specification
 //! ```bash
