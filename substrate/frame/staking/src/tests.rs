@@ -6889,3 +6889,58 @@ mod ledger {
 		})
 	}
 }
+
+mod byzantine_threshold_disabling_strategy {
+	use crate::{
+		tests::Test, DisablingDecisionContext, DisablingStrategy,
+		UpToByzantineThresholdDisablingStrategy,
+	};
+
+	#[test]
+	fn dont_disable_for_ancient_offence() {
+		let offence_context =
+			DisablingDecisionContext { offender_idx: 7, slash_era: 1, era_now: 2 };
+		let initially_disabled = vec![];
+		let active_set = vec![1, 2, 3, 4, 5, 6, 7];
+
+		let decision = <UpToByzantineThresholdDisablingStrategy as DisablingStrategy<Test>>::make_disabling_decision(
+			offence_context,
+			&initially_disabled,
+			&active_set,
+		);
+
+		assert!(decision.disable_offenders.is_empty());
+	}
+
+	#[test]
+	fn dont_disable_beyond_byzantine_threshold() {
+		let offence_context =
+			DisablingDecisionContext { offender_idx: 7, slash_era: 1, era_now: 1 };
+		let initially_disabled = vec![1, 2];
+		let active_set = vec![1, 2, 3, 4, 5, 6, 7];
+
+		let decision = <UpToByzantineThresholdDisablingStrategy as DisablingStrategy<Test>>::make_disabling_decision(
+			offence_context,
+			&initially_disabled,
+			&active_set,
+		);
+
+		assert!(decision.disable_offenders.is_empty());
+	}
+
+	#[test]
+	fn disable_when_below_byzantine_threshold() {
+		let offence_context =
+			DisablingDecisionContext { offender_idx: 7, slash_era: 1, era_now: 1 };
+		let initially_disabled = vec![1];
+		let active_set = vec![1, 2, 3, 4, 5, 6, 7];
+
+		let decision = <UpToByzantineThresholdDisablingStrategy as DisablingStrategy<Test>>::make_disabling_decision(
+			offence_context,
+			&initially_disabled,
+			&active_set,
+		);
+
+		assert_eq!(decision.disable_offenders, vec![7]);
+	}
+}
