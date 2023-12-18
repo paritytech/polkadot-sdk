@@ -2491,11 +2491,11 @@ dependencies = [
 
 [[package]]
 name = "ckb-merkle-mountain-range"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56ccb671c5921be8a84686e6212ca184cb1d7c51cadcdbfcbd1cc3f042f5dfb8"
+version = "0.6.0"
+source = "git+https://github.com/Lederstrumpf/merkle-mountain-range.git?branch=leaf-node-proof-split#7749d1ff5263f9bf1f56ea9193c0a357881695e6"
 dependencies = [
  "cfg-if",
+ "itertools 0.10.5",
 ]
 
 [[package]]
@@ -9288,6 +9288,7 @@ dependencies = [
  "log",
  "pallet-authorship",
  "pallet-balances",
+ "pallet-mmr",
  "pallet-offences",
  "pallet-session",
  "pallet-staking",
@@ -9299,6 +9300,7 @@ dependencies = [
  "sp-consensus-beefy",
  "sp-core",
  "sp-io",
+ "sp-mmr-primitives",
  "sp-runtime",
  "sp-session",
  "sp-staking",
@@ -10018,6 +10020,7 @@ dependencies = [
 name = "pallet-im-online"
 version = "4.0.0-dev"
 dependencies = [
+ "array-bytes 6.1.0",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -12896,6 +12899,7 @@ dependencies = [
 name = "polkadot-primitives"
 version = "1.0.0"
 dependencies = [
+ "array-bytes 6.1.0",
  "bitvec",
  "hex-literal",
  "parity-scale-codec",
@@ -17319,6 +17323,7 @@ dependencies = [
 name = "sp-application-crypto"
 version = "23.0.0"
 dependencies = [
+ "array-bytes 6.1.0",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -17388,6 +17393,7 @@ dependencies = [
 name = "sp-authority-discovery"
 version = "4.0.0-dev"
 dependencies = [
+ "array-bytes 6.1.0",
  "parity-scale-codec",
  "scale-info",
  "sp-api",
@@ -17442,6 +17448,7 @@ dependencies = [
 name = "sp-consensus-aura"
 version = "0.10.0-dev"
 dependencies = [
+ "array-bytes 6.1.0",
  "async-trait",
  "parity-scale-codec",
  "scale-info",
@@ -17458,6 +17465,7 @@ dependencies = [
 name = "sp-consensus-babe"
 version = "0.10.0-dev"
 dependencies = [
+ "array-bytes 6.1.0",
  "async-trait",
  "parity-scale-codec",
  "scale-info",
@@ -17496,6 +17504,7 @@ dependencies = [
 name = "sp-consensus-grandpa"
 version = "4.0.0-dev"
 dependencies = [
+ "array-bytes 6.1.0",
  "finality-grandpa",
  "log",
  "parity-scale-codec",
@@ -17524,6 +17533,7 @@ dependencies = [
 name = "sp-consensus-sassafras"
 version = "0.3.4-dev"
 dependencies = [
+ "array-bytes 6.1.0",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -17807,6 +17817,7 @@ dependencies = [
 name = "sp-mixnet"
 version = "0.1.0-dev"
 dependencies = [
+ "array-bytes 6.1.0",
  "parity-scale-codec",
  "scale-info",
  "sp-api",
@@ -18074,6 +18085,7 @@ name = "sp-statement-store"
 version = "4.0.0-dev"
 dependencies = [
  "aes-gcm 0.10.3",
+ "array-bytes 6.1.0",
  "curve25519-dalek 4.0.0",
  "ed25519-dalek",
  "hkdf",

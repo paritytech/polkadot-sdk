@@ -37,9 +37,11 @@ mod payload;
 #[cfg(feature = "std")]
 mod test_utils;
 pub mod witness;
+use core::fmt::Debug;
 
 pub use commitment::{Commitment, SignedCommitment, VersionedFinalityProof};
 pub use payload::{known_payloads, BeefyPayloadId, Payload, PayloadProvider};
+use sp_mmr_primitives::{mmr_lib, AncestryProof};
 #[cfg(feature = "std")]
 pub use test_utils::*;
 
@@ -47,7 +49,7 @@ use codec::{Codec, Decode, Encode};
 use scale_info::TypeInfo;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::H256;
-use sp_runtime::traits::{Hash, Keccak256, NumberFor};
+use sp_runtime::traits::{Hash, Header as HeaderT, Keccak256, NumberFor};
 use sp_std::prelude::*;
 
 /// Key type for BEEFY module.
@@ -279,14 +281,14 @@ pub struct VoteMessage<Number, Id, Signature> {
 /// BEEFY happens when a voter votes on the same round/block for different payloads.
 /// Proving is achieved by collecting the signed commitments of conflicting votes.
 #[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
-pub struct EquivocationProof<Number, Id, Signature> {
+pub struct VoteEquivocationProof<Number, Id, Signature> {
 	/// The first vote in the equivocation.
 	pub first: VoteMessage<Number, Id, Signature>,
 	/// The second vote in the equivocation.
 	pub second: VoteMessage<Number, Id, Signature>,
 }
 
-impl<Number, Id, Signature> EquivocationProof<Number, Id, Signature> {
+impl<Number, Id, Signature> VoteEquivocationProof<Number, Id, Signature> {
 	/// Returns the authority id of the equivocator.
 	pub fn offender_id(&self) -> &Id {
 		&self.first.id
@@ -298,6 +300,39 @@ impl<Number, Id, Signature> EquivocationProof<Number, Id, Signature> {
 	/// Returns the set id at which the equivocation occurred.
 	pub fn set_id(&self) -> ValidatorSetId {
 		self.first.commitment.validator_set_id
+	}
+}
+
+/// Proof of authority misbehavior on a given set id.
+/// This proof shows commitment signed on a different fork.
+/// See [check_fork_equivocation_proof] for proof validity conditions.
+#[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
+pub struct ForkEquivocationProof<Number, Id, Signature, Header, Hash> {
+	/// Commitment for a block on different fork than one at the same height in
+	/// this client's chain.
+	pub commitment: Commitment<Number>,
+	/// Signatures on this block
+	pub signatories: Vec<(Id, Signature)>,
+	/// Canonical header at the same height as `commitment.block_number`.
+	pub canonical_header: Option<Header>,
+	/// Ancestry proof showing mmr root
+	pub ancestry_proof: Option<AncestryProof<Hash>>,
+}
+
+impl<Number, Id, Signature, H: HeaderT, Hash>
+	ForkEquivocationProof<Number, Id, Signature, H, Hash>
+{
+	/// Returns the authority id of the misbehaving voter.
+	pub fn offender_ids(&self) -> Vec<&Id> {
+		self.signatories.iter().map(|(id, _)| id).collect()
+	}
+	/// Returns the round number at which the infringement occurred.
+	pub fn round_number(&self) -> &Number {
+		&self.commitment.block_number
+	}
+	/// Returns the set id at which the infringement occurred.
+	pub fn set_id(&self) -> ValidatorSetId {
+		self.commitment.validator_set_id
 	}
 }
 
@@ -317,10 +352,10 @@ where
 	BeefyAuthorityId::<MsgHash>::verify(authority_id, signature, &encoded_commitment)
 }
 
-/// Verifies the equivocation proof by making sure that both votes target
+/// Verifies the vote equivocation proof by making sure that both votes target
 /// different blocks and that its signatures are valid.
-pub fn check_equivocation_proof<Number, Id, MsgHash>(
-	report: &EquivocationProof<Number, Id, <Id as RuntimeAppPublic>::Signature>,
+pub fn check_vote_equivocation_proof<Number, Id, MsgHash>(
+	report: &VoteEquivocationProof<Number, Id, <Id as RuntimeAppPublic>::Signature>,
 ) -> bool
 where
 	Id: BeefyAuthorityId<MsgHash> + PartialEq,
@@ -352,6 +387,171 @@ where
 	return valid_first && valid_second
 }
 
+/// Checks whether the provided header's payload differs from the commitment's payload.
+fn check_header_proof<Header>(
+	commitment: &Commitment<Header::Number>,
+	canonical_header: &Option<Header>,
+	canonical_header_hash: &Header::Hash,
+) -> bool
+where
+	Header: HeaderT,
+{
+	if let Some(canonical_header) = canonical_header {
+		let canonical_mmr_root_digest = mmr::find_mmr_root_digest::<Header>(canonical_header);
+		let canonical_payload = canonical_mmr_root_digest.map(|mmr_root| {
+			Payload::from_single_entry(known_payloads::MMR_ROOT_ID, mmr_root.encode())
+		});
+		// Check header's hash and that `payload` of the `commitment` is different that the
+		// `canonical_payload`. Note that if the signatories signed a payload when there should be
+		// none (for instance for a block prior to BEEFY activation), then canonical_payload = None,
+		// and they will likewise be slashed.
+		// Note that we can only check this if a valid header has been provided - we cannot
+		// slash for this with an ancestry proof - by necessity)
+		if canonical_header.hash() == *canonical_header_hash &&
+			Some(&commitment.payload) != canonical_payload.as_ref()
+		{
+			return true
+		}
+	}
+	// if no header provided, the header proof is also not correct
+	false
+}
+
+/// Checks whether an ancestry proof has the correct size and its calculated root differs from the
+/// commitment's payload's.
+fn check_ancestry_proof<Header, NodeHash, Hasher>(
+	commitment: &Commitment<Header::Number>,
+	ancestry_proof: &Option<AncestryProof<Hasher::Item>>,
+	first_mmr_block_num: Header::Number,
+	canonical_root: Hasher::Item,
+	mmr_size: u64,
+) -> bool
+where
+	Header: HeaderT,
+	NodeHash: Clone + Debug + PartialEq + Encode + Decode,
+	Hasher: mmr_lib::Merge<Item = NodeHash>,
+{
+	if let Some(ancestry_proof) = ancestry_proof {
+		let expected_leaf_count = sp_mmr_primitives::utils::block_num_to_leaf_index::<Header>(
+			commitment.block_number,
+			first_mmr_block_num,
+		)
+		.and_then(|leaf_index| {
+			leaf_index.checked_add(1).ok_or_else(|| {
+				sp_mmr_primitives::Error::InvalidNumericOp.log_debug("leaf_index + 1 overflowed")
+			})
+		});
+
+		if let Ok(expected_leaf_count) = expected_leaf_count {
+			let expected_mmr_size =
+				sp_mmr_primitives::utils::NodesUtils::new(expected_leaf_count).size();
+			// verify that the prev_root is at the correct block number
+			// this can be inferred from the leaf_count / mmr_size of the prev_root:
+			// we've converted the commitment.block_number to an mmr size and now
+			// compare with the value in the ancestry proof
+			if expected_mmr_size != ancestry_proof.prev_size {
+				return false
+			}
+			if sp_mmr_primitives::utils::verify_ancestry_proof::<NodeHash, Hasher>(
+				canonical_root,
+				mmr_size,
+				ancestry_proof.clone(),
+			) != Ok(true)
+			{
+				return false
+			}
+		} else {
+			// if the block number either under- or overflowed, the
+			// commitment.block_number was not valid and the commitment should not have
+			// been signed, hence we can skip the ancestry proof and slash the
+			// signatories
+			return true
+		}
+
+		// once the ancestry proof is verified, calculate the prev_root to compare it
+		// with the commitment's prev_root
+		let ancestry_prev_root = mmr_lib::ancestry_proof::bagging_peaks_hashes::<NodeHash, Hasher>(
+			ancestry_proof.prev_peaks.clone(),
+		);
+		// if the commitment payload does not commit to an MMR root, then this
+		// commitment may have another purpose and should not be slashed
+		let commitment_prev_root =
+			commitment.payload.get_decoded::<NodeHash>(&known_payloads::MMR_ROOT_ID);
+		return commitment_prev_root != ancestry_prev_root.ok()
+	}
+	// if no ancestry proof provided, the proof is also not correct
+	false
+}
+
+/// Validates [ForkEquivocationProof] with the following checks:
+/// - if the commitment is to a block in our history, then at least a header or an ancestry proof is
+///   provided:
+///   - a `canonical_header` is correct if it's at height `commitment.block_number` and
+///   commitment.payload` != `canonical_payload(canonical_header)`
+///   - an `ancestry_proof` is correct if it proves mmr_root(commitment.block_number) !=
+///   mmr_root(commitment.payload)`
+/// - `commitment` is signed by all claimed signatories
+///
+/// NOTE: GRANDPA finalization proof is not checked, which leads to slashing on forks. This is fine
+/// since honest validators will not be slashed on the chain finalized by GRANDPA, which is the only
+/// chain that ultimately matters. The only material difference not checking GRANDPA proofs makes is
+/// that validators are not slashed for signing BEEFY commitments prior to the blocks committed to
+/// being finalized by GRANDPA. This is fine too, since the slashing risk of committing to an
+/// incorrect block implies validators will only sign blocks they *know* will be finalized by
+/// GRANDPA.
+pub fn check_fork_equivocation_proof<Id, MsgHash, Header, NodeHash, Hasher>(
+	proof: &ForkEquivocationProof<
+		Header::Number,
+		Id,
+		<Id as RuntimeAppPublic>::Signature,
+		Header,
+		NodeHash,
+	>,
+	canonical_root: Hasher::Item,
+	mmr_size: u64,
+	canonical_header_hash: &Header::Hash,
+	first_mmr_block_num: Header::Number,
+	best_block_num: Header::Number,
+) -> bool
+where
+	Id: BeefyAuthorityId<MsgHash> + PartialEq,
+	MsgHash: Hash,
+	Header: HeaderT,
+	NodeHash: Clone + Debug + PartialEq + Encode + Decode,
+	Hasher: mmr_lib::Merge<Item = NodeHash>,
+{
+	let ForkEquivocationProof { commitment, signatories, canonical_header, ancestry_proof } = proof;
+
+	// if commitment is to a block in the future, it's an equivocation as long as it's been signed
+	if commitment.block_number <= best_block_num {
+		if (canonical_header, ancestry_proof) == (&None, &None) {
+			// if commitment isn't to a block number in the future, at least a header or ancestry
+			// proof must be provided, otherwise the proof is entirely invalid
+			return false;
+		}
+
+		// if neither the ancestry proof nor the header proof is correct, the proof is invalid
+		// avoid verifying the ancestry proof if a valid header proof has been provided
+		if !check_header_proof(commitment, canonical_header, canonical_header_hash) &&
+			!check_ancestry_proof::<Header, NodeHash, Hasher>(
+				commitment,
+				ancestry_proof,
+				first_mmr_block_num,
+				canonical_root,
+				mmr_size,
+			) {
+			return false;
+		}
+	}
+
+	// if commitment is to future block or either proof is valid, check the validator's signatures.
+	// The proof is verified if they are all correct.
+	return signatories.iter().all(|(authority_id, signature)| {
+		// TODO: refactor check_commitment_signature to take a slice of signatories
+		check_commitment_signature(&commitment, authority_id, signature)
+	})
+}
+
 /// New BEEFY validator set notification hook.
 pub trait OnNewValidatorSet<AuthorityId> {
 	/// Function called by the pallet when BEEFY validator set changes.
@@ -372,7 +572,7 @@ impl<AuthorityId> OnNewValidatorSet<AuthorityId> for () {
 /// the runtime API boundary this type is unknown and as such we keep this
 /// opaque representation, implementors of the runtime API will have to make
 /// sure that all usages of `OpaqueKeyOwnershipProof` refer to the same type.
-#[derive(Decode, Encode, PartialEq, TypeInfo)]
+#[derive(Decode, Encode, PartialEq, TypeInfo, Clone)]
 pub struct OpaqueKeyOwnershipProof(Vec<u8>);
 impl OpaqueKeyOwnershipProof {
 	/// Create a new `OpaqueKeyOwnershipProof` using the given encoded
@@ -389,10 +589,12 @@ impl OpaqueKeyOwnershipProof {
 }
 
 sp_api::decl_runtime_apis! {
-	/// API necessary for BEEFY voters.
-	#[api_version(3)]
-	pub trait BeefyApi<AuthorityId> where
+	/// API necessary for BEEFY voters. Due to the significant conceptual
+	/// overlap, in large part, this is lifted from the GRANDPA API.
+	#[api_version(4)]
+	pub trait BeefyApi<AuthorityId, Hash> where
 		AuthorityId : Codec + RuntimeAppPublic,
+		Hash: Codec,
 	{
 		/// Return the block number where BEEFY consensus is enabled/started
 		fn beefy_genesis() -> Option<NumberFor<Block>>;
@@ -408,10 +610,24 @@ sp_api::decl_runtime_apis! {
 		/// `None` when creation of the extrinsic fails, e.g. if equivocation
 		/// reporting is disabled for the given runtime (i.e. this method is
 		/// hardcoded to return `None`). Only useful in an offchain context.
-		fn submit_report_equivocation_unsigned_extrinsic(
-			equivocation_proof:
-				EquivocationProof<NumberFor<Block>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
+		fn submit_report_vote_equivocation_unsigned_extrinsic(
+			vote_equivocation_proof:
+				VoteEquivocationProof<NumberFor<Block>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
 			key_owner_proof: OpaqueKeyOwnershipProof,
+		) -> Option<()>;
+
+		/// Submits an unsigned extrinsic to report commitments to an invalid fork.
+		/// The caller must provide the invalid commitments proof and key ownership proofs
+		/// (should be obtained using `generate_key_ownership_proof`) for the offenders. The
+		/// extrinsic will be unsigned and should only be accepted for local
+		/// authorship (not to be broadcast to the network). This method returns
+		/// `None` when creation of the extrinsic fails, e.g. if equivocation
+		/// reporting is disabled for the given runtime (i.e. this method is
+		/// hardcoded to return `None`). Only useful in an offchain context.
+		fn submit_report_fork_equivocation_unsigned_extrinsic(
+			fork_equivocation_proof:
+				ForkEquivocationProof<NumberFor<Block>, AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature, Block::Header, Hash>,
+			key_owner_proofs: Vec<OpaqueKeyOwnershipProof>,
 		) -> Option<()>;
 
 		/// Generates a proof of key ownership for the given authority in the

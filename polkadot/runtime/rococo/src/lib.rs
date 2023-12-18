@@ -1951,8 +1951,8 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(3)]
-	impl beefy_primitives::BeefyApi<Block, BeefyId> for Runtime {
+	#[api_version(4)]
+	impl beefy_primitives::BeefyApi<Block, BeefyId, Hash> for Runtime {
 		fn beefy_genesis() -> Option<BlockNumber> {
 			Beefy::genesis_block()
 		}
@@ -1961,8 +1961,8 @@ sp_api::impl_runtime_apis! {
 			Beefy::validator_set()
 		}
 
-		fn submit_report_equivocation_unsigned_extrinsic(
-			equivocation_proof: beefy_primitives::EquivocationProof<
+		fn submit_report_vote_equivocation_unsigned_extrinsic(
+			vote_equivocation_proof: beefy_primitives::VoteEquivocationProof<
 				BlockNumber,
 				BeefyId,
 				BeefySignature,
@@ -1971,9 +1971,21 @@ sp_api::impl_runtime_apis! {
 		) -> Option<()> {
 			let key_owner_proof = key_owner_proof.decode()?;
 
-			Beefy::submit_unsigned_equivocation_report(
-				equivocation_proof,
+			Beefy::submit_unsigned_vote_equivocation_report(
+				vote_equivocation_proof,
 				key_owner_proof,
+			)
+		}
+
+		fn submit_report_fork_equivocation_unsigned_extrinsic(
+			fork_equivocation_proof: beefy_primitives::ForkEquivocationProof<BlockNumber, BeefyId, BeefySignature, Header, Hash>,
+			key_owner_proofs: Vec<beefy_primitives::OpaqueKeyOwnershipProof>,
+		) -> Option<()> {
+			let key_owner_proofs = key_owner_proofs.iter().cloned().map(|p| p.decode()).collect::<Option<Vec<_>>>()?;
+
+			Beefy::submit_unsigned_fork_equivocation_report(
+				fork_equivocation_proof,
+				key_owner_proofs,
 			)
 		}
 
@@ -1989,7 +2001,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(2)]
+	#[api_version(3)]
 	impl mmr::MmrApi<Block, mmr::Hash, BlockNumber> for Runtime {
 		fn mmr_root() -> Result<mmr::Hash, mmr::Error> {
 			Ok(Mmr::mmr_root())
@@ -2002,7 +2014,7 @@ sp_api::impl_runtime_apis! {
 		fn generate_proof(
 			block_numbers: Vec<BlockNumber>,
 			best_known_block_number: Option<BlockNumber>,
-		) -> Result<(Vec<mmr::EncodableOpaqueLeaf>, mmr::Proof<mmr::Hash>), mmr::Error> {
+		) -> Result<(Vec<mmr::EncodableOpaqueLeaf>, mmr::LeafProof<mmr::Hash>), mmr::Error> {
 			Mmr::generate_proof(block_numbers, best_known_block_number).map(
 				|(leaves, proof)| {
 					(
@@ -2016,7 +2028,7 @@ sp_api::impl_runtime_apis! {
 			)
 		}
 
-		fn verify_proof(leaves: Vec<mmr::EncodableOpaqueLeaf>, proof: mmr::Proof<mmr::Hash>)
+		fn verify_proof(leaves: Vec<mmr::EncodableOpaqueLeaf>, proof: mmr::LeafProof<mmr::Hash>)
 			-> Result<(), mmr::Error>
 		{
 			let leaves = leaves.into_iter().map(|leaf|
@@ -2029,10 +2041,23 @@ sp_api::impl_runtime_apis! {
 		fn verify_proof_stateless(
 			root: mmr::Hash,
 			leaves: Vec<mmr::EncodableOpaqueLeaf>,
-			proof: mmr::Proof<mmr::Hash>
+			proof: mmr::LeafProof<mmr::Hash>
 		) -> Result<(), mmr::Error> {
 			let nodes = leaves.into_iter().map(|leaf|mmr::DataOrHash::Data(leaf.into_opaque_leaf())).collect();
 			pallet_mmr::verify_leaves_proof::<mmr::Hashing, _>(root, nodes, proof)
+		}
+
+		fn generate_ancestry_proof(
+			prev_best_block: BlockNumber,
+			best_known_block_number: Option<BlockNumber>
+		) -> Result<mmr::AncestryProof<mmr::Hash>, mmr::Error> {
+			Mmr::generate_ancestry_proof(prev_best_block, best_known_block_number)
+		}
+
+		fn verify_ancestry_proof(
+			ancestry_proof: sp_mmr_primitives::AncestryProof<mmr::Hash>,
+		) -> Result<(), mmr::Error> {
+			Mmr::verify_ancestry_proof(ancestry_proof)
 		}
 	}
 

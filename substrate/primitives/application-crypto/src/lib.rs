@@ -32,6 +32,8 @@ pub use sp_core::{
 	crypto::{ByteArray, CryptoType, Derive, IsWrappedBy, Public, UncheckedFrom, Wraps},
 	RuntimeDebug,
 };
+#[cfg(all(not(feature = "std"), feature = "serde"))]
+use sp_std::alloc::{format, string::String};
 
 #[doc(hidden)]
 pub use codec;
@@ -419,6 +421,8 @@ macro_rules! app_crypto_signature_full_crypto {
 			pub struct Signature($sig);
 		}
 
+		$crate::app_crypto_signature_if_serde!();
+
 		impl $crate::CryptoType for Signature {
 			type Pair = Pair;
 		}
@@ -452,6 +456,8 @@ macro_rules! app_crypto_signature_not_full_crypto {
 			pub struct Signature($sig);
 		}
 
+		$crate::app_crypto_signature_if_serde!();
+
 		impl $crate::CryptoType for Signature {}
 
 		impl $crate::AppCrypto for Signature {
@@ -461,6 +467,43 @@ macro_rules! app_crypto_signature_not_full_crypto {
 			const CRYPTO_ID: $crate::CryptoTypeId = $crypto_type;
 		}
 	};
+}
+
+/// Declares serde implementation for Signature type if serde feature is enabled.
+#[cfg(feature = "serde")]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! app_crypto_signature_if_serde {
+	() => {
+		impl $crate::serde::Serialize for Signature {
+			fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
+			where
+				S: $crate::serde::Serializer,
+			{
+				serializer.serialize_str(&array_bytes::bytes2hex("", self))
+			}
+		}
+
+		impl<'de> $crate::serde::Deserialize<'de> for Signature {
+			fn deserialize<D>(deserializer: D) -> core::result::Result<Self, D::Error>
+			where
+				D: $crate::serde::Deserializer<'de>,
+			{
+				let signature_hex = array_bytes::hex2bytes(&String::deserialize(deserializer)?)
+					.map_err(|e| $crate::serde::de::Error::custom(format!("{:?}", e)))?;
+				Signature::try_from(signature_hex.as_ref())
+					.map_err(|e| $crate::serde::de::Error::custom(format!("{:?}", e)))
+			}
+		}
+	};
+}
+
+/// Declares serde implementation for Signature type if serde feature is enabled.
+#[cfg(not(feature = "serde"))]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! app_crypto_signature_if_serde {
+	() => {};
 }
 
 /// Declares `Signature` type which is functionally equivalent to `$sig`, but is new
