@@ -13,6 +13,7 @@ readme = "README.md"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+array-bytes = { version = "6.1", optional = true }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
 linregress = { version = "0.5.1", optional = true }
 log = { version = "0.4.17", default-features = false }
@@ -33,13 +34,13 @@ sp-storage = { path = "../../primitives/storage", default-features = false }
 static_assertions = "1.1.0"
 
 [dev-dependencies]
-array-bytes = "6.1"
 rusty-fork = { version = "0.3.0", default-features = false }
 sp-keystore = { path = "../../primitives/keystore" }
 
 [features]
 default = ["std"]
 std = [
+	"array-bytes",
 	"codec/std",
 	"frame-support-procedural/std",
 	"frame-support/std",

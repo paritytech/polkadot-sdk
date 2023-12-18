@@ -7,6 +7,7 @@ license.workspace = true
 description = "Shared primitives used by Polkadot runtime"
 
 [dependencies]
+array-bytes = { version = "6.1", optional = true }
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc", "serde"] }
 hex-literal = "0.4.1"
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["bit-vec", "derive"] }
@@ -32,6 +33,7 @@ polkadot-parachain-primitives = { path = "../parachain", default-features = fals
 [features]
 default = ["std"]
 std = [
+    "array-bytes",
 	"application-crypto/std",
 	"bitvec/std",
 	"inherents/std",

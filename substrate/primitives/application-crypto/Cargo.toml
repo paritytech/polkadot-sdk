@@ -15,6 +15,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 
 [dependencies]
+array-bytes = { version = "6.1", optional = true }
 sp-core = { path = "../core", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
@@ -35,12 +36,13 @@ std = [
 ]
 
 # Serde support without relying on std features.
-serde = ["dep:serde", "scale-info/serde", "sp-core/serde"]
+serde = ["array-bytes", "dep:serde", "scale-info/serde", "sp-core/serde"]
 
 # This feature enables all crypto primitives for `no_std` builds like microcontrollers
 # or Intel SGX.
 # For the regular wasm runtime builds this should not be used.
 full_crypto = [
+	"array-bytes",
 	"sp-core/full_crypto",
 	"sp-io/disable_oom",
 	# Don't add `panic_handler` and `alloc_error_handler` since they are expected to be provided
