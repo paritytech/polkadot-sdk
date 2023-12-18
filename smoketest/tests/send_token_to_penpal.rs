@@ -61,6 +61,13 @@ async fn send_token_to_penpal() {
 		.unwrap();
 	assert_eq!(receipt.status.unwrap().as_u64(), 1u64);
 
+	let destination_fee = 4_000_000_000;
+	let fee = gateway
+		.quote_send_token_fee(weth.address(), PENPAL_PARA_ID, destination_fee)
+		.call()
+		.await
+		.unwrap();
+
 	// Lock tokens into vault
 	let amount: u128 = U256::from(value).low_u128();
 	let receipt = gateway
@@ -68,9 +75,10 @@ async fn send_token_to_penpal() {
 			weth.address(),
 			PENPAL_PARA_ID,
 			i_gateway::MultiAddress { kind: 1, data: FERDIE.into() },
+			4_000_000_000,
 			amount,
 		)
-		.value(1000)
+		.value(fee)
 		.send()
 		.await
 		.unwrap()

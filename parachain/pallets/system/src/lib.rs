@@ -191,7 +191,6 @@ pub mod pallet {
 		UpdateChannel {
 			channel_id: ChannelId,
 			mode: OperatingMode,
-			outbound_fee: u128,
 		},
 		/// An SetOperatingMode message was sent to the Gateway
 		SetOperatingMode {
@@ -440,11 +439,7 @@ pub mod pallet {
 		/// - `outbound_fee`: Fee charged to users for sending outbound messages to Polkadot
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::update_channel())]
-		pub fn update_channel(
-			origin: OriginFor<T>,
-			mode: OperatingMode,
-			outbound_fee: u128,
-		) -> DispatchResult {
+		pub fn update_channel(origin: OriginFor<T>, mode: OperatingMode) -> DispatchResult {
 			let origin_location: MultiLocation = T::SiblingOrigin::ensure_origin(origin)?;
 
 			// Ensure that origin location is a sibling parachain
@@ -460,13 +455,11 @@ pub mod pallet {
 			// Parachains send the update message on their own channel
 			Self::send(channel_id, command, pays_fee)?;
 
-			Self::deposit_event(Event::<T>::UpdateChannel { channel_id, mode, outbound_fee });
+			Self::deposit_event(Event::<T>::UpdateChannel { channel_id, mode });
 			Ok(())
 		}
 
-		/// Sends a message to the Gateway contract to update a channel configuration
-		///
-		/// The origin must already have a channel initialized, as this message is sent over it.
+		/// Sends a message to the Gateway contract to update an arbitrary channel
 		///
 		/// Fee required: No
 		///
@@ -480,16 +473,15 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			channel_id: ChannelId,
 			mode: OperatingMode,
-			outbound_fee: u128,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
 			ensure!(Channels::<T>::contains_key(channel_id), Error::<T>::NoChannel);
 
 			let command = Command::UpdateChannel { channel_id, mode };
-			Self::send(SECONDARY_GOVERNANCE_CHANNEL, command, PaysFee::<T>::No)?;
+			Self::send(PRIMARY_GOVERNANCE_CHANNEL, command, PaysFee::<T>::No)?;
 
-			Self::deposit_event(Event::<T>::UpdateChannel { channel_id, mode, outbound_fee });
+			Self::deposit_event(Event::<T>::UpdateChannel { channel_id, mode });
 			Ok(())
 		}
 
@@ -551,7 +543,7 @@ pub mod pallet {
 
 			Self::do_transfer_native_from_agent(
 				agent_id,
-				SECONDARY_GOVERNANCE_CHANNEL,
+				PRIMARY_GOVERNANCE_CHANNEL,
 				recipient,
 				amount,
 				pays_fee,

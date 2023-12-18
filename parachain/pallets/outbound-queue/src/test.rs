@@ -100,15 +100,45 @@ fn process_message_yields_on_max_messages_per_block() {
 }
 
 #[test]
+fn process_message_fails_on_max_nonce_reached() {
+	new_tester().execute_with(|| {
+		let sibling_id = 1000;
+		let channel_id: ChannelId = ParaId::from(sibling_id).into();
+		let origin = AggregateMessageOrigin::Snowbridge(channel_id.into());
+		let message: QueuedMessage = QueuedMessage {
+			id: H256::zero(),
+			channel_id,
+			command: mock_message(sibling_id).command,
+		};
+		let versioned_queued_message: VersionedQueuedMessage = message.try_into().unwrap();
+		let encoded = versioned_queued_message.encode();
+		let mut meter = WeightMeter::with_limit(Weight::MAX);
+
+		Nonce::<Test>::set(channel_id, u64::MAX);
+
+		assert_noop!(
+			OutboundQueue::process_message(&encoded.as_slice(), origin, &mut meter, &mut [0u8; 32]),
+			ProcessMessageError::Unsupported
+		);
+	})
+}
+
+#[test]
 fn process_message_fails_on_overweight_message() {
 	new_tester().execute_with(|| {
 		let sibling_id = 1000;
 		let channel_id: ChannelId = ParaId::from(sibling_id).into();
 		let origin = AggregateMessageOrigin::Snowbridge(channel_id);
-		let message = mock_message(sibling_id).encode();
+		let message: QueuedMessage = QueuedMessage {
+			id: H256::zero(),
+			channel_id,
+			command: mock_message(sibling_id).command,
+		};
+		let versioned_queued_message: VersionedQueuedMessage = message.try_into().unwrap();
+		let encoded = versioned_queued_message.encode();
 		let mut meter = WeightMeter::with_limit(Weight::from_parts(1, 1));
 		assert_noop!(
-			OutboundQueue::process_message(message.as_slice(), origin, &mut meter, &mut [0u8; 32]),
+			OutboundQueue::process_message(&encoded.as_slice(), origin, &mut meter, &mut [0u8; 32]),
 			ProcessMessageError::Overweight(<Test as Config>::WeightInfo::do_process_message())
 		);
 	})
@@ -205,5 +235,17 @@ fn convert_local_currency() {
 			.expect("accuracy is not zero; qed");
 		assert_eq!(fee, fee1);
 		assert_eq!(fee, fee2);
+	});
+}
+
+#[test]
+fn encode_digest_item() {
+	new_tester().execute_with(|| {
+		let digest_item: DigestItem = CustomDigestItem::Snowbridge(H256::default()).into();
+		let enum_prefix = match digest_item {
+			DigestItem::Other(data) => data[0],
+			_ => u8::MAX,
+		};
+		assert_eq!(enum_prefix, 0);
 	});
 }

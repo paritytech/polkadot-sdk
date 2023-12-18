@@ -1,5 +1,5 @@
 use codec::Encode;
-use ethers::{core::types::Address, utils::parse_units};
+use ethers::core::types::Address;
 use futures::StreamExt;
 use snowbridge_smoketest::{
 	constants::*,
@@ -33,7 +33,7 @@ async fn register_token() {
 	let weth_addr: Address = WETH_CONTRACT.into();
 	let weth = weth9::WETH9::new(weth_addr, ethereum_client.clone());
 
-	let fee = parse_units(2, "ether").unwrap();
+	let fee = gateway.quote_register_token_fee().call().await.unwrap();
 
 	let receipt = gateway
 		.register_token(weth.address())

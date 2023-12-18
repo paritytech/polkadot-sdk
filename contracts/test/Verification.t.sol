@@ -88,7 +88,7 @@ contract VerificationTest is Test {
         digestItems[2] = Verification.DigestItem({
             kind: 0,
             consensusEngineID: 0x00000000,
-            data: hex"b5bb9d8014a0f9b1d61e21e796d78dccdf1352f23cd32812f4850b878ae4944c"
+            data: hex"00b5bb9d8014a0f9b1d61e21e796d78dccdf1352f23cd32812f4850b878ae4944c"
         });
         digestItems[3] = Verification.DigestItem({
             kind: 5,

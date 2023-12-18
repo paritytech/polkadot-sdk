@@ -29,7 +29,7 @@ bridge-hub-common = { path = "../../../polkadot-sdk/cumulus/parachains/runtimes/
 
 snowbridge-core = { path = "../../primitives/core", features = ["serde"], default-features = false }
 snowbridge-outbound-queue-merkle-tree = { path = "merkle-tree", default-features = false }
-ethabi = { git = "https://github.com/Snowfork/ethabi-decode.git", package = "ethabi-decode", branch = "master", default-features = false }
+ethabi = { git = "https://github.com/snowfork/ethabi-decode.git", package = "ethabi-decode", branch = "master", default-features = false }
 
 xcm = { package = "staging-xcm", path = "../../../polkadot-sdk/polkadot/xcm", default-features = false }
 

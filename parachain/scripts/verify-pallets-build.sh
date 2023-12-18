@@ -81,6 +81,7 @@ rm -rf $SNOWBRIDGE_FOLDER/parachain/rustfmt.toml
 rm -rf $SNOWBRIDGE_FOLDER/parachain/.gitignore
 rm -rf $SNOWBRIDGE_FOLDER/parachain/templates
 rm -rf $SNOWBRIDGE_FOLDER/parachain/.config
+rm -rf $SNOWBRIDGE_FOLDER/parachain/pallets/ethereum-beacon-client/fuzz
 
 cd bridges/snowbridge/parachain
 

@@ -2,7 +2,7 @@ import fs from "fs"
 import path from "path"
 
 const run = async () => {
-    const NetworkId = process.env.ETH_NETWORK_ID || 15
+    const NetworkId = process.env.ETH_NETWORK_ID || 11155111
     const basedir = process.env.contract_dir || "../contracts"
     const DeployInfoFile = path.join(
         basedir,

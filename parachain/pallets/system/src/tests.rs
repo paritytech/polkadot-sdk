@@ -318,12 +318,11 @@ fn update_channel() {
 		EthereumSystem::create_channel(origin.clone(), OperatingMode::Normal).unwrap();
 
 		// Now try to update it
-		assert_ok!(EthereumSystem::update_channel(origin, OperatingMode::Normal, 2004));
+		assert_ok!(EthereumSystem::update_channel(origin, OperatingMode::Normal));
 
 		System::assert_last_event(RuntimeEvent::EthereumSystem(crate::Event::UpdateChannel {
 			channel_id: ParaId::from(2000).into(),
 			mode: OperatingMode::Normal,
-			outbound_fee: 2004,
 		}));
 	});
 }
@@ -332,14 +331,12 @@ fn update_channel() {
 fn update_channel_bad_origin() {
 	new_test_ext().execute_with(|| {
 		let mode = OperatingMode::Normal;
-		let fee = 45;
 
 		// relay chain location not allowed
 		assert_noop!(
 			EthereumSystem::update_channel(
 				make_xcm_origin(MultiLocation { parents: 1, interior: Here }),
 				mode,
-				fee,
 			),
 			BadOrigin,
 		);
@@ -355,7 +352,6 @@ fn update_channel_bad_origin() {
 					),
 				}),
 				mode,
-				fee,
 			),
 			BadOrigin,
 		);
@@ -368,19 +364,18 @@ fn update_channel_bad_origin() {
 					interior: X1(Junction::AccountId32 { network: None, id: [67u8; 32] }),
 				}),
 				mode,
-				fee,
 			),
 			BadOrigin,
 		);
 
 		// Signed origin not allowed
 		assert_noop!(
-			EthereumSystem::update_channel(RuntimeOrigin::signed([14; 32].into()), mode, fee),
+			EthereumSystem::update_channel(RuntimeOrigin::signed([14; 32].into()), mode),
 			BadOrigin
 		);
 
 		// None origin not allowed
-		assert_noop!(EthereumSystem::update_channel(RuntimeOrigin::none(), mode, fee), BadOrigin);
+		assert_noop!(EthereumSystem::update_channel(RuntimeOrigin::none(), mode), BadOrigin);
 	});
 }
 
@@ -392,7 +387,7 @@ fn update_channel_fails_not_exist() {
 
 		// Now try to update it
 		assert_noop!(
-			EthereumSystem::update_channel(origin, OperatingMode::Normal, 2004),
+			EthereumSystem::update_channel(origin, OperatingMode::Normal),
 			Error::<Test>::NoChannel
 		);
 	});
@@ -419,13 +414,11 @@ fn force_update_channel() {
 			force_origin,
 			channel_id,
 			OperatingMode::Normal,
-			2004
 		));
 
 		System::assert_last_event(RuntimeEvent::EthereumSystem(crate::Event::UpdateChannel {
 			channel_id: ParaId::from(2000).into(),
 			mode: OperatingMode::Normal,
-			outbound_fee: 2004,
 		}));
 	});
 }
@@ -434,7 +427,6 @@ fn force_update_channel() {
 fn force_update_channel_bad_origin() {
 	new_test_ext().execute_with(|| {
 		let mode = OperatingMode::Normal;
-		let fee = 45;
 
 		// signed origin not allowed
 		assert_noop!(
@@ -442,7 +434,6 @@ fn force_update_channel_bad_origin() {
 				RuntimeOrigin::signed([14; 32].into()),
 				ParaId::from(1000).into(),
 				mode,
-				fee,
 			),
 			BadOrigin,
 		);
