@@ -52,11 +52,11 @@ const NODE_PREFIX: &str = "polkadot_v";
 /// Returns the logical PVF version. This is the version used when version-checking PVF artifacts
 /// and in the node-worker version check.
 ///
-/// NOTE: This should only ever be called in a top-level crate, to accurately get the versions of
-/// the node and workers. The version should then be passed down to the crates that need it. If this
-/// were called in the same place it was used, then the version would be compiled-in at that calling
-/// crate. But that crate may be stale by the time that the top-level binary is compiled, which can
-/// result in an old version being compiled-in and ultimately a version mismatch.
+/// NOTE: The runtime version should come from an env var which should only ever be obtained in a
+/// top-level crate. It, or the result of this function call, should then be passed down to the
+/// crates that need it. In other words, the env var should not be naively compiled-in in the same
+/// place it is used. The crate where it is used may be stale by the time that the top-level binary
+/// is compiled, which can result in using an old version and ultimately a version mismatch.
 ///
 /// # Parameters
 ///
