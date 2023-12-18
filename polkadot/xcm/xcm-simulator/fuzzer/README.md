@@ -6,7 +6,7 @@ underflows.
 ## Install dependencies
 
 ```
-cargo install honggfuzz
+cargo install --force ziggy cargo-afl honggfuzz grcov
 ```
 
 ## Run the fuzzer
@@ -14,27 +14,28 @@ cargo install honggfuzz
 In this directory, run this command:
 
 ```
-cargo hfuzz run xcm-fuzzer
+cargo ziggy fuzz
 ```
+
+You can use the following options to improve fuzzing:
+- `-j number_of_jobs` for fuzzing using multiple threads
+- `-G 1024` to limit the size of inputs to 1024 bytes
+  - this will improve fuzzing effectiveness, and you can drop the limit once you have good coverage
 
 ## Run a single input
 
 In this directory, run this command:
 
 ```
-cargo hfuzz run-debug xcm-fuzzer hfuzz_workspace/xcm-fuzzer/fuzzer_input_file
+cargo ziggy run -i path/to/your/input
 ```
 
 ## Generate coverage
 
-In this directory, run these four commands:
+In this directory, run this command:
 
 ```
-RUSTFLAGS="-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort" \
-CARGO_INCREMENTAL=0 SKIP_WASM_BUILD=1 CARGO_HOME=./cargo cargo build
-../../../target/debug/xcm-fuzzer hfuzz_workspace/xcm-fuzzer/input/
-zip -0 ccov.zip `find ../../../target/ \( -name "*.gc*" -o -name "test-*.gc*" \) -print`
-grcov ccov.zip -s ../../../ -t html --llvm --branch --ignore-not-existing -o ./coverage
+cargo ziggy cover
 ```
 
-The code coverage will be in `./coverage/index.html`.
+The code coverage will be in `./output/xcm-simulator-fuzzer/coverage/index.html`.
