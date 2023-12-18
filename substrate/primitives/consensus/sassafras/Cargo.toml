@@ -15,6 +15,7 @@ publish = false
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+array-bytes = { version = "6.1", optional = true }
 scale-codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.193", default-features = false, features = ["derive"], optional = true }
@@ -41,6 +42,7 @@ std = [
 
 # Serde support without relying on std features.
 serde = [
+    "array-bytes",
 	"dep:serde",
 	"scale-info/serde",
 	"sp-application-crypto/serde",
