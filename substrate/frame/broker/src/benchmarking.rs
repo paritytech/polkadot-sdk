@@ -182,13 +182,16 @@ mod benches {
 
 	#[benchmark]
 	fn start_sales(n: Linear<0, { MAX_CORE_COUNT.into() }>) -> Result<(), BenchmarkError> {
-		Configuration::<T>::put(new_config_record::<T>());
+		let config = new_config_record::<T>();
+		Configuration::<T>::put(config.clone());
 
 		// Assume Reservations to be filled for worst case
 		setup_reservations::<T>(T::MaxReservedCores::get());
 
 		// Assume Leases to be filled for worst case
 		setup_leases::<T>(T::MaxLeasedCores::get(), 1, 10);
+
+		let latest_region_begin = Broker::<T>::latest_timeslice_ready_to_commit(&config);
 
 		let initial_price = 10u32.into();
 
@@ -205,8 +208,8 @@ mod benches {
 				leadin_length: 1u32.into(),
 				start_price: 20u32.into(),
 				regular_price: 10u32.into(),
-				region_begin: 4,
-				region_end: 7,
+				region_begin: latest_region_begin + config.region_length,
+				region_end: latest_region_begin + config.region_length * 2,
 				ideal_cores_sold: 0,
 				cores_offered: n
 					.saturating_sub(T::MaxReservedCores::get())
