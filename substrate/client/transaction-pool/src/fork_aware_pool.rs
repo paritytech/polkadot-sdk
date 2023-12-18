@@ -60,7 +60,9 @@ use sc_transaction_pool_api::{
 use sp_core::traits::SpawnEssentialNamed;
 use sp_runtime::{
 	generic::BlockId,
-	traits::{AtLeast32Bit, Block as BlockT, Extrinsic, Header as HeaderT, NumberFor, Zero},
+	traits::{
+		AtLeast32Bit, Block as BlockT, Extrinsic, Hash as HashT, Header as HeaderT, NumberFor, Zero,
+	},
 };
 use std::time::Instant;
 
@@ -69,14 +71,17 @@ use sp_blockchain::{HashAndNumber, TreeRoute};
 pub(crate) const LOG_TARGET: &str = "txpool";
 
 //todo: View probably needs a hash? parent hash? number?
-pub struct View<PoolApi: graph::ChainApi>(graph::Pool<PoolApi>);
+pub struct View<PoolApi: graph::ChainApi> {
+	pool: graph::Pool<PoolApi>,
+	at: HashAndNumber<PoolApi::Block>,
+}
 
 impl<PoolApi> View<PoolApi>
 where
 	PoolApi: graph::ChainApi,
 {
-	fn new(api: Arc<PoolApi>) -> Self {
-		Self(graph::Pool::new(Default::default(), true.into(), api))
+	fn new(api: Arc<PoolApi>, at: HashAndNumber<PoolApi::Block>) -> Self {
+		Self { pool: graph::Pool::new(Default::default(), true.into(), api), at }
 	}
 }
 
@@ -117,21 +122,20 @@ where
 			return Err(ViewCreationError::AlreadyExists)
 		}
 
-		let view = Arc::new(View::new(self.api.clone()));
-
-		//todo: lock or clone?
-		//todo: source?
-		let source = TransactionSource::External;
-
 		let number = self
 			.api
 			.resolve_block_number(hash)
 			.map_err(|_| ViewCreationError::BlockIdConversion)?;
 		let at = HashAndNumber { hash, number };
+		let view = Arc::new(View::new(self.api.clone(), at.clone()));
+
+		//todo: lock or clone?
+		//todo: source?
+		let source = TransactionSource::External;
 
 		//todo: internal checked banned: not required any more?
 		let xts = xts.read().clone();
-		let _ = view.0.submit_at(&at, source, xts).await;
+		let _ = view.pool.submit_at(&at, source, xts).await;
 		self.views.write().insert(hash, view);
 
 		// brute force: just revalidate all xts against block
@@ -143,11 +147,9 @@ where
 	/// Imports a bunch of unverified extrinsics to every view
 	pub async fn submit_at(
 		&self,
-		at: &HashAndNumber<Block>,
 		source: TransactionSource,
 		xts: impl IntoIterator<Item = Block::Extrinsic> + Clone,
 	) -> HashMap<Block::Hash, Vec<Result<ExtrinsicHash<PoolApi>, PoolApi::Error>>> {
-		//todo: Result<Vec,Error> is not really needed. submit_at should take HashAndNumber.
 		let futs = {
 			let g = self.views.read();
 			let futs = g
@@ -156,9 +158,9 @@ where
 					let view = view.clone();
 					//todo: remove this clone (Arc?)
 					let xts = xts.clone();
-					let hash = hash.clone();
-					let at = at.clone();
-					async move { (hash, view.0.submit_at(&at, source, xts.clone()).await) }
+					async move {
+						(view.at.hash, view.pool.submit_at(&view.at, source, xts.clone()).await)
+					}
 				})
 				.collect::<Vec<_>>();
 			futs
@@ -171,22 +173,20 @@ where
 	/// Imports one unverified extrinsic to every view
 	pub async fn submit_one(
 		&self,
-		at: &HashAndNumber<Block>,
 		source: TransactionSource,
 		xt: Block::Extrinsic,
 	) -> HashMap<Block::Hash, Result<ExtrinsicHash<PoolApi>, PoolApi::Error>> {
-		//todo: Result<ExtrinsicHash,Error> is not really needed. submit_at should take
-		// HashAndNumber.
 		let futs = {
 			let g = self.views.read();
 			let futs = g
 				.iter()
 				.map(|(hash, view)| {
 					let view = view.clone();
-					let at = at.clone();
 					let xt = xt.clone();
-					let hash = hash.clone();
-					async move { (hash, view.0.submit_one(&at, source, xt.clone()).await) }
+
+					async move {
+						(view.at.hash, view.pool.submit_one(&view.at, source, xt.clone()).await)
+					}
 				})
 				.collect::<Vec<_>>();
 			futs
@@ -210,7 +210,7 @@ where
 		self.views
 			.read()
 			.iter()
-			.map(|(h, v)| (*h, v.0.validated_pool().status()))
+			.map(|(h, v)| (*h, v.pool.validated_pool().status()))
 			.collect()
 	}
 }
@@ -267,28 +267,172 @@ where
 	}
 }
 
-fn xxxx() {
-	// in:
-	// HashMap<
-	//    Hash,
-	//    Result<
-	//      Vec<
-	//        Result<
-	//          ExtrinsicHash<PoolApi>,
-	//          PoolApi::Error
-	//        >
-	//      >,
-	//      PoolApi::Error
-	//    >
-	// >
-	//
-	// out:
-	//  Vec<
-	//    Result<
-	//      ExtrinsicHash<PoolApi>,
-	//      PoolApi::Error
-	//    >
-	//  >
+fn xxxx<H, E>(input: &mut HashMap<H, Vec<Result<H, E>>>) -> Vec<Result<H, E>> {
+	let mut values = input.values();
+	let Some(first) = values.next() else {
+		return Default::default();
+	};
+	let length = first.len();
+	assert!(values.all(|x| length == x.len()));
+
+	let mut output = Vec::with_capacity(length);
+	for i in 0..length {
+		let ith_results = input
+			.values_mut()
+			.map(|values_for_view| values_for_view.pop().expect(""))
+			.reduce(|mut r, v| {
+				if r.is_err() && v.is_ok() {
+					r = v;
+				}
+				r
+			});
+
+		output.push(ith_results.expect("views contain at least one entry. qed."));
+	}
+	output.into_iter().rev().collect()
+}
+
+#[cfg(test)]
+mod xxxx_test {
+	use super::*;
+	use sp_core::H256;
+	#[derive(Debug, PartialEq)]
+	enum Error {
+		Custom(u8),
+	}
+
+	#[test]
+	fn empty() {
+		sp_tracing::try_init_simple();
+		let mut input = HashMap::default();
+		let r = xxxx::<H256, Error>(&mut input);
+		assert!(r.is_empty());
+	}
+
+	#[test]
+	fn errors_only() {
+		sp_tracing::try_init_simple();
+		let v: Vec<(H256, Vec<Result<H256, Error>>)> = vec![
+			(
+				H256::repeat_byte(0x13),
+				vec![
+					Err(Error::Custom(10)),
+					Err(Error::Custom(11)),
+					Err(Error::Custom(12)),
+					Err(Error::Custom(13)),
+				],
+			),
+			(
+				H256::repeat_byte(0x14),
+				vec![
+					Err(Error::Custom(20)),
+					Err(Error::Custom(21)),
+					Err(Error::Custom(22)),
+					Err(Error::Custom(23)),
+				],
+			),
+			(
+				H256::repeat_byte(0x15),
+				vec![
+					Err(Error::Custom(30)),
+					Err(Error::Custom(31)),
+					Err(Error::Custom(32)),
+					Err(Error::Custom(33)),
+				],
+			),
+		];
+		let mut input = HashMap::from_iter(v);
+		let r = xxxx(&mut input);
+
+		let x: Option<(u8, usize)> = r.into_iter().fold(None, |h, e| match (h, e) {
+			(None, Err(Error::Custom(n))) => Some((n, 1)),
+			(Some((h, count)), Err(Error::Custom(n))) => {
+				assert_eq!(h + 1, n);
+				Some((n, count + 1))
+			},
+			_ => panic!(),
+		});
+		assert_eq!(x.unwrap().0 % 10, 3);
+		assert_eq!(x.unwrap().1, 4);
+	}
+
+	#[test]
+	#[should_panic]
+	fn invalid_lengths() {
+		sp_tracing::try_init_simple();
+		let v: Vec<(H256, Vec<Result<H256, Error>>)> = vec![
+			(H256::repeat_byte(0x13), vec![Err(Error::Custom(12)), Err(Error::Custom(13))]),
+			(H256::repeat_byte(0x14), vec![Err(Error::Custom(23))]),
+		];
+		let mut input = HashMap::from_iter(v);
+		let r = xxxx(&mut input);
+	}
+
+	#[test]
+	fn only_hashes() {
+		sp_tracing::try_init_simple();
+
+		let v: Vec<(H256, Vec<Result<H256, Error>>)> = vec![
+			(
+				H256::repeat_byte(0x13),
+				vec![Ok(H256::repeat_byte(0x13)), Ok(H256::repeat_byte(0x13))],
+			),
+			(
+				H256::repeat_byte(0x14),
+				vec![Ok(H256::repeat_byte(0x13)), Ok(H256::repeat_byte(0x13))],
+			),
+		];
+		let mut input = HashMap::from_iter(v);
+		let r = xxxx(&mut input);
+
+		assert_eq!(r, vec![Ok(H256::repeat_byte(0x13)), Ok(H256::repeat_byte(0x13))]);
+	}
+
+	#[test]
+	fn mix() {
+		sp_tracing::try_init_simple();
+		let v: Vec<(H256, Vec<Result<H256, Error>>)> = vec![
+			(
+				H256::repeat_byte(0x13),
+				vec![
+					Ok(H256::repeat_byte(0x10)),
+					Err(Error::Custom(11)),
+					Err(Error::Custom(12)),
+					Err(Error::Custom(33)),
+				],
+			),
+			(
+				H256::repeat_byte(0x14),
+				vec![
+					Err(Error::Custom(20)),
+					Ok(H256::repeat_byte(0x21)),
+					Err(Error::Custom(22)),
+					Err(Error::Custom(33)),
+				],
+			),
+			(
+				H256::repeat_byte(0x15),
+				vec![
+					Err(Error::Custom(30)),
+					Err(Error::Custom(31)),
+					Ok(H256::repeat_byte(0x32)),
+					Err(Error::Custom(33)),
+				],
+			),
+		];
+		let mut input = HashMap::from_iter(v);
+		let r = xxxx(&mut input);
+
+		assert_eq!(
+			r,
+			vec![
+				Ok(H256::repeat_byte(0x10)),
+				Ok(H256::repeat_byte(0x21)),
+				Ok(H256::repeat_byte(0x32)),
+				Err(Error::Custom(33))
+			]
+		);
+	}
 }
 
 impl<PoolApi, Block> TransactionPool for ForkAwareTxPool<PoolApi, Block>
@@ -303,7 +447,7 @@ where
 
 	fn submit_at(
 		&self,
-		at: <Self::Block as BlockT>::Hash,
+		_: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xts: Vec<TransactionFor<Self>>,
 	) -> PoolFuture<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error> {
@@ -314,23 +458,16 @@ where
 		// self.metrics
 		// 	.report(|metrics| metrics.submitted_transactions.inc_by(xts.len() as u64));
 
-		let number = self.api.resolve_block_number(at);
-
 		async move {
-			let at = HashAndNumber { hash: at, number: number? };
-			// HashMap< Hash, Result<Vec<Result<ExtrinsicHash<PoolApi>, PoolApi::Error>>,
-			// PoolApi::Error>
-
-			let mut results_map = views.submit_at(&at, source, xts).await;
-			//todo: unwrap
-			Ok(results_map.remove(&at.hash).unwrap())
+			let mut results_map = views.submit_at(source, xts).await;
+			Ok(xxxx(&mut results_map))
 		}
 		.boxed()
 	}
 
 	fn submit_one(
 		&self,
-		at: <Self::Block as BlockT>::Hash,
+		_: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<TxHash<Self>, Self::Error> {
@@ -339,13 +476,18 @@ where
 
 		let views = self.views.clone();
 		self.xts.write().push(xt.clone());
-		let number = self.api.resolve_block_number(at);
 
 		async move {
-			let at = HashAndNumber { hash: at, number: number? };
-			let mut results = views.submit_one(&at, source, xt).await;
-			//todo: unwrap
-			results.remove(&at.hash).unwrap()
+			let results = views.submit_one(source, xt).await;
+			results
+				.into_values()
+				.reduce(|mut r, v| {
+					if r.is_err() && v.is_ok() {
+						r = v;
+					}
+					r
+				})
+				.expect("there is at least one entry in input")
 		}
 		.boxed()
 	}

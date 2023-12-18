@@ -48,11 +48,15 @@ fn create_basic_pool(test_api: Arc<TestApi>) -> ForkAwareTxPool<TestApi, Block> 
 
 const SOURCE: TransactionSource = TransactionSource::External;
 
+//todo:
+//Add some more tests:
+// - view.ready iterator
+
 #[test]
-fn fap_one_view_future_and_ready() {
+fn fap_one_view_future_and_ready_submit_one() {
 	sp_tracing::try_init_simple();
 
-	let api = Arc::from(TestApi::with_alice_nonce(200));
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
 	let pool = create_basic_pool(api.clone());
 
 	let header01a = api.push_block(1, vec![], true);
@@ -79,7 +83,39 @@ fn fap_one_view_future_and_ready() {
 }
 
 #[test]
-fn fap_two_views_future_and_ready() {
+fn fap_one_view_future_and_ready_submit_many() {
+	sp_tracing::try_init_simple();
+
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let pool = create_basic_pool(api.clone());
+
+	let header01a = api.push_block(1, vec![], true);
+	// let header01b = api.push_block(1, vec![], true);
+
+	let event = ChainEvent::NewBestBlock { hash: header01a.hash(), tree_route: None };
+	block_on(pool.maintain(event));
+
+	let xts0 = (200..205).map(|i| uxt(Alice, i)).collect::<Vec<_>>();
+	let xts1 = (205..210).map(|i| uxt(Alice, i)).collect::<Vec<_>>();
+	let xts2 = (215..220).map(|i| uxt(Alice, i)).collect::<Vec<_>>();
+
+	let submissions = vec![
+		pool.submit_at(header01a.hash(), SOURCE, xts0.clone()),
+		pool.submit_at(header01a.hash(), SOURCE, xts1.clone()),
+		pool.submit_at(header01a.hash(), SOURCE, xts2.clone()),
+	];
+
+	block_on(futures::future::join_all(submissions));
+
+	log::info!(target:LOG_TARGET, "stats: {:?}", pool.status_all());
+
+	let status = &pool.status_all()[&header01a.hash()];
+	assert_eq!(status.ready, 10);
+	assert_eq!(status.future, 5);
+}
+
+#[test]
+fn fap_two_views_future_and_ready_sumbit_one() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -115,5 +151,48 @@ fn fap_two_views_future_and_ready() {
 
 	let status = &pool.status_all()[&header01b.hash()];
 	assert_eq!(status.ready, 1);
+	assert_eq!(status.future, 0);
+}
+
+#[test]
+fn fap_two_views_future_and_ready_sumbit_many() {
+	sp_tracing::try_init_simple();
+
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let pool = create_basic_pool(api.clone());
+
+	let header01a = api.push_block(1, vec![], true);
+	let header01b = api.push_block(1, vec![], true);
+
+	let event = ChainEvent::NewBestBlock { hash: header01a.hash(), tree_route: None };
+	block_on(pool.maintain(event));
+
+	let event = ChainEvent::NewBestBlock { hash: header01b.hash(), tree_route: None };
+	block_on(pool.maintain(event));
+
+	api.set_nonce(header01b.hash(), Alice.into(), 215);
+
+	let xts0 = (200..205).map(|i| uxt(Alice, i)).collect::<Vec<_>>();
+	let xts1 = (205..210).map(|i| uxt(Alice, i)).collect::<Vec<_>>();
+	let xts2 = (215..220).map(|i| uxt(Alice, i)).collect::<Vec<_>>();
+
+	let invalid_hash = Default::default();
+
+	let submissions = vec![
+		pool.submit_at(invalid_hash, SOURCE, xts0.clone()),
+		pool.submit_at(invalid_hash, SOURCE, xts1.clone()),
+		pool.submit_at(invalid_hash, SOURCE, xts2.clone()),
+	];
+
+	block_on(futures::future::join_all(submissions));
+
+	log::info!(target:LOG_TARGET, "stats: {:#?}", pool.status_all());
+
+	let status = &pool.status_all()[&header01a.hash()];
+	assert_eq!(status.ready, 10);
+	assert_eq!(status.future, 5);
+
+	let status = &pool.status_all()[&header01b.hash()];
+	assert_eq!(status.ready, 5);
 	assert_eq!(status.future, 0);
 }
