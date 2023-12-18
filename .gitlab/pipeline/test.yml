@@ -305,6 +305,7 @@ node-bench-regression-guard:
     CI_IMAGE: "paritytech/node-bench-regression-guard:latest"
   before_script: [""]
   script:
+    - ls -la artifacts/benches/
     - echo "------- IMPORTANT -------"
     - echo "node-bench-regression-guard depends on the results of a cargo-check-benches job"
     - echo "In case of this job failure, check your pipeline's cargo-check-benches"
@@ -520,6 +521,6 @@ test-syscalls:
     - ./list-syscalls.rb ../../../target/x86_64-unknown-linux-musl/production/polkadot-prepare-worker --only-used-syscalls | diff -u prepare-worker-syscalls -
   after_script:
     - if [[ "$CI_JOB_STATUS" == "failed" ]]; then
-        printf "The x86_64 syscalls used by the worker binaries have changed. Please review if this is expected and update polkadot/scripts/list-syscalls/*-worker-syscalls as needed.\n";
+      printf "The x86_64 syscalls used by the worker binaries have changed. Please review if this is expected and update polkadot/scripts/list-syscalls/*-worker-syscalls as needed.\n";
       fi
   allow_failure: false # this rarely triggers in practice
