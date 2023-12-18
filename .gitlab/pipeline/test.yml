@@ -305,6 +305,7 @@ node-bench-regression-guard:
     CI_IMAGE: "paritytech/node-bench-regression-guard:latest"
     # current git limit is 20, set to 100 to avoid failures (gitlab removes old artifacts)
     GIT_LIMIT: 100
+    GIT_STRATEGY: fetch
   before_script: [""]
   script:
     - if [ $(ls -la artifacts/benches/ | grep master | wc -l) == 0 ]; then
