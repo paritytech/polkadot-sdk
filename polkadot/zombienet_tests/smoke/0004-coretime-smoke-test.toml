@@ -51,3 +51,8 @@ onboard_as_parachain = false
   image = "{{COL_IMAGE}}"
   command = "adder-collator"
   args = [ "-lruntime=debug,parachain=trace" ]
+
+[types.Header]
+number = "u64"
+parent_hash = "Hash"
+post_state = "Hash"

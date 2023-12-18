@@ -10,6 +10,9 @@ edition.workspace = true
 build = "build.rs"
 publish = false
 
+[lints]
+workspace = true
+
 [dependencies]
 clap = { version = "4.4.11", features = ["derive"] }
 log = "0.4.20"
