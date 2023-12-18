@@ -42,7 +42,7 @@ sp-blockchain = { path = "../../primitives/blockchain" }
 sp-core = { path = "../../primitives/core" }
 sp-keystore = { path = "../../primitives/keystore" }
 sp-runtime = { path = "../../primitives/runtime" }
-async-trait = "0.1.56"
+async-trait = "0.1.74"
 multihash-codetable = { version = "0.1.1", features = [
 	"digest",
 	"serde",

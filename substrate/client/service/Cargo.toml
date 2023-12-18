@@ -79,7 +79,7 @@ sc-tracing = { path = "../tracing" }
 sc-sysinfo = { path = "../sysinfo" }
 tracing = "0.1.29"
 tracing-futures = { version = "0.2.4" }
-async-trait = "0.1.57"
+async-trait = "0.1.74"
 tokio = { version = "1.22.0", features = ["parking_lot", "rt-multi-thread", "time"] }
 tempfile = "3.1.0"
 directories = "5.0.1"
