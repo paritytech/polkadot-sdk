@@ -82,6 +82,7 @@ pub type LocationToAccountId = (
 );
 
 /// Means for transacting the native currency on this chain.
+#[allow(deprecated)]
 pub type CurrencyTransactor = CurrencyAdapter<
 	// Use this currency:
 	Balances,
