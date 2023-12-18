@@ -9,6 +9,9 @@ repository.workspace = true
 description = "Substrate service. Starts a thread that spins up the network, client, and extrinsic pool. Manages communication between them."
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
@@ -76,7 +79,7 @@ sc-tracing = { path = "../tracing" }
 sc-sysinfo = { path = "../sysinfo" }
 tracing = "0.1.29"
 tracing-futures = { version = "0.2.4" }
-async-trait = "0.1.57"
+async-trait = "0.1.74"
 tokio = { version = "1.22.0", features = ["parking_lot", "rt-multi-thread", "time"] }
 tempfile = "3.1.0"
 directories = "5.0.1"

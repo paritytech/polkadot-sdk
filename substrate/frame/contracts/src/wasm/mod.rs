@@ -25,12 +25,14 @@ mod runtime;
 pub use crate::wasm::runtime::api_doc;
 
 pub use crate::wasm::runtime::{
-	AllowDeprecatedInterface, AllowUnstableInterface, Environment, ReturnErrorCode, Runtime,
-	RuntimeCosts,
+	AllowDeprecatedInterface, AllowUnstableInterface, Environment, Runtime, RuntimeCosts,
 };
-pub use pallet_contracts_uapi::ReturnFlags;
+
 #[cfg(test)]
 pub use tests::MockExt;
+
+#[cfg(test)]
+pub use crate::wasm::runtime::ReturnErrorCode;
 
 use crate::{
 	exec::{ExecResult, Executable, ExportedFunction, Ext},

@@ -303,8 +303,15 @@ node-bench-regression-guard:
       artifacts: true
   variables:
     CI_IMAGE: "paritytech/node-bench-regression-guard:latest"
+    # current git limit is 20, set to 100 to avoid failures (gitlab removes old artifacts)
+    GIT_DEPTH: 100
+    GIT_STRATEGY: fetch
   before_script: [""]
   script:
+    - if [ $(ls -la artifacts/benches/ | grep master | wc -l) == 0 ]; then
+      echo "Couldn't find master artifacts, consider increasing GIT_LIMIT variable";
+      exit 1;
+      fi
     - echo "------- IMPORTANT -------"
     - echo "node-bench-regression-guard depends on the results of a cargo-check-benches job"
     - echo "In case of this job failure, check your pipeline's cargo-check-benches"
@@ -520,6 +527,6 @@ test-syscalls:
     - ./list-syscalls.rb ../../../target/x86_64-unknown-linux-musl/production/polkadot-prepare-worker --only-used-syscalls | diff -u prepare-worker-syscalls -
   after_script:
     - if [[ "$CI_JOB_STATUS" == "failed" ]]; then
-        printf "The x86_64 syscalls used by the worker binaries have changed. Please review if this is expected and update polkadot/scripts/list-syscalls/*-worker-syscalls as needed.\n";
+      printf "The x86_64 syscalls used by the worker binaries have changed. Please review if this is expected and update polkadot/scripts/list-syscalls/*-worker-syscalls as needed.\n";
       fi
   allow_failure: false # this rarely triggers in practice
