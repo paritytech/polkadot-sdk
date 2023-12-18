@@ -17,27 +17,60 @@
 
 //! # System Pallet
 //!
-//! The System pallet provides low-level access to core types and cross-cutting utilities.
-//! It acts as the base layer for other pallets to interact with the Substrate framework components.
+//! The System pallet provides low-level access to core types and cross-cutting utilities. It acts
+//! as the base layer for other pallets to interact with the Substrate framework components.
 //!
 //! - [`Config`]
 //!
 //! ## Overview
 //!
-//! The System pallet defines the core data types used in a Substrate runtime.
-//! It also provides several utility functions (see [`Pallet`]) for other FRAME pallets.
+//! The System pallet defines the core data types used in a Substrate runtime. It also provides
+//! several utility functions (see [`Pallet`]) for other FRAME pallets.
 //!
-//! In addition, it manages the storage items for extrinsics data, indexes, event records, and
-//! digest items, among other things that support the execution of the current block.
+//! In addition, it manages the storage items for extrinsic data, indices, event records, and digest
+//! items, among other things that support the execution of the current block.
 //!
-//! It also handles low-level tasks like depositing logs, basic set up and take down of
-//! temporary storage entries, and access to previous block hashes.
+//! It also handles low-level tasks like depositing logs, basic set up and take down of temporary
+//! storage entries, and access to previous block hashes.
 //!
 //! ## Interface
 //!
 //! ### Dispatchable Functions
 //!
-//! The System pallet does not implement any dispatchable functions.
+//! The System pallet provides dispatchable functions that, with the exception of `remark`, manage
+//! low-level or privileged functionality of a Substrate-based runtime.
+//!
+//! - `remark`: Make some on-chain remark.
+//! - `set_heap_pages`: Set the number of pages in the WebAssembly environment's heap.
+//! - `set_code`: Set the new runtime code.
+//! - `set_code_without_checks`: Set the new runtime code without any checks.
+//! - `set_storage`: Set some items of storage.
+//! - `kill_storage`: Kill some items from storage.
+//! - `kill_prefix`: Kill all storage items with a key that starts with the given prefix.
+//! - `remark_with_event`: Make some on-chain remark and emit an event.
+//! - `do_task`: Do some specified task.
+//! - `authorize_upgrade`: Authorize new runtime code.
+//! - `authorize_upgrade_without_checks`: Authorize new runtime code and an upgrade sans
+//!   verification.
+//! - `apply_authorized_upgrade`: Provide new, already-authorized runtime code.
+//!
+//! #### A Note on Upgrades
+//!
+//! The pallet provides two primary means of upgrading the runtime, a single-phase means using
+//! `set_code` and a two-phase means using `authorize_upgrade` followed by
+//! `apply_authorized_upgrade`. The first will directly attempt to apply the provided `code`
+//! (application may have to be scheduled, depending on the context and implementation of the
+//! `OnSetCode` trait).
+//!
+//! The `authorize_upgrade` route allows the authorization of a runtime's code hash. Once
+//! authorized, anyone may upload the correct runtime to apply the code. This pattern is useful when
+//! providing the runtime ahead of time may be unwieldy, for example when a large preimage (the
+//! code) would need to be stored on-chain or sent over a message transport protocol such as a
+//! bridge.
+//!
+//! The `*_without_checks` variants do not perform any version checks, so using them runs the risk
+//! of applying a downgrade or entirely other chain specification. They will still validate that the
+//! `code` meets the authorized hash.
 //!
 //! ### Public Functions
 //!
@@ -59,7 +92,7 @@
 //!   - [`CheckTxVersion`]: Checks that the transaction version is the same as the one used to sign
 //!     the transaction.
 //!
-//! Lookup the runtime aggregator file (e.g. `node/runtime`) to see the full list of signed
+//! Look up the runtime aggregator file (e.g. `node/runtime`) to see the full list of signed
 //! extensions included in a chain.
 
 #![cfg_attr(not(feature = "std"), no_std)]
