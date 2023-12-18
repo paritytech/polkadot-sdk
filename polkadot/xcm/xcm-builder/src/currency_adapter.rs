@@ -116,7 +116,7 @@ impl<
 		.map_err(|_| XcmError::NotWithdrawable)
 	}
 	fn accrue_checked(checked_account: AccountId, amount: Currency::Balance) {
-		Currency::deposit_creating(&checked_account, amount);
+		let _ = Currency::deposit_creating(&checked_account, amount);
 		Currency::deactivate(amount);
 	}
 	fn reduce_checked(checked_account: AccountId, amount: Currency::Balance) {
@@ -218,7 +218,7 @@ impl<
 		let amount = Matcher::matches_fungible(what).ok_or(Error::AssetNotHandled)?;
 		let who =
 			AccountIdConverter::convert_location(who).ok_or(Error::AccountIdConversionFailed)?;
-		Currency::withdraw(&who, amount, WithdrawReasons::TRANSFER, AllowDeath)
+		let _ = Currency::withdraw(&who, amount, WithdrawReasons::TRANSFER, AllowDeath)
 			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))?;
 		Ok(what.clone().into())
 	}
