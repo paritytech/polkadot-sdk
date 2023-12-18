@@ -28,7 +28,8 @@ use pallet_xcm::XcmPassthrough;
 use parachains_common::{
 	impls::ToStakingPot,
 	xcm_config::{
-		AllSiblingSystemParachains, ConcreteNativeAssetFrom, RelayOrOtherSystemParachains,
+		AllSiblingSystemParachains, ConcreteNativeAssetFrom, ParentRelayOrSiblingParachains,
+		RelayOrOtherSystemParachains,
 	},
 	TREASURY_PALLET_ID,
 };
