@@ -97,7 +97,7 @@ mod benchmarks {
 		SnowbridgeControl::<T>::create_channel(origin.clone(), OperatingMode::Normal)?;
 
 		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin, OperatingMode::RejectingOutboundMessages, 1);
+		_(origin as T::RuntimeOrigin, OperatingMode::RejectingOutboundMessages);
 
 		Ok(())
 	}
@@ -114,7 +114,7 @@ mod benchmarks {
 		SnowbridgeControl::<T>::create_channel(origin.clone(), OperatingMode::Normal)?;
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, channel_id, OperatingMode::RejectingOutboundMessages, 1);
+		_(RawOrigin::Root, channel_id, OperatingMode::RejectingOutboundMessages);
 
 		Ok(())
 	}
