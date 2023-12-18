@@ -36,6 +36,6 @@ sp-authority-discovery = { path = "../../../../substrate/primitives/authority-di
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 
 assert_matches = "1.4.0"
-async-trait = "0.1.57"
+async-trait = "0.1.74"
 lazy_static = "1.4.0"
 quickcheck = "1.0.3"
