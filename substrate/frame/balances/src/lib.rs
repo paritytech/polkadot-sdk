@@ -913,7 +913,6 @@ pub mod pallet {
 				let mut account = maybe_account.take().unwrap_or_default();
 				let did_provide =
 					account.free >= Self::ed() && Self::have_providers_or_no_zero_ed(who);
-
 				let did_consume =
 					!is_new && (!account.reserved.is_zero() || !account.frozen.is_zero());
 
