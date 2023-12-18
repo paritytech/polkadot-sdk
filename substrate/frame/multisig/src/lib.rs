@@ -206,8 +206,6 @@ pub mod pallet {
 		NotFound,
 		/// Only the account that originally created the multisig is able to cancel it.
 		NotOwner,
-		/// No timepoint was given, yet the multisig operation is already underway.
-		NoTimepoint,
 		/// A different timepoint was given to the multisig operation that is underway.
 		WrongTimepoint,
 		/// A timepoint was given, yet no multisig operation is underway.
@@ -328,8 +326,9 @@ pub mod pallet {
 		/// - `other_signatories`: The accounts (other than the sender) who can approve this
 		/// dispatch. May not be empty.
 		/// - `maybe_timepoint`: If this is the first approval, then this must be `None`. If it is
-		/// not the first approval, then it must be `Some`, with the timepoint (block number and
-		/// transaction index) of the first approval transaction.
+		/// not the first approval, then it can be `Some`, with the timepoint (block number and
+		/// transaction index) of the first approval transaction. When provided, timepoint will serve
+		/// as another security layer.
 		/// - `call`: The call to be executed.
 		///
 		/// NOTE: Unless this is the final approval, you will generally want to use
@@ -394,8 +393,9 @@ pub mod pallet {
 		/// - `other_signatories`: The accounts (other than the sender) who can approve this
 		/// dispatch. May not be empty.
 		/// - `maybe_timepoint`: If this is the first approval, then this must be `None`. If it is
-		/// not the first approval, then it must be `Some`, with the timepoint (block number and
-		/// transaction index) of the first approval transaction.
+		/// not the first approval, then it can be `Some`, with the timepoint (block number and
+		/// transaction index) of the first approval transaction. When provided, timepoint will serve
+		/// as another security layer.
 		/// - `call_hash`: The hash of the call to be executed.
 		///
 		/// NOTE: If this is the final approval, you will want to use `as_multi` instead.
@@ -446,8 +446,8 @@ pub mod pallet {
 		/// - `threshold`: The total number of approvals for this dispatch before it is executed.
 		/// - `other_signatories`: The accounts (other than the sender) who can approve this
 		/// dispatch. May not be empty.
-		/// - `timepoint`: The timepoint (block number and transaction index) of the first approval
-		/// transaction for this dispatch.
+		/// - `maybe_timepoint`: The timepoint (block number and transaction index) of the first approval
+		/// transaction for this dispatch. When provided, timepoint will serve as another security layer.
 		/// - `call_hash`: The hash of the call to be executed.
 		///
 		/// ## Complexity
