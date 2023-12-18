@@ -1,4 +1,4 @@
-// Copyright 2022 Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
 // Cumulus is free software: you can redistribute it and/or modify
@@ -61,10 +61,8 @@ impl<Call> XcmWeightInfo<Call> for CoretimeRococoXcmWeight<Call> {
 	fn withdraw_asset(assets: &MultiAssets) -> Weight {
 		assets.weigh_multi_assets(XcmFungibleWeight::<Runtime>::withdraw_asset())
 	}
-	// Currently there is no trusted reserve
-	fn reserve_asset_deposited(_assets: &MultiAssets) -> Weight {
-		// TODO: hardcoded - fix https://github.com/paritytech/cumulus/issues/1974
-		Weight::from_parts(1_000_000_000_u64, 0)
+	fn reserve_asset_deposited(assets: &MultiAssets) -> Weight {
+		assets.weigh_multi_assets(XcmFungibleWeight::<Runtime>::reserve_asset_deposited())
 	}
 	fn receive_teleported_asset(assets: &MultiAssets) -> Weight {
 		assets.weigh_multi_assets(XcmFungibleWeight::<Runtime>::receive_teleported_asset())
@@ -119,12 +117,8 @@ impl<Call> XcmWeightInfo<Call> for CoretimeRococoXcmWeight<Call> {
 	fn report_error(_query_response_info: &QueryResponseInfo) -> Weight {
 		XcmGeneric::<Runtime>::report_error()
 	}
-
 	fn deposit_asset(assets: &MultiAssetFilter, _dest: &MultiLocation) -> Weight {
-		// Hardcoded till the XCM pallet is fixed
-		let hardcoded_weight = Weight::from_parts(1_000_000_000_u64, 0);
-		let weight = assets.weigh_multi_assets(XcmFungibleWeight::<Runtime>::deposit_asset());
-		hardcoded_weight.min(weight)
+		assets.weigh_multi_assets(XcmFungibleWeight::<Runtime>::deposit_asset())
 	}
 	fn deposit_reserve_asset(
 		assets: &MultiAssetFilter,
@@ -141,7 +135,7 @@ impl<Call> XcmWeightInfo<Call> for CoretimeRococoXcmWeight<Call> {
 		_reserve: &MultiLocation,
 		_xcm: &Xcm<()>,
 	) -> Weight {
-		assets.weigh_multi_assets(XcmGeneric::<Runtime>::initiate_reserve_withdraw())
+		assets.weigh_multi_assets(XcmFungibleWeight::<Runtime>::initiate_reserve_withdraw())
 	}
 	fn initiate_teleport(
 		assets: &MultiAssetFilter,
@@ -214,7 +208,7 @@ impl<Call> XcmWeightInfo<Call> for CoretimeRococoXcmWeight<Call> {
 		XcmGeneric::<Runtime>::clear_transact_status()
 	}
 	fn universal_origin(_: &Junction) -> Weight {
-		Weight::MAX
+		XcmGeneric::<Runtime>::universal_origin()
 	}
 	fn export_message(_: &NetworkId, _: &Junctions, _: &Xcm<()>) -> Weight {
 		Weight::MAX

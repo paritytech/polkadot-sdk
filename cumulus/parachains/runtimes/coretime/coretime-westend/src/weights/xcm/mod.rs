@@ -1,18 +1,17 @@
-// Copyright 2023 Parity Technologies (UK) Ltd.
-// This file is part of Cumulus.
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 mod pallet_xcm_benchmarks_fungible;
 mod pallet_xcm_benchmarks_generic;
@@ -61,10 +60,8 @@ impl<Call> XcmWeightInfo<Call> for CoretimeWestendXcmWeight<Call> {
 	fn withdraw_asset(assets: &MultiAssets) -> Weight {
 		assets.weigh_multi_assets(XcmFungibleWeight::<Runtime>::withdraw_asset())
 	}
-	// Currently there is no trusted reserve
-	fn reserve_asset_deposited(_assets: &MultiAssets) -> Weight {
-		// TODO: hardcoded - fix https://github.com/paritytech/cumulus/issues/1974
-		Weight::from_parts(1_000_000_000_u64, 0)
+	fn reserve_asset_deposited(assets: &MultiAssets) -> Weight {
+		assets.weigh_multi_assets(XcmFungibleWeight::<Runtime>::reserve_asset_deposited())
 	}
 	fn receive_teleported_asset(assets: &MultiAssets) -> Weight {
 		assets.weigh_multi_assets(XcmFungibleWeight::<Runtime>::receive_teleported_asset())
@@ -121,10 +118,7 @@ impl<Call> XcmWeightInfo<Call> for CoretimeWestendXcmWeight<Call> {
 	}
 
 	fn deposit_asset(assets: &MultiAssetFilter, _dest: &MultiLocation) -> Weight {
-		// Hardcoded till the XCM pallet is fixed
-		let hardcoded_weight = Weight::from_parts(1_000_000_000_u64, 0);
-		let weight = assets.weigh_multi_assets(XcmFungibleWeight::<Runtime>::deposit_asset());
-		hardcoded_weight.min(weight)
+		assets.weigh_multi_assets(XcmFungibleWeight::<Runtime>::deposit_asset())
 	}
 	fn deposit_reserve_asset(
 		assets: &MultiAssetFilter,
@@ -141,17 +135,14 @@ impl<Call> XcmWeightInfo<Call> for CoretimeWestendXcmWeight<Call> {
 		_reserve: &MultiLocation,
 		_xcm: &Xcm<()>,
 	) -> Weight {
-		assets.weigh_multi_assets(XcmGeneric::<Runtime>::initiate_reserve_withdraw())
+		assets.weigh_multi_assets(XcmFungibleWeight::<Runtime>::initiate_reserve_withdraw())
 	}
 	fn initiate_teleport(
 		assets: &MultiAssetFilter,
 		_dest: &MultiLocation,
 		_xcm: &Xcm<()>,
 	) -> Weight {
-		// Hardcoded till the XCM pallet is fixed
-		let hardcoded_weight = Weight::from_parts(200_000_000_u64, 0);
-		let weight = assets.weigh_multi_assets(XcmFungibleWeight::<Runtime>::initiate_teleport());
-		hardcoded_weight.min(weight)
+		assets.weigh_multi_assets(XcmFungibleWeight::<Runtime>::initiate_teleport())
 	}
 	fn report_holding(_response_info: &QueryResponseInfo, _assets: &MultiAssetFilter) -> Weight {
 		XcmGeneric::<Runtime>::report_holding()
@@ -217,7 +208,7 @@ impl<Call> XcmWeightInfo<Call> for CoretimeWestendXcmWeight<Call> {
 		XcmGeneric::<Runtime>::clear_transact_status()
 	}
 	fn universal_origin(_: &Junction) -> Weight {
-		Weight::MAX
+		XcmGeneric::<Runtime>::universal_origin()
 	}
 	fn export_message(_: &NetworkId, _: &Junctions, _: &Xcm<()>) -> Weight {
 		Weight::MAX
