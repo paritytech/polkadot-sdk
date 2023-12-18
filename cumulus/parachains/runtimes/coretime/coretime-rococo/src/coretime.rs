@@ -39,25 +39,14 @@ impl OnUnbalanced<Credit<polkadot_core_primitives::AccountId, Balances>> for Cre
 /// construct any remote calls. The codec index must correspond to the index of `Broker` in the
 /// `construct_runtime` of the Relay chain.
 #[derive(Encode, Decode)]
-enum BrokerRuntimePallets<CoreIndex, BlockNumber, AccountId, Balance, CoreAssignment, PartsOf57600>
-{
+enum BrokerRuntimePallets {
 	#[codec(index = 74)]
-	Broker(
-		CoretimeProviderCalls<
-			CoreIndex,
-			BlockNumber,
-			AccountId,
-			Balance,
-			CoreAssignment,
-			PartsOf57600,
-		>,
-	),
+	Broker(CoretimeProviderCalls),
 }
 
 /// Call encoding for the calls needed from the Broker pallet.
 #[derive(Encode, Decode)]
-enum CoretimeProviderCalls<CoreIndex, BlockNumber, AccountId, Balance, CoreAssignment, PartsOf57600>
-{
+enum CoretimeProviderCalls {
 	#[codec(index = 1)]
 	RequestCoreCount(CoreIndex),
 	#[codec(index = 2)]
@@ -92,14 +81,7 @@ impl CoretimeInterface for CoretimeAllocator {
 
 	fn request_core_count(count: CoreIndex) {
 		use crate::coretime::CoretimeProviderCalls::RequestCoreCount;
-		let request_core_count_call = BrokerRuntimePallets::<
-			CoreIndex,
-			BlockNumber,
-			AccountId,
-			Balance,
-			CoreAssignment,
-			PartsOf57600,
-		>::Broker(RequestCoreCount(count));
+		let request_core_count_call = BrokerRuntimePallets::Broker(RequestCoreCount(count));
 
 		let message = Xcm(vec![
 			Instruction::UnpaidExecution {
@@ -128,14 +110,7 @@ impl CoretimeInterface for CoretimeAllocator {
 
 	fn request_revenue_info_at(when: Self::BlockNumber) {
 		use crate::coretime::CoretimeProviderCalls::RequestRevenueInfoAt;
-		let request_revenue_info_at_call = BrokerRuntimePallets::<
-			CoreIndex,
-			BlockNumber,
-			AccountId,
-			Balance,
-			CoreAssignment,
-			PartsOf57600,
-		>::Broker(RequestRevenueInfoAt(when));
+		let request_revenue_info_at_call = BrokerRuntimePallets::Broker(RequestRevenueInfoAt(when));
 
 		let message = Xcm(vec![
 			Instruction::UnpaidExecution {
@@ -164,14 +139,7 @@ impl CoretimeInterface for CoretimeAllocator {
 
 	fn credit_account(who: Self::AccountId, amount: Self::Balance) {
 		use crate::coretime::CoretimeProviderCalls::CreditAccount;
-		let credit_account_call = BrokerRuntimePallets::<
-			CoreIndex,
-			BlockNumber,
-			AccountId,
-			Balance,
-			CoreAssignment,
-			PartsOf57600,
-		>::Broker(CreditAccount(who, amount));
+		let credit_account_call = BrokerRuntimePallets::Broker(CreditAccount(who, amount));
 
 		let message = Xcm(vec![
 			Instruction::UnpaidExecution {
@@ -205,14 +173,8 @@ impl CoretimeInterface for CoretimeAllocator {
 		end_hint: Option<Self::BlockNumber>,
 	) {
 		use crate::coretime::CoretimeProviderCalls::AssignCore;
-		let assign_core_call = BrokerRuntimePallets::<
-			CoreIndex,
-			BlockNumber,
-			AccountId,
-			Balance,
-			CoreAssignment,
-			PartsOf57600,
-		>::Broker(AssignCore(core, begin, assignment, end_hint));
+		let assign_core_call =
+			BrokerRuntimePallets::Broker(AssignCore(core, begin, assignment, end_hint));
 
 		let message = Xcm(vec![
 			Instruction::UnpaidExecution {
