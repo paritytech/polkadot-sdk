@@ -35,7 +35,7 @@ use std::{
 /// spawning the desired worker.
 #[macro_export]
 macro_rules! decl_worker_main {
-	($expected_command:expr, $entrypoint:expr, $worker_version:expr, $worker_version_hash:expr $(,)*) => {
+	($entrypoint:expr, $worker_version:expr, $worker_version_hash:expr $(,)*) => {
 		fn get_full_version() -> String {
 			format!("{}-{}", $worker_version, $worker_version_hash)
 		}
@@ -123,16 +123,6 @@ macro_rules! decl_worker_main {
 				"test-sleep" => {
 					std::thread::sleep(std::time::Duration::from_secs(5));
 					return
-				},
-
-				subcommand => {
-					// Must be passed for compatibility with the single-binary test workers.
-					if subcommand != $expected_command {
-						panic!(
-							"trying to run {} binary with the {} subcommand",
-							$expected_command, subcommand
-						)
-					}
 				},
 			}
 

@@ -50,7 +50,7 @@ pub async fn spawn(
 	node_version: Option<&str>,
 	security_status: SecurityStatus,
 ) -> Result<(IdleWorker, WorkerHandle), SpawnErr> {
-	let mut extra_args = vec!["prepare-worker"];
+	let mut extra_args = vec![];
 	if let Some(node_version) = node_version {
 		extra_args.extend_from_slice(&["--node-impl-version", node_version]);
 	}
