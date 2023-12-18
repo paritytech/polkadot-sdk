@@ -228,7 +228,7 @@ impl pallet_broker::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type OnRevenue = CreditToCollatorPot;
-	type TimeslicePeriod = ConstU32<2>;
+	type TimeslicePeriod = ConstU32<80>;
 	type MaxLeasedCores = ConstU32<50>;
 	type MaxReservedCores = ConstU32<10>;
 	type Coretime = CoretimeAllocator;
