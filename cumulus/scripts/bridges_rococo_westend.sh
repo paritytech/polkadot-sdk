@@ -326,7 +326,7 @@ case "$1" in
           "//Alice" \
           "$(jq --null-input '{ "V3": { "parents": 2, "interior": { "X2": [ { "GlobalConsensus": "Westend" }, { "Parachain": 1000 } ] } } }')" \
           "$(jq --null-input '{ "V3": { "parents": 0, "interior": { "X1": { "AccountId32": { "id": [212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130, 44, 133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125] } } } } }')" \
-          "$(jq --null-input '{ "V3": [ { "id": { "Concrete": { "parents": 1, "interior": "Here" } }, "fun": { "Fungible": 200000000000 } } ] }')" \
+          "$(jq --null-input '{ "V3": [ { "id": { "Concrete": { "parents": 1, "interior": "Here" } }, "fun": { "Fungible": 5000000000000 } } ] }')" \
           0 \
           "Unlimited"
       ;;
@@ -338,7 +338,7 @@ case "$1" in
           "//Alice" \
           "$(jq --null-input '{ "V3": { "parents": 2, "interior": { "X2": [ { "GlobalConsensus": "Westend" }, { "Parachain": 1000 } ] } } }')" \
           "$(jq --null-input '{ "V3": { "parents": 0, "interior": { "X1": { "AccountId32": { "id": [212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130, 44, 133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125] } } } } }')" \
-          "$(jq --null-input '{ "V3": [ { "id": { "Concrete": { "parents": 2, "interior": { "X1": { "GlobalConsensus": "Westend" } } } }, "fun": { "Fungible": 40000000000 } } ] }')" \
+          "$(jq --null-input '{ "V3": [ { "id": { "Concrete": { "parents": 2, "interior": { "X1": { "GlobalConsensus": "Westend" } } } }, "fun": { "Fungible": 3000000000000 } } ] }')" \
           0 \
           "Unlimited"
       ;;
@@ -350,7 +350,7 @@ case "$1" in
           "//Alice" \
           "$(jq --null-input '{ "V3": { "parents": 2, "interior": { "X2": [ { "GlobalConsensus": "Rococo" }, { "Parachain": 1000 } ] } } }')" \
           "$(jq --null-input '{ "V3": { "parents": 0, "interior": { "X1": { "AccountId32": { "id": [212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130, 44, 133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125] } } } } }')" \
-          "$(jq --null-input '{ "V3": [ { "id": { "Concrete": { "parents": 1, "interior": "Here" } }, "fun": { "Fungible": 150000000000 } } ] }')" \
+          "$(jq --null-input '{ "V3": [ { "id": { "Concrete": { "parents": 1, "interior": "Here" } }, "fun": { "Fungible": 5000000000000 } } ] }')" \
           0 \
           "Unlimited"
       ;;
@@ -362,7 +362,7 @@ case "$1" in
           "//Alice" \
           "$(jq --null-input '{ "V3": { "parents": 2, "interior": { "X2": [ { "GlobalConsensus": "Rococo" }, { "Parachain": 1000 } ] } } }')" \
           "$(jq --null-input '{ "V3": { "parents": 0, "interior": { "X1": { "AccountId32": { "id": [212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130, 44, 133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125] } } } } }')" \
-          "$(jq --null-input '{ "V3": [ { "id": { "Concrete": { "parents": 2, "interior": { "X1": { "GlobalConsensus": "Rococo" } } } }, "fun": { "Fungible": 100000000000 } } ] }')" \
+          "$(jq --null-input '{ "V3": [ { "id": { "Concrete": { "parents": 2, "interior": { "X1": { "GlobalConsensus": "Rococo" } } } }, "fun": { "Fungible": 3000000000000 } } ] }')" \
           0 \
           "Unlimited"
       ;;
