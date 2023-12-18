@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["DenyUnsafe"],"fn":["create_contracts_rococo","create_full"],"struct":["FullDeps"],"type":["RpcExtension","SubscriptionTaskExecutor"]};
+window.SIDEBAR_ITEMS = {"enum":["DenyUnsafe"],"fn":["create_contracts_rococo","create_full"],"struct":["FullDeps"],"type":["RpcExtension"]};

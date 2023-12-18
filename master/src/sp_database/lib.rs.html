@@ -140,6 +140,8 @@
 <a href="#140" id="140">140</a>
 <a href="#141" id="141">141</a>
 <a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -243,7 +245,9 @@
 	/// This may be faster than `get` since it doesn&#39;t allocate.
 	/// Use `with_get` helper function if you need `f` to return a value from `f`
 	</span><span class="kw">fn </span>with_get(<span class="kw-2">&amp;</span><span class="self">self</span>, col: ColumnId, key: <span class="kw-2">&amp;</span>[u8], f: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>FnMut(<span class="kw-2">&amp;</span>[u8])) {
-		<span class="self">self</span>.get(col, key).map(|v| f(<span class="kw-2">&amp;</span>v));
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(v) = <span class="self">self</span>.get(col, key) {
+			f(<span class="kw-2">&amp;</span>v)
+		}
 	}
 
 	<span class="doccomment">/// Check if database supports internal ref counting for state data.

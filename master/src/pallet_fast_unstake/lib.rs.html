@@ -1199,7 +1199,7 @@
 					.any(|e| T::Staking::is_exposed_in_era(<span class="kw-2">&amp;</span>stash, e));
 
 				<span class="kw">if </span>is_exposed {
-					T::Currency::slash_reserved(<span class="kw-2">&amp;</span>stash, deposit);
+					<span class="kw">let _ </span>= T::Currency::slash_reserved(<span class="kw-2">&amp;</span>stash, deposit);
 					<span class="macro">log!</span>(info, <span class="string">&quot;slashed {:?} by {:?}&quot;</span>, stash, deposit);
 					<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Slashed { stash, amount: deposit });
 					<span class="bool-val">false

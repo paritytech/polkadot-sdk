@@ -533,7 +533,7 @@
 					<span class="string">&quot;Failed to transfer the base deposit, reason: {:?}&quot;</span>,
 					err
 				);
-				OldCurrency::deposit_creating(<span class="kw-2">&amp;</span>deposit_account, min_balance);
+				<span class="kw">let _ </span>= OldCurrency::deposit_creating(<span class="kw-2">&amp;</span>deposit_account, min_balance);
 				min_balance
 			});
 

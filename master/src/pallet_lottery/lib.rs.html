@@ -519,6 +519,7 @@
 <a href="#519" id="519">519</a>
 <a href="#520" id="520">520</a>
 <a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -889,7 +890,8 @@
 			<span class="comment">// Make sure pot exists.
 			</span><span class="kw">let </span>lottery_account = <span class="self">Self</span>::account_id();
 			<span class="kw">if </span>T::Currency::total_balance(<span class="kw-2">&amp;</span>lottery_account).is_zero() {
-				T::Currency::deposit_creating(<span class="kw-2">&amp;</span>lottery_account, T::Currency::minimum_balance());
+				<span class="kw">let _ </span>=
+					T::Currency::deposit_creating(<span class="kw-2">&amp;</span>lottery_account, T::Currency::minimum_balance());
 			}
 			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::LotteryStarted);
 			<span class="prelude-val">Ok</span>(())

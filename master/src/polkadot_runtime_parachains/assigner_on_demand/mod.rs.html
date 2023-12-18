@@ -611,6 +611,11 @@
 <a href="#611" id="611">611</a>
 <a href="#612" id="612">612</a>
 <a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -950,7 +955,12 @@
 		</span><span class="macro">ensure!</span>(spot_price.le(<span class="kw-2">&amp;</span>max_amount), Error::&lt;T&gt;::SpotPriceHigherThanMaxAmount);
 
 		<span class="comment">// Charge the sending account the spot price
-		</span>T::Currency::withdraw(<span class="kw-2">&amp;</span>sender, spot_price, WithdrawReasons::FEE, existence_requirement)<span class="question-mark">?</span>;
+		</span><span class="kw">let _ </span>= T::Currency::withdraw(
+			<span class="kw-2">&amp;</span>sender,
+			spot_price,
+			WithdrawReasons::FEE,
+			existence_requirement,
+		)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>assignment = Assignment::new(para_id);
 

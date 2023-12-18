@@ -473,7 +473,7 @@
 	}
 
 	<span class="attr">#[inline]
-	</span><span class="kw">unsafe fn </span>dealloc(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">*mut </span>u8, layout: Layout) -&gt; () {
+	</span><span class="kw">unsafe fn </span>dealloc(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">*mut </span>u8, layout: Layout) {
 		<span class="kw">let </span>guard = ALLOCATOR_DATA.lock();
 		TrackingAllocatorData::track_and_check_limits(guard, -(layout.size() <span class="kw">as </span>isize));
 		<span class="self">self</span>.<span class="number">0</span>.dealloc(ptr, layout)

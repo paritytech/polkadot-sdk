@@ -475,11 +475,6 @@
 <a href="#475" id="475">475</a>
 <a href="#476" id="476">476</a>
 <a href="#477" id="477">477</a>
-<a href="#478" id="478">478</a>
-<a href="#479" id="479">479</a>
-<a href="#480" id="480">480</a>
-<a href="#481" id="481">481</a>
-<a href="#482" id="482">482</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -896,12 +891,13 @@
 ///
 /// V0 and V1 uses a same trie implementation, but V1 will write external value node in the trie for
 /// value with size at least `TRIE_VALUE_NODE_THRESHOLD`.
-</span><span class="attr">#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+</span><span class="attr">#[derive(Debug, Default, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Encode, Decode))]
 </span><span class="kw">pub enum </span>StateVersion {
 	<span class="doccomment">/// Old state version, no value nodes.
 	</span>V0 = <span class="number">0</span>,
 	<span class="doccomment">/// New state version can use value nodes.
+	</span><span class="attr">#[default]
 	</span>V1 = <span class="number">1</span>,
 }
 
@@ -911,12 +907,6 @@
 			StateVersion::V0 =&gt; f.write_str(<span class="string">&quot;0&quot;</span>),
 			StateVersion::V1 =&gt; f.write_str(<span class="string">&quot;1&quot;</span>),
 		}
-	}
-}
-
-<span class="kw">impl </span>Default <span class="kw">for </span>StateVersion {
-	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-		StateVersion::V1
 	}
 }
 

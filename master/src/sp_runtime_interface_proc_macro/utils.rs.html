@@ -461,7 +461,7 @@
 <span class="kw">impl </span>RuntimeInterfaceFunctionSet {
 	<span class="kw">fn </span>new(version: VersionAttribute, trait_item: <span class="kw-2">&amp;</span>TraitItemFn) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
 		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{
-			latest_version_to_call: version.is_callable().then(|| version.version),
+			latest_version_to_call: version.is_callable().then_some(version.version),
 			versions: BTreeMap::from([(
 				version.version,
 				RuntimeInterfaceFunction::new(trait_item)<span class="question-mark">?</span>,

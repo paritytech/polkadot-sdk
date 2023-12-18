@@ -2263,7 +2263,7 @@
 		}
 
 		<span class="comment">// We first need to deposit the balance to ensure that the account exists.
-		</span>CurrencyOf::&lt;T&gt;::deposit_creating(<span class="kw-2">&amp;</span>dest, balance_due);
+		</span><span class="kw">let _ </span>= CurrencyOf::&lt;T&gt;::deposit_creating(<span class="kw-2">&amp;</span>dest, balance_due);
 
 		<span class="comment">// Check if this claim should have a vesting schedule.
 		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(vs) = vesting {

@@ -3427,6 +3427,8 @@
 <a href="#3427" id="3427">3427</a>
 <a href="#3428" id="3428">3428</a>
 <a href="#3429" id="3429">3429</a>
+<a href="#3430" id="3430">3430</a>
+<a href="#3431" id="3431">3431</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3454,12 +3456,14 @@
 </span><span class="kw">pub use </span><span class="kw">crate</span>::wasm::runtime::api_doc;
 
 <span class="kw">pub use </span><span class="kw">crate</span>::wasm::runtime::{
-	AllowDeprecatedInterface, AllowUnstableInterface, Environment, ReturnErrorCode, Runtime,
-	RuntimeCosts,
+	AllowDeprecatedInterface, AllowUnstableInterface, Environment, Runtime, RuntimeCosts,
 };
-<span class="kw">pub use </span>pallet_contracts_uapi::ReturnFlags;
+
 <span class="attr">#[cfg(test)]
 </span><span class="kw">pub use </span>tests::MockExt;
+
+<span class="attr">#[cfg(test)]
+</span><span class="kw">pub use </span><span class="kw">crate</span>::wasm::runtime::ReturnErrorCode;
 
 <span class="kw">use crate</span>::{
 	exec::{ExecResult, Executable, ExportedFunction, Ext},

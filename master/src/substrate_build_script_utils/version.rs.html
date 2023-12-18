@@ -117,7 +117,7 @@
 		<span class="comment">// We deliberately set the length here to `11` to ensure that
 		// the emitted hash is always of the same length; otherwise
 		// it can (and will!) vary between different build environments.
-		</span><span class="kw">match </span>Command::new(<span class="string">&quot;git&quot;</span>).args(<span class="kw-2">&amp;</span>[<span class="string">&quot;rev-parse&quot;</span>, <span class="string">&quot;--short=11&quot;</span>, <span class="string">&quot;HEAD&quot;</span>]).output() {
+		</span><span class="kw">match </span>Command::new(<span class="string">&quot;git&quot;</span>).args([<span class="string">&quot;rev-parse&quot;</span>, <span class="string">&quot;--short=11&quot;</span>, <span class="string">&quot;HEAD&quot;</span>]).output() {
 			<span class="prelude-val">Ok</span>(o) <span class="kw">if </span>o.status.success() =&gt; {
 				<span class="kw">let </span>sha = String::from_utf8_lossy(<span class="kw-2">&amp;</span>o.stdout).trim().to_owned();
 				Cow::from(sha)

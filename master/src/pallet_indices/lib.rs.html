@@ -533,7 +533,7 @@
 				<span class="kw">let </span>(account, amount, perm) = maybe_value.take().ok_or(Error::&lt;T&gt;::NotAssigned)<span class="question-mark">?</span>;
 				<span class="macro">ensure!</span>(!perm, Error::&lt;T&gt;::Permanent);
 				<span class="macro">ensure!</span>(account == who, Error::&lt;T&gt;::NotOwner);
-				T::Currency::slash_reserved(<span class="kw-2">&amp;</span>who, amount);
+				<span class="kw">let _ </span>= T::Currency::slash_reserved(<span class="kw-2">&amp;</span>who, amount);
 				<span class="kw-2">*</span>maybe_value = <span class="prelude-val">Some</span>((account, Zero::zero(), <span class="bool-val">true</span>));
 				<span class="prelude-val">Ok</span>(())
 			})<span class="question-mark">?</span>;
