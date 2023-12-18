@@ -534,7 +534,7 @@ impl snowbridge_inbound_queue::Config for Runtime {
 	>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
-	type MaxMessagePayloadSize = ConstU32<2048>;
+	type MaxMessageSize = ConstU32<2048>;
 	type WeightInfo = weights::snowbridge_inbound_queue::WeightInfo<Runtime>;
 	type PricingParameters = EthereumSystem;
 }
