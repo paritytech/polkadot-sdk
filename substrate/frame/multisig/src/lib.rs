@@ -328,7 +328,7 @@ pub mod pallet {
 		/// - `maybe_timepoint`: If this is the first approval, then this must be `None`. If it is
 		/// not the first approval, then it can be `Some`, with the timepoint (block number and
 		/// transaction index) of the first approval transaction. When provided, timepoint will serve
-		/// as another security layer.
+		/// as an additional layer of security.
 		/// - `call`: The call to be executed.
 		///
 		/// NOTE: Unless this is the final approval, you will generally want to use
@@ -395,7 +395,7 @@ pub mod pallet {
 		/// - `maybe_timepoint`: If this is the first approval, then this must be `None`. If it is
 		/// not the first approval, then it can be `Some`, with the timepoint (block number and
 		/// transaction index) of the first approval transaction. When provided, timepoint will serve
-		/// as another security layer.
+		/// as an additional layer of security.
 		/// - `call_hash`: The hash of the call to be executed.
 		///
 		/// NOTE: If this is the final approval, you will want to use `as_multi` instead.
@@ -447,7 +447,8 @@ pub mod pallet {
 		/// - `other_signatories`: The accounts (other than the sender) who can approve this
 		/// dispatch. May not be empty.
 		/// - `maybe_timepoint`: The timepoint (block number and transaction index) of the first approval
-		/// transaction for this dispatch. When provided, timepoint will serve as another security layer.
+		/// transaction for this dispatch. When provided, timepoint will serve as an additional
+		/// layer of security.
 		/// - `call_hash`: The hash of the call to be executed.
 		///
 		/// ## Complexity
