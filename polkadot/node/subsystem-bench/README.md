@@ -68,7 +68,9 @@ To complete this step restart Prometheus server such that it picks up the new co
 
 ### Install Pyroscope
 
-To collect CPU profiling data, you must be running the Pyroscope server. Follow the [installation guide](https://grafana.com/docs/pyroscope/latest/get-started/) relevant to your operating system.
+To collect CPU profiling data, you must be running the Pyroscope server.
+Follow the [installation guide](https://grafana.com/docs/pyroscope/latest/get-started/)
+relevant to your operating system.
 
 ### Install Grafana
 
@@ -77,7 +79,8 @@ to your operating system.
 
 ### Setup Grafana
 
-Once you have the installation up and running, configure the local Prometheus and Pyroscope (if needed) as data sources by following these guides:
+Once you have the installation up and running, configure the local Prometheus and Pyroscope (if needed)
+as data sources by following these guides:
 
 - [Prometheus](https://grafana.com/docs/grafana/latest/datasources/prometheus/configure-prometheus-data-source/)
 - [Pyroscope](https://grafana.com/docs/grafana/latest/datasources/grafana-pyroscope/)
