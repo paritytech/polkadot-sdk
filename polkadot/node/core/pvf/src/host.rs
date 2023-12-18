@@ -486,8 +486,7 @@ async fn handle_precheck_pvf(
 ///
 /// If the prepare job failed previously, we may retry it under certain conditions.
 ///
-/// When preparing for execution, we use a more lenient timeout ([`LENIENT_PREPARATION_TIMEOUT`])
-/// than when prechecking.
+/// When preparing for execution, we should use a more lenient timeout than when prechecking.
 async fn handle_execute_pvf(
 	artifacts: &mut Artifacts,
 	prepare_queue: &mut mpsc::Sender<prepare::ToQueue>,

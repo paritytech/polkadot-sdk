@@ -106,7 +106,8 @@ impl ArtifactId {
 
 	/// Tries to recover the artifact id from the given file name.
 	/// Return `None` if the given file name is invalid.
-	/// VALID_NAME := <PREFIX> _ <CODE_HASH> _ <PARAM_HASH> _ <CHECKSUM>
+	///
+	/// VALID_NAME := <VERSION_PREFIX> _ <CODE_HASH> _ <PARAM_HASH> _ <_CHECKSUM>
 	fn from_file_name(version_prefix: &str, file_name: &str) -> Option<Self> {
 		let file_name = file_name.strip_prefix(version_prefix)?.strip_prefix('_')?;
 		let parts: Vec<&str> = file_name.split('_').collect();
