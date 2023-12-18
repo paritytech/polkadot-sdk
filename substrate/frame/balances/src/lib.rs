@@ -174,7 +174,7 @@ use frame_support::{
 			Preservation::{Expendable, Preserve, Protect},
 			WithdrawConsequence,
 		},
-		Currency, Defensive, Get, OnUnbalanced, ReservableCurrency, StoredMap,
+		Currency, Defensive, DefensiveSaturating, Get, OnUnbalanced, ReservableCurrency, StoredMap,
 	},
 	BoundedSlice, WeakBoundedVec,
 };
@@ -773,6 +773,13 @@ pub mod pallet {
 				}
 				let _ = system::Pallet::<T>::inc_consumers_without_limit(who).defensive();
 			}
+
+			if a.free < Self::ed() {
+				let shortfall = Self::ed() - a.free;
+				a.free = Self::ed();
+				a.reserved = a.reserved.defensive_saturating_sub(shortfall);
+			}
+
 			// Should never fail - we're only setting a bit.
 			let _ = T::AccountStore::try_mutate_exists(who, |account| -> DispatchResult {
 				*account = Some(a);

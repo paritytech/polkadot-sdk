@@ -514,7 +514,7 @@ fn unreserving_balance_should_work() {
 }
 
 #[test]
-fn unreserving_balance_legacy_account_work() {
+fn legacy_account_unreserve_work() {
 	ExtBuilder::default().build_and_execute_with(|| {
 		let _ = Balances::deposit_creating(&1, 100);
 
@@ -523,8 +523,9 @@ fn unreserving_balance_legacy_account_work() {
 		System::inc_providers(&1);
 		assert_ok!(Balances::reserve(&1, 100));
 		assert_eq!(System::providers(&1), 1);
-
-		// EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = 1);
+		<Test as Config>::AccountStore::mutate(&1, |account| {
+			account.flags = crate::ExtraFlags::old_logic();
+		}).unwrap();
 
 		Balances::unreserve(&1, 100);
 		assert_eq!(System::providers(&1), 1);
