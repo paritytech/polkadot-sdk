@@ -15,7 +15,7 @@ WORKDIR /home/root
 # install tools and dependencies
 RUN set -eux; \
     apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 15CF4D18AF4F7421; \
-	apt-get -y update; \
+    apt-get -y update; \
     apt-get install -y --no-install-recommends \
         libssl-dev make cmake graphviz \
         git pkg-config curl time rhash ca-certificates jq \
@@ -44,6 +44,11 @@ COPY helpers /home/nonroot/polkadot-sdk/bridges/zombienet/helpers
 COPY scripts /home/nonroot/polkadot-sdk/bridges/zombienet/scripts
 COPY tests /home/nonroot/polkadot-sdk/bridges/zombienet/tests
 COPY run-tests.sh /home/nonroot/polkadot-sdk/bridges/zombienet
+
+RUN set -eux; \
+    pushd /home/nonroot/polkadot-sdk/cumulus/scripts/generate_hex_encoded_call; \
+    npm install; \
+    popd
 
 # https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:{PORT}#/explorer
 EXPOSE 9942 9910 8943 9945 9010 8945
