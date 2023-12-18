@@ -69,7 +69,7 @@ async fn should_connect() {
 		"integration-test",
 		prepare_worker_path,
 		&env::temp_dir(),
-		&["prepare-worker"],
+		&[],
 		Duration::from_secs(2),
 		SecurityStatus::default(),
 	)

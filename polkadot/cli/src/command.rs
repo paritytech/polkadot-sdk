@@ -184,6 +184,7 @@ pub fn run_node(
 fn run_node_inner<F>(
 	cli: Cli,
 	overseer_gen: impl service::OverseerGen,
+	node_version: Option<String>,
 	maybe_malus_finality_delay: Option<u32>,
 	logger_hook: F,
 ) -> Result<()>
@@ -235,8 +236,7 @@ where
 		None
 	};
 
-	let node_version =
-		if cli.run.disable_worker_version_check { None } else { Some(NODE_VERSION.to_string()) };
+	let node_version = if cli.run.disable_worker_version_check { None } else { node_version };
 
 	let secure_validator_mode = cli.run.base.validator && !cli.run.insecure_validator;
 
@@ -282,7 +282,7 @@ where
 }
 
 /// Parses polkadot specific CLI arguments and run the service.
-pub fn run() -> Result<()> {
+pub fn run(node_version: String) -> Result<()> {
 	let cli: Cli = Cli::from_args();
 
 	#[cfg(feature = "pyroscope")]
@@ -313,6 +313,7 @@ pub fn run() -> Result<()> {
 		None => run_node_inner(
 			cli,
 			service::RealOverseerGen,
+			Some(node_version),
 			None,
 			polkadot_node_metrics::logger_hook(),
 		),

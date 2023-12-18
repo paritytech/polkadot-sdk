@@ -17,7 +17,7 @@
 //! Host interface to the prepare worker.
 
 use crate::{
-	artifacts::ArtifactId,
+	artifacts::{test_artifact_prefix, ArtifactId},
 	metrics::Metrics,
 	worker_interface::{
 		clear_worker_dir_path, framed_recv, framed_send, spawn_with_program_path, IdleWorker,
@@ -116,6 +116,7 @@ pub async fn start_work(
 	worker: IdleWorker,
 	pvf: PvfPrepData,
 	cache_path: PathBuf,
+	node_version: Option<String>,
 ) -> Outcome {
 	let IdleWorker { stream, pid, worker_dir } = worker;
 
@@ -167,6 +168,7 @@ pub async fn start_work(
 						tmp_artifact_file,
 						&pvf,
 						&cache_path,
+						&node_version,
 						preparation_timeout,
 					)
 					.await,
@@ -207,6 +209,7 @@ async fn handle_response(
 	tmp_file: PathBuf,
 	pvf: &PvfPrepData,
 	cache_path: &Path,
+	node_version: &Option<String>,
 	preparation_timeout: Duration,
 ) -> Outcome {
 	let PrepareWorkerSuccess { checksum, stats: PrepareStats { cpu_time_elapsed, memory_stats } } =
@@ -233,7 +236,8 @@ async fn handle_response(
 	}
 
 	let artifact_id = ArtifactId::from_pvf_prep_data(pvf);
-	let artifact_path = artifact_id.path(cache_path, &checksum);
+	let version_prefix = node_version.clone().unwrap_or_else(test_artifact_prefix);
+	let artifact_path = artifact_id.path(&version_prefix, cache_path, &checksum);
 
 	gum::debug!(
 		target: LOG_TARGET,

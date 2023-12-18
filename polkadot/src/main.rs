@@ -28,6 +28,8 @@ static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
 fn main() -> eyre::Result<()> {
 	color_eyre::install()?;
-	polkadot_cli::run()?;
+	let node_version =
+		polkadot_node_core_pvf_common::logical_node_version(env!("SUBSTRATE_WASMTIME_VERSION"));
+	polkadot_cli::run(node_version)?;
 	Ok(())
 }

@@ -31,9 +31,8 @@ pub use sp_tracing;
 
 const LOG_TARGET: &str = "parachain::pvf-common";
 
-pub const RUNTIME_VERSION: &str = env!("SUBSTRATE_WASMTIME_VERSION");
-
 use parity_scale_codec::{Decode, Encode};
+use polkadot_node_primitives::NODE_VERSION;
 use std::{
 	io::{self, Read, Write},
 	mem,
@@ -45,6 +44,26 @@ pub mod tests {
 
 	pub const TEST_EXECUTION_TIMEOUT: Duration = Duration::from_secs(3);
 	pub const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(30);
+}
+
+const RUNTIME_PREFIX: &str = "wasmtime_v";
+const NODE_PREFIX: &str = "polkadot_v";
+
+/// Returns the logical PVF version. This is the version used when version-checking PVF artifacts
+/// and in the node-worker version check.
+///
+/// NOTE: This should only ever be called in a top-level crate, to accurately get the versions of
+/// the node and workers. The version should then be passed down to the crates that need it. If this
+/// were called in the same place it was used, then the version would be compiled-in at that calling
+/// crate. But that crate may be stale by the time that the top-level binary is compiled, which can
+/// result in an old version being compiled-in and ultimately a version mismatch.
+///
+/// # Parameters
+///
+/// - runtime_version: This should come from an env var, which must be compiled-in at the call site
+///   and passed in, not compiled-in here. See above.
+pub fn logical_node_version(runtime_version: &str) -> String {
+	format!("{}{}_{}{}", RUNTIME_PREFIX, runtime_version, NODE_PREFIX, NODE_VERSION)
 }
 
 /// Status of security features on the current system.

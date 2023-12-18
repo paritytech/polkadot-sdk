@@ -40,8 +40,8 @@ macro_rules! decl_worker_main {
 			format!("{}-{}", $worker_version, $worker_version_hash)
 		}
 
-		fn print_help(expected_command: &str) {
-			println!("{} {}", expected_command, $worker_version);
+		fn print_help(binary_name: &str) {
+			println!("{} {}", binary_name, $worker_version);
 			println!("commit: {}", $worker_version_hash);
 			println!();
 			println!("PVF worker that is called by polkadot.");
@@ -54,16 +54,22 @@ macro_rules! decl_worker_main {
 			$crate::sp_tracing::try_init_simple();
 
 			let worker_pid = std::process::id();
+			let current_exe = std::env::current_exe().expect("this is an exe");
+			let binary_name = current_exe
+				.file_name()
+				.expect("the exe has a file name")
+				.to_str()
+				.expect("the worker file names are valid Unicode");
 
 			let args = std::env::args().collect::<Vec<_>>();
 			if args.len() == 1 {
-				print_help($expected_command);
+				print_help(binary_name);
 				return
 			}
 
 			match args[1].as_ref() {
 				"--help" | "-h" => {
-					print_help($expected_command);
+					print_help(binary_name);
 					return
 				},
 				"--version" | "-v" => {
@@ -124,13 +130,15 @@ macro_rules! decl_worker_main {
 					std::thread::sleep(std::time::Duration::from_secs(5));
 					return
 				},
+
+				_ => (),
 			}
 
 			let mut socket_path = None;
 			let mut worker_dir_path = None;
 			let mut node_version = None;
 
-			let mut i = 2;
+			let mut i = 1;
 			while i < args.len() {
 				match args[i].as_ref() {
 					"--socket-path" => {
@@ -156,7 +164,7 @@ macro_rules! decl_worker_main {
 			let socket_path = std::path::Path::new(socket_path).to_owned();
 			let worker_dir_path = std::path::Path::new(worker_dir_path).to_owned();
 
-			$entrypoint(socket_path, worker_dir_path, node_version, Some($worker_version));
+			$entrypoint(socket_path, worker_dir_path, node_version, Some(&$worker_version));
 		}
 	};
 }
@@ -193,7 +201,7 @@ pub struct WorkerInfo {
 }
 
 // NOTE: The worker version must be passed in so that we accurately get the version of the worker,
-// and not the version that this crate was compiled with.
+// and not the version that this crate was compiled with. See [`crate::logical_node_version`].
 //
 // NOTE: This must not spawn any threads due to safety requirements in `event_loop` and to avoid
 // errors in [`security::change_root::try_restrict`].
