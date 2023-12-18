@@ -23,9 +23,6 @@ use polkadot_node_core_pvf_common::{
 	worker::pipe2_cloexec,
 };
 
-#[cfg(target_os = "linux")]
-use polkadot_node_core_pvf_common::worker::EXECUTE_THREAD_STACK_SIZE;
-
 // NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-prepare-worker=trace`.
 const LOG_TARGET: &str = "parachain::pvf-prepare-worker";
@@ -241,7 +238,7 @@ pub fn worker_entrypoint(
 
 				cfg_if::cfg_if! {
 					if #[cfg(target_os = "linux")] {
-						let stack_size = 2 * 1024 * 1024; // 2mb
+						let stack_size = 2 * 1024 * 1024; // 2MiB
 						let mut stack: Vec<u8> = vec![0u8; stack_size];
 						let flags = CloneFlags::CLONE_NEWCGROUP
 						| CloneFlags::CLONE_NEWIPC
@@ -272,13 +269,6 @@ pub fn worker_entrypoint(
 						} {
 							Err(errno) => Err(error_from_errno("clone", errno)),
 							Ok(child) => {
-								// the read end will wait until all write ends have been closed,
-								// this drop is necessary to avoid deadlock
-								nix::unistd::close(pipe_writer)?;
-
-								// SAFETY: pipe_read is an open and owned file descriptor at this point.
-								let pipe_reader = unsafe { PipeReader::from_raw_fd(pipe_reader) };
-
 								handle_parent_process(
 									pipe_reader,
 									pipe_writer,
