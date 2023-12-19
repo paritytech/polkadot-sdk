@@ -34,7 +34,7 @@ if [ `printf "$BASH_VERSION\n5.1" | sort -V | head -n 1` = "5.1" ]; then IS_BASH
 export LANE_ID="00000002"
 
 # tests configuration
-ALL_TESTS_FOLDER=`mktemp -d`
+ALL_TESTS_FOLDER=`mktemp -d bridges-zombienet-tests.XXXXX`
 
 function start_coproc() {
     local command=$1
@@ -42,7 +42,6 @@ function start_coproc() {
     local coproc_log=`mktemp -p $TEST_FOLDER`
     coproc COPROC {
         # otherwise zombienet uses some hardcoded paths
-exit 1
         unset RUN_IN_CONTAINER
         unset ZOMBIENET_IMAGE
 
