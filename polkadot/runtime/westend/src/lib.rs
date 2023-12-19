@@ -1663,7 +1663,6 @@ pub mod migrations {
 		}
 	}
 
-	use parachains_scheduler::common::AssignmentVersion;
 	use primitives::CoreIndex;
 
 	/// Unreleased migrations. Add new ones here:
@@ -1671,12 +1670,7 @@ pub mod migrations {
 		parachains_configuration::migration::v7::MigrateToV7<Runtime>,
 		pallet_staking::migrations::v14::MigrateToV14<Runtime>,
 		assigned_slots::migration::v1::MigrateToV1<Runtime>,
-		parachains_scheduler::migration::v1::MigrateToV1<Runtime>,
-		parachains_scheduler::migration::v2::MigrateToV2<Runtime>,
-		parachains_scheduler::migration::assignment_version::MigrateAssignment<
-			Runtime,
-			SchedulerAssignmentMigration<Runtime>,
-		>,
+		parachains_scheduler::migration::MigrateV1ToV2<Runtime>,
 		coretime::migration::v_coretime::MigrateToCoretime<Runtime>,
 		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
@@ -1692,27 +1686,6 @@ pub mod migrations {
 		>,
 		parachains_configuration::migration::v11::MigrateToV11<Runtime>,
 	);
-
-	/// We are swapping out the assignment type in the scheduler for coretime.
-	pub struct SchedulerAssignmentMigration<T>(sp_std::marker::PhantomData<T>);
-	impl parachains_scheduler::migration::assignment_version::AssignmentMigration
-		for SchedulerAssignmentMigration<Runtime>
-	{
-		const ON_CHAIN_STORAGE_VERSION: AssignmentVersion = AssignmentVersion::new(0);
-		const STORAGE_VERSION: AssignmentVersion = AssignmentVersion::new(1);
-
-		type OldType = parachains_scheduler::common::V0Assignment;
-		type NewType = parachains_assigner_coretime::CoretimeAssignmentType<Runtime>;
-
-		fn migrate(core_idx: CoreIndex, old: Self::OldType) -> Self::NewType {
-			// While previously the plain legacy assigner was in place (as opposed to v0 top-level
-			// assigner as on Rococo), the assignment format changed exactly the same, so the v0 to
-			// coretime assignment type migration fits the bill here as well.
-			//
-			// The same is true for Kusama and Polkadot later.
-			parachains_assigner_coretime::migrate_legacy_v0_assignment::<Runtime>(old, core_idx)
-		}
-	}
 }
 
 /// Unchecked extrinsic type as expected by this runtime.
