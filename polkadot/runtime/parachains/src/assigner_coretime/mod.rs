@@ -449,9 +449,6 @@ impl<T: Config> Pallet<T> {
 		assignments: Vec<(CoreAssignment, PartsOf57600)>,
 		end_hint: Option<BlockNumberFor<T>>,
 	) -> Result<(), DispatchError> {
-		// TODO: Add this assert once the calls `request_core_count` and `notify_core_count`
-		// have been established. assert!(core < core_count);
-
 		// There should be at least one assignment.
 		ensure!(!assignments.is_empty(), Error::<T>::AssignmentsEmpty);
 
