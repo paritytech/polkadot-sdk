@@ -1,8 +1,15 @@
 error[E0277]: the trait bound `Bar: MaxEncodedLen` is not satisfied
   --> tests/pallet_ui/storage_info_unsatisfied.rs:26:12
    |
-26 |     #[pallet::pallet]
-   |               ^^^^^^ the trait `MaxEncodedLen` is not implemented for `Bar`
+26 |       #[pallet::pallet]
+   |  _______________^
+27 | |     pub struct Pallet<T>(core::marker::PhantomData<T>);
+28 | |
+29 | |     #[pallet::hooks]
+...  |
+38 | |     #[pallet::storage]
+39 | |     type Foo<T> = StorageValue<_, Bar>;
+   | |____________^ the trait `MaxEncodedLen` is not implemented for `Bar`
    |
    = help: the following other types implement trait `MaxEncodedLen`:
              bool

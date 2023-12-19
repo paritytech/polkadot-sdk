@@ -1,0 +1,12 @@
+title: "Contracts: Add XCM traits to interface with contracts"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      We are introducing a new set of `XcmController` traits in `pallet-xcm`.
+      These traits extract functionality from `pallet-xcm` and provide high-level interaction with XCM.
+      They enable other pallets, like `pallet_contracts`, to rely on these traits instead of tight coupling to `pallet-xcm` itself.
+
+crates:
+  - name: pallet-xcm
+  - name: xcm-executor
