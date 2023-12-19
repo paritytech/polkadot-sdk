@@ -42,8 +42,9 @@ function start_coproc() {
     local coproc_log=`mktemp -p $TEST_FOLDER`
     coproc COPROC {
         # otherwise zombienet uses some hardcoded paths
-        #unset RUN_IN_CONTAINER
-        #unset ZOMBIENET_IMAGE
+exit 1
+        unset RUN_IN_CONTAINER
+        unset ZOMBIENET_IMAGE
 
         $command >$coproc_log 2>&1
     }
