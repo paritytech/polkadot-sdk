@@ -229,6 +229,9 @@ mod benches {
 
 	#[benchmark]
 	fn purchase() -> Result<(), BenchmarkError> {
+		let config = new_config_record::<T>();
+		Configuration::<T>::put(config.clone());
+
 		let core = setup_and_start_sale::<T>()?;
 
 		advance_to::<T>(2);
