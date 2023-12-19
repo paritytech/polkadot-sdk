@@ -27,7 +27,6 @@ jobs:
           uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
           with:
             fetch-depth: 0
-            path: sdk
 
         - name: Install tooling
           run: |
@@ -44,7 +43,7 @@ jobs:
 
             echo "Github workspace: ${{ github.workspace }}"
             echo "Current folder: $(pwd)"; ls -al
-            cd sdk; ls -al
+            ls -al
 
             MATRIX=$(find_runtimes | tee runtimes_list.json)
             echo $MATRIX
@@ -52,7 +51,7 @@ jobs:
         - name: Get runtimes list
           id: get_runtimes_list
           run: |
-            cd sdk; ls -al
+            ls -al
             MATRIX=$(cat runtimes_list.json)
             echo $MATRIX
             echo "runtime=$MATRIX" >> $GITHUB_OUTPUT
@@ -89,13 +88,11 @@ jobs:
       - uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           fetch-depth: 0
-          path: sdk
 
       - name: Srtool build
         id: srtool_build
         uses: chevdor/srtool-actions@v0.9.1
         with:
-          workdir: sdk
           chain: ${{ matrix.chain }}
           runtime_dir: ${{ matrix.runtime_dir }}
 
