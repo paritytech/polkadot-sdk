@@ -20,7 +20,7 @@ mod memory_stats;
 
 use polkadot_node_core_pvf_common::{
 	executor_interface::{prepare, prevalidate},
-	worker::pipe2_cloexec,
+	worker::{pipe2_cloexec, PipeFd},
 };
 
 // NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
@@ -62,7 +62,7 @@ use polkadot_node_core_pvf_common::{
 use polkadot_primitives::ExecutorParams;
 use std::{
 	fs::{self, File},
-	io::{self, Read, Write},
+	io::{self, Read},
 	os::{
 		fd::{AsRawFd, FromRawFd, RawFd},
 		unix::net::UnixStream,
@@ -393,7 +393,7 @@ fn handle_child_process(
 	executor_params: Arc<ExecutorParams>,
 ) -> ! {
 	// SAFETY: pipe_writer is an open and owned file descriptor at this point.
-	let mut pipe_write = unsafe { File::from_raw_fd(pipe_write_fd) };
+	let mut pipe_write = unsafe { PipeFd::new(pipe_write_fd) };
 
 	// Drop the read end so we don't have too many FDs open.
 	if let Err(errno) = nix::unistd::close(pipe_read_fd) {
@@ -738,7 +738,7 @@ fn recv_child_response(received_data: &mut io::BufReader<&[u8]>) -> io::Result<J
 /// - `pipe_write`: A `PipeWriter` structure, the writing end of a pipe.
 ///
 /// - `response`: Child process response
-fn send_child_response(pipe_write: &mut File, response: JobResult) -> ! {
+fn send_child_response(pipe_write: &mut PipeFd, response: JobResult) -> ! {
 	framed_send_blocking(pipe_write, response.encode().as_slice())
 		.unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
 

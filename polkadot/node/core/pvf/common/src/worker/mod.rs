@@ -24,11 +24,11 @@ use futures::never::Never;
 use parity_scale_codec::Decode;
 use std::{
 	any::Any,
-	fmt, io,
-	os::unix::net::UnixStream,
+	fmt::{self},
+	os::{unix::net::UnixStream, fd::{FromRawFd, AsRawFd}},
 	path::PathBuf,
 	sync::mpsc::{Receiver, RecvTimeoutError},
-	time::Duration,
+	time::Duration, fs::File, io::{Write, self},
 };
 
 /// Use this macro to declare a `fn main() {}` that will create an executable that can be used for
@@ -173,7 +173,7 @@ macro_rules! decl_worker_main {
 
 //taken from the os_pipe crate. Copied here to reduce one dependency and
 // because its type-safe abstractions do not play well with nix's clone
-#[cfg(not(any(target_os = "macos")))]
+#[cfg(not(target_os = "macos"))]
 pub fn pipe2_cloexec() -> io::Result<(libc::c_int, libc::c_int)> {
 	let mut fds: [libc::c_int; 2] = [0; 2];
 	let res = unsafe { libc::pipe2(fds.as_mut_ptr(), libc::O_CLOEXEC) };
@@ -199,6 +199,36 @@ pub fn pipe2_cloexec() -> io::Result<(libc::c_int, libc::c_int)> {
 		return Err(io::Error::last_os_error());
 	}
 	Ok((fds[0], fds[1]))
+}
+
+pub struct PipeFd {
+	file: File,
+}
+
+impl PipeFd {
+	pub fn new(fd: i32) -> Self {
+		// SAFETY: pipe_writer is an open and owned file descriptor at this point.
+        let file = unsafe { File::from_raw_fd(fd) };
+        PipeFd { file }
+    }
+
+	pub fn as_raw_fd(&self) -> i32 {
+		self.file.as_raw_fd()
+	}
+}
+
+impl Write for PipeFd {
+	fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+		self.file.write(buf)
+	}
+
+	fn flush(&mut self) -> io::Result<()> {
+		self.file.flush()
+	}
+
+	fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
+		self.file.write_all(buf)
+	}
 }
 
 /// Some allowed overhead that we account for in the "CPU time monitor" thread's sleeps, on the
