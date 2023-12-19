@@ -178,6 +178,7 @@ impl snowbridge_outbound_queue::Config for Test {
 	type GasMeter = ConstantGasMeter;
 	type Balance = u128;
 	type PricingParameters = EthereumSystem;
+	type Channels = EthereumSystem;
 	type WeightToFee = IdentityFee<u128>;
 	type WeightInfo = ();
 }

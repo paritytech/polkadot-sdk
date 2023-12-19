@@ -4,6 +4,7 @@
 //! Module contains predefined test-case scenarios for `Runtime` with bridging capabilities.
 
 use asset_hub_rococo_runtime::xcm_config::bridging::to_ethereum::DefaultBridgeHubEthereumBaseFee;
+use bridge_hub_rococo_runtime::EthereumSystem;
 use codec::Encode;
 use frame_support::{assert_err, assert_ok, traits::fungible::Mutate};
 use parachains_runtimes_test_utils::{
@@ -15,7 +16,7 @@ use xcm::latest::prelude::*;
 use xcm_executor::XcmExecutor;
 // Re-export test_case from `parachains-runtimes-test-utils`
 pub use parachains_runtimes_test_utils::test_cases::change_storage_constant_by_governance_works;
-use xcm::v3::Error::{Barrier, FailedToTransactAsset, NotHoldingFees};
+use xcm::v3::Error::{self, Barrier};
 
 type RuntimeHelper<Runtime, AllPalletsWithoutSystem = ()> =
 	parachains_runtimes_test_utils::RuntimeHelper<Runtime, AllPalletsWithoutSystem>;
@@ -119,7 +120,8 @@ pub fn send_transfer_token_message_success<Runtime, XcmConfig>(
 		+ parachain_info::Config
 		+ pallet_collator_selection::Config
 		+ cumulus_pallet_parachain_system::Config
-		+ snowbridge_outbound_queue::Config,
+		+ snowbridge_outbound_queue::Config
+		+ snowbridge_system::Config,
 	XcmConfig: xcm_executor::Config,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
 {
@@ -130,6 +132,9 @@ pub fn send_transfer_token_message_success<Runtime, XcmConfig>(
 		.with_tracing()
 		.build()
 		.execute_with(|| {
+			EthereumSystem::initialize(runtime_para_id.into(), assethub_parachain_id.into())
+				.unwrap();
+
 			// fund asset hub sovereign account enough so it can pay fees
 			initial_fund::<Runtime>(
 				assethub_parachain_id,
@@ -240,13 +245,15 @@ pub fn send_unpaid_transfer_token_message<Runtime, XcmConfig>(
 		});
 }
 
-pub fn send_transfer_token_message_fee_not_enough<Runtime, XcmConfig>(
+pub fn send_transfer_token_message_failure<Runtime, XcmConfig>(
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
 	assethub_parachain_id: u32,
+	initial_amount: u128,
 	weth_contract_address: H160,
 	destination_address: H160,
 	fee_amount: u128,
+	expected_error: Error,
 ) where
 	Runtime: frame_system::Config
 		+ pallet_balances::Config
@@ -255,7 +262,8 @@ pub fn send_transfer_token_message_fee_not_enough<Runtime, XcmConfig>(
 		+ parachain_info::Config
 		+ pallet_collator_selection::Config
 		+ cumulus_pallet_parachain_system::Config
-		+ snowbridge_outbound_queue::Config,
+		+ snowbridge_outbound_queue::Config
+		+ snowbridge_system::Config,
 	XcmConfig: xcm_executor::Config,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
 {
@@ -266,11 +274,11 @@ pub fn send_transfer_token_message_fee_not_enough<Runtime, XcmConfig>(
 		.with_tracing()
 		.build()
 		.execute_with(|| {
+			EthereumSystem::initialize(runtime_para_id.into(), assethub_parachain_id.into())
+				.unwrap();
+
 			// fund asset hub sovereign account enough so it can pay fees
-			initial_fund::<Runtime>(
-				assethub_parachain_id,
-				DefaultBridgeHubEthereumBaseFee::get() + 1_000_000_000,
-			);
+			initial_fund::<Runtime>(assethub_parachain_id, initial_amount);
 
 			let outcome = send_transfer_token_message::<Runtime, XcmConfig>(
 				assethub_parachain_id,
@@ -279,46 +287,6 @@ pub fn send_transfer_token_message_fee_not_enough<Runtime, XcmConfig>(
 				fee_amount,
 			);
 			// check err is NotHoldingFees
-			assert_err!(outcome.ensure_complete(), NotHoldingFees);
-		});
-}
-
-pub fn send_transfer_token_message_insufficient_fund<Runtime, XcmConfig>(
-	collator_session_key: CollatorSessionKeys<Runtime>,
-	runtime_para_id: u32,
-	assethub_parachain_id: u32,
-	weth_contract_address: H160,
-	destination_address: H160,
-	fee_amount: u128,
-) where
-	Runtime: frame_system::Config
-		+ pallet_balances::Config
-		+ pallet_session::Config
-		+ pallet_xcm::Config
-		+ parachain_info::Config
-		+ pallet_collator_selection::Config
-		+ cumulus_pallet_parachain_system::Config
-		+ snowbridge_outbound_queue::Config,
-	XcmConfig: xcm_executor::Config,
-	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
-{
-	ExtBuilder::<Runtime>::default()
-		.with_collators(collator_session_key.collators())
-		.with_session_keys(collator_session_key.session_keys())
-		.with_para_id(runtime_para_id.into())
-		.with_tracing()
-		.build()
-		.execute_with(|| {
-			// initial fund not enough
-			initial_fund::<Runtime>(assethub_parachain_id, 1_000_000_000);
-
-			let outcome = send_transfer_token_message::<Runtime, XcmConfig>(
-				assethub_parachain_id,
-				weth_contract_address,
-				destination_address,
-				fee_amount,
-			);
-			// check err is FailedToTransactAsset("InsufficientBalance")
-			assert_err!(outcome.ensure_complete(), FailedToTransactAsset("InsufficientBalance"));
+			assert_err!(outcome.ensure_complete(), expected_error);
 		});
 }

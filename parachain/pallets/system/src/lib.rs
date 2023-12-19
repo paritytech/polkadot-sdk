@@ -58,7 +58,7 @@ use frame_support::{
 	traits::{
 		fungible::{Inspect, Mutate},
 		tokens::Preservation,
-		EnsureOrigin,
+		Contains, EnsureOrigin,
 	},
 };
 use frame_system::pallet_prelude::*;
@@ -618,18 +618,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Checks if the pallet has been initialized.
-		pub(crate) fn is_initialized() -> bool {
-			let primary_exists = Channels::<T>::contains_key(PRIMARY_GOVERNANCE_CHANNEL);
-			let secondary_exists = Channels::<T>::contains_key(SECONDARY_GOVERNANCE_CHANNEL);
-			primary_exists && secondary_exists
-		}
-
 		/// Initializes agents and channels.
-		pub(crate) fn initialize(
-			para_id: ParaId,
-			asset_hub_para_id: ParaId,
-		) -> Result<(), DispatchError> {
+		pub fn initialize(para_id: ParaId, asset_hub_para_id: ParaId) -> Result<(), DispatchError> {
 			// Asset Hub
 			let asset_hub_location: MultiLocation =
 				ParentThen(X1(Parachain(asset_hub_para_id.into()))).into();
@@ -660,6 +650,13 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		/// Checks if the pallet has been initialized.
+		pub(crate) fn is_initialized() -> bool {
+			let primary_exists = Channels::<T>::contains_key(PRIMARY_GOVERNANCE_CHANNEL);
+			let secondary_exists = Channels::<T>::contains_key(SECONDARY_GOVERNANCE_CHANNEL);
+			primary_exists && secondary_exists
+		}
 	}
 
 	impl<T: Config> StaticLookup for Pallet<T> {
@@ -667,6 +664,12 @@ pub mod pallet {
 		type Target = Channel;
 		fn lookup(channel_id: Self::Source) -> Option<Self::Target> {
 			Channels::<T>::get(channel_id)
+		}
+	}
+
+	impl<T: Config> Contains<ChannelId> for Pallet<T> {
+		fn contains(channel_id: &ChannelId) -> bool {
+			Channels::<T>::get(channel_id).is_some()
 		}
 	}
 

@@ -103,6 +103,7 @@ impl crate::Config for Test {
 	type GasMeter = ConstantGasMeter;
 	type Balance = u128;
 	type PricingParameters = Parameters;
+	type Channels = Everything;
 	type WeightToFee = IdentityFee<u128>;
 	type WeightInfo = ();
 }

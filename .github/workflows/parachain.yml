@@ -60,21 +60,26 @@ jobs:
       - name: clippy
         working-directory: parachain
         run: cargo clippy -- -D warnings
-      - name: taplo
-        working-directory: parachain
+
+      - name: install taplo
         run: |
-          cargo install taplo-cli --locked && taplo format --check --config .config/taplo.toml
+          cargo install taplo-cli --locked
+      - name: taplo snowbridge
+        working-directory: parachain
+        run: taplo format --check --config .config/taplo.toml
+      - name: taplo polkadot-sdk
+        working-directory: polkadot-sdk
+        run: taplo format --check --config .config/taplo.toml
+
       - name: install zepter
         run: |
           cargo install zepter -f --locked
       - name: zepter snowbridge
         working-directory: parachain
-        run: |
-          zepter run check
+        run: zepter run check
       - name: zepter polkadot-sdk
         working-directory: polkadot-sdk
-        run: |
-          zepter run check
+        run: zepter run check
       - name: lint-markdown
         working-directory: parachain
         run: |

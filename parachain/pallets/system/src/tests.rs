@@ -314,8 +314,8 @@ fn update_channel() {
 
 		// First create the channel
 		let _ = Balances::mint_into(&sovereign_account, 10000);
-		EthereumSystem::create_agent(origin.clone()).unwrap();
-		EthereumSystem::create_channel(origin.clone(), OperatingMode::Normal).unwrap();
+		assert_ok!(EthereumSystem::create_agent(origin.clone()));
+		assert_ok!(EthereumSystem::create_channel(origin.clone(), OperatingMode::Normal));
 
 		// Now try to update it
 		assert_ok!(EthereumSystem::update_channel(origin, OperatingMode::Normal));
@@ -405,8 +405,8 @@ fn force_update_channel() {
 
 		// First create the channel
 		let _ = Balances::mint_into(&sovereign_account, 10000);
-		EthereumSystem::create_agent(origin.clone()).unwrap();
-		EthereumSystem::create_channel(origin.clone(), OperatingMode::Normal).unwrap();
+		assert_ok!(EthereumSystem::create_agent(origin.clone()));
+		assert_ok!(EthereumSystem::create_channel(origin.clone(), OperatingMode::Normal));
 
 		// Now try to force update it
 		let force_origin = RuntimeOrigin::root();
@@ -444,11 +444,13 @@ fn force_update_channel_bad_origin() {
 fn transfer_native_from_agent() {
 	new_test_ext(true).execute_with(|| {
 		let origin_location = MultiLocation { parents: 1, interior: X1(Parachain(2000)) };
+		let origin = make_xcm_origin(origin_location);
 		let recipient: H160 = [27u8; 20].into();
 		let amount = 103435;
 
-		// First create the agent
-		Agents::<Test>::insert(make_agent_id(origin_location), ());
+		// First create the agent and channel
+		assert_ok!(EthereumSystem::create_agent(origin.clone()));
+		assert_ok!(EthereumSystem::create_channel(origin, OperatingMode::Normal));
 
 		let origin = make_xcm_origin(origin_location);
 		assert_ok!(EthereumSystem::transfer_native_from_agent(origin, recipient, amount),);
@@ -549,7 +551,12 @@ fn charge_fee_for_create_agent() {
 		let sovereign_account = sibling_sovereign_account::<Test>(para_id.into());
 		let (_, agent_id) = ensure_sibling::<Test>(&origin_location).unwrap();
 
+		let initial_sovereign_balance = Balances::balance(&sovereign_account);
 		assert_ok!(EthereumSystem::create_agent(origin.clone()));
+		let fee_charged = initial_sovereign_balance - Balances::balance(&sovereign_account);
+
+		assert_ok!(EthereumSystem::create_channel(origin, OperatingMode::Normal));
+
 		// assert sovereign_balance decreased by (fee.base_fee + fee.delivery_fee)
 		let message = Message {
 			id: None,
@@ -557,15 +564,15 @@ fn charge_fee_for_create_agent() {
 			command: Command::CreateAgent { agent_id },
 		};
 		let (_, fee) = OutboundQueue::validate(&message).unwrap();
-		let sovereign_balance = Balances::balance(&sovereign_account);
-		assert_eq!(sovereign_balance + fee.local + fee.remote, InitialFunding::get());
+		assert_eq!(fee.local + fee.remote, fee_charged);
 
 		// and treasury_balance increased
 		let treasury_balance = Balances::balance(&TreasuryAccount::get());
 		assert!(treasury_balance > InitialFunding::get());
 
+		let final_sovereign_balance = Balances::balance(&sovereign_account);
 		// (sovereign_balance + treasury_balance) keeps the same
-		assert_eq!(sovereign_balance + treasury_balance, { InitialFunding::get() * 2 });
+		assert_eq!(final_sovereign_balance + treasury_balance, { InitialFunding::get() * 2 });
 	});
 }
 
