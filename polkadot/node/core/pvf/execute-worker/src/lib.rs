@@ -37,16 +37,16 @@ use polkadot_node_core_pvf_common::{
 	execute::{Handshake, JobError, JobResponse, JobResult, WorkerResponse},
 	framed_recv_blocking, framed_send_blocking,
 	worker::{
-		cpu_time_monitor_loop, run_worker, stringify_panic_payload,
+		cpu_time_monitor_loop, pipe2_cloexec, run_worker, stringify_panic_payload,
 		thread::{self, WaitOutcome},
-		WorkerKind, pipe2_cloexec, PipeFd,
+		PipeFd, WorkerKind,
 	},
 };
 use polkadot_parachain_primitives::primitives::ValidationResult;
 use polkadot_primitives::{executor_params::DEFAULT_NATIVE_STACK_MAX, ExecutorParams};
 use std::{
 	io::{self, Read},
-	os::{unix::net::UnixStream, fd::AsRawFd},
+	os::{fd::AsRawFd, unix::net::UnixStream},
 	path::PathBuf,
 	process,
 	sync::{mpsc::channel, Arc},
@@ -341,10 +341,7 @@ fn handle_child_process(
 
 	// Drop the read end so we don't have too many FDs open.
 	if let Err(errno) = nix::unistd::close(pipe_read_fd) {
-		send_child_response(
-			&mut pipe_write,
-			Err(JobError::Panic("closing pipe".to_string())),
-		);
+		send_child_response(&mut pipe_write, Err(JobError::Panic("closing pipe".to_string())));
 	}
 
 	// Dropping the stream closes the underlying socket. We want to make sure

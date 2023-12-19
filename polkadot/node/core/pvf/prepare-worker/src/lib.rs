@@ -318,7 +318,6 @@ pub fn worker_entrypoint(
 					}
 				}
 
-
 				gum::trace!(
 					target: LOG_TARGET,
 					%worker_pid,

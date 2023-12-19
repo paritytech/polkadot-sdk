@@ -26,7 +26,7 @@ use std::{
 	any::Any,
 	fmt::{self},
 	fs::File,
-	io::{self, Write, Read},
+	io::{self, Read, Write},
 	os::{
 		fd::{AsRawFd, FromRawFd},
 		unix::net::UnixStream,
