@@ -423,7 +423,7 @@ impl<
 		Right: fungibles::Mutate<AccountId, Balance = Left::Balance>,
 		Criterion: Convert<AssetKind, Either<(), Right::AssetId>>,
 		AssetKind: AssetId,
-		AccountId,
+		AccountId: Eq,
 	> fungibles::Mutate<AccountId> for UnionOf<Left, Right, Criterion, AssetKind, AccountId>
 {
 	fn mint_into(
