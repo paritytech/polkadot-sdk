@@ -2292,7 +2292,15 @@ pub trait BlockIdTo<Block: self::Block> {
 /// Get current block number
 pub trait BlockNumberProvider {
 	/// Type of `BlockNumber` to provide.
-	type BlockNumber: Codec + Clone + Ord + Eq + AtLeast32BitUnsigned;
+	type BlockNumber: Codec
+		+ Clone
+		+ Ord
+		+ Eq
+		+ AtLeast32BitUnsigned
+		+ TypeInfo
+		+ Debug
+		+ MaxEncodedLen
+		+ Copy;
 
 	/// Returns the current block number.
 	///
@@ -2318,6 +2326,13 @@ pub trait BlockNumberProvider {
 	/// This is useful in case the block number provider is different than System
 	#[cfg(feature = "runtime-benchmarks")]
 	fn set_block_number(_block: Self::BlockNumber) {}
+}
+
+impl BlockNumberProvider for () {
+	type BlockNumber = u32;
+	fn current_block_number() -> Self::BlockNumber {
+		0
+	}
 }
 
 #[cfg(test)]
