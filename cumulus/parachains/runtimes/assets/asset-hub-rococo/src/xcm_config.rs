@@ -42,7 +42,6 @@ use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use snowbridge_rococo_common::EthereumNetwork;
 use snowbridge_router_primitives::inbound::GlobalConsensusEthereumConvertsFor;
 use sp_runtime::traits::{AccountIdConversion, ConvertInto};
-use sp_std::marker::PhantomData;
 use xcm::latest::prelude::*;
 #[allow(deprecated)]
 use xcm_builder::CurrencyAdapter;
@@ -61,7 +60,6 @@ use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
 #[cfg(feature = "runtime-benchmarks")]
 use cumulus_primitives_core::ParaId;
-use frame_support::traits::{ContainsPair, Get};
 
 parameter_types! {
 	pub const TokenLocation: MultiLocation = MultiLocation::parent();
@@ -536,7 +534,6 @@ pub type WaivedLocations = (
 /// - Sibling parachains' assets from where they originate (as `ForeignCreators`).
 pub type TrustedTeleporters = (
 	ConcreteAssetFromSystem<TokenLocation>,
-	ConcreteAssetFromSnowBridgeMessageQueue<TokenLocation>,
 	IsForeignConcreteAsset<FromSiblingParachain<parachain_info::Pallet<Runtime>>>,
 );
 
@@ -717,18 +714,6 @@ where
 	}
 	fn multiasset_id(asset_id: u32) -> sp_std::boxed::Box<MultiLocation> {
 		sp_std::boxed::Box::new(Self::asset_id(asset_id))
-	}
-}
-
-pub struct ConcreteAssetFromSnowBridgeMessageQueue<AssetLocation>(PhantomData<AssetLocation>);
-impl<AssetLocation: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation>
-	for ConcreteAssetFromSnowBridgeMessageQueue<AssetLocation>
-{
-	fn contains(asset: &MultiAsset, origin: &MultiLocation) -> bool {
-		log::trace!(target: "xcm::contains", "ConcreteAssetFromSystem asset: {:?}, origin: {:?}", asset, origin);
-		let from_snowbridge = origin
-			.eq(&bridging::to_ethereum::SiblingBridgeHubWithEthereumInboundQueueInstance::get());
-		matches!(asset.id, Concrete(id) if id == AssetLocation::get()) && from_snowbridge
 	}
 }
 
