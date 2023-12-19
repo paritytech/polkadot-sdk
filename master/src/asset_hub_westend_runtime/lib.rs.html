@@ -1803,11 +1803,6 @@
 <a href="#1803" id="1803">1803</a>
 <a href="#1804" id="1804">1804</a>
 <a href="#1805" id="1805">1805</a>
-<a href="#1806" id="1806">1806</a>
-<a href="#1807" id="1807">1807</a>
-<a href="#1808" id="1808">1808</a>
-<a href="#1809" id="1809">1809</a>
-<a href="#1810" id="1810">1810</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -2112,7 +2107,6 @@
 	<span class="kw">type </span>Balance = Balance;
 	<span class="kw">type </span>HigherPrecisionBalance = sp_core::U256;
 	<span class="kw">type </span>Currency = Balances;
-	<span class="kw">type </span>AssetBalance = Balance;
 	<span class="kw">type </span>AssetId = MultiLocation;
 	<span class="kw">type </span>Assets = LocalAndForeignAssets&lt;
 		Assets,
@@ -2128,7 +2122,7 @@
 	<span class="kw">type </span>PalletId = AssetConversionPalletId;
 	<span class="kw">type </span>AllowMultiAssetPools = AllowMultiAssetPools;
 	<span class="kw">type </span>MaxSwapPathLength = ConstU32&lt;<span class="number">4</span>&gt;;
-	<span class="kw">type </span>MultiAssetId = Box&lt;MultiLocation&gt;;
+	<span class="kw">type </span>MultiAssetId = MultiLocation;
 	<span class="kw">type </span>MultiAssetIdConverter =
 		MultiLocationConverter&lt;WestendLocation, LocalAndForeignAssetsMultiLocationMatcher&gt;;
 	<span class="kw">type </span>MintMinLiquidity = ConstU128&lt;<span class="number">100</span>&gt;;
@@ -3028,19 +3022,18 @@
 	<span class="kw">impl </span>pallet_asset_conversion::AssetConversionApi&lt;
 		Block,
 		Balance,
-		u128,
-		Box&lt;MultiLocation&gt;,
+		MultiLocation,
 	&gt; <span class="kw">for </span>Runtime
 	{
-		<span class="kw">fn </span>quote_price_exact_tokens_for_tokens(asset1: Box&lt;MultiLocation&gt;, asset2: Box&lt;MultiLocation&gt;, amount: u128, include_fee: bool) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt; {
+		<span class="kw">fn </span>quote_price_exact_tokens_for_tokens(asset1: MultiLocation, asset2: MultiLocation, amount: Balance, include_fee: bool) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt; {
 			AssetConversion::quote_price_exact_tokens_for_tokens(asset1, asset2, amount, include_fee)
 		}
 
-		<span class="kw">fn </span>quote_price_tokens_for_exact_tokens(asset1: Box&lt;MultiLocation&gt;, asset2: Box&lt;MultiLocation&gt;, amount: u128, include_fee: bool) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt; {
+		<span class="kw">fn </span>quote_price_tokens_for_exact_tokens(asset1: MultiLocation, asset2: MultiLocation, amount: Balance, include_fee: bool) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt; {
 			AssetConversion::quote_price_tokens_for_exact_tokens(asset1, asset2, amount, include_fee)
 		}
 
-		<span class="kw">fn </span>get_reserves(asset1: Box&lt;MultiLocation&gt;, asset2: Box&lt;MultiLocation&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;(Balance, Balance)&gt; {
+		<span class="kw">fn </span>get_reserves(asset1: MultiLocation, asset2: MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;(Balance, Balance)&gt; {
 			AssetConversion::get_reserves(<span class="kw-2">&amp;</span>asset1, <span class="kw-2">&amp;</span>asset2).ok()
 		}
 	}
@@ -3520,10 +3513,7 @@
 	/// `MultiLocation { parents: 1, interior: Here }`
 	</span><span class="kw">pub struct </span>NativeAssetParents0ToParents1Migration&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
 	<span class="kw">impl</span>&lt;
-			T: pallet_asset_conversion::Config&lt;
-				MultiAssetId = Box&lt;MultiLocation&gt;,
-				AssetId = MultiLocation,
-			&gt;,
+			T: pallet_asset_conversion::Config&lt;MultiAssetId = MultiLocation, AssetId = MultiLocation&gt;,
 		&gt; OnRuntimeUpgrade <span class="kw">for </span>NativeAssetParents0ToParents1Migration&lt;T&gt;
 	<span class="kw">where
 		</span>&lt;T <span class="kw">as </span>pallet_asset_conversion::Config&gt;::PoolAssetId: Into&lt;u32&gt;,
@@ -3549,15 +3539,15 @@
 					pallet_asset_conversion::Pallet::&lt;T&gt;::get_pool_account(<span class="kw-2">&amp;</span>old_pool_id);
 				reads.saturating_accrue(<span class="number">1</span>);
 				<span class="kw">let </span>pool_asset_id = pool_info.lp_token.clone();
-				<span class="kw">if </span>old_pool_id.<span class="number">0</span>.as_ref() != <span class="kw-2">&amp;</span>invalid_native_asset {
+				<span class="kw">if </span>old_pool_id.<span class="number">0 </span>!= invalid_native_asset {
 					<span class="comment">// skip, if ok
 					</span><span class="kw">continue
 				</span>}
 
 				<span class="comment">// fix new account
 				</span><span class="kw">let </span>new_pool_id = pallet_asset_conversion::Pallet::&lt;T&gt;::get_pool_id(
-					Box::new(valid_native_asset),
-					old_pool_id.<span class="number">1</span>.clone(),
+					valid_native_asset,
+					old_pool_id.<span class="number">1</span>,
 				);
 				<span class="kw">let </span>new_pool_account =
 					pallet_asset_conversion::Pallet::&lt;T&gt;::get_pool_account(<span class="kw-2">&amp;</span>new_pool_id);
@@ -3596,10 +3586,10 @@
 
 				<span class="comment">// move LocalOrForeignAssets
 				</span><span class="kw">let _ </span>= T::Assets::transfer(
-					<span class="kw-2">*</span>old_pool_id.<span class="number">1</span>.as_ref(),
+					old_pool_id.<span class="number">1</span>,
 					<span class="kw-2">&amp;</span>old_pool_account,
 					<span class="kw-2">&amp;</span>new_pool_account,
-					T::Assets::balance(<span class="kw-2">*</span>old_pool_id.<span class="number">1</span>.as_ref(), <span class="kw-2">&amp;</span>old_pool_account),
+					T::Assets::balance(old_pool_id.<span class="number">1</span>, <span class="kw-2">&amp;</span>old_pool_account),
 					Preservation::Expendable,
 				);
 				reads.saturating_accrue(<span class="number">1</span>);

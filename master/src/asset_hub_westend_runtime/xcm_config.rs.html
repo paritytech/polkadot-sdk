@@ -858,7 +858,6 @@
 <a href="#858" id="858">858</a>
 <a href="#859" id="859">859</a>
 <a href="#860" id="860">860</a>
-<a href="#861" id="861">861</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1561,8 +1560,7 @@
 }
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-</span><span class="kw">impl</span>&lt;SelfParaId&gt;
-	pallet_asset_conversion::BenchmarkHelper&lt;MultiLocation, sp_std::boxed::Box&lt;MultiLocation&gt;&gt;
+</span><span class="kw">impl</span>&lt;SelfParaId&gt; pallet_asset_conversion::BenchmarkHelper&lt;MultiLocation, MultiLocation&gt;
 	<span class="kw">for </span>BenchmarkMultiLocationConverter&lt;SelfParaId&gt;
 <span class="kw">where
 	</span>SelfParaId: Get&lt;ParaId&gt;,
@@ -1578,8 +1576,8 @@
 		}
 	}
 
-	<span class="kw">fn </span>multiasset_id(asset_id: u32) -&gt; sp_std::boxed::Box&lt;MultiLocation&gt; {
-		sp_std::boxed::Box::new(<span class="self">Self</span>::asset_id(asset_id))
+	<span class="kw">fn </span>multiasset_id(asset_id: u32) -&gt; MultiLocation {
+		<span class="self">Self</span>::asset_id(asset_id)
 	}
 }
 

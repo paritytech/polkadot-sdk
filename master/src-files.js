@@ -122,7 +122,7 @@ var srcIndex = JSON.parse('{\
 "node_testing":["",[],["bench.rs","client.rs","genesis.rs","keyring.rs","lib.rs"]],\
 "normalize":["",[],["normalize.rs"]],\
 "pallet_alliance":["",[],["lib.rs","migration.rs","types.rs","weights.rs"]],\
-"pallet_asset_conversion":["",[],["lib.rs","types.rs","weights.rs"]],\
+"pallet_asset_conversion":["",[],["lib.rs","swap.rs","types.rs","weights.rs"]],\
 "pallet_asset_conversion_tx_payment":["",[],["lib.rs","payment.rs"]],\
 "pallet_asset_rate":["",[],["lib.rs","weights.rs"]],\
 "pallet_asset_tx_payment":["",[],["lib.rs","payment.rs"]],\

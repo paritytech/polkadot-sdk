@@ -1308,6 +1308,81 @@
 <a href="#1308" id="1308">1308</a>
 <a href="#1309" id="1309">1309</a>
 <a href="#1310" id="1310">1310</a>
+<a href="#1311" id="1311">1311</a>
+<a href="#1312" id="1312">1312</a>
+<a href="#1313" id="1313">1313</a>
+<a href="#1314" id="1314">1314</a>
+<a href="#1315" id="1315">1315</a>
+<a href="#1316" id="1316">1316</a>
+<a href="#1317" id="1317">1317</a>
+<a href="#1318" id="1318">1318</a>
+<a href="#1319" id="1319">1319</a>
+<a href="#1320" id="1320">1320</a>
+<a href="#1321" id="1321">1321</a>
+<a href="#1322" id="1322">1322</a>
+<a href="#1323" id="1323">1323</a>
+<a href="#1324" id="1324">1324</a>
+<a href="#1325" id="1325">1325</a>
+<a href="#1326" id="1326">1326</a>
+<a href="#1327" id="1327">1327</a>
+<a href="#1328" id="1328">1328</a>
+<a href="#1329" id="1329">1329</a>
+<a href="#1330" id="1330">1330</a>
+<a href="#1331" id="1331">1331</a>
+<a href="#1332" id="1332">1332</a>
+<a href="#1333" id="1333">1333</a>
+<a href="#1334" id="1334">1334</a>
+<a href="#1335" id="1335">1335</a>
+<a href="#1336" id="1336">1336</a>
+<a href="#1337" id="1337">1337</a>
+<a href="#1338" id="1338">1338</a>
+<a href="#1339" id="1339">1339</a>
+<a href="#1340" id="1340">1340</a>
+<a href="#1341" id="1341">1341</a>
+<a href="#1342" id="1342">1342</a>
+<a href="#1343" id="1343">1343</a>
+<a href="#1344" id="1344">1344</a>
+<a href="#1345" id="1345">1345</a>
+<a href="#1346" id="1346">1346</a>
+<a href="#1347" id="1347">1347</a>
+<a href="#1348" id="1348">1348</a>
+<a href="#1349" id="1349">1349</a>
+<a href="#1350" id="1350">1350</a>
+<a href="#1351" id="1351">1351</a>
+<a href="#1352" id="1352">1352</a>
+<a href="#1353" id="1353">1353</a>
+<a href="#1354" id="1354">1354</a>
+<a href="#1355" id="1355">1355</a>
+<a href="#1356" id="1356">1356</a>
+<a href="#1357" id="1357">1357</a>
+<a href="#1358" id="1358">1358</a>
+<a href="#1359" id="1359">1359</a>
+<a href="#1360" id="1360">1360</a>
+<a href="#1361" id="1361">1361</a>
+<a href="#1362" id="1362">1362</a>
+<a href="#1363" id="1363">1363</a>
+<a href="#1364" id="1364">1364</a>
+<a href="#1365" id="1365">1365</a>
+<a href="#1366" id="1366">1366</a>
+<a href="#1367" id="1367">1367</a>
+<a href="#1368" id="1368">1368</a>
+<a href="#1369" id="1369">1369</a>
+<a href="#1370" id="1370">1370</a>
+<a href="#1371" id="1371">1371</a>
+<a href="#1372" id="1372">1372</a>
+<a href="#1373" id="1373">1373</a>
+<a href="#1374" id="1374">1374</a>
+<a href="#1375" id="1375">1375</a>
+<a href="#1376" id="1376">1376</a>
+<a href="#1377" id="1377">1377</a>
+<a href="#1378" id="1378">1378</a>
+<a href="#1379" id="1379">1379</a>
+<a href="#1380" id="1380">1380</a>
+<a href="#1381" id="1381">1381</a>
+<a href="#1382" id="1382">1382</a>
+<a href="#1383" id="1383">1383</a>
+<a href="#1384" id="1384">1384</a>
+<a href="#1385" id="1385">1385</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1363,63 +1438,57 @@
 //! (This can be run against the kitchen sync node in the `node` folder of this repo.)
 </span><span class="attr">#![deny(missing_docs)]
 #![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
-</span><span class="kw">use </span>frame_support::traits::{DefensiveOption, Incrementable};
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 </span><span class="kw">mod </span>benchmarking;
-
+<span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>mock;
+<span class="kw">mod </span>swap;
+<span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>tests;
 <span class="kw">mod </span>types;
 <span class="kw">pub mod </span>weights;
 
-<span class="attr">#[cfg(test)]
-</span><span class="kw">mod </span>tests;
-
-<span class="attr">#[cfg(test)]
-</span><span class="kw">mod </span>mock;
+<span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
+<span class="kw">pub use </span>swap::<span class="kw-2">*</span>;
+<span class="kw">pub use </span>types::<span class="kw-2">*</span>;
+<span class="kw">pub use </span>weights::WeightInfo;
 
 <span class="kw">use </span>codec::Codec;
 <span class="kw">use </span>frame_support::{
-	ensure,
-	traits::tokens::{AssetId, Balance},
+	storage::{with_storage_layer, with_transaction},
+	traits::{
+		fungible::{
+			Balanced <span class="kw">as </span>BalancedFungible, Credit <span class="kw">as </span>CreditFungible, Inspect <span class="kw">as </span>InspectFungible,
+			Mutate <span class="kw">as </span>MutateFungible,
+		},
+		fungibles::{Balanced, Create, Credit <span class="kw">as </span>CreditFungibles, Inspect, Mutate},
+		tokens::{
+			AssetId, Balance,
+			Fortitude::Polite,
+			Precision::Exact,
+			Preservation::{Expendable, Preserve},
+		},
+		AccountTouch, ContainsPair, Imbalance, Incrementable,
+	},
+	PalletId,
 };
-<span class="kw">use </span>frame_system::{
-	ensure_signed,
-	pallet_prelude::{BlockNumberFor, OriginFor},
-};
-<span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
-<span class="kw">use </span>sp_arithmetic::traits::Unsigned;
+<span class="kw">use </span>sp_core::Get;
 <span class="kw">use </span>sp_runtime::{
 	traits::{
-		CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Ensure, MaybeDisplay, TrailingZeroInput,
+		CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Ensure, IntegerSquareRoot, MaybeDisplay,
+		One, TrailingZeroInput, Zero,
 	},
-	DispatchError,
+	DispatchError, RuntimeDebug, Saturating, TokenError, TransactionOutcome,
 };
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
-<span class="kw">pub use </span>types::<span class="kw-2">*</span>;
-<span class="kw">pub use </span>weights::WeightInfo;
+<span class="kw">use </span>sp_std::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
 
 <span class="attr">#[frame_support::pallet]
 </span><span class="kw">pub mod </span>pallet {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use </span>frame_support::{
-		pallet_prelude::<span class="kw-2">*</span>,
-		traits::{
-			fungible::{Inspect <span class="kw">as </span>InspectFungible, Mutate <span class="kw">as </span>MutateFungible},
-			fungibles::{Create, Inspect, Mutate},
-			tokens::{
-				Fortitude::Polite,
-				Precision::Exact,
-				Preservation::{Expendable, Preserve},
-			},
-			AccountTouch, ContainsPair,
-		},
-		BoundedBTreeSet, PalletId,
-	};
-	<span class="kw">use </span>sp_arithmetic::Permill;
-	<span class="kw">use </span>sp_runtime::{
-		traits::{IntegerSquareRoot, One, Zero},
-		Saturating,
-	};
+	<span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
+	<span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
+	<span class="kw">use </span>sp_arithmetic::{traits::Unsigned, Permill};
 
 	<span class="attr">#[pallet::pallet]
 	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
@@ -1431,23 +1500,19 @@
 
 		<span class="doccomment">/// Currency type that this works on.
 		</span><span class="kw">type </span>Currency: InspectFungible&lt;<span class="self">Self</span>::AccountId, Balance = <span class="self">Self</span>::Balance&gt;
-			+ MutateFungible&lt;<span class="self">Self</span>::AccountId&gt;;
+			+ MutateFungible&lt;<span class="self">Self</span>::AccountId&gt;
+			+ BalancedFungible&lt;<span class="self">Self</span>::AccountId&gt;;
 
-		<span class="doccomment">/// The `Currency::Balance` type of the native currency.
+		<span class="doccomment">/// The type in which the assets for swapping are measured.
 		</span><span class="kw">type </span>Balance: Balance;
 
-		<span class="doccomment">/// The type used to describe the amount of fractions converted into assets.
-		</span><span class="kw">type </span>AssetBalance: Balance;
-
-		<span class="doccomment">/// A type used for conversions between `Balance` and `AssetBalance`.
+		<span class="doccomment">/// A type used for calculations concerning the `Balance` type to avoid possible overflows.
 		</span><span class="kw">type </span>HigherPrecisionBalance: IntegerSquareRoot
 			+ One
 			+ Ensure
 			+ Unsigned
 			+ From&lt;u32&gt;
-			+ From&lt;<span class="self">Self</span>::AssetBalance&gt;
 			+ From&lt;<span class="self">Self</span>::Balance&gt;
-			+ TryInto&lt;<span class="self">Self</span>::AssetBalance&gt;
 			+ TryInto&lt;<span class="self">Self</span>::Balance&gt;;
 
 		<span class="doccomment">/// Identifier for the class of non-native asset.
@@ -1469,14 +1534,15 @@
 		</span><span class="kw">type </span>PoolAssetId: AssetId + PartialOrd + Incrementable + From&lt;u32&gt;;
 
 		<span class="doccomment">/// Registry for the assets.
-		</span><span class="kw">type </span>Assets: Inspect&lt;<span class="self">Self</span>::AccountId, AssetId = <span class="self">Self</span>::AssetId, Balance = <span class="self">Self</span>::AssetBalance&gt;
+		</span><span class="kw">type </span>Assets: Inspect&lt;<span class="self">Self</span>::AccountId, AssetId = <span class="self">Self</span>::AssetId, Balance = <span class="self">Self</span>::Balance&gt;
 			+ Mutate&lt;<span class="self">Self</span>::AccountId&gt;
 			+ AccountTouch&lt;<span class="self">Self</span>::AssetId, <span class="self">Self</span>::AccountId&gt;
-			+ ContainsPair&lt;<span class="self">Self</span>::AssetId, <span class="self">Self</span>::AccountId&gt;;
+			+ ContainsPair&lt;<span class="self">Self</span>::AssetId, <span class="self">Self</span>::AccountId&gt;
+			+ Balanced&lt;<span class="self">Self</span>::AccountId&gt;;
 
 		<span class="doccomment">/// Registry for the lp tokens. Ideally only this pallet should have create permissions on
 		/// the assets.
-		</span><span class="kw">type </span>PoolAssets: Inspect&lt;<span class="self">Self</span>::AccountId, AssetId = <span class="self">Self</span>::PoolAssetId, Balance = <span class="self">Self</span>::AssetBalance&gt;
+		</span><span class="kw">type </span>PoolAssets: Inspect&lt;<span class="self">Self</span>::AccountId, AssetId = <span class="self">Self</span>::PoolAssetId, Balance = <span class="self">Self</span>::Balance&gt;
 			+ Create&lt;<span class="self">Self</span>::AccountId&gt;
 			+ Mutate&lt;<span class="self">Self</span>::AccountId&gt;
 			+ AccountTouch&lt;<span class="self">Self</span>::PoolAssetId, <span class="self">Self</span>::AccountId&gt;;
@@ -1498,7 +1564,7 @@
 
 		<span class="doccomment">/// The minimum LP token amount that could be minted. Ameliorates rounding errors.
 		</span><span class="attr">#[pallet::constant]
-		</span><span class="kw">type </span>MintMinLiquidity: Get&lt;<span class="self">Self</span>::AssetBalance&gt;;
+		</span><span class="kw">type </span>MintMinLiquidity: Get&lt;<span class="self">Self</span>::Balance&gt;;
 
 		<span class="doccomment">/// The max number of hops in a swap.
 		</span><span class="attr">#[pallet::constant]
@@ -1558,13 +1624,13 @@
 			<span class="doccomment">/// The pool id of the pool that the liquidity was added to.
 			</span>pool_id: PoolIdOf&lt;T&gt;,
 			<span class="doccomment">/// The amount of the first asset that was added to the pool.
-			</span>amount1_provided: T::AssetBalance,
+			</span>amount1_provided: T::Balance,
 			<span class="doccomment">/// The amount of the second asset that was added to the pool.
-			</span>amount2_provided: T::AssetBalance,
+			</span>amount2_provided: T::Balance,
 			<span class="doccomment">/// The id of the lp token that was minted.
 			</span>lp_token: T::PoolAssetId,
 			<span class="doccomment">/// The amount of lp tokens that were minted of that id.
-			</span>lp_token_minted: T::AssetBalance,
+			</span>lp_token_minted: T::Balance,
 		},
 
 		<span class="doccomment">/// A successful call of the `RemoveLiquidity` extrinsic will create this event.
@@ -1576,13 +1642,13 @@
 			<span class="doccomment">/// The pool id that the liquidity was removed from.
 			</span>pool_id: PoolIdOf&lt;T&gt;,
 			<span class="doccomment">/// The amount of the first asset that was removed from the pool.
-			</span>amount1: T::AssetBalance,
+			</span>amount1: T::Balance,
 			<span class="doccomment">/// The amount of the second asset that was removed from the pool.
-			</span>amount2: T::AssetBalance,
+			</span>amount2: T::Balance,
 			<span class="doccomment">/// The id of the lp token that was burned.
 			</span>lp_token: T::PoolAssetId,
 			<span class="doccomment">/// The amount of lp tokens that were burned of that id.
-			</span>lp_token_burned: T::AssetBalance,
+			</span>lp_token_burned: T::Balance,
 			<span class="doccomment">/// Liquidity withdrawal fee (%).
 			</span>withdrawal_fee: Permill,
 		},
@@ -1593,24 +1659,23 @@
 			</span>who: T::AccountId,
 			<span class="doccomment">/// The account that the assets were transferred to.
 			</span>send_to: T::AccountId,
-			<span class="doccomment">/// The route of asset ids that the swap went through.
-			/// E.g. A -&gt; Dot -&gt; B
-			</span>path: BoundedVec&lt;T::MultiAssetId, T::MaxSwapPathLength&gt;,
 			<span class="doccomment">/// The amount of the first asset that was swapped.
-			</span>amount_in: T::AssetBalance,
+			</span>amount_in: T::Balance,
 			<span class="doccomment">/// The amount of the second asset that was received.
-			</span>amount_out: T::AssetBalance,
+			</span>amount_out: T::Balance,
+			<span class="doccomment">/// The route of asset IDs with amounts that the swap went through.
+			/// E.g. (A, amount_in) -&gt; (Dot, amount_out) -&gt; (B, amount_out)
+			</span>path: BalancePath&lt;T&gt;,
 		},
-		<span class="doccomment">/// An amount has been transferred from one account to another.
-		</span>Transfer {
-			<span class="doccomment">/// The account that the assets were transferred from.
-			</span>from: T::AccountId,
-			<span class="doccomment">/// The account that the assets were transferred to.
-			</span>to: T::AccountId,
-			<span class="doccomment">/// The asset that was transferred.
-			</span>asset: T::MultiAssetId,
-			<span class="doccomment">/// The amount of the asset that was transferred.
-			</span>amount: T::AssetBalance,
+		<span class="doccomment">/// Assets have been converted from one to another.
+		</span>SwapCreditExecuted {
+			<span class="doccomment">/// The amount of the first asset that was swapped.
+			</span>amount_in: T::Balance,
+			<span class="doccomment">/// The amount of the second asset that was received.
+			</span>amount_out: T::Balance,
+			<span class="doccomment">/// The route of asset IDs with amounts that the swap went through.
+			/// E.g. (A, amount_in) -&gt; (Dot, amount_out) -&gt; (B, amount_out)
+			</span>path: BalancePath&lt;T&gt;,
 		},
 	}
 
@@ -1671,10 +1736,8 @@
 		</span>NonUniquePath,
 		<span class="doccomment">/// It was not possible to get or increment the Id of the pool.
 		</span>IncorrectPoolAssetId,
-		<span class="doccomment">/// Unable to find an element in an array/vec that should have one-to-one correspondence
-		/// with another. For example, an array of assets constituting a `path` should have a
-		/// corresponding array of `amounts` along the path.
-		</span>CorrespondenceError,
+		<span class="doccomment">/// The destination account cannot exist with the swapped funds.
+		</span>BelowMinimum,
 	}
 
 	<span class="attr">#[pallet::hooks]
@@ -1698,14 +1761,14 @@
 		#[pallet::weight(T::WeightInfo::create_pool())]
 		</span><span class="kw">pub fn </span>create_pool(
 			origin: OriginFor&lt;T&gt;,
-			asset1: T::MultiAssetId,
-			asset2: T::MultiAssetId,
+			asset1: Box&lt;T::MultiAssetId&gt;,
+			asset2: Box&lt;T::MultiAssetId&gt;,
 		) -&gt; DispatchResult {
 			<span class="kw">let </span>sender = ensure_signed(origin)<span class="question-mark">?</span>;
 			<span class="macro">ensure!</span>(asset1 != asset2, Error::&lt;T&gt;::EqualAssets);
 
 			<span class="comment">// prepare pool_id
-			</span><span class="kw">let </span>pool_id = <span class="self">Self</span>::get_pool_id(asset1, asset2);
+			</span><span class="kw">let </span>pool_id = <span class="self">Self</span>::get_pool_id(<span class="kw-2">*</span>asset1, <span class="kw-2">*</span>asset2);
 			<span class="macro">ensure!</span>(!Pools::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>pool_id), Error::&lt;T&gt;::PoolExists);
 			<span class="kw">let </span>(asset1, asset2) = <span class="kw-2">&amp;</span>pool_id;
 			<span class="kw">if </span>!T::AllowMultiAssetPools::get() &amp;&amp; !T::MultiAssetIdConverter::is_native(asset1) {
@@ -1776,20 +1839,20 @@
 		#[pallet::weight(T::WeightInfo::add_liquidity())]
 		</span><span class="kw">pub fn </span>add_liquidity(
 			origin: OriginFor&lt;T&gt;,
-			asset1: T::MultiAssetId,
-			asset2: T::MultiAssetId,
-			amount1_desired: T::AssetBalance,
-			amount2_desired: T::AssetBalance,
-			amount1_min: T::AssetBalance,
-			amount2_min: T::AssetBalance,
+			asset1: Box&lt;T::MultiAssetId&gt;,
+			asset2: Box&lt;T::MultiAssetId&gt;,
+			amount1_desired: T::Balance,
+			amount2_desired: T::Balance,
+			amount1_min: T::Balance,
+			amount2_min: T::Balance,
 			mint_to: T::AccountId,
 		) -&gt; DispatchResult {
 			<span class="kw">let </span>sender = ensure_signed(origin)<span class="question-mark">?</span>;
 
-			<span class="kw">let </span>pool_id = <span class="self">Self</span>::get_pool_id(asset1.clone(), asset2.clone());
+			<span class="kw">let </span>pool_id = <span class="self">Self</span>::get_pool_id(<span class="kw-2">*</span>asset1.clone(), <span class="kw-2">*</span>asset2);
 			<span class="comment">// swap params if needed
 			</span><span class="kw">let </span>(amount1_desired, amount2_desired, amount1_min, amount2_min) =
-				<span class="kw">if </span>pool_id.<span class="number">0 </span>== asset1 {
+				<span class="kw">if </span>pool_id.<span class="number">0 </span>== <span class="kw-2">*</span>asset1 {
 					(amount1_desired, amount2_desired, amount1_min, amount2_min)
 				} <span class="kw">else </span>{
 					(amount2_desired, amount1_desired, amount2_min, amount1_min)
@@ -1807,8 +1870,8 @@
 			<span class="kw">let </span>reserve1 = <span class="self">Self</span>::get_balance(<span class="kw-2">&amp;</span>pool_account, asset1)<span class="question-mark">?</span>;
 			<span class="kw">let </span>reserve2 = <span class="self">Self</span>::get_balance(<span class="kw-2">&amp;</span>pool_account, asset2)<span class="question-mark">?</span>;
 
-			<span class="kw">let </span>amount1: T::AssetBalance;
-			<span class="kw">let </span>amount2: T::AssetBalance;
+			<span class="kw">let </span>amount1: T::Balance;
+			<span class="kw">let </span>amount2: T::Balance;
 			<span class="kw">if </span>reserve1.is_zero() || reserve2.is_zero() {
 				amount1 = amount1_desired;
 				amount2 = amount2_desired;
@@ -1847,7 +1910,7 @@
 
 			<span class="kw">let </span>total_supply = T::PoolAssets::total_issuance(pool.lp_token.clone());
 
-			<span class="kw">let </span>lp_token_amount: T::AssetBalance;
+			<span class="kw">let </span>lp_token_amount: T::Balance;
 			<span class="kw">if </span>total_supply.is_zero() {
 				lp_token_amount = <span class="self">Self</span>::calc_lp_amount_for_zero_supply(<span class="kw-2">&amp;</span>amount1, <span class="kw-2">&amp;</span>amount2)<span class="question-mark">?</span>;
 				T::PoolAssets::mint_into(
@@ -1888,18 +1951,18 @@
 		#[pallet::weight(T::WeightInfo::remove_liquidity())]
 		</span><span class="kw">pub fn </span>remove_liquidity(
 			origin: OriginFor&lt;T&gt;,
-			asset1: T::MultiAssetId,
-			asset2: T::MultiAssetId,
-			lp_token_burn: T::AssetBalance,
-			amount1_min_receive: T::AssetBalance,
-			amount2_min_receive: T::AssetBalance,
+			asset1: Box&lt;T::MultiAssetId&gt;,
+			asset2: Box&lt;T::MultiAssetId&gt;,
+			lp_token_burn: T::Balance,
+			amount1_min_receive: T::Balance,
+			amount2_min_receive: T::Balance,
 			withdraw_to: T::AccountId,
 		) -&gt; DispatchResult {
 			<span class="kw">let </span>sender = ensure_signed(origin)<span class="question-mark">?</span>;
 
-			<span class="kw">let </span>pool_id = <span class="self">Self</span>::get_pool_id(asset1.clone(), asset2.clone());
+			<span class="kw">let </span>pool_id = <span class="self">Self</span>::get_pool_id(<span class="kw-2">*</span>asset1.clone(), <span class="kw-2">*</span>asset2);
 			<span class="comment">// swap params if needed
-			</span><span class="kw">let </span>(amount1_min_receive, amount2_min_receive) = <span class="kw">if </span>pool_id.<span class="number">0 </span>== asset1 {
+			</span><span class="kw">let </span>(amount1_min_receive, amount2_min_receive) = <span class="kw">if </span>pool_id.<span class="number">0 </span>== <span class="kw-2">*</span>asset1 {
 				(amount1_min_receive, amount2_min_receive)
 			} <span class="kw">else </span>{
 				(amount2_min_receive, amount1_min_receive)
@@ -1967,16 +2030,16 @@
 		#[pallet::weight(T::WeightInfo::swap_exact_tokens_for_tokens())]
 		</span><span class="kw">pub fn </span>swap_exact_tokens_for_tokens(
 			origin: OriginFor&lt;T&gt;,
-			path: BoundedVec&lt;T::MultiAssetId, T::MaxSwapPathLength&gt;,
-			amount_in: T::AssetBalance,
-			amount_out_min: T::AssetBalance,
+			path: Vec&lt;Box&lt;T::MultiAssetId&gt;&gt;,
+			amount_in: T::Balance,
+			amount_out_min: T::Balance,
 			send_to: T::AccountId,
 			keep_alive: bool,
 		) -&gt; DispatchResult {
 			<span class="kw">let </span>sender = ensure_signed(origin)<span class="question-mark">?</span>;
 			<span class="self">Self</span>::do_swap_exact_tokens_for_tokens(
 				sender,
-				path,
+				path.into_iter().map(|a| <span class="kw-2">*</span>a).collect(),
 				amount_in,
 				<span class="prelude-val">Some</span>(amount_out_min),
 				send_to,
@@ -1995,16 +2058,16 @@
 		#[pallet::weight(T::WeightInfo::swap_tokens_for_exact_tokens())]
 		</span><span class="kw">pub fn </span>swap_tokens_for_exact_tokens(
 			origin: OriginFor&lt;T&gt;,
-			path: BoundedVec&lt;T::MultiAssetId, T::MaxSwapPathLength&gt;,
-			amount_out: T::AssetBalance,
-			amount_in_max: T::AssetBalance,
+			path: Vec&lt;Box&lt;T::MultiAssetId&gt;&gt;,
+			amount_out: T::Balance,
+			amount_in_max: T::Balance,
 			send_to: T::AccountId,
 			keep_alive: bool,
 		) -&gt; DispatchResult {
 			<span class="kw">let </span>sender = ensure_signed(origin)<span class="question-mark">?</span>;
 			<span class="self">Self</span>::do_swap_tokens_for_exact_tokens(
 				sender,
-				path,
+				path.into_iter().map(|a| <span class="kw-2">*</span>a).collect(),
 				amount_out,
 				<span class="prelude-val">Some</span>(amount_in_max),
 				send_to,
@@ -2023,25 +2086,27 @@
 		/// respecting `keep_alive`.
 		///
 		/// If successful, returns the amount of `path[1]` acquired for the `amount_in`.
-		</span><span class="kw">pub fn </span>do_swap_exact_tokens_for_tokens(
+		///
+		/// WARNING: This may return an error after a partial storage mutation. It should be used
+		/// only inside a transactional storage context and an Err result must imply a storage
+		/// rollback.
+		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_swap_exact_tokens_for_tokens(
 			sender: T::AccountId,
-			path: BoundedVec&lt;T::MultiAssetId, T::MaxSwapPathLength&gt;,
-			amount_in: T::AssetBalance,
-			amount_out_min: <span class="prelude-ty">Option</span>&lt;T::AssetBalance&gt;,
+			path: Vec&lt;T::MultiAssetId&gt;,
+			amount_in: T::Balance,
+			amount_out_min: <span class="prelude-ty">Option</span>&lt;T::Balance&gt;,
 			send_to: T::AccountId,
 			keep_alive: bool,
-		) -&gt; <span class="prelude-ty">Result</span>&lt;T::AssetBalance, DispatchError&gt; {
+		) -&gt; <span class="prelude-ty">Result</span>&lt;T::Balance, DispatchError&gt; {
 			<span class="macro">ensure!</span>(amount_in &gt; Zero::zero(), Error::&lt;T&gt;::ZeroAmount);
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(amount_out_min) = amount_out_min {
 				<span class="macro">ensure!</span>(amount_out_min &gt; Zero::zero(), Error::&lt;T&gt;::ZeroAmount);
 			}
 
 			<span class="self">Self</span>::validate_swap_path(<span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
+			<span class="kw">let </span>path = <span class="self">Self</span>::balance_path_from_amount_in(amount_in, path)<span class="question-mark">?</span>;
 
-			<span class="kw">let </span>amounts = <span class="self">Self</span>::get_amounts_out(<span class="kw-2">&amp;</span>amount_in, <span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
-			<span class="kw">let </span>amount_out =
-				<span class="kw-2">*</span>amounts.last().defensive_ok_or(<span class="string">&quot;get_amounts_out() returned an empty result&quot;</span>)<span class="question-mark">?</span>;
-
+			<span class="kw">let </span>amount_out = path.last().map(|(<span class="kw">_</span>, a)| <span class="kw-2">*</span>a).ok_or(Error::&lt;T&gt;::InvalidPath)<span class="question-mark">?</span>;
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(amount_out_min) = amount_out_min {
 				<span class="macro">ensure!</span>(
 					amount_out &gt;= amount_out_min,
@@ -2049,7 +2114,15 @@
 				);
 			}
 
-			<span class="self">Self</span>::do_swap(sender, <span class="kw-2">&amp;</span>amounts, path, send_to, keep_alive)<span class="question-mark">?</span>;
+			<span class="self">Self</span>::swap(<span class="kw-2">&amp;</span>sender, <span class="kw-2">&amp;</span>path, <span class="kw-2">&amp;</span>send_to, keep_alive)<span class="question-mark">?</span>;
+
+			<span class="self">Self</span>::deposit_event(Event::SwapExecuted {
+				who: sender,
+				send_to,
+				amount_in,
+				amount_out,
+				path,
+			});
 			<span class="prelude-val">Ok</span>(amount_out)
 		}
 
@@ -2061,25 +2134,27 @@
 		/// respecting `keep_alive`.
 		///
 		/// If successful returns the amount of the `path[0]` taken to provide `path[1]`.
-		</span><span class="kw">pub fn </span>do_swap_tokens_for_exact_tokens(
+		///
+		/// WARNING: This may return an error after a partial storage mutation. It should be used
+		/// only inside a transactional storage context and an Err result must imply a storage
+		/// rollback.
+		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_swap_tokens_for_exact_tokens(
 			sender: T::AccountId,
-			path: BoundedVec&lt;T::MultiAssetId, T::MaxSwapPathLength&gt;,
-			amount_out: T::AssetBalance,
-			amount_in_max: <span class="prelude-ty">Option</span>&lt;T::AssetBalance&gt;,
+			path: Vec&lt;T::MultiAssetId&gt;,
+			amount_out: T::Balance,
+			amount_in_max: <span class="prelude-ty">Option</span>&lt;T::Balance&gt;,
 			send_to: T::AccountId,
 			keep_alive: bool,
-		) -&gt; <span class="prelude-ty">Result</span>&lt;T::AssetBalance, DispatchError&gt; {
+		) -&gt; <span class="prelude-ty">Result</span>&lt;T::Balance, DispatchError&gt; {
 			<span class="macro">ensure!</span>(amount_out &gt; Zero::zero(), Error::&lt;T&gt;::ZeroAmount);
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(amount_in_max) = amount_in_max {
 				<span class="macro">ensure!</span>(amount_in_max &gt; Zero::zero(), Error::&lt;T&gt;::ZeroAmount);
 			}
 
 			<span class="self">Self</span>::validate_swap_path(<span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
+			<span class="kw">let </span>path = <span class="self">Self</span>::balance_path_from_amount_out(amount_out, path)<span class="question-mark">?</span>;
 
-			<span class="kw">let </span>amounts = <span class="self">Self</span>::get_amounts_in(<span class="kw-2">&amp;</span>amount_out, <span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
-			<span class="kw">let </span>amount_in =
-				<span class="kw-2">*</span>amounts.first().defensive_ok_or(<span class="string">&quot;get_amounts_in() returned an empty result&quot;</span>)<span class="question-mark">?</span>;
-
+			<span class="kw">let </span>amount_in = path.first().map(|(<span class="kw">_</span>, a)| <span class="kw-2">*</span>a).ok_or(Error::&lt;T&gt;::InvalidPath)<span class="question-mark">?</span>;
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(amount_in_max) = amount_in_max {
 				<span class="macro">ensure!</span>(
 					amount_in &lt;= amount_in_max,
@@ -2087,8 +2162,107 @@
 				);
 			}
 
-			<span class="self">Self</span>::do_swap(sender, <span class="kw-2">&amp;</span>amounts, path, send_to, keep_alive)<span class="question-mark">?</span>;
+			<span class="self">Self</span>::swap(<span class="kw-2">&amp;</span>sender, <span class="kw-2">&amp;</span>path, <span class="kw-2">&amp;</span>send_to, keep_alive)<span class="question-mark">?</span>;
+
+			<span class="self">Self</span>::deposit_event(Event::SwapExecuted {
+				who: sender,
+				send_to,
+				amount_in,
+				amount_out,
+				path,
+			});
+
 			<span class="prelude-val">Ok</span>(amount_in)
+		}
+
+		<span class="doccomment">/// Swap exactly `credit_in` of asset `path[0]` for asset `path[last]`.  If `amount_out_min`
+		/// is provided and the swap can&#39;t achieve at least this amount, an error is returned.
+		///
+		/// On a successful swap, the function returns the `credit_out` of `path[last]` obtained
+		/// from the `credit_in`. On failure, it returns an `Err` containing the original
+		/// `credit_in` and the associated error code.
+		///
+		/// WARNING: This may return an error after a partial storage mutation. It should be used
+		/// only inside a transactional storage context and an Err result must imply a storage
+		/// rollback.
+		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_swap_exact_credit_tokens_for_tokens(
+			path: Vec&lt;T::MultiAssetId&gt;,
+			credit_in: Credit&lt;T&gt;,
+			amount_out_min: <span class="prelude-ty">Option</span>&lt;T::Balance&gt;,
+		) -&gt; <span class="prelude-ty">Result</span>&lt;Credit&lt;T&gt;, (Credit&lt;T&gt;, DispatchError)&gt; {
+			<span class="kw">let </span>amount_in = credit_in.peek();
+			<span class="kw">let </span>inspect_path = |credit_asset| {
+				<span class="macro">ensure!</span>(path.get(<span class="number">0</span>).map_or(<span class="bool-val">false</span>, |a| <span class="kw-2">*</span>a == credit_asset), Error::&lt;T&gt;::InvalidPath);
+				<span class="macro">ensure!</span>(!amount_in.is_zero(), Error::&lt;T&gt;::ZeroAmount);
+				<span class="macro">ensure!</span>(amount_out_min.map_or(<span class="bool-val">true</span>, |a| !a.is_zero()), Error::&lt;T&gt;::ZeroAmount);
+
+				<span class="self">Self</span>::validate_swap_path(<span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
+				<span class="kw">let </span>path = <span class="self">Self</span>::balance_path_from_amount_in(amount_in, path)<span class="question-mark">?</span>;
+
+				<span class="kw">let </span>amount_out = path.last().map(|(<span class="kw">_</span>, a)| <span class="kw-2">*</span>a).ok_or(Error::&lt;T&gt;::InvalidPath)<span class="question-mark">?</span>;
+				<span class="macro">ensure!</span>(
+					amount_out_min.map_or(<span class="bool-val">true</span>, |a| amount_out &gt;= a),
+					Error::&lt;T&gt;::ProvidedMinimumNotSufficientForSwap
+				);
+				<span class="prelude-val">Ok</span>((path, amount_out))
+			};
+			<span class="kw">let </span>(path, amount_out) = <span class="kw">match </span>inspect_path(credit_in.asset()) {
+				<span class="prelude-val">Ok</span>((p, a)) =&gt; (p, a),
+				<span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>((credit_in, e)),
+			};
+
+			<span class="kw">let </span>credit_out = <span class="self">Self</span>::credit_swap(credit_in, <span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
+
+			<span class="self">Self</span>::deposit_event(Event::SwapCreditExecuted { amount_in, amount_out, path });
+
+			<span class="prelude-val">Ok</span>(credit_out)
+		}
+
+		<span class="doccomment">/// Swaps a portion of `credit_in` of `path[0]` asset to obtain the desired `amount_out` of
+		/// the `path[last]` asset. The provided `credit_in` must be adequate to achieve the target
+		/// `amount_out`, or an error will occur.
+		///
+		/// On success, the function returns a (`credit_out`, `credit_change`) tuple, where
+		/// `credit_out` represents the acquired amount of the `path[last]` asset, and
+		/// `credit_change` is the remaining portion from the `credit_in`. On failure, an `Err` with
+		/// the initial `credit_in` and error code is returned.
+		///
+		/// WARNING: This may return an error after a partial storage mutation. It should be used
+		/// only inside a transactional storage context and an Err result must imply a storage
+		/// rollback.
+		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_swap_credit_tokens_for_exact_tokens(
+			path: Vec&lt;T::MultiAssetId&gt;,
+			credit_in: Credit&lt;T&gt;,
+			amount_out: T::Balance,
+		) -&gt; <span class="prelude-ty">Result</span>&lt;(Credit&lt;T&gt;, Credit&lt;T&gt;), (Credit&lt;T&gt;, DispatchError)&gt; {
+			<span class="kw">let </span>amount_in_max = credit_in.peek();
+			<span class="kw">let </span>inspect_path = |credit_asset| {
+				<span class="macro">ensure!</span>(path.get(<span class="number">0</span>).map_or(<span class="bool-val">false</span>, |a| a == <span class="kw-2">&amp;</span>credit_asset), Error::&lt;T&gt;::InvalidPath);
+				<span class="macro">ensure!</span>(amount_in_max &gt; Zero::zero(), Error::&lt;T&gt;::ZeroAmount);
+				<span class="macro">ensure!</span>(amount_out &gt; Zero::zero(), Error::&lt;T&gt;::ZeroAmount);
+
+				<span class="self">Self</span>::validate_swap_path(<span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
+				<span class="kw">let </span>path = <span class="self">Self</span>::balance_path_from_amount_out(amount_out, path)<span class="question-mark">?</span>;
+
+				<span class="kw">let </span>amount_in = path.first().map(|(<span class="kw">_</span>, a)| <span class="kw-2">*</span>a).ok_or(Error::&lt;T&gt;::InvalidPath)<span class="question-mark">?</span>;
+				<span class="macro">ensure!</span>(
+					amount_in &lt;= amount_in_max,
+					Error::&lt;T&gt;::ProvidedMaximumNotSufficientForSwap
+				);
+
+				<span class="prelude-val">Ok</span>((path, amount_in))
+			};
+			<span class="kw">let </span>(path, amount_in) = <span class="kw">match </span>inspect_path(credit_in.asset()) {
+				<span class="prelude-val">Ok</span>((p, a)) =&gt; (p, a),
+				<span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>((credit_in, e)),
+			};
+
+			<span class="kw">let </span>(credit_in, credit_change) = credit_in.split(amount_in);
+			<span class="kw">let </span>credit_out = <span class="self">Self</span>::credit_swap(credit_in, <span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
+
+			<span class="self">Self</span>::deposit_event(Event::SwapCreditExecuted { amount_in, amount_out, path });
+
+			<span class="prelude-val">Ok</span>((credit_out, credit_change))
 		}
 
 		<span class="doccomment">/// Transfer an `amount` of `asset_id`, respecting the `keep_alive` requirements.
@@ -2096,122 +2270,143 @@
 			asset_id: <span class="kw-2">&amp;</span>T::MultiAssetId,
 			from: <span class="kw-2">&amp;</span>T::AccountId,
 			to: <span class="kw-2">&amp;</span>T::AccountId,
-			amount: T::AssetBalance,
+			amount: T::Balance,
 			keep_alive: bool,
-		) -&gt; <span class="prelude-ty">Result</span>&lt;T::AssetBalance, DispatchError&gt; {
-			<span class="kw">let </span>result = <span class="kw">match </span>T::MultiAssetIdConverter::try_convert(asset_id) {
+		) -&gt; <span class="prelude-ty">Result</span>&lt;T::Balance, DispatchError&gt; {
+			<span class="kw">let </span>preservation = <span class="kw">match </span>keep_alive {
+				<span class="bool-val">true </span>=&gt; Preserve,
+				<span class="bool-val">false </span>=&gt; Expendable,
+			};
+			<span class="kw">match </span>T::MultiAssetIdConverter::try_convert(asset_id) {
 				MultiAssetIdConversionResult::Converted(asset_id) =&gt;
-					T::Assets::transfer(asset_id, from, to, amount, Expendable),
+					T::Assets::transfer(asset_id, from, to, amount, preservation),
+				MultiAssetIdConversionResult::Native =&gt;
+					<span class="prelude-val">Ok</span>(T::Currency::transfer(from, to, amount, preservation)<span class="question-mark">?</span>),
+				MultiAssetIdConversionResult::Unsupported(<span class="kw">_</span>) =&gt;
+					<span class="prelude-val">Err</span>(Error::&lt;T&gt;::UnsupportedAsset.into()),
+			}
+		}
+
+		<span class="doccomment">/// The balance of `who` is increased in order to counter `credit`. If the whole of `credit`
+		/// cannot be countered, then nothing is changed and the original `credit` is returned in an
+		/// `Err`.
+		</span><span class="kw">fn </span>resolve(who: <span class="kw-2">&amp;</span>T::AccountId, credit: Credit&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Credit&lt;T&gt;&gt; {
+			<span class="kw">match </span>credit {
+				Credit::Native(c) =&gt; T::Currency::resolve(who, c).map_err(|c| c.into()),
+				Credit::Asset(c) =&gt; T::Assets::resolve(who, c).map_err(|c| c.into()),
+			}
+		}
+
+		<span class="doccomment">/// Removes `value` balance of `asset` from `who` account if possible.
+		</span><span class="kw">fn </span>withdraw(
+			asset: <span class="kw-2">&amp;</span>T::MultiAssetId,
+			who: <span class="kw-2">&amp;</span>T::AccountId,
+			value: T::Balance,
+			keep_alive: bool,
+		) -&gt; <span class="prelude-ty">Result</span>&lt;Credit&lt;T&gt;, DispatchError&gt; {
+			<span class="kw">let </span>preservation = <span class="kw">match </span>keep_alive {
+				<span class="bool-val">true </span>=&gt; Preserve,
+				<span class="bool-val">false </span>=&gt; Expendable,
+			};
+			<span class="kw">match </span>T::MultiAssetIdConverter::try_convert(asset) {
+				MultiAssetIdConversionResult::Converted(asset) =&gt; {
+					<span class="kw">if </span>preservation == Preserve {
+						<span class="comment">// TODO drop the ensure! when this issue addressed
+						// https://github.com/paritytech/polkadot-sdk/issues/1698
+						</span><span class="kw">let </span>free =
+							T::Assets::reducible_balance(asset.clone(), who, preservation, Polite);
+						<span class="macro">ensure!</span>(free &gt;= value, TokenError::NotExpendable);
+					}
+					T::Assets::withdraw(asset, who, value, Exact, preservation, Polite)
+						.map(|c| c.into())
+				},
 				MultiAssetIdConversionResult::Native =&gt; {
-					<span class="kw">let </span>preservation = <span class="kw">match </span>keep_alive {
-						<span class="bool-val">true </span>=&gt; Preserve,
-						<span class="bool-val">false </span>=&gt; Expendable,
-					};
-					<span class="kw">let </span>amount = <span class="self">Self</span>::convert_asset_balance_to_native_balance(amount)<span class="question-mark">?</span>;
-					<span class="prelude-val">Ok</span>(<span class="self">Self</span>::convert_native_balance_to_asset_balance(T::Currency::transfer(
-						from,
-						to,
-						amount,
-						preservation,
-					)<span class="question-mark">?</span>)<span class="question-mark">?</span>)
+					<span class="kw">if </span>preservation == Preserve {
+						<span class="comment">// TODO drop the ensure! when this issue addressed
+						// https://github.com/paritytech/polkadot-sdk/issues/1698
+						</span><span class="kw">let </span>free = T::Currency::reducible_balance(who, preservation, Polite);
+						<span class="macro">ensure!</span>(free &gt;= value, TokenError::NotExpendable);
+					}
+					T::Currency::withdraw(who, value, Exact, preservation, Polite).map(|c| c.into())
 				},
 				MultiAssetIdConversionResult::Unsupported(<span class="kw">_</span>) =&gt;
 					<span class="prelude-val">Err</span>(Error::&lt;T&gt;::UnsupportedAsset.into()),
-			};
-
-			<span class="kw">if </span>result.is_ok() {
-				<span class="self">Self</span>::deposit_event(Event::Transfer {
-					from: from.clone(),
-					to: to.clone(),
-					asset: (<span class="kw-2">*</span>asset_id).clone(),
-					amount,
-				});
 			}
-			result
 		}
 
-		<span class="doccomment">/// Convert a `Balance` type to an `AssetBalance`.
-		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>convert_native_balance_to_asset_balance(
-			amount: T::Balance,
-		) -&gt; <span class="prelude-ty">Result</span>&lt;T::AssetBalance, Error&lt;T&gt;&gt; {
-			T::HigherPrecisionBalance::from(amount)
-				.try_into()
-				.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::Overflow)
-		}
-
-		<span class="doccomment">/// Convert an `AssetBalance` type to a `Balance`.
-		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>convert_asset_balance_to_native_balance(
-			amount: T::AssetBalance,
-		) -&gt; <span class="prelude-ty">Result</span>&lt;T::Balance, Error&lt;T&gt;&gt; {
-			T::HigherPrecisionBalance::from(amount)
-				.try_into()
-				.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::Overflow)
-		}
-
-		<span class="doccomment">/// Convert a `HigherPrecisionBalance` type to an `AssetBalance`.
-		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>convert_hpb_to_asset_balance(
-			amount: T::HigherPrecisionBalance,
-		) -&gt; <span class="prelude-ty">Result</span>&lt;T::AssetBalance, Error&lt;T&gt;&gt; {
-			amount.try_into().map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::Overflow)
-		}
-
-		<span class="doccomment">/// Swap assets along a `path`, depositing in `send_to`.
-		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_swap(
-			sender: T::AccountId,
-			amounts: <span class="kw-2">&amp;</span>Vec&lt;T::AssetBalance&gt;,
-			path: BoundedVec&lt;T::MultiAssetId, T::MaxSwapPathLength&gt;,
-			send_to: T::AccountId,
+		<span class="doccomment">/// Swap assets along the `path`, withdrawing from `sender` and depositing in `send_to`.
+		///
+		/// Note: It&#39;s assumed that the provided `path` is valid.
+		///
+		/// WARNING: This may return an error after a partial storage mutation. It should be used
+		/// only inside a transactional storage context and an Err result must imply a storage
+		/// rollback.
+		</span><span class="kw">fn </span>swap(
+			sender: <span class="kw-2">&amp;</span>T::AccountId,
+			path: <span class="kw-2">&amp;</span>BalancePath&lt;T&gt;,
+			send_to: <span class="kw-2">&amp;</span>T::AccountId,
 			keep_alive: bool,
 		) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
-			<span class="macro">ensure!</span>(amounts.len() &gt; <span class="number">1</span>, Error::&lt;T&gt;::CorrespondenceError);
-			<span class="kw">if let </span><span class="prelude-val">Some</span>([asset1, asset2]) = <span class="kw-2">&amp;</span>path.get(<span class="number">0</span>..<span class="number">2</span>) {
-				<span class="kw">let </span>pool_id = <span class="self">Self</span>::get_pool_id(asset1.clone(), asset2.clone());
-				<span class="kw">let </span>pool_account = <span class="self">Self</span>::get_pool_account(<span class="kw-2">&amp;</span>pool_id);
-				<span class="comment">// amounts should always contain a corresponding element to path.
-				</span><span class="kw">let </span>first_amount = amounts.first().ok_or(Error::&lt;T&gt;::CorrespondenceError)<span class="question-mark">?</span>;
+			<span class="kw">let </span>(asset_in, amount_in) = path.first().ok_or(Error::&lt;T&gt;::InvalidPath)<span class="question-mark">?</span>;
+			<span class="kw">let </span>credit_in = <span class="self">Self</span>::withdraw(asset_in, sender, <span class="kw-2">*</span>amount_in, keep_alive)<span class="question-mark">?</span>;
 
-				<span class="self">Self</span>::transfer(asset1, <span class="kw-2">&amp;</span>sender, <span class="kw-2">&amp;</span>pool_account, <span class="kw-2">*</span>first_amount, keep_alive)<span class="question-mark">?</span>;
+			<span class="kw">let </span>credit_out = <span class="self">Self</span>::credit_swap(credit_in, path).map_err(|(<span class="kw">_</span>, e)| e)<span class="question-mark">?</span>;
+			<span class="self">Self</span>::resolve(send_to, credit_out).map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::BelowMinimum)<span class="question-mark">?</span>;
 
-				<span class="kw">let </span><span class="kw-2">mut </span>i = <span class="number">0</span>;
-				<span class="kw">let </span>path_len = path.len() <span class="kw">as </span>u32;
-				<span class="kw">for </span>assets_pair <span class="kw">in </span>path.windows(<span class="number">2</span>) {
-					<span class="kw">if let </span>[asset1, asset2] = assets_pair {
-						<span class="kw">let </span>pool_id = <span class="self">Self</span>::get_pool_id(asset1.clone(), asset2.clone());
-						<span class="kw">let </span>pool_account = <span class="self">Self</span>::get_pool_account(<span class="kw-2">&amp;</span>pool_id);
+			<span class="prelude-val">Ok</span>(())
+		}
 
-						<span class="kw">let </span>amount_out =
-							amounts.get((i + <span class="number">1</span>) <span class="kw">as </span>usize).ok_or(Error::&lt;T&gt;::CorrespondenceError)<span class="question-mark">?</span>;
-
-						<span class="kw">let </span>to = <span class="kw">if </span>i &lt; path_len - <span class="number">2 </span>{
-							<span class="kw">let </span>asset3 = path.get((i + <span class="number">2</span>) <span class="kw">as </span>usize).ok_or(Error::&lt;T&gt;::PathError)<span class="question-mark">?</span>;
-							<span class="self">Self</span>::get_pool_account(<span class="kw-2">&amp;</span><span class="self">Self</span>::get_pool_id(
+		<span class="doccomment">/// Swap assets along the specified `path`, consuming `credit_in` and producing
+		/// `credit_out`.
+		///
+		/// If an error occurs, `credit_in` is returned back.
+		///
+		/// Note: It&#39;s assumed that the provided `path` is valid and `credit_in` corresponds to the
+		/// first asset in the `path`.
+		///
+		/// WARNING: This may return an error after a partial storage mutation. It should be used
+		/// only inside a transactional storage context and an Err result must imply a storage
+		/// rollback.
+		</span><span class="kw">fn </span>credit_swap(
+			credit_in: Credit&lt;T&gt;,
+			path: <span class="kw-2">&amp;</span>BalancePath&lt;T&gt;,
+		) -&gt; <span class="prelude-ty">Result</span>&lt;Credit&lt;T&gt;, (Credit&lt;T&gt;, DispatchError)&gt; {
+			<span class="kw">let </span>resolve_path = || -&gt; <span class="prelude-ty">Result</span>&lt;Credit&lt;T&gt;, DispatchError&gt; {
+				<span class="kw">for </span>pos <span class="kw">in </span><span class="number">0</span>..=path.len() {
+					<span class="kw">if let </span><span class="prelude-val">Some</span>([(asset1, <span class="kw">_</span>), (asset2, amount_out)]) = path.get(pos..=pos + <span class="number">1</span>) {
+						<span class="kw">let </span>pool_from = <span class="self">Self</span>::get_pool_account(<span class="kw-2">&amp;</span><span class="self">Self</span>::get_pool_id(
+							asset1.clone(),
+							asset2.clone(),
+						));
+						<span class="kw">if let </span><span class="prelude-val">Some</span>((asset3, <span class="kw">_</span>)) = path.get(pos + <span class="number">2</span>) {
+							<span class="kw">let </span>pool_to = <span class="self">Self</span>::get_pool_account(<span class="kw-2">&amp;</span><span class="self">Self</span>::get_pool_id(
 								asset2.clone(),
 								asset3.clone(),
-							))
+							));
+							<span class="self">Self</span>::transfer(asset2, <span class="kw-2">&amp;</span>pool_from, <span class="kw-2">&amp;</span>pool_to, <span class="kw-2">*</span>amount_out, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
 						} <span class="kw">else </span>{
-							send_to.clone()
-						};
-
-						<span class="kw">let </span>reserve = <span class="self">Self</span>::get_balance(<span class="kw-2">&amp;</span>pool_account, asset2)<span class="question-mark">?</span>;
-						<span class="kw">let </span>reserve_left = reserve.saturating_sub(<span class="kw-2">*</span>amount_out);
-						<span class="self">Self</span>::validate_minimal_amount(reserve_left, asset2)
-							.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::ReserveLeftLessThanMinimal)<span class="question-mark">?</span>;
-
-						<span class="self">Self</span>::transfer(asset2, <span class="kw-2">&amp;</span>pool_account, <span class="kw-2">&amp;</span>to, <span class="kw-2">*</span>amount_out, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
+							<span class="kw">let </span>credit_out = <span class="self">Self</span>::withdraw(asset2, <span class="kw-2">&amp;</span>pool_from, <span class="kw-2">*</span>amount_out, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
+							<span class="kw">return </span><span class="prelude-val">Ok</span>(credit_out)
+						}
 					}
-					i.saturating_inc();
 				}
-				<span class="self">Self</span>::deposit_event(Event::SwapExecuted {
-					who: sender,
-					send_to,
-					path,
-					amount_in: <span class="kw-2">*</span>first_amount,
-					amount_out: <span class="kw-2">*</span>amounts.last().expect(<span class="string">&quot;Always has more than 1 element&quot;</span>),
-				});
-			} <span class="kw">else </span>{
 				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::InvalidPath.into())
-			}
-			<span class="prelude-val">Ok</span>(())
+			};
+
+			<span class="kw">let </span>credit_out = <span class="kw">match </span>resolve_path() {
+				<span class="prelude-val">Ok</span>(c) =&gt; c,
+				<span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>((credit_in, e)),
+			};
+
+			<span class="kw">let </span>pool_to = <span class="kw">if let </span><span class="prelude-val">Some</span>([(asset1, <span class="kw">_</span>), (asset2, <span class="kw">_</span>)]) = path.get(<span class="number">0</span>..<span class="number">2</span>) {
+				<span class="self">Self</span>::get_pool_account(<span class="kw-2">&amp;</span><span class="self">Self</span>::get_pool_id(asset1.clone(), asset2.clone()))
+			} <span class="kw">else </span>{
+				<span class="kw">return </span><span class="prelude-val">Err</span>((credit_in, Error::&lt;T&gt;::InvalidPath.into()))
+			};
+
+			<span class="self">Self</span>::resolve(<span class="kw-2">&amp;</span>pool_to, credit_in).map_err(|c| (c, Error::&lt;T&gt;::BelowMinimum.into()))<span class="question-mark">?</span>;
+
+			<span class="prelude-val">Ok</span>(credit_out)
 		}
 
 		<span class="doccomment">/// The account ID of the pool.
@@ -2226,19 +2421,17 @@
 		}
 
 		<span class="doccomment">/// Get the `owner`&#39;s balance of `asset`, which could be the chain&#39;s native asset or another
-		/// fungible. Returns a value in the form of an `AssetBalance`.
+		/// fungible. Returns a value in the form of an `Balance`.
 		</span><span class="kw">fn </span>get_balance(
 			owner: <span class="kw-2">&amp;</span>T::AccountId,
 			asset: <span class="kw-2">&amp;</span>T::MultiAssetId,
-		) -&gt; <span class="prelude-ty">Result</span>&lt;T::AssetBalance, Error&lt;T&gt;&gt; {
+		) -&gt; <span class="prelude-ty">Result</span>&lt;T::Balance, Error&lt;T&gt;&gt; {
 			<span class="kw">match </span>T::MultiAssetIdConverter::try_convert(asset) {
 				MultiAssetIdConversionResult::Converted(asset_id) =&gt; <span class="prelude-val">Ok</span>(
 					&lt;&lt;T <span class="kw">as </span>Config&gt;::Assets&gt;::reducible_balance(asset_id, owner, Expendable, Polite),
 				),
 				MultiAssetIdConversionResult::Native =&gt;
-					<span class="self">Self</span>::convert_native_balance_to_asset_balance(
-						&lt;&lt;T <span class="kw">as </span>Config&gt;::Currency&gt;::reducible_balance(owner, Expendable, Polite),
-					),
+					<span class="prelude-val">Ok</span>(&lt;&lt;T <span class="kw">as </span>Config&gt;::Currency&gt;::reducible_balance(owner, Expendable, Polite)),
 				MultiAssetIdConversionResult::Unsupported(<span class="kw">_</span>) =&gt;
 					<span class="prelude-val">Err</span>(Error::&lt;T&gt;::UnsupportedAsset.into()),
 			}
@@ -2273,7 +2466,7 @@
 		</span><span class="kw">pub fn </span>get_reserves(
 			asset1: <span class="kw-2">&amp;</span>T::MultiAssetId,
 			asset2: <span class="kw-2">&amp;</span>T::MultiAssetId,
-		) -&gt; <span class="prelude-ty">Result</span>&lt;(T::AssetBalance, T::AssetBalance), Error&lt;T&gt;&gt; {
+		) -&gt; <span class="prelude-ty">Result</span>&lt;(T::Balance, T::Balance), Error&lt;T&gt;&gt; {
 			<span class="kw">let </span>pool_id = <span class="self">Self</span>::get_pool_id(asset1.clone(), asset2.clone());
 			<span class="kw">let </span>pool_account = <span class="self">Self</span>::get_pool_account(<span class="kw-2">&amp;</span>pool_id);
 
@@ -2288,51 +2481,62 @@
 		}
 
 		<span class="doccomment">/// Leading to an amount at the end of a `path`, get the required amounts in.
-		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_amounts_in(
-			amount_out: <span class="kw-2">&amp;</span>T::AssetBalance,
-			path: <span class="kw-2">&amp;</span>BoundedVec&lt;T::MultiAssetId, T::MaxSwapPathLength&gt;,
-		) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;T::AssetBalance&gt;, DispatchError&gt; {
-			<span class="kw">let </span><span class="kw-2">mut </span>amounts: Vec&lt;T::AssetBalance&gt; = <span class="macro">vec!</span>[<span class="kw-2">*</span>amount_out];
+		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>balance_path_from_amount_out(
+			amount_out: T::Balance,
+			path: Vec&lt;T::MultiAssetId&gt;,
+		) -&gt; <span class="prelude-ty">Result</span>&lt;BalancePath&lt;T&gt;, DispatchError&gt; {
+			<span class="kw">let </span><span class="kw-2">mut </span>balance_path: BalancePath&lt;T&gt; = Vec::with_capacity(path.len());
+			<span class="kw">let </span><span class="kw-2">mut </span>amount_in: T::Balance = amount_out;
 
-			<span class="kw">for </span>assets_pair <span class="kw">in </span>path.windows(<span class="number">2</span>).rev() {
-				<span class="kw">if let </span>[asset1, asset2] = assets_pair {
-					<span class="kw">let </span>(reserve_in, reserve_out) = <span class="self">Self</span>::get_reserves(asset1, asset2)<span class="question-mark">?</span>;
-					<span class="kw">let </span>prev_amount = amounts.last().expect(<span class="string">&quot;Always has at least one element&quot;</span>);
-					<span class="kw">let </span>amount_in = <span class="self">Self</span>::get_amount_in(prev_amount, <span class="kw-2">&amp;</span>reserve_in, <span class="kw-2">&amp;</span>reserve_out)<span class="question-mark">?</span>;
-					amounts.push(amount_in);
-				}
+			<span class="kw">let </span><span class="kw-2">mut </span>iter = path.into_iter().rev().peekable();
+			<span class="kw">while let </span><span class="prelude-val">Some</span>(asset2) = iter.next() {
+				<span class="kw">let </span>asset1 = <span class="kw">match </span>iter.peek() {
+					<span class="prelude-val">Some</span>(a) =&gt; a,
+					<span class="prelude-val">None </span>=&gt; {
+						balance_path.push((asset2, amount_in));
+						<span class="kw">break
+					</span>},
+				};
+				<span class="kw">let </span>(reserve_in, reserve_out) = <span class="self">Self</span>::get_reserves(asset1, <span class="kw-2">&amp;</span>asset2)<span class="question-mark">?</span>;
+				balance_path.push((asset2, amount_in));
+				amount_in = <span class="self">Self</span>::get_amount_in(<span class="kw-2">&amp;</span>amount_in, <span class="kw-2">&amp;</span>reserve_in, <span class="kw-2">&amp;</span>reserve_out)<span class="question-mark">?</span>;
 			}
+			balance_path.reverse();
 
-			amounts.reverse();
-			<span class="prelude-val">Ok</span>(amounts)
+			<span class="prelude-val">Ok</span>(balance_path)
 		}
 
 		<span class="doccomment">/// Following an amount into a `path`, get the corresponding amounts out.
-		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_amounts_out(
-			amount_in: <span class="kw-2">&amp;</span>T::AssetBalance,
-			path: <span class="kw-2">&amp;</span>BoundedVec&lt;T::MultiAssetId, T::MaxSwapPathLength&gt;,
-		) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;T::AssetBalance&gt;, DispatchError&gt; {
-			<span class="kw">let </span><span class="kw-2">mut </span>amounts: Vec&lt;T::AssetBalance&gt; = <span class="macro">vec!</span>[<span class="kw-2">*</span>amount_in];
+		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>balance_path_from_amount_in(
+			amount_in: T::Balance,
+			path: Vec&lt;T::MultiAssetId&gt;,
+		) -&gt; <span class="prelude-ty">Result</span>&lt;BalancePath&lt;T&gt;, DispatchError&gt; {
+			<span class="kw">let </span><span class="kw-2">mut </span>balance_path: BalancePath&lt;T&gt; = Vec::with_capacity(path.len());
+			<span class="kw">let </span><span class="kw-2">mut </span>amount_out: T::Balance = amount_in;
 
-			<span class="kw">for </span>assets_pair <span class="kw">in </span>path.windows(<span class="number">2</span>) {
-				<span class="kw">if let </span>[asset1, asset2] = assets_pair {
-					<span class="kw">let </span>(reserve_in, reserve_out) = <span class="self">Self</span>::get_reserves(asset1, asset2)<span class="question-mark">?</span>;
-					<span class="kw">let </span>prev_amount = amounts.last().expect(<span class="string">&quot;Always has at least one element&quot;</span>);
-					<span class="kw">let </span>amount_out = <span class="self">Self</span>::get_amount_out(prev_amount, <span class="kw-2">&amp;</span>reserve_in, <span class="kw-2">&amp;</span>reserve_out)<span class="question-mark">?</span>;
-					amounts.push(amount_out);
-				}
+			<span class="kw">let </span><span class="kw-2">mut </span>iter = path.into_iter().peekable();
+			<span class="kw">while let </span><span class="prelude-val">Some</span>(asset1) = iter.next() {
+				<span class="kw">let </span>asset2 = <span class="kw">match </span>iter.peek() {
+					<span class="prelude-val">Some</span>(a) =&gt; a,
+					<span class="prelude-val">None </span>=&gt; {
+						balance_path.push((asset1, amount_out));
+						<span class="kw">break
+					</span>},
+				};
+				<span class="kw">let </span>(reserve_in, reserve_out) = <span class="self">Self</span>::get_reserves(<span class="kw-2">&amp;</span>asset1, asset2)<span class="question-mark">?</span>;
+				balance_path.push((asset1, amount_out));
+				amount_out = <span class="self">Self</span>::get_amount_out(<span class="kw-2">&amp;</span>amount_out, <span class="kw-2">&amp;</span>reserve_in, <span class="kw-2">&amp;</span>reserve_out)<span class="question-mark">?</span>;
 			}
-
-			<span class="prelude-val">Ok</span>(amounts)
+			<span class="prelude-val">Ok</span>(balance_path)
 		}
 
 		<span class="doccomment">/// Used by the RPC service to provide current prices.
 		</span><span class="kw">pub fn </span>quote_price_exact_tokens_for_tokens(
 			asset1: T::MultiAssetId,
 			asset2: T::MultiAssetId,
-			amount: T::AssetBalance,
+			amount: T::Balance,
 			include_fee: bool,
-		) -&gt; <span class="prelude-ty">Option</span>&lt;T::AssetBalance&gt; {
+		) -&gt; <span class="prelude-ty">Option</span>&lt;T::Balance&gt; {
 			<span class="kw">let </span>pool_id = <span class="self">Self</span>::get_pool_id(asset1.clone(), asset2.clone());
 			<span class="kw">let </span>pool_account = <span class="self">Self</span>::get_pool_account(<span class="kw-2">&amp;</span>pool_id);
 
@@ -2353,9 +2557,9 @@
 		</span><span class="kw">pub fn </span>quote_price_tokens_for_exact_tokens(
 			asset1: T::MultiAssetId,
 			asset2: T::MultiAssetId,
-			amount: T::AssetBalance,
+			amount: T::Balance,
 			include_fee: bool,
-		) -&gt; <span class="prelude-ty">Option</span>&lt;T::AssetBalance&gt; {
+		) -&gt; <span class="prelude-ty">Option</span>&lt;T::Balance&gt; {
 			<span class="kw">let </span>pool_id = <span class="self">Self</span>::get_pool_id(asset1.clone(), asset2.clone());
 			<span class="kw">let </span>pool_account = <span class="self">Self</span>::get_pool_account(<span class="kw-2">&amp;</span>pool_id);
 
@@ -2374,18 +2578,18 @@
 
 		<span class="doccomment">/// Calculates the optimal amount from the reserves.
 		</span><span class="kw">pub fn </span>quote(
-			amount: <span class="kw-2">&amp;</span>T::AssetBalance,
-			reserve1: <span class="kw-2">&amp;</span>T::AssetBalance,
-			reserve2: <span class="kw-2">&amp;</span>T::AssetBalance,
-		) -&gt; <span class="prelude-ty">Result</span>&lt;T::AssetBalance, Error&lt;T&gt;&gt; {
-			<span class="comment">// amount * reserve2 / reserve1
+			amount: <span class="kw-2">&amp;</span>T::Balance,
+			reserve1: <span class="kw-2">&amp;</span>T::Balance,
+			reserve2: <span class="kw-2">&amp;</span>T::Balance,
+		) -&gt; <span class="prelude-ty">Result</span>&lt;T::Balance, Error&lt;T&gt;&gt; {
+			<span class="comment">// (amount * reserve2) / reserve1
 			</span><span class="self">Self</span>::mul_div(amount, reserve2, reserve1)
 		}
 
 		<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>calc_lp_amount_for_zero_supply(
-			amount1: <span class="kw-2">&amp;</span>T::AssetBalance,
-			amount2: <span class="kw-2">&amp;</span>T::AssetBalance,
-		) -&gt; <span class="prelude-ty">Result</span>&lt;T::AssetBalance, Error&lt;T&gt;&gt; {
+			amount1: <span class="kw-2">&amp;</span>T::Balance,
+			amount2: <span class="kw-2">&amp;</span>T::Balance,
+		) -&gt; <span class="prelude-ty">Result</span>&lt;T::Balance, Error&lt;T&gt;&gt; {
 			<span class="kw">let </span>amount1 = T::HigherPrecisionBalance::from(<span class="kw-2">*</span>amount1);
 			<span class="kw">let </span>amount2 = T::HigherPrecisionBalance::from(<span class="kw-2">*</span>amount2);
 
@@ -2399,11 +2603,7 @@
 			result.try_into().map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::Overflow)
 		}
 
-		<span class="kw">fn </span>mul_div(
-			a: <span class="kw-2">&amp;</span>T::AssetBalance,
-			b: <span class="kw-2">&amp;</span>T::AssetBalance,
-			c: <span class="kw-2">&amp;</span>T::AssetBalance,
-		) -&gt; <span class="prelude-ty">Result</span>&lt;T::AssetBalance, Error&lt;T&gt;&gt; {
+		<span class="kw">fn </span>mul_div(a: <span class="kw-2">&amp;</span>T::Balance, b: <span class="kw-2">&amp;</span>T::Balance, c: <span class="kw-2">&amp;</span>T::Balance) -&gt; <span class="prelude-ty">Result</span>&lt;T::Balance, Error&lt;T&gt;&gt; {
 			<span class="kw">let </span>a = T::HigherPrecisionBalance::from(<span class="kw-2">*</span>a);
 			<span class="kw">let </span>b = T::HigherPrecisionBalance::from(<span class="kw-2">*</span>b);
 			<span class="kw">let </span>c = T::HigherPrecisionBalance::from(<span class="kw-2">*</span>c);
@@ -2422,10 +2622,10 @@
 		/// Given an input amount of an asset and pair reserves, returns the maximum output amount
 		/// of the other asset.
 		</span><span class="kw">pub fn </span>get_amount_out(
-			amount_in: <span class="kw-2">&amp;</span>T::AssetBalance,
-			reserve_in: <span class="kw-2">&amp;</span>T::AssetBalance,
-			reserve_out: <span class="kw-2">&amp;</span>T::AssetBalance,
-		) -&gt; <span class="prelude-ty">Result</span>&lt;T::AssetBalance, Error&lt;T&gt;&gt; {
+			amount_in: <span class="kw-2">&amp;</span>T::Balance,
+			reserve_in: <span class="kw-2">&amp;</span>T::Balance,
+			reserve_out: <span class="kw-2">&amp;</span>T::Balance,
+		) -&gt; <span class="prelude-ty">Result</span>&lt;T::Balance, Error&lt;T&gt;&gt; {
 			<span class="kw">let </span>amount_in = T::HigherPrecisionBalance::from(<span class="kw-2">*</span>amount_in);
 			<span class="kw">let </span>reserve_in = T::HigherPrecisionBalance::from(<span class="kw-2">*</span>reserve_in);
 			<span class="kw">let </span>reserve_out = T::HigherPrecisionBalance::from(<span class="kw-2">*</span>reserve_out);
@@ -2457,10 +2657,10 @@
 		/// Given an output amount of an asset and pair reserves, returns a required input amount
 		/// of the other asset.
 		</span><span class="kw">pub fn </span>get_amount_in(
-			amount_out: <span class="kw-2">&amp;</span>T::AssetBalance,
-			reserve_in: <span class="kw-2">&amp;</span>T::AssetBalance,
-			reserve_out: <span class="kw-2">&amp;</span>T::AssetBalance,
-		) -&gt; <span class="prelude-ty">Result</span>&lt;T::AssetBalance, Error&lt;T&gt;&gt; {
+			amount_out: <span class="kw-2">&amp;</span>T::Balance,
+			reserve_in: <span class="kw-2">&amp;</span>T::Balance,
+			reserve_out: <span class="kw-2">&amp;</span>T::Balance,
+		) -&gt; <span class="prelude-ty">Result</span>&lt;T::Balance, Error&lt;T&gt;&gt; {
 			<span class="kw">let </span>amount_out = T::HigherPrecisionBalance::from(<span class="kw-2">*</span>amount_out);
 			<span class="kw">let </span>reserve_in = T::HigherPrecisionBalance::from(<span class="kw-2">*</span>reserve_in);
 			<span class="kw">let </span>reserve_out = T::HigherPrecisionBalance::from(<span class="kw-2">*</span>reserve_out);
@@ -2495,10 +2695,7 @@
 		}
 
 		<span class="doccomment">/// Ensure that a `value` meets the minimum balance requirements of an `asset` class.
-		</span><span class="kw">fn </span>validate_minimal_amount(
-			value: T::AssetBalance,
-			asset: <span class="kw-2">&amp;</span>T::MultiAssetId,
-		) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
+		</span><span class="kw">fn </span>validate_minimal_amount(value: T::Balance, asset: <span class="kw-2">&amp;</span>T::MultiAssetId) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
 			<span class="kw">if </span>T::MultiAssetIdConverter::is_native(asset) {
 				<span class="kw">let </span>ed = T::Currency::minimum_balance();
 				<span class="macro">ensure!</span>(
@@ -2518,18 +2715,16 @@
 		}
 
 		<span class="doccomment">/// Ensure that a path is valid.
-		</span><span class="kw">fn </span>validate_swap_path(
-			path: <span class="kw-2">&amp;</span>BoundedVec&lt;T::MultiAssetId, T::MaxSwapPathLength&gt;,
-		) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
+		</span><span class="kw">fn </span>validate_swap_path(path: <span class="kw-2">&amp;</span>Vec&lt;T::MultiAssetId&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
 			<span class="macro">ensure!</span>(path.len() &gt;= <span class="number">2</span>, Error::&lt;T&gt;::InvalidPath);
+			<span class="macro">ensure!</span>(path.len() <span class="kw">as </span>u32 &lt;= T::MaxSwapPathLength::get(), Error::&lt;T&gt;::InvalidPath);
 
 			<span class="comment">// validate all the pools in the path are unique
-			</span><span class="kw">let </span><span class="kw-2">mut </span>pools = BoundedBTreeSet::&lt;PoolIdOf&lt;T&gt;, T::MaxSwapPathLength&gt;::new();
+			</span><span class="kw">let </span><span class="kw-2">mut </span>pools = BTreeSet::&lt;PoolIdOf&lt;T&gt;&gt;::new();
 			<span class="kw">for </span>assets_pair <span class="kw">in </span>path.windows(<span class="number">2</span>) {
 				<span class="kw">if let </span>[asset1, asset2] = assets_pair {
 					<span class="kw">let </span>pool_id = <span class="self">Self</span>::get_pool_id(asset1.clone(), asset2.clone());
-					<span class="kw">let </span>new_element =
-						pools.try_insert(pool_id).map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::Overflow)<span class="question-mark">?</span>;
+					<span class="kw">let </span>new_element = pools.insert(pool_id);
 					<span class="kw">if </span>!new_element {
 						<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::NonUniquePath.into())
 					}
@@ -2548,69 +2743,24 @@
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&gt; Swap&lt;T::AccountId, T::HigherPrecisionBalance, T::MultiAssetId&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
-	<span class="kw">fn </span>swap_exact_tokens_for_tokens(
-		sender: T::AccountId,
-		path: Vec&lt;T::MultiAssetId&gt;,
-		amount_in: T::HigherPrecisionBalance,
-		amount_out_min: <span class="prelude-ty">Option</span>&lt;T::HigherPrecisionBalance&gt;,
-		send_to: T::AccountId,
-		keep_alive: bool,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;T::HigherPrecisionBalance, DispatchError&gt; {
-		<span class="kw">let </span>path = path.try_into().map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::PathError)<span class="question-mark">?</span>;
-		<span class="kw">let </span>amount_out_min = amount_out_min.map(<span class="self">Self</span>::convert_hpb_to_asset_balance).transpose()<span class="question-mark">?</span>;
-		<span class="kw">let </span>amount_out = <span class="self">Self</span>::do_swap_exact_tokens_for_tokens(
-			sender,
-			path,
-			<span class="self">Self</span>::convert_hpb_to_asset_balance(amount_in)<span class="question-mark">?</span>,
-			amount_out_min,
-			send_to,
-			keep_alive,
-		)<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>(amount_out.into())
-	}
-
-	<span class="kw">fn </span>swap_tokens_for_exact_tokens(
-		sender: T::AccountId,
-		path: Vec&lt;T::MultiAssetId&gt;,
-		amount_out: T::HigherPrecisionBalance,
-		amount_in_max: <span class="prelude-ty">Option</span>&lt;T::HigherPrecisionBalance&gt;,
-		send_to: T::AccountId,
-		keep_alive: bool,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;T::HigherPrecisionBalance, DispatchError&gt; {
-		<span class="kw">let </span>path = path.try_into().map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::PathError)<span class="question-mark">?</span>;
-		<span class="kw">let </span>amount_in_max = amount_in_max.map(<span class="self">Self</span>::convert_hpb_to_asset_balance).transpose()<span class="question-mark">?</span>;
-		<span class="kw">let </span>amount_in = <span class="self">Self</span>::do_swap_tokens_for_exact_tokens(
-			sender,
-			path,
-			<span class="self">Self</span>::convert_hpb_to_asset_balance(amount_out)<span class="question-mark">?</span>,
-			amount_in_max,
-			send_to,
-			keep_alive,
-		)<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>(amount_in.into())
-	}
-}
-
 <span class="macro">sp_api::decl_runtime_apis! </span>{
 	<span class="doccomment">/// This runtime api allows people to query the size of the liquidity pools
 	/// and quote prices for swaps.
-	</span><span class="kw">pub trait </span>AssetConversionApi&lt;Balance, AssetBalance, AssetId&gt; <span class="kw">where
-		</span>Balance: Codec + MaybeDisplay,
-		AssetBalance: frame_support::traits::tokens::Balance,
+	</span><span class="kw">pub trait </span>AssetConversionApi&lt;Balance, AssetId&gt; <span class="kw">where
+		</span>Balance: frame_support::traits::tokens::Balance + MaybeDisplay,
 		AssetId: Codec
 	{
 		<span class="doccomment">/// Provides a quote for [`Pallet::swap_tokens_for_exact_tokens`].
 		///
 		/// Note that the price may have changed by the time the transaction is executed.
 		/// (Use `amount_in_max` to control slippage.)
-		</span><span class="kw">fn </span>quote_price_tokens_for_exact_tokens(asset1: AssetId, asset2: AssetId, amount: AssetBalance, include_fee: bool) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt;;
+		</span><span class="kw">fn </span>quote_price_tokens_for_exact_tokens(asset1: AssetId, asset2: AssetId, amount: Balance, include_fee: bool) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt;;
 
 		<span class="doccomment">/// Provides a quote for [`Pallet::swap_exact_tokens_for_tokens`].
 		///
 		/// Note that the price may have changed by the time the transaction is executed.
 		/// (Use `amount_out_min` to control slippage.)
-		</span><span class="kw">fn </span>quote_price_exact_tokens_for_tokens(asset1: AssetId, asset2: AssetId, amount: AssetBalance, include_fee: bool) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt;;
+		</span><span class="kw">fn </span>quote_price_exact_tokens_for_tokens(asset1: AssetId, asset2: AssetId, amount: Balance, include_fee: bool) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt;;
 
 		<span class="doccomment">/// Returns the size of the liquidity pool for the given asset pair.
 		</span><span class="kw">fn </span>get_reserves(asset1: AssetId, asset2: AssetId) -&gt; <span class="prelude-ty">Option</span>&lt;(Balance, Balance)&gt;;

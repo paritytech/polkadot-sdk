@@ -195,11 +195,6 @@
 <a href="#195" id="195">195</a>
 <a href="#196" id="196">196</a>
 <a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
-<a href="#199" id="199">199</a>
-<a href="#200" id="200">200</a>
-<a href="#201" id="201">201</a>
-<a href="#202" id="202">202</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -285,8 +280,8 @@
 <span class="kw">where
 	</span>T: Config,
 	C: Inspect&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;,
-	CON: Swap&lt;T::AccountId, T::HigherPrecisionBalance, T::MultiAssetId&gt;,
-	T::HigherPrecisionBalance: From&lt;BalanceOf&lt;T&gt;&gt; + TryInto&lt;AssetBalanceOf&lt;T&gt;&gt;,
+	CON: Swap&lt;T::AccountId, Balance = BalanceOf&lt;T&gt;, MultiAssetId = T::MultiAssetId&gt;,
+	BalanceOf&lt;T&gt;: Into&lt;AssetBalanceOf&lt;T&gt;&gt;,
 	T::MultiAssetId: From&lt;AssetIdOf&lt;T&gt;&gt;,
 	BalanceOf&lt;T&gt;: IsType&lt;&lt;C <span class="kw">as </span>Inspect&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;&gt;::Balance&gt;,
 {
@@ -319,22 +314,18 @@
 		<span class="kw">let </span>asset_consumed = CON::swap_tokens_for_exact_tokens(
 			who.clone(),
 			<span class="macro">vec!</span>[asset_id.into(), T::MultiAssetIdConverter::get_native()],
-			T::HigherPrecisionBalance::from(native_asset_required),
+			native_asset_required,
 			<span class="prelude-val">None</span>,
 			who.clone(),
 			<span class="bool-val">true</span>,
 		)
 		.map_err(|<span class="kw">_</span>| TransactionValidityError::from(InvalidTransaction::Payment))<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>asset_consumed = asset_consumed
-			.try_into()
-			.map_err(|<span class="kw">_</span>| TransactionValidityError::from(InvalidTransaction::Payment))<span class="question-mark">?</span>;
-
 		<span class="macro">ensure!</span>(asset_consumed &gt; Zero::zero(), InvalidTransaction::Payment);
 
 		<span class="comment">// charge the fee in native currency
 		</span>&lt;T::OnChargeTransaction&gt;::withdraw_fee(who, call, info, fee, tip)
-			.map(|r| (r, native_asset_required, asset_consumed))
+			.map(|r| (r, native_asset_required, asset_consumed.into()))
 	}
 
 	<span class="doccomment">/// Correct the fee and swap the refund back to asset.
@@ -377,8 +368,7 @@
 					T::MultiAssetIdConverter::get_native(), <span class="comment">// we provide the native
 					</span>asset_id.into(),                        <span class="comment">// we want asset_id back
 				</span>],
-				T::HigherPrecisionBalance::from(swap_back), <span class="comment">/* amount of the native asset to
-				                                             * convert to `asset_id` */
+				swap_back,   <span class="comment">// amount of the native asset to convert to `asset_id`
 				</span><span class="prelude-val">None</span>,        <span class="comment">// no minimum amount back
 				</span>who.clone(), <span class="comment">// we will refund to `who`
 				</span><span class="bool-val">false</span>,       <span class="comment">// no need to keep alive

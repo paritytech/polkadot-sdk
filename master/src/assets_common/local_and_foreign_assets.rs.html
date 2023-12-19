@@ -475,7 +475,6 @@
 <a href="#475" id="475">475</a>
 <a href="#476" id="476">476</a>
 <a href="#477" id="477">477</a>
-<a href="#478" id="478">478</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -501,39 +500,38 @@
 <span class="kw">use </span>pallet_asset_conversion::{MultiAssetIdConversionResult, MultiAssetIdConverter};
 <span class="kw">use </span>parachains_common::AccountId;
 <span class="kw">use </span>sp_runtime::{traits::MaybeEquivalence, DispatchError, DispatchResult};
-<span class="kw">use </span>sp_std::{boxed::Box, marker::PhantomData};
+<span class="kw">use </span>sp_std::marker::PhantomData;
 <span class="kw">use </span>xcm::latest::MultiLocation;
 
 <span class="kw">pub struct </span>MultiLocationConverter&lt;NativeAssetLocation: Get&lt;MultiLocation&gt;, MultiLocationMatcher&gt; {
 	_phantom: PhantomData&lt;(NativeAssetLocation, MultiLocationMatcher)&gt;,
 }
 
-<span class="kw">impl</span>&lt;NativeAssetLocation, MultiLocationMatcher&gt;
-	MultiAssetIdConverter&lt;Box&lt;MultiLocation&gt;, MultiLocation&gt;
+<span class="kw">impl</span>&lt;NativeAssetLocation, MultiLocationMatcher&gt; MultiAssetIdConverter&lt;MultiLocation, MultiLocation&gt;
 	<span class="kw">for </span>MultiLocationConverter&lt;NativeAssetLocation, MultiLocationMatcher&gt;
 <span class="kw">where
 	</span>NativeAssetLocation: Get&lt;MultiLocation&gt;,
 	MultiLocationMatcher: Contains&lt;MultiLocation&gt;,
 {
-	<span class="kw">fn </span>get_native() -&gt; Box&lt;MultiLocation&gt; {
-		Box::new(NativeAssetLocation::get())
+	<span class="kw">fn </span>get_native() -&gt; MultiLocation {
+		NativeAssetLocation::get()
 	}
 
-	<span class="kw">fn </span>is_native(asset_id: <span class="kw-2">&amp;</span>Box&lt;MultiLocation&gt;) -&gt; bool {
+	<span class="kw">fn </span>is_native(asset_id: <span class="kw-2">&amp;</span>MultiLocation) -&gt; bool {
 		<span class="kw-2">*</span>asset_id == <span class="self">Self</span>::get_native()
 	}
 
 	<span class="kw">fn </span>try_convert(
-		asset_id: <span class="kw-2">&amp;</span>Box&lt;MultiLocation&gt;,
-	) -&gt; MultiAssetIdConversionResult&lt;Box&lt;MultiLocation&gt;, MultiLocation&gt; {
-		<span class="kw">if </span><span class="self">Self</span>::is_native(<span class="kw-2">&amp;</span>asset_id) {
+		asset_id: <span class="kw-2">&amp;</span>MultiLocation,
+	) -&gt; MultiAssetIdConversionResult&lt;MultiLocation, MultiLocation&gt; {
+		<span class="kw">if </span><span class="self">Self</span>::is_native(asset_id) {
 			<span class="kw">return </span>MultiAssetIdConversionResult::Native
 		}
 
-		<span class="kw">if </span>MultiLocationMatcher::contains(<span class="kw-2">&amp;</span>asset_id) {
-			MultiAssetIdConversionResult::Converted(<span class="kw-2">*</span>asset_id.clone())
+		<span class="kw">if </span>MultiLocationMatcher::contains(asset_id) {
+			MultiAssetIdConversionResult::Converted(<span class="kw-2">*</span>asset_id)
 		} <span class="kw">else </span>{
-			MultiAssetIdConversionResult::Unsupported(asset_id.clone())
+			MultiAssetIdConversionResult::Unsupported(<span class="kw-2">*</span>asset_id)
 		}
 	}
 }
@@ -929,27 +927,27 @@
 			interior: X2(GlobalConsensus(ByGenesis([<span class="number">1</span>; <span class="number">32</span>])), Parachain(<span class="number">2222</span>)),
 		};
 
-		<span class="macro">assert!</span>(C::is_native(<span class="kw-2">&amp;</span>Box::new(native_asset)));
-		<span class="macro">assert!</span>(!C::is_native(<span class="kw-2">&amp;</span>Box::new(local_asset)));
-		<span class="macro">assert!</span>(!C::is_native(<span class="kw-2">&amp;</span>Box::new(pool_asset)));
-		<span class="macro">assert!</span>(!C::is_native(<span class="kw-2">&amp;</span>Box::new(foreign_asset1)));
-		<span class="macro">assert!</span>(!C::is_native(<span class="kw-2">&amp;</span>Box::new(foreign_asset2)));
+		<span class="macro">assert!</span>(C::is_native(<span class="kw-2">&amp;</span>native_asset));
+		<span class="macro">assert!</span>(!C::is_native(<span class="kw-2">&amp;</span>local_asset));
+		<span class="macro">assert!</span>(!C::is_native(<span class="kw-2">&amp;</span>pool_asset));
+		<span class="macro">assert!</span>(!C::is_native(<span class="kw-2">&amp;</span>foreign_asset1));
+		<span class="macro">assert!</span>(!C::is_native(<span class="kw-2">&amp;</span>foreign_asset2));
 
-		<span class="macro">assert_eq!</span>(C::try_convert(<span class="kw-2">&amp;</span>Box::new(native_asset)), MultiAssetIdConversionResult::Native);
+		<span class="macro">assert_eq!</span>(C::try_convert(<span class="kw-2">&amp;</span>native_asset), MultiAssetIdConversionResult::Native);
 		<span class="macro">assert_eq!</span>(
-			C::try_convert(<span class="kw-2">&amp;</span>Box::new(local_asset)),
+			C::try_convert(<span class="kw-2">&amp;</span>local_asset),
 			MultiAssetIdConversionResult::Converted(local_asset)
 		);
 		<span class="macro">assert_eq!</span>(
-			C::try_convert(<span class="kw-2">&amp;</span>Box::new(pool_asset)),
-			MultiAssetIdConversionResult::Unsupported(Box::new(pool_asset))
+			C::try_convert(<span class="kw-2">&amp;</span>pool_asset),
+			MultiAssetIdConversionResult::Unsupported(pool_asset)
 		);
 		<span class="macro">assert_eq!</span>(
-			C::try_convert(<span class="kw-2">&amp;</span>Box::new(foreign_asset1)),
+			C::try_convert(<span class="kw-2">&amp;</span>foreign_asset1),
 			MultiAssetIdConversionResult::Converted(foreign_asset1)
 		);
 		<span class="macro">assert_eq!</span>(
-			C::try_convert(<span class="kw-2">&amp;</span>Box::new(foreign_asset2)),
+			C::try_convert(<span class="kw-2">&amp;</span>foreign_asset2),
 			MultiAssetIdConversionResult::Converted(foreign_asset2)
 		);
 	}
