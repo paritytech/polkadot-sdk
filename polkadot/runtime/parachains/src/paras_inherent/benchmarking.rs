@@ -20,6 +20,8 @@ use frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
 use sp_std::collections::btree_map::BTreeMap;
 
+use primitives::v6::GroupIndex;
+
 use crate::builder::BenchBuilder;
 
 benchmarks! {
@@ -116,7 +118,8 @@ benchmarks! {
 		// There is 1 backed,
 		assert_eq!(benchmark.backed_candidates.len(), 1);
 		// with `v` validity votes.
-		let votes = v as usize;
+		// let votes = v as usize;
+		let votes = scheduler::Pallet::<T>::group_validators(GroupIndex::from(0)).map_or(v as usize, |g| g.len());
 		assert_eq!(benchmark.backed_candidates.get(0).unwrap().validity_votes.len(), votes);
 
 		benchmark.bitfields.clear();
@@ -168,7 +171,8 @@ benchmarks! {
 
 		let mut benchmark = scenario.data.clone();
 
-		let votes = BenchBuilder::<T>::fallback_min_validity_votes() as usize;
+		// let votes = BenchBuilder::<T>::fallback_min_validity_votes() as usize;
+		let votes = scheduler::Pallet::<T>::group_validators(GroupIndex::from(0)).map_or(BenchBuilder::<T>::fallback_min_validity_votes() as usize, |g| g.len());
 
 		// There is 1 backed
 		assert_eq!(benchmark.backed_candidates.len(), 1);
