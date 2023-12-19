@@ -271,6 +271,7 @@ impl Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Fungibles = Assets;
 	type OnChargeAssetTransaction = AssetConversionAdapter<Balances, AssetConversion>;
+	type WeightInfo = ();
 }
 
 #[cfg(feature = "runtime-benchmarks")]

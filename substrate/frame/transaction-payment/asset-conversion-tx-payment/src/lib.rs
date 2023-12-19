@@ -67,14 +67,16 @@ use sp_runtime::{
 mod mock;
 #[cfg(test)]
 mod tests;
+pub mod weights;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
 mod payment;
-use frame_support::traits::tokens::AssetId;
+use frame_support::{pallet_prelude::Weight, traits::tokens::AssetId};
 use pallet_asset_conversion::MultiAssetIdConverter;
 pub use payment::*;
+pub use weights::WeightInfo;
 
 /// Type aliases used for interaction with `OnChargeTransaction`.
 pub(crate) type OnChargeTransactionOf<T> =
@@ -130,6 +132,8 @@ pub mod pallet {
 		type Fungibles: Balanced<Self::AccountId>;
 		/// The actual transaction charging logic that charges the fees.
 		type OnChargeAssetTransaction: OnChargeAssetTransaction<Self>;
+		/// The weight information of this pallet.
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::pallet]
@@ -243,6 +247,14 @@ where
 {
 	const IDENTIFIER: &'static str = "ChargeAssetTxPayment";
 	type Implicit = ();
+
+	fn weight(&self) -> Weight {
+		if self.asset_id.is_some() {
+			<T as Config>::WeightInfo::charge_asset_tx_payment_asset()
+		} else {
+			<T as Config>::WeightInfo::charge_asset_tx_payment_native()
+		}
+	}
 }
 
 impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Context>

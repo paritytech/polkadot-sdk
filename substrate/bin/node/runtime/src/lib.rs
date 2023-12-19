@@ -566,6 +566,7 @@ impl pallet_asset_conversion_tx_payment::Config for Runtime {
 	type Fungibles = Assets;
 	type OnChargeAssetTransaction =
 		pallet_asset_conversion_tx_payment::AssetConversionAdapter<Balances, AssetConversion>;
+	type WeightInfo = pallet_asset_conversion_tx_payment::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_skip_feeless_payment::Config for Runtime {

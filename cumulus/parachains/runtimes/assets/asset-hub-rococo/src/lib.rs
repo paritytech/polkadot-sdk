@@ -741,6 +741,7 @@ impl pallet_asset_conversion_tx_payment::Config for Runtime {
 		ForeignAssets,
 	>;
 	type OnChargeAssetTransaction = AssetConversionAdapter<Balances, AssetConversion>;
+	type WeightInfo = weights::pallet_asset_conversion_tx_payment::WeightInfo<Runtime>;
 }
 
 parameter_types! {
