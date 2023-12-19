@@ -245,6 +245,7 @@ pub fn send_unpaid_transfer_token_message<Runtime, XcmConfig>(
 		});
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn send_transfer_token_message_failure<Runtime, XcmConfig>(
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
