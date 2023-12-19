@@ -1663,6 +1663,18 @@
 <a href="#1663" id="1663">1663</a>
 <a href="#1664" id="1664">1664</a>
 <a href="#1665" id="1665">1665</a>
+<a href="#1666" id="1666">1666</a>
+<a href="#1667" id="1667">1667</a>
+<a href="#1668" id="1668">1668</a>
+<a href="#1669" id="1669">1669</a>
+<a href="#1670" id="1670">1670</a>
+<a href="#1671" id="1671">1671</a>
+<a href="#1672" id="1672">1672</a>
+<a href="#1673" id="1673">1673</a>
+<a href="#1674" id="1674">1674</a>
+<a href="#1675" id="1675">1675</a>
+<a href="#1676" id="1676">1676</a>
+<a href="#1677" id="1677">1677</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3313,8 +3325,20 @@
 			T::AssetAccountDeposit::get()
 		}
 
-		<span class="kw">fn </span>touch(asset: T::AssetId, who: T::AccountId, depositor: T::AccountId) -&gt; DispatchResult {
-			<span class="self">Self</span>::do_touch(asset, who, depositor, <span class="bool-val">false</span>)
+		<span class="kw">fn </span>should_touch(asset: T::AssetId, who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; bool {
+			<span class="kw">match </span>Asset::&lt;T, I&gt;::get(<span class="kw-2">&amp;</span>asset) {
+				<span class="prelude-val">Some</span>(info) <span class="kw">if </span>info.is_sufficient =&gt; <span class="bool-val">false</span>,
+				<span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; !Account::&lt;T, I&gt;::contains_key(asset, who),
+				<span class="kw">_ </span>=&gt; <span class="bool-val">true</span>,
+			}
+		}
+
+		<span class="kw">fn </span>touch(
+			asset: T::AssetId,
+			who: <span class="kw-2">&amp;</span>T::AccountId,
+			depositor: <span class="kw-2">&amp;</span>T::AccountId,
+		) -&gt; DispatchResult {
+			<span class="self">Self</span>::do_touch(asset, who.clone(), depositor.clone(), <span class="bool-val">false</span>)
 		}
 	}
 

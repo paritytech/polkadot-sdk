@@ -356,6 +356,22 @@
 <a href="#356" id="356">356</a>
 <a href="#357" id="357">357</a>
 <a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -375,10 +391,13 @@
 
 </span><span class="doccomment">//! Implementation of `fungible` traits for Balances pallet.
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
-<span class="kw">use </span>frame_support::traits::tokens::{
-	Fortitude,
-	Preservation::{<span class="self">self</span>, Preserve, Protect},
-	Provenance::{<span class="self">self</span>, Minted},
+<span class="kw">use </span>frame_support::traits::{
+	tokens::{
+		Fortitude,
+		Preservation::{<span class="self">self</span>, Preserve, Protect},
+		Provenance::{<span class="self">self</span>, Minted},
+	},
+	AccountTouch,
 };
 
 <span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; fungible::Inspect&lt;T::AccountId&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
@@ -714,4 +733,17 @@
 }
 
 <span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; fungible::BalancedHold&lt;T::AccountId&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {}
+
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; AccountTouch&lt;(), T::AccountId&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
+	<span class="kw">type </span>Balance = T::Balance;
+	<span class="kw">fn </span>deposit_required(<span class="kw">_</span>: ()) -&gt; <span class="self">Self</span>::Balance {
+		<span class="self">Self</span>::Balance::zero()
+	}
+	<span class="kw">fn </span>should_touch(<span class="kw">_</span>: (), <span class="kw">_</span>: <span class="kw-2">&amp;</span>T::AccountId) -&gt; bool {
+		<span class="bool-val">false
+	</span>}
+	<span class="kw">fn </span>touch(<span class="kw">_</span>: (), <span class="kw">_</span>: <span class="kw-2">&amp;</span>T::AccountId, <span class="kw">_</span>: <span class="kw-2">&amp;</span>T::AccountId) -&gt; DispatchResult {
+		<span class="prelude-val">Ok</span>(())
+	}
+}
 </code></pre></div></section></main></body></html>

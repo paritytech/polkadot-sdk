@@ -243,6 +243,8 @@
 <a href="#243" id="243">243</a>
 <a href="#244" id="244">244</a>
 <a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -286,9 +288,10 @@
 </span><span class="kw">pub mod </span>conformance_tests;
 <span class="kw">pub mod </span>freeze;
 <span class="kw">pub mod </span>hold;
-<span class="kw">mod </span>imbalance;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>imbalance;
 <span class="kw">mod </span>item_of;
 <span class="kw">mod </span>regular;
+<span class="kw">mod </span>union_of;
 
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>frame_support_procedural::{CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
@@ -312,6 +315,7 @@
 <span class="kw">use </span>sp_arithmetic::traits::Zero;
 <span class="kw">use </span>sp_core::Get;
 <span class="kw">use </span>sp_runtime::{traits::Convert, DispatchError};
+<span class="kw">pub use </span>union_of::{NativeFromLeft, NativeOrWithId, UnionOf};
 
 <span class="kw">use crate</span>::{
 	ensure,

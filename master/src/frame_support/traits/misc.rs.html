@@ -1467,6 +1467,15 @@
 <a href="#1467" id="1467">1467</a>
 <a href="#1468" id="1468">1468</a>
 <a href="#1469" id="1469">1469</a>
+<a href="#1470" id="1470">1470</a>
+<a href="#1471" id="1471">1471</a>
+<a href="#1472" id="1472">1472</a>
+<a href="#1473" id="1473">1473</a>
+<a href="#1474" id="1474">1474</a>
+<a href="#1475" id="1475">1475</a>
+<a href="#1476" id="1476">1476</a>
+<a href="#1477" id="1477">1477</a>
+<a href="#1478" id="1478">1478</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2639,17 +2648,26 @@
 	<span class="kw">fn </span>unnote_preimage(<span class="kw">_</span>: <span class="kw-2">&amp;</span>Hash) {}
 }
 
-<span class="doccomment">/// Trait for creating an asset account with a deposit taken from a designated depositor specified
-/// by the client.
+<span class="doccomment">/// Trait for touching/creating an asset account with a deposit taken from a designated depositor
+/// specified by the client.
+///
+/// Ensures that transfers to the touched account will succeed without being denied by the account
+/// creation requirements. For example, it is useful for the account creation of non-sufficient
+/// assets when its system account may not have the free consumer reference required for it. If
+/// there is no risk of failing to meet those requirements, the touch operation can be a no-op, as
+/// is common for native assets.
 </span><span class="kw">pub trait </span>AccountTouch&lt;AssetId, AccountId&gt; {
 	<span class="doccomment">/// The type for currency units of the deposit.
 	</span><span class="kw">type </span>Balance;
 
-	<span class="doccomment">/// The deposit amount of a native currency required for creating an account of the `asset`.
+	<span class="doccomment">/// The deposit amount of a native currency required for touching an account of the `asset`.
 	</span><span class="kw">fn </span>deposit_required(asset: AssetId) -&gt; <span class="self">Self</span>::Balance;
 
+	<span class="doccomment">/// Check if an account for a given asset should be touched to meet the existence requirements.
+	</span><span class="kw">fn </span>should_touch(asset: AssetId, who: <span class="kw-2">&amp;</span>AccountId) -&gt; bool;
+
 	<span class="doccomment">/// Create an account for `who` of the `asset` with a deposit taken from the `depositor`.
-	</span><span class="kw">fn </span>touch(asset: AssetId, who: AccountId, depositor: AccountId) -&gt; DispatchResult;
+	</span><span class="kw">fn </span>touch(asset: AssetId, who: <span class="kw-2">&amp;</span>AccountId, depositor: <span class="kw-2">&amp;</span>AccountId) -&gt; DispatchResult;
 }
 
 <span class="attr">#[cfg(test)]
