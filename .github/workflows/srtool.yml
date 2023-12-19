@@ -9,7 +9,9 @@ on:
     tags:
       - "*"
     branches:
-      - "release*"
+      - release-v[0-9]+.[0-9]+.[0-9]+*
+      - release-cumulus-v[0-9]+*
+      - release-polkadot-v[0-9]+*
 
   schedule:
     - cron: "00 02 * * 1" # 2AM weekly on monday
