@@ -43,11 +43,13 @@ where
 	) -> Result<(Self::Ticket, Fee<<Self as SendMessageFeeProvider>::Balance>), SendError> {
 		// The inner payload should not be too large
 		let payload = message.command.abi_encode();
-
 		ensure!(
 			payload.len() < T::MaxMessagePayloadSize::get() as usize,
 			SendError::MessageTooLarge
 		);
+
+		// Ensure there is a registered channel we can transmit this message on
+		ensure!(T::Channels::contains(&message.channel_id), SendError::InvalidChannel);
 
 		// Generate a unique message id unless one is provided
 		let message_id: H256 = message

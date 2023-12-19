@@ -94,7 +94,7 @@ use bridge_hub_common::{AggregateMessageOrigin, CustomDigestItem};
 use codec::Decode;
 use frame_support::{
 	storage::StorageStreamIter,
-	traits::{tokens::Balance, Defensive, EnqueueMessage, Get, ProcessMessageError},
+	traits::{tokens::Balance, Contains, Defensive, EnqueueMessage, Get, ProcessMessageError},
 	weights::{Weight, WeightToFee},
 };
 use snowbridge_core::{
@@ -149,6 +149,9 @@ pub mod pallet {
 		/// Max number of messages processed per block
 		#[pallet::constant]
 		type MaxMessagesPerBlock: Get<u32>;
+
+		/// Check whether a channel exists
+		type Channels: Contains<ChannelId>;
 
 		type PricingParameters: Get<PricingParameters<Self::Balance>>;
 
