@@ -86,6 +86,20 @@ pub enum Error {
 	UnknownCodeParam,
 }
 
+impl From<novelpoly::Error> for Error {
+	fn from(error: novelpoly::Error) -> Self {
+		match error {
+			novelpoly::Error::NeedMoreShards { .. } => Self::NotEnoughChunks,
+			novelpoly::Error::ParamterMustBePowerOf2 { .. } => Self::UnevenLength,
+			novelpoly::Error::WantedShardCountTooHigh(_) => Self::TooManyValidators,
+			novelpoly::Error::WantedShardCountTooLow(_) => Self::NotEnoughValidators,
+			novelpoly::Error::PayloadSizeIsZero { .. } => Self::BadPayload,
+			novelpoly::Error::InconsistentShardLengths { .. } => Self::NonUniformChunks,
+			_ => Self::UnknownReconstruction,
+		}
+	}
+}
+
 /// Obtain a threshold of chunks that should be enough to recover the data.
 pub const fn recovery_threshold(n_validators: usize) -> Result<usize, Error> {
 	if n_validators > MAX_VALIDATORS {
@@ -137,45 +151,36 @@ pub fn reconstruct_from_systematic_v1(
 
 /// Reconstruct the available data from the set of systematic chunks.
 ///
-/// Provide a vector containing chunk data. If too few chunks are provided, recovery is not
-/// possible.
+/// Provide a vector containing the first k chunks in order. If too few chunks are provided,
+/// recovery is not possible.
 pub fn reconstruct_from_systematic<T: Decode>(
 	n_validators: usize,
 	chunks: Vec<&[u8]>,
 ) -> Result<T, Error> {
-	let kpow2 = systematic_recovery_threshold(n_validators)?;
+	let code_params = code_params(n_validators)?;
+	let k = code_params.k();
+
+	for chunk_data in chunks.iter().take(k) {
+		if chunk_data.len() % 2 != 0 {
+			return Err(Error::UnevenLength)
+		}
+	}
 
 	let Some(first_shard) = chunks.iter().next() else { return Err(Error::NotEnoughChunks) };
 	let shard_len = first_shard.len();
-
-	if shard_len == 0 {
-		return Err(Error::NonUniformChunks)
-	}
-
-	if chunks.iter().any(|c| c.len() != shard_len) {
-		return Err(Error::NonUniformChunks)
-	}
-
 	if shard_len % 2 != 0 {
 		return Err(Error::UnevenLength)
 	}
 
-	if chunks.len() < kpow2 {
-		return Err(Error::NotEnoughChunks)
-	}
+	let bytes = code_params.make_encoder().reconstruct_from_systematic(
+		chunks
+			.into_iter()
+			.take(k)
+			.map(|data| WrappedShard::new(data.to_vec()))
+			.collect(),
+	)?;
 
-	let mut systematic_bytes = Vec::with_capacity(shard_len * kpow2);
-
-	for i in (0..shard_len).step_by(2) {
-		for chunk in chunks.iter().take(kpow2) {
-			// No need to check for index out of bounds because i goes up to shard_len and
-			// we return an error for non uniform chunks.
-			systematic_bytes.push(chunk[i]);
-			systematic_bytes.push(chunk[i + 1]);
-		}
-	}
-
-	Decode::decode(&mut &systematic_bytes[..]).map_err(|err| Error::Decode(err))
+	Decode::decode(&mut &bytes[..]).map_err(|err| Error::Decode(err))
 }
 
 /// Obtain erasure-coded chunks for v1 `AvailableData`, one for each validator.
@@ -231,40 +236,15 @@ where
 {
 	let params = code_params(n_validators)?;
 	let mut received_shards: Vec<Option<WrappedShard>> = vec![None; n_validators];
-	let mut shard_len = None;
 	for (chunk_data, chunk_idx) in chunks.into_iter().take(n_validators) {
-		if chunk_idx >= n_validators {
-			return Err(Error::ChunkIndexOutOfBounds { chunk_index: chunk_idx, n_validators })
-		}
-
-		let shard_len = shard_len.get_or_insert_with(|| chunk_data.len());
-
-		if *shard_len % 2 != 0 {
+		if chunk_data.len() % 2 != 0 {
 			return Err(Error::UnevenLength)
-		}
-
-		if *shard_len != chunk_data.len() || *shard_len == 0 {
-			return Err(Error::NonUniformChunks)
 		}
 
 		received_shards[chunk_idx] = Some(WrappedShard::new(chunk_data.to_vec()));
 	}
 
-	let res = params.make_encoder().reconstruct(received_shards);
-
-	let payload_bytes = match res {
-		Err(e) => match e {
-			novelpoly::Error::NeedMoreShards { .. } => return Err(Error::NotEnoughChunks),
-			novelpoly::Error::ParamterMustBePowerOf2 { .. } => return Err(Error::UnevenLength),
-			novelpoly::Error::WantedShardCountTooHigh(_) => return Err(Error::TooManyValidators),
-			novelpoly::Error::WantedShardCountTooLow(_) => return Err(Error::NotEnoughValidators),
-			novelpoly::Error::PayloadSizeIsZero { .. } => return Err(Error::BadPayload),
-			novelpoly::Error::InconsistentShardLengths { .. } =>
-				return Err(Error::NonUniformChunks),
-			_ => return Err(Error::UnknownReconstruction),
-		},
-		Ok(payload_bytes) => payload_bytes,
-	};
+	let payload_bytes = params.make_encoder().reconstruct(received_shards)?;
 
 	Decode::decode(&mut &payload_bytes[..]).map_err(|err| Error::Decode(err))
 }
@@ -359,56 +339,6 @@ pub fn branch_hash(root: &H256, branch_nodes: &Proof, index: usize) -> Result<H2
 	}
 }
 
-// input for `codec` which draws data from the data shards
-struct ShardInput<'a, I> {
-	remaining_len: usize,
-	shards: I,
-	cur_shard: Option<(&'a [u8], usize)>,
-}
-
-impl<'a, I: Iterator<Item = &'a [u8]>> parity_scale_codec::Input for ShardInput<'a, I> {
-	fn remaining_len(&mut self) -> Result<Option<usize>, parity_scale_codec::Error> {
-		Ok(Some(self.remaining_len))
-	}
-
-	fn read(&mut self, into: &mut [u8]) -> Result<(), parity_scale_codec::Error> {
-		let mut read_bytes = 0;
-
-		loop {
-			if read_bytes == into.len() {
-				break
-			}
-
-			let cur_shard = self.cur_shard.take().or_else(|| self.shards.next().map(|s| (s, 0)));
-			let (active_shard, mut in_shard) = match cur_shard {
-				Some((s, i)) => (s, i),
-				None => break,
-			};
-
-			if in_shard >= active_shard.len() {
-				continue
-			}
-
-			let remaining_len_out = into.len() - read_bytes;
-			let remaining_len_shard = active_shard.len() - in_shard;
-
-			let write_len = std::cmp::min(remaining_len_out, remaining_len_shard);
-			into[read_bytes..][..write_len].copy_from_slice(&active_shard[in_shard..][..write_len]);
-
-			in_shard += write_len;
-			read_bytes += write_len;
-			self.cur_shard = Some((active_shard, in_shard))
-		}
-
-		self.remaining_len -= read_bytes;
-		if read_bytes == into.len() {
-			Ok(())
-		} else {
-			Err("slice provided too big for input".into())
-		}
-	}
-}
-
 #[cfg(test)]
 mod tests {
 	use std::sync::Arc;
@@ -428,7 +358,7 @@ mod tests {
 	impl Arbitrary for ArbitraryAvailableData {
 		fn arbitrary(g: &mut Gen) -> Self {
 			// Limit the POV len to 1 mib, otherwise the test will take forever
-			let pov_len = u32::arbitrary(g).saturating_add(2) % (1024 * 1024);
+			let pov_len = (u32::arbitrary(g) % (1024 * 1024)).max(2);
 
 			let pov = (0..pov_len).map(|_| u8::arbitrary(g)).collect();
 
@@ -475,7 +405,7 @@ mod tests {
 	#[test]
 	fn round_trip_systematic_works() {
 		fn property(available_data: ArbitraryAvailableData, n_validators: u16) {
-			let n_validators = n_validators.saturating_add(2);
+			let n_validators = n_validators.max(2);
 			let kpow2 = systematic_recovery_threshold(n_validators as usize).unwrap();
 			let chunks = obtain_chunks(n_validators as usize, &available_data.0).unwrap();
 			assert_eq!(
