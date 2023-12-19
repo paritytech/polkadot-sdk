@@ -22,6 +22,7 @@ use crate::{
 	futures_undead::FuturesUndead, metrics::Metrics, ErasureTask, PostRecoveryCheck, LOG_TARGET,
 };
 use futures::{channel::oneshot, SinkExt};
+use parity_scale_codec::Encode;
 use polkadot_erasure_coding::branch_hash;
 #[cfg(not(test))]
 use polkadot_node_network_protocol::request_response::CHUNK_REQUEST_TIMEOUT;
@@ -616,7 +617,7 @@ where
 					return Err(err)
 				},
 				Ok(data) => {
-					self.params.metrics.on_recovery_succeeded(strategy_type);
+					self.params.metrics.on_recovery_succeeded(strategy_type, data.encoded_size());
 					return Ok(data)
 				},
 			}
@@ -1367,7 +1368,9 @@ mod tests {
 	use polkadot_erasure_coding::{recovery_threshold, systematic_recovery_threshold};
 	use polkadot_node_primitives::{BlockData, PoV};
 	use polkadot_node_subsystem::{AllMessages, TimeoutExt};
-	use polkadot_node_subsystem_test_helpers::{sender_receiver, TestSubsystemSender};
+	use polkadot_node_subsystem_test_helpers::{
+		derive_erasure_chunks_with_proofs_and_root, sender_receiver, TestSubsystemSender,
+	};
 	use polkadot_primitives::{HeadData, PersistedValidationData};
 	use polkadot_primitives_test_helpers::dummy_hash;
 	use sp_keyring::Sr25519Keyring;

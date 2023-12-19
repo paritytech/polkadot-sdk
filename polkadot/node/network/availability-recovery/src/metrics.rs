@@ -38,6 +38,11 @@ struct MetricsInner {
 	/// - `systematic_chunks`
 	chunk_requests_issued: CounterVec<U64>,
 
+	/// Total number of bytes recovered
+	///
+	/// Gets incremented on each succesful recovery
+	recovered_bytes_total: Counter<U64>,
+
 	/// A counter for finished chunk requests.
 	///
 	/// Split by the chunk type (`regular_chunks` or `systematic_chunks`)
@@ -236,12 +241,13 @@ impl Metrics {
 	}
 
 	/// A full recovery succeeded.
-	pub fn on_recovery_succeeded(&self, strategy_type: &str) {
+	pub fn on_recovery_succeeded(&self, strategy_type: &str, bytes: usize) {
 		if let Some(metrics) = &self.0 {
 			metrics
 				.full_recoveries_finished
 				.with_label_values(&["success", strategy_type])
-				.inc()
+				.inc();
+			metrics.recovered_bytes_total.inc_by(bytes as u64)
 		}
 	}
 
@@ -288,6 +294,13 @@ impl metrics::Metrics for Metrics {
 				Counter::new(
 					"polkadot_parachain_availability_recovery_full_data_requests_issued",
 					"Total number of issued full data requests.",
+				)?,
+				registry,
+			)?,
+			recovered_bytes_total: prometheus::register(
+				Counter::new(
+					"polkadot_parachain_availability_recovery_bytes_total",
+					"Total number of bytes recovered",
 				)?,
 				registry,
 			)?,

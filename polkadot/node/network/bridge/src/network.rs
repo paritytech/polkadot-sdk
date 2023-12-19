@@ -33,7 +33,7 @@ use sc_network::{
 use polkadot_node_network_protocol::{
 	peer_set::{CollationVersion, PeerSet, ProtocolVersion, ValidationVersion},
 	request_response::{OutgoingRequest, Recipient, ReqProtocolNames, Requests},
-	v1 as protocol_v1, v2 as protocol_v2, vstaging as protocol_vstaging, PeerId,
+	v1 as protocol_v1, v2 as protocol_v2, v3 as protocol_v3, PeerId,
 };
 use polkadot_primitives::{AuthorityDiscoveryId, Block, Hash};
 
@@ -62,20 +62,20 @@ pub(crate) fn send_validation_message_v1(
 	);
 }
 
-// Helper function to send a validation vstaging message to a list of peers.
+// Helper function to send a validation v3 message to a list of peers.
 // Messages are always sent via the main protocol, even legacy protocol messages.
-pub(crate) fn send_validation_message_vstaging(
+pub(crate) fn send_validation_message_v3(
 	peers: Vec<PeerId>,
-	message: WireMessage<protocol_vstaging::ValidationProtocol>,
+	message: WireMessage<protocol_v3::ValidationProtocol>,
 	metrics: &Metrics,
 	notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
 ) {
-	gum::trace!(target: LOG_TARGET, ?peers, ?message, "Sending validation vstaging message to peers",);
+	gum::trace!(target: LOG_TARGET, ?peers, ?message, "Sending validation v3 message to peers",);
 
 	send_message(
 		peers,
 		PeerSet::Validation,
-		ValidationVersion::VStaging.into(),
+		ValidationVersion::V3.into(),
 		message,
 		metrics,
 		notification_sinks,

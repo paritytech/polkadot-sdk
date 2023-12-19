@@ -139,7 +139,7 @@ impl ChunkIndexCacheRegistry {
 
 		if let Some(features) = maybe_node_features {
 			if let Some(&true) = features
-				.get(usize::from(node_features::FeatureIndex::AvailabilityChunkShuffling))
+				.get(usize::from(node_features::FeatureIndex::AvailabilityChunkShuffling as u8))
 				.as_deref()
 			{
 				let block_number_bytes = block_number.to_be_bytes();
@@ -164,7 +164,7 @@ impl ChunkIndexCacheRegistry {
 	) -> usize {
 		if let Some(features) = maybe_node_features {
 			if let Some(&true) = features
-				.get(usize::from(node_features::FeatureIndex::AvailabilityChunkShuffling))
+				.get(usize::from(node_features::FeatureIndex::AvailabilityChunkShuffling as u8))
 				.as_deref()
 			{
 				let mut rng: ChaCha8Rng =
@@ -230,7 +230,8 @@ mod tests {
 		let mut node_features = NodeFeatures::new();
 		node_features
 			.resize(node_features::FeatureIndex::AvailabilityChunkShuffling as usize + 1, false);
-		node_features.set(node_features::FeatureIndex::AvailabilityChunkShuffling.into(), true);
+		node_features
+			.set(node_features::FeatureIndex::AvailabilityChunkShuffling as u8 as usize, true);
 		node_features
 	}
 

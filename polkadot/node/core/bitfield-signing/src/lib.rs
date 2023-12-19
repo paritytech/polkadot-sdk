@@ -145,7 +145,7 @@ async fn get_core_availability(
 
 		if let Some(ref node_features) = maybe_node_features {
 			if let Some(&true) = node_features
-				.get(usize::from(node_features::FeatureIndex::AvailabilityChunkShuffling))
+				.get(usize::from(node_features::FeatureIndex::AvailabilityChunkShuffling as u8))
 				.as_deref()
 			{
 				let Some(session_info) = recv_runtime(

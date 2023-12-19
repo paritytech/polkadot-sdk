@@ -25,17 +25,18 @@ use futures_timer::Delay;
 use rstest::rstest;
 
 use parity_scale_codec::Encode;
-use polkadot_erasure_coding::{branches, obtain_chunks_v1 as obtain_chunks};
 use polkadot_node_network_protocol::request_response::{
 	self as req_res, v1::AvailableDataFetchingRequest, IncomingRequest, Recipient,
 	ReqProtocolNames, Requests,
 };
+
 use polkadot_node_primitives::{BlockData, PoV, Proof};
 use polkadot_node_subsystem::messages::{
 	AllMessages, ChainApiMessage, NetworkBridgeTxMessage, RuntimeApiMessage, RuntimeApiRequest,
 };
 use polkadot_node_subsystem_test_helpers::{
-	make_subsystem_context, mock::new_leaf, TestSubsystemContextHandle,
+	derive_erasure_chunks_with_proofs_and_root, make_subsystem_context, mock::new_leaf,
+	TestSubsystemContextHandle,
 };
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
@@ -217,7 +218,8 @@ impl TestState {
 		let mut node_features = NodeFeatures::new();
 		node_features
 			.resize(node_features::FeatureIndex::AvailabilityChunkShuffling as usize + 1, false);
-		node_features.set(node_features::FeatureIndex::AvailabilityChunkShuffling.into(), true);
+		node_features
+			.set(node_features::FeatureIndex::AvailabilityChunkShuffling as u8 as usize, true);
 
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
@@ -450,33 +452,6 @@ fn validator_pubkeys(val_ids: &[Sr25519Keyring]) -> IndexedVec<ValidatorIndex, V
 
 pub fn validator_authority_id(val_ids: &[Sr25519Keyring]) -> Vec<AuthorityDiscoveryId> {
 	val_ids.iter().map(|v| v.public().into()).collect()
-}
-
-pub fn derive_erasure_chunks_with_proofs_and_root(
-	n_validators: usize,
-	available_data: &AvailableData,
-	alter_chunk: impl Fn(usize, &mut Vec<u8>),
-) -> (Vec<ErasureChunk>, Hash) {
-	let mut chunks: Vec<Vec<u8>> = obtain_chunks(n_validators, available_data).unwrap();
-
-	for (i, chunk) in chunks.iter_mut().enumerate() {
-		alter_chunk(i, chunk)
-	}
-
-	// create proofs for each erasure chunk
-	let branches = branches(chunks.as_ref());
-
-	let root = branches.root();
-	let erasure_chunks = branches
-		.enumerate()
-		.map(|(index, (proof, chunk))| ErasureChunk {
-			chunk: chunk.to_vec(),
-			index: ChunkIndex(index as _),
-			proof: Proof::try_from(proof).unwrap(),
-		})
-		.collect::<Vec<ErasureChunk>>();
-
-	(erasure_chunks, root)
 }
 
 impl Default for TestState {
