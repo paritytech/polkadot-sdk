@@ -70,6 +70,10 @@ pub fn seed_from_entropy(entropy: &[u8], password: &str) -> Result<[u8; 64], Err
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[cfg(not(feature = "std"))]
+    use alloc::vec::Vec;
+
     use bip39::{Language, Mnemonic};
     use rustc_hex::FromHex;
 
