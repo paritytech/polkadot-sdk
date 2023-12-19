@@ -24,12 +24,12 @@ use parity_scale_codec::Encode;
 use polkadot_node_network_protocol::request_response::{
 	self as req_res, IncomingRequest, Recipient, ReqProtocolNames, Requests,
 };
+use polkadot_node_subsystem_test_helpers::derive_erasure_chunks_with_proofs_and_root;
 
 use super::*;
 
 use sc_network::{config::RequestResponseConfig, IfDisconnected, OutboundFailure, RequestFailure};
 
-use polkadot_erasure_coding::{branches, obtain_chunks_v1 as obtain_chunks};
 use polkadot_node_primitives::{BlockData, PoV, Proof};
 use polkadot_node_subsystem::messages::{
 	AllMessages, NetworkBridgeTxMessage, RuntimeApiMessage, RuntimeApiRequest,
@@ -454,33 +454,6 @@ fn validator_pubkeys(val_ids: &[Sr25519Keyring]) -> IndexedVec<ValidatorIndex, V
 
 fn validator_authority_id(val_ids: &[Sr25519Keyring]) -> Vec<AuthorityDiscoveryId> {
 	val_ids.iter().map(|v| v.public().into()).collect()
-}
-
-fn derive_erasure_chunks_with_proofs_and_root(
-	n_validators: usize,
-	available_data: &AvailableData,
-	alter_chunk: impl Fn(usize, &mut Vec<u8>),
-) -> (Vec<ErasureChunk>, Hash) {
-	let mut chunks: Vec<Vec<u8>> = obtain_chunks(n_validators, available_data).unwrap();
-
-	for (i, chunk) in chunks.iter_mut().enumerate() {
-		alter_chunk(i, chunk)
-	}
-
-	// create proofs for each erasure chunk
-	let branches = branches(chunks.as_ref());
-
-	let root = branches.root();
-	let erasure_chunks = branches
-		.enumerate()
-		.map(|(index, (proof, chunk))| ErasureChunk {
-			chunk: chunk.to_vec(),
-			index: ValidatorIndex(index as _),
-			proof: Proof::try_from(proof).unwrap(),
-		})
-		.collect::<Vec<ErasureChunk>>();
-
-	(erasure_chunks, root)
 }
 
 impl Default for TestState {

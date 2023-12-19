@@ -28,7 +28,7 @@ use frame_election_provider_support::{
 	onchain, BalancingConfig, ElectionDataProvider, SequentialPhragmen, VoteWeight,
 };
 use frame_support::{
-	construct_runtime,
+	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_config, create_default_config},
 	instances::{Instance1, Instance2},
@@ -283,33 +283,31 @@ impl pallet_safe_mode::Config for Runtime {
 	type WeightInfo = pallet_safe_mode::weights::SubstrateWeight<Runtime>;
 }
 
+#[derive_impl(frame_system::config_preludes::SolochainDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = InsideBoth<SafeMode, TxPause>;
 	type BlockWeights = RuntimeBlockWeights;
 	type BlockLength = RuntimeBlockLength;
 	type DbWeight = RocksDbWeight;
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
 	type Nonce = Nonce;
 	type Hash = Hash;
-	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = Indices;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
 	type BlockHashCount = BlockHashCount;
 	type Version = Version;
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
 	type SystemWeightInfo = frame_system::weights::SubstrateWeight<Runtime>;
 	type SS58Prefix = ConstU16<42>;
-	type OnSetCode = ();
 	type MaxConsumers = ConstU32<16>;
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
+
+impl pallet_example_tasks::Config for Runtime {
+	type RuntimeTask = RuntimeTask;
+	type WeightInfo = pallet_example_tasks::weights::SubstrateWeight<Runtime>;
+}
 
 impl pallet_utility::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -634,6 +632,7 @@ parameter_types! {
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
 	pub const MaxNominators: u32 = 64;
 	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
+	pub const MaxControllersInDeprecationBatch: u32 = 5900;
 	pub OffchainRepeat: BlockNumber = 5;
 	pub HistoryDepth: u32 = 84;
 }
@@ -676,6 +675,7 @@ impl pallet_staking::Config for Runtime {
 	// This a placeholder, to be introduced in the next PR as an instance of bags-list
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 	type MaxUnlockingChunks = ConstU32<32>;
+	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type HistoryDepth = HistoryDepth;
 	type EventListeners = NominationPools;
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
@@ -1558,6 +1558,7 @@ impl pallet_vesting::Config for Runtime {
 	type MinVestedTransfer = MinVestedTransfer;
 	type WeightInfo = pallet_vesting::weights::SubstrateWeight<Runtime>;
 	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
+	type BlockNumberProvider = System;
 	// `VestingInfo` encode length is 36bytes. 28 schedules gets encoded as 1009 bytes, which is the
 	// highest number of schedules that encodes less than 2^10.
 	const MAX_VESTING_SCHEDULES: u32 = 28;
@@ -2146,6 +2147,7 @@ construct_runtime!(
 		SafeMode: pallet_safe_mode,
 		Statement: pallet_statement,
 		Broker: pallet_broker,
+		TasksExample: pallet_example_tasks,
 		Mixnet: pallet_mixnet,
 		SkipFeelessPayment: pallet_skip_feeless_payment,
 	}
@@ -2240,6 +2242,7 @@ mod benches {
 		[pallet_conviction_voting, ConvictionVoting]
 		[pallet_contracts, Contracts]
 		[pallet_core_fellowship, CoreFellowship]
+		[tasks_example, TasksExample]
 		[pallet_democracy, Democracy]
 		[pallet_asset_conversion, AssetConversion]
 		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
@@ -2503,7 +2506,7 @@ impl_runtime_apis! {
 			gas_limit: Option<Weight>,
 			storage_deposit_limit: Option<Balance>,
 			input_data: Vec<u8>,
-		) -> pallet_contracts_primitives::ContractExecResult<Balance, EventRecord> {
+		) -> pallet_contracts::ContractExecResult<Balance, EventRecord> {
 			let gas_limit = gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block);
 			Contracts::bare_call(
 				origin,
@@ -2523,10 +2526,10 @@ impl_runtime_apis! {
 			value: Balance,
 			gas_limit: Option<Weight>,
 			storage_deposit_limit: Option<Balance>,
-			code: pallet_contracts_primitives::Code<Hash>,
+			code: pallet_contracts::Code<Hash>,
 			data: Vec<u8>,
 			salt: Vec<u8>,
-		) -> pallet_contracts_primitives::ContractInstantiateResult<AccountId, Balance, EventRecord>
+		) -> pallet_contracts::ContractInstantiateResult<AccountId, Balance, EventRecord>
 		{
 			let gas_limit = gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block);
 			Contracts::bare_instantiate(
@@ -2547,7 +2550,7 @@ impl_runtime_apis! {
 			code: Vec<u8>,
 			storage_deposit_limit: Option<Balance>,
 			determinism: pallet_contracts::Determinism,
-		) -> pallet_contracts_primitives::CodeUploadResult<Hash, Balance>
+		) -> pallet_contracts::CodeUploadResult<Hash, Balance>
 		{
 			Contracts::bare_upload_code(
 				origin,
@@ -2560,7 +2563,7 @@ impl_runtime_apis! {
 		fn get_storage(
 			address: AccountId,
 			key: Vec<u8>,
-		) -> pallet_contracts_primitives::GetStorageResult {
+		) -> pallet_contracts::GetStorageResult {
 			Contracts::get_storage(
 				address,
 				key

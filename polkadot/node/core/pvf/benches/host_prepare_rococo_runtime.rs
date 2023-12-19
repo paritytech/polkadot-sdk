@@ -28,6 +28,9 @@ use tokio::{runtime::Handle, sync::Mutex};
 const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(30);
 
 struct TestHost {
+	// Keep a reference to the tempdir otherwise it gets deleted on drop.
+	#[allow(dead_code)]
+	cache_dir: tempfile::TempDir,
 	host: Mutex<ValidationHost>,
 }
 
@@ -42,13 +45,14 @@ impl TestHost {
 		let mut config = Config::new(
 			cache_dir.path().to_owned(),
 			None,
+			false,
 			prepare_worker_path,
 			execute_worker_path,
 		);
 		f(&mut config);
 		let (host, task) = start(config, Metrics::default()).await.unwrap();
 		let _ = handle.spawn(task);
-		Self { host: Mutex::new(host) }
+		Self { host: Mutex::new(host), cache_dir }
 	}
 
 	async fn precheck_pvf(

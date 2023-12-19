@@ -6,6 +6,9 @@ edition.workspace = true
 description = "Rococo's BridgeHub  parachain runtime"
 license = "Apache-2.0"
 
+[lints]
+workspace = true
+
 [build-dependencies]
 substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder", optional = true }
 
@@ -18,7 +21,7 @@ log = { version = "0.4.20", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = [
 	"derive",
 ] }
-serde = { version = "1.0.188", optional = true, features = ["derive"] }
+serde = { version = "1.0.193", optional = true, features = ["derive"] }
 smallvec = "1.11.0"
 
 # Substrate
@@ -84,11 +87,13 @@ parachains-common = { path = "../../../common", default-features = false }
 # Bridges
 bp-asset-hub-rococo = { path = "../../../../../bridges/primitives/chain-asset-hub-rococo", default-features = false }
 bp-asset-hub-westend = { path = "../../../../../bridges/primitives/chain-asset-hub-westend", default-features = false }
+bp-bridge-hub-polkadot = { path = "../../../../../bridges/primitives/chain-bridge-hub-polkadot", default-features = false }
 bp-bridge-hub-rococo = { path = "../../../../../bridges/primitives/chain-bridge-hub-rococo", default-features = false }
 bp-bridge-hub-westend = { path = "../../../../../bridges/primitives/chain-bridge-hub-westend", default-features = false }
 bp-header-chain = { path = "../../../../../bridges/primitives/header-chain", default-features = false }
 bp-messages = { path = "../../../../../bridges/primitives/messages", default-features = false }
 bp-parachains = { path = "../../../../../bridges/primitives/parachains", default-features = false }
+bp-polkadot-bulletin = { path = "../../../../../bridges/primitives/chain-polkadot-bulletin", default-features = false }
 bp-polkadot-core = { path = "../../../../../bridges/primitives/polkadot-core", default-features = false }
 bp-relayers = { path = "../../../../../bridges/primitives/relayers", default-features = false }
 bp-runtime = { path = "../../../../../bridges/primitives/runtime", default-features = false }
@@ -98,6 +103,7 @@ pallet-bridge-grandpa = { path = "../../../../../bridges/modules/grandpa", defau
 pallet-bridge-messages = { path = "../../../../../bridges/modules/messages", default-features = false }
 pallet-bridge-parachains = { path = "../../../../../bridges/modules/parachains", default-features = false }
 pallet-bridge-relayers = { path = "../../../../../bridges/modules/relayers", default-features = false }
+pallet-xcm-bridge-hub = { path = "../../../../../bridges/modules/xcm-bridge-hub", default-features = false }
 bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common", default-features = false }
 
 [dev-dependencies]
@@ -109,15 +115,17 @@ bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common", fe
 sp-keyring = { path = "../../../../../substrate/primitives/keyring" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"bp-asset-hub-rococo/std",
 	"bp-asset-hub-westend/std",
+	"bp-bridge-hub-polkadot/std",
 	"bp-bridge-hub-rococo/std",
 	"bp-bridge-hub-westend/std",
 	"bp-header-chain/std",
 	"bp-messages/std",
 	"bp-parachains/std",
+	"bp-polkadot-bulletin/std",
 	"bp-polkadot-core/std",
 	"bp-relayers/std",
 	"bp-rococo/std",
@@ -156,6 +164,7 @@ std = [
 	"pallet-transaction-payment/std",
 	"pallet-utility/std",
 	"pallet-xcm-benchmarks?/std",
+	"pallet-xcm-bridge-hub/std",
 	"pallet-xcm/std",
 	"parachain-info/std",
 	"parachains-common/std",
@@ -207,6 +216,7 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"pallet-xcm-benchmarks/runtime-benchmarks",
+	"pallet-xcm-bridge-hub/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
@@ -239,15 +249,16 @@ try-runtime = [
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"pallet-utility/try-runtime",
+	"pallet-xcm-bridge-hub/try-runtime",
 	"pallet-xcm/try-runtime",
 	"parachain-info/try-runtime",
 	"polkadot-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
 ]
 
-experimental = [ "pallet-aura/experimental" ]
+experimental = ["pallet-aura/experimental"]
 
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
 # to make it smaller like logging for example.
-on-chain-release-build = [ "sp-api/disable-logging" ]
+on-chain-release-build = ["sp-api/disable-logging"]

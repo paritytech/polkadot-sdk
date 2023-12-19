@@ -18,7 +18,7 @@
 
 mod memory_stats;
 
-use polkadot_node_core_pvf_common::executor_intf::{prepare, prevalidate};
+use polkadot_node_core_pvf_common::executor_interface::{prepare, prevalidate};
 
 // NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-prepare-worker=trace`.
@@ -41,7 +41,7 @@ use os_pipe::{self, PipeReader, PipeWriter};
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareWorkerResult},
-	executor_intf::create_runtime_from_artifact_bytes,
+	executor_interface::create_runtime_from_artifact_bytes,
 	framed_recv_blocking, framed_send_blocking,
 	prepare::{MemoryStats, PrepareJobKind, PrepareStats, PrepareWorkerSuccess},
 	pvf::PvfPrepData,
@@ -50,7 +50,7 @@ use polkadot_node_core_pvf_common::{
 		thread::{self, spawn_worker_thread, WaitOutcome},
 		WorkerKind,
 	},
-	worker_dir, ProcessTime, SecurityStatus,
+	worker_dir, ProcessTime,
 };
 use polkadot_primitives::ExecutorParams;
 use std::{
@@ -193,7 +193,6 @@ pub fn worker_entrypoint(
 	worker_dir_path: PathBuf,
 	node_version: Option<&str>,
 	worker_version: Option<&str>,
-	security_status: SecurityStatus,
 ) {
 	run_worker(
 		WorkerKind::Prepare,
@@ -201,7 +200,6 @@ pub fn worker_entrypoint(
 		worker_dir_path,
 		node_version,
 		worker_version,
-		&security_status,
 		|mut stream, worker_dir_path| {
 			let worker_pid = process::id();
 			let temp_artifact_dest = worker_dir::prepare_tmp_artifact(&worker_dir_path);
