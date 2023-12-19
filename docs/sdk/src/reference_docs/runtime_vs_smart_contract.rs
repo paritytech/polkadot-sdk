@@ -1,6 +1,6 @@
 //! # Runtime vs. Smart Contracts
 //!
-//! *TL;DR*: If you need to create a *Blockchain*, then write a runtime, if you need to create a
+//! *TL;DR*: If you need to create a *Blockchain*, then write a runtime. If you need to create a
 //! *DApp*, then write a Smart Contract.
 //!
 //! This is a comparative analysis of Substrate-based Runtimes and Smart Contracts, highlighting
@@ -36,7 +36,7 @@
 //! |-----------------------|-------------------------------------------------------------------------|----------------------------------------------------------------------|
 //! | **Design Philosophy** | Core logic of a blockchain, allowing broad and deep customization.      | Designed for DApps deployed on the blockchain runtime.|
 //! | **Development Complexity** | Requires in-depth knowledge of Rust and Substrate. Suitable for complex blockchain architectures.         | Easier to develop with knowledge of Smart Contract languages like Solidity or [ink!](https://use.ink/). |
-//! | **Upgradeability and Flexibility** | Offers seamless upgradeability, allowing entire blockchain logic modifications without hard forks. | Less flexible in upgrading but offers more straightforward deployment and iteration. |
+//! | **Upgradeability and Flexibility** | Offers comprehensive upgradeability with migration logic and on-chain governance, allowing modifications to the entire blockchain logic without hard forks. | Less flexible in upgrade migrations but offers more straightforward deployment and iteration. |
 //! | **Performance and Efficiency** | More efficient, optimized for specific needs of the blockchain.        | Can be less efficient due to its generic nature (e.g. the overhead of a virtual machine).     |
 //! | **Security Considerations** | Security flaws can affect the entire blockchain.                        | Security risks usually localized to the individual contract.        |
 //! | **Weighing and Metering** | Operations can be weighed, allowing for precise benchmarking.           | Execution is metered, allowing for measurement of resource consumption. |
@@ -53,9 +53,9 @@
 //! - **Core Blockchain Logic**: Runtimes are essentially the backbone of a blockchain. They define
 //!   the fundamental rules, operations, and state transitions of the blockchain network.
 //! - **Broad and Deep Customization**: Runtimes allow for extensive customization and flexibility.
-//!   Developers can tailor every aspect of the blockchain, from its governance mechanisms to its
-//!   economic model. This level of control is essential for creating specialized or
-//!   application-specific blockchains.
+//!   Developers can tailor the most fundamental aspects of the blockchain, like introducing an
+//!   efficient transaction fee model to eliminating transaction fees completely. This level of
+//!   control is essential for creating specialized or application-specific blockchains.
 //!
 //! #### Smart Contract Design Philosophy
 //! - **DApps Development**: Smart contracts are designed primarily for developing DApps. They
@@ -87,13 +87,15 @@
 //!
 //! ## Upgradeability and Flexibility
 //! Runtimes and Smart Contracts differ significantly in how they handle upgrades and flexibility,
-//! each with its own advantages and constraints. Runtimes are more flexible, allowing for seamless
-//! upgrades, while Smart Contracts are less flexible but offer easier deployment and iteration.
+//! each with its own advantages and constraints. Runtimes are more flexible, allowing for writing
+//! migration logic for upgrades, while Smart Contracts are less flexible but offer easier
+//! deployment and iteration.
 //!
 //! #### Runtime Upgradeability and Flexibility
-//! - **Seamless Upgrades**: One of the key features of Runtime development in Substrate is its
-//!   inherent support for seamless upgrades. This means that the core logic of the blockchain can
-//!   be modified or upgraded without the need for hard forks, which are often disruptive.
+//! - **Migration Logic**: One of the key strengths of runtime development is the ability to define
+//!   migration logic. This allows developers to implement changes in the state or structure of the
+//!   blockchain during an upgrade. Such migrations can adapt the existing state to fit new
+//!   requirements or features seamlessly.
 //! - **On-Chain Governance**: Upgrades in a Runtime environment are typically governed on-chain,
 //!   involving validators or a governance mechanism. This allows for a democratic and transparent
 //!   process for making substantial changes to the blockchain.
@@ -105,9 +107,10 @@
 //! #### Smart Contract Upgradeability and Flexibility
 //! - **Deployment and Iteration**: Smart Contracts, by nature, are designed for more
 //!   straightforward deployment and iteration. Developers can quickly deploy contracts.
-//! - **Limited Upgradeability**: Once deployed, a Smart Contract is typically immutable, meaning
-//!   its code cannot be changed. While this ensures trust and security, it limits flexibility. Some
-//!   workarounds, like upgradeable contract patterns, exist but add complexity.
+//! - **Contract Code Updates**: Once deployed, although typically immutable, Smart Contracts can be
+//!   upgraded, but lack of migration logic. The [pallet_contracts](../../../pallet_contracts/index.html)
+//!   allows for contracts to be upgraded by exposing the `set_code` dispatchable. More details on this
+//!   can be found in [Ink! documentation on upgradeable contracts](https://use.ink/5.x/basics/upgradeable-contracts).
 //! - **Isolated Impact**: Upgrades or changes to a smart contract generally impact only that
 //!   contract and its users, unlike Runtime upgrades that have a network-wide effect.
 //! - **Simplicity and Rapid Development**: The development cycle for Smart Contracts is usually
@@ -184,9 +187,10 @@
 //! - *Predictability*: Runtime operations are part of the blockchain's core logic, which is static
 //!   until an upgrade occurs. This predictability allows for precise
 //!   [benchmarking](crate::reference_docs::frame_benchmarking_weight).
-//! - *Prevention of Abuse*: By having a fixed upper cost (although unused weight can be refunded),
-//!   it becomes infeasible for an attacker to create transactions that could unpredictably consume
-//!   excessive resources.
+//! - *Prevention of Abuse*: By having a fixed upper cost that corresponds to the worst-case
+//!   complexity scenario of its execution (and a mechanism to refund unused weight), it becomes
+//!   infeasible for an attacker to create transactions that could unpredictably consume excessive
+//!   resources.
 //!
 //! #### Metering
 //! For Smart Contracts resource consumption is metered. This is essential due to:
