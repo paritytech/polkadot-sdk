@@ -1700,7 +1700,7 @@
 			</span><span class="kw">let </span>cert = AssignmentCert {
 				kind: AssignmentCertKind::RelayVRFModulo { sample: rvm_sample },
 				vrf: VrfSignature {
-					pre_output: VrfPreOutput(vrf_in_out.to_output()),
+					pre_output: VrfPreOutput(vrf_in_out.to_preout()),
 					proof: VrfProof(vrf_proof),
 				},
 			};
@@ -1780,7 +1780,7 @@
 				core_bitfield: assignment_bitfield.clone(),
 			},
 			vrf: VrfSignature {
-				pre_output: VrfPreOutput(vrf_in_out.to_output()),
+				pre_output: VrfPreOutput(vrf_in_out.to_preout()),
 				proof: VrfProof(vrf_proof),
 			},
 		};
@@ -1815,7 +1815,7 @@
 		<span class="kw">let </span>cert = AssignmentCertV2 {
 			kind: AssignmentCertKindV2::RelayVRFDelay { core_index: core },
 			vrf: VrfSignature {
-				pre_output: VrfPreOutput(vrf_in_out.to_output()),
+				pre_output: VrfPreOutput(vrf_in_out.to_preout()),
 				proof: VrfProof(vrf_proof),
 			},
 		};

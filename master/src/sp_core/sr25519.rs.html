@@ -1147,6 +1147,7 @@
 <a href="#1147" id="1147">1147</a>
 <a href="#1148" id="1148">1148</a>
 <a href="#1149" id="1149">1149</a>
+<a href="#1150" id="1150">1150</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1704,7 +1705,7 @@
 	<span class="kw">use </span><span class="kw">crate</span>::crypto::{VrfCrypto, VrfPublic};
 	<span class="kw">use </span>schnorrkel::{
 		errors::MultiSignatureStage,
-		vrf::{VRF_OUTPUT_LENGTH, VRF_PROOF_LENGTH},
+		vrf::{VRF_PREOUT_LENGTH, VRF_PROOF_LENGTH},
 		SignatureError,
 	};
 
@@ -1785,7 +1786,7 @@
 
 	<span class="doccomment">/// VRF pre-output type suitable for schnorrkel operations.
 	</span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq)]
-	</span><span class="kw">pub struct </span>VrfPreOutput(<span class="kw">pub </span>schnorrkel::vrf::VRFOutput);
+	</span><span class="kw">pub struct </span>VrfPreOutput(<span class="kw">pub </span>schnorrkel::vrf::VRFPreOut);
 
 	<span class="kw">impl </span>Encode <span class="kw">for </span>VrfPreOutput {
 		<span class="kw">fn </span>encode(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;u8&gt; {
@@ -1795,19 +1796,19 @@
 
 	<span class="kw">impl </span>Decode <span class="kw">for </span>VrfPreOutput {
 		<span class="kw">fn </span>decode&lt;R: codec::Input&gt;(i: <span class="kw-2">&amp;mut </span>R) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, codec::Error&gt; {
-			<span class="kw">let </span>decoded = &lt;[u8; VRF_OUTPUT_LENGTH]&gt;::decode(i)<span class="question-mark">?</span>;
-			<span class="prelude-val">Ok</span>(<span class="self">Self</span>(schnorrkel::vrf::VRFOutput::from_bytes(<span class="kw-2">&amp;</span>decoded).map_err(convert_error)<span class="question-mark">?</span>))
+			<span class="kw">let </span>decoded = &lt;[u8; VRF_PREOUT_LENGTH]&gt;::decode(i)<span class="question-mark">?</span>;
+			<span class="prelude-val">Ok</span>(<span class="self">Self</span>(schnorrkel::vrf::VRFPreOut::from_bytes(<span class="kw-2">&amp;</span>decoded).map_err(convert_error)<span class="question-mark">?</span>))
 		}
 	}
 
 	<span class="kw">impl </span>MaxEncodedLen <span class="kw">for </span>VrfPreOutput {
 		<span class="kw">fn </span>max_encoded_len() -&gt; usize {
-			&lt;[u8; VRF_OUTPUT_LENGTH]&gt;::max_encoded_len()
+			&lt;[u8; VRF_PREOUT_LENGTH]&gt;::max_encoded_len()
 		}
 	}
 
 	<span class="kw">impl </span>TypeInfo <span class="kw">for </span>VrfPreOutput {
-		<span class="kw">type </span>Identity = [u8; VRF_OUTPUT_LENGTH];
+		<span class="kw">type </span>Identity = [u8; VRF_PREOUT_LENGTH];
 
 		<span class="kw">fn </span>type_info() -&gt; scale_info::Type {
 			<span class="self">Self</span>::Identity::type_info()
@@ -1866,11 +1867,11 @@
 
 			<span class="kw">let </span>proof = <span class="self">self</span>.<span class="number">0</span>.dleq_proove(extra, <span class="kw-2">&amp;</span>inout, <span class="bool-val">true</span>).<span class="number">0</span>;
 
-			VrfSignature { pre_output: VrfPreOutput(inout.to_output()), proof: VrfProof(proof) }
+			VrfSignature { pre_output: VrfPreOutput(inout.to_preout()), proof: VrfProof(proof) }
 		}
 
 		<span class="kw">fn </span>vrf_pre_output(<span class="kw-2">&amp;</span><span class="self">self</span>, input: <span class="kw-2">&amp;</span><span class="self">Self</span>::VrfInput) -&gt; <span class="self">Self</span>::VrfPreOutput {
-			<span class="kw">let </span>pre_output = <span class="self">self</span>.<span class="number">0</span>.vrf_create_hash(input.<span class="number">0</span>.clone()).to_output();
+			<span class="kw">let </span>pre_output = <span class="self">self</span>.<span class="number">0</span>.vrf_create_hash(input.<span class="number">0</span>.clone()).to_preout();
 			VrfPreOutput(pre_output)
 		}
 	}
@@ -1911,6 +1912,7 @@
 			ScalarFormatError =&gt; <span class="string">&quot;Signature error: `ScalarFormatError`&quot;</span>.into(),
 			NotMarkedSchnorrkel =&gt; <span class="string">&quot;Signature error: `NotMarkedSchnorrkel`&quot;</span>.into(),
 			BytesLengthError { .. } =&gt; <span class="string">&quot;Signature error: `BytesLengthError`&quot;</span>.into(),
+			InvalidKey =&gt; <span class="string">&quot;Signature error: `InvalidKey`&quot;</span>.into(),
 			MuSigAbsent { musig_stage: Commitment } =&gt;
 				<span class="string">&quot;Signature error: `MuSigAbsent` at stage `Commitment`&quot;</span>.into(),
 			MuSigAbsent { musig_stage: Reveal } =&gt;
@@ -2290,7 +2292,7 @@
 			})
 			.unwrap();
 		<span class="kw">let </span>signature2 =
-			VrfSignature { pre_output: VrfPreOutput(inout.to_output()), proof: VrfProof(proof) };
+			VrfSignature { pre_output: VrfPreOutput(inout.to_preout()), proof: VrfProof(proof) };
 
 		<span class="macro">assert!</span>(public.vrf_verify(<span class="kw-2">&amp;</span>data, <span class="kw-2">&amp;</span>signature2));
 		<span class="macro">assert_eq!</span>(signature.pre_output, signature2.pre_output);

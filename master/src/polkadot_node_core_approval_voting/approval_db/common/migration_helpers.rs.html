@@ -37,6 +37,7 @@
 <a href="#37" id="37">37</a>
 <a href="#38" id="38">38</a>
 <a href="#39" id="39">39</a>
+<a href="#40" id="40">40</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -59,6 +60,7 @@
 	v1::{AssignmentCert, AssignmentCertKind, VrfProof, VrfSignature, RELAY_VRF_MODULO_CONTEXT},
 	v2::VrfPreOutput,
 };
+
 <span class="kw">pub fn </span>make_bitvec(len: usize) -&gt; BitVec&lt;u8, BitOrderLsb0&gt; {
 	<span class="macro">bitvec::bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; len]
 }
@@ -69,11 +71,11 @@
 	<span class="kw">let </span><span class="kw-2">mut </span>prng = rand_core::OsRng;
 	<span class="kw">let </span>keypair = schnorrkel::Keypair::generate_with(<span class="kw-2">&amp;mut </span>prng);
 	<span class="kw">let </span>(inout, proof, <span class="kw">_</span>) = keypair.vrf_sign(ctx.bytes(msg));
-	<span class="kw">let </span>out = inout.to_output();
+	<span class="kw">let </span>preout = inout.to_preout();
 
 	AssignmentCert {
 		kind,
-		vrf: VrfSignature { pre_output: VrfPreOutput(out), proof: VrfProof(proof) },
+		vrf: VrfSignature { pre_output: VrfPreOutput(preout), proof: VrfProof(proof) },
 	}
 }
 </code></pre></div></section></main></body></html>
