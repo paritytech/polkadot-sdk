@@ -22,7 +22,7 @@ use bridge_hub_rococo_runtime::{
 	xcm_config::{RelayNetwork, TokenLocation, XcmConfig},
 	AllPalletsWithoutSystem, BridgeRejectObsoleteHeadersAndMessages, EthereumGatewayAddress,
 	Executive, ExistentialDeposit, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall,
-	RuntimeEvent, SessionKeys, SignedExtra, TransactionPayment, UncheckedExtrinsic,
+	RuntimeEvent, RuntimeOrigin, SessionKeys, SignedExtra, TransactionPayment, UncheckedExtrinsic,
 };
 use codec::{Decode, Encode};
 use frame_support::{dispatch::GetDispatchInfo, parameter_types, traits::ConstU8};
@@ -194,7 +194,7 @@ mod bridge_hub_westend_tests {
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			Box::new(|call| RuntimeCall::System(call).encode()),
 			|| (EthereumGatewayAddress::key().to_vec(), EthereumGatewayAddress::get()),
-			|_| H160::default(),
+			|_| [1; 20].into(),
 		)
 	}
 
