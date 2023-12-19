@@ -16,107 +16,35 @@
 
 //! Common traits and types used by the scheduler and assignment providers.
 
-use frame_support::{storage, traits::PalletInfoAccess};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	codec::{Decode, Encode},
 	RuntimeDebug,
 };
-use sp_std::fmt::Debug;
 
 use primitives::{CoreIndex, Id as ParaId};
 
-// Only used to link to configuration documentation.
-#[allow(unused)]
-use crate::configuration::HostConfiguration;
-
-/// Assignments (ParaId -> CoreIndex) as provided by the assignment provider.
-///
-/// Assignments themselves are opaque types. Assignment providers can keep necessary state in them,
-/// in order to properly keep track of assignments over their lifetime.
-pub trait Assignment {
-	/// Para id this assignment refers to.
-	fn para_id(&self) -> ParaId;
+/// Assignment (ParaId -> CoreIndex).
+#[derive(Encode, Decode, TypeInfo, RuntimeDebug, Clone, PartialEq)]
+pub enum Assignment {
+	/// A pool assignment.
+	Pool {
+		/// The assigned para id.
+		para_id: ParaId,
+		/// The core index the para got assigned to.
+		core_index: CoreIndex,
+	},
+	/// A bulk assignment.
+	Bulk(ParaId),
 }
 
-/// Old/legacy assignment representation (v0).
-///
-/// `Assignment` used to be a concrete type with the same layout V0Assignment, idential on all
-/// assignment providers. This can be removed once storage has been migrated.
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo, PartialEq, Clone)]
-pub struct V0Assignment {
-	pub para_id: ParaId,
-}
-
-impl V0Assignment {
-	pub fn new(para_id: ParaId) -> Self {
-		V0Assignment { para_id }
-	}
-}
-
-impl Assignment for V0Assignment {
-	fn para_id(&self) -> ParaId {
-		self.para_id
-	}
-}
-
-/// `Assignment` binary format version.
-#[derive(PartialEq, PartialOrd, Encode, Decode, TypeInfo, Default, RuntimeDebug)]
-pub struct AssignmentVersion(u16);
-
-/// The storage key postfix that is used to store the [`AssignmentVersion`] per pallet.
-///
-/// The full storage key is built by using:
-/// Twox128(`PalletInfo::name`) ++ Twox128([`ASSIGNMENT_VERSION_STORAGE_KEY_POSTFIX`])
-pub const ASSIGNMENT_VERSION_STORAGE_KEY_POSTFIX: &[u8] = b":__ASSIGNMENT_VERSION__:";
-
-impl AssignmentVersion {
-	pub const fn new(n: u16) -> AssignmentVersion {
-		Self(n)
-	}
-
-	/// Returns the storage key for an assignment version.
-	///
-	/// See [`ASSIGNMENT_VERSION_STORAGE_KEY_POSTFIX`] on how this key is built.
-	pub fn storage_key<P: PalletInfoAccess>() -> [u8; 32] {
-		let pallet_name = P::name();
-		storage::storage_prefix(pallet_name.as_bytes(), ASSIGNMENT_VERSION_STORAGE_KEY_POSTFIX)
-	}
-
-	/// Put this assignment version for the given pallet into the storage.
-	///
-	/// It will use the storage key that is associated with the given `Pallet`.
-	///
-	/// # Panics
-	///
-	/// This function will panic iff `Pallet` can not be found by `PalletInfo`.
-	/// In a runtime that is put together using
-	/// `construct_runtime!` this should never happen.
-	///
-	/// It will also panic if this function isn't executed in an externalities
-	/// provided environment.
-	pub fn put<P: PalletInfoAccess>(&self) {
-		let key = Self::storage_key::<P>();
-
-		storage::unhashed::put(&key, self);
-	}
-
-	/// Get the storage version of the given pallet from the storage.
-	///
-	/// It will use the storage key that is associated with the given `Pallet`.
-	///
-	/// # Panics
-	///
-	/// This function will panic iff `Pallet` can not be found by `PalletInfo`.
-	/// In a runtime that is put together using
-	/// `construct_runtime!` this should never happen.
-	///
-	/// It will also panic if this function isn't executed in an externalities
-	/// provided environment.
-	pub fn get<P: PalletInfoAccess>() -> Self {
-		let key = Self::storage_key::<P>();
-
-		storage::unhashed::get_or_default(&key)
+impl Assignment {
+	/// Returns the [`ParaId`] this assignment is associated to.
+	pub fn para_id(&self) -> ParaId {
+		match self {
+			Self::Pool { para_id, .. } => *para_id,
+			Self::Bulk(para_id) => *para_id,
+		}
 	}
 }
 
@@ -133,20 +61,10 @@ pub struct AssignmentProviderConfig<BlockNumber> {
 }
 
 pub trait AssignmentProvider<BlockNumber> {
-	/// Assignments as provided by this assignment provider.
-	///
-	/// This is an opaque type that can be used by the assignment provider to keep track of required
-	/// per assignment data. Publicly exposed fields are accessible via `Assignment` trait
-	/// functions.
-	///
-	/// As the lifetime of an assignment might outlive the current process (and need persistence),
-	/// make sure to migrate using code if you change the `AssignmentProvider` implementation.
-	type AssignmentType: Assignment + Encode + Decode + TypeInfo + Debug;
-
 	/// Pops an [`Assignment`] from the provider for a specified [`CoreIndex`].
 	///
 	/// This is where assignments come into existance.
-	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Self::AssignmentType>;
+	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Assignment>;
 
 	/// A previously popped `Assignment` has been fully processed.
 	///
@@ -154,7 +72,7 @@ pub trait AssignmentProvider<BlockNumber> {
 	/// the scheduler.
 	///
 	/// This is one way of the life of an assignment coming to an end.
-	fn report_processed(assignment: Self::AssignmentType);
+	fn report_processed(assignment: Assignment);
 
 	/// Push back a previously popped assignment.
 	///
@@ -162,7 +80,7 @@ pub trait AssignmentProvider<BlockNumber> {
 	/// to the assignment provider in order to be poppped again later.
 	///
 	/// This is the second way the life of an assignment can come to an end.
-	fn push_back_assignment(assignment: Self::AssignmentType);
+	fn push_back_assignment(assignment: Assignment);
 
 	/// Returns a set of variables needed by the scheduler
 	fn get_provider_config(core_idx: CoreIndex) -> AssignmentProviderConfig<BlockNumber>;
@@ -172,7 +90,7 @@ pub trait AssignmentProvider<BlockNumber> {
 	/// Useful for benchmarks and testing. The returned assignment is "valid" and can if need be
 	/// passed into `report_processed` for example.
 	#[cfg(any(feature = "runtime-benchmarks", test))]
-	fn get_mock_assignment(core_idx: CoreIndex, para_id: ParaId) -> Self::AssignmentType;
+	fn get_mock_assignment(core_idx: CoreIndex, para_id: ParaId) -> Assignment;
 }
 
 /// An `AssignmentProvider` with a determined set of cores.
@@ -193,16 +111,4 @@ pub trait FixedAssignmentProvider<BlockNumber>: AssignmentProvider<BlockNumber> 
 	/// - Core count has to be predetermined for the next session in the current session.
 	/// - Core count must not change during a session.
 	fn session_core_count() -> u32;
-}
-
-impl PartialEq<u16> for AssignmentVersion {
-	fn eq(&self, other: &u16) -> bool {
-		self.0 == *other
-	}
-}
-
-impl PartialOrd<u16> for AssignmentVersion {
-	fn partial_cmp(&self, other: &u16) -> Option<sp_std::cmp::Ordering> {
-		Some(self.0.cmp(other))
-	}
 }

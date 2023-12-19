@@ -32,10 +32,7 @@ mod mock_helpers;
 #[cfg(test)]
 mod tests;
 
-use crate::{
-	configuration, paras,
-	scheduler::common::{Assignment, AssignmentProvider, AssignmentProviderConfig, V0Assignment},
-};
+use crate::{configuration, paras, scheduler::common::Assignment};
 
 use frame_support::{
 	pallet_prelude::*,
@@ -107,32 +104,6 @@ pub enum SpotTrafficCalculationErr {
 	Division,
 }
 
-/// Assignments as provided by the on-demand `AssignmentProvider`.
-#[derive(RuntimeDebug, Encode, Decode, TypeInfo, PartialEq, Clone)]
-pub struct OnDemandAssignment {
-	/// The assigned para id.
-	para_id: ParaId,
-	/// The core index the para got assigned to.
-	core_index: CoreIndex,
-}
-
-impl OnDemandAssignment {
-	#[cfg(test)]
-	pub(crate) fn new(para_id: ParaId, core_index: CoreIndex) -> Self {
-		Self { para_id, core_index }
-	}
-
-	pub(crate) fn from_v0_assignment(v0: V0Assignment, core_index: CoreIndex) -> Self {
-		Self { para_id: v0.para_id, core_index }
-	}
-}
-
-impl Assignment for OnDemandAssignment {
-	fn para_id(&self) -> ParaId {
-		self.para_id
-	}
-}
-
 /// Internal representation of an order after it has been enqueued already.
 #[derive(Encode, Decode, TypeInfo, Debug, PartialEq, Clone)]
 pub(super) struct EnqueuedOrder {
@@ -142,12 +113,6 @@ pub(super) struct EnqueuedOrder {
 impl EnqueuedOrder {
 	pub fn new(para_id: ParaId) -> Self {
 		Self { para_id }
-	}
-}
-
-impl From<OnDemandAssignment> for EnqueuedOrder {
-	fn from(assignment: OnDemandAssignment) -> Self {
-		Self::new(assignment.para_id)
 	}
 }
 
@@ -383,13 +348,11 @@ where
 
 		let res = Pallet::<T>::add_on_demand_order(order, QueuePushDirection::Back);
 
-		match res {
-			Ok(_) => {
-				Pallet::<T>::deposit_event(Event::<T>::OnDemandOrderPlaced { para_id, spot_price });
-				return Ok(())
-			},
-			Err(err) => return Err(err),
+		if res.is_ok() {
+			Pallet::<T>::deposit_event(Event::<T>::OnDemandOrderPlaced { para_id, spot_price });
 		}
+
+		res
 	}
 
 	/// The spot price multiplier. This is based on the transaction fee calculations defined in:
@@ -564,9 +527,7 @@ where
 	}
 }
 
-impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
-	type AssignmentType = OnDemandAssignment;
-
+impl<T: Config> Pallet<T> {
 	/// Take the next queued entry that is available for a given core index.
 	/// Invalidates and removes orders with a `para_id` that is not `ParaLifecycle::Parathread`
 	/// but only in [0..P] range slice of the order queue, where P is the element that is
@@ -574,7 +535,7 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	///
 	/// Parameters:
 	/// - `core_idx`: The core index
-	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Self::AssignmentType> {
+	pub fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Assignment> {
 		let mut queue: VecDeque<EnqueuedOrder> = OnDemandQueue::<T>::get();
 
 		let mut invalidated_para_id_indexes: Vec<usize> = vec![];
@@ -612,11 +573,12 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 		// Write changes to storage.
 		OnDemandQueue::<T>::set(queue);
 
-		popped.map(|p| OnDemandAssignment { para_id: p.para_id, core_index: core_idx })
+		popped.map(|p| Assignment::Pool { para_id: p.para_id, core_index: core_idx })
 	}
 
-	fn report_processed(assignment: Self::AssignmentType) {
-		Pallet::<T>::decrease_affinity(assignment.para_id, assignment.core_index)
+	/// Report that the `para_id` & `core_index` combination was processed.
+	pub fn report_processed(para_id: ParaId, core_index: CoreIndex) {
+		Pallet::<T>::decrease_affinity(para_id, core_index)
 	}
 
 	/// Push an assignment back to the front of the queue.
@@ -624,39 +586,15 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	/// The assignment has not been processed yet. Typically used on session boundaries.
 	/// Parameters:
 	/// - `assignment`: The on demand assignment.
-	fn push_back_assignment(assignment: Self::AssignmentType) {
-		Pallet::<T>::decrease_affinity(assignment.para_id, assignment.core_index);
+	pub fn push_back_assignment(para_id: ParaId, core_index: CoreIndex) {
+		Pallet::<T>::decrease_affinity(para_id, core_index);
 		// Skip the queue on push backs from scheduler
-		match Pallet::<T>::add_on_demand_order(assignment.into(), QueuePushDirection::Front) {
+		match Pallet::<T>::add_on_demand_order(
+			EnqueuedOrder::new(para_id),
+			QueuePushDirection::Front,
+		) {
 			Ok(_) => {},
 			Err(_) => {},
 		}
-	}
-
-	fn get_provider_config(_core_idx: CoreIndex) -> AssignmentProviderConfig<BlockNumberFor<T>> {
-		let config = <configuration::Pallet<T>>::config();
-		AssignmentProviderConfig {
-			max_availability_timeouts: config.on_demand_retries,
-			ttl: config.on_demand_ttl,
-		}
-	}
-
-	#[cfg(any(feature = "runtime-benchmarks", test))]
-	fn get_mock_assignment(core_idx: CoreIndex, para_id: ParaId) -> Self::AssignmentType {
-		Self::add_on_demand_order(EnqueuedOrder { para_id }, QueuePushDirection::Front).unwrap();
-		let assignment = Self::pop_assignment_for_core(core_idx).unwrap();
-		debug_assert_eq!(
-			assignment.para_id(),
-			para_id,
-			"Served para id does not match requested one in `get_mock_assignment`.
-			This can happen if on-demand assigner already served assignments, due to core affinity.
-			Possible fixes:
-			1. Don't use on-demand for your mocking/benchmarks.
-			2. Pick a different `ParaId`, one that you know has not been served already.
-			3. Pick the same core index you just got served an assignment for that `ParaId` for.
-			4. Implement this function differently ;-)
-			"
-		);
-		assignment
 	}
 }

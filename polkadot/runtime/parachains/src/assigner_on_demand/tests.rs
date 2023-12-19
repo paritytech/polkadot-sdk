@@ -358,8 +358,8 @@ fn pop_assignment_for_core_works() {
 
 		let order_a = EnqueuedOrder::new(para_a);
 		let order_b = EnqueuedOrder::new(para_b);
-		let assignment_a = OnDemandAssignment::new(para_a, CoreIndex(0));
-		let assignment_b = OnDemandAssignment::new(para_b, CoreIndex(1));
+		let assignment_a = Assignment::Pool { para_id: para_a, core_index: CoreIndex(0) };
+		let assignment_b = Assignment::Pool { para_id: para_b, core_index: CoreIndex(1) };
 
 		// Pop should return none with empty queue
 		assert_eq!(OnDemandAssigner::pop_assignment_for_core(CoreIndex(0)), None);
@@ -416,7 +416,6 @@ fn push_back_assignment_works() {
 
 		let order_a = EnqueuedOrder::new(para_a);
 		let order_b = EnqueuedOrder::new(para_b);
-		let assignment_a = OnDemandAssignment::new(para_a, CoreIndex(0));
 
 		// Add enough assignments to the order queue.
 		OnDemandAssigner::add_on_demand_order(order_a.clone(), QueuePushDirection::Back)
@@ -439,7 +438,7 @@ fn push_back_assignment_works() {
 		}
 
 		// Push back order a
-		OnDemandAssigner::push_back_assignment(assignment_a);
+		OnDemandAssigner::push_back_assignment(para_a, CoreIndex(0));
 
 		// Para a should have no affinity
 		assert_eq!(OnDemandAssigner::get_affinity_map(para_a).is_none(), true);
@@ -460,8 +459,6 @@ fn affinity_changes_work() {
 		schedule_blank_para(para_a, ParaKind::Parathread);
 
 		let order_a = EnqueuedOrder::new(para_a);
-		let assignment_a = OnDemandAssignment::new(para_a, CoreIndex(0));
-
 		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
 
 		// There should be no affinity before starting.
@@ -481,7 +478,7 @@ fn affinity_changes_work() {
 		// Affinity count is 1 after popping.
 		assert_eq!(OnDemandAssigner::get_affinity_map(para_a).unwrap().count, 1);
 
-		OnDemandAssigner::report_processed(assignment_a.clone());
+		OnDemandAssigner::report_processed(para_a, 0.into());
 		OnDemandAssigner::pop_assignment_for_core(core_index);
 
 		// Affinity count is 1 after popping with a previous para.
@@ -497,7 +494,7 @@ fn affinity_changes_work() {
 		assert_eq!(OnDemandAssigner::queue_size(), 5);
 
 		for _ in 0..5 {
-			OnDemandAssigner::report_processed(assignment_a.clone());
+			OnDemandAssigner::report_processed(para_a, 0.into());
 			OnDemandAssigner::pop_assignment_for_core(core_index);
 		}
 
@@ -507,13 +504,13 @@ fn affinity_changes_work() {
 
 		// Pop 4 times and get to exactly 0 (None) affinity.
 		for _ in 0..4 {
-			OnDemandAssigner::report_processed(assignment_a.clone());
+			OnDemandAssigner::report_processed(para_a, 0.into());
 			OnDemandAssigner::pop_assignment_for_core(core_index);
 		}
 		assert!(OnDemandAssigner::get_affinity_map(para_a).is_none());
 
 		// Decreasing affinity beyond 0 should still be None.
-		OnDemandAssigner::report_processed(assignment_a.clone());
+		OnDemandAssigner::report_processed(para_a, 0.into());
 		OnDemandAssigner::pop_assignment_for_core(core_index);
 		assert!(OnDemandAssigner::get_affinity_map(para_a).is_none());
 	});
@@ -532,11 +529,6 @@ fn affinity_prohibits_parallel_scheduling() {
 
 		let order_a = EnqueuedOrder::new(para_a);
 		let order_b = EnqueuedOrder::new(para_b);
-		let assignment_a = OnDemandAssignment::new(para_a, CoreIndex(0));
-		// `pop_assignment_for_core` assigns different core indices to iterations of `order_b`
-		// when creating `OnDemandAssignments`. These matter later when decreasing affinity.
-		let assignment_b_core_0 = OnDemandAssignment::new(para_b, CoreIndex(0));
-		let assignment_b_core_1 = OnDemandAssignment::new(para_b, CoreIndex(1));
 
 		// There should be no affinity before starting.
 		assert!(OnDemandAssigner::get_affinity_map(para_a).is_none());
@@ -568,9 +560,9 @@ fn affinity_prohibits_parallel_scheduling() {
 		);
 
 		// Clear affinity
-		OnDemandAssigner::report_processed(assignment_a.clone());
-		OnDemandAssigner::report_processed(assignment_a.clone());
-		OnDemandAssigner::report_processed(assignment_b_core_0.clone());
+		OnDemandAssigner::report_processed(para_a, 0.into());
+		OnDemandAssigner::report_processed(para_a, 0.into());
+		OnDemandAssigner::report_processed(para_b, 0.into());
 
 		// Add 2 assignments for para_a for every para_b.
 		OnDemandAssigner::add_on_demand_order(order_a.clone(), QueuePushDirection::Back)
@@ -596,9 +588,9 @@ fn affinity_prohibits_parallel_scheduling() {
 		assert_eq!(OnDemandAssigner::get_affinity_map(para_b).unwrap().core_idx, CoreIndex(1));
 
 		// Clear affinity
-		OnDemandAssigner::report_processed(assignment_a.clone());
-		OnDemandAssigner::report_processed(assignment_a.clone());
-		OnDemandAssigner::report_processed(assignment_b_core_1.clone());
+		OnDemandAssigner::report_processed(para_a, 0.into());
+		OnDemandAssigner::report_processed(para_a, 0.into());
+		OnDemandAssigner::report_processed(para_b, 1.into());
 
 		// There should be no affinity after clearing.
 		assert!(OnDemandAssigner::get_affinity_map(para_a).is_none());
@@ -611,7 +603,6 @@ fn on_demand_orders_cannot_be_popped_if_lifecycle_changes() {
 	let para_id = ParaId::from(10);
 	let core_index = CoreIndex(0);
 	let order = EnqueuedOrder::new(para_id);
-	let assignment = OnDemandAssignment::new(para_id, core_index);
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		// Register the para_id as a parathread
@@ -626,7 +617,10 @@ fn on_demand_orders_cannot_be_popped_if_lifecycle_changes() {
 		assert_ok!(OnDemandAssigner::add_on_demand_order(order.clone(), QueuePushDirection::Back));
 
 		// First pop is fine
-		assert!(OnDemandAssigner::pop_assignment_for_core(core_index) == Some(assignment.clone()));
+		assert!(
+			OnDemandAssigner::pop_assignment_for_core(core_index) ==
+				Some(Assignment::Pool { para_id, core_index })
+		);
 
 		// Deregister para
 		assert_ok!(Paras::schedule_para_cleanup(para_id));
@@ -637,7 +631,7 @@ fn on_demand_orders_cannot_be_popped_if_lifecycle_changes() {
 		assert!(!Paras::is_parathread(para_id));
 
 		// Second pop should be None.
-		OnDemandAssigner::report_processed(assignment.clone());
+		OnDemandAssigner::report_processed(para_id, core_index);
 		assert_eq!(OnDemandAssigner::pop_assignment_for_core(core_index), None);
 	});
 }

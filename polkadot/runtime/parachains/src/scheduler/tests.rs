@@ -29,7 +29,7 @@ use crate::{
 		Scheduler, System, Test,
 	},
 	paras::{ParaGenesisArgs, ParaKind},
-	scheduler::{common::V0Assignment as TestAssignment, ClaimQueue},
+	scheduler::{common::Assignment, ClaimQueue},
 };
 
 fn schedule_blank_para(id: ParaId) {
@@ -145,8 +145,7 @@ fn availability_cores_contains_para_ids<T: Config>(pids: Vec<ParaId>) -> bool {
 }
 
 /// Internal access to entries at the top of the claim queue.
-fn scheduled_entries(
-) -> impl Iterator<Item = (CoreIndex, ParasEntry<BlockNumberFor<Test>, TestAssignment>)> {
+fn scheduled_entries() -> impl Iterator<Item = (CoreIndex, ParasEntry<BlockNumberFor<Test>>)> {
 	let claimqueue = ClaimQueue::<Test>::get();
 	claimqueue
 		.into_iter()
@@ -171,7 +170,7 @@ fn claimqueue_ttl_drop_fn_works() {
 		run_to_block(now, |n| if n == now { Some(Default::default()) } else { None });
 
 		// Add a claim on core 0 with a ttl in the past.
-		let paras_entry = ParasEntry::new(TestAssignment::new(para_id), now - 5 as u32);
+		let paras_entry = ParasEntry::new(Assignment::Bulk(para_id), now - 5 as u32);
 		Scheduler::add_to_claimqueue(core_idx, paras_entry.clone());
 
 		// Claim is in queue prior to call.
@@ -182,7 +181,7 @@ fn claimqueue_ttl_drop_fn_works() {
 		assert!(!claimqueue_contains_para_ids::<Test>(vec![para_id]));
 
 		// Add a claim on core 0 with a ttl in the future (15).
-		let paras_entry = ParasEntry::new(TestAssignment::new(para_id), now + 5);
+		let paras_entry = ParasEntry::new(Assignment::Bulk(para_id), now + 5);
 		Scheduler::add_to_claimqueue(core_idx, paras_entry.clone());
 
 		// Claim is in queue post call.
@@ -197,7 +196,7 @@ fn claimqueue_ttl_drop_fn_works() {
 		assert!(!claimqueue_contains_para_ids::<Test>(vec![para_id]));
 
 		// Add a claim on core 0 with a ttl == now (16)
-		let paras_entry = ParasEntry::new(TestAssignment::new(para_id), now);
+		let paras_entry = ParasEntry::new(Assignment::Bulk(para_id), now);
 		Scheduler::add_to_claimqueue(core_idx, paras_entry.clone());
 
 		// Claim is in queue post call.
@@ -211,8 +210,8 @@ fn claimqueue_ttl_drop_fn_works() {
 		Scheduler::drop_expired_claims_from_claimqueue();
 
 		// Add a claim on core 0 with a ttl == now (17)
-		let paras_entry_non_expired = ParasEntry::new(TestAssignment::new(para_id), now);
-		let paras_entry_expired = ParasEntry::new(TestAssignment::new(para_id), now - 2);
+		let paras_entry_non_expired = ParasEntry::new(Assignment::Bulk(para_id), now);
+		let paras_entry_expired = ParasEntry::new(Assignment::Bulk(para_id), now - 2);
 		// ttls = [17, 15, 17]
 		Scheduler::add_to_claimqueue(core_idx, paras_entry_non_expired.clone());
 		Scheduler::add_to_claimqueue(core_idx, paras_entry_expired.clone());
@@ -221,7 +220,7 @@ fn claimqueue_ttl_drop_fn_works() {
 		assert!(cq.get(&core_idx).unwrap().len() == 3);
 
 		// Add a claim to the test assignment provider.
-		let assignment = TestAssignment::new(para_id);
+		let assignment = Assignment::Bulk(para_id);
 
 		MockAssigner::add_test_assignment(assignment.clone());
 
@@ -337,9 +336,9 @@ fn fill_claimqueue_fills() {
 	let para_b = ParaId::from(4_u32);
 	let para_c = ParaId::from(5_u32);
 
-	let assignment_a = TestAssignment::new(para_a);
-	let assignment_b = TestAssignment::new(para_b);
-	let assignment_c = TestAssignment::new(para_c);
+	let assignment_a = Assignment::Bulk(para_a);
+	let assignment_b = Assignment::Bulk(para_b);
+	let assignment_c = Assignment::Bulk(para_c);
 
 	new_test_ext(genesis_config).execute_with(|| {
 		MockAssigner::set_core_count(2);
@@ -420,11 +419,11 @@ fn schedule_schedules_including_just_freed() {
 	let para_d = ParaId::from(6_u32);
 	let para_e = ParaId::from(7_u32);
 
-	let assignment_a = TestAssignment::new(para_a);
-	let assignment_b = TestAssignment::new(para_b);
-	let assignment_c = TestAssignment::new(para_c);
-	let assignment_d = TestAssignment::new(para_d);
-	let assignment_e = TestAssignment::new(para_e);
+	let assignment_a = Assignment::Bulk(para_a);
+	let assignment_b = Assignment::Bulk(para_b);
+	let assignment_c = Assignment::Bulk(para_c);
+	let assignment_d = Assignment::Bulk(para_d);
+	let assignment_e = Assignment::Bulk(para_e);
 
 	new_test_ext(genesis_config).execute_with(|| {
 		MockAssigner::set_core_count(3);
@@ -500,7 +499,7 @@ fn schedule_schedules_including_just_freed() {
 			assert_eq!(
 				scheduled.get(&CoreIndex(2)).unwrap(),
 				&ParasEntry {
-					assignment: TestAssignment::new(para_b),
+					assignment: Assignment::Bulk(para_b),
 					availability_timeouts: 0,
 					ttl: 8
 				},
@@ -524,7 +523,7 @@ fn schedule_schedules_including_just_freed() {
 			assert_eq!(
 				scheduled.get(&CoreIndex(0)).unwrap(),
 				&ParasEntry {
-					assignment: TestAssignment::new(para_d),
+					assignment: Assignment::Bulk(para_d),
 					availability_timeouts: 0,
 					ttl: 8
 				},
@@ -533,7 +532,7 @@ fn schedule_schedules_including_just_freed() {
 			assert_eq!(
 				scheduled.get(&CoreIndex(1)).unwrap(),
 				&ParasEntry {
-					assignment: TestAssignment::new(para_c),
+					assignment: Assignment::Bulk(para_c),
 					availability_timeouts: 1,
 					ttl: 8
 				},
@@ -541,7 +540,7 @@ fn schedule_schedules_including_just_freed() {
 			assert_eq!(
 				scheduled.get(&CoreIndex(2)).unwrap(),
 				&ParasEntry {
-					assignment: TestAssignment::new(para_b),
+					assignment: Assignment::Bulk(para_b),
 					availability_timeouts: 0,
 					ttl: 8
 				},
@@ -565,9 +564,9 @@ fn schedule_clears_availability_cores() {
 	let para_b = ParaId::from(2_u32);
 	let para_c = ParaId::from(3_u32);
 
-	let assignment_a = TestAssignment::new(para_a);
-	let assignment_b = TestAssignment::new(para_b);
-	let assignment_c = TestAssignment::new(para_c);
+	let assignment_a = Assignment::Bulk(para_a);
+	let assignment_b = Assignment::Bulk(para_b);
+	let assignment_c = Assignment::Bulk(para_c);
 
 	new_test_ext(genesis_config).execute_with(|| {
 		MockAssigner::set_core_count(3);
@@ -672,8 +671,8 @@ fn schedule_rotates_groups() {
 	let para_a = ParaId::from(1_u32);
 	let para_b = ParaId::from(2_u32);
 
-	let assignment_a = TestAssignment::new(para_a);
-	let assignment_b = TestAssignment::new(para_b);
+	let assignment_a = Assignment::Bulk(para_a);
+	let assignment_b = Assignment::Bulk(para_b);
 
 	new_test_ext(genesis_config).execute_with(|| {
 		MockAssigner::set_core_count(on_demand_cores);
@@ -750,7 +749,7 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 
 	let para_a = ParaId::from(1_u32);
 
-	let assignment_a = TestAssignment::new(para_a);
+	let assignment_a = Assignment::Bulk(para_a);
 
 	new_test_ext(genesis_config).execute_with(|| {
 		MockAssigner::set_core_count(2);
@@ -932,12 +931,12 @@ fn next_up_on_available_uses_next_scheduled_or_none() {
 		});
 
 		let entry_a = ParasEntry {
-			assignment: TestAssignment::new(para_a),
+			assignment: Assignment::Bulk(para_a),
 			availability_timeouts: 0 as u32,
 			ttl: 5 as u32,
 		};
 		let entry_b = ParasEntry {
-			assignment: TestAssignment::new(para_b),
+			assignment: Assignment::Bulk(para_b),
 			availability_timeouts: 0 as u32,
 			ttl: 5 as u32,
 		};
@@ -979,8 +978,8 @@ fn next_up_on_time_out_reuses_claim_if_nothing_queued() {
 	let para_a = ParaId::from(1_u32);
 	let para_b = ParaId::from(2_u32);
 
-	let assignment_a = TestAssignment::new(para_a);
-	let assignment_b = TestAssignment::new(para_b);
+	let assignment_a = Assignment::Bulk(para_a);
+	let assignment_b = Assignment::Bulk(para_b);
 
 	new_test_ext(genesis_config).execute_with(|| {
 		MockAssigner::set_core_count(1);
@@ -1051,8 +1050,8 @@ fn session_change_requires_reschedule_dropping_removed_paras() {
 	let para_a = ParaId::from(1_u32);
 	let para_b = ParaId::from(2_u32);
 
-	let assignment_a = TestAssignment::new(para_a);
-	let assignment_b = TestAssignment::new(para_b);
+	let assignment_a = Assignment::Bulk(para_a);
+	let assignment_b = Assignment::Bulk(para_b);
 
 	new_test_ext(genesis_config).execute_with(|| {
 		// Setting explicit core count
@@ -1119,7 +1118,7 @@ fn session_change_requires_reschedule_dropping_removed_paras() {
 			vec![(
 				CoreIndex(0),
 				vec![ParasEntry::new(
-					TestAssignment::new(para_a),
+					Assignment::Bulk(para_a),
 					// At end of block 2
 					assignment_provider_ttl + 2
 				)]
@@ -1168,7 +1167,7 @@ fn session_change_requires_reschedule_dropping_removed_paras() {
 				(
 					CoreIndex(0),
 					vec![ParasEntry::new(
-						TestAssignment::new(para_a),
+						Assignment::Bulk(para_a),
 						// At block 3
 						assignment_provider_ttl + 3
 					)]
@@ -1178,7 +1177,7 @@ fn session_change_requires_reschedule_dropping_removed_paras() {
 				(
 					CoreIndex(1),
 					vec![ParasEntry::new(
-						TestAssignment::new(para_b),
+						Assignment::Bulk(para_b),
 						// At block 3
 						assignment_provider_ttl + 3
 					)]

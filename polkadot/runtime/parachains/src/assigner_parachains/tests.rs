@@ -15,9 +15,8 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-
 use crate::{
-	assigner_parachains::{mock_helpers::GenesisConfigBuilder, ParachainsAssignment},
+	assigner_parachains::mock_helpers::GenesisConfigBuilder,
 	initializer::SessionChangeNotification,
 	mock::{
 		new_test_ext, ParachainsAssigner, Paras, ParasShared, RuntimeOrigin, Scheduler, System,
@@ -25,7 +24,7 @@ use crate::{
 	paras::{ParaGenesisArgs, ParaKind},
 };
 use frame_support::{assert_ok, pallet_prelude::*};
-use primitives::{BlockNumber, SessionIndex, ValidationCode};
+use primitives::{BlockNumber, Id as ParaId, SessionIndex, ValidationCode};
 use sp_std::collections::btree_map::BTreeMap;
 
 fn schedule_blank_para(id: ParaId, parakind: ParaKind) {
@@ -84,7 +83,7 @@ fn run_to_block(
 fn parachains_assigner_pop_assignment_is_always_some() {
 	let core_index = CoreIndex(0);
 	let para_id = ParaId::from(10);
-	let expected_assignment = ParachainsAssignment::new(para_id);
+	let expected_assignment = Assignment::Bulk(para_id);
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		// Register the para_id as a lease holding parachain

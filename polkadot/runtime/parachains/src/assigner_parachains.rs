@@ -17,15 +17,13 @@
 //! The bulk (parachain slot auction) blockspace assignment provider.
 //! This provider is tightly coupled with the configuration and paras modules.
 
+#[cfg(test)]
 mod mock_helpers;
 #[cfg(test)]
 mod tests;
 
-use scale_info::TypeInfo;
-
 use frame_system::pallet_prelude::BlockNumberFor;
-use primitives::{CoreIndex, Id as ParaId};
-use sp_runtime::codec::{Decode, Encode};
+use primitives::CoreIndex;
 
 use crate::{
 	configuration, paras,
@@ -48,38 +46,19 @@ pub mod pallet {
 	pub trait Config: frame_system::Config + configuration::Config + paras::Config {}
 }
 
-#[derive(Debug, Encode, Decode, TypeInfo, PartialEq, Clone)]
-pub struct ParachainsAssignment {
-	pub para_id: ParaId,
-}
-
-impl ParachainsAssignment {
-	fn new(para_id: ParaId) -> Self {
-		Self { para_id }
-	}
-}
-
-impl Assignment for ParachainsAssignment {
-	fn para_id(&self) -> ParaId {
-		self.para_id
-	}
-}
-
 impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
-	type AssignmentType = ParachainsAssignment;
-
-	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Self::AssignmentType> {
+	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Assignment> {
 		<paras::Pallet<T>>::parachains()
 			.get(core_idx.0 as usize)
 			.copied()
-			.map(|para_id| ParachainsAssignment::new(para_id))
+			.map(Assignment::Bulk)
 	}
 
-	fn report_processed(_: Self::AssignmentType) {}
+	fn report_processed(_: Assignment) {}
 
 	/// Bulk assignment has no need to push the assignment back on a session change,
 	/// this is a no-op in the case of a bulk assignment slot.
-	fn push_back_assignment(_: Self::AssignmentType) {}
+	fn push_back_assignment(_: Assignment) {}
 
 	fn get_provider_config(_core_idx: CoreIndex) -> AssignmentProviderConfig<BlockNumberFor<T>> {
 		AssignmentProviderConfig {
@@ -92,8 +71,8 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	}
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
-	fn get_mock_assignment(_: CoreIndex, para_id: ParaId) -> Self::AssignmentType {
-		ParachainsAssignment { para_id }
+	fn get_mock_assignment(_: CoreIndex, para_id: primitives::Id) -> Assignment {
+		Assignment::Bulk(para_id)
 	}
 }
 

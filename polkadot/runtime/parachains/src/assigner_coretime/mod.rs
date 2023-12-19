@@ -28,17 +28,16 @@ mod mock_helpers;
 mod tests;
 
 use crate::{
-	assigner_on_demand, assigner_parachains as assigner_legacy, configuration, paras,
+	assigner_on_demand, configuration, paras,
 	scheduler::common::{
 		Assignment, AssignmentProvider, AssignmentProviderConfig, FixedAssignmentProvider,
-		V0Assignment,
 	},
 };
 
 use frame_support::{defensive, pallet_prelude::*};
 use frame_system::pallet_prelude::*;
 use pallet_broker::CoreAssignment;
-use primitives::{CoreIndex, Id as ParaId};
+use primitives::CoreIndex;
 
 use sp_std::prelude::*;
 
@@ -289,33 +288,8 @@ pub mod pallet {
 	}
 }
 
-/// Assignments as provided by our `AssignmentProvider` implementation.
-#[derive(Encode, Decode, TypeInfo, RuntimeDebug)]
-#[cfg_attr(test, derive(PartialEq))]
-pub enum CoretimeAssignment<OnDemand> {
-	/// Assignment was a pool `Coretime` assignment.
-	Pool(OnDemand),
-	/// Assignment was served directly from a core managed directly by this assignment provider.
-	Bulk(ParaId),
-}
-
-pub type CoretimeAssignmentType<T> = CoretimeAssignment<
-	<assigner_on_demand::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::AssignmentType,
->;
-
-impl<OnDemand: Assignment> Assignment for CoretimeAssignment<OnDemand> {
-	fn para_id(&self) -> ParaId {
-		match self {
-			Self::Pool(on_demand) => on_demand.para_id(),
-			Self::Bulk(para_id) => *para_id,
-		}
-	}
-}
-
 impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
-	type AssignmentType = CoretimeAssignmentType<T>;
-
-	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Self::AssignmentType> {
+	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Assignment> {
 		let now = <frame_system::Pallet<T>>::block_number();
 
 		CoreDescriptors::<T>::mutate(core_idx, |core_state| {
@@ -342,19 +316,18 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 
 			match a_type {
 				CoreAssignment::Idle => None,
-				CoreAssignment::Pool => <assigner_on_demand::Pallet<T> as AssignmentProvider<
-					BlockNumberFor<T>,
-				>>::pop_assignment_for_core(core_idx)
-				.map(|assignment| CoretimeAssignment::Pool(assignment)),
-				CoreAssignment::Task(para_id) => Some(CoretimeAssignment::Bulk((*para_id).into())),
+				CoreAssignment::Pool =>
+					assigner_on_demand::Pallet::<T>::pop_assignment_for_core(core_idx),
+				CoreAssignment::Task(para_id) => Some(Assignment::Bulk((*para_id).into())),
 			}
 		})
 	}
 
-	fn report_processed(assignment: Self::AssignmentType) {
+	fn report_processed(assignment: Assignment) {
 		match assignment {
-			CoretimeAssignment::Pool(on_demand) => <assigner_on_demand::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::report_processed(on_demand),
-			CoretimeAssignment::Bulk(_) => {}
+			Assignment::Pool { para_id, core_index } =>
+				assigner_on_demand::Pallet::<T>::report_processed(para_id, core_index),
+			Assignment::Bulk(_) => {},
 		}
 	}
 
@@ -363,17 +336,16 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	/// The assignment has not been processed yet. Typically used on session boundaries.
 	/// Parameters:
 	/// - `assignment`: The on demand assignment.
-	fn push_back_assignment(assignment: Self::AssignmentType) {
+	fn push_back_assignment(assignment: Assignment) {
 		match assignment {
-			CoretimeAssignment::Pool(on_demand) =>
-				<assigner_on_demand::Pallet<T> as AssignmentProvider<BlockNumberFor<T>>>::push_back_assignment(
-				on_demand,
-			),
-			CoretimeAssignment::Bulk(_) => {
-				// Session changes are rough. We just drop assignments that did not make it on a session boundary.
-				// This seems sensible as bulk is region based. Meaning, even if we made the effort catching up on
-				// those dropped assignments, this would very likely lead to other assignments not getting served at the
-				// "end" (when our assignment set gets replaced).
+			Assignment::Pool { para_id, core_index } =>
+				assigner_on_demand::Pallet::<T>::push_back_assignment(para_id, core_index),
+			Assignment::Bulk(_) => {
+				// Session changes are rough. We just drop assignments that did not make it on a
+				// session boundary. This seems sensible as bulk is region based. Meaning, even if
+				// we made the effort catching up on those dropped assignments, this would very
+				// likely lead to other assignments not getting served at the "end" (when our
+				// assignment set gets replaced).
 			},
 		}
 	}
@@ -387,10 +359,10 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	}
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
-	fn get_mock_assignment(_: CoreIndex, para_id: ParaId) -> Self::AssignmentType {
+	fn get_mock_assignment(_: CoreIndex, para_id: primitives::Id) -> Assignment {
 		// Given that we are not tracking anything in `Bulk` assignments, it is safe to always
 		// return a bulk assignment.
-		CoretimeAssignment::Bulk(para_id)
+		Assignment::Bulk(para_id)
 	}
 }
 
@@ -540,22 +512,5 @@ impl<T: Config> Pallet<T> {
 			core_descriptor.queue = Some(new_queue);
 			Ok(())
 		})
-	}
-}
-
-pub fn migrate_legacy_v0_assignment<T: Config + assigner_legacy::Config>(
-	old: V0Assignment,
-	core: CoreIndex,
-) -> CoretimeAssignmentType<T> {
-	let legacy_cores = <assigner_legacy::Pallet<T> as FixedAssignmentProvider<
-		BlockNumberFor<T>,
-		>>::session_core_count();
-
-	if core.0 < legacy_cores {
-		CoretimeAssignment::Bulk(old.para_id())
-	} else {
-		CoretimeAssignment::Pool(assigner_on_demand::OnDemandAssignment::from_v0_assignment(
-			old, core,
-		))
 	}
 }
