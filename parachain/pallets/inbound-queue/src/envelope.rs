@@ -30,10 +30,10 @@ pub struct Envelope {
 #[derive(Copy, Clone, RuntimeDebug)]
 pub struct EnvelopeDecodeError;
 
-impl TryFrom<Log> for Envelope {
+impl TryFrom<&Log> for Envelope {
 	type Error = EnvelopeDecodeError;
 
-	fn try_from(log: Log) -> Result<Self, Self::Error> {
+	fn try_from(log: &Log) -> Result<Self, Self::Error> {
 		let topics: Vec<B256> = log.topics.iter().map(|x| B256::from_slice(x.as_ref())).collect();
 
 		let event = OutboundMessageAccepted::decode_log(topics, &log.data, true)

@@ -232,16 +232,18 @@ impl crate::Config for Test {
 }
 
 // Build genesis storage according to the mock runtime.
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext(genesis_build: bool) -> sp_io::TestExternalities {
 	let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
-	crate::GenesisConfig::<Test> {
-		para_id: OwnParaId::get(),
-		asset_hub_para_id: AssetHubParaId::get(),
-		_config: Default::default(),
+	if genesis_build {
+		crate::GenesisConfig::<Test> {
+			para_id: OwnParaId::get(),
+			asset_hub_para_id: AssetHubParaId::get(),
+			_config: Default::default(),
+		}
+		.assimilate_storage(&mut storage)
+		.unwrap();
 	}
-	.assimilate_storage(&mut storage)
-	.unwrap();
 
 	let mut ext: sp_io::TestExternalities = storage.into();
 	let initial_amount = InitialFunding::get();

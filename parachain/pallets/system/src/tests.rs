@@ -9,7 +9,7 @@ use sp_runtime::{AccountId32, DispatchError::BadOrigin, TokenError};
 
 #[test]
 fn create_agent() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let origin_para_id = 2000;
 		let origin_location = MultiLocation { parents: 1, interior: X1(Parachain(origin_para_id)) };
 		let agent_id = make_agent_id(origin_location);
@@ -29,7 +29,7 @@ fn create_agent() {
 
 #[test]
 fn test_agent_for_here() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let origin_location = MultiLocation::here();
 		let agent_id = make_agent_id(origin_location);
 		assert_eq!(
@@ -41,7 +41,7 @@ fn test_agent_for_here() {
 
 #[test]
 fn create_agent_fails_on_funds_unavailable() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let origin_location = MultiLocation { parents: 1, interior: X1(Parachain(2000)) };
 		let origin = make_xcm_origin(origin_location);
 		// Reset balance of sovereign_account to zero so to trigger the FundsUnavailable error
@@ -53,7 +53,7 @@ fn create_agent_fails_on_funds_unavailable() {
 
 #[test]
 fn create_agent_bad_origin() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		// relay chain location not allowed
 		assert_noop!(
 			EthereumSystem::create_agent(make_xcm_origin(MultiLocation {
@@ -85,7 +85,7 @@ fn create_agent_bad_origin() {
 
 #[test]
 fn upgrade_as_root() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let origin = RuntimeOrigin::root();
 		let address: H160 = Default::default();
 		let code_hash: H256 = Default::default();
@@ -102,7 +102,7 @@ fn upgrade_as_root() {
 
 #[test]
 fn upgrade_as_signed_fails() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let origin = RuntimeOrigin::signed(AccountId32::new([0; 32]));
 		let address: H160 = Default::default();
 		let code_hash: H256 = Default::default();
@@ -113,7 +113,7 @@ fn upgrade_as_signed_fails() {
 
 #[test]
 fn upgrade_with_params() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let origin = RuntimeOrigin::root();
 		let address: H160 = Default::default();
 		let code_hash: H256 = Default::default();
@@ -125,7 +125,7 @@ fn upgrade_with_params() {
 
 #[test]
 fn set_operating_mode() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let origin = RuntimeOrigin::root();
 		let mode = OperatingMode::RejectingOutboundMessages;
 
@@ -139,7 +139,7 @@ fn set_operating_mode() {
 
 #[test]
 fn set_operating_mode_as_signed_fails() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let origin = RuntimeOrigin::signed([14; 32].into());
 		let mode = OperatingMode::RejectingOutboundMessages;
 
@@ -149,7 +149,7 @@ fn set_operating_mode_as_signed_fails() {
 
 #[test]
 fn set_pricing_parameters() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let origin = RuntimeOrigin::root();
 		let mut params = Parameters::get();
 		params.rewards.local = 7;
@@ -162,7 +162,7 @@ fn set_pricing_parameters() {
 
 #[test]
 fn set_pricing_parameters_as_signed_fails() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let origin = RuntimeOrigin::signed([14; 32].into());
 		let params = Parameters::get();
 
@@ -172,7 +172,7 @@ fn set_pricing_parameters_as_signed_fails() {
 
 #[test]
 fn set_pricing_parameters_invalid() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let origin = RuntimeOrigin::root();
 		let mut params = Parameters::get();
 		params.rewards.local = 0;
@@ -186,7 +186,7 @@ fn set_pricing_parameters_invalid() {
 
 #[test]
 fn set_token_transfer_fees() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let origin = RuntimeOrigin::root();
 
 		assert_ok!(EthereumSystem::set_token_transfer_fees(origin, 1, 1, eth(1)));
@@ -195,7 +195,7 @@ fn set_token_transfer_fees() {
 
 #[test]
 fn set_token_transfer_fees_root_only() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let origin = RuntimeOrigin::signed([14; 32].into());
 
 		assert_noop!(EthereumSystem::set_token_transfer_fees(origin, 1, 1, 1.into()), BadOrigin);
@@ -204,7 +204,7 @@ fn set_token_transfer_fees_root_only() {
 
 #[test]
 fn set_token_transfer_fees_invalid() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let origin = RuntimeOrigin::root();
 
 		assert_noop!(
@@ -216,7 +216,7 @@ fn set_token_transfer_fees_invalid() {
 
 #[test]
 fn create_channel() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let origin_para_id = 2000;
 		let origin_location = MultiLocation { parents: 1, interior: X1(Parachain(origin_para_id)) };
 		let sovereign_account = sibling_sovereign_account::<Test>(origin_para_id.into());
@@ -232,7 +232,7 @@ fn create_channel() {
 
 #[test]
 fn create_channel_fail_already_exists() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let origin_para_id = 2000;
 		let origin_location = MultiLocation { parents: 1, interior: X1(Parachain(origin_para_id)) };
 		let sovereign_account = sibling_sovereign_account::<Test>(origin_para_id.into());
@@ -253,7 +253,7 @@ fn create_channel_fail_already_exists() {
 
 #[test]
 fn create_channel_bad_origin() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		// relay chain location not allowed
 		assert_noop!(
 			EthereumSystem::create_channel(
@@ -306,7 +306,7 @@ fn create_channel_bad_origin() {
 
 #[test]
 fn update_channel() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let origin_para_id = 2000;
 		let origin_location = MultiLocation { parents: 1, interior: X1(Parachain(origin_para_id)) };
 		let sovereign_account = sibling_sovereign_account::<Test>(origin_para_id.into());
@@ -329,7 +329,7 @@ fn update_channel() {
 
 #[test]
 fn update_channel_bad_origin() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let mode = OperatingMode::Normal;
 
 		// relay chain location not allowed
@@ -381,7 +381,7 @@ fn update_channel_bad_origin() {
 
 #[test]
 fn update_channel_fails_not_exist() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let origin_location = MultiLocation { parents: 1, interior: X1(Parachain(2000)) };
 		let origin = make_xcm_origin(origin_location);
 
@@ -395,7 +395,7 @@ fn update_channel_fails_not_exist() {
 
 #[test]
 fn force_update_channel() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let origin_para_id = 2000;
 		let origin_location = MultiLocation { parents: 1, interior: X1(Parachain(origin_para_id)) };
 		let sovereign_account = sibling_sovereign_account::<Test>(origin_para_id.into());
@@ -425,7 +425,7 @@ fn force_update_channel() {
 
 #[test]
 fn force_update_channel_bad_origin() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let mode = OperatingMode::Normal;
 
 		// signed origin not allowed
@@ -442,7 +442,7 @@ fn force_update_channel_bad_origin() {
 
 #[test]
 fn transfer_native_from_agent() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let origin_location = MultiLocation { parents: 1, interior: X1(Parachain(2000)) };
 		let recipient: H160 = [27u8; 20].into();
 		let amount = 103435;
@@ -465,7 +465,7 @@ fn transfer_native_from_agent() {
 
 #[test]
 fn force_transfer_native_from_agent() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let origin = RuntimeOrigin::root();
 		let location = MultiLocation { parents: 1, interior: X1(Parachain(2000)) };
 		let versioned_location: Box<VersionedMultiLocation> = Box::new(location.into());
@@ -494,7 +494,7 @@ fn force_transfer_native_from_agent() {
 
 #[test]
 fn force_transfer_native_from_agent_bad_origin() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let recipient: H160 = [27u8; 20].into();
 		let amount = 103435;
 
@@ -527,7 +527,7 @@ fn force_transfer_native_from_agent_bad_origin() {
 #[ignore]
 #[test]
 fn check_sibling_sovereign_account() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let para_id = 1001;
 		let sovereign_account = sibling_sovereign_account::<Test>(para_id.into());
 		let sovereign_account_raw = sibling_sovereign_account_raw(para_id.into());
@@ -542,7 +542,7 @@ fn check_sibling_sovereign_account() {
 
 #[test]
 fn charge_fee_for_create_agent() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let para_id: u32 = TestParaId::get();
 		let origin_location = MultiLocation { parents: 1, interior: X1(Parachain(para_id)) };
 		let origin = make_xcm_origin(origin_location);
@@ -571,7 +571,7 @@ fn charge_fee_for_create_agent() {
 
 #[test]
 fn charge_fee_for_transfer_native_from_agent() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let para_id: u32 = TestParaId::get();
 		let origin_location = MultiLocation { parents: 1, interior: X1(Parachain(para_id)) };
 		let recipient: H160 = [27u8; 20].into();
@@ -601,7 +601,7 @@ fn charge_fee_for_transfer_native_from_agent() {
 
 #[test]
 fn charge_fee_for_upgrade() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let para_id: u32 = TestParaId::get();
 		let origin = RuntimeOrigin::root();
 		let address: H160 = Default::default();
@@ -614,5 +614,19 @@ fn charge_fee_for_upgrade() {
 		let sovereign_account = sibling_sovereign_account::<Test>(para_id.into());
 		let sovereign_balance = Balances::balance(&sovereign_account);
 		assert_eq!(sovereign_balance, InitialFunding::get());
+	});
+}
+
+#[test]
+fn genesis_build_initializes_correctly() {
+	new_test_ext(true).execute_with(|| {
+		assert!(EthereumSystem::is_initialized(), "Ethereum uninitialized.");
+	});
+}
+
+#[test]
+fn no_genesis_build_is_uninitialized() {
+	new_test_ext(false).execute_with(|| {
+		assert!(!EthereumSystem::is_initialized(), "Ethereum initialized.");
 	});
 }

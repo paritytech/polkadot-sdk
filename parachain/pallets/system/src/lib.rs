@@ -47,6 +47,7 @@ mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+pub mod migration;
 
 pub mod api;
 pub mod weights;
@@ -256,34 +257,7 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			let bridge_hub_agent_id =
-				agent_id_of::<T>(&MultiLocation::here()).expect("infallible; qed");
-			// Agent for BridgeHub
-			Agents::<T>::insert(bridge_hub_agent_id, ());
-
-			// Primary governance channel
-			Channels::<T>::insert(
-				PRIMARY_GOVERNANCE_CHANNEL,
-				Channel { agent_id: bridge_hub_agent_id, para_id: self.para_id },
-			);
-
-			// Secondary governance channel
-			Channels::<T>::insert(
-				SECONDARY_GOVERNANCE_CHANNEL,
-				Channel { agent_id: bridge_hub_agent_id, para_id: self.para_id },
-			);
-
-			// Asset Hub
-			let asset_hub_location: MultiLocation =
-				ParentThen(X1(Parachain(self.asset_hub_para_id.into()))).into();
-			let asset_hub_agent_id =
-				agent_id_of::<T>(&asset_hub_location).expect("infallible; qed");
-			let asset_hub_channel_id: ChannelId = self.asset_hub_para_id.into();
-			Agents::<T>::insert(asset_hub_agent_id, ());
-			Channels::<T>::insert(
-				asset_hub_channel_id,
-				Channel { agent_id: asset_hub_agent_id, para_id: self.asset_hub_para_id },
-			);
+			Pallet::<T>::initialize(self.para_id, self.asset_hub_para_id).expect("infallible; qed");
 		}
 	}
 
@@ -641,6 +615,49 @@ pub mod pallet {
 				recipient,
 				amount,
 			});
+			Ok(())
+		}
+
+		/// Checks if the pallet has been initialized.
+		pub(crate) fn is_initialized() -> bool {
+			let primary_exists = Channels::<T>::contains_key(PRIMARY_GOVERNANCE_CHANNEL);
+			let secondary_exists = Channels::<T>::contains_key(SECONDARY_GOVERNANCE_CHANNEL);
+			primary_exists && secondary_exists
+		}
+
+		/// Initializes agents and channels.
+		pub(crate) fn initialize(
+			para_id: ParaId,
+			asset_hub_para_id: ParaId,
+		) -> Result<(), DispatchError> {
+			// Asset Hub
+			let asset_hub_location: MultiLocation =
+				ParentThen(X1(Parachain(asset_hub_para_id.into()))).into();
+			let asset_hub_agent_id = agent_id_of::<T>(&asset_hub_location)?;
+			let asset_hub_channel_id: ChannelId = asset_hub_para_id.into();
+			Agents::<T>::insert(asset_hub_agent_id, ());
+			Channels::<T>::insert(
+				asset_hub_channel_id,
+				Channel { agent_id: asset_hub_agent_id, para_id: asset_hub_para_id },
+			);
+
+			// Governance channels
+			let bridge_hub_agent_id = agent_id_of::<T>(&MultiLocation::here())?;
+			// Agent for BridgeHub
+			Agents::<T>::insert(bridge_hub_agent_id, ());
+
+			// Primary governance channel
+			Channels::<T>::insert(
+				PRIMARY_GOVERNANCE_CHANNEL,
+				Channel { agent_id: bridge_hub_agent_id, para_id },
+			);
+
+			// Secondary governance channel
+			Channels::<T>::insert(
+				SECONDARY_GOVERNANCE_CHANNEL,
+				Channel { agent_id: bridge_hub_agent_id, para_id },
+			);
+
 			Ok(())
 		}
 	}
