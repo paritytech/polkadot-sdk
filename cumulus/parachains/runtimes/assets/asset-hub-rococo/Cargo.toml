@@ -83,14 +83,15 @@ pallet-collator-selection = { path = "../../../../pallets/collator-selection", d
 parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false }
 parachains-common = { path = "../../../common", default-features = false }
 assets-common = { path = "../common", default-features = false }
-snowbridge-router-primitives = { path = "../../../../../../parachain/primitives/router", default-features = false }
-snowbridge-rococo-common = { path = "../../../../../../parachain/runtime/rococo-common", default-features = false }
+
 # Bridges
 pallet-xcm-bridge-hub-router = { path = "../../../../../bridges/modules/xcm-bridge-hub-router", default-features = false }
 bp-asset-hub-rococo = { path = "../../../../../bridges/primitives/chain-asset-hub-rococo", default-features = false }
 bp-asset-hub-westend = { path = "../../../../../bridges/primitives/chain-asset-hub-westend", default-features = false }
 bp-bridge-hub-rococo = { path = "../../../../../bridges/primitives/chain-bridge-hub-rococo", default-features = false }
 bp-bridge-hub-westend = { path = "../../../../../bridges/primitives/chain-bridge-hub-westend", default-features = false }
+snowbridge-router-primitives = { path = "../../../../../../parachain/primitives/router", default-features = false }
+snowbridge-rococo-common = { path = "../../../../../../parachain/runtime/rococo-common", default-features = false }
 
 [dev-dependencies]
 asset-test-utils = { path = "../test-utils" }

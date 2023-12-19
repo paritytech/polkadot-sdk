@@ -336,7 +336,7 @@ impl xcm_executor::Config for XcmConfig {
 }
 
 pub type PriceForParentDelivery =
-ExponentialPrice<FeeAssetId, BaseDeliveryFee, TransactionByteFee, ParachainSystem>;
+	ExponentialPrice<FeeAssetId, BaseDeliveryFee, TransactionByteFee, ParachainSystem>;
 
 /// Converts a local signed origin into an XCM multilocation.
 /// Forms the basis for local origins sending/executing XCMs.
@@ -402,19 +402,19 @@ pub struct XcmExportFeeToRelayerRewardAccounts<
 >(PhantomData<(AssetTransactor, DestNetwork, DestParaId, DestBridgedChainId, BridgeLaneId)>);
 
 impl<
-	AssetTransactor: TransactAsset,
-	DestNetwork: Get<NetworkId>,
-	DestParaId: Get<cumulus_primitives_core::ParaId>,
-	DestBridgedChainId: Get<ChainId>,
-	BridgeLaneId: Get<LaneId>,
-> HandleFee
-for XcmExportFeeToRelayerRewardAccounts<
-	AssetTransactor,
-	DestNetwork,
-	DestParaId,
-	DestBridgedChainId,
-	BridgeLaneId,
->
+		AssetTransactor: TransactAsset,
+		DestNetwork: Get<NetworkId>,
+		DestParaId: Get<cumulus_primitives_core::ParaId>,
+		DestBridgedChainId: Get<ChainId>,
+		BridgeLaneId: Get<LaneId>,
+	> HandleFee
+	for XcmExportFeeToRelayerRewardAccounts<
+		AssetTransactor,
+		DestNetwork,
+		DestParaId,
+		DestBridgedChainId,
+		BridgeLaneId,
+	>
 {
 	fn handle_fee(
 		fee: MultiAssets,
