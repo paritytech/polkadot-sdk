@@ -10,21 +10,21 @@
 //! [Rust Analyzer](https://rust-analyzer.github.io/) is the defacto [LSP](https://langserver.org/) for Rust. Its default
 //! settings are fine for smaller projects, but not well optimised for polkadot-sdk.
 //!
-//! Below is a suggested configuration in Lua (also valid `neovim/nvim-lspconfig` configuration)
+//! Below is a suggested configuration in Lua (can use with `neovim/nvim-lspconfig`)
 //! with comments describing the rationale for each setting:
 //!
 //! ```lua
 //! ["rust-analyzer"] = {
 //!   cargo = {
-//!     # Check feature-gated code blocks
+//!     # Check feature-gated code
 //!     features = "all",
 //!     extraEnv = {
-//!       # Use a seperate target dir for Rust Analyzer. Helpful if you wish to use Rust
+//!       # Use a seperate target dir for Rust Analyzer. Helpful if you want to use Rust
 //!       # Analyzer and cargo on the command line at the same time.
 //!       ["CARGO_TARGET_DIR"] = "target/nvim-rust-analyzer",
-//!       # Skip the WASM build
+//!       # Skip building WASM, there is never need for it here
 //!       ["SKIP_WASM_BUILD"] = "1",
-//!       # Reduce chance of random crashes
+//!       # Improve stability
 //!       ["CHALK_OVERFLOW_DEPTH"] = "100000000",
 //!     },
 //!   },
@@ -38,8 +38,9 @@
 //!     },
 //!   },
 //!   rustfmt = {
-//!     # Use a nightly version for auto formatting.
-//!     # See our CI 'check format' job for the version currently in use.
+//!     # Use nightly formatting.
+//!     # See the polkadot-sdk CI job that checks formatting for the current version used in
+//!     # polkadot-sdk.
 //!     extraArgs = { "+nightly-2023-11-01" },
 //!   },
 //! },
@@ -72,7 +73,7 @@
 //! ### Using `--package` (a.k.a. `-p`)
 //!
 //! polkadot-sdk is a monorepo containing many crates. When you run a cargo command without
-//! `-p`, you will almost certinally compile crates outside of the scope you are working on.
+//! `-p`, you will almost certainly compile crates outside of the scope you are working.
 //!
 //! Instead, you should identify the name of the crate you are working on by checking them `name`
 //! field in the closest `Cargo.toml` file. Then, use `-p` with your cargo commands to only compile
@@ -83,11 +84,12 @@
 //! When cargo touches a runtime crate, by default it will also compile the WASM binary,
 //! approximately doubling the compilation time.
 //!
-//! The WASM binary is almost never needed, especially when running `check` or `test`. To skip the
+//! The WASM binary is usually not needed, especially when running `check` or `test`. To skip the
 //! WASM build, set the `SKIP_WASM_BUILD` environment variable to `1`. For example:
 //! `SKIP_WASM_BUILD=1 cargo check -p frame-support`.
 //!
 //! ### Cargo Remote
 //!
-//! If you have a beefy remote server avaliable, you may consider using [cargo-remote](https://github.com/sgeisler/cargo-remote) to simply offload
-//! cargo commands to it, freeing up local resources for other tasks like `rust-analyzer`.
+//! If you have a beefy remote server avaliable, you may consider using
+//! [cargo-remote](https://github.com/sgeisler/cargo-remote) to execute cargo commands on it,
+//! freeing up local resources for other tasks like `rust-analyzer`.
