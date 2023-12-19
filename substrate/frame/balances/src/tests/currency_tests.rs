@@ -524,10 +524,9 @@ fn legacy_account_unreserve_work() {
 		System::inc_providers(&1);
 		assert_ok!(Balances::reserve(&1, 100));
 		assert_eq!(System::providers(&1), 1);
-		<Test as Config>::AccountStore::mutate(&1, |account| {
+		assert_ok!(<Test as Config>::AccountStore::mutate(&1, |account| {
 			account.flags = crate::ExtraFlags::old_logic();
-		})
-		.unwrap();
+		}));
 
 		Balances::unreserve(&1, 100);
 		assert_eq!(System::providers(&1), 1);
