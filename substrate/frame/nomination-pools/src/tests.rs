@@ -292,6 +292,28 @@ mod bonded_pool {
 			assert_ok!(pool.ok_to_join());
 		});
 	}
+
+	#[test]
+	fn points_and_balance_conversions_are_safe() {
+		ExtBuilder::default().build_and_execute(|| {
+			let bonded_pool = BondedPool::<Runtime> {
+				id: 123123,
+				inner: BondedPoolInner {
+					commission: Commission::default(),
+					member_counter: 1,
+					points: u128::MAX,
+					roles: DEFAULT_ROLES,
+					state: PoolState::Open,
+				},
+			};
+			StakingMock::set_bonded_balance(bonded_pool.bonded_account(), u128::MAX);
+
+			// Max out the points and balance of the pool and make sure the conversion works as
+			// expected and does not overflow.
+			assert_eq!(bonded_pool.balance_to_point(u128::MAX), u128::MAX);
+			assert_eq!(bonded_pool.points_to_balance(u128::MAX), u128::MAX);
+		})
+	}
 }
 
 mod reward_pool {
