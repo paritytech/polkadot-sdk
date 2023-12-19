@@ -774,13 +774,13 @@ pub mod pallet {
 				let _ = system::Pallet::<T>::inc_consumers_without_limit(who).defensive();
 			}
 
+			// Ensure the account holds at least ED.
 			if a.free < Self::ed() {
 				let shortfall = Self::ed() - a.free;
 				a.free = Self::ed();
 				a.reserved = a.reserved.defensive_saturating_sub(shortfall);
 			}
 
-			// Should never fail - we're only setting a bit.
 			let _ = T::AccountStore::try_mutate_exists(who, |account| -> DispatchResult {
 				*account = Some(a);
 				Ok(())
