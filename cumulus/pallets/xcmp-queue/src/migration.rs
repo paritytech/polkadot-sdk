@@ -16,6 +16,8 @@
 
 //! A module that is responsible for migration of storage.
 
+pub mod v5;
+
 use crate::{Config, OverweightIndex, Pallet, QueueConfig, QueueConfigData, DEFAULT_POV_SIZE};
 use cumulus_primitives_core::XcmpMessageFormat;
 use frame_support::{
@@ -302,7 +304,7 @@ pub mod v4 {
 	/// [`UncheckedMigrationToV4`] wrapped in a
 	/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), ensuring the
 	/// migration is only performed when on-chain version is 3.
-	pub type MigrationToV4<T> = frame_support::migrations::VersionedMigration<
+	pub type MigrateV3ToV4<T> = frame_support::migrations::VersionedMigration<
 		3,
 		4,
 		UncheckedMigrationToV4<T>,
