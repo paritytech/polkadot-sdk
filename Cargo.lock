@@ -13322,6 +13322,8 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
  "prometheus",
+ "pyroscope",
+ "pyroscope_pprofrs",
  "rand 0.8.5",
  "sc-keystore",
  "sc-network",
