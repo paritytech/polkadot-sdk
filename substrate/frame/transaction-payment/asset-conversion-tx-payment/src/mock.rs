@@ -238,7 +238,6 @@ ord_parameter_types! {
 impl pallet_asset_conversion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
-	type AssetBalance = <Self as pallet_balances::Config>::Balance;
 	type AssetId = u32;
 	type PoolAssetId = u32;
 	type Assets = Assets;

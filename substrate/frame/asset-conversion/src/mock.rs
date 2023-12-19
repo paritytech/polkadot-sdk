@@ -154,7 +154,6 @@ ord_parameter_types! {
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
-	type AssetBalance = <Self as pallet_balances::Config>::Balance;
 	type AssetId = u32;
 	type PoolAssetId = u32;
 	type Assets = Assets;
@@ -169,7 +168,7 @@ impl Config for Test {
 	type MaxSwapPathLength = ConstU32<4>;
 	type MintMinLiquidity = ConstU128<100>; // 100 is good enough when the main currency has 12 decimals.
 
-	type Balance = u128;
+	type Balance = <Self as pallet_balances::Config>::Balance;
 	type HigherPrecisionBalance = sp_core::U256;
 
 	type MultiAssetId = NativeOrAssetId<u32>;
