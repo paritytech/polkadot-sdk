@@ -133,7 +133,7 @@ All failed checks should lead to an unrecoverable error making the block invalid
      [`UpwardMessage`s](../types/messages.md#upward-message) from the
      [`CandidateCommitments`](../types/candidate.md#candidate-commitments).
   1. call `Dmp::prune_dmq` with the para id of the candidate and the candidate's `processed_downward_messages`.
-  1. call `Hrmp::prune_hrmp` with the para id of the candiate and the candidate's `hrmp_watermark`.
+  1. call `Hrmp::prune_hrmp` with the para id of the candidate and the candidate's `hrmp_watermark`.
   1. call `Hrmp::queue_outbound_hrmp` with the para id of the candidate and the list of horizontal messages taken from
      the commitment,
   1. Call `Paras::note_new_head` using the `HeadData` from the receipt and `relay_parent_number`.

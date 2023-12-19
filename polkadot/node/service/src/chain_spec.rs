@@ -18,7 +18,6 @@
 
 use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
 use grandpa::AuthorityId as GrandpaId;
-use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 #[cfg(feature = "westend-native")]
 use pallet_staking::Forcing;
 use polkadot_primitives::{AccountId, AccountPublic, AssignmentId, ValidatorId};
@@ -75,7 +74,7 @@ pub type GenericChainSpec = service::GenericChainSpec<(), Extensions>;
 
 /// The `ChainSpec` parameterized for the westend runtime.
 #[cfg(feature = "westend-native")]
-pub type WestendChainSpec = service::GenericChainSpec<westend::RuntimeGenesisConfig, Extensions>;
+pub type WestendChainSpec = service::GenericChainSpec<(), Extensions>;
 
 /// The `ChainSpec` parameterized for the westend runtime.
 // Dummy chain spec, but that is fine when we don't have the native runtime.
@@ -84,12 +83,7 @@ pub type WestendChainSpec = GenericChainSpec;
 
 /// The `ChainSpec` parameterized for the rococo runtime.
 #[cfg(feature = "rococo-native")]
-pub type RococoChainSpec = service::GenericChainSpec<rococo::RuntimeGenesisConfig, Extensions>;
-
-/// The `ChainSpec` parameterized for the `versi` runtime.
-///
-/// As of now `Versi` will just be a clone of `Rococo`, until we need it to differ.
-pub type VersiChainSpec = RococoChainSpec;
+pub type RococoChainSpec = service::GenericChainSpec<(), Extensions>;
 
 /// The `ChainSpec` parameterized for the rococo runtime.
 // Dummy chain spec, but that is fine when we don't have the native runtime.
@@ -167,7 +161,6 @@ fn default_parachains_host_configuration_is_consistent() {
 fn westend_session_keys(
 	babe: BabeId,
 	grandpa: GrandpaId,
-	im_online: ImOnlineId,
 	para_validator: ValidatorId,
 	para_assignment: AssignmentId,
 	authority_discovery: AuthorityDiscoveryId,
@@ -176,7 +169,6 @@ fn westend_session_keys(
 	westend::SessionKeys {
 		babe,
 		grandpa,
-		im_online,
 		para_validator,
 		para_assignment,
 		authority_discovery,
@@ -188,7 +180,6 @@ fn westend_session_keys(
 fn rococo_session_keys(
 	babe: BabeId,
 	grandpa: GrandpaId,
-	im_online: ImOnlineId,
 	para_validator: ValidatorId,
 	para_assignment: AssignmentId,
 	authority_discovery: AuthorityDiscoveryId,
@@ -197,7 +188,6 @@ fn rococo_session_keys(
 	rococo_runtime::SessionKeys {
 		babe,
 		grandpa,
-		im_online,
 		para_validator,
 		para_assignment,
 		authority_discovery,
@@ -206,7 +196,7 @@ fn rococo_session_keys(
 }
 
 #[cfg(feature = "westend-native")]
-fn westend_staging_testnet_config_genesis(wasm_binary: &[u8]) -> westend::RuntimeGenesisConfig {
+fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 	use hex_literal::hex;
 	use sp_core::crypto::UncheckedInto;
 
@@ -225,7 +215,6 @@ fn westend_staging_testnet_config_genesis(wasm_binary: &[u8]) -> westend::Runtim
 		AccountId,
 		BabeId,
 		GrandpaId,
-		ImOnlineId,
 		ValidatorId,
 		AssignmentId,
 		AuthorityDiscoveryId,
@@ -241,9 +230,6 @@ fn westend_staging_testnet_config_genesis(wasm_binary: &[u8]) -> westend::Runtim
 				.unchecked_into(),
 			//5Eb7wM65PNgtY6e33FEAzYtU5cRTXt6WQvZTnzaKQwkVcABk
 			hex!["6faae44b21c6f2681a7f60df708e9f79d340f7d441d28bd987fab8d05c6487e8"]
-				.unchecked_into(),
-			//5CdS2wGo4qdTQceVfEnbZH8vULeBrnGYCxSCxDna4tQSMV6y
-			hex!["18f5d55f138bfa8e0ea26ed6fa56817b247de3c2e2030a908c63fb37c146473f"]
 				.unchecked_into(),
 			//5FqMLAgygdX9UqzukDp15Uid9PAKdFAR621U7xtp5ut2NfrW
 			hex!["a6c1a5b501985a83cb1c37630c5b41e6b0a15b3675b2fd94694758e6cfa6794d"]
@@ -269,9 +255,6 @@ fn westend_staging_testnet_config_genesis(wasm_binary: &[u8]) -> westend::Runtim
 			//5FXFsPReTUEYPRNKhbTdUathcWBsxTNsLbk2mTpYdKCJewjA
 			hex!["98f4d81cb383898c2c3d54dab28698c0f717c81b509cb32dc6905af3cc697b18"]
 				.unchecked_into(),
-			//5CDYSCJK91r8y2r1V4Ddrit4PFMEkwZXJe8mNBqGXJ4xWCWq
-			hex!["06bd7dd4ab4c808c7d09d9cb6bd27fbcd99ad8400e99212b335056c475c24031"]
-				.unchecked_into(),
 			//5CZjurB78XbSHf6SLkLhCdkqw52Zm7aBYUDdfkLqEDWJ9Zhj
 			hex!["162508accd470e379b04cb0c7c60b35a7d5357e84407a89ed2dd48db4b726960"]
 				.unchecked_into(),
@@ -295,9 +278,6 @@ fn westend_staging_testnet_config_genesis(wasm_binary: &[u8]) -> westend::Runtim
 				.unchecked_into(),
 			//5G4kCbgqUhEyrRHCyFwFEkgBZXoYA8sbgsRxT9rY8Tp5Jj5F
 			hex!["b0f8d2b9e4e1eafd4dab6358e0b9d5380d78af27c094e69ae9d6d30ca300fd86"]
-				.unchecked_into(),
-			//5HVhFBLFTKSZK9fX6RktckWDTgYNoSd33fgonsEC8zfr4ddm
-			hex!["f03c3e184b2883eec9beaeb97f54321587e7476b228831ea0b5fc6da847ea975"]
 				.unchecked_into(),
 			//5CS7thd2n54WfqeKU3cjvZzK4z5p7zku1Zw97mSzXgPioAAs
 			hex!["1055100a283968271a0781450b389b9093231be809be1e48a305ebad2a90497e"]
@@ -323,9 +303,6 @@ fn westend_staging_testnet_config_genesis(wasm_binary: &[u8]) -> westend::Runtim
 			//5ChfdrAqmLjCeDJvynbMjcxYLHYzPe8UWXd3HnX9JDThUMbn
 			hex!["1c309a70b4e274314b84c9a0a1f973c9c4fc084df5479ef686c54b1ae4950424"]
 				.unchecked_into(),
-			//5DnsMm24575xK2b2aGfmafiDxwCet6Mr4iiZQeDdWvi8CzuF
-			hex!["4c64868ba6d8ace235d3efb4c10d745a67cf3bdfeae23b264d7ea2f3439dec42"]
-				.unchecked_into(),
 			//5D8C3HHEp5E8fJsXRD56494F413CdRSR9QKGXe7v5ZEfymdj
 			hex!["2ee4d78f328db178c54f205ac809da12e291a33bcbd4f29f081ce7e74bdc5044"]
 				.unchecked_into(),
@@ -344,19 +321,16 @@ fn westend_staging_testnet_config_genesis(wasm_binary: &[u8]) -> westend::Runtim
 	const ENDOWMENT: u128 = 1_000_000 * WND;
 	const STASH: u128 = 100 * WND;
 
-	westend::RuntimeGenesisConfig {
-		system: westend::SystemConfig { code: wasm_binary.to_vec(), ..Default::default() },
-		balances: westend::BalancesConfig {
-			balances: endowed_accounts
+	serde_json::json!({
+		"balances": {
+			"balances": endowed_accounts
 				.iter()
 				.map(|k: &AccountId| (k.clone(), ENDOWMENT))
 				.chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
-				.collect(),
+				.collect::<Vec<_>>(),
 		},
-		beefy: Default::default(),
-		indices: westend::IndicesConfig { indices: vec![] },
-		session: westend::SessionConfig {
-			keys: initial_authorities
+		"session": {
+			"keys": initial_authorities
 				.iter()
 				.map(|x| {
 					(
@@ -369,57 +343,37 @@ fn westend_staging_testnet_config_genesis(wasm_binary: &[u8]) -> westend::Runtim
 							x.5.clone(),
 							x.6.clone(),
 							x.7.clone(),
-							x.8.clone(),
 						),
 					)
 				})
 				.collect::<Vec<_>>(),
 		},
-		staking: westend::StakingConfig {
-			validator_count: 50,
-			minimum_validator_count: 4,
-			stakers: initial_authorities
+		"staking": {
+			"validatorCount": 50,
+			"minimumValidatorCount": 4,
+			"stakers": initial_authorities
 				.iter()
-				.map(|x| (x.0.clone(), x.0.clone(), STASH, westend::StakerStatus::Validator))
-				.collect(),
-			invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
-			force_era: Forcing::ForceNone,
-			slash_reward_fraction: Perbill::from_percent(10),
-			..Default::default()
+				.map(|x| (x.0.clone(), x.0.clone(), STASH, westend::StakerStatus::<AccountId>::Validator))
+				.collect::<Vec<_>>(),
+			"invulnerables": initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
+			"forceEra": Forcing::ForceNone,
+			"slashRewardFraction": Perbill::from_percent(10),
 		},
-		babe: westend::BabeConfig {
-			authorities: Default::default(),
-			epoch_config: Some(westend::BABE_GENESIS_EPOCH_CONFIG),
-			..Default::default()
+		"babe": {
+			"epochConfig": Some(westend::BABE_GENESIS_EPOCH_CONFIG),
 		},
-		grandpa: Default::default(),
-		im_online: Default::default(),
-		authority_discovery: westend::AuthorityDiscoveryConfig {
-			keys: vec![],
-			..Default::default()
+		"sudo": { "key": Some(endowed_accounts[0].clone()) },
+		"configuration": {
+			"config": default_parachains_host_configuration(),
 		},
-		vesting: westend::VestingConfig { vesting: vec![] },
-		sudo: westend::SudoConfig { key: Some(endowed_accounts[0].clone()) },
-		hrmp: Default::default(),
-		treasury: Default::default(),
-		configuration: westend::ConfigurationConfig {
-			config: default_parachains_host_configuration(),
+		"registrar": {
+			"nextFreeParaId": polkadot_primitives::LOWEST_PUBLIC_ID,
 		},
-		paras: Default::default(),
-		registrar: westend_runtime::RegistrarConfig {
-			next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID,
-			..Default::default()
-		},
-		xcm_pallet: Default::default(),
-		nomination_pools: Default::default(),
-		assigned_slots: Default::default(),
-	}
+	})
 }
 
 #[cfg(feature = "rococo-native")]
-fn rococo_staging_testnet_config_genesis(
-	wasm_binary: &[u8],
-) -> rococo_runtime::RuntimeGenesisConfig {
+fn rococo_staging_testnet_config_genesis() -> serde_json::Value {
 	use hex_literal::hex;
 	use sp_core::crypto::UncheckedInto;
 
@@ -435,7 +389,6 @@ fn rococo_staging_testnet_config_genesis(
 		AccountId,
 		BabeId,
 		GrandpaId,
-		ImOnlineId,
 		ValidatorId,
 		AssignmentId,
 		AuthorityDiscoveryId,
@@ -451,9 +404,6 @@ fn rococo_staging_testnet_config_genesis(
 				.unchecked_into(),
 			//5CPd3zoV9Aaah4xWucuDivMHJ2nEEmpdi864nPTiyRZp4t87
 			hex!["0e6d7d1afbcc6547b92995a394ba0daed07a2420be08220a5a1336c6731f0bfa"]
-				.unchecked_into(),
-			//5F7BEa1LGFksUihyatf3dCDYneB8pWzVyavnByCsm5nBgezi
-			hex!["86975a37211f8704e947a365b720f7a3e2757988eaa7d0f197e83dba355ef743"]
 				.unchecked_into(),
 			//5CP6oGfwqbEfML8efqm1tCZsUgRsJztp9L8ZkEUxA16W8PPz
 			hex!["0e07a51d3213842f8e9363ce8e444255990a225f87e80a3d651db7841e1a0205"]
@@ -479,9 +429,6 @@ fn rococo_staging_testnet_config_genesis(
 			//5HnDVBN9mD6mXyx8oryhDbJtezwNSj1VRXgLoYCBA6uEkiao
 			hex!["fcd5f87a6fd5707a25122a01b4dac0a8482259df7d42a9a096606df1320df08d"]
 				.unchecked_into(),
-			//5DhyXZiuB1LvqYKFgT5tRpgGsN3is2cM9QxgW7FikvakbAZP
-			hex!["48a910c0af90898f11bd57d37ceaea53c78994f8e1833a7ade483c9a84bde055"]
-				.unchecked_into(),
 			//5EPEWRecy2ApL5n18n3aHyU1956zXTRqaJpzDa9DoqiggNwF
 			hex!["669a10892119453e9feb4e3f1ee8e028916cc3240022920ad643846fbdbee816"]
 				.unchecked_into(),
@@ -505,9 +452,6 @@ fn rococo_staging_testnet_config_genesis(
 				.unchecked_into(),
 			//5HAes2RQYPbYKbLBfKb88f4zoXv6pPA6Ke8CjN7dob3GpmSP
 			hex!["e1b68fbd84333e31486c08e6153d9a1415b2e7e71b413702b7d64e9b631184a1"]
-				.unchecked_into(),
-			//5HTXBf36LXmkFWJLokNUK6fPxVpkr2ToUnB1pvaagdGu4c1T
-			hex!["ee93e26259decb89afcf17ef2aa0fa2db2e1042fb8f56ecfb24d19eae8629878"]
 				.unchecked_into(),
 			//5FtAGDZYJKXkhVhAxCQrXmaP7EE2mGbBMfmKDHjfYDgq2BiU
 			hex!["a8e61ffacafaf546283dc92d14d7cc70ea0151a5dd81fdf73ff5a2951f2b6037"]
@@ -533,9 +477,6 @@ fn rococo_staging_testnet_config_genesis(
 			//5DJV3zCBTJBLGNDCcdWrYxWDacSz84goGTa4pFeKVvehEBte
 			hex!["36be9069cdb4a8a07ecd51f257875150f0a8a1be44a10d9d98dabf10a030aef4"]
 				.unchecked_into(),
-			//5FHf8kpK4fPjEJeYcYon2gAPwEBubRvtwpzkUbhMWSweKPUY
-			hex!["8e95b9b5b4dc69790b67b566567ca8bf8cdef3a3a8bb65393c0d1d1c87cd2d2c"]
-				.unchecked_into(),
 			//5F9FsRjpecP9GonktmtFL3kjqNAMKjHVFjyjRdTPa4hbQRZA
 			hex!["882d72965e642677583b333b2d173ac94b5fd6c405c76184bb14293be748a13b"]
 				.unchecked_into(),
@@ -559,9 +500,6 @@ fn rococo_staging_testnet_config_genesis(
 				.unchecked_into(),
 			//5EX1JBghGbQqWohTPU6msR9qZ2nYPhK9r3RTQ2oD1K8TCxaG
 			hex!["6c878e33b83c20324238d22240f735457b6fba544b383e70bb62a27b57380c81"]
-				.unchecked_into(),
-			//5GqL8RbVAuNXpDhjQi1KrS1MyNuKhvus2AbmQwRGjpuGZmFu
-			hex!["d2f9d537ffa59919a4028afdb627c14c14c97a1547e13e8e82203d2049b15b1a"]
 				.unchecked_into(),
 			//5EUNaBpX9mJgcmLQHyG5Pkms6tbDiKuLbeTEJS924Js9cA1N
 			hex!["6a8570b9c6408e54bacf123cc2bb1b0f087f9c149147d0005badba63a5a4ac01"]
@@ -587,9 +525,6 @@ fn rococo_staging_testnet_config_genesis(
 			//5GzDPGbUM9uH52ZEwydasTj8edokGUJ7vEpoFWp9FE1YNuFB
 			hex!["d9c056c98ca0e6b4eb7f5c58c007c1db7be0fe1f3776108f797dd4990d1ccc33"]
 				.unchecked_into(),
-			//5GWZbVkJEfWZ7fRca39YAQeqri2Z7pkeHyd7rUctUHyQifLp
-			hex!["c4a980da30939d5bb9e4a734d12bf81259ae286aa21fa4b65405347fa40eff35"]
-				.unchecked_into(),
 			//5CmLCFeSurRXXtwMmLcVo7sdJ9EqDguvJbuCYDcHkr3cpqyE
 			hex!["1efc23c0b51ad609ab670ecf45807e31acbd8e7e5cb7c07cf49ee42992d2867c"]
 				.unchecked_into(),
@@ -613,9 +548,6 @@ fn rococo_staging_testnet_config_genesis(
 				.unchecked_into(),
 			//5DnEySxbnppWEyN8cCLqvGjAorGdLRg2VmkY96dbJ1LHFK8N
 			hex!["4bea0b37e0cce9bddd80835fa2bfd5606f5dcfb8388bbb10b10c483f0856cf14"]
-				.unchecked_into(),
-			//5E1Y1FJ7dVP7qtE3wm241pTm72rTMcDT5Jd8Czv7Pwp7N3AH
-			hex!["560d90ca51e9c9481b8a9810060e04d0708d246714960439f804e5c6f40ca651"]
 				.unchecked_into(),
 			//5CAC278tFCHAeHYqE51FTWYxHmeLcENSS1RG77EFRTvPZMJT
 			hex!["042f07fc5268f13c026bbe199d63e6ac77a0c2a780f71cda05cee5a6f1b3f11f"]
@@ -641,9 +573,6 @@ fn rococo_staging_testnet_config_genesis(
 			//5DrA2fZdzmNqT5j6DXNwVxPBjDV9jhkAqvjt6Us3bQHKy3cF
 			hex!["4ee66173993dd0db5d628c4c9cb61a27b76611ad3c3925947f0d0011ee2c5dcc"]
 				.unchecked_into(),
-			//5FNFDUGNLUtqg5LgrwYLNmBiGoP8KRxsvQpBkc7GQP6qaBUG
-			hex!["92156f54a114ee191415898f2da013d9db6a5362d6b36330d5fc23e27360ab66"]
-				.unchecked_into(),
 			//5Gx6YeNhynqn8qkda9QKpc9S7oDr4sBrfAu516d3sPpEt26F
 			hex!["d822d4088b20dca29a580a577a97d6f024bb24c9550bebdfd7d2d18e946a1c7d"]
 				.unchecked_into(),
@@ -662,19 +591,16 @@ fn rococo_staging_testnet_config_genesis(
 	const ENDOWMENT: u128 = 1_000_000 * ROC;
 	const STASH: u128 = 100 * ROC;
 
-	rococo_runtime::RuntimeGenesisConfig {
-		system: rococo_runtime::SystemConfig { code: wasm_binary.to_vec(), ..Default::default() },
-		balances: rococo_runtime::BalancesConfig {
-			balances: endowed_accounts
+	serde_json::json!({
+		"balances": {
+			"balances": endowed_accounts
 				.iter()
 				.map(|k: &AccountId| (k.clone(), ENDOWMENT))
 				.chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
-				.collect(),
+				.collect::<Vec<_>>(),
 		},
-		beefy: Default::default(),
-		indices: rococo_runtime::IndicesConfig { indices: vec![] },
-		session: rococo_runtime::SessionConfig {
-			keys: initial_authorities
+		"session": {
+			"keys": initial_authorities
 				.iter()
 				.map(|x| {
 					(
@@ -687,86 +613,60 @@ fn rococo_staging_testnet_config_genesis(
 							x.5.clone(),
 							x.6.clone(),
 							x.7.clone(),
-							x.8.clone(),
 						),
 					)
 				})
 				.collect::<Vec<_>>(),
 		},
-		babe: rococo_runtime::BabeConfig {
-			authorities: Default::default(),
-			epoch_config: Some(rococo_runtime::BABE_GENESIS_EPOCH_CONFIG),
-			..Default::default()
+		"babe": {
+			"epochConfig": Some(rococo_runtime::BABE_GENESIS_EPOCH_CONFIG),
 		},
-		grandpa: Default::default(),
-		im_online: Default::default(),
-		treasury: Default::default(),
-		authority_discovery: rococo_runtime::AuthorityDiscoveryConfig {
-			keys: vec![],
-			..Default::default()
+		"sudo": { "key": Some(endowed_accounts[0].clone()) },
+		"configuration": {
+			"config": default_parachains_host_configuration(),
 		},
-		claims: rococo::ClaimsConfig { claims: vec![], vesting: vec![] },
-		vesting: rococo::VestingConfig { vesting: vec![] },
-		sudo: rococo_runtime::SudoConfig { key: Some(endowed_accounts[0].clone()) },
-		paras: rococo_runtime::ParasConfig { paras: vec![], ..Default::default() },
-		hrmp: Default::default(),
-		configuration: rococo_runtime::ConfigurationConfig {
-			config: default_parachains_host_configuration(),
+		"registrar": {
+			"nextFreeParaId": polkadot_primitives::LOWEST_PUBLIC_ID,
 		},
-		registrar: rococo_runtime::RegistrarConfig {
-			next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID,
-			..Default::default()
-		},
-		xcm_pallet: Default::default(),
-		nis_counterpart_balances: Default::default(),
-		assigned_slots: Default::default(),
-	}
+	})
 }
 
 /// Westend staging testnet config.
 #[cfg(feature = "westend-native")]
 pub fn westend_staging_testnet_config() -> Result<WestendChainSpec, String> {
-	let wasm_binary = westend::WASM_BINARY.ok_or("Westend development wasm not available")?;
-	let boot_nodes = vec![];
-
-	Ok(WestendChainSpec::from_genesis(
-		"Westend Staging Testnet",
-		"westend_staging_testnet",
-		ChainType::Live,
-		move || westend_staging_testnet_config_genesis(wasm_binary),
-		boot_nodes,
-		Some(
-			TelemetryEndpoints::new(vec![(WESTEND_STAGING_TELEMETRY_URL.to_string(), 0)])
-				.expect("Westend Staging telemetry url is valid; qed"),
-		),
-		Some(DEFAULT_PROTOCOL_ID),
-		None,
-		None,
+	Ok(WestendChainSpec::builder(
+		westend::WASM_BINARY.ok_or("Westend development wasm not available")?,
 		Default::default(),
-	))
+	)
+	.with_name("Westend Staging Testnet")
+	.with_id("westend_staging_testnet")
+	.with_chain_type(ChainType::Live)
+	.with_genesis_config_patch(westend_staging_testnet_config_genesis())
+	.with_telemetry_endpoints(
+		TelemetryEndpoints::new(vec![(WESTEND_STAGING_TELEMETRY_URL.to_string(), 0)])
+			.expect("Westend Staging telemetry url is valid; qed"),
+	)
+	.with_protocol_id(DEFAULT_PROTOCOL_ID)
+	.build())
 }
 
 /// Rococo staging testnet config.
 #[cfg(feature = "rococo-native")]
 pub fn rococo_staging_testnet_config() -> Result<RococoChainSpec, String> {
-	let wasm_binary = rococo::WASM_BINARY.ok_or("Rococo development wasm not available")?;
-	let boot_nodes = vec![];
-
-	Ok(RococoChainSpec::from_genesis(
-		"Rococo Staging Testnet",
-		"rococo_staging_testnet",
-		ChainType::Live,
-		move || rococo_staging_testnet_config_genesis(wasm_binary),
-		boot_nodes,
-		Some(
-			TelemetryEndpoints::new(vec![(ROCOCO_STAGING_TELEMETRY_URL.to_string(), 0)])
-				.expect("Rococo Staging telemetry url is valid; qed"),
-		),
-		Some(DEFAULT_PROTOCOL_ID),
-		None,
-		None,
+	Ok(RococoChainSpec::builder(
+		rococo::WASM_BINARY.ok_or("Rococo development wasm not available")?,
 		Default::default(),
-	))
+	)
+	.with_name("Rococo Staging Testnet")
+	.with_id("rococo_staging_testnet")
+	.with_chain_type(ChainType::Live)
+	.with_genesis_config_patch(rococo_staging_testnet_config_genesis())
+	.with_telemetry_endpoints(
+		TelemetryEndpoints::new(vec![(ROCOCO_STAGING_TELEMETRY_URL.to_string(), 0)])
+			.expect("Rococo Staging telemetry url is valid; qed"),
+	)
+	.with_protocol_id(DEFAULT_PROTOCOL_ID)
+	.build())
 }
 
 pub fn versi_chain_spec_properties() -> serde_json::map::Map<String, serde_json::Value> {
@@ -783,24 +683,21 @@ pub fn versi_chain_spec_properties() -> serde_json::map::Map<String, serde_json:
 /// Versi staging testnet config.
 #[cfg(feature = "rococo-native")]
 pub fn versi_staging_testnet_config() -> Result<RococoChainSpec, String> {
-	let wasm_binary = rococo::WASM_BINARY.ok_or("Versi development wasm not available")?;
-	let boot_nodes = vec![];
-
-	Ok(RococoChainSpec::from_genesis(
-		"Versi Staging Testnet",
-		"versi_staging_testnet",
-		ChainType::Live,
-		move || rococo_staging_testnet_config_genesis(wasm_binary),
-		boot_nodes,
-		Some(
-			TelemetryEndpoints::new(vec![(VERSI_STAGING_TELEMETRY_URL.to_string(), 0)])
-				.expect("Versi Staging telemetry url is valid; qed"),
-		),
-		Some("versi"),
-		None,
-		Some(versi_chain_spec_properties()),
+	Ok(RococoChainSpec::builder(
+		rococo::WASM_BINARY.ok_or("Versi development wasm not available")?,
 		Default::default(),
-	))
+	)
+	.with_name("Versi Staging Testnet")
+	.with_id("versi_staging_testnet")
+	.with_chain_type(ChainType::Live)
+	.with_genesis_config_patch(rococo_staging_testnet_config_genesis())
+	.with_telemetry_endpoints(
+		TelemetryEndpoints::new(vec![(VERSI_STAGING_TELEMETRY_URL.to_string(), 0)])
+			.expect("Versi Staging telemetry url is valid; qed"),
+	)
+	.with_protocol_id("versi")
+	.with_properties(versi_chain_spec_properties())
+	.build())
 }
 
 /// Helper function to generate a crypto pair from seed
@@ -826,35 +723,24 @@ pub fn get_authority_keys_from_seed(
 	AccountId,
 	BabeId,
 	GrandpaId,
-	ImOnlineId,
 	ValidatorId,
 	AssignmentId,
 	AuthorityDiscoveryId,
 	BeefyId,
 ) {
 	let keys = get_authority_keys_from_seed_no_beefy(seed);
-	(keys.0, keys.1, keys.2, keys.3, keys.4, keys.5, keys.6, keys.7, get_from_seed::<BeefyId>(seed))
+	(keys.0, keys.1, keys.2, keys.3, keys.4, keys.5, keys.6, get_from_seed::<BeefyId>(seed))
 }
 
 /// Helper function to generate stash, controller and session key from seed
 pub fn get_authority_keys_from_seed_no_beefy(
 	seed: &str,
-) -> (
-	AccountId,
-	AccountId,
-	BabeId,
-	GrandpaId,
-	ImOnlineId,
-	ValidatorId,
-	AssignmentId,
-	AuthorityDiscoveryId,
-) {
+) -> (AccountId, AccountId, BabeId, GrandpaId, ValidatorId, AssignmentId, AuthorityDiscoveryId) {
 	(
 		get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
 		get_account_id_from_seed::<sr25519::Public>(seed),
 		get_from_seed::<BabeId>(seed),
 		get_from_seed::<GrandpaId>(seed),
-		get_from_seed::<ImOnlineId>(seed),
 		get_from_seed::<ValidatorId>(seed),
 		get_from_seed::<AssignmentId>(seed),
 		get_from_seed::<AuthorityDiscoveryId>(seed),
@@ -879,16 +765,14 @@ fn testnet_accounts() -> Vec<AccountId> {
 	]
 }
 
-/// Helper function to create westend `RuntimeGenesisConfig` for testing
+/// Helper function to create westend runtime `GenesisConfig` patch for testing
 #[cfg(feature = "westend-native")]
 pub fn westend_testnet_genesis(
-	wasm_binary: &[u8],
 	initial_authorities: Vec<(
 		AccountId,
 		AccountId,
 		BabeId,
 		GrandpaId,
-		ImOnlineId,
 		ValidatorId,
 		AssignmentId,
 		AuthorityDiscoveryId,
@@ -896,21 +780,18 @@ pub fn westend_testnet_genesis(
 	)>,
 	root_key: AccountId,
 	endowed_accounts: Option<Vec<AccountId>>,
-) -> westend::RuntimeGenesisConfig {
+) -> serde_json::Value {
 	let endowed_accounts: Vec<AccountId> = endowed_accounts.unwrap_or_else(testnet_accounts);
 
 	const ENDOWMENT: u128 = 1_000_000 * WND;
 	const STASH: u128 = 100 * WND;
 
-	westend::RuntimeGenesisConfig {
-		system: westend::SystemConfig { code: wasm_binary.to_vec(), ..Default::default() },
-		indices: westend::IndicesConfig { indices: vec![] },
-		balances: westend::BalancesConfig {
-			balances: endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect(),
+	serde_json::json!({
+		"balances": {
+			"balances": endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect::<Vec<_>>(),
 		},
-		beefy: Default::default(),
-		session: westend::SessionConfig {
-			keys: initial_authorities
+		"session": {
+			"keys": initial_authorities
 				.iter()
 				.map(|x| {
 					(
@@ -923,63 +804,43 @@ pub fn westend_testnet_genesis(
 							x.5.clone(),
 							x.6.clone(),
 							x.7.clone(),
-							x.8.clone(),
 						),
 					)
 				})
 				.collect::<Vec<_>>(),
 		},
-		staking: westend::StakingConfig {
-			minimum_validator_count: 1,
-			validator_count: initial_authorities.len() as u32,
-			stakers: initial_authorities
+		"staking": {
+			"minimumValidatorCount": 1,
+			"validatorCount": initial_authorities.len() as u32,
+			"stakers": initial_authorities
 				.iter()
-				.map(|x| (x.0.clone(), x.0.clone(), STASH, westend::StakerStatus::Validator))
-				.collect(),
-			invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
-			force_era: Forcing::NotForcing,
-			slash_reward_fraction: Perbill::from_percent(10),
-			..Default::default()
+				.map(|x| (x.0.clone(), x.0.clone(), STASH, westend::StakerStatus::<AccountId>::Validator))
+				.collect::<Vec<_>>(),
+			"invulnerables": initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
+			"forceEra": Forcing::NotForcing,
+			"slashRewardFraction": Perbill::from_percent(10),
 		},
-		babe: westend::BabeConfig {
-			authorities: Default::default(),
-			epoch_config: Some(westend::BABE_GENESIS_EPOCH_CONFIG),
-			..Default::default()
+		"babe": {
+			"epochConfig": Some(westend::BABE_GENESIS_EPOCH_CONFIG),
 		},
-		grandpa: Default::default(),
-		im_online: Default::default(),
-		authority_discovery: westend::AuthorityDiscoveryConfig {
-			keys: vec![],
-			..Default::default()
+		"sudo": { "key": Some(root_key) },
+		"configuration": {
+			"config": default_parachains_host_configuration(),
 		},
-		vesting: westend::VestingConfig { vesting: vec![] },
-		sudo: westend::SudoConfig { key: Some(root_key) },
-		hrmp: Default::default(),
-		treasury: Default::default(),
-		configuration: westend::ConfigurationConfig {
-			config: default_parachains_host_configuration(),
+		"registrar": {
+			"nextFreeParaId": polkadot_primitives::LOWEST_PUBLIC_ID,
 		},
-		paras: Default::default(),
-		registrar: westend_runtime::RegistrarConfig {
-			next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID,
-			..Default::default()
-		},
-		xcm_pallet: Default::default(),
-		nomination_pools: Default::default(),
-		assigned_slots: Default::default(),
-	}
+	})
 }
 
-/// Helper function to create rococo `RuntimeGenesisConfig` for testing
+/// Helper function to create rococo runtime `GenesisConfig` patch for testing
 #[cfg(feature = "rococo-native")]
 pub fn rococo_testnet_genesis(
-	wasm_binary: &[u8],
 	initial_authorities: Vec<(
 		AccountId,
 		AccountId,
 		BabeId,
 		GrandpaId,
-		ImOnlineId,
 		ValidatorId,
 		AssignmentId,
 		AuthorityDiscoveryId,
@@ -987,20 +848,17 @@ pub fn rococo_testnet_genesis(
 	)>,
 	root_key: AccountId,
 	endowed_accounts: Option<Vec<AccountId>>,
-) -> rococo_runtime::RuntimeGenesisConfig {
+) -> serde_json::Value {
 	let endowed_accounts: Vec<AccountId> = endowed_accounts.unwrap_or_else(testnet_accounts);
 
 	const ENDOWMENT: u128 = 1_000_000 * ROC;
 
-	rococo_runtime::RuntimeGenesisConfig {
-		system: rococo_runtime::SystemConfig { code: wasm_binary.to_vec(), ..Default::default() },
-		beefy: Default::default(),
-		indices: rococo_runtime::IndicesConfig { indices: vec![] },
-		balances: rococo_runtime::BalancesConfig {
-			balances: endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect(),
+	serde_json::json!({
+		"balances": {
+			"balances": endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect::<Vec<_>>(),
 		},
-		session: rococo_runtime::SessionConfig {
-			keys: initial_authorities
+		"session": {
+			"keys": initial_authorities
 				.iter()
 				.map(|x| {
 					(
@@ -1013,49 +871,30 @@ pub fn rococo_testnet_genesis(
 							x.5.clone(),
 							x.6.clone(),
 							x.7.clone(),
-							x.8.clone(),
 						),
 					)
 				})
 				.collect::<Vec<_>>(),
 		},
-		babe: rococo_runtime::BabeConfig {
-			authorities: Default::default(),
-			epoch_config: Some(rococo_runtime::BABE_GENESIS_EPOCH_CONFIG),
-			..Default::default()
+		"babe": {
+			"epochConfig": Some(rococo_runtime::BABE_GENESIS_EPOCH_CONFIG),
 		},
-		grandpa: Default::default(),
-		im_online: Default::default(),
-		treasury: Default::default(),
-		claims: rococo::ClaimsConfig { claims: vec![], vesting: vec![] },
-		vesting: rococo::VestingConfig { vesting: vec![] },
-		authority_discovery: rococo_runtime::AuthorityDiscoveryConfig {
-			keys: vec![],
-			..Default::default()
-		},
-		sudo: rococo_runtime::SudoConfig { key: Some(root_key.clone()) },
-		hrmp: Default::default(),
-		configuration: rococo_runtime::ConfigurationConfig {
-			config: polkadot_runtime_parachains::configuration::HostConfiguration {
+		"sudo": { "key": Some(root_key.clone()) },
+		"configuration": {
+			"config": polkadot_runtime_parachains::configuration::HostConfiguration {
 				max_validators_per_core: Some(1),
 				..default_parachains_host_configuration()
 			},
 		},
-		paras: rococo_runtime::ParasConfig { paras: vec![], ..Default::default() },
-		registrar: rococo_runtime::RegistrarConfig {
-			next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID,
-			..Default::default()
-		},
-		xcm_pallet: Default::default(),
-		nis_counterpart_balances: Default::default(),
-		assigned_slots: Default::default(),
-	}
+		"registrar": {
+			"nextFreeParaId": polkadot_primitives::LOWEST_PUBLIC_ID,
+		}
+	})
 }
 
 #[cfg(feature = "westend-native")]
-fn westend_development_config_genesis(wasm_binary: &[u8]) -> westend::RuntimeGenesisConfig {
+fn westend_development_config_genesis() -> serde_json::Value {
 	westend_testnet_genesis(
-		wasm_binary,
 		vec![get_authority_keys_from_seed("Alice")],
 		get_account_id_from_seed::<sr25519::Public>("Alice"),
 		None,
@@ -1063,9 +902,8 @@ fn westend_development_config_genesis(wasm_binary: &[u8]) -> westend::RuntimeGen
 }
 
 #[cfg(feature = "rococo-native")]
-fn rococo_development_config_genesis(wasm_binary: &[u8]) -> rococo_runtime::RuntimeGenesisConfig {
+fn rococo_development_config_genesis() -> serde_json::Value {
 	rococo_testnet_genesis(
-		wasm_binary,
 		vec![get_authority_keys_from_seed("Alice")],
 		get_account_id_from_seed::<sr25519::Public>("Alice"),
 		None,
@@ -1075,84 +913,67 @@ fn rococo_development_config_genesis(wasm_binary: &[u8]) -> rococo_runtime::Runt
 /// Westend development config (single validator Alice)
 #[cfg(feature = "westend-native")]
 pub fn westend_development_config() -> Result<WestendChainSpec, String> {
-	let wasm_binary = westend::WASM_BINARY.ok_or("Westend development wasm not available")?;
-
-	Ok(WestendChainSpec::from_genesis(
-		"Development",
-		"westend_dev",
-		ChainType::Development,
-		move || westend_development_config_genesis(wasm_binary),
-		vec![],
-		None,
-		Some(DEFAULT_PROTOCOL_ID),
-		None,
-		None,
+	Ok(WestendChainSpec::builder(
+		westend::WASM_BINARY.ok_or("Westend development wasm not available")?,
 		Default::default(),
-	))
+	)
+	.with_name("Development")
+	.with_id("westend_dev")
+	.with_chain_type(ChainType::Development)
+	.with_genesis_config_patch(westend_development_config_genesis())
+	.with_protocol_id(DEFAULT_PROTOCOL_ID)
+	.build())
 }
 
 /// Rococo development config (single validator Alice)
 #[cfg(feature = "rococo-native")]
 pub fn rococo_development_config() -> Result<RococoChainSpec, String> {
-	let wasm_binary = rococo::WASM_BINARY.ok_or("Rococo development wasm not available")?;
-
-	Ok(RococoChainSpec::from_genesis(
-		"Development",
-		"rococo_dev",
-		ChainType::Development,
-		move || rococo_development_config_genesis(wasm_binary),
-		vec![],
-		None,
-		Some(DEFAULT_PROTOCOL_ID),
-		None,
-		None,
+	Ok(RococoChainSpec::builder(
+		rococo::WASM_BINARY.ok_or("Rococo development wasm not available")?,
 		Default::default(),
-	))
+	)
+	.with_name("Development")
+	.with_id("rococo_dev")
+	.with_chain_type(ChainType::Development)
+	.with_genesis_config_patch(rococo_development_config_genesis())
+	.with_protocol_id(DEFAULT_PROTOCOL_ID)
+	.build())
 }
 
 /// `Versi` development config (single validator Alice)
 #[cfg(feature = "rococo-native")]
 pub fn versi_development_config() -> Result<RococoChainSpec, String> {
-	let wasm_binary = rococo::WASM_BINARY.ok_or("Versi development wasm not available")?;
-
-	Ok(RococoChainSpec::from_genesis(
-		"Development",
-		"versi_dev",
-		ChainType::Development,
-		move || rococo_development_config_genesis(wasm_binary),
-		vec![],
-		None,
-		Some("versi"),
-		None,
-		None,
+	Ok(RococoChainSpec::builder(
+		rococo::WASM_BINARY.ok_or("Versi development wasm not available")?,
 		Default::default(),
-	))
+	)
+	.with_name("Development")
+	.with_id("versi_dev")
+	.with_chain_type(ChainType::Development)
+	.with_genesis_config_patch(rococo_development_config_genesis())
+	.with_protocol_id("versi")
+	.build())
 }
 
 /// Wococo development config (single validator Alice)
 #[cfg(feature = "rococo-native")]
 pub fn wococo_development_config() -> Result<RococoChainSpec, String> {
 	const WOCOCO_DEV_PROTOCOL_ID: &str = "woco";
-	let wasm_binary = rococo::WASM_BINARY.ok_or("Wococo development wasm not available")?;
-
-	Ok(RococoChainSpec::from_genesis(
-		"Development",
-		"wococo_dev",
-		ChainType::Development,
-		move || rococo_development_config_genesis(wasm_binary),
-		vec![],
-		None,
-		Some(WOCOCO_DEV_PROTOCOL_ID),
-		None,
-		None,
+	Ok(RococoChainSpec::builder(
+		rococo::WASM_BINARY.ok_or("Wococo development wasm not available")?,
 		Default::default(),
-	))
+	)
+	.with_name("Development")
+	.with_id("wococo_dev")
+	.with_chain_type(ChainType::Development)
+	.with_genesis_config_patch(rococo_development_config_genesis())
+	.with_protocol_id(WOCOCO_DEV_PROTOCOL_ID)
+	.build())
 }
 
 #[cfg(feature = "westend-native")]
-fn westend_local_testnet_genesis(wasm_binary: &[u8]) -> westend::RuntimeGenesisConfig {
+fn westend_local_testnet_genesis() -> serde_json::Value {
 	westend_testnet_genesis(
-		wasm_binary,
 		vec![get_authority_keys_from_seed("Alice"), get_authority_keys_from_seed("Bob")],
 		get_account_id_from_seed::<sr25519::Public>("Alice"),
 		None,
@@ -1162,26 +983,21 @@ fn westend_local_testnet_genesis(wasm_binary: &[u8]) -> westend::RuntimeGenesisC
 /// Westend local testnet config (multivalidator Alice + Bob)
 #[cfg(feature = "westend-native")]
 pub fn westend_local_testnet_config() -> Result<WestendChainSpec, String> {
-	let wasm_binary = westend::WASM_BINARY.ok_or("Westend development wasm not available")?;
-
-	Ok(WestendChainSpec::from_genesis(
-		"Westend Local Testnet",
-		"westend_local_testnet",
-		ChainType::Local,
-		move || westend_local_testnet_genesis(wasm_binary),
-		vec![],
-		None,
-		Some(DEFAULT_PROTOCOL_ID),
-		None,
-		None,
+	Ok(WestendChainSpec::builder(
+		westend::WASM_BINARY.ok_or("Westend development wasm not available")?,
 		Default::default(),
-	))
+	)
+	.with_name("Westend Local Testnet")
+	.with_id("westend_local_testnet")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(westend_local_testnet_genesis())
+	.with_protocol_id(DEFAULT_PROTOCOL_ID)
+	.build())
 }
 
 #[cfg(feature = "rococo-native")]
-fn rococo_local_testnet_genesis(wasm_binary: &[u8]) -> rococo_runtime::RuntimeGenesisConfig {
+fn rococo_local_testnet_genesis() -> serde_json::Value {
 	rococo_testnet_genesis(
-		wasm_binary,
 		vec![get_authority_keys_from_seed("Alice"), get_authority_keys_from_seed("Bob")],
 		get_account_id_from_seed::<sr25519::Public>("Alice"),
 		None,
@@ -1191,27 +1007,22 @@ fn rococo_local_testnet_genesis(wasm_binary: &[u8]) -> rococo_runtime::RuntimeGe
 /// Rococo local testnet config (multivalidator Alice + Bob)
 #[cfg(feature = "rococo-native")]
 pub fn rococo_local_testnet_config() -> Result<RococoChainSpec, String> {
-	let wasm_binary = rococo::WASM_BINARY.ok_or("Rococo development wasm not available")?;
-
-	Ok(RococoChainSpec::from_genesis(
-		"Rococo Local Testnet",
-		"rococo_local_testnet",
-		ChainType::Local,
-		move || rococo_local_testnet_genesis(wasm_binary),
-		vec![],
-		None,
-		Some(DEFAULT_PROTOCOL_ID),
-		None,
-		None,
+	Ok(RococoChainSpec::builder(
+		rococo::fast_runtime_binary::WASM_BINARY.ok_or("Rococo development wasm not available")?,
 		Default::default(),
-	))
+	)
+	.with_name("Rococo Local Testnet")
+	.with_id("rococo_local_testnet")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(rococo_local_testnet_genesis())
+	.with_protocol_id(DEFAULT_PROTOCOL_ID)
+	.build())
 }
 
 /// Wococo is a temporary testnet that uses almost the same runtime as rococo.
 #[cfg(feature = "rococo-native")]
-fn wococo_local_testnet_genesis(wasm_binary: &[u8]) -> rococo_runtime::RuntimeGenesisConfig {
+fn wococo_local_testnet_genesis() -> serde_json::Value {
 	rococo_testnet_genesis(
-		wasm_binary,
 		vec![
 			get_authority_keys_from_seed("Alice"),
 			get_authority_keys_from_seed("Bob"),
@@ -1226,27 +1037,22 @@ fn wococo_local_testnet_genesis(wasm_binary: &[u8]) -> rococo_runtime::RuntimeGe
 /// Wococo local testnet config (multivalidator Alice + Bob + Charlie + Dave)
 #[cfg(feature = "rococo-native")]
 pub fn wococo_local_testnet_config() -> Result<RococoChainSpec, String> {
-	let wasm_binary = rococo::WASM_BINARY.ok_or("Wococo development wasm not available")?;
-
-	Ok(RococoChainSpec::from_genesis(
-		"Wococo Local Testnet",
-		"wococo_local_testnet",
-		ChainType::Local,
-		move || wococo_local_testnet_genesis(wasm_binary),
-		vec![],
-		None,
-		Some(DEFAULT_PROTOCOL_ID),
-		None,
-		None,
+	Ok(RococoChainSpec::builder(
+		rococo::WASM_BINARY.ok_or("Rococo development wasm (used for wococo) not available")?,
 		Default::default(),
-	))
+	)
+	.with_name("Wococo Local Testnet")
+	.with_id("wococo_local_testnet")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(wococo_local_testnet_genesis())
+	.with_protocol_id(DEFAULT_PROTOCOL_ID)
+	.build())
 }
 
 /// `Versi` is a temporary testnet that uses the same runtime as rococo.
 #[cfg(feature = "rococo-native")]
-fn versi_local_testnet_genesis(wasm_binary: &[u8]) -> rococo_runtime::RuntimeGenesisConfig {
+fn versi_local_testnet_genesis() -> serde_json::Value {
 	rococo_testnet_genesis(
-		wasm_binary,
 		vec![
 			get_authority_keys_from_seed("Alice"),
 			get_authority_keys_from_seed("Bob"),
@@ -1261,18 +1067,14 @@ fn versi_local_testnet_genesis(wasm_binary: &[u8]) -> rococo_runtime::RuntimeGen
 /// `Versi` local testnet config (multivalidator Alice + Bob + Charlie + Dave)
 #[cfg(feature = "rococo-native")]
 pub fn versi_local_testnet_config() -> Result<RococoChainSpec, String> {
-	let wasm_binary = rococo::WASM_BINARY.ok_or("Versi development wasm not available")?;
-
-	Ok(RococoChainSpec::from_genesis(
-		"Versi Local Testnet",
-		"versi_local_testnet",
-		ChainType::Local,
-		move || versi_local_testnet_genesis(wasm_binary),
-		vec![],
-		None,
-		Some("versi"),
-		None,
-		None,
+	Ok(RococoChainSpec::builder(
+		rococo::WASM_BINARY.ok_or("Rococo development wasm (used for versi) not available")?,
 		Default::default(),
-	))
+	)
+	.with_name("Versi Local Testnet")
+	.with_id("versi_local_testnet")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(versi_local_testnet_genesis())
+	.with_protocol_id("versi")
+	.build())
 }
