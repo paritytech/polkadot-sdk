@@ -26,8 +26,8 @@ pub enum CustomDigestItem {
 }
 
 /// Convert custom application digest item into a concrete digest item
-impl Into<DigestItem> for CustomDigestItem {
-	fn into(self) -> DigestItem {
-		DigestItem::Other(self.encode())
+impl From<CustomDigestItem> for DigestItem {
+	fn from(val: CustomDigestItem) -> Self {
+		DigestItem::Other(val.encode())
 	}
 }
