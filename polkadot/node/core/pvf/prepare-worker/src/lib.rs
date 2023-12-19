@@ -240,32 +240,37 @@ pub fn worker_entrypoint(
 					if #[cfg(target_os = "linux")] {
 						let stack_size = 2 * 1024 * 1024; // 2MiB
 						let mut stack: Vec<u8> = vec![0u8; stack_size];
-						let flags = CloneFlags::CLONE_NEWCGROUP
-						| CloneFlags::CLONE_NEWIPC
-						| CloneFlags::CLONE_NEWNET
-						| CloneFlags::CLONE_NEWNS
-						| CloneFlags::CLONE_NEWPID
-						| CloneFlags::CLONE_NEWUSER
-						| CloneFlags::CLONE_NEWUTS
-
 						// SIGCHLD flag is used to inform clone that the parent process is
 						// expecting a child termination signal, without this flag `waitpid` function
-						 // return `ECHILD` error.
-						| CloneFlags::from_bits_retain(libc::SIGCHLD);
+						// return `ECHILD` error.
+						let flags = CloneFlags::CLONE_NEWCGROUP
+							| CloneFlags::CLONE_NEWIPC
+							| CloneFlags::CLONE_NEWNET
+							| CloneFlags::CLONE_NEWNS
+							| CloneFlags::CLONE_NEWPID
+							| CloneFlags::CLONE_NEWUSER
+							| CloneFlags::CLONE_NEWUTS
+							| CloneFlags::from_bits_retain(libc::SIGCHLD);
 
 						// SAFETY: new process is spawned within a single threaded process. This invariant
 						// is enforced by tests. Stack size being specified to ensure child doesn't overflow
-						let result = match unsafe { nix::sched::clone(
-							Box::new(|| {
-								handle_child_process(
-									pvf.clone(),
-									pipe_writer,
-									pipe_reader,
-									stream_fd,
-									preparation_timeout,
-									prepare_job_kind,
-									Arc::clone(&executor_params),
-								); }), stack.as_mut_slice(), flags, None)
+						let result = match unsafe {
+							nix::sched::clone(
+								Box::new(|| {
+									handle_child_process(
+										pvf.clone(),
+										pipe_writer,
+										pipe_reader,
+										stream_fd,
+										preparation_timeout,
+										prepare_job_kind,
+										Arc::clone(&executor_params),
+									)
+								}),
+								stack.as_mut_slice(),
+								flags,
+								None
+							)
 						} {
 							Err(errno) => Err(error_from_errno("clone", errno)),
 							Ok(child) => {
@@ -300,13 +305,13 @@ pub fn worker_entrypoint(
 							},
 							Ok(ForkResult::Parent { child }) => {
 								handle_parent_process(
-								pipe_reader,
-								pipe_writer,
-								worker_pid,
-								child,
-								temp_artifact_dest.clone(),
-								usage_before,
-								preparation_timeout,
+									pipe_reader,
+									pipe_writer,
+									worker_pid,
+									child,
+									temp_artifact_dest.clone(),
+									usage_before,
+									preparation_timeout,
 								)
 							},
 						};
