@@ -308,6 +308,10 @@ function increment_rc_tag() {
   echo $suffix
 }
 
+function relative_parent() {
+    echo "$1" | sed -E 's/(.*)\/(.*)\/\.\./\1/g'
+}
+
 # Find all the runtimes, it returns the result as JSON object, compatible to be
 # used as Github Workflow Matrix. This call is exposed by the `scan` command and can be used as:
 # podman run --rm -it -v /.../fellowship-runtimes:/build docker.io/chevdor/srtool:1.70.0-0.11.1 scan
