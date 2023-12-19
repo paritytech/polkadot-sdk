@@ -26,7 +26,7 @@ use std::{
 	any::Any,
 	fmt::{self},
 	fs::File,
-	io::{self, Write},
+	io::{self, Write, Read},
 	os::{
 		fd::{AsRawFd, FromRawFd},
 		unix::net::UnixStream,
@@ -219,6 +219,10 @@ impl PipeFd {
 
 	pub fn as_raw_fd(&self) -> i32 {
 		self.file.as_raw_fd()
+	}
+
+	pub fn read_to_end(&mut self, buf: &mut Vec<u8>) -> io::Result<usize> {
+		self.file.read_to_end(buf)
 	}
 }
 

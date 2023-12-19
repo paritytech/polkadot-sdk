@@ -31,7 +31,6 @@ use nix::{
 	},
 	unistd::{ForkResult, Pid},
 };
-use os_pipe::{self, PipeReader, PipeWriter};
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
@@ -40,14 +39,14 @@ use polkadot_node_core_pvf_common::{
 	worker::{
 		cpu_time_monitor_loop, run_worker, stringify_panic_payload,
 		thread::{self, WaitOutcome},
-		WorkerKind,
+		WorkerKind, pipe2_cloexec, PipeFd,
 	},
 };
 use polkadot_parachain_primitives::primitives::ValidationResult;
 use polkadot_primitives::{executor_params::DEFAULT_NATIVE_STACK_MAX, ExecutorParams};
 use std::{
 	io::{self, Read},
-	os::unix::net::UnixStream,
+	os::{unix::net::UnixStream, fd::AsRawFd},
 	path::PathBuf,
 	process,
 	sync::{mpsc::channel, Arc},
@@ -172,7 +171,7 @@ pub fn worker_entrypoint(
 					},
 				};
 
-				let (pipe_reader, pipe_writer) = os_pipe::pipe()?;
+				let (pipe_reader, pipe_writer) = pipe2_cloexec()?;
 
 				let usage_before = match nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
 					Ok(usage) => usage,
@@ -182,44 +181,103 @@ pub fn worker_entrypoint(
 						continue
 					},
 				};
+				let stream_fd = stream.as_raw_fd();
 
-				// SAFETY: new process is spawned within a single threaded process. This invariant
-				// is enforced by tests.
-				let response = match unsafe { nix::unistd::fork() } {
-					Err(errno) => internal_error_from_errno("fork", errno),
-					Ok(ForkResult::Child) => {
-						// Dropping the stream closes the underlying socket. We want to make sure
-						// that the sandboxed child can't get any kind of information from the
-						// outside world. The only IPC it should be able to do is sending its
-						// response over the pipe.
-						drop(stream);
-						// Drop the read end so we don't have too many FDs open.
-						drop(pipe_reader);
+				cfg_if::cfg_if! {
+					if #[cfg(target_os = "linux")] {
+						let stack_size = 2 * 1024 * 1024; // 2MiB
+						let mut stack: Vec<u8> = vec![0u8; stack_size];
+						// SIGCHLD flag is used to inform clone that the parent process is
+						// expecting a child termination signal, without this flag `waitpid` function
+						// return `ECHILD` error.
+						let flags = CloneFlags::CLONE_NEWCGROUP
+							| CloneFlags::CLONE_NEWIPC
+							| CloneFlags::CLONE_NEWNET
+							| CloneFlags::CLONE_NEWNS
+							| CloneFlags::CLONE_NEWPID
+							| CloneFlags::CLONE_NEWUSER
+							| CloneFlags::CLONE_NEWUTS
+							| CloneFlags::from_bits_retain(libc::SIGCHLD);
 
-						handle_child_process(
-							pipe_writer,
-							compiled_artifact_blob,
-							executor_params,
-							params,
-							execution_timeout,
-						)
-					},
-					Ok(ForkResult::Parent { child }) => {
-						// the read end will wait until all write ends have been closed,
-						// this drop is necessary to avoid deadlock
-						drop(pipe_writer);
+						// SAFETY: new process is spawned within a single threaded process. This invariant
+						// is enforced by tests. Stack size being specified to ensure child doesn't overflow
+						let result = match unsafe {
+							nix::sched::clone(
+								Box::new(|| {
+									handle_child_process(
+										pipe_writer,
+										pipe_reader,
+										stream_fd,
+										compiled_artifact_blob,
+										executor_params,
+										params,
+										execution_timeout,
+									)
+								}),
+								stack.as_mut_slice(),
+								flags,
+								None
+							)
+						} {
+							Err(errno) => Err(error_from_errno("clone", errno)),
+							Ok(child) => {
+								handle_parent_process(
+									pipe_reader,
+									pipe_writer,
+									child,
+									worker_pid,
+									usage_before,
+									execution_timeout,
+								)
+							},
+						};
 
-						handle_parent_process(
-							pipe_reader,
-							child,
-							worker_pid,
-							usage_before,
-							execution_timeout,
-						)?
-					},
-				};
 
-				send_response(&mut stream, response)?;
+						gum::trace!(
+							target: LOG_TARGET,
+							%worker_pid,
+							"worker: sending result to host: {:?}",
+							result
+						);
+						send_response(&mut stream, result)?;
+					} else {
+						// SAFETY: new process is spawned within a single threaded process. This invariant
+						// is enforced by tests.
+						let result = match unsafe { nix::unistd::fork() } {
+							Err(errno) => internal_error_from_errno("fork", errno),
+							Ok(ForkResult::Child) => {
+								handle_child_process(
+									pipe_writer,
+									pipe_reader,
+									stream_fd,
+									compiled_artifact_blob,
+									executor_params,
+									params,
+									execution_timeout,
+								)
+							},
+							Ok(ForkResult::Parent { child }) => {
+								handle_parent_process(
+									pipe_reader,
+									pipe_writer,
+									child,
+									worker_pid,
+									usage_before,
+									execution_timeout,
+								)?
+							},
+						};
+
+
+						gum::trace!(
+							target: LOG_TARGET,
+							%worker_pid,
+							"worker: sending result to host: {:?}",
+							result
+						);
+						send_response(&mut stream, result)?;
+					}
+				}
 			}
 		},
 	);
@@ -271,12 +329,35 @@ fn validate_using_artifact(
 ///
 /// - pipe back `JobResponse` to the parent process.
 fn handle_child_process(
-	mut pipe_write: PipeWriter,
+	pipe_write_fd: i32,
+	pipe_read_fd: i32,
+	stream_fd: i32,
 	compiled_artifact_blob: Vec<u8>,
 	executor_params: ExecutorParams,
 	params: Vec<u8>,
 	execution_timeout: Duration,
 ) -> ! {
+	let mut pipe_write = PipeFd::new(pipe_write_fd);
+
+	// Drop the read end so we don't have too many FDs open.
+	if let Err(errno) = nix::unistd::close(pipe_read_fd) {
+		send_child_response(
+			&mut pipe_write,
+			Err(JobError::Panic("closing pipe".to_string())),
+		);
+	}
+
+	// Dropping the stream closes the underlying socket. We want to make sure
+	// that the sandboxed child can't get any kind of information from the
+	// outside world. The only IPC it should be able to do is sending its
+	// response over the pipe.
+	if let Err(errno) = nix::unistd::close(stream_fd) {
+		send_child_response(
+			&mut pipe_write,
+			Err(JobError::Panic(format!("error closing stream {}", errno))),
+		);
+	}
+
 	gum::debug!(
 		target: LOG_TARGET,
 		worker_job_pid = %process::id(),
@@ -350,12 +431,21 @@ fn handle_child_process(
 ///
 /// - The response, either `Ok` or some error state.
 fn handle_parent_process(
-	mut pipe_read: PipeReader,
+	pipe_read_fd: i32,
+	pipe_write_fd: i32,
 	job_pid: Pid,
 	worker_pid: u32,
 	usage_before: Usage,
 	timeout: Duration,
 ) -> io::Result<WorkerResponse> {
+	// the read end will wait until all write ends have been closed,
+	// this drop is necessary to avoid deadlock
+	if let Err(errno) = nix::unistd::close(pipe_write_fd) {
+		return Ok(internal_error_from_errno("closing pipe write fd", errno));
+	};
+
+	let mut pipe_read = PipeFd::new(pipe_read_fd);
+
 	// Read from the child. Don't decode unless the process exited normally, which we check later.
 	let mut received_data = Vec::new();
 	pipe_read
@@ -481,14 +571,14 @@ fn recv_child_response(received_data: &mut io::BufReader<&[u8]>) -> io::Result<J
 	})
 }
 
-/// Write response to the pipe and exit process after.
+/// Write a job response to the pipe and exit process after.
 ///
 /// # Arguments
 ///
-/// - `pipe_write`: A `PipeWriter` structure, the writing end of a pipe.
+/// - `pipe_write`: A `PipeFd` structure, the writing end of a pipe.
 ///
-/// - `response`: Child process response, or error.
-fn send_child_response(pipe_write: &mut PipeWriter, response: JobResult) -> ! {
+/// - `response`: Child process response
+fn send_child_response(pipe_write: &mut PipeFd, response: JobResult) -> ! {
 	framed_send_blocking(pipe_write, response.encode().as_slice())
 		.unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
 

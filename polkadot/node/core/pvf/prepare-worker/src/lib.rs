@@ -315,17 +315,17 @@ pub fn worker_entrypoint(
 								)
 							},
 						};
-
-
-						gum::trace!(
-							target: LOG_TARGET,
-							%worker_pid,
-							"worker: sending result to host: {:?}",
-							result
-						);
-						send_response(&mut stream, result)?;
 					}
 				}
+
+
+				gum::trace!(
+					target: LOG_TARGET,
+					%worker_pid,
+					"worker: sending result to host: {:?}",
+					result
+				);
+				send_response(&mut stream, result)?;
 			}
 		},
 	);
@@ -606,7 +606,8 @@ fn handle_parent_process(
 	};
 
 	//SAFETY: pipe_read is an open and owned file descriptor at this point.
-	let mut pipe_read = unsafe { File::from_raw_fd(pipe_read_fd) };
+	let mut pipe_read = unsafe { PipeFd::new(pipe_read_fd) };
+
 	// Read from the child. Don't decode unless the process exited normally, which we check later.
 	let mut received_data = Vec::new();
 	pipe_read
@@ -739,7 +740,7 @@ fn recv_child_response(received_data: &mut io::BufReader<&[u8]>) -> io::Result<J
 ///
 /// # Arguments
 ///
-/// - `pipe_write`: A `PipeWriter` structure, the writing end of a pipe.
+/// - `pipe_write`: A `PipeFd` structure, the writing end of a pipe.
 ///
 /// - `response`: Child process response
 fn send_child_response(pipe_write: &mut PipeFd, response: JobResult) -> ! {
