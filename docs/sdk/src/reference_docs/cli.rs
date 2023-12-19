@@ -47,7 +47,7 @@
 //! - `--raw`: Converts the chain specification into a raw format with encoded storage keys.
 //! - `> customSpecRaw.json`: Outputs to customSpecRaw.json.
 //!
-//! #### Starting the First Node (Bootnode) in a Private Network
+//! #### Starting the First Node in a Private Network
 //! ```bash
 //! ./target/debug/node-template \
 //!   --base-path /tmp/node01 \
@@ -58,8 +58,7 @@
 //!   --telemetry-url "wss://telemetry.polkadot.io/submit/ 0" \
 //!   --validator \
 //!   --rpc-methods Unsafe \
-//!   --name MyNode01 \
-//!   --password-interactive
+//!   --name MyNode01
 //! ```
 //!
 //! - `--base-path`: Sets the directory for node data.
@@ -71,7 +70,6 @@
 //! - `--validator`: Indicates the node’s participation in block production.
 //! - `--rpc-methods Unsafe`: Allows potentially unsafe RPC methods.
 //! - `--name`: Sets a human-readable name for the node.
-//! - `--password-interactive`: Interactive password input for key operations.
 //!
 //! #### Adding a Second Node to the Network
 //! ```bash
@@ -93,7 +91,8 @@
 //! - `--rpc-port`: HTTP port for JSON-RPC.
 //! - `--telemetry-url`: Endpoint for sending telemetry data.
 //! - `--validator`: Indicates the node’s participation in block production.
-//! - `--bootnodes`: Specifies the address of the first node (bootnode) for peer discovery.
+//! - `--bootnodes`: Specifies the address of the first node for peer discovery. Nodes should find
+//!   each other using mDNS. This command needs to be used if they don't find each other.
 //!
 //! ---
 //!
