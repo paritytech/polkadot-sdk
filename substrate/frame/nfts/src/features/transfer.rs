@@ -124,10 +124,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	pub(crate) fn do_transfer_ownership(
 		origin: T::AccountId,
 		collection: T::CollectionId,
-		owner: T::AccountId,
+		new_owner: T::AccountId,
 	) -> DispatchResult {
 		// Check if the new owner is acceptable based on the collection's acceptance settings.
-		let acceptable_collection = OwnershipAcceptance::<T, I>::get(&owner);
+		let acceptable_collection = OwnershipAcceptance::<T, I>::get(&new_owner);
 		ensure!(acceptable_collection.as_ref() == Some(&collection), Error::<T, I>::Unaccepted);
 
 		// Try to retrieve and mutate the collection details.
@@ -135,27 +135,28 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			let details = maybe_details.as_mut().ok_or(Error::<T, I>::UnknownCollection)?;
 			// Check if the `origin` is the current owner of the collection.
 			ensure!(origin == details.owner, Error::<T, I>::NoPermission);
-			if details.owner == owner {
+			if details.owner == new_owner {
 				return Ok(())
 			}
 
 			// Move the deposit to the new owner.
 			T::Currency::repatriate_reserved(
 				&details.owner,
-				&owner,
+				&new_owner,
 				details.owner_deposit,
 				Reserved,
 			)?;
 
 			// Update account ownership information.
 			CollectionAccount::<T, I>::remove(&details.owner, &collection);
-			CollectionAccount::<T, I>::insert(&owner, &collection, ());
+			CollectionAccount::<T, I>::insert(&new_owner, &collection, ());
 
-			details.owner = owner.clone();
-			OwnershipAcceptance::<T, I>::remove(&owner);
+			details.owner = new_owner.clone();
+			OwnershipAcceptance::<T, I>::remove(&new_owner);
+			frame_system::Pallet::<T>::dec_consumers(&new_owner);
 
 			// Emit `OwnerChanged` event.
-			Self::deposit_event(Event::OwnerChanged { collection, new_owner: owner });
+			Self::deposit_event(Event::OwnerChanged { collection, new_owner });
 			Ok(())
 		})
 	}
