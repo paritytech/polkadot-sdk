@@ -174,7 +174,7 @@ use frame_support::{
 			Preservation::{Expendable, Preserve, Protect},
 			WithdrawConsequence,
 		},
-		Currency, Defensive, DefensiveSaturating, Get, OnUnbalanced, ReservableCurrency, StoredMap,
+		Currency, Defensive, Get, OnUnbalanced, ReservableCurrency, StoredMap,
 	},
 	BoundedSlice, WeakBoundedVec,
 };
@@ -754,6 +754,7 @@ pub mod pallet {
 		/// Returns `true` if the account did get upgraded, `false` if it didn't need upgrading.
 		pub fn ensure_upgraded(who: &T::AccountId) -> bool {
 			let mut a = T::AccountStore::get(who);
+			let ed = Self::ed();
 			if a.flags.is_new_logic() {
 				return false
 			}
@@ -768,17 +769,17 @@ pub mod pallet {
 						"account with a non-zero reserve balance has no provider refs, account_id: '{:?}'.",
 						who
 					);
-					a.free = a.free.max(Self::ed());
+					a.free = a.free.max(ed);
 					system::Pallet::<T>::inc_providers(who);
 				}
 				let _ = system::Pallet::<T>::inc_consumers_without_limit(who).defensive();
 			}
 
 			// Ensure the account holds at least ED of free balance.
-			if a.free < Self::ed() {
-				let shortfall = Self::ed() - a.free;
-				a.free = Self::ed();
-				a.reserved = a.reserved.defensive_saturating_sub(shortfall);
+			if a.free < ed && a.reserved >= ed {
+				let shortfall = ed - a.free;
+				a.free = ed;
+				a.reserved = a.reserved - shortfall;
 			}
 
 			let _ = T::AccountStore::try_mutate_exists(who, |account| -> DispatchResult {
