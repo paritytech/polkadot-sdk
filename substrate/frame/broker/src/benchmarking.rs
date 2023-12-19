@@ -509,7 +509,11 @@ mod benches {
 				who: recipient,
 				amount: 200u32.into(),
 				next: if m < new_config_record::<T>().region_length {
-					Some(RegionId { begin: region.begin.saturating_add(m), core, mask: CoreMask::complete() })
+					Some(RegionId {
+						begin: region.begin.saturating_add(m),
+						core,
+						mask: CoreMask::complete(),
+					})
 				} else {
 					None
 				},
