@@ -65,27 +65,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.find-runtimes.outputs.runtime) }}
-    # strategy:
-    #   matrix:
-    #     include:
-    #       - category: assets
-    #         runtime: asset-hub-westend
-    #       - category: bridge-hubs
-    #         runtime: bridge-hub-polkadot
-    #       - category: bridge-hubs
-    #         runtime: bridge-hub-kusama
-    #       - category: bridge-hubs
-    #         runtime: bridge-hub-rococo
-    #       - category: collectives
-    #         runtime: collectives-polkadot
-    #       - category: contracts
-    #         runtime: contracts-rococo
-    #       - category: starters
-    #         runtime: seedling
-    #       - category: starters
-    #         runtime: shell
-    #       - category: testing
-    #         runtime: rococo-parachain
+
     steps:
       - uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
