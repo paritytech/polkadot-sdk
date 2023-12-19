@@ -49,8 +49,7 @@
 //! - **Total Issuance:** The total number of units in existence in a system.
 //!
 //! - **Reaping an account:** The act of removing an account by resetting its nonce. Happens after
-//!   its
-//! total balance has become zero (or, strictly speaking, less than the Existential Deposit).
+//!   its total balance has become zero (or, strictly speaking, less than the Existential Deposit).
 //!
 //! - **Free Balance:** The portion of a balance that is not reserved. The free balance is the only
 //!   balance that matters for most operations.
@@ -59,24 +58,23 @@
 //!   Reserved balance can still be slashed, but only after all the free balance has been slashed.
 //!
 //! - **Imbalance:** A condition when some funds were credited or debited without equal and opposite
-//!   accounting
-//! (i.e. a difference between total issuance and account balances). Functions that result in an
-//! imbalance will return an object of the `Imbalance` trait that can be managed within your runtime
-//! logic. (If an imbalance is simply dropped, it should automatically maintain any book-keeping
-//! such as total issuance.)
+//!   accounting (i.e. a difference between total issuance and account balances). Functions that
+//! result in an imbalance will return an object of the `Imbalance` trait that can be managed within
+//! your runtime logic. (If an imbalance is simply dropped, it should automatically maintain any
+//! book-keeping such as total issuance.)
 //!
 //! - **Lock:** A freeze on a specified amount of an account's free balance until a specified block
-//!   number. Multiple
-//! locks always operate over the same funds, so they "overlay" rather than "stack".
+//!   number. Multiple locks always operate over the same funds, so they "overlay" rather than
+//! "stack".
 //!
 //! ### Implementations
 //!
 //! The Balances pallet provides implementations for the following traits. If these traits provide
 //! the functionality that you need, then you can avoid coupling with the Balances pallet.
 //!
-//! - [`Currency`](frame_support::traits::Currency): Functions for dealing with a
+//! - [`Currency`]: Functions for dealing with a
 //! fungible assets system.
-//! - [`ReservableCurrency`](frame_support::traits::ReservableCurrency):
+//! - [`ReservableCurrency`]
 //! - [`NamedReservableCurrency`](frame_support::traits::NamedReservableCurrency):
 //! Functions for dealing with assets that can be reserved from an account.
 //! - [`LockableCurrency`](frame_support::traits::LockableCurrency): Functions for
@@ -105,7 +103,7 @@
 //! ```
 //! use frame_support::traits::Currency;
 //! # pub trait Config: frame_system::Config {
-//! # 	type Currency: Currency<Self::AccountId>;
+//! #   type Currency: Currency<Self::AccountId>;
 //! # }
 //!
 //! pub type BalanceOf<T> = <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -120,26 +118,26 @@
 //! use frame_support::traits::{WithdrawReasons, LockableCurrency};
 //! use sp_runtime::traits::Bounded;
 //! pub trait Config: frame_system::Config {
-//! 	type Currency: LockableCurrency<Self::AccountId, Moment=frame_system::pallet_prelude::BlockNumberFor<Self>>;
+//!     type Currency: LockableCurrency<Self::AccountId, Moment=frame_system::pallet_prelude::BlockNumberFor<Self>>;
 //! }
 //! # struct StakingLedger<T: Config> {
-//! # 	stash: <T as frame_system::Config>::AccountId,
-//! # 	total: <<T as Config>::Currency as frame_support::traits::Currency<<T as frame_system::Config>::AccountId>>::Balance,
-//! # 	phantom: std::marker::PhantomData<T>,
+//! #   stash: <T as frame_system::Config>::AccountId,
+//! #   total: <<T as Config>::Currency as frame_support::traits::Currency<<T as frame_system::Config>::AccountId>>::Balance,
+//! #   phantom: std::marker::PhantomData<T>,
 //! # }
 //! # const STAKING_ID: [u8; 8] = *b"staking ";
 //!
 //! fn update_ledger<T: Config>(
-//! 	controller: &T::AccountId,
-//! 	ledger: &StakingLedger<T>
+//!     controller: &T::AccountId,
+//!     ledger: &StakingLedger<T>
 //! ) {
-//! 	T::Currency::set_lock(
-//! 		STAKING_ID,
-//! 		&ledger.stash,
-//! 		ledger.total,
-//! 		WithdrawReasons::all()
-//! 	);
-//! 	// <Ledger<T>>::insert(controller, ledger); // Commented out as we don't have access to Staking's storage here.
+//!     T::Currency::set_lock(
+//!         STAKING_ID,
+//!         &ledger.stash,
+//!         ledger.total,
+//!         WithdrawReasons::all()
+//!     );
+//!     // <Ledger<T>>::insert(controller, ledger); // Commented out as we don't have access to Staking's storage here.
 //! }
 //! # fn main() {}
 //! ```
@@ -935,8 +933,8 @@ pub mod pallet {
 				if did_provide && !does_provide {
 					// This could reap the account so must go last.
 					frame_system::Pallet::<T>::dec_providers(who).map_err(|r| {
+						// best-effort revert consumer change.
 						if did_consume && !does_consume {
-							// best-effort revert consumer change.
 							let _ = frame_system::Pallet::<T>::inc_consumers(who).defensive();
 						}
 						if !did_consume && does_consume {
@@ -1006,8 +1004,8 @@ pub mod pallet {
 			let freezes = Freezes::<T, I>::get(who);
 			let mut prev_frozen = Zero::zero();
 			let mut after_frozen = Zero::zero();
-			// TODO: Revisit this assumption. We no manipulate consumer/provider refs.
 			// No way this can fail since we do not alter the existential balances.
+			// TODO: Revisit this assumption.
 			let res = Self::mutate_account(who, |b| {
 				prev_frozen = b.frozen;
 				b.frozen = Zero::zero();
@@ -1024,26 +1022,9 @@ pub mod pallet {
 				debug_assert!(maybe_dust.is_none(), "Not altering main balance; qed");
 			}
 
-			let existed = Locks::<T, I>::contains_key(who);
-			if locks.is_empty() {
-				Locks::<T, I>::remove(who);
-				if existed {
-					// TODO: use Locks::<T, I>::hashed_key
-					// https://github.com/paritytech/substrate/issues/4969
-					system::Pallet::<T>::dec_consumers(who);
-				}
-			} else {
-				Locks::<T, I>::insert(who, bounded_locks);
-				if !existed && system::Pallet::<T>::inc_consumers_without_limit(who).is_err() {
-					// No providers for the locks. This is impossible under normal circumstances
-					// since the funds that are under the lock will themselves be stored in the
-					// account and therefore will need a reference.
-					log::warn!(
-						target: LOG_TARGET,
-						"Warning: Attempt to introduce lock consumer reference, yet no providers. \
-						This is unexpected but should be safe."
-					);
-				}
+			match locks.is_empty() {
+				true => Locks::<T, I>::remove(who),
+				false => Locks::<T, I>::insert(who, bounded_locks),
 			}
 
 			if prev_frozen > after_frozen {

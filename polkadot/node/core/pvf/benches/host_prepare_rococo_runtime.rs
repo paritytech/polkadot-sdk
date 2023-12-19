@@ -17,49 +17,49 @@
 //! Benchmarks for preparation through the host. We use a real PVF to get realistic results.
 
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion, SamplingMode};
-use parity_scale_codec::Encode;
 use polkadot_node_core_pvf::{
-	start, testing, Config, Metrics, PrepareError, PrepareJobKind, PrepareStats, PvfPrepData,
-	ValidationError, ValidationHost,
+	start, testing, Config, Metrics, PrepareError, PrepareJobKind, PvfPrepData, ValidationHost,
 };
-use polkadot_parachain_primitives::primitives::{BlockData, ValidationParams, ValidationResult};
 use polkadot_primitives::ExecutorParams;
 use rococo_runtime::WASM_BINARY;
 use std::time::Duration;
 use tokio::{runtime::Handle, sync::Mutex};
 
-const TEST_EXECUTION_TIMEOUT: Duration = Duration::from_secs(3);
 const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(30);
 
 struct TestHost {
+	// Keep a reference to the tempdir otherwise it gets deleted on drop.
+	#[allow(dead_code)]
+	cache_dir: tempfile::TempDir,
 	host: Mutex<ValidationHost>,
 }
 
 impl TestHost {
-	fn new_with_config<F>(handle: &Handle, f: F) -> Self
+	async fn new_with_config<F>(handle: &Handle, f: F) -> Self
 	where
 		F: FnOnce(&mut Config),
 	{
-		let (prepare_worker_path, execute_worker_path) = testing::get_and_check_worker_paths();
+		let (prepare_worker_path, execute_worker_path) = testing::build_workers_and_get_paths();
 
 		let cache_dir = tempfile::tempdir().unwrap();
 		let mut config = Config::new(
 			cache_dir.path().to_owned(),
 			None,
+			false,
 			prepare_worker_path,
 			execute_worker_path,
 		);
 		f(&mut config);
-		let (host, task) = start(config, Metrics::default());
+		let (host, task) = start(config, Metrics::default()).await.unwrap();
 		let _ = handle.spawn(task);
-		Self { host: Mutex::new(host) }
+		Self { host: Mutex::new(host), cache_dir }
 	}
 
 	async fn precheck_pvf(
 		&self,
 		code: &[u8],
 		executor_params: ExecutorParams,
-	) -> Result<PrepareStats, PrepareError> {
+	) -> Result<(), PrepareError> {
 		let (result_tx, result_rx) = futures::channel::oneshot::channel();
 
 		let code = sp_maybe_compressed_blob::decompress(code, 16 * 1024 * 1024)
@@ -107,15 +107,18 @@ fn host_prepare_rococo_runtime(c: &mut Criterion) {
 	group.measurement_time(Duration::from_secs(240));
 	group.bench_function("host: prepare Rococo runtime", |b| {
 		b.to_async(&rt).iter_batched(
-			|| {
+			|| async {
 				(
 					TestHost::new_with_config(rt.handle(), |cfg| {
 						cfg.prepare_workers_hard_max_num = 1;
-					}),
+					})
+					.await,
 					pvf.clone().code(),
 				)
 			},
-			|(host, pvf_code)| async move {
+			|result| async move {
+				let (host, pvf_code) = result.await;
+
 				// `PvfPrepData` is designed to be cheap to clone, so cloning shouldn't affect the
 				// benchmark accuracy.
 				let _stats = host.precheck_pvf(&pvf_code, Default::default()).await.unwrap();

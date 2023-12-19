@@ -2,13 +2,14 @@ name: Check licenses
 
 on:
   pull_request:
+  merge_group:
 
 permissions:
   packages: read
 
 jobs:
   check-licenses:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     env:
       LICENSES: "'Apache-2.0' 'GPL-3.0-only' 'GPL-3.0-or-later WITH Classpath-exception-2.0'"
       NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

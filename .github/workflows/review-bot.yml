@@ -6,12 +6,10 @@ on:
     types:
       - completed
 
-permissions:
-  contents: read
-
 jobs:
   review-approvals:
     runs-on: ubuntu-latest
+    environment: master
     steps:
       - name: Extract content of artifact
         id: number
@@ -19,15 +17,16 @@ jobs:
         with:
           artifact-name: pr_number
       - name: Generate token
-        id: team_token
+        id: app_token
         uses: tibdex/github-app-token@v1
         with:
           app_id: ${{ secrets.REVIEW_APP_ID }}
           private_key: ${{ secrets.REVIEW_APP_KEY }}
       - name: "Evaluates PR reviews and assigns reviewers"
-        uses: paritytech/review-bot@v2.1.0
+        uses: paritytech/review-bot@v2.3.0
         with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          team-token: ${{ steps.team_token.outputs.token }}
-          checks-token: ${{ steps.team_token.outputs.token }}
+          repo-token: ${{ steps.app_token.outputs.token }}
+          team-token: ${{ steps.app_token.outputs.token }}
+          checks-token: ${{ steps.app_token.outputs.token }}
           pr-number: ${{ steps.number.outputs.content }}
+          request-reviewers: true

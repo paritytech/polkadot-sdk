@@ -17,7 +17,7 @@
 
 use frame_election_provider_support::VoteWeight;
 use frame_support::{
-	assert_ok,
+	assert_ok, derive_impl,
 	pallet_prelude::*,
 	parameter_types,
 	traits::{ConstU64, ConstU8},
@@ -38,6 +38,7 @@ pub(crate) type T = Runtime;
 pub(crate) const POOL1_BONDED: AccountId = 20318131474730217858575332831085u128;
 pub(crate) const POOL1_REWARD: AccountId = 20397359637244482196168876781421u128;
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
@@ -124,7 +125,7 @@ impl pallet_staking::Config for Runtime {
 	type SessionInterface = ();
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type NextNewSession = ();
-	type MaxNominatorRewardedPerValidator = ConstU32<64>;
+	type MaxExposurePageSize = ConstU32<64>;
 	type OffendingValidatorsThreshold = ();
 	type ElectionProvider =
 		frame_election_provider_support::NoElection<(AccountId, BlockNumber, Staking, ())>;
@@ -133,6 +134,7 @@ impl pallet_staking::Config for Runtime {
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<16>;
 	type MaxUnlockingChunks = ConstU32<32>;
+	type MaxControllersInDeprecationBatch = ConstU32<100>;
 	type HistoryDepth = ConstU32<84>;
 	type EventListeners = Pools;
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;

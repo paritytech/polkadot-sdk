@@ -54,7 +54,7 @@ fn create_default_asset<T: Config<I>, I: 'static>(
 	(asset_id, caller, caller_lookup)
 }
 
-fn create_default_minted_asset<T: Config<I>, I: 'static>(
+pub fn create_default_minted_asset<T: Config<I>, I: 'static>(
 	is_sufficient: bool,
 	amount: T::Balance,
 ) -> (T::AssetIdParameter, T::AccountId, AccountIdLookupOf<T>) {
@@ -102,7 +102,7 @@ fn add_sufficients<T: Config<I>, I: 'static>(minter: T::AccountId, n: u32) {
 
 fn add_approvals<T: Config<I>, I: 'static>(minter: T::AccountId, n: u32) {
 	let asset_id = default_asset_id::<T, I>();
-	T::Currency::deposit_creating(
+	let _ = T::Currency::deposit_creating(
 		&minter,
 		T::ApprovalDeposit::get() * n.into() + T::Currency::minimum_balance(),
 	);

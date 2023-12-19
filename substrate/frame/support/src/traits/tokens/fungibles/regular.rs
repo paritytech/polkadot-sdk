@@ -250,7 +250,10 @@ pub trait Unbalanced<AccountId>: Inspect<AccountId> {
 }
 
 /// Trait for providing a basic fungible asset.
-pub trait Mutate<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
+pub trait Mutate<AccountId>: Inspect<AccountId> + Unbalanced<AccountId>
+where
+	AccountId: Eq,
+{
 	/// Increase the balance of `who` by exactly `amount`, minting new tokens. If that isn't
 	/// possible then an `Err` is returned and nothing is changed.
 	fn mint_into(
@@ -353,6 +356,9 @@ pub trait Mutate<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 	}
 
 	/// Transfer funds from one account into another.
+	///
+	/// A transfer where the source and destination account are identical is treated as No-OP after
+	/// checking the preconditions.
 	fn transfer(
 		asset: Self::AssetId,
 		source: &AccountId,
@@ -363,6 +369,10 @@ pub trait Mutate<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 		let _extra = Self::can_withdraw(asset.clone(), source, amount)
 			.into_result(preservation != Expendable)?;
 		Self::can_deposit(asset.clone(), dest, amount, Extant).into_result()?;
+		if source == dest {
+			return Ok(amount)
+		}
+
 		Self::decrease_balance(asset.clone(), source, amount, BestEffort, preservation, Polite)?;
 		// This should never fail as we checked `can_deposit` earlier. But we do a best-effort
 		// anyway.
@@ -583,3 +593,66 @@ pub trait Balanced<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 	fn done_deposit(_asset: Self::AssetId, _who: &AccountId, _amount: Self::Balance) {}
 	fn done_withdraw(_asset: Self::AssetId, _who: &AccountId, _amount: Self::Balance) {}
 }
+
+/// Dummy implementation of [`Inspect`]
+#[cfg(feature = "std")]
+impl<AccountId> Inspect<AccountId> for () {
+	type AssetId = u32;
+	type Balance = u32;
+	fn total_issuance(_: Self::AssetId) -> Self::Balance {
+		0
+	}
+	fn minimum_balance(_: Self::AssetId) -> Self::Balance {
+		0
+	}
+	fn total_balance(_: Self::AssetId, _: &AccountId) -> Self::Balance {
+		0
+	}
+	fn balance(_: Self::AssetId, _: &AccountId) -> Self::Balance {
+		0
+	}
+	fn reducible_balance(
+		_: Self::AssetId,
+		_: &AccountId,
+		_: Preservation,
+		_: Fortitude,
+	) -> Self::Balance {
+		0
+	}
+	fn can_deposit(
+		_: Self::AssetId,
+		_: &AccountId,
+		_: Self::Balance,
+		_: Provenance,
+	) -> DepositConsequence {
+		DepositConsequence::Success
+	}
+	fn can_withdraw(
+		_: Self::AssetId,
+		_: &AccountId,
+		_: Self::Balance,
+	) -> WithdrawConsequence<Self::Balance> {
+		WithdrawConsequence::Success
+	}
+	fn asset_exists(_: Self::AssetId) -> bool {
+		false
+	}
+}
+
+/// Dummy implementation of [`Unbalanced`]
+#[cfg(feature = "std")]
+impl<AccountId> Unbalanced<AccountId> for () {
+	fn handle_dust(_: Dust<AccountId, Self>) {}
+	fn write_balance(
+		_: Self::AssetId,
+		_: &AccountId,
+		_: Self::Balance,
+	) -> Result<Option<Self::Balance>, DispatchError> {
+		Ok(None)
+	}
+	fn set_total_issuance(_: Self::AssetId, _: Self::Balance) {}
+}
+
+/// Dummy implementation of [`Mutate`]
+#[cfg(feature = "std")]
+impl<AccountId: Eq> Mutate<AccountId> for () {}
