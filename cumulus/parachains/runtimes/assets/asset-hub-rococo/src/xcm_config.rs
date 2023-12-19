@@ -678,8 +678,7 @@ pub struct BenchmarkMultiLocationConverter<SelfParaId> {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-impl<SelfParaId>
-	pallet_asset_conversion::BenchmarkHelper<MultiLocation, sp_std::boxed::Box<MultiLocation>>
+impl<SelfParaId> pallet_asset_conversion::BenchmarkHelper<MultiLocation, MultiLocation>
 	for BenchmarkMultiLocationConverter<SelfParaId>
 where
 	SelfParaId: frame_support::traits::Get<ParaId>,
@@ -694,8 +693,8 @@ where
 			),
 		}
 	}
-	fn multiasset_id(asset_id: u32) -> sp_std::boxed::Box<MultiLocation> {
-		sp_std::boxed::Box::new(Self::asset_id(asset_id))
+	fn multiasset_id(asset_id: u32) -> MultiLocation {
+		Self::asset_id(asset_id)
 	}
 }
 
