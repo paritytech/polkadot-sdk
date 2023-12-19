@@ -42,7 +42,7 @@ const migrateIdentityOf = async (key, data, api) => {
 
 		let decodedJson = decoded.toJSON();
 
-		// Look for `Discord` key in `additional` field
+		// Look for `Discord` and `Github` keys in `additional` field
 		decodedJson.info.additional.forEach(([key, data]) => {
 			let keyString = hexToString(key.raw)
 
@@ -56,6 +56,7 @@ const migrateIdentityOf = async (key, data, api) => {
 		// Migrate data to the new format:
 		// - remove `additional` field
 		// - add `discord` field
+		// - add `github` field
 		// - set `deposit` to 0
 		let decodedNew = api.createType(
 			'RegistrationNew',
