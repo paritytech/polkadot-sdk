@@ -352,6 +352,7 @@ struct State {
 	/// Aggregated reputation change
 	reputation: ReputationAggregator,
 	total_num_messages: u64,
+	got_votes: Option<bool>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1578,6 +1579,7 @@ impl State {
 		source: MessageSource,
 		vote: IndirectSignedApprovalVoteV2,
 	) {
+		assert!(self.got_votes.is_none());
 		let _span = self
 			.spans
 			.get(&vote.block_hash)
@@ -2422,6 +2424,7 @@ impl ApprovalDistribution {
 					.await;
 			},
 			ApprovalDistributionMessage::GetApprovalSignatures(indices, tx) => {
+				state.got_votes = Some(true);
 				let sigs = state.get_approval_signatures(indices);
 				if let Err(_) = tx.send(sigs) {
 					gum::debug!(

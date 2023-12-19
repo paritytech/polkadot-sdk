@@ -18,6 +18,7 @@ use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use std::{
 	alloc::System,
+	cmp::max,
 	collections::{BTreeMap, HashMap, HashSet},
 	fs,
 	io::{Read, Write},
@@ -129,8 +130,6 @@ pub(crate) const TEST_CONFIG: ApprovalVotingConfig = ApprovalVotingConfig {
 	slot_duration_millis: SLOT_DURATION_MILLIS,
 };
 
-const MESSAGES_PATH: &str = "/home/alexggh/messages_tmp/";
-
 pub const NODE_UNDER_TEST: u32 = 0;
 
 /// Start generating messages for a slot into the future, so that the
@@ -164,6 +163,11 @@ pub struct ApprovalsOptions {
 	#[clap(short, long, default_value_t = true)]
 	/// Sends messages only till block is approved.
 	pub stop_when_approved: bool,
+	#[clap(short, long)]
+	/// Sends messages only till block is approved.
+	pub workdir_prefix: String,
+	#[clap(short, long, default_value_t = 0)]
+	pub num_no_shows_per_block: u32,
 }
 
 impl ApprovalsOptions {
@@ -202,6 +206,45 @@ struct BlockTestData {
 	approved: Arc<AtomicBool>,
 	prev_candidates: u64,
 	votes: Arc<Vec<Vec<AtomicBool>>>,
+	per_candidate_votes: Arc<Vec<AtomicU32>>,
+	per_candidate_min_tranches: Arc<Vec<AtomicU32>>,
+}
+
+#[derive(Debug)]
+struct CandidateTestData {
+	max_no_shows: u32,
+	last_tranche_with_no_show: u32,
+	sent_assignment: u32,
+	num_no_shows: u32,
+	max_tranche: u32,
+}
+
+impl CandidateTestData {
+	fn should_send_tranche(&self, tranche: u32) -> bool {
+		self.sent_assignment <= 30 || tranche <= self.max_tranche + self.num_no_shows
+	}
+
+	fn set_max_tranche(&mut self, tranche: u32) {
+		self.max_tranche = max(tranche, self.max_tranche);
+	}
+
+	fn record_no_show(&mut self, tranche: u32) {
+		self.num_no_shows += 1;
+		self.last_tranche_with_no_show = max(tranche, self.last_tranche_with_no_show);
+	}
+
+	fn sent_assignment(&mut self, tranche: u32) {
+		if self.sent_assignment < 30 {
+			self.set_max_tranche(tranche);
+		}
+
+		self.sent_assignment += 1;
+	}
+
+	fn should_no_show(&self, tranche: u32) -> bool {
+		(self.num_no_shows < self.max_no_shows && self.last_tranche_with_no_show < tranche) ||
+			(tranche == 0 && self.num_no_shows == 0 && self.max_no_shows > 0)
+	}
 }
 
 /// Approval test state used by all mock subsystems to be able to answer messages emitted
@@ -229,6 +272,8 @@ pub struct ApprovalTestState {
 	last_approved_block: Arc<AtomicU32>,
 	/// Total sent messages.
 	total_sent_messages: Arc<AtomicU64>,
+	/// Total unique sent messages.
+	total_unique_messages: Arc<AtomicU64>,
 	/// Approval voting metrics.
 	approval_voting_metrics: ApprovalVotingMetrics,
 	delta_tick_from_generated: Arc<AtomicU64>,
@@ -253,7 +298,7 @@ impl ApprovalTestState {
 		let mut sha1 = sha1::Sha1::new();
 		sha1.update(key);
 		let result = sha1.finalize();
-		let path_name = format!("{}/{}", MESSAGES_PATH, hex::encode(result));
+		let path_name = format!("{}/{}", options.workdir_prefix, hex::encode(result));
 		let delta_to_first_slot_under_test = Timestamp::new(BUFFER_FOR_GENERATION_MILLIS);
 
 		let messages = Path::new(&path_name);
@@ -313,6 +358,7 @@ impl ApprovalTestState {
 			test_authorities,
 			last_approved_block: Arc::new(AtomicU32::new(0)),
 			total_sent_messages: Arc::new(AtomicU64::new(0)),
+			total_unique_messages: Arc::new(AtomicU64::new(0)),
 			options,
 			approval_voting_metrics: ApprovalVotingMetrics::try_register(&dependencies.registry)
 				.unwrap(),
@@ -370,6 +416,12 @@ impl ApprovalTestState {
 							(0..configuration.n_cores).map(|_| AtomicBool::new(false)).collect_vec()
 						})
 						.collect_vec(),
+				),
+				per_candidate_votes: Arc::new(
+					(0..configuration.n_cores).map(|_| AtomicU32::new(0)).collect_vec(),
+				),
+				per_candidate_min_tranches: Arc::new(
+					(0..configuration.n_cores).map(|_| AtomicU32::new(0)).collect_vec(),
 				),
 			};
 			prev_candidates += block_info.candidates.len() as u64;
@@ -462,8 +514,7 @@ impl ApprovalTestState {
 			.open(path)
 			.unwrap();
 
-		let mut all_messages: BTreeMap<u64, (Vec<TestMessageInfo>, Vec<TestMessageInfo>)> =
-			BTreeMap::new();
+		let mut all_messages: BTreeMap<u64, Vec<DependentMessageInfo>> = BTreeMap::new();
 
 		loop {
 			match rx.try_next() {
@@ -473,18 +524,17 @@ impl ApprovalTestState {
 							.iter()
 							.find(|val| val.hash == block_hash)
 							.expect("Should find blocks");
-						let tick_to_send =
-							tranche_to_tick(SLOT_DURATION_MILLIS, block_info.slot, message.tranche);
+						let tick_to_send = tranche_to_tick(
+							SLOT_DURATION_MILLIS,
+							block_info.slot,
+							message.tranche_to_send(),
+						);
 						if !all_messages.contains_key(&tick_to_send) {
-							all_messages.insert(tick_to_send, (Vec::new(), Vec::new()));
+							all_messages.insert(tick_to_send, Vec::new());
 						}
 
 						let to_add = all_messages.get_mut(&tick_to_send).unwrap();
-						match message.typ {
-							MessageType::Approval => to_add.1.push(message),
-							MessageType::Assignment => to_add.0.push(message),
-							MessageType::Other => todo!(),
-						}
+						to_add.push(message);
 					},
 				Ok(None) => break,
 				Err(_) => {
@@ -494,10 +544,9 @@ impl ApprovalTestState {
 		}
 		let all_messages = all_messages
 			.into_iter()
-			.map(|(_, (mut assignments, mut approvals))| {
-				assignments.shuffle(&mut rand_chacha);
-				approvals.shuffle(&mut rand_chacha);
-				assignments.into_iter().chain(approvals.into_iter())
+			.map(|(_, mut messages)| {
+				messages.shuffle(&mut rand_chacha);
+				messages
 			})
 			.flatten()
 			.collect_vec();
@@ -510,7 +559,7 @@ impl ApprovalTestState {
 }
 #[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
 struct GeneratedState {
-	all_messages: Option<Vec<TestMessageInfo>>,
+	all_messages: Option<Vec<DependentMessageInfo>>,
 	initial_slot: Slot,
 }
 
@@ -540,7 +589,7 @@ impl ApprovalTestState {
 }
 
 /// Type of generated messages.
-#[derive(Debug, Copy, Clone, Encode, Decode, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Encode, Decode, PartialEq, Eq, Hash)]
 
 enum MessageType {
 	Approval,
@@ -562,6 +611,77 @@ struct TestMessageInfo {
 	block_hash: Hash,
 	/// The type of the message.
 	typ: MessageType,
+}
+
+impl std::hash::Hash for TestMessageInfo {
+	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+		match &self.msg {
+			protocol_v3::ApprovalDistributionMessage::Assignments(assignments) => {
+				for (assignment, candidates) in assignments {
+					(assignment.block_hash, assignment.validator).hash(state);
+					candidates.hash(state);
+				}
+			},
+			protocol_v3::ApprovalDistributionMessage::Approvals(approvals) => {
+				for approval in approvals {
+					(approval.block_hash, approval.validator).hash(state);
+					approval.candidate_indices.hash(state);
+				}
+			},
+		};
+		self.typ.hash(state);
+	}
+}
+
+#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
+struct DependentMessageInfo {
+	assignments: Vec<TestMessageInfo>,
+	approvals: Vec<TestMessageInfo>,
+}
+
+impl DependentMessageInfo {
+	fn tranche_to_send(&self) -> u32 {
+		self.assignments
+			.iter()
+			.chain(self.approvals.iter())
+			.max_by(|a, b| a.tranche.cmp(&b.tranche))
+			.unwrap()
+			.tranche
+	}
+
+	fn min_tranche(&self) -> u32 {
+		self.assignments
+			.iter()
+			.chain(self.approvals.iter())
+			.min_by(|a, b| a.tranche.cmp(&b.tranche))
+			.unwrap()
+			.tranche
+	}
+
+	fn bundle_needed(
+		&self,
+		candidates_test_data: &HashMap<(Hash, CandidateIndex), CandidateTestData>,
+		options: &ApprovalsOptions,
+	) -> bool {
+		self.should_send(candidates_test_data) ||
+			(!options.stop_when_approved && self.min_tranche() <= options.send_till_tranche)
+	}
+
+	fn should_send(
+		&self,
+		candidates_test_data: &HashMap<(Hash, CandidateIndex), CandidateTestData>,
+	) -> bool {
+		self.assignments.iter().any(|message| message.should_send(candidates_test_data))
+	}
+
+	fn record_sent_assignment(
+		&self,
+		candidates_test_data: &mut HashMap<(Hash, CandidateIndex), CandidateTestData>,
+	) {
+		self.assignments
+			.iter()
+			.for_each(|assignment| assignment.record_sent_assignment(candidates_test_data));
+	}
 }
 
 impl TestMessageInfo {
@@ -599,6 +719,130 @@ impl TestMessageInfo {
 						}
 					},
 			}
+		}
+	}
+
+	fn record_sent_assignment(
+		&self,
+		candidates_test_data: &mut HashMap<(Hash, CandidateIndex), CandidateTestData>,
+	) {
+		match &self.msg {
+			protocol_v3::ApprovalDistributionMessage::Assignments(assignments) => {
+				for (assignment, candidate_indices) in assignments {
+					for candidate_index in candidate_indices.iter_ones() {
+						let candidate_test_data = candidates_test_data
+							.get_mut(&(assignment.block_hash, candidate_index as CandidateIndex))
+							.unwrap();
+						candidate_test_data.sent_assignment(self.tranche)
+					}
+				}
+			},
+			protocol_v3::ApprovalDistributionMessage::Approvals(approvals) => todo!(),
+		}
+	}
+
+	fn candidate_indices(&self) -> HashSet<usize> {
+		let mut unique_candidate_indicies = HashSet::new();
+		match &self.msg {
+			protocol_v3::ApprovalDistributionMessage::Assignments(assignments) =>
+				for (assignment, candidate_indices) in assignments {
+					for candidate_index in candidate_indices.iter_ones() {
+						unique_candidate_indicies.insert(candidate_index);
+					}
+				},
+			protocol_v3::ApprovalDistributionMessage::Approvals(approvals) =>
+				for approval in approvals {
+					for candidate_index in approval.candidate_indices.iter_ones() {
+						unique_candidate_indicies.insert(candidate_index);
+					}
+				},
+		}
+		unique_candidate_indicies
+	}
+
+	fn no_show_if_required(
+		&self,
+		assignments: &Vec<TestMessageInfo>,
+		candidates_test_data: &mut HashMap<(Hash, CandidateIndex), CandidateTestData>,
+	) -> bool {
+		let mut should_no_show = false;
+		if let MessageType::Approval = self.typ {
+			let covered_candidates = assignments
+				.iter()
+				.map(|assignment| (assignment, assignment.candidate_indices()))
+				.collect_vec();
+			match &self.msg {
+				protocol_v3::ApprovalDistributionMessage::Assignments(_) => todo!(),
+				protocol_v3::ApprovalDistributionMessage::Approvals(approvals) => {
+					assert_eq!(approvals.len(), 1);
+
+					for approval in approvals {
+						should_no_show = should_no_show ||
+							approval.candidate_indices.iter_ones().all(|candidate_index| {
+								let candidate_test_data = candidates_test_data
+									.get_mut(&(
+										approval.block_hash,
+										candidate_index as CandidateIndex,
+									))
+									.unwrap();
+								let assignment = covered_candidates
+									.iter()
+									.filter(|(assignment, candidates)| {
+										candidates.contains(&candidate_index)
+									})
+									.next()
+									.unwrap();
+								candidate_test_data.should_no_show(assignment.0.tranche)
+							});
+
+						if should_no_show {
+							for candidate_index in approval.candidate_indices.iter_ones() {
+								let candidate_test_data = candidates_test_data
+									.get_mut(&(
+										approval.block_hash,
+										candidate_index as CandidateIndex,
+									))
+									.unwrap();
+								let assignment = covered_candidates
+									.iter()
+									.filter(|(assignment, candidates)| {
+										candidates.contains(&candidate_index)
+									})
+									.next()
+									.unwrap();
+								candidate_test_data.record_no_show(assignment.0.tranche)
+							}
+						}
+					}
+				},
+			}
+		}
+		should_no_show
+	}
+
+	fn should_send(
+		&self,
+		candidates_test_data: &HashMap<(Hash, CandidateIndex), CandidateTestData>,
+	) -> bool {
+		match &self.msg {
+			protocol_v3::ApprovalDistributionMessage::Assignments(assignments) =>
+				assignments.iter().any(|(assignment, candidate_indices)| {
+					candidate_indices.iter_ones().any(|candidate_index| {
+						candidates_test_data
+							.get(&(assignment.block_hash, candidate_index as CandidateIndex))
+							.map(|data| data.should_send_tranche(self.tranche))
+							.unwrap_or_default()
+					})
+				}),
+			protocol_v3::ApprovalDistributionMessage::Approvals(approvals) =>
+				approvals.iter().any(|approval| {
+					approval.candidate_indices.iter_ones().any(|candidate_index| {
+						candidates_test_data
+							.get(&(approval.block_hash, candidate_index as CandidateIndex))
+							.map(|data| data.should_send_tranche(self.tranche))
+							.unwrap_or_default()
+					})
+				}),
 		}
 	}
 
@@ -644,13 +888,35 @@ impl PeerMessageProducer {
 	fn produce_messages(
 		mut self,
 		spawn_task_handle: &SpawnTaskHandle,
-		all_messages: Vec<TestMessageInfo>,
+		all_messages: Vec<DependentMessageInfo>,
 	) {
 		spawn_task_handle.spawn_blocking("produce-messages", "produce-messages", async move {
 			let mut already_generated = HashSet::new();
 			let system_clock =
 				FakeSystemClock::new(SystemClock {}, self.state.delta_tick_from_generated.clone());
 			let mut all_messages = all_messages.into_iter().peekable();
+			let mut no_shows: HashMap<(Hash, usize), HashSet<u32>> = HashMap::new();
+			let mut per_candidate_data: HashMap<(Hash, CandidateIndex), CandidateTestData> =
+				HashMap::new();
+
+			for block_info in self.state.per_slot_heads.iter() {
+				for (candidate_index, _) in block_info.candidates.iter().enumerate() {
+					per_candidate_data.insert(
+						(block_info.hash, candidate_index as CandidateIndex),
+						CandidateTestData {
+							max_no_shows: self.options.num_no_shows_per_block,
+							last_tranche_with_no_show: 0,
+							sent_assignment: 0,
+							num_no_shows: 0,
+							max_tranche: 0,
+						},
+					);
+				}
+			}
+
+			let mut skipped_messages: Vec<DependentMessageInfo> = Vec::new();
+			let mut re_process_skipped = false;
+
 			while all_messages.peek().is_some() {
 				let current_slot =
 					tick_to_slot_number(SLOT_DURATION_MILLIS, system_clock.tick_now());
@@ -687,71 +953,138 @@ impl PeerMessageProducer {
 					}
 				}
 
-				while all_messages
+				let mut maybe_need_skip = skipped_messages.clone().into_iter().peekable();
+
+				let progressing_iterator = if !re_process_skipped {
+					&mut all_messages
+				} else {
+					re_process_skipped = false;
+					&mut maybe_need_skip
+				};
+
+				while progressing_iterator
 					.peek()
-					.map(|val| {
-						let block_info = self.state.get_info_by_hash(val.block_hash);
-						let tranche_now =
-							system_clock.tranche_now(SLOT_DURATION_MILLIS, block_info.slot);
-						let tranche_to_send = match val.typ {
-							MessageType::Approval => val.tranche,
-							MessageType::Assignment => val.tranche,
-							MessageType::Other => val.tranche,
-						};
-						(tranche_to_send <= tranche_now &&
-							current_slot >= block_info.slot &&
-							already_generated.contains(&block_info.hash)) ||
-							((val.tranche > self.options.send_till_tranche ||
-								self.options.stop_when_approved) && block_info
-								.approved
-								.load(std::sync::atomic::Ordering::SeqCst))
+					.map(|bundle| {
+						self.time_to_process_message(
+							bundle,
+							current_slot,
+							&already_generated,
+							&system_clock,
+							&per_candidate_data,
+						)
 					})
 					.unwrap_or_default()
 				{
-					let message = all_messages.next().unwrap();
-
-					let block_info = self.state.get_info_by_hash(message.block_hash);
-					let block_approved =
-						block_info.approved.load(std::sync::atomic::Ordering::SeqCst);
-					if !block_approved ||
-						(!self.options.stop_when_approved &&
-							message.tranche <= self.options.send_till_tranche)
-					{
-						message.record_vote(block_info);
-						for (peer, messages) in
-							message.split_by_peer_id(&self.state.test_authorities)
-						{
-							for message in messages {
-								let latency = message.get_latency();
-								self.state
-									.total_sent_messages
-									.as_ref()
-									.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-								self.send_message(
-									message.to_all_messages_from_peer(peer.1),
-									peer.0,
-									latency,
-								)
-							}
-						}
-					}
+					let bundle = progressing_iterator.next().unwrap();
+					re_process_skipped = re_process_skipped ||
+						self.process_message(
+							bundle,
+							&mut per_candidate_data,
+							&already_generated,
+							&mut skipped_messages,
+						);
 				}
 			}
 
-			gum::info!("All messages sent ");
+			gum::info!(
+				"All messages sent max_tranche {:?} last_tranche_with_no_show {:?}",
+				per_candidate_data.values().map(|data| data.max_tranche).max(),
+				per_candidate_data.values().map(|data| data.last_tranche_with_no_show).max()
+			);
 			let (tx, rx) = oneshot::channel();
 			let msg = ApprovalDistributionMessage::GetApprovalSignatures(HashSet::new(), tx);
-			self.overseer_handle
-				.send_msg(AllMessages::ApprovalDistribution(msg), LOG_TARGET)
-				.timeout(MAX_TIME_OF_FLIGHT)
-				.await
-				.unwrap_or_else(|| {
-					panic!("{} ms maximum time of flight breached", MAX_TIME_OF_FLIGHT.as_millis())
-				});
+			self.send_message(AllMessages::ApprovalDistribution(msg), ValidatorIndex(0), None);
 			rx.await;
 			self.notify_done.send(());
 			gum::info!("All messages processed ");
 		});
+	}
+
+	pub fn process_message(
+		&mut self,
+		bundle: DependentMessageInfo,
+		per_candidate_data: &mut HashMap<(Hash, CandidateIndex), CandidateTestData>,
+		initialized_blocks: &HashSet<Hash>,
+		skipped_messages: &mut Vec<DependentMessageInfo>,
+	) -> bool {
+		let mut reprocess_skipped = false;
+		let block_info = self
+			.state
+			.get_info_by_hash(bundle.assignments.first().unwrap().block_hash)
+			.clone();
+
+		if bundle.bundle_needed(&per_candidate_data, &self.options) {
+			// if bundle.min_tranche() >= 85 {
+			// 	gum::info!("=============   {:?} =====", bundle);
+			// }
+
+			bundle.record_sent_assignment(per_candidate_data);
+
+			let assignments = bundle.assignments.clone();
+
+			for message in bundle.assignments.into_iter().chain(bundle.approvals.into_iter()) {
+				if message.no_show_if_required(&assignments, per_candidate_data) {
+					reprocess_skipped = true;
+					continue;
+				} else {
+					message.record_vote(&block_info);
+				}
+				self.state
+					.total_unique_messages
+					.as_ref()
+					.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+				for (peer, messages) in message.split_by_peer_id(&self.state.test_authorities) {
+					for message in messages {
+						let latency = message.get_latency();
+						self.state
+							.total_sent_messages
+							.as_ref()
+							.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+						self.send_message(
+							message.to_all_messages_from_peer(peer.1),
+							peer.0,
+							latency,
+						)
+					}
+				}
+			}
+		} else if !block_info.approved.load(std::sync::atomic::Ordering::SeqCst) {
+			skipped_messages.push(bundle);
+		}
+		reprocess_skipped
+	}
+
+	pub fn time_to_process_message(
+		&self,
+		bundle: &DependentMessageInfo,
+		current_slot: Slot,
+		initialized_blocks: &HashSet<Hash>,
+		system_clock: &FakeSystemClock,
+		per_candidate_data: &HashMap<(Hash, CandidateIndex), CandidateTestData>,
+	) -> bool {
+		let block_info =
+			self.state.get_info_by_hash(bundle.assignments.first().unwrap().block_hash);
+		let tranche_now = system_clock.tranche_now(SLOT_DURATION_MILLIS, block_info.slot);
+
+		Self::time_to_send(
+			bundle,
+			tranche_now,
+			current_slot,
+			block_info,
+			initialized_blocks.contains(&block_info.hash),
+		) || !bundle.bundle_needed(&per_candidate_data, &self.options)
+	}
+
+	pub fn time_to_send(
+		bundle: &DependentMessageInfo,
+		tranche_now: u32,
+		current_slot: Slot,
+		block_info: &BlockTestData,
+		block_initialized: bool,
+	) -> bool {
+		bundle.tranche_to_send() <= tranche_now &&
+			current_slot >= block_info.slot &&
+			block_initialized
 	}
 
 	/// Queues a message to be sent by the peer identified by the `sent_by` value.
@@ -902,7 +1235,7 @@ fn coalesce_approvals_len(
 /// Helper function to create approvals signatures for all assignments passed as arguments.
 /// Returns a list of Approvals messages that need to be sent.
 fn issue_approvals(
-	assignments: &Vec<TestMessageInfo>,
+	assignments: Vec<TestMessageInfo>,
 	block_hash: Hash,
 	keyrings: Vec<(Keyring, PeerId)>,
 	candidates: Vec<CandidateEvent>,
@@ -910,7 +1243,7 @@ fn issue_approvals(
 	max_coalesce: u32,
 	coalesce_tranche_diff: u32,
 	rand_chacha: &mut ChaCha20Rng,
-) -> Vec<TestMessageInfo> {
+) -> Vec<DependentMessageInfo> {
 	let mut to_sign: Vec<TestSignInfo> = Vec::new();
 	let mut num_coalesce = coalesce_approvals_len(min_coalesce, max_coalesce, rand_chacha);
 	let result = assignments
@@ -936,7 +1269,12 @@ fn issue_approvals(
 					message.tranche - earliest_tranche >= coalesce_tranche_diff
 				{
 					num_coalesce = coalesce_approvals_len(min_coalesce, max_coalesce, rand_chacha);
-					approvals_to_create.push(sign_candidates(&mut to_sign, &keyrings, block_hash))
+					approvals_to_create.push(sign_candidates(
+						&mut to_sign,
+						&keyrings,
+						block_hash,
+						num_coalesce,
+					))
 				}
 
 				// If more that one candidate was in the assignment queue all of them.
@@ -949,21 +1287,8 @@ fn issue_approvals(
 							validator_index: assignment.0.validator,
 							sent_by: message.sent_by.clone().into_iter().collect(),
 							tranche: message.tranche,
+							assignment: message.clone(),
 						});
-						let earliest_tranche =
-							to_sign.first().map(|val| val.tranche).unwrap_or(message.tranche);
-
-						if to_sign.len() >= num_coalesce ||
-							message.tranche - earliest_tranche >= coalesce_tranche_diff
-						{
-							num_coalesce =
-								coalesce_approvals_len(min_coalesce, max_coalesce, rand_chacha);
-							approvals_to_create.push(sign_candidates(
-								&mut to_sign,
-								&keyrings,
-								block_hash,
-							))
-						}
 					} else {
 						todo!("Other enum variants are not used in this benchmark");
 					}
@@ -979,7 +1304,7 @@ fn issue_approvals(
 	let mut result = result.into_iter().flatten().collect_vec();
 
 	if !to_sign.is_empty() {
-		result.push(sign_candidates(&mut to_sign, &keyrings, block_hash));
+		result.push(sign_candidates(&mut to_sign, &keyrings, block_hash, num_coalesce));
 	}
 	result
 }
@@ -992,6 +1317,7 @@ struct TestSignInfo {
 	validator_index: ValidatorIndex,
 	sent_by: HashSet<ValidatorIndex>,
 	tranche: u32,
+	assignment: TestMessageInfo,
 }
 
 /// Helper function to create a signture for all candidates in `to_sign` parameter.
@@ -1000,43 +1326,59 @@ fn sign_candidates(
 	to_sign: &mut Vec<TestSignInfo>,
 	keyrings: &Vec<(Keyring, PeerId)>,
 	block_hash: Hash,
-) -> TestMessageInfo {
+	num_coalesce: usize,
+) -> DependentMessageInfo {
 	let current_validator_index = to_sign.first().map(|val| val.validator_index).unwrap();
 	let tranche_trigger_timestamp = to_sign.iter().map(|val| val.tranche).max().unwrap();
 	let keyring = keyrings.get(current_validator_index.0 as usize).unwrap().clone();
 
-	let to_sign = to_sign
+	let mut unique_assignments: HashSet<TestMessageInfo> =
+		to_sign.iter().map(|info| info.assignment.clone()).collect();
+
+	let mut to_sign = to_sign
 		.drain(..)
 		.sorted_by(|val1, val2| val1.candidate_index.cmp(&val2.candidate_index))
-		.collect_vec();
+		.peekable();
 
-	let hashes = to_sign.iter().map(|val| val.candidate_hash).collect_vec();
-	let candidate_indices = to_sign.iter().map(|val| val.candidate_index).collect_vec();
-	let sent_by = to_sign
-		.iter()
-		.map(|val| val.sent_by.iter())
-		.flatten()
-		.map(|peer| *peer)
-		.collect::<HashSet<ValidatorIndex>>();
-
-	let payload = ApprovalVoteMultipleCandidates(&hashes).signing_payload(1);
-
-	let validator_key: ValidatorPair = keyring.0.pair().into();
-	let signature = validator_key.sign(&payload[..]);
-	let indirect = IndirectSignedApprovalVoteV2 {
-		block_hash,
-		candidate_indices: candidate_indices.try_into().unwrap(),
-		validator: current_validator_index,
-		signature,
+	let mut bundle = DependentMessageInfo {
+		assignments: unique_assignments.into_iter().collect_vec(),
+		approvals: Vec::new(),
 	};
-	let msg = protocol_v3::ApprovalDistributionMessage::Approvals(vec![indirect]);
-	TestMessageInfo {
-		msg,
-		sent_by: sent_by.into_iter().collect_vec(),
-		tranche: tranche_trigger_timestamp,
-		block_hash,
-		typ: MessageType::Approval,
+	let mut unique_assignments: HashSet<TestMessageInfo> = HashSet::new();
+	while to_sign.peek().is_some() {
+		let to_sign = to_sign.by_ref().take(num_coalesce).collect_vec();
+
+		let hashes = to_sign.iter().map(|val| val.candidate_hash).collect_vec();
+		let candidate_indices = to_sign.iter().map(|val| val.candidate_index).collect_vec();
+
+		let sent_by = to_sign
+			.iter()
+			.map(|val| val.sent_by.iter())
+			.flatten()
+			.map(|peer| *peer)
+			.collect::<HashSet<ValidatorIndex>>();
+
+		let payload = ApprovalVoteMultipleCandidates(&hashes).signing_payload(1);
+
+		let validator_key: ValidatorPair = keyring.0.clone().pair().into();
+		let signature = validator_key.sign(&payload[..]);
+		let indirect = IndirectSignedApprovalVoteV2 {
+			block_hash,
+			candidate_indices: candidate_indices.try_into().unwrap(),
+			validator: current_validator_index,
+			signature,
+		};
+		let msg = protocol_v3::ApprovalDistributionMessage::Approvals(vec![indirect]);
+
+		bundle.approvals.push(TestMessageInfo {
+			msg,
+			sent_by: sent_by.into_iter().collect_vec(),
+			tranche: tranche_trigger_timestamp,
+			block_hash,
+			typ: MessageType::Approval,
+		});
 	}
+	bundle
 }
 
 fn neighbours_that_would_sent_message(
@@ -1396,6 +1738,13 @@ fn build_overseer(
 	let db: polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter<kvdb_memorydb::InMemory> =
 		polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter::new(db, &[]);
 	let keystore = LocalKeystore::in_memory();
+	// let _public = keystore
+	// 	.sr25519_generate_new(
+	// 		ASSIGNMENT_KEY_TYPE_ID,
+	// 		Some(state.test_authorities.keyrings[NODE_UNDER_TEST as usize].seed().as_str()),
+	// 	)
+	// 	.expect("should not fail");
+
 	let real_system_clock = SystemClock {};
 	let system_clock =
 		FakeSystemClock::new(SystemClock {}, state.delta_tick_from_generated.clone());
@@ -1538,9 +1887,10 @@ pub async fn bench_approvals_run(
 		env.config().num_blocks as u32
 	{
 		gum::info!(
-			"Waiting for all blocks to be approved current approved {:} num_sent {:}",
+			"Waiting for all blocks to be approved current approved {:} num_sent {:} num_unique {:}",
 			state.last_approved_block.load(std::sync::atomic::Ordering::SeqCst),
-			state.total_sent_messages.load(std::sync::atomic::Ordering::SeqCst)
+			state.total_sent_messages.load(std::sync::atomic::Ordering::SeqCst),
+			state.total_unique_messages.load(std::sync::atomic::Ordering::SeqCst)
 		);
 		tokio::time::sleep(Duration::from_secs(6)).await;
 	}
@@ -1598,9 +1948,10 @@ pub async fn bench_approvals_run(
 
 	let duration: u128 = start_marker.elapsed().as_millis();
 	gum::info!(
-		"All blocks processed in {} num_messages {}",
+		"All blocks processed in {} num_messages {} num_unique_messages {}",
 		format!("{:?}ms", duration).cyan(),
-		state.total_sent_messages.load(std::sync::atomic::Ordering::SeqCst)
+		state.total_sent_messages.load(std::sync::atomic::Ordering::SeqCst),
+		state.total_unique_messages.load(std::sync::atomic::Ordering::SeqCst)
 	);
 
 	gum::info!("{}", &env);
