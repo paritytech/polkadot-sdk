@@ -446,9 +446,9 @@ pub mod pallet {
 		/// - `threshold`: The total number of approvals for this dispatch before it is executed.
 		/// - `other_signatories`: The accounts (other than the sender) who can approve this
 		/// dispatch. May not be empty.
-		/// - `maybe_timepoint`: The timepoint (block number and transaction index) of the first approval
-		/// transaction for this dispatch. When provided, timepoint will serve as an additional
-		/// layer of security.
+		/// - `timepoint`: The timepoint (block number and transaction index) of the first approval.
+		/// Timepoint serves as an additional layer of security. If you do not wish to provide timepoint,
+		/// use `cancel_as_multi_without_timepoint`.
 		/// - `call_hash`: The hash of the call to be executed.
 		///
 		/// ## Complexity
@@ -466,35 +466,42 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			threshold: u16,
 			other_signatories: Vec<T::AccountId>,
-			maybe_timepoint: Option<Timepoint<BlockNumberFor<T>>>,
+			timepoint: Timepoint<BlockNumberFor<T>>,
 			call_hash: [u8; 32],
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			ensure!(threshold >= 2, Error::<T>::MinimumThreshold);
-			let max_sigs = T::MaxSignatories::get() as usize;
-			ensure!(!other_signatories.is_empty(), Error::<T>::TooFewSignatories);
-			ensure!(other_signatories.len() < max_sigs, Error::<T>::TooManySignatories);
-			let signatories = Self::ensure_sorted_and_insert(other_signatories, who.clone())?;
+			Self::cancel(who, threshold, other_signatories, Some(timepoint), call_hash)
+		}
 
-			let id = Self::multi_account_id(&signatories, threshold);
-
-			let m = <Multisigs<T>>::get(&id, call_hash).ok_or(Error::<T>::NotFound)?;
-			if let Some(timepoint) = maybe_timepoint.as_ref() {
-				ensure!(m.when == *timepoint, Error::<T>::WrongTimepoint);
-			}
-			ensure!(m.depositor == who, Error::<T>::NotOwner);
-
-			let err_amount = T::Currency::unreserve(&m.depositor, m.deposit);
-			debug_assert!(err_amount.is_zero());
-			<Multisigs<T>>::remove(&id, &call_hash);
-
-			Self::deposit_event(Event::MultisigCancelled {
-				cancelling: who,
-				timepoint: maybe_timepoint,
-				multisig: id,
-				call_hash,
-			});
-			Ok(())
+		/// Cancel a pre-existing, on-going multisig transaction. Any deposit reserved previously
+		/// for this operation will be unreserved on success.
+		///
+		/// The dispatch origin for this call must be _Signed_.
+		///
+		/// - `threshold`: The total number of approvals for this dispatch before it is executed.
+		/// - `other_signatories`: The accounts (other than the sender) who can approve this
+		/// dispatch. May not be empty.
+		/// - `call_hash`: The hash of the call to be executed.
+		///
+		/// ## Complexity
+		/// - `O(S)`.
+		/// - Up to one balance-reserve or unreserve operation.
+		/// - One passthrough operation, one insert, both `O(S)` where `S` is the number of
+		///   signatories. `S` is capped by `MaxSignatories`, with weight being proportional.
+		/// - One encode & hash, both of complexity `O(S)`.
+		/// - One event.
+		/// - I/O: 1 read `O(S)`, one remove.
+		/// - Storage: removes one item.
+		#[pallet::call_index(4)]
+		#[pallet::weight(T::WeightInfo::cancel_as_multi(other_signatories.len() as u32))]
+		pub fn cancel_as_multi_without_timepoint(
+			origin: OriginFor<T>,
+			threshold: u16,
+			other_signatories: Vec<T::AccountId>,
+			call_hash: [u8; 32],
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::cancel(who, threshold, other_signatories, None, call_hash)
 		}
 	}
 }
@@ -508,6 +515,41 @@ impl<T: Config> Pallet<T> {
 		let entropy = (b"modlpy/utilisuba", who, threshold).using_encoded(blake2_256);
 		Decode::decode(&mut TrailingZeroInput::new(entropy.as_ref()))
 			.expect("infinite length input; no invalid inputs for type; qed")
+	}
+
+	fn cancel(
+		who: T::AccountId,
+		threshold: u16,
+		other_signatories: Vec<T::AccountId>,
+		maybe_timepoint: Option<Timepoint<BlockNumberFor<T>>>,
+		call_hash: [u8; 32],
+	) -> DispatchResult {
+		ensure!(threshold >= 2, Error::<T>::MinimumThreshold);
+		let max_sigs = T::MaxSignatories::get() as usize;
+		ensure!(!other_signatories.is_empty(), Error::<T>::TooFewSignatories);
+		ensure!(other_signatories.len() < max_sigs, Error::<T>::TooManySignatories);
+		let signatories = Self::ensure_sorted_and_insert(other_signatories, who.clone())?;
+
+		let id = Self::multi_account_id(&signatories, threshold);
+
+		let m = <Multisigs<T>>::get(&id, call_hash).ok_or(Error::<T>::NotFound)?;
+		if let Some(timepoint) = maybe_timepoint.as_ref() {
+			// if the optional timepoint is supplied, it should be the correct one
+			ensure!(m.when == *timepoint, Error::<T>::WrongTimepoint);
+		}
+		ensure!(m.depositor == who, Error::<T>::NotOwner);
+
+		let err_amount = T::Currency::unreserve(&m.depositor, m.deposit);
+		debug_assert!(err_amount.is_zero());
+		<Multisigs<T>>::remove(&id, &call_hash);
+
+		Self::deposit_event(Event::MultisigCancelled {
+			cancelling: who,
+			timepoint: maybe_timepoint,
+			multisig: id,
+			call_hash,
+		});
+		Ok(())
 	}
 
 	fn operate(

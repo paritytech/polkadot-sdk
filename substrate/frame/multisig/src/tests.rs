@@ -153,13 +153,7 @@ fn cancel_multisig_returns_deposit() {
 		));
 		assert_eq!(Balances::free_balance(1), 6);
 		assert_eq!(Balances::reserved_balance(1), 4);
-		assert_ok!(Multisig::cancel_as_multi(
-			RuntimeOrigin::signed(1),
-			3,
-			vec![2, 3],
-			Some(now()),
-			hash
-		));
+		assert_ok!(Multisig::cancel_as_multi(RuntimeOrigin::signed(1), 3, vec![2, 3], now(), hash));
 		assert_eq!(Balances::free_balance(1), 10);
 		assert_eq!(Balances::reserved_balance(1), 0);
 	});
@@ -361,16 +355,10 @@ fn cancel_multisig_works() {
 			Weight::zero()
 		));
 		assert_noop!(
-			Multisig::cancel_as_multi(RuntimeOrigin::signed(2), 3, vec![1, 3], Some(now()), hash),
+			Multisig::cancel_as_multi(RuntimeOrigin::signed(2), 3, vec![1, 3], now(), hash),
 			Error::<Test>::NotOwner,
 		);
-		assert_ok!(Multisig::cancel_as_multi(
-			RuntimeOrigin::signed(1),
-			3,
-			vec![2, 3],
-			Some(now()),
-			hash
-		));
+		assert_ok!(Multisig::cancel_as_multi(RuntimeOrigin::signed(1), 3, vec![2, 3], now(), hash));
 	});
 }
 
@@ -396,10 +384,20 @@ fn cancel_multisig_without_timepoint_works() {
 			Weight::zero()
 		));
 		assert_noop!(
-			Multisig::cancel_as_multi(RuntimeOrigin::signed(2), 3, vec![1, 3], None, hash),
+			Multisig::cancel_as_multi_without_timepoint(
+				RuntimeOrigin::signed(2),
+				3,
+				vec![1, 3],
+				hash
+			),
 			Error::<Test>::NotOwner,
 		);
-		assert_ok!(Multisig::cancel_as_multi(RuntimeOrigin::signed(1), 3, vec![2, 3], None, hash));
+		assert_ok!(Multisig::cancel_as_multi_without_timepoint(
+			RuntimeOrigin::signed(1),
+			3,
+			vec![2, 3],
+			hash
+		));
 	});
 }
 
