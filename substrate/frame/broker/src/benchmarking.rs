@@ -246,7 +246,11 @@ mod benches {
 		assert_last_event::<T>(
 			Event::Purchased {
 				who: caller,
-				region_id: RegionId { begin: 4, core, mask: CoreMask::complete() },
+				region_id: RegionId {
+					begin: SaleInfo::<T>::get().unwrap().region_begin,
+					core,
+					mask: CoreMask::complete(),
+				},
 				price: 10u32.into(),
 				duration: 3u32.into(),
 			}
@@ -259,6 +263,7 @@ mod benches {
 	#[benchmark]
 	fn renew() -> Result<(), BenchmarkError> {
 		setup_and_start_sale::<T>()?;
+		let region_len = Configuration::<T>::get().unwrap().region_length;
 
 		advance_to::<T>(2);
 
@@ -274,12 +279,12 @@ mod benches {
 		Broker::<T>::do_assign(region, None, 1001, Final)
 			.map_err(|_| BenchmarkError::Weightless)?;
 
-		advance_to::<T>(6);
+		advance_to::<T>((T::TimeslicePeriod::get() * region_len.into()).try_into().ok().unwrap());
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), region.core);
 
-		let id = AllowedRenewalId { core: region.core, when: 10 };
+		let id = AllowedRenewalId { core: region.core, when: region.begin + region_len * 2 };
 		assert!(AllowedRenewals::<T>::get(id).is_some());
 
 		Ok(())
@@ -338,10 +343,10 @@ mod benches {
 
 		assert_last_event::<T>(
 			Event::Partitioned {
-				old_region_id: RegionId { begin: 4, core, mask: CoreMask::complete() },
+				old_region_id: RegionId { begin: region.begin, core, mask: CoreMask::complete() },
 				new_region_ids: (
-					RegionId { begin: 4, core, mask: CoreMask::complete() },
-					RegionId { begin: 6, core, mask: CoreMask::complete() },
+					RegionId { begin: region.begin, core, mask: CoreMask::complete() },
+					RegionId { begin: region.begin + 2, core, mask: CoreMask::complete() },
 				),
 			}
 			.into(),
@@ -370,11 +375,11 @@ mod benches {
 
 		assert_last_event::<T>(
 			Event::Interlaced {
-				old_region_id: RegionId { begin: 4, core, mask: CoreMask::complete() },
+				old_region_id: RegionId { begin: region.begin, core, mask: CoreMask::complete() },
 				new_region_ids: (
-					RegionId { begin: 4, core, mask: 0x00000_fffff_fffff_00000.into() },
+					RegionId { begin: region.begin, core, mask: 0x00000_fffff_fffff_00000.into() },
 					RegionId {
-						begin: 4,
+						begin: region.begin,
 						core,
 						mask: CoreMask::complete() ^ 0x00000_fffff_fffff_00000.into(),
 					},
@@ -411,7 +416,7 @@ mod benches {
 
 		assert_last_event::<T>(
 			Event::Assigned {
-				region_id: RegionId { begin: 4, core, mask: CoreMask::complete() },
+				region_id: RegionId { begin: region.begin, core, mask: CoreMask::complete() },
 				task: 1000,
 				duration: 3u32.into(),
 			}
@@ -446,7 +451,7 @@ mod benches {
 
 		assert_last_event::<T>(
 			Event::Pooled {
-				region_id: RegionId { begin: 4, core, mask: CoreMask::complete() },
+				region_id: RegionId { begin: region.begin, core, mask: CoreMask::complete() },
 				duration: 3u32.into(),
 			}
 			.into(),
@@ -501,7 +506,7 @@ mod benches {
 				who: recipient,
 				amount: 200u32.into(),
 				next: if m < new_config_record::<T>().region_length {
-					Some(RegionId { begin: 4.saturating_add(m), core, mask: CoreMask::complete() })
+					Some(RegionId { begin: region.begin.saturating_add(m), core, mask: CoreMask::complete() })
 				} else {
 					None
 				},
