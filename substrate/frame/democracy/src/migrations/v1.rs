@@ -187,10 +187,7 @@ mod test {
 
 			// Case 3: Public proposals
 			let hash2 = H256::repeat_byte(2);
-			v0::PublicProps::<T>::put(vec![
-				(3u32, hash, 123u64),
-				(4u32, hash2, 123u64),
-			]);
+			v0::PublicProps::<T>::put(vec![(3u32, hash, 123u64), (4u32, hash2, 123u64)]);
 
 			// Case 4: Next external
 			v0::NextExternal::<T>::put((hash, VoteThreshold::SuperMajorityApprove));
