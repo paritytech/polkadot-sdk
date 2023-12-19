@@ -16,6 +16,7 @@
 
 use crate::*;
 use codec::{Decode, Encode};
+use cumulus_pallet_parachain_system::RelaychainDataProvider;
 use frame_support::{
 	parameter_types,
 	traits::{
@@ -23,7 +24,7 @@ use frame_support::{
 		OnUnbalanced,
 	},
 };
-use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600};
+use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600, RCBlockNumberOf};
 use parachains_common::{AccountId, Balance, BlockNumber};
 use xcm::latest::prelude::*;
 
@@ -73,11 +74,7 @@ pub struct CoretimeAllocator;
 impl CoretimeInterface for CoretimeAllocator {
 	type AccountId = AccountId;
 	type Balance = Balance;
-	type BlockNumber = BlockNumber;
-
-	fn latest() -> Self::BlockNumber {
-		ParachainSystem::last_relay_block_number()
-	}
+	type RealyChainBlockNumberProvider = RelaychainDataProvider<Runtime>;
 
 	fn request_core_count(count: CoreIndex) {
 		use crate::coretime::CoretimeProviderCalls::RequestCoreCount;
@@ -108,7 +105,7 @@ impl CoretimeInterface for CoretimeAllocator {
 		}
 	}
 
-	fn request_revenue_info_at(when: Self::BlockNumber) {
+	fn request_revenue_info_at(when: RCBlockNumberOf<Self>) {
 		use crate::coretime::CoretimeProviderCalls::RequestRevenueInfoAt;
 		let request_revenue_info_at_call =
 			RelayRuntimePallets::Coretime(RequestRevenueInfoAt(when));
@@ -169,9 +166,9 @@ impl CoretimeInterface for CoretimeAllocator {
 
 	fn assign_core(
 		core: CoreIndex,
-		begin: Self::BlockNumber,
+		begin: RCBlockNumberOf<Self>,
 		assignment: Vec<(CoreAssignment, PartsOf57600)>,
-		end_hint: Option<Self::BlockNumber>,
+		end_hint: Option<RCBlockNumberOf<Self>>,
 	) {
 		use crate::coretime::CoretimeProviderCalls::AssignCore;
 		let assign_core_call =
@@ -208,7 +205,7 @@ impl CoretimeInterface for CoretimeAllocator {
 		count
 	}
 
-	fn check_notify_revenue_info() -> Option<(Self::BlockNumber, Self::Balance)> {
+	fn check_notify_revenue_info() -> Option<(RCBlockNumberOf<Self>, Self::Balance)> {
 		let revenue = CoretimeRevenue::get();
 		CoretimeRevenue::set(&None);
 		revenue
@@ -220,7 +217,7 @@ impl CoretimeInterface for CoretimeAllocator {
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_notify_revenue_info(when: Self::BlockNumber, revenue: Self::Balance) {
+	fn ensure_notify_revenue_info(when: RCBlockNumberOf<Self>, revenue: Self::Balance) {
 		CoretimeRevenue::set(&Some((when, revenue)));
 	}
 }

@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{
-	Config, CoreAssignment, CoreIndex, CoreMask, CoretimeInterface, TaskId, CORE_MASK_BITS,
+	Config, CoreAssignment, CoreIndex, CoreMask, CoretimeInterface, TaskId, CORE_MASK_BITS, RCBlockNumberOf,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::traits::fungible::Inspect;
@@ -28,7 +28,7 @@ use sp_runtime::BoundedVec;
 
 pub type BalanceOf<T> = <<T as Config>::Currency as Inspect<<T as SConfig>::AccountId>>::Balance;
 pub type RelayBalanceOf<T> = <<T as Config>::Coretime as CoretimeInterface>::Balance;
-pub type RelayBlockNumberOf<T> = <<T as Config>::Coretime as CoretimeInterface>::BlockNumber;
+pub type RelayBlockNumberOf<T> = RCBlockNumberOf<<T as Config>::Coretime>;
 pub type RelayAccountIdOf<T> = <<T as Config>::Coretime as CoretimeInterface>::AccountId;
 
 /// Relay-chain block number with a fixed divisor of Config::TimeslicePeriod.

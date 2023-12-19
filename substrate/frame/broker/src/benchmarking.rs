@@ -31,7 +31,7 @@ use frame_support::{
 use frame_system::{Pallet as System, RawOrigin};
 use sp_arithmetic::{traits::Zero, Perbill};
 use sp_core::Get;
-use sp_runtime::Saturating;
+use sp_runtime::{traits::BlockNumberProvider, Saturating};
 use sp_std::{vec, vec::Vec};
 
 const SEED: u32 = 0;
@@ -82,6 +82,10 @@ fn setup_leases<T: Config>(n: u32, task: u32, until: u32) {
 fn advance_to<T: Config>(b: u32) {
 	while System::<T>::block_number() < b.into() {
 		System::<T>::set_block_number(System::<T>::block_number().saturating_add(1u32.into()));
+
+		let block_number: u32 = System::<T>::block_number().try_into().ok().unwrap();
+
+		RCBlockNumberProviderOf::<T::Coretime>::set_block_number(block_number.into());
 		Broker::<T>::on_initialize(System::<T>::block_number());
 	}
 }
