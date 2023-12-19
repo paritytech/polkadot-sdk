@@ -45,10 +45,8 @@ RUN	mkdir -p /home/nonroot/bridges-polkadot-sdk
 COPY ./artifacts/bridges-polkadot-sdk /home/nonroot/bridges-polkadot-sdk
 # also prepare `generate_hex_encoded_call` for running
 RUN set -eux; \
-	pushd /home/nonroot/polkadot-sdk/cumulus/scripts/generate_hex_encoded_call; \
-	npm install; \
-	popd
-
+	cd /home/nonroot/polkadot-sdk/cumulus/scripts/generate_hex_encoded_call; \
+	npm install
 
 # check if executable works in this container
 USER nonroot
