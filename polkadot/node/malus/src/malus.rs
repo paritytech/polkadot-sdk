@@ -52,12 +52,19 @@ struct MalusCli {
 impl MalusCli {
 	/// Launch a malus node.
 	fn launch(self) -> eyre::Result<()> {
+		let node_version =
+			polkadot_node_core_pvf_common::logical_node_version(env!("SUBSTRATE_WASMTIME_VERSION"));
 		let finality_delay = self.finality_delay;
 		match self.variant {
 			NemesisVariant::BackGarbageCandidate(opts) => {
 				let BackGarbageCandidateOptions { percentage, cli } = opts;
 
-				polkadot_cli::run_node(cli, BackGarbageCandidates { percentage }, finality_delay)?
+				polkadot_cli::run_node(
+					cli,
+					BackGarbageCandidates { percentage },
+					node_version,
+					finality_delay,
+				)?
 			},
 			NemesisVariant::SuggestGarbageCandidate(opts) => {
 				let SuggestGarbageCandidateOptions { percentage, cli } = opts;
@@ -65,6 +72,7 @@ impl MalusCli {
 				polkadot_cli::run_node(
 					cli,
 					SuggestGarbageCandidates { percentage },
+					node_version,
 					finality_delay,
 				)?
 			},
@@ -79,6 +87,7 @@ impl MalusCli {
 				polkadot_cli::run_node(
 					cli,
 					DisputeValidCandidates { fake_validation, fake_validation_error, percentage },
+					node_version,
 					finality_delay,
 				)?
 			},
@@ -88,6 +97,7 @@ impl MalusCli {
 				polkadot_cli::run_node(
 					cli,
 					DisputeFinalizedCandidates { dispute_offset },
+					node_version,
 					finality_delay,
 				)?
 			},
