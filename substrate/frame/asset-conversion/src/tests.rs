@@ -17,9 +17,9 @@
 
 use crate::{mock::*, *};
 use frame_support::{
-	assert_noop, assert_ok,
+	assert_noop, assert_ok, assert_storage_noop,
 	instances::Instance1,
-	traits::{fungible::Inspect, fungibles::InspectEnumerable, Get},
+	traits::{fungible, fungibles, fungibles::InspectEnumerable, Get},
 };
 use sp_arithmetic::Permill;
 use sp_runtime::{DispatchError, TokenError};
@@ -65,13 +65,17 @@ fn pool_assets() -> Vec<u32> {
 }
 
 fn create_tokens(owner: u128, tokens: Vec<NativeOrAssetId<u32>>) {
+	create_tokens_with_ed(owner, tokens, 1)
+}
+
+fn create_tokens_with_ed(owner: u128, tokens: Vec<NativeOrAssetId<u32>>, ed: u128) {
 	for token_id in tokens {
 		let MultiAssetIdConversionResult::Converted(asset_id) =
 			NativeOrAssetIdConverter::try_convert(&token_id)
 		else {
 			unreachable!("invalid token")
 		};
-		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, false, 1));
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, false, ed));
 	}
 }
 
@@ -91,8 +95,8 @@ fn get_ed() -> u128 {
 }
 
 macro_rules! bvec {
-	($( $x:tt )*) => {
-		vec![$( $x )*].try_into().unwrap()
+	($( $x:ident ),*) => {
+		vec![$( Box::new( $x ), )*]
 	}
 }
 
@@ -145,7 +149,11 @@ fn can_create_pool() {
 
 		let lp_token = AssetConversion::get_next_pool_asset_id();
 		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 1000));
-		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), token_2, token_1));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_2),
+			Box::new(token_1)
+		));
 
 		let setup_fee = <<Test as Config>::PoolSetupFee as Get<<Test as Config>::Balance>>::get();
 		let pool_account = <<Test as Config>::PoolSetupFeeReceiver as Get<u128>>::get();
@@ -170,24 +178,40 @@ fn can_create_pool() {
 		assert_eq!(pool_assets(), vec![lp_token]);
 
 		assert_noop!(
-			AssetConversion::create_pool(RuntimeOrigin::signed(user), token_1, token_1),
+			AssetConversion::create_pool(
+				RuntimeOrigin::signed(user),
+				Box::new(token_1),
+				Box::new(token_1)
+			),
 			Error::<Test>::EqualAssets
 		);
 		assert_noop!(
-			AssetConversion::create_pool(RuntimeOrigin::signed(user), token_2, token_2),
+			AssetConversion::create_pool(
+				RuntimeOrigin::signed(user),
+				Box::new(token_2),
+				Box::new(token_2)
+			),
 			Error::<Test>::EqualAssets
 		);
 
 		// validate we can create Asset(1)/Asset(2) pool
 		let token_1 = NativeOrAssetId::Asset(1);
 		create_tokens(user, vec![token_1]);
-		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), token_1, token_2));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_2)
+		));
 
 		// validate we can force the first asset to be the Native currency only
 		AllowMultiAssetPools::set(&false);
 		let token_1 = NativeOrAssetId::Asset(3);
 		assert_noop!(
-			AssetConversion::create_pool(RuntimeOrigin::signed(user), token_1, token_2),
+			AssetConversion::create_pool(
+				RuntimeOrigin::signed(user),
+				Box::new(token_1),
+				Box::new(token_2)
+			),
 			Error::<Test>::PoolMustContainNativeCurrency
 		);
 	});
@@ -203,19 +227,31 @@ fn create_same_pool_twice_should_fail() {
 		create_tokens(user, vec![token_2]);
 
 		let lp_token = AssetConversion::get_next_pool_asset_id();
-		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), token_2, token_1));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_2),
+			Box::new(token_1)
+		));
 		let expected_free = lp_token + 1;
 		assert_eq!(expected_free, AssetConversion::get_next_pool_asset_id());
 
 		assert_noop!(
-			AssetConversion::create_pool(RuntimeOrigin::signed(user), token_2, token_1),
+			AssetConversion::create_pool(
+				RuntimeOrigin::signed(user),
+				Box::new(token_2),
+				Box::new(token_1)
+			),
 			Error::<Test>::PoolExists
 		);
 		assert_eq!(expected_free, AssetConversion::get_next_pool_asset_id());
 
 		// Try switching the same tokens around:
 		assert_noop!(
-			AssetConversion::create_pool(RuntimeOrigin::signed(user), token_1, token_2),
+			AssetConversion::create_pool(
+				RuntimeOrigin::signed(user),
+				Box::new(token_1),
+				Box::new(token_2)
+			),
 			Error::<Test>::PoolExists
 		);
 		assert_eq!(expected_free, AssetConversion::get_next_pool_asset_id());
@@ -235,7 +271,11 @@ fn different_pools_should_have_different_lp_tokens() {
 		create_tokens(user, vec![token_2, token_3]);
 
 		let lp_token2_1 = AssetConversion::get_next_pool_asset_id();
-		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), token_2, token_1));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_2),
+			Box::new(token_1)
+		));
 		let lp_token3_1 = AssetConversion::get_next_pool_asset_id();
 
 		assert_eq!(
@@ -248,7 +288,11 @@ fn different_pools_should_have_different_lp_tokens() {
 			}]
 		);
 
-		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), token_3, token_1));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_3),
+			Box::new(token_1)
+		));
 		assert_eq!(
 			events(),
 			[Event::<Test>::PoolCreated {
@@ -273,9 +317,17 @@ fn can_add_liquidity() {
 
 		create_tokens(user, vec![token_2, token_3]);
 		let lp_token1 = AssetConversion::get_next_pool_asset_id();
-		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), token_1, token_2));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_2)
+		));
 		let lp_token2 = AssetConversion::get_next_pool_asset_id();
-		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), token_1, token_3));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_3)
+		));
 
 		let ed = get_ed();
 		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 10000 * 2 + ed));
@@ -284,8 +336,8 @@ fn can_add_liquidity() {
 
 		assert_ok!(AssetConversion::add_liquidity(
 			RuntimeOrigin::signed(user),
-			token_1,
-			token_2,
+			Box::new(token_1),
+			Box::new(token_2),
 			10000,
 			10,
 			10000,
@@ -313,8 +365,8 @@ fn can_add_liquidity() {
 		// try to pass the non-native - native assets, the result should be the same
 		assert_ok!(AssetConversion::add_liquidity(
 			RuntimeOrigin::signed(user),
-			token_3,
-			token_1,
+			Box::new(token_3),
+			Box::new(token_1),
 			10,
 			10000,
 			10,
@@ -349,7 +401,11 @@ fn add_tiny_liquidity_leads_to_insufficient_liquidity_minted_error() {
 		let token_2 = NativeOrAssetId::Asset(2);
 
 		create_tokens(user, vec![token_2]);
-		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), token_1, token_2));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_2)
+		));
 
 		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 1000));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
@@ -357,8 +413,8 @@ fn add_tiny_liquidity_leads_to_insufficient_liquidity_minted_error() {
 		assert_noop!(
 			AssetConversion::add_liquidity(
 				RuntimeOrigin::signed(user),
-				token_1,
-				token_2,
+				Box::new(token_1),
+				Box::new(token_2),
 				1,
 				1,
 				1,
@@ -371,8 +427,8 @@ fn add_tiny_liquidity_leads_to_insufficient_liquidity_minted_error() {
 		assert_noop!(
 			AssetConversion::add_liquidity(
 				RuntimeOrigin::signed(user),
-				token_1,
-				token_2,
+				Box::new(token_1),
+				Box::new(token_2),
 				get_ed(),
 				1,
 				1,
@@ -393,8 +449,16 @@ fn add_tiny_liquidity_directly_to_pool_address() {
 		let token_3 = NativeOrAssetId::Asset(3);
 
 		create_tokens(user, vec![token_2, token_3]);
-		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), token_1, token_2));
-		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), token_1, token_3));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_2)
+		));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_3)
+		));
 
 		let ed = get_ed();
 		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 10000 * 2 + ed));
@@ -407,8 +471,8 @@ fn add_tiny_liquidity_directly_to_pool_address() {
 
 		assert_ok!(AssetConversion::add_liquidity(
 			RuntimeOrigin::signed(user),
-			token_1,
-			token_2,
+			Box::new(token_1),
+			Box::new(token_2),
 			10000,
 			10,
 			10000,
@@ -421,8 +485,8 @@ fn add_tiny_liquidity_directly_to_pool_address() {
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, pallet_account, 1));
 		assert_ok!(AssetConversion::add_liquidity(
 			RuntimeOrigin::signed(user),
-			token_1,
-			token_3,
+			Box::new(token_1),
+			Box::new(token_3),
 			10000,
 			10,
 			10000,
@@ -442,15 +506,25 @@ fn can_remove_liquidity() {
 
 		create_tokens(user, vec![token_2]);
 		let lp_token = AssetConversion::get_next_pool_asset_id();
-		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), token_1, token_2));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_2)
+		));
 
-		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 10000000000));
-		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 100000));
+		let ed_token_1 = <Balances as fungible::Inspect<_>>::minimum_balance();
+		let ed_token_2 = <Assets as fungibles::Inspect<_>>::minimum_balance(2);
+		assert_ok!(Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			user,
+			10000000000 + ed_token_1
+		));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 100000 + ed_token_2));
 
 		assert_ok!(AssetConversion::add_liquidity(
 			RuntimeOrigin::signed(user),
-			token_1,
-			token_2,
+			Box::new(token_1),
+			Box::new(token_2),
 			1000000000,
 			100000,
 			1000000000,
@@ -463,8 +537,8 @@ fn can_remove_liquidity() {
 
 		assert_ok!(AssetConversion::remove_liquidity(
 			RuntimeOrigin::signed(user),
-			token_1,
-			token_2,
+			Box::new(token_1),
+			Box::new(token_2),
 			total_lp_received,
 			0,
 			0,
@@ -487,8 +561,8 @@ fn can_remove_liquidity() {
 		assert_eq!(balance(pool_account, token_2), 10001);
 		assert_eq!(pool_balance(pool_account, lp_token), 100);
 
-		assert_eq!(balance(user, token_1), 10000000000 - 1000000000 + 899991000);
-		assert_eq!(balance(user, token_2), 89999);
+		assert_eq!(balance(user, token_1), 10000000000 - 1000000000 + 899991000 + ed_token_1);
+		assert_eq!(balance(user, token_2), 89999 + ed_token_2);
 		assert_eq!(pool_balance(user, lp_token), 0);
 	});
 }
@@ -502,15 +576,19 @@ fn can_not_redeem_more_lp_tokens_than_were_minted() {
 		let lp_token = AssetConversion::get_next_pool_asset_id();
 
 		create_tokens(user, vec![token_2]);
-		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), token_1, token_2));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_2)
+		));
 
 		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 10000 + get_ed()));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
 
 		assert_ok!(AssetConversion::add_liquidity(
 			RuntimeOrigin::signed(user),
-			token_1,
-			token_2,
+			Box::new(token_1),
+			Box::new(token_2),
 			10000,
 			10,
 			10000,
@@ -524,8 +602,8 @@ fn can_not_redeem_more_lp_tokens_than_were_minted() {
 		assert_noop!(
 			AssetConversion::remove_liquidity(
 				RuntimeOrigin::signed(user),
-				token_1,
-				token_2,
+				Box::new(token_1),
+				Box::new(token_2),
 				216 + 1, // Try and redeem 10 lp tokens while only 9 minted.
 				0,
 				0,
@@ -544,15 +622,19 @@ fn can_quote_price() {
 		let token_2 = NativeOrAssetId::Asset(2);
 
 		create_tokens(user, vec![token_2]);
-		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), token_1, token_2));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_2)
+		));
 
 		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 100000));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
 
 		assert_ok!(AssetConversion::add_liquidity(
 			RuntimeOrigin::signed(user),
-			token_1,
-			token_2,
+			Box::new(token_1),
+			Box::new(token_2),
 			10000,
 			200,
 			1,
@@ -765,15 +847,19 @@ fn quote_price_exact_tokens_for_tokens_matches_execution() {
 		let token_2 = NativeOrAssetId::Asset(2);
 
 		create_tokens(user, vec![token_2]);
-		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), token_1, token_2));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_2)
+		));
 
 		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 100000));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
 
 		assert_ok!(AssetConversion::add_liquidity(
 			RuntimeOrigin::signed(user),
-			token_1,
-			token_2,
+			Box::new(token_1),
+			Box::new(token_2),
 			10000,
 			200,
 			1,
@@ -813,15 +899,19 @@ fn quote_price_tokens_for_exact_tokens_matches_execution() {
 		let token_2 = NativeOrAssetId::Asset(2);
 
 		create_tokens(user, vec![token_2]);
-		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), token_1, token_2));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_2)
+		));
 
 		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 100000));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
 
 		assert_ok!(AssetConversion::add_liquidity(
 			RuntimeOrigin::signed(user),
-			token_1,
-			token_2,
+			Box::new(token_1),
+			Box::new(token_2),
 			10000,
 			200,
 			1,
@@ -864,7 +954,11 @@ fn can_swap_with_native() {
 		let pool_id = (token_1, token_2);
 
 		create_tokens(user, vec![token_2]);
-		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), token_1, token_2));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_2)
+		));
 
 		let ed = get_ed();
 		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 10000 + ed));
@@ -875,8 +969,8 @@ fn can_swap_with_native() {
 
 		assert_ok!(AssetConversion::add_liquidity(
 			RuntimeOrigin::signed(user),
-			token_1,
-			token_2,
+			Box::new(token_1),
+			Box::new(token_2),
 			liquidity1,
 			liquidity2,
 			1,
@@ -914,7 +1008,11 @@ fn can_swap_with_realistic_values() {
 		let dot = NativeOrAssetId::Native;
 		let usd = NativeOrAssetId::Asset(2);
 		create_tokens(user, vec![usd]);
-		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), dot, usd));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(dot),
+			Box::new(usd)
+		));
 
 		const UNIT: u128 = 1_000_000_000;
 
@@ -925,8 +1023,8 @@ fn can_swap_with_realistic_values() {
 		let liquidity_usd = 1_000_000 * UNIT;
 		assert_ok!(AssetConversion::add_liquidity(
 			RuntimeOrigin::signed(user),
-			dot,
-			usd,
+			Box::new(dot),
+			Box::new(usd),
 			liquidity_dot,
 			liquidity_usd,
 			1,
@@ -948,9 +1046,9 @@ fn can_swap_with_realistic_values() {
 		assert!(events().contains(&Event::<Test>::SwapExecuted {
 			who: user,
 			send_to: user,
-			path: bvec![usd, dot],
 			amount_in: 10 * UNIT,      // usd
 			amount_out: 1_993_980_120, // About 2 dot after div by UNIT.
+			path: vec![(usd, 10 * UNIT), (dot, 1_993_980_120)],
 		}));
 	});
 }
@@ -963,7 +1061,11 @@ fn can_not_swap_in_pool_with_no_liquidity_added_yet() {
 		let token_2 = NativeOrAssetId::Asset(2);
 
 		create_tokens(user, vec![token_2]);
-		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), token_1, token_2));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_2)
+		));
 
 		// Check can't swap an empty pool
 		assert_noop!(
@@ -990,7 +1092,11 @@ fn check_no_panic_when_try_swap_close_to_empty_pool() {
 		let lp_token = AssetConversion::get_next_pool_asset_id();
 
 		create_tokens(user, vec![token_2]);
-		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), token_1, token_2));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_2)
+		));
 
 		let ed = get_ed();
 		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 10000 + ed));
@@ -1001,8 +1107,8 @@ fn check_no_panic_when_try_swap_close_to_empty_pool() {
 
 		assert_ok!(AssetConversion::add_liquidity(
 			RuntimeOrigin::signed(user),
-			token_1,
-			token_2,
+			Box::new(token_1),
+			Box::new(token_2),
 			liquidity1,
 			liquidity2,
 			1,
@@ -1027,8 +1133,8 @@ fn check_no_panic_when_try_swap_close_to_empty_pool() {
 
 		assert_ok!(AssetConversion::remove_liquidity(
 			RuntimeOrigin::signed(user),
-			token_1,
-			token_2,
+			Box::new(token_1),
+			Box::new(token_2),
 			lp_token_minted,
 			1,
 			1,
@@ -1050,7 +1156,7 @@ fn check_no_panic_when_try_swap_close_to_empty_pool() {
 				user,
 				false,
 			),
-			Error::<Test>::ReserveLeftLessThanMinimal
+			TokenError::NotExpendable,
 		);
 
 		assert_ok!(AssetConversion::swap_tokens_for_exact_tokens(
@@ -1109,7 +1215,11 @@ fn swap_should_not_work_if_too_much_slippage() {
 		let token_2 = NativeOrAssetId::Asset(2);
 
 		create_tokens(user, vec![token_2]);
-		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), token_1, token_2));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_2)
+		));
 
 		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 10000 + get_ed()));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
@@ -1119,8 +1229,8 @@ fn swap_should_not_work_if_too_much_slippage() {
 
 		assert_ok!(AssetConversion::add_liquidity(
 			RuntimeOrigin::signed(user),
-			token_1,
-			token_2,
+			Box::new(token_1),
+			Box::new(token_2),
 			liquidity1,
 			liquidity2,
 			1,
@@ -1153,7 +1263,11 @@ fn can_swap_tokens_for_exact_tokens() {
 		let pool_id = (token_1, token_2);
 
 		create_tokens(user, vec![token_2]);
-		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), token_1, token_2));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_2)
+		));
 
 		let ed = get_ed();
 		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 20000 + ed));
@@ -1168,8 +1282,8 @@ fn can_swap_tokens_for_exact_tokens() {
 
 		assert_ok!(AssetConversion::add_liquidity(
 			RuntimeOrigin::signed(user),
-			token_1,
-			token_2,
+			Box::new(token_1),
+			Box::new(token_2),
 			liquidity1,
 			liquidity2,
 			1,
@@ -1215,7 +1329,11 @@ fn can_swap_tokens_for_exact_tokens_when_not_liquidity_provider() {
 		let lp_token = AssetConversion::get_next_pool_asset_id();
 
 		create_tokens(user2, vec![token_2]);
-		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user2), token_1, token_2));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user2),
+			Box::new(token_1),
+			Box::new(token_2)
+		));
 
 		let ed = get_ed();
 		let base1 = 10000;
@@ -1235,8 +1353,8 @@ fn can_swap_tokens_for_exact_tokens_when_not_liquidity_provider() {
 
 		assert_ok!(AssetConversion::add_liquidity(
 			RuntimeOrigin::signed(user2),
-			token_1,
-			token_2,
+			Box::new(token_1),
+			Box::new(token_2),
 			liquidity1,
 			liquidity2,
 			1,
@@ -1283,8 +1401,8 @@ fn can_swap_tokens_for_exact_tokens_when_not_liquidity_provider() {
 
 		assert_ok!(AssetConversion::remove_liquidity(
 			RuntimeOrigin::signed(user2),
-			token_1,
-			token_2,
+			Box::new(token_1),
+			Box::new(token_2),
 			lp_token_minted,
 			0,
 			0,
@@ -1302,17 +1420,22 @@ fn swap_when_existential_deposit_would_cause_reaping_but_keep_alive_set() {
 		let token_2 = NativeOrAssetId::Asset(2);
 
 		create_tokens(user2, vec![token_2]);
-		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user2), token_1, token_2));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user2),
+			Box::new(token_1),
+			Box::new(token_2)
+		));
 
 		let ed = get_ed();
 		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 101));
 		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user2, 10000 + ed));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(user2), 2, user2, 1000));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user2), 2, user, 2));
 
 		assert_ok!(AssetConversion::add_liquidity(
 			RuntimeOrigin::signed(user2),
-			token_1,
-			token_2,
+			Box::new(token_1),
+			Box::new(token_2),
 			10000,
 			200,
 			1,
@@ -1343,6 +1466,197 @@ fn swap_when_existential_deposit_would_cause_reaping_but_keep_alive_set() {
 			),
 			DispatchError::Token(TokenError::NotExpendable)
 		);
+
+		assert_noop!(
+			AssetConversion::swap_tokens_for_exact_tokens(
+				RuntimeOrigin::signed(user),
+				bvec![token_2, token_1],
+				51, // amount_out
+				2,  // amount_in_max
+				user,
+				true,
+			),
+			DispatchError::Token(TokenError::NotExpendable)
+		);
+
+		assert_noop!(
+			AssetConversion::swap_exact_tokens_for_tokens(
+				RuntimeOrigin::signed(user),
+				bvec![token_2, token_1],
+				2, // amount_in
+				1, // amount_out_min
+				user,
+				true,
+			),
+			DispatchError::Token(TokenError::NotExpendable)
+		);
+	});
+}
+
+#[test]
+fn swap_when_existential_deposit_would_cause_reaping_pool_account() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let user2 = 2;
+		let token_1 = NativeOrAssetId::Native;
+		let token_2 = NativeOrAssetId::Asset(2);
+		let token_3 = NativeOrAssetId::Asset(3);
+
+		let ed_assets = 100;
+		create_tokens_with_ed(user2, vec![token_2, token_3], ed_assets);
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user2),
+			Box::new(token_1),
+			Box::new(token_2)
+		));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user2),
+			Box::new(token_1),
+			Box::new(token_3)
+		));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user2),
+			Box::new(token_2),
+			Box::new(token_3)
+		));
+
+		let ed = get_ed();
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 20000 + ed));
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user2, 20000 + ed));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user2), 2, user2, 400 + ed_assets));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user2), 3, user2, 20000 + ed_assets));
+
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user2), 2, user, 400 + ed_assets));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user2), 3, user, 20000 + ed_assets));
+
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user2),
+			Box::new(token_1),
+			Box::new(token_2),
+			10000,
+			200,
+			1,
+			1,
+			user2,
+		));
+
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user2),
+			Box::new(token_1),
+			Box::new(token_3),
+			200,
+			10000,
+			1,
+			1,
+			user2,
+		));
+
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user2),
+			Box::new(token_2),
+			Box::new(token_3),
+			200,
+			10000,
+			1,
+			1,
+			user2,
+		));
+
+		// causes an account removal for asset token 2
+		assert_noop!(
+			AssetConversion::swap_tokens_for_exact_tokens(
+				RuntimeOrigin::signed(user),
+				bvec![token_1, token_2],
+				110,   // amount_out
+				20000, // amount_in_max
+				user,
+				true,
+			),
+			DispatchError::Token(TokenError::NotExpendable)
+		);
+
+		// causes an account removal for asset token 2
+		assert_noop!(
+			AssetConversion::swap_exact_tokens_for_tokens(
+				RuntimeOrigin::signed(user),
+				bvec![token_1, token_2],
+				15000, // amount_in
+				110,   // amount_out_min
+				user,
+				true,
+			),
+			DispatchError::Token(TokenError::NotExpendable)
+		);
+
+		// causes an account removal for native token 1
+		assert_noop!(
+			AssetConversion::swap_tokens_for_exact_tokens(
+				RuntimeOrigin::signed(user),
+				bvec![token_3, token_1],
+				110,   // amount_out
+				20000, // amount_in_max
+				user,
+				true,
+			),
+			DispatchError::Token(TokenError::NotExpendable)
+		);
+
+		// causes an account removal for native token 1
+		assert_noop!(
+			AssetConversion::swap_exact_tokens_for_tokens(
+				RuntimeOrigin::signed(user),
+				bvec![token_3, token_1],
+				15000, // amount_in
+				110,   // amount_out_min
+				user,
+				true,
+			),
+			DispatchError::Token(TokenError::NotExpendable)
+		);
+
+		// causes an account removal for native token 1 locate in the middle of a swap path
+		let amount_in = AssetConversion::balance_path_from_amount_out(
+			110,
+			vec![token_3, token_1].try_into().unwrap(),
+		)
+		.unwrap()
+		.first()
+		.map(|(_, a)| *a)
+		.unwrap();
+
+		assert_noop!(
+			AssetConversion::swap_exact_tokens_for_tokens(
+				RuntimeOrigin::signed(user),
+				bvec![token_3, token_1, token_2],
+				amount_in, // amount_in
+				1,         // amount_out_min
+				user,
+				true,
+			),
+			DispatchError::Token(TokenError::NotExpendable)
+		);
+
+		// causes an account removal for asset token 2 locate in the middle of a swap path
+		let amount_in = AssetConversion::balance_path_from_amount_out(
+			110,
+			vec![token_1, token_2].try_into().unwrap(),
+		)
+		.unwrap()
+		.first()
+		.map(|(_, a)| *a)
+		.unwrap();
+
+		assert_noop!(
+			AssetConversion::swap_exact_tokens_for_tokens(
+				RuntimeOrigin::signed(user),
+				bvec![token_1, token_2, token_3],
+				amount_in, // amount_in
+				1,         // amount_out_min
+				user,
+				true,
+			),
+			DispatchError::Token(TokenError::NotExpendable)
+		);
 	});
 }
 
@@ -1354,7 +1668,11 @@ fn swap_tokens_for_exact_tokens_should_not_work_if_too_much_slippage() {
 		let token_2 = NativeOrAssetId::Asset(2);
 
 		create_tokens(user, vec![token_2]);
-		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), token_1, token_2));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_2)
+		));
 
 		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 20000 + get_ed()));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
@@ -1364,8 +1682,8 @@ fn swap_tokens_for_exact_tokens_should_not_work_if_too_much_slippage() {
 
 		assert_ok!(AssetConversion::add_liquidity(
 			RuntimeOrigin::signed(user),
-			token_1,
-			token_2,
+			Box::new(token_1),
+			Box::new(token_2),
 			liquidity1,
 			liquidity2,
 			1,
@@ -1398,8 +1716,16 @@ fn swap_exact_tokens_for_tokens_in_multi_hops() {
 		let token_3 = NativeOrAssetId::Asset(3);
 
 		create_tokens(user, vec![token_2, token_3]);
-		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), token_1, token_2));
-		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), token_2, token_3));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_2)
+		));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_2),
+			Box::new(token_3)
+		));
 
 		let ed = get_ed();
 		let base1 = 10000;
@@ -1414,8 +1740,8 @@ fn swap_exact_tokens_for_tokens_in_multi_hops() {
 
 		assert_ok!(AssetConversion::add_liquidity(
 			RuntimeOrigin::signed(user),
-			token_1,
-			token_2,
+			Box::new(token_1),
+			Box::new(token_2),
 			liquidity1,
 			liquidity2,
 			1,
@@ -1424,8 +1750,8 @@ fn swap_exact_tokens_for_tokens_in_multi_hops() {
 		));
 		assert_ok!(AssetConversion::add_liquidity(
 			RuntimeOrigin::signed(user),
-			token_2,
-			token_3,
+			Box::new(token_2),
+			Box::new(token_3),
 			liquidity2,
 			liquidity3,
 			1,
@@ -1497,8 +1823,16 @@ fn swap_tokens_for_exact_tokens_in_multi_hops() {
 		let token_3 = NativeOrAssetId::Asset(3);
 
 		create_tokens(user, vec![token_2, token_3]);
-		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), token_1, token_2));
-		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), token_2, token_3));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_2)
+		));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_2),
+			Box::new(token_3)
+		));
 
 		let ed = get_ed();
 		let base1 = 10000;
@@ -1513,8 +1847,8 @@ fn swap_tokens_for_exact_tokens_in_multi_hops() {
 
 		assert_ok!(AssetConversion::add_liquidity(
 			RuntimeOrigin::signed(user),
-			token_1,
-			token_2,
+			Box::new(token_1),
+			Box::new(token_2),
 			liquidity1,
 			liquidity2,
 			1,
@@ -1523,8 +1857,8 @@ fn swap_tokens_for_exact_tokens_in_multi_hops() {
 		));
 		assert_ok!(AssetConversion::add_liquidity(
 			RuntimeOrigin::signed(user),
-			token_2,
-			token_3,
+			Box::new(token_2),
+			Box::new(token_3),
 			liquidity2,
 			liquidity3,
 			1,
@@ -1568,6 +1902,7 @@ fn can_not_swap_same_asset() {
 	new_test_ext().execute_with(|| {
 		let user = 1;
 		let token_1 = NativeOrAssetId::Asset(1);
+		let token_2 = NativeOrAssetId::Native;
 
 		create_tokens(user, vec![token_1]);
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 1, user, 1000));
@@ -1577,8 +1912,8 @@ fn can_not_swap_same_asset() {
 		assert_noop!(
 			AssetConversion::add_liquidity(
 				RuntimeOrigin::signed(user),
-				token_1,
-				token_1,
+				Box::new(token_1),
+				Box::new(token_1),
 				liquidity1,
 				liquidity2,
 				1,
@@ -1604,7 +1939,7 @@ fn can_not_swap_same_asset() {
 		assert_noop!(
 			AssetConversion::swap_exact_tokens_for_tokens(
 				RuntimeOrigin::signed(user),
-				bvec![NativeOrAssetId::Native, NativeOrAssetId::Native],
+				bvec![token_2, token_2],
 				exchange_amount,
 				1,
 				user,
@@ -1664,7 +1999,11 @@ fn cannot_block_pool_creation() {
 
 		// User can still create the pool
 		create_tokens(user, vec![token_2]);
-		assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(user), token_1, token_2));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_2)
+		));
 
 		// User has to transfer one Asset(2) token to the pool account (otherwise add_liquidity will
 		// fail with `AssetTwoDepositDidNotMeetMinimum`)
@@ -1675,13 +2014,439 @@ fn cannot_block_pool_creation() {
 		// add_liquidity shouldn't fail because of the number of consumers
 		assert_ok!(AssetConversion::add_liquidity(
 			RuntimeOrigin::signed(user),
-			token_1,
-			token_2,
+			Box::new(token_1),
+			Box::new(token_2),
 			10000,
 			100,
 			10000,
 			10,
 			user,
 		));
+	});
+}
+
+#[test]
+fn swap_transactional() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let user2 = 2;
+		let token_1 = NativeOrAssetId::Native;
+		let token_2 = NativeOrAssetId::Asset(2);
+		let token_3 = NativeOrAssetId::Asset(3);
+
+		let asset_ed = 150;
+		create_tokens_with_ed(user, vec![token_2, token_3], asset_ed);
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_2)
+		));
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_3)
+		));
+
+		let ed = get_ed();
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 20000 + ed));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 3, user, 1000));
+
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user2, 20000 + ed));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user2, 1000));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 3, user2, 1000));
+
+		let liquidity1 = 10000;
+		let liquidity2 = 200;
+
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_2),
+			liquidity1,
+			liquidity2,
+			1,
+			1,
+			user,
+		));
+
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_3),
+			liquidity1,
+			liquidity2,
+			1,
+			1,
+			user,
+		));
+
+		let pool_1 = AssetConversion::get_pool_account(&(token_1, token_2));
+		let pool_2 = AssetConversion::get_pool_account(&(token_1, token_3));
+
+		assert_eq!(Balances::balance(&pool_1), liquidity1);
+		assert_eq!(Assets::balance(2, &pool_1), liquidity2);
+		assert_eq!(Balances::balance(&pool_2), liquidity1);
+		assert_eq!(Assets::balance(3, &pool_2), liquidity2);
+
+		// the amount that would cause a transfer from the last pool in the path to fail
+		let expected_out = liquidity2 - asset_ed + 1;
+		let amount_in = AssetConversion::balance_path_from_amount_out(
+			expected_out,
+			vec![token_2, token_1, token_3].try_into().unwrap(),
+		)
+		.unwrap()
+		.first()
+		.map(|(_, a)| *a)
+		.unwrap();
+
+		// swap credit with `swap_tokens_for_exact_tokens` transactional
+		let credit_in = Assets::issue(2, amount_in);
+		let credit_in_err_expected = Assets::issue(2, amount_in);
+		// avoiding drop of any credit, to assert any storage mutation from an actual call.
+		let error;
+		assert_storage_noop!(
+			error = <AssetConversion as SwapCredit<_>>::swap_tokens_for_exact_tokens(
+				vec![token_2, token_1, token_3],
+				credit_in.into(),
+				expected_out,
+			)
+			.unwrap_err()
+		);
+		assert_eq!(error, (credit_in_err_expected.into(), TokenError::NotExpendable.into()));
+
+		// swap credit with `swap_exact_tokens_for_tokens` transactional
+		let credit_in = Assets::issue(2, amount_in);
+		let credit_in_err_expected = Assets::issue(2, amount_in);
+		// avoiding drop of any credit, to assert any storage mutation from an actual call.
+		let error;
+		assert_storage_noop!(
+			error = <AssetConversion as SwapCredit<_>>::swap_exact_tokens_for_tokens(
+				vec![token_2, token_1, token_3],
+				credit_in.into(),
+				Some(expected_out),
+			)
+			.unwrap_err()
+		);
+		assert_eq!(error, (credit_in_err_expected.into(), TokenError::NotExpendable.into()));
+
+		// swap with `swap_exact_tokens_for_tokens` transactional
+		assert_noop!(
+			<AssetConversion as Swap<_>>::swap_exact_tokens_for_tokens(
+				user2,
+				vec![token_2, token_1, token_3],
+				amount_in.into(),
+				Some(expected_out.into()),
+				user2,
+				true,
+			),
+			TokenError::NotExpendable
+		);
+
+		// swap with `swap_exact_tokens_for_tokens` transactional
+		assert_noop!(
+			<AssetConversion as Swap<_>>::swap_tokens_for_exact_tokens(
+				user2,
+				vec![token_2, token_1, token_3],
+				expected_out.into(),
+				Some(amount_in.into()),
+				user2,
+				true,
+			),
+			TokenError::NotExpendable
+		);
+
+		assert_eq!(Balances::balance(&pool_1), liquidity1);
+		assert_eq!(Assets::balance(2, &pool_1), liquidity2);
+		assert_eq!(Balances::balance(&pool_2), liquidity1);
+		assert_eq!(Assets::balance(3, &pool_2), liquidity2);
+	})
+}
+
+#[test]
+fn swap_credit_returns_change() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let token_1 = NativeOrAssetId::Native;
+		let token_2 = NativeOrAssetId::Asset(2);
+
+		create_tokens(user, vec![token_2]);
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_2)
+		));
+
+		let ed = get_ed();
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 20000 + ed));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
+
+		let liquidity1 = 10000;
+		let liquidity2 = 200;
+
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_2),
+			liquidity1,
+			liquidity2,
+			1,
+			1,
+			user,
+		));
+
+		let expected_change = Balances::issue(100);
+		let expected_credit_out = Assets::issue(2, 20);
+
+		let amount_in_max =
+			AssetConversion::get_amount_in(&expected_credit_out.peek(), &liquidity1, &liquidity2)
+				.unwrap();
+
+		let credit_in = Balances::issue(amount_in_max + expected_change.peek());
+		assert_ok!(
+			<AssetConversion as SwapCredit<_>>::swap_tokens_for_exact_tokens(
+				vec![token_1, token_2],
+				credit_in.into(),
+				expected_credit_out.peek(),
+			),
+			(expected_credit_out.into(), expected_change.into())
+		);
+	})
+}
+
+#[test]
+fn swap_credit_insufficient_amount_bounds() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let user2 = 2;
+		let token_1 = NativeOrAssetId::Native;
+		let token_2 = NativeOrAssetId::Asset(2);
+
+		create_tokens(user, vec![token_2]);
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_2)
+		));
+
+		let ed = get_ed();
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 20000 + ed));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
+
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user2, 20000 + ed));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user2, 1000));
+
+		let liquidity1 = 10000;
+		let liquidity2 = 200;
+
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_2),
+			liquidity1,
+			liquidity2,
+			1,
+			1,
+			user,
+		));
+
+		// provided `credit_in` is not sufficient to swap for desired `amount_out_min`
+		let amount_out_min = 20;
+		let amount_in =
+			AssetConversion::get_amount_in(&(amount_out_min - 1), &liquidity2, &liquidity1)
+				.unwrap();
+		let credit_in = Balances::issue(amount_in);
+		let expected_credit_in = Balances::issue(amount_in);
+		let error = <AssetConversion as SwapCredit<_>>::swap_exact_tokens_for_tokens(
+			vec![token_1, token_2],
+			credit_in.into(),
+			Some(amount_out_min),
+		)
+		.unwrap_err();
+		assert_eq!(
+			error,
+			(expected_credit_in.into(), Error::<Test>::ProvidedMinimumNotSufficientForSwap.into())
+		);
+
+		// provided `credit_in` is not sufficient to swap for desired `amount_out`
+		let amount_out = 20;
+		let amount_in_max =
+			AssetConversion::get_amount_in(&(amount_out - 1), &liquidity2, &liquidity1).unwrap();
+		let credit_in = Balances::issue(amount_in_max);
+		let expected_credit_in = Balances::issue(amount_in_max);
+		let error = <AssetConversion as SwapCredit<_>>::swap_tokens_for_exact_tokens(
+			vec![token_1, token_2],
+			credit_in.into(),
+			amount_out,
+		)
+		.unwrap_err();
+		assert_eq!(
+			error,
+			(expected_credit_in.into(), Error::<Test>::ProvidedMaximumNotSufficientForSwap.into())
+		);
+	})
+}
+
+#[test]
+fn swap_credit_zero_amount() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let user2 = 2;
+		let token_1 = NativeOrAssetId::Native;
+		let token_2 = NativeOrAssetId::Asset(2);
+
+		create_tokens(user, vec![token_2]);
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_2)
+		));
+
+		let ed = get_ed();
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 20000 + ed));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
+
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user2, 20000 + ed));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user2, 1000));
+
+		let liquidity1 = 10000;
+		let liquidity2 = 200;
+
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_2),
+			liquidity1,
+			liquidity2,
+			1,
+			1,
+			user,
+		));
+
+		// swap with zero credit fails for `swap_exact_tokens_for_tokens`
+		let credit_in = Credit::native_zero();
+		let expected_credit_in = Credit::native_zero();
+		let error = <AssetConversion as SwapCredit<_>>::swap_exact_tokens_for_tokens(
+			vec![token_1, token_2],
+			credit_in,
+			None,
+		)
+		.unwrap_err();
+		assert_eq!(error, (expected_credit_in, Error::<Test>::ZeroAmount.into()));
+
+		// swap with zero credit fails for `swap_tokens_for_exact_tokens`
+		let credit_in = Credit::native_zero();
+		let expected_credit_in = Credit::native_zero();
+		let error = <AssetConversion as SwapCredit<_>>::swap_tokens_for_exact_tokens(
+			vec![token_1, token_2],
+			credit_in,
+			10,
+		)
+		.unwrap_err();
+		assert_eq!(error, (expected_credit_in, Error::<Test>::ZeroAmount.into()));
+
+		// swap with zero amount_out_min fails for `swap_exact_tokens_for_tokens`
+		let credit_in = Balances::issue(10);
+		let expected_credit_in = Balances::issue(10);
+		let error = <AssetConversion as SwapCredit<_>>::swap_exact_tokens_for_tokens(
+			vec![token_1, token_2],
+			credit_in.into(),
+			Some(0),
+		)
+		.unwrap_err();
+		assert_eq!(error, (expected_credit_in.into(), Error::<Test>::ZeroAmount.into()));
+
+		// swap with zero amount_out fails with `swap_tokens_for_exact_tokens` fails
+		let credit_in = Balances::issue(10);
+		let expected_credit_in = Balances::issue(10);
+		let error = <AssetConversion as SwapCredit<_>>::swap_tokens_for_exact_tokens(
+			vec![token_1, token_2],
+			credit_in.into(),
+			0,
+		)
+		.unwrap_err();
+		assert_eq!(error, (expected_credit_in.into(), Error::<Test>::ZeroAmount.into()));
+	});
+}
+
+#[test]
+fn swap_credit_invalid_path() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let user2 = 2;
+		let token_1 = NativeOrAssetId::Native;
+		let token_2 = NativeOrAssetId::Asset(2);
+
+		create_tokens(user, vec![token_2]);
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_2)
+		));
+
+		let ed = get_ed();
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 20000 + ed));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
+
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user2, 20000 + ed));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user2, 1000));
+
+		let liquidity1 = 10000;
+		let liquidity2 = 200;
+
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_2),
+			liquidity1,
+			liquidity2,
+			1,
+			1,
+			user,
+		));
+
+		// swap with credit_in.asset different from path[0] asset fails
+		let credit_in = Balances::issue(10);
+		let expected_credit_in = Balances::issue(10);
+		let error = <AssetConversion as SwapCredit<_>>::swap_exact_tokens_for_tokens(
+			vec![token_2, token_1],
+			credit_in.into(),
+			None,
+		)
+		.unwrap_err();
+		assert_eq!(error, (expected_credit_in.into(), Error::<Test>::InvalidPath.into()));
+
+		// swap with credit_in.asset different from path[0] asset fails
+		let credit_in = Assets::issue(2, 10);
+		let expected_credit_in = Assets::issue(2, 10);
+		let error = <AssetConversion as SwapCredit<_>>::swap_tokens_for_exact_tokens(
+			vec![token_1, token_2],
+			credit_in.into(),
+			10,
+		)
+		.unwrap_err();
+		assert_eq!(error, (expected_credit_in.into(), Error::<Test>::InvalidPath.into()));
+
+		// swap with path.len < 2 fails
+		let credit_in = Balances::issue(10);
+		let expected_credit_in = Balances::issue(10);
+		let error = <AssetConversion as SwapCredit<_>>::swap_exact_tokens_for_tokens(
+			vec![token_2],
+			credit_in.into(),
+			None,
+		)
+		.unwrap_err();
+		assert_eq!(error, (expected_credit_in.into(), Error::<Test>::InvalidPath.into()));
+
+		// swap with path.len < 2 fails
+		let credit_in = Assets::issue(2, 10);
+		let expected_credit_in = Assets::issue(2, 10);
+		let error = <AssetConversion as SwapCredit<_>>::swap_tokens_for_exact_tokens(
+			vec![],
+			credit_in.into(),
+			10,
+		)
+		.unwrap_err();
+		assert_eq!(error, (expected_credit_in.into(), Error::<Test>::InvalidPath.into()));
 	});
 }
