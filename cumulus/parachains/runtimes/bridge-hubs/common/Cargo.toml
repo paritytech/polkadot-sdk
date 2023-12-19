@@ -30,6 +30,7 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 	"xcm/std",
+	"sp-core/std"
 ]
 
 runtime-benchmarks = [
