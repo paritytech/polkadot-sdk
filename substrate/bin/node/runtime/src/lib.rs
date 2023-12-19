@@ -1992,18 +1992,15 @@ pub struct CoretimeProvider;
 impl CoretimeInterface for CoretimeProvider {
 	type AccountId = AccountId;
 	type Balance = Balance;
-	type BlockNumber = BlockNumber;
-	fn latest() -> Self::BlockNumber {
-		System::block_number()
-	}
+	type RealyChainBlockNumberProvider = System;
 	fn request_core_count(_count: CoreIndex) {}
-	fn request_revenue_info_at(_when: Self::BlockNumber) {}
+	fn request_revenue_info_at(_when: u32) {}
 	fn credit_account(_who: Self::AccountId, _amount: Self::Balance) {}
 	fn assign_core(
 		_core: CoreIndex,
-		_begin: Self::BlockNumber,
+		_begin: u32,
 		_assignment: Vec<(CoreAssignment, PartsOf57600)>,
-		_end_hint: Option<Self::BlockNumber>,
+		_end_hint: Option<u32>,
 	) {
 	}
 	fn check_notify_core_count() -> Option<u16> {
@@ -2011,7 +2008,7 @@ impl CoretimeInterface for CoretimeProvider {
 		CoreCount::set(&None);
 		count
 	}
-	fn check_notify_revenue_info() -> Option<(Self::BlockNumber, Self::Balance)> {
+	fn check_notify_revenue_info() -> Option<(u32, Self::Balance)> {
 		let revenue = CoretimeRevenue::get();
 		CoretimeRevenue::set(&None);
 		revenue
@@ -2021,7 +2018,7 @@ impl CoretimeInterface for CoretimeProvider {
 		CoreCount::set(&Some(count));
 	}
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_notify_revenue_info(when: Self::BlockNumber, revenue: Self::Balance) {
+	fn ensure_notify_revenue_info(when: u32, revenue: Self::Balance) {
 		CoretimeRevenue::set(&Some((when, revenue)));
 	}
 }
