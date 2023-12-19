@@ -1090,6 +1090,7 @@ mod claim_payout {
 					Event::Unbonded { member: 11, pool_id: 1, points: 11, balance: 11, era: 3 }
 				]
 			);
+			assert_eq!(TotalValueUnbonding::<T>::get(), 11);
 		});
 	}
 
@@ -2195,6 +2196,7 @@ mod claim_payout {
 						Event::PaidOut { member: 10, pool_id: 1, payout: 7 }
 					]
 				);
+				assert_eq!(TotalValueUnbonding::<T>::get(), 10 + 10 + 5 + 5);
 			})
 	}
 
@@ -2714,6 +2716,7 @@ mod unbond {
 						Event::Unbonded { member: 40, pool_id: 1, balance: 6, points: 6, era: 3 }
 					]
 				);
+				assert_eq!(TotalValueUnbonding::<T>::get(), 6);
 
 				assert_eq!(StakingMock::active_stake(&default_bonded_account()).unwrap(), 94);
 				assert_eq!(
@@ -2763,6 +2766,7 @@ mod unbond {
 						}
 					]
 				);
+				assert_eq!(TotalValueUnbonding::<T>::get(), 6 + 92);
 
 				// When
 				CurrentEra::set(3);
@@ -2802,6 +2806,7 @@ mod unbond {
 						Event::Unbonded { member: 10, pool_id: 1, points: 2, balance: 2, era: 6 }
 					]
 				);
+				assert_eq!(TotalValueUnbonding::<T>::get(), 2);
 			});
 	}
 
@@ -2848,6 +2853,7 @@ mod unbond {
 					Event::Unbonded { member: 10, pool_id: 1, points: 10, balance: 10, era: 9 }
 				]
 			);
+			assert_eq!(TotalValueUnbonding::<T>::get(), 10);
 		});
 	}
 
@@ -2890,6 +2896,7 @@ mod unbond {
 						},
 					]
 				);
+				assert_eq!(TotalValueUnbonding::<T>::get(), 100);
 
 				// When the bouncer kicks then its ok
 				// Account with ID 200 is kicked.
@@ -2905,6 +2912,7 @@ mod unbond {
 						era: 3
 					}]
 				);
+				assert_eq!(TotalValueUnbonding::<T>::get(), 100 + 200);
 
 				assert_eq!(
 					BondedPool::<Runtime>::get(1).unwrap(),
@@ -2976,6 +2984,7 @@ mod unbond {
 					Event::Unbonded { member: 100, pool_id: 1, points: 100, balance: 100, era: 3 }
 				]
 			);
+			assert_eq!(TotalValueUnbonding::<T>::get(), 100);
 
 			// still permissionless unbond must be full
 			assert_noop!(
@@ -3004,6 +3013,7 @@ mod unbond {
 			// but when everyone is unbonded it can..
 			CurrentEra::set(3);
 			assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(10), 100, 0));
+			assert_eq!(TotalValueUnbonding::<T>::get(), 0);
 
 			// still permissionless unbond must be full.
 			assert_noop!(
@@ -3018,6 +3028,7 @@ mod unbond {
 			);
 			// but depositor itself can do it.
 			assert_ok!(Pools::fully_unbond(RuntimeOrigin::signed(10), 10));
+			assert_eq!(TotalValueUnbonding::<T>::get(), 10);
 
 			assert_eq!(BondedPools::<Runtime>::get(1).unwrap().points, 0);
 			assert_eq!(
@@ -3131,6 +3142,7 @@ mod unbond {
 					Event::Unbonded { member: 10, pool_id: 1, points: 1, balance: 1, era: 3 }
 				]
 			);
+			assert_eq!(TotalValueUnbonding::<T>::get(), 1);
 
 			// when: casual further unbond, same era.
 			assert_ok!(Pools::unbond(RuntimeOrigin::signed(10), 10, 5));
@@ -3156,6 +3168,7 @@ mod unbond {
 				pool_events_since_last_call(),
 				vec![Event::Unbonded { member: 10, pool_id: 1, points: 5, balance: 5, era: 3 }]
 			);
+			assert_eq!(TotalValueUnbonding::<T>::get(), 1 + 5);
 
 			// when: casual further unbond, next era.
 			CurrentEra::set(1);
@@ -3183,6 +3196,7 @@ mod unbond {
 				pool_events_since_last_call(),
 				vec![Event::Unbonded { member: 10, pool_id: 1, points: 1, balance: 1, era: 4 }]
 			);
+			assert_eq!(TotalValueUnbonding::<T>::get(), 1 + 5 + 1);
 
 			// when: unbonding more than our active: error
 			assert_noop!(
@@ -3218,6 +3232,7 @@ mod unbond {
 				pool_events_since_last_call(),
 				vec![Event::Unbonded { member: 10, pool_id: 1, points: 3, balance: 3, era: 4 }]
 			);
+			assert_eq!(TotalValueUnbonding::<T>::get(), 1 + 5 + 1 + 3);
 		});
 	}
 
@@ -3246,6 +3261,8 @@ mod unbond {
 				Error::<Runtime>::MaxUnbondingLimit
 			);
 
+			assert_eq!(TotalValueUnbonding::<T>::get(), 2 + 3);
+
 			// when
 			MaxUnbonding::set(3);
 			assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, 1));
@@ -3266,6 +3283,7 @@ mod unbond {
 					Event::Unbonded { member: 20, pool_id: 1, points: 1, balance: 1, era: 5 }
 				]
 			);
+			assert_eq!(TotalValueUnbonding::<T>::get(), 2 + 3 + 1);
 		})
 	}
 
@@ -3299,6 +3317,7 @@ mod unbond {
 					Event::Unbonded { member: 10, pool_id: 1, points: 3, balance: 3, era: 3 }
 				]
 			);
+			assert_eq!(TotalValueUnbonding::<T>::get(), 3);
 		});
 	}
 
@@ -3342,6 +3361,7 @@ mod unbond {
 					Event::Unbonded { member: 20, pool_id: 1, balance: 2, points: 2, era: 3 }
 				]
 			);
+			assert_eq!(TotalValueUnbonding::<T>::get(), 2);
 
 			CurrentEra::set(1);
 			Currency::set_balance(&default_reward_account(), 4 * Currency::minimum_balance());
@@ -3355,6 +3375,7 @@ mod unbond {
 					Event::Unbonded { member: 20, pool_id: 1, points: 3, balance: 3, era: 4 }
 				]
 			);
+			assert_eq!(TotalValueUnbonding::<T>::get(), 2 + 3);
 
 			CurrentEra::set(2);
 			Currency::set_balance(&default_reward_account(), 4 * Currency::minimum_balance());
@@ -3367,6 +3388,7 @@ mod unbond {
 					Event::Unbonded { member: 20, pool_id: 1, points: 5, balance: 5, era: 5 }
 				]
 			);
+			assert_eq!(TotalValueUnbonding::<T>::get(), 2 + 3 + 5);
 
 			assert_eq!(
 				PoolMembers::<Runtime>::get(20).unwrap().unbonding_eras,
@@ -3463,6 +3485,7 @@ mod withdraw_unbonded {
 				// Sanity check
 				assert_eq!(*unbond_pool, UnbondPool { points: 550 + 40, balance: 550 + 40 });
 				assert_eq!(TotalValueLocked::<Runtime>::get(), 600);
+				assert_eq!(TotalValueUnbonding::<Runtime>::get(), 590);
 
 				// Simulate a slash to the pool with_era(current_era), decreasing the balance by
 				// half
@@ -3470,8 +3493,9 @@ mod withdraw_unbonded {
 					unbond_pool.balance /= 2; // 295
 					SubPoolsStorage::<Runtime>::insert(1, sub_pools);
 
-					// Adjust the TVL for this non-api usage (direct sub-pool modification)
+					// Adjust TVL and TVU for this non-api usage (direct sub-pool modification)
 					TotalValueLocked::<Runtime>::mutate(|x| *x -= 295);
+					TotalValueUnbonding::<Runtime>::mutate(|x| *x -= 295);
 
 					// Update the equivalent of the unbonding chunks for the `StakingMock`
 					let mut x = UnbondingBalanceMap::get();
@@ -3643,6 +3667,7 @@ mod withdraw_unbonded {
 						}
 					]
 				);
+				assert_eq!(TotalValueUnbonding::<T>::get(), 550 / 2 + 40 / 2);
 				assert_eq!(
 					balances_events_since_last_call(),
 					vec![BEvent::Burned { who: default_bonded_account(), amount: 300 },]
@@ -3687,6 +3712,7 @@ mod withdraw_unbonded {
 					]
 				);
 				assert!(SubPoolsStorage::<Runtime>::get(1).unwrap().with_era.is_empty());
+				assert_eq!(TotalValueUnbonding::<T>::get(), 0);
 
 				// now, finally, the depositor can take out its share.
 				unsafe_set_state(1, PoolState::Destroying);
@@ -3697,6 +3723,7 @@ mod withdraw_unbonded {
 					SubPoolsStorage::<Runtime>::get(1).unwrap().with_era,
 					unbonding_pools_with_era! { 6 => UnbondPool { points: 5, balance: 5 }}
 				);
+				assert_eq!(TotalValueUnbonding::<T>::get(), 5);
 
 				CurrentEra::set(CurrentEra::get() + 3);
 
@@ -3731,6 +3758,7 @@ mod withdraw_unbonded {
 						BEvent::Transfer { from: default_reward_account(), to: 10, amount: 5 }
 					]
 				);
+				assert_eq!(TotalValueUnbonding::<T>::get(), 0);
 			});
 	}
 
@@ -3849,6 +3877,7 @@ mod withdraw_unbonded {
 						}
 					]
 				);
+				assert_eq!(TotalValueUnbonding::<T>::get(), 100 + 200);
 
 				// Given
 				unsafe_set_state(1, PoolState::Blocked);
@@ -3870,6 +3899,7 @@ mod withdraw_unbonded {
 				assert!(!PoolMembers::<Runtime>::contains_key(100));
 				assert!(!PoolMembers::<Runtime>::contains_key(200));
 				assert_eq!(SubPoolsStorage::<Runtime>::get(1).unwrap(), Default::default());
+				assert_eq!(TotalValueUnbonding::<T>::get(), 0);
 				assert_eq!(
 					pool_events_since_last_call(),
 					vec![
@@ -3887,6 +3917,7 @@ mod withdraw_unbonded {
 		ExtBuilder::default().add_members(vec![(100, 100)]).build_and_execute(|| {
 			// Given
 			assert_ok!(Pools::fully_unbond(RuntimeOrigin::signed(100), 100));
+			assert_eq!(TotalValueUnbonding::<T>::get(), 100);
 			assert_eq!(
 				BondedPool::<Runtime>::get(1).unwrap(),
 				BondedPool {
@@ -3918,6 +3949,7 @@ mod withdraw_unbonded {
 			assert_eq!(SubPoolsStorage::<Runtime>::get(1).unwrap(), Default::default(),);
 			assert_eq!(Currency::free_balance(&100), 100 + 100);
 			assert!(!PoolMembers::<Runtime>::contains_key(100));
+			assert_eq!(TotalValueUnbonding::<T>::get(), 0);
 			assert_eq!(
 				pool_events_since_last_call(),
 				vec![
@@ -3958,6 +3990,7 @@ mod withdraw_unbonded {
 			);
 			assert_eq!(PoolMembers::<Runtime>::get(10).unwrap().active_points(), 13);
 			assert_eq!(PoolMembers::<Runtime>::get(10).unwrap().unbonding_points(), 7);
+			assert_eq!(TotalValueUnbonding::<T>::get(), 6 + 1);
 			assert_eq!(
 				pool_events_since_last_call(),
 				vec![
@@ -3998,6 +4031,7 @@ mod withdraw_unbonded {
 				pool_events_since_last_call(),
 				vec![Event::Withdrawn { member: 10, pool_id: 1, points: 6, balance: 6 }]
 			);
+			assert_eq!(TotalValueUnbonding::<T>::get(), 1);
 
 			// when
 			CurrentEra::set(4);
@@ -4013,6 +4047,7 @@ mod withdraw_unbonded {
 				pool_events_since_last_call(),
 				vec![Event::Withdrawn { member: 10, pool_id: 1, points: 1, balance: 1 },]
 			);
+			assert_eq!(TotalValueUnbonding::<T>::get(), 0);
 
 			// when repeating:
 			assert_noop!(
@@ -4055,6 +4090,7 @@ mod withdraw_unbonded {
 					Event::Unbonded { member: 11, pool_id: 1, points: 1, balance: 1, era: 4 }
 				]
 			);
+			assert_eq!(TotalValueUnbonding::<T>::get(), 6 + 1);
 
 			// when
 			CurrentEra::set(2);
@@ -4085,6 +4121,7 @@ mod withdraw_unbonded {
 				pool_events_since_last_call(),
 				vec![Event::Withdrawn { member: 11, pool_id: 1, points: 6, balance: 6 }]
 			);
+			assert_eq!(TotalValueUnbonding::<T>::get(), 1);
 
 			// when
 			CurrentEra::set(4);
@@ -4100,6 +4137,7 @@ mod withdraw_unbonded {
 				pool_events_since_last_call(),
 				vec![Event::Withdrawn { member: 11, pool_id: 1, points: 1, balance: 1 }]
 			);
+			assert_eq!(TotalValueUnbonding::<T>::get(), 0);
 
 			// when repeating:
 			assert_noop!(
@@ -4158,6 +4196,7 @@ mod withdraw_unbonded {
 			);
 			// tvl updated
 			assert_eq!(TotalValueLocked::<T>::get(), 35);
+			assert_eq!(TotalValueUnbonding::<T>::get(), 25);
 
 			// the 25 should be free now, and the member removed.
 			CurrentEra::set(4);
@@ -4169,6 +4208,7 @@ mod withdraw_unbonded {
 					Event::MemberRemoved { pool_id: 1, member: 100 }
 				]
 			);
+			assert_eq!(TotalValueUnbonding::<T>::get(), 0);
 		})
 	}
 
@@ -4212,6 +4252,7 @@ mod withdraw_unbonded {
 						Event::Unbonded { member: 30, pool_id: 1, points: 5, balance: 5, era: 3 },
 					]
 				);
+				assert_eq!(TotalValueUnbonding::<T>::get(), 5 + 5);
 
 				// when
 				CurrentEra::set(1);
@@ -4236,6 +4277,7 @@ mod withdraw_unbonded {
 					pool_events_since_last_call(),
 					vec![Event::Unbonded { member: 20, pool_id: 1, points: 5, balance: 5, era: 4 }]
 				);
+				assert_eq!(TotalValueUnbonding::<T>::get(), 5 + 5 + 5);
 
 				// when
 				CurrentEra::set(2);
@@ -4261,6 +4303,7 @@ mod withdraw_unbonded {
 					pool_events_since_last_call(),
 					vec![Event::Unbonded { member: 20, pool_id: 1, points: 5, balance: 5, era: 5 }]
 				);
+				assert_eq!(TotalValueUnbonding::<T>::get(), 5 + 5 + 5 + 5);
 
 				// when
 				CurrentEra::set(5);
@@ -4287,6 +4330,7 @@ mod withdraw_unbonded {
 					pool_events_since_last_call(),
 					vec![Event::Unbonded { member: 20, pool_id: 1, points: 5, balance: 5, era: 8 }]
 				);
+				assert_eq!(TotalValueUnbonding::<T>::get(), 5 + 5 + 5 + 5 + 5);
 
 				// now we start withdrawing unlocked bonds.
 
@@ -4311,6 +4355,7 @@ mod withdraw_unbonded {
 					pool_events_since_last_call(),
 					vec![Event::Withdrawn { member: 20, pool_id: 1, points: 15, balance: 15 }]
 				);
+				assert_eq!(TotalValueUnbonding::<T>::get(), 5);
 
 				// when
 				assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(30), 30, 0));
@@ -4333,6 +4378,8 @@ mod withdraw_unbonded {
 					pool_events_since_last_call(),
 					vec![Event::Withdrawn { member: 30, pool_id: 1, points: 5, balance: 5 }]
 				);
+				// FIXME eagr actual value 5?
+				assert_eq!(TotalValueUnbonding::<T>::get(), 0);
 			})
 	}
 
@@ -4395,6 +4442,7 @@ mod withdraw_unbonded {
 				PoolMembers::<Runtime>::get(10).unwrap().unbonding_eras,
 				member_unbonding_eras!(4 => 13)
 			);
+			assert_eq!(TotalValueUnbonding::<T>::get(), 7 + 3 + 10 - 7);
 
 			// the 13 should be free now, and the member removed.
 			CurrentEra::set(4);
@@ -4409,6 +4457,7 @@ mod withdraw_unbonded {
 				]
 			);
 			assert!(!Metadata::<T>::contains_key(1));
+			assert_eq!(TotalValueUnbonding::<T>::get(), 0);
 		})
 	}
 
@@ -4435,6 +4484,7 @@ mod withdraw_unbonded {
 					Event::Unbonded { member: 20, pool_id: 1, balance: 20, points: 20, era: 4 },
 				]
 			);
+			assert_eq!(TotalValueUnbonding::<T>::get(), 20);
 
 			CurrentEra::set(5);
 
@@ -4452,6 +4502,7 @@ mod withdraw_unbonded {
 			// Then
 			assert_eq!(PoolMembers::<Runtime>::get(20), None);
 			assert_eq!(ClaimPermissions::<Runtime>::contains_key(20), false);
+			assert_eq!(TotalValueUnbonding::<T>::get(), 0);
 		});
 	}
 }

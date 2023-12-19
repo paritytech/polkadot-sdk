@@ -27,6 +27,15 @@ use sp_runtime::TryRuntimeError;
 pub mod versioned {
 	use super::*;
 
+	/// V9: Adds `TotalValueUnbonding`.
+	pub type V8ToV9<T> = frame_support::migrations::VersionedMigration<
+		8,
+		9,
+		v9::MigrateToV8<T>,
+		crate::pallet::Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+
 	/// v8: Adds commission claim permissions to `BondedPools`.
 	pub type V7ToV8<T> = frame_support::migrations::VersionedMigration<
 		7,
@@ -54,6 +63,76 @@ pub mod versioned {
 		crate::pallet::Pallet<T>,
 		<T as frame_system::Config>::DbWeight,
 	>;
+}
+
+mod v9 {
+	use super::*;
+
+	pub struct MigrateToV8<T>(sp_std::marker::PhantomData<T>);
+
+	impl<T: Config> MigrateToV8<T> {
+		fn calculate_tvu() -> BalanceOf<T> {
+			BondedPools::<T>::iter()
+				.map(|(id, inner)| {
+					let bonded_account = BondedPool { id, inner: inner.clone() }.bonded_account();
+					let total_stake = T::Staking::total_stake(&bonded_account).unwrap_or_default();
+					let active_stake =
+						T::Staking::active_stake(&bonded_account).unwrap_or_default();
+					total_stake - active_stake
+				})
+				.reduce(|acc, balance| acc + balance)
+				.unwrap_or_default()
+		}
+	}
+
+	impl<T: Config> OnRuntimeUpgrade for MigrateToV8<T> {
+		fn on_runtime_upgrade() -> Weight {
+			let pool_count = BondedPools::<T>::count();
+
+			// the sum of all funds that are in the unbonding process of each pool
+			let tvu = Self::calculate_tvu();
+			TotalValueUnbonding::<T>::set(tvu);
+
+			log!(info, "Migrating {} pools with TotalValueUnbonding of {:?}", pool_count, tvu);
+
+			// reads: pool_count * (BondedPool + total_stake + active_stake)
+			//                   + pool_count + storage_version
+			// writes: new storage_version + TotalValueUnbonding
+			T::DbWeight::get()
+				.reads_writes(pool_count.saturating_mul(3).saturating_add(2).into(), 2)
+		}
+
+		// FIXME eagr this necessary?
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			Ok(Vec::new())
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(_data: Vec<u8>) -> Result<(), TryRuntimeError> {
+			ensure!(
+				Pallet::<T>::on_chain_storage_version() >= 9,
+				"nomination-pools::migration::v8: storage version must be no less than 8",
+			);
+
+			ensure!(
+				TotalValueUnbonding::<T>::get() == Self::calculate_tvu(),
+				"TotalValueUnbonding must equal the sum of unbonding balance of all pools.",
+			);
+
+			let members_balance_unbonding = PoolMembers::<T>::iter()
+				.map(|(_, member)| member.unbonding_balance())
+				.reduce(|acc, balance| acc + balance)
+				.unwrap_or_default();
+
+			ensure!(
+                TotalValueUnbonding::<T>::get() <= members_balance_unbonding,
+                "TotalValueUnbonding cannot surpass the sum of unbonding funds of members across all pools.",
+            );
+
+			Ok(())
+		}
+	}
 }
 
 pub mod v8 {
