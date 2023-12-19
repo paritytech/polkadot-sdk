@@ -27,10 +27,10 @@ std = [
 	"pallet-message-queue/std",
 	"scale-info/std",
 	"snowbridge-core/std",
+	"sp-core/std",
 	"sp-runtime/std",
 	"sp-std/std",
 	"xcm/std",
-	"sp-core/std"
 ]
 
 runtime-benchmarks = [
