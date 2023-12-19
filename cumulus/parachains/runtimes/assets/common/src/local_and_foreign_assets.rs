@@ -318,10 +318,18 @@ where
 		}
 	}
 
+	fn should_touch(asset_id: MultiLocation, who: &AccountId) -> bool {
+		if let Some(asset_id) = LocalAssetIdConverter::convert(&asset_id) {
+			Assets::should_touch(asset_id, who)
+		} else {
+			ForeignAssets::should_touch(asset_id, who)
+		}
+	}
+
 	fn touch(
 		asset_id: MultiLocation,
-		who: AccountId,
-		depositor: AccountId,
+		who: &AccountId,
+		depositor: &AccountId,
 	) -> Result<(), DispatchError> {
 		if let Some(asset_id) = LocalAssetIdConverter::convert(&asset_id) {
 			Assets::touch(asset_id, who, depositor)
