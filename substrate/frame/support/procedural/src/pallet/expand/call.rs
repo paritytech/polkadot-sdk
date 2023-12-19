@@ -23,9 +23,10 @@ use crate::{
 	},
 	COUNTER,
 };
+use inflector::Inflector;
 use proc_macro2::TokenStream as TokenStream2;
 use proc_macro_warning::Warning;
-use quote::{quote, ToTokens};
+use quote::{format_ident, quote, ToTokens};
 use syn::spanned::Spanned;
 
 ///
@@ -241,6 +242,9 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 		})
 		.collect::<Vec<_>>();
 
+	let checkpointed_call_data_ident = syn::Ident::new("CheckpointedCallData", span);
+	let checkpoint_variant_names = fn_name.iter().map(|ident| format_ident!("{}", ident.to_string().to_class_case(), span = ident.span())).collect::<Vec<_>>();
+
 	let feeless_check = methods.iter().map(|method| &method.feeless_check).collect::<Vec<_>>();
 	let feeless_check_result =
 		feeless_check.iter().zip(args_name.iter()).map(|(feeless_check, arg_name)| {
@@ -361,12 +365,14 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			#where_clause
 		{
 			type Origin = #frame_system::pallet_prelude::OriginFor<T>;
+			type CheckpointedCallData = #checkpointed_call_data_ident<#type_use_gen>;
 			#[allow(unused_variables)]
-			fn is_feeless(&self, origin: &Self::Origin) -> bool {
+			fn is_feeless(&self, origin: &Self::Origin) -> (bool, Option<Self::CheckpointedCallData>) {
 				match *self {
 					#(
 						Self::#fn_name { #( #args_name_pattern_ref, )* } => {
-							#feeless_check_result
+							let result = #feeless_check_result;
+							(result, None)
 						},
 					)*
 					Self::__Ignore(_, _) => unreachable!("__Ignore cannot be used"),
@@ -445,6 +451,27 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			pub fn call_functions() -> #frame_support::__private::metadata_ir::PalletCallMetadataIR {
 				#frame_support::__private::scale_info::meta_type::<#call_ident<#type_use_gen>>().into()
 			}
+		}
+
+		#[derive(
+			#frame_support::RuntimeDebugNoBound,
+			#frame_support::CloneNoBound,
+			#frame_support::EqNoBound,
+			#frame_support::PartialEqNoBound,
+			#frame_support::__private::codec::Encode,
+			#frame_support::__private::codec::Decode,
+			#frame_support::__private::scale_info::TypeInfo,
+		)]
+		#[codec(encode_bound())]
+		#[codec(decode_bound())]
+		#[scale_info(skip_type_params(#type_use_gen), capture_docs = #capture_docs)]
+		pub enum #checkpointed_call_data_ident <#type_decl_bounded_gen> {
+			#[doc(hidden)]
+			#[codec(skip)]
+			__Ignore(
+				#frame_support::__private::sp_std::marker::PhantomData<(#type_use_gen,)>,
+				#frame_support::Never,
+			),
 		}
 	)
 }

@@ -63,9 +63,11 @@ pub trait CheckIfFeeless {
 	/// The Origin type of the runtime.
 	type Origin;
 
+	type CheckpointedCallData;
+
 	/// Checks if the dispatchable satisfies the feeless condition as defined by
 	/// [`#[pallet::feeless_if]`](`macro@frame_support_procedural::feeless_if`)
-	fn is_feeless(&self, origin: &Self::Origin) -> bool;
+	fn is_feeless(&self, origin: &Self::Origin) -> (bool, Option<Self::CheckpointedCallData>);
 }
 
 /// Origin for the System pallet.

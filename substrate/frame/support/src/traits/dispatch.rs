@@ -487,6 +487,11 @@ pub trait OriginTrait: Sized {
 	/// The AccountId used across the system.
 	type AccountId;
 
+	/// The checkpointed data type.
+	type CheckpointedCallData;
+
+	fn add_checkpointed_call_data(&mut self, data: Self::CheckpointedCallData);
+
 	/// Add a filter to the origin.
 	fn add_filter(&mut self, filter: impl Fn(&Self::Call) -> bool + 'static);
 

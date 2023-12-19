@@ -32,6 +32,10 @@ pub fn expand_outer_dispatch(
 	let mut query_call_part_macros = Vec::new();
 	let mut pallet_names = Vec::new();
 	let mut pallet_attrs = Vec::new();
+
+	let mut checkpointed_call_data_variants = Vec::new();
+	let mut checkpointed_call_data_conversions = TokenStream::new();
+
 	let system_path = &system_pallet.path;
 
 	let pallets_with_call = pallet_decls.iter().filter(|decl| decl.exists_part("Call"));
@@ -61,6 +65,18 @@ pub fn expand_outer_dispatch(
 		query_call_part_macros.push(quote! {
 			#path::__substrate_call_check::is_call_part_defined!(#name);
 		});
+
+
+		checkpointed_call_data_variants.push(expand_checkpointed_call_data_variant(
+			runtime,
+			pallet_declaration,
+			index,
+		));
+		checkpointed_call_data_conversions.extend(expand_checkpointed_call_data_conversions(
+			scrate,
+			runtime,
+			pallet_declaration,
+		));
 	}
 
 	quote! {
@@ -126,11 +142,15 @@ pub fn expand_outer_dispatch(
 
 		impl #scrate::dispatch::CheckIfFeeless for RuntimeCall {
 			type Origin = #system_path::pallet_prelude::OriginFor<#runtime>;
-			fn is_feeless(&self, origin: &Self::Origin) -> bool {
+			type CheckpointedCallData = RuntimeCheckpointedCallData;
+			fn is_feeless(&self, origin: &Self::Origin) -> (bool, Option<Self::CheckpointedCallData>) {
 				match self {
 					#(
 						#pallet_attrs
-						#variant_patterns => call.is_feeless(origin),
+						#variant_patterns => {
+							let result = call.is_feeless(origin);
+							(result.0, result.1.map_or(None, |data| Some(data.into())))
+						}
 					)*
 				}
 			}
@@ -219,5 +239,89 @@ pub fn expand_outer_dispatch(
 				}
 			}
 		)*
+
+
+		#[derive(
+			Clone, PartialEq, Eq,
+			#scrate::__private::codec::Encode,
+			#scrate::__private::codec::Decode,
+			#scrate::__private::scale_info::TypeInfo,
+			#scrate::__private::RuntimeDebug,
+		)]
+		pub enum RuntimeCheckpointedCallData {
+			#(
+				#checkpointed_call_data_variants,
+			)*
+			Void
+		}
+
+		#checkpointed_call_data_conversions
+	}
+}
+
+
+fn expand_checkpointed_call_data_variant(
+	runtime: &Ident,
+	pallet: &Pallet,
+	index: u8,
+) -> TokenStream {
+	let variant_name = &pallet.name;
+	let path = &pallet.path;
+	let attr = pallet.cfg_pattern.iter().fold(TokenStream::new(), |acc, pattern| {
+		let attr = TokenStream::from_str(&format!("#[cfg({})]", pattern.original()))
+			.expect("was successfully parsed before; qed");
+		quote! {
+			#acc
+			#attr
+		}
+	});
+
+	quote! {
+		#attr
+		#[codec(index = #index)]
+		#variant_name(#path::CheckpointedCallData<#runtime>)
+	}
+}
+
+fn expand_checkpointed_call_data_conversions(
+	scrate: &TokenStream,
+	runtime: &Ident,
+	pallet: &Pallet,
+) -> TokenStream {
+	let path = &pallet.path;
+	let variant_name = &pallet.name;
+
+	let pallet_checkpointed_call_data = quote! { #path::CheckpointedCallData<#runtime> };
+
+	let attr = pallet.cfg_pattern.iter().fold(TokenStream::new(), |acc, pattern| {
+		let attr = TokenStream::from_str(&format!("#[cfg({})]", pattern.original()))
+			.expect("was successfully parsed before; qed");
+		quote! {
+			#acc
+			#attr
+		}
+	});
+
+	quote! {
+		#attr
+		impl From<#pallet_checkpointed_call_data> for RuntimeCheckpointedCallData {
+			fn from(x: #pallet_checkpointed_call_data) -> Self {
+				RuntimeCheckpointedCallData::#variant_name(x)
+			}
+		}
+
+		#attr
+		impl TryFrom<RuntimeCheckpointedCallData> for #pallet_checkpointed_call_data {
+			type Error = ();
+			fn try_from(
+				x: RuntimeCheckpointedCallData,
+			) -> #scrate::__private::sp_std::result::Result<#pallet_checkpointed_call_data, ()> {
+				if let RuntimeCheckpointedCallData::#variant_name(l) = x {
+					Ok(l)
+				} else {
+					Err(())
+				}
+			}
+		}
 	}
 }
