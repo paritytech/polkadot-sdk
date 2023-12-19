@@ -225,6 +225,9 @@ mod benches {
 
 	#[benchmark]
 	fn purchase() -> Result<(), BenchmarkError> {
+		let config = new_config_record::<T>();
+		Configuration::<T>::put(config.clone());
+
 		let core = setup_and_start_sale::<T>()?;
 
 		advance_to::<T>(2);
@@ -235,6 +238,8 @@ mod benches {
 			T::Currency::minimum_balance().saturating_add(10u32.into()),
 		);
 
+		let latest_region_begin = Broker::<T>::latest_timeslice_ready_to_commit(&config);
+
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), 10u32.into());
 
@@ -242,7 +247,11 @@ mod benches {
 		assert_last_event::<T>(
 			Event::Purchased {
 				who: caller,
-				region_id: RegionId { begin: 4, core, mask: CoreMask::complete() },
+				region_id: RegionId {
+					begin: latest_region_begin + config.region_length,
+					core,
+					mask: CoreMask::complete(),
+				},
 				price: 10u32.into(),
 				duration: 3u32.into(),
 			}
