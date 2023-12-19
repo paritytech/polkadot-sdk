@@ -110,7 +110,7 @@ pub struct TestSequence {
 }
 
 impl TestSequence {
-	pub fn to_vec(self) -> Vec<TestConfiguration> {
+	pub fn into_vec(self) -> Vec<TestConfiguration> {
 		self.test_configurations
 			.into_iter()
 			.map(|mut config| {
@@ -124,13 +124,13 @@ impl TestSequence {
 
 impl TestSequence {
 	pub fn new_from_file(path: &Path) -> std::io::Result<TestSequence> {
-		let string = String::from_utf8(std::fs::read(&path)?).expect("File is valid UTF8");
+		let string = String::from_utf8(std::fs::read(path)?).expect("File is valid UTF8");
 		Ok(serde_yaml::from_str(&string).expect("File is valid test sequence YA"))
 	}
 }
 
 /// Helper struct for authority related state.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct TestAuthorities {
 	pub keyrings: Vec<Keyring>,
 	pub validator_public: Vec<ValidatorId>,
@@ -154,7 +154,7 @@ impl TestConfiguration {
 	/// Generates the authority keys we need for the network emulation.
 	pub fn generate_authorities(&self) -> TestAuthorities {
 		let keyrings = (0..self.n_validators)
-			.map(|peer_index| Keyring::new(format!("Node{}", peer_index).into()))
+			.map(|peer_index| Keyring::new(format!("Node{}", peer_index)))
 			.collect::<Vec<_>>();
 
 		// Generate `AuthorityDiscoveryId`` for each peer
@@ -166,11 +166,10 @@ impl TestConfiguration {
 		let validator_authority_id: Vec<AuthorityDiscoveryId> = keyrings
 			.iter()
 			.map(|keyring| keyring.clone().public().into())
-			.collect::<Vec<_>>()
-			.into();
+			.collect::<Vec<_>>();
 
-		let peer_ids: Vec<PeerId> =
-			keyrings.iter().map(|_| PeerId::random()).collect::<Vec<_>>().into();
+		let peer_ids: Vec<PeerId> = keyrings.iter().map(|_| PeerId::random()).collect::<Vec<_>>();
+
 		TestAuthorities { keyrings, validator_public, validator_authority_id, peer_ids }
 	}
 
@@ -260,14 +259,9 @@ impl TestConfiguration {
 
 /// Produce a randomized duration between `min` and `max`.
 pub fn random_latency(maybe_peer_latency: Option<&PeerLatency>) -> Option<Duration> {
-	if let Some(peer_latency) = maybe_peer_latency {
-		Some(
-			Uniform::from(peer_latency.min_latency..=peer_latency.max_latency)
-				.sample(&mut thread_rng()),
-		)
-	} else {
-		None
-	}
+	maybe_peer_latency.map(|peer_latency| {
+		Uniform::from(peer_latency.min_latency..=peer_latency.max_latency).sample(&mut thread_rng())
+	})
 }
 
 /// Generate a random error based on `probability`.

@@ -143,7 +143,7 @@ impl<State: RespondToRequestsInfo> MockNetworkBridgeTx<State> {
 				// Account our sent request bytes.
 				self.network.peer_stats(0).inc_sent(outgoing_request.payload.encoded_size());
 
-				// If peer is disconnected return an error to the caller
+				// If peer is disconnected return an error
 				if !self.network.is_peer_connected(&authority_discovery_id) {
 					// We always send `NotConnected` error and we ignore `IfDisconnected` value in
 					// the caller.
@@ -226,7 +226,7 @@ impl<State: RespondToRequestsInfo> MockNetworkBridgeTx<State> {
 				// Account our sent request bytes.
 				self.network.peer_stats(0).inc_sent(outgoing_request.payload.encoded_size());
 
-				// If peer is disconnected return an error to the caller
+				// If peer is disconnected return an error
 				if !self.network.is_peer_connected(&authority_discovery_id) {
 					let future = async move {
 						let _ = outgoing_request
@@ -306,36 +306,31 @@ impl<State: RespondToRequestsInfo> MockNetworkBridgeTx<State> {
 		let our_network = self.network.clone();
 
 		// This task will handle node messages receipt from the simulated network.
-		// TODO: Probably this is not needed here anymore, because it is handled in
-		// start_node_under_test_receiver.
-		let _ = ctx
-			.spawn_blocking(
-				"network-receive",
-				async move {
-					while let Some(action) = ingress_rx.recv().await {
-						let size = action.size();
+		ctx.spawn_blocking(
+			"network-receive",
+			async move {
+				while let Some(action) = ingress_rx.recv().await {
+					let size = action.size();
 
-						// account for our node receiving the data.
-						our_network.inc_received(size);
-						rx_limiter.reap(size).await;
-						action.run().await;
-					}
+					// account for our node receiving the data.
+					our_network.inc_received(size);
+					rx_limiter.reap(size).await;
+					action.run().await;
 				}
-				.boxed(),
-			)
-			.expect("We never fail to spawn tasks");
+			}
+			.boxed(),
+		)
+		.expect("We never fail to spawn tasks");
 
 		// Main subsystem loop.
-		let our_network_stats = self.network.peer_stats(0);
-
 		loop {
 			let msg = ctx.recv().await.expect("Overseer never fails us");
 
 			match msg {
-				orchestra::FromOrchestra::Signal(signal) => match signal {
-					OverseerSignal::Conclude => return,
-					_ => {},
-				},
+				orchestra::FromOrchestra::Signal(signal) =>
+					if signal == OverseerSignal::Conclude {
+						return
+					},
 				orchestra::FromOrchestra::Communication { msg } => match msg {
 					NetworkBridgeTxMessage::SendRequests(requests, _if_disconnected) => {
 						for request in requests {
@@ -350,7 +345,7 @@ impl<State: RespondToRequestsInfo> MockNetworkBridgeTx<State> {
 					},
 					NetworkBridgeTxMessage::SendValidationMessage(peers, _message) => {
 						for _peer in peers {
-							our_network_stats.inc_sent(200);
+							self.network.inc_sent(200);
 						}
 					},
 					NetworkBridgeTxMessage::ReportPeer(_) => {},

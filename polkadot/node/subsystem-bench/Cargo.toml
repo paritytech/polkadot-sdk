@@ -25,10 +25,10 @@ polkadot-node-network-protocol = { path = "../network/protocol" }
 polkadot-availability-recovery = { path = "../network/availability-recovery", features=["subsystem-benchmarks"]}
 
 color-eyre = { version = "0.6.1", default-features = false }
-polkadot-overseer =  { path = "../overseer" }
+polkadot-overseer = { path = "../overseer" }
 colored = "2.0.4"
 assert_matches = "1.5"
-async-trait = "0.1.57"
+async-trait = "0.1.74"
 sp-keystore = { path = "../../../substrate/primitives/keystore" }
 sc-keystore = { path = "../../../substrate/client/keystore" }
 sp-core = { path = "../../../substrate/primitives/core" }
@@ -43,10 +43,10 @@ polkadot-erasure-coding = { package = "polkadot-erasure-coding", path = "../../e
 log = "0.4.17"
 env_logger = "0.9.0"
 rand = "0.8.5"
-parity-scale-codec = { version = "3.6.1", features = ["std", "derive"] }
+parity-scale-codec = { version = "3.6.1", features = ["derive", "std"] }
 tokio = "1.24.2"
 clap-num = "1.0.2"
-polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers"}
+polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
 sp-keyring = { path = "../../../substrate/primitives/keyring" }
 sp-application-crypto = { path = "../../../substrate/primitives/application-crypto" }
 sc-network = { path = "../../../substrate/client/network" }
@@ -67,11 +67,13 @@ sp-consensus = { path = "../../../substrate/primitives/consensus/common", defaul
 sp-consensus-babe = { path = "../../../substrate/primitives/consensus/babe" }
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
 sp-timestamp = { path = "../../../substrate/primitives/timestamp" }
-orchestra = { version = "0.3.3", default-features = false, features=["futures_channel"] }
 
 schnorrkel = { version = "0.9.1", default-features = false }
 rand_core = "0.5.1" # should match schnorrkel
 rand_chacha = { version = "0.3.1" }
+orchestra = { version = "0.3.3", default-features = false, features = ["futures_channel"] }
+pyroscope = "0.5.7"
+pyroscope_pprofrs = "0.2.7"
 
 [features]
 default = []

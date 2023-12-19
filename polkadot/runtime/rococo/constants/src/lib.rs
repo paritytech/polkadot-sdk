@@ -112,6 +112,8 @@ pub mod system_parachain {
 	pub const CONTRACTS_ID: u32 = 1002;
 	/// Encointer parachain ID.
 	pub const ENCOINTER_ID: u32 = 1003;
+	/// People parachain ID.
+	pub const PEOPLE_ID: u32 = 1004;
 	/// BridgeHub parachain ID.
 	pub const BRIDGE_HUB_ID: u32 = 1013;
 

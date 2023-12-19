@@ -118,7 +118,7 @@ mod tests {
 		let mut reap_amount = 0;
 		while rate_limiter.total_ticks < tick_rate {
 			reap_amount += 1;
-			reap_amount = reap_amount % 100;
+			reap_amount %= 100;
 
 			rate_limiter.reap(reap_amount).await;
 			total_sent += reap_amount;
@@ -299,11 +299,7 @@ impl Peer {
 	}
 
 	pub fn is_connected(&self) -> bool {
-		if let Peer::Connected(_) = self {
-			true
-		} else {
-			false
-		}
+		matches!(self, Peer::Connected(_))
 	}
 
 	pub fn emulator(&mut self) -> &mut PeerEmulator {

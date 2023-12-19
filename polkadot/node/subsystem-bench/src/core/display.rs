@@ -43,8 +43,8 @@ impl MetricCollection {
 	/// Sums up all metrics with the given name in the collection
 	pub fn sum_by(&self, name: &str) -> f64 {
 		self.all()
-			.into_iter()
-			.filter(|metric| &metric.name == name)
+			.iter()
+			.filter(|metric| metric.name == name)
 			.map(|metric| metric.value)
 			.sum()
 	}
@@ -71,7 +71,7 @@ impl MetricCollection {
 
 impl Display for MetricCollection {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		writeln!(f, "")?;
+		writeln!(f)?;
 		let metrics = self.all();
 		for metric in metrics {
 			writeln!(f, "{}", metric)?;
@@ -150,7 +150,7 @@ pub fn parse_metrics(registry: &Registry) -> MetricCollection {
 				},
 				MetricType::HISTOGRAM => {
 					let h = m.get_histogram();
-					let h_name = name.clone() + "_sum".into();
+					let h_name = name.clone() + "_sum";
 					test_metrics.push(TestMetric {
 						name: h_name,
 						label_names: label_names.clone(),
@@ -158,7 +158,7 @@ pub fn parse_metrics(registry: &Registry) -> MetricCollection {
 						value: h.get_sample_sum(),
 					});
 
-					let h_name = name.clone() + "_count".into();
+					let h_name = name.clone() + "_count";
 					test_metrics.push(TestMetric {
 						name: h_name,
 						label_names,
