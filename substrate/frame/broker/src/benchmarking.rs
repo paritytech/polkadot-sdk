@@ -579,7 +579,7 @@ mod benches {
 
 		assert_last_event::<T>(
 			Event::RegionDropped {
-				region_id: RegionId { begin: 4, core, mask: CoreMask::complete() },
+				region_id: RegionId { begin: region.begin, core, mask: CoreMask::complete() },
 				duration: 3u32.into(),
 			}
 			.into(),
