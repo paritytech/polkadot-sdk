@@ -21,9 +21,6 @@ pub use crate::{
 	worker_interface::{spawn_with_program_path, SpawnErr},
 };
 
-use crate::get_worker_version;
-use is_executable::IsExecutable;
-use polkadot_node_primitives::NODE_VERSION;
 use polkadot_primitives::ExecutorParams;
 use std::{
 	path::PathBuf,
