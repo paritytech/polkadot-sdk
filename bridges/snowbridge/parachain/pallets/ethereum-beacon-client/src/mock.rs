@@ -110,7 +110,7 @@ pub mod minimal {
 	{
 		let filepath: PathBuf =
 			[env!("CARGO_MANIFEST_DIR"), "tests", "fixtures", basename].iter().collect();
-		serde_json::from_reader(File::open(&filepath).unwrap())
+		serde_json::from_reader(File::open(filepath).unwrap())
 	}
 
 	pub fn load_execution_header_update_fixture() -> primitives::ExecutionHeaderUpdate {

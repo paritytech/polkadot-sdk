@@ -104,7 +104,7 @@ fn process_message_fails_on_max_nonce_reached() {
 	new_tester().execute_with(|| {
 		let sibling_id = 1000;
 		let channel_id: ChannelId = ParaId::from(sibling_id).into();
-		let origin = AggregateMessageOrigin::Snowbridge(channel_id.into());
+		let origin = AggregateMessageOrigin::Snowbridge(channel_id);
 		let message: QueuedMessage = QueuedMessage {
 			id: H256::zero(),
 			channel_id,
@@ -117,7 +117,7 @@ fn process_message_fails_on_max_nonce_reached() {
 		Nonce::<Test>::set(channel_id, u64::MAX);
 
 		assert_noop!(
-			OutboundQueue::process_message(&encoded.as_slice(), origin, &mut meter, &mut [0u8; 32]),
+			OutboundQueue::process_message(encoded.as_slice(), origin, &mut meter, &mut [0u8; 32]),
 			ProcessMessageError::Unsupported
 		);
 	})
@@ -138,7 +138,7 @@ fn process_message_fails_on_overweight_message() {
 		let encoded = versioned_queued_message.encode();
 		let mut meter = WeightMeter::with_limit(Weight::from_parts(1, 1));
 		assert_noop!(
-			OutboundQueue::process_message(&encoded.as_slice(), origin, &mut meter, &mut [0u8; 32]),
+			OutboundQueue::process_message(encoded.as_slice(), origin, &mut meter, &mut [0u8; 32]),
 			ProcessMessageError::Overweight(<Test as Config>::WeightInfo::do_process_message())
 		);
 	})
