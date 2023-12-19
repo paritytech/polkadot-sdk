@@ -160,7 +160,6 @@ fn swap_locally_on_chain_using_foreign_assets() {
 			]
 		);
 
-		let foreign_asset_at_asset_hub_westend = foreign_asset_at_asset_hub_westend;
 		// 4. Create pool:
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::create_pool(
 			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
