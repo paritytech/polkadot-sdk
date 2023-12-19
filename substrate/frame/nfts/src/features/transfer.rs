@@ -173,8 +173,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		who: T::AccountId,
 		maybe_collection: Option<T::CollectionId>,
 	) -> DispatchResult {
-		let old = OwnershipAcceptance::<T, I>::get(&who);
-		match (old.is_some(), maybe_collection.is_some()) {
+		let exists = OwnershipAcceptance::<T, I>::contains_key(&who);
+		match (exists, maybe_collection.is_some()) {
 			(false, true) => {
 				frame_system::Pallet::<T>::inc_consumers(&who)?;
 			},
