@@ -735,7 +735,7 @@
 
 <span class="kw">impl</span>&lt;B: BlockNumberProvider&gt; Clone <span class="kw">for </span>BlockAndTimeDeadline&lt;B&gt; {
 	<span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
-		<span class="self">Self </span>{ block_number: <span class="self">self</span>.block_number.clone(), timestamp: <span class="self">self</span>.timestamp }
+		<span class="self">Self </span>{ block_number: <span class="self">self</span>.block_number, timestamp: <span class="self">self</span>.timestamp }
 	}
 }
 

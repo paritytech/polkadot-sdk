@@ -162,10 +162,6 @@
 <a href="#162" id="162">162</a>
 <a href="#163" id="163">163</a>
 <a href="#164" id="164">164</a>
-<a href="#165" id="165">165</a>
-<a href="#166" id="166">166</a>
-<a href="#167" id="167">167</a>
-<a href="#168" id="168">168</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -190,7 +186,8 @@
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_arithmetic::traits::AtLeast32BitUnsigned;
 <span class="kw">use </span>sp_core::RuntimeDebug;
-<span class="kw">use </span>sp_std::{fmt::Debug, vec::Vec};
+<span class="kw">use </span>sp_runtime::traits::BlockNumberProvider;
+<span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="doccomment">/// Index of a Polkadot Core.
 </span><span class="kw">pub type </span>CoreIndex = u16;
@@ -214,6 +211,12 @@
 	</span>Task(TaskId),
 }
 
+<span class="doccomment">/// Relay chain block number of `T` that implements [`CoretimeInterface`].
+</span><span class="kw">pub type </span>RCBlockNumberOf&lt;T&gt; = &lt;RCBlockNumberProviderOf&lt;T&gt; <span class="kw">as </span>BlockNumberProvider&gt;::BlockNumber;
+
+<span class="doccomment">/// Relay chain block number provider of `T` that implements [`CoretimeInterface`].
+</span><span class="kw">pub type </span>RCBlockNumberProviderOf&lt;T&gt; = &lt;T <span class="kw">as </span>CoretimeInterface&gt;::RealyChainBlockNumberProvider;
+
 <span class="doccomment">/// Type able to accept Coretime scheduling instructions and provide certain usage information.
 /// Generally implemented by the Relay-chain or some means of communicating with it.
 ///
@@ -225,17 +228,8 @@
 	<span class="doccomment">/// A (Relay-chain-side) balance.
 	</span><span class="kw">type </span>Balance: AtLeast32BitUnsigned;
 
-	<span class="doccomment">/// A (Relay-chain-side) block number.
-	</span><span class="kw">type </span>BlockNumber: AtLeast32BitUnsigned
-		+ Copy
-		+ TypeInfo
-		+ Encode
-		+ Decode
-		+ MaxEncodedLen
-		+ Debug;
-
-	<span class="doccomment">/// Return the latest block number on the Relay-chain.
-	</span><span class="kw">fn </span>latest() -&gt; <span class="self">Self</span>::BlockNumber;
+	<span class="doccomment">/// A provider for the relay chain block number.
+	</span><span class="kw">type </span>RealyChainBlockNumberProvider: BlockNumberProvider;
 
 	<span class="doccomment">/// Requests the Relay-chain to alter the number of schedulable cores to `count`. Under normal
 	/// operation, the Relay-chain SHOULD send a `notify_core_count(count)` message back.
@@ -249,7 +243,7 @@
 	/// should be understood on a channel outside of this proposal. In the case that the request
 	/// cannot be serviced because `when` is too old a block then a `notify_revenue` message must
 	/// still be returned, but its `revenue` field may be `None`.
-	</span><span class="kw">fn </span>request_revenue_info_at(when: <span class="self">Self</span>::BlockNumber);
+	</span><span class="kw">fn </span>request_revenue_info_at(when: RCBlockNumberOf&lt;<span class="self">Self</span>&gt;);
 
 	<span class="doccomment">/// Instructs the Relay-chain to add the `amount` of DOT to the Instantaneous Coretime Market
 	/// Credit account of `who`.
@@ -272,9 +266,9 @@
 	/// remain unchanged regardless of the `end_hint` value.
 	</span><span class="kw">fn </span>assign_core(
 		core: CoreIndex,
-		begin: <span class="self">Self</span>::BlockNumber,
+		begin: RCBlockNumberOf&lt;<span class="self">Self</span>&gt;,
 		assignment: Vec&lt;(CoreAssignment, PartsOf57600)&gt;,
-		end_hint: <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::BlockNumber&gt;,
+		end_hint: <span class="prelude-ty">Option</span>&lt;RCBlockNumberOf&lt;<span class="self">Self</span>&gt;&gt;,
 	);
 
 	<span class="doccomment">/// Indicate that from this block onwards, the range of acceptable values of the `core`
@@ -291,7 +285,7 @@
 	/// This explicitly disregards the possibility of multiple parachains requesting and being
 	/// notified of revenue information. The Relay-chain must be configured to ensure that only a
 	/// single revenue information destination exists.
-	</span><span class="kw">fn </span>check_notify_revenue_info() -&gt; <span class="prelude-ty">Option</span>&lt;(<span class="self">Self</span>::BlockNumber, <span class="self">Self</span>::Balance)&gt;;
+	</span><span class="kw">fn </span>check_notify_revenue_info() -&gt; <span class="prelude-ty">Option</span>&lt;(RCBlockNumberOf&lt;<span class="self">Self</span>&gt;, <span class="self">Self</span>::Balance)&gt;;
 
 	<span class="doccomment">/// Ensure that core count is updated to the provided value.
 	///
@@ -303,35 +297,33 @@
 	///
 	/// This is only used for benchmarking.
 	</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-	</span><span class="kw">fn </span>ensure_notify_revenue_info(when: <span class="self">Self</span>::BlockNumber, revenue: <span class="self">Self</span>::Balance);
+	</span><span class="kw">fn </span>ensure_notify_revenue_info(when: RCBlockNumberOf&lt;<span class="self">Self</span>&gt;, revenue: <span class="self">Self</span>::Balance);
 }
 
 <span class="kw">impl </span>CoretimeInterface <span class="kw">for </span>() {
 	<span class="kw">type </span>AccountId = ();
 	<span class="kw">type </span>Balance = u64;
-	<span class="kw">type </span>BlockNumber = u32;
-	<span class="kw">fn </span>latest() -&gt; <span class="self">Self</span>::BlockNumber {
-		<span class="number">0
-	</span>}
+	<span class="kw">type </span>RealyChainBlockNumberProvider = ();
+
 	<span class="kw">fn </span>request_core_count(_count: CoreIndex) {}
-	<span class="kw">fn </span>request_revenue_info_at(_when: <span class="self">Self</span>::BlockNumber) {}
+	<span class="kw">fn </span>request_revenue_info_at(_when: RCBlockNumberOf&lt;<span class="self">Self</span>&gt;) {}
 	<span class="kw">fn </span>credit_account(_who: <span class="self">Self</span>::AccountId, _amount: <span class="self">Self</span>::Balance) {}
 	<span class="kw">fn </span>assign_core(
 		_core: CoreIndex,
-		_begin: <span class="self">Self</span>::BlockNumber,
+		_begin: RCBlockNumberOf&lt;<span class="self">Self</span>&gt;,
 		_assignment: Vec&lt;(CoreAssignment, PartsOf57600)&gt;,
-		_end_hint: <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::BlockNumber&gt;,
+		_end_hint: <span class="prelude-ty">Option</span>&lt;RCBlockNumberOf&lt;<span class="self">Self</span>&gt;&gt;,
 	) {
 	}
 	<span class="kw">fn </span>check_notify_core_count() -&gt; <span class="prelude-ty">Option</span>&lt;u16&gt; {
 		<span class="prelude-val">None
 	</span>}
-	<span class="kw">fn </span>check_notify_revenue_info() -&gt; <span class="prelude-ty">Option</span>&lt;(<span class="self">Self</span>::BlockNumber, <span class="self">Self</span>::Balance)&gt; {
+	<span class="kw">fn </span>check_notify_revenue_info() -&gt; <span class="prelude-ty">Option</span>&lt;(RCBlockNumberOf&lt;<span class="self">Self</span>&gt;, <span class="self">Self</span>::Balance)&gt; {
 		<span class="prelude-val">None
 	</span>}
 	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 	</span><span class="kw">fn </span>ensure_notify_core_count(_count: u16) {}
 	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-	</span><span class="kw">fn </span>ensure_notify_revenue_info(_when: <span class="self">Self</span>::BlockNumber, _revenue: <span class="self">Self</span>::Balance) {}
+	</span><span class="kw">fn </span>ensure_notify_revenue_info(_when: RCBlockNumberOf&lt;<span class="self">Self</span>&gt;, _revenue: <span class="self">Self</span>::Balance) {}
 }
 </code></pre></div></section></main></body></html>

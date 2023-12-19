@@ -321,6 +321,12 @@
 <a href="#321" id="321">321</a>
 <a href="#322" id="322">322</a>
 <a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -435,10 +441,16 @@
 		</span>}
 		<span class="comment">// Payout system InstaPool Cores.
 		</span><span class="kw">let </span>total_contrib = r.system_contributions.saturating_add(r.private_contributions);
-		<span class="kw">let </span>system_payout =
-			revenue.saturating_mul(r.system_contributions.into()) / total_contrib.into();
-		<span class="kw">let _ </span>= <span class="self">Self</span>::charge(<span class="kw-2">&amp;</span><span class="self">Self</span>::account_id(), system_payout);
-		revenue.saturating_reduce(system_payout);
+		<span class="kw">let </span>system_payout = <span class="kw">if </span>!total_contrib.is_zero() {
+			<span class="kw">let </span>system_payout =
+				revenue.saturating_mul(r.system_contributions.into()) / total_contrib.into();
+			<span class="kw">let _ </span>= <span class="self">Self</span>::charge(<span class="kw-2">&amp;</span><span class="self">Self</span>::account_id(), system_payout);
+			revenue.saturating_reduce(system_payout);
+
+			system_payout
+		} <span class="kw">else </span>{
+			Zero::zero()
+		};
 
 		<span class="kw">if </span>!revenue.is_zero() &amp;&amp; r.private_contributions &gt; <span class="number">0 </span>{
 			r.maybe_payout = <span class="prelude-val">Some</span>(revenue);

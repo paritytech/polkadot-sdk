@@ -288,6 +288,7 @@
 <a href="#288" id="288">288</a>
 <a href="#289" id="289">289</a>
 <a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -306,7 +307,8 @@
 // limitations under the License.
 
 </span><span class="kw">use crate</span>::{
-	Config, CoreAssignment, CoreIndex, CoreMask, CoretimeInterface, TaskId, CORE_MASK_BITS,
+	Config, CoreAssignment, CoreIndex, CoreMask, CoretimeInterface, RCBlockNumberOf, TaskId,
+	CORE_MASK_BITS,
 };
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>frame_support::traits::fungible::Inspect;
@@ -318,7 +320,7 @@
 
 <span class="kw">pub type </span>BalanceOf&lt;T&gt; = &lt;&lt;T <span class="kw">as </span>Config&gt;::Currency <span class="kw">as </span>Inspect&lt;&lt;T <span class="kw">as </span>SConfig&gt;::AccountId&gt;&gt;::Balance;
 <span class="kw">pub type </span>RelayBalanceOf&lt;T&gt; = &lt;&lt;T <span class="kw">as </span>Config&gt;::Coretime <span class="kw">as </span>CoretimeInterface&gt;::Balance;
-<span class="kw">pub type </span>RelayBlockNumberOf&lt;T&gt; = &lt;&lt;T <span class="kw">as </span>Config&gt;::Coretime <span class="kw">as </span>CoretimeInterface&gt;::BlockNumber;
+<span class="kw">pub type </span>RelayBlockNumberOf&lt;T&gt; = RCBlockNumberOf&lt;&lt;T <span class="kw">as </span>Config&gt;::Coretime&gt;;
 <span class="kw">pub type </span>RelayAccountIdOf&lt;T&gt; = &lt;&lt;T <span class="kw">as </span>Config&gt;::Coretime <span class="kw">as </span>CoretimeInterface&gt;::AccountId;
 
 <span class="doccomment">/// Relay-chain block number with a fixed divisor of Config::TimeslicePeriod.

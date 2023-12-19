@@ -2479,6 +2479,21 @@
 <a href="#2479" id="2479">2479</a>
 <a href="#2480" id="2480">2480</a>
 <a href="#2481" id="2481">2481</a>
+<a href="#2482" id="2482">2482</a>
+<a href="#2483" id="2483">2483</a>
+<a href="#2484" id="2484">2484</a>
+<a href="#2485" id="2485">2485</a>
+<a href="#2486" id="2486">2486</a>
+<a href="#2487" id="2487">2487</a>
+<a href="#2488" id="2488">2488</a>
+<a href="#2489" id="2489">2489</a>
+<a href="#2490" id="2490">2490</a>
+<a href="#2491" id="2491">2491</a>
+<a href="#2492" id="2492">2492</a>
+<a href="#2493" id="2493">2493</a>
+<a href="#2494" id="2494">2494</a>
+<a href="#2495" id="2495">2495</a>
+<a href="#2496" id="2496">2496</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4773,7 +4788,15 @@
 <span class="doccomment">/// Get current block number
 </span><span class="kw">pub trait </span>BlockNumberProvider {
 	<span class="doccomment">/// Type of `BlockNumber` to provide.
-	</span><span class="kw">type </span>BlockNumber: Codec + Clone + Ord + Eq + AtLeast32BitUnsigned;
+	</span><span class="kw">type </span>BlockNumber: Codec
+		+ Clone
+		+ Ord
+		+ Eq
+		+ AtLeast32BitUnsigned
+		+ TypeInfo
+		+ Debug
+		+ MaxEncodedLen
+		+ Copy;
 
 	<span class="doccomment">/// Returns the current block number.
 	///
@@ -4799,6 +4822,13 @@
 	/// This is useful in case the block number provider is different than System
 	</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 	</span><span class="kw">fn </span>set_block_number(_block: <span class="self">Self</span>::BlockNumber) {}
+}
+
+<span class="kw">impl </span>BlockNumberProvider <span class="kw">for </span>() {
+	<span class="kw">type </span>BlockNumber = u32;
+	<span class="kw">fn </span>current_block_number() -&gt; <span class="self">Self</span>::BlockNumber {
+		<span class="number">0
+	</span>}
 }
 
 <span class="attr">#[cfg(test)]

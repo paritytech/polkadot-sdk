@@ -1025,6 +1025,39 @@
 <a href="#1025" id="1025">1025</a>
 <a href="#1026" id="1026">1026</a>
 <a href="#1027" id="1027">1027</a>
+<a href="#1028" id="1028">1028</a>
+<a href="#1029" id="1029">1029</a>
+<a href="#1030" id="1030">1030</a>
+<a href="#1031" id="1031">1031</a>
+<a href="#1032" id="1032">1032</a>
+<a href="#1033" id="1033">1033</a>
+<a href="#1034" id="1034">1034</a>
+<a href="#1035" id="1035">1035</a>
+<a href="#1036" id="1036">1036</a>
+<a href="#1037" id="1037">1037</a>
+<a href="#1038" id="1038">1038</a>
+<a href="#1039" id="1039">1039</a>
+<a href="#1040" id="1040">1040</a>
+<a href="#1041" id="1041">1041</a>
+<a href="#1042" id="1042">1042</a>
+<a href="#1043" id="1043">1043</a>
+<a href="#1044" id="1044">1044</a>
+<a href="#1045" id="1045">1045</a>
+<a href="#1046" id="1046">1046</a>
+<a href="#1047" id="1047">1047</a>
+<a href="#1048" id="1048">1048</a>
+<a href="#1049" id="1049">1049</a>
+<a href="#1050" id="1050">1050</a>
+<a href="#1051" id="1051">1051</a>
+<a href="#1052" id="1052">1052</a>
+<a href="#1053" id="1053">1053</a>
+<a href="#1054" id="1054">1054</a>
+<a href="#1055" id="1055">1055</a>
+<a href="#1056" id="1056">1056</a>
+<a href="#1057" id="1057">1057</a>
+<a href="#1058" id="1058">1058</a>
+<a href="#1059" id="1059">1059</a>
+<a href="#1060" id="1060">1060</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1082,6 +1115,7 @@
 	Glutton,
 	GluttonWestend,
 	BridgeHub(chain_spec::bridge_hubs::BridgeHubRuntimeType),
+	Coretime(chain_spec::coretime::CoretimeRuntimeType),
 }
 
 <span class="kw">trait </span>RuntimeResolver {
@@ -1139,6 +1173,10 @@
 		Runtime::BridgeHub(
 			id.parse::&lt;chain_spec::bridge_hubs::BridgeHubRuntimeType&gt;()
 				.expect(<span class="string">&quot;Invalid value&quot;</span>),
+		)
+	} <span class="kw">else if </span>id.starts_with(chain_spec::coretime::CoretimeRuntimeType::ID_PREFIX) {
+		Runtime::Coretime(
+			id.parse::&lt;chain_spec::coretime::CoretimeRuntimeType&gt;().expect(<span class="string">&quot;Invalid value&quot;</span>),
 		)
 	} <span class="kw">else if </span>id.starts_with(<span class="string">&quot;glutton-westend&quot;</span>) {
 		Runtime::GluttonWestend
@@ -1235,6 +1273,15 @@
 				.starts_with(chain_spec::bridge_hubs::BridgeHubRuntimeType::ID_PREFIX) =&gt;
 			bridge_like_id
 				.parse::&lt;chain_spec::bridge_hubs::BridgeHubRuntimeType&gt;()
+				.expect(<span class="string">&quot;invalid value&quot;</span>)
+				.load_config()<span class="question-mark">?</span>,
+
+		<span class="comment">// -- Coretime
+		</span>coretime_like_id
+			<span class="kw">if </span>coretime_like_id
+				.starts_with(chain_spec::coretime::CoretimeRuntimeType::ID_PREFIX) =&gt;
+			coretime_like_id
+				.parse::&lt;chain_spec::coretime::CoretimeRuntimeType&gt;()
 				.expect(<span class="string">&quot;invalid value&quot;</span>)
 				.load_config()<span class="question-mark">?</span>,
 
@@ -1405,7 +1452,8 @@
 			Runtime::AssetHubWestend |
 			Runtime::BridgeHub(<span class="kw">_</span>) |
 			Runtime::CollectivesPolkadot |
-			Runtime::CollectivesWestend =&gt; {
+			Runtime::CollectivesWestend |
+			Runtime::Coretime(<span class="kw">_</span>) =&gt; {
 				<span class="kw">let </span><span class="macro-nonterminal">$partials </span>= new_partial::&lt;RuntimeApi, <span class="kw">_</span>&gt;(
 					<span class="kw-2">&amp;</span><span class="macro-nonterminal">$config</span>,
 					<span class="kw">crate</span>::service::aura_build_import_queue::&lt;<span class="kw">_</span>, AuraId&gt;,
@@ -1451,12 +1499,13 @@
 					{ $( <span class="macro-nonterminal">$code </span>)* }.map(|v| (v, task_manager))
 				})
 			},
-			Runtime::AssetHubWestend |
-			Runtime::AssetHubRococo |
 			Runtime::AssetHubKusama |
+			Runtime::AssetHubRococo |
+			Runtime::AssetHubWestend |
+			Runtime::BridgeHub(<span class="kw">_</span>) |
 			Runtime::CollectivesPolkadot |
 			Runtime::CollectivesWestend |
-			Runtime::BridgeHub(<span class="kw">_</span>) =&gt; {
+			Runtime::Coretime(<span class="kw">_</span>) =&gt; {
 				runner.async_run(|<span class="macro-nonterminal">$config</span>| {
 					<span class="kw">let </span><span class="macro-nonterminal">$components </span>= new_partial::&lt;RuntimeApi, <span class="kw">_</span>&gt;(
 						<span class="kw-2">&amp;</span><span class="macro-nonterminal">$config</span>,
@@ -1623,31 +1672,31 @@
 				// that both file paths exist, the node will exit, as the user must decide (by
 				// deleting one path) the information that they want to use as their DB.
 				</span><span class="kw">let </span>old_name = <span class="kw">match </span>config.chain_spec.id() {
-					 <span class="string">&quot;asset-hub-polkadot&quot; </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">&quot;statemint&quot;</span>),
-				     <span class="string">&quot;asset-hub-kusama&quot; </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">&quot;statemine&quot;</span>),
-				     <span class="string">&quot;asset-hub-westend&quot; </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">&quot;westmint&quot;</span>),
-				     <span class="string">&quot;asset-hub-rococo&quot; </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">&quot;rockmine&quot;</span>),
-				     <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+					<span class="string">&quot;asset-hub-polkadot&quot; </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">&quot;statemint&quot;</span>),
+					<span class="string">&quot;asset-hub-kusama&quot; </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">&quot;statemine&quot;</span>),
+					<span class="string">&quot;asset-hub-westend&quot; </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">&quot;westmint&quot;</span>),
+					<span class="string">&quot;asset-hub-rococo&quot; </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">&quot;rockmine&quot;</span>),
+					<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
 				};
 
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(old_name) = old_name {
-				    <span class="kw">let </span>new_path = config.base_path.config_dir(config.chain_spec.id());
-				    <span class="kw">let </span>old_path = config.base_path.config_dir(old_name);
+					<span class="kw">let </span>new_path = config.base_path.config_dir(config.chain_spec.id());
+					<span class="kw">let </span>old_path = config.base_path.config_dir(old_name);
 
-				    <span class="kw">if </span>old_path.exists() &amp;&amp; new_path.exists() {
-				         <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
+					<span class="kw">if </span>old_path.exists() &amp;&amp; new_path.exists() {
+						<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
 							<span class="string">&quot;Found legacy {} path {} and new asset-hub path {}. Delete one path such that only one exists.&quot;</span>,
 							old_name, old_path.display(), new_path.display()
 						).into())
-				    }
+					}
 
-				    <span class="kw">if </span>old_path.exists() {
-				        std::fs::rename(old_path.clone(), new_path.clone())<span class="question-mark">?</span>;
+					<span class="kw">if </span>old_path.exists() {
+						std::fs::rename(old_path.clone(), new_path.clone())<span class="question-mark">?</span>;
 						<span class="macro">info!</span>(
 							<span class="string">&quot;Statemint renamed to Asset Hub. The filepath with associated data on disk has been renamed from {} to {}.&quot;</span>,
 							old_path.display(), new_path.display()
 						);
-				    }
+					}
 				}
 
 				<span class="kw">let </span>hwbench = (!cli.no_hardware_benchmarks).then_some(
@@ -1756,6 +1805,7 @@
 					.<span class="kw">await
 					</span>.map(|r| r.<span class="number">0</span>)
 					.map_err(Into::into),
+
 					Runtime::BridgeHub(bridge_hub_runtime_type) =&gt; <span class="kw">match </span>bridge_hub_runtime_type {
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::Polkadot =&gt;
 							<span class="kw">crate</span>::service::start_generic_aura_node::&lt;
@@ -1791,6 +1841,22 @@
 							</span>.map(|r| r.<span class="number">0</span>),
 					}
 					.map_err(Into::into),
+
+					Runtime::Coretime(coretime_runtime_type) =&gt; <span class="kw">match </span>coretime_runtime_type {
+						chain_spec::coretime::CoretimeRuntimeType::Rococo |
+						chain_spec::coretime::CoretimeRuntimeType::RococoLocal |
+						chain_spec::coretime::CoretimeRuntimeType::RococoDevelopment |
+						chain_spec::coretime::CoretimeRuntimeType::WestendLocal |
+						chain_spec::coretime::CoretimeRuntimeType::WestendDevelopment =&gt;
+							<span class="kw">crate</span>::service::start_generic_aura_node::&lt;
+								RuntimeApi,
+								AuraId,
+							&gt;(config, polkadot_config, collator_options, id, hwbench)
+							.<span class="kw">await
+							</span>.map(|r| r.<span class="number">0</span>),
+					}
+					.map_err(Into::into),
+
 					Runtime::Penpal(<span class="kw">_</span>) | Runtime::Default =&gt;
 						<span class="kw">crate</span>::service::start_rococo_parachain_node(
 							config,
