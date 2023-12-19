@@ -64,10 +64,17 @@ jobs:
         working-directory: parachain
         run: |
           cargo install taplo-cli --locked && taplo format --check --config .config/taplo.toml
-      - name: zepter
+      - name: install zepter
+        run: |
+          cargo install zepter -f --locked
+      - name: zepter snowbridge
         working-directory: parachain
         run: |
-          cargo install zepter -f --locked && zepter run check
+          zepter run check
+      - name: zepter polkadot-sdk
+        working-directory: polkadot-sdk
+        run: |
+          zepter run check
       - name: lint-markdown
         working-directory: parachain
         run: |

@@ -6,7 +6,7 @@
 # - readme
 # - license
 
-set -eux
+set -eu
 
 # show CLI help
 function show_help() {
@@ -49,12 +49,6 @@ done
 # may be located either in call dir, or one of it subdirs.
 SNOWBRIDGE_FOLDER="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )/../.."
 
-# let's leave repository/subtree in its original (clean) state if something fails below
-function revert_to_clean_state {
-	[[ ! -z "${NO_REVERT}" ]] || { echo "Reverting to clean state..."; git checkout .; }
-}
-trap revert_to_clean_state EXIT
-
 # remove everything we think is not required for our needs
 rm -rf $SNOWBRIDGE_FOLDER/.cargo
 rm -rf $SNOWBRIDGE_FOLDER/.github
@@ -83,6 +77,8 @@ rm -rf $SNOWBRIDGE_FOLDER/parachain/templates
 rm -rf $SNOWBRIDGE_FOLDER/parachain/.config
 rm -rf $SNOWBRIDGE_FOLDER/parachain/pallets/ethereum-beacon-client/fuzz
 
+git rm $SNOWBRIDGE_FOLDER/polkadot-sdk
+
 cd bridges/snowbridge/parachain
 
 # fix polkadot-sdk paths in Cargo.toml files
@@ -108,6 +104,7 @@ cargo check -p snowbridge-outbound-queue --features try-runtime
 cargo check -p snowbridge-system
 cargo check -p snowbridge-system --features runtime-benchmarks
 cargo check -p snowbridge-system --features try-runtime
+
 cd -
 
 # we're removing lock file after all checks are done. Otherwise we may use different
