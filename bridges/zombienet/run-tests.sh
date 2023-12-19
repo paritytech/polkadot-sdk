@@ -22,7 +22,7 @@ export ZOMBIENET_BINARY_PATH=/usr/local/bin/zombie
 #export POLKADOT_PARACHAIN_BINARY_PATH=$POLKADOT_SDK_FOLDER/target/release/polkadot-parachain
 #export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_ROCOCO=$POLKADOT_PARACHAIN_BINARY_PATH
 #export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_WESTEND=$POLKADOT_PARACHAIN_BINARY_PATH
-#export ZOMBIENET_BINARY_PATH=/usr/local/bin/zombie
+#export ZOMBIENET_BINARY_PATH=~/local_bridge_testing/bin/zombienet-linux
 
 # check if `wait` supports -p flag
 if [ `printf "$BASH_VERSION\n5.1" | sort -V | head -n 1` = "5.1" ]; then IS_BASH_5_1=1; else IS_BASH_5_1=0; fi
@@ -41,6 +41,10 @@ function start_coproc() {
     local name=$2
     local coproc_log=`mktemp -p $TEST_FOLDER`
     coproc COPROC {
+        # otherwise zombienet uses some hardcoded paths
+        unset RUN_IN_CONTAINER
+        unset ZOMBIENET_IMAGE
+
         $command >$coproc_log 2>&1
     }
     TEST_COPROCS[$COPROC_PID, 0]=$name
