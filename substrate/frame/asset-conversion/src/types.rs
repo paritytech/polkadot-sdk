@@ -27,6 +27,16 @@ use sp_std::{cmp::Ordering, marker::PhantomData};
 /// migration.
 pub(super) type PoolIdOf<T> = (<T as Config>::MultiAssetId, <T as Config>::MultiAssetId);
 
+/// Represents a swap path with associated asset amounts indicating how much of the asset needs to
+/// be deposited to get the following asset's amount withdrawn (this is inclusive of fees).
+///
+/// Example:
+/// Given path [(asset1, amount_in), (asset2, amount_out2), (asset3, amount_out3)], can be resolved:
+/// 1. `asset(asset1, amount_in)` take from `user` and move to the pool(asset1, asset2);
+/// 2. `asset(asset2, amount_out2)` transfer from pool(asset1, asset2) to pool(asset2, asset3);
+/// 3. `asset(asset3, amount_out3)` move from pool(asset2, asset3) to `user`.
+pub(super) type BalancePath<T> = Vec<(<T as Config>::MultiAssetId, <T as Config>::Balance)>;
+
 /// Stores the lp_token asset id a particular pool has been assigned.
 #[derive(Decode, Encode, Default, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
 pub struct PoolInfo<PoolAssetId> {
@@ -81,43 +91,6 @@ where
 	fn multiasset_id(asset_id: u32) -> MultiAssetId {
 		asset_id.into()
 	}
-}
-
-/// Trait for providing methods to swap between the various asset classes.
-pub trait Swap<AccountId, Balance, MultiAssetId> {
-	/// Swap exactly `amount_in` of asset `path[0]` for asset `path[1]`.
-	/// If an `amount_out_min` is specified, it will return an error if it is unable to acquire
-	/// the amount desired.
-	///
-	/// Withdraws the `path[0]` asset from `sender`, deposits the `path[1]` asset to `send_to`,
-	/// respecting `keep_alive`.
-	///
-	/// If successful, returns the amount of `path[1]` acquired for the `amount_in`.
-	fn swap_exact_tokens_for_tokens(
-		sender: AccountId,
-		path: Vec<MultiAssetId>,
-		amount_in: Balance,
-		amount_out_min: Option<Balance>,
-		send_to: AccountId,
-		keep_alive: bool,
-	) -> Result<Balance, DispatchError>;
-
-	/// Take the `path[0]` asset and swap some amount for `amount_out` of the `path[1]`. If an
-	/// `amount_in_max` is specified, it will return an error if acquiring `amount_out` would be
-	/// too costly.
-	///
-	/// Withdraws `path[0]` asset from `sender`, deposits `path[1]` asset to `send_to`,
-	/// respecting `keep_alive`.
-	///
-	/// If successful returns the amount of the `path[0]` taken to provide `path[1]`.
-	fn swap_tokens_for_exact_tokens(
-		sender: AccountId,
-		path: Vec<MultiAssetId>,
-		amount_out: Balance,
-		amount_in_max: Option<Balance>,
-		send_to: AccountId,
-		keep_alive: bool,
-	) -> Result<Balance, DispatchError>;
 }
 
 /// An implementation of MultiAssetId that can be either Native or an asset.
@@ -183,6 +156,102 @@ impl<AssetId: Ord + Clone> MultiAssetIdConverter<NativeOrAssetId<AssetId>, Asset
 		match asset {
 			NativeOrAssetId::Asset(asset) => MultiAssetIdConversionResult::Converted(asset.clone()),
 			NativeOrAssetId::Native => MultiAssetIdConversionResult::Native,
+		}
+	}
+}
+
+/// Credit of [Config::Currency].
+///
+/// Implies a negative imbalance in the system that can be placed into an account or alter the total
+/// supply.
+pub type NativeCredit<T> =
+	CreditFungible<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
+
+/// Credit (aka negative imbalance) of [Config::Assets].
+///
+/// Implies a negative imbalance in the system that can be placed into an account or alter the total
+/// supply.
+pub type AssetCredit<T> =
+	CreditFungibles<<T as frame_system::Config>::AccountId, <T as Config>::Assets>;
+
+/// Credit that can be either [`NativeCredit`] or [`AssetCredit`].
+///
+/// Implies a negative imbalance in the system that can be placed into an account or alter the total
+/// supply.
+#[derive(RuntimeDebug, Eq, PartialEq)]
+pub enum Credit<T: Config> {
+	/// Native credit.
+	Native(NativeCredit<T>),
+	/// Asset credit.
+	Asset(AssetCredit<T>),
+}
+
+impl<T: Config> From<NativeCredit<T>> for Credit<T> {
+	fn from(value: NativeCredit<T>) -> Self {
+		Credit::Native(value)
+	}
+}
+
+impl<T: Config> From<AssetCredit<T>> for Credit<T> {
+	fn from(value: AssetCredit<T>) -> Self {
+		Credit::Asset(value)
+	}
+}
+
+impl<T: Config> TryInto<NativeCredit<T>> for Credit<T> {
+	type Error = ();
+	fn try_into(self) -> Result<NativeCredit<T>, ()> {
+		match self {
+			Credit::Native(c) => Ok(c),
+			_ => Err(()),
+		}
+	}
+}
+
+impl<T: Config> TryInto<AssetCredit<T>> for Credit<T> {
+	type Error = ();
+	fn try_into(self) -> Result<AssetCredit<T>, ()> {
+		match self {
+			Credit::Asset(c) => Ok(c),
+			_ => Err(()),
+		}
+	}
+}
+
+impl<T: Config> Credit<T> {
+	/// Create zero native credit.
+	pub fn native_zero() -> Self {
+		NativeCredit::<T>::zero().into()
+	}
+
+	/// Amount of `self`.
+	pub fn peek(&self) -> T::Balance {
+		match self {
+			Credit::Native(c) => c.peek(),
+			Credit::Asset(c) => c.peek(),
+		}
+	}
+
+	/// Asset class of `self`.
+	pub fn asset(&self) -> T::MultiAssetId {
+		match self {
+			Credit::Native(_) => T::MultiAssetIdConverter::get_native(),
+			Credit::Asset(c) => c.asset().into(),
+		}
+	}
+
+	/// Consume `self` and return two independent instances; the first is guaranteed to be at most
+	/// `amount` and the second will be the remainder.
+	pub fn split(self, amount: T::Balance) -> (Self, Self) {
+		match self {
+			Credit::Native(c) => {
+				let (left, right) = c.split(amount);
+				(left.into(), right.into())
+			},
+			Credit::Asset(c) => {
+				let (left, right) = c.split(amount);
+				(left.into(), right.into())
+			},
 		}
 	}
 }
