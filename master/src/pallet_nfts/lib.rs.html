@@ -3054,11 +3054,11 @@
 		</span><span class="kw">pub fn </span>transfer_ownership(
 			origin: OriginFor&lt;T&gt;,
 			collection: T::CollectionId,
-			owner: AccountIdLookupOf&lt;T&gt;,
+			new_owner: AccountIdLookupOf&lt;T&gt;,
 		) -&gt; DispatchResult {
 			<span class="kw">let </span>origin = ensure_signed(origin)<span class="question-mark">?</span>;
-			<span class="kw">let </span>owner = T::Lookup::lookup(owner)<span class="question-mark">?</span>;
-			<span class="self">Self</span>::do_transfer_ownership(origin, collection, owner)
+			<span class="kw">let </span>new_owner = T::Lookup::lookup(new_owner)<span class="question-mark">?</span>;
+			<span class="self">Self</span>::do_transfer_ownership(origin, collection, new_owner)
 		}
 
 		<span class="doccomment">/// Change the Issuer, Admin and Freezer of a collection.

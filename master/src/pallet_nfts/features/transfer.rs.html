@@ -231,6 +231,7 @@
 <a href="#231" id="231">231</a>
 <a href="#232" id="232">232</a>
 <a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -357,10 +358,10 @@
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_transfer_ownership(
 		origin: T::AccountId,
 		collection: T::CollectionId,
-		owner: T::AccountId,
+		new_owner: T::AccountId,
 	) -&gt; DispatchResult {
 		<span class="comment">// Check if the new owner is acceptable based on the collection&#39;s acceptance settings.
-		</span><span class="kw">let </span>acceptable_collection = OwnershipAcceptance::&lt;T, I&gt;::get(<span class="kw-2">&amp;</span>owner);
+		</span><span class="kw">let </span>acceptable_collection = OwnershipAcceptance::&lt;T, I&gt;::get(<span class="kw-2">&amp;</span>new_owner);
 		<span class="macro">ensure!</span>(acceptable_collection.as_ref() == <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>collection), Error::&lt;T, I&gt;::Unaccepted);
 
 		<span class="comment">// Try to retrieve and mutate the collection details.
@@ -368,27 +369,28 @@
 			<span class="kw">let </span>details = maybe_details.as_mut().ok_or(Error::&lt;T, I&gt;::UnknownCollection)<span class="question-mark">?</span>;
 			<span class="comment">// Check if the `origin` is the current owner of the collection.
 			</span><span class="macro">ensure!</span>(origin == details.owner, Error::&lt;T, I&gt;::NoPermission);
-			<span class="kw">if </span>details.owner == owner {
+			<span class="kw">if </span>details.owner == new_owner {
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 			}
 
 			<span class="comment">// Move the deposit to the new owner.
 			</span>T::Currency::repatriate_reserved(
 				<span class="kw-2">&amp;</span>details.owner,
-				<span class="kw-2">&amp;</span>owner,
+				<span class="kw-2">&amp;</span>new_owner,
 				details.owner_deposit,
 				Reserved,
 			)<span class="question-mark">?</span>;
 
 			<span class="comment">// Update account ownership information.
 			</span>CollectionAccount::&lt;T, I&gt;::remove(<span class="kw-2">&amp;</span>details.owner, <span class="kw-2">&amp;</span>collection);
-			CollectionAccount::&lt;T, I&gt;::insert(<span class="kw-2">&amp;</span>owner, <span class="kw-2">&amp;</span>collection, ());
+			CollectionAccount::&lt;T, I&gt;::insert(<span class="kw-2">&amp;</span>new_owner, <span class="kw-2">&amp;</span>collection, ());
 
-			details.owner = owner.clone();
-			OwnershipAcceptance::&lt;T, I&gt;::remove(<span class="kw-2">&amp;</span>owner);
+			details.owner = new_owner.clone();
+			OwnershipAcceptance::&lt;T, I&gt;::remove(<span class="kw-2">&amp;</span>new_owner);
+			frame_system::Pallet::&lt;T&gt;::dec_consumers(<span class="kw-2">&amp;</span>new_owner);
 
 			<span class="comment">// Emit `OwnerChanged` event.
-			</span><span class="self">Self</span>::deposit_event(Event::OwnerChanged { collection, new_owner: owner });
+			</span><span class="self">Self</span>::deposit_event(Event::OwnerChanged { collection, new_owner });
 			<span class="prelude-val">Ok</span>(())
 		})
 	}
