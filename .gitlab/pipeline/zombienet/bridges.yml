@@ -34,7 +34,7 @@
     when: always
     expire_in: 2 days
     paths:
-      - ./zombienet-logs
+      - /home/nonroot/zombienet-logs
   after_script:
     - cp /tmp/zombie*/logs/* /home/nonroot/zombienet-logs/
     - cp /tmp/bridges-zombienet-tests*/* /home/nonroot/zombienet-logs/
