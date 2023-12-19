@@ -774,7 +774,7 @@ pub mod pallet {
 				let _ = system::Pallet::<T>::inc_consumers_without_limit(who).defensive();
 			}
 
-			// Ensure the account holds at least ED.
+			// Ensure the account holds at least ED of free balance.
 			if a.free < Self::ed() {
 				let shortfall = Self::ed() - a.free;
 				a.free = Self::ed();
