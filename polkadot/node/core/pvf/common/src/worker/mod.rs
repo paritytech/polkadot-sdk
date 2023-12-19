@@ -25,10 +25,15 @@ use parity_scale_codec::Decode;
 use std::{
 	any::Any,
 	fmt::{self},
-	os::{unix::net::UnixStream, fd::{FromRawFd, AsRawFd}},
+	fs::File,
+	io::{self, Write},
+	os::{
+		fd::{AsRawFd, FromRawFd},
+		unix::net::UnixStream,
+	},
 	path::PathBuf,
 	sync::mpsc::{Receiver, RecvTimeoutError},
-	time::Duration, fs::File, io::{Write, self},
+	time::Duration,
 };
 
 /// Use this macro to declare a `fn main() {}` that will create an executable that can be used for
@@ -208,9 +213,9 @@ pub struct PipeFd {
 impl PipeFd {
 	pub fn new(fd: i32) -> Self {
 		// SAFETY: pipe_writer is an open and owned file descriptor at this point.
-        let file = unsafe { File::from_raw_fd(fd) };
-        PipeFd { file }
-    }
+		let file = unsafe { File::from_raw_fd(fd) };
+		PipeFd { file }
+	}
 
 	pub fn as_raw_fd(&self) -> i32 {
 		self.file.as_raw_fd()
