@@ -560,6 +560,7 @@ mod benches {
 	#[benchmark]
 	fn drop_region() -> Result<(), BenchmarkError> {
 		let core = setup_and_start_sale::<T>()?;
+		let region_len = Configuration::<T>::get().unwrap().region_length;
 
 		advance_to::<T>(2);
 
@@ -572,7 +573,9 @@ mod benches {
 		let region = Broker::<T>::do_purchase(caller.clone(), 10u32.into())
 			.map_err(|_| BenchmarkError::Weightless)?;
 
-		advance_to::<T>(12);
+		advance_to::<T>(
+			(T::TimeslicePeriod::get() * (region_len * 4).into()).try_into().ok().unwrap(),
+		);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), region);
@@ -591,6 +594,7 @@ mod benches {
 	#[benchmark]
 	fn drop_contribution() -> Result<(), BenchmarkError> {
 		let core = setup_and_start_sale::<T>()?;
+		let region_len = Configuration::<T>::get().unwrap().region_length;
 
 		advance_to::<T>(2);
 
@@ -608,14 +612,16 @@ mod benches {
 		Broker::<T>::do_pool(region, None, recipient, Final)
 			.map_err(|_| BenchmarkError::Weightless)?;
 
-		advance_to::<T>(26);
+		advance_to::<T>(
+			(T::TimeslicePeriod::get() * (region_len * 8).into()).try_into().ok().unwrap(),
+		);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), region);
 
 		assert_last_event::<T>(
 			Event::ContributionDropped {
-				region_id: RegionId { begin: 4, core, mask: CoreMask::complete() },
+				region_id: RegionId { begin: region.begin, core, mask: CoreMask::complete() },
 			}
 			.into(),
 		);
@@ -628,8 +634,11 @@ mod benches {
 		setup_and_start_sale::<T>()?;
 		let when = 5u32.into();
 		let revenue = 10u32.into();
+		let region_len = Configuration::<T>::get().unwrap().region_length;
 
-		advance_to::<T>(25);
+		advance_to::<T>(
+			(T::TimeslicePeriod::get() * (region_len * 8).into()).try_into().ok().unwrap(),
+		);
 
 		let caller: T::AccountId = whitelisted_caller();
 		InstaPoolHistory::<T>::insert(
@@ -654,8 +663,11 @@ mod benches {
 	fn drop_renewal() -> Result<(), BenchmarkError> {
 		let core = setup_and_start_sale::<T>()?;
 		let when = 5u32.into();
+		let region_len = Configuration::<T>::get().unwrap().region_length;
 
-		advance_to::<T>(10);
+		advance_to::<T>(
+			(T::TimeslicePeriod::get() * (region_len * 3).into()).try_into().ok().unwrap(),
+		);
 
 		let id = AllowedRenewalId { core, when };
 		let record = AllowedRenewalRecord {
@@ -723,10 +735,16 @@ mod benches {
 		);
 		T::Currency::set_balance(&Broker::<T>::account_id(), T::Currency::minimum_balance());
 
-		<T::Coretime as CoretimeInterface>::ensure_notify_revenue_info(10u32.into(), 10u32.into());
+		let timeslice_period: u32 = T::TimeslicePeriod::get().try_into().ok().unwrap();
+		let multiplicator = 5;
+		<T::Coretime as CoretimeInterface>::ensure_notify_revenue_info(
+			(timeslice_period * multiplicator).into(),
+			10u32.into(),
+		);
 
+		let timeslice = multiplicator - 1;
 		InstaPoolHistory::<T>::insert(
-			4u32,
+			timeslice,
 			InstaPoolHistoryRecord {
 				private_contributions: 1u32.into(),
 				system_contributions: 9u32.into(),
@@ -741,7 +759,7 @@ mod benches {
 
 		assert_last_event::<T>(
 			Event::ClaimsReady {
-				when: 4u32.into(),
+				when: timeslice.into(),
 				system_payout: 9u32.into(),
 				private_payout: 1u32.into(),
 			}
@@ -788,7 +806,7 @@ mod benches {
 
 		#[block]
 		{
-			Broker::<T>::rotate_sale(sale, &config, &status);
+			Broker::<T>::rotate_sale(sale.clone(), &config, &status);
 		}
 
 		assert!(SaleInfo::<T>::get().is_some());
@@ -798,8 +816,8 @@ mod benches {
 				leadin_length: 1u32.into(),
 				start_price: 20u32.into(),
 				regular_price: 10u32.into(),
-				region_begin: 4,
-				region_end: 7,
+				region_begin: sale.region_begin + config.region_length,
+				region_end: sale.region_end + config.region_length,
 				ideal_cores_sold: 0,
 				cores_offered: n
 					.saturating_sub(T::MaxReservedCores::get())
