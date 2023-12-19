@@ -337,7 +337,12 @@ where
 		ensure!(spot_price.le(&max_amount), Error::<T>::SpotPriceHigherThanMaxAmount);
 
 		// Charge the sending account the spot price
-		T::Currency::withdraw(&sender, spot_price, WithdrawReasons::FEE, existence_requirement)?;
+		let _ = T::Currency::withdraw(
+			&sender,
+			spot_price,
+			WithdrawReasons::FEE,
+			existence_requirement,
+		)?;
 
 		let assignment = Assignment::new(para_id);
 
