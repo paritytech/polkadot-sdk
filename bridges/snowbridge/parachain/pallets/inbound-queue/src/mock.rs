@@ -4,7 +4,7 @@ use super::*;
 
 use frame_support::{
 	parameter_types,
-	traits::{ConstU128, Everything},
+	traits::{ConstU128, ConstU32, Everything},
 	weights::IdentityFee,
 };
 use hex_literal::hex;
@@ -219,6 +219,8 @@ impl inbound_queue::Config for Test {
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Test;
 	type WeightToFee = IdentityFee<u128>;
+	type LengthToFee = IdentityFee<u128>;
+	type MaxMessageSize = ConstU32<1024>;
 }
 
 pub fn last_events(n: usize) -> Vec<RuntimeEvent> {

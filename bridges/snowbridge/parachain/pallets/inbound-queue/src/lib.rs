@@ -79,7 +79,6 @@ pub const LOG_TARGET: &str = "snowbridge-inbound-queue";
 
 #[frame_support::pallet]
 pub mod pallet {
-
 	use super::*;
 
 	use frame_support::pallet_prelude::*;
@@ -102,7 +101,7 @@ pub mod pallet {
 		type Verifier: Verifier;
 
 		/// Message relayers are rewarded with this asset
-		type Token: Mutate<Self::AccountId>;
+		type Token: Mutate<Self::AccountId> + Inspect<Self::AccountId>;
 
 		/// XCM message sender
 		type XcmSender: SendXcm;
@@ -128,8 +127,14 @@ pub mod pallet {
 		#[cfg(feature = "runtime-benchmarks")]
 		type Helper: BenchmarkHelper<Self>;
 
-		/// Convert a weight value into balance type.
+		/// Convert a weight value into deductible balance type.
 		type WeightToFee: WeightToFee<Balance = BalanceOf<Self>>;
+
+		/// Convert a length value into deductible balance type
+		type LengthToFee: WeightToFee<Balance = BalanceOf<Self>>;
+
+		/// The upper limit here only used to estimate delivery cost
+		type MaxMessageSize: Get<u32>;
 	}
 
 	#[pallet::hooks]
@@ -228,7 +233,7 @@ pub mod pallet {
 
 			// Decode event log into an Envelope
 			let envelope =
-				Envelope::try_from(message.event_log).map_err(|_| Error::<T>::InvalidEnvelope)?;
+				Envelope::try_from(&message.event_log).map_err(|_| Error::<T>::InvalidEnvelope)?;
 
 			// Verify that the message was submitted from the known Gateway contract
 			ensure!(T::GatewayAddress::get() == envelope.gateway, Error::<T>::InvalidGateway);
@@ -253,7 +258,7 @@ pub mod pallet {
 			// Reward relayer from the sovereign account of the destination parachain
 			// Expected to fail if sovereign account has no funds
 			let sovereign_account = sibling_sovereign_account::<T>(channel.para_id);
-			let delivery_cost = Self::get();
+			let delivery_cost = Self::calculate_delivery_cost(message.encode().len() as u32);
 			T::Token::transfer(&sovereign_account, &who, delivery_cost, Preservation::Preserve)?;
 
 			// Decode message into XCM
@@ -317,14 +322,21 @@ pub mod pallet {
 			let (xcm_hash, _) = send_xcm::<T::XcmSender>(dest, xcm).map_err(Error::<T>::from)?;
 			Ok(xcm_hash)
 		}
+
+		pub fn calculate_delivery_cost(length: u32) -> BalanceOf<T> {
+			let weight_fee = T::WeightToFee::weight_to_fee(&T::WeightInfo::submit());
+			let len_fee = T::LengthToFee::weight_to_fee(&Weight::from_parts(length as u64, 0));
+			weight_fee
+				.saturating_add(len_fee)
+				.saturating_add(T::PricingParameters::get().rewards.local)
+		}
 	}
 
 	/// API for accessing the delivery cost of a message
 	impl<T: Config> Get<BalanceOf<T>> for Pallet<T> {
 		fn get() -> BalanceOf<T> {
-			let pricing_parameters = T::PricingParameters::get();
-			let refund: BalanceOf<T> = T::WeightToFee::weight_to_fee(&T::WeightInfo::submit());
-			refund.saturating_add(pricing_parameters.rewards.local)
+			// Cost here based on MaxMessagePayloadSize(the worst case)
+			Self::calculate_delivery_cost(T::MaxMessageSize::get())
 		}
 	}
 }

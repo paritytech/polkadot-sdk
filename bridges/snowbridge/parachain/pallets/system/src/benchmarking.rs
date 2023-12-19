@@ -157,5 +157,9 @@ mod benchmarks {
 		Ok(())
 	}
 
-	impl_benchmark_test_suite!(SnowbridgeControl, crate::mock::new_test_ext(), crate::mock::Test);
+	impl_benchmark_test_suite!(
+		SnowbridgeControl,
+		crate::mock::new_test_ext(true),
+		crate::mock::Test
+	);
 }
