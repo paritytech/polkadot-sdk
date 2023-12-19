@@ -3,7 +3,7 @@
 set -x
 shopt -s nullglob
 
-trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
+trap "trap - SIGINT SIGTERM EXIT && kill -- -$$" SIGINT SIGTERM EXIT
 
 # assuming that we'll be using native provide && all processes will be executing locally
 # (we need absolute paths here, because they're used when scripts are called by zombienet from tmp folders)
@@ -42,8 +42,8 @@ function start_coproc() {
     local coproc_log=`mktemp -p $TEST_FOLDER`
     coproc COPROC {
         # otherwise zombienet uses some hardcoded paths
-        unset RUN_IN_CONTAINER
-        unset ZOMBIENET_IMAGE
+        #unset RUN_IN_CONTAINER
+        #unset ZOMBIENET_IMAGE
 
         $command >$coproc_log 2>&1
     }
