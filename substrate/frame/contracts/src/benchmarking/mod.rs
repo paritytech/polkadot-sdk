@@ -1749,7 +1749,7 @@ benchmarks! {
 			.collect::<Vec<BalanceOf<T>>>();
 		let deposits_bytes: Vec<u8> = deposits.iter().flat_map(|i| i.encode()).collect();
 		let deposits_len = deposits_bytes.len() as u32;
-		let deposit_len = value_len.clone();
+		let deposit_len = value_len;
 		let callee_offset = value_len + deposits_len;
 		let code = WasmModule::<T>::from(ModuleDefinition {
 			memory: Some(ImportedMemory::max::<T>()),

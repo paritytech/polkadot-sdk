@@ -362,7 +362,7 @@ mod test {
 					Some(ScheduledV3Of::<Test> {
 						maybe_id: Some(vec![i as u8; 320]),
 						priority: 123,
-						call: MaybeHashed::Hash(undecodable_hash.clone()),
+						call: MaybeHashed::Hash(undecodable_hash),
 						maybe_periodic: Some((4u64, 20)),
 						origin: root(),
 						_phantom: PhantomData::<u64>::default(),

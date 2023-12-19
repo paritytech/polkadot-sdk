@@ -502,7 +502,6 @@ eq_op = { level = "allow", priority = 2 }                            # In tests 
 while_immutable_condition = { level = "allow", priority = 2 }        # false positives
 needless_option_as_deref = { level = "allow", priority = 2 }         # false positives
 derivable_impls = { level = "allow", priority = 2 }                  # false positives
-clone_on_copy = { level = "allow", priority = 2 }                    # false positives
 stable_sort_primitive = { level = "allow", priority = 2 }            # prefer stable sort
 extra-unused-type-parameters = { level = "allow", priority = 2 }     # stylistic
 default_constructed_unit_structs = { level = "allow", priority = 2 } # stylistic
