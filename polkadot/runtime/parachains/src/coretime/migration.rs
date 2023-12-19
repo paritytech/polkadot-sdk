@@ -16,17 +16,25 @@
 
 //! Migration of legacy parachains to Coretime.
 
-use sp_std::prelude::*;
+use sp_runtime::BoundedVec;
+use sp_std::{iter, prelude::*, result};
+
+use parity_scale_codec::Encode;
 
 use sp_core::Get;
 
 use frame_support::weights::Weight;
-use pallet_broker::CoreAssignment;
+use pallet_broker::{CoreAssignment, CoreMask, ScheduleItem};
+use xcm::v3::{
+	send_xcm, Instruction, Junction, Junctions, MultiLocation, OriginKind, SendError, WeightLimit,
+	Xcm,
+};
 
 use crate::{configuration, paras};
+use polkadot_parachain_primitives::primitives::IsSystem;
 use primitives::CoreIndex;
 
-use super::{Config, Pallet, PartsOf57600, WeightInfo};
+use super::{BrokerRuntimePallets, Config, GetLegacyLease, Pallet, PartsOf57600, WeightInfo};
 use crate::assigner_coretime;
 
 pub mod v_coretime {
@@ -130,8 +138,71 @@ pub fn migrate_to_coretime<T: Config>() -> Weight {
 		c.coretime_cores = total_cores;
 	});
 
+	if let Err(err) = migrate_send_assignments_to_coretime_chain::<T>() {
+		log::error!("Sending legacy chain data to coretime chain failed: {:?}", err);
+	}
+
 	let single_weight = <T as Config>::WeightInfo::assign_core(1);
 	single_weight
 		.saturating_mul(u64::from(legacy_count.saturating_add(config.coretime_cores)))
 		.saturating_add(T::DbWeight::get().reads_writes(1, 1))
+}
+
+fn migrate_send_assignments_to_coretime_chain<T: Config>() -> result::Result<(), SendError> {
+	let legacy_paras = paras::Pallet::<T>::parachains();
+	let (system_chains, lease_holding): (Vec<_>, Vec<_>) =
+		legacy_paras.into_iter().partition(IsSystem::is_system);
+
+	let reservations = system_chains.into_iter().map(|p| {
+		let schedule = BoundedVec::truncate_from(vec![ScheduleItem {
+			mask: CoreMask::complete(),
+			assignment: CoreAssignment::Task(p.into()),
+		}]);
+		mk_coretime_call(super::CoretimeCalls::Reserve(schedule))
+	});
+
+	let leases = lease_holding.into_iter().filter_map(|p| {
+		let Some(valid_until) = T::GetLegacyLease::get_parachain_lease_in_blocks(p) else {
+			log::error!("Lease holding chain with no lease information?!");
+			return None
+		};
+		let valid_until: u32 = match valid_until.try_into() {
+			Ok(val) => val,
+			Err(_) => {
+				log::error!("Converting block number to u32 failed!");
+				return None
+			},
+		};
+		// We assume the coretime chain set this parameter to the recommened value in RFC-1:
+		const TIME_SLICE_PERIOD: u32 = 80;
+		let round_up = if valid_until % TIME_SLICE_PERIOD > 0 { 1 } else { 0 };
+		let time_slice = valid_until / TIME_SLICE_PERIOD + TIME_SLICE_PERIOD * round_up;
+		Some(mk_coretime_call(super::CoretimeCalls::SetLease(p.into(), time_slice)))
+	});
+
+	let message_content = iter::once(Instruction::UnpaidExecution {
+		weight_limit: WeightLimit::Unlimited,
+		check_origin: None,
+	})
+	.chain(reservations)
+	.chain(leases)
+	.collect();
+
+	let message = Xcm(message_content);
+	send_xcm::<T::SendXcm>(
+		MultiLocation {
+			parents: 0,
+			interior: Junctions::X1(Junction::Parachain(T::BrokerId::get())),
+		},
+		message,
+	)?;
+	Ok(())
+}
+
+fn mk_coretime_call(call: super::CoretimeCalls) -> Instruction<()> {
+	Instruction::Transact {
+		origin_kind: OriginKind::Native,
+		require_weight_at_most: Weight::from_parts(1000000000, 200000),
+		call: BrokerRuntimePallets::Broker(call).encode().into(),
+	}
 }

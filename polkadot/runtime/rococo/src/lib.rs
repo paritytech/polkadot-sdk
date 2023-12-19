@@ -37,8 +37,9 @@ use runtime_common::{
 	impls::{
 		LocatableAssetConverter, ToAuthor, VersionedLocatableAsset, VersionedMultiLocationConverter,
 	},
-	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots, BlockHashCount, BlockLength,
-	SlowAdjustingFeeUpdate,
+	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots,
+	traits::Leaser,
+	BlockHashCount, BlockLength, SlowAdjustingFeeUpdate,
 };
 use scale_info::TypeInfo;
 use sp_std::{cmp::Ordering, collections::btree_map::BTreeMap, prelude::*};
@@ -1018,6 +1019,27 @@ impl coretime::Config for Runtime {
 	type Currency = Balances;
 	type BrokerId = BrokerId;
 	type WeightInfo = weights::runtime_parachains_coretime::WeightInfo<Runtime>;
+	type SendXcm = crate::xcm_config::XcmRouter;
+	type GetLegacyLease = GetLegacyLeaseImpl;
+}
+
+pub struct GetLegacyLeaseImpl;
+impl coretime::GetLegacyLease<BlockNumber> for GetLegacyLeaseImpl {
+	fn get_parachain_lease_in_blocks(para: ParaId) -> Option<BlockNumber> {
+		let now = frame_system::Pallet::<Runtime>::block_number();
+		let mut leases = slots::Pallet::<Runtime>::lease(para).into_iter();
+		let Some(Some(_)) = leases.next() else { return None };
+
+		let (_, progress) = slots::Pallet::<Runtime>::lease_period_index_plus_progress(now)?;
+		let initial_sum = <Runtime as slots::Config>::LeasePeriod::get().saturating_sub(progress);
+
+		leases.into_iter().fold(Some(initial_sum), |sum, lease| {
+			if lease.is_none() {
+				return None
+			};
+			Some(sum? + <Runtime as slots::Config>::LeasePeriod::get())
+		})
+	}
 }
 
 parameter_types! {
