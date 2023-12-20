@@ -228,9 +228,6 @@
 <a href="#228" id="228">228</a>
 <a href="#229" id="229">229</a>
 <a href="#230" id="230">230</a>
-<a href="#231" id="231">231</a>
-<a href="#232" id="232">232</a>
-<a href="#233" id="233">233</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -405,7 +402,7 @@
 			</span><span class="kw">let </span>hash = H256::repeat_byte(<span class="number">1</span>);
 			<span class="kw">let </span>status = ReferendumStatus {
 				end: <span class="number">1u32</span>.into(),
-				proposal: hash.clone(),
+				proposal: hash,
 				threshold: VoteThreshold::SuperMajorityApprove,
 				delay: <span class="number">1u32</span>.into(),
 				tally: Tally { ayes: <span class="number">1u32</span>.into(), nays: <span class="number">1u32</span>.into(), turnout: <span class="number">1u32</span>.into() },
@@ -420,13 +417,10 @@
 
 			<span class="comment">// Case 3: Public proposals
 			</span><span class="kw">let </span>hash2 = H256::repeat_byte(<span class="number">2</span>);
-			v0::PublicProps::&lt;T&gt;::put(<span class="macro">vec!</span>[
-				(<span class="number">3u32</span>, hash.clone(), <span class="number">123u64</span>),
-				(<span class="number">4u32</span>, hash2.clone(), <span class="number">123u64</span>),
-			]);
+			v0::PublicProps::&lt;T&gt;::put(<span class="macro">vec!</span>[(<span class="number">3u32</span>, hash, <span class="number">123u64</span>), (<span class="number">4u32</span>, hash2, <span class="number">123u64</span>)]);
 
 			<span class="comment">// Case 4: Next external
-			</span>v0::NextExternal::&lt;T&gt;::put((hash.clone(), VoteThreshold::SuperMajorityApprove));
+			</span>v0::NextExternal::&lt;T&gt;::put((hash, VoteThreshold::SuperMajorityApprove));
 
 			<span class="comment">// Migrate.
 			</span><span class="kw">let </span>state = v1::Migration::&lt;T&gt;::pre_upgrade().unwrap();

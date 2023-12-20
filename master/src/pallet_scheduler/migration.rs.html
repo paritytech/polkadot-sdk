@@ -668,7 +668,7 @@
 			<span class="comment">// Check that no agenda overflows `MaxScheduledPerBlock`.
 			</span><span class="kw">let </span>max_scheduled_per_block = T::MaxScheduledPerBlock::get() <span class="kw">as </span>usize;
 			<span class="kw">for </span>(block_number, agenda) <span class="kw">in </span>Agenda::&lt;T&gt;::iter() {
-				<span class="kw">if </span>agenda.iter().cloned().filter_map(|s| s).count() &gt; max_scheduled_per_block {
+				<span class="kw">if </span>agenda.iter().cloned().flatten().count() &gt; max_scheduled_per_block {
 					<span class="macro">log::error!</span>(
 						target: TARGET,
 						<span class="string">&quot;Would truncate agenda of block {:?} from {} items to {} items.&quot;</span>,
@@ -682,7 +682,7 @@
 			<span class="comment">// Check that bounding the calls will not overflow `MAX_LENGTH`.
 			</span><span class="kw">let </span>max_length = T::Preimages::MAX_LENGTH <span class="kw">as </span>usize;
 			<span class="kw">for </span>(block_number, agenda) <span class="kw">in </span>Agenda::&lt;T&gt;::iter() {
-				<span class="kw">for </span>schedule <span class="kw">in </span>agenda.iter().cloned().filter_map(|s| s) {
+				<span class="kw">for </span>schedule <span class="kw">in </span>agenda.iter().cloned().flatten() {
 					<span class="kw">match </span>schedule.call {
 						frame_support::traits::schedule::MaybeHashed::Value(call) =&gt; {
 							<span class="kw">let </span>l = call.using_encoded(|c| c.len());
@@ -925,7 +925,7 @@
 					<span class="prelude-val">Some</span>(ScheduledV3Of::&lt;Test&gt; {
 						maybe_id: <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[i <span class="kw">as </span>u8; <span class="number">320</span>]),
 						priority: <span class="number">123</span>,
-						call: MaybeHashed::Hash(undecodable_hash.clone()),
+						call: MaybeHashed::Hash(undecodable_hash),
 						maybe_periodic: <span class="prelude-val">Some</span>((<span class="number">4u64</span>, <span class="number">20</span>)),
 						origin: root(),
 						_phantom: PhantomData::&lt;u64&gt;::default(),

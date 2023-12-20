@@ -132,6 +132,33 @@
 <a href="#132" id="132">132</a>
 <a href="#133" id="133">133</a>
 <a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -264,6 +291,33 @@
 			.saturating_add(T::DbWeight::get().reads((<span class="number">1_u64</span>).saturating_mul(p.into())))
 			.saturating_add(T::DbWeight::get().writes((<span class="number">1_u64</span>).saturating_mul(p.into())))
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">70</span>).saturating_mul(p.into()))
+	}
+	<span class="doccomment">/// Storage: `System::AuthorizedUpgrade` (r:0 w:1)
+	/// Proof: `System::AuthorizedUpgrade` (`max_values`: Some(1), `max_size`: Some(33), added: 528, mode: `MaxEncodedLen`)
+	</span><span class="kw">fn </span>authorize_upgrade() -&gt; Weight {
+		<span class="comment">// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 33_027_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">33_027_000</span>, <span class="number">0</span>)
+			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">0</span>))
+			.saturating_add(T::DbWeight::get().writes(<span class="number">1</span>))
+	}
+	<span class="doccomment">/// Storage: `System::AuthorizedUpgrade` (r:1 w:1)
+	/// Proof: `System::AuthorizedUpgrade` (`max_values`: Some(1), `max_size`: Some(33), added: 528, mode: `MaxEncodedLen`)
+	/// Storage: `System::Digest` (r:1 w:1)
+	/// Proof: `System::Digest` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: UNKNOWN KEY `0x3a636f6465` (r:0 w:1)
+	/// Proof: UNKNOWN KEY `0x3a636f6465` (r:0 w:1)
+	</span><span class="kw">fn </span>apply_authorized_upgrade() -&gt; Weight {
+		<span class="comment">// Proof Size summary in bytes:
+		//  Measured:  `22`
+		//  Estimated: `1518`
+		// Minimum execution time: 118_101_992_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">118_101_992_000</span>, <span class="number">0</span>)
+			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">1518</span>))
+			.saturating_add(T::DbWeight::get().reads(<span class="number">2</span>))
+			.saturating_add(T::DbWeight::get().writes(<span class="number">3</span>))
 	}
 }
 </code></pre></div></section></main></body></html>

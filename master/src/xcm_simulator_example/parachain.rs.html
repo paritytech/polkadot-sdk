@@ -619,7 +619,7 @@
 
 	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 	</span><span class="kw">fn </span>try_successful_origin(a: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeOrigin, ()&gt; {
-		<span class="prelude-val">Ok</span>(pallet_xcm::Origin::Xcm(a.clone()).into())
+		<span class="prelude-val">Ok</span>(pallet_xcm::Origin::Xcm(<span class="kw-2">*</span>a).into())
 	}
 }
 

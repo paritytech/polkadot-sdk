@@ -864,7 +864,7 @@
 			<span class="kw">let </span><span class="prelude-val">Ok</span>(right_sig) = sig.<span class="number">0</span>[ecdsa::SIGNATURE_SERIALIZED_SIZE..].try_into() <span class="kw">else </span>{
 				<span class="kw">return </span><span class="bool-val">false
 			</span>};
-			bls377::Pair::verify(<span class="kw-2">&amp;</span>right_sig, message.as_ref(), <span class="kw-2">&amp;</span>right_pub)
+			bls377::Pair::verify(<span class="kw-2">&amp;</span>right_sig, message, <span class="kw-2">&amp;</span>right_pub)
 		}
 	}
 }

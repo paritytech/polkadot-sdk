@@ -665,7 +665,7 @@
 		<span class="kw">let </span>(<span class="kw">_</span>, old_deposit, storage_module) = state;
 		<span class="comment">// CodeInfoOf::max_encoded_len == OwnerInfoOf::max_encoded_len + 1
 		// I.e. code info adds up 1 byte per record.
-		</span><span class="kw">let </span>info_bytes_added = items.clone();
+		</span><span class="kw">let </span>info_bytes_added = items;
 		<span class="comment">// We removed 1 PrefabWasmModule, and added 1 byte of determinism flag, per contract code.
 		</span><span class="kw">let </span>storage_removed = storage_module.saturating_sub(info_bytes_added);
 		<span class="comment">// module+code+info - bytes

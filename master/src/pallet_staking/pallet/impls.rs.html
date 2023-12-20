@@ -3817,7 +3817,7 @@
 		) {
 			<span class="kw">let </span>others = exposures
 				.iter()
-				.map(|(who, value)| IndividualExposure { who: who.clone(), value: value.clone() })
+				.map(|(who, value)| IndividualExposure { who: who.clone(), value: <span class="kw-2">*</span>value })
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 			<span class="kw">let </span>exposure = Exposure { total: Default::default(), own: Default::default(), others };
 			EraInfo::&lt;T&gt;::set_exposure(<span class="kw-2">*</span>current_era, stash, exposure);

@@ -1769,37 +1769,6 @@
 <a href="#1769" id="1769">1769</a>
 <a href="#1770" id="1770">1770</a>
 <a href="#1771" id="1771">1771</a>
-<a href="#1772" id="1772">1772</a>
-<a href="#1773" id="1773">1773</a>
-<a href="#1774" id="1774">1774</a>
-<a href="#1775" id="1775">1775</a>
-<a href="#1776" id="1776">1776</a>
-<a href="#1777" id="1777">1777</a>
-<a href="#1778" id="1778">1778</a>
-<a href="#1779" id="1779">1779</a>
-<a href="#1780" id="1780">1780</a>
-<a href="#1781" id="1781">1781</a>
-<a href="#1782" id="1782">1782</a>
-<a href="#1783" id="1783">1783</a>
-<a href="#1784" id="1784">1784</a>
-<a href="#1785" id="1785">1785</a>
-<a href="#1786" id="1786">1786</a>
-<a href="#1787" id="1787">1787</a>
-<a href="#1788" id="1788">1788</a>
-<a href="#1789" id="1789">1789</a>
-<a href="#1790" id="1790">1790</a>
-<a href="#1791" id="1791">1791</a>
-<a href="#1792" id="1792">1792</a>
-<a href="#1793" id="1793">1793</a>
-<a href="#1794" id="1794">1794</a>
-<a href="#1795" id="1795">1795</a>
-<a href="#1796" id="1796">1796</a>
-<a href="#1797" id="1797">1797</a>
-<a href="#1798" id="1798">1798</a>
-<a href="#1799" id="1799">1799</a>
-<a href="#1800" id="1800">1800</a>
-<a href="#1801" id="1801">1801</a>
-<a href="#1802" id="1802">1802</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1829,7 +1798,7 @@
 //!
 //! Users must ensure that they register this pallet as an inherent provider.
 
-</span><span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
+</span><span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo,
 	GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage, MessageSendError,
@@ -1852,10 +1821,9 @@
 <span class="kw">use </span>sp_runtime::{
 	traits::{Block <span class="kw">as </span>BlockT, BlockNumberProvider, Hash},
 	transaction_validity::{
-		InvalidTransaction, TransactionLongevity, TransactionSource, TransactionValidity,
-		ValidTransaction,
+		InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction,
 	},
-	BoundedSlice, DispatchError, FixedU128, RuntimeDebug, Saturating,
+	BoundedSlice, FixedU128, RuntimeDebug, Saturating,
 };
 <span class="kw">use </span>sp_std::{cmp, collections::btree_map::BTreeMap, prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>xcm::latest::XcmHash;
@@ -1971,20 +1939,6 @@
 	}
 }
 
-<span class="doccomment">/// Information needed when a new runtime binary is submitted and needs to be authorized before
-/// replacing the current runtime.
-</span><span class="attr">#[derive(Decode, Encode, Default, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
-#[scale_info(skip_type_params(T))]
-</span><span class="kw">struct </span>CodeUpgradeAuthorization&lt;T&gt;
-<span class="kw">where
-	</span>T: Config,
-{
-	<span class="doccomment">/// Hash of the new runtime binary.
-	</span>code_hash: T::Hash,
-	<span class="doccomment">/// Whether or not to carry out version checks.
-	</span>check_version: bool,
-}
-
 <span class="doccomment">/// The max length of a DMP message.
 </span><span class="kw">pub type </span>MaxDmpMessageLenOf&lt;T&gt; = &lt;&lt;T <span class="kw">as </span>Config&gt;::DmpQueue <span class="kw">as </span>HandleMessage&gt;::MaxMessageLen;
 
@@ -2006,7 +1960,7 @@
 </span><span class="kw">pub mod </span>pallet {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
-	<span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
+	<span class="kw">use </span>frame_system::{pallet_prelude::<span class="kw-2">*</span>, WeightInfo <span class="kw">as </span>SystemWeightInfo};
 
 	<span class="attr">#[pallet::pallet]
 	#[pallet::storage_version(migration::STORAGE_VERSION)]
@@ -2479,16 +2433,18 @@
 		///
 		/// This call requires Root origin.
 		</span><span class="attr">#[pallet::call_index(<span class="number">2</span>)]
-		#[pallet::weight((<span class="number">1_000_000</span>, DispatchClass::Operational))]
+		#[pallet::weight(&lt;T <span class="kw">as </span>frame_system::Config&gt;::SystemWeightInfo::authorize_upgrade())]
+		#[allow(deprecated)]
+		#[deprecated(
+			note = <span class="string">&quot;To be removed after June 2024. Migrate to `frame_system::authorize_upgrade`.&quot;
+		</span>)]
 		</span><span class="kw">pub fn </span>authorize_upgrade(
 			origin: OriginFor&lt;T&gt;,
 			code_hash: T::Hash,
 			check_version: bool,
 		) -&gt; DispatchResult {
 			ensure_root(origin)<span class="question-mark">?</span>;
-			AuthorizedUpgrade::&lt;T&gt;::put(CodeUpgradeAuthorization { code_hash, check_version });
-
-			<span class="self">Self</span>::deposit_event(Event::UpgradeAuthorized { code_hash });
+			frame_system::Pallet::&lt;T&gt;::do_authorize_upgrade(code_hash, check_version);
 			<span class="prelude-val">Ok</span>(())
 		}
 
@@ -2502,15 +2458,17 @@
 		///
 		/// All origins are allowed.
 		</span><span class="attr">#[pallet::call_index(<span class="number">3</span>)]
-		#[pallet::weight({<span class="number">1_000_000</span>})]
+		#[pallet::weight(&lt;T <span class="kw">as </span>frame_system::Config&gt;::SystemWeightInfo::apply_authorized_upgrade())]
+		#[allow(deprecated)]
+		#[deprecated(
+			note = <span class="string">&quot;To be removed after June 2024. Migrate to `frame_system::apply_authorized_upgrade`.&quot;
+		</span>)]
 		</span><span class="kw">pub fn </span>enact_authorized_upgrade(
 			<span class="kw">_</span>: OriginFor&lt;T&gt;,
 			code: Vec&lt;u8&gt;,
 		) -&gt; DispatchResultWithPostInfo {
-			<span class="self">Self</span>::validate_authorized_upgrade(<span class="kw-2">&amp;</span>code[..])<span class="question-mark">?</span>;
-			<span class="self">Self</span>::schedule_code_upgrade(code)<span class="question-mark">?</span>;
-			AuthorizedUpgrade::&lt;T&gt;::kill();
-			<span class="prelude-val">Ok</span>(Pays::No.into())
+			<span class="kw">let </span>post = frame_system::Pallet::&lt;T&gt;::do_apply_authorize_upgrade(code)<span class="question-mark">?</span>;
+			<span class="prelude-val">Ok</span>(post)
 		}
 	}
 
@@ -2523,8 +2481,6 @@
 		</span>ValidationFunctionApplied { relay_chain_block_num: RelayChainBlockNumber },
 		<span class="doccomment">/// The relay-chain aborted the upgrade process.
 		</span>ValidationFunctionDiscarded,
-		<span class="doccomment">/// An upgrade has been authorized.
-		</span>UpgradeAuthorized { code_hash: T::Hash },
 		<span class="doccomment">/// Some downward messages have been received and will be processed.
 		</span>DownwardMessagesReceived { count: u32 },
 		<span class="doccomment">/// Downward messages were processed using the given weight.
@@ -2730,10 +2686,6 @@
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ReservedDmpWeightOverride&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Weight&gt;;
 
-	<span class="doccomment">/// The next authorized upgrade, if there is one.
-	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>AuthorizedUpgrade&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, CodeUpgradeAuthorization&lt;T&gt;&gt;;
-
 	<span class="doccomment">/// A custom head data that should be returned as result of `validate_block`.
 	///
 	/// See `Pallet::set_custom_validation_head_data` for more information.
@@ -2784,7 +2736,8 @@
 
 		<span class="kw">fn </span>validate_unsigned(_source: TransactionSource, call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call) -&gt; TransactionValidity {
 			<span class="kw">if let </span>Call::enact_authorized_upgrade { <span class="kw-2">ref </span>code } = call {
-				<span class="kw">if let </span><span class="prelude-val">Ok</span>(hash) = <span class="self">Self</span>::validate_authorized_upgrade(code) {
+				<span class="kw">if let </span><span class="prelude-val">Ok</span>(hash) = frame_system::Pallet::&lt;T&gt;::validate_authorized_upgrade(<span class="kw-2">&amp;</span>code[..])
+				{
 					<span class="kw">return </span><span class="prelude-val">Ok</span>(ValidTransaction {
 						priority: <span class="number">100</span>,
 						requires: Vec::new(),
@@ -2803,21 +2756,6 @@
 }
 
 <span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
-	<span class="kw">fn </span>validate_authorized_upgrade(code: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;T::Hash, DispatchError&gt; {
-		<span class="kw">let </span>authorization = AuthorizedUpgrade::&lt;T&gt;::get().ok_or(Error::&lt;T&gt;::NothingAuthorized)<span class="question-mark">?</span>;
-
-		<span class="comment">// ensure that the actual hash matches the authorized hash
-		</span><span class="kw">let </span>actual_hash = T::Hashing::hash(code);
-		<span class="macro">ensure!</span>(actual_hash == authorization.code_hash, Error::&lt;T&gt;::Unauthorized);
-
-		<span class="comment">// check versions if required as part of the authorization
-		</span><span class="kw">if </span>authorization.check_version {
-			frame_system::Pallet::&lt;T&gt;::can_set_code(code)<span class="question-mark">?</span>;
-		}
-
-		<span class="prelude-val">Ok</span>(actual_hash)
-	}
-
 	<span class="doccomment">/// Get the unincluded segment size after the given hash.
 	///
 	/// If the unincluded segment doesn&#39;t contain the given hash, this returns the
@@ -3365,8 +3303,8 @@
 	}
 }
 
-<span class="kw">pub struct </span>ParachainSetCode&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
-
+<span class="doccomment">/// Type that implements `SetCode`.
+</span><span class="kw">pub struct </span>ParachainSetCode&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
 <span class="kw">impl</span>&lt;T: Config&gt; frame_system::SetCode&lt;T&gt; <span class="kw">for </span>ParachainSetCode&lt;T&gt; {
 	<span class="kw">fn </span>set_code(code: Vec&lt;u8&gt;) -&gt; DispatchResult {
 		Pallet::&lt;T&gt;::schedule_code_upgrade(code)

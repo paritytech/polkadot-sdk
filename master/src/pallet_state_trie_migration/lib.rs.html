@@ -3417,7 +3417,7 @@
 			weight_sum +=
 				StateTrieMigration::&lt;Runtime&gt;::on_initialize(System::&lt;Runtime&gt;::block_number());
 
-			root = System::&lt;Runtime&gt;::finalize().state_root().clone();
+			root = <span class="kw-2">*</span>System::&lt;Runtime&gt;::finalize().state_root();
 			System::&lt;Runtime&gt;::on_finalize(System::&lt;Runtime&gt;::block_number());
 		}
 		(root, weight_sum)
@@ -3467,7 +3467,7 @@
 		);
 
 		<span class="kw">loop </span>{
-			<span class="kw">let </span>last_state_root = ext.backend.root().clone();
+			<span class="kw">let </span>last_state_root = <span class="kw-2">*</span>ext.backend.root();
 			<span class="kw">let </span>((finished, weight), proof) = ext.execute_and_prove(|| {
 				<span class="kw">let </span>weight = run_to_block::&lt;Runtime&gt;(now + One::one()).<span class="number">1</span>;
 				<span class="kw">if </span>StateTrieMigration::&lt;Runtime&gt;::migration_process().finished() {
