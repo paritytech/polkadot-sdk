@@ -23,9 +23,7 @@ use crate::{
 	initializer, origin, paras,
 	paras::ParaKind,
 	paras_inherent, scheduler,
-	scheduler::common::{
-		AssignmentProvider, AssignmentProviderConfig, FixedAssignmentProvider, V0Assignment,
-	},
+	scheduler::common::{AssignmentProvider, AssignmentProviderConfig, FixedAssignmentProvider},
 	session_info, shared, ParaId,
 };
 use frame_support::pallet_prelude::*;
@@ -413,6 +411,8 @@ impl ValidatorSetWithIdentification<AccountId> for MockValidatorSet {
 /// have no direct effect on scheduler state, AssignmentProvider functions such as
 /// `push_back_assignment` can be left empty.
 pub mod mock_assigner {
+	use crate::scheduler::common::Assignment;
+
 	use super::*;
 	pub use pallet::*;
 
@@ -429,7 +429,7 @@ pub mod mock_assigner {
 
 		#[pallet::storage]
 		pub(super) type MockAssignmentQueue<T: Config> =
-			StorageValue<_, VecDeque<V0Assignment>, ValueQuery>;
+			StorageValue<_, VecDeque<Assignment>, ValueQuery>;
 
 		#[pallet::storage]
 		pub(super) type MockProviderConfig<T: Config> =
@@ -442,7 +442,7 @@ pub mod mock_assigner {
 	impl<T: Config> Pallet<T> {
 		/// Adds a claim to the `MockAssignmentQueue` this claim can later be popped by the
 		/// scheduler when filling the claim queue for tests.
-		pub fn add_test_assignment(assignment: V0Assignment) {
+		pub fn add_test_assignment(assignment: Assignment) {
 			MockAssignmentQueue::<T>::mutate(|queue| queue.push_back(assignment));
 		}
 
@@ -460,15 +460,13 @@ pub mod mock_assigner {
 	}
 
 	impl<T: Config> AssignmentProvider<BlockNumber> for Pallet<T> {
-		type AssignmentType = V0Assignment;
-
 		// With regards to popping_assignments, the scheduler just needs to be tested under
 		// the following two conditions:
 		// 1. An assignment is provided
 		// 2. No assignment is provided
 		// A simple assignment queue populated to fit each test fulfills these needs.
-		fn pop_assignment_for_core(_core_idx: CoreIndex) -> Option<Self::AssignmentType> {
-			let mut queue: VecDeque<V0Assignment> = MockAssignmentQueue::<T>::get();
+		fn pop_assignment_for_core(_core_idx: CoreIndex) -> Option<Assignment> {
+			let mut queue: VecDeque<Assignment> = MockAssignmentQueue::<T>::get();
 			let front = queue.pop_front();
 			// Write changes to storage.
 			MockAssignmentQueue::<T>::set(queue);
@@ -476,11 +474,11 @@ pub mod mock_assigner {
 		}
 
 		// We don't care about core affinity in the test assigner
-		fn report_processed(_assignment: Self::AssignmentType) {}
+		fn report_processed(_assignment: Assignment) {}
 
 		// The results of this are tested in assigner_on_demand tests. No need to represent it
 		// in the mock assigner.
-		fn push_back_assignment(_assignment: Self::AssignmentType) {}
+		fn push_back_assignment(_assignment: Assignment) {}
 
 		// Gets the provider config we set earlier using `set_assignment_provider_config`, falling
 		// back to the on demand parachain configuration if none was set.
@@ -494,8 +492,8 @@ pub mod mock_assigner {
 			}
 		}
 		#[cfg(any(feature = "runtime-benchmarks", test))]
-		fn get_mock_assignment(_: CoreIndex, para_id: ParaId) -> Self::AssignmentType {
-			V0Assignment { para_id }
+		fn get_mock_assignment(_: CoreIndex, para_id: ParaId) -> Assignment {
+			Assignment::Bulk(para_id)
 		}
 	}
 

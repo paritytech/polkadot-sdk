@@ -18,17 +18,17 @@ use super::*;
 
 use crate::{
 	assigner_coretime::{mock_helpers::GenesisConfigBuilder, pallet::Error, Schedule},
-	assigner_on_demand::OnDemandAssignment,
 	initializer::SessionChangeNotification,
 	mock::{
 		new_test_ext, Balances, CoretimeAssigner, OnDemandAssigner, Paras, ParasShared,
 		RuntimeOrigin, Scheduler, System, Test,
 	},
 	paras::{ParaGenesisArgs, ParaKind},
+	scheduler::common::Assignment,
 };
 use frame_support::{assert_noop, assert_ok, pallet_prelude::*, traits::Currency};
 use pallet_broker::TaskId;
-use primitives::{BlockNumber, SessionIndex, ValidationCode};
+use primitives::{BlockNumber, Id as ParaId, SessionIndex, ValidationCode};
 use sp_std::collections::btree_map::BTreeMap;
 
 fn schedule_blank_para(id: ParaId, parakind: ParaKind) {
@@ -147,13 +147,13 @@ fn end_hint_is_properly_honored() {
 
 		assert_eq!(
 			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(CoretimeAssignment::Bulk(1.into())),
+			Some(Assignment::Bulk(1.into())),
 			"Assignment should now be present"
 		);
 
 		assert_eq!(
 			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(CoretimeAssignment::Bulk(1.into())),
+			Some(Assignment::Bulk(1.into())),
 			"Nothing changed, assignment should still be present"
 		);
 
@@ -514,7 +514,6 @@ fn pop_assignment_for_core_works() {
 	let core_idx = CoreIndex(0);
 	let alice = 1u64;
 	let amt = 10_000_000u128;
-	let on_demand_assignment = OnDemandAssignment::new(para_id, CoreIndex(0));
 
 	let assignments_pool = vec![(CoreAssignment::Pool, PartsOf57600::FULL)];
 	let assignments_task = vec![(CoreAssignment::Task(para_id.into()), PartsOf57600::FULL)];
@@ -555,7 +554,7 @@ fn pop_assignment_for_core_works() {
 
 		assert_eq!(
 			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(CoretimeAssignment::Pool(on_demand_assignment))
+			Some(Assignment::Pool { para_id, core_index: 0.into() })
 		);
 
 		// Case 3: Assignment task
@@ -570,7 +569,7 @@ fn pop_assignment_for_core_works() {
 
 		assert_eq!(
 			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(CoretimeAssignment::Bulk(para_id))
+			Some(Assignment::Bulk(para_id))
 		);
 	});
 }
@@ -603,7 +602,7 @@ fn assignment_proportions_in_core_state_work() {
 		{
 			assert_eq!(
 				CoretimeAssigner::pop_assignment_for_core(core_idx),
-				Some(CoretimeAssignment::Bulk(task_1.into()))
+				Some(Assignment::Bulk(task_1.into()))
 			);
 
 			assert_eq!(
@@ -627,7 +626,7 @@ fn assignment_proportions_in_core_state_work() {
 		{
 			assert_eq!(
 				CoretimeAssigner::pop_assignment_for_core(core_idx),
-				Some(CoretimeAssignment::Bulk(task_1.into()))
+				Some(Assignment::Bulk(task_1.into()))
 			);
 			// Pos should have incremented, as assignment had remaining < step
 			assert_eq!(
@@ -651,7 +650,7 @@ fn assignment_proportions_in_core_state_work() {
 		// Final check, task 2's turn to be served
 		assert_eq!(
 			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(CoretimeAssignment::Bulk(task_2.into()))
+			Some(Assignment::Bulk(task_2.into()))
 		);
 	});
 }
@@ -683,32 +682,32 @@ fn equal_assignments_served_equally() {
 		// Test that popped assignments alternate between tasks 1 and 2
 		assert_eq!(
 			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(CoretimeAssignment::Bulk(task_1.into()))
+			Some(Assignment::Bulk(task_1.into()))
 		);
 
 		assert_eq!(
 			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(CoretimeAssignment::Bulk(task_2.into()))
+			Some(Assignment::Bulk(task_2.into()))
 		);
 
 		assert_eq!(
 			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(CoretimeAssignment::Bulk(task_1.into()))
+			Some(Assignment::Bulk(task_1.into()))
 		);
 
 		assert_eq!(
 			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(CoretimeAssignment::Bulk(task_2.into()))
+			Some(Assignment::Bulk(task_2.into()))
 		);
 
 		assert_eq!(
 			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(CoretimeAssignment::Bulk(task_1.into()))
+			Some(Assignment::Bulk(task_1.into()))
 		);
 
 		assert_eq!(
 			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(CoretimeAssignment::Bulk(task_2.into()))
+			Some(Assignment::Bulk(task_2.into()))
 		);
 	});
 }
@@ -745,27 +744,27 @@ fn assignment_proportions_indivisible_by_step_work() {
 		// at the end as in the beginning.
 		assert_eq!(
 			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(CoretimeAssignment::Bulk(task_1.into()))
+			Some(Assignment::Bulk(task_1.into()))
 		);
 
 		assert_eq!(
 			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(CoretimeAssignment::Bulk(task_2.into()))
+			Some(Assignment::Bulk(task_2.into()))
 		);
 
 		assert_eq!(
 			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(CoretimeAssignment::Bulk(task_1.into()))
+			Some(Assignment::Bulk(task_1.into()))
 		);
 
 		assert_eq!(
 			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(CoretimeAssignment::Bulk(task_1.into()))
+			Some(Assignment::Bulk(task_1.into()))
 		);
 
 		assert_eq!(
 			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(CoretimeAssignment::Bulk(task_2.into()))
+			Some(Assignment::Bulk(task_2.into()))
 		);
 
 		// Remaining should equal ratio for both assignments.

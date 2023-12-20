@@ -23,39 +23,38 @@ use frame_support::traits::{
 use pallet_asset_conversion::{MultiAssetIdConversionResult, MultiAssetIdConverter};
 use parachains_common::AccountId;
 use sp_runtime::{traits::MaybeEquivalence, DispatchError, DispatchResult};
-use sp_std::{boxed::Box, marker::PhantomData};
+use sp_std::marker::PhantomData;
 use xcm::latest::MultiLocation;
 
 pub struct MultiLocationConverter<NativeAssetLocation: Get<MultiLocation>, MultiLocationMatcher> {
 	_phantom: PhantomData<(NativeAssetLocation, MultiLocationMatcher)>,
 }
 
-impl<NativeAssetLocation, MultiLocationMatcher>
-	MultiAssetIdConverter<Box<MultiLocation>, MultiLocation>
+impl<NativeAssetLocation, MultiLocationMatcher> MultiAssetIdConverter<MultiLocation, MultiLocation>
 	for MultiLocationConverter<NativeAssetLocation, MultiLocationMatcher>
 where
 	NativeAssetLocation: Get<MultiLocation>,
 	MultiLocationMatcher: Contains<MultiLocation>,
 {
-	fn get_native() -> Box<MultiLocation> {
-		Box::new(NativeAssetLocation::get())
+	fn get_native() -> MultiLocation {
+		NativeAssetLocation::get()
 	}
 
-	fn is_native(asset_id: &Box<MultiLocation>) -> bool {
+	fn is_native(asset_id: &MultiLocation) -> bool {
 		*asset_id == Self::get_native()
 	}
 
 	fn try_convert(
-		asset_id: &Box<MultiLocation>,
-	) -> MultiAssetIdConversionResult<Box<MultiLocation>, MultiLocation> {
-		if Self::is_native(&asset_id) {
+		asset_id: &MultiLocation,
+	) -> MultiAssetIdConversionResult<MultiLocation, MultiLocation> {
+		if Self::is_native(asset_id) {
 			return MultiAssetIdConversionResult::Native
 		}
 
-		if MultiLocationMatcher::contains(&asset_id) {
-			MultiAssetIdConversionResult::Converted(*asset_id.clone())
+		if MultiLocationMatcher::contains(asset_id) {
+			MultiAssetIdConversionResult::Converted(*asset_id)
 		} else {
-			MultiAssetIdConversionResult::Unsupported(asset_id.clone())
+			MultiAssetIdConversionResult::Unsupported(*asset_id)
 		}
 	}
 }
@@ -318,10 +317,18 @@ where
 		}
 	}
 
+	fn should_touch(asset_id: MultiLocation, who: &AccountId) -> bool {
+		if let Some(asset_id) = LocalAssetIdConverter::convert(&asset_id) {
+			Assets::should_touch(asset_id, who)
+		} else {
+			ForeignAssets::should_touch(asset_id, who)
+		}
+	}
+
 	fn touch(
 		asset_id: MultiLocation,
-		who: AccountId,
-		depositor: AccountId,
+		who: &AccountId,
+		depositor: &AccountId,
 	) -> Result<(), DispatchError> {
 		if let Some(asset_id) = LocalAssetIdConverter::convert(&asset_id) {
 			Assets::touch(asset_id, who, depositor)
@@ -443,27 +450,27 @@ mod tests {
 			interior: X2(GlobalConsensus(ByGenesis([1; 32])), Parachain(2222)),
 		};
 
-		assert!(C::is_native(&Box::new(native_asset)));
-		assert!(!C::is_native(&Box::new(local_asset)));
-		assert!(!C::is_native(&Box::new(pool_asset)));
-		assert!(!C::is_native(&Box::new(foreign_asset1)));
-		assert!(!C::is_native(&Box::new(foreign_asset2)));
+		assert!(C::is_native(&native_asset));
+		assert!(!C::is_native(&local_asset));
+		assert!(!C::is_native(&pool_asset));
+		assert!(!C::is_native(&foreign_asset1));
+		assert!(!C::is_native(&foreign_asset2));
 
-		assert_eq!(C::try_convert(&Box::new(native_asset)), MultiAssetIdConversionResult::Native);
+		assert_eq!(C::try_convert(&native_asset), MultiAssetIdConversionResult::Native);
 		assert_eq!(
-			C::try_convert(&Box::new(local_asset)),
+			C::try_convert(&local_asset),
 			MultiAssetIdConversionResult::Converted(local_asset)
 		);
 		assert_eq!(
-			C::try_convert(&Box::new(pool_asset)),
-			MultiAssetIdConversionResult::Unsupported(Box::new(pool_asset))
+			C::try_convert(&pool_asset),
+			MultiAssetIdConversionResult::Unsupported(pool_asset)
 		);
 		assert_eq!(
-			C::try_convert(&Box::new(foreign_asset1)),
+			C::try_convert(&foreign_asset1),
 			MultiAssetIdConversionResult::Converted(foreign_asset1)
 		);
 		assert_eq!(
-			C::try_convert(&Box::new(foreign_asset2)),
+			C::try_convert(&foreign_asset2),
 			MultiAssetIdConversionResult::Converted(foreign_asset2)
 		);
 	}

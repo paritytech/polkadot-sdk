@@ -152,7 +152,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("rococo"),
 	impl_name: create_runtime_str!("parity-rococo-v2.0"),
 	authoring_version: 0,
-	spec_version: 1_005_000,
+	spec_version: 1_006_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 24,
@@ -1491,8 +1491,6 @@ pub mod migrations {
 
 	use frame_support::traits::LockIdentifier;
 	use frame_system::pallet_prelude::BlockNumberFor;
-	use parachains_scheduler::common::AssignmentVersion;
-	use primitives::CoreIndex;
 	#[cfg(feature = "try-runtime")]
 	use sp_core::crypto::ByteArray;
 
@@ -1618,9 +1616,7 @@ pub mod migrations {
 		pallet_society::migrations::MigrateToV2<Runtime, (), ()>,
 		parachains_configuration::migration::v7::MigrateToV7<Runtime>,
 		assigned_slots::migration::v1::MigrateToV1<Runtime>,
-		parachains_scheduler::migration::v1::MigrateToV1<Runtime>,
-		parachains_scheduler::migration::v2::MigrateToV2<Runtime>,
-		parachains_scheduler::migration::assignment_version::MigrateAssignment<Runtime, SchedulerAssignmentMigration<Runtime>>,
+		parachains_scheduler::migration::MigrateV1ToV2<Runtime>,
 		coretime::migration::v_coretime::MigrateToCoretime<Runtime>,
 		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
@@ -1653,22 +1649,6 @@ pub mod migrations {
 		frame_support::migrations::RemovePallet<ImOnlinePalletName, <Runtime as frame_system::Config>::DbWeight>,
 		parachains_configuration::migration::v11::MigrateToV11<Runtime>,
 	);
-
-	/// We are swapping out the assignment type in the scheduler for coretime.
-	pub struct SchedulerAssignmentMigration<T>(sp_std::marker::PhantomData<T>);
-	impl parachains_scheduler::migration::assignment_version::AssignmentMigration
-		for SchedulerAssignmentMigration<Runtime>
-	{
-		const ON_CHAIN_STORAGE_VERSION: AssignmentVersion = AssignmentVersion::new(0);
-		const STORAGE_VERSION: AssignmentVersion = AssignmentVersion::new(1);
-
-		type OldType = parachains_scheduler::common::V0Assignment;
-		type NewType = parachains_assigner_coretime::CoretimeAssignmentType<Runtime>;
-
-		fn migrate(core_idx: CoreIndex, old: Self::OldType) -> Self::NewType {
-			parachains_assigner_coretime::migrate_legacy_v0_assignment::<Runtime>(old, core_idx)
-		}
-	}
 }
 
 /// Executive: handles dispatch to the various modules.

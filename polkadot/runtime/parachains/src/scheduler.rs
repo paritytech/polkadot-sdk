@@ -107,17 +107,17 @@ pub mod pallet {
 	/// to the node side. It also provides information about scheduled/upcoming assignments for
 	/// example and is computed on the fly in the `availability_cores` runtime call.
 	#[derive(Encode, Decode, TypeInfo, RuntimeDebug, PartialEq)]
-	pub enum CoreOccupied<N, A> {
+	pub enum CoreOccupied<N> {
 		/// No candidate is waiting availability on this core right now (the core is not occupied).
 		Free,
 		/// A para is currently waiting for availability/inclusion on this core.
-		Paras(ParasEntry<N, A>),
+		Paras(ParasEntry<N>),
 	}
 
 	/// Conveninece type alias for `CoreOccupied`.
-	pub type CoreOccupiedType<T> = CoreOccupied<BlockNumberFor<T>, AssignmentType<T>>;
+	pub type CoreOccupiedType<T> = CoreOccupied<BlockNumberFor<T>>;
 
-	impl<N, A> CoreOccupied<N, A> {
+	impl<N> CoreOccupied<N> {
 		/// Is core free?
 		pub fn is_free(&self) -> bool {
 			matches!(self, Self::Free)
@@ -154,16 +154,11 @@ pub mod pallet {
 	pub(crate) type ClaimQueue<T: Config> =
 		StorageValue<_, BTreeMap<CoreIndex, VecDeque<ParasEntryType<T>>>, ValueQuery>;
 
-	/// Opaque `AssignmentType` used in this module.
-	pub(crate) type AssignmentType<T> = <<T as Config>::AssignmentProvider as AssignmentProvider<
-		BlockNumberFor<T>,
-	>>::AssignmentType;
-
 	/// Assignments as tracked in the claim queue.
 	#[derive(Encode, Decode, TypeInfo, RuntimeDebug, PartialEq, Clone)]
-	pub struct ParasEntry<N, A> {
-		/// The underlying `Assignment`
-		pub assignment: A,
+	pub struct ParasEntry<N> {
+		/// The underlying [`Assignment`].
+		pub assignment: Assignment,
 		/// The number of times the entry has timed out in availability already.
 		pub availability_timeouts: u32,
 		/// The block height until this entry needs to be backed.
@@ -174,11 +169,11 @@ pub mod pallet {
 	}
 
 	/// Convenience type declaration for `ParasEntry`.
-	pub type ParasEntryType<T> = ParasEntry<BlockNumberFor<T>, AssignmentType<T>>;
+	pub type ParasEntryType<T> = ParasEntry<BlockNumberFor<T>>;
 
-	impl<N, A: Assignment> ParasEntry<N, A> {
+	impl<N> ParasEntry<N> {
 		/// Create a new `ParasEntry`.
-		pub fn new(assignment: A, now: N) -> Self {
+		pub fn new(assignment: Assignment, now: N) -> Self {
 			ParasEntry { assignment, availability_timeouts: 0, ttl: now }
 		}
 
@@ -281,7 +276,7 @@ impl<T: Config> Pallet<T> {
 	/// with the reason for them being freed. Returns a tuple of concluded and timedout paras.
 	fn free_cores(
 		just_freed_cores: impl IntoIterator<Item = (CoreIndex, FreedReason)>,
-	) -> (BTreeMap<CoreIndex, AssignmentType<T>>, BTreeMap<CoreIndex, ParasEntryType<T>>) {
+	) -> (BTreeMap<CoreIndex, Assignment>, BTreeMap<CoreIndex, ParasEntryType<T>>) {
 		let mut timedout_paras: BTreeMap<CoreIndex, ParasEntryType<T>> = BTreeMap::new();
 		let mut concluded_paras = BTreeMap::new();
 

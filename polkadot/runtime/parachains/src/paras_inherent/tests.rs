@@ -26,7 +26,7 @@ mod enter {
 	use crate::{
 		builder::{Bench, BenchBuilder},
 		mock::{mock_assigner, new_test_ext, BlockLength, BlockWeights, MockGenesisConfig, Test},
-		scheduler::common::V0Assignment,
+		scheduler::common::Assignment,
 	};
 	use assert_matches::assert_matches;
 	use frame_support::assert_ok;
@@ -68,9 +68,7 @@ mod enter {
 		mock_assigner::Pallet::<Test>::set_core_count(builder.max_cores());
 		for core_index in 0..builder.max_cores() {
 			// Core index == para_id in this case
-			mock_assigner::Pallet::<Test>::add_test_assignment(V0Assignment::new(
-				core_index.into(),
-			));
+			mock_assigner::Pallet::<Test>::add_test_assignment(Assignment::Bulk(core_index.into()));
 		}
 
 		if let Some(code_size) = code_upgrade {

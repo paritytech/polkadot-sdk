@@ -16,10 +16,6 @@
 
 //! Helper functions for tests
 
-#![cfg(test)]
-
-use super::*;
-
 use crate::{
 	mock::MockGenesisConfig,
 	paras::{ParaGenesisArgs, ParaKind},
@@ -44,7 +40,7 @@ pub struct GenesisConfigBuilder {
 	pub on_demand_fee_variability: Perbill,
 	pub on_demand_max_queue_size: u32,
 	pub on_demand_target_queue_utilization: Perbill,
-	pub onboarded_on_demand_chains: Vec<ParaId>,
+	pub onboarded_on_demand_chains: Vec<primitives::Id>,
 }
 
 impl Default for GenesisConfigBuilder {
