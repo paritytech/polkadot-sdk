@@ -66,7 +66,7 @@
 //! }
 //! ```
 //!
-//! For the full set of configuation options see <https://rust-analyzer.github.io/manual.html#configuration>.
+//! For the full set of configuration options see <https://rust-analyzer.github.io/manual.html#configuration>.
 //!
 //! ## Cargo Usage
 //!
