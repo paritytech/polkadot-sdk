@@ -1,7 +1,7 @@
 const { u8aToHex, hexToString } = require('@polkadot/util');
 const { xxhashAsHex } = require('@polkadot/util-crypto');
 
-const migrateIdentityOf = async (key, data, api) => {
+const migrateIdentity = async (key, data, api) => {
 	// Register the new `Registration` format type
 	api.registry.register({
 		IdentityInfoNew: {
@@ -26,14 +26,18 @@ const migrateIdentityOf = async (key, data, api) => {
 	});
 
 	// We want to migrate `IdentityOf` storage item
-	let keyToMigrate = "IdentityOf";
-	let HexkeyToMigrate = xxhashAsHex(keyToMigrate, 128);
+	let IdentityOfkeyToMigrate = "IdentityOf";
+	let IdentityOfHexkeyToMigrate = xxhashAsHex(IdentityOfkeyToMigrate, 128);
+
+	// We want to migrate `SubsOf` storage item
+	let SubsOfkeyToMigrate = "SubsOf";
+	let SubsOfHexkeyToMigrate = xxhashAsHex(SubsOfkeyToMigrate, 128);
 
 	// We take the second half of the key, which is the storage item identifier
 	let storageItem = u8aToHex(key.toU8a().slice(18, 34));
 
 	// Migrate `IdentitOf` data to its new format
-	if (HexkeyToMigrate === storageItem) {
+	if (IdentityOfHexkeyToMigrate === storageItem) {
 		let decoded = api.createType('Registration', data.toU8a(true));
 
 		// Default value for `discord` and `github` fields.
@@ -53,7 +57,7 @@ const migrateIdentityOf = async (key, data, api) => {
 			}
 		});
 
-		// Migrate data to the new format:
+		// Migrate `IdentityInfo` data to the new format:
 		// - remove `additional` field
 		// - add `discord` field
 		// - add `github` field
@@ -78,9 +82,17 @@ const migrateIdentityOf = async (key, data, api) => {
 			}
 		);
 
-		console.log("\n------------- 'IdentityOf' migration  ------------");
-		console.log("Original", decoded.toJSON());
-		console.log("Migration", decodedNew.toJSON());
+		data = decodedNew.toHex();
+
+	} else if (SubsOfHexkeyToMigrate === storageItem) {
+		let decoded = api.createType('(Balance, BoundedVec<AccountId, MaxApprovals>)', data.toU8a(true));
+
+		// Migrate `SubsOf` data:
+		// - set Deposit to 0
+		let decodedNew = api.createType(
+			'(Balance, BoundedVec<AccountId, MaxApprovals>)',
+			[0, decoded.toJSON()[1]]
+		);
 
 		data = decodedNew.toHex();
 	}
@@ -88,4 +100,4 @@ const migrateIdentityOf = async (key, data, api) => {
 	return data;
 };
 
-module.exports = migrateIdentityOf;
+module.exports = migrateIdentity;

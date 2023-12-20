@@ -9,5 +9,5 @@ yarn migrate -c <wss_chain_enpoint> -f <chain_spec_raw_to_edit.json> -p <pallet_
 
 Example for migrating `Identity` pallet from Polkadot:
 ```
-yarn migrate -c wss://rpc.polkadot.io -f new_genesis_raw.json -p Identity -m ./identityOfMigration.js
+yarn migrate -c wss://rpc.polkadot.io -f new_genesis_raw.json -p Identity -m ./identityMigration.js
 ```
