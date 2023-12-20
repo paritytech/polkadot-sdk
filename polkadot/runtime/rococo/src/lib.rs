@@ -1468,7 +1468,12 @@ pub type UncheckedExtrinsic =
 ///
 /// This contains the combined migrations of the last 10 releases. It allows to skip runtime
 /// upgrades in case governance decides to do so. THE ORDER IS IMPORTANT.
-pub type Migrations = migrations::Unreleased;
+#[rustfmt::skip]
+pub type Migrations = (
+	migrations::V1_04_00,
+	migrations::V1_05_00,
+	migrations::Unreleased,
+);
 
 /// The runtime migrations per release.
 #[allow(deprecated, missing_docs)]
@@ -1597,7 +1602,19 @@ pub mod migrations {
 		}
 	}
 
-	/// Unreleased migrations. Add new ones here:
+	pub type V1_04_00 = ();
+
+	pub type V1_05_00 = ();
+
+	/// New migrations should be added here in the `Unreleased` tuple.
+	/// During the release process for release `x.y.z``, the `Unreleased` migrations
+	/// will be moved to a new tuple named `Vx_y_z` and added to the migration
+	/// to execute. The `Unreleased` tuple will then be cleared.
+	/// This allows keeping track of the migrations that have been applied to the
+	/// runtime *per version*.
+	// Do not remove `#[rustfmt::skip]` or the empty tuple, even if it appears
+	// to be *temporarily* not needed. Keep a single migration per line.
+	#[rustfmt::skip]
 	pub type Unreleased = (
 		pallet_society::migrations::MigrateToV2<Runtime, (), ()>,
 		parachains_configuration::migration::v7::MigrateToV7<Runtime>,

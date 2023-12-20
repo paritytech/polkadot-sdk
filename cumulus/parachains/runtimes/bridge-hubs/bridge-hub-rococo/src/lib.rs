@@ -118,13 +118,42 @@ pub type SignedExtra = (
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 
-/// Migrations to apply on runtime upgrade.
+/// All migrations that will run on the next runtime upgrade.
+///
+/// This contains the combined migrations of the last 10 releases. It allows to skip runtime
+/// upgrades in case governance decides to do so. THE ORDER IS IMPORTANT.
+#[rustfmt::skip]
 pub type Migrations = (
-	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
-	pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
-	InitStorageVersions,
-	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
+	migrations::V1_04_00,
+	migrations::V1_05_00,
+	migrations::Unreleased,
 );
+
+/// The runtime migrations per release.
+#[allow(deprecated, missing_docs)]
+pub mod migrations {
+	use super::*;
+
+	pub type V1_04_00 = ();
+
+	pub type V1_05_00 = ();
+
+	/// New migrations should be added here in the `Unreleased` tuple.
+	/// During the release process for release `x.y.z``, the `Unreleased` migrations
+	/// will be moved to a new tuple named `Vx_y_z` and added to the migration
+	/// to execute. The `Unreleased` tuple will then be cleared.
+	/// This allows keeping track of the migrations that have been applied to the
+	/// runtime *per version*.
+	// Do not remove `#[rustfmt::skip]` or the empty tuple, even if it appears
+	// to be *temporarily* not needed. Keep a single migration per line.
+	#[rustfmt::skip]
+	pub type Unreleased = (
+		pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
+		pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
+		InitStorageVersions,
+		cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
+	);
+}
 
 /// Migration to initialize storage versions for pallets added after genesis.
 ///

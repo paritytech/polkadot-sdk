@@ -47,4 +47,11 @@ exclude = [
 	"https://w3f.github.io/parachain-implementers-guide/node/index.html",
 	"https://w3f.github.io/parachain-implementers-guide/protocol-chain-selection.html",
 	"https://w3f.github.io/parachain-implementers-guide/runtime/session_info.html",
+
+	# Private or unaccessible repos
+	"https://github.com/paritytech/ci_cd/.*",
+	"https://iohk.io/en/blog/.*",
+
+	# Not checking websockets
+	"wss?://.*"
 ]
