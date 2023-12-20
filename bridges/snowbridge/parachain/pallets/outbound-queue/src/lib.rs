@@ -51,7 +51,7 @@
 //! * Ether fee per unit of gas
 //!
 //! By design, it is expected that governance should manually update these
-//! parameters every few weeks using the `set_fee_parameters` extrinsic in the
+//! parameters every few weeks using the `set_pricing_parameters` extrinsic in the
 //! system pallet.
 //!
 //! ## Fee Computation Function

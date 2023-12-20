@@ -178,6 +178,31 @@ fn set_pricing_parameters_invalid() {
 		params.rewards.local = 0;
 
 		assert_noop!(
+			EthereumSystem::set_pricing_parameters(origin.clone(), params),
+			Error::<Test>::InvalidPricingParameters
+		);
+
+		let mut params = Parameters::get();
+		params.exchange_rate = 0u128.into();
+		assert_noop!(
+			EthereumSystem::set_pricing_parameters(origin.clone(), params),
+			Error::<Test>::InvalidPricingParameters
+		);
+		params = Parameters::get();
+		params.fee_per_gas = sp_core::U256::zero();
+		assert_noop!(
+			EthereumSystem::set_pricing_parameters(origin.clone(), params),
+			Error::<Test>::InvalidPricingParameters
+		);
+		params = Parameters::get();
+		params.rewards.local = 0;
+		assert_noop!(
+			EthereumSystem::set_pricing_parameters(origin.clone(), params),
+			Error::<Test>::InvalidPricingParameters
+		);
+		params = Parameters::get();
+		params.rewards.remote = sp_core::U256::zero();
+		assert_noop!(
 			EthereumSystem::set_pricing_parameters(origin, params),
 			Error::<Test>::InvalidPricingParameters
 		);
