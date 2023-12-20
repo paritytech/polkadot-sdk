@@ -77,8 +77,6 @@ rm -rf $SNOWBRIDGE_FOLDER/parachain/templates
 rm -rf $SNOWBRIDGE_FOLDER/parachain/.config
 rm -rf $SNOWBRIDGE_FOLDER/parachain/pallets/ethereum-beacon-client/fuzz
 
-git rm $SNOWBRIDGE_FOLDER/polkadot-sdk
-
 cd bridges/snowbridge/parachain
 
 # fix polkadot-sdk paths in Cargo.toml files

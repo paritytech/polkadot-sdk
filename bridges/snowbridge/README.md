@@ -6,23 +6,23 @@ Snowbridge is a trustless bridge between Polkadot and Ethereum. For documentatio
 
 ### Parachain
 
-Polkadot parachain and our pallets. See [parachain/README.md](parachain/README.md).
+Polkadot parachain and our pallets. See [parachain/README.md](https://github.com/Snowfork/snowbridge/blob/main/parachain/README.md).
 
 ### Contracts
 
-Ethereum contracts and unit tests. See [contracts/README.md](contracts/README.md)
+Ethereum contracts and unit tests. See [contracts/README.md](https://github.com/Snowfork/snowbridge/blob/main/contracts/README.md)
 
 ### Relayer
 
-Off-chain relayer services for relaying messages between Polkadot and Ethereum. See [relayer/README.md](relayer/README.md)
+Off-chain relayer services for relaying messages between Polkadot and Ethereum. See [relayer/README.md](https://github.com/Snowfork/snowbridge/blob/main/relayer/README.md)
 
 ### Local Testnet
 
-Scripts to provision a local testnet, running the above services to bridge between local deployments of Polkadot and Ethereum. See [web/packages/test/README.md](web/packages/test/README.md).
+Scripts to provision a local testnet, running the above services to bridge between local deployments of Polkadot and Ethereum. See [web/packages/test/README.md](https://github.com/Snowfork/snowbridge/blob/main/web/packages/test/README.md).
 
 ### Smoke Tests
 
-Integration tests for our local testnet. See [smoketest/README.md](smoketest/README.md).
+Integration tests for our local testnet. See [smoketest/README.md](https://github.com/Snowfork/snowbridge/blob/main/smoketest/README.md).
 
 ## Development
 
@@ -35,7 +35,7 @@ mkdir -p ~/.config/nix
 echo 'experimental-features = nix-command flakes' >> ~/.config/nix/nix.conf
 ```
 
-Then activate a developer shell in the root of our repo, where [`flake.nix`](./flake.nix) is located:
+Then activate a developer shell in the root of our repo, where [`flake.nix`](https://github.com/Snowfork/snowbridge/blob/main/flake.nix) is located:
 
 ```sh
 nix develop

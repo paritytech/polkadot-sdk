@@ -3,7 +3,7 @@
 ## Configuration
 
 Note: This section is not necessary for local development, as there are scripts to auto-configure the parachain in the
-[test directory](../web/packages/test).
+[test directory](https://github.com/Snowfork/snowbridge/blob/main/web/packages/test).
 
 For a fully operational chain, further configuration of the initial chain spec is required. The specific configuration will
 depend heavily on your environment, so this guide will remain high-level.

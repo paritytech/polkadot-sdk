@@ -54,9 +54,14 @@ mod v1 {
 		pub command: Command,
 	}
 
+	/// The operating mode of Channels and Gateway contract on Ethereum.
 	#[derive(Copy, Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 	pub enum OperatingMode {
+		/// Normal operations. Allow sending and receiving messages.
 		Normal,
+		/// Reject outbound messages. This allows receiving governance messages but does now allow
+		/// enqueuing of new messages from the Ethereum side. This can be used to close off an
+		/// deprecated channel or pause the bridge for upgrade operations.
 		RejectingOutboundMessages,
 	}
 
