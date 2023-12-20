@@ -24,7 +24,7 @@ use frame_support::{
 };
 use pallet_asset_conversion::Swap;
 use sp_runtime::{
-	traits::{DispatchInfoOf, PostDispatchInfoOf, Zero},
+	traits::{DispatchInfoOf, Get, PostDispatchInfoOf, Zero},
 	transaction_validity::InvalidTransaction,
 	Saturating,
 };
@@ -76,16 +76,17 @@ pub trait OnChargeAssetTransaction<T: Config> {
 /// Implements the asset transaction for a balance to asset converter (implementing [`Swap`]).
 ///
 /// The converter is given the complete fee in terms of the asset used for the transaction.
-pub struct AssetConversionAdapter<C, CON>(PhantomData<(C, CON)>);
+pub struct AssetConversionAdapter<C, CON, N>(PhantomData<(C, CON, N)>);
 
 /// Default implementation for a runtime instantiating this pallet, an asset to native swapper.
-impl<T, C, CON> OnChargeAssetTransaction<T> for AssetConversionAdapter<C, CON>
+impl<T, C, CON, N> OnChargeAssetTransaction<T> for AssetConversionAdapter<C, CON, N>
 where
+	N: Get<CON::AssetKind>,
 	T: Config,
 	C: Inspect<<T as frame_system::Config>::AccountId>,
-	CON: Swap<T::AccountId, T::HigherPrecisionBalance, T::MultiAssetId>,
-	T::HigherPrecisionBalance: From<BalanceOf<T>> + TryInto<AssetBalanceOf<T>>,
-	T::MultiAssetId: From<AssetIdOf<T>>,
+	CON: Swap<T::AccountId, Balance = BalanceOf<T>, AssetKind = T::AssetKind>,
+	BalanceOf<T>: Into<AssetBalanceOf<T>>,
+	T::AssetKind: From<AssetIdOf<T>>,
 	BalanceOf<T>: IsType<<C as Inspect<<T as frame_system::Config>::AccountId>>::Balance>,
 {
 	type Balance = BalanceOf<T>;
@@ -116,23 +117,19 @@ where
 
 		let asset_consumed = CON::swap_tokens_for_exact_tokens(
 			who.clone(),
-			vec![asset_id.into(), T::MultiAssetIdConverter::get_native()],
-			T::HigherPrecisionBalance::from(native_asset_required),
+			vec![asset_id.into(), N::get()],
+			native_asset_required,
 			None,
 			who.clone(),
 			true,
 		)
 		.map_err(|_| TransactionValidityError::from(InvalidTransaction::Payment))?;
 
-		let asset_consumed = asset_consumed
-			.try_into()
-			.map_err(|_| TransactionValidityError::from(InvalidTransaction::Payment))?;
-
 		ensure!(asset_consumed > Zero::zero(), InvalidTransaction::Payment);
 
 		// charge the fee in native currency
 		<T::OnChargeTransaction>::withdraw_fee(who, call, info, fee, tip)
-			.map(|r| (r, native_asset_required, asset_consumed))
+			.map(|r| (r, native_asset_required, asset_consumed.into()))
 	}
 
 	/// Correct the fee and swap the refund back to asset.
@@ -172,11 +169,10 @@ where
 			match CON::swap_exact_tokens_for_tokens(
 				who.clone(), // we already deposited the native to `who`
 				vec![
-					T::MultiAssetIdConverter::get_native(), // we provide the native
-					asset_id.into(),                        // we want asset_id back
+					N::get(),        // we provide the native
+					asset_id.into(), // we want asset_id back
 				],
-				T::HigherPrecisionBalance::from(swap_back), /* amount of the native asset to
-				                                             * convert to `asset_id` */
+				swap_back,   // amount of the native asset to convert to `asset_id`
 				None,        // no minimum amount back
 				who.clone(), // we will refund to `who`
 				false,       // no need to keep alive

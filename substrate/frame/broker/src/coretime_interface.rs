@@ -22,7 +22,8 @@ use frame_support::Parameter;
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::AtLeast32BitUnsigned;
 use sp_core::RuntimeDebug;
-use sp_std::{fmt::Debug, vec::Vec};
+use sp_runtime::traits::BlockNumberProvider;
+use sp_std::vec::Vec;
 
 /// Index of a Polkadot Core.
 pub type CoreIndex = u16;
@@ -46,6 +47,12 @@ pub enum CoreAssignment {
 	Task(TaskId),
 }
 
+/// Relay chain block number of `T` that implements [`CoretimeInterface`].
+pub type RCBlockNumberOf<T> = <RCBlockNumberProviderOf<T> as BlockNumberProvider>::BlockNumber;
+
+/// Relay chain block number provider of `T` that implements [`CoretimeInterface`].
+pub type RCBlockNumberProviderOf<T> = <T as CoretimeInterface>::RealyChainBlockNumberProvider;
+
 /// Type able to accept Coretime scheduling instructions and provide certain usage information.
 /// Generally implemented by the Relay-chain or some means of communicating with it.
 ///
@@ -57,17 +64,8 @@ pub trait CoretimeInterface {
 	/// A (Relay-chain-side) balance.
 	type Balance: AtLeast32BitUnsigned;
 
-	/// A (Relay-chain-side) block number.
-	type BlockNumber: AtLeast32BitUnsigned
-		+ Copy
-		+ TypeInfo
-		+ Encode
-		+ Decode
-		+ MaxEncodedLen
-		+ Debug;
-
-	/// Return the latest block number on the Relay-chain.
-	fn latest() -> Self::BlockNumber;
+	/// A provider for the relay chain block number.
+	type RealyChainBlockNumberProvider: BlockNumberProvider;
 
 	/// Requests the Relay-chain to alter the number of schedulable cores to `count`. Under normal
 	/// operation, the Relay-chain SHOULD send a `notify_core_count(count)` message back.
@@ -81,7 +79,7 @@ pub trait CoretimeInterface {
 	/// should be understood on a channel outside of this proposal. In the case that the request
 	/// cannot be serviced because `when` is too old a block then a `notify_revenue` message must
 	/// still be returned, but its `revenue` field may be `None`.
-	fn request_revenue_info_at(when: Self::BlockNumber);
+	fn request_revenue_info_at(when: RCBlockNumberOf<Self>);
 
 	/// Instructs the Relay-chain to add the `amount` of DOT to the Instantaneous Coretime Market
 	/// Credit account of `who`.
@@ -104,9 +102,9 @@ pub trait CoretimeInterface {
 	/// remain unchanged regardless of the `end_hint` value.
 	fn assign_core(
 		core: CoreIndex,
-		begin: Self::BlockNumber,
+		begin: RCBlockNumberOf<Self>,
 		assignment: Vec<(CoreAssignment, PartsOf57600)>,
-		end_hint: Option<Self::BlockNumber>,
+		end_hint: Option<RCBlockNumberOf<Self>>,
 	);
 
 	/// Indicate that from this block onwards, the range of acceptable values of the `core`
@@ -123,7 +121,7 @@ pub trait CoretimeInterface {
 	/// This explicitly disregards the possibility of multiple parachains requesting and being
 	/// notified of revenue information. The Relay-chain must be configured to ensure that only a
 	/// single revenue information destination exists.
-	fn check_notify_revenue_info() -> Option<(Self::BlockNumber, Self::Balance)>;
+	fn check_notify_revenue_info() -> Option<(RCBlockNumberOf<Self>, Self::Balance)>;
 
 	/// Ensure that core count is updated to the provided value.
 	///
@@ -135,34 +133,32 @@ pub trait CoretimeInterface {
 	///
 	/// This is only used for benchmarking.
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_notify_revenue_info(when: Self::BlockNumber, revenue: Self::Balance);
+	fn ensure_notify_revenue_info(when: RCBlockNumberOf<Self>, revenue: Self::Balance);
 }
 
 impl CoretimeInterface for () {
 	type AccountId = ();
 	type Balance = u64;
-	type BlockNumber = u32;
-	fn latest() -> Self::BlockNumber {
-		0
-	}
+	type RealyChainBlockNumberProvider = ();
+
 	fn request_core_count(_count: CoreIndex) {}
-	fn request_revenue_info_at(_when: Self::BlockNumber) {}
+	fn request_revenue_info_at(_when: RCBlockNumberOf<Self>) {}
 	fn credit_account(_who: Self::AccountId, _amount: Self::Balance) {}
 	fn assign_core(
 		_core: CoreIndex,
-		_begin: Self::BlockNumber,
+		_begin: RCBlockNumberOf<Self>,
 		_assignment: Vec<(CoreAssignment, PartsOf57600)>,
-		_end_hint: Option<Self::BlockNumber>,
+		_end_hint: Option<RCBlockNumberOf<Self>>,
 	) {
 	}
 	fn check_notify_core_count() -> Option<u16> {
 		None
 	}
-	fn check_notify_revenue_info() -> Option<(Self::BlockNumber, Self::Balance)> {
+	fn check_notify_revenue_info() -> Option<(RCBlockNumberOf<Self>, Self::Balance)> {
 		None
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_notify_core_count(_count: u16) {}
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_notify_revenue_info(_when: Self::BlockNumber, _revenue: Self::Balance) {}
+	fn ensure_notify_revenue_info(_when: RCBlockNumberOf<Self>, _revenue: Self::Balance) {}
 }
