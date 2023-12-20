@@ -1492,6 +1492,7 @@ pub mod migrations {
 
 	use frame_support::traits::LockIdentifier;
 	use frame_system::pallet_prelude::BlockNumberFor;
+	use sp_arithmetic::traits::Zero;
 	#[cfg(feature = "try-runtime")]
 	use sp_core::crypto::ByteArray;
 
@@ -1500,18 +1501,19 @@ pub mod migrations {
 		fn get_parachain_lease_in_blocks(para: ParaId) -> Option<BlockNumber> {
 			let now = frame_system::Pallet::<Runtime>::block_number();
 			let mut leases = slots::Pallet::<Runtime>::lease(para).into_iter();
-			let Some(Some(_)) = leases.next() else { return None };
+			let initial_sum = if let Some(Some(_)) = leases.next() {
+				let (_, progress) =
+					slots::Pallet::<Runtime>::lease_period_index_plus_progress(now)?;
+				LeasePeriod::get().saturating_sub(progress)
+			} else {
+				// The parachain lease did not yet start
+				Zero::zero()
+			};
 
-			let (_, progress) = slots::Pallet::<Runtime>::lease_period_index_plus_progress(now)?;
-			let initial_sum =
-				<Runtime as slots::Config>::LeasePeriod::get().saturating_sub(progress);
-
-			leases.into_iter().fold(Some(initial_sum), |sum, lease| {
-				if lease.is_none() {
-					return None
-				};
-				Some(sum? + <Runtime as slots::Config>::LeasePeriod::get())
-			})
+			Some(leases.into_iter().fold(initial_sum, |sum, lease| {
+				// If the parachain lease did not yet start, we ignore them by multiplying by `0`.
+				sum + LeasePeriod::get() * lease.map_or(0, |_| 1)
+			}))
 		}
 	}
 
