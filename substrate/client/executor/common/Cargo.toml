@@ -10,6 +10,9 @@ description = "A set of common definitions that are needed for defining executio
 documentation = "https://docs.rs/sc-executor-common/"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 

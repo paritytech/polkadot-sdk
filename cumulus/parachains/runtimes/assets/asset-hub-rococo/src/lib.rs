@@ -112,10 +112,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("statemine"),
 	impl_name: create_runtime_str!("statemine"),
 	authoring_version: 1,
-	spec_version: 1_004_000,
+	spec_version: 1_005_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 13,
+	transaction_version: 14,
 	state_version: 1,
 };
 
@@ -125,10 +125,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("statemine"),
 	impl_name: create_runtime_str!("statemine"),
 	authoring_version: 1,
-	spec_version: 1_004_000,
+	spec_version: 1_005_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 13,
+	transaction_version: 14,
 	state_version: 0,
 };
 
@@ -320,7 +320,6 @@ impl pallet_asset_conversion::Config for Runtime {
 	type Balance = Balance;
 	type HigherPrecisionBalance = sp_core::U256;
 	type Currency = Balances;
-	type AssetBalance = Balance;
 	type AssetId = MultiLocation;
 	type Assets = LocalAndForeignAssets<
 		Assets,
@@ -337,7 +336,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type PalletId = AssetConversionPalletId;
 	type AllowMultiAssetPools = AllowMultiAssetPools;
 	type MaxSwapPathLength = ConstU32<4>;
-	type MultiAssetId = Box<MultiLocation>;
+	type MultiAssetId = MultiLocation;
 	type MultiAssetIdConverter =
 		MultiLocationConverter<TokenLocation, LocalAndForeignAssetsMultiLocationMatcher>;
 	type MintMinLiquidity = ConstU128<100>;
@@ -846,6 +845,7 @@ impl pallet_xcm_bridge_hub_router::Config<ToWestendXcmRouterInstance> for Runtim
 	type UniversalLocation = xcm_config::UniversalLocation;
 	type BridgedNetworkId = xcm_config::bridging::to_westend::WestendNetwork;
 	type Bridges = xcm_config::bridging::NetworkExportTable;
+	type DestinationVersion = PolkadotXcm;
 
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type BridgeHubOrigin = EnsureXcm<Equals<xcm_config::bridging::SiblingBridgeHub>>;
@@ -1142,17 +1142,18 @@ impl_runtime_apis! {
 	impl pallet_asset_conversion::AssetConversionApi<
 		Block,
 		Balance,
-		u128,
-		Box<MultiLocation>,
+		MultiLocation,
 	> for Runtime
 	{
-		fn quote_price_exact_tokens_for_tokens(asset1: Box<MultiLocation>, asset2: Box<MultiLocation>, amount: u128, include_fee: bool) -> Option<Balance> {
+		fn quote_price_exact_tokens_for_tokens(asset1: MultiLocation, asset2: MultiLocation, amount: Balance, include_fee: bool) -> Option<Balance> {
 			AssetConversion::quote_price_exact_tokens_for_tokens(asset1, asset2, amount, include_fee)
 		}
-		fn quote_price_tokens_for_exact_tokens(asset1: Box<MultiLocation>, asset2: Box<MultiLocation>, amount: u128, include_fee: bool) -> Option<Balance> {
+
+		fn quote_price_tokens_for_exact_tokens(asset1: MultiLocation, asset2: MultiLocation, amount: Balance, include_fee: bool) -> Option<Balance> {
 			AssetConversion::quote_price_tokens_for_exact_tokens(asset1, asset2, amount, include_fee)
 		}
-		fn get_reserves(asset1: Box<MultiLocation>, asset2: Box<MultiLocation>) -> Option<(Balance, Balance)> {
+
+		fn get_reserves(asset1: MultiLocation, asset2: MultiLocation) -> Option<(Balance, Balance)> {
 			AssetConversion::get_reserves(&asset1, &asset2).ok()
 		}
 	}
@@ -1416,11 +1417,26 @@ impl_runtime_apis! {
 						xcm_config::bridging::SiblingBridgeHubParaId::get().into()
 					);
 				}
-				fn ensure_bridged_target_destination() -> MultiLocation {
+				fn ensure_bridged_target_destination() -> Result<MultiLocation, BenchmarkError> {
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
 						xcm_config::bridging::SiblingBridgeHubParaId::get().into()
 					);
-					xcm_config::bridging::to_westend::AssetHubWestend::get()
+					let bridged_asset_hub = xcm_config::bridging::to_westend::AssetHubWestend::get();
+					let _ = PolkadotXcm::force_xcm_version(
+						RuntimeOrigin::root(),
+						Box::new(bridged_asset_hub),
+						XCM_VERSION,
+					).map_err(|e| {
+						log::error!(
+							"Failed to dispatch `force_xcm_version({:?}, {:?}, {:?})`, error: {:?}",
+							RuntimeOrigin::root(),
+							bridged_asset_hub,
+							XCM_VERSION,
+							e
+						);
+						BenchmarkError::Stop("XcmVersion was not stored!")
+					})?;
+					Ok(bridged_asset_hub)
 				}
 			}
 
@@ -1439,7 +1455,7 @@ impl_runtime_apis! {
 				type XcmConfig = xcm_config::XcmConfig;
 				type AccountIdConverter = xcm_config::LocationToAccountId;
 				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
-				xcm_config::XcmConfig,
+					xcm_config::XcmConfig,
 					ExistentialDepositMultiAsset,
 					xcm_config::PriceForParentDelivery,
 				>;

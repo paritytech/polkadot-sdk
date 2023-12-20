@@ -139,6 +139,21 @@ impl<AssetLocation: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation>
 	}
 }
 
+/// Filter to check if a given location is the parent Relay Chain or a sibling parachain.
+///
+/// This type should only be used within the context of a parachain, since it does not verify that
+/// the parent is indeed a Relay Chain.
+pub struct ParentRelayOrSiblingParachains;
+impl Contains<MultiLocation> for ParentRelayOrSiblingParachains {
+	fn contains(location: &MultiLocation) -> bool {
+		matches!(
+			location,
+			MultiLocation { parents: 1, interior: Here } |
+				MultiLocation { parents: 1, interior: X1(Parachain(_)) }
+		)
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use frame_support::{parameter_types, traits::Contains};

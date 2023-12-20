@@ -8,6 +8,9 @@ homepage = "https://substrate.io"
 repository.workspace = true
 description = "FRAME pallet for storing preimages of hashes"
 
+[lints]
+workspace = true
+
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
