@@ -1637,7 +1637,6 @@ pub mod migrations {
 		parachains_configuration::migration::v7::MigrateToV7<Runtime>,
 		assigned_slots::migration::v1::MigrateToV1<Runtime>,
 		parachains_scheduler::migration::MigrateV1ToV2<Runtime>,
-		coretime::migration::MigrateToCoretime<Runtime, crate::xcm_config::XcmRouter, GetLegacyLeaseImpl>,
 		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
 		paras_registrar::migration::MigrateToV1<Runtime, ()>,
@@ -1668,6 +1667,8 @@ pub mod migrations {
 		// Remove `im-online` pallet on-chain storage
 		frame_support::migrations::RemovePallet<ImOnlinePalletName, <Runtime as frame_system::Config>::DbWeight>,
 		parachains_configuration::migration::v11::MigrateToV11<Runtime>,
+		// This needs to come after the `parachains_configuration` above as we are reading the configuration.
+		coretime::migration::MigrateToCoretime<Runtime, crate::xcm_config::XcmRouter, GetLegacyLeaseImpl>,
 	);
 }
 
