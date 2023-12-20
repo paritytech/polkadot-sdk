@@ -107,12 +107,7 @@ pub fn relayed_incoming_message_works<
 		+ From<pallet_bridge_parachains::Call<Runtime, PPI>>
 		+ From<pallet_bridge_messages::Call<Runtime, MPI>>,
 {
-	helpers::relayed_incoming_message_works::<
-		Runtime,
-		AllPalletsWithoutSystem,
-		HrmpChannelOpener,
-		MPI,
-	>(
+	helpers::relayed_incoming_message_works::<Runtime, AllPalletsWithoutSystem, MPI>(
 		collator_session_key,
 		runtime_para_id,
 		sibling_parachain_id,
@@ -263,12 +258,7 @@ pub fn complex_relay_extrinsic_works<
 		+ From<pallet_bridge_messages::Call<Runtime, MPI>>,
 	<Runtime as frame_system::Config>::RuntimeCall: From<pallet_utility::Call<Runtime>>,
 {
-	helpers::relayed_incoming_message_works::<
-		Runtime,
-		AllPalletsWithoutSystem,
-		HrmpChannelOpener,
-		MPI,
-	>(
+	helpers::relayed_incoming_message_works::<Runtime, AllPalletsWithoutSystem, MPI>(
 		collator_session_key,
 		runtime_para_id,
 		sibling_parachain_id,
