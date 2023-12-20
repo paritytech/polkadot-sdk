@@ -409,9 +409,9 @@ where
 	) -> Result<(), TryRuntimeError> {
 		match res {
 			Ok(bytes) => {
-				log::debug!(
+				log::info!(
 					target: LOG_TARGET,
-					"decoded the entire state ({bytes} bytes)",
+					"✅ Entire runtime state decodes without error. {} bytes total.",
 				);
 
 				Ok(())
