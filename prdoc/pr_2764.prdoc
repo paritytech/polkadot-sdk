@@ -1,7 +1,7 @@
 title: Validator disabling in Backing.
 
 doc:
-  - audience: Validator
+  - audience: Node Operator
     description: |
       Once a validator has been disabled for misbehavior, it will no longer
       sign backing statements in the current era.
