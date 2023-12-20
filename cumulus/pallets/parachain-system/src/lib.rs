@@ -664,7 +664,9 @@ pub mod pallet {
 		#[pallet::call_index(2)]
 		#[pallet::weight(<T as frame_system::Config>::SystemWeightInfo::authorize_upgrade())]
 		#[allow(deprecated)]
-		#[deprecated(note = "Migrate to frame_system::authorize_upgrade")]
+		#[deprecated(
+			note = "To be removed after June 2024. Migrate to `frame_system::authorize_upgrade`."
+		)]
 		pub fn authorize_upgrade(
 			origin: OriginFor<T>,
 			code_hash: T::Hash,
@@ -687,7 +689,9 @@ pub mod pallet {
 		#[pallet::call_index(3)]
 		#[pallet::weight(<T as frame_system::Config>::SystemWeightInfo::apply_authorized_upgrade())]
 		#[allow(deprecated)]
-		#[deprecated(note = "Migrate to frame_system::apply_authorized_upgrade")]
+		#[deprecated(
+			note = "To be removed after June 2024. Migrate to `frame_system::apply_authorized_upgrade`."
+		)]
 		pub fn enact_authorized_upgrade(
 			_: OriginFor<T>,
 			code: Vec<u8>,
