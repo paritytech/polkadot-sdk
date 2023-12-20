@@ -65,8 +65,6 @@ use runtime_common::{
 	BlockLength, CurrencyToVote, SlowAdjustingFeeUpdate, U256ToBalance,
 };
 use runtime_parachains::{
-	assigner_coretime as parachains_assigner_coretime,
-	assigner_on_demand as parachains_assigner_on_demand,
 	assigner_parachains as parachains_assigner_parachains,
 	configuration as parachains_configuration, coretime, disputes as parachains_disputes,
 	disputes::slashing as parachains_slashing,
@@ -1219,40 +1217,20 @@ impl parachains_paras_inherent::Config for Runtime {
 impl parachains_scheduler::Config for Runtime {
 	// If you change this, make sure the `Assignment` type of the new provider is binary compatible,
 	// otherwise provide a migration.
-	type AssignmentProvider = CoretimeAssignmentProvider;
+	type AssignmentProvider = ParachainsAssignmentProvider;
 }
 
 parameter_types! {
 	pub const BrokerId: u32 = BROKER_ID;
 }
 
-impl coretime::Config for Runtime {
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
-	type BrokerId = BrokerId;
-	type WeightInfo = weights::runtime_parachains_coretime::WeightInfo<Runtime>;
-}
-
-parameter_types! {
-	pub const OnDemandTrafficDefaultValue: FixedU128 = FixedU128::from_u32(1);
-}
-
-impl parachains_assigner_on_demand::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
-	type TrafficDefaultValue = OnDemandTrafficDefaultValue;
-	type WeightInfo = weights::runtime_parachains_assigner_on_demand::WeightInfo<Runtime>;
-}
-
 impl parachains_assigner_parachains::Config for Runtime {}
-
-impl parachains_assigner_coretime::Config for Runtime {}
 
 impl parachains_initializer::Config for Runtime {
 	type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = weights::runtime_parachains_initializer::WeightInfo<Runtime>;
+	type CoretimeOnNewSession = ();
 }
 
 impl paras_sudo_wrapper::Config for Runtime {}
@@ -1514,9 +1492,7 @@ construct_runtime! {
 		ParaSessionInfo: parachains_session_info::{Pallet, Storage} = 52,
 		ParasDisputes: parachains_disputes::{Pallet, Call, Storage, Event<T>} = 53,
 		ParasSlashing: parachains_slashing::{Pallet, Call, Storage, ValidateUnsigned} = 54,
-		OnDemandAssignmentProvider: parachains_assigner_on_demand::{Pallet, Call, Storage, Event<T>} = 56,
-		ParachainsAssignmentProvider: parachains_assigner_parachains::{Pallet} = 57,
-		CoretimeAssignmentProvider: parachains_assigner_coretime::{Pallet} = 58,
+		ParachainsAssignmentProvider: parachains_assigner_parachains::{Pallet} = 55,
 
 		// Parachain Onboarding Pallets. Start indices at 60 to leave room.
 		Registrar: paras_registrar::{Pallet, Call, Storage, Event<T>, Config<T>} = 60,
@@ -1525,7 +1501,6 @@ construct_runtime! {
 		Auctions: auctions::{Pallet, Call, Storage, Event<T>} = 63,
 		Crowdloan: crowdloan::{Pallet, Call, Storage, Event<T>} = 64,
 		AssignedSlots: assigned_slots::{Pallet, Call, Storage, Event<T>, Config<T>} = 65,
-		Coretime: coretime::{Pallet, Call, Event<T>} = 66,
 
 		// Pallet for sending XCM.
 		XcmPallet: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config<T>} = 99,
@@ -1702,8 +1677,6 @@ pub mod migrations {
 			<Runtime as frame_system::Config>::DbWeight,
 		>,
 		parachains_configuration::migration::v11::MigrateToV11<Runtime>,
-		// This needs to come after the `parachains_configuration` above as we are reading the configuration.
-		coretime::migration::MigrateToCoretime<Runtime, xcm_config::XcmRouter, GetLegacyLeaseImpl>,
 	);
 }
 

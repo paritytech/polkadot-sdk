@@ -186,6 +186,7 @@ impl crate::initializer::Config for Test {
 	type Randomness = TestRandomness<Self>;
 	type ForceOrigin = frame_system::EnsureRoot<u64>;
 	type WeightInfo = ();
+	type CoretimeOnNewSession = Coretime;
 }
 
 impl crate::configuration::Config for Test {

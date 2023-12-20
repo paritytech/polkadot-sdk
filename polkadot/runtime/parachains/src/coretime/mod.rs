@@ -24,7 +24,7 @@ mod benchmarking;
 
 use crate::{
 	assigner_coretime::{self, PartsOf57600},
-	initializer::SessionChangeNotification,
+	initializer::{OnNewSession, SessionChangeNotification},
 	origin::{ensure_parachain, Origin},
 };
 use frame_support::{pallet_prelude::*, traits::Currency};
@@ -221,5 +221,11 @@ impl<T: Config> Pallet<T> {
 		if new_core_count != old_core_count {
 			// TODO: call notify_core_count
 		}
+	}
+}
+
+impl<T: Config> OnNewSession<BlockNumberFor<T>> for Pallet<T> {
+	fn on_new_session(notification: &SessionChangeNotification<BlockNumberFor<T>>) {
+		Self::initializer_on_new_session(notification);
 	}
 }

@@ -22,7 +22,6 @@
 
 use crate::{
 	configuration::{self, HostConfiguration},
-	coretime,
 	disputes::{self, DisputesHandler as _, SlashingHandler as _},
 	dmp, hrmp, inclusion, paras, scheduler, session_info, shared,
 };
@@ -59,6 +58,16 @@ pub struct SessionChangeNotification<BlockNumber> {
 	pub random_seed: [u8; 32],
 	/// New session index.
 	pub session_index: SessionIndex,
+}
+
+/// Inform something about a new session.
+pub trait OnNewSession<N> {
+	/// A new session was started.
+	fn on_new_session(notification: &SessionChangeNotification<N>);
+}
+
+impl<N> OnNewSession<N> for () {
+	fn on_new_session(_: &SessionChangeNotification<N>) {}
 }
 
 /// Number of validators (not only parachain) in a session.
@@ -116,12 +125,15 @@ pub mod pallet {
 		+ disputes::Config
 		+ dmp::Config
 		+ hrmp::Config
-		+ coretime::Config
 	{
 		/// A randomness beacon.
 		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self>>;
 		/// An origin which is allowed to force updates to parachains.
 		type ForceOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
+		/// Temporary hack to call `Coretime::on_new_session` on chains that support `Coretime` or
+		/// to disable it on the ones that don't support it. Can be removed and replaced by a simple
+		/// bound to `coretime::Config` once all chains support it.
+		type CoretimeOnNewSession: OnNewSession<BlockNumberFor<Self>>;
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -273,7 +285,7 @@ impl<T: Config> Pallet<T> {
 		T::SlashingHandler::initializer_on_new_session(session_index);
 		dmp::Pallet::<T>::initializer_on_new_session(&notification, &outgoing_paras);
 		hrmp::Pallet::<T>::initializer_on_new_session(&notification, &outgoing_paras);
-		coretime::Pallet::<T>::initializer_on_new_session(&notification);
+		T::CoretimeOnNewSession::on_new_session(&notification);
 	}
 
 	/// Should be called when a new session occurs. Buffers the session notification to be applied
