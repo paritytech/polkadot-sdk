@@ -22,11 +22,13 @@ pub use pallet::*;
 use parity_scale_codec::Encode;
 use primitives::Id as ParaId;
 use runtime_parachains::{
-	configuration, dmp, hrmp,
+	assigner_coretime::PartsOf57600,
+	configuration, coretime, dmp, hrmp,
 	paras::{self, ParaGenesisArgs},
 	ParaLifecycle,
 };
-use sp_std::boxed::Box;
+use sp_runtime::traits::One;
+use sp_std::{boxed::Box, vec};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -37,7 +39,10 @@ pub mod pallet {
 
 	#[pallet::config]
 	#[pallet::disable_frame_system_supertrait_check]
-	pub trait Config: configuration::Config + paras::Config + dmp::Config + hrmp::Config {}
+	pub trait Config:
+		configuration::Config + paras::Config + dmp::Config + hrmp::Config + coretime::Config
+	{
+	}
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -58,6 +63,8 @@ pub mod pallet {
 		CannotUpgrade,
 		/// Cannot downgrade lease holding parachain to on-demand.
 		CannotDowngrade,
+		/// There are more cores than supported by the runtime.
+		TooManyCores,
 	}
 
 	#[pallet::hooks]
@@ -66,6 +73,8 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Schedule a para to be initialized at the start of the next session.
+		///
+		/// DEPRECATED: should only be used for tests (where there is no coretime chain).
 		#[pallet::call_index(0)]
 		#[pallet::weight((1_000, DispatchClass::Operational))]
 		pub fn sudo_schedule_para_initialize(
@@ -73,9 +82,26 @@ pub mod pallet {
 			id: ParaId,
 			genesis: ParaGenesisArgs,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			ensure_root(origin.clone())?;
 			runtime_parachains::schedule_para_initialize::<T>(id, genesis)
 				.map_err(|_| Error::<T>::ParaAlreadyExists)?;
+
+			// Add a new core and assign the para to it.
+			let config = <configuration::Pallet<T>>::config();
+			let core = config.coretime_cores;
+			let new_core_count = core.saturating_add(1);
+			<configuration::Pallet<T>>::set_coretime_cores_unchecked(new_core_count)?;
+			let begin = <frame_system::Pallet<T>>::block_number() + One::one();
+			let assignment =
+				vec![(pallet_broker::CoreAssignment::Task(id.into()), PartsOf57600::FULL)];
+			<coretime::Pallet<T>>::assign_core(
+				origin,
+				core.try_into().map_err(|_| Error::<T>::TooManyCores)?,
+				begin,
+				assignment,
+				None,
+			)?;
+
 			Ok(())
 		}
 
