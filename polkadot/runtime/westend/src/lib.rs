@@ -1638,26 +1638,6 @@ pub mod migrations {
 		}
 	}
 
-	pub struct GetLegacyLeaseImpl;
-	impl coretime::migration::GetLegacyLease<BlockNumber> for GetLegacyLeaseImpl {
-		fn get_parachain_lease_in_blocks(para: ParaId) -> Option<BlockNumber> {
-			let now = frame_system::Pallet::<Runtime>::block_number();
-			let mut leases = slots::Pallet::<Runtime>::lease(para).into_iter();
-			let Some(Some(_)) = leases.next() else { return None };
-
-			let (_, progress) = slots::Pallet::<Runtime>::lease_period_index_plus_progress(now)?;
-			let initial_sum =
-				<Runtime as slots::Config>::LeasePeriod::get().saturating_sub(progress);
-
-			leases.into_iter().fold(Some(initial_sum), |sum, lease| {
-				if lease.is_none() {
-					return None
-				};
-				Some(sum? + <Runtime as slots::Config>::LeasePeriod::get())
-			})
-		}
-	}
-
 	/// Unreleased migrations. Add new ones here:
 	pub type Unreleased = (
 		parachains_configuration::migration::v7::MigrateToV7<Runtime>,
