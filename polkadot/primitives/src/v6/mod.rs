@@ -1340,7 +1340,7 @@ impl DisputeStatement {
 
 	/// Statement is backing statement.
 	pub fn is_backing(&self) -> bool {
-		match *self {
+		match self {
 			Self::Valid(s) => s.is_backing(),
 			Self::Invalid(_) => false,
 		}
@@ -1373,14 +1373,12 @@ pub enum ValidDisputeStatementKind {
 impl ValidDisputeStatementKind {
 	/// Whether the statement is from the backing phase.
 	pub fn is_backing(&self) -> bool {
-		match *self {
+		match self {
 			ValidDisputeStatementKind::BackingSeconded(_) |
-			ValidDisputeStatementKind::BackingValid(_)
-				=> true,
+			ValidDisputeStatementKind::BackingValid(_) => true,
 			ValidDisputeStatementKind::Explicit |
 			ValidDisputeStatementKind::ApprovalChecking |
-			ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(_))
-				=> false,
+			ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(_) => false,
 		}
 	}
 }
