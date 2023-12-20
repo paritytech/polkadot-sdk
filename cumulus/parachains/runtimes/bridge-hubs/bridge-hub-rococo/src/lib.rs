@@ -100,7 +100,7 @@ use parachains_common::{
 };
 
 #[cfg(feature = "runtime-benchmarks")]
-use crate::xcm_config::DoNothingRouter;
+use crate::xcm_config::benchmark_helpers::DoNothingRouter;
 #[cfg(feature = "runtime-benchmarks")]
 use snowbridge_beacon_primitives::CompactExecutionHeader;
 #[cfg(feature = "runtime-benchmarks")]

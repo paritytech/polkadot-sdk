@@ -11335,7 +11335,7 @@ dependencies = [
 
 [[package]]
 name = "parity-scale-codec"
-version = "3.6.9"
+version = "3.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "881331e34fa842a2fb61cc2db9643a8fedc615e47cfcc52597d1af0db9a7e8fe"
 dependencies = [
@@ -11350,7 +11350,7 @@ dependencies = [
 
 [[package]]
 name = "parity-scale-codec-derive"
-version = "3.6.9"
+version = "3.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be30eaf4b0a9fba5336683b38de57bb86d179a35862ba6bfcf57625d006bde5b"
 dependencies = [
