@@ -84,7 +84,7 @@
 //! A pruning task will run at a fixed interval of time. This task will remove all artifacts that
 //! weren't used or received a heads up signal for a while.
 //!
-//!	## Execution
+//! ## Execution
 //!
 //! The execute workers will be fed by the requests from the execution queue, which is basically a
 //! combination of a path to the compiled artifact and the
@@ -97,16 +97,17 @@ mod host;
 mod metrics;
 mod prepare;
 mod priority;
-mod worker_intf;
+mod security;
+mod worker_interface;
 
 #[cfg(feature = "test-utils")]
 pub mod testing;
 
-pub use error::{InvalidCandidate, ValidationError};
+pub use error::{InvalidCandidate, PossiblyInvalidError, ValidationError};
 pub use host::{start, Config, ValidationHost, EXECUTE_BINARY_NAME, PREPARE_BINARY_NAME};
 pub use metrics::Metrics;
 pub use priority::Priority;
-pub use worker_intf::{framed_recv, framed_send, JOB_TIMEOUT_WALL_CLOCK_FACTOR};
+pub use worker_interface::{framed_recv, framed_send, JOB_TIMEOUT_WALL_CLOCK_FACTOR};
 
 // Re-export some common types.
 pub use polkadot_node_core_pvf_common::{

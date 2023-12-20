@@ -413,8 +413,9 @@ benchmarks! {
 			executor.set_holding(expected_assets_in_holding.into());
 		}
 
+		let valid_pallet = T::valid_pallet();
 		let instruction = Instruction::QueryPallet {
-			module_name: b"frame_system".to_vec(),
+			module_name: valid_pallet.module_name.as_bytes().to_vec(),
 			response_info: QueryResponseInfo { destination, query_id, max_weight },
 		};
 		let xcm = Xcm(vec![instruction]);
@@ -428,13 +429,13 @@ benchmarks! {
 
 	expect_pallet {
 		let mut executor = new_executor::<T>(Default::default());
-
+		let valid_pallet = T::valid_pallet();
 		let instruction = Instruction::ExpectPallet {
-			index: 0,
-			name: b"System".to_vec(),
-			module_name: b"frame_system".to_vec(),
-			crate_major: 4,
-			min_crate_minor: 0,
+			index: valid_pallet.index as u32,
+			name: valid_pallet.name.as_bytes().to_vec(),
+			module_name: valid_pallet.module_name.as_bytes().to_vec(),
+			crate_major: valid_pallet.crate_version.major.into(),
+			min_crate_minor: valid_pallet.crate_version.minor.into(),
 		};
 		let xcm = Xcm(vec![instruction]);
 	}: {
@@ -561,7 +562,7 @@ benchmarks! {
 		let (expected_fees_mode, expected_assets_in_holding) = T::DeliveryHelper::ensure_successful_delivery(
 			&origin,
 			&destination.into(),
-			FeeReason::Export(network),
+			FeeReason::Export { network, destination },
 		);
 		let sender_account = T::AccountIdConverter::convert_location(&origin).unwrap();
 		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);

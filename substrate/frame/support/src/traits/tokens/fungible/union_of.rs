@@ -20,9 +20,10 @@
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::traits::{
+	fungible::imbalance,
 	tokens::{
-		fungible, fungibles, AssetId, DepositConsequence, Fortitude, Imbalance as ImbalanceT,
-		Precision, Preservation, Provenance, Restriction, WithdrawConsequence,
+		fungible, fungibles, AssetId, DepositConsequence, Fortitude, Precision, Preservation,
+		Provenance, Restriction, WithdrawConsequence,
 	},
 	AccountTouch,
 };
@@ -91,7 +92,7 @@ impl<AssetId: Ord> Convert<NativeOrWithId<AssetId>, Either<(), AssetId>> for Nat
 /// Type to combine some `fungible::*` and `fungibles::*` implementations into one union
 /// `fungibles::*` implementation.
 ///
-/// ### Generic Parameters:
+/// ### Parameters:
 /// - `Left` is `fungible::*` implementation that is incorporated into the resulting union.
 /// - `Right` is `fungibles::*` implementation that is incorporated into the resulting union.
 /// - `Criterion` determines whether the `AssetKind` belongs to the `Left` or `Right` set.
@@ -422,7 +423,7 @@ impl<
 		Right: fungibles::Mutate<AccountId, Balance = Left::Balance>,
 		Criterion: Convert<AssetKind, Either<(), Right::AssetId>>,
 		AssetKind: AssetId,
-		AccountId,
+		AccountId: Eq,
 	> fungibles::Mutate<AccountId> for UnionOf<Left, Right, Criterion, AssetKind, AccountId>
 {
 	fn mint_into(
@@ -705,34 +706,21 @@ impl<
 	) -> Result<fungibles::Debt<AccountId, Self>, DispatchError> {
 		match Criterion::convert(asset.clone()) {
 			Left(()) => <Left as fungible::Balanced<AccountId>>::deposit(who, value, precision)
-				.map(|inner_debt| {
-					let debt = fungibles::Imbalance::new(asset, inner_debt.peek());
-					fungible::Imbalance::forget(inner_debt);
-					debt
-				}),
-			Right(a) => <Right as fungibles::Balanced<AccountId>>::deposit(
-				a, who, value, precision,
-			)
-			.map(|inner_debt| {
-				let debt = fungibles::Imbalance::new(asset, inner_debt.peek());
-				fungibles::Imbalance::forget(inner_debt);
-				debt
-			}),
+				.map(|d| fungibles::imbalance::from_fungible(d, asset)),
+			Right(a) =>
+				<Right as fungibles::Balanced<AccountId>>::deposit(a, who, value, precision)
+					.map(|d| fungibles::imbalance::from_fungibles(d, asset)),
 		}
 	}
 	fn issue(asset: Self::AssetId, amount: Self::Balance) -> fungibles::Credit<AccountId, Self> {
 		match Criterion::convert(asset.clone()) {
 			Left(()) => {
-				let inner_credit = <Left as fungible::Balanced<AccountId>>::issue(amount);
-				let credit = fungibles::Imbalance::new(asset, inner_credit.peek());
-				fungible::Imbalance::forget(inner_credit);
-				credit
+				let credit = <Left as fungible::Balanced<AccountId>>::issue(amount);
+				fungibles::imbalance::from_fungible(credit, asset)
 			},
 			Right(a) => {
-				let inner_credit = <Right as fungibles::Balanced<AccountId>>::issue(a, amount);
-				let credit = fungibles::Imbalance::new(asset, inner_credit.peek());
-				fungibles::Imbalance::forget(inner_credit);
-				credit
+				let credit = <Right as fungibles::Balanced<AccountId>>::issue(a, amount);
+				fungibles::imbalance::from_fungibles(credit, asset)
 			},
 		}
 	}
@@ -742,40 +730,30 @@ impl<
 	) -> (fungibles::Debt<AccountId, Self>, fungibles::Credit<AccountId, Self>) {
 		match Criterion::convert(asset.clone()) {
 			Left(()) => {
-				let (inner_a, inner_b) = <Left as fungible::Balanced<AccountId>>::pair(amount);
-				let (a, b) = (
-					fungibles::Imbalance::new(asset.clone(), inner_a.peek()),
-					fungibles::Imbalance::new(asset, inner_b.peek()),
-				);
-				fungible::Imbalance::forget(inner_a);
-				fungible::Imbalance::forget(inner_b);
-				(a, b)
+				let (a, b) = <Left as fungible::Balanced<AccountId>>::pair(amount);
+				(
+					fungibles::imbalance::from_fungible(a, asset.clone()),
+					fungibles::imbalance::from_fungible(b, asset),
+				)
 			},
 			Right(a) => {
-				let (inner_a, inner_b) = <Right as fungibles::Balanced<AccountId>>::pair(a, amount);
-				let (a, b) = (
-					fungibles::Imbalance::new(asset.clone(), inner_a.peek()),
-					fungibles::Imbalance::new(asset, inner_b.peek()),
-				);
-				fungibles::Imbalance::forget(inner_a);
-				fungibles::Imbalance::forget(inner_b);
-				(a, b)
+				let (a, b) = <Right as fungibles::Balanced<AccountId>>::pair(a, amount);
+				(
+					fungibles::imbalance::from_fungibles(a, asset.clone()),
+					fungibles::imbalance::from_fungibles(b, asset),
+				)
 			},
 		}
 	}
 	fn rescind(asset: Self::AssetId, amount: Self::Balance) -> fungibles::Debt<AccountId, Self> {
 		match Criterion::convert(asset.clone()) {
 			Left(()) => {
-				let inner_debt = <Left as fungible::Balanced<AccountId>>::rescind(amount);
-				let debt = fungibles::Imbalance::new(asset, inner_debt.peek());
-				fungible::Imbalance::forget(inner_debt);
-				debt
+				let debt = <Left as fungible::Balanced<AccountId>>::rescind(amount);
+				fungibles::imbalance::from_fungible(debt, asset)
 			},
 			Right(a) => {
-				let inner_debt = <Right as fungibles::Balanced<AccountId>>::rescind(a, amount);
-				let debt = fungibles::Imbalance::new(asset, inner_debt.peek());
-				fungibles::Imbalance::forget(inner_debt);
-				debt
+				let debt = <Right as fungibles::Balanced<AccountId>>::rescind(a, amount);
+				fungibles::imbalance::from_fungibles(debt, asset)
 			},
 		}
 	}
@@ -786,26 +764,14 @@ impl<
 		let asset = credit.asset();
 		match Criterion::convert(asset.clone()) {
 			Left(()) => {
-				let inner_credit = fungible::Imbalance::new(credit.peek());
-				fungibles::Imbalance::forget(credit);
-				<Left as fungible::Balanced<AccountId>>::resolve(who, inner_credit).map_err(
-					|inner_credit| {
-						let credit = fungibles::Imbalance::new(asset, inner_credit.peek());
-						fungible::Imbalance::forget(inner_credit);
-						credit
-					},
-				)
+				let credit = imbalance::from_fungibles(credit);
+				<Left as fungible::Balanced<AccountId>>::resolve(who, credit)
+					.map_err(|credit| fungibles::imbalance::from_fungible(credit, asset))
 			},
 			Right(a) => {
-				let inner_credit = fungibles::Imbalance::new(a, credit.peek());
-				fungibles::Imbalance::forget(credit);
-				<Right as fungibles::Balanced<AccountId>>::resolve(who, inner_credit).map_err(
-					|inner_credit| {
-						let credit = fungibles::Imbalance::new(asset, inner_credit.peek());
-						fungibles::Imbalance::forget(inner_credit);
-						credit
-					},
-				)
+				let credit = fungibles::imbalance::from_fungibles(credit, a);
+				<Right as fungibles::Balanced<AccountId>>::resolve(who, credit)
+					.map_err(|credit| fungibles::imbalance::from_fungibles(credit, asset))
 			},
 		}
 	}
@@ -817,40 +783,17 @@ impl<
 		let asset = debt.asset();
 		match Criterion::convert(asset.clone()) {
 			Left(()) => {
-				let inner_debt = fungible::Imbalance::new(debt.peek());
-				fungibles::Imbalance::forget(debt);
-				match <Left as fungible::Balanced<AccountId>>::settle(who, inner_debt, preservation)
-				{
-					Ok(inner_credit) => {
-						let credit = fungibles::Imbalance::new(asset, inner_credit.peek());
-						fungible::Imbalance::forget(inner_credit);
-						Ok(credit)
-					},
-					Err(inner_debt) => {
-						let debt = fungibles::Imbalance::new(asset, inner_debt.peek());
-						fungible::Imbalance::forget(inner_debt);
-						Err(debt)
-					},
+				let debt = imbalance::from_fungibles(debt);
+				match <Left as fungible::Balanced<AccountId>>::settle(who, debt, preservation) {
+					Ok(c) => Ok(fungibles::imbalance::from_fungible(c, asset)),
+					Err(d) => Err(fungibles::imbalance::from_fungible(d, asset)),
 				}
 			},
 			Right(a) => {
-				let inner_debt = fungibles::Imbalance::new(a, debt.peek());
-				fungibles::Imbalance::forget(debt);
-				match <Right as fungibles::Balanced<AccountId>>::settle(
-					who,
-					inner_debt,
-					preservation,
-				) {
-					Ok(inner_credit) => {
-						let credit = fungibles::Imbalance::new(asset, inner_credit.peek());
-						fungibles::Imbalance::forget(inner_credit);
-						Ok(credit)
-					},
-					Err(inner_debt) => {
-						let debt = fungibles::Imbalance::new(asset, inner_debt.peek());
-						fungibles::Imbalance::forget(inner_debt);
-						Err(debt)
-					},
+				let debt = fungibles::imbalance::from_fungibles(debt, a);
+				match <Right as fungibles::Balanced<AccountId>>::settle(who, debt, preservation) {
+					Ok(c) => Ok(fungibles::imbalance::from_fungibles(c, asset)),
+					Err(d) => Err(fungibles::imbalance::from_fungibles(d, asset)),
 				}
 			},
 		}
@@ -871,11 +814,7 @@ impl<
 				preservation,
 				force,
 			)
-			.map(|inner_credit| {
-				let credit = fungibles::Imbalance::new(asset, inner_credit.peek());
-				fungible::Imbalance::forget(inner_credit);
-				credit
-			}),
+			.map(|c| fungibles::imbalance::from_fungible(c, asset)),
 			Right(a) => <Right as fungibles::Balanced<AccountId>>::withdraw(
 				a,
 				who,
@@ -884,11 +823,7 @@ impl<
 				preservation,
 				force,
 			)
-			.map(|inner_credit| {
-				let credit = fungibles::Imbalance::new(asset, inner_credit.peek());
-				fungibles::Imbalance::forget(inner_credit);
-				credit
-			}),
+			.map(|c| fungibles::imbalance::from_fungibles(c, asset)),
 		}
 	}
 }
@@ -909,18 +844,14 @@ impl<
 	) -> (fungibles::Credit<AccountId, Self>, Self::Balance) {
 		match Criterion::convert(asset.clone()) {
 			Left(()) => {
-				let (inner_credit, amount) =
+				let (credit, amount) =
 					<Left as fungible::BalancedHold<AccountId>>::slash(reason, who, amount);
-				let credit = fungibles::Imbalance::new(asset, inner_credit.peek());
-				fungible::Imbalance::forget(inner_credit);
-				(credit, amount)
+				(fungibles::imbalance::from_fungible(credit, asset), amount)
 			},
 			Right(a) => {
-				let (inner_credit, amount) =
+				let (credit, amount) =
 					<Right as fungibles::BalancedHold<AccountId>>::slash(a, reason, who, amount);
-				let credit = fungibles::Imbalance::new(asset, inner_credit.peek());
-				fungibles::Imbalance::forget(inner_credit);
-				(credit, amount)
+				(fungibles::imbalance::from_fungibles(credit, asset), amount)
 			},
 		}
 	}
@@ -971,7 +902,7 @@ impl<
 
 	fn deposit_required(asset: AssetKind) -> Self::Balance {
 		match Criterion::convert(asset) {
-			Left(()) => <Left as fungible::Inspect<AccountId>>::minimum_balance(),
+			Left(()) => <Left as AccountTouch<(), AccountId>>::deposit_required(()),
 			Right(a) => <Right as AccountTouch<Right::AssetId, AccountId>>::deposit_required(a),
 		}
 	}

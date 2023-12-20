@@ -30,10 +30,12 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_types::UnpinHandle;
 use polkadot_primitives::{
-	slashing, AsyncBackingParams, CandidateEvent, CandidateHash, CoreState, EncodeAs,
-	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, IndexedVec, OccupiedCore,
-	ScrapedOnChainVotes, SessionIndex, SessionInfo, Signed, SigningContext, UncheckedSigned,
-	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, LEGACY_MIN_BACKING_VOTES,
+	slashing,
+	vstaging::{node_features::FeatureIndex, NodeFeatures},
+	AsyncBackingParams, CandidateEvent, CandidateHash, CoreState, EncodeAs, ExecutorParams,
+	GroupIndex, GroupRotationInfo, Hash, IndexedVec, OccupiedCore, ScrapedOnChainVotes,
+	SessionIndex, SessionInfo, Signed, SigningContext, UncheckedSigned, ValidationCode,
+	ValidationCodeHash, ValidatorId, ValidatorIndex, LEGACY_MIN_BACKING_VOTES,
 };
 
 use crate::{
@@ -92,6 +94,8 @@ pub struct ExtendedSessionInfo {
 	pub validator_info: ValidatorInfo,
 	/// Session executor parameters
 	pub executor_params: ExecutorParams,
+	/// Node features
+	pub node_features: NodeFeatures,
 }
 
 /// Information about ourselves, in case we are an `Authority`.
@@ -202,7 +206,20 @@ impl RuntimeInfo {
 
 			let validator_info = self.get_validator_info(&session_info)?;
 
-			let full_info = ExtendedSessionInfo { session_info, validator_info, executor_params };
+			let node_features = request_node_features(parent, session_index, sender)
+				.await?
+				.unwrap_or(NodeFeatures::EMPTY);
+			let last_set_index = node_features.iter_ones().last().unwrap_or_default();
+			if last_set_index >= FeatureIndex::FirstUnassigned as usize {
+				gum::warn!(target: LOG_TARGET, "Runtime requires feature bit {} that node doesn't support, please upgrade node version", last_set_index);
+			}
+
+			let full_info = ExtendedSessionInfo {
+				session_info,
+				validator_info,
+				executor_params,
+				node_features,
+			};
 
 			self.session_info_cache.insert(session_index, full_info);
 		}
@@ -505,5 +522,34 @@ pub async fn request_min_backing_votes(
 		Ok(LEGACY_MIN_BACKING_VOTES)
 	} else {
 		min_backing_votes_res
+	}
+}
+
+/// Request the node features enabled in the runtime.
+/// Pass in the session index for caching purposes, as it should only change on session boundaries.
+/// Prior to runtime API version 9, just return `None`.
+pub async fn request_node_features(
+	parent: Hash,
+	session_index: SessionIndex,
+	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
+) -> Result<Option<NodeFeatures>> {
+	let res = recv_runtime(
+		request_from_runtime(parent, sender, |tx| {
+			RuntimeApiRequest::NodeFeatures(session_index, tx)
+		})
+		.await,
+	)
+	.await;
+
+	if let Err(Error::RuntimeRequest(RuntimeApiError::NotSupported { .. })) = res {
+		gum::trace!(
+			target: LOG_TARGET,
+			?parent,
+			"Querying the node features from the runtime is not supported by the current Runtime API",
+		);
+
+		Ok(None)
+	} else {
+		res.map(Some)
 	}
 }

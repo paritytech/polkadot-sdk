@@ -17,19 +17,24 @@
 
 //! Tests for the Westmint (Westend Assets Hub) chain.
 
+use asset_hub_westend_runtime::{
+	xcm_config,
+	xcm_config::{
+		bridging, ForeignCreatorsSovereignAccountOf, LocationToAccountId, WestendLocation,
+	},
+	AllPalletsWithoutSystem, MetadataDepositBase, MetadataDepositPerByte, PolkadotXcm, RuntimeCall,
+	RuntimeEvent, RuntimeOrigin, ToRococoXcmRouterInstance, XcmpQueue,
+};
 pub use asset_hub_westend_runtime::{
 	xcm_config::{CheckingAccount, TrustBackedAssetsPalletLocation, XcmConfig},
 	AssetConversion, AssetDeposit, Assets, Balances, CollatorSelection, ExistentialDeposit,
 	ForeignAssets, ForeignAssetsInstance, ParachainSystem, Runtime, SessionKeys, System,
 	TrustBackedAssetsInstance,
 };
-use asset_hub_westend_runtime::{
-	xcm_config::{ForeignCreatorsSovereignAccountOf, WestendLocation},
-	AllPalletsWithoutSystem, MetadataDepositBase, MetadataDepositPerByte, RuntimeCall,
-	RuntimeEvent,
+use asset_test_utils::{
+	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys, ExtBuilder,
 };
-use asset_test_utils::{CollatorSessionKeys, ExtBuilder, XcmReceivedFrom};
-use codec::{Decode, DecodeLimit, Encode};
+use codec::{Decode, Encode};
 use frame_support::{
 	assert_ok,
 	traits::{
@@ -44,14 +49,10 @@ use parachains_common::{
 	westend::{currency::UNITS, fee::WeightToFee},
 	AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
 };
-use sp_io;
 use sp_runtime::traits::MaybeEquivalence;
 use std::convert::Into;
-use xcm::{latest::prelude::*, VersionedXcm, MAX_XCM_DECODE_DEPTH};
-use xcm_executor::{
-	traits::{Identity, JustTry, WeightTrader},
-	XcmExecutor,
-};
+use xcm::latest::prelude::*;
+use xcm_executor::traits::{Identity, JustTry, WeightTrader};
 
 const ALICE: [u8; 32] = [1u8; 32];
 const SOME_ASSET_ADMIN: [u8; 32] = [5u8; 32];
@@ -61,12 +62,16 @@ type AssetIdForTrustBackedAssetsConvert =
 
 type RuntimeHelper = asset_test_utils::RuntimeHelper<Runtime, AllPalletsWithoutSystem>;
 
-fn collator_session_keys() -> CollatorSessionKeys<Runtime> {
-	CollatorSessionKeys::new(
-		AccountId::from(ALICE),
-		AccountId::from(ALICE),
-		SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
+fn collator_session_key(account: [u8; 32]) -> CollatorSessionKey<Runtime> {
+	CollatorSessionKey::new(
+		AccountId::from(account),
+		AccountId::from(account),
+		SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(account)) },
 	)
+}
+
+fn collator_session_keys() -> CollatorSessionKeys<Runtime> {
+	CollatorSessionKeys::default().add(collator_session_key(ALICE))
 }
 
 #[test]
@@ -451,12 +456,6 @@ asset_test_utils::include_teleports_for_native_asset_works!(
 			_ => None,
 		}
 	}),
-	Box::new(|runtime_event_encoded: Vec<u8>| {
-		match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
-			Ok(RuntimeEvent::XcmpQueue(event)) => Some(event),
-			_ => None,
-		}
-	}),
 	1000
 );
 
@@ -566,28 +565,213 @@ asset_test_utils::include_create_and_manage_foreign_assets_for_local_consensus_p
 	})
 );
 
+fn bridging_to_asset_hub_rococo() -> TestBridgingConfig {
+	let _ = PolkadotXcm::force_xcm_version(
+		RuntimeOrigin::root(),
+		Box::new(bridging::to_rococo::AssetHubRococo::get()),
+		XCM_VERSION,
+	)
+	.expect("version saved!");
+	TestBridgingConfig {
+		bridged_network: bridging::to_rococo::RococoNetwork::get(),
+		local_bridge_hub_para_id: bridging::SiblingBridgeHubParaId::get(),
+		local_bridge_hub_location: bridging::SiblingBridgeHub::get(),
+		bridged_target_location: bridging::to_rococo::AssetHubRococo::get(),
+	}
+}
+
 #[test]
-fn plain_receive_teleported_asset_works() {
-	ExtBuilder::<Runtime>::default()
-		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
-		)])
-		.build()
-		.execute_with(|| {
-			let data = hex_literal::hex!("02100204000100000b00a0724e18090a13000100000b00a0724e180901e20f5e480d010004000101001299557001f55815d3fcb53c74463acb0cf6d14d4639b340982c60877f384609").to_vec();
-			let message_id = sp_io::hashing::blake2_256(&data);
-
-			let maybe_msg = VersionedXcm::<RuntimeCall>::decode_all_with_depth_limit(
-				MAX_XCM_DECODE_DEPTH,
-				&mut data.as_ref(),
+fn limited_reserve_transfer_assets_for_native_asset_to_asset_hub_rococo_works() {
+	asset_test_utils::test_cases_over_bridge::limited_reserve_transfer_assets_for_native_asset_works::<
+		Runtime,
+		AllPalletsWithoutSystem,
+		XcmConfig,
+		ParachainSystem,
+		XcmpQueue,
+		LocationToAccountId,
+	>(
+		collator_session_keys(),
+		ExistentialDeposit::get(),
+		AccountId::from(ALICE),
+		Box::new(|runtime_event_encoded: Vec<u8>| {
+			match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
+				Ok(RuntimeEvent::PolkadotXcm(event)) => Some(event),
+				_ => None,
+			}
+		}),
+		Box::new(|runtime_event_encoded: Vec<u8>| {
+			match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
+				Ok(RuntimeEvent::XcmpQueue(event)) => Some(event),
+				_ => None,
+			}
+		}),
+		bridging_to_asset_hub_rococo,
+		WeightLimit::Unlimited,
+		Some(xcm_config::bridging::XcmBridgeHubRouterFeeAssetId::get()),
+		Some(xcm_config::TreasuryAccount::get()),
+	)
+}
+#[test]
+fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_works() {
+	const BLOCK_AUTHOR_ACCOUNT: [u8; 32] = [13; 32];
+	asset_test_utils::test_cases_over_bridge::receive_reserve_asset_deposited_from_different_consensus_works::<
+			Runtime,
+			AllPalletsWithoutSystem,
+			XcmConfig,
+			LocationToAccountId,
+			ForeignAssetsInstance,
+		>(
+			collator_session_keys().add(collator_session_key(BLOCK_AUTHOR_ACCOUNT)),
+			ExistentialDeposit::get(),
+			AccountId::from([73; 32]),
+			AccountId::from(BLOCK_AUTHOR_ACCOUNT),
+			// receiving ROCs
+			(MultiLocation { parents: 2, interior: X1(GlobalConsensus(Rococo)) }, 1000000000000, 1_000_000_000),
+			bridging_to_asset_hub_rococo,
+			(
+				X1(PalletInstance(bp_bridge_hub_westend::WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX)),
+				GlobalConsensus(Rococo),
+				X1(Parachain(1000))
 			)
-				.map(xcm::v3::Xcm::<RuntimeCall>::try_from).expect("failed").expect("failed");
+		)
+}
+#[test]
+fn report_bridge_status_from_xcm_bridge_router_for_rococo_works() {
+	asset_test_utils::test_cases_over_bridge::report_bridge_status_from_xcm_bridge_router_works::<
+		Runtime,
+		AllPalletsWithoutSystem,
+		XcmConfig,
+		LocationToAccountId,
+		ToRococoXcmRouterInstance,
+	>(
+		collator_session_keys(),
+		bridging_to_asset_hub_rococo,
+		|| {
+			sp_std::vec![
+				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+				Transact {
+					origin_kind: OriginKind::Xcm,
+					require_weight_at_most:
+						bp_asset_hub_westend::XcmBridgeHubRouterTransactCallMaxWeight::get(),
+					call: bp_asset_hub_westend::Call::ToRococoXcmRouter(
+						bp_asset_hub_westend::XcmBridgeHubRouterCall::report_bridge_status {
+							bridge_id: Default::default(),
+							is_congested: true,
+						}
+					)
+					.encode()
+					.into(),
+				}
+			]
+			.into()
+		},
+		|| {
+			sp_std::vec![
+				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+				Transact {
+					origin_kind: OriginKind::Xcm,
+					require_weight_at_most:
+						bp_asset_hub_westend::XcmBridgeHubRouterTransactCallMaxWeight::get(),
+					call: bp_asset_hub_westend::Call::ToRococoXcmRouter(
+						bp_asset_hub_westend::XcmBridgeHubRouterCall::report_bridge_status {
+							bridge_id: Default::default(),
+							is_congested: false,
+						}
+					)
+					.encode()
+					.into(),
+				}
+			]
+			.into()
+		},
+	)
+}
 
-			let outcome =
-				XcmExecutor::<XcmConfig>::execute_xcm(Parent, maybe_msg, message_id, RuntimeHelper::xcm_max_weight(XcmReceivedFrom::Parent));
-			assert_eq!(outcome.ensure_complete(), Ok(()));
+#[test]
+fn test_report_bridge_status_call_compatibility() {
+	// if this test fails, make sure `bp_asset_hub_rococo` has valid encoding
+	assert_eq!(
+		RuntimeCall::ToRococoXcmRouter(pallet_xcm_bridge_hub_router::Call::report_bridge_status {
+			bridge_id: Default::default(),
+			is_congested: true,
 		})
+		.encode(),
+		bp_asset_hub_westend::Call::ToRococoXcmRouter(
+			bp_asset_hub_westend::XcmBridgeHubRouterCall::report_bridge_status {
+				bridge_id: Default::default(),
+				is_congested: true,
+			}
+		)
+		.encode()
+	)
+}
+
+#[test]
+fn check_sane_weight_report_bridge_status() {
+	use pallet_xcm_bridge_hub_router::WeightInfo;
+	let actual = <Runtime as pallet_xcm_bridge_hub_router::Config<
+			ToRococoXcmRouterInstance,
+		>>::WeightInfo::report_bridge_status();
+	let max_weight = bp_asset_hub_westend::XcmBridgeHubRouterTransactCallMaxWeight::get();
+	assert!(
+		actual.all_lte(max_weight),
+		"max_weight: {:?} should be adjusted to actual {:?}",
+		max_weight,
+		actual
+	);
+}
+
+#[test]
+fn change_xcm_bridge_hub_router_byte_fee_by_governance_works() {
+	asset_test_utils::test_cases::change_storage_constant_by_governance_works::<
+		Runtime,
+		bridging::XcmBridgeHubRouterByteFee,
+		Balance,
+	>(
+		collator_session_keys(),
+		1000,
+		Box::new(|call| RuntimeCall::System(call).encode()),
+		|| {
+			(
+				bridging::XcmBridgeHubRouterByteFee::key().to_vec(),
+				bridging::XcmBridgeHubRouterByteFee::get(),
+			)
+		},
+		|old_value| {
+			if let Some(new_value) = old_value.checked_add(1) {
+				new_value
+			} else {
+				old_value.checked_sub(1).unwrap()
+			}
+		},
+	)
+}
+
+#[test]
+fn reserve_transfer_native_asset_to_non_teleport_para_works() {
+	asset_test_utils::test_cases::reserve_transfer_native_asset_to_non_teleport_para_works::<
+		Runtime,
+		AllPalletsWithoutSystem,
+		XcmConfig,
+		ParachainSystem,
+		XcmpQueue,
+		LocationToAccountId,
+	>(
+		collator_session_keys(),
+		ExistentialDeposit::get(),
+		AccountId::from(ALICE),
+		Box::new(|runtime_event_encoded: Vec<u8>| {
+			match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
+				Ok(RuntimeEvent::PolkadotXcm(event)) => Some(event),
+				_ => None,
+			}
+		}),
+		Box::new(|runtime_event_encoded: Vec<u8>| {
+			match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
+				Ok(RuntimeEvent::XcmpQueue(event)) => Some(event),
+				_ => None,
+			}
+		}),
+		WeightLimit::Unlimited,
+	);
 }

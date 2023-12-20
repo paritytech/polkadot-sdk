@@ -17,14 +17,16 @@
 
 //! Adapter to use `fungibles::*` implementations as `fungible::*`.
 
+use super::*;
+use crate::traits::{
+	fungible::imbalance,
+	tokens::{
+		fungibles, DepositConsequence, Fortitude, Precision, Preservation, Provenance, Restriction,
+		WithdrawConsequence,
+	},
+};
 use sp_core::Get;
 use sp_runtime::{DispatchError, DispatchResult};
-
-use super::*;
-use crate::traits::tokens::{
-	fungibles, DepositConsequence, Fortitude, Imbalance as ImbalanceT, Precision, Preservation,
-	Provenance, Restriction, WithdrawConsequence,
-};
 
 /// Convert a `fungibles` trait implementation into a `fungible` trait implementation by identifying
 /// a single item.
@@ -219,7 +221,7 @@ impl<
 impl<
 		F: fungibles::Mutate<AccountId>,
 		A: Get<<F as fungibles::Inspect<AccountId>>::AssetId>,
-		AccountId,
+		AccountId: Eq,
 	> Mutate<AccountId> for ItemOf<F, A, AccountId>
 {
 	fn mint_into(who: &AccountId, amount: Self::Balance) -> Result<Self::Balance, DispatchError> {
@@ -380,64 +382,39 @@ impl<
 		value: Self::Balance,
 		precision: Precision,
 	) -> Result<Debt<AccountId, Self>, DispatchError> {
-		<F as fungibles::Balanced<AccountId>>::deposit(A::get(), who, value, precision).map(
-			|inner_debt| {
-				let debt = Imbalance::new(inner_debt.peek());
-				fungibles::Imbalance::forget(inner_debt);
-				debt
-			},
-		)
+		<F as fungibles::Balanced<AccountId>>::deposit(A::get(), who, value, precision)
+			.map(imbalance::from_fungibles)
 	}
 	fn issue(amount: Self::Balance) -> Credit<AccountId, Self> {
-		let inner_credit = <F as fungibles::Balanced<AccountId>>::issue(A::get(), amount);
-		let credit = Imbalance::new(inner_credit.peek());
-		fungibles::Imbalance::forget(inner_credit);
-		credit
+		let credit = <F as fungibles::Balanced<AccountId>>::issue(A::get(), amount);
+		imbalance::from_fungibles(credit)
 	}
 	fn pair(amount: Self::Balance) -> (Debt<AccountId, Self>, Credit<AccountId, Self>) {
-		let (inner_a, inner_b) = <F as fungibles::Balanced<AccountId>>::pair(A::get(), amount);
-		let (a, b) = (Imbalance::new(inner_a.peek()), Imbalance::new(inner_b.peek()));
-		fungibles::Imbalance::forget(inner_a);
-		fungibles::Imbalance::forget(inner_b);
-		(a, b)
+		let (a, b) = <F as fungibles::Balanced<AccountId>>::pair(A::get(), amount);
+		(imbalance::from_fungibles(a), imbalance::from_fungibles(b))
 	}
 	fn rescind(amount: Self::Balance) -> Debt<AccountId, Self> {
-		let inner_debt = <F as fungibles::Balanced<AccountId>>::rescind(A::get(), amount);
-		let debt = Imbalance::new(inner_debt.peek());
-		fungibles::Imbalance::forget(inner_debt);
-		debt
+		let debt = <F as fungibles::Balanced<AccountId>>::rescind(A::get(), amount);
+		imbalance::from_fungibles(debt)
 	}
 	fn resolve(
 		who: &AccountId,
 		credit: Credit<AccountId, Self>,
 	) -> Result<(), Credit<AccountId, Self>> {
-		let inner = fungibles::Imbalance::new(A::get(), credit.peek());
-		Imbalance::forget(credit);
-		<F as fungibles::Balanced<AccountId>>::resolve(who, inner).map_err(|inner| {
-			let credit = Imbalance::new(inner.peek());
-			fungibles::Imbalance::forget(inner);
-			credit
-		})
+		let credit = fungibles::imbalance::from_fungible(credit, A::get());
+		<F as fungibles::Balanced<AccountId>>::resolve(who, credit)
+			.map_err(imbalance::from_fungibles)
 	}
 	fn settle(
 		who: &AccountId,
 		debt: Debt<AccountId, Self>,
 		preservation: Preservation,
 	) -> Result<Credit<AccountId, Self>, Debt<AccountId, Self>> {
-		let inner_debt = fungibles::Imbalance::new(A::get(), debt.peek());
-		Imbalance::forget(debt);
-		match <F as fungibles::Balanced<AccountId>>::settle(who, inner_debt, preservation) {
-			Ok(inner_credit) => {
-				let credit = Imbalance::new(inner_credit.peek());
-				fungibles::Imbalance::forget(inner_credit);
-				Ok(credit)
-			},
-			Err(inner_debt) => {
-				let debt = Imbalance::new(inner_debt.peek());
-				fungibles::Imbalance::forget(inner_debt);
-				Err(debt)
-			},
-		}
+		let debt = fungibles::imbalance::from_fungible(debt, A::get());
+		<F as fungibles::Balanced<AccountId>>::settle(who, debt, preservation).map_or_else(
+			|d| Err(imbalance::from_fungibles(d)),
+			|c| Ok(imbalance::from_fungibles(c)),
+		)
 	}
 	fn withdraw(
 		who: &AccountId,
@@ -454,11 +431,7 @@ impl<
 			preservation,
 			force,
 		)
-		.map(|inner_credit| {
-			let credit = Imbalance::new(inner_credit.peek());
-			fungibles::Imbalance::forget(inner_credit);
-			credit
-		})
+		.map(imbalance::from_fungibles)
 	}
 }
 
@@ -473,11 +446,9 @@ impl<
 		who: &AccountId,
 		amount: Self::Balance,
 	) -> (Credit<AccountId, Self>, Self::Balance) {
-		let (inner_credit, amount) =
+		let (credit, amount) =
 			<F as fungibles::BalancedHold<AccountId>>::slash(A::get(), reason, who, amount);
-		let credit = Imbalance::new(inner_credit.peek());
-		fungibles::Imbalance::forget(inner_credit);
-		(credit, amount)
+		(imbalance::from_fungibles(credit), amount)
 	}
 }
 

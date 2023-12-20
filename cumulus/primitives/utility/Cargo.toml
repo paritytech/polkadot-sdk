@@ -3,9 +3,14 @@ name = "cumulus-primitives-utility"
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
+license = "Apache-2.0"
+description = "Helper datatypes for Cumulus"
+
+[lints]
+workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [ "derive" ] }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 log = { version = "0.4.20", default-features = false }
 
 # Substrate
@@ -19,8 +24,8 @@ pallet-asset-conversion = { path = "../../../substrate/frame/asset-conversion", 
 polkadot-runtime-common = { path = "../../../polkadot/runtime/common", default-features = false }
 polkadot-runtime-parachains = { path = "../../../polkadot/runtime/parachains", default-features = false }
 xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", default-features = false}
-xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false}
+xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false }
 pallet-xcm-benchmarks = { path = "../../../polkadot/xcm/pallet-xcm-benchmarks", default-features = false }
 
 # Cumulus
@@ -32,8 +37,8 @@ std = [
 	"codec/std",
 	"cumulus-primitives-core/std",
 	"frame-support/std",
-	"pallet-asset-conversion/std",
 	"log/std",
+	"pallet-asset-conversion/std",
 	"pallet-xcm-benchmarks/std",
 	"polkadot-runtime-common/std",
 	"polkadot-runtime-parachains/std",
@@ -46,6 +51,7 @@ std = [
 ]
 
 runtime-benchmarks = [
+	"cumulus-primitives-core/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"pallet-asset-conversion/runtime-benchmarks",
 	"pallet-xcm-benchmarks/runtime-benchmarks",

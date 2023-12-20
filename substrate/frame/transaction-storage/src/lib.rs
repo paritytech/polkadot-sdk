@@ -31,7 +31,14 @@ mod tests;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	dispatch::GetDispatchInfo,
-	traits::{Currency, OnUnbalanced, ReservableCurrency},
+	traits::{
+		fungible::{
+			hold::Balanced as FnBalanced, Inspect as FnInspect, Mutate as FnMutate,
+			MutateHold as FnMutateHold,
+		},
+		tokens::fungible::Credit,
+		OnUnbalanced,
+	},
 };
 use sp_runtime::traits::{BlakeTwo256, Dispatchable, Hash, One, Saturating, Zero};
 use sp_std::{prelude::*, result};
@@ -42,10 +49,8 @@ use sp_transaction_storage_proof::{
 
 /// A type alias for the balance type from this pallet's point of view.
 type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
->>::NegativeImbalance;
+	<<T as Config>::Currency as FnInspect<<T as frame_system::Config>::AccountId>>::Balance;
+pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
 
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;
@@ -89,6 +94,13 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
+	/// A reason for this pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// The funds are held as deposit for the used storage.
+		StorageFeeHold,
+	}
+
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
@@ -98,10 +110,14 @@ pub mod pallet {
 			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
 			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>;
-		/// The currency trait.
-		type Currency: ReservableCurrency<Self::AccountId>;
+		/// The fungible type for this pallet.
+		type Currency: FnMutate<Self::AccountId>
+			+ FnMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ FnBalanced<Self::AccountId>;
+		/// The overarching runtime hold reason.
+		type RuntimeHoldReason: From<HoldReason>;
 		/// Handler for the unbalanced decrease when fees are burned.
-		type FeeDestination: OnUnbalanced<NegativeImbalanceOf<Self>>;
+		type FeeDestination: OnUnbalanced<CreditOf<Self>>;
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 		/// Maximum number of indexed transactions in the block.
@@ -112,8 +128,6 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// Insufficient account balance.
-		InsufficientFunds,
 		/// Invalid configuration.
 		NotConfigured,
 		/// Renewed extrinsic is not found.
@@ -432,8 +446,10 @@ pub mod pallet {
 			let byte_fee = ByteFee::<T>::get().ok_or(Error::<T>::NotConfigured)?;
 			let entry_fee = EntryFee::<T>::get().ok_or(Error::<T>::NotConfigured)?;
 			let fee = byte_fee.saturating_mul(size.into()).saturating_add(entry_fee);
-			ensure!(T::Currency::can_slash(&sender, fee), Error::<T>::InsufficientFunds);
-			let (credit, _) = T::Currency::slash(&sender, fee);
+			T::Currency::hold(&HoldReason::StorageFeeHold.into(), &sender, fee)?;
+			let (credit, _remainder) =
+				T::Currency::slash(&HoldReason::StorageFeeHold.into(), &sender, fee);
+			debug_assert!(_remainder.is_zero());
 			T::FeeDestination::on_unbalanced(credit);
 			Ok(())
 		}

@@ -87,8 +87,8 @@ use polkadot_node_subsystem_types::messages::{
 
 pub use polkadot_node_subsystem_types::{
 	errors::{SubsystemError, SubsystemResult},
-	jaeger, ActivatedLeaf, ActiveLeavesUpdate, OverseerSignal, RuntimeApiSubsystemClient,
-	UnpinHandle,
+	jaeger, ActivatedLeaf, ActiveLeavesUpdate, ChainApiBackend, OverseerSignal,
+	RuntimeApiSubsystemClient, UnpinHandle,
 };
 
 pub mod metrics;
@@ -276,6 +276,7 @@ impl From<FinalityNotification<Block>> for BlockInfo {
 
 /// An event from outside the overseer scope, such
 /// as the substrate framework or user interaction.
+#[derive(Debug)]
 pub enum Event {
 	/// A new block was imported.
 	///
@@ -300,6 +301,7 @@ pub enum Event {
 }
 
 /// Some request from outer world.
+#[derive(Debug)]
 pub enum ExternalRequest {
 	/// Wait for the activation of a particular hash
 	/// and be notified by means of the return channel.
@@ -498,7 +500,6 @@ pub struct Overseer<SupportsParachains> {
 
 	#[subsystem(AvailabilityDistributionMessage, sends: [
 		AvailabilityStoreMessage,
-		AvailabilityRecoveryMessage,
 		ChainApiMessage,
 		RuntimeApiMessage,
 		NetworkBridgeTxMessage,

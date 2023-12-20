@@ -141,7 +141,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
+pub mod benchmarking;
 pub mod migration;
 #[cfg(test)]
 pub mod mock;
@@ -1648,8 +1648,12 @@ pub mod pallet {
 			T::AssetAccountDeposit::get()
 		}
 
-		fn should_touch(_: T::AssetId, _: &T::AccountId) -> bool {
-			true
+		fn should_touch(asset: T::AssetId, who: &T::AccountId) -> bool {
+			match Asset::<T, I>::get(&asset) {
+				Some(info) if info.is_sufficient => false,
+				Some(_) => !Account::<T, I>::contains_key(asset, who),
+				_ => true,
+			}
 		}
 
 		fn touch(

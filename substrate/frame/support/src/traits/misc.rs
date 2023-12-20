@@ -55,7 +55,7 @@ impl VariantCount for () {
 macro_rules! defensive {
 	() => {
 		frame_support::__private::log::error!(
-			target: "runtime",
+			target: "runtime::defensive",
 			"{}",
 			$crate::traits::DEFENSIVE_OP_PUBLIC_ERROR
 		);
@@ -63,7 +63,7 @@ macro_rules! defensive {
 	};
 	($error:expr $(,)?) => {
 		frame_support::__private::log::error!(
-			target: "runtime",
+			target: "runtime::defensive",
 			"{}: {:?}",
 			$crate::traits::DEFENSIVE_OP_PUBLIC_ERROR,
 			$error
@@ -72,7 +72,7 @@ macro_rules! defensive {
 	};
 	($error:expr, $proof:expr $(,)?) => {
 		frame_support::__private::log::error!(
-			target: "runtime",
+			target: "runtime::defensive",
 			"{}: {:?}: {:?}",
 			$crate::traits::DEFENSIVE_OP_PUBLIC_ERROR,
 			$error,
@@ -1174,10 +1174,10 @@ impl<Hash> PreimageRecipient<Hash> for () {
 /// specified by the client.
 ///
 /// Ensures that transfers to the touched account will succeed without being denied by the account
-/// existence requirements. For example, this is particularly useful for the account creation of
-/// non-sufficient assets when its system account may not have the free consumer reference required
-/// for it. If there is no risk of failing to meet those requirements, the touch operation can be a
-/// no-op, as is common for native assets.
+/// creation requirements. For example, it is useful for the account creation of non-sufficient
+/// assets when its system account may not have the free consumer reference required for it. If
+/// there is no risk of failing to meet those requirements, the touch operation can be a no-op, as
+/// is common for native assets.
 pub trait AccountTouch<AssetId, AccountId> {
 	/// The type for currency units of the deposit.
 	type Balance;
@@ -1185,7 +1185,7 @@ pub trait AccountTouch<AssetId, AccountId> {
 	/// The deposit amount of a native currency required for touching an account of the `asset`.
 	fn deposit_required(asset: AssetId) -> Self::Balance;
 
-	/// Checks if an account for a given asset should be touched.
+	/// Check if an account for a given asset should be touched to meet the existence requirements.
 	fn should_touch(asset: AssetId, who: &AccountId) -> bool;
 
 	/// Create an account for `who` of the `asset` with a deposit taken from the `depositor`.

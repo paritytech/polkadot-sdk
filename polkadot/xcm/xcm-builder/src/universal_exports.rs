@@ -305,7 +305,6 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorMulti
 				WithdrawAsset(fees.clone().into()),
 				BuyExecution { fees, weight_limit: Unlimited },
 				export_instruction,
-				RefundSurplus,
 				DepositAsset { assets: All.into(), beneficiary: local_from_bridge },
 			]
 		} else {
@@ -423,11 +422,25 @@ impl<
 	}
 }
 
-pub struct HaulBlobExporter<Bridge, BridgedNetwork, Price>(
-	PhantomData<(Bridge, BridgedNetwork, Price)>,
+pub struct HaulBlobExporter<Bridge, BridgedNetwork, DestinationVersion, Price>(
+	PhantomData<(Bridge, BridgedNetwork, DestinationVersion, Price)>,
 );
-impl<Bridge: HaulBlob, BridgedNetwork: Get<NetworkId>, Price: Get<MultiAssets>> ExportXcm
-	for HaulBlobExporter<Bridge, BridgedNetwork, Price>
+/// `ExportXcm` implementation for `HaulBlobExporter`.
+///
+/// # Type Parameters
+///
+/// ```text
+/// - Bridge: Implements `HaulBlob`.
+/// - BridgedNetwork: The relative location of the bridged consensus system with the expected `GlobalConsensus` junction.
+/// - DestinationVersion: Implements `GetVersion` for retrieving XCM version for the destination.
+/// - Price: potential fees for exporting.
+/// ```
+impl<
+		Bridge: HaulBlob,
+		BridgedNetwork: Get<MultiLocation>,
+		DestinationVersion: GetVersion,
+		Price: Get<MultiAssets>,
+	> ExportXcm for HaulBlobExporter<Bridge, BridgedNetwork, DestinationVersion, Price>
 {
 	type Ticket = (Vec<u8>, XcmHash);
 
@@ -438,17 +451,35 @@ impl<Bridge: HaulBlob, BridgedNetwork: Get<NetworkId>, Price: Get<MultiAssets>> 
 		destination: &mut Option<InteriorMultiLocation>,
 		message: &mut Option<Xcm<()>>,
 	) -> Result<((Vec<u8>, XcmHash), MultiAssets), SendError> {
-		let bridged_network = BridgedNetwork::get();
+		let (bridged_network, bridged_network_location_parents) = {
+			let MultiLocation { parents, interior: mut junctions } = BridgedNetwork::get();
+			match junctions.take_first() {
+				Some(GlobalConsensus(network)) => (network, parents),
+				_ => return Err(SendError::NotApplicable),
+			}
+		};
 		ensure!(&network == &bridged_network, SendError::NotApplicable);
 		// We don't/can't use the `channel` for this adapter.
 		let dest = destination.take().ok_or(SendError::MissingArgument)?;
-		let universal_dest = match dest.pushed_front_with(GlobalConsensus(bridged_network)) {
-			Ok(d) => d.into(),
-			Err((dest, _)) => {
-				*destination = Some(dest);
-				return Err(SendError::NotApplicable)
-			},
-		};
+
+		// Let's resolve the known/supported XCM version for the destination because we don't know
+		// if it supports the same/latest version.
+		let (universal_dest, version) =
+			match dest.pushed_front_with(GlobalConsensus(bridged_network)) {
+				Ok(d) => {
+					let version = DestinationVersion::get_version_for(&MultiLocation::from(
+						AncestorThen(bridged_network_location_parents, d),
+					))
+					.ok_or(SendError::DestinationUnsupported)?;
+					(d, version)
+				},
+				Err((dest, _)) => {
+					*destination = Some(dest);
+					return Err(SendError::NotApplicable)
+				},
+			};
+
+		// Let's adjust XCM with `UniversalOrigin`, `DescendOrigin` and`SetTopic`.
 		let (local_net, local_sub) = universal_source
 			.take()
 			.ok_or(SendError::MissingArgument)?
@@ -463,7 +494,17 @@ impl<Bridge: HaulBlob, BridgedNetwork: Get<NetworkId>, Price: Get<MultiAssets>> 
 		if local_sub != Here {
 			message.0.insert(1, DescendOrigin(local_sub));
 		}
-		let message = VersionedXcm::from(message);
+
+		// We cannot use the latest `Versioned` because we don't know if the target chain already
+		// supports the same version. Therefore, we better control the destination version with best
+		// efforts.
+		let message = VersionedXcm::from(message)
+			.into_version(version)
+			.map_err(|()| SendError::DestinationUnsupported)?;
+		let universal_dest = VersionedInteriorMultiLocation::from(universal_dest)
+			.into_version(version)
+			.map_err(|()| SendError::DestinationUnsupported)?;
+
 		let id = maybe_id.unwrap_or_else(|| message.using_encoded(sp_io::hashing::blake2_256));
 		let blob = BridgeMessage { universal_dest, message }.encode();
 		Ok(((blob, id), Price::get()))

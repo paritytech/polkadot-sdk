@@ -71,7 +71,7 @@ pub fn pre_migrate_fn<T: Config>(to_migrate: Vec<T::AccountId>) -> Box<dyn Fn() 
 }
 
 /// Some checks for after migration. This can be linked to
-/// [`frame_support::traits::OnRuntimeUpgrade::post_upgrade`] for further testing.
+/// `frame_support::traits::OnRuntimeUpgrade::post_upgrade` for further testing.
 ///
 /// Panics if anything goes wrong.
 pub fn post_migrate<T: crate::Config>() {

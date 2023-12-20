@@ -107,7 +107,7 @@ struct AssetTraderRefunder {
 /// Important: Errors if the Trader is being called twice by 2 BuyExecution instructions
 /// Alternatively we could just return payment in the aforementioned case
 pub struct TakeFirstAssetTrader<
-	AccountId,
+	AccountId: Eq,
 	FeeCharger: ChargeWeightInFungibles<AccountId, ConcreteAssets>,
 	Matcher: MatchesFungibles<ConcreteAssets::AssetId, ConcreteAssets::Balance>,
 	ConcreteAssets: fungibles::Mutate<AccountId> + fungibles::Balanced<AccountId>,
@@ -117,7 +117,7 @@ pub struct TakeFirstAssetTrader<
 	PhantomData<(AccountId, FeeCharger, Matcher, ConcreteAssets, HandleRefund)>,
 );
 impl<
-		AccountId,
+		AccountId: Eq,
 		FeeCharger: ChargeWeightInFungibles<AccountId, ConcreteAssets>,
 		Matcher: MatchesFungibles<ConcreteAssets::AssetId, ConcreteAssets::Balance>,
 		ConcreteAssets: fungibles::Mutate<AccountId> + fungibles::Balanced<AccountId>,
@@ -246,7 +246,7 @@ impl<
 }
 
 impl<
-		AccountId,
+		AccountId: Eq,
 		FeeCharger: ChargeWeightInFungibles<AccountId, ConcreteAssets>,
 		Matcher: MatchesFungibles<ConcreteAssets::AssetId, ConcreteAssets::Balance>,
 		ConcreteAssets: fungibles::Mutate<AccountId> + fungibles::Balanced<AccountId>,

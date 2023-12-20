@@ -305,7 +305,7 @@ pub mod pallet {
 			/// The amount placed by the account.
 			amount: BalanceOf<T, I>,
 		},
-		/// A deposit has been slashaed.
+		/// A deposit has been slashed.
 		DepositSlashed {
 			/// The account who placed the deposit.
 			who: T::AccountId,
