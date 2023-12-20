@@ -11,7 +11,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-async-trait = "0.1.57"
+async-trait = "0.1.74"
 futures = "0.3.21"
 parking_lot = "0.12.0"
 polkadot-node-subsystem = { path = "../subsystem" }
