@@ -10,6 +10,7 @@
     - echo "${ZOMBIENET_IMAGE}"
     - echo "${GH_DIR}"
     - echo "${LOCAL_DIR}"
+    - ls "${LOCAL_DIR}"
     - export DEBUG=zombie,zombie::network-node
     - export ZOMBIENET_INTEGRATION_TEST_IMAGE="${BRIDGES_ZOMBIENET_TESTS_IMAGE}":${BRIDGES_ZOMBIENET_TESTS_IMAGE_TAG}
     - echo "${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
