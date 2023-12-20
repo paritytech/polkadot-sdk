@@ -486,7 +486,7 @@ where
 		// There is nothing sync can get from the node that has no blockchain data.
 		match self.block_status(&best_hash) {
 			Err(e) => {
-				debug!(target:LOG_TARGET, "Error reading blockchain: {e}");
+				debug!(target: LOG_TARGET, "Error reading blockchain: {e}");
 				Err(BadPeer(peer_id, rep::BLOCKCHAIN_READ_ERROR))
 			},
 			Ok(BlockStatus::KnownBad) => {
@@ -509,7 +509,7 @@ where
 				// an ancestor search, which is what we do in the next match case below.
 				if self.queue_blocks.len() > MAJOR_SYNC_BLOCKS.into() {
 					debug!(
-						target:LOG_TARGET,
+						target: LOG_TARGET,
 						"New peer {} with unknown best hash {} ({}), assuming common block.",
 						peer_id,
 						self.best_queued_hash,
@@ -531,7 +531,7 @@ where
 				// If we are at genesis, just start downloading.
 				let (state, req) = if self.best_queued_number.is_zero() {
 					debug!(
-						target:LOG_TARGET,
+						target: LOG_TARGET,
 						"New peer {peer_id} with best hash {best_hash} ({best_number}).",
 					);
 
@@ -540,7 +540,7 @@ where
 					let common_best = std::cmp::min(self.best_queued_number, best_number);
 
 					debug!(
-						target:LOG_TARGET,
+						target: LOG_TARGET,
 						"New peer {} with unknown best hash {} ({}), searching for common ancestor.",
 						peer_id,
 						best_hash,
@@ -832,7 +832,7 @@ where
 						}
 						if matching_hash.is_none() && current.is_zero() {
 							trace!(
-								target:LOG_TARGET,
+								target: LOG_TARGET,
 								"Ancestry search: genesis mismatch for peer {peer_id}",
 							);
 							return Err(BadPeer(*peer_id, rep::GENESIS_MISMATCH))
@@ -1237,7 +1237,7 @@ where
 			.and_then(|b| b.header.as_ref().map(|h| (&b.hash, *h.number())))
 		{
 			trace!(
-				target:LOG_TARGET,
+				target: LOG_TARGET,
 				"Accepted {} blocks ({:?}) with origin {:?}",
 				new_blocks.len(),
 				h,
@@ -2221,7 +2221,7 @@ pub fn validate_blocks<Block: BlockT>(
 			let hash = header.hash();
 			if hash != b.hash {
 				debug!(
-					target:LOG_TARGET,
+					target: LOG_TARGET,
 					"Bad header received from {}. Expected hash {:?}, got {:?}",
 					peer_id,
 					b.hash,
@@ -2238,7 +2238,7 @@ pub fn validate_blocks<Block: BlockT>(
 			);
 			if expected != got {
 				debug!(
-					target:LOG_TARGET,
+					target: LOG_TARGET,
 					"Bad extrinsic root for a block {} received from {}. Expected {:?}, got {:?}",
 					b.hash,
 					peer_id,
