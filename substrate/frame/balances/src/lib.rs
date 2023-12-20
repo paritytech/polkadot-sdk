@@ -776,10 +776,10 @@ pub mod pallet {
 			}
 
 			// Ensure the account holds at least ED of free balance.
-			if a.free < ed && a.reserved >= ed {
-				let shortfall = ed - a.free;
+			let free = a.free;
+			if free < ed && a.reserved  >= ed - free {
 				a.free = ed;
-				a.reserved = a.reserved - shortfall;
+				a.reserved -= ed - free;
 			}
 
 			let _ = T::AccountStore::try_mutate_exists(who, |account| -> DispatchResult {
