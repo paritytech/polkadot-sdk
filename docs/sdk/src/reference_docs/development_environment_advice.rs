@@ -19,7 +19,7 @@
 //!     # Check feature-gated code
 //!     features = "all",
 //!     extraEnv = {
-//!       # Use a seperate target dir for Rust Analyzer. Helpful if you want to use Rust
+//!       # Use a separate target dir for Rust Analyzer. Helpful if you want to use Rust
 //!       # Analyzer and cargo on the command line at the same time.
 //!       ["CARGO_TARGET_DIR"] = "target/nvim-rust-analyzer",
 //!       # Skip building WASM, there is never need for it here
