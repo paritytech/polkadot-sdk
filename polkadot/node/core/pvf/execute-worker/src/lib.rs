@@ -23,13 +23,17 @@ pub use polkadot_node_core_pvf_common::{executor_interface::execute_artifact, wo
 const LOG_TARGET: &str = "parachain::pvf-execute-worker";
 
 use cpu_time::ProcessTime;
+#[cfg(target_os = "linux")]
+use nix::sched::CloneFlags;
+#[cfg(not(target_os = "linux"))]
+use nix::unistd::ForkResult;
 use nix::{
 	errno::Errno,
 	sys::{
 		resource::{Usage, UsageWho},
 		wait::WaitStatus,
 	},
-	unistd::{ForkResult, Pid},
+	unistd::Pid,
 };
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
@@ -185,8 +189,7 @@ pub fn worker_entrypoint(
 
 				cfg_if::cfg_if! {
 					if #[cfg(target_os = "linux")] {
-						let stack_size = 2 * 1024 * 1024; // 2MiB
-						let mut stack: Vec<u8> = vec![0u8; stack_size];
+						let mut stack: Vec<u8> = vec![0u8; EXECUTE_THREAD_STACK_SIZE];
 						// SIGCHLD flag is used to inform clone that the parent process is
 						// expecting a child termination signal, without this flag `waitpid` function
 						// return `ECHILD` error.
@@ -219,7 +222,7 @@ pub fn worker_entrypoint(
 								None
 							)
 						} {
-							Err(errno) => Err(error_from_errno("clone", errno)),
+							Err(errno) => internal_error_from_errno("clone", errno),
 							Ok(child) => {
 								handle_parent_process(
 									pipe_reader,
@@ -228,7 +231,7 @@ pub fn worker_entrypoint(
 									worker_pid,
 									usage_before,
 									execution_timeout,
-								)
+								)?
 							},
 						};
 
@@ -442,7 +445,7 @@ fn handle_parent_process(
 		return Ok(internal_error_from_errno("closing pipe write fd", errno));
 	};
 
-	// SAFETY: pipe_writer is an open and owned file descriptor at this point.
+	// SAFETY: pipe_read is an open and owned file descriptor at this point.
 	let mut pipe_read = unsafe { PipeFd::new(pipe_read_fd) };
 
 	// Read from the child. Don't decode unless the process exited normally, which we check later.

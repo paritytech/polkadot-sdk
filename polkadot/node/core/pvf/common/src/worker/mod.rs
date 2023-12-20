@@ -219,7 +219,7 @@ impl PipeFd {
 	///
 	/// The fd passed in must be an owned file descriptor; in particular, it must be open.
 	pub unsafe fn new(fd: i32) -> Self {
-		let file = unsafe { File::from_raw_fd(fd) };
+		let file = File::from_raw_fd(fd);
 		PipeFd { file }
 	}
 
