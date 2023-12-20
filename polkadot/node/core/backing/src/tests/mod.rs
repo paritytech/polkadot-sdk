@@ -2213,25 +2213,27 @@ fn validator_ignores_statements_from_disabled_validators() {
 
 		// The next step is the actual request to Validation subsystem
 		// to validate the `Seconded` candidate.
+		let expected_pov = pov;
+		let expected_validation_code = validation_code;
 		assert_matches!(
 			virtual_overseer.recv().await,
 			AllMessages::CandidateValidation(
-				CandidateValidationMessage::ValidateFromExhaustive(
-					_pvd,
-					_validation_code,
+				CandidateValidationMessage::ValidateFromExhaustive {
+					validation_data,
+					validation_code,
 					candidate_receipt,
-					_pov,
-					_,
-					timeout,
-					tx,
-				),
-			) if _pvd == pvd &&
-				_validation_code == validation_code &&
-				*_pov == pov && &candidate_receipt.descriptor == candidate.descriptor() &&
-				timeout == PvfExecTimeoutKind::Backing &&
+					pov,
+					executor_params: _,
+					exec_kind,
+					response_sender,
+				}
+			) if validation_data == pvd &&
+				validation_code == expected_validation_code &&
+				*pov == expected_pov && &candidate_receipt.descriptor == candidate.descriptor() &&
+				exec_kind == PvfExecKind::Backing &&
 				candidate_commitments_hash == candidate_receipt.commitments_hash =>
 			{
-				tx.send(Ok(
+				response_sender.send(Ok(
 					ValidationResult::Valid(CandidateCommitments {
 						head_data: expected_head_data.clone(),
 						upward_messages: Default::default(),
