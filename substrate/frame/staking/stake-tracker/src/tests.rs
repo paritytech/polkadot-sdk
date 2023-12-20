@@ -21,7 +21,7 @@ use crate::{mock::*, StakeImbalance};
 
 use frame_election_provider_support::{ScoreProvider, SortedListProvider};
 use frame_support::assert_ok;
-use sp_staking::{OnStakingUpdate, Stake, StakingInterface};
+use sp_staking::{OnStakingUpdate, Stake, StakerStatus, StakingInterface};
 
 // keeping tests clean.
 type A = AccountId;
@@ -47,25 +47,23 @@ fn setup_works() {
 }
 
 #[test]
-fn update_score_works() {
+fn update_target_score_works() {
 	ExtBuilder::default().populate_lists().build_and_execute(|| {
-		assert!(VoterBagsList::contains(&1));
-		assert_eq!(VoterBagsList::get_score(&1), Ok(100));
+		assert!(TargetBagsList::contains(&10));
+		assert_eq!(TargetBagsList::get_score(&10), Ok(300));
 
-		crate::Pallet::<Test>::update_score::<VoterBagsList>(&1, StakeImbalance::Negative(10));
-		assert_eq!(VoterBagsList::get_score(&1), Ok(90));
+		crate::Pallet::<Test>::update_target_score(&10, StakeImbalance::Negative(100));
+		assert_eq!(TargetBagsList::get_score(&10), Ok(200));
 
-		crate::Pallet::<Test>::update_score::<VoterBagsList>(&1, StakeImbalance::Positive(100));
-		assert_eq!(VoterBagsList::get_score(&1), Ok(190));
+		crate::Pallet::<Test>::update_target_score(&10, StakeImbalance::Positive(100));
+		assert_eq!(TargetBagsList::get_score(&10), Ok(300));
 
-		// when score decreases to 0, the node is not removed automatically and its balance is 0.
-		let current_score = VoterBagsList::get_score(&1).unwrap();
-		crate::Pallet::<Test>::update_score::<VoterBagsList>(
-			&1,
+		let current_score = TargetBagsList::get_score(&10).unwrap();
+		crate::Pallet::<Test>::update_target_score(
+			&10,
 			StakeImbalance::Negative(current_score.into()),
 		);
-		assert!(VoterBagsList::contains(&1));
-		assert_eq!(VoterBagsList::get_score(&1), Ok(0));
+		assert_eq!(TargetBagsList::get_score(&10), Ok(0));
 
 		// disables the try runtime checks since the score of 10 was updated manually, so the target
 		// list was not updated accordingly.
@@ -246,7 +244,7 @@ fn on_stake_update_defensive_not_in_list_works() {
 }
 
 #[test]
-#[should_panic = "Defensive failure has been triggered!: Other(\"mock: not a staker or inconsistent data\"): \"staker should exist when calling on_stake_update and have a valid status\""]
+#[should_panic = "Defensive failure has been triggered!: Other(\"not a staker\"): \"staker should exist when calling on_stake_update and have a valid status\""]
 fn on_stake_update_defensive_not_staker_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		assert!(!VoterBagsList::contains(&1));
@@ -262,12 +260,7 @@ fn on_nominator_add_works() {
 		assert!(!VoterBagsList::contains(&5));
 		assert_eq!(n.get(&5), None);
 
-		// add 5 as staker.
-		TestNominators::mutate(|n| {
-			n.insert(5, Default::default());
-		});
-
-		<StakeTracker as OnStakingUpdate<A, B>>::on_nominator_add(&5);
+		add_nominator(5, 10);
 		assert!(VoterBagsList::contains(&5));
 	})
 }
@@ -371,7 +364,7 @@ fn on_nominator_remove_defensive_works() {
 }
 
 #[test]
-#[should_panic = "Defensive failure has been triggered!: NodeNotFound: \"the validator exists in the list as per the contract with staking; qed.\""]
+#[should_panic = "Defensive failure has been triggered!: \"on_validator_remove called on a non-existing target.\""]
 fn on_validator_remove_defensive_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		assert!(!TargetBagsList::contains(&1));
@@ -391,10 +384,30 @@ mod staking_integration {
 			add_nominator(1, 100);
 			let n = TestNominators::get();
 			assert_eq!(n.get(&1).unwrap().0, Stake { active: 100u64, total: 100u64 });
+			assert_eq!(StakingMock::status(&1), Ok(StakerStatus::Nominator(vec![])));
 
 			add_validator(2, 200);
 			let v = TestValidators::get();
 			assert_eq!(v.get(&2).copied().unwrap(), Stake { active: 200u64, total: 200u64 });
+			assert_eq!(StakingMock::status(&2), Ok(StakerStatus::Validator));
+
+			chill_staker(1);
+			assert_eq!(StakingMock::status(&1), Ok(StakerStatus::Idle));
+			assert!(VoterBagsList::contains(&1));
+
+			remove_staker(1);
+			assert!(StakingMock::status(&1).is_err());
+			assert!(!VoterBagsList::contains(&1));
+
+			chill_staker(2);
+			assert_eq!(StakingMock::status(&2), Ok(StakerStatus::Idle));
+			assert!(TargetBagsList::contains(&2));
+			assert!(VoterBagsList::contains(&2));
+
+			remove_staker(2);
+			assert!(StakingMock::status(&2).is_err());
+			assert!(!TargetBagsList::contains(&2));
+			assert!(!VoterBagsList::contains(&2));
 		})
 	}
 
@@ -480,6 +493,74 @@ mod staking_integration {
 
 			// target list has been updated:
 			assert_eq!(get_scores::<TargetBagsList>(), vec![(20, 600), (11, 200), (10, 200)]);
+		})
+	}
+
+	#[test]
+	fn target_chill_remove_lifecycle_works() {
+		ExtBuilder::default().populate_lists().build_and_execute(|| {
+			assert!(TargetBagsList::contains(&10));
+			// 10 has 2 nominations from 1 and 2. Each with 100 approvals, so 300 in total (2x
+			// nominated
+			// + 1x self-stake).
+			assert_eq!(<TargetBagsList as ScoreProvider<A>>::score(&10), 300);
+
+			// chill validator 10.
+			chill_staker(10);
+			assert_eq!(StakingMock::status(&10), Ok(StakerStatus::Idle));
+
+			// chilling removed the self stake (100) from score, but the nominations approvals
+			// remain.
+			assert!(TargetBagsList::contains(&10));
+			assert_eq!(<TargetBagsList as ScoreProvider<A>>::score(&10), 200);
+
+			// even if the validator is removed, the target node remains in the list since approvals
+			// score != 0.
+			remove_staker(10);
+			assert!(TargetBagsList::contains(&10));
+			assert_eq!(<TargetBagsList as ScoreProvider<A>>::score(&10), 200);
+			assert!(StakingMock::status(&10).is_err());
+
+			// 1 stops nominating 10.
+			update_nominations_of(1, vec![]);
+			assert!(TargetBagsList::contains(&10));
+			assert_eq!(<TargetBagsList as ScoreProvider<A>>::score(&10), 100);
+
+			// 2 stops nominating 10 and its approavals dropped to 0, thus the target node has been
+			// removed.
+			update_nominations_of(2, vec![]);
+			assert!(!TargetBagsList::contains(&10));
+			assert_eq!(<TargetBagsList as ScoreProvider<A>>::score(&10), 0);
+		})
+	}
+
+	#[test]
+	fn target_remove_lifecycle_works() {
+		ExtBuilder::default().populate_lists().build_and_execute(|| {
+			assert!(TargetBagsList::contains(&10));
+			// 10 has 2 nominations from 1 and 2. Each with 100 approvals, so 300 in total (2x
+			// nominated
+			// + 1x self-stake).
+			assert_eq!(<TargetBagsList as ScoreProvider<A>>::score(&10), 300);
+
+			// remove validator 10.
+			remove_staker(10);
+
+			// but the target list keeps track of the remaining approvals of 10, without the self
+			// stake.
+			assert!(TargetBagsList::contains(&10));
+			assert_eq!(<TargetBagsList as ScoreProvider<A>>::score(&10), 200);
+
+			// 1 stops nominating 10.
+			update_nominations_of(1, vec![]);
+			assert!(TargetBagsList::contains(&10));
+			assert_eq!(<TargetBagsList as ScoreProvider<A>>::score(&10), 100);
+
+			// 2 stops nominating 10. Since approvals of 10 drop to 0, the target list node is
+			// removed.
+			update_nominations_of(2, vec![]);
+			assert!(!TargetBagsList::contains(&10));
+			assert_eq!(<TargetBagsList as ScoreProvider<A>>::score(&10), 0);
 		})
 	}
 }

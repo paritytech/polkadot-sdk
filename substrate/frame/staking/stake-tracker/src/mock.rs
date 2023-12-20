@@ -140,11 +140,17 @@ impl StakingInterface for StakingMock {
 	) -> Result<sp_staking::StakerStatus<Self::AccountId>, sp_runtime::DispatchError> {
 		let nominators = TestNominators::get();
 
-		match (TestValidators::get().contains_key(who), nominators.contains_key(who)) {
-			(true, true) => Ok(StakerStatus::Validator),
-			(false, true) =>
+		match (
+			TestValidators::get().contains_key(who),
+			nominators.contains_key(who),
+			Bonded::get().contains(who),
+		) {
+			(true, true, true) => Ok(StakerStatus::Validator),
+			(false, true, true) =>
 				Ok(StakerStatus::Nominator(nominators.get(&who).expect("exists").1.clone())),
-			_ => Err("mock: not a staker or inconsistent data".into()),
+			(false, false, true) => Ok(StakerStatus::Idle),
+			(false, false, false) => Err("not a staker".into()),
+			_ => Err("mock: inconsistent data".into()),
 		}
 	}
 
@@ -249,6 +255,7 @@ type Nominations = Vec<AccountId>;
 parameter_types! {
 	pub static TestNominators: BTreeMap<AccountId, (Stake<Balance>, Nominations)> = Default::default();
 	pub static TestValidators: BTreeMap<AccountId, Stake<Balance>> = Default::default();
+	pub static Bonded: Vec<AccountId> = Default::default();
 }
 
 pub(crate) fn get_scores<L: SortedListProvider<AccountId, Score = VoteWeight>>(
@@ -266,6 +273,10 @@ pub(crate) fn populate_lists() {
 }
 
 pub(crate) fn add_nominator(who: AccountId, stake: Balance) {
+	Bonded::mutate(|b| {
+		b.push(who);
+	});
+
 	TestNominators::mutate(|n| {
 		n.insert(who, (Stake::<Balance> { active: stake, total: stake }, vec![]));
 	});
@@ -316,6 +327,10 @@ pub(crate) fn update_nominations_of(who: AccountId, new_nominations: Nominations
 }
 
 pub(crate) fn add_validator(who: AccountId, stake: Balance) {
+	Bonded::mutate(|b| {
+		b.push(who);
+	});
+
 	TestValidators::mutate(|v| {
 		v.insert(who, Stake::<Balance> { active: stake, total: stake });
 	});
@@ -349,21 +364,44 @@ pub(crate) fn update_stake(who: AccountId, new: Balance, prev_stake: Option<Stak
 	<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_stake_update(&who, prev_stake);
 }
 
-pub(crate) fn remove_staker(who: AccountId) {
+pub(crate) fn chill_staker(who: AccountId) {
 	if TestNominators::get().contains_key(&who) && !TestValidators::get().contains_key(&who) {
 		let nominations = <StakingMock as StakingInterface>::nominations(&who).unwrap();
 
-		<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_nominator_remove(
-			&who,
-			nominations,
-		);
-		TestNominators::mutate(|n| {
-			n.remove(&who);
-		});
+		<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_nominator_idle(&who, nominations);
+		TestNominators::mutate(|n| n.remove(&who));
 	} else if TestValidators::get().contains_key(&who) {
-		<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_validator_remove(&who);
+		<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_validator_idle(&who);
 		TestValidators::mutate(|v| v.remove(&who));
+		TestNominators::mutate(|v| v.remove(&who));
 	};
+}
+
+pub(crate) fn remove_staker(who: AccountId) {
+	match StakingMock::status(&who) {
+		Ok(StakerStatus::Nominator(_)) => {
+			let nominations = <StakingMock as StakingInterface>::nominations(&who).unwrap();
+			<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_nominator_remove(
+				&who,
+				nominations,
+			);
+			TestNominators::mutate(|n| {
+				n.remove(&who);
+			});
+		},
+		Ok(StakerStatus::Validator) => {
+			<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_validator_remove(&who);
+			TestValidators::mutate(|v| v.remove(&who));
+		},
+		Ok(StakerStatus::Idle) => {
+			<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_validator_remove(&who);
+		},
+		_ => {},
+	}
+
+	Bonded::mutate(|b| {
+		b.retain(|s| s != &who);
+	});
 }
 
 pub(crate) fn target_bags_events() -> Vec<pallet_bags_list::Event<Test, TargetBagsListInstance>> {

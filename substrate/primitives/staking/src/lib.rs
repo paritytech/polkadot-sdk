@@ -176,6 +176,7 @@ pub trait StakingInterface {
 		+ MaxEncodedLen
 		+ FullCodec
 		+ TypeInfo
+		+ Zero
 		+ Saturating;
 
 	/// AccountId type used by the staking system.

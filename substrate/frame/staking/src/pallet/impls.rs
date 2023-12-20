@@ -957,9 +957,11 @@ impl<T: Config> Pallet<T> {
 		let mut all_targets = Vec::<T::AccountId>::with_capacity(final_predicted_len as usize);
 		let mut targets_seen = 0;
 
-		// target list also contains chilled/idle validators, filter those.
-		let mut targets_iter =
-			T::TargetList::iter().filter(|t| Self::status(&t) != Ok(StakerStatus::Idle));
+		// target list also contains chilled/idle validators and unbonded ledgers. filter those.
+		let mut targets_iter = T::TargetList::iter()
+			.filter(|t| Self::status(&t) != Ok(StakerStatus::Idle))
+			.filter(|t| !Self::status(&t).is_err());
+
 		while all_targets.len() < final_predicted_len as usize &&
 			targets_seen < (NPOS_MAX_ITERATIONS_COEFFICIENT * final_predicted_len as u32)
 		{
@@ -1111,6 +1113,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn do_chill_validator(who: &T::AccountId) -> bool {
 		if Validators::<T>::contains_key(who) {
 			Validators::<T>::remove(who);
+			T::EventListeners::on_validator_idle(who);
 			true
 		} else {
 			false
@@ -1933,6 +1936,7 @@ impl<T: Config> Pallet<T> {
 		ensure!(
 			<T as Config>::TargetList::iter()
 				.filter(|t| Self::status(&t) != Ok(StakerStatus::Idle))
+				.filter(|t| !Self::status(&t).is_err())
 				.count() as u32 == Validators::<T>::count(),
 			"wrong external count (TargetList.count != Validators.count)"
 		);

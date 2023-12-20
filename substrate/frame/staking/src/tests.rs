@@ -1933,7 +1933,10 @@ fn wrong_vote_errors() {
 			assert!(Staking::eras_stakers(active_era(), &21).others.iter().any(|i| i.who == 61));
 
 			// trying to nominate a non-validator will fail.
-			assert_noop!(Staking::nominate(RuntimeOrigin::signed(61), vec![11, 21, 1000]), Error::<Test>::BadTarget);
+			assert_noop!(
+				Staking::nominate(RuntimeOrigin::signed(61), vec![11, 21, 1000]),
+				Error::<Test>::BadTarget
+			);
 
 			// however, nominating an `Idle` validator is OK.
 			assert_eq!(Staking::status(&41), Ok(StakerStatus::Idle));
@@ -5061,11 +5064,12 @@ mod sorted_list_provider_integration {
 
 			// initial targets.
 			assert_eq!(TargetBagsList::iter().count(), 3);
-			assert_eq!(TargetBagsList::contains(&42), false);
+			assert!(!TargetBagsList::contains(&42));
 
 			// bond and set intention to validate. stash 42 is both target and voter.
 			assert_ok!(Staking::bond(RuntimeOrigin::signed(42), 25, Default::default()));
 			assert_ok!(Staking::validate(RuntimeOrigin::signed(42), Default::default()));
+			assert_eq!(Staking::status(&42), Ok(StakerStatus::Validator));
 
 			assert_eq!(TargetBagsList::score(&42), 25);
 			assert_eq!(VoterBagsList::score(&42), 25);
@@ -5083,15 +5087,16 @@ mod sorted_list_provider_integration {
 			// stash 42 chills, thus it should be part of the voter and target bags list but with
 			// `Idle` status.
 			assert_ok!(Staking::chill(RuntimeOrigin::signed(42)));
-			assert_eq!(VoterBagsList::contains(&42), true);
-			assert_eq!(TargetBagsList::contains(&42), true);
+			assert!(VoterBagsList::contains(&42));
+			assert!(TargetBagsList::contains(&42));
 			assert_eq!(Staking::status(&42), Ok(StakerStatus::Idle));
+			// the target score of 42 is 0, since it is chilled and it has no nominations.
+			assert_eq!(TargetBagsList::score(&42), 0);
 
-			// finally, remove the validator (similar to withdraw all and subsequent ledger kill).
+			// after killing the stash, the node is removed from the target list.
 			assert_ok!(Staking::kill_stash(&42, 0));
-			assert_eq!(VoterBagsList::contains(&42), false);
-			assert_eq!(TargetBagsList::contains(&42), false);
-			assert!(Staking::status(&42).is_err());
+			assert!(!TargetBagsList::contains(&42));
+			assert_eq!(<TargetBagsList as ScoreProvider<AccountId>>::score(&42), 0);
 		})
 	}
 }
@@ -5443,8 +5448,7 @@ mod election_data_provider {
 
 				// even through 61 has nomination quota of 2 at the time of the election, all the
 				// active nominations (4) will be used.
-				let expected_nominations = Staking::nominations(&61)
-					.unwrap_or(vec![]).len();
+				let expected_nominations = Staking::nominations(&61).unwrap_or(vec![]).len();
 
 				assert_eq!(
 					Staking::electing_voters(DataProviderBounds::default())
@@ -5462,12 +5466,7 @@ mod election_data_provider {
 		ExtBuilder::default()
 			.nominate(false)
 			.has_stakers(true)
-			.add_staker(
-				71,
-				70,
-				333,
-				StakerStatus::<AccountId>::Nominator(vec![11, 21, 31, 41]),
-			)
+			.add_staker(71, 70, 333, StakerStatus::<AccountId>::Nominator(vec![11, 21, 31, 41]))
 			.build_and_execute(|| {
 				// nominations of controller 70 won't be added due to voter size limit exceeded.
 				let bounds = ElectionBoundsBuilder::default().voters_size(100.into()).build();
@@ -7344,7 +7343,7 @@ mod stake_tracker {
 					BagsEvent::Rebagged { who: 11, from: 10000, to: 1000 },
 					BagsEvent::ScoreUpdated { who: 11, new_score: 1000 },
 					BagsEvent::Rebagged { who: 21, from: 10000, to: 1000 },
-					BagsEvent::ScoreUpdated { who: 21, new_score: 1000 }
+					BagsEvent::ScoreUpdated { who: 21, new_score: 1000 },
 				]
 			);
 			System::reset_events();
@@ -7352,28 +7351,31 @@ mod stake_tracker {
 			// let's chill a validator now.
 			assert_ok!(Staking::chill(RuntimeOrigin::signed(11)));
 
-			// the chilled validator score remains the same, 11 is still part of the targets list
-			// but its staker status is Idle and it was removed from the nominator sand validators
-			// list.
+			// the chilled validator score drops to 0, since it had only self-stake before chill.
+			assert_eq!(<TargetBagsList as ScoreProvider<A>>::score(&11), 0);
+
+			// 11 is still part of the targets list although the score is 0, since its status is
+			// Idle. However, it has been removed from the nominator sand validators lists.
 			assert_eq!(Staking::status(&11), Ok(StakerStatus::Idle));
-			assert_eq!(<TargetBagsList as ScoreProvider<A>>::score(&11), 1000);
-			assert_eq!(voters_and_targets().1, [(11, 1000), (21, 1000), (31, 500)]);
+			assert_eq!(voters_and_targets().1, [(21, 1000), (31, 500), (11, 0)]);
 			assert!(!Nominators::<Test>::contains_key(&11));
 			assert!(!Validators::<Test>::contains_key(&11));
 
 			// now, let's have 101 re-nominate 21. Note that 101 also nominates 11: even
 			// though 11 is chilled at the moment.
 			assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![21, 11]));
-			assert_eq!(voters_and_targets().1, [(21, 2100), (11, 2100), (31, 500)]);
+			assert_eq!(voters_and_targets().1, [(21, 2100), (11, 1100), (31, 500)]);
 
 			// score update and rebag hapened to 21 and 11 (idle) due to nomination of 101.
 			assert_eq!(
 				target_bags_events(),
 				[
+					BagsEvent::Rebagged { who: 11, from: 1000, to: 100 },
+					BagsEvent::ScoreUpdated { who: 11, new_score: 0 },
 					BagsEvent::Rebagged { who: 21, from: 1000, to: 10000 },
 					BagsEvent::ScoreUpdated { who: 21, new_score: 2100 },
-					BagsEvent::Rebagged { who: 11, from: 1000, to: 10000 },
-					BagsEvent::ScoreUpdated { who: 11, new_score: 2100 },
+					BagsEvent::Rebagged { who: 11, from: 100, to: 2000 },
+					BagsEvent::ScoreUpdated { who: 11, new_score: 1100 },
 				]
 			);
 
@@ -7491,7 +7493,7 @@ mod stake_tracker {
 		// Test case: slashing a validator affects the target list score of the validator according
 		// to its slashed self-stake and the slashed stake of its nominators. A slash may cause
 		// target list rebagging of indirect slashing (targets which were not slashed by their
-		// nominators were exposed to a slash from validator).
+		// nominators but were exposed to a slash from another validator).
 		// Call paths covered:
 		// * Call::validate()
 		// * Call::nominate()
@@ -7507,7 +7509,7 @@ mod stake_tracker {
 			assert_eq!(voters_and_targets().1, [(21, 2050), (11, 2050), (31, 500)]);
 			assert_ok!(stake_tracker_sanity_tests());
 
-			// get the bonded stake of the nominators that wilbe affected by the slash.
+			// get the bonded stake of the nominators that will be affected by the slash.
 			let stake_101_before = Staking::ledger(Stash(101)).unwrap().active;
 			let stake_41_before = Staking::ledger(Stash(41)).unwrap().active;
 
@@ -7538,12 +7540,16 @@ mod stake_tracker {
 			);
 
 			// 11 has been chilled but it is still part of the targets list and it is in `Idle`
-			// state.
+			// state. It's current approvals reflects the fact that it is chilled (no self-stake)
+			// and the slash.
 			assert!(<TargetBagsList as SortedListProvider<A>>::contains(&11));
 			assert_eq!(Staking::status(&11), Ok(StakerStatus::Idle));
-			// and its balance has been updated based on the slash applied.
+			// and its balance has been updated based on the slash applied + chilling.
 			let score_11_after = <TargetBagsList as ScoreProvider<A>>::score(&11);
-			assert_eq!(score_11_after, score_11_before - total_stake_to_slash);
+			assert_eq!(
+				score_11_after,
+				score_11_before - total_stake_to_slash - self_stake_11_before
+			);
 
 			// self-stake of 11 has decreased by 50% due to slash.
 			assert_eq!(
@@ -7568,21 +7574,25 @@ mod stake_tracker {
 			);
 
 			// the target list has been updated accordingly and an indirect rebag of 21 happened.
-			// 11, althoug chilled, is still part of the target list.
+			// Although 11 is chilled, it is still part of the target list.
 			assert_eq!(
 				voters_and_targets().1,
-				[(11, score_11_after), (21, score_21_after), (31, 500)]
+				[(21, score_21_after), (31, 500), (11, score_11_after)]
 			);
 			assert_eq!(
 				target_bags_events(),
 				[
 					BagsEvent::Rebagged { who: 11, from: 10000, to: 2000 },
-					BagsEvent::ScoreUpdated { who: 11, new_score: 1550 },
-					BagsEvent::ScoreUpdated { who: 11, new_score: 1465 },
+					BagsEvent::ScoreUpdated { who: 11, new_score: 1050 },
+					BagsEvent::Rebagged { who: 11, from: 2000, to: 600 },
+					BagsEvent::ScoreUpdated { who: 11, new_score: 550 },
+					BagsEvent::Rebagged { who: 11, from: 600, to: 500 },
+					BagsEvent::ScoreUpdated { who: 11, new_score: 465 },
 					BagsEvent::Rebagged { who: 21, from: 10000, to: 2000 },
 					BagsEvent::ScoreUpdated { who: 21, new_score: 1965 },
 					BagsEvent::ScoreUpdated { who: 21, new_score: 1872 },
-					BagsEvent::ScoreUpdated { who: 11, new_score: 1372 },
+					BagsEvent::Rebagged { who: 11, from: 500, to: 400 },
+					BagsEvent::ScoreUpdated { who: 11, new_score: 372 },
 				]
 			);
 
