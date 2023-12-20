@@ -1702,7 +1702,8 @@ pub mod migrations {
 			<Runtime as frame_system::Config>::DbWeight,
 		>,
 		parachains_configuration::migration::v11::MigrateToV11<Runtime>,
-		// This needs to come after the `parachains_configuration` above as we are reading the configuration.
+		// This needs to come after the `parachains_configuration` above as we are reading the
+		// configuration.
 		coretime::migration::MigrateToCoretime<Runtime, xcm_config::XcmRouter, GetLegacyLeaseImpl>,
 	);
 }
