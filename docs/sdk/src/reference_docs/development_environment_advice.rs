@@ -10,8 +10,39 @@
 //! [Rust Analyzer](https://rust-analyzer.github.io/) is the defacto [LSP](https://langserver.org/) for Rust. Its default
 //! settings are fine for smaller projects, but not well optimised for polkadot-sdk.
 //!
-//! Below is a suggested configuration in Lua (can use with `neovim/nvim-lspconfig`)
-//! with comments describing the rationale for each setting:
+//! Below is a suggested configuration for VSCode:
+//!
+//! ```json
+//! {
+//!   // Use a separate target dir for Rust Analyzer. Helpful if you want to use Rust
+//!   // Analyzer and cargo on the command line at the same time.
+//!   "rust-analyzer.rust.analyzerTargetDir": "target/vscode-rust-analyzer",
+//!   // Improve stability
+//!   "rust-analyzer.server.extraEnv": {
+//!     "CHALK_OVERFLOW_DEPTH": "100000000",
+//!     "CHALK_SOLVER_MAX_SIZE": "10000000
+//!   },
+//!   // Check feature-gated code
+//!   "rust-analyzer.cargo.features": "all",
+//!   "rust-analyzer.cargo.extraEnv": {
+//!     // Skip building WASM, there is never need for it here
+//!     "SKIP_WASM_BUILD": "1"
+//!   },
+//!   // Don't expand some problematic proc_macros
+//!   "rust-analyzer.procMacro.ignored": {
+//!     "async-trait": ["async_trait"],
+//!     "napi-derive": ["napi"],
+//!     "async-recursion": ["async_recursion"],
+//!     "async-std": ["async_std"]
+//!   },
+//!   // Use nightly formatting.
+//!   // See the polkadot-sdk CI job that checks formatting for the current version used in
+//!   // polkadot-sdk.
+//!   "rust-analyzer.rustfmt.extraArgs": ["+nightly-2023-11-01"],
+//! }
+//! ```
+//!
+//! and the same in Lua for `neovim/nvim-lspconfig`:
 //!
 //! ```lua
 //! ["rust-analyzer"] = {
@@ -51,29 +82,6 @@
 //!     extraArgs = { "+nightly-2023-11-01" },
 //!   },
 //! },
-//! ```
-//!
-//! and the same configuration in JSON for VSCode's `settings.json`:
-//!
-//! ```json
-//! {
-//!   "rust-analyzer.rust.analyzerTargetDir": "target/vscode-rust-analyzer",
-//!   "rust-analyzer.server.extraEnv": {
-//!     "CHALK_OVERFLOW_DEPTH": "100000000",
-//!     "CHALK_SOLVER_MAX_SIZE": "10000000
-//!   },
-//!   "rust-analyzer.cargo.features": "all",
-//!   "rust-analyzer.cargo.extraEnv": {
-//!     "SKIP_WASM_BUILD": "1"
-//!   },
-//!   "rust-analyzer.procMacro.ignored": {
-//!     "async-trait": ["async_trait"],
-//!     "napi-derive": ["napi"],
-//!     "async-recursion": ["async_recursion"],
-//!     "async-std": ["async_std"]
-//!   },
-//!   "rust-analyzer.rustfmt.extraArgs": ["+nightly-2023-11-01"],
-//! }
 //! ```
 //!
 //! For the full set of configuration options see <https://rust-analyzer.github.io/manual.html#configuration>.
