@@ -1663,8 +1663,6 @@ pub mod migrations {
 		}
 	}
 
-	use primitives::CoreIndex;
-
 	/// Unreleased migrations. Add new ones here:
 	pub type Unreleased = (
 		parachains_configuration::migration::v7::MigrateToV7<Runtime>,
