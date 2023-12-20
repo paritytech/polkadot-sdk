@@ -77,7 +77,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			}
 		} else if d.is_sufficient {
 			frame_system::Pallet::<T>::inc_sufficients(who);
-			d.sufficients += 1;
+			d.sufficients = d.sufficients.saturating_add(1);
 			ExistenceReason::Sufficient
 		} else {
 			frame_system::Pallet::<T>::inc_consumers(who)
