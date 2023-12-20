@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Credit","MultiAssetIdConversionResult","NativeOrAssetId"],"macro":["_runtime_benchmarks_enabled"],"mod":["pallet","weights"],"struct":["NativeOrAssetIdConverter","PoolInfo"],"trait":["AssetConversionApi","MultiAssetIdConverter","Swap","SwapCredit"],"type":["AssetCredit","NativeCredit"]};
+window.SIDEBAR_ITEMS = {"macro":["_runtime_benchmarks_enabled"],"mod":["pallet","weights"],"struct":["Ascending","Chain","PoolInfo","WithFirstAsset"],"trait":["AssetConversionApi","PoolLocator","Swap","SwapCredit"],"type":["CreditOf"]};

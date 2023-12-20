@@ -195,6 +195,7 @@
 <a href="#195" id="195">195</a>
 <a href="#196" id="196">196</a>
 <a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -221,7 +222,7 @@
 };
 <span class="kw">use </span>pallet_asset_conversion::Swap;
 <span class="kw">use </span>sp_runtime::{
-	traits::{DispatchInfoOf, PostDispatchInfoOf, Zero},
+	traits::{DispatchInfoOf, Get, PostDispatchInfoOf, Zero},
 	transaction_validity::InvalidTransaction,
 	Saturating,
 };
@@ -273,16 +274,17 @@
 <span class="doccomment">/// Implements the asset transaction for a balance to asset converter (implementing [`Swap`]).
 ///
 /// The converter is given the complete fee in terms of the asset used for the transaction.
-</span><span class="kw">pub struct </span>AssetConversionAdapter&lt;C, CON&gt;(PhantomData&lt;(C, CON)&gt;);
+</span><span class="kw">pub struct </span>AssetConversionAdapter&lt;C, CON, N&gt;(PhantomData&lt;(C, CON, N)&gt;);
 
 <span class="doccomment">/// Default implementation for a runtime instantiating this pallet, an asset to native swapper.
-</span><span class="kw">impl</span>&lt;T, C, CON&gt; OnChargeAssetTransaction&lt;T&gt; <span class="kw">for </span>AssetConversionAdapter&lt;C, CON&gt;
+</span><span class="kw">impl</span>&lt;T, C, CON, N&gt; OnChargeAssetTransaction&lt;T&gt; <span class="kw">for </span>AssetConversionAdapter&lt;C, CON, N&gt;
 <span class="kw">where
-	</span>T: Config,
+	</span>N: Get&lt;CON::AssetKind&gt;,
+	T: Config,
 	C: Inspect&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;,
-	CON: Swap&lt;T::AccountId, Balance = BalanceOf&lt;T&gt;, MultiAssetId = T::MultiAssetId&gt;,
+	CON: Swap&lt;T::AccountId, Balance = BalanceOf&lt;T&gt;, AssetKind = T::AssetKind&gt;,
 	BalanceOf&lt;T&gt;: Into&lt;AssetBalanceOf&lt;T&gt;&gt;,
-	T::MultiAssetId: From&lt;AssetIdOf&lt;T&gt;&gt;,
+	T::AssetKind: From&lt;AssetIdOf&lt;T&gt;&gt;,
 	BalanceOf&lt;T&gt;: IsType&lt;&lt;C <span class="kw">as </span>Inspect&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;&gt;::Balance&gt;,
 {
 	<span class="kw">type </span>Balance = BalanceOf&lt;T&gt;;
@@ -313,7 +315,7 @@
 
 		<span class="kw">let </span>asset_consumed = CON::swap_tokens_for_exact_tokens(
 			who.clone(),
-			<span class="macro">vec!</span>[asset_id.into(), T::MultiAssetIdConverter::get_native()],
+			<span class="macro">vec!</span>[asset_id.into(), N::get()],
 			native_asset_required,
 			<span class="prelude-val">None</span>,
 			who.clone(),
@@ -365,8 +367,8 @@
 			</span><span class="kw">match </span>CON::swap_exact_tokens_for_tokens(
 				who.clone(), <span class="comment">// we already deposited the native to `who`
 				</span><span class="macro">vec!</span>[
-					T::MultiAssetIdConverter::get_native(), <span class="comment">// we provide the native
-					</span>asset_id.into(),                        <span class="comment">// we want asset_id back
+					N::get(),        <span class="comment">// we provide the native
+					</span>asset_id.into(), <span class="comment">// we want asset_id back
 				</span>],
 				swap_back,   <span class="comment">// amount of the native asset to convert to `asset_id`
 				</span><span class="prelude-val">None</span>,        <span class="comment">// no minimum amount back

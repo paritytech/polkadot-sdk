@@ -2876,6 +2876,16 @@
 <a href="#2876" id="2876">2876</a>
 <a href="#2877" id="2877">2877</a>
 <a href="#2878" id="2878">2878</a>
+<a href="#2879" id="2879">2879</a>
+<a href="#2880" id="2880">2880</a>
+<a href="#2881" id="2881">2881</a>
+<a href="#2882" id="2882">2882</a>
+<a href="#2883" id="2883">2883</a>
+<a href="#2884" id="2884">2884</a>
+<a href="#2885" id="2885">2885</a>
+<a href="#2886" id="2886">2886</a>
+<a href="#2887" id="2887">2887</a>
+<a href="#2888" id="2888">2888</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2914,8 +2924,13 @@
 	pallet_prelude::Get,
 	parameter_types,
 	traits::{
-		fungible::{Balanced, Credit, HoldConsideration, ItemOf},
-		tokens::{nonfungibles_v2::Inspect, pay::PayAssetFromAccount, GetSalary, PayFromAccount},
+		fungible::{
+			Balanced, Credit, HoldConsideration, ItemOf, NativeFromLeft, NativeOrWithId, UnionOf,
+		},
+		tokens::{
+			imbalance::ResolveAssetTo, nonfungibles_v2::Inspect, pay::PayAssetFromAccount,
+			GetSalary, PayFromAccount,
+		},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, Contains, Currency,
 		EitherOfDiverse, EqualPrivilegeOnly, Imbalance, InsideBoth, InstanceFilter,
 		KeyOwnerProofSystem, LinearStoragePrice, LockIdentifier, Nothing, OnUnbalanced,
@@ -2935,7 +2950,7 @@
 };
 <span class="kw">pub use </span>node_primitives::{AccountId, Signature};
 <span class="kw">use </span>node_primitives::{AccountIndex, Balance, BlockNumber, Hash, Moment, Nonce};
-<span class="kw">use </span>pallet_asset_conversion::{NativeOrAssetId, NativeOrAssetIdConverter};
+<span class="kw">use </span>pallet_asset_conversion::{Ascending, Chain, WithFirstAsset};
 <span class="kw">use </span>pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600};
 <span class="kw">use </span>pallet_election_provider_multi_phase::{GeometricDepositBase, SolutionAccuracyOf};
 <span class="kw">use </span>pallet_identity::legacy::IdentityInfo;
@@ -3441,8 +3456,11 @@
 <span class="kw">impl </span>pallet_asset_conversion_tx_payment::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>Fungibles = Assets;
-	<span class="kw">type </span>OnChargeAssetTransaction =
-		pallet_asset_conversion_tx_payment::AssetConversionAdapter&lt;Balances, AssetConversion&gt;;
+	<span class="kw">type </span>OnChargeAssetTransaction = pallet_asset_conversion_tx_payment::AssetConversionAdapter&lt;
+		Balances,
+		AssetConversion,
+		Native,
+	&gt;;
 }
 
 <span class="kw">impl </span>pallet_skip_feeless_payment::Config <span class="kw">for </span>Runtime {
@@ -4522,32 +4540,34 @@
 
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>AssetConversionPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b&quot;py/ascon&quot;</span>);
-	<span class="kw">pub </span>AllowMultiAssetPools: bool = <span class="bool-val">true</span>;
 	<span class="kw">pub const </span>PoolSetupFee: Balance = <span class="number">1 </span>* DOLLARS; <span class="comment">// should be more or equal to the existential deposit
 	</span><span class="kw">pub const </span>MintMinLiquidity: Balance = <span class="number">100</span>;  <span class="comment">// 100 is good enough when the main currency has 10-12 decimals.
-	</span><span class="kw">pub const </span>LiquidityWithdrawalFee: Permill = Permill::from_percent(<span class="number">0</span>);  <span class="comment">// should be non-zero if AllowMultiAssetPools is true, otherwise can be zero.
-</span>}
+	</span><span class="kw">pub const </span>LiquidityWithdrawalFee: Permill = Permill::from_percent(<span class="number">0</span>);
+	<span class="kw">pub const </span>Native: NativeOrWithId&lt;u32&gt; = NativeOrWithId::Native;
+}
 
 <span class="kw">impl </span>pallet_asset_conversion::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-	<span class="kw">type </span>Currency = Balances;
-	<span class="kw">type </span>HigherPrecisionBalance = sp_core::U256;
-	<span class="kw">type </span>Assets = Assets;
 	<span class="kw">type </span>Balance = u128;
-	<span class="kw">type </span>PoolAssets = PoolAssets;
-	<span class="kw">type </span>AssetId = &lt;<span class="self">Self </span><span class="kw">as </span>pallet_assets::Config&lt;Instance1&gt;&gt;::AssetId;
-	<span class="kw">type </span>MultiAssetId = NativeOrAssetId&lt;u32&gt;;
+	<span class="kw">type </span>HigherPrecisionBalance = sp_core::U256;
+	<span class="kw">type </span>AssetKind = NativeOrWithId&lt;u32&gt;;
+	<span class="kw">type </span>Assets = UnionOf&lt;Balances, Assets, NativeFromLeft, NativeOrWithId&lt;u32&gt;, AccountId&gt;;
+	<span class="kw">type </span>PoolId = (<span class="self">Self</span>::AssetKind, <span class="self">Self</span>::AssetKind);
+	<span class="kw">type </span>PoolLocator = Chain&lt;
+		WithFirstAsset&lt;Native, AccountId, NativeOrWithId&lt;u32&gt;&gt;,
+		Ascending&lt;AccountId, NativeOrWithId&lt;u32&gt;&gt;,
+	&gt;;
 	<span class="kw">type </span>PoolAssetId = &lt;<span class="self">Self </span><span class="kw">as </span>pallet_assets::Config&lt;Instance2&gt;&gt;::AssetId;
+	<span class="kw">type </span>PoolAssets = PoolAssets;
+	<span class="kw">type </span>PoolSetupFee = PoolSetupFee;
+	<span class="kw">type </span>PoolSetupFeeAsset = Native;
+	<span class="kw">type </span>PoolSetupFeeTarget = ResolveAssetTo&lt;AssetConversionOrigin, <span class="self">Self</span>::Assets&gt;;
 	<span class="kw">type </span>PalletId = AssetConversionPalletId;
 	<span class="kw">type </span>LPFee = ConstU32&lt;<span class="number">3</span>&gt;; <span class="comment">// means 0.3%
-	</span><span class="kw">type </span>PoolSetupFee = PoolSetupFee;
-	<span class="kw">type </span>PoolSetupFeeReceiver = AssetConversionOrigin;
-	<span class="kw">type </span>LiquidityWithdrawalFee = LiquidityWithdrawalFee;
+	</span><span class="kw">type </span>LiquidityWithdrawalFee = LiquidityWithdrawalFee;
 	<span class="kw">type </span>WeightInfo = pallet_asset_conversion::weights::SubstrateWeight&lt;Runtime&gt;;
-	<span class="kw">type </span>AllowMultiAssetPools = AllowMultiAssetPools;
 	<span class="kw">type </span>MaxSwapPathLength = ConstU32&lt;<span class="number">4</span>&gt;;
 	<span class="kw">type </span>MintMinLiquidity = MintMinLiquidity;
-	<span class="kw">type </span>MultiAssetIdConverter = NativeOrAssetIdConverter&lt;u32&gt;;
 	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 	</span><span class="kw">type </span>BenchmarkHelper = ();
 }
@@ -5457,19 +5477,19 @@
 	<span class="kw">impl </span>pallet_asset_conversion::AssetConversionApi&lt;
 		Block,
 		Balance,
-		NativeOrAssetId&lt;u32&gt;
+		NativeOrWithId&lt;u32&gt;
 	&gt; <span class="kw">for </span>Runtime
 	{
-		<span class="kw">fn </span>quote_price_exact_tokens_for_tokens(asset1: NativeOrAssetId&lt;u32&gt;, asset2: NativeOrAssetId&lt;u32&gt;, amount: Balance, include_fee: bool) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt; {
+		<span class="kw">fn </span>quote_price_exact_tokens_for_tokens(asset1: NativeOrWithId&lt;u32&gt;, asset2: NativeOrWithId&lt;u32&gt;, amount: Balance, include_fee: bool) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt; {
 			AssetConversion::quote_price_exact_tokens_for_tokens(asset1, asset2, amount, include_fee)
 		}
 
-		<span class="kw">fn </span>quote_price_tokens_for_exact_tokens(asset1: NativeOrAssetId&lt;u32&gt;, asset2: NativeOrAssetId&lt;u32&gt;, amount: Balance, include_fee: bool) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt; {
+		<span class="kw">fn </span>quote_price_tokens_for_exact_tokens(asset1: NativeOrWithId&lt;u32&gt;, asset2: NativeOrWithId&lt;u32&gt;, amount: Balance, include_fee: bool) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt; {
 			AssetConversion::quote_price_tokens_for_exact_tokens(asset1, asset2, amount, include_fee)
 		}
 
-		<span class="kw">fn </span>get_reserves(asset1: NativeOrAssetId&lt;u32&gt;, asset2: NativeOrAssetId&lt;u32&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;(Balance, Balance)&gt; {
-			AssetConversion::get_reserves(<span class="kw-2">&amp;</span>asset1, <span class="kw-2">&amp;</span>asset2).ok()
+		<span class="kw">fn </span>get_reserves(asset1: NativeOrWithId&lt;u32&gt;, asset2: NativeOrWithId&lt;u32&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;(Balance, Balance)&gt; {
+			AssetConversion::get_reserves(asset1, asset2).ok()
 		}
 	}
 

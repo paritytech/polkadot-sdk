@@ -208,6 +208,8 @@
 <a href="#208" id="208">208</a>
 <a href="#209" id="209">209</a>
 <a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -234,7 +236,7 @@
 	<span class="doccomment">/// Measure units of the asset classes for swapping.
 	</span><span class="kw">type </span>Balance: Balance;
 	<span class="doccomment">/// Kind of assets that are going to be swapped.
-	</span><span class="kw">type </span>MultiAssetId;
+	</span><span class="kw">type </span>AssetKind;
 
 	<span class="doccomment">/// Returns the upper limit on the length of the swap path.
 	</span><span class="kw">fn </span>max_path_len() -&gt; u32;
@@ -251,7 +253,7 @@
 	/// This operation is expected to be atomic.
 	</span><span class="kw">fn </span>swap_exact_tokens_for_tokens(
 		sender: AccountId,
-		path: Vec&lt;<span class="self">Self</span>::MultiAssetId&gt;,
+		path: Vec&lt;<span class="self">Self</span>::AssetKind&gt;,
 		amount_in: <span class="self">Self</span>::Balance,
 		amount_out_min: <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Balance&gt;,
 		send_to: AccountId,
@@ -270,7 +272,7 @@
 	/// This operation is expected to be atomic.
 	</span><span class="kw">fn </span>swap_tokens_for_exact_tokens(
 		sender: AccountId,
-		path: Vec&lt;<span class="self">Self</span>::MultiAssetId&gt;,
+		path: Vec&lt;<span class="self">Self</span>::AssetKind&gt;,
 		amount_out: <span class="self">Self</span>::Balance,
 		amount_in_max: <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Balance&gt;,
 		send_to: AccountId,
@@ -283,7 +285,7 @@
 	<span class="doccomment">/// Measure units of the asset classes for swapping.
 	</span><span class="kw">type </span>Balance: Balance;
 	<span class="doccomment">/// Kind of assets that are going to be swapped.
-	</span><span class="kw">type </span>MultiAssetId;
+	</span><span class="kw">type </span>AssetKind;
 	<span class="doccomment">/// Credit implying a negative imbalance in the system that can be placed into an account or
 	/// alter the total supply.
 	</span><span class="kw">type </span>Credit;
@@ -300,7 +302,7 @@
 	///
 	/// This operation is expected to be atomic.
 	</span><span class="kw">fn </span>swap_exact_tokens_for_tokens(
-		path: Vec&lt;<span class="self">Self</span>::MultiAssetId&gt;,
+		path: Vec&lt;<span class="self">Self</span>::AssetKind&gt;,
 		credit_in: <span class="self">Self</span>::Credit,
 		amount_out_min: <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Balance&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Credit, (<span class="self">Self</span>::Credit, DispatchError)&gt;;
@@ -316,7 +318,7 @@
 	///
 	/// This operation is expected to be atomic.
 	</span><span class="kw">fn </span>swap_tokens_for_exact_tokens(
-		path: Vec&lt;<span class="self">Self</span>::MultiAssetId&gt;,
+		path: Vec&lt;<span class="self">Self</span>::AssetKind&gt;,
 		credit_in: <span class="self">Self</span>::Credit,
 		amount_out: <span class="self">Self</span>::Balance,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>::Credit, <span class="self">Self</span>::Credit), (<span class="self">Self</span>::Credit, DispatchError)&gt;;
@@ -324,7 +326,7 @@
 
 <span class="kw">impl</span>&lt;T: Config&gt; Swap&lt;T::AccountId&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
 	<span class="kw">type </span>Balance = T::Balance;
-	<span class="kw">type </span>MultiAssetId = T::MultiAssetId;
+	<span class="kw">type </span>AssetKind = T::AssetKind;
 
 	<span class="kw">fn </span>max_path_len() -&gt; u32 {
 		T::MaxSwapPathLength::get()
@@ -332,7 +334,7 @@
 
 	<span class="kw">fn </span>swap_exact_tokens_for_tokens(
 		sender: T::AccountId,
-		path: Vec&lt;<span class="self">Self</span>::MultiAssetId&gt;,
+		path: Vec&lt;<span class="self">Self</span>::AssetKind&gt;,
 		amount_in: <span class="self">Self</span>::Balance,
 		amount_out_min: <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Balance&gt;,
 		send_to: T::AccountId,
@@ -348,12 +350,12 @@
 				keep_alive,
 			)
 		})<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>(amount_out.into())
+		<span class="prelude-val">Ok</span>(amount_out)
 	}
 
 	<span class="kw">fn </span>swap_tokens_for_exact_tokens(
 		sender: T::AccountId,
-		path: Vec&lt;<span class="self">Self</span>::MultiAssetId&gt;,
+		path: Vec&lt;<span class="self">Self</span>::AssetKind&gt;,
 		amount_out: <span class="self">Self</span>::Balance,
 		amount_in_max: <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Balance&gt;,
 		send_to: T::AccountId,
@@ -369,24 +371,25 @@
 				keep_alive,
 			)
 		})<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>(amount_in.into())
+		<span class="prelude-val">Ok</span>(amount_in)
 	}
 }
 
 <span class="kw">impl</span>&lt;T: Config&gt; SwapCredit&lt;T::AccountId&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
 	<span class="kw">type </span>Balance = T::Balance;
-	<span class="kw">type </span>MultiAssetId = T::MultiAssetId;
-	<span class="kw">type </span>Credit = Credit&lt;T&gt;;
+	<span class="kw">type </span>AssetKind = T::AssetKind;
+	<span class="kw">type </span>Credit = CreditOf&lt;T&gt;;
 
 	<span class="kw">fn </span>max_path_len() -&gt; u32 {
 		T::MaxSwapPathLength::get()
 	}
 
 	<span class="kw">fn </span>swap_exact_tokens_for_tokens(
-		path: Vec&lt;<span class="self">Self</span>::MultiAssetId&gt;,
+		path: Vec&lt;<span class="self">Self</span>::AssetKind&gt;,
 		credit_in: <span class="self">Self</span>::Credit,
 		amount_out_min: <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Balance&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Credit, (<span class="self">Self</span>::Credit, DispatchError)&gt; {
+		<span class="kw">let </span>credit_asset = credit_in.asset();
 		with_transaction(|| -&gt; TransactionOutcome&lt;<span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, DispatchError&gt;&gt; {
 			<span class="kw">let </span>res = <span class="self">Self</span>::do_swap_exact_credit_tokens_for_tokens(path, credit_in, amount_out_min);
 			<span class="kw">match </span><span class="kw-2">&amp;</span>res {
@@ -397,14 +400,15 @@
 			}
 		})
 		<span class="comment">// should never map an error since `with_transaction` above never returns it.
-		</span>.map_err(|<span class="kw">_</span>| (<span class="self">Self</span>::Credit::native_zero(), DispatchError::Corruption))<span class="question-mark">?
+		</span>.map_err(|<span class="kw">_</span>| (<span class="self">Self</span>::Credit::zero(credit_asset), DispatchError::Corruption))<span class="question-mark">?
 	</span>}
 
 	<span class="kw">fn </span>swap_tokens_for_exact_tokens(
-		path: Vec&lt;<span class="self">Self</span>::MultiAssetId&gt;,
+		path: Vec&lt;<span class="self">Self</span>::AssetKind&gt;,
 		credit_in: <span class="self">Self</span>::Credit,
 		amount_out: <span class="self">Self</span>::Balance,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>::Credit, <span class="self">Self</span>::Credit), (<span class="self">Self</span>::Credit, DispatchError)&gt; {
+		<span class="kw">let </span>credit_asset = credit_in.asset();
 		with_transaction(|| -&gt; TransactionOutcome&lt;<span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, DispatchError&gt;&gt; {
 			<span class="kw">let </span>res = <span class="self">Self</span>::do_swap_credit_tokens_for_exact_tokens(path, credit_in, amount_out);
 			<span class="kw">match </span><span class="kw-2">&amp;</span>res {
@@ -415,7 +419,7 @@
 			}
 		})
 		<span class="comment">// should never map an error since `with_transaction` above never returns it.
-		</span>.map_err(|<span class="kw">_</span>| (<span class="self">Self</span>::Credit::native_zero(), DispatchError::Corruption))<span class="question-mark">?
+		</span>.map_err(|<span class="kw">_</span>| (<span class="self">Self</span>::Credit::zero(credit_asset), DispatchError::Corruption))<span class="question-mark">?
 	</span>}
 }
 </code></pre></div></section></main></body></html>

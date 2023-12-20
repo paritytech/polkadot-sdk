@@ -1721,6 +1721,14 @@
 <a href="#1721" id="1721">1721</a>
 <a href="#1722" id="1722">1722</a>
 <a href="#1723" id="1723">1723</a>
+<a href="#1724" id="1724">1724</a>
+<a href="#1725" id="1725">1725</a>
+<a href="#1726" id="1726">1726</a>
+<a href="#1727" id="1727">1727</a>
+<a href="#1728" id="1728">1728</a>
+<a href="#1729" id="1729">1729</a>
+<a href="#1730" id="1730">1730</a>
+<a href="#1731" id="1731">1731</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1752,7 +1760,7 @@
 
 <span class="kw">use </span>assets_common::{
 	foreign_creators::ForeignCreators,
-	local_and_foreign_assets::{LocalAndForeignAssets, MultiLocationConverter},
+	local_and_foreign_assets::{LocalFromLeft, TargetFromLeft},
 	matching::FromSiblingParachain,
 	AssetIdForTrustBackedAssetsConvert, MultiLocationForAssetId,
 };
@@ -1780,8 +1788,9 @@
 	genesis_builder_helper::{build_config, create_default_config},
 	ord_parameter_types, parameter_types,
 	traits::{
-		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, EitherOfDiverse,
-		Equals, InstanceFilter, TransformOrigin,
+		fungible, fungibles, tokens::imbalance::ResolveAssetTo, AsEnsureOriginWithArg, ConstBool,
+		ConstU128, ConstU32, ConstU64, ConstU8, EitherOfDiverse, Equals, InstanceFilter,
+		TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight},
 	BoundedVec, PalletId,
@@ -1805,8 +1814,9 @@
 <span class="kw">use </span>sp_runtime::{Perbill, RuntimeDebug};
 <span class="kw">use </span>xcm::opaque::v3::MultiLocation;
 <span class="kw">use </span>xcm_config::{
-	ForeignAssetsConvertedConcreteId, GovernanceLocation, PoolAssetsConvertedConcreteId,
-	TokenLocation, TrustBackedAssetsConvertedConcreteId,
+	ForeignAssetsConvertedConcreteId, ForeignCreatorsSovereignAccountOf, GovernanceLocation,
+	PoolAssetsConvertedConcreteId, TokenLocation, TrustBackedAssetsConvertedConcreteId,
+	TrustBackedAssetsPalletLocation,
 };
 
 <span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
@@ -1817,10 +1827,6 @@
 <span class="kw">use </span>polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 
-<span class="kw">use </span><span class="kw">crate</span>::xcm_config::{
-	ForeignCreatorsSovereignAccountOf, LocalAndForeignAssetsMultiLocationMatcher,
-	TrustBackedAssetsPalletLocation,
-};
 <span class="kw">use </span>weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
 <span class="macro">impl_opaque_keys! </span>{
@@ -2002,9 +2008,7 @@
 
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>AssetConversionPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b&quot;py/ascon&quot;</span>);
-	<span class="kw">pub const </span>AllowMultiAssetPools: bool = <span class="bool-val">false</span>;
-	<span class="comment">// should be non-zero if AllowMultiAssetPools is true, otherwise can be zero
-	</span><span class="kw">pub const </span>LiquidityWithdrawalFee: Permill = Permill::from_percent(<span class="number">0</span>);
+	<span class="kw">pub const </span>LiquidityWithdrawalFee: Permill = Permill::from_percent(<span class="number">0</span>);
 }
 
 <span class="macro">ord_parameter_types! </span>{
@@ -2038,35 +2042,50 @@
 	</span><span class="kw">type </span>BenchmarkHelper = ();
 }
 
+<span class="doccomment">/// Union fungibles implementation for `Assets`` and `ForeignAssets`.
+</span><span class="kw">pub type </span>LocalAndForeignAssets = fungibles::UnionOf&lt;
+	Assets,
+	ForeignAssets,
+	LocalFromLeft&lt;
+		AssetIdForTrustBackedAssetsConvert&lt;TrustBackedAssetsPalletLocation&gt;,
+		AssetIdForTrustBackedAssets,
+	&gt;,
+	MultiLocation,
+	AccountId,
+&gt;;
+
 <span class="kw">impl </span>pallet_asset_conversion::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>Balance = Balance;
 	<span class="kw">type </span>HigherPrecisionBalance = sp_core::U256;
-	<span class="kw">type </span>Currency = Balances;
-	<span class="kw">type </span>AssetId = MultiLocation;
-	<span class="kw">type </span>Assets = LocalAndForeignAssets&lt;
-		Assets,
-		AssetIdForTrustBackedAssetsConvert&lt;TrustBackedAssetsPalletLocation&gt;,
-		ForeignAssets,
+	<span class="kw">type </span>AssetKind = MultiLocation;
+	<span class="kw">type </span>Assets = fungible::UnionOf&lt;
+		Balances,
+		LocalAndForeignAssets,
+		TargetFromLeft&lt;TokenLocation&gt;,
+		<span class="self">Self</span>::AssetKind,
+		<span class="self">Self</span>::AccountId,
 	&gt;;
-	<span class="kw">type </span>PoolAssets = PoolAssets;
+	<span class="kw">type </span>PoolId = (<span class="self">Self</span>::AssetKind, <span class="self">Self</span>::AssetKind);
+	<span class="kw">type </span>PoolLocator =
+		pallet_asset_conversion::WithFirstAsset&lt;TokenLocation, AccountId, <span class="self">Self</span>::AssetKind&gt;;
 	<span class="kw">type </span>PoolAssetId = u32;
+	<span class="kw">type </span>PoolAssets = PoolAssets;
 	<span class="kw">type </span>PoolSetupFee = ConstU128&lt;<span class="number">0</span>&gt;; <span class="comment">// Asset class deposit fees are sufficient to prevent spam
-	</span><span class="kw">type </span>PoolSetupFeeReceiver = AssetConversionOrigin;
-	<span class="comment">// should be non-zero if `AllowMultiAssetPools` is true, otherwise can be zero.
-	</span><span class="kw">type </span>LiquidityWithdrawalFee = LiquidityWithdrawalFee;
+	</span><span class="kw">type </span>PoolSetupFeeAsset = TokenLocation;
+	<span class="kw">type </span>PoolSetupFeeTarget = ResolveAssetTo&lt;AssetConversionOrigin, <span class="self">Self</span>::Assets&gt;;
+	<span class="kw">type </span>LiquidityWithdrawalFee = LiquidityWithdrawalFee;
 	<span class="kw">type </span>LPFee = ConstU32&lt;<span class="number">3</span>&gt;;
 	<span class="kw">type </span>PalletId = AssetConversionPalletId;
-	<span class="kw">type </span>AllowMultiAssetPools = AllowMultiAssetPools;
-	<span class="kw">type </span>MaxSwapPathLength = ConstU32&lt;<span class="number">4</span>&gt;;
-	<span class="kw">type </span>MultiAssetId = MultiLocation;
-	<span class="kw">type </span>MultiAssetIdConverter =
-		MultiLocationConverter&lt;TokenLocation, LocalAndForeignAssetsMultiLocationMatcher&gt;;
+	<span class="kw">type </span>MaxSwapPathLength = ConstU32&lt;<span class="number">3</span>&gt;;
 	<span class="kw">type </span>MintMinLiquidity = ConstU128&lt;<span class="number">100</span>&gt;;
 	<span class="kw">type </span>WeightInfo = weights::pallet_asset_conversion::WeightInfo&lt;Runtime&gt;;
 	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-	</span><span class="kw">type </span>BenchmarkHelper =
-		<span class="kw">crate</span>::xcm_config::BenchmarkMultiLocationConverter&lt;parachain_info::Pallet&lt;Runtime&gt;&gt;;
+	</span><span class="kw">type </span>BenchmarkHelper = assets_common::benchmarks::AssetPairFactory&lt;
+		TokenLocation,
+		parachain_info::Pallet&lt;Runtime&gt;,
+		xcm_config::AssetsPalletIndex,
+	&gt;;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -2456,12 +2475,9 @@
 
 <span class="kw">impl </span>pallet_asset_conversion_tx_payment::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-	<span class="kw">type </span>Fungibles = LocalAndForeignAssets&lt;
-		Assets,
-		AssetIdForTrustBackedAssetsConvert&lt;TrustBackedAssetsPalletLocation&gt;,
-		ForeignAssets,
-	&gt;;
-	<span class="kw">type </span>OnChargeAssetTransaction = AssetConversionAdapter&lt;Balances, AssetConversion&gt;;
+	<span class="kw">type </span>Fungibles = LocalAndForeignAssets;
+	<span class="kw">type </span>OnChargeAssetTransaction =
+		AssetConversionAdapter&lt;Balances, AssetConversion, TokenLocation&gt;;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -2877,7 +2893,7 @@
 		}
 
 		<span class="kw">fn </span>get_reserves(asset1: MultiLocation, asset2: MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;(Balance, Balance)&gt; {
-			AssetConversion::get_reserves(<span class="kw-2">&amp;</span>asset1, <span class="kw-2">&amp;</span>asset2).ok()
+			AssetConversion::get_reserves(asset1, asset2).ok()
 		}
 	}
 

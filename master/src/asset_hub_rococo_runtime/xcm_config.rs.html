@@ -809,35 +809,6 @@
 <a href="#809" id="809">809</a>
 <a href="#810" id="810">810</a>
 <a href="#811" id="811">811</a>
-<a href="#812" id="812">812</a>
-<a href="#813" id="813">813</a>
-<a href="#814" id="814">814</a>
-<a href="#815" id="815">815</a>
-<a href="#816" id="816">816</a>
-<a href="#817" id="817">817</a>
-<a href="#818" id="818">818</a>
-<a href="#819" id="819">819</a>
-<a href="#820" id="820">820</a>
-<a href="#821" id="821">821</a>
-<a href="#822" id="822">822</a>
-<a href="#823" id="823">823</a>
-<a href="#824" id="824">824</a>
-<a href="#825" id="825">825</a>
-<a href="#826" id="826">826</a>
-<a href="#827" id="827">827</a>
-<a href="#828" id="828">828</a>
-<a href="#829" id="829">829</a>
-<a href="#830" id="830">830</a>
-<a href="#831" id="831">831</a>
-<a href="#832" id="832">832</a>
-<a href="#833" id="833">833</a>
-<a href="#834" id="834">834</a>
-<a href="#835" id="835">835</a>
-<a href="#836" id="836">836</a>
-<a href="#837" id="837">837</a>
-<a href="#838" id="838">838</a>
-<a href="#839" id="839">839</a>
-<a href="#840" id="840">840</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -896,9 +867,6 @@
 };
 <span class="kw">use </span>xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-</span><span class="kw">use </span>cumulus_primitives_core::ParaId;
-
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>TokenLocation: MultiLocation = MultiLocation::parent();
 	<span class="kw">pub const </span>RelayNetwork: NetworkId = NetworkId::Rococo;
@@ -906,8 +874,8 @@
 	<span class="kw">pub </span>UniversalLocation: InteriorMultiLocation =
 		X2(GlobalConsensus(RelayNetwork::get()), Parachain(ParachainInfo::parachain_id().into()));
 	<span class="kw">pub </span>UniversalLocationNetworkId: NetworkId = UniversalLocation::get().global_consensus().unwrap();
-	<span class="kw">pub </span>TrustBackedAssetsPalletLocation: MultiLocation =
-		PalletInstance(&lt;Assets <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8).into();
+	<span class="kw">pub </span>AssetsPalletIndex: u32 = &lt;Assets <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u32;
+	<span class="kw">pub </span>TrustBackedAssetsPalletLocation: MultiLocation = PalletInstance(AssetsPalletIndex::get() <span class="kw">as </span>u8).into();
 	<span class="kw">pub </span>ForeignAssetsPalletLocation: MultiLocation =
 		PalletInstance(&lt;ForeignAssets <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8).into();
 	<span class="kw">pub </span>PoolAssetsPalletLocation: MultiLocation =
@@ -1509,32 +1477,6 @@
 </span><span class="kw">impl </span>pallet_assets::BenchmarkHelper&lt;MultiLocation&gt; <span class="kw">for </span>XcmBenchmarkHelper {
 	<span class="kw">fn </span>create_asset_id_parameter(id: u32) -&gt; MultiLocation {
 		MultiLocation { parents: <span class="number">1</span>, interior: X1(Parachain(id)) }
-	}
-}
-
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-</span><span class="kw">pub struct </span>BenchmarkMultiLocationConverter&lt;SelfParaId&gt; {
-	_phantom: sp_std::marker::PhantomData&lt;SelfParaId&gt;,
-}
-
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-</span><span class="kw">impl</span>&lt;SelfParaId&gt; pallet_asset_conversion::BenchmarkHelper&lt;MultiLocation, MultiLocation&gt;
-	<span class="kw">for </span>BenchmarkMultiLocationConverter&lt;SelfParaId&gt;
-<span class="kw">where
-	</span>SelfParaId: frame_support::traits::Get&lt;ParaId&gt;,
-{
-	<span class="kw">fn </span>asset_id(asset_id: u32) -&gt; MultiLocation {
-		MultiLocation {
-			parents: <span class="number">1</span>,
-			interior: X3(
-				Parachain(SelfParaId::get().into()),
-				PalletInstance(&lt;Assets <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8),
-				GeneralIndex(asset_id.into()),
-			),
-		}
-	}
-	<span class="kw">fn </span>multiasset_id(asset_id: u32) -&gt; MultiLocation {
-		<span class="self">Self</span>::asset_id(asset_id)
 	}
 }
 
