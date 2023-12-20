@@ -898,7 +898,6 @@ impl PeerMessageProducer {
 			let mut no_shows: HashMap<(Hash, usize), HashSet<u32>> = HashMap::new();
 			let mut per_candidate_data: HashMap<(Hash, CandidateIndex), CandidateTestData> =
 				HashMap::new();
-
 			for block_info in self.state.per_slot_heads.iter() {
 				for (candidate_index, _) in block_info.candidates.iter().enumerate() {
 					per_candidate_data.insert(
@@ -918,6 +917,8 @@ impl PeerMessageProducer {
 			let mut re_process_skipped = false;
 
 			while all_messages.peek().is_some() {
+				sleep(Duration::from_millis(50)).await;
+
 				let current_slot =
 					tick_to_slot_number(SLOT_DURATION_MILLIS, system_clock.tick_now());
 				let block_info =
@@ -1048,7 +1049,9 @@ impl PeerMessageProducer {
 					}
 				}
 			}
-		} else if !block_info.approved.load(std::sync::atomic::Ordering::SeqCst) {
+		} else if !block_info.approved.load(std::sync::atomic::Ordering::SeqCst) &&
+			self.options.num_no_shows_per_block > 0
+		{
 			skipped_messages.push(bundle);
 		}
 		reprocess_skipped
