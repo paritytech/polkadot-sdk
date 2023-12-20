@@ -48,7 +48,8 @@ const migrateIdentityOf = async (key, data, api) => {
 
 			if (keyString.toLowerCase() === "discord") {
 				discord = { raw: data.raw };
-			} else if (keyString.toLowerCase() === "github") {
+			}
+			if (keyString.toLowerCase() === "github") {
 				github = { raw: data.raw };
 			}
 		});
@@ -82,7 +83,7 @@ const migrateIdentityOf = async (key, data, api) => {
 		console.log("Original", decoded.toJSON());
 		console.log("Migration", decodedNew.toJSON());
 
-		data = u8aToHex(decodedNew.toU8a(true));
+		data = decodedNew.toHex();
 	}
 
 	return data;
