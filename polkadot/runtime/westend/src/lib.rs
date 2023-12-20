@@ -1674,20 +1674,6 @@ pub type Executive = frame_executive::Executive<
 pub type SignedPayload = generic::SignedPayload<RuntimeCall, TxExtension>;
 
 #[cfg(feature = "runtime-benchmarks")]
-impl frame_system_benchmarking::extensions::Config for Runtime {
-	fn default_call() -> Self::RuntimeCall {
-		RuntimeCall::System(frame_system::Call::set_heap_pages { pages: 0u64 })
-	}
-
-	fn dispatch_info(
-		weight: Weight,
-		class: frame_support::pallet_prelude::DispatchClass,
-	) -> <Self::RuntimeCall as sp_runtime::traits::Dispatchable>::Info {
-		frame_support::dispatch::DispatchInfo { weight, class, ..Default::default() }
-	}
-}
-
-#[cfg(feature = "runtime-benchmarks")]
 mod benches {
 	frame_benchmarking::define_benchmarks!(
 		// Polkadot

@@ -20,9 +20,7 @@
 #![cfg(test)]
 
 use codec::Encode;
-use frame_support::{
-	derive_impl, dispatch::DispatchInfo, pallet_prelude::DispatchClass, weights::Weight,
-};
+use frame_support::derive_impl;
 use sp_runtime::{traits::IdentityLookup, BuildStorage};
 
 type AccountId = u64;
@@ -66,19 +64,6 @@ impl frame_system::Config for Test {
 }
 
 impl crate::Config for Test {}
-
-impl crate::extensions::Config for Test {
-	fn default_call() -> Self::RuntimeCall {
-		RuntimeCall::System(frame_system::Call::set_heap_pages { pages: 0u64 })
-	}
-
-	fn dispatch_info(
-		weight: Weight,
-		class: DispatchClass,
-	) -> <Self::RuntimeCall as sp_runtime::traits::Dispatchable>::Info {
-		DispatchInfo { weight, class, ..Default::default() }
-	}
-}
 
 struct MockedReadRuntimeVersion(Vec<u8>);
 

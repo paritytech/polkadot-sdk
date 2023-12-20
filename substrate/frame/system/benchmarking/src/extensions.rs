@@ -26,7 +26,7 @@ use frame_support::{
 };
 use frame_system::{
 	pallet_prelude::*, CheckGenesis, CheckMortality, CheckNonZeroSender, CheckNonce,
-	CheckSpecVersion, CheckTxVersion, CheckWeight, Pallet as System, RawOrigin,
+	CheckSpecVersion, CheckTxVersion, CheckWeight, Config, Pallet as System, RawOrigin,
 };
 use sp_runtime::{
 	generic::Era,
@@ -35,17 +35,9 @@ use sp_runtime::{
 use sp_std::prelude::*;
 
 pub struct Pallet<T: Config>(System<T>);
-pub trait Config: frame_system::Config + Send + Sync {
-	fn default_call() -> Self::RuntimeCall;
-
-	fn dispatch_info(
-		_weight: Weight,
-		_class: DispatchClass,
-	) -> <Self::RuntimeCall as Dispatchable>::Info;
-}
 
 #[benchmarks(where
-    T: Config,
+	T: Config + Send + Sync,
     T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone)
 ]
@@ -56,17 +48,13 @@ mod benchmarks {
 	fn check_genesis() -> Result<(), BenchmarkError> {
 		let len = 0_usize;
 		let caller = whitelisted_caller();
+		let info = DispatchInfo { weight: Weight::zero(), ..Default::default() };
+		let call: T::RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
 
 		#[block]
 		{
 			CheckGenesis::<T>::new()
-				.test_run(
-					RawOrigin::Signed(caller).into(),
-					&<T as Config>::default_call(),
-					&<T as Config>::dispatch_info(Weight::zero(), Default::default()),
-					len,
-					|_| Ok(().into()),
-				)
+				.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, |_| Ok(().into()))
 				.unwrap()
 				.unwrap();
 		}
@@ -84,18 +72,18 @@ mod benchmarks {
 		let default_hash: T::Hash = Default::default();
 		frame_system::BlockHash::<T>::insert(prev_block, default_hash);
 		let caller = whitelisted_caller();
+		let info = DispatchInfo {
+			weight: Weight::from_parts(100, 0),
+			class: DispatchClass::Normal,
+			..Default::default()
+		};
+		let call: T::RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
 
 		#[block]
 		{
-			ext.test_run(
-				RawOrigin::Signed(caller).into(),
-				&<T as Config>::default_call(),
-				&<T as Config>::dispatch_info(Weight::from_parts(100, 0), DispatchClass::Normal),
-				len,
-				|_| Ok(().into()),
-			)
-			.unwrap()
-			.unwrap();
+			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, |_| Ok(().into()))
+				.unwrap()
+				.unwrap();
 		}
 		Ok(())
 	}
@@ -105,18 +93,14 @@ mod benchmarks {
 		let len = 0_usize;
 		let ext = CheckNonZeroSender::<T>::new();
 		let caller = whitelisted_caller();
+		let info = DispatchInfo { weight: Weight::zero(), ..Default::default() };
+		let call: T::RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
 
 		#[block]
 		{
-			ext.test_run(
-				RawOrigin::Signed(caller).into(),
-				&<T as Config>::default_call(),
-				&<T as Config>::dispatch_info(Weight::zero(), Default::default()),
-				len,
-				|_| Ok(().into()),
-			)
-			.unwrap()
-			.unwrap();
+			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, |_| Ok(().into()))
+				.unwrap()
+				.unwrap();
 		}
 		Ok(())
 	}
@@ -131,16 +115,14 @@ mod benchmarks {
 		frame_system::Account::<T>::insert(caller.clone(), info);
 		let len = 0_usize;
 		let ext = CheckNonce::<T>::from(1u32.into());
+		let info = DispatchInfo { weight: Weight::zero(), ..Default::default() };
+		let call: T::RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
 
 		#[block]
 		{
-			ext.test_run(
-				RawOrigin::Signed(caller.clone()).into(),
-				&<T as Config>::default_call(),
-				&<T as Config>::dispatch_info(Weight::zero(), Default::default()),
-				len,
-				|_| Ok(().into()),
-			)
+			ext.test_run(RawOrigin::Signed(caller.clone()).into(), &call, &info, len, |_| {
+				Ok(().into())
+			})
 			.unwrap()
 			.unwrap();
 		}
@@ -154,17 +136,13 @@ mod benchmarks {
 	fn check_spec_version() -> Result<(), BenchmarkError> {
 		let len = 0_usize;
 		let caller = whitelisted_caller();
+		let info = DispatchInfo { weight: Weight::zero(), ..Default::default() };
+		let call: T::RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
 
 		#[block]
 		{
 			CheckSpecVersion::<T>::new()
-				.test_run(
-					RawOrigin::Signed(caller).into(),
-					&<T as Config>::default_call(),
-					&<T as Config>::dispatch_info(Weight::zero(), Default::default()),
-					len,
-					|_| Ok(().into()),
-				)
+				.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, |_| Ok(().into()))
 				.unwrap()
 				.unwrap();
 		}
@@ -175,17 +153,13 @@ mod benchmarks {
 	fn check_tx_version() -> Result<(), BenchmarkError> {
 		let len = 0_usize;
 		let caller = whitelisted_caller();
+		let info = DispatchInfo { weight: Weight::zero(), ..Default::default() };
+		let call: T::RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
 
 		#[block]
 		{
 			CheckTxVersion::<T>::new()
-				.test_run(
-					RawOrigin::Signed(caller).into(),
-					&<T as Config>::default_call(),
-					&<T as Config>::dispatch_info(Weight::zero(), Default::default()),
-					len,
-					|_| Ok(().into()),
-				)
+				.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, |_| Ok(().into()))
 				.unwrap()
 				.unwrap();
 		}
@@ -198,10 +172,12 @@ mod benchmarks {
 		let base_extrinsic = <T as frame_system::Config>::BlockWeights::get()
 			.get(DispatchClass::Normal)
 			.base_extrinsic;
-		let info = <T as Config>::dispatch_info(
-			Weight::from_parts(base_extrinsic.ref_time() * 5, 0),
-			DispatchClass::Normal,
-		);
+		let info = DispatchInfo {
+			weight: Weight::from_parts(base_extrinsic.ref_time() * 5, 0),
+			class: DispatchClass::Normal,
+			..Default::default()
+		};
+		let call: T::RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
 		let post_info = PostDispatchInfo {
 			actual_weight: Some(Weight::from_parts(base_extrinsic.ref_time() * 2, 0)),
 			pays_fee: Default::default(),
@@ -221,15 +197,9 @@ mod benchmarks {
 
 		#[block]
 		{
-			ext.test_run(
-				RawOrigin::Signed(caller).into(),
-				&<T as Config>::default_call(),
-				&info,
-				len,
-				|_| Ok(post_info),
-			)
-			.unwrap()
-			.unwrap();
+			ext.test_run(RawOrigin::Signed(caller).into(), &call, &info, len, |_| Ok(post_info))
+				.unwrap()
+				.unwrap();
 		}
 
 		assert_eq!(
