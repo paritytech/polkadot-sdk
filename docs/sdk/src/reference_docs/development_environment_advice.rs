@@ -20,7 +20,7 @@
 //!   // Improve stability
 //!   "rust-analyzer.server.extraEnv": {
 //!     "CHALK_OVERFLOW_DEPTH": "100000000",
-//!     "CHALK_SOLVER_MAX_SIZE": "10000000
+//!     "CHALK_SOLVER_MAX_SIZE": "10000000"
 //!   },
 //!   // Check feature-gated code
 //!   "rust-analyzer.cargo.features": "all",
