@@ -83,8 +83,8 @@ impl<T, C, CON> OnChargeAssetTransaction<T> for AssetConversionAdapter<C, CON>
 where
 	T: Config,
 	C: Inspect<<T as frame_system::Config>::AccountId>,
-	CON: Swap<T::AccountId, T::HigherPrecisionBalance, T::MultiAssetId>,
-	T::HigherPrecisionBalance: From<BalanceOf<T>> + TryInto<AssetBalanceOf<T>>,
+	CON: Swap<T::AccountId, Balance = BalanceOf<T>, MultiAssetId = T::MultiAssetId>,
+	BalanceOf<T>: Into<AssetBalanceOf<T>>,
 	T::MultiAssetId: From<AssetIdOf<T>>,
 	BalanceOf<T>: IsType<<C as Inspect<<T as frame_system::Config>::AccountId>>::Balance>,
 {
@@ -117,22 +117,18 @@ where
 		let asset_consumed = CON::swap_tokens_for_exact_tokens(
 			who.clone(),
 			vec![asset_id.into(), T::MultiAssetIdConverter::get_native()],
-			T::HigherPrecisionBalance::from(native_asset_required),
+			native_asset_required,
 			None,
 			who.clone(),
 			true,
 		)
 		.map_err(|_| TransactionValidityError::from(InvalidTransaction::Payment))?;
 
-		let asset_consumed = asset_consumed
-			.try_into()
-			.map_err(|_| TransactionValidityError::from(InvalidTransaction::Payment))?;
-
 		ensure!(asset_consumed > Zero::zero(), InvalidTransaction::Payment);
 
 		// charge the fee in native currency
 		<T::OnChargeTransaction>::withdraw_fee(who, call, info, fee, tip)
-			.map(|r| (r, native_asset_required, asset_consumed))
+			.map(|r| (r, native_asset_required, asset_consumed.into()))
 	}
 
 	/// Correct the fee and swap the refund back to asset.
@@ -175,8 +171,7 @@ where
 					T::MultiAssetIdConverter::get_native(), // we provide the native
 					asset_id.into(),                        // we want asset_id back
 				],
-				T::HigherPrecisionBalance::from(swap_back), /* amount of the native asset to
-				                                             * convert to `asset_id` */
+				swap_back,   // amount of the native asset to convert to `asset_id`
 				None,        // no minimum amount back
 				who.clone(), // we will refund to `who`
 				false,       // no need to keep alive

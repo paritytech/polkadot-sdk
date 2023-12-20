@@ -78,7 +78,7 @@ frame-benchmarking-cli = { path = "../../../substrate/utils/frame/benchmarking-c
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking" }
 
 # External Crates
-async-trait = "0.1.57"
+async-trait = "0.1.74"
 futures = "0.3.21"
 hex-literal = "0.4.1"
 is_executable = "1.0.1"

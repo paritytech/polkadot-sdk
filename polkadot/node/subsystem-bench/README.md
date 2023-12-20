@@ -1,6 +1,6 @@
 # Subsystem benchmark client
 
-Run parachain consensus stress and performance tests on your development machine.  
+Run parachain consensus stress and performance tests on your development machine.
 
 ## Motivation
 
@@ -26,9 +26,18 @@ The output binary will be placed in `target/testnet/subsystem-bench`.
 
 ### Test metrics
 
-Subsystem, CPU usage and network  metrics are exposed via a prometheus endpoint during the test execution.
+Subsystem, CPU usage and network metrics are exposed via a prometheus endpoint during the test execution.
 A small subset of these collected metrics are displayed in the CLI, but for an in depth analysys of the test results,
 a local Grafana/Prometheus stack is needed.
+
+### Run Prometheus, Pyroscope and Graphana in Docker
+
+If docker is not usable, then follow the next sections to manually install Prometheus, Pyroscope and Graphana on your machine.
+
+```bash
+cd polkadot/node/subsystem-bench/docker
+docker compose up
+```
 
 ### Install Prometheus
 
@@ -36,7 +45,7 @@ Please follow the [official installation guide](https://prometheus.io/docs/prome
 platform/OS.
 
 After succesfully installing and starting up Prometheus, we need to alter it's configuration such that it
-will scrape the benchmark prometheus endpoint  `127.0.0.1:9999`. Please check the prometheus official documentation
+will scrape the benchmark prometheus endpoint `127.0.0.1:9999`. Please check the prometheus official documentation
 regarding the location of `prometheus.yml`. On MacOS for example the full path `/opt/homebrew/etc/prometheus.yml`
 
 prometheus.yml:
@@ -57,13 +66,29 @@ scrape_configs:
 
 To complete this step restart Prometheus server such that it picks up the new configuration.
 
-### Install and setup Grafana
+### Install Pyroscope
+
+To collect CPU profiling data, you must be running the Pyroscope server.
+Follow the [installation guide](https://grafana.com/docs/pyroscope/latest/get-started/)
+relevant to your operating system.
+
+### Install Grafana
 
 Follow the [installation guide](https://grafana.com/docs/grafana/latest/setup-grafana/installation/) relevant
 to your operating system.
 
-Once you have the installation up and running, configure the local Prometheus as a data source by following
-[this guide](https://grafana.com/docs/grafana/latest/datasources/prometheus/configure-prometheus-data-source/)
+### Setup Grafana
+
+Once you have the installation up and running, configure the local Prometheus and Pyroscope (if needed)
+as data sources by following these guides:
+
+- [Prometheus](https://grafana.com/docs/grafana/latest/datasources/prometheus/configure-prometheus-data-source/)
+- [Pyroscope](https://grafana.com/docs/grafana/latest/datasources/grafana-pyroscope/)
+
+If you are running the servers in Docker, use the following URLs:
+
+- Prometheus `http://prometheus:9090/`
+- Pyroscope `http://pyroscope:4040/`
 
 #### Import dashboards
 
@@ -86,26 +111,29 @@ Commands:
 ```
 
 Note: `test-sequence` is a special test objective that wraps up an arbitrary number of test objectives. It is tipically
- used to run a suite of tests defined in a `yaml` file like in this [example](examples/availability_read.yaml).
+used to run a suite of tests defined in a `yaml` file like in this [example](examples/availability_read.yaml).
 
 ### Standard test options
-  
+
 ```
 Options:
-      --network <NETWORK>                    The type of network to be emulated [default: ideal] [possible values: 
-                                             ideal, healthy, degraded]
-      --n-cores <N_CORES>                    Number of cores to fetch availability for [default: 100]
-      --n-validators <N_VALIDATORS>          Number of validators to fetch chunks from [default: 500]
-      --min-pov-size <MIN_POV_SIZE>          The minimum pov size in KiB [default: 5120]
-      --max-pov-size <MAX_POV_SIZE>          The maximum pov size bytes [default: 5120]
-  -n, --num-blocks <NUM_BLOCKS>              The number of blocks the test is going to run [default: 1]
-  -p, --peer-bandwidth <PEER_BANDWIDTH>      The bandwidth of simulated remote peers in KiB
-  -b, --bandwidth <BANDWIDTH>                The bandwidth of our simulated node in KiB
-      --peer-error <PEER_ERROR>              Simulated conection error ratio [0-100]
-      --peer-min-latency <PEER_MIN_LATENCY>  Minimum remote peer latency in milliseconds [0-5000]
-      --peer-max-latency <PEER_MAX_LATENCY>  Maximum remote peer latency in milliseconds [0-5000]
-  -h, --help                                 Print help
-  -V, --version                              Print version
+      --network <NETWORK>                              The type of network to be emulated [default: ideal] [possible values:
+                                                       ideal, healthy, degraded]
+      --n-cores <N_CORES>                              Number of cores to fetch availability for [default: 100]
+      --n-validators <N_VALIDATORS>                    Number of validators to fetch chunks from [default: 500]
+      --min-pov-size <MIN_POV_SIZE>                    The minimum pov size in KiB [default: 5120]
+      --max-pov-size <MAX_POV_SIZE>                    The maximum pov size bytes [default: 5120]
+  -n, --num-blocks <NUM_BLOCKS>                        The number of blocks the test is going to run [default: 1]
+  -p, --peer-bandwidth <PEER_BANDWIDTH>                The bandwidth of simulated remote peers in KiB
+  -b, --bandwidth <BANDWIDTH>                          The bandwidth of our simulated node in KiB
+      --peer-error <PEER_ERROR>                        Simulated conection error ratio [0-100]
+      --peer-min-latency <PEER_MIN_LATENCY>            Minimum remote peer latency in milliseconds [0-5000]
+      --peer-max-latency <PEER_MAX_LATENCY>            Maximum remote peer latency in milliseconds [0-5000]
+      --profile                                        Enable CPU Profiling with Pyroscope
+      --pyroscope-url <PYROSCOPE_URL>                  Pyroscope Server URL [default: http://localhost:4040]
+      --pyroscope-sample-rate <PYROSCOPE_SAMPLE_RATE>  Pyroscope Sample Rate [default: 113]
+  -h, --help                                           Print help
+  -V, --version                                        Print version
 ```
 
 These apply to all test objectives, except `test-sequence` which relies on the values being specified in a file.
@@ -123,8 +151,8 @@ Benchmark availability recovery strategies
 Usage: subsystem-bench data-availability-read [OPTIONS]
 
 Options:
-  -f, --fetch-from-backers  Turbo boost AD Read by fetching the full availability datafrom backers first. Saves CPU 
-                            as we don't need to re-construct from chunks. Tipically this is only faster if nodes 
+  -f, --fetch-from-backers  Turbo boost AD Read by fetching the full availability datafrom backers first. Saves CPU
+                            as we don't need to re-construct from chunks. Tipically this is only faster if nodes
                             have enough bandwidth
   -h, --help                Print help
 ```
@@ -152,8 +180,8 @@ Let's run an availabilty read test which will recover availability for 10 cores 
 node validator network.
 
 ```
- target/testnet/subsystem-bench --n-cores 10 data-availability-read 
-[2023-11-28T09:01:59Z INFO  subsystem_bench::core::display] n_validators = 500, n_cores = 10, pov_size = 5120 - 5120, 
+ target/testnet/subsystem-bench --n-cores 10 data-availability-read
+[2023-11-28T09:01:59Z INFO  subsystem_bench::core::display] n_validators = 500, n_cores = 10, pov_size = 5120 - 5120,
                                                             error = 0, latency = None
 [2023-11-28T09:01:59Z INFO  subsystem-bench::availability] Generating template candidate index=0 pov_size=5242880
 [2023-11-28T09:01:59Z INFO  subsystem-bench::availability] Created test environment.
@@ -167,8 +195,8 @@ node validator network.
 [2023-11-28T09:02:07Z INFO  subsystem_bench::availability] All blocks processed in 6001ms
 [2023-11-28T09:02:07Z INFO  subsystem_bench::availability] Throughput: 51200 KiB/block
 [2023-11-28T09:02:07Z INFO  subsystem_bench::availability] Block time: 6001 ms
-[2023-11-28T09:02:07Z INFO  subsystem_bench::availability] 
-    
+[2023-11-28T09:02:07Z INFO  subsystem_bench::availability]
+
     Total received from network: 66 MiB
     Total sent to network: 58 KiB
     Total subsystem CPU usage 4.16s
@@ -192,8 +220,7 @@ view the test progress in real time by accessing [this link](http://localhost:30
 
 Now run
 `target/testnet/subsystem-bench test-sequence --path polkadot/node/subsystem-bench/examples/availability_read.yaml`
-and view the metrics in real time and spot differences between different  `n_valiator` values.
-  
+and view the metrics in real time and spot differences between different `n_validators` values.
 ## Create new test objectives
 
 This tool is intended to make it easy to write new test objectives that focus individual subsystems,

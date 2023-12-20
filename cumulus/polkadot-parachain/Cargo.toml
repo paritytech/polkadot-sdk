@@ -15,7 +15,7 @@ name = "polkadot-parachain"
 path = "src/main.rs"
 
 [dependencies]
-async-trait = "0.1.73"
+async-trait = "0.1.74"
 clap = { version = "4.4.11", features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 futures = "0.3.28"
@@ -34,6 +34,8 @@ asset-hub-westend-runtime = { path = "../parachains/runtimes/assets/asset-hub-we
 collectives-westend-runtime = { path = "../parachains/runtimes/collectives/collectives-westend" }
 contracts-rococo-runtime = { path = "../parachains/runtimes/contracts/contracts-rococo" }
 bridge-hub-rococo-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-rococo" }
+coretime-rococo-runtime = { path = "../parachains/runtimes/coretime/coretime-rococo" }
+coretime-westend-runtime = { path = "../parachains/runtimes/coretime/coretime-westend" }
 bridge-hub-westend-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-westend" }
 penpal-runtime = { path = "../parachains/runtimes/testing/penpal" }
 jsonrpsee = { version = "0.16.2", features = ["server"] }
@@ -124,6 +126,8 @@ runtime-benchmarks = [
 	"bridge-hub-westend-runtime/runtime-benchmarks",
 	"collectives-westend-runtime/runtime-benchmarks",
 	"contracts-rococo-runtime/runtime-benchmarks",
+	"coretime-rococo-runtime/runtime-benchmarks",
+	"coretime-westend-runtime/runtime-benchmarks",
 	"cumulus-primitives-core/runtime-benchmarks",
 	"frame-benchmarking-cli/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
@@ -145,6 +149,8 @@ try-runtime = [
 	"bridge-hub-westend-runtime/try-runtime",
 	"collectives-westend-runtime/try-runtime",
 	"contracts-rococo-runtime/try-runtime",
+	"coretime-rococo-runtime/try-runtime",
+	"coretime-westend-runtime/try-runtime",
 	"frame-support/try-runtime",
 	"frame-try-runtime/try-runtime",
 	"glutton-westend-runtime/try-runtime",
