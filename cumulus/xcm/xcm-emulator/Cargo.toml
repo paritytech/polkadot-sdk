@@ -4,6 +4,10 @@ description = "Test kit to emulate XCM program execution."
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
+license = "Apache-2.0"
+
+[lints]
+workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0" }
@@ -26,6 +30,7 @@ pallet-message-queue = { path = "../../../substrate/frame/message-queue" }
 
 # Cumulus
 cumulus-primitives-core = { path = "../../primitives/core" }
+cumulus-pallet-xcmp-queue = { path = "../../pallets/xcmp-queue" }
 cumulus-pallet-parachain-system = { path = "../../pallets/parachain-system" }
 cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent" }
 cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder" }

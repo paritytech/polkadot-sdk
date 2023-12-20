@@ -535,7 +535,11 @@ async fn initiate_precheck(
 
 	let (tx, rx) = oneshot::channel();
 	sender
-		.send_message(CandidateValidationMessage::PreCheck(relay_parent, validation_code_hash, tx))
+		.send_message(CandidateValidationMessage::PreCheck {
+			relay_parent,
+			validation_code_hash,
+			response_sender: tx,
+		})
 		.await;
 
 	let timer = metrics.time_pre_check_judgement();

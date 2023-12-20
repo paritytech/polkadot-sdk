@@ -19,13 +19,12 @@
 use crate as pallet_xcm_bridge_hub_router;
 
 use bp_xcm_bridge_hub_router::XcmChannelStatusProvider;
-use frame_support::{construct_runtime, parameter_types};
-use frame_system::EnsureRoot;
-use sp_core::H256;
-use sp_runtime::{
-	traits::{BlakeTwo256, ConstU128, IdentityLookup},
-	BuildStorage,
+use frame_support::{
+	construct_runtime, derive_impl, parameter_types,
+	traits::{Contains, Equals},
 };
+use frame_system::EnsureRoot;
+use sp_runtime::{traits::ConstU128, BuildStorage};
 use xcm::prelude::*;
 use xcm_builder::{NetworkExportTable, NetworkExportTableItem};
 
@@ -62,32 +61,12 @@ parameter_types! {
 				Some((BridgeFeeAsset::get(), BASE_FEE).into())
 			)
 		];
+	pub UnknownXcmVersionLocation: MultiLocation = MultiLocation::new(2, X2(GlobalConsensus(BridgedNetworkId::get()), Parachain(9999)));
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for TestRuntime {
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type RuntimeCall = RuntimeCall;
 	type Block = Block;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = AccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = frame_support::traits::ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type BaseCallFilter = frame_support::traits::Everything;
-	type SystemWeightInfo = ();
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
@@ -96,6 +75,8 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 	type UniversalLocation = UniversalLocation;
 	type BridgedNetworkId = BridgedNetworkId;
 	type Bridges = NetworkExportTable<BridgeTable>;
+	type DestinationVersion =
+		LatestOrNoneForLocationVersionChecker<Equals<UnknownXcmVersionLocation>>;
 
 	type BridgeHubOrigin = EnsureRoot<AccountId>;
 	type ToBridgeHubSender = TestToBridgeHubSender;
@@ -103,6 +84,18 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 
 	type ByteFee = ConstU128<BYTE_FEE>;
 	type FeeAsset = BridgeFeeAsset;
+}
+
+pub struct LatestOrNoneForLocationVersionChecker<Location>(sp_std::marker::PhantomData<Location>);
+impl<Location: Contains<MultiLocation>> GetVersion
+	for LatestOrNoneForLocationVersionChecker<Location>
+{
+	fn get_version_for(dest: &MultiLocation) -> Option<XcmVersion> {
+		if Location::contains(dest) {
+			return None
+		}
+		Some(XCM_VERSION)
+	}
 }
 
 pub struct TestToBridgeHubSender;

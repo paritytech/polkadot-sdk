@@ -39,7 +39,13 @@ use sp_std::convert::TryFrom;
 /// ECDSA and BLS12-377 paired crypto scheme
 #[cfg(feature = "bls-experimental")]
 pub mod ecdsa_bls377 {
-	use crate::{bls377, crypto::CryptoTypeId, ecdsa};
+	#[cfg(feature = "full_crypto")]
+	use crate::Hasher;
+	use crate::{
+		bls377,
+		crypto::{CryptoTypeId, Pair as PairT, UncheckedFrom},
+		ecdsa,
+	};
 
 	/// An identifier used to match public keys against BLS12-377 keys
 	pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"ecb7");
@@ -70,6 +76,60 @@ pub mod ecdsa_bls377 {
 	#[cfg(feature = "full_crypto")]
 	impl super::CryptoType for Pair {
 		type Pair = Pair;
+	}
+
+	#[cfg(feature = "full_crypto")]
+	impl Pair {
+		/// Hashes the `message` with the specified [`Hasher`] before signing sith the ECDSA secret
+		/// component.
+		///
+		/// The hasher does not affect the BLS12-377 component. This generates BLS12-377 Signature
+		/// according to IETF standard.
+		pub fn sign_with_hasher<H>(&self, message: &[u8]) -> Signature
+		where
+			H: Hasher,
+			H::Out: Into<[u8; 32]>,
+		{
+			let msg_hash = H::hash(message).into();
+
+			let mut raw: [u8; SIGNATURE_LEN] = [0u8; SIGNATURE_LEN];
+			raw[..ecdsa::SIGNATURE_SERIALIZED_SIZE]
+				.copy_from_slice(self.left.sign_prehashed(&msg_hash).as_ref());
+			raw[ecdsa::SIGNATURE_SERIALIZED_SIZE..]
+				.copy_from_slice(self.right.sign(message).as_ref());
+			<Self as PairT>::Signature::unchecked_from(raw)
+		}
+
+		/// Hashes the `message` with the specified [`Hasher`] before verifying with the ECDSA
+		/// public component.
+		///
+		/// The hasher does not affect the the BLS12-377 component. This verifies whether the
+		/// BLS12-377 signature was hashed and signed according to IETF standard
+		pub fn verify_with_hasher<H>(sig: &Signature, message: &[u8], public: &Public) -> bool
+		where
+			H: Hasher,
+			H::Out: Into<[u8; 32]>,
+		{
+			let msg_hash = H::hash(message).into();
+
+			let Ok(left_pub) = public.0[..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE].try_into() else {
+				return false
+			};
+			let Ok(left_sig) = sig.0[0..ecdsa::SIGNATURE_SERIALIZED_SIZE].try_into() else {
+				return false
+			};
+			if !ecdsa::Pair::verify_prehashed(&left_sig, &msg_hash, &left_pub) {
+				return false
+			}
+
+			let Ok(right_pub) = public.0[ecdsa::PUBLIC_KEY_SERIALIZED_SIZE..].try_into() else {
+				return false
+			};
+			let Ok(right_sig) = sig.0[ecdsa::SIGNATURE_SERIALIZED_SIZE..].try_into() else {
+				return false
+			};
+			bls377::Pair::verify(&right_sig, message.as_ref(), &right_pub)
+		}
 	}
 }
 
@@ -455,12 +515,12 @@ where
 #[cfg(all(test, feature = "bls-experimental"))]
 mod test {
 	use super::*;
-	use crate::crypto::DEV_PHRASE;
+	use crate::{crypto::DEV_PHRASE, KeccakHasher};
 	use ecdsa_bls377::{Pair, Signature};
 
 	use crate::{bls377, ecdsa};
-	#[test]
 
+	#[test]
 	fn test_length_of_paired_ecdsa_and_bls377_public_key_and_signature_is_correct() {
 		assert_eq!(
 			<Pair as PairT>::Public::LEN,
@@ -615,6 +675,16 @@ mod test {
 		println!("Correct: {}", s);
 		let cmp = Public::from_ss58check(&s).unwrap();
 		assert_eq!(cmp, public);
+	}
+
+	#[test]
+	fn sign_and_verify_with_hasher_works() {
+		let pair =
+			Pair::from_seed(&(b"12345678901234567890123456789012".as_slice().try_into().unwrap()));
+		let message = b"Something important";
+		let signature = pair.sign_with_hasher::<KeccakHasher>(&message[..]);
+
+		assert!(Pair::verify_with_hasher::<KeccakHasher>(&signature, &message[..], &pair.public()));
 	}
 
 	#[test]

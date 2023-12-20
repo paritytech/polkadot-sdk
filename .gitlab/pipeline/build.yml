@@ -125,7 +125,7 @@ build-rustdoc:
         find "$path" -name '*.html' | xargs -I {} -P "$(nproc)" bash -c 'process_file "$@"' _ {}
       }
       inject_simple_analytics "./crate-docs"
-    - echo "<meta http-equiv=refresh content=0;url=polkadot_service/index.html>" > ./crate-docs/index.html
+    - echo "<meta http-equiv=refresh content=0;url=polkadot_sdk_docs/index.html>" > ./crate-docs/index.html
 
 build-implementers-guide:
   stage: build
@@ -220,6 +220,7 @@ build-test-parachain:
 
 # DAG: build-runtime-assets -> build-runtime-collectives -> build-runtime-bridge-hubs
 # DAG: build-runtime-assets -> build-runtime-collectives -> build-runtime-contracts
+# DAG: build-runtime-assets -> build-runtime-coretime
 # DAG: build-runtime-assets -> build-runtime-starters -> build-runtime-testing
 build-runtime-assets:
   <<: *build-runtime-template
@@ -230,6 +231,15 @@ build-runtime-collectives:
   <<: *build-runtime-template
   variables:
     RUNTIME_PATH: "cumulus/parachains/runtimes/collectives"
+  # this is an artificial job dependency, for pipeline optimization using GitLab's DAGs
+  needs:
+    - job: build-runtime-assets
+      artifacts: false
+
+build-runtime-coretime:
+  <<: *build-runtime-template
+  variables:
+    RUNTIME_PATH: "cumulus/parachains/runtimes/coretime"
   # this is an artificial job dependency, for pipeline optimization using GitLab's DAGs
   needs:
     - job: build-runtime-assets
@@ -305,7 +315,7 @@ build-linux-substrate:
     # see https://github.com/paritytech/ci_cd/issues/682#issuecomment-1340953589
     - git checkout -B "$CI_COMMIT_REF_NAME" "$CI_COMMIT_SHA"
   script:
-    - WASM_BUILD_NO_COLOR=1 time cargo build --locked --release -p node-cli
+    - WASM_BUILD_NO_COLOR=1 time cargo build --locked --release -p staging-node-cli
     - mv $CARGO_TARGET_DIR/release/substrate-node ./artifacts/substrate/substrate
     - echo -n "Substrate version = "
     - if [ "${CI_COMMIT_TAG}" ]; then

@@ -3,7 +3,9 @@
 set -e
 
 export TERM=xterm
-PROJECT_ROOT=`git rev-parse --show-toplevel`
+SUBSTRATE_FOLDER="/substrate"
+GIT_ROOT=`git rev-parse --show-toplevel`
+PROJECT_ROOT=${GIT_ROOT}${SUBSTRATE_FOLDER}
 
 if [ "$#" -ne 1 ]; then
   echo "node-template-release.sh path_to_target_archive"
@@ -11,6 +13,6 @@ if [ "$#" -ne 1 ]; then
 fi
 
 PATH_TO_ARCHIVE=$1
-cd $PROJECT_ROOT/scripts/ci/node-template-release
 
+cd $PROJECT_ROOT/scripts/ci/node-template-release
 cargo run $PROJECT_ROOT/bin/node-template $PROJECT_ROOT/$PATH_TO_ARCHIVE
