@@ -186,6 +186,7 @@ impl crate::initializer::Config for Test {
 	type Randomness = TestRandomness<Self>;
 	type ForceOrigin = frame_system::EnsureRoot<u64>;
 	type WeightInfo = ();
+	type CoretimeOnNewSession = Coretime;
 }
 
 impl crate::configuration::Config for Test {
@@ -368,6 +369,7 @@ impl assigner_coretime::Config for Test {}
 parameter_types! {
 	pub const BrokerId: u32 = 10u32;
 }
+
 impl coretime::Config for Test {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;

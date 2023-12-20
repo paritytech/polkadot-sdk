@@ -1039,6 +1039,7 @@ impl parachains_initializer::Config for Runtime {
 	type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = weights::runtime_parachains_initializer::WeightInfo<Runtime>;
+	type CoretimeOnNewSession = Coretime;
 }
 
 impl parachains_disputes::Config for Runtime {
@@ -1491,8 +1492,30 @@ pub mod migrations {
 
 	use frame_support::traits::LockIdentifier;
 	use frame_system::pallet_prelude::BlockNumberFor;
+	use sp_arithmetic::traits::Zero;
 	#[cfg(feature = "try-runtime")]
 	use sp_core::crypto::ByteArray;
+
+	pub struct GetLegacyLeaseImpl;
+	impl coretime::migration::GetLegacyLease<BlockNumber> for GetLegacyLeaseImpl {
+		fn get_parachain_lease_in_blocks(para: ParaId) -> Option<BlockNumber> {
+			let now = frame_system::Pallet::<Runtime>::block_number();
+			let mut leases = slots::Pallet::<Runtime>::lease(para).into_iter();
+			let initial_sum = if let Some(Some(_)) = leases.next() {
+				let (_, progress) =
+					slots::Pallet::<Runtime>::lease_period_index_plus_progress(now)?;
+				LeasePeriod::get().saturating_sub(progress)
+			} else {
+				// The parachain lease did not yet start
+				Zero::zero()
+			};
+
+			Some(leases.into_iter().fold(initial_sum, |sum, lease| {
+				// If the parachain lease did not yet start, we ignore them by multiplying by `0`.
+				sum + LeasePeriod::get() * lease.map_or(0, |_| 1)
+			}))
+		}
+	}
 
 	parameter_types! {
 		pub const DemocracyPalletName: &'static str = "Democracy";
@@ -1617,7 +1640,6 @@ pub mod migrations {
 		parachains_configuration::migration::v7::MigrateToV7<Runtime>,
 		assigned_slots::migration::v1::MigrateToV1<Runtime>,
 		parachains_scheduler::migration::MigrateV1ToV2<Runtime>,
-		coretime::migration::v_coretime::MigrateToCoretime<Runtime>,
 		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
 		paras_registrar::migration::MigrateToV1<Runtime, ()>,
@@ -1648,6 +1670,8 @@ pub mod migrations {
 		// Remove `im-online` pallet on-chain storage
 		frame_support::migrations::RemovePallet<ImOnlinePalletName, <Runtime as frame_system::Config>::DbWeight>,
 		parachains_configuration::migration::v11::MigrateToV11<Runtime>,
+		// This needs to come after the `parachains_configuration` above as we are reading the configuration.
+		coretime::migration::MigrateToCoretime<Runtime, crate::xcm_config::XcmRouter, GetLegacyLeaseImpl>,
 	);
 }
 

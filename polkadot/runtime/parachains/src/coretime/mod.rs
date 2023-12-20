@@ -24,7 +24,7 @@ mod benchmarking;
 
 use crate::{
 	assigner_coretime::{self, PartsOf57600},
-	initializer::SessionChangeNotification,
+	initializer::{OnNewSession, SessionChangeNotification},
 	origin::{ensure_parachain, Origin},
 };
 use frame_support::{pallet_prelude::*, traits::Currency};
@@ -69,18 +69,33 @@ impl WeightInfo for TestWeightInfo {
 // type BalanceOf<T> =
 //     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
+/// Broker pallet index on the coretime chain. Used to
+///
+/// construct remote calls. The codec index must correspond to the index of `Broker` in the
+/// `construct_runtime` of the coretime chain.
+#[derive(Encode, Decode)]
+enum BrokerRuntimePallets {
+	#[codec(index = 50)]
+	Broker(CoretimeCalls),
+}
+
+/// Call encoding for the calls needed from the Broker pallet.
+#[derive(Encode, Decode)]
+enum CoretimeCalls {
+	#[codec(index = 1)]
+	Reserve(pallet_broker::Schedule),
+	#[codec(index = 3)]
+	SetLease(pallet_broker::TaskId, pallet_broker::Timeslice),
+}
+
 #[frame_support::pallet]
 pub mod pallet {
-
 	use crate::configuration;
 
 	use super::*;
 
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
-
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
-	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -206,5 +221,11 @@ impl<T: Config> Pallet<T> {
 		if new_core_count != old_core_count {
 			// TODO: call notify_core_count
 		}
+	}
+}
+
+impl<T: Config> OnNewSession<BlockNumberFor<T>> for Pallet<T> {
+	fn on_new_session(notification: &SessionChangeNotification<BlockNumberFor<T>>) {
+		Self::initializer_on_new_session(notification);
 	}
 }
