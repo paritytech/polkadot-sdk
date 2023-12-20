@@ -66,7 +66,7 @@ use runtime_common::{
 };
 use runtime_parachains::{
 	assigner_parachains as parachains_assigner_parachains,
-	configuration as parachains_configuration, coretime, disputes as parachains_disputes,
+	configuration as parachains_configuration, disputes as parachains_disputes,
 	disputes::slashing as parachains_slashing,
 	dmp as parachains_dmp, hrmp as parachains_hrmp, inclusion as parachains_inclusion,
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
