@@ -113,18 +113,18 @@ mod v1 {
 	use crate::scheduler;
 
 	#[storage_alias]
-	pub(crate) type ClaimQueue<T: Config> = StorageValue<
+	pub(super) type ClaimQueue<T: Config> = StorageValue<
 		Pallet<T>,
 		BTreeMap<CoreIndex, VecDeque<Option<ParasEntry<BlockNumberFor<T>>>>>,
 		ValueQuery,
 	>;
 
 	#[storage_alias]
-	pub(crate) type AvailabilityCores<T: Config> =
+	pub(super) type AvailabilityCores<T: Config> =
 		StorageValue<Pallet<T>, Vec<CoreOccupied<BlockNumberFor<T>>>, ValueQuery>;
 
 	#[derive(Encode, Decode, TypeInfo, RuntimeDebug, PartialEq)]
-	pub(crate) enum CoreOccupied<N> {
+	pub(super) enum CoreOccupied<N> {
 		/// No candidate is waiting availability on this core right now (the core is not occupied).
 		Free,
 		/// A para is currently waiting for availability/inclusion on this core.
