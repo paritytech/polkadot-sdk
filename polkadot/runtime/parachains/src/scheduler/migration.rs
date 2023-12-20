@@ -27,7 +27,7 @@ use frame_support::{
 /// `Assignment` used to be a concrete type with the same layout V0Assignment, idential on all
 /// assignment providers. This can be removed once storage has been migrated.
 #[derive(Encode, Decode, RuntimeDebug, TypeInfo, PartialEq, Clone)]
-pub struct V0Assignment {
+struct V0Assignment {
 	pub para_id: ParaId,
 }
 
@@ -132,26 +132,26 @@ mod v1 {
 	}
 
 	#[derive(Encode, Decode, TypeInfo, RuntimeDebug, PartialEq)]
-	pub(crate) struct ParasEntry<N> {
+	pub(super) struct ParasEntry<N> {
 		/// The underlying `Assignment`
-		pub assignment: V0Assignment,
+		pub(super) assignment: V0Assignment,
 		/// The number of times the entry has timed out in availability already.
-		pub availability_timeouts: u32,
+		pub(super) availability_timeouts: u32,
 		/// The block height until this entry needs to be backed.
 		///
 		/// If missed the entry will be removed from the claim queue without ever having occupied
 		/// the core.
-		pub ttl: N,
+		pub(super) ttl: N,
 	}
 
 	impl<N> ParasEntry<N> {
 		/// Create a new `ParasEntry`.
-		pub fn new(assignment: V0Assignment, now: N) -> Self {
+		pub(super) fn new(assignment: V0Assignment, now: N) -> Self {
 			ParasEntry { assignment, availability_timeouts: 0, ttl: now }
 		}
 
 		/// Return `Id` from the underlying `Assignment`.
-		pub fn para_id(&self) -> ParaId {
+		pub(super) fn para_id(&self) -> ParaId {
 			self.assignment.para_id
 		}
 	}
