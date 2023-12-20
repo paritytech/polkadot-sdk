@@ -777,7 +777,7 @@ pub mod pallet {
 
 			// Ensure the account holds at least ED of free balance.
 			let free = a.free;
-			if free < ed && a.reserved  >= ed - free {
+			if free < ed && a.reserved >= ed - free {
 				a.free = ed;
 				a.reserved -= ed - free;
 			}
