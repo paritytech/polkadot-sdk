@@ -1,0 +1,12 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Extract PartialComponents into type alias `Service`
+
+doc:
+  - audience: Node Dev
+    description: |
+      Simplifies service definitions by extraction of a complicated type into a type alias.
+      Not a breaking change.
+
+crates: [ "sc-service", "node-template", "minimal-node", "cumulus-test-service", "polkadot-parachain-bin", "parachain-template-node" ]
