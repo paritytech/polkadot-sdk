@@ -41,7 +41,7 @@ use sp_core::Pair;
 use jsonrpsee::RpcModule;
 
 use crate::{fake_runtime_api::aura::RuntimeApi, rpc};
-pub use parachains_common::{AccountId, Balance, Block, BlockNumber, Hash, Header, Nonce};
+pub use parachains_common::{AccountId, Balance, Block, Hash, Header, Nonce};
 
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 use futures::{lock::Mutex, prelude::*};
@@ -138,6 +138,30 @@ impl sc_executor::NativeExecutionDispatch for BridgeHubRococoRuntimeExecutor {
 
 	fn native_version() -> sc_executor::NativeVersion {
 		bridge_hub_rococo_runtime::native_version()
+	}
+}
+
+/// Native `CoretimeRococo` executor instance.
+pub struct CoretimeRococoRuntimeExecutor;
+impl sc_executor::NativeExecutionDispatch for CoretimeRococoRuntimeExecutor {
+	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
+		coretime_rococo_runtime::api::dispatch(method, data)
+	}
+	fn native_version() -> sc_executor::NativeVersion {
+		coretime_rococo_runtime::native_version()
+	}
+}
+
+/// Native `CoretimeWestend` executor instance.
+pub struct CoretimeWestendRuntimeExecutor;
+impl sc_executor::NativeExecutionDispatch for CoretimeWestendRuntimeExecutor {
+	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
+		coretime_westend_runtime::api::dispatch(method, data)
+	}
+	fn native_version() -> sc_executor::NativeVersion {
+		coretime_westend_runtime::native_version()
 	}
 }
 

@@ -302,7 +302,6 @@ impl pallet_asset_conversion::Config for Runtime {
 	type Balance = Balance;
 	type HigherPrecisionBalance = sp_core::U256;
 	type Currency = Balances;
-	type AssetBalance = Balance;
 	type AssetId = MultiLocation;
 	type Assets = LocalAndForeignAssets<
 		Assets,
@@ -318,7 +317,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type PalletId = AssetConversionPalletId;
 	type AllowMultiAssetPools = AllowMultiAssetPools;
 	type MaxSwapPathLength = ConstU32<4>;
-	type MultiAssetId = Box<MultiLocation>;
+	type MultiAssetId = MultiLocation;
 	type MultiAssetIdConverter =
 		MultiLocationConverter<WestendLocation, LocalAndForeignAssetsMultiLocationMatcher>;
 	type MintMinLiquidity = ConstU128<100>;
@@ -1218,19 +1217,18 @@ impl_runtime_apis! {
 	impl pallet_asset_conversion::AssetConversionApi<
 		Block,
 		Balance,
-		u128,
-		Box<MultiLocation>,
+		MultiLocation,
 	> for Runtime
 	{
-		fn quote_price_exact_tokens_for_tokens(asset1: Box<MultiLocation>, asset2: Box<MultiLocation>, amount: u128, include_fee: bool) -> Option<Balance> {
+		fn quote_price_exact_tokens_for_tokens(asset1: MultiLocation, asset2: MultiLocation, amount: Balance, include_fee: bool) -> Option<Balance> {
 			AssetConversion::quote_price_exact_tokens_for_tokens(asset1, asset2, amount, include_fee)
 		}
 
-		fn quote_price_tokens_for_exact_tokens(asset1: Box<MultiLocation>, asset2: Box<MultiLocation>, amount: u128, include_fee: bool) -> Option<Balance> {
+		fn quote_price_tokens_for_exact_tokens(asset1: MultiLocation, asset2: MultiLocation, amount: Balance, include_fee: bool) -> Option<Balance> {
 			AssetConversion::quote_price_tokens_for_exact_tokens(asset1, asset2, amount, include_fee)
 		}
 
-		fn get_reserves(asset1: Box<MultiLocation>, asset2: Box<MultiLocation>) -> Option<(Balance, Balance)> {
+		fn get_reserves(asset1: MultiLocation, asset2: MultiLocation) -> Option<(Balance, Balance)> {
 			AssetConversion::get_reserves(&asset1, &asset2).ok()
 		}
 	}
@@ -1710,10 +1708,7 @@ pub mod migrations {
 	/// `MultiLocation { parents: 1, interior: Here }`
 	pub struct NativeAssetParents0ToParents1Migration<T>(sp_std::marker::PhantomData<T>);
 	impl<
-			T: pallet_asset_conversion::Config<
-				MultiAssetId = Box<MultiLocation>,
-				AssetId = MultiLocation,
-			>,
+			T: pallet_asset_conversion::Config<MultiAssetId = MultiLocation, AssetId = MultiLocation>,
 		> OnRuntimeUpgrade for NativeAssetParents0ToParents1Migration<T>
 	where
 		<T as pallet_asset_conversion::Config>::PoolAssetId: Into<u32>,
@@ -1739,15 +1734,15 @@ pub mod migrations {
 					pallet_asset_conversion::Pallet::<T>::get_pool_account(&old_pool_id);
 				reads.saturating_accrue(1);
 				let pool_asset_id = pool_info.lp_token.clone();
-				if old_pool_id.0.as_ref() != &invalid_native_asset {
+				if old_pool_id.0 != invalid_native_asset {
 					// skip, if ok
 					continue
 				}
 
 				// fix new account
 				let new_pool_id = pallet_asset_conversion::Pallet::<T>::get_pool_id(
-					Box::new(valid_native_asset),
-					old_pool_id.1.clone(),
+					valid_native_asset,
+					old_pool_id.1,
 				);
 				let new_pool_account =
 					pallet_asset_conversion::Pallet::<T>::get_pool_account(&new_pool_id);
@@ -1786,10 +1781,10 @@ pub mod migrations {
 
 				// move LocalOrForeignAssets
 				let _ = T::Assets::transfer(
-					*old_pool_id.1.as_ref(),
+					old_pool_id.1,
 					&old_pool_account,
 					&new_pool_account,
-					T::Assets::balance(*old_pool_id.1.as_ref(), &old_pool_account),
+					T::Assets::balance(old_pool_id.1, &old_pool_account),
 					Preservation::Expendable,
 				);
 				reads.saturating_accrue(1);

@@ -18,6 +18,8 @@
 //! CI regression testing.
 use clap::Parser;
 use color_eyre::eyre;
+use pyroscope::PyroscopeAgent;
+use pyroscope_pprofrs::{pprof_backend, PprofConfig};
 
 use colored::Colorize;
 use std::{path::Path, time::Duration};
@@ -76,12 +78,34 @@ struct BenchCli {
 	/// Maximum remote peer latency in milliseconds [0-5000].
 	pub peer_max_latency: Option<u64>,
 
+	#[clap(long, default_value_t = false)]
+	/// Enable CPU Profiling with Pyroscope
+	pub profile: bool,
+
+	#[clap(long, requires = "profile", default_value_t = String::from("http://localhost:4040"))]
+	/// Pyroscope Server URL
+	pub pyroscope_url: String,
+
+	#[clap(long, requires = "profile", default_value_t = 113)]
+	/// Pyroscope Sample Rate
+	pub pyroscope_sample_rate: u32,
+
 	#[command(subcommand)]
 	pub objective: cli::TestObjective,
 }
 
 impl BenchCli {
 	fn launch(self) -> eyre::Result<()> {
+		let agent_running = if self.profile {
+			let agent = PyroscopeAgent::builder(self.pyroscope_url.as_str(), "subsystem-bench")
+				.backend(pprof_backend(PprofConfig::new().sample_rate(self.pyroscope_sample_rate)))
+				.build()?;
+
+			Some(agent.start()?)
+		} else {
+			None
+		};
+
 		let configuration = self.standard_configuration;
 		let mut test_config = match self.objective {
 			TestObjective::TestSequence(options) => {
@@ -164,6 +188,11 @@ impl BenchCli {
 		// test_config.write_to_disk();
 		env.runtime()
 			.block_on(availability::benchmark_availability_read(&mut env, state));
+
+		if let Some(agent_running) = agent_running {
+			let agent_ready = agent_running.stop()?;
+			agent_ready.shutdown();
+		}
 
 		Ok(())
 	}
