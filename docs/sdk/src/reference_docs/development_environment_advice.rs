@@ -90,6 +90,6 @@
 //!
 //! ### Cargo Remote
 //!
-//! If you have a beefy remote server avaliable, you may consider using
+//! If you have a powerful remote server available, you may consider using
 //! [cargo-remote](https://github.com/sgeisler/cargo-remote) to execute cargo commands on it,
 //! freeing up local resources for other tasks like `rust-analyzer`.
