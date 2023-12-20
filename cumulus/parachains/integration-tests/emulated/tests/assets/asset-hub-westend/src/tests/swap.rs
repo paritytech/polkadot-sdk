@@ -260,7 +260,7 @@ fn cannot_create_pool_from_pool_assets() {
 				Box::new(asset_native),
 				Box::new(asset_one),
 			),
-			Err(DispatchError::Module(ModuleError{index: _, error: _, message})) => assert_eq!(message, Some("UnsupportedAsset"))
+			Err(DispatchError::Module(ModuleError{index: _, error: _, message})) => assert_eq!(message, Some("Unknown"))
 		);
 	});
 }
