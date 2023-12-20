@@ -538,6 +538,7 @@ impl parachains_paras::Config for Runtime {
 	type QueueFootprinter = ParaInclusion;
 	type NextSessionRotation = Babe;
 	type OnNewHead = ();
+	type ParasOnGenesis = ();
 }
 
 parameter_types! {

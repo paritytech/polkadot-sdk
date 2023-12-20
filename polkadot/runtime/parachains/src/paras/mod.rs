@@ -506,6 +506,15 @@ impl OnNewHead for Tuple {
 	}
 }
 
+/// Runtime hook for pallets that need to do something with genesis paras.
+pub trait ParasOnGenesis {
+	fn paras_on_genesis(paras: &[(ParaId, ParaGenesisArgs)]);
+}
+
+impl ParasOnGenesis for () {
+	fn paras_on_genesis(_: &[(ParaId, ParaGenesisArgs)]) {}
+}
+
 pub trait WeightInfo {
 	fn force_set_current_code(c: u32) -> Weight;
 	fn force_set_current_head(s: u32) -> Weight;
@@ -605,6 +614,9 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// Runtime hook for pallets that need to do something with genesis paras.
+		type ParasOnGenesis: ParasOnGenesis;
 	}
 
 	#[pallet::event]
@@ -839,6 +851,7 @@ pub mod pallet {
 				}
 				Pallet::<T>::initialize_para_now(&mut parachains, *id, genesis_args);
 			}
+			T::ParasOnGenesis::paras_on_genesis(&self.paras);
 			// parachains are flushed on drop
 		}
 	}

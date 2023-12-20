@@ -28,16 +28,19 @@ mod mock_helpers;
 mod tests;
 
 use crate::{
-	assigner_on_demand, configuration, paras,
+	assigner_on_demand, configuration,
+	paras::{self, ParaGenesisArgs, ParasOnGenesis},
 	scheduler::common::{
 		Assignment, AssignmentProvider, AssignmentProviderConfig, FixedAssignmentProvider,
 	},
+	ParaId,
 };
 
 use frame_support::{defensive, pallet_prelude::*};
 use frame_system::pallet_prelude::*;
 use pallet_broker::CoreAssignment;
 use primitives::CoreIndex;
+use sp_runtime::traits::One;
 
 use sp_std::prelude::*;
 
@@ -237,7 +240,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config:
-		frame_system::Config + configuration::Config + paras::Config + assigner_on_demand::Config
+		frame_system::Config + configuration::Config + assigner_on_demand::Config
 	{
 	}
 
@@ -509,5 +512,27 @@ impl<T: Config> Pallet<T> {
 			core_descriptor.queue = Some(new_queue);
 			Ok(())
 		})
+	}
+}
+
+impl<T: Config> ParasOnGenesis for Pallet<T> {
+	fn paras_on_genesis(paras: &[(ParaId, ParaGenesisArgs)]) {
+		for (id, _genesis_args) in paras {
+			// TODO: split into shared place?
+			//
+			// Add a new core and assign the para to it.
+			let config = <configuration::Pallet<T>>::config();
+			let core = config.coretime_cores;
+			let new_core_count = core.saturating_add(1);
+			log::warn!(
+				target: "runtime::paras_sudo_wrapper",
+				"genesis: assigning para {} to core {}", id, core,
+			);
+			<configuration::Pallet<T>>::set_coretime_cores_unchecked(new_core_count).unwrap(); // FIXME
+			let begin = <frame_system::Pallet<T>>::block_number() + One::one();
+			let assignment =
+				vec![(pallet_broker::CoreAssignment::Task((*id).into()), PartsOf57600::FULL)];
+			Pallet::<T>::assign_core(CoreIndex(core), begin, assignment, None).unwrap(); // FIXME
+		}
 	}
 }
