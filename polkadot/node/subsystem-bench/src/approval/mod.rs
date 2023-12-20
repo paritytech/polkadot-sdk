@@ -992,6 +992,7 @@ impl PeerMessageProducer {
 				per_candidate_data.values().map(|data| data.max_tranche).max(),
 				per_candidate_data.values().map(|data| data.last_tranche_with_no_show).max()
 			);
+			sleep(Duration::from_secs(6)).await;
 			let (tx, rx) = oneshot::channel();
 			let msg = ApprovalDistributionMessage::GetApprovalSignatures(HashSet::new(), tx);
 			self.send_message(AllMessages::ApprovalDistribution(msg), ValidatorIndex(0), None);

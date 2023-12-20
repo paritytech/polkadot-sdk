@@ -223,6 +223,19 @@ check-runtime-migration-collectives-westend:
     URI: "wss://westend-collectives-rpc.polkadot.io:443"
     COMMAND_EXTRA_ARGS: "--disable-spec-name-check"
 
+# Check runtime migrations for Parity managed coretime chain
+check-runtime-migration-coretime-rococo:
+  stage: check
+  extends:
+    - .docker-env
+    - .test-pr-refs
+    - .check-runtime-migration
+  variables:
+    NETWORK: "coretime-rococo"
+    PACKAGE: "coretime-rococo-runtime"
+    WASM: "coretime_rococo_runtime.compact.compressed.wasm"
+    URI: "wss://rococo-coretime-rpc.polkadot.io:443"
+
 find-fail-ci-phrase:
   stage: check
   variables:
