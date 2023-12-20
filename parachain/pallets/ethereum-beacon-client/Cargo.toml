@@ -58,7 +58,6 @@ fuzzing = [
 std = [
 	"bp-runtime/std",
 	"byte-slice-cast/std",
-	"byte-slice-cast/std",
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",

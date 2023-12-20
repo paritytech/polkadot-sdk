@@ -377,7 +377,6 @@ pub mod pallet {
 		///
 		/// - `origin`: Must be `MultiLocation`
 		/// - `mode`: Initial operating mode of the channel
-		/// - `outbound_fee`: Fee charged to users for sending outbound messages to Polkadot
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::create_channel())]
 		pub fn create_channel(origin: OriginFor<T>, mode: OperatingMode) -> DispatchResult {
@@ -406,11 +405,10 @@ pub mod pallet {
 		///
 		/// The origin must already have a channel initialized, as this message is sent over it.
 		///
-		/// Fee required: No
+		/// A partial fee will be charged for local processing only.
 		///
 		/// - `origin`: Must be `MultiLocation`
 		/// - `mode`: Initial operating mode of the channel
-		/// - `outbound_fee`: Fee charged to users for sending outbound messages to Polkadot
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::update_channel())]
 		pub fn update_channel(origin: OriginFor<T>, mode: OperatingMode) -> DispatchResult {
@@ -461,7 +459,7 @@ pub mod pallet {
 
 		/// Sends a message to the Gateway contract to transfer ether from an agent to `recipient`.
 		///
-		/// Fee required: No
+		/// A partial fee will be charged for local processing only.
 		///
 		/// - `origin`: Must be `MultiLocation`
 		#[pallet::call_index(7)]
@@ -476,6 +474,8 @@ pub mod pallet {
 			// Ensure that origin location is some consensus system on a sibling parachain
 			let (para_id, agent_id) = ensure_sibling::<T>(&origin_location)?;
 
+			// Since the origin is also the owner of the channel, they only need to pay
+			// the local processing fee.
 			let pays_fee = PaysFee::<T>::Partial(sibling_sovereign_account::<T>(para_id));
 
 			Self::do_transfer_native_from_agent(
