@@ -85,7 +85,7 @@ mod benchmarks {
 		}
 
 		assert!(
-			!OutboundXcmpStatus::<T>::get().iter().any(|p| p.recipient == para),
+			OutboundXcmpStatus::<T>::get().iter().all(|p| p.recipient != para),
 			"No messages in the channel; therefore removed."
 		);
 	}
