@@ -20,7 +20,7 @@
 use polkadot_node_network_protocol::PeerId;
 use polkadot_node_subsystem::{RuntimeApiError, SubsystemError};
 use polkadot_node_subsystem_util::{
-	backing_implicit_view::FetchError as ImplicitViewFetchError, runtime,
+	self as util, backing_implicit_view::FetchError as ImplicitViewFetchError, runtime,
 };
 use polkadot_primitives::{CandidateHash, Hash, Id as ParaId};
 
@@ -74,6 +74,9 @@ pub enum Error {
 
 	#[error("Fetching availability cores failed {0:?}")]
 	FetchAvailabilityCores(RuntimeApiError),
+
+	#[error("Fetching disabled validators failed {0:?}")]
+	FetchDisabledValidators(util::Error),
 
 	#[error("Fetching validator groups failed {0:?}")]
 	FetchValidatorGroups(RuntimeApiError),
