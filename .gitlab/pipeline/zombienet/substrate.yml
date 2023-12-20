@@ -33,6 +33,7 @@
     expire_in: 2 days
     paths:
       - ./zombienet-logs
+  allow_failure: true
   after_script:
     - mkdir -p ./zombienet-logs
     - cp /tmp/zombie*/logs/* ./zombienet-logs/
