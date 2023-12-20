@@ -388,6 +388,8 @@ impl cumulus_pallet_xcm::Config for Runtime {
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 }
 
+/// Creates an AgentId from a MultiLocation. An AgentId is a unique mapping to a Agent contract on
+/// Ethereum which acts as the sovereign account for the MultiLocation.
 pub type AgentIdOf = HashedDescription<H256, (DescribeHere, DescribeFamily<DescribeAllTerminal>)>;
 
 /// A `HandleFee` implementation that simply deposits the fees for `ExportMessage` XCM instructions

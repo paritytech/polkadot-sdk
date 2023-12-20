@@ -40,6 +40,9 @@ pub enum AggregateMessageOrigin {
 	///
 	/// This is used by the HRMP queue.
 	Sibling(ParaId),
+	/// The message came from a snowbridge channel.
+	/// 
+	/// This is used by Snowbridge inbound queue.
 	Snowbridge(ChannelId),
 }
 
@@ -109,6 +112,9 @@ where
 	}
 }
 
+/// Narrow the scope of the `Inner` query from `AggregateMessageOrigin` to `ParaId`.
+///
+/// All non-`Sibling` variants will be ignored.
 pub struct NarrowOriginToSibling<Inner>(PhantomData<Inner>);
 impl<Inner: QueuePausedQuery<ParaId>> QueuePausedQuery<AggregateMessageOrigin>
 	for NarrowOriginToSibling<Inner>

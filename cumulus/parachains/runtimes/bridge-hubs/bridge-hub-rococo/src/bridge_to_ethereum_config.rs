@@ -21,6 +21,7 @@ use crate::{
 use snowbridge_rococo_common::EthereumNetwork;
 use snowbridge_router_primitives::outbound::EthereumBlobExporter;
 
+/// Exports message to the Ethereum Gateway contract.
 pub type SnowbridgeExporter = EthereumBlobExporter<
 	UniversalLocation,
 	EthereumNetwork,
