@@ -691,7 +691,7 @@ pub fn run() -> Result<()> {
 				info!("Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
 
 				match config.chain_spec.runtime() {
-					Runtime::AssetHubPolkadot => crate::service::start_asset_hub_node::<
+					AssetHubPolkadot => crate::service::start_asset_hub_node::<
 						AssetHubPolkadotRuntimeApi,
 						AssetHubPolkadotAuraId,
 					>(config, polkadot_config, collator_options, id, hwbench)
@@ -699,9 +699,9 @@ pub fn run() -> Result<()> {
 					.map(|r| r.0)
 					.map_err(Into::into),
 
-					Runtime::AssetHubKusama |
-					Runtime::AssetHubRococo |
-					Runtime::AssetHubWestend =>
+					AssetHubKusama |
+					AssetHubRococo |
+					AssetHubWestend =>
 						crate::service::start_asset_hub_node::<
 							RuntimeApi,
 							AuraId,
@@ -710,7 +710,7 @@ pub fn run() -> Result<()> {
 						.map(|r| r.0)
 						.map_err(Into::into),
 
-					Runtime::CollectivesPolkadot | Runtime::CollectivesWestend =>
+					CollectivesPolkadot | CollectivesWestend =>
 						crate::service::start_generic_aura_node::<
 							RuntimeApi,
 							AuraId,
@@ -719,7 +719,7 @@ pub fn run() -> Result<()> {
 						.map(|r| r.0)
 						.map_err(Into::into),
 
-					Runtime::Seedling | Runtime::Shell =>
+					Seedling | Shell =>
 						crate::service::start_shell_node::<RuntimeApi>(
 							config,
 							polkadot_config,
@@ -731,7 +731,7 @@ pub fn run() -> Result<()> {
 						.map(|r| r.0)
 						.map_err(Into::into),
 
-					Runtime::ContractsRococo => crate::service::start_contracts_rococo_node(
+					ContractsRococo => crate::service::start_contracts_rococo_node(
 						config,
 						polkadot_config,
 						collator_options,
@@ -742,7 +742,7 @@ pub fn run() -> Result<()> {
 					.map(|r| r.0)
 					.map_err(Into::into),
 
-					Runtime::BridgeHub(bridge_hub_runtime_type) => match bridge_hub_runtime_type {
+					BridgeHub(bridge_hub_runtime_type) => match bridge_hub_runtime_type {
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::Polkadot =>
 							crate::service::start_generic_aura_node::<
 								RuntimeApi,
@@ -778,7 +778,7 @@ pub fn run() -> Result<()> {
 					}
 					.map_err(Into::into),
 
-					Runtime::Coretime(coretime_runtime_type) => match coretime_runtime_type {
+					Coretime(coretime_runtime_type) => match coretime_runtime_type {
 						chain_spec::coretime::CoretimeRuntimeType::Rococo |
 						chain_spec::coretime::CoretimeRuntimeType::RococoLocal |
 						chain_spec::coretime::CoretimeRuntimeType::RococoDevelopment |
@@ -793,7 +793,7 @@ pub fn run() -> Result<()> {
 					}
 					.map_err(Into::into),
 
-					Runtime::Penpal(_) | Runtime::Default =>
+					Penpal(_) | Default =>
 						crate::service::start_rococo_parachain_node(
 							config,
 							polkadot_config,
@@ -805,7 +805,7 @@ pub fn run() -> Result<()> {
 						.map(|r| r.0)
 						.map_err(Into::into),
 
-					Runtime::Glutton | Runtime::GluttonWestend =>
+					Glutton | GluttonWestend =>
 						crate::service::start_basic_lookahead_node::<
 							RuntimeApi,
 							AuraId,
@@ -814,7 +814,7 @@ pub fn run() -> Result<()> {
 						.map(|r| r.0)
 						.map_err(Into::into),
 
-					Runtime::People(people_runtime_type) => match people_runtime_type {
+					People(people_runtime_type) => match people_runtime_type {
 						chain_spec::people::PeopleRuntimeType::Rococo |
 						chain_spec::people::PeopleRuntimeType::RococoLocal |
 						chain_spec::people::PeopleRuntimeType::RococoDevelopment |
