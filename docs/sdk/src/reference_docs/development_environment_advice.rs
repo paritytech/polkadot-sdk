@@ -15,17 +15,24 @@
 //!
 //! ```lua
 //! ["rust-analyzer"] = {
+//!   rust = {
+//!     # Use a separate target dir for Rust Analyzer. Helpful if you want to use Rust
+//!     # Analyzer and cargo on the command line at the same time.
+//!     analyzerTargetDir = "target/nvim-rust-analyzer",
+//!   },
+//!   server = {
+//!     # Improve stability
+//!     extraEnv = {
+//!       ["CHALK_OVERFLOW_DEPTH"] = "100000000",
+//!       ["CHALK_SOLVER_MAX_SIZE"] = "100000000",
+//!     },
+//!   },
 //!   cargo = {
 //!     # Check feature-gated code
 //!     features = "all",
 //!     extraEnv = {
-//!       # Use a separate target dir for Rust Analyzer. Helpful if you want to use Rust
-//!       # Analyzer and cargo on the command line at the same time.
-//!       ["CARGO_TARGET_DIR"] = "target/nvim-rust-analyzer",
 //!       # Skip building WASM, there is never need for it here
 //!       ["SKIP_WASM_BUILD"] = "1",
-//!       # Improve stability
-//!       ["CHALK_OVERFLOW_DEPTH"] = "100000000",
 //!     },
 //!   },
 //!   procMacro = {
@@ -50,11 +57,14 @@
 //!
 //! ```json
 //! {
+//!   "rust-analyzer.rust.analyzerTargetDir": "target/vscode-rust-analyzer",
+//!   "rust-analyzer.server.extraEnv": {
+//!     "CHALK_OVERFLOW_DEPTH": "100000000",
+//!     "CHALK_SOLVER_MAX_SIZE": "10000000
+//!   },
 //!   "rust-analyzer.cargo.features": "all",
 //!   "rust-analyzer.cargo.extraEnv": {
-//!     "CARGO_TARGET_DIR": "target/vscode-rust-analyzer",
-//!     "SKIP_WASM_BUILD": "1",
-//!     "CHALK_OVERFLOW_DEPTH": "100000000"
+//!     "SKIP_WASM_BUILD": "1"
 //!   },
 //!   "rust-analyzer.procMacro.ignored": {
 //!     "async-trait": ["async_trait"],
