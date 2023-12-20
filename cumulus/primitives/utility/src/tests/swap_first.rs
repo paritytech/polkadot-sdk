@@ -396,7 +396,7 @@ pub mod mock {
 				credit_in.peek() >= amount_out_min.unwrap_or(Self::Balance::zero()),
 				(credit_in, DispatchError::Unavailable)
 			);
-			let swap_res = SWAP.with(|b| b.borrow().get(&(path[0], path[1])).map(|v| v.clone()));
+			let swap_res = SWAP.with(|b| b.borrow().get(&(path[0], path[1])).map(|v| *v));
 			let pool_account = match swap_res {
 				Some(a) => a,
 				None => return Err((credit_in, DispatchError::Unavailable)),
@@ -423,7 +423,7 @@ pub mod mock {
 		) -> Result<(Self::Credit, Self::Credit), (Self::Credit, DispatchError)> {
 			ensure!(2 == path.len(), (credit_in, DispatchError::Unavailable));
 			ensure!(credit_in.peek() >= amount_out, (credit_in, DispatchError::Unavailable));
-			let swap_res = SWAP.with(|b| b.borrow().get(&(path[0], path[1])).map(|v| v.clone()));
+			let swap_res = SWAP.with(|b| b.borrow().get(&(path[0], path[1])).map(|v| *v));
 			let pool_account = match swap_res {
 				Some(a) => a,
 				None => return Err((credit_in, DispatchError::Unavailable)),
