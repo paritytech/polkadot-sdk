@@ -27,7 +27,7 @@ use frame_support::{
 /// `Assignment` used to be a concrete type with the same layout V0Assignment, idential on all
 /// assignment providers. This can be removed once storage has been migrated.
 #[derive(Encode, Decode, RuntimeDebug, TypeInfo, PartialEq, Clone)]
-struct V0Assignment {
+pub struct V0Assignment {
 	pub para_id: ParaId,
 }
 
