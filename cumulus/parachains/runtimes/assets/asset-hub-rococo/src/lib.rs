@@ -30,11 +30,12 @@ pub mod xcm_config;
 use assets_common::{
 	foreign_creators::ForeignCreators,
 	local_and_foreign_assets::{LocalAndForeignAssets, MultiLocationConverter},
-	matching::FromSiblingParachain,
+	matching::{FromNetwork, FromSiblingParachain},
 	AssetIdForTrustBackedAssetsConvert, MultiLocationForAssetId,
 };
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use cumulus_primitives_core::AggregateMessageOrigin;
+use snowbridge_rococo_common::EthereumNetwork;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
@@ -95,8 +96,8 @@ use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use xcm::latest::prelude::*;
 
 use crate::xcm_config::{
-	bridging::to_ethereum::EthereumLocation, ForeignCreatorsSovereignAccountOf,
-	LocalAndForeignAssetsMultiLocationMatcher, TrustBackedAssetsPalletLocation,
+	ForeignCreatorsSovereignAccountOf, LocalAndForeignAssetsMultiLocationMatcher,
+	TrustBackedAssetsPalletLocation,
 };
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
@@ -371,7 +372,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type CreateOrigin = ForeignCreators<
 		(
 			FromSiblingParachain<parachain_info::Pallet<Runtime>>,
-			snowbridge_router_primitives::inbound::FromEthereumGlobalConsensus<EthereumLocation>,
+			FromNetwork<xcm_config::UniversalLocation, EthereumNetwork>,
 		),
 		ForeignCreatorsSovereignAccountOf,
 		AccountId,

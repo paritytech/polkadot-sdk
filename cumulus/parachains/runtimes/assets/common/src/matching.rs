@@ -58,6 +58,8 @@ impl<SelfParaId: Get<ParaId>> ContainsPair<MultiLocation, MultiLocation>
 	}
 }
 
+/// Checks if `a` is from the expected global consensus network. Checks that `MultiLocation-a`
+/// starts with `MultiLocation-b`, and that network is a foreign consensus system.
 pub struct FromNetwork<UniversalLocation, ExpectedNetworkId>(
 	sp_std::marker::PhantomData<(UniversalLocation, ExpectedNetworkId)>,
 );
@@ -72,6 +74,7 @@ impl<UniversalLocation: Get<InteriorMultiLocation>, ExpectedNetworkId: Get<Netwo
 
 		let universal_source = UniversalLocation::get();
 
+		// ensure that `a`` is remote and from the expected network
 		match ensure_is_remote(universal_source, a) {
 			Ok((network_id, _)) => network_id == ExpectedNetworkId::get(),
 			Err(e) => {
@@ -85,6 +88,7 @@ impl<UniversalLocation: Get<InteriorMultiLocation>, ExpectedNetworkId: Get<Netwo
 		}
 	}
 }
+
 /// Adapter verifies if it is allowed to receive `MultiAsset` from `MultiLocation`.
 ///
 /// Note: `MultiLocation` has to be from a different global consensus.
@@ -120,5 +124,94 @@ impl<
 
 		// check asset according to the configured reserve locations
 		Reserves::contains(asset, origin)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use frame_support::parameter_types;
+
+	parameter_types! {
+		pub UniversalLocation: InteriorMultiLocation = X2(GlobalConsensus(Rococo), Parachain(1000));
+		pub ExpectedNetworkId: NetworkId = Wococo;
+	}
+
+	#[test]
+	fn from_network_contains_works() {
+		// asset and origin from foreign consensus works
+		let asset: MultiLocation = (
+			Parent,
+			Parent,
+			GlobalConsensus(Wococo),
+			Parachain(1000),
+			PalletInstance(1),
+			GeneralIndex(1),
+		)
+			.into();
+		let origin: MultiLocation =
+			(Parent, Parent, GlobalConsensus(Wococo), Parachain(1000)).into();
+		assert!(FromNetwork::<UniversalLocation, ExpectedNetworkId>::contains(&asset, &origin));
+
+		// asset and origin from local consensus fails
+		let asset: MultiLocation = (
+			Parent,
+			Parent,
+			GlobalConsensus(Rococo),
+			Parachain(1000),
+			PalletInstance(1),
+			GeneralIndex(1),
+		)
+			.into();
+		let origin: MultiLocation =
+			(Parent, Parent, GlobalConsensus(Rococo), Parachain(1000)).into();
+		assert!(!FromNetwork::<UniversalLocation, ExpectedNetworkId>::contains(&asset, &origin));
+
+		// asset and origin from here fails
+		let asset: MultiLocation = (PalletInstance(1), GeneralIndex(1)).into();
+		let origin: MultiLocation = Here.into();
+		assert!(!FromNetwork::<UniversalLocation, ExpectedNetworkId>::contains(&asset, &origin));
+
+		// asset from different consensus fails
+		let asset: MultiLocation = (
+			Parent,
+			Parent,
+			GlobalConsensus(Polkadot),
+			Parachain(1000),
+			PalletInstance(1),
+			GeneralIndex(1),
+		)
+			.into();
+		let origin: MultiLocation =
+			(Parent, Parent, GlobalConsensus(Wococo), Parachain(1000)).into();
+		assert!(!FromNetwork::<UniversalLocation, ExpectedNetworkId>::contains(&asset, &origin));
+
+		// origin from different consensus fails
+		let asset: MultiLocation = (
+			Parent,
+			Parent,
+			GlobalConsensus(Wococo),
+			Parachain(1000),
+			PalletInstance(1),
+			GeneralIndex(1),
+		)
+			.into();
+		let origin: MultiLocation =
+			(Parent, Parent, GlobalConsensus(Polkadot), Parachain(1000)).into();
+		assert!(!FromNetwork::<UniversalLocation, ExpectedNetworkId>::contains(&asset, &origin));
+
+		// asset and origin from unexpected consensus fails
+		let asset: MultiLocation = (
+			Parent,
+			Parent,
+			GlobalConsensus(Polkadot),
+			Parachain(1000),
+			PalletInstance(1),
+			GeneralIndex(1),
+		)
+			.into();
+		let origin: MultiLocation =
+			(Parent, Parent, GlobalConsensus(Polkadot), Parachain(1000)).into();
+		assert!(!FromNetwork::<UniversalLocation, ExpectedNetworkId>::contains(&asset, &origin));
 	}
 }
