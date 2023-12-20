@@ -145,7 +145,8 @@ pub fn migrate_to_coretime<T: Config>() -> Weight {
 	let single_weight = <T as Config>::WeightInfo::assign_core(1);
 	single_weight
 		.saturating_mul(u64::from(legacy_count.saturating_add(config.coretime_cores)))
-		.saturating_add(T::DbWeight::get().reads_writes(1, 1))
+		// Second read from sending assignments to the coretime chain.
+		.saturating_add(T::DbWeight::get().reads_writes(2, 1))
 }
 
 fn migrate_send_assignments_to_coretime_chain<T: Config>() -> result::Result<(), SendError> {
