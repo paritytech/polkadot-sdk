@@ -93,6 +93,10 @@ impl Metrics {
 				metrics.preparation_max_resident.observe(max_resident_kb);
 				metrics.preparation_max_allocated.observe(max_allocated_kb);
 			}
+
+			metrics
+				.preparation_peak_tracked_allocation
+				.observe((memory_stats.peak_tracked_alloc / 1024) as f64);
 		}
 	}
 }
@@ -110,10 +114,14 @@ struct MetricsInner {
 	execution_time: prometheus::Histogram,
 	#[cfg(target_os = "linux")]
 	preparation_max_rss: prometheus::Histogram,
+	// Max. allocated memory, tracked by Jemallocator, polling-based
 	#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
 	preparation_max_allocated: prometheus::Histogram,
+	// Max. resident memory, tracked by Jemallocator, polling-based
 	#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
 	preparation_max_resident: prometheus::Histogram,
+	// Peak allocation value, tracked by tracking-allocator
+	preparation_peak_tracked_allocation: prometheus::Histogram,
 }
 
 impl metrics::Metrics for Metrics {
@@ -264,6 +272,18 @@ impl metrics::Metrics for Metrics {
 					prometheus::HistogramOpts::new(
 						"polkadot_pvf_preparation_max_allocated",
 						"max allocated memory observed for preparation (in kilobytes)",
+					).buckets(
+						prometheus::exponential_buckets(8192.0, 2.0, 10)
+							.expect("arguments are always valid; qed"),
+					),
+				)?,
+				registry,
+			)?,
+			preparation_peak_tracked_allocation: prometheus::register(
+				prometheus::Histogram::with_opts(
+					prometheus::HistogramOpts::new(
+						"polkadot_pvf_preparation_peak_tracked_allocation",
+						"peak allocation observed for preparation (in kilobytes)",
 					).buckets(
 						prometheus::exponential_buckets(8192.0, 2.0, 10)
 							.expect("arguments are always valid; qed"),

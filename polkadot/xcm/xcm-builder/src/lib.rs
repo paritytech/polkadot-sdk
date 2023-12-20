@@ -65,10 +65,16 @@ mod process_xcm_message;
 pub use process_xcm_message::ProcessXcmMessage;
 
 mod currency_adapter;
+#[allow(deprecated)]
 pub use currency_adapter::CurrencyAdapter;
 
 mod fee_handling;
-pub use fee_handling::XcmFeesToAccount;
+pub use fee_handling::{
+	deposit_or_burn_fee, HandleFee, XcmFeeManagerFromComponents, XcmFeeToAccount,
+};
+
+mod fungible_adapter;
+pub use fungible_adapter::{FungibleAdapter, FungibleMutateAdapter, FungibleTransferAdapter};
 
 mod fungibles_adapter;
 pub use fungibles_adapter::{
@@ -113,3 +119,9 @@ pub use origin_aliases::AliasForeignAccountId32;
 
 mod pay;
 pub use pay::{FixedLocation, LocatableAssetId, PayAccountId32OnChainOverXcm, PayOverXcm};
+
+mod controller;
+pub use controller::{
+	Controller, ExecuteController, ExecuteControllerWeightInfo, QueryController,
+	QueryControllerWeightInfo, QueryHandler, SendController, SendControllerWeightInfo,
+};

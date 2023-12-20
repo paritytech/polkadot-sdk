@@ -6,13 +6,16 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
 cfg-if = "1.0"
 cpu-time = "1.0.0"
 futures = "0.3.21"
 gum = { package = "tracing-gum", path = "../../../gum" }
 libc = "0.2.139"
-tokio = { version = "1.24.2", features = ["fs", "process", "io-util"] }
+thiserror = "1.0.31"
 
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
 
@@ -30,10 +33,14 @@ sp-tracing = { path = "../../../../../substrate/primitives/tracing" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 landlock = "0.3.0"
+seccompiler = "0.4.0"
 
 [dev-dependencies]
 assert_matches = "1.4.0"
 tempfile = "3.3.0"
+
+[build-dependencies]
+substrate-build-script-utils = { path = "../../../../../substrate/utils/build-script-utils" }
 
 [features]
 # This feature is used to export test code to other crates without putting it in the production build.

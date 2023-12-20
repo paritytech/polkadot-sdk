@@ -4,6 +4,8 @@
 # common settings for all zombienet jobs
 .zombienet-polkadot-common:
   before_script:
+    # Exit if the job is not merge queue
+    # - if [[ $CI_COMMIT_REF_NAME != *"gh-readonly-queue"* ]]; then echo "I will run only in a merge queue"; exit 0; fi
     - export BUILD_RELEASE_VERSION="$(cat ./artifacts/BUILD_RELEASE_VERSION)" # from build-linux-stable job
     - export DEBUG=zombie,zombie::network-node
     - export ZOMBIENET_INTEGRATION_TEST_IMAGE="${POLKADOT_IMAGE}":${PIPELINE_IMAGE_TAG}
@@ -12,12 +14,12 @@
     - export MALUS_IMAGE="${MALUS_IMAGE}":${PIPELINE_IMAGE_TAG}
     - IMAGE_AVAILABLE=$(curl -o /dev/null -w "%{http_code}" -I -L -s https://registry.hub.docker.com/v2/repositories/parity/polkadot/tags/${BUILD_RELEASE_VERSION})
     - if [ $IMAGE_AVAILABLE -eq 200 ]; then
-        export ZOMBIENET_INTEGRATION_TEST_SECONDARY_IMAGE="docker.io/parity/polkadot:${BUILD_RELEASE_VERSION}";
+      export ZOMBIENET_INTEGRATION_TEST_SECONDARY_IMAGE="docker.io/parity/polkadot:${BUILD_RELEASE_VERSION}";
       else
-        echo "Getting the image to use as SECONDARY, using ${BUILD_RELEASE_VERSION} as base";
-        VERSIONS=$(curl -L -s 'https://registry.hub.docker.com/v2/repositories/parity/polkadot/tags/' | jq -r '.results[].name'| grep -E "v[0-9]" |grep -vE "[0-9]-");
-        VERSION_TO_USE=$(echo "${BUILD_RELEASE_VERSION}\n$VERSIONS"|sort -r|grep -A1 "${BUILD_RELEASE_VERSION}"|tail -1);
-        export ZOMBIENET_INTEGRATION_TEST_SECONDARY_IMAGE="docker.io/parity/polkadot:${VERSION_TO_USE}";
+      echo "Getting the image to use as SECONDARY, using ${BUILD_RELEASE_VERSION} as base";
+      VERSIONS=$(curl -L -s 'https://registry.hub.docker.com/v2/repositories/parity/polkadot/tags/' | jq -r '.results[].name'| grep -E "v[0-9]" |grep -vE "[0-9]-");
+      VERSION_TO_USE=$(echo "${BUILD_RELEASE_VERSION}\n$VERSIONS"|sort -r|grep -A1 "${BUILD_RELEASE_VERSION}"|tail -1);
+      export ZOMBIENET_INTEGRATION_TEST_SECONDARY_IMAGE="docker.io/parity/polkadot:${VERSION_TO_USE}";
       fi
     - echo "Zombienet Tests Config"
     - echo "gh-dir ${GH_DIR}"
@@ -105,10 +107,44 @@ zombienet-polkadot-functional-0005-parachains-disputes-past-session:
       --local-dir="${LOCAL_DIR}/functional"
       --test="0005-parachains-disputes-past-session.zndsl"
 
+zombienet-polkadot-functional-0006-parachains-max-tranche0:
+  extends:
+    - .zombienet-polkadot-common
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/functional"
+      --test="0006-parachains-max-tranche0.zndsl"
+
+zombienet-polkadot-functional-0007-dispute-freshly-finalized:
+  extends:
+    - .zombienet-polkadot-common
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/functional"
+      --test="0007-dispute-freshly-finalized.zndsl"
+
+zombienet-polkadot-functional-0008-dispute-old-finalized:
+  extends:
+    - .zombienet-polkadot-common
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/functional"
+      --test="0008-dispute-old-finalized.zndsl"
+
+zombienet-polkadot-functional-0009-approval-voting-coalescing:
+  extends:
+    - .zombienet-polkadot-common
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/functional"
+      --test="0009-approval-voting-coalescing.zndsl"
+
 zombienet-polkadot-smoke-0001-parachains-smoke-test:
   extends:
     - .zombienet-polkadot-common
   before_script:
+    # Exit if the job is not merge queue
+    # - if [[ $CI_COMMIT_REF_NAME != *"gh-readonly-queue"* ]]; then echo "I will run only in a merge queue"; exit 0; fi
     - export ZOMBIENET_INTEGRATION_TEST_IMAGE="${POLKADOT_IMAGE}":${PIPELINE_IMAGE_TAG}
     - export COL_IMAGE="${COLANDER_IMAGE}":${PIPELINE_IMAGE_TAG}
     - echo "Zombienet Tests Config"
@@ -126,6 +162,8 @@ zombienet-polkadot-smoke-0002-parachains-parachains-upgrade-smoke:
   extends:
     - .zombienet-polkadot-common
   before_script:
+    # Exit if the job is not merge queue
+    # - if [[ $CI_COMMIT_REF_NAME != *"gh-readonly-queue"* ]]; then echo "I will run only in a merge queue"; exit 0; fi
     - export ZOMBIENET_INTEGRATION_TEST_IMAGE="${POLKADOT_IMAGE}":${PIPELINE_IMAGE_TAG}
     - export CUMULUS_IMAGE="docker.io/paritypr/polkadot-parachain-debug:${DOCKER_IMAGES_VERSION}"
     - echo "Zombienet Tests Config"
@@ -168,8 +206,10 @@ zombienet-polkadot-misc-0002-upgrade-node:
     - job: build-linux-stable
       artifacts: true
   before_script:
+    # Exit if the job is not merge queue
+    # - if [[ $CI_COMMIT_REF_NAME != *"gh-readonly-queue"* ]]; then echo "I will run only in a merge queue"; exit 0; fi
     - export ZOMBIENET_INTEGRATION_TEST_IMAGE="docker.io/parity/polkadot:latest"
-    - echo "Overrided poladot image ${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
+    - echo "Overrided polkadot image ${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
     - export COL_IMAGE="${COLANDER_IMAGE}":${PIPELINE_IMAGE_TAG}
     - BUILD_LINUX_JOB_ID="$(cat ./artifacts/BUILD_LINUX_JOB_ID)"
     - export POLKADOT_PR_ARTIFACTS_URL="https://gitlab.parity.io/parity/mirrors/polkadot-sdk/-/jobs/${BUILD_LINUX_JOB_ID}/artifacts/raw/artifacts"

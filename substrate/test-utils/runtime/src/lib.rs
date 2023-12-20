@@ -27,7 +27,7 @@ pub mod substrate_test_pallet;
 
 use codec::{Decode, Encode};
 use frame_support::{
-	construct_runtime,
+	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
@@ -342,6 +342,7 @@ parameter_types! {
 		.build_or_panic();
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::pallet::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = RuntimeBlockWeights;
@@ -464,11 +465,10 @@ impl_opaque_keys! {
 	}
 }
 
-pub(crate) const TEST_RUNTIME_BABE_EPOCH_CONFIGURATION: BabeEpochConfiguration =
-	BabeEpochConfiguration {
-		c: (3, 10),
-		allowed_slots: AllowedSlots::PrimaryAndSecondaryPlainSlots,
-	};
+pub const TEST_RUNTIME_BABE_EPOCH_CONFIGURATION: BabeEpochConfiguration = BabeEpochConfiguration {
+	c: (3, 10),
+	allowed_slots: AllowedSlots::PrimaryAndSecondaryPlainSlots,
+};
 
 impl_runtime_apis! {
 	impl sp_api::Core<Block> for Runtime {
@@ -1020,7 +1020,7 @@ mod tests {
 	use super::*;
 	use codec::Encode;
 	use frame_support::dispatch::DispatchInfo;
-	use sc_block_builder::BlockBuilderProvider;
+	use sc_block_builder::BlockBuilderBuilder;
 	use sp_api::{ApiExt, ProvideRuntimeApi};
 	use sp_consensus::BlockOrigin;
 	use sp_core::{storage::well_known_keys::HEAP_PAGES, traits::CallContext};
@@ -1052,7 +1052,11 @@ mod tests {
 		// Create a block that sets the `:heap_pages` to 32 pages of memory which corresponds to
 		// ~2048k of heap memory.
 		let (new_at_hash, block) = {
-			let mut builder = client.new_block(Default::default()).unwrap();
+			let mut builder = BlockBuilderBuilder::new(&client)
+				.on_parent_block(best_hash)
+				.with_parent_block_number(0)
+				.build()
+				.unwrap();
 			builder.push_storage_change(HEAP_PAGES.to_vec(), Some(32u64.encode())).unwrap();
 			let block = builder.build().unwrap().block;
 			let hash = block.header.hash();
@@ -1233,7 +1237,7 @@ mod tests {
 		#[test]
 		fn build_minimal_genesis_config_works() {
 			sp_tracing::try_init_simple();
-			let default_minimal_json = r#"{"system":{"code":"0x"},"babe":{"authorities":[],"epochConfig":{"c": [ 3, 10 ],"allowed_slots":"PrimaryAndSecondaryPlainSlots"}},"substrateTest":{"authorities":[]},"balances":{"balances":[]}}"#;
+			let default_minimal_json = r#"{"system":{},"babe":{"authorities":[],"epochConfig":{"c": [ 3, 10 ],"allowed_slots":"PrimaryAndSecondaryPlainSlots"}},"substrateTest":{"authorities":[]},"balances":{"balances":[]}}"#;
 			let mut t = BasicExternalities::new_empty();
 
 			executor_call(&mut t, "GenesisBuilder_build_config", &default_minimal_json.encode())
@@ -1260,8 +1264,6 @@ mod tests {
 
 				// System|LastRuntimeUpgrade
 				"26aa394eea5630e07c48ae0c9558cef7f9cce9c888469bb1a0dceaa129672ef8",
-				// :code
-				"3a636f6465",
 				// :extrinsic_index
 				"3a65787472696e7369635f696e646578",
 				// Balances|TotalIssuance
@@ -1290,35 +1292,55 @@ mod tests {
 			let r = Vec::<u8>::decode(&mut &r[..]).unwrap();
 			let json = String::from_utf8(r.into()).expect("returned value is json. qed.");
 
-			let expected = r#"{"system":{"code":"0x"},"babe":{"authorities":[],"epochConfig":null},"substrateTest":{"authorities":[]},"balances":{"balances":[]}}"#;
+			let expected = r#"{"system":{},"babe":{"authorities":[],"epochConfig":null},"substrateTest":{"authorities":[]},"balances":{"balances":[]}}"#;
 			assert_eq!(expected.to_string(), json);
 		}
 
 		#[test]
 		fn build_config_from_json_works() {
 			sp_tracing::try_init_simple();
-			let j = include_str!("test_json/default_genesis_config.json");
+			let j = include_str!("../res/default_genesis_config.json");
 
 			let mut t = BasicExternalities::new_empty();
 			let r = executor_call(&mut t, "GenesisBuilder_build_config", &j.encode()).unwrap();
 			let r = BuildResult::decode(&mut &r[..]);
 			assert!(r.is_ok());
 
-			let keys = t.into_storages().top.keys().cloned().map(hex).collect::<Vec<String>>();
+			let mut keys = t.into_storages().top.keys().cloned().map(hex).collect::<Vec<String>>();
+
+			// following keys are not placed during `<RuntimeGenesisConfig as GenesisBuild>::build`
+			// process, add them `keys` to assert against known keys.
+			keys.push(hex(b":code"));
+			keys.sort();
+
 			assert_eq!(keys, storage_key_generator::get_expected_storage_hashed_keys(false));
 		}
 
 		#[test]
 		fn build_config_from_invalid_json_fails() {
 			sp_tracing::try_init_simple();
-			let j = include_str!("test_json/default_genesis_config_invalid.json");
+			let j = include_str!("../res/default_genesis_config_invalid.json");
 			let mut t = BasicExternalities::new_empty();
 			let r = executor_call(&mut t, "GenesisBuilder_build_config", &j.encode()).unwrap();
 			let r = BuildResult::decode(&mut &r[..]).unwrap();
 			log::info!("result: {:#?}", r);
 			assert_eq!(r, Err(
 				sp_runtime::RuntimeString::Owned(
-					"Invalid JSON blob: unknown field `renamed_authorities`, expected `authorities` or `epochConfig` at line 6 column 25".to_string(),
+					"Invalid JSON blob: unknown field `renamed_authorities`, expected `authorities` or `epochConfig` at line 4 column 25".to_string(),
+				))
+			);
+		}
+
+		#[test]
+		fn build_config_from_invalid_json_fails_2() {
+			sp_tracing::try_init_simple();
+			let j = include_str!("../res/default_genesis_config_invalid_2.json");
+			let mut t = BasicExternalities::new_empty();
+			let r = executor_call(&mut t, "GenesisBuilder_build_config", &j.encode()).unwrap();
+			let r = BuildResult::decode(&mut &r[..]).unwrap();
+			assert_eq!(r, Err(
+				sp_runtime::RuntimeString::Owned(
+					"Invalid JSON blob: unknown field `babex`, expected one of `system`, `babe`, `substrateTest`, `balances` at line 3 column 9".to_string(),
 				))
 			);
 		}
@@ -1326,7 +1348,7 @@ mod tests {
 		#[test]
 		fn build_config_from_incomplete_json_fails() {
 			sp_tracing::try_init_simple();
-			let j = include_str!("test_json/default_genesis_config_incomplete.json");
+			let j = include_str!("../res/default_genesis_config_incomplete.json");
 
 			let mut t = BasicExternalities::new_empty();
 			let r = executor_call(&mut t, "GenesisBuilder_build_config", &j.encode()).unwrap();
@@ -1335,7 +1357,7 @@ mod tests {
 			assert_eq!(
 				r,
 				Err(sp_runtime::RuntimeString::Owned(
-					"Invalid JSON blob: missing field `authorities` at line 13 column 3"
+					"Invalid JSON blob: missing field `authorities` at line 11 column 3"
 						.to_string()
 				))
 			);
@@ -1433,10 +1455,6 @@ mod tests {
 				"c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80",
 			);
 			assert_eq!(u64::decode(&mut &value[..]).unwrap(), 0);
-
-			// :code
-			let value: Vec<u8> = get_from_storage("3a636f6465");
-			assert!(Vec::<u8>::decode(&mut &value[..]).is_err());
 
 			//System|ParentHash
 			let value: Vec<u8> = get_from_storage(

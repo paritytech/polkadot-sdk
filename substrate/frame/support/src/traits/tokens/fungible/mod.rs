@@ -41,7 +41,7 @@
 pub mod conformance_tests;
 pub mod freeze;
 pub mod hold;
-mod imbalance;
+pub(crate) mod imbalance;
 mod item_of;
 mod regular;
 mod union_of;

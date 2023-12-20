@@ -6,6 +6,7 @@ on:
       - master
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
 
 jobs:
   quick_check:
@@ -14,7 +15,7 @@ jobs:
         os: ["ubuntu-latest"]
     runs-on: ${{ matrix.os }}
     container:
-      image: paritytech/ci-unified:bullseye-1.70.0-2023-05-23-v20230706
+      image: paritytech/ci-unified:bullseye-1.74.0-2023-11-01-v20231204
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 

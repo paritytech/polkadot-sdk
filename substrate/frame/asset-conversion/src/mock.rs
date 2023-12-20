@@ -20,7 +20,7 @@
 use super::*;
 use crate as pallet_asset_conversion;
 use frame_support::{
-	construct_runtime,
+	construct_runtime, derive_impl,
 	instances::{Instance1, Instance2},
 	ord_parameter_types, parameter_types,
 	traits::{
@@ -54,6 +54,7 @@ construct_runtime!(
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
