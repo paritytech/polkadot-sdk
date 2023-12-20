@@ -939,6 +939,7 @@ pub mod pallet {
 
 	/// `Some` if a code upgrade has been authorized.
 	#[pallet::storage]
+	#[pallet::getter(fn authorized_upgrade)]
 	pub(super) type AuthorizedUpgrade<T: Config> =
 		StorageValue<_, CodeUpgradeAuthorization<T>, OptionQuery>;
 
@@ -2026,11 +2027,6 @@ impl<T: Config> Pallet<T> {
 			pays_fee: Pays::No,
 		};
 		Ok(post)
-	}
-
-	/// Return an upgrade authorization, if it exists.
-	pub fn authorized_upgrade() -> Option<CodeUpgradeAuthorization<T>> {
-		AuthorizedUpgrade::<T>::get()
 	}
 
 	/// Check that provided `code` can be upgraded to. Namely, check that its hash matches an
