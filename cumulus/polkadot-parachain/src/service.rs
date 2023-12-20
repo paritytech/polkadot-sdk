@@ -195,7 +195,7 @@ impl sc_executor::NativeExecutionDispatch for GluttonWestendRuntimeExecutor {
 	}
 }
 
-type Service = PartialComponents<
+type Service<RuntimeApi> = PartialComponents<
 	ParachainClient<RuntimeApi>,
 	ParachainBackend,
 	(),
@@ -211,7 +211,7 @@ type Service = PartialComponents<
 pub fn new_partial<RuntimeApi, BIQ>(
 	config: &Configuration,
 	build_import_queue: BIQ,
-) -> Result<Service, sc_service::Error>
+) -> Result<Service<RuntimeApi>, sc_service::Error>
 where
 	RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
 	RuntimeApi::RuntimeApi: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
