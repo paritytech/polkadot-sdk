@@ -37,6 +37,7 @@ pub mod pallet {
 	use super::*;
 	use bridge_runtime_common::messages_xcm_extension::SenderAndLane;
 	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::BlockNumberFor;
 
 	#[pallet::config]
 	#[pallet::disable_frame_system_supertrait_check]
@@ -48,15 +49,17 @@ pub mod pallet {
 		// TODO: https://github.com/paritytech/parity-bridges-common/issues/1666 remove `ChainId` and
 		// replace it with the `NetworkId` - then we'll be able to use
 		// `T as pallet_bridge_messages::Config<T::BridgeMessagesPalletInstance>::BridgedChain::NetworkId`
-		/// Bridged network id.
+		/// Bridged network as relative location of bridged `GlobalConsensus`.
 		#[pallet::constant]
-		type BridgedNetworkId: Get<NetworkId>;
+		type BridgedNetwork: Get<MultiLocation>;
 		/// Associated messages pallet instance that bridges us with the
 		/// `BridgedNetworkId` consensus.
 		type BridgeMessagesPalletInstance: 'static;
 
 		/// Price of single message export to the bridged consensus (`Self::BridgedNetworkId`).
 		type MessageExportPrice: Get<MultiAssets>;
+		/// Checks the XCM version for the destination.
+		type DestinationVersion: GetVersion;
 
 		/// Get point-to-point links with bridged consensus (`Self::BridgedNetworkId`).
 		/// (this will be replaced with dynamic on-chain bridges - `Bridges V2`)
@@ -68,6 +71,17 @@ pub mod pallet {
 
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
+
+	#[pallet::hooks]
+	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
+		fn integrity_test() {
+			assert!(
+				Self::bridged_network_id().is_some(),
+				"Configured `T::BridgedNetwork`: {:?} does not contain `GlobalConsensus` junction with `NetworkId`",
+				T::BridgedNetwork::get()
+			)
+		}
+	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Returns dedicated/configured lane identifier.
@@ -83,7 +97,7 @@ pub mod pallet {
 				.find_map(|(lane_source, (lane_dest_network, lane_dest))| {
 					if lane_source.location == source &&
 						&lane_dest_network == dest.0 &&
-						&T::BridgedNetworkId::get() == dest.0 &&
+						Self::bridged_network_id().as_ref() == Some(dest.0) &&
 						&lane_dest == dest.1
 					{
 						Some(lane_source)
@@ -91,6 +105,14 @@ pub mod pallet {
 						None
 					}
 				})
+		}
+
+		/// Returns some `NetworkId` if contains `GlobalConsensus` junction.
+		fn bridged_network_id() -> Option<NetworkId> {
+			match T::BridgedNetwork::get().take_first_interior() {
+				Some(GlobalConsensus(network)) => Some(network),
+				_ => None,
+			}
 		}
 	}
 }
