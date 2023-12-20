@@ -38,6 +38,7 @@
     - mkdir -p ./zombienet-logs
     - cp /tmp/zombie*/logs/* ./zombienet-logs/
     - cp -r /tmp/bridges-zombienet-tests*/* ./zombienet-logs/
+    - echo X>./zombienet-logs/xxx
   retry: 2
   tags:
     - zombienet-polkadot-integration-test
