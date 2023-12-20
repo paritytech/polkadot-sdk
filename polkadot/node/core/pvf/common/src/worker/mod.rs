@@ -206,23 +206,36 @@ pub fn pipe2_cloexec() -> io::Result<(libc::c_int, libc::c_int)> {
 	Ok((fds[0], fds[1]))
 }
 
+/// A wrapper around a file descriptor used to encapsulate and restrict
+/// functionality for pipe operations.
 pub struct PipeFd {
 	file: File,
 }
 
 impl PipeFd {
-	pub fn new(fd: i32) -> Self {
-		// SAFETY: pipe_writer is an open and owned file descriptor at this point.
+	/// Creates a new `PipeFd` instance from a raw file descriptor.
+	///
+	/// # Safety
+	///
+	/// The fd passed in must be an owned file descriptor; in particular, it must be open.
+	pub unsafe fn new(fd: i32) -> Self {
 		let file = unsafe { File::from_raw_fd(fd) };
 		PipeFd { file }
 	}
 
+	/// Returns the raw file descriptor associated with this `PipeFd`
 	pub fn as_raw_fd(&self) -> i32 {
 		self.file.as_raw_fd()
 	}
+}
 
-	pub fn read_to_end(&mut self, buf: &mut Vec<u8>) -> io::Result<usize> {
+impl Read for PipeFd {
+	fn read_to_end(&mut self, buf: &mut Vec<u8>) -> io::Result<usize> {
 		self.file.read_to_end(buf)
+	}
+
+	fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+		self.file.read(buf)
 	}
 }
 

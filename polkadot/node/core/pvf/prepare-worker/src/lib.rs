@@ -396,7 +396,8 @@ fn handle_child_process(
 	prepare_job_kind: PrepareJobKind,
 	executor_params: Arc<ExecutorParams>,
 ) -> ! {
-	let mut pipe_write = PipeFd::new(pipe_write_fd);
+	// SAFETY: pipe_writer is an open and owned file descriptor at this point.
+	let mut pipe_write = unsafe { PipeFd::new(pipe_write_fd) };
 
 	// Drop the read end so we don't have too many FDs open.
 	if let Err(errno) = nix::unistd::close(pipe_read_fd) {

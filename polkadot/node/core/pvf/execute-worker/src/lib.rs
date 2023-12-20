@@ -337,7 +337,8 @@ fn handle_child_process(
 	params: Vec<u8>,
 	execution_timeout: Duration,
 ) -> ! {
-	let mut pipe_write = PipeFd::new(pipe_write_fd);
+	// SAFETY: pipe_writer is an open and owned file descriptor at this point.
+	let mut pipe_write = unsafe { PipeFd::new(pipe_write_fd) };
 
 	// Drop the read end so we don't have too many FDs open.
 	if let Err(errno) = nix::unistd::close(pipe_read_fd) {
@@ -441,7 +442,8 @@ fn handle_parent_process(
 		return Ok(internal_error_from_errno("closing pipe write fd", errno));
 	};
 
-	let mut pipe_read = PipeFd::new(pipe_read_fd);
+	// SAFETY: pipe_writer is an open and owned file descriptor at this point.
+	let mut pipe_read = unsafe { PipeFd::new(pipe_read_fd) };
 
 	// Read from the child. Don't decode unless the process exited normally, which we check later.
 	let mut received_data = Vec::new();
