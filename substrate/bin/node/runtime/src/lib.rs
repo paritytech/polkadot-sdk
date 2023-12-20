@@ -559,6 +559,7 @@ impl pallet_asset_tx_payment::Config for Runtime {
 		pallet_assets::BalanceToAssetBalance<Balances, Runtime, ConvertInto, Instance1>,
 		CreditToBlockAuthor,
 	>;
+	type WeightInfo = pallet_asset_tx_payment::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_asset_conversion_tx_payment::Config for Runtime {

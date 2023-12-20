@@ -40,6 +40,7 @@ use sp_std::prelude::*;
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, DispatchResult, PostDispatchInfo},
+	pallet_prelude::Weight,
 	traits::{
 		tokens::{
 			fungibles::{Balanced, Credit, Inspect},
@@ -68,7 +69,10 @@ mod tests;
 mod benchmarking;
 
 mod payment;
+pub mod weights;
+
 pub use payment::*;
+pub use weights::WeightInfo;
 
 /// Type aliases used for interaction with `OnChargeTransaction`.
 pub(crate) type OnChargeTransactionOf<T> =
@@ -124,6 +128,8 @@ pub mod pallet {
 		type Fungibles: Balanced<Self::AccountId>;
 		/// The actual transaction charging logic that charges the fees.
 		type OnChargeAssetTransaction: OnChargeAssetTransaction<Self>;
+		/// The weight information of this pallet.
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::pallet]
@@ -222,6 +228,14 @@ where
 {
 	const IDENTIFIER: &'static str = "ChargeAssetTxPayment";
 	type Implicit = ();
+
+	fn weight(&self) -> Weight {
+		if self.asset_id.is_some() {
+			<T as Config>::WeightInfo::charge_asset_tx_payment_asset()
+		} else {
+			<T as Config>::WeightInfo::charge_asset_tx_payment_native()
+		}
+	}
 }
 
 impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Context>

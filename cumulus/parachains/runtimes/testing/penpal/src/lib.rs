@@ -587,6 +587,7 @@ impl pallet_asset_tx_payment::Config for Runtime {
 		>,
 		AssetsToBlockAuthor<Runtime>,
 	>;
+	type WeightInfo = ();
 }
 
 impl pallet_sudo::Config for Runtime {

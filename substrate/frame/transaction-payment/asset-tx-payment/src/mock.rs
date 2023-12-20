@@ -209,6 +209,7 @@ impl Config for Runtime {
 		pallet_assets::BalanceToAssetBalance<Balances, Runtime, ConvertInto>,
 		CreditToBlockAuthor,
 	>;
+	type WeightInfo = ();
 }
 
 #[cfg(feature = "runtime-benchmarks")]
