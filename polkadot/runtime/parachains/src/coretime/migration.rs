@@ -34,6 +34,8 @@ mod v_coretime {
 	};
 	use frame_system::pallet_prelude::BlockNumberFor;
 	use pallet_broker::{CoreAssignment, CoreMask, ScheduleItem};
+	#[cfg(feature = "try-runtime")]
+	use parity_scale_codec::Decode;
 	use parity_scale_codec::Encode;
 	use polkadot_parachain_primitives::primitives::IsSystem;
 	use primitives::{CoreIndex, Id as ParaId};
@@ -90,8 +92,11 @@ mod v_coretime {
 		}
 	}
 
-	impl<T: Config, SendXcm: xcm::v3::SendXcm, LegacyLease: GetLegacyLease<BlockNumberFor<T>>>
-		OnRuntimeUpgrade for MigrateToCoretime<T, SendXcm, LegacyLease>
+	impl<
+			T: Config + crate::dmp::Config,
+			SendXcm: xcm::v3::SendXcm,
+			LegacyLease: GetLegacyLease<BlockNumberFor<T>>,
+		> OnRuntimeUpgrade for MigrateToCoretime<T, SendXcm, LegacyLease>
 	{
 		fn on_runtime_upgrade() -> Weight {
 			if Self::already_migrated() {
@@ -112,9 +117,12 @@ mod v_coretime {
 			let config = <configuration::Pallet<T>>::config();
 			let total_core_count = config.coretime_cores + legacy_paras.len() as u32;
 
-			let bytes = u32::to_be_bytes(total_core_count as u32);
+			let dmp_queue_size =
+				crate::dmp::Pallet::<T>::dmq_contents(T::BrokerId::get().into()).len() as u32;
 
-			Ok(bytes.to_vec())
+			let total_core_count = total_core_count as u32;
+
+			Ok((total_core_count, dmp_queue_size).encode())
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -125,9 +133,17 @@ mod v_coretime {
 
 			log::trace!("Running post_upgrade()");
 
-			let prev_core_count = u32::from_be_bytes(state.try_into().unwrap());
+			let (prev_core_count, prev_dmp_queue_size) =
+				<(u32, u32)>::decode(&mut &state[..]).unwrap();
+
+			let dmp_queue_size =
+				crate::dmp::Pallet::<T>::dmq_contents(T::BrokerId::get().into()).len() as u32;
 			let new_core_count = assigner_coretime::Pallet::<T>::session_core_count();
 			ensure!(new_core_count == prev_core_count, "Total number of cores need to not change.");
+			ensure!(
+				dmp_queue_size == prev_dmp_queue_size + 1,
+				"There should have been enqueued one DMP message."
+			);
 
 			Ok(())
 		}
@@ -235,6 +251,7 @@ mod v_coretime {
 		.collect();
 
 		let message = Xcm(message_content);
+
 		send_xcm::<SendXcm>(
 			MultiLocation {
 				parents: 0,
