@@ -297,6 +297,7 @@ impl StartConsensus<Block<u32>, FakeRuntimeApi> for StartRelayChainConsensus {
                                 &relay_chain_interface,
                                 &validation_data,
                                 para_id,
+								Vec::new(),
                             ).await;
 						let parachain_inherent = parachain_inherent.ok_or_else(|| {
 							Box::<dyn std::error::Error + Send + Sync>::from(

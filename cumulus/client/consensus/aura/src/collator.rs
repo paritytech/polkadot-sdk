@@ -129,6 +129,7 @@ where
 			&self.relay_client,
 			validation_data,
 			self.para_id,
+			Vec::new()
 		)
 		.await;
 
