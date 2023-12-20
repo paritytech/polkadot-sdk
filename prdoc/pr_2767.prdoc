@@ -6,7 +6,12 @@ title: Extract PartialComponents into type alias `Service`
 doc:
   - audience: Node Dev
     description: |
-      Simplifies service definitions by extraction of a complicated type into a type alias.
-      Not a breaking change.
+      Simplifies service definitions by extraction of a complicated type into a type alias. No breaking changes.
 
-crates: [ "sc-service", "node-template", "minimal-node", "cumulus-test-service", "polkadot-parachain-bin", "parachain-template-node" ]
+crates:
+  - name: "sc-service"
+  - name: "node-template"
+  - name: "minimal-node"
+  - name: "cumulus-test-service"
+  - name: "polkadot-parachain-bin"
+  - name: "parachain-template-node"
