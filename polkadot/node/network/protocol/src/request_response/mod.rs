@@ -248,8 +248,8 @@ impl Protocol {
 				name,
 				fallback_names,
 				max_request_size: 1_000,
-				/// Responses are just confirmation, in essence not even a bit. So 100 seems
-				/// plenty.
+				// Responses are just confirmation, in essence not even a bit. So 100 seems
+				// plenty.
 				max_response_size: 100,
 				request_timeout: DISPUTE_REQUEST_TIMEOUT,
 				inbound_queue: tx,

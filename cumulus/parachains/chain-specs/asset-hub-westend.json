@@ -5,8 +5,6 @@
   "bootNodes": [
     "/dns/westend-asset-hub-bootnode-0.polkadot.io/tcp/30333/p2p/12D3KooWJaAfPyiye7ZQBuHengTJJoMrcaz7Jj1UzHiKdNxA1Nkd",
     "/dns/westend-asset-hub-bootnode-1.polkadot.io/tcp/30333/p2p/12D3KooWGL3hpWycWyeqyL9gHNnmmsL474WkPZdqraBHu4L6fQrW",
-    "/dns/westend-asset-hub-bootnode-2.polkadot.io/tcp/30333/p2p/12D3KooWBkKDWhHzu6Hhe492adEpVV7wzuaWGxUfEnr6g5JCr7Gr",
-    "/dns/westend-asset-hub-bootnode-3.polkadot.io/tcp/30333/p2p/12D3KooWMGpzCmhD6np6eKqxL7AAunKn1dN86Dr7a9E2xgZ2rt6G",
     "/dns/boot.stake.plus/tcp/33333/p2p/12D3KooWNiB27rpXX7EYongoWWUeRKzLQxWGms6MQU2B9LX7Ztzo",
     "/dns/boot.stake.plus/tcp/33334/wss/p2p/12D3KooWNiB27rpXX7EYongoWWUeRKzLQxWGms6MQU2B9LX7Ztzo",
     "/dns/boot.metaspan.io/tcp/36052/p2p/12D3KooWBCqfNb6Y39DXTr4UBWXyjuS3hcZM1qTbHhDXxF6HkAJJ",
@@ -20,7 +18,12 @@
     "/dns/westmint.bootnode.amforc.com/tcp/30339/p2p/12D3KooWNjKeaANaeZxBAPctmx8jugSYzuw4vnSCJmEDPB5mtRd6",
     "/dns/westmint.bootnode.amforc.com/tcp/30333/wss/p2p/12D3KooWNjKeaANaeZxBAPctmx8jugSYzuw4vnSCJmEDPB5mtRd6",
     "/dns/westmint-boot-ng.dwellir.com/tcp/30345/p2p/12D3KooWFZ9xqApB1wnFYkbe1qJ5Jqwxe2f3i8W25F3tKNXy59ux",
-    "/dns/westmint-boot-ng.dwellir.com/tcp/443/wss/p2p/12D3KooWFZ9xqApB1wnFYkbe1qJ5Jqwxe2f3i8W25F3tKNXy59ux"
+    "/dns/westmint-boot-ng.dwellir.com/tcp/443/wss/p2p/12D3KooWFZ9xqApB1wnFYkbe1qJ5Jqwxe2f3i8W25F3tKNXy59ux",
+    "/dns/westmint-bootnode.radiumblock.com/tcp/30336/wss/p2p/12D3KooWDoq4PVdWm5nzRSvEz3DSSKjVgRhWVUaKyi5JMKwJKYbk",
+    "/dns/westmint-bootnode.radiumblock.com/tcp/30333/p2p/12D3KooWDoq4PVdWm5nzRSvEz3DSSKjVgRhWVUaKyi5JMKwJKYbk",
+    "/dns/wmint14.rotko.net/tcp/33534/p2p/12D3KooWE4UDXqgtTcMCyUQ8S4uvaT8VMzzTBA6NWmKuYwTacWuN",
+    "/dns/wmint14.rotko.net/tcp/34534/ws/p2p/12D3KooWE4UDXqgtTcMCyUQ8S4uvaT8VMzzTBA6NWmKuYwTacWuN",
+    "/dns/wmint14.rotko.net/tcp/35534/wss/p2p/12D3KooWE4UDXqgtTcMCyUQ8S4uvaT8VMzzTBA6NWmKuYwTacWuN"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

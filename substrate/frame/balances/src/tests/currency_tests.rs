@@ -18,14 +18,18 @@
 //! Tests regarding the functionality of the `Currency` trait set implementations.
 
 use super::*;
-use crate::NegativeImbalance;
-use frame_support::traits::{
-	BalanceStatus::{Free, Reserved},
-	Currency,
-	ExistenceRequirement::{self, AllowDeath, KeepAlive},
-	Hooks, LockIdentifier, LockableCurrency, NamedReservableCurrency, ReservableCurrency,
-	WithdrawReasons,
+use crate::{Event, NegativeImbalance};
+use frame_support::{
+	traits::{
+		BalanceStatus::{Free, Reserved},
+		Currency,
+		ExistenceRequirement::{self, AllowDeath, KeepAlive},
+		Hooks, LockIdentifier, LockableCurrency, NamedReservableCurrency, ReservableCurrency,
+		WithdrawReasons,
+	},
+	StorageNoopGuard,
 };
+use frame_system::Event as SysEvent;
 
 const ID_1: LockIdentifier = *b"1       ";
 const ID_2: LockIdentifier = *b"2       ";
@@ -144,7 +148,9 @@ fn lock_removal_should_work() {
 		.monied(true)
 		.build_and_execute_with(|| {
 			Balances::set_lock(ID_1, &1, u64::MAX, WithdrawReasons::all());
+			assert_eq!(System::consumers(&1), 1);
 			Balances::remove_lock(ID_1, &1);
+			assert_eq!(System::consumers(&1), 0);
 			assert_ok!(<Balances as Currency<_>>::transfer(&1, &2, 1, AllowDeath));
 		});
 }
@@ -156,7 +162,9 @@ fn lock_replacement_should_work() {
 		.monied(true)
 		.build_and_execute_with(|| {
 			Balances::set_lock(ID_1, &1, u64::MAX, WithdrawReasons::all());
+			assert_eq!(System::consumers(&1), 1);
 			Balances::set_lock(ID_1, &1, 5, WithdrawReasons::all());
+			assert_eq!(System::consumers(&1), 1);
 			assert_ok!(<Balances as Currency<_>>::transfer(&1, &2, 1, AllowDeath));
 		});
 }
@@ -168,7 +176,9 @@ fn double_locking_should_work() {
 		.monied(true)
 		.build_and_execute_with(|| {
 			Balances::set_lock(ID_1, &1, 5, WithdrawReasons::all());
+			assert_eq!(System::consumers(&1), 1);
 			Balances::set_lock(ID_2, &1, 5, WithdrawReasons::all());
+			assert_eq!(System::consumers(&1), 1);
 			assert_ok!(<Balances as Currency<_>>::transfer(&1, &2, 1, AllowDeath));
 		});
 }
@@ -179,8 +189,11 @@ fn combination_locking_should_work() {
 		.existential_deposit(1)
 		.monied(true)
 		.build_and_execute_with(|| {
+			assert_eq!(System::consumers(&1), 0);
 			Balances::set_lock(ID_1, &1, u64::MAX, WithdrawReasons::empty());
+			assert_eq!(System::consumers(&1), 0);
 			Balances::set_lock(ID_2, &1, 0, WithdrawReasons::all());
+			assert_eq!(System::consumers(&1), 0);
 			assert_ok!(<Balances as Currency<_>>::transfer(&1, &2, 1, AllowDeath));
 		});
 }
@@ -192,16 +205,19 @@ fn lock_value_extension_should_work() {
 		.monied(true)
 		.build_and_execute_with(|| {
 			Balances::set_lock(ID_1, &1, 5, WithdrawReasons::all());
+			assert_eq!(System::consumers(&1), 1);
 			assert_noop!(
 				<Balances as Currency<_>>::transfer(&1, &2, 6, AllowDeath),
 				TokenError::Frozen
 			);
 			Balances::extend_lock(ID_1, &1, 2, WithdrawReasons::all());
+			assert_eq!(System::consumers(&1), 1);
 			assert_noop!(
 				<Balances as Currency<_>>::transfer(&1, &2, 6, AllowDeath),
 				TokenError::Frozen
 			);
 			Balances::extend_lock(ID_1, &1, 8, WithdrawReasons::all());
+			assert_eq!(System::consumers(&1), 1);
 			assert_noop!(
 				<Balances as Currency<_>>::transfer(&1, &2, 3, AllowDeath),
 				TokenError::Frozen
@@ -1324,9 +1340,14 @@ fn freezing_and_locking_should_work() {
 		.existential_deposit(1)
 		.monied(true)
 		.build_and_execute_with(|| {
+			// Consumer is shared between freezing and locking.
+			assert_eq!(System::consumers(&1), 0);
 			assert_ok!(<Balances as fungible::MutateFreeze<_>>::set_freeze(&TestId::Foo, &1, 4));
+			assert_eq!(System::consumers(&1), 1);
 			Balances::set_lock(ID_1, &1, 5, WithdrawReasons::all());
-			assert_eq!(System::consumers(&1), 2);
+			assert_eq!(System::consumers(&1), 1);
+
+			// Frozen and locked balances update correctly.
 			assert_eq!(Balances::account(&1).frozen, 5);
 			assert_ok!(<Balances as fungible::MutateFreeze<_>>::set_freeze(&TestId::Foo, &1, 6));
 			assert_eq!(Balances::account(&1).frozen, 6);
@@ -1336,8 +1357,49 @@ fn freezing_and_locking_should_work() {
 			assert_eq!(Balances::account(&1).frozen, 4);
 			Balances::set_lock(ID_1, &1, 5, WithdrawReasons::all());
 			assert_eq!(Balances::account(&1).frozen, 5);
+
+			// Locks update correctly.
 			Balances::remove_lock(ID_1, &1);
 			assert_eq!(Balances::account(&1).frozen, 4);
 			assert_eq!(System::consumers(&1), 1);
+			assert_ok!(<Balances as fungible::MutateFreeze<_>>::set_freeze(&TestId::Foo, &1, 0));
+			assert_eq!(Balances::account(&1).frozen, 0);
+			assert_eq!(System::consumers(&1), 0);
 		});
+}
+
+#[test]
+fn self_transfer_noop() {
+	ExtBuilder::default().existential_deposit(100).build_and_execute_with(|| {
+		assert_eq!(Balances::total_issuance(), 0);
+		let _ = Balances::deposit_creating(&1, 100);
+
+		// The account is set up properly:
+		assert_eq!(
+			events(),
+			[
+				Event::Deposit { who: 1, amount: 100 }.into(),
+				SysEvent::NewAccount { account: 1 }.into(),
+				Event::Endowed { account: 1, free_balance: 100 }.into(),
+			]
+		);
+		assert_eq!(Balances::free_balance(1), 100);
+		assert_eq!(Balances::total_issuance(), 100);
+
+		// Transfers to self are No-OPs:
+		let _g = StorageNoopGuard::new();
+		for i in 0..200 {
+			let r = Balances::transfer_allow_death(Some(1).into(), 1, i);
+
+			if i <= 100 {
+				assert_ok!(r);
+			} else {
+				assert!(r.is_err());
+			}
+
+			assert!(events().is_empty());
+			assert_eq!(Balances::free_balance(1), 100, "Balance unchanged by self transfer");
+			assert_eq!(Balances::total_issuance(), 100, "TI unchanged by self transfers");
+		}
+	});
 }

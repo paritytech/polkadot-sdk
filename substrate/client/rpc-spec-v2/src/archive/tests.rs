@@ -27,10 +27,13 @@ use jsonrpsee::{
 	types::{error::CallError, EmptyServerParams as EmptyParams},
 	RpcModule,
 };
-use sc_block_builder::BlockBuilderProvider;
+use sc_block_builder::BlockBuilderBuilder;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::BlockOrigin;
-use sp_runtime::SaturatedConversion;
+use sp_runtime::{
+	traits::{Block as BlockT, Header as HeaderT},
+	SaturatedConversion,
+};
 use std::sync::Arc;
 use substrate_test_runtime::Transfer;
 use substrate_test_runtime_client::{
@@ -72,7 +75,12 @@ async fn archive_body() {
 	assert!(res.is_none());
 
 	// Import a new block with an extrinsic.
-	let mut builder = client.new_block(Default::default()).unwrap();
+	let mut builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap();
+
 	builder
 		.push_transfer(runtime::Transfer {
 			from: AccountKeyring::Alice.into(),
@@ -101,7 +109,12 @@ async fn archive_header() {
 	assert!(res.is_none());
 
 	// Import a new block with an extrinsic.
-	let mut builder = client.new_block(Default::default()).unwrap();
+	let mut builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap();
+
 	builder
 		.push_transfer(runtime::Transfer {
 			from: AccountKeyring::Alice.into(),
@@ -147,24 +160,57 @@ async fn archive_hash_by_height() {
 	//                          ^^^ h = N
 	//                                     ^^^ h =  N + 1
 	//                                                 ^^^ h = N + 2
-	let finalized = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let finalized = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
 	let finalized_hash = finalized.header.hash();
 	client.import(BlockOrigin::Own, finalized.clone()).await.unwrap();
 	client.finalize_block(finalized_hash, None).unwrap();
 
-	let block_1 = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let block_1 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(finalized.hash())
+		.with_parent_block_number(*finalized.header().number())
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
 	let block_1_hash = block_1.header.hash();
 	client.import(BlockOrigin::Own, block_1.clone()).await.unwrap();
 
-	let block_2 = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let block_2 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block_1.hash())
+		.with_parent_block_number(*block_1.header().number())
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
 	let block_2_hash = block_2.header.hash();
 	client.import(BlockOrigin::Own, block_2.clone()).await.unwrap();
-	let block_3 = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let block_3 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block_2.hash())
+		.with_parent_block_number(*block_2.header().number())
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
 	let block_3_hash = block_3.header.hash();
 	client.import(BlockOrigin::Own, block_3.clone()).await.unwrap();
 
 	// Import block 4 fork.
-	let mut block_builder = client.new_block_at(block_1_hash, Default::default(), false).unwrap();
+	let mut block_builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block_1_hash)
+		.with_parent_block_number(*block_1.header().number())
+		.build()
+		.unwrap();
+
 	// This push is required as otherwise block 3 has the same hash as block 1 and won't get
 	// imported
 	block_builder
@@ -238,7 +284,14 @@ async fn archive_call() {
 		.unwrap();
 	assert_matches!(result, MethodResult::Err(_));
 
-	let block_1 = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let block_1 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
 	let block_1_hash = block_1.header.hash();
 	client.import(BlockOrigin::Own, block_1.clone()).await.unwrap();
 

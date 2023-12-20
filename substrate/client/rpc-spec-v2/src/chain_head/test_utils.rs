@@ -24,14 +24,15 @@ use sc_client_api::{
 	StorageData, StorageEventStream, StorageKey, StorageProvider,
 };
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
-use sp_api::{CallApiAt, CallApiAtParams, NumberFor, RuntimeVersion};
+use sp_api::{CallApiAt, CallApiAtParams};
 use sp_blockchain::{BlockStatus, CachedHeaderMetadata, HeaderBackend, HeaderMetadata, Info};
 use sp_consensus::BlockOrigin;
 use sp_runtime::{
 	generic::SignedBlock,
-	traits::{Block as BlockT, Header as HeaderT},
+	traits::{Block as BlockT, Header as HeaderT, NumberFor},
 	Justifications,
 };
+use sp_version::RuntimeVersion;
 use std::sync::Arc;
 use substrate_test_runtime::{Block, Hash, Header};
 
@@ -235,7 +236,7 @@ impl<Block: BlockT, Client: CallApiAt<Block>> CallApiAt<Block> for ChainHeadMock
 	fn initialize_extensions(
 		&self,
 		at: <Block as BlockT>::Hash,
-		extensions: &mut sp_api::Extensions,
+		extensions: &mut sp_externalities::Extensions,
 	) -> Result<(), sp_api::ApiError> {
 		self.client.initialize_extensions(at, extensions)
 	}

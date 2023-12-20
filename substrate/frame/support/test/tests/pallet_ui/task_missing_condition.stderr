@@ -1,0 +1,5 @@
+error: missing `#[pallet::task_condition(..)]` attribute
+  --> tests/pallet_ui/task_missing_condition.rs:32:6
+   |
+32 |         fn foo() -> DispatchResult {
+   |            ^^^

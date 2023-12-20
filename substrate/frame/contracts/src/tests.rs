@@ -30,9 +30,10 @@ use crate::{
 	},
 	exec::{Frame, Key},
 	migration::codegen::LATEST_MIGRATION_VERSION,
+	primitives::CodeUploadReturnValue,
 	storage::DeletionQueueManager,
 	tests::test_utils::{get_contract, get_contract_checked},
-	wasm::{Determinism, ReturnCode as RuntimeReturnCode},
+	wasm::{Determinism, ReturnErrorCode as RuntimeReturnCode},
 	weights::WeightInfo,
 	BalanceOf, Code, CodeHash, CodeInfoOf, CollectEvents, Config, ContractInfo, ContractInfoOf,
 	DebugInfo, DefaultAddressGenerator, DeletionQueueCounter, Error, HoldReason,
@@ -42,6 +43,7 @@ use assert_matches::assert_matches;
 use codec::Encode;
 use frame_support::{
 	assert_err, assert_err_ignore_postinfo, assert_err_with_weight, assert_noop, assert_ok,
+	derive_impl,
 	dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo},
 	parameter_types,
 	storage::child,
@@ -53,7 +55,7 @@ use frame_support::{
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
 };
 use frame_system::{EventRecord, Phase};
-use pallet_contracts_primitives::CodeUploadReturnValue;
+use pallet_contracts_fixtures::compile_module;
 use pretty_assertions::{assert_eq, assert_ne};
 use sp_core::ByteArray;
 use sp_io::hashing::blake2_256;
@@ -331,6 +333,8 @@ parameter_types! {
 		);
 	pub static ExistentialDeposit: u64 = 1;
 }
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = BlockWeights;
@@ -485,6 +489,7 @@ impl Config for Test {
 	type MaxDelegateDependencies = MaxDelegateDependencies;
 	type Debug = TestDebug;
 	type Environment = ();
+	type Xcm = ();
 }
 
 pub const ALICE: AccountId32 = AccountId32::new([1u8; 32]);
@@ -553,29 +558,6 @@ impl ExtBuilder {
 		});
 		ext
 	}
-}
-
-/// Load a given wasm module represented by a .wat file and returns a wasm binary contents along
-/// with it's hash.
-///
-/// The fixture files are located under the `fixtures/` directory.
-fn compile_module<T>(fixture_name: &str) -> wat::Result<(Vec<u8>, <T::Hashing as Hash>::Output)>
-where
-	T: frame_system::Config,
-{
-	let fixture_path = [
-		// When `CARGO_MANIFEST_DIR` is not set, Rust resolves relative paths from the root folder
-		std::env::var("CARGO_MANIFEST_DIR")
-			.as_deref()
-			.unwrap_or("substrate/frame/contracts"),
-		"/fixtures/",
-		fixture_name,
-		".wat",
-	]
-	.concat();
-	let wasm_binary = wat::parse_file(fixture_path)?;
-	let code_hash = T::Hashing::hash(&wasm_binary);
-	Ok((wasm_binary, code_hash))
 }
 
 fn initialize_block(number: u64) {

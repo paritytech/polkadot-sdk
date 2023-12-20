@@ -38,9 +38,9 @@ use parking_lot::Mutex;
 use prometheus::Registry;
 use sc_client_api::{Backend, BlockBackend, BlockchainEvents, FinalityNotifications, Finalizer};
 use sc_consensus::BlockImport;
-use sc_network::{NetworkRequest, ProtocolName};
+use sc_network::{NetworkRequest, NotificationService, ProtocolName};
 use sc_network_gossip::{GossipEngine, Network as GossipNetwork, Syncing as GossipSyncing};
-use sp_api::{HeaderT, NumberFor, ProvideRuntimeApi};
+use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{
 	Backend as BlockchainBackend, Error as ClientError, HeaderBackend, Result as ClientResult,
 };
@@ -51,7 +51,7 @@ use sp_consensus_beefy::{
 };
 use sp_keystore::KeystorePtr;
 use sp_mmr_primitives::MmrApi;
-use sp_runtime::traits::{Block, Zero};
+use sp_runtime::traits::{Block, Header as HeaderT, NumberFor, Zero};
 use std::{
 	collections::{BTreeMap, VecDeque},
 	marker::PhantomData,
@@ -178,6 +178,8 @@ pub struct BeefyNetworkParams<B: Block, N, S> {
 	pub network: Arc<N>,
 	/// Syncing service implementing a sync oracle and an event stream for peers.
 	pub sync: Arc<S>,
+	/// Handle for receiving notification events.
+	pub notification_service: Box<dyn NotificationService>,
 	/// Chain specific BEEFY gossip protocol name. See
 	/// [`communication::beefy_protocol_name::gossip_protocol_name`].
 	pub gossip_protocol_name: ProtocolName,
@@ -243,6 +245,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 	let BeefyNetworkParams {
 		network,
 		sync,
+		notification_service,
 		gossip_protocol_name,
 		justifications_protocol_name,
 		..
@@ -264,6 +267,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 	let gossip_engine = GossipEngine::new(
 		network.clone(),
 		sync.clone(),
+		notification_service,
 		gossip_protocol_name.clone(),
 		gossip_validator.clone(),
 		None,
@@ -539,25 +543,23 @@ where
 	R: ProvideRuntimeApi<B>,
 	R::Api: BeefyApi<B, AuthorityId>,
 {
-	debug!(target: LOG_TARGET, "🥩 Try to find validator set active at header: {:?}", at_header);
-	runtime
-		.runtime_api()
-		.validator_set(at_header.hash())
-		.ok()
-		.flatten()
-		.or_else(|| {
-			// if state unavailable, fallback to walking up the chain looking for the header
-			// Digest emitted when validator set active 'at_header' was enacted.
-			let blockchain = backend.blockchain();
-			let mut header = at_header.clone();
-			loop {
-				debug!(target: LOG_TARGET, "🥩 look for auth set change digest in header number: {:?}", *header.number());
-				match worker::find_authorities_change::<B>(&header) {
-					Some(active) => return Some(active),
-					// Move up the chain.
-					None => header = blockchain.expect_header(*header.parent_hash()).ok()?,
-				}
+	let blockchain = backend.blockchain();
+
+	// Walk up the chain looking for the validator set active at 'at_header'. Process both state and
+	// header digests.
+	debug!(target: LOG_TARGET, "🥩 Trying to find validator set active at header: {:?}", at_header);
+	let mut header = at_header.clone();
+	loop {
+		if let Ok(Some(active)) = runtime.runtime_api().validator_set(header.hash()) {
+			return Ok(active)
+		} else {
+			debug!(target: LOG_TARGET, "🥩 Looking for auth set change at block number: {:?}", *header.number());
+			match worker::find_authorities_change::<B>(&header) {
+				Some(active) => return Ok(active),
+				// Move up the chain. Ultimately we'll get it from chain genesis state, or error out
+				// here.
+				None => header = blockchain.expect_header(*header.parent_hash())?,
 			}
-		})
-		.ok_or_else(|| ClientError::Backend("Could not find initial validator set".into()))
+		}
+	}
 }

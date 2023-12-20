@@ -10,6 +10,9 @@ description = "A crate that provides means of executing/dispatching calls into t
 documentation = "https://docs.rs/sc-executor"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
@@ -55,7 +58,7 @@ name = "bench"
 harness = false
 
 [features]
-default = [ "std" ]
+default = ["std"]
 # This crate does not have `no_std` support, we just require this for tests
 std = [
 	"sc-runtime-test/std",
