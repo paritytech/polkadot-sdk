@@ -7,11 +7,7 @@ mod tests;
 
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
-use frame_support::{
-	traits::{tokens::Balance as BalanceT, ContainsPair},
-	weights::Weight,
-	PalletError,
-};
+use frame_support::{traits::tokens::Balance as BalanceT, weights::Weight, PalletError};
 use scale_info::TypeInfo;
 use sp_core::{Get, RuntimeDebug, H160};
 use sp_io::hashing::blake2_256;
@@ -299,17 +295,6 @@ where
 				AccountKey20 { network: None, key: token.into() },
 			),
 		}
-	}
-}
-
-pub struct FromEthereumGlobalConsensus<EthereumBridgeLocation>(PhantomData<EthereumBridgeLocation>);
-impl<EthereumBridgeLocation> ContainsPair<MultiLocation, MultiLocation>
-	for FromEthereumGlobalConsensus<EthereumBridgeLocation>
-where
-	EthereumBridgeLocation: Get<MultiLocation>,
-{
-	fn contains(asset: &MultiLocation, origin: &MultiLocation) -> bool {
-		origin == &EthereumBridgeLocation::get() && asset.starts_with(origin)
 	}
 }
 
