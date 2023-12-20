@@ -90,24 +90,13 @@ enum CoretimeCalls {
 
 #[frame_support::pallet]
 pub mod pallet {
-
-	use xcm::v3::SendXcm;
-
 	use crate::configuration;
 
 	use super::*;
 
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
-
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
-	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
-
-	pub trait GetLegacyLease<N> {
-		/// If parachain is a lease holding parachain, return the block at which the lease expires.
-		fn get_parachain_lease_in_blocks(para: ParaId) -> Option<N>;
-	}
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config + assigner_coretime::Config {
@@ -121,10 +110,6 @@ pub mod pallet {
 		type BrokerId: Get<u32>;
 		/// Something that provides the weight of this pallet.
 		type WeightInfo: WeightInfo;
-		/// XCM message sender for talking to the coretime chain.
-		type SendXcm: SendXcm;
-		/// For migration of legacy parachains.
-		type GetLegacyLease: GetLegacyLease<BlockNumberFor<Self>>;
 	}
 
 	#[pallet::event]

@@ -37,8 +37,8 @@ use runtime_common::{
 	impls::{
 		LocatableAssetConverter, ToAuthor, VersionedLocatableAsset, VersionedMultiLocationConverter,
 	},
-	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots,
-	BlockHashCount, BlockLength, SlowAdjustingFeeUpdate,
+	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots, BlockHashCount, BlockLength,
+	SlowAdjustingFeeUpdate,
 };
 use scale_info::TypeInfo;
 use sp_std::{cmp::Ordering, collections::btree_map::BTreeMap, prelude::*};
@@ -1018,27 +1018,6 @@ impl coretime::Config for Runtime {
 	type Currency = Balances;
 	type BrokerId = BrokerId;
 	type WeightInfo = weights::runtime_parachains_coretime::WeightInfo<Runtime>;
-	type SendXcm = crate::xcm_config::XcmRouter;
-	type GetLegacyLease = GetLegacyLeaseImpl;
-}
-
-pub struct GetLegacyLeaseImpl;
-impl coretime::GetLegacyLease<BlockNumber> for GetLegacyLeaseImpl {
-	fn get_parachain_lease_in_blocks(para: ParaId) -> Option<BlockNumber> {
-		let now = frame_system::Pallet::<Runtime>::block_number();
-		let mut leases = slots::Pallet::<Runtime>::lease(para).into_iter();
-		let Some(Some(_)) = leases.next() else { return None };
-
-		let (_, progress) = slots::Pallet::<Runtime>::lease_period_index_plus_progress(now)?;
-		let initial_sum = <Runtime as slots::Config>::LeasePeriod::get().saturating_sub(progress);
-
-		leases.into_iter().fold(Some(initial_sum), |sum, lease| {
-			if lease.is_none() {
-				return None
-			};
-			Some(sum? + <Runtime as slots::Config>::LeasePeriod::get())
-		})
-	}
 }
 
 parameter_types! {
@@ -1515,6 +1494,26 @@ pub mod migrations {
 	#[cfg(feature = "try-runtime")]
 	use sp_core::crypto::ByteArray;
 
+	pub struct GetLegacyLeaseImpl;
+	impl coretime::migration::GetLegacyLease<BlockNumber> for GetLegacyLeaseImpl {
+		fn get_parachain_lease_in_blocks(para: ParaId) -> Option<BlockNumber> {
+			let now = frame_system::Pallet::<Runtime>::block_number();
+			let mut leases = slots::Pallet::<Runtime>::lease(para).into_iter();
+			let Some(Some(_)) = leases.next() else { return None };
+
+			let (_, progress) = slots::Pallet::<Runtime>::lease_period_index_plus_progress(now)?;
+			let initial_sum =
+				<Runtime as slots::Config>::LeasePeriod::get().saturating_sub(progress);
+
+			leases.into_iter().fold(Some(initial_sum), |sum, lease| {
+				if lease.is_none() {
+					return None
+				};
+				Some(sum? + <Runtime as slots::Config>::LeasePeriod::get())
+			})
+		}
+	}
+
 	parameter_types! {
 		pub const DemocracyPalletName: &'static str = "Democracy";
 		pub const CouncilPalletName: &'static str = "Council";
@@ -1638,7 +1637,7 @@ pub mod migrations {
 		parachains_configuration::migration::v7::MigrateToV7<Runtime>,
 		assigned_slots::migration::v1::MigrateToV1<Runtime>,
 		parachains_scheduler::migration::MigrateV1ToV2<Runtime>,
-		coretime::migration::v_coretime::MigrateToCoretime<Runtime>,
+		coretime::migration::MigrateToCoretime<Runtime, crate::xcm_config::XcmRouter, GetLegacyLeaseImpl>,
 		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
 		paras_registrar::migration::MigrateToV1<Runtime, ()>,

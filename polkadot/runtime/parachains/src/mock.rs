@@ -51,7 +51,6 @@ use sp_runtime::{
 	BuildStorage, FixedU128, Perbill, Permill,
 };
 use sp_std::collections::vec_deque::VecDeque;
-use xcm::v3::{SendXcm, MultiAssets, SendError, MultiLocation, XcmHash, SendResult, Xcm};
 use std::{cell::RefCell, collections::HashMap};
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -83,17 +82,6 @@ frame_support::construct_runtime!(
 		Babe: pallet_babe,
 	}
 );
-
-pub struct XcmDevNull;
-impl SendXcm for XcmDevNull {
-	type Ticket = ();
-	fn validate(_: &mut Option<MultiLocation>, _: &mut Option<Xcm<()>>) -> SendResult<()> {
-		Ok(((), MultiAssets::new()))
-	}
-	fn deliver(_: ()) -> Result<XcmHash, SendError> {
-		Ok([0; 32])
-	}
-}
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
 where
@@ -387,15 +375,6 @@ impl coretime::Config for Test {
 	type Currency = pallet_balances::Pallet<Test>;
 	type BrokerId = BrokerId;
 	type WeightInfo = crate::coretime::TestWeightInfo;
-	type SendXcm = XcmDevNull;
-	type GetLegacyLease = DummyLegacyLease;
-}
-
-pub struct DummyLegacyLease;
-impl coretime::GetLegacyLease<BlockNumber> for DummyLegacyLease {
-	fn get_parachain_lease_in_blocks(_: ParaId) -> Option<BlockNumber> {
-		None
-	}
 }
 
 impl crate::inclusion::Config for Test {
