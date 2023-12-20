@@ -48,8 +48,7 @@ const migrateIdentityOf = async (key, data, api) => {
 
 			if (keyString.toLowerCase() === "discord") {
 				discord = { raw: data.raw };
-			}
-			if (keyString.toLowerCase() === "github") {
+			} else if (keyString.toLowerCase() === "github") {
 				github = { raw: data.raw };
 			}
 		});
