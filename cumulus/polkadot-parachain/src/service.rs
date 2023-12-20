@@ -195,6 +195,15 @@ impl sc_executor::NativeExecutionDispatch for GluttonWestendRuntimeExecutor {
 	}
 }
 
+type Service = PartialComponents<
+	ParachainClient<RuntimeApi>,
+	ParachainBackend,
+	(),
+	sc_consensus::DefaultImportQueue<Block>,
+	sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>,
+	(ParachainBlockImport<RuntimeApi>, Option<Telemetry>, Option<TelemetryWorkerHandle>),
+>;
+
 /// Starts a `ServiceBuilder` for a full service.
 ///
 /// Use this macro if you don't actually need the full service, but just the builder in order to
@@ -202,17 +211,7 @@ impl sc_executor::NativeExecutionDispatch for GluttonWestendRuntimeExecutor {
 pub fn new_partial<RuntimeApi, BIQ>(
 	config: &Configuration,
 	build_import_queue: BIQ,
-) -> Result<
-	PartialComponents<
-		ParachainClient<RuntimeApi>,
-		ParachainBackend,
-		(),
-		sc_consensus::DefaultImportQueue<Block>,
-		sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>,
-		(ParachainBlockImport<RuntimeApi>, Option<Telemetry>, Option<TelemetryWorkerHandle>),
-	>,
-	sc_service::Error,
->
+) -> Result<Service, sc_service::Error>
 where
 	RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
 	RuntimeApi::RuntimeApi: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
