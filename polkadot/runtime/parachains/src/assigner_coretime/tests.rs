@@ -28,7 +28,7 @@ use crate::{
 };
 use frame_support::{assert_noop, assert_ok, pallet_prelude::*, traits::Currency};
 use pallet_broker::TaskId;
-use primitives::{BlockNumber, SessionIndex, ValidationCode, Id as ParaId};
+use primitives::{BlockNumber, Id as ParaId, SessionIndex, ValidationCode};
 use sp_std::collections::btree_map::BTreeMap;
 
 fn schedule_blank_para(id: ParaId, parakind: ParaKind) {
@@ -554,7 +554,7 @@ fn pop_assignment_for_core_works() {
 
 		assert_eq!(
 			CoretimeAssigner::pop_assignment_for_core(core_idx),
-			Some(Assignment::Pool{para_id, core_index: 0.into()})
+			Some(Assignment::Pool { para_id, core_index: 0.into() })
 		);
 
 		// Case 3: Assignment task
