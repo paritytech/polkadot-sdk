@@ -199,7 +199,7 @@ pub trait Chain: Send + Sync + 'static {
 }
 
 /// A trait that provides the type of the underlying chain.
-pub trait UnderlyingChainProvider {
+pub trait UnderlyingChainProvider: Send + Sync + 'static {
 	/// Underlying chain type.
 	type Chain: Chain;
 }
