@@ -331,6 +331,8 @@ struct ForkTarget<B: BlockT> {
 /// defines what we are busy with.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub(crate) enum PeerSyncState<B: BlockT> {
+	/// New peer not yet handled by sync state machine.
+	New,
 	/// Available for sync requests.
 	Available,
 	/// Searching for ancestors the Peer has in common with us.
@@ -468,130 +470,153 @@ where
 
 	/// Notify syncing state machine that a new sync peer has connected.
 	pub fn add_peer(&mut self, peer_id: PeerId, best_hash: B::Hash, best_number: NumberFor<B>) {
-		match self.add_peer_inner(peer_id, best_hash, best_number) {
-			Ok(Some(request)) =>
-				self.actions.push(ChainSyncAction::SendBlockRequest { peer_id, request }),
-			Ok(None) => {},
-			Err(bad_peer) => self.actions.push(ChainSyncAction::DropPeer(bad_peer)),
-		}
+		self.peers.insert(
+			peer_id,
+			PeerSync {
+				peer_id,
+				common_number: Zero::zero(),
+				best_hash,
+				best_number,
+				state: PeerSyncState::New,
+			},
+		);
+
+		// match self.add_peer_inner(peer_id, best_hash, best_number) {
+		// 	Ok(Some(request)) =>
+		// 		self.actions.push(ChainSyncAction::SendBlockRequest { peer_id, request }),
+		// 	Ok(None) => {},
+		// 	Err(bad_peer) => self.actions.push(ChainSyncAction::DropPeer(bad_peer)),
+		// }
 	}
 
-	#[must_use]
-	fn add_peer_inner(
+	fn handle_new_peers(
 		&mut self,
-		peer_id: PeerId,
-		best_hash: B::Hash,
-		best_number: NumberFor<B>,
-	) -> Result<Option<BlockRequest<B>>, BadPeer> {
-		// There is nothing sync can get from the node that has no blockchain data.
-		match self.block_status(&best_hash) {
-			Err(e) => {
-				debug!(target: LOG_TARGET, "Error reading blockchain: {e}");
-				Err(BadPeer(peer_id, rep::BLOCKCHAIN_READ_ERROR))
-			},
-			Ok(BlockStatus::KnownBad) => {
-				info!(
-					"💔 New peer {peer_id} with known bad best block {best_hash} ({best_number})."
-				);
-				Err(BadPeer(peer_id, rep::BAD_BLOCK))
-			},
-			Ok(BlockStatus::Unknown) => {
-				if best_number.is_zero() {
-					info!(
-						"💔 New peer {} with unknown genesis hash {} ({}).",
-						peer_id, best_hash, best_number,
-					);
-					return Err(BadPeer(peer_id, rep::GENESIS_MISMATCH))
-				}
+	) -> impl Iterator<Item = Result<(PeerId, BlockRequest<B>), BadPeer>> + '_ {
+		let new_peers = self
+			.peers
+			.iter()
+			.filter_map(|(peer_id, peer)| match peer.state {
+				PeerSyncState::New => Some((*peer_id, peer.clone())),
+				_ => None,
+			})
+			.collect::<Vec<(PeerId, PeerSync<B>)>>();
 
-				// If there are more than `MAJOR_SYNC_BLOCKS` in the import queue then we have
-				// enough to do in the import queue that it's not worth kicking off
-				// an ancestor search, which is what we do in the next match case below.
-				if self.queue_blocks.len() > MAJOR_SYNC_BLOCKS.into() {
-					debug!(
-						target: LOG_TARGET,
-						"New peer {} with unknown best hash {} ({}), assuming common block.",
-						peer_id,
-						self.best_queued_hash,
-						self.best_queued_number
+		new_peers.into_iter().filter_map(|(peer_id, peer)| {
+			let best_hash = peer.best_hash;
+			let best_number = peer.best_number;
+			// There is nothing sync can get from the node that has no blockchain data.
+			match self.block_status(&best_hash) {
+				Err(e) => {
+					debug!(target: LOG_TARGET, "Error reading blockchain: {e}");
+					Some(Err(BadPeer(peer_id, rep::BLOCKCHAIN_READ_ERROR)))
+				},
+				Ok(BlockStatus::KnownBad) => {
+					info!(
+						"💔 New peer {peer_id} with known bad best block {best_hash} ({best_number})."
 					);
+					Some(Err(BadPeer(peer_id, rep::BAD_BLOCK)))
+				},
+				Ok(BlockStatus::Unknown) => {
+					if best_number.is_zero() {
+						info!(
+							"💔 New peer {} with unknown genesis hash {} ({}).",
+							peer_id, best_hash, best_number,
+						);
+						return Some(Err(BadPeer(peer_id, rep::GENESIS_MISMATCH)))
+					}
+
+					// If there are more than `MAJOR_SYNC_BLOCKS` in the import queue then we
+					// have enough to do in the import queue that it's not worth kicking off
+					// an ancestor search, which is what we do in the next match case below.
+					if self.queue_blocks.len() > MAJOR_SYNC_BLOCKS.into() {
+						debug!(
+							target: LOG_TARGET,
+							"New peer {} with unknown best hash {} ({}), assuming common block.",
+							peer_id,
+							self.best_queued_hash,
+							self.best_queued_number
+						);
+						// Replace `PeerSyncState::New` peer.
+						self.peers.insert(
+							peer_id,
+							PeerSync {
+								peer_id,
+								common_number: self.best_queued_number,
+								best_hash,
+								best_number,
+								state: PeerSyncState::Available,
+							},
+						);
+						return None
+					}
+
+					// If we are at genesis, just start downloading.
+					let (state, req) = if self.best_queued_number.is_zero() {
+						debug!(
+							target: LOG_TARGET,
+							"New peer {peer_id} with best hash {best_hash} ({best_number}).",
+						);
+
+						(PeerSyncState::Available, None)
+					} else {
+						let common_best = std::cmp::min(self.best_queued_number, best_number);
+
+						debug!(
+							target: LOG_TARGET,
+							"New peer {} with unknown best hash {} ({}), searching for common ancestor.",
+							peer_id,
+							best_hash,
+							best_number
+						);
+
+						(
+							PeerSyncState::AncestorSearch {
+								current: common_best,
+								start: self.best_queued_number,
+								state: AncestorSearchState::ExponentialBackoff(One::one()),
+							},
+							Some(ancestry_request::<B>(common_best)),
+						)
+					};
+
+					self.allowed_requests.add(&peer_id);
+					// Replace `PeerSyncState::New` peer.
 					self.peers.insert(
 						peer_id,
 						PeerSync {
 							peer_id,
-							common_number: self.best_queued_number,
+							common_number: Zero::zero(),
+							best_hash,
+							best_number,
+							state,
+						},
+					);
+
+					req.map(|req| Ok((peer_id, req)))
+				},
+				Ok(BlockStatus::Queued) |
+				Ok(BlockStatus::InChainWithState) |
+				Ok(BlockStatus::InChainPruned) => {
+					debug!(
+						target: LOG_TARGET,
+						"New peer {peer_id} with known best hash {best_hash} ({best_number}).",
+					);
+					// Replace `PeerSyncState::New` peer.
+					self.peers.insert(
+						peer_id,
+						PeerSync {
+							peer_id,
+							common_number: std::cmp::min(self.best_queued_number, best_number),
 							best_hash,
 							best_number,
 							state: PeerSyncState::Available,
 						},
 					);
-					return Ok(None)
-				}
-
-				// If we are at genesis, just start downloading.
-				let (state, req) = if self.best_queued_number.is_zero() {
-					debug!(
-						target: LOG_TARGET,
-						"New peer {peer_id} with best hash {best_hash} ({best_number}).",
-					);
-
-					(PeerSyncState::Available, None)
-				} else {
-					let common_best = std::cmp::min(self.best_queued_number, best_number);
-
-					debug!(
-						target: LOG_TARGET,
-						"New peer {} with unknown best hash {} ({}), searching for common ancestor.",
-						peer_id,
-						best_hash,
-						best_number
-					);
-
-					(
-						PeerSyncState::AncestorSearch {
-							current: common_best,
-							start: self.best_queued_number,
-							state: AncestorSearchState::ExponentialBackoff(One::one()),
-						},
-						Some(ancestry_request::<B>(common_best)),
-					)
-				};
-
-				self.allowed_requests.add(&peer_id);
-				self.peers.insert(
-					peer_id,
-					PeerSync {
-						peer_id,
-						common_number: Zero::zero(),
-						best_hash,
-						best_number,
-						state,
-					},
-				);
-
-				Ok(req)
-			},
-			Ok(BlockStatus::Queued) |
-			Ok(BlockStatus::InChainWithState) |
-			Ok(BlockStatus::InChainPruned) => {
-				debug!(
-					target: LOG_TARGET,
-					"New peer {peer_id} with known best hash {best_hash} ({best_number}).",
-				);
-				self.peers.insert(
-					peer_id,
-					PeerSync {
-						peer_id,
-						common_number: std::cmp::min(self.best_queued_number, best_number),
-						best_hash,
-						best_number,
-						state: PeerSyncState::Available,
-					},
-				);
-				self.allowed_requests.add(&peer_id);
-				Ok(None)
-			},
-		}
+					self.allowed_requests.add(&peer_id);
+					None
+				},
+			}
+		})
 	}
 
 	/// Inform sync about a new best imported block.
@@ -887,6 +912,7 @@ where
 							return Ok(())
 						}
 					},
+					PeerSyncState::New |
 					PeerSyncState::Available |
 					PeerSyncState::DownloadingJustification(..) |
 					PeerSyncState::DownloadingState => Vec::new(),
@@ -1330,16 +1356,11 @@ where
 			}
 
 			// handle peers that were in other states.
-			let action = match self.add_peer_inner(peer_id, p.best_hash, p.best_number) {
-				// since the request is not a justification, remove it from pending responses
-				Ok(None) => ChainSyncAction::CancelBlockRequest { peer_id },
-				// update the request if the new one is available
-				Ok(Some(request)) => ChainSyncAction::SendBlockRequest { peer_id, request },
-				// this implies that we need to drop pending response from the peer
-				Err(bad_peer) => ChainSyncAction::DropPeer(bad_peer),
-			};
+			self.add_peer(peer_id, p.best_hash, p.best_number);
 
-			self.actions.push(action);
+			// since the request is not a justification, remove it from pending responses
+			// TODO: check `PeerSyncState`?
+			self.actions.push(ChainSyncAction::CancelBlockRequest { peer_id });
 		});
 	}
 
@@ -1863,6 +1884,15 @@ where
 	/// Get pending actions to perform.
 	#[must_use]
 	pub fn actions(&mut self) -> impl Iterator<Item = ChainSyncAction<B>> {
+		let new_peer_actions = self
+			.handle_new_peers()
+			.map(|res| match res {
+				Ok((peer_id, request)) => ChainSyncAction::SendBlockRequest { peer_id, request },
+				Err(bad_peer) => ChainSyncAction::DropPeer(bad_peer),
+			})
+			.collect::<Vec<ChainSyncAction<_>>>();
+		self.actions.extend(new_peer_actions.into_iter());
+
 		let block_requests = self
 			.block_requests()
 			.into_iter()
