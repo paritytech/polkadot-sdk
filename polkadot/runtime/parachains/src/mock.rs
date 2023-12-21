@@ -52,7 +52,7 @@ use sp_runtime::{
 };
 use sp_std::collections::vec_deque::VecDeque;
 use std::{cell::RefCell, collections::HashMap};
-use xcm::v3::{XcmHash, SendError, MultiAssets, SendResult, MultiLocation, Xcm, SendXcm};
+use xcm::v3::{MultiAssets, MultiLocation, SendError, SendResult, SendXcm, Xcm, XcmHash};
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlockU32<Test>;
