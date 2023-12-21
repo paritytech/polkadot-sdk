@@ -1058,6 +1058,10 @@
 <a href="#1058" id="1058">1058</a>
 <a href="#1059" id="1059">1059</a>
 <a href="#1060" id="1060">1060</a>
+<a href="#1061" id="1061">1061</a>
+<a href="#1062" id="1062">1062</a>
+<a href="#1063" id="1063">1063</a>
+<a href="#1064" id="1064">1064</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1322,6 +1326,7 @@
 /// (H/T to Phala for the idea)
 /// E.g. &quot;penpal-kusama-2004&quot; yields (&quot;penpal-kusama&quot;, Some(2004))
 </span><span class="kw">fn </span>extract_parachain_id(id: <span class="kw-2">&amp;</span>str) -&gt; (<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>str, <span class="prelude-ty">Option</span>&lt;ParaId&gt;) {
+	<span class="kw">const </span>ROCOCO_TEST_PARA_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">&quot;penpal-rococo-&quot;</span>;
 	<span class="kw">const </span>KUSAMA_TEST_PARA_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">&quot;penpal-kusama-&quot;</span>;
 	<span class="kw">const </span>POLKADOT_TEST_PARA_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">&quot;penpal-polkadot-&quot;</span>;
 
@@ -1333,7 +1338,10 @@
 	<span class="kw">const </span>GLUTTON_WESTEND_PARA_LOCAL_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">&quot;glutton-westend-local-&quot;</span>;
 	<span class="kw">const </span>GLUTTON_WESTEND_PARA_GENESIS_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">&quot;glutton-westend-genesis-&quot;</span>;
 
-	<span class="kw">let </span>(norm_id, orig_id, para) = <span class="kw">if let </span><span class="prelude-val">Some</span>(suffix) = id.strip_prefix(KUSAMA_TEST_PARA_PREFIX) {
+	<span class="kw">let </span>(norm_id, orig_id, para) = <span class="kw">if let </span><span class="prelude-val">Some</span>(suffix) = id.strip_prefix(ROCOCO_TEST_PARA_PREFIX) {
+		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">&quot;Invalid parachain-id suffix&quot;</span>);
+		(<span class="kw-2">&amp;</span>id[..ROCOCO_TEST_PARA_PREFIX.len() - <span class="number">1</span>], id, <span class="prelude-val">Some</span>(para_id))
+	} <span class="kw">else if let </span><span class="prelude-val">Some</span>(suffix) = id.strip_prefix(KUSAMA_TEST_PARA_PREFIX) {
 		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">&quot;Invalid parachain-id suffix&quot;</span>);
 		(<span class="kw-2">&amp;</span>id[..KUSAMA_TEST_PARA_PREFIX.len() - <span class="number">1</span>], id, <span class="prelude-val">Some</span>(para_id))
 	} <span class="kw">else if let </span><span class="prelude-val">Some</span>(suffix) = id.strip_prefix(POLKADOT_TEST_PARA_PREFIX) {

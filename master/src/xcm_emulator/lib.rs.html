@@ -1555,6 +1555,12 @@
 <a href="#1555" id="1555">1555</a>
 <a href="#1556" id="1556">1556</a>
 <a href="#1557" id="1557">1557</a>
+<a href="#1558" id="1558">1558</a>
+<a href="#1559" id="1559">1559</a>
+<a href="#1560" id="1560">1560</a>
+<a href="#1561" id="1561">1561</a>
+<a href="#1562" id="1562">1562</a>
+<a href="#1563" id="1563">1563</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1571,7 +1577,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">pub use </span>codec::{Decode, Encode, EncodeLike};
+</span><span class="kw">pub use </span>codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 <span class="kw">pub use </span>lazy_static::lazy_static;
 <span class="kw">pub use </span>log;
 <span class="kw">pub use </span>paste;
@@ -1802,7 +1808,7 @@
 	<span class="kw">type </span>LocationToAccountId: ConvertLocation&lt;AccountIdOf&lt;<span class="self">Self</span>::Runtime&gt;&gt;;
 	<span class="kw">type </span>ParachainInfo: Get&lt;ParaId&gt;;
 	<span class="kw">type </span>ParachainSystem;
-	<span class="kw">type </span>MessageProcessor: ProcessMessage&lt;Origin = CumulusAggregateMessageOrigin&gt; + ServiceQueues;
+	<span class="kw">type </span>MessageProcessor: ProcessMessage + ServiceQueues;
 
 	<span class="kw">fn </span>init();
 
@@ -2133,8 +2139,8 @@
 					XcmpMessageHandler: <span class="macro-nonterminal">$xcmp_message_handler</span>:path,
 					LocationToAccountId: <span class="macro-nonterminal">$location_to_account</span>:path,
 					ParachainInfo: <span class="macro-nonterminal">$parachain_info</span>:path,
-					<span class="comment">// MessageProcessor: $message_processor:path,
-				</span>},
+					MessageOrigin: <span class="macro-nonterminal">$message_origin</span>:path,
+				},
 				pallets = {
 					$(<span class="macro-nonterminal">$pallet_name</span>:ident: <span class="macro-nonterminal">$pallet_path</span>:path,)*
 				}
@@ -2172,7 +2178,7 @@
 				<span class="kw">type </span>LocationToAccountId = <span class="macro-nonterminal">$location_to_account</span>;
 				<span class="kw">type </span>ParachainSystem = <span class="macro-nonterminal">$crate::ParachainSystemPallet</span>&lt;&lt;<span class="self">Self </span><span class="kw">as </span><span class="macro-nonterminal">$crate::Chain</span>&gt;::Runtime&gt;;
 				<span class="kw">type </span>ParachainInfo = <span class="macro-nonterminal">$parachain_info</span>;
-				<span class="kw">type </span>MessageProcessor = <span class="macro-nonterminal">$crate::DefaultParaMessageProcessor</span>&lt;<span class="macro-nonterminal">$name</span>&lt;N&gt;&gt;;
+				<span class="kw">type </span>MessageProcessor = <span class="macro-nonterminal">$crate::DefaultParaMessageProcessor</span>&lt;<span class="macro-nonterminal">$name</span>&lt;N&gt;, <span class="macro-nonterminal">$message_origin</span>&gt;;
 
 				<span class="comment">// We run an empty block during initialisation to open HRMP channels
 				// and have them ready for the next block
@@ -2564,7 +2570,7 @@
 									&lt;<span class="macro-nonterminal">$parachain</span>&lt;<span class="self">Self</span>&gt;&gt;::ext_wrapper(|| {
 										<span class="kw">let _ </span>=  &lt;<span class="macro-nonterminal">$parachain</span>&lt;<span class="self">Self</span>&gt; <span class="kw">as </span>Parachain&gt;::MessageProcessor::process_message(
 											<span class="kw-2">&amp;</span>msg[..],
-											<span class="macro-nonterminal">$crate::CumulusAggregateMessageOrigin::Parent</span>,
+											<span class="macro-nonterminal">$crate::CumulusAggregateMessageOrigin::Parent</span>.into(),
 											<span class="kw-2">&amp;mut </span>weight_meter,
 											<span class="kw-2">&amp;mut </span>msg.using_encoded(<span class="macro-nonterminal">$crate::blake2_256</span>),
 										);
@@ -2870,17 +2876,23 @@
 	};
 }
 
-<span class="kw">pub struct </span>DefaultParaMessageProcessor&lt;T&gt;(PhantomData&lt;T&gt;);
+<span class="kw">pub struct </span>DefaultParaMessageProcessor&lt;T, M&gt;(PhantomData&lt;(T, M)&gt;);
 <span class="comment">// Process HRMP messages from sibling paraids
-</span><span class="kw">impl</span>&lt;T&gt; ProcessMessage <span class="kw">for </span>DefaultParaMessageProcessor&lt;T&gt;
+</span><span class="kw">impl</span>&lt;T, M&gt; ProcessMessage <span class="kw">for </span>DefaultParaMessageProcessor&lt;T, M&gt;
 <span class="kw">where
-	</span>T: Parachain,
+	</span>M: codec::FullCodec
+		+ MaxEncodedLen
+		+ Clone
+		+ Eq
+		+ PartialEq
+		+ frame_support::pallet_prelude::TypeInfo
+		+ Debug,
+	T: Parachain,
 	T::Runtime: MessageQueueConfig,
-	&lt;&lt;T::Runtime <span class="kw">as </span>MessageQueueConfig&gt;::MessageProcessor <span class="kw">as </span>ProcessMessage&gt;::Origin:
-		PartialEq&lt;CumulusAggregateMessageOrigin&gt;,
-	MessageQueuePallet&lt;T::Runtime&gt;: EnqueueMessage&lt;CumulusAggregateMessageOrigin&gt; + ServiceQueues,
+	&lt;&lt;T::Runtime <span class="kw">as </span>MessageQueueConfig&gt;::MessageProcessor <span class="kw">as </span>ProcessMessage&gt;::Origin: PartialEq&lt;M&gt;,
+	MessageQueuePallet&lt;T::Runtime&gt;: EnqueueMessage&lt;M&gt; + ServiceQueues,
 {
-	<span class="kw">type </span>Origin = CumulusAggregateMessageOrigin;
+	<span class="kw">type </span>Origin = M;
 
 	<span class="kw">fn </span>process_message(
 		msg: <span class="kw-2">&amp;</span>[u8],
@@ -2897,13 +2909,13 @@
 		<span class="prelude-val">Ok</span>(<span class="bool-val">true</span>)
 	}
 }
-<span class="kw">impl</span>&lt;T&gt; ServiceQueues <span class="kw">for </span>DefaultParaMessageProcessor&lt;T&gt;
+<span class="kw">impl</span>&lt;T, M&gt; ServiceQueues <span class="kw">for </span>DefaultParaMessageProcessor&lt;T, M&gt;
 <span class="kw">where
-	</span>T: Parachain,
+	</span>M: MaxEncodedLen,
+	T: Parachain,
 	T::Runtime: MessageQueueConfig,
-	&lt;&lt;T::Runtime <span class="kw">as </span>MessageQueueConfig&gt;::MessageProcessor <span class="kw">as </span>ProcessMessage&gt;::Origin:
-		PartialEq&lt;CumulusAggregateMessageOrigin&gt;,
-	MessageQueuePallet&lt;T::Runtime&gt;: EnqueueMessage&lt;CumulusAggregateMessageOrigin&gt; + ServiceQueues,
+	&lt;&lt;T::Runtime <span class="kw">as </span>MessageQueueConfig&gt;::MessageProcessor <span class="kw">as </span>ProcessMessage&gt;::Origin: PartialEq&lt;M&gt;,
+	MessageQueuePallet&lt;T::Runtime&gt;: EnqueueMessage&lt;M&gt; + ServiceQueues,
 {
 	<span class="kw">type </span>OverweightMessageAddress = ();
 

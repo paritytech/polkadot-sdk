@@ -94,6 +94,10 @@
 <a href="#94" id="94">94</a>
 <a href="#95" id="95">95</a>
 <a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -113,6 +117,7 @@
 <span class="kw">pub use </span>asset_hub_westend_emulated_chain;
 <span class="kw">pub use </span>bridge_hub_rococo_emulated_chain;
 <span class="kw">pub use </span>bridge_hub_westend_emulated_chain;
+<span class="kw">pub use </span>penpal_emulated_chain;
 <span class="kw">pub use </span>rococo_emulated_chain;
 <span class="kw">pub use </span>westend_emulated_chain;
 
@@ -120,6 +125,7 @@
 <span class="kw">use </span>asset_hub_westend_emulated_chain::AssetHubWestend;
 <span class="kw">use </span>bridge_hub_rococo_emulated_chain::BridgeHubRococo;
 <span class="kw">use </span>bridge_hub_westend_emulated_chain::BridgeHubWestend;
+<span class="kw">use </span>penpal_emulated_chain::PenpalA;
 <span class="kw">use </span>rococo_emulated_chain::Rococo;
 <span class="kw">use </span>westend_emulated_chain::Westend;
 
@@ -139,6 +145,7 @@
 		parachains = <span class="macro">vec!</span>[
 			AssetHubRococo,
 			BridgeHubRococo,
+			PenpalA,
 		],
 		bridge = RococoWestendMockBridge
 
@@ -188,6 +195,7 @@
 	BridgeHubRococoPara { sender: ALICE, receiver: BOB },
 	WestendRelay { sender: ALICE, receiver: BOB },
 	AssetHubWestendPara { sender: ALICE, receiver: BOB },
-	BridgeHubWestendPara { sender: ALICE, receiver: BOB }
+	BridgeHubWestendPara { sender: ALICE, receiver: BOB },
+	PenpalAPara { sender: ALICE, receiver: BOB }
 }
 </code></pre></div></section></main></body></html>

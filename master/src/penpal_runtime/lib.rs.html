@@ -876,6 +876,43 @@
 <a href="#876" id="876">876</a>
 <a href="#877" id="877">877</a>
 <a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -910,6 +947,7 @@
 <span class="kw">mod </span>weights;
 <span class="kw">pub mod </span>xcm_config;
 
+<span class="kw">use </span>assets_common::MultiLocationForAssetId;
 <span class="kw">use </span>cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 <span class="kw">use </span>cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 <span class="kw">use </span>frame_support::{
@@ -1337,6 +1375,41 @@
 }
 
 <span class="macro">parameter_types! </span>{
+	<span class="comment">// we just reuse the same deposits
+	</span><span class="kw">pub const </span>ForeignAssetsAssetDeposit: Balance = AssetDeposit::get();
+	<span class="kw">pub const </span>ForeignAssetsAssetAccountDeposit: Balance = AssetAccountDeposit::get();
+	<span class="kw">pub const </span>ForeignAssetsApprovalDeposit: Balance = ApprovalDeposit::get();
+	<span class="kw">pub const </span>ForeignAssetsAssetsStringLimit: u32 = AssetsStringLimit::get();
+	<span class="kw">pub const </span>ForeignAssetsMetadataDepositBase: Balance = MetadataDepositBase::get();
+	<span class="kw">pub const </span>ForeignAssetsMetadataDepositPerByte: Balance = MetadataDepositPerByte::get();
+}
+
+<span class="doccomment">/// Another pallet assets instance to store foreign assets from bridgehub.
+</span><span class="kw">pub type </span>ForeignAssetsInstance = pallet_assets::Instance2;
+<span class="kw">impl </span>pallet_assets::Config&lt;ForeignAssetsInstance&gt; <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+	<span class="kw">type </span>Balance = Balance;
+	<span class="kw">type </span>AssetId = MultiLocationForAssetId;
+	<span class="kw">type </span>AssetIdParameter = MultiLocationForAssetId;
+	<span class="kw">type </span>Currency = Balances;
+	<span class="kw">type </span>CreateOrigin = AsEnsureOriginWithArg&lt;EnsureSigned&lt;AccountId&gt;&gt;;
+	<span class="kw">type </span>ForceOrigin = EnsureRoot&lt;AccountId&gt;;
+	<span class="kw">type </span>AssetDeposit = ForeignAssetsAssetDeposit;
+	<span class="kw">type </span>MetadataDepositBase = ForeignAssetsMetadataDepositBase;
+	<span class="kw">type </span>MetadataDepositPerByte = ForeignAssetsMetadataDepositPerByte;
+	<span class="kw">type </span>ApprovalDeposit = ForeignAssetsApprovalDeposit;
+	<span class="kw">type </span>StringLimit = ForeignAssetsAssetsStringLimit;
+	<span class="kw">type </span>Freezer = ();
+	<span class="kw">type </span>Extra = ();
+	<span class="kw">type </span>WeightInfo = pallet_assets::weights::SubstrateWeight&lt;Runtime&gt;;
+	<span class="kw">type </span>CallbackHandle = ();
+	<span class="kw">type </span>AssetAccountDeposit = ForeignAssetsAssetAccountDeposit;
+	<span class="kw">type </span>RemoveItemsLimit = frame_support::traits::ConstU32&lt;<span class="number">1000</span>&gt;;
+	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="kw">type </span>BenchmarkHelper = xcm_config::XcmBenchmarkHelper;
+}
+
+<span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>ReservedXcmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(<span class="number">4</span>);
 	<span class="kw">pub const </span>ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(<span class="number">4</span>);
 	<span class="kw">pub const </span>RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
@@ -1504,6 +1577,7 @@
 
 		<span class="comment">// The main stage.
 		</span>Assets: pallet_assets::&lt;Instance1&gt;::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">50</span>,
+		ForeignAssets: pallet_assets::&lt;Instance2&gt;::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">51</span>,
 
 		Sudo: pallet_sudo::{Pallet, Call, Storage, Event&lt;T&gt;, Config&lt;T&gt;} = <span class="number">255</span>,
 	}

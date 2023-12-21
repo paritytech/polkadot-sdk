@@ -49,6 +49,7 @@
 <a href="#49" id="49">49</a>
 <a href="#50" id="50">50</a>
 <a href="#51" id="51">51</a>
+<a href="#52" id="52">52</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -87,6 +88,7 @@
 			XcmpMessageHandler: collectives_westend_runtime::XcmpQueue,
 			LocationToAccountId: collectives_westend_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: collectives_westend_runtime::ParachainInfo,
+			MessageOrigin: cumulus_primitives_core::AggregateMessageOrigin,
 		},
 		pallets = {
 			PolkadotXcm: collectives_westend_runtime::PolkadotXcm,

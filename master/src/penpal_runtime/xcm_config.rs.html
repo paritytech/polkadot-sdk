@@ -362,6 +362,47 @@
 <a href="#362" id="362">362</a>
 <a href="#363" id="363">363</a>
 <a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -388,8 +429,8 @@
 //! soon.
 </span><span class="kw">use super</span>::{
 	AccountId, AllPalletsWithSystem, AssetId <span class="kw">as </span>AssetIdPalletAssets, Assets, Balance, Balances,
-	ParachainInfo, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
-	WeightToFee, XcmpQueue,
+	ForeignAssets, ParachainInfo, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
+	RuntimeOrigin, WeightToFee, XcmpQueue,
 };
 <span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>frame_support::{
@@ -406,18 +447,19 @@
 <span class="kw">use </span>pallet_xcm::XcmPassthrough;
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::Sibling;
 <span class="kw">use </span>polkadot_runtime_common::impls::ToAuthor;
+<span class="kw">use </span>snowbridge_rococo_common::EthereumNetwork;
 <span class="kw">use </span>sp_runtime::traits::Zero;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="attr">#[allow(deprecated)]
-</span><span class="kw">use </span>xcm_builder::CurrencyAdapter;
-<span class="kw">use </span>xcm_builder::{
+</span><span class="kw">use </span>xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, AsPrefixedGeneralIndex,
-	ConvertedConcreteId, DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin,
-	FixedWeightBounds, FungiblesAdapter, IsConcrete, LocalMint, NativeAsset, ParentAsSuperuser,
-	ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
+	ConvertedConcreteId, CurrencyAdapter, DenyReserveTransferToRelayChain, DenyThenTry,
+	EnsureXcmOrigin, FixedWeightBounds, FungiblesAdapter, IsConcrete, LocalMint, NativeAsset,
+	NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
+	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, StartsWith, TakeWeightCredit, TrailingSetTopicAsId,
+	UsingComponents, WithComputedOrigin, WithUniqueTopic,
 };
 <span class="kw">use </span>xcm_executor::{traits::JustTry, XcmExecutor};
 
@@ -489,8 +531,28 @@
 	</span>CheckingAccount,
 &gt;;
 
+<span class="doccomment">/// `AssetId/Balance` converter for `TrustBackedAssets`
+</span><span class="kw">pub type </span>ForeignAssetsConvertedConcreteId =
+	assets_common::ForeignAssetsConvertedConcreteId&lt;StartsWith&lt;RelayLocation&gt;, Balance&gt;;
+
+<span class="doccomment">/// Means for transacting foreign assets from different global consensus.
+</span><span class="kw">pub type </span>ForeignFungiblesTransactor = FungiblesAdapter&lt;
+	<span class="comment">// Use this fungibles implementation:
+	</span>ForeignAssets,
+	<span class="comment">// Use this currency when it is a fungible asset matching the given location or name:
+	</span>ForeignAssetsConvertedConcreteId,
+	<span class="comment">// Convert an XCM MultiLocation into a local account id:
+	</span>LocationToAccountId,
+	<span class="comment">// Our chain&#39;s account ID type (we can&#39;t get away without mentioning it explicitly):
+	</span>AccountId,
+	<span class="comment">// We dont need to check teleports here.
+	</span>NoChecking,
+	<span class="comment">// The account to use for tracking teleports.
+	</span>CheckingAccount,
+&gt;;
+
 <span class="doccomment">/// Means for transacting assets on this chain.
-</span><span class="kw">pub type </span>AssetTransactors = (CurrencyTransactor, FungiblesTransactor);
+</span><span class="kw">pub type </span>AssetTransactors = (CurrencyTransactor, ForeignFungiblesTransactor, FungiblesTransactor);
 
 <span class="doccomment">/// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
 /// ready for dispatching a transaction with Xcm&#39;s `Transact`. There is an `OriginKind` which can
@@ -566,15 +628,21 @@
 </span><span class="kw">pub type </span>AccountIdOf&lt;R&gt; = &lt;R <span class="kw">as </span>frame_system::Config&gt;::AccountId;
 
 <span class="doccomment">/// Asset filter that allows all assets from a certain location matching asset id.
-</span><span class="kw">pub struct </span>AssetsFrom&lt;T&gt;(PhantomData&lt;T&gt;);
-<span class="kw">impl</span>&lt;T: Get&lt;MultiLocation&gt;&gt; ContainsPair&lt;MultiAsset, MultiLocation&gt; <span class="kw">for </span>AssetsFrom&lt;T&gt; {
+</span><span class="kw">pub struct </span>AssetPrefixFrom&lt;Prefix, Origin&gt;(PhantomData&lt;(Prefix, Origin)&gt;);
+<span class="kw">impl</span>&lt;Prefix, Origin&gt; ContainsPair&lt;MultiAsset, MultiLocation&gt; <span class="kw">for </span>AssetPrefixFrom&lt;Prefix, Origin&gt;
+<span class="kw">where
+	</span>Prefix: Get&lt;MultiLocation&gt;,
+	Origin: Get&lt;MultiLocation&gt;,
+{
 	<span class="kw">fn </span>contains(asset: <span class="kw-2">&amp;</span>MultiAsset, origin: <span class="kw-2">&amp;</span>MultiLocation) -&gt; bool {
-		<span class="kw">let </span>loc = T::get();
+		<span class="kw">let </span>loc = Origin::get();
 		<span class="kw-2">&amp;</span>loc == origin &amp;&amp;
 			<span class="macro">matches!</span>(asset, MultiAsset { id: AssetId::Concrete(asset_loc), fun: Fungible(_a) }
-			<span class="kw">if </span>asset_loc.starts_with(<span class="kw-2">&amp;</span>loc))
+			<span class="kw">if </span>asset_loc.starts_with(<span class="kw-2">&amp;</span>Prefix::get()))
 	}
 }
+
+<span class="kw">type </span>AssetsFrom&lt;T&gt; = AssetPrefixFrom&lt;T, T&gt;;
 
 <span class="doccomment">/// Asset filter that allows native/relay asset if coming from a certain location.
 </span><span class="kw">pub struct </span>NativeAssetFrom&lt;T&gt;(PhantomData&lt;T&gt;);
@@ -631,6 +699,7 @@
 		<span class="number">0</span>,
 		X2(PalletInstance(<span class="number">50</span>), GeneralIndex(TELEPORTABLE_ASSET_ID.into()))
 	);
+	<span class="kw">pub </span>EthereumLocation: MultiLocation = MultiLocation::new(<span class="number">2</span>, X1(GlobalConsensus(EthereumNetwork::get())));
 }
 
 <span class="doccomment">/// Accepts asset with ID `AssetLocation` and is coming from `Origin` chain.
@@ -644,8 +713,12 @@
 	}
 }
 
-<span class="kw">pub type </span>Reserves =
-	(NativeAsset, AssetsFrom&lt;SystemAssetHubLocation&gt;, NativeAssetFrom&lt;SystemAssetHubLocation&gt;);
+<span class="kw">pub type </span>Reserves = (
+	NativeAsset,
+	AssetsFrom&lt;SystemAssetHubLocation&gt;,
+	NativeAssetFrom&lt;SystemAssetHubLocation&gt;,
+	AssetPrefixFrom&lt;EthereumLocation, SystemAssetHubLocation&gt;,
+);
 <span class="kw">pub type </span>TrustedTeleporters =
 	(AssetFromChain&lt;LocalTeleportableToAssetHub, SystemAssetHubLocation&gt;,);
 
@@ -725,5 +798,14 @@
 <span class="kw">impl </span>cumulus_pallet_xcm::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>XcmExecutor = XcmExecutor&lt;XcmConfig&gt;;
+}
+
+<span class="doccomment">/// Simple conversion of `u32` into an `AssetId` for use in benchmarking.
+</span><span class="kw">pub struct </span>XcmBenchmarkHelper;
+<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+</span><span class="kw">impl </span>pallet_assets::BenchmarkHelper&lt;MultiLocation&gt; <span class="kw">for </span>XcmBenchmarkHelper {
+	<span class="kw">fn </span>create_asset_id_parameter(id: u32) -&gt; MultiLocation {
+		MultiLocation { parents: <span class="number">1</span>, interior: X1(Parachain(id)) }
+	}
 }
 </code></pre></div></section></main></body></html>

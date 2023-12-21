@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["FromSiblingParachain","IsForeignConcreteAsset","IsTrustedBridgedReserveLocationForConcreteAsset","LocalMultiLocationPattern","ParentLocation"]};
+window.SIDEBAR_ITEMS = {"struct":["FromNetwork","FromSiblingParachain","IsForeignConcreteAsset","IsTrustedBridgedReserveLocationForConcreteAsset","LocalMultiLocationPattern","ParentLocation"]};

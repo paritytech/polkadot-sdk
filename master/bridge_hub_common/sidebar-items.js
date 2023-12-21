@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["digest_item","message_queue"]};

@@ -1147,6 +1147,8 @@
 <a href="#1147" id="1147">1147</a>
 <a href="#1148" id="1148">1148</a>
 <a href="#1149" id="1149">1149</a>
+<a href="#1150" id="1150">1150</a>
+<a href="#1151" id="1151">1151</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1182,8 +1184,7 @@
 <span class="kw">pub mod </span>xcm_config;
 
 <span class="kw">use </span>cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
-<span class="kw">use </span>cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
-<span class="kw">use </span>parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling};
+<span class="kw">use </span>cumulus_primitives_core::ParaId;
 <span class="kw">use </span>sp_api::impl_runtime_apis;
 <span class="kw">use </span>sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 <span class="kw">use </span>sp_runtime::{
@@ -1198,6 +1199,10 @@
 </span><span class="kw">use </span>sp_version::NativeVersion;
 <span class="kw">use </span>sp_version::RuntimeVersion;
 
+<span class="kw">use </span>bridge_hub_common::{
+	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
+	AggregateMessageOrigin,
+};
 <span class="kw">use </span>frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
@@ -1477,9 +1482,8 @@
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>WeightInfo = weights::pallet_message_queue::WeightInfo&lt;Runtime&gt;;
 	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-	</span><span class="kw">type </span>MessageProcessor = pallet_message_queue::mock_helpers::NoopMessageProcessor&lt;
-		cumulus_primitives_core::AggregateMessageOrigin,
-	&gt;;
+	</span><span class="kw">type </span>MessageProcessor =
+		pallet_message_queue::mock_helpers::NoopMessageProcessor&lt;AggregateMessageOrigin&gt;;
 	<span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
 	</span><span class="kw">type </span>MessageProcessor = xcm_builder::ProcessXcmMessage&lt;
 		AggregateMessageOrigin,
