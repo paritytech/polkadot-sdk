@@ -138,6 +138,7 @@ mod bridge_hub_westend_tests {
 	use bridge_common_config::{
 		BridgeGrandpaWestendInstance, BridgeParachainWestendInstance, DeliveryRewardInBalance,
 	};
+	use bridge_hub_test_utils::test_cases::from_parachain;
 	use bridge_to_westend_config::{
 		BridgeHubWestendChainId, BridgeHubWestendLocation, WestendGlobalConsensusNetwork,
 		WithBridgeHubWestendMessageBridge, WithBridgeHubWestendMessagesInstance,
@@ -146,6 +147,16 @@ mod bridge_hub_westend_tests {
 
 	// Para id of sibling chain used in tests.
 	pub const SIBLING_PARACHAIN_ID: u32 = 1000;
+
+	// Runtime from tests PoV
+	type RuntimeTestsAdapter = from_parachain::WithRemoteParachainHelperAdapter<
+		Runtime,
+		AllPalletsWithoutSystem,
+		BridgeGrandpaWestendInstance,
+		BridgeParachainWestendInstance,
+		WithBridgeHubWestendMessagesInstance,
+		WithBridgeHubWestendMessageBridge,
+	>;
 
 	#[test]
 	fn initialize_bridge_by_governance_works() {
@@ -275,15 +286,7 @@ mod bridge_hub_westend_tests {
 	#[test]
 	fn relayed_incoming_message_works() {
 		// from Westend
-		bridge_hub_test_utils::test_cases::from_parachain::relayed_incoming_message_works::<
-			Runtime,
-			AllPalletsWithoutSystem,
-			ParachainSystem,
-			BridgeGrandpaWestendInstance,
-			BridgeParachainWestendInstance,
-			WithBridgeHubWestendMessagesInstance,
-			WithBridgeHubWestendMessageBridge,
-		>(
+		from_parachain::relayed_incoming_message_works::<RuntimeTestsAdapter>(
 			collator_session_keys(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
@@ -299,16 +302,7 @@ mod bridge_hub_westend_tests {
 	#[test]
 	pub fn complex_relay_extrinsic_works() {
 		// for Westend
-		bridge_hub_test_utils::test_cases::from_parachain::complex_relay_extrinsic_works::<
-			Runtime,
-			AllPalletsWithoutSystem,
-			XcmConfig,
-			ParachainSystem,
-			BridgeGrandpaWestendInstance,
-			BridgeParachainWestendInstance,
-			WithBridgeHubWestendMessagesInstance,
-			WithBridgeHubWestendMessageBridge,
-		>(
+		from_parachain::complex_relay_extrinsic_works::<RuntimeTestsAdapter>(
 			collator_session_keys(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
@@ -341,16 +335,9 @@ mod bridge_hub_westend_tests {
 
 	#[test]
 	pub fn can_calculate_fee_for_complex_message_delivery_transaction() {
-		let estimated = bridge_hub_test_utils::test_cases::from_parachain::can_calculate_fee_for_complex_message_delivery_transaction::<
-			Runtime,
-			BridgeGrandpaWestendInstance,
-			BridgeParachainWestendInstance,
-			WithBridgeHubWestendMessagesInstance,
-			WithBridgeHubWestendMessageBridge,
-		>(
-			collator_session_keys(),
-			construct_and_estimate_extrinsic_fee
-		);
+		let estimated = from_parachain::can_calculate_fee_for_complex_message_delivery_transaction::<
+			RuntimeTestsAdapter,
+		>(collator_session_keys(), construct_and_estimate_extrinsic_fee);
 
 		// check if estimated value is sane
 		let max_expected = bp_bridge_hub_rococo::BridgeHubRococoBaseDeliveryFeeInRocs::get();
@@ -364,16 +351,10 @@ mod bridge_hub_westend_tests {
 
 	#[test]
 	pub fn can_calculate_fee_for_complex_message_confirmation_transaction() {
-		let estimated = bridge_hub_test_utils::test_cases::from_parachain::can_calculate_fee_for_complex_message_confirmation_transaction::<
-			Runtime,
-			BridgeGrandpaWestendInstance,
-			BridgeParachainWestendInstance,
-			WithBridgeHubWestendMessagesInstance,
-			WithBridgeHubWestendMessageBridge,
-		>(
-			collator_session_keys(),
-			construct_and_estimate_extrinsic_fee
-		);
+		let estimated =
+			from_parachain::can_calculate_fee_for_complex_message_confirmation_transaction::<
+				RuntimeTestsAdapter,
+			>(collator_session_keys(), construct_and_estimate_extrinsic_fee);
 
 		// check if estimated value is sane
 		let max_expected = bp_bridge_hub_rococo::BridgeHubRococoBaseConfirmationFeeInRocs::get();
