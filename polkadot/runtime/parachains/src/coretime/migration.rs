@@ -213,6 +213,7 @@ mod v_coretime {
 		LegacyLease: GetLegacyLease<BlockNumberFor<T>>,
 	>() -> result::Result<(), SendError> {
 		let legacy_paras = paras::Pallet::<T>::parachains();
+		let legacy_paras_count = legacy_paras.len();
 		let (system_chains, lease_holding): (Vec<_>, Vec<_>) =
 			legacy_paras.into_iter().partition(IsSystem::is_system);
 
@@ -245,19 +246,27 @@ mod v_coretime {
 			Some(mk_coretime_call(crate::coretime::CoretimeCalls::SetLease(p.into(), time_slice)))
 		});
 
-		let set_core_count = {
-			let core_count: u16 =
-				configuration::Pallet::<T>::config().coretime_cores.saturated_into();
-			iter::once(mk_coretime_call(crate::coretime::CoretimeCalls::NotifyCoreCount(
-				core_count,
-			)))
-		};
+		let core_count: u16 = configuration::Pallet::<T>::config().coretime_cores.saturated_into();
+		let set_core_count = iter::once(mk_coretime_call(
+			crate::coretime::CoretimeCalls::NotifyCoreCount(core_count),
+		));
+
+		let pool = (legacy_paras_count..core_count).map(|_| {
+			let schedule = BoundedVec::truncate_from(vec![ScheduleItem {
+				mask: CoreMask::complete(),
+				assignment: CoreAssignment::Pool,
+			}]);
+			// Reserved cores will come before lease cores, so cores will change their assignments
+			// when coretime chain sends us their assign_core calls -> Good test.
+			mk_coretime_call(crate::coretime::CoretimeCalls::Reserve(schedule))
+		});
 
 		let message_content = iter::once(Instruction::UnpaidExecution {
 			weight_limit: WeightLimit::Unlimited,
 			check_origin: None,
 		})
 		.chain(reservations)
+		.chain(pool)
 		.chain(leases)
 		.chain(set_core_count)
 		.collect();
