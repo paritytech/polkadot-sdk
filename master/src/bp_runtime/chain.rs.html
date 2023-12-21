@@ -607,7 +607,7 @@
 }
 
 <span class="doccomment">/// A trait that provides the type of the underlying chain.
-</span><span class="kw">pub trait </span>UnderlyingChainProvider {
+</span><span class="kw">pub trait </span>UnderlyingChainProvider: Send + Sync + <span class="lifetime">&#39;static </span>{
 	<span class="doccomment">/// Underlying chain type.
 	</span><span class="kw">type </span>Chain: Chain;
 }

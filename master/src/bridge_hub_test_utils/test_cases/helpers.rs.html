@@ -337,7 +337,6 @@
 <a href="#337" id="337">337</a>
 <a href="#338" id="338">338</a>
 <a href="#339" id="339">339</a>
-<a href="#340" id="340">340</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -362,6 +361,7 @@
 <span class="kw">use </span>bp_messages::{LaneId, MessageNonce};
 <span class="kw">use </span>bp_polkadot_core::parachains::{ParaHash, ParaId};
 <span class="kw">use </span>bp_relayers::RewardsAccountParams;
+<span class="kw">use </span>codec::Decode;
 <span class="kw">use </span>frame_support::{
 	assert_ok,
 	traits::{OnFinalize, OnInitialize, PalletInfoAccess},
@@ -369,12 +369,10 @@
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
 <span class="kw">use </span>pallet_bridge_grandpa::{BridgedBlockHash, BridgedHeader};
 <span class="kw">use </span>parachains_common::AccountId;
-<span class="kw">use </span>parachains_runtimes_test_utils::{
-	mock_open_hrmp_channel, AccountIdOf, CollatorSessionKeys, ValidatorIdOf,
-};
+<span class="kw">use </span>parachains_runtimes_test_utils::{mock_open_hrmp_channel, AccountIdOf, CollatorSessionKeys};
 <span class="kw">use </span>sp_core::Get;
 <span class="kw">use </span>sp_keyring::AccountKeyring::<span class="kw-2">*</span>;
-<span class="kw">use </span>sp_runtime::AccountId32;
+<span class="kw">use </span>sp_runtime::{traits::TrailingZeroInput, AccountId32};
 <span class="kw">use </span>sp_std::marker::PhantomData;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 
@@ -548,9 +546,15 @@
 </span><span class="kw">pub type </span>CallsAndVerifiers&lt;Runtime&gt; =
 	Vec&lt;(&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall, Box&lt;<span class="kw">dyn </span>VerifyTransactionOutcome&gt;)&gt;;
 
+<span class="doccomment">/// Returns relayer id at the bridged chain.
+</span><span class="kw">pub fn </span>relayer_id_at_bridged_chain&lt;Runtime: pallet_bridge_messages::Config&lt;MPI&gt;, MPI&gt;(
+) -&gt; Runtime::InboundRelayer {
+	Runtime::InboundRelayer::decode(<span class="kw-2">&amp;mut </span>TrailingZeroInput::zeroes()).unwrap()
+}
+
 <span class="doccomment">/// Test-case makes sure that Runtime can dispatch XCM messages submitted by relayer,
 /// with proofs (finality, message) independently submitted.
-</span><span class="kw">pub fn </span>relayed_incoming_message_works&lt;Runtime, AllPalletsWithoutSystem, HrmpChannelOpener, MPI&gt;(
+</span><span class="kw">pub fn </span>relayed_incoming_message_works&lt;Runtime, AllPalletsWithoutSystem, MPI&gt;(
 	collator_session_key: CollatorSessionKeys&lt;Runtime&gt;,
 	runtime_para_id: u32,
 	sibling_parachain_id: u32,
@@ -572,18 +576,12 @@
 		+ pallet_bridge_messages::Config&lt;MPI&gt;,
 	AllPalletsWithoutSystem:
 		OnInitialize&lt;BlockNumberFor&lt;Runtime&gt;&gt; + OnFinalize&lt;BlockNumberFor&lt;Runtime&gt;&gt;,
-	HrmpChannelOpener: frame_support::inherent::ProvideInherent&lt;
-		Call = cumulus_pallet_parachain_system::Call&lt;Runtime&gt;,
-	&gt;,
 	MPI: <span class="lifetime">&#39;static</span>,
-	ValidatorIdOf&lt;Runtime&gt;: From&lt;AccountIdOf&lt;Runtime&gt;&gt;,
-	AccountIdOf&lt;Runtime&gt;: From&lt;AccountId32&gt; + From&lt;sp_core::sr25519::Public&gt;,
-	&lt;Runtime <span class="kw">as </span>pallet_bridge_messages::Config&lt;MPI&gt;&gt;::InboundRelayer: From&lt;AccountId32&gt;,
+	AccountIdOf&lt;Runtime&gt;: From&lt;AccountId32&gt;,
 {
 	<span class="kw">let </span>relayer_at_target = Bob;
 	<span class="kw">let </span>relayer_id_on_target: AccountId32 = relayer_at_target.public().into();
-	<span class="kw">let </span>relayer_at_source = Dave;
-	<span class="kw">let </span>relayer_id_on_source: AccountId32 = relayer_at_source.public().into();
+	<span class="kw">let </span>relayer_id_on_source = relayer_id_at_bridged_chain::&lt;Runtime, MPI&gt;();
 
 	<span class="macro">assert_ne!</span>(runtime_para_id, sibling_parachain_id);
 
@@ -602,7 +600,7 @@
 				<span class="number">2</span>,
 				AccountId::from(alice).into(),
 			);
-			mock_open_hrmp_channel::&lt;Runtime, HrmpChannelOpener&gt;(
+			mock_open_hrmp_channel::&lt;Runtime, cumulus_pallet_parachain_system::Pallet&lt;Runtime&gt;&gt;(
 				runtime_para_id.into(),
 				sibling_parachain_id.into(),
 				included_head,

@@ -574,6 +574,7 @@
 <a href="#574" id="574">574</a>
 <a href="#575" id="575">575</a>
 <a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -623,6 +624,7 @@
 
 <span class="kw">pub type </span>BalanceOf&lt;Runtime&gt; = &lt;Runtime <span class="kw">as </span>pallet_balances::Config&gt;::Balance;
 <span class="kw">pub type </span>AccountIdOf&lt;Runtime&gt; = &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::AccountId;
+<span class="kw">pub type </span>RuntimeCallOf&lt;Runtime&gt; = &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall;
 <span class="kw">pub type </span>ValidatorIdOf&lt;Runtime&gt; = &lt;Runtime <span class="kw">as </span>pallet_session::Config&gt;::ValidatorId;
 <span class="kw">pub type </span>SessionKeysOf&lt;Runtime&gt; = &lt;Runtime <span class="kw">as </span>pallet_session::Config&gt;::Keys;
 
