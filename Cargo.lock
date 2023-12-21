@@ -11467,6 +11467,7 @@ dependencies = [
  "polkadot-core-primitives",
  "polkadot-parachain-primitives",
  "polkadot-runtime-common",
+ "rococo-runtime-constants",
  "scale-info",
  "serde",
  "smallvec",
@@ -11595,6 +11596,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "westend-runtime-constants",
 ]
 
 [[package]]

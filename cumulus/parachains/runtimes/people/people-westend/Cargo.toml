@@ -57,6 +57,7 @@ pallet-xcm-benchmarks = { path = "../../../../../polkadot/xcm/pallet-xcm-benchma
 polkadot-core-primitives = { path = "../../../../../polkadot/core-primitives", default-features = false }
 polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false }
 polkadot-runtime-common = { path = "../../../../../polkadot/runtime/common", default-features = false }
+westend-runtime-constants = { path = "../../../../../polkadot/runtime/westend/constants", default-features = false }
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
 xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false }
@@ -130,6 +131,7 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
+	"westend-runtime-constants/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
