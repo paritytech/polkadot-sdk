@@ -86,6 +86,11 @@ pub mod pallet {
 		/// therefore can be queried by offchain applications.
 		#[pallet::constant]
 		type InMetadata: Get<u32>;
+
+		type RuntimeCheckpointedCallData: TryInto<CheckpointedCallData<Self>>;
+
+		type RuntimeOrigin: IsType<<Self as frame_system::Config>::RuntimeOrigin>
+			+ OriginTrait<CheckpointedCallData = <Self as Config>::RuntimeCheckpointedCallData>;
 	}
 
 	/// Allows you to define some extra constants to be added into constant metadata.
@@ -210,11 +215,18 @@ pub mod pallet {
 		#[pallet::feeless_if(|_origin: &OriginFor<T>, new_foo: &u32, _other_compact: &u128| -> bool {
 			*new_foo == 0
 		})]
+		#[pallet::feeless_on_checkpoint]
 		pub fn set_foo(
-			_: OriginFor<T>,
+			origin: OriginFor<T>,
 			new_foo: u32,
 			#[pallet::compact] _other_compact: u128,
 		) -> DispatchResult {
+			let origin = <T as Config>::RuntimeOrigin::from(origin);
+			let _o = match origin.checkpointed_call_data().try_into() {
+				Ok(CheckpointedCallData::Foo()) => Some(()),
+				_ => None,
+			};
+
 			Foo::<T>::set(Some(new_foo));
 
 			Ok(())

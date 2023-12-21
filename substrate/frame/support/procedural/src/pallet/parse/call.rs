@@ -33,6 +33,7 @@ mod keyword {
 	syn::custom_keyword!(T);
 	syn::custom_keyword!(pallet);
 	syn::custom_keyword!(feeless_if);
+	syn::custom_keyword!(feeless_on_checkpoint);
 }
 
 /// Definition of dispatchables typically `impl<T: Config> Pallet<T> { ... }`
@@ -89,6 +90,8 @@ pub struct CallVariantDef {
 	pub cfg_attrs: Vec<syn::Attribute>,
 	/// The optional `feeless_if` attribute on the `pallet::call`.
 	pub feeless_check: Option<syn::ExprClosure>,
+	/// Whether the call is feeless on checkpoint.
+	pub feeless_on_checkpoint: bool,
 }
 
 /// Attributes for functions in call impl block.
@@ -99,6 +102,8 @@ pub enum FunctionAttr {
 	Weight(syn::Expr),
 	/// Parse for `#[pallet::feeless_if(expr)]`
 	FeelessIf(Span, syn::ExprClosure),
+	/// Parse for `#[pallet::feeless_on_checkpoint]`
+	FeelessOnCheckpoint,
 }
 
 impl syn::parse::Parse for FunctionAttr {
@@ -138,6 +143,9 @@ impl syn::parse::Parse for FunctionAttr {
 					err
 				})?,
 			))
+		} else if lookahead.peek(keyword::feeless_on_checkpoint) {
+			content.parse::<keyword::feeless_on_checkpoint>()?;
+			Ok(FunctionAttr::FeelessOnCheckpoint)
 		} else {
 			Err(lookahead.error())
 		}
@@ -272,6 +280,7 @@ impl CallDef {
 				let mut call_idx_attrs = vec![];
 				let mut weight_attrs = vec![];
 				let mut feeless_attrs = vec![];
+				let mut feeless_on_checkpoint = false;
 				for attr in helper::take_item_pallet_attrs(&mut method.attrs)?.into_iter() {
 					match attr {
 						FunctionAttr::CallIndex(_) => {
@@ -282,6 +291,9 @@ impl CallDef {
 						},
 						FunctionAttr::FeelessIf(span, _) => {
 							feeless_attrs.push((span, attr));
+						},
+						FunctionAttr::FeelessOnCheckpoint => {
+							feeless_on_checkpoint = true;
 						},
 					}
 				}
@@ -447,6 +459,7 @@ impl CallDef {
 					attrs: method.attrs.clone(),
 					cfg_attrs,
 					feeless_check,
+					feeless_on_checkpoint,
 				});
 			} else {
 				let msg = "Invalid pallet::call, only method accepted";

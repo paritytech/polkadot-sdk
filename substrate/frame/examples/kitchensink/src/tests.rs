@@ -66,6 +66,8 @@ parameter_types! {
 
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCheckpointedCallData = RuntimeCheckpointedCallData;
+	type RuntimeOrigin = RuntimeOrigin;
 	type WeightInfo = ();
 
 	type Currency = Balances;

@@ -142,6 +142,10 @@ pub fn expand_outer_origin(
 				self.checkpointed_call_data = data;
 			}
 
+			fn checkpointed_call_data(&self) -> Self::CheckpointedCallData {
+				self.checkpointed_call_data.clone()
+			}
+
 			fn add_filter(&mut self, filter: impl Fn(&Self::Call) -> bool + 'static) {
 				let f = self.filter.clone();
 

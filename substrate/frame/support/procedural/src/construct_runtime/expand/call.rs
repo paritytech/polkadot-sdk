@@ -66,7 +66,6 @@ pub fn expand_outer_dispatch(
 			#path::__substrate_call_check::is_call_part_defined!(#name);
 		});
 
-
 		checkpointed_call_data_variants.push(expand_checkpointed_call_data_variant(
 			runtime,
 			pallet_declaration,
@@ -258,7 +257,6 @@ pub fn expand_outer_dispatch(
 		#checkpointed_call_data_conversions
 	}
 }
-
 
 fn expand_checkpointed_call_data_variant(
 	runtime: &Ident,

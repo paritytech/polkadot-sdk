@@ -23,10 +23,9 @@ use crate::{
 	},
 	COUNTER,
 };
-use inflector::Inflector;
 use proc_macro2::TokenStream as TokenStream2;
 use proc_macro_warning::Warning;
-use quote::{format_ident, quote, ToTokens};
+use quote::{quote, ToTokens};
 use syn::spanned::Spanned;
 
 ///
@@ -243,8 +242,12 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 		.collect::<Vec<_>>();
 
 	let checkpointed_call_data_ident = syn::Ident::new("CheckpointedCallData", span);
-	let checkpoint_variant_names = fn_name.iter().map(|ident| format_ident!("{}", ident.to_string().to_class_case(), span = ident.span())).collect::<Vec<_>>();
-	
+	// let checkpoint_variant_names = methods
+	// 	.iter()
+	// 	.filter(|method| method.feeless_on_checkpoint)
+	// 	.map(|method| format_ident!("{}", method.name.to_string().to_class_case(), span =
+	// method.name.span())) 	.collect::<Vec<_>>();
+
 	let cfg_attrs = methods
 		.iter()
 		.map(|method| {
@@ -486,6 +489,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 				#frame_support::__private::sp_std::marker::PhantomData<(#type_use_gen,)>,
 				#frame_support::Never,
 			),
+			Foo()
 		}
 	)
 }

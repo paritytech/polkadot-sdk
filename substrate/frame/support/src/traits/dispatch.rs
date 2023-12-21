@@ -492,6 +492,8 @@ pub trait OriginTrait: Sized {
 
 	fn add_checkpointed_call_data(&mut self, data: Self::CheckpointedCallData);
 
+	fn checkpointed_call_data(&self) -> Self::CheckpointedCallData;
+
 	/// Add a filter to the origin.
 	fn add_filter(&mut self, filter: impl Fn(&Self::Call) -> bool + 'static);
 
