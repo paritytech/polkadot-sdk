@@ -212,7 +212,7 @@ impl<B: Block> VoterOracle<B> {
 			// Accept any vote for a GRANDPA finalized block in a better round.
 			Ok((
 				rounds.session_start().max(self.best_beefy_block),
-				(*self.best_grandpa_block_header.number()).into(),
+				(*self.best_grandpa_block_header.number()),
 			))
 		} else {
 			// Current session has mandatory not done.

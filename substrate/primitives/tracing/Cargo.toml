@@ -9,6 +9,9 @@ repository.workspace = true
 description = "Instrumentation primitives and macros for Substrate."
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 # let's default to wasm32
 default-target = "wasm32-unknown-unknown"

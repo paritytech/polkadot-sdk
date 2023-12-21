@@ -10,6 +10,9 @@ description = "Runtime Modules shared primitive types."
 documentation = "https://docs.rs/sp-runtime"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
@@ -31,7 +34,7 @@ sp-std = { path = "../std", default-features = false }
 sp-weights = { path = "../weights", default-features = false }
 docify = { version = "0.2.6" }
 
-simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", branch = "main" }
+simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", rev = "e48b187bcfd5cc75111acd9d241f1bd36604344b" }
 
 [dev-dependencies]
 rand = "0.8.5"

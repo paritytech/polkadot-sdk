@@ -1637,7 +1637,7 @@ pub(crate) mod remote_tests {
 			weight_sum +=
 				StateTrieMigration::<Runtime>::on_initialize(System::<Runtime>::block_number());
 
-			root = System::<Runtime>::finalize().state_root().clone();
+			root = *System::<Runtime>::finalize().state_root();
 			System::<Runtime>::on_finalize(System::<Runtime>::block_number());
 		}
 		(root, weight_sum)
@@ -1687,7 +1687,7 @@ pub(crate) mod remote_tests {
 		);
 
 		loop {
-			let last_state_root = ext.backend.root().clone();
+			let last_state_root = *ext.backend.root();
 			let ((finished, weight), proof) = ext.execute_and_prove(|| {
 				let weight = run_to_block::<Runtime>(now + One::one()).1;
 				if StateTrieMigration::<Runtime>::migration_process().finished() {

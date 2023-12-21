@@ -10,6 +10,9 @@ description = "Fuzzer for phragmén implementation."
 documentation = "https://docs.rs/sp-npos-elections-fuzzer"
 publish = false
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
