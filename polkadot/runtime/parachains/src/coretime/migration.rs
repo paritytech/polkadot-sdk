@@ -251,7 +251,7 @@ mod v_coretime {
 			crate::coretime::CoretimeCalls::NotifyCoreCount(core_count),
 		));
 
-		let pool = (legacy_paras_count..core_count).map(|_| {
+		let pool = (legacy_paras_count..core_count.into()).map(|_| {
 			let schedule = BoundedVec::truncate_from(vec![ScheduleItem {
 				mask: CoreMask::complete(),
 				assignment: CoreAssignment::Pool,
