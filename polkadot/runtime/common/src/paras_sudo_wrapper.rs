@@ -22,12 +22,10 @@ pub use pallet::*;
 use parity_scale_codec::Encode;
 use primitives::Id as ParaId;
 use runtime_parachains::{
-	assigner_coretime::PartsOf57600,
-	configuration, coretime, dmp, hrmp,
-	paras::{self, ParaGenesisArgs},
+	configuration, dmp, hrmp,
+	paras::{self, ParaGenesisArgs, AssignCoretime},
 	ParaLifecycle,
 };
-use sp_runtime::traits::One;
 use sp_std::{boxed::Box, vec};
 
 #[frame_support::pallet]
@@ -39,10 +37,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	#[pallet::disable_frame_system_supertrait_check]
-	pub trait Config:
-		configuration::Config + paras::Config + dmp::Config + hrmp::Config + coretime::Config
-	{
-	}
+	pub trait Config: configuration::Config + paras::Config + dmp::Config + hrmp::Config {}
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -74,7 +69,9 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Schedule a para to be initialized at the start of the next session.
 		///
-		/// DEPRECATED: should only be used for tests (where there is no coretime chain).
+		/// This should only be used for TESTING and not on PRODUCTION chains. It automatically
+		/// assigns Coretime to the chain and increases the number of cores. Thus, there is no
+		/// running coretime chain required.
 		#[pallet::call_index(0)]
 		#[pallet::weight((1_000, DispatchClass::Operational))]
 		pub fn sudo_schedule_para_initialize(
@@ -86,21 +83,7 @@ pub mod pallet {
 			runtime_parachains::schedule_para_initialize::<T>(id, genesis)
 				.map_err(|_| Error::<T>::ParaAlreadyExists)?;
 
-			// Add a new core and assign the para to it.
-			let config = <configuration::Pallet<T>>::config();
-			let core = config.coretime_cores;
-			let new_core_count = core.saturating_add(1);
-			<configuration::Pallet<T>>::set_coretime_cores_unchecked(new_core_count)?;
-			let begin = <frame_system::Pallet<T>>::block_number() + One::one();
-			let assignment =
-				vec![(pallet_broker::CoreAssignment::Task(id.into()), PartsOf57600::FULL)];
-			<coretime::Pallet<T>>::assign_core(
-				origin,
-				core.try_into().map_err(|_| Error::<T>::TooManyCores)?,
-				begin,
-				assignment,
-				None,
-			)?;
+			T::AssignCoretime::assign_coretime(id)?;
 
 			Ok(())
 		}

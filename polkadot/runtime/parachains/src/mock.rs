@@ -226,7 +226,7 @@ impl crate::paras::Config for Test {
 	type QueueFootprinter = ParaInclusion;
 	type NextSessionRotation = TestNextSessionRotation;
 	type OnNewHead = ();
-	type ParasOnGenesis = ();
+	type AssignCoretime = ();
 }
 
 impl crate::dmp::Config for Test {}

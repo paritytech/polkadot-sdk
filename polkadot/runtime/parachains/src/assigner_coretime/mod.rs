@@ -29,7 +29,7 @@ mod tests;
 
 use crate::{
 	assigner_on_demand, configuration,
-	paras::{ParaGenesisArgs, ParasOnGenesis},
+	paras::AssignCoretime,
 	scheduler::common::{
 		Assignment, AssignmentProvider, AssignmentProviderConfig, FixedAssignmentProvider,
 	},
@@ -515,24 +515,21 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-impl<T: Config> ParasOnGenesis for Pallet<T> {
-	fn paras_on_genesis(paras: &[(ParaId, ParaGenesisArgs)]) {
-		for (id, _genesis_args) in paras {
-			// Add a new core and assign the para to it.
-			let mut config = <configuration::Pallet<T>>::config();
-			let core = config.coretime_cores;
-			config.coretime_cores.saturating_inc();
-			log::warn!(
-				target: "runtime::paras_sudo_wrapper",
-				"genesis: assigning para {:?} to core {}", id, config.coretime_cores,
-			);
-			// We are at genesis, so it is fine to override the active config.
-			<configuration::Pallet<T>>::force_set_active_config(config);
-			let begin = <frame_system::Pallet<T>>::block_number() + One::one();
-			let assignment =
-				vec![(pallet_broker::CoreAssignment::Task((*id).into()), PartsOf57600::FULL)];
-			Pallet::<T>::assign_core(CoreIndex(core), begin, assignment, None)
-				.expect("Assign core works at genesis; qed");
-		}
+impl<T: Config> AssignCoretime for Pallet<T> {
+	fn assign_coretime(id: ParaId) -> DispatchResult {
+		let current_block = frame_system::Pallet::<T>::block_number();
+
+		// Add a new core and assign the para to it.
+		let mut config = <configuration::Pallet<T>>::config();
+		let core = config.coretime_cores;
+		config.coretime_cores.saturating_inc();
+
+		// `assign_coretime` is only called at genesis or by root, so setting the active
+		// config here is fine.
+		configuration::Pallet::<T>::force_set_active_config(config);
+
+		let begin = current_block + One::one();
+		let assignment = vec![(pallet_broker::CoreAssignment::Task(id.into()), PartsOf57600::FULL)];
+		Pallet::<T>::assign_core(CoreIndex(core), begin, assignment, None)
 	}
 }

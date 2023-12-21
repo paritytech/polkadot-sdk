@@ -937,7 +937,7 @@ impl parachains_paras::Config for Runtime {
 	type QueueFootprinter = ParaInclusion;
 	type NextSessionRotation = Babe;
 	type OnNewHead = Registrar;
-	type ParasOnGenesis = CoretimeAssignmentProvider;
+	type AssignCoretime = CoretimeAssignmentProvider;
 }
 
 parameter_types! {
