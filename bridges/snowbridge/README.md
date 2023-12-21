@@ -1,5 +1,6 @@
-# Snowbridge &middot; 
-[![codecov](https://codecov.io/gh/Snowfork/snowbridge/branch/main/graph/badge.svg?token=9hvgSws4rN)](https://codecov.io/gh/Snowfork/snowbridge) 
+# Snowbridge &middot;
+[![codecov](https://codecov.io/gh/Snowfork/snowbridge/branch/main/graph/badge.svg?token=9hvgSws4rN)]
+(https://codecov.io/gh/Snowfork/snowbridge)
 ![GitHub](https://img.shields.io/github/license/Snowfork/snowbridge)
 
 Snowbridge is a trustless bridge between Polkadot and Ethereum. For documentation, visit https://docs.snowbridge.network.
@@ -16,12 +17,12 @@ Ethereum contracts and unit tests. See [contracts/README.md](https://github.com/
 
 ### Relayer
 
-Off-chain relayer services for relaying messages between Polkadot and Ethereum. See 
+Off-chain relayer services for relaying messages between Polkadot and Ethereum. See
 [relayer/README.md](https://github.com/Snowfork/snowbridge/blob/main/relayer/README.md)
 
 ### Local Testnet
 
-Scripts to provision a local testnet, running the above services to bridge between local deployments of Polkadot and 
+Scripts to provision a local testnet, running the above services to bridge between local deployments of Polkadot and
 Ethereum. See [web/packages/test/README.md](https://github.com/Snowfork/snowbridge/blob/main/web/packages/test/README.md).
 
 ### Smoke Tests
@@ -39,7 +40,7 @@ mkdir -p ~/.config/nix
 echo 'experimental-features = nix-command flakes' >> ~/.config/nix/nix.conf
 ```
 
-Then activate a developer shell in the root of our repo, where 
+Then activate a developer shell in the root of our repo, where
 [`flake.nix`](https://github.com/Snowfork/snowbridge/blob/main/flake.nix) is located:
 
 ```sh
@@ -83,7 +84,7 @@ direnv allow
 
 ### Upgrading the Rust toolchain
 
-Sometimes we would like to upgrade rust toolchain. First update `parachain/rust-toolchain.toml` as required and then 
+Sometimes we would like to upgrade rust toolchain. First update `parachain/rust-toolchain.toml` as required and then
 update `flake.lock` running
 ```sh
 nix flake lock --update-input rust-overlay
