@@ -784,3 +784,34 @@ fn assignment_proportions_indivisible_by_step_work() {
 		);
 	});
 }
+
+#[cfg(test)]
+impl std::ops::Div<u16> for PartsOf57600 {
+	type Output = Self;
+
+	fn div(self, rhs: u16) -> Self::Output {
+		if rhs == 0 {
+			panic!("Cannot divide by zero!");
+		}
+
+		Self(self.0 / rhs)
+	}
+}
+
+#[cfg(test)]
+impl std::ops::Mul<u16> for PartsOf57600 {
+	type Output = Self;
+
+	fn mul(self, rhs: u16) -> Self {
+		Self(self.0 * rhs)
+	}
+}
+
+#[test]
+fn parts_of_57600_ops() {
+	assert!(PartsOf57600::new_saturating(57601).is_full());
+	assert!(PartsOf57600::FULL.saturating_add(PartsOf57600(1)).is_full());
+	assert_eq!(PartsOf57600::ZERO.saturating_sub(PartsOf57600(1)), PartsOf57600::ZERO);
+	assert_eq!(PartsOf57600::FULL.checked_add(PartsOf57600(0)), Some(PartsOf57600::FULL));
+	assert_eq!(PartsOf57600::FULL.checked_add(PartsOf57600(1)), None);
+}
