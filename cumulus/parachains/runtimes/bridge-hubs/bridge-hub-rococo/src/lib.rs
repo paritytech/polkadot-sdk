@@ -634,7 +634,7 @@ impl snowbridge_system::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OutboundQueue = EthereumOutboundQueue;
 	type SiblingOrigin = EnsureXcm<AllowSiblingsOnly>;
-	type AgentIdOf = xcm_config::AgentIdOf;
+	type AgentIdOf = snowbridge_core::AgentIdOf;
 	type TreasuryAccount = TreasuryAccount;
 	type Token = Balances;
 	type WeightInfo = weights::snowbridge_system::WeightInfo<Runtime>;
