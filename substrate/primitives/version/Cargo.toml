@@ -10,6 +10,9 @@ description = "Version module for the Substrate runtime; Provides a function tha
 documentation = "https://docs.rs/sp-version"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
