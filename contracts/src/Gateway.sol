@@ -60,10 +60,6 @@ contract Gateway is IGateway, IInitializable {
     bytes4 internal immutable BRIDGE_HUB_PARA_ID_ENCODED;
     bytes32 internal immutable BRIDGE_HUB_AGENT_ID;
 
-    // AssetHub
-    ParaID internal immutable ASSET_HUB_PARA_ID;
-    bytes32 internal immutable ASSET_HUB_AGENT_ID;
-
     // ChannelIDs
     ChannelID internal constant PRIMARY_GOVERNANCE_CHANNEL_ID = ChannelID.wrap(bytes32(uint256(1)));
     ChannelID internal constant SECONDARY_GOVERNANCE_CHANNEL_ID = ChannelID.wrap(bytes32(uint256(2)));

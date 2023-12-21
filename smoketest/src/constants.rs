@@ -30,7 +30,7 @@ pub const BRIDGE_HUB_AGENT_ID: [u8; 32] =
 	hex!("03170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314");
 // Agent for asset hub parachain 1000
 pub const ASSET_HUB_AGENT_ID: [u8; 32] =
-	hex!("72456f48efed08af20e5b317abf8648ac66e86bb90a411d9b0b713f7364b75b4");
+	hex!("81c5ab2571199e3188135178f3c2c8e2d268be1313d029b30f534fa579b69b79");
 // Agent for penpal parachain 2000
 pub const SIBLING_AGENT_ID: [u8; 32] =
 	hex!("5097ee1101e90c3aadb882858c59a22108668021ec81bce9f4930155e5c21e59");

@@ -93,12 +93,11 @@ where
 			SendError::Unroutable
 		})?;
 
-		// local_sub is relative to the relaychain. No conversion needed.
-		let local_sub_location: MultiLocation = local_sub.into();
-		let agent_id = match AgentHashedDescription::convert_location(&local_sub_location) {
+		let source_location: MultiLocation = MultiLocation { parents: 1, interior: local_sub };
+		let agent_id = match AgentHashedDescription::convert_location(&source_location) {
 			Some(id) => id,
 			None => {
-				log::error!(target: "xcm::ethereum_blob_exporter", "unroutable due to not being able to create agent id. '{local_sub_location:?}'");
+				log::error!(target: "xcm::ethereum_blob_exporter", "unroutable due to not being able to create agent id. '{source_location:?}'");
 				return Err(SendError::Unroutable)
 			},
 		};

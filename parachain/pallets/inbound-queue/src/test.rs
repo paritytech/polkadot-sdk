@@ -47,10 +47,15 @@ fn test_submit_happy_path() {
 		}
 		.into()]);
 
-		let reward = Parameters::get().rewards.local;
-		assert!(Balances::balance(&relayer) >= reward, "relayer was rewarded");
+		let delivery_cost = InboundQueue::calculate_delivery_cost(message.encode().len() as u32);
 		assert!(
-			Balances::balance(&channel_sovereign) <= initial_fund - reward,
+			Parameters::get().rewards.local < delivery_cost,
+			"delivery cost exceeds pure reward"
+		);
+
+		assert_eq!(Balances::balance(&relayer), delivery_cost, "relayer was rewarded");
+		assert!(
+			Balances::balance(&channel_sovereign) <= initial_fund - delivery_cost,
 			"sovereign account paid reward"
 		);
 	});
