@@ -20,7 +20,7 @@ mod origins;
 mod tracks;
 use crate::{
 	weights,
-	xcm_config::{FellowshipAdminBodyId, TreasurerBodyId, UsdtAssetHub},
+	xcm_config::{FellowshipAdminBodyId, LocationToAccountId, TreasurerBodyId, UsdtAssetHub},
 	AccountId, AssetRate, Balance, Balances, FellowshipReferenda, GovernanceLocation, Preimage,
 	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, Scheduler, WestendTreasuryAccount, DAYS,
 };
@@ -47,9 +47,7 @@ use polkadot_runtime_common::impls::{
 };
 use sp_arithmetic::Permill;
 use sp_core::{ConstU128, ConstU32};
-use sp_runtime::traits::{
-	AccountIdConversion, ConstU16, ConvertToValue, IdentityLookup, Replace, TakeFirst,
-};
+use sp_runtime::traits::{ConstU16, ConvertToValue, IdentityLookup, Replace, TakeFirst};
 use westend_runtime_constants::time::HOURS;
 use xcm::prelude::*;
 use xcm_builder::{AliasesIntoAccountId32, PayOverXcm};
@@ -72,11 +70,6 @@ pub mod ranks {
 	pub const DAN_7: Rank = 7; // aka Masters.
 	pub const DAN_8: Rank = 8;
 	pub const DAN_9: Rank = 9;
-}
-
-parameter_types! {
-	// Referenda pallet account, used to temporarily deposit slashed imbalance before teleporting.
-	pub ReferendaPalletAccount: AccountId = account::REFERENDA_PALLET_ID.into_account_truncating();
 }
 
 impl pallet_fellowship_origins::Config for Runtime {}
@@ -105,7 +98,7 @@ impl pallet_referenda::Config<FellowshipReferendaInstance> for Runtime {
 	>;
 	type CancelOrigin = Architects;
 	type KillOrigin = Masters;
-	type Slash = ToParentTreasury<WestendTreasuryAccount, ReferendaPalletAccount, Runtime>;
+	type Slash = ToParentTreasury<WestendTreasuryAccount, LocationToAccountId, Runtime>;
 	type Votes = pallet_ranked_collective::Votes;
 	type Tally = pallet_ranked_collective::TallyOf<Runtime, FellowshipCollectiveInstance>;
 	type SubmissionDeposit = ConstU128<0>;

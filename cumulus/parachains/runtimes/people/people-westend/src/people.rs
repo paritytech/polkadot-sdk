@@ -14,6 +14,7 @@
 // limitations under the License.
 
 use super::*;
+use crate::xcm_config::LocationToAccountId;
 use codec::{Decode, Encode, MaxEncodedLen};
 use enumflags2::{bitflags, BitFlags};
 use frame_support::{
@@ -34,8 +35,6 @@ parameter_types! {
 	pub const BasicDeposit: Balance = deposit(1, 17);
 	pub const ByteDeposit: Balance = deposit(0, 1);
 	pub const SubAccountDeposit: Balance = deposit(1, 53);
-	pub IdentityPalletAccount: AccountId =
-		parachains_common::polkadot::account::IDENTITY_PALLET_ID.into_account_truncating();
 	pub RelayTreasuryAccount: AccountId =
 		parachains_common::polkadot::account::POLKADOT_TREASURY_PALLET_ID.into_account_truncating();
 }
@@ -49,7 +48,7 @@ impl pallet_identity::Config for Runtime {
 	type MaxSubAccounts = ConstU32<100>;
 	type IdentityInformation = IdentityInfo;
 	type MaxRegistrars = ConstU32<20>;
-	type Slashed = ToParentTreasury<RelayTreasuryAccount, IdentityPalletAccount, Runtime>;
+	type Slashed = ToParentTreasury<RelayTreasuryAccount, LocationToAccountId, Runtime>;
 	type ForceOrigin = EnsureRoot<Self::AccountId>;
 	type RegistrarOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = weights::pallet_identity::WeightInfo<Runtime>;
