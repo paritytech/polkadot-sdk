@@ -420,9 +420,9 @@ where
 	B: Block,
 	BC: BlockchainBackend<B>,
 {
-	if current.number() == Zero::zero() {
+	if *current.number() == Zero::zero() {
 		let msg = format!("header {} is Genesis, there is no parent for it", current.hash());
-		warn!(target: LOG_TARGET, msg);
+		warn!(target: LOG_TARGET, "{}", msg);
 		return Err(ClientError::UnknownBlock(msg))
 	}
 	loop {
