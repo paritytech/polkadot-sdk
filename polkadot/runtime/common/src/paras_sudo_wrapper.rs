@@ -26,7 +26,7 @@ use runtime_parachains::{
 	paras::{self, AssignCoretime, ParaGenesisArgs},
 	ParaLifecycle,
 };
-use sp_std::{boxed::Box, vec};
+use sp_std::boxed::Box;
 
 #[frame_support::pallet]
 pub mod pallet {
