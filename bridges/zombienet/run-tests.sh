@@ -109,6 +109,11 @@ do
             echo "=== Shutting down. Log of failed process below                    ==="
             echo "====================================================================="
             echo $coproc_stdout
+
+            for file in /tmp/zombie*/logs/* ; do
+                cat $file
+            done
+
             exit 1
         fi
 
