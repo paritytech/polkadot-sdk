@@ -21,6 +21,7 @@ use sp_runtime::generic::DigestItem;
 /// Custom header digest items, inserted as DigestItem::Other
 #[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, RuntimeDebug)]
 pub enum CustomDigestItem {
+	#[codec(index = 0)]
 	/// Merkle root of outbound Snowbridge messages.
 	Snowbridge(H256),
 }
