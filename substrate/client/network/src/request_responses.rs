@@ -56,6 +56,7 @@ use libp2p::{
 use std::{
 	collections::{hash_map::Entry, HashMap},
 	io, iter,
+	ops::Deref,
 	pin::Pin,
 	task::{Context, Poll},
 	time::{Duration, Instant},
@@ -172,6 +173,13 @@ pub struct OutgoingResponse {
 	pub sent_feedback: Option<oneshot::Sender<()>>,
 }
 
+/// Information stored about a pending request.
+struct PendingRequest {
+	started_at: Instant,
+	response_tx: oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
+	fallback_request: Option<(Vec<u8>, ProtocolName)>,
+}
+
 /// When sending a request, what to do on a disconnected recipient.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum IfDisconnected {
@@ -264,8 +272,7 @@ pub struct RequestResponsesBehaviour {
 	>,
 
 	/// Pending requests, passed down to a request-response [`Behaviour`], awaiting a reply.
-	pending_requests:
-		HashMap<ProtocolRequestId, (Instant, oneshot::Sender<Result<Vec<u8>, RequestFailure>>)>,
+	pending_requests: HashMap<ProtocolRequestId, PendingRequest>,
 
 	/// Whenever an incoming request arrives, a `Future` is added to this list and will yield the
 	/// start time and the response to send back to the remote.
@@ -348,35 +355,62 @@ impl RequestResponsesBehaviour {
 	pub fn send_request(
 		&mut self,
 		target: &PeerId,
-		protocol_name: &str,
+		protocol_name: ProtocolName,
 		request: Vec<u8>,
-		pending_response: oneshot::Sender<Result<Vec<u8>, RequestFailure>>,
+		fallback_request: Option<(Vec<u8>, ProtocolName)>,
+		pending_response: oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
 		connect: IfDisconnected,
 	) {
 		log::trace!(target: "sub-libp2p", "send request to {target} ({protocol_name:?}), {} bytes", request.len());
 
-		if let Some((protocol, _)) = self.protocols.get_mut(protocol_name) {
-			if protocol.is_connected(target) || connect.should_connect() {
-				let request_id = protocol.send_request(target, request);
-				let prev_req_id = self.pending_requests.insert(
-					(protocol_name.to_string().into(), request_id).into(),
-					(Instant::now(), pending_response),
-				);
-				debug_assert!(prev_req_id.is_none(), "Expect request id to be unique.");
-			} else if pending_response.send(Err(RequestFailure::NotConnected)).is_err() {
-				log::debug!(
-					target: "sub-libp2p",
-					"Not connected to peer {:?}. At the same time local \
-					 node is no longer interested in the result.",
-					target,
-				);
-			}
+		if let Some((protocol, _)) = self.protocols.get_mut(protocol_name.deref()) {
+			Self::send_request_inner(
+				protocol,
+				&mut self.pending_requests,
+				target,
+				protocol_name,
+				request,
+				fallback_request,
+				pending_response,
+				connect,
+			)
 		} else if pending_response.send(Err(RequestFailure::UnknownProtocol)).is_err() {
 			log::debug!(
 				target: "sub-libp2p",
 				"Unknown protocol {:?}. At the same time local \
 				 node is no longer interested in the result.",
 				protocol_name,
+			);
+		}
+	}
+
+	fn send_request_inner(
+		behaviour: &mut Behaviour<GenericCodec>,
+		pending_requests: &mut HashMap<ProtocolRequestId, PendingRequest>,
+		target: &PeerId,
+		protocol_name: ProtocolName,
+		request: Vec<u8>,
+		fallback_request: Option<(Vec<u8>, ProtocolName)>,
+		pending_response: oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
+		connect: IfDisconnected,
+	) {
+		if behaviour.is_connected(target) || connect.should_connect() {
+			let request_id = behaviour.send_request(target, request);
+			let prev_req_id = pending_requests.insert(
+				(protocol_name.to_string().into(), request_id).into(),
+				PendingRequest {
+					started_at: Instant::now(),
+					response_tx: pending_response,
+					fallback_request,
+				},
+			);
+			debug_assert!(prev_req_id.is_none(), "Expect request id to be unique.");
+		} else if pending_response.send(Err(RequestFailure::NotConnected)).is_err() {
+			log::debug!(
+				target: "sub-libp2p",
+				"Not connected to peer {:?}. At the same time local \
+				 node is no longer interested in the result.",
+				target,
 			);
 		}
 	}
@@ -596,8 +630,10 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 				}
 			}
 
+			let mut fallback_requests = vec![];
+
 			// Poll request-responses protocols.
-			for (protocol, (behaviour, resp_builder)) in &mut self.protocols {
+			for (protocol, (ref mut behaviour, ref mut resp_builder)) in &mut self.protocols {
 				'poll_protocol: while let Poll::Ready(ev) = behaviour.poll(cx, params) {
 					let ev = match ev {
 						// Main events we are interested in.
@@ -698,17 +734,21 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 								.pending_requests
 								.remove(&(protocol.clone(), request_id).into())
 							{
-								Some((started, pending_response)) => {
+								Some(PendingRequest { started_at, response_tx, .. }) => {
 									log::trace!(
 										target: "sub-libp2p",
 										"received response from {peer} ({protocol:?}), {} bytes",
 										response.as_ref().map_or(0usize, |response| response.len()),
 									);
 
-									let delivered = pending_response
-										.send(response.map_err(|()| RequestFailure::Refused))
+									let delivered = response_tx
+										.send(
+											response
+												.map_err(|()| RequestFailure::Refused)
+												.map(|resp| (resp, protocol.clone())),
+										)
 										.map_err(|_| RequestFailure::Obsolete);
-									(started, delivered)
+									(started_at, delivered)
 								},
 								None => {
 									log::warn!(
@@ -742,8 +782,34 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 								.pending_requests
 								.remove(&(protocol.clone(), request_id).into())
 							{
-								Some((started, pending_response)) => {
-									if pending_response
+								Some(PendingRequest {
+									started_at,
+									response_tx,
+									fallback_request,
+								}) => {
+									// Try using the fallback request if the protocol was not
+									// supported.
+									if let OutboundFailure::UnsupportedProtocols = error {
+										if let Some((fallback_request, fallback_protocol)) =
+											fallback_request
+										{
+											log::debug!(
+												target: "sub-libp2p",
+												"Request with id {:?} failed. Trying the fallback protocol. {}",
+												request_id,
+												fallback_protocol.deref()
+											);
+											fallback_requests.push((
+												peer,
+												fallback_protocol,
+												fallback_request,
+												response_tx,
+											));
+											continue
+										}
+									}
+
+									if response_tx
 										.send(Err(RequestFailure::Network(error.clone())))
 										.is_err()
 									{
@@ -754,7 +820,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 											request_id,
 										);
 									}
-									started
+									started_at
 								},
 								None => {
 									log::warn!(
@@ -822,6 +888,25 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 							return Poll::Ready(ToSwarm::GenerateEvent(out))
 						},
 					};
+				}
+			}
+
+			// Send out fallback requests.
+			for (peer, protocol, request, pending_response) in fallback_requests.drain(..) {
+				if let Some((behaviour, _)) = self.protocols.get_mut(&protocol) {
+					Self::send_request_inner(
+						behaviour,
+						&mut self.pending_requests,
+						&peer,
+						protocol,
+						request,
+						None,
+						pending_response,
+						// We can error if not connected because the
+						// previous attempt would have tried to establish a
+						// connection already or errored and we wouldn't have gotten here.
+						IfDisconnected::ImmediateError,
+					);
 				}
 			}
 
