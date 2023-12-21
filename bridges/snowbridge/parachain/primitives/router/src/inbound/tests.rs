@@ -2,15 +2,10 @@ use super::GlobalConsensusEthereumConvertsFor;
 use crate::inbound::CallIndex;
 use frame_support::parameter_types;
 use hex_literal::hex;
-use sp_core::crypto::Ss58Codec;
 use xcm::v3::prelude::*;
 use xcm_executor::traits::ConvertLocation;
 
 const NETWORK: NetworkId = Ethereum { chain_id: 11155111 };
-const SS58_FORMAT: u16 = 2;
-const EXPECTED_SOVEREIGN_KEY: [u8; 32] =
-	hex!("ce796ae65569a670d0c1cc1ac12515a3ce21b5fbf729d63d7b289baad070139d");
-const EXPECTED_SOVEREIGN_ADDRESS: &str = "HF3T62xRQvoCCowYamEQweEyWbD5yt4mkET8UkNWxfMbvJE";
 
 parameter_types! {
 	pub EthereumNetwork: NetworkId = NETWORK;
@@ -22,34 +17,16 @@ parameter_types! {
 }
 
 #[test]
-fn test_contract_location_without_network_converts_successfully() {
-	let contract_location = MultiLocation { parents: 2, interior: X1(GlobalConsensus(NETWORK)) };
-
-	let account =
-		GlobalConsensusEthereumConvertsFor::<[u8; 32]>::convert_location(&contract_location)
-			.unwrap();
-	let address = frame_support::sp_runtime::AccountId32::new(account)
-		.to_ss58check_with_version(SS58_FORMAT.into());
-
-	println!("SS58: {}\nBytes: {:?}", address, account);
-
-	assert_eq!(account, EXPECTED_SOVEREIGN_KEY);
-	assert_eq!(address, EXPECTED_SOVEREIGN_ADDRESS);
-}
-
-#[test]
 fn test_contract_location_with_network_converts_successfully() {
+	let expected_account: [u8; 32] =
+		hex!("ce796ae65569a670d0c1cc1ac12515a3ce21b5fbf729d63d7b289baad070139d");
 	let contract_location = MultiLocation { parents: 2, interior: X1(GlobalConsensus(NETWORK)) };
 
 	let account =
 		GlobalConsensusEthereumConvertsFor::<[u8; 32]>::convert_location(&contract_location)
 			.unwrap();
-	let address = frame_support::sp_runtime::AccountId32::new(account)
-		.to_ss58check_with_version(SS58_FORMAT.into());
-	assert_eq!(account, EXPECTED_SOVEREIGN_KEY);
-	assert_eq!(address, EXPECTED_SOVEREIGN_ADDRESS);
 
-	println!("SS58: {}\nBytes: {:?}", address, account);
+	assert_eq!(account, expected_account);
 }
 
 #[test]

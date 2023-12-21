@@ -239,7 +239,7 @@ fn convert_local_currency() {
 }
 
 #[test]
-fn encode_digest_item() {
+fn encode_digest_item_with_correct_index() {
 	new_tester().execute_with(|| {
 		let digest_item: DigestItem = CustomDigestItem::Snowbridge(H256::default()).into();
 		let enum_prefix = match digest_item {
@@ -247,5 +247,22 @@ fn encode_digest_item() {
 			_ => u8::MAX,
 		};
 		assert_eq!(enum_prefix, 0);
+	});
+}
+
+#[test]
+fn encode_digest_item() {
+	new_tester().execute_with(|| {
+		let digest_item: DigestItem = CustomDigestItem::Snowbridge([5u8; 32].into()).into();
+		let digest_item_raw = digest_item.encode();
+		assert_eq!(digest_item_raw[0], 0); // DigestItem::Other
+		assert_eq!(digest_item_raw[2], 0); // CustomDigestItem::Snowbridge
+		assert_eq!(
+			digest_item_raw,
+			[
+				0, 132, 0, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+				5, 5, 5, 5, 5, 5, 5, 5
+			]
+		);
 	});
 }
