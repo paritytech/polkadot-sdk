@@ -666,7 +666,7 @@ pub mod pallet {
 		///
 		/// Weight: `O(min_rank)`.
 		#[pallet::call_index(6)]
-		#[pallet::weight(0)]
+		#[pallet::weight(T::WeightInfo::exchange_member())]
 		pub fn exchange_member(
 			origin: OriginFor<T>,
 			who: AccountIdLookupOf<T>,
