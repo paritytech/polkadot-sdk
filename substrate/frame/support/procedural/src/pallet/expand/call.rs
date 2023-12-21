@@ -242,11 +242,11 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 		.collect::<Vec<_>>();
 
 	let checkpointed_call_data_ident = syn::Ident::new("CheckpointedCallData", span);
-	// let checkpoint_variant_names = methods
-	// 	.iter()
-	// 	.filter(|method| method.feeless_on_checkpoint)
-	// 	.map(|method| format_ident!("{}", method.name.to_string().to_class_case(), span =
-	// method.name.span())) 	.collect::<Vec<_>>();
+	let checkpoint_variant_names = methods
+		.iter()
+		.filter_map(|method| {
+			method.checkpoint_name.clone()
+		});
 
 	let cfg_attrs = methods
 		.iter()
@@ -489,7 +489,10 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 				#frame_support::__private::sp_std::marker::PhantomData<(#type_use_gen,)>,
 				#frame_support::Never,
 			),
-			Foo()
+			#(
+				#cfg_attrs
+				#checkpoint_variant_names (()),
+			)*
 		}
 	)
 }

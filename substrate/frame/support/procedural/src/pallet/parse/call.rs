@@ -17,6 +17,7 @@
 
 use super::{helper, InheritedCallWeightAttr};
 use frame_support_procedural_tools::get_doc_literals;
+use inflector::Inflector;
 use proc_macro2::Span;
 use quote::ToTokens;
 use std::collections::HashMap;
@@ -34,6 +35,7 @@ mod keyword {
 	syn::custom_keyword!(pallet);
 	syn::custom_keyword!(feeless_if);
 	syn::custom_keyword!(feeless_on_checkpoint);
+	syn::custom_keyword!(checkpoint_with_refs);
 }
 
 /// Definition of dispatchables typically `impl<T: Config> Pallet<T> { ... }`
@@ -92,6 +94,10 @@ pub struct CallVariantDef {
 	pub feeless_check: Option<syn::ExprClosure>,
 	/// Whether the call is feeless on checkpoint.
 	pub feeless_on_checkpoint: bool,
+	/// The name of the checkpointed call data type if `pallet::checkpoint_with_refs` is specified.
+	pub checkpoint_name: Option<syn::Ident>,
+	/// The code block of the checkpointed call data type if `pallet::checkpoint_with_refs` is specified.
+	pub checkpoint_block: Option<syn::Block>,
 }
 
 /// Attributes for functions in call impl block.
@@ -449,6 +455,52 @@ impl CallDef {
 					}
 				}
 
+				let mut checkpoint_name = None;
+				let mut checkpoint_block = None;
+				method.block.stmts.iter_mut().for_each(|stmt| {
+					match stmt {
+						syn::Stmt::Local(local) => {
+							if let Some(local_init) = &mut local.init {
+								pub struct Checker(syn::Block);
+								impl syn::parse::Parse for Checker {
+									fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+										input.parse::<syn::Token![#]>()?;
+										let content;
+										syn::bracketed!(content in input);
+										content.parse::<keyword::pallet>()?;
+										content.parse::<syn::Token![::]>()?;
+										content.parse::<keyword::checkpoint_with_refs>()?;
+										let block = input.parse::<syn::Block>()?;
+										input.parse::<syn::Token![?]>()?;
+										Ok(Self(block))
+									}
+								}
+
+								if let Ok(checker) = syn::parse2::<Checker>(local_init.expr.to_token_stream()) {
+									let attrs = local.attrs.iter().map(|attr| attr.to_token_stream()).collect::<Vec<_>>();
+									let pat = local.pat.clone();
+									let name = quote::format_ident!(
+										"{}",
+										&method.sig.ident.to_string().to_class_case(),
+										span = method.sig.ident.span()
+									);
+									let block = checker.0.clone();
+									let output = quote::quote! {
+										#(#attrs)* let #pat = match origin.checkpointed_call_data().try_into() {
+											Ok(CheckpointedCallData::#name(d)) => Some(Ok::<_, Error<T>>(d)),
+											_ => None
+										}.unwrap_or_else(|| #block)?;
+									};
+									*stmt = syn::parse2::<syn::Stmt>(output).unwrap();
+									checkpoint_name = Some(name);
+									checkpoint_block = Some(checker.0);
+								}
+							}
+						},
+						_ => {}
+					};
+				});
+
 				methods.push(CallVariantDef {
 					name: method.sig.ident.clone(),
 					weight,
@@ -460,6 +512,8 @@ impl CallDef {
 					cfg_attrs,
 					feeless_check,
 					feeless_on_checkpoint,
+					checkpoint_name,
+					checkpoint_block,
 				});
 			} else {
 				let msg = "Invalid pallet::call, only method accepted";

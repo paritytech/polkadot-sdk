@@ -222,10 +222,17 @@ pub mod pallet {
 			#[pallet::compact] _other_compact: u128,
 		) -> DispatchResult {
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
-			let _o = match origin.checkpointed_call_data().try_into() {
-				Ok(CheckpointedCallData::Foo()) => Some(()),
-				_ => None,
-			};
+			let _o = #[pallet::checkpoint_with_refs] {
+				Ok(())
+			}?;
+
+			// let origin = <T as Config>::RuntimeOrigin::from(origin);
+			// let _o = match origin.checkpointed_call_data().try_into() {
+			// 	Ok(CheckpointedCallData::Foo()) => Some(Ok::<(), Error<T>>(())),
+			// 	_ => None,
+			// }.unwrap_or_else(|| {
+			// 	Ok(())
+			// })?;
 
 			Foo::<T>::set(Some(new_foo));
 
