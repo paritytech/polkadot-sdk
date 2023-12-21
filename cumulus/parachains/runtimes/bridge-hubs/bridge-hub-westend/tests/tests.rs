@@ -18,6 +18,7 @@
 
 use bp_polkadot_core::Signature;
 use bridge_common_config::{DeliveryRewardInBalance, RequiredStakeForStakeAndSlash};
+use bridge_hub_test_utils::test_cases::from_parachain;
 use bridge_hub_westend_runtime::{
 	bridge_common_config, bridge_to_rococo_config,
 	xcm_config::{RelayNetwork, WestendLocation, XcmConfig},
@@ -42,6 +43,16 @@ use xcm::latest::prelude::*;
 
 // Para id of sibling chain used in tests.
 pub const SIBLING_PARACHAIN_ID: u32 = 1000;
+
+// Runtime from tests PoV
+type RuntimeTestsAdapter = from_parachain::WithRemoteParachainHelperAdapter<
+	Runtime,
+	AllPalletsWithoutSystem,
+	BridgeGrandpaRococoInstance,
+	BridgeParachainRococoInstance,
+	WithBridgeHubRococoMessagesInstance,
+	WithBridgeHubRococoMessageBridge,
+>;
 
 parameter_types! {
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
@@ -239,15 +250,7 @@ fn message_dispatch_routing_works() {
 
 #[test]
 fn relayed_incoming_message_works() {
-	bridge_hub_test_utils::test_cases::from_parachain::relayed_incoming_message_works::<
-		Runtime,
-		AllPalletsWithoutSystem,
-		ParachainSystem,
-		BridgeGrandpaRococoInstance,
-		BridgeParachainRococoInstance,
-		WithBridgeHubRococoMessagesInstance,
-		WithBridgeHubRococoMessageBridge,
-	>(
+	from_parachain::relayed_incoming_message_works::<RuntimeTestsAdapter>(
 		collator_session_keys(),
 		bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
 		bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
@@ -262,16 +265,7 @@ fn relayed_incoming_message_works() {
 
 #[test]
 pub fn complex_relay_extrinsic_works() {
-	bridge_hub_test_utils::test_cases::from_parachain::complex_relay_extrinsic_works::<
-		Runtime,
-		AllPalletsWithoutSystem,
-		XcmConfig,
-		ParachainSystem,
-		BridgeGrandpaRococoInstance,
-		BridgeParachainRococoInstance,
-		WithBridgeHubRococoMessagesInstance,
-		WithBridgeHubRococoMessageBridge,
-	>(
+	from_parachain::complex_relay_extrinsic_works::<RuntimeTestsAdapter>(
 		collator_session_keys(),
 		bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
 		bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
@@ -304,16 +298,9 @@ pub fn can_calculate_weight_for_paid_export_message_with_reserve_transfer() {
 
 #[test]
 pub fn can_calculate_fee_for_complex_message_delivery_transaction() {
-	let estimated = bridge_hub_test_utils::test_cases::from_parachain::can_calculate_fee_for_complex_message_delivery_transaction::<
-		Runtime,
-		BridgeGrandpaRococoInstance,
-		BridgeParachainRococoInstance,
-		WithBridgeHubRococoMessagesInstance,
-		WithBridgeHubRococoMessageBridge,
-	>(
-		collator_session_keys(),
-		construct_and_estimate_extrinsic_fee
-	);
+	let estimated = from_parachain::can_calculate_fee_for_complex_message_delivery_transaction::<
+		RuntimeTestsAdapter,
+	>(collator_session_keys(), construct_and_estimate_extrinsic_fee);
 
 	// check if estimated value is sane
 	let max_expected = bp_bridge_hub_westend::BridgeHubWestendBaseDeliveryFeeInWnds::get();
@@ -327,16 +314,9 @@ pub fn can_calculate_fee_for_complex_message_delivery_transaction() {
 
 #[test]
 pub fn can_calculate_fee_for_complex_message_confirmation_transaction() {
-	let estimated = bridge_hub_test_utils::test_cases::from_parachain::can_calculate_fee_for_complex_message_confirmation_transaction::<
-		Runtime,
-		BridgeGrandpaRococoInstance,
-		BridgeParachainRococoInstance,
-		WithBridgeHubRococoMessagesInstance,
-		WithBridgeHubRococoMessageBridge,
-	>(
-		collator_session_keys(),
-		construct_and_estimate_extrinsic_fee
-	);
+	let estimated = from_parachain::can_calculate_fee_for_complex_message_confirmation_transaction::<
+		RuntimeTestsAdapter,
+	>(collator_session_keys(), construct_and_estimate_extrinsic_fee);
 
 	// check if estimated value is sane
 	let max_expected = bp_bridge_hub_westend::BridgeHubWestendBaseConfirmationFeeInWnds::get();

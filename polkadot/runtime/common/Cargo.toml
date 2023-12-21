@@ -32,6 +32,7 @@ sp-npos-elections = { path = "../../../substrate/primitives/npos-elections", def
 
 pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false }
 pallet-balances = { path = "../../../substrate/frame/balances", default-features = false }
+pallet-broker = { path = "../../../substrate/frame/broker", default-features = false }
 pallet-fast-unstake = { path = "../../../substrate/frame/fast-unstake", default-features = false }
 pallet-identity = { path = "../../../substrate/frame/identity", default-features = false }
 pallet-session = { path = "../../../substrate/frame/session", default-features = false }
@@ -87,6 +88,7 @@ std = [
 	"pallet-asset-rate?/std",
 	"pallet-authorship/std",
 	"pallet-balances/std",
+	"pallet-broker/std",
 	"pallet-election-provider-multi-phase/std",
 	"pallet-fast-unstake/std",
 	"pallet-identity/std",
@@ -127,6 +129,7 @@ runtime-benchmarks = [
 	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-broker/runtime-benchmarks",
 	"pallet-election-provider-multi-phase/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
@@ -151,6 +154,7 @@ try-runtime = [
 	"pallet-authorship/try-runtime",
 	"pallet-babe?/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-broker/try-runtime",
 	"pallet-election-provider-multi-phase/try-runtime",
 	"pallet-fast-unstake/try-runtime",
 	"pallet-identity/try-runtime",
