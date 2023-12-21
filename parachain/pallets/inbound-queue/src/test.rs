@@ -17,7 +17,9 @@ use crate::mock::*;
 fn test_submit_happy_path() {
 	new_tester().execute_with(|| {
 		let relayer: AccountId = Keyring::Bob.into();
-		let origin = RuntimeOrigin::signed(relayer);
+		let channel_sovereign = sibling_sovereign_account::<Test>(ASSET_HUB_PARAID.into());
+
+		let origin = RuntimeOrigin::signed(relayer.clone());
 
 		// Submit message
 		let message = Message {
@@ -28,6 +30,11 @@ fn test_submit_happy_path() {
 				data: Default::default(),
 			},
 		};
+
+		let initial_fund = InitialFund::get();
+		assert_eq!(Balances::balance(&relayer), 0);
+		assert_eq!(Balances::balance(&channel_sovereign), initial_fund);
+
 		assert_ok!(InboundQueue::submit(origin.clone(), message.clone()));
 		expect_events(vec![InboundQueueEvent::MessageReceived {
 			channel_id: hex!("c173fac324158e77fb5840738a1a541f633cbec8884c6a601c567d2b376a0539")
@@ -39,6 +46,13 @@ fn test_submit_happy_path() {
 			],
 		}
 		.into()]);
+
+		let reward = Parameters::get().rewards.local;
+		assert!(Balances::balance(&relayer) >= reward, "relayer was rewarded");
+		assert!(
+			Balances::balance(&channel_sovereign) <= initial_fund - reward,
+			"sovereign account paid reward"
+		);
 	});
 }
 
@@ -49,7 +63,7 @@ fn test_submit_xcm_invalid_channel() {
 		let origin = RuntimeOrigin::signed(relayer);
 
 		// Deposit funds into sovereign account of parachain 1001
-		let sovereign_account = sibling_sovereign_account::<Test>(1001u32.into());
+		let sovereign_account = sibling_sovereign_account::<Test>(TEMPLATE_PARAID.into());
 		println!("account: {}", sovereign_account);
 		let _ = Balances::mint_into(&sovereign_account, 10000);
 
