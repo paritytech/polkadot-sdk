@@ -258,14 +258,6 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 				.expect("invalid value")
 				.load_config()?,
 
-		// -- People
-		people_like_id
-			if people_like_id.starts_with(chain_spec::people::PeopleRuntimeType::ID_PREFIX) =>
-			people_like_id
-				.parse::<chain_spec::people::PeopleRuntimeType>()
-				.expect("invalid value")
-				.load_config()?,
-
 		// -- Fallback (generic chainspec)
 		"" => {
 			log::warn!("No ChainSpec.id specified, so using default one, based on rococo-parachain runtime");
