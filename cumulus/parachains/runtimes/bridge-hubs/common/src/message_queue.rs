@@ -41,7 +41,7 @@ pub enum AggregateMessageOrigin {
 	/// This is used by the HRMP queue.
 	Sibling(ParaId),
 	/// The message came from a snowbridge channel.
-	/// 
+	///
 	/// This is used by Snowbridge inbound queue.
 	Snowbridge(ChannelId),
 }

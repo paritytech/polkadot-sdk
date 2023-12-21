@@ -70,6 +70,7 @@ use frame_system::{
 	EnsureRoot,
 };
 
+use bp_runtime::HeaderId;
 #[cfg(not(feature = "runtime-benchmarks"))]
 use bridge_hub_common::BridgeHubMessageRouter;
 use bridge_hub_common::{
@@ -81,7 +82,6 @@ pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
 use xcm::VersionedMultiLocation;
 use xcm_config::{TreasuryAccount, XcmOriginToTransactDispatchOrigin, XcmRouter};
-use bp_runtime::HeaderId;
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
