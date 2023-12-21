@@ -1989,11 +1989,9 @@ dependencies = [
 name = "bridge-hub-rococo-integration-tests"
 version = "1.0.0"
 dependencies = [
- "asset-hub-rococo-emulated-chain",
  "asset-hub-rococo-runtime",
  "asset-test-utils",
  "bp-messages",
- "bridge-hub-rococo-emulated-chain",
  "bridge-hub-rococo-runtime",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-xcmp-queue",
@@ -2008,7 +2006,6 @@ dependencies = [
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
- "penpal-emulated-chain",
  "penpal-runtime",
  "rococo-system-emulated-network",
  "rococo-westend-system-emulated-network",
