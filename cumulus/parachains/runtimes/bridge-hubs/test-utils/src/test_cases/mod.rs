@@ -72,7 +72,6 @@ pub fn run_test<Runtime, T>(
 ) -> T
 where
 	Runtime: BasicParachainRuntime,
-	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
 {
 	ExtBuilder::<Runtime>::default()
 		.with_collators(collator_session_key.collators())
