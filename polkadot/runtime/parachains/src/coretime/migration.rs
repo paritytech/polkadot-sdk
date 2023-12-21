@@ -23,7 +23,7 @@ mod v_coretime {
 	use crate::scheduler::common::FixedAssignmentProvider;
 	use crate::{
 		assigner_coretime, configuration,
-		coretime::{BrokerRuntimePallets, Config, PartsOf57600, WeightInfo},
+		coretime::{mk_coretime_call, Config, PartsOf57600, WeightInfo},
 		paras,
 	};
 	#[cfg(feature = "try-runtime")]
@@ -36,17 +36,18 @@ mod v_coretime {
 	use pallet_broker::{CoreAssignment, CoreMask, ScheduleItem};
 	#[cfg(feature = "try-runtime")]
 	use parity_scale_codec::Decode;
+	#[cfg(feature = "try-runtime")]
 	use parity_scale_codec::Encode;
 	use polkadot_parachain_primitives::primitives::IsSystem;
 	use primitives::{CoreIndex, Id as ParaId};
+	use sp_arithmetic::traits::SaturatedConversion;
 	use sp_core::Get;
 	use sp_runtime::BoundedVec;
 	#[cfg(feature = "try-runtime")]
 	use sp_std::vec::Vec;
 	use sp_std::{iter, prelude::*, result};
 	use xcm::v3::{
-		send_xcm, Instruction, Junction, Junctions, MultiLocation, OriginKind, SendError,
-		WeightLimit, Xcm,
+		send_xcm, Instruction, Junction, Junctions, MultiLocation, SendError, WeightLimit, Xcm,
 	};
 
 	/// Return information about a legacy lease of a parachain.
@@ -224,6 +225,7 @@ mod v_coretime {
 		});
 
 		let leases = lease_holding.into_iter().filter_map(|p| {
+			log::trace!(target: "coretime-migration", "Preparing sending of lease holding para {:?}", p);
 			let Some(valid_until) = LegacyLease::get_parachain_lease_in_blocks(p) else {
 				log::error!("Lease holding chain with no lease information?!");
 				return None
@@ -239,8 +241,17 @@ mod v_coretime {
 			const TIME_SLICE_PERIOD: u32 = 80;
 			let round_up = if valid_until % TIME_SLICE_PERIOD > 0 { 1 } else { 0 };
 			let time_slice = valid_until / TIME_SLICE_PERIOD + TIME_SLICE_PERIOD * round_up;
+			log::trace!(target: "coretime-migration", "Sending of lease holding para {:?}, valid_until: {:?}, time_slice: {:?}", p, valid_until, time_slice);
 			Some(mk_coretime_call(crate::coretime::CoretimeCalls::SetLease(p.into(), time_slice)))
 		});
+
+		let set_core_count = {
+			let core_count: u16 =
+				configuration::Pallet::<T>::config().coretime_cores.saturated_into();
+			iter::once(mk_coretime_call(crate::coretime::CoretimeCalls::NotifyCoreCount(
+				core_count,
+			)))
+		};
 
 		let message_content = iter::once(Instruction::UnpaidExecution {
 			weight_limit: WeightLimit::Unlimited,
@@ -248,6 +259,7 @@ mod v_coretime {
 		})
 		.chain(reservations)
 		.chain(leases)
+		.chain(set_core_count)
 		.collect();
 
 		let message = Xcm(message_content);
@@ -260,13 +272,5 @@ mod v_coretime {
 			message,
 		)?;
 		Ok(())
-	}
-
-	fn mk_coretime_call(call: crate::coretime::CoretimeCalls) -> Instruction<()> {
-		Instruction::Transact {
-			origin_kind: OriginKind::Native,
-			require_weight_at_most: Weight::from_parts(1000000000, 200000),
-			call: BrokerRuntimePallets::Broker(call).encode().into(),
-		}
 	}
 }

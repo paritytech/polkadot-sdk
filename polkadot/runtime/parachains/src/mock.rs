@@ -52,6 +52,7 @@ use sp_runtime::{
 };
 use sp_std::collections::vec_deque::VecDeque;
 use std::{cell::RefCell, collections::HashMap};
+use xcm::v3::{XcmHash, SendError, MultiAssets, SendResult, MultiLocation, Xcm, SendXcm};
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlockU32<Test>;
@@ -377,6 +378,23 @@ impl coretime::Config for Test {
 	type Currency = pallet_balances::Pallet<Test>;
 	type BrokerId = BrokerId;
 	type WeightInfo = crate::coretime::TestWeightInfo;
+	type SendXcm = DummyXcmSender;
+}
+
+pub struct DummyXcmSender;
+impl SendXcm for DummyXcmSender {
+	type Ticket = ();
+	fn validate(
+		_: &mut Option<MultiLocation>,
+		_: &mut Option<Xcm<()>>,
+	) -> SendResult<Self::Ticket> {
+		Ok(((), MultiAssets::new()))
+	}
+
+	/// Actually carry out the delivery operation for a previously validated message sending.
+	fn deliver(_ticket: Self::Ticket) -> Result<XcmHash, SendError> {
+		Ok([0u8; 32])
+	}
 }
 
 impl crate::inclusion::Config for Test {

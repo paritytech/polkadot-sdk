@@ -18,24 +18,25 @@
 //!
 //! <https://github.com/polkadot-fellows/RFCs/blob/main/text/0005-coretime-interface.md>
 
-mod benchmarking;
-// #[cfg(test)]
-// mod tests;
+use sp_std::{prelude::*, result};
+
+use frame_support::{pallet_prelude::*, traits::Currency};
+use frame_system::pallet_prelude::*;
+pub use pallet::*;
+use pallet_broker::{CoreAssignment, CoreIndex as BrokerCoreIndex};
+use primitives::{CoreIndex, Id as ParaId};
+use sp_arithmetic::traits::SaturatedConversion;
+use xcm::v3::{
+	send_xcm, Instruction, Junction, Junctions, MultiLocation, OriginKind, SendXcm, Xcm,
+};
 
 use crate::{
 	assigner_coretime::{self, PartsOf57600},
 	initializer::{OnNewSession, SessionChangeNotification},
 	origin::{ensure_parachain, Origin},
 };
-use frame_support::{pallet_prelude::*, traits::Currency};
-use frame_system::pallet_prelude::*;
-use pallet_broker::{CoreAssignment, CoreIndex as BrokerCoreIndex};
-use primitives::{CoreIndex, Id as ParaId};
 
-use sp_std::{prelude::*, result};
-
-pub use pallet::*;
-
+mod benchmarking;
 pub mod migration;
 
 pub trait WeightInfo {
@@ -86,6 +87,8 @@ enum CoretimeCalls {
 	Reserve(pallet_broker::Schedule),
 	#[codec(index = 3)]
 	SetLease(pallet_broker::TaskId, pallet_broker::Timeslice),
+	#[codec(index = 19)]
+	NotifyCoreCount(u16),
 }
 
 #[frame_support::pallet]
@@ -110,6 +113,7 @@ pub mod pallet {
 		type BrokerId: Get<u32>;
 		/// Something that provides the weight of this pallet.
 		type WeightInfo: WeightInfo;
+		type SendXcm: SendXcm;
 	}
 
 	#[pallet::event]
@@ -219,7 +223,19 @@ impl<T: Config> Pallet<T> {
 		let old_core_count = notification.prev_config.coretime_cores;
 		let new_core_count = notification.new_config.coretime_cores;
 		if new_core_count != old_core_count {
-			// TODO: call notify_core_count
+			let core_count: u16 = new_core_count.saturated_into();
+			let message = Xcm(vec![mk_coretime_call(
+				crate::coretime::CoretimeCalls::NotifyCoreCount(core_count),
+			)]);
+			if let Err(err) = send_xcm::<T::SendXcm>(
+				MultiLocation {
+					parents: 0,
+					interior: Junctions::X1(Junction::Parachain(T::BrokerId::get())),
+				},
+				message,
+			) {
+				log::error!("Sending `NotifyCoreCount` to coretime chain failed: {:?}", err);
+			}
 		}
 	}
 }
@@ -227,5 +243,13 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> OnNewSession<BlockNumberFor<T>> for Pallet<T> {
 	fn on_new_session(notification: &SessionChangeNotification<BlockNumberFor<T>>) {
 		Self::initializer_on_new_session(notification);
+	}
+}
+
+fn mk_coretime_call(call: crate::coretime::CoretimeCalls) -> Instruction<()> {
+	Instruction::Transact {
+		origin_kind: OriginKind::Native,
+		require_weight_at_most: Weight::from_parts(1000000000, 200000),
+		call: BrokerRuntimePallets::Broker(call).encode().into(),
 	}
 }

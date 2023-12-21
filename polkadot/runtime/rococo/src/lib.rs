@@ -1019,6 +1019,7 @@ impl coretime::Config for Runtime {
 	type Currency = Balances;
 	type BrokerId = BrokerId;
 	type WeightInfo = weights::runtime_parachains_coretime::WeightInfo<Runtime>;
+	type SendXcm = crate::xcm_config::XcmRouter;
 }
 
 parameter_types! {
@@ -1510,6 +1511,7 @@ pub mod migrations {
 				// The parachain lease did not yet start
 				Zero::zero()
 			};
+			log::trace!(target: "coretime-migration", "Getting lease info for para {:?}:\n LEASE_PERIOD: {:?}, initial_sum: {:?}, number of leases: {:?}", para, <Runtime as slots::Config>::LeasePeriod::get(), initial_sum, slots::Pallet::<Runtime>::lease(para).len());
 
 			Some(leases.into_iter().fold(initial_sum, |sum, lease| {
 				// If the parachain lease did not yet start, we ignore them by multiplying by `0`.
