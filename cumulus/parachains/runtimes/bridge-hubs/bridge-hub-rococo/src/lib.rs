@@ -236,6 +236,8 @@ impl frame_system::Config for Runtime {
 	type DbWeight = RocksDbWeight;
 	/// Weight information for the extrinsics of this pallet.
 	type SystemWeightInfo = weights::frame_system::WeightInfo<Runtime>;
+	/// Weight information for the extensions of this pallet.
+	type SystemExtensionsWeightInfo = weights::frame_system_extensions::WeightInfo<Runtime>;
 	/// Block & extrinsics weights: base values and limits.
 	type BlockWeights = RuntimeBlockWeights;
 	/// The maximum length of a block (in bytes).
