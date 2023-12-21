@@ -49,9 +49,9 @@ use xcm::latest::prelude::*;
 
 /// Helper trait to test bridges with remote GRANDPA chain.
 ///
-/// This is only used to decrease amount of lines, dedicated to bounds
+/// This is only used to decrease amount of lines, dedicated to bounds.
 pub trait WithRemoteGrandpaChainHelper {
-	/// This chaiin runtime.
+	/// This chain runtime.
 	type Runtime: BasicParachainRuntime
 		+ cumulus_pallet_xcmp_queue::Config
 		+ BridgeGrandpaConfig<
@@ -74,7 +74,7 @@ pub trait WithRemoteGrandpaChainHelper {
 	type MB: MessageBridge;
 }
 
-/// Adapter struct that implements `WithRemoteGrandpaChainHelper`
+/// Adapter struct that implements `WithRemoteGrandpaChainHelper`.
 pub struct WithRemoteGrandpaChainHelperAdapter<Runtime, AllPalletsWithoutSystem, GPI, MPI, MB>(
 	sp_std::marker::PhantomData<(Runtime, AllPalletsWithoutSystem, GPI, MPI, MB)>,
 );
