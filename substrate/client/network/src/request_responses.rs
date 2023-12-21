@@ -1606,7 +1606,7 @@ mod tests {
 			loop {
 				match swarm.select_next_some().await {
 					SwarmEvent::ConnectionEstablished { peer_id, .. } => {
-						older_peer_id = Some(peer_id.clone());
+						older_peer_id = Some(peer_id);
 						let (sender, receiver) = oneshot::channel();
 						swarm.behaviour_mut().send_request(
 							&peer_id,
