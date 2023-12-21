@@ -358,7 +358,10 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 impl parachain_info::Config for Runtime {}
 
 parameter_types! {
-	/// Amount of weight that can be spent per block to service messages.
+	/// Amount of weight that can be spent per block to service messages. This was increased
+	/// from 35% to 60% of the max block weight to accommodate the Ethereum beacon light client
+	/// extrinsics. The force_checkpoint and submit extrinsics (for submit, optionally) includes
+	/// the sync committee's pubkeys (512 x 48 bytes)
 	pub MessageQueueServiceWeight: Weight = Perbill::from_percent(60) * RuntimeBlockWeights::get().max_block;
 }
 
