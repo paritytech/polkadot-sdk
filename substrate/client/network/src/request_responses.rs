@@ -1110,7 +1110,7 @@ mod tests {
 
 	#[test]
 	fn basic_request_response_works() {
-		let protocol_name = "/test/req-resp/1";
+		let protocol_name = ProtocolName::from("/test/req-resp/1");
 		let mut pool = LocalPool::new();
 
 		// Build swarms whose behaviour is [`RequestResponsesBehaviour`].
@@ -1138,7 +1138,7 @@ mod tests {
 					.unwrap();
 
 				let protocol_config = ProtocolConfig {
-					name: From::from(protocol_name),
+					name: protocol_name.clone(),
 					fallback_names: Vec::new(),
 					max_request_size: 1024,
 					max_response_size: 1024 * 1024,
@@ -1187,8 +1187,9 @@ mod tests {
 						let (sender, receiver) = oneshot::channel();
 						swarm.behaviour_mut().send_request(
 							&peer_id,
-							protocol_name,
+							protocol_name.clone(),
 							b"this is a request".to_vec(),
+							None,
 							sender,
 							IfDisconnected::ImmediateError,
 						);
@@ -1203,13 +1204,16 @@ mod tests {
 				}
 			}
 
-			assert_eq!(response_receiver.unwrap().await.unwrap().unwrap(), b"this is a response");
+			assert_eq!(
+				response_receiver.unwrap().await.unwrap().unwrap(),
+				(b"this is a response".to_vec(), protocol_name)
+			);
 		});
 	}
 
 	#[test]
 	fn max_response_size_exceeded() {
-		let protocol_name = "/test/req-resp/1";
+		let protocol_name = ProtocolName::from("/test/req-resp/1");
 		let mut pool = LocalPool::new();
 
 		// Build swarms whose behaviour is [`RequestResponsesBehaviour`].
@@ -1235,7 +1239,7 @@ mod tests {
 					.unwrap();
 
 				let protocol_config = ProtocolConfig {
-					name: From::from(protocol_name),
+					name: protocol_name.clone(),
 					fallback_names: Vec::new(),
 					max_request_size: 1024,
 					max_response_size: 8, // <-- important for the test
@@ -1286,8 +1290,9 @@ mod tests {
 						let (sender, receiver) = oneshot::channel();
 						swarm.behaviour_mut().send_request(
 							&peer_id,
-							protocol_name,
+							protocol_name.clone(),
 							b"this is a request".to_vec(),
+							None,
 							sender,
 							IfDisconnected::ImmediateError,
 						);
@@ -1321,14 +1326,14 @@ mod tests {
 	/// See [`ProtocolRequestId`] for additional information.
 	#[test]
 	fn request_id_collision() {
-		let protocol_name_1 = "/test/req-resp-1/1";
-		let protocol_name_2 = "/test/req-resp-2/1";
+		let protocol_name_1 = ProtocolName::from("/test/req-resp-1/1");
+		let protocol_name_2 = ProtocolName::from("/test/req-resp-2/1");
 		let mut pool = LocalPool::new();
 
 		let mut swarm_1 = {
 			let protocol_configs = vec![
 				ProtocolConfig {
-					name: From::from(protocol_name_1),
+					name: protocol_name_1.clone(),
 					fallback_names: Vec::new(),
 					max_request_size: 1024,
 					max_response_size: 1024 * 1024,
@@ -1336,7 +1341,7 @@ mod tests {
 					inbound_queue: None,
 				},
 				ProtocolConfig {
-					name: From::from(protocol_name_2),
+					name: protocol_name_2.clone(),
 					fallback_names: Vec::new(),
 					max_request_size: 1024,
 					max_response_size: 1024 * 1024,
@@ -1354,7 +1359,7 @@ mod tests {
 
 			let protocol_configs = vec![
 				ProtocolConfig {
-					name: From::from(protocol_name_1),
+					name: protocol_name_1.clone(),
 					fallback_names: Vec::new(),
 					max_request_size: 1024,
 					max_response_size: 1024 * 1024,
@@ -1362,7 +1367,7 @@ mod tests {
 					inbound_queue: Some(tx_1),
 				},
 				ProtocolConfig {
-					name: From::from(protocol_name_2),
+					name: protocol_name_2.clone(),
 					fallback_names: Vec::new(),
 					max_request_size: 1024,
 					max_response_size: 1024 * 1024,
@@ -1444,15 +1449,17 @@ mod tests {
 						let (sender_2, receiver_2) = oneshot::channel();
 						swarm_1.behaviour_mut().send_request(
 							&peer_id,
-							protocol_name_1,
+							protocol_name_1.clone(),
 							b"this is a request".to_vec(),
+							None,
 							sender_1,
 							IfDisconnected::ImmediateError,
 						);
 						swarm_1.behaviour_mut().send_request(
 							&peer_id,
-							protocol_name_2,
+							protocol_name_2.clone(),
 							b"this is a request".to_vec(),
+							None,
 							sender_2,
 							IfDisconnected::ImmediateError,
 						);
@@ -1470,8 +1477,216 @@ mod tests {
 				}
 			}
 			let (response_receiver_1, response_receiver_2) = response_receivers.unwrap();
-			assert_eq!(response_receiver_1.await.unwrap().unwrap(), b"this is a response");
-			assert_eq!(response_receiver_2.await.unwrap().unwrap(), b"this is a response");
+			assert_eq!(
+				response_receiver_1.await.unwrap().unwrap(),
+				(b"this is a response".to_vec(), protocol_name_1)
+			);
+			assert_eq!(
+				response_receiver_2.await.unwrap().unwrap(),
+				(b"this is a response".to_vec(), protocol_name_2)
+			);
+		});
+	}
+
+	#[test]
+	fn request_fallback() {
+		let protocol_name_1 = ProtocolName::from("/test/req-resp/2");
+		let protocol_name_1_fallback = ProtocolName::from("/test/req-resp/1");
+		let protocol_name_2 = ProtocolName::from("/test/another");
+		let mut pool = LocalPool::new();
+
+		let protocol_config_1 = ProtocolConfig {
+			name: protocol_name_1.clone(),
+			fallback_names: Vec::new(),
+			max_request_size: 1024,
+			max_response_size: 1024 * 1024,
+			request_timeout: Duration::from_secs(30),
+			inbound_queue: None,
+		};
+		let protocol_config_1_fallback = ProtocolConfig {
+			name: protocol_name_1_fallback.clone(),
+			fallback_names: Vec::new(),
+			max_request_size: 1024,
+			max_response_size: 1024 * 1024,
+			request_timeout: Duration::from_secs(30),
+			inbound_queue: None,
+		};
+		let protocol_config_2 = ProtocolConfig {
+			name: protocol_name_2.clone(),
+			fallback_names: Vec::new(),
+			max_request_size: 1024,
+			max_response_size: 1024 * 1024,
+			request_timeout: Duration::from_secs(30),
+			inbound_queue: None,
+		};
+
+		// This swarm only speaks protocol_name_1_fallback and protocol_name_2.
+		// It only responds to requests.
+		let mut older_swarm = {
+			let (tx_1, mut rx_1) = async_channel::bounded::<IncomingRequest>(64);
+			let (tx_2, mut rx_2) = async_channel::bounded::<IncomingRequest>(64);
+			let mut protocol_config_1_fallback = protocol_config_1_fallback.clone();
+			protocol_config_1_fallback.inbound_queue = Some(tx_1);
+
+			let mut protocol_config_2 = protocol_config_2.clone();
+			protocol_config_2.inbound_queue = Some(tx_2);
+
+			pool.spawner()
+				.spawn_obj(
+					async move {
+						for _ in 0..2 {
+							if let Some(rq) = rx_1.next().await {
+								let (fb_tx, fb_rx) = oneshot::channel();
+								assert_eq!(rq.payload, b"request on protocol /test/req-resp/1");
+								let _ = rq.pending_response.send(super::OutgoingResponse {
+									result: Ok(
+										b"this is a response on protocol /test/req-resp/1".to_vec()
+									),
+									reputation_changes: Vec::new(),
+									sent_feedback: Some(fb_tx),
+								});
+								fb_rx.await.unwrap();
+							}
+						}
+
+						if let Some(rq) = rx_2.next().await {
+							let (fb_tx, fb_rx) = oneshot::channel();
+							assert_eq!(rq.payload, b"request on protocol /test/other");
+							let _ = rq.pending_response.send(super::OutgoingResponse {
+								result: Ok(b"this is a response on protocol /test/other".to_vec()),
+								reputation_changes: Vec::new(),
+								sent_feedback: Some(fb_tx),
+							});
+							fb_rx.await.unwrap();
+						}
+					}
+					.boxed()
+					.into(),
+				)
+				.unwrap();
+
+			build_swarm(vec![protocol_config_1_fallback, protocol_config_2].into_iter())
+		};
+
+		// This swarm speaks all protocols.
+		let mut new_swarm = build_swarm(
+			vec![
+				protocol_config_1.clone(),
+				protocol_config_1_fallback.clone(),
+				protocol_config_2.clone(),
+			]
+			.into_iter(),
+		);
+
+		{
+			let dial_addr = older_swarm.1.clone();
+			Swarm::dial(&mut new_swarm.0, dial_addr).unwrap();
+		}
+
+		// Running `older_swarm`` in the background.
+		pool.spawner()
+			.spawn_obj({
+				async move {
+					loop {
+						_ = older_swarm.0.select_next_some().await;
+					}
+				}
+				.boxed()
+				.into()
+			})
+			.unwrap();
+
+		// Run the newer swarm. Attempt to make requests on all protocols.
+		let (mut swarm, _) = new_swarm;
+		let mut older_peer_id = None;
+
+		pool.run_until(async move {
+			let mut response_receiver = None;
+			// Try the new protocol with a fallback.
+			loop {
+				match swarm.select_next_some().await {
+					SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+						older_peer_id = Some(peer_id.clone());
+						let (sender, receiver) = oneshot::channel();
+						swarm.behaviour_mut().send_request(
+							&peer_id,
+							protocol_name_1.clone(),
+							b"request on protocol /test/req-resp/2".to_vec(),
+							Some((
+								b"request on protocol /test/req-resp/1".to_vec(),
+								protocol_config_1_fallback.name.clone(),
+							)),
+							sender,
+							IfDisconnected::ImmediateError,
+						);
+						response_receiver = Some(receiver);
+					},
+					SwarmEvent::Behaviour(Event::RequestFinished { result, .. }) => {
+						result.unwrap();
+						break
+					},
+					_ => {},
+				}
+			}
+			assert_eq!(
+				response_receiver.unwrap().await.unwrap().unwrap(),
+				(
+					b"this is a response on protocol /test/req-resp/1".to_vec(),
+					protocol_name_1_fallback.clone()
+				)
+			);
+			// Try the old protocol with a useless fallback.
+			let (sender, response_receiver) = oneshot::channel();
+			swarm.behaviour_mut().send_request(
+				older_peer_id.as_ref().unwrap(),
+				protocol_name_1_fallback.clone(),
+				b"request on protocol /test/req-resp/1".to_vec(),
+				Some((
+					b"dummy request, will fail if processed".to_vec(),
+					protocol_config_1_fallback.name.clone(),
+				)),
+				sender,
+				IfDisconnected::ImmediateError,
+			);
+			loop {
+				match swarm.select_next_some().await {
+					SwarmEvent::Behaviour(Event::RequestFinished { result, .. }) => {
+						result.unwrap();
+						break
+					},
+					_ => {},
+				}
+			}
+			assert_eq!(
+				response_receiver.await.unwrap().unwrap(),
+				(
+					b"this is a response on protocol /test/req-resp/1".to_vec(),
+					protocol_name_1_fallback.clone()
+				)
+			);
+			// Try the other protocol with no fallback.
+			let (sender, response_receiver) = oneshot::channel();
+			swarm.behaviour_mut().send_request(
+				older_peer_id.as_ref().unwrap(),
+				protocol_name_2.clone(),
+				b"request on protocol /test/other".to_vec(),
+				None,
+				sender,
+				IfDisconnected::ImmediateError,
+			);
+			loop {
+				match swarm.select_next_some().await {
+					SwarmEvent::Behaviour(Event::RequestFinished { result, .. }) => {
+						result.unwrap();
+						break
+					},
+					_ => {},
+				}
+			}
+			assert_eq!(
+				response_receiver.await.unwrap().unwrap(),
+				(b"this is a response on protocol /test/other".to_vec(), protocol_name_2.clone())
+			);
 		});
 	}
 }
