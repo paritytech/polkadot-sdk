@@ -39,6 +39,7 @@ sp-core = { path = "../../../primitives/core" }
 sp-keystore = { path = "../../../primitives/keystore" }
 sp-mmr-primitives = { path = "../../../primitives/merkle-mountain-range" }
 sp-runtime = { path = "../../../primitives/runtime" }
+sp-std = { path = "../../../primitives/std", default-features = false}
 
 [dev-dependencies]
 serde = "1.0.193"
@@ -50,3 +51,12 @@ sp-consensus-grandpa = { path = "../../../primitives/consensus/grandpa" }
 sp-keyring = { path = "../../../primitives/keyring" }
 sp-tracing = { path = "../../../primitives/tracing" }
 substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }
+
+[features]
+# This feature adds BLS crypto primitives. It should not be used in production since
+# the BLS implementation and interface may still be subject to significant change.
+bls-experimental = [
+	"sp-application-crypto/bls-experimental",
+	"sp-core/bls-experimental",
+	"sp-consensus-beefy/bls-experimental"
+]

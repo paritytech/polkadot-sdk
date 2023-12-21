@@ -203,8 +203,8 @@ mod tests {
 	use sc_network_test::Block;
 
 	use sp_consensus_beefy::{
-		known_payloads::MMR_ROOT_ID, Commitment, EquivocationProof, Keyring, Payload,
-		SignedCommitment, ValidatorSet, VoteMessage,
+		known_payloads::MMR_ROOT_ID, Commitment, EquivocationProof, GenericKeyring, Keyring,
+		Payload, SignedCommitment, ValidatorSet, VoteMessage,
 	};
 
 	use super::{threshold, AuthorityId, Block as BlockT, RoundTracker, Rounds};
@@ -222,7 +222,10 @@ mod tests {
 	#[test]
 	fn round_tracker() {
 		let mut rt = RoundTracker::default();
-		let bob_vote = (Keyring::Bob.public(), Keyring::Bob.sign(b"I am committed"));
+		let bob_vote = (
+			<Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Bob),
+			<Keyring as GenericKeyring<AuthorityId>>::sign(Keyring::Bob, b"I am committed"),
+		);
 		let threshold = 2;
 
 		// adding new vote allowed
@@ -233,7 +236,10 @@ mod tests {
 		// vote is not done
 		assert!(!rt.is_done(threshold));
 
-		let alice_vote = (Keyring::Alice.public(), Keyring::Alice.sign(b"I am committed"));
+		let alice_vote = (
+			<Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Alice),
+			<Keyring as GenericKeyring<AuthorityId>>::sign(Keyring::Alice, b"I am committed"),
+		);
 		// adding new vote (self vote this time) allowed
 		assert!(rt.add_vote(alice_vote));
 
@@ -256,7 +262,11 @@ mod tests {
 		sp_tracing::try_init_simple();
 
 		let validators = ValidatorSet::<AuthorityId>::new(
-			vec![Keyring::Alice.public(), Keyring::Bob.public(), Keyring::Charlie.public()],
+			vec![
+				<Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Alice),
+				<Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Bob),
+				<Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Charlie),
+			],
 			42,
 		)
 		.unwrap();
@@ -267,7 +277,11 @@ mod tests {
 		assert_eq!(42, rounds.validator_set_id());
 		assert_eq!(1, rounds.session_start());
 		assert_eq!(
-			&vec![Keyring::Alice.public(), Keyring::Bob.public(), Keyring::Charlie.public()],
+			&vec![
+				<Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Alice),
+				<Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Bob),
+				<Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Charlie)
+			],
 			rounds.validators()
 		);
 	}
@@ -278,9 +292,9 @@ mod tests {
 
 		let validators = ValidatorSet::<AuthorityId>::new(
 			vec![
-				Keyring::Alice.public(),
-				Keyring::Bob.public(),
-				Keyring::Charlie.public(),
+				<Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Alice),
+				<Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Bob),
+				<Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Charlie),
 				Keyring::Eve.public(),
 			],
 			Default::default(),
@@ -295,9 +309,12 @@ mod tests {
 		let block_number = 1;
 		let commitment = Commitment { block_number, payload, validator_set_id };
 		let mut vote = VoteMessage {
-			id: Keyring::Alice.public(),
+			id: <Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Alice),
 			commitment: commitment.clone(),
-			signature: Keyring::Alice.sign(b"I am committed"),
+			signature: <Keyring as GenericKeyring<AuthorityId>>::sign(
+				Keyring::Alice,
+				b"I am committed",
+			),
 		};
 		// add 1st good vote
 		assert_eq!(rounds.add_vote(vote.clone()), VoteImportResult::Ok);
@@ -305,35 +322,48 @@ mod tests {
 		// double voting (same vote), ok, no effect
 		assert_eq!(rounds.add_vote(vote.clone()), VoteImportResult::Ok);
 
-		vote.id = Keyring::Dave.public();
-		vote.signature = Keyring::Dave.sign(b"I am committed");
+		vote.id = <Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Dave);
+		vote.signature =
+			<Keyring as GenericKeyring<AuthorityId>>::sign(Keyring::Dave, b"I am committed");
 		// invalid vote (Dave is not a validator)
 		assert_eq!(rounds.add_vote(vote.clone()), VoteImportResult::Invalid);
 
-		vote.id = Keyring::Bob.public();
-		vote.signature = Keyring::Bob.sign(b"I am committed");
+		vote.id = <Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Bob);
+		vote.signature =
+			<Keyring as GenericKeyring<AuthorityId>>::sign(Keyring::Bob, b"I am committed");
 		// add 2nd good vote
 		assert_eq!(rounds.add_vote(vote.clone()), VoteImportResult::Ok);
 
-		vote.id = Keyring::Charlie.public();
-		vote.signature = Keyring::Charlie.sign(b"I am committed");
+		vote.id = <Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Charlie);
+		vote.signature =
+			<Keyring as GenericKeyring<AuthorityId>>::sign(Keyring::Charlie, b"I am committed");
 		// add 3rd good vote -> round concluded -> signatures present
 		assert_eq!(
 			rounds.add_vote(vote.clone()),
 			VoteImportResult::RoundConcluded(SignedCommitment {
 				commitment,
 				signatures: vec![
-					Some(Keyring::Alice.sign(b"I am committed")),
-					Some(Keyring::Bob.sign(b"I am committed")),
-					Some(Keyring::Charlie.sign(b"I am committed")),
+					Some(<Keyring as GenericKeyring<AuthorityId>>::sign(
+						Keyring::Alice,
+						b"I am committed"
+					)),
+					Some(<Keyring as GenericKeyring<AuthorityId>>::sign(
+						Keyring::Bob,
+						b"I am committed"
+					)),
+					Some(<Keyring as GenericKeyring<AuthorityId>>::sign(
+						Keyring::Charlie,
+						b"I am committed"
+					)),
 					None,
 				]
 			})
 		);
 		rounds.conclude(block_number);
 
-		vote.id = Keyring::Eve.public();
-		vote.signature = Keyring::Eve.sign(b"I am committed");
+		vote.id = <Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Eve);
+		vote.signature =
+			<Keyring as GenericKeyring<AuthorityId>>::sign(Keyring::Eve, b"I am committed");
 		// Eve is a validator, but round was concluded, adding vote disallowed
 		assert_eq!(rounds.add_vote(vote), VoteImportResult::Stale);
 	}
@@ -343,7 +373,11 @@ mod tests {
 		sp_tracing::try_init_simple();
 
 		let validators = ValidatorSet::<AuthorityId>::new(
-			vec![Keyring::Alice.public(), Keyring::Bob.public(), Keyring::Charlie.public()],
+			vec![
+				<Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Alice),
+				<Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Bob),
+				<Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Charlie),
+			],
 			42,
 		)
 		.unwrap();
@@ -358,9 +392,12 @@ mod tests {
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![]);
 		let commitment = Commitment { block_number, payload, validator_set_id };
 		let mut vote = VoteMessage {
-			id: Keyring::Alice.public(),
+			id: <Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Alice),
 			commitment,
-			signature: Keyring::Alice.sign(b"I am committed"),
+			signature: <Keyring as GenericKeyring<AuthorityId>>::sign(
+				Keyring::Alice,
+				b"I am committed",
+			),
 		};
 		// add vote for previous session, should fail
 		assert_eq!(rounds.add_vote(vote.clone()), VoteImportResult::Stale);
@@ -389,7 +426,11 @@ mod tests {
 		sp_tracing::try_init_simple();
 
 		let validators = ValidatorSet::<AuthorityId>::new(
-			vec![Keyring::Alice.public(), Keyring::Bob.public(), Keyring::Charlie.public()],
+			vec![
+				<Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Alice),
+				<Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Bob),
+				<Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Charlie),
+			],
 			Default::default(),
 		)
 		.unwrap();
@@ -401,24 +442,36 @@ mod tests {
 		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![]);
 		let commitment = Commitment { block_number: 1, payload, validator_set_id };
 		let mut alice_vote = VoteMessage {
-			id: Keyring::Alice.public(),
+			id: <Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Alice),
 			commitment: commitment.clone(),
-			signature: Keyring::Alice.sign(b"I am committed"),
+			signature: <Keyring as GenericKeyring<AuthorityId>>::sign(
+				Keyring::Alice,
+				b"I am committed",
+			),
 		};
 		let mut bob_vote = VoteMessage {
-			id: Keyring::Bob.public(),
+			id: <Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Bob),
 			commitment: commitment.clone(),
-			signature: Keyring::Bob.sign(b"I am committed"),
+			signature: <Keyring as GenericKeyring<AuthorityId>>::sign(
+				Keyring::Bob,
+				b"I am committed",
+			),
 		};
 		let mut charlie_vote = VoteMessage {
-			id: Keyring::Charlie.public(),
+			id: <Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Charlie),
 			commitment,
-			signature: Keyring::Charlie.sign(b"I am committed"),
+			signature: <Keyring as GenericKeyring<AuthorityId>>::sign(
+				Keyring::Charlie,
+				b"I am committed",
+			),
 		};
 		let expected_signatures = vec![
-			Some(Keyring::Alice.sign(b"I am committed")),
-			Some(Keyring::Bob.sign(b"I am committed")),
-			Some(Keyring::Charlie.sign(b"I am committed")),
+			Some(<Keyring as GenericKeyring<AuthorityId>>::sign(Keyring::Alice, b"I am committed")),
+			Some(<Keyring as GenericKeyring<AuthorityId>>::sign(Keyring::Bob, b"I am committed")),
+			Some(<Keyring as GenericKeyring<AuthorityId>>::sign(
+				Keyring::Charlie,
+				b"I am committed",
+			)),
 		];
 
 		// round 1 - only 2 out of 3 vote
@@ -464,7 +517,10 @@ mod tests {
 		sp_tracing::try_init_simple();
 
 		let validators = ValidatorSet::<AuthorityId>::new(
-			vec![Keyring::Alice.public(), Keyring::Bob.public()],
+			vec![
+				<Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Alice),
+				<Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Bob),
+			],
 			Default::default(),
 		)
 		.unwrap();
@@ -478,9 +534,12 @@ mod tests {
 		let commitment2 = Commitment { block_number: 1, payload: payload2, validator_set_id };
 
 		let alice_vote1 = VoteMessage {
-			id: Keyring::Alice.public(),
+			id: <Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Alice),
 			commitment: commitment1,
-			signature: Keyring::Alice.sign(b"I am committed"),
+			signature: <Keyring as GenericKeyring<AuthorityId>>::sign(
+				Keyring::Alice,
+				b"I am committed",
+			),
 		};
 		let mut alice_vote2 = alice_vote1.clone();
 		alice_vote2.commitment = commitment2;
