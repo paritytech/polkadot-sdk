@@ -245,7 +245,7 @@ impl<T: Config> OnNewSession<BlockNumberFor<T>> for Pallet<T> {
 fn mk_coretime_call(call: crate::coretime::CoretimeCalls) -> Instruction<()> {
 	Instruction::Transact {
 		origin_kind: OriginKind::Native,
-		require_weight_at_most: Weight::from_parts(1000000000, 200000),
+		require_weight_at_most: Weight::from_parts(100_000_000, 1000),
 		call: BrokerRuntimePallets::Broker(call).encode().into(),
 	}
 }
