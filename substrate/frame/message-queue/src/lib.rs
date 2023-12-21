@@ -693,9 +693,9 @@ pub mod pallet {
 			weight_limit: Weight,
 		) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;
-			let actual_weight =
+			let _ =
 				Self::do_execute_overweight(message_origin, page, index, weight_limit)?;
-			Ok(Some(actual_weight).into())
+			Ok(Some(Weight::from_parts(0, 0)).into())
 		}
 	}
 }
