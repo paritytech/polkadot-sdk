@@ -33,7 +33,7 @@ use xcm::prelude::{
 	Junctions::{Here, X1},
 	MultiLocation,
 };
-use xcm_builder::DescribeLocation;
+use xcm_builder::{DescribeAllTerminal, DescribeFamily, DescribeLocation, HashedDescription};
 
 /// The ID of an agent contract
 pub type AgentId = H256;
@@ -168,3 +168,7 @@ impl DescribeLocation for DescribeHere {
 		}
 	}
 }
+
+/// Creates an AgentId from a MultiLocation. An AgentId is a unique mapping to a Agent contract on
+/// Ethereum which acts as the sovereign account for the MultiLocation.
+pub type AgentIdOf = HashedDescription<H256, (DescribeHere, DescribeFamily<DescribeAllTerminal>)>;

@@ -12,14 +12,13 @@ use xcm_executor::traits::ConvertLocation;
 
 use snowbridge_core::{
 	gwei, meth, outbound::ConstantGasMeter, sibling_sovereign_account, AgentId, AllowSiblingsOnly,
-	DescribeHere, ParaId, PricingParameters, Rewards,
+	ParaId, PricingParameters, Rewards,
 };
 use sp_runtime::{
 	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup, Keccak256},
 	AccountId32, BuildStorage, FixedU128,
 };
 use xcm::prelude::*;
-use xcm_builder::{DescribeAllTerminal, DescribeFamily, HashedDescription};
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::BenchmarkHelper;
@@ -221,8 +220,7 @@ impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type OutboundQueue = OutboundQueue;
 	type SiblingOrigin = pallet_xcm_origin::EnsureXcm<AllowSiblingsOnly>;
-	type AgentIdOf =
-		HashedDescription<AgentId, (DescribeHere, DescribeFamily<DescribeAllTerminal>)>;
+	type AgentIdOf = snowbridge_core::AgentIdOf;
 	type TreasuryAccount = TreasuryAccount;
 	type Token = Balances;
 	type DefaultPricingParameters = Parameters;

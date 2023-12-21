@@ -1,11 +1,10 @@
 use frame_support::parameter_types;
 use hex_literal::hex;
-use snowbridge_core::outbound::{Fee, SendError, SendMessageFeeProvider};
-
+use snowbridge_core::{
+	outbound::{Fee, SendError, SendMessageFeeProvider},
+	AgentIdOf,
+};
 use xcm::v3::prelude::SendError as XcmSendError;
-use xcm_builder::{DescribeAllTerminal, DescribeFamily, HashedDescription};
-
-pub type AgentIdOf = HashedDescription<H256, DescribeFamily<DescribeAllTerminal>>;
 
 use super::*;
 
@@ -1034,4 +1033,31 @@ fn xcm_converter_convert_with_non_ethereum_chain_beneficiary_yields_beneficiary_
 
 	let result = converter.convert();
 	assert_eq!(result.err(), Some(XcmConverterError::BeneficiaryResolutionFailed));
+}
+
+#[test]
+fn test_describe_asset_hub() {
+	let legacy_location: MultiLocation =
+		MultiLocation { parents: 0, interior: X1(Parachain(1000)) };
+	let legacy_agent_id = AgentIdOf::convert_location(&legacy_location).unwrap();
+	assert_eq!(
+		legacy_agent_id,
+		hex!("72456f48efed08af20e5b317abf8648ac66e86bb90a411d9b0b713f7364b75b4").into()
+	);
+	let location: MultiLocation = MultiLocation { parents: 1, interior: X1(Parachain(1000)) };
+	let agent_id = AgentIdOf::convert_location(&location).unwrap();
+	assert_eq!(
+		agent_id,
+		hex!("81c5ab2571199e3188135178f3c2c8e2d268be1313d029b30f534fa579b69b79").into()
+	)
+}
+
+#[test]
+fn test_describe_here() {
+	let location: MultiLocation = MultiLocation { parents: 0, interior: Here };
+	let agent_id = AgentIdOf::convert_location(&location).unwrap();
+	assert_eq!(
+		agent_id,
+		hex!("03170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314").into()
+	)
 }
