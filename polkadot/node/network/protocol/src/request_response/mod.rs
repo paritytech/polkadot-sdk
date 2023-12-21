@@ -360,6 +360,7 @@ pub trait IsRequest {
 }
 
 /// Type for getting on the wire [`Protocol`] names using genesis hash & fork id.
+#[derive(Clone)]
 pub struct ReqProtocolNames {
 	names: HashMap<Protocol, ProtocolName>,
 }
