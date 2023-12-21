@@ -132,7 +132,7 @@ benchmarks! {
 		// Ensure that the votes are for the correct session
 		assert_eq!(vote.session, scenario._session);
 		// Ensure that there are an expected number of candidates
-		let header = BenchBuilder::<T>::header(scenario._block_number.clone());
+		let header = BenchBuilder::<T>::header(scenario._block_number);
 		// Traverse candidates and assert descriptors are as expected
 		for (para_id, backing_validators) in vote.backing_validators_per_candidate.iter().enumerate() {
 			let descriptor = backing_validators.0.descriptor();
@@ -189,7 +189,7 @@ benchmarks! {
 		// Ensure that the votes are for the correct session
 		assert_eq!(vote.session, scenario._session);
 		// Ensure that there are an expected number of candidates
-		let header = BenchBuilder::<T>::header(scenario._block_number.clone());
+		let header = BenchBuilder::<T>::header(scenario._block_number);
 		// Traverse candidates and assert descriptors are as expected
 		for (para_id, backing_validators)
 			in vote.backing_validators_per_candidate.iter().enumerate() {
