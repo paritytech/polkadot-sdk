@@ -74,7 +74,7 @@ pub trait WithRemoteGrandpaChainHelper {
 	type MB: MessageBridge;
 }
 
-/// Adapter struct that implements `WithRemoteGrandpaChainHelper`.
+/// Adapter struct that implements [`WithRemoteGrandpaChainHelper`].
 pub struct WithRemoteGrandpaChainHelperAdapter<Runtime, AllPalletsWithoutSystem, GPI, MPI, MB>(
 	sp_std::marker::PhantomData<(Runtime, AllPalletsWithoutSystem, GPI, MPI, MB)>,
 );
