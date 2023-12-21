@@ -22,6 +22,7 @@ use asset_test_utils::BasicParachainRuntime;
 use bp_messages::{LaneId, MessageNonce};
 use bp_polkadot_core::parachains::{ParaHash, ParaId};
 use bp_relayers::RewardsAccountParams;
+use codec::Decode;
 use frame_support::{
 	assert_ok,
 	traits::{OnFinalize, OnInitialize, PalletInfoAccess},
@@ -29,12 +30,10 @@ use frame_support::{
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_bridge_grandpa::{BridgedBlockHash, BridgedHeader};
 use parachains_common::AccountId;
-use parachains_runtimes_test_utils::{
-	mock_open_hrmp_channel, AccountIdOf, CollatorSessionKeys, ValidatorIdOf,
-};
+use parachains_runtimes_test_utils::{mock_open_hrmp_channel, AccountIdOf, CollatorSessionKeys};
 use sp_core::Get;
 use sp_keyring::AccountKeyring::*;
-use sp_runtime::AccountId32;
+use sp_runtime::{traits::TrailingZeroInput, AccountId32};
 use sp_std::marker::PhantomData;
 use xcm::latest::prelude::*;
 
@@ -208,9 +207,15 @@ pub(crate) fn initialize_bridge_grandpa_pallet<Runtime, GPI>(
 pub type CallsAndVerifiers<Runtime> =
 	Vec<(<Runtime as frame_system::Config>::RuntimeCall, Box<dyn VerifyTransactionOutcome>)>;
 
+/// Returns relayer id at the bridged chain.
+pub fn relayer_id_at_bridged_chain<Runtime: pallet_bridge_messages::Config<MPI>, MPI>(
+) -> Runtime::InboundRelayer {
+	Runtime::InboundRelayer::decode(&mut TrailingZeroInput::zeroes()).unwrap()
+}
+
 /// Test-case makes sure that Runtime can dispatch XCM messages submitted by relayer,
 /// with proofs (finality, message) independently submitted.
-pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, HrmpChannelOpener, MPI>(
+pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, MPI>(
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
 	sibling_parachain_id: u32,
@@ -232,18 +237,12 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, HrmpChan
 		+ pallet_bridge_messages::Config<MPI>,
 	AllPalletsWithoutSystem:
 		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
-	HrmpChannelOpener: frame_support::inherent::ProvideInherent<
-		Call = cumulus_pallet_parachain_system::Call<Runtime>,
-	>,
 	MPI: 'static,
-	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
-	AccountIdOf<Runtime>: From<AccountId32> + From<sp_core::sr25519::Public>,
-	<Runtime as pallet_bridge_messages::Config<MPI>>::InboundRelayer: From<AccountId32>,
+	AccountIdOf<Runtime>: From<AccountId32>,
 {
 	let relayer_at_target = Bob;
 	let relayer_id_on_target: AccountId32 = relayer_at_target.public().into();
-	let relayer_at_source = Dave;
-	let relayer_id_on_source: AccountId32 = relayer_at_source.public().into();
+	let relayer_id_on_source = relayer_id_at_bridged_chain::<Runtime, MPI>();
 
 	assert_ne!(runtime_para_id, sibling_parachain_id);
 
@@ -262,7 +261,7 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, HrmpChan
 				2,
 				AccountId::from(alice).into(),
 			);
-			mock_open_hrmp_channel::<Runtime, HrmpChannelOpener>(
+			mock_open_hrmp_channel::<Runtime, cumulus_pallet_parachain_system::Pallet<Runtime>>(
 				runtime_para_id.into(),
 				sibling_parachain_id.into(),
 				included_head,
