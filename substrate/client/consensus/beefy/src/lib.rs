@@ -33,7 +33,7 @@ use crate::{
 	worker::PersistedState,
 };
 use futures::{stream::Fuse, StreamExt};
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use parking_lot::Mutex;
 use prometheus::Registry;
 use sc_client_api::{Backend, BlockBackend, BlockchainEvents, FinalityNotifications, Finalizer};
@@ -420,6 +420,11 @@ where
 	B: Block,
 	BC: BlockchainBackend<B>,
 {
+	if current.number() == Zero::zero() {
+		let msg = format!("header {} is Genesis, there is no parent for it", current.hash());
+		warn!(target: LOG_TARGET, msg);
+		return Err(ClientError::UnknownBlock(msg))
+	}
 	loop {
 		match blockchain.header(*current.parent_hash())? {
 			Some(parent) => return Ok(parent),
@@ -481,7 +486,7 @@ where
 			let best_beefy = *header.number();
 			// If no session boundaries detected so far, just initialize new rounds here.
 			if sessions.is_empty() {
-				let active_set = expect_validator_set(runtime, backend, &header)?;
+				let active_set = expect_validator_set(runtime, backend, &header).await?;
 				let mut rounds = Rounds::new(best_beefy, active_set);
 				// Mark the round as already finalized.
 				rounds.conclude(best_beefy);
@@ -500,7 +505,7 @@ where
 
 		if *header.number() == beefy_genesis {
 			// We've reached BEEFY genesis, initialize voter here.
-			let genesis_set = expect_validator_set(runtime, backend, &header)?;
+			let genesis_set = expect_validator_set(runtime, backend, &header).await?;
 			info!(
 				target: LOG_TARGET,
 				"🥩 Loading BEEFY voter state from genesis on what appears to be first startup. \
@@ -581,7 +586,7 @@ where
 	Err(ClientError::Backend(err_msg))
 }
 
-fn expect_validator_set<B, BE, R>(
+async fn expect_validator_set<B, BE, R>(
 	runtime: &R,
 	backend: &BE,
 	at_header: &B::Header,
@@ -599,15 +604,16 @@ where
 	debug!(target: LOG_TARGET, "🥩 Trying to find validator set active at header: {:?}", at_header);
 	let mut header = at_header.clone();
 	loop {
+		debug!(target: LOG_TARGET, "🥩 Looking for auth set change at block number: {:?}", *header.number());
 		if let Ok(Some(active)) = runtime.runtime_api().validator_set(header.hash()) {
 			return Ok(active)
 		} else {
-			debug!(target: LOG_TARGET, "🥩 Looking for auth set change at block number: {:?}", *header.number());
 			match worker::find_authorities_change::<B>(&header) {
 				Some(active) => return Ok(active),
 				// Move up the chain. Ultimately we'll get it from chain genesis state, or error out
-				// here.
-				None => header = blockchain.expect_header(*header.parent_hash())?,
+				// there.
+				None =>
+					header = wait_for_parent_header(blockchain, header, HEADER_SYNC_DELAY).await?,
 			}
 		}
 	}
