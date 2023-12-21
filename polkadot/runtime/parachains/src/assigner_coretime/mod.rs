@@ -30,9 +30,7 @@ mod tests;
 use crate::{
 	assigner_on_demand, configuration,
 	paras::AssignCoretime,
-	scheduler::common::{
-		Assignment, AssignmentProvider, AssignmentProviderConfig, FixedAssignmentProvider,
-	},
+	scheduler::common::{Assignment, AssignmentProvider, AssignmentProviderConfig},
 	ParaId,
 };
 
@@ -197,14 +195,10 @@ impl<N> From<Schedule<N>> for WorkState<N> {
 
 #[frame_support::pallet]
 pub mod pallet {
-
 	use super::*;
-
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
-	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -336,9 +330,7 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 		// return a bulk assignment.
 		Assignment::Bulk(para_id)
 	}
-}
 
-impl<T: Config> FixedAssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	fn session_core_count() -> u32 {
 		let config = <configuration::Pallet<T>>::config();
 		config.coretime_cores

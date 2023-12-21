@@ -23,7 +23,7 @@ use crate::{
 	initializer, origin, paras,
 	paras::ParaKind,
 	paras_inherent, scheduler,
-	scheduler::common::{AssignmentProvider, AssignmentProviderConfig, FixedAssignmentProvider},
+	scheduler::common::{AssignmentProvider, AssignmentProviderConfig},
 	session_info, shared, ParaId,
 };
 use frame_support::pallet_prelude::*;
@@ -516,11 +516,7 @@ pub mod mock_assigner {
 		fn get_mock_assignment(_: CoreIndex, para_id: ParaId) -> Assignment {
 			Assignment::Bulk(para_id)
 		}
-	}
 
-	// Provides a core count for scheduler tests defaulting to the most common number,
-	// 5, if no explicit count was set.
-	impl<T: Config> FixedAssignmentProvider<BlockNumber> for Pallet<T> {
 		fn session_core_count() -> u32 {
 			MockCoreCount::<T>::get().unwrap_or(5)
 		}

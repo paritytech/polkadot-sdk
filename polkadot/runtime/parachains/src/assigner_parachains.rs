@@ -27,9 +27,7 @@ use primitives::CoreIndex;
 
 use crate::{
 	configuration, paras,
-	scheduler::common::{
-		Assignment, AssignmentProvider, AssignmentProviderConfig, FixedAssignmentProvider,
-	},
+	scheduler::common::{Assignment, AssignmentProvider, AssignmentProviderConfig},
 };
 
 pub use pallet::*;
@@ -74,9 +72,7 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	fn get_mock_assignment(_: CoreIndex, para_id: primitives::Id) -> Assignment {
 		Assignment::Bulk(para_id)
 	}
-}
 
-impl<T: Config> FixedAssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	fn session_core_count() -> u32 {
 		paras::Parachains::<T>::decode_len().unwrap_or(0) as u32
 	}

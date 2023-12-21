@@ -152,7 +152,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("rococo"),
 	impl_name: create_runtime_str!("parity-rococo-v2.0"),
 	authoring_version: 0,
-	spec_version: 1_006_000,
+	spec_version: 1_005_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 24,
@@ -1511,7 +1511,14 @@ pub mod migrations {
 				// The parachain lease did not yet start
 				Zero::zero()
 			};
-			log::trace!(target: "coretime-migration", "Getting lease info for para {:?}:\n LEASE_PERIOD: {:?}, initial_sum: {:?}, number of leases: {:?}", para, <Runtime as slots::Config>::LeasePeriod::get(), initial_sum, slots::Pallet::<Runtime>::lease(para).len());
+			log::trace!(
+				target: "coretime-migration",
+				"Getting lease info for para {:?}:\n LEASE_PERIOD: {:?}, initial_sum: {:?}, number of leases: {:?}",
+				para,
+				LeasePeriod::get(),
+				initial_sum,
+				slots::Pallet::<Runtime>::lease(para).len(),
+			);
 
 			Some(leases.into_iter().fold(initial_sum, |sum, lease| {
 				// If the parachain lease did not yet start, we ignore them by multiplying by `0`.

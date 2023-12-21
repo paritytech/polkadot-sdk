@@ -91,19 +91,7 @@ pub trait AssignmentProvider<BlockNumber> {
 	/// passed into `report_processed` for example.
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn get_mock_assignment(core_idx: CoreIndex, para_id: ParaId) -> Assignment;
-}
 
-/// An `AssignmentProvider` with a determined set of cores.
-///
-/// An assignment provider of this kind has a certain core range it can serve, given by
-/// `session_core_count`.
-///
-/// An `AssignmentProvider` not implementing this trait is assumed to be flexible in cores. It does
-/// not care for what core you pop an assignment, you can give it any number and it will happily
-/// operate. This is kind of true for any `AssignmentProvider`, but the caller can assume if for a
-/// `FixedAssignmentProvider` `pop_assignment_for_core` gets called for a core number higher or
-/// equal than `session_core_count` that the result will always be `None`.
-pub trait FixedAssignmentProvider<BlockNumber>: AssignmentProvider<BlockNumber> {
 	/// How many cores are allocated to this provider.
 	///
 	/// As the name suggests the core count has to be session buffered:

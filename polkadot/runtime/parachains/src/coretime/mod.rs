@@ -66,10 +66,6 @@ impl WeightInfo for TestWeightInfo {
 	}
 }
 
-/// Shorthand for the Balance type the runtime is using.
-// type BalanceOf<T> =
-//     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-
 /// Broker pallet index on the coretime chain. Used to
 ///
 /// construct remote calls. The codec index must correspond to the index of `Broker` in the
