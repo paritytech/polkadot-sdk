@@ -247,7 +247,7 @@ fn mk_coretime_call(call: crate::coretime::CoretimeCalls) -> Instruction<()> {
 		origin_kind: OriginKind::Native,
 		// Largest call is set_lease with 1526 byte:
 		// Longest call is reserve() with 31_000_000
-		require_weight_at_most: Weight::from_parts(100_000_000, 2000),
+		require_weight_at_most: Weight::from_parts(100_000_000, 20_000),
 		call: BrokerRuntimePallets::Broker(call).encode().into(),
 	}
 }
