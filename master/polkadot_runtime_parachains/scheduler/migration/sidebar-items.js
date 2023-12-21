@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["migrate_to_v1"],"mod":["v1"]};
+window.SIDEBAR_ITEMS = {"type":["MigrateV0ToV1","MigrateV1ToV2"]};

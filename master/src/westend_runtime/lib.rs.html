@@ -2541,6 +2541,14 @@
 <a href="#2541" id="2541">2541</a>
 <a href="#2542" id="2542">2542</a>
 <a href="#2543" id="2543">2543</a>
+<a href="#2544" id="2544">2544</a>
+<a href="#2545" id="2545">2545</a>
+<a href="#2546" id="2546">2546</a>
+<a href="#2547" id="2547">2547</a>
+<a href="#2548" id="2548">2548</a>
+<a href="#2549" id="2549">2549</a>
+<a href="#2550" id="2550">2550</a>
+<a href="#2551" id="2551">2551</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2658,7 +2666,7 @@
 </span><span class="kw">pub use </span>sp_runtime::BuildStorage;
 
 <span class="doccomment">/// Constant values used within the runtime.
-</span><span class="kw">use </span>westend_runtime_constants::{currency::<span class="kw-2">*</span>, fee::<span class="kw-2">*</span>, time::<span class="kw-2">*</span>};
+</span><span class="kw">use </span>westend_runtime_constants::{currency::<span class="kw-2">*</span>, fee::<span class="kw-2">*</span>, system_parachain::BROKER_ID, time::<span class="kw-2">*</span>};
 
 <span class="kw">mod </span>bag_thresholds;
 <span class="kw">mod </span>weights;
@@ -3692,6 +3700,7 @@
 	<span class="kw">type </span>QueueFootprinter = ParaInclusion;
 	<span class="kw">type </span>NextSessionRotation = Babe;
 	<span class="kw">type </span>OnNewHead = ();
+	<span class="kw">type </span>AssignCoretime = ();
 }
 
 <span class="macro">parameter_types! </span>{
@@ -3758,7 +3767,13 @@
 }
 
 <span class="kw">impl </span>parachains_scheduler::Config <span class="kw">for </span>Runtime {
-	<span class="kw">type </span>AssignmentProvider = ParaAssignmentProvider;
+	<span class="comment">// If you change this, make sure the `Assignment` type of the new provider is binary compatible,
+	// otherwise provide a migration.
+	</span><span class="kw">type </span>AssignmentProvider = ParachainsAssignmentProvider;
+}
+
+<span class="macro">parameter_types! </span>{
+	<span class="kw">pub const </span>BrokerId: u32 = BROKER_ID;
 }
 
 <span class="kw">impl </span>parachains_assigner_parachains::Config <span class="kw">for </span>Runtime {}
@@ -3767,6 +3782,7 @@
 	<span class="kw">type </span>Randomness = pallet_babe::RandomnessFromOneEpochAgo&lt;Runtime&gt;;
 	<span class="kw">type </span>ForceOrigin = EnsureRoot&lt;AccountId&gt;;
 	<span class="kw">type </span>WeightInfo = weights::runtime_parachains_initializer::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>CoretimeOnNewSession = ();
 }
 
 <span class="kw">impl </span>paras_sudo_wrapper::Config <span class="kw">for </span>Runtime {}
@@ -4028,7 +4044,7 @@
 		ParaSessionInfo: parachains_session_info::{Pallet, Storage} = <span class="number">52</span>,
 		ParasDisputes: parachains_disputes::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">53</span>,
 		ParasSlashing: parachains_slashing::{Pallet, Call, Storage, ValidateUnsigned} = <span class="number">54</span>,
-		ParaAssignmentProvider: parachains_assigner_parachains::{Pallet, Storage} = <span class="number">55</span>,
+		ParachainsAssignmentProvider: parachains_assigner_parachains::{Pallet} = <span class="number">55</span>,
 
 		<span class="comment">// Parachain Onboarding Pallets. Start indices at 60 to leave room.
 		</span>Registrar: paras_registrar::{Pallet, Call, Storage, Event&lt;T&gt;, Config&lt;T&gt;} = <span class="number">60</span>,
@@ -4179,7 +4195,7 @@
 		parachains_configuration::migration::v7::MigrateToV7&lt;Runtime&gt;,
 		pallet_staking::migrations::v14::MigrateToV14&lt;Runtime&gt;,
 		assigned_slots::migration::v1::MigrateToV1&lt;Runtime&gt;,
-		parachains_scheduler::migration::v1::MigrateToV1&lt;Runtime&gt;,
+		parachains_scheduler::migration::MigrateV1ToV2&lt;Runtime&gt;,
 		parachains_configuration::migration::v8::MigrateToV8&lt;Runtime&gt;,
 		parachains_configuration::migration::v9::MigrateToV9&lt;Runtime&gt;,
 		paras_registrar::migration::MigrateToV1&lt;Runtime, ()&gt;,

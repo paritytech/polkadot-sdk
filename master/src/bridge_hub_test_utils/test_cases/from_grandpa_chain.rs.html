@@ -488,9 +488,9 @@
 
 <span class="doccomment">/// Helper trait to test bridges with remote GRANDPA chain.
 ///
-/// This is only used to decrease amount of lines, dedicated to bounds
+/// This is only used to decrease amount of lines, dedicated to bounds.
 </span><span class="kw">pub trait </span>WithRemoteGrandpaChainHelper {
-	<span class="doccomment">/// This chaiin runtime.
+	<span class="doccomment">/// This chain runtime.
 	</span><span class="kw">type </span>Runtime: BasicParachainRuntime
 		+ cumulus_pallet_xcmp_queue::Config
 		+ BridgeGrandpaConfig&lt;
@@ -513,7 +513,7 @@
 	</span><span class="kw">type </span>MB: MessageBridge;
 }
 
-<span class="doccomment">/// Adapter struct that implements `WithRemoteGrandpaChainHelper`
+<span class="doccomment">/// Adapter struct that implements [`WithRemoteGrandpaChainHelper`].
 </span><span class="kw">pub struct </span>WithRemoteGrandpaChainHelperAdapter&lt;Runtime, AllPalletsWithoutSystem, GPI, MPI, MB&gt;(
 	sp_std::marker::PhantomData&lt;(Runtime, AllPalletsWithoutSystem, GPI, MPI, MB)&gt;,
 );

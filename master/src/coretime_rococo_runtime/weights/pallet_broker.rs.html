@@ -482,6 +482,9 @@
 <a href="#482" id="482">482</a>
 <a href="#483" id="483">483</a>
 <a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -946,6 +949,9 @@
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">3539</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">5</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">2</span>))
+	}
+	<span class="kw">fn </span>notify_core_count() -&gt; Weight {
+		T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">1</span>)
 	}
 	<span class="doccomment">/// Storage: `Broker::Status` (r:1 w:1)
 	/// Proof: `Broker::Status` (`max_values`: Some(1), `max_size`: Some(18), added: 513, mode: `MaxEncodedLen`)

@@ -552,7 +552,7 @@
 	//
 	// At the end of a session we clear the claim queues: Without this update call, nothing would be
 	// scheduled to the client.
-	</span>&lt;scheduler::Pallet&lt;T&gt;&gt;::update_claimqueue(Vec::new(), now);
+	</span>&lt;scheduler::Pallet&lt;T&gt;&gt;::free_cores_and_fill_claimqueue(Vec::new(), now);
 
 	<span class="kw">let </span>time_out_for = &lt;scheduler::Pallet&lt;T&gt;&gt;::availability_timeout_predicate();
 

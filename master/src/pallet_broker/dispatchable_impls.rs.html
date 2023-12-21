@@ -430,6 +430,11 @@
 <a href="#430" id="430">430</a>
 <a href="#431" id="431">431</a>
 <a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -466,6 +471,11 @@
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_request_core_count(core_count: CoreIndex) -&gt; DispatchResult {
 		T::Coretime::request_core_count(core_count);
 		<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::CoreCountRequested { core_count });
+		<span class="prelude-val">Ok</span>(())
+	}
+
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_notify_core_count(core_count: CoreIndex) -&gt; DispatchResult {
+		CoreCountInbox::&lt;T&gt;::put(core_count);
 		<span class="prelude-val">Ok</span>(())
 	}
 

@@ -1993,6 +1993,7 @@ struct CoreAssignment {
   core: CoreIndex,
   para_id: ParaId,
   kind: AssignmentKind,
+  group_idx: GroupIndex,
 }
 // reasons a core might be freed.
 enum FreedReason {
@@ -2138,7 +2139,7 @@ which no longer exist under paras.</li>
 </ul>
 </li>
 </ul>
-<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="inclusion-pallet"><a class="header" href="#inclusion-pallet">Inclusion Pallet</a></h1>
+<footer id="last-change">Last change: 2023-12-21, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/69434d9a32">69434d9a32</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="inclusion-pallet"><a class="header" href="#inclusion-pallet">Inclusion Pallet</a></h1>
 <p>The inclusion module is responsible for inclusion and availability of scheduled parachains. It also manages the UMP
 dispatch queue of each parachain.</p>
 <h2 id="storage-6"><a class="header" href="#storage-6">Storage</a></h2>

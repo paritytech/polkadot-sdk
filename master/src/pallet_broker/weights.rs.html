@@ -853,6 +853,14 @@
 <a href="#853" id="853">853</a>
 <a href="#854" id="854">854</a>
 <a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -929,6 +937,7 @@
 	<span class="kw">fn </span>process_pool() -&gt; Weight;
 	<span class="kw">fn </span>process_core_schedule() -&gt; Weight;
 	<span class="kw">fn </span>request_revenue_info_at() -&gt; Weight;
+	<span class="kw">fn </span>notify_core_count() -&gt; Weight;
 	<span class="kw">fn </span>do_tick_base() -&gt; Weight;
 }
 
@@ -1301,6 +1310,9 @@
 		//  Estimated: `0`
 		// Minimum execution time: 147_000 picoseconds.
 		</span>Weight::from_parts(<span class="number">184_000</span>, <span class="number">0</span>)
+	}
+	<span class="kw">fn </span>notify_core_count() -&gt; Weight {
+		T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">1</span>)
 	}
 	<span class="doccomment">/// Storage: `Broker::Status` (r:1 w:1)
 	/// Proof: `Broker::Status` (`max_values`: Some(1), `max_size`: Some(18), added: 513, mode: `MaxEncodedLen`)
@@ -1689,6 +1701,10 @@
 		//  Estimated: `0`
 		// Minimum execution time: 147_000 picoseconds.
 		</span>Weight::from_parts(<span class="number">184_000</span>, <span class="number">0</span>)
+	}
+	<span class="kw">fn </span>notify_core_count() -&gt; Weight {
+		RocksDbWeight::get().reads(<span class="number">1</span>)
+			.saturating_add(RocksDbWeight::get().writes(<span class="number">1</span>))
 	}
 	<span class="doccomment">/// Storage: `Broker::Status` (r:1 w:1)
 	/// Proof: `Broker::Status` (`max_values`: Some(1), `max_size`: Some(18), added: 513, mode: `MaxEncodedLen`)

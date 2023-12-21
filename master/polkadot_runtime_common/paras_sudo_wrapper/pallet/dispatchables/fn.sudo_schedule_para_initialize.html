@@ -2,6 +2,9 @@
     id: <a class="struct" href="../../../../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">Id</a>,
     genesis: <a class="struct" href="../../../../polkadot_runtime_parachains/paras/struct.ParaGenesisArgs.html" title="struct polkadot_runtime_parachains::paras::ParaGenesisArgs">ParaGenesisArgs</a>
 )</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Schedule a para to be initialized at the start of the next session.</p>
+<p>This should only be used for TESTING and not on PRODUCTION chains. It automatically
+assigns Coretime to the chain and increases the number of cores. Thus, there is no
+running coretime chain required.</p>
 <h2 id="warning-doc-only"><a href="#warning-doc-only">Warning: Doc-Only</a></h2>
 <p>This function is an automatically generated, and is doc-only, uncallable
 stub. See the real version in

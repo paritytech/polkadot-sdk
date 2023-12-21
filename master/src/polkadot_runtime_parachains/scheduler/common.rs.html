@@ -70,6 +70,36 @@
 <a href="#70" id="70">70</a>
 <a href="#71" id="71">71</a>
 <a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -88,30 +118,40 @@
 
 </span><span class="doccomment">//! Common traits and types used by the scheduler and assignment providers.
 
-</span><span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
+</span><span class="kw">use </span>scale_info::TypeInfo;
+<span class="kw">use </span>sp_runtime::{
+	codec::{Decode, Encode},
+	RuntimeDebug,
+};
+
 <span class="kw">use </span>primitives::{CoreIndex, Id <span class="kw">as </span>ParaId};
-<span class="kw">use </span>scale_info::TypeInfo;
-<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
-<span class="comment">// Only used to link to configuration documentation.
-</span><span class="attr">#[allow(unused)]
-</span><span class="kw">use </span><span class="kw">crate</span>::configuration::HostConfiguration;
-
-<span class="doccomment">/// An assignment for a parachain scheduled to be backed and included in a relay chain block.
-</span><span class="attr">#[derive(Clone, Encode, Decode, PartialEq, TypeInfo, RuntimeDebug)]
-</span><span class="kw">pub struct </span>Assignment {
-	<span class="doccomment">/// Assignment&#39;s ParaId
-	</span><span class="kw">pub </span>para_id: ParaId,
+<span class="doccomment">/// Assignment (ParaId -&gt; CoreIndex).
+</span><span class="attr">#[derive(Encode, Decode, TypeInfo, RuntimeDebug, Clone, PartialEq)]
+</span><span class="kw">pub enum </span>Assignment {
+	<span class="doccomment">/// A pool assignment.
+	</span>Pool {
+		<span class="doccomment">/// The assigned para id.
+		</span>para_id: ParaId,
+		<span class="doccomment">/// The core index the para got assigned to.
+		</span>core_index: CoreIndex,
+	},
+	<span class="doccomment">/// A bulk assignment.
+	</span>Bulk(ParaId),
 }
 
 <span class="kw">impl </span>Assignment {
-	<span class="doccomment">/// Create a new `Assignment`.
-	</span><span class="kw">pub fn </span>new(para_id: ParaId) -&gt; <span class="self">Self </span>{
-		<span class="self">Self </span>{ para_id }
+	<span class="doccomment">/// Returns the [`ParaId`] this assignment is associated to.
+	</span><span class="kw">pub fn </span>para_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ParaId {
+		<span class="kw">match </span><span class="self">self </span>{
+			<span class="self">Self</span>::Pool { para_id, .. } =&gt; <span class="kw-2">*</span>para_id,
+			<span class="self">Self</span>::Bulk(para_id) =&gt; <span class="kw-2">*</span>para_id,
+		}
 	}
 }
 
-<span class="doccomment">/// A set of variables required by the scheduler in order to operate.
+<span class="attr">#[derive(Encode, Decode, TypeInfo)]
+</span><span class="doccomment">/// A set of variables required by the scheduler in order to operate.
 </span><span class="kw">pub struct </span>AssignmentProviderConfig&lt;BlockNumber&gt; {
 	<span class="doccomment">/// How many times a collation can time out on availability.
 	/// Zero timeouts still means that a collation can be provided as per the slot auction
@@ -123,23 +163,43 @@
 }
 
 <span class="kw">pub trait </span>AssignmentProvider&lt;BlockNumber&gt; {
-	<span class="doccomment">/// How many cores are allocated to this provider.
-	</span><span class="kw">fn </span>session_core_count() -&gt; u32;
-
 	<span class="doccomment">/// Pops an [`Assignment`] from the provider for a specified [`CoreIndex`].
-	/// The `concluded_para` field makes the caller report back to the provider
-	/// which [`ParaId`] it processed last on the supplied [`CoreIndex`].
-	</span><span class="kw">fn </span>pop_assignment_for_core(
-		core_idx: CoreIndex,
-		concluded_para: <span class="prelude-ty">Option</span>&lt;ParaId&gt;,
-	) -&gt; <span class="prelude-ty">Option</span>&lt;Assignment&gt;;
+	///
+	/// This is where assignments come into existance.
+	</span><span class="kw">fn </span>pop_assignment_for_core(core_idx: CoreIndex) -&gt; <span class="prelude-ty">Option</span>&lt;Assignment&gt;;
 
-	<span class="doccomment">/// Push back an already popped assignment. Intended for provider implementations
-	/// that need to be able to keep track of assignments over session boundaries,
-	/// such as the on demand assignment provider.
-	</span><span class="kw">fn </span>push_assignment_for_core(core_idx: CoreIndex, assignment: Assignment);
+	<span class="doccomment">/// A previously popped `Assignment` has been fully processed.
+	///
+	/// Report back to the assignment provider that an assignment is done and no longer present in
+	/// the scheduler.
+	///
+	/// This is one way of the life of an assignment coming to an end.
+	</span><span class="kw">fn </span>report_processed(assignment: Assignment);
+
+	<span class="doccomment">/// Push back a previously popped assignment.
+	///
+	/// If the assignment could not be processed within the current session, it can be pushed back
+	/// to the assignment provider in order to be poppped again later.
+	///
+	/// This is the second way the life of an assignment can come to an end.
+	</span><span class="kw">fn </span>push_back_assignment(assignment: Assignment);
 
 	<span class="doccomment">/// Returns a set of variables needed by the scheduler
 	</span><span class="kw">fn </span>get_provider_config(core_idx: CoreIndex) -&gt; AssignmentProviderConfig&lt;BlockNumber&gt;;
+
+	<span class="doccomment">/// Push some assignment for mocking/benchmarks purposes.
+	///
+	/// Useful for benchmarks and testing. The returned assignment is &quot;valid&quot; and can if need be
+	/// passed into `report_processed` for example.
+	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, test))]
+	</span><span class="kw">fn </span>get_mock_assignment(core_idx: CoreIndex, para_id: ParaId) -&gt; Assignment;
+
+	<span class="doccomment">/// How many cores are allocated to this provider.
+	///
+	/// As the name suggests the core count has to be session buffered:
+	///
+	/// - Core count has to be predetermined for the next session in the current session.
+	/// - Core count must not change during a session.
+	</span><span class="kw">fn </span>session_core_count() -&gt; u32;
 }
 </code></pre></div></section></main></body></html>

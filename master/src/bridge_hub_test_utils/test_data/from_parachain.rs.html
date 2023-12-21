@@ -324,6 +324,7 @@
 <a href="#324" id="324">324</a>
 <a href="#325" id="325">325</a>
 <a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -348,12 +349,14 @@
 	source_chain::TargetHeaderChain, target_chain::SourceHeaderChain, LaneId,
 	UnrewardedRelayersState, Weight,
 };
-<span class="kw">use </span>bp_runtime::{BlockNumberOf, HeaderOf, Parachain, StorageProofSize, UnderlyingChainOf};
+<span class="kw">use </span>bp_runtime::{
+	AccountIdOf, BlockNumberOf, HeaderOf, Parachain, StorageProofSize, UnderlyingChainOf,
+};
 <span class="kw">use </span>bp_test_utils::prepare_parachain_heads_proof;
 <span class="kw">use </span>bridge_runtime_common::{
 	messages::{
 		source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
-		BridgedChain <span class="kw">as </span>MessageBridgedChain, MessageBridge,
+		BridgedChain <span class="kw">as </span>MessageBridgedChain, MessageBridge, ThisChain <span class="kw">as </span>MessageThisChain,
 	},
 	messages_generation::{
 		encode_all_messages, encode_lane_data, prepare_message_delivery_storage_proof,
@@ -364,7 +367,7 @@
 <span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>pallet_bridge_grandpa::BridgedHeader;
 <span class="kw">use </span>pallet_bridge_parachains::{RelayBlockHash, RelayBlockNumber};
-<span class="kw">use </span>sp_runtime::{traits::Header <span class="kw">as </span>HeaderT, AccountId32};
+<span class="kw">use </span>sp_runtime::traits::Header <span class="kw">as </span>HeaderT;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">use </span>bp_header_chain::{justification::GrandpaJustification, ChainWithGrandpa};
@@ -373,17 +376,21 @@
 <span class="kw">use </span>sp_runtime::SaturatedConversion;
 
 <span class="doccomment">/// Prepare a batch call with relay finality proof, parachain head proof and message proof.
-</span><span class="kw">pub fn </span>make_complex_relayer_delivery_batch&lt;Runtime, GPI, PPI, MPI&gt;(
+</span><span class="kw">pub fn </span>make_complex_relayer_delivery_batch&lt;Runtime, GPI, PPI, MPI, InboundRelayer&gt;(
 	relay_chain_header: BridgedHeader&lt;Runtime, GPI&gt;,
 	grandpa_justification: GrandpaJustification&lt;BridgedHeader&lt;Runtime, GPI&gt;&gt;,
 	parachain_heads: Vec&lt;(ParaId, ParaHash)&gt;,
 	para_heads_proof: ParaHeadsProof,
 	message_proof: FromBridgedChainMessagesProof&lt;ParaHash&gt;,
-	relayer_id_at_bridged_chain: AccountId32,
+	relayer_id_at_bridged_chain: InboundRelayer,
 ) -&gt; pallet_utility::Call&lt;Runtime&gt; <span class="kw">where
 	</span>Runtime:pallet_bridge_grandpa::Config&lt;GPI&gt;
 		+ pallet_bridge_parachains::Config&lt;PPI&gt;
-		+ pallet_bridge_messages::Config&lt;MPI, InboundPayload = XcmAsPlainPayload&gt;
+		+ pallet_bridge_messages::Config&lt;
+			MPI,
+			InboundPayload = XcmAsPlainPayload,
+			InboundRelayer = InboundRelayer,
+		&gt;
 		+ pallet_utility::Config,
 	GPI: <span class="lifetime">&#39;static</span>,
 	PPI: <span class="lifetime">&#39;static</span>,
@@ -392,7 +399,6 @@
 	&lt;&lt;Runtime <span class="kw">as </span>pallet_bridge_grandpa::Config&lt;GPI&gt;&gt;::BridgedChain <span class="kw">as </span>bp_runtime::Chain&gt;::Hash: From&lt;ParaHash&gt;,
 	&lt;&lt;Runtime <span class="kw">as </span>pallet_bridge_messages::Config&lt;MPI&gt;&gt;::SourceHeaderChain <span class="kw">as </span>SourceHeaderChain&gt;::MessagesProof:
 		From&lt;FromBridgedChainMessagesProof&lt;ParaHash&gt;&gt;,
-	&lt;Runtime <span class="kw">as </span>pallet_bridge_messages::Config&lt;MPI&gt;&gt;::InboundRelayer: From&lt;AccountId32&gt;,
 	&lt;Runtime <span class="kw">as </span>pallet_utility::Config&gt;::RuntimeCall:
 		From&lt;pallet_bridge_grandpa::Call&lt;Runtime, GPI&gt;&gt;
 		+ From&lt;pallet_bridge_parachains::Call&lt;Runtime, PPI&gt;&gt;
@@ -443,10 +449,11 @@
 	MPI: <span class="lifetime">&#39;static</span>,
 	&lt;Runtime <span class="kw">as </span>pallet_bridge_grandpa::Config&lt;GPI&gt;&gt;::BridgedChain:
 		bp_runtime::Chain&lt;Hash = RelayBlockHash, BlockNumber = RelayBlockNumber&gt; + ChainWithGrandpa,
-	&lt;&lt;Runtime <span class="kw">as </span>pallet_bridge_messages::Config&lt;MPI&gt;&gt;::TargetHeaderChain <span class="kw">as </span>TargetHeaderChain&lt;
+	&lt;Runtime <span class="kw">as </span>pallet_bridge_messages::Config&lt;MPI&gt;&gt;::TargetHeaderChain: TargetHeaderChain&lt;
 		XcmAsPlainPayload,
 		Runtime::AccountId,
-	&gt;&gt;::MessagesDeliveryProof: From&lt;FromBridgedChainMessagesDeliveryProof&lt;ParaHash&gt;&gt;,
+		MessagesDeliveryProof = FromBridgedChainMessagesDeliveryProof&lt;ParaHash&gt;,
+	&gt;,
 	&lt;Runtime <span class="kw">as </span>pallet_utility::Config&gt;::RuntimeCall: From&lt;pallet_bridge_grandpa::Call&lt;Runtime, GPI&gt;&gt;
 		+ From&lt;pallet_bridge_parachains::Call&lt;Runtime, PPI&gt;&gt;
 		+ From&lt;pallet_bridge_messages::Call&lt;Runtime, MPI&gt;&gt;,
@@ -467,7 +474,7 @@
 	};
 	<span class="kw">let </span>submit_message_delivery_proof =
 		pallet_bridge_messages::Call::&lt;Runtime, MPI&gt;::receive_messages_delivery_proof {
-			proof: message_delivery_proof.into(),
+			proof: message_delivery_proof,
 			relayers_state,
 		};
 	pallet_utility::Call::&lt;Runtime&gt;::batch_all {
@@ -500,8 +507,6 @@
 	</span>BridgedRelayChain:
 		bp_runtime::Chain&lt;Hash = RelayBlockHash, BlockNumber = RelayBlockNumber&gt; + ChainWithGrandpa,
 	MB: MessageBridge,
-	&lt;MB <span class="kw">as </span>MessageBridge&gt;::BridgedChain: Send + Sync + <span class="lifetime">&#39;static</span>,
-	&lt;MB <span class="kw">as </span>MessageBridge&gt;::ThisChain: Send + Sync + <span class="lifetime">&#39;static</span>,
 	UnderlyingChainOf&lt;MessageBridgedChain&lt;MB&gt;&gt;: bp_runtime::Chain&lt;Hash = ParaHash&gt; + Parachain,
 {
 	<span class="kw">let </span>message_payload = prepare_inbound_xcm(xcm_message, message_destination);
@@ -549,7 +554,7 @@
 	para_header_number: u32,
 	relay_header_number: u32,
 	bridged_para_id: u32,
-	relayer_id_at_this_chain: AccountId32,
+	relayer_id_at_this_chain: AccountIdOf&lt;MessageThisChain&lt;MB&gt;&gt;,
 	relayers_state: UnrewardedRelayersState,
 ) -&gt; (
 	HeaderOf&lt;BridgedRelayChain&gt;,
@@ -563,9 +568,6 @@
 	</span>BridgedRelayChain:
 		bp_runtime::Chain&lt;Hash = RelayBlockHash, BlockNumber = RelayBlockNumber&gt; + ChainWithGrandpa,
 	MB: MessageBridge,
-	&lt;MB <span class="kw">as </span>MessageBridge&gt;::BridgedChain: Send + Sync + <span class="lifetime">&#39;static</span>,
-	&lt;MB <span class="kw">as </span>MessageBridge&gt;::ThisChain: Send + Sync + <span class="lifetime">&#39;static</span>,
-	&lt;&lt;MB <span class="kw">as </span>MessageBridge&gt;::ThisChain <span class="kw">as </span>bp_runtime::Chain&gt;::AccountId: From&lt;AccountId32&gt;,
 	UnderlyingChainOf&lt;MessageBridgedChain&lt;MB&gt;&gt;: bp_runtime::Chain&lt;Hash = ParaHash&gt; + Parachain,
 {
 	<span class="comment">// prepare para storage proof containing message delivery proof

@@ -268,6 +268,9 @@
 <a href="#268" id="268">268</a>
 <a href="#269" id="269">269</a>
 <a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -390,6 +393,7 @@
 	<span class="kw">pub const </span>Contracts: MultiLocation = Parachain(CONTRACTS_ID).into_location();
 	<span class="kw">pub const </span>Encointer: MultiLocation = Parachain(ENCOINTER_ID).into_location();
 	<span class="kw">pub const </span>BridgeHub: MultiLocation = Parachain(BRIDGE_HUB_ID).into_location();
+	<span class="kw">pub const </span>Broker: MultiLocation = Parachain(BROKER_ID).into_location();
 	<span class="kw">pub const </span>Tick: MultiLocation = Parachain(<span class="number">100</span>).into_location();
 	<span class="kw">pub const </span>Trick: MultiLocation = Parachain(<span class="number">110</span>).into_location();
 	<span class="kw">pub const </span>Track: MultiLocation = Parachain(<span class="number">120</span>).into_location();
@@ -400,6 +404,7 @@
 	<span class="kw">pub const </span>RocForContracts: (MultiAssetFilter, MultiLocation) = (Roc::get(), Contracts::get());
 	<span class="kw">pub const </span>RocForEncointer: (MultiAssetFilter, MultiLocation) = (Roc::get(), Encointer::get());
 	<span class="kw">pub const </span>RocForBridgeHub: (MultiAssetFilter, MultiLocation) = (Roc::get(), BridgeHub::get());
+	<span class="kw">pub const </span>RocForBroker: (MultiAssetFilter, MultiLocation) = (Roc::get(), Broker::get());
 	<span class="kw">pub const </span>MaxInstructions: u32 = <span class="number">100</span>;
 	<span class="kw">pub const </span>MaxAssetsIntoHolding: u32 = <span class="number">64</span>;
 }
@@ -411,6 +416,7 @@
 	xcm_builder::Case&lt;RocForContracts&gt;,
 	xcm_builder::Case&lt;RocForEncointer&gt;,
 	xcm_builder::Case&lt;RocForBridgeHub&gt;,
+	xcm_builder::Case&lt;RocForBroker&gt;,
 );
 
 <span class="macro">match_types! </span>{

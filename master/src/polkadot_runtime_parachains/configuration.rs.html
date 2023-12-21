@@ -1434,6 +1434,18 @@
 <a href="#1434" id="1434">1434</a>
 <a href="#1435" id="1435">1435</a>
 <a href="#1436" id="1436">1436</a>
+<a href="#1437" id="1437">1437</a>
+<a href="#1438" id="1438">1438</a>
+<a href="#1439" id="1439">1439</a>
+<a href="#1440" id="1440">1440</a>
+<a href="#1441" id="1441">1441</a>
+<a href="#1442" id="1442">1442</a>
+<a href="#1443" id="1443">1443</a>
+<a href="#1444" id="1444">1444</a>
+<a href="#1445" id="1445">1445</a>
+<a href="#1446" id="1446">1446</a>
+<a href="#1447" id="1447">1447</a>
+<a href="#1448" id="1448">1448</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1608,8 +1620,8 @@
 	/// How long to keep code on-chain, in blocks. This should be sufficiently long that disputes
 	/// have concluded.
 	</span><span class="kw">pub </span>code_retention_period: BlockNumber,
-	<span class="doccomment">/// The amount of execution cores to dedicate to on demand execution.
-	</span><span class="kw">pub </span>on_demand_cores: u32,
+	<span class="doccomment">/// How many cores are managed by the coretime chain.
+	</span><span class="kw">pub </span>coretime_cores: u32,
 	<span class="doccomment">/// The number of retries that a on demand author has to submit their block.
 	</span><span class="kw">pub </span>on_demand_retries: u32,
 	<span class="doccomment">/// The maximum queue size of the pay as you go module.
@@ -1720,7 +1732,7 @@
 			max_code_size: Default::default(),
 			max_pov_size: Default::default(),
 			max_head_data_size: Default::default(),
-			on_demand_cores: Default::default(),
+			coretime_cores: Default::default(),
 			on_demand_retries: Default::default(),
 			scheduling_lookahead: <span class="number">1</span>,
 			max_validators_per_core: Default::default(),
@@ -2101,17 +2113,18 @@
 			})
 		}
 
-		<span class="doccomment">/// Set the number of on demand execution cores.
+		<span class="doccomment">/// Set the number of coretime execution cores.
+		///
+		/// Note that this configuration is managed by the coretime chain. Only manually change
+		/// this, if you really know what you are doing!
 		</span><span class="attr">#[pallet::call_index(<span class="number">6</span>)]
 		#[pallet::weight((
 			T::WeightInfo::set_config_with_u32(),
 			DispatchClass::Operational,
 		))]
-		</span><span class="kw">pub fn </span>set_on_demand_cores(origin: OriginFor&lt;T&gt;, new: u32) -&gt; DispatchResult {
+		</span><span class="kw">pub fn </span>set_coretime_cores(origin: OriginFor&lt;T&gt;, new: u32) -&gt; DispatchResult {
 			ensure_root(origin)<span class="question-mark">?</span>;
-			<span class="self">Self</span>::schedule_config_update(|config| {
-				config.on_demand_cores = new;
-			})
+			<span class="self">Self</span>::set_coretime_cores_unchecked(new)
 		}
 
 		<span class="doccomment">/// Set the number of retries for a particular on demand.
@@ -2677,6 +2690,17 @@
 			ensure_root(origin)<span class="question-mark">?</span>;
 			<span class="self">Self</span>::schedule_config_update(|config| {
 				config.approval_voting_params = new;
+			})
+		}
+	}
+
+	<span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+		<span class="doccomment">/// Set coretime cores.
+		///
+		/// To be used if authorization is checked otherwise.
+		</span><span class="kw">pub fn </span>set_coretime_cores_unchecked(new: u32) -&gt; DispatchResult {
+			<span class="self">Self</span>::schedule_config_update(|config| {
+				config.coretime_cores = new;
 			})
 		}
 	}

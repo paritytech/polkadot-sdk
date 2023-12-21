@@ -2876,16 +2876,6 @@
 <a href="#2876" id="2876">2876</a>
 <a href="#2877" id="2877">2877</a>
 <a href="#2878" id="2878">2878</a>
-<a href="#2879" id="2879">2879</a>
-<a href="#2880" id="2880">2880</a>
-<a href="#2881" id="2881">2881</a>
-<a href="#2882" id="2882">2882</a>
-<a href="#2883" id="2883">2883</a>
-<a href="#2884" id="2884">2884</a>
-<a href="#2885" id="2885">2885</a>
-<a href="#2886" id="2886">2886</a>
-<a href="#2887" id="2887">2887</a>
-<a href="#2888" id="2888">2888</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4881,7 +4871,6 @@
 }
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub </span>storage CoreCount: <span class="prelude-ty">Option</span>&lt;CoreIndex&gt; = <span class="prelude-val">None</span>;
 	<span class="kw">pub </span>storage CoretimeRevenue: <span class="prelude-ty">Option</span>&lt;(BlockNumber, Balance)&gt; = <span class="prelude-val">None</span>;
 }
 
@@ -4900,19 +4889,10 @@
 		_end_hint: <span class="prelude-ty">Option</span>&lt;u32&gt;,
 	) {
 	}
-	<span class="kw">fn </span>check_notify_core_count() -&gt; <span class="prelude-ty">Option</span>&lt;u16&gt; {
-		<span class="kw">let </span>count = CoreCount::get();
-		CoreCount::set(<span class="kw-2">&amp;</span><span class="prelude-val">None</span>);
-		count
-	}
 	<span class="kw">fn </span>check_notify_revenue_info() -&gt; <span class="prelude-ty">Option</span>&lt;(u32, <span class="self">Self</span>::Balance)&gt; {
 		<span class="kw">let </span>revenue = CoretimeRevenue::get();
 		CoretimeRevenue::set(<span class="kw-2">&amp;</span><span class="prelude-val">None</span>);
 		revenue
-	}
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-	</span><span class="kw">fn </span>ensure_notify_core_count(count: u16) {
-		CoreCount::set(<span class="kw-2">&amp;</span><span class="prelude-val">Some</span>(count));
 	}
 	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 	</span><span class="kw">fn </span>ensure_notify_revenue_info(when: u32, revenue: <span class="self">Self</span>::Balance) {

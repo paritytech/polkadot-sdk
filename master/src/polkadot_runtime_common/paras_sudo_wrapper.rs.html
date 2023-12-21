@@ -172,6 +172,15 @@
 <a href="#172" id="172">172</a>
 <a href="#173" id="173">173</a>
 <a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -197,7 +206,7 @@
 <span class="kw">use </span>primitives::Id <span class="kw">as </span>ParaId;
 <span class="kw">use </span>runtime_parachains::{
 	configuration, dmp, hrmp,
-	paras::{<span class="self">self</span>, ParaGenesisArgs},
+	paras::{<span class="self">self</span>, AssignCoretime, ParaGenesisArgs},
 	ParaLifecycle,
 };
 <span class="kw">use </span>sp_std::boxed::Box;
@@ -232,6 +241,8 @@
 		</span>CannotUpgrade,
 		<span class="doccomment">/// Cannot downgrade lease holding parachain to on-demand.
 		</span>CannotDowngrade,
+		<span class="doccomment">/// There are more cores than supported by the runtime.
+		</span>TooManyCores,
 	}
 
 	<span class="attr">#[pallet::hooks]
@@ -240,6 +251,10 @@
 	<span class="attr">#[pallet::call]
 	</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
 		<span class="doccomment">/// Schedule a para to be initialized at the start of the next session.
+		///
+		/// This should only be used for TESTING and not on PRODUCTION chains. It automatically
+		/// assigns Coretime to the chain and increases the number of cores. Thus, there is no
+		/// running coretime chain required.
 		</span><span class="attr">#[pallet::call_index(<span class="number">0</span>)]
 		#[pallet::weight((<span class="number">1_000</span>, DispatchClass::Operational))]
 		</span><span class="kw">pub fn </span>sudo_schedule_para_initialize(
@@ -250,6 +265,9 @@
 			ensure_root(origin)<span class="question-mark">?</span>;
 			runtime_parachains::schedule_para_initialize::&lt;T&gt;(id, genesis)
 				.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::ParaAlreadyExists)<span class="question-mark">?</span>;
+
+			T::AssignCoretime::assign_coretime(id)<span class="question-mark">?</span>;
+
 			<span class="prelude-val">Ok</span>(())
 		}
 

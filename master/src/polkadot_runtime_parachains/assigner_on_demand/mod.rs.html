@@ -598,24 +598,6 @@
 <a href="#598" id="598">598</a>
 <a href="#599" id="599">599</a>
 <a href="#600" id="600">600</a>
-<a href="#601" id="601">601</a>
-<a href="#602" id="602">602</a>
-<a href="#603" id="603">603</a>
-<a href="#604" id="604">604</a>
-<a href="#605" id="605">605</a>
-<a href="#606" id="606">606</a>
-<a href="#607" id="607">607</a>
-<a href="#608" id="608">608</a>
-<a href="#609" id="609">609</a>
-<a href="#610" id="610">610</a>
-<a href="#611" id="611">611</a>
-<a href="#612" id="612">612</a>
-<a href="#613" id="613">613</a>
-<a href="#614" id="614">614</a>
-<a href="#615" id="615">615</a>
-<a href="#616" id="616">616</a>
-<a href="#617" id="617">617</a>
-<a href="#618" id="618">618</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -650,10 +632,7 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 
-<span class="kw">use crate</span>::{
-	configuration, paras,
-	scheduler::common::{Assignment, AssignmentProvider, AssignmentProviderConfig},
-};
+<span class="kw">use crate</span>::{configuration, paras, scheduler::common::Assignment};
 
 <span class="kw">use </span>frame_support::{
 	pallet_prelude::<span class="kw-2">*</span>,
@@ -697,7 +676,7 @@
 <span class="doccomment">/// Keeps track of how many assignments a scheduler currently has at a specific `CoreIndex` for a
 /// specific `ParaId`.
 </span><span class="attr">#[derive(Encode, Decode, Default, Clone, Copy, TypeInfo)]
-#[cfg_attr(test, derive(PartialEq, Debug))]
+#[cfg_attr(test, derive(PartialEq, RuntimeDebug))]
 </span><span class="kw">pub struct </span>CoreAffinityCount {
 	core_idx: CoreIndex,
 	count: u32,
@@ -723,6 +702,18 @@
 	</span>QueueSizeLargerThanCapacity,
 	<span class="doccomment">/// Arithmetic error during division, either division by 0 or over/underflow.
 	</span>Division,
+}
+
+<span class="doccomment">/// Internal representation of an order after it has been enqueued already.
+</span><span class="attr">#[derive(Encode, Decode, TypeInfo, Debug, PartialEq, Clone)]
+</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">struct </span>EnqueuedOrder {
+	<span class="kw">pub </span>para_id: ParaId,
+}
+
+<span class="kw">impl </span>EnqueuedOrder {
+	<span class="kw">pub fn </span>new(para_id: ParaId) -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{ para_id }
+	}
 }
 
 <span class="attr">#[frame_support::pallet]
@@ -758,7 +749,7 @@
 
 	<span class="doccomment">/// Creates an empty on demand queue if one isn&#39;t present in storage already.
 	</span><span class="attr">#[pallet::type_value]
-	</span><span class="kw">pub fn </span>OnDemandQueueOnEmpty&lt;T: Config&gt;() -&gt; VecDeque&lt;Assignment&gt; {
+	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>OnDemandQueueOnEmpty&lt;T: Config&gt;() -&gt; VecDeque&lt;EnqueuedOrder&gt; {
 		VecDeque::new()
 	}
 
@@ -771,8 +762,8 @@
 	<span class="doccomment">/// The order storage entry. Uses a VecDeque to be able to push to the front of the
 	/// queue from the scheduler on session boundaries.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>OnDemandQueue&lt;T: Config&gt; =
-		StorageValue&lt;<span class="kw">_</span>, VecDeque&lt;Assignment&gt;, ValueQuery, OnDemandQueueOnEmpty&lt;T&gt;&gt;;
+	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>OnDemandQueue&lt;T: Config&gt; =
+		StorageValue&lt;<span class="kw">_</span>, VecDeque&lt;EnqueuedOrder&gt;, ValueQuery, OnDemandQueueOnEmpty&lt;T&gt;&gt;;
 
 	<span class="doccomment">/// Maps a `ParaId` to `CoreIndex` and keeps track of how many assignments the scheduler has in
 	/// it&#39;s lookahead. Keeping track of this affinity prevents parallel execution of the same
@@ -800,9 +791,6 @@
 		<span class="doccomment">/// The current spot price is higher than the max amount specified in the `place_order`
 		/// call, making it invalid.
 		</span>SpotPriceHigherThanMaxAmount,
-		<span class="doccomment">/// There are no on demand cores available. `place_order` will not add anything to the
-		/// queue.
-		</span>NoOnDemandCores,
 	}
 
 	<span class="attr">#[pallet::hooks]
@@ -866,7 +854,6 @@
 		/// - `InvalidParaId`
 		/// - `QueueFull`
 		/// - `SpotPriceHigherThanMaxAmount`
-		/// - `NoOnDemandCores`
 		///
 		/// Events:
 		/// - `SpotOrderPlaced`
@@ -894,7 +881,6 @@
 		/// - `InvalidParaId`
 		/// - `QueueFull`
 		/// - `SpotPriceHigherThanMaxAmount`
-		/// - `NoOnDemandCores`
 		///
 		/// Events:
 		/// - `SpotOrderPlaced`
@@ -929,7 +915,6 @@
 	/// - `InvalidParaId`
 	/// - `QueueFull`
 	/// - `SpotPriceHigherThanMaxAmount`
-	/// - `NoOnDemandCores`
 	///
 	/// Events:
 	/// - `SpotOrderPlaced`
@@ -940,9 +925,6 @@
 		existence_requirement: ExistenceRequirement,
 	) -&gt; DispatchResult {
 		<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
-
-		<span class="comment">// Are there any schedulable cores in this session
-		</span><span class="macro">ensure!</span>(config.on_demand_cores &gt; <span class="number">0</span>, Error::&lt;T&gt;::NoOnDemandCores);
 
 		<span class="comment">// Traffic always falls back to 1.0
 		</span><span class="kw">let </span>traffic = SpotTraffic::&lt;T&gt;::get();
@@ -962,17 +944,15 @@
 			existence_requirement,
 		)<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>assignment = Assignment::new(para_id);
+		<span class="kw">let </span>order = EnqueuedOrder::new(para_id);
 
-		<span class="kw">let </span>res = Pallet::&lt;T&gt;::add_on_demand_assignment(assignment, QueuePushDirection::Back);
+		<span class="kw">let </span>res = Pallet::&lt;T&gt;::add_on_demand_order(order, QueuePushDirection::Back);
 
-		<span class="kw">match </span>res {
-			<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {
-				Pallet::&lt;T&gt;::deposit_event(Event::&lt;T&gt;::OnDemandOrderPlaced { para_id, spot_price });
-				<span class="kw">return </span><span class="prelude-val">Ok</span>(())
-			},
-			<span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(err),
+		<span class="kw">if </span>res.is_ok() {
+			Pallet::&lt;T&gt;::deposit_event(Event::&lt;T&gt;::OnDemandOrderPlaced { para_id, spot_price });
 		}
+
+		res
 	}
 
 	<span class="doccomment">/// The spot price multiplier. This is based on the transaction fee calculations defined in:
@@ -1046,10 +1026,10 @@
 		}
 	}
 
-	<span class="doccomment">/// Adds an assignment to the on demand queue.
+	<span class="doccomment">/// Adds an order to the on demand queue.
 	///
 	/// Paramenters:
-	/// - `assignment`: The on demand assignment to add to the queue.
+	/// - `order`: The `EnqueuedOrder` to add to the queue.
 	/// - `location`: Whether to push this entry to the back or the front of the queue. Pushing an
 	///   entry to the front of the queue is only used when the scheduler wants to push back an
 	///   entry it has already popped.
@@ -1059,12 +1039,12 @@
 	/// Errors:
 	/// - `InvalidParaId`
 	/// - `QueueFull`
-	</span><span class="kw">pub fn </span>add_on_demand_assignment(
-		assignment: Assignment,
+	</span><span class="kw">fn </span>add_on_demand_order(
+		order: EnqueuedOrder,
 		location: QueuePushDirection,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
 		<span class="comment">// Only parathreads are valid paraids for on the go parachains.
-		</span><span class="macro">ensure!</span>(&lt;paras::Pallet&lt;T&gt;&gt;::is_parathread(assignment.para_id), Error::&lt;T&gt;::InvalidParaId);
+		</span><span class="macro">ensure!</span>(&lt;paras::Pallet&lt;T&gt;&gt;::is_parathread(order.para_id), Error::&lt;T&gt;::InvalidParaId);
 
 		<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
 
@@ -1072,8 +1052,8 @@
 			<span class="comment">// Abort transaction if queue is too large
 			</span><span class="macro">ensure!</span>(<span class="self">Self</span>::queue_size() &lt; config.on_demand_queue_max_size, Error::&lt;T&gt;::QueueFull);
 			<span class="kw">match </span>location {
-				QueuePushDirection::Back =&gt; queue.push_back(assignment),
-				QueuePushDirection::Front =&gt; queue.push_front(assignment),
+				QueuePushDirection::Back =&gt; queue.push_back(order),
+				QueuePushDirection::Front =&gt; queue.push_front(order),
 			};
 			<span class="prelude-val">Ok</span>(())
 		})
@@ -1098,7 +1078,8 @@
 	}
 
 	<span class="doccomment">/// Getter for the order queue.
-	</span><span class="kw">pub fn </span>get_queue() -&gt; VecDeque&lt;Assignment&gt; {
+	</span><span class="attr">#[cfg(test)]
+	</span><span class="kw">fn </span>get_queue() -&gt; VecDeque&lt;EnqueuedOrder&gt; {
 		OnDemandQueue::&lt;T&gt;::get()
 	}
 
@@ -1146,12 +1127,7 @@
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&gt; AssignmentProvider&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
-	<span class="kw">fn </span>session_core_count() -&gt; u32 {
-		<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
-		config.on_demand_cores
-	}
-
+<span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
 	<span class="doccomment">/// Take the next queued entry that is available for a given core index.
 	/// Invalidates and removes orders with a `para_id` that is not `ParaLifecycle::Parathread`
 	/// but only in [0..P] range slice of the order queue, where P is the element that is
@@ -1159,20 +1135,8 @@
 	///
 	/// Parameters:
 	/// - `core_idx`: The core index
-	/// - `previous_paraid`: Which paraid was previously processed on the requested core. Is None if
-	///   nothing was processed on the core.
-	</span><span class="kw">fn </span>pop_assignment_for_core(
-		core_idx: CoreIndex,
-		previous_para: <span class="prelude-ty">Option</span>&lt;ParaId&gt;,
-	) -&gt; <span class="prelude-ty">Option</span>&lt;Assignment&gt; {
-		<span class="comment">// Only decrease the affinity of the previous para if it exists.
-		// A nonexistant `ParaId` indicates that the scheduler has not processed any
-		// `ParaId` this session.
-		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(previous_para_id) = previous_para {
-			Pallet::&lt;T&gt;::decrease_affinity(previous_para_id, core_idx)
-		}
-
-		<span class="kw">let </span><span class="kw-2">mut </span>queue: VecDeque&lt;Assignment&gt; = OnDemandQueue::&lt;T&gt;::get();
+	</span><span class="kw">pub fn </span>pop_assignment_for_core(core_idx: CoreIndex) -&gt; <span class="prelude-ty">Option</span>&lt;Assignment&gt; {
+		<span class="kw">let </span><span class="kw-2">mut </span>queue: VecDeque&lt;EnqueuedOrder&gt; = OnDemandQueue::&lt;T&gt;::get();
 
 		<span class="kw">let </span><span class="kw-2">mut </span>invalidated_para_id_indexes: Vec&lt;usize&gt; = <span class="macro">vec!</span>[];
 
@@ -1209,28 +1173,28 @@
 		<span class="comment">// Write changes to storage.
 		</span>OnDemandQueue::&lt;T&gt;::set(queue);
 
-		popped
+		popped.map(|p| Assignment::Pool { para_id: p.para_id, core_index: core_idx })
 	}
 
-	<span class="doccomment">/// Push an assignment back to the queue.
-	/// Typically used on session boundaries.
+	<span class="doccomment">/// Report that the `para_id` &amp; `core_index` combination was processed.
+	</span><span class="kw">pub fn </span>report_processed(para_id: ParaId, core_index: CoreIndex) {
+		Pallet::&lt;T&gt;::decrease_affinity(para_id, core_index)
+	}
+
+	<span class="doccomment">/// Push an assignment back to the front of the queue.
+	///
+	/// The assignment has not been processed yet. Typically used on session boundaries.
 	/// Parameters:
-	/// - `core_idx`: The core index
 	/// - `assignment`: The on demand assignment.
-	</span><span class="kw">fn </span>push_assignment_for_core(core_idx: CoreIndex, assignment: Assignment) {
-		Pallet::&lt;T&gt;::decrease_affinity(assignment.para_id, core_idx);
+	</span><span class="kw">pub fn </span>push_back_assignment(para_id: ParaId, core_index: CoreIndex) {
+		Pallet::&lt;T&gt;::decrease_affinity(para_id, core_index);
 		<span class="comment">// Skip the queue on push backs from scheduler
-		</span><span class="kw">match </span>Pallet::&lt;T&gt;::add_on_demand_assignment(assignment, QueuePushDirection::Front) {
+		</span><span class="kw">match </span>Pallet::&lt;T&gt;::add_on_demand_order(
+			EnqueuedOrder::new(para_id),
+			QueuePushDirection::Front,
+		) {
 			<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {},
 			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {},
-		}
-	}
-
-	<span class="kw">fn </span>get_provider_config(_core_idx: CoreIndex) -&gt; AssignmentProviderConfig&lt;BlockNumberFor&lt;T&gt;&gt; {
-		<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
-		AssignmentProviderConfig {
-			max_availability_timeouts: config.on_demand_retries,
-			ttl: config.on_demand_ttl,
 		}
 	}
 }

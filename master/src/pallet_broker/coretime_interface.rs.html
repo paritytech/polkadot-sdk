@@ -146,22 +146,6 @@
 <a href="#146" id="146">146</a>
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
-<a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
-<a href="#152" id="152">152</a>
-<a href="#153" id="153">153</a>
-<a href="#154" id="154">154</a>
-<a href="#155" id="155">155</a>
-<a href="#156" id="156">156</a>
-<a href="#157" id="157">157</a>
-<a href="#158" id="158">158</a>
-<a href="#159" id="159">159</a>
-<a href="#160" id="160">160</a>
-<a href="#161" id="161">161</a>
-<a href="#162" id="162">162</a>
-<a href="#163" id="163">163</a>
-<a href="#164" id="164">164</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -271,11 +255,6 @@
 		end_hint: <span class="prelude-ty">Option</span>&lt;RCBlockNumberOf&lt;<span class="self">Self</span>&gt;&gt;,
 	);
 
-	<span class="doccomment">/// Indicate that from this block onwards, the range of acceptable values of the `core`
-	/// parameter of `assign_core` message is `[0, count)`. `assign_core` will be a no-op if
-	/// provided with a value for `core` outside of this range.
-	</span><span class="kw">fn </span>check_notify_core_count() -&gt; <span class="prelude-ty">Option</span>&lt;u16&gt;;
-
 	<span class="doccomment">/// Provide the amount of revenue accumulated from Instantaneous Coretime Sales from Relay-chain
 	/// block number `last_until` to `until`, not including `until` itself. `last_until` is defined
 	/// as being the `until` argument of the last `notify_revenue` message sent, or zero for the
@@ -286,12 +265,6 @@
 	/// notified of revenue information. The Relay-chain must be configured to ensure that only a
 	/// single revenue information destination exists.
 	</span><span class="kw">fn </span>check_notify_revenue_info() -&gt; <span class="prelude-ty">Option</span>&lt;(RCBlockNumberOf&lt;<span class="self">Self</span>&gt;, <span class="self">Self</span>::Balance)&gt;;
-
-	<span class="doccomment">/// Ensure that core count is updated to the provided value.
-	///
-	/// This is only used for benchmarking.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-	</span><span class="kw">fn </span>ensure_notify_core_count(count: u16);
 
 	<span class="doccomment">/// Ensure that revenue information is updated to the provided value.
 	///
@@ -315,14 +288,9 @@
 		_end_hint: <span class="prelude-ty">Option</span>&lt;RCBlockNumberOf&lt;<span class="self">Self</span>&gt;&gt;,
 	) {
 	}
-	<span class="kw">fn </span>check_notify_core_count() -&gt; <span class="prelude-ty">Option</span>&lt;u16&gt; {
-		<span class="prelude-val">None
-	</span>}
 	<span class="kw">fn </span>check_notify_revenue_info() -&gt; <span class="prelude-ty">Option</span>&lt;(RCBlockNumberOf&lt;<span class="self">Self</span>&gt;, <span class="self">Self</span>::Balance)&gt; {
 		<span class="prelude-val">None
 	</span>}
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-	</span><span class="kw">fn </span>ensure_notify_core_count(_count: u16) {}
 	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 	</span><span class="kw">fn </span>ensure_notify_revenue_info(_when: RCBlockNumberOf&lt;<span class="self">Self</span>&gt;, _revenue: <span class="self">Self</span>::Balance) {}
 }

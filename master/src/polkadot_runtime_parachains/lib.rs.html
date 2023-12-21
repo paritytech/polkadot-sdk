@@ -112,6 +112,7 @@
 <a href="#112" id="112">112</a>
 <a href="#113" id="113">113</a>
 <a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -137,10 +138,11 @@
 </span><span class="attr">#![cfg_attr(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, recursion_limit = <span class="string">&quot;256&quot;</span>)]
 #![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
-</span><span class="kw">pub mod </span>assigner;
+</span><span class="kw">pub mod </span>assigner_coretime;
 <span class="kw">pub mod </span>assigner_on_demand;
 <span class="kw">pub mod </span>assigner_parachains;
 <span class="kw">pub mod </span>configuration;
+<span class="kw">pub mod </span>coretime;
 <span class="kw">pub mod </span>disputes;
 <span class="kw">pub mod </span>dmp;
 <span class="kw">pub mod </span>hrmp;

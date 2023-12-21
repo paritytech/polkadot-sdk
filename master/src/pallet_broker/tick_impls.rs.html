@@ -416,7 +416,7 @@
 	}
 
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>process_core_count(status: <span class="kw-2">&amp;mut </span>StatusRecord) -&gt; bool {
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(core_count) = T::Coretime::check_notify_core_count() {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(core_count) = CoreCountInbox::&lt;T&gt;::take() {
 			status.core_count = core_count;
 			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::CoreCountChanged { core_count });
 			<span class="kw">return </span><span class="bool-val">true

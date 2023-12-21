@@ -2266,6 +2266,30 @@
 <a href="#2266" id="2266">2266</a>
 <a href="#2267" id="2267">2267</a>
 <a href="#2268" id="2268">2268</a>
+<a href="#2269" id="2269">2269</a>
+<a href="#2270" id="2270">2270</a>
+<a href="#2271" id="2271">2271</a>
+<a href="#2272" id="2272">2272</a>
+<a href="#2273" id="2273">2273</a>
+<a href="#2274" id="2274">2274</a>
+<a href="#2275" id="2275">2275</a>
+<a href="#2276" id="2276">2276</a>
+<a href="#2277" id="2277">2277</a>
+<a href="#2278" id="2278">2278</a>
+<a href="#2279" id="2279">2279</a>
+<a href="#2280" id="2280">2280</a>
+<a href="#2281" id="2281">2281</a>
+<a href="#2282" id="2282">2282</a>
+<a href="#2283" id="2283">2283</a>
+<a href="#2284" id="2284">2284</a>
+<a href="#2285" id="2285">2285</a>
+<a href="#2286" id="2286">2286</a>
+<a href="#2287" id="2287">2287</a>
+<a href="#2288" id="2288">2288</a>
+<a href="#2289" id="2289">2289</a>
+<a href="#2290" id="2290">2290</a>
+<a href="#2291" id="2291">2291</a>
+<a href="#2292" id="2292">2292</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2774,6 +2798,21 @@
 	}
 }
 
+<span class="doccomment">/// Assign coretime to some parachain.
+///
+/// This assigns coretime to a parachain without using the coretime chain. Thus, this should only be
+/// used for testing purposes.
+</span><span class="kw">pub trait </span>AssignCoretime {
+	<span class="doccomment">/// ONLY USE FOR TESTING OR GENESIS.
+	</span><span class="kw">fn </span>assign_coretime(id: ParaId) -&gt; DispatchResult;
+}
+
+<span class="kw">impl </span>AssignCoretime <span class="kw">for </span>() {
+	<span class="kw">fn </span>assign_coretime(<span class="kw">_</span>: ParaId) -&gt; DispatchResult {
+		<span class="prelude-val">Ok</span>(())
+	}
+}
+
 <span class="kw">pub trait </span>WeightInfo {
 	<span class="kw">fn </span>force_set_current_code(c: u32) -&gt; Weight;
 	<span class="kw">fn </span>force_set_current_head(s: u32) -&gt; Weight;
@@ -2873,6 +2912,13 @@
 
 		<span class="doccomment">/// Weight information for extrinsics in this pallet.
 		</span><span class="kw">type </span>WeightInfo: WeightInfo;
+
+		<span class="doccomment">/// Runtime hook for assigning coretime for a given parachain.
+		///
+		/// This is only used at genesis or by root.
+		///
+		/// TODO: Remove once coretime is the standard accross all chains.
+		</span><span class="kw">type </span>AssignCoretime: AssignCoretime;
 	}
 
 	<span class="attr">#[pallet::event]
@@ -3106,6 +3152,8 @@
 					<span class="macro">panic!</span>(<span class="string">&quot;empty validation code is not allowed in genesis&quot;</span>);
 				}
 				Pallet::&lt;T&gt;::initialize_para_now(<span class="kw-2">&amp;mut </span>parachains, <span class="kw-2">*</span>id, genesis_args);
+				T::AssignCoretime::assign_coretime(<span class="kw-2">*</span>id)
+					.expect(<span class="string">&quot;Assigning coretime works at genesis; qed&quot;</span>);
 			}
 			<span class="comment">// parachains are flushed on drop
 		</span>}

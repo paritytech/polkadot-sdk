@@ -2439,6 +2439,56 @@
 <a href="#2439" id="2439">2439</a>
 <a href="#2440" id="2440">2440</a>
 <a href="#2441" id="2441">2441</a>
+<a href="#2442" id="2442">2442</a>
+<a href="#2443" id="2443">2443</a>
+<a href="#2444" id="2444">2444</a>
+<a href="#2445" id="2445">2445</a>
+<a href="#2446" id="2446">2446</a>
+<a href="#2447" id="2447">2447</a>
+<a href="#2448" id="2448">2448</a>
+<a href="#2449" id="2449">2449</a>
+<a href="#2450" id="2450">2450</a>
+<a href="#2451" id="2451">2451</a>
+<a href="#2452" id="2452">2452</a>
+<a href="#2453" id="2453">2453</a>
+<a href="#2454" id="2454">2454</a>
+<a href="#2455" id="2455">2455</a>
+<a href="#2456" id="2456">2456</a>
+<a href="#2457" id="2457">2457</a>
+<a href="#2458" id="2458">2458</a>
+<a href="#2459" id="2459">2459</a>
+<a href="#2460" id="2460">2460</a>
+<a href="#2461" id="2461">2461</a>
+<a href="#2462" id="2462">2462</a>
+<a href="#2463" id="2463">2463</a>
+<a href="#2464" id="2464">2464</a>
+<a href="#2465" id="2465">2465</a>
+<a href="#2466" id="2466">2466</a>
+<a href="#2467" id="2467">2467</a>
+<a href="#2468" id="2468">2468</a>
+<a href="#2469" id="2469">2469</a>
+<a href="#2470" id="2470">2470</a>
+<a href="#2471" id="2471">2471</a>
+<a href="#2472" id="2472">2472</a>
+<a href="#2473" id="2473">2473</a>
+<a href="#2474" id="2474">2474</a>
+<a href="#2475" id="2475">2475</a>
+<a href="#2476" id="2476">2476</a>
+<a href="#2477" id="2477">2477</a>
+<a href="#2478" id="2478">2478</a>
+<a href="#2479" id="2479">2479</a>
+<a href="#2480" id="2480">2480</a>
+<a href="#2481" id="2481">2481</a>
+<a href="#2482" id="2482">2482</a>
+<a href="#2483" id="2483">2483</a>
+<a href="#2484" id="2484">2484</a>
+<a href="#2485" id="2485">2485</a>
+<a href="#2486" id="2486">2486</a>
+<a href="#2487" id="2487">2487</a>
+<a href="#2488" id="2488">2488</a>
+<a href="#2489" id="2489">2489</a>
+<a href="#2490" id="2490">2490</a>
+<a href="#2491" id="2491">2491</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2472,6 +2522,7 @@
 	OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes, SessionInfo, Signature,
 	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, PARACHAIN_KEY_TYPE_ID,
 };
+<span class="kw">use </span>rococo_runtime_constants::system_parachain::BROKER_ID;
 <span class="kw">use </span>runtime_common::{
 	assigned_slots, auctions, claims, crowdloan, identity_migrator, impl_runtime_weights,
 	impls::{
@@ -2484,9 +2535,10 @@
 <span class="kw">use </span>sp_std::{cmp::Ordering, collections::btree_map::BTreeMap, prelude::<span class="kw-2">*</span>};
 
 <span class="kw">use </span>runtime_parachains::{
-	assigner <span class="kw">as </span>parachains_assigner, assigner_on_demand <span class="kw">as </span>parachains_assigner_on_demand,
+	assigner_coretime <span class="kw">as </span>parachains_assigner_coretime,
+	assigner_on_demand <span class="kw">as </span>parachains_assigner_on_demand,
 	assigner_parachains <span class="kw">as </span>parachains_assigner_parachains,
-	configuration <span class="kw">as </span>parachains_configuration, disputes <span class="kw">as </span>parachains_disputes,
+	configuration <span class="kw">as </span>parachains_configuration, coretime, disputes <span class="kw">as </span>parachains_disputes,
 	disputes::slashing <span class="kw">as </span>parachains_slashing,
 	dmp <span class="kw">as </span>parachains_dmp, hrmp <span class="kw">as </span>parachains_hrmp, inclusion <span class="kw">as </span>parachains_inclusion,
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
@@ -2591,7 +2643,7 @@
 	spec_name: <span class="macro">create_runtime_str!</span>(<span class="string">&quot;rococo&quot;</span>),
 	impl_name: <span class="macro">create_runtime_str!</span>(<span class="string">&quot;parity-rococo-v2.0&quot;</span>),
 	authoring_version: <span class="number">0</span>,
-	spec_version: <span class="number">1_005_000</span>,
+	spec_version: <span class="number">1_005_001</span>,
 	impl_version: <span class="number">0</span>,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: <span class="number">24</span>,
@@ -3376,6 +3428,7 @@
 	<span class="kw">type </span>QueueFootprinter = ParaInclusion;
 	<span class="kw">type </span>NextSessionRotation = Babe;
 	<span class="kw">type </span>OnNewHead = Registrar;
+	<span class="kw">type </span>AssignCoretime = CoretimeAssignmentProvider;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -3442,7 +3495,22 @@
 }
 
 <span class="kw">impl </span>parachains_scheduler::Config <span class="kw">for </span>Runtime {
-	<span class="kw">type </span>AssignmentProvider = ParaAssignmentProvider;
+	<span class="comment">// If you change this, make sure the `Assignment` type of the new provider is binary compatible,
+	// otherwise provide a migration.
+	</span><span class="kw">type </span>AssignmentProvider = CoretimeAssignmentProvider;
+}
+
+<span class="macro">parameter_types! </span>{
+	<span class="kw">pub const </span>BrokerId: u32 = BROKER_ID;
+}
+
+<span class="kw">impl </span>coretime::Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;
+	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+	<span class="kw">type </span>Currency = Balances;
+	<span class="kw">type </span>BrokerId = BrokerId;
+	<span class="kw">type </span>WeightInfo = weights::runtime_parachains_coretime::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>SendXcm = <span class="kw">crate</span>::xcm_config::XcmRouter;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -3458,15 +3526,13 @@
 
 <span class="kw">impl </span>parachains_assigner_parachains::Config <span class="kw">for </span>Runtime {}
 
-<span class="kw">impl </span>parachains_assigner::Config <span class="kw">for </span>Runtime {
-	<span class="kw">type </span>OnDemandAssignmentProvider = OnDemandAssignmentProvider;
-	<span class="kw">type </span>ParachainsAssignmentProvider = ParachainsAssignmentProvider;
-}
+<span class="kw">impl </span>parachains_assigner_coretime::Config <span class="kw">for </span>Runtime {}
 
 <span class="kw">impl </span>parachains_initializer::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>Randomness = pallet_babe::RandomnessFromOneEpochAgo&lt;Runtime&gt;;
 	<span class="kw">type </span>ForceOrigin = EnsureRoot&lt;AccountId&gt;;
 	<span class="kw">type </span>WeightInfo = weights::runtime_parachains_initializer::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>CoretimeOnNewSession = Coretime;
 }
 
 <span class="kw">impl </span>parachains_disputes::Config <span class="kw">for </span>Runtime {
@@ -3846,15 +3912,16 @@
 		ParasDisputes: parachains_disputes::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">62</span>,
 		ParasSlashing: parachains_slashing::{Pallet, Call, Storage, ValidateUnsigned} = <span class="number">63</span>,
 		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">64</span>,
-		ParaAssignmentProvider: parachains_assigner::{Pallet, Storage} = <span class="number">65</span>,
 		OnDemandAssignmentProvider: parachains_assigner_on_demand::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">66</span>,
 		ParachainsAssignmentProvider: parachains_assigner_parachains::{Pallet} = <span class="number">67</span>,
+		CoretimeAssignmentProvider: parachains_assigner_coretime::{Pallet, Storage} = <span class="number">68</span>,
 
 		<span class="comment">// Parachain Onboarding Pallets. Start indices at 70 to leave room.
 		</span>Registrar: paras_registrar::{Pallet, Call, Storage, Event&lt;T&gt;, Config&lt;T&gt;} = <span class="number">70</span>,
 		Slots: slots::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">71</span>,
 		Auctions: auctions::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">72</span>,
 		Crowdloan: crowdloan::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">73</span>,
+		Coretime: coretime::{Pallet, Call, Event&lt;T&gt;} = <span class="number">74</span>,
 
 		<span class="comment">// Pallet for sending XCM.
 		</span>XcmPallet: pallet_xcm::{Pallet, Call, Storage, Event&lt;T&gt;, Origin, Config&lt;T&gt;} = <span class="number">99</span>,
@@ -3918,8 +3985,38 @@
 
 	<span class="kw">use </span>frame_support::traits::LockIdentifier;
 	<span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
+	<span class="kw">use </span>sp_arithmetic::traits::Zero;
 	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 	</span><span class="kw">use </span>sp_core::crypto::ByteArray;
+
+	<span class="kw">pub struct </span>GetLegacyLeaseImpl;
+	<span class="kw">impl </span>coretime::migration::GetLegacyLease&lt;BlockNumber&gt; <span class="kw">for </span>GetLegacyLeaseImpl {
+		<span class="kw">fn </span>get_parachain_lease_in_blocks(para: ParaId) -&gt; <span class="prelude-ty">Option</span>&lt;BlockNumber&gt; {
+			<span class="kw">let </span>now = frame_system::Pallet::&lt;Runtime&gt;::block_number();
+			<span class="kw">let </span><span class="kw-2">mut </span>leases = slots::Pallet::&lt;Runtime&gt;::lease(para).into_iter();
+			<span class="kw">let </span>initial_sum = <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="prelude-val">Some</span>(<span class="kw">_</span>)) = leases.next() {
+				<span class="kw">let </span>(<span class="kw">_</span>, progress) =
+					slots::Pallet::&lt;Runtime&gt;::lease_period_index_plus_progress(now)<span class="question-mark">?</span>;
+				LeasePeriod::get().saturating_sub(progress)
+			} <span class="kw">else </span>{
+				<span class="comment">// The parachain lease did not yet start
+				</span>Zero::zero()
+			};
+			<span class="macro">log::trace!</span>(
+				target: <span class="string">&quot;coretime-migration&quot;</span>,
+				<span class="string">&quot;Getting lease info for para {:?}:\n LEASE_PERIOD: {:?}, initial_sum: {:?}, number of leases: {:?}&quot;</span>,
+				para,
+				LeasePeriod::get(),
+				initial_sum,
+				slots::Pallet::&lt;Runtime&gt;::lease(para).len(),
+			);
+
+			<span class="prelude-val">Some</span>(leases.into_iter().fold(initial_sum, |sum, lease| {
+				<span class="comment">// If the parachain lease did not yet start, we ignore them by multiplying by `0`.
+				</span>sum + LeasePeriod::get() * lease.map_or(<span class="number">0</span>, |<span class="kw">_</span>| <span class="number">1</span>)
+			}))
+		}
+	}
 
 	<span class="macro">parameter_types! </span>{
 		<span class="kw">pub const </span>DemocracyPalletName: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;Democracy&quot;</span>;
@@ -4043,7 +4140,7 @@
 		pallet_society::migrations::MigrateToV2&lt;Runtime, (), ()&gt;,
 		parachains_configuration::migration::v7::MigrateToV7&lt;Runtime&gt;,
 		assigned_slots::migration::v1::MigrateToV1&lt;Runtime&gt;,
-		parachains_scheduler::migration::v1::MigrateToV1&lt;Runtime&gt;,
+		parachains_scheduler::migration::MigrateV1ToV2&lt;Runtime&gt;,
 		parachains_configuration::migration::v8::MigrateToV8&lt;Runtime&gt;,
 		parachains_configuration::migration::v9::MigrateToV9&lt;Runtime&gt;,
 		paras_registrar::migration::MigrateToV1&lt;Runtime, ()&gt;,
@@ -4074,6 +4171,8 @@
 		<span class="comment">// Remove `im-online` pallet on-chain storage
 		</span>frame_support::migrations::RemovePallet&lt;ImOnlinePalletName, &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight&gt;,
 		parachains_configuration::migration::v11::MigrateToV11&lt;Runtime&gt;,
+		<span class="comment">// This needs to come after the `parachains_configuration` above as we are reading the configuration.
+		</span>coretime::migration::MigrateToCoretime&lt;Runtime, <span class="kw">crate</span>::xcm_config::XcmRouter, GetLegacyLeaseImpl&gt;,
 	);
 }
 
@@ -4122,6 +4221,7 @@
 		// the that path resolves correctly in the generated file.
 		</span>[runtime_common::assigned_slots, AssignedSlots]
 		[runtime_common::auctions, Auctions]
+		[runtime_common::coretime, Coretime]
 		[runtime_common::crowdloan, Crowdloan]
 		[runtime_common::claims, Claims]
 		[runtime_common::identity_migrator, IdentityMigrator]
