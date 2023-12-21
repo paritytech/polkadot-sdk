@@ -23,7 +23,7 @@ use parity_scale_codec::Encode;
 use primitives::Id as ParaId;
 use runtime_parachains::{
 	configuration, dmp, hrmp,
-	paras::{self, ParaGenesisArgs, AssignCoretime},
+	paras::{self, AssignCoretime, ParaGenesisArgs},
 	ParaLifecycle,
 };
 use sp_std::{boxed::Box, vec};
