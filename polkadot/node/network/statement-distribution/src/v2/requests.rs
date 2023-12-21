@@ -737,10 +737,6 @@ fn validate_complete_response(
 						rep_changes.push((requested_peer, COST_UNREQUESTED_RESPONSE_STATEMENT));
 						continue
 					}
-
-					if disabled_mask.get(i).map_or(false, |x| *x) {
-						continue
-					}
 				},
 				CompactStatement::Valid(_) => {
 					if unwanted_mask.validated_in_group[i] {
@@ -752,11 +748,11 @@ fn validate_complete_response(
 						rep_changes.push((requested_peer, COST_UNREQUESTED_RESPONSE_STATEMENT));
 						continue
 					}
-
-					if disabled_mask.get(i).map_or(false, |x| *x) {
-						continue
-					}
 				},
+			}
+
+			if disabled_mask.get(i).map_or(false, |x| *x) {
+				continue
 			}
 
 			let validator_public =
