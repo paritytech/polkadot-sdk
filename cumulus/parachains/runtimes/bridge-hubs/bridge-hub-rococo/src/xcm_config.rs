@@ -47,10 +47,9 @@ use parachains_common::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-use snowbridge_core::DescribeHere;
 use snowbridge_rococo_common::EthereumNetwork;
 use snowbridge_runtime_common::XcmExportFeeToSibling;
-use sp_core::{Get, H256};
+use sp_core::Get;
 use sp_runtime::traits::AccountIdConversion;
 use sp_std::marker::PhantomData;
 use xcm::latest::prelude::*;
@@ -58,12 +57,11 @@ use xcm::latest::prelude::*;
 use xcm_builder::{
 	deposit_or_burn_fee, AccountId32Aliases, AllowExplicitUnpaidExecutionFrom,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
-	CurrencyAdapter, DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal,
-	DescribeFamily, EnsureXcmOrigin, HandleFee, HashedDescription, IsConcrete, ParentAsSuperuser,
-	ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
-	XcmFeeToAccount,
+	CurrencyAdapter, DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, HandleFee,
+	IsConcrete, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
+	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
+	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeToAccount,
 };
 use xcm_executor::{
 	traits::{FeeManager, FeeReason, FeeReason::Export, TransactAsset, WithOriginFilter},
@@ -294,7 +292,7 @@ impl xcm_executor::Config for XcmConfig {
 		MaxInstructions,
 	>;
 	type Trader =
-	UsingComponents<WeightToFee, TokenLocation, AccountId, Balances, ToStakingPot<Runtime>>;
+		UsingComponents<WeightToFee, TokenLocation, AccountId, Balances, ToStakingPot<Runtime>>;
 	type ResponseHandler = PolkadotXcm;
 	type AssetTrap = PolkadotXcm;
 	type AssetLocker = ();
@@ -336,7 +334,7 @@ impl xcm_executor::Config for XcmConfig {
 }
 
 pub type PriceForParentDelivery =
-ExponentialPrice<FeeAssetId, BaseDeliveryFee, TransactionByteFee, ParachainSystem>;
+	ExponentialPrice<FeeAssetId, BaseDeliveryFee, TransactionByteFee, ParachainSystem>;
 
 /// Converts a local signed origin into an XCM multilocation.
 /// Forms the basis for local origins sending/executing XCMs.
@@ -388,10 +386,6 @@ impl cumulus_pallet_xcm::Config for Runtime {
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 }
 
-/// Creates an AgentId from a MultiLocation. An AgentId is a unique mapping to a Agent contract on
-/// Ethereum which acts as the sovereign account for the MultiLocation.
-pub type AgentIdOf = HashedDescription<H256, (DescribeHere, DescribeFamily<DescribeAllTerminal>)>;
-
 /// A `HandleFee` implementation that simply deposits the fees for `ExportMessage` XCM instructions
 /// into the accounts that are used for paying the relayer rewards.
 /// Burns the fees in case of a failure.
@@ -404,19 +398,19 @@ pub struct XcmExportFeeToRelayerRewardAccounts<
 >(PhantomData<(AssetTransactor, DestNetwork, DestParaId, DestBridgedChainId, BridgeLaneId)>);
 
 impl<
-	AssetTransactor: TransactAsset,
-	DestNetwork: Get<NetworkId>,
-	DestParaId: Get<cumulus_primitives_core::ParaId>,
-	DestBridgedChainId: Get<ChainId>,
-	BridgeLaneId: Get<LaneId>,
-> HandleFee
-for XcmExportFeeToRelayerRewardAccounts<
-	AssetTransactor,
-	DestNetwork,
-	DestParaId,
-	DestBridgedChainId,
-	BridgeLaneId,
->
+		AssetTransactor: TransactAsset,
+		DestNetwork: Get<NetworkId>,
+		DestParaId: Get<cumulus_primitives_core::ParaId>,
+		DestBridgedChainId: Get<ChainId>,
+		BridgeLaneId: Get<LaneId>,
+	> HandleFee
+	for XcmExportFeeToRelayerRewardAccounts<
+		AssetTransactor,
+		DestNetwork,
+		DestParaId,
+		DestBridgedChainId,
+		BridgeLaneId,
+	>
 {
 	fn handle_fee(
 		fee: MultiAssets,
@@ -489,7 +483,7 @@ pub struct XcmFeeManagerFromComponentsBridgeHub<WaivedLocations, HandleFee>(
 	PhantomData<(WaivedLocations, HandleFee)>,
 );
 impl<WaivedLocations: Contains<MultiLocation>, FeeHandler: HandleFee> FeeManager
-for XcmFeeManagerFromComponentsBridgeHub<WaivedLocations, FeeHandler>
+	for XcmFeeManagerFromComponentsBridgeHub<WaivedLocations, FeeHandler>
 {
 	fn is_waived(origin: Option<&MultiLocation>, fee_reason: FeeReason) -> bool {
 		let Some(loc) = origin else { return false };
