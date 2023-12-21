@@ -128,7 +128,7 @@ pub mod ecdsa_bls377 {
 			let Ok(right_sig) = sig.0[ecdsa::SIGNATURE_SERIALIZED_SIZE..].try_into() else {
 				return false
 			};
-			bls377::Pair::verify(&right_sig, message.as_ref(), &right_pub)
+			bls377::Pair::verify(&right_sig, message, &right_pub)
 		}
 	}
 }
