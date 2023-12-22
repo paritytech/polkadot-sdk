@@ -1066,16 +1066,28 @@ fn votes_are_working() {
 		assert_eq!(Votes::<Test>::get(50, 10), None);
 
 		// Votes have correct weights on the tally
-		assert_eq!(Candidates::<Test>::get(30).unwrap().tally, Tally { approvals: 5, rejections: 0 });
-		assert_eq!(Candidates::<Test>::get(40).unwrap().tally, Tally { approvals: 4, rejections: 0 });
+		assert_eq!(
+			Candidates::<Test>::get(30).unwrap().tally,
+			Tally { approvals: 5, rejections: 0 }
+		);
+		assert_eq!(
+			Candidates::<Test>::get(40).unwrap().tally,
+			Tally { approvals: 4, rejections: 0 }
+		);
 		// Member 10 changes his vote for Candidate 30
 		assert_ok!(Society::vote(Origin::signed(10), 30, false));
 		// Assert the tally calculation is correct
-		assert_eq!(Candidates::<Test>::get(30).unwrap().tally, Tally { approvals: 1, rejections: 4 });
+		assert_eq!(
+			Candidates::<Test>::get(30).unwrap().tally,
+			Tally { approvals: 1, rejections: 4 }
+		);
 		// Member 10 changes his vote again
 		assert_ok!(Society::vote(Origin::signed(10), 30, true));
 		// Assert the tally is still correct
-		assert_eq!(Candidates::<Test>::get(30).unwrap().tally, Tally { approvals: 5, rejections: 0});
+		assert_eq!(
+			Candidates::<Test>::get(30).unwrap().tally,
+			Tally { approvals: 5, rejections: 0 }
+		);
 
 		// Finish intake
 		conclude_intake(false, None);
