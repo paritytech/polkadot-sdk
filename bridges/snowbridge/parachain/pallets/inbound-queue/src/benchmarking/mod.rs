@@ -6,6 +6,7 @@ use super::*;
 
 use crate::Pallet as InboundQueue;
 use frame_benchmarking::v2::*;
+use frame_support::assert_ok;
 use frame_system::RawOrigin;
 
 #[benchmarks]
@@ -29,22 +30,22 @@ mod benchmarks {
 		let minimum_balance = T::Token::minimum_balance();
 
 		// So that the receiving account exists
-		let _ = T::Token::mint_into(&caller, minimum_balance.into());
+		assert_ok!(T::Token::mint_into(&caller, minimum_balance));
 		// Fund the sovereign account (parachain sovereign account) so it can transfer a reward
 		// fee to the caller account
-		let _ = T::Token::mint_into(
+		assert_ok!(T::Token::mint_into(
 			&sovereign_account,
 			3_000_000_000_000u128
 				.try_into()
 				.unwrap_or_else(|_| panic!("unable to cast sovereign account balance")),
-		);
+		));
 
 		#[block]
 		{
-			let _ = InboundQueue::<T>::submit(
+			assert_ok!(InboundQueue::<T>::submit(
 				RawOrigin::Signed(caller.clone()).into(),
 				create_message.message,
-			)?;
+			));
 		}
 
 		Ok(())
