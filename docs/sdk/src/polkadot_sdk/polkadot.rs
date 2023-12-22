@@ -50,7 +50,8 @@
 //!   correct execution of all parachain, without having all of its validators re-execute all
 //!   parachain blocks. When seen from this perspective, the fact that Polkadot executes different
 //!   parachains means it is a platform that has fully delivered (the holy grail of) "Full Execution
-//!   Sharding". TODO: link to approval checking article. https://github.com/paritytech/polkadot-sdk-docs/issues/66
+//!   Sharding".
+//!   Learn about [Approval Checking](https://docs.google.com/presentation/d/1fjiTeT33GpxeM9TyBvxFnSVYR9NiU9SrkA2RBxSL5k8)
 //! * A framework to build blockchains: In order to materialize the ecosystem of parachains, an easy
 //!   blockchain framework must exist. This is [Substrate](crate::polkadot_sdk::substrate),
 //!   [FRAME](crate::polkadot_sdk::frame_runtime) and [Cumulus](crate::polkadot_sdk::cumulus).
@@ -60,7 +61,12 @@
 //!
 //! > Note that the interoperability promised by Polkadot is unparalleled in that any two parachains
 //! > connected to Polkadot have the same security and can have much better guarantees about the
-//! > security of the recipient of any message. TODO: weakest link in bridges systems. https://github.com/paritytech/polkadot-sdk-docs/issues/66
+//! > security of the recipient of any message.
+//! > Bridges enable transactions and information flow between different blockchain networks,
+//! > crucial for Polkadot's multi-chain architecture. However, they can become the network's most
+//! > vulnerable points. If a bridge's security measures are weaker than those of the connected
+//! > blockchains, it poses a significant risk. Attackers might exploit these weaknesses to launch
+//! > attacks such as theft or disruption of services.
 //!
 //! Polkadot delivers the above vision, alongside a flexible means for parachains to schedule
 //! themselves with the Relay Chain. To achieve this, Polkadot has been developed with an
@@ -83,5 +89,14 @@
 //!   Agile periodic-sale-based model for assigning Coretime on the Polkadot Ubiquitous Computer.
 //! - RFC#5: [Coretime-interface](https://github.com/polkadot-fellows/RFCs/blob/main/text/0005-coretime-interface.md):
 //!   Interface for manipulating the usage of cores on the Polkadot Ubiquitous Computer.
-// TODO: add more context and explanations about Polkadot as the Ubiquitous Computer and related
-// tech. https://github.com/paritytech/polkadot-sdk-docs/issues/66
+//!
+//! ### Polkadot as the Ubiquitous Computer
+//!
+//! - **Application Space**: for different parachains with their applications
+//! - **Accord Space**: for opt-in treaties across chains. Treaty's members cannot change/undermine
+//!   the treaty's logic. This allows trustless cross-chain applications
+//! - **Core space-time**: for "consuming" coretime and using Polkadot computation. Collators send
+//!   blocks through cores to validators for validity and availability checks
+//! - **Coretime**: sold through a broker system parachain
+//!
+//! [![Polkadot as the Ubiquitous Computer](https://pbs.twimg.com/media/F3qCltlWkAECsWJ?format=jpg&name=medium)](https://twitter.com/filippoweb3/status/1692025249070563413)
