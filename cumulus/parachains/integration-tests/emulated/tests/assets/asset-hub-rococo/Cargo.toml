@@ -34,3 +34,35 @@ parachains-common = { path = "../../../../../../parachains/common" }
 asset-hub-rococo-runtime = { path = "../../../../../runtimes/assets/asset-hub-rococo" }
 emulated-integration-tests-common = { path = "../../../common", default-features = false }
 rococo-system-emulated-network = { path = "../../../networks/rococo-system" }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"emulated-integration-tests-common/std",
+	"frame-support/std",
+	"pallet-asset-conversion/std",
+	"pallet-assets/std",
+	"pallet-balances/std",
+	"pallet-message-queue/std",
+	"pallet-xcm/std",
+	"sp-runtime/std",
+	"xcm-executor/std",
+	"xcm/std",
+]
+runtime-benchmarks = [
+	"asset-hub-rococo-runtime/runtime-benchmarks",
+	"asset-test-utils/runtime-benchmarks",
+	"emulated-integration-tests-common/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"pallet-asset-conversion/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
+	"rococo-runtime/runtime-benchmarks",
+	"rococo-system-emulated-network/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+]

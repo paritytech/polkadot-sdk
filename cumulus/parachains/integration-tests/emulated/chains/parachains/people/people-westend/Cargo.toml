@@ -23,3 +23,22 @@ cumulus-primitives-core = { path = "../../../../../../../primitives/core", defau
 emulated-integration-tests-common = { path = "../../../../common", default-features = false }
 people-westend-runtime = { path = "../../../../../../runtimes/people/people-westend" }
 westend-emulated-chain = { path = "../../../relays/westend" }
+
+[features]
+default = ["std"]
+std = [
+	"cumulus-primitives-core/std",
+	"emulated-integration-tests-common/std",
+	"frame-support/std",
+	"sp-core/std",
+	"sp-runtime/std",
+]
+runtime-benchmarks = [
+	"cumulus-primitives-core/runtime-benchmarks",
+	"emulated-integration-tests-common/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
+	"people-westend-runtime/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"westend-emulated-chain/runtime-benchmarks",
+]

@@ -46,3 +46,41 @@ asset-test-utils = { path = "../../../runtimes/assets/test-utils" }
 bp-messages = { path = "../../../../../bridges/primitives/messages" }
 pallet-bridge-messages = { path = "../../../../../bridges/modules/messages" }
 bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common" }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"cumulus-pallet-xcmp-queue/std",
+	"frame-support/std",
+	"pallet-assets/std",
+	"pallet-balances/std",
+	"pallet-im-online/std",
+	"pallet-message-queue/std",
+	"pallet-xcm/std",
+	"polkadot-primitives/std",
+	"sp-authority-discovery/std",
+	"sp-consensus-babe/std",
+	"sp-core/std",
+	"sp-runtime/std",
+	"xcm/std",
+]
+runtime-benchmarks = [
+	"asset-test-utils/runtime-benchmarks",
+	"bridge-runtime-common/runtime-benchmarks",
+	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-bridge-messages/runtime-benchmarks",
+	"pallet-im-online/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"polkadot-runtime-parachains/runtime-benchmarks",
+	"polkadot-service/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

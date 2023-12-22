@@ -18,3 +18,17 @@ asset-hub-rococo-emulated-chain = { path = "../../chains/parachains/assets/asset
 bridge-hub-rococo-emulated-chain = { path = "../../chains/parachains/bridges/bridge-hub-rococo" }
 people-rococo-emulated-chain = { path = "../../chains/parachains/people/people-rococo" }
 penpal-emulated-chain = { path = "../../chains/parachains/testing/penpal" }
+
+[features]
+default = ["std"]
+std = [
+	"emulated-integration-tests-common/std",
+]
+runtime-benchmarks = [
+	"asset-hub-rococo-emulated-chain/runtime-benchmarks",
+	"bridge-hub-rococo-emulated-chain/runtime-benchmarks",
+	"emulated-integration-tests-common/runtime-benchmarks",
+	"penpal-emulated-chain/runtime-benchmarks",
+	"people-rococo-emulated-chain/runtime-benchmarks",
+	"rococo-emulated-chain/runtime-benchmarks",
+]

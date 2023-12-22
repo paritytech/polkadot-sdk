@@ -108,6 +108,7 @@ default = ["std"]
 # This feature should be removed when the main-net will be migrated.
 state-trie-version-1 = ["pallet-state-trie-migration"]
 runtime-benchmarks = [
+	"asset-test-utils/runtime-benchmarks",
 	"assets-common/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-session-benchmarking/runtime-benchmarks",

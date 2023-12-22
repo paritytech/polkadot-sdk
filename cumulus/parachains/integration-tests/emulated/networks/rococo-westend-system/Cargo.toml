@@ -19,3 +19,18 @@ asset-hub-rococo-emulated-chain = { path = "../../chains/parachains/assets/asset
 asset-hub-westend-emulated-chain = { path = "../../chains/parachains/assets/asset-hub-westend" }
 bridge-hub-rococo-emulated-chain = { path = "../../chains/parachains/bridges/bridge-hub-rococo" }
 bridge-hub-westend-emulated-chain = { path = "../../chains/parachains/bridges/bridge-hub-westend" }
+
+[features]
+default = ["std"]
+std = [
+	"emulated-integration-tests-common/std",
+]
+runtime-benchmarks = [
+	"asset-hub-rococo-emulated-chain/runtime-benchmarks",
+	"asset-hub-westend-emulated-chain/runtime-benchmarks",
+	"bridge-hub-rococo-emulated-chain/runtime-benchmarks",
+	"bridge-hub-westend-emulated-chain/runtime-benchmarks",
+	"emulated-integration-tests-common/runtime-benchmarks",
+	"rococo-emulated-chain/runtime-benchmarks",
+	"westend-emulated-chain/runtime-benchmarks",
+]

@@ -18,7 +18,7 @@ pallet-balances = { path = "../../../../../../../substrate/frame/balances", defa
 pallet-assets = { path = "../../../../../../../substrate/frame/assets", default-features = false }
 pallet-asset-conversion = { path = "../../../../../../../substrate/frame/asset-conversion", default-features = false }
 pallet-message-queue = { path = "../../../../../../../substrate/frame/message-queue", default-features = false }
-pallet-identity = { path = "../../../../../../../substrate/frame/identity", default-features = false, features = ["xcm-emulator-testing"] }
+pallet-identity = { path = "../../../../../../../substrate/frame/identity", default-features = false }
 
 # Polkadot
 xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", default-features = false }
@@ -36,3 +36,40 @@ people-rococo-runtime = { path = "../../../../../runtimes/people/people-rococo" 
 emulated-integration-tests-common = { path = "../../../common", default-features = false }
 penpal-runtime = { path = "../../../../../runtimes/testing/penpal" }
 rococo-system-emulated-network = { path = "../../../networks/rococo-system" }
+
+[features]
+default = ["runtime-benchmarks", "std"]
+std = [
+	"codec/std",
+	"emulated-integration-tests-common/std",
+	"frame-support/std",
+	"pallet-asset-conversion/std",
+	"pallet-assets/std",
+	"pallet-balances/std",
+	"pallet-identity/std",
+	"pallet-message-queue/std",
+	"pallet-xcm/std",
+	"sp-runtime/std",
+	"xcm-executor/std",
+	"xcm/std",
+]
+runtime-benchmarks = [
+	"asset-test-utils/runtime-benchmarks",
+	"emulated-integration-tests-common/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"pallet-asset-conversion/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-identity/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
+	"penpal-runtime/runtime-benchmarks",
+	"people-rococo-runtime/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"polkadot-runtime-common/runtime-benchmarks",
+	"rococo-runtime/runtime-benchmarks",
+	"rococo-system-emulated-network/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+]

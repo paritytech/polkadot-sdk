@@ -1007,7 +1007,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Set an identity with zero deposit. Used for benchmarking and XCM emulator tests that involve
 	/// `rejig_deposit`.
-	#[cfg(any(feature = "runtime-benchmarks", feature = "xcm-emulator-testing"))]
+	#[cfg(feature = "runtime-benchmarks")]
 	pub fn set_identity_no_deposit(
 		who: &T::AccountId,
 		info: T::IdentityInformation,
@@ -1025,7 +1025,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Set subs with zero deposit and default name. Only used for benchmarks that involve
 	/// `rejig_deposit`.
-	#[cfg(any(feature = "runtime-benchmarks", feature = "xcm-emulator-testing"))]
+	#[cfg(feature = "runtime-benchmarks")]
 	pub fn set_subs_no_deposit(
 		who: &T::AccountId,
 		subs: Vec<(T::AccountId, Data)>,

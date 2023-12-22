@@ -99,6 +99,7 @@ substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder",
 [features]
 default = ["std"]
 runtime-benchmarks = [
+	"asset-test-utils/runtime-benchmarks",
 	"assets-common/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-session-benchmarking/runtime-benchmarks",

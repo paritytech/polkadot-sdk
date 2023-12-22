@@ -37,3 +37,39 @@ cumulus-pallet-dmp-queue = { path = "../../../../../../pallets/dmp-queue", defau
 bridge-hub-westend-runtime = { path = "../../../../../../parachains/runtimes/bridge-hubs/bridge-hub-westend", default-features = false }
 emulated-integration-tests-common = { path = "../../../common", default-features = false }
 rococo-westend-system-emulated-network = { path = "../../../networks/rococo-westend-system" }
+
+[features]
+default = ["std"]
+std = [
+	"bp-messages/std",
+	"bridge-hub-westend-runtime/std",
+	"codec/std",
+	"cumulus-pallet-dmp-queue/std",
+	"cumulus-pallet-xcmp-queue/std",
+	"emulated-integration-tests-common/std",
+	"frame-support/std",
+	"pallet-assets/std",
+	"pallet-balances/std",
+	"pallet-bridge-messages/std",
+	"pallet-xcm/std",
+	"sp-runtime/std",
+	"xcm-executor/std",
+	"xcm/std",
+]
+runtime-benchmarks = [
+	"asset-test-utils/runtime-benchmarks",
+	"bridge-hub-westend-runtime/runtime-benchmarks",
+	"cumulus-pallet-dmp-queue/runtime-benchmarks",
+	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
+	"emulated-integration-tests-common/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-bridge-messages/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
+	"rococo-westend-system-emulated-network/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+]

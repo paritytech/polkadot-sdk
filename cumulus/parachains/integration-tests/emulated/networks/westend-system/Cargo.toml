@@ -19,3 +19,19 @@ bridge-hub-westend-emulated-chain = { path = "../../chains/parachains/bridges/br
 collectives-westend-emulated-chain = { path = "../../chains/parachains/collectives/collectives-westend" }
 penpal-emulated-chain = { path = "../../chains/parachains/testing/penpal" }
 people-westend-emulated-chain = { path = "../../chains/parachains/people/people-westend" }
+
+[features]
+default = ["std"]
+std = [
+	"emulated-integration-tests-common/std",
+	"westend-emulated-chain/std",
+]
+runtime-benchmarks = [
+	"asset-hub-westend-emulated-chain/runtime-benchmarks",
+	"bridge-hub-westend-emulated-chain/runtime-benchmarks",
+	"collectives-westend-emulated-chain/runtime-benchmarks",
+	"emulated-integration-tests-common/runtime-benchmarks",
+	"penpal-emulated-chain/runtime-benchmarks",
+	"people-westend-emulated-chain/runtime-benchmarks",
+	"westend-emulated-chain/runtime-benchmarks",
+]

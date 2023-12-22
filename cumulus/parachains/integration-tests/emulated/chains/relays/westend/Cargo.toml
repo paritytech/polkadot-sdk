@@ -31,3 +31,26 @@ westend-runtime = { path = "../../../../../../../polkadot/runtime/westend" }
 # Cumulus
 parachains-common = { path = "../../../../../../parachains/common" }
 emulated-integration-tests-common = { path = "../../../common", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+	"emulated-integration-tests-common/std",
+	"pallet-im-online/std",
+	"pallet-staking/std",
+	"polkadot-primitives/std",
+	"sp-authority-discovery/std",
+	"sp-consensus-babe/std",
+	"sp-core/std",
+	"sp-runtime/std",
+	"westend-runtime-constants/std",
+]
+runtime-benchmarks = [
+	"emulated-integration-tests-common/runtime-benchmarks",
+	"pallet-im-online/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"westend-runtime/runtime-benchmarks",
+]

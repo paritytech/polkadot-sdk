@@ -30,3 +30,24 @@ rococo-runtime = { path = "../../../../../../../polkadot/runtime/rococo" }
 # Cumulus
 parachains-common = { path = "../../../../../../parachains/common" }
 emulated-integration-tests-common = { path = "../../../common", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+	"emulated-integration-tests-common/std",
+	"pallet-im-online/std",
+	"polkadot-primitives/std",
+	"rococo-runtime-constants/std",
+	"sp-authority-discovery/std",
+	"sp-consensus-babe/std",
+	"sp-core/std",
+	"sp-runtime/std",
+]
+runtime-benchmarks = [
+	"emulated-integration-tests-common/runtime-benchmarks",
+	"pallet-im-online/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"rococo-runtime/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

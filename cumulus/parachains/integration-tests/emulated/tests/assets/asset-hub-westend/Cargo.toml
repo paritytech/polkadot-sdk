@@ -43,3 +43,51 @@ cumulus-pallet-xcmp-queue = { default-features = false, path = "../../../../../.
 cumulus-pallet-parachain-system = { default-features = false, path = "../../../../../../pallets/parachain-system" }
 emulated-integration-tests-common = { path = "../../../common", default-features = false }
 westend-system-emulated-network = { path = "../../../networks/westend-system" }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"cumulus-pallet-dmp-queue/std",
+	"cumulus-pallet-parachain-system/std",
+	"cumulus-pallet-xcmp-queue/std",
+	"emulated-integration-tests-common/std",
+	"frame-support/std",
+	"frame-system/std",
+	"pallet-asset-conversion/std",
+	"pallet-asset-rate/std",
+	"pallet-assets/std",
+	"pallet-balances/std",
+	"pallet-message-queue/std",
+	"pallet-treasury/std",
+	"pallet-xcm/std",
+	"sp-runtime/std",
+	"westend-runtime-constants/std",
+	"xcm-builder/std",
+	"xcm-executor/std",
+	"xcm/std",
+]
+runtime-benchmarks = [
+	"asset-hub-westend-runtime/runtime-benchmarks",
+	"asset-test-utils/runtime-benchmarks",
+	"cumulus-pallet-dmp-queue/runtime-benchmarks",
+	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
+	"emulated-integration-tests-common/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-asset-conversion/runtime-benchmarks",
+	"pallet-asset-rate/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
+	"pallet-treasury/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
+	"polkadot-runtime-common/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"westend-runtime/runtime-benchmarks",
+	"westend-system-emulated-network/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+]
