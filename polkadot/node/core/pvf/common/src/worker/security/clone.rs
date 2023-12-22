@@ -21,11 +21,12 @@ use nix::sched::CloneFlags;
 
 /// Returns all the sandbox-related flags for `clone`.
 pub fn clone_sandbox_flags() -> CloneFlags {
+	// NOTE: CLONE_NEWUSER does not work when cloning job processes, but in Secure Validator Mode it
+	// is already set by the worker.
 	CloneFlags::CLONE_NEWCGROUP |
 		CloneFlags::CLONE_NEWIPC |
 		CloneFlags::CLONE_NEWNET |
 		CloneFlags::CLONE_NEWNS |
 		CloneFlags::CLONE_NEWPID |
-		CloneFlags::CLONE_NEWUSER |
 		CloneFlags::CLONE_NEWUTS
 }

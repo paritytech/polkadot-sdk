@@ -41,7 +41,7 @@ use polkadot_node_core_pvf_common::{
 	execute::{Handshake, JobError, JobResponse, JobResult, WorkerResponse},
 	framed_recv_blocking, framed_send_blocking,
 	worker::{
-		cpu_time_monitor_loop, pipe2_cloexec, run_worker, security, stringify_panic_payload,
+		cpu_time_monitor_loop, pipe2_cloexec, run_worker, stringify_panic_payload,
 		thread::{self, WaitOutcome},
 		PipeFd, WorkerKind,
 	},
@@ -193,6 +193,8 @@ pub fn worker_entrypoint(
 
 				cfg_if::cfg_if! {
 					if #[cfg(target_os = "linux")] {
+						use polkadot_node_core_pvf_common::worker::security;
+
 						let mut stack: Vec<u8> = vec![0u8; EXECUTE_THREAD_STACK_SIZE];
 						// SIGCHLD flag is used to inform clone that the parent process is
 						// expecting a child termination signal, without this flag `waitpid` function

@@ -20,7 +20,7 @@ mod memory_stats;
 
 use polkadot_node_core_pvf_common::{
 	executor_interface::{prepare, prevalidate},
-	worker::{pipe2_cloexec, security, PipeFd},
+	worker::{pipe2_cloexec, PipeFd},
 };
 
 // NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
@@ -61,10 +61,10 @@ use polkadot_node_core_pvf_common::{
 };
 use polkadot_primitives::ExecutorParams;
 use std::{
-	fs::{self, File},
+	fs,
 	io::{self, Read},
 	os::{
-		fd::{AsRawFd, FromRawFd, RawFd},
+		fd::{AsRawFd, RawFd},
 		unix::net::UnixStream,
 	},
 	path::PathBuf,
@@ -238,6 +238,8 @@ pub fn worker_entrypoint(
 
 				cfg_if::cfg_if! {
 					if #[cfg(target_os = "linux")] {
+						use polkadot_node_core_pvf_common::worker::security;
+
 						let stack_size = 2 * 1024 * 1024; // 2MiB
 						let mut stack: Vec<u8> = vec![0u8; stack_size];
 						// SIGCHLD flag is used to inform clone that the parent process is
