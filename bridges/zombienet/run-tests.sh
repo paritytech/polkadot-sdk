@@ -7,6 +7,10 @@ shopt -s nullglob
 #trap "exit" INT TERM
 #trap "kill -9 0" EXIT
 
+sudo systemctl enable apport.service || true
+sudo service apport start || true
+cat /var/log/apport.log 
+
 # assuming that we'll be using native provide && all processes will be executing locally
 # (we need absolute paths here, because they're used when scripts are called by zombienet from tmp folders)
 export POLKADOT_SDK_FOLDER=`realpath $(dirname "$0")/../..`
@@ -116,7 +120,9 @@ do
 
             #cat /var/log/lastlog || true
             #cat /var/log/faillog || true
-            cat /var/log/syslog || true
+            #cat /var/log/syslog || true
+            cat /var/log/apport.log || true
+            ls /var/crash || true
 
             exit 1
         fi
