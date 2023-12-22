@@ -7,7 +7,7 @@ use primitives::{Fork, ForkVersions};
 use sp_core::H256;
 use sp_runtime::traits::{BlakeTwo256, IdentityLookup};
 
-#[cfg(feature = "beacon-spec-minimal")]
+#[cfg(all(feature = "beacon-spec-minimal", not(feature = "runtime-benchmarks")))]
 pub mod minimal {
 	use super::*;
 
