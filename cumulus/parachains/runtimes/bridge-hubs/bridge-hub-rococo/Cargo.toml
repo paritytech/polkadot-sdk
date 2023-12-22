@@ -130,7 +130,7 @@ bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common", fe
 sp-keyring = { path = "../../../../../substrate/primitives/keyring" }
 
 [features]
-default = ["std"]
+default = ["beacon-spec-mainnet", "std"]
 std = [
 	"bp-asset-hub-rococo/std",
 	"bp-asset-hub-westend/std",
