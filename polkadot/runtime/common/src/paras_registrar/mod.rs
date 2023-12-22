@@ -1155,6 +1155,7 @@ mod tests {
 		type PreCodeUpgrade = Registrar;
 		type OnCodeUpgrade = ();
 		type OnNewHead = ();
+		type AssignCoretime = ();
 	}
 
 	impl configuration::Config for Test {

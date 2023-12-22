@@ -218,6 +218,7 @@ impl paras::Config for Test {
 	type PreCodeUpgrade = Registrar;
 	type OnCodeUpgrade = Registrar;
 	type OnNewHead = ();
+	type AssignCoretime = ();
 }
 
 parameter_types! {

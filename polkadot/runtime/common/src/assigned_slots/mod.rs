@@ -745,6 +745,7 @@ mod tests {
 		type PreCodeUpgrade = ();
 		type OnCodeUpgrade = ();
 		type OnNewHead = ();
+		type AssignCoretime = ();
 	}
 
 	impl parachains_shared::Config for Test {}

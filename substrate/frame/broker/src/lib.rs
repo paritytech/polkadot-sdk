@@ -42,9 +42,7 @@ pub use weights::WeightInfo;
 pub use adapt_price::*;
 pub use core_mask::*;
 pub use coretime_interface::*;
-pub use nonfungible_impl::*;
 pub use types::*;
-pub use utility_impls::*;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -160,6 +158,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type InstaPoolHistory<T> =
 		StorageMap<_, Blake2_128Concat, Timeslice, InstaPoolHistoryRecordOf<T>>;
+
+	/// Received core count change from the relay chain.
+	#[pallet::storage]
+	pub type CoreCountInbox<T> = StorageValue<_, CoreIndex, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -774,6 +776,14 @@ pub mod pallet {
 		pub fn request_core_count(origin: OriginFor<T>, core_count: CoreIndex) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_request_core_count(core_count)?;
+			Ok(())
+		}
+
+		#[pallet::call_index(19)]
+		#[pallet::weight(T::WeightInfo::notify_core_count())]
+		pub fn notify_core_count(origin: OriginFor<T>, core_count: CoreIndex) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			Self::do_notify_core_count(core_count)?;
 			Ok(())
 		}
 	}

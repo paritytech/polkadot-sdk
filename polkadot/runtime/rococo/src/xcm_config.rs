@@ -36,15 +36,16 @@ use runtime_common::{
 };
 use sp_core::ConstU32;
 use xcm::latest::prelude::*;
+#[allow(deprecated)]
+use xcm_builder::CurrencyAdapter as XcmCurrencyAdapter;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, ChildParachainAsNative,
-	ChildParachainConvertsVia, CurrencyAdapter as XcmCurrencyAdapter, DescribeBodyTerminal,
-	DescribeFamily, FixedWeightBounds, HashedDescription, IsChildSystemParachain, IsConcrete,
-	MintLocation, OriginToPluralityVoice, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
-	XcmFeeToAccount,
+	ChildParachainConvertsVia, DescribeBodyTerminal, DescribeFamily, FixedWeightBounds,
+	HashedDescription, IsChildSystemParachain, IsConcrete, MintLocation, OriginToPluralityVoice,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
+	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 use xcm_executor::XcmExecutor;
 
@@ -70,6 +71,7 @@ pub type LocationConverter = (
 /// point of view of XCM-only concepts like `MultiLocation` and `MultiAsset`.
 ///
 /// Ours is only aware of the Balances pallet, which is mapped to `RocLocation`.
+#[allow(deprecated)]
 pub type LocalAssetTransactor = XcmCurrencyAdapter<
 	// Use this currency:
 	Balances,
@@ -118,6 +120,7 @@ parameter_types! {
 	pub const Contracts: MultiLocation = Parachain(CONTRACTS_ID).into_location();
 	pub const Encointer: MultiLocation = Parachain(ENCOINTER_ID).into_location();
 	pub const BridgeHub: MultiLocation = Parachain(BRIDGE_HUB_ID).into_location();
+	pub const Broker: MultiLocation = Parachain(BROKER_ID).into_location();
 	pub const Tick: MultiLocation = Parachain(100).into_location();
 	pub const Trick: MultiLocation = Parachain(110).into_location();
 	pub const Track: MultiLocation = Parachain(120).into_location();
@@ -128,6 +131,7 @@ parameter_types! {
 	pub const RocForContracts: (MultiAssetFilter, MultiLocation) = (Roc::get(), Contracts::get());
 	pub const RocForEncointer: (MultiAssetFilter, MultiLocation) = (Roc::get(), Encointer::get());
 	pub const RocForBridgeHub: (MultiAssetFilter, MultiLocation) = (Roc::get(), BridgeHub::get());
+	pub const RocForBroker: (MultiAssetFilter, MultiLocation) = (Roc::get(), Broker::get());
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
@@ -139,6 +143,7 @@ pub type TrustedTeleporters = (
 	xcm_builder::Case<RocForContracts>,
 	xcm_builder::Case<RocForEncointer>,
 	xcm_builder::Case<RocForBridgeHub>,
+	xcm_builder::Case<RocForBroker>,
 );
 
 match_types! {

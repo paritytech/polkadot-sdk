@@ -156,7 +156,7 @@ pub struct BlockAndTimeDeadline<B: BlockNumberProvider> {
 
 impl<B: BlockNumberProvider> Clone for BlockAndTimeDeadline<B> {
 	fn clone(&self) -> Self {
-		Self { block_number: self.block_number.clone(), timestamp: self.timestamp }
+		Self { block_number: self.block_number, timestamp: self.timestamp }
 	}
 }
 
