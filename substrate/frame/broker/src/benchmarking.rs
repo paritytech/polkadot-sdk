@@ -893,7 +893,7 @@ mod benches {
 		#[extrinsic_call]
 		_(admin_origin as T::RuntimeOrigin, n.try_into().unwrap());
 
-        assert!(CoreCountInbox::<T>::take().is_some());
+		assert!(CoreCountInbox::<T>::take().is_some());
 		Ok(())
 	}
 
