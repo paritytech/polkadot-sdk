@@ -55,6 +55,18 @@ use westend_system_emulated_network::{
 	westend_emulated_chain::WestendRelayPallet, WestendRelay, WestendRelaySender,
 };
 
+#[test]
+fn sdasd() {
+	#[cfg(feature = "std")]
+	println!("1 std");
+
+	#[cfg(feature = "test")]
+	println!("1 f-test");
+
+	#[cfg(test)]
+	println!("1 test");
+}
+
 type Balance = u128;
 type WestendIdentity = <WestendRelay as WestendRelayPallet>::Identity;
 type WestendBalances = <WestendRelay as WestendRelayPallet>::Balances;
