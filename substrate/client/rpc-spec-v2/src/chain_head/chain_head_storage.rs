@@ -22,7 +22,6 @@ use std::{collections::VecDeque, marker::PhantomData, sync::Arc};
 
 use sc_client_api::{Backend, ChildInfo, StorageKey, StorageProvider};
 use sc_utils::mpsc::TracingUnboundedSender;
-use sp_core::storage::well_known_keys;
 use sp_runtime::traits::Block as BlockT;
 
 use crate::chain_head::event::OperationStorageItems;
@@ -77,16 +76,6 @@ struct QueryIter {
 	pagination_start_key: Option<StorageKey>,
 	/// The type of the query (either value or hash).
 	ty: IterQueryType,
-}
-
-/// Checks if the provided key (main or child key) is valid
-/// for queries.
-///
-/// Keys that are identical to `:child_storage:` or `:child_storage:default:`
-/// are not queryable.
-fn is_key_queryable(key: &[u8]) -> bool {
-	!well_known_keys::is_default_child_storage_key(key) &&
-		!well_known_keys::is_child_storage_key(key)
 }
 
 /// The result of making a query call.
@@ -294,21 +283,8 @@ where
 		let sender = block_guard.response_sender();
 		let operation = block_guard.operation();
 
-		if let Some(child_key) = child_key.as_ref() {
-			if !is_key_queryable(child_key.storage_key()) {
-				let _ = sender.unbounded_send(FollowEvent::<Block::Hash>::OperationStorageDone(
-					OperationId { operation_id: operation.operation_id() },
-				));
-				return
-			}
-		}
-
 		let mut storage_results = Vec::with_capacity(items.len());
 		for item in items {
-			if !is_key_queryable(&item.key.0) {
-				continue
-			}
-
 			match item.query_type {
 				StorageQueryType::Value => {
 					match self.query_storage_value(hash, &item.key, child_key.as_ref()) {
