@@ -36,6 +36,20 @@ members = [
 	"bridges/primitives/test-utils",
 	"bridges/primitives/xcm-bridge-hub",
 	"bridges/primitives/xcm-bridge-hub-router",
+	"bridges/snowbridge/parachain/pallets/ethereum-beacon-client",
+	"bridges/snowbridge/parachain/pallets/inbound-queue",
+	"bridges/snowbridge/parachain/pallets/outbound-queue",
+	"bridges/snowbridge/parachain/pallets/outbound-queue/merkle-tree",
+	"bridges/snowbridge/parachain/pallets/outbound-queue/runtime-api",
+	"bridges/snowbridge/parachain/pallets/system",
+	"bridges/snowbridge/parachain/pallets/system/runtime-api",
+	"bridges/snowbridge/parachain/primitives/beacon",
+	"bridges/snowbridge/parachain/primitives/core",
+	"bridges/snowbridge/parachain/primitives/ethereum",
+	"bridges/snowbridge/parachain/primitives/router",
+	"bridges/snowbridge/parachain/runtime/rococo-common",
+	"bridges/snowbridge/parachain/runtime/runtime-common",
+	"bridges/snowbridge/parachain/runtime/tests",
 	"cumulus/client/cli",
 	"cumulus/client/collator",
 	"cumulus/client/consensus/aura",
@@ -90,6 +104,8 @@ members = [
 	"cumulus/parachains/runtimes/bridge-hubs/test-utils",
 	"cumulus/parachains/runtimes/collectives/collectives-westend",
 	"cumulus/parachains/runtimes/contracts/contracts-rococo",
+	"cumulus/parachains/runtimes/coretime/coretime-rococo",
+	"cumulus/parachains/runtimes/coretime/coretime-westend",
 	"cumulus/parachains/runtimes/glutton/glutton-westend",
 	"cumulus/parachains/runtimes/starters/seedling",
 	"cumulus/parachains/runtimes/starters/shell",
@@ -481,20 +497,21 @@ suspicious_double_ref_op = { level = "allow", priority = 2 }
 
 [workspace.lints.clippy]
 all = { level = "allow", priority = 0 }
-correctness = { level = "deny", priority = 1 }
+correctness = { level = "warn", priority = 1 }
+complexity = { level = "warn", priority = 1 }
 if-same-then-else = { level = "allow", priority = 2 }
-complexity = { level = "deny", priority = 1 }
 zero-prefixed-literal = { level = "allow", priority = 2 }            # 00_1000_000
 type_complexity = { level = "allow", priority = 2 }                  # raison d'etre
 nonminimal-bool = { level = "allow", priority = 2 }                  # maybe
 borrowed-box = { level = "allow", priority = 2 }                     # Reasonable to fix this one
 too-many-arguments = { level = "allow", priority = 2 }               # (Turning this on would lead to)
+needless-lifetimes = { level = "allow", priority = 2 }               # generated code
 unnecessary_cast = { level = "allow", priority = 2 }                 # Types may change
 identity-op = { level = "allow", priority = 2 }                      # One case where we do 0 +
 useless_conversion = { level = "allow", priority = 2 }               # Types may change
-unit_arg = { level = "allow", priority = 2 }                         # styalistic.
-option-map-unit-fn = { level = "allow", priority = 2 }               # styalistic
-bind_instead_of_map = { level = "allow", priority = 2 }              # styalistic
+unit_arg = { level = "allow", priority = 2 }                         # stylistic
+option-map-unit-fn = { level = "allow", priority = 2 }               # stylistic
+bind_instead_of_map = { level = "allow", priority = 2 }              # stylistic
 erasing_op = { level = "allow", priority = 2 }                       # E.g. 0 * DOLLARS
 eq_op = { level = "allow", priority = 2 }                            # In tests we test equality.
 while_immutable_condition = { level = "allow", priority = 2 }        # false positives

@@ -36,8 +36,13 @@ use frame_support::{
 	pallet_prelude::Get,
 	parameter_types,
 	traits::{
-		fungible::{Balanced, Credit, HoldConsideration, ItemOf},
-		tokens::{nonfungibles_v2::Inspect, pay::PayAssetFromAccount, GetSalary, PayFromAccount},
+		fungible::{
+			Balanced, Credit, HoldConsideration, ItemOf, NativeFromLeft, NativeOrWithId, UnionOf,
+		},
+		tokens::{
+			imbalance::ResolveAssetTo, nonfungibles_v2::Inspect, pay::PayAssetFromAccount,
+			GetSalary, PayFromAccount,
+		},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, Contains, Currency,
 		EitherOfDiverse, EqualPrivilegeOnly, Imbalance, InsideBoth, InstanceFilter,
 		KeyOwnerProofSystem, LinearStoragePrice, LockIdentifier, Nothing, OnUnbalanced,
@@ -57,7 +62,7 @@ use frame_system::{
 };
 pub use node_primitives::{AccountId, Signature};
 use node_primitives::{AccountIndex, Balance, BlockNumber, Hash, Moment, Nonce};
-use pallet_asset_conversion::{NativeOrAssetId, NativeOrAssetIdConverter};
+use pallet_asset_conversion::{Ascending, Chain, WithFirstAsset};
 use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600};
 use pallet_election_provider_multi_phase::{GeometricDepositBase, SolutionAccuracyOf};
 use pallet_identity::legacy::IdentityInfo;
@@ -563,8 +568,11 @@ impl pallet_asset_tx_payment::Config for Runtime {
 impl pallet_asset_conversion_tx_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Fungibles = Assets;
-	type OnChargeAssetTransaction =
-		pallet_asset_conversion_tx_payment::AssetConversionAdapter<Balances, AssetConversion>;
+	type OnChargeAssetTransaction = pallet_asset_conversion_tx_payment::AssetConversionAdapter<
+		Balances,
+		AssetConversion,
+		Native,
+	>;
 }
 
 impl pallet_skip_feeless_payment::Config for Runtime {
@@ -704,8 +712,6 @@ parameter_types! {
 	pub const SignedDepositIncreaseFactor: Percent = Percent::from_percent(10);
 	pub const SignedDepositByte: Balance = 1 * CENTS;
 
-	pub BetterUnsignedThreshold: Perbill = Perbill::from_rational(1u32, 10_000);
-
 	// miner configs
 	pub const MultiPhaseUnsignedPriority: TransactionPriority = StakingUnsignedPriority::get() - 1u64;
 	pub MinerMaxWeight: Weight = RuntimeBlockWeights::get()
@@ -822,7 +828,6 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type EstimateCallFee = TransactionPayment;
 	type SignedPhase = SignedPhase;
 	type UnsignedPhase = UnsignedPhase;
-	type BetterUnsignedThreshold = BetterUnsignedThreshold;
 	type BetterSignedThreshold = ();
 	type OffchainRepeat = OffchainRepeat;
 	type MinerTxPriority = MultiPhaseUnsignedPriority;
@@ -1647,33 +1652,34 @@ impl pallet_assets::Config<Instance2> for Runtime {
 
 parameter_types! {
 	pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
-	pub AllowMultiAssetPools: bool = true;
 	pub const PoolSetupFee: Balance = 1 * DOLLARS; // should be more or equal to the existential deposit
 	pub const MintMinLiquidity: Balance = 100;  // 100 is good enough when the main currency has 10-12 decimals.
-	pub const LiquidityWithdrawalFee: Permill = Permill::from_percent(0);  // should be non-zero if AllowMultiAssetPools is true, otherwise can be zero.
+	pub const LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
+	pub const Native: NativeOrWithId<u32> = NativeOrWithId::Native;
 }
 
 impl pallet_asset_conversion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
-	type AssetBalance = <Self as pallet_balances::Config>::Balance;
-	type HigherPrecisionBalance = sp_core::U256;
-	type Assets = Assets;
 	type Balance = u128;
-	type PoolAssets = PoolAssets;
-	type AssetId = <Self as pallet_assets::Config<Instance1>>::AssetId;
-	type MultiAssetId = NativeOrAssetId<u32>;
+	type HigherPrecisionBalance = sp_core::U256;
+	type AssetKind = NativeOrWithId<u32>;
+	type Assets = UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
+	type PoolId = (Self::AssetKind, Self::AssetKind);
+	type PoolLocator = Chain<
+		WithFirstAsset<Native, AccountId, NativeOrWithId<u32>>,
+		Ascending<AccountId, NativeOrWithId<u32>>,
+	>;
 	type PoolAssetId = <Self as pallet_assets::Config<Instance2>>::AssetId;
+	type PoolAssets = PoolAssets;
+	type PoolSetupFee = PoolSetupFee;
+	type PoolSetupFeeAsset = Native;
+	type PoolSetupFeeTarget = ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
 	type PalletId = AssetConversionPalletId;
 	type LPFee = ConstU32<3>; // means 0.3%
-	type PoolSetupFee = PoolSetupFee;
-	type PoolSetupFeeReceiver = AssetConversionOrigin;
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
 	type WeightInfo = pallet_asset_conversion::weights::SubstrateWeight<Runtime>;
-	type AllowMultiAssetPools = AllowMultiAssetPools;
 	type MaxSwapPathLength = ConstU32<4>;
 	type MintMinLiquidity = MintMinLiquidity;
-	type MultiAssetIdConverter = NativeOrAssetIdConverter<u32>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -1988,7 +1994,6 @@ impl OnUnbalanced<Credit<AccountId, Balances>> for IntoAuthor {
 }
 
 parameter_types! {
-	pub storage CoreCount: Option<CoreIndex> = None;
 	pub storage CoretimeRevenue: Option<(BlockNumber, Balance)> = None;
 }
 
@@ -1996,36 +2001,24 @@ pub struct CoretimeProvider;
 impl CoretimeInterface for CoretimeProvider {
 	type AccountId = AccountId;
 	type Balance = Balance;
-	type BlockNumber = BlockNumber;
-	fn latest() -> Self::BlockNumber {
-		System::block_number()
-	}
+	type RealyChainBlockNumberProvider = System;
 	fn request_core_count(_count: CoreIndex) {}
-	fn request_revenue_info_at(_when: Self::BlockNumber) {}
+	fn request_revenue_info_at(_when: u32) {}
 	fn credit_account(_who: Self::AccountId, _amount: Self::Balance) {}
 	fn assign_core(
 		_core: CoreIndex,
-		_begin: Self::BlockNumber,
+		_begin: u32,
 		_assignment: Vec<(CoreAssignment, PartsOf57600)>,
-		_end_hint: Option<Self::BlockNumber>,
+		_end_hint: Option<u32>,
 	) {
 	}
-	fn check_notify_core_count() -> Option<u16> {
-		let count = CoreCount::get();
-		CoreCount::set(&None);
-		count
-	}
-	fn check_notify_revenue_info() -> Option<(Self::BlockNumber, Self::Balance)> {
+	fn check_notify_revenue_info() -> Option<(u32, Self::Balance)> {
 		let revenue = CoretimeRevenue::get();
 		CoretimeRevenue::set(&None);
 		revenue
 	}
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_notify_core_count(count: u16) {
-		CoreCount::set(&Some(count));
-	}
-	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_notify_revenue_info(when: Self::BlockNumber, revenue: Self::Balance) {
+	fn ensure_notify_revenue_info(when: u32, revenue: Self::Balance) {
 		CoretimeRevenue::set(&Some((when, revenue)));
 	}
 }
@@ -2587,20 +2580,19 @@ impl_runtime_apis! {
 	impl pallet_asset_conversion::AssetConversionApi<
 		Block,
 		Balance,
-		u128,
-		NativeOrAssetId<u32>
+		NativeOrWithId<u32>
 	> for Runtime
 	{
-		fn quote_price_exact_tokens_for_tokens(asset1: NativeOrAssetId<u32>, asset2: NativeOrAssetId<u32>, amount: u128, include_fee: bool) -> Option<Balance> {
+		fn quote_price_exact_tokens_for_tokens(asset1: NativeOrWithId<u32>, asset2: NativeOrWithId<u32>, amount: Balance, include_fee: bool) -> Option<Balance> {
 			AssetConversion::quote_price_exact_tokens_for_tokens(asset1, asset2, amount, include_fee)
 		}
 
-		fn quote_price_tokens_for_exact_tokens(asset1: NativeOrAssetId<u32>, asset2: NativeOrAssetId<u32>, amount: u128, include_fee: bool) -> Option<Balance> {
+		fn quote_price_tokens_for_exact_tokens(asset1: NativeOrWithId<u32>, asset2: NativeOrWithId<u32>, amount: Balance, include_fee: bool) -> Option<Balance> {
 			AssetConversion::quote_price_tokens_for_exact_tokens(asset1, asset2, amount, include_fee)
 		}
 
-		fn get_reserves(asset1: NativeOrAssetId<u32>, asset2: NativeOrAssetId<u32>) -> Option<(Balance, Balance)> {
-			AssetConversion::get_reserves(&asset1, &asset2).ok()
+		fn get_reserves(asset1: NativeOrWithId<u32>, asset2: NativeOrWithId<u32>) -> Option<(Balance, Balance)> {
+			AssetConversion::get_reserves(asset1, asset2).ok()
 		}
 	}
 

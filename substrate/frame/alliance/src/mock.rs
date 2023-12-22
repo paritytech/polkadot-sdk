@@ -19,16 +19,12 @@
 
 pub use sp_core::H256;
 use sp_runtime::traits::Hash;
-pub use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
-};
+pub use sp_runtime::{traits::BlakeTwo256, BuildStorage};
 use sp_std::convert::{TryFrom, TryInto};
 
 pub use frame_support::{
 	assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,
-	traits::{EitherOfDiverse, SortedMembers},
-	BoundedVec,
+	traits::EitherOfDiverse, BoundedVec,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use pallet_identity::{

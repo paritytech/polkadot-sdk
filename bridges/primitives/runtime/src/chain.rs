@@ -15,7 +15,7 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::HeaderIdProvider;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Codec, Decode, Encode, MaxEncodedLen};
 use frame_support::{weights::Weight, Parameter};
 use num_traits::{AsPrimitive, Bounded, CheckedSub, Saturating, SaturatingAdd, Zero};
 use sp_runtime::{
@@ -39,7 +39,7 @@ pub enum EncodedOrDecodedCall<ChainCall> {
 	Decoded(ChainCall),
 }
 
-impl<ChainCall: Clone + Decode> EncodedOrDecodedCall<ChainCall> {
+impl<ChainCall: Clone + Codec> EncodedOrDecodedCall<ChainCall> {
 	/// Returns decoded call.
 	pub fn to_decoded(&self) -> Result<ChainCall, codec::Error> {
 		match self {
@@ -55,6 +55,14 @@ impl<ChainCall: Clone + Decode> EncodedOrDecodedCall<ChainCall> {
 			Self::Encoded(encoded_call) =>
 				ChainCall::decode(&mut &encoded_call[..]).map_err(Into::into),
 			Self::Decoded(decoded_call) => Ok(decoded_call),
+		}
+	}
+
+	/// Converts self to encoded call.
+	pub fn into_encoded(self) -> Vec<u8> {
+		match self {
+			Self::Encoded(encoded_call) => encoded_call,
+			Self::Decoded(decoded_call) => decoded_call.encode(),
 		}
 	}
 }
@@ -191,7 +199,7 @@ pub trait Chain: Send + Sync + 'static {
 }
 
 /// A trait that provides the type of the underlying chain.
-pub trait UnderlyingChainProvider {
+pub trait UnderlyingChainProvider: Send + Sync + 'static {
 	/// Underlying chain type.
 	type Chain: Chain;
 }

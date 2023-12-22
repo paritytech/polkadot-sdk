@@ -25,3 +25,11 @@ parachains-common = { path = "../../../../../../../parachains/common" }
 cumulus-primitives-core = { path = "../../../../../../../primitives/core", default-features = false }
 emulated-integration-tests-common = { path = "../../../../common", default-features = false }
 bridge-hub-rococo-runtime = { path = "../../../../../../runtimes/bridge-hubs/bridge-hub-rococo" }
+bridge-hub-common = { path = "../../../../../../runtimes/bridge-hubs/common", default-features = false }
+
+# Snowbridge
+snowbridge-core = { path = "../../../../../../../../bridges/snowbridge/parachain/primitives/core", default-features = false }
+snowbridge-router-primitives = { path = "../../../../../../../../bridges/snowbridge/parachain/primitives/router", default-features = false }
+snowbridge-system = { path = "../../../../../../../../bridges/snowbridge/parachain/pallets/system", default-features = false }
+snowbridge-inbound-queue = { path = "../../../../../../../../bridges/snowbridge/parachain/pallets/inbound-queue", default-features = false }
+snowbridge-outbound-queue = { path = "../../../../../../../../bridges/snowbridge/parachain/pallets/outbound-queue", default-features = false }

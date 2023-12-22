@@ -29,12 +29,13 @@ pub mod xcm_config;
 
 use assets_common::{
 	foreign_creators::ForeignCreators,
-	local_and_foreign_assets::{LocalAndForeignAssets, MultiLocationConverter},
-	matching::FromSiblingParachain,
+	local_and_foreign_assets::{LocalFromLeft, TargetFromLeft},
+	matching::{FromNetwork, FromSiblingParachain},
 	AssetIdForTrustBackedAssetsConvert, MultiLocationForAssetId,
 };
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use cumulus_primitives_core::AggregateMessageOrigin;
+use snowbridge_rococo_common::EthereumNetwork;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
@@ -57,8 +58,9 @@ use frame_support::{
 	genesis_builder_helper::{build_config, create_default_config},
 	ord_parameter_types, parameter_types,
 	traits::{
-		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, EitherOfDiverse,
-		Equals, InstanceFilter, TransformOrigin,
+		fungible, fungibles, tokens::imbalance::ResolveAssetTo, AsEnsureOriginWithArg, ConstBool,
+		ConstU128, ConstU32, ConstU64, ConstU8, EitherOfDiverse, Equals, InstanceFilter,
+		TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight},
 	BoundedVec, PalletId,
@@ -82,8 +84,9 @@ use parachains_common::{
 use sp_runtime::{Perbill, RuntimeDebug};
 use xcm::opaque::v3::MultiLocation;
 use xcm_config::{
-	ForeignAssetsConvertedConcreteId, GovernanceLocation, PoolAssetsConvertedConcreteId,
-	TokenLocation, TrustBackedAssetsConvertedConcreteId,
+	ForeignAssetsConvertedConcreteId, ForeignCreatorsSovereignAccountOf, GovernanceLocation,
+	PoolAssetsConvertedConcreteId, TokenLocation, TrustBackedAssetsConvertedConcreteId,
+	TrustBackedAssetsPalletLocation,
 };
 
 #[cfg(any(feature = "std", test))]
@@ -94,10 +97,6 @@ use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use xcm::latest::prelude::*;
 
-use crate::xcm_config::{
-	ForeignCreatorsSovereignAccountOf, LocalAndForeignAssetsMultiLocationMatcher,
-	TrustBackedAssetsPalletLocation,
-};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
 impl_opaque_keys! {
@@ -112,7 +111,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("statemine"),
 	impl_name: create_runtime_str!("statemine"),
 	authoring_version: 1,
-	spec_version: 1_005_000,
+	spec_version: 1_005_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 14,
@@ -280,8 +279,6 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 
 parameter_types! {
 	pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
-	pub const AllowMultiAssetPools: bool = false;
-	// should be non-zero if AllowMultiAssetPools is true, otherwise can be zero
 	pub const LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
 }
 
@@ -316,36 +313,50 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type BenchmarkHelper = ();
 }
 
+/// Union fungibles implementation for `Assets`` and `ForeignAssets`.
+pub type LocalAndForeignAssets = fungibles::UnionOf<
+	Assets,
+	ForeignAssets,
+	LocalFromLeft<
+		AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation>,
+		AssetIdForTrustBackedAssets,
+	>,
+	MultiLocation,
+	AccountId,
+>;
+
 impl pallet_asset_conversion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type HigherPrecisionBalance = sp_core::U256;
-	type Currency = Balances;
-	type AssetBalance = Balance;
-	type AssetId = MultiLocation;
-	type Assets = LocalAndForeignAssets<
-		Assets,
-		AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation>,
-		ForeignAssets,
+	type AssetKind = MultiLocation;
+	type Assets = fungible::UnionOf<
+		Balances,
+		LocalAndForeignAssets,
+		TargetFromLeft<TokenLocation>,
+		Self::AssetKind,
+		Self::AccountId,
 	>;
-	type PoolAssets = PoolAssets;
+	type PoolId = (Self::AssetKind, Self::AssetKind);
+	type PoolLocator =
+		pallet_asset_conversion::WithFirstAsset<TokenLocation, AccountId, Self::AssetKind>;
 	type PoolAssetId = u32;
+	type PoolAssets = PoolAssets;
 	type PoolSetupFee = ConstU128<0>; // Asset class deposit fees are sufficient to prevent spam
-	type PoolSetupFeeReceiver = AssetConversionOrigin;
-	// should be non-zero if `AllowMultiAssetPools` is true, otherwise can be zero.
+	type PoolSetupFeeAsset = TokenLocation;
+	type PoolSetupFeeTarget = ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
 	type LPFee = ConstU32<3>;
 	type PalletId = AssetConversionPalletId;
-	type AllowMultiAssetPools = AllowMultiAssetPools;
-	type MaxSwapPathLength = ConstU32<4>;
-	type MultiAssetId = Box<MultiLocation>;
-	type MultiAssetIdConverter =
-		MultiLocationConverter<TokenLocation, LocalAndForeignAssetsMultiLocationMatcher>;
+	type MaxSwapPathLength = ConstU32<3>;
 	type MintMinLiquidity = ConstU128<100>;
 	type WeightInfo = weights::pallet_asset_conversion::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper =
-		crate::xcm_config::BenchmarkMultiLocationConverter<parachain_info::Pallet<Runtime>>;
+	type BenchmarkHelper = assets_common::benchmarks::AssetPairFactory<
+		TokenLocation,
+		parachain_info::Pallet<Runtime>,
+		xcm_config::AssetsPalletIndex,
+	>;
 }
 
 parameter_types! {
@@ -370,7 +381,10 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type AssetIdParameter = MultiLocationForAssetId;
 	type Currency = Balances;
 	type CreateOrigin = ForeignCreators<
-		(FromSiblingParachain<parachain_info::Pallet<Runtime>>,),
+		(
+			FromSiblingParachain<parachain_info::Pallet<Runtime>>,
+			FromNetwork<xcm_config::UniversalLocation, EthereumNetwork>,
+		),
 		ForeignCreatorsSovereignAccountOf,
 		AccountId,
 	>;
@@ -735,12 +749,9 @@ impl pallet_collator_selection::Config for Runtime {
 
 impl pallet_asset_conversion_tx_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Fungibles = LocalAndForeignAssets<
-		Assets,
-		AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation>,
-		ForeignAssets,
-	>;
-	type OnChargeAssetTransaction = AssetConversionAdapter<Balances, AssetConversion>;
+	type Fungibles = LocalAndForeignAssets;
+	type OnChargeAssetTransaction =
+		AssetConversionAdapter<Balances, AssetConversion, TokenLocation>;
 }
 
 parameter_types! {
@@ -907,7 +918,6 @@ construct_runtime!(
 
 		// Bridge utilities.
 		ToWestendXcmRouter: pallet_xcm_bridge_hub_router::<Instance3>::{Pallet, Storage, Call} = 45,
-
 		// The main stage.
 		Assets: pallet_assets::<Instance1>::{Pallet, Call, Storage, Event<T>} = 50,
 		Uniques: pallet_uniques::{Pallet, Call, Storage, Event<T>} = 51,
@@ -1144,18 +1154,19 @@ impl_runtime_apis! {
 	impl pallet_asset_conversion::AssetConversionApi<
 		Block,
 		Balance,
-		u128,
-		Box<MultiLocation>,
+		MultiLocation,
 	> for Runtime
 	{
-		fn quote_price_exact_tokens_for_tokens(asset1: Box<MultiLocation>, asset2: Box<MultiLocation>, amount: u128, include_fee: bool) -> Option<Balance> {
+		fn quote_price_exact_tokens_for_tokens(asset1: MultiLocation, asset2: MultiLocation, amount: Balance, include_fee: bool) -> Option<Balance> {
 			AssetConversion::quote_price_exact_tokens_for_tokens(asset1, asset2, amount, include_fee)
 		}
-		fn quote_price_tokens_for_exact_tokens(asset1: Box<MultiLocation>, asset2: Box<MultiLocation>, amount: u128, include_fee: bool) -> Option<Balance> {
+
+		fn quote_price_tokens_for_exact_tokens(asset1: MultiLocation, asset2: MultiLocation, amount: Balance, include_fee: bool) -> Option<Balance> {
 			AssetConversion::quote_price_tokens_for_exact_tokens(asset1, asset2, amount, include_fee)
 		}
-		fn get_reserves(asset1: Box<MultiLocation>, asset2: Box<MultiLocation>) -> Option<(Balance, Balance)> {
-			AssetConversion::get_reserves(&asset1, &asset2).ok()
+
+		fn get_reserves(asset1: MultiLocation, asset2: MultiLocation) -> Option<(Balance, Balance)> {
+			AssetConversion::get_reserves(asset1, asset2).ok()
 		}
 	}
 

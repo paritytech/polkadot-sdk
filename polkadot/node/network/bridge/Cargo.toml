@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 always-assert = "0.1"
-async-trait = "0.1.57"
+async-trait = "0.1.74"
 futures = "0.3.21"
 gum = { package = "tracing-gum", path = "../../gum" }
 polkadot-primitives = { path = "../../../primitives" }
