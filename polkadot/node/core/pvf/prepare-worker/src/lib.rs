@@ -20,7 +20,7 @@ mod memory_stats;
 
 use polkadot_node_core_pvf_common::{
 	executor_interface::{prepare, prevalidate},
-	worker::{pipe2_cloexec, PipeFd},
+	worker::{pipe2_cloexec, security, PipeFd},
 };
 
 // NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
@@ -243,14 +243,8 @@ pub fn worker_entrypoint(
 						// SIGCHLD flag is used to inform clone that the parent process is
 						// expecting a child termination signal, without this flag `waitpid` function
 						// return `ECHILD` error.
-						let flags = CloneFlags::CLONE_NEWCGROUP
-							| CloneFlags::CLONE_NEWIPC
-							| CloneFlags::CLONE_NEWNET
-							| CloneFlags::CLONE_NEWNS
-							| CloneFlags::CLONE_NEWPID
-							| CloneFlags::CLONE_NEWUSER
-							| CloneFlags::CLONE_NEWUTS
-							| CloneFlags::from_bits_retain(libc::SIGCHLD);
+						let flags =
+							security::clone::clone_sandbox_flags() | CloneFlags::from_bits_retain(libc::SIGCHLD);
 
 						// SAFETY: new process is spawned within a single threaded process. This invariant
 						// is enforced by tests. Stack size being specified to ensure child doesn't overflow
@@ -285,7 +279,6 @@ pub fn worker_entrypoint(
 								)
 							},
 						};
-						send_response(&mut stream, result)?;
 					} else {
 						// SAFETY: new process is spawned within a single threaded process. This invariant
 						// is enforced by tests.
@@ -316,7 +309,7 @@ pub fn worker_entrypoint(
 							},
 						};
 					}
-				}
+				};
 
 				gum::trace!(
 					target: LOG_TARGET,

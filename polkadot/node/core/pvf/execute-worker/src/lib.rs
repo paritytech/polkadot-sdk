@@ -41,7 +41,7 @@ use polkadot_node_core_pvf_common::{
 	execute::{Handshake, JobError, JobResponse, JobResult, WorkerResponse},
 	framed_recv_blocking, framed_send_blocking,
 	worker::{
-		cpu_time_monitor_loop, pipe2_cloexec, run_worker, stringify_panic_payload,
+		cpu_time_monitor_loop, pipe2_cloexec, run_worker, security, stringify_panic_payload,
 		thread::{self, WaitOutcome},
 		PipeFd, WorkerKind,
 	},
@@ -187,20 +187,18 @@ pub fn worker_entrypoint(
 				};
 				let stream_fd = stream.as_raw_fd();
 
+				let compiled_artifact_blob = Arc::new(compiled_artifact_blob);
+				let executor_params = Arc::new(executor_params.clone());
+				let params = Arc::new(params);
+
 				cfg_if::cfg_if! {
 					if #[cfg(target_os = "linux")] {
 						let mut stack: Vec<u8> = vec![0u8; EXECUTE_THREAD_STACK_SIZE];
 						// SIGCHLD flag is used to inform clone that the parent process is
 						// expecting a child termination signal, without this flag `waitpid` function
 						// return `ECHILD` error.
-						let flags = CloneFlags::CLONE_NEWCGROUP
-							| CloneFlags::CLONE_NEWIPC
-							| CloneFlags::CLONE_NEWNET
-							| CloneFlags::CLONE_NEWNS
-							| CloneFlags::CLONE_NEWPID
-							| CloneFlags::CLONE_NEWUSER
-							| CloneFlags::CLONE_NEWUTS
-							| CloneFlags::from_bits_retain(libc::SIGCHLD);
+						let flags =
+							security::clone::clone_sandbox_flags() | CloneFlags::from_bits_retain(libc::SIGCHLD);
 
 						// SAFETY: new process is spawned within a single threaded process. This invariant
 						// is enforced by tests. Stack size being specified to ensure child doesn't overflow
@@ -211,9 +209,9 @@ pub fn worker_entrypoint(
 										pipe_writer,
 										pipe_reader,
 										stream_fd,
-										compiled_artifact_blob,
-										executor_params,
-										params,
+										Arc::clone(&compiled_artifact_blob),
+										Arc::clone(&executor_params),
+										Arc::clone(&params),
 										execution_timeout,
 									)
 								}),
@@ -234,15 +232,6 @@ pub fn worker_entrypoint(
 								)?
 							},
 						};
-
-
-						gum::trace!(
-							target: LOG_TARGET,
-							%worker_pid,
-							"worker: sending result to host: {:?}",
-							result
-						);
-						send_response(&mut stream, result)?;
 					} else {
 						// SAFETY: new process is spawned within a single threaded process. This invariant
 						// is enforced by tests.
@@ -270,17 +259,16 @@ pub fn worker_entrypoint(
 								)?
 							},
 						};
-
-
-						gum::trace!(
-							target: LOG_TARGET,
-							%worker_pid,
-							"worker: sending result to host: {:?}",
-							result
-						);
-						send_response(&mut stream, result)?;
 					}
-				}
+				};
+
+				gum::trace!(
+					target: LOG_TARGET,
+					%worker_pid,
+					"worker: sending result to host: {:?}",
+					result
+				);
+				send_response(&mut stream, result)?;
 			}
 		},
 	);
@@ -335,9 +323,9 @@ fn handle_child_process(
 	pipe_write_fd: i32,
 	pipe_read_fd: i32,
 	stream_fd: i32,
-	compiled_artifact_blob: Vec<u8>,
-	executor_params: ExecutorParams,
-	params: Vec<u8>,
+	compiled_artifact_blob: Arc<Vec<u8>>,
+	executor_params: Arc<ExecutorParams>,
+	params: Arc<Vec<u8>>,
 	execution_timeout: Duration,
 ) -> ! {
 	// SAFETY: pipe_writer is an open and owned file descriptor at this point.
@@ -378,10 +366,9 @@ fn handle_child_process(
 		send_child_response(&mut pipe_write, Err(JobError::CouldNotSpawnThread(err.to_string())))
 	});
 
-	let executor_params_2 = executor_params.clone();
 	let execute_thread = thread::spawn_worker_thread_with_stack_size(
 		"execute thread",
-		move || validate_using_artifact(&compiled_artifact_blob, &executor_params_2, &params),
+		move || validate_using_artifact(&compiled_artifact_blob, &executor_params, &params),
 		Arc::clone(&condvar),
 		WaitOutcome::Finished,
 		EXECUTE_THREAD_STACK_SIZE,

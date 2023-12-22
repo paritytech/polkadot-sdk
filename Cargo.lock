@@ -12494,6 +12494,7 @@ dependencies = [
  "futures",
  "landlock",
  "libc",
+ "nix 0.27.1",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
