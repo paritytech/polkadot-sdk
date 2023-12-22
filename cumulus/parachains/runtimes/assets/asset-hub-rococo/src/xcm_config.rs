@@ -21,11 +21,7 @@ use super::{
 };
 use assets_common::{
 	local_and_foreign_assets::MatchesLocalAndForeignAssetsMultiLocation,
-<<<<<<< HEAD
-	matching::IsSiblingParachainAsset,
-=======
-	matching::{FromNetwork, FromSiblingParachain, IsForeignConcreteAsset},
->>>>>>> b62df695923c6b64c42c3081692194375b91f7b4
+	matching::{FromNetwork, IsSiblingParachainAsset},
 };
 use frame_support::{
 	match_types, parameter_types,
