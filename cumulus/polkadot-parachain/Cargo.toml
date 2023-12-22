@@ -161,3 +161,6 @@ try-runtime = [
 	"shell-runtime/try-runtime",
 	"sp-runtime/try-runtime",
 ]
+fast-runtime = [
+	"bridge-hub-rococo-runtime/fast-runtime",
+]
