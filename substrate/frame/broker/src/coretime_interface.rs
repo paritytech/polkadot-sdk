@@ -107,11 +107,6 @@ pub trait CoretimeInterface {
 		end_hint: Option<RCBlockNumberOf<Self>>,
 	);
 
-	/// Indicate that from this block onwards, the range of acceptable values of the `core`
-	/// parameter of `assign_core` message is `[0, count)`. `assign_core` will be a no-op if
-	/// provided with a value for `core` outside of this range.
-	fn check_notify_core_count() -> Option<u16>;
-
 	/// Provide the amount of revenue accumulated from Instantaneous Coretime Sales from Relay-chain
 	/// block number `last_until` to `until`, not including `until` itself. `last_until` is defined
 	/// as being the `until` argument of the last `notify_revenue` message sent, or zero for the
@@ -122,12 +117,6 @@ pub trait CoretimeInterface {
 	/// notified of revenue information. The Relay-chain must be configured to ensure that only a
 	/// single revenue information destination exists.
 	fn check_notify_revenue_info() -> Option<(RCBlockNumberOf<Self>, Self::Balance)>;
-
-	/// Ensure that core count is updated to the provided value.
-	///
-	/// This is only used for benchmarking.
-	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_notify_core_count(count: u16);
 
 	/// Ensure that revenue information is updated to the provided value.
 	///
@@ -151,14 +140,9 @@ impl CoretimeInterface for () {
 		_end_hint: Option<RCBlockNumberOf<Self>>,
 	) {
 	}
-	fn check_notify_core_count() -> Option<u16> {
-		None
-	}
 	fn check_notify_revenue_info() -> Option<(RCBlockNumberOf<Self>, Self::Balance)> {
 		None
 	}
-	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_notify_core_count(_count: u16) {}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_notify_revenue_info(_when: RCBlockNumberOf<Self>, _revenue: Self::Balance) {}
 }

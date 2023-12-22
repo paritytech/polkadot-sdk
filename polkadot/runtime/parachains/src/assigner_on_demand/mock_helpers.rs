@@ -27,7 +27,7 @@ use crate::{
 
 use primitives::{Balance, HeadData, ValidationCode};
 
-pub fn default_genesis_config() -> MockGenesisConfig {
+fn default_genesis_config() -> MockGenesisConfig {
 	MockGenesisConfig {
 		configuration: crate::configuration::GenesisConfig {
 			config: crate::configuration::HostConfiguration { ..Default::default() },
@@ -63,7 +63,7 @@ impl GenesisConfigBuilder {
 	pub(super) fn build(self) -> MockGenesisConfig {
 		let mut genesis = default_genesis_config();
 		let config = &mut genesis.configuration.config;
-		config.on_demand_cores = self.on_demand_cores;
+		config.coretime_cores = self.on_demand_cores;
 		config.on_demand_base_fee = self.on_demand_base_fee;
 		config.on_demand_fee_variability = self.on_demand_fee_variability;
 		config.on_demand_queue_max_size = self.on_demand_max_queue_size;

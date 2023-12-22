@@ -16,16 +16,9 @@
 // limitations under the License.
 
 use super::*;
-
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-use sp_std::{cmp::Ordering, marker::PhantomData};
-
-/// Pool ID.
-///
-/// The pool's `AccountId` is derived from this type. Any changes to the type may necessitate a
-/// migration.
-pub(super) type PoolIdOf<T> = (<T as Config>::MultiAssetId, <T as Config>::MultiAssetId);
+use sp_std::marker::PhantomData;
 
 /// Represents a swap path with associated asset amounts indicating how much of the asset needs to
 /// be deposited to get the following asset's amount withdrawn (this is inclusive of fees).
@@ -35,7 +28,10 @@ pub(super) type PoolIdOf<T> = (<T as Config>::MultiAssetId, <T as Config>::Multi
 /// 1. `asset(asset1, amount_in)` take from `user` and move to the pool(asset1, asset2);
 /// 2. `asset(asset2, amount_out2)` transfer from pool(asset1, asset2) to pool(asset2, asset3);
 /// 3. `asset(asset3, amount_out3)` move from pool(asset2, asset3) to `user`.
-pub(super) type BalancePath<T> = Vec<(<T as Config>::MultiAssetId, <T as Config>::Balance)>;
+pub(super) type BalancePath<T> = Vec<(<T as Config>::AssetKind, <T as Config>::Balance)>;
+
+/// Credit of [Config::Assets].
+pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Config>::Assets>;
 
 /// Stores the lp_token asset id a particular pool has been assigned.
 #[derive(Decode, Encode, Default, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
@@ -44,214 +40,94 @@ pub struct PoolInfo<PoolAssetId> {
 	pub lp_token: PoolAssetId,
 }
 
-/// A trait that converts between a MultiAssetId and either the native currency or an AssetId.
-pub trait MultiAssetIdConverter<MultiAssetId, AssetId> {
-	/// Returns the MultiAssetId representing the native currency of the chain.
-	fn get_native() -> MultiAssetId;
-
-	/// Returns true if the given MultiAssetId is the native currency.
-	fn is_native(asset: &MultiAssetId) -> bool;
-
-	/// If it's not native, returns the AssetId for the given MultiAssetId.
-	fn try_convert(asset: &MultiAssetId) -> MultiAssetIdConversionResult<MultiAssetId, AssetId>;
-}
-
-/// Result of `MultiAssetIdConverter::try_convert`.
-#[cfg_attr(feature = "std", derive(PartialEq, Debug))]
-pub enum MultiAssetIdConversionResult<MultiAssetId, AssetId> {
-	/// Input asset is successfully converted. Means that converted asset is supported.
-	Converted(AssetId),
-	/// Means that input asset is the chain's native asset, if it has one, so no conversion (see
-	/// `MultiAssetIdConverter::get_native`).
-	Native,
-	/// Means input asset is not supported for pool.
-	Unsupported(MultiAssetId),
-}
-
-/// Benchmark Helper
-#[cfg(feature = "runtime-benchmarks")]
-pub trait BenchmarkHelper<AssetId, MultiAssetId> {
-	/// Returns an `AssetId` from a given integer.
-	fn asset_id(asset_id: u32) -> AssetId;
-
-	/// Returns a `MultiAssetId` from a given integer.
-	fn multiasset_id(asset_id: u32) -> MultiAssetId;
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-impl<AssetId, MultiAssetId> BenchmarkHelper<AssetId, MultiAssetId> for ()
-where
-	AssetId: From<u32>,
-	MultiAssetId: From<u32>,
-{
-	fn asset_id(asset_id: u32) -> AssetId {
-		asset_id.into()
-	}
-
-	fn multiasset_id(asset_id: u32) -> MultiAssetId {
-		asset_id.into()
-	}
-}
-
-/// An implementation of MultiAssetId that can be either Native or an asset.
-#[derive(Decode, Encode, Default, MaxEncodedLen, TypeInfo, Clone, Copy, Debug)]
-pub enum NativeOrAssetId<AssetId>
-where
-	AssetId: Ord,
-{
-	/// Native asset. For example, on the Polkadot Asset Hub this would be DOT.
-	#[default]
-	Native,
-	/// A non-native asset id.
-	Asset(AssetId),
-}
-
-impl<AssetId: Ord> From<AssetId> for NativeOrAssetId<AssetId> {
-	fn from(asset: AssetId) -> Self {
-		Self::Asset(asset)
-	}
-}
-
-impl<AssetId: Ord> Ord for NativeOrAssetId<AssetId> {
-	fn cmp(&self, other: &Self) -> Ordering {
-		match (self, other) {
-			(Self::Native, Self::Native) => Ordering::Equal,
-			(Self::Native, Self::Asset(_)) => Ordering::Less,
-			(Self::Asset(_), Self::Native) => Ordering::Greater,
-			(Self::Asset(id1), Self::Asset(id2)) => <AssetId as Ord>::cmp(id1, id2),
-		}
-	}
-}
-impl<AssetId: Ord> PartialOrd for NativeOrAssetId<AssetId> {
-	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-		Some(<Self as Ord>::cmp(self, other))
-	}
-}
-impl<AssetId: Ord> PartialEq for NativeOrAssetId<AssetId> {
-	fn eq(&self, other: &Self) -> bool {
-		self.cmp(other) == Ordering::Equal
-	}
-}
-impl<AssetId: Ord> Eq for NativeOrAssetId<AssetId> {}
-
-/// Converts between a MultiAssetId and an AssetId (or the native currency).
-pub struct NativeOrAssetIdConverter<AssetId> {
-	_phantom: PhantomData<AssetId>,
-}
-
-impl<AssetId: Ord + Clone> MultiAssetIdConverter<NativeOrAssetId<AssetId>, AssetId>
-	for NativeOrAssetIdConverter<AssetId>
-{
-	fn get_native() -> NativeOrAssetId<AssetId> {
-		NativeOrAssetId::Native
-	}
-
-	fn is_native(asset: &NativeOrAssetId<AssetId>) -> bool {
-		*asset == Self::get_native()
-	}
-
-	fn try_convert(
-		asset: &NativeOrAssetId<AssetId>,
-	) -> MultiAssetIdConversionResult<NativeOrAssetId<AssetId>, AssetId> {
-		match asset {
-			NativeOrAssetId::Asset(asset) => MultiAssetIdConversionResult::Converted(asset.clone()),
-			NativeOrAssetId::Native => MultiAssetIdConversionResult::Native,
+/// Provides means to resolve the `PoolId` and `AccountId` from a pair of assets.
+///
+/// Resulting `PoolId` remains consistent whether the asset pair is presented as (asset1, asset2)
+/// or (asset2, asset1). The derived `AccountId` may serve as an address for liquidity provider
+/// tokens.
+pub trait PoolLocator<AccountId, AssetKind, PoolId> {
+	/// Retrieves the account address associated with a valid `PoolId`.
+	fn address(id: &PoolId) -> Result<AccountId, ()>;
+	/// Identifies the `PoolId` for a given pair of assets.
+	///
+	/// Returns an error if the asset pair isn't supported.
+	fn pool_id(asset1: &AssetKind, asset2: &AssetKind) -> Result<PoolId, ()>;
+	/// Retrieves the account address associated with a given asset pair.
+	///
+	/// Returns an error if the asset pair isn't supported.
+	fn pool_address(asset1: &AssetKind, asset2: &AssetKind) -> Result<AccountId, ()> {
+		if let Ok(id) = Self::pool_id(asset1, asset2) {
+			Self::address(&id)
+		} else {
+			Err(())
 		}
 	}
 }
 
-/// Credit of [Config::Currency].
+/// Pool locator that mandates the inclusion of the specified `FirstAsset` in every asset pair.
 ///
-/// Implies a negative imbalance in the system that can be placed into an account or alter the total
-/// supply.
-pub type NativeCredit<T> =
-	CreditFungible<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
-
-/// Credit (aka negative imbalance) of [Config::Assets].
-///
-/// Implies a negative imbalance in the system that can be placed into an account or alter the total
-/// supply.
-pub type AssetCredit<T> =
-	CreditFungibles<<T as frame_system::Config>::AccountId, <T as Config>::Assets>;
-
-/// Credit that can be either [`NativeCredit`] or [`AssetCredit`].
-///
-/// Implies a negative imbalance in the system that can be placed into an account or alter the total
-/// supply.
-#[derive(RuntimeDebug, Eq, PartialEq)]
-pub enum Credit<T: Config> {
-	/// Native credit.
-	Native(NativeCredit<T>),
-	/// Asset credit.
-	Asset(AssetCredit<T>),
-}
-
-impl<T: Config> From<NativeCredit<T>> for Credit<T> {
-	fn from(value: NativeCredit<T>) -> Self {
-		Credit::Native(value)
-	}
-}
-
-impl<T: Config> From<AssetCredit<T>> for Credit<T> {
-	fn from(value: AssetCredit<T>) -> Self {
-		Credit::Asset(value)
-	}
-}
-
-impl<T: Config> TryInto<NativeCredit<T>> for Credit<T> {
-	type Error = ();
-	fn try_into(self) -> Result<NativeCredit<T>, ()> {
-		match self {
-			Credit::Native(c) => Ok(c),
+/// The `PoolId` is represented as a tuple of `AssetKind`s with `FirstAsset` always positioned as
+/// the first element.
+pub struct WithFirstAsset<FirstAsset, AccountId, AssetKind>(
+	PhantomData<(FirstAsset, AccountId, AssetKind)>,
+);
+impl<FirstAsset, AccountId, AssetKind> PoolLocator<AccountId, AssetKind, (AssetKind, AssetKind)>
+	for WithFirstAsset<FirstAsset, AccountId, AssetKind>
+where
+	AssetKind: Eq + Clone + Encode,
+	AccountId: Decode,
+	FirstAsset: Get<AssetKind>,
+{
+	fn pool_id(asset1: &AssetKind, asset2: &AssetKind) -> Result<(AssetKind, AssetKind), ()> {
+		let first = FirstAsset::get();
+		match true {
+			_ if asset1 == asset2 => Err(()),
+			_ if first == *asset1 => Ok((first, asset2.clone())),
+			_ if first == *asset2 => Ok((first, asset1.clone())),
 			_ => Err(()),
 		}
 	}
+	fn address(id: &(AssetKind, AssetKind)) -> Result<AccountId, ()> {
+		let encoded = sp_io::hashing::blake2_256(&Encode::encode(id)[..]);
+		Decode::decode(&mut TrailingZeroInput::new(encoded.as_ref())).map_err(|_| ())
+	}
 }
 
-impl<T: Config> TryInto<AssetCredit<T>> for Credit<T> {
-	type Error = ();
-	fn try_into(self) -> Result<AssetCredit<T>, ()> {
-		match self {
-			Credit::Asset(c) => Ok(c),
+/// Pool locator where the `PoolId` is a tuple of `AssetKind`s arranged in ascending order.
+pub struct Ascending<AccountId, AssetKind>(PhantomData<(AccountId, AssetKind)>);
+impl<AccountId, AssetKind> PoolLocator<AccountId, AssetKind, (AssetKind, AssetKind)>
+	for Ascending<AccountId, AssetKind>
+where
+	AssetKind: Ord + Clone + Encode,
+	AccountId: Decode,
+{
+	fn pool_id(asset1: &AssetKind, asset2: &AssetKind) -> Result<(AssetKind, AssetKind), ()> {
+		match true {
+			_ if asset1 > asset2 => Ok((asset2.clone(), asset1.clone())),
+			_ if asset1 < asset2 => Ok((asset1.clone(), asset2.clone())),
 			_ => Err(()),
 		}
 	}
+	fn address(id: &(AssetKind, AssetKind)) -> Result<AccountId, ()> {
+		let encoded = sp_io::hashing::blake2_256(&Encode::encode(id)[..]);
+		Decode::decode(&mut TrailingZeroInput::new(encoded.as_ref())).map_err(|_| ())
+	}
 }
 
-impl<T: Config> Credit<T> {
-	/// Create zero native credit.
-	pub fn native_zero() -> Self {
-		NativeCredit::<T>::zero().into()
+/// Pool locator that chains the `First` and `Second` implementations of [`PoolLocator`].
+///
+/// If the `First` implementation fails, it falls back to the `Second`.
+pub struct Chain<First, Second>(PhantomData<(First, Second)>);
+impl<First, Second, AccountId, AssetKind> PoolLocator<AccountId, AssetKind, (AssetKind, AssetKind)>
+	for Chain<First, Second>
+where
+	First: PoolLocator<AccountId, AssetKind, (AssetKind, AssetKind)>,
+	Second: PoolLocator<AccountId, AssetKind, (AssetKind, AssetKind)>,
+{
+	fn pool_id(asset1: &AssetKind, asset2: &AssetKind) -> Result<(AssetKind, AssetKind), ()> {
+		First::pool_id(asset1, asset2).or(Second::pool_id(asset1, asset2))
 	}
-
-	/// Amount of `self`.
-	pub fn peek(&self) -> T::Balance {
-		match self {
-			Credit::Native(c) => c.peek(),
-			Credit::Asset(c) => c.peek(),
-		}
-	}
-
-	/// Asset class of `self`.
-	pub fn asset(&self) -> T::MultiAssetId {
-		match self {
-			Credit::Native(_) => T::MultiAssetIdConverter::get_native(),
-			Credit::Asset(c) => c.asset().into(),
-		}
-	}
-
-	/// Consume `self` and return two independent instances; the first is guaranteed to be at most
-	/// `amount` and the second will be the remainder.
-	pub fn split(self, amount: T::Balance) -> (Self, Self) {
-		match self {
-			Credit::Native(c) => {
-				let (left, right) = c.split(amount);
-				(left.into(), right.into())
-			},
-			Credit::Asset(c) => {
-				let (left, right) = c.split(amount);
-				(left.into(), right.into())
-			},
-		}
+	fn address(id: &(AssetKind, AssetKind)) -> Result<AccountId, ()> {
+		First::address(id).or(Second::address(id))
 	}
 }
