@@ -15,6 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use parity_scale_codec::{Decode, Encode};
+use prometheus::Registry;
 use serde::{Deserialize, Serialize};
 use std::{
 	cmp::max,
@@ -129,13 +130,24 @@ pub struct ApprovalsOptions {
 	/// Sends messages only till block is approved.
 	pub stop_when_approved: bool,
 	#[clap(short, long)]
-	/// Sends messages only till block is approved.
+	/// Work directory.
 	pub workdir_prefix: String,
+	/// The number of no shows per candidate
 	#[clap(short, long, default_value_t = 0)]
-	pub num_no_shows_per_block: u32,
+	pub num_no_shows_per_candidate: u32,
+	/// Max expected time of flight for approval-distribution.
+	#[clap(short, long, default_value_t = 6.0)]
+	pub approval_distribution_expected_tof: f64,
+	/// Max expected cpu usage by approval-distribution.
+	#[clap(short, long, default_value_t = 6.0)]
+	pub approval_distribution_cpu_ms: f64,
+	/// Max expected cpu usage by approval-voting.
+	#[clap(short, long, default_value_t = 6.0)]
+	pub approval_voting_cpu_ms: f64,
 }
 
 impl ApprovalsOptions {
+	// Generates a fingerprint use to determine if messages need to be re-generated.
 	fn fingerprint(&self) -> Vec<u8> {
 		let mut bytes = Vec::new();
 		bytes.extend(self.last_considered_tranche.to_be_bytes());
@@ -226,6 +238,16 @@ impl CandidateTestData {
 	}
 }
 
+/// Test state that is pre-generated and loaded from a file that matches the fingerprint
+/// of the TestConfiguration.
+#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
+struct GeneratedState {
+	/// All assignments and approvals
+	all_messages: Option<Vec<MessagesBundle>>,
+	/// The first slot in the test.
+	initial_slot: Slot,
+}
+
 /// Approval test state used by all mock subsystems to be able to answer messages emitted
 /// by the approval-voting and approval-distribution-subystems.
 ///
@@ -269,20 +291,22 @@ impl ApprovalTestState {
 		let test_authorities = configuration.generate_authorities();
 		let start = Instant::now();
 
-		let messages_path = PeerMessagesGenerator::generate_all_messages(
+		let messages_path = PeerMessagesGenerator::generate_messages_if_needed(
 			configuration,
 			&test_authorities,
 			&options,
 			&dependencies.task_manager.spawn_handle(),
 		);
 
-		let mut file = fs::OpenOptions::new().read(true).open(messages_path.as_path()).unwrap();
-		let mut content = Vec::<u8>::with_capacity(2000000);
+		let mut messages_file =
+			fs::OpenOptions::new().read(true).open(messages_path.as_path()).unwrap();
+		let mut messages_bytes = Vec::<u8>::with_capacity(2000000);
 
-		file.read_to_end(&mut content).expect("Could not initialize list of messages");
-		let mut content = content.as_slice();
+		messages_file
+			.read_to_end(&mut messages_bytes)
+			.expect("Could not initialize list of messages");
 		let generated_state: GeneratedState =
-			Decode::decode(&mut content).expect("Could not decode messages");
+			Decode::decode(&mut messages_bytes.as_slice()).expect("Could not decode messages");
 
 		gum::info!(
 			"It took {:?} ms to load {:?} unique messages",
@@ -313,6 +337,7 @@ impl ApprovalTestState {
 				.unwrap(),
 			delta_tick_from_generated: Arc::new(AtomicU64::new(630720000)),
 		};
+
 		gum::info!("Built testing state");
 
 		state
@@ -379,6 +404,7 @@ impl ApprovalTestState {
 		network_emulator: &NetworkEmulator,
 		overseer_handle: OverseerHandleReal,
 		spawn_task_handle: &SpawnTaskHandle,
+		registry: Registry,
 	) -> oneshot::Receiver<()> {
 		gum::info!(target: LOG_TARGET, "Start assignments/approvals production");
 
@@ -389,6 +415,7 @@ impl ApprovalTestState {
 			state: self.clone(),
 			options: self.options.clone(),
 			notify_done: producer_tx,
+			registry,
 		};
 
 		peer_message_source.produce_messages(
@@ -397,12 +424,6 @@ impl ApprovalTestState {
 		);
 		producer_rx
 	}
-}
-
-#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
-struct GeneratedState {
-	all_messages: Option<Vec<MessagesBundle>>,
-	initial_slot: Slot,
 }
 
 impl ApprovalTestState {
@@ -442,6 +463,7 @@ struct PeerMessageProducer {
 	/// under test.
 	overseer_handle: OverseerHandleReal,
 	notify_done: oneshot::Sender<()>,
+	registry: Registry,
 }
 
 impl PeerMessageProducer {
@@ -453,75 +475,47 @@ impl PeerMessageProducer {
 		all_messages: Vec<MessagesBundle>,
 	) {
 		spawn_task_handle.spawn_blocking("produce-messages", "produce-messages", async move {
-			let mut already_generated = HashSet::new();
-			let system_clock =
-				PastSystemClock::new(SystemClock {}, self.state.delta_tick_from_generated.clone());
-			let mut all_messages = all_messages.into_iter().peekable();
+			let mut initialized_blocks = HashSet::new();
 			let mut per_candidate_data: HashMap<(Hash, CandidateIndex), CandidateTestData> =
-				HashMap::new();
-			for block_info in self.state.per_slot_heads.iter() {
-				for (candidate_index, _) in block_info.candidates.iter().enumerate() {
-					per_candidate_data.insert(
-						(block_info.hash, candidate_index as CandidateIndex),
-						CandidateTestData {
-							max_no_shows: self.options.num_no_shows_per_block,
-							last_tranche_with_no_show: 0,
-							sent_assignment: 0,
-							num_no_shows: 0,
-							max_tranche: 0,
-						},
-					);
-				}
-			}
-
+				self.initialize_candidates_test_data();
 			let mut skipped_messages: Vec<MessagesBundle> = Vec::new();
 			let mut re_process_skipped = false;
 
-			while all_messages.peek().is_some() {
-				sleep(Duration::from_millis(50)).await;
+			let system_clock =
+				PastSystemClock::new(SystemClock {}, self.state.delta_tick_from_generated.clone());
+			let mut all_messages = all_messages.into_iter().peekable();
 
+			while all_messages.peek().is_some() {
 				let current_slot =
 					tick_to_slot_number(SLOT_DURATION_MILLIS, system_clock.tick_now());
 				let block_info =
 					self.state.get_info_by_slot(current_slot).map(|block| block.clone());
 
 				if let Some(block_info) = block_info {
-					let candidates = self.state.approval_voting_metrics.candidates_imported();
-					if candidates >=
-						block_info.total_candidates_before + block_info.candidates.len() as u64 &&
-						already_generated.insert(block_info.hash)
-					{
-						gum::info!("Setup {:?}", block_info.hash);
-						let (tx, rx) = oneshot::channel();
-						self.overseer_handle.wait_for_activation(block_info.hash, tx).await;
-
-						rx.await
-							.expect("We should not fail waiting for block to be activated")
-							.expect("We should not fail waiting for block to be activated");
-
-						for validator in 1..self.state.test_authorities.keyrings.len() as u32 {
-							let peer_id = self
-								.state
-								.test_authorities
-								.peer_ids
-								.get(validator as usize)
-								.unwrap();
-							let validator = ValidatorIndex(validator);
-
-							let view_update =
-								generate_peer_view_change_for(block_info.hash, *peer_id);
-
-							self.send_message(view_update, validator, None);
-						}
+					if !initialized_blocks.contains(&block_info.hash) &&
+						!TestEnvironment::metric_lower_than(
+							&self.registry,
+							"polkadot_parachain_imported_candidates_total",
+							(block_info.total_candidates_before +
+								block_info.candidates.len() as u64 -
+								1) as f64,
+						) {
+						initialized_blocks.insert(block_info.hash);
+						self.initialize_block(&block_info).await;
 					}
 				}
 
-				let mut maybe_need_skip = skipped_messages.clone().into_iter().peekable();
+				let mut maybe_need_skip = if re_process_skipped {
+					skipped_messages.clone().into_iter().peekable()
+				} else {
+					vec![].into_iter().peekable()
+				};
 
 				let progressing_iterator = if !re_process_skipped {
 					&mut all_messages
 				} else {
 					re_process_skipped = false;
+					skipped_messages.clear();
 					&mut maybe_need_skip
 				};
 
@@ -531,7 +525,7 @@ impl PeerMessageProducer {
 						self.time_to_process_message(
 							bundle,
 							current_slot,
-							&already_generated,
+							&initialized_blocks,
 							&system_clock,
 							&per_candidate_data,
 						)
@@ -546,6 +540,7 @@ impl PeerMessageProducer {
 							&mut skipped_messages,
 						);
 				}
+				sleep(Duration::from_millis(50)).await;
 			}
 
 			gum::info!(
@@ -607,7 +602,7 @@ impl PeerMessageProducer {
 				}
 			}
 		} else if !block_info.approved.load(std::sync::atomic::Ordering::SeqCst) &&
-			self.options.num_no_shows_per_block > 0
+			self.options.num_no_shows_per_candidate > 0
 		{
 			skipped_messages.push(bundle);
 		}
@@ -682,6 +677,47 @@ impl PeerMessageProducer {
 			latency,
 		);
 		self.network.submit_peer_action(peer, network_action);
+	}
+
+	async fn initialize_block(&mut self, block_info: &BlockTestData) {
+		gum::info!("Initialize block {:?}", block_info.hash);
+		let (tx, rx) = oneshot::channel();
+		self.overseer_handle.wait_for_activation(block_info.hash, tx).await;
+
+		rx.await
+			.expect("We should not fail waiting for block to be activated")
+			.expect("We should not fail waiting for block to be activated");
+
+		for validator in 1..self.state.test_authorities.keyrings.len() as u32 {
+			let peer_id = self.state.test_authorities.peer_ids.get(validator as usize).unwrap();
+			let validator = ValidatorIndex(validator);
+
+			let view_update = generate_peer_view_change_for(block_info.hash, *peer_id);
+
+			self.send_message(view_update, validator, None);
+		}
+	}
+
+	fn initialize_candidates_test_data(
+		&self,
+	) -> HashMap<(Hash, CandidateIndex), CandidateTestData> {
+		let mut per_candidate_data: HashMap<(Hash, CandidateIndex), CandidateTestData> =
+			HashMap::new();
+		for block_info in self.state.per_slot_heads.iter() {
+			for (candidate_index, _) in block_info.candidates.iter().enumerate() {
+				per_candidate_data.insert(
+					(block_info.hash, candidate_index as CandidateIndex),
+					CandidateTestData {
+						max_no_shows: self.options.num_no_shows_per_candidate,
+						last_tranche_with_no_show: 0,
+						sent_assignment: 0,
+						num_no_shows: 0,
+						max_tranche: 0,
+					},
+				);
+			}
+		}
+		per_candidate_data
 	}
 }
 
@@ -766,7 +802,12 @@ fn prepare_test_inner(
 
 pub async fn bench_approvals(env: &mut TestEnvironment, mut state: ApprovalTestState) {
 	let producer_rx = state
-		.start_message_production(env.network(), env.overseer_handle().clone(), &env.spawn_handle())
+		.start_message_production(
+			env.network(),
+			env.overseer_handle().clone(),
+			&env.spawn_handle(),
+			env.registry().clone(),
+		)
 		.await;
 	bench_approvals_run(env, state, producer_rx).await
 }
@@ -903,6 +944,26 @@ pub async fn bench_approvals_run(
 		state.total_sent_messages.load(std::sync::atomic::Ordering::SeqCst),
 		state.total_unique_messages.load(std::sync::atomic::Ordering::SeqCst)
 	);
-
 	gum::info!("{}", &env);
+
+	assert!(env.bucket_metric_lower_than(
+		"polkadot_parachain_subsystem_bounded_tof_bucket",
+		"subsystem_name",
+		"approval-distribution-subsystem",
+		state.options.approval_distribution_expected_tof
+	));
+
+	assert!(env.metric_with_label_lower_than(
+		"substrate_tasks_polling_duration_sum",
+		"task_group",
+		"approval-voting",
+		state.options.approval_voting_cpu_ms
+	));
+
+	assert!(env.metric_with_label_lower_than(
+		"substrate_tasks_polling_duration_sum",
+		"task_group",
+		"approval-distribution",
+		state.options.approval_distribution_cpu_ms
+	));
 }

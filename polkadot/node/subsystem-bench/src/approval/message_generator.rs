@@ -177,7 +177,7 @@ impl PeerMessagesGenerator {
 	}
 
 	/// Generate all messages(Assignments & Approvals) needed for approving `blocks``.
-	pub fn generate_all_messages(
+	pub fn generate_messages_if_needed(
 		configuration: &TestConfiguration,
 		test_authorities: &TestAuthorities,
 		options: &ApprovalsOptions,
@@ -194,7 +194,7 @@ impl PeerMessagesGenerator {
 			return path.to_path_buf();
 		}
 
-		gum::info!("Generate message because filed does not exist");
+		gum::info!("Generate message because file does not exist");
 		let delta_to_first_slot_under_test = Timestamp::new(BUFFER_FOR_GENERATION_MILLIS);
 		let initial_slot = Slot::from_timestamp(
 			(*Timestamp::current() - *delta_to_first_slot_under_test).into(),
@@ -372,7 +372,7 @@ fn issue_approvals(
 	coalesce_tranche_diff: u32,
 	rand_chacha: &mut ChaCha20Rng,
 ) -> Vec<MessagesBundle> {
-	let mut to_sign: Vec<TestSignInfo> = Vec::new();
+	let mut queued_to_sign: Vec<TestSignInfo> = Vec::new();
 	let mut num_coalesce = coalesce_approvals_len(min_coalesce, max_coalesce, rand_chacha);
 	let result = assignments
 		.iter()
@@ -381,40 +381,44 @@ fn issue_approvals(
 			protocol_v3::ApprovalDistributionMessage::Assignments(assignments) => {
 				let mut approvals_to_create = Vec::new();
 
-				let current_validator_index =
-					to_sign.first().map(|msg| msg.validator_index).unwrap_or(ValidatorIndex(999));
+				let current_validator_index = queued_to_sign
+					.first()
+					.map(|msg| msg.validator_index)
+					.unwrap_or(ValidatorIndex(99999));
 
 				// Invariant for this benchmark.
 				assert_eq!(assignments.len(), 1);
 
 				let assignment = assignments.first().unwrap();
 
-				let earliest_tranche =
-					to_sign.first().map(|val| val.tranche).unwrap_or(message.tranche);
+				let earliest_tranche = queued_to_sign
+					.first()
+					.map(|val| val.assignment.tranche)
+					.unwrap_or(message.tranche);
 
-				if to_sign.len() >= num_coalesce as usize ||
-					(!to_sign.is_empty() && current_validator_index != assignment.0.validator) ||
+				if queued_to_sign.len() >= num_coalesce as usize ||
+					(!queued_to_sign.is_empty() &&
+						current_validator_index != assignment.0.validator) ||
 					message.tranche - earliest_tranche >= coalesce_tranche_diff
 				{
-					num_coalesce = coalesce_approvals_len(min_coalesce, max_coalesce, rand_chacha);
-					approvals_to_create.push(sign_candidates(
-						&mut to_sign,
+					approvals_to_create.push(TestSignInfo::sign_candidates(
+						&mut queued_to_sign,
 						&keyrings,
 						block_hash,
 						num_coalesce,
-					))
+					));
+					num_coalesce = coalesce_approvals_len(min_coalesce, max_coalesce, rand_chacha);
 				}
 
-				// If more that one candidate was in the assignment queue all of them.
+				// If more that one candidate was in the assignment queue all of them for issuing
+				// approvals
 				for candidate_index in assignment.1.iter_ones() {
 					let candidate = candidates.get(candidate_index).unwrap();
 					if let CandidateEvent::CandidateIncluded(candidate, _, _, _) = candidate {
-						to_sign.push(TestSignInfo {
+						queued_to_sign.push(TestSignInfo {
 							candidate_hash: candidate.hash(),
 							candidate_index: candidate_index as CandidateIndex,
 							validator_index: assignment.0.validator,
-							sent_by: message.sent_by.clone().into_iter().collect(),
-							tranche: message.tranche,
 							assignment: message.clone(),
 						});
 					} else {
@@ -429,85 +433,96 @@ fn issue_approvals(
 		})
 		.collect_vec();
 
-	let mut result = result.into_iter().flatten().collect_vec();
+	let mut messages = result.into_iter().flatten().collect_vec();
 
-	if !to_sign.is_empty() {
-		result.push(sign_candidates(&mut to_sign, &keyrings, block_hash, num_coalesce));
+	if !queued_to_sign.is_empty() {
+		messages.push(TestSignInfo::sign_candidates(
+			&mut queued_to_sign,
+			&keyrings,
+			block_hash,
+			num_coalesce,
+		));
 	}
-	result
+	messages
 }
 
 /// Helper struct to gather information about more than one candidate an sign it in a single
 /// approval message.
 struct TestSignInfo {
+	/// The candidate hash
 	candidate_hash: CandidateHash,
+	/// The candidate index
 	candidate_index: CandidateIndex,
+	/// The validator sending the assignments
 	validator_index: ValidatorIndex,
-	sent_by: HashSet<ValidatorIndex>,
-	tranche: u32,
+	/// The assignments convering this candidate
 	assignment: TestMessageInfo,
 }
 
-/// Helper function to create a signture for all candidates in `to_sign` parameter.
-/// Returns a TestMessage
-fn sign_candidates(
-	to_sign: &mut Vec<TestSignInfo>,
-	keyrings: &Vec<(Keyring, PeerId)>,
-	block_hash: Hash,
-	num_coalesce: usize,
-) -> MessagesBundle {
-	let current_validator_index = to_sign.first().map(|val| val.validator_index).unwrap();
-	let tranche_trigger_timestamp = to_sign.iter().map(|val| val.tranche).max().unwrap();
-	let keyring = keyrings.get(current_validator_index.0 as usize).unwrap().clone();
+impl TestSignInfo {
+	/// Helper function to create a signture for all candidates in `to_sign` parameter.
+	/// Returns a TestMessage
+	fn sign_candidates(
+		to_sign: &mut Vec<TestSignInfo>,
+		keyrings: &Vec<(Keyring, PeerId)>,
+		block_hash: Hash,
+		num_coalesce: usize,
+	) -> MessagesBundle {
+		let current_validator_index = to_sign.first().map(|val| val.validator_index).unwrap();
+		let tranche_approval_can_be_sent =
+			to_sign.iter().map(|val| val.assignment.tranche).max().unwrap();
+		let keyring = keyrings.get(current_validator_index.0 as usize).unwrap().clone();
 
-	let unique_assignments: HashSet<TestMessageInfo> =
-		to_sign.iter().map(|info| info.assignment.clone()).collect();
+		let unique_assignments: HashSet<TestMessageInfo> =
+			to_sign.iter().map(|info| info.assignment.clone()).collect();
 
-	let mut to_sign = to_sign
-		.drain(..)
-		.sorted_by(|val1, val2| val1.candidate_index.cmp(&val2.candidate_index))
-		.peekable();
+		let mut to_sign = to_sign
+			.drain(..)
+			.sorted_by(|val1, val2| val1.candidate_index.cmp(&val2.candidate_index))
+			.peekable();
 
-	let mut bundle = MessagesBundle {
-		assignments: unique_assignments.into_iter().collect_vec(),
-		approvals: Vec::new(),
-	};
-
-	while to_sign.peek().is_some() {
-		let to_sign = to_sign.by_ref().take(num_coalesce).collect_vec();
-
-		let hashes = to_sign.iter().map(|val| val.candidate_hash).collect_vec();
-		let candidate_indices = to_sign.iter().map(|val| val.candidate_index).collect_vec();
-
-		let sent_by = to_sign
-			.iter()
-			.map(|val| val.sent_by.iter())
-			.flatten()
-			.map(|peer| *peer)
-			.collect::<HashSet<ValidatorIndex>>();
-
-		let payload = ApprovalVoteMultipleCandidates(&hashes).signing_payload(1);
-
-		let validator_key: ValidatorPair = keyring.0.clone().pair().into();
-		let signature = validator_key.sign(&payload[..]);
-		let indirect = IndirectSignedApprovalVoteV2 {
-			block_hash,
-			candidate_indices: candidate_indices.try_into().unwrap(),
-			validator: current_validator_index,
-			signature,
+		let mut bundle = MessagesBundle {
+			assignments: unique_assignments.into_iter().collect_vec(),
+			approvals: Vec::new(),
 		};
-		let msg = protocol_v3::ApprovalDistributionMessage::Approvals(vec![indirect]);
 
-		bundle.approvals.push(TestMessageInfo {
-			msg,
-			sent_by: sent_by.into_iter().collect_vec(),
-			tranche: tranche_trigger_timestamp,
-			block_hash,
-		});
+		while to_sign.peek().is_some() {
+			let to_sign = to_sign.by_ref().take(num_coalesce).collect_vec();
+
+			let hashes = to_sign.iter().map(|val| val.candidate_hash).collect_vec();
+			let candidate_indices = to_sign.iter().map(|val| val.candidate_index).collect_vec();
+
+			let sent_by = to_sign
+				.iter()
+				.map(|val| val.assignment.sent_by.iter())
+				.flatten()
+				.map(|peer| *peer)
+				.collect::<HashSet<ValidatorIndex>>();
+
+			let payload = ApprovalVoteMultipleCandidates(&hashes).signing_payload(1);
+
+			let validator_key: ValidatorPair = keyring.0.clone().pair().into();
+			let signature = validator_key.sign(&payload[..]);
+			let indirect = IndirectSignedApprovalVoteV2 {
+				block_hash,
+				candidate_indices: candidate_indices.try_into().unwrap(),
+				validator: current_validator_index,
+				signature,
+			};
+			let msg = protocol_v3::ApprovalDistributionMessage::Approvals(vec![indirect]);
+
+			bundle.approvals.push(TestMessageInfo {
+				msg,
+				sent_by: sent_by.into_iter().collect_vec(),
+				tranche: tranche_approval_can_be_sent,
+				block_hash,
+			});
+		}
+		bundle
 	}
-	bundle
 }
 
+/// Determine what neighbours would send a given message to the node under test.
 fn neighbours_that_would_sent_message(
 	keyrings: &Vec<(Keyring, PeerId)>,
 	current_validator_index: u32,
@@ -631,7 +646,7 @@ fn generate_assignments(
 		.map(|validator| (*validator, keyrings[validator.0 as usize].1))
 		.collect_vec();
 
-	let mut no_duplicates = HashSet::new();
+	let mut unique_assignments = HashSet::new();
 	for (core_index, assignment) in assignments {
 		let assigned_cores = match &assignment.cert().kind {
 			approval::v2::AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield } =>
@@ -647,7 +662,7 @@ fn generate_assignments(
 
 		// For the cases where tranch0 assignments are in a single certificate we need to make
 		// sure we create a single message.
-		if no_duplicates.insert(bitfiled) {
+		if unique_assignments.insert(bitfiled) {
 			if !assignments_by_tranche.contains_key(&assignment.tranche()) {
 				assignments_by_tranche.insert(assignment.tranche(), Vec::new());
 			}
@@ -688,18 +703,19 @@ fn generate_assignments(
 		.into_values()
 		.map(|assignments| assignments.into_iter())
 		.flatten()
-		.map(|indirect| {
+		.map(|assignment| {
 			let msg = protocol_v3::ApprovalDistributionMessage::Assignments(vec![(
-				indirect.0, indirect.1,
+				assignment.0,
+				assignment.1,
 			)]);
 			TestMessageInfo {
 				msg,
-				sent_by: indirect
+				sent_by: assignment
 					.2
 					.into_iter()
 					.map(|(validator_index, _)| validator_index)
 					.collect_vec(),
-				tranche: indirect.3,
+				tranche: assignment.3,
 				block_hash: block_info.hash,
 			}
 		})
