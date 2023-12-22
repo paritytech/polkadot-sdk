@@ -14,10 +14,11 @@
 // limitations under the License.
 
 use super::{
-	AccountId, AllPalletsWithSystem, Assets, Uniques, Authorship, Balance, Balances, BaseDeliveryFee,
+	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, BaseDeliveryFee,
 	FeeAssetId, ForeignAssets, ForeignAssetsInstance, ParachainInfo, ParachainSystem, PolkadotXcm,
 	PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, ToWestendXcmRouter,
-	TransactionByteFee, TrustBackedAssetsInstance, WeightToFee, XcmpQueue,
+	TransactionByteFee, TrustBackedAssetsInstance, Uniques, UniquesIdForTrustBackedAssets,
+	WeightToFee, XcmpQueue,
 };
 use assets_common::{
 	local_and_foreign_assets::MatchesLocalAndForeignAssetsMultiLocation,
@@ -46,12 +47,12 @@ use xcm_builder::{
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, CurrencyAdapter,
 	DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal, DescribeFamily,
 	EnsureXcmOrigin, FungiblesAdapter, GlobalConsensusParachainConvertsFor, HashedDescription,
-	IsConcrete, LocalMint, NetworkExportTableItem, NoChecking, ParentAsSuperuser, ParentIsPreset,
-	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, StartsWith,
-	StartsWithExplicitGlobalConsensus, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
-	XcmFeeToAccount, NonFungiblesAdapter,
+	IsConcrete, LocalMint, NetworkExportTableItem, NoChecking, NonFungiblesAdapter,
+	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
+	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, StartsWith, StartsWithExplicitGlobalConsensus, TakeWeightCredit,
+	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
@@ -114,9 +115,6 @@ pub type CurrencyTransactor = CurrencyAdapter<
 pub type TrustBackedAssetsConvertedConcreteId =
 	assets_common::TrustBackedAssetsConvertedConcreteId<TrustBackedAssetsPalletLocation, Balance>;
 
-pub type TrustBackedUniquesConvertedConcreteId =
-	assets_common::TrustBackedUniquesConvertedConcreteId<TrustBackedUniquesPalletLocation, u32>;
-
 /// Means for transacting assets besides the native currency on this chain.
 pub type FungiblesTransactor = FungiblesAdapter<
 	// Use this fungibles implementation:
@@ -133,6 +131,12 @@ pub type FungiblesTransactor = FungiblesAdapter<
 	// The account to use for tracking teleports.
 	CheckingAccount,
 >;
+
+pub type TrustBackedUniquesConvertedConcreteId =
+	assets_common::TrustBackedUniquesConvertedConcreteId<
+		TrustBackedUniquesPalletLocation,
+		UniquesIdForTrustBackedAssets,
+	>;
 
 /// Means for transacting unique assets.
 pub type UniquesTransactor = NonFungiblesAdapter<
@@ -203,8 +207,13 @@ pub type PoolFungiblesTransactor = FungiblesAdapter<
 >;
 
 /// Means for transacting assets on this chain.
-pub type AssetTransactors =
-	(CurrencyTransactor, FungiblesTransactor, ForeignFungiblesTransactor, PoolFungiblesTransactor);
+pub type AssetTransactors = (
+	CurrencyTransactor,
+	FungiblesTransactor,
+	UniquesTransactor,
+	ForeignFungiblesTransactor,
+	PoolFungiblesTransactor,
+);
 
 /// Simple `MultiLocation` matcher for Local and Foreign asset `MultiLocation`.
 pub struct LocalAndForeignAssetsMultiLocationMatcher;

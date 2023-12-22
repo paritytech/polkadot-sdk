@@ -729,7 +729,7 @@ parameter_types! {
 impl pallet_uniques::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type CollectionId = u32;
-	type ItemId = u32;
+	type ItemId = UniquesIdForTrustBackedAssets;
 	type Currency = Balances;
 	type ForceOrigin = AssetsForceOrigin;
 	type CollectionDeposit = UniquesCollectionDeposit;

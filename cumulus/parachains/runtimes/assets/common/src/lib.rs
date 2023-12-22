@@ -34,7 +34,11 @@ pub type AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation> =
 
 /// `MultiLocation` vs `AssetIdForTrustBackedAssets` converter for `TrustBackedUniques`
 pub type CollectionIdForTrustBackedUniquesConvert<TrustBackedUniquesPalletLocation> =
-	AsPrefixedGeneralIndex<TrustBackedUniquesPalletLocation, UniquesIdForTrustBackedAssets, JustTry>;
+	AsPrefixedGeneralIndex<
+		TrustBackedUniquesPalletLocation,
+		UniquesIdForTrustBackedAssets,
+		JustTry,
+	>;
 
 /// [`MatchedConvertedConcreteId`] converter dedicated for `TrustBackedAssets`
 pub type TrustBackedAssetsConvertedConcreteId<TrustBackedAssetsPalletLocation, Balance> =
