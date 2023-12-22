@@ -885,6 +885,17 @@ mod benches {
 			T::Coretime::request_revenue_info_at(rc_block);
 		}
 	}
+	#[benchmark]
+	fn notify_core_count(n: Linear<0, { MAX_CORE_COUNT.into() }>) -> Result<(), BenchmarkError> {
+		let admin_origin =
+			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+
+		#[extrinsic_call]
+		_(admin_origin as T::RuntimeOrigin, n.try_into().unwrap());
+
+        assert!(CoreCountInbox::<T>::take().is_some());
+		Ok(())
+	}
 
 	#[benchmark]
 	fn do_tick_base() -> Result<(), BenchmarkError> {
