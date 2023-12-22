@@ -337,6 +337,12 @@
 <a href="#337" id="337">337</a>
 <a href="#338" id="338">338</a>
 <a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -355,7 +361,7 @@
 
 </span><span class="doccomment">//! Module contains tests code, that is shared by all types of bridges
 
-</span><span class="kw">use </span><span class="kw">crate</span>::test_cases::{run_test, RuntimeHelper};
+</span><span class="kw">use </span><span class="kw">crate</span>::test_cases::{bridges_prelude::<span class="kw-2">*</span>, run_test, RuntimeHelper};
 
 <span class="kw">use </span>asset_test_utils::BasicParachainRuntime;
 <span class="kw">use </span>bp_messages::{LaneId, MessageNonce};
@@ -369,14 +375,17 @@
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
 <span class="kw">use </span>pallet_bridge_grandpa::{BridgedBlockHash, BridgedHeader};
 <span class="kw">use </span>parachains_common::AccountId;
-<span class="kw">use </span>parachains_runtimes_test_utils::{mock_open_hrmp_channel, AccountIdOf, CollatorSessionKeys};
+<span class="kw">use </span>parachains_runtimes_test_utils::{
+	mock_open_hrmp_channel, AccountIdOf, CollatorSessionKeys, RuntimeCallOf,
+};
 <span class="kw">use </span>sp_core::Get;
 <span class="kw">use </span>sp_keyring::AccountKeyring::<span class="kw-2">*</span>;
 <span class="kw">use </span>sp_runtime::{traits::TrailingZeroInput, AccountId32};
 <span class="kw">use </span>sp_std::marker::PhantomData;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 
-<span class="attr">#[impl_trait_for_tuples::impl_for_tuples(<span class="number">30</span>)]
+<span class="doccomment">/// Verify that the transaction has succeeded.
+</span><span class="attr">#[impl_trait_for_tuples::impl_for_tuples(<span class="number">30</span>)]
 </span><span class="kw">pub trait </span>VerifyTransactionOutcome {
 	<span class="kw">fn </span>verify_outcome(<span class="kw-2">&amp;</span><span class="self">self</span>);
 }
@@ -390,7 +399,7 @@
 <span class="doccomment">/// Checks that the best finalized header hash in the bridge GRANDPA pallet equals to given one.
 </span><span class="kw">pub struct </span>VerifySubmitGrandpaFinalityProofOutcome&lt;Runtime, GPI&gt;
 <span class="kw">where
-	</span>Runtime: pallet_bridge_grandpa::Config&lt;GPI&gt;,
+	</span>Runtime: BridgeGrandpaConfig&lt;GPI&gt;,
 	GPI: <span class="lifetime">&#39;static</span>,
 {
 	expected_best_hash: BridgedBlockHash&lt;Runtime, GPI&gt;,
@@ -398,7 +407,7 @@
 
 <span class="kw">impl</span>&lt;Runtime, GPI&gt; VerifySubmitGrandpaFinalityProofOutcome&lt;Runtime, GPI&gt;
 <span class="kw">where
-	</span>Runtime: pallet_bridge_grandpa::Config&lt;GPI&gt;,
+	</span>Runtime: BridgeGrandpaConfig&lt;GPI&gt;,
 	GPI: <span class="lifetime">&#39;static</span>,
 {
 	<span class="doccomment">/// Expect given header hash to be the best after transaction.
@@ -412,7 +421,7 @@
 <span class="kw">impl</span>&lt;Runtime, GPI&gt; VerifyTransactionOutcome
 	<span class="kw">for </span>VerifySubmitGrandpaFinalityProofOutcome&lt;Runtime, GPI&gt;
 <span class="kw">where
-	</span>Runtime: pallet_bridge_grandpa::Config&lt;GPI&gt;,
+	</span>Runtime: BridgeGrandpaConfig&lt;GPI&gt;,
 	GPI: <span class="lifetime">&#39;static</span>,
 {
 	<span class="kw">fn </span>verify_outcome(<span class="kw-2">&amp;</span><span class="self">self</span>) {
@@ -435,7 +444,7 @@
 
 <span class="kw">impl</span>&lt;Runtime, PPI&gt; VerifySubmitParachainHeaderProofOutcome&lt;Runtime, PPI&gt;
 <span class="kw">where
-	</span>Runtime: pallet_bridge_parachains::Config&lt;PPI&gt;,
+	</span>Runtime: BridgeParachainsConfig&lt;PPI&gt;,
 	PPI: <span class="lifetime">&#39;static</span>,
 {
 	<span class="doccomment">/// Expect given header hash to be the best after transaction.
@@ -450,7 +459,7 @@
 <span class="kw">impl</span>&lt;Runtime, PPI&gt; VerifyTransactionOutcome
 	<span class="kw">for </span>VerifySubmitParachainHeaderProofOutcome&lt;Runtime, PPI&gt;
 <span class="kw">where
-	</span>Runtime: pallet_bridge_parachains::Config&lt;PPI&gt;,
+	</span>Runtime: BridgeParachainsConfig&lt;PPI&gt;,
 	PPI: <span class="lifetime">&#39;static</span>,
 {
 	<span class="kw">fn </span>verify_outcome(<span class="kw-2">&amp;</span><span class="self">self</span>) {
@@ -471,7 +480,7 @@
 
 <span class="kw">impl</span>&lt;Runtime, MPI&gt; VerifySubmitMessagesProofOutcome&lt;Runtime, MPI&gt;
 <span class="kw">where
-	</span>Runtime: pallet_bridge_messages::Config&lt;MPI&gt;,
+	</span>Runtime: BridgeMessagesConfig&lt;MPI&gt;,
 	MPI: <span class="lifetime">&#39;static</span>,
 {
 	<span class="doccomment">/// Expect given delivered nonce to be the latest after transaction.
@@ -485,7 +494,7 @@
 
 <span class="kw">impl</span>&lt;Runtime, MPI&gt; VerifyTransactionOutcome <span class="kw">for </span>VerifySubmitMessagesProofOutcome&lt;Runtime, MPI&gt;
 <span class="kw">where
-	</span>Runtime: pallet_bridge_messages::Config&lt;MPI&gt;,
+	</span>Runtime: BridgeMessagesConfig&lt;MPI&gt;,
 	MPI: <span class="lifetime">&#39;static</span>,
 {
 	<span class="kw">fn </span>verify_outcome(<span class="kw-2">&amp;</span><span class="self">self</span>) {
@@ -533,7 +542,7 @@
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>initialize_bridge_grandpa_pallet&lt;Runtime, GPI&gt;(
 	init_data: bp_header_chain::InitializationData&lt;BridgedHeader&lt;Runtime, GPI&gt;&gt;,
 ) <span class="kw">where
-	</span>Runtime: pallet_bridge_grandpa::Config&lt;GPI&gt;,
+	</span>Runtime: BridgeGrandpaConfig&lt;GPI&gt;,
 {
 	pallet_bridge_grandpa::Pallet::&lt;Runtime, GPI&gt;::initialize(
 		RuntimeHelper::&lt;Runtime&gt;::root_origin(),
@@ -544,7 +553,7 @@
 
 <span class="doccomment">/// Runtime calls and their verifiers.
 </span><span class="kw">pub type </span>CallsAndVerifiers&lt;Runtime&gt; =
-	Vec&lt;(&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall, Box&lt;<span class="kw">dyn </span>VerifyTransactionOutcome&gt;)&gt;;
+	Vec&lt;(RuntimeCallOf&lt;Runtime&gt;, Box&lt;<span class="kw">dyn </span>VerifyTransactionOutcome&gt;)&gt;;
 
 <span class="doccomment">/// Returns relayer id at the bridged chain.
 </span><span class="kw">pub fn </span>relayer_id_at_bridged_chain&lt;Runtime: pallet_bridge_messages::Config&lt;MPI&gt;, MPI&gt;(
@@ -561,7 +570,7 @@
 	local_relay_chain_id: NetworkId,
 	construct_and_apply_extrinsic: <span class="kw">fn</span>(
 		sp_keyring::AccountKeyring,
-		&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall,
+		RuntimeCallOf&lt;Runtime&gt;,
 	) -&gt; sp_runtime::DispatchOutcome,
 	prepare_message_proof_import: <span class="kw">impl </span>FnOnce(
 		Runtime::AccountId,
@@ -571,9 +580,7 @@
 		Xcm&lt;()&gt;,
 	) -&gt; CallsAndVerifiers&lt;Runtime&gt;,
 ) <span class="kw">where
-	</span>Runtime: BasicParachainRuntime
-		+ cumulus_pallet_xcmp_queue::Config
-		+ pallet_bridge_messages::Config&lt;MPI&gt;,
+	</span>Runtime: BasicParachainRuntime + cumulus_pallet_xcmp_queue::Config + BridgeMessagesConfig&lt;MPI&gt;,
 	AllPalletsWithoutSystem:
 		OnInitialize&lt;BlockNumberFor&lt;Runtime&gt;&gt; + OnFinalize&lt;BlockNumberFor&lt;Runtime&gt;&gt;,
 	MPI: <span class="lifetime">&#39;static</span>,
@@ -590,7 +597,12 @@
 		runtime_para_id,
 		<span class="macro">vec!</span>[(
 			relayer_id_on_target.clone().into(),
-			Runtime::ExistentialDeposit::get() * <span class="number">100000u32</span>.into(),
+			<span class="comment">// this value should be enough to cover all transaction costs, but computing the actual
+			// value here is tricky - there are several transaction payment pallets and we don&#39;t
+			// want to introduce additional bounds and traits here just for that, so let&#39;s just
+			// select some presumably large value
+			</span>sp_std::cmp::max::&lt;Runtime::Balance&gt;(Runtime::ExistentialDeposit::get(), <span class="number">1u32</span>.into()) *
+				<span class="number">100_000_000u32</span>.into(),
 		)],
 		|| {
 			<span class="kw">let </span><span class="kw-2">mut </span>alice = [<span class="number">0u8</span>; <span class="number">32</span>];
@@ -666,7 +678,7 @@
 	submitter: sp_keyring::AccountKeyring,
 	construct_and_apply_extrinsic: <span class="kw">fn</span>(
 		sp_keyring::AccountKeyring,
-		&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall,
+		RuntimeCallOf&lt;Runtime&gt;,
 	) -&gt; sp_runtime::DispatchOutcome,
 	calls_and_verifiers: CallsAndVerifiers&lt;Runtime&gt;,
 ) {

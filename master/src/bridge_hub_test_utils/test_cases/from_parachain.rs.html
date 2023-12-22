@@ -539,12 +539,6 @@
 <a href="#539" id="539">539</a>
 <a href="#540" id="540">540</a>
 <a href="#541" id="541">541</a>
-<a href="#542" id="542">542</a>
-<a href="#543" id="543">543</a>
-<a href="#544" id="544">544</a>
-<a href="#545" id="545">545</a>
-<a href="#546" id="546">546</a>
-<a href="#547" id="547">547</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -565,7 +559,7 @@
 //! with remote parachain.
 
 </span><span class="kw">use crate</span>::{
-	test_cases::{helpers, run_test},
+	test_cases::{bridges_prelude::<span class="kw-2">*</span>, helpers, run_test},
 	test_data,
 };
 
@@ -586,12 +580,6 @@
 };
 <span class="kw">use </span>frame_support::traits::{Get, OnFinalize, OnInitialize};
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
-<span class="kw">use </span>pallet_bridge_grandpa::{Call <span class="kw">as </span>BridgeGrandpaCall, Config <span class="kw">as </span>BridgeGrandpaConfig};
-<span class="kw">use </span>pallet_bridge_messages::{Call <span class="kw">as </span>BridgeMessagesCall, Config <span class="kw">as </span>BridgeMessagesConfig};
-<span class="kw">use </span>pallet_bridge_parachains::{
-	Call <span class="kw">as </span>BridgeParachainsCall, Config <span class="kw">as </span>BridgeParachainsConfig, RelayBlockHash,
-	RelayBlockNumber,
-};
 <span class="kw">use </span>parachains_runtimes_test_utils::{
 	AccountIdOf, BasicParachainRuntime, CollatorSessionKeys, RuntimeCallOf,
 };

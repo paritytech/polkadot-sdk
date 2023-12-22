@@ -435,8 +435,6 @@
 <a href="#435" id="435">435</a>
 <a href="#436" id="436">436</a>
 <a href="#437" id="437">437</a>
-<a href="#438" id="438">438</a>
-<a href="#439" id="439">439</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -457,7 +455,7 @@
 //! with remote GRANDPA chain.
 
 </span><span class="kw">use crate</span>::{
-	test_cases::{helpers, run_test},
+	test_cases::{bridges_prelude::<span class="kw-2">*</span>, helpers, run_test},
 	test_data,
 };
 
@@ -477,8 +475,6 @@
 };
 <span class="kw">use </span>frame_support::traits::{Get, OnFinalize, OnInitialize};
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
-<span class="kw">use </span>pallet_bridge_grandpa::{Call <span class="kw">as </span>BridgeGrandpaCall, Config <span class="kw">as </span>BridgeGrandpaConfig};
-<span class="kw">use </span>pallet_bridge_messages::{Call <span class="kw">as </span>BridgeMessagesCall, Config <span class="kw">as </span>BridgeMessagesConfig};
 <span class="kw">use </span>parachains_runtimes_test_utils::{
 	AccountIdOf, BasicParachainRuntime, CollatorSessionKeys, RuntimeCallOf,
 };

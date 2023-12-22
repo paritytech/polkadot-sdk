@@ -655,21 +655,6 @@
 <a href="#655" id="655">655</a>
 <a href="#656" id="656">656</a>
 <a href="#657" id="657">657</a>
-<a href="#658" id="658">658</a>
-<a href="#659" id="659">659</a>
-<a href="#660" id="660">660</a>
-<a href="#661" id="661">661</a>
-<a href="#662" id="662">662</a>
-<a href="#663" id="663">663</a>
-<a href="#664" id="664">664</a>
-<a href="#665" id="665">665</a>
-<a href="#666" id="666">666</a>
-<a href="#667" id="667">667</a>
-<a href="#668" id="668">668</a>
-<a href="#669" id="669">669</a>
-<a href="#670" id="670">670</a>
-<a href="#671" id="671">671</a>
-<a href="#672" id="672">672</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -696,7 +681,7 @@
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>helpers;
 
-<span class="kw">use </span><span class="kw">crate</span>::test_data;
+<span class="kw">use crate</span>::{test_cases::bridges_prelude::<span class="kw-2">*</span>, test_data};
 
 <span class="kw">use </span>asset_test_utils::BasicParachainRuntime;
 <span class="kw">use </span>bp_messages::{
@@ -710,12 +695,13 @@
 <span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>frame_support::{
 	assert_ok,
+	dispatch::GetDispatchInfo,
 	traits::{Get, OnFinalize, OnInitialize, OriginTrait},
 };
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
 <span class="kw">use </span>parachains_common::AccountId;
 <span class="kw">use </span>parachains_runtimes_test_utils::{
-	mock_open_hrmp_channel, AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder, ValidatorIdOf,
+	mock_open_hrmp_channel, AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder, RuntimeCallOf,
 	XcmReceivedFrom,
 };
 <span class="kw">use </span>sp_runtime::{traits::Zero, AccountId32};
@@ -725,6 +711,16 @@
 	traits::{TransactAsset, WeightBounds},
 	XcmExecutor,
 };
+
+<span class="doccomment">/// Common bridges exports.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>bridges_prelude {
+	<span class="kw">pub use </span>pallet_bridge_grandpa::{Call <span class="kw">as </span>BridgeGrandpaCall, Config <span class="kw">as </span>BridgeGrandpaConfig};
+	<span class="kw">pub use </span>pallet_bridge_messages::{Call <span class="kw">as </span>BridgeMessagesCall, Config <span class="kw">as </span>BridgeMessagesConfig};
+	<span class="kw">pub use </span>pallet_bridge_parachains::{
+		Call <span class="kw">as </span>BridgeParachainsCall, Config <span class="kw">as </span>BridgeParachainsConfig, RelayBlockHash,
+		RelayBlockNumber,
+	};
+}
 
 <span class="comment">// Re-export test_case from assets
 </span><span class="kw">pub use </span>asset_test_utils::include_teleports_for_native_asset_works;
@@ -761,11 +757,10 @@
 	collator_session_key: CollatorSessionKeys&lt;Runtime&gt;,
 	runtime_para_id: u32,
 ) <span class="kw">where
-	</span>Runtime: BasicParachainRuntime + pallet_bridge_grandpa::Config&lt;GrandpaPalletInstance&gt;,
+	</span>Runtime: BasicParachainRuntime + BridgeGrandpaConfig&lt;GrandpaPalletInstance&gt;,
 	GrandpaPalletInstance: <span class="lifetime">&#39;static</span>,
-	ValidatorIdOf&lt;Runtime&gt;: From&lt;AccountIdOf&lt;Runtime&gt;&gt;,
-	&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall:
-		From&lt;pallet_bridge_grandpa::Call&lt;Runtime, GrandpaPalletInstance&gt;&gt;,
+	RuntimeCallOf&lt;Runtime&gt;:
+		GetDispatchInfo + From&lt;BridgeGrandpaCall&lt;Runtime, GrandpaPalletInstance&gt;&gt;,
 {
 	run_test::&lt;Runtime, <span class="kw">_</span>&gt;(collator_session_key, runtime_para_id, <span class="macro">vec!</span>[], || {
 		<span class="comment">// check mode before
@@ -774,24 +769,18 @@
 			<span class="prelude-val">Err</span>(())
 		);
 
-		<span class="comment">// encode `initialize` call
-		</span><span class="kw">let </span>initialize_call =
-			&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall::from(pallet_bridge_grandpa::Call::&lt;
-				Runtime,
-				GrandpaPalletInstance,
-			&gt;::initialize {
-				init_data: test_data::initialization_data::&lt;Runtime, GrandpaPalletInstance&gt;(<span class="number">12345</span>),
-			})
-			.encode();
-
-		<span class="comment">// overestimate - check weight for `pallet_bridge_grandpa::Pallet::initialize()` call
-		</span><span class="kw">let </span>require_weight_at_most =
-			&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight::get().reads_writes(<span class="number">7</span>, <span class="number">7</span>);
+		<span class="comment">// prepare the `initialize` call
+		</span><span class="kw">let </span>initialize_call = RuntimeCallOf::&lt;Runtime&gt;::from(BridgeGrandpaCall::&lt;
+			Runtime,
+			GrandpaPalletInstance,
+		&gt;::initialize {
+			init_data: test_data::initialization_data::&lt;Runtime, GrandpaPalletInstance&gt;(<span class="number">12345</span>),
+		});
 
 		<span class="comment">// execute XCM with Transacts to `initialize bridge` as governance does
 		</span><span class="macro">assert_ok!</span>(RuntimeHelper::&lt;Runtime&gt;::execute_as_governance(
-			initialize_call,
-			require_weight_at_most
+			initialize_call.encode(),
+			initialize_call.get_dispatch_info().weight,
 		)
 		.ensure_complete());
 
@@ -809,11 +798,10 @@
 	collator_session_key: CollatorSessionKeys&lt;Runtime&gt;,
 	runtime_para_id: u32,
 ) <span class="kw">where
-	</span>Runtime: BasicParachainRuntime + pallet_bridge_grandpa::Config&lt;GrandpaPalletInstance&gt;,
+	</span>Runtime: BasicParachainRuntime + BridgeGrandpaConfig&lt;GrandpaPalletInstance&gt;,
 	GrandpaPalletInstance: <span class="lifetime">&#39;static</span>,
-	ValidatorIdOf&lt;Runtime&gt;: From&lt;AccountIdOf&lt;Runtime&gt;&gt;,
-	&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall:
-		From&lt;pallet_bridge_grandpa::Call&lt;Runtime, GrandpaPalletInstance&gt;&gt;,
+	RuntimeCallOf&lt;Runtime&gt;:
+		GetDispatchInfo + From&lt;BridgeGrandpaCall&lt;Runtime, GrandpaPalletInstance&gt;&gt;,
 {
 	run_test::&lt;Runtime, <span class="kw">_</span>&gt;(collator_session_key, runtime_para_id, <span class="macro">vec!</span>[], || {
 		<span class="kw">let </span>dispatch_set_operating_mode_call = |old_mode, new_mode| {
@@ -823,23 +811,17 @@
 				old_mode,
 			);
 
-			<span class="comment">// overestimate - check weight for `pallet_bridge_grandpa::Pallet::set_operating_mode()`
-			// call
-			</span><span class="kw">let </span>require_weight_at_most =
-				&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight::get().reads_writes(<span class="number">7</span>, <span class="number">7</span>);
-
-			<span class="comment">// encode `set_operating_mode` call
+			<span class="comment">// prepare the `set_operating_mode` call
 			</span><span class="kw">let </span>set_operating_mode_call = &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall::from(
 				pallet_bridge_grandpa::Call::&lt;Runtime, GrandpaPalletInstance&gt;::set_operating_mode {
 					operating_mode: new_mode,
 				},
-			)
-			.encode();
+			);
 
 			<span class="comment">// execute XCM with Transacts to `initialize bridge` as governance does
 			</span><span class="macro">assert_ok!</span>(RuntimeHelper::&lt;Runtime&gt;::execute_as_governance(
-				set_operating_mode_call,
-				require_weight_at_most
+				set_operating_mode_call.encode(),
+				set_operating_mode_call.get_dispatch_info().weight,
 			)
 			.ensure_complete());
 
@@ -867,11 +849,10 @@
 	collator_session_key: CollatorSessionKeys&lt;Runtime&gt;,
 	runtime_para_id: u32,
 ) <span class="kw">where
-	</span>Runtime: BasicParachainRuntime + pallet_bridge_parachains::Config&lt;ParachainsPalletInstance&gt;,
+	</span>Runtime: BasicParachainRuntime + BridgeParachainsConfig&lt;ParachainsPalletInstance&gt;,
 	ParachainsPalletInstance: <span class="lifetime">&#39;static</span>,
-	ValidatorIdOf&lt;Runtime&gt;: From&lt;AccountIdOf&lt;Runtime&gt;&gt;,
-	&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall:
-		From&lt;pallet_bridge_parachains::Call&lt;Runtime, ParachainsPalletInstance&gt;&gt;,
+	RuntimeCallOf&lt;Runtime&gt;:
+		GetDispatchInfo + From&lt;BridgeParachainsCall&lt;Runtime, ParachainsPalletInstance&gt;&gt;,
 {
 	run_test::&lt;Runtime, <span class="kw">_</span>&gt;(collator_session_key, runtime_para_id, <span class="macro">vec!</span>[], || {
 		<span class="kw">let </span>dispatch_set_operating_mode_call = |old_mode, new_mode| {
@@ -881,23 +862,19 @@
 				old_mode,
 			);
 
-			<span class="comment">// overestimate - check weight for
-			// `pallet_bridge_parachains::Pallet::set_operating_mode()` call
-			</span><span class="kw">let </span>require_weight_at_most =
-				&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight::get().reads_writes(<span class="number">7</span>, <span class="number">7</span>);
-
-			<span class="comment">// encode `set_operating_mode` call
-			</span><span class="kw">let </span>set_operating_mode_call = &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall::from(pallet_bridge_parachains::Call::&lt;
-				Runtime,
-				ParachainsPalletInstance,
-			&gt;::set_operating_mode {
-				operating_mode: new_mode,
-			}).encode();
+			<span class="comment">// prepare the `set_operating_mode` call
+			</span><span class="kw">let </span>set_operating_mode_call =
+				RuntimeCallOf::&lt;Runtime&gt;::from(pallet_bridge_parachains::Call::&lt;
+					Runtime,
+					ParachainsPalletInstance,
+				&gt;::set_operating_mode {
+					operating_mode: new_mode,
+				});
 
 			<span class="comment">// execute XCM with Transacts to `initialize bridge` as governance does
 			</span><span class="macro">assert_ok!</span>(RuntimeHelper::&lt;Runtime&gt;::execute_as_governance(
-				set_operating_mode_call,
-				require_weight_at_most
+				set_operating_mode_call.encode(),
+				set_operating_mode_call.get_dispatch_info().weight,
 			)
 			.ensure_complete());
 
@@ -925,11 +902,10 @@
 	collator_session_key: CollatorSessionKeys&lt;Runtime&gt;,
 	runtime_para_id: u32,
 ) <span class="kw">where
-	</span>Runtime: BasicParachainRuntime + pallet_bridge_messages::Config&lt;MessagesPalletInstance&gt;,
+	</span>Runtime: BasicParachainRuntime + BridgeMessagesConfig&lt;MessagesPalletInstance&gt;,
 	MessagesPalletInstance: <span class="lifetime">&#39;static</span>,
-	ValidatorIdOf&lt;Runtime&gt;: From&lt;AccountIdOf&lt;Runtime&gt;&gt;,
-	&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall:
-		From&lt;pallet_bridge_messages::Call&lt;Runtime, MessagesPalletInstance&gt;&gt;,
+	RuntimeCallOf&lt;Runtime&gt;:
+		GetDispatchInfo + From&lt;BridgeMessagesCall&lt;Runtime, MessagesPalletInstance&gt;&gt;,
 {
 	run_test::&lt;Runtime, <span class="kw">_</span>&gt;(collator_session_key, runtime_para_id, <span class="macro">vec!</span>[], || {
 		<span class="kw">let </span>dispatch_set_operating_mode_call = |old_mode, new_mode| {
@@ -940,23 +916,18 @@
 				old_mode,
 			);
 
-			<span class="comment">// overestimate - check weight for
-			// `pallet_bridge_messages::Pallet::set_operating_mode()` call
-			</span><span class="kw">let </span>require_weight_at_most =
-				&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight::get().reads_writes(<span class="number">7</span>, <span class="number">7</span>);
-
 			<span class="comment">// encode `set_operating_mode` call
-			</span><span class="kw">let </span>set_operating_mode_call = &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall::from(pallet_bridge_messages::Call::&lt;
+			</span><span class="kw">let </span>set_operating_mode_call = RuntimeCallOf::&lt;Runtime&gt;::from(BridgeMessagesCall::&lt;
 				Runtime,
 				MessagesPalletInstance,
 			&gt;::set_operating_mode {
 				operating_mode: new_mode,
-			}).encode();
+			});
 
 			<span class="comment">// execute XCM with Transacts to `initialize bridge` as governance does
 			</span><span class="macro">assert_ok!</span>(RuntimeHelper::&lt;Runtime&gt;::execute_as_governance(
-				set_operating_mode_call,
-				require_weight_at_most
+				set_operating_mode_call.encode(),
+				set_operating_mode_call.get_dispatch_info().weight,
 			)
 			.ensure_complete());
 
@@ -1009,10 +980,9 @@
 	maybe_paid_export_message: <span class="prelude-ty">Option</span>&lt;MultiAsset&gt;,
 	prepare_configuration: <span class="kw">impl </span>Fn(),
 ) <span class="kw">where
-	</span>Runtime: BasicParachainRuntime + pallet_bridge_messages::Config&lt;MessagesPalletInstance&gt;,
+	</span>Runtime: BasicParachainRuntime + BridgeMessagesConfig&lt;MessagesPalletInstance&gt;,
 	XcmConfig: xcm_executor::Config,
 	MessagesPalletInstance: <span class="lifetime">&#39;static</span>,
-	ValidatorIdOf&lt;Runtime&gt;: From&lt;AccountIdOf&lt;Runtime&gt;&gt;,
 {
 	<span class="macro">assert_ne!</span>(runtime_para_id, sibling_parachain_id);
 	<span class="kw">let </span>sibling_parachain_location = MultiLocation::new(<span class="number">1</span>, Parachain(sibling_parachain_id));
@@ -1118,15 +1088,13 @@
 ) <span class="kw">where
 	</span>Runtime: BasicParachainRuntime
 		+ cumulus_pallet_xcmp_queue::Config
-		+ pallet_bridge_messages::Config&lt;MessagesPalletInstance, InboundPayload = XcmAsPlainPayload&gt;,
+		+ BridgeMessagesConfig&lt;MessagesPalletInstance, InboundPayload = XcmAsPlainPayload&gt;,
 	AllPalletsWithoutSystem:
 		OnInitialize&lt;BlockNumberFor&lt;Runtime&gt;&gt; + OnFinalize&lt;BlockNumberFor&lt;Runtime&gt;&gt;,
-	&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::AccountId:
-		Into&lt;&lt;&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::RuntimeOrigin <span class="kw">as </span>OriginTrait&gt;::AccountId&gt;,
+	AccountIdOf&lt;Runtime&gt;: From&lt;AccountId32&gt;
+		+ Into&lt;&lt;&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::RuntimeOrigin <span class="kw">as </span>OriginTrait&gt;::AccountId&gt;,
 	XcmConfig: xcm_executor::Config,
 	MessagesPalletInstance: <span class="lifetime">&#39;static</span>,
-	ValidatorIdOf&lt;Runtime&gt;: From&lt;AccountIdOf&lt;Runtime&gt;&gt;,
-	&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::AccountId: From&lt;AccountId32&gt;,
 	HrmpChannelOpener: frame_support::inherent::ProvideInherent&lt;
 		Call = cumulus_pallet_parachain_system::Call&lt;Runtime&gt;,
 	&gt;,
@@ -1160,9 +1128,10 @@
 			NetworkWithParentCount&lt;RuntimeNetwork, NetworkDistanceAsParentCount&gt;,
 			AlwaysLatest,
 		&gt;((RuntimeNetwork::get(), Here));
-		<span class="kw">let </span>result = &lt;&lt;Runtime <span class="kw">as </span>pallet_bridge_messages::Config&lt;MessagesPalletInstance&gt;&gt;::MessageDispatch&gt;::dispatch(
-			test_data::dispatch_message(expected_lane_id, <span class="number">1</span>, bridging_message)
-		);
+		<span class="kw">let </span>result =
+			&lt;&lt;Runtime <span class="kw">as </span>BridgeMessagesConfig&lt;MessagesPalletInstance&gt;&gt;::MessageDispatch&gt;::dispatch(
+				test_data::dispatch_message(expected_lane_id, <span class="number">1</span>, bridging_message),
+			);
 		<span class="macro">assert_eq!</span>(
 			<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, result.dispatch_level_result),
 			<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, XcmBlobMessageDispatchResult::Dispatched)
@@ -1187,11 +1156,11 @@
 
 		<span class="comment">// 2.1. WITHOUT opened hrmp channel -&gt; RoutingError
 		</span><span class="kw">let </span>result =
-			&lt;&lt;Runtime <span class="kw">as </span>pallet_bridge_messages::Config&lt;MessagesPalletInstance&gt;&gt;::MessageDispatch&gt;::dispatch(
+			&lt;&lt;Runtime <span class="kw">as </span>BridgeMessagesConfig&lt;MessagesPalletInstance&gt;&gt;::MessageDispatch&gt;::dispatch(
 				DispatchMessage {
 					key: MessageKey { lane_id: expected_lane_id, nonce: <span class="number">1 </span>},
 					data: DispatchMessageData { payload: <span class="prelude-val">Ok</span>(bridging_message.clone()) },
-				}
+				},
 			);
 		<span class="macro">assert_eq!</span>(
 			<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, result.dispatch_level_result),
@@ -1217,12 +1186,13 @@
 			included_head,
 			<span class="kw-2">&amp;</span>alice,
 		);
-		<span class="kw">let </span>result = &lt;&lt;Runtime <span class="kw">as </span>pallet_bridge_messages::Config&lt;MessagesPalletInstance&gt;&gt;::MessageDispatch&gt;::dispatch(
-			DispatchMessage {
-				key: MessageKey { lane_id: expected_lane_id, nonce: <span class="number">1 </span>},
-				data: DispatchMessageData { payload: <span class="prelude-val">Ok</span>(bridging_message) },
-			}
-		);
+		<span class="kw">let </span>result =
+			&lt;&lt;Runtime <span class="kw">as </span>BridgeMessagesConfig&lt;MessagesPalletInstance&gt;&gt;::MessageDispatch&gt;::dispatch(
+				DispatchMessage {
+					key: MessageKey { lane_id: expected_lane_id, nonce: <span class="number">1 </span>},
+					data: DispatchMessageData { payload: <span class="prelude-val">Ok</span>(bridging_message) },
+				},
+			);
 		<span class="macro">assert_eq!</span>(
 			<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, result.dispatch_level_result),
 			<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, XcmBlobMessageDispatchResult::Dispatched)
