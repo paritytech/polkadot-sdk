@@ -76,7 +76,7 @@ use parachains_common::{
 	impls::DealWithFees,
 	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
 	rococo::{consensus::*, currency::*, fee::WeightToFee},
-	AccountId, AssetIdForTrustBackedAssets, AuraId, Balance, BlockNumber, Collectionid, Hash,
+	AccountId, AssetIdForTrustBackedAssets, AuraId, Balance, BlockNumber, CollectionId, Hash,
 	Header, ItemId, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS,
 	MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
 };
@@ -821,8 +821,8 @@ parameter_types! {
 
 impl pallet_nfts::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type CollectionId = u32;
-	type ItemId = u32;
+	type CollectionId = CollectionId;
+	type ItemId = ItemId;
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
 	type ForceOrigin = AssetsForceOrigin;

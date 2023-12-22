@@ -15,8 +15,8 @@
 
 use super::{
 	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, BaseDeliveryFee,
-	FeeAssetId, ForeignAssets, ForeignAssetsInstance, ParachainInfo, ParachainSystem, PolkadotXcm,
-	PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, ToWestendXcmRouter,
+	FeeAssetId, ForeignAssets, ForeignAssetsInstance, Nfts, ParachainInfo, ParachainSystem,
+	PolkadotXcm, PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, ToWestendXcmRouter,
 	TransactionByteFee, TrustBackedAssetsInstance, Uniques, WeightToFee, XcmpQueue,
 };
 use assets_common::{
@@ -74,6 +74,8 @@ parameter_types! {
 		PalletInstance(<PoolAssets as PalletInfoAccess>::index() as u8).into();
 	pub UniquesPalletLocation: MultiLocation =
 		PalletInstance(<Uniques as PalletInfoAccess>::index() as u8).into();
+	pub NftsPalletLocation: MultiLocation =
+		PalletInstance(<Nfts as PalletInfoAccess>::index() as u8).into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 	pub const GovernanceLocation: MultiLocation = MultiLocation::parent();
 	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
@@ -145,6 +147,24 @@ pub type UniquesTransactor = NonFungiblesAdapter<
 	Uniques,
 	// This adapter will handle any non-fungible asset from the uniques pallet.
 	UniquesConvertedConcreteId,
+	// Convert an XCM MultiLocation into a local account id:
+	LocationToAccountId,
+	// Our chain's account ID type (we can't get away without mentioning it explicitly):
+	AccountId,
+	// We don't allow teleports.
+	NoChecking,
+	// The account to use for tracking teleports.
+	CheckingAccount,
+>;
+
+pub type NftsConvertedConcreteId = assets_common::NftsConvertedConcreteId<NftsPalletLocation>;
+
+/// Means for transacting nft assets.
+pub type NftsTransactor = NonFungiblesAdapter<
+	// Use this non-fungibles implementation:
+	Nfts,
+	// This adapter will handle any non-fungible asset from the nfts pallet.
+	NftsConvertedConcreteId,
 	// Convert an XCM MultiLocation into a local account id:
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
