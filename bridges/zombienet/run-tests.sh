@@ -114,8 +114,8 @@ do
                 cat $file
             done
 
-            cat /var/log/lastlog || true
-            cat /var/log/faillog || true
+            #cat /var/log/lastlog || true
+            #cat /var/log/faillog || true
             cat /var/log/syslog || true
 
             exit 1
