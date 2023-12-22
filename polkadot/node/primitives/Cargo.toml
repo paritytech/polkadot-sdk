@@ -21,7 +21,7 @@ sp-keystore = { path = "../../../substrate/primitives/keystore" }
 sp-maybe-compressed-blob = { path = "../../../substrate/primitives/maybe-compressed-blob" }
 sp-runtime = { path = "../../../substrate/primitives/runtime" }
 polkadot-parachain-primitives = { path = "../../parachain", default-features = false }
-schnorrkel = "0.9.1"
+schnorrkel = "0.11.4"
 thiserror = "1.0.48"
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
 serde = { version = "1.0.193", features = ["derive"] }
