@@ -17,7 +17,7 @@ use super::{
 	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, BaseDeliveryFee,
 	FeeAssetId, ForeignAssets, ForeignAssetsInstance, ParachainInfo, ParachainSystem, PolkadotXcm,
 	PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, ToWestendXcmRouter,
-	TransactionByteFee, TrustBackedAssetsInstance, Uniques, UniquesIdForTrustBackedAssets,
+	TransactionByteFee, TrustBackedAssetsInstance, Uniques, ItemId,
 	WeightToFee, XcmpQueue,
 };
 use assets_common::{
@@ -140,7 +140,7 @@ pub type FungiblesTransactor = FungiblesAdapter<
 pub type TrustBackedUniquesConvertedConcreteId =
 	assets_common::TrustBackedUniquesConvertedConcreteId<
 		TrustBackedUniquesPalletLocation,
-		UniquesIdForTrustBackedAssets,
+		ItemId,
 	>;
 
 /// Means for transacting unique assets.
