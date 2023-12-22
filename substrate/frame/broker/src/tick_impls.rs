@@ -87,7 +87,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn process_core_count(status: &mut StatusRecord) -> bool {
-		if let Some(core_count) = T::Coretime::check_notify_core_count() {
+		if let Some(core_count) = CoreCountInbox::<T>::take() {
 			status.core_count = core_count;
 			Self::deposit_event(Event::<T>::CoreCountChanged { core_count });
 			return true

@@ -27,6 +27,7 @@ pub mod contracts;
 pub mod coretime;
 pub mod glutton;
 pub mod penpal;
+pub mod people;
 pub mod rococo_parachain;
 pub mod seedling;
 pub mod shell;
