@@ -554,7 +554,7 @@ impl PreCodeUpgrade for () {
 		_requirements: UpgradeRequirements,
 	) -> Result<Weight, Weight> {
 		Ok(Weight::zero())
-  }
+	}
 }
 
 /// Assign coretime to some parachain.
