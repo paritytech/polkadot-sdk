@@ -25,8 +25,10 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
+use pallet_referenda::{PalletsOriginOf, TrackIdOf, TrackInfoOf};
 use scale_info::TypeInfo;
 use sp_core::H256;
+use sp_io::TestExternalities;
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
 	BuildStorage, Perbill,
@@ -118,7 +120,8 @@ impl pallet_referenda_tracks::Config for Test {
 	type TrackId = u8;
 	type RuntimeEvent = RuntimeEvent;
 	type MaxTracks = MaxTracks;
-	// type WeightInfo = ();
+	type UpdateOrigin = EnsureRoot<u64>;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -177,13 +180,32 @@ impl<Class> VoteTally<u32, Class> for Tally {
 	}
 }
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext(
+	maybe_tracks: Option<Vec<(TrackIdOf<Test, ()>, TrackInfoOf<Test, ()>, PalletsOriginOf<Test>)>>,
+) -> sp_io::TestExternalities {
 	let balances = vec![(1, 100), (2, 100), (3, 100), (4, 100), (5, 100), (6, 100)];
+
 	let t = RuntimeGenesisConfig {
 		system: Default::default(),
 		balances: pallet_balances::GenesisConfig::<Test> { balances },
 	}
 	.build_storage()
 	.unwrap();
-	t.into()
+
+	let mut ext = TestExternalities::new(t);
+	ext.execute_with(|| {
+		System::set_block_number(1);
+
+		if let Some(tracks) = maybe_tracks {
+			for (id, info, pallet_origin) in tracks {
+				crate::Pallet::<Test, ()>::insert(RuntimeOrigin::root(), id, info, pallet_origin)
+					.expect("can insert track");
+			}
+
+			System::reset_events();
+		} else {
+		}
+	});
+
+	ext
 }

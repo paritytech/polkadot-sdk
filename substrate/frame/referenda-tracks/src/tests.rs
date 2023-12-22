@@ -17,28 +17,219 @@
 
 //! Tests for referenda tracks pallet.
 
-use super::{Error, Event, Pallet as Tracks};
+use super::{Error, Event, Pallet as ReferendaTracks, Tracks};
 use crate::mock::*;
 use frame_support::{assert_noop, assert_ok};
-use frame_system::RawOrigin;
+use frame_system::{EventRecord, Phase, RawOrigin};
+use pallet_referenda::TrackInfo;
+use sp_runtime::{str_array as s, traits::BadOrigin, Perbill};
 
-#[test]
-fn generates_event() {
-	new_test_ext().execute_with(|| {
-		// let caller = 1;
-		// let data = vec![0u8; 100];
-		// System::set_block_number(System::block_number() + 1); //otherwise event won't be
-		// registered. assert_ok!(Remark::<Test>::store(RawOrigin::Signed(caller).into(),
-		// data.clone(),)); let events = System::events();
-		// // this one we create as we expect it
-		// let system_event: <Test as frame_system::Config>::RuntimeEvent = Event::Stored {
-		// 	content_hash: sp_io::hashing::blake2_256(&data).into(),
-		// 	sender: caller,
-		// }
-		// .into();
-		// // this one we actually go into the system pallet and get the last event
-		// // because we know its there from block +1
-		// let frame_system::EventRecord { event, .. } = &events[events.len() - 1];
-		assert_eq!(true, true);
-	});
+const TRACK: pallet_referenda::TrackInfoOf<Test, ()> = TrackInfo {
+	name: s("Test Track"),
+	max_deciding: 1,
+	decision_deposit: 0,
+	prepare_period: 10,
+	decision_period: 100,
+	confirm_period: 10,
+	min_enactment_period: 2,
+	min_approval: pallet_referenda::Curve::LinearDecreasing {
+		length: Perbill::from_percent(100),
+		floor: Perbill::from_percent(50),
+		ceil: Perbill::from_percent(100),
+	},
+	min_support: pallet_referenda::Curve::LinearDecreasing {
+		length: Perbill::from_percent(100),
+		floor: Perbill::from_percent(0),
+		ceil: Perbill::from_percent(50),
+	},
+};
+
+const ORIGIN_SIGNED_1: OriginCaller = OriginCaller::system(RawOrigin::Signed(1));
+const ORIGIN_SIGNED_2: OriginCaller = OriginCaller::system(RawOrigin::Signed(2));
+const ORIGIN_SIGNED_3: OriginCaller = OriginCaller::system(RawOrigin::Signed(3));
+
+mod insert {
+	use super::*;
+
+	#[test]
+	fn fails_if_incorrect_origin() {
+		new_test_ext(None).execute_with(|| {
+			assert_noop!(
+				ReferendaTracks::<Test, ()>::insert(
+					RuntimeOrigin::signed(1),
+					1,
+					TRACK,
+					ORIGIN_SIGNED_1
+				),
+				BadOrigin
+			);
+		});
+	}
+
+	#[test]
+	fn it_works() {
+		new_test_ext(None).execute_with(|| {
+			System::set_block_number(1);
+
+			assert_ok!(ReferendaTracks::<Test, ()>::insert(
+				RuntimeOrigin::root(),
+				1,
+				TRACK,
+				ORIGIN_SIGNED_1
+			));
+
+			assert_eq!(
+				System::events(),
+				vec![EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Tracks(Event::Created { id: 1 }),
+					topics: vec![],
+				}],
+			);
+
+			assert_eq!(Tracks::<Test, ()>::get(1), Some(TRACK));
+		});
+	}
+
+	#[test]
+	fn it_fails_if_inserting_an_already_existing_track() {
+		new_test_ext(None).execute_with(|| {
+			assert_ok!(ReferendaTracks::<Test, ()>::insert(
+				RuntimeOrigin::root(),
+				1,
+				TRACK,
+				ORIGIN_SIGNED_1
+			));
+
+			assert_noop!(
+				ReferendaTracks::<Test, ()>::insert(
+					RuntimeOrigin::root(),
+					1,
+					TRACK,
+					ORIGIN_SIGNED_2
+				),
+				Error::<Test, ()>::TrackIdAlreadyExisting
+			);
+		});
+	}
+
+	#[test]
+	fn fails_if_exceeds_max_tracks() {
+		new_test_ext(None).execute_with(|| {
+			assert_ok!(ReferendaTracks::<Test, ()>::insert(
+				RuntimeOrigin::root(),
+				1,
+				TRACK,
+				ORIGIN_SIGNED_1
+			));
+
+			assert_ok!(ReferendaTracks::<Test, ()>::insert(
+				RuntimeOrigin::root(),
+				2,
+				TRACK,
+				ORIGIN_SIGNED_2
+			));
+
+			assert_noop!(
+				ReferendaTracks::<Test, ()>::insert(
+					RuntimeOrigin::root(),
+					3,
+					TRACK,
+					ORIGIN_SIGNED_3
+				),
+				Error::<Test, ()>::MaxTracksExceeded
+			);
+		});
+	}
+}
+
+mod update {
+	use super::*;
+
+	#[test]
+	fn fails_if_incorrect_origin() {
+		new_test_ext(None).execute_with(|| {
+			assert_noop!(
+				ReferendaTracks::<Test, ()>::update(RuntimeOrigin::signed(1), 1, TRACK),
+				BadOrigin
+			);
+		});
+	}
+
+	#[test]
+	fn fails_if_non_existing() {
+		new_test_ext(None).execute_with(|| {
+			assert_noop!(
+				ReferendaTracks::<Test, ()>::update(RuntimeOrigin::root(), 1, TRACK),
+				Error::<Test, ()>::TrackIdNotFound,
+			);
+		});
+	}
+
+	#[test]
+	fn it_works() {
+		new_test_ext(Some(vec![(1, TRACK, ORIGIN_SIGNED_1)])).execute_with(|| {
+			let mut track = TRACK.clone();
+			track.max_deciding = 2;
+
+			assert_ok!(ReferendaTracks::<Test, ()>::update(
+				RuntimeOrigin::root(),
+				1,
+				track.clone()
+			));
+
+			assert_eq!(
+				System::events(),
+				vec![EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Tracks(Event::Updated { id: 1, info: track.clone() }),
+					topics: vec![],
+				}],
+			);
+
+			assert_eq!(Tracks::<Test, ()>::get(1), Some(track));
+		});
+	}
+}
+
+mod remove {
+	use super::*;
+
+	#[test]
+	fn fails_if_incorrect_origin() {
+		new_test_ext(None).execute_with(|| {
+			assert_noop!(
+				ReferendaTracks::<Test, ()>::remove(RuntimeOrigin::signed(1), 1),
+				BadOrigin
+			);
+		});
+	}
+
+	#[test]
+	fn fails_if_non_existing() {
+		new_test_ext(None).execute_with(|| {
+			assert_noop!(
+				ReferendaTracks::<Test, ()>::remove(RuntimeOrigin::root(), 1),
+				Error::<Test, ()>::TrackIdNotFound,
+			);
+		});
+	}
+
+	#[test]
+	fn it_works() {
+		new_test_ext(Some(vec![(1, TRACK, ORIGIN_SIGNED_1)])).execute_with(|| {
+			assert_ok!(ReferendaTracks::<Test, ()>::remove(RuntimeOrigin::root(), 1));
+
+			assert_eq!(
+				System::events(),
+				vec![EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Tracks(Event::Removed { id: 1 }),
+					topics: vec![],
+				}],
+			);
+
+			assert_eq!(Tracks::<Test, ()>::get(1), None);
+		});
+	}
 }

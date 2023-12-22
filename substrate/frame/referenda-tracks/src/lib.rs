@@ -15,10 +15,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Edit and manage referenda voring tracks.
+//! # Referenda Tracks Pallet
+//!
+//! - [`Config`][Config]
+//! - [`Call`][Call]
+//!
+//! ## Overview
+//!
+//! Manage referenda voting tracks.
+//!
+//! ## Interface
+//!
+//! ### Dispatchable Functions
+//!
+//! - [`insert`][`crate::Pallet::insert`] - Insert a new referenda Track.
+//! - [`update`][`crate::Pallet::update`] - Update the configuration of an existing referenda Track.
+//! - [`remove`][`crate::Pallet::remove`] - Remove an existing track
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod benchmarking;
+mod impl_tracks_info;
 pub mod weights;
 
 #[cfg(test)]
@@ -29,13 +46,14 @@ mod tests;
 use core::iter::Map;
 use frame_support::{storage::PrefixIterator, traits::OriginTrait};
 use frame_system::pallet_prelude::BlockNumberFor;
-use pallet_referenda::{BalanceOf, PalletsOriginOf, Track, TrackIdOf, TrackInfoOf};
+use pallet_referenda::{BalanceOf, PalletsOriginOf, Track, TrackInfoOf};
 use sp_core::Get;
 use sp_std::{borrow::Cow, vec::Vec};
 
 pub use pallet::*;
 pub use weights::WeightInfo;
 
+type TrackIdOf<T, I> = <T as Config<I>>::TrackId;
 type TrackOf<T, I> = Track<<T as Config<I>>::TrackId, BalanceOf<T, I>, BlockNumberFor<T>>;
 
 type TracksIter<T, I> = Map<
@@ -43,85 +61,157 @@ type TracksIter<T, I> = Map<
 	fn((<T as Config<I>>::TrackId, TrackInfoOf<T, I>)) -> Cow<'static, TrackOf<T, I>>,
 >;
 
-impl<T: Config<I>, I> pallet_referenda::TracksInfo<BalanceOf<T, I>, BlockNumberFor<T>>
-	for Pallet<T, I>
-{
-	type Id = T::TrackId;
-	type RuntimeOrigin = <T::RuntimeOrigin as OriginTrait>::PalletsOrigin;
-	type TracksIter = TracksIter<T, I>;
-
-	fn tracks() -> Self::TracksIter {
-		Tracks::<T, I>::iter().map(|(id, info)| Cow::Owned(Track { id, info }))
-	}
-	fn track_for(origin: &Self::RuntimeOrigin) -> Result<Self::Id, ()> {
-		OriginToTrackId::<T, I>::get(origin).ok_or(())
-	}
-	fn tracks_ids() -> Vec<Self::Id> {
-		TracksIds::<T, I>::get().into_inner()
-	}
-	fn info(id: Self::Id) -> Option<Cow<'static, TrackInfoOf<T, I>>> {
-		Tracks::<T, I>::get(id).map(Cow::Owned)
-	}
-}
-
-impl<T: Config<I>, I: 'static> Get<Vec<TrackOf<T, I>>> for crate::Pallet<T, I> {
-	fn get() -> Vec<Track<T::TrackId, BalanceOf<T, I>, BlockNumberFor<T>>> {
-		// expensive but it doesn't seem to be used anywhere
-		<Pallet<T, I> as pallet_referenda::TracksInfo<BalanceOf<T, I>, BlockNumberFor<T>>>::tracks()
-			.map(|t| t.into_owned())
-			.collect()
-	}
-}
-
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	use frame_support::{pallet_prelude::*, traits::EnsureOrigin};
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config + pallet_referenda::Config<I> {
+		type UpdateOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		type TrackId: Parameter + Member + Copy + MaxEncodedLen + Ord;
 
 		type MaxTracks: Get<u32>;
-		// type WeightInfo: WeightInfo;
+		///
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(_);
 
-	#[pallet::call]
-	impl<T: Config<I>, I: 'static> Pallet<T, I> {
-		#[pallet::call_index(0)]
-		#[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(1))]
-		pub fn udpate(origin: OriginFor<T>, _id: TrackIdOf<T, I>) -> DispatchResultWithPostInfo {
-			let _sender = ensure_signed(origin)?;
-			// Self::deposit_event(Event::Foo { sender });
-			Ok(().into())
-		}
-	}
-
 	#[pallet::storage]
 	pub type TracksIds<T: Config<I>, I: 'static = ()> =
-		StorageValue<_, BoundedVec<T::TrackId, <T as Config<I>>::MaxTracks>, ValueQuery>;
+		StorageValue<_, BoundedVec<TrackIdOf<T, I>, <T as Config<I>>::MaxTracks>, ValueQuery>;
 
 	#[pallet::storage]
 	pub type OriginToTrackId<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Blake2_128Concat, PalletsOriginOf<T>, T::TrackId>;
+		StorageMap<_, Blake2_128Concat, PalletsOriginOf<T>, TrackIdOf<T, I>>;
 
 	#[pallet::storage]
 	pub type Tracks<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Blake2_128Concat, T::TrackId, TrackInfoOf<T, I>>;
+		StorageMap<_, Blake2_128Concat, TrackIdOf<T, I>, TrackInfoOf<T, I>>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
-		// Foo(T::AccountId),
+		/// A new track has been inserted
+		Created { id: TrackIdOf<T, I> },
+		/// The information for a track has been updated
+		Updated { id: TrackIdOf<T, I>, info: TrackInfoOf<T, I> },
+		/// A track has been removed
+		Removed { id: TrackIdOf<T, I> },
 	}
 
 	#[pallet::error]
-	pub enum Error<T, I = ()> {}
+	pub enum Error<T, I = ()> {
+		/// The maxmimum amount of track IDs was exceeded
+		MaxTracksExceeded,
+		/// The specified ID for this track was not found
+		TrackIdNotFound,
+		/// The specified ID for this track was already existing
+		TrackIdAlreadyExisting,
+		/// The track cannot be removed
+		CannotRemove,
+	}
+
+	#[pallet::call(weight(<T as Config<I>>::WeightInfo))]
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Insert a new referenda Track.
+		///
+		/// Parameters:
+		/// - `id`: The Id of the track to be inserted.
+		/// - `info`: The configuration of the track.
+		/// - `pallet_origin`: A generic origin that will be matched to the track.
+		///
+		/// Emits `Created` event when successful.
+		///
+		/// Weight: `O(1)`
+		#[pallet::call_index(0)]
+		pub fn insert(
+			origin: OriginFor<T>,
+			id: TrackIdOf<T, I>,
+			info: TrackInfoOf<T, I>,
+			pallet_origin: PalletsOriginOf<T>,
+		) -> DispatchResultWithPostInfo {
+			T::UpdateOrigin::ensure_origin(origin)?;
+
+			ensure!(Tracks::<T, I>::get(id) == None, Error::<T, I>::TrackIdAlreadyExisting);
+
+			TracksIds::<T, I>::try_append(id).map_err(|_| Error::<T, I>::MaxTracksExceeded)?;
+			Tracks::<T, I>::set(id, Some(info));
+			OriginToTrackId::<T, I>::set(pallet_origin.clone(), Some(id));
+
+			Self::deposit_event(Event::Created { id });
+			Ok(().into())
+		}
+
+		/// Update the configuration of an existing referenda Track.
+		///
+		/// Parameters:
+		/// - `id`: The Id of the track to be updated.
+		/// - `info`: The new configuration of the track.
+		///
+		/// Emits `Updated` event when successful.
+		///
+		/// Weight: `O(1)`
+		#[pallet::call_index(1)]
+		pub fn update(
+			origin: OriginFor<T>,
+			id: TrackIdOf<T, I>,
+			info: TrackInfoOf<T, I>,
+		) -> DispatchResultWithPostInfo {
+			T::UpdateOrigin::ensure_origin(origin)?;
+
+			Tracks::<T, I>::try_mutate(id, |track| {
+				if track.is_none() {
+					return Err(Error::<T, I>::TrackIdNotFound);
+				};
+
+				*track = Some(info.clone());
+
+				Ok(())
+			})?;
+
+			Self::deposit_event(Event::Updated { id, info });
+			Ok(().into())
+		}
+
+		/// Remove an existing track
+		///
+		/// Parameters:
+		/// - `id`: The Id of the track to be deleted.
+		///
+		/// Emits `Removed` event when successful.
+		///
+		/// Weight: `O(n)`
+		#[pallet::call_index(2)]
+		pub fn remove(origin: OriginFor<T>, id: TrackIdOf<T, I>) -> DispatchResultWithPostInfo {
+			T::UpdateOrigin::ensure_origin(origin)?;
+
+			ensure!(Tracks::<T, I>::contains_key(id), Error::<T, I>::TrackIdNotFound);
+
+			OriginToTrackId::<T, I>::iter_keys().for_each(|origin| {
+				let track_id = OriginToTrackId::<T, I>::get(origin.clone())
+					.expect("The given key is provided by StorageMap::iter_keys; qed");
+				if track_id == id {
+					OriginToTrackId::<T, I>::remove(origin);
+				}
+			});
+			Tracks::<T, I>::remove(id);
+			TracksIds::<T, I>::try_mutate(|tracks_ids| {
+				let new_tracks_ids = tracks_ids.clone().into_iter().filter(|i| i != &id).collect();
+				*tracks_ids = BoundedVec::<_, _>::truncate_from(new_tracks_ids);
+
+				Ok::<(), DispatchError>(())
+			})?;
+
+			Self::deposit_event(Event::Removed { id });
+			Ok(().into())
+		}
+	}
 }
