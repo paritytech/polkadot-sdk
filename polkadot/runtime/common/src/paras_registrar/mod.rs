@@ -841,10 +841,7 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::HeadDataTooLarge
 		);
 
-		let per_byte_fee = T::DataDepositPerByte::get();
-		let deposit = T::ParaDeposit::get()
-			.saturating_add(per_byte_fee.saturating_mul((genesis_head.0.len() as u32).into()))
-			.saturating_add(per_byte_fee.saturating_mul((validation_code.0.len() as u32).into()));
+		let deposit = Self::required_para_deposit(genesis_head.0.len(), validation_code.0.len());
 
 		Ok((ParaGenesisArgs { genesis_head, validation_code, para_kind }, deposit))
 	}
@@ -889,6 +886,15 @@ impl<T: Config> Pallet<T> {
 		});
 		Ok(())
 	}
+
+	/// Determines the required deposit amount for the parachain, given the specified genesis head
+	/// and validation code size.
+	fn required_para_deposit(head_size: usize, validation_code_size: usize) -> BalanceOf<T> {
+		let per_byte_fee = T::DataDepositPerByte::get();
+		T::ParaDeposit::get()
+			.saturating_add(per_byte_fee.saturating_mul((head_size as u32).into()))
+			.saturating_add(per_byte_fee.saturating_mul((validation_code_size as u32).into()))
+	}
 }
 
 impl<T: Config> OnNewHead for Pallet<T> {
@@ -930,11 +936,7 @@ impl<T: Config> PreCodeUpgrade for Pallet<T> {
 
 		let Some(mut info) = Paras::<T>::get(para) else { return Err(T::DbWeight::get().reads(2)) };
 
-		let per_byte_fee = T::DataDepositPerByte::get();
-		let new_deposit = T::ParaDeposit::get()
-			.saturating_add(per_byte_fee.saturating_mul((head.0.len() as u32).into()))
-			.saturating_add(per_byte_fee.saturating_mul((new_code.0.len() as u32).into()));
-
+		let new_deposit = Self::required_para_deposit(head.0.len(), new_code.0.len());
 		let current_deposit = info.deposit;
 
 		let lease_holding = Self::is_parachain(para);
