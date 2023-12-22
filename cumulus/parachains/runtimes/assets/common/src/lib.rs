@@ -47,10 +47,10 @@ pub type TrustBackedAssetsConvertedConcreteId<TrustBackedAssetsPalletLocation, B
 	>;
 
 /// [`MatchedConvertedConcreteId`] converter dedicated for `TrustBackedUniques`
-pub type TrustBackedUniquesConvertedConcreteId<TrustBackedUniquesPalletLocation, UniquesIdForTrustBackedAssets> =
+pub type TrustBackedUniquesConvertedConcreteId<TrustBackedUniquesPalletLocation, ItemId> =
 	MatchedConvertedConcreteId<
-		AssetIdForTrustBackedAssets,
 		UniquesIdForTrustBackedAssets,
+		ItemId,
 		StartsWith<TrustBackedUniquesPalletLocation>,
 		CollectionIdForTrustBackedUniquesConvert<TrustBackedUniquesPalletLocation>,
 		JustTry,

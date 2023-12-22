@@ -134,8 +134,8 @@ pub type FungiblesTransactor = FungiblesAdapter<
 	CheckingAccount,
 >;
 
-/// Means for transacting assets besides the native currency on this chain.
-pub type NonFungiblesTransactor = NonFungiblesAdapter<
+/// Means for transacting unique assets.
+pub type UniquesTransactor = NonFungiblesAdapter<
 	// Use this fungibles implementation:
 	Uniques,
 	// Use this currency when it is a fungible asset matching the given location or name:
