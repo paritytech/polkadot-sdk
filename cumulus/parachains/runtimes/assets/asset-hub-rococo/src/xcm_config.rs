@@ -148,8 +148,8 @@ pub type UniquesTransactor = NonFungiblesAdapter<
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
-	// Allow no teleports
-	(),
+	// We don't allow teleports.
+	NoChecking,
 	// The account to use for tracking teleports.
 	CheckingAccount,
 >;
