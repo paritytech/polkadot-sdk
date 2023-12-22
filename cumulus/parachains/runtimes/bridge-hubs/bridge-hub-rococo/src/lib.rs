@@ -99,6 +99,8 @@ use parachains_common::{
 	HOURS, MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
 };
 
+use polkadot_runtime_common::prod_or_fast;
+
 #[cfg(feature = "runtime-benchmarks")]
 use crate::xcm_config::benchmark_helpers::DoNothingRouter;
 #[cfg(feature = "runtime-benchmarks")]
@@ -566,7 +568,7 @@ impl snowbridge_outbound_queue::Config for Runtime {
 	type Channels = EthereumSystem;
 }
 
-#[cfg(not(feature = "beacon-spec-mainnet"))]
+#[cfg(feature = "fast-runtime")]
 parameter_types! {
 	pub const ChainForkVersions: ForkVersions = ForkVersions {
 		genesis: Fork {
@@ -586,10 +588,9 @@ parameter_types! {
 			epoch: 0,
 		},
 	};
-	pub const MaxExecutionHeadersToKeep:u32 = 1000;
 }
 
-#[cfg(feature = "beacon-spec-mainnet")]
+#[cfg(not(feature = "fast-runtime"))]
 parameter_types! {
 	pub const ChainForkVersions: ForkVersions = ForkVersions {
 		genesis: Fork {
@@ -609,7 +610,10 @@ parameter_types! {
 			epoch: 162304,
 		},
 	};
-	pub const MaxExecutionHeadersToKeep:u32 = 8192 * 2;
+}
+
+parameter_types! {
+	pub const MaxExecutionHeadersToKeep: u32 = prod_or_fast!(8192 * 2, 1000);
 }
 
 impl snowbridge_ethereum_beacon_client::Config for Runtime {
