@@ -94,10 +94,16 @@ pub struct CallVariantDef {
 	pub feeless_check: Option<syn::ExprClosure>,
 	/// Whether the call is feeless on checkpoint.
 	pub feeless_on_checkpoint: bool,
+	pub checkpoint_def: Option<CheckpointDef>,
+}
+
+#[derive(Clone)]
+pub struct CheckpointDef {
 	/// The name of the checkpointed call data type if `pallet::checkpoint_with_refs` is specified.
-	pub checkpoint_name: Option<syn::Ident>,
+	pub name: syn::Ident,
 	/// The code block of the checkpointed call data type if `pallet::checkpoint_with_refs` is specified.
-	pub checkpoint_block: Option<syn::Block>,
+	pub block: syn::Block,
+	pub return_type: Box<syn::Type>,
 }
 
 /// Attributes for functions in call impl block.
@@ -455,11 +461,11 @@ impl CallDef {
 					}
 				}
 
-				let mut checkpoint_name = None;
-				let mut checkpoint_block = None;
+				let mut checkpoint_def = None;
 				method.block.stmts.iter_mut().for_each(|stmt| {
 					match stmt {
 						syn::Stmt::Local(local) => {
+							let syn::Pat::Type(t) = local.pat.clone() else { return };
 							if let Some(local_init) = &mut local.init {
 								pub struct Checker(syn::Block);
 								impl syn::parse::Parse for Checker {
@@ -492,8 +498,11 @@ impl CallDef {
 										}.unwrap_or_else(|| #block)?;
 									};
 									*stmt = syn::parse2::<syn::Stmt>(output).unwrap();
-									checkpoint_name = Some(name);
-									checkpoint_block = Some(checker.0);
+									checkpoint_def = Some(CheckpointDef {
+										name,
+										block: checker.0,
+										return_type: t.ty,
+									});
 								}
 							}
 						},
@@ -512,8 +521,7 @@ impl CallDef {
 					cfg_attrs,
 					feeless_check,
 					feeless_on_checkpoint,
-					checkpoint_name,
-					checkpoint_block,
+					checkpoint_def,
 				});
 			} else {
 				let msg = "Invalid pallet::call, only method accepted";

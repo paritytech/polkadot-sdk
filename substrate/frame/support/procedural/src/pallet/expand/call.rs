@@ -242,11 +242,17 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 		.collect::<Vec<_>>();
 
 	let checkpointed_call_data_ident = syn::Ident::new("CheckpointedCallData", span);
-	let checkpoint_variant_names = methods
+	let checkpoint_variants = methods
 		.iter()
 		.filter_map(|method| {
-			method.checkpoint_name.clone()
-		});
+			method.checkpoint_def.clone()
+		}).map(|checkpoint_def| {
+			let name = checkpoint_def.name;
+			let arg_type = checkpoint_def.return_type;
+			quote::quote! {
+				#name(#arg_type)
+			}
+		}).collect::<Vec<_>>();
 
 	let cfg_attrs = methods
 		.iter()
@@ -257,13 +263,25 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 		})
 		.collect::<Vec<_>>();
 
-	let feeless_check = methods.iter().map(|method| &method.feeless_check).collect::<Vec<_>>();
+	let checkpoint_def = methods.iter().map(|method| &method.checkpoint_def).collect::<Vec<_>>();	
+	let feeless_on_checkpoint = methods.iter().map(|method| &method.feeless_on_checkpoint).collect::<Vec<_>>();
 	let feeless_check_result =
-		feeless_check.iter().zip(args_name.iter()).map(|(feeless_check, arg_name)| {
-			if let Some(feeless_check) = feeless_check {
-				quote::quote!(#feeless_check(origin, #( #arg_name, )*))
+		feeless_on_checkpoint.iter().zip(checkpoint_def.iter()).map(|(feeless_check, checkpoint_def)| {
+			let Some(checkpoint_def) = checkpoint_def else {
+				return quote::quote!( (false, None) )
+			};
+			let checkpoint_name = &checkpoint_def.name;
+			let checkpoint_block = &checkpoint_def.block;
+			if **feeless_check {
+				quote::quote! {
+					let result: Result<_, Error::<T>> = (|| #checkpoint_block)(); //origin, #( #arg_name, )*
+					match result {
+						Ok(result) => (true, Some(#checkpointed_call_data_ident::#checkpoint_name(result))),
+						Err(_) => (false, None),
+					}
+				}
 			} else {
-				quote::quote!(false)
+				quote::quote!( (false, None) )
 			}
 		});
 
@@ -387,8 +405,9 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 					#(
 						#cfg_attrs
 						Self::#fn_name { #( #args_name_pattern_ref, )* } => {
-							let result = #feeless_check_result;
-							(result, None)
+							// let result = #feeless_check_result;
+							// (result, None)
+							#feeless_check_result
 						},
 					)*
 					Self::__Ignore(_, _) => unreachable!("__Ignore cannot be used"),
@@ -491,7 +510,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			),
 			#(
 				#cfg_attrs
-				#checkpoint_variant_names (()),
+				#checkpoint_variants,
 			)*
 		}
 	)
