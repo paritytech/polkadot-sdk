@@ -63,11 +63,11 @@ impl MockChainApi {
 					ChainApiMessage::Ancestors { hash, k: _, response_channel } => {
 						let position = self
 							.state
-							.per_slot_heads
+							.blocks
 							.iter()
 							.find_position(|block_info| block_info.hash == hash)
 							.unwrap();
-						let (ancestors, _) = self.state.per_slot_heads.split_at(position.0);
+						let (ancestors, _) = self.state.blocks.split_at(position.0);
 
 						let ancestors = ancestors.iter().rev().map(|val| val.hash).collect_vec();
 						response_channel.send(Ok(ancestors)).unwrap();

@@ -258,7 +258,7 @@ pub struct ApprovalTestState {
 	/// The specific test configurations passed when starting the benchmark.
 	options: ApprovalsOptions,
 	/// The list of blocks used for testing.
-	per_slot_heads: Vec<BlockTestData>,
+	blocks: Vec<BlockTestData>,
 	/// The babe epoch used during testing.
 	babe_epoch: BabeEpoch,
 	/// The session info used during testing.
@@ -324,7 +324,7 @@ impl ApprovalTestState {
 		);
 
 		let state = ApprovalTestState {
-			per_slot_heads: blocks,
+			blocks,
 			babe_epoch: babe_epoch.clone(),
 			session_info: session_info.clone(),
 			generated_state,
@@ -429,7 +429,7 @@ impl ApprovalTestState {
 impl ApprovalTestState {
 	/// Returns test data for the given hash
 	fn get_info_by_hash(&self, requested_hash: Hash) -> &BlockTestData {
-		self.per_slot_heads
+		self.blocks
 			.iter()
 			.filter(|block| block.hash == requested_hash)
 			.next()
@@ -438,7 +438,7 @@ impl ApprovalTestState {
 
 	/// Returns test data for the given block number
 	fn get_info_by_number(&self, requested_number: u32) -> &BlockTestData {
-		self.per_slot_heads
+		self.blocks
 			.iter()
 			.filter(|block| block.block_number == requested_number)
 			.next()
@@ -447,7 +447,7 @@ impl ApprovalTestState {
 
 	/// Returns test data for the given slot
 	fn get_info_by_slot(&self, slot: Slot) -> Option<&BlockTestData> {
-		self.per_slot_heads.iter().filter(|block| block.slot == slot).next()
+		self.blocks.iter().filter(|block| block.slot == slot).next()
 	}
 }
 
@@ -703,7 +703,7 @@ impl PeerMessageProducer {
 	) -> HashMap<(Hash, CandidateIndex), CandidateTestData> {
 		let mut per_candidate_data: HashMap<(Hash, CandidateIndex), CandidateTestData> =
 			HashMap::new();
-		for block_info in self.state.per_slot_heads.iter() {
+		for block_info in self.state.blocks.iter() {
 			for (candidate_index, _) in block_info.candidates.iter().enumerate() {
 				per_candidate_data.insert(
 					(block_info.hash, candidate_index as CandidateIndex),
@@ -894,7 +894,7 @@ pub async fn bench_approvals_run(
 	producer_rx.await.expect("Failed to receive done from message producer");
 	gum::info!("Requesting approval votes ms");
 
-	for info in &state.per_slot_heads {
+	for info in &state.blocks {
 		for (index, candidates) in info.candidates.iter().enumerate() {
 			match candidates {
 				CandidateEvent::CandidateBacked(_, _, _, _) => todo!(),
@@ -924,7 +924,7 @@ pub async fn bench_approvals_run(
 		}
 	}
 
-	for state in &state.per_slot_heads {
+	for state in &state.blocks {
 		for (validator, votes) in state.votes.as_ref().iter().enumerate() {
 			for (index, candidate) in votes.iter().enumerate() {
 				assert_eq!(
@@ -957,13 +957,13 @@ pub async fn bench_approvals_run(
 		"substrate_tasks_polling_duration_sum",
 		"task_group",
 		"approval-voting",
-		state.options.approval_voting_cpu_ms
+		state.options.approval_voting_cpu_ms * state.blocks.len() as f64
 	));
 
 	assert!(env.metric_with_label_lower_than(
 		"substrate_tasks_polling_duration_sum",
 		"task_group",
 		"approval-distribution",
-		state.options.approval_distribution_cpu_ms
+		state.options.approval_distribution_cpu_ms * state.blocks.len() as f64
 	));
 }
