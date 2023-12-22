@@ -70,7 +70,10 @@ mod types {
 	// Id used for identifying assets.
 	pub type AssetIdForTrustBackedAssets = u32;
 
-	// Id used for identifying non-fungible assets.
+	// Id used for identifying non-fungible collections.
+	pub type CollectionId = u32;
+
+	// Id used for identifying non-fungible items.
 	pub type ItemId = u32;
 }
 

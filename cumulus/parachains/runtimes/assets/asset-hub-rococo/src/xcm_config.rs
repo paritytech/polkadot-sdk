@@ -137,13 +137,13 @@ pub type FungiblesTransactor = FungiblesAdapter<
 >;
 
 pub type UniquesConvertedConcreteId =
-	assets_common::UniquesConvertedConcreteId<UniquesPalletLocation, ItemId>;
+	assets_common::UniquesConvertedConcreteId<UniquesPalletLocation>;
 
 /// Means for transacting unique assets.
 pub type UniquesTransactor = NonFungiblesAdapter<
-	// Use this fungibles implementation:
+	// Use this non-fungibles implementation:
 	Uniques,
-	// Use this currency when it is a fungible asset matching the given location or name:
+	// This adapter will handle any non-fungible asset from the uniques pallet.
 	UniquesConvertedConcreteId,
 	// Convert an XCM MultiLocation into a local account id:
 	LocationToAccountId,
