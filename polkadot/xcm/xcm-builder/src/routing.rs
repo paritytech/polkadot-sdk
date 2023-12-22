@@ -104,3 +104,139 @@ impl<Inner: SendXcm, TopicSource: SourceTopic> SendXcm for WithTopicSource<Inner
 		Ok(unique_id)
 	}
 }
+
+fn split_message(message: &mut Option<Xcm<()>>) {
+    if let Some(xcm) = message {
+        let instructions = xcm.inner_mut();
+        let mut initial_fund = false;
+        let mut clear_origin_instructions = 0;
+
+        for item in instructions.iter().enumerate() {
+            match item {
+                (0, WithdrawAsset(assets, ..)) if assets.len() > 1 => {
+                    initial_fund = true;
+                }
+                (n, ClearOrigin) if n > 0 && n <= 4 => {
+                    clear_origin_instructions += 1;
+                }
+                (n, BuyExecution { fees, .. }) if n > 0 && n <= 5 && initial_fund => {
+                    if let Some(WithdrawAsset(assets)) = instructions.first() {
+                        let fee_asset = MultiAssets::from(
+                            assets
+                                .inner()
+                                .iter()
+                                .filter(|asset| asset.id == fees.id)
+                                .cloned()
+                                .collect::<Vec<_>>(),
+                        );
+                        let extra_assets = MultiAssets::from(
+                            assets
+                                .inner()
+                                .iter()
+                                .filter(|asset| asset.id != fees.id)
+                                .cloned()
+                                .collect::<Vec<_>>(),
+                        );
+
+                        instructions[0] = WithdrawAsset(fee_asset);
+                        instructions.insert(n + 1, WithdrawAsset(extra_assets));
+                        if clear_origin_instructions > 0 {
+                            instructions.insert(n + 2, ClearOrigin);
+                            for index in 1..1 + clear_origin_instructions {
+                                instructions.remove(index);
+                            }
+                        }
+                    }
+                    break;
+                }
+                _ => {
+                    break;
+                }
+            }
+        }
+    }
+}
+
+pub struct SplitXcmRouter<InnerRouter>(InnerRouter);
+
+impl<InnerRouter: SendXcm> SendXcm for SplitXcmRouter<InnerRouter> {
+    type Ticket = InnerRouter::Ticket;
+
+    fn validate(destination: &mut Option<MultiLocation>, message: &mut Option<Xcm<()>>) -> SendResult<Self::Ticket> {
+        split_message(message);
+        InnerRouter::validate(destination, message)
+    }
+
+    fn deliver(ticket: Self::Ticket) -> Result<XcmHash, SendError> {
+        InnerRouter::deliver(ticket)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use core::cell::RefCell;
+
+	fn fake_message_hash<T>(message: &Xcm<T>) -> XcmHash {
+		message.using_encoded(sp_io::hashing::blake2_256)
+	}
+	thread_local! {
+		pub static SENT_XCM: RefCell<Vec<(MultiLocation, opaque::Xcm, XcmHash)>> = RefCell::new(Vec::new());
+	}
+	pub fn sent_xcm() -> Vec<(MultiLocation, opaque::Xcm, XcmHash)> {
+		SENT_XCM.with(|q| (*q.borrow()).clone())
+	}
+	pub struct TestSendXcm;
+	impl SendXcm for TestSendXcm {
+		type Ticket = (MultiLocation, Xcm<()>, XcmHash);
+		fn validate(
+			dest: &mut Option<MultiLocation>,
+			msg: &mut Option<Xcm<()>>,
+		) -> SendResult<(MultiLocation, Xcm<()>, XcmHash)> {
+			let msg = msg.take().unwrap();
+			let hash = fake_message_hash(&msg);
+			let triplet = (dest.take().unwrap(), msg, hash);
+			Ok((triplet, MultiAssets::new()))
+		}
+		fn deliver(triplet: (MultiLocation, Xcm<()>, XcmHash)) -> Result<XcmHash, SendError> {
+			let hash = triplet.2;
+			SENT_XCM.with(|q| q.borrow_mut().push(triplet));
+			Ok(hash)
+		}
+	}
+
+	#[test]
+	fn split_xcm_router_works() {
+		// Split XCM router wrapping a test sender
+		type Router = SplitXcmRouter<TestSendXcm>;
+
+		let fee_asset: MultiAsset = (GeneralIndex(2), 100u128).into();
+		let multiple_assets: MultiAssets = vec![
+			(GeneralIndex(1), 100u128).into(),
+			fee_asset.clone(),
+			(GeneralIndex(3), 100u128).into(),
+		].into();
+		let message = Xcm(vec![
+			WithdrawAsset(multiple_assets.clone()),
+			ClearOrigin,
+			BuyExecution { fees: fee_asset.clone(), weight_limit: Unlimited },
+			DepositAsset { assets: AllCounted(3).into(), beneficiary: AccountId32 { id: [0u8; 32], network: None }.into() },
+		]);
+		let multiple_assets_without_fee: MultiAssets = vec![
+			(GeneralIndex(1), 100u128).into(),
+			(GeneralIndex(3), 100u128).into(),
+		].into();
+		let expected_message = Xcm(vec![
+			WithdrawAsset(fee_asset.clone().into()),
+			BuyExecution { fees: fee_asset.clone(), weight_limit: Unlimited },
+			WithdrawAsset(multiple_assets_without_fee),
+			ClearOrigin,
+			DepositAsset { assets: AllCounted(3).into(), beneficiary: AccountId32 { id: [0u8; 32], network: None }.into() },
+		]);
+		let (ticket, _) = Router::validate(&mut Some(MultiLocation::parent()), &mut Some(message)).unwrap();
+		let _ = Router::deliver(ticket).unwrap();
+		let sent_xcms = sent_xcm();
+		let (_, message_sent, _) = sent_xcms.first().unwrap();
+		assert_eq!(message_sent, &expected_message);
+	}
+}
