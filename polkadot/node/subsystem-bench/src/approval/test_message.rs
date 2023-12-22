@@ -126,7 +126,7 @@ impl MessagesBundle {
 
 impl TestMessageInfo {
 	/// Converts message to `AllMessages` to be sent to overseer.
-	pub fn to_all_messages_from_peer(self, peer: PeerId) -> AllMessages {
+	pub fn into_all_messages_from_peer(self, peer: PeerId) -> AllMessages {
 		AllMessages::ApprovalDistribution(ApprovalDistributionMessage::NetworkBridgeUpdate(
 			NetworkBridgeEvent::PeerMessage(peer, Versioned::V3(self.msg)),
 		))
@@ -216,7 +216,7 @@ impl TestMessageInfo {
 	/// Returns true if the message is a no-show.
 	pub fn no_show_if_required(
 		&self,
-		assignments: &Vec<TestMessageInfo>,
+		assignments: &[TestMessageInfo],
 		candidates_test_data: &mut HashMap<(Hash, CandidateIndex), CandidateTestData>,
 	) -> bool {
 		let mut should_no_show = false;
@@ -242,10 +242,9 @@ impl TestMessageInfo {
 									.unwrap();
 								let assignment = covered_candidates
 									.iter()
-									.filter(|(_assignment, candidates)| {
+									.find(|(_assignment, candidates)| {
 										candidates.contains(&candidate_index)
 									})
-									.next()
 									.unwrap();
 								candidate_test_data.should_no_show(assignment.0.tranche)
 							});
@@ -260,10 +259,9 @@ impl TestMessageInfo {
 									.unwrap();
 								let assignment = covered_candidates
 									.iter()
-									.filter(|(_assignment, candidates)| {
+									.find(|(_assignment, candidates)| {
 										candidates.contains(&candidate_index)
 									})
-									.next()
 									.unwrap();
 								candidate_test_data.record_no_show(assignment.0.tranche)
 							}

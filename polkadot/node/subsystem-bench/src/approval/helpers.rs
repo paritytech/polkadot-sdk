@@ -103,7 +103,7 @@ pub fn generate_topology(test_authorities: &TestAuthorities) -> SessionGridTopol
 		.keyrings
 		.clone()
 		.into_iter()
-		.zip(test_authorities.peer_ids.clone().into_iter())
+		.zip(test_authorities.peer_ids.clone())
 		.collect_vec();
 
 	let topology = keyrings
@@ -142,7 +142,7 @@ pub fn generate_peer_connected(test_authorities: &TestAuthorities) -> Vec<AllMes
 		.keyrings
 		.clone()
 		.into_iter()
-		.zip(test_authorities.peer_ids.clone().into_iter())
+		.zip(test_authorities.peer_ids.clone())
 		.collect_vec();
 	keyrings
 		.into_iter()
@@ -162,8 +162,7 @@ pub fn generate_peer_connected(test_authorities: &TestAuthorities) -> Vec<AllMes
 
 /// Generates a peer view change for the passed `block_hash`
 pub fn generate_peer_view_change_for(block_hash: Hash, peer_id: PeerId) -> AllMessages {
-	let network =
-		NetworkBridgeEvent::PeerViewChange(peer_id, View::new([block_hash].into_iter(), 0));
+	let network = NetworkBridgeEvent::PeerViewChange(peer_id, View::new([block_hash], 0));
 
 	AllMessages::ApprovalDistribution(ApprovalDistributionMessage::NetworkBridgeUpdate(network))
 }
@@ -252,7 +251,7 @@ pub fn make_candidates(
 		.collect_vec();
 	let (candidates, _) = candidates.partial_shuffle(&mut rand_chacha, num_candidates as usize);
 	candidates
-		.into_iter()
+		.iter_mut()
 		.map(|val| val.clone())
 		.sorted_by(|a, b| match (a, b) {
 			(

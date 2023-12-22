@@ -44,8 +44,8 @@ impl MockChainSelection {
 			let msg = ctx.recv().await.expect("Should not fail");
 			match msg {
 				orchestra::FromOrchestra::Signal(_) => {},
-				orchestra::FromOrchestra::Communication { msg } => match msg {
-					ChainSelectionMessage::Approved(hash) => {
+				orchestra::FromOrchestra::Communication { msg } =>
+					if let ChainSelectionMessage::Approved(hash) = msg {
 						let block_info = self.state.get_info_by_hash(hash);
 						let approved_number = block_info.block_number;
 
@@ -59,8 +59,6 @@ impl MockChainSelection {
 
 						gum::info!(target: LOG_TARGET, ?hash, "Chain selection approved  after {:} ms", approved_in_tick * TICK_DURATION_MILLIS);
 					},
-					_ => {},
-				},
 			}
 		}
 	}

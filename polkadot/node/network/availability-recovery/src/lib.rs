@@ -667,7 +667,7 @@ impl AvailabilityRecoverySubsystem {
 							}
 						},
 						None => {
-							gum::trace!(
+							gum::debug!(
 								target: LOG_TARGET,
 								"Erasure task channel closed",
 							);

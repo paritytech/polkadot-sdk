@@ -55,7 +55,7 @@ impl MetricCollection {
 		self.all()
 			.iter()
 			.filter(|metric| metric.name == name)
-			.map(|metric| metric.clone())
+			.cloned()
 			.collect::<Vec<_>>()
 			.into()
 	}
@@ -81,17 +81,17 @@ impl MetricCollection {
 			metric
 				.bucket
 				.as_ref()
-				.and_then(|buckets| {
+				.map(|buckets| {
 					let mut prev_value = 0;
 					for bucket in buckets {
 						if value < bucket.get_upper_bound() &&
 							prev_value != bucket.get_cumulative_count()
 						{
-							return Some(false);
+							return false;
 						}
 						prev_value = bucket.get_cumulative_count();
 					}
-					Some(true)
+					true
 				})
 				.unwrap_or_default()
 		})
@@ -224,9 +224,7 @@ pub fn parse_metrics(registry: &Registry) -> MetricCollection {
 						label_names,
 						label_values,
 						value: 0.0,
-						bucket: Some(
-							h.get_bucket().iter().map(|bucket| bucket.clone()).collect_vec(),
-						),
+						bucket: Some(h.get_bucket().iter().cloned().collect_vec()),
 					});
 				},
 				MetricType::SUMMARY => {

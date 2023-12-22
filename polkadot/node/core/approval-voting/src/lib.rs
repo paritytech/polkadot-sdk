@@ -114,7 +114,7 @@ const APPROVAL_CHECKING_TIMEOUT: Duration = Duration::from_secs(120);
 ///
 /// Value rather arbitrarily: Should not be hit in practice, it exists to more easily diagnose dead
 /// lock issues for example.
-const WAIT_FOR_SIGS_TIMEOUT: Duration = Duration::from_millis(2000);
+const WAIT_FOR_SIGS_TIMEOUT: Duration = Duration::from_millis(500);
 const APPROVAL_CACHE_SIZE: u32 = 1024;
 
 const TICK_TOO_FAR_IN_FUTURE: Tick = 20; // 10 seconds.
@@ -193,13 +193,6 @@ impl Metrics {
 		if let Some(metrics) = &self.0 {
 			metrics.imported_candidates_total.inc();
 		}
-	}
-
-	pub fn candidates_imported(&self) -> u64 {
-		self.0
-			.as_ref()
-			.map(|metrics| metrics.imported_candidates_total.get())
-			.unwrap_or_default()
 	}
 
 	fn on_assignment_produced(&self, tranche: DelayTranche) {
@@ -452,6 +445,24 @@ impl ApprovalVotingSubsystem {
 		keystore: Arc<LocalKeystore>,
 		sync_oracle: Box<dyn SyncOracle + Send>,
 		metrics: Metrics,
+	) -> Self {
+		ApprovalVotingSubsystem::with_config_and_clock(
+			config,
+			db,
+			keystore,
+			sync_oracle,
+			metrics,
+			Box::new(SystemClock {}),
+		)
+	}
+
+	/// Create a new approval voting subsystem with the given keystore, config, and database.
+	pub fn with_config_and_clock(
+		config: Config,
+		db: Arc<dyn Database>,
+		keystore: Arc<LocalKeystore>,
+		sync_oracle: Box<dyn SyncOracle + Send>,
+		metrics: Metrics,
 		clock: Box<dyn Clock + Send + Sync>,
 	) -> Self {
 		ApprovalVotingSubsystem {
@@ -503,15 +514,10 @@ fn db_sanity_check(db: Arc<dyn Database>, config: DatabaseConfig) -> SubsystemRe
 impl<Context: Send> ApprovalVotingSubsystem {
 	fn start(self, ctx: Context) -> SpawnedSubsystem {
 		let backend = DbBackend::new(self.db.clone(), self.db_config);
-		let future = run::<DbBackend, Context>(
-			ctx,
-			self,
-			Box::new(SystemClock),
-			Box::new(RealAssignmentCriteria),
-			backend,
-		)
-		.map_err(|e| SubsystemError::with_origin("approval-voting", e))
-		.boxed();
+		let future =
+			run::<DbBackend, Context>(ctx, self, Box::new(RealAssignmentCriteria), backend)
+				.map_err(|e| SubsystemError::with_origin("approval-voting", e))
+				.boxed();
 
 		SpawnedSubsystem { name: "approval-voting-subsystem", future }
 	}
@@ -919,7 +925,6 @@ enum Action {
 async fn run<B, Context>(
 	mut ctx: Context,
 	mut subsystem: ApprovalVotingSubsystem,
-	_clock: Box<dyn Clock + Send + Sync>,
 	assignment_criteria: Box<dyn AssignmentCriteria + Send + Sync>,
 	mut backend: B,
 ) -> SubsystemResult<()>

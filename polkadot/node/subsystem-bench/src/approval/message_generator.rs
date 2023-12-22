@@ -210,12 +210,12 @@ impl PeerMessagesGenerator {
 		);
 
 		gum::info!(target: LOG_TARGET, "Generate messages");
-		let topology = generate_topology(&test_authorities);
+		let topology = generate_topology(test_authorities);
 
 		let random_samplings = random_samplings_to_node_patterns(
 			ValidatorIndex(NODE_UNDER_TEST),
 			test_authorities.keyrings.len(),
-			test_authorities.keyrings.len() as usize * 2,
+			test_authorities.keyrings.len() * 2,
 		);
 
 		let topology_node_under_test =
@@ -242,7 +242,7 @@ impl PeerMessagesGenerator {
 				coalesce_tranche_diff: options.coalesce_tranche_diff,
 			};
 
-			peer_message_source.generate_messages(&spawn_task_handle);
+			peer_message_source.generate_messages(spawn_task_handle);
 		}
 
 		std::mem::drop(tx);
@@ -265,11 +265,7 @@ impl PeerMessagesGenerator {
 							block_info.slot,
 							message.tranche_to_send(),
 						);
-						if !all_messages.contains_key(&tick_to_send) {
-							all_messages.insert(tick_to_send, Vec::new());
-						}
-
-						let to_add = all_messages.get_mut(&tick_to_send).unwrap();
+						let to_add = all_messages.entry(tick_to_send).or_default();
 						to_add.push(message);
 					},
 				Ok(None) => break,
@@ -280,13 +276,12 @@ impl PeerMessagesGenerator {
 		}
 		let all_messages = all_messages
 			.into_iter()
-			.map(|(_, mut messages)| {
+			.flat_map(|(_, mut messages)| {
 				// Shuffle the messages inside the same tick, so that we don't priorites messages
 				// for older nodes. we try to simulate the same behaviour as in real world.
 				messages.shuffle(&mut rand_chacha);
 				messages
 			})
-			.flatten()
 			.collect_vec();
 
 		gum::info!("Generated a number of {:} unique messages", all_messages.len());
@@ -322,8 +317,8 @@ fn random_samplings_to_node_patterns(
 	(0..num_patterns)
 		.map(|_| {
 			(0..num_validators)
-				.map(|sending_validator_index| {
-					let mut validators = (0..num_validators).map(|val| val).collect_vec();
+				.flat_map(|sending_validator_index| {
+					let mut validators = (0..num_validators).collect_vec();
 					validators.shuffle(&mut rand_chacha);
 
 					let mut random_routing = RandomRouting::default();
@@ -343,7 +338,6 @@ fn random_samplings_to_node_patterns(
 						})
 						.collect_vec()
 				})
-				.flatten()
 				.collect_vec()
 		})
 		.collect_vec()
@@ -362,6 +356,7 @@ fn coalesce_approvals_len(
 
 /// Helper function to create approvals signatures for all assignments passed as arguments.
 /// Returns a list of Approvals messages that need to be sent.
+#[allow(clippy::too_many_arguments)]
 fn issue_approvals(
 	assignments: Vec<TestMessageInfo>,
 	block_hash: Hash,
@@ -396,7 +391,7 @@ fn issue_approvals(
 					.map(|val| val.assignment.tranche)
 					.unwrap_or(message.tranche);
 
-				if queued_to_sign.len() >= num_coalesce as usize ||
+				if queued_to_sign.len() >= num_coalesce ||
 					(!queued_to_sign.is_empty() &&
 						current_validator_index != assignment.0.validator) ||
 					message.tranche - earliest_tranche >= coalesce_tranche_diff
@@ -464,7 +459,7 @@ impl TestSignInfo {
 	/// Returns a TestMessage
 	fn sign_candidates(
 		to_sign: &mut Vec<TestSignInfo>,
-		keyrings: &Vec<(Keyring, PeerId)>,
+		keyrings: &[(Keyring, PeerId)],
 		block_hash: Hash,
 		num_coalesce: usize,
 	) -> MessagesBundle {
@@ -494,9 +489,8 @@ impl TestSignInfo {
 
 			let sent_by = to_sign
 				.iter()
-				.map(|val| val.assignment.sent_by.iter())
-				.flatten()
-				.map(|peer| *peer)
+				.flat_map(|val| val.assignment.sent_by.iter())
+				.copied()
 				.collect::<HashSet<ValidatorIndex>>();
 
 			let payload = ApprovalVoteMultipleCandidates(&hashes).signing_payload(1);
@@ -524,31 +518,23 @@ impl TestSignInfo {
 
 /// Determine what neighbours would send a given message to the node under test.
 fn neighbours_that_would_sent_message(
-	keyrings: &Vec<(Keyring, PeerId)>,
+	keyrings: &[(Keyring, PeerId)],
 	current_validator_index: u32,
 	topology_node_under_test: &GridNeighbors,
 	topology: &SessionGridTopology,
 ) -> Vec<(ValidatorIndex, PeerId)> {
 	let topology_originator = topology
-		.compute_grid_neighbors_for(ValidatorIndex(current_validator_index as u32))
+		.compute_grid_neighbors_for(ValidatorIndex(current_validator_index))
 		.unwrap();
 
-	let originator_y = topology_originator
-		.validator_indices_y
-		.iter()
-		.filter(|validator| {
-			topology_node_under_test.required_routing_by_index(**validator, false) ==
-				RequiredRouting::GridY
-		})
-		.next();
-	let originator_x = topology_originator
-		.validator_indices_x
-		.iter()
-		.filter(|validator| {
-			topology_node_under_test.required_routing_by_index(**validator, false) ==
-				RequiredRouting::GridX
-		})
-		.next();
+	let originator_y = topology_originator.validator_indices_y.iter().find(|validator| {
+		topology_node_under_test.required_routing_by_index(**validator, false) ==
+			RequiredRouting::GridY
+	});
+	let originator_x = topology_originator.validator_indices_x.iter().find(|validator| {
+		topology_node_under_test.required_routing_by_index(**validator, false) ==
+			RequiredRouting::GridX
+	});
 
 	let is_neighbour = topology_originator
 		.validator_indices_x
@@ -571,6 +557,7 @@ fn neighbours_that_would_sent_message(
 
 /// Generates assignments for the given `current_validator_index`
 /// Returns a list of assignments to be sent sorted by tranche.
+#[allow(clippy::too_many_arguments)]
 fn generate_assignments(
 	block_info: &BlockTestData,
 	keyrings: Vec<(Keyring, PeerId)>,
@@ -642,7 +629,7 @@ fn generate_assignments(
 		.get(rand_chacha.next_u32() as usize % random_samplings.len())
 		.unwrap();
 	let random_sending_peer_ids = random_sending_nodes
-		.into_iter()
+		.iter()
 		.map(|validator| (*validator, keyrings[validator.0 as usize].1))
 		.collect_vec();
 
@@ -663,11 +650,9 @@ fn generate_assignments(
 		// For the cases where tranch0 assignments are in a single certificate we need to make
 		// sure we create a single message.
 		if unique_assignments.insert(bitfiled) {
-			if !assignments_by_tranche.contains_key(&assignment.tranche()) {
-				assignments_by_tranche.insert(assignment.tranche(), Vec::new());
-			}
 			let this_tranche_assignments =
-				assignments_by_tranche.get_mut(&assignment.tranche()).unwrap();
+				assignments_by_tranche.entry(assignment.tranche()).or_insert_with(Vec::new);
+
 			this_tranche_assignments.push((
 				IndirectAssignmentCertV2 {
 					block_hash: block_info.hash,
@@ -692,17 +677,16 @@ fn generate_assignments(
 				to_be_sent_by
 					.iter()
 					.chain(random_sending_peer_ids.iter())
-					.map(|peer| *peer)
+					.copied()
 					.collect::<HashSet<(ValidatorIndex, PeerId)>>(),
 				assignment.tranche(),
 			));
 		}
 	}
 
-	let res = assignments_by_tranche
+	assignments_by_tranche
 		.into_values()
-		.map(|assignments| assignments.into_iter())
-		.flatten()
+		.flat_map(|assignments| assignments.into_iter())
 		.map(|assignment| {
 			let msg = protocol_v3::ApprovalDistributionMessage::Assignments(vec![(
 				assignment.0,
@@ -719,7 +703,5 @@ fn generate_assignments(
 				block_hash: block_info.hash,
 			}
 		})
-		.collect_vec();
-
-	res
+		.collect_vec()
 }

@@ -21,6 +21,8 @@
 //!
 //! [approval-distribution-page]: https://paritytech.github.io/polkadot-sdk/book/node/approval/approval-distribution.html
 
+#![warn(missing_docs)]
+
 use self::metrics::Metrics;
 use futures::{channel::oneshot, select, FutureExt as _};
 use itertools::Itertools;
@@ -57,7 +59,7 @@ use std::{
 	time::Duration,
 };
 
-pub mod metrics;
+mod metrics;
 
 #[cfg(test)]
 mod tests;
@@ -349,8 +351,6 @@ struct State {
 
 	/// Aggregated reputation change
 	reputation: ReputationAggregator,
-	total_num_messages: u64,
-	got_votes: Option<bool>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -714,12 +714,7 @@ impl State {
 				});
 			},
 			NetworkBridgeEvent::PeerMessage(peer_id, message) => {
-				self.total_num_messages += 1;
 				self.process_incoming_peer_message(ctx, metrics, peer_id, message, rng).await;
-
-				if self.total_num_messages % 100000 == 0 {
-					gum::info!(target: LOG_TARGET, total_num_messages = self.total_num_messages,  "Processed 100k");
-				}
 			},
 			NetworkBridgeEvent::UpdatedAuthorityIds { .. } => {
 				// The approval-distribution subsystem doesn't deal with `AuthorityDiscoveryId`s.
@@ -1172,7 +1167,7 @@ impl State {
 			Some(entry) => entry,
 			None => {
 				if let Some(peer_id) = source.peer_id() {
-					gum::info!(
+					gum::trace!(
 						target: LOG_TARGET,
 						?peer_id,
 						hash = ?block_hash,
@@ -1191,12 +1186,6 @@ impl State {
 						metrics.on_assignment_recent_outdated();
 					}
 				}
-				gum::info!(
-					target: LOG_TARGET,
-					hash = ?block_hash,
-					?validator_index,
-					"Unexpected assignment invalid",
-				);
 				metrics.on_assignment_invalid_block();
 				return
 			},
@@ -1501,7 +1490,7 @@ impl State {
 	) -> bool {
 		for message_subject in assignments_knowledge_key {
 			if !entry.knowledge.contains(&message_subject.0, message_subject.1) {
-				gum::info!(
+				gum::trace!(
 					target: LOG_TARGET,
 					?peer_id,
 					?message_subject,
@@ -1577,7 +1566,6 @@ impl State {
 		source: MessageSource,
 		vote: IndirectSignedApprovalVoteV2,
 	) {
-		assert!(self.got_votes.is_none());
 		let _span = self
 			.spans
 			.get(&vote.block_hash)
@@ -2422,7 +2410,6 @@ impl ApprovalDistribution {
 					.await;
 			},
 			ApprovalDistributionMessage::GetApprovalSignatures(indices, tx) => {
-				state.got_votes = Some(true);
 				let sigs = state.get_approval_signatures(indices);
 				if let Err(_) = tx.send(sigs) {
 					gum::debug!(

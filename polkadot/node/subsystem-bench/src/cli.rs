@@ -34,7 +34,7 @@ pub enum TestObjective {
 	DataAvailabilityRead(DataAvailabilityReadOptions),
 	/// Run a test sequence specified in a file
 	TestSequence(TestSequenceOptions),
-	///
+	/// Benchmark the approval-voting and approval-distribution subsystems.
 	ApprovalsTest(ApprovalsOptions),
 	Unimplemented,
 }

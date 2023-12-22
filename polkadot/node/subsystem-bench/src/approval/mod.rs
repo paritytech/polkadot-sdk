@@ -14,38 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use parity_scale_codec::{Decode, Encode};
-use prometheus::Registry;
-use serde::{Deserialize, Serialize};
-use std::{
-	cmp::max,
-	collections::{HashMap, HashSet},
-	fs,
-	io::Read,
-	sync::{
-		atomic::{AtomicBool, AtomicU32, AtomicU64},
-		Arc,
-	},
-	time::{Duration, Instant},
-};
-
-use colored::Colorize;
-use futures::{channel::oneshot, FutureExt};
-use itertools::Itertools;
-use orchestra::TimeoutExt;
-use overseer::{metrics::Metrics as OverseerMetrics, MetricsTrait};
-use polkadot_approval_distribution::{
-	metrics::Metrics as ApprovalDistributionMetrics, ApprovalDistribution,
-};
-use polkadot_node_core_approval_voting::{
-	time::{slot_number_to_tick, tick_to_slot_number, Clock, ClockExt, SystemClock},
-	ApprovalVotingSubsystem, Metrics as ApprovalVotingMetrics,
-};
-use polkadot_node_primitives::approval::{self, v1::RelayVRFStory};
-use polkadot_node_subsystem::{overseer, AllMessages, Overseer, OverseerConnector, SpawnGlue};
-use polkadot_node_subsystem_test_helpers::mock::new_block_import_info;
-use polkadot_overseer::Handle as OverseerHandleReal;
-
 use self::{
 	helpers::{make_candidates, make_header},
 	test_message::MessagesBundle,
@@ -68,15 +36,43 @@ use crate::{
 		network::{NetworkAction, NetworkEmulator},
 	},
 };
-use polkadot_node_core_approval_voting::Config as ApprovalVotingConfig;
+use colored::Colorize;
+use futures::{channel::oneshot, FutureExt};
+use itertools::Itertools;
+use orchestra::TimeoutExt;
+use overseer::{metrics::Metrics as OverseerMetrics, MetricsTrait};
+use parity_scale_codec::{Decode, Encode};
+use polkadot_approval_distribution::ApprovalDistribution;
+use polkadot_node_core_approval_voting::{
+	time::{slot_number_to_tick, tick_to_slot_number, Clock, ClockExt, SystemClock},
+	ApprovalVotingSubsystem, Config as ApprovalVotingConfig, Metrics as ApprovalVotingMetrics,
+};
+use polkadot_node_primitives::approval::{self, v1::RelayVRFStory};
+use polkadot_node_subsystem::{overseer, AllMessages, Overseer, OverseerConnector, SpawnGlue};
+use polkadot_node_subsystem_test_helpers::mock::new_block_import_info;
 use polkadot_node_subsystem_types::messages::{ApprovalDistributionMessage, ApprovalVotingMessage};
+use polkadot_node_subsystem_util::metrics::Metrics;
+use polkadot_overseer::Handle as OverseerHandleReal;
 use polkadot_primitives::{
 	BlockNumber, CandidateEvent, CandidateIndex, Hash, Header, SessionInfo, Slot, ValidatorIndex,
 };
+use prometheus::Registry;
 use sc_keystore::LocalKeystore;
 use sc_service::SpawnTaskHandle;
+use serde::{Deserialize, Serialize};
 use sp_consensus_babe::Epoch as BabeEpoch;
-use std::ops::Sub;
+use std::{
+	cmp::max,
+	collections::{HashMap, HashSet},
+	fs,
+	io::Read,
+	ops::Sub,
+	sync::{
+		atomic::{AtomicBool, AtomicU32, AtomicU64},
+		Arc,
+	},
+	time::{Duration, Instant},
+};
 use tokio::time::sleep;
 
 mod helpers;
@@ -418,10 +414,8 @@ impl ApprovalTestState {
 			registry,
 		};
 
-		peer_message_source.produce_messages(
-			&spawn_task_handle,
-			self.generated_state.all_messages.take().unwrap(),
-		);
+		peer_message_source
+			.produce_messages(spawn_task_handle, self.generated_state.all_messages.take().unwrap());
 		producer_rx
 	}
 }
@@ -431,8 +425,7 @@ impl ApprovalTestState {
 	fn get_info_by_hash(&self, requested_hash: Hash) -> &BlockTestData {
 		self.blocks
 			.iter()
-			.filter(|block| block.hash == requested_hash)
-			.next()
+			.find(|block| block.hash == requested_hash)
 			.expect("Mocks should not use unknown hashes")
 	}
 
@@ -440,14 +433,13 @@ impl ApprovalTestState {
 	fn get_info_by_number(&self, requested_number: u32) -> &BlockTestData {
 		self.blocks
 			.iter()
-			.filter(|block| block.block_number == requested_number)
-			.next()
+			.find(|block| block.block_number == requested_number)
 			.expect("Mocks should not use unknown numbers")
 	}
 
 	/// Returns test data for the given slot
 	fn get_info_by_slot(&self, slot: Slot) -> Option<&BlockTestData> {
-		self.blocks.iter().filter(|block| block.slot == slot).next()
+		self.blocks.iter().find(|block| block.slot == slot)
 	}
 }
 
@@ -488,8 +480,7 @@ impl PeerMessageProducer {
 			while all_messages.peek().is_some() {
 				let current_slot =
 					tick_to_slot_number(SLOT_DURATION_MILLIS, system_clock.tick_now());
-				let block_info =
-					self.state.get_info_by_slot(current_slot).map(|block| block.clone());
+				let block_info = self.state.get_info_by_slot(current_slot).cloned();
 
 				if let Some(block_info) = block_info {
 					if !initialized_blocks.contains(&block_info.hash) &&
@@ -570,7 +561,7 @@ impl PeerMessageProducer {
 			.get_info_by_hash(bundle.assignments.first().unwrap().block_hash)
 			.clone();
 
-		if bundle.bundle_needed(&per_candidate_data, &self.options) {
+		if bundle.bundle_needed(per_candidate_data, &self.options) {
 			bundle.record_sent_assignment(per_candidate_data);
 
 			let assignments = bundle.assignments.clone();
@@ -594,7 +585,7 @@ impl PeerMessageProducer {
 							.as_ref()
 							.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 						self.send_message(
-							message.to_all_messages_from_peer(peer.1),
+							message.into_all_messages_from_peer(peer.1),
 							peer.0,
 							latency,
 						)
@@ -627,7 +618,7 @@ impl PeerMessageProducer {
 			current_slot,
 			block_info,
 			initialized_blocks.contains(&block_info.hash),
-		) || !bundle.bundle_needed(&per_candidate_data, &self.options)
+		) || !bundle.bundle_needed(per_candidate_data, &self.options)
 	}
 
 	pub fn time_to_send(
@@ -740,7 +731,7 @@ fn build_overseer(
 
 	let system_clock =
 		PastSystemClock::new(SystemClock {}, state.delta_tick_from_generated.clone());
-	let approval_voting = ApprovalVotingSubsystem::with_config(
+	let approval_voting = ApprovalVotingSubsystem::with_config_and_clock(
 		TEST_CONFIG,
 		Arc::new(db),
 		Arc::new(keystore),
@@ -749,9 +740,8 @@ fn build_overseer(
 		Box::new(system_clock.clone()),
 	);
 
-	let approval_distribution = ApprovalDistribution::new(
-		ApprovalDistributionMetrics::try_register(&dependencies.registry).unwrap(),
-	);
+	let approval_distribution =
+		ApprovalDistribution::new(Metrics::register(Some(&dependencies.registry)).unwrap());
 	let mock_chain_api = MockChainApi { state: state.clone() };
 	let mock_chain_selection = MockChainSelection { state: state.clone(), clock: system_clock };
 	let mock_runtime_api = MockRuntimeApi { state: state.clone() };

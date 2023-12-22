@@ -99,11 +99,13 @@ pub fn slot_number_to_tick(slot_duration_millis: u64, slot: Slot) -> Tick {
 	u64::from(slot) * ticks_per_slot
 }
 
+/// Converts a tick to the slot number.
 pub fn tick_to_slot_number(slot_duration_millis: u64, tick: Tick) -> Slot {
 	let ticks_per_slot = slot_duration_millis / TICK_DURATION_MILLIS;
 	(tick / ticks_per_slot).into()
 }
 
+/// Converts a tranche from a slot to the tick number.
 pub fn tranche_to_tick(slot_duration_millis: u64, slot: Slot, tranche: u32) -> Tick {
 	slot_number_to_tick(slot_duration_millis, slot) + tranche as u64
 }

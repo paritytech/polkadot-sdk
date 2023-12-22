@@ -22,7 +22,7 @@ polkadot-node-subsystem-types = { path = "../subsystem-types" }
 polkadot-node-primitives = { path = "../primitives" }
 polkadot-primitives = { path = "../../primitives" }
 polkadot-node-network-protocol = { path = "../network/protocol" }
-polkadot-availability-recovery = { path = "../network/availability-recovery", features=["subsystem-benchmarks"]}
+polkadot-availability-recovery = { path = "../network/availability-recovery", features = ["subsystem-benchmarks"] }
 
 color-eyre = { version = "0.6.1", default-features = false }
 polkadot-overseer = { path = "../overseer" }

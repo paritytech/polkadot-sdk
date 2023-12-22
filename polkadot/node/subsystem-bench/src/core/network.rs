@@ -340,7 +340,7 @@ impl NetworkEmulator {
 
 		// Create a `PeerEmulator` for each peer.
 		let (stats, mut peers): (_, Vec<_>) = (0..n_peers)
-			.zip(authorities.validator_authority_id.clone().into_iter())
+			.zip(authorities.validator_authority_id.clone())
 			.map(|(peer_index, authority_id)| {
 				validator_authority_id_mapping.insert(authority_id, peer_index);
 				let stats = Arc::new(PeerEmulatorStats::new(peer_index, metrics.clone()));
@@ -386,7 +386,7 @@ impl NetworkEmulator {
 
 		let our_network = self.clone();
 		// This task will handle node messages receipt from the simulated network.
-		let _ = spawn_task_handle.spawn_blocking(
+		spawn_task_handle.spawn_blocking(
 			"network-receiver-0",
 			"network-receiver",
 			async move {

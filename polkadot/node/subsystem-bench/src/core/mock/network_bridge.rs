@@ -171,10 +171,10 @@ impl<State: RespondToRequestsInfo> MockNetworkBridgeTx<State> {
 					.expect("candidate was generated previously; qed");
 				gum::warn!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
 
-				let chunk: ChunkResponse =
-					self.state.chunks().get(*candidate_index as usize).unwrap()[validator_index]
-						.clone()
-						.into();
+				let chunk: ChunkResponse = self.state.chunks().get(*candidate_index).unwrap()
+					[validator_index]
+					.clone()
+					.into();
 				let mut size = chunk.encoded_size();
 
 				let response = if random_error(self.config.error) {
@@ -243,7 +243,7 @@ impl<State: RespondToRequestsInfo> MockNetworkBridgeTx<State> {
 					.inc_received(outgoing_request.payload.encoded_size());
 
 				let available_data =
-					self.state.available_data().get(*candidate_index as usize).unwrap().clone();
+					self.state.available_data().get(*candidate_index).unwrap().clone();
 
 				let size = available_data.encoded_size();
 

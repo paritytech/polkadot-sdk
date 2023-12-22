@@ -302,6 +302,7 @@ impl TestEnvironment {
 		test_metrics.metric_lower_than(metric_name, value)
 	}
 
+	/// Tells if all entries in a Histogram are lower than value
 	pub fn bucket_metric_lower_than(
 		&self,
 		metric_name: &str,
