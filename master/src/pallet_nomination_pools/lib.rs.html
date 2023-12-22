@@ -3596,6 +3596,9 @@
 <a href="#3596" id="3596">3596</a>
 <a href="#3597" id="3597">3597</a>
 <a href="#3598" id="3598">3598</a>
+<a href="#3599" id="3599">3599</a>
+<a href="#3600" id="3600">3600</a>
+<a href="#3601" id="3601">3601</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -6553,9 +6556,12 @@
 			},
 			(<span class="bool-val">false</span>, <span class="bool-val">false</span>) =&gt; {
 				<span class="comment">// Equivalent to (current_points / current_balance) * new_funds
-				</span>balance(u256(current_points).saturating_mul(u256(new_funds)))
-					<span class="comment">// We check for zero above
-					</span>.div(current_balance)
+				</span>balance(
+					u256(current_points)
+						.saturating_mul(u256(new_funds))
+						<span class="comment">// We check for zero above
+						</span>.div(u256(current_balance)),
+				)
 			},
 		}
 	}
