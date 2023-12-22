@@ -605,7 +605,7 @@ fn handle_parent_process(
 		return Err(error_from_errno("closing pipe write fd", errno));
 	};
 
-	//SAFETY: pipe_read is an open and owned file descriptor at this point.
+	// SAFETY: pipe_read_fd is an open and owned file descriptor at this point.
 	let mut pipe_read = unsafe { PipeFd::new(pipe_read_fd) };
 
 	// Read from the child. Don't decode unless the process exited normally, which we check later.

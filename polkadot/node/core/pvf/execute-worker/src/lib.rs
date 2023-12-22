@@ -345,7 +345,7 @@ fn handle_child_process(
 
 	// Drop the read end so we don't have too many FDs open.
 	if let Err(errno) = nix::unistd::close(pipe_read_fd) {
-		send_child_response(&mut pipe_write, Err(JobError::Panic("closing pipe".to_string())));
+		send_child_response(&mut pipe_write, job_error_from_errno("closing pipe", errno));
 	}
 
 	// Dropping the stream closes the underlying socket. We want to make sure
@@ -353,10 +353,7 @@ fn handle_child_process(
 	// outside world. The only IPC it should be able to do is sending its
 	// response over the pipe.
 	if let Err(errno) = nix::unistd::close(stream_fd) {
-		send_child_response(
-			&mut pipe_write,
-			Err(JobError::Panic(format!("error closing stream {}", errno))),
-		);
+		send_child_response(&mut pipe_write, job_error_from_errno("closing stream", errno));
 	}
 
 	gum::debug!(
@@ -445,7 +442,7 @@ fn handle_parent_process(
 		return Ok(internal_error_from_errno("closing pipe write fd", errno));
 	};
 
-	// SAFETY: pipe_read is an open and owned file descriptor at this point.
+	// SAFETY: pipe_read_fd is an open and owned file descriptor at this point.
 	let mut pipe_read = unsafe { PipeFd::new(pipe_read_fd) };
 
 	// Read from the child. Don't decode unless the process exited normally, which we check later.
@@ -598,4 +595,8 @@ fn internal_error_from_errno(context: &'static str, errno: Errno) -> WorkerRespo
 		errno,
 		io::Error::last_os_error()
 	)))
+}
+
+fn job_error_from_errno(context: &'static str, errno: Errno) -> JobResult {
+	Err(JobError::Kernel(format!("{}: {}: {}", context, errno, io::Error::last_os_error())))
 }
