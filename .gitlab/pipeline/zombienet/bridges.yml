@@ -36,6 +36,7 @@
     paths:
       - ./zombienet-logs
   after_script:
+    - echo "Am I working???!!!"
     - mkdir -p ./zombienet-logs
     - cp /tmp/zombie*/logs/* ./zombienet-logs/
     - cp -r /tmp/bridges-zombienet-tests*/* ./zombienet-logs/
