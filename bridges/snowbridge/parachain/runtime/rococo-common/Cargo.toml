@@ -9,8 +9,8 @@ license = "Apache-2.0"
 [dependencies]
 log = { version = "0.4.20", default-features = false }
 
-frame-support = { path = "../../../polkadot-sdk/substrate/frame/support", default-features = false }
-xcm = { package = "staging-xcm", path = "../../../polkadot-sdk/polkadot/xcm", default-features = false }
+frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
+xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
 
 [dev-dependencies]
 
