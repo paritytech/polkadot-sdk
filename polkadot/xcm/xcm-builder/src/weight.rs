@@ -105,7 +105,7 @@ where
 		instrs_limit: &mut u32,
 	) -> Result<Weight, ()> {
 		let instr_weight = match instruction {
-			Transact { require_weight_at_most, .. } => *require_weight_at_most,
+			Transact { .. } => Weight::from_parts(0, 0),
 			SetErrorHandler(xcm) | SetAppendix(xcm) => Self::weight_with_limit(xcm, instrs_limit)?,
 			_ => Weight::zero(),
 		};
