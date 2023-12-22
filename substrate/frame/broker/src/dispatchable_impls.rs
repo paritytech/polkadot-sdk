@@ -37,6 +37,11 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	pub(crate) fn do_notify_core_count(core_count: CoreIndex) -> DispatchResult {
+		CoreCountInbox::<T>::put(core_count);
+		Ok(())
+	}
+
 	pub(crate) fn do_reserve(workload: Schedule) -> DispatchResult {
 		let mut r = Reservations::<T>::get();
 		let index = r.len() as u32;
