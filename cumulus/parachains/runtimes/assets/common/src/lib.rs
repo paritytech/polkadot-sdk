@@ -34,9 +34,9 @@ use xcm_executor::traits::{Identity, JustTry};
 pub type AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation> =
 	AsPrefixedGeneralIndex<TrustBackedAssetsPalletLocation, AssetIdForTrustBackedAssets, JustTry>;
 
-/// `MultiLocation` vs `AssetIdForTrustBackedAssets` converter for `TrustBackedUniques`
-pub type CollectionIdForTrustBackedUniquesConvert<TrustBackedUniquesPalletLocation> =
-	AsPrefixedGeneralIndex<TrustBackedUniquesPalletLocation, ItemId, JustTry>;
+/// `MultiLocation` vs `ItemId` converter for `Uniques`
+pub type CollectionIdForUniquesConvert<UniquesPalletLocation> =
+	AsPrefixedGeneralIndex<UniquesPalletLocation, ItemId, JustTry>;
 
 /// [`MatchedConvertedConcreteId`] converter dedicated for `TrustBackedAssets`
 pub type TrustBackedAssetsConvertedConcreteId<TrustBackedAssetsPalletLocation, Balance> =
@@ -48,15 +48,13 @@ pub type TrustBackedAssetsConvertedConcreteId<TrustBackedAssetsPalletLocation, B
 		JustTry,
 	>;
 
-/// [`MatchedConvertedConcreteId`] converter dedicated for `TrustBackedUniques`
-pub type TrustBackedUniquesConvertedConcreteId<TrustBackedUniquesPalletLocation, ItemId> =
-	MatchedConvertedConcreteId<
-		ItemId,
-		ItemId,
-		StartsWith<TrustBackedUniquesPalletLocation>,
-		CollectionIdForTrustBackedUniquesConvert<TrustBackedUniquesPalletLocation>,
-		JustTry,
-	>;
+/// [`MatchedConvertedConcreteId`] converter dedicated for `Uniques`
+pub type UniquesConvertedConcreteId<UniquesPalletLocation, ItemId> = MatchedConvertedConcreteId<
+	ItemId,
+	StartsWith<UniquesPalletLocation>,
+	CollectionIdForUniquesConvert<UniquesPalletLocation>,
+	JustTry,
+>;
 
 /// AssetId used for identifying assets by MultiLocation.
 pub type MultiLocationForAssetId = MultiLocation;

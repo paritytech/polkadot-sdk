@@ -72,7 +72,7 @@ parameter_types! {
 		PalletInstance(<ForeignAssets as PalletInfoAccess>::index() as u8).into();
 	pub PoolAssetsPalletLocation: MultiLocation =
 		PalletInstance(<PoolAssets as PalletInfoAccess>::index() as u8).into();
-	pub TrustBackedUniquesPalletLocation: MultiLocation =
+	pub UniquesPalletLocation: MultiLocation =
 		PalletInstance(<Uniques as PalletInfoAccess>::index() as u8).into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 	pub const GovernanceLocation: MultiLocation = MultiLocation::parent();
@@ -136,15 +136,15 @@ pub type FungiblesTransactor = FungiblesAdapter<
 	CheckingAccount,
 >;
 
-pub type TrustBackedUniquesConvertedConcreteId =
-	assets_common::TrustBackedUniquesConvertedConcreteId<TrustBackedUniquesPalletLocation, ItemId>;
+pub type UniquesConvertedConcreteId =
+	assets_common::UniquesConvertedConcreteId<UniquesPalletLocation, ItemId>;
 
 /// Means for transacting unique assets.
 pub type UniquesTransactor = NonFungiblesAdapter<
 	// Use this fungibles implementation:
 	Uniques,
 	// Use this currency when it is a fungible asset matching the given location or name:
-	TrustBackedUniquesConvertedConcreteId,
+	UniquesConvertedConcreteId,
 	// Convert an XCM MultiLocation into a local account id:
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
