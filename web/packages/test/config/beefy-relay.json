@@ -1,0 +1,19 @@
+{
+  "source": {
+    "polkadot": {
+      "endpoint": "ws://127.0.0.1:9944"
+    },
+    "beefy-activation-block": 0,
+    "fast-forward-depth": 20
+  },
+  "sink": {
+    "ethereum": {
+      "endpoint": "ws://127.0.0.1:8546",
+      "gas-limit": null
+    },
+    "descendants-until-final": 3,
+    "contracts": {
+      "BeefyClient": null
+    }
+  }
+}
