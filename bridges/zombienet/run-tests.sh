@@ -123,6 +123,10 @@ do
             #cat /var/log/syslog || true
             cat /var/log/apport.log || true
             ls /var/crash || true
+            ls /var/log
+            ls /usr/local/bin/
+            ls -la /home/nonroot
+            ls -la /home/nonroot/bridges-polkadot-sdk/bridges/zombienet
 
             exit 1
         fi
