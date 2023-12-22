@@ -174,7 +174,7 @@ impl BenchCli {
 					configuration.max_pov_size,
 				),
 			},
-			TestObjective::ApprovalsTest(ref options) => {
+			TestObjective::ApprovalsTest(ref _options) => {
 				todo!("Not implemented");
 			},
 			TestObjective::Unimplemented => todo!(),

@@ -16,18 +16,17 @@
 
 use crate::approval::{LOG_TARGET, SLOT_DURATION_MILLIS};
 
-use super::{ApprovalTestState, FakeSystemClock};
+use super::{ApprovalTestState, PastSystemClock};
 use futures::FutureExt;
 use polkadot_node_core_approval_voting::time::{slot_number_to_tick, Clock, TICK_DURATION_MILLIS};
 use polkadot_node_subsystem::{overseer, SpawnedSubsystem, SubsystemError};
 use polkadot_node_subsystem_types::messages::ChainSelectionMessage;
-use sp_timestamp::Timestamp;
 
 /// Mock ChainSelection subsystem used to answer request made by the approval-voting subsystem,
 /// during benchmark. All the necessary information to answer the requests is stored in the `state`
 pub struct MockChainSelection {
 	pub state: ApprovalTestState,
-	pub clock: FakeSystemClock,
+	pub clock: PastSystemClock,
 }
 #[overseer::subsystem(ChainSelection, error=SubsystemError, prefix=self::overseer)]
 impl<Context> MockChainSelection {

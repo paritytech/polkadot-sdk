@@ -21,8 +21,6 @@
 //!
 //! [approval-distribution-page]: https://paritytech.github.io/polkadot-sdk/book/node/approval/approval-distribution.html
 
-#![warn(missing_docs)]
-
 use self::metrics::Metrics;
 use futures::{channel::oneshot, select, FutureExt as _};
 use itertools::Itertools;
