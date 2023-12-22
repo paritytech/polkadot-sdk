@@ -47,7 +47,7 @@ use test_helpers::{dummy_collator, dummy_collator_signature, dummy_validation_co
 
 fn default_config() -> HostConfiguration<BlockNumber> {
 	let mut config = HostConfiguration::default();
-	config.on_demand_cores = 1;
+	config.coretime_cores = 1;
 	config.max_code_size = 0b100000;
 	config.max_head_data_size = 0b100000;
 	config.group_rotation_frequency = u32::MAX;
@@ -218,7 +218,7 @@ pub(crate) fn run_to_block(
 }
 
 pub(crate) fn expected_bits() -> usize {
-	Paras::parachains().len() + Configuration::config().on_demand_cores as usize
+	Paras::parachains().len() + Configuration::config().coretime_cores as usize
 }
 
 fn default_bitfield() -> AvailabilityBitfield {
