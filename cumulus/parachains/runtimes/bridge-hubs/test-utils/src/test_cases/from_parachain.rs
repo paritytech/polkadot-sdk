@@ -18,7 +18,7 @@
 //! with remote parachain.
 
 use crate::{
-	test_cases::{helpers, run_test},
+	test_cases::{bridges_prelude::*, helpers, run_test},
 	test_data,
 };
 
@@ -39,12 +39,6 @@ use bridge_runtime_common::{
 };
 use frame_support::traits::{Get, OnFinalize, OnInitialize};
 use frame_system::pallet_prelude::BlockNumberFor;
-use pallet_bridge_grandpa::{Call as BridgeGrandpaCall, Config as BridgeGrandpaConfig};
-use pallet_bridge_messages::{Call as BridgeMessagesCall, Config as BridgeMessagesConfig};
-use pallet_bridge_parachains::{
-	Call as BridgeParachainsCall, Config as BridgeParachainsConfig, RelayBlockHash,
-	RelayBlockNumber,
-};
 use parachains_runtimes_test_utils::{
 	AccountIdOf, BasicParachainRuntime, CollatorSessionKeys, RuntimeCallOf,
 };
