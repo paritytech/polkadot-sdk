@@ -495,7 +495,7 @@
 
 <span class="kw">fn </span>mk_coretime_call(call: <span class="kw">crate</span>::coretime::CoretimeCalls) -&gt; Instruction&lt;()&gt; {
 	Instruction::Transact {
-		origin_kind: OriginKind::Native,
+		origin_kind: OriginKind::Superuser,
 		require_weight_at_most: Weight::from_parts(<span class="number">1000000000</span>, <span class="number">200000</span>),
 		call: BrokerRuntimePallets::Broker(call).encode().into(),
 	}
