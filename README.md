@@ -30,7 +30,7 @@ Additionally, it allows for the development of self-sovereign blockchains that o
 Polkadot.
 
 ## [Cumulus](./cumulus/)
-[![CumulusRustDocs](https://img.shields.io/badge/Rust_Docs-Cumulus-222222?logo=rust)](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/index.html#cumulus)
+[![CumulusRustDocs](https://img.shields.io/badge/Rust_Docs-Cumulus-222222?logo=rust)](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/cumulus/index.html)
 [![Cumulus-license](https://img.shields.io/badge/License-GPL3-blue)](./cumulus/LICENSE)
 
 Cumulus is a set of tools for writing Substrate-based Polkadot parachains.
