@@ -517,11 +517,6 @@
 <a href="#517" id="517">517</a>
 <a href="#518" id="518">518</a>
 <a href="#519" id="519">519</a>
-<a href="#520" id="520">520</a>
-<a href="#521" id="521">521</a>
-<a href="#522" id="522">522</a>
-<a href="#523" id="523">523</a>
-<a href="#524" id="524">524</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -703,19 +698,14 @@
 				frame_system::Call::set_heap_pages { .. } |
 					frame_system::Call::set_code { .. } |
 					frame_system::Call::set_code_without_checks { .. } |
+					frame_system::Call::authorize_upgrade { .. } |
+					frame_system::Call::authorize_upgrade_without_checks { .. } |
 					frame_system::Call::kill_prefix { .. },
 			) | RuntimeCall::ParachainSystem(..) |
 				RuntimeCall::Timestamp(..) |
 				RuntimeCall::Balances(..) |
-				RuntimeCall::CollatorSelection(
-					pallet_collator_selection::Call::set_desired_candidates { .. } |
-						pallet_collator_selection::Call::set_candidacy_bond { .. } |
-						pallet_collator_selection::Call::register_as_candidate { .. } |
-						pallet_collator_selection::Call::leave_intent { .. } |
-						pallet_collator_selection::Call::set_invulnerables { .. } |
-						pallet_collator_selection::Call::add_invulnerable { .. } |
-						pallet_collator_selection::Call::remove_invulnerable { .. },
-				) | RuntimeCall::Session(pallet_session::Call::purge_keys { .. }) |
+				RuntimeCall::CollatorSelection(..) |
+				RuntimeCall::Session(pallet_session::Call::purge_keys { .. }) |
 				RuntimeCall::XcmpQueue(..) |
 				RuntimeCall::MessageQueue(..) |
 				RuntimeCall::BridgeWestendGrandpa(pallet_bridge_grandpa::Call::&lt;

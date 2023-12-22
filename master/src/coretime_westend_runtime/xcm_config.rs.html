@@ -290,6 +290,10 @@
 <a href="#290" id="290">290</a>
 <a href="#291" id="291">291</a>
 <a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -320,7 +324,7 @@
 <span class="kw">use </span>parachains_common::{
 	impls::ToStakingPot,
 	xcm_config::{
-		AllSiblingSystemParachains, ConcreteNativeAssetFrom, ParentRelayOrSiblingParachains,
+		AllSiblingSystemParachains, ConcreteAssetFromSystem, ParentRelayOrSiblingParachains,
 		RelayOrOtherSystemParachains,
 	},
 	TREASURY_PALLET_ID,
@@ -435,16 +439,21 @@
 
 		<span class="macro">matches!</span>(
 			call,
-			RuntimeCall::PolkadotXcm(pallet_xcm::Call::force_xcm_version { .. }) |
-				RuntimeCall::System(
-					frame_system::Call::set_heap_pages { .. } |
-						frame_system::Call::set_code { .. } |
-						frame_system::Call::set_code_without_checks { .. } |
-						frame_system::Call::kill_prefix { .. },
-				) | RuntimeCall::ParachainSystem(..) |
+			RuntimeCall::PolkadotXcm(
+				pallet_xcm::Call::force_xcm_version { .. } |
+					pallet_xcm::Call::force_default_xcm_version { .. }
+			) | RuntimeCall::System(
+				frame_system::Call::set_heap_pages { .. } |
+					frame_system::Call::set_code { .. } |
+					frame_system::Call::set_code_without_checks { .. } |
+					frame_system::Call::authorize_upgrade { .. } |
+					frame_system::Call::authorize_upgrade_without_checks { .. } |
+					frame_system::Call::kill_prefix { .. },
+			) | RuntimeCall::ParachainSystem(..) |
 				RuntimeCall::Timestamp(..) |
 				RuntimeCall::Balances(..) |
 				RuntimeCall::CollatorSelection(..) |
+				RuntimeCall::Sudo(..) |
 				RuntimeCall::Session(pallet_session::Call::purge_keys { .. }) |
 				RuntimeCall::XcmpQueue(..)
 		)
@@ -482,8 +491,7 @@
 	<span class="kw">pub </span>RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
 }
 
-<span class="doccomment">/// Locations that will not be charged fees in the executor,
-/// either execution or delivery.
+<span class="doccomment">/// Locations that will not be charged fees in the executor, neither for execution nor delivery.
 /// We only waive fees for system functions, which these locations represent.
 </span><span class="kw">pub type </span>WaivedLocations = (
 	RelayOrOtherSystemParachains&lt;AllSiblingSystemParachains, Runtime&gt;,
@@ -500,7 +508,7 @@
 	// where allowed (e.g. with the Relay Chain).
 	</span><span class="kw">type </span>IsReserve = ();
 	<span class="doccomment">/// Only allow teleportation of WND.
-	</span><span class="kw">type </span>IsTeleporter = ConcreteNativeAssetFrom&lt;WndRelayLocation&gt;;
+	</span><span class="kw">type </span>IsTeleporter = ConcreteAssetFromSystem&lt;WndRelayLocation&gt;;
 	<span class="kw">type </span>UniversalLocation = UniversalLocation;
 	<span class="kw">type </span>Barrier = Barrier;
 	<span class="kw">type </span>Weigher = WeightInfoBounds&lt;

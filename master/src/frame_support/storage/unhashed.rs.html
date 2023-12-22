@@ -206,8 +206,8 @@
 			<span class="comment">// TODO #3700: error should be handleable.
 			</span><span class="macro">log::error!</span>(
 				target: <span class="string">&quot;runtime::storage&quot;</span>,
-				<span class="string">&quot;Corrupted state at `{:?}: {:?}`&quot;</span>,
-				key,
+				<span class="string">&quot;Corrupted state at `{}`: {:?}&quot;</span>,
+				array_bytes::bytes2hex(<span class="string">&quot;0x&quot;</span>, key),
 				e,
 			);
 			<span class="prelude-val">None
