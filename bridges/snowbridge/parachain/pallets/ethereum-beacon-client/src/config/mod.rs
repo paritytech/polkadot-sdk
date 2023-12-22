@@ -6,10 +6,10 @@ use static_assertions::const_assert;
 pub mod mainnet;
 pub mod minimal;
 
-#[cfg(feature = "beacon-spec-minimal")]
+#[cfg(all(feature = "beacon-spec-minimal", not(feature = "runtime-benchmarks")))]
 pub use minimal::*;
 
-#[cfg(not(feature = "beacon-spec-minimal"))]
+#[cfg(any(not(feature = "beacon-spec-minimal"), feature = "runtime-benchmarks"))]
 pub use mainnet::*;
 
 // Generalized Indices
