@@ -36,6 +36,7 @@ decl_test_parachains! {
 			XcmpMessageHandler: people_westend_runtime::XcmpQueue,
 			LocationToAccountId: people_westend_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: people_westend_runtime::ParachainInfo,
+			MessageOrigin: cumulus_primitives_core::AggregateMessageOrigin,
 		},
 		pallets = {
 			PolkadotXcm: people_westend_runtime::PolkadotXcm,

@@ -36,6 +36,7 @@ decl_test_parachains! {
 			XcmpMessageHandler: people_rococo_runtime::XcmpQueue,
 			LocationToAccountId: people_rococo_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: people_rococo_runtime::ParachainInfo,
+			MessageOrigin: cumulus_primitives_core::AggregateMessageOrigin,
 		},
 		pallets = {
 			PolkadotXcm: people_rococo_runtime::PolkadotXcm,
