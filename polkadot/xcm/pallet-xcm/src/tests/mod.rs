@@ -16,7 +16,7 @@
 
 #![cfg(test)]
 
-mod assets_transfer;
+pub(crate) mod assets_transfer;
 
 use crate::{
 	mock::*, AssetTraps, CurrentMigration, Error, LatestVersionedMultiLocation, Queries,
@@ -447,7 +447,7 @@ fn trapped_assets_can_be_claimed() {
 		assert_eq!(AssetTraps::<Test>::iter().collect::<Vec<_>>(), vec![]);
 
 		let weight = BaseXcmWeight::get() * 3;
-		assert_ok!(XcmPallet::execute(
+		assert_ok!(<XcmPallet as xcm_builder::ExecuteController<_, _>>::execute(
 			RuntimeOrigin::signed(ALICE),
 			Box::new(VersionedXcm::from(Xcm(vec![
 				ClaimAsset { assets: (Here, SEND_AMOUNT).into(), ticket: Here.into() },
@@ -458,6 +458,52 @@ fn trapped_assets_can_be_claimed() {
 		));
 		let outcome = Outcome::Incomplete(BaseXcmWeight::get(), XcmError::UnknownClaim);
 		assert_eq!(last_event(), RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome }));
+	});
+}
+
+/// Test failure to complete execution reverts intermediate side-effects.
+///
+/// XCM program will withdraw and deposit some assets, then fail execution of a further withdraw.
+/// Assert that the previous instructions effects are reverted.
+#[test]
+fn incomplete_execute_reverts_side_effects() {
+	let balances = vec![(ALICE, INITIAL_BALANCE), (BOB, INITIAL_BALANCE)];
+	new_test_ext_with_balances(balances).execute_with(|| {
+		let weight = BaseXcmWeight::get() * 4;
+		let dest: MultiLocation = Junction::AccountId32 { network: None, id: BOB.into() }.into();
+		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
+		let amount_to_send = INITIAL_BALANCE - ExistentialDeposit::get();
+		let assets: MultiAssets = (Here, amount_to_send).into();
+		let result = XcmPallet::execute(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(VersionedXcm::from(Xcm(vec![
+				// Withdraw + BuyExec + Deposit should work
+				WithdrawAsset(assets.clone()),
+				buy_execution(assets.inner()[0].clone()),
+				DepositAsset { assets: assets.clone().into(), beneficiary: dest },
+				// Withdrawing once more will fail because of InsufficientBalance, and we expect to
+				// revert the effects of the above instructions as well
+				WithdrawAsset(assets),
+			]))),
+			weight,
+		);
+		// all effects are reverted and balances unchanged for either sender or receiver
+		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
+		assert_eq!(Balances::total_balance(&BOB), INITIAL_BALANCE);
+		assert_eq!(
+			result,
+			Err(sp_runtime::DispatchErrorWithPostInfo {
+				post_info: frame_support::dispatch::PostDispatchInfo {
+					actual_weight: None,
+					pays_fee: frame_support::dispatch::Pays::Yes,
+				},
+				error: sp_runtime::DispatchError::Module(sp_runtime::ModuleError {
+					index: 4,
+					error: [24, 0, 0, 0,],
+					message: Some("LocalExecutionIncomplete")
+				})
+			})
+		);
 	});
 }
 
@@ -730,12 +776,13 @@ fn subscription_side_upgrades_work_without_notify() {
 
 #[test]
 fn subscriber_side_subscription_works() {
-	new_test_ext_with_balances(vec![]).execute_with(|| {
+	new_test_ext_with_balances_and_xcm_version(vec![], Some(XCM_VERSION)).execute_with(|| {
 		let remote: MultiLocation = Parachain(1000).into();
 		assert_ok!(XcmPallet::force_subscribe_version_notify(
 			RuntimeOrigin::root(),
 			Box::new(remote.into()),
 		));
+		assert_eq!(XcmPallet::get_version_for(&remote), None);
 		take_sent_xcm();
 
 		// Assume subscription target is working ok.
@@ -754,6 +801,7 @@ fn subscriber_side_subscription_works() {
 		let r = XcmExecutor::<XcmConfig>::execute_xcm(remote, message, hash, weight);
 		assert_eq!(r, Outcome::Complete(weight));
 		assert_eq!(take_sent_xcm(), vec![]);
+		assert_eq!(XcmPallet::get_version_for(&remote), Some(1));
 
 		// This message cannot be sent to a v2 remote.
 		let v2_msg = xcm::v2::Xcm::<()>(vec![xcm::v2::Instruction::Trap(0)]);
@@ -771,6 +819,8 @@ fn subscriber_side_subscription_works() {
 		let hash = fake_message_hash(&message);
 		let r = XcmExecutor::<XcmConfig>::execute_xcm(remote, message, hash, weight);
 		assert_eq!(r, Outcome::Complete(weight));
+		assert_eq!(take_sent_xcm(), vec![]);
+		assert_eq!(XcmPallet::get_version_for(&remote), Some(2));
 
 		// This message can now be sent to remote as it's v2.
 		assert_eq!(
@@ -783,7 +833,7 @@ fn subscriber_side_subscription_works() {
 /// We should auto-subscribe when we don't know the remote's version.
 #[test]
 fn auto_subscription_works() {
-	new_test_ext_with_balances(vec![]).execute_with(|| {
+	new_test_ext_with_balances_and_xcm_version(vec![], None).execute_with(|| {
 		let remote_v2: MultiLocation = Parachain(1000).into();
 		let remote_v3: MultiLocation = Parachain(1001).into();
 
@@ -950,4 +1000,69 @@ fn subscription_side_upgrades_work_with_multistage_notify() {
 			]
 		);
 	});
+}
+
+#[test]
+fn get_and_wrap_version_works() {
+	new_test_ext_with_balances_and_xcm_version(vec![], None).execute_with(|| {
+		let remote_a: MultiLocation = Parachain(1000).into();
+		let remote_b: MultiLocation = Parachain(1001).into();
+		let remote_c: MultiLocation = Parachain(1002).into();
+
+		// no `safe_xcm_version` version at `GenesisConfig`
+		assert_eq!(XcmPallet::get_version_for(&remote_a), None);
+		assert_eq!(XcmPallet::get_version_for(&remote_b), None);
+		assert_eq!(XcmPallet::get_version_for(&remote_c), None);
+		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![]);
+
+		// set default XCM version (a.k.a. `safe_xcm_version`)
+		assert_ok!(XcmPallet::force_default_xcm_version(RuntimeOrigin::root(), Some(1)));
+		assert_eq!(XcmPallet::get_version_for(&remote_a), None);
+		assert_eq!(XcmPallet::get_version_for(&remote_b), None);
+		assert_eq!(XcmPallet::get_version_for(&remote_c), None);
+		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![]);
+
+		// set XCM version only for `remote_a`
+		assert_ok!(XcmPallet::force_xcm_version(
+			RuntimeOrigin::root(),
+			Box::new(remote_a),
+			XCM_VERSION
+		));
+		assert_eq!(XcmPallet::get_version_for(&remote_a), Some(XCM_VERSION));
+		assert_eq!(XcmPallet::get_version_for(&remote_b), None);
+		assert_eq!(XcmPallet::get_version_for(&remote_c), None);
+		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![]);
+
+		let xcm = Xcm::<()>::default();
+
+		// wrap version - works because remote_a has `XCM_VERSION`
+		assert_eq!(
+			XcmPallet::wrap_version(&remote_a, xcm.clone()),
+			Ok(VersionedXcm::from(xcm.clone()))
+		);
+		// does not work because remote_b has unknown version and default is set to 1, and
+		// `XCM_VERSION` cannot be wrapped to the `1`
+		assert_eq!(XcmPallet::wrap_version(&remote_b, xcm.clone()), Err(()));
+		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![(remote_b.into(), 1)]);
+
+		// set default to the `XCM_VERSION`
+		assert_ok!(XcmPallet::force_default_xcm_version(RuntimeOrigin::root(), Some(XCM_VERSION)));
+		assert_eq!(XcmPallet::get_version_for(&remote_b), None);
+		assert_eq!(XcmPallet::get_version_for(&remote_c), None);
+
+		// now works, because default is `XCM_VERSION`
+		assert_eq!(
+			XcmPallet::wrap_version(&remote_b, xcm.clone()),
+			Ok(VersionedXcm::from(xcm.clone()))
+		);
+		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![(remote_b.into(), 2)]);
+
+		// change remote_c to `1`
+		assert_ok!(XcmPallet::force_xcm_version(RuntimeOrigin::root(), Box::new(remote_c), 1));
+
+		// does not work because remote_c has `1` and default is `XCM_VERSION` which cannot be
+		// wrapped to the `1`
+		assert_eq!(XcmPallet::wrap_version(&remote_c, xcm.clone()), Err(()));
+		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![(remote_b.into(), 2)]);
+	})
 }

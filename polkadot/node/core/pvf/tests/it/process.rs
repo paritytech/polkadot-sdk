@@ -19,7 +19,9 @@
 
 use super::TestHost;
 use assert_matches::assert_matches;
-use polkadot_node_core_pvf::{InvalidCandidate, PrepareError, ValidationError};
+use polkadot_node_core_pvf::{
+	InvalidCandidate, PossiblyInvalidError, PrepareError, ValidationError,
+};
 use polkadot_parachain_primitives::primitives::{BlockData, ValidationParams};
 use procfs::process;
 use rusty_fork::rusty_fork_test;
@@ -151,7 +153,7 @@ rusty_fork_test! {
 
 			assert_matches!(
 				result,
-				Err(ValidationError::InvalidCandidate(InvalidCandidate::HardTimeout))
+				Err(ValidationError::Invalid(InvalidCandidate::HardTimeout))
 			);
 		})
 	}
@@ -217,7 +219,7 @@ rusty_fork_test! {
 
 			assert_matches!(
 				result,
-				Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath))
+				Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath))
 			);
 		})
 	}
@@ -246,7 +248,7 @@ rusty_fork_test! {
 			// Note that we get a more specific error if the job died than if the whole worker died.
 			assert_matches!(
 				result,
-				Err(PrepareError::JobDied(err)) if err == "received signal: SIGKILL"
+				Err(PrepareError::JobDied{ err, job_pid: _ }) if err == "received signal: SIGKILL"
 			);
 		})
 	}
@@ -288,7 +290,7 @@ rusty_fork_test! {
 			// Note that we get a more specific error if the job died than if the whole worker died.
 			assert_matches!(
 				result,
-				Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousJobDeath(err)))
+				Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousJobDeath(err)))
 					if err == "received signal: SIGKILL"
 			);
 		})

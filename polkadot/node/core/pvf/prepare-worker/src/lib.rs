@@ -18,7 +18,7 @@
 
 mod memory_stats;
 
-use polkadot_node_core_pvf_common::executor_intf::{prepare, prevalidate};
+use polkadot_node_core_pvf_common::executor_interface::{prepare, prevalidate};
 
 // NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-prepare-worker=trace`.
@@ -40,17 +40,17 @@ use nix::{
 use os_pipe::{self, PipeReader, PipeWriter};
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
-	error::{PrepareError, PrepareResult},
-	executor_intf::create_runtime_from_artifact_bytes,
+	error::{PrepareError, PrepareWorkerResult},
+	executor_interface::create_runtime_from_artifact_bytes,
 	framed_recv_blocking, framed_send_blocking,
-	prepare::{MemoryStats, PrepareJobKind, PrepareStats},
+	prepare::{MemoryStats, PrepareJobKind, PrepareStats, PrepareWorkerSuccess},
 	pvf::PvfPrepData,
 	worker::{
 		cpu_time_monitor_loop, run_worker, stringify_panic_payload,
 		thread::{self, spawn_worker_thread, WaitOutcome},
 		WorkerKind,
 	},
-	worker_dir, ProcessTime, SecurityStatus,
+	worker_dir, ProcessTime,
 };
 use polkadot_primitives::ExecutorParams;
 use std::{
@@ -106,7 +106,7 @@ fn recv_request(stream: &mut UnixStream) -> io::Result<PvfPrepData> {
 }
 
 /// Send a worker response.
-fn send_response(stream: &mut UnixStream, result: PrepareResult) -> io::Result<()> {
+fn send_response(stream: &mut UnixStream, result: PrepareWorkerResult) -> io::Result<()> {
 	framed_send_blocking(stream, &result.encode())
 }
 
@@ -186,14 +186,13 @@ fn end_memory_tracking() -> isize {
 ///
 /// 7. If compilation succeeded, write the compiled artifact into a temporary file.
 ///
-/// 8. Send the result of preparation back to the host. If any error occurred in the above steps, we
-///    send that in the `PrepareResult`.
+/// 8. Send the result of preparation back to the host, including the checksum of the artifact. If
+///    any error occurred in the above steps, we send that in the `PrepareWorkerResult`.
 pub fn worker_entrypoint(
 	socket_path: PathBuf,
 	worker_dir_path: PathBuf,
 	node_version: Option<&str>,
 	worker_version: Option<&str>,
-	security_status: SecurityStatus,
 ) {
 	run_worker(
 		WorkerKind::Prepare,
@@ -201,7 +200,6 @@ pub fn worker_entrypoint(
 		worker_dir_path,
 		node_version,
 		worker_version,
-		&security_status,
 		|mut stream, worker_dir_path| {
 			let worker_pid = process::id();
 			let temp_artifact_dest = worker_dir::prepare_tmp_artifact(&worker_dir_path);
@@ -257,9 +255,9 @@ pub fn worker_entrypoint(
 
 						handle_parent_process(
 							pipe_reader,
+							worker_pid,
 							child,
 							temp_artifact_dest.clone(),
-							worker_pid,
 							usage_before,
 							preparation_timeout,
 						)
@@ -439,11 +437,11 @@ fn handle_child_process(
 				Err(err) => Err(err),
 				Ok(ok) => {
 					cfg_if::cfg_if! {
-					if #[cfg(target_os = "linux")] {
-						let (artifact, max_rss) = ok;
-					} else {
-						let artifact = ok;
-					}
+						if #[cfg(target_os = "linux")] {
+							let (artifact, max_rss) = ok;
+						} else {
+							let artifact = ok;
+						}
 					}
 
 					// Stop the memory stats worker and get its observed memory stats.
@@ -506,22 +504,23 @@ fn handle_child_process(
 /// - If the child process timeout, it returns `PrepareError::TimedOut`.
 fn handle_parent_process(
 	mut pipe_read: PipeReader,
-	child: Pid,
-	temp_artifact_dest: PathBuf,
 	worker_pid: u32,
+	job_pid: Pid,
+	temp_artifact_dest: PathBuf,
 	usage_before: Usage,
 	timeout: Duration,
-) -> Result<PrepareStats, PrepareError> {
+) -> Result<PrepareWorkerSuccess, PrepareError> {
 	// Read from the child. Don't decode unless the process exited normally, which we check later.
 	let mut received_data = Vec::new();
 	pipe_read
 		.read_to_end(&mut received_data)
 		.map_err(|err| PrepareError::IoErr(err.to_string()))?;
 
-	let status = nix::sys::wait::waitpid(child, None);
+	let status = nix::sys::wait::waitpid(job_pid, None);
 	gum::trace!(
 		target: LOG_TARGET,
 		%worker_pid,
+		%job_pid,
 		"prepare worker received wait status from job: {:?}",
 		status,
 	);
@@ -539,6 +538,7 @@ fn handle_parent_process(
 		gum::warn!(
 			target: LOG_TARGET,
 			%worker_pid,
+			%job_pid,
 			"prepare job took {}ms cpu time, exceeded prepare timeout {}ms",
 			cpu_tv.as_millis(),
 			timeout.as_millis(),
@@ -554,7 +554,7 @@ fn handle_parent_process(
 
 			match result {
 				Err(err) => Err(err),
-				Ok(response) => {
+				Ok(JobResponse { artifact, memory_stats }) => {
 					// The exit status should have been zero if no error occurred.
 					if exit_status != 0 {
 						return Err(PrepareError::JobError(format!(
@@ -573,17 +573,19 @@ fn handle_parent_process(
 					gum::debug!(
 						target: LOG_TARGET,
 						%worker_pid,
+						%job_pid,
 						"worker: writing artifact to {}",
 						temp_artifact_dest.display(),
 					);
 					// Write to the temp file created by the host.
-					if let Err(err) = fs::write(&temp_artifact_dest, &response.artifact) {
+					if let Err(err) = fs::write(&temp_artifact_dest, &artifact) {
 						return Err(PrepareError::IoErr(err.to_string()))
 					};
 
-					Ok(PrepareStats {
-						memory_stats: response.memory_stats,
-						cpu_time_elapsed: cpu_tv,
+					let checksum = blake3::hash(&artifact.as_ref()).to_hex().to_string();
+					Ok(PrepareWorkerSuccess {
+						checksum,
+						stats: PrepareStats { memory_stats, cpu_time_elapsed: cpu_tv },
 					})
 				},
 			}
@@ -592,15 +594,18 @@ fn handle_parent_process(
 		//
 		// The job gets SIGSYS on seccomp violations, but this signal may have been sent for some
 		// other reason, so we still need to check for seccomp violations elsewhere.
-		Ok(WaitStatus::Signaled(_pid, signal, _core_dump)) =>
-			Err(PrepareError::JobDied(format!("received signal: {signal:?}"))),
+		Ok(WaitStatus::Signaled(_pid, signal, _core_dump)) => Err(PrepareError::JobDied {
+			err: format!("received signal: {signal:?}"),
+			job_pid: job_pid.as_raw(),
+		}),
 		Err(errno) => Err(error_from_errno("waitpid", errno)),
 
 		// An attacker can make the child process return any exit status it wants. So we can treat
 		// all unexpected cases the same way.
-		Ok(unexpected_wait_status) => Err(PrepareError::JobDied(format!(
-			"unexpected status from wait: {unexpected_wait_status:?}"
-		))),
+		Ok(unexpected_wait_status) => Err(PrepareError::JobDied {
+			err: format!("unexpected status from wait: {unexpected_wait_status:?}"),
+			job_pid: job_pid.as_raw(),
+		}),
 	}
 }
 
@@ -657,13 +662,13 @@ fn error_from_errno(context: &'static str, errno: Errno) -> PrepareError {
 
 type JobResult = Result<JobResponse, PrepareError>;
 
-/// Pre-encoded length-prefixed `Result::Err(PrepareError::OutOfMemory)`
+/// Pre-encoded length-prefixed `JobResult::Err(PrepareError::OutOfMemory)`
 const OOM_PAYLOAD: &[u8] = b"\x02\x00\x00\x00\x00\x00\x00\x00\x01\x08";
 
 #[test]
 fn pre_encoded_payloads() {
 	// NOTE: This must match the type of `response` in `send_child_response`.
-	let oom_unencoded: JobResult = Result::Err(PrepareError::OutOfMemory);
+	let oom_unencoded: JobResult = JobResult::Err(PrepareError::OutOfMemory);
 	let oom_encoded = oom_unencoded.encode();
 	// The payload is prefixed with	its length in `framed_send`.
 	let mut oom_payload = oom_encoded.len().to_le_bytes().to_vec();
