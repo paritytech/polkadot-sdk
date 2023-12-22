@@ -1093,7 +1093,7 @@
 			}
 		} <span class="kw">else if </span>d.is_sufficient {
 			frame_system::Pallet::&lt;T&gt;::inc_sufficients(who);
-			d.sufficients += <span class="number">1</span>;
+			d.sufficients.saturating_inc();
 			ExistenceReason::Sufficient
 		} <span class="kw">else </span>{
 			frame_system::Pallet::&lt;T&gt;::inc_consumers(who)
