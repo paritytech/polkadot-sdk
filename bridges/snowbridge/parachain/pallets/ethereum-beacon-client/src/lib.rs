@@ -28,7 +28,7 @@ pub mod weights;
 #[cfg(any(test, feature = "fuzzing"))]
 pub mod mock;
 
-#[cfg(all(test, feature = "beacon-spec-minimal"))]
+#[cfg(all(not(feature = "beacon-spec-minimal"), feature = "runtime-benchmarks"))]
 mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
