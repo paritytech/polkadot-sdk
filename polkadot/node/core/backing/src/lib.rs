@@ -106,7 +106,7 @@ use polkadot_node_subsystem_util::{
 use polkadot_primitives::{
 	BackedCandidate, CandidateCommitments, CandidateHash, CandidateReceipt,
 	CommittedCandidateReceipt, CoreIndex, CoreState, ExecutorParams, Hash, Id as ParaId,
-	PersistedValidationData, PvfExecTimeoutKind, SigningContext, ValidationCode, ValidatorId,
+	PersistedValidationData, PvfExecKind, SigningContext, ValidationCode, ValidatorId,
 	ValidatorIndex, ValidatorSignature, ValidityAttestation,
 };
 use sp_keystore::KeystorePtr;
@@ -566,7 +566,7 @@ async fn request_candidate_validation(
 			candidate_receipt,
 			pov,
 			executor_params,
-			exec_timeout_kind: PvfExecTimeoutKind::Backing,
+			exec_kind: PvfExecKind::Backing,
 			response_sender: tx,
 		})
 		.await;

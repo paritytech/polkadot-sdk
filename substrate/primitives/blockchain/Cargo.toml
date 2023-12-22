@@ -10,6 +10,9 @@ description = "Substrate blockchain traits and primitives."
 documentation = "https://docs.rs/sp-blockchain"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
