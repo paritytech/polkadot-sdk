@@ -24,7 +24,7 @@ use super::{
 use crate::governance::pallet_custom_origins::Treasurer;
 use frame_support::{
 	match_types, parameter_types,
-	traits::{Everything, Nothing},
+	traits::{Equals, Everything, Nothing},
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
@@ -53,6 +53,7 @@ use xcm_builder::{
 use xcm_executor::XcmExecutor;
 
 parameter_types! {
+	pub const RootLocation: MultiLocation = MultiLocation::here();
 	pub const TokenLocation: MultiLocation = Here.into_location();
 	pub const ThisNetwork: NetworkId = Westend;
 	pub const UniversalLocation: InteriorMultiLocation = X1(GlobalConsensus(ThisNetwork::get()));
@@ -116,10 +117,12 @@ parameter_types! {
 	pub const AssetHub: MultiLocation = Parachain(ASSET_HUB_ID).into_location();
 	pub const Collectives: MultiLocation = Parachain(COLLECTIVES_ID).into_location();
 	pub const BridgeHub: MultiLocation = Parachain(BRIDGE_HUB_ID).into_location();
+	pub const People: MultiLocation = Parachain(PEOPLE_ID).into_location();
 	pub const Wnd: MultiAssetFilter = Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) });
 	pub const WndForAssetHub: (MultiAssetFilter, MultiLocation) = (Wnd::get(), AssetHub::get());
 	pub const WndForCollectives: (MultiAssetFilter, MultiLocation) = (Wnd::get(), Collectives::get());
 	pub const WndForBridgeHub: (MultiAssetFilter, MultiLocation) = (Wnd::get(), BridgeHub::get());
+	pub const WndForPeople: (MultiAssetFilter, MultiLocation) = (Wnd::get(), People::get());
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
@@ -128,6 +131,7 @@ pub type TrustedTeleporters = (
 	xcm_builder::Case<WndForAssetHub>,
 	xcm_builder::Case<WndForCollectives>,
 	xcm_builder::Case<WndForBridgeHub>,
+	xcm_builder::Case<WndForPeople>,
 );
 
 match_types! {
@@ -137,6 +141,9 @@ match_types! {
 	pub type CollectivesOrFellows: impl Contains<MultiLocation> = {
 		MultiLocation { parents: 0, interior: X1(Parachain(COLLECTIVES_ID)) } |
 		MultiLocation { parents: 0, interior: X2(Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }) }
+	};
+	pub type LocalPlurality: impl Contains<MultiLocation> = {
+		MultiLocation { parents: 0, interior: X1(Plurality { .. }) }
 	};
 }
 
@@ -159,6 +166,10 @@ pub type Barrier = TrailingSetTopicAsId<(
 		ConstU32<8>,
 	>,
 )>;
+
+/// Locations that will not be charged fees in the executor, neither for execution nor delivery.
+/// We only waive fees for system functions, which these locations represent.
+pub type WaivedLocations = (SystemParachains, Equals<RootLocation>, LocalPlurality);
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
@@ -186,7 +197,7 @@ impl xcm_executor::Config for XcmConfig {
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	type FeeManager = XcmFeeManagerFromComponents<
-		SystemParachains,
+		WaivedLocations,
 		XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
 	>;
 	type MessageExporter = ();
