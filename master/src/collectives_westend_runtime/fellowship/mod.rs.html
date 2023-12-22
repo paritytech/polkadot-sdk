@@ -341,11 +341,6 @@
 <a href="#341" id="341">341</a>
 <a href="#342" id="342">342</a>
 <a href="#343" id="343">343</a>
-<a href="#344" id="344">344</a>
-<a href="#345" id="345">345</a>
-<a href="#346" id="346">346</a>
-<a href="#347" id="347">347</a>
-<a href="#348" id="348">348</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -367,9 +362,8 @@
 </span><span class="kw">mod </span>origins;
 <span class="kw">mod </span>tracks;
 <span class="kw">use crate</span>::{
-	impls::ToParentTreasury,
 	weights,
-	xcm_config::{FellowshipAdminBodyId, TreasurerBodyId, UsdtAssetHub},
+	xcm_config::{FellowshipAdminBodyId, LocationToAccountId, TreasurerBodyId, UsdtAssetHub},
 	AccountId, AssetRate, Balance, Balances, FellowshipReferenda, GovernanceLocation, Preimage,
 	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, Scheduler, WestendTreasuryAccount, DAYS,
 };
@@ -387,15 +381,16 @@
 };
 <span class="kw">use </span>pallet_ranked_collective::EnsureOfRank;
 <span class="kw">use </span>pallet_xcm::{EnsureXcm, IsVoiceOfBody};
-<span class="kw">use </span>parachains_common::westend::{account, currency::GRAND};
+<span class="kw">use </span>parachains_common::{
+	impls::ToParentTreasury,
+	westend::{account, currency::GRAND},
+};
 <span class="kw">use </span>polkadot_runtime_common::impls::{
 	LocatableAssetConverter, VersionedLocatableAsset, VersionedMultiLocationConverter,
 };
 <span class="kw">use </span>sp_arithmetic::Permill;
 <span class="kw">use </span>sp_core::{ConstU128, ConstU32};
-<span class="kw">use </span>sp_runtime::traits::{
-	AccountIdConversion, ConstU16, ConvertToValue, IdentityLookup, Replace, TakeFirst,
-};
+<span class="kw">use </span>sp_runtime::traits::{ConstU16, ConvertToValue, IdentityLookup, Replace, TakeFirst};
 <span class="kw">use </span>westend_runtime_constants::time::HOURS;
 <span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_builder::{AliasesIntoAccountId32, PayOverXcm};
@@ -418,11 +413,6 @@
 	<span class="kw">pub const </span>DAN_7: Rank = <span class="number">7</span>; <span class="comment">// aka Masters.
 	</span><span class="kw">pub const </span>DAN_8: Rank = <span class="number">8</span>;
 	<span class="kw">pub const </span>DAN_9: Rank = <span class="number">9</span>;
-}
-
-<span class="macro">parameter_types! </span>{
-	<span class="comment">// Referenda pallet account, used to temporarily deposit slashed imbalance before teleporting.
-	</span><span class="kw">pub </span>ReferendaPalletAccount: AccountId = account::REFERENDA_PALLET_ID.into_account_truncating();
 }
 
 <span class="kw">impl </span>pallet_fellowship_origins::Config <span class="kw">for </span>Runtime {}
@@ -451,7 +441,7 @@
 	&gt;;
 	<span class="kw">type </span>CancelOrigin = Architects;
 	<span class="kw">type </span>KillOrigin = Masters;
-	<span class="kw">type </span>Slash = ToParentTreasury&lt;WestendTreasuryAccount, ReferendaPalletAccount, Runtime&gt;;
+	<span class="kw">type </span>Slash = ToParentTreasury&lt;WestendTreasuryAccount, LocationToAccountId, Runtime&gt;;
 	<span class="kw">type </span>Votes = pallet_ranked_collective::Votes;
 	<span class="kw">type </span>Tally = pallet_ranked_collective::TallyOf&lt;Runtime, FellowshipCollectiveInstance&gt;;
 	<span class="kw">type </span>SubmissionDeposit = ConstU128&lt;<span class="number">0</span>&gt;;

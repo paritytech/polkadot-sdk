@@ -245,6 +245,12 @@ var srcIndex = JSON.parse('{\
 "parachains_runtimes_test_utils":["",[],["lib.rs","test_cases.rs"]],\
 "penpal_emulated_chain":["",[],["genesis.rs","lib.rs"]],\
 "penpal_runtime":["",[["weights",[],["block_weights.rs","extrinsic_weights.rs","mod.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["lib.rs","xcm_config.rs"]],\
+"people_rococo_emulated_chain":["",[],["genesis.rs","lib.rs"]],\
+"people_rococo_integration_tests":["",[],["lib.rs"]],\
+"people_rococo_runtime":["",[["weights",[["xcm",[],["mod.rs","pallet_xcm_benchmarks_fungible.rs","pallet_xcm_benchmarks_generic.rs"]]],["block_weights.rs","cumulus_pallet_parachain_system.rs","cumulus_pallet_xcmp_queue.rs","extrinsic_weights.rs","frame_system.rs","mod.rs","pallet_balances.rs","pallet_collator_selection.rs","pallet_identity.rs","pallet_message_queue.rs","pallet_multisig.rs","pallet_session.rs","pallet_timestamp.rs","pallet_utility.rs","pallet_xcm.rs","paritydb_weights.rs","polkadot_runtime_common_identity_migrator.rs","rocksdb_weights.rs"]]],["lib.rs","people.rs","xcm_config.rs"]],\
+"people_westend_emulated_chain":["",[],["genesis.rs","lib.rs"]],\
+"people_westend_integration_tests":["",[],["lib.rs"]],\
+"people_westend_runtime":["",[["weights",[["xcm",[],["mod.rs","pallet_xcm_benchmarks_fungible.rs","pallet_xcm_benchmarks_generic.rs"]]],["block_weights.rs","cumulus_pallet_parachain_system.rs","cumulus_pallet_xcmp_queue.rs","extrinsic_weights.rs","frame_system.rs","mod.rs","pallet_balances.rs","pallet_collator_selection.rs","pallet_identity.rs","pallet_message_queue.rs","pallet_multisig.rs","pallet_session.rs","pallet_timestamp.rs","pallet_utility.rs","pallet_xcm.rs","paritydb_weights.rs","polkadot_runtime_common_identity_migrator.rs","rocksdb_weights.rs"]]],["lib.rs","people.rs","xcm_config.rs"]],\
 "per_thing_from_rational":["",[],["per_thing_from_rational.rs"]],\
 "per_thing_mult_fraction":["",[],["per_thing_mult_fraction.rs"]],\
 "phragmen_balancing":["",[],["common.rs","phragmen_balancing.rs"]],\
@@ -290,7 +296,7 @@ var srcIndex = JSON.parse('{\
 "polkadot_node_subsystem_types":["",[["messages",[],["network_bridge_event.rs"]]],["errors.rs","lib.rs","messages.rs","runtime_client.rs"]],\
 "polkadot_node_subsystem_util":["",[["inclusion_emulator",[],["mod.rs"]],["runtime",[],["error.rs","mod.rs"]]],["backing_implicit_view.rs","database.rs","determine_new_blocks.rs","lib.rs","nesting_sender.rs","reputation.rs"]],\
 "polkadot_overseer":["",[],["dummy.rs","lib.rs","memory_stats.rs","metrics.rs"]],\
-"polkadot_parachain":["",[["chain_spec",[],["asset_hubs.rs","bridge_hubs.rs","collectives.rs","contracts.rs","coretime.rs","glutton.rs","mod.rs","penpal.rs","rococo_parachain.rs","seedling.rs","shell.rs"]],["fake_runtime_api",[],["asset_hub_polkadot_aura.rs","aura.rs","mod.rs"]]],["cli.rs","command.rs","main.rs","rpc.rs","service.rs"]],\
+"polkadot_parachain":["",[["chain_spec",[],["asset_hubs.rs","bridge_hubs.rs","collectives.rs","contracts.rs","coretime.rs","glutton.rs","mod.rs","penpal.rs","people.rs","rococo_parachain.rs","seedling.rs","shell.rs"]],["fake_runtime_api",[],["asset_hub_polkadot_aura.rs","aura.rs","mod.rs"]]],["cli.rs","command.rs","main.rs","rpc.rs","service.rs"]],\
 "polkadot_parachain_primitives":["",[],["lib.rs","primitives.rs"]],\
 "polkadot_prepare_worker":["",[],["prepare-worker.rs"]],\
 "polkadot_primitives":["",[["v6",[],["async_backing.rs","executor_params.rs","metrics.rs","mod.rs","signed.rs","slashing.rs"]],["vstaging",[],["mod.rs"]]],["lib.rs","runtime_api.rs"]],\

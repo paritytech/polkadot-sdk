@@ -1059,9 +1059,6 @@
 <a href="#1059" id="1059">1059</a>
 <a href="#1060" id="1060">1060</a>
 <a href="#1061" id="1061">1061</a>
-<a href="#1062" id="1062">1062</a>
-<a href="#1063" id="1063">1063</a>
-<a href="#1064" id="1064">1064</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1120,6 +1117,7 @@
 	GluttonWestend,
 	BridgeHub(chain_spec::bridge_hubs::BridgeHubRuntimeType),
 	Coretime(chain_spec::coretime::CoretimeRuntimeType),
+	People(chain_spec::people::PeopleRuntimeType),
 }
 
 <span class="kw">trait </span>RuntimeResolver {
@@ -1186,6 +1184,8 @@
 		Runtime::GluttonWestend
 	} <span class="kw">else if </span>id.starts_with(<span class="string">&quot;glutton&quot;</span>) {
 		Runtime::Glutton
+	} <span class="kw">else if </span>id.starts_with(chain_spec::people::PeopleRuntimeType::ID_PREFIX) {
+		Runtime::People(id.parse::&lt;chain_spec::people::PeopleRuntimeType&gt;().expect(<span class="string">&quot;Invalid value&quot;</span>))
 	} <span class="kw">else </span>{
 		<span class="macro">log::warn!</span>(<span class="string">&quot;No specific runtime was recognized for ChainSpec&#39;s id: &#39;{}&#39;, so Runtime::default() will be used&quot;</span>, id);
 		Runtime::default()
@@ -1310,6 +1310,14 @@
 		</span><span class="string">&quot;glutton-westend-genesis&quot; </span>=&gt; Box::new(chain_spec::glutton::glutton_westend_config(
 			para_id.expect(<span class="string">&quot;Must specify parachain id&quot;</span>),
 		)),
+
+		<span class="comment">// -- People
+		</span>people_like_id
+			<span class="kw">if </span>people_like_id.starts_with(chain_spec::people::PeopleRuntimeType::ID_PREFIX) =&gt;
+			people_like_id
+				.parse::&lt;chain_spec::people::PeopleRuntimeType&gt;()
+				.expect(<span class="string">&quot;invalid value&quot;</span>)
+				.load_config()<span class="question-mark">?</span>,
 
 		<span class="comment">// -- Fallback (generic chainspec)
 		</span><span class="string">&quot;&quot; </span>=&gt; {
@@ -1461,7 +1469,8 @@
 			Runtime::BridgeHub(<span class="kw">_</span>) |
 			Runtime::CollectivesPolkadot |
 			Runtime::CollectivesWestend |
-			Runtime::Coretime(<span class="kw">_</span>) =&gt; {
+			Runtime::Coretime(<span class="kw">_</span>) |
+			Runtime::People(<span class="kw">_</span>) =&gt; {
 				<span class="kw">let </span><span class="macro-nonterminal">$partials </span>= new_partial::&lt;RuntimeApi, <span class="kw">_</span>&gt;(
 					<span class="kw-2">&amp;</span><span class="macro-nonterminal">$config</span>,
 					<span class="kw">crate</span>::service::aura_build_import_queue::&lt;<span class="kw">_</span>, AuraId&gt;,
@@ -1513,7 +1522,8 @@
 			Runtime::BridgeHub(<span class="kw">_</span>) |
 			Runtime::CollectivesPolkadot |
 			Runtime::CollectivesWestend |
-			Runtime::Coretime(<span class="kw">_</span>) =&gt; {
+			Runtime::Coretime(<span class="kw">_</span>) |
+			Runtime::People(<span class="kw">_</span>) =&gt; {
 				runner.async_run(|<span class="macro-nonterminal">$config</span>| {
 					<span class="kw">let </span><span class="macro-nonterminal">$components </span>= new_partial::&lt;RuntimeApi, <span class="kw">_</span>&gt;(
 						<span class="kw-2">&amp;</span><span class="macro-nonterminal">$config</span>,
@@ -1565,6 +1575,7 @@
 
 <span class="doccomment">/// Parse command line arguments into service configuration.
 </span><span class="kw">pub fn </span>run() -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+	<span class="kw">use </span>Runtime::<span class="kw-2">*</span>;
 	<span class="kw">let </span>cli = Cli::from_args();
 
 	<span class="kw">match </span><span class="kw-2">&amp;</span>cli.subcommand {
@@ -1737,35 +1748,26 @@
 				<span class="macro">info!</span>(<span class="string">&quot;Is collating: {}&quot;</span>, <span class="kw">if </span>config.role.is_authority() { <span class="string">&quot;yes&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;no&quot; </span>});
 
 				<span class="kw">match </span>config.chain_spec.runtime() {
-					Runtime::AssetHubPolkadot =&gt; <span class="kw">crate</span>::service::start_asset_hub_node::&lt;
+					AssetHubPolkadot =&gt; <span class="kw">crate</span>::service::start_asset_hub_node::&lt;
 						AssetHubPolkadotRuntimeApi,
 						AssetHubPolkadotAuraId,
 					&gt;(config, polkadot_config, collator_options, id, hwbench)
 					.<span class="kw">await
 					</span>.map(|r| r.<span class="number">0</span>)
 					.map_err(Into::into),
-					Runtime::AssetHubKusama =&gt; <span class="kw">crate</span>::service::start_asset_hub_node::&lt;
-						RuntimeApi,
-						AuraId,
-					&gt;(config, polkadot_config, collator_options, id, hwbench)
-					.<span class="kw">await
-					</span>.map(|r| r.<span class="number">0</span>)
-					.map_err(Into::into),
-					Runtime::AssetHubRococo =&gt; <span class="kw">crate</span>::service::start_asset_hub_node::&lt;
-						RuntimeApi,
-						AuraId,
-					&gt;(config, polkadot_config, collator_options, id, hwbench)
+
+					AssetHubKusama |
+					AssetHubRococo |
+					AssetHubWestend =&gt;
+						<span class="kw">crate</span>::service::start_asset_hub_node::&lt;
+							RuntimeApi,
+							AuraId,
+						&gt;(config, polkadot_config, collator_options, id, hwbench)
 						.<span class="kw">await
 						</span>.map(|r| r.<span class="number">0</span>)
 						.map_err(Into::into),
-					Runtime::AssetHubWestend =&gt; <span class="kw">crate</span>::service::start_asset_hub_node::&lt;
-						RuntimeApi,
-						AuraId,
-					&gt;(config, polkadot_config, collator_options, id, hwbench)
-					.<span class="kw">await
-					</span>.map(|r| r.<span class="number">0</span>)
-					.map_err(Into::into),
-					Runtime::CollectivesPolkadot =&gt;
+
+					CollectivesPolkadot | CollectivesWestend =&gt;
 						<span class="kw">crate</span>::service::start_generic_aura_node::&lt;
 							RuntimeApi,
 							AuraId,
@@ -1773,15 +1775,8 @@
 						.<span class="kw">await
 						</span>.map(|r| r.<span class="number">0</span>)
 						.map_err(Into::into),
-					Runtime::CollectivesWestend =&gt;
-						<span class="kw">crate</span>::service::start_generic_aura_node::&lt;
-							RuntimeApi,
-							AuraId,
-						&gt;(config, polkadot_config, collator_options, id, hwbench)
-						.<span class="kw">await
-						</span>.map(|r| r.<span class="number">0</span>)
-						.map_err(Into::into),
-					Runtime::Shell =&gt;
+
+					Seedling | Shell =&gt;
 						<span class="kw">crate</span>::service::start_shell_node::&lt;RuntimeApi&gt;(
 							config,
 							polkadot_config,
@@ -1792,18 +1787,8 @@
 						.<span class="kw">await
 						</span>.map(|r| r.<span class="number">0</span>)
 						.map_err(Into::into),
-					Runtime::Seedling =&gt;
-						<span class="kw">crate</span>::service::start_shell_node::&lt;RuntimeApi&gt;(
-							config,
-							polkadot_config,
-							collator_options,
-							id,
-							hwbench
-						)
-						.<span class="kw">await
-						</span>.map(|r| r.<span class="number">0</span>)
-						.map_err(Into::into),
-					Runtime::ContractsRococo =&gt; <span class="kw">crate</span>::service::start_contracts_rococo_node(
+
+					ContractsRococo =&gt; <span class="kw">crate</span>::service::start_contracts_rococo_node(
 						config,
 						polkadot_config,
 						collator_options,
@@ -1814,7 +1799,7 @@
 					</span>.map(|r| r.<span class="number">0</span>)
 					.map_err(Into::into),
 
-					Runtime::BridgeHub(bridge_hub_runtime_type) =&gt; <span class="kw">match </span>bridge_hub_runtime_type {
+					BridgeHub(bridge_hub_runtime_type) =&gt; <span class="kw">match </span>bridge_hub_runtime_type {
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::Polkadot =&gt;
 							<span class="kw">crate</span>::service::start_generic_aura_node::&lt;
 								RuntimeApi,
@@ -1850,7 +1835,7 @@
 					}
 					.map_err(Into::into),
 
-					Runtime::Coretime(coretime_runtime_type) =&gt; <span class="kw">match </span>coretime_runtime_type {
+					Coretime(coretime_runtime_type) =&gt; <span class="kw">match </span>coretime_runtime_type {
 						chain_spec::coretime::CoretimeRuntimeType::Rococo |
 						chain_spec::coretime::CoretimeRuntimeType::RococoLocal |
 						chain_spec::coretime::CoretimeRuntimeType::RococoDevelopment |
@@ -1865,7 +1850,7 @@
 					}
 					.map_err(Into::into),
 
-					Runtime::Penpal(<span class="kw">_</span>) | Runtime::Default =&gt;
+					Penpal(<span class="kw">_</span>) | Default =&gt;
 						<span class="kw">crate</span>::service::start_rococo_parachain_node(
 							config,
 							polkadot_config,
@@ -1876,7 +1861,8 @@
 						.<span class="kw">await
 						</span>.map(|r| r.<span class="number">0</span>)
 						.map_err(Into::into),
-					Runtime::GluttonWestend =&gt;
+
+					Glutton | GluttonWestend =&gt;
 						<span class="kw">crate</span>::service::start_basic_lookahead_node::&lt;
 							RuntimeApi,
 							AuraId,
@@ -1884,14 +1870,22 @@
 						.<span class="kw">await
 						</span>.map(|r| r.<span class="number">0</span>)
 						.map_err(Into::into),
-					Runtime::Glutton =&gt;
-						<span class="kw">crate</span>::service::start_basic_lookahead_node::&lt;
-							RuntimeApi,
-							AuraId,
-						&gt;(config, polkadot_config, collator_options, id, hwbench)
-						.<span class="kw">await
-						</span>.map(|r| r.<span class="number">0</span>)
-						.map_err(Into::into),
+
+					People(people_runtime_type) =&gt; <span class="kw">match </span>people_runtime_type {
+						chain_spec::people::PeopleRuntimeType::Rococo |
+						chain_spec::people::PeopleRuntimeType::RococoLocal |
+						chain_spec::people::PeopleRuntimeType::RococoDevelopment |
+						chain_spec::people::PeopleRuntimeType::Westend |
+						chain_spec::people::PeopleRuntimeType::WestendLocal |
+						chain_spec::people::PeopleRuntimeType::WestendDevelopment =&gt;
+							<span class="kw">crate</span>::service::start_generic_aura_node::&lt;
+								RuntimeApi,
+								AuraId,
+							&gt;(config, polkadot_config, collator_options, id, hwbench)
+							.<span class="kw">await
+							</span>.map(|r| r.<span class="number">0</span>),
+					}
+					.map_err(Into::into),
 				}
 			})
 		},

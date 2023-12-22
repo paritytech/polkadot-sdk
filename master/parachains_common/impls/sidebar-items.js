@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["AssetExists","AssetsFrom","AssetsToBlockAuthor","DealWithFees","NonZeroIssuance","ToStakingPot"],"type":["AccountIdOf","NegativeImbalance"]};
+window.SIDEBAR_ITEMS = {"struct":["AssetExists","AssetsFrom","AssetsToBlockAuthor","DealWithFees","NonZeroIssuance","ToParentTreasury","ToStakingPot"],"type":["AccountIdOf","BalanceOf","NegativeImbalance"]};

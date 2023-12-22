@@ -1034,6 +1034,17 @@
 <a href="#1034" id="1034">1034</a>
 <a href="#1035" id="1035">1035</a>
 <a href="#1036" id="1036">1036</a>
+<a href="#1037" id="1037">1037</a>
+<a href="#1038" id="1038">1038</a>
+<a href="#1039" id="1039">1039</a>
+<a href="#1040" id="1040">1040</a>
+<a href="#1041" id="1041">1041</a>
+<a href="#1042" id="1042">1042</a>
+<a href="#1043" id="1043">1043</a>
+<a href="#1044" id="1044">1044</a>
+<a href="#1045" id="1045">1045</a>
+<a href="#1046" id="1046">1046</a>
+<a href="#1047" id="1047">1047</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2041,8 +2052,9 @@
 		<span class="prelude-val">Ok</span>((new_id_deposit, new_subs_deposit))
 	}
 
-	<span class="doccomment">/// Set an identity with zero deposit. Only used for benchmarking that involves `rejig_deposit`.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="doccomment">/// Set an identity with zero deposit. Used for benchmarking and XCM emulator tests that involve
+	/// `rejig_deposit`.
+	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, feature = <span class="string">&quot;std&quot;</span>))]
 	</span><span class="kw">pub fn </span>set_identity_no_deposit(
 		who: <span class="kw-2">&amp;</span>T::AccountId,
 		info: T::IdentityInformation,
@@ -2058,15 +2070,25 @@
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="doccomment">/// Set subs with zero deposit. Only used for benchmarking that involves `rejig_deposit`.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-	</span><span class="kw">pub fn </span>set_sub_no_deposit(who: <span class="kw-2">&amp;</span>T::AccountId, sub: T::AccountId) -&gt; DispatchResult {
+	<span class="doccomment">/// Set subs with zero deposit and default name. Only used for benchmarks that involve
+	/// `rejig_deposit`.
+	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, feature = <span class="string">&quot;std&quot;</span>))]
+	</span><span class="kw">pub fn </span>set_subs_no_deposit(
+		who: <span class="kw-2">&amp;</span>T::AccountId,
+		subs: Vec&lt;(T::AccountId, Data)&gt;,
+	) -&gt; DispatchResult {
 		<span class="kw">use </span>frame_support::BoundedVec;
-		<span class="kw">let </span>subs = BoundedVec::&lt;<span class="kw">_</span>, T::MaxSubAccounts&gt;::try_from(<span class="macro">vec!</span>[sub]).unwrap();
+		<span class="kw">let </span><span class="kw-2">mut </span>sub_accounts = BoundedVec::&lt;T::AccountId, T::MaxSubAccounts&gt;::default();
+		<span class="kw">for </span>(sub, name) <span class="kw">in </span>subs {
+			&lt;SuperOf&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>sub, (who.clone(), name));
+			sub_accounts
+				.try_push(sub)
+				.expect(<span class="string">&quot;benchmark should not pass more than T::MaxSubAccounts&quot;</span>);
+		}
 		SubsOf::&lt;T&gt;::insert::&lt;
 			<span class="kw-2">&amp;</span>T::AccountId,
 			(BalanceOf&lt;T&gt;, BoundedVec&lt;T::AccountId, T::MaxSubAccounts&gt;),
-		&gt;(<span class="kw-2">&amp;</span>who, (Zero::zero(), subs));
+		&gt;(<span class="kw-2">&amp;</span>who, (Zero::zero(), sub_accounts));
 		<span class="prelude-val">Ok</span>(())
 	}
 }

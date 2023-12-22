@@ -53,6 +53,10 @@
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
 <a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -72,12 +76,14 @@
 <span class="kw">pub use </span>bridge_hub_westend_emulated_chain;
 <span class="kw">pub use </span>collectives_westend_emulated_chain;
 <span class="kw">pub use </span>penpal_emulated_chain;
+<span class="kw">pub use </span>people_westend_emulated_chain;
 <span class="kw">pub use </span>westend_emulated_chain;
 
 <span class="kw">use </span>asset_hub_westend_emulated_chain::AssetHubWestend;
 <span class="kw">use </span>bridge_hub_westend_emulated_chain::BridgeHubWestend;
 <span class="kw">use </span>collectives_westend_emulated_chain::CollectivesWestend;
 <span class="kw">use </span>penpal_emulated_chain::{PenpalA, PenpalB};
+<span class="kw">use </span>people_westend_emulated_chain::PeopleWestend;
 <span class="kw">use </span>westend_emulated_chain::Westend;
 
 <span class="comment">// Cumulus
@@ -93,6 +99,7 @@
 			AssetHubWestend,
 			BridgeHubWestend,
 			CollectivesWestend,
+			PeopleWestend,
 			PenpalA,
 			PenpalB,
 		],
@@ -105,6 +112,7 @@
 	AssetHubWestendPara { sender: ALICE, receiver: BOB },
 	BridgeHubWestendPara { sender: ALICE, receiver: BOB },
 	CollectivesWestendPara { sender: ALICE, receiver: BOB },
+	PeopleWestendPara { sender: ALICE, receiver: BOB },
 	PenpalAPara { sender: ALICE, receiver: BOB },
 	PenpalBPara { sender: ALICE, receiver: BOB }
 }

@@ -835,6 +835,7 @@
 <a href="#835" id="835">835</a>
 <a href="#836" id="836">836</a>
 <a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1081,7 +1082,7 @@
 					);
 				}
 
-				<span class="doccomment">/// Asserts a XCM message is sent
+				<span class="doccomment">/// Asserts an XCM program is sent.
 				</span><span class="kw">pub fn </span>assert_xcm_pallet_sent() {
 					<span class="macro-nonterminal">$</span><span class="macro">crate::impls::assert_expected_events!</span>(
 						<span class="macro-nonterminal">Self</span>,
@@ -1091,7 +1092,8 @@
 					);
 				}
 
-				<span class="doccomment">/// Asserts a XCM from System Parachain is succesfully received and proccessed
+				<span class="doccomment">/// Asserts an XCM program from a System Parachain is successfully received and
+				/// processed within expectations.
 				</span><span class="kw">pub fn </span>assert_ump_queue_processed(
 					expected_success: bool,
 					expected_id: <span class="prelude-ty">Option</span>&lt;<span class="macro-nonterminal">$crate::impls::ParaId</span>&gt;,

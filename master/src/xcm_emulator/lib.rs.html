@@ -1561,6 +1561,45 @@
 <a href="#1561" id="1561">1561</a>
 <a href="#1562" id="1562">1562</a>
 <a href="#1563" id="1563">1563</a>
+<a href="#1564" id="1564">1564</a>
+<a href="#1565" id="1565">1565</a>
+<a href="#1566" id="1566">1566</a>
+<a href="#1567" id="1567">1567</a>
+<a href="#1568" id="1568">1568</a>
+<a href="#1569" id="1569">1569</a>
+<a href="#1570" id="1570">1570</a>
+<a href="#1571" id="1571">1571</a>
+<a href="#1572" id="1572">1572</a>
+<a href="#1573" id="1573">1573</a>
+<a href="#1574" id="1574">1574</a>
+<a href="#1575" id="1575">1575</a>
+<a href="#1576" id="1576">1576</a>
+<a href="#1577" id="1577">1577</a>
+<a href="#1578" id="1578">1578</a>
+<a href="#1579" id="1579">1579</a>
+<a href="#1580" id="1580">1580</a>
+<a href="#1581" id="1581">1581</a>
+<a href="#1582" id="1582">1582</a>
+<a href="#1583" id="1583">1583</a>
+<a href="#1584" id="1584">1584</a>
+<a href="#1585" id="1585">1585</a>
+<a href="#1586" id="1586">1586</a>
+<a href="#1587" id="1587">1587</a>
+<a href="#1588" id="1588">1588</a>
+<a href="#1589" id="1589">1589</a>
+<a href="#1590" id="1590">1590</a>
+<a href="#1591" id="1591">1591</a>
+<a href="#1592" id="1592">1592</a>
+<a href="#1593" id="1593">1593</a>
+<a href="#1594" id="1594">1594</a>
+<a href="#1595" id="1595">1595</a>
+<a href="#1596" id="1596">1596</a>
+<a href="#1597" id="1597">1597</a>
+<a href="#1598" id="1598">1598</a>
+<a href="#1599" id="1599">1599</a>
+<a href="#1600" id="1600">1600</a>
+<a href="#1601" id="1601">1601</a>
+<a href="#1602" id="1602">1602</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1622,9 +1661,13 @@
 
 <span class="comment">// Polkadot
 </span><span class="kw">pub use </span>polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
-<span class="kw">pub use </span>xcm::v3::prelude::{
-	Ancestor, MultiAssets, MultiLocation, Parachain <span class="kw">as </span>ParachainJunction, Parent, WeightLimit,
-	XcmHash, X1,
+<span class="kw">use </span>sp_core::crypto::AccountId32;
+<span class="kw">pub use </span>xcm::{
+	prelude::{AccountId32 <span class="kw">as </span>AccountId32Junction, Here},
+	v3::prelude::{
+		Ancestor, MultiAssets, MultiLocation, Parachain <span class="kw">as </span>ParachainJunction, Parent, WeightLimit,
+		XcmHash, X1,
+	},
 };
 <span class="kw">pub use </span>xcm_executor::traits::ConvertLocation;
 
@@ -2998,6 +3041,41 @@
 	<span class="kw">pub </span>asset_id: <span class="prelude-ty">Option</span>&lt;u32&gt;,
 	<span class="kw">pub </span>fee_asset_item: u32,
 	<span class="kw">pub </span>weight_limit: WeightLimit,
+}
+
+<span class="kw">impl </span>TestArgs {
+	<span class="doccomment">/// Returns a [`TestArgs`] instance to be used for the Relay Chain across integration tests.
+	</span><span class="kw">pub fn </span>new_relay(dest: MultiLocation, beneficiary_id: AccountId32, amount: Balance) -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{
+			dest,
+			beneficiary: AccountId32Junction { network: <span class="prelude-val">None</span>, id: beneficiary_id.into() }.into(),
+			amount,
+			assets: (Here, amount).into(),
+			asset_id: <span class="prelude-val">None</span>,
+			fee_asset_item: <span class="number">0</span>,
+			weight_limit: WeightLimit::Unlimited,
+		}
+	}
+
+	<span class="doccomment">/// Returns a [`TestArgs`] instance to be used for parachains across integration tests.
+	</span><span class="kw">pub fn </span>new_para(
+		dest: MultiLocation,
+		beneficiary_id: AccountId32,
+		amount: Balance,
+		assets: MultiAssets,
+		asset_id: <span class="prelude-ty">Option</span>&lt;u32&gt;,
+		fee_asset_item: u32,
+	) -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{
+			dest,
+			beneficiary: AccountId32Junction { network: <span class="prelude-val">None</span>, id: beneficiary_id.into() }.into(),
+			amount,
+			assets,
+			asset_id,
+			fee_asset_item,
+			weight_limit: WeightLimit::Unlimited,
+		}
+	}
 }
 
 <span class="doccomment">/// Auxiliar struct to help creating a new `Test` instance

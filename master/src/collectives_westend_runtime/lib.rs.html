@@ -1044,7 +1044,6 @@
 <a href="#1044" id="1044">1044</a>
 <a href="#1045" id="1045">1045</a>
 <a href="#1046" id="1046">1046</a>
-<a href="#1047" id="1047">1047</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1093,7 +1092,7 @@
 
 <span class="kw">use </span>cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 <span class="kw">use </span>fellowship::{pallet_fellowship_origins, Fellows};
-<span class="kw">use </span>impls::{AllianceProposalProvider, EqualOrGreatestRootCmp, ToParentTreasury};
+<span class="kw">use </span>impls::{AllianceProposalProvider, EqualOrGreatestRootCmp};
 <span class="kw">use </span>sp_api::impl_runtime_apis;
 <span class="kw">use </span>sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 <span class="kw">use </span>sp_runtime::{
@@ -1128,7 +1127,7 @@
 };
 <span class="kw">pub use </span>parachains_common <span class="kw">as </span>common;
 <span class="kw">use </span>parachains_common::{
-	impls::DealWithFees,
+	impls::{DealWithFees, ToParentTreasury},
 	message_queue::<span class="kw-2">*</span>,
 	westend::{account::<span class="kw-2">*</span>, consensus::<span class="kw-2">*</span>, currency::<span class="kw-2">*</span>, fee::WeightToFee},
 	AccountId, AuraId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
@@ -1136,7 +1135,9 @@
 	SLOT_DURATION,
 };
 <span class="kw">use </span>sp_runtime::RuntimeDebug;
-<span class="kw">use </span>xcm_config::{GovernanceLocation, TreasurerBodyId, XcmOriginToTransactDispatchOrigin};
+<span class="kw">use </span>xcm_config::{
+	GovernanceLocation, LocationToAccountId, TreasurerBodyId, XcmOriginToTransactDispatchOrigin,
+};
 
 <span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
 </span><span class="kw">pub use </span>sp_runtime::BuildStorage;
@@ -1584,10 +1585,7 @@
 
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>AllyDeposit: Balance = <span class="number">1_000 </span>* UNITS; <span class="comment">// 1,000 WND bond to join as an Ally
-	// The Alliance pallet account, used as a temporary place to deposit a slashed imbalance
-	// before the teleport to the Treasury.
-	</span><span class="kw">pub </span>AlliancePalletAccount: AccountId = ALLIANCE_PALLET_ID.into_account_truncating();
-	<span class="kw">pub </span>WestendTreasuryAccount: AccountId = WESTEND_TREASURY_PALLET_ID.into_account_truncating();
+	</span><span class="kw">pub </span>WestendTreasuryAccount: AccountId = WESTEND_TREASURY_PALLET_ID.into_account_truncating();
 	<span class="comment">// The number of blocks a member must wait between giving a retirement notice and retiring.
 	// Supposed to be greater than time required to `kick_member` with alliance motion.
 	</span><span class="kw">pub const </span>AllianceRetirementPeriod: BlockNumber = (<span class="number">90 </span>* DAYS) + ALLIANCE_MOTION_DURATION;
@@ -1600,7 +1598,7 @@
 	<span class="kw">type </span>MembershipManager = RootOrAllianceTwoThirdsMajority;
 	<span class="kw">type </span>AnnouncementOrigin = RootOrAllianceTwoThirdsMajority;
 	<span class="kw">type </span>Currency = Balances;
-	<span class="kw">type </span>Slashed = ToParentTreasury&lt;WestendTreasuryAccount, AlliancePalletAccount, Runtime&gt;;
+	<span class="kw">type </span>Slashed = ToParentTreasury&lt;WestendTreasuryAccount, LocationToAccountId, Runtime&gt;;
 	<span class="kw">type </span>InitializeMembers = AllianceMotion;
 	<span class="kw">type </span>MembershipChanged = AllianceMotion;
 	<span class="kw">type </span>RetirementPeriod = AllianceRetirementPeriod;

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["AllianceProposalProvider","EqualOrGreatestRootCmp","ToParentTreasury"],"type":["BalanceOf"]};
+window.SIDEBAR_ITEMS = {"struct":["AllianceProposalProvider","EqualOrGreatestRootCmp"],"type":["BalanceOf"]};

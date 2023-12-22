@@ -280,6 +280,68 @@
 <a href="#280" id="280">280</a>
 <a href="#281" id="281">281</a>
 <a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -300,12 +362,16 @@
 
 </span><span class="kw">use </span>frame_support::traits::{
 	fungibles::{<span class="self">self</span>, Balanced, Credit},
-	Contains, ContainsPair, Currency, Get, Imbalance, OnUnbalanced,
+	Contains, ContainsPair, Currency, Get, Imbalance, OnUnbalanced, OriginTrait,
 };
 <span class="kw">use </span>pallet_asset_tx_payment::HandleCredit;
 <span class="kw">use </span>sp_runtime::traits::Zero;
-<span class="kw">use </span>sp_std::marker::PhantomData;
-<span class="kw">use </span>xcm::latest::{AssetId, Fungibility::Fungible, MultiAsset, MultiLocation};
+<span class="kw">use </span>sp_std::{marker::PhantomData, prelude::<span class="kw-2">*</span>};
+<span class="kw">use </span>xcm::latest::{
+	AssetId, Fungibility, Fungibility::Fungible, Junction, Junctions::Here, MultiAsset,
+	MultiLocation, Parent, WeightLimit,
+};
+<span class="kw">use </span>xcm_executor::traits::ConvertLocation;
 
 <span class="doccomment">/// Type alias to conveniently refer to the `Currency::NegativeImbalance` associated type.
 </span><span class="kw">pub type </span>NegativeImbalance&lt;T&gt; = &lt;pallet_balances::Pallet&lt;T&gt; <span class="kw">as </span>Currency&lt;
@@ -397,6 +463,64 @@
 		<span class="kw-2">&amp;</span>loc == origin &amp;&amp;
 			<span class="macro">matches!</span>(asset, MultiAsset { id: AssetId::Concrete(asset_loc), fun: Fungible(_a) }
 			<span class="kw">if </span>asset_loc.match_and_split(<span class="kw-2">&amp;</span>loc).is_some())
+	}
+}
+
+<span class="doccomment">/// Type alias to conveniently refer to the `Currency::Balance` associated type.
+</span><span class="kw">pub type </span>BalanceOf&lt;T&gt; =
+	&lt;pallet_balances::Pallet&lt;T&gt; <span class="kw">as </span>Currency&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;&gt;::Balance;
+
+<span class="doccomment">/// Implements `OnUnbalanced::on_unbalanced` to teleport slashed assets to relay chain treasury
+/// account.
+</span><span class="kw">pub struct </span>ToParentTreasury&lt;TreasuryAccount, AccountIdConverter, T&gt;(
+	PhantomData&lt;(TreasuryAccount, AccountIdConverter, T)&gt;,
+);
+
+<span class="kw">impl</span>&lt;TreasuryAccount, AccountIdConverter, T&gt; OnUnbalanced&lt;NegativeImbalance&lt;T&gt;&gt;
+	<span class="kw">for </span>ToParentTreasury&lt;TreasuryAccount, AccountIdConverter, T&gt;
+<span class="kw">where
+	</span>T: pallet_balances::Config + pallet_xcm::Config + frame_system::Config,
+	&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeOrigin <span class="kw">as </span>OriginTrait&gt;::AccountId: From&lt;AccountIdOf&lt;T&gt;&gt;,
+	[u8; <span class="number">32</span>]: From&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;,
+	TreasuryAccount: Get&lt;AccountIdOf&lt;T&gt;&gt;,
+	AccountIdConverter: ConvertLocation&lt;AccountIdOf&lt;T&gt;&gt;,
+	BalanceOf&lt;T&gt;: Into&lt;Fungibility&gt;,
+{
+	<span class="kw">fn </span>on_unbalanced(amount: NegativeImbalance&lt;T&gt;) {
+		<span class="kw">let </span>amount = <span class="kw">match </span>amount.drop_zero() {
+			<span class="prelude-val">Ok</span>(..) =&gt; <span class="kw">return</span>,
+			<span class="prelude-val">Err</span>(amount) =&gt; amount,
+		};
+		<span class="kw">let </span>imbalance = amount.peek();
+		<span class="kw">let </span>root_location: MultiLocation = Here.into();
+		<span class="kw">let </span>root_account: AccountIdOf&lt;T&gt; =
+			<span class="kw">match </span>AccountIdConverter::convert_location(<span class="kw-2">&amp;</span>root_location) {
+				<span class="prelude-val">Some</span>(a) =&gt; a,
+				<span class="prelude-val">None </span>=&gt; {
+					<span class="macro">log::warn!</span>(<span class="string">&quot;Failed to convert root origin into account id&quot;</span>);
+					<span class="kw">return
+				</span>},
+			};
+		<span class="kw">let </span>treasury_account: AccountIdOf&lt;T&gt; = TreasuryAccount::get();
+
+		&lt;pallet_balances::Pallet&lt;T&gt;&gt;::resolve_creating(<span class="kw-2">&amp;</span>root_account, amount);
+
+		<span class="kw">let </span>result = &lt;pallet_xcm::Pallet&lt;T&gt;&gt;::limited_teleport_assets(
+			&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeOrigin&gt;::root(),
+			Box::new(Parent.into()),
+			Box::new(
+				Junction::AccountId32 { network: <span class="prelude-val">None</span>, id: treasury_account.into() }
+					.into_location()
+					.into(),
+			),
+			Box::new((Parent, imbalance).into()),
+			<span class="number">0</span>,
+			WeightLimit::Unlimited,
+		);
+
+		<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = result {
+			<span class="macro">log::warn!</span>(<span class="string">&quot;Failed to teleport slashed assets: {:?}&quot;</span>, err);
+		}
 	}
 }
 

@@ -180,53 +180,6 @@
 <a href="#180" id="180">180</a>
 <a href="#181" id="181">181</a>
 <a href="#182" id="182">182</a>
-<a href="#183" id="183">183</a>
-<a href="#184" id="184">184</a>
-<a href="#185" id="185">185</a>
-<a href="#186" id="186">186</a>
-<a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
-<a href="#199" id="199">199</a>
-<a href="#200" id="200">200</a>
-<a href="#201" id="201">201</a>
-<a href="#202" id="202">202</a>
-<a href="#203" id="203">203</a>
-<a href="#204" id="204">204</a>
-<a href="#205" id="205">205</a>
-<a href="#206" id="206">206</a>
-<a href="#207" id="207">207</a>
-<a href="#208" id="208">208</a>
-<a href="#209" id="209">209</a>
-<a href="#210" id="210">210</a>
-<a href="#211" id="211">211</a>
-<a href="#212" id="212">212</a>
-<a href="#213" id="213">213</a>
-<a href="#214" id="214">214</a>
-<a href="#215" id="215">215</a>
-<a href="#216" id="216">216</a>
-<a href="#217" id="217">217</a>
-<a href="#218" id="218">218</a>
-<a href="#219" id="219">219</a>
-<a href="#220" id="220">220</a>
-<a href="#221" id="221">221</a>
-<a href="#222" id="222">222</a>
-<a href="#223" id="223">223</a>
-<a href="#224" id="224">224</a>
-<a href="#225" id="225">225</a>
-<a href="#226" id="226">226</a>
-<a href="#227" id="227">227</a>
-<a href="#228" id="228">228</a>
-<a href="#229" id="229">229</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -245,15 +198,12 @@
 </span><span class="kw">use </span><span class="kw">crate</span>::OriginCaller;
 <span class="kw">use </span>frame_support::{
 	dispatch::DispatchResultWithPostInfo,
-	traits::{Currency, Get, Imbalance, OnUnbalanced, OriginTrait, PrivilegeCmp},
+	traits::{Currency, PrivilegeCmp},
 	weights::Weight,
 };
-<span class="kw">use </span>log;
 <span class="kw">use </span>pallet_alliance::{ProposalIndex, ProposalProvider};
-<span class="kw">use </span>parachains_common::impls::NegativeImbalance;
 <span class="kw">use </span>sp_runtime::DispatchError;
 <span class="kw">use </span>sp_std::{cmp::Ordering, marker::PhantomData, prelude::<span class="kw-2">*</span>};
-<span class="kw">use </span>xcm::latest::{Fungibility, Junction, Parent};
 
 <span class="kw">type </span>AccountIdOf&lt;T&gt; = &lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId;
 
@@ -264,51 +214,6 @@
 <span class="doccomment">/// Type alias to conveniently refer to the `Currency::Balance` associated type.
 </span><span class="kw">pub type </span>BalanceOf&lt;T&gt; =
 	&lt;pallet_balances::Pallet&lt;T&gt; <span class="kw">as </span>Currency&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;&gt;::Balance;
-
-<span class="doccomment">/// Implements `OnUnbalanced::on_unbalanced` to teleport slashed assets to relay chain treasury
-/// account.
-</span><span class="kw">pub struct </span>ToParentTreasury&lt;TreasuryAccount, PalletAccount, T&gt;(
-	PhantomData&lt;(TreasuryAccount, PalletAccount, T)&gt;,
-);
-
-<span class="kw">impl</span>&lt;TreasuryAccount, PalletAccount, T&gt; OnUnbalanced&lt;NegativeImbalance&lt;T&gt;&gt;
-	<span class="kw">for </span>ToParentTreasury&lt;TreasuryAccount, PalletAccount, T&gt;
-<span class="kw">where
-	</span>T: pallet_balances::Config + pallet_xcm::Config + frame_system::Config,
-	&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeOrigin <span class="kw">as </span>OriginTrait&gt;::AccountId: From&lt;AccountIdOf&lt;T&gt;&gt;,
-	[u8; <span class="number">32</span>]: From&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;,
-	TreasuryAccount: Get&lt;AccountIdOf&lt;T&gt;&gt;,
-	PalletAccount: Get&lt;AccountIdOf&lt;T&gt;&gt;,
-	BalanceOf&lt;T&gt;: Into&lt;Fungibility&gt;,
-{
-	<span class="kw">fn </span>on_unbalanced(amount: NegativeImbalance&lt;T&gt;) {
-		<span class="kw">let </span>amount = <span class="kw">match </span>amount.drop_zero() {
-			<span class="prelude-val">Ok</span>(..) =&gt; <span class="kw">return</span>,
-			<span class="prelude-val">Err</span>(amount) =&gt; amount,
-		};
-		<span class="kw">let </span>imbalance = amount.peek();
-		<span class="kw">let </span>pallet_acc: AccountIdOf&lt;T&gt; = PalletAccount::get();
-		<span class="kw">let </span>treasury_acc: AccountIdOf&lt;T&gt; = TreasuryAccount::get();
-
-		&lt;pallet_balances::Pallet&lt;T&gt;&gt;::resolve_creating(<span class="kw-2">&amp;</span>pallet_acc, amount);
-
-		<span class="kw">let </span>result = &lt;pallet_xcm::Pallet&lt;T&gt;&gt;::teleport_assets(
-			&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeOrigin&gt;::signed(pallet_acc.into()),
-			Box::new(Parent.into()),
-			Box::new(
-				Junction::AccountId32 { network: <span class="prelude-val">None</span>, id: treasury_acc.into() }
-					.into_location()
-					.into(),
-			),
-			Box::new((Parent, imbalance).into()),
-			<span class="number">0</span>,
-		);
-
-		<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = result {
-			<span class="macro">log::warn!</span>(<span class="string">&quot;Failed to teleport slashed assets: {:?}&quot;</span>, err);
-		}
-	}
-}
 
 <span class="doccomment">/// Proposal provider for alliance pallet.
 /// Adapter from collective pallet to alliance proposal provider trait.
@@ -386,6 +291,7 @@
 	<span class="kw">use </span>frame_support::traits::{
 		fungible,
 		tokens::{Pay, PaymentStatus},
+		Get,
 	};
 	<span class="kw">use </span>pallet_ranked_collective::Rank;
 	<span class="kw">use </span>parachains_common::{AccountId, Balance};
