@@ -887,7 +887,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Determines the required deposit amount for the parachain, given the specified genesis head
+	/// Returns the required deposit amount for the parachain, given the specified genesis head
 	/// and validation code size.
 	fn required_para_deposit(head_size: usize, validation_code_size: usize) -> BalanceOf<T> {
 		let per_byte_fee = T::DataDepositPerByte::get();
