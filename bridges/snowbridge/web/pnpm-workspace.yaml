@@ -1,0 +1,5 @@
+packages:
+  - "packages/test"
+  - "packages/api"
+  - "packages/contract-types"
+  - "packages/test-helpers"

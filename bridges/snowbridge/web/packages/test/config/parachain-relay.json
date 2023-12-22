@@ -1,0 +1,28 @@
+{
+  "source": {
+    "ethereum": {
+      "endpoint": "ws://127.0.0.1:8546"
+    },
+    "polkadot": {
+      "endpoint": "ws://127.0.0.1:9944"
+    },
+    "parachain": {
+      "endpoint": "ws://127.0.0.1:11144"
+    },
+    "contracts": {
+      "BeefyClient": null,
+      "Gateway": null
+    },
+    "beefy-activation-block": 0,
+    "channel-id": null
+  },
+  "sink": {
+    "ethereum": {
+      "endpoint": "ws://127.0.0.1:8546",
+      "gas-limit": null
+    },
+    "contracts": {
+      "Gateway": null
+    }
+  }
+}

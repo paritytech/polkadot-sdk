@@ -1,0 +1,10 @@
+{
+  "references": [
+    {
+      "path": "packages/contracts"
+    },
+    {
+      "path": "packages/api"
+    }
+  ]
+}
