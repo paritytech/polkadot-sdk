@@ -31,28 +31,11 @@ chain = "coretime-rococo-local"
 [[parachains]]
 id = 100
 add_to_genesis = false
-register_para = true
+register_para = false
 onboard_as_parachain = false
+cumulus_based = true
 
   [parachains.collator]
-  name = "adder-a"
-  image = "{{COL_IMAGE}}"
-  command = "adder-collator"
-  args = [ "-lruntime=debug,parachain=trace" ]
-
-[[parachains]]
-id = 101
-add_to_genesis = false
-register_para = true
-onboard_as_parachain = false
-
-  [parachains.collator]
-  name = "adder-b"
-  image = "{{COL_IMAGE}}"
-  command = "adder-collator"
-  args = [ "-lruntime=debug,parachain=trace" ]
-
-[types.Header]
-number = "u64"
-parent_hash = "Hash"
-post_state = "Hash"
+  name = "collator01"
+  image = "{{CUMULUS_IMAGE}}"
+  command = "polkadot-parachain"
