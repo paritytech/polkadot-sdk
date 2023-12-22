@@ -59,7 +59,7 @@ type ParachainBackend = TFullBackend<Block>;
 
 type ParachainBlockImport = TParachainBlockImport<Block, Arc<ParachainClient>, ParachainBackend>;
 
-type Service = PartialComponents<
+pub type Service = PartialComponents<
 	ParachainClient,
 	ParachainBackend,
 	(),

@@ -216,7 +216,7 @@ impl sc_executor::NativeExecutionDispatch for PeopleRococoRuntimeExecutor {
 	}
 }
 
-type Service<RuntimeApi> = PartialComponents<
+pub type Service<RuntimeApi> = PartialComponents<
 	ParachainClient<RuntimeApi>,
 	ParachainBackend,
 	(),

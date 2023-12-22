@@ -183,7 +183,7 @@ impl RecoveryHandle for FailingRecoveryHandle {
 	}
 }
 
-type Service = PartialComponents<
+pub type Service = PartialComponents<
 	Client,
 	Backend,
 	(),
