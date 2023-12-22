@@ -249,7 +249,7 @@ fn claim_primary_slot(
 				.make_bytes::<AUTHORING_SCORE_LENGTH>(
 					AUTHORING_SCORE_VRF_CONTEXT,
 					&data.as_ref(),
-					&vrf_signature.output,
+					&vrf_signature.pre_output,
 				)
 				.map(|bytes| u128::from_le_bytes(bytes) < threshold)
 				.unwrap_or_default();

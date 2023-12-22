@@ -220,6 +220,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       polkadot_apt_version: ${{ steps.fetch-latest-apt.outputs.polkadot_apt_version }}
+      polkadot_container_tag: ${{ steps.fetch-latest-apt.outputs.polkadot_container_tag }}
     container:
       image: paritytech/parity-keyring
       options: --user root
@@ -230,7 +231,9 @@ jobs:
           apt update
           apt show polkadot
           version=$(apt show polkadot 2>/dev/null | grep "Version:" | awk '{print $2}')
+          tag=$(echo $version | sed 's/-.*//')
           echo "polkadot_apt_version=v$version" >> $GITHUB_OUTPUT
+          echo "polkadot_container_tag=v$tag" >> $GITHUB_OUTPUT
           echo "You passed ${{ inputs.version }} but this is ignored"
           echo "We use the version from the Debian Package: $version"
 
@@ -268,7 +271,7 @@ jobs:
 
       - name: Build and push
         id:   docker_build
-        uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09 #  v5.0.0
+        uses: docker/build-push-action@4a13e500e55cf31b7a5d59a38ab2040ab0f42f56 #  v5.1.0
         with:
           push: true
           file: docker/dockerfiles/polkadot/polkadot_injected_debian.Dockerfile
@@ -276,7 +279,7 @@ jobs:
           # TODO: It would be good to get rid of this GHA that we don't really need.
           tags: |
             parity/polkadot:latest
-            parity/polkadot:${{ needs.fetch-latest-debian-package-version.outputs.polkadot_apt_version }}
+            parity/polkadot:${{ needs.fetch-latest-debian-package-version.outputs.polkadot_container_tag }}
           build-args: |
             VCS_REF=${{ github.ref }}
             POLKADOT_VERSION=${{ needs.fetch-latest-debian-package-version.outputs.polkadot_apt_version }}

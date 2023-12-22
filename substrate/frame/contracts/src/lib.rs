@@ -91,6 +91,9 @@ mod address;
 mod benchmarking;
 mod exec;
 mod gas;
+mod primitives;
+pub use primitives::*;
+
 mod schedule;
 mod storage;
 mod wasm;
@@ -127,11 +130,6 @@ use frame_system::{
 	ensure_signed,
 	pallet_prelude::{BlockNumberFor, OriginFor},
 	EventRecord, Pallet as System,
-};
-use pallet_contracts_primitives::{
-	Code, CodeUploadResult, CodeUploadReturnValue, ContractAccessError, ContractExecResult,
-	ContractInstantiateResult, ContractResult, ExecReturnValue, GetStorageResult,
-	InstantiateReturnValue, StorageDeposit,
 };
 use scale_info::TypeInfo;
 use smallvec::Array;
@@ -403,6 +401,14 @@ pub mod pallet {
 		/// its type appears in the metadata. Only valid value is `()`.
 		#[pallet::constant]
 		type Environment: Get<Environment<Self>>;
+
+		/// A type that exposes XCM APIs, allowing contracts to interact with other parachains, and
+		/// execute XCM programs.
+		type Xcm: xcm_builder::Controller<
+			OriginFor<Self>,
+			<Self as frame_system::Config>::RuntimeCall,
+			BlockNumberFor<Self>,
+		>;
 	}
 
 	#[pallet::hooks]
@@ -1004,6 +1010,8 @@ pub mod pallet {
 		/// in this error. Note that this usually  shouldn't happen as deploying such contracts
 		/// is rejected.
 		NoChainExtension,
+		/// Failed to decode the XCM program.
+		XCMDecodeFailed,
 		/// A contract with the same AccountId already exists.
 		DuplicateContract,
 		/// A contract self destructed in its constructor.

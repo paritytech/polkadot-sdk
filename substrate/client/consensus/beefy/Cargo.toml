@@ -8,10 +8,13 @@ repository.workspace = true
 description = "BEEFY Client gadget for substrate"
 homepage = "https://substrate.io"
 
+[lints]
+workspace = true
+
 [dependencies]
 array-bytes = "6.1"
 async-channel = "1.8.0"
-async-trait = "0.1.57"
+async-trait = "0.1.74"
 codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"] }
 fnv = "1.0.6"
 futures = "0.3"
@@ -38,7 +41,7 @@ sp-mmr-primitives = { path = "../../../primitives/merkle-mountain-range" }
 sp-runtime = { path = "../../../primitives/runtime" }
 
 [dev-dependencies]
-serde = "1.0.188"
+serde = "1.0.193"
 tempfile = "3.1.0"
 tokio = "1.22.0"
 sc-block-builder = { path = "../../block-builder" }

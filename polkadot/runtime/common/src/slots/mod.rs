@@ -326,6 +326,18 @@ impl<T: Config> Pallet<T> {
 
 		tracker.into_iter().collect()
 	}
+
+	/// Current lease index and how many blocks we are already in.
+	pub fn lease_period_index_plus_progress(
+		b: BlockNumberFor<T>,
+	) -> Option<(<Self as Leaser<BlockNumberFor<T>>>::LeasePeriod, BlockNumberFor<T>)> {
+		// Note that blocks before `LeaseOffset` do not count as any lease period.
+		let offset_block_now = b.checked_sub(&T::LeaseOffset::get())?;
+		let lease_period = offset_block_now / T::LeasePeriod::get();
+		let in_lease = offset_block_now % T::LeasePeriod::get();
+
+		Some((lease_period, in_lease))
+	}
 }
 
 impl<T: Config> crate::traits::OnSwap for Pallet<T> {
@@ -449,12 +461,8 @@ impl<T: Config> Leaser<BlockNumberFor<T>> for Pallet<T> {
 	}
 
 	fn lease_period_index(b: BlockNumberFor<T>) -> Option<(Self::LeasePeriod, bool)> {
-		// Note that blocks before `LeaseOffset` do not count as any lease period.
-		let offset_block_now = b.checked_sub(&T::LeaseOffset::get())?;
-		let lease_period = offset_block_now / T::LeasePeriod::get();
-		let first_block = (offset_block_now % T::LeasePeriod::get()).is_zero();
-
-		Some((lease_period, first_block))
+		Self::lease_period_index_plus_progress(b)
+			.map(|(period, progress)| (period, progress.is_zero()))
 	}
 
 	fn already_leased(
@@ -505,7 +513,7 @@ mod tests {
 
 	use crate::{mock::TestRegistrar, slots};
 	use ::test_helpers::{dummy_head_data, dummy_validation_code};
-	use frame_support::{assert_noop, assert_ok, parameter_types};
+	use frame_support::{assert_noop, assert_ok, derive_impl, parameter_types};
 	use frame_system::EnsureRoot;
 	use pallet_balances;
 	use primitives::BlockNumber;
@@ -529,6 +537,8 @@ mod tests {
 	parameter_types! {
 		pub const BlockHashCount: u32 = 250;
 	}
+
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();

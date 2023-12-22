@@ -16,7 +16,7 @@
 //! Module contains predefined test-case scenarios for `Runtime` with various assets transferred
 //! over a bridge.
 
-use crate::assert_matches_reserve_asset_deposited_instructions;
+use crate::{assert_matches_reserve_asset_deposited_instructions, get_fungible_delivery_fees};
 use codec::Encode;
 use cumulus_primitives_core::XcmpMessageSource;
 use frame_support::{
@@ -32,10 +32,7 @@ use parachains_runtimes_test_utils::{
 use sp_runtime::{traits::StaticLookup, Saturating};
 use xcm::{latest::prelude::*, VersionedMultiAssets};
 use xcm_builder::{CreateMatcher, MatchXcm};
-use xcm_executor::{
-	traits::{ConvertLocation, TransactAsset},
-	XcmExecutor,
-};
+use xcm_executor::{traits::ConvertLocation, XcmExecutor};
 
 pub struct TestBridgingConfig {
 	pub bridged_network: NetworkId,
@@ -129,8 +126,13 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 				&alice,
 			);
 
-			// drip ED to account
-			let alice_account_init_balance = existential_deposit + balance_to_transfer.into();
+			// we calculate exact delivery fees _after_ sending the message by weighing the sent
+			// xcm, and this delivery fee varies for different runtimes, so just add enough buffer,
+			// then verify the arithmetics check out on final balance.
+			let delivery_fees_buffer = 8_000_000_000_000u128;
+			// drip ED + transfer_amount + delivery_fees_buffer to Alice account
+			let alice_account_init_balance =
+				existential_deposit + balance_to_transfer.into() + delivery_fees_buffer.into();
 			let _ = <pallet_balances::Pallet<Runtime>>::deposit_creating(
 				&alice_account,
 				alice_account_init_balance,
@@ -183,56 +185,6 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 
 			let expected_beneficiary = target_destination_account;
 
-			// Make sure sender has enough funds for paying delivery fees
-			let handling_delivery_fees = {
-				// Probable XCM with `ReserveAssetDeposited`.
-				let mut expected_reserve_asset_deposited_message = Xcm(vec![
-					ReserveAssetDeposited(MultiAssets::from(expected_assets.clone())),
-					ClearOrigin,
-					BuyExecution {
-						fees: MultiAsset {
-							id: Concrete(Default::default()),
-							fun: Fungible(balance_to_transfer),
-						},
-						weight_limit: Unlimited,
-					},
-					DepositAsset { assets: Wild(AllCounted(1)), beneficiary: expected_beneficiary },
-					SetTopic([
-						220, 188, 144, 32, 213, 83, 111, 175, 44, 210, 111, 19, 90, 165, 191, 112,
-						140, 247, 192, 124, 42, 17, 153, 141, 114, 34, 189, 20, 83, 69, 237, 173,
-					]),
-				]);
-				assert_matches_reserve_asset_deposited_instructions(
-					&mut expected_reserve_asset_deposited_message,
-					&expected_assets,
-					&expected_beneficiary,
-				);
-
-				// Call `SendXcm::validate` to get delivery fees.
-				let (_, delivery_fees): (_, MultiAssets) = XcmConfig::XcmSender::validate(
-					&mut Some(target_location_from_different_consensus),
-					&mut Some(expected_reserve_asset_deposited_message),
-				)
-				.expect("validate passes");
-				// Drip delivery fee to Alice account.
-				let mut delivery_fees_added = false;
-				for delivery_fee in delivery_fees.inner() {
-					assert_ok!(<XcmConfig::AssetTransactor as TransactAsset>::deposit_asset(
-						&delivery_fee,
-						&MultiLocation {
-							parents: 0,
-							interior: X1(AccountId32 {
-								network: None,
-								id: alice_account.clone().into(),
-							}),
-						},
-						None,
-					));
-					delivery_fees_added = true;
-				}
-				delivery_fees_added
-			};
-
 			// do pallet_xcm call reserve transfer
 			assert_ok!(<pallet_xcm::Pallet<Runtime>>::limited_reserve_transfer_assets(
 				RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::origin_of(alice_account.clone()),
@@ -275,6 +227,7 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 
 			// check sent XCM ExportMessage to BridgeHub
 
+			let mut delivery_fees = 0;
 			// 1. check paid or unpaid
 			if let Some(expected_fee_asset_id) = maybe_paid_export_message {
 				xcm_sent
@@ -315,6 +268,10 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 							.split_global()
 							.expect("split works");
 					assert_eq!(destination, &target_location_junctions_without_global_consensus);
+					// Call `SendXcm::validate` to get delivery fees.
+					delivery_fees = get_fungible_delivery_fees::<
+						<XcmConfig as xcm_executor::Config>::XcmSender,
+					>(target_location_from_different_consensus, inner_xcm.clone());
 					assert_matches_reserve_asset_deposited_instructions(
 						inner_xcm,
 						&expected_assets,
@@ -330,8 +287,8 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 			assert_eq!(
 				<pallet_balances::Pallet<Runtime>>::free_balance(&alice_account),
 				alice_account_init_balance
-					.saturating_sub(existential_deposit)
 					.saturating_sub(balance_to_transfer.into())
+					.saturating_sub(delivery_fees.into())
 			);
 
 			// check reserve account increased by balance_to_transfer
@@ -341,14 +298,13 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 			);
 
 			// check dedicated account increased by delivery fees (if configured)
-			if handling_delivery_fees {
-				if let Some(delivery_fees_account) = delivery_fees_account {
-					let delivery_fees_account_balance_after =
-						<pallet_balances::Pallet<Runtime>>::free_balance(&delivery_fees_account);
-					assert!(
-						delivery_fees_account_balance_after > delivery_fees_account_balance_before
-					);
-				}
+			if let Some(delivery_fees_account) = delivery_fees_account {
+				let delivery_fees_account_balance_after =
+					<pallet_balances::Pallet<Runtime>>::free_balance(&delivery_fees_account);
+				assert!(
+					delivery_fees_account_balance_after - delivery_fees.into() >=
+						delivery_fees_account_balance_before
+				);
 			}
 		})
 }
@@ -527,7 +483,7 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 					XcmReceivedFrom::Sibling,
 				),
 			);
-			assert_eq!(outcome.ensure_complete(), Ok(()));
+			assert_ok!(outcome.ensure_complete());
 
 			// author actual balance after (received fees from Trader for ForeignAssets)
 			let author_received_fees =
@@ -632,7 +588,7 @@ pub fn report_bridge_status_from_xcm_bridge_router_works<
 					hash,
 					RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::xcm_max_weight(XcmReceivedFrom::Sibling),
 				);
-				assert_eq!(outcome.ensure_complete(), Ok(()));
+				assert_ok!(outcome.ensure_complete());
 				assert_eq!(is_congested, pallet_xcm_bridge_hub_router::Pallet::<Runtime, XcmBridgeHubRouterInstance>::bridge().is_congested);
 			};
 
