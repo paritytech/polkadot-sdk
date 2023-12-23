@@ -34,6 +34,7 @@ sp-keystore = { path = "../../primitives/keystore" }
 
 [features]
 default = ["std"]
+
 std = [
 	"codec/std",
 	"enumflags2/std",

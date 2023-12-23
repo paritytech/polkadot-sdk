@@ -18,7 +18,7 @@
 //! with remote GRANDPA chain.
 
 use crate::{
-	test_cases::{helpers, run_test},
+	test_cases::{bridges_prelude::*, helpers, run_test},
 	test_data,
 };
 
@@ -36,27 +36,77 @@ use bridge_runtime_common::{
 	},
 	messages_xcm_extension::XcmAsPlainPayload,
 };
-use frame_support::traits::{Get, OnFinalize, OnInitialize, OriginTrait};
+use frame_support::traits::{Get, OnFinalize, OnInitialize};
 use frame_system::pallet_prelude::BlockNumberFor;
 use parachains_runtimes_test_utils::{
-	AccountIdOf, BasicParachainRuntime, CollatorSessionKeys, ValidatorIdOf,
+	AccountIdOf, BasicParachainRuntime, CollatorSessionKeys, RuntimeCallOf,
 };
 use sp_keyring::AccountKeyring::*;
 use sp_runtime::{traits::Header as HeaderT, AccountId32};
 use xcm::latest::prelude::*;
 
+/// Helper trait to test bridges with remote GRANDPA chain.
+///
+/// This is only used to decrease amount of lines, dedicated to bounds.
+pub trait WithRemoteGrandpaChainHelper {
+	/// This chain runtime.
+	type Runtime: BasicParachainRuntime
+		+ cumulus_pallet_xcmp_queue::Config
+		+ BridgeGrandpaConfig<
+			Self::GPI,
+			BridgedChain = UnderlyingChainOf<MessageBridgedChain<Self::MB>>,
+		> + BridgeMessagesConfig<
+			Self::MPI,
+			InboundPayload = XcmAsPlainPayload,
+			InboundRelayer = bp_runtime::AccountIdOf<MessageBridgedChain<Self::MB>>,
+			OutboundPayload = XcmAsPlainPayload,
+		> + pallet_bridge_relayers::Config;
+	/// All pallets of this chain, excluding system pallet.
+	type AllPalletsWithoutSystem: OnInitialize<BlockNumberFor<Self::Runtime>>
+		+ OnFinalize<BlockNumberFor<Self::Runtime>>;
+	/// Instance of the `pallet-bridge-grandpa`, used to bridge with remote GRANDPA chain.
+	type GPI: 'static;
+	/// Instance of the `pallet-bridge-messages`, used to bridge with remote GRANDPA chain.
+	type MPI: 'static;
+	/// Messages bridge definition.
+	type MB: MessageBridge;
+}
+
+/// Adapter struct that implements [`WithRemoteGrandpaChainHelper`].
+pub struct WithRemoteGrandpaChainHelperAdapter<Runtime, AllPalletsWithoutSystem, GPI, MPI, MB>(
+	sp_std::marker::PhantomData<(Runtime, AllPalletsWithoutSystem, GPI, MPI, MB)>,
+);
+
+impl<Runtime, AllPalletsWithoutSystem, GPI, MPI, MB> WithRemoteGrandpaChainHelper
+	for WithRemoteGrandpaChainHelperAdapter<Runtime, AllPalletsWithoutSystem, GPI, MPI, MB>
+where
+	Runtime: BasicParachainRuntime
+		+ cumulus_pallet_xcmp_queue::Config
+		+ BridgeGrandpaConfig<GPI, BridgedChain = UnderlyingChainOf<MessageBridgedChain<MB>>>
+		+ BridgeMessagesConfig<
+			MPI,
+			InboundPayload = XcmAsPlainPayload,
+			InboundRelayer = bp_runtime::AccountIdOf<MessageBridgedChain<MB>>,
+			OutboundPayload = XcmAsPlainPayload,
+		> + pallet_bridge_relayers::Config,
+	AllPalletsWithoutSystem:
+		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
+	GPI: 'static,
+	MPI: 'static,
+	MB: MessageBridge,
+{
+	type Runtime = Runtime;
+	type AllPalletsWithoutSystem = AllPalletsWithoutSystem;
+	type GPI = GPI;
+	type MPI = MPI;
+	type MB = MB;
+}
+
 /// Test-case makes sure that Runtime can dispatch XCM messages submitted by relayer,
 /// with proofs (finality, message) independently submitted.
 /// Also verifies relayer transaction signed extensions work as intended.
-pub fn relayed_incoming_message_works<
-	Runtime,
-	AllPalletsWithoutSystem,
-	HrmpChannelOpener,
-	GPI,
-	MPI,
-	MB,
->(
-	collator_session_key: CollatorSessionKeys<Runtime>,
+pub fn relayed_incoming_message_works<RuntimeHelper>(
+	collator_session_key: CollatorSessionKeys<RuntimeHelper::Runtime>,
 	runtime_para_id: u32,
 	bridged_chain_id: bp_runtime::ChainId,
 	sibling_parachain_id: u32,
@@ -65,44 +115,25 @@ pub fn relayed_incoming_message_works<
 	prepare_configuration: impl Fn(),
 	construct_and_apply_extrinsic: fn(
 		sp_keyring::AccountKeyring,
-		<Runtime as frame_system::Config>::RuntimeCall,
+		RuntimeCallOf<RuntimeHelper::Runtime>,
 	) -> sp_runtime::DispatchOutcome,
 ) where
-	Runtime: BasicParachainRuntime
-		+ cumulus_pallet_xcmp_queue::Config
-		+ pallet_bridge_grandpa::Config<
-			GPI,
-			BridgedChain = UnderlyingChainOf<MessageBridgedChain<MB>>,
-		> + pallet_bridge_messages::Config<MPI>
-		+ pallet_bridge_relayers::Config,
-	AllPalletsWithoutSystem:
-		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
-	GPI: 'static,
-	MPI: 'static,
-	MB: MessageBridge,
-	<MB as MessageBridge>::BridgedChain: Send + Sync + 'static,
-	<MB as MessageBridge>::ThisChain: Send + Sync + 'static,
-	UnderlyingChainOf<MessageBridgedChain<MB>>: ChainWithGrandpa,
-	HrmpChannelOpener: frame_support::inherent::ProvideInherent<
-		Call = cumulus_pallet_parachain_system::Call<Runtime>,
-	>,
-	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
-	<Runtime as pallet_bridge_messages::Config<MPI>>::SourceHeaderChain: SourceHeaderChain<
-		MessagesProof = FromBridgedChainMessagesProof<HashOf<MessageBridgedChain<MB>>>,
-	>,
-	<Runtime as frame_system::Config>::AccountId:
-		Into<<<Runtime as frame_system::Config>::RuntimeOrigin as OriginTrait>::AccountId>,
-	<Runtime as frame_system::Config>::AccountId: From<AccountId32>,
-	AccountIdOf<Runtime>: From<sp_core::sr25519::Public>,
-	<Runtime as pallet_bridge_messages::Config<MPI>>::InboundRelayer: From<AccountId32>,
-	<Runtime as frame_system::Config>::RuntimeCall: From<pallet_bridge_grandpa::Call<Runtime, GPI>>
-		+ From<pallet_bridge_messages::Call<Runtime, MPI>>,
+	RuntimeHelper: WithRemoteGrandpaChainHelper,
+	AccountIdOf<RuntimeHelper::Runtime>: From<AccountId32>,
+	RuntimeCallOf<RuntimeHelper::Runtime>: From<BridgeGrandpaCall<RuntimeHelper::Runtime, RuntimeHelper::GPI>>
+		+ From<BridgeMessagesCall<RuntimeHelper::Runtime, RuntimeHelper::MPI>>,
+	UnderlyingChainOf<MessageBridgedChain<RuntimeHelper::MB>>: ChainWithGrandpa,
+	<RuntimeHelper::Runtime as BridgeMessagesConfig<RuntimeHelper::MPI>>::SourceHeaderChain:
+		SourceHeaderChain<
+			MessagesProof = FromBridgedChainMessagesProof<
+				HashOf<MessageBridgedChain<RuntimeHelper::MB>>,
+			>,
+		>,
 {
 	helpers::relayed_incoming_message_works::<
-		Runtime,
-		AllPalletsWithoutSystem,
-		HrmpChannelOpener,
-		MPI,
+		RuntimeHelper::Runtime,
+		RuntimeHelper::AllPalletsWithoutSystem,
+		RuntimeHelper::MPI,
 	>(
 		collator_session_key,
 		runtime_para_id,
@@ -119,40 +150,42 @@ pub fn relayed_incoming_message_works<
 			prepare_configuration();
 
 			// start with bridged relay chain block#0
-			helpers::initialize_bridge_grandpa_pallet::<Runtime, GPI>(
-				test_data::initialization_data::<Runtime, GPI>(0),
+			helpers::initialize_bridge_grandpa_pallet::<RuntimeHelper::Runtime, RuntimeHelper::GPI>(
+				test_data::initialization_data::<RuntimeHelper::Runtime, RuntimeHelper::GPI>(0),
 			);
 
 			// generate bridged relay chain finality, parachain heads and message proofs,
 			// to be submitted by relayer to this chain.
 			let (relay_chain_header, grandpa_justification, message_proof) =
-				test_data::from_grandpa_chain::make_complex_relayer_delivery_proofs::<MB, ()>(
-					lane_id,
-					xcm.into(),
-					message_nonce,
-					message_destination,
-					relay_header_number,
-				);
+				test_data::from_grandpa_chain::make_complex_relayer_delivery_proofs::<
+					RuntimeHelper::MB,
+					(),
+				>(lane_id, xcm.into(), message_nonce, message_destination, relay_header_number);
 
 			let relay_chain_header_hash = relay_chain_header.hash();
 			vec![
 				(
-					pallet_bridge_grandpa::Call::<Runtime, GPI>::submit_finality_proof {
+					BridgeGrandpaCall::<RuntimeHelper::Runtime, RuntimeHelper::GPI>::submit_finality_proof {
 						finality_target: Box::new(relay_chain_header),
 						justification: grandpa_justification,
 					}.into(),
-					helpers::VerifySubmitGrandpaFinalityProofOutcome::<Runtime, GPI>::expect_best_header_hash(relay_chain_header_hash),
+					helpers::VerifySubmitGrandpaFinalityProofOutcome::<RuntimeHelper::Runtime, RuntimeHelper::GPI>::expect_best_header_hash(
+						relay_chain_header_hash,
+					),
 				),
 				(
-					pallet_bridge_messages::Call::<Runtime, MPI>::receive_messages_proof {
+					BridgeMessagesCall::<RuntimeHelper::Runtime, RuntimeHelper::MPI>::receive_messages_proof {
 						relayer_id_at_bridged_chain,
 						proof: message_proof,
 						messages_count: 1,
 						dispatch_weight: Weight::from_parts(1000000000, 0),
 					}.into(),
 					Box::new((
-						helpers::VerifySubmitMessagesProofOutcome::<Runtime, MPI>::expect_last_delivered_nonce(lane_id, 1),
-						helpers::VerifyRelayerRewarded::<Runtime>::expect_relayer_reward(
+						helpers::VerifySubmitMessagesProofOutcome::<RuntimeHelper::Runtime, RuntimeHelper::MPI>::expect_last_delivered_nonce(
+							lane_id,
+							1,
+						),
+						helpers::VerifyRelayerRewarded::<RuntimeHelper::Runtime>::expect_relayer_reward(
 							relayer_id_at_this_chain,
 							RewardsAccountParams::new(
 								lane_id,
@@ -170,16 +203,8 @@ pub fn relayed_incoming_message_works<
 /// Test-case makes sure that Runtime can dispatch XCM messages submitted by relayer,
 /// with proofs (finality, message) batched together in signed extrinsic.
 /// Also verifies relayer transaction signed extensions work as intended.
-pub fn complex_relay_extrinsic_works<
-	Runtime,
-	AllPalletsWithoutSystem,
-	XcmConfig,
-	HrmpChannelOpener,
-	GPI,
-	MPI,
-	MB,
->(
-	collator_session_key: CollatorSessionKeys<Runtime>,
+pub fn complex_relay_extrinsic_works<RuntimeHelper>(
+	collator_session_key: CollatorSessionKeys<RuntimeHelper::Runtime>,
 	runtime_para_id: u32,
 	sibling_parachain_id: u32,
 	bridged_chain_id: bp_runtime::ChainId,
@@ -188,46 +213,28 @@ pub fn complex_relay_extrinsic_works<
 	prepare_configuration: impl Fn(),
 	construct_and_apply_extrinsic: fn(
 		sp_keyring::AccountKeyring,
-		<Runtime as frame_system::Config>::RuntimeCall,
+		RuntimeCallOf<RuntimeHelper::Runtime>,
 	) -> sp_runtime::DispatchOutcome,
 ) where
-	Runtime: BasicParachainRuntime
-		+ cumulus_pallet_xcmp_queue::Config
-		+ pallet_bridge_grandpa::Config<
-			GPI,
-			BridgedChain = UnderlyingChainOf<MessageBridgedChain<MB>>,
-		> + pallet_bridge_messages::Config<MPI>
-		+ pallet_bridge_relayers::Config
-		+ pallet_utility::Config,
-	AllPalletsWithoutSystem:
-		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
-	GPI: 'static,
-	MPI: 'static,
-	MB: MessageBridge,
-	<MB as MessageBridge>::BridgedChain: Send + Sync + 'static,
-	<MB as MessageBridge>::ThisChain: Send + Sync + 'static,
-	UnderlyingChainOf<MessageBridgedChain<MB>>: ChainWithGrandpa,
-	HrmpChannelOpener: frame_support::inherent::ProvideInherent<
-		Call = cumulus_pallet_parachain_system::Call<Runtime>,
-	>,
-	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
-	<Runtime as pallet_bridge_messages::Config<MPI>>::SourceHeaderChain: SourceHeaderChain<
-		MessagesProof = FromBridgedChainMessagesProof<HashOf<MessageBridgedChain<MB>>>,
-	>,
-	<Runtime as frame_system::Config>::AccountId:
-		Into<<<Runtime as frame_system::Config>::RuntimeOrigin as OriginTrait>::AccountId>,
-	<Runtime as frame_system::Config>::AccountId: From<AccountId32>,
-	AccountIdOf<Runtime>: From<sp_core::sr25519::Public>,
-	<Runtime as pallet_bridge_messages::Config<MPI>>::InboundRelayer: From<AccountId32>,
-	<Runtime as pallet_utility::Config>::RuntimeCall: From<pallet_bridge_grandpa::Call<Runtime, GPI>>
-		+ From<pallet_bridge_messages::Call<Runtime, MPI>>,
-	<Runtime as frame_system::Config>::RuntimeCall: From<pallet_utility::Call<Runtime>>,
+	RuntimeHelper: WithRemoteGrandpaChainHelper,
+	RuntimeHelper::Runtime:
+		pallet_utility::Config<RuntimeCall = RuntimeCallOf<RuntimeHelper::Runtime>>,
+	AccountIdOf<RuntimeHelper::Runtime>: From<AccountId32>,
+	RuntimeCallOf<RuntimeHelper::Runtime>: From<BridgeGrandpaCall<RuntimeHelper::Runtime, RuntimeHelper::GPI>>
+		+ From<BridgeMessagesCall<RuntimeHelper::Runtime, RuntimeHelper::MPI>>
+		+ From<pallet_utility::Call<RuntimeHelper::Runtime>>,
+	UnderlyingChainOf<MessageBridgedChain<RuntimeHelper::MB>>: ChainWithGrandpa,
+	<RuntimeHelper::Runtime as BridgeMessagesConfig<RuntimeHelper::MPI>>::SourceHeaderChain:
+		SourceHeaderChain<
+			MessagesProof = FromBridgedChainMessagesProof<
+				HashOf<MessageBridgedChain<RuntimeHelper::MB>>,
+			>,
+		>,
 {
 	helpers::relayed_incoming_message_works::<
-		Runtime,
-		AllPalletsWithoutSystem,
-		HrmpChannelOpener,
-		MPI,
+		RuntimeHelper::Runtime,
+		RuntimeHelper::AllPalletsWithoutSystem,
+		RuntimeHelper::MPI,
 	>(
 		collator_session_key,
 		runtime_para_id,
@@ -244,41 +251,45 @@ pub fn complex_relay_extrinsic_works<
 			prepare_configuration();
 
 			// start with bridged relay chain block#0
-			helpers::initialize_bridge_grandpa_pallet::<Runtime, GPI>(
-				test_data::initialization_data::<Runtime, GPI>(0),
+			helpers::initialize_bridge_grandpa_pallet::<RuntimeHelper::Runtime, RuntimeHelper::GPI>(
+				test_data::initialization_data::<RuntimeHelper::Runtime, RuntimeHelper::GPI>(0),
 			);
 
 			// generate bridged relay chain finality, parachain heads and message proofs,
 			// to be submitted by relayer to this chain.
 			let (relay_chain_header, grandpa_justification, message_proof) =
-				test_data::from_grandpa_chain::make_complex_relayer_delivery_proofs::<MB, ()>(
-					lane_id,
-					xcm.into(),
-					message_nonce,
-					message_destination,
-					relay_header_number,
-				);
+				test_data::from_grandpa_chain::make_complex_relayer_delivery_proofs::<
+					RuntimeHelper::MB,
+					(),
+				>(lane_id, xcm.into(), message_nonce, message_destination, relay_header_number);
 
 			let relay_chain_header_hash = relay_chain_header.hash();
 			vec![(
-				pallet_utility::Call::<Runtime>::batch_all {
+				pallet_utility::Call::<RuntimeHelper::Runtime>::batch_all {
 					calls: vec![
-						pallet_bridge_grandpa::Call::<Runtime, GPI>::submit_finality_proof {
+						BridgeGrandpaCall::<RuntimeHelper::Runtime, RuntimeHelper::GPI>::submit_finality_proof {
 							finality_target: Box::new(relay_chain_header),
 							justification: grandpa_justification,
 						}.into(),
-						pallet_bridge_messages::Call::<Runtime, MPI>::receive_messages_proof {
+						BridgeMessagesCall::<RuntimeHelper::Runtime, RuntimeHelper::MPI>::receive_messages_proof {
 							relayer_id_at_bridged_chain,
 							proof: message_proof,
 							messages_count: 1,
 							dispatch_weight: Weight::from_parts(1000000000, 0),
 						}.into(),
 					],
-				}.into(),
+				}
+				.into(),
 				Box::new((
-					helpers::VerifySubmitGrandpaFinalityProofOutcome::<Runtime, GPI>::expect_best_header_hash(relay_chain_header_hash),
-					helpers::VerifySubmitMessagesProofOutcome::<Runtime, MPI>::expect_last_delivered_nonce(lane_id, 1),
-					helpers::VerifyRelayerRewarded::<Runtime>::expect_relayer_reward(
+					helpers::VerifySubmitGrandpaFinalityProofOutcome::<
+						RuntimeHelper::Runtime,
+						RuntimeHelper::GPI,
+					>::expect_best_header_hash(relay_chain_header_hash),
+					helpers::VerifySubmitMessagesProofOutcome::<
+						RuntimeHelper::Runtime,
+						RuntimeHelper::MPI,
+					>::expect_last_delivered_nonce(lane_id, 1),
+					helpers::VerifyRelayerRewarded::<RuntimeHelper::Runtime>::expect_relayer_reward(
 						relayer_id_at_this_chain,
 						RewardsAccountParams::new(
 							lane_id,
@@ -294,35 +305,25 @@ pub fn complex_relay_extrinsic_works<
 
 /// Estimates transaction fee for default message delivery transaction (batched with required
 /// proofs) from bridged GRANDPA chain.
-pub fn can_calculate_fee_for_complex_message_delivery_transaction<Runtime, GPI, MPI, MB>(
-	collator_session_key: CollatorSessionKeys<Runtime>,
-	compute_extrinsic_fee: fn(pallet_utility::Call<Runtime>) -> u128,
+pub fn can_calculate_fee_for_complex_message_delivery_transaction<RuntimeHelper>(
+	collator_session_key: CollatorSessionKeys<RuntimeHelper::Runtime>,
+	compute_extrinsic_fee: fn(pallet_utility::Call<RuntimeHelper::Runtime>) -> u128,
 ) -> u128
 where
-	Runtime: BasicParachainRuntime
-		+ pallet_bridge_grandpa::Config<
-			GPI,
-			BridgedChain = UnderlyingChainOf<MessageBridgedChain<MB>>,
-		> + pallet_bridge_messages::Config<
-			MPI,
-			InboundPayload = XcmAsPlainPayload,
-			InboundRelayer = bp_runtime::AccountIdOf<MessageBridgedChain<MB>>,
-		> + pallet_utility::Config,
-	GPI: 'static,
-	MPI: 'static,
-	MB: MessageBridge,
-	<MB as MessageBridge>::BridgedChain: Send + Sync + 'static,
-	<MB as MessageBridge>::ThisChain: Send + Sync + 'static,
-	UnderlyingChainOf<MessageBridgedChain<MB>>: bp_runtime::Chain + ChainWithGrandpa,
-	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
-	<Runtime as pallet_bridge_messages::Config<MPI>>::SourceHeaderChain: SourceHeaderChain<
-		MessagesProof = FromBridgedChainMessagesProof<HashOf<MessageBridgedChain<MB>>>,
-	>,
-	bp_runtime::AccountIdOf<MessageBridgedChain<MB>>: From<sp_core::sr25519::Public>,
-	<Runtime as pallet_utility::Config>::RuntimeCall: From<pallet_bridge_grandpa::Call<Runtime, GPI>>
-		+ From<pallet_bridge_messages::Call<Runtime, MPI>>,
+	RuntimeHelper: WithRemoteGrandpaChainHelper,
+	RuntimeHelper::Runtime:
+		pallet_utility::Config<RuntimeCall = RuntimeCallOf<RuntimeHelper::Runtime>>,
+	RuntimeCallOf<RuntimeHelper::Runtime>: From<BridgeGrandpaCall<RuntimeHelper::Runtime, RuntimeHelper::GPI>>
+		+ From<BridgeMessagesCall<RuntimeHelper::Runtime, RuntimeHelper::MPI>>,
+	UnderlyingChainOf<MessageBridgedChain<RuntimeHelper::MB>>: ChainWithGrandpa,
+	<RuntimeHelper::Runtime as BridgeMessagesConfig<RuntimeHelper::MPI>>::SourceHeaderChain:
+		SourceHeaderChain<
+			MessagesProof = FromBridgedChainMessagesProof<
+				HashOf<MessageBridgedChain<RuntimeHelper::MB>>,
+			>,
+		>,
 {
-	run_test::<Runtime, _>(collator_session_key, 1000, vec![], || {
+	run_test::<RuntimeHelper::Runtime, _>(collator_session_key, 1000, vec![], || {
 		// generate bridged relay chain finality, parachain heads and message proofs,
 		// to be submitted by relayer to this chain.
 		//
@@ -330,7 +331,10 @@ where
 		// do not need to have a large message here, because we're charging for every byte of
 		// the message additionally
 		let (relay_chain_header, grandpa_justification, message_proof) =
-			test_data::from_grandpa_chain::make_complex_relayer_delivery_proofs::<MB, ()>(
+			test_data::from_grandpa_chain::make_complex_relayer_delivery_proofs::<
+				RuntimeHelper::MB,
+				(),
+			>(
 				LaneId::default(),
 				vec![xcm::v3::Instruction::<()>::ClearOrigin; 1_024].into(),
 				1,
@@ -341,14 +345,14 @@ where
 		// generate batch call that provides finality for bridged relay and parachains + message
 		// proof
 		let batch = test_data::from_grandpa_chain::make_complex_relayer_delivery_batch::<
-			Runtime,
-			GPI,
-			MPI,
+			RuntimeHelper::Runtime,
+			RuntimeHelper::GPI,
+			RuntimeHelper::MPI,
 		>(
 			relay_chain_header,
 			grandpa_justification,
 			message_proof,
-			Dave.public().into(),
+			helpers::relayer_id_at_bridged_chain::<RuntimeHelper::Runtime, RuntimeHelper::MPI>(),
 		);
 		let estimated_fee = compute_extrinsic_fee(batch);
 
@@ -356,7 +360,7 @@ where
 			target: "bridges::estimate",
 			"Estimate fee: {:?} for single message delivery for runtime: {:?}",
 			estimated_fee,
-			Runtime::Version::get(),
+			<RuntimeHelper::Runtime as frame_system::Config>::Version::get(),
 		);
 
 		estimated_fee
@@ -365,42 +369,30 @@ where
 
 /// Estimates transaction fee for default message confirmation transaction (batched with required
 /// proofs) from bridged GRANDPA chain.
-pub fn can_calculate_fee_for_complex_message_confirmation_transaction<Runtime, GPI, MPI, MB>(
-	collator_session_key: CollatorSessionKeys<Runtime>,
-	compute_extrinsic_fee: fn(pallet_utility::Call<Runtime>) -> u128,
+pub fn can_calculate_fee_for_complex_message_confirmation_transaction<RuntimeHelper>(
+	collator_session_key: CollatorSessionKeys<RuntimeHelper::Runtime>,
+	compute_extrinsic_fee: fn(pallet_utility::Call<RuntimeHelper::Runtime>) -> u128,
 ) -> u128
 where
-	Runtime: BasicParachainRuntime
-		+ pallet_bridge_grandpa::Config<
-			GPI,
-			BridgedChain = UnderlyingChainOf<MessageBridgedChain<MB>>,
-		> + pallet_bridge_messages::Config<MPI, OutboundPayload = XcmAsPlainPayload>
-		+ pallet_utility::Config,
-	GPI: 'static,
-	MPI: 'static,
-	MB: MessageBridge,
-	<MB as MessageBridge>::BridgedChain: Send + Sync + 'static,
-	<MB as MessageBridge>::ThisChain: Send + Sync + 'static,
-	<<MB as MessageBridge>::ThisChain as bp_runtime::Chain>::AccountId: From<AccountId32>,
-	UnderlyingChainOf<MessageBridgedChain<MB>>: ChainWithGrandpa,
-	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
-	<Runtime as frame_system::Config>::AccountId:
-		Into<<<Runtime as frame_system::Config>::RuntimeOrigin as OriginTrait>::AccountId>,
-	<Runtime as frame_system::Config>::AccountId: From<AccountId32>,
-	AccountIdOf<Runtime>: From<sp_core::sr25519::Public>,
-	<Runtime as pallet_bridge_messages::Config<MPI>>::InboundRelayer: From<AccountId32>,
-	<Runtime as pallet_bridge_messages::Config<MPI>>::TargetHeaderChain: TargetHeaderChain<
-		XcmAsPlainPayload,
-		Runtime::AccountId,
-		MessagesDeliveryProof = FromBridgedChainMessagesDeliveryProof<
-			HashOf<UnderlyingChainOf<MessageBridgedChain<MB>>>,
+	RuntimeHelper: WithRemoteGrandpaChainHelper,
+	AccountIdOf<RuntimeHelper::Runtime>: From<AccountId32>,
+	RuntimeHelper::Runtime:
+		pallet_utility::Config<RuntimeCall = RuntimeCallOf<RuntimeHelper::Runtime>>,
+	MessageThisChain<RuntimeHelper::MB>:
+		bp_runtime::Chain<AccountId = AccountIdOf<RuntimeHelper::Runtime>>,
+	RuntimeCallOf<RuntimeHelper::Runtime>: From<BridgeGrandpaCall<RuntimeHelper::Runtime, RuntimeHelper::GPI>>
+		+ From<BridgeMessagesCall<RuntimeHelper::Runtime, RuntimeHelper::MPI>>,
+	UnderlyingChainOf<MessageBridgedChain<RuntimeHelper::MB>>: ChainWithGrandpa,
+	<RuntimeHelper::Runtime as BridgeMessagesConfig<RuntimeHelper::MPI>>::TargetHeaderChain:
+		TargetHeaderChain<
+			XcmAsPlainPayload,
+			AccountIdOf<RuntimeHelper::Runtime>,
+			MessagesDeliveryProof = FromBridgedChainMessagesDeliveryProof<
+				HashOf<UnderlyingChainOf<MessageBridgedChain<RuntimeHelper::MB>>>,
+			>,
 		>,
-	>,
-	<Runtime as pallet_utility::Config>::RuntimeCall: From<pallet_bridge_grandpa::Call<Runtime, GPI>>
-		+ From<pallet_bridge_messages::Call<Runtime, MPI>>,
-	bp_runtime::AccountIdOf<MessageThisChain<MB>>: From<sp_core::sr25519::Public>,
 {
-	run_test::<Runtime, _>(collator_session_key, 1000, vec![], || {
+	run_test::<RuntimeHelper::Runtime, _>(collator_session_key, 1000, vec![], || {
 		// generate bridged relay chain finality, parachain heads and message proofs,
 		// to be submitted by relayer to this chain.
 		let unrewarded_relayers = UnrewardedRelayersState {
@@ -409,19 +401,22 @@ where
 			..Default::default()
 		};
 		let (relay_chain_header, grandpa_justification, message_delivery_proof) =
-			test_data::from_grandpa_chain::make_complex_relayer_confirmation_proofs::<MB, ()>(
+			test_data::from_grandpa_chain::make_complex_relayer_confirmation_proofs::<
+				RuntimeHelper::MB,
+				(),
+			>(
 				LaneId::default(),
 				1u32.into(),
-				Alice.public().into(),
+				AccountId32::from(Alice.public()).into(),
 				unrewarded_relayers.clone(),
 			);
 
 		// generate batch call that provides finality for bridged relay and parachains + message
 		// proof
 		let batch = test_data::from_grandpa_chain::make_complex_relayer_confirmation_batch::<
-			Runtime,
-			GPI,
-			MPI,
+			RuntimeHelper::Runtime,
+			RuntimeHelper::GPI,
+			RuntimeHelper::MPI,
 		>(
 			relay_chain_header,
 			grandpa_justification,
@@ -434,7 +429,7 @@ where
 			target: "bridges::estimate",
 			"Estimate fee: {:?} for single message confirmation for runtime: {:?}",
 			estimated_fee,
-			Runtime::Version::get(),
+			<RuntimeHelper::Runtime as frame_system::Config>::Version::get(),
 		);
 
 		estimated_fee
