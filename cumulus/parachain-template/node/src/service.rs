@@ -59,6 +59,7 @@ type ParachainBackend = TFullBackend<Block>;
 
 type ParachainBlockImport = TParachainBlockImport<Block, Arc<ParachainClient>, ParachainBackend>;
 
+/// Assembly of PartialComponents (enough to run chain ops subcommands)
 pub type Service = PartialComponents<
 	ParachainClient,
 	ParachainBackend,

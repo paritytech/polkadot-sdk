@@ -38,7 +38,8 @@ pub(crate) type FullClient =
 type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 
-type Service = sc_service::PartialComponents<
+/// Assembly of PartialComponents (enough to run chain ops subcommands)
+pub type Service = sc_service::PartialComponents<
 	FullClient,
 	FullBackend,
 	FullSelectChain,

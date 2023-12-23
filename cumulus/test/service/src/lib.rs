@@ -183,6 +183,7 @@ impl RecoveryHandle for FailingRecoveryHandle {
 	}
 }
 
+/// Assembly of PartialComponents (enough to run chain ops subcommands)
 pub type Service = PartialComponents<
 	Client,
 	Backend,
