@@ -1502,28 +1502,18 @@ pub mod migrations {
 	impl coretime::migration::GetLegacyLease<BlockNumber> for GetLegacyLeaseImpl {
 		fn get_parachain_lease_in_blocks(para: ParaId) -> Option<BlockNumber> {
 			let now = frame_system::Pallet::<Runtime>::block_number();
-			let mut leases = slots::Pallet::<Runtime>::lease(para).into_iter();
-			let initial_sum = if let Some(Some(_)) = leases.next() {
-				let (_, progress) =
-					slots::Pallet::<Runtime>::lease_period_index_plus_progress(now)?;
-				LeasePeriod::get().saturating_sub(progress)
-			} else {
-				// The parachain lease did not yet start
-				Zero::zero()
-			};
-			log::trace!(
-				target: "coretime-migration",
-				"Getting lease info for para {:?}:\n LEASE_PERIOD: {:?}, initial_sum: {:?}, number of leases: {:?}",
-				para,
-				LeasePeriod::get(),
-				initial_sum,
-				slots::Pallet::<Runtime>::lease(para).len(),
-			);
-
-			Some(leases.into_iter().fold(initial_sum, |sum, lease| {
-				// If the parachain lease did not yet start, we ignore them by multiplying by `0`.
-				sum + LeasePeriod::get() * lease.map_or(0, |_| 1)
-			}))
+			let leases = slots::Pallet::<Runtime>::lease(para);
+			// Lease not yet started, ignore:
+			if leases.iter().find(|v| v.is_none()).is_some() {
+				return None
+			}
+			let leases_len = leases.len();
+			let (index, _) = slots::Pallet::<Runtime>::lease_period_index(now)?;
+			let leases_start = index.saturating_mul(LeasePeriod::get());
+			if leases_len == 0 {
+				return None
+			}
+			Some(index.saturating_add(lease_len).saturating_mul(LeasePeriod::get()))
 		}
 	}
 
