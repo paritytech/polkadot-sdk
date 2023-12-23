@@ -17,7 +17,11 @@
 
 //! # Balances Pallet
 //!
-//! The Balances pallet provides functionality for handling accounts and balances.
+//! The Balances pallet provides functionality for handling accounts and balances for a single
+//! token. It implements the fungible assets paradigm using a single currency.
+//!
+//! See the [`tokens_in_substrate`] reference docs for more information about the place of
+//! this palet in Substrate.
 //!
 //! - [`Config`]
 //! - [`Call`]
@@ -308,10 +312,14 @@ pub mod pallet {
 
 		/// The maximum number of locks that should exist on an account.
 		/// Not strictly enforced, but used for weight estimation.
+		///
+		/// Use of locks is deprecated in favour of freezes. See `https://github.com/paritytech/substrate/pull/12951/`
 		#[pallet::constant]
 		type MaxLocks: Get<u32>;
 
 		/// The maximum number of named reserves that can exist on an account.
+		///
+		/// Use of reserves is deprecated in favour of holds. See `https://github.com/paritytech/substrate/pull/12951/`
 		#[pallet::constant]
 		type MaxReserves: Get<u32>;
 
@@ -453,6 +461,8 @@ pub mod pallet {
 
 	/// Any liquidity locks on some account balances.
 	/// NOTE: Should only be accessed when setting, changing and freeing a lock.
+	///
+	/// Use of locks is deprecated in favour of freezes. See `https://github.com/paritytech/substrate/pull/12951/`
 	#[pallet::storage]
 	#[pallet::getter(fn locks)]
 	pub type Locks<T: Config<I>, I: 'static = ()> = StorageMap<
@@ -464,6 +474,8 @@ pub mod pallet {
 	>;
 
 	/// Named reserves on some account balances.
+	///
+	/// Use of reserves is deprecated in favour of holds. See `https://github.com/paritytech/substrate/pull/12951/`
 	#[pallet::storage]
 	#[pallet::getter(fn reserves)]
 	pub type Reserves<T: Config<I>, I: 'static = ()> = StorageMap<
