@@ -1507,7 +1507,7 @@ pub mod migrations {
 				return None
 			}
 			// Lease not yet started, ignore:
-			if lease.iter().find(|v| v.is_none()).is_some() {
+			if lease.iter().any(Option::is_none) {
 				return None
 			}
 			let (index, _) =
