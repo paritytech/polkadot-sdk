@@ -571,6 +571,8 @@ pub mod pallet {
 		NotFrozen,
 		/// Callback action resulted in error
 		CallbackFailed,
+		/// The origin account is not the expected
+		BadOrigin,
 	}
 
 	#[pallet::call(weight(<T as Config<I>>::WeightInfo))]
@@ -1069,7 +1071,7 @@ pub mod pallet {
 				ensure!(details.status == AssetStatus::Live, Error::<T, I>::LiveAsset);
 				ensure!(origin == details.owner, Error::<T, I>::NoPermission);
 				if details.owner == owner {
-					return Ok(())
+					return Ok(());
 				}
 
 				let metadata_deposit = Metadata::<T, I>::get(&id).deposit;
@@ -1152,7 +1154,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 			let id: T::AssetId = id.into();
-			Self::do_set_metadata(id, &origin, name, symbol, decimals)
+			Self::do_set_metadata(id, name, symbol, decimals, MetadataRequestOf::Origin(origin))
 		}
 
 		/// Clear the metadata for an asset.
@@ -1209,33 +1211,13 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::ForceOrigin::ensure_origin(origin)?;
 			let id: T::AssetId = id.into();
-
-			let bounded_name: BoundedVec<u8, T::StringLimit> =
-				name.clone().try_into().map_err(|_| Error::<T, I>::BadMetadata)?;
-
-			let bounded_symbol: BoundedVec<u8, T::StringLimit> =
-				symbol.clone().try_into().map_err(|_| Error::<T, I>::BadMetadata)?;
-
-			ensure!(Asset::<T, I>::contains_key(&id), Error::<T, I>::Unknown);
-			Metadata::<T, I>::try_mutate_exists(id.clone(), |metadata| {
-				let deposit = metadata.take().map_or(Zero::zero(), |m| m.deposit);
-				*metadata = Some(AssetMetadata {
-					deposit,
-					name: bounded_name,
-					symbol: bounded_symbol,
-					decimals,
-					is_frozen,
-				});
-
-				Self::deposit_event(Event::MetadataSet {
-					asset_id: id,
-					name,
-					symbol,
-					decimals,
-					is_frozen,
-				});
-				Ok(())
-			})
+			Self::do_set_metadata(
+				id,
+				name,
+				symbol,
+				decimals,
+				MetadataRequestOf::ForceOrigin(is_frozen),
+			)
 		}
 
 		/// Clear the metadata for an asset.
