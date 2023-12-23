@@ -93,7 +93,7 @@
 //! polkadot-sdk is a monorepo containing many crates. When you run a cargo command without
 //! `-p`, you will almost certainly compile crates outside of the scope you are working.
 //!
-//! Instead, you should identify the name of the crate you are working on by checking them `name`
+//! Instead, you should identify the name of the crate you are working on by checking the `name`
 //! field in the closest `Cargo.toml` file. Then, use `-p` with your cargo commands to only compile
 //! that crate.
 //!
