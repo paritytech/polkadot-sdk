@@ -479,7 +479,7 @@ impl<T: frame_system::Config> pallet_broker::WeightInfo for WeightInfo<T> {
 	/// Storage: `Broker::CoreCountInbox` (r:0 w:1)
 	/// Proof: `Broker::CoreCountInbox` (`max_values`: Some(1), `max_size`: Some(2), added: 497, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[0, 1000]`.
-	fn notify_core_count(_n: u32, ) -> Weight {
+	fn notify_core_count() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`

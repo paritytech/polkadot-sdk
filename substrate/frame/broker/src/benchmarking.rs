@@ -886,12 +886,12 @@ mod benches {
 		}
 	}
 	#[benchmark]
-	fn notify_core_count(n: Linear<0, { MAX_CORE_COUNT.into() }>) -> Result<(), BenchmarkError> {
+	fn notify_core_count() -> Result<(), BenchmarkError> {
 		let admin_origin =
 			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
 		#[extrinsic_call]
-		_(admin_origin as T::RuntimeOrigin, n.try_into().unwrap());
+		_(admin_origin as T::RuntimeOrigin, 100);
 
 		assert!(CoreCountInbox::<T>::take().is_some());
 		Ok(())
