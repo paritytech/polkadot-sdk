@@ -37,8 +37,9 @@ use runtime_common::{
 	impls::{
 		LocatableAssetConverter, ToAuthor, VersionedLocatableAsset, VersionedMultiLocationConverter,
 	},
-	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots, BlockHashCount, BlockLength,
-	SlowAdjustingFeeUpdate,
+	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots,
+	traits::Leaser,
+	BlockHashCount, BlockLength, SlowAdjustingFeeUpdate,
 };
 use scale_info::TypeInfo;
 use sp_std::{cmp::Ordering, collections::btree_map::BTreeMap, prelude::*};
@@ -1494,7 +1495,6 @@ pub mod migrations {
 
 	use frame_support::traits::LockIdentifier;
 	use frame_system::pallet_prelude::BlockNumberFor;
-	use sp_arithmetic::traits::Zero;
 	#[cfg(feature = "try-runtime")]
 	use sp_core::crypto::ByteArray;
 
@@ -1502,18 +1502,17 @@ pub mod migrations {
 	impl coretime::migration::GetLegacyLease<BlockNumber> for GetLegacyLeaseImpl {
 		fn get_parachain_lease_in_blocks(para: ParaId) -> Option<BlockNumber> {
 			let now = frame_system::Pallet::<Runtime>::block_number();
-			let leases = slots::Pallet::<Runtime>::lease(para);
+			let lease = slots::Pallet::<Runtime>::lease(para);
+			if lease.is_empty() {
+				return None
+			}
 			// Lease not yet started, ignore:
-			if leases.iter().find(|v| v.is_none()).is_some() {
+			if lease.iter().find(|v| v.is_none()).is_some() {
 				return None
 			}
-			let leases_len = leases.len();
-			let (index, _) = slots::Pallet::<Runtime>::lease_period_index(now)?;
-			let leases_start = index.saturating_mul(LeasePeriod::get());
-			if leases_len == 0 {
-				return None
-			}
-			Some(index.saturating_add(lease_len).saturating_mul(LeasePeriod::get()))
+			let (index, _) =
+				<slots::Pallet<Runtime> as Leaser<BlockNumber>>::lease_period_index(now)?;
+			Some(index.saturating_add(lease.len() as u32).saturating_mul(LeasePeriod::get()))
 		}
 	}
 
