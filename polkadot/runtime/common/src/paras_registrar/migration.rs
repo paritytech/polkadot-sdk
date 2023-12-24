@@ -24,7 +24,7 @@ pub struct ParaInfoV1<Account, Balance> {
 	locked: Option<bool>,
 }
 
-pub struct VersionUncheckedMigrateToV2<T>(sp_std::marker::PhantomData<(T)>);
+pub struct VersionUncheckedMigrateToV2<T>(sp_std::marker::PhantomData<T>);
 impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateToV2<T> {
 	fn on_runtime_upgrade() -> Weight {
 		let mut count = 0u64;
