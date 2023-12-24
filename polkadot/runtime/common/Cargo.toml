@@ -102,6 +102,7 @@ std = [
 	"pallet-vesting/std",
 	"pallet-xcm-benchmarks/std",
 	"parity-scale-codec/std",
+	"polkadot-parachain-primitives/std",
 	"primitives/std",
 	"runtime-parachains/std",
 	"rustc-hex/std",
