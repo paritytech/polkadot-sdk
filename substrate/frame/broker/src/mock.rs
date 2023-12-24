@@ -70,7 +70,6 @@ parameter_types! {
 	pub static CoretimeWorkplan: BTreeMap<(u32, CoreIndex), Vec<(CoreAssignment, PartsOf57600)>> = Default::default();
 	pub static CoretimeUsage: BTreeMap<CoreIndex, Vec<(CoreAssignment, PartsOf57600)>> = Default::default();
 	pub static CoretimeInPool: CoreMaskBitCount = 0;
-	pub static NotifyCoreCount: Vec<u16> = Default::default();
 	pub static NotifyRevenueInfo: Vec<(u32, u64)> = Default::default();
 }
 
@@ -80,7 +79,7 @@ impl CoretimeInterface for TestCoretimeProvider {
 	type Balance = u64;
 	type RealyChainBlockNumberProvider = System;
 	fn request_core_count(count: CoreIndex) {
-		NotifyCoreCount::mutate(|s| s.insert(0, count));
+		CoreCountInbox::<Test>::put(count);
 	}
 	fn request_revenue_info_at(when: RCBlockNumberOf<Self>) {
 		if when > RCBlockNumberProviderOf::<Self>::current_block_number() {
@@ -126,15 +125,8 @@ impl CoretimeInterface for TestCoretimeProvider {
 		);
 		CoretimeTrace::mutate(|v| v.push(item));
 	}
-	fn check_notify_core_count() -> Option<u16> {
-		NotifyCoreCount::mutate(|s| s.pop())
-	}
 	fn check_notify_revenue_info() -> Option<(RCBlockNumberOf<Self>, Self::Balance)> {
 		NotifyRevenueInfo::mutate(|s| s.pop()).map(|v| (v.0 as _, v.1))
-	}
-	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_notify_core_count(count: u16) {
-		NotifyCoreCount::mutate(|s| s.insert(0, count));
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_notify_revenue_info(when: RCBlockNumberOf<Self>, revenue: Self::Balance) {

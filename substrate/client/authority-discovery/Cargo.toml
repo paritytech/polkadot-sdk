@@ -24,7 +24,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 futures = "0.3.21"
 futures-timer = "3.0.1"
 ip_network = "0.4.1"
-libp2p = { version = "0.51.3", features = ["ed25519", "kad"] }
+libp2p = { version = "0.51.4", features = ["ed25519", "kad"] }
 multihash = { version = "0.18.1", default-features = false, features = [
 	"sha2",
 	"std",

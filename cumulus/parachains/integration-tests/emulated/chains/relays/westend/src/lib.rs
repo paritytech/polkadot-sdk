@@ -39,6 +39,8 @@ decl_test_relay_chains! {
 			Treasury: westend_runtime::Treasury,
 			AssetRate: westend_runtime::AssetRate,
 			Hrmp: westend_runtime::Hrmp,
+			Identity: westend_runtime::Identity,
+			IdentityMigrator: westend_runtime::IdentityMigrator,
 		}
 	},
 }
