@@ -24,12 +24,8 @@ pub struct ParaInfoV1<Account, Balance> {
 	locked: Option<bool>,
 }
 
-pub struct VersionUncheckedMigrateToV2<T, UnlockParaIds>(
-	sp_std::marker::PhantomData<(T, UnlockParaIds)>,
-);
-impl<T: Config, UnlockParaIds: Contains<ParaId>> OnRuntimeUpgrade
-	for VersionUncheckedMigrateToV2<T, UnlockParaIds>
-{
+pub struct VersionUncheckedMigrateToV2<T>(sp_std::marker::PhantomData<(T)>);
+impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateToV2<T> {
 	fn on_runtime_upgrade() -> Weight {
 		let mut count = 0u64;
 		Paras::<T>::translate::<ParaInfoV1<T::AccountId, BalanceOf<T>>, _>(|_key, v1| {
@@ -69,10 +65,10 @@ impl<T: Config, UnlockParaIds: Contains<ParaId>> OnRuntimeUpgrade
 	}
 }
 
-pub type MigrateToV2<T, UnlockParaIds> = frame_support::migrations::VersionedMigration<
+pub type MigrateToV2<T> = frame_support::migrations::VersionedMigration<
 	1,
 	2,
-	VersionUncheckedMigrateToV2<T, UnlockParaIds>,
+	VersionUncheckedMigrateToV2<T>,
 	super::Pallet<T>,
 	<T as frame_system::Config>::DbWeight,
 >;
