@@ -136,26 +136,13 @@ async fn collect_relay_storage_proof(
 		.ok()
 }
 
-/// Extension trait for [`ParachainInherentData`].
-///
-/// Provides the [`create_at`](Self::create_at) function for constructing a
-/// [`ParachainInherentData`] at a particular relay parent.
-#[async_trait::async_trait]
-pub trait ParachainInherentDataExt {
+pub struct ParachainInherentDataProvider;
+
+impl ParachainInherentDataProvider {
 	/// Create the [`ParachainInherentData`] at the given `relay_parent`.
 	///
 	/// Returns `None` if the creation failed.
-	async fn create_at(
-		relay_parent: PHash,
-		relay_chain_interface: &impl RelayChainInterface,
-		validation_data: &PersistedValidationData,
-		para_id: ParaId,
-	) -> Option<ParachainInherentData>;
-}
-
-#[async_trait::async_trait]
-impl ParachainInherentDataExt for ParachainInherentData {
-	async fn create_at(
+	pub async fn create_at(
 		relay_parent: PHash,
 		relay_chain_interface: &impl RelayChainInterface,
 		validation_data: &PersistedValidationData,
