@@ -1991,16 +1991,10 @@ mod benchmarking {
 			// Actually finish registration process
 			next_scheduled_session::<T>();
 
-			let location: MultiLocation = (Parent, Parachain(LOWEST_PUBLIC_ID.into())).into();
-			let sovereign_account =
-				<T as Config>::SovereignAccountOf::convert_location(&location)
-					.unwrap();
-			T::Currency::make_free_balance_be(&sovereign_account, BalanceOf::<T>::max_value());
-
-			let para_origin: runtime_parachains::Origin = u32::from(LOWEST_PUBLIC_ID).into();
-		}: _(para_origin, para)
+			let caller: T::AccountId = whitelisted_caller();
+		}: _(RawOrigin::Signed(caller.clone()), para)
 		verify {
-			assert_eq!(Paras::<T>::get(para).unwrap().billing_account, Some(sovereign_account));
+			assert_eq!(Paras::<T>::get(para).unwrap().billing_account, Some(caller));
 		}
 
 		force_set_parachain_billing_account {
@@ -2008,14 +2002,10 @@ mod benchmarking {
 			// Actually finish registration process
 			next_scheduled_session::<T>();
 
-			let location: MultiLocation = (Parent, Parachain(LOWEST_PUBLIC_ID.into())).into();
-			let sovereign_account =
-				<T as Config>::SovereignAccountOf::convert_location(&location)
-					.unwrap();
-			T::Currency::make_free_balance_be(&sovereign_account, BalanceOf::<T>::max_value());
-		}: _(RawOrigin::Root, para, sovereign_account.clone())
+			let caller: T::AccountId = whitelisted_caller();
+		}: _(RawOrigin::Root, para, caller.clone())
 		verify {
-			assert_eq!(Paras::<T>::get(para).unwrap().billing_account, Some(sovereign_account));
+			assert_eq!(Paras::<T>::get(para).unwrap().billing_account, Some(caller));
 		}
 
 		impl_benchmark_test_suite!(
