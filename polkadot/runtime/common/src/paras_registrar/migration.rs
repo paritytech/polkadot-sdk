@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-use frame_support::traits::{Contains, OnRuntimeUpgrade};
+use frame_support::traits::OnRuntimeUpgrade;
 
 #[derive(Encode, Decode)]
 pub struct ParaInfoV1<Account, Balance> {
