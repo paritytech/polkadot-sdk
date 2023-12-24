@@ -61,6 +61,25 @@ pub struct ParachainInherentData {
 	pub horizontal_messages: BTreeMap<ParaId, Vec<InboundHrmpMessage>>,
 }
 
+#[cfg(feature = "std")]
+#[async_trait::async_trait]
+impl sp_inherents::InherentDataProvider for ParachainInherentData {
+	async fn provide_inherent_data(
+		&self,
+		inherent_data: &mut sp_inherents::InherentData,
+	) -> Result<(), sp_inherents::Error> {
+		inherent_data.put_data(INHERENT_IDENTIFIER, &self)
+	}
+
+	async fn try_handle_error(
+		&self,
+		_: &sp_inherents::InherentIdentifier,
+		_: &[u8],
+	) -> Option<Result<(), sp_inherents::Error>> {
+		None
+	}
+}
+
 /// This struct provides ability to extend a message queue chain (MQC) and compute a new head.
 ///
 /// MQC is an instance of a [hash chain] applied to a message queue. Using a hash chain it's
@@ -77,6 +96,11 @@ pub struct ParachainInherentData {
 pub struct MessageQueueChain(RelayHash);
 
 impl MessageQueueChain {
+	/// Create a new instance initialized to `hash`.
+	pub fn new(hash: RelayHash) -> Self {
+		Self(hash)
+	}
+
 	/// Extend the hash chain with an HRMP message. This method should be used only when
 	/// this chain is tracking HRMP.
 	pub fn extend_hrmp(&mut self, horizontal_message: &InboundHrmpMessage) -> &mut Self {
