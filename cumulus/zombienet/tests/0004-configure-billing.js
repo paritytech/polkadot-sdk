@@ -6,17 +6,17 @@ async function run(nodeName, networkInfo, _jsArgs) {
 
   await zombie.util.cryptoWaitReady();
 
-  // account to submit tx
+  // The billing account:
   const keyring = new zombie.Keyring({ type: "sr25519" });
-  const charlie = keyring.addFromUri("//Charlie");
+  const alice = keyring.addFromUri("//Alice");
 
   const paraId = 2000;
   const setBillingAccountCall = 
-    api.tx.registrar.forceSetParachainBillingAccount(paraId, charlie.address);
+    api.tx.registrar.forceSetParachainBillingAccount(paraId, alice.address);
   const sudoCall = api.tx.sudo.sudo(setBillingAccountCall);
 
   await new Promise(async (resolve, reject) => {
-    const unsub = await sudoCall.signAndSend(charlie, (result) => {
+    const unsub = await sudoCall.signAndSend(alice, (result) => {
       console.log(`Current status is ${result.status}`);
       if (result.status.isInBlock) {
         console.log(

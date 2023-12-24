@@ -6,7 +6,7 @@ async function run(nodeName, networkInfo, _jsArgs) {
 
   await zombie.util.cryptoWaitReady();
 
-  // account to submit tx
+  // The billing account:
   const keyring = new zombie.Keyring({ type: "sr25519" });
   const alice = keyring.addFromUri("//Alice");
 
