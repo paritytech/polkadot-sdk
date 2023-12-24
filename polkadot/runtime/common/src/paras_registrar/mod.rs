@@ -152,7 +152,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	/// The current storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
