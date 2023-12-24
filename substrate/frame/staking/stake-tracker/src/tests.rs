@@ -349,7 +349,7 @@ fn on_nominator_remove_works() {
 }
 
 #[test]
-#[should_panic = "Defensive failure has been triggered!: NodeNotFound: \"the nominator exists in the list as per the contract with staking; qed.\""]
+#[should_panic = "Defensive failure has been triggered!: NodeNotFound: \"the nominator exists in the list as per the contract with staking.\""]
 fn on_nominator_remove_defensive_works() {
 	ExtBuilder::default().populate_lists().build_and_execute(|| {
 		assert!(VoterBagsList::contains(&1));
@@ -393,7 +393,8 @@ mod staking_integration {
 
 			chill_staker(1);
 			assert_eq!(StakingMock::status(&1), Ok(StakerStatus::Idle));
-			assert!(VoterBagsList::contains(&1));
+			// a chilled nominator is removed from the voter list right away.
+			assert!(!VoterBagsList::contains(&1));
 
 			remove_staker(1);
 			assert!(StakingMock::status(&1).is_err());
@@ -401,11 +402,13 @@ mod staking_integration {
 
 			chill_staker(2);
 			assert_eq!(StakingMock::status(&2), Ok(StakerStatus::Idle));
+			// a chilled validator is kepts in the target list.
 			assert!(TargetBagsList::contains(&2));
-			assert!(VoterBagsList::contains(&2));
+			assert!(!VoterBagsList::contains(&2));
 
 			remove_staker(2);
 			assert!(StakingMock::status(&2).is_err());
+			// a chilled validator is kepts in the target list if its score is 0.
 			assert!(!TargetBagsList::contains(&2));
 			assert!(!VoterBagsList::contains(&2));
 		})
@@ -446,6 +449,7 @@ mod staking_integration {
 		ExtBuilder::default().build_and_execute(|| {
 			add_nominator(1, 100);
 			assert!(VoterBagsList::contains(&1));
+
 			remove_staker(1);
 			assert!(!VoterBagsList::contains(&1));
 

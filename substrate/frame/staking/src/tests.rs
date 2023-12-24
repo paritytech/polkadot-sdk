@@ -5030,7 +5030,8 @@ mod sorted_list_provider_integration {
 
 			// stash 42 chills, but remains bonded. Thus it is in idle state.
 			assert_ok!(Staking::chill(RuntimeOrigin::signed(42)));
-			assert_eq!(VoterBagsList::contains(&42), true);
+			// idle nominators are removed from the voter list.
+			assert_eq!(!VoterBagsList::contains(&42), true);
 			assert!(<Bonded<Test>>::get(&42).is_some());
 			assert_ok!(<StakingLedger<Test>>::get(StakingAccount::Stash(42)));
 			assert_eq!(Staking::status(&42), Ok(StakerStatus::Idle));
@@ -5084,10 +5085,10 @@ mod sorted_list_provider_integration {
 			assert_eq!(VoterBagsList::score(&42), 20);
 			assert_eq!(TargetBagsList::score(&42), 20);
 
-			// stash 42 chills, thus it should be part of the voter and target bags list but with
-			// `Idle` status.
+			// stash 42 chills, thus it should be part of the target bags list but not in the voter
+			// list. And it is `Idle` status.
 			assert_ok!(Staking::chill(RuntimeOrigin::signed(42)));
-			assert!(VoterBagsList::contains(&42));
+			assert!(!VoterBagsList::contains(&42));
 			assert!(TargetBagsList::contains(&42));
 			assert_eq!(Staking::status(&42), Ok(StakerStatus::Idle));
 			// the target score of 42 is 0, since it is chilled and it has no nominations.
@@ -7159,6 +7160,14 @@ mod stake_tracker {
 					BagsEvent::ScoreUpdated { who: 11, new_score: 100 }
 				]
 			);
+
+			// since 1 was a nominator and it is chilled, it has been removed from the voter list.
+			assert!(!VoterBagsList::contains(&1));
+			assert_eq!(Staking::status(&1), Ok(StakerStatus::Idle));
+
+			// killing the stash updates the staker's status.
+			assert_ok!(Staking::kill_stash(&1, 0));
+			assert!(Staking::status(&1).is_err());
 		})
 	}
 

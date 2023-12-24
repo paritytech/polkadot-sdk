@@ -329,7 +329,6 @@ impl<T: Config> Pallet<T> {
 		let chilled_as_validator = Self::do_chill_validator(stash);
 		let chilled_as_nominator = Self::do_chill_nominator(stash);
 		if chilled_as_validator || chilled_as_nominator {
-			debug_assert!(T::VoterList::contains(stash) || T::TargetList::contains(stash));
 			debug_assert_eq!(Self::status(stash), Ok(StakerStatus::Idle));
 
 			Self::deposit_event(Event::<T>::Chilled { stash: stash.clone() });
@@ -847,9 +846,7 @@ impl<T: Config> Pallet<T> {
 		let mut nominators_taken = 0u32;
 		let mut min_active_stake = u64::MAX;
 
-		// voter list also contains chilled/idle voters, filter those.
-		let mut sorted_voters =
-			T::VoterList::iter().filter(|v| Self::status(&v) != Ok(StakerStatus::Idle));
+		let mut sorted_voters = T::VoterList::iter();
 		while all_voters.len() < final_predicted_len as usize &&
 			voters_seen < (NPOS_MAX_ITERATIONS_COEFFICIENT * final_predicted_len as u32)
 		{

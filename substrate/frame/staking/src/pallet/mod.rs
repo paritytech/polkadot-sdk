@@ -38,7 +38,8 @@ use sp_runtime::{
 
 use sp_staking::{
 	EraIndex, OnStakingUpdate, Page, SessionIndex,
-	StakingAccount::{self, Controller, Stash}, StakingInterface,
+	StakingAccount::{self, Controller, Stash},
+	StakingInterface,
 };
 use sp_std::prelude::*;
 
@@ -222,21 +223,20 @@ pub mod pallet {
 		/// After the threshold is reached a new era will be forced.
 		type OffendingValidatorsThreshold: Get<Perbill>;
 
-		/// Something that provides a best-effort sorted list of voters (aka electing and chilled
-		/// nominators), used for NPoS election.
+		/// Something that provides a best-effort sorted list of voters (aka electing nominators),
+		/// used for NPoS election.
 		///
 		/// The changes to nominators are reported to this. Moreover, each validator's self-vote is
 		/// also reported as one independent vote.
 		///
-		/// Voters will be removed from this list when their ledger is killed. Otherwise, the voter
-		/// is kept in this list, even when it is chilled.
+		/// Voters will be removed from this list when their ledger is killed or the nominator is
+		/// chilled.
 		///
 		/// To keep the load off the chain as much as possible, changes made to the staked amount
 		/// via rewards and slashes are not reported and thus need to be manually fixed by the
 		/// staker. In case of `bags-list`, this always means using `rebag` and `putInFrontOf`.
 		///
-		/// Invariant: what comes out of this list will always be a nominator OR a chilled
-		/// nominator.
+		/// Invariant: what comes out of this list will always be an active nominator.
 		type VoterList: SortedListProvider<Self::AccountId, Score = VoteWeight>;
 
 		/// Something that provides a sorted list of targets (aka electable and chilled
@@ -246,8 +246,9 @@ pub mod pallet {
 		/// [`Self::EventListeners`]. The target(s) approval stake in the list should be updated in
 		/// any of these cases:
 		/// 1. The stake of a validator or nominator is updated.
-		/// 2. The nominations of a voter are updated.
-		/// 3. A nominator or validator ledger is removed from the staking system.
+		/// 2. A nominator or validator is chilled.
+		/// 3. The nominations of a voter are updated.
+		/// 4. A nominator or validator ledger is removed from the staking system.
 		///
 		/// Unlike `VoterList`, the values in this list are always kept up to date with both the
 		/// voter and target ledger's state at all the time (even upon rewards, slashes, etc) and
@@ -257,6 +258,9 @@ pub mod pallet {
 		/// approval voting must be kept up to date. In case a chilled validator re-validates their
 		/// intention to be a validator again, their target score is up to date with the nominations
 		/// in the system.
+		///
+		/// A target is removed from the list IFF its approval score is zero. This means that the
+		/// validator must be unbonded *AND* no staker is nominating it.
 		type TargetList: SortedListProvider<Self::AccountId, Score = BalanceOf<Self>>;
 
 		/// The maximum number of `unlocking` chunks a [`StakingLedger`] can
@@ -1223,7 +1227,9 @@ pub mod pallet {
 					n.and_then(|n| {
 						// a good target nomination must be a valiator (active or idle). The
 						// validator must not be blocked.
-						if Self::status(&n).is_ok() && (old.contains(&n) || !Validators::<T>::get(&n).blocked) {
+						if Self::status(&n).is_ok() &&
+							(old.contains(&n) || !Validators::<T>::get(&n).blocked)
+						{
 							Ok(n)
 						} else {
 							Err(Error::<T>::BadTarget.into())

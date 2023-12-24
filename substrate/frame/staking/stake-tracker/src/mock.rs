@@ -393,9 +393,10 @@ pub(crate) fn remove_staker(who: AccountId) {
 			<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_validator_remove(&who);
 			TestValidators::mutate(|v| v.remove(&who));
 		},
-		Ok(StakerStatus::Idle) => {
-			<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_validator_remove(&who);
-		},
+		Ok(StakerStatus::Idle) =>
+			if TargetBagsList::contains(&who) {
+				<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_validator_remove(&who);
+			},
 		_ => {},
 	}
 

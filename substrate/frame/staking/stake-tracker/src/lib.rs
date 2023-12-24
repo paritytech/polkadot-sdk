@@ -17,8 +17,8 @@
 
 //! # Stake Tracker Pallet
 //!
-//! The stake-tracker pallet is responsible to keep track of stake and approval voting of voters and
-//! targets in the staking system.
+//! The stake-tracker pallet is responsible to keep track of the voter's stake and target's approval
+//! voting in the staking system.
 //!
 //! ## Overview
 //!
@@ -33,7 +33,7 @@
 //! The [`OnStakingUpdate`] implementation aims at achieving the following goals:
 //!
 //! * The [`Config::TargetList`] keeps a sorted list of validators, sorted by approvals
-//! (which include self-vote and nominations).
+//! (which include self-vote and nominations' stake).
 //! * The [`Config::VoterList`] keeps a semi-sorted list of voters, loosely sorted by bonded stake.
 //! This pallet does nothing to ensure that the voter list sorting is correct.
 //! * The [`Config::TargetList`] sorting must be *always* kept up to date, even in the event of new
@@ -43,17 +43,33 @@
 //! Note that from the POV of this pallet, all events will result in one or multiple updates to
 //! [`Config::VoterList`] and/or [`Config::TargetList`] state. If a set of staking updates require
 //! too much weight to process (e.g. at nominator's rewards payout or at nominator's slashes), the
-//! event emitter should handle that in some way (e.g. buffering events).
+//! event emitter should handle that in some way (e.g. buffering events and implementing a
+//! multi-block event emitter).
+//!
+//! ## Staker status and list invariants
+//!
+//! There are a few list invariants that depend on the staker's (nominator or validator) state, as
+//! exposed by the [`Config::Staking`] interface:
+//!
+//! * A [`sp_staking::StakerStatus::Nominator`] is part of the voter list and its self-stake is the
+//! voter list's score.
+//! * A [`sp_staking::StakerStatus::Validator`] is part of both voter and target list. And its
+//! approvals score (nominations + self-stake) is kept up to date as the target list's score.
+//! * A [`sp_staking::StakerStatus::Idle`] may have a target list's score while other stakers
+//!   nominate the idle validator.
+//! * A staker which is not recognized by staking (i.e. not bonded) may still have an associated
+//! target list score, in case there are other nominators nominating it. The list's node will
+//! automatically be removed onced all the voters stop nominating the unbonded account.
 //!
 //! ## Domain-specific consideration on [`Config::VoterList`] and [`Config::TargetList`]
 //!
 //! In the context of Polkadot's staking system, both the voter and target lists will be implemented
-//! by a bags-list pallet, which implements the `SortedListProvider` trait.
+//! by a bags-list pallet, which implements the
+//! [`frame_election_provider_support::SortedListProvider`] trait.
 //!
 //! Note that the score provider of the target's bags-list is the list itself. This, coupled with
-//! the fact that the target list sorting must be always up to date results in requiring this
-//! pallet to ensure at all times that the score of the targets in the `TargetList` is *always* kept
-//! up to date.
+//! the fact that the target list sorting must be always up to date, makes this pallet resposible
+//! for ensuring that the score of the targets in the `TargetList` is *always* kept up to date.
 //!
 //! ## Event emitter ordering and staking ledger state updates
 //!
@@ -180,7 +196,8 @@ pub mod pallet {
 			.into()
 		}
 
-		/// Converts an `ExtendedBalance` back to the staking interface's balance.
+		/// Converts an [`sp_npos_elections::ExtendedBalance`] back to the staking interface's
+		/// balance.
 		pub(crate) fn to_currency(
 			extended: ExtendedBalance,
 		) -> <T::Staking as StakingInterface>::Balance {
@@ -196,8 +213,8 @@ pub mod pallet {
 			who: &T::AccountId,
 			imbalance: StakeImbalance<ExtendedBalance>,
 		) {
-			// there may be nominators who nominate a non-existant validator. if that's the case,
-			// move on. This is an expected behaviour, so no defensive.
+			// there may be nominators who nominate a validator that is not bonded anymore. if
+			// that's the case, move on. This is an expected behaviour, so no defensive.
 			if !T::TargetList::contains(who) {
 				log!(debug, "update_score of {:?}, which is not a target", who);
 				return
@@ -212,18 +229,8 @@ pub mod pallet {
 				},
 				StakeImbalance::Negative(imbalance) => {
 					if let Ok(current_score) = T::TargetList::get_score(who) {
-						// if decreasing the imbalance makes the score lower than 0, the node will
-						// be removed from the list when calling `L::on_decrease`, which is not
-						// expected. Instead, we call `L::on_update` to set the new score that
-						// defensively saturates to 0. The node will be removed when `on_*_remove`
-						// is called.
 						let balance =
 							Self::to_vote_extended(current_score).saturating_sub(imbalance);
-
-						let _ = T::TargetList::on_update(who, Self::to_currency(balance))
-							.defensive_proof(
-								"staker exists in the list as per the check above; qed.",
-							);
 
 						// the target is removed from the list IFF score is 0 and the ledger is not
 						// bonded in staking.
@@ -231,6 +238,12 @@ pub mod pallet {
 							let _ = T::TargetList::on_remove(who).defensive_proof(
 								"staker exists in the list as per the check above; qed.",
 							);
+						} else {
+							// update the target score without removing it.
+							let _ = T::TargetList::on_update(who, Self::to_currency(balance))
+								.defensive_proof(
+									"staker exists in the list as per the check above; qed.",
+								);
 						}
 					} else {
 						defensive!("unexpected: unable to fetch score from staking interface of an existent staker");
@@ -241,7 +254,7 @@ pub mod pallet {
 
 		#[cfg(any(test, feature = "try-runtime"))]
 		pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
-			// Invariant 1:
+			// Invariant.
 			// * The target score in the target list is the sum of self-stake and all stake from
 			//   nominations.
 			// * All valid validators are part of the target list.
@@ -406,7 +419,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 
 	/// Fired when a validator becomes idle (i.e. chilling).
 	///
-	/// While chilled, the target node remains in the grget list.
+	/// While chilled, the target node remains in the target list.
 	///
 	/// While idling, the target node is not removed from the target list but its score is updated.
 	fn on_validator_idle(who: &T::AccountId) {
@@ -419,35 +432,32 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		log!(debug, "on_validator_idle: {:?}, decreased self-stake {}", who, self_stake);
 	}
 
-	/// Fired when someone removes their intention to validate and is completely removed from the
-	/// staking state.
+	/// Fired when someone removes their intention to validate and has been completely removed from
+	/// the staking state.
 	///
 	/// The node is removed from the target list IFF its score is 0.
 	fn on_validator_remove(who: &T::AccountId) {
 		log!(debug, "on_validator_remove: {:?}", who,);
 
 		// validator must be idle before removing completely.
-		if let Ok(status) = T::Staking::status(who) {
-			if status != StakerStatus::Idle {
-				Self::on_validator_idle(who);
-			}
-		} else {
-			defensive!("on_validator_remove called on a non-existing target.");
-			return
-		}
+		match T::Staking::status(who) {
+			Ok(StakerStatus::Idle) => (), // proceed
+			Ok(StakerStatus::Validator) => Self::on_validator_idle(who),
+			Ok(StakerStatus::Nominator(_)) => {
+				defensive!("on_validator_remove called on a nominator, unexpected.");
+				return
+			},
+			Err(_) => {
+				defensive!("on_validator_remove called on a non-existing target.");
+				return
+			},
+		};
 
 		// remove from target list IIF score is zero.
-		match T::TargetList::get_score(&who) {
-			Ok(score) =>
-				if score.is_zero() {
-					let _ = T::TargetList::on_remove(&who)
-						.expect("target exists as per the check above; qed.");
-				},
-			Err(_) => (), // nothing to see here.
+		if T::TargetList::get_score(&who).unwrap_or_default().is_zero() {
+			let _ =
+				T::TargetList::on_remove(&who).expect("target exists as per the check above; qed.");
 		}
-
-		// validator is a nominator too.
-		Self::on_nominator_remove(who, vec![]);
 	}
 
 	/// Fired when someone sets their intention to nominate.
@@ -480,11 +490,17 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 
 	/// Fired when a nominator becomes idle (i.e. chilling).
 	///
-	/// While chilled, the voter node remains in the voter list.
+	/// From the `T::VotertList` PoV, chilling a nominator is the same as removing it.
 	///
 	/// Note: it is assumed that `who`'s staking ledger and `nominations` are up to date before
 	/// calling this method.
 	fn on_nominator_idle(who: &T::AccountId, nominations: Vec<T::AccountId>) {
+		Self::on_nominator_remove(who, nominations);
+	}
+
+	/// Fired when someone removes their intention to nominate and is completely removed from the
+	/// staking state.
+	fn on_nominator_remove(who: &T::AccountId, nominations: Vec<T::AccountId>) {
 		let nominator_vote = Self::weight_of(Self::active_vote_of(who));
 
 		log!(
@@ -500,21 +516,9 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		for t in nominations.iter() {
 			Self::update_target_score(&t, StakeImbalance::Negative(nominator_vote.into()))
 		}
-	}
 
-	/// Fired when someone removes their intention to nominate and is completely removed from the
-	/// staking state.
-	fn on_nominator_remove(who: &T::AccountId, nominations: Vec<T::AccountId>) {
-		log!(debug, "on_nominator_remove: {:?}, impacting {:?}", who, nominations);
-
-		// nominator must be idle before removing completely.
-		if T::Staking::status(who).unwrap_or(StakerStatus::Idle) != StakerStatus::Idle {
-			Self::on_nominator_idle(who, nominations);
-		}
-
-		let _ = T::VoterList::on_remove(&who).defensive_proof(
-			"the nominator exists in the list as per the contract with staking; qed.",
-		);
+		let _ = T::VoterList::on_remove(&who)
+			.defensive_proof("the nominator exists in the list as per the contract with staking.");
 	}
 
 	/// Fired when an existing nominator updates their nominations.
