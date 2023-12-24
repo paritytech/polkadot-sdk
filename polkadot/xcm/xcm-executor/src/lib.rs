@@ -24,7 +24,6 @@ use frame_support::{
 use parity_scale_codec::{Decode, Encode};
 use sp_core::defer;
 use sp_io::hashing::blake2_128;
-use sp_runtime::traits::Dispatchable;
 use sp_std::{fmt::Debug, marker::PhantomData, prelude::*};
 use sp_weights::Weight;
 use xcm::latest::prelude::*;
