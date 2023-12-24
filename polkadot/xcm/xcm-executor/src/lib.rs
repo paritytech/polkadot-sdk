@@ -181,10 +181,7 @@ impl<C> PreparedMessage for WeighedMessage<C> {
 	}
 }
 
-impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Config>
-where
-	<Config::RuntimeCall as Dispatchable>::RuntimeOrigin: Debug,
-{
+impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Config> {
 	type Prepared = WeighedMessage<Config::RuntimeCall>;
 	fn prepare(
 		mut message: Xcm<Config::RuntimeCall>,
@@ -495,12 +492,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		assets.reanchor(dest, reanchor_context, maybe_failed_bin);
 		assets.into_assets_iter().collect::<Vec<_>>().into()
 	}
-}
 
-impl<Config: config::Config> XcmExecutor<Config>
-where
-	<Config::RuntimeCall as Dispatchable>::RuntimeOrigin: Debug,
-{
 	#[cfg(feature = "runtime-benchmarks")]
 	pub fn bench_process(&mut self, xcm: Xcm<Config::RuntimeCall>) -> Result<(), ExecutorError> {
 		self.process(xcm)
