@@ -12,7 +12,7 @@ async function run(nodeName, networkInfo, _jsArgs) {
 
   const paraId = 100;
   const setBillingAccountCall = 
-    api.tx.registrar.setParachainBillingAccountToSelf(paraId);
+    api.tx.registrar.forceSetParachainBillingAccount(paraId, alice.address);
   const sudoCall = api.tx.sudo.sudo(setBillingAccountCall);
 
   await new Promise(async (resolve, reject) => {
