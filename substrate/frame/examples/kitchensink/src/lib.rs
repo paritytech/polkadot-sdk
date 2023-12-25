@@ -42,6 +42,8 @@ use sp_runtime::TryRuntimeError;
 pub mod weights;
 pub use weights::*;
 
+use sp_runtime::traits::Hash;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -90,7 +92,9 @@ pub mod pallet {
 		type RuntimeCheckpointedCallData: TryInto<CheckpointedCallData<Self>>;
 
 		type RuntimeOrigin: IsType<<Self as frame_system::Config>::RuntimeOrigin>
-			+ OriginTrait<CheckpointedCallData = <Self as Config>::RuntimeCheckpointedCallData>;
+			+ OriginTrait<CheckpointedCallData = <Self as Config>::RuntimeCheckpointedCallData>
+			+ Clone
+			+ Into<Result<frame_system::RawOrigin<Self::AccountId>, <Self as Config>::RuntimeOrigin>>;
 	}
 
 	/// Allows you to define some extra constants to be added into constant metadata.
@@ -181,6 +185,9 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type AlternativeSyntax2<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, u32>;
 
+	#[pallet::storage]
+	pub type Tickets<T: Config> = StorageMap<_, Blake2_128Concat, T::Hash, bool>;
+
 	/// The genesis config type. This allows the pallet to define how it should initialized upon
 	/// genesis.
 	///
@@ -211,23 +218,36 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::set_foo_benchmark())]
-		/// Marks this call as feeless if `new_foo` is zero.
-		#[pallet::feeless_if(|_origin: &OriginFor<T>, new_foo: &u32, _other_compact: &u128| -> bool {
-			*new_foo == 0
-		})]
-		#[pallet::feeless_on_checkpoint]
 		pub fn set_foo(
-			origin: OriginFor<T>,
+			_origin: OriginFor<T>,
 			new_foo: u32,
 			#[pallet::compact] _other_compact: u128,
 		) -> DispatchResult {
-			let origin = <T as Config>::RuntimeOrigin::from(origin);
-			let _o: u32 = #[pallet::checkpoint_with_refs] {
-				Ok(2u32)
-			}?;
-
 			Foo::<T>::set(Some(new_foo));
 
+			Ok(())
+		}
+
+		#[pallet::call_index(1)]
+		#[pallet::weight(0)]
+		/// Marks this call as feeless if checkpoint is successful.
+		#[pallet::feeless_on_checkpoint]
+		pub fn set_foo_feeless(
+			origin: OriginFor<T>, 
+			secret: u32,
+			new_foo: u32,
+		) -> DispatchResult {
+			let origin = <T as Config>::RuntimeOrigin::from(origin);
+			let (_who, ticket): (T::AccountId, T::Hash) = #[pallet::checkpoint_with_refs] {
+				let who = ensure_signed(origin.clone())?;
+				let preimage = secret.to_le_bytes();
+				let ticket = <T as frame_system::Config>::Hashing::hash_of(&preimage);
+				ensure!(Tickets::<T>::contains_key(ticket), Error::<T>::BadSecret);
+				Ok((who, ticket.clone()))
+			}?;
+
+			Tickets::<T>::remove(ticket);
+			Foo::<T>::set(Some(new_foo));
 			Ok(())
 		}
 	}
@@ -259,6 +279,7 @@ pub mod pallet {
 	pub enum Error<T> {
 		SomethingWentWrong,
 		SomethingBroke,
+		BadSecret,
 	}
 
 	/// All the possible hooks that a pallet can have. See [`frame_support::traits::Hooks`] for more

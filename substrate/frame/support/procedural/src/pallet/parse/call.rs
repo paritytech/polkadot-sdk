@@ -22,6 +22,7 @@ use proc_macro2::Span;
 use quote::ToTokens;
 use std::collections::HashMap;
 use syn::{spanned::Spanned, ExprClosure};
+use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 
 /// List of additional token to be used for parsing.
 mod keyword {
@@ -247,6 +248,8 @@ impl CallDef {
 				`impl<..> Pallet<..> { .. }`";
 			return Err(syn::Error::new(for_.span(), msg))
 		}
+
+		let frame_support = generate_access_from_frame_or_crate("frame-support")?;
 
 		let mut methods = vec![];
 		let mut indices = HashMap::new();
@@ -493,7 +496,7 @@ impl CallDef {
 									let block = checker.0.clone();
 									let output = quote::quote! {
 										#(#attrs)* let #pat = match origin.checkpointed_call_data().try_into() {
-											Ok(CheckpointedCallData::#name(d)) => Some(Ok::<_, Error<T>>(d)),
+											Ok(CheckpointedCallData::#name(d)) => Some(Ok::<_, #frame_support::sp_runtime::DispatchError>(d)),
 											_ => None
 										}.unwrap_or_else(|| #block)?;
 									};

@@ -272,11 +272,12 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			};
 			let checkpoint_name = &checkpoint_def.name;
 			let checkpoint_block = &checkpoint_def.block;
+			let checkpoint_arg_type = &checkpoint_def.return_type;
 			if **feeless_check {
 				quote::quote! {
-					let result: Result<_, Error::<T>> = (|| #checkpoint_block)(); //origin, #( #arg_name, )*
+					let result: Result<#checkpoint_arg_type, #frame_support::sp_runtime::DispatchError> = (|| #checkpoint_block)();
 					match result {
-						Ok(result) => (true, Some(#checkpointed_call_data_ident::#checkpoint_name(result))),
+						Ok(result) => (true, Some(#checkpointed_call_data_ident::#checkpoint_name(result.clone()))),
 						Err(_) => (false, None),
 					}
 				}
