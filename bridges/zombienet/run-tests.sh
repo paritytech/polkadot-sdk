@@ -23,6 +23,11 @@ export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_ROCOCO=/usr/local/bin/polkad
 export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_WESTEND=/usr/local/bin/polkadot-parachain
 export ZOMBIENET_BINARY_PATH=/usr/local/bin/zombie
 
+export POLKADOT_BINARY_PATH=/home/nonroot/bridges-polkadot-sdk/bridges/zombienet/scripts/polkadot-x.sh
+export POLKADOT_PARACHAIN_BINARY_PATH=/home/nonroot/bridges-polkadot-sdk/bridges/zombienet/scripts/polkadot-parachain-x.sh
+export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_ROCOCO=/home/nonroot/bridges-polkadot-sdk/bridges/zombienet/scripts/polkadot-parachain-x.sh
+export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_WESTEND=/home/nonroot/bridges-polkadot-sdk/bridges/zombienet/scripts/polkadot-parachain-x.sh
+
 # for local tests:
 #export POLKADOT_BINARY_PATH=$POLKADOT_SDK_FOLDER/target/release/polkadot
 #export POLKADOT_PARACHAIN_BINARY_PATH=$POLKADOT_SDK_FOLDER/target/release/polkadot-parachain
@@ -118,15 +123,22 @@ do
                 cat $file
             done
 
+            for file in /tmp/polkadot.* ; do
+                cat $file
+            done
+            for file in /tmp/polkadot-parachain.* ; do
+                cat $file
+            done
+
             #cat /var/log/lastlog || true
             #cat /var/log/faillog || true
             #cat /var/log/syslog || true
-            cat /var/log/apport.log || true
-            ls /var/crash || true
-            ls /var/log
-            ls /usr/local/bin/
-            ls -la /home/nonroot
-            ls -la /home/nonroot/bridges-polkadot-sdk/bridges/zombienet
+            #cat /var/log/apport.log || true
+            #ls /var/crash || true
+            #ls /var/log
+            #ls /usr/local/bin/
+            #ls -la /home/nonroot
+            #ls -la /home/nonroot/bridges-polkadot-sdk/bridges/zombienet
 
             exit 1
         fi
