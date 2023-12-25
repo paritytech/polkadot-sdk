@@ -42,12 +42,13 @@
 #    - cp -r /tmp/bridges-zombienet-tests*/* ./zombienet-logs/
 #    - echo "Am I working???"
 #    - echo X>./zombienet-logs/xxx
-  retry: 2
-  tags:
-    - zombienet-polkadot-integration-test
+#  retry: 2
+#  tags:
+#    - zombienet-polkadot-integration-test
 
 run-zombienet-bridges-tests:
   extends:
     - .zombienet-bridges-common
   script:
     - /home/nonroot/bridges-polkadot-sdk/bridges/zombienet/run-tests.sh
+    - echo "Done"
