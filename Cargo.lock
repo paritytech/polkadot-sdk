@@ -11725,6 +11725,7 @@ dependencies = [
 name = "people-rococo-runtime"
 version = "0.1.0"
 dependencies = [
+ "bp-bridge-hub-rococo",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
@@ -11758,6 +11759,7 @@ dependencies = [
  "pallet-xcm",
  "pallet-xcm-benchmarks",
  "parachains-common",
+ "parachains-runtimes-test-utils",
  "parity-scale-codec",
  "polkadot-core-primitives",
  "polkadot-parachain-primitives",

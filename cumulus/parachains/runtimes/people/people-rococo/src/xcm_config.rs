@@ -208,8 +208,12 @@ pub type Barrier = TrailingSetTopicAsId<
 					// If the message is one that immediately attemps to pay for execution, then
 					// allow it.
 					AllowTopLevelPaidExecutionFrom<Everything>,
-					// Parent and its pluralities (i.e. governance bodies) get free execution.
-					AllowExplicitUnpaidExecutionFrom<ParentOrParentsPlurality>,
+					// Parent and its pluralities (i.e. governance bodies) + sibling bridge hub get
+					// free execution.
+					AllowExplicitUnpaidExecutionFrom<(
+						ParentOrParentsPlurality,
+						Equals<bridging::SiblingBridgeHub>,
+					)>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<ParentOrSiblings>,
 				),
@@ -262,7 +266,7 @@ impl xcm_executor::Config for XcmConfig {
 		XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
 	>;
 	type MessageExporter = ();
-	type UniversalAliases = Nothing;
+	type UniversalAliases = (bridging::UniversalAliases,);
 	type CallDispatcher = WithOriginFilter<SafeCallFilter>;
 	type SafeCallFilter = SafeCallFilter;
 	type Aliasers = Nothing;
@@ -275,10 +279,12 @@ pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, R
 /// The means for routing XCM messages which are not for local execution into the right message
 /// queues.
 pub type XcmRouter = WithUniqueTopic<(
-	// Two routers - use UMP to communicate with the relay chain:
+	// Use UMP to communicate with the relay chain:
 	cumulus_primitives_utility::ParentAsUmp<ParachainSystem, PolkadotXcm, ()>,
-	// ..and XCMP to communicate with the sibling chains.
+	// Use XCMP to communicate with the sibling chains:
 	XcmpQueue,
+	// Use XCMP with sibling bridge hub to communicate with Rococo Bulletin chain.
+	bridging::ToBulletinXcmRouter,
 )>;
 
 impl pallet_xcm::Config for Runtime {
@@ -317,4 +323,106 @@ impl pallet_xcm::Config for Runtime {
 impl cumulus_pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
+}
+
+/// All configuration related to bridging
+pub mod bridging {
+	use super::*;
+	use sp_std::collections::btree_set::BTreeSet;
+	use xcm_builder::{NetworkExportTableItem, UnpaidRemoteExporter};
+
+	parameter_types! {
+		/// Location of the sibling bridge hub.
+		pub SiblingBridgeHub: MultiLocation = MultiLocation::new(
+			1,
+			X1(Parachain(bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID)),
+		);
+
+
+		/// Location of the with-Bulletin messaging pallet at the sibling bridge hub.
+		pub SiblingBridgeHubWithRococoBulletinInstance: MultiLocation = MultiLocation::new(
+			1,
+			X2(
+				Parachain(bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID),
+				PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_BULLETIN_MESSAGES_PALLET_INDEX)
+			)
+		);
+
+		/// Rococo Bulletin network (which is a slightly modified `PolkadotBulletin`).
+		pub const RococoBulletinNetwork: NetworkId = NetworkId::PolkadotBulletin;
+
+		/// Set up exporters configuration.
+		pub BridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
+			NetworkExportTableItem::new(
+				RococoBulletinNetwork::get(),
+				None,
+				SiblingBridgeHub::get(),
+				None,
+			)
+		];
+
+		/// Universal aliases
+		pub UniversalAliases: BTreeSet<(MultiLocation, Junction)> = BTreeSet::from_iter(
+			sp_std::vec![
+				(SiblingBridgeHubWithRococoBulletinInstance::get(), GlobalConsensus(RococoBulletinNetwork::get()))
+			]
+		);
+	}
+
+	impl Contains<(MultiLocation, Junction)> for UniversalAliases {
+		fn contains(alias: &(MultiLocation, Junction)) -> bool {
+			UniversalAliases::get().contains(alias)
+		}
+	}
+
+	pub type NetworkExportTable = xcm_builder::NetworkExportTable<BridgeTable>;
+
+	pub type ToBulletinXcmRouter =
+		UnpaidRemoteExporter<NetworkExportTable, XcmpQueue, UniversalLocation>;
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::{AuraId, SessionKeys};
+	use frame_support::assert_ok;
+	use parachains_runtimes_test_utils::ExtBuilder;
+	use sp_std::vec;
+
+	const ALICE: [u8; 32] = [1u8; 32];
+
+	#[test]
+	fn can_send_messages_to_rococo_bulletin() {
+		ExtBuilder::<Runtime>::default()
+			.with_collators(vec![AccountId::from(ALICE)])
+			.with_session_keys(vec![(
+				AccountId::from(ALICE),
+				AccountId::from(ALICE),
+				SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
+			)])
+			.build()
+			.execute_with(|| {
+				let destination = MultiLocation::new(
+					2,
+					X1(GlobalConsensus(bridging::RococoBulletinNetwork::get())),
+				);
+
+				assert_ok!(PolkadotXcm::force_xcm_version(
+					RuntimeOrigin::root(),
+					Box::new(bridging::SiblingBridgeHub::get()),
+					xcm::latest::VERSION
+				));
+				assert_ok!(PolkadotXcm::force_xcm_version(
+					RuntimeOrigin::root(),
+					Box::new(destination),
+					xcm::latest::VERSION
+				));
+
+				ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
+					bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID.into(),
+				);
+
+				assert_ok!(send_xcm::<XcmRouter>(destination, vec![ClearOrigin].into()));
+			});
+	}
 }
