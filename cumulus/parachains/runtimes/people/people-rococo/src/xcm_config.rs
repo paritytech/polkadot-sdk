@@ -412,11 +412,6 @@ mod tests {
 					Box::new(bridging::SiblingBridgeHub::get()),
 					xcm::latest::VERSION
 				));
-				assert_ok!(PolkadotXcm::force_xcm_version(
-					RuntimeOrigin::root(),
-					Box::new(destination),
-					xcm::latest::VERSION
-				));
 
 				ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
 					bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID.into(),
