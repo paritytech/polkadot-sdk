@@ -123,10 +123,10 @@ do
                 cat $file
             done
 
-            for file in /tmp/polkadot.* ; do
+            for file in /tmp/polkadot.*/* ; do
                 cat $file
             done
-            for file in /tmp/polkadot-parachain.* ; do
+            for file in /tmp/polkadot-parachain.*/* ; do
                 cat $file
             done
 
