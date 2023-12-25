@@ -30,7 +30,8 @@ use crate::{
 };
 use chain_sync::{ChainSync, ChainSyncAction, ChainSyncMode};
 use libp2p::PeerId;
-use log::{error, info};
+use log::{error, info, warn};
+use parking_lot::Mutex;
 use prometheus_endpoint::Registry;
 use sc_client_api::{BlockBackend, ProofProvider};
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
@@ -45,7 +46,7 @@ use sp_runtime::{
 	Justifications,
 };
 use state::{StateStrategy, StateStrategyAction};
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use warp::{EncodedProof, WarpProofRequest, WarpSync, WarpSyncAction, WarpSyncConfig};
 
 /// Corresponding `ChainSync` mode.
@@ -69,6 +70,74 @@ pub struct SyncingConfig {
 	pub max_blocks_per_request: u32,
 	/// Prometheus metrics registry.
 	pub metrics_registry: Option<Registry>,
+}
+
+enum PeerStatus {
+	Available,
+	Reserved,
+}
+
+impl PeerStatus {
+	fn is_available(&self) -> bool {
+		matches!(self, PeerStatus::Available)
+	}
+}
+
+#[derive(Clone, Default)]
+struct PeerPool {
+	peers: Arc<Mutex<HashMap<PeerId, PeerStatus>>>,
+}
+
+impl PeerPool {
+	fn add_peer(&self, peer_id: PeerId) {
+		self.peers.lock().insert(peer_id, PeerStatus::Available);
+	}
+
+	fn remove_peer(&self, peer_id: &PeerId) {
+		self.peers.lock().remove(peer_id);
+	}
+
+	fn available_peers(&self) -> Vec<PeerId> {
+		self.peers
+			.lock()
+			.iter()
+			.filter_map(
+				|(peer_id, status)| if status.is_available() { Some(*peer_id) } else { None },
+			)
+			.collect()
+	}
+
+	fn try_reserve_peer(&self, peer_id: &PeerId) -> bool {
+		match self.peers.lock().get_mut(peer_id) {
+			Some(peer_status) => match peer_status {
+				PeerStatus::Available => {
+					*peer_status = PeerStatus::Reserved;
+					true
+				},
+				PeerStatus::Reserved => false,
+			},
+			None => {
+				warn!(target: LOG_TARGET, "Trying to reserve unknown peer {peer_id}.");
+				false
+			},
+		}
+	}
+
+	fn free_peer(&self, peer_id: &PeerId) {
+		match self.peers.lock().get_mut(peer_id) {
+			Some(peer_status) => match peer_status {
+				PeerStatus::Available => {
+					warn!(target: LOG_TARGET, "Trying to free available peer {peer_id}.")
+				},
+				PeerStatus::Reserved => {
+					*peer_status = PeerStatus::Available;
+				},
+			},
+			None => {
+				warn!(target: LOG_TARGET, "Trying to free unknown peer {peer_id}.");
+			},
+		}
+	}
 }
 
 #[derive(Debug)]

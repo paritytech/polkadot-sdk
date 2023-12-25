@@ -480,13 +480,6 @@ where
 				state: PeerSyncState::New,
 			},
 		);
-
-		// match self.add_peer_inner(peer_id, best_hash, best_number) {
-		// 	Ok(Some(request)) =>
-		// 		self.actions.push(ChainSyncAction::SendBlockRequest { peer_id, request }),
-		// 	Ok(None) => {},
-		// 	Err(bad_peer) => self.actions.push(ChainSyncAction::DropPeer(bad_peer)),
-		// }
 	}
 
 	fn handle_new_peers(
