@@ -373,6 +373,7 @@ where
 		max_parallel_downloads: u32,
 		max_blocks_per_request: u32,
 		metrics_registry: Option<Registry>,
+		initial_peers: impl Iterator<Item = (PeerId, B::Hash, NumberFor<B>)>,
 	) -> Result<Self, ClientError> {
 		let mut sync = Self {
 			client,
@@ -405,6 +406,10 @@ where
 		};
 
 		sync.reset_sync_start_point()?;
+		initial_peers.for_each(|(peer_id, best_hash, best_number)| {
+			sync.add_peer(peer_id, best_hash, best_number);
+		});
+
 		Ok(sync)
 	}
 

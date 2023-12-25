@@ -41,11 +41,11 @@ use sc_network_common::sync::{
 use sp_blockchain::{Error as ClientError, HeaderBackend, HeaderMetadata};
 use sp_consensus::BlockOrigin;
 use sp_runtime::{
-	traits::{Block as BlockT, NumberFor},
+	traits::{Block as BlockT, Header, NumberFor},
 	Justifications,
 };
 use state::{StateStrategy, StateStrategyAction};
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use warp::{EncodedProof, WarpProofRequest, WarpSync, WarpSyncAction, WarpSyncConfig};
 
 /// Corresponding `ChainSync` mode.
@@ -92,15 +92,16 @@ pub enum SyncingAction<B: BlockT> {
 		number: NumberFor<B>,
 		justifications: Justifications,
 	},
-	/// Syncing strategy has finished.
-	Finished,
 }
 
 /// Proxy to specific syncing strategies.
-pub enum SyncingStrategy<B: BlockT, Client> {
-	WarpSyncStrategy(WarpSync<B, Client>),
-	StateSyncStrategy(StateStrategy<B>),
-	ChainSyncStrategy(ChainSync<B, Client>),
+pub struct SyncingStrategy<B: BlockT, Client> {
+	config: SyncingConfig,
+	client: Arc<Client>,
+	warp: Option<WarpSync<B, Client>>,
+	state: Option<StateStrategy<B>>,
+	chain_sync: Option<ChainSync<B, Client>>,
+	peer_best_blocks: HashMap<PeerId, (B::Hash, NumberFor<B>)>,
 }
 
 impl<B: BlockT, Client> SyncingStrategy<B, Client>
@@ -123,37 +124,51 @@ where
 		if let SyncMode::Warp = config.mode {
 			let warp_sync_config = warp_sync_config
 				.expect("Warp sync configuration must be supplied in warp sync mode.");
-			Ok(Self::WarpSyncStrategy(WarpSync::new(client.clone(), warp_sync_config)))
+			let warp_sync = WarpSync::new(client.clone(), warp_sync_config);
+			Ok(Self {
+				config,
+				client,
+				warp: Some(warp_sync),
+				state: None,
+				chain_sync: None,
+				peer_best_blocks: Default::default(),
+			})
 		} else {
-			Ok(Self::ChainSyncStrategy(ChainSync::new(
+			let chain_sync = ChainSync::new(
 				chain_sync_mode(config.mode),
 				client.clone(),
 				config.max_parallel_downloads,
 				config.max_blocks_per_request,
-				config.metrics_registry,
-			)?))
+				config.metrics_registry.clone(),
+				std::iter::empty(),
+			)?;
+			Ok(Self {
+				config,
+				client,
+				warp: None,
+				state: None,
+				chain_sync: Some(chain_sync),
+				peer_best_blocks: Default::default(),
+			})
 		}
 	}
 
 	/// Notify that a new peer has connected.
 	pub fn add_peer(&mut self, peer_id: PeerId, best_hash: B::Hash, best_number: NumberFor<B>) {
-		match self {
-			SyncingStrategy::WarpSyncStrategy(strategy) =>
-				strategy.add_peer(peer_id, best_hash, best_number),
-			SyncingStrategy::StateSyncStrategy(strategy) =>
-				strategy.add_peer(peer_id, best_hash, best_number),
-			SyncingStrategy::ChainSyncStrategy(strategy) =>
-				strategy.add_peer(peer_id, best_hash, best_number),
-		}
+		self.peer_best_blocks.insert(peer_id, (best_hash, best_number));
+
+		self.warp.as_mut().map(|s| s.add_peer(peer_id, best_hash, best_number));
+		self.state.as_mut().map(|s| s.add_peer(peer_id, best_hash, best_number));
+		self.chain_sync.as_mut().map(|s| s.add_peer(peer_id, best_hash, best_number));
 	}
 
 	/// Notify that a peer has disconnected.
 	pub fn remove_peer(&mut self, peer_id: &PeerId) {
-		match self {
-			SyncingStrategy::WarpSyncStrategy(strategy) => strategy.remove_peer(peer_id),
-			SyncingStrategy::StateSyncStrategy(strategy) => strategy.remove_peer(peer_id),
-			SyncingStrategy::ChainSyncStrategy(strategy) => strategy.remove_peer(peer_id),
-		}
+		self.warp.as_mut().map(|s| s.remove_peer(peer_id));
+		self.state.as_mut().map(|s| s.remove_peer(peer_id));
+		self.chain_sync.as_mut().map(|s| s.remove_peer(peer_id));
+
+		self.peer_best_blocks.remove(peer_id);
 	}
 
 	/// Submit a validated block announcement.
@@ -165,14 +180,23 @@ where
 		peer_id: PeerId,
 		announce: &BlockAnnounce<B::Header>,
 	) -> Option<(B::Hash, NumberFor<B>)> {
-		match self {
-			SyncingStrategy::WarpSyncStrategy(strategy) =>
-				strategy.on_validated_block_announce(is_best, peer_id, announce),
-			SyncingStrategy::StateSyncStrategy(strategy) =>
-				strategy.on_validated_block_announce(is_best, peer_id, announce),
-			SyncingStrategy::ChainSyncStrategy(strategy) =>
-				strategy.on_validated_block_announce(is_best, peer_id, announce),
+		let new_best = if let Some(ref mut warp) = self.warp {
+			warp.on_validated_block_announce(is_best, peer_id, announce)
+		} else if let Some(ref mut state) = self.state {
+			state.on_validated_block_announce(is_best, peer_id, announce)
+		} else if let Some(ref mut chain_sync) = self.chain_sync {
+			chain_sync.on_validated_block_announce(is_best, peer_id, announce)
+		} else {
+			Some((announce.header.hash(), *announce.header.number()))
+		};
+
+		if let Some(new_best) = new_best {
+			if let Some(best) = self.peer_best_blocks.get_mut(&peer_id) {
+				*best = new_best;
+			}
 		}
+
+		new_best
 	}
 
 	/// Configure an explicit fork sync request in case external code has detected that there is a
@@ -183,40 +207,33 @@ where
 		hash: &B::Hash,
 		number: NumberFor<B>,
 	) {
-		match self {
-			SyncingStrategy::WarpSyncStrategy(_) => {},
-			SyncingStrategy::StateSyncStrategy(_) => {},
-			SyncingStrategy::ChainSyncStrategy(strategy) =>
-				strategy.set_sync_fork_request(peers, hash, number),
+		// Fork requests are only handled by `ChainSync`.
+		if let Some(ref mut chain_sync) = self.chain_sync {
+			chain_sync.set_sync_fork_request(peers.clone(), hash, number);
 		}
 	}
 
 	/// Request extra justification.
 	pub fn request_justification(&mut self, hash: &B::Hash, number: NumberFor<B>) {
-		match self {
-			SyncingStrategy::WarpSyncStrategy(_) => {},
-			SyncingStrategy::StateSyncStrategy(_) => {},
-			SyncingStrategy::ChainSyncStrategy(strategy) =>
-				strategy.request_justification(hash, number),
+		// Justifications can only be requested via `ChainSync`.
+		if let Some(ref mut chain_sync) = self.chain_sync {
+			chain_sync.request_justification(hash, number);
 		}
 	}
 
 	/// Clear extra justification requests.
 	pub fn clear_justification_requests(&mut self) {
-		match self {
-			SyncingStrategy::WarpSyncStrategy(_) => {},
-			SyncingStrategy::StateSyncStrategy(_) => {},
-			SyncingStrategy::ChainSyncStrategy(strategy) => strategy.clear_justification_requests(),
+		// Justification requests can only be cleared by `ChainSync`.
+		if let Some(ref mut chain_sync) = self.chain_sync {
+			chain_sync.clear_justification_requests();
 		}
 	}
 
 	/// Report a justification import (successful or not).
 	pub fn on_justification_import(&mut self, hash: B::Hash, number: NumberFor<B>, success: bool) {
-		match self {
-			SyncingStrategy::WarpSyncStrategy(_) => {},
-			SyncingStrategy::StateSyncStrategy(_) => {},
-			SyncingStrategy::ChainSyncStrategy(strategy) =>
-				strategy.on_justification_import(hash, number, success),
+		// Only `ChainSync` is interested in justification import.
+		if let Some(ref mut chain_sync) = self.chain_sync {
+			chain_sync.on_justification_import(hash, number, success);
 		}
 	}
 
@@ -227,33 +244,29 @@ where
 		request: BlockRequest<B>,
 		blocks: Vec<BlockData<B>>,
 	) {
-		match self {
-			SyncingStrategy::WarpSyncStrategy(strategy) =>
-				strategy.on_block_response(peer_id, request, blocks),
-			SyncingStrategy::StateSyncStrategy(_) => {},
-			SyncingStrategy::ChainSyncStrategy(strategy) =>
-				strategy.on_block_response(peer_id, request, blocks),
+		// Only `WarpSync` and `ChainSync` handle block responses.
+		if let Some(ref mut warp) = self.warp {
+			warp.on_block_response(peer_id, request, blocks);
+		} else if let Some(ref mut chain_sync) = self.chain_sync {
+			chain_sync.on_block_response(peer_id, request, blocks);
 		}
 	}
 
 	/// Process state response.
 	pub fn on_state_response(&mut self, peer_id: PeerId, response: OpaqueStateResponse) {
-		match self {
-			SyncingStrategy::WarpSyncStrategy(_) => {},
-			SyncingStrategy::StateSyncStrategy(strategy) =>
-				strategy.on_state_response(peer_id, response),
-			SyncingStrategy::ChainSyncStrategy(strategy) =>
-				strategy.on_state_response(peer_id, response),
+		// Only `StateStrategy` and `ChainSync` handle state responses.
+		if let Some(ref mut state) = self.state {
+			state.on_state_response(peer_id, response);
+		} else if let Some(ref mut chain_sync) = self.chain_sync {
+			chain_sync.on_state_response(peer_id, response);
 		}
 	}
 
 	/// Process warp proof response.
 	pub fn on_warp_proof_response(&mut self, peer_id: &PeerId, response: EncodedProof) {
-		match self {
-			SyncingStrategy::WarpSyncStrategy(strategy) =>
-				strategy.on_warp_proof_response(peer_id, response),
-			SyncingStrategy::StateSyncStrategy(_) => {},
-			SyncingStrategy::ChainSyncStrategy(_) => {},
+		// Only `WarpSync` handles warp proof responses.
+		if let Some(ref mut warp) = self.warp {
+			warp.on_warp_proof_response(peer_id, response);
 		}
 	}
 
@@ -264,114 +277,142 @@ where
 		count: usize,
 		results: Vec<(Result<BlockImportStatus<NumberFor<B>>, BlockImportError>, B::Hash)>,
 	) {
-		match self {
-			SyncingStrategy::WarpSyncStrategy(_) => {},
-			SyncingStrategy::StateSyncStrategy(strategy) =>
-				strategy.on_blocks_processed(imported, count, results),
-			SyncingStrategy::ChainSyncStrategy(strategy) =>
-				strategy.on_blocks_processed(imported, count, results),
+		// Only `StateStrategy` and `ChainSync` are interested in block processing notifications.
+
+		if let Some(ref mut state) = self.state {
+			state.on_blocks_processed(imported, count, results);
+		} else if let Some(ref mut chain_sync) = self.chain_sync {
+			chain_sync.on_blocks_processed(imported, count, results);
 		}
 	}
 
 	/// Notify a syncing strategy that a block has been finalized.
 	pub fn on_block_finalized(&mut self, hash: &B::Hash, number: NumberFor<B>) {
-		match self {
-			SyncingStrategy::WarpSyncStrategy(_) => {},
-			SyncingStrategy::StateSyncStrategy(_) => {},
-			SyncingStrategy::ChainSyncStrategy(strategy) =>
-				strategy.on_block_finalized(hash, number),
+		// Only `ChainSync` is interested in block finalization notifications.
+		if let Some(ref mut chain_sync) = self.chain_sync {
+			chain_sync.on_block_finalized(hash, number);
 		}
 	}
 
 	/// Inform sync about a new best imported block.
 	pub fn update_chain_info(&mut self, best_hash: &B::Hash, best_number: NumberFor<B>) {
-		match self {
-			SyncingStrategy::WarpSyncStrategy(_) => {},
-			SyncingStrategy::StateSyncStrategy(_) => {},
-			SyncingStrategy::ChainSyncStrategy(strategy) =>
-				strategy.update_chain_info(best_hash, best_number),
+		// This is relevant to `ChainSync` only.
+		if let Some(ref mut chain_sync) = self.chain_sync {
+			chain_sync.update_chain_info(best_hash, best_number);
 		}
 	}
 
 	// Are we in major sync mode?
 	pub fn is_major_syncing(&self) -> bool {
-		match self {
-			SyncingStrategy::WarpSyncStrategy(_) => true,
-			SyncingStrategy::StateSyncStrategy(_) => true,
-			SyncingStrategy::ChainSyncStrategy(strategy) =>
-				strategy.status().state.is_major_syncing(),
-		}
+		self.warp.is_some() ||
+			self.state.is_some() ||
+			match self.chain_sync {
+				Some(ref s) => s.status().state.is_major_syncing(),
+				None => unreachable!("At least one syncing startegy is active; qed"),
+			}
 	}
 
 	/// Get the number of peers known to the syncing strategy.
 	pub fn num_peers(&self) -> usize {
-		match self {
-			SyncingStrategy::WarpSyncStrategy(strategy) => strategy.num_peers(),
-			SyncingStrategy::StateSyncStrategy(strategy) => strategy.num_peers(),
-			SyncingStrategy::ChainSyncStrategy(strategy) => strategy.num_peers(),
-		}
+		self.peer_best_blocks.len()
 	}
 
 	/// Returns the current sync status.
 	pub fn status(&self) -> SyncStatus<B> {
-		match self {
-			SyncingStrategy::WarpSyncStrategy(strategy) => strategy.status(),
-			SyncingStrategy::StateSyncStrategy(strategy) => strategy.status(),
-			SyncingStrategy::ChainSyncStrategy(strategy) => strategy.status(),
+		// This function presumes that startegies are executed serially and must be refactored
+		// once we have parallel strategies.
+		if let Some(ref warp) = self.warp {
+			warp.status()
+		} else if let Some(ref state) = self.state {
+			state.status()
+		} else if let Some(ref chain_sync) = self.chain_sync {
+			chain_sync.status()
+		} else {
+			unreachable!("At least one syncing startegy is always active; qed")
 		}
 	}
 
 	/// Get the total number of downloaded blocks.
 	pub fn num_downloaded_blocks(&self) -> usize {
-		match self {
-			SyncingStrategy::WarpSyncStrategy(_) => 0,
-			SyncingStrategy::StateSyncStrategy(_) => 0,
-			SyncingStrategy::ChainSyncStrategy(strategy) => strategy.num_downloaded_blocks(),
-		}
+		self.chain_sync
+			.as_ref()
+			.map_or(0, |chain_sync| chain_sync.num_downloaded_blocks())
 	}
 
 	/// Get an estimate of the number of parallel sync requests.
 	pub fn num_sync_requests(&self) -> usize {
-		match self {
-			SyncingStrategy::WarpSyncStrategy(_) => 0,
-			SyncingStrategy::StateSyncStrategy(_) => 0,
-			SyncingStrategy::ChainSyncStrategy(strategy) => strategy.num_sync_requests(),
-		}
+		self.chain_sync.as_ref().map_or(0, |chain_sync| chain_sync.num_sync_requests())
 	}
 
 	/// Report Prometheus metrics
 	pub fn report_metrics(&self) {
-		match self {
-			SyncingStrategy::WarpSyncStrategy(_) => {},
-			SyncingStrategy::StateSyncStrategy(_) => {},
-			SyncingStrategy::ChainSyncStrategy(strategy) => strategy.report_metrics(),
+		if let Some(ref chain_sync) = self.chain_sync {
+			chain_sync.report_metrics();
+		}
+	}
+
+	/// Let `WarpSync` know about target block header
+	pub fn set_warp_sync_target_block_header(
+		&mut self,
+		target_header: B::Header,
+	) -> Result<(), ()> {
+		match self.warp {
+			Some(ref mut warp) => {
+				warp.set_target_block(target_header);
+				Ok(())
+			},
+			None => {
+				error!(
+					target: LOG_TARGET,
+					"Cannot set warp sync target block: no warp sync strategy is active."
+				);
+				debug_assert!(false);
+				Err(())
+			},
 		}
 	}
 
 	/// Get actions that should be performed by the owner on the strategy's behalf
 	#[must_use]
-	pub fn actions(&mut self) -> Box<dyn Iterator<Item = SyncingAction<B>>> {
-		match self {
-			SyncingStrategy::WarpSyncStrategy(strategy) =>
-				Box::new(strategy.actions().map(|action| match action {
+	pub fn actions(&mut self) -> Result<Vec<SyncingAction<B>>, ClientError> {
+		// This function presumes that strategies are executed serially and must be refactored once
+		// we have parallel startegies.
+		if let Some(ref mut warp) = self.warp {
+			let mut actions = Vec::new();
+			for action in warp.actions() {
+				actions.push(match action {
 					WarpSyncAction::SendWarpProofRequest { peer_id, request } =>
 						SyncingAction::SendWarpProofRequest { peer_id, request },
 					WarpSyncAction::SendBlockRequest { peer_id, request } =>
 						SyncingAction::SendBlockRequest { peer_id, request },
 					WarpSyncAction::DropPeer(bad_peer) => SyncingAction::DropPeer(bad_peer),
-					WarpSyncAction::Finished => SyncingAction::Finished,
-				})),
-			SyncingStrategy::StateSyncStrategy(strategy) =>
-				Box::new(strategy.actions().map(|action| match action {
+					WarpSyncAction::Finished => {
+						self.proceed_to_next()?;
+						return Ok(actions)
+					},
+				});
+			}
+			Ok(actions)
+		} else if let Some(ref mut state) = self.state {
+			let mut actions = Vec::new();
+			for action in state.actions() {
+				actions.push(match action {
 					StateStrategyAction::SendStateRequest { peer_id, request } =>
 						SyncingAction::SendStateRequest { peer_id, request },
 					StateStrategyAction::DropPeer(bad_peer) => SyncingAction::DropPeer(bad_peer),
 					StateStrategyAction::ImportBlocks { origin, blocks } =>
 						SyncingAction::ImportBlocks { origin, blocks },
-					StateStrategyAction::Finished => SyncingAction::Finished,
-				})),
-			SyncingStrategy::ChainSyncStrategy(strategy) =>
-				Box::new(strategy.actions().map(|action| match action {
+					StateStrategyAction::Finished => {
+						self.proceed_to_next()?;
+						return Ok(actions)
+					},
+				});
+			}
+			Ok(actions)
+		} else if let Some(ref mut chain_sync) = self.chain_sync {
+			Ok(chain_sync
+				.actions()
+				.map(|action| match action {
 					ChainSyncAction::SendBlockRequest { peer_id, request } =>
 						SyncingAction::SendBlockRequest { peer_id, request },
 					ChainSyncAction::CancelBlockRequest { peer_id } =>
@@ -392,98 +433,93 @@ where
 						number,
 						justifications,
 					},
-				})),
+				})
+				.collect())
+		} else {
+			unreachable!("At least one syncing startegy is always active; qed")
 		}
 	}
 
-	/// Switch to next strategy if the active one finished.
-	pub fn switch_to_next(
-		&mut self,
-		config: SyncingConfig,
-		client: Arc<Client>,
-		connected_peers: impl Iterator<Item = (PeerId, B::Hash, NumberFor<B>)>,
-	) -> Result<(), ClientError> {
-		match self {
-			Self::WarpSyncStrategy(warp_sync) => {
-				match warp_sync.take_result() {
-					Some(res) => {
-						info!(
-							target: LOG_TARGET,
-							"Warp sync is complete, continuing with state sync."
-						);
-						let state_sync = StateStrategy::new(
-							client,
-							res.target_header,
-							res.target_body,
-							res.target_justifications,
-							// skip proofs, only set to `true` in `FastUnsafe` sync mode
-							false,
-							connected_peers
-								.map(|(peer_id, _best_hash, best_number)| (peer_id, best_number)),
-						);
+	/// Proceed with the next strategy if the active one finished.
+	pub fn proceed_to_next(&mut self) -> Result<(), ClientError> {
+		// The strategies are switched as `WarpSync` -> `StateStartegy` -> `ChainSync`.
+		if let Some(ref mut warp) = self.warp {
+			match warp.take_result() {
+				Some(res) => {
+					info!(
+						target: LOG_TARGET,
+						"Warp sync is complete, continuing with state sync."
+					);
+					let state_sync = StateStrategy::new(
+						self.client.clone(),
+						res.target_header,
+						res.target_body,
+						res.target_justifications,
+						false,
+						self.peer_best_blocks
+							.iter()
+							.map(|(peer_id, (_, best_number))| (*peer_id, *best_number)),
+					);
 
-						*self = Self::StateSyncStrategy(state_sync);
-					},
-					None => {
-						error!(
-							target: LOG_TARGET,
-							"Warp sync failed. Falling back to full sync."
-						);
-						let mut chain_sync = match ChainSync::new(
-							chain_sync_mode(config.mode),
-							client,
-							config.max_parallel_downloads,
-							config.max_blocks_per_request,
-							config.metrics_registry,
-						) {
-							Ok(chain_sync) => chain_sync,
-							Err(e) => {
-								error!(target: LOG_TARGET, "Failed to start `ChainSync`.");
-								return Err(e)
-							},
-						};
-						// Let `ChainSync` know about connected peers.
-						connected_peers.into_iter().for_each(
-							|(peer_id, best_hash, best_number)| {
-								chain_sync.add_peer(peer_id, best_hash, best_number)
-							},
-						);
+					self.warp = None;
+					self.state = Some(state_sync);
+					Ok(())
+				},
+				None => {
+					error!(
+						target: LOG_TARGET,
+						"Warp sync failed. Continuing with full sync."
+					);
+					let chain_sync = match ChainSync::new(
+						chain_sync_mode(self.config.mode),
+						self.client.clone(),
+						self.config.max_parallel_downloads,
+						self.config.max_blocks_per_request,
+						self.config.metrics_registry.clone(),
+						self.peer_best_blocks.iter().map(|(peer_id, (best_hash, best_number))| {
+							(*peer_id, *best_hash, *best_number)
+						}),
+					) {
+						Ok(chain_sync) => chain_sync,
+						Err(e) => {
+							error!(target: LOG_TARGET, "Failed to start `ChainSync`.");
+							return Err(e)
+						},
+					};
 
-						*self = Self::ChainSyncStrategy(chain_sync);
-					},
-				}
-			},
-			Self::StateSyncStrategy(state_sync) => {
-				if state_sync.is_succeded() {
-					info!(target: LOG_TARGET, "State sync is complete, continuing with block sync.");
-				} else {
-					error!(target: LOG_TARGET, "State sync failed. Falling back to full sync.");
-				}
-				let mut chain_sync = match ChainSync::new(
-					chain_sync_mode(config.mode),
-					client,
-					config.max_parallel_downloads,
-					config.max_blocks_per_request,
-					config.metrics_registry,
-				) {
-					Ok(chain_sync) => chain_sync,
-					Err(e) => {
-						error!(target: LOG_TARGET, "Failed to start `ChainSync`.");
-						return Err(e)
-					},
-				};
-				// Let `ChainSync` know about connected peers.
-				connected_peers.into_iter().for_each(|(peer_id, best_hash, best_number)| {
-					chain_sync.add_peer(peer_id, best_hash, best_number)
-				});
+					self.warp = None;
+					self.chain_sync = Some(chain_sync);
+					Ok(())
+				},
+			}
+		} else if let Some(state) = &self.state {
+			if state.is_succeded() {
+				info!(target: LOG_TARGET, "State sync is complete, continuing with block sync.");
+			} else {
+				error!(target: LOG_TARGET, "State sync failed. Falling back to full sync.");
+			}
+			let chain_sync = match ChainSync::new(
+				chain_sync_mode(self.config.mode),
+				self.client.clone(),
+				self.config.max_parallel_downloads,
+				self.config.max_blocks_per_request,
+				self.config.metrics_registry.clone(),
+				self.peer_best_blocks.iter().map(|(peer_id, (best_hash, best_number))| {
+					(*peer_id, *best_hash, *best_number)
+				}),
+			) {
+				Ok(chain_sync) => chain_sync,
+				Err(e) => {
+					error!(target: LOG_TARGET, "Failed to start `ChainSync`.");
+					return Err(e);
+				},
+			};
 
-				*self = Self::ChainSyncStrategy(chain_sync);
-			},
-			Self::ChainSyncStrategy(_) => {
-				error!(target: LOG_TARGET, "`ChainSyncStrategy` is final startegy, cannot switch to next.");
-				debug_assert!(false);
-			},
+			self.state = None;
+			self.chain_sync = Some(chain_sync);
+			Ok(())
+		} else {
+			unreachable!("Only warp & state strategies can finish; qed")
 		}
-		Ok(())
 	}
 }
