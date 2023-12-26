@@ -34,8 +34,12 @@ asset-hub-westend-runtime = { path = "../parachains/runtimes/assets/asset-hub-we
 collectives-westend-runtime = { path = "../parachains/runtimes/collectives/collectives-westend" }
 contracts-rococo-runtime = { path = "../parachains/runtimes/contracts/contracts-rococo" }
 bridge-hub-rococo-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-rococo" }
+coretime-rococo-runtime = { path = "../parachains/runtimes/coretime/coretime-rococo" }
+coretime-westend-runtime = { path = "../parachains/runtimes/coretime/coretime-westend" }
 bridge-hub-westend-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-westend" }
 penpal-runtime = { path = "../parachains/runtimes/testing/penpal" }
+people-rococo-runtime = { path = "../parachains/runtimes/people/people-rococo" }
+people-westend-runtime = { path = "../parachains/runtimes/people/people-westend" }
 jsonrpsee = { version = "0.16.2", features = ["server"] }
 parachains-common = { path = "../parachains/common" }
 
@@ -124,6 +128,8 @@ runtime-benchmarks = [
 	"bridge-hub-westend-runtime/runtime-benchmarks",
 	"collectives-westend-runtime/runtime-benchmarks",
 	"contracts-rococo-runtime/runtime-benchmarks",
+	"coretime-rococo-runtime/runtime-benchmarks",
+	"coretime-westend-runtime/runtime-benchmarks",
 	"cumulus-primitives-core/runtime-benchmarks",
 	"frame-benchmarking-cli/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
@@ -131,6 +137,8 @@ runtime-benchmarks = [
 	"glutton-westend-runtime/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
 	"penpal-runtime/runtime-benchmarks",
+	"people-rococo-runtime/runtime-benchmarks",
+	"people-westend-runtime/runtime-benchmarks",
 	"polkadot-cli/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-service/runtime-benchmarks",
@@ -145,11 +153,15 @@ try-runtime = [
 	"bridge-hub-westend-runtime/try-runtime",
 	"collectives-westend-runtime/try-runtime",
 	"contracts-rococo-runtime/try-runtime",
+	"coretime-rococo-runtime/try-runtime",
+	"coretime-westend-runtime/try-runtime",
 	"frame-support/try-runtime",
 	"frame-try-runtime/try-runtime",
 	"glutton-westend-runtime/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"penpal-runtime/try-runtime",
+	"people-rococo-runtime/try-runtime",
+	"people-westend-runtime/try-runtime",
 	"polkadot-cli/try-runtime",
 	"polkadot-service/try-runtime",
 	"shell-runtime/try-runtime",
