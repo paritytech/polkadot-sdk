@@ -25,7 +25,7 @@ use crate::governance::StakingAdmin;
 
 use frame_support::{
 	match_types, parameter_types,
-	traits::{Everything, Nothing},
+	traits::{Equals, Everything, Nothing},
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
@@ -50,6 +50,7 @@ use xcm_builder::{
 use xcm_executor::XcmExecutor;
 
 parameter_types! {
+	pub const RootLocation: MultiLocation = MultiLocation::here();
 	pub const TokenLocation: MultiLocation = Here.into_location();
 	pub const ThisNetwork: NetworkId = NetworkId::Rococo;
 	pub UniversalLocation: InteriorMultiLocation = ThisNetwork::get().into();
@@ -120,6 +121,8 @@ parameter_types! {
 	pub const Contracts: MultiLocation = Parachain(CONTRACTS_ID).into_location();
 	pub const Encointer: MultiLocation = Parachain(ENCOINTER_ID).into_location();
 	pub const BridgeHub: MultiLocation = Parachain(BRIDGE_HUB_ID).into_location();
+	pub const People: MultiLocation = Parachain(PEOPLE_ID).into_location();
+	pub const Broker: MultiLocation = Parachain(BROKER_ID).into_location();
 	pub const Tick: MultiLocation = Parachain(100).into_location();
 	pub const Trick: MultiLocation = Parachain(110).into_location();
 	pub const Track: MultiLocation = Parachain(120).into_location();
@@ -130,6 +133,8 @@ parameter_types! {
 	pub const RocForContracts: (MultiAssetFilter, MultiLocation) = (Roc::get(), Contracts::get());
 	pub const RocForEncointer: (MultiAssetFilter, MultiLocation) = (Roc::get(), Encointer::get());
 	pub const RocForBridgeHub: (MultiAssetFilter, MultiLocation) = (Roc::get(), BridgeHub::get());
+	pub const RocForPeople: (MultiAssetFilter, MultiLocation) = (Roc::get(), People::get());
+	pub const RocForBroker: (MultiAssetFilter, MultiLocation) = (Roc::get(), Broker::get());
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
@@ -141,11 +146,16 @@ pub type TrustedTeleporters = (
 	xcm_builder::Case<RocForContracts>,
 	xcm_builder::Case<RocForEncointer>,
 	xcm_builder::Case<RocForBridgeHub>,
+	xcm_builder::Case<RocForPeople>,
+	xcm_builder::Case<RocForBroker>,
 );
 
 match_types! {
 	pub type OnlyParachains: impl Contains<MultiLocation> = {
 		MultiLocation { parents: 0, interior: X1(Parachain(_)) }
+	};
+	pub type LocalPlurality: impl Contains<MultiLocation> = {
+		MultiLocation { parents: 0, interior: X1(Plurality { .. }) }
 	};
 }
 
@@ -168,6 +178,10 @@ pub type Barrier = TrailingSetTopicAsId<(
 		ConstU32<8>,
 	>,
 )>;
+
+/// Locations that will not be charged fees in the executor, neither for execution nor delivery.
+/// We only waive fees for system functions, which these locations represent.
+pub type WaivedLocations = (SystemParachains, Equals<RootLocation>, LocalPlurality);
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
@@ -195,7 +209,7 @@ impl xcm_executor::Config for XcmConfig {
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	type FeeManager = XcmFeeManagerFromComponents<
-		SystemParachains,
+		WaivedLocations,
 		XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
 	>;
 	type MessageExporter = ();

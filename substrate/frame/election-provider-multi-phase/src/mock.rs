@@ -21,7 +21,7 @@ use frame_election_provider_support::{
 	bounds::{DataProviderBounds, ElectionBounds},
 	data_provider, onchain, ElectionDataProvider, NposSolution, SequentialPhragmen,
 };
-pub use frame_support::{assert_noop, assert_ok, derive_impl, pallet_prelude::GetDefault};
+pub use frame_support::derive_impl;
 use frame_support::{
 	parameter_types,
 	traits::{ConstU32, Hooks},
@@ -117,7 +117,7 @@ pub fn roll_to_round(n: u32) {
 
 	while MultiPhase::round() != n {
 		roll_to_signed();
-		assert_ok!(MultiPhase::elect());
+		frame_support::assert_ok!(MultiPhase::elect());
 	}
 }
 
@@ -638,9 +638,9 @@ impl ExtBuilder {
 
 		#[cfg(feature = "try-runtime")]
 		ext.execute_with(|| {
-			assert_ok!(<MultiPhase as frame_support::traits::Hooks<u64>>::try_state(
-				System::block_number()
-			));
+			frame_support::assert_ok!(
+				<MultiPhase as frame_support::traits::Hooks<u64>>::try_state(System::block_number())
+			);
 		});
 	}
 }

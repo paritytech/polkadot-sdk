@@ -548,7 +548,7 @@ impl<T: Config> Pallet<T> {
 		let disputed_bitfield = create_disputed_bitfield(expected_bits, freed_disputed.keys());
 
 		if !freed_disputed.is_empty() {
-			<scheduler::Pallet<T>>::update_claimqueue(freed_disputed.clone(), now);
+			<scheduler::Pallet<T>>::free_cores_and_fill_claimqueue(freed_disputed.clone(), now);
 		}
 
 		let bitfields = sanitize_bitfields::<T>(
@@ -580,7 +580,7 @@ impl<T: Config> Pallet<T> {
 
 		let freed = collect_all_freed_cores::<T, _>(freed_concluded.iter().cloned());
 
-		<scheduler::Pallet<T>>::update_claimqueue(freed, now);
+		<scheduler::Pallet<T>>::free_cores_and_fill_claimqueue(freed, now);
 		let scheduled = <scheduler::Pallet<T>>::scheduled_paras()
 			.map(|(core_idx, para_id)| (para_id, core_idx))
 			.collect();
