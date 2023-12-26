@@ -412,8 +412,6 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 					#(
 						#cfg_attrs
 						Self::#fn_name { #( #args_name_pattern_ref, )* } => {
-							// let result = #feeless_check_result;
-							// (result, None)
 							#feeless_check_result
 						},
 					)*
