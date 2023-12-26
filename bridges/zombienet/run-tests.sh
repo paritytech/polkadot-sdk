@@ -52,7 +52,7 @@ function start_coproc() {
         unset RUN_IN_CONTAINER
         unset ZOMBIENET_IMAGE
 
-        $command >$coproc_log 2>&1
+        $command >$coproc_log/log 2>&1
     }
     TEST_COPROCS[$COPROC_PID, 0]=$name
     TEST_COPROCS[$COPROC_PID, 1]=$coproc_log
@@ -115,15 +115,21 @@ do
             echo "====================================================================="
             echo $coproc_stdout
 
-            for file in /tmp/zombie*/logs/* ; do
-                cat $file
+            for $file in /tmp/zombie*/logs/* ; do
+                echo $file
+                head $file
+                #cat $file
             done
 
             for file in /tmp/polkadot.*/* ; do
-                cat $file
+                echo $file
+                head $file
+                cat $file | grep -E 'ERROR|WARN|rror|arn|ail|xcm' -C10
             done
             for file in /tmp/polkadot-parachain.*/* ; do
-                cat $file
+                echo $file
+                head $file
+                cat $file | grep -E 'ERROR|WARN|rror|arn|ail|xcm' -C10
             done
 
             exit 1
