@@ -1521,4 +1521,6 @@ mod test {
 		assert_eq!(result.target_body, body);
 		assert_eq!(result.target_justifications, justifications);
 	}
+
+	// TODO: test that peers are freed from `PeerPool` when responses are received.
 }

@@ -834,4 +834,6 @@ mod test {
 		// No more actions generated.
 		assert_eq!(state_strategy.actions().count(), 0);
 	}
+
+	// TODO: test that peers are freed from `PeerPool` when responses are received.
 }

@@ -206,12 +206,14 @@ where
 				peer_best_blocks: Default::default(),
 			})
 		} else {
+			let peer_pool: PeerPool = Default::default();
 			let chain_sync = ChainSync::new(
 				chain_sync_mode(config.mode),
 				client.clone(),
 				config.max_parallel_downloads,
 				config.max_blocks_per_request,
 				config.metrics_registry.clone(),
+				peer_pool.clone(),
 			)?;
 			Ok(Self {
 				config,
@@ -219,7 +221,7 @@ where
 				warp: None,
 				state: None,
 				chain_sync: Some(chain_sync),
-				peer_pool: Default::default(),
+				peer_pool,
 				peer_best_blocks: Default::default(),
 			})
 		}
@@ -554,6 +556,7 @@ where
 						self.config.max_parallel_downloads,
 						self.config.max_blocks_per_request,
 						self.config.metrics_registry.clone(),
+						self.peer_pool.clone(),
 					) {
 						Ok(chain_sync) => chain_sync,
 						Err(e) => {
@@ -583,6 +586,7 @@ where
 				self.config.max_parallel_downloads,
 				self.config.max_blocks_per_request,
 				self.config.metrics_registry.clone(),
+				self.peer_pool.clone(),
 			) {
 				Ok(chain_sync) => chain_sync,
 				Err(e) => {
