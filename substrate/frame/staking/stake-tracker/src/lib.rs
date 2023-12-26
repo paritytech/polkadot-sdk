@@ -30,7 +30,7 @@
 //!
 //! ## Goals
 //!
-//! The [`OnStakingUpdate`] implementation aims at achieving the following goals:
+//! The [`OnStakingUpdate`] implementation aims to achieve the following goals:
 //!
 //! * The [`Config::TargetList`] keeps a sorted list of validators, sorted by approvals
 //! (which include self-vote and nominations' stake).
