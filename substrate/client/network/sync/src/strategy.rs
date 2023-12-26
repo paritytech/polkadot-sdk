@@ -84,7 +84,7 @@ impl PeerStatus {
 }
 
 #[derive(Clone, Default)]
-struct PeerPool {
+pub struct PeerPool {
 	peers: Arc<Mutex<HashMap<PeerId, PeerStatus>>>,
 }
 
@@ -194,14 +194,15 @@ where
 		if let SyncMode::Warp = config.mode {
 			let warp_sync_config = warp_sync_config
 				.expect("Warp sync configuration must be supplied in warp sync mode.");
-			let warp_sync = WarpSync::new(client.clone(), warp_sync_config);
+			let peer_pool: PeerPool = Default::default();
+			let warp_sync = WarpSync::new(client.clone(), warp_sync_config, peer_pool.clone());
 			Ok(Self {
 				config,
 				client,
 				warp: Some(warp_sync),
 				state: None,
 				chain_sync: None,
-				connected_peers_pool: Default::default(),
+				connected_peers_pool: peer_pool,
 				connected_peers_best: Default::default(),
 			})
 		} else {
