@@ -20,4 +20,3 @@ else
 	/usr/local/bin/polkadot-parachain $ARGS 2>&1 | tee -a $LOG_FILE/log
 	echo "Stopping polkadot-parachain with arguments: $ARGS" >>$LOG_FILE/log
 fi
-

@@ -20,4 +20,3 @@ else
 	/usr/local/bin/polkadot $ARGS 2>&1 | tee -a $LOG_FILE/log
 	echo "Stopping polkadot with arguments: $ARGS" >>$LOG_FILE/log
 fi
-
