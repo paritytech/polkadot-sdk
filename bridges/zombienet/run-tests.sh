@@ -52,7 +52,7 @@ function start_coproc() {
         unset RUN_IN_CONTAINER
         unset ZOMBIENET_IMAGE
 
-        $command >$coproc_log/log 2>&1
+        $command >$coproc_log 2>&1
     }
     TEST_COPROCS[$COPROC_PID, 0]=$name
     TEST_COPROCS[$COPROC_PID, 1]=$coproc_log
@@ -115,10 +115,12 @@ do
             echo "====================================================================="
             echo $coproc_stdout
 
+            echo "==="
+            echo $TEST_PREFIX
+
             for file in /tmp/zombie*/logs/* ; do
                 echo $file
                 head $file
-                #cat $file
             done
 
             echo "==="
@@ -126,10 +128,21 @@ do
             for file in /tmp/zombie*/*/* ; do
                 echo $file
                 head $file
-                #cat $file
             done
 
             echo "==="
+
+            for file in /tmp/bridges-zombie*/* ; do
+                echo $file
+                head $file
+            done
+
+            echo "==="
+
+            for file in /tmp/bridges-zombie*/* ; do
+                echo $file
+                head $file
+            done
 
             for file in /tmp/polkadot.*/* ; do
                 echo $file
