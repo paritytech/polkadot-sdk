@@ -1003,7 +1003,7 @@ impl<T: Config> Pallet<T> {
 				Nominators::<T>::insert(who, nominations);
 				T::EventListeners::on_nominator_add(who);
 			},
-			(true, true) | (false, true) => {
+			(_, true) => {
 				// update nominations or un-chill nominator.
 				let prev_nominations = Self::nominations(who).unwrap_or_default();
 				Nominators::<T>::insert(who, nominations);

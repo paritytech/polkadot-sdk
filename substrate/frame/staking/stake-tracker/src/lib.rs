@@ -119,9 +119,9 @@ pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 /// Represents a stake imbalance to be applied to a staker's score.
 #[derive(Copy, Clone, Debug)]
 pub enum StakeImbalance<Balance> {
-	// Represents the reduction of stake by `Balance`.
+	/// Represents the reduction of stake by `Balance`.
 	Negative(Balance),
-	// Represents the increase of stake by `Balance`.
+	/// Represents the increase of stake by `Balance`.
 	Positive(Balance),
 }
 
@@ -186,7 +186,7 @@ pub mod pallet {
 			)
 		}
 
-		/// Fetches and converts a voter's weight into the `ExtendedBalance` type for safe
+		/// Fetches and converts a voter's weight into the [`ExtendedBalance`] type for safe
 		/// computation.
 		pub(crate) fn to_vote_extended(balance: BalanceOf<T>) -> ExtendedBalance {
 			<T::Staking as StakingInterface>::CurrencyToVote::to_vote(
@@ -500,6 +500,8 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 
 	/// Fired when someone removes their intention to nominate and is completely removed from the
 	/// staking state.
+	///
+	/// Note: this may update the score of up to [`T::MaxNominations`] validators.
 	fn on_nominator_remove(who: &T::AccountId, nominations: Vec<T::AccountId>) {
 		let nominator_vote = Self::weight_of(Self::active_vote_of(who));
 
@@ -511,8 +513,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 			nominations,
 		);
 
-		// updates the nominated target's score. Note: this may update the score of up to
-		// `T::MaxNominations` validators.
+		// updates the nominated target's score.
 		for t in nominations.iter() {
 			Self::update_target_score(&t, StakeImbalance::Negative(nominator_vote.into()))
 		}
