@@ -1036,6 +1036,59 @@
 <a href="#1036" id="1036">1036</a>
 <a href="#1037" id="1037">1037</a>
 <a href="#1038" id="1038">1038</a>
+<a href="#1039" id="1039">1039</a>
+<a href="#1040" id="1040">1040</a>
+<a href="#1041" id="1041">1041</a>
+<a href="#1042" id="1042">1042</a>
+<a href="#1043" id="1043">1043</a>
+<a href="#1044" id="1044">1044</a>
+<a href="#1045" id="1045">1045</a>
+<a href="#1046" id="1046">1046</a>
+<a href="#1047" id="1047">1047</a>
+<a href="#1048" id="1048">1048</a>
+<a href="#1049" id="1049">1049</a>
+<a href="#1050" id="1050">1050</a>
+<a href="#1051" id="1051">1051</a>
+<a href="#1052" id="1052">1052</a>
+<a href="#1053" id="1053">1053</a>
+<a href="#1054" id="1054">1054</a>
+<a href="#1055" id="1055">1055</a>
+<a href="#1056" id="1056">1056</a>
+<a href="#1057" id="1057">1057</a>
+<a href="#1058" id="1058">1058</a>
+<a href="#1059" id="1059">1059</a>
+<a href="#1060" id="1060">1060</a>
+<a href="#1061" id="1061">1061</a>
+<a href="#1062" id="1062">1062</a>
+<a href="#1063" id="1063">1063</a>
+<a href="#1064" id="1064">1064</a>
+<a href="#1065" id="1065">1065</a>
+<a href="#1066" id="1066">1066</a>
+<a href="#1067" id="1067">1067</a>
+<a href="#1068" id="1068">1068</a>
+<a href="#1069" id="1069">1069</a>
+<a href="#1070" id="1070">1070</a>
+<a href="#1071" id="1071">1071</a>
+<a href="#1072" id="1072">1072</a>
+<a href="#1073" id="1073">1073</a>
+<a href="#1074" id="1074">1074</a>
+<a href="#1075" id="1075">1075</a>
+<a href="#1076" id="1076">1076</a>
+<a href="#1077" id="1077">1077</a>
+<a href="#1078" id="1078">1078</a>
+<a href="#1079" id="1079">1079</a>
+<a href="#1080" id="1080">1080</a>
+<a href="#1081" id="1081">1081</a>
+<a href="#1082" id="1082">1082</a>
+<a href="#1083" id="1083">1083</a>
+<a href="#1084" id="1084">1084</a>
+<a href="#1085" id="1085">1085</a>
+<a href="#1086" id="1086">1086</a>
+<a href="#1087" id="1087">1087</a>
+<a href="#1088" id="1088">1088</a>
+<a href="#1089" id="1089">1089</a>
+<a href="#1090" id="1090">1090</a>
+<a href="#1091" id="1091">1091</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1062,7 +1115,7 @@
 <span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>sp_core::defer;
 <span class="kw">use </span>sp_io::hashing::blake2_128;
-<span class="kw">use </span>sp_std::{marker::PhantomData, prelude::<span class="kw-2">*</span>};
+<span class="kw">use </span>sp_std::{fmt::Debug, marker::PhantomData, prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>sp_weights::Weight;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 
@@ -1237,10 +1290,7 @@
 		<span class="kw">let </span>origin = origin.into();
 		<span class="macro">log::trace!</span>(
 			target: <span class="string">&quot;xcm::execute_xcm_in_credit&quot;</span>,
-			<span class="string">&quot;origin: {:?}, message: {:?}, weight_credit: {:?}&quot;</span>,
-			origin,
-			message,
-			weight_credit,
+			<span class="string">&quot;origin: {origin:?}, message: {message:?}, weight_credit: {weight_credit:?}&quot;</span>,
 		);
 		<span class="kw">let </span><span class="kw-2">mut </span>properties = Properties { weight_credit, message_id: <span class="prelude-val">None </span>};
 		<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = Config::Barrier::should_execute(
@@ -1251,11 +1301,8 @@
 		) {
 			<span class="macro">log::trace!</span>(
 				target: <span class="string">&quot;xcm::execute_xcm_in_credit&quot;</span>,
-				<span class="string">&quot;Barrier blocked execution! Error: {:?}. (origin: {:?}, message: {:?}, properties: {:?})&quot;</span>,
-				e,
-				origin,
-				message,
-				properties,
+				<span class="string">&quot;Barrier blocked execution! Error: {e:?}. \
+				 (origin: {origin:?}, message: {message:?}, properties: {properties:?})&quot;</span>,
 			);
 			<span class="kw">return </span>Outcome::Error(XcmError::Barrier)
 		}
@@ -1266,7 +1313,7 @@
 
 		<span class="kw">while </span>!message.<span class="number">0</span>.is_empty() {
 			<span class="kw">let </span>result = vm.process(message);
-			<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::execute_xcm_in_credit&quot;</span>, <span class="string">&quot;result: {:?}&quot;</span>, result);
+			<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::execute_xcm_in_credit&quot;</span>, <span class="string">&quot;result: {result:?}&quot;</span>);
 			message = <span class="kw">if let </span><span class="prelude-val">Err</span>(error) = result {
 				vm.total_surplus.saturating_accrue(error.weight);
 				vm.error = <span class="prelude-val">Some</span>((error.index, error.xcm_error));
@@ -1338,65 +1385,6 @@
 			fees_mode: FeesMode { jit_withdraw: <span class="bool-val">false </span>},
 			_config: PhantomData,
 		}
-	}
-
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-	</span><span class="kw">pub fn </span>bench_process(<span class="kw-2">&amp;mut </span><span class="self">self</span>, xcm: Xcm&lt;Config::RuntimeCall&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), ExecutorError&gt; {
-		<span class="self">self</span>.process(xcm)
-	}
-
-	<span class="kw">fn </span>process(<span class="kw-2">&amp;mut </span><span class="self">self</span>, xcm: Xcm&lt;Config::RuntimeCall&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), ExecutorError&gt; {
-		<span class="macro">log::trace!</span>(
-			target: <span class="string">&quot;xcm::process&quot;</span>,
-			<span class="string">&quot;origin: {:?}, total_surplus/refunded: {:?}/{:?}, error_handler_weight: {:?}&quot;</span>,
-			<span class="self">self</span>.origin_ref(),
-			<span class="self">self</span>.total_surplus,
-			<span class="self">self</span>.total_refunded,
-			<span class="self">self</span>.error_handler_weight,
-		);
-		<span class="kw">let </span><span class="kw-2">mut </span>result = <span class="prelude-val">Ok</span>(());
-		<span class="kw">for </span>(i, instr) <span class="kw">in </span>xcm.<span class="number">0</span>.into_iter().enumerate() {
-			<span class="kw">match </span><span class="kw-2">&amp;mut </span>result {
-				r @ <span class="prelude-val">Ok</span>(()) =&gt; {
-					<span class="comment">// Initialize the recursion count only the first time we hit this code in our
-					// potential recursive execution.
-					</span><span class="kw">let </span>inst_res = recursion_count::using_once(<span class="kw-2">&amp;mut </span><span class="number">1</span>, || {
-						recursion_count::with(|count| {
-							<span class="kw">if </span><span class="kw-2">*</span>count &gt; RECURSION_LIMIT {
-								<span class="kw">return </span><span class="prelude-val">Err</span>(XcmError::ExceedsStackLimit)
-							}
-							<span class="kw-2">*</span>count = count.saturating_add(<span class="number">1</span>);
-							<span class="prelude-val">Ok</span>(())
-						})
-						<span class="comment">// This should always return `Some`, but let&#39;s play it safe.
-						</span>.unwrap_or(<span class="prelude-val">Ok</span>(()))<span class="question-mark">?</span>;
-
-						<span class="comment">// Ensure that we always decrement the counter whenever we finish processing
-						// the instruction.
-						</span><span class="macro">defer! </span>{
-							recursion_count::with(|count| {
-								<span class="kw-2">*</span>count = count.saturating_sub(<span class="number">1</span>);
-							});
-						}
-
-						<span class="self">self</span>.process_instruction(instr)
-					});
-					<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = inst_res {
-						<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::execute&quot;</span>, <span class="string">&quot;!!! ERROR: {:?}&quot;</span>, e);
-						<span class="kw-2">*</span>r = <span class="prelude-val">Err</span>(ExecutorError {
-							index: i <span class="kw">as </span>u32,
-							xcm_error: e,
-							weight: Weight::zero(),
-						});
-					}
-				},
-				<span class="prelude-val">Err</span>(<span class="kw-2">ref mut </span>error) =&gt;
-					<span class="kw">if let </span><span class="prelude-val">Ok</span>(x) = Config::Weigher::instr_weight(<span class="kw-2">&amp;</span>instr) {
-						error.weight.saturating_accrue(x)
-					},
-			}
-		}
-		result
 	}
 
 	<span class="doccomment">/// Execute any final operations after having executed the XCM message.
@@ -1506,6 +1494,154 @@
 		<span class="prelude-val">Ok</span>(())
 	}
 
+	<span class="kw">fn </span>take_fee(<span class="kw-2">&amp;mut </span><span class="self">self</span>, fee: MultiAssets, reason: FeeReason) -&gt; XcmResult {
+		<span class="kw">if </span>Config::FeeManager::is_waived(<span class="self">self</span>.origin_ref(), reason) {
+			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
+		}
+		<span class="macro">log::trace!</span>(
+			target: <span class="string">&quot;xcm::fees&quot;</span>,
+			<span class="string">&quot;taking fee: {:?} from origin_ref: {:?} in fees_mode: {:?} for a reason: {:?}&quot;</span>,
+			fee,
+			<span class="self">self</span>.origin_ref(),
+			<span class="self">self</span>.fees_mode,
+			reason,
+		);
+		<span class="kw">let </span>paid = <span class="kw">if </span><span class="self">self</span>.fees_mode.jit_withdraw {
+			<span class="kw">let </span>origin = <span class="self">self</span>.origin_ref().ok_or(XcmError::BadOrigin)<span class="question-mark">?</span>;
+			<span class="kw">for </span>asset <span class="kw">in </span>fee.inner() {
+				Config::AssetTransactor::withdraw_asset(<span class="kw-2">&amp;</span>asset, origin, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.context))<span class="question-mark">?</span>;
+			}
+			fee
+		} <span class="kw">else </span>{
+			<span class="self">self</span>.holding.try_take(fee.into()).map_err(|<span class="kw">_</span>| XcmError::NotHoldingFees)<span class="question-mark">?</span>.into()
+		};
+		Config::FeeManager::handle_fee(paid, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.context), reason);
+		<span class="prelude-val">Ok</span>(())
+	}
+
+	<span class="doccomment">/// Calculates what `local_querier` would be from the perspective of `destination`.
+	</span><span class="kw">fn </span>to_querier(
+		local_querier: <span class="prelude-ty">Option</span>&lt;MultiLocation&gt;,
+		destination: <span class="kw-2">&amp;</span>MultiLocation,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;MultiLocation&gt;, XcmError&gt; {
+		<span class="prelude-val">Ok</span>(<span class="kw">match </span>local_querier {
+			<span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
+			<span class="prelude-val">Some</span>(q) =&gt; <span class="prelude-val">Some</span>(
+				q.reanchored(<span class="kw-2">&amp;</span>destination, Config::UniversalLocation::get())
+					.map_err(|<span class="kw">_</span>| XcmError::ReanchorFailed)<span class="question-mark">?</span>,
+			),
+		})
+	}
+
+	<span class="doccomment">/// Send a bare `QueryResponse` message containing `response` informed by the given `info`.
+	///
+	/// The `local_querier` argument is the querier (if any) specified from the *local* perspective.
+	</span><span class="kw">fn </span>respond(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		local_querier: <span class="prelude-ty">Option</span>&lt;MultiLocation&gt;,
+		response: Response,
+		info: QueryResponseInfo,
+		fee_reason: FeeReason,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;XcmHash, XcmError&gt; {
+		<span class="kw">let </span>querier = <span class="self">Self</span>::to_querier(local_querier, <span class="kw-2">&amp;</span>info.destination)<span class="question-mark">?</span>;
+		<span class="kw">let </span>QueryResponseInfo { destination, query_id, max_weight } = info;
+		<span class="kw">let </span>instruction = QueryResponse { query_id, response, max_weight, querier };
+		<span class="kw">let </span>message = Xcm(<span class="macro">vec!</span>[instruction]);
+		<span class="self">self</span>.send(destination, message, fee_reason)
+	}
+
+	<span class="kw">fn </span>try_reanchor(
+		asset: MultiAsset,
+		destination: <span class="kw-2">&amp;</span>MultiLocation,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(MultiAsset, InteriorMultiLocation), XcmError&gt; {
+		<span class="kw">let </span>reanchor_context = Config::UniversalLocation::get();
+		<span class="kw">let </span>asset = asset
+			.reanchored(<span class="kw-2">&amp;</span>destination, reanchor_context)
+			.map_err(|()| XcmError::ReanchorFailed)<span class="question-mark">?</span>;
+		<span class="prelude-val">Ok</span>((asset, reanchor_context))
+	}
+
+	<span class="kw">fn </span>try_reanchor_multilocation(
+		location: MultiLocation,
+		destination: <span class="kw-2">&amp;</span>MultiLocation,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(MultiLocation, InteriorMultiLocation), XcmError&gt; {
+		<span class="kw">let </span>reanchor_context = Config::UniversalLocation::get();
+		<span class="kw">let </span>location = location
+			.reanchored(<span class="kw-2">&amp;</span>destination, reanchor_context)
+			.map_err(|<span class="kw">_</span>| XcmError::ReanchorFailed)<span class="question-mark">?</span>;
+		<span class="prelude-val">Ok</span>((location, reanchor_context))
+	}
+
+	<span class="doccomment">/// NOTE: Any assets which were unable to be reanchored are introduced into `failed_bin`.
+	</span><span class="kw">fn </span>reanchored(
+		<span class="kw-2">mut </span>assets: Assets,
+		dest: <span class="kw-2">&amp;</span>MultiLocation,
+		maybe_failed_bin: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>Assets&gt;,
+	) -&gt; MultiAssets {
+		<span class="kw">let </span>reanchor_context = Config::UniversalLocation::get();
+		assets.reanchor(dest, reanchor_context, maybe_failed_bin);
+		assets.into_assets_iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;().into()
+	}
+
+	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="kw">pub fn </span>bench_process(<span class="kw-2">&amp;mut </span><span class="self">self</span>, xcm: Xcm&lt;Config::RuntimeCall&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), ExecutorError&gt; {
+		<span class="self">self</span>.process(xcm)
+	}
+
+	<span class="kw">fn </span>process(<span class="kw-2">&amp;mut </span><span class="self">self</span>, xcm: Xcm&lt;Config::RuntimeCall&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), ExecutorError&gt; {
+		<span class="macro">log::trace!</span>(
+			target: <span class="string">&quot;xcm::process&quot;</span>,
+			<span class="string">&quot;origin: {:?}, total_surplus/refunded: {:?}/{:?}, error_handler_weight: {:?}&quot;</span>,
+			<span class="self">self</span>.origin_ref(),
+			<span class="self">self</span>.total_surplus,
+			<span class="self">self</span>.total_refunded,
+			<span class="self">self</span>.error_handler_weight,
+		);
+		<span class="kw">let </span><span class="kw-2">mut </span>result = <span class="prelude-val">Ok</span>(());
+		<span class="kw">for </span>(i, instr) <span class="kw">in </span>xcm.<span class="number">0</span>.into_iter().enumerate() {
+			<span class="kw">match </span><span class="kw-2">&amp;mut </span>result {
+				r @ <span class="prelude-val">Ok</span>(()) =&gt; {
+					<span class="comment">// Initialize the recursion count only the first time we hit this code in our
+					// potential recursive execution.
+					</span><span class="kw">let </span>inst_res = recursion_count::using_once(<span class="kw-2">&amp;mut </span><span class="number">1</span>, || {
+						recursion_count::with(|count| {
+							<span class="kw">if </span><span class="kw-2">*</span>count &gt; RECURSION_LIMIT {
+								<span class="kw">return </span><span class="prelude-val">Err</span>(XcmError::ExceedsStackLimit)
+							}
+							<span class="kw-2">*</span>count = count.saturating_add(<span class="number">1</span>);
+							<span class="prelude-val">Ok</span>(())
+						})
+						<span class="comment">// This should always return `Some`, but let&#39;s play it safe.
+						</span>.unwrap_or(<span class="prelude-val">Ok</span>(()))<span class="question-mark">?</span>;
+
+						<span class="comment">// Ensure that we always decrement the counter whenever we finish processing
+						// the instruction.
+						</span><span class="macro">defer! </span>{
+							recursion_count::with(|count| {
+								<span class="kw-2">*</span>count = count.saturating_sub(<span class="number">1</span>);
+							});
+						}
+
+						<span class="self">self</span>.process_instruction(instr)
+					});
+					<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = inst_res {
+						<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::execute&quot;</span>, <span class="string">&quot;!!! ERROR: {:?}&quot;</span>, e);
+						<span class="kw-2">*</span>r = <span class="prelude-val">Err</span>(ExecutorError {
+							index: i <span class="kw">as </span>u32,
+							xcm_error: e,
+							weight: Weight::zero(),
+						});
+					}
+				},
+				<span class="prelude-val">Err</span>(<span class="kw-2">ref mut </span>error) =&gt;
+					<span class="kw">if let </span><span class="prelude-val">Ok</span>(x) = Config::Weigher::instr_weight(<span class="kw-2">&amp;</span>instr) {
+						error.weight.saturating_accrue(x)
+					},
+			}
+		}
+		result
+	}
+
 	<span class="doccomment">/// Process a single XCM instruction, mutating the state of the XCM virtual machine.
 	</span><span class="kw">fn </span>process_instruction(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
@@ -1589,22 +1725,81 @@
 			},
 			Transact { origin_kind, require_weight_at_most, <span class="kw-2">mut </span>call } =&gt; {
 				<span class="comment">// We assume that the Relay-chain is allowed to use transact on this parachain.
-				</span><span class="kw">let </span>origin = <span class="kw-2">*</span><span class="self">self</span>.origin_ref().ok_or(XcmError::BadOrigin)<span class="question-mark">?</span>;
+				</span><span class="kw">let </span>origin = <span class="kw-2">*</span><span class="self">self</span>.origin_ref().ok_or_else(|| {
+					<span class="macro">log::trace!</span>(
+						target: <span class="string">&quot;xcm::process_instruction::transact&quot;</span>,
+						<span class="string">&quot;No origin provided&quot;</span>,
+					);
+
+					XcmError::BadOrigin
+				})<span class="question-mark">?</span>;
 
 				<span class="comment">// TODO: #2841 #TRANSACTFILTER allow the trait to issue filters for the relay-chain
-				</span><span class="kw">let </span>message_call = call.take_decoded().map_err(|<span class="kw">_</span>| XcmError::FailedToDecode)<span class="question-mark">?</span>;
-				<span class="macro">ensure!</span>(Config::SafeCallFilter::contains(<span class="kw-2">&amp;</span>message_call), XcmError::NoPermission);
+				</span><span class="kw">let </span>message_call = call.take_decoded().map_err(|<span class="kw">_</span>| {
+					<span class="macro">log::trace!</span>(
+						target: <span class="string">&quot;xcm::process_instruction::transact&quot;</span>,
+						<span class="string">&quot;Failed to decode call&quot;</span>,
+					);
+
+					XcmError::FailedToDecode
+				})<span class="question-mark">?</span>;
+
+				<span class="macro">log::trace!</span>(
+					target: <span class="string">&quot;xcm::process_instruction::transact&quot;</span>,
+					<span class="string">&quot;Processing call: {message_call:?}&quot;</span>,
+				);
+
+				<span class="kw">if </span>!Config::SafeCallFilter::contains(<span class="kw-2">&amp;</span>message_call) {
+					<span class="macro">log::trace!</span>(
+						target: <span class="string">&quot;xcm::process_instruction::transact&quot;</span>,
+						<span class="string">&quot;Call filtered by `SafeCallFilter`&quot;</span>,
+					);
+
+					<span class="kw">return </span><span class="prelude-val">Err</span>(XcmError::NoPermission)
+				}
+
 				<span class="kw">let </span>dispatch_origin = Config::OriginConverter::convert_origin(origin, origin_kind)
-					.map_err(|<span class="kw">_</span>| XcmError::BadOrigin)<span class="question-mark">?</span>;
+					.map_err(|<span class="kw">_</span>| {
+						<span class="macro">log::trace!</span>(
+							target: <span class="string">&quot;xcm::process_instruction::transact&quot;</span>,
+							<span class="string">&quot;Failed to convert origin {origin:?} and origin kind {origin_kind:?} to a local origin.&quot;
+						</span>);
+
+						XcmError::BadOrigin
+					})<span class="question-mark">?</span>;
+
+				<span class="macro">log::trace!</span>(
+					target: <span class="string">&quot;xcm::process_instruction::transact&quot;</span>,
+					<span class="string">&quot;Dispatching with origin: {dispatch_origin:?}&quot;</span>,
+				);
+
 				<span class="kw">let </span>weight = message_call.get_dispatch_info().weight;
-				<span class="macro">ensure!</span>(weight.all_lte(require_weight_at_most), XcmError::MaxWeightInvalid);
+
+				<span class="kw">if </span>!weight.all_lte(require_weight_at_most) {
+					<span class="macro">log::trace!</span>(
+						target: <span class="string">&quot;xcm::process_instruction::transact&quot;</span>,
+						<span class="string">&quot;Max {weight} bigger than require at most {require_weight_at_most}&quot;</span>,
+					);
+
+					<span class="kw">return </span><span class="prelude-val">Err</span>(XcmError::MaxWeightInvalid)
+				}
+
 				<span class="kw">let </span>maybe_actual_weight =
 					<span class="kw">match </span>Config::CallDispatcher::dispatch(message_call, dispatch_origin) {
 						<span class="prelude-val">Ok</span>(post_info) =&gt; {
+							<span class="macro">log::trace!</span>(
+								target: <span class="string">&quot;xcm::process_instruction::transact&quot;</span>,
+								<span class="string">&quot;Dispatch successful: {post_info:?}&quot;
+							</span>);
 							<span class="self">self</span>.transact_status = MaybeErrorCode::Success;
 							post_info.actual_weight
 						},
 						<span class="prelude-val">Err</span>(error_and_info) =&gt; {
+							<span class="macro">log::trace!</span>(
+								target: <span class="string">&quot;xcm::process_instruction::transact&quot;</span>,
+								<span class="string">&quot;Dispatch failed {error_and_info:?}&quot;
+							</span>);
+
 							<span class="self">self</span>.transact_status = error_and_info.error.encode().into();
 							error_and_info.post_info.actual_weight
 						},
@@ -1983,95 +2178,6 @@
 			HrmpChannelAccepted { .. } =&gt; <span class="prelude-val">Err</span>(XcmError::Unimplemented),
 			HrmpChannelClosing { .. } =&gt; <span class="prelude-val">Err</span>(XcmError::Unimplemented),
 		}
-	}
-
-	<span class="kw">fn </span>take_fee(<span class="kw-2">&amp;mut </span><span class="self">self</span>, fee: MultiAssets, reason: FeeReason) -&gt; XcmResult {
-		<span class="kw">if </span>Config::FeeManager::is_waived(<span class="self">self</span>.origin_ref(), reason) {
-			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
-		}
-		<span class="macro">log::trace!</span>(
-			target: <span class="string">&quot;xcm::fees&quot;</span>,
-			<span class="string">&quot;taking fee: {:?} from origin_ref: {:?} in fees_mode: {:?} for a reason: {:?}&quot;</span>,
-			fee,
-			<span class="self">self</span>.origin_ref(),
-			<span class="self">self</span>.fees_mode,
-			reason,
-		);
-		<span class="kw">let </span>paid = <span class="kw">if </span><span class="self">self</span>.fees_mode.jit_withdraw {
-			<span class="kw">let </span>origin = <span class="self">self</span>.origin_ref().ok_or(XcmError::BadOrigin)<span class="question-mark">?</span>;
-			<span class="kw">for </span>asset <span class="kw">in </span>fee.inner() {
-				Config::AssetTransactor::withdraw_asset(<span class="kw-2">&amp;</span>asset, origin, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.context))<span class="question-mark">?</span>;
-			}
-			fee
-		} <span class="kw">else </span>{
-			<span class="self">self</span>.holding.try_take(fee.into()).map_err(|<span class="kw">_</span>| XcmError::NotHoldingFees)<span class="question-mark">?</span>.into()
-		};
-		Config::FeeManager::handle_fee(paid, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.context), reason);
-		<span class="prelude-val">Ok</span>(())
-	}
-
-	<span class="doccomment">/// Calculates what `local_querier` would be from the perspective of `destination`.
-	</span><span class="kw">fn </span>to_querier(
-		local_querier: <span class="prelude-ty">Option</span>&lt;MultiLocation&gt;,
-		destination: <span class="kw-2">&amp;</span>MultiLocation,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;MultiLocation&gt;, XcmError&gt; {
-		<span class="prelude-val">Ok</span>(<span class="kw">match </span>local_querier {
-			<span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
-			<span class="prelude-val">Some</span>(q) =&gt; <span class="prelude-val">Some</span>(
-				q.reanchored(<span class="kw-2">&amp;</span>destination, Config::UniversalLocation::get())
-					.map_err(|<span class="kw">_</span>| XcmError::ReanchorFailed)<span class="question-mark">?</span>,
-			),
-		})
-	}
-
-	<span class="doccomment">/// Send a bare `QueryResponse` message containing `response` informed by the given `info`.
-	///
-	/// The `local_querier` argument is the querier (if any) specified from the *local* perspective.
-	</span><span class="kw">fn </span>respond(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		local_querier: <span class="prelude-ty">Option</span>&lt;MultiLocation&gt;,
-		response: Response,
-		info: QueryResponseInfo,
-		fee_reason: FeeReason,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;XcmHash, XcmError&gt; {
-		<span class="kw">let </span>querier = <span class="self">Self</span>::to_querier(local_querier, <span class="kw-2">&amp;</span>info.destination)<span class="question-mark">?</span>;
-		<span class="kw">let </span>QueryResponseInfo { destination, query_id, max_weight } = info;
-		<span class="kw">let </span>instruction = QueryResponse { query_id, response, max_weight, querier };
-		<span class="kw">let </span>message = Xcm(<span class="macro">vec!</span>[instruction]);
-		<span class="self">self</span>.send(destination, message, fee_reason)
-	}
-
-	<span class="kw">fn </span>try_reanchor(
-		asset: MultiAsset,
-		destination: <span class="kw-2">&amp;</span>MultiLocation,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(MultiAsset, InteriorMultiLocation), XcmError&gt; {
-		<span class="kw">let </span>reanchor_context = Config::UniversalLocation::get();
-		<span class="kw">let </span>asset = asset
-			.reanchored(<span class="kw-2">&amp;</span>destination, reanchor_context)
-			.map_err(|()| XcmError::ReanchorFailed)<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>((asset, reanchor_context))
-	}
-
-	<span class="kw">fn </span>try_reanchor_multilocation(
-		location: MultiLocation,
-		destination: <span class="kw-2">&amp;</span>MultiLocation,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(MultiLocation, InteriorMultiLocation), XcmError&gt; {
-		<span class="kw">let </span>reanchor_context = Config::UniversalLocation::get();
-		<span class="kw">let </span>location = location
-			.reanchored(<span class="kw-2">&amp;</span>destination, reanchor_context)
-			.map_err(|<span class="kw">_</span>| XcmError::ReanchorFailed)<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>((location, reanchor_context))
-	}
-
-	<span class="doccomment">/// NOTE: Any assets which were unable to be reanchored are introduced into `failed_bin`.
-	</span><span class="kw">fn </span>reanchored(
-		<span class="kw-2">mut </span>assets: Assets,
-		dest: <span class="kw-2">&amp;</span>MultiLocation,
-		maybe_failed_bin: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>Assets&gt;,
-	) -&gt; MultiAssets {
-		<span class="kw">let </span>reanchor_context = Config::UniversalLocation::get();
-		assets.reanchor(dest, reanchor_context, maybe_failed_bin);
-		assets.into_assets_iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;().into()
 	}
 }
 </code></pre></div></section></main></body></html>

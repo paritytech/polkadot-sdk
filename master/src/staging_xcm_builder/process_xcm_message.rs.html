@@ -154,6 +154,52 @@
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
 <a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -172,15 +218,14 @@
 
 </span><span class="doccomment">//! Implementation of `ProcessMessage` for an `ExecuteXcm` implementation.
 
-</span><span class="kw">use </span>frame_support::{
-	ensure,
-	traits::{ProcessMessage, ProcessMessageError},
-};
+</span><span class="kw">use </span>frame_support::traits::{ProcessMessage, ProcessMessageError};
 <span class="kw">use </span>parity_scale_codec::{Decode, FullCodec, MaxEncodedLen};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_std::{fmt::Debug, marker::PhantomData};
 <span class="kw">use </span>sp_weights::{Weight, WeightMeter};
 <span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
+
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;xcm::process-message&quot;</span>;
 
 <span class="doccomment">/// A message processor that delegates execution to an `XcmExecutor`.
 </span><span class="kw">pub struct </span>ProcessXcmMessage&lt;MessageOrigin, XcmExecutor, Call&gt;(
@@ -201,21 +246,68 @@
 		meter: <span class="kw-2">&amp;mut </span>WeightMeter,
 		id: <span class="kw-2">&amp;mut </span>XcmHash,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;bool, ProcessMessageError&gt; {
-		<span class="kw">let </span>versioned_message = VersionedXcm::&lt;Call&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>message[..])
-			.map_err(|<span class="kw">_</span>| ProcessMessageError::Corrupt)<span class="question-mark">?</span>;
-		<span class="kw">let </span>message = Xcm::&lt;Call&gt;::try_from(versioned_message)
-			.map_err(|<span class="kw">_</span>| ProcessMessageError::Unsupported)<span class="question-mark">?</span>;
-		<span class="kw">let </span>pre = XcmExecutor::prepare(message).map_err(|<span class="kw">_</span>| ProcessMessageError::Unsupported)<span class="question-mark">?</span>;
+		<span class="kw">let </span>versioned_message = VersionedXcm::&lt;Call&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>message[..]).map_err(|e| {
+			<span class="macro">log::trace!</span>(
+				target: LOG_TARGET,
+				<span class="string">&quot;`VersionedXcm` failed to decode: {e:?}&quot;</span>,
+			);
+
+			ProcessMessageError::Corrupt
+		})<span class="question-mark">?</span>;
+		<span class="kw">let </span>message = Xcm::&lt;Call&gt;::try_from(versioned_message).map_err(|<span class="kw">_</span>| {
+			<span class="macro">log::trace!</span>(
+				target: LOG_TARGET,
+				<span class="string">&quot;Failed to convert `VersionedXcm` into `XcmV3`.&quot;</span>,
+			);
+
+			ProcessMessageError::Unsupported
+		})<span class="question-mark">?</span>;
+		<span class="kw">let </span>pre = XcmExecutor::prepare(message).map_err(|<span class="kw">_</span>| {
+			<span class="macro">log::trace!</span>(
+				target: LOG_TARGET,
+				<span class="string">&quot;Failed to prepare message.&quot;</span>,
+			);
+
+			ProcessMessageError::Unsupported
+		})<span class="question-mark">?</span>;
 		<span class="comment">// The worst-case weight:
 		</span><span class="kw">let </span>required = pre.weight_of();
-		<span class="macro">ensure!</span>(meter.can_consume(required), ProcessMessageError::Overweight(required));
+		<span class="kw">if </span>!meter.can_consume(required) {
+			<span class="macro">log::trace!</span>(
+				target: LOG_TARGET,
+				<span class="string">&quot;Xcm required {required} more than remaining {}&quot;</span>,
+				meter.remaining(),
+			);
+
+			<span class="kw">return </span><span class="prelude-val">Err</span>(ProcessMessageError::Overweight(required))
+		}
 
 		<span class="kw">let </span>(consumed, result) = <span class="kw">match </span>XcmExecutor::execute(origin.into(), pre, id, Weight::zero())
 		{
-			Outcome::Complete(w) =&gt; (w, <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>)),
-			Outcome::Incomplete(w, <span class="kw">_</span>) =&gt; (w, <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>)),
+			Outcome::Complete(w) =&gt; {
+				<span class="macro">log::trace!</span>(
+					target: LOG_TARGET,
+					<span class="string">&quot;XCM message execution complete, used weight: {w}&quot;</span>,
+				);
+				(w, <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>))
+			},
+			Outcome::Incomplete(w, e) =&gt; {
+				<span class="macro">log::trace!</span>(
+					target: LOG_TARGET,
+					<span class="string">&quot;XCM message execution incomplete, used weight: {w}, error: {e:?}&quot;</span>,
+				);
+
+				(w, <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>))
+			},
 			<span class="comment">// In the error-case we assume the worst case and consume all possible weight.
-			</span>Outcome::Error(<span class="kw">_</span>) =&gt; (required, <span class="prelude-val">Err</span>(ProcessMessageError::Unsupported)),
+			</span>Outcome::Error(e) =&gt; {
+				<span class="macro">log::trace!</span>(
+					target: LOG_TARGET,
+					<span class="string">&quot;XCM message execution error: {e:?}&quot;</span>,
+				);
+
+				(required, <span class="prelude-val">Err</span>(ProcessMessageError::Unsupported))
+			},
 		};
 		meter.consume(consumed);
 		result
