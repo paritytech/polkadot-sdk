@@ -121,6 +121,16 @@ do
                 #cat $file
             done
 
+            echo "==="
+
+            for file in /tmp/zombie*/*/* ; do
+                echo $file
+                head $file
+                #cat $file
+            done
+
+            echo "==="
+
             for file in /tmp/polkadot.*/* ; do
                 echo $file
                 head $file
