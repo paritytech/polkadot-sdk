@@ -115,7 +115,7 @@ do
             echo "====================================================================="
             echo $coproc_stdout
 
-            for $file in /tmp/zombie*/logs/* ; do
+            for file in /tmp/zombie*/logs/* ; do
                 echo $file
                 head $file
                 #cat $file
