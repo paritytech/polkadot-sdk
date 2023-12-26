@@ -16,7 +16,9 @@
 
 //! Contains the logic for executing PVFs. Used by the polkadot-execute-worker binary.
 
-pub use polkadot_node_core_pvf_common::{executor_interface::execute_artifact, worker_dir};
+pub use polkadot_node_core_pvf_common::{
+	executor_interface::execute_artifact, worker::WorkerInfo, worker_dir,
+};
 
 // NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-execute-worker=trace`.
@@ -148,9 +150,8 @@ pub fn worker_entrypoint(
 		worker_dir_path,
 		node_version,
 		worker_version,
-		|mut stream, worker_dir_path| {
-			let worker_pid = process::id();
-			let artifact_path = worker_dir::execute_artifact(&worker_dir_path);
+		|mut stream, worker_info| {
+			let artifact_path = worker_dir::execute_artifact(&worker_info.worker_dir_path);
 
 			let Handshake { executor_params } = recv_execute_handshake(&mut stream)?;
 
@@ -158,7 +159,7 @@ pub fn worker_entrypoint(
 				let (params, execution_timeout) = recv_request(&mut stream)?;
 				gum::debug!(
 					target: LOG_TARGET,
-					%worker_pid,
+					?worker_info,
 					"worker: validating artifact {}",
 					artifact_path.display(),
 				);
@@ -195,17 +196,13 @@ pub fn worker_entrypoint(
 					if #[cfg(target_os = "linux")] {
 						use polkadot_node_core_pvf_common::worker::security;
 
-						let mut stack: Vec<u8> = vec![0u8; EXECUTE_THREAD_STACK_SIZE];
-						// SIGCHLD flag is used to inform clone that the parent process is
-						// expecting a child termination signal, without this flag `waitpid` function
-						// return `ECHILD` error.
-						let flags =
-							security::clone::clone_sandbox_flags() | CloneFlags::from_bits_retain(libc::SIGCHLD);
+						let stack_size = EXECUTE_THREAD_STACK_SIZE;
 
 						// SAFETY: new process is spawned within a single threaded process. This invariant
 						// is enforced by tests. Stack size being specified to ensure child doesn't overflow
 						let result = match unsafe {
-							nix::sched::clone(
+							security::clone::clone_on_worker(
+								worker_info,
 								Box::new(|| {
 									handle_child_process(
 										pipe_writer,
@@ -217,22 +214,20 @@ pub fn worker_entrypoint(
 										execution_timeout,
 									)
 								}),
-								stack.as_mut_slice(),
-								flags,
-								None
+								stack_size,
 							)
 						} {
-							Err(errno) => internal_error_from_errno("clone", errno),
 							Ok(child) => {
 								handle_parent_process(
 									pipe_reader,
 									pipe_writer,
+									worker_info,
 									child,
-									worker_pid,
 									usage_before,
 									execution_timeout,
 								)?
 							},
+							Err(security::clone::Error::Clone(errno)) => internal_error_from_errno("clone", errno),
 						};
 					} else {
 						// SAFETY: new process is spawned within a single threaded process. This invariant
@@ -254,8 +249,8 @@ pub fn worker_entrypoint(
 								handle_parent_process(
 									pipe_reader,
 									pipe_writer,
+									worker_info,
 									child,
-									worker_pid,
 									usage_before,
 									execution_timeout,
 								)?
@@ -266,7 +261,7 @@ pub fn worker_entrypoint(
 
 				gum::trace!(
 					target: LOG_TARGET,
-					%worker_pid,
+					?worker_info,
 					"worker: sending result to host: {:?}",
 					result
 				);
@@ -404,15 +399,19 @@ fn handle_child_process(
 
 /// Waits for child process to finish and handle child response from pipe.
 ///
-/// # Arguments
+/// # Parameters
 ///
-/// - `pipe_read`: A `PipeReader` used to read data from the child process.
+/// - `pipe_read_fd`: Refers to pipe read end, used to read data from the child process.
 ///
-/// - `child`: The child pid.
+/// - `pipe_write_fd`: Refers to pipe write end, used to close write end in the parent process.
+///
+/// - `worker_info`: Info about the worker.
+///
+/// - `job_pid`: The child pid.
 ///
 /// - `usage_before`: Resource usage statistics before executing the child process.
 ///
-/// - `timeout`: The maximum allowed time for the child process to finish, in `Duration`.
+/// - `timeout`: The maximum allowed time for the child process to finish.
 ///
 /// # Returns
 ///
@@ -420,8 +419,8 @@ fn handle_child_process(
 fn handle_parent_process(
 	pipe_read_fd: i32,
 	pipe_write_fd: i32,
+	worker_info: &WorkerInfo,
 	job_pid: Pid,
-	worker_pid: u32,
 	usage_before: Usage,
 	timeout: Duration,
 ) -> io::Result<WorkerResponse> {
@@ -445,7 +444,7 @@ fn handle_parent_process(
 	let status = nix::sys::wait::waitpid(job_pid, None);
 	gum::trace!(
 		target: LOG_TARGET,
-		%worker_pid,
+		?worker_info,
 		%job_pid,
 		"execute worker received wait status from job: {:?}",
 		status,
@@ -465,7 +464,7 @@ fn handle_parent_process(
 	if cpu_tv >= timeout {
 		gum::warn!(
 			target: LOG_TARGET,
-			%worker_pid,
+			?worker_info,
 			%job_pid,
 			"execute job took {}ms cpu time, exceeded execute timeout {}ms",
 			cpu_tv.as_millis(),
@@ -498,7 +497,7 @@ fn handle_parent_process(
 				Err(job_error) => {
 					gum::warn!(
 						target: LOG_TARGET,
-						%worker_pid,
+						?worker_info,
 						%job_pid,
 						"execute job error: {}",
 						job_error,

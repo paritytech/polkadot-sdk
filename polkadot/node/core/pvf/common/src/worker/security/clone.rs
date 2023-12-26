@@ -17,16 +17,76 @@
 //! Functionality for securing the job processes spawned by the workers using `clone`. If
 //! unsupported, falls back to `fork`.
 
-use nix::sched::CloneFlags;
+use crate::{worker::WorkerInfo, LOG_TARGET};
+use nix::{
+	errno::Errno,
+	sched::{CloneCb, CloneFlags},
+	unistd::Pid,
+};
 
-/// Returns all the sandbox-related flags for `clone`.
-pub fn clone_sandbox_flags() -> CloneFlags {
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+	#[error("could not clone, errno: {0}")]
+	Clone(Errno),
+}
+
+pub type Result<T> = std::result::Result<T, Error>;
+
+/// Try to run clone(2) on the current worker.
+///
+/// SAFETY: new process should be either spawned within a single threaded process, or use only
+/// async-signal-safe functions.
+pub unsafe fn clone_on_worker(
+	worker_info: &WorkerInfo,
+	cb: CloneCb,
+	stack_size: usize,
+) -> Result<Pid> {
+	let flags = clone_flags();
+
+	gum::trace!(
+		target: LOG_TARGET,
+		?worker_info,
+		%stack_size,
+		"calling clone with flags: {:?}",
+		flags
+	);
+
+	try_clone(cb, stack_size, flags)
+}
+
+/// Runs a check for clone(2) with all sandboxing flags and returns an error indicating whether it
+/// can be fully enabled on the current Linux environment.
+///
+/// SAFETY: new process should be either spawned within a single threaded process, or use only
+/// async-signal-safe functions.
+pub unsafe fn check_can_fully_clone() -> Result<()> {
+	let stack_size = 2 * 1024 * 1024; // Use same as prepare worker for this check.
+	try_clone(Box::new(|| 0), stack_size, clone_flags()).map(|_pid| ())
+}
+
+/// Runs clone(2) with all sandboxing flags.
+///
+/// SAFETY: new process should be either spawned within a single threaded process, or use only
+/// async-signal-safe functions.
+unsafe fn try_clone(cb: CloneCb, stack_size: usize, flags: CloneFlags) -> Result<Pid> {
+	let mut stack: Vec<u8> = vec![0u8; stack_size];
+
+	nix::sched::clone(cb, stack.as_mut_slice(), flags, None).map_err(|errno| Error::Clone(errno))
+}
+
+/// Returns flags for `clone(2)`, including all the sandbox-related ones.
+fn clone_flags() -> CloneFlags {
 	// NOTE: CLONE_NEWUSER does not work when cloning job processes, but in Secure Validator Mode it
 	// is already set by the worker.
+	//
+	// SIGCHLD flag is used to inform clone that the parent process is
+	// expecting a child termination signal, without this flag `waitpid` function
+	// return `ECHILD` error.
 	CloneFlags::CLONE_NEWCGROUP |
 		CloneFlags::CLONE_NEWIPC |
 		CloneFlags::CLONE_NEWNET |
 		CloneFlags::CLONE_NEWNS |
 		CloneFlags::CLONE_NEWPID |
-		CloneFlags::CLONE_NEWUTS
+		CloneFlags::CLONE_NEWUTS |
+		CloneFlags::from_bits_retain(libc::SIGCHLD)
 }

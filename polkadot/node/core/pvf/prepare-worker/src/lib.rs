@@ -20,7 +20,7 @@ mod memory_stats;
 
 use polkadot_node_core_pvf_common::{
 	executor_interface::{prepare, prevalidate},
-	worker::{pipe2_cloexec, PipeFd},
+	worker::{pipe2_cloexec, PipeFd, WorkerInfo},
 };
 
 // NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
@@ -43,8 +43,6 @@ use nix::{
 	unistd::Pid,
 };
 
-#[cfg(target_os = "linux")]
-use nix::sched::CloneFlags;
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareWorkerResult},
@@ -207,15 +205,14 @@ pub fn worker_entrypoint(
 		worker_dir_path,
 		node_version,
 		worker_version,
-		|mut stream, worker_dir_path| {
-			let worker_pid = process::id();
-			let temp_artifact_dest = worker_dir::prepare_tmp_artifact(&worker_dir_path);
+		|mut stream, worker_info| {
+			let temp_artifact_dest = worker_dir::prepare_tmp_artifact(&worker_info.worker_dir_path);
 
 			loop {
 				let pvf = recv_request(&mut stream)?;
 				gum::debug!(
 					target: LOG_TARGET,
-					%worker_pid,
+					?worker_info,
 					"worker: preparing artifact",
 				);
 
@@ -241,17 +238,12 @@ pub fn worker_entrypoint(
 						use polkadot_node_core_pvf_common::worker::security;
 
 						let stack_size = 2 * 1024 * 1024; // 2MiB
-						let mut stack: Vec<u8> = vec![0u8; stack_size];
-						// SIGCHLD flag is used to inform clone that the parent process is
-						// expecting a child termination signal, without this flag `waitpid` function
-						// return `ECHILD` error.
-						let flags =
-							security::clone::clone_sandbox_flags() | CloneFlags::from_bits_retain(libc::SIGCHLD);
 
 						// SAFETY: new process is spawned within a single threaded process. This invariant
 						// is enforced by tests. Stack size being specified to ensure child doesn't overflow
 						let result = match unsafe {
-							nix::sched::clone(
+							security::clone::clone_on_worker(
+								worker_info,
 								Box::new(|| {
 									handle_child_process(
 										pvf.clone(),
@@ -263,23 +255,21 @@ pub fn worker_entrypoint(
 										Arc::clone(&executor_params),
 									)
 								}),
-								stack.as_mut_slice(),
-								flags,
-								None
+								stack_size,
 							)
 						} {
-							Err(errno) => Err(error_from_errno("clone", errno)),
 							Ok(child) => {
 								handle_parent_process(
 									pipe_reader,
 									pipe_writer,
-									worker_pid,
+									worker_info,
 									child,
 									temp_artifact_dest.clone(),
 									usage_before,
 									preparation_timeout,
 								)
 							},
+							Err(security::clone::Error::Clone(errno)) => Err(error_from_errno("clone", errno)),
 						};
 					} else {
 						// SAFETY: new process is spawned within a single threaded process. This invariant
@@ -302,7 +292,7 @@ pub fn worker_entrypoint(
 								handle_parent_process(
 									pipe_reader,
 									pipe_writer,
-									worker_pid,
+									worker_info,
 									child,
 									temp_artifact_dest.clone(),
 									usage_before,
@@ -315,7 +305,7 @@ pub fn worker_entrypoint(
 
 				gum::trace!(
 					target: LOG_TARGET,
-					%worker_pid,
+					?worker_info,
 					"worker: sending result to host: {:?}",
 					result
 				);
@@ -559,23 +549,21 @@ fn handle_child_process(
 
 /// Waits for child process to finish and handle child response from pipe.
 ///
-/// # Arguments
+/// # Parameters
 ///
-/// - `pipe_read_fd`: A `i32`, refers to pipe read end file descriptor, used to read data from the
-///   child process.
+/// - `pipe_read_fd`: Refers to pipe read end, used to read data from the child process.
 ///
-/// - `pipe_write_fd`: A `i32`, refers to pipe write end file descriptor, used to close file
-///   descriptor in the parent process.
+/// - `pipe_write_fd`: Refers to pipe write end, used to close write end in the parent process.
 ///
-/// - `child`: The child pid.
+/// - `worker_info`: Info about the worker.
+///
+/// - `job_pid`: The child pid.
 ///
 /// - `temp_artifact_dest`: The destination `PathBuf` to write the temporary artifact file.
 ///
-/// - `worker_pid`: The PID of the child process.
-///
 /// - `usage_before`: Resource usage statistics before executing the child process.
 ///
-/// - `timeout`: The maximum allowed time for the child process to finish, in `Duration`.
+/// - `timeout`: The maximum allowed time for the child process to finish.
 ///
 /// # Returns
 ///
@@ -588,7 +576,7 @@ fn handle_child_process(
 fn handle_parent_process(
 	pipe_read_fd: i32,
 	pipe_write_fd: i32,
-	worker_pid: u32,
+	worker_info: &WorkerInfo,
 	job_pid: Pid,
 	temp_artifact_dest: PathBuf,
 	usage_before: Usage,
@@ -612,7 +600,7 @@ fn handle_parent_process(
 	let status = nix::sys::wait::waitpid(job_pid, None);
 	gum::trace!(
 		target: LOG_TARGET,
-		%worker_pid,
+		?worker_info,
 		%job_pid,
 		"prepare worker received wait status from job: {:?}",
 		status,
@@ -630,7 +618,7 @@ fn handle_parent_process(
 	if cpu_tv >= timeout {
 		gum::warn!(
 			target: LOG_TARGET,
-			%worker_pid,
+			?worker_info,
 			%job_pid,
 			"prepare job took {}ms cpu time, exceeded prepare timeout {}ms",
 			cpu_tv.as_millis(),
@@ -665,7 +653,7 @@ fn handle_parent_process(
 					// success.
 					gum::debug!(
 						target: LOG_TARGET,
-						%worker_pid,
+						?worker_info,
 						%job_pid,
 						"worker: writing artifact to {}",
 						temp_artifact_dest.display(),
