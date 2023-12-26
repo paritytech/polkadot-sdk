@@ -491,7 +491,7 @@ where
 		min_best_number: Option<NumberFor<B>>,
 	) -> Option<PeerId> {
 		let mut targets: Vec<_> = self.peers.values().map(|p| p.best_number).collect();
-		if targets.is_empty {
+		if targets.is_empty() {
 			return None
 		}
 		targets.sort();
@@ -509,19 +509,19 @@ where
 						warn!(
 							target: LOG_TARGET,
 							"Failed to reserve peer {peer_id} in the peer pool that was \
-							 just returned as available.",
+							 just returned as available (`WarpSync`).",
 						);
 						debug_assert!(false);
 					}
 				}
-			} else {
-				warn!(
-					target: LOG_TARGET,
-					"State inconsistency: peer {peer_id} is in the pool of connected peers, \
-					 but not known to `WarpSync`.",
-				);
-				debug_assert!(false);
 			}
+		} else {
+			warn!(
+				target: LOG_TARGET,
+				"State inconsistency: peer {peer_id} is in the pool of connected peers, \
+				 but not known to `WarpSync`.",
+			);
+			debug_assert!(false);
 		}
 		None
 	}

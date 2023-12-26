@@ -170,8 +170,8 @@ pub struct SyncingStrategy<B: BlockT, Client> {
 	warp: Option<WarpSync<B, Client>>,
 	state: Option<StateStrategy<B>>,
 	chain_sync: Option<ChainSync<B, Client>>,
-	connected_peers_pool: PeerPool,
-	connected_peers_best: HashMap<PeerId, (B::Hash, NumberFor<B>)>,
+	peer_pool: PeerPool,
+	peer_best_blocks: HashMap<PeerId, (B::Hash, NumberFor<B>)>,
 }
 
 impl<B: BlockT, Client> SyncingStrategy<B, Client>
@@ -202,8 +202,8 @@ where
 				warp: Some(warp_sync),
 				state: None,
 				chain_sync: None,
-				connected_peers_pool: peer_pool,
-				connected_peers_best: Default::default(),
+				peer_pool,
+				peer_best_blocks: Default::default(),
 			})
 		} else {
 			let chain_sync = ChainSync::new(
@@ -219,16 +219,16 @@ where
 				warp: None,
 				state: None,
 				chain_sync: Some(chain_sync),
-				connected_peers_pool: Default::default(),
-				connected_peers_best: Default::default(),
+				peer_pool: Default::default(),
+				peer_best_blocks: Default::default(),
 			})
 		}
 	}
 
 	/// Notify that a new peer has connected.
 	pub fn add_peer(&mut self, peer_id: PeerId, best_hash: B::Hash, best_number: NumberFor<B>) {
-		self.connected_peers_pool.add_peer(peer_id);
-		self.connected_peers_best.insert(peer_id, (best_hash, best_number));
+		self.peer_pool.add_peer(peer_id);
+		self.peer_best_blocks.insert(peer_id, (best_hash, best_number));
 
 		self.warp.iter_mut().for_each(|s| s.add_peer(peer_id, best_hash, best_number));
 		self.state.iter_mut().for_each(|s| s.add_peer(peer_id, best_hash, best_number));
@@ -243,8 +243,8 @@ where
 		self.state.iter_mut().for_each(|s| s.remove_peer(peer_id));
 		self.chain_sync.iter_mut().for_each(|s| s.remove_peer(peer_id));
 
-		self.connected_peers_pool.remove_peer(peer_id);
-		self.connected_peers_best.remove(peer_id);
+		self.peer_pool.remove_peer(peer_id);
+		self.peer_best_blocks.remove(peer_id);
 	}
 
 	/// Submit a validated block announcement.
@@ -266,7 +266,7 @@ where
 			Some((announce.header.hash(), *announce.header.number()))
 		};
 		if let Some(new_best) = new_best {
-			if let Some(best) = self.connected_peers_best.get_mut(&peer_id) {
+			if let Some(best) = self.peer_best_blocks.get_mut(&peer_id) {
 				*best = new_best;
 			}
 		}
@@ -388,7 +388,7 @@ where
 
 	/// Get the number of peers known to the syncing strategy.
 	pub fn num_peers(&self) -> usize {
-		self.connected_peers_best.len()
+		self.peer_best_blocks.len()
 	}
 
 	/// Returns the current sync status.
@@ -533,9 +533,10 @@ where
 						res.target_body,
 						res.target_justifications,
 						false,
-						self.connected_peers_best
+						self.peer_best_blocks
 							.iter()
 							.map(|(peer_id, (_, best_number))| (*peer_id, *best_number)),
+						self.peer_pool.clone(),
 					);
 
 					self.warp = None;
@@ -561,11 +562,9 @@ where
 						},
 					};
 					// Let `ChainSync` know about connected peers.
-					self.connected_peers_best.iter().for_each(
-						|(peer_id, (best_hash, best_number))| {
-							chain_sync.add_peer(*peer_id, *best_hash, *best_number)
-						},
-					);
+					self.peer_best_blocks.iter().for_each(|(peer_id, (best_hash, best_number))| {
+						chain_sync.add_peer(*peer_id, *best_hash, *best_number)
+					});
 
 					self.warp = None;
 					self.chain_sync = Some(chain_sync);
@@ -592,11 +591,9 @@ where
 				},
 			};
 			// Let `ChainSync` know about connected peers.
-			self.connected_peers_best
-				.iter()
-				.for_each(|(peer_id, (best_hash, best_number))| {
-					chain_sync.add_peer(*peer_id, *best_hash, *best_number)
-				});
+			self.peer_best_blocks.iter().for_each(|(peer_id, (best_hash, best_number))| {
+				chain_sync.add_peer(*peer_id, *best_hash, *best_number)
+			});
 
 			self.state = None;
 			self.chain_sync = Some(chain_sync);
