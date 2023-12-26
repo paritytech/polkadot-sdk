@@ -16,5 +16,7 @@ migrations:
 
 crates:
   - name: polkadot-node-core-pvf
+  - name: polkadot-node-core-pvf-prepare-worker
+  - name: polkadot-node-core-pvf-execute-worker
 
 host_functions: []
