@@ -155,7 +155,7 @@ pub fn worker_entrypoint(
 				let executor_params = Arc::new(executor_params.clone());
 				let params = Arc::new(params);
 
-				let execute_worker_stack_size = get_max_stack_size(&executor_params, 1);
+				let execute_worker_stack_size = get_max_stack_size(&*executor_params, 1);
 
 				cfg_if::cfg_if! {
 					if #[cfg(target_os = "linux")] {
@@ -165,7 +165,7 @@ pub fn worker_entrypoint(
 						// 1 - Main thread
 						// 2 - Cpu monitor thread
 						// 3 - Execute thread
-						let stack_size = get_max_stack_size(&executor_params, 3);
+						let stack_size = get_max_stack_size(&*executor_params, 3);
 
 						// SAFETY: new process is spawned within a single threaded process. This invariant
 						// is enforced by tests. Stack size being specified to ensure child doesn't overflow
@@ -372,7 +372,7 @@ fn handle_child_process(
 /// Returns clone stack size
 /// The stack size is represented by 2MiB * number of threads + native stack;
 fn get_max_stack_size(executor_params: &ExecutorParams, number_of_threads: u32) -> usize {
-	let deterministc_stack_limit = params_to_wasmtime_semantics(&*executor_params)
+	let deterministc_stack_limit = params_to_wasmtime_semantics(executor_params)
 		.deterministic_stack_limit
 		.expect("the default value is always available.");
 	return (2 * 1024 * 1024 * number_of_threads + deterministc_stack_limit.native_stack_max)
