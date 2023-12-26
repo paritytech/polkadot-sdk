@@ -10,6 +10,9 @@ edition.workspace = true
 publish = false
 version = "0.0.1"
 
+[lints]
+workspace = true
+
 [dependencies]
 # Needed for all FRAME-based code
 parity-scale-codec = { version = "3.0.0", default-features = false }
@@ -19,10 +22,10 @@ pallet-examples = { path = "../../substrate/frame/examples" }
 pallet-default-config-example = { path = "../../substrate/frame/examples/default-config" }
 
 # How we build docs in rust-docs
-simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", branch = "main" }
+simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", rev = "e48b187bcfd5cc75111acd9d241f1bd36604344b" }
 docify = "0.2.6"
 
-# Polkadot SDK deps, typically all should only be scope such that we can link to their doc item.
+# Polkadot SDK deps, typically all should only be in scope such that we can link to their doc item.
 node-cli = { package = "staging-node-cli", path = "../../substrate/bin/node/cli" }
 kitchensink-runtime = { path = "../../substrate/bin/node/runtime" }
 chain-spec-builder = { package = "staging-chain-spec-builder", path = "../../substrate/bin/utils/chain-spec-builder" }

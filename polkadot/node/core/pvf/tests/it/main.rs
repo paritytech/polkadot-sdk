@@ -39,6 +39,7 @@ const TEST_EXECUTION_TIMEOUT: Duration = Duration::from_secs(6);
 const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(6);
 
 struct TestHost {
+	// Keep a reference to the tempdir as it gets deleted on drop.
 	cache_dir: tempfile::TempDir,
 	host: Mutex<ValidationHost>,
 }
@@ -58,6 +59,7 @@ impl TestHost {
 		let mut config = Config::new(
 			cache_dir.path().to_owned(),
 			None,
+			false,
 			prepare_worker_path,
 			execute_worker_path,
 		);
@@ -415,22 +417,49 @@ async fn prepare_can_run_serially() {
 #[tokio::test]
 async fn all_security_features_work() {
 	// Landlock is only available starting Linux 5.13, and we may be testing on an old kernel.
-	let sysinfo = sc_sysinfo::gather_sysinfo();
-	// The version will look something like "5.15.0-87-generic".
-	let version = sysinfo.linux_kernel.unwrap();
-	let version_split: Vec<&str> = version.split(".").collect();
-	let major: u32 = version_split[0].parse().unwrap();
-	let minor: u32 = version_split[1].parse().unwrap();
-	let can_enable_landlock = if major >= 6 { true } else { minor >= 13 };
+	let can_enable_landlock = {
+		let sysinfo = sc_sysinfo::gather_sysinfo();
+		// The version will look something like "5.15.0-87-generic".
+		let version = sysinfo.linux_kernel.unwrap();
+		let version_split: Vec<&str> = version.split(".").collect();
+		let major: u32 = version_split[0].parse().unwrap();
+		let minor: u32 = version_split[1].parse().unwrap();
+		if major >= 6 {
+			true
+		} else if major == 5 {
+			minor >= 13
+		} else {
+			false
+		}
+	};
 
 	let host = TestHost::new().await;
 
 	assert_eq!(
 		host.security_status().await,
 		SecurityStatus {
+			secure_validator_mode: false,
 			can_enable_landlock,
 			can_enable_seccomp: true,
 			can_unshare_user_namespace_and_change_root: true,
 		}
 	);
+}
+
+// Regression test to make sure the unshare-pivot-root capability does not depend on the PVF
+// artifacts cache existing.
+#[cfg(all(feature = "ci-only-tests", target_os = "linux"))]
+#[tokio::test]
+async fn nonexistant_cache_dir() {
+	let host = TestHost::new_with_config(|cfg| {
+		cfg.cache_path = cfg.cache_path.join("nonexistant_cache_dir");
+	})
+	.await;
+
+	assert!(host.security_status().await.can_unshare_user_namespace_and_change_root);
+
+	let _stats = host
+		.precheck_pvf(::adder::wasm_binary_unwrap(), Default::default())
+		.await
+		.unwrap();
 }
