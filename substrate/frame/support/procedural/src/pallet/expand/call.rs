@@ -244,15 +244,15 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 	let checkpointed_call_data_ident = syn::Ident::new("CheckpointedCallData", span);
 	let checkpoint_variants = methods
 		.iter()
-		.filter_map(|method| {
-			method.checkpoint_def.clone()
-		}).map(|checkpoint_def| {
+		.filter_map(|method| method.checkpoint_def.clone())
+		.map(|checkpoint_def| {
 			let name = checkpoint_def.name;
 			let arg_type = checkpoint_def.return_type;
 			quote::quote! {
 				#name(#arg_type)
 			}
-		}).collect::<Vec<_>>();
+		})
+		.collect::<Vec<_>>();
 
 	let cfg_attrs = methods
 		.iter()
@@ -264,8 +264,9 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 		.collect::<Vec<_>>();
 
 	let feeless_check = methods.iter().map(|method| &method.feeless_check).collect::<Vec<_>>();
-	let checkpoint_def = methods.iter().map(|method| &method.checkpoint_def).collect::<Vec<_>>();	
-	let feeless_on_checkpoint = methods.iter().map(|method| &method.feeless_on_checkpoint).collect::<Vec<_>>();
+	let checkpoint_def = methods.iter().map(|method| &method.checkpoint_def).collect::<Vec<_>>();
+	let feeless_on_checkpoint =
+		methods.iter().map(|method| &method.feeless_on_checkpoint).collect::<Vec<_>>();
 	let feeless_check_result =
 		feeless_check.iter()
 		.zip(args_name.iter())

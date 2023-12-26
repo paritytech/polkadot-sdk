@@ -236,13 +236,10 @@ pub mod pallet {
 		#[pallet::weight(0)]
 		/// Marks this call as feeless if checkpoint is successful.
 		#[pallet::feeless_on_checkpoint]
-		pub fn set_foo_feeless(
-			origin: OriginFor<T>, 
-			secret: u32,
-			new_foo: u32,
-		) -> DispatchResult {
+		pub fn set_foo_feeless(origin: OriginFor<T>, secret: u32, new_foo: u32) -> DispatchResult {
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
-			let (_who, ticket): (T::AccountId, T::Hash) = #[pallet::checkpoint_with_refs] {
+			let (_who, ticket): (T::AccountId, T::Hash) = #[pallet::checkpoint_with_refs]
+			{
 				let who = ensure_signed(origin.clone())?;
 				let preimage = secret.to_le_bytes();
 				let ticket = <T as frame_system::Config>::Hashing::hash_of(&preimage);

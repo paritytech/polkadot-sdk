@@ -16,13 +16,12 @@
 // limitations under the License.
 
 use super::{helper, InheritedCallWeightAttr};
-use frame_support_procedural_tools::get_doc_literals;
+use frame_support_procedural_tools::{generate_access_from_frame_or_crate, get_doc_literals};
 use inflector::Inflector;
 use proc_macro2::Span;
 use quote::ToTokens;
 use std::collections::HashMap;
 use syn::{spanned::Spanned, ExprClosure};
-use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 
 /// List of additional token to be used for parsing.
 mod keyword {
@@ -102,7 +101,8 @@ pub struct CallVariantDef {
 pub struct CheckpointDef {
 	/// The name of the checkpointed call data type if `pallet::checkpoint_with_refs` is specified.
 	pub name: syn::Ident,
-	/// The code block of the checkpointed call data type if `pallet::checkpoint_with_refs` is specified.
+	/// The code block of the checkpointed call data type if `pallet::checkpoint_with_refs` is
+	/// specified.
 	pub block: syn::Block,
 	pub return_type: Box<syn::Type>,
 }
@@ -485,8 +485,14 @@ impl CallDef {
 									}
 								}
 
-								if let Ok(checker) = syn::parse2::<Checker>(local_init.expr.to_token_stream()) {
-									let attrs = local.attrs.iter().map(|attr| attr.to_token_stream()).collect::<Vec<_>>();
+								if let Ok(checker) =
+									syn::parse2::<Checker>(local_init.expr.to_token_stream())
+								{
+									let attrs = local
+										.attrs
+										.iter()
+										.map(|attr| attr.to_token_stream())
+										.collect::<Vec<_>>();
 									let pat = local.pat.clone();
 									let name = quote::format_ident!(
 										"{}",
@@ -509,7 +515,7 @@ impl CallDef {
 								}
 							}
 						},
-						_ => {}
+						_ => {},
 					};
 				});
 
