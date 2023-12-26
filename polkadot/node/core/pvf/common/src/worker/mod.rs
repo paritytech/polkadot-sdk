@@ -83,7 +83,7 @@ macro_rules! decl_worker_main {
 
 				"--check-can-enable-landlock" => {
 					#[cfg(target_os = "linux")]
-					let status = if let Err(err) = security::landlock::check_is_fully_enabled() {
+					let status = if let Err(err) = security::landlock::check_can_fully_enable() {
 						// Write the error to stderr, log it on the host-side.
 						eprintln!("{}", err);
 						-1
@@ -96,7 +96,7 @@ macro_rules! decl_worker_main {
 				},
 				"--check-can-enable-seccomp" => {
 					#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-					let status = if let Err(err) = security::seccomp::check_is_fully_enabled() {
+					let status = if let Err(err) = security::seccomp::check_can_fully_enable() {
 						// Write the error to stderr, log it on the host-side.
 						eprintln!("{}", err);
 						-1
@@ -112,8 +112,23 @@ macro_rules! decl_worker_main {
 					let cache_path_tempdir = std::path::Path::new(&args[2]);
 					#[cfg(target_os = "linux")]
 					let status = if let Err(err) =
-						security::change_root::check_is_fully_enabled(&cache_path_tempdir)
+						security::change_root::check_can_fully_enable(&cache_path_tempdir)
 					{
+						// Write the error to stderr, log it on the host-side.
+						eprintln!("{}", err);
+						-1
+					} else {
+						0
+					};
+					#[cfg(not(target_os = "linux"))]
+					let status = -1;
+					std::process::exit(status)
+				},
+				"--check-can-do-secure-clone" => {
+					#[cfg(target_os = "linux")]
+					// SAFETY: new process is spawned within a single threaded process. This
+					// invariant is enforced by tests.
+					let status = if let Err(err) = unsafe { security::clone::check_can_fully_clone() } {
 						// Write the error to stderr, log it on the host-side.
 						eprintln!("{}", err);
 						-1
@@ -274,14 +289,12 @@ impl fmt::Display for WorkerKind {
 	}
 }
 
-// Some fields are only used for logging, and dead-code analysis ignores Debug.
-#[allow(dead_code)]
 #[derive(Debug)]
 pub struct WorkerInfo {
-	pid: u32,
-	kind: WorkerKind,
-	version: Option<String>,
-	worker_dir_path: PathBuf,
+	pub pid: u32,
+	pub kind: WorkerKind,
+	pub version: Option<String>,
+	pub worker_dir_path: PathBuf,
 }
 
 // NOTE: The worker version must be passed in so that we accurately get the version of the worker,
@@ -300,7 +313,7 @@ pub fn run_worker<F>(
 	worker_version: Option<&str>,
 	mut event_loop: F,
 ) where
-	F: FnMut(UnixStream, PathBuf) -> io::Result<Never>,
+	F: FnMut(UnixStream, &WorkerInfo) -> io::Result<Never>,
 {
 	#[cfg_attr(not(target_os = "linux"), allow(unused_mut))]
 	let mut worker_info = WorkerInfo {
@@ -435,7 +448,7 @@ pub fn run_worker<F>(
 	}
 
 	// Run the main worker loop.
-	let err = event_loop(stream, worker_info.worker_dir_path.clone())
+	let err = event_loop(stream, &worker_info)
 		// It's never `Ok` because it's `Ok(Never)`.
 		.unwrap_err();
 
