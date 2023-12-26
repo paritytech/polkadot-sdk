@@ -92,11 +92,11 @@
 //!
 //! ### Polkadot as the Ubiquitous Computer
 //!
-//! - **Application Space**: for different parachains with their applications
+//! - **Application Space**: for different parachains with their applications.
 //! - **Accord Space**: for opt-in treaties across chains. Treaty's members cannot change/undermine
-//!   the treaty's logic. This allows trustless cross-chain applications
+//!   the treaty's logic. This allows trustless cross-chain applications.
 //! - **Core space-time**: for "consuming" coretime and using Polkadot computation. Collators send
-//!   blocks through cores to validators for validity and availability checks
-//! - **Coretime**: sold through a broker system parachain
+//!   blocks through cores to validators for validity and availability checks.
+//! - **Coretime**: sold through a broker system parachain.
 //!
 //! [![Polkadot as the Ubiquitous Computer](https://pbs.twimg.com/media/F3qCltlWkAECsWJ?format=jpg&name=medium)](https://twitter.com/filippoweb3/status/1692025249070563413)
