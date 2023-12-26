@@ -39,6 +39,7 @@ use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
 	execute::{Handshake, JobError, JobResponse, JobResult, WorkerResponse},
+	executor_interface::params_to_wasmtime_semantics,
 	framed_recv_blocking, framed_send_blocking,
 	worker::{
 		cpu_time_monitor_loop, pipe2_cloexec, run_worker, stringify_panic_payload,
@@ -47,7 +48,7 @@ use polkadot_node_core_pvf_common::{
 	},
 };
 use polkadot_parachain_primitives::primitives::ValidationResult;
-use polkadot_primitives::{executor_params::DEFAULT_NATIVE_STACK_MAX, ExecutorParams};
+use polkadot_primitives::ExecutorParams;
 use std::{
 	io::{self, Read},
 	os::{fd::AsRawFd, unix::net::UnixStream},
@@ -56,42 +57,6 @@ use std::{
 	sync::{mpsc::channel, Arc},
 	time::Duration,
 };
-
-// Wasmtime powers the Substrate Executor. It compiles the wasm bytecode into native code.
-// That native code does not create any stacks and just reuses the stack of the thread that
-// wasmtime was invoked from.
-//
-// Also, we configure the executor to provide the deterministic stack and that requires
-// supplying the amount of the native stack space that wasm is allowed to use. This is
-// realized by supplying the limit into `wasmtime::Config::max_wasm_stack`.
-//
-// There are quirks to that configuration knob:
-//
-// 1. It only limits the amount of stack space consumed by wasm but does not ensure nor check that
-//    the stack space is actually available.
-//
-//    That means, if the calling thread has 1 MiB of stack space left and the wasm code consumes
-//    more, then the wasmtime limit will **not** trigger. Instead, the wasm code will hit the
-//    guard page and the Rust stack overflow handler will be triggered. That leads to an
-//    **abort**.
-//
-// 2. It cannot and does not limit the stack space consumed by Rust code.
-//
-//    Meaning that if the wasm code leaves no stack space for Rust code, then the Rust code
-//    will abort and that will abort the process as well.
-//
-// Typically on Linux the main thread gets the stack size specified by the `ulimit` and
-// typically it's configured to 8 MiB. Rust's spawned threads are 2 MiB. OTOH, the
-// DEFAULT_NATIVE_STACK_MAX is set to 256 MiB. Not nearly enough.
-//
-// Hence we need to increase it. The simplest way to fix that is to spawn a thread with the desired
-// stack limit.
-//
-// The reasoning why we pick this particular size is:
-//
-// The default Rust thread stack limit 2 MiB + 256 MiB wasm stack.
-/// The stack size for the execute thread.
-pub const EXECUTE_THREAD_STACK_SIZE: usize = 2 * 1024 * 1024 + DEFAULT_NATIVE_STACK_MAX as usize;
 
 /// Receives a handshake with information specific to the execute worker.
 fn recv_execute_handshake(stream: &mut UnixStream) -> io::Result<Handshake> {
@@ -190,11 +155,17 @@ pub fn worker_entrypoint(
 				let executor_params = Arc::new(executor_params.clone());
 				let params = Arc::new(params);
 
+				let execute_worker_stack_size = get_max_stack_size(&executor_params, 1);
+
 				cfg_if::cfg_if! {
 					if #[cfg(target_os = "linux")] {
 						use polkadot_node_core_pvf_common::worker::security;
 
-						let stack_size = EXECUTE_THREAD_STACK_SIZE;
+						// Number of threads here is 3:
+						// 1 - Main thread
+						// 2 - Cpu monitor thread
+						// 3 - Execute thread
+						let stack_size = get_max_stack_size(&executor_params, 3);
 
 						// SAFETY: new process is spawned within a single threaded process. This invariant
 						// is enforced by tests. Stack size being specified to ensure child doesn't overflow
@@ -210,9 +181,10 @@ pub fn worker_entrypoint(
 										Arc::clone(&executor_params),
 										Arc::clone(&params),
 										execution_timeout,
+										execute_worker_stack_size,
 									)
 								}),
-								stack_size,
+								stack_size as usize,
 							)
 						} {
 							Ok(child) => {
@@ -241,6 +213,7 @@ pub fn worker_entrypoint(
 									executor_params,
 									params,
 									execution_timeout,
+									execute_worker_stack_size,
 								)
 							},
 							Ok(ForkResult::Parent { child }) => {
@@ -322,6 +295,7 @@ fn handle_child_process(
 	executor_params: Arc<ExecutorParams>,
 	params: Arc<Vec<u8>>,
 	execution_timeout: Duration,
+	execute_worker_stack: usize,
 ) -> ! {
 	// SAFETY: pipe_writer is an open and owned file descriptor at this point.
 	let mut pipe_write = unsafe { PipeFd::new(pipe_write_fd) };
@@ -366,7 +340,7 @@ fn handle_child_process(
 		move || validate_using_artifact(&compiled_artifact_blob, &executor_params, &params),
 		Arc::clone(&condvar),
 		WaitOutcome::Finished,
-		EXECUTE_THREAD_STACK_SIZE,
+		execute_worker_stack,
 	)
 	.unwrap_or_else(|err| {
 		send_child_response(&mut pipe_write, Err(JobError::CouldNotSpawnThread(err.to_string())))
@@ -393,6 +367,16 @@ fn handle_child_process(
 	};
 
 	send_child_response(&mut pipe_write, response);
+}
+
+/// Returns clone stack size
+/// The stack size is represented by 2MiB * number of threads + native stack;
+fn get_max_stack_size(executor_params: &ExecutorParams, number_of_threads: u32) -> usize {
+	let deterministc_stack_limit = params_to_wasmtime_semantics(&*executor_params)
+		.deterministic_stack_limit
+		.expect("the default value is always available.");
+	return (2 * 1024 * 1024 * number_of_threads + deterministc_stack_limit.native_stack_max)
+		as usize;
 }
 
 /// Waits for child process to finish and handle child response from pipe.
