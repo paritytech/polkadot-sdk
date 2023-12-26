@@ -152,10 +152,9 @@ pub fn worker_entrypoint(
 				let stream_fd = stream.as_raw_fd();
 
 				let compiled_artifact_blob = Arc::new(compiled_artifact_blob);
-				let executor_params = Arc::new(executor_params.clone());
+				let arc_executor_params: Arc<ExecutorParams> = Arc::new(executor_params.clone());
 				let params = Arc::new(params);
-
-				let execute_worker_stack_size = get_max_stack_size(&*executor_params, 1);
+				let execute_worker_stack_size = get_max_stack_size(&executor_params, 1);
 
 				cfg_if::cfg_if! {
 					if #[cfg(target_os = "linux")] {
@@ -165,7 +164,7 @@ pub fn worker_entrypoint(
 						// 1 - Main thread
 						// 2 - Cpu monitor thread
 						// 3 - Execute thread
-						let stack_size = get_max_stack_size(&*executor_params, 3);
+						let stack_size = get_max_stack_size(&executor_params, 3);
 
 						// SAFETY: new process is spawned within a single threaded process. This invariant
 						// is enforced by tests. Stack size being specified to ensure child doesn't overflow
@@ -178,7 +177,7 @@ pub fn worker_entrypoint(
 										pipe_reader,
 										stream_fd,
 										Arc::clone(&compiled_artifact_blob),
-										Arc::clone(&executor_params),
+										Arc::clone(&arc_executor_params),
 										Arc::clone(&params),
 										execution_timeout,
 										execute_worker_stack_size,
@@ -210,7 +209,7 @@ pub fn worker_entrypoint(
 									pipe_reader,
 									stream_fd,
 									compiled_artifact_blob,
-									executor_params,
+									arc_executor_params,
 									params,
 									execution_timeout,
 									execute_worker_stack_size,
