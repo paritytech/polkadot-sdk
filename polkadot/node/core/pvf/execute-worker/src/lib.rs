@@ -25,8 +25,6 @@ pub use polkadot_node_core_pvf_common::{
 const LOG_TARGET: &str = "parachain::pvf-execute-worker";
 
 use cpu_time::ProcessTime;
-#[cfg(target_os = "linux")]
-use nix::sched::CloneFlags;
 #[cfg(not(target_os = "linux"))]
 use nix::unistd::ForkResult;
 use nix::{
