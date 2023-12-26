@@ -214,9 +214,6 @@ pub struct SyncingEngine<B: BlockT, Client> {
 	/// Syncing strategy.
 	strategy: SyncingStrategy<B, Client>,
 
-	/// Syncing configuration for startegies.
-	syncing_config: SyncingConfig,
-
 	/// Blockchain client.
 	client: Arc<Client>,
 
@@ -441,8 +438,7 @@ where
 			.map_or(futures::future::pending().boxed().fuse(), |rx| rx.boxed().fuse());
 
 		// Initialize syncing strategy.
-		let strategy =
-			SyncingStrategy::new(syncing_config.clone(), client.clone(), warp_sync_config)?;
+		let strategy = SyncingStrategy::new(syncing_config, client.clone(), warp_sync_config)?;
 
 		let block_announce_protocol_name = block_announce_config.protocol_name().clone();
 		let (tx, service_rx) = tracing_unbounded("mpsc_chain_sync", 100_000);
@@ -471,7 +467,6 @@ where
 				roles,
 				client,
 				strategy,
-				syncing_config,
 				network_service,
 				peers: HashMap::new(),
 				block_announce_data_cache: LruMap::new(ByLength::new(cache_capacity)),
@@ -661,8 +656,15 @@ where
 					Some(event) => self.process_notification_event(event),
 					None => return,
 				},
-				warp_target_block_header = &mut self.warp_sync_target_block_header_rx_fused =>
-					self.pass_warp_sync_target_block_header(warp_target_block_header),
+				warp_target_block_header = &mut self.warp_sync_target_block_header_rx_fused => {
+					if let Err(_) = self.pass_warp_sync_target_block_header(warp_target_block_header) {
+						error!(
+							target: LOG_TARGET,
+							"Failed to set warp sync target block header, terminating `SyncingEngine`.",
+						);
+						return
+					}
+				},
 				response_event = self.pending_responses.select_next_some() =>
 					self.process_response_event(response_event),
 				validation_result = self.block_announce_validator.select_next_some() =>
@@ -675,14 +677,17 @@ where
 
 			// Process actions requested by a syncing strategy.
 			if let Err(e) = self.process_strategy_actions() {
-				error!("Terminating `SyncingEngine` due to fatal error: {e:?}");
+				error!(
+					target: LOG_TARGET,
+					"Terminating `SyncingEngine` due to fatal error: {e:?}.",
+				);
 				return
 			}
 		}
 	}
 
 	fn process_strategy_actions(&mut self) -> Result<(), ClientError> {
-		for action in self.strategy.actions() {
+		for action in self.strategy.actions()? {
 			match action {
 				SyncingAction::SendBlockRequest { peer_id, request } => {
 					// Sending block request implies dropping obsolete pending response as we are
@@ -752,20 +757,6 @@ where
 						hash,
 						number,
 					)
-				},
-				SyncingAction::Finished => {
-					let connected_peers = self.peers.iter().filter_map(|(peer_id, peer)| {
-						peer.info.roles.is_full().then_some((
-							*peer_id,
-							peer.info.best_hash,
-							peer.info.best_number,
-						))
-					});
-					self.strategy.switch_to_next(
-						self.syncing_config.clone(),
-						self.client.clone(),
-						connected_peers,
-					)?;
 				},
 			}
 		}
@@ -948,23 +939,18 @@ where
 		}
 	}
 
-	fn pass_warp_sync_target_block_header(&mut self, header: Result<B::Header, oneshot::Canceled>) {
+	fn pass_warp_sync_target_block_header(
+		&mut self,
+		header: Result<B::Header, oneshot::Canceled>,
+	) -> Result<(), ()> {
 		match header {
-			Ok(header) =>
-				if let SyncingStrategy::WarpSyncStrategy(warp_sync) = &mut self.strategy {
-					warp_sync.set_target_block(header);
-				} else {
-					error!(
-						target: LOG_TARGET,
-						"Cannot set warp sync target block: no warp sync strategy is active."
-					);
-					debug_assert!(false);
-				},
+			Ok(header) => self.strategy.set_warp_sync_target_block_header(header),
 			Err(err) => {
 				error!(
 					target: LOG_TARGET,
 					"Failed to get target block for warp sync. Error: {err:?}",
 				);
+				Err(())
 			},
 		}
 	}

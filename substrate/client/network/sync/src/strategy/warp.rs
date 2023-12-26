@@ -20,6 +20,7 @@
 
 pub use sp_consensus_grandpa::{AuthorityList, SetId};
 
+use super::PeerPool;
 use crate::{
 	strategy::chain_sync::validate_blocks,
 	types::{BadPeer, SyncState, SyncStatus},
@@ -28,7 +29,7 @@ use crate::{
 use codec::{Decode, Encode};
 use futures::channel::oneshot;
 use libp2p::PeerId;
-use log::{debug, error, trace};
+use log::{debug, error, trace, warn};
 use sc_network_common::sync::message::{
 	BlockAttributes, BlockData, BlockRequest, Direction, FromBlock,
 };
@@ -242,6 +243,7 @@ pub struct WarpSync<B: BlockT, Client> {
 	peers: HashMap<PeerId, Peer<B>>,
 	actions: Vec<WarpSyncAction<B>>,
 	result: Option<WarpSyncResult<B>>,
+	peer_pool: PeerPool,
 }
 
 impl<B, Client> WarpSync<B, Client>
@@ -252,7 +254,11 @@ where
 	/// Create a new instance. When passing a warp sync provider we will be checking for proof and
 	/// authorities. Alternatively we can pass a target block when we want to skip downloading
 	/// proofs, in this case we will continue polling until the target block is known.
-	pub fn new(client: Arc<Client>, warp_sync_config: WarpSyncConfig<B>) -> Self {
+	pub fn new(
+		client: Arc<Client>,
+		warp_sync_config: WarpSyncConfig<B>,
+		peer_pool: PeerPool,
+	) -> Self {
 		if client.info().finalized_state.is_some() {
 			error!(
 				target: LOG_TARGET,
@@ -266,6 +272,7 @@ where
 				peers: HashMap::new(),
 				actions: vec![WarpSyncAction::Finished],
 				result: None,
+				peer_pool,
 			}
 		}
 
@@ -283,6 +290,7 @@ where
 			peers: HashMap::new(),
 			actions: Vec::new(),
 			result: None,
+			peer_pool,
 		}
 	}
 
@@ -334,6 +342,7 @@ where
 		if let Some(peer) = self.peers.get_mut(peer_id) {
 			peer.state = PeerState::Available;
 		}
+		self.peer_pool.free_peer(&peer_id);
 
 		let Phase::WarpProof { set_id, authorities, last_hash, warp_sync_provider } =
 			&mut self.phase
@@ -392,6 +401,7 @@ where
 		if let Some(peer) = self.peers.get_mut(&peer_id) {
 			peer.state = PeerState::Available;
 		}
+		self.peer_pool.free_peer(&peer_id);
 
 		let Phase::TargetBlock(header) = &mut self.phase else {
 			debug!(target: LOG_TARGET, "Unexpected target block response from {peer_id}");
@@ -464,12 +474,30 @@ where
 			targets.sort();
 			let median = targets[targets.len() / 2];
 			let threshold = std::cmp::max(median, min_best_number.unwrap_or(Zero::zero()));
-			// Find a random peer that is synced as much as peer majority and is above
+			// Find a random available peer that is synced as much as peer majority and is above
 			// `min_best_number`.
-			for (peer_id, peer) in self.peers.iter_mut() {
-				if peer.state.is_available() && peer.best_number >= threshold {
-					peer.state = new_state;
-					return Some(*peer_id)
+			for peer_id in self.peer_pool.available_peers() {
+				if let Some(peer) = self.peers.get_mut(&peer_id) {
+					if peer.state.is_available() && peer.best_number >= threshold {
+						if self.peer_pool.try_reserve_peer(&peer_id) {
+							peer.state = new_state;
+							return Some(peer_id)
+						} else {
+							warn!(
+								target: LOG_TARGET,
+								"Failed to reserve peer {peer_id} in the peer pool that was \
+								 just returned as available (`WarpSync`).",
+							);
+							debug_assert!(false);
+						}
+					}
+				} else {
+					warn!(
+						target: LOG_TARGET,
+						"State inconsistency: peer {peer_id} is in the pool of connected peers, \
+						 but not known to `WarpSync`.",
+					);
+					debug_assert!(false);
 				}
 			}
 		}
@@ -706,7 +734,7 @@ mod test {
 		let client = mock_client_with_state();
 		let provider = MockWarpSyncProvider::<Block>::new();
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+		let mut warp_sync = WarpSync::new(Arc::new(client), config, Default::default());
 
 		// Warp sync instantly finishes
 		let actions = warp_sync.actions().collect::<Vec<_>>();
@@ -721,7 +749,7 @@ mod test {
 	fn warp_sync_to_target_for_db_with_finalized_state_is_noop() {
 		let client = mock_client_with_state();
 		let config = WarpSyncConfig::WaitForTarget;
-		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+		let mut warp_sync = WarpSync::new(Arc::new(client), config, Default::default());
 
 		// Warp sync instantly finishes
 		let actions = warp_sync.actions().collect::<Vec<_>>();
@@ -737,7 +765,7 @@ mod test {
 		let client = mock_client_without_state();
 		let provider = MockWarpSyncProvider::<Block>::new();
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+		let mut warp_sync = WarpSync::new(Arc::new(client), config, Default::default());
 
 		// No actions are emitted.
 		assert_eq!(warp_sync.actions().count(), 0)
@@ -747,7 +775,7 @@ mod test {
 	fn warp_sync_to_target_for_empty_db_doesnt_finish_instantly() {
 		let client = mock_client_without_state();
 		let config = WarpSyncConfig::WaitForTarget;
-		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+		let mut warp_sync = WarpSync::new(Arc::new(client), config, Default::default());
 
 		// No actions are emitted.
 		assert_eq!(warp_sync.actions().count(), 0)
@@ -762,16 +790,21 @@ mod test {
 			.once()
 			.return_const(AuthorityList::default());
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+		let peer_pool: PeerPool = Default::default();
+		let mut warp_sync = WarpSync::new(Arc::new(client), config, peer_pool.clone());
 
 		// Warp sync is not started when there is not enough peers.
 		for _ in 0..(MIN_PEERS_TO_START_WARP_SYNC - 1) {
-			warp_sync.add_peer(PeerId::random(), Hash::random(), 10);
+			let peer_id = PeerId::random();
+			peer_pool.add_peer(peer_id);
+			warp_sync.add_peer(peer_id, Hash::random(), 10);
 			assert!(matches!(warp_sync.phase, Phase::WaitingForPeers { .. }))
 		}
 
 		// Now we have enough peers and warp sync is started.
-		warp_sync.add_peer(PeerId::random(), Hash::random(), 10);
+		let peer_id = PeerId::random();
+		peer_pool.add_peer(peer_id);
+		warp_sync.add_peer(peer_id, Hash::random(), 10);
 		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }))
 	}
 
@@ -780,7 +813,7 @@ mod test {
 		let client = mock_client_without_state();
 		let provider = MockWarpSyncProvider::<Block>::new();
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+		let mut warp_sync = WarpSync::new(Arc::new(client), config, Default::default());
 
 		assert!(warp_sync.schedule_next_peer(PeerState::DownloadingProofs, None).is_none());
 	}
@@ -804,10 +837,13 @@ mod test {
 				.once()
 				.return_const(AuthorityList::default());
 			let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-			let mut warp_sync = WarpSync::new(Arc::new(client), config);
+			let peer_pool: PeerPool = Default::default();
+			let mut warp_sync = WarpSync::new(Arc::new(client), config, peer_pool.clone());
 
 			for best_number in 1..11 {
-				warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+				let peer_id = PeerId::random();
+				peer_pool.add_peer(peer_id);
+				warp_sync.add_peer(peer_id, Hash::random(), best_number);
 			}
 
 			let peer_id = warp_sync.schedule_next_peer(PeerState::DownloadingProofs, None);
@@ -825,10 +861,13 @@ mod test {
 				.once()
 				.return_const(AuthorityList::default());
 			let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-			let mut warp_sync = WarpSync::new(Arc::new(client), config);
+			let peer_pool: PeerPool = Default::default();
+			let mut warp_sync = WarpSync::new(Arc::new(client), config, peer_pool.clone());
 
 			for best_number in 1..11 {
-				warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+				let peer_id = PeerId::random();
+				peer_pool.add_peer(peer_id);
+				warp_sync.add_peer(peer_id, Hash::random(), best_number);
 			}
 
 			let peer_id = warp_sync.schedule_next_peer(PeerState::DownloadingProofs, Some(10));
@@ -845,11 +884,14 @@ mod test {
 			.once()
 			.return_const(AuthorityList::default());
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+		let peer_pool: PeerPool = Default::default();
+		let mut warp_sync = WarpSync::new(Arc::new(client), config, peer_pool.clone());
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
-			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+			let peer_id = PeerId::random();
+			peer_pool.add_peer(peer_id);
+			warp_sync.add_peer(peer_id, Hash::random(), best_number);
 		}
 
 		// Manually set to another phase.
@@ -868,11 +910,14 @@ mod test {
 			.once()
 			.return_const(AuthorityList::default());
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+		let peer_pool: PeerPool = Default::default();
+		let mut warp_sync = WarpSync::new(Arc::new(client), config, peer_pool.clone());
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
-			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+			let peer_id = PeerId::random();
+			peer_pool.add_peer(peer_id);
+			warp_sync.add_peer(peer_id, Hash::random(), best_number);
 		}
 		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
 
@@ -899,11 +944,14 @@ mod test {
 			.once()
 			.return_const(AuthorityList::default());
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+		let peer_pool: PeerPool = Default::default();
+		let mut warp_sync = WarpSync::new(Arc::new(client), config, peer_pool.clone());
 
 		// Make sure we have enough peers to make requests.
 		for best_number in 1..11 {
-			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+			let peer_id = PeerId::random();
+			peer_pool.add_peer(peer_id);
+			warp_sync.add_peer(peer_id, Hash::random(), best_number);
 		}
 		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
 
@@ -926,11 +974,14 @@ mod test {
 			Err(Box::new(std::io::Error::new(ErrorKind::Other, "test-verification-failure")))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+		let peer_pool: PeerPool = Default::default();
+		let mut warp_sync = WarpSync::new(Arc::new(client), config, peer_pool.clone());
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
-			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+			let peer_id = PeerId::random();
+			peer_pool.add_peer(peer_id);
+			warp_sync.add_peer(peer_id, Hash::random(), best_number);
 		}
 		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
 
@@ -967,11 +1018,14 @@ mod test {
 			Ok(VerificationResult::Partial(set_id, authorities, Hash::random()))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+		let peer_pool: PeerPool = Default::default();
+		let mut warp_sync = WarpSync::new(Arc::new(client), config, peer_pool.clone());
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
-			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+			let peer_id = PeerId::random();
+			peer_pool.add_peer(peer_id);
+			warp_sync.add_peer(peer_id, Hash::random(), best_number);
 		}
 		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
 
@@ -1011,11 +1065,14 @@ mod test {
 			Ok(VerificationResult::Complete(set_id, authorities, target_header))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(client, config);
+		let peer_pool: PeerPool = Default::default();
+		let mut warp_sync = WarpSync::new(client, config, peer_pool.clone());
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
-			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+			let peer_id = PeerId::random();
+			peer_pool.add_peer(peer_id);
+			warp_sync.add_peer(peer_id, Hash::random(), best_number);
 		}
 		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
 
@@ -1044,11 +1101,14 @@ mod test {
 			.once()
 			.return_const(AuthorityList::default());
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(Arc::new(client), config);
+		let peer_pool: PeerPool = Default::default();
+		let mut warp_sync = WarpSync::new(Arc::new(client), config, peer_pool.clone());
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
-			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+			let peer_id = PeerId::random();
+			peer_pool.add_peer(peer_id);
+			warp_sync.add_peer(peer_id, Hash::random(), best_number);
 		}
 		// We are not in `Phase::TargetBlock`
 		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
@@ -1079,11 +1139,14 @@ mod test {
 			Ok(VerificationResult::Complete(set_id, authorities, target_header))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(client, config);
+		let peer_pool: PeerPool = Default::default();
+		let mut warp_sync = WarpSync::new(client, config, peer_pool.clone());
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
-			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+			let peer_id = PeerId::random();
+			peer_pool.add_peer(peer_id);
+			warp_sync.add_peer(peer_id, Hash::random(), best_number);
 		}
 
 		// Manually set `TargetBlock` phase.
@@ -1111,11 +1174,14 @@ mod test {
 			.block;
 		let target_header = target_block.header().clone();
 		let config = WarpSyncConfig::WaitForTarget;
-		let mut warp_sync = WarpSync::new(client, config);
+		let peer_pool: PeerPool = Default::default();
+		let mut warp_sync = WarpSync::new(client, config, peer_pool.clone());
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
-			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+			let peer_id = PeerId::random();
+			peer_pool.add_peer(peer_id);
+			warp_sync.add_peer(peer_id, Hash::random(), best_number);
 		}
 
 		// No actions generated so far.
@@ -1155,11 +1221,14 @@ mod test {
 			Ok(VerificationResult::Complete(set_id, authorities, target_header))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(client, config);
+		let peer_pool: PeerPool = Default::default();
+		let mut warp_sync = WarpSync::new(client, config, peer_pool.clone());
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
-			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+			let peer_id = PeerId::random();
+			peer_pool.add_peer(peer_id);
+			warp_sync.add_peer(peer_id, Hash::random(), best_number);
 		}
 
 		// Manually set `TargetBlock` phase.
@@ -1193,11 +1262,14 @@ mod test {
 			Ok(VerificationResult::Complete(set_id, authorities, target_header))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(client, config);
+		let peer_pool: PeerPool = Default::default();
+		let mut warp_sync = WarpSync::new(client, config, peer_pool.clone());
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
-			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+			let peer_id = PeerId::random();
+			peer_pool.add_peer(peer_id);
+			warp_sync.add_peer(peer_id, Hash::random(), best_number);
 		}
 
 		// Manually set `TargetBlock` phase.
@@ -1247,11 +1319,14 @@ mod test {
 			Ok(VerificationResult::Complete(set_id, authorities, target_header))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(client, config);
+		let peer_pool: PeerPool = Default::default();
+		let mut warp_sync = WarpSync::new(client, config, peer_pool.clone());
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
-			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+			let peer_id = PeerId::random();
+			peer_pool.add_peer(peer_id);
+			warp_sync.add_peer(peer_id, Hash::random(), best_number);
 		}
 
 		// Manually set `TargetBlock` phase.
@@ -1324,11 +1399,14 @@ mod test {
 			Ok(VerificationResult::Complete(set_id, authorities, target_header))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(client, config);
+		let peer_pool: PeerPool = Default::default();
+		let mut warp_sync = WarpSync::new(client, config, peer_pool.clone());
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
-			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+			let peer_id = PeerId::random();
+			peer_pool.add_peer(peer_id);
+			warp_sync.add_peer(peer_id, Hash::random(), best_number);
 		}
 
 		// Manually set `TargetBlock` phase.
@@ -1377,11 +1455,14 @@ mod test {
 			Ok(VerificationResult::Complete(set_id, authorities, target_header))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let mut warp_sync = WarpSync::new(client, config);
+		let peer_pool: PeerPool = Default::default();
+		let mut warp_sync = WarpSync::new(client, config, peer_pool.clone());
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
-			warp_sync.add_peer(PeerId::random(), Hash::random(), best_number);
+			let peer_id = PeerId::random();
+			peer_pool.add_peer(peer_id);
+			warp_sync.add_peer(peer_id, Hash::random(), best_number);
 		}
 
 		// Manually set `TargetBlock` phase.
@@ -1416,4 +1497,6 @@ mod test {
 		assert_eq!(result.target_body, body);
 		assert_eq!(result.target_justifications, justifications);
 	}
+
+	// TODO: test that peers are freed from `PeerPool` when responses are received.
 }
