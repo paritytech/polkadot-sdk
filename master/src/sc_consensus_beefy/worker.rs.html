@@ -1985,6 +1985,10 @@
 		<span class="self">self</span>.voting_oracle.min_block_delta = min_block_delta.max(<span class="number">1</span>);
 	}
 
+	<span class="kw">pub fn </span>best_beefy(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NumberFor&lt;B&gt; {
+		<span class="self">self</span>.voting_oracle.best_beefy_block
+	}
+
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>set_best_beefy(<span class="kw-2">&amp;mut </span><span class="self">self</span>, best_beefy: NumberFor&lt;B&gt;) {
 		<span class="self">self</span>.voting_oracle.best_beefy_block = best_beefy;
 	}
@@ -2781,10 +2785,6 @@
 			<span class="self">self</span>.voting_oracle.active_rounds()
 		}
 
-		<span class="kw">pub fn </span>best_beefy_block(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NumberFor&lt;B&gt; {
-			<span class="self">self</span>.voting_oracle.best_beefy_block
-		}
-
 		<span class="kw">pub fn </span>best_grandpa_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NumberFor&lt;B&gt; {
 			<span class="kw-2">*</span><span class="self">self</span>.voting_oracle.best_grandpa_block_header.number()
 		}
@@ -3198,7 +3198,7 @@
 		};
 
 		<span class="comment">// no &#39;best beefy block&#39; or finality proofs
-		</span><span class="macro">assert_eq!</span>(worker.persisted_state.best_beefy_block(), <span class="number">0</span>);
+		</span><span class="macro">assert_eq!</span>(worker.persisted_state.best_beefy(), <span class="number">0</span>);
 		poll_fn(<span class="kw">move </span>|cx| {
 			<span class="macro">assert_eq!</span>(best_block_stream.poll_next_unpin(cx), Poll::Pending);
 			<span class="macro">assert_eq!</span>(finality_proof.poll_next_unpin(cx), Poll::Pending);
@@ -3221,7 +3221,7 @@
 		<span class="comment">// try to finalize block #1
 		</span>worker.finalize(justif.clone()).unwrap();
 		<span class="comment">// verify block finalized
-		</span><span class="macro">assert_eq!</span>(worker.persisted_state.best_beefy_block(), <span class="number">1</span>);
+		</span><span class="macro">assert_eq!</span>(worker.persisted_state.best_beefy(), <span class="number">1</span>);
 		poll_fn(<span class="kw">move </span>|cx| {
 			<span class="comment">// expect Some(hash-of-block-1)
 			</span><span class="kw">match </span>best_block_stream.poll_next_unpin(cx) {
@@ -3258,7 +3258,7 @@
 		<span class="comment">// new session starting at #2 is in front
 		</span><span class="macro">assert_eq!</span>(worker.active_rounds().unwrap().session_start(), <span class="number">2</span>);
 		<span class="comment">// verify block finalized
-		</span><span class="macro">assert_eq!</span>(worker.persisted_state.best_beefy_block(), <span class="number">2</span>);
+		</span><span class="macro">assert_eq!</span>(worker.persisted_state.best_beefy(), <span class="number">2</span>);
 		poll_fn(<span class="kw">move </span>|cx| {
 			<span class="kw">match </span>best_block_stream.poll_next_unpin(cx) {
 				<span class="comment">// expect Some(hash-of-block-2)

@@ -181,6 +181,16 @@
 <a href="#181" id="181">181</a>
 <a href="#182" id="182">182</a>
 <a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -324,6 +334,16 @@
 
 		<span class="comment">// Run inner block import.
 		</span><span class="kw">let </span>inner_import_result = <span class="self">self</span>.inner.import_block(block).<span class="kw">await</span><span class="question-mark">?</span>;
+
+		<span class="kw">match </span><span class="self">self</span>.backend.state_at(hash) {
+			<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {},
+			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
+				<span class="comment">// The block is imported as part of some chain sync.
+				// The voter doesn&#39;t need to process it now.
+				// It will be detected and processed as part of the voter state init.
+				</span><span class="kw">return </span><span class="prelude-val">Ok</span>(inner_import_result);
+			},
+		}
 
 		<span class="kw">match </span>(beefy_encoded, <span class="kw-2">&amp;</span>inner_import_result) {
 			(<span class="prelude-val">Some</span>(encoded), ImportResult::Imported(<span class="kw">_</span>)) =&gt; {

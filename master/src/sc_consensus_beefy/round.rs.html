@@ -497,6 +497,10 @@
 <a href="#497" id="497">497</a>
 <a href="#498" id="498">498</a>
 <a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -518,7 +522,7 @@
 </span><span class="kw">use </span><span class="kw">crate</span>::LOG_TARGET;
 
 <span class="kw">use </span>codec::{Decode, Encode};
-<span class="kw">use </span>log::debug;
+<span class="kw">use </span>log::{debug, info};
 <span class="kw">use </span>sp_consensus_beefy::{
 	ecdsa_crypto::{AuthorityId, Signature},
 	Commitment, EquivocationProof, SignedCommitment, ValidatorSet, ValidatorSetId, VoteMessage,
@@ -693,7 +697,11 @@
 		<span class="self">self</span>.previous_votes.retain(|<span class="kw-2">&amp;</span>(<span class="kw">_</span>, number), <span class="kw">_</span>| number &gt; round_num);
 		<span class="self">self</span>.mandatory_done = <span class="self">self</span>.mandatory_done || round_num == <span class="self">self</span>.session_start;
 		<span class="self">self</span>.best_done = <span class="self">self</span>.best_done.max(<span class="prelude-val">Some</span>(round_num));
-		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Concluded round #{}&quot;</span>, round_num);
+		<span class="kw">if </span>round_num == <span class="self">self</span>.session_start {
+			<span class="macro">info!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Concluded mandatory round #{}&quot;</span>, round_num);
+		} <span class="kw">else </span>{
+			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Concluded optional round #{}&quot;</span>, round_num);
+		}
 	}
 }
 

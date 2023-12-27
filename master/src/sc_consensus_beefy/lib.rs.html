@@ -563,6 +563,66 @@
 <a href="#563" id="563">563</a>
 <a href="#564" id="564">564</a>
 <a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -598,7 +658,7 @@
 	worker::PersistedState,
 };
 <span class="kw">use </span>futures::{stream::Fuse, StreamExt};
-<span class="kw">use </span>log::{debug, error, info};
+<span class="kw">use </span>log::{debug, error, info, warn};
 <span class="kw">use </span>parking_lot::Mutex;
 <span class="kw">use </span>prometheus::Registry;
 <span class="kw">use </span>sc_client_api::{Backend, BlockBackend, BlockchainEvents, FinalityNotifications, Finalizer};
@@ -621,6 +681,7 @@
 	collections::{BTreeMap, VecDeque},
 	marker::PhantomData,
 	sync::Arc,
+	time::Duration,
 };
 
 <span class="kw">mod </span>aux_schema;
@@ -642,6 +703,8 @@
 </span><span class="kw">mod </span>tests;
 
 <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;beefy&quot;</span>;
+
+<span class="kw">const </span>HEADER_SYNC_DELAY: Duration = Duration::from_secs(<span class="number">60</span>);
 
 <span class="doccomment">/// A convenience BEEFY client trait that defines all the type bounds a BEEFY client
 /// has to satisfy. Ideally that should actually be a trait alias. Unfortunately as
@@ -857,21 +920,29 @@
 	// select recoverable errors.
 	</span><span class="kw">loop </span>{
 		<span class="comment">// Wait for BEEFY pallet to be active before starting voter.
-		</span><span class="kw">let </span>persisted_state = <span class="kw">match </span>wait_for_runtime_pallet(
+		</span><span class="kw">let </span>(beefy_genesis, best_grandpa) = <span class="kw">match </span>wait_for_runtime_pallet(
 			<span class="kw-2">&amp;*</span>runtime,
 			<span class="kw-2">&amp;mut </span>beefy_comms.gossip_engine,
 			<span class="kw-2">&amp;mut </span>finality_notifications,
 		)
 		.<span class="kw">await
-		</span>.and_then(|(beefy_genesis, best_grandpa)| {
-			load_or_init_voter_state(
-				<span class="kw-2">&amp;*</span>backend,
-				<span class="kw-2">&amp;*</span>runtime,
-				beefy_genesis,
-				best_grandpa,
-				min_block_delta,
-			)
-		}) {
+		</span>{
+			<span class="prelude-val">Ok</span>(res) =&gt; res,
+			<span class="prelude-val">Err</span>(e) =&gt; {
+				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;Error: {:?}. Terminating.&quot;</span>, e);
+				<span class="kw">return
+			</span>},
+		};
+
+		<span class="kw">let </span>persisted_state = <span class="kw">match </span>load_or_init_voter_state(
+			<span class="kw-2">&amp;*</span>backend,
+			<span class="kw-2">&amp;*</span>runtime,
+			beefy_genesis,
+			best_grandpa,
+			min_block_delta,
+		)
+		.<span class="kw">await
+		</span>{
 			<span class="prelude-val">Ok</span>(state) =&gt; state,
 			<span class="prelude-val">Err</span>(e) =&gt; {
 				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;Error: {:?}. Terminating.&quot;</span>, e);
@@ -922,7 +993,7 @@
 	</span>}
 }
 
-<span class="kw">fn </span>load_or_init_voter_state&lt;B, BE, R&gt;(
+<span class="kw">async fn </span>load_or_init_voter_state&lt;B, BE, R&gt;(
 	backend: <span class="kw-2">&amp;</span>BE,
 	runtime: <span class="kw-2">&amp;</span>R,
 	beefy_genesis: NumberFor&lt;B&gt;,
@@ -936,28 +1007,70 @@
 	R::Api: BeefyApi&lt;B, AuthorityId&gt;,
 {
 	<span class="comment">// Initialize voter state from AUX DB if compatible.
-	</span><span class="kw">crate</span>::aux_schema::load_persistent(backend)<span class="question-mark">?
+	</span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>state) = <span class="kw">crate</span>::aux_schema::load_persistent(backend)<span class="question-mark">?
 		</span><span class="comment">// Verify state pallet genesis matches runtime.
 		</span>.filter(|state| state.pallet_genesis() == beefy_genesis)
-		.and_then(|<span class="kw-2">mut </span>state| {
-			<span class="comment">// Overwrite persisted state with current best GRANDPA block.
-			</span>state.set_best_grandpa(best_grandpa.clone());
-			<span class="comment">// Overwrite persisted data with newly provided `min_block_delta`.
-			</span>state.set_min_block_delta(min_block_delta);
-			<span class="macro">info!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Loading BEEFY voter state from db: {:?}.&quot;</span>, state);
-			<span class="prelude-val">Some</span>(<span class="prelude-val">Ok</span>(state))
-		})
-		<span class="comment">// No valid voter-state persisted, re-initialize from pallet genesis.
-		</span>.unwrap_or_else(|| {
-			initialize_voter_state(backend, runtime, beefy_genesis, best_grandpa, min_block_delta)
-		})
+	{
+		<span class="comment">// Overwrite persisted state with current best GRANDPA block.
+		</span>state.set_best_grandpa(best_grandpa.clone());
+		<span class="comment">// Overwrite persisted data with newly provided `min_block_delta`.
+		</span>state.set_min_block_delta(min_block_delta);
+		<span class="macro">info!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Loading BEEFY voter state from db: {:?}.&quot;</span>, state);
+
+		<span class="comment">// Make sure that all the headers that we need have been synced.
+		</span><span class="kw">let </span><span class="kw-2">mut </span>header = best_grandpa.clone();
+		<span class="kw">while </span><span class="kw-2">*</span>header.number() &gt; state.best_beefy() {
+			header =
+				wait_for_parent_header(backend.blockchain(), header, HEADER_SYNC_DELAY).<span class="kw">await</span><span class="question-mark">?</span>;
+		}
+		<span class="kw">return </span><span class="prelude-val">Ok</span>(state);
+	}
+
+	<span class="comment">// No valid voter-state persisted, re-initialize from pallet genesis.
+	</span>initialize_voter_state(backend, runtime, beefy_genesis, best_grandpa, min_block_delta).<span class="kw">await
+</span>}
+
+<span class="doccomment">/// Waits until the parent header of `current` is available and returns it.
+///
+/// When the node uses GRANDPA warp sync it initially downloads only the mandatory GRANDPA headers.
+/// The rest of the headers (gap sync) are lazily downloaded later. But the BEEFY voter also needs
+/// the headers in range `[beefy_genesis..=best_grandpa]` to be available. This helper method
+/// enables us to wait until these headers have been synced.
+</span><span class="kw">async fn </span>wait_for_parent_header&lt;B, BC&gt;(
+	blockchain: <span class="kw-2">&amp;</span>BC,
+	current: &lt;B <span class="kw">as </span>Block&gt;::Header,
+	delay: Duration,
+) -&gt; ClientResult&lt;&lt;B <span class="kw">as </span>Block&gt;::Header&gt;
+<span class="kw">where
+	</span>B: Block,
+	BC: BlockchainBackend&lt;B&gt;,
+{
+	<span class="kw">if </span><span class="kw-2">*</span>current.number() == Zero::zero() {
+		<span class="kw">let </span>msg = <span class="macro">format!</span>(<span class="string">&quot;header {} is Genesis, there is no parent for it&quot;</span>, current.hash());
+		<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">&quot;{}&quot;</span>, msg);
+		<span class="kw">return </span><span class="prelude-val">Err</span>(ClientError::UnknownBlock(msg))
+	}
+	<span class="kw">loop </span>{
+		<span class="kw">match </span>blockchain.header(<span class="kw-2">*</span>current.parent_hash())<span class="question-mark">? </span>{
+			<span class="prelude-val">Some</span>(parent) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(parent),
+			<span class="prelude-val">None </span>=&gt; {
+				<span class="macro">info!</span>(
+					target: LOG_TARGET,
+					<span class="string">&quot;🥩 Parent of header number {} not found. \
+					BEEFY gadget waiting for header sync to finish ...&quot;</span>,
+					current.number()
+				);
+				tokio::time::sleep(delay).<span class="kw">await</span>;
+			},
+		}
+	}
 }
 
 <span class="comment">// If no persisted state present, walk back the chain from first GRANDPA notification to either:
 //  - latest BEEFY finalized block, or if none found on the way,
 //  - BEEFY pallet genesis;
 // Enqueue any BEEFY mandatory blocks (session boundaries) found on the way, for voter to finalize.
-</span><span class="kw">fn </span>initialize_voter_state&lt;B, BE, R&gt;(
+</span><span class="kw">async fn </span>initialize_voter_state&lt;B, BE, R&gt;(
 	backend: <span class="kw-2">&amp;</span>BE,
 	runtime: <span class="kw-2">&amp;</span>R,
 	beefy_genesis: NumberFor&lt;B&gt;,
@@ -970,6 +1083,8 @@
 	R: ProvideRuntimeApi&lt;B&gt;,
 	R::Api: BeefyApi&lt;B, AuthorityId&gt;,
 {
+	<span class="kw">let </span>blockchain = backend.blockchain();
+
 	<span class="kw">let </span>beefy_genesis = runtime
 		.runtime_api()
 		.beefy_genesis(best_grandpa.hash())
@@ -979,8 +1094,7 @@
 		.ok_or_else(|| ClientError::Backend(<span class="string">&quot;BEEFY pallet expected to be active.&quot;</span>.into()))<span class="question-mark">?</span>;
 	<span class="comment">// Walk back the imported blocks and initialize voter either, at the last block with
 	// a BEEFY justification, or at pallet genesis block; voter will resume from there.
-	</span><span class="kw">let </span>blockchain = backend.blockchain();
-	<span class="kw">let </span><span class="kw-2">mut </span>sessions = VecDeque::new();
+	</span><span class="kw">let </span><span class="kw-2">mut </span>sessions = VecDeque::new();
 	<span class="kw">let </span><span class="kw-2">mut </span>header = best_grandpa.clone();
 	<span class="kw">let </span>state = <span class="kw">loop </span>{
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="bool-val">true</span>) = blockchain
@@ -997,7 +1111,7 @@
 			<span class="kw">let </span>best_beefy = <span class="kw-2">*</span>header.number();
 			<span class="comment">// If no session boundaries detected so far, just initialize new rounds here.
 			</span><span class="kw">if </span>sessions.is_empty() {
-				<span class="kw">let </span>active_set = expect_validator_set(runtime, backend, <span class="kw-2">&amp;</span>header)<span class="question-mark">?</span>;
+				<span class="kw">let </span>active_set = expect_validator_set(runtime, backend, <span class="kw-2">&amp;</span>header).<span class="kw">await</span><span class="question-mark">?</span>;
 				<span class="kw">let </span><span class="kw-2">mut </span>rounds = Rounds::new(best_beefy, active_set);
 				<span class="comment">// Mark the round as already finalized.
 				</span>rounds.conclude(best_beefy);
@@ -1016,7 +1130,7 @@
 
 		<span class="kw">if </span><span class="kw-2">*</span>header.number() == beefy_genesis {
 			<span class="comment">// We&#39;ve reached BEEFY genesis, initialize voter here.
-			</span><span class="kw">let </span>genesis_set = expect_validator_set(runtime, backend, <span class="kw-2">&amp;</span>header)<span class="question-mark">?</span>;
+			</span><span class="kw">let </span>genesis_set = expect_validator_set(runtime, backend, <span class="kw-2">&amp;</span>header).<span class="kw">await</span><span class="question-mark">?</span>;
 			<span class="macro">info!</span>(
 				target: LOG_TARGET,
 				<span class="string">&quot;🥩 Loading BEEFY voter state from genesis on what appears to be first startup. \
@@ -1046,7 +1160,7 @@
 		}
 
 		<span class="comment">// Move up the chain.
-		</span>header = blockchain.expect_header(<span class="kw-2">*</span>header.parent_hash())<span class="question-mark">?</span>;
+		</span>header = wait_for_parent_header(blockchain, header, HEADER_SYNC_DELAY).<span class="kw">await</span><span class="question-mark">?</span>;
 	};
 
 	aux_schema::write_current_version(backend)<span class="question-mark">?</span>;
@@ -1097,7 +1211,12 @@
 	<span class="prelude-val">Err</span>(ClientError::Backend(err_msg))
 }
 
-<span class="kw">fn </span>expect_validator_set&lt;B, BE, R&gt;(
+<span class="doccomment">/// Provides validator set active `at_header`. It tries to get it from state, otherwise falls
+/// back to walk up the chain looking the validator set enactment in header digests.
+///
+/// Note: function will `async::sleep()` when walking back the chain if some needed header hasn&#39;t
+/// been synced yet (as it happens when warp syncing when headers are synced in the background).
+</span><span class="kw">async fn </span>expect_validator_set&lt;B, BE, R&gt;(
 	runtime: <span class="kw-2">&amp;</span>R,
 	backend: <span class="kw-2">&amp;</span>BE,
 	at_header: <span class="kw-2">&amp;</span>B::Header,
@@ -1115,15 +1234,16 @@
 	</span><span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Trying to find validator set active at header: {:?}&quot;</span>, at_header);
 	<span class="kw">let </span><span class="kw-2">mut </span>header = at_header.clone();
 	<span class="kw">loop </span>{
+		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Looking for auth set change at block number: {:?}&quot;</span>, <span class="kw-2">*</span>header.number());
 		<span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(active)) = runtime.runtime_api().validator_set(header.hash()) {
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(active)
 		} <span class="kw">else </span>{
-			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Looking for auth set change at block number: {:?}&quot;</span>, <span class="kw-2">*</span>header.number());
 			<span class="kw">match </span>worker::find_authorities_change::&lt;B&gt;(<span class="kw-2">&amp;</span>header) {
 				<span class="prelude-val">Some</span>(active) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(active),
 				<span class="comment">// Move up the chain. Ultimately we&#39;ll get it from chain genesis state, or error out
-				// here.
-				</span><span class="prelude-val">None </span>=&gt; header = blockchain.expect_header(<span class="kw-2">*</span>header.parent_hash())<span class="question-mark">?</span>,
+				// there.
+				</span><span class="prelude-val">None </span>=&gt;
+					header = wait_for_parent_header(blockchain, header, HEADER_SYNC_DELAY).<span class="kw">await</span><span class="question-mark">?</span>,
 			}
 		}
 	}
