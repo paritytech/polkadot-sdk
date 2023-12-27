@@ -4,8 +4,8 @@ bootnode = true
 
 [relaychain]
 default_image = "{{ZOMBIENET_INTEGRATION_TEST_IMAGE}}"
-chain = "rococo-local"
-command = "polkadot"
+chain = "versi-local"
+command = "/Users/sergejsakac/polkadot-sdk/target/testnet/polkadot"
 
   [[relaychain.nodes]]
   name = "alice"
@@ -31,7 +31,7 @@ cumulus_based = true
   [parachains.collator]
   name = "collator01"
   image = "{{CUMULUS_IMAGE}}"
-  command = "polkadot-parachain"
+  command = "/Users/sergejsakac/polkadot-sdk/target/testnet/polkadot-parachain"
 
   [[parachains.collator.env]]
   name = "RUST_LOG"
