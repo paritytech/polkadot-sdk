@@ -21,11 +21,11 @@ use crate as pallet_referenda_tracks;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	ord_parameter_types, parameter_types,
-	traits::{ConstU16, ConstU32, ConstU64, EqualPrivilegeOnly, VoteTally},
+	traits::{ConstU16, ConstU32, ConstU64, EnsureOriginWithArg, EqualPrivilegeOnly, VoteTally},
 	weights::Weight,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
-use pallet_referenda::{PalletsOriginOf, TrackIdOf, TrackInfoOf};
+use pallet_referenda::{PalletsOriginOf, TrackIdOf, TrackInfoOf, TracksInfo};
 use scale_info::TypeInfo;
 use sp_core::H256;
 use sp_io::TestExternalities;
@@ -113,6 +113,22 @@ impl pallet_balances::Config for Test {
 	type MaxHolds = ();
 }
 
+pub struct EnsureOriginToTrack;
+impl EnsureOriginWithArg<RuntimeOrigin, TrackIdOf<Test, ()>> for EnsureOriginToTrack {
+	type Success = ();
+
+	fn try_origin(
+		o: RuntimeOrigin,
+		id: &TrackIdOf<Test, ()>,
+	) -> Result<Self::Success, RuntimeOrigin> {
+		let track_id_for_origin: TrackIdOf<Test, ()> =
+			Tracks::track_for(&o.clone().caller).map_err(|_| o.clone())?;
+		frame_support::ensure!(&track_id_for_origin == id, o);
+
+		Ok(())
+	}
+}
+
 parameter_types! {
 	pub const MaxTracks: u32 = 2;
 }
@@ -120,7 +136,8 @@ impl pallet_referenda_tracks::Config for Test {
 	type TrackId = u8;
 	type RuntimeEvent = RuntimeEvent;
 	type MaxTracks = MaxTracks;
-	type UpdateOrigin = EnsureRoot<u64>;
+	type AdminOrigin = EnsureRoot<u64>;
+	type UpdateOrigin = EnsureOriginToTrack;
 	type WeightInfo = ();
 }
 

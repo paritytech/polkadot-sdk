@@ -64,12 +64,17 @@ type TracksIter<T, I> = Map<
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{pallet_prelude::*, traits::EnsureOrigin};
+	use frame_support::{
+		pallet_prelude::*,
+		traits::{EnsureOrigin, EnsureOriginWithArg},
+	};
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config + pallet_referenda::Config<I> {
-		type UpdateOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
+		type UpdateOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, TrackIdOf<Self, I>>;
 
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
@@ -102,7 +107,7 @@ pub mod pallet {
 		/// A new track has been inserted
 		Created { id: TrackIdOf<T, I> },
 		/// The information for a track has been updated
-		Updated { id: TrackIdOf<T, I>, info: TrackInfoOf<T, I> },
+		Updated { id: TrackIdOf<T, I> },
 		/// A track has been removed
 		Removed { id: TrackIdOf<T, I> },
 	}
@@ -138,7 +143,7 @@ pub mod pallet {
 			info: TrackInfoOf<T, I>,
 			pallet_origin: PalletsOriginOf<T>,
 		) -> DispatchResultWithPostInfo {
-			T::UpdateOrigin::ensure_origin(origin)?;
+			T::AdminOrigin::ensure_origin(origin)?;
 
 			ensure!(Tracks::<T, I>::get(id) == None, Error::<T, I>::TrackIdAlreadyExisting);
 
@@ -165,19 +170,19 @@ pub mod pallet {
 			id: TrackIdOf<T, I>,
 			info: TrackInfoOf<T, I>,
 		) -> DispatchResultWithPostInfo {
-			T::UpdateOrigin::ensure_origin(origin)?;
+			T::UpdateOrigin::ensure_origin(origin, &id)?;
 
 			Tracks::<T, I>::try_mutate(id, |track| {
 				if track.is_none() {
 					return Err(Error::<T, I>::TrackIdNotFound);
 				};
 
-				*track = Some(info.clone());
+				*track = Some(info);
 
 				Ok(())
 			})?;
 
-			Self::deposit_event(Event::Updated { id, info });
+			Self::deposit_event(Event::Updated { id });
 			Ok(().into())
 		}
 
@@ -190,19 +195,22 @@ pub mod pallet {
 		///
 		/// Weight: `O(n)`
 		#[pallet::call_index(2)]
-		pub fn remove(origin: OriginFor<T>, id: TrackIdOf<T, I>) -> DispatchResultWithPostInfo {
-			T::UpdateOrigin::ensure_origin(origin)?;
+		pub fn remove(
+			origin: OriginFor<T>,
+			id: TrackIdOf<T, I>,
+			pallet_origin: PalletsOriginOf<T>,
+		) -> DispatchResultWithPostInfo {
+			T::AdminOrigin::ensure_origin(origin)?;
 
 			ensure!(Tracks::<T, I>::contains_key(id), Error::<T, I>::TrackIdNotFound);
+			ensure!(
+				OriginToTrackId::<T, I>::get(&pallet_origin) == Some(id),
+				DispatchError::BadOrigin
+			);
 
-			OriginToTrackId::<T, I>::iter_keys().for_each(|origin| {
-				let track_id = OriginToTrackId::<T, I>::get(origin.clone())
-					.expect("The given key is provided by StorageMap::iter_keys; qed");
-				if track_id == id {
-					OriginToTrackId::<T, I>::remove(origin);
-				}
-			});
 			Tracks::<T, I>::remove(id);
+			OriginToTrackId::<T, I>::remove(pallet_origin);
+
 			TracksIds::<T, I>::try_mutate(|tracks_ids| {
 				let new_tracks_ids = tracks_ids.clone().into_iter().filter(|i| i != &id).collect();
 				*tracks_ids = BoundedVec::<_, _>::truncate_from(new_tracks_ids);

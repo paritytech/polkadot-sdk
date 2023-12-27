@@ -157,23 +157,13 @@ mod update {
 	}
 
 	#[test]
-	fn fails_if_non_existing() {
-		new_test_ext(None).execute_with(|| {
-			assert_noop!(
-				ReferendaTracks::<Test, ()>::update(RuntimeOrigin::root(), 1, TRACK),
-				Error::<Test, ()>::TrackIdNotFound,
-			);
-		});
-	}
-
-	#[test]
 	fn it_works() {
 		new_test_ext(Some(vec![(1, TRACK, ORIGIN_SIGNED_1)])).execute_with(|| {
 			let mut track = TRACK.clone();
 			track.max_deciding = 2;
 
 			assert_ok!(ReferendaTracks::<Test, ()>::update(
-				RuntimeOrigin::root(),
+				RuntimeOrigin::signed(1),
 				1,
 				track.clone()
 			));
@@ -182,7 +172,7 @@ mod update {
 				System::events(),
 				vec![EventRecord {
 					phase: Phase::Initialization,
-					event: RuntimeEvent::Tracks(Event::Updated { id: 1, info: track.clone() }),
+					event: RuntimeEvent::Tracks(Event::Updated { id: 1 }),
 					topics: vec![],
 				}],
 			);
@@ -199,7 +189,7 @@ mod remove {
 	fn fails_if_incorrect_origin() {
 		new_test_ext(None).execute_with(|| {
 			assert_noop!(
-				ReferendaTracks::<Test, ()>::remove(RuntimeOrigin::signed(1), 1),
+				ReferendaTracks::<Test, ()>::remove(RuntimeOrigin::signed(1), 1, ORIGIN_SIGNED_1),
 				BadOrigin
 			);
 		});
@@ -209,7 +199,7 @@ mod remove {
 	fn fails_if_non_existing() {
 		new_test_ext(None).execute_with(|| {
 			assert_noop!(
-				ReferendaTracks::<Test, ()>::remove(RuntimeOrigin::root(), 1),
+				ReferendaTracks::<Test, ()>::remove(RuntimeOrigin::root(), 1, ORIGIN_SIGNED_1),
 				Error::<Test, ()>::TrackIdNotFound,
 			);
 		});
@@ -218,7 +208,7 @@ mod remove {
 	#[test]
 	fn it_works() {
 		new_test_ext(Some(vec![(1, TRACK, ORIGIN_SIGNED_1)])).execute_with(|| {
-			assert_ok!(ReferendaTracks::<Test, ()>::remove(RuntimeOrigin::root(), 1));
+			assert_ok!(ReferendaTracks::<Test, ()>::remove(RuntimeOrigin::root(), 1, ORIGIN_SIGNED_1));
 
 			assert_eq!(
 				System::events(),
