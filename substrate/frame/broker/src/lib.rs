@@ -627,7 +627,7 @@ pub mod pallet {
 		/// - `origin`: Must be a Signed origin of the account which owns the Region `region_id`.
 		/// - `region_id`: The Region which should become two interlaced Regions of incomplete
 		///   regularity.
-		/// - `pivot`: The interlace mask of on of the two new regions (the other it its partial
+		/// - `pivot`: The interlace mask of one of the two new regions (the other is its partial
 		///   complement).
 		#[pallet::call_index(9)]
 		pub fn interlace(
