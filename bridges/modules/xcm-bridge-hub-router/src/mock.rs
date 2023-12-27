@@ -44,7 +44,7 @@ construct_runtime! {
 	pub enum TestRuntime
 	{
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		XcmBridgeHubRouter: pallet_xcm_bridge_hub_router::{Pallet, Storage},
+		XcmBridgeHubRouter: pallet_xcm_bridge_hub_router::{Pallet, Storage, Event<T>},
 	}
 }
 
@@ -72,6 +72,7 @@ impl frame_system::Config for TestRuntime {
 }
 
 impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
+	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 
 	type UniversalLocation = UniversalLocation;
@@ -185,7 +186,12 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 /// Run pallet test.
 pub fn run_test<T>(test: impl FnOnce() -> T) -> T {
-	new_test_ext().execute_with(test)
+	new_test_ext().execute_with(|| {
+		System::set_block_number(1);
+		System::reset_events();
+
+		test()
+	})
 }
 
 pub(crate) fn fake_message_hash<T>(message: &Xcm<T>) -> XcmHash {
