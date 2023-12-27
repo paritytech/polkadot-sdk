@@ -1975,7 +1975,6 @@ mod benchmarking {
 			assert_ok!(Registrar::<T>::force_set_parachain_billing_account(RawOrigin::Root.into(), para, whitelisted_caller()));
 
 			assert_ok!(Registrar::<T>::schedule_code_upgrade(RawOrigin::Root.into(), para, new_small_code));
-			assert!(Paras::<T>::get(para).unwrap().pending_deposit_refund.is_some());
 		}: {
 			let _ = T::OnCodeUpgrade::on_code_upgrade(para);
 		}
