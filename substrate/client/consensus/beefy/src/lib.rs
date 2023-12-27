@@ -586,6 +586,11 @@ where
 	Err(ClientError::Backend(err_msg))
 }
 
+/// Provides validator set active `at_header`. It tries to get it from state, otherwise falls
+/// back to walk up the chain looking the validator set enactment in header digests.
+///
+/// Note: function will `async::sleep()` when walking back the chain if some needed header hasn't
+/// been synced yet (as it happens when warp syncing when headers are synced in the background).
 async fn expect_validator_set<B, BE, R>(
 	runtime: &R,
 	backend: &BE,
