@@ -244,7 +244,7 @@ pub mod pallet {
 				let preimage = secret.to_le_bytes();
 				let ticket = <T as frame_system::Config>::Hashing::hash_of(&preimage);
 				ensure!(Tickets::<T>::contains_key(ticket), Error::<T>::BadSecret);
-				Ok((who, ticket.clone()))
+				Ok((who, ticket))
 			}?;
 
 			Tickets::<T>::remove(ticket);
