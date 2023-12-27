@@ -1438,7 +1438,7 @@ pub trait Dispatchable {
 	/// Every function call from your runtime has an origin, which specifies where the extrinsic was
 	/// generated from. In the case of a signed extrinsic (transaction), the origin contains an
 	/// identifier for the caller. The origin can be empty in the case of an inherent extrinsic.
-	type RuntimeOrigin;
+	type RuntimeOrigin: Debug;
 	/// ...
 	type Config;
 	/// An opaque set of information attached to the transaction. This could be constructed anywhere

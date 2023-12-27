@@ -59,9 +59,13 @@ pub use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueu
 
 // Polkadot
 pub use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
-pub use xcm::v3::prelude::{
-	Ancestor, MultiAssets, MultiLocation, Parachain as ParachainJunction, Parent, WeightLimit,
-	XcmHash, X1,
+use sp_core::crypto::AccountId32;
+pub use xcm::{
+	prelude::{AccountId32 as AccountId32Junction, Here},
+	v3::prelude::{
+		Ancestor, MultiAssets, MultiLocation, Parachain as ParachainJunction, Parent, WeightLimit,
+		XcmHash, X1,
+	},
 };
 pub use xcm_executor::traits::ConvertLocation;
 
@@ -1435,6 +1439,41 @@ pub struct TestArgs {
 	pub asset_id: Option<u32>,
 	pub fee_asset_item: u32,
 	pub weight_limit: WeightLimit,
+}
+
+impl TestArgs {
+	/// Returns a [`TestArgs`] instance to be used for the Relay Chain across integration tests.
+	pub fn new_relay(dest: MultiLocation, beneficiary_id: AccountId32, amount: Balance) -> Self {
+		Self {
+			dest,
+			beneficiary: AccountId32Junction { network: None, id: beneficiary_id.into() }.into(),
+			amount,
+			assets: (Here, amount).into(),
+			asset_id: None,
+			fee_asset_item: 0,
+			weight_limit: WeightLimit::Unlimited,
+		}
+	}
+
+	/// Returns a [`TestArgs`] instance to be used for parachains across integration tests.
+	pub fn new_para(
+		dest: MultiLocation,
+		beneficiary_id: AccountId32,
+		amount: Balance,
+		assets: MultiAssets,
+		asset_id: Option<u32>,
+		fee_asset_item: u32,
+	) -> Self {
+		Self {
+			dest,
+			beneficiary: AccountId32Junction { network: None, id: beneficiary_id.into() }.into(),
+			amount,
+			assets,
+			asset_id,
+			fee_asset_item,
+			weight_limit: WeightLimit::Unlimited,
+		}
+	}
 }
 
 /// Auxiliar struct to help creating a new `Test` instance
