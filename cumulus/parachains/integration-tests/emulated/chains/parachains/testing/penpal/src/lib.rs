@@ -40,10 +40,12 @@ decl_test_parachains! {
 			XcmpMessageHandler: penpal_runtime::XcmpQueue,
 			LocationToAccountId: penpal_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: penpal_runtime::ParachainInfo,
+			MessageOrigin: cumulus_primitives_core::AggregateMessageOrigin,
 		},
 		pallets = {
 			PolkadotXcm: penpal_runtime::PolkadotXcm,
 			Assets: penpal_runtime::Assets,
+			ForeignAssets: penpal_runtime::ForeignAssets,
 			Balances: penpal_runtime::Balances,
 		}
 	},
@@ -57,10 +59,12 @@ decl_test_parachains! {
 			XcmpMessageHandler: penpal_runtime::XcmpQueue,
 			LocationToAccountId: penpal_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: penpal_runtime::ParachainInfo,
+			MessageOrigin: cumulus_primitives_core::AggregateMessageOrigin,
 		},
 		pallets = {
 			PolkadotXcm: penpal_runtime::PolkadotXcm,
 			Assets: penpal_runtime::Assets,
+			ForeignAssets: penpal_runtime::ForeignAssets,
 			Balances: penpal_runtime::Balances,
 		}
 	},

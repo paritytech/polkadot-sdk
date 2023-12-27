@@ -8,6 +8,9 @@ repository.workspace = true
 description = "Storage monitor service for substrate"
 homepage = "https://substrate.io"
 
+[lints]
+workspace = true
+
 [dependencies]
 clap = { version = "4.4.11", features = ["derive", "string"] }
 log = "0.4.17"
