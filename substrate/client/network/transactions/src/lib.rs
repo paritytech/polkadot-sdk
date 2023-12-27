@@ -475,6 +475,15 @@ where
 					propagated_to.entry(hash).or_default().push(who.to_base58());
 				}
 				trace!(target: "sync", "Sending {} transactions to {}", to_send.len(), who);
+				// Historically, the format of a notification of the transactions protocol
+				// consisted in a (SCALE-encoded) `Vec<Transaction>`.
+				// After RFC 56, the format was modified in a backwards-compatible way to be
+				// a (SCALE-encoded) tuple `(Compact(1), Transaction)`, which corresponds to a
+				// `Vec` if length one. This is no coincidence, as the change was intentionally
+				// done in a backwards-compatible way.
+				// In other words, the `Vec` that is sent below **must** have only a single
+				// element in it.
+				// See <https://github.com/polkadot-fellows/RFCs/blob/main/text/0056-one-transaction-per-notification.md>
 				for to_send in to_send {
 					let _ = self
 						.notification_service
