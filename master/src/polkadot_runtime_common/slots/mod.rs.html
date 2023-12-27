@@ -1169,14 +1169,6 @@
 <a href="#1169" id="1169">1169</a>
 <a href="#1170" id="1170">1170</a>
 <a href="#1171" id="1171">1171</a>
-<a href="#1172" id="1172">1172</a>
-<a href="#1173" id="1173">1173</a>
-<a href="#1174" id="1174">1174</a>
-<a href="#1175" id="1175">1175</a>
-<a href="#1176" id="1176">1176</a>
-<a href="#1177" id="1177">1177</a>
-<a href="#1178" id="1178">1178</a>
-<a href="#1179" id="1179">1179</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1505,18 +1497,6 @@
 
 		tracker.into_iter().collect()
 	}
-
-	<span class="doccomment">/// Current lease index and how many blocks we are already in.
-	</span><span class="kw">pub fn </span>lease_period_index_plus_progress(
-		b: BlockNumberFor&lt;T&gt;,
-	) -&gt; <span class="prelude-ty">Option</span>&lt;(&lt;<span class="self">Self </span><span class="kw">as </span>Leaser&lt;BlockNumberFor&lt;T&gt;&gt;&gt;::LeasePeriod, BlockNumberFor&lt;T&gt;)&gt; {
-		<span class="comment">// Note that blocks before `LeaseOffset` do not count as any lease period.
-		</span><span class="kw">let </span>offset_block_now = b.checked_sub(<span class="kw-2">&amp;</span>T::LeaseOffset::get())<span class="question-mark">?</span>;
-		<span class="kw">let </span>lease_period = offset_block_now / T::LeasePeriod::get();
-		<span class="kw">let </span>in_lease = offset_block_now % T::LeasePeriod::get();
-
-		<span class="prelude-val">Some</span>((lease_period, in_lease))
-	}
 }
 
 <span class="kw">impl</span>&lt;T: Config&gt; <span class="kw">crate</span>::traits::OnSwap <span class="kw">for </span>Pallet&lt;T&gt; {
@@ -1640,8 +1620,12 @@
 	}
 
 	<span class="kw">fn </span>lease_period_index(b: BlockNumberFor&lt;T&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;(<span class="self">Self</span>::LeasePeriod, bool)&gt; {
-		<span class="self">Self</span>::lease_period_index_plus_progress(b)
-			.map(|(period, progress)| (period, progress.is_zero()))
+		<span class="comment">// Note that blocks before `LeaseOffset` do not count as any lease period.
+		</span><span class="kw">let </span>offset_block_now = b.checked_sub(<span class="kw-2">&amp;</span>T::LeaseOffset::get())<span class="question-mark">?</span>;
+		<span class="kw">let </span>lease_period = offset_block_now / T::LeasePeriod::get();
+		<span class="kw">let </span>at_begin = (offset_block_now % T::LeasePeriod::get()).is_zero();
+
+		<span class="prelude-val">Some</span>((lease_period, at_begin))
 	}
 
 	<span class="kw">fn </span>already_leased(

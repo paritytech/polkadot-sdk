@@ -249,6 +249,8 @@
 <a href="#249" id="249">249</a>
 <a href="#250" id="250">250</a>
 <a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -496,7 +498,9 @@
 <span class="kw">fn </span>mk_coretime_call(call: <span class="kw">crate</span>::coretime::CoretimeCalls) -&gt; Instruction&lt;()&gt; {
 	Instruction::Transact {
 		origin_kind: OriginKind::Superuser,
-		require_weight_at_most: Weight::from_parts(<span class="number">1000000000</span>, <span class="number">200000</span>),
+		<span class="comment">// Largest call is set_lease with 1526 byte:
+		// Longest call is reserve() with 31_000_000
+		</span>require_weight_at_most: Weight::from_parts(<span class="number">100_000_000</span>, <span class="number">20_000</span>),
 		call: BrokerRuntimePallets::Broker(call).encode().into(),
 	}
 }
