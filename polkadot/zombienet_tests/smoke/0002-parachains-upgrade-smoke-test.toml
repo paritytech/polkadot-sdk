@@ -4,7 +4,7 @@ bootnode = true
 
 [relaychain]
 default_image = "{{ZOMBIENET_INTEGRATION_TEST_IMAGE}}"
-chain = "versi-local"
+chain = "westend-local"
 command = "/Users/sergejsakac/polkadot-sdk/target/testnet/polkadot"
 
   [[relaychain.nodes]]

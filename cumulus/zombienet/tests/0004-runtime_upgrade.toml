@@ -3,7 +3,7 @@ default_image = "{{RELAY_IMAGE}}"
 default_command = "polkadot"
 default_args = [ "-lparachain=debug" ]
 
-chain = "versi-local"
+chain = "westend-local"
 
   [[relaychain.nodes]]
   name = "alice"
