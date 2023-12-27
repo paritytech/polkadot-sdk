@@ -77,6 +77,9 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
+		/// The overarching event type.
+		type RuntimeEvent: From<Event<Self, I>>
+			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Benchmarks results from runtime we're plugged into.
 		type WeightInfo: WeightInfo;
 
@@ -134,6 +137,10 @@ pub mod pallet {
 				previous_factor,
 				delivery_fee_factor,
 			);
+			Self::deposit_event(Event::DeliveryFeeFactorDecreased {
+				new_value: delivery_fee_factor,
+			});
+
 			DeliveryFeeFactor::<T, I>::put(delivery_fee_factor);
 
 			T::WeightInfo::on_initialize_when_non_congested()
@@ -202,9 +209,25 @@ pub mod pallet {
 					previous_factor,
 					f,
 				);
+				Self::deposit_event(Event::DeliveryFeeFactorIncreased { new_value: *f });
 				*f
 			});
 		}
+	}
+
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T: Config<I>, I: 'static = ()> {
+		/// Delivery fee factor has been decreased.
+		DeliveryFeeFactorDecreased {
+			/// New value of the `DeliveryFeeFactor`.
+			new_value: FixedU128,
+		},
+		/// Delivery fee factor has been increased.
+		DeliveryFeeFactorIncreased {
+			/// New value of the `DeliveryFeeFactor`.
+			new_value: FixedU128,
+		},
 	}
 }
 
@@ -399,6 +422,7 @@ mod tests {
 	use mock::*;
 
 	use frame_support::traits::Hooks;
+	use frame_system::{EventRecord, Phase};
 	use sp_runtime::traits::One;
 
 	#[test]
@@ -418,13 +442,16 @@ mod tests {
 			let old_delivery_fee_factor = XcmBridgeHubRouter::delivery_fee_factor();
 			XcmBridgeHubRouter::on_initialize(One::one());
 			assert_eq!(XcmBridgeHubRouter::delivery_fee_factor(), old_delivery_fee_factor);
+
+			assert_eq!(System::events(), vec![]);
 		})
 	}
 
 	#[test]
 	fn fee_factor_is_decreased_from_on_initialize_when_xcm_channel_is_uncongested() {
 		run_test(|| {
-			DeliveryFeeFactor::<TestRuntime, ()>::put(FixedU128::from_rational(125, 100));
+			let initial_fee_factor = FixedU128::from_rational(125, 100);
+			DeliveryFeeFactor::<TestRuntime, ()>::put(initial_fee_factor);
 
 			// it shold eventually decreased to one
 			while XcmBridgeHubRouter::delivery_fee_factor() > MINIMAL_DELIVERY_FEE_FACTOR {
@@ -434,6 +461,19 @@ mod tests {
 			// verify that it doesn't decreases anymore
 			XcmBridgeHubRouter::on_initialize(One::one());
 			assert_eq!(XcmBridgeHubRouter::delivery_fee_factor(), MINIMAL_DELIVERY_FEE_FACTOR);
+
+			// check emitted event
+			let first_system_event = System::events().first().cloned();
+			assert_eq!(
+				first_system_event,
+				Some(EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::XcmBridgeHubRouter(Event::DeliveryFeeFactorDecreased {
+						new_value: initial_fee_factor / EXPONENTIAL_FEE_BASE,
+					}),
+					topics: vec![],
+				})
+			);
 		})
 	}
 
@@ -568,6 +608,8 @@ mod tests {
 
 			assert!(TestToBridgeHubSender::is_message_sent());
 			assert_eq!(old_delivery_fee_factor, XcmBridgeHubRouter::delivery_fee_factor());
+
+			assert_eq!(System::events(), vec![]);
 		});
 	}
 
@@ -585,6 +627,19 @@ mod tests {
 
 			assert!(TestToBridgeHubSender::is_message_sent());
 			assert!(old_delivery_fee_factor < XcmBridgeHubRouter::delivery_fee_factor());
+
+			// check emitted event
+			let first_system_event = System::events().first().cloned();
+			assert!(matches!(
+				first_system_event,
+				Some(EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::XcmBridgeHubRouter(
+						Event::DeliveryFeeFactorIncreased { .. }
+					),
+					..
+				})
+			));
 		});
 	}
 

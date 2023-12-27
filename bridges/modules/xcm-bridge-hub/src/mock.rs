@@ -199,6 +199,7 @@ impl pallet_xcm_bridge_hub::Config for TestRuntime {
 }
 
 impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
+	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 
 	type UniversalLocation = UniversalLocation;
