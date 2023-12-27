@@ -39,8 +39,6 @@ use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 #[cfg(feature = "std")]
 mod client_side;
 #[cfg(feature = "std")]
-pub use client_side::*;
-#[cfg(feature = "std")]
 mod mock;
 #[cfg(feature = "std")]
 pub use mock::{MockValidationDataInherentDataProvider, MockXcmConfig};
