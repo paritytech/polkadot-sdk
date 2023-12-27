@@ -41,6 +41,7 @@ pub fn expand_outer_dispatch(
 	let pallets_with_call = pallet_decls.iter().filter(|decl| decl.exists_part("Call"));
 
 	for pallet_declaration in pallets_with_call {
+		let instance = pallet_declaration.instance.as_ref();
 		let name = &pallet_declaration.name;
 		let path = &pallet_declaration.path;
 		let index = pallet_declaration.index;
@@ -70,11 +71,13 @@ pub fn expand_outer_dispatch(
 			runtime,
 			pallet_declaration,
 			index,
+			instance,
 		));
 		checkpointed_call_data_conversions.extend(expand_checkpointed_call_data_conversions(
 			scrate,
 			runtime,
 			pallet_declaration,
+			instance,
 		));
 	}
 
@@ -262,9 +265,16 @@ fn expand_checkpointed_call_data_variant(
 	runtime: &Ident,
 	pallet: &Pallet,
 	index: u8,
+	instance: Option<&Ident>,
 ) -> TokenStream {
 	let variant_name = &pallet.name;
 	let path = &pallet.path;
+
+	let pallet_checkpointed_call_data = match instance {
+		Some(inst) => quote! { #path::CheckpointedCallData<#runtime, #path::#inst> },
+		None => quote! { #path::CheckpointedCallData<#runtime> },
+	};
+
 	let attr = pallet.cfg_pattern.iter().fold(TokenStream::new(), |acc, pattern| {
 		let attr = TokenStream::from_str(&format!("#[cfg({})]", pattern.original()))
 			.expect("was successfully parsed before; qed");
@@ -277,7 +287,7 @@ fn expand_checkpointed_call_data_variant(
 	quote! {
 		#attr
 		#[codec(index = #index)]
-		#variant_name(#path::CheckpointedCallData<#runtime>)
+		#variant_name(#pallet_checkpointed_call_data)
 	}
 }
 
@@ -285,11 +295,15 @@ fn expand_checkpointed_call_data_conversions(
 	scrate: &TokenStream,
 	runtime: &Ident,
 	pallet: &Pallet,
+	instance: Option<&Ident>,
 ) -> TokenStream {
 	let path = &pallet.path;
 	let variant_name = &pallet.name;
 
-	let pallet_checkpointed_call_data = quote! { #path::CheckpointedCallData<#runtime> };
+	let pallet_checkpointed_call_data = match instance {
+		Some(inst) => quote! { #path::CheckpointedCallData<#runtime, #path::#inst> },
+		None => quote! { #path::CheckpointedCallData<#runtime> },
+	};
 
 	let attr = pallet.cfg_pattern.iter().fold(TokenStream::new(), |acc, pattern| {
 		let attr = TokenStream::from_str(&format!("#[cfg({})]", pattern.original()))
