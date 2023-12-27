@@ -244,7 +244,7 @@ macro_rules! impl_assert_events_helpers_for_relay_chain {
 					);
 				}
 
-				/// Asserts a XCM message is sent
+				/// Asserts an XCM program is sent.
 				pub fn assert_xcm_pallet_sent() {
 					$crate::impls::assert_expected_events!(
 						Self,
@@ -254,7 +254,8 @@ macro_rules! impl_assert_events_helpers_for_relay_chain {
 					);
 				}
 
-				/// Asserts a XCM from System Parachain is succesfully received and proccessed
+				/// Asserts an XCM program from a System Parachain is successfully received and
+				/// processed within expectations.
 				pub fn assert_ump_queue_processed(
 					expected_success: bool,
 					expected_id: Option<$crate::impls::ParaId>,

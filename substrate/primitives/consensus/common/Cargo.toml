@@ -17,7 +17,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-async-trait = "0.1.57"
+async-trait = "0.1.74"
 futures = { version = "0.3.21", features = ["thread-pool"] }
 log = "0.4.17"
 thiserror = "1.0.48"

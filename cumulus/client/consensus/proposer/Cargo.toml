@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 anyhow = "1.0"
-async-trait = "0.1.73"
+async-trait = "0.1.74"
 thiserror = "1.0.48"
 
 # Substrate
