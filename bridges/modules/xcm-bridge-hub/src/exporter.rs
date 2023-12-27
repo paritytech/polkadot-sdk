@@ -315,7 +315,6 @@ mod tests {
 	use crate::{mock::*, Bridges, LanesManagerOf};
 
 	use bp_xcm_bridge_hub::{Bridge, BridgeState};
-	use frame_support::__private::sp_tracing::try_init_simple;
 	use xcm_executor::traits::export_xcm;
 
 	fn universal_source() -> InteriorLocation {
@@ -503,7 +502,6 @@ mod tests {
 	#[test]
 	fn exporter_computes_correct_lane_id() {
 		run_test(|| {
-			try_init_simple();
 			let expected_bridge_id =
 				BridgeId::new(&universal_source().into(), &universal_destination().into());
 
