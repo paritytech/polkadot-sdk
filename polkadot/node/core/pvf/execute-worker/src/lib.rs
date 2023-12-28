@@ -124,8 +124,9 @@ pub fn worker_entrypoint(
 			// 1 - Main thread
 			// 2 - Cpu monitor thread
 			// 3 - Execute thread
-		    //
-			// NOTE: if the number of threads inside the child process change in the future, this value must be changed as well.
+			//
+			// NOTE: if the number of threads inside the child process change in the future, this
+			// value must be changed as well.
 			#[cfg(target_os = "linux")]
 			let clone_stack_size = get_max_stack_size(&executor_params, 3);
 
@@ -373,7 +374,7 @@ fn handle_child_process(
 
 /// Returns stack size based on the number of threads.
 /// The stack size is represented by 2MiB * number of threads + native stack;
-/// 
+///
 /// Wasmtime powers the Substrate Executor. It compiles the wasm bytecode into native code.
 /// That native code does not create any stacks and just reuses the stack of the thread that
 /// wasmtime was invoked from.
