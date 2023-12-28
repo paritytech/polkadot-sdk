@@ -98,7 +98,6 @@ impl sc_executor::NativeExecutionDispatch for ShellRuntimeExecutor {
 
 /// Native Asset Hub Westend (Westmint) executor instance.
 pub struct AssetHubWestendExecutor;
-
 impl sc_executor::NativeExecutionDispatch for AssetHubWestendExecutor {
 	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
 
@@ -128,7 +127,6 @@ impl sc_executor::NativeExecutionDispatch for CollectivesWestendRuntimeExecutor 
 
 /// Native BridgeHubRococo executor instance.
 pub struct BridgeHubRococoRuntimeExecutor;
-
 impl sc_executor::NativeExecutionDispatch for BridgeHubRococoRuntimeExecutor {
 	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
 
@@ -167,7 +165,6 @@ impl sc_executor::NativeExecutionDispatch for CoretimeWestendRuntimeExecutor {
 
 /// Native contracts executor instance.
 pub struct ContractsRococoRuntimeExecutor;
-
 impl sc_executor::NativeExecutionDispatch for ContractsRococoRuntimeExecutor {
 	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
 
@@ -192,6 +189,30 @@ impl sc_executor::NativeExecutionDispatch for GluttonWestendRuntimeExecutor {
 
 	fn native_version() -> sc_executor::NativeVersion {
 		glutton_westend_runtime::native_version()
+	}
+}
+
+/// Native `PeopleWestend` executor instance.
+pub struct PeopleWestendRuntimeExecutor;
+impl sc_executor::NativeExecutionDispatch for PeopleWestendRuntimeExecutor {
+	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
+		people_westend_runtime::api::dispatch(method, data)
+	}
+	fn native_version() -> sc_executor::NativeVersion {
+		people_westend_runtime::native_version()
+	}
+}
+
+/// Native `PeopleRococo` executor instance.
+pub struct PeopleRococoRuntimeExecutor;
+impl sc_executor::NativeExecutionDispatch for PeopleRococoRuntimeExecutor {
+	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
+		people_rococo_runtime::api::dispatch(method, data)
+	}
+	fn native_version() -> sc_executor::NativeVersion {
+		people_rococo_runtime::native_version()
 	}
 }
 
