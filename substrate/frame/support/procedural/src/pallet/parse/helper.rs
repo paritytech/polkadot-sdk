@@ -625,7 +625,9 @@ pub fn check_checkpoint_with_ref_gen(expr: Box<syn::Expr>) -> syn::Result<syn::B
 			content.parse::<syn::Token![::]>()?;
 			content.parse::<keyword::checkpoint_with_refs>()?;
 			let block = input.parse::<syn::Block>()?;
-			let _: syn::Token![?] = input.parse()?;
+			if input.peek(syn::Token![?]) {
+				let _: syn::Token![?] = input.parse()?;
+			}
 			Ok(Self(block))
 		}
 	}

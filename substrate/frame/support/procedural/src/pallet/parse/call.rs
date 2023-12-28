@@ -469,13 +469,16 @@ impl CallDef {
 				for stmt in method.block.stmts.iter_mut() {
 					match stmt {
 						syn::Stmt::Local(local) => {
-							let syn::Pat::Type(t) = local.pat.clone() else { continue; };
 							let Some(local_init) = &mut local.init else { continue; };
 							let Ok(expr) = helper::check_checkpoint_with_ref_gen(local_init.expr.clone()) else { continue; };
 							if checkpoint_def.is_some() {
 								let msg = "Invalid pallet::call, only one checkpoint_with_refs is allowed";
-								return Err(syn::Error::new(expr.span(), msg))
+								return Err(syn::Error::new(expr.span(), msg));
 							}
+							let syn::Pat::Type(t) = local.pat.clone() else {
+								let msg = "Invalid pallet::call, checkpoint_with_refs must be used with a type ascription pattern: `foo: f64`";
+								return Err(syn::Error::new(local.pat.span(), msg));
+							};
 							let attrs = local
 								.attrs
 								.iter()
@@ -494,7 +497,7 @@ impl CallDef {
 									_ => None
 								}.unwrap_or_else(|| #block)?;
 							};
-							*stmt = syn::parse2::<syn::Stmt>(output).unwrap();
+							*stmt = syn::parse2::<syn::Stmt>(output)?;
 							checkpoint_def = Some(CheckpointDef {
 								name,
 								block: expr,
