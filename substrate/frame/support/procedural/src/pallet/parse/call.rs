@@ -35,7 +35,6 @@ mod keyword {
 	syn::custom_keyword!(pallet);
 	syn::custom_keyword!(feeless_if);
 	syn::custom_keyword!(feeless_on_checkpoint);
-	syn::custom_keyword!(checkpoint_with_refs);
 }
 
 /// Definition of dispatchables typically `impl<T: Config> Pallet<T> { ... }`
@@ -268,7 +267,7 @@ impl CallDef {
 					return Err(syn::Error::new(span, msg))
 				}
 
-				match method.sig.inputs.first() {
+				let origin_arg = match method.sig.inputs.first() {
 					None => {
 						let msg = "Invalid pallet::call, must have at least origin arg";
 						return Err(syn::Error::new(method.sig.span(), msg))
@@ -280,8 +279,10 @@ impl CallDef {
 					},
 					Some(syn::FnArg::Typed(arg)) => {
 						check_dispatchable_first_arg_type(&arg.ty, false)?;
+						let arg_name = &arg.pat;
+						quote::quote!(#arg_name)
 					},
-				}
+				};
 
 				if let syn::ReturnType::Type(_, type_) = &method.sig.output {
 					helper::check_pallet_call_return_type(type_)?;
@@ -465,59 +466,49 @@ impl CallDef {
 				}
 
 				let mut checkpoint_def = None;
-				method.block.stmts.iter_mut().for_each(|stmt| {
+				for stmt in method.block.stmts.iter_mut() {
 					match stmt {
 						syn::Stmt::Local(local) => {
-							let syn::Pat::Type(t) = local.pat.clone() else { return };
-							if let Some(local_init) = &mut local.init {
-								pub struct Checker(syn::Block);
-								impl syn::parse::Parse for Checker {
-									fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-										input.parse::<syn::Token![#]>()?;
-										let content;
-										syn::bracketed!(content in input);
-										content.parse::<keyword::pallet>()?;
-										content.parse::<syn::Token![::]>()?;
-										content.parse::<keyword::checkpoint_with_refs>()?;
-										let block = input.parse::<syn::Block>()?;
-										input.parse::<syn::Token![?]>()?;
-										Ok(Self(block))
-									}
-								}
-
-								if let Ok(checker) =
-									syn::parse2::<Checker>(local_init.expr.to_token_stream())
-								{
-									let attrs = local
-										.attrs
-										.iter()
-										.map(|attr| attr.to_token_stream())
-										.collect::<Vec<_>>();
-									let pat = local.pat.clone();
-									let name = quote::format_ident!(
-										"{}",
-										&method.sig.ident.to_string().to_class_case(),
-										span = method.sig.ident.span()
-									);
-									let block = checker.0.clone();
-									let output = quote::quote! {
-										#(#attrs)* let #pat = match origin.checkpointed_call_data().try_into() {
-											Ok(CheckpointedCallData::#name(d)) => Some(Ok::<_, #frame_support::sp_runtime::DispatchError>(d)),
-											_ => None
-										}.unwrap_or_else(|| #block)?;
-									};
-									*stmt = syn::parse2::<syn::Stmt>(output).unwrap();
-									checkpoint_def = Some(CheckpointDef {
-										name,
-										block: checker.0,
-										return_type: t.ty,
-									});
-								}
+							let syn::Pat::Type(t) = local.pat.clone() else { continue; };
+							let Some(local_init) = &mut local.init else { continue; };
+							let Ok(expr) = helper::check_checkpoint_with_ref_gen(local_init.expr.clone()) else { continue; };
+							if checkpoint_def.is_some() {
+								let msg = "Invalid pallet::call, only one checkpoint_with_refs is allowed";
+								return Err(syn::Error::new(expr.span(), msg))
 							}
+							let attrs = local
+								.attrs
+								.iter()
+								.map(|attr| attr.to_token_stream())
+								.collect::<Vec<_>>();
+							let pat = local.pat.clone();
+							let name = quote::format_ident!(
+								"{}",
+								&method.sig.ident.to_string().to_class_case(),
+								span = method.sig.ident.span()
+							);
+							let block = expr.clone();
+							let output = quote::quote! {
+								#(#attrs)* let #pat = match #origin_arg.checkpointed_call_data().try_into() {
+									Ok(CheckpointedCallData::#name(d)) => Some(Ok::<_, #frame_support::sp_runtime::DispatchError>(d)),
+									_ => None
+								}.unwrap_or_else(|| #block)?;
+							};
+							*stmt = syn::parse2::<syn::Stmt>(output).unwrap();
+							checkpoint_def = Some(CheckpointDef {
+								name,
+								block: expr,
+								return_type: t.ty,
+							});
 						},
 						_ => {},
 					};
-				});
+				};
+
+				if checkpoint_def.is_some() {
+					let stmt = quote::quote!{ let #origin_arg = <T as Config>::RuntimeOrigin::from(#origin_arg); };
+					method.block.stmts.insert(0, syn::parse2::<syn::Stmt>(stmt).unwrap())
+				}
 
 				methods.push(CallVariantDef {
 					name: method.sig.ident.clone(),

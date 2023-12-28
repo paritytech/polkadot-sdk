@@ -1,0 +1,7 @@
+error[E0599]: no method named `checkpointed_call_data` found for associated type `<T as pallet::Config>::RuntimeOrigin` in the current scope
+  --> tests/pallet_ui/call_checkpoint_invalid_origin_bounds_2.rs:18:1
+   |
+18 | #[frame_support::pallet(dev_mode)]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method not found in `<T as Config>::RuntimeOrigin`
+   |
+   = note: this error originates in the attribute macro `frame_support::pallet` (in Nightly builds, run with -Z macro-backtrace for more info)
