@@ -203,7 +203,7 @@ pub fn pipe2_cloexec() -> io::Result<(libc::c_int, libc::c_int)> {
 	Ok((fds[0], fds[1]))
 }
 
-#[cfg(any(target_os = "macos"))]
+#[cfg(target_os = "macos")]
 pub fn pipe2_cloexec() -> io::Result<(libc::c_int, libc::c_int)> {
 	let mut fds: [libc::c_int; 2] = [0; 2];
 	let res = unsafe { libc::pipe(fds.as_mut_ptr()) };
