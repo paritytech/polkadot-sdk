@@ -15,12 +15,12 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 //! Test environment implementation
 use crate::{
-	core::{mock::AlwaysSupportsParachains, network::NetworkEmulator},
+	core::{mock::AlwaysSupportsParachains, network::NetworkEmulatorHandle},
 	TestConfiguration,
 };
 use colored::Colorize;
 use core::time::Duration;
-use futures::FutureExt;
+use futures::{Future, FutureExt};
 use polkadot_overseer::{BlockInfo, Handle as OverseerHandle};
 
 use polkadot_node_subsystem::{messages::AllMessages, Overseer, SpawnGlue, TimeoutExt};
@@ -37,7 +37,7 @@ use std::{
 use tokio::runtime::Handle;
 
 const LOG_TARGET: &str = "subsystem-bench::environment";
-use super::configuration::TestAuthorities;
+use super::{configuration::TestAuthorities, network::NetworkInterface};
 
 const MIB: usize = 1024 * 1024;
 
@@ -58,7 +58,7 @@ pub struct TestEnvironmentMetrics {
 
 impl TestEnvironmentMetrics {
 	pub fn new(registry: &Registry) -> Result<Self, PrometheusError> {
-		let mut buckets = prometheus::exponential_buckets(16384.0, 2.0, 9)
+		let buckets = prometheus::exponential_buckets(16384.0, 2.0, 9)
 			.expect("arguments are always valid; qed");
 
 		Ok(Self {
@@ -190,11 +190,13 @@ pub struct TestEnvironment {
 	/// The test configuration.
 	config: TestConfiguration,
 	/// A handle to the network emulator.
-	network: NetworkEmulator,
+	network: NetworkEmulatorHandle,
 	/// Configuration/env metrics
 	metrics: TestEnvironmentMetrics,
 	/// Test authorities generated from the configuration.
 	authorities: TestAuthorities,
+	/// The network interface used by the node.
+	network_interface: NetworkInterface,
 }
 
 impl TestEnvironment {
@@ -202,10 +204,11 @@ impl TestEnvironment {
 	pub fn new(
 		dependencies: TestEnvironmentDependencies,
 		config: TestConfiguration,
-		network: NetworkEmulator,
+		network: NetworkEmulatorHandle,
 		overseer: Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>,
 		overseer_handle: OverseerHandle,
 		authorities: TestAuthorities,
+		network_interface: NetworkInterface,
 	) -> Self {
 		let metrics = TestEnvironmentMetrics::new(&dependencies.registry)
 			.expect("Metrics need to be registered");
@@ -235,42 +238,54 @@ impl TestEnvironment {
 			network,
 			metrics,
 			authorities,
+			network_interface,
 		}
 	}
 
+	/// Returns the test configuration.
 	pub fn config(&self) -> &TestConfiguration {
 		&self.config
 	}
 
-	pub fn network(&self) -> &NetworkEmulator {
+	/// Returns a reference to the inner network emulator handle.
+	pub fn network(&self) -> &NetworkEmulatorHandle {
 		&self.network
 	}
 
-	pub fn network_mut(&mut self) -> &mut NetworkEmulator {
+	/// Returns a mutable reference to the inner network emulator handle.
+	pub fn network_mut(&mut self) -> &mut NetworkEmulatorHandle {
 		&mut self.network
 	}
 
+	/// Returns the Prometheus registry.
 	pub fn registry(&self) -> &Registry {
 		&self.dependencies.registry
 	}
 
+	/// Spawn a named task in the `test-environment` task group.
+	pub fn spawn(&self, name: &'static str, task: impl Future<Output = ()> + Send + 'static) {
+		self.dependencies
+			.task_manager
+			.spawn_handle()
+			.spawn(name, "test-environment", task);
+	}
+
+	/// Returns a reference to the test environment metrics instance
 	pub fn metrics(&self) -> &TestEnvironmentMetrics {
 		&self.metrics
 	}
 
+	/// Returns a handle to the tokio runtime.
 	pub fn runtime(&self) -> Handle {
 		self.runtime_handle.clone()
 	}
 
+	/// Returns a reference to the authority keys used in the test.
 	pub fn authorities(&self) -> &TestAuthorities {
 		&self.authorities
 	}
 
-	pub fn overseer_handle(&self) -> OverseerHandle {
-		self.overseer_handle.clone()
-	}
-
-	// Send a message to the subsystem under test environment.
+	/// Send a message to the subsystem under test environment.
 	pub async fn send_message(&mut self, msg: AllMessages) {
 		self.overseer_handle
 			.send_msg(msg, LOG_TARGET)
@@ -281,7 +296,7 @@ impl TestEnvironment {
 			});
 	}
 
-	// Send an `ActiveLeavesUpdate` signal to all subsystems under test.
+	/// Send an `ActiveLeavesUpdate` signal to all subsystems under test.
 	pub async fn import_block(&mut self, block: BlockInfo) {
 		self.overseer_handle
 			.block_imported(block)
@@ -292,12 +307,12 @@ impl TestEnvironment {
 			});
 	}
 
-	// Stop overseer and subsystems.
+	/// Stop overseer and subsystems.
 	pub async fn stop(&mut self) {
 		self.overseer_handle.stop().await;
 	}
 
-	// Blocks until `metric_name` >= `value`
+	/// Blocks until `metric_name` >= `value`
 	pub async fn wait_until_metric_ge(&self, metric_name: &str, value: usize) {
 		let value = value as f64;
 		loop {
@@ -314,29 +329,28 @@ impl TestEnvironment {
 		}
 	}
 
+	/// Display network usage stats.
 	pub fn display_network_usage(&self) {
-		let test_metrics = super::display::parse_metrics(self.registry());
-
 		let stats = self.network().peer_stats(0);
 
-		let total_node_received = stats.received() / MIB;
-		let total_node_sent = stats.sent() / MIB;
+		let total_node_received = stats.received() / 1024;
+		let total_node_sent = stats.sent() / 1024;
 
 		println!(
 			"\nPayload bytes received from peers: {}, {}",
-			format!("{:.2} MiB total", total_node_received).blue(),
-			format!("{:.2} MiB/block", total_node_received / self.config().num_blocks)
+			format!("{:.2} KiB total", total_node_received).blue(),
+			format!("{:.2} KiB/block", total_node_received / self.config().num_blocks)
 				.bright_blue()
 		);
 
 		println!(
 			"Payload bytes sent to peers: {}, {}",
-			format!("{:.2} MiB total", total_node_sent).blue(),
-			format!("{:.2} MiB/block", total_node_sent / self.config().num_blocks).bright_blue()
+			format!("{:.2} KiB total", total_node_sent).blue(),
+			format!("{:.2} KiB/block", total_node_sent / self.config().num_blocks).bright_blue()
 		);
 	}
 
-	// Print CPU usage stats in the CLI.
+	/// Print CPU usage stats in the CLI.
 	pub fn display_cpu_usage(&self, subsystems_under_test: &[&str]) {
 		let test_metrics = super::display::parse_metrics(self.registry());
 

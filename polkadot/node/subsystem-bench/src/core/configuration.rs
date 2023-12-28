@@ -258,6 +258,7 @@ impl TestConfiguration {
 }
 
 /// Produce a randomized duration between `min` and `max`.
+/// TODO: Use normal distribution.
 pub fn random_latency(maybe_peer_latency: Option<&PeerLatency>) -> Option<Duration> {
 	if let Some(peer_latency) = maybe_peer_latency {
 		Some(

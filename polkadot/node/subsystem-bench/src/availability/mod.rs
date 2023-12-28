@@ -13,7 +13,6 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
-use super::core::environment::MAX_TIME_OF_FLIGHT;
 use crate::{core::mock::ChainApiState, TestEnvironment};
 use bitvec::bitvec;
 use colored::Colorize;
@@ -25,6 +24,8 @@ use polkadot_node_subsystem_types::{
 	messages::{AvailabilityStoreMessage, NetworkBridgeEvent},
 	Span,
 };
+use polkadot_primitives::AuthorityDiscoveryId;
+
 use polkadot_overseer::Handle as OverseerHandle;
 use sc_network::{request_responses::ProtocolConfig, PeerId};
 use sp_core::H256;
@@ -39,16 +40,23 @@ use polkadot_node_metrics::metrics::Metrics;
 use polkadot_node_subsystem::TimeoutExt;
 
 use polkadot_availability_recovery::AvailabilityRecoverySubsystem;
+use polkadot_node_primitives::{AvailableData, ErasureChunk};
 
 use crate::GENESIS_HASH;
 use futures::FutureExt;
 use parity_scale_codec::Encode;
 use polkadot_node_network_protocol::{
 	request_response::{
-		v1::ChunkFetchingRequest, IncomingRequest, OutgoingRequest, ReqProtocolNames, Requests,
+		v1::{
+			AvailableDataFetchingResponse, ChunkFetchingRequest, ChunkFetchingResponse,
+			ChunkResponse,
+		},
+		IncomingRequest, OutgoingRequest, ReqProtocolNames, Requests,
 	},
 	BitfieldDistributionMessage, OurView, Versioned, View,
 };
+use sc_network::request_responses::IncomingRequest as RawIncomingRequest;
+
 use polkadot_node_primitives::{BlockData, PoV, Proof};
 use polkadot_node_subsystem::messages::{AllMessages, AvailabilityRecoveryMessage};
 
@@ -56,7 +64,7 @@ use crate::core::{
 	environment::TestEnvironmentDependencies,
 	mock::{
 		av_store,
-		network_bridge::{self, MockNetworkBridgeTx, NetworkAvailabilityState},
+		network_bridge::{self, MockNetworkBridgeRx, MockNetworkBridgeTx},
 		runtime_api, MockAvailabilityStore, MockChainApi, MockRuntimeApi,
 	},
 };
@@ -64,8 +72,6 @@ use crate::core::{
 use super::core::{configuration::TestConfiguration, mock::dummy_builder, network::*};
 
 const LOG_TARGET: &str = "subsystem-bench::availability";
-
-use polkadot_node_primitives::{AvailableData, ErasureChunk};
 
 use super::{cli::TestObjective, core::mock::AlwaysSupportsParachains};
 use polkadot_node_subsystem_test_helpers::{
@@ -86,7 +92,7 @@ fn build_overseer_for_availability_read(
 	spawn_task_handle: SpawnTaskHandle,
 	runtime_api: MockRuntimeApi,
 	av_store: MockAvailabilityStore,
-	network_bridge: MockNetworkBridgeTx,
+	network_bridge: (MockNetworkBridgeTx, MockNetworkBridgeRx),
 	availability_recovery: AvailabilityRecoverySubsystem,
 ) -> (Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>, OverseerHandle) {
 	let overseer_connector = OverseerConnector::with_event_capacity(64000);
@@ -94,7 +100,8 @@ fn build_overseer_for_availability_read(
 	let builder = dummy
 		.replace_runtime_api(|_| runtime_api)
 		.replace_availability_store(|_| av_store)
-		.replace_network_bridge_tx(|_| network_bridge)
+		.replace_network_bridge_tx(|_| network_bridge.0)
+		.replace_network_bridge_rx(|_| network_bridge.1)
 		.replace_availability_recovery(|_| availability_recovery);
 
 	let (overseer, raw_handle) =
@@ -106,7 +113,7 @@ fn build_overseer_for_availability_read(
 fn build_overseer_for_availability_write(
 	spawn_task_handle: SpawnTaskHandle,
 	runtime_api: MockRuntimeApi,
-	network_bridge: MockNetworkBridgeTx,
+	network_bridge: (MockNetworkBridgeTx, MockNetworkBridgeRx),
 	availability_distribution: AvailabilityDistributionSubsystem,
 	chain_api: MockChainApi,
 	availability_store: AvailabilityStoreSubsystem,
@@ -117,7 +124,8 @@ fn build_overseer_for_availability_write(
 	let builder = dummy
 		.replace_runtime_api(|_| runtime_api)
 		.replace_availability_store(|_| availability_store)
-		.replace_network_bridge_tx(|_| network_bridge)
+		.replace_network_bridge_tx(|_| network_bridge.0)
+		.replace_network_bridge_rx(|_| network_bridge.1)
 		.replace_chain_api(|_| chain_api)
 		.replace_bitfield_distribution(|_| bitfield_distribution)
 		// This is needed to test own chunk recovery for `n_cores`.
@@ -127,6 +135,80 @@ fn build_overseer_for_availability_write(
 		builder.build_with_connector(overseer_connector).expect("Should not fail");
 
 	(overseer, OverseerHandle::new(raw_handle))
+}
+
+/// The availability store state of all emulated peers.
+/// TODO: Move to common code.
+pub struct NetworkAvailabilityState {
+	pub candidate_hashes: HashMap<CandidateHash, usize>,
+	pub available_data: Vec<AvailableData>,
+	pub chunks: Vec<Vec<ErasureChunk>>,
+}
+
+impl HandlePeerMessage for NetworkAvailabilityState {
+	fn handle(
+		&self,
+		message: PeerMessage,
+		node_sender: &mut futures::channel::mpsc::UnboundedSender<PeerMessage>,
+	) -> Option<PeerMessage> {
+		match message {
+			PeerMessage::RequestFromNode(peer, request) => match request {
+				Requests::ChunkFetchingV1(outgoing_request) => {
+					gum::debug!(target: LOG_TARGET, request = ?outgoing_request, "Received `RequestFromNode`");
+					let validator_index: usize = outgoing_request.payload.index.0 as usize;
+					let candidate_hash = outgoing_request.payload.candidate_hash;
+
+					let candidate_index = self
+						.candidate_hashes
+						.get(&candidate_hash)
+						.expect("candidate was generated previously; qed");
+					gum::warn!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
+
+					let chunk: ChunkResponse = self.chunks.get(*candidate_index as usize).unwrap()
+						[validator_index]
+						.clone()
+						.into();
+					let mut size = chunk.encoded_size();
+
+					let response = Ok(ChunkFetchingResponse::from(Some(chunk)).encode());
+
+					if let Err(err) = outgoing_request.pending_response.send(response) {
+						gum::error!(target: LOG_TARGET, "Failed to send `ChunkFetchingResponse`");
+					}
+					// let _ = outgoing_request
+					// 	.pending_response
+					// 	.send(response)
+					// 	.expect("Response is always sent succesfully");
+
+					None
+				},
+				Requests::AvailableDataFetchingV1(outgoing_request) => {
+					let candidate_hash = outgoing_request.payload.candidate_hash;
+					let candidate_index = self
+						.candidate_hashes
+						.get(&candidate_hash)
+						.expect("candidate was generated previously; qed");
+					gum::debug!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
+
+					let available_data =
+						self.available_data.get(*candidate_index as usize).unwrap().clone();
+
+					let size = available_data.encoded_size();
+
+					let response =
+						Ok(AvailableDataFetchingResponse::from(Some(available_data)).encode());
+					let _ = outgoing_request
+						.pending_response
+						.send(response)
+						.expect("Response is always sent succesfully");
+					None
+				},
+				_ => Some(PeerMessage::RequestFromNode(peer, request)),
+			},
+
+			message => Some(message),
+		}
+	}
 }
 
 /// Takes a test configuration and uses it to creates the `TestEnvironment`.
@@ -148,7 +230,8 @@ fn prepare_test_inner(
 	let mut candidate_hashes: HashMap<H256, Vec<CandidateReceipt>> = HashMap::new();
 
 	// Prepare per block candidates.
-	for block_num in 0..config.num_blocks {
+	// Genesis block is always finalized, so we start at 1.
+	for block_num in 0..=config.num_blocks {
 		for _ in 0..config.n_cores {
 			candidate_hashes
 				.entry(Hash::repeat_byte(block_num as u8))
@@ -179,15 +262,30 @@ fn prepare_test_inner(
 		chunks: state.chunks.clone(),
 	};
 
-	let network = NetworkEmulator::new(&config, &dependencies, &test_authorities);
+	let mut req_cfgs = Vec::new();
+
+	let (collation_req_receiver, collation_req_cfg) =
+		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(&GENESIS_HASH, None));
+	req_cfgs.push(collation_req_cfg);
+
+	let (pov_req_receiver, pov_req_cfg) =
+		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(&GENESIS_HASH, None));
+
+	let (chunk_req_receiver, chunk_req_cfg) =
+		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(&GENESIS_HASH, None));
+	req_cfgs.push(pov_req_cfg);
+
+	let (network, network_interface, network_receiver) =
+		new_network(&config, &dependencies, &test_authorities, vec![Arc::new(availability_state)]);
 
 	let network_bridge_tx = network_bridge::MockNetworkBridgeTx::new(
-		config.clone(),
-		availability_state,
 		network.clone(),
+		network_interface.subsystem_sender(),
 	);
 
-	let mut req_cfgs = Vec::new();
+	let network_bridge_rx =
+		network_bridge::MockNetworkBridgeRx::new(network_receiver, Some(chunk_req_cfg.clone()));
+	state.set_chunk_request_protocol(chunk_req_cfg);
 
 	let (overseer, overseer_handle) = match &state.config().objective {
 		TestObjective::DataAvailabilityRead(_options) => {
@@ -195,10 +293,6 @@ fn prepare_test_inner(
 				TestObjective::DataAvailabilityRead(options) => options.fetch_from_backers,
 				_ => panic!("Unexpected objective"),
 			};
-
-			let (collation_req_receiver, req_cfg) =
-				IncomingRequest::get_config_receiver(&ReqProtocolNames::new(&GENESIS_HASH, None));
-			req_cfgs.push(req_cfg);
 
 			let subsystem = if use_fast_path {
 				AvailabilityRecoverySubsystem::with_fast_path(
@@ -223,26 +317,18 @@ fn prepare_test_inner(
 				dependencies.task_manager.spawn_handle(),
 				runtime_api,
 				av_store,
-				network_bridge_tx,
+				(network_bridge_tx, network_bridge_rx),
 				subsystem,
 			)
 		},
 		TestObjective::DataAvailabilityWrite => {
-			let (pov_req_receiver, pov_req_cfg) =
-				IncomingRequest::get_config_receiver(&ReqProtocolNames::new(&GENESIS_HASH, None));
-			let (chunk_req_receiver, chunk_req_cfg) =
-				IncomingRequest::get_config_receiver(&ReqProtocolNames::new(&GENESIS_HASH, None));
-			req_cfgs.push(pov_req_cfg);
-
-			state.set_chunk_request_protocol(chunk_req_cfg);
-
 			let availability_distribution = AvailabilityDistributionSubsystem::new(
 				test_authorities.keyring.keystore(),
 				IncomingRequestReceivers { pov_req_receiver, chunk_req_receiver },
 				Metrics::try_register(&dependencies.registry).unwrap(),
 			);
 
-			let block_headers = (0..config.num_blocks)
+			let block_headers = (0..=config.num_blocks)
 				.map(|block_number| {
 					(
 						Hash::repeat_byte(block_number as u8),
@@ -264,7 +350,7 @@ fn prepare_test_inner(
 			build_overseer_for_availability_write(
 				dependencies.task_manager.spawn_handle(),
 				runtime_api,
-				network_bridge_tx,
+				(network_bridge_tx, network_bridge_rx),
 				availability_distribution,
 				chain_api,
 				new_av_store(&dependencies),
@@ -284,6 +370,7 @@ fn prepare_test_inner(
 			overseer,
 			overseer_handle,
 			test_authorities,
+			network_interface,
 		),
 		req_cfgs,
 	)
@@ -312,7 +399,7 @@ pub struct TestState {
 	chunk_request_protocol: Option<ProtocolConfig>,
 	// Availability distribution.
 	pov_request_protocol: Option<ProtocolConfig>,
-	// Per relay chain block - our backed candidate
+	// Per relay chain block - candidate backed by our backing group
 	backed_candidates: Vec<CandidateReceipt>,
 }
 
@@ -450,8 +537,8 @@ pub async fn benchmark_availability_read(env: &mut TestEnvironment, mut state: T
 	env.metrics().set_n_validators(config.n_validators);
 	env.metrics().set_n_cores(config.n_cores);
 
-	for block_num in 0..env.config().num_blocks {
-		gum::info!(target: LOG_TARGET, "Current block {}/{}", block_num + 1, env.config().num_blocks);
+	for block_num in 1..=env.config().num_blocks {
+		gum::info!(target: LOG_TARGET, "Current block {}/{}", block_num, env.config().num_blocks);
 		env.metrics().set_current_block(block_num);
 
 		let block_start_ts = Instant::now();
@@ -535,7 +622,7 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 
 	gum::info!("Done");
 
-	for block_num in 0..env.config().num_blocks {
+	for block_num in 1..=env.config().num_blocks {
 		gum::info!(target: LOG_TARGET, "Current block #{}", block_num);
 		env.metrics().set_current_block(block_num);
 
@@ -544,7 +631,7 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 		env.import_block(new_block_import_info(relay_block_hash, block_num as BlockNumber))
 			.await;
 
-		let mut chunk_request_protocol =
+		let chunk_request_protocol =
 			state.chunk_request_protocol().expect("No chunk fetching protocol configured");
 
 		// Inform bitfield distribution about our view of current test block
@@ -553,96 +640,96 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 		);
 		env.send_message(AllMessages::BitfieldDistribution(message)).await;
 
-		// Request chunks of backed candidate from all validators
+		let chunk_fetch_start_ts = Instant::now();
+
+		// Request chunks of our own backed candidate from all other validators.
 		let mut receivers = Vec::new();
 		for index in 1..config.n_validators {
 			let (pending_response, pending_response_receiver) = oneshot::channel();
 
-			// Our backed candidate is first in candidate hashes entry for current block.
-			let payload = ChunkFetchingRequest {
-				candidate_hash: state.backed_candidates()[block_num].hash(),
-				index: ValidatorIndex(index as u32),
-			};
-			// We don't really care.
-			let peer = PeerId::random();
+			let message = PeerMessage::RequestFromPeer(RawIncomingRequest {
+				peer: PeerId::random(),
+				payload: ChunkFetchingRequest {
+					candidate_hash: state.backed_candidates()[block_num].hash(),
+					index: ValidatorIndex(index as u32),
+				}
+				.encode(),
+				pending_response,
+			});
 
-			// They sent it.
-			env.network().peer_stats(index).inc_sent(payload.encoded_size());
-			// We received it.
-			env.network().inc_received(payload.encoded_size());
+			let peer = env
+				.authorities()
+				.validator_authority_id
+				.get(index)
+				.expect("all validators have keys")
+				.clone();
 
-			// TODO: implement TX rate limiter
-			if let Some(sender) = chunk_request_protocol.inbound_queue.clone() {
-				receivers.push(pending_response_receiver);
-				let _ = sender
-					.send(
-						IncomingRequest::new(PeerId::random(), payload, pending_response)
-							.into_raw(),
-					)
-					.await;
-			}
+			env.network_mut().submit_peer_action(NetworkAction { message, peer });
+			receivers.push(pending_response_receiver);
 		}
 
 		gum::info!(target: LOG_TARGET, "Waiting for all emulated peers to receive their chunk from us ...");
-		for (index, receiver) in receivers.into_iter().enumerate() {
+		for receiver in receivers.into_iter() {
 			let response = receiver.await.expect("Chunk is always served succesfully");
+			// TODO: check if chunk is the one the peer expects to receive.
 			assert!(response.result.is_ok());
-			env.network().peer_stats(index).inc_received(response.result.encoded_size());
-			env.network().inc_sent(response.result.encoded_size());
 		}
 
-		gum::info!("All chunks sent");
+		let chunk_fetch_duration = Instant::now().sub(chunk_fetch_start_ts).as_millis();
 
-		// This reflects the bitfield sign timer, we expect bitfields to come in from the network
-		// after it expires.
-		tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+		gum::info!("All chunks received in {}ms", chunk_fetch_duration);
+
 		let signing_context = SigningContext { session_index: 0, parent_hash: relay_block_hash };
+		let mut network = env.network().clone();
+		let authorities = env.authorities().clone();
+		let n_validators = config.n_validators;
 
-		// Generate `n_validator` - 1 messages and inject them to the subsystem via overseer.
-		for index in 1..config.n_validators {
-			let validator_public = env
-				.authorities()
-				.validator_public
-				.get(index)
-				.expect("All validator keys are known");
 
-			// Node has all the chunks in the world.
-			let payload: AvailabilityBitfield =
-				AvailabilityBitfield(bitvec![u8, bitvec::order::Lsb0; 1u8; 32]);
-			let signed_bitfield = Signed::<AvailabilityBitfield>::sign(
-				&env.authorities().keyring.keystore(),
-				payload,
-				&signing_context,
-				ValidatorIndex(index as u32),
-				&validator_public.clone().into(),
-			)
-			.ok()
-			.flatten()
-			.expect("should be signed");
-
-			let overseer_handle = env.overseer_handle();
-
-			let (run, size) =
-				send_peer_bitfield(overseer_handle, relay_block_hash, signed_bitfield);
-			let network_action = NetworkAction::new(
-				env.authorities()
-					.validator_authority_id
+		// Spawn a task that will generate `n_validator` - 1 signed bitfiends and
+		// send them from the emulated peers to the subsystem.
+		env.spawn("send-bitfields", async move {
+			for index in 1..n_validators {
+				let validator_public = authorities
+					.validator_public
 					.get(index)
-					.cloned()
-					.expect("All validator keys are known"),
-				run,
-				size,
-				None,
-			);
-			env.network_mut().submit_peer_action(network_action.peer(), network_action);
-		}
+					.expect("All validator keys are known");
+
+				// Node has all the chunks in the world.
+				let payload: AvailabilityBitfield =
+					AvailabilityBitfield(bitvec![u8, bitvec::order::Lsb0; 1u8; 32]);
+				let signed_bitfield = Signed::<AvailabilityBitfield>::sign(
+					&authorities.keyring.keystore(),
+					payload,
+					&signing_context,
+					ValidatorIndex(index as u32),
+					&validator_public.clone().into(),
+				)
+				.ok()
+				.flatten()
+				.expect("should be signed");
+
+				let from_peer = authorities.validator_authority_id[index].clone();
+				// Send to our node.
+				let to_peer = authorities.validator_authority_id[0].clone();
+
+				let action =
+					send_peer_bitfield(relay_block_hash, signed_bitfield, &from_peer, &to_peer);
+
+				// Send the action to `to_peer`.
+				network.submit_peer_action(action);
+			}
+
+			gum::info!("Waiting for {} bitfields to be received and processed", n_validators - 1);
+		});
 
 		// Wait for all bitfields to be processed.
 		env.wait_until_metric_ge(
 			"polkadot_parachain_received_availabilty_bitfields_total",
-			(config.n_validators - 1) * (block_num + 1),
+			(config.n_validators - 1) * (block_num),
 		)
 		.await;
+	
+		gum::info!("All bitfields processed");
 
 		let block_time = Instant::now().sub(block_start_ts).as_millis() as u64;
 		env.metrics().set_block_time(block_time);
@@ -669,32 +756,24 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 }
 
 pub fn send_peer_bitfield(
-	mut overseer_handle: OverseerHandle,
 	relay_hash: H256,
 	signed_bitfield: Signed<AvailabilityBitfield>,
-) -> (Pin<Box<(dyn Future<Output = ()> + std::marker::Send + 'static)>>, usize) {
+	from_peer: &AuthorityDiscoveryId,
+	to_peer: &AuthorityDiscoveryId,
+) -> NetworkAction {
 	let bitfield = polkadot_node_network_protocol::v2::BitfieldDistributionMessage::Bitfield(
 		relay_hash,
 		signed_bitfield.into(),
 	);
-	let payload_size = bitfield.encoded_size();
 
-	let message =
-		polkadot_node_subsystem_types::messages::BitfieldDistributionMessage::NetworkBridgeUpdate(
-			NetworkBridgeEvent::PeerMessage(PeerId::random(), Versioned::V2(bitfield)),
-		);
+	let to_peer = to_peer.clone();
 
-	(
-		async move {
-			overseer_handle
-				.send_msg(AllMessages::BitfieldDistribution(message), LOG_TARGET)
-				.timeout(MAX_TIME_OF_FLIGHT)
-				.await
-				.unwrap_or_else(|| {
-					panic!("{}ms maximum time of flight breached", MAX_TIME_OF_FLIGHT.as_millis())
-				});
-		}
-		.boxed(),
-		payload_size,
-	)
+	let message = PeerMessage::Message(
+		to_peer,
+		Versioned::V2(
+			polkadot_node_network_protocol::v2::ValidationProtocol::BitfieldDistribution(bitfield),
+		),
+	);
+
+	NetworkAction { peer: from_peer.clone(), message }
 }
