@@ -373,7 +373,7 @@ rusty_fork_test! {
 					// time monitor.
 					assert_eq!(
 						get_num_threads_by_sid_and_name(sid, EXECUTE_PROCESS_NAME, false),
-						3
+						polkadot_node_core_pvf_execute_worker::EXECUTE_WORKER_THREAD_NUMBER as i64,
 					);
 
 					// End the test.

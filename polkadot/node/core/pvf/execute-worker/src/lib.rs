@@ -24,6 +24,15 @@ pub use polkadot_node_core_pvf_common::{
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-execute-worker=trace`.
 const LOG_TARGET: &str = "parachain::pvf-execute-worker";
 
+/// The number of threads for the child process:
+/// 1 - Main thread
+/// 2 - Cpu monitor thread
+/// 3 - Execute thread
+///
+/// NOTE: The correctness of this value is enforced by a test. If the number of threads inside
+/// the child process change in the future, this value must be changed as well.
+pub const EXECUTE_WORKER_THREAD_NUMBER: u32 = 3;
+
 use cpu_time::ProcessTime;
 #[cfg(not(target_os = "linux"))]
 use nix::unistd::ForkResult;
@@ -120,15 +129,8 @@ pub fn worker_entrypoint(
 
 			let executor_params: Arc<ExecutorParams> = Arc::new(executor_params);
 			let execute_worker_stack_size = get_max_stack_size(&executor_params, 1);
-			// Number of threads here is 3:
-			// 1 - Main thread
-			// 2 - Cpu monitor thread
-			// 3 - Execute thread
-			//
-			// NOTE: if the number of threads inside the child process change in the future, this
-			// value must be changed as well.
 			#[cfg(target_os = "linux")]
-			let clone_stack_size = get_max_stack_size(&executor_params, 3);
+			let clone_stack_size = get_max_stack_size(&executor_params, EXECUTE_WORKER_THREAD_NUMBER);
 
 			loop {
 				let (params, execution_timeout) = recv_request(&mut stream)?;
@@ -373,7 +375,7 @@ fn handle_child_process(
 }
 
 /// Returns stack size based on the number of threads.
-/// The stack size is represented by 2MiB * number of threads + native stack;
+/// The stack size is represented by 2MiB * EXECUTE_WORKER_THREAD_NUMBER + native stack;
 ///
 /// Wasmtime powers the Substrate Executor. It compiles the wasm bytecode into native code.
 /// That native code does not create any stacks and just reuses the stack of the thread that
@@ -404,11 +406,6 @@ fn handle_child_process(
 ///
 /// Hence we need to increase it. The simplest way to fix that is to spawn a thread with the desired
 /// stack limit.
-///
-/// The reasoning why we pick this particular size is:
-///
-/// The default Rust thread stack limit 2 MiB + 256 MiB wasm stack.
-/// The stack size for the execute thread.
 fn get_max_stack_size(executor_params: &ExecutorParams, number_of_threads: u32) -> usize {
 	let deterministic_stack_limit = params_to_wasmtime_semantics(executor_params)
 		.deterministic_stack_limit
