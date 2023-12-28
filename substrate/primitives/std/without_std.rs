@@ -19,6 +19,7 @@ pub extern crate alloc;
 
 pub use alloc::boxed;
 pub use alloc::rc;
+pub use alloc::string;
 pub use alloc::sync;
 pub use alloc::vec;
 pub use core::any;
@@ -40,9 +41,6 @@ pub use core::slice;
 // Allow interpreting vectors of bytes as strings, but not constructing them.
 pub use core::str;
 pub use core::time;
-// We are trying to avoid certain things here, such as `core::string`
-// (if you need `String` you are probably doing something wrong, since
-// runtime doesn't require anything human readable).
 
 pub mod collections {
 	pub use alloc::collections::btree_map;
