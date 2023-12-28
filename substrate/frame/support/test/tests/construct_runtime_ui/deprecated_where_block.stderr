@@ -342,6 +342,26 @@ note: required by a bound in `Decode`
    = note: this error originates in the macro `frame_support::construct_runtime` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
+  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
+   |
+20 | // construct_runtime! {
+21 | ||     pub struct Runtime where
+22 | ||         Block = Block,
+23 | ||         NodeBlock = Block,
+...  ||
+27 | ||     }
+28 | || }
+   | ||_- in this macro invocation
+...  |
+   |
+note: required by a bound in `CheckpointedCallData`
+  --> $WORKSPACE/substrate/frame/system/src/lib.rs
+   |
+   |     #[pallet::call]
+   |               ^^^^ required by this bound in `CheckpointedCallData`
+   = note: this error originates in the macro `frame_support::construct_runtime` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `Runtime: Config` is not satisfied
   --> tests/construct_runtime_ui/deprecated_where_block.rs:26:3
    |
 26 |         System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
