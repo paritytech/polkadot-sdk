@@ -48,10 +48,10 @@
 //! * (heterogenous) Sharded Execution: Yet, each parachain is free to have its own execution logic
 //!   (runtime), which also encompasses governance and sovereignty. Moreover, Polkadot ensures the
 //!   correct execution of all parachain, without having all of its validators re-execute all
-//!   parachain blocks. When seen from this perspective, the fact that Polkadot executes different
-//!   parachains means it is a platform that has fully delivered (the holy grail of) "Full Execution
-//!   Sharding".
-//!   Learn about [Approval Checking](https://docs.google.com/presentation/d/1fjiTeT33GpxeM9TyBvxFnSVYR9NiU9SrkA2RBxSL5k8)
+//!   parachain blocks. When seen from this perspective, the fact that different Polkadot validators
+//!   execute different parachains means it is a platform that has fully delivered (the holy grail
+//!   of) "Full Execution Sharding".
+//!   Learn about this process called [Approval Checking](https://docs.google.com/presentation/d/1fjiTeT33GpxeM9TyBvxFnSVYR9NiU9SrkA2RBxSL5k8).
 //! * A framework to build blockchains: In order to materialize the ecosystem of parachains, an easy
 //!   blockchain framework must exist. This is [Substrate](crate::polkadot_sdk::substrate),
 //!   [FRAME](crate::polkadot_sdk::frame_runtime) and [Cumulus](crate::polkadot_sdk::cumulus).
