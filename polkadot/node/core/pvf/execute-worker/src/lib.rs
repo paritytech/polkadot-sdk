@@ -118,6 +118,15 @@ pub fn worker_entrypoint(
 
 			let Handshake { executor_params } = recv_execute_handshake(&mut stream)?;
 
+			let executor_params: Arc<ExecutorParams> = Arc::new(executor_params);
+			let execute_worker_stack_size = get_max_stack_size(&executor_params, 1);
+			// Number of threads here is 3:
+			// 1 - Main thread
+			// 2 - Cpu monitor thread
+			// 3 - Execute thread
+			#[cfg(target_os = "linux")]
+			let clone_stack_size = get_max_stack_size(&executor_params, 3);
+
 			loop {
 				let (params, execution_timeout) = recv_request(&mut stream)?;
 				gum::debug!(
@@ -152,19 +161,11 @@ pub fn worker_entrypoint(
 				let stream_fd = stream.as_raw_fd();
 
 				let compiled_artifact_blob = Arc::new(compiled_artifact_blob);
-				let arc_executor_params: Arc<ExecutorParams> = Arc::new(executor_params.clone());
 				let params = Arc::new(params);
-				let execute_worker_stack_size = get_max_stack_size(&executor_params, 1);
 
 				cfg_if::cfg_if! {
 					if #[cfg(target_os = "linux")] {
 						use polkadot_node_core_pvf_common::worker::security;
-
-						// Number of threads here is 3:
-						// 1 - Main thread
-						// 2 - Cpu monitor thread
-						// 3 - Execute thread
-						let stack_size = get_max_stack_size(&executor_params, 3);
 
 						// SAFETY: new process is spawned within a single threaded process. This invariant
 						// is enforced by tests. Stack size being specified to ensure child doesn't overflow
@@ -177,13 +178,13 @@ pub fn worker_entrypoint(
 										pipe_reader,
 										stream_fd,
 										Arc::clone(&compiled_artifact_blob),
-										Arc::clone(&arc_executor_params),
+										Arc::clone(&executor_params),
 										Arc::clone(&params),
 										execution_timeout,
 										execute_worker_stack_size,
 									)
 								}),
-								stack_size as usize,
+								clone_stack_size as usize,
 							)
 						} {
 							Ok(child) => {
@@ -209,7 +210,7 @@ pub fn worker_entrypoint(
 									pipe_reader,
 									stream_fd,
 									compiled_artifact_blob,
-									arc_executor_params,
+									executor_params,
 									params,
 									execution_timeout,
 									execute_worker_stack_size,
