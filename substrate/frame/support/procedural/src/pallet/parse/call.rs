@@ -469,8 +469,14 @@ impl CallDef {
 				for stmt in method.block.stmts.iter_mut() {
 					match stmt {
 						syn::Stmt::Local(local) => {
-							let Some(local_init) = &mut local.init else { continue; };
-							let Ok(expr) = helper::check_checkpoint_with_ref_gen(local_init.expr.clone()) else { continue; };
+							let Some(local_init) = &mut local.init else {
+								continue;
+							};
+							let Ok(expr) =
+								helper::check_checkpoint_with_ref_gen(local_init.expr.clone())
+							else {
+								continue;
+							};
 							if checkpoint_def.is_some() {
 								let msg = "Invalid pallet::call, only one checkpoint_with_refs is allowed";
 								return Err(syn::Error::new(expr.span(), msg));
@@ -498,18 +504,15 @@ impl CallDef {
 								}.unwrap_or_else(|| #block)?;
 							};
 							*stmt = syn::parse2::<syn::Stmt>(output)?;
-							checkpoint_def = Some(CheckpointDef {
-								name,
-								block: expr,
-								return_type: t.ty,
-							});
+							checkpoint_def =
+								Some(CheckpointDef { name, block: expr, return_type: t.ty });
 						},
 						_ => {},
 					};
-				};
+				}
 
 				if checkpoint_def.is_some() {
-					let stmt = quote::quote!{ let #origin_arg = <T as Config>::RuntimeOrigin::from(#origin_arg); };
+					let stmt = quote::quote! { let #origin_arg = <T as Config>::RuntimeOrigin::from(#origin_arg); };
 					method.block.stmts.insert(0, syn::parse2::<syn::Stmt>(stmt).unwrap())
 				}
 
