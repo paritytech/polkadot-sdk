@@ -83,7 +83,11 @@ use codec::Encode;
 use frame_support::{
 	ensure,
 	pallet_prelude::{DispatchError, DispatchResult},
-	traits::{BalanceStatus, Currency, Get, OnUnbalanced, ReservableCurrency},
+	traits::{
+		fungible::{Inspect, MutateHold},
+		tokens::Precision,
+		BalanceStatus, Get, OnUnbalanced,
+	},
 };
 use sp_runtime::traits::{AppendZerosInput, Hash, Saturating, StaticLookup, Zero};
 use sp_std::prelude::*;
@@ -95,10 +99,9 @@ pub use types::{
 };
 
 type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
->>::NegativeImbalance;
+	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+type NegativeImbalanceOf<T> =
+	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 #[frame_support::pallet]
@@ -113,7 +116,7 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The currency trait.
-		type Currency: ReservableCurrency<Self::AccountId>;
+		type Currency: MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
 		/// The amount held on deposit for a registered identity
 		#[pallet::constant]
@@ -152,6 +155,16 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// The overarching hold reason.
+		type RuntimeHoldReason: From<HoldReason>;
+	}
+
+	/// The reasons for the pallet identity placing holds on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		IdentityDeposit,
+		RegistrarFee,
 	}
 
 	#[pallet::pallet]
@@ -352,11 +365,20 @@ pub mod pallet {
 			let old_deposit = id.deposit;
 			id.deposit = T::BasicDeposit::get().saturating_add(byte_deposit);
 			if id.deposit > old_deposit {
-				T::Currency::reserve(&sender, id.deposit - old_deposit)?;
+				T::Currency::hold(
+					&HoldReason::IdentityDeposit.into(),
+					&sender,
+					id.deposit - old_deposit,
+				)?;
 			}
 			if old_deposit > id.deposit {
-				let err_amount = T::Currency::unreserve(&sender, old_deposit - id.deposit);
-				debug_assert!(err_amount.is_zero());
+				T::Currency::release(
+					&HoldReason::IdentityDeposit.into(),
+					&sender,
+					old_deposit - id.deposit,
+					Precision::Exact,
+				)
+				.unwrap();
 			}
 
 			let judgements = id.judgements.len();
@@ -404,10 +426,19 @@ pub mod pallet {
 			ensure!(not_other_sub, Error::<T>::AlreadyClaimed);
 
 			if old_deposit < new_deposit {
-				T::Currency::reserve(&sender, new_deposit - old_deposit)?;
+				T::Currency::hold(
+					&HoldReason::IdentityDeposit.into(),
+					&sender,
+					new_deposit - old_deposit,
+				)?;
 			} else if old_deposit > new_deposit {
-				let err_amount = T::Currency::unreserve(&sender, old_deposit - new_deposit);
-				debug_assert!(err_amount.is_zero());
+				T::Currency::release(
+					&HoldReason::IdentityDeposit.into(),
+					&sender,
+					old_deposit - new_deposit,
+					Precision::Exact,
+				)
+				.unwrap();
 			}
 			// do nothing if they're equal.
 
@@ -458,8 +489,13 @@ pub mod pallet {
 				<SuperOf<T>>::remove(sub);
 			}
 
-			let err_amount = T::Currency::unreserve(&sender, deposit);
-			debug_assert!(err_amount.is_zero());
+			T::Currency::release(
+				&HoldReason::IdentityDeposit.into(),
+				&sender,
+				deposit,
+				Precision::Exact,
+			)
+			.unwrap();
 
 			Self::deposit_event(Event::IdentityCleared { who: sender, deposit });
 
@@ -515,7 +551,7 @@ pub mod pallet {
 					id.judgements.try_insert(i, item).map_err(|_| Error::<T>::TooManyRegistrars)?,
 			}
 
-			T::Currency::reserve(&sender, registrar.fee)?;
+			T::Currency::hold(&HoldReason::RegistrarFee.into(), &sender, registrar.fee)?;
 
 			let judgements = id.judgements.len();
 			<IdentityOf<T>>::insert(&sender, id);
@@ -557,8 +593,8 @@ pub mod pallet {
 				return Err(Error::<T>::JudgementGiven.into())
 			};
 
-			let err_amount = T::Currency::unreserve(&sender, fee);
-			debug_assert!(err_amount.is_zero());
+			T::Currency::release(&HoldReason::RegistrarFee.into(), &sender, fee, Precision::Exact)
+				.unwrap();
 			let judgements = id.judgements.len();
 			<IdentityOf<T>>::insert(&sender, id);
 
@@ -707,13 +743,8 @@ pub mod pallet {
 			match id.judgements.binary_search_by_key(&reg_index, |x| x.0) {
 				Ok(position) => {
 					if let Judgement::FeePaid(fee) = id.judgements[position].1 {
-						T::Currency::repatriate_reserved(
-							&target,
-							&sender,
-							fee,
-							BalanceStatus::Free,
-						)
-						.map_err(|_| Error::<T>::JudgementPaymentFailed)?;
+						T::Currency::transfer_on_hold(&target, &sender, fee, BalanceStatus::Free)
+							.map_err(|_| Error::<T>::JudgementPaymentFailed)?;
 					}
 					id.judgements[position] = item
 				},
@@ -800,7 +831,7 @@ pub mod pallet {
 					Error::<T>::TooManySubAccounts
 				);
 				let deposit = T::SubAccountDeposit::get();
-				T::Currency::reserve(&sender, deposit)?;
+				T::Currency::hold(&HoldReason::IdentityDeposit.into(), &sender, deposit)?;
 
 				SuperOf::<T>::insert(&sub, (sender.clone(), data));
 				sub_ids.try_push(sub.clone()).expect("sub ids length checked above; qed");
@@ -850,8 +881,13 @@ pub mod pallet {
 				sub_ids.retain(|x| x != &sub);
 				let deposit = T::SubAccountDeposit::get().min(*subs_deposit);
 				*subs_deposit -= deposit;
-				let err_amount = T::Currency::unreserve(&sender, deposit);
-				debug_assert!(err_amount.is_zero());
+				T::Currency::release(
+					&HoldReason::IdentityDeposit.into(),
+					&sender,
+					deposit,
+					Precision::Exact,
+				)
+				.unwrap();
 				Self::deposit_event(Event::SubIdentityRemoved { sub, main: sender, deposit });
 			});
 			Ok(())
@@ -911,10 +947,15 @@ impl<T: Config> Pallet<T> {
 		new: BalanceOf<T>,
 	) -> DispatchResult {
 		if new > current {
-			T::Currency::reserve(who, new - current)?;
+			T::Currency::hold(&HoldReason::IdentityDeposit.into(), who, new - current)?;
 		} else if new < current {
-			let err_amount = T::Currency::unreserve(who, current - new);
-			debug_assert!(err_amount.is_zero());
+			T::Currency::release(
+				&HoldReason::IdentityDeposit.into(),
+				who,
+				current - new,
+				Precision::Exact,
+			)
+			.unwrap();
 		}
 		Ok(())
 	}
@@ -954,10 +995,10 @@ impl<T: Config> Pallet<T> {
 			<SuperOf<T>>::remove(sub);
 		}
 
-		// unreserve any deposits
+		// release any deposits
 		let deposit = id.total_deposit().saturating_add(subs_deposit);
-		let err_amount = T::Currency::unreserve(&who, deposit);
-		debug_assert!(err_amount.is_zero());
+		T::Currency::release(&HoldReason::IdentityDeposit.into(), &who, deposit, Precision::Exact)
+			.unwrap();
 		Ok((registrars, encoded_byte_size, actual_subs))
 	}
 
