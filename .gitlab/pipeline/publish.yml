@@ -91,84 +91,84 @@ publish-rustdoc:
   after_script:
     - buildah logout --all
 
-#build-push-image-polkadot-parachain-debug:
-#  stage: publish
-#  extends:
-#    - .kubernetes-env
-#    - .common-refs
-#    - .build-push-image
-#  needs:
-#    - job: build-linux-stable-cumulus
-#      artifacts: true
-#  variables:
-#    DOCKERFILE: "docker/dockerfiles/polkadot-parachain/polkadot-parachain-debug_unsigned_injected.Dockerfile"
-#    IMAGE_NAME: "docker.io/paritypr/polkadot-parachain-debug"
-#
-#build-push-image-test-parachain:
-#  stage: publish
-#  extends:
-#    - .kubernetes-env
-#    - .common-refs
-#    - .build-push-image
-#  needs:
-#    - job: build-test-parachain
-#      artifacts: true
-#  variables:
-#    DOCKERFILE: "docker/dockerfiles/test-parachain_injected.Dockerfile"
-#    IMAGE_NAME: "docker.io/paritypr/test-parachain"
-#
-#build-push-image-polkadot-debug:
-#  stage: publish
-#  extends:
-#    - .kubernetes-env
-#    - .common-refs
-#    - .build-push-image
-#  needs:
-#    - job: build-linux-stable
-#      artifacts: true
-#  variables:
-#    DOCKERFILE: "docker/dockerfiles/polkadot/polkadot_injected_debug.Dockerfile"
-#    IMAGE_NAME: "docker.io/paritypr/polkadot-debug"
-#
-#build-push-image-colander:
-#  stage: publish
-#  extends:
-#    - .kubernetes-env
-#    - .common-refs
-#    - .build-push-image
-#  needs:
-#    - job: build-test-collators
-#      artifacts: true
-#  variables:
-#    DOCKERFILE: "docker/dockerfiles/collator_injected.Dockerfile"
-#    IMAGE_NAME: "docker.io/paritypr/colander"
-#
-#build-push-image-malus:
-#  stage: publish
-#  extends:
-#    - .kubernetes-env
-#    - .common-refs
-#    - .build-push-image
-#  needs:
-#    - job: build-malus
-#      artifacts: true
-#  variables:
-#    DOCKERFILE: "docker/dockerfiles/malus_injected.Dockerfile"
-#    IMAGE_NAME: "docker.io/paritypr/malus"
-#
-#build-push-image-substrate-pr:
-#  stage: publish
-#  extends:
-#    - .kubernetes-env
-#    - .common-refs
-#    - .build-push-image
-#  needs:
-#    - job: build-linux-substrate
-#      artifacts: true
-#  variables:
-#    DOCKERFILE: "docker/dockerfiles/substrate_injected.Dockerfile"
-#    IMAGE_NAME: "docker.io/paritypr/substrate"
-#
+build-push-image-polkadot-parachain-debug:
+  stage: publish
+  extends:
+    - .kubernetes-env
+    - .common-refs
+    - .build-push-image
+  needs:
+    - job: build-linux-stable-cumulus
+      artifacts: true
+  variables:
+    DOCKERFILE: "docker/dockerfiles/polkadot-parachain/polkadot-parachain-debug_unsigned_injected.Dockerfile"
+    IMAGE_NAME: "docker.io/paritypr/polkadot-parachain-debug"
+
+build-push-image-test-parachain:
+  stage: publish
+  extends:
+    - .kubernetes-env
+    - .common-refs
+    - .build-push-image
+  needs:
+    - job: build-test-parachain
+      artifacts: true
+  variables:
+    DOCKERFILE: "docker/dockerfiles/test-parachain_injected.Dockerfile"
+    IMAGE_NAME: "docker.io/paritypr/test-parachain"
+
+build-push-image-polkadot-debug:
+  stage: publish
+  extends:
+    - .kubernetes-env
+    - .common-refs
+    - .build-push-image
+  needs:
+    - job: build-linux-stable
+      artifacts: true
+  variables:
+    DOCKERFILE: "docker/dockerfiles/polkadot/polkadot_injected_debug.Dockerfile"
+    IMAGE_NAME: "docker.io/paritypr/polkadot-debug"
+
+build-push-image-colander:
+  stage: publish
+  extends:
+    - .kubernetes-env
+    - .common-refs
+    - .build-push-image
+  needs:
+    - job: build-test-collators
+      artifacts: true
+  variables:
+    DOCKERFILE: "docker/dockerfiles/collator_injected.Dockerfile"
+    IMAGE_NAME: "docker.io/paritypr/colander"
+
+build-push-image-malus:
+  stage: publish
+  extends:
+    - .kubernetes-env
+    - .common-refs
+    - .build-push-image
+  needs:
+    - job: build-malus
+      artifacts: true
+  variables:
+    DOCKERFILE: "docker/dockerfiles/malus_injected.Dockerfile"
+    IMAGE_NAME: "docker.io/paritypr/malus"
+
+build-push-image-substrate-pr:
+  stage: publish
+  extends:
+    - .kubernetes-env
+    - .common-refs
+    - .build-push-image
+  needs:
+    - job: build-linux-substrate
+      artifacts: true
+  variables:
+    DOCKERFILE: "docker/dockerfiles/substrate_injected.Dockerfile"
+    IMAGE_NAME: "docker.io/paritypr/substrate"
+
 build-push-image-bridges-zombienet-tests:
   stage: publish
   extends:
