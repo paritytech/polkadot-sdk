@@ -23,7 +23,7 @@
 //!
 //! ## Platform
 //!
-//! In this section, we examine what what platform Polkadot exactly provides to developers.
+//! In this section, we examine what platform Polkadot exactly provides to developers.
 //!
 //! ### Polkadot White Paper
 //!
@@ -47,7 +47,7 @@
 //!   Chain*").
 //! * (heterogenous) Sharded Execution: Yet, each parachain is free to have its own execution logic
 //!   (runtime), which also encompasses governance and sovereignty. Moreover, Polkadot ensures the
-//!   correct execution of all parachain, without having all of its validators re-execute all
+//!   correct execution of all parachains, without having all of its validators re-execute all
 //!   parachain blocks. When seen from this perspective, the fact that different Polkadot validators
 //!   execute different parachains means it is a platform that has fully delivered (the holy grail
 //!   of) "Full Execution Sharding".
@@ -90,13 +90,21 @@
 //! - RFC#5: [Coretime-interface](https://github.com/polkadot-fellows/RFCs/blob/main/text/0005-coretime-interface.md):
 //!   Interface for manipulating the usage of cores on the Polkadot Ubiquitous Computer.
 //!
-//! ### Polkadot as the Ubiquitous Computer
+//! ### Polkadot, a Ubiquitous Computer
 //!
+//! Polkadot can be described as a "ubiquitous computer" based on its architecture. It is evolving
+//! beyond its initial concept into a platform focusing on blockspace (the fundamental resource
+//! chains need) rather than the chains themselves. Polkadot serves as a general-purpose provider
+//! for resilient computation, offering a multicore computer-like environment where various
+//! parachains operate in parallel on different cores. This approach allows applications to access
+//! secure and decentralized computation flexibly and efficiently, marking a shift from a
+//! chain-centric to an application-centric ecosystem.
+//!
+//! We can visualize it as follows:
+//! [![Polkadot as the Ubiquitous Computer](https://pbs.twimg.com/media/F3qCltlWkAECsWJ?format=jpg&name=medium)](https://twitter.com/filippoweb3/status/1692025249070563413)
 //! - **Application Space**: for different parachains with their applications.
 //! - **Accord Space**: for opt-in treaties across chains. Treaty's members cannot change/undermine
 //!   the treaty's logic. This allows trustless cross-chain applications.
 //! - **Core space-time**: for "consuming" coretime and using Polkadot computation. Collators send
 //!   blocks through cores to validators for validity and availability checks.
 //! - **Coretime**: sold through a broker system parachain.
-//!
-//! [![Polkadot as the Ubiquitous Computer](https://pbs.twimg.com/media/F3qCltlWkAECsWJ?format=jpg&name=medium)](https://twitter.com/filippoweb3/status/1692025249070563413)
