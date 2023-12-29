@@ -5,29 +5,50 @@ shopt -s nullglob
 
 trap "trap - SIGINT SIGTERM EXIT && kill -- -$$" SIGINT SIGTERM EXIT
 
+# whether to use paths for zombienet+bridges tests container or for local testing
+ZOMBIENET_DOCKER_PATHS=0
+while [ $# -ne 0 ]
+do
+    arg="$1"
+    case "$arg" in
+        --zombienet)
+            ZOMBIENET_DOCKER_PATHS=1
+            ;;
+    esac
+    shift
+done
+
 # assuming that we'll be using native provide && all processes will be executing locally
 # (we need absolute paths here, because they're used when scripts are called by zombienet from tmp folders)
 export POLKADOT_SDK_FOLDER=`realpath $(dirname "$0")/../..`
 export BRIDGE_TESTS_FOLDER=$POLKADOT_SDK_FOLDER/bridges/zombienet/tests
 
-# for CI:
-export POLKADOT_BINARY_PATH=/usr/local/bin/polkadot
-export POLKADOT_PARACHAIN_BINARY_PATH=/usr/local/bin/polkadot-parachain
-export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_ROCOCO=/usr/local/bin/polkadot-parachain
-export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_WESTEND=/usr/local/bin/polkadot-parachain
-export ZOMBIENET_BINARY_PATH=/usr/local/bin/zombie
+# set pathc to binaries
+if [ "$ZOMBIENET_DOCKER_PATHS" -eq 1 ]; then
+    # normally we would use this:
+    #
+    #export POLKADOT_BINARY_PATH=/usr/local/bin/polkadot
+    #export POLKADOT_PARACHAIN_BINARY_PATH=/usr/local/bin/polkadot-parachain
+    #export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_ROCOCO=/usr/local/bin/polkadot-parachain
+    #export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_WESTEND=/usr/local/bin/polkadot-parachain
+    #
+    # but then tests fail in 90% of starts at CI with "At least one of the nodes fails to start".
+    # When using a dummy script that just passes all its arguments to the binary, everything is ok. So:
+    #
+    export POLKADOT_BINARY_PATH=/home/nonroot/bridges-polkadot-sdk/bridges/zombienet/scripts/polkadot-x.sh
+    export POLKADOT_PARACHAIN_BINARY_PATH=/home/nonroot/bridges-polkadot-sdk/bridges/zombienet/scripts/polkadot-parachain-x.sh
+    export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_ROCOCO=/home/nonroot/bridges-polkadot-sdk/bridges/zombienet/scripts/polkadot-parachain-x.sh
+    export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_WESTEND=/home/nonroot/bridges-polkadot-sdk/bridges/zombienet/scripts/polkadot-parachain-x.sh
 
-export POLKADOT_BINARY_PATH=/home/nonroot/bridges-polkadot-sdk/bridges/zombienet/scripts/polkadot-x.sh
-export POLKADOT_PARACHAIN_BINARY_PATH=/home/nonroot/bridges-polkadot-sdk/bridges/zombienet/scripts/polkadot-parachain-x.sh
-export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_ROCOCO=/home/nonroot/bridges-polkadot-sdk/bridges/zombienet/scripts/polkadot-parachain-x.sh
-export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_WESTEND=/home/nonroot/bridges-polkadot-sdk/bridges/zombienet/scripts/polkadot-parachain-x.sh
+    export ZOMBIENET_BINARY_PATH=/usr/local/bin/zombie
+else
+    export POLKADOT_BINARY_PATH=$POLKADOT_SDK_FOLDER/target/release/polkadot
+    export POLKADOT_PARACHAIN_BINARY_PATH=$POLKADOT_SDK_FOLDER/target/release/polkadot-parachain
+    export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_ROCOCO=$POLKADOT_PARACHAIN_BINARY_PATH
+    export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_WESTEND=$POLKADOT_PARACHAIN_BINARY_PATH
 
-# for local tests:
-#export POLKADOT_BINARY_PATH=$POLKADOT_SDK_FOLDER/target/release/polkadot
-#export POLKADOT_PARACHAIN_BINARY_PATH=$POLKADOT_SDK_FOLDER/target/release/polkadot-parachain
-#export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_ROCOCO=$POLKADOT_PARACHAIN_BINARY_PATH
-#export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_WESTEND=$POLKADOT_PARACHAIN_BINARY_PATH
-#export ZOMBIENET_BINARY_PATH=~/local_bridge_testing/bin/zombienet-linux
+    export ZOMBIENET_BINARY_PATH=~/local_bridge_testing/bin/zombienet-linux
+fi
 
 # check if `wait` supports -p flag
 if [ `printf "$BASH_VERSION\n5.1" | sort -V | head -n 1` = "5.1" ]; then IS_BASH_5_1=1; else IS_BASH_5_1=0; fi
