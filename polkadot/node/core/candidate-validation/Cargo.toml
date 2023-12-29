@@ -6,9 +6,12 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
-async-trait = "0.1.57"
 async-semaphore = "1.2.0"
+async-trait = "0.1.74"
 futures = "0.3.21"
 futures-timer = "3.0.2"
 gum = { package = "tracing-gum", path = "../../gum" }

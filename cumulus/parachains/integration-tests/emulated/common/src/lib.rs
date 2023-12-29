@@ -21,7 +21,6 @@ pub use xcm_emulator;
 
 // Substrate
 use grandpa::AuthorityId as GrandpaId;
-use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{sr25519, storage::Storage, Pair, Public};
@@ -33,7 +32,6 @@ use sp_runtime::{
 // Polakdot
 use parachains_common::BlockNumber;
 use polkadot_runtime_parachains::configuration::HostConfiguration;
-use xcm;
 
 // Cumulus
 use parachains_common::{AccountId, AssetHubPolkadotAuraId, AuraId};
@@ -163,7 +161,6 @@ pub mod validators {
 		AccountId,
 		BabeId,
 		GrandpaId,
-		ImOnlineId,
 		ValidatorId,
 		AssignmentId,
 		AuthorityDiscoveryId,

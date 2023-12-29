@@ -7,6 +7,9 @@ license = "Apache-2.0"
 description = "Penpal emulated chain"
 publish = false
 
+[lints]
+workspace = true
+
 [dependencies]
 serde_json = "1.0.104"
 
@@ -23,3 +26,4 @@ cumulus-primitives-core = { path = "../../../../../../../primitives/core", defau
 emulated-integration-tests-common = { path = "../../../../common", default-features = false }
 penpal-runtime = { path = "../../../../../../runtimes/testing/penpal" }
 rococo-emulated-chain = { path = "../../../relays/rococo" }
+westend-emulated-chain = { path = "../../../relays/westend" }

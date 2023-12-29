@@ -1070,6 +1070,26 @@ impl ApprovalVote {
 	}
 }
 
+/// A vote of approval for multiple candidates.
+#[derive(Clone, RuntimeDebug)]
+pub struct ApprovalVoteMultipleCandidates<'a>(pub &'a [CandidateHash]);
+
+impl<'a> ApprovalVoteMultipleCandidates<'a> {
+	/// Yields the signing payload for this approval vote.
+	pub fn signing_payload(&self, session_index: SessionIndex) -> Vec<u8> {
+		const MAGIC: [u8; 4] = *b"APPR";
+		// Make this backwards compatible with `ApprovalVote` so if we have just on candidate the
+		// signature will look the same.
+		// This gives us the nice benefit that old nodes can still check signatures when len is 1
+		// and the new node can check the signature coming from old nodes.
+		if self.0.len() == 1 {
+			(MAGIC, self.0.first().expect("QED: we just checked"), session_index).encode()
+		} else {
+			(MAGIC, &self.0, session_index).encode()
+		}
+	}
+}
+
 /// Custom validity errors used in Polkadot while validating transactions.
 #[repr(u8)]
 pub enum ValidityError {
@@ -1246,25 +1266,42 @@ pub enum DisputeStatement {
 
 impl DisputeStatement {
 	/// Get the payload data for this type of dispute statement.
-	pub fn payload_data(&self, candidate_hash: CandidateHash, session: SessionIndex) -> Vec<u8> {
-		match *self {
+	///
+	/// Returns Error if the candidate_hash is not included in the list of signed
+	/// candidate from ApprovalCheckingMultipleCandidate.
+	pub fn payload_data(
+		&self,
+		candidate_hash: CandidateHash,
+		session: SessionIndex,
+	) -> Result<Vec<u8>, ()> {
+		match self {
 			DisputeStatement::Valid(ValidDisputeStatementKind::Explicit) =>
-				ExplicitDisputeStatement { valid: true, candidate_hash, session }.signing_payload(),
+				Ok(ExplicitDisputeStatement { valid: true, candidate_hash, session }
+					.signing_payload()),
 			DisputeStatement::Valid(ValidDisputeStatementKind::BackingSeconded(
 				inclusion_parent,
-			)) => CompactStatement::Seconded(candidate_hash).signing_payload(&SigningContext {
+			)) => Ok(CompactStatement::Seconded(candidate_hash).signing_payload(&SigningContext {
 				session_index: session,
-				parent_hash: inclusion_parent,
-			}),
+				parent_hash: *inclusion_parent,
+			})),
 			DisputeStatement::Valid(ValidDisputeStatementKind::BackingValid(inclusion_parent)) =>
-				CompactStatement::Valid(candidate_hash).signing_payload(&SigningContext {
+				Ok(CompactStatement::Valid(candidate_hash).signing_payload(&SigningContext {
 					session_index: session,
-					parent_hash: inclusion_parent,
-				}),
+					parent_hash: *inclusion_parent,
+				})),
 			DisputeStatement::Valid(ValidDisputeStatementKind::ApprovalChecking) =>
-				ApprovalVote(candidate_hash).signing_payload(session),
+				Ok(ApprovalVote(candidate_hash).signing_payload(session)),
+			DisputeStatement::Valid(
+				ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(candidate_hashes),
+			) =>
+				if candidate_hashes.contains(&candidate_hash) {
+					Ok(ApprovalVoteMultipleCandidates(candidate_hashes).signing_payload(session))
+				} else {
+					Err(())
+				},
 			DisputeStatement::Invalid(InvalidDisputeStatementKind::Explicit) =>
-				ExplicitDisputeStatement { valid: false, candidate_hash, session }.signing_payload(),
+				Ok(ExplicitDisputeStatement { valid: false, candidate_hash, session }
+					.signing_payload()),
 		}
 	}
 
@@ -1276,7 +1313,7 @@ impl DisputeStatement {
 		session: SessionIndex,
 		validator_signature: &ValidatorSignature,
 	) -> Result<(), ()> {
-		let payload = self.payload_data(candidate_hash, session);
+		let payload = self.payload_data(candidate_hash, session)?;
 
 		if validator_signature.verify(&payload[..], &validator_public) {
 			Ok(())
@@ -1308,13 +1345,14 @@ impl DisputeStatement {
 			Self::Valid(ValidDisputeStatementKind::BackingValid(_)) => true,
 			Self::Valid(ValidDisputeStatementKind::Explicit) |
 			Self::Valid(ValidDisputeStatementKind::ApprovalChecking) |
+			Self::Valid(ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(_)) |
 			Self::Invalid(_) => false,
 		}
 	}
 }
 
 /// Different kinds of statements of validity on  a candidate.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug, TypeInfo)]
 pub enum ValidDisputeStatementKind {
 	/// An explicit statement issued as part of a dispute.
 	#[codec(index = 0)]
@@ -1328,6 +1366,12 @@ pub enum ValidDisputeStatementKind {
 	/// An approval vote from the approval checking phase.
 	#[codec(index = 3)]
 	ApprovalChecking,
+	/// An approval vote from the new version.
+	/// We can't create this version untill all nodes
+	/// have been updated to support it and max_approval_coalesce_count
+	/// is set to more than 1.
+	#[codec(index = 4)]
+	ApprovalCheckingMultipleCandidates(Vec<CandidateHash>),
 }
 
 /// Different kinds of statements of invalidity on a candidate.
@@ -1781,30 +1825,22 @@ impl<T: Encode> WellKnownKey<T> {
 	}
 }
 
-/// Type discriminator for PVF preparation timeouts
+/// Type discriminator for PVF preparation.
 #[derive(Encode, Decode, TypeInfo, Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum PvfPrepTimeoutKind {
-	/// For prechecking requests, the time period after which the preparation worker is considered
-	/// unresponsive and will be killed.
+pub enum PvfPrepKind {
+	/// For prechecking requests.
 	Precheck,
 
-	/// For execution and heads-up requests, the time period after which the preparation worker is
-	/// considered unresponsive and will be killed. More lenient than the timeout for prechecking
-	/// to prevent honest validators from timing out on valid PVFs.
-	Lenient,
+	/// For execution and heads-up requests.
+	Prepare,
 }
 
-/// Type discriminator for PVF execution timeouts
+/// Type discriminator for PVF execution.
 #[derive(Encode, Decode, TypeInfo, Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum PvfExecTimeoutKind {
-	/// The amount of time to spend on execution during backing.
+pub enum PvfExecKind {
+	/// For backing requests.
 	Backing,
-
-	/// The amount of time to spend on execution during approval or disputes.
-	///
-	/// This should be much longer than the backing execution timeout to ensure that in the
-	/// absence of extremely large disparities between hardware, blocks that pass backing are
-	/// considered executable by approval checkers or dispute participants.
+	/// For approval and dispute request.
 	Approval,
 }
 
