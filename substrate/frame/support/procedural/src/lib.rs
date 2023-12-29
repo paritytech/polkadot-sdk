@@ -1165,6 +1165,11 @@ pub fn checkpoint_with_refs(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
+#[proc_macro_attribute]
+pub fn feeless_on_checkpoint(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
 /// Allows you to define some extra constants to be added into constant metadata.
 ///
 /// Item must be defined as:
