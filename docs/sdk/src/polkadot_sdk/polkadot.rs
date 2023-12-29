@@ -100,11 +100,17 @@
 //! secure and decentralized computation flexibly and efficiently, marking a shift from a
 //! chain-centric to an application-centric ecosystem.
 //!
-//! We can visualize it as follows:
+//! #### We can visualize it as follows
 //! [![Polkadot as the Ubiquitous Computer](https://pbs.twimg.com/media/F3qCltlWkAECsWJ?format=jpg&name=medium)](https://twitter.com/filippoweb3/status/1692025249070563413)
-//! - **Application Space**: for different parachains with their applications.
-//! - **Accord Space**: for opt-in treaties across chains. Treaty's members cannot change/undermine
-//!   the treaty's logic. This allows trustless cross-chain applications.
-//! - **Core space-time**: for "consuming" coretime and using Polkadot computation. Collators send
-//!   blocks through cores to validators for validity and availability checks.
-//! - **Coretime**: sold through a broker system parachain.
+//! Let's break down the "space" layers from the above diagram:
+//! - **Application Space**: This is the space where each parachain's application logic lives as an
+//!   independent, but interconnected, blockchain.
+//! - **Accord Space**: Is the space for opt-in treaties across chains. Treaty's members cannot
+//!   change/undermine the treaty's logic. This allows trustless cross-chain applications.
+//! - **Core Space-time**: This can be seen as the CPU of the Polkadot Ubiquitous Computer, where
+//!   the processes are queued and executed. In oder words, we can say that the *Core Space-time*
+//!   "consumes" *Coretime* using Polkadot computation. Here is where collators send blocks through
+//!   cores to validators for validity and availability checks.
+//!
+//! Additionally, this introduces the concept of **Coretime**. Coretime is the right to use
+//! Polkadot's computing power. Sold through a broker system parachain.
