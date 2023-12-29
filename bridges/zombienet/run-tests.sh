@@ -3,9 +3,7 @@
 set -x
 shopt -s nullglob
 
-#trap "trap - SIGINT SIGTERM EXIT && kill -- -$$" SIGINT SIGTERM EXIT
-#trap "exit" INT TERM
-#trap "kill -9 0" EXIT
+trap "trap - SIGINT SIGTERM EXIT && kill -- -$$" SIGINT SIGTERM EXIT
 
 # assuming that we'll be using native provide && all processes will be executing locally
 # (we need absolute paths here, because they're used when scripts are called by zombienet from tmp folders)
