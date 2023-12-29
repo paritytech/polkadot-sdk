@@ -1410,7 +1410,9 @@ where
 	<<AuraId as AppCrypto>::Pair as Pair>::Signature:
 		TryFrom<Vec<u8>> + std::hash::Hash + sp_runtime::traits::Member + Codec,
 {
-	start_node_impl::<RuntimeApi, _, _, _>(
+	// TODO: is this right? Seems okay since asset hub node is a "shell" node. Can Kusama start
+	// using this right away?
+	start_basic_lookahead_node_impl::<RuntimeApi, _, _, _>(
 		parachain_config,
 		polkadot_config,
 		collator_options,
