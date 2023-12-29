@@ -49,6 +49,7 @@ use sc_utils::mpsc::TracingUnboundedSender;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_core::{traits::SpawnNamed, Decode};
+use sp_consensus::SyncOracle;
 use sp_runtime::traits::{Block as BlockT, BlockIdTo, Header};
 use std::{sync::Arc, time::Duration};
 
@@ -99,7 +100,7 @@ pub struct StartRelayChainTasksParams<'a, Block: BlockT, Client, RCInterface> {
 	pub import_queue: Box<dyn ImportQueueService<Block>>,
 	pub relay_chain_slot_duration: Duration,
 	pub recovery_handle: Box<dyn RecoveryHandle>,
-	pub sync_service: Arc<SyncingService<Block>>,
+	pub sync_service: Arc<dyn SyncOracle + Sync + Send>,
 }
 
 /// Parameters given to [`start_full_node`].
@@ -112,7 +113,7 @@ pub struct StartFullNodeParams<'a, Block: BlockT, Client, RCInterface> {
 	pub relay_chain_slot_duration: Duration,
 	pub import_queue: Box<dyn ImportQueueService<Block>>,
 	pub recovery_handle: Box<dyn RecoveryHandle>,
-	pub sync_service: Arc<SyncingService<Block>>,
+	pub sync_service: Arc<dyn SyncOracle + Sync + Send>,
 }
 
 /// Start a collator node for a parachain.
