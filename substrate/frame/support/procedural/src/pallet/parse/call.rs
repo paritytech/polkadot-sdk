@@ -93,16 +93,17 @@ pub struct CallVariantDef {
 	pub feeless_check: Option<syn::ExprClosure>,
 	/// Whether the call is feeless on checkpoint.
 	pub feeless_on_checkpoint: bool,
+	/// The optional `checkpoint_with_refs` attribute on the `pallet::call`.
 	pub checkpoint_def: Option<CheckpointDef>,
 }
 
 #[derive(Clone)]
 pub struct CheckpointDef {
-	/// The name of the checkpointed call data type if `pallet::checkpoint_with_refs` is specified.
+	/// The name of the checkpointed call data type.
 	pub name: syn::Ident,
-	/// The code block of the checkpointed call data type if `pallet::checkpoint_with_refs` is
-	/// specified.
+	/// The code block of the checkpointed call data type.
 	pub block: syn::Block,
+	/// The return type of the checkpointed call data type.
 	pub return_type: Box<syn::Type>,
 }
 

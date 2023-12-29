@@ -614,6 +614,7 @@ pub fn check_pallet_call_return_type(type_: &syn::Type) -> syn::Result<()> {
 	syn::parse2::<Checker>(type_.to_token_stream()).map(|_| ())
 }
 
+/// Check `#[pallet::checkpoint_with_refs] { .. }?`.
 pub fn check_checkpoint_with_ref_gen(expr: Box<syn::Expr>) -> syn::Result<syn::Block> {
 	pub struct Checker(syn::Block);
 	impl syn::parse::Parse for Checker {
