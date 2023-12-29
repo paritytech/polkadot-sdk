@@ -435,6 +435,9 @@
 <a href="#435" id="435">435</a>
 <a href="#436" id="436">436</a>
 <a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -670,6 +673,9 @@
 		<span class="macro">ensure!</span>((pivot &amp; !region_id.mask).is_void(), Error::&lt;T&gt;::ExteriorPivot);
 		<span class="macro">ensure!</span>(!pivot.is_void(), Error::&lt;T&gt;::VoidPivot);
 		<span class="macro">ensure!</span>(pivot != region_id.mask, Error::&lt;T&gt;::CompletePivot);
+
+		<span class="comment">// The old region should be removed.
+		</span>Regions::&lt;T&gt;::remove(<span class="kw-2">&amp;</span>region_id);
 
 		<span class="kw">let </span>one = RegionId { mask: pivot, ..region_id };
 		Regions::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>one, <span class="kw-2">&amp;</span>region);
