@@ -40,6 +40,7 @@ if [ "$ZOMBIENET_DOCKER_PATHS" -eq 1 ]; then
     export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_ROCOCO=/home/nonroot/bridges-polkadot-sdk/bridges/zombienet/scripts/polkadot-parachain-x.sh
     export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_WESTEND=/home/nonroot/bridges-polkadot-sdk/bridges/zombienet/scripts/polkadot-parachain-x.sh
 
+    export SUBSTRATE_RELAY_PATH=/usr/local/bin/substrate-relay
     export ZOMBIENET_BINARY_PATH=/usr/local/bin/zombie
 else
     export POLKADOT_BINARY_PATH=$POLKADOT_SDK_FOLDER/target/release/polkadot
@@ -47,6 +48,7 @@ else
     export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_ROCOCO=$POLKADOT_PARACHAIN_BINARY_PATH
     export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_WESTEND=$POLKADOT_PARACHAIN_BINARY_PATH
 
+    export SUBSTRATE_RELAY_PATH=~/local_bridge_testing/bin/substrate-relay
     export ZOMBIENET_BINARY_PATH=~/local_bridge_testing/bin/zombienet-linux
 fi
 

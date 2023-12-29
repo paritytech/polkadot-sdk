@@ -69,7 +69,7 @@ cd parity-bridges-common
 git checkout -b polkadot-staging --track origin/polkadot-staging
 
 cargo build --release -p substrate-relay
-cp target/release/substrate-relay /usr/local/bin/substrate-relay
+cp target/release/substrate-relay ~/local_bridge_testing/bin/substrate-relay
 
 
 ---
