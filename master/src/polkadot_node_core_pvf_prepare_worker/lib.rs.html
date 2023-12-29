@@ -675,6 +675,15 @@
 <a href="#675" id="675">675</a>
 <a href="#676" id="676">676</a>
 <a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1011,6 +1020,15 @@
 	prepare_job_kind: PrepareJobKind,
 	executor_params: Arc&lt;ExecutorParams&gt;,
 ) -&gt; ! {
+	<span class="comment">// Terminate if the parent thread dies. Parent thread == worker process (it is single-threaded).
+	//
+	// RACE: the worker may die before we install the death signal. In practice this is unlikely,
+	// and most of the time the job process should terminate on its own when it completes.
+	</span><span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+	</span>nix::sys::prctl::set_pdeathsig(nix::sys::signal::Signal::SIGTERM).unwrap_or_else(|err| {
+		send_child_response(<span class="kw-2">&amp;mut </span>pipe_write, <span class="prelude-val">Err</span>(PrepareError::IoErr(err.to_string())))
+	});
+
 	<span class="kw">let </span>worker_job_pid = process::id();
 	<span class="macro">gum::debug!</span>(
 		target: LOG_TARGET,

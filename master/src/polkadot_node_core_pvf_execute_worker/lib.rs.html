@@ -507,6 +507,15 @@
 <a href="#507" id="507">507</a>
 <a href="#508" id="508">508</a>
 <a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -786,6 +795,15 @@
 	params: Vec&lt;u8&gt;,
 	execution_timeout: Duration,
 ) -&gt; ! {
+	<span class="comment">// Terminate if the parent thread dies. Parent thread == worker process (it is single-threaded).
+	//
+	// RACE: the worker may die before we install the death signal. In practice this is unlikely,
+	// and most of the time the job process should terminate on its own when it completes.
+	</span><span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+	</span>nix::sys::prctl::set_pdeathsig(nix::sys::signal::Signal::SIGTERM).unwrap_or_else(|err| {
+		send_child_response(<span class="kw-2">&amp;mut </span>pipe_write, <span class="prelude-val">Err</span>(JobError::CouldNotSetPdeathsig(err.to_string())))
+	});
+
 	<span class="macro">gum::debug!</span>(
 		target: LOG_TARGET,
 		worker_job_pid = %process::id(),
