@@ -1197,7 +1197,7 @@ pub fn checkpoint_with_refs(_: TokenStream, _: TokenStream) -> TokenStream {
 
 /// Each dispatchable may be annotated with the `#[pallet::feeless_on_checkpoint]` attribute,
 /// which marks the dispatchable as feeless if the checkpointing logic as specified by
-/// `#[pallet::checkpoint_with_refs]` returns `Ok(())`.
+/// `#[pallet::checkpoint_with_refs]` returns `Ok`.
 ///
 /// Pease note that this requires a signed extension such as `SkipCheckIfFeeless` as defined in
 /// `pallet-skip-feeless-payment` to wrap the existing payment extension.

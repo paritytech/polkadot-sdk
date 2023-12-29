@@ -1,0 +1,23 @@
+title: Adds syntax for marking calls feeless
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      1. Adds an attribute `#[pallet::checkpoint_with_refs]` that can be optionally attached to a statement inside `pallet::call`
+      like so: `let something: u32 = #[pallet::checkpoint_with_refs] { Ok(0u32) }?;`
+      2. Adds an attribute `#[pallet::feeless_on_checkpoint]` that can be optionally attached to a `pallet::call` to mark this
+      call as feeless if the checkpointing logic defined using the macro in 1. returns `Ok`.
+      Note that both the attribute and a signed extension such as  SkipCheckIfFeeless<T: SignedExtension> 
+      are needed so that the payment is indeed skipped for such calls.
+
+migrations:
+  db: []
+
+  runtime: []
+
+crates:
+  - name: frame-support-procedural
+  - name: pallet-skip-feeless-payment
+  - name: pallet-example-kitchensink
+
+host_functions: []

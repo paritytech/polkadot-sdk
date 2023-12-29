@@ -35,13 +35,13 @@ fn feeless_if_works() {
 
 #[test]
 fn feeless_on_checkpoint_works() {
-	let call = RuntimeCall::DummyPallet(Call::<Runtime>::aux_2 { data: 1 });
+	let call = RuntimeCall::DummyPallet(Call::<Runtime>::aux_2 { data: 3 });
 	SkipCheckIfFeeless::<Runtime, DummyExtension>::from(DummyExtension)
 		.validate_and_prepare(Some(0).into(), &call, &DispatchInfo::default(), 0)
 		.unwrap();
 	assert_eq!(PreDispatchCount::get(), 1);
 
-	let call = RuntimeCall::DummyPallet(Call::<Runtime>::aux_2 { data: 0 });
+	let call = RuntimeCall::DummyPallet(Call::<Runtime>::aux_2 { data: 2 });
 	SkipCheckIfFeeless::<Runtime, DummyExtension>::from(DummyExtension)
 		.validate_and_prepare(Some(0).into(), &call, &DispatchInfo::default(), 0)
 		.unwrap();

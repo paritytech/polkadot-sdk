@@ -92,7 +92,7 @@ pub mod pallet_dummy {
 		pub fn aux_2(_origin: OriginFor<T>, #[pallet::compact] data: u32) -> DispatchResult {
 			let _: u32 = #[pallet::checkpoint_with_refs]
 			{
-				ensure!(data.clone() == 0, Error::<T>::Dummy);
+				ensure!(data.is_power_of_two(), Error::<T>::Dummy);
 				Ok(0u32)
 			}?;
 			Ok(())
