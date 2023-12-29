@@ -375,7 +375,7 @@ fn handle_child_process(
 }
 
 /// Returns stack size based on the number of threads.
-/// The stack size is represented by 2MiB * EXECUTE_WORKER_THREAD_NUMBER + native stack;
+/// The stack size is represented by 2MiB * number_of_threads + native stack;
 ///
 /// Wasmtime powers the Substrate Executor. It compiles the wasm bytecode into native code.
 /// That native code does not create any stacks and just reuses the stack of the thread that
