@@ -62,7 +62,7 @@ use frame_support::{
 		ConstU128, ConstU32, ConstU64, ConstU8, EitherOfDiverse, Equals, InstanceFilter,
 		TransformOrigin,
 	},
-	weights::{ConstantMultiplier, Weight},
+	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, Weight},
 	BoundedVec, PalletId,
 };
 use frame_system::{
@@ -77,8 +77,7 @@ use parachains_common::{
 	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
 	rococo::{currency::*, fee::WeightToFee},
 	AccountId, AssetIdForTrustBackedAssets, AuraId, Balance, BlockNumber, Hash, Header, Nonce,
-	Signature, AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS, MAXIMUM_BLOCK_WEIGHT,
-	NORMAL_DISPATCH_RATIO,
+	Signature, AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS, NORMAL_DISPATCH_RATIO,
 };
 
 use sp_runtime::{Perbill, RuntimeDebug};
@@ -136,6 +135,11 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 pub fn native_version() -> NativeVersion {
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
+
+const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
+	WEIGHT_REF_TIME_PER_SECOND.saturating_div(2),
+	cumulus_primitives_core::relay_chain::MAX_POV_SIZE as u64,
+);
 
 /// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
 /// into the relay chain.
@@ -203,6 +207,9 @@ impl pallet_timestamp::Config for Runtime {
 	/// A timestamp: milliseconds since the unix epoch.
 	type Moment = u64;
 	type OnTimestampSet = Aura;
+	#[cfg(feature = "experimental")]
+	type MinimumPeriod = ConstU64<0>;
+	#[cfg(not(feature = "experimental"))]
 	type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
 	type WeightInfo = weights::pallet_timestamp::WeightInfo<Runtime>;
 }
@@ -734,7 +741,7 @@ impl pallet_aura::Config for Runtime {
 	type MaxAuthorities = ConstU32<100_000>;
 	// TODO: should this be true? Guide says false, but see:
 	// https://github.com/paritytech/polkadot-sdk/pull/1619/files#diff-17c0e44911184254502a1d0b157c58e706eaa938cd0b1fe34c0456e541066a2fR234
-	type AllowMultipleBlocksPerSlot = ConstBool<false>;
+	type AllowMultipleBlocksPerSlot = ConstBool<true>;
 	#[cfg(feature = "experimental")]
 	type SlotDuration = ConstU64<SLOT_DURATION>;
 }
@@ -1089,6 +1096,7 @@ impl_runtime_apis! {
 		}
 	}
 
+	// TODO: Step 3.2 seems redundant?
 	impl cumulus_primitives_aura::AuraUnincludedSegmentApi<Block> for Runtime {
 		fn can_build_upon(
 			included_hash: <Block as BlockT>::Hash,
