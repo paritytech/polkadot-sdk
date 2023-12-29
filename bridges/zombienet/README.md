@@ -21,7 +21,7 @@ To start those tests, you need to:
 - build Substrate relay by running `cargo build -p substrate-relay --release` command in the
 [`parity-bridges-common`](https://github.com/paritytech/parity-bridges-common) repository clone.
 
-- copy fresh `substrate-relay` binary, built in previous point, to the `/usr/local/bin/substrate-relay`;
+- copy fresh `substrate-relay` binary, built in previous point, to the `~/local_bridge_testing/bin/substrate-relay`;
 
 - change the `POLKADOT_SDK_FOLDER` and `ZOMBIENET_BINARY_PATH` (and ensure that the nearby variables
 have correct values) in the `./run-tests.sh`.
