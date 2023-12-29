@@ -115,46 +115,6 @@ do
             echo "====================================================================="
             echo $coproc_stdout
 
-            echo "==="
-            echo $TEST_PREFIX
-
-            for file in /tmp/zombie*/logs/* ; do
-                echo $file
-                head $file
-            done
-
-            echo "==="
-
-            for file in /tmp/zombie*/*/* ; do
-                echo $file
-                head $file
-            done
-
-            echo "==="
-
-            for file in /tmp/bridges-zombie*/* ; do
-                echo $file
-                head $file
-            done
-
-            echo "==="
-
-            for file in /tmp/bridges-zombie*/* ; do
-                echo $file
-                head $file
-            done
-
-            for file in /tmp/polkadot.*/* ; do
-                echo $file
-                head $file
-                cat $file | grep -E 'ERROR|WARN|rror|arn|ail|xcm' -C10
-            done
-            for file in /tmp/polkadot-parachain.*/* ; do
-                echo $file
-                head $file
-                cat $file | grep -E 'ERROR|WARN|rror|arn|ail|xcm' -C10
-            done
-
             exit 1
         fi
 
