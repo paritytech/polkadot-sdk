@@ -2638,9 +2638,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.4.11"
+version = "4.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bfaff671f6b22ca62406885ece523383b9b64022e341e53e009a62ebc47a45f2"
+checksum = "dcfab8ba68f3668e89f6ff60f5b205cea56aa7b769451a59f34b8682f51c056d"
 dependencies = [
  "clap_builder",
  "clap_derive 4.4.7",
@@ -2657,9 +2657,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.4.11"
+version = "4.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a216b506622bb1d316cd51328dce24e07bdff4a6128a47c7e7fad11878d5adbb"
+checksum = "fb7fb5e4e979aec3be7791562fcba452f94ad85e954da024396433e0e25a79e9"
 dependencies = [
  "anstream",
  "anstyle",
@@ -2674,7 +2674,7 @@ version = "4.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "586a385f7ef2f8b4d86bddaa0c094794e7ccbfe5ffef1f434fe928143fc783a5"
 dependencies = [
- "clap 4.4.11",
+ "clap 4.4.12",
 ]
 
 [[package]]
@@ -3412,7 +3412,7 @@ dependencies = [
  "anes",
  "cast",
  "ciborium",
- "clap 4.4.11",
+ "clap 4.4.12",
  "criterion-plot",
  "futures",
  "is-terminal",
@@ -3575,7 +3575,7 @@ dependencies = [
 name = "cumulus-client-cli"
 version = "0.1.0"
 dependencies = [
- "clap 4.4.11",
+ "clap 4.4.12",
  "parity-scale-codec",
  "sc-chain-spec",
  "sc-cli",
@@ -4297,7 +4297,7 @@ name = "cumulus-test-service"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "clap 4.4.11",
+ "clap 4.4.12",
  "criterion 0.5.1",
  "cumulus-client-cli",
  "cumulus-client-consensus-common",
@@ -5475,7 +5475,7 @@ dependencies = [
  "Inflector",
  "array-bytes 6.1.0",
  "chrono",
- "clap 4.4.11",
+ "clap 4.4.12",
  "comfy-table",
  "frame-benchmarking",
  "frame-support",
@@ -5567,7 +5567,7 @@ dependencies = [
 name = "frame-election-solution-type-fuzzer"
 version = "2.0.0-alpha.5"
 dependencies = [
- "clap 4.4.11",
+ "clap 4.4.12",
  "frame-election-provider-solution-type",
  "frame-election-provider-support",
  "frame-support",
@@ -8085,7 +8085,7 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 name = "minimal-node"
 version = "4.0.0-dev"
 dependencies = [
- "clap 4.4.11",
+ "clap 4.4.12",
  "frame",
  "futures",
  "futures-timer",
@@ -8549,7 +8549,7 @@ name = "node-bench"
 version = "0.9.0-dev"
 dependencies = [
  "array-bytes 6.1.0",
- "clap 4.4.11",
+ "clap 4.4.12",
  "derive_more",
  "fs_extra",
  "futures",
@@ -8624,7 +8624,7 @@ dependencies = [
 name = "node-runtime-generate-bags"
 version = "3.0.0"
 dependencies = [
- "clap 4.4.11",
+ "clap 4.4.12",
  "generate-bags",
  "kitchensink-runtime",
 ]
@@ -8633,7 +8633,7 @@ dependencies = [
 name = "node-template"
 version = "4.0.0-dev"
 dependencies = [
- "clap 4.4.11",
+ "clap 4.4.12",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-system",
@@ -8677,7 +8677,7 @@ dependencies = [
 name = "node-template-release"
 version = "3.0.0"
 dependencies = [
- "clap 4.4.11",
+ "clap 4.4.12",
  "flate2",
  "fs_extra",
  "glob",
@@ -11225,7 +11225,7 @@ dependencies = [
 name = "parachain-template-node"
 version = "0.1.0"
 dependencies = [
- "clap 4.4.11",
+ "clap 4.4.12",
  "color-print",
  "cumulus-client-cli",
  "cumulus-client-collator",
@@ -12184,7 +12184,7 @@ name = "polkadot-cli"
 version = "1.1.0"
 dependencies = [
  "cfg-if",
- "clap 4.4.11",
+ "clap 4.4.12",
  "frame-benchmarking-cli",
  "futures",
  "log",
@@ -13025,7 +13025,7 @@ dependencies = [
  "async-trait",
  "bridge-hub-rococo-runtime",
  "bridge-hub-westend-runtime",
- "clap 4.4.11",
+ "clap 4.4.12",
  "collectives-westend-runtime",
  "color-print",
  "contracts-rococo-runtime",
@@ -13535,7 +13535,7 @@ version = "1.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
- "clap 4.4.11",
+ "clap 4.4.12",
  "clap-num",
  "color-eyre",
  "colored",
@@ -13612,7 +13612,7 @@ version = "1.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
- "clap 4.4.11",
+ "clap 4.4.12",
  "color-eyre",
  "futures",
  "futures-timer",
@@ -13759,7 +13759,7 @@ dependencies = [
 name = "polkadot-voter-bags"
 version = "1.0.0"
 dependencies = [
- "clap 4.4.11",
+ "clap 4.4.12",
  "generate-bags",
  "sp-io",
  "westend-runtime",
@@ -14588,7 +14588,7 @@ checksum = "c08c74e62047bb2de4ff487b251e4a92e24f48745648451635cec7d591162d9f"
 name = "remote-ext-tests-bags-list"
 version = "1.0.0"
 dependencies = [
- "clap 4.4.11",
+ "clap 4.4.12",
  "frame-system",
  "log",
  "pallet-bags-list-remote-tests",
@@ -15364,7 +15364,7 @@ dependencies = [
  "array-bytes 6.1.0",
  "bip39",
  "chrono",
- "clap 4.4.11",
+ "clap 4.4.12",
  "fdlimit",
  "futures",
  "futures-timer",
@@ -16508,7 +16508,7 @@ dependencies = [
 name = "sc-storage-monitor"
 version = "0.1.0"
 dependencies = [
- "clap 4.4.11",
+ "clap 4.4.12",
  "fs4",
  "log",
  "sc-client-db",
@@ -18470,7 +18470,7 @@ dependencies = [
 name = "sp-npos-elections-fuzzer"
 version = "2.0.0-alpha.5"
 dependencies = [
- "clap 4.4.11",
+ "clap 4.4.12",
  "honggfuzz",
  "rand 0.8.5",
  "sp-npos-elections",
@@ -18991,7 +18991,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 name = "staging-chain-spec-builder"
 version = "2.0.0"
 dependencies = [
- "clap 4.4.11",
+ "clap 4.4.12",
  "log",
  "sc-chain-spec",
  "serde_json",
@@ -19004,7 +19004,7 @@ version = "3.0.0-dev"
 dependencies = [
  "array-bytes 6.1.0",
  "assert_cmd",
- "clap 4.4.11",
+ "clap 4.4.12",
  "clap_complete",
  "criterion 0.4.0",
  "frame-benchmarking",
@@ -19109,7 +19109,7 @@ dependencies = [
 name = "staging-node-inspect"
 version = "0.9.0-dev"
 dependencies = [
- "clap 4.4.11",
+ "clap 4.4.12",
  "parity-scale-codec",
  "sc-cli",
  "sc-client-api",
@@ -19314,7 +19314,7 @@ dependencies = [
 name = "subkey"
 version = "3.0.0"
 dependencies = [
- "clap 4.4.11",
+ "clap 4.4.12",
  "sc-cli",
 ]
 
@@ -19356,7 +19356,7 @@ dependencies = [
 name = "substrate-frame-cli"
 version = "4.0.0-dev"
 dependencies = [
- "clap 4.4.11",
+ "clap 4.4.12",
  "frame-support",
  "frame-system",
  "sc-cli",
@@ -19834,7 +19834,7 @@ dependencies = [
 name = "test-parachain-adder-collator"
 version = "1.0.0"
 dependencies = [
- "clap 4.4.11",
+ "clap 4.4.12",
  "futures",
  "futures-timer",
  "log",
@@ -19882,7 +19882,7 @@ dependencies = [
 name = "test-parachain-undying-collator"
 version = "1.0.0"
 dependencies = [
- "clap 4.4.11",
+ "clap 4.4.12",
  "futures",
  "futures-timer",
  "log",
@@ -20533,7 +20533,7 @@ version = "0.10.0-dev"
 dependencies = [
  "assert_cmd",
  "async-trait",
- "clap 4.4.11",
+ "clap 4.4.12",
  "frame-remote-externalities",
  "frame-try-runtime",
  "hex",
