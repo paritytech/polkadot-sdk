@@ -24,15 +24,6 @@ pub use polkadot_node_core_pvf_common::{
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-execute-worker=trace`.
 const LOG_TARGET: &str = "parachain::pvf-execute-worker";
 
-/// The number of threads for the child process:
-/// 1 - Main thread
-/// 2 - Cpu monitor thread
-/// 3 - Execute thread
-///
-/// NOTE: The correctness of this value is enforced by a test. If the number of threads inside
-/// the child process change in the future, this value must be changed as well.
-pub const EXECUTE_WORKER_THREAD_NUMBER: u32 = 3;
-
 use cpu_time::ProcessTime;
 #[cfg(not(target_os = "linux"))]
 use nix::unistd::ForkResult;
@@ -66,6 +57,15 @@ use std::{
 	sync::{mpsc::channel, Arc},
 	time::Duration,
 };
+
+/// The number of threads for the child process:
+/// 1 - Main thread
+/// 2 - Cpu monitor thread
+/// 3 - Execute thread
+///
+/// NOTE: The correctness of this value is enforced by a test. If the number of threads inside
+/// the child process change in the future, this value must be changed as well.
+pub const EXECUTE_WORKER_THREAD_NUMBER: u32 = 3;
 
 /// Receives a handshake with information specific to the execute worker.
 fn recv_execute_handshake(stream: &mut UnixStream) -> io::Result<Handshake> {
@@ -377,6 +377,8 @@ fn handle_child_process(
 /// Returns stack size based on the number of threads.
 /// The stack size is represented by 2MiB * number_of_threads + native stack;
 ///
+/// # Background
+///
 /// Wasmtime powers the Substrate Executor. It compiles the wasm bytecode into native code.
 /// That native code does not create any stacks and just reuses the stack of the thread that
 /// wasmtime was invoked from.
@@ -404,12 +406,12 @@ fn handle_child_process(
 /// typically it's configured to 8 MiB. Rust's spawned threads are 2 MiB. OTOH, the
 /// DEFAULT_NATIVE_STACK_MAX is set to 256 MiB. Not nearly enough.
 ///
-/// Hence we need to increase it. The simplest way to fix that is to spawn a thread with the desired
-/// stack limit.
+/// Hence we need to increase it. The simplest way to fix that is to spawn an execute thread with
+/// the desired stack limit. We must also make sure the job process has enough stack for *all* its
+/// threads. This function can be used to get the stack size of either the execute thread or execute
+/// job process.
 fn get_max_stack_size(executor_params: &ExecutorParams, number_of_threads: u32) -> usize {
-	let deterministic_stack_limit = params_to_wasmtime_semantics(executor_params)
-		.deterministic_stack_limit
-		.expect("`params_to_wasmtime_semantics` get this value from the `DEFAULT_CONFIG`; it should always be available; qed");
+	let (_sem, deterministic_stack_limit) = params_to_wasmtime_semantics(executor_params);
 	return (2 * 1024 * 1024 * number_of_threads + deterministic_stack_limit.native_stack_max)
 		as usize;
 }

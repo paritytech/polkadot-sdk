@@ -323,7 +323,7 @@ rusty_fork_test! {
 					// monitor, and memory tracking.
 					assert_eq!(
 						get_num_threads_by_sid_and_name(sid, PREPARE_PROCESS_NAME, false),
-						4
+						polkadot_node_core_pvf_prepare_worker::PREPARE_WORKER_THREAD_NUMBER as i64,
 					);
 
 					// End the test.

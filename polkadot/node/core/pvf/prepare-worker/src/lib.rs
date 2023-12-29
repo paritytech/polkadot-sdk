@@ -81,6 +81,16 @@ static ALLOC: TrackingAllocator<tikv_jemallocator::Jemalloc> =
 #[global_allocator]
 static ALLOC: TrackingAllocator<std::alloc::System> = TrackingAllocator(std::alloc::System);
 
+/// The number of threads for the child process:
+/// 1 - Main thread
+/// 2 - Cpu monitor thread
+/// 3 - Memory tracker thread
+/// 3 - Prepare thread
+///
+/// NOTE: The correctness of this value is enforced by a test. If the number of threads inside
+/// the child process change in the future, this value must be changed as well.
+pub const PREPARE_WORKER_THREAD_NUMBER: u32 = 4;
+
 /// Contains the bytes for a successfully compiled artifact.
 #[derive(Encode, Decode)]
 pub struct CompiledArtifact(Vec<u8>);
@@ -237,7 +247,8 @@ pub fn worker_entrypoint(
 					if #[cfg(target_os = "linux")] {
 						use polkadot_node_core_pvf_common::worker::security;
 
-						let stack_size = 2 * 1024 * 1024; // 2MiB
+						// 2MiB * num_threads
+						let stack_size = 2 * 1024 * 1024 * PREPARE_WORKER_THREAD_NUMBER;
 
 						// SAFETY: new process is spawned within a single threaded process. This invariant
 						// is enforced by tests. Stack size being specified to ensure child doesn't overflow
@@ -255,7 +266,7 @@ pub fn worker_entrypoint(
 										Arc::clone(&executor_params),
 									)
 								}),
-								stack_size,
+								stack_size as usize,
 							)
 						} {
 							Ok(child) => {
