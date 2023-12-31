@@ -35,6 +35,7 @@ use sp_std::prelude::*;
 ///
 /// If the keys are not trusted (e.g. can be set by a user), a cryptographic `hasher` such as
 /// `blake2_256` must be used.  Otherwise, other values in storage can be compromised.
+/*
 pub trait StorageMap<K: FullEncode, V: FullCodec> {
 	/// The type that get/take returns.
 	type Query;
@@ -353,7 +354,7 @@ impl<K: FullEncode, V: FullCodec, G: StorageMap<K, V>> storage::StorageMap<K, V>
 		})
 	}
 }
-
+*/
 /// Test iterators for StorageMap
 #[cfg(test)]
 mod test_iterators {

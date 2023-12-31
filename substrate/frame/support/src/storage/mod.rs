@@ -1031,7 +1031,7 @@ impl<T, OnRemoval: PrefixIteratorOnRemoval> Iterator for PrefixIterator<T, OnRem
 								"next_key returned a key with no value at {:?}",
 								self.previous_key,
 							);
-							continue
+							continue;
 						},
 					};
 					if self.drain {
@@ -1047,14 +1047,14 @@ impl<T, OnRemoval: PrefixIteratorOnRemoval> Iterator for PrefixIterator<T, OnRem
 								self.previous_key,
 								e,
 							);
-							continue
+							continue;
 						},
 					};
 
 					Some(item)
 				},
 				None => None,
-			}
+			};
 		}
 	}
 }
@@ -1129,12 +1129,12 @@ impl<T> Iterator for KeyPrefixIterator<T> {
 					Ok(item) => return Some(item),
 					Err(e) => {
 						log::error!("key failed to decode at {:?}: {:?}", self.previous_key, e);
-						continue
+						continue;
 					},
 				}
 			}
 
-			return None
+			return None;
 		}
 	}
 }
@@ -1244,7 +1244,7 @@ impl<T> Iterator for ChildTriePrefixIterator<T> {
 								"next_key returned a key with no value at {:?}",
 								self.previous_key,
 							);
-							continue
+							continue;
 						},
 					};
 					if self.drain {
@@ -1259,14 +1259,14 @@ impl<T> Iterator for ChildTriePrefixIterator<T> {
 								self.previous_key,
 								e,
 							);
-							continue
+							continue;
 						},
 					};
 
 					Some(item)
 				},
 				None => None,
-			}
+			};
 		}
 	}
 }
@@ -1388,7 +1388,7 @@ pub trait StoragePrefixedMap<Value: FullCodec> {
 				},
 				None => {
 					log::error!("old key failed to decode at {:?}", previous_key);
-					continue
+					continue;
 				},
 			}
 		}
@@ -1525,7 +1525,7 @@ pub trait TryAppendMap<K: Encode, T: StorageTryAppend<I>, I: Encode> {
 		item: LikeI,
 	) -> Result<(), ()>;
 }
-
+/*
 impl<K, T, I, StorageMapT> TryAppendMap<K, T, I> for StorageMapT
 where
 	K: FullCodec,
@@ -1548,7 +1548,7 @@ where
 		}
 	}
 }
-
+*/
 /// Storage double map that is capable of [`StorageTryAppend`](crate::storage::StorageTryAppend).
 pub trait TryAppendDoubleMap<K1: Encode, K2: Encode, T: StorageTryAppend<I>, I: Encode> {
 	/// Try and append the `item` into the storage double map at the given `key`.
@@ -1564,7 +1564,7 @@ pub trait TryAppendDoubleMap<K1: Encode, K2: Encode, T: StorageTryAppend<I>, I: 
 		item: LikeI,
 	) -> Result<(), ()>;
 }
-
+/*
 impl<K1, K2, T, I, StorageDoubleMapT> TryAppendDoubleMap<K1, K2, T, I> for StorageDoubleMapT
 where
 	K1: FullCodec,
@@ -1593,7 +1593,7 @@ where
 		}
 	}
 }
-
+*/
 /// Returns the storage prefix for a specific pallet name and storage name.
 ///
 /// The storage prefix is `concat(twox_128(pallet_name), twox_128(storage_name))`.
@@ -1612,8 +1612,12 @@ pub fn storage_prefix(pallet_name: &[u8], storage_name: &[u8]) -> [u8; 32] {
 mod test {
 	use super::*;
 	use crate::{
-		assert_ok, hash::Identity, pallet_prelude::NMapKey, storage::types::StorageValue,
-		traits::StorageInstance, Twox128,
+		assert_ok,
+		hash::Identity,
+		pallet_prelude::NMapKey,
+		storage::types::{StorageMap, StorageValue},
+		traits::StorageInstance,
+		Twox128,
 	};
 	use bounded_vec::BoundedVec;
 	use frame_support::traits::ConstU32;
@@ -1748,7 +1752,8 @@ mod test {
 	#[test]
 	fn key_prefix_iterator_works() {
 		TestExternalities::default().execute_with(|| {
-			use crate::{hash::Twox64Concat, storage::generator::StorageMap};
+			use crate::hash::Twox64Concat;
+			/*
 			struct MyStorageMap;
 			impl StorageMap<u64, u64> for MyStorageMap {
 				type Query = u64;
@@ -1774,30 +1779,41 @@ mod test {
 					Some(v)
 				}
 			}
+			*/
+
+			struct Prefix;
+			impl StorageInstance for Prefix {
+				fn pallet_prefix() -> &'static str {
+					"MyModule"
+				}
+				const STORAGE_PREFIX: &'static str = "MyStorageMap";
+			}
+
+			type mp = StorageMap<Prefix, Twox64Concat, u64, u64>;
 
 			let k = [twox_128(b"MyModule"), twox_128(b"MyStorageMap")].concat();
-			assert_eq!(MyStorageMap::prefix_hash().to_vec(), k);
+			assert_eq!(mp::prefix_hash().to_vec(), k);
 
 			// empty to start
-			assert!(MyStorageMap::iter_keys().collect::<Vec<_>>().is_empty());
+			assert!(mp::iter_keys().collect::<Vec<_>>().is_empty());
 
-			MyStorageMap::insert(1, 10);
-			MyStorageMap::insert(2, 20);
-			MyStorageMap::insert(3, 30);
-			MyStorageMap::insert(4, 40);
+			mp::insert(1, 10);
+			mp::insert(2, 20);
+			mp::insert(3, 30);
+			mp::insert(4, 40);
 
 			// just looking
-			let mut keys = MyStorageMap::iter_keys().collect::<Vec<_>>();
+			let mut keys = mp::iter_keys().collect::<Vec<_>>();
 			keys.sort();
 			assert_eq!(keys, vec![1, 2, 3, 4]);
 
 			// draining the keys and values
-			let mut drained_keys = MyStorageMap::iter_keys().drain().collect::<Vec<_>>();
+			let mut drained_keys = mp::iter_keys().drain().collect::<Vec<_>>();
 			drained_keys.sort();
 			assert_eq!(drained_keys, vec![1, 2, 3, 4]);
 
 			// empty again
-			assert!(MyStorageMap::iter_keys().collect::<Vec<_>>().is_empty());
+			assert!(mp::iter_keys().collect::<Vec<_>>().is_empty());
 		});
 	}
 
