@@ -599,6 +599,11 @@
 <a href="#599" id="599">599</a>
 <a href="#600" id="600">600</a>
 <a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -899,6 +904,11 @@
 				<span class="kw">let </span>rank_index = <span class="self">Self</span>::rank_to_index(rank).ok_or(Error::&lt;T, I&gt;::InvalidRank)<span class="question-mark">?</span>;
 				params.demotion_period[rank_index]
 			};
+
+			<span class="kw">if </span>demotion_period.is_zero() {
+				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T, I&gt;::NothingDoing.into())
+			}
+
 			<span class="kw">let </span>demotion_block = member.last_proof.saturating_add(demotion_period);
 
 			<span class="comment">// Ensure enough time has passed.
