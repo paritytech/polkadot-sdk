@@ -303,8 +303,8 @@ node-bench-regression-guard:
       artifacts: true
   variables:
     CI_IMAGE: "paritytech/node-bench-regression-guard:latest"
-    # current git limit is 20, set to 100 to avoid failures (gitlab removes old artifacts)
-    GIT_DEPTH: 100
+    # current git limit is 20, set to 1000 to avoid failures (gitlab removes old artifacts)
+    GIT_DEPTH: 1000
     GIT_STRATEGY: fetch
   before_script: [""]
   script:
