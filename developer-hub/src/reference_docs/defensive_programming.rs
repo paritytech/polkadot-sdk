@@ -25,13 +25,11 @@
 //!
 //!  General guidelines:
 //!
-//! - Avoid directly using `unwrap()` for a [`Result`].
-//! - This includes simple operations, such as accessing indices of some collection type, which may implicitly `panic!` (i.e.,
-//!   via `get()`)
+//! - Avoid panickable operations, such as directly using `unwrap()` for a [`Result`], common errors such as accessing collections out of bounds (using safer methods to access collection types, i.e., `get()`).
 //! - It may be acceptable to use `except()`, but only if one is completely certain (and has
 //!   performed a check beforehand) that a value won't panic upon unwrapping.
 //! - If you are writing a function that could panic, [be sure to document it!](https://doc.rust-lang.org/rustdoc/how-to-write-documentation.html#documenting-components)
-//! - Many seemingly, simplistic operations, such as **arithmetic** in the runtime, could present a
+//! - Carefully handle mathematical operations.  Many seemingly, simplistic operations, such as **arithmetic** in the runtime, could present a
 //!   number of issues [(see more later in this document)](#integer-overflow).
 //!
 //! ### Defensive Traits
@@ -42,10 +40,10 @@
 //! - [`defensive_unwrap_or()`](frame::traits::Defensive::defensive_unwrap_or)
 //! - [`defensive_ok_or()`](frame::traits::DefensiveOption::defensive_ok_or)
 //!
-//! The [`Defensive`](frame::traits::Defensive) trait (and its companions,
+//! The [`Defensive`](frame::traits::Defensive) trait and its companions,
 //! [`DefensiveOption`](frame::traits::DefensiveOption),
-//! [`DefensiveResult`](frame::traits::DefensiveResult)) that can be used to defensively unwrap
-//! values.  This can be used in place of
+//! [`DefensiveResult`](frame::traits::DefensiveResult) can be used to defensively unwrap
+//! and handle values.  This can be used in place of
 //! an `expect`, and again, only if the developer is sure about the unwrap in the first place.
 //!
 //! Defensive methods use [`debug_assertions`](https://doc.rust-lang.org/reference/conditional-compilation.html#debug_assertions), which panic in development, but in
@@ -56,7 +54,7 @@
 //!
 //! The Rust compiler prevents any sort of static overflow from happening at compile time.  
 //! The compiler panics in **debug** mode in the event of an integer overflow. In
-//! **release** mode, it resorts to silently _wrapping_ the overflowed amount in a modular fashion.
+//! **release** mode, it resorts to silently _wrapping_ the overflowed amount in a modular fashion (from the `MAX` back to zero).
 //!
 //! In the context of runtime development, we don't always have control over what is being supplied as a
 //! parameter. For example, even this simple adding function could present one of two outcomes
