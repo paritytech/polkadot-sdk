@@ -1123,6 +1123,16 @@
 	}
 }
 
+<span class="doccomment">/// Assembly of PartialComponents (enough to run chain ops subcommands)
+</span><span class="kw">pub type </span>Service = PartialComponents&lt;
+	Client,
+	Backend,
+	(),
+	sc_consensus::import_queue::BasicQueue&lt;Block&gt;,
+	sc_transaction_pool::FullPool&lt;Block, Client&gt;,
+	ParachainBlockImport,
+&gt;;
+
 <span class="doccomment">/// Starts a `ServiceBuilder` for a full service.
 ///
 /// Use this macro if you don&#39;t actually need the full service, but just the builder in order to
@@ -1130,17 +1140,7 @@
 </span><span class="kw">pub fn </span>new_partial(
 	config: <span class="kw-2">&amp;mut </span>Configuration,
 	enable_import_proof_record: bool,
-) -&gt; <span class="prelude-ty">Result</span>&lt;
-	PartialComponents&lt;
-		Client,
-		Backend,
-		(),
-		sc_consensus::import_queue::BasicQueue&lt;Block&gt;,
-		sc_transaction_pool::FullPool&lt;Block, Client&gt;,
-		ParachainBlockImport,
-	&gt;,
-	sc_service::Error,
-&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Service, sc_service::Error&gt; {
 	<span class="kw">let </span>heap_pages = config
 		.default_heap_pages
 		.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |h| HeapAllocStrategy::Static { extra_pages: h <span class="kw">as _ </span>});

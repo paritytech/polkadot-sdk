@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["build_import_queue","new_partial","start_consensus","start_node_impl","start_parachain_node"],"struct":["ParachainNativeExecutor"],"type":["ParachainBackend","ParachainBlockImport","ParachainClient","ParachainExecutor"]};
+window.SIDEBAR_ITEMS = {"fn":["build_import_queue","new_partial","start_consensus","start_node_impl","start_parachain_node"],"struct":["ParachainNativeExecutor"],"type":["ParachainBackend","ParachainBlockImport","ParachainClient","ParachainExecutor","Service"]};

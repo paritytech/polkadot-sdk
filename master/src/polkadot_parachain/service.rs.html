@@ -2172,6 +2172,16 @@
 	}
 }
 
+<span class="doccomment">/// Assembly of PartialComponents (enough to run chain ops subcommands)
+</span><span class="kw">pub type </span>Service&lt;RuntimeApi&gt; = PartialComponents&lt;
+	ParachainClient&lt;RuntimeApi&gt;,
+	ParachainBackend,
+	(),
+	sc_consensus::DefaultImportQueue&lt;Block&gt;,
+	sc_transaction_pool::FullPool&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt;,
+	(ParachainBlockImport&lt;RuntimeApi&gt;, <span class="prelude-ty">Option</span>&lt;Telemetry&gt;, <span class="prelude-ty">Option</span>&lt;TelemetryWorkerHandle&gt;),
+&gt;;
+
 <span class="doccomment">/// Starts a `ServiceBuilder` for a full service.
 ///
 /// Use this macro if you don&#39;t actually need the full service, but just the builder in order to
@@ -2179,17 +2189,7 @@
 </span><span class="kw">pub fn </span>new_partial&lt;RuntimeApi, BIQ&gt;(
 	config: <span class="kw-2">&amp;</span>Configuration,
 	build_import_queue: BIQ,
-) -&gt; <span class="prelude-ty">Result</span>&lt;
-	PartialComponents&lt;
-		ParachainClient&lt;RuntimeApi&gt;,
-		ParachainBackend,
-		(),
-		sc_consensus::DefaultImportQueue&lt;Block&gt;,
-		sc_transaction_pool::FullPool&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt;,
-		(ParachainBlockImport&lt;RuntimeApi&gt;, <span class="prelude-ty">Option</span>&lt;Telemetry&gt;, <span class="prelude-ty">Option</span>&lt;TelemetryWorkerHandle&gt;),
-	&gt;,
-	sc_service::Error,
-&gt;
+) -&gt; <span class="prelude-ty">Result</span>&lt;Service&lt;RuntimeApi&gt;, sc_service::Error&gt;
 <span class="kw">where
 	</span>RuntimeApi: ConstructRuntimeApi&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
 	RuntimeApi::RuntimeApi: sp_transaction_pool::runtime_api::TaggedTransactionQueue&lt;Block&gt;
