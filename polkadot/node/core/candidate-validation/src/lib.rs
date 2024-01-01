@@ -83,6 +83,8 @@ const PVF_APPROVAL_EXECUTION_RETRY_DELAY: Duration = Duration::from_secs(3);
 #[cfg(test)]
 const PVF_APPROVAL_EXECUTION_RETRY_DELAY: Duration = Duration::from_millis(200);
 
+const TASK_LIMIT: usize = 30;
+
 /// Configuration for the candidate validation subsystem
 #[derive(Clone)]
 pub struct Config {
@@ -149,31 +151,23 @@ where
 			exec_kind,
 			response_sender,
 			..
-		} => {
-			// let mut sender = ctx.sender().clone();
-			// let metrics = metrics.clone();
-			// let validation_host = validation_host.clone();
+		} => async move {
+			let _timer = metrics.time_validate_from_chain_state();
+			let res = validate_from_chain_state(
+				&mut sender,
+				validation_host,
+				candidate_receipt,
+				pov,
+				executor_params,
+				exec_kind,
+				&metrics,
+			)
+			.await;
 
-			// let guard = semaphore.acquire_arc().await;
-			async move {
-				// let _guard = guard;
-				let _timer = metrics.time_validate_from_chain_state();
-				let res = validate_from_chain_state(
-					&mut sender,
-					validation_host,
-					candidate_receipt,
-					pov,
-					executor_params,
-					exec_kind,
-					&metrics,
-				)
-				.await;
-
-				metrics.on_validation_event(&res);
-				let _ = response_sender.send(res);
-			}
-			.boxed()
-		},
+			metrics.on_validation_event(&res);
+			let _ = response_sender.send(res);
+		}
+		.boxed(),
 		CandidateValidationMessage::ValidateFromExhaustive {
 			validation_data,
 			validation_code,
@@ -183,51 +177,37 @@ where
 			exec_kind,
 			response_sender,
 			..
-		} => {
-			// let metrics = metrics.clone();
-			// let validation_host = validation_host.clone();
+		} => async move {
+			let _timer = metrics.time_validate_from_exhaustive();
+			let res = validate_candidate_exhaustive(
+				validation_host,
+				validation_data,
+				validation_code,
+				candidate_receipt,
+				pov,
+				executor_params,
+				exec_kind,
+				&metrics,
+			)
+			.await;
 
-			// let guard = semaphore.acquire_arc().await;
-			async move {
-				// let _guard = guard;
-				let _timer = metrics.time_validate_from_exhaustive();
-				let res = validate_candidate_exhaustive(
-					validation_host,
-					validation_data,
-					validation_code,
-					candidate_receipt,
-					pov,
-					executor_params,
-					exec_kind,
-					&metrics,
-				)
-				.await;
-
-				metrics.on_validation_event(&res);
-				let _ = response_sender.send(res);
-			}
-			.boxed()
-		},
+			metrics.on_validation_event(&res);
+			let _ = response_sender.send(res);
+		}
+		.boxed(),
 		CandidateValidationMessage::PreCheck {
 			relay_parent,
 			validation_code_hash,
 			response_sender,
 			..
-		} => {
-			// let mut sender = ctx.sender().clone();
-			// let validation_host = validation_host.clone();
+		} => async move {
+			let precheck_result =
+				precheck_pvf(&mut sender, validation_host, relay_parent, validation_code_hash)
+					.await;
 
-			// let guard = semaphore.acquire_arc().await;
-			async move {
-				// let _guard = guard;
-				let precheck_result =
-					precheck_pvf(&mut sender, validation_host, relay_parent, validation_code_hash)
-						.await;
-
-				let _ = response_sender.send(precheck_result);
-			}
-			.boxed()
-		},
+			let _ = response_sender.send(precheck_result);
+		}
+		.boxed(),
 	}
 }
 
@@ -258,26 +238,47 @@ async fn run<Context>(
 	ctx.spawn_blocking("pvf-validation-host", task.boxed())?;
 
 	let mut tasks = FuturesUnordered::new();
-	// The task queue size is chosen to be somewhat bigger than the PVF host incoming queue size
-	// to allow exhaustive validation messages to fall through in case the tasks are clogged with
-	// `ValidateFromChainState` messages awaiting data from the runtime
-	let semaphore = Arc::new(Semaphore::new(polkadot_node_core_pvf::HOST_MESSAGE_QUEUE_SIZE * 2));
 
 	loop {
-		futures::select! {
-			comm = ctx.recv().fuse() => {
-				match comm {
-					Ok(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(_))) => {},
-					Ok(FromOrchestra::Signal(OverseerSignal::BlockFinalized(..))) => {},
-					Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) => return Ok(()),
-					Ok(FromOrchestra::Communication { msg }) => {
-						let task = handle_validation_message(ctx.sender().clone(), validation_host.clone(), metrics.clone(), msg);
-						tasks.push(task);
+		loop {
+			futures::select! {
+				comm = ctx.recv().fuse() => {
+					match comm {
+						Ok(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(_))) => {},
+						Ok(FromOrchestra::Signal(OverseerSignal::BlockFinalized(..))) => {},
+						Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) => return Ok(()),
+						Ok(FromOrchestra::Communication { msg }) => {
+							let task = handle_validation_message(ctx.sender().clone(), validation_host.clone(), metrics.clone(), msg);
+							tasks.push(task);
+							if tasks.len() >= TASK_LIMIT {
+								break
+							}
+						},
+						Err(e) => return Err(SubsystemError::from(e)),
 					}
-					Err(e) => return Err(SubsystemError::from(e))
+				},
+				_ = tasks.select_next_some() => ()
+			}
+		}
+
+		gum::debug!(target: LOG_TARGET, "Validation task limit hit");
+
+		loop {
+			futures::select! {
+				signal = ctx.recv_signal().fuse() => {
+					match signal {
+						Ok(OverseerSignal::ActiveLeaves(_)) => {},
+						Ok(OverseerSignal::BlockFinalized(..)) => {},
+						Ok(OverseerSignal::Conclude) => return Ok(()),
+						Err(e) => return Err(SubsystemError::from(e)),
+					}
+				},
+				_ = tasks.select_next_some() => {
+					if tasks.len() < TASK_LIMIT {
+						break
+					}
 				}
-			},
-			_ = tasks.select_next_some() => ()
+			}
 		}
 	}
 }

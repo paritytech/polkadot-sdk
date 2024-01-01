@@ -20,7 +20,7 @@ polkadot-node-primitives = { path = "../primitives" }
 polkadot-node-subsystem-types = { path = "../subsystem-types" }
 polkadot-node-metrics = { path = "../metrics" }
 polkadot-primitives = { path = "../../primitives" }
-orchestra = { version = "0.3.3", default-features = false, features = ["futures_channel"] }
+orchestra = { git = "https://github.com/paritytech/orchestra", branch = "master", default-features = false, features = ["futures_channel"] }
 gum = { package = "tracing-gum", path = "../gum" }
 sp-core = { path = "../../../substrate/primitives/core" }
 async-trait = "0.1.74"

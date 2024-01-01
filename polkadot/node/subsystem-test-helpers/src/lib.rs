@@ -221,6 +221,11 @@ where
 			.ok_or_else(|| SubsystemError::Context("Receiving end closed".to_owned()))
 	}
 
+	// FIXME: Should be properly implemented and tests should be added as well
+	async fn recv_signal(&mut self) -> SubsystemResult<OverseerSignal> {
+		Err(SubsystemError::Context("Not implemented".to_owned()))
+	}
+
 	fn spawn(
 		&mut self,
 		name: &'static str,

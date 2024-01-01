@@ -241,6 +241,10 @@ where
 		}
 	}
 
+	async fn recv_signal(&mut self) -> SubsystemResult<Self::Signal> {
+		Err(SubsystemError::Context("Not implemented".to_owned()))
+	}
+
 	fn spawn(
 		&mut self,
 		name: &'static str,
