@@ -646,7 +646,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		ensure!(
 			reasons.len() == tips.len(),
-			TryRuntimeError::Other("Number of `Tips` and of `Reasons` is not the same.")
+			TryRuntimeError::Other("Equal length of entries in `Tips` and `Reasons` Storage")
 		);
 
 		for tip in Tips::<T, I>::iter_keys() {
