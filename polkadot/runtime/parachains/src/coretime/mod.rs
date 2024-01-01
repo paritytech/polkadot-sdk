@@ -245,7 +245,9 @@ impl<T: Config> OnNewSession<BlockNumberFor<T>> for Pallet<T> {
 fn mk_coretime_call(call: crate::coretime::CoretimeCalls) -> Instruction<()> {
 	Instruction::Transact {
 		origin_kind: OriginKind::Superuser,
-		require_weight_at_most: Weight::from_parts(1000000000, 200000),
+		// Largest call is set_lease with 1526 byte:
+		// Longest call is reserve() with 31_000_000
+		require_weight_at_most: Weight::from_parts(100_000_000, 20_000),
 		call: BrokerRuntimePallets::Broker(call).encode().into(),
 	}
 }
