@@ -359,7 +359,10 @@ fn handle_child_process(
 	// and most of the time the job process should terminate on its own when it completes.
 	#[cfg(target_os = "linux")]
 	nix::sys::prctl::set_pdeathsig(nix::sys::signal::Signal::SIGTERM).unwrap_or_else(|err| {
-		send_child_response(&mut pipe_write, Err(JobError::CouldNotSetPdeathsig(err.to_string())))
+		send_child_response(
+			&mut pipe_write_fd,
+			Err(JobError::CouldNotSetPdeathsig(err.to_string())),
+		)
 	});
 
 	// SAFETY: this is an open and owned file descriptor at this point.
