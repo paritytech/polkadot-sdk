@@ -38,7 +38,7 @@ simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", rev
 
 [dev-dependencies]
 rand = "0.8.5"
-serde_json = "1.0.108"
+serde_json = "1.0.109"
 zstd = { version = "0.12.4", default-features = false }
 sp-api = { path = "../api" }
 sp-state-machine = { path = "../state-machine" }
