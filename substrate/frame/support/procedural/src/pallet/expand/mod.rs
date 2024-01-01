@@ -31,6 +31,7 @@ mod origin;
 mod pallet_struct;
 mod storage;
 mod store_trait;
+mod tasks;
 mod tt_default_parts;
 mod type_value;
 mod validate_unsigned;
@@ -60,6 +61,7 @@ pub fn expand(mut def: Def) -> proc_macro2::TokenStream {
 	let pallet_struct = pallet_struct::expand_pallet_struct(&mut def);
 	let config = config::expand_config(&mut def);
 	let call = call::expand_call(&mut def);
+	let tasks = tasks::expand_tasks(&mut def);
 	let error = error::expand_error(&mut def);
 	let event = event::expand_event(&mut def);
 	let storages = storage::expand_storages(&mut def);
@@ -100,6 +102,7 @@ storage item. Otherwise, all storage items are listed among [*Type Definitions*]
 		#pallet_struct
 		#config
 		#call
+		#tasks
 		#error
 		#event
 		#storages

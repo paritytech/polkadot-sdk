@@ -21,6 +21,7 @@ use crate::*;
 use polkadot_node_network_protocol::{
 	grid_topology::TopologyPeerInfo,
 	request_response::{outgoing::Recipient, ReqProtocolNames},
+	v2::{BackedCandidateAcknowledgement, BackedCandidateManifest},
 	view, ObservedRole,
 };
 use polkadot_node_primitives::Statement;
@@ -377,6 +378,95 @@ impl TestLeaf {
 	}
 }
 
+struct TestSetupInfo {
+	local_validator: TestLocalValidator,
+	local_group: GroupIndex,
+	local_para: ParaId,
+	other_group: GroupIndex,
+	other_para: ParaId,
+	relay_parent: Hash,
+	test_leaf: TestLeaf,
+	peers: Vec<PeerId>,
+	validators: Vec<ValidatorIndex>,
+}
+
+struct TestPeerToConnect {
+	local: bool,
+	relay_parent_in_view: bool,
+}
+
+// TODO: Generalize, use in more places.
+/// Sets up some test info that is common to most tests, and connects the requested peers.
+async fn setup_test_and_connect_peers(
+	state: &TestState,
+	overseer: &mut VirtualOverseer,
+	validator_count: usize,
+	group_size: usize,
+	peers_to_connect: &[TestPeerToConnect],
+) -> TestSetupInfo {
+	let local_validator = state.local.clone().unwrap();
+	let local_group = local_validator.group_index.unwrap();
+	let local_para = ParaId::from(local_group.0);
+
+	let other_group = next_group_index(local_group, validator_count, group_size);
+	let other_para = ParaId::from(other_group.0);
+
+	let relay_parent = Hash::repeat_byte(1);
+	let test_leaf = state.make_dummy_leaf(relay_parent);
+
+	// Because we are testing grid mod, the "target" group (the one we communicate with) is usually
+	// other_group, a non-local group.
+	//
+	// TODO: change based on `LocalRole`?
+	let local_group_validators = state.group_validators(local_group, true);
+	let other_group_validators = state.group_validators(other_group, true);
+
+	let mut peers = vec![];
+	let mut validators = vec![];
+	let mut local_group_idx = 0;
+	let mut other_group_idx = 0;
+	for peer_to_connect in peers_to_connect {
+		let peer = PeerId::random();
+		peers.push(peer);
+
+		let v = if peer_to_connect.local {
+			let v = local_group_validators[local_group_idx];
+			local_group_idx += 1;
+			v
+		} else {
+			let v = other_group_validators[other_group_idx];
+			other_group_idx += 1;
+			v
+		};
+		validators.push(v);
+
+		connect_peer(overseer, peer, Some(vec![state.discovery_id(v)].into_iter().collect())).await;
+
+		if peer_to_connect.relay_parent_in_view {
+			send_peer_view_change(overseer, peer.clone(), view![relay_parent]).await;
+		}
+	}
+
+	activate_leaf(overseer, &test_leaf, &state, true).await;
+
+	answer_expected_hypothetical_depth_request(overseer, vec![], Some(relay_parent), false).await;
+
+	// Send gossip topology.
+	send_new_topology(overseer, state.make_dummy_topology()).await;
+
+	TestSetupInfo {
+		local_validator,
+		local_group,
+		local_para,
+		other_group,
+		other_para,
+		test_leaf,
+		relay_parent,
+		peers,
+		validators,
+	}
+}
+
 async fn activate_leaf(
 	virtual_overseer: &mut VirtualOverseer,
 	leaf: &TestLeaf,
@@ -545,6 +635,66 @@ async fn answer_expected_hypothetical_depth_request(
 			tx.send(responses).unwrap();
 		}
 	)
+}
+
+#[macro_export]
+macro_rules! assert_peer_reported {
+	($virtual_overseer:expr, $peer_id:expr, $rep_change:expr $(,)*) => {
+		assert_matches!(
+			$virtual_overseer.recv().await,
+			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+				if p == $peer_id && r == $rep_change.into()
+		);
+	}
+}
+
+async fn send_share_message(
+	virtual_overseer: &mut VirtualOverseer,
+	relay_parent: Hash,
+	statement: SignedFullStatementWithPVD,
+) {
+	virtual_overseer
+		.send(FromOrchestra::Communication {
+			msg: StatementDistributionMessage::Share(relay_parent, statement),
+		})
+		.await;
+}
+
+async fn send_backed_message(
+	virtual_overseer: &mut VirtualOverseer,
+	candidate_hash: CandidateHash,
+) {
+	virtual_overseer
+		.send(FromOrchestra::Communication {
+			msg: StatementDistributionMessage::Backed(candidate_hash),
+		})
+		.await;
+}
+
+async fn send_manifest_from_peer(
+	virtual_overseer: &mut VirtualOverseer,
+	peer_id: PeerId,
+	manifest: BackedCandidateManifest,
+) {
+	send_peer_message(
+		virtual_overseer,
+		peer_id,
+		protocol_v2::StatementDistributionMessage::BackedCandidateManifest(manifest),
+	)
+	.await;
+}
+
+async fn send_ack_from_peer(
+	virtual_overseer: &mut VirtualOverseer,
+	peer_id: PeerId,
+	ack: BackedCandidateAcknowledgement,
+) {
+	send_peer_message(
+		virtual_overseer,
+		peer_id,
+		protocol_v2::StatementDistributionMessage::BackedCandidateKnown(ack),
+	)
+	.await;
 }
 
 fn validator_pubkeys(val_ids: &[ValidatorPair]) -> IndexedVec<ValidatorIndex, ValidatorId> {
