@@ -5,7 +5,7 @@
 .zombienet-substrate-common:
   before_script:
     # Exit if the job is not merge queue
-    - if [[ $CI_COMMIT_REF_NAME != *"gh-readonly-queue"* ]]; then echo "I will run only in a merge queue"; exit 0; fi
+    # - if [[ $CI_COMMIT_REF_NAME != *"gh-readonly-queue"* ]]; then echo "I will run only in a merge queue"; exit 0; fi
     - echo "Zombienet Tests Config"
     - echo "${ZOMBIENET_IMAGE}"
     - echo "${GH_DIR}"
@@ -40,14 +40,13 @@
   tags:
     - zombienet-polkadot-integration-test
 
-# Skip this one until PolkadotJS includes `SkipCheckIfFeeless` extension
-# zombienet-substrate-0000-block-building:
-#   extends:
-#     - .zombienet-substrate-common
-#   script:
-#     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
-#       --local-dir="${LOCAL_DIR}/0000-block-building"
-#       --test="block-building.zndsl"
+zombienet-substrate-0000-block-building:
+  extends:
+    - .zombienet-substrate-common
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/0000-block-building"
+      --test="block-building.zndsl"
 
 zombienet-substrate-0001-basic-warp-sync:
   extends:

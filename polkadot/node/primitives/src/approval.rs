@@ -20,7 +20,7 @@
 pub mod v1 {
 	use sp_consensus_babe as babe_primitives;
 	pub use sp_consensus_babe::{
-		Randomness, Slot, VrfOutput, VrfProof, VrfSignature, VrfTranscript,
+		Randomness, Slot, VrfPreOutput, VrfProof, VrfSignature, VrfTranscript,
 	};
 
 	use parity_scale_codec::{Decode, Encode};
@@ -145,14 +145,14 @@ pub mod v1 {
 		AuthorityOutOfBounds(usize),
 	}
 
-	/// An unsafe VRF output. Provide BABE Epoch info to create a `RelayVRFStory`.
-	pub struct UnsafeVRFOutput {
-		vrf_output: VrfOutput,
+	/// An unsafe VRF pre-output. Provide BABE Epoch info to create a `RelayVRFStory`.
+	pub struct UnsafeVRFPreOutput {
+		vrf_pre_output: VrfPreOutput,
 		slot: Slot,
 		authority_index: u32,
 	}
 
-	impl UnsafeVRFOutput {
+	impl UnsafeVRFPreOutput {
 		/// Get the slot.
 		pub fn slot(&self) -> Slot {
 			self.slot
@@ -177,7 +177,7 @@ pub mod v1 {
 				sp_consensus_babe::make_vrf_transcript(randomness, self.slot, epoch_index);
 
 			let inout = self
-				.vrf_output
+				.vrf_pre_output
 				.0
 				.attach_input_hash(&pubkey, transcript.0)
 				.map_err(ApprovalError::SchnorrkelSignature)?;
@@ -190,7 +190,7 @@ pub mod v1 {
 	/// This fails if either there is no BABE `PreRuntime` digest or
 	/// the digest has type `SecondaryPlain`, which Substrate nodes do
 	/// not produce or accept anymore.
-	pub fn babe_unsafe_vrf_info(header: &Header) -> Option<UnsafeVRFOutput> {
+	pub fn babe_unsafe_vrf_info(header: &Header) -> Option<UnsafeVRFPreOutput> {
 		use babe_primitives::digests::CompatibleDigestItem;
 
 		for digest in &header.digest.logs {
@@ -198,8 +198,8 @@ pub mod v1 {
 				let slot = pre.slot();
 				let authority_index = pre.authority_index();
 
-				return pre.vrf_signature().map(|sig| UnsafeVRFOutput {
-					vrf_output: sig.output.clone(),
+				return pre.vrf_signature().map(|sig| UnsafeVRFPreOutput {
+					vrf_pre_output: sig.pre_output.clone(),
 					slot,
 					authority_index,
 				})
@@ -214,12 +214,14 @@ pub mod v1 {
 pub mod v2 {
 	use parity_scale_codec::{Decode, Encode};
 	pub use sp_consensus_babe::{
-		Randomness, Slot, VrfOutput, VrfProof, VrfSignature, VrfTranscript,
+		Randomness, Slot, VrfPreOutput, VrfProof, VrfSignature, VrfTranscript,
 	};
 	use std::ops::BitOr;
 
 	use bitvec::{prelude::Lsb0, vec::BitVec};
-	use polkadot_primitives::{CandidateIndex, CoreIndex, Hash, ValidatorIndex};
+	use polkadot_primitives::{
+		CandidateIndex, CoreIndex, Hash, ValidatorIndex, ValidatorSignature,
+	};
 
 	/// A static context associated with producing randomness for a core.
 	pub const CORE_RANDOMNESS_CONTEXT: &[u8] = b"A&V CORE v2";
@@ -472,6 +474,59 @@ pub mod v2 {
 				cert: indirect_cert.cert.try_into()?,
 			})
 		}
+	}
+
+	impl From<super::v1::IndirectSignedApprovalVote> for IndirectSignedApprovalVoteV2 {
+		fn from(value: super::v1::IndirectSignedApprovalVote) -> Self {
+			Self {
+				block_hash: value.block_hash,
+				validator: value.validator,
+				candidate_indices: value.candidate_index.into(),
+				signature: value.signature,
+			}
+		}
+	}
+
+	/// Errors that can occur when trying to convert to/from approvals v1/v2
+	#[derive(Debug)]
+	pub enum ApprovalConversionError {
+		/// More than one candidate was signed.
+		MoreThanOneCandidate(usize),
+	}
+
+	impl TryFrom<IndirectSignedApprovalVoteV2> for super::v1::IndirectSignedApprovalVote {
+		type Error = ApprovalConversionError;
+
+		fn try_from(value: IndirectSignedApprovalVoteV2) -> Result<Self, Self::Error> {
+			if value.candidate_indices.count_ones() != 1 {
+				return Err(ApprovalConversionError::MoreThanOneCandidate(
+					value.candidate_indices.count_ones(),
+				))
+			}
+			Ok(Self {
+				block_hash: value.block_hash,
+				validator: value.validator,
+				candidate_index: value.candidate_indices.first_one().expect("Qed we checked above")
+					as u32,
+				signature: value.signature,
+			})
+		}
+	}
+
+	/// A signed approval vote which references the candidate indirectly via the block.
+	///
+	/// In practice, we have a look-up from block hash and candidate index to candidate hash,
+	/// so this can be transformed into a `SignedApprovalVote`.
+	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
+	pub struct IndirectSignedApprovalVoteV2 {
+		/// A block hash where the candidate appears.
+		pub block_hash: Hash,
+		/// The index of the candidate in the list of candidates fully included as-of the block.
+		pub candidate_indices: CandidateBitfield,
+		/// The validator index.
+		pub validator: ValidatorIndex,
+		/// The signature by the validator.
+		pub signature: ValidatorSignature,
 	}
 }
 

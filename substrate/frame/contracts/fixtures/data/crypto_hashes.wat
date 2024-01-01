@@ -59,8 +59,10 @@
 		(call $seal_input (local.get $input_ptr) (local.get $input_len_ptr))
 		(local.set $chosen_hash_fn (i32.load8_u (local.get $input_ptr)))
 		(if (i32.gt_u (local.get $chosen_hash_fn) (i32.const 7))
-			;; We check that the chosen hash fn  identifier is within bounds: [0,7]
-			(unreachable)
+			(then
+				;; We check that the chosen hash fn  identifier is within bounds: [0,7]
+				(unreachable)
+			)
 		)
 		(local.set $input_ptr (i32.add (local.get $input_ptr) (i32.const 1)))
 		(local.set $input_len (i32.sub (i32.load (local.get $input_len_ptr)) (i32.const 1)))

@@ -30,6 +30,7 @@ use super::*;
 /// they will retain the same index over time.
 #[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub enum Error {
 	// Errors that happen due to instructions being executed. These alone are defined in the
 	// XCM specification.
@@ -275,9 +276,9 @@ pub enum Outcome {
 }
 
 impl Outcome {
-	pub fn ensure_complete(self) -> Result {
+	pub fn ensure_complete(self) -> result::Result<Weight, Error> {
 		match self {
-			Outcome::Complete(_) => Ok(()),
+			Outcome::Complete(weight) => Ok(weight),
 			Outcome::Incomplete(_, e) => Err(e),
 			Outcome::Error(e) => Err(e),
 		}

@@ -19,7 +19,7 @@ use core::marker::PhantomData;
 use cumulus_pallet_parachain_system::AnyRelayNumber;
 use cumulus_primitives_core::{ChannelInfo, IsSystem, ParaId};
 use frame_support::{
-	parameter_types,
+	derive_impl, parameter_types,
 	traits::{ConstU32, Everything, Nothing, OriginTrait},
 	BoundedSlice,
 };
@@ -30,9 +30,10 @@ use sp_runtime::{
 	BuildStorage,
 };
 use xcm::prelude::*;
+#[allow(deprecated)]
+use xcm_builder::CurrencyAdapter;
 use xcm_builder::{
-	CurrencyAdapter, FixedWeightBounds, FrameTransactionalProcessor, IsConcrete, NativeAsset,
-	ParentIsPreset,
+	FixedWeightBounds, FrameTransactionalProcessor, IsConcrete, NativeAsset, ParentIsPreset,
 };
 use xcm_executor::traits::ConvertOrigin;
 
@@ -58,6 +59,7 @@ parameter_types! {
 
 type AccountId = u64;
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = Everything;
 	type BlockWeights = ();
@@ -132,6 +134,7 @@ parameter_types! {
 }
 
 /// Means for transacting assets on this chain.
+#[allow(deprecated)]
 pub type LocalAssetTransactor = CurrencyAdapter<
 	// Use this currency:
 	Balances,

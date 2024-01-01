@@ -48,6 +48,7 @@ pub use controller::{
 };
 
 mod currency_adapter;
+#[allow(deprecated)]
 pub use currency_adapter::CurrencyAdapter;
 
 mod fee_handling;
@@ -57,6 +58,9 @@ pub use fee_handling::{
 
 mod filter_asset_location;
 pub use filter_asset_location::{AllAssets, Case, LocationWithAssetFilters, NativeAsset};
+
+mod fungible_adapter;
+pub use fungible_adapter::{FungibleAdapter, FungibleMutateAdapter, FungibleTransferAdapter};
 
 mod fungibles_adapter;
 pub use fungibles_adapter::{
