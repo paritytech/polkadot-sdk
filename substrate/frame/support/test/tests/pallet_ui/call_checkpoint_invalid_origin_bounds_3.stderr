@@ -1,0 +1,10 @@
+error[E0277]: the trait bound `pallet::CheckpointedCallData<_>: From<<<T as pallet::Config>::RuntimeOrigin as frame_support::traits::OriginTrait>::CheckpointedCallData>` is not satisfied
+  --> tests/pallet_ui/call_checkpoint_invalid_origin_bounds_3.rs:18:1
+   |
+18 | #[frame_support::pallet(dev_mode)]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `From<<<T as pallet::Config>::RuntimeOrigin as frame_support::traits::OriginTrait>::CheckpointedCallData>` is not implemented for `pallet::CheckpointedCallData<_>`
+   |
+   = note: required for `<<T as pallet::Config>::RuntimeOrigin as frame_support::traits::OriginTrait>::CheckpointedCallData` to implement `Into<pallet::CheckpointedCallData<_>>`
+   = note: required for `pallet::CheckpointedCallData<_>` to implement `TryFrom<<<T as pallet::Config>::RuntimeOrigin as frame_support::traits::OriginTrait>::CheckpointedCallData>`
+   = note: required for `<<T as pallet::Config>::RuntimeOrigin as frame_support::traits::OriginTrait>::CheckpointedCallData` to implement `TryInto<pallet::CheckpointedCallData<_>>`
+   = note: this error originates in the attribute macro `frame_support::pallet` (in Nightly builds, run with -Z macro-backtrace for more info)

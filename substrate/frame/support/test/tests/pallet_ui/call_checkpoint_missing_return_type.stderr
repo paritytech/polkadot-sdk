@@ -1,0 +1,5 @@
+error: Invalid pallet::call, checkpoint_with_refs must be used with a type ascription pattern: `foo: f64`
+  --> tests/pallet_ui/call_checkpoint_missing_return_type.rs:37:8
+   |
+37 |             let _ = #[pallet::checkpoint_with_refs] {
+   |                 ^

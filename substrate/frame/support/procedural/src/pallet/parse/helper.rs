@@ -31,6 +31,8 @@ mod keyword {
 	syn::custom_keyword!(origin);
 	syn::custom_keyword!(DispatchResult);
 	syn::custom_keyword!(DispatchResultWithPostInfo);
+	syn::custom_keyword!(checkpoint_with_refs);
+	syn::custom_keyword!(pallet);
 }
 
 /// A usage of instance, either the trait `Config` has been used with instance or without instance.
@@ -610,6 +612,28 @@ pub fn check_pallet_call_return_type(type_: &syn::Type) -> syn::Result<()> {
 	}
 
 	syn::parse2::<Checker>(type_.to_token_stream()).map(|_| ())
+}
+
+/// Check `#[pallet::checkpoint_with_refs] { .. }?`.
+pub fn check_checkpoint_with_ref_gen(expr: Box<syn::Expr>) -> syn::Result<syn::Block> {
+	pub struct Checker(syn::Block);
+	impl syn::parse::Parse for Checker {
+		fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+			input.parse::<syn::Token![#]>()?;
+			let content;
+			syn::bracketed!(content in input);
+			content.parse::<keyword::pallet>()?;
+			content.parse::<syn::Token![::]>()?;
+			content.parse::<keyword::checkpoint_with_refs>()?;
+			let block = input.parse::<syn::Block>()?;
+			if input.peek(syn::Token![?]) {
+				let _: syn::Token![?] = input.parse()?;
+			}
+			Ok(Self(block))
+		}
+	}
+
+	syn::parse2::<Checker>(expr.to_token_stream()).map(|c| c.0)
 }
 
 pub(crate) fn two128_str(s: &str) -> TokenStream {
