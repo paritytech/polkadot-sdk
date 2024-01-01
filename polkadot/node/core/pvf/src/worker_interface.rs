@@ -105,9 +105,9 @@ pub async fn spawn_with_program_path(
 		gum::warn!(
 			target: LOG_TARGET,
 			%debug_id,
-			?program_path_clone,
-			?extra_args_clone,
-			?worker_dir_clone,
+			program_path = ?program_path_clone,
+			extra_args = ?extra_args_clone,
+			worker_dir = ?worker_dir_clone,
 			"error spawning worker: {}",
 			err,
 		);
