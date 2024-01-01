@@ -20,13 +20,13 @@
 //!
 //! When developing within the context of the a runtime, there is one golden rule:
 //!
-//! ***DO NOT PANIC!***
-//!
-//! Most of the time - there are some exceptions, such as critical operations being actually more
+//! ***DO NOT PANIC,*** most of the time. There are some exceptions, such as critical operations being actually more
 //! dangerous than allowing the node to continue running (block authoring, consensus, etc).
 //!
-//! - Directly using `unwrap()` for a [`Result`] shouldn't be used.
-//! - This includes accessing indices of some collection type, which may implicitly `panic!` (i.e.,
+//!  General guidelines:
+//!
+//! - Avoid directly using `unwrap()` for a [`Result`].
+//! - This includes simple operations, such as accessing indices of some collection type, which may implicitly `panic!` (i.e.,
 //!   via `get()`)
 //! - It may be acceptable to use `except()`, but only if one is completely certain (and has
 //!   performed a check beforehand) that a value won't panic upon unwrapping.
@@ -36,25 +36,21 @@
 //!
 //! ### Defensive Traits
 //!
-//! To also aid in debugging and mitigating the above issues, there is a
-//! [`Defensive`](frame::traits::Defensive) trait (and its companions,
+//! The [`Defensive`](frame::traits::Defensive) trait provides a number of functions, all of which
+//! provide an alternative to 'vanilla' Rust functions, e.g.,:
+//!
+//! - [`defensive_unwrap_or()`](frame::traits::Defensive::defensive_unwrap_or)
+//! - [`defensive_ok_or()`](frame::traits::DefensiveOption::defensive_ok_or)
+//!
+//! The [`Defensive`](frame::traits::Defensive) trait (and its companions,
 //! [`DefensiveOption`](frame::traits::DefensiveOption),
 //! [`DefensiveResult`](frame::traits::DefensiveResult)) that can be used to defensively unwrap
 //! values.  This can be used in place of
 //! an `expect`, and again, only if the developer is sure about the unwrap in the first place.
 //!
-//! The primary difference of defensive implementations bring over vanilla ones is the usage of [`debug_assertions`](https://doc.rust-lang.org/reference/conditional-compilation.html#debug_assertions).
-//! `debug_assertions` allows for panics to occur in a testing context, but in
+//! Defensive methods use [`debug_assertions`](https://doc.rust-lang.org/reference/conditional-compilation.html#debug_assertions), which panic in development, but in
 //! production/release, they will merely log an error (i.e., `log::error`).
 //!
-//! The [`Defensive`](frame::traits::Defensive) trait provides a number of functions, all of which
-//! provide an alternative to 'vanilla' Rust functions:
-//!
-//! - [`defensive_unwrap_or()`](frame::traits::Defensive::defensive_unwrap_or)
-//! - [`defensive_ok_or()`](frame::traits::DefensiveOption::defensive_ok_or)
-//!
-//! This traits are useful for catching issues in the development environment, without risking
-//! panicking in production.
 //!
 //! ## Integer Overflow
 //!
@@ -62,9 +58,10 @@
 //! The compiler panics in **debug** mode in the event of an integer overflow. In
 //! **release** mode, it resorts to silently _wrapping_ the overflowed amount in a modular fashion.
 //!
-//! However in the runtime context, we don't always have control over what is being supplied as a
+//! In the context of runtime development, we don't always have control over what is being supplied as a
 //! parameter. For example, even this simple adding function could present one of two outcomes
 //! depending on whether it is in **release** or **debug** mode:
+//!
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", naive_add)]
 //!
 //! If we passed in overflow-able values at runtime, this could actually panic (or wrap, if in
@@ -74,14 +71,9 @@
 //! naive_add(250u8, 10u8); // In debug mode, this would panic. In release, this would return 4.
 //! ```
 //!
-//! It is actually the _silent_ portion of this behavior that presents a real issue. Such behavior should be made obvious, especially in
+//! It is the _silent_ portion of this behavior that presents a real issue. Such behavior should be made obvious, especially in
 //! the context of blockchain development, where unsafe arithmetic could produce unexpected
-//! consequences.
-//!
-//! A quick example is a user's balance overflowing: the default behavior of wrapping could result
-//! in the user's balance starting from zero, or vice versa, of a `0` balance turning into the
-//! `MAX`. This could lead to various exploits and issues down the road, which if
-//! failing silently, would be difficult to trace and rectify in production.
+//! consequences like a user balance over or underflowing.
 //!
 //! Luckily, there are ways to both represent and handle these scenarios depending on our specific
 //! use case natively built into Rust, as well as libraries like [`sp_arithmetic`].
@@ -91,14 +83,14 @@
 //! Both Rust and Substrate provide safe ways to deal with numbers and alternatives to floating
 //! point arithmetic.
 //!
-//! A developer should use fixed-point arithmetic to mitigate the potential for inaccuracy,
-//! rounding errors, or other unexpected behavior. For more on the specifics of the peculiarities of floating point calculations, [watch this video by the Computerphile](https://www.youtube.com/watch?v=PZRI1IfStY0).
+//! A developer should use fixed-point instead of floating-point arithmetic to mitigate the potential for inaccuracy,
+//! rounding errors, or other unexpected behavior.
 //!
-//! Using **primitive** floating point number types in a blockchain context should be avoided,
+//! Using floating point number types in the runtime should be avoided,
 //! as a single nondeterministic result could cause chaos for consensus along with the
-//! aforementioned issues.
+//! aforementioned issues. For more on the specifics of the peculiarities of floating point calculations, [watch this video by the Computerphile](https://www.youtube.com/watch?v=PZRI1IfStY0)
 //!
-//! The following methods represent different ways one can handle numbers safely natively in Rust,
+//! The following methods demonstrate different ways one can handle numbers safely natively in Rust,
 //! without fear of panic or unexpected behavior from wrapping.
 //!
 //! ### Checked Arithmetic
