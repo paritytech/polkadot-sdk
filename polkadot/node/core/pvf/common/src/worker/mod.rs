@@ -18,7 +18,7 @@
 
 pub mod security;
 
-use crate::{framed_recv_blocking, WorkerHandshake, LOG_TARGET};
+use crate::{framed_recv_blocking, SecurityStatus, WorkerHandshake, LOG_TARGET};
 use cpu_time::ProcessTime;
 use futures::never::Never;
 use parity_scale_codec::Decode;
@@ -245,12 +245,12 @@ impl PipeFd {
 }
 
 impl Read for PipeFd {
-	fn read_to_end(&mut self, buf: &mut Vec<u8>) -> io::Result<usize> {
-		self.file.read_to_end(buf)
-	}
-
 	fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
 		self.file.read(buf)
+	}
+
+	fn read_to_end(&mut self, buf: &mut Vec<u8>) -> io::Result<usize> {
+		self.file.read_to_end(buf)
 	}
 }
 
@@ -313,7 +313,7 @@ pub fn run_worker<F>(
 	worker_version: Option<&str>,
 	mut event_loop: F,
 ) where
-	F: FnMut(UnixStream, &WorkerInfo) -> io::Result<Never>,
+	F: FnMut(UnixStream, &WorkerInfo, SecurityStatus) -> io::Result<Never>,
 {
 	#[cfg_attr(not(target_os = "linux"), allow(unused_mut))]
 	let mut worker_info = WorkerInfo {
@@ -345,11 +345,9 @@ pub fn run_worker<F>(
 	}
 
 	// Make sure that we can read the worker dir path, and log its contents.
-	let entries = || -> Result<Vec<_>, io::Error> {
-		std::fs::read_dir(&worker_info.worker_dir_path)?
-			.map(|res| res.map(|e| e.file_name()))
-			.collect()
-	}();
+	let entries = std::fs::read_dir(&worker_info.worker_dir_path)?
+		.map(|res| res.map(|e| e.file_name()))
+		.collect();
 	match entries {
 		Ok(entries) =>
 			gum::trace!(target: LOG_TARGET, ?worker_info, "content of worker dir: {:?}", entries),
@@ -448,7 +446,7 @@ pub fn run_worker<F>(
 	}
 
 	// Run the main worker loop.
-	let err = event_loop(stream, &worker_info)
+	let err = event_loop(stream, &worker_info, security_status)
 		// It's never `Ok` because it's `Ok(Never)`.
 		.unwrap_err();
 

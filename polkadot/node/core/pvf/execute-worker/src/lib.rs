@@ -16,24 +16,20 @@
 
 //! Contains the logic for executing PVFs. Used by the polkadot-execute-worker binary.
 
-pub use polkadot_node_core_pvf_common::{
-	executor_interface::execute_artifact, worker::WorkerInfo, worker_dir,
-};
+pub use polkadot_node_core_pvf_common::executor_interface::execute_artifact;
 
 // NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-execute-worker=trace`.
 const LOG_TARGET: &str = "parachain::pvf-execute-worker";
 
 use cpu_time::ProcessTime;
-#[cfg(not(target_os = "linux"))]
-use nix::unistd::ForkResult;
 use nix::{
 	errno::Errno,
 	sys::{
 		resource::{Usage, UsageWho},
 		wait::WaitStatus,
 	},
-	unistd::Pid,
+	unistd::{ForkResult, Pid},
 };
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
@@ -44,8 +40,9 @@ use polkadot_node_core_pvf_common::{
 	worker::{
 		cpu_time_monitor_loop, pipe2_cloexec, run_worker, stringify_panic_payload,
 		thread::{self, WaitOutcome},
-		PipeFd, WorkerKind,
+		PipeFd, WorkerInfo, WorkerKind,
 	},
+	worker_dir,
 };
 use polkadot_parachain_primitives::primitives::ValidationResult;
 use polkadot_primitives::ExecutorParams;
@@ -64,7 +61,7 @@ use std::{
 /// 3 - Execute thread
 ///
 /// NOTE: The correctness of this value is enforced by a test. If the number of threads inside
-/// the child process change in the future, this value must be changed as well.
+/// the child process changes in the future, this value must be changed as well.
 pub const EXECUTE_WORKER_THREAD_NUMBER: u32 = 3;
 
 /// Receives a handshake with information specific to the execute worker.
@@ -122,13 +119,13 @@ pub fn worker_entrypoint(
 		worker_dir_path,
 		node_version,
 		worker_version,
-		|mut stream, worker_info| {
+		|mut stream, worker_info, security_status| {
 			let artifact_path = worker_dir::execute_artifact(&worker_info.worker_dir_path);
 
 			let Handshake { executor_params } = recv_execute_handshake(&mut stream)?;
 
 			let executor_params: Arc<ExecutorParams> = Arc::new(executor_params);
-			let execute_worker_stack_size = get_max_stack_size(&executor_params, 1);
+			let execute_thread_stack_size = get_max_stack_size(&executor_params, 1);
 			#[cfg(target_os = "linux")]
 			let clone_stack_size = get_max_stack_size(&executor_params, EXECUTE_WORKER_THREAD_NUMBER);
 
@@ -137,6 +134,7 @@ pub fn worker_entrypoint(
 				gum::debug!(
 					target: LOG_TARGET,
 					?worker_info,
+					?security_status,
 					"worker: validating artifact {}",
 					artifact_path.display(),
 				);
@@ -153,7 +151,7 @@ pub fn worker_entrypoint(
 					},
 				};
 
-				let (pipe_reader, pipe_writer) = pipe2_cloexec()?;
+				let (pipe_read_fd, pipe_write_fd) = pipe2_cloexec()?;
 
 				let usage_before = match nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
 					Ok(usage) => usage,
@@ -170,70 +168,50 @@ pub fn worker_entrypoint(
 
 				cfg_if::cfg_if! {
 					if #[cfg(target_os = "linux")] {
-						use polkadot_node_core_pvf_common::worker::security;
-
-						// SAFETY: new process is spawned within a single threaded process. This invariant
-						// is enforced by tests. Stack size being specified to ensure child doesn't overflow
-						let result = match unsafe {
-							security::clone::clone_on_worker(
-								worker_info,
-								Box::new(|| {
-									handle_child_process(
-										pipe_writer,
-										pipe_reader,
-										stream_fd,
-										Arc::clone(&compiled_artifact_blob),
-										Arc::clone(&executor_params),
-										Arc::clone(&params),
-										execution_timeout,
-										execute_worker_stack_size,
-									)
-								}),
+						let result = if security_status.can_do_secure_clone {
+							handle_clone(
+								pipe_write_fd,
+								pipe_read_fd,
+								stream_fd,
+								&compiled_artifact_blob,
+								&executor_params,
+								&params,
+								execution_timeout,
+								execute_thread_stack_size,
 								clone_stack_size,
-							)
-						} {
-							Ok(child) => {
-								handle_parent_process(
-									pipe_reader,
-									pipe_writer,
-									worker_info,
-									child,
-									usage_before,
-									execution_timeout,
-								)?
-							},
-							Err(security::clone::Error::Clone(errno)) => internal_error_from_errno("clone", errno),
+								worker_info,
+								usage_before,
+							)?
+						} else {
+							// Fall back to using fork.
+							handle_fork(
+								pipe_write_fd,
+								pipe_read_fd,
+								stream_fd,
+								&compiled_artifact_blob,
+								&executor_params,
+								&params,
+								execution_timeout,
+								execute_thread_stack_size,
+								worker_info,
+								usage_before,
+							)?
 						};
 					} else {
-						// SAFETY: new process is spawned within a single threaded process. This invariant
-						// is enforced by tests.
-						let result = match unsafe { nix::unistd::fork() } {
-							Err(errno) => internal_error_from_errno("fork", errno),
-							Ok(ForkResult::Child) => {
-								handle_child_process(
-									pipe_writer,
-									pipe_reader,
-									stream_fd,
-									compiled_artifact_blob,
-									executor_params,
-									params,
-									execution_timeout,
-									execute_worker_stack_size,
-								)
-							},
-							Ok(ForkResult::Parent { child }) => {
-								handle_parent_process(
-									pipe_reader,
-									pipe_writer,
-									worker_info,
-									child,
-									usage_before,
-									execution_timeout,
-								)?
-							},
-						};
+						let result = handle_fork(
+							pipe_write_fd,
+							pipe_read_fd,
+							stream_fd,
+							&compiled_artifact_blob,
+							&executor_params,
+							&params,
+							execution_timeout,
+							execute_thread_stack_size,
+							worker_info,
+							usage_before,
+						)?;
 					}
-				};
+				}
 
 				gum::trace!(
 					target: LOG_TARGET,
@@ -274,20 +252,93 @@ fn validate_using_artifact(
 	JobResponse::Ok { result_descriptor }
 }
 
+#[cfg(target_os = "linux")]
+fn handle_clone(
+	pipe_write_fd: i32,
+	pipe_read_fd: i32,
+	stream_fd: i32,
+	compiled_artifact_blob: &Arc<Vec<u8>>,
+	executor_params: &Arc<ExecutorParams>,
+	params: &Arc<Vec<u8>>,
+	execution_timeout: Duration,
+	execute_stack_size: usize,
+	clone_stack_size: usize,
+	worker_info: &WorkerInfo,
+	usage_before: Usage,
+) -> io::Result<WorkerResponse> {
+	use polkadot_node_core_pvf_common::worker::security;
+
+	// SAFETY: new process is spawned within a single threaded process. This invariant
+	// is enforced by tests. Stack size being specified to ensure child doesn't overflow
+	match unsafe {
+		security::clone::clone_on_worker(
+			worker_info,
+			Box::new(|| {
+				handle_child_process(
+					pipe_write_fd,
+					pipe_read_fd,
+					stream_fd,
+					Arc::clone(compiled_artifact_blob),
+					Arc::clone(executor_params),
+					Arc::clone(params),
+					execution_timeout,
+					execute_stack_size,
+				)
+			}),
+			clone_stack_size,
+		)
+	} {
+		Ok(child) => handle_parent_process(
+			pipe_read_fd,
+			pipe_write_fd,
+			worker_info,
+			child,
+			usage_before,
+			execution_timeout,
+		),
+		Err(security::clone::Error::Clone(errno)) => Ok(internal_error_from_errno("clone", errno)),
+	}
+}
+
+fn handle_fork(
+	pipe_write_fd: i32,
+	pipe_read_fd: i32,
+	stream_fd: i32,
+	compiled_artifact_blob: &Arc<Vec<u8>>,
+	executor_params: &Arc<ExecutorParams>,
+	params: &Arc<Vec<u8>>,
+	execution_timeout: Duration,
+	execute_worker_stack_size: usize,
+	worker_info: &WorkerInfo,
+	usage_before: Usage,
+) -> io::Result<WorkerResponse> {
+	// SAFETY: new process is spawned within a single threaded process. This invariant
+	// is enforced by tests.
+	match unsafe { nix::unistd::fork() } {
+		Ok(ForkResult::Child) => handle_child_process(
+			pipe_write_fd,
+			pipe_read_fd,
+			stream_fd,
+			Arc::clone(compiled_artifact_blob),
+			Arc::clone(executor_params),
+			Arc::clone(params),
+			execution_timeout,
+			execute_worker_stack_size,
+		),
+		Ok(ForkResult::Parent { child }) => handle_parent_process(
+			pipe_read_fd,
+			pipe_write_fd,
+			worker_info,
+			child,
+			usage_before,
+			execution_timeout,
+		),
+		Err(errno) => Ok(internal_error_from_errno("fork", errno)),
+	}
+}
+
 /// This is used to handle child process during pvf execute worker.
-/// It execute the artifact and pipes back the response to the parent process
-///
-/// # Arguments
-///
-/// - `pipe_write`: A `PipeWriter` structure, the writing end of a pipe.
-///
-/// - `compiled_artifact_blob`: The artifact bytes from compiled by the prepare worker`.
-///
-/// - `executor_params`: Deterministically serialized execution environment semantics.
-///
-/// - `params`: Validation parameters.
-///
-/// - `execution_timeout`: The timeout in `Duration`.
+/// It executes the artifact and pipes back the response to the parent process.
 ///
 /// # Returns
 ///
@@ -300,9 +351,9 @@ fn handle_child_process(
 	executor_params: Arc<ExecutorParams>,
 	params: Arc<Vec<u8>>,
 	execution_timeout: Duration,
-	execute_worker_stack_size: usize,
+	execute_thread_stack_size: usize,
 ) -> ! {
-	// SAFETY: pipe_writer is an open and owned file descriptor at this point.
+	// SAFETY: this is an open and owned file descriptor at this point.
 	let mut pipe_write = unsafe { PipeFd::new(pipe_write_fd) };
 
 	// Drop the read end so we don't have too many FDs open.
@@ -345,7 +396,7 @@ fn handle_child_process(
 		move || validate_using_artifact(&compiled_artifact_blob, &executor_params, &params),
 		Arc::clone(&condvar),
 		WaitOutcome::Finished,
-		execute_worker_stack_size,
+		execute_thread_stack_size,
 	)
 	.unwrap_or_else(|err| {
 		send_child_response(&mut pipe_write, Err(JobError::CouldNotSpawnThread(err.to_string())))
@@ -417,20 +468,6 @@ fn get_max_stack_size(executor_params: &ExecutorParams, number_of_threads: u32) 
 }
 
 /// Waits for child process to finish and handle child response from pipe.
-///
-/// # Parameters
-///
-/// - `pipe_read_fd`: Refers to pipe read end, used to read data from the child process.
-///
-/// - `pipe_write_fd`: Refers to pipe write end, used to close write end in the parent process.
-///
-/// - `worker_info`: Info about the worker.
-///
-/// - `job_pid`: The child pid.
-///
-/// - `usage_before`: Resource usage statistics before executing the child process.
-///
-/// - `timeout`: The maximum allowed time for the child process to finish.
 ///
 /// # Returns
 ///
