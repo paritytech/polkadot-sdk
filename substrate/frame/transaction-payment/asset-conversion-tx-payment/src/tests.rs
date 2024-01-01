@@ -19,12 +19,14 @@ use frame_support::{
 	assert_ok,
 	dispatch::{DispatchInfo, PostDispatchInfo},
 	pallet_prelude::*,
-	traits::{fungible::Inspect, fungibles::Mutate},
+	traits::{
+		fungible::{Inspect, NativeOrWithId},
+		fungibles::{Inspect as FungiblesInspect, Mutate},
+	},
 	weights::Weight,
 };
 use frame_system as system;
 use mock::{ExtrinsicBaseWeight, *};
-use pallet_asset_conversion::NativeOrAssetId;
 use pallet_balances::Call as BalancesCall;
 use sp_runtime::{traits::StaticLookup, BuildStorage};
 
@@ -110,22 +112,32 @@ fn default_post_info() -> PostDispatchInfo {
 
 fn setup_lp(asset_id: u32, balance_factor: u64) {
 	let lp_provider = 5;
+	let ed = Balances::minimum_balance();
+	let ed_asset = Assets::minimum_balance(asset_id);
 	assert_ok!(Balances::force_set_balance(
 		RuntimeOrigin::root(),
 		lp_provider,
-		10_000 * balance_factor
+		10_000 * balance_factor + ed,
 	));
 	let lp_provider_account = <Runtime as system::Config>::Lookup::unlookup(lp_provider);
-	assert_ok!(Assets::mint_into(asset_id.into(), &lp_provider_account, 10_000 * balance_factor));
+	assert_ok!(Assets::mint_into(
+		asset_id.into(),
+		&lp_provider_account,
+		10_000 * balance_factor + ed_asset
+	));
 
-	let token_1 = NativeOrAssetId::Native;
-	let token_2 = NativeOrAssetId::Asset(asset_id);
-	assert_ok!(AssetConversion::create_pool(RuntimeOrigin::signed(lp_provider), token_1, token_2));
+	let token_1 = NativeOrWithId::Native;
+	let token_2 = NativeOrWithId::WithId(asset_id);
+	assert_ok!(AssetConversion::create_pool(
+		RuntimeOrigin::signed(lp_provider),
+		Box::new(token_1.clone()),
+		Box::new(token_2.clone())
+	));
 
 	assert_ok!(AssetConversion::add_liquidity(
 		RuntimeOrigin::signed(lp_provider),
-		token_1,
-		token_2,
+		Box::new(token_1),
+		Box::new(token_2),
 		1_000 * balance_factor,  // 1 desired
 		10_000 * balance_factor, // 2 desired
 		1,                       // 1 min
@@ -215,8 +227,8 @@ fn transaction_payment_in_asset_possible() {
 
 			let fee_in_native = base_weight + tx_weight + len as u64;
 			let input_quote = AssetConversion::quote_price_tokens_for_exact_tokens(
-				NativeOrAssetId::Asset(asset_id),
-				NativeOrAssetId::Native,
+				NativeOrWithId::WithId(asset_id),
+				NativeOrWithId::Native,
 				fee_in_native,
 				true,
 			);
@@ -324,8 +336,8 @@ fn transaction_payment_without_fee() {
 			let len = 10;
 			let fee_in_native = base_weight + weight + len as u64;
 			let input_quote = AssetConversion::quote_price_tokens_for_exact_tokens(
-				NativeOrAssetId::Asset(asset_id),
-				NativeOrAssetId::Native,
+				NativeOrWithId::WithId(asset_id),
+				NativeOrWithId::Native,
 				fee_in_native,
 				true,
 			);
@@ -342,8 +354,8 @@ fn transaction_payment_without_fee() {
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
 
 			let refund = AssetConversion::quote_price_exact_tokens_for_tokens(
-				NativeOrAssetId::Native,
-				NativeOrAssetId::Asset(asset_id),
+				NativeOrWithId::Native,
+				NativeOrWithId::WithId(asset_id),
 				fee_in_native,
 				true,
 			)
@@ -399,8 +411,8 @@ fn asset_transaction_payment_with_tip_and_refund() {
 			let len = 10;
 			let fee_in_native = base_weight + weight + len as u64 + tip;
 			let input_quote = AssetConversion::quote_price_tokens_for_exact_tokens(
-				NativeOrAssetId::Asset(asset_id),
-				NativeOrAssetId::Native,
+				NativeOrWithId::WithId(asset_id),
+				NativeOrWithId::Native,
 				fee_in_native,
 				true,
 			);
@@ -415,8 +427,8 @@ fn asset_transaction_payment_with_tip_and_refund() {
 			let final_weight = 50;
 			let expected_fee = fee_in_native - final_weight - tip;
 			let expected_token_refund = AssetConversion::quote_price_exact_tokens_for_tokens(
-				NativeOrAssetId::Native,
-				NativeOrAssetId::Asset(asset_id),
+				NativeOrWithId::Native,
+				NativeOrWithId::WithId(asset_id),
 				fee_in_native - expected_fee - tip,
 				true,
 			)
@@ -480,8 +492,8 @@ fn payment_from_account_with_only_assets() {
 			let fee_in_native = base_weight + weight + len as u64;
 			let ed = Balances::minimum_balance();
 			let fee_in_asset = AssetConversion::quote_price_tokens_for_exact_tokens(
-				NativeOrAssetId::Asset(asset_id),
-				NativeOrAssetId::Native,
+				NativeOrWithId::WithId(asset_id),
+				NativeOrWithId::Native,
 				fee_in_native + ed,
 				true,
 			)
@@ -496,8 +508,8 @@ fn payment_from_account_with_only_assets() {
 			assert_eq!(Assets::balance(asset_id, caller), balance - fee_in_asset);
 
 			let refund = AssetConversion::quote_price_exact_tokens_for_tokens(
-				NativeOrAssetId::Native,
-				NativeOrAssetId::Asset(asset_id),
+				NativeOrWithId::Native,
+				NativeOrWithId::WithId(asset_id),
 				ed,
 				true,
 			)
@@ -572,8 +584,8 @@ fn converted_fee_is_never_zero_if_input_fee_is_not() {
 			// validate even a small fee gets converted to asset.
 			let fee_in_native = base_weight + weight + len as u64;
 			let fee_in_asset = AssetConversion::quote_price_tokens_for_exact_tokens(
-				NativeOrAssetId::Asset(asset_id),
-				NativeOrAssetId::Native,
+				NativeOrWithId::WithId(asset_id),
+				NativeOrWithId::Native,
 				fee_in_native,
 				true,
 			)

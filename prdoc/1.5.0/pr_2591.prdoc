@@ -1,0 +1,12 @@
+title: Ensure to cleanup state in `remove_member`
+
+author: bkchr
+topic: runtime
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Cleans up the state properly if a member of a ranked collective is removed.
+
+crates:
+  - name: pallet-ranked-collective
