@@ -27,7 +27,7 @@ use xcm::latest::prelude::*;
 /// In this case the `IS_TRANSACTIONAL` constant should be set to `false`.
 /// The `()` type implements this trait in a non-transactional manner.
 pub trait ProcessTransaction {
-	/// Whether the processor (i.e. the type implementing this trait) is transactional.
+	/// Whether or not the implementor of the this trait is transactional.
 	const IS_TRANSACTIONAL: bool;
 
 	/// Processes an XCM instruction encapsulated within the provided closure. Responsible for
