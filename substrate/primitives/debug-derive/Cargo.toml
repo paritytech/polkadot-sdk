@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 proc-macro = true
 
 [dependencies]
-quote = "1.0.28"
+quote = "1.0.34"
 syn = "2.0.43"
 proc-macro2 = "1.0.56"
 
