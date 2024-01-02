@@ -40,10 +40,9 @@ use polkadot_parachain_primitives::primitives::{
 use xcm::{latest::prelude::*, VersionedXcm};
 use xcm_builder::{
 	Account32Hash, AccountId32Aliases, AllowUnpaidExecutionFrom, ConvertedConcreteId,
-	CurrencyAdapter as XcmCurrencyAdapter, EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds,
-	IsConcrete, NativeAsset, NoChecking, NonFungiblesAdapter, ParentIsPreset,
-	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation,
+	EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds, FungibleAdapter, IsConcrete,
+	NativeAsset, NoChecking, NonFungiblesAdapter, ParentIsPreset, SiblingParachainConvertsVia,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation,
 };
 use xcm_executor::{
 	traits::{ConvertLocation, JustTry},
@@ -165,7 +164,7 @@ impl EnsureOriginWithArg<RuntimeOrigin, MultiLocation> for ForeignCreators {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin(a: &MultiLocation) -> Result<RuntimeOrigin, ()> {
-		Ok(pallet_xcm::Origin::Xcm(a.clone()).into())
+		Ok(pallet_xcm::Origin::Xcm(*a).into())
 	}
 }
 
@@ -202,7 +201,7 @@ parameter_types! {
 }
 
 pub type LocalAssetTransactor = (
-	XcmCurrencyAdapter<Balances, IsConcrete<KsmLocation>, LocationToAccountId, AccountId, ()>,
+	FungibleAdapter<Balances, IsConcrete<KsmLocation>, LocationToAccountId, AccountId, ()>,
 	NonFungiblesAdapter<
 		ForeignUniques,
 		ConvertedConcreteId<MultiLocation, AssetInstance, JustTry, JustTry>,

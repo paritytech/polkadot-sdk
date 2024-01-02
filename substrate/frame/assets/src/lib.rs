@@ -1648,8 +1648,20 @@ pub mod pallet {
 			T::AssetAccountDeposit::get()
 		}
 
-		fn touch(asset: T::AssetId, who: T::AccountId, depositor: T::AccountId) -> DispatchResult {
-			Self::do_touch(asset, who, depositor, false)
+		fn should_touch(asset: T::AssetId, who: &T::AccountId) -> bool {
+			match Asset::<T, I>::get(&asset) {
+				Some(info) if info.is_sufficient => false,
+				Some(_) => !Account::<T, I>::contains_key(asset, who),
+				_ => true,
+			}
+		}
+
+		fn touch(
+			asset: T::AssetId,
+			who: &T::AccountId,
+			depositor: &T::AccountId,
+		) -> DispatchResult {
+			Self::do_touch(asset, who.clone(), depositor.clone(), false)
 		}
 	}
 

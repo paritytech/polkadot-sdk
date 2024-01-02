@@ -10,6 +10,9 @@ description = "Types and traits for interfacing between the host and the wasm ru
 documentation = "https://docs.rs/sp-wasm-interface"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 

@@ -20,17 +20,19 @@ pub mod account {
 	/// Polkadot treasury pallet id, used to convert into AccountId
 	pub const POLKADOT_TREASURY_PALLET_ID: PalletId = PalletId(*b"py/trsry");
 	/// Alliance pallet ID.
-	/// It is used as a temporarily place to deposit a slashed imbalance
-	/// before the teleport to the Treasury.
+	/// Used as a temporary place to deposit a slashed imbalance before teleporting to the Treasury.
 	pub const ALLIANCE_PALLET_ID: PalletId = PalletId(*b"py/allia");
 	/// Referenda pallet ID.
-	/// It is used as a temporarily place to deposit a slashed imbalance
-	/// before the teleport to the Treasury.
+	/// Used as a temporary place to deposit a slashed imbalance before teleporting to the Treasury.
 	pub const REFERENDA_PALLET_ID: PalletId = PalletId(*b"py/refer");
 	/// Ambassador Referenda pallet ID.
-	/// It is used as a temporarily place to deposit a slashed imbalance
-	/// before the teleport to the Treasury.
+	/// Used as a temporary place to deposit a slashed imbalance before teleporting to the Treasury.
 	pub const AMBASSADOR_REFERENDA_PALLET_ID: PalletId = PalletId(*b"py/amref");
+	/// Identity pallet ID.
+	/// Used as a temporary place to deposit a slashed imbalance before teleporting to the Treasury.
+	pub const IDENTITY_PALLET_ID: PalletId = PalletId(*b"py/ident");
+	/// Fellowship treasury pallet ID
+	pub const FELLOWSHIP_TREASURY_PALLET_ID: PalletId = PalletId(*b"py/feltr");
 }
 
 /// Consensus-related.

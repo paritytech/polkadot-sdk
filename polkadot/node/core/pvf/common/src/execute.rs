@@ -109,4 +109,6 @@ pub enum JobError {
 	/// Since the job can return any exit status it wants, we have to treat this as untrusted.
 	#[error("Unexpected exit status: {0}")]
 	UnexpectedExitStatus(i32),
+	#[error("Could not set pdeathsig: {0}")]
+	CouldNotSetPdeathsig(String),
 }
