@@ -35,7 +35,7 @@
 //!	```bash
 //! chain-spec-builder create -r runtime.wasm default
 //! ```
-//!
+//! 
 //! _Note:_ [`GenesisBuilder::create_default_config`][sp-genesis-builder-create] runtime function is
 //! called.
 //!
@@ -81,7 +81,6 @@
 //!
 //! Patch the runtime's default genesis config with provided `patch.json` and generate raw
 //! storage (`-s`) version of chain spec:
-//!
 //! ```bash
 //! chain-spec-builder create -s -r runtime.wasm patch patch.json
 //! ```
@@ -91,7 +90,6 @@
 //! ##### Generate raw storage chain spec using full genesis config.
 //!
 //! Build the chain spec using provided full genesis config json file. No defaults will be used:
-//!
 //! ```bash
 //! chain-spec-builder create -s -r runtime.wasm full full-genesis-config.json
 //! ```
@@ -102,13 +100,12 @@
 //! ```bash
 //! chain-spec-builder create -r runtime.wasm patch patch.json
 //! ```
-//!
+//! 
 //! ##### Generate human readable chain spec using provided full genesis config.
-//!
 //! ```bash
 //! chain-spec-builder create -r runtime.wasm full full-genesis-config.json
 //! ```
-//!
+//! 
 //! ##### Extra tools.
 //! The `chain-spec-builder` provides also some extra utilities: [`VerifyCmd`], [`ConvertToRawCmd`],
 //! [`UpdateCodeCmd`].

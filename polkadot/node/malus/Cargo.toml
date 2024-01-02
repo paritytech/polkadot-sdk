@@ -40,7 +40,7 @@ polkadot-node-primitives = { path = "../primitives" }
 polkadot-primitives = { path = "../../primitives" }
 color-eyre = { version = "0.6.1", default-features = false }
 assert_matches = "1.5"
-async-trait = "0.1.57"
+async-trait = "0.1.74"
 sp-keystore = { path = "../../../substrate/primitives/keystore" }
 sp-core = { path = "../../../substrate/primitives/core" }
 clap = { version = "4.4.11", features = ["derive"] }
