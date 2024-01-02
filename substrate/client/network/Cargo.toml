@@ -10,6 +10,9 @@ repository.workspace = true
 documentation = "https://docs.rs/sc-network"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
@@ -25,7 +28,7 @@ fnv = "1.0.6"
 futures = "0.3.21"
 futures-timer = "3.0.2"
 ip_network = "0.4.1"
-libp2p = { version = "0.51.3", features = ["dns", "identify", "kad", "macros", "mdns", "noise", "ping", "request-response", "tcp", "tokio", "websocket", "yamux"] }
+libp2p = { version = "0.51.4", features = ["dns", "identify", "kad", "macros", "mdns", "noise", "ping", "request-response", "tcp", "tokio", "websocket", "yamux"] }
 linked_hash_set = "0.1.3"
 log = "0.4.17"
 mockall = "0.11.3"

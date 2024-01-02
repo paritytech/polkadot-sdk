@@ -8,6 +8,9 @@ homepage = "https://substrate.io"
 repository.workspace = true
 description = "Bag threshold generation script for pallet-bag-list"
 
+[lints]
+workspace = true
+
 [dependencies]
 # FRAME
 frame-support = { path = "../../../frame/support" }
@@ -17,5 +20,5 @@ pallet-staking = { path = "../../../frame/staking" }
 sp-staking = { path = "../../../primitives/staking" }
 
 # third party
-chrono = { version = "0.4.27" }
+chrono = { version = "0.4.31" }
 num-format = "0.4.3"

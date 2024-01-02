@@ -1,0 +1,12 @@
+title: "Accept Root origin as valid sudo"
+
+doc:
+  - audience: Runtime User
+    description: |
+      Dispatchables of `pallet-sudo` will now also accept the `Root` origin
+      as valid `sudo` origin. This enhancement is useful for parachains that
+      allow the relay chain as a superuser. It enables the relay chain to send
+      an XCM message to initialize the sudo key.
+
+crates:
+  - name: "pallet-sudo"
