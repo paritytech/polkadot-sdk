@@ -280,7 +280,7 @@ parameter_types! {
 }
 
 pub struct EventListenerMock;
-impl OnStakingUpdate<AccountId, Balance, ValidatorPrefs> for EventListenerMock {
+impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 	fn on_slash(
 		_pool_account: &AccountId,
 		slashed_bonded: Balance,

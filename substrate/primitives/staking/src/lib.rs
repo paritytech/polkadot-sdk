@@ -95,7 +95,7 @@ pub struct Stake<Balance> {
 /// pre-action data that is needed needs to be passed to interface methods. The rest of the data can
 /// be retrieved by using `StakingInterface`.
 #[impl_trait_for_tuples::impl_for_tuples(10)]
-pub trait OnStakingUpdate<AccountId, Balance, ValidatorPrefs> {
+pub trait OnStakingUpdate<AccountId, Balance> {
 	/// Fired when the stake amount of someone updates.
 	///
 	/// This is effectively any changes to the bond amount, such as bonding more funds, and
@@ -136,7 +136,9 @@ pub trait OnStakingUpdate<AccountId, Balance, ValidatorPrefs> {
 	fn on_validator_add(_who: &AccountId, _self_stake: Option<Stake<Balance>>) {}
 
 	/// Fired when an existing validator updates their preferences.
-	fn on_validator_update(_who: &AccountId, _prefs: Option<ValidatorPrefs>) {}
+	///
+	/// Note validator preference changes are not communicated, but could be added if needed.
+	fn on_validator_update(_who: &AccountId) {}
 
 	/// Fired when someone removes their intention to validate, either due to chill or nominating.
 	fn on_validator_remove(_who: &AccountId, _self_stake: Option<Stake<Balance>>) {}
