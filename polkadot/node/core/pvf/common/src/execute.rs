@@ -96,4 +96,6 @@ pub enum JobError {
 	CouldNotSpawnThread(String),
 	#[error("An error occurred in the CPU time monitor thread: {0}")]
 	CpuTimeMonitorThread(String),
+	#[error("Could not set pdeathsig: {0}")]
+	CouldNotSetPdeathsig(String),
 }
