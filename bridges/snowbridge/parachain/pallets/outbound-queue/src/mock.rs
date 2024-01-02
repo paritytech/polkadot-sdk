@@ -3,7 +3,7 @@
 use super::*;
 
 use frame_support::{
-	parameter_types,
+	derive_impl, parameter_types,
 	traits::{Everything, Hooks},
 	weights::IdentityFee,
 };
@@ -37,6 +37,7 @@ parameter_types! {
 	pub const BlockHashCount: u64 = 250;
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = Everything;
 	type BlockWeights = ();

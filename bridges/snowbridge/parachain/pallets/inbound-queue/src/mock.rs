@@ -3,7 +3,7 @@
 use super::*;
 
 use frame_support::{
-	parameter_types,
+	derive_impl, parameter_types,
 	traits::{ConstU128, ConstU32, Everything},
 	weights::IdentityFee,
 };
@@ -46,6 +46,7 @@ parameter_types! {
 
 type Balance = u128;
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = Everything;
 	type BlockWeights = ();
