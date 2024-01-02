@@ -130,7 +130,7 @@ fn block1(genesis_hash: Hash, backend: &InMemoryBackend<BlakeTwo256>) -> Vec<u8>
 			from: AccountKeyring::One.into(),
 			to: AccountKeyring::Two.into(),
 			amount: 69 * DOLLARS,
-			nonce: 1,
+			nonce: 0,
 		}],
 	)
 }

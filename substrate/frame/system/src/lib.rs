@@ -298,6 +298,7 @@ pub mod pallet {
 			type BaseCallFilter = frame_support::traits::Everything;
 			type BlockHashCount = frame_support::traits::ConstU64<10>;
 			type OnSetCode = ();
+			type DefaultNonce = ();
 		}
 
 		/// Default configurations of this pallet in a solo-chain environment.
@@ -392,6 +393,9 @@ pub mod pallet {
 
 			/// The set code logic, just the default since we're not a parachain.
 			type OnSetCode = ();
+
+			/// The default nonce when an account is created.
+			type DefaultNonce = ();
 		}
 
 		/// Default configurations of this pallet in a relay-chain environment.
@@ -472,8 +476,7 @@ pub mod pallet {
 			+ MaybeDisplay
 			+ AtLeast32Bit
 			+ Copy
-			+ MaxEncodedLen
-			+ TryFrom<BlockNumberFor<Self>>;
+			+ MaxEncodedLen;
 
 		/// The output of the `Hashing` function.
 		type Hash: Parameter
@@ -572,6 +575,9 @@ pub mod pallet {
 
 		/// The maximum number of consumers allowed on a single account.
 		type MaxConsumers: ConsumerLimits;
+
+		/// The default nonce when an account is created.
+		type DefaultNonce: Get<Self::Nonce>;
 	}
 
 	#[pallet::pallet]
@@ -1041,7 +1047,8 @@ pub type RefCount = u32;
 pub struct AccountInfo<Nonce, AccountData> {
 	/// A value that increases with every transaction that the account has sent.
 	///
-	/// Gets reset when the account gets reaped and is initializes to the current block number.
+	/// Gets reset when the account gets reaped and is initialized to the default nonce as provided
+	/// in the config.
 	pub nonce: Nonce,
 	/// The number of other modules that currently depend on this account's existence. The account
 	/// cannot be reaped until this is zero.
@@ -1065,7 +1072,7 @@ pub struct GetDefaultAccountInfo<T>(PhantomData<T>);
 impl<T: pallet::Config> Get<AccountInfoOf<T>> for GetDefaultAccountInfo<T> {
 	fn get() -> AccountInfoOf<T> {
 		AccountInfo {
-			nonce: pallet::Number::<T>::get().try_into().unwrap_or_default(),
+			nonce: T::DefaultNonce::get(),
 			..Default::default()
 		}
 	}
