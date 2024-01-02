@@ -67,5 +67,4 @@
 273 (set_robust_list)
 293 (pipe2)
 302 (prlimit64)
-318 (getrandom)
 319 (memfd_create)

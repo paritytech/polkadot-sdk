@@ -69,4 +69,3 @@
 293 (pipe2)
 302 (prlimit64)
 309 (getcpu)
-318 (getrandom)
