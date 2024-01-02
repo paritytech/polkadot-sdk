@@ -417,7 +417,7 @@
 					<span class="kw">let </span>(sender, receiver) = std::sync::mpsc::channel();
 					<span class="kw">let </span><span class="kw-2">mut </span>new_sender = subsystem_sender.clone();
 					<span class="kw">let </span>_candidate = candidate.clone();
-					<span class="self">self</span>.spawner.spawn(
+					<span class="self">self</span>.spawner.spawn_blocking(
 						<span class="string">&quot;malus-get-validation-data&quot;</span>,
 						<span class="prelude-val">Some</span>(<span class="string">&quot;malus&quot;</span>),
 						Box::pin(<span class="kw">async move </span>{

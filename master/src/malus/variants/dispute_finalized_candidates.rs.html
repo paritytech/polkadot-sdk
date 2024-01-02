@@ -360,7 +360,7 @@
 
 				<span class="kw">let </span>dispute_offset = <span class="self">self</span>.dispute_offset;
 				<span class="kw">let </span><span class="kw-2">mut </span>sender = subsystem_sender.clone();
-				<span class="self">self</span>.spawner.spawn(
+				<span class="self">self</span>.spawner.spawn_blocking(
 					<span class="string">&quot;malus-dispute-finalized-block&quot;</span>,
 					<span class="prelude-val">Some</span>(<span class="string">&quot;malus&quot;</span>),
 					Box::pin(<span class="kw">async move </span>{
