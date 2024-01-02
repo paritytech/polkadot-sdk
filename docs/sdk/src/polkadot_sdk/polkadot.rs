@@ -48,10 +48,11 @@
 //! * (heterogenous) Sharded Execution: Yet, each parachain is free to have its own execution logic
 //!   (runtime), which also encompasses governance and sovereignty. Moreover, Polkadot ensures the
 //!   correct execution of all parachains, without having all of its validators re-execute all
-//!   parachain blocks. When seen from this perspective, the fact that different Polkadot validators
-//!   execute different parachains means it is a platform that has fully delivered (the holy grail
-//!   of) "Full Execution Sharding".
-//!   Learn about this process called [Approval Checking](https://docs.google.com/presentation/d/1fjiTeT33GpxeM9TyBvxFnSVYR9NiU9SrkA2RBxSL5k8).
+//!   parachain blocks. When seen from this perspective, Polkadot achieves the ability to verify
+//!   the validity of the block execution of multiple parachains using the same set of validators as
+//!   the Relay Chain. In practice, this means that the shards (parachains) share the same economic
+//!   security as the Relay Chain.
+//!   Learn about this process called [Approval Checking](https://polkadot.network/blog/polkadot-v1-0-sharding-and-economic-security#approval-checking-and-finality).
 //! * A framework to build blockchains: In order to materialize the ecosystem of parachains, an easy
 //!   blockchain framework must exist. This is [Substrate](crate::polkadot_sdk::substrate),
 //!   [FRAME](crate::polkadot_sdk::frame_runtime) and [Cumulus](crate::polkadot_sdk::cumulus).
@@ -62,8 +63,8 @@
 //! > Note that the interoperability promised by Polkadot is unparalleled in that any two parachains
 //! > connected to Polkadot have the same security and can have much better guarantees about the
 //! > security of the recipient of any message.
-//! > Bridges enable transactions and information flow between different blockchain networks,
-//! > crucial for Polkadot's multi-chain architecture. However, they can become the network's most
+//! > Bridges enable transaction and information flow between different consensus systems, crucial
+//! > for Polkadot's multi-chain architecture. However, they can become the network's most
 //! > vulnerable points. If a bridge's security measures are weaker than those of the connected
 //! > blockchains, it poses a significant risk. Attackers might exploit these weaknesses to launch
 //! > attacks such as theft or disruption of services.
@@ -90,27 +91,4 @@
 //! - RFC#5: [Coretime-interface](https://github.com/polkadot-fellows/RFCs/blob/main/text/0005-coretime-interface.md):
 //!   Interface for manipulating the usage of cores on the Polkadot Ubiquitous Computer.
 //!
-//! ### Polkadot, a Ubiquitous Computer
-//!
-//! Polkadot can be described as a "ubiquitous computer" based on its architecture. It is evolving
-//! beyond its initial concept into a platform focusing on blockspace (the fundamental resource
-//! chains need) rather than the chains themselves. Polkadot serves as a general-purpose provider
-//! for resilient computation, offering a multicore computer-like environment where various
-//! parachains operate in parallel on different cores. This approach allows applications to access
-//! secure and decentralized computation flexibly and efficiently, marking a shift from a
-//! chain-centric to an application-centric ecosystem.
-//!
-//! #### We can visualize it as follows
-//! [![Polkadot as the Ubiquitous Computer](https://pbs.twimg.com/media/F3qCltlWkAECsWJ?format=jpg&name=medium)](https://twitter.com/filippoweb3/status/1692025249070563413)
-//! Let's break down the "space" layers from the above diagram:
-//! - **Application Space**: This is the space where each parachain's application logic lives as an
-//!   independent, but interconnected, blockchain.
-//! - **Accord Space**: Is the space for opt-in treaties across chains. Treaty's members cannot
-//!   change/undermine the treaty's logic. This allows trustless cross-chain applications.
-//! - **Core Space-time**: This can be seen as the CPU of the Polkadot Ubiquitous Computer, where
-//!   the processes are queued and executed. In oder words, we can say that the *Core Space-time*
-//!   "consumes" *Coretime* using Polkadot computation. Here is where collators send blocks through
-//!   cores to validators for validity and availability checks.
-//!
-//! Additionally, this introduces the concept of **Coretime**. Coretime is the right to use
-//! Polkadot's computing power. Sold through a broker system parachain.
+//! Learn more about [Polkadot as a Computational Resource](https://wiki.polkadot.network/docs/polkadot-direction#polkadot-as-a-computational-resource).
