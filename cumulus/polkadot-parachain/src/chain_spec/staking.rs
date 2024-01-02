@@ -42,7 +42,7 @@ pub fn staking_rococo_development_config() -> GenericChainSpec {
 		properties,
 		"Rococo Staking Development",
 		"staking-rococo-dev",
-		1000,
+		2000,
 	)
 }
 
