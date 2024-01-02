@@ -1,0 +1,17 @@
+title: Adds syntax for marking calls feeless
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Introduces the ability to configure the default nonce. This will also be used if the account is reaped.
+      By default, the current behaviour is maintained and nonce starts from 0.
+
+migrations:
+  db: []
+
+  runtime: []
+
+crates:
+  - name: frame-system
+
+host_functions: []
