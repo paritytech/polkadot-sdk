@@ -1,4 +1,4 @@
-title: Adds syntax for marking calls feeless
+title: Adds ability to configure default nonce
 
 doc:
   - audience: Runtime Dev
