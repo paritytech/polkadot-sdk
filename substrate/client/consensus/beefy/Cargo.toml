@@ -39,11 +39,12 @@ sp-core = { path = "../../../primitives/core" }
 sp-keystore = { path = "../../../primitives/keystore" }
 sp-mmr-primitives = { path = "../../../primitives/merkle-mountain-range" }
 sp-runtime = { path = "../../../primitives/runtime" }
+tokio = "1.22.0"
+
 
 [dev-dependencies]
 serde = "1.0.193"
 tempfile = "3.1.0"
-tokio = "1.22.0"
 sc-block-builder = { path = "../../block-builder" }
 sc-network-test = { path = "../../network/test" }
 sp-consensus-grandpa = { path = "../../../primitives/consensus/grandpa" }
