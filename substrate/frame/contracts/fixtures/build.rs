@@ -73,6 +73,41 @@ impl Entry {
 	fn out_riscv_filename(&self) -> String {
 		format!("{}.polkavm", self.name())
 	}
+
+	/// The output path for the RISC-V polkavm file.
+	///
+	/// # NOTE:
+	///
+	/// This is a temporary workaround.
+	/// We build RISC-V fixtures locally when they are missing or outdated and check them in into
+	/// the repository. This is needed because the CI image does not yet have the RISC-V Rust
+	/// toolchain.
+	fn riscv_output(&self) -> PathBuf {
+		self.path
+			.parent()
+			.unwrap()
+			.parent()
+			.unwrap()
+			.join("rve-bin")
+			.join(self.out_riscv_filename())
+	}
+
+	/// Whether the RISC-V polkavm file needs to be updated.
+	///
+	/// # NOTE:
+	///
+	/// This is a temporary workaround.
+	/// We build RISC-V fixtures locally when they are missing or outdated and check them in into
+	/// the repository. This is needed because the CI image does not yet have the RISC-V Rust
+	/// toolchain.
+	fn should_update_riscv_output(&self) -> bool {
+		if let (Ok(src_meta), Ok(out_meta)) = (self.path.metadata(), self.riscv_output().metadata())
+		{
+			out_meta.modified().unwrap() < src_meta.modified().unwrap()
+		} else {
+			true
+		}
+	}
 }
 
 /// Collect all contract entries from the given source directory.
@@ -87,7 +122,7 @@ fn collect_entries(contracts_dir: &Path, out_dir: &Path) -> Vec<Entry> {
 			}
 
 			let entry = Entry::new(path);
-			if out_dir.join(&entry.hash).exists() {
+			if out_dir.join(&entry.hash).exists() && !entry.should_update_riscv_output() {
 				None
 			} else {
 				Some(entry)
@@ -262,10 +297,12 @@ fn write_output(build_dir: &Path, out_dir: &Path, entries: Vec<Entry>) -> Result
 			&out_dir.join(&wasm_output),
 		)?;
 
-		post_process_riscv(
-			&build_dir.join("target/riscv32em-unknown-none-elf/release").join(&entry.name()),
-			&out_dir.join(&entry.out_riscv_filename()),
-		)?;
+		if entry.should_update_riscv_output() {
+			post_process_riscv(
+				&build_dir.join("target/riscv32em-unknown-none-elf/release").join(&entry.name()),
+				&entry.riscv_output(),
+			)?;
+		}
 
 		fs::write(out_dir.join(&entry.hash), "")?;
 	}
@@ -314,7 +351,10 @@ fn main() -> Result<()> {
 	)?;
 
 	invoke_wasm_build(tmp_dir_path)?;
-	invoke_riscv_build(tmp_dir_path)?;
+
+	if entries.iter().any(|entry| entry.should_update_riscv_output()) {
+		invoke_riscv_build(tmp_dir_path)?;
+	}
 	write_output(tmp_dir_path, &out_dir, entries)?;
 
 	Ok(())
