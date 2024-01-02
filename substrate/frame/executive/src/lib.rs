@@ -531,8 +531,10 @@ where
 
 		let runtime_upgrade_weight = <(
 			COnRuntimeUpgrade,
-			AllPalletsWithSystem,
 			<System as frame_system::Config>::SingleBlockMigrations,
+			// We want to run the migrations before we call into the pallets as they may
+			// access any state that would then not be migrated.
+			AllPalletsWithSystem,
 		) as OnRuntimeUpgrade>::on_runtime_upgrade();
 
 		before_all_weight.saturating_add(runtime_upgrade_weight)

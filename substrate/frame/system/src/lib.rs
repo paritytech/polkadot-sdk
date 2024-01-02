@@ -588,6 +588,8 @@ pub mod pallet {
 		///
 		/// These used to be formerly configured in `Executive`. Parachains need to ensure that
 		/// running all these migrations in one block will not overflow the weight limit of a block.
+		/// The migrations are run *before* the pallet `on_runtime_upgrade` hooks, just like the
+		/// `OnRuntimeUpgrade` migrations.
 		type SingleBlockMigrations: OnRuntimeUpgrade;
 
 		/// The migrator that is used to run Multi-Block-Migrations.
