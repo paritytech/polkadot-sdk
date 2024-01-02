@@ -697,7 +697,6 @@ fn set_code_rejects_during_mbm() {
 	});
 }
 
-
 #[test]
 fn set_code_via_authorization_works() {
 	let executor = substrate_test_runtime_client::new_native_or_wasm_executor();
