@@ -94,7 +94,7 @@ fn find_process_by_sid_and_name(
 	found
 }
 
-/// Sets up the test and makes sure everything gets cleaned up after.
+/// Sets up the test.
 ///
 /// We run the runtime manually because `#[tokio::test]` doesn't work in `rusty_fork_test!`.
 fn test_wrapper<F, Fut>(f: F)
@@ -112,9 +112,6 @@ where
 
 		// Pass a clone of the host so that it does not get dropped after.
 		f(host.clone(), sid).await;
-
-		// Sleep to give processes a chance to get cleaned up, preventing races in the next step.
-		tokio::time::sleep(Duration::from_millis(500)).await;
 	});
 }
 
@@ -122,7 +119,7 @@ where
 // then finding the child process that matches the session ID and expected process name and doing
 // something with that child.
 rusty_fork_test! {
-	// Everything succeeded. All created subprocesses for jobs should get cleaned up, to avoid memory leaks.
+	// Everything succeeds.
 	#[test]
 	fn successful_prepare_and_validate() {
 		test_wrapper(|host, _sid| async move {
