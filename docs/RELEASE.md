@@ -19,7 +19,10 @@ We try to follow SemVer<sup>1</sup> as best as possible for versioning our crate
 
 - @bkchr the list of node internals please
 
-The public API of our library crates is declared as all public items that are not inside a `__private` module.
+The public API of our library crates is declared as all public items that are neither:
+- Inside a `__private` module
+- Documented as `unstable` or `experimental` in the first line of docs
+- Bear `unstable` or `experimental` in their path or name
 
 ## Node
 
