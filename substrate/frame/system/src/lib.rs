@@ -1421,10 +1421,15 @@ impl<T: Config> Pallet<T> {
 		Self::deposit_event(Event::CodeUpdated);
 	}
 
+	/// Whether all inherents have been applied.
 	pub fn inherents_applied() -> bool {
 		InherentsApplied::<T>::get()
 	}
 
+	/// Note that all inherents have been applied.
+	///
+	/// Should be called immediately after all inherents have been applied. Must be called at least
+	/// once per block.
 	pub fn note_inherents_applied() {
 		InherentsApplied::<T>::put(true);
 	}

@@ -363,14 +363,13 @@ where
 			}
 		}
 
-		// post-extrinsics book-keeping
-		<frame_system::Pallet<System>>::note_finished_extrinsics();
-
 		// In this case there were no transactions to trigger this state transition:
 		if !<frame_system::Pallet<System>>::inherents_applied() {
 			Self::inherents_applied();
 		}
 
+		// post-extrinsics book-keeping
+		<frame_system::Pallet<System>>::note_finished_extrinsics();
 		<System as frame_system::Config>::PostTransactions::post_transactions();
 
 		Self::on_idle_hook(*header.number());
@@ -651,7 +650,6 @@ where
 			}
 
 			Self::apply_extrinsics(extrinsics.into_iter());
-			<frame_system::Pallet<System>>::note_finished_extrinsics();
 
 			// In this case there were no transactions to trigger this state transition:
 			if !<frame_system::Pallet<System>>::inherents_applied() {
@@ -659,6 +657,7 @@ where
 				Self::inherents_applied();
 			}
 
+			<frame_system::Pallet<System>>::note_finished_extrinsics();
 			<System as frame_system::Config>::PostTransactions::post_transactions();
 
 			Self::on_idle_hook(*header.number());
@@ -703,12 +702,12 @@ where
 		sp_io::init_tracing();
 		sp_tracing::enter_span!(sp_tracing::Level::TRACE, "finalize_block");
 
-		<frame_system::Pallet<System>>::note_finished_extrinsics();
 		// In this case there were no transactions to trigger this state transition:
 		if !<frame_system::Pallet<System>>::inherents_applied() {
 			Self::inherents_applied();
 		}
 
+		<frame_system::Pallet<System>>::note_finished_extrinsics();
 		<System as frame_system::Config>::PostTransactions::post_transactions();
 		let block_number = <frame_system::Pallet<System>>::block_number();
 		Self::on_idle_hook(block_number);

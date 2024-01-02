@@ -321,10 +321,6 @@ pub mod pallet {
 
 		/// Weight information for the calls and functions of this pallet.
 		type WeightInfo: WeightInfo;
-
-		// Helper config for setting up benchmarking.
-		//#[cfg(feature = "runtime-benchmarks")]
-		//type BenchmarkSetup: BenchmarkSetup;
 	}
 
 	/// The currently active migration to run and its cursor.
