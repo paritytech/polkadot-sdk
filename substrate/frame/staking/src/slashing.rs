@@ -50,9 +50,9 @@
 //! Based on research at <https://research.web3.foundation/en/latest/polkadot/slashing/npos.html>
 
 use crate::{
-	BalanceOf, Config, DisabledValidators, DisablingDecision, DisablingDecisionContext,
-	DisablingStrategy, Error, Exposure, NegativeImbalanceOf, NominatorSlashInEra, Pallet, Perbill,
-	SessionInterface, SpanSlash, UnappliedSlash, ValidatorSlashInEra,
+	BalanceOf, Config, DisabledValidators, DisablingDecisionContext, DisablingStrategy, Error,
+	Exposure, NegativeImbalanceOf, NominatorSlashInEra, Pallet, Perbill, SessionInterface,
+	SpanSlash, UnappliedSlash, ValidatorSlashInEra,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
@@ -321,7 +321,7 @@ fn kick_out_if_recent<T: Config>(params: SlashParams<T>) {
 }
 
 /// Inform the [`DisablingStrategy`] implementation about the new offender and disable the list of
-/// validators provided by [`DisablingDecision`].
+/// validators provided by [`make_disabling_decision`].
 fn add_offending_validator<T: Config>(params: &SlashParams<T>) {
 	let stash = params.stash;
 	DisabledValidators::<T>::mutate(|disabled| {
@@ -333,7 +333,7 @@ fn add_offending_validator<T: Config>(params: &SlashParams<T>) {
 
 		let validator_index_u32 = validator_index as u32;
 
-		let DisablingDecision { disable_offenders } = T::DisablingStrategy::make_disabling_decision(
+		let disable_offenders = T::DisablingStrategy::make_disabling_decision(
 			DisablingDecisionContext {
 				offender_idx: validator_index as u32,
 				slash_era: params.slash_era,

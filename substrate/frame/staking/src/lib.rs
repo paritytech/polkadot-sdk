@@ -1224,12 +1224,6 @@ impl BenchmarkingConfig for TestBenchmarkingConfig {
 	type MaxNominators = frame_support::traits::ConstU32<100>;
 }
 
-/// A result from a disabling decision made by [`DisablingStrategy`].
-pub struct DisablingDecision {
-	/// List of validator indices that should be disabled.
-	disable_offenders: Vec<u32>,
-}
-
 /// Input data for [`make_disabling_decision`]. Provides information about the offence so that the
 /// implementation of [`DisablingStrategy`] can make a decision how to handle the offender.
 pub struct DisablingDecisionContext {
@@ -1240,13 +1234,13 @@ pub struct DisablingDecisionContext {
 
 /// Controls validator disabling
 pub trait DisablingStrategy<T: Config> {
-	/// Make a decision if an offender should be disabled or not. The result is an instance of
-	/// `[DisablingDecision]`
+	/// Make a decision if an offender should be disabled or not. The result is a `Vec` of validator
+	/// indices that should be disabled
 	fn make_disabling_decision(
 		offence_ctx: DisablingDecisionContext,
 		currently_disabled: &Vec<u32>,
 		active_set: &Vec<T::AccountId>,
-	) -> DisablingDecision;
+	) -> Vec<u32>;
 }
 
 /// Implementation of [`DisablingStrategy`] which disables no more than 1/3 of the validators in the
@@ -1266,7 +1260,7 @@ impl<T: Config> DisablingStrategy<T> for UpToByzantineThresholdDisablingStrategy
 		offence_ctx: DisablingDecisionContext,
 		currently_disabled: &Vec<u32>,
 		active_set: &Vec<T::AccountId>,
-	) -> DisablingDecision {
+	) -> Vec<u32> {
 		// We don't disable more than 1/3 of the validators in the active set
 		let over_byzantine_threshold =
 			currently_disabled.len() >= Self::byzantine_threshold(active_set.len());
@@ -1279,6 +1273,6 @@ impl<T: Config> DisablingStrategy<T> for UpToByzantineThresholdDisablingStrategy
 			vec![offence_ctx.offender_idx]
 		};
 
-		DisablingDecision { disable_offenders }
+		disable_offenders
 	}
 }
