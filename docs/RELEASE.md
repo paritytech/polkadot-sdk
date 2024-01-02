@@ -43,17 +43,15 @@ The Westend testnet will be updated to the new runtime version immediately after
 
 Backporting refers to the practice of re-applying a patch to a branch that is behind the branch where the patch was originally applied.
 
-## From `master` to `release`
+**From `master` to `release`**  
+Backports in this direction can be anything that is audited and not a breaking SemVer change. Specifically, [security fixes](#bug-and-security-fix) should be prioritized over Features and Improvements.
 
-Backports in this direction can be anything that is audited and not a breaking SemVer change. Specifically, [security fixes](#bug-and-security-fix) should be prioritized over Features/Improvements.
-
-## From `release` to `master`
-
+**From `release` to `master`**  
 Should not be needed. The `release` branch can get out of sync and will be synced with the [Clobbering](#clobbering) process.
 
 # Processes
 
-The following processes are necessary to actualize our releases. Each process has a *Cadence* on which it must execute and a *Responsible* that is responsible for autonomously doing so and reporting back any error in the RelEng<sup>2</sup> channel.
+The following processes are necessary to actualize our releases. Each process has a *Cadence* on which it must execute and a *Responsible* that is responsible for autonomously doing so and reporting back any error in the RelEng<sup>2</sup> channel. All processes should be automated as much as possible.
 
 ## Crate Bumping
 
@@ -72,7 +70,7 @@ Following SemVer isn't easy, but there exists [a guide](https://doc.rust-lang.or
 
 Cadence: every two weeks. Responsible: Release Team.
 
-This process aims to release the `release` branch as a *Mainline* release every two weeks. It should eventually be automated.
+This process aims to release the `release` branch as a *Mainline* release every two weeks.
 
 ### Steps
 
@@ -91,9 +89,9 @@ This process aims to release the `release` branch as a *Mainline* release every 
 
 ## Nightly Release
 
-Cadence: every day at 00:00 UTC+1. Responsible: Release Team
+Cadence: every day at 00:00 UTC. Responsible: Release Team
 
-This process aims to release the `master` branch as a *Nightly* release. The process can start at 00:00 UTC+1 and should automatically do the following steps.
+This process aims to release the `master` branch as a *Nightly* release. The process can start at 00:00 UTC and should automatically do the following steps.
 
 1. Check out the latest commit of branch `master`.
 2. Compare this commit to the latest `nightly*` tag and abort if there are no changes detected.
