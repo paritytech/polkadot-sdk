@@ -1,5 +1,5 @@
 # this file copies from scripts/ci/dockerfiles/Dockerfile and changes only the binary name
-FROM docker.io/library/ubuntu:22.04
+FROM docker.io/library/ubuntu:20.04
 
 # metadata
 ARG VCS_REF
