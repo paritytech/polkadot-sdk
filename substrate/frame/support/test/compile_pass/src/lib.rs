@@ -76,11 +76,6 @@ impl renamed_frame_system::Config for Runtime {
 	type MaxConsumers = ConstU32<16>;
 	type SystemWeightInfo = ();
 	type SS58Prefix = ConstU16<0>;
-	type SingleBlockMigrations = ();
-	type MultiBlockMigrator = ();
-	type PreInherents = ();
-	type PostInherents = ();
-	type PostTransactions = ();
 }
 
 pub type Header = generic::Header<BlockNumber, BlakeTwo256>;

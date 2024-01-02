@@ -234,11 +234,6 @@ impl frame_system::Config for Runtime {
 	type SystemWeightInfo = ();
 	type OnSetCode = ();
 	type MaxConsumers = ConstU32<16>;
-	type SingleBlockMigrations = ();
-	type MultiBlockMigrator = ();
-	type PreInherents = ();
-	type PostInherents = ();
-	type PostTransactions = ();
 }
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
