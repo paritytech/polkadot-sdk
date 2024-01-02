@@ -85,6 +85,13 @@
 <a href="#85" id="85">85</a>
 <a href="#86" id="86">86</a>
 <a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! # Polkadot
 //!
 //! Implementation of the Polkadot node/host in Rust.
@@ -110,7 +117,7 @@
 //!
 //! ## Platform
 //!
-//! In this section, we examine what what platform Polkadot exactly provides to developers.
+//! In this section, we examine what platform Polkadot exactly provides to developers.
 //!
 //! ### Polkadot White Paper
 //!
@@ -134,10 +141,12 @@
 //!   Chain*&quot;).
 //! * (heterogenous) Sharded Execution: Yet, each parachain is free to have its own execution logic
 //!   (runtime), which also encompasses governance and sovereignty. Moreover, Polkadot ensures the
-//!   correct execution of all parachain, without having all of its validators re-execute all
-//!   parachain blocks. When seen from this perspective, the fact that Polkadot executes different
-//!   parachains means it is a platform that has fully delivered (the holy grail of) &quot;Full Execution
-//!   Sharding&quot;. TODO: link to approval checking article. &lt;https://github.com/paritytech/polkadot-sdk-docs/issues/66&gt;
+//!   correct execution of all parachains, without having all of its validators re-execute all
+//!   parachain blocks. When seen from this perspective, Polkadot achieves the ability to verify
+//!   the validity of the block execution of multiple parachains using the same set of validators as
+//!   the Relay Chain. In practice, this means that the shards (parachains) share the same economic
+//!   security as the Relay Chain.
+//!   Learn about this process called [Approval Checking](https://polkadot.network/blog/polkadot-v1-0-sharding-and-economic-security#approval-checking-and-finality).
 //! * A framework to build blockchains: In order to materialize the ecosystem of parachains, an easy
 //!   blockchain framework must exist. This is [Substrate](crate::polkadot_sdk::substrate),
 //!   [FRAME](crate::polkadot_sdk::frame_runtime) and [Cumulus](crate::polkadot_sdk::cumulus).
@@ -147,7 +156,12 @@
 //!
 //! &gt; Note that the interoperability promised by Polkadot is unparalleled in that any two parachains
 //! &gt; connected to Polkadot have the same security and can have much better guarantees about the
-//! &gt; security of the recipient of any message. TODO: weakest link in bridges systems. &lt;https://github.com/paritytech/polkadot-sdk-docs/issues/66&gt;
+//! &gt; security of the recipient of any message.
+//! &gt; Bridges enable transaction and information flow between different consensus systems, crucial
+//! &gt; for Polkadot&#39;s multi-chain architecture. However, they can become the network&#39;s most
+//! &gt; vulnerable points. If a bridge&#39;s security measures are weaker than those of the connected
+//! &gt; blockchains, it poses a significant risk. Attackers might exploit these weaknesses to launch
+//! &gt; attacks such as theft or disruption of services.
 //!
 //! Polkadot delivers the above vision, alongside a flexible means for parachains to schedule
 //! themselves with the Relay Chain. To achieve this, Polkadot has been developed with an
@@ -170,6 +184,6 @@
 //!   Agile periodic-sale-based model for assigning Coretime on the Polkadot Ubiquitous Computer.
 //! - RFC#5: [Coretime-interface](https://github.com/polkadot-fellows/RFCs/blob/main/text/0005-coretime-interface.md):
 //!   Interface for manipulating the usage of cores on the Polkadot Ubiquitous Computer.
-</span><span class="comment">// TODO: add more context and explanations about Polkadot as the Ubiquitous Computer and related
-// tech. &lt;https://github.com/paritytech/polkadot-sdk-docs/issues/66&gt;
+//!
+//! Learn more about [Polkadot as a Computational Resource](https://wiki.polkadot.network/docs/polkadot-direction#polkadot-as-a-computational-resource).
 </span></code></pre></div></section></main></body></html>
