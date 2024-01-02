@@ -32,6 +32,7 @@ sp-core = { path = "../../primitives/core" }
 
 [features]
 default = ["std"]
+
 std = [
 	"codec/std",
 	"enumflags2/std",

@@ -307,6 +307,28 @@ fn offboard_works() {
 }
 
 #[test]
+fn infinite_demotion_period_works() {
+	new_test_ext().execute_with(|| {
+		let params = ParamsType {
+			active_salary: [10; 9],
+			passive_salary: [10; 9],
+			min_promotion_period: [10; 9],
+			demotion_period: [0; 9],
+			offboard_timeout: 0,
+		};
+		assert_ok!(CoreFellowship::set_params(signed(1), Box::new(params)));
+
+		set_rank(0, 0);
+		assert_ok!(CoreFellowship::import(signed(0)));
+		set_rank(1, 1);
+		assert_ok!(CoreFellowship::import(signed(1)));
+
+		assert_noop!(CoreFellowship::bump(signed(0), 0), Error::<Test>::NothingDoing);
+		assert_noop!(CoreFellowship::bump(signed(0), 1), Error::<Test>::NothingDoing);
+	});
+}
+
+#[test]
 fn proof_postpones_auto_demote() {
 	new_test_ext().execute_with(|| {
 		set_rank(10, 5);
