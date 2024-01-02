@@ -24,8 +24,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use primitives::{
-	vstaging::AsyncBackingParams, Balance, ExecutorParams, SessionIndex,
-	ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
+	AsyncBackingParams, Balance, ExecutorParams, SessionIndex, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
 use sp_runtime::Perbill;
 use sp_std::vec::Vec;
@@ -251,7 +250,7 @@ on_demand_fee_variability                : Perbill::from_percent(3),
 on_demand_target_queue_utilization       : Perbill::from_percent(25),
 on_demand_ttl                            : 5u32.into(),
 		}
-	};
+};
 
 	let v7 = v7::ActiveConfig::<T>::get()
 		.defensive_proof("Could not decode old config")

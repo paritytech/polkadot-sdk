@@ -22,6 +22,7 @@
 use codec::Encode;
 use futures::future::ready;
 use parking_lot::RwLock;
+use sc_transaction_pool::ChainApi;
 use sp_blockchain::{CachedHeaderMetadata, TreeRoute};
 use sp_runtime::{
 	generic::{self, BlockId},
@@ -237,9 +238,14 @@ impl TestApi {
 	) -> Result<sp_blockchain::TreeRoute<Block>, Error> {
 		sp_blockchain::tree_route(self, from, to)
 	}
+
+	/// Helper function for mapping block number to hash. Use if mapping shall not fail.
+	pub fn expect_hash_from_number(&self, n: BlockNumber) -> Hash {
+		self.block_id_to_hash(&BlockId::Number(n)).unwrap().unwrap()
+	}
 }
 
-impl sc_transaction_pool::ChainApi for TestApi {
+impl ChainApi for TestApi {
 	type Block = Block;
 	type Error = Error;
 	type ValidationFuture = futures::future::Ready<Result<TransactionValidity, Error>>;
@@ -247,13 +253,13 @@ impl sc_transaction_pool::ChainApi for TestApi {
 
 	fn validate_transaction(
 		&self,
-		at: &BlockId<Self::Block>,
+		at: <Self::Block as BlockT>::Hash,
 		_source: TransactionSource,
 		uxt: <Self::Block as BlockT>::Extrinsic,
 	) -> Self::ValidationFuture {
 		self.validation_requests.write().push(uxt.clone());
 
-		match self.block_id_to_number(at) {
+		match self.block_id_to_number(&BlockId::Hash(at)) {
 			Ok(Some(number)) => {
 				let found_best = self
 					.chain

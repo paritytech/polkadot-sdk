@@ -2,25 +2,26 @@ name: Check licenses
 
 on:
   pull_request:
+  merge_group:
 
 permissions:
   packages: read
 
 jobs:
   check-licenses:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     env:
       LICENSES: "'Apache-2.0' 'GPL-3.0-only' 'GPL-3.0-or-later WITH Classpath-exception-2.0'"
       NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
-      - uses: actions/setup-node@v3.8.1
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/setup-node@v4.0.1
         with:
           node-version: "18.x"
           registry-url: "https://npm.pkg.github.com"
           scope: "@paritytech"
-        
+
       - name: Check the licenses in Polkadot
         run: |
           shopt -s globstar

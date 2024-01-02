@@ -25,7 +25,7 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{
-	vstaging::{AsyncBackingParams, BackingState, Constraints, InboundHrmpLimitations},
+	async_backing::{AsyncBackingParams, BackingState, Constraints, InboundHrmpLimitations},
 	CommittedCandidateReceipt, HeadData, Header, PersistedValidationData, ScheduledCore,
 	ValidationCodeHash,
 };
@@ -101,11 +101,8 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 
 	let mut view = View::new();
 	let subsystem = async move {
-		loop {
-			match run_iteration(&mut context, &mut view, &Metrics(None)).await {
-				Ok(()) => break,
-				Err(e) => panic!("{:?}", e),
-			}
+		if let Err(e) = run_iteration(&mut context, &mut view, &Metrics(None)).await {
+			panic!("{:?}", e);
 		}
 
 		view
@@ -219,7 +216,7 @@ async fn handle_leaf_activation(
 	assert_matches!(
 		virtual_overseer.recv().await,
 		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(parent, RuntimeApiRequest::StagingAsyncBackingParams(tx))
+			RuntimeApiMessage::Request(parent, RuntimeApiRequest::AsyncBackingParams(tx))
 		) if parent == *hash => {
 			tx.send(Ok(async_backing_params)).unwrap();
 		}
@@ -284,7 +281,7 @@ async fn handle_leaf_activation(
 		let para_id = match message {
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				_,
-				RuntimeApiRequest::StagingParaBackingState(p_id, _),
+				RuntimeApiRequest::ParaBackingState(p_id, _),
 			)) => p_id,
 			_ => panic!("received unexpected message {:?}", message),
 		};
@@ -303,7 +300,7 @@ async fn handle_leaf_activation(
 		assert_matches!(
 			message,
 			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(parent, RuntimeApiRequest::StagingParaBackingState(p_id, tx))
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::ParaBackingState(p_id, tx))
 			) if parent == *hash && p_id == para_id => {
 				tx.send(Ok(Some(backing_state))).unwrap();
 			}
@@ -499,7 +496,7 @@ fn should_do_no_work_if_async_backing_disabled_for_leaf() {
 		assert_matches!(
 			virtual_overseer.recv().await,
 			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(parent, RuntimeApiRequest::StagingAsyncBackingParams(tx))
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::AsyncBackingParams(tx))
 			) if parent == hash => {
 				tx.send(Err(ASYNC_BACKING_DISABLED_ERROR)).unwrap();
 			}
@@ -1569,7 +1566,7 @@ fn uses_ancestry_only_within_session() {
 		assert_matches!(
 			virtual_overseer.recv().await,
 			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(parent, RuntimeApiRequest::StagingAsyncBackingParams(tx))
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::AsyncBackingParams(tx))
 			) if parent == hash => {
 				tx.send(Ok(AsyncBackingParams { max_candidate_depth: 0, allowed_ancestry_len: ancestry_len })).unwrap();
 			}

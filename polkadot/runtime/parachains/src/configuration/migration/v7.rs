@@ -23,7 +23,7 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use primitives::{vstaging::AsyncBackingParams, Balance, ExecutorParams, SessionIndex};
+use primitives::{AsyncBackingParams, Balance, ExecutorParams, SessionIndex};
 use sp_std::vec::Vec;
 
 use frame_support::traits::OnRuntimeUpgrade;

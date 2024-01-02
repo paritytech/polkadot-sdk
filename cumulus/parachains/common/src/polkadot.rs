@@ -20,13 +20,19 @@ pub mod account {
 	/// Polkadot treasury pallet id, used to convert into AccountId
 	pub const POLKADOT_TREASURY_PALLET_ID: PalletId = PalletId(*b"py/trsry");
 	/// Alliance pallet ID.
-	/// It is used as a temporarily place to deposit a slashed imbalance
-	/// before the teleport to the Treasury.
+	/// Used as a temporary place to deposit a slashed imbalance before teleporting to the Treasury.
 	pub const ALLIANCE_PALLET_ID: PalletId = PalletId(*b"py/allia");
 	/// Referenda pallet ID.
-	/// It is used as a temporarily place to deposit a slashed imbalance
-	/// before the teleport to the Treasury.
+	/// Used as a temporary place to deposit a slashed imbalance before teleporting to the Treasury.
 	pub const REFERENDA_PALLET_ID: PalletId = PalletId(*b"py/refer");
+	/// Ambassador Referenda pallet ID.
+	/// Used as a temporary place to deposit a slashed imbalance before teleporting to the Treasury.
+	pub const AMBASSADOR_REFERENDA_PALLET_ID: PalletId = PalletId(*b"py/amref");
+	/// Identity pallet ID.
+	/// Used as a temporary place to deposit a slashed imbalance before teleporting to the Treasury.
+	pub const IDENTITY_PALLET_ID: PalletId = PalletId(*b"py/ident");
+	/// Fellowship treasury pallet ID
+	pub const FELLOWSHIP_TREASURY_PALLET_ID: PalletId = PalletId(*b"py/feltr");
 }
 
 /// Consensus-related.
@@ -44,19 +50,19 @@ pub mod consensus {
 /// Constants relating to DOT.
 pub mod currency {
 	use polkadot_core_primitives::Balance;
-	use polkadot_runtime_constants as constants;
 
 	/// The existential deposit. Set to 1/10 of its parent Relay Chain.
-	pub const EXISTENTIAL_DEPOSIT: Balance = constants::currency::EXISTENTIAL_DEPOSIT / 10;
+	pub const EXISTENTIAL_DEPOSIT: Balance = 100 * CENTS / 10;
 
-	pub const UNITS: Balance = constants::currency::UNITS;
-	pub const DOLLARS: Balance = constants::currency::DOLLARS;
-	pub const CENTS: Balance = constants::currency::CENTS;
-	pub const MILLICENTS: Balance = constants::currency::MILLICENTS;
+	pub const UNITS: Balance = 10_000_000_000;
+	pub const DOLLARS: Balance = UNITS; // 10_000_000_000
+	pub const GRAND: Balance = DOLLARS * 1_000; // 10_000_000_000_000
+	pub const CENTS: Balance = DOLLARS / 100; // 100_000_000
+	pub const MILLICENTS: Balance = CENTS / 1_000; // 100_000
 
 	pub const fn deposit(items: u32, bytes: u32) -> Balance {
 		// 1/100 of Polkadot
-		constants::currency::deposit(items, bytes) / 100
+		(items as Balance * 20 * DOLLARS + (bytes as Balance) * 100 * MILLICENTS) / 100
 	}
 }
 

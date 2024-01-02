@@ -101,9 +101,8 @@
 //! unsigned transaction, thus the name _unsigned_ phase. This unsigned transaction can never be
 //! valid if propagated, and it acts similar to an inherent.
 //!
-//! Validators will only submit solutions if the one that they have computed is sufficiently better
-//! than the best queued one (see [`pallet::Config::BetterUnsignedThreshold`]) and will limit the
-//! weight of the solution to [`MinerConfig::MaxWeight`].
+//! Validators will only submit solutions if the one that they have computed is strictly better than
+//! the best queued one and will limit the weight of the solution to [`MinerConfig::MaxWeight`].
 //!
 //! The unsigned phase can be made passive depending on how the previous signed phase went, by
 //! setting the first inner value of [`Phase`] to `false`. For now, the signed phase is always
@@ -279,8 +278,8 @@ use unsigned::VoterOf;
 pub use weights::WeightInfo;
 
 pub use signed::{
-	BalanceOf, NegativeImbalanceOf, PositiveImbalanceOf, SignedSubmission, SignedSubmissionOf,
-	SignedSubmissions, SubmissionIndicesOf,
+	BalanceOf, GeometricDepositBase, NegativeImbalanceOf, PositiveImbalanceOf, SignedSubmission,
+	SignedSubmissionOf, SignedSubmissions, SubmissionIndicesOf,
 };
 pub use unsigned::{Miner, MinerConfig};
 
@@ -572,6 +571,7 @@ pub mod pallet {
 	use frame_election_provider_support::{InstantElectionProvider, NposSolver};
 	use frame_support::{pallet_prelude::*, traits::EstimateCallFee};
 	use frame_system::pallet_prelude::*;
+	use sp_runtime::traits::Convert;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config + SendTransactionTypes<Call<Self>> {
@@ -596,11 +596,6 @@ pub mod pallet {
 		/// "better" in the Signed phase.
 		#[pallet::constant]
 		type BetterSignedThreshold: Get<Perbill>;
-
-		/// The minimum amount of improvement to the solution score that defines a solution as
-		/// "better" in the Unsigned phase.
-		#[pallet::constant]
-		type BetterUnsignedThreshold: Get<Perbill>;
 
 		/// The repeat threshold of the offchain worker.
 		///
@@ -649,10 +644,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type SignedRewardBase: Get<BalanceOf<Self>>;
 
-		/// Base deposit for a signed solution.
-		#[pallet::constant]
-		type SignedDepositBase: Get<BalanceOf<Self>>;
-
 		/// Per-byte deposit for a signed solution.
 		#[pallet::constant]
 		type SignedDepositByte: Get<BalanceOf<Self>>;
@@ -667,6 +658,10 @@ pub mod pallet {
 		/// Note: This must always be greater or equal to `T::DataProvider::desired_targets()`.
 		#[pallet::constant]
 		type MaxWinners: Get<u32>;
+
+		/// Something that calculates the signed deposit base based on the signed submissions queue
+		/// size.
+		type SignedDepositBase: Convert<usize, BalanceOf<Self>>;
 
 		/// The maximum number of electing voters and electable targets to put in the snapshot.
 		/// At the moment, snapshots are only over a single block, but once multi-block elections
@@ -1023,6 +1018,7 @@ pub mod pallet {
 
 			// ensure solution is timely.
 			ensure!(Self::current_phase().is_signed(), Error::<T>::PreDispatchEarlySubmission);
+			ensure!(raw_solution.round == Self::round(), Error::<T>::PreDispatchDifferentRound);
 
 			// NOTE: this is the only case where having separate snapshot would have been better
 			// because could do just decode_len. But we can create abstractions to do this.
@@ -1196,6 +1192,8 @@ pub mod pallet {
 		BoundNotMet,
 		/// Submitted solution has too many winners
 		TooManyWinners,
+		/// Sumission was prepared for a different round.
+		PreDispatchDifferentRound,
 	}
 
 	#[pallet::validate_unsigned]
@@ -2364,7 +2362,7 @@ mod tests {
 			assert_eq!(MultiPhase::desired_targets().unwrap(), 2);
 
 			// mine seq_phragmen solution with 2 iters.
-			let (solution, witness) = MultiPhase::mine_solution().unwrap();
+			let (solution, witness, _) = MultiPhase::mine_solution().unwrap();
 
 			// ensure this solution is valid.
 			assert!(MultiPhase::queued_solution().is_none());
@@ -2646,7 +2644,7 @@ mod tests {
 			// set the solution balancing to get the desired score.
 			crate::mock::Balancing::set(Some(BalancingConfig { iterations: 2, tolerance: 0 }));
 
-			let (solution, _) = MultiPhase::mine_solution().unwrap();
+			let (solution, _, _) = MultiPhase::mine_solution().unwrap();
 			// Default solution's score.
 			assert!(matches!(solution.score, ElectionScore { minimal_stake: 50, .. }));
 

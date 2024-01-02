@@ -20,12 +20,13 @@ use polkadot_node_primitives::{BabeAllowedSlots, BabeEpoch, BabeEpochConfigurati
 use polkadot_node_subsystem::SpawnGlue;
 use polkadot_node_subsystem_test_helpers::make_subsystem_context;
 use polkadot_primitives::{
-	vstaging, AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateEvent,
-	CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams,
-	GroupRotationInfo, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage,
-	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
-	SessionIndex, SessionInfo, Slot, ValidationCode, ValidationCodeHash, ValidatorId,
-	ValidatorIndex, ValidatorSignature,
+	async_backing, slashing,
+	vstaging::{ApprovalVotingParams, NodeFeatures},
+	AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
+	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo,
+	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption,
+	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
+	Slot, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use sp_api::ApiError;
 use sp_core::testing::TaskExecutor;
@@ -213,7 +214,7 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 	async fn unapplied_slashes(
 		&self,
 		_: Hash,
-	) -> Result<Vec<(SessionIndex, CandidateHash, vstaging::slashing::PendingSlashes)>, ApiError> {
+	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>, ApiError> {
 		todo!("Not required for tests")
 	}
 
@@ -221,15 +222,15 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 		&self,
 		_: Hash,
 		_: ValidatorId,
-	) -> Result<Option<vstaging::slashing::OpaqueKeyOwnershipProof>, ApiError> {
+	) -> Result<Option<slashing::OpaqueKeyOwnershipProof>, ApiError> {
 		todo!("Not required for tests")
 	}
 
 	async fn submit_report_dispute_lost(
 		&self,
 		_: Hash,
-		_: vstaging::slashing::DisputeProof,
-		_: vstaging::slashing::OpaqueKeyOwnershipProof,
+		_: slashing::DisputeProof,
+		_: slashing::OpaqueKeyOwnershipProof,
 	) -> Result<Option<()>, ApiError> {
 		todo!("Not required for tests")
 	}
@@ -242,6 +243,15 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 		todo!("Not required for tests")
 	}
 
+	/// Approval voting configuration parameters
+	async fn approval_voting_params(
+		&self,
+		_: Hash,
+		_: SessionIndex,
+	) -> Result<ApprovalVotingParams, ApiError> {
+		todo!("Not required for tests")
+	}
+
 	async fn current_epoch(&self, _: Hash) -> Result<sp_consensus_babe::Epoch, ApiError> {
 		Ok(self.babe_epoch.as_ref().unwrap().clone())
 	}
@@ -250,22 +260,30 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 		Ok(self.authorities.clone())
 	}
 
-	async fn staging_async_backing_params(
+	async fn async_backing_params(
 		&self,
 		_: Hash,
-	) -> Result<vstaging::AsyncBackingParams, ApiError> {
+	) -> Result<async_backing::AsyncBackingParams, ApiError> {
 		todo!("Not required for tests")
 	}
 
-	async fn staging_para_backing_state(
+	async fn para_backing_state(
 		&self,
 		_: Hash,
 		_: ParaId,
-	) -> Result<Option<vstaging::BackingState>, ApiError> {
+	) -> Result<Option<async_backing::BackingState>, ApiError> {
 		todo!("Not required for tests")
 	}
 
 	async fn minimum_backing_votes(&self, _: Hash, _: SessionIndex) -> Result<u32, ApiError> {
+		todo!("Not required for tests")
+	}
+
+	async fn node_features(&self, _: Hash) -> Result<NodeFeatures, ApiError> {
+		todo!("Not required for tests")
+	}
+
+	async fn disabled_validators(&self, _: Hash) -> Result<Vec<ValidatorIndex>, ApiError> {
 		todo!("Not required for tests")
 	}
 }

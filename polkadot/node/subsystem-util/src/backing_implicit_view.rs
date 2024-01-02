@@ -20,7 +20,7 @@ use polkadot_node_subsystem::{
 	messages::{ChainApiMessage, ProspectiveParachainsMessage},
 	SubsystemSender,
 };
-use polkadot_primitives::vstaging::{BlockNumber, Hash, Id as ParaId};
+use polkadot_primitives::{BlockNumber, Hash, Id as ParaId};
 
 use std::collections::HashMap;
 
