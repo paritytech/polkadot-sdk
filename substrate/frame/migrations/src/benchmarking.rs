@@ -83,7 +83,7 @@ mod benches {
 		let c = ActiveCursor { index: 0, inner_cursor: None, started_at: 0u32.into() };
 
 		let id: IdentifierOf<T> = T::Migrations::nth_id(0).unwrap().try_into().unwrap();
-		Historic::<T>::insert(&id, ());
+		Historic::<T>::insert(id, ());
 
 		let mut meter = WeightMeter::with_limit(T::MaxServiceWeight::get());
 		System::<T>::set_block_number(1u32.into());
