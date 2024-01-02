@@ -28,7 +28,7 @@ use pallet_xcm::XcmPassthrough;
 use parachains_common::{
 	impls::ToStakingPot,
 	xcm_config::{
-		AllSiblingSystemParachains, ConcreteNativeAssetFrom, ParentRelayOrSiblingParachains,
+		AllSiblingSystemParachains, ConcreteAssetFromSystem, ParentRelayOrSiblingParachains,
 		RelayOrOtherSystemParachains,
 	},
 	TREASURY_PALLET_ID,
@@ -140,15 +140,22 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 
 		matches!(
 			call,
-			RuntimeCall::PolkadotXcm(pallet_xcm::Call::force_xcm_version { .. }) |
-				RuntimeCall::System(
-					frame_system::Call::set_heap_pages { .. } |
+			RuntimeCall::PolkadotXcm(
+				pallet_xcm::Call::force_xcm_version { .. } |
+					pallet_xcm::Call::force_default_xcm_version { .. }
+			) | RuntimeCall::System(
+				frame_system::Call::set_heap_pages { .. } |
 						frame_system::Call::set_code { .. } |
 						frame_system::Call::set_code_without_checks { .. } |
-						frame_system::Call::kill_prefix { .. },
-				) | RuntimeCall::ParachainSystem(..) |
+						frame_system::Call::authorize_upgrade { .. } |
+						frame_system::Call::authorize_upgrade_without_checks { .. } |
+						frame_system::Call::kill_prefix { .. } |
+						// Should not be in Polkadot/Kusama. Here in order to speed up testing.
+						frame_system::Call::set_storage { .. },
+			) | RuntimeCall::ParachainSystem(..) |
 				RuntimeCall::Timestamp(..) |
 				RuntimeCall::Balances(..) |
+				RuntimeCall::Sudo(..) |
 				RuntimeCall::CollatorSelection(..) |
 				RuntimeCall::Session(pallet_session::Call::purge_keys { .. }) |
 				RuntimeCall::XcmpQueue(..) |
@@ -187,8 +194,7 @@ parameter_types! {
 	pub RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
 }
 
-/// Locations that will not be charged fees in the executor,
-/// either execution or delivery.
+/// Locations that will not be charged fees in the executor, neither for execution nor delivery.
 /// We only waive fees for system functions, which these locations represent.
 pub type WaivedLocations = (
 	RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
@@ -205,7 +211,7 @@ impl xcm_executor::Config for XcmConfig {
 	// where allowed (e.g. with the Relay Chain).
 	type IsReserve = ();
 	/// Only allow teleportation of ROC.
-	type IsTeleporter = ConcreteNativeAssetFrom<RocRelayLocation>;
+	type IsTeleporter = ConcreteAssetFromSystem<RocRelayLocation>;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = WeightInfoBounds<

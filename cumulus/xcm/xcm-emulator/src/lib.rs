@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-pub use codec::{Decode, Encode, EncodeLike};
+pub use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 pub use lazy_static::lazy_static;
 pub use log;
 pub use paste;
@@ -59,9 +59,13 @@ pub use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueu
 
 // Polkadot
 pub use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
-pub use xcm::v3::prelude::{
-	Ancestor, MultiAssets, MultiLocation, Parachain as ParachainJunction, Parent, WeightLimit,
-	XcmHash, X1,
+use sp_core::crypto::AccountId32;
+pub use xcm::{
+	prelude::{AccountId32 as AccountId32Junction, Here},
+	v3::prelude::{
+		Ancestor, MultiAssets, MultiLocation, Parachain as ParachainJunction, Parent, WeightLimit,
+		XcmHash, X1,
+	},
 };
 pub use xcm_executor::traits::ConvertLocation;
 
@@ -245,7 +249,7 @@ pub trait Parachain: Chain {
 	type LocationToAccountId: ConvertLocation<AccountIdOf<Self::Runtime>>;
 	type ParachainInfo: Get<ParaId>;
 	type ParachainSystem;
-	type MessageProcessor: ProcessMessage<Origin = CumulusAggregateMessageOrigin> + ServiceQueues;
+	type MessageProcessor: ProcessMessage + ServiceQueues;
 
 	fn init();
 
@@ -576,7 +580,7 @@ macro_rules! decl_test_parachains {
 					XcmpMessageHandler: $xcmp_message_handler:path,
 					LocationToAccountId: $location_to_account:path,
 					ParachainInfo: $parachain_info:path,
-					// MessageProcessor: $message_processor:path,
+					MessageOrigin: $message_origin:path,
 				},
 				pallets = {
 					$($pallet_name:ident: $pallet_path:path,)*
@@ -615,7 +619,7 @@ macro_rules! decl_test_parachains {
 				type LocationToAccountId = $location_to_account;
 				type ParachainSystem = $crate::ParachainSystemPallet<<Self as $crate::Chain>::Runtime>;
 				type ParachainInfo = $parachain_info;
-				type MessageProcessor = $crate::DefaultParaMessageProcessor<$name<N>>;
+				type MessageProcessor = $crate::DefaultParaMessageProcessor<$name<N>, $message_origin>;
 
 				// We run an empty block during initialisation to open HRMP channels
 				// and have them ready for the next block
@@ -1007,7 +1011,7 @@ macro_rules! decl_test_networks {
 									<$parachain<Self>>::ext_wrapper(|| {
 										let _ =  <$parachain<Self> as Parachain>::MessageProcessor::process_message(
 											&msg[..],
-											$crate::CumulusAggregateMessageOrigin::Parent,
+											$crate::CumulusAggregateMessageOrigin::Parent.into(),
 											&mut weight_meter,
 											&mut msg.using_encoded($crate::blake2_256),
 										);
@@ -1313,17 +1317,23 @@ macro_rules! decl_test_sender_receiver_accounts_parameter_types {
 	};
 }
 
-pub struct DefaultParaMessageProcessor<T>(PhantomData<T>);
+pub struct DefaultParaMessageProcessor<T, M>(PhantomData<(T, M)>);
 // Process HRMP messages from sibling paraids
-impl<T> ProcessMessage for DefaultParaMessageProcessor<T>
+impl<T, M> ProcessMessage for DefaultParaMessageProcessor<T, M>
 where
+	M: codec::FullCodec
+		+ MaxEncodedLen
+		+ Clone
+		+ Eq
+		+ PartialEq
+		+ frame_support::pallet_prelude::TypeInfo
+		+ Debug,
 	T: Parachain,
 	T::Runtime: MessageQueueConfig,
-	<<T::Runtime as MessageQueueConfig>::MessageProcessor as ProcessMessage>::Origin:
-		PartialEq<CumulusAggregateMessageOrigin>,
-	MessageQueuePallet<T::Runtime>: EnqueueMessage<CumulusAggregateMessageOrigin> + ServiceQueues,
+	<<T::Runtime as MessageQueueConfig>::MessageProcessor as ProcessMessage>::Origin: PartialEq<M>,
+	MessageQueuePallet<T::Runtime>: EnqueueMessage<M> + ServiceQueues,
 {
-	type Origin = CumulusAggregateMessageOrigin;
+	type Origin = M;
 
 	fn process_message(
 		msg: &[u8],
@@ -1340,13 +1350,13 @@ where
 		Ok(true)
 	}
 }
-impl<T> ServiceQueues for DefaultParaMessageProcessor<T>
+impl<T, M> ServiceQueues for DefaultParaMessageProcessor<T, M>
 where
+	M: MaxEncodedLen,
 	T: Parachain,
 	T::Runtime: MessageQueueConfig,
-	<<T::Runtime as MessageQueueConfig>::MessageProcessor as ProcessMessage>::Origin:
-		PartialEq<CumulusAggregateMessageOrigin>,
-	MessageQueuePallet<T::Runtime>: EnqueueMessage<CumulusAggregateMessageOrigin> + ServiceQueues,
+	<<T::Runtime as MessageQueueConfig>::MessageProcessor as ProcessMessage>::Origin: PartialEq<M>,
+	MessageQueuePallet<T::Runtime>: EnqueueMessage<M> + ServiceQueues,
 {
 	type OverweightMessageAddress = ();
 
@@ -1429,6 +1439,41 @@ pub struct TestArgs {
 	pub asset_id: Option<u32>,
 	pub fee_asset_item: u32,
 	pub weight_limit: WeightLimit,
+}
+
+impl TestArgs {
+	/// Returns a [`TestArgs`] instance to be used for the Relay Chain across integration tests.
+	pub fn new_relay(dest: MultiLocation, beneficiary_id: AccountId32, amount: Balance) -> Self {
+		Self {
+			dest,
+			beneficiary: AccountId32Junction { network: None, id: beneficiary_id.into() }.into(),
+			amount,
+			assets: (Here, amount).into(),
+			asset_id: None,
+			fee_asset_item: 0,
+			weight_limit: WeightLimit::Unlimited,
+		}
+	}
+
+	/// Returns a [`TestArgs`] instance to be used for parachains across integration tests.
+	pub fn new_para(
+		dest: MultiLocation,
+		beneficiary_id: AccountId32,
+		amount: Balance,
+		assets: MultiAssets,
+		asset_id: Option<u32>,
+		fee_asset_item: u32,
+	) -> Self {
+		Self {
+			dest,
+			beneficiary: AccountId32Junction { network: None, id: beneficiary_id.into() }.into(),
+			amount,
+			assets,
+			asset_id,
+			fee_asset_item,
+			weight_limit: WeightLimit::Unlimited,
+		}
+	}
 }
 
 /// Auxiliar struct to help creating a new `Test` instance

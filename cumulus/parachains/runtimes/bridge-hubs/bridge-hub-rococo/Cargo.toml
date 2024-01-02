@@ -106,6 +106,21 @@ pallet-bridge-relayers = { path = "../../../../../bridges/modules/relayers", def
 pallet-xcm-bridge-hub = { path = "../../../../../bridges/modules/xcm-bridge-hub", default-features = false }
 bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common", default-features = false }
 
+# Ethereum Bridge (Snowbridge)
+snowbridge-beacon-primitives = { path = "../../../../../bridges/snowbridge/parachain/primitives/beacon", default-features = false }
+snowbridge-system = { path = "../../../../../bridges/snowbridge/parachain/pallets/system", default-features = false }
+snowbridge-system-runtime-api = { path = "../../../../../bridges/snowbridge/parachain/pallets/system/runtime-api", default-features = false }
+snowbridge-core = { path = "../../../../../bridges/snowbridge/parachain/primitives/core", default-features = false }
+snowbridge-ethereum-beacon-client = { path = "../../../../../bridges/snowbridge/parachain/pallets/ethereum-beacon-client", default-features = false }
+snowbridge-inbound-queue = { path = "../../../../../bridges/snowbridge/parachain/pallets/inbound-queue", default-features = false }
+snowbridge-outbound-queue = { path = "../../../../../bridges/snowbridge/parachain/pallets/outbound-queue", default-features = false }
+snowbridge-outbound-queue-runtime-api = { path = "../../../../../bridges/snowbridge/parachain/pallets/outbound-queue/runtime-api", default-features = false }
+snowbridge-router-primitives = { path = "../../../../../bridges/snowbridge/parachain/primitives/router", default-features = false }
+snowbridge-runtime-common = { path = "../../../../../bridges/snowbridge/parachain/runtime/runtime-common", default-features = false }
+snowbridge-rococo-common = { path = "../../../../../bridges/snowbridge/parachain/runtime/rococo-common", default-features = false }
+
+bridge-hub-common = { path = "../common", default-features = false }
+
 [dev-dependencies]
 static_assertions = "1.1"
 bridge-hub-test-utils = { path = "../test-utils" }
@@ -115,7 +130,7 @@ bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common", fe
 sp-keyring = { path = "../../../../../substrate/primitives/keyring" }
 
 [features]
-default = ["std"]
+default = ["beacon-spec-mainnet", "std"]
 std = [
 	"bp-asset-hub-rococo/std",
 	"bp-asset-hub-westend/std",
@@ -131,6 +146,7 @@ std = [
 	"bp-rococo/std",
 	"bp-runtime/std",
 	"bp-westend/std",
+	"bridge-hub-common/std",
 	"bridge-runtime-common/std",
 	"codec/std",
 	"cumulus-pallet-aura-ext/std",
@@ -174,6 +190,17 @@ std = [
 	"rococo-runtime-constants/std",
 	"scale-info/std",
 	"serde",
+	"snowbridge-beacon-primitives/std",
+	"snowbridge-core/std",
+	"snowbridge-ethereum-beacon-client/std",
+	"snowbridge-inbound-queue/std",
+	"snowbridge-outbound-queue-runtime-api/std",
+	"snowbridge-outbound-queue/std",
+	"snowbridge-rococo-common/std",
+	"snowbridge-router-primitives/std",
+	"snowbridge-runtime-common/std",
+	"snowbridge-system-runtime-api/std",
+	"snowbridge-system/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
@@ -189,12 +216,15 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
+	"substrate-wasm-builder",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]
 
 runtime-benchmarks = [
+	"beacon-spec-mainnet",
+	"bridge-hub-common/runtime-benchmarks",
 	"bridge-runtime-common/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-session-benchmarking/runtime-benchmarks",
@@ -221,6 +251,14 @@ runtime-benchmarks = [
 	"parachains-common/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
+	"snowbridge-core/runtime-benchmarks",
+	"snowbridge-ethereum-beacon-client/runtime-benchmarks",
+	"snowbridge-inbound-queue/runtime-benchmarks",
+	"snowbridge-outbound-queue/runtime-benchmarks",
+	"snowbridge-rococo-common/runtime-benchmarks",
+	"snowbridge-router-primitives/runtime-benchmarks",
+	"snowbridge-runtime-common/runtime-benchmarks",
+	"snowbridge-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
@@ -253,10 +291,17 @@ try-runtime = [
 	"pallet-xcm/try-runtime",
 	"parachain-info/try-runtime",
 	"polkadot-runtime-common/try-runtime",
+	"snowbridge-ethereum-beacon-client/try-runtime",
+	"snowbridge-inbound-queue/try-runtime",
+	"snowbridge-outbound-queue/try-runtime",
+	"snowbridge-system/try-runtime",
 	"sp-runtime/try-runtime",
 ]
 
 experimental = ["pallet-aura/experimental"]
+beacon-spec-mainnet = [
+	"snowbridge-ethereum-beacon-client/beacon-spec-mainnet",
+]
 
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
