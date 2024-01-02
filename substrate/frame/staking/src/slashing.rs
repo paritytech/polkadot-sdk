@@ -50,9 +50,9 @@
 //! Based on research at <https://research.web3.foundation/en/latest/polkadot/slashing/npos.html>
 
 use crate::{
-	BalanceOf, Config, DisabledValidators, DisablingDecisionContext, DisablingStrategy, Error,
-	Exposure, NegativeImbalanceOf, NominatorSlashInEra, Pallet, Perbill, SessionInterface,
-	SpanSlash, UnappliedSlash, ValidatorSlashInEra,
+	BalanceOf, Config, DisabledValidators, DisablingStrategy, Error, Exposure, NegativeImbalanceOf,
+	NominatorSlashInEra, Pallet, Perbill, SessionInterface, SpanSlash, UnappliedSlash,
+	ValidatorSlashInEra,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
@@ -334,11 +334,8 @@ fn add_offending_validator<T: Config>(params: &SlashParams<T>) {
 		let validator_index_u32 = validator_index as u32;
 
 		let disable_offenders = T::DisablingStrategy::make_disabling_decision(
-			DisablingDecisionContext {
-				offender_idx: validator_index as u32,
-				slash_era: params.slash_era,
-				era_now: params.now,
-			},
+			validator_index as u32,
+			params.slash_era,
 			&disabled,
 			&validators,
 		);

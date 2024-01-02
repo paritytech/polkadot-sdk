@@ -1224,20 +1224,13 @@ impl BenchmarkingConfig for TestBenchmarkingConfig {
 	type MaxNominators = frame_support::traits::ConstU32<100>;
 }
 
-/// Input data for [`make_disabling_decision`]. Provides information about the offence so that the
-/// implementation of [`DisablingStrategy`] can make a decision how to handle the offender.
-pub struct DisablingDecisionContext {
-	pub offender_idx: u32,
-	pub slash_era: EraIndex,
-	pub era_now: EraIndex,
-}
-
 /// Controls validator disabling
 pub trait DisablingStrategy<T: Config> {
 	/// Make a decision if an offender should be disabled or not. The result is a `Vec` of validator
 	/// indices that should be disabled
 	fn make_disabling_decision(
-		offence_ctx: DisablingDecisionContext,
+		offender_idx: u32,
+		slash_era: EraIndex,
 		currently_disabled: &Vec<u32>,
 		active_set: &Vec<T::AccountId>,
 	) -> Vec<u32>;
@@ -1257,7 +1250,8 @@ impl UpToByzantineThresholdDisablingStrategy {
 
 impl<T: Config> DisablingStrategy<T> for UpToByzantineThresholdDisablingStrategy {
 	fn make_disabling_decision(
-		offence_ctx: DisablingDecisionContext,
+		offender_idx: u32,
+		slash_era: EraIndex,
 		currently_disabled: &Vec<u32>,
 		active_set: &Vec<T::AccountId>,
 	) -> Vec<u32> {
@@ -1265,13 +1259,10 @@ impl<T: Config> DisablingStrategy<T> for UpToByzantineThresholdDisablingStrategy
 		let over_byzantine_threshold =
 			currently_disabled.len() >= Self::byzantine_threshold(active_set.len());
 		// We don't disable for offences in previous eras
-		let ancient_offence = offence_ctx.era_now > offence_ctx.slash_era;
+		let ancient_offence = Pallet::<T>::current_era().unwrap_or(1) > slash_era;
 
-		let disable_offenders = if over_byzantine_threshold || ancient_offence {
-			vec![]
-		} else {
-			vec![offence_ctx.offender_idx]
-		};
+		let disable_offenders =
+			if over_byzantine_threshold || ancient_offence { vec![] } else { vec![offender_idx] };
 
 		disable_offenders
 	}
