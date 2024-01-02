@@ -3,7 +3,7 @@
 use crate as snowbridge_system;
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{tokens::fungible::Mutate, ConstU128, ConstU16, ConstU64, ConstU8},
+	traits::{tokens::fungible::Mutate, ConstU128, ConstU64, ConstU8},
 	weights::IdentityFee,
 	PalletId,
 };
