@@ -8,8 +8,8 @@ homepage = "https://substrate.io"
 repository.workspace = true
 description = "Exposes all the host functions that a contract can import."
 
-# TODO: uncomment while rve toolchain is >= 1.74
 # [lints]
+# TODO: uncomment when rve toolchain is updated to rust 1.74 or greater.
 # workspace = true
 
 [dependencies]
