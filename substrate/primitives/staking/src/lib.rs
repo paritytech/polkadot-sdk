@@ -95,24 +95,34 @@ pub struct Stake<Balance> {
 /// pre-action data that is needed needs to be passed to interface methods. The rest of the data can
 /// be retrieved by using `StakingInterface`.
 #[impl_trait_for_tuples::impl_for_tuples(10)]
-pub trait OnStakingUpdate<AccountId, Balance> {
+pub trait OnStakingUpdate<AccountId, Balance, ValidatorPrefs> {
 	/// Fired when the stake amount of someone updates.
 	///
 	/// This is effectively any changes to the bond amount, such as bonding more funds, and
 	/// unbonding.
-	fn on_stake_update(_who: &AccountId, _prev_stake: Option<Stake<Balance>>) {}
+	fn on_stake_update(
+		_who: &AccountId,
+		_prev_stake: Option<Stake<Balance>>,
+		_stake: Stake<Balance>,
+	) {
+	}
 
 	/// Fired when someone sets their intention to nominate.
 	///
 	/// This should never be fired for existing nominators.
-	fn on_nominator_add(_who: &AccountId) {}
+	fn on_nominator_add(_who: &AccountId, _nominations: Vec<AccountId>) {}
 
 	/// Fired when an existing nominator updates their nominations.
 	///
 	/// Note that this is not fired when a nominator changes their stake. For that,
 	/// `on_stake_update` should be used, followed by querying whether `who` was a validator or a
 	/// nominator.
-	fn on_nominator_update(_who: &AccountId, _prev_nominations: Vec<AccountId>) {}
+	fn on_nominator_update(
+		_who: &AccountId,
+		_prev_nominations: Vec<AccountId>,
+		_nominations: Vec<AccountId>,
+	) {
+	}
 
 	/// Fired when someone removes their intention to nominate, either due to chill or validating.
 	///
@@ -123,15 +133,13 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 	/// Fired when someone sets their intention to validate.
 	///
 	/// Note validator preference changes are not communicated, but could be added if needed.
-	fn on_validator_add(_who: &AccountId) {}
+	fn on_validator_add(_who: &AccountId, _self_stake: Option<Stake<Balance>>) {}
 
 	/// Fired when an existing validator updates their preferences.
-	///
-	/// Note validator preference changes are not communicated, but could be added if needed.
-	fn on_validator_update(_who: &AccountId) {}
+	fn on_validator_update(_who: &AccountId, _prefs: Option<ValidatorPrefs>) {}
 
 	/// Fired when someone removes their intention to validate, either due to chill or nominating.
-	fn on_validator_remove(_who: &AccountId) {}
+	fn on_validator_remove(_who: &AccountId, _self_stake: Option<Stake<Balance>>) {}
 
 	/// Fired when someone is fully unstaked.
 	fn on_unstake(_who: &AccountId) {}
