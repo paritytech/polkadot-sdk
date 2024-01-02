@@ -372,13 +372,13 @@ pub mod pallet {
 				)?;
 			}
 			if old_deposit > id.deposit {
-				T::Currency::release(
+				let result = T::Currency::release(
 					&HoldReason::IdentityDeposit.into(),
 					&sender,
 					old_deposit - id.deposit,
 					Precision::Exact,
-				)
-				.unwrap();
+				);
+				debug_assert!(result.is_ok());
 			}
 
 			let judgements = id.judgements.len();
@@ -432,13 +432,13 @@ pub mod pallet {
 					new_deposit - old_deposit,
 				)?;
 			} else if old_deposit > new_deposit {
-				T::Currency::release(
+				let result = T::Currency::release(
 					&HoldReason::IdentityDeposit.into(),
 					&sender,
 					old_deposit - new_deposit,
 					Precision::Exact,
-				)
-				.unwrap();
+				);
+				debug_assert!(result.is_ok());
 			}
 			// do nothing if they're equal.
 
@@ -489,13 +489,13 @@ pub mod pallet {
 				<SuperOf<T>>::remove(sub);
 			}
 
-			T::Currency::release(
+			let result = T::Currency::release(
 				&HoldReason::IdentityDeposit.into(),
 				&sender,
 				deposit,
 				Precision::Exact,
-			)
-			.unwrap();
+			);
+			debug_assert!(result.is_ok());
 
 			Self::deposit_event(Event::IdentityCleared { who: sender, deposit });
 
@@ -593,8 +593,13 @@ pub mod pallet {
 				return Err(Error::<T>::JudgementGiven.into())
 			};
 
-			T::Currency::release(&HoldReason::RegistrarFee.into(), &sender, fee, Precision::Exact)
-				.unwrap();
+			let result = T::Currency::release(
+				&HoldReason::RegistrarFee.into(),
+				&sender,
+				fee,
+				Precision::Exact,
+			);
+			debug_assert!(result.is_ok());
 			let judgements = id.judgements.len();
 			<IdentityOf<T>>::insert(&sender, id);
 
@@ -881,13 +886,13 @@ pub mod pallet {
 				sub_ids.retain(|x| x != &sub);
 				let deposit = T::SubAccountDeposit::get().min(*subs_deposit);
 				*subs_deposit -= deposit;
-				T::Currency::release(
+				let result = T::Currency::release(
 					&HoldReason::IdentityDeposit.into(),
 					&sender,
 					deposit,
 					Precision::Exact,
-				)
-				.unwrap();
+				);
+				debug_assert!(result.is_ok());
 				Self::deposit_event(Event::SubIdentityRemoved { sub, main: sender, deposit });
 			});
 			Ok(())
@@ -949,13 +954,13 @@ impl<T: Config> Pallet<T> {
 		if new > current {
 			T::Currency::hold(&HoldReason::IdentityDeposit.into(), who, new - current)?;
 		} else if new < current {
-			T::Currency::release(
+			let result = T::Currency::release(
 				&HoldReason::IdentityDeposit.into(),
 				who,
 				current - new,
 				Precision::Exact,
-			)
-			.unwrap();
+			);
+			debug_assert!(result.is_ok());
 		}
 		Ok(())
 	}
@@ -997,8 +1002,13 @@ impl<T: Config> Pallet<T> {
 
 		// release any deposits
 		let deposit = id.total_deposit().saturating_add(subs_deposit);
-		T::Currency::release(&HoldReason::IdentityDeposit.into(), &who, deposit, Precision::Exact)
-			.unwrap();
+		let result = T::Currency::release(
+			&HoldReason::IdentityDeposit.into(),
+			&who,
+			deposit,
+			Precision::Exact,
+		);
+		debug_assert!(result.is_ok());
 		Ok((registrars, encoded_byte_size, actual_subs))
 	}
 
