@@ -276,7 +276,11 @@ pub mod pallet {
 		/// receives.
 		///
 		/// WARNING: this only reports slashing events for the time being.
-		type EventListeners: sp_staking::OnStakingUpdate<Self::AccountId, BalanceOf<Self>, ValidatorPrefs>;
+		type EventListeners: sp_staking::OnStakingUpdate<
+			Self::AccountId,
+			BalanceOf<Self>,
+			ValidatorPrefs,
+		>;
 
 		/// Some parameters of the benchmarking.
 		type BenchmarkingConfig: BenchmarkingConfig;
