@@ -10,7 +10,6 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-async-semaphore = "1.2.0"
 async-trait = "0.1.74"
 futures = "0.3.21"
 futures-timer = "3.0.2"

@@ -23,7 +23,6 @@
 #![deny(unused_crate_dependencies, unused_results)]
 #![warn(missing_docs)]
 
-use async_semaphore::Semaphore;
 use polkadot_node_core_pvf::{
 	InternalValidationError, InvalidCandidate as WasmInvalidCandidate, PossiblyInvalidError,
 	PrepareError, PrepareJobKind, PvfPrepData, ValidationError, ValidationHost,
