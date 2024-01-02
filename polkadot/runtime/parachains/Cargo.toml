@@ -31,11 +31,13 @@ sp-core = { path = "../../../substrate/primitives/core", default-features = fals
 sp-keystore = { path = "../../../substrate/primitives/keystore", optional = true }
 sp-application-crypto = { path = "../../../substrate/primitives/application-crypto", default-features = false, optional = true }
 sp-tracing = { path = "../../../substrate/primitives/tracing", default-features = false, optional = true }
+sp-arithmetic = { path = "../../../substrate/primitives/arithmetic", default-features = false }
 
 pallet-authority-discovery = { path = "../../../substrate/frame/authority-discovery", default-features = false }
 pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false }
 pallet-balances = { path = "../../../substrate/frame/balances", default-features = false }
 pallet-babe = { path = "../../../substrate/frame/babe", default-features = false }
+pallet-broker = { path = "../../../substrate/frame/broker", default-features = false }
 pallet-message-queue = { path = "../../../substrate/frame/message-queue", default-features = false }
 pallet-session = { path = "../../../substrate/frame/session", default-features = false }
 pallet-staking = { path = "../../../substrate/frame/staking", default-features = false }
@@ -82,6 +84,7 @@ std = [
 	"pallet-authorship/std",
 	"pallet-babe/std",
 	"pallet-balances/std",
+	"pallet-broker/std",
 	"pallet-message-queue/std",
 	"pallet-session/std",
 	"pallet-staking/std",
@@ -99,6 +102,7 @@ std = [
 	"serde/std",
 	"sp-api/std",
 	"sp-application-crypto?/std",
+	"sp-arithmetic/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-keystore",
@@ -115,6 +119,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-broker/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
@@ -135,6 +140,7 @@ try-runtime = [
 	"pallet-authorship/try-runtime",
 	"pallet-babe/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-broker/try-runtime",
 	"pallet-message-queue/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-staking/try-runtime",
