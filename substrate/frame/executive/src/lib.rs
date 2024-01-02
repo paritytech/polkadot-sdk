@@ -129,8 +129,8 @@
 /// flowchart TD
 ///     Executive::execute_block --> on_runtime_upgrade
 ///     on_runtime_upgrade --> System::initialize
-///     System::initialize --> Executive::initialize_block
-///     Executive::initialize_block --> on_initialize
+///     Executive::initialize_block --> System::initialize
+///     System::initialize --> on_initialize
 ///     on_initialize --> PreInherents[System::PreInherents]
 ///     PreInherents --> Inherents[Apply Inherents]
 ///     Inherents --> PostInherents[System::PostInherents]
