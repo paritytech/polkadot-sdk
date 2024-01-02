@@ -531,7 +531,7 @@ pub mod pallet {
 			match &selector {
 				HistoricCleanupSelector::Specific(ids) => {
 					for id in ids {
-						Historic::<T>::remove(&id);
+						Historic::<T>::remove(id);
 					}
 					Self::deposit_event(Event::HistoricCleared { next_cursor: None });
 				},
@@ -698,7 +698,7 @@ impl<T: Config> Pallet<T> {
 				Self::deposit_event(Event::MigrationCompleted { index: cursor.index, took });
 				Historic::<T>::insert(&bounded_id, ());
 				cursor.goto_next_migration(System::<T>::block_number());
-				return Some(ControlFlow::Continue(cursor))
+				Some(ControlFlow::Continue(cursor))
 			},
 			Err(SteppedMigrationError::InsufficientWeight { required }) => {
 				if is_first || required.any_gt(meter.limit()) {
@@ -713,7 +713,7 @@ impl<T: Config> Pallet<T> {
 			Err(SteppedMigrationError::InvalidCursor | SteppedMigrationError::Failed) => {
 				Self::deposit_event(Event::MigrationFailed { index: cursor.index, took });
 				Self::upgrade_failed(Some(cursor.index));
-				return None
+				None
 			},
 		}
 	}

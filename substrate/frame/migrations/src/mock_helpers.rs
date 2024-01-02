@@ -66,7 +66,7 @@ impl SteppedMigrations for MockedMigrations {
 	}
 
 	fn nth_id(n: u32) -> Option<Vec<u8>> {
-		let k = MIGRATIONS::get().get(n as usize).map(|k| *k);
+		let k = MIGRATIONS::get().get(n as usize).copied();
 		k.map(|(kind, steps)| mocked_id(kind, steps).into_inner())
 	}
 
@@ -82,7 +82,7 @@ impl SteppedMigrations for MockedMigrations {
 		log::debug!("MockedMigration: Step {}", count);
 		if count != steps || matches!(kind, TimeoutAfter) {
 			count += 1;
-			return Some(Ok(Some(count.encode().try_into().unwrap())))
+			return Some(Ok(Some(count.encode())))
 		}
 
 		Some(match kind {
