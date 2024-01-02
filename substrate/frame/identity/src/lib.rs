@@ -253,7 +253,7 @@ pub mod pallet {
 	/// Usernames that an authority has granted, but that the account controller has not confirmed
 	/// that they want it. Used primarily in cases where the `AccountId` cannot provide a signature
 	/// because they are a pure proxy, multisig, etc. In order to confirm it, they should call
-	/// `accept_username`.
+	/// [`Call::accept_username`].
 	///
 	/// First tuple item is the account and second is the acceptance deadline.
 	#[pallet::storage]
@@ -1031,7 +1031,7 @@ pub mod pallet {
 
 			// Verify input length before allocating a Vec with the user's input.
 			// `<` instead of `<=` because it needs one element for the point
-			// (`username` + `.` + `suffix`)
+			// (`username` + `.` + `suffix`).
 			ensure!(
 				(username.len().saturating_add(suffix.len()) as u32) < USERNAME_MAX_LENGTH,
 				Error::<T>::InvalidUsername
@@ -1112,7 +1112,7 @@ pub mod pallet {
 		#[pallet::call_index(20)]
 		#[pallet::weight(T::WeightInfo::set_primary_username())]
 		pub fn set_primary_username(origin: OriginFor<T>, username: Username) -> DispatchResult {
-			// ensure `username` maps to `origin` (i.e. has already been set by an authority)
+			// ensure `username` maps to `origin` (i.e. has already been set by an authority).
 			let who = ensure_signed(origin)?;
 			ensure!(
 				AccountOfUsername::<T>::get(username.clone()).is_some(),
@@ -1133,7 +1133,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			username: Username,
 		) -> DispatchResultWithPostInfo {
-			// ensure `username` maps to `origin` (i.e. has already been set by an authority)
+			// ensure `username` maps to `origin` (i.e. has already been set by an authority).
 			let _ = ensure_signed(origin)?;
 			let who =
 				AccountOfUsername::<T>::take(username.clone()).ok_or(Error::<T>::NoUsername)?;
