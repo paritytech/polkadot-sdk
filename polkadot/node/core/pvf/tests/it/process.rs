@@ -115,11 +115,6 @@ where
 
 		// Sleep to give processes a chance to get cleaned up, preventing races in the next step.
 		tokio::time::sleep(Duration::from_millis(500)).await;
-
-		// Make sure job processes got cleaned up. Pass `is_direct_child: false` to target the
-		// job processes.
-		assert!(find_process_by_sid_and_name(sid, PREPARE_PROCESS_NAME, false).is_none());
-		assert!(find_process_by_sid_and_name(sid, EXECUTE_PROCESS_NAME, false).is_none());
 	});
 }
 

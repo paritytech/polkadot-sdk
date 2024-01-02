@@ -356,15 +356,6 @@ fn handle_child_process(
 	// SAFETY: this is an open and owned file descriptor at this point.
 	let mut pipe_write = unsafe { PipeFd::new(pipe_write_fd) };
 
-	// Terminate if the parent thread dies. Parent thread == worker process (it is single-threaded).
-	//
-	// RACE: the worker may die before we install the death signal. In practice this is unlikely,
-	// and most of the time the job process should terminate on its own when it completes.
-	#[cfg(target_os = "linux")]
-	nix::sys::prctl::set_pdeathsig(nix::sys::signal::Signal::SIGTERM).unwrap_or_else(|err| {
-		send_child_response(&mut pipe_write, Err(JobError::CouldNotSetPdeathsig(err.to_string())))
-	});
-
 	// Drop the read end so we don't have too many FDs open.
 	if let Err(errno) = nix::unistd::close(pipe_read_fd) {
 		send_child_response(&mut pipe_write, job_error_from_errno("closing pipe", errno));
