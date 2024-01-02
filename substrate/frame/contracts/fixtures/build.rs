@@ -113,7 +113,7 @@ impl Entry {
 /// Collect all contract entries from the given source directory.
 /// Contracts that have already been compiled are filtered out.
 fn collect_entries(contracts_dir: &Path, out_dir: &Path) -> Vec<Entry> {
-	fs::read_dir(&contracts_dir)
+	fs::read_dir(contracts_dir)
 		.expect("src dir exists; qed")
 		.filter_map(|file| {
 			let path = file.expect("file exists; qed").path();
@@ -172,7 +172,7 @@ fn invoke_cargo_fmt<'a>(
 ) -> Result<()> {
 	// If rustfmt is not installed, skip the check.
 	if !Command::new("rustup")
-		.args(&["run", "nightly", "rustfmt", "--version"])
+		.args(["run", "nightly", "rustfmt", "--version"])
 		.output()
 		.map_or(false, |o| o.status.success())
 	{
@@ -180,7 +180,7 @@ fn invoke_cargo_fmt<'a>(
 	}
 
 	let fmt_res = Command::new("rustup")
-		.args(&["run", "nightly", "rustfmt", "--check", "--config-path"])
+		.args(["run", "nightly", "rustfmt", "--check", "--config-path"])
 		.arg(config_path)
 		.args(files)
 		.output()
@@ -217,7 +217,7 @@ fn invoke_wasm_build(current_dir: &Path) -> Result<()> {
 	let build_res = Command::new(env::var("CARGO")?)
 		.current_dir(current_dir)
 		.env("CARGO_ENCODED_RUSTFLAGS", encoded_rustflags)
-		.args(&["build", "--release", "--target=wasm32-unknown-unknown"])
+		.args(["build", "--release", "--target=wasm32-unknown-unknown"])
 		.output()
 		.expect("failed to execute process");
 
@@ -259,7 +259,7 @@ fn invoke_riscv_build(current_dir: &Path) -> Result<()> {
 		.env("CARGO_ENCODED_RUSTFLAGS", encoded_rustflags)
 		.env("RUSTUP_TOOLCHAIN", "rve-nightly")
 		.env("RUSTUP_HOME", env::var("RUSTUP_HOME").unwrap())
-		.args(&["build", "--release", "--target=riscv32em-unknown-none-elf"])
+		.args(["build", "--release", "--target=riscv32em-unknown-none-elf"])
 		.output()
 		.expect("failed to execute process");
 
@@ -299,7 +299,7 @@ fn write_output(build_dir: &Path, out_dir: &Path, entries: Vec<Entry>) -> Result
 
 		if entry.should_update_riscv_output() {
 			post_process_riscv(
-				&build_dir.join("target/riscv32em-unknown-none-elf/release").join(&entry.name()),
+				&build_dir.join("target/riscv32em-unknown-none-elf/release").join(entry.name()),
 				&entry.riscv_output(),
 			)?;
 		}
