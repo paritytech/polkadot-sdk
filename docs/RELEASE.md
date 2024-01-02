@@ -105,15 +105,29 @@ This process aims to release the `master` branch as a *Nightly* release. The pro
 
 Cadence: every 6th release (~3 months). Responsible: Release Team
 
-This process aims to bring branch `release` in sync with the latest audited commit of `master`. It is not done via a Merge Request but rather by just copying files. It should be automated.
-
-The following script is provided to do the clobbering.
+This process aims to bring branch `release` in sync with the latest audited commit of `master`. It is not done via a Merge Request but rather by just copying files. It should be automated. 
+The following script is provided to do the clobbering. Note that it keeps the complete history of all past clobbering processes.
 
 ```bash
+# Ensure we have the latest remote data
 git fetch
+# Switch to the release branch
 git checkout release
-git reset --hard origin/audited
-git push --force release
+
+# Delete all tracked files in the working directory
+git ls-files -z | xargs -0 rm -f
+# Find and delete any empty directories
+find . -type d -empty -delete
+
+# Get the last audited commit
+AUDITED=$(git rev-parse --short=10 origin/audited)
+# Grab the files from the commit
+git checkout $AUDITED -- .
+
+# Stage, commit, and push the working directory which now matches 'audited' 1:1
+git add .
+git commit -m "Clobbering with audited ($AUDITED)"
+git push
 ```
 
 ## Bug and Security Fix
