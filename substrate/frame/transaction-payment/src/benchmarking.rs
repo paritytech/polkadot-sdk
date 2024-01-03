@@ -37,7 +37,7 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		<T::OnChargeTransaction as OnChargeTransaction<T>>::endow_account(
 			&caller,
-			<T::OnChargeTransaction as OnChargeTransaction<T>>::minimum_balance() * 3.into(),
+			<T::OnChargeTransaction as OnChargeTransaction<T>>::minimum_balance() * 1000.into(),
 		);
 		let ext: ChargeTransactionPayment<T> = ChargeTransactionPayment::from(
 			<T::OnChargeTransaction as OnChargeTransaction<T>>::minimum_balance(),
