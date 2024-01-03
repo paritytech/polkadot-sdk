@@ -1035,6 +1035,14 @@ pub mod pallet {
 		}
 
 		/// Set the username for `who`. Must be called by a username authority.
+		///
+		/// The authority must have an `allocation`. Users can either pre-sign their usernames or
+		/// approve later.
+		///
+		/// Usernames must:
+		///   - Only contain lowercase ASCII characters or digits.
+		///   - When combined with the suffix of the issuing authority be _less than_ the
+		///     `MaxUsernameLength`.
 		#[pallet::call_index(17)]
 		#[pallet::weight(T::WeightInfo::set_username_for())]
 		pub fn set_username_for(
@@ -1224,9 +1232,9 @@ impl<T: Config> Pallet<T> {
 		}
 		// Usernames cannot be empty.
 		ensure!(!username.is_empty(), Error::<T>::InvalidUsername);
-		// Username must be alphanumeric.
+		// Username must be lowercase and alphanumeric.
 		ensure!(
-			username.iter().all(|byte| byte.is_ascii_alphanumeric()),
+			username.iter().all(|byte| byte.is_ascii_digit() || byte.is_ascii_lowercase()),
 			Error::<T>::InvalidUsername
 		);
 		Ok(())
