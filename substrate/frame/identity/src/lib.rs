@@ -980,7 +980,9 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::UsernameAuthorityOrigin::ensure_origin(origin)?;
 			let authority = T::Lookup::lookup(authority)?;
-			Self::validate_username(&suffix).map_err(|_| Error::<T>::InvalidSuffix)?;
+			// We don't need to check the length because it gets checked when casting into a
+			// `BoundedVec`.
+			Self::validate_username(&suffix, None).map_err(|_| Error::<T>::InvalidSuffix)?;
 			let suffix = Suffix::try_from(suffix).map_err(|_| Error::<T>::InvalidSuffix)?;
 			// The authority may already exist, but we don't need to check. They might be changing
 			// their suffix or adding allocation, so we just want to overwrite whatever was there.
@@ -1001,6 +1003,10 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::UsernameAuthorityOrigin::ensure_origin(origin)?;
 			let authority = T::Lookup::lookup(authority)?;
+			ensure!(
+				UsernameAuthorities::<T>::contains_key(&authority),
+				Error::<T>::NotUsernameAuthority
+			);
 			UsernameAuthorities::<T>::remove(&authority);
 			Self::deposit_event(Event::AuthorityRemoved { authority });
 			Ok(())
@@ -1029,17 +1035,10 @@ pub mod pallet {
 				},
 			)?;
 
-			// Verify input length before allocating a Vec with the user's input.
-			// `<` instead of `<=` because it needs one element for the point
-			// (`username` + `.` + `suffix`).
-			ensure!(
-				(username.len().saturating_add(suffix.len()) as u32) < USERNAME_MAX_LENGTH,
-				Error::<T>::InvalidUsername
-			);
-
 			// Ensure that the username only contains allowed characters. We already know the suffix
 			// does.
-			Self::validate_username(&username)?;
+			let username_length = username.len().saturating_add(suffix.len()) as u32;
+			Self::validate_username(&username, Some(username_length))?;
 
 			// Concatenate the username with suffix and cast into a BoundedVec. Should be infallible
 			// since we already ensured it is below the max length.
@@ -1190,8 +1189,16 @@ impl<T: Config> Pallet<T> {
 		T::BasicDeposit::get().saturating_add(byte_deposit)
 	}
 
-	/// Validate that a username conforms to allowed characters/format.
-	fn validate_username(username: &Vec<u8>) -> DispatchResult {
+	/// Validate that a username conforms to allowed characters/format. The function will validate
+	/// the characters in `username` and that `length` (if `Some`) conforms to the limit. It is not
+	/// expected to pass a fully formatted username here (i.e. one with any protocol-added
+	/// characters included, such as a `.`).
+	fn validate_username(username: &Vec<u8>, length: Option<u32>) -> DispatchResult {
+		// Verify input length before allocating a Vec with the user's input. `<` instead of `<=`
+		// because it needs one element for the point (`username` + `.` + `suffix`).
+		if let Some(l) = length {
+			ensure!(l < USERNAME_MAX_LENGTH, Error::<T>::InvalidUsername);
+		}
 		ensure!(
 			username.iter().all(|byte| byte.is_ascii_alphanumeric()),
 			Error::<T>::InvalidUsername
