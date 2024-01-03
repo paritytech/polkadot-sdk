@@ -64,13 +64,15 @@ impl StorageCmd {
 		let mut kvs: Vec<_> = trie.pairs(Default::default())?.collect();
 		let (mut rng, _) = new_rng(None);
 		kvs.shuffle(&mut rng);
-		info!("Writing {} keys", kvs.len());
+		let number_of_keys = (kvs.len() * self.params.db_fraction as usize) / 100;
+		let number_of_keys = if number_of_keys != 0 { number_of_keys } else { 1 };
 
+		info!("Writing {} keys of {} keys", number_of_keys, kvs.len());
 		let mut child_nodes = Vec::new();
 
 		// Generate all random values first; Make sure there are no collisions with existing
 		// db entries, so we can rollback all additions without corrupting existing entries.
-		for key_value in kvs {
+		for key_value in kvs.into_iter().take(number_of_keys) {
 			let (k, original_v) = key_value?;
 			match (self.params.include_child_trees, self.is_child_key(k.to_vec())) {
 				(true, Some(info)) => {
@@ -118,9 +120,14 @@ impl StorageCmd {
 
 		if self.params.include_child_trees {
 			child_nodes.shuffle(&mut rng);
-			info!("Writing {} child keys", child_nodes.len());
+			let number_of_child_keys = (child_nodes.len() * self.params.db_fraction as usize) / 100;
+			info!(
+				"Writing {} child keys of {} child keys.",
+				number_of_child_keys,
+				child_nodes.len()
+			);
 
-			for (key, info) in child_nodes {
+			for (key, info) in child_nodes.into_iter().take(number_of_child_keys) {
 				if let Some(original_v) = client
 					.child_storage(best_hash, &info.clone(), &key)
 					.expect("Checked above to exist")
