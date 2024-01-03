@@ -546,7 +546,8 @@ pub mod pallet {
 			let sender = ensure_signed(origin)?;
 
 			let (subs_deposit, sub_ids) = <SubsOf<T>>::take(&sender);
-			let (id, maybe_username) = <IdentityOf<T>>::take(&sender).ok_or(Error::<T>::NoIdentity)?;
+			let (id, maybe_username) =
+				<IdentityOf<T>>::take(&sender).ok_or(Error::<T>::NoIdentity)?;
 			let deposit = id.total_deposit().saturating_add(subs_deposit);
 			for sub in sub_ids.iter() {
 				<SuperOf<T>>::remove(sub);
@@ -857,7 +858,8 @@ pub mod pallet {
 			let target = T::Lookup::lookup(target)?;
 			// Grab their deposit (and check that they have one).
 			let (subs_deposit, sub_ids) = <SubsOf<T>>::take(&target);
-			let (id, maybe_username) = <IdentityOf<T>>::take(&target).ok_or(Error::<T>::NoIdentity)?;
+			let (id, maybe_username) =
+				<IdentityOf<T>>::take(&target).ok_or(Error::<T>::NoIdentity)?;
 			let deposit = id.total_deposit().saturating_add(subs_deposit);
 			for sub in sub_ids.iter() {
 				<SuperOf<T>>::remove(sub);

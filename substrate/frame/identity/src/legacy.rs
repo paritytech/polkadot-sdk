@@ -75,7 +75,6 @@ impl TypeInfo for IdentityField {
 	TypeInfo,
 )]
 #[codec(mel_bound())]
-#[cfg_attr(test, derive(frame_support::DefaultNoBound))]
 #[scale_info(skip_type_params(FieldLimit))]
 pub struct IdentityInfo<FieldLimit: Get<u32>> {
 	/// Additional fields of the identity that are not catered for with the struct's explicit
@@ -130,20 +129,6 @@ impl<FieldLimit: Get<u32> + 'static> IdentityInformationProvider for IdentityInf
 		self.fields().bits() & fields == fields
 	}
 
-	fn default() -> Self {
-		IdentityInfo {
-			additional: BoundedVec::default(),
-			display: Data::None,
-			legal: Data::None,
-			web: Data::None,
-			riot: Data::None,
-			email: Data::None,
-			pgp_fingerprint: None,
-			image: Data::None,
-			twitter: Data::None,
-		}
-	}
-
 	#[cfg(feature = "runtime-benchmarks")]
 	fn create_identity_info() -> Self {
 		let data = Data::Raw(vec![0; 32].try_into().unwrap());
@@ -166,6 +151,22 @@ impl<FieldLimit: Get<u32> + 'static> IdentityInformationProvider for IdentityInf
 	#[cfg(feature = "runtime-benchmarks")]
 	fn all_fields() -> Self::FieldsIdentifier {
 		IdentityField::all().bits()
+	}
+}
+
+impl<FieldLimit: Get<u32>> Default for IdentityInfo<FieldLimit> {
+	fn default() -> Self {
+		IdentityInfo {
+			additional: BoundedVec::default(),
+			display: Data::None,
+			legal: Data::None,
+			web: Data::None,
+			riot: Data::None,
+			email: Data::None,
+			pgp_fingerprint: None,
+			image: Data::None,
+			twitter: Data::None,
+		}
 	}
 }
 

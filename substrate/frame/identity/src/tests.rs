@@ -436,7 +436,10 @@ fn registration_should_work() {
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit);
 		assert_ok!(Identity::clear_identity(RuntimeOrigin::signed(ten.clone())));
 		assert_eq!(Balances::free_balance(ten.clone()), 1000);
-		assert_noop!(Identity::clear_identity(RuntimeOrigin::signed(ten)), Error::<Test>::NoIdentity);
+		assert_noop!(
+			Identity::clear_identity(RuntimeOrigin::signed(ten)),
+			Error::<Test>::NoIdentity
+		);
 	});
 }
 
@@ -548,7 +551,10 @@ fn killing_slashing_should_work() {
 		assert_ok!(Identity::kill_identity(RuntimeOrigin::root(), ten.clone()));
 		assert_eq!(Identity::identity(ten.clone()), None);
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit);
-		assert_noop!(Identity::kill_identity(RuntimeOrigin::root(), ten), Error::<Test>::NoIdentity);
+		assert_noop!(
+			Identity::kill_identity(RuntimeOrigin::root(), ten),
+			Error::<Test>::NoIdentity
+		);
 	});
 }
 
@@ -1027,7 +1033,7 @@ fn set_username_with_signature_without_existing_identity_should_work() {
 				Registration {
 					judgements: Default::default(),
 					deposit: 0,
-					info: <IdentityInfo<MaxAdditionalFields> as types::IdentityInformationProvider>::default()
+					info: Default::default()
 				},
 				Some(username_to_sign.clone())
 			))
@@ -1167,7 +1173,7 @@ fn set_username_with_bytes_signature_should_work() {
 				Registration {
 					judgements: Default::default(),
 					deposit: 0,
-					info: <IdentityInfo<MaxAdditionalFields> as types::IdentityInformationProvider>::default()
+					info: Default::default()
 				},
 				Some(username_to_sign.clone())
 			))
@@ -1227,7 +1233,7 @@ fn set_username_with_acceptance_should_work() {
 				Registration {
 					judgements: Default::default(),
 					deposit: 0,
-					info: <IdentityInfo<MaxAdditionalFields> as types::IdentityInformationProvider>::default()
+					info: Default::default()
 				},
 				Some(full_username.clone())
 			))
@@ -1380,7 +1386,7 @@ fn setting_primary_should_work() {
 				Registration {
 					judgements: Default::default(),
 					deposit: 0,
-					info: <IdentityInfo<MaxAdditionalFields> as types::IdentityInformationProvider>::default()
+					info: Default::default()
 				},
 				Some(first_to_sign.clone())
 			))
@@ -1406,7 +1412,7 @@ fn setting_primary_should_work() {
 				Registration {
 					judgements: Default::default(),
 					deposit: 0,
-					info: <IdentityInfo<MaxAdditionalFields> as types::IdentityInformationProvider>::default()
+					info: Default::default()
 				},
 				Some(first_to_sign.clone())
 			))
@@ -1434,7 +1440,7 @@ fn setting_primary_should_work() {
 				Registration {
 					judgements: Default::default(),
 					deposit: 0,
-					info: <IdentityInfo<MaxAdditionalFields> as types::IdentityInformationProvider>::default()
+					info: Default::default()
 				},
 				Some(second_to_sign.clone())
 			))
@@ -1523,7 +1529,7 @@ fn removing_dangling_usernames_should_work() {
 		));
 
 		// set up username
-		let (username, username_to_sign) = test_username_of(b"42".to_vec(), suffix);
+		let (username, username_to_sign) = test_username_of(b"42".to_vec(), suffix.clone());
 		let encoded_username = Encode::encode(&username_to_sign.to_vec());
 
 		// set up user and sign message
@@ -1540,12 +1546,29 @@ fn removing_dangling_usernames_should_work() {
 			Box::new(ten_info.clone())
 		));
 		assert_ok!(Identity::set_username_for(
-			RuntimeOrigin::signed(authority),
+			RuntimeOrigin::signed(authority.clone()),
 			who_account.clone(),
 			username.clone(),
 			Some(signature)
 		));
 
+		// Now they set up a second username.
+		let (username_two, username_two_to_sign) = test_username_of(b"43".to_vec(), suffix);
+		let encoded_username_two = Encode::encode(&username_two_to_sign.to_vec());
+
+		// set up user and sign message
+		let signature_two = MultiSignature::Sr25519(
+			sr25519_sign(0.into(), &public, &encoded_username_two).unwrap(),
+		);
+
+		assert_ok!(Identity::set_username_for(
+			RuntimeOrigin::signed(authority),
+			who_account.clone(),
+			username_two.clone(),
+			Some(signature_two)
+		));
+
+		// The primary should still be the first one.
 		assert_eq!(
 			Identity::identity(&who_account),
 			Some((
@@ -1557,8 +1580,14 @@ fn removing_dangling_usernames_should_work() {
 				Some(username_to_sign.clone())
 			))
 		);
+
+		// But both usernames should look up the account.
 		assert_eq!(
 			AccountOfUsername::<Test>::get::<&Username<Test>>(&username_to_sign),
+			Some(who_account.clone())
+		);
+		assert_eq!(
+			AccountOfUsername::<Test>::get::<&Username<Test>>(&username_two_to_sign),
 			Some(who_account.clone())
 		);
 
@@ -1577,19 +1606,22 @@ fn removing_dangling_usernames_should_work() {
 		// Identity is gone
 		assert!(Identity::identity(who_account.clone()).is_none());
 
-		// But the reverse lookup is still there
+		// The reverse lookup of the primary is gone.
+		assert!(AccountOfUsername::<Test>::get::<&Username<Test>>(&username_to_sign).is_none());
+
+		// But the reverse lookup of the non-primary is still there
 		assert_eq!(
-			AccountOfUsername::<Test>::get::<&Username<Test>>(&username_to_sign),
+			AccountOfUsername::<Test>::get::<&Username<Test>>(&username_two_to_sign),
 			Some(who_account)
 		);
 
 		// Now it can be removed
 		assert_ok!(Identity::remove_dangling_username(
 			RuntimeOrigin::signed(caller),
-			username_to_sign.clone()
+			username_two_to_sign.clone()
 		));
 
 		// And the reverse lookup is gone
-		assert!(AccountOfUsername::<Test>::get::<&Username<Test>>(&username_to_sign).is_none());
+		assert!(AccountOfUsername::<Test>::get::<&Username<Test>>(&username_two_to_sign).is_none());
 	});
 }

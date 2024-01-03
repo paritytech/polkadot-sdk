@@ -232,16 +232,13 @@ impl<Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + Part
 
 /// Information concerning the identity of the controller of an account.
 pub trait IdentityInformationProvider:
-	Encode + Decode + MaxEncodedLen + Clone + Debug + Eq + PartialEq + TypeInfo
+	Encode + Decode + MaxEncodedLen + Clone + Debug + Eq + PartialEq + TypeInfo + Default
 {
 	/// Type capable of holding information on which identity fields are set.
 	type FieldsIdentifier: Member + Encode + Decode + MaxEncodedLen + TypeInfo + Default;
 
 	/// Check if an identity registered information for some given `fields`.
 	fn has_identity(&self, fields: Self::FieldsIdentifier) -> bool;
-
-	/// Construct a default instance of `Self`.
-	fn default() -> Self;
 
 	/// Create a basic instance of the identity information.
 	#[cfg(feature = "runtime-benchmarks")]
