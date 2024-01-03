@@ -327,7 +327,7 @@ pub struct RegistrarInfo<
 /// The number of usernames that an authority may allocate.
 type Allocation = u32;
 /// The maximum allowed length of a suffix.
-const SUFFIX_MAX_LENGTH: u32 = 7;
+pub const SUFFIX_MAX_LENGTH: u32 = 7;
 /// A byte vec used to represent a username.
 pub(crate) type Suffix = BoundedVec<u8, ConstU32<SUFFIX_MAX_LENGTH>>;
 
@@ -343,7 +343,7 @@ pub struct AuthorityProperties {
 }
 
 /// The maximum allowed length of a username, _including_ the suffix.
-pub(crate) const USERNAME_MAX_LENGTH: u32 = 32;
+pub const USERNAME_MAX_LENGTH: u32 = 32;
 /// A byte vec used to represent a username.
 pub(crate) type Username = BoundedVec<u8, ConstU32<USERNAME_MAX_LENGTH>>;
 

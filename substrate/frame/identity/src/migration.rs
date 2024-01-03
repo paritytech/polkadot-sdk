@@ -17,7 +17,6 @@
 
 use super::*;
 use frame_support::{migrations::VersionedMigration, pallet_prelude::*, traits::OnRuntimeUpgrade};
-use log;
 
 #[cfg(feature = "try-runtime")]
 use codec::{Decode, Encode};

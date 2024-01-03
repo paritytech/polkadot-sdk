@@ -166,6 +166,7 @@ pub mod pallet {
 		type UsernameAuthorityOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// The number of blocks within which a username grant must be accepted.
+		#[pallet::constant]
 		type PendingUsernameExpiration: Get<BlockNumberFor<Self>>;
 
 		/// Weight information for extrinsics in this pallet.
@@ -173,9 +174,10 @@ pub mod pallet {
 	}
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
-	pub struct Pallet<T>(PhantomData<T>);
+	pub struct Pallet<T>(_);
 
 	/// Information that is pertinent to identify the entity behind an account. First item is the
 	/// registration, second is the account's primary username.
@@ -248,7 +250,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn username)]
 	pub(super) type AccountOfUsername<T: Config> =
-		StorageMap<_, Twox64Concat, Username, T::AccountId, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, Username, T::AccountId, OptionQuery>;
 
 	/// Usernames that an authority has granted, but that the account controller has not confirmed
 	/// that they want it. Used primarily in cases where the `AccountId` cannot provide a signature
@@ -258,8 +260,8 @@ pub mod pallet {
 	/// First tuple item is the account and second is the acceptance deadline.
 	#[pallet::storage]
 	#[pallet::getter(fn preapproved_usernames)]
-	pub(super) type PendingUsernames<T: Config> =
-		StorageMap<_, Twox64Concat, Username, (T::AccountId, BlockNumberFor<T>), OptionQuery>;
+	pub type PendingUsernames<T: Config> =
+		StorageMap<_, Blake2_128Concat, Username, (T::AccountId, BlockNumberFor<T>), OptionQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -531,7 +533,7 @@ pub mod pallet {
 			let sender = ensure_signed(origin)?;
 
 			let (subs_deposit, sub_ids) = <SubsOf<T>>::take(&sender);
-			let (id, _username) = <IdentityOf<T>>::take(&sender).ok_or(Error::<T>::NotNamed)?;
+			let (id, _username) = <IdentityOf<T>>::take(&sender).ok_or(Error::<T>::NoIdentity)?;
 			let deposit = id.total_deposit().saturating_add(subs_deposit);
 			for sub in sub_ids.iter() {
 				<SuperOf<T>>::remove(sub);
@@ -837,7 +839,7 @@ pub mod pallet {
 			let target = T::Lookup::lookup(target)?;
 			// Grab their deposit (and check that they have one).
 			let (subs_deposit, sub_ids) = <SubsOf<T>>::take(&target);
-			let (id, _username) = <IdentityOf<T>>::take(&target).ok_or(Error::<T>::NotNamed)?;
+			let (id, _username) = <IdentityOf<T>>::take(&target).ok_or(Error::<T>::NoIdentity)?;
 			let deposit = id.total_deposit().saturating_add(subs_deposit);
 			for sub in sub_ids.iter() {
 				<SuperOf<T>>::remove(sub);
@@ -968,6 +970,7 @@ pub mod pallet {
 		}
 
 		/// Add an `AccountId` with permission to grant usernames with a given `suffix` appended.
+		///
 		/// The authority can grant up to `allocation` usernames. To top up their allocation, they
 		/// should just issue (or request via governance) a new `add_username_authority` call.
 		#[pallet::call_index(15)]
@@ -1003,11 +1006,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::UsernameAuthorityOrigin::ensure_origin(origin)?;
 			let authority = T::Lookup::lookup(authority)?;
-			ensure!(
-				UsernameAuthorities::<T>::contains_key(&authority),
-				Error::<T>::NotUsernameAuthority
-			);
-			UsernameAuthorities::<T>::remove(&authority);
+			UsernameAuthorities::<T>::take(&authority).ok_or(Error::<T>::NotUsernameAuthority)?;
 			Self::deposit_event(Event::AuthorityRemoved { authority });
 			Ok(())
 		}
@@ -1052,7 +1051,7 @@ pub mod pallet {
 
 			// Usernames must be unique. Ensure it's not taken.
 			ensure!(
-				!AccountOfUsername::<T>::contains_key(bounded_username.clone()),
+				!AccountOfUsername::<T>::contains_key(&bounded_username),
 				Error::<T>::UsernameTaken
 			);
 
@@ -1114,7 +1113,7 @@ pub mod pallet {
 			// ensure `username` maps to `origin` (i.e. has already been set by an authority).
 			let who = ensure_signed(origin)?;
 			ensure!(
-				AccountOfUsername::<T>::get(username.clone()).is_some(),
+				AccountOfUsername::<T>::contains_key(&username),
 				Error::<T>::NoUsername
 			);
 			let (registration, _maybe_username) =
@@ -1135,7 +1134,7 @@ pub mod pallet {
 			// ensure `username` maps to `origin` (i.e. has already been set by an authority).
 			let _ = ensure_signed(origin)?;
 			let who =
-				AccountOfUsername::<T>::take(username.clone()).ok_or(Error::<T>::NoUsername)?;
+				AccountOfUsername::<T>::take(&username).ok_or(Error::<T>::NoUsername)?;
 			ensure!(!IdentityOf::<T>::contains_key(&who), Error::<T>::InvalidUsername);
 			Self::deposit_event(Event::DanglingUsernameRemoved { who: who.clone(), username });
 			Ok(Pays::No.into())
@@ -1189,7 +1188,9 @@ impl<T: Config> Pallet<T> {
 		T::BasicDeposit::get().saturating_add(byte_deposit)
 	}
 
-	/// Validate that a username conforms to allowed characters/format. The function will validate
+	/// Validate that a username conforms to allowed characters/format.
+	///
+	/// The function will validate
 	/// the characters in `username` and that `length` (if `Some`) conforms to the limit. It is not
 	/// expected to pass a fully formatted username here (i.e. one with any protocol-added
 	/// characters included, such as a `.`).
@@ -1289,7 +1290,7 @@ impl<T: Config> Pallet<T> {
 	pub fn reap_identity(who: &T::AccountId) -> Result<(u32, u32, u32), DispatchError> {
 		// `take` any storage items keyed by `target`
 		// identity
-		let (id, _maybe_username) = <IdentityOf<T>>::take(&who).ok_or(Error::<T>::NotNamed)?;
+		let (id, _maybe_username) = <IdentityOf<T>>::take(&who).ok_or(Error::<T>::NoIdentity)?;
 		let registrars = id.judgements.len() as u32;
 		let encoded_byte_size = id.info.encoded_size() as u32;
 
