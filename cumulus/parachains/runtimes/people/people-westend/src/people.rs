@@ -86,6 +86,7 @@ pub enum IdentityField {
 	CloneNoBound,
 	Encode,
 	Decode,
+	Default,
 	EqNoBound,
 	MaxEncodedLen,
 	PartialEqNoBound,
@@ -93,7 +94,6 @@ pub enum IdentityField {
 	TypeInfo,
 )]
 #[codec(mel_bound())]
-#[cfg_attr(test, derive(frame_support::DefaultNoBound))]
 pub struct IdentityInfo {
 	/// A reasonable display name for the controller of the account. This should be whatever it is
 	/// that it is typically known as and should not be confusable with other entities, given
@@ -148,21 +148,6 @@ impl IdentityInformationProvider for IdentityInfo {
 
 	fn has_identity(&self, fields: Self::FieldsIdentifier) -> bool {
 		self.fields().bits() & fields == fields
-	}
-
-	fn default() -> Self {
-		IdentityInfo {
-			display: Data::None,
-			legal: Data::None,
-			web: Data::None,
-			matrix: Data::None,
-			email: Data::None,
-			pgp_fingerprint: None,
-			image: Data::None,
-			twitter: Data::None,
-			github: Data::None,
-			discord: Data::None,
-		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
