@@ -29,7 +29,7 @@ use codec::{Decode, Encode};
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
-	genesis_builder_helper::{build_config, create_default_config},
+	genesis_builder_helper::{build_state, create_default_config},
 	parameter_types,
 	traits::{ConstU32, ConstU64},
 	weights::{
@@ -42,6 +42,7 @@ use frame_system::{
 	CheckNonce, CheckWeight,
 };
 use scale_info::TypeInfo;
+use sp_runtime::RuntimeString;
 use sp_std::prelude::*;
 #[cfg(not(feature = "std"))]
 use sp_std::vec;
@@ -54,6 +55,7 @@ use sp_trie::{
 };
 use trie_db::{Trie, TrieMut};
 
+use serde_json::json;
 use sp_api::{decl_runtime_apis, impl_runtime_apis};
 pub use sp_core::hash::H256;
 use sp_inherents::{CheckInherentsResult, InherentData};
@@ -90,7 +92,7 @@ pub mod wasm_binary_logging_disabled {
 #[cfg(feature = "std")]
 pub fn wasm_binary_unwrap() -> &'static [u8] {
 	WASM_BINARY.expect(
-		"Development wasm binary is not available. Testing is only supported with the flag \
+		"Development wasm binary is not available. Testing is only supported with the flag
 		 disabled.",
 	)
 }
@@ -99,7 +101,7 @@ pub fn wasm_binary_unwrap() -> &'static [u8] {
 #[cfg(feature = "std")]
 pub fn wasm_binary_logging_disabled_unwrap() -> &'static [u8] {
 	wasm_binary_logging_disabled::WASM_BINARY.expect(
-		"Development wasm binary is not available. Testing is only supported with the flag \
+		"Development wasm binary is not available. Testing is only supported with the flag
 		 disabled.",
 	)
 }
@@ -727,8 +729,44 @@ impl_runtime_apis! {
 			create_default_config::<RuntimeGenesisConfig>()
 		}
 
-		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
-			build_config::<RuntimeGenesisConfig>(config)
+		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
+			build_state::<RuntimeGenesisConfig>(config)
+		}
+
+		fn get_preset(params: Option<sp_std::vec::Vec<u8>>) -> Option<sp_std::vec::Vec<u8>> {
+			Some(if let Some(params) = params {
+				let patch = match params {
+					s if s == "staging".as_bytes() => {
+						let endowed_accounts: sp_std::vec::Vec<AccountId> = vec![
+							AccountKeyring::Bob.public().into(),
+							AccountKeyring::Charlie.public().into(),
+						];
+
+						json!({
+							"balances": {
+								"balances": endowed_accounts.into_iter().map(|k| (k, 10 * currency::DOLLARS)).collect::<Vec<_>>(),
+							},
+							"substrateTest": {
+								"authorities": [
+									AccountKeyring::Alice.public().to_ss58check(),
+									AccountKeyring::Ferdie.public().to_ss58check()
+								],
+							}
+						})
+					},
+					s if s == "foobar".as_bytes() => json!({"foo":"bar"}),
+					_ => return None,
+				};
+				serde_json::to_string(&patch)
+					.expect("serialization to json is expected to work. qed.")
+					.into_bytes()
+			} else {
+				create_default_config::<RuntimeGenesisConfig>()
+			})
+		}
+
+		fn preset_names() -> Vec<RuntimeString> {
+			vec![RuntimeString::from("foobar"), RuntimeString::from("staging")]
 		}
 	}
 }
@@ -1240,7 +1278,7 @@ mod tests {
 			let default_minimal_json = r#"{"system":{},"babe":{"authorities":[],"epochConfig":{"c": [ 3, 10 ],"allowed_slots":"PrimaryAndSecondaryPlainSlots"}},"substrateTest":{"authorities":[]},"balances":{"balances":[]}}"#;
 			let mut t = BasicExternalities::new_empty();
 
-			executor_call(&mut t, "GenesisBuilder_build_config", &default_minimal_json.encode())
+			executor_call(&mut t, "GenesisBuilder_build_state", &default_minimal_json.encode())
 				.unwrap();
 
 			let mut keys = t.into_storages().top.keys().cloned().map(hex).collect::<Vec<String>>();
@@ -1297,12 +1335,48 @@ mod tests {
 		}
 
 		#[test]
+		fn preset_names_listing_works() {
+			sp_tracing::try_init_simple();
+			let mut t = BasicExternalities::new_empty();
+			let r = executor_call(&mut t, "GenesisBuilder_preset_names", &vec![]).unwrap();
+			let r = Vec::<RuntimeString>::decode(&mut &r[..]).unwrap();
+			assert_eq!(r, vec![RuntimeString::from("foobar"), RuntimeString::from("staging"),]);
+			log::info!("r: {:#?}", r);
+		}
+
+		#[test]
+		fn named_config_works() {
+			sp_tracing::try_init_simple();
+			let f = |cfg_name: &str, expected: &str| {
+				let mut t = BasicExternalities::new_empty();
+				let name = cfg_name.to_string();
+				let r = executor_call(
+					&mut t,
+					"GenesisBuilder_get_preset",
+					&Some(name.as_bytes()).encode(),
+				)
+				.unwrap();
+				let r = Option::<Vec<u8>>::decode(&mut &r[..]).unwrap();
+				let json =
+					String::from_utf8(r.unwrap().into()).expect("returned value is json. qed.");
+				log::info!("json: {:#?}", json);
+				assert_eq!(expected.to_string(), json);
+			};
+
+			f("foobar", r#"{"foo":"bar"}"#);
+			f(
+				"staging",
+				r#"{"balances":{"balances":[["5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",1000000000000000],["5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y",1000000000000000]]},"substrateTest":{"authorities":["5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY","5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL"]}}"#,
+			);
+		}
+
+		#[test]
 		fn build_config_from_json_works() {
 			sp_tracing::try_init_simple();
 			let j = include_str!("../res/default_genesis_config.json");
 
 			let mut t = BasicExternalities::new_empty();
-			let r = executor_call(&mut t, "GenesisBuilder_build_config", &j.encode()).unwrap();
+			let r = executor_call(&mut t, "GenesisBuilder_build_state", &j.encode()).unwrap();
 			let r = BuildResult::decode(&mut &r[..]);
 			assert!(r.is_ok());
 
@@ -1321,7 +1395,7 @@ mod tests {
 			sp_tracing::try_init_simple();
 			let j = include_str!("../res/default_genesis_config_invalid.json");
 			let mut t = BasicExternalities::new_empty();
-			let r = executor_call(&mut t, "GenesisBuilder_build_config", &j.encode()).unwrap();
+			let r = executor_call(&mut t, "GenesisBuilder_build_state", &j.encode()).unwrap();
 			let r = BuildResult::decode(&mut &r[..]).unwrap();
 			log::info!("result: {:#?}", r);
 			assert_eq!(r, Err(
@@ -1336,7 +1410,7 @@ mod tests {
 			sp_tracing::try_init_simple();
 			let j = include_str!("../res/default_genesis_config_invalid_2.json");
 			let mut t = BasicExternalities::new_empty();
-			let r = executor_call(&mut t, "GenesisBuilder_build_config", &j.encode()).unwrap();
+			let r = executor_call(&mut t, "GenesisBuilder_build_state", &j.encode()).unwrap();
 			let r = BuildResult::decode(&mut &r[..]).unwrap();
 			assert_eq!(r, Err(
 				sp_runtime::RuntimeString::Owned(
@@ -1351,7 +1425,7 @@ mod tests {
 			let j = include_str!("../res/default_genesis_config_incomplete.json");
 
 			let mut t = BasicExternalities::new_empty();
-			let r = executor_call(&mut t, "GenesisBuilder_build_config", &j.encode()).unwrap();
+			let r = executor_call(&mut t, "GenesisBuilder_build_state", &j.encode()).unwrap();
 			let r =
 				core::result::Result::<(), sp_runtime::RuntimeString>::decode(&mut &r[..]).unwrap();
 			assert_eq!(
@@ -1416,7 +1490,7 @@ mod tests {
 			let mut t = BasicExternalities::new_empty();
 			executor_call(
 				&mut t,
-				"GenesisBuilder_build_config",
+				"GenesisBuilder_build_state",
 				&default_config.to_string().encode(),
 			)
 			.unwrap();

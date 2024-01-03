@@ -35,10 +35,25 @@ where
 }
 
 /// Build `GenesisConfig` from a JSON blob not using any defaults and store it in the storage. For
-/// more info refer to [`sp_genesis_builder::GenesisBuilder::build_config`].
-pub fn build_config<GC: BuildGenesisConfig>(json: sp_std::vec::Vec<u8>) -> BuildResult {
+/// more info refer to [`sp_genesis_builder::GenesisBuilder::build_state`].
+pub fn build_state<GC: BuildGenesisConfig>(json: sp_std::vec::Vec<u8>) -> BuildResult {
 	let gc = serde_json::from_slice::<GC>(&json)
 		.map_err(|e| format_runtime_string!("Invalid JSON blob: {}", e))?;
 	<GC as BuildGenesisConfig>::build(&gc);
 	Ok(())
+}
+
+/// Get the default `GenesisConfig` as a JSON blob if `id` is None.
+///
+/// No named presets are supported. For more info refer to
+/// [`sp_genesis_builder::GenesisBuilder::get_preset`].
+pub fn get_preset<GC>(id: Option<sp_std::vec::Vec<u8>>) -> Option<sp_std::vec::Vec<u8>>
+where
+	GC: BuildGenesisConfig + Default,
+{
+	if id.is_none() {
+		Some(create_default_config::<GC>())
+	} else {
+		None
+	}
 }

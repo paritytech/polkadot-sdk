@@ -26,8 +26,9 @@ pallet-timestamp = { path = "../../../frame/timestamp", default-features = false
 pallet-transaction-payment = { path = "../../../frame/transaction-payment", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { path = "../../../frame/transaction-payment/rpc/runtime-api", default-features = false }
 
-# genesis builder that allows us to interacto with runtime genesis config
+# genesis builder that allows us to interact with runtime genesis config
 sp-genesis-builder = { path = "../../../primitives/genesis-builder", default-features = false }
+sp-runtime = { path = "../../../primitives/runtime", default-features = false, features = ["serde"] }
 
 
 [build-dependencies]
@@ -46,5 +47,6 @@ std = [
 	"parity-scale-codec/std",
 	"scale-info/std",
 	"sp-genesis-builder/std",
+	"sp-runtime/std",
 	"substrate-wasm-builder",
 ]

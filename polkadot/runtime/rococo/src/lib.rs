@@ -41,9 +41,6 @@ use runtime_common::{
 	traits::Leaser,
 	BlockHashCount, BlockLength, SlowAdjustingFeeUpdate,
 };
-use scale_info::TypeInfo;
-use sp_std::{cmp::Ordering, collections::btree_map::BTreeMap, prelude::*};
-
 use runtime_parachains::{
 	assigner_coretime as parachains_assigner_coretime,
 	assigner_on_demand as parachains_assigner_on_demand,
@@ -60,6 +57,9 @@ use runtime_parachains::{
 	scheduler as parachains_scheduler, session_info as parachains_session_info,
 	shared as parachains_shared,
 };
+use scale_info::TypeInfo;
+use sp_runtime::RuntimeString;
+use sp_std::{cmp::Ordering, collections::btree_map::BTreeMap, prelude::*};
 
 use authority_discovery_primitives::AuthorityId as AuthorityDiscoveryId;
 use beefy_primitives::{
@@ -69,7 +69,7 @@ use beefy_primitives::{
 
 use frame_support::{
 	construct_runtime, derive_impl,
-	genesis_builder_helper::{build_config, create_default_config},
+	genesis_builder_helper::{build_state, create_default_config},
 	parameter_types,
 	traits::{
 		fungible::HoldConsideration, Contains, EitherOf, EitherOfDiverse, EverythingBut,
@@ -131,6 +131,7 @@ use governance::{
 #[cfg(test)]
 mod tests;
 
+mod genesis_config_presets;
 mod validator_manager;
 
 impl_runtime_weights!(rococo_runtime_constants);
@@ -2434,8 +2435,26 @@ sp_api::impl_runtime_apis! {
 			create_default_config::<RuntimeGenesisConfig>()
 		}
 
-		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
-			build_config::<RuntimeGenesisConfig>(config)
+		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
+			build_state::<RuntimeGenesisConfig>(config)
+		}
+
+		fn get_preset(id: Option<Vec<u8>>) -> Option<Vec<u8>> {
+			if let Some(id) = id {
+				genesis_config_presets::get_preset(id)
+			} else {
+				Some(create_default_config::<RuntimeGenesisConfig>())
+			}
+		}
+
+		fn preset_names() -> Vec<sp_runtime::RuntimeString> {
+			vec![
+				RuntimeString::from("local_testnet"),
+				RuntimeString::from("development"),
+				RuntimeString::from("staging_testnet"),
+				RuntimeString::from("wococo_local_testnet"),
+				RuntimeString::from("versi_local_testnet"),
+			]
 		}
 	}
 }

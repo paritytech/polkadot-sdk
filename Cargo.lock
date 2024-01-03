@@ -8130,6 +8130,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-genesis-builder",
+ "sp-runtime",
  "substrate-wasm-builder",
 ]
 
@@ -14872,6 +14873,7 @@ dependencies = [
  "sp-block-builder",
  "sp-consensus-babe",
  "sp-consensus-beefy",
+ "sp-consensus-grandpa",
  "sp-core",
  "sp-genesis-builder",
  "sp-inherents",
@@ -15344,6 +15346,7 @@ dependencies = [
  "sp-keyring",
  "sp-runtime",
  "sp-state-machine",
+ "sp-tracing 10.0.0",
  "substrate-test-runtime",
 ]
 
@@ -19481,6 +19484,7 @@ dependencies = [
  "frame-system",
  "frame-system-rpc-runtime-api",
  "futures",
+ "hex-literal",
  "json-patch",
  "log",
  "pallet-babe",
