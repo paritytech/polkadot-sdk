@@ -2229,6 +2229,65 @@ mod mmr {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
+use frame_support::traits::fungibles::Inspect as FnInspect;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_asset_conversion_tx_payment::ExtConfig for Runtime {
+	fn create_asset_id_parameter(
+		seed: u32,
+	) -> (
+		<<Self as pallet_asset_conversion_tx_payment::Config>::Fungibles as FnInspect<Self::AccountId>>::AssetId,
+		<<Self as pallet_asset_conversion_tx_payment::Config>::OnChargeAssetTransaction as pallet_asset_conversion_tx_payment::OnChargeAssetTransaction<Self>>::AssetId,
+	){
+		(seed, seed)
+	}
+
+	fn setup_balances_and_pool(
+		asset_id: <<Self as pallet_asset_conversion_tx_payment::Config>::Fungibles as FnInspect<
+			Self::AccountId,
+		>>::AssetId,
+		account: Self::AccountId,
+	) {
+		use frame_support::{assert_ok, traits::fungibles::Mutate};
+		assert_ok!(Assets::force_create(
+			RuntimeOrigin::root(),
+			asset_id.into(),
+			account.clone().into(), /* owner */
+			true,                   /* is_sufficient */
+			1,
+		));
+
+		let lp_provider = account.clone();
+		let _ = Balances::deposit_creating(&lp_provider, ((u64::MAX as u128) * 100).into());
+		assert_ok!(Assets::mint_into(
+			asset_id.into(),
+			&lp_provider,
+			((u64::MAX as u128) * 100).into()
+		));
+
+		let token_native = NativeOrAssetId::Native;
+		let token_second = NativeOrAssetId::Asset(asset_id);
+
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(lp_provider.clone()),
+			token_native.clone(),
+			token_second.clone()
+		));
+
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(lp_provider.clone()),
+			token_native,
+			token_second,
+			u64::MAX.into(), // 1 desired
+			u64::MAX.into(), // 2 desired
+			1,               // 1 min
+			1,               // 2 min
+			lp_provider,
+		));
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
 mod benches {
 	frame_benchmarking::define_benchmarks!(
 		[frame_benchmarking, BaselineBench::<Runtime>]
@@ -2248,6 +2307,7 @@ mod benches {
 		[tasks_example, TasksExample]
 		[pallet_democracy, Democracy]
 		[pallet_asset_conversion, AssetConversion]
+		[pallet_asset_conversion_tx_payment, AssetConversionTxPayment]
 		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
 		[pallet_election_provider_support_benchmarking, EPSBench::<Runtime>]
 		[pallet_elections_phragmen, Elections]

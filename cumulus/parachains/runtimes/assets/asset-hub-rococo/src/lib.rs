@@ -1022,6 +1022,67 @@ pub type Executive = frame_executive::Executive<
 extern crate frame_benchmarking;
 
 #[cfg(feature = "runtime-benchmarks")]
+use frame_support::traits::fungibles::Inspect;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_asset_conversion_tx_payment::ExtConfig for Runtime {
+	fn create_asset_id_parameter(
+		seed: u32,
+	) -> (
+		<<Self as pallet_asset_conversion_tx_payment::Config>::Fungibles as Inspect<Self::AccountId>>::AssetId,
+		<<Self as pallet_asset_conversion_tx_payment::Config>::OnChargeAssetTransaction as pallet_asset_conversion_tx_payment::OnChargeAssetTransaction<Self>>::AssetId,
+	){
+		// Use a different parachain' foreign assets pallet so that the asset is indeed foreign.
+		let asset_id = MultiLocation::new(
+			1,
+			X3(Parachain(3000), PalletInstance(53), GeneralIndex(seed.into())),
+		);
+		(asset_id, asset_id)
+	}
+
+	fn setup_balances_and_pool(
+		asset_id: <<Self as pallet_asset_conversion_tx_payment::Config>::Fungibles as Inspect<
+			Self::AccountId,
+		>>::AssetId,
+		account: Self::AccountId,
+	) {
+		use frame_support::{assert_ok, traits::fungibles::Mutate};
+		assert_ok!(ForeignAssets::force_create(
+			RuntimeOrigin::root(),
+			asset_id.into(),
+			account.clone().into(), /* owner */
+			true,                   /* is_sufficient */
+			1,
+		));
+
+		let lp_provider = account.clone();
+		use frame_support::traits::Currency;
+		let _ = Balances::deposit_creating(&lp_provider, u64::MAX.into());
+		assert_ok!(ForeignAssets::mint_into(asset_id.into(), &lp_provider, u64::MAX.into()));
+
+		let token_native = Box::new(TokenLocation::get());
+		let token_second = Box::new(asset_id);
+
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(lp_provider.clone()),
+			token_native.clone(),
+			token_second.clone()
+		));
+
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(lp_provider.clone()),
+			token_native,
+			token_second,
+			(u32::MAX / 8).into(), // 1 desired
+			u32::MAX.into(),       // 2 desired
+			1,                     // 1 min
+			1,                     // 2 min
+			lp_provider,
+		));
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
 mod benches {
 	define_benchmarks!(
 		[frame_system, SystemBench::<Runtime>]
@@ -1030,6 +1091,7 @@ mod benches {
 		[pallet_assets, Foreign]
 		[pallet_assets, Pool]
 		[pallet_asset_conversion, AssetConversion]
+		[pallet_asset_conversion_tx_payment, AssetTxPayment]
 		[pallet_balances, Balances]
 		[pallet_multisig, Multisig]
 		[pallet_nft_fractionalization, NftFractionalization]

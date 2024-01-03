@@ -72,6 +72,9 @@ pub mod weights;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
+#[cfg(feature = "runtime-benchmarks")]
+pub use benchmarking::ExtConfig;
+
 mod payment;
 use frame_support::{pallet_prelude::Weight, traits::tokens::AssetId};
 use pallet_asset_conversion::MultiAssetIdConverter;
