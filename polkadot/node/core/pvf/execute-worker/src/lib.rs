@@ -154,26 +154,10 @@ pub fn worker_entrypoint(
 			let worker_pid = process::id();
 			let artifact_path = worker_dir::execute_artifact(&worker_dir_path);
 
-			let Handshake { executor_params } = match recv_execute_handshake(&mut stream) {
-				Ok(handshake) => handshake,
-				Err(err) => {
-					let result =
-						Err(InternalValidationError::HostCommunication(err.to_string()).into());
-					send_result(&mut stream, result)?;
-					return Err(err)
-				},
-			};
+			let Handshake { executor_params } = recv_execute_handshake(&mut stream)?;
 
 			loop {
-				let (params, execution_timeout) = match recv_request(&mut stream) {
-					Ok(request) => request,
-					Err(err) => {
-						let result =
-							Err(InternalValidationError::HostCommunication(err.to_string()).into());
-						send_result(&mut stream, result)?;
-						continue
-					},
-				};
+				let (params, execution_timeout) = recv_request(&mut stream)?;
 				gum::debug!(
 					target: LOG_TARGET,
 					%worker_pid,
