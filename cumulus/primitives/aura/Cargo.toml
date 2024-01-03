@@ -6,6 +6,9 @@ edition.workspace = true
 license = "Apache-2.0"
 description = "Core primitives for Aura in Cumulus"
 
+[lints]
+workspace = true
+
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 

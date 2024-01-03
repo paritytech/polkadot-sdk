@@ -18,6 +18,7 @@
 //!
 //! This runtime currently supports bridging between:
 //! - Rococo <> Westend
+//! - Rococo <> Rococo Bulletin
 
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
@@ -28,18 +29,25 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 pub mod bridge_common_config;
+pub mod bridge_to_bulletin_config;
+pub mod bridge_to_ethereum_config;
 pub mod bridge_to_westend_config;
 mod weights;
 pub mod xcm_config;
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
+use snowbridge_beacon_primitives::{Fork, ForkVersions};
+use snowbridge_core::{
+	gwei, meth, outbound::Message, AgentId, AllowSiblingsOnly, PricingParameters, Rewards,
+};
+use snowbridge_router_primitives::inbound::MessageToXcm;
 use sp_api::impl_runtime_apis;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::Block as BlockT,
+	traits::{Block as BlockT, Keccak256},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult,
+	ApplyExtrinsicResult, FixedU128,
 };
 
 use sp_std::prelude::*;
@@ -47,7 +55,7 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
-use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
+use cumulus_primitives_core::ParaId;
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
@@ -61,17 +69,25 @@ use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot,
 };
-use parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling};
-pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-pub use sp_runtime::{MultiAddress, Perbill, Permill};
-use xcm_config::{XcmOriginToTransactDispatchOrigin, XcmRouter};
 
 use bp_runtime::HeaderId;
+#[cfg(not(feature = "runtime-benchmarks"))]
+use bridge_hub_common::BridgeHubMessageRouter;
+use bridge_hub_common::{
+	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
+	AggregateMessageOrigin,
+};
+use pallet_xcm::EnsureXcm;
+pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+pub use sp_runtime::{MultiAddress, Perbill, Permill};
+use xcm::VersionedMultiLocation;
+use xcm_config::{TreasuryAccount, XcmOriginToTransactDispatchOrigin, XcmRouter};
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
+use rococo_runtime_constants::system_parachain::{ASSET_HUB_ID, BRIDGE_HUB_ID};
 use xcm::latest::prelude::*;
 
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
@@ -82,6 +98,19 @@ use parachains_common::{
 	AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
 	HOURS, MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
 };
+
+#[cfg(feature = "runtime-benchmarks")]
+use crate::xcm_config::benchmark_helpers::DoNothingRouter;
+#[cfg(feature = "runtime-benchmarks")]
+use snowbridge_beacon_primitives::CompactExecutionHeader;
+#[cfg(feature = "runtime-benchmarks")]
+use snowbridge_core::RingBufferMap;
+#[cfg(feature = "runtime-benchmarks")]
+pub use snowbridge_ethereum_beacon_client::ExecutionHeaderBuffer;
+#[cfg(feature = "runtime-benchmarks")]
+use snowbridge_inbound_queue::BenchmarkHelper;
+#[cfg(feature = "runtime-benchmarks")]
+use sp_core::H256;
 
 /// The address format for describing accounts.
 pub type Address = MultiAddress<AccountId, ()>;
@@ -106,7 +135,10 @@ pub type SignedExtra = (
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 	BridgeRejectObsoleteHeadersAndMessages,
-	(bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages,),
+	(
+		bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages,
+		bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages,
+	),
 );
 
 /// Unchecked extrinsic type as expected by this runtime.
@@ -119,6 +151,12 @@ pub type Migrations = (
 	pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
 	InitStorageVersions,
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
+	// unreleased
+	snowbridge_system::migration::v0::InitializeOnUpgrade<
+		Runtime,
+		ConstU32<BRIDGE_HUB_ID>,
+		ConstU32<ASSET_HUB_ID>,
+	>,
 );
 
 /// Migration to initialize storage versions for pallets added after genesis.
@@ -171,10 +209,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("bridge-hub-rococo"),
 	impl_name: create_runtime_str!("bridge-hub-rococo"),
 	authoring_version: 1,
-	spec_version: 1_005_000,
+	spec_version: 1_005_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 3,
+	transaction_version: 4,
 	state_version: 1,
 };
 
@@ -320,21 +358,27 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 impl parachain_info::Config for Runtime {}
 
 parameter_types! {
-	pub MessageQueueServiceWeight: Weight = Perbill::from_percent(35) * RuntimeBlockWeights::get().max_block;
+	/// Amount of weight that can be spent per block to service messages. This was increased
+	/// from 35% to 60% of the max block weight to accommodate the Ethereum beacon light client
+	/// extrinsics. The force_checkpoint and submit extrinsics (for submit, optionally) includes
+	/// the sync committee's pubkeys (512 x 48 bytes)
+	pub MessageQueueServiceWeight: Weight = Perbill::from_percent(60) * RuntimeBlockWeights::get().max_block;
 }
 
 impl pallet_message_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::pallet_message_queue::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
-	type MessageProcessor = pallet_message_queue::mock_helpers::NoopMessageProcessor<
-		cumulus_primitives_core::AggregateMessageOrigin,
-	>;
+	type MessageProcessor =
+		pallet_message_queue::mock_helpers::NoopMessageProcessor<AggregateMessageOrigin>;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type MessageProcessor = xcm_builder::ProcessXcmMessage<
-		AggregateMessageOrigin,
-		xcm_executor::XcmExecutor<xcm_config::XcmConfig>,
-		RuntimeCall,
+	type MessageProcessor = BridgeHubMessageRouter<
+		xcm_builder::ProcessXcmMessage<
+			AggregateMessageOrigin,
+			xcm_executor::XcmExecutor<xcm_config::XcmConfig>,
+			RuntimeCall,
+		>,
+		EthereumOutboundQueue,
 	>;
 	type Size = u32;
 	// The XCMP queue pallet is only ever able to handle the `Sibling(ParaId)` origin:
@@ -451,6 +495,151 @@ impl pallet_utility::Config for Runtime {
 	type WeightInfo = weights::pallet_utility::WeightInfo<Runtime>;
 }
 
+// Ethereum Bridge
+
+#[cfg(not(feature = "runtime-benchmarks"))]
+parameter_types! {
+	pub storage EthereumGatewayAddress: H160 = H160::zero();
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+parameter_types! {
+	pub storage EthereumGatewayAddress: H160 = H160(hex_literal::hex!("EDa338E4dC46038493b885327842fD3E301CaB39"));
+}
+
+parameter_types! {
+	pub const CreateAssetCall: [u8;2] = [53, 0];
+	pub const CreateAssetDeposit: u128 = (UNITS / 10) + EXISTENTIAL_DEPOSIT;
+	pub const InboundQueuePalletInstance: u8 = snowbridge_rococo_common::INBOUND_QUEUE_MESSAGES_PALLET_INDEX;
+	pub Parameters: PricingParameters<u128> = PricingParameters {
+		exchange_rate: FixedU128::from_rational(1, 400),
+		fee_per_gas: gwei(20),
+		rewards: Rewards { local: 1 * UNITS, remote: meth(1) }
+	};
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl<T: snowbridge_ethereum_beacon_client::Config> BenchmarkHelper<T> for Runtime {
+	fn initialize_storage(block_hash: H256, header: CompactExecutionHeader) {
+		<ExecutionHeaderBuffer<T>>::insert(block_hash, header);
+	}
+}
+
+impl snowbridge_inbound_queue::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Verifier = snowbridge_ethereum_beacon_client::Pallet<Runtime>;
+	type Token = Balances;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type XcmSender = XcmRouter;
+	#[cfg(feature = "runtime-benchmarks")]
+	type XcmSender = DoNothingRouter;
+	type ChannelLookup = EthereumSystem;
+	type GatewayAddress = EthereumGatewayAddress;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Helper = Runtime;
+	type MessageConverter = MessageToXcm<
+		CreateAssetCall,
+		CreateAssetDeposit,
+		InboundQueuePalletInstance,
+		AccountId,
+		Balance,
+	>;
+	type WeightToFee = WeightToFee;
+	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
+	type MaxMessageSize = ConstU32<2048>;
+	type WeightInfo = weights::snowbridge_inbound_queue::WeightInfo<Runtime>;
+	type PricingParameters = EthereumSystem;
+}
+
+impl snowbridge_outbound_queue::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Hashing = Keccak256;
+	type MessageQueue = MessageQueue;
+	type Decimals = ConstU8<12>;
+	type MaxMessagePayloadSize = ConstU32<2048>;
+	type MaxMessagesPerBlock = ConstU32<32>;
+	type GasMeter = snowbridge_core::outbound::ConstantGasMeter;
+	type Balance = Balance;
+	type WeightToFee = WeightToFee;
+	type WeightInfo = weights::snowbridge_outbound_queue::WeightInfo<Runtime>;
+	type PricingParameters = EthereumSystem;
+	type Channels = EthereumSystem;
+}
+
+#[cfg(not(feature = "beacon-spec-mainnet"))]
+parameter_types! {
+	pub const ChainForkVersions: ForkVersions = ForkVersions {
+		genesis: Fork {
+			version: [0, 0, 0, 1], // 0x00000001
+			epoch: 0,
+		},
+		altair: Fork {
+			version: [1, 0, 0, 1], // 0x01000001
+			epoch: 0,
+		},
+		bellatrix: Fork {
+			version: [2, 0, 0, 1], // 0x02000001
+			epoch: 0,
+		},
+		capella: Fork {
+			version: [3, 0, 0, 1], // 0x03000001
+			epoch: 0,
+		},
+	};
+	pub const MaxExecutionHeadersToKeep:u32 = 1000;
+}
+
+#[cfg(feature = "beacon-spec-mainnet")]
+parameter_types! {
+	pub const ChainForkVersions: ForkVersions = ForkVersions {
+		genesis: Fork {
+			version: [0, 0, 16, 32], // 0x00001020
+			epoch: 0,
+		},
+		altair: Fork {
+			version: [1, 0, 16, 32], // 0x01001020
+			epoch: 36660,
+		},
+		bellatrix: Fork {
+			version: [2, 0, 16, 32], // 0x02001020
+			epoch: 112260,
+		},
+		capella: Fork {
+			version: [3, 0, 16, 32], // 0x03001020
+			epoch: 162304,
+		},
+	};
+	pub const MaxExecutionHeadersToKeep:u32 = 8192 * 2;
+}
+
+impl snowbridge_ethereum_beacon_client::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type ForkVersions = ChainForkVersions;
+	type MaxExecutionHeadersToKeep = MaxExecutionHeadersToKeep;
+	type WeightInfo = weights::snowbridge_ethereum_beacon_client::WeightInfo<Runtime>;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl snowbridge_system::BenchmarkHelper<RuntimeOrigin> for () {
+	fn make_xcm_origin(location: xcm::latest::MultiLocation) -> RuntimeOrigin {
+		RuntimeOrigin::from(pallet_xcm::Origin::Xcm(location))
+	}
+}
+
+impl snowbridge_system::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type OutboundQueue = EthereumOutboundQueue;
+	type SiblingOrigin = EnsureXcm<AllowSiblingsOnly>;
+	type AgentIdOf = xcm_config::AgentIdOf;
+	type TreasuryAccount = TreasuryAccount;
+	type Token = Balances;
+	type WeightInfo = weights::snowbridge_system::WeightInfo<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Helper = ();
+	type DefaultPricingParameters = Parameters;
+	type InboundDeliveryCost = EthereumInboundQueue;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -483,24 +672,37 @@ construct_runtime!(
 		Utility: pallet_utility::{Pallet, Call, Event} = 40,
 		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 36,
 
-		// BridgeHubRococo uses:
-		//  - BridgeWestendGrandpa
-		//  - BridgeWestendParachains
-		//  - BridgeWestendMessages
-		//  - BridgeRelayers
-
-		// GRANDPA bridge modules.
-		BridgeWestendGrandpa: pallet_bridge_grandpa::<Instance3>::{Pallet, Call, Storage, Event<T>, Config<T>} = 48,
-
-		// Parachain bridge modules.
-		BridgeWestendParachains: pallet_bridge_parachains::<Instance3>::{Pallet, Call, Storage, Event<T>} = 49,
-
-		// Messaging bridge modules.
-		BridgeWestendMessages: pallet_bridge_messages::<Instance3>::{Pallet, Call, Storage, Event<T>, Config<T>} = 51,
-
+		// Bridge relayers pallet, used by several bridges here.
 		BridgeRelayers: pallet_bridge_relayers::{Pallet, Call, Storage, Event<T>} = 47,
 
+		// With-Westend GRANDPA bridge module.
+		BridgeWestendGrandpa: pallet_bridge_grandpa::<Instance3>::{Pallet, Call, Storage, Event<T>, Config<T>} = 48,
+		// With-Westend parachain bridge module.
+		BridgeWestendParachains: pallet_bridge_parachains::<Instance3>::{Pallet, Call, Storage, Event<T>} = 49,
+		// With-Westend messaging bridge module.
+		BridgeWestendMessages: pallet_bridge_messages::<Instance3>::{Pallet, Call, Storage, Event<T>, Config<T>} = 51,
+		// With-Westend bridge hub pallet.
 		XcmOverBridgeHubWestend: pallet_xcm_bridge_hub::<Instance1>::{Pallet} = 52,
+
+		// With-Rococo Bulletin GRANDPA bridge module.
+		//
+		// we can't use `BridgeRococoBulletinGrandpa` name here, because the same Bulletin runtime will be
+		// used for both Rococo and Polkadot Bulletin chains AND this name affects runtime storage keys, used
+		// by the relayer process
+		BridgePolkadotBulletinGrandpa: pallet_bridge_grandpa::<Instance4>::{Pallet, Call, Storage, Event<T>, Config<T>} = 60,
+		// With-Rococo Bulletin messaging bridge module.
+		//
+		// we can't use `BridgeRococoBulletinMessages` name here, because the same Bulletin runtime will be
+		// used for both Rococo and Polkadot Bulletin chains AND this name affects runtime storage keys, used
+		// by this runtime and the relayer process
+		BridgePolkadotBulletinMessages: pallet_bridge_messages::<Instance4>::{Pallet, Call, Storage, Event<T>, Config<T>} = 61,
+		// With-Rococo Bulletin bridge hub pallet.
+		XcmOverPolkadotBulletin: pallet_xcm_bridge_hub::<Instance2>::{Pallet} = 62,
+
+		EthereumInboundQueue: snowbridge_inbound_queue::{Pallet, Call, Storage, Event<T>} = 80,
+		EthereumOutboundQueue: snowbridge_outbound_queue::{Pallet, Call, Storage, Event<T>} = 81,
+		EthereumBeaconClient: snowbridge_ethereum_beacon_client::{Pallet, Call, Storage, Event<T>} = 82,
+		EthereumSystem: snowbridge_system::{Pallet, Call, Storage, Config<T>, Event<T>} = 83,
 
 		// Message Queue. Importantly, is registered last so that messages are processed after
 		// the `on_initialize` hooks of bridging pallets.
@@ -508,14 +710,23 @@ construct_runtime!(
 	}
 );
 
+/// Proper alias for bridge GRANDPA pallet used to bridge with the bulletin chain.
+pub type BridgeRococoBulletinGrandpa = BridgePolkadotBulletinGrandpa;
+/// Proper alias for bridge messages pallet used to bridge with the bulletin chain.
+pub type BridgeRococoBulletinMessages = BridgePolkadotBulletinMessages;
+/// Proper alias for bridge messages pallet used to bridge with the bulletin chain.
+pub type XcmOverRococoBulletin = XcmOverPolkadotBulletin;
+
 bridge_runtime_common::generate_bridge_reject_obsolete_headers_and_messages! {
 	RuntimeCall, AccountId,
 	// Grandpa
 	BridgeWestendGrandpa,
+	BridgeRococoBulletinGrandpa,
 	// Parachains
 	BridgeWestendParachains,
 	// Messages
-	BridgeWestendMessages
+	BridgeWestendMessages,
+	BridgeRococoBulletinMessages
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -540,7 +751,13 @@ mod benches {
 		[pallet_bridge_grandpa, WestendFinality]
 		[pallet_bridge_parachains, WithinWestend]
 		[pallet_bridge_messages, RococoToWestend]
+		[pallet_bridge_messages, RococoToRococoBulletin]
 		[pallet_bridge_relayers, BridgeRelayersBench::<Runtime>]
+		// Ethereum Bridge
+		[snowbridge_inbound_queue, EthereumInboundQueue]
+		[snowbridge_outbound_queue, EthereumOutboundQueue]
+		[snowbridge_system, EthereumSystem]
+		[snowbridge_ethereum_beacon_client, EthereumBeaconClient]
 	);
 }
 
@@ -733,6 +950,58 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl bp_polkadot_bulletin::PolkadotBulletinFinalityApi<Block> for Runtime {
+		fn best_finalized() -> Option<bp_runtime::HeaderId<bp_polkadot_bulletin::Hash, bp_polkadot_bulletin::BlockNumber>> {
+			BridgePolkadotBulletinGrandpa::best_finalized()
+		}
+
+		fn synced_headers_grandpa_info(
+		) -> Vec<bp_header_chain::StoredHeaderGrandpaInfo<bp_polkadot_bulletin::Header>> {
+			BridgePolkadotBulletinGrandpa::synced_headers_grandpa_info()
+		}
+	}
+
+	impl bp_polkadot_bulletin::FromPolkadotBulletinInboundLaneApi<Block> for Runtime {
+		fn message_details(
+			lane: bp_messages::LaneId,
+			messages: Vec<(bp_messages::MessagePayload, bp_messages::OutboundMessageDetails)>,
+		) -> Vec<bp_messages::InboundMessageDetails> {
+			bridge_runtime_common::messages_api::inbound_message_details::<
+				Runtime,
+				bridge_to_bulletin_config::WithRococoBulletinMessagesInstance,
+			>(lane, messages)
+		}
+	}
+
+	impl bp_polkadot_bulletin::ToPolkadotBulletinOutboundLaneApi<Block> for Runtime {
+		fn message_details(
+			lane: bp_messages::LaneId,
+			begin: bp_messages::MessageNonce,
+			end: bp_messages::MessageNonce,
+		) -> Vec<bp_messages::OutboundMessageDetails> {
+			bridge_runtime_common::messages_api::outbound_message_details::<
+				Runtime,
+				bridge_to_bulletin_config::WithRococoBulletinMessagesInstance,
+			>(lane, begin, end)
+		}
+	}
+
+	impl snowbridge_outbound_queue_runtime_api::OutboundQueueApi<Block, Balance> for Runtime {
+		fn prove_message(leaf_index: u64) -> Option<snowbridge_outbound_queue::MerkleProof> {
+			snowbridge_outbound_queue::api::prove_message::<Runtime>(leaf_index)
+		}
+
+		fn calculate_fee(message: Message) -> Option<Balance> {
+			snowbridge_outbound_queue::api::calculate_fee::<Runtime>(message)
+		}
+	}
+
+	impl snowbridge_system_runtime_api::ControlApi<Block> for Runtime {
+		fn agent_id(location: VersionedMultiLocation) -> Option<AgentId> {
+			snowbridge_system::api::agent_id::<Runtime>(location)
+		}
+	}
+
 	#[cfg(feature = "try-runtime")]
 	impl frame_try_runtime::TryRuntime<Block> for Runtime {
 		fn on_runtime_upgrade(checks: frame_try_runtime::UpgradeCheckSelect) -> (Weight, Weight) {
@@ -775,6 +1044,7 @@ impl_runtime_apis! {
 			type WestendFinality = BridgeWestendGrandpa;
 			type WithinWestend = pallet_bridge_parachains::benchmarking::Pallet::<Runtime, bridge_common_config::BridgeParachainWestendInstance>;
 			type RococoToWestend = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>;
+			type RococoToRococoBulletin = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_bulletin_config::WithRococoBulletinMessagesInstance>;
 
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmarks!(list, extra);
@@ -968,9 +1238,12 @@ impl_runtime_apis! {
 			type WestendFinality = BridgeWestendGrandpa;
 			type WithinWestend = pallet_bridge_parachains::benchmarking::Pallet::<Runtime, bridge_common_config::BridgeParachainWestendInstance>;
 			type RococoToWestend = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>;
+			type RococoToRococoBulletin = pallet_bridge_messages::benchmarking::Pallet ::<Runtime, bridge_to_bulletin_config::WithRococoBulletinMessagesInstance>;
 
 			use bridge_runtime_common::messages_benchmarking::{
+				prepare_message_delivery_proof_from_grandpa_chain,
 				prepare_message_delivery_proof_from_parachain,
+				prepare_message_proof_from_grandpa_chain,
 				prepare_message_proof_from_parachain,
 				generate_xcm_builder_bridge_message_sample,
 			};
@@ -1014,6 +1287,41 @@ impl_runtime_apis! {
 						Runtime,
 						bridge_common_config::BridgeGrandpaWestendInstance,
 						bridge_to_westend_config::WithBridgeHubWestendMessageBridge,
+					>(params)
+				}
+
+				fn is_message_successfully_dispatched(_nonce: bp_messages::MessageNonce) -> bool {
+					use cumulus_primitives_core::XcmpMessageSource;
+					!XcmpQueue::take_outbound_messages(usize::MAX).is_empty()
+				}
+			}
+
+			impl BridgeMessagesConfig<bridge_to_bulletin_config::WithRococoBulletinMessagesInstance> for Runtime {
+				fn is_relayer_rewarded(_relayer: &Self::AccountId) -> bool {
+					// we do not pay any rewards in this bridge
+					true
+				}
+
+				fn prepare_message_proof(
+					params: MessageProofParams,
+				) -> (bridge_to_bulletin_config::FromRococoBulletinMessagesProof, Weight) {
+					use cumulus_primitives_core::XcmpMessageSource;
+					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
+					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
+					prepare_message_proof_from_grandpa_chain::<
+						Runtime,
+						bridge_common_config::BridgeGrandpaRococoBulletinInstance,
+						bridge_to_bulletin_config::WithRococoBulletinMessageBridge,
+					>(params, generate_xcm_builder_bridge_message_sample(X2(GlobalConsensus(Rococo), Parachain(42))))
+				}
+
+				fn prepare_message_delivery_proof(
+					params: MessageDeliveryProofParams<AccountId>,
+				) -> bridge_to_bulletin_config::ToRococoBulletinMessagesDeliveryProof {
+					prepare_message_delivery_proof_from_grandpa_chain::<
+						Runtime,
+						bridge_common_config::BridgeGrandpaRococoBulletinInstance,
+						bridge_to_bulletin_config::WithRococoBulletinMessageBridge,
 					>(params)
 				}
 
@@ -1134,7 +1442,10 @@ mod tests {
 				frame_system::CheckWeight::new(),
 				pallet_transaction_payment::ChargeTransactionPayment::from(10),
 				BridgeRejectObsoleteHeadersAndMessages,
-				(bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),)
+				(
+					bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
+					bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages::default(),
+				)
 			);
 
 			// for BridgeHubRococo
