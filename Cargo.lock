@@ -13005,7 +13005,7 @@ dependencies = [
  "polkadot-node-subsystem-types",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
- "prioritized-metered-channel 0.5.1",
+ "prioritized-metered-channel 0.6.0",
  "sc-client-api",
  "sp-api",
  "sp-core",
