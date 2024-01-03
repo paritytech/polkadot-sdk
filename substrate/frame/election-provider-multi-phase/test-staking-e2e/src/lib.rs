@@ -387,3 +387,65 @@ fn ledger_consistency_active_balance_below_ed() {
 		assert!(Staking::ledger(11.into()).is_err());
 	});
 }
+
+#[test]
+fn parachain_weight_limits() {
+	use frame_support::weights::Weight;
+	use pallet_election_provider_multi_phase::weights::WeightInfo as epm_weight;
+	use pallet_staking::weights::WeightInfo as staking_weight;
+
+	type EPMWeightInfo = <Runtime as pallet_election_provider_multi_phase::Config>::WeightInfo;
+	type StakingWeightInfo = <Runtime as pallet_staking::Config>::WeightInfo;
+
+	// `MaxActiveValidators` in Polkadot.
+	let targets = 1_200;
+	// `MaxElectionVoters` in Polkadot.
+	let voters = 22_500;
+	// we assume 1/2 of the voters are active.
+	let active_voters = 22_500 / 2;
+	// `MaxWinners` in Polkadot.
+	let desired_targets = 1_200;
+
+	// parachain block limit.
+	let weight_limit = Weight::from_parts(
+		// ref_time
+		500_000_000_000,
+		// proof_size
+		5_242_880,
+	);
+
+	// EPM
+	let snapshot_weight = EPMWeightInfo::create_snapshot_internal(voters, targets);
+	println!(
+		"snapshot weight: {:?}. fits? {:?}",
+		snapshot_weight,
+		snapshot_weight.all_lte(weight_limit)
+	);
+
+	let submit_unsigned_weight =
+		EPMWeightInfo::submit_unsigned(voters, targets, active_voters, desired_targets);
+	println!(
+		"submit_unsigned: {:?}. fits? {:?}",
+		submit_unsigned_weight,
+		submit_unsigned_weight.all_lte(weight_limit)
+	);
+
+	let elect_weight = EPMWeightInfo::elect_queued(active_voters, desired_targets);
+	println!("elect weight: {:?}. fits? {:?}", elect_weight, elect_weight.all_lte(weight_limit));
+
+	// staking
+	let nominators_taken = voters / 2;
+	let npos_voters_weight = StakingWeightInfo::get_npos_voters(nominators_taken, targets);
+	println!(
+		"get_npos_voters weight: {:?}. fits? {:?}",
+		npos_voters_weight,
+		npos_voters_weight.all_lte(weight_limit)
+	);
+
+	let npos_targets_weight = StakingWeightInfo::get_npos_targets(targets);
+	println!(
+		"get_npos_targets weight: {:?}. fits? {:?}",
+		npos_targets_weight,
+		npos_targets_weight.all_lte(weight_limit)
+	);
+}
