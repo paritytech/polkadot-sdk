@@ -705,7 +705,7 @@ mod benches {
 
 		let core_count = n.try_into().unwrap();
 
-		<T::Coretime as CoretimeInterface>::ensure_notify_core_count(core_count);
+		CoreCountInbox::<T>::put(core_count);
 
 		let mut status = Status::<T>::get().ok_or(BenchmarkError::Weightless)?;
 
@@ -884,6 +884,17 @@ mod benches {
 		{
 			T::Coretime::request_revenue_info_at(rc_block);
 		}
+	}
+	#[benchmark]
+	fn notify_core_count() -> Result<(), BenchmarkError> {
+		let admin_origin =
+			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+
+		#[extrinsic_call]
+		_(admin_origin as T::RuntimeOrigin, 100);
+
+		assert!(CoreCountInbox::<T>::take().is_some());
+		Ok(())
 	}
 
 	#[benchmark]

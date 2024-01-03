@@ -1005,8 +1005,9 @@ impl<T: Config> Pallet<T> {
 		Ok((new_id_deposit, new_subs_deposit))
 	}
 
-	/// Set an identity with zero deposit. Only used for benchmarking that involves `rejig_deposit`.
-	#[cfg(feature = "runtime-benchmarks")]
+	/// Set an identity with zero deposit. Used for benchmarking and XCM emulator tests that involve
+	/// `rejig_deposit`.
+	#[cfg(any(feature = "runtime-benchmarks", feature = "std"))]
 	pub fn set_identity_no_deposit(
 		who: &T::AccountId,
 		info: T::IdentityInformation,
@@ -1022,15 +1023,25 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Set subs with zero deposit. Only used for benchmarking that involves `rejig_deposit`.
-	#[cfg(feature = "runtime-benchmarks")]
-	pub fn set_sub_no_deposit(who: &T::AccountId, sub: T::AccountId) -> DispatchResult {
+	/// Set subs with zero deposit and default name. Only used for benchmarks that involve
+	/// `rejig_deposit`.
+	#[cfg(any(feature = "runtime-benchmarks", feature = "std"))]
+	pub fn set_subs_no_deposit(
+		who: &T::AccountId,
+		subs: Vec<(T::AccountId, Data)>,
+	) -> DispatchResult {
 		use frame_support::BoundedVec;
-		let subs = BoundedVec::<_, T::MaxSubAccounts>::try_from(vec![sub]).unwrap();
+		let mut sub_accounts = BoundedVec::<T::AccountId, T::MaxSubAccounts>::default();
+		for (sub, name) in subs {
+			<SuperOf<T>>::insert(&sub, (who.clone(), name));
+			sub_accounts
+				.try_push(sub)
+				.expect("benchmark should not pass more than T::MaxSubAccounts");
+		}
 		SubsOf::<T>::insert::<
 			&T::AccountId,
 			(BalanceOf<T>, BoundedVec<T::AccountId, T::MaxSubAccounts>),
-		>(&who, (Zero::zero(), subs));
+		>(&who, (Zero::zero(), sub_accounts));
 		Ok(())
 	}
 }
