@@ -41,7 +41,7 @@ pub struct WorkerResponse {
 }
 
 /// An error occurred in the worker process.
-#[derive(thiserror::Error, Debug, Encode, Decode)]
+#[derive(thiserror::Error, Debug, Clone, Encode, Decode)]
 pub enum WorkerError {
 	#[error("The job timed out")]
 	JobTimedOut,
@@ -96,7 +96,7 @@ impl JobResponse {
 /// An unexpected error occurred in the execution job process. Because this comes from the job,
 /// which executes untrusted code, this error must likewise be treated as untrusted. That is, we
 /// cannot raise an internal error based on this.
-#[derive(thiserror::Error, Debug, Encode, Decode)]
+#[derive(thiserror::Error, Clone, Debug, Encode, Decode)]
 pub enum JobError {
 	#[error("The job timed out")]
 	TimedOut,

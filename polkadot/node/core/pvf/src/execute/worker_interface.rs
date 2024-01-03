@@ -145,8 +145,7 @@ pub async fn start_work(
 					"failed to send an execute request: {}",
 					error,
 				);
-				// Maybe the previous job process killed the parent worker, don't treat as internal.
-				Error::CommunicationErr(error)
+				Error::InternalError(InternalValidationError::HostCommunication(error.to_string()))
 			},
 		)?;
 

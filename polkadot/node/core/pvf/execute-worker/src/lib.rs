@@ -119,8 +119,38 @@ fn recv_request(stream: &mut UnixStream) -> io::Result<(Vec<u8>, Duration)> {
 	Ok((params, execution_timeout))
 }
 
-fn send_result(stream: &mut UnixStream, result: WorkerResult) -> io::Result<()> {
-	framed_send_blocking(stream, &result.encode())
+fn send_result(stream: &mut UnixStream, worker_pid: u32, result: WorkerResult) -> io::Result<()> {
+	if let Err(ref err) = result {
+		gum::warn!(
+			target: LOG_TARGET,
+			%worker_pid,
+			"worker: error occurred: {}",
+			err
+		);
+	}
+	gum::trace!(
+		target: LOG_TARGET,
+		%worker_pid,
+		"worker: sending result to host: {:?}",
+		result
+	);
+
+	framed_send_blocking(stream, &result.encode()).map_err(|err| {
+		gum::warn!(
+			target: LOG_TARGET,
+			%worker_pid,
+			"worker: error occurred sending result to host: {}",
+			err
+		);
+		err
+	})
+}
+
+/// Sends an error to the host and returns the original error wrapped in `io::Error`.
+fn send_error(stream: &mut UnixStream, worker_pid: u32, err: WorkerError) -> io::Error {
+	let io_err = io::Error::new(io::ErrorKind::Other, err.to_string());
+	let _ = send_result(stream, worker_pid, Err(err));
+	io_err
 }
 
 /// The entrypoint that the spawned execute worker should start with.
@@ -154,10 +184,25 @@ pub fn worker_entrypoint(
 			let worker_pid = process::id();
 			let artifact_path = worker_dir::execute_artifact(&worker_dir_path);
 
-			let Handshake { executor_params } = recv_execute_handshake(&mut stream)?;
+			let Handshake { executor_params } =
+				recv_execute_handshake(&mut stream).map_err(|err| {
+					// Communication went wrong, but make a best-effort to notify the host.
+					send_error(
+						&mut stream,
+						worker_pid,
+						InternalValidationError::HostCommunication(err.to_string()).into(),
+					)
+				})?;
 
 			loop {
-				let (params, execution_timeout) = recv_request(&mut stream)?;
+				let (params, execution_timeout) = recv_request(&mut stream).map_err(|err| {
+					// Communication went wrong, but make a best-effort to notify the host.
+					send_error(
+						&mut stream,
+						worker_pid,
+						InternalValidationError::HostCommunication(err.to_string()).into(),
+					)
+				})?;
 				gum::debug!(
 					target: LOG_TARGET,
 					%worker_pid,
@@ -166,41 +211,34 @@ pub fn worker_entrypoint(
 				);
 
 				// Get the artifact bytes.
-				let compiled_artifact_blob = match std::fs::read(&artifact_path) {
-					Ok(bytes) => bytes,
-					Err(err) => {
-						let result =
-							Err(InternalValidationError::CouldNotOpenFile(err.to_string()).into());
-						send_result(&mut stream, result)?;
-						continue
-					},
-				};
+				let compiled_artifact_blob = std::fs::read(&artifact_path).map_err(|err| {
+					send_error(
+						&mut stream,
+						worker_pid,
+						InternalValidationError::CouldNotOpenFile(err.to_string()).into(),
+					)
+				})?;
 
-				let (pipe_reader, pipe_writer) = match os_pipe::pipe() {
-					Ok(pipe) => pipe,
-					Err(err) => {
-						let result = Err(InternalValidationError::CouldNotCreatePipe(
-							err.to_string(),
+				let (pipe_reader, pipe_writer) = os_pipe::pipe().map_err(|err| {
+					send_error(
+						&mut stream,
+						worker_pid,
+						InternalValidationError::CouldNotCreatePipe(err.to_string()).into(),
+					)
+				})?;
+
+				let usage_before = nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN)
+					.map_err(|errno| {
+						send_error(
+							&mut stream,
+							worker_pid,
+							internal_error_from_errno("getrusage before", errno),
 						)
-						.into());
-						send_result(&mut stream, result)?;
-						continue
-					},
-				};
-
-				let usage_before = match nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
-					Ok(usage) => usage,
-					Err(errno) => {
-						let result = Err(internal_error_from_errno("getrusage before", errno));
-						send_result(&mut stream, result)?;
-						continue
-					},
-				};
+					})?;
 
 				// SAFETY: new process is spawned within a single threaded process. This invariant
 				// is enforced by tests.
 				let result = match unsafe { nix::unistd::fork() } {
-					Err(errno) => Err(internal_error_from_errno("fork", errno)),
 					Ok(ForkResult::Child) => {
 						// Dropping the stream closes the underlying socket. We want to make sure
 						// that the sandboxed child can't get any kind of information from the
@@ -231,9 +269,10 @@ pub fn worker_entrypoint(
 							execution_timeout,
 						)?
 					},
+					Err(errno) => Err(internal_error_from_errno("fork", errno)),
 				};
 
-				send_result(&mut stream, result)?;
+				send_result(&mut stream, worker_pid, result)?;
 			}
 		},
 	);
