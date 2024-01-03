@@ -1993,7 +1993,6 @@ impl OnUnbalanced<Credit<AccountId, Balances>> for IntoAuthor {
 }
 
 parameter_types! {
-	pub storage CoreCount: Option<CoreIndex> = None;
 	pub storage CoretimeRevenue: Option<(BlockNumber, Balance)> = None;
 }
 
@@ -2012,19 +2011,10 @@ impl CoretimeInterface for CoretimeProvider {
 		_end_hint: Option<u32>,
 	) {
 	}
-	fn check_notify_core_count() -> Option<u16> {
-		let count = CoreCount::get();
-		CoreCount::set(&None);
-		count
-	}
 	fn check_notify_revenue_info() -> Option<(u32, Self::Balance)> {
 		let revenue = CoretimeRevenue::get();
 		CoretimeRevenue::set(&None);
 		revenue
-	}
-	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_notify_core_count(count: u16) {
-		CoreCount::set(&Some(count));
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_notify_revenue_info(when: u32, revenue: Self::Balance) {

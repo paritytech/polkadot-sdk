@@ -20,7 +20,7 @@ proc-macro = true
 
 [dependencies]
 quote = "1.0.28"
-syn = "2.0.41"
+syn = "2.0.43"
 proc-macro2 = "1.0.56"
 
 [features]

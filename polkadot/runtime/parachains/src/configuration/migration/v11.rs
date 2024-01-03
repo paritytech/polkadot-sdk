@@ -126,7 +126,7 @@ hrmp_max_parachain_inbound_channels      : pre.hrmp_max_parachain_inbound_channe
 hrmp_max_parachain_outbound_channels     : pre.hrmp_max_parachain_outbound_channels,
 hrmp_channel_max_message_size            : pre.hrmp_channel_max_message_size,
 code_retention_period                    : pre.code_retention_period,
-on_demand_cores                          : pre.on_demand_cores,
+coretime_cores                           : pre.on_demand_cores,
 on_demand_retries                        : pre.on_demand_retries,
 group_rotation_frequency                 : pre.group_rotation_frequency,
 paras_availability_period                : pre.paras_availability_period,
@@ -222,7 +222,7 @@ mod tests {
 		assert_eq!(v11.n_delay_tranches, 25);
 		assert_eq!(v11.minimum_validation_upgrade_delay, 5);
 		assert_eq!(v11.group_rotation_frequency, 20);
-		assert_eq!(v11.on_demand_cores, 0);
+		assert_eq!(v11.coretime_cores, 0);
 		assert_eq!(v11.on_demand_base_fee, 10_000_000);
 		assert_eq!(v11.minimum_backing_votes, LEGACY_MIN_BACKING_VOTES);
 		assert_eq!(v11.approval_voting_params.max_approval_coalesce_count, 1);
@@ -286,7 +286,7 @@ mod tests {
 					assert_eq!(v10.hrmp_max_parachain_inbound_channels      , v11.hrmp_max_parachain_inbound_channels);
 					assert_eq!(v10.hrmp_channel_max_message_size            , v11.hrmp_channel_max_message_size);
 					assert_eq!(v10.code_retention_period                    , v11.code_retention_period);
-					assert_eq!(v10.on_demand_cores                          , v11.on_demand_cores);
+					assert_eq!(v10.coretime_cores                           , v11.coretime_cores);
 					assert_eq!(v10.on_demand_retries                        , v11.on_demand_retries);
 					assert_eq!(v10.group_rotation_frequency                 , v11.group_rotation_frequency);
 					assert_eq!(v10.paras_availability_period                , v11.paras_availability_period);
