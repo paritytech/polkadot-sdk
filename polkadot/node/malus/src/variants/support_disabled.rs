@@ -14,9 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! This variant of Malus backs/approves all malicious candidates crafted by
-//! `suggest-garbage-candidate` variant and behaves honestly with other
-//! candidates.
+//! This variant of Malus overrides the `disabled_validators` runtime API
+//! to always return an empty set of disabled validators.
 
 use polkadot_cli::{
 	prepared_overseer_builder,
@@ -78,7 +77,7 @@ where
 {
 	type Message = RuntimeApiMessage;
 
-	/// Intercept incoming runtime api requests requests.
+	/// Intercept incoming runtime api requests.
 	fn intercept_incoming(
 		&self,
 		_subsystem_sender: &mut Sender,
