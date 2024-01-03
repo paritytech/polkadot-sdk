@@ -19,12 +19,11 @@ use crate::chain_spec::{
 	SAFE_XCM_VERSION,
 };
 use cumulus_primitives_core::ParaId;
-use parachains_common::{AccountId, AuraId, Balance as AssetHubBalance};
+use parachains_common::{AccountId, AuraId, Balance as StakingBalance};
 use sc_service::ChainType;
 use sp_core::sr25519;
 
-const STAKING_ROCOCO_ED: AssetHubBalance =
-	parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
+const STAKING_ROCOCO_ED: StakingBalance = parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
 
 /// Generate the session keys from individual elements.
 ///
@@ -53,7 +52,7 @@ fn staking_rococo_like_development_config(
 	para_id: u32,
 ) -> GenericChainSpec {
 	GenericChainSpec::builder(
-		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+		staking_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions { relay_chain: "rococo-dev".into(), para_id },
 	)
 	.with_name(name)
@@ -81,7 +80,7 @@ fn staking_rococo_like_development_config(
 fn staking_rococo_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<AccountId>,
-	endowment: AssetHubBalance,
+	endowment: StakingBalance,
 	id: ParaId,
 ) -> serde_json::Value {
 	serde_json::json!({
