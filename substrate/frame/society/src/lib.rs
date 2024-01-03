@@ -262,9 +262,12 @@ use frame_support::{
 	pallet_prelude::*,
 	storage::KeyLenOf,
 	traits::{
-		BalanceStatus, Currency, EnsureOrigin, EnsureOriginWithArg,
-		ExistenceRequirement::AllowDeath, Imbalance, OnUnbalanced, Randomness, ReservableCurrency,
-		StorageVersion,
+		fungible::{
+			hold::Balanced as FunBalancedHold, Balanced as FunBalanced, Inspect as FunInspect,
+			Mutate as FunMutate, MutateHold as FunMutateHold,
+		},
+		tokens::{fungible::Credit, Fortitude, Precision, Preservation::Expendable, Restriction},
+		EnsureOrigin, EnsureOriginWithArg, Imbalance, OnUnbalanced, Randomness, StorageVersion,
 	},
 	PalletId,
 };
@@ -289,10 +292,8 @@ pub use weights::WeightInfo;
 pub use pallet::*;
 
 type BalanceOf<T, I> =
-	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type NegativeImbalanceOf<T, I> = <<T as Config<I>>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
->>::NegativeImbalance;
+	<<T as Config<I>>::Fungible as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
+type CreditOf<T, I> = Credit<<T as frame_system::Config>::AccountId, <T as Config<I>>::Fungible>;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
@@ -472,6 +473,13 @@ pub mod pallet {
 	#[pallet::without_storage_info]
 	pub struct Pallet<T, I = ()>(_);
 
+	/// A reason for this pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason<I: 'static = ()> {
+		/// The funds are reserved during a user's bid for entry.
+		Society,
+	}
+
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// The overarching event type.
@@ -483,7 +491,13 @@ pub mod pallet {
 		type PalletId: Get<PalletId>;
 
 		/// The currency type used for bidding.
-		type Currency: ReservableCurrency<Self::AccountId>;
+		type Fungible: FunMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ FunMutate<Self::AccountId>
+			+ FunBalanced<Self::AccountId>
+			+ FunBalancedHold<Self::AccountId>;
+
+		/// The overarching runtime hold reason.
+		type RuntimeHoldReason: From<HoldReason>;
 
 		/// Something that provides randomness in the runtime.
 		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self>>;
@@ -823,8 +837,9 @@ pub mod pallet {
 
 			let params = Parameters::<T, I>::get().ok_or(Error::<T, I>::NotGroup)?;
 			let deposit = params.candidate_deposit;
-			// NOTE: Reserve must happen before `insert_bid` since that could end up unreserving.
-			T::Currency::reserve(&who, deposit)?;
+			// NOTE: Hold must happen before `insert_bid` since that could end up with it being
+			// released.
+			T::Fungible::hold(&HoldReason::Society.into(), &who, deposit)?;
 			Self::insert_bid(&mut bids, &who, value, BidKind::Deposit(deposit));
 
 			Bids::<T, I>::put(bids);
@@ -836,7 +851,7 @@ pub mod pallet {
 		/// By doing so, they will have their candidate deposit returned or
 		/// they will unvouch their voucher.
 		///
-		/// Payment: The bid deposit is unreserved if the user made a bid.
+		/// Payment: The bid deposit is released if the user made a bid.
 		///
 		/// The dispatch origin for this call must be _Signed_ and a bidder.
 		#[pallet::call_index(1)]
@@ -1017,7 +1032,7 @@ pub mod pallet {
 			if let Some((when, amount)) = record.payouts.first() {
 				if when <= &<frame_system::Pallet<T>>::block_number() {
 					record.paid = record.paid.checked_add(amount).ok_or(Overflow)?;
-					T::Currency::transfer(&Self::payouts(), &who, *amount, AllowDeath)?;
+					T::Fungible::transfer(&Self::payouts(), &who, *amount, Expendable)?;
 					record.payouts.remove(0);
 					Payouts::<T, I>::insert(&who, record);
 					return Ok(())
@@ -1037,7 +1052,7 @@ pub mod pallet {
 			ensure!(record.rank == 0, Error::<T, I>::AlreadyElevated);
 			ensure!(amount >= payout_record.paid, Error::<T, I>::InsufficientFunds);
 
-			T::Currency::transfer(&who, &Self::account_id(), payout_record.paid, AllowDeath)?;
+			T::Fungible::transfer(&who, &Self::account_id(), payout_record.paid, Expendable)?;
 			payout_record.paid = Zero::zero();
 			payout_record.payouts.clear();
 			record.rank = 1;
@@ -1164,7 +1179,7 @@ pub mod pallet {
 					.into_iter()
 					.map(|x| x.1)
 					.fold(Zero::zero(), |acc: BalanceOf<T, I>, x| acc.saturating_add(x));
-				Self::unreserve_payout(total);
+				Self::release_payout(total);
 			}
 			SuspendedMembers::<T, I>::remove(&who);
 			Self::deposit_event(Event::<T, I>::SuspendedMemberJudgement { who, judged: forgive });
@@ -1540,7 +1555,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// Bump the pot by at most `PeriodSpend`, but less if there's not very much left in our
 		// account.
 		let mut pot = Pot::<T, I>::get();
-		let unaccounted = T::Currency::free_balance(&Self::account_id()).saturating_sub(pot);
+		let unaccounted = T::Fungible::balance(&Self::account_id()).saturating_sub(pot);
 		pot.saturating_accrue(T::PeriodSpend::get().min(unaccounted / 2u8.into()));
 		Pot::<T, I>::put(&pot);
 
@@ -1628,7 +1643,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 	}
 
-	/// Either unreserve the deposit or free up the vouching member.
+	/// Either release the deposit or free up the vouching member.
 	///
 	/// In neither case can we do much if the action isn't completable, but there's
 	/// no reason that either should fail.
@@ -1638,8 +1653,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn clean_bid(bid: &Bid<T::AccountId, BalanceOf<T, I>>) {
 		match &bid.kind {
 			BidKind::Deposit(deposit) => {
-				let err_amount = T::Currency::unreserve(&bid.who, *deposit);
-				debug_assert!(err_amount.is_zero());
+				let released = T::Fungible::release(
+					&HoldReason::Society.into(),
+					&bid.who,
+					*deposit,
+					Precision::Exact,
+				);
+				debug_assert!(released.is_ok());
+				// TODO deal with Err vs wrong amount released
 			},
 			BidKind::Vouch(voucher, _) => {
 				Members::<T, I>::mutate_extant(voucher, |record| record.vouching = None);
@@ -1658,8 +1679,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		match kind {
 			BidKind::Deposit(deposit) => {
 				let pot = Self::account_id();
-				let free = BalanceStatus::Free;
-				let r = T::Currency::repatriate_reserved(&who, &pot, *deposit, free);
+				let r = T::Fungible::transfer_on_hold(
+					&HoldReason::Society.into(),
+					&who,
+					&pot,
+					*deposit,
+					Precision::BestEffort,
+					Restriction::Free,
+					Fortitude::Force,
+				);
 				debug_assert!(r.is_ok());
 			},
 			BidKind::Vouch(voucher, _) => {
@@ -1901,10 +1929,16 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) {
 		let value = match kind {
 			BidKind::Deposit(deposit) => {
-				// In the case that a normal deposit bid is accepted we unreserve
+				// In the case that a normal deposit bid is accepted we release
 				// the deposit.
-				let err_amount = T::Currency::unreserve(candidate, deposit);
-				debug_assert!(err_amount.is_zero());
+				let released = T::Fungible::release(
+					&HoldReason::Society.into(),
+					candidate,
+					deposit,
+					Precision::BestEffort,
+				);
+				debug_assert!(released.is_ok());
+				// TODO deal with Err vs wrong amount released
 				value
 			},
 			BidKind::Vouch(voucher, tip) => {
@@ -1981,19 +2015,19 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		// this should never fail since we ensure we can afford the payouts in a previous
 		// block, but there's not much we can do to recover if it fails anyway.
-		let res = T::Currency::transfer(&Self::account_id(), &Self::payouts(), amount, AllowDeath);
+		let res = T::Fungible::transfer(&Self::account_id(), &Self::payouts(), amount, Expendable);
 		debug_assert!(res.is_ok());
 	}
 
 	/// Transfer some `amount` from the main account into the payouts account and increase the Pot
 	/// by this amount.
-	fn unreserve_payout(amount: BalanceOf<T, I>) {
-		// Tramsfer payout from the Pot into the payouts account.
+	fn release_payout(amount: BalanceOf<T, I>) {
+		// Transfer payout from the Pot into the payouts account.
 		Pot::<T, I>::mutate(|pot| pot.saturating_accrue(amount));
 
 		// this should never fail since we ensure we can afford the payouts in a previous
 		// block, but there's not much we can do to recover if it fails anyway.
-		let res = T::Currency::transfer(&Self::payouts(), &Self::account_id(), amount, AllowDeath);
+		let res = T::Fungible::transfer(&Self::payouts(), &Self::account_id(), amount, Expendable);
 		debug_assert!(res.is_ok());
 	}
 
@@ -2023,12 +2057,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 }
 
-impl<T: Config<I>, I: 'static> OnUnbalanced<NegativeImbalanceOf<T, I>> for Pallet<T, I> {
-	fn on_nonzero_unbalanced(amount: NegativeImbalanceOf<T, I>) {
+impl<T: Config<I>, I: 'static> OnUnbalanced<CreditOf<T, I>> for Pallet<T, I> {
+	fn on_nonzero_unbalanced(amount: CreditOf<T, I>) {
 		let numeric_amount = amount.peek();
 
-		// Must resolve into existing but better to be safe.
-		let _ = T::Currency::resolve_creating(&Self::account_id(), amount);
+		// Creates account if it doesn't exist, as long as amount > minimum balance.
+		let _ = T::Fungible::resolve(&Self::account_id(), amount);
 
 		Self::deposit_event(Event::<T, I>::Deposit { value: numeric_amount });
 	}
