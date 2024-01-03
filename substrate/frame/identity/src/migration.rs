@@ -88,7 +88,7 @@ pub mod v1 {
 				_,
 			>(|_, registration| {
 				translated.saturating_inc();
-				Some((registration, None::<Username>))
+				Some((registration, None::<Username<T>>))
 			});
 			log::info!("translated {} identities", translated);
 

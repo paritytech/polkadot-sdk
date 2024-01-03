@@ -125,12 +125,12 @@ fn bench_username() -> Vec<u8> {
 	b"veryfastbenchmarkmachine".to_vec()
 }
 
-fn bounded_username(username: Vec<u8>, suffix: Vec<u8>) -> Username {
+fn bounded_username<T: Config>(username: Vec<u8>, suffix: Vec<u8>) -> Username<T> {
 	let mut full_username = Vec::with_capacity(username.len() + suffix.len() + 1);
 	full_username.extend(username);
 	full_username.extend(b".");
 	full_username.extend(suffix);
-	Username::try_from(full_username).expect("test usernames should fit within bounds")
+	Username::<T>::try_from(full_username).expect("test usernames should fit within bounds")
 }
 
 #[benchmarks(
@@ -624,7 +624,7 @@ mod benchmarks {
 		)?;
 
 		let username = bench_username();
-		let bounded_username = bounded_username(username.clone(), suffix.clone());
+		let bounded_username = bounded_username::<T>(username.clone(), suffix.clone());
 		let encoded_username = Encode::encode(&bounded_username.to_vec());
 
 		let public = sr25519_generate(0.into(), None);
@@ -656,7 +656,7 @@ mod benchmarks {
 	#[benchmark]
 	fn accept_username() -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
-		let username = bounded_username(bench_username(), bench_suffix());
+		let username = bounded_username::<T>(bench_username(), bench_suffix());
 
 		Identity::<T>::queue_acceptance(&caller, username.clone());
 
@@ -670,7 +670,7 @@ mod benchmarks {
 	#[benchmark]
 	fn remove_expired_approval() -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
-		let username = bounded_username(bench_username(), bench_suffix());
+		let username = bounded_username::<T>(bench_username(), bench_suffix());
 		Identity::<T>::queue_acceptance(&caller, username.clone());
 
 		let expected_exiration =
@@ -688,8 +688,8 @@ mod benchmarks {
 	#[benchmark]
 	fn set_primary_username() -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
-		let first_username = bounded_username(bench_username(), bench_suffix());
-		let second_username = bounded_username(b"slowbenchmark".to_vec(), bench_suffix());
+		let first_username = bounded_username::<T>(bench_username(), bench_suffix());
+		let second_username = bounded_username::<T>(b"slowbenchmark".to_vec(), bench_suffix());
 
 		// First one will be set as primary. Second will not be.
 		Identity::<T>::insert_username(&caller, first_username);
@@ -707,8 +707,8 @@ mod benchmarks {
 	#[benchmark]
 	fn remove_dangling_username() -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
-		let first_username = bounded_username(bench_username(), bench_suffix());
-		let second_username = bounded_username(b"slowbenchmark".to_vec(), bench_suffix());
+		let first_username = bounded_username::<T>(bench_username(), bench_suffix());
+		let second_username = bounded_username::<T>(b"slowbenchmark".to_vec(), bench_suffix());
 
 		// First one will be set as primary. Second will not be.
 		Identity::<T>::insert_username(&caller, first_username);

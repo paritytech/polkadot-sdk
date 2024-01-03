@@ -80,7 +80,7 @@ mod tests;
 mod types;
 pub mod weights;
 
-use crate::types::{AuthorityProperties, Suffix, Username, USERNAME_MAX_LENGTH};
+use crate::types::{AuthorityPropertiesOf, Suffix, Username};
 use codec::Encode;
 use frame_support::{
 	ensure,
@@ -169,6 +169,14 @@ pub mod pallet {
 		#[pallet::constant]
 		type PendingUsernameExpiration: Get<BlockNumberFor<Self>>;
 
+		/// The maximum length of a suffix.
+		#[pallet::constant]
+		type MaxSuffixLength: Get<u32>;
+
+		/// The maximum length of a username, including its suffix and any system-added delimiters.
+		#[pallet::constant]
+		type MaxUsernameLength: Get<u32>;
+
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -189,7 +197,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		T::AccountId,
-		(Registration<BalanceOf<T>, T::MaxRegistrars, T::IdentityInformation>, Option<Username>),
+		(Registration<BalanceOf<T>, T::MaxRegistrars, T::IdentityInformation>, Option<Username<T>>),
 		OptionQuery,
 	>;
 
@@ -240,7 +248,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn authority)]
 	pub(super) type UsernameAuthorities<T: Config> =
-		StorageMap<_, Twox64Concat, T::AccountId, AuthorityProperties, OptionQuery>;
+		StorageMap<_, Twox64Concat, T::AccountId, AuthorityPropertiesOf<T>, OptionQuery>;
 
 	/// Reverse lookup from `username` to the `AccountId` that has registered it. The value should
 	/// be a key in the `IdentityOf` map, but it may not if the user has cleared their identity.
@@ -250,7 +258,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn username)]
 	pub(super) type AccountOfUsername<T: Config> =
-		StorageMap<_, Blake2_128Concat, Username, T::AccountId, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, Username<T>, T::AccountId, OptionQuery>;
 
 	/// Usernames that an authority has granted, but that the account controller has not confirmed
 	/// that they want it. Used primarily in cases where the `AccountId` cannot provide a signature
@@ -260,8 +268,13 @@ pub mod pallet {
 	/// First tuple item is the account and second is the acceptance deadline.
 	#[pallet::storage]
 	#[pallet::getter(fn preapproved_usernames)]
-	pub type PendingUsernames<T: Config> =
-		StorageMap<_, Blake2_128Concat, Username, (T::AccountId, BlockNumberFor<T>), OptionQuery>;
+	pub type PendingUsernames<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		Username<T>,
+		(T::AccountId, BlockNumberFor<T>),
+		OptionQuery,
+	>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -348,16 +361,16 @@ pub mod pallet {
 		/// A username authority was removed.
 		AuthorityRemoved { authority: T::AccountId },
 		/// A username was set for `who`.
-		UsernameSet { who: T::AccountId, username: Username },
+		UsernameSet { who: T::AccountId, username: Username<T> },
 		/// A username was queued, but `who` must accept it prior to `expiration`.
-		UsernameQueued { who: T::AccountId, username: Username, expiration: BlockNumberFor<T> },
+		UsernameQueued { who: T::AccountId, username: Username<T>, expiration: BlockNumberFor<T> },
 		/// A queued username passed its expiration without being claimed and was removed.
 		PreapprovalExpired { whose: T::AccountId },
 		/// A username was set as a primary and can be looked up from `who`.
-		PrimaryUsernameSet { who: T::AccountId, username: Username },
+		PrimaryUsernameSet { who: T::AccountId, username: Username<T> },
 		/// A dangling username (as in, a username corresponding to an account that has removed its
 		/// identity) has been removed.
-		DanglingUsernameRemoved { who: T::AccountId, username: Username },
+		DanglingUsernameRemoved { who: T::AccountId, username: Username<T> },
 	}
 
 	#[pallet::call]
@@ -533,10 +546,13 @@ pub mod pallet {
 			let sender = ensure_signed(origin)?;
 
 			let (subs_deposit, sub_ids) = <SubsOf<T>>::take(&sender);
-			let (id, _username) = <IdentityOf<T>>::take(&sender).ok_or(Error::<T>::NoIdentity)?;
+			let (id, maybe_username) = <IdentityOf<T>>::take(&sender).ok_or(Error::<T>::NoIdentity)?;
 			let deposit = id.total_deposit().saturating_add(subs_deposit);
 			for sub in sub_ids.iter() {
 				<SuperOf<T>>::remove(sub);
+			}
+			if let Some(username) = maybe_username {
+				AccountOfUsername::<T>::remove(username);
 			}
 
 			let err_amount = T::Currency::unreserve(&sender, deposit);
@@ -760,6 +776,8 @@ pub mod pallet {
 		/// - `identity`: The hash of the [`IdentityInformationProvider`] for that the judgement is
 		///   provided.
 		///
+		/// Note: Judgements do not apply to a username.
+		///
 		/// Emits `JudgementGiven` if successful.
 		#[pallet::call_index(9)]
 		#[pallet::weight(T::WeightInfo::provide_judgement(T::MaxRegistrars::get()))]
@@ -839,10 +857,13 @@ pub mod pallet {
 			let target = T::Lookup::lookup(target)?;
 			// Grab their deposit (and check that they have one).
 			let (subs_deposit, sub_ids) = <SubsOf<T>>::take(&target);
-			let (id, _username) = <IdentityOf<T>>::take(&target).ok_or(Error::<T>::NoIdentity)?;
+			let (id, maybe_username) = <IdentityOf<T>>::take(&target).ok_or(Error::<T>::NoIdentity)?;
 			let deposit = id.total_deposit().saturating_add(subs_deposit);
 			for sub in sub_ids.iter() {
 				<SuperOf<T>>::remove(sub);
+			}
+			if let Some(username) = maybe_username {
+				AccountOfUsername::<T>::remove(username);
 			}
 			// Slash their deposit from them.
 			T::Slashed::on_unbalanced(T::Currency::slash_reserved(&target, deposit).0);
@@ -986,12 +1007,12 @@ pub mod pallet {
 			// We don't need to check the length because it gets checked when casting into a
 			// `BoundedVec`.
 			Self::validate_username(&suffix, None).map_err(|_| Error::<T>::InvalidSuffix)?;
-			let suffix = Suffix::try_from(suffix).map_err(|_| Error::<T>::InvalidSuffix)?;
+			let suffix = Suffix::<T>::try_from(suffix).map_err(|_| Error::<T>::InvalidSuffix)?;
 			// The authority may already exist, but we don't need to check. They might be changing
 			// their suffix or adding allocation, so we just want to overwrite whatever was there.
 			UsernameAuthorities::<T>::insert(
 				&authority,
-				AuthorityProperties { suffix, allocation },
+				AuthorityPropertiesOf::<T> { suffix, allocation },
 			);
 			Self::deposit_event(Event::AuthorityAdded { authority });
 			Ok(())
@@ -1025,7 +1046,7 @@ pub mod pallet {
 			let sender = ensure_signed(origin)?;
 			let suffix = UsernameAuthorities::<T>::try_mutate(
 				&sender,
-				|maybe_authority| -> Result<Suffix, DispatchError> {
+				|maybe_authority| -> Result<Suffix<T>, DispatchError> {
 					let properties =
 						maybe_authority.as_mut().ok_or(Error::<T>::NotUsernameAuthority)?;
 					ensure!(properties.allocation > 0, Error::<T>::NoAllocation);
@@ -1047,11 +1068,15 @@ pub mod pallet {
 			full_username.extend(b".");
 			full_username.extend(suffix);
 			let bounded_username =
-				Username::try_from(full_username).map_err(|_| Error::<T>::InvalidUsername)?;
+				Username::<T>::try_from(full_username).map_err(|_| Error::<T>::InvalidUsername)?;
 
 			// Usernames must be unique. Ensure it's not taken.
 			ensure!(
 				!AccountOfUsername::<T>::contains_key(&bounded_username),
+				Error::<T>::UsernameTaken
+			);
+			ensure!(
+				!PendingUsernames::<T>::contains_key(&bounded_username),
 				Error::<T>::UsernameTaken
 			);
 
@@ -1076,7 +1101,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::accept_username())]
 		pub fn accept_username(
 			origin: OriginFor<T>,
-			username: Username,
+			username: Username<T>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			let (approved_for, _) =
@@ -1093,7 +1118,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::remove_expired_approval())]
 		pub fn remove_expired_approval(
 			origin: OriginFor<T>,
-			username: Username,
+			username: Username<T>,
 		) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;
 			if let Some((who, expiration)) = PendingUsernames::<T>::take(&username) {
@@ -1109,13 +1134,10 @@ pub mod pallet {
 		/// Set a given username as the primary. The username should include the suffix.
 		#[pallet::call_index(20)]
 		#[pallet::weight(T::WeightInfo::set_primary_username())]
-		pub fn set_primary_username(origin: OriginFor<T>, username: Username) -> DispatchResult {
+		pub fn set_primary_username(origin: OriginFor<T>, username: Username<T>) -> DispatchResult {
 			// ensure `username` maps to `origin` (i.e. has already been set by an authority).
 			let who = ensure_signed(origin)?;
-			ensure!(
-				AccountOfUsername::<T>::contains_key(&username),
-				Error::<T>::NoUsername
-			);
+			ensure!(AccountOfUsername::<T>::contains_key(&username), Error::<T>::NoUsername);
 			let (registration, _maybe_username) =
 				IdentityOf::<T>::get(&who).ok_or(Error::<T>::NoIdentity)?;
 			IdentityOf::<T>::insert(&who, (registration, Some(username.clone())));
@@ -1129,12 +1151,11 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::remove_dangling_username())]
 		pub fn remove_dangling_username(
 			origin: OriginFor<T>,
-			username: Username,
+			username: Username<T>,
 		) -> DispatchResultWithPostInfo {
 			// ensure `username` maps to `origin` (i.e. has already been set by an authority).
 			let _ = ensure_signed(origin)?;
-			let who =
-				AccountOfUsername::<T>::take(&username).ok_or(Error::<T>::NoUsername)?;
+			let who = AccountOfUsername::<T>::take(&username).ok_or(Error::<T>::NoUsername)?;
 			ensure!(!IdentityOf::<T>::contains_key(&who), Error::<T>::InvalidUsername);
 			Self::deposit_event(Event::DanglingUsernameRemoved { who: who.clone(), username });
 			Ok(Pays::No.into())
@@ -1190,16 +1211,18 @@ impl<T: Config> Pallet<T> {
 
 	/// Validate that a username conforms to allowed characters/format.
 	///
-	/// The function will validate
-	/// the characters in `username` and that `length` (if `Some`) conforms to the limit. It is not
-	/// expected to pass a fully formatted username here (i.e. one with any protocol-added
-	/// characters included, such as a `.`).
+	/// The function will validate the characters in `username` and that `length` (if `Some`)
+	/// conforms to the limit. It is not expected to pass a fully formatted username here (i.e. one
+	/// with any protocol-added characters included, such as a `.`).
 	fn validate_username(username: &Vec<u8>, length: Option<u32>) -> DispatchResult {
 		// Verify input length before allocating a Vec with the user's input. `<` instead of `<=`
 		// because it needs one element for the point (`username` + `.` + `suffix`).
 		if let Some(l) = length {
-			ensure!(l < USERNAME_MAX_LENGTH, Error::<T>::InvalidUsername);
+			ensure!(l < T::MaxUsernameLength::get(), Error::<T>::InvalidUsername);
 		}
+		// Usernames cannot be empty.
+		ensure!(!username.is_empty(), Error::<T>::InvalidUsername);
+		// Username must be alphanumeric.
 		ensure!(
 			username.iter().all(|byte| byte.is_ascii_alphanumeric()),
 			Error::<T>::InvalidUsername
@@ -1232,7 +1255,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// A username has met all conditions. Insert the relevant storage items.
-	pub fn insert_username(who: &T::AccountId, username: Username) {
+	pub fn insert_username(who: &T::AccountId, username: Username<T>) {
 		// Check if they already have a primary. If so, leave it. If not, set it.
 		// Likewise, check if they have an identity. If not, give them a minimal one.
 		let (reg, primary_username, new_is_primary) = match <IdentityOf<T>>::get(&who) {
@@ -1268,7 +1291,7 @@ impl<T: Config> Pallet<T> {
 
 	/// A username was granted by an authority, but required approval from `who`. Put the username
 	/// into a queue for approval.
-	pub fn queue_acceptance(who: &T::AccountId, username: Username) {
+	pub fn queue_acceptance(who: &T::AccountId, username: Username<T>) {
 		let now = frame_system::Pallet::<T>::block_number();
 		let expiration = now.saturating_add(T::PendingUsernameExpiration::get());
 		PendingUsernames::<T>::insert(&username, (who.clone(), expiration));
@@ -1367,7 +1390,7 @@ impl<T: Config> Pallet<T> {
 					deposit: Zero::zero(),
 					info: info.clone(),
 				},
-				None::<Username>,
+				None::<Username<T>>,
 			),
 		);
 		Ok(())

@@ -58,6 +58,8 @@ impl pallet_identity::Config for Runtime {
 	type SigningPublicKey = <Signature as Verify>::Signer;
 	type UsernameAuthorityOrigin = EnsureRoot<Self::AccountId>;
 	type PendingUsernameExpiration = ConstU32<{ 7 * DAYS }>;
+	type MaxSuffixLength = ConstU32<7>;
+	type MaxUsernameLength = ConstU32<32>;
 	type WeightInfo = weights::pallet_identity::WeightInfo<Runtime>;
 }
 

@@ -132,6 +132,8 @@ impl pallet_identity::Config for Test {
 	type SigningPublicKey = AccountU64;
 	type UsernameAuthorityOrigin = EnsureOneOrRoot;
 	type PendingUsernameExpiration = PendingUsernameExpiration;
+	type MaxSuffixLength = ConstU32<7>;
+	type MaxUsernameLength = ConstU32<32>;
 	type WeightInfo = ();
 }
 

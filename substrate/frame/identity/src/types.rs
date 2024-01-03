@@ -324,16 +324,17 @@ pub struct RegistrarInfo<
 	pub fields: IdField,
 }
 
+/// Authority properties for a given pallet configuration.
+pub type AuthorityPropertiesOf<T> = AuthorityProperties<Suffix<T>>;
+
 /// The number of usernames that an authority may allocate.
 type Allocation = u32;
-/// The maximum allowed length of a suffix.
-pub const SUFFIX_MAX_LENGTH: u32 = 7;
 /// A byte vec used to represent a username.
-pub(crate) type Suffix = BoundedVec<u8, ConstU32<SUFFIX_MAX_LENGTH>>;
+pub(crate) type Suffix<T> = BoundedVec<u8, <T as Config>::MaxSuffixLength>;
 
 /// Properties of a username authority.
 #[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Debug)]
-pub struct AuthorityProperties {
+pub struct AuthorityProperties<Suffix> {
 	/// The suffix added to usernames granted by this authority. Will be appended to usernames; for
 	/// example, a suffix of `wallet` will result in `.wallet` being appended to a user's selected
 	/// name.
@@ -342,10 +343,8 @@ pub struct AuthorityProperties {
 	pub allocation: Allocation,
 }
 
-/// The maximum allowed length of a username, _including_ the suffix.
-pub const USERNAME_MAX_LENGTH: u32 = 32;
 /// A byte vec used to represent a username.
-pub(crate) type Username = BoundedVec<u8, ConstU32<USERNAME_MAX_LENGTH>>;
+pub(crate) type Username<T> = BoundedVec<u8, <T as Config>::MaxUsernameLength>;
 
 #[cfg(test)]
 mod tests {

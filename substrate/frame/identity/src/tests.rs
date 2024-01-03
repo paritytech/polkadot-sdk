@@ -118,6 +118,8 @@ impl pallet_identity::Config for Test {
 	type SigningPublicKey = AccountPublic;
 	type UsernameAuthorityOrigin = EnsureRoot<Self::AccountId>;
 	type PendingUsernameExpiration = ConstU64<100>;
+	type MaxSuffixLength = ConstU32<7>;
+	type MaxUsernameLength = ConstU32<32>;
 	type WeightInfo = ();
 }
 
@@ -189,7 +191,7 @@ fn unfunded_accounts() -> [AccountIdOf<Test>; 2] {
 // First return value is a username that would be submitted as a parameter to the dispatchable. As
 // in, it has no suffix attached. Second is a full BoundedVec username with suffix, which is what a
 // user would need to sign.
-fn test_username_of(int: Vec<u8>, suffix: Vec<u8>) -> (Vec<u8>, Username) {
+fn test_username_of(int: Vec<u8>, suffix: Vec<u8>) -> (Vec<u8>, Username<Test>) {
 	let base = b"testusername";
 	let mut username = Vec::with_capacity(base.len() + int.len());
 	username.extend(base);
@@ -199,8 +201,8 @@ fn test_username_of(int: Vec<u8>, suffix: Vec<u8>) -> (Vec<u8>, Username) {
 	bounded_username.extend(username.clone());
 	bounded_username.extend(b".");
 	bounded_username.extend(suffix);
-	let bounded_username =
-		Username::try_from(bounded_username).expect("test usernames should fit within bounds");
+	let bounded_username = Username::<Test>::try_from(bounded_username)
+		.expect("test usernames should fit within bounds");
 
 	(username, bounded_username)
 }
@@ -434,7 +436,7 @@ fn registration_should_work() {
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit);
 		assert_ok!(Identity::clear_identity(RuntimeOrigin::signed(ten.clone())));
 		assert_eq!(Balances::free_balance(ten.clone()), 1000);
-		assert_noop!(Identity::clear_identity(RuntimeOrigin::signed(ten)), Error::<Test>::NotNamed);
+		assert_noop!(Identity::clear_identity(RuntimeOrigin::signed(ten)), Error::<Test>::NoIdentity);
 	});
 }
 
@@ -546,7 +548,7 @@ fn killing_slashing_should_work() {
 		assert_ok!(Identity::kill_identity(RuntimeOrigin::root(), ten.clone()));
 		assert_eq!(Identity::identity(ten.clone()), None);
 		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit);
-		assert_noop!(Identity::kill_identity(RuntimeOrigin::root(), ten), Error::<Test>::NotNamed);
+		assert_noop!(Identity::kill_identity(RuntimeOrigin::root(), ten), Error::<Test>::NoIdentity);
 	});
 }
 
@@ -895,7 +897,10 @@ fn poke_deposit_works() {
 		// Set a custom registration with 0 deposit
 		IdentityOf::<Test>::insert::<
 			_,
-			(Registration<u64, MaxRegistrars, IdentityInfo<MaxAdditionalFields>>, Option<Username>),
+			(
+				Registration<u64, MaxRegistrars, IdentityInfo<MaxAdditionalFields>>,
+				Option<Username<Test>>,
+			),
 		>(
 			&ten,
 			(
@@ -904,7 +909,7 @@ fn poke_deposit_works() {
 					deposit: Zero::zero(),
 					info: ten_info.clone(),
 				},
-				None::<Username>,
+				None::<Username<Test>>,
 			),
 		);
 		assert!(Identity::identity(ten.clone()).is_some());
@@ -957,7 +962,10 @@ fn adding_and_removing_authorities_should_work() {
 		));
 		assert_eq!(
 			UsernameAuthorities::<Test>::get(&authority),
-			Some(AuthorityProperties { suffix: suffix.clone().try_into().unwrap(), allocation })
+			Some(AuthorityPropertiesOf::<Test> {
+				suffix: suffix.clone().try_into().unwrap(),
+				allocation
+			})
 		);
 
 		// update allocation
@@ -969,7 +977,10 @@ fn adding_and_removing_authorities_should_work() {
 		));
 		assert_eq!(
 			UsernameAuthorities::<Test>::get(&authority),
-			Some(AuthorityProperties { suffix: suffix.try_into().unwrap(), allocation: 11 })
+			Some(AuthorityPropertiesOf::<Test> {
+				suffix: suffix.try_into().unwrap(),
+				allocation: 11
+			})
 		);
 
 		// remove
@@ -1023,7 +1034,7 @@ fn set_username_with_signature_without_existing_identity_should_work() {
 		);
 		// Lookup from username to account works.
 		assert_eq!(
-			AccountOfUsername::<Test>::get::<&Username>(&username_to_sign),
+			AccountOfUsername::<Test>::get::<&Username<Test>>(&username_to_sign),
 			Some(who_account)
 		);
 	});
@@ -1079,7 +1090,7 @@ fn set_username_with_signature_with_existing_identity_should_work() {
 			))
 		);
 		assert_eq!(
-			AccountOfUsername::<Test>::get::<&Username>(&username_to_sign),
+			AccountOfUsername::<Test>::get::<&Username<Test>>(&username_to_sign),
 			Some(who_account)
 		);
 	});
@@ -1163,7 +1174,7 @@ fn set_username_with_bytes_signature_should_work() {
 		);
 		// Likewise for the lookup.
 		assert_eq!(
-			AccountOfUsername::<Test>::get::<&Username>(&username_to_sign),
+			AccountOfUsername::<Test>::get::<&Username<Test>>(&username_to_sign),
 			Some(who_account)
 		);
 	});
@@ -1197,7 +1208,7 @@ fn set_username_with_acceptance_should_work() {
 
 		// Should be pending
 		assert_eq!(
-			PendingUsernames::<Test>::get::<&Username>(&full_username),
+			PendingUsernames::<Test>::get::<&Username<Test>>(&full_username),
 			Some((who.clone(), expiration))
 		);
 
@@ -1208,7 +1219,7 @@ fn set_username_with_acceptance_should_work() {
 		));
 
 		// No more pending
-		assert!(PendingUsernames::<Test>::get::<&Username>(&full_username).is_none());
+		assert!(PendingUsernames::<Test>::get::<&Username<Test>>(&full_username).is_none());
 		// Check Identity storage
 		assert_eq!(
 			Identity::identity(&who),
@@ -1222,7 +1233,7 @@ fn set_username_with_acceptance_should_work() {
 			))
 		);
 		// Check reverse lookup
-		assert_eq!(AccountOfUsername::<Test>::get::<&Username>(&full_username), Some(who));
+		assert_eq!(AccountOfUsername::<Test>::get::<&Username<Test>>(&full_username), Some(who));
 	});
 }
 
@@ -1403,11 +1414,11 @@ fn setting_primary_should_work() {
 
 		// Lookup from both works.
 		assert_eq!(
-			AccountOfUsername::<Test>::get::<&Username>(&first_to_sign),
+			AccountOfUsername::<Test>::get::<&Username<Test>>(&first_to_sign),
 			Some(who_account.clone())
 		);
 		assert_eq!(
-			AccountOfUsername::<Test>::get::<&Username>(&second_to_sign),
+			AccountOfUsername::<Test>::get::<&Username<Test>>(&second_to_sign),
 			Some(who_account.clone())
 		);
 
@@ -1431,10 +1442,13 @@ fn setting_primary_should_work() {
 
 		// Lookup from both still works.
 		assert_eq!(
-			AccountOfUsername::<Test>::get::<&Username>(&first_to_sign),
+			AccountOfUsername::<Test>::get::<&Username<Test>>(&first_to_sign),
 			Some(who_account.clone())
 		);
-		assert_eq!(AccountOfUsername::<Test>::get::<&Username>(&second_to_sign), Some(who_account));
+		assert_eq!(
+			AccountOfUsername::<Test>::get::<&Username<Test>>(&second_to_sign),
+			Some(who_account)
+		);
 	});
 }
 
@@ -1466,7 +1480,7 @@ fn unaccepted_usernames_should_expire() {
 
 		// Should be pending
 		assert_eq!(
-			PendingUsernames::<Test>::get::<&Username>(&full_username),
+			PendingUsernames::<Test>::get::<&Username<Test>>(&full_username),
 			Some((who.clone(), expiration))
 		);
 
@@ -1490,7 +1504,7 @@ fn unaccepted_usernames_should_expire() {
 		));
 
 		// No more pending
-		assert!(PendingUsernames::<Test>::get::<&Username>(&full_username).is_none());
+		assert!(PendingUsernames::<Test>::get::<&Username<Test>>(&full_username).is_none());
 	});
 }
 
@@ -1544,7 +1558,7 @@ fn removing_dangling_usernames_should_work() {
 			))
 		);
 		assert_eq!(
-			AccountOfUsername::<Test>::get::<&Username>(&username_to_sign),
+			AccountOfUsername::<Test>::get::<&Username<Test>>(&username_to_sign),
 			Some(who_account.clone())
 		);
 
@@ -1565,7 +1579,7 @@ fn removing_dangling_usernames_should_work() {
 
 		// But the reverse lookup is still there
 		assert_eq!(
-			AccountOfUsername::<Test>::get::<&Username>(&username_to_sign),
+			AccountOfUsername::<Test>::get::<&Username<Test>>(&username_to_sign),
 			Some(who_account)
 		);
 
@@ -1576,6 +1590,6 @@ fn removing_dangling_usernames_should_work() {
 		));
 
 		// And the reverse lookup is gone
-		assert!(AccountOfUsername::<Test>::get::<&Username>(&username_to_sign).is_none());
+		assert!(AccountOfUsername::<Test>::get::<&Username<Test>>(&username_to_sign).is_none());
 	});
 }
