@@ -1253,7 +1253,7 @@ fn invalid_usernames_should_be_rejected() {
 			b"te.st".to_vec(), // not alphanumeric
 			b"su:ffx".to_vec(),
 			b"su_ffx".to_vec(),
-			b"Suffix".to_vec(), // capital
+			b"Suffix".to_vec(),   // capital
 			b"suffixes".to_vec(), // too long
 		];
 		for suffix in invalid_suffixes {
