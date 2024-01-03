@@ -202,8 +202,6 @@ fn invoke_wasm_build(current_dir: &Path) -> Result<()> {
 
 	let build_res = Command::new(env::var("CARGO")?)
 		.current_dir(current_dir)
-		.env_clear()
-		.env("PATH", env::var("PATH").unwrap())
 		.env("CARGO_ENCODED_RUSTFLAGS", encoded_rustflags)
 		.args(["build", "--release", "--target=wasm32-unknown-unknown"])
 		.output()
