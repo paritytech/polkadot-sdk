@@ -69,44 +69,10 @@ impl Entry {
 	fn out_wasm_filename(&self) -> String {
 		format!("{}.wasm", self.name())
 	}
+
 	/// Return the name of the RISC-V polkavm file.
 	fn out_riscv_filename(&self) -> String {
 		format!("{}.polkavm", self.name())
-	}
-
-	/// The output path for the RISC-V polkavm file.
-	///
-	/// # NOTE:
-	///
-	/// This is a temporary workaround.
-	/// We build RISC-V fixtures locally when they are missing or outdated and check them in into
-	/// the repository. This is needed because the CI image does not yet have the RISC-V Rust
-	/// toolchain.
-	fn riscv_output(&self) -> PathBuf {
-		self.path
-			.parent()
-			.unwrap()
-			.parent()
-			.unwrap()
-			.join("rve-bin")
-			.join(self.out_riscv_filename())
-	}
-
-	/// Whether the RISC-V polkavm file needs to be updated.
-	///
-	/// # NOTE:
-	///
-	/// This is a temporary workaround.
-	/// We build RISC-V fixtures locally when they are missing or outdated and check them in into
-	/// the repository. This is needed because the CI image does not yet have the RISC-V Rust
-	/// toolchain.
-	fn should_update_riscv_output(&self) -> bool {
-		if let (Ok(src_meta), Ok(out_meta)) = (self.path.metadata(), self.riscv_output().metadata())
-		{
-			out_meta.modified().unwrap() < src_meta.modified().unwrap()
-		} else {
-			true
-		}
 	}
 }
 
@@ -351,11 +317,8 @@ fn main() -> Result<()> {
 	)?;
 
 	invoke_wasm_build(tmp_dir_path)?;
+	invoke_riscv_build(tmp_dir_path)?;
 
-	if entries.iter().any(|entry| entry.should_update_riscv_output()) {
-		invoke_riscv_build(tmp_dir_path)?;
-	}
 	write_output(tmp_dir_path, &out_dir, entries)?;
-
 	Ok(())
 }
