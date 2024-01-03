@@ -21,7 +21,7 @@
 use crate::messages::{
 	source::{
 		FromThisChainMaximalOutboundPayloadSize, FromThisChainMessagePayload,
-		FromThisChainMessageVerifier, TargetHeaderChainAdapter,
+		TargetHeaderChainAdapter,
 	},
 	target::{FromBridgedChainMessagePayload, SourceHeaderChainAdapter},
 	BridgedChainWithMessages, HashOf, MessageBridge, ThisChainWithMessages,
@@ -213,7 +213,6 @@ impl pallet_bridge_messages::Config for TestRuntime {
 	type DeliveryPayments = ();
 
 	type TargetHeaderChain = TargetHeaderChainAdapter<OnThisChainBridge>;
-	type LaneMessageVerifier = FromThisChainMessageVerifier<OnThisChainBridge>;
 	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
 		TestRuntime,
 		(),

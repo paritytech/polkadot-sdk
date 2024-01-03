@@ -53,8 +53,7 @@ use crate::{
 
 use bp_messages::{
 	source_chain::{
-		DeliveryConfirmationPayments, LaneMessageVerifier, OnMessagesDelivered,
-		SendMessageArtifacts, TargetHeaderChain,
+		DeliveryConfirmationPayments, OnMessagesDelivered, SendMessageArtifacts, TargetHeaderChain,
 	},
 	target_chain::{
 		DeliveryPayments, DispatchMessage, MessageDispatch, ProvedLaneMessages, ProvedMessages,
@@ -155,8 +154,6 @@ pub mod pallet {
 
 		/// Target header chain.
 		type TargetHeaderChain: TargetHeaderChain<Self::OutboundPayload, Self::AccountId>;
-		/// Message payload verifier.
-		type LaneMessageVerifier: LaneMessageVerifier<Self::OutboundPayload>;
 		/// Delivery confirmation payments.
 		type DeliveryConfirmationPayments: DeliveryConfirmationPayments<Self::AccountId>;
 		/// Delivery confirmation callback.
@@ -723,20 +720,8 @@ fn send_message<T: Config<I>, I: 'static>(
 		Error::<T, I>::MessageRejectedByChainVerifier(err)
 	})?;
 
-	// now let's enforce any additional lane rules
-	let mut lane = outbound_lane::<T, I>(lane_id);
-	T::LaneMessageVerifier::verify_message(&lane_id, &lane.data(), &payload).map_err(|err| {
-		log::trace!(
-			target: LOG_TARGET,
-			"Message to lane {:?} is rejected by lane verifier: {:?}",
-			lane_id,
-			err,
-		);
-
-		Error::<T, I>::MessageRejectedByLaneVerifier(err)
-	})?;
-
 	// finally, save message in outbound storage and emit event
+	let mut lane = outbound_lane::<T, I>(lane_id);
 	let encoded_payload = payload.encode();
 	let encoded_payload_len = encoded_payload.len();
 	let nonce = lane
@@ -1145,21 +1130,6 @@ mod tests {
 			assert_noop!(
 				send_message::<TestRuntime, ()>(TEST_LANE_ID, PAYLOAD_REJECTED_BY_TARGET_CHAIN,),
 				Error::<TestRuntime, ()>::MessageRejectedByChainVerifier(VerificationError::Other(
-					mock::TEST_ERROR
-				)),
-			);
-		});
-	}
-
-	#[test]
-	fn lane_verifier_rejects_invalid_message_in_send_message() {
-		run_test(|| {
-			// messages with zero fee are rejected by lane verifier
-			let mut message = REGULAR_PAYLOAD;
-			message.reject_by_lane_verifier = true;
-			assert_noop!(
-				send_message::<TestRuntime, ()>(TEST_LANE_ID, message,),
-				Error::<TestRuntime, ()>::MessageRejectedByLaneVerifier(VerificationError::Other(
 					mock::TEST_ERROR
 				)),
 			);
