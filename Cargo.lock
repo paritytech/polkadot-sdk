@@ -9651,10 +9651,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-contracts-fixtures-common"
-version = "1.0.0"
-
-[[package]]
 name = "pallet-contracts-mock-network"
 version = "1.0.0"
 dependencies = [
