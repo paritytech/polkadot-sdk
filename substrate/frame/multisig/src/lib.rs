@@ -55,7 +55,7 @@ use frame_support::{
 		PostDispatchInfo,
 	},
 	ensure,
-	traits::{Consideration, Currency, Footprint, Get, ReservableCurrency},
+	traits::{Consideration, Currency, Defensive, Footprint, Get, ReservableCurrency},
 	weights::Weight,
 	BoundedVec,
 };
@@ -503,6 +503,7 @@ pub mod pallet {
 			let signatories = Self::ensure_sorted_and_insert(other_signatories, who.clone())?;
 
 			let id = Self::multi_account_id(&signatories, threshold);
+			Self::ensure_updated(&id, &call_hash, threshold);
 
 			let m = <MultisigsFor<T>>::get(&id, call_hash).ok_or(Error::<T>::NotFound)?;
 			ensure!(m.when == timepoint, Error::<T>::WrongTimepoint);
@@ -558,6 +559,8 @@ impl<T: Config> Pallet<T> {
 			},
 			CallOrHash::Hash(h) => (h, 0, None),
 		};
+
+		Self::ensure_updated(&id, &call_hash, threshold);
 
 		// Branch on whether the operation has already started or not.
 		if let Some(mut m) = <MultisigsFor<T>>::get(&id, call_hash) {
@@ -687,6 +690,29 @@ impl<T: Config> Pallet<T> {
 		}
 		signatories.insert(index, who);
 		Ok(signatories)
+	}
+
+	fn ensure_updated(id: &T::AccountId, call_hash: &[u8; 32], threshold: u16) -> bool {
+		#[allow(deprecated)]
+		let r = match Multisigs::<T>::take(id, call_hash) {
+			Some(r) => r,
+			None => return false,
+		};
+		T::Currency::unreserve(&r.depositor, r.deposit);
+		// take consideration
+		let Ok(ticket) = T::Consideration::new(&r.depositor, Footprint::from_parts(1, threshold as usize))
+				.defensive_proof("Unexpected inability to take deposit after unreserved")
+		else {
+			return true
+		};
+		let n = Multisig {
+			when: r.when,
+			ticket: ticket,
+			depositor: r.depositor,
+			approvals: r.approvals,
+		};
+		MultisigsFor::<T>::insert(id, call_hash, n);
+		true
 	}
 }
 
