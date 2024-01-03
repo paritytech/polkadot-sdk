@@ -78,10 +78,13 @@ cumulus-primitives-utility = { path = "../../../../primitives/utility", default-
 pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false }
 parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false }
 parachains-common = { path = "../../../common", default-features = false }
+assets-common = { path = "../../assets/common", default-features = false }
+snowbridge-rococo-common = { path = "../../../../../bridges/snowbridge/parachain/runtime/rococo-common", default-features = false }
 
 [features]
 default = ["std"]
 std = [
+	"assets-common/std",
 	"codec/std",
 	"cumulus-pallet-aura-ext/std",
 	"cumulus-pallet-dmp-queue/std",
@@ -118,6 +121,7 @@ std = [
 	"polkadot-primitives/std",
 	"polkadot-runtime-common/std",
 	"scale-info/std",
+	"snowbridge-rococo-common/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
@@ -138,6 +142,7 @@ std = [
 ]
 
 runtime-benchmarks = [
+	"assets-common/runtime-benchmarks",
 	"cumulus-pallet-dmp-queue/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-session-benchmarking/runtime-benchmarks",
@@ -161,6 +166,7 @@ runtime-benchmarks = [
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
+	"snowbridge-rococo-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
