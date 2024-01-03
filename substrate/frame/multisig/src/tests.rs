@@ -24,21 +24,17 @@ use super::*;
 use crate as pallet_multisig;
 use frame_support::{
 	assert_noop, assert_ok, derive_impl,
-	traits::{
-		fungible::{HoldConsideration, InspectHold},
-		ConstU32, ConstU64, Contains,
-	},
+	traits::{ConstU32, ConstU64, Contains},
 };
-use sp_runtime::{traits::Convert, BuildStorage, TokenError};
+use sp_runtime::{BuildStorage, TokenError};
 
 type Block = frame_system::mocking::MockBlockU32<Test>;
 
 frame_support::construct_runtime!(
-	pub enum Test
-	{
+	pub enum Test {
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>, HoldReason},
+		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
@@ -46,25 +42,15 @@ frame_support::construct_runtime!(
 impl frame_system::Config for Test {
 	type Block = Block;
 	type BlockHashCount = ConstU32<250>;
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type RuntimeEvent = RuntimeEvent;
-	type BaseCallFilter = TestBaseCallFilter;
-	type PalletInfo = PalletInfo;
-	type OnSetCode = ();
-
 	type AccountData = pallet_balances::AccountData<u64>;
+	// This pallet wishes to overwrite this.
+	type BaseCallFilter = TestBaseCallFilter;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
 impl pallet_balances::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeHoldReason = ();
 	type ReserveIdentifier = [u8; 8];
-	type DustRemoval = ();
 	type AccountStore = System;
-	type ExistentialDeposit = ConstU64<1>;
-	type MaxHolds = ConstU32<2>;
 }
 
 pub struct TestBaseCallFilter;
@@ -78,19 +64,12 @@ impl Contains<RuntimeCall> for TestBaseCallFilter {
 		}
 	}
 }
-
-pub struct ConvertDeposit;
-impl Convert<Footprint, u64> for ConvertDeposit {
-	fn convert(a: Footprint) -> u64 {
-		a.count + a.size
-	}
-}
-
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type Currency = Balances;
-	type Consideration = HoldConsideration<u64, Balances, (), ConvertDeposit>;
+	type DepositBase = ConstU64<1>;
+	type DepositFactor = ConstU64<1>;
 	type MaxSignatories = ConstU32<3>;
 	type WeightInfo = ();
 }
@@ -136,7 +115,7 @@ fn multisig_deposit_is_taken_and_returned() {
 			Weight::zero()
 		));
 		assert_eq!(Balances::free_balance(1), 2);
-		assert_eq!(Balances::balance_on_hold(&(), &1), 3);
+		assert_eq!(Balances::reserved_balance(1), 3);
 
 		assert_ok!(Multisig::as_multi(
 			RuntimeOrigin::signed(2),
@@ -147,7 +126,7 @@ fn multisig_deposit_is_taken_and_returned() {
 			call_weight
 		));
 		assert_eq!(Balances::free_balance(1), 5);
-		assert_eq!(Balances::balance_on_hold(&(), &1), 0);
+		assert_eq!(Balances::reserved_balance(1), 0);
 	});
 }
 
@@ -173,10 +152,10 @@ fn cancel_multisig_returns_deposit() {
 			Weight::zero()
 		));
 		assert_eq!(Balances::free_balance(1), 6);
-		assert_eq!(Balances::balance_on_hold(&(), &1), 4);
+		assert_eq!(Balances::reserved_balance(1), 4);
 		assert_ok!(Multisig::cancel_as_multi(RuntimeOrigin::signed(1), 3, vec![2, 3], now(), hash));
 		assert_eq!(Balances::free_balance(1), 10);
-		assert_eq!(Balances::balance_on_hold(&(), &1), 0);
+		assert_eq!(Balances::reserved_balance(1), 0);
 	});
 }
 

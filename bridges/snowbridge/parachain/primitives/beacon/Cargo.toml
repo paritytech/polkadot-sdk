@@ -1,0 +1,52 @@
+[package]
+name = "snowbridge-beacon-primitives"
+description = "Snowbridge Beacon Primitives"
+version = "0.0.1"
+authors = ["Snowfork <contact@snowfork.com>"]
+edition = "2021"
+license = "Apache-2.0"
+
+[dependencies]
+serde = { version = "1.0.188", optional = true, features = ["derive"] }
+hex = { version = "0.4", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
+scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+rlp = { version = "0.5", default-features = false }
+
+frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
+frame-system = { path = "../../../../../substrate/frame/system", default-features = false }
+sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false }
+sp-core = { path = "../../../../../substrate/primitives/core", default-features = false }
+sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
+sp-io = { path = "../../../../../substrate/primitives/io", default-features = false }
+
+ssz_rs = { version = "0.9.0", default-features = false }
+ssz_rs_derive = { version = "0.9.0", default-features = false }
+byte-slice-cast = { version = "1.2.1", default-features = false }
+
+snowbridge-ethereum = { path = "../../primitives/ethereum", default-features = false }
+static_assertions = { version = "1.1.0" }
+milagro_bls = { git = "https://github.com/snowfork/milagro_bls", default-features = false, rev = "a6d66e4eb89015e352fb1c9f7b661ecdbb5b2176" }
+
+[dev-dependencies]
+hex-literal = { version = "0.4.1" }
+
+[features]
+default = ["std"]
+std = [
+	"byte-slice-cast/std",
+	"codec/std",
+	"frame-support/std",
+	"frame-system/std",
+	"hex/std",
+	"milagro_bls/std",
+	"rlp/std",
+	"scale-info/std",
+	"serde",
+	"snowbridge-ethereum/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"ssz_rs/std",
+]

@@ -114,12 +114,14 @@
 //! separated from the stable primitives.
 
 use crate::{
-	vstaging, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo,
+	async_backing, slashing,
+	vstaging::{self, ApprovalVotingParams},
+	AsyncBackingParams, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
+	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash,
 	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
 	SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
-use parity_scale_codec::{Decode, Encode};
+
 use polkadot_core_primitives as pcp;
 use polkadot_parachain_primitives::primitives as ppp;
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
@@ -127,18 +129,18 @@ use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 sp_api::decl_runtime_apis! {
 	/// The API for querying the state of parachains on-chain.
 	#[api_version(5)]
-	pub trait ParachainHost<H: Encode + Decode = pcp::v2::Hash, N: Encode + Decode = pcp::v2::BlockNumber> {
+	pub trait ParachainHost {
 		/// Get the current validators.
 		fn validators() -> Vec<ValidatorId>;
 
 		/// Returns the validator groups and rotation info localized based on the hypothetical child
 		///  of a block whose state  this is invoked on. Note that `now` in the `GroupRotationInfo`
 		/// should be the successor of the number of the block.
-		fn validator_groups() -> (Vec<Vec<ValidatorIndex>>, GroupRotationInfo<N>);
+		fn validator_groups() -> (Vec<Vec<ValidatorIndex>>, GroupRotationInfo<BlockNumber>);
 
 		/// Yields information on all availability cores as relevant to the child block.
 		/// Cores are either free or occupied. Free cores can have paras assigned to them.
-		fn availability_cores() -> Vec<CoreState<H, N>>;
+		fn availability_cores() -> Vec<CoreState<Hash, BlockNumber>>;
 
 		/// Yields the persisted validation data for the given `ParaId` along with an assumption that
 		/// should be used if the para currently occupies a core.
@@ -146,15 +148,15 @@ sp_api::decl_runtime_apis! {
 		/// Returns `None` if either the para is not registered or the assumption is `Freed`
 		/// and the para already occupies a core.
 		fn persisted_validation_data(para_id: ppp::Id, assumption: OccupiedCoreAssumption)
-			-> Option<PersistedValidationData<H, N>>;
+			-> Option<PersistedValidationData<Hash, BlockNumber>>;
 
 		/// Returns the persisted validation data for the given `ParaId` along with the corresponding
 		/// validation code hash. Instead of accepting assumption about the para, matches the validation
 		/// data hash against an expected one and yields `None` if they're not equal.
 		fn assumed_validation_data(
 			para_id: ppp::Id,
-			expected_persisted_validation_data_hash: pcp::v2::Hash,
-		) -> Option<(PersistedValidationData<H, N>, ppp::ValidationCodeHash)>;
+			expected_persisted_validation_data_hash: Hash,
+		) -> Option<(PersistedValidationData<Hash, BlockNumber>, ppp::ValidationCodeHash)>;
 
 		/// Checks if the given validation outputs pass the acceptance criteria.
 		fn check_validation_outputs(para_id: ppp::Id, outputs: CandidateCommitments) -> bool;
@@ -168,30 +170,34 @@ sp_api::decl_runtime_apis! {
 		///
 		/// Returns `None` if either the para is not registered or the assumption is `Freed`
 		/// and the para already occupies a core.
-		fn validation_code(para_id: ppp::Id, assumption: OccupiedCoreAssumption)
-			-> Option<ppp::ValidationCode>;
+		fn validation_code(
+			para_id: ppp::Id,
+			assumption: OccupiedCoreAssumption,
+		) -> Option<ppp::ValidationCode>;
 
 		/// Get the receipt of a candidate pending availability. This returns `Some` for any paras
 		/// assigned to occupied cores in `availability_cores` and `None` otherwise.
-		fn candidate_pending_availability(para_id: ppp::Id) -> Option<CommittedCandidateReceipt<H>>;
+		fn candidate_pending_availability(para_id: ppp::Id) -> Option<CommittedCandidateReceipt<Hash>>;
 
 		/// Get a vector of events concerning candidates that occurred within a block.
-		fn candidate_events() -> Vec<CandidateEvent<H>>;
+		fn candidate_events() -> Vec<CandidateEvent<Hash>>;
 
 		/// Get all the pending inbound messages in the downward message queue for a para.
 		fn dmq_contents(
 			recipient: ppp::Id,
-		) -> Vec<pcp::v2::InboundDownwardMessage<N>>;
+		) -> Vec<pcp::v2::InboundDownwardMessage<BlockNumber>>;
 
 		/// Get the contents of all channels addressed to the given recipient. Channels that have no
 		/// messages in them are also included.
-		fn inbound_hrmp_channels_contents(recipient: ppp::Id) -> BTreeMap<ppp::Id, Vec<pcp::v2::InboundHrmpMessage<N>>>;
+		fn inbound_hrmp_channels_contents(
+			recipient: ppp::Id,
+		) -> BTreeMap<ppp::Id, Vec<pcp::v2::InboundHrmpMessage<BlockNumber>>>;
 
 		/// Get the validation code from its hash.
 		fn validation_code_by_hash(hash: ppp::ValidationCodeHash) -> Option<ppp::ValidationCode>;
 
 		/// Scrape dispute relevant from on-chain, backing votes and resolved disputes.
-		fn on_chain_votes() -> Option<ScrapedOnChainVotes<H>>;
+		fn on_chain_votes() -> Option<ScrapedOnChainVotes<Hash>>;
 
 		/***** Added in v2 *****/
 
@@ -224,38 +230,56 @@ sp_api::decl_runtime_apis! {
 
 		/// Returns a list of validators that lost a past session dispute and need to be slashed.
 		/// NOTE: This function is only available since parachain host version 5.
-		fn unapplied_slashes() -> Vec<(SessionIndex, CandidateHash, vstaging::slashing::PendingSlashes)>;
+		fn unapplied_slashes() -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>;
 
 		/// Returns a merkle proof of a validator session key.
 		/// NOTE: This function is only available since parachain host version 5.
 		fn key_ownership_proof(
 			validator_id: ValidatorId,
-		) -> Option<vstaging::slashing::OpaqueKeyOwnershipProof>;
+		) -> Option<slashing::OpaqueKeyOwnershipProof>;
 
 		/// Submit an unsigned extrinsic to slash validators who lost a dispute about
 		/// a candidate of a past session.
 		/// NOTE: This function is only available since parachain host version 5.
 		fn submit_report_dispute_lost(
-			dispute_proof: vstaging::slashing::DisputeProof,
-			key_ownership_proof: vstaging::slashing::OpaqueKeyOwnershipProof,
+			dispute_proof: slashing::DisputeProof,
+			key_ownership_proof: slashing::OpaqueKeyOwnershipProof,
 		) -> Option<()>;
 
-		/***** Staging *****/
+		/***** Added in v6 *****/
 
 		/// Get the minimum number of backing votes for a parachain candidate.
 		/// This is a staging method! Do not use on production runtimes!
 		#[api_version(6)]
 		fn minimum_backing_votes() -> u32;
 
-		/***** Asynchronous backing *****/
+
+		/***** Added in v7: Asynchronous backing *****/
 
 		/// Returns the state of parachain backing for a given para.
-		/// This is a staging method! Do not use on production runtimes!
-		#[api_version(99)]
-		fn staging_para_backing_state(_: ppp::Id) -> Option<vstaging::BackingState<H, N>>;
+		#[api_version(7)]
+		fn para_backing_state(_: ppp::Id) -> Option<async_backing::BackingState<Hash, BlockNumber>>;
 
 		/// Returns candidate's acceptance limitations for asynchronous backing for a relay parent.
-		#[api_version(99)]
-		fn staging_async_backing_params() -> vstaging::AsyncBackingParams;
+		#[api_version(7)]
+		fn async_backing_params() -> AsyncBackingParams;
+
+		/***** Added in v8 *****/
+
+		/// Returns a list of all disabled validators at the given block.
+		#[api_version(8)]
+		fn disabled_validators() -> Vec<ValidatorIndex>;
+
+		/***** Added in v9 *****/
+
+		/// Get node features.
+		/// This is a staging method! Do not use on production runtimes!
+		#[api_version(9)]
+		fn node_features() -> vstaging::NodeFeatures;
+
+		/***** Added in v10 *****/
+		/// Approval voting configuration parameters
+		#[api_version(10)]
+		fn approval_voting_params() -> ApprovalVotingParams;
 	}
 }

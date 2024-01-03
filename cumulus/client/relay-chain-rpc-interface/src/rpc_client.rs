@@ -30,8 +30,9 @@ use parity_scale_codec::{Decode, Encode};
 
 use cumulus_primitives_core::{
 	relay_chain::{
+		async_backing::{AsyncBackingParams, BackingState},
 		slashing,
-		vstaging::{AsyncBackingParams, BackingState},
+		vstaging::{ApprovalVotingParams, NodeFeatures},
 		BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
 		CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo,
 		Hash as RelayHash, Header as RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption,
@@ -45,10 +46,10 @@ use cumulus_relay_chain_interface::{RelayChainError, RelayChainResult};
 use sc_client_api::StorageData;
 use sc_rpc_api::{state::ReadProof, system::Health};
 use sc_service::TaskManager;
-use sp_api::RuntimeVersion;
 use sp_consensus_babe::Epoch;
 use sp_core::sp_std::collections::btree_map::BTreeMap;
 use sp_storage::StorageKey;
+use sp_version::RuntimeVersion;
 
 use crate::{
 	light_client_worker::{build_smoldot_client, LightClientRpcWorker},
@@ -202,7 +203,7 @@ impl RelayChainRpcClient {
 
 		let value = rx.await.map_err(|err| {
 			RelayChainError::WorkerCommunicationError(format!(
-				"Unexpected channel close on RPC worker side: {}",
+				"RPC worker channel closed. This can hint and connectivity issues with the supplied RPC endpoints. Message: {}",
 				err
 			))
 		})??;
@@ -598,31 +599,52 @@ impl RelayChainRpcClient {
 			.await
 	}
 
+	pub async fn parachain_host_node_features(
+		&self,
+		at: RelayHash,
+	) -> Result<NodeFeatures, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_node_features", at, None::<()>)
+			.await
+	}
+
+	pub async fn parachain_host_disabled_validators(
+		&self,
+		at: RelayHash,
+	) -> Result<Vec<ValidatorIndex>, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_disabled_validators", at, None::<()>)
+			.await
+	}
+
 	#[allow(missing_docs)]
-	pub async fn parachain_host_staging_async_backing_params(
+	pub async fn parachain_host_async_backing_params(
 		&self,
 		at: RelayHash,
 	) -> Result<AsyncBackingParams, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_async_backing_params", at, None::<()>)
+			.await
+	}
+
+	#[allow(missing_docs)]
+	pub async fn parachain_host_staging_approval_voting_params(
+		&self,
+		at: RelayHash,
+		_session_index: SessionIndex,
+	) -> Result<ApprovalVotingParams, RelayChainError> {
 		self.call_remote_runtime_function(
-			"ParachainHost_staging_async_backing_params",
+			"ParachainHost_staging_approval_voting_params",
 			at,
 			None::<()>,
 		)
 		.await
 	}
 
-	#[allow(missing_docs)]
-	pub async fn parachain_host_staging_para_backing_state(
+	pub async fn parachain_host_para_backing_state(
 		&self,
 		at: RelayHash,
 		para_id: ParaId,
 	) -> Result<Option<BackingState>, RelayChainError> {
-		self.call_remote_runtime_function(
-			"ParachainHost_staging_para_backing_state",
-			at,
-			Some(para_id),
-		)
-		.await
+		self.call_remote_runtime_function("ParachainHost_para_backing_state", at, Some(para_id))
+			.await
 	}
 
 	fn send_register_message_to_worker(

@@ -136,7 +136,7 @@ pub fn print_from_uri<Pair>(
 			OutputType::Text => {
 				println!(
 					"Secret Key URI `{}` is account:\n  \
-					Network ID:        {} \n \
+					Network ID:        {}\n  \
 					Secret seed:       {}\n  \
 					Public key (hex):  {}\n  \
 					Account ID:        {}\n  \

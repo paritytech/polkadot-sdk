@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Adapters to work with `frame_support::traits::tokens::fungibles` through XCM.
+//! Adapters to work with [`frame_support::traits::fungibles`] through XCM.
 
 use crate::{AssetChecking, MintLocation};
 use frame_support::{
@@ -207,7 +207,11 @@ impl<
 		}
 	}
 
-	fn deposit_asset(what: &MultiAsset, who: &MultiLocation, context: &XcmContext) -> XcmResult {
+	fn deposit_asset(
+		what: &MultiAsset,
+		who: &MultiLocation,
+		context: Option<&XcmContext>,
+	) -> XcmResult {
 		log::trace!(
 			target: LOG_TARGET,
 			"deposit_asset what: {:?}, who: {:?}, context: {:?}",
@@ -307,7 +311,11 @@ impl<
 		>::check_out(dest, what, context)
 	}
 
-	fn deposit_asset(what: &MultiAsset, who: &MultiLocation, context: &XcmContext) -> XcmResult {
+	fn deposit_asset(
+		what: &MultiAsset,
+		who: &MultiLocation,
+		context: Option<&XcmContext>,
+	) -> XcmResult {
 		NonFungiblesMutateAdapter::<
 			Assets,
 			Matcher,

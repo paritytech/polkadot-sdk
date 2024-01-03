@@ -26,8 +26,10 @@ use polkadot_parachain_primitives::primitives::{
 	MAX_HORIZONTAL_MESSAGE_NUM, MAX_UPWARD_MESSAGE_NUM,
 };
 use primitives::{
-	vstaging::AsyncBackingParams, Balance, ExecutorParams, SessionIndex, LEGACY_MIN_BACKING_VOTES,
-	MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
+	vstaging::{ApprovalVotingParams, NodeFeatures},
+	AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams, SessionIndex,
+	LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE,
+	ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
 use sp_runtime::{traits::Zero, Perbill};
 use sp_std::prelude::*;
@@ -55,6 +57,7 @@ const LOG_TARGET: &str = "runtime::configuration";
 	serde::Serialize,
 	serde::Deserialize,
 )]
+#[serde(deny_unknown_fields)]
 pub struct HostConfiguration<BlockNumber> {
 	// NOTE: This structure is used by parachains via merkle proofs. Therefore, this struct
 	// requires special treatment.
@@ -169,8 +172,8 @@ pub struct HostConfiguration<BlockNumber> {
 	/// How long to keep code on-chain, in blocks. This should be sufficiently long that disputes
 	/// have concluded.
 	pub code_retention_period: BlockNumber,
-	/// The amount of execution cores to dedicate to on demand execution.
-	pub on_demand_cores: u32,
+	/// How many cores are managed by the coretime chain.
+	pub coretime_cores: u32,
 	/// The number of retries that a on demand author has to submit their block.
 	pub on_demand_retries: u32,
 	/// The maximum queue size of the pay as you go module.
@@ -259,6 +262,10 @@ pub struct HostConfiguration<BlockNumber> {
 	/// The minimum number of valid backing statements required to consider a parachain candidate
 	/// backable.
 	pub minimum_backing_votes: u32,
+	/// Node features enablement.
+	pub node_features: NodeFeatures,
+	/// Params used by approval-voting
+	pub approval_voting_params: ApprovalVotingParams,
 }
 
 impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber> {
@@ -277,7 +284,7 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			max_code_size: Default::default(),
 			max_pov_size: Default::default(),
 			max_head_data_size: Default::default(),
-			on_demand_cores: Default::default(),
+			coretime_cores: Default::default(),
 			on_demand_retries: Default::default(),
 			scheduling_lookahead: 1,
 			max_validators_per_core: Default::default(),
@@ -304,12 +311,14 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			pvf_voting_ttl: 2u32.into(),
 			minimum_validation_upgrade_delay: 2.into(),
 			executor_params: Default::default(),
+			approval_voting_params: ApprovalVotingParams { max_approval_coalesce_count: 1 },
 			on_demand_queue_max_size: ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 			on_demand_base_fee: 10_000_000u128,
 			on_demand_fee_variability: Perbill::from_percent(3),
 			on_demand_target_queue_utilization: Perbill::from_percent(25),
 			on_demand_ttl: 5u32.into(),
 			minimum_backing_votes: LEGACY_MIN_BACKING_VOTES,
+			node_features: NodeFeatures::EMPTY,
 		}
 	}
 }
@@ -348,6 +357,8 @@ pub enum InconsistentError<BlockNumber> {
 	MaxHrmpInboundChannelsExceeded,
 	/// `minimum_backing_votes` is set to zero.
 	ZeroMinimumBackingVotes,
+	/// `executor_params` are inconsistent.
+	InconsistentExecutorParams { inner: ExecutorParamError },
 }
 
 impl<BlockNumber> HostConfiguration<BlockNumber>
@@ -432,6 +443,10 @@ where
 			return Err(ZeroMinimumBackingVotes)
 		}
 
+		if let Err(inner) = self.executor_params.check_consistency() {
+			return Err(InconsistentExecutorParams { inner })
+		}
+
 		Ok(())
 	}
 
@@ -455,6 +470,7 @@ pub trait WeightInfo {
 	fn set_hrmp_open_request_ttl() -> Weight;
 	fn set_config_with_executor_params() -> Weight;
 	fn set_config_with_perbill() -> Weight;
+	fn set_node_feature() -> Weight;
 }
 
 pub struct TestWeightInfo;
@@ -480,6 +496,9 @@ impl WeightInfo for TestWeightInfo {
 	fn set_config_with_perbill() -> Weight {
 		Weight::MAX
 	}
+	fn set_node_feature() -> Weight {
+		Weight::MAX
+	}
 }
 
 #[frame_support::pallet]
@@ -488,18 +507,20 @@ pub mod pallet {
 
 	/// The current storage version.
 	///
-	/// v0-v1: <https://github.com/paritytech/polkadot/pull/3575>
-	/// v1-v2: <https://github.com/paritytech/polkadot/pull/4420>
-	/// v2-v3: <https://github.com/paritytech/polkadot/pull/6091>
-	/// v3-v4: <https://github.com/paritytech/polkadot/pull/6345>
-	/// v4-v5: <https://github.com/paritytech/polkadot/pull/6937>
-	///      + <https://github.com/paritytech/polkadot/pull/6961>
-	///      + <https://github.com/paritytech/polkadot/pull/6934>
-	/// v5-v6: <https://github.com/paritytech/polkadot/pull/6271> (remove UMP dispatch queue)
-	/// v6-v7: <https://github.com/paritytech/polkadot/pull/7396>
-	/// v7-v8: <https://github.com/paritytech/polkadot/pull/6969>
-	/// v8-v9: <https://github.com/paritytech/polkadot/pull/7577>
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(9);
+	/// v0-v1:  <https://github.com/paritytech/polkadot/pull/3575>
+	/// v1-v2:  <https://github.com/paritytech/polkadot/pull/4420>
+	/// v2-v3:  <https://github.com/paritytech/polkadot/pull/6091>
+	/// v3-v4:  <https://github.com/paritytech/polkadot/pull/6345>
+	/// v4-v5:  <https://github.com/paritytech/polkadot/pull/6937>
+	///       + <https://github.com/paritytech/polkadot/pull/6961>
+	///       + <https://github.com/paritytech/polkadot/pull/6934>
+	/// v5-v6:  <https://github.com/paritytech/polkadot/pull/6271> (remove UMP dispatch queue)
+	/// v6-v7:  <https://github.com/paritytech/polkadot/pull/7396>
+	/// v7-v8:  <https://github.com/paritytech/polkadot/pull/6969>
+	/// v8-v9:  <https://github.com/paritytech/polkadot/pull/7577>
+	/// v9-v10: <https://github.com/paritytech/polkadot-sdk/pull/2177>
+	/// v10-11: <https://github.com/paritytech/polkadot-sdk/pull/1191>
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(11);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -644,17 +665,18 @@ pub mod pallet {
 			})
 		}
 
-		/// Set the number of on demand execution cores.
+		/// Set the number of coretime execution cores.
+		///
+		/// Note that this configuration is managed by the coretime chain. Only manually change
+		/// this, if you really know what you are doing!
 		#[pallet::call_index(6)]
 		#[pallet::weight((
 			T::WeightInfo::set_config_with_u32(),
 			DispatchClass::Operational,
 		))]
-		pub fn set_on_demand_cores(origin: OriginFor<T>, new: u32) -> DispatchResult {
+		pub fn set_coretime_cores(origin: OriginFor<T>, new: u32) -> DispatchResult {
 			ensure_root(origin)?;
-			Self::schedule_config_update(|config| {
-				config.on_demand_cores = new;
-			})
+			Self::set_coretime_cores_unchecked(new)
 		}
 
 		/// Set the number of retries for a particular on demand.
@@ -1175,6 +1197,7 @@ pub mod pallet {
 				config.on_demand_ttl = new;
 			})
 		}
+
 		/// Set the minimum backing votes threshold.
 		#[pallet::call_index(52)]
 		#[pallet::weight((
@@ -1185,6 +1208,51 @@ pub mod pallet {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
 				config.minimum_backing_votes = new;
+			})
+		}
+
+		/// Set/Unset a node feature.
+		#[pallet::call_index(53)]
+		#[pallet::weight((
+			T::WeightInfo::set_node_feature(),
+			DispatchClass::Operational
+		))]
+		pub fn set_node_feature(origin: OriginFor<T>, index: u8, value: bool) -> DispatchResult {
+			ensure_root(origin)?;
+
+			Self::schedule_config_update(|config| {
+				let index = usize::from(index);
+				if config.node_features.len() <= index {
+					config.node_features.resize(index + 1, false);
+				}
+				config.node_features.set(index, value);
+			})
+		}
+
+		/// Set approval-voting-params.
+		#[pallet::call_index(54)]
+		#[pallet::weight((
+			T::WeightInfo::set_config_with_executor_params(),
+			DispatchClass::Operational,
+		))]
+		pub fn set_approval_voting_params(
+			origin: OriginFor<T>,
+			new: ApprovalVotingParams,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			Self::schedule_config_update(|config| {
+				config.approval_voting_params = new;
+			})
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		/// Set coretime cores.
+		///
+		/// To be used if authorization is checked otherwise.
+		pub fn set_coretime_cores_unchecked(new: u32) -> DispatchResult {
+			Self::schedule_config_update(|config| {
+				config.coretime_cores = new;
 			})
 		}
 	}

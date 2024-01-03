@@ -20,10 +20,12 @@
 
 use super::{super::Imbalance as ImbalanceT, Balanced, *};
 use crate::traits::{
+	fungibles,
 	misc::{SameOrOther, TryDrop},
-	tokens::Balance,
+	tokens::{AssetId, Balance},
 };
-use sp_runtime::{traits::Zero, RuntimeDebug};
+use frame_support_procedural::{EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
+use sp_runtime::traits::Zero;
 use sp_std::marker::PhantomData;
 
 /// Handler for when an imbalance gets dropped. This could handle either a credit (negative) or
@@ -43,7 +45,7 @@ impl<Balance> HandleImbalanceDrop<Balance> for () {
 ///
 /// Importantly, it has a special `Drop` impl, and cannot be created outside of this module.
 #[must_use]
-#[derive(RuntimeDebug, Eq, PartialEq)]
+#[derive(EqNoBound, PartialEqNoBound, RuntimeDebugNoBound)]
 pub struct Imbalance<
 	B: Balance,
 	OnDrop: HandleImbalanceDrop<B>,
@@ -86,6 +88,11 @@ impl<B: Balance, OnDrop: HandleImbalanceDrop<B>, OppositeOnDrop: HandleImbalance
 	pub(crate) fn new(amount: B) -> Self {
 		Self { amount, _phantom: PhantomData }
 	}
+
+	/// Forget the imbalance without invoking the on-drop handler.
+	pub(crate) fn forget(imbalance: Self) {
+		sp_std::mem::forget(imbalance);
+	}
 }
 
 impl<B: Balance, OnDrop: HandleImbalanceDrop<B>, OppositeOnDrop: HandleImbalanceDrop<B>>
@@ -112,6 +119,13 @@ impl<B: Balance, OnDrop: HandleImbalanceDrop<B>, OppositeOnDrop: HandleImbalance
 		sp_std::mem::forget(self);
 		(Imbalance::new(first), Imbalance::new(second))
 	}
+
+	fn extract(&mut self, amount: B) -> Self {
+		let new = self.amount.min(amount);
+		self.amount = self.amount - new;
+		Imbalance::new(new)
+	}
+
 	fn merge(mut self, other: Self) -> Self {
 		self.amount = self.amount.saturating_add(other.amount);
 		sp_std::mem::forget(other);
@@ -139,6 +153,27 @@ impl<B: Balance, OnDrop: HandleImbalanceDrop<B>, OppositeOnDrop: HandleImbalance
 	fn peek(&self) -> B {
 		self.amount
 	}
+}
+
+/// Converts a `fungibles` `imbalance` instance to an instance of a `fungible` imbalance type.
+///
+/// This function facilitates imbalance conversions within the implementations of
+/// [`frame_support::traits::fungibles::UnionOf`], [`frame_support::traits::fungible::UnionOf`], and
+/// [`frame_support::traits::fungible::ItemOf`] adapters. It is intended only for internal use
+/// within the current crate.
+pub(crate) fn from_fungibles<
+	A: AssetId,
+	B: Balance,
+	OnDropIn: fungibles::HandleImbalanceDrop<A, B>,
+	OppositeIn: fungibles::HandleImbalanceDrop<A, B>,
+	OnDropOut: HandleImbalanceDrop<B>,
+	OppositeOut: HandleImbalanceDrop<B>,
+>(
+	imbalance: fungibles::Imbalance<A, B, OnDropIn, OppositeIn>,
+) -> Imbalance<B, OnDropOut, OppositeOut> {
+	let new = Imbalance::new(imbalance.peek());
+	fungibles::Imbalance::forget(imbalance);
+	new
 }
 
 /// Imbalance implying that the total_issuance value is less than the sum of all account balances.

@@ -39,24 +39,44 @@ fn generate_hidden_includes_mod_name(unique_id: &str) -> Ident {
 /// Generates the access to the `frame-support` crate.
 pub fn generate_crate_access(unique_id: &str, def_crate: &str) -> TokenStream {
 	if std::env::var("CARGO_PKG_NAME").unwrap() == def_crate {
-		quote::quote!(frame_support)
+		let frame_support = match generate_access_from_frame_or_crate("frame-support") {
+			Ok(c) => c,
+			Err(e) => return e.into_compile_error().into(),
+		};
+		quote::quote!(#frame_support)
 	} else {
 		let mod_name = generate_hidden_includes_mod_name(unique_id);
 		quote::quote!( self::#mod_name::hidden_include )
 	}
 }
 
+/// Check if a path is using the `frame` crate or not.
+///
+/// This will usually check the output of [`generate_access_from_frame_or_crate`].
+/// We want to know if whatever the `path` takes us to, is exported from `frame` or not. In that
+/// case `path` would start with `frame`, something like `frame::x::y:z`.
+pub fn is_using_frame_crate(path: &syn::Path) -> bool {
+	path.segments.first().map(|s| s.ident == "frame").unwrap_or(false)
+}
+
 /// Generate the crate access for the crate using 2018 syntax.
 ///
-/// for `frame-support` output will for example be `frame_support`.
-pub fn generate_crate_access_2018(def_crate: &str) -> Result<syn::Ident, Error> {
-	match crate_name(def_crate) {
-		Ok(FoundCrate::Itself) => {
-			let name = def_crate.to_string().replace("-", "_");
-			Ok(syn::Ident::new(&name, Span::call_site()))
-		},
-		Ok(FoundCrate::Name(name)) => Ok(Ident::new(&name, Span::call_site())),
-		Err(e) => Err(Error::new(Span::call_site(), e)),
+/// If `frame` is in scope, it will use `frame::deps::<def_crate>`. Else, it will try and find
+/// `<def_crate>` directly.
+pub fn generate_access_from_frame_or_crate(def_crate: &str) -> Result<syn::Path, Error> {
+	if let Some(path) = get_frame_crate_path(def_crate) {
+		Ok(path)
+	} else {
+		let ident = match crate_name(def_crate) {
+			Ok(FoundCrate::Itself) => {
+				let name = def_crate.to_string().replace("-", "_");
+				Ok(syn::Ident::new(&name, Span::call_site()))
+			},
+			Ok(FoundCrate::Name(name)) => Ok(Ident::new(&name, Span::call_site())),
+			Err(e) => Err(Error::new(Span::call_site(), e)),
+		}?;
+
+		Ok(syn::Path::from(ident))
 	}
 }
 
@@ -64,21 +84,41 @@ pub fn generate_crate_access_2018(def_crate: &str) -> Result<syn::Ident, Error> 
 pub fn generate_hidden_includes(unique_id: &str, def_crate: &str) -> TokenStream {
 	let mod_name = generate_hidden_includes_mod_name(unique_id);
 
-	match crate_name(def_crate) {
-		Ok(FoundCrate::Itself) => quote!(),
-		Ok(FoundCrate::Name(name)) => {
-			let name = Ident::new(&name, Span::call_site());
-			quote::quote!(
-				#[doc(hidden)]
-				mod #mod_name {
-					pub extern crate #name as hidden_include;
-				}
-			)
-		},
-		Err(e) => {
-			let err = Error::new(Span::call_site(), e).to_compile_error();
-			quote!( #err )
-		},
+	if let Some(path) = get_frame_crate_path(def_crate) {
+		quote::quote!(
+			#[doc(hidden)]
+			mod #mod_name {
+				pub use #path as hidden_include;
+			}
+		)
+	} else {
+		match crate_name(def_crate) {
+			Ok(FoundCrate::Itself) => quote!(),
+			Ok(FoundCrate::Name(name)) => {
+				let name = Ident::new(&name, Span::call_site());
+				quote::quote!(
+					#[doc(hidden)]
+					mod #mod_name {
+						pub use #name as hidden_include;
+					}
+				)
+			},
+			Err(e) => {
+				let err = Error::new(Span::call_site(), e).to_compile_error();
+				quote!( #err )
+			},
+		}
+	}
+}
+
+/// Generates the path to the frame crate deps.
+fn get_frame_crate_path(def_crate: &str) -> Option<syn::Path> {
+	// This does not work if the frame crate is renamed.
+	if let Ok(FoundCrate::Name(name)) = crate_name(&"frame") {
+		let path = format!("{}::deps::{}", name, def_crate.to_string().replace("-", "_"));
+		Some(syn::parse_str::<syn::Path>(&path).expect("is a valid path; qed"))
+	} else {
+		None
 	}
 }
 

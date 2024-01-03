@@ -579,7 +579,7 @@ fn follow_new_best_sets_best_after_it_is_imported() {
 		block_import_params.fork_choice = Some(ForkChoiceStrategy::Custom(false));
 		block_import_params.body = Some(body);
 
-		// Now import the unkown block to make it "known"
+		// Now import the unknown block to make it "known"
 		client.import_block(block_import_params).await.unwrap();
 
 		loop {
@@ -1124,7 +1124,8 @@ fn find_potential_parents_aligned_with_pending() {
 
 	let backend = Arc::new(Backend::new_test(1000, 1));
 	let client = Arc::new(TestClientBuilder::with_backend(backend.clone()).build());
-	let mut para_import = ParachainBlockImport::new(client.clone(), backend.clone());
+	let mut para_import =
+		ParachainBlockImport::new_with_delayed_best_block(client.clone(), backend.clone());
 
 	let relay_parent = relay_hash_from_block_num(10);
 	// Choose different relay parent for alternative chain to get new hashes.
@@ -1279,7 +1280,8 @@ fn find_potential_parents_aligned_no_pending() {
 
 	let backend = Arc::new(Backend::new_test(1000, 1));
 	let client = Arc::new(TestClientBuilder::with_backend(backend.clone()).build());
-	let mut para_import = ParachainBlockImport::new(client.clone(), backend.clone());
+	let mut para_import =
+		ParachainBlockImport::new_with_delayed_best_block(client.clone(), backend.clone());
 
 	let relay_parent = relay_hash_from_block_num(10);
 	// Choose different relay parent for alternative chain to get new hashes.

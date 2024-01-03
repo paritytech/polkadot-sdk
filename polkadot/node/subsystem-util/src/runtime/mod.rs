@@ -30,16 +30,18 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_types::UnpinHandle;
 use polkadot_primitives::{
-	vstaging, CandidateEvent, CandidateHash, CoreState, EncodeAs, ExecutorParams, GroupIndex,
-	GroupRotationInfo, Hash, IndexedVec, OccupiedCore, ScrapedOnChainVotes, SessionIndex,
-	SessionInfo, Signed, SigningContext, UncheckedSigned, ValidationCode, ValidationCodeHash,
-	ValidatorId, ValidatorIndex, LEGACY_MIN_BACKING_VOTES,
+	slashing,
+	vstaging::{node_features::FeatureIndex, NodeFeatures},
+	AsyncBackingParams, CandidateEvent, CandidateHash, CoreState, EncodeAs, ExecutorParams,
+	GroupIndex, GroupRotationInfo, Hash, IndexedVec, OccupiedCore, ScrapedOnChainVotes,
+	SessionIndex, SessionInfo, Signed, SigningContext, UncheckedSigned, ValidationCode,
+	ValidationCodeHash, ValidatorId, ValidatorIndex, LEGACY_MIN_BACKING_VOTES,
 };
 
 use crate::{
-	request_availability_cores, request_candidate_events, request_from_runtime,
-	request_key_ownership_proof, request_on_chain_votes, request_session_executor_params,
-	request_session_index_for_child, request_session_info, request_staging_async_backing_params,
+	request_async_backing_params, request_availability_cores, request_candidate_events,
+	request_from_runtime, request_key_ownership_proof, request_on_chain_votes,
+	request_session_executor_params, request_session_index_for_child, request_session_info,
 	request_submit_report_dispute_lost, request_unapplied_slashes, request_validation_code_by_hash,
 	request_validator_groups,
 };
@@ -92,6 +94,8 @@ pub struct ExtendedSessionInfo {
 	pub validator_info: ValidatorInfo,
 	/// Session executor parameters
 	pub executor_params: ExecutorParams,
+	/// Node features
+	pub node_features: NodeFeatures,
 }
 
 /// Information about ourselves, in case we are an `Authority`.
@@ -202,7 +206,20 @@ impl RuntimeInfo {
 
 			let validator_info = self.get_validator_info(&session_info)?;
 
-			let full_info = ExtendedSessionInfo { session_info, validator_info, executor_params };
+			let node_features = request_node_features(parent, session_index, sender)
+				.await?
+				.unwrap_or(NodeFeatures::EMPTY);
+			let last_set_index = node_features.iter_ones().last().unwrap_or_default();
+			if last_set_index >= FeatureIndex::FirstUnassigned as usize {
+				gum::warn!(target: LOG_TARGET, "Runtime requires feature bit {} that node doesn't support, please upgrade node version", last_set_index);
+			}
+
+			let full_info = ExtendedSessionInfo {
+				session_info,
+				validator_info,
+				executor_params,
+				node_features,
+			};
 
 			self.session_info_cache.insert(session_index, full_info);
 		}
@@ -377,7 +394,7 @@ where
 pub async fn get_unapplied_slashes<Sender>(
 	sender: &mut Sender,
 	relay_parent: Hash,
-) -> Result<Vec<(SessionIndex, CandidateHash, vstaging::slashing::PendingSlashes)>>
+) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
@@ -392,7 +409,7 @@ pub async fn key_ownership_proof<Sender>(
 	sender: &mut Sender,
 	relay_parent: Hash,
 	validator_id: ValidatorId,
-) -> Result<Option<vstaging::slashing::OpaqueKeyOwnershipProof>>
+) -> Result<Option<slashing::OpaqueKeyOwnershipProof>>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
@@ -403,8 +420,8 @@ where
 pub async fn submit_report_dispute_lost<Sender>(
 	sender: &mut Sender,
 	relay_parent: Hash,
-	dispute_proof: vstaging::slashing::DisputeProof,
-	key_ownership_proof: vstaging::slashing::OpaqueKeyOwnershipProof,
+	dispute_proof: slashing::DisputeProof,
+	key_ownership_proof: slashing::OpaqueKeyOwnershipProof,
 ) -> Result<Option<()>>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
@@ -429,7 +446,7 @@ where
 pub enum ProspectiveParachainsMode {
 	/// Runtime API without support of `async_backing_params`: no prospective parachains.
 	Disabled,
-	/// vstaging runtime API: prospective parachains.
+	/// v6 runtime API: prospective parachains.
 	Enabled {
 		/// The maximum number of para blocks between the para head in a relay parent
 		/// and a new candidate. Restricts nodes from building arbitrary long chains
@@ -457,8 +474,7 @@ pub async fn prospective_parachains_mode<Sender>(
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	let result =
-		recv_runtime(request_staging_async_backing_params(relay_parent, sender).await).await;
+	let result = recv_runtime(request_async_backing_params(relay_parent, sender).await).await;
 
 	if let Err(error::Error::RuntimeRequest(RuntimeApiError::NotSupported { runtime_api_name })) =
 		&result
@@ -472,7 +488,7 @@ where
 
 		Ok(ProspectiveParachainsMode::Disabled)
 	} else {
-		let vstaging::AsyncBackingParams { max_candidate_depth, allowed_ancestry_len } = result?;
+		let AsyncBackingParams { max_candidate_depth, allowed_ancestry_len } = result?;
 		Ok(ProspectiveParachainsMode::Enabled {
 			max_candidate_depth: max_candidate_depth as _,
 			allowed_ancestry_len: allowed_ancestry_len as _,
@@ -506,5 +522,34 @@ pub async fn request_min_backing_votes(
 		Ok(LEGACY_MIN_BACKING_VOTES)
 	} else {
 		min_backing_votes_res
+	}
+}
+
+/// Request the node features enabled in the runtime.
+/// Pass in the session index for caching purposes, as it should only change on session boundaries.
+/// Prior to runtime API version 9, just return `None`.
+pub async fn request_node_features(
+	parent: Hash,
+	session_index: SessionIndex,
+	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
+) -> Result<Option<NodeFeatures>> {
+	let res = recv_runtime(
+		request_from_runtime(parent, sender, |tx| {
+			RuntimeApiRequest::NodeFeatures(session_index, tx)
+		})
+		.await,
+	)
+	.await;
+
+	if let Err(Error::RuntimeRequest(RuntimeApiError::NotSupported { .. })) = res {
+		gum::trace!(
+			target: LOG_TARGET,
+			?parent,
+			"Querying the node features from the runtime is not supported by the current Runtime API",
+		);
+
+		Ok(None)
+	} else {
+		res.map(Some)
 	}
 }

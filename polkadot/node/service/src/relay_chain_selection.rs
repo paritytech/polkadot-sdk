@@ -31,7 +31,7 @@
 //! leaf returned from the chain selection subsystem by calling into other
 //! subsystems which yield information about approvals and disputes.
 //!
-//! [chain-selection-guide]: https://w3f.github.io/parachain-implementers-guide/protocol-chain-selection.html
+//! [chain-selection-guide]: https://paritytech.github.io/polkadot-sdk/book/protocol-chain-selection.html
 
 #![cfg(feature = "full-node")]
 

@@ -122,7 +122,7 @@ prospective validation data. This is unlikely to change.
 
 ### Outgoing
 
-- `RuntimeApiRequest::StagingParaBackingState`
+- `RuntimeApiRequest::ParaBackingState`
   - Gets the backing state of the given para (the constraints of the para and
     candidates pending availability).
 - `RuntimeApiRequest::AvailabilityCores`

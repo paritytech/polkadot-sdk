@@ -162,6 +162,7 @@ fn noop_is_free() {
 }
 
 mod mock {
+	use frame_support::derive_impl;
 	use sp_runtime::testing::H256;
 
 	type Block = frame_system::mocking::MockBlock<Test>;
@@ -174,6 +175,7 @@ mod mock {
 		}
 	);
 
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();

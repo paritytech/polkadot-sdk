@@ -98,7 +98,6 @@ where
 	///
 	/// Level limits are not enforced during this phase.
 	fn restore(&mut self) {
-		const ERR_MSG: &str = "route from finalized to leaf should be available; qed";
 		let info = self.backend.blockchain().info();
 
 		log::debug!(
@@ -112,7 +111,14 @@ where
 		self.import_counter = info.finalized_number;
 
 		for leaf in self.backend.blockchain().leaves().unwrap_or_default() {
-			let mut meta = self.backend.blockchain().header_metadata(leaf).expect(ERR_MSG);
+			let Ok(mut meta) = self.backend.blockchain().header_metadata(leaf) else {
+				log::debug!(
+					target: LOG_TARGET,
+					"Could not fetch header metadata for leaf: {leaf:?}",
+				);
+
+				continue
+			};
 
 			self.import_counter = self.import_counter.max(meta.number);
 
@@ -123,7 +129,19 @@ where
 				if meta.number <= self.lowest_level {
 					break
 				}
-				meta = self.backend.blockchain().header_metadata(meta.parent).expect(ERR_MSG);
+
+				meta = match self.backend.blockchain().header_metadata(meta.parent) {
+					Ok(m) => m,
+					Err(_) => {
+						// This can happen after we have warp synced a node.
+						log::debug!(
+							target: LOG_TARGET,
+							"Could not fetch header metadata for parent: {:?}",
+							meta.parent,
+						);
+						break
+					},
+				}
 			}
 		}
 

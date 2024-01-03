@@ -49,8 +49,10 @@ use sc_utils::mpsc::TracingUnboundedSender;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_core::{traits::SpawnNamed, Decode};
-use sp_runtime::traits::{Block as BlockT, BlockIdTo};
+use sp_runtime::traits::{Block as BlockT, BlockIdTo, Header};
 use std::{sync::Arc, time::Duration};
+
+pub use cumulus_primitives_proof_size_hostfunction::storage_proof_size;
 
 // Given the sporadic nature of the explicit recovery operation and the
 // possibility to retry infinite times this value is more than enough.
@@ -505,11 +507,11 @@ where
 		None,
 		async move {
 			log::debug!(
-				target: "cumulus-network",
+				target: LOG_TARGET_SYNC,
 				"waiting for announce block in a background task...",
 			);
 
-			let _ = wait_for_target_block::<B, _>(sender, para_id, relay_chain_interface)
+			let _ = wait_for_finalized_para_head::<B, _>(sender, para_id, relay_chain_interface)
 				.await
 				.map_err(|e| {
 					log::error!(
@@ -527,7 +529,7 @@ where
 
 /// Waits for the relay chain to have finished syncing and then gets the parachain header that
 /// corresponds to the last finalized relay chain block.
-async fn wait_for_target_block<B, RCInterface>(
+async fn wait_for_finalized_para_head<B, RCInterface>(
 	sender: oneshot::Sender<<B as BlockT>::Header>,
 	para_id: ParaId,
 	relay_chain_interface: RCInterface,
@@ -560,11 +562,15 @@ where
 				.map_err(|e| format!("{e:?}"))?
 				.ok_or("Could not find parachain head in relay chain")?;
 
-			let target_block = B::Header::decode(&mut &validation_data.parent_head.0[..])
+			let finalized_header = B::Header::decode(&mut &validation_data.parent_head.0[..])
 				.map_err(|e| format!("Failed to decode parachain head: {e}"))?;
 
-			log::debug!(target: LOG_TARGET_SYNC, "Target block reached {:?}", target_block);
-			let _ = sender.send(target_block);
+			log::info!(
+				"🎉 Received target parachain header #{} ({}) from the relay chain.",
+				finalized_header.number(),
+				finalized_header.hash()
+			);
+			let _ = sender.send(finalized_header);
 			return Ok(())
 		}
 	}

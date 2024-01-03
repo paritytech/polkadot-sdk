@@ -16,18 +16,75 @@
 
 use async_trait::async_trait;
 use polkadot_primitives::{
-	runtime_api::ParachainHost, vstaging, Block, BlockNumber, CandidateCommitments, CandidateEvent,
-	CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams,
-	GroupRotationInfo, Hash, Id, InboundDownwardMessage, InboundHrmpMessage,
-	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
-	SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	ValidatorSignature,
+	async_backing,
+	runtime_api::ParachainHost,
+	slashing,
+	vstaging::{self, ApprovalVotingParams},
+	Block, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
+	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash,
+	Header, Id, InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption,
+	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
+	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
+use sc_client_api::HeaderBackend;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::{ApiError, ApiExt, ProvideRuntimeApi};
 use sp_authority_discovery::AuthorityDiscoveryApi;
+use sp_blockchain::Info;
 use sp_consensus_babe::{BabeApi, Epoch};
+use sp_runtime::traits::{Header as HeaderT, NumberFor};
 use std::{collections::BTreeMap, sync::Arc};
+
+/// Offers header utilities.
+///
+/// This is a async wrapper trait for ['HeaderBackend'] to be used with the
+/// `ChainApiSubsystem`.
+// This trait was introduced to suit the needs of collators. Depending on their operating mode, they
+// might not have a client of the relay chain that can supply a synchronous HeaderBackend
+// implementation.
+#[async_trait]
+pub trait ChainApiBackend: Send + Sync {
+	/// Get block header. Returns `None` if block is not found.
+	async fn header(&self, hash: Hash) -> sp_blockchain::Result<Option<Header>>;
+	/// Get blockchain info.
+	async fn info(&self) -> sp_blockchain::Result<Info<Block>>;
+	/// Get block number by hash. Returns `None` if the header is not in the chain.
+	async fn number(
+		&self,
+		hash: Hash,
+	) -> sp_blockchain::Result<Option<<Header as HeaderT>::Number>>;
+	/// Get block hash by number. Returns `None` if the header is not in the chain.
+	async fn hash(&self, number: NumberFor<Block>) -> sp_blockchain::Result<Option<Hash>>;
+}
+
+#[async_trait]
+impl<T> ChainApiBackend for T
+where
+	T: HeaderBackend<Block>,
+{
+	/// Get block header. Returns `None` if block is not found.
+	async fn header(&self, hash: Hash) -> sp_blockchain::Result<Option<Header>> {
+		HeaderBackend::header(self, hash)
+	}
+
+	/// Get blockchain info.
+	async fn info(&self) -> sp_blockchain::Result<Info<Block>> {
+		Ok(HeaderBackend::info(self))
+	}
+
+	/// Get block number by hash. Returns `None` if the header is not in the chain.
+	async fn number(
+		&self,
+		hash: Hash,
+	) -> sp_blockchain::Result<Option<<Header as HeaderT>::Number>> {
+		HeaderBackend::number(self, hash)
+	}
+
+	/// Get block hash by number. Returns `None` if the header is not in the chain.
+	async fn hash(&self, number: NumberFor<Block>) -> sp_blockchain::Result<Option<Hash>> {
+		HeaderBackend::hash(self, number)
+	}
+}
 
 /// Exposes all runtime calls that are used by the runtime API subsystem.
 #[async_trait]
@@ -190,7 +247,7 @@ pub trait RuntimeApiSubsystemClient {
 	async fn unapplied_slashes(
 		&self,
 		at: Hash,
-	) -> Result<Vec<(SessionIndex, CandidateHash, vstaging::slashing::PendingSlashes)>, ApiError>;
+	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>, ApiError>;
 
 	/// Returns a merkle proof of a validator session key in a past session.
 	///
@@ -199,7 +256,7 @@ pub trait RuntimeApiSubsystemClient {
 		&self,
 		at: Hash,
 		validator_id: ValidatorId,
-	) -> Result<Option<vstaging::slashing::OpaqueKeyOwnershipProof>, ApiError>;
+	) -> Result<Option<slashing::OpaqueKeyOwnershipProof>, ApiError>;
 
 	/// Submits an unsigned extrinsic to slash validators who lost a dispute about
 	/// a candidate of a past session.
@@ -208,8 +265,8 @@ pub trait RuntimeApiSubsystemClient {
 	async fn submit_report_dispute_lost(
 		&self,
 		at: Hash,
-		dispute_proof: vstaging::slashing::DisputeProof,
-		key_ownership_proof: vstaging::slashing::OpaqueKeyOwnershipProof,
+		dispute_proof: slashing::DisputeProof,
+		key_ownership_proof: slashing::OpaqueKeyOwnershipProof,
 	) -> Result<Option<()>, ApiError>;
 
 	// === BABE API ===
@@ -232,7 +289,7 @@ pub trait RuntimeApiSubsystemClient {
 		session_index: SessionIndex,
 	) -> Result<Option<ExecutorParams>, ApiError>;
 
-	// === STAGING v6 ===
+	// === v6 ===
 	/// Get the minimum number of backing votes.
 	async fn minimum_backing_votes(
 		&self,
@@ -240,21 +297,38 @@ pub trait RuntimeApiSubsystemClient {
 		session_index: SessionIndex,
 	) -> Result<u32, ApiError>;
 
-	// === Asynchronous backing API ===
+	// === v7: Asynchronous backing API ===
 
 	/// Returns candidate's acceptance limitations for asynchronous backing for a relay parent.
-	async fn staging_async_backing_params(
+	async fn async_backing_params(
 		&self,
 		at: Hash,
-	) -> Result<polkadot_primitives::vstaging::AsyncBackingParams, ApiError>;
+	) -> Result<polkadot_primitives::AsyncBackingParams, ApiError>;
 
 	/// Returns the state of parachain backing for a given para.
 	/// This is a staging method! Do not use on production runtimes!
-	async fn staging_para_backing_state(
+	async fn para_backing_state(
 		&self,
 		at: Hash,
 		para_id: Id,
-	) -> Result<Option<polkadot_primitives::vstaging::BackingState>, ApiError>;
+	) -> Result<Option<async_backing::BackingState>, ApiError>;
+
+	// === v8 ===
+
+	/// Gets the disabled validators at a specific block height
+	async fn disabled_validators(&self, at: Hash) -> Result<Vec<ValidatorIndex>, ApiError>;
+
+	// === v9 ===
+	/// Get the node features.
+	async fn node_features(&self, at: Hash) -> Result<vstaging::NodeFeatures, ApiError>;
+
+	// == v10: Approval voting params ==
+	/// Approval voting configuration parameters
+	async fn approval_voting_params(
+		&self,
+		at: Hash,
+		session_index: SessionIndex,
+	) -> Result<ApprovalVotingParams, ApiError>;
 }
 
 /// Default implementation of [`RuntimeApiSubsystemClient`] using the client.
@@ -454,7 +528,7 @@ where
 	async fn unapplied_slashes(
 		&self,
 		at: Hash,
-	) -> Result<Vec<(SessionIndex, CandidateHash, vstaging::slashing::PendingSlashes)>, ApiError> {
+	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>, ApiError> {
 		self.client.runtime_api().unapplied_slashes(at)
 	}
 
@@ -462,15 +536,15 @@ where
 		&self,
 		at: Hash,
 		validator_id: ValidatorId,
-	) -> Result<Option<vstaging::slashing::OpaqueKeyOwnershipProof>, ApiError> {
+	) -> Result<Option<slashing::OpaqueKeyOwnershipProof>, ApiError> {
 		self.client.runtime_api().key_ownership_proof(at, validator_id)
 	}
 
 	async fn submit_report_dispute_lost(
 		&self,
 		at: Hash,
-		dispute_proof: vstaging::slashing::DisputeProof,
-		key_ownership_proof: vstaging::slashing::OpaqueKeyOwnershipProof,
+		dispute_proof: slashing::DisputeProof,
+		key_ownership_proof: slashing::OpaqueKeyOwnershipProof,
 	) -> Result<Option<()>, ApiError> {
 		let mut runtime_api = self.client.runtime_api();
 
@@ -489,19 +563,35 @@ where
 		self.client.runtime_api().minimum_backing_votes(at)
 	}
 
-	async fn staging_para_backing_state(
+	async fn para_backing_state(
 		&self,
 		at: Hash,
 		para_id: Id,
-	) -> Result<Option<polkadot_primitives::vstaging::BackingState>, ApiError> {
-		self.client.runtime_api().staging_para_backing_state(at, para_id)
+	) -> Result<Option<async_backing::BackingState>, ApiError> {
+		self.client.runtime_api().para_backing_state(at, para_id)
 	}
 
-	/// Returns candidate's acceptance limitations for asynchronous backing for a relay parent.
-	async fn staging_async_backing_params(
+	async fn async_backing_params(
 		&self,
 		at: Hash,
-	) -> Result<polkadot_primitives::vstaging::AsyncBackingParams, ApiError> {
-		self.client.runtime_api().staging_async_backing_params(at)
+	) -> Result<async_backing::AsyncBackingParams, ApiError> {
+		self.client.runtime_api().async_backing_params(at)
+	}
+
+	async fn node_features(&self, at: Hash) -> Result<vstaging::NodeFeatures, ApiError> {
+		self.client.runtime_api().node_features(at)
+	}
+
+	async fn disabled_validators(&self, at: Hash) -> Result<Vec<ValidatorIndex>, ApiError> {
+		self.client.runtime_api().disabled_validators(at)
+	}
+
+	/// Approval voting configuration parameters
+	async fn approval_voting_params(
+		&self,
+		at: Hash,
+		_session_index: SessionIndex,
+	) -> Result<ApprovalVotingParams, ApiError> {
+		self.client.runtime_api().approval_voting_params(at)
 	}
 }

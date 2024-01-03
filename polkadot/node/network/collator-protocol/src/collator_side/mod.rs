@@ -31,10 +31,10 @@ use polkadot_node_network_protocol::{
 	peer_set::{CollationVersion, PeerSet},
 	request_response::{
 		incoming::{self, OutgoingResponse},
-		v1 as request_v1, vstaging as request_vstaging, IncomingRequestReceiver,
+		v1 as request_v1, v2 as request_v2, IncomingRequestReceiver,
 	},
-	v1 as protocol_v1, vstaging as protocol_vstaging, OurView, PeerId,
-	UnifiedReputationChange as Rep, Versioned, View,
+	v1 as protocol_v1, v2 as protocol_v2, OurView, PeerId, UnifiedReputationChange as Rep,
+	Versioned, View,
 };
 use polkadot_node_primitives::{CollationSecondedSignal, PoV, Statement};
 use polkadot_node_subsystem::{
@@ -93,13 +93,18 @@ const COST_APPARENT_FLOOD: Rep =
 /// For considerations on this value, see: https://github.com/paritytech/polkadot/issues/4386
 const MAX_UNSHARED_UPLOAD_TIME: Duration = Duration::from_millis(150);
 
-/// Ensure that collator issues a connection request at least once every this many seconds.
-/// Usually it's done when advertising new collation. However, if the core stays occupied or
-/// it's not our turn to produce a candidate, it's important to disconnect from previous
-/// peers.
+/// Ensure that collator updates its connection requests to validators
+/// this long after the most recent leaf.
+///
+/// The timeout is designed for substreams to be properly closed if they need to be
+/// reopened shortly after the next leaf.
+///
+/// Collators also update their connection requests on every new collation.
+/// This timeout is mostly about removing stale connections while avoiding races
+/// with new collations which may want to reactivate them.
 ///
 /// Validators are obtained from [`ValidatorGroupsBuffer::validators_to_connect`].
-const RECONNECT_TIMEOUT: Duration = Duration::from_secs(12);
+const RECONNECT_AFTER_LEAF_TIMEOUT: Duration = Duration::from_secs(4);
 
 /// Future that when resolved indicates that we should update reserved peer-set
 /// of validators we want to be connected to.
@@ -107,6 +112,13 @@ const RECONNECT_TIMEOUT: Duration = Duration::from_secs(12);
 /// `Pending` variant never finishes and should be used when there're no peers
 /// connected.
 type ReconnectTimeout = Fuse<futures_timer::Delay>;
+
+#[derive(Debug)]
+enum ShouldAdvertiseTo {
+	Yes,
+	NotAuthority,
+	AlreadyAdvertised,
+}
 
 /// Info about validators we are currently connected to.
 ///
@@ -129,10 +141,10 @@ impl ValidatorGroup {
 		candidate_hash: &CandidateHash,
 		peer_ids: &HashMap<PeerId, HashSet<AuthorityDiscoveryId>>,
 		peer: &PeerId,
-	) -> bool {
+	) -> ShouldAdvertiseTo {
 		let authority_ids = match peer_ids.get(peer) {
 			Some(authority_ids) => authority_ids,
-			None => return false,
+			None => return ShouldAdvertiseTo::NotAuthority,
 		};
 
 		for id in authority_ids {
@@ -151,11 +163,13 @@ impl ValidatorGroup {
 				.get(candidate_hash)
 				.map_or(true, |advertised| !advertised[validator_index])
 			{
-				return true
+				return ShouldAdvertiseTo::Yes
+			} else {
+				return ShouldAdvertiseTo::AlreadyAdvertised
 			}
 		}
 
-		false
+		ShouldAdvertiseTo::NotAuthority
 	}
 
 	/// Should be called after we advertised our collation to the given `peer` to keep track of it.
@@ -255,8 +269,8 @@ struct State {
 	/// Tracks which validators we want to stay connected to.
 	validator_groups_buf: ValidatorGroupsBuffer,
 
-	/// Timeout-future that enforces collator to update the peer-set at least once
-	/// every [`RECONNECT_TIMEOUT`] seconds.
+	/// Timeout-future which is reset after every leaf to [`RECONNECT_AFTER_LEAF_TIMEOUT`] seconds.
+	/// When it fires, we update our reserved peers.
 	reconnect_timeout: ReconnectTimeout,
 
 	/// Metrics.
@@ -443,7 +457,7 @@ async fn distribute_collation<Context>(
 	}
 
 	// Update a set of connected validators if necessary.
-	state.reconnect_timeout = connect_to_validators(ctx, &state.validator_groups_buf).await;
+	connect_to_validators(ctx, &state.validator_groups_buf).await;
 
 	if let Some(result_sender) = result_sender {
 		state.collation_result_senders.insert(candidate_hash, result_sender);
@@ -577,7 +591,7 @@ async fn determine_our_validators<Context>(
 fn declare_message(
 	state: &mut State,
 	version: CollationVersion,
-) -> Option<Versioned<protocol_v1::CollationProtocol, protocol_vstaging::CollationProtocol>> {
+) -> Option<Versioned<protocol_v1::CollationProtocol, protocol_v2::CollationProtocol>> {
 	let para_id = state.collating_on?;
 	Some(match version {
 		CollationVersion::V1 => {
@@ -590,17 +604,15 @@ fn declare_message(
 			);
 			Versioned::V1(protocol_v1::CollationProtocol::CollatorProtocol(wire_message))
 		},
-		CollationVersion::VStaging => {
+		CollationVersion::V2 => {
 			let declare_signature_payload =
-				protocol_vstaging::declare_signature_payload(&state.local_peer_id);
-			let wire_message = protocol_vstaging::CollatorProtocolMessage::Declare(
+				protocol_v2::declare_signature_payload(&state.local_peer_id);
+			let wire_message = protocol_v2::CollatorProtocolMessage::Declare(
 				state.collator_pair.public(),
 				para_id,
 				state.collator_pair.sign(&declare_signature_payload),
 			);
-			Versioned::VStaging(protocol_vstaging::CollationProtocol::CollatorProtocol(
-				wire_message,
-			))
+			Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(wire_message))
 		},
 	})
 }
@@ -621,15 +633,12 @@ async fn declare<Context>(
 
 /// Updates a set of connected validators based on their advertisement-bits
 /// in a validators buffer.
-///
-/// Should be called again once a returned future resolves.
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
 async fn connect_to_validators<Context>(
 	ctx: &mut Context,
 	validator_groups_buf: &ValidatorGroupsBuffer,
-) -> ReconnectTimeout {
+) {
 	let validator_ids = validator_groups_buf.validators_to_connect();
-	let is_disconnect = validator_ids.is_empty();
 
 	// ignore address resolution failure
 	// will reissue a new request on new collation
@@ -640,14 +649,6 @@ async fn connect_to_validators<Context>(
 		failed,
 	})
 	.await;
-
-	if is_disconnect {
-		gum::trace!(target: LOG_TARGET, "Disconnecting from all peers");
-		// Never resolves.
-		Fuse::terminated()
-	} else {
-		futures_timer::Delay::new(RECONNECT_TIMEOUT).fuse()
-	}
 }
 
 /// Advertise collation to the given `peer`.
@@ -687,34 +688,39 @@ async fn advertise_collation<Context>(
 				.validator_group
 				.should_advertise_to(candidate_hash, peer_ids, &peer);
 
-		if !should_advertise {
-			gum::debug!(
-				target: LOG_TARGET,
-				?relay_parent,
-				peer_id = %peer,
-				"Not advertising collation since validator is not interested",
-			);
-			continue
+		match should_advertise {
+			ShouldAdvertiseTo::Yes => {},
+			ShouldAdvertiseTo::NotAuthority | ShouldAdvertiseTo::AlreadyAdvertised => {
+				gum::trace!(
+					target: LOG_TARGET,
+					?relay_parent,
+					?candidate_hash,
+					peer_id = %peer,
+					reason = ?should_advertise,
+					"Not advertising collation"
+				);
+				continue
+			},
 		}
 
 		gum::debug!(
 			target: LOG_TARGET,
 			?relay_parent,
+			?candidate_hash,
 			peer_id = %peer,
 			"Advertising collation.",
 		);
+
 		collation.status.advance_to_advertised();
 
 		let collation_message = match protocol_version {
-			CollationVersion::VStaging => {
-				let wire_message = protocol_vstaging::CollatorProtocolMessage::AdvertiseCollation {
+			CollationVersion::V2 => {
+				let wire_message = protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
 					relay_parent,
 					candidate_hash: *candidate_hash,
 					parent_head_data_hash: collation.parent_head_data_hash,
 				};
-				Versioned::VStaging(protocol_vstaging::CollationProtocol::CollatorProtocol(
-					wire_message,
-				))
+				Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(wire_message))
 			},
 			CollationVersion::V1 => {
 				let wire_message =
@@ -837,7 +843,7 @@ async fn send_collation(
 	let candidate_hash = receipt.hash();
 
 	// The response payload is the same for both versions of protocol
-	// and doesn't have vstaging alias for simplicity.
+	// and doesn't have v2 alias for simplicity.
 	let response = OutgoingResponse {
 		result: Ok(request_v1::CollationFetchingResponse::Collation(receipt, pov)),
 		reputation_changes: Vec::new(),
@@ -868,16 +874,15 @@ async fn handle_incoming_peer_message<Context>(
 	runtime: &mut RuntimeInfo,
 	state: &mut State,
 	origin: PeerId,
-	msg: Versioned<
-		protocol_v1::CollatorProtocolMessage,
-		protocol_vstaging::CollatorProtocolMessage,
-	>,
+	msg: Versioned<protocol_v1::CollatorProtocolMessage, protocol_v2::CollatorProtocolMessage>,
 ) -> Result<()> {
 	use protocol_v1::CollatorProtocolMessage as V1;
-	use protocol_vstaging::CollatorProtocolMessage as VStaging;
+	use protocol_v2::CollatorProtocolMessage as V2;
 
 	match msg {
-		Versioned::V1(V1::Declare(..)) | Versioned::VStaging(VStaging::Declare(..)) => {
+		Versioned::V1(V1::Declare(..)) |
+		Versioned::V2(V2::Declare(..)) |
+		Versioned::V3(V2::Declare(..)) => {
 			gum::trace!(
 				target: LOG_TARGET,
 				?origin,
@@ -889,7 +894,8 @@ async fn handle_incoming_peer_message<Context>(
 				.await;
 		},
 		Versioned::V1(V1::AdvertiseCollation(_)) |
-		Versioned::VStaging(VStaging::AdvertiseCollation { .. }) => {
+		Versioned::V2(V2::AdvertiseCollation { .. }) |
+		Versioned::V3(V2::AdvertiseCollation { .. }) => {
 			gum::trace!(
 				target: LOG_TARGET,
 				?origin,
@@ -904,7 +910,8 @@ async fn handle_incoming_peer_message<Context>(
 				.await;
 		},
 		Versioned::V1(V1::CollationSeconded(relay_parent, statement)) |
-		Versioned::VStaging(VStaging::CollationSeconded(relay_parent, statement)) => {
+		Versioned::V2(V2::CollationSeconded(relay_parent, statement)) |
+		Versioned::V3(V2::CollationSeconded(relay_parent, statement)) => {
 			if !matches!(statement.unchecked_payload(), Statement::Seconded(_)) {
 				gum::warn!(
 					target: LOG_TARGET,
@@ -1006,7 +1013,7 @@ async fn handle_incoming_request<Context>(
 			let collation = match &req {
 				VersionedCollationRequest::V1(_) if !mode.is_enabled() =>
 					per_relay_parent.collations.values_mut().next(),
-				VersionedCollationRequest::VStaging(req) =>
+				VersionedCollationRequest::V2(req) =>
 					per_relay_parent.collations.get_mut(&req.payload.candidate_hash),
 				_ => {
 					gum::warn!(
@@ -1157,7 +1164,7 @@ async fn handle_network_msg<Context>(
 		PeerConnected(peer_id, observed_role, protocol_version, maybe_authority) => {
 			// If it is possible that a disconnected validator would attempt a reconnect
 			// it should be handled here.
-			gum::trace!(target: LOG_TARGET, ?peer_id, ?observed_role, "Peer connected");
+			gum::trace!(target: LOG_TARGET, ?peer_id, ?observed_role, ?maybe_authority, "Peer connected");
 
 			let version = match protocol_version.try_into() {
 				Ok(version) => version,
@@ -1208,7 +1215,11 @@ async fn handle_network_msg<Context>(
 		},
 		UpdatedAuthorityIds(peer_id, authority_ids) => {
 			gum::trace!(target: LOG_TARGET, ?peer_id, ?authority_ids, "Updated authority ids");
-			state.peer_ids.insert(peer_id, authority_ids);
+			if let Some(version) = state.peer_data.get(&peer_id).map(|d| d.version) {
+				if state.peer_ids.insert(peer_id, authority_ids).is_none() {
+					declare(ctx, state, &peer_id, version).await;
+				}
+			}
 		},
 		NewGossipTopology { .. } => {
 			// impossible!
@@ -1322,7 +1333,7 @@ pub(crate) async fn run<Context>(
 	local_peer_id: PeerId,
 	collator_pair: CollatorPair,
 	req_v1_receiver: IncomingRequestReceiver<request_v1::CollationFetchingRequest>,
-	req_v2_receiver: IncomingRequestReceiver<request_vstaging::CollationFetchingRequest>,
+	req_v2_receiver: IncomingRequestReceiver<request_v2::CollationFetchingRequest>,
 	metrics: Metrics,
 ) -> std::result::Result<(), FatalError> {
 	run_inner(
@@ -1344,7 +1355,7 @@ async fn run_inner<Context>(
 	local_peer_id: PeerId,
 	collator_pair: CollatorPair,
 	mut req_v1_receiver: IncomingRequestReceiver<request_v1::CollationFetchingRequest>,
-	mut req_v2_receiver: IncomingRequestReceiver<request_vstaging::CollationFetchingRequest>,
+	mut req_v2_receiver: IncomingRequestReceiver<request_v2::CollationFetchingRequest>,
 	metrics: Metrics,
 	reputation: ReputationAggregator,
 	reputation_interval: Duration,
@@ -1377,7 +1388,11 @@ async fn run_inner<Context>(
 						"Failed to process message"
 					)?;
 				},
-				FromOrchestra::Signal(ActiveLeaves(_update)) => {}
+				FromOrchestra::Signal(ActiveLeaves(update)) => {
+					if update.activated.is_some() {
+						*reconnect_timeout = futures_timer::Delay::new(RECONNECT_AFTER_LEAF_TIMEOUT).fuse();
+					}
+				}
 				FromOrchestra::Signal(BlockFinalized(..)) => {}
 				FromOrchestra::Signal(Conclude) => return Ok(()),
 			},
@@ -1398,7 +1413,7 @@ async fn run_inner<Context>(
 						// The request it still alive, it should be kept in a waiting queue.
 					} else {
 						for authority_id in state.peer_ids.get(&peer_id).into_iter().flatten() {
-							// Timeout not hit, this peer is no longer interested in this relay parent.
+							// This peer has received the candidate. Not interested anymore.
 							state.validator_groups_buf.reset_validator_interest(candidate_hash, authority_id);
 						}
 						waiting.waiting_peers.remove(&(peer_id, candidate_hash));
@@ -1425,7 +1440,7 @@ async fn run_inner<Context>(
 						(ProspectiveParachainsMode::Disabled, VersionedCollationRequest::V1(_)) => {
 							per_relay_parent.collations.values().next()
 						},
-						(ProspectiveParachainsMode::Enabled { .. }, VersionedCollationRequest::VStaging(req)) => {
+						(ProspectiveParachainsMode::Enabled { .. }, VersionedCollationRequest::V2(req)) => {
 							per_relay_parent.collations.get(&req.payload.candidate_hash)
 						},
 						_ => {
@@ -1454,12 +1469,11 @@ async fn run_inner<Context>(
 				}
 			}
 			_ = reconnect_timeout => {
-				state.reconnect_timeout =
-					connect_to_validators(&mut ctx, &state.validator_groups_buf).await;
+				connect_to_validators(&mut ctx, &state.validator_groups_buf).await;
 
 				gum::trace!(
 					target: LOG_TARGET,
-					timeout = ?RECONNECT_TIMEOUT,
+					timeout = ?RECONNECT_AFTER_LEAF_TIMEOUT,
 					"Peer-set updated due to a timeout"
 				);
 			},
@@ -1476,7 +1490,7 @@ async fn run_inner<Context>(
 
 				log_error(
 					handle_incoming_request(&mut ctx, &mut state, request).await,
-					"Handling incoming collation fetch request VStaging"
+					"Handling incoming collation fetch request V2"
 				)?;
 			}
 		}
