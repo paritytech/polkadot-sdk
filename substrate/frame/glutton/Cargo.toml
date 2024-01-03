@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 blake2 = { version = "0.10.4", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-log = { version = "0.4.14", default-features = false }
+log = { workspace = true }
 frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
 frame-support = { path = "../support", default-features = false }
 frame-system = { path = "../system", default-features = false }

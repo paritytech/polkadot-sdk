@@ -33,7 +33,7 @@ pallet-session = { path = "../session", default-features = false, features = [
 pallet-authorship = { path = "../authorship", default-features = false }
 sp-application-crypto = { path = "../../primitives/application-crypto", default-features = false, features = ["serde"] }
 frame-election-provider-support = { path = "../election-provider-support", default-features = false }
-log = { version = "0.4.17", default-features = false }
+log = { workspace = true }
 
 # Optional imports for benchmarking
 frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }

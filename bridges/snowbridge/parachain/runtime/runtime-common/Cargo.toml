@@ -7,7 +7,7 @@ edition = "2021"
 license = "Apache-2.0"
 
 [dependencies]
-log = { version = "0.4.20", default-features = false }
+log = { workspace = true }
 
 frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
 frame-system = { path = "../../../../../substrate/frame/system", default-features = false }

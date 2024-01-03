@@ -32,7 +32,7 @@ pallet-staking = { path = "../../staking", default-features = false }
 sp-runtime = { path = "../../../primitives/runtime", default-features = false }
 sp-staking = { path = "../../../primitives/staking", default-features = false }
 sp-std = { path = "../../../primitives/std", default-features = false }
-log = { version = "0.4.17", default-features = false }
+log = { workspace = true }
 
 [dev-dependencies]
 pallet-staking-reward-curve = { path = "../../staking/reward-curve" }

@@ -528,6 +528,9 @@ stable_sort_primitive = { level = "allow", priority = 2 }            # prefer st
 extra-unused-type-parameters = { level = "allow", priority = 2 }     # stylistic
 default_constructed_unit_structs = { level = "allow", priority = 2 } # stylistic
 
+[workspace.dependencies]
+log = { version = "^0.4.20", default-features = false }
+
 [profile.release]
 # Polkadot runtime requires unwinding.
 panic = "unwind"

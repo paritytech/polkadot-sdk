@@ -22,7 +22,7 @@ scale-info = { version = "2.5.0", default-features = false, features = ["derive"
 frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
 frame-support = { path = "../support", default-features = false }
 frame-system = { path = "../system", default-features = false }
-log = { version = "0.4.17", default-features = false }
+log = { workspace = true }
 sp-consensus-sassafras = { path = "../../primitives/consensus/sassafras", default-features = false, features = ["serde"] }
 sp-io = { path = "../../primitives/io", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }
