@@ -828,7 +828,7 @@ fn last_runtime_upgrade_spec_version_usage() {
 			// a runtime upgrade in the pipeline of being applied, you should use the spec version
 			// of this upgrade.
 			if System::last_runtime_upgrade_spec_version() > 1337 {
-				return Weight::zero();
+				return Weight::zero()
 			}
 
 			// Do the migration.

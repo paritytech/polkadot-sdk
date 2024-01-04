@@ -726,7 +726,7 @@ fn candidate_validation_retry_on_error_helper(
 		ExecutorParams::default(),
 		exec_kind,
 		&Default::default(),
-	));
+	))
 }
 
 #[test]

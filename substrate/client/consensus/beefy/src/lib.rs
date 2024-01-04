@@ -398,7 +398,7 @@ where
 			header =
 				wait_for_parent_header(backend.blockchain(), header, HEADER_SYNC_DELAY).await?;
 		}
-		return Ok(state);
+		return Ok(state)
 	}
 
 	// No valid voter-state persisted, re-initialize from pallet genesis.

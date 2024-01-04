@@ -23,8 +23,7 @@ use super::{archive::Archive, *};
 use assert_matches::assert_matches;
 use codec::{Decode, Encode};
 use jsonrpsee::{
-	core::error::Error,
-	types::{error::CallError, EmptyServerParams as EmptyParams},
+	core::{EmptyServerParams as EmptyParams, Error},
 	RpcModule,
 };
 use sc_block_builder::BlockBuilderBuilder;
@@ -264,7 +263,7 @@ async fn archive_call() {
 		)
 		.await
 		.unwrap_err();
-	assert_matches!(err, Error::Call(CallError::Custom(ref err)) if err.code() == 3001 && err.message().contains("Invalid parameter"));
+	assert_matches!(err, Error::Call(err) if err.code() == 3001 && err.message().contains("Invalid parameter"));
 
 	// Pass an invalid parameters that cannot be decode.
 	let err = api
@@ -275,7 +274,7 @@ async fn archive_call() {
 		)
 		.await
 		.unwrap_err();
-	assert_matches!(err, Error::Call(CallError::Custom(ref err)) if err.code() == 3001 && err.message().contains("Invalid parameter"));
+	assert_matches!(err, Error::Call(err) if err.code() == 3001 && err.message().contains("Invalid parameter"));
 
 	// Invalid hash.
 	let result: MethodResult = api

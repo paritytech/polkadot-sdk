@@ -148,7 +148,7 @@ where
 				// The block is imported as part of some chain sync.
 				// The voter doesn't need to process it now.
 				// It will be detected and processed as part of the voter state init.
-				return Ok(inner_import_result);
+				return Ok(inner_import_result)
 			},
 		}
 
