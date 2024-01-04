@@ -53,7 +53,7 @@ fn load_input(delegate_call: bool) {
 	}
 
 	if delegate_call {
-		api::delegate_call(uapi::CallFlags::empty(), &code_hash, &[], None).unwrap();
+		api::delegate_call(uapi::CallFlags::empty(), code_hash, &[], None).unwrap();
 	}
 }
 

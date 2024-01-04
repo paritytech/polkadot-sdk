@@ -36,7 +36,7 @@ pub extern "C" fn call() {
 
 	let exit_status = match api::sr25519_verify(
 		&signature.try_into().unwrap(),
-		&msg,
+		msg,
 		&pub_key.try_into().unwrap(),
 	) {
 		Ok(_) => 0u32,

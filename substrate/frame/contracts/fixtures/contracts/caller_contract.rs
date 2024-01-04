@@ -42,7 +42,7 @@ pub extern "C" fn call() {
 	// Fail to deploy the contract since it returns a non-zero exit status.
 	#[allow(deprecated)]
 	let res = api::instantiate_v2(
-		&code_hash,
+		code_hash,
 		0u64, // How much ref_time weight to devote for the execution. 0 = all.
 		0u64, // How much proof_size weight to devote for the execution. 0 = all.
 		None, // No deposit limit.
@@ -57,7 +57,7 @@ pub extern "C" fn call() {
 	// Fail to deploy the contract due to insufficient ref_time weight.
 	#[allow(deprecated)]
 	let res = api::instantiate_v2(
-		&code_hash, 1u64, // too little ref_time weight
+		code_hash, 1u64, // too little ref_time weight
 		0u64, // How much proof_size weight to devote for the execution. 0 = all.
 		None, // No deposit limit.
 		&value, &input, None, None, &salt,
@@ -67,7 +67,7 @@ pub extern "C" fn call() {
 	// Fail to deploy the contract due to insufficient proof_size weight.
 	#[allow(deprecated)]
 	let res = api::instantiate_v2(
-		&code_hash, 0u64, // How much ref_time weight to devote for the execution. 0 = all.
+		code_hash, 0u64, // How much ref_time weight to devote for the execution. 0 = all.
 		1u64, // Too little proof_size weight
 		None, // No deposit limit.
 		&value, &input, None, None, &salt,
@@ -80,7 +80,7 @@ pub extern "C" fn call() {
 
 	#[allow(deprecated)]
 	api::instantiate_v2(
-		&code_hash,
+		code_hash,
 		0u64, // How much ref_time weight to devote for the execution. 0 = all.
 		0u64, // How much proof_size weight to devote for the execution. 0 = all.
 		None, // No deposit limit.
@@ -97,7 +97,7 @@ pub extern "C" fn call() {
 	#[allow(deprecated)]
 	let res = api::call_v2(
 		uapi::CallFlags::empty(),
-		&callee,
+		callee,
 		0u64, // How much ref_time weight to devote for the execution. 0 = all.
 		0u64, // How much proof_size weight to devote for the execution. 0 = all.
 		None, // No deposit limit.
@@ -111,7 +111,7 @@ pub extern "C" fn call() {
 	#[allow(deprecated)]
 	let res = api::call_v2(
 		uapi::CallFlags::empty(),
-		&callee,
+		callee,
 		1u64, // too little ref_time weight
 		0u64, // How much proof_size weight to devote for the execution. 0 = all.
 		None, // No deposit limit.
@@ -125,7 +125,7 @@ pub extern "C" fn call() {
 	#[allow(deprecated)]
 	let res = api::call_v2(
 		uapi::CallFlags::empty(),
-		&callee,
+		callee,
 		0u64, // How much ref_time weight to devote for the execution. 0 = all.
 		1u64, // too little proof_size weight
 		None, // No deposit limit.
@@ -140,7 +140,7 @@ pub extern "C" fn call() {
 	#[allow(deprecated)]
 	api::call_v2(
 		uapi::CallFlags::empty(),
-		&callee,
+		callee,
 		0u64, // How much ref_time weight to devote for the execution. 0 = all.
 		0u64, // How much proof_size weight to devote for the execution. 0 = all.
 		None, // No deposit limit.

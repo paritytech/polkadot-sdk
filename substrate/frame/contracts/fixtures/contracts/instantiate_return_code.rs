@@ -33,13 +33,13 @@ pub extern "C" fn call() {
 
 	#[allow(deprecated)]
 	let err_code = match api::instantiate_v2(
-		&code_hash,
+		code_hash,
 		0u64, // How much ref_time weight to devote for the execution. 0 = all.
 		0u64, /* How much proof_size weight to devote for the execution. 0 =
 		       * all. */
 		None,                     // No deposit limit.
 		&10_000u64.to_le_bytes(), // Value to transfer.
-		&input,
+		input,
 		None,
 		None,
 		&[0u8; 0], // Empty salt.

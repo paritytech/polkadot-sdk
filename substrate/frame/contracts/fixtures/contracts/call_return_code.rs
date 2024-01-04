@@ -43,7 +43,7 @@ pub extern "C" fn call() {
 		callee_addr,
 		0u64,                  // How much gas to devote for the execution. 0 = all.
 		&100u64.to_le_bytes(), // value transferred to the contract.
-		&input,
+		input,
 		None,
 	) {
 		Ok(_) => 0u32,

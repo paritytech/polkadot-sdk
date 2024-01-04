@@ -33,5 +33,5 @@ pub extern "C" fn call() {
 	let buffer = [0u8; 16 * 1024 + 1];
 	let data = &buffer[..len as usize];
 
-	api::deposit_event(&[0u8; 0], &data);
+	api::deposit_event(&[0u8; 0], data);
 }

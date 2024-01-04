@@ -37,7 +37,7 @@ pub extern "C" fn call() {
 	let mut key = [0u8; 32];
 	key[0] = 1;
 
-	api::set_storage(&key, &data);
+	api::set_storage(&key, data);
 
 	let data = &mut &mut buffer[..];
 	api::get_storage(&key, data).unwrap();

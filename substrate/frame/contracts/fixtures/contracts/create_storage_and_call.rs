@@ -37,23 +37,23 @@ pub extern "C" fn call() {
 	);
 
 	// create 4 byte of storage before calling
-	api::set_storage(&buffer, &[1u8; 4]);
+	api::set_storage(buffer, &[1u8; 4]);
 
 	// Call the callee
 	#[allow(deprecated)]
 	api::call_v2(
 		uapi::CallFlags::empty(),
-		&callee,
+		callee,
 		0u64, // How much ref_time weight to devote for the execution. 0 = all.
 		0u64, // How much proof_size weight to devote for the execution. 0 = all.
 		Some(deposit_limit),
 		&0u64.to_le_bytes(), // value transferred to the contract.
-		&input,
+		input,
 		None,
 	)
 	.unwrap();
 
 	// create 8 byte of storage after calling
 	// item of 12 bytes because we override 4 bytes
-	api::set_storage(&buffer, &[1u8; 12]);
+	api::set_storage(buffer, &[1u8; 12]);
 }

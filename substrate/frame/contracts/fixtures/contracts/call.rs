@@ -40,7 +40,7 @@ pub extern "C" fn call() {
 		callee_addr,
 		0u64,                // How much gas to devote for the execution. 0 = all.
 		&0u64.to_le_bytes(), // value transferred to the contract.
-		&callee_input,
+		callee_input,
 		None,
 	)
 	.unwrap();

@@ -42,12 +42,12 @@ pub extern "C" fn call() {
 
 	#[allow(deprecated)]
 	api::instantiate_v2(
-		&code_hash,
+		code_hash,
 		0u64, // How much ref_time weight to devote for the execution. 0 = all.
 		0u64, // How much proof_size weight to devote for the execution. 0 = all.
 		Some(deposit_limit),
 		&value,
-		&input,
+		input,
 		Some(address),
 		None,
 		&salt,

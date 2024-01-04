@@ -39,7 +39,7 @@ pub extern "C" fn call() {
 		output!(addr, [0u8; 32], api::address,);
 		api::call_v1(
 			uapi::CallFlags::ALLOW_REENTRY,
-			&addr,
+			addr,
 			0u64,                // How much gas to devote for the execution. 0 = all.
 			&0u64.to_le_bytes(), // Value to transfer.
 			&[0u8; 0],

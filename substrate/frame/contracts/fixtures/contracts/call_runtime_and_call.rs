@@ -36,15 +36,15 @@ pub extern "C" fn call() {
 	);
 
 	// Use the call passed as input to call the runtime.
-	api::call_runtime(&call).unwrap();
+	api::call_runtime(call).unwrap();
 
 	// Call the callee
 	api::call_v1(
 		uapi::CallFlags::empty(),
-		&callee_addr,
+		callee_addr,
 		0u64,                // How much gas to devote for the execution. 0 = all.
 		&0u64.to_le_bytes(), // value transferred to the contract.
-		&callee_input,
+		callee_input,
 		None,
 	)
 	.unwrap();

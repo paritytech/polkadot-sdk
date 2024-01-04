@@ -32,7 +32,7 @@ pub extern "C" fn call() {
 	input!(callee => [u8; 32],);
 
 	#[allow(deprecated)]
-	let reentrance_count = api::account_reentrance_count(&callee);
+	let reentrance_count = api::account_reentrance_count(callee);
 
 	// Return the reentrance count.
 	api::return_value(uapi::ReturnFlags::empty(), &reentrance_count.to_le_bytes());

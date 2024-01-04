@@ -37,8 +37,8 @@ pub extern "C" fn call() {
 		stop_recurse => u8,
 	);
 
-	api::call_chain_extension(func_id1, &input, None);
-	api::call_chain_extension(func_id2, &input, None);
+	api::call_chain_extension(func_id1, input, None);
+	api::call_chain_extension(func_id2, input, None);
 
 	if stop_recurse == 0 {
 		// Setup next call
@@ -52,10 +52,10 @@ pub extern "C" fn call() {
 		// call self
 		api::call_v1(
 			uapi::CallFlags::ALLOW_REENTRY,
-			&addr,
+			addr,
 			0u64,                // How much gas to devote for the execution. 0 = all.
 			&0u64.to_le_bytes(), // value transferred to the contract.
-			&input,
+			input,
 			None,
 		)
 		.unwrap();

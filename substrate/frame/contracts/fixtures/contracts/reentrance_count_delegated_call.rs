@@ -46,8 +46,8 @@ pub extern "C" fn call() {
 	// Re-enter 5 times in a row and assert that the reentrant counter works as expected.
 	if call_stack_height != 5 {
 		let mut input = [0u8; 36];
-		input[0..32].copy_from_slice(&code_hash);
+		input[0..32].copy_from_slice(code_hash);
 		input[32..36].copy_from_slice(&call_stack_height.to_le_bytes());
-		api::delegate_call(uapi::CallFlags::empty(), &code_hash, &input, None).unwrap();
+		api::delegate_call(uapi::CallFlags::empty(), code_hash, &input, None).unwrap();
 	}
 }

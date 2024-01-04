@@ -33,7 +33,7 @@ pub extern "C" fn deploy() {
 	let mut key = [0u8; 32];
 	key[0] = 1;
 
-	api::set_storage(&key, &data);
+	api::set_storage(&key, data);
 }
 
 #[no_mangle]

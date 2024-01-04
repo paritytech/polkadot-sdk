@@ -33,7 +33,7 @@ pub extern "C" fn call() {
 	input!(100, call => [u8], );
 
 	// Use the call passed as input to call the runtime.
-	let err_code = match api::call_runtime(&call) {
+	let err_code = match api::call_runtime(call) {
 		Ok(_) => 0u32,
 		Err(code) => code as u32,
 	};

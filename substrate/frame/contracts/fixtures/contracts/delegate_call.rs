@@ -37,7 +37,7 @@ pub extern "C" fn call() {
 	let value = &mut &mut value[..];
 	value[0] = 2u8;
 
-	api::set_storage(&key, &value);
+	api::set_storage(&key, value);
 	api::get_storage(&key, value).unwrap();
 	assert!(value[0] == 2u8);
 
