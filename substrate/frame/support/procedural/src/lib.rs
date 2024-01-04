@@ -1506,16 +1506,75 @@ pub fn origin(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// ```ignore
 /// Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, TypeInfo,
-/// RuntimeDebug
+/// RuntimeDebug,
+/// CompositeEnumVariantCount,
 /// ```
 ///
 /// For ease of usage, when no `#[derive]` attributes are found for the enum under
 /// `#[pallet::composite_enum]`, the aforementioned traits are automatically derived for it. The
 /// inverse is also true: if there are any `#[derive]` attributes found for the enum, then no traits
-/// will automatically be derived for it.
+/// will automatically be derived for it (this implies that you need to provide the `frame_support::traits::VariantCount` implementation).
 #[proc_macro_attribute]
 pub fn composite_enum(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
+}
+
+/// Derive macro for implementing [`frame_support::traits::VariantCount`] for enum type.
+///
+/// This macro works only for the enum which does not have variants or variants do not have fields.
+///
+/// This macro is automatically derived for `#[pallet::composite_enum]` enums.
+#[proc_macro_derive(CompositeEnumVariantCount)]
+pub fn derive_composite_enum_variant_count(input: TokenStream) -> TokenStream {
+	let input: syn::DeriveInput = match syn::parse(input) {
+		Ok(input) => input,
+		Err(e) => return e.to_compile_error().into(),
+	};
+
+	// only `Enum` type is expected here (see also `CompositeDef::try_from`)
+	let data_enum = match &input.data {
+		syn::Data::Enum(ref data_enum) => data_enum,
+		_ => return syn::Error::new(
+			input.ident.span(),
+			"Invalid type: expected enum item",
+		).to_compile_error().into()
+	};
+
+		// check variants: composite enums support only field-less enum variants. This is because fields can introduce too many possibilities, making it challenging to compute a fixed variant count.
+		// The only exception is `__Ignore` which can be added by `CompositeDef::try_from`.
+		for variant in &data_enum.variants {
+			match variant.fields {
+				syn::Fields::Named(_) | syn::Fields::Unnamed(_) => {
+					let variant_name = variant.ident.to_string();
+					if variant_name != "__Ignore" {
+						return syn::Error::new(
+							variant.ident.span(),
+							"The composite enum does not support variants with fields!",
+						).to_compile_error().into()
+					}
+				},
+				syn::Fields::Unit => (),
+			}
+		}
+	// get variants count
+	let variants_count = data_enum.variants.len() as u32;
+
+	// add `VariantCount` implementation for composite enum
+	let frame_support = match generate_access_from_frame_or_crate("frame-support") {
+		Ok(c) => c,
+		Err(e) => return e.into_compile_error().into(),
+	};
+	let frame_support = &frame_support;
+
+	let name = &input.ident;
+	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+
+	quote! {
+		impl #impl_generics #frame_support::traits::VariantCount for #name #ty_generics #where_clause {
+			const VARIANT_COUNT: u32 = #variants_count;
+		}
+	}
+	.into()
 }
 
 ///

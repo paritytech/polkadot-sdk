@@ -138,6 +138,7 @@ impl CompositeDef {
 					#scrate::__private::codec::Encode, #scrate::__private::codec::Decode, #scrate::__private::codec::MaxEncodedLen,
 					#scrate::__private::scale_info::TypeInfo,
 					#scrate::__private::RuntimeDebug,
+					#scrate::CompositeEnumVariantCount,
 				)]
 			};
 			item.attrs.push(derive_attr);

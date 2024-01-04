@@ -38,12 +38,19 @@ mod module_single_instance {
 		ModuleSingleInstanceReason2,
 	}
 
+	#[pallet::composite_enum]
+	pub enum FreezeReason {
+		ModuleSingleInstanceReason1,
+		ModuleSingleInstanceReason2,
+	}
+
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		type RuntimeHoldReason: From<HoldReason>;
+		type RuntimeFreezeReason: From<FreezeReason>;
 	}
 }
 
@@ -57,17 +64,23 @@ mod module_multi_instance {
 		ModuleMultiInstanceReason3,
 	}
 
+	#[pallet::composite_enum]
+	pub enum FreezeReason<I: 'static = ()> {
+		ModuleMultiInstanceReason1,
+	}
+
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(_);
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		type RuntimeHoldReason: From<HoldReason<I>>;
+		type RuntimeFreezeReason: From<FreezeReason<I>>;
 	}
 }
 
 #[frame_support::pallet(dev_mode)]
-mod module_consumer {
+mod module_composite_enum_consumer {
 	use super::*;
 
 	#[pallet::pallet]
@@ -75,8 +88,10 @@ mod module_consumer {
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
-		// consume `composite_enum`
+		// consume `HoldReason` `composite_enum`
 		type RuntimeHoldReason: VariantCount;
+		// consume `FreezeReason` `composite_enum`
+		type RuntimeFreezeReason: VariantCount;
 	}
 }
 
@@ -91,11 +106,11 @@ frame_support::construct_runtime!(
 	pub struct Runtime
 	{
 		System: frame_system::{Pallet, Call, Event<T>, Origin<T>} = 30,
-		ModuleSingleInstance: module_single_instance::{HoldReason},
-		ModuleMultiInstance1: module_multi_instance::<Instance1>::{HoldReason} = 51,
-		ModuleMultiInstance2: module_multi_instance::<Instance2>::{HoldReason} = 52,
-		ModuleMultiInstance3: module_multi_instance::<Instance3>::{HoldReason} = 53,
-		ModuleConsumer: module_consumer,
+		ModuleSingleInstance: module_single_instance::{HoldReason, FreezeReason},
+		ModuleMultiInstance1: module_multi_instance::<Instance1>::{HoldReason, FreezeReason} = 51,
+		ModuleMultiInstance2: module_multi_instance::<Instance2>::{HoldReason, FreezeReason} = 52,
+		ModuleMultiInstance3: module_multi_instance::<Instance3>::{HoldReason, FreezeReason} = 53,
+		ModuleCompositeEnumConsumer: module_composite_enum_consumer,
 	}
 );
 
@@ -106,75 +121,131 @@ impl frame_system::Config for Runtime {
 
 impl module_single_instance::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
 impl module_multi_instance::Config<module_multi_instance::Instance1> for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 impl module_multi_instance::Config<module_multi_instance::Instance2> for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 impl module_multi_instance::Config<module_multi_instance::Instance3> for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
-impl module_consumer::Config for Runtime {
+impl module_composite_enum_consumer::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
-fn list_all_variants() -> Vec<RuntimeHoldReason> {
+fn list_all_hold_reason_variants() -> Vec<RuntimeHoldReason> {
 	let variants = vec![
 		RuntimeHoldReason::ModuleSingleInstance(module_single_instance::HoldReason::ModuleSingleInstanceReason1),
 		RuntimeHoldReason::ModuleSingleInstance(module_single_instance::HoldReason::ModuleSingleInstanceReason2),
 		RuntimeHoldReason::ModuleMultiInstance1(module_multi_instance::HoldReason::<module_multi_instance::Instance1>::ModuleMultiInstanceReason1),
 		RuntimeHoldReason::ModuleMultiInstance1(module_multi_instance::HoldReason::<module_multi_instance::Instance1>::ModuleMultiInstanceReason2),
 		RuntimeHoldReason::ModuleMultiInstance1(module_multi_instance::HoldReason::<module_multi_instance::Instance1>::ModuleMultiInstanceReason3),
+		RuntimeHoldReason::ModuleMultiInstance1(module_multi_instance::HoldReason::<module_multi_instance::Instance1>::__Ignore(Default::default())),
 		RuntimeHoldReason::ModuleMultiInstance2(module_multi_instance::HoldReason::<module_multi_instance::Instance2>::ModuleMultiInstanceReason1),
 		RuntimeHoldReason::ModuleMultiInstance2(module_multi_instance::HoldReason::<module_multi_instance::Instance2>::ModuleMultiInstanceReason2),
 		RuntimeHoldReason::ModuleMultiInstance2(module_multi_instance::HoldReason::<module_multi_instance::Instance2>::ModuleMultiInstanceReason3),
+		RuntimeHoldReason::ModuleMultiInstance2(module_multi_instance::HoldReason::<module_multi_instance::Instance2>::__Ignore(Default::default())),
 		RuntimeHoldReason::ModuleMultiInstance3(module_multi_instance::HoldReason::<module_multi_instance::Instance3>::ModuleMultiInstanceReason1),
 		RuntimeHoldReason::ModuleMultiInstance3(module_multi_instance::HoldReason::<module_multi_instance::Instance3>::ModuleMultiInstanceReason2),
 		RuntimeHoldReason::ModuleMultiInstance3(module_multi_instance::HoldReason::<module_multi_instance::Instance3>::ModuleMultiInstanceReason3),
+		RuntimeHoldReason::ModuleMultiInstance3(module_multi_instance::HoldReason::<module_multi_instance::Instance3>::__Ignore(Default::default())),
 	];
-	// check - just in case
+	// check that we didn't miss any value
 	for v in &variants {
-		assert!(match v {
+		match v {
 			RuntimeHoldReason::ModuleSingleInstance(inner) => match inner {
-				module_single_instance::HoldReason::ModuleSingleInstanceReason1 => true,
-				module_single_instance::HoldReason::ModuleSingleInstanceReason2 => true,
+				module_single_instance::HoldReason::ModuleSingleInstanceReason1
+				| module_single_instance::HoldReason::ModuleSingleInstanceReason2 => (),
 			}
 			RuntimeHoldReason::ModuleMultiInstance1(inner) => match inner {
 				module_multi_instance::HoldReason::<module_multi_instance::Instance1>::ModuleMultiInstanceReason1
 				| module_multi_instance::HoldReason::<module_multi_instance::Instance1>::ModuleMultiInstanceReason2
-				| module_multi_instance::HoldReason::<module_multi_instance::Instance1>::ModuleMultiInstanceReason3 => true,
-				module_multi_instance::HoldReason::<module_multi_instance::Instance1>::__Ignore(_) => false,
+				| module_multi_instance::HoldReason::<module_multi_instance::Instance1>::ModuleMultiInstanceReason3
+				| module_multi_instance::HoldReason::<module_multi_instance::Instance1>::__Ignore(_) => (),
 			}
 			RuntimeHoldReason::ModuleMultiInstance2(inner) => match inner {
 				module_multi_instance::HoldReason::<module_multi_instance::Instance2>::ModuleMultiInstanceReason1
 				| module_multi_instance::HoldReason::<module_multi_instance::Instance2>::ModuleMultiInstanceReason2
-				| module_multi_instance::HoldReason::<module_multi_instance::Instance2>::ModuleMultiInstanceReason3=> true,
-				module_multi_instance::HoldReason::<module_multi_instance::Instance2>::__Ignore(_)=> false,
+				| module_multi_instance::HoldReason::<module_multi_instance::Instance2>::ModuleMultiInstanceReason3
+				| module_multi_instance::HoldReason::<module_multi_instance::Instance2>::__Ignore(_) => (),
 			}
 			RuntimeHoldReason::ModuleMultiInstance3(inner) => match inner {
 				module_multi_instance::HoldReason::<module_multi_instance::Instance3>::ModuleMultiInstanceReason1
 				| module_multi_instance::HoldReason::<module_multi_instance::Instance3>::ModuleMultiInstanceReason2
-				| module_multi_instance::HoldReason::<module_multi_instance::Instance3>::ModuleMultiInstanceReason3=> true,
-				module_multi_instance::HoldReason::<module_multi_instance::Instance3>::__Ignore(_)=> false,
+				| module_multi_instance::HoldReason::<module_multi_instance::Instance3>::ModuleMultiInstanceReason3
+				| module_multi_instance::HoldReason::<module_multi_instance::Instance3>::__Ignore(_) => (),
 			}
-		});
+		}
+	}
+	variants
+}
+
+fn list_all_freeze_reason_variants() -> Vec<RuntimeFreezeReason> {
+	let variants = vec![
+		RuntimeFreezeReason::ModuleSingleInstance(module_single_instance::FreezeReason::ModuleSingleInstanceReason1),
+		RuntimeFreezeReason::ModuleSingleInstance(module_single_instance::FreezeReason::ModuleSingleInstanceReason2),
+		RuntimeFreezeReason::ModuleMultiInstance1(module_multi_instance::FreezeReason::<module_multi_instance::Instance1>::ModuleMultiInstanceReason1),
+		RuntimeFreezeReason::ModuleMultiInstance1(module_multi_instance::FreezeReason::<module_multi_instance::Instance1>::__Ignore(Default::default())),
+		RuntimeFreezeReason::ModuleMultiInstance2(module_multi_instance::FreezeReason::<module_multi_instance::Instance2>::ModuleMultiInstanceReason1),
+		RuntimeFreezeReason::ModuleMultiInstance2(module_multi_instance::FreezeReason::<module_multi_instance::Instance2>::__Ignore(Default::default())),
+		RuntimeFreezeReason::ModuleMultiInstance3(module_multi_instance::FreezeReason::<module_multi_instance::Instance3>::ModuleMultiInstanceReason1),
+		RuntimeFreezeReason::ModuleMultiInstance3(module_multi_instance::FreezeReason::<module_multi_instance::Instance3>::__Ignore(Default::default())),
+	];
+	// check that we didn't miss any value
+	for v in &variants {
+		match v {
+			RuntimeFreezeReason::ModuleSingleInstance(inner) => match inner {
+				module_single_instance::FreezeReason::ModuleSingleInstanceReason1
+				| module_single_instance::FreezeReason::ModuleSingleInstanceReason2 => (),
+			}
+			RuntimeFreezeReason::ModuleMultiInstance1(inner) => match inner {
+				module_multi_instance::FreezeReason::<module_multi_instance::Instance1>::ModuleMultiInstanceReason1
+				| module_multi_instance::FreezeReason::<module_multi_instance::Instance1>::__Ignore(_) => (),
+			}
+			RuntimeFreezeReason::ModuleMultiInstance2(inner) => match inner {
+				module_multi_instance::FreezeReason::<module_multi_instance::Instance2>::ModuleMultiInstanceReason1
+				| module_multi_instance::FreezeReason::<module_multi_instance::Instance2>::__Ignore(_) => (),
+			}
+			RuntimeFreezeReason::ModuleMultiInstance3(inner) => match inner {
+				module_multi_instance::FreezeReason::<module_multi_instance::Instance3>::ModuleMultiInstanceReason1
+				| module_multi_instance::FreezeReason::<module_multi_instance::Instance3>::__Ignore(_) => (),
+			}
+		}
 	}
 	variants
 }
 
 #[test]
 fn runtime_hold_reason_variant_count_works() {
-	assert_eq!(RuntimeHoldReason::VARIANT_COUNT as usize, list_all_variants().len());
+	assert_eq!(RuntimeHoldReason::VARIANT_COUNT as usize, list_all_hold_reason_variants().len());
 }
 
 #[test]
-fn check_unique_encodings_for_composite_enums() {
-	let variants = list_all_variants();
-	let encoded_variants =
+fn runtime_freeze_reason_variant_count_works() {
+	assert_eq!(RuntimeFreezeReason::VARIANT_COUNT as usize, list_all_freeze_reason_variants().len());
+}
+
+#[test]
+fn check_unique_encodings_for_hold_reason() {
+	let variants = list_all_hold_reason_variants();
+	let unique_encoded_variants =
 		variants.iter().map(|v| v.encode()).collect::<std::collections::HashSet<_>>();
-	assert_eq!(encoded_variants.len(), variants.len());
+	assert_eq!(unique_encoded_variants.len(), variants.len());
+}
+
+#[test]
+fn check_unique_encodings_for_freeze_reason() {
+	let variants = list_all_freeze_reason_variants();
+	let unique_encoded_variants =
+		variants.iter().map(|v| v.encode()).collect::<std::collections::HashSet<_>>();
+	assert_eq!(unique_encoded_variants.len(), variants.len());
 }

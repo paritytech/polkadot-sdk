@@ -68,3 +68,21 @@ pub(crate) fn expand_variant(
 		}
 	}
 }
+
+pub(crate) fn expand_variant_count(
+	composite_name: &str,
+	path: &PalletPath,
+	instance: Option<&Ident>,
+) -> TokenStream {
+	let composite_name = quote::format_ident!("{}", composite_name);
+
+	if let Some(inst) = instance {
+		quote! {
+			#path::#composite_name::<#path::#inst>::VARIANT_COUNT
+		}
+	} else {
+		quote! {
+			#path::#composite_name::VARIANT_COUNT
+		}
+	}
+}
