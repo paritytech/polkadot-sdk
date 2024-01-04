@@ -1245,6 +1245,7 @@ impl<T: Config> Pallet<T> {
 	/// The function will validate the characters in `username` and that `length` (if `Some`)
 	/// conforms to the limit. It is not expected to pass a fully formatted username here (i.e. one
 	/// with any protocol-added characters included, such as a `.`).
+	/// The suffix is also separately validated by this function to ensure the full username conforms.
 	fn validate_username(username: &Vec<u8>, length: Option<u32>) -> DispatchResult {
 		// Verify input length before allocating a Vec with the user's input. `<` instead of `<=`
 		// because it needs one element for the point (`username` + `.` + `suffix`).
