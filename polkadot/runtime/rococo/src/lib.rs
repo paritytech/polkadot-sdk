@@ -1639,6 +1639,9 @@ pub mod migrations {
 		}
 	}
 
+	// We don't have a limit in the Relay Chain.
+	const IDENTITY_MIGRATION_KEY_LIMIT: u64 = u64::MAX;
+
 	/// Unreleased migrations. Add new ones here:
 	pub type Unreleased = (
 		pallet_society::migrations::MigrateToV2<Runtime, (), ()>,
@@ -1676,7 +1679,7 @@ pub mod migrations {
 		frame_support::migrations::RemovePallet<ImOnlinePalletName, <Runtime as frame_system::Config>::DbWeight>,
 
 		// Migrate Identity pallet for Usernames
-		pallet_identity::migration::versioned::V0ToV1<Runtime>,
+		pallet_identity::migration::versioned::V0ToV1<Runtime, IDENTITY_MIGRATION_KEY_LIMIT>,
 		parachains_configuration::migration::v11::MigrateToV11<Runtime>,
 		// This needs to come after the `parachains_configuration` above as we are reading the configuration.
 		coretime::migration::MigrateToCoretime<Runtime, crate::xcm_config::XcmRouter, GetLegacyLeaseImpl>,

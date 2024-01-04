@@ -1298,7 +1298,7 @@ impl<T: Config> Pallet<T> {
 			// their username as primary.
 			None => (
 				Registration {
-					info: T::IdentityInformation::default(),
+					info: Default::default(),
 					judgements: Default::default(),
 					deposit: Zero::zero(),
 				},

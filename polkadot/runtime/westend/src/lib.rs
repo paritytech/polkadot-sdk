@@ -1645,6 +1645,9 @@ pub mod migrations {
 		}
 	}
 
+	// We don't have a limit in the Relay Chain.
+	const IDENTITY_MIGRATION_KEY_LIMIT: u64 = u64::MAX;
+
 	/// Unreleased migrations. Add new ones here:
 	pub type Unreleased = (
 		parachains_configuration::migration::v7::MigrateToV7<Runtime>,
@@ -1664,7 +1667,7 @@ pub mod migrations {
 			<Runtime as frame_system::Config>::DbWeight,
 		>,
 		// Migrate Identity pallet for Usernames
-		pallet_identity::migration::versioned::V0ToV1<Runtime>,
+		pallet_identity::migration::versioned::V0ToV1<Runtime, IDENTITY_MIGRATION_KEY_LIMIT>,
 		parachains_configuration::migration::v11::MigrateToV11<Runtime>,
 	);
 }
