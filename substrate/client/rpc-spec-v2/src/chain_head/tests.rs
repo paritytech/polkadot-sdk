@@ -27,10 +27,10 @@ use codec::{Decode, Encode};
 use futures::Future;
 use jsonrpsee::{
 	core::{
-		error::Error, server::Subscription as RpcSubscription, EmptyServerParams as EmptyParams,
+		error::Error,
+		server::{rpc_module::Subscription as RpcSubscription, Subscription as RpcSubscription},
+		EmptyServerParams as EmptyParams,
 	},
-	rpc_params, RpcModule,
-	core::{error::Error, server::rpc_module::Subscription as RpcSubscription},
 	rpc_params,
 	types::error::CallError,
 	RpcModule,

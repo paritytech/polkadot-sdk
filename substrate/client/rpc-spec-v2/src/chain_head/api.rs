@@ -19,8 +19,10 @@
 #![allow(non_snake_case)]
 
 //! API trait of the chain head.
-use crate::chain_head::error::Error;
-use crate::chain_head::event::{FollowEvent, MethodResponse, StorageQuery};
+use crate::chain_head::{
+	error::Error,
+	event::{FollowEvent, MethodResponse, StorageQuery},
+};
 use jsonrpsee::proc_macros::rpc;
 use sp_rpc::list::ListOrValue;
 
@@ -75,7 +77,6 @@ pub trait ChainHeadApi<Hash> {
 		hash: Hash,
 	) -> Result<Option<String>, Error>;
 
-	
 	/// Returns storage entries at a specific block's state.
 	///
 	/// # Unstable
