@@ -433,9 +433,9 @@ fn classwise_delegation_works() {
 			.into_iter()
 			.collect(),
 		);
-		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Held1x, 5));
-		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 1, 3, Conviction::Held1x, 5));
-		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 2, 4, Conviction::Held1x, 5));
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Locked1x, 5));
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 1, 3, Conviction::Locked1x, 5));
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 2, 4, Conviction::Locked1x, 5));
 		assert_eq!(Balances::usable_balance(1), 5);
 
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 0, aye(10, 0)));
@@ -477,7 +477,7 @@ fn classwise_delegation_works() {
 
 		// Redelegate for class 2 to account 3.
 		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 2));
-		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 2, 3, Conviction::Held1x, 5));
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 2, 3, Conviction::Locked1x, 5));
 		assert_eq!(
 			Polls::get(),
 			vec![
@@ -490,13 +490,13 @@ fn classwise_delegation_works() {
 			.collect()
 		);
 
-		// Redelegating with a lower hold does not forget previous hold and updates correctly.
+		// Redelegating with a lower lock does not forget previous lock and updates correctly.
 		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 0));
 		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 1));
 		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 2));
-		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Held1x, 3));
-		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 1, 3, Conviction::Held1x, 3));
-		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 2, 4, Conviction::Held1x, 3));
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Locked1x, 3));
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 1, 3, Conviction::Locked1x, 3));
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 2, 4, Conviction::Locked1x, 3));
 		assert_eq!(
 			Polls::get(),
 			vec![
@@ -516,17 +516,17 @@ fn classwise_delegation_works() {
 		// unlock does nothing since the delegation already took place.
 		assert_eq!(Balances::usable_balance(1), 5);
 
-		// Redelegating with higher amount extends previous hold.
+		// Redelegating with higher amount extends previous lock.
 		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 0));
-		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Held1x, 6));
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Locked1x, 6));
 		assert_ok!(Voting::release(RuntimeOrigin::signed(1), 0, 1));
 		assert_eq!(Balances::usable_balance(1), 4);
 		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 1));
-		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 1, 3, Conviction::Held1x, 7));
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 1, 3, Conviction::Locked1x, 7));
 		assert_ok!(Voting::release(RuntimeOrigin::signed(1), 1, 1));
 		assert_eq!(Balances::usable_balance(1), 3);
 		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 2));
-		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 2, 4, Conviction::Held1x, 8));
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 2, 4, Conviction::Locked1x, 8));
 		assert_ok!(Voting::release(RuntimeOrigin::signed(1), 2, 1));
 		assert_eq!(Balances::usable_balance(1), 2);
 		assert_eq!(
@@ -547,12 +547,12 @@ fn classwise_delegation_works() {
 fn redelegation_after_vote_ending_should_keep_lock() {
 	new_test_ext().execute_with(|| {
 		Polls::set(vec![(0, Ongoing(Tally::new(0), 0))].into_iter().collect());
-		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Held1x, 5));
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Locked1x, 5));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 0, aye(10, 1)));
 		Polls::set(vec![(0, Completed(1, true))].into_iter().collect());
 		assert_eq!(Balances::usable_balance(1), 5);
 		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 0));
-		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 3, Conviction::Held1x, 3));
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 3, Conviction::Locked1x, 3));
 		assert_eq!(Balances::usable_balance(1), 5);
 		assert_ok!(Voting::release(RuntimeOrigin::signed(1), 0, 1));
 		assert_eq!(Balances::usable_balance(1), 5);
@@ -610,11 +610,11 @@ fn lock_amalgamation_valid_with_multiple_removed_votes() {
 #[test]
 fn lock_amalgamation_valid_with_multiple_delegations() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Held1x, 5));
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Locked1x, 5));
 		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 0));
-		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Held1x, 10));
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Locked1x, 10));
 		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 0));
-		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Held2x, 5));
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Locked2x, 5));
 		assert_ok!(Voting::release(RuntimeOrigin::signed(1), 0, 1));
 		assert_eq!(Balances::usable_balance(1), 0);
 		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 0));
@@ -643,7 +643,7 @@ fn lock_amalgamation_valid_with_move_roundtrip_to_delegation() {
 		assert_ok!(Voting::release(RuntimeOrigin::signed(1), 0, 1));
 		assert_eq!(Balances::usable_balance(1), 5);
 
-		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Held1x, 10));
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Locked1x, 10));
 		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 0));
 		assert_ok!(Voting::release(RuntimeOrigin::signed(1), 0, 1));
 		assert_eq!(Balances::usable_balance(1), 0);
@@ -670,7 +670,7 @@ fn lock_amalgamation_valid_with_move_roundtrip_to_delegation() {
 #[test]
 fn lock_amalgamation_valid_with_move_roundtrip_to_casting() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Held1x, 5));
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Locked1x, 5));
 		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 0));
 
 		assert_ok!(Voting::release(RuntimeOrigin::signed(1), 0, 1));
@@ -684,7 +684,7 @@ fn lock_amalgamation_valid_with_move_roundtrip_to_casting() {
 		assert_ok!(Voting::release(RuntimeOrigin::signed(1), 0, 1));
 		assert_eq!(Balances::usable_balance(1), 0);
 
-		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Held2x, 10));
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Locked2x, 10));
 		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 0));
 
 		run_to(3);
@@ -704,9 +704,9 @@ fn lock_amalgamation_valid_with_move_roundtrip_to_casting() {
 #[test]
 fn lock_aggregation_over_different_classes_with_delegation_works() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Held1x, 5));
-		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 1, 2, Conviction::Held2x, 5));
-		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 2, 2, Conviction::Held1x, 10));
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Locked1x, 5));
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 1, 2, Conviction::Locked2x, 5));
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 2, 2, Conviction::Locked1x, 10));
 
 		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 0));
 		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 1));
