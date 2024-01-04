@@ -230,7 +230,8 @@ where
 	R: ProvideRuntimeApi<B> + Send + Sync,
 	R::Api: BeefyApi<B, AuthorityId, MmrRootHash> + MmrApi<B, MmrRootHash, NumberFor<B>>,
 {
-	/// Check `vote` for contained block against canonical payload.
+	/// Check `vote` for contained block against canonical payload. If an equivocation is detected,
+	/// this also reports it.
 	fn check_vote(
 		&self,
 		vote: VoteMessage<NumberFor<B>, AuthorityId, Signature>,
@@ -277,7 +278,8 @@ where
 		Ok(())
 	}
 
-	/// Check `signed_commitment` for contained block against canonical payload.
+	/// Check `vote` for contained block against canonical payload. If an equivocation is detected,
+	/// this also reports it.
 	fn check_signed_commitment(
 		&self,
 		signed_commitment: SignedCommitment<NumberFor<B>, Signature>,
@@ -355,7 +357,8 @@ where
 		Ok(())
 	}
 
-	/// Check `proof` for contained block against canonical payload.
+	/// Check `vote` for contained block against canonical payload. If an equivocation is detected,
+	/// this also reports it.
 	fn check_proof(&self, proof: BeefyVersionedFinalityProof<B>) -> Result<(), Error> {
 		match proof {
 			BeefyVersionedFinalityProof::<B>::V1(signed_commitment) =>
