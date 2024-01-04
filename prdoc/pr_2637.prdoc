@@ -13,6 +13,6 @@ migrations:
   runtime: []
 
 crates:
-  - name: polkadot-node-core-dispute-coordinator"
+  - name: polkadot-node-core-dispute-coordinator
 
 host_functions: []
