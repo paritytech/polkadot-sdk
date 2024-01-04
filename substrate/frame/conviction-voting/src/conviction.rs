@@ -41,19 +41,19 @@ use crate::types::Delegations;
 	MaxEncodedLen,
 )]
 pub enum Conviction {
-	/// 0.1x votes, not Locked.
+	/// 0.1x votes, unlocked.
 	None,
-	/// 1x votes, Locked for an enactment period following a successful vote.
+	/// 1x votes, locked for an enactment period following a successful vote.
 	Locked1x,
-	/// 2x votes, Locked for 2x enactment periods following a successful vote.
+	/// 2x votes, locked for 2x enactment periods following a successful vote.
 	Locked2x,
-	/// 3x votes, Locked for 4x...
+	/// 3x votes, locked for 4x...
 	Locked3x,
-	/// 4x votes, Locked for 8x...
+	/// 4x votes, locked for 8x...
 	Locked4x,
-	/// 5x votes, Locked for 16x...
+	/// 5x votes, locked for 16x...
 	Locked5x,
-	/// 6x votes, Locked for 32x...
+	/// 6x votes, locked for 32x...
 	Locked6x,
 }
 
@@ -95,7 +95,7 @@ impl TryFrom<u8> for Conviction {
 
 impl Conviction {
 	/// The amount of time (in number of periods) that our conviction implies a successful voter's
-	/// balance should be Locked for.
+	/// balance should be locked for.
 	pub fn lock_periods(self) -> u32 {
 		match self {
 			Conviction::None => 0,
