@@ -221,7 +221,8 @@ where
 			);
 
 			if let Some((collation, _, post_hash)) = maybe_collation {
-				let result_sender = Some(collator.collator_service().announce_with_barrier(post_hash));
+				let result_sender =
+					Some(collator.collator_service().announce_with_barrier(post_hash));
 				request.complete(Some(CollationResult { collation, result_sender }));
 			} else {
 				request.complete(None);

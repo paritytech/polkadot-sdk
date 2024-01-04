@@ -390,7 +390,7 @@ where
 					Ok(None) => {
 						tracing::debug!(target: crate::LOG_TARGET, "No block proposal");
 						break
-					}
+					},
 					Err(err) => {
 						tracing::error!(target: crate::LOG_TARGET, ?err);
 						break
