@@ -1058,7 +1058,7 @@ pub mod pallet {
 		/// Set the username for `who`. Must be called by a username authority.
 		///
 		/// The authority must have an `allocation`. Users can either pre-sign their usernames or
-		/// approve later.
+		/// accept them later.
 		///
 		/// Usernames must:
 		///   - Only contain lowercase ASCII characters or digits.
@@ -1143,8 +1143,9 @@ pub mod pallet {
 			Ok(Pays::No.into())
 		}
 
-		/// Remove an expired username approval. The call must include the full username, as in
-		/// `username.suffix`.
+		/// Remove an expired username approval. The username was approved by an authority but never
+		/// accepted by the user and must now be beyond its expiration. The call must include the
+		/// full username, as in `username.suffix`.
 		#[pallet::call_index(19)]
 		#[pallet::weight(T::WeightInfo::remove_expired_approval())]
 		pub fn remove_expired_approval(
@@ -1244,8 +1245,8 @@ impl<T: Config> Pallet<T> {
 	///
 	/// The function will validate the characters in `username` and that `length` (if `Some`)
 	/// conforms to the limit. It is not expected to pass a fully formatted username here (i.e. one
-	/// with any protocol-added characters included, such as a `.`).
-	/// The suffix is also separately validated by this function to ensure the full username conforms.
+	/// with any protocol-added characters included, such as a `.`). The suffix is also separately
+	/// validated by this function to ensure the full username conforms.
 	fn validate_username(username: &Vec<u8>, length: Option<u32>) -> DispatchResult {
 		// Verify input length before allocating a Vec with the user's input. `<` instead of `<=`
 		// because it needs one element for the point (`username` + `.` + `suffix`).
@@ -1321,8 +1322,8 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// A username was granted by an authority, but required approval from `who`. Put the username
-	/// into a queue for approval.
+	/// A username was granted by an authority, but must be accepted by `who`. Put the username
+	/// into a queue for acceptance.
 	pub fn queue_acceptance(who: &T::AccountId, username: Username<T>) {
 		let now = frame_system::Pallet::<T>::block_number();
 		let expiration = now.saturating_add(T::PendingUsernameExpiration::get());
