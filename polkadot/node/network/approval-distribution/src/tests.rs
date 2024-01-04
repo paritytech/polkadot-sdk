@@ -297,7 +297,7 @@ fn fake_assignment_cert(block_hash: Hash, validator: ValidatorIndex) -> Indirect
 	let mut prng = rand_core::OsRng;
 	let keypair = schnorrkel::Keypair::generate_with(&mut prng);
 	let (inout, proof, _) = keypair.vrf_sign(ctx.bytes(msg));
-	let preout = inout.to_output();
+	let preout = inout.to_preout();
 
 	IndirectAssignmentCert {
 		block_hash,
@@ -319,7 +319,7 @@ fn fake_assignment_cert_v2(
 	let mut prng = rand_core::OsRng;
 	let keypair = schnorrkel::Keypair::generate_with(&mut prng);
 	let (inout, proof, _) = keypair.vrf_sign(ctx.bytes(msg));
-	let preout = inout.to_output();
+	let preout = inout.to_preout();
 
 	IndirectAssignmentCertV2 {
 		block_hash,

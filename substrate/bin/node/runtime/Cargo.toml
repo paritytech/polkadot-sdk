@@ -407,3 +407,8 @@ try-runtime = [
 	"pallet-whitelist/try-runtime",
 	"sp-runtime/try-runtime",
 ]
+experimental = [
+	"frame-support/experimental",
+	"frame-system/experimental",
+	"pallet-example-tasks/experimental",
+]
