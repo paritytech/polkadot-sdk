@@ -1,0 +1,11 @@
+title: "Implement only sending one notification at a time as per RFC 56"
+
+doc:
+  - audience: Node Dev
+    description: |
+      Transactions are now gossiped one at a time instead of as batches, as per RFC 56. This
+      allows decoding notifications without knowing how to decode individual transactions, and
+      allows for a more fine grained backpressure.
+
+crates:
+  - name: "sc-network-transactions"
