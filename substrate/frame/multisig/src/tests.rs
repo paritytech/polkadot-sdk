@@ -24,9 +24,9 @@ use super::*;
 use crate as pallet_multisig;
 use frame_support::{
 	assert_noop, assert_ok, derive_impl,
-	traits::{ConstU32, ConstU64, Contains},
+	traits::{fungible::HoldConsideration, ConstU32, Contains},
 };
-use sp_runtime::{BuildStorage, TokenError};
+use sp_runtime::{traits::Convert, BuildStorage, TokenError};
 
 type Block = frame_system::mocking::MockBlockU32<Test>;
 
@@ -51,6 +51,8 @@ impl frame_system::Config for Test {
 impl pallet_balances::Config for Test {
 	type ReserveIdentifier = [u8; 8];
 	type AccountStore = System;
+	type RuntimeHoldReason = ();
+	type MaxHolds = ConstU32<2>;
 }
 
 pub struct TestBaseCallFilter;
@@ -64,12 +66,19 @@ impl Contains<RuntimeCall> for TestBaseCallFilter {
 		}
 	}
 }
+
+pub struct ConvertDeposit;
+impl Convert<Footprint, u64> for ConvertDeposit {
+	fn convert(a: Footprint) -> u64 {
+		a.count + a.size
+	}
+}
+
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type Currency = Balances;
-	type DepositBase = ConstU64<1>;
-	type DepositFactor = ConstU64<1>;
+	type Consideration = HoldConsideration<u64, Balances, (), ConvertDeposit>;
 	type MaxSignatories = ConstU32<3>;
 	type WeightInfo = ();
 }
