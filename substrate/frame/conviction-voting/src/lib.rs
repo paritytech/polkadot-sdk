@@ -102,6 +102,8 @@ pub mod pallet {
 		// System level stuff.
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		/// The overarching hold reason.
+		type RuntimeFreezeReason: From<FreezeReason>;
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 		/// Currency type with which voting happens.
@@ -132,10 +134,7 @@ pub mod pallet {
 		/// It should be no shorter than enactment period to ensure that in the case of an approval,
 		/// those successful voters are held into the consequences that their votes entail.
 		#[pallet::constant]
-		type VoteHoldingPeriod: Get<BlockNumberFor<Self>>;
-
-		/// The overarching hold reason.
-		type RuntimeFreezeReason: From<FreezeReason>;
+		type VoteLockingPeriod: Get<BlockNumberFor<Self>>;
 	}
 
 	/// All voting for a particular voter in a particular voting class. We store the balance for the
@@ -475,7 +474,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					PollStatus::Completed(end, approved) => {
 						if let Some((hold_periods, balance)) = v.1.held_if(approved) {
 							let release_at = end.saturating_add(
-								T::VoteHoldingPeriod::get().saturating_mul(hold_periods.into()),
+								T::VoteLockingPeriod::get().saturating_mul(hold_periods.into()),
 							);
 							let now = frame_system::Pallet::<T>::block_number();
 							if now < release_at {
@@ -622,7 +621,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						let hold_periods = conviction.hold_periods().into();
 						prior.accumulate(
 							now.saturating_add(
-								T::VoteHoldingPeriod::get().saturating_mul(hold_periods),
+								T::VoteLockingPeriod::get().saturating_mul(hold_periods),
 							),
 							balance,
 						);

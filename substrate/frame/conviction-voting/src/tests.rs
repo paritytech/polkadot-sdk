@@ -184,7 +184,7 @@ impl Config for Test {
 	type RuntimeFreezeReason = FreezeReason;
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = pallet_balances::Pallet<Self>;
-	type VoteHoldingPeriod = ConstU64<3>;
+	type VoteLockingPeriod = ConstU64<3>;
 	type MaxVotes = ConstU32<3>;
 	type WeightInfo = ();
 	type MaxTurnout = frame_support::traits::TotalIssuanceOf<Balances, Self::AccountId>;

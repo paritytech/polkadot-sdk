@@ -300,7 +300,7 @@ impl pallet_balances::Config for Runtime {
 	type MaxReserves = MaxReserves;
 	type ReserveIdentifier = [u8; 8];
 	type WeightInfo = weights::pallet_balances::WeightInfo<Runtime>;
-	type FreezeIdentifier = ();
+	type FreezeIdentifier = RuntimeFreezeReason;
 	type MaxFreezes = ConstU32<1>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type MaxHolds = ConstU32<1>;
@@ -1279,7 +1279,7 @@ construct_runtime! {
 
 		// Governance stuff; uncallable initially.
 		Treasury: pallet_treasury::{Pallet, Call, Storage, Config<T>, Event<T>} = 18,
-		ConvictionVoting: pallet_conviction_voting::{Pallet, Call, Storage, Event<T>} = 20,
+		ConvictionVoting: pallet_conviction_voting::{Pallet, Call, Storage, Event<T>, FreezeReason} = 20,
 		Referenda: pallet_referenda::{Pallet, Call, Storage, Event<T>} = 21,
 		//	pub type FellowshipCollectiveInstance = pallet_ranked_collective::Instance1;
 		FellowshipCollective: pallet_ranked_collective::<Instance1>::{
