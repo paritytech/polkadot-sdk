@@ -1,6 +1,4 @@
 title: Fix vote weights of ranked members in the Society pallet
-author: laurogripa
-topic: Society
 
 doc:
   - audience: Runtime User
