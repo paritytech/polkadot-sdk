@@ -7150,15 +7150,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "layout-rs"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1164ef87cb9607c2d887216eca79f0fc92895affe1789bba805dd38d829584e0"
-dependencies = [
- "log",
-]
-
-[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8985,12 +8976,9 @@ version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d035b1f968d91a826f2e34a9d6d02cb2af5aa7ca39ebd27922d850ab4b2dd2c6"
 dependencies = [
- "anyhow",
  "expander 2.0.0",
- "fs-err",
  "indexmap 2.0.0",
  "itertools 0.11.0",
- "layout-rs",
  "petgraph",
  "proc-macro-crate 1.3.1",
  "proc-macro2",
