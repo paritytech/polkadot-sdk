@@ -154,7 +154,7 @@ pub mod pallet {
 	/// require. The actual amount held on behalf of this pallet should always be the maximum of
 	/// this list.
 	#[pallet::storage]
-	pub type ClassHoldsFor<T: Config<I>, I: 'static = ()> = StorageMap<
+	pub type ClassLocksFor<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Twox64Concat,
 		T::AccountId,
@@ -316,7 +316,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_signed(origin)?;
 			let target = T::Lookup::lookup(target)?;
-			Self::update_hold(&class, &target)?;
+			Self::update_lock(&class, &target)?;
 			Ok(())
 		}
 
@@ -472,9 +472,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						Ok(())
 					},
 					PollStatus::Completed(end, approved) => {
-						if let Some((hold_periods, balance)) = v.1.held_if(approved) {
+						if let Some((lock_periods, balance)) = v.1.held_if(approved) {
 							let release_at = end.saturating_add(
-								T::VoteLockingPeriod::get().saturating_mul(hold_periods.into()),
+								T::VoteLockingPeriod::get().saturating_mul(lock_periods.into()),
 							);
 							let now = frame_system::Pallet::<T>::block_number();
 							if now < release_at {
@@ -618,10 +618,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 							conviction.votes(balance),
 						);
 						let now = frame_system::Pallet::<T>::block_number();
-						let hold_periods = conviction.hold_periods().into();
+						let lock_periods = conviction.lock_periods().into();
 						prior.accumulate(
 							now.saturating_add(
-								T::VoteLockingPeriod::get().saturating_mul(hold_periods),
+								T::VoteLockingPeriod::get().saturating_mul(lock_periods),
 							),
 							balance,
 						);
@@ -641,7 +641,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		class: &ClassOf<T, I>,
 		amount: BalanceOf<T, I>,
 	) -> DispatchResult {
-		ClassHoldsFor::<T, I>::mutate(who, |holds| {
+		ClassLocksFor::<T, I>::mutate(who, |holds| {
 			match holds.iter().position(|x| &x.0 == class) {
 				Some(i) => holds[i].1 = holds[i].1.max(amount),
 				None => {
@@ -661,12 +661,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// Rejig the hold on an account. It will never get more stringent (since that would indicate
 	/// a security hole) but may be reduced from what they are currently.
-	fn update_hold(class: &ClassOf<T, I>, who: &T::AccountId) -> DispatchResult {
+	fn update_lock(class: &ClassOf<T, I>, who: &T::AccountId) -> DispatchResult {
 		let class_freeze_needed = VotingFor::<T, I>::mutate(who, class, |voting| {
 			voting.rejig(frame_system::Pallet::<T>::block_number());
 			voting.held_balance()
 		});
-		let freeze_needed = ClassHoldsFor::<T, I>::mutate(who, |holds| {
+		let freeze_needed = ClassLocksFor::<T, I>::mutate(who, |holds| {
 			holds.retain(|x| &x.0 != class);
 			if !class_freeze_needed.is_zero() {
 				let ok = holds.try_push((class.clone(), class_freeze_needed)).is_ok();

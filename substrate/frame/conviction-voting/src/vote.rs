@@ -88,7 +88,7 @@ impl<Balance: Saturating> AccountVote<Balance> {
 		match self {
 			AccountVote::Standard { vote: Vote { conviction: Conviction::None, .. }, .. } => None,
 			AccountVote::Standard { vote, balance } if vote.aye == approved =>
-				Some((vote.conviction.hold_periods(), balance)),
+				Some((vote.conviction.lock_periods(), balance)),
 			_ => None,
 		}
 	}
