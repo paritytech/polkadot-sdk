@@ -123,6 +123,8 @@ default:
     - chmod +x forklift
     - mkdir .forklift
     - cp $FL_FORKLIFT_CONFIG_ALT .forklift/config.toml
+    - mkdir ~/.forklift
+    - cp $FL_FORKLIFT_CONFIG_ALT ~/.forklift/config.toml
     - export FORKLIFT_PACKAGE_SUFFIX=${CI_JOB_NAME/ [0-9 \/]*}
     - shopt -s expand_aliases
     - export PATH=$PATH:$(pwd)
