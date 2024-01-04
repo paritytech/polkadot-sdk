@@ -3410,7 +3410,7 @@ fn offence_threshold_doesnt_trigger_new_era() {
 			assert_eq_uvec!(Session::validators(), vec![11, 21, 31, 41]);
 
 			assert_eq!(
-				UpToByzantineThresholdDisablingStrategy::byzantine_threshold(
+				UpToByzantineThresholdDisablingStrategy::<DISABLING_THRESHOLD_FACTOR>::byzantine_threshold(
 					Session::validators().len()
 				),
 				1

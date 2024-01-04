@@ -1236,11 +1236,15 @@ pub trait DisablingStrategy<T: Config> {
 	) -> Vec<u32>;
 }
 
-/// Implementation of [`DisablingStrategy`] which disables no more than 1/3 of the validators in the
-/// active set.
-pub struct UpToByzantineThresholdDisablingStrategy;
+/// Implementation of [`DisablingStrategy`] which disables validators from the active set up to a
+/// threshold. `DISABLING_THRESHOLD_FACTOR` is the factor of the maximum disabled validators in the
+/// active set. E.g. setting this value to `3` means no more than 1/3 of the validators in the
+/// active set can be disabled in an era.
+pub struct UpToByzantineThresholdDisablingStrategy<const DISABLING_THRESHOLD_FACTOR: u32 = 3>;
 
-impl UpToByzantineThresholdDisablingStrategy {
+impl<const DISABLING_THRESHOLD_FACTOR: u32>
+	UpToByzantineThresholdDisablingStrategy<DISABLING_THRESHOLD_FACTOR>
+{
 	/// Disabling limit calculated from the total number of validators in the active set. When
 	/// reached no more validators will be disabled.
 	pub fn byzantine_threshold(validators_len: usize) -> usize {
@@ -1248,7 +1252,9 @@ impl UpToByzantineThresholdDisablingStrategy {
 	}
 }
 
-impl<T: Config> DisablingStrategy<T> for UpToByzantineThresholdDisablingStrategy {
+impl<T: Config, const DISABLING_THRESHOLD_FACTOR: u32> DisablingStrategy<T>
+	for UpToByzantineThresholdDisablingStrategy<DISABLING_THRESHOLD_FACTOR>
+{
 	fn make_disabling_decision(
 		offender_idx: u32,
 		slash_era: EraIndex,

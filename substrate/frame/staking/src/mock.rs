@@ -289,6 +289,9 @@ impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 	}
 }
 
+// Disabling threshold for `UpToByzantineThresholdDisablingStrategy`
+pub(crate) const DISABLING_THRESHOLD_FACTOR: u32 = 3;
+
 impl crate::pallet::pallet::Config for Test {
 	type Currency = Balances;
 	type CurrencyBalance = <Self as pallet_balances::Config>::Balance;
@@ -317,7 +320,8 @@ impl crate::pallet::pallet::Config for Test {
 	type EventListeners = EventListenerMock;
 	type BenchmarkingConfig = TestBenchmarkingConfig;
 	type WeightInfo = ();
-	type DisablingStrategy = pallet_staking::UpToByzantineThresholdDisablingStrategy;
+	type DisablingStrategy =
+		pallet_staking::UpToByzantineThresholdDisablingStrategy<DISABLING_THRESHOLD_FACTOR>;
 }
 
 pub struct WeightedNominationsQuota<const MAX: u32>;
