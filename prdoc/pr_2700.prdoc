@@ -1,0 +1,12 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Fix legacy provider count"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      With the breaking currency API update (paritytech/substrate#12951), accounts now always need to hold at least the Existential Deposit as free balance. 
+      That was not the case before. Contracts accounts for example would typically have some amount reserved as deposit and hold 0 balance.
+      This PR updates the lazy migration logic to ensure that the free balance is at least the Existential Deposit, when there are sufficient reserved funds.
+crates: [ ]
