@@ -253,8 +253,6 @@ pub trait IdentityInformationProvider:
 ///
 /// NOTE: This is stored separately primarily to facilitate the addition of extra fields in a
 /// backwards compatible way through a specialized `Decode` impl.
-//
-// TODO: Perhaps just move `username` into a field of `Registration`?
 #[derive(
 	CloneNoBound, Encode, Eq, MaxEncodedLen, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
 )]
