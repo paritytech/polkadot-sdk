@@ -18,26 +18,44 @@ use super::{CallFlags, HostFn, HostFnImpl, Result};
 use crate::ReturnFlags;
 
 /// A macro to implement all Host functions with a signature of `fn(&mut &mut [u8])`.
+///
+/// Example:
+/// ```nocompile
+// impl_wrapper_for! {
+//     () => [gas_left],
+//     (v1) => [gas_left],
+// }
+// ```
+// 
+// Expands to:
+// ```nocompile
+// fn gas_left(output: &mut &mut [u8]) {
+//     unsafe { sys::gas_left(...); }
+// }
+// fn gas_left_v1(output: &mut &mut [u8]) {
+//     unsafe { sys::v1::gas_left(...); }
+// }
+// ```
 macro_rules! impl_wrapper_for {
-    (@impl_fn $( $mod:ident )::*, $suffix:literal, $name:ident) => {
-        paste::paste! {
-            fn [<$name $suffix>](output: &mut &mut [u8]) {
+	(@impl_fn $( $mod:ident )::*, $suffix_sep: literal, $suffix:tt, $name:ident) => {
+		paste::paste! {
+			fn [<$name $suffix_sep $suffix>](output: &mut &mut [u8]) {
 				todo!()
-            }
-        }
-    };
+			}
+		}
+	};
 
-    () => {};
+	() => {};
 
-    (($mod:ident, $suffix:literal) => [$( $name:ident),*], $($tail:tt)*) => {
-        $(impl_wrapper_for!(@impl_fn sys::$mod, $suffix, $name);)*
-        impl_wrapper_for!($($tail)*);
-    };
+	(($mod:ident) => [$( $name:ident),*], $($tail:tt)*) => {
+		$(impl_wrapper_for!(@impl_fn sys::$mod, "_", $mod, $name);)*
+		impl_wrapper_for!($($tail)*);
+	};
 
-    (() =>  [$( $name:ident),*], $($tail:tt)*) => {
-        $(impl_wrapper_for!(@impl_fn sys, "", $name);)*
-        impl_wrapper_for!($($tail)*);
-    };
+	(() =>	[$( $name:ident),*], $($tail:tt)*) => {
+		$(impl_wrapper_for!(@impl_fn sys, "", "", $name);)*
+		impl_wrapper_for!($($tail)*);
+	};
 }
 
 /// A macro to implement all the hash functions Apis.
@@ -185,7 +203,7 @@ impl HostFn for HostFnImpl {
 		todo!()
 	}
 
-	fn call_chain_extension(func_id: u32, input: &[u8], output: &mut &mut [u8]) -> u32 {
+	fn call_chain_extension(func_id: u32, input: &[u8], output: Option<&mut [u8]>) -> u32 {
 		todo!()
 	}
 
@@ -201,9 +219,13 @@ impl HostFn for HostFnImpl {
 		todo!()
 	}
 
+	fn debug_message(str: &[u8]) -> Result {
+		todo!()
+	}
+
 	impl_wrapper_for! {
 		() => [caller, block_number, address, balance, gas_left, value_transferred, now, minimum_balance],
-		(v1, "_v1") => [gas_left],
+		(v1) => [gas_left],
 	}
 
 	fn weight_to_fee(gas: u64, output: &mut &mut [u8]) {
@@ -279,7 +301,7 @@ impl HostFn for HostFnImpl {
 		todo!()
 	}
 
-	fn xcm_send(dest: &[u8], msg: &[u8], output: &mut &mut [u8]) -> Result {
+	fn xcm_send(dest: &[u8], msg: &[u8], output: &mut [u8; 32]) -> Result {
 		todo!()
 	}
 }
