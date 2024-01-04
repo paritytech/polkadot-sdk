@@ -241,7 +241,7 @@ var srcIndex = JSON.parse('{\
 "pallet_xcm_bridge_hub_router":["",[],["lib.rs","weights.rs"]],\
 "parachain_template_node":["",[],["chain_spec.rs","cli.rs","command.rs","main.rs","rpc.rs","service.rs"]],\
 "parachain_template_runtime":["",[["weights",[],["block_weights.rs","extrinsic_weights.rs","mod.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["lib.rs","xcm_config.rs"]],\
-"parachains_common":["",[],["impls.rs","kusama.rs","lib.rs","message_queue.rs","polkadot.rs","rococo.rs","westend.rs","wococo.rs","xcm_config.rs"]],\
+"parachains_common":["",[],["impls.rs","lib.rs","message_queue.rs","rococo.rs","westend.rs","wococo.rs","xcm_config.rs"]],\
 "parachains_runtimes_test_utils":["",[],["lib.rs","test_cases.rs"]],\
 "penpal_emulated_chain":["",[],["genesis.rs","lib.rs"]],\
 "penpal_runtime":["",[["weights",[],["block_weights.rs","extrinsic_weights.rs","mod.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["lib.rs","xcm_config.rs"]],\

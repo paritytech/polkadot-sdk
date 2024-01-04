@@ -240,7 +240,7 @@
 	<span class="kw">pub const </span>ByteDeposit: Balance = deposit(<span class="number">0</span>, <span class="number">1</span>);
 	<span class="kw">pub const </span>SubAccountDeposit: Balance = deposit(<span class="number">1</span>, <span class="number">53</span>);
 	<span class="kw">pub </span>RelayTreasuryAccount: AccountId =
-		parachains_common::polkadot::account::POLKADOT_TREASURY_PALLET_ID.into_account_truncating();
+		parachains_common::TREASURY_PALLET_ID.into_account_truncating();
 }
 
 <span class="kw">impl </span>pallet_identity::Config <span class="kw">for </span>Runtime {
