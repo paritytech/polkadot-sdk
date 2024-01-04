@@ -26,14 +26,8 @@ use assert_matches::assert_matches;
 use codec::{Decode, Encode};
 use futures::Future;
 use jsonrpsee::{
-	core::{
-		error::Error,
-		server::{rpc_module::Subscription as RpcSubscription, Subscription as RpcSubscription},
-		EmptyServerParams as EmptyParams,
-	},
-	rpc_params,
-	types::error::CallError,
-	RpcModule,
+	core::{error::Error, server::Subscription as RpcSubscription},
+	rpc_params, RpcModule,
 };
 use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::ChildInfo;
@@ -364,11 +358,7 @@ async fn get_header() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-<<<<<<< HEAD
-		Error::Call(err) if err.code() == 2001 && err.message() == "Invalid block hash"
-=======
-		Error::Call(CallError::Custom(ref err)) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
->>>>>>> origin/master
+		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 
 	// Obtain the valid header.
@@ -397,11 +387,7 @@ async fn get_body() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-<<<<<<< HEAD
-		Error::Call(err) if err.code() == 2001 && err.message() == "Invalid block hash"
-=======
-		Error::Call(CallError::Custom(ref err)) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
->>>>>>> origin/master
+		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 
 	// Valid call.
@@ -486,11 +472,7 @@ async fn call_runtime() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-<<<<<<< HEAD
-		Error::Call(err) if err.code() == 2001 && err.message() == "Invalid block hash"
-=======
-		Error::Call(CallError::Custom(ref err)) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
->>>>>>> origin/master
+		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 
 	// Pass an invalid parameters that cannot be decode.
@@ -503,11 +485,7 @@ async fn call_runtime() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-<<<<<<< HEAD
-		Error::Call(err) if err.code() == 2003 && err.message().contains("Invalid parameter")
-=======
-		Error::Call(CallError::Custom(ref err)) if err.code() == super::error::json_rpc_spec::INVALID_PARAM_ERROR && err.message().contains("Invalid parameter")
->>>>>>> origin/master
+		Error::Call(err) if err.code() == super::error::json_rpc_spec::INVALID_PARAM_ERROR && err.message().contains("Invalid parameter")
 	);
 
 	// Valid call.
@@ -610,11 +588,7 @@ async fn call_runtime_without_flag() {
 		.unwrap_err();
 
 	assert_matches!(err,
-<<<<<<< HEAD
-		Error::Call(err) if err.code() == 2003 && err.message().contains("The runtime updates flag must be set")
-=======
-		Error::Call(CallError::Custom(ref err)) if err.code() == super::error::rpc_spec_v2::INVALID_RUNTIME_CALL && err.message().contains("subscription was started with `withRuntime` set to `false`")
->>>>>>> origin/master
+		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_RUNTIME_CALL && err.message().contains("subscription was started with `withRuntime` set to `false`")
 	);
 }
 
@@ -652,11 +626,7 @@ async fn get_storage_hash() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-<<<<<<< HEAD
-		Error::Call(err) if err.code() == 2001 && err.message() == "Invalid block hash"
-=======
-		Error::Call(CallError::Custom(ref err)) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
->>>>>>> origin/master
+		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 
 	// Valid call without storage at the key.
@@ -924,11 +894,7 @@ async fn get_storage_value() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-<<<<<<< HEAD
-		Error::Call(err) if err.code() == 2001 && err.message() == "Invalid block hash"
-=======
-		Error::Call(CallError::Custom(ref err)) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
->>>>>>> origin/master
+		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 
 	// Valid call without storage at the key.
@@ -1604,11 +1570,7 @@ async fn follow_with_unpin() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-<<<<<<< HEAD
-		Error::Call(err) if err.code() == 2001 && err.message() == "Invalid block hash"
-=======
-		Error::Call(CallError::Custom(ref err)) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
->>>>>>> origin/master
+		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 
 	// To not exceed the number of pinned blocks, we need to unpin before the next import.
@@ -1673,7 +1635,7 @@ async fn follow_with_multiple_unpin_hashes() {
 	)
 	.into_rpc();
 
-	let mut sub = api.subscribe("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
 	let sub_id = sub.subscription_id();
 	let sub_id = serde_json::to_string(&sub_id).unwrap();
 
@@ -1757,7 +1719,7 @@ async fn follow_with_multiple_unpin_hashes() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(CallError::Custom(ref err)) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
+		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 
 	let _res: () = api
@@ -1774,7 +1736,7 @@ async fn follow_with_multiple_unpin_hashes() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(CallError::Custom(ref err)) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
+		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 
 	// Unpin multiple blocks.
@@ -1792,7 +1754,7 @@ async fn follow_with_multiple_unpin_hashes() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(CallError::Custom(ref err)) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
+		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 
 	let err = api
@@ -1803,7 +1765,7 @@ async fn follow_with_multiple_unpin_hashes() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(CallError::Custom(ref err)) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
+		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 }
 
