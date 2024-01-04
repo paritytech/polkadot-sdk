@@ -8,7 +8,7 @@ doc:
     description: |
       The constants for System Parachains in Kusama and Polkadot are now added to a new package in
       the fellowship repo. This PR removes them from Polkadot-SDK. They are now accessible from the
-      system-parachains-constants package.
+      `system-parachains-constants` package.
 
 crates:
   - name: parachains-common
