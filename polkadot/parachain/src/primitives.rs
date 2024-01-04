@@ -20,12 +20,12 @@
 use sp_std::vec::Vec;
 
 use bounded_collections::{BoundedVec, ConstU32};
-use frame_support::weights::Weight;
 use parity_scale_codec::{CompactAs, Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_core::{bytes, RuntimeDebug, TypeId};
 use sp_runtime::traits::Hash as _;
+use sp_weights::Weight;
 
 use polkadot_core_primitives::{Hash, OutboundHrmpMessage};
 
@@ -333,7 +333,7 @@ impl DmpMessageHandler for () {
 }
 
 /// The aggregate XCMP message format.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, TypeInfo)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, TypeInfo, RuntimeDebug)]
 pub enum XcmpMessageFormat {
 	/// Encoded `VersionedXcm` messages, all concatenated.
 	ConcatenatedVersionedXcm,

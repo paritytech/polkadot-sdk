@@ -14,13 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{Backend, Client};
+use crate::Client;
 use cumulus_primitives_core::{ParachainBlockData, PersistedValidationData};
 use cumulus_primitives_parachain_inherent::{ParachainInherentData, INHERENT_IDENTIFIER};
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use cumulus_test_runtime::{Block, GetLastTimestamp, Hash, Header};
 use polkadot_primitives::{BlockNumber as PBlockNumber, Hash as PHash};
-use sc_block_builder::{BlockBuilder, BlockBuilderProvider};
+use sc_block_builder::{BlockBuilder, BlockBuilderBuilder};
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
@@ -37,7 +37,7 @@ pub trait InitBlockBuilder {
 		&self,
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -> sc_block_builder::BlockBuilder<Block, Client, Backend>;
+	) -> sc_block_builder::BlockBuilder<Block, Client>;
 
 	/// Init a specific block builder at a specific block that works for the test runtime.
 	///
@@ -48,7 +48,7 @@ pub trait InitBlockBuilder {
 		at: Hash,
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -> sc_block_builder::BlockBuilder<Block, Client, Backend>;
+	) -> sc_block_builder::BlockBuilder<Block, Client>;
 
 	/// Init a specific block builder that works for the test runtime.
 	///
@@ -61,7 +61,7 @@ pub trait InitBlockBuilder {
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 		timestamp: u64,
-	) -> sc_block_builder::BlockBuilder<Block, Client, Backend>;
+	) -> sc_block_builder::BlockBuilder<Block, Client>;
 }
 
 fn init_block_builder(
@@ -70,9 +70,13 @@ fn init_block_builder(
 	validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 	relay_sproof_builder: RelayStateSproofBuilder,
 	timestamp: u64,
-) -> BlockBuilder<'_, Block, Client, Backend> {
-	let mut block_builder = client
-		.new_block_at(at, Default::default(), true)
+) -> BlockBuilder<'_, Block, Client> {
+	let mut block_builder = BlockBuilderBuilder::new(client)
+		.on_parent_block(at)
+		.fetch_parent_block_number(client)
+		.unwrap()
+		.enable_proof_recording()
+		.build()
 		.expect("Creates new block builder for test runtime");
 
 	let mut inherent_data = sp_inherents::InherentData::new();
@@ -118,7 +122,7 @@ impl InitBlockBuilder for Client {
 		&self,
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -> BlockBuilder<Block, Client, Backend> {
+	) -> BlockBuilder<Block, Client> {
 		let chain_info = self.chain_info();
 		self.init_block_builder_at(chain_info.best_hash, validation_data, relay_sproof_builder)
 	}
@@ -128,7 +132,7 @@ impl InitBlockBuilder for Client {
 		at: Hash,
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -> BlockBuilder<Block, Client, Backend> {
+	) -> BlockBuilder<Block, Client> {
 		let last_timestamp = self.runtime_api().get_last_timestamp(at).expect("Get last timestamp");
 
 		let timestamp = last_timestamp + cumulus_test_runtime::MinimumPeriod::get();
@@ -142,7 +146,7 @@ impl InitBlockBuilder for Client {
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 		timestamp: u64,
-	) -> sc_block_builder::BlockBuilder<Block, Client, Backend> {
+	) -> sc_block_builder::BlockBuilder<Block, Client> {
 		init_block_builder(self, at, validation_data, relay_sproof_builder, timestamp)
 	}
 }
@@ -155,7 +159,7 @@ pub trait BuildParachainBlockData {
 	fn build_parachain_block(self, parent_state_root: Hash) -> ParachainBlockData<Block>;
 }
 
-impl<'a> BuildParachainBlockData for sc_block_builder::BlockBuilder<'a, Block, Client, Backend> {
+impl<'a> BuildParachainBlockData for sc_block_builder::BlockBuilder<'a, Block, Client> {
 	fn build_parachain_block(self, parent_state_root: Hash) -> ParachainBlockData<Block> {
 		let built_block = self.build().expect("Builds the block");
 

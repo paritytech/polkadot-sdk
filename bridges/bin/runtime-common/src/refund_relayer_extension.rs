@@ -838,21 +838,23 @@ mod tests {
 		mock::*,
 	};
 	use bp_messages::{
-		DeliveredMessages, InboundLaneData, MessageNonce, OutboundLaneData, UnrewardedRelayer,
-		UnrewardedRelayersState,
+		DeliveredMessages, InboundLaneData, MessageNonce, MessagesOperatingMode, OutboundLaneData,
+		UnrewardedRelayer, UnrewardedRelayersState,
 	};
 	use bp_parachains::{BestParaHeadHash, ParaInfo};
 	use bp_polkadot_core::parachains::{ParaHeadsProof, ParaId};
-	use bp_runtime::HeaderId;
+	use bp_runtime::{BasicOperatingMode, HeaderId};
 	use bp_test_utils::{make_default_justification, test_keyring};
 	use frame_support::{
 		assert_storage_noop, parameter_types,
 		traits::{fungible::Mutate, ReservableCurrency},
 		weights::Weight,
 	};
-	use pallet_bridge_grandpa::{Call as GrandpaCall, StoredAuthoritySet};
-	use pallet_bridge_messages::Call as MessagesCall;
-	use pallet_bridge_parachains::{Call as ParachainsCall, RelayBlockHash};
+	use pallet_bridge_grandpa::{Call as GrandpaCall, Pallet as GrandpaPallet, StoredAuthoritySet};
+	use pallet_bridge_messages::{Call as MessagesCall, Pallet as MessagesPallet};
+	use pallet_bridge_parachains::{
+		Call as ParachainsCall, Pallet as ParachainsPallet, RelayBlockHash,
+	};
 	use sp_runtime::{
 		traits::{ConstU64, Header as HeaderT},
 		transaction_validity::{InvalidTransaction, ValidTransaction},
@@ -1588,6 +1590,99 @@ mod tests {
 			assert_eq!(
 				run_validate(parachain_finality_and_confirmation_batch_call(200, 100)),
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
+			);
+		});
+	}
+
+	#[test]
+	fn ext_rejects_batch_with_grandpa_finality_proof_when_grandpa_pallet_is_halted() {
+		run_test(|| {
+			initialize_environment(100, 100, 100);
+
+			GrandpaPallet::<TestRuntime, ()>::set_operating_mode(
+				RuntimeOrigin::root(),
+				BasicOperatingMode::Halted,
+			)
+			.unwrap();
+
+			assert_eq!(
+				run_pre_dispatch(all_finality_and_delivery_batch_call(200, 200, 200)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
+			);
+			assert_eq!(
+				run_pre_dispatch(all_finality_and_confirmation_batch_call(200, 200, 200)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
+			);
+		});
+	}
+
+	#[test]
+	fn ext_rejects_batch_with_parachain_finality_proof_when_parachains_pallet_is_halted() {
+		run_test(|| {
+			initialize_environment(100, 100, 100);
+
+			ParachainsPallet::<TestRuntime, ()>::set_operating_mode(
+				RuntimeOrigin::root(),
+				BasicOperatingMode::Halted,
+			)
+			.unwrap();
+
+			assert_eq!(
+				run_pre_dispatch(all_finality_and_delivery_batch_call(200, 200, 200)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
+			);
+			assert_eq!(
+				run_pre_dispatch(all_finality_and_confirmation_batch_call(200, 200, 200)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
+			);
+
+			assert_eq!(
+				run_pre_dispatch(parachain_finality_and_delivery_batch_call(200, 200)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
+			);
+			assert_eq!(
+				run_pre_dispatch(parachain_finality_and_confirmation_batch_call(200, 200)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
+			);
+		});
+	}
+
+	#[test]
+	fn ext_rejects_transaction_when_messages_pallet_is_halted() {
+		run_test(|| {
+			initialize_environment(100, 100, 100);
+
+			MessagesPallet::<TestRuntime, ()>::set_operating_mode(
+				RuntimeOrigin::root(),
+				MessagesOperatingMode::Basic(BasicOperatingMode::Halted),
+			)
+			.unwrap();
+
+			assert_eq!(
+				run_pre_dispatch(all_finality_and_delivery_batch_call(200, 200, 200)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
+			);
+			assert_eq!(
+				run_pre_dispatch(all_finality_and_confirmation_batch_call(200, 200, 200)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
+			);
+
+			assert_eq!(
+				run_pre_dispatch(parachain_finality_and_delivery_batch_call(200, 200)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
+			);
+			assert_eq!(
+				run_pre_dispatch(parachain_finality_and_confirmation_batch_call(200, 200)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
+			);
+
+			assert_eq!(
+				run_pre_dispatch(message_delivery_call(200)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
+			);
+			assert_eq!(
+				run_pre_dispatch(message_confirmation_call(200)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
 			);
 		});
 	}

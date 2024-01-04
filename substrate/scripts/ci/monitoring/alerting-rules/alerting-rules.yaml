@@ -146,11 +146,7 @@ groups:
       hours.'
 
   - alert: UnboundedChannelPersistentlyLarge
-    expr: '(
-        (substrate_unbounded_channel_len{action = "send"} -
-            ignoring(action) substrate_unbounded_channel_len{action = "received"})
-        or on(instance) substrate_unbounded_channel_len{action = "send"}
-    ) >= 200'
+    expr: 'substrate_unbounded_channel_size >= 200'
     for: 5m
     labels:
       severity: warning

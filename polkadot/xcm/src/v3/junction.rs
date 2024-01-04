@@ -49,6 +49,8 @@ use serde::{Deserialize, Serialize};
 	Serialize,
 	Deserialize,
 )]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum NetworkId {
 	/// Network specified by the first 32 bytes of its genesis block.
 	ByGenesis([u8; 32]),
@@ -74,6 +76,8 @@ pub enum NetworkId {
 	BitcoinCore,
 	/// The Bitcoin network, including hard-forks supported by Bitcoin Cash developers.
 	BitcoinCash,
+	/// The Polkadot Bulletin chain.
+	PolkadotBulletin,
 }
 
 impl From<OldNetworkId> for Option<NetworkId> {
@@ -116,6 +120,8 @@ impl TryFrom<OldNetworkId> for NetworkId {
 	Serialize,
 	Deserialize,
 )]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum BodyId {
 	/// The only body in its context.
 	Unit,
@@ -186,6 +192,8 @@ impl TryFrom<OldBodyId> for BodyId {
 	Serialize,
 	Deserialize,
 )]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum BodyPart {
 	/// The body's declaration, under whatever means it decides.
 	Voice,
@@ -261,6 +269,8 @@ impl TryFrom<OldBodyPart> for BodyPart {
 	Serialize,
 	Deserialize,
 )]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum Junction {
 	/// An indexed parachain belonging to and operated by the context.
 	///

@@ -1,9 +1,13 @@
 [package]
 name = "polkadot-node-core-av-store"
+description = "The Availability Store subsystem. Wrapper over the DB that stores availability data and chunks."
 version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+
+[lints]
+workspace = true
 
 [dependencies]
 futures = "0.3.21"

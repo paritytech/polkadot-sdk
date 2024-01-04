@@ -181,3 +181,12 @@ fn encode_decode_versioned_xcm_v3() {
 	let decoded = VersionedXcm::decode(&mut &encoded[..]).unwrap();
 	assert_eq!(xcm, decoded);
 }
+
+// With the renaming of the crate to `staging-xcm` the naming in the metadata changed as well and
+// this broke downstream users. This test ensures that the name in the metadata isn't changed.
+#[test]
+fn ensure_type_info_is_correct() {
+	let type_info = VersionedXcm::<()>::type_info();
+
+	assert_eq!(type_info.path.segments, vec!["xcm", "VersionedXcm"]);
+}

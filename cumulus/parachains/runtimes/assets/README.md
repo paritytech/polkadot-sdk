@@ -8,7 +8,7 @@ Asset Hub allows users to:
 - Deploy promise-backed assets, both fungible and non-fungible, with a DOT/KSM deposit.
 - Set admin roles to manage assets and asset classes.
 - Register assets as "self-sufficient" if the Relay Chain agrees, i.e. gain the ability for an
-  asset to justify the existance of accounts sans DOT/KSM.
+  asset to justify the existence of accounts sans DOT/KSM.
 - Pay transaction fees using sufficient assets.
 - Transfer (and approve transfer) assets.
 - Interact with the chain via its transactional API or XCM.
