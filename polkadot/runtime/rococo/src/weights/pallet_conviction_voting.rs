@@ -182,7 +182,7 @@ impl<T: frame_system::Config> pallet_conviction_voting::WeightInfo for WeightInf
 	/// Proof: Balances Locks (max_values: None, max_size: Some(1299), added: 3774, mode: MaxEncodedLen)
 	/// Storage: Balances Freezes (r:1 w:0)
 	/// Proof: Balances Freezes (max_values: None, max_size: Some(49), added: 2524, mode: MaxEncodedLen)
-	fn release() -> Weight {
+	fn unlock() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `12218`
 		//  Estimated: `30706`

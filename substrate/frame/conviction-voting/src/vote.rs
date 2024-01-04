@@ -27,7 +27,7 @@ use sp_runtime::{
 };
 use sp_std::prelude::*;
 
-/// A number of hold periods, plus a vote, one way or the other.
+/// A number of lock periods, plus a vote, one way or the other.
 #[derive(Copy, Clone, Eq, PartialEq, Default, RuntimeDebug, MaxEncodedLen)]
 pub struct Vote {
 	pub aye: bool,
@@ -81,10 +81,10 @@ pub enum AccountVote<Balance> {
 }
 
 impl<Balance: Saturating> AccountVote<Balance> {
-	/// Returns `Some` of the hold periods that the account is held for, assuming that the
-	/// referendum passed if `approved` is `true`.
-	pub fn held_if(self, approved: bool) -> Option<(u32, Balance)> {
-		// winning side: can only be removed after the hold period ends.
+	/// Returns `Some` of the lock periods that the account is locked for, assuming that the
+	/// referendum passed iff `approved` is `true`.
+	pub fn locked_if(self, approved: bool) -> Option<(u32, Balance)> {
+		// winning side: can only be removed after the lock period ends.
 		match self {
 			AccountVote::Standard { vote: Vote { conviction: Conviction::None, .. }, .. } => None,
 			AccountVote::Standard { vote, balance } if vote.aye == approved =>
@@ -113,7 +113,7 @@ impl<Balance: Saturating> AccountVote<Balance> {
 	}
 }
 
-/// A "prior" hold, i.e. a hold for some now-forgotten reason.
+/// A "prior" lock, i.e. a lock for some now-forgotten reason.
 #[derive(
 	Encode,
 	Decode,
@@ -128,16 +128,16 @@ impl<Balance: Saturating> AccountVote<Balance> {
 	TypeInfo,
 	MaxEncodedLen,
 )]
-pub struct PriorHold<BlockNumber, Balance>(BlockNumber, Balance);
+pub struct PriorLock<BlockNumber, Balance>(BlockNumber, Balance);
 
-impl<BlockNumber: Ord + Copy + Zero, Balance: Ord + Copy + Zero> PriorHold<BlockNumber, Balance> {
-	/// Accumulates an additional hold.
+impl<BlockNumber: Ord + Copy + Zero, Balance: Ord + Copy + Zero> PriorLock<BlockNumber, Balance> {
+	/// Accumulates an additional lock.
 	pub fn accumulate(&mut self, until: BlockNumber, amount: Balance) {
 		self.0 = self.0.max(until);
 		self.1 = self.1.max(amount);
 	}
 
-	pub fn held(&self) -> Balance {
+	pub fn locked(&self) -> Balance {
 		self.1
 	}
 
@@ -157,12 +157,12 @@ pub struct Delegating<Balance, AccountId, BlockNumber> {
 	/// The account to which the voting power is delegated.
 	pub target: AccountId,
 	/// The conviction with which the voting power is delegated. When this gets undelegated, the
-	/// relevant hold begins.
+	/// relevant lock begins.
 	pub conviction: Conviction,
 	/// The total amount of delegations that this account has received, post-conviction-weighting.
 	pub delegations: Delegations<Balance>,
-	/// Any pre-existing holds from past voting/delegating activity.
-	pub prior: PriorHold<BlockNumber, Balance>,
+	/// Any pre-existing locks from past voting/delegating activity.
+	pub prior: PriorLock<BlockNumber, Balance>,
 }
 
 /// Information concerning the direct vote-casting of some voting power.
@@ -177,8 +177,8 @@ where
 	pub votes: BoundedVec<(PollIndex, AccountVote<Balance>), MaxVotes>,
 	/// The total amount of delegations that this account has received, post-conviction-weighting.
 	pub delegations: Delegations<Balance>,
-	/// Any pre-existing holds from past voting/delegating activity.
-	pub prior: PriorHold<BlockNumber, Balance>,
+	/// Any pre-existing locks from past voting/delegating activity.
+	pub prior: PriorLock<BlockNumber, Balance>,
 }
 
 /// An indicator for what an account is doing; it can either be delegating or voting.
@@ -207,17 +207,17 @@ where
 		Voting::Casting(Casting {
 			votes: Default::default(),
 			delegations: Default::default(),
-			prior: PriorHold(Zero::zero(), Default::default()),
+			prior: PriorLock(Zero::zero(), Default::default()),
 		})
 	}
 }
 
-impl<Balance, AccountId, BlockNumber, PollIndex, MaxVotes> AsMut<PriorHold<BlockNumber, Balance>>
+impl<Balance, AccountId, BlockNumber, PollIndex, MaxVotes> AsMut<PriorLock<BlockNumber, Balance>>
 	for Voting<Balance, AccountId, BlockNumber, PollIndex, MaxVotes>
 where
 	MaxVotes: Get<u32>,
 {
-	fn as_mut(&mut self) -> &mut PriorHold<BlockNumber, Balance> {
+	fn as_mut(&mut self) -> &mut PriorLock<BlockNumber, Balance> {
 		match self {
 			Voting::Casting(Casting { prior, .. }) => prior,
 			Voting::Delegating(Delegating { prior, .. }) => prior,
@@ -236,22 +236,22 @@ where
 	MaxVotes: Get<u32>,
 {
 	pub fn rejig(&mut self, now: BlockNumber) {
-		AsMut::<PriorHold<BlockNumber, Balance>>::as_mut(self).rejig(now);
+		AsMut::<PriorLock<BlockNumber, Balance>>::as_mut(self).rejig(now);
 	}
 
-	/// The amount of this account's balance that must currently be held due to voting.
-	pub fn held_balance(&self) -> Balance {
+	/// The amount of this account's balance that must currently be locked due to voting.
+	pub fn locked_balance(&self) -> Balance {
 		match self {
 			Voting::Casting(Casting { votes, prior, .. }) =>
-				votes.iter().map(|i| i.1.balance()).fold(prior.held(), |a, i| a.max(i)),
-			Voting::Delegating(Delegating { balance, prior, .. }) => *balance.max(&prior.held()),
+				votes.iter().map(|i| i.1.balance()).fold(prior.locked(), |a, i| a.max(i)),
+			Voting::Delegating(Delegating { balance, prior, .. }) => *balance.max(&prior.locked()),
 		}
 	}
 
 	pub fn set_common(
 		&mut self,
 		delegations: Delegations<Balance>,
-		prior: PriorHold<BlockNumber, Balance>,
+		prior: PriorLock<BlockNumber, Balance>,
 	) {
 		let (d, p) = match self {
 			Voting::Casting(Casting { ref mut delegations, ref mut prior, .. }) =>

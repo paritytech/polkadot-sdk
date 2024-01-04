@@ -244,7 +244,7 @@ benchmarks_instance_pallet! {
 		assert_matches!(VotingFor::<T, I>::get(&caller, &class), Voting::Casting(_));
 	}
 
-	release {
+	unlock {
 		let caller = funded_account::<T, I>("caller", 0);
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
 		whitelist_account!(caller);
@@ -264,7 +264,7 @@ benchmarks_instance_pallet! {
 		let orig_usable = <T::Currency as fungible::Inspect<T::AccountId>>::reducible_balance(&caller, Expendable, Polite);
 		let polls = &all_polls[&class];
 
-		// Vote big on the class with the most ongoing votes of them to bump the hold and make it
+		// Vote big on the class with the most ongoing votes of them to bump the lock and make it
 		// hard to recompute when removed.
 		ConvictionVoting::<T, I>::vote(RawOrigin::Signed(caller.clone()).into(), polls[0], big_account_vote)?;
 		let now_usable = <T::Currency as fungible::Inspect<T::AccountId>>::reducible_balance(&caller, Expendable, Polite);
@@ -273,7 +273,7 @@ benchmarks_instance_pallet! {
 		// Remove the vote
 		ConvictionVoting::<T, I>::remove_vote(RawOrigin::Signed(caller.clone()).into(), Some(class.clone()), polls[0])?;
 
-		// We can now release on `class` from 200 to 100...
+		// We can now unlock on `class` from 200 to 100...
 	}: _(RawOrigin::Signed(caller.clone()), class, caller_lookup)
 	verify {
 		assert_eq!(orig_usable, <T::Currency as fungible::Inspect<T::AccountId>>::reducible_balance(&caller, Expendable, Polite));

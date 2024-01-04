@@ -58,7 +58,7 @@ pub trait WeightInfo {
 	fn remove_other_vote() -> Weight;
 	fn delegate(r: u32, ) -> Weight;
 	fn undelegate(r: u32, ) -> Weight;
-	fn release() -> Weight;
+	fn unlock() -> Weight;
 }
 
 /// Weights for pallet_conviction_voting using the Substrate node and recommended hardware.
@@ -68,10 +68,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: Referenda ReferendumInfoFor (max_values: None, max_size: Some(366), added: 2841, mode: MaxEncodedLen)
 	/// Storage: ConvictionVoting VotingFor (r:1 w:1)
 	/// Proof: ConvictionVoting VotingFor (max_values: None, max_size: Some(27241), added: 29716, mode: MaxEncodedLen)
-	/// Storage: ConvictionVoting ClassHoldsFor (r:1 w:1)
-	/// Proof: ConvictionVoting ClassHoldsFor (max_values: None, max_size: Some(59), added: 2534, mode: MaxEncodedLen)
-	/// Storage: Balances Holds (r:1 w:1)
-	/// Proof: Balances Holds (max_values: None, max_size: Some(1299), added: 3774, mode: MaxEncodedLen)
+	/// Storage: ConvictionVoting ClassLocksFor (r:1 w:1)
+	/// Proof: ConvictionVoting ClassLocksFor (max_values: None, max_size: Some(59), added: 2534, mode: MaxEncodedLen)
+	/// Storage: Balances Locks (r:1 w:1)
+	/// Proof: Balances Locks (max_values: None, max_size: Some(1299), added: 3774, mode: MaxEncodedLen)
 	/// Storage: Balances Freezes (r:1 w:0)
 	/// Proof: Balances Freezes (max_values: None, max_size: Some(49), added: 2524, mode: MaxEncodedLen)
 	/// Storage: Scheduler Agenda (r:2 w:2)
@@ -89,10 +89,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: Referenda ReferendumInfoFor (max_values: None, max_size: Some(366), added: 2841, mode: MaxEncodedLen)
 	/// Storage: ConvictionVoting VotingFor (r:1 w:1)
 	/// Proof: ConvictionVoting VotingFor (max_values: None, max_size: Some(27241), added: 29716, mode: MaxEncodedLen)
-	/// Storage: ConvictionVoting ClassHoldsFor (r:1 w:1)
-	/// Proof: ConvictionVoting ClassHoldsFor (max_values: None, max_size: Some(59), added: 2534, mode: MaxEncodedLen)
-	/// Storage: Balances Holds (r:1 w:1)
-	/// Proof: Balances Holds (max_values: None, max_size: Some(1299), added: 3774, mode: MaxEncodedLen)
+	/// Storage: ConvictionVoting ClassLocksFor (r:1 w:1)
+	/// Proof: ConvictionVoting ClassLocksFor (max_values: None, max_size: Some(59), added: 2534, mode: MaxEncodedLen)
+	/// Storage: Balances Locks (r:1 w:1)
+	/// Proof: Balances Locks (max_values: None, max_size: Some(1299), added: 3774, mode: MaxEncodedLen)
 	/// Storage: Balances Freezes (r:1 w:0)
 	/// Proof: Balances Freezes (max_values: None, max_size: Some(49), added: 2524, mode: MaxEncodedLen)
 	/// Storage: Scheduler Agenda (r:2 w:2)
@@ -140,10 +140,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: Referenda ReferendumInfoFor (max_values: None, max_size: Some(366), added: 2841, mode: MaxEncodedLen)
 	/// Storage: Scheduler Agenda (r:2 w:2)
 	/// Proof: Scheduler Agenda (max_values: None, max_size: Some(107022), added: 109497, mode: MaxEncodedLen)
-	/// Storage: ConvictionVoting ClassHoldsFor (r:1 w:1)
-	/// Proof: ConvictionVoting ClassHoldsFor (max_values: None, max_size: Some(59), added: 2534, mode: MaxEncodedLen)
-	/// Storage: Balances Holds (r:1 w:1)
-	/// Proof: Balances Holds (max_values: None, max_size: Some(1299), added: 3774, mode: MaxEncodedLen)
+	/// Storage: ConvictionVoting ClassLocksFor (r:1 w:1)
+	/// Proof: ConvictionVoting ClassLocksFor (max_values: None, max_size: Some(59), added: 2534, mode: MaxEncodedLen)
+	/// Storage: Balances Locks (r:1 w:1)
+	/// Proof: Balances Locks (max_values: None, max_size: Some(1299), added: 3774, mode: MaxEncodedLen)
 	/// Storage: Balances Freezes (r:1 w:0)
 	/// Proof: Balances Freezes (max_values: None, max_size: Some(49), added: 2524, mode: MaxEncodedLen)
 	/// The range of component `r` is `[0, 1]`.
@@ -184,13 +184,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	/// Storage: ConvictionVoting VotingFor (r:1 w:1)
 	/// Proof: ConvictionVoting VotingFor (max_values: None, max_size: Some(27241), added: 29716, mode: MaxEncodedLen)
-	/// Storage: ConvictionVoting ClassHoldsFor (r:1 w:1)
-	/// Proof: ConvictionVoting ClassHoldsFor (max_values: None, max_size: Some(59), added: 2534, mode: MaxEncodedLen)
-	/// Storage: Balances Holds (r:1 w:1)
-	/// Proof: Balances Holds (max_values: None, max_size: Some(1299), added: 3774, mode: MaxEncodedLen)
+	/// Storage: ConvictionVoting ClassLocksFor (r:1 w:1)
+	/// Proof: ConvictionVoting ClassLocksFor (max_values: None, max_size: Some(59), added: 2534, mode: MaxEncodedLen)
+	/// Storage: Balances Locks (r:1 w:1)
+	/// Proof: Balances Locks (max_values: None, max_size: Some(1299), added: 3774, mode: MaxEncodedLen)
 	/// Storage: Balances Freezes (r:1 w:0)
 	/// Proof: Balances Freezes (max_values: None, max_size: Some(49), added: 2524, mode: MaxEncodedLen)
-	fn release() -> Weight {
+	fn unlock() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `11734`
 		//  Estimated: `30706`
@@ -207,10 +207,10 @@ impl WeightInfo for () {
 	/// Proof: Referenda ReferendumInfoFor (max_values: None, max_size: Some(366), added: 2841, mode: MaxEncodedLen)
 	/// Storage: ConvictionVoting VotingFor (r:1 w:1)
 	/// Proof: ConvictionVoting VotingFor (max_values: None, max_size: Some(27241), added: 29716, mode: MaxEncodedLen)
-	/// Storage: ConvictionVoting ClassHoldsFor (r:1 w:1)
-	/// Proof: ConvictionVoting ClassHoldsFor (max_values: None, max_size: Some(59), added: 2534, mode: MaxEncodedLen)
-	/// Storage: Balances Holds (r:1 w:1)
-	/// Proof: Balances Holds (max_values: None, max_size: Some(1299), added: 3774, mode: MaxEncodedLen)
+	/// Storage: ConvictionVoting ClassLocksFor (r:1 w:1)
+	/// Proof: ConvictionVoting ClassLocksFor (max_values: None, max_size: Some(59), added: 2534, mode: MaxEncodedLen)
+	/// Storage: Balances Locks (r:1 w:1)
+	/// Proof: Balances Locks (max_values: None, max_size: Some(1299), added: 3774, mode: MaxEncodedLen)
 	/// Storage: Balances Freezes (r:1 w:0)
 	/// Proof: Balances Freezes (max_values: None, max_size: Some(49), added: 2524, mode: MaxEncodedLen)
 	/// Storage: Scheduler Agenda (r:2 w:2)
@@ -228,10 +228,10 @@ impl WeightInfo for () {
 	/// Proof: Referenda ReferendumInfoFor (max_values: None, max_size: Some(366), added: 2841, mode: MaxEncodedLen)
 	/// Storage: ConvictionVoting VotingFor (r:1 w:1)
 	/// Proof: ConvictionVoting VotingFor (max_values: None, max_size: Some(27241), added: 29716, mode: MaxEncodedLen)
-	/// Storage: ConvictionVoting ClassHoldsFor (r:1 w:1)
-	/// Proof: ConvictionVoting ClassHoldsFor (max_values: None, max_size: Some(59), added: 2534, mode: MaxEncodedLen)
-	/// Storage: Balances Holds (r:1 w:1)
-	/// Proof: Balances Holds (max_values: None, max_size: Some(1299), added: 3774, mode: MaxEncodedLen)
+	/// Storage: ConvictionVoting ClassLocksFor (r:1 w:1)
+	/// Proof: ConvictionVoting ClassLocksFor (max_values: None, max_size: Some(59), added: 2534, mode: MaxEncodedLen)
+	/// Storage: Balances Locks (r:1 w:1)
+	/// Proof: Balances Locks (max_values: None, max_size: Some(1299), added: 3774, mode: MaxEncodedLen)
 	/// Storage: Balances Freezes (r:1 w:0)
 	/// Proof: Balances Freezes (max_values: None, max_size: Some(49), added: 2524, mode: MaxEncodedLen)
 	/// Storage: Scheduler Agenda (r:2 w:2)
@@ -279,10 +279,10 @@ impl WeightInfo for () {
 	/// Proof: Referenda ReferendumInfoFor (max_values: None, max_size: Some(366), added: 2841, mode: MaxEncodedLen)
 	/// Storage: Scheduler Agenda (r:2 w:2)
 	/// Proof: Scheduler Agenda (max_values: None, max_size: Some(107022), added: 109497, mode: MaxEncodedLen)
-	/// Storage: ConvictionVoting ClassHoldsFor (r:1 w:1)
-	/// Proof: ConvictionVoting ClassHoldsFor (max_values: None, max_size: Some(59), added: 2534, mode: MaxEncodedLen)
-	/// Storage: Balances Holds (r:1 w:1)
-	/// Proof: Balances Holds (max_values: None, max_size: Some(1299), added: 3774, mode: MaxEncodedLen)
+	/// Storage: ConvictionVoting ClassLocksFor (r:1 w:1)
+	/// Proof: ConvictionVoting ClassLocksFor (max_values: None, max_size: Some(59), added: 2534, mode: MaxEncodedLen)
+	/// Storage: Balances Locks (r:1 w:1)
+	/// Proof: Balances Locks (max_values: None, max_size: Some(1299), added: 3774, mode: MaxEncodedLen)
 	/// Storage: Balances Freezes (r:1 w:0)
 	/// Proof: Balances Freezes (max_values: None, max_size: Some(49), added: 2524, mode: MaxEncodedLen)
 	/// The range of component `r` is `[0, 1]`.
@@ -323,13 +323,13 @@ impl WeightInfo for () {
 	}
 	/// Storage: ConvictionVoting VotingFor (r:1 w:1)
 	/// Proof: ConvictionVoting VotingFor (max_values: None, max_size: Some(27241), added: 29716, mode: MaxEncodedLen)
-	/// Storage: ConvictionVoting ClassHoldsFor (r:1 w:1)
-	/// Proof: ConvictionVoting ClassHoldsFor (max_values: None, max_size: Some(59), added: 2534, mode: MaxEncodedLen)
-	/// Storage: Balances Holds (r:1 w:1)
-	/// Proof: Balances Holds (max_values: None, max_size: Some(1299), added: 3774, mode: MaxEncodedLen)
+	/// Storage: ConvictionVoting ClassLocksFor (r:1 w:1)
+	/// Proof: ConvictionVoting ClassLocksFor (max_values: None, max_size: Some(59), added: 2534, mode: MaxEncodedLen)
+	/// Storage: Balances Locks (r:1 w:1)
+	/// Proof: Balances Locks (max_values: None, max_size: Some(1299), added: 3774, mode: MaxEncodedLen)
 	/// Storage: Balances Freezes (r:1 w:0)
 	/// Proof: Balances Freezes (max_values: None, max_size: Some(49), added: 2524, mode: MaxEncodedLen)
-	fn release() -> Weight {
+	fn unlock() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `11734`
 		//  Estimated: `30706`

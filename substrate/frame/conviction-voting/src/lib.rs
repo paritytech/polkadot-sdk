@@ -102,7 +102,7 @@ pub mod pallet {
 		// System level stuff.
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
-		/// The overarching hold reason.
+		/// The overarching freeze reason.
 		type RuntimeFreezeReason: From<FreezeReason>;
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -129,10 +129,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxVotes: Get<u32>;
 
-		/// The minimum period of vote holding.
+		/// The minimum period of vote locking.
 		///
 		/// It should be no shorter than enactment period to ensure that in the case of an approval,
-		/// those successful voters are held into the consequences that their votes entail.
+		/// those successful voters are locked into the consequences that their votes entail.
 		#[pallet::constant]
 		type VoteLockingPeriod: Get<BlockNumberFor<Self>>;
 	}
@@ -150,8 +150,8 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
-	/// The voting classes which have a non-zero hold requirement and the hold amounts which they
-	/// require. The actual amount held on behalf of this pallet should always be the maximum of
+	/// The voting classes which have a non-zero lock requirement and the lock amounts which they
+	/// require. The actual amount locked on behalf of this pallet should always be the maximum of
 	/// this list.
 	#[pallet::storage]
 	pub type ClassLocksFor<T: Config<I>, I: 'static = ()> = StorageMap<
@@ -200,10 +200,10 @@ pub mod pallet {
 		BadClass,
 	}
 
-	/// The reasons for the pallet placing holds on funds.
+	/// The reasons for the pallet placing locks on funds.
 	#[pallet::composite_enum]
 	pub enum FreezeReason {
-		/// The Pallet holds funds for voting reasons.
+		/// The Pallet locks funds for voting reasons.
 		#[codec(index = 0)]
 		ConvictionVoting,
 	}
@@ -233,8 +233,8 @@ pub mod pallet {
 		/// Delegate the voting power (with some given conviction) of the sending account for a
 		/// particular class of polls.
 		///
-		/// The balance delegated is held for as long as it's delegated, and thereafter for the
-		/// time appropriate for the conviction's hold period.
+		/// The balance delegated is locked for as long as it's delegated, and thereafter for the
+		/// time appropriate for the conviction's lock period.
 		///
 		/// The dispatch origin of this call must be _Signed_, and the signing account must either:
 		///   - be delegating already; or
@@ -245,7 +245,7 @@ pub mod pallet {
 		/// - `class`: The class of polls to delegate. To delegate multiple classes, multiple calls
 		///   to this function are required.
 		/// - `conviction`: The conviction that will be attached to the delegated votes. When the
-		///   account is undelegated, the funds will be held for the corresponding period.
+		///   account is undelegated, the funds will be locked for the corresponding period.
 		/// - `balance`: The amount of the account's balance to be used in delegating. This must not
 		///   be more than the account's current balance.
 		///
@@ -273,7 +273,7 @@ pub mod pallet {
 
 		/// Undelegate the voting power of the sending account for a particular class of polls.
 		///
-		/// Tokens may be released following once an amount of time consistent with the hold period
+		/// Tokens may be unlocked following once an amount of time consistent with the lock period
 		/// of the conviction with which the delegation was issued has passed.
 		///
 		/// The dispatch origin of this call must be _Signed_ and the signing account must be
@@ -298,18 +298,18 @@ pub mod pallet {
 			Ok(Some(T::WeightInfo::undelegate(votes)).into())
 		}
 
-		/// Remove the hold caused by prior voting/delegating which has expired within a particular
+		/// Remove the lock caused by prior voting/delegating which has expired within a particular
 		/// class.
 		///
 		/// The dispatch origin of this call must be _Signed_.
 		///
-		/// - `class`: The class of polls to release.
-		/// - `target`: The account to remove the hold on.
+		/// - `class`: The class of polls to unlock.
+		/// - `target`: The account to remove the lock on.
 		///
 		/// Weight: `O(R)` with R number of vote of target.
 		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::release())]
-		pub fn release(
+		#[pallet::weight(T::WeightInfo::unlock())]
+		pub fn unlock(
 			origin: OriginFor<T>,
 			class: ClassOf<T, I>,
 			target: AccountIdLookupOf<T>,
@@ -329,16 +329,16 @@ pub mod pallet {
 		///   - the vote of the account was in opposition to the result; or
 		///   - there was no conviction to the account's vote; or
 		///   - the account made a split vote
-		/// ...then the vote is removed cleanly and a following call to `release` may result in more
+		/// ...then the vote is removed cleanly and a following call to `unlock` may result in more
 		/// funds being available.
 		///
 		/// If, however, the poll has ended and:
 		/// - it finished corresponding to the vote of the account, and
 		/// - the account made a standard vote with conviction, and
-		/// - the hold period of the conviction is not over
-		/// ...then the hold will be aggregated into the overall account's hold for this pallets
-		/// reason, which may involve the two holds to be combined into a single hold that is the
-		/// maximum of both the amount held and the time is it held for).
+		/// - the lock period of the conviction is not over
+		/// ...then the lock will be aggregated into the overall account's lock for this pallets
+		/// reason, which may involve the two locks to be combined into a single lock that is the
+		/// maximum of both the amount locked and the time is it locked for).
 		///
 		/// The dispatch origin of this call must be _Signed_, and the signer must have a vote
 		/// registered for poll `index`.
@@ -431,7 +431,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				} else {
 					return Err(Error::<T, I>::AlreadyDelegating.into())
 				}
-				// Extend the hold to `balance` (rather than setting it) since we don't know what
+				// Extend the lock to `balance` (rather than setting it) since we don't know what
 				// other votes are in place.
 				Self::extend_freeze(who, &class, vote.balance())?;
 				Ok(())
@@ -442,9 +442,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Remove the account's vote for the given poll if possible. This is possible when:
 	/// - The poll has not finished.
 	/// - The poll has finished and the voter lost their direction.
-	/// - The poll has finished and the voter's hold period is up.
+	/// - The poll has finished and the voter's lock period is up.
 	///
-	/// This will generally be combined with a call to `release`.
+	/// This will generally be combined with a call to `unlock`.
 	fn try_remove_vote(
 		who: &T::AccountId,
 		poll_index: PollIndexOf<T, I>,
@@ -472,17 +472,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						Ok(())
 					},
 					PollStatus::Completed(end, approved) => {
-						if let Some((lock_periods, balance)) = v.1.held_if(approved) {
-							let release_at = end.saturating_add(
+						if let Some((lock_periods, balance)) = v.1.locked_if(approved) {
+							let unlock_at = end.saturating_add(
 								T::VoteLockingPeriod::get().saturating_mul(lock_periods.into()),
 							);
 							let now = frame_system::Pallet::<T>::block_number();
-							if now < release_at {
+							if now < unlock_at {
 								ensure!(
 									matches!(scope, UnvoteScope::Any),
 									Error::<T, I>::NoPermissionYet
 								);
-								prior.accumulate(release_at, balance)
+								prior.accumulate(unlock_at, balance)
 							}
 						}
 						Ok(())
@@ -588,7 +588,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 				let votes =
 					Self::increase_upstream_delegation(&target, &class, conviction.votes(balance));
-				// Extend the hold to `balance` (rather than setting it) since we don't know what
+				// Extend the lock to `balance` (rather than setting it) since we don't know what
 				// other votes are in place.
 				Self::extend_freeze(&who, &class, balance)?;
 				Ok(votes)
@@ -641,11 +641,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		class: &ClassOf<T, I>,
 		amount: BalanceOf<T, I>,
 	) -> DispatchResult {
-		ClassLocksFor::<T, I>::mutate(who, |holds| {
-			match holds.iter().position(|x| &x.0 == class) {
-				Some(i) => holds[i].1 = holds[i].1.max(amount),
+		ClassLocksFor::<T, I>::mutate(who, |locks| {
+			match locks.iter().position(|x| &x.0 == class) {
+				Some(i) => locks[i].1 = locks[i].1.max(amount),
 				None => {
-					let ok = holds.try_push((class.clone(), amount)).is_ok();
+					let ok = locks.try_push((class.clone(), amount)).is_ok();
 					debug_assert!(
 						ok,
 						"Vec bounded by number of classes; \
@@ -659,17 +659,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(())
 	}
 
-	/// Rejig the hold on an account. It will never get more stringent (since that would indicate
+	/// Rejig the lock on an account. It will never get more stringent (since that would indicate
 	/// a security hole) but may be reduced from what they are currently.
 	fn update_lock(class: &ClassOf<T, I>, who: &T::AccountId) -> DispatchResult {
 		let class_freeze_needed = VotingFor::<T, I>::mutate(who, class, |voting| {
 			voting.rejig(frame_system::Pallet::<T>::block_number());
-			voting.held_balance()
+			voting.locked_balance()
 		});
-		let freeze_needed = ClassLocksFor::<T, I>::mutate(who, |holds| {
-			holds.retain(|x| &x.0 != class);
+		let freeze_needed = ClassLocksFor::<T, I>::mutate(who, |locks| {
+			locks.retain(|x| &x.0 != class);
 			if !class_freeze_needed.is_zero() {
-				let ok = holds.try_push((class.clone(), class_freeze_needed)).is_ok();
+				let ok = locks.try_push((class.clone(), class_freeze_needed)).is_ok();
 				debug_assert!(
 					ok,
 					"Vec bounded by number of classes; \
@@ -677,7 +677,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					qed"
 				);
 			}
-			holds.iter().map(|x| x.1).max().unwrap_or(Zero::zero())
+			locks.iter().map(|x| x.1).max().unwrap_or(Zero::zero())
 		});
 		if freeze_needed.is_zero() {
 			T::Currency::thaw(&FreezeReason::ConvictionVoting.into(), who)?;
