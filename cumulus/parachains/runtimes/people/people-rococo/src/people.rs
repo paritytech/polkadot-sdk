@@ -86,7 +86,6 @@ pub enum IdentityField {
 	CloneNoBound,
 	Encode,
 	Decode,
-	Default,
 	EqNoBound,
 	MaxEncodedLen,
 	PartialEqNoBound,
@@ -209,5 +208,23 @@ impl IdentityInfo {
 			res.insert(IdentityField::Discord);
 		}
 		res
+	}
+}
+
+/// A `Default` identity. This is given to users who get a username but have not set an identity.
+impl Default for IdentityInfo {
+	fn default() -> Self {
+		IdentityInfo {
+			display: Data::None,
+			legal: Data::None,
+			web: Data::None,
+			matrix: Data::None,
+			email: Data::None,
+			pgp_fingerprint: None,
+			image: Data::None,
+			twitter: Data::None,
+			github: Data::None,
+			discord: Data::None,
+		}
 	}
 }
