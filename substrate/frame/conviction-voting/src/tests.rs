@@ -373,7 +373,7 @@ fn voting_balance_gets_locked() {
 }
 
 #[test]
-fn successful_but_zero_conviction_vote_balance_can_be_unlockd() {
+fn successful_but_zero_conviction_vote_balance_can_be_unlocked() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(1, 1)));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 3, nay(20, 0)));
@@ -386,7 +386,7 @@ fn successful_but_zero_conviction_vote_balance_can_be_unlockd() {
 }
 
 #[test]
-fn unsuccessful_conviction_vote_balance_can_be_unlockd() {
+fn unsuccessful_conviction_vote_balance_can_be_unlocked() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(1, 1)));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 3, nay(20, 0)));
