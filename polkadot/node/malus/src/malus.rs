@@ -32,6 +32,8 @@ use variants::*;
 enum NemesisVariant {
 	/// Suggest a candidate with an invalid proof of validity.
 	SuggestGarbageCandidate(SuggestGarbageCandidateOptions),
+	/// Support disabled validators in backing and statement distribution.
+	SupportDisabled(SupportDisabledOptions),
 	/// Back a candidate with a specifically crafted proof of validity.
 	BackGarbageCandidate(BackGarbageCandidateOptions),
 	/// Delayed disputing of ancestors that are perfectly fine.
@@ -67,6 +69,11 @@ impl MalusCli {
 					SuggestGarbageCandidates { percentage },
 					finality_delay,
 				)?
+			},
+			NemesisVariant::SupportDisabled(opts) => {
+				let SupportDisabledOptions { cli } = opts;
+
+				polkadot_cli::run_node(cli, SupportDisabled, finality_delay)?
 			},
 			NemesisVariant::DisputeAncestor(opts) => {
 				let DisputeAncestorOptions {
