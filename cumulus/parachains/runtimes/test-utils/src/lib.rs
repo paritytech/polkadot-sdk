@@ -47,6 +47,7 @@ pub mod test_cases;
 
 pub type BalanceOf<Runtime> = <Runtime as pallet_balances::Config>::Balance;
 pub type AccountIdOf<Runtime> = <Runtime as frame_system::Config>::AccountId;
+pub type RuntimeCallOf<Runtime> = <Runtime as frame_system::Config>::RuntimeCall;
 pub type ValidatorIdOf<Runtime> = <Runtime as pallet_session::Config>::ValidatorId;
 pub type SessionKeysOf<Runtime> = <Runtime as pallet_session::Config>::Keys;
 
@@ -114,35 +115,48 @@ impl<Runtime: frame_system::Config + pallet_balances::Config + pallet_session::C
 	}
 }
 
-// Basic builder based on balances, collators and pallet_sessopm
-pub struct ExtBuilder<
-	Runtime: frame_system::Config
+/// A set of traits for a minimal parachain runtime, that may be used in conjunction with the
+/// `ExtBuilder` and the `RuntimeHelper`.
+pub trait BasicParachainRuntime:
+	frame_system::Config
+	+ pallet_balances::Config
+	+ pallet_session::Config
+	+ pallet_xcm::Config
+	+ parachain_info::Config
+	+ pallet_collator_selection::Config
+	+ cumulus_pallet_parachain_system::Config
+{
+}
+
+impl<T> BasicParachainRuntime for T
+where
+	T: frame_system::Config
 		+ pallet_balances::Config
 		+ pallet_session::Config
 		+ pallet_xcm::Config
-		+ parachain_info::Config,
-> {
+		+ parachain_info::Config
+		+ pallet_collator_selection::Config
+		+ cumulus_pallet_parachain_system::Config,
+	ValidatorIdOf<T>: From<AccountIdOf<T>>,
+{
+}
+
+/// Basic builder based on balances, collators and pallet_session.
+pub struct ExtBuilder<Runtime: BasicParachainRuntime> {
 	// endowed accounts with balances
 	balances: Vec<(AccountIdOf<Runtime>, BalanceOf<Runtime>)>,
 	// collators to test block prod
 	collators: Vec<AccountIdOf<Runtime>>,
 	// keys added to pallet session
 	keys: Vec<(AccountIdOf<Runtime>, ValidatorIdOf<Runtime>, SessionKeysOf<Runtime>)>,
-	// safe xcm version for pallet_xcm
+	// safe XCM version for pallet_xcm
 	safe_xcm_version: Option<XcmVersion>,
 	// para id
 	para_id: Option<ParaId>,
 	_runtime: PhantomData<Runtime>,
 }
 
-impl<
-		Runtime: frame_system::Config
-			+ pallet_balances::Config
-			+ pallet_session::Config
-			+ pallet_xcm::Config
-			+ parachain_info::Config,
-	> Default for ExtBuilder<Runtime>
-{
+impl<Runtime: BasicParachainRuntime> Default for ExtBuilder<Runtime> {
 	fn default() -> ExtBuilder<Runtime> {
 		ExtBuilder {
 			balances: vec![],
@@ -155,14 +169,7 @@ impl<
 	}
 }
 
-impl<
-		Runtime: frame_system::Config
-			+ pallet_balances::Config
-			+ pallet_session::Config
-			+ pallet_xcm::Config
-			+ parachain_info::Config,
-	> ExtBuilder<Runtime>
-{
+impl<Runtime: BasicParachainRuntime> ExtBuilder<Runtime> {
 	pub fn with_balances(
 		mut self,
 		balances: Vec<(AccountIdOf<Runtime>, BalanceOf<Runtime>)>,
@@ -198,12 +205,7 @@ impl<
 		self
 	}
 
-	pub fn build(self) -> sp_io::TestExternalities
-	where
-		Runtime:
-			pallet_collator_selection::Config + pallet_balances::Config + pallet_session::Config,
-		ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
-	{
+	pub fn build(self) -> sp_io::TestExternalities {
 		let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 
 		pallet_xcm::GenesisConfig::<Runtime> {
@@ -361,7 +363,7 @@ impl<
 }
 
 impl<
-		Runtime: cumulus_pallet_dmp_queue::Config + cumulus_pallet_parachain_system::Config,
+		Runtime: cumulus_pallet_parachain_system::Config + pallet_xcm::Config,
 		AllPalletsWithoutSystem,
 	> RuntimeHelper<Runtime, AllPalletsWithoutSystem>
 {
@@ -378,7 +380,7 @@ impl<
 
 		// execute xcm as parent origin
 		let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
-		<<Runtime as cumulus_pallet_dmp_queue::Config>::XcmExecutor>::execute_xcm(
+		<<Runtime as pallet_xcm::Config>::XcmExecutor>::execute_xcm(
 			MultiLocation::parent(),
 			xcm,
 			hash,

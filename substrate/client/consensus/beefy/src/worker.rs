@@ -36,7 +36,7 @@ use log::{debug, error, info, log_enabled, trace, warn};
 use sc_client_api::{Backend, FinalityNotification, FinalityNotifications, HeaderBackend};
 use sc_network_gossip::GossipEngine;
 use sc_utils::{mpsc::TracingUnboundedReceiver, notification::NotificationReceiver};
-use sp_api::{BlockId, ProvideRuntimeApi};
+use sp_api::ProvideRuntimeApi;
 use sp_arithmetic::traits::{AtLeast32Bit, Saturating};
 use sp_consensus::SyncOracle;
 use sp_consensus_beefy::{
@@ -46,7 +46,7 @@ use sp_consensus_beefy::{
 	VersionedFinalityProof, VoteMessage, BEEFY_ENGINE_ID,
 };
 use sp_runtime::{
-	generic::OpaqueDigestItemId,
+	generic::{BlockId, OpaqueDigestItemId},
 	traits::{Block, Header, NumberFor, Zero},
 	SaturatedConversion,
 };
@@ -212,7 +212,7 @@ impl<B: Block> VoterOracle<B> {
 			// Accept any vote for a GRANDPA finalized block in a better round.
 			Ok((
 				rounds.session_start().max(self.best_beefy_block),
-				(*self.best_grandpa_block_header.number()).into(),
+				(*self.best_grandpa_block_header.number()),
 			))
 		} else {
 			// Current session has mandatory not done.
@@ -296,6 +296,10 @@ impl<B: Block> PersistedState<B> {
 
 	pub(crate) fn set_min_block_delta(&mut self, min_block_delta: u32) {
 		self.voting_oracle.min_block_delta = min_block_delta.max(1);
+	}
+
+	pub fn best_beefy(&self) -> NumberFor<B> {
+		self.voting_oracle.best_beefy_block
 	}
 
 	pub(crate) fn set_best_beefy(&mut self, best_beefy: NumberFor<B>) {
@@ -456,6 +460,7 @@ where
 			.filter(|genesis| *genesis == self.persisted_state.pallet_genesis)
 			.ok_or(Error::ConsensusReset)?;
 
+		let mut new_session_added = false;
 		if *header.number() > self.best_grandpa_block() {
 			// update best GRANDPA finalized block we have seen
 			self.persisted_state.set_best_grandpa(header.clone());
@@ -475,7 +480,13 @@ where
 			{
 				if let Some(new_validator_set) = find_authorities_change::<B>(&header) {
 					self.init_session_at(new_validator_set, *header.number());
+					new_session_added = true;
 				}
+			}
+
+			if new_session_added {
+				crate::aux_schema::write_voter_state(&*self.backend, &self.persisted_state)
+					.map_err(|e| Error::Backend(e.to_string()))?;
 			}
 
 			// Update gossip validator votes filter.
@@ -848,15 +859,10 @@ where
 				.fuse(),
 		);
 
+		self.process_new_state();
 		let error = loop {
-			// Act on changed 'state'.
-			self.process_new_state();
-
 			// Mutable reference used to drive the gossip engine.
 			let mut gossip_engine = &mut self.comms.gossip_engine;
-			// Use temp val and report after async section,
-			// to avoid having to Mutex-wrap `gossip_engine`.
-			let mut gossip_report: Option<PeerReport> = None;
 
 			// Wait for, and handle external events.
 			// The branches below only change 'state', actual voting happens afterwards,
@@ -884,10 +890,15 @@ where
 							if let Err(err) = self.triage_incoming_justif(justif) {
 								debug!(target: LOG_TARGET, "🥩 {}", err);
 							}
-							gossip_report = Some(peer_report);
+							self.comms.gossip_engine.report(peer_report.who, peer_report.cost_benefit);
 						},
-						ResponseInfo::PeerReport(peer_report) => gossip_report = Some(peer_report),
-						ResponseInfo::Pending => (),
+						ResponseInfo::PeerReport(peer_report) => {
+							self.comms.gossip_engine.report(peer_report.who, peer_report.cost_benefit);
+							continue;
+						},
+						ResponseInfo::Pending => {
+							continue;
+						},
 					}
 				},
 				justif = block_import_justif.next() => {
@@ -924,12 +935,15 @@ where
 				},
 				// Process peer reports.
 				report = self.comms.gossip_report_stream.next() => {
-					gossip_report = report;
+					if let Some(PeerReport { who, cost_benefit }) = report {
+						self.comms.gossip_engine.report(who, cost_benefit);
+					}
+					continue;
 				},
 			}
-			if let Some(PeerReport { who, cost_benefit }) = gossip_report {
-				self.comms.gossip_engine.report(who, cost_benefit);
-			}
+
+			// Act on changed 'state'.
+			self.process_new_state();
 		};
 
 		// return error _and_ `comms` that can be reused
@@ -1064,13 +1078,12 @@ pub(crate) mod tests {
 	use sc_client_api::{Backend as BackendT, HeaderBackend};
 	use sc_network_sync::SyncingService;
 	use sc_network_test::TestNetFactory;
-	use sp_api::HeaderT;
 	use sp_blockchain::Backend as BlockchainBackendT;
 	use sp_consensus_beefy::{
 		generate_equivocation_proof, known_payloads, known_payloads::MMR_ROOT_ID,
 		mmr::MmrRootProvider, Keyring, Payload, SignedCommitment,
 	};
-	use sp_runtime::traits::One;
+	use sp_runtime::traits::{Header as HeaderT, One};
 	use substrate_test_runtime_client::{
 		runtime::{Block, Digest, DigestItem, Header},
 		Backend,
@@ -1083,10 +1096,6 @@ pub(crate) mod tests {
 
 		pub fn active_round(&self) -> Result<&Rounds<B>, Error> {
 			self.voting_oracle.active_rounds()
-		}
-
-		pub fn best_beefy_block(&self) -> NumberFor<B> {
-			self.voting_oracle.best_beefy_block
 		}
 
 		pub fn best_grandpa_number(&self) -> NumberFor<B> {
@@ -1136,12 +1145,16 @@ pub(crate) mod tests {
 		let api = Arc::new(TestApi::with_validator_set(&genesis_validator_set));
 		let network = peer.network_service().clone();
 		let sync = peer.sync_service().clone();
+		let notification_service = peer
+			.take_notification_service(&crate::tests::beefy_gossip_proto_name())
+			.unwrap();
 		let known_peers = Arc::new(Mutex::new(KnownPeers::new()));
 		let (gossip_validator, gossip_report_stream) = GossipValidator::new(known_peers.clone());
 		let gossip_validator = Arc::new(gossip_validator);
 		let gossip_engine = GossipEngine::new(
 			network.clone(),
 			sync.clone(),
+			notification_service,
 			"/beefy/1",
 			gossip_validator.clone(),
 			None,
@@ -1498,7 +1511,7 @@ pub(crate) mod tests {
 		};
 
 		// no 'best beefy block' or finality proofs
-		assert_eq!(worker.persisted_state.best_beefy_block(), 0);
+		assert_eq!(worker.persisted_state.best_beefy(), 0);
 		poll_fn(move |cx| {
 			assert_eq!(best_block_stream.poll_next_unpin(cx), Poll::Pending);
 			assert_eq!(finality_proof.poll_next_unpin(cx), Poll::Pending);
@@ -1521,7 +1534,7 @@ pub(crate) mod tests {
 		// try to finalize block #1
 		worker.finalize(justif.clone()).unwrap();
 		// verify block finalized
-		assert_eq!(worker.persisted_state.best_beefy_block(), 1);
+		assert_eq!(worker.persisted_state.best_beefy(), 1);
 		poll_fn(move |cx| {
 			// expect Some(hash-of-block-1)
 			match best_block_stream.poll_next_unpin(cx) {
@@ -1558,7 +1571,7 @@ pub(crate) mod tests {
 		// new session starting at #2 is in front
 		assert_eq!(worker.active_rounds().unwrap().session_start(), 2);
 		// verify block finalized
-		assert_eq!(worker.persisted_state.best_beefy_block(), 2);
+		assert_eq!(worker.persisted_state.best_beefy(), 2);
 		poll_fn(move |cx| {
 			match best_block_stream.poll_next_unpin(cx) {
 				// expect Some(hash-of-block-2)

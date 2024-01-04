@@ -21,7 +21,7 @@
 //! messages on the overseer level.
 
 use polkadot_node_subsystem::*;
-pub use polkadot_node_subsystem::{messages, messages::*, overseer, FromOrchestra};
+pub use polkadot_node_subsystem::{messages::*, overseer, FromOrchestra};
 use std::{future::Future, pin::Pin};
 
 /// Filter incoming and outgoing messages.

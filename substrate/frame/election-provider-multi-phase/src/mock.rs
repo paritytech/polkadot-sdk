@@ -21,7 +21,7 @@ use frame_election_provider_support::{
 	bounds::{DataProviderBounds, ElectionBounds},
 	data_provider, onchain, ElectionDataProvider, NposSolution, SequentialPhragmen,
 };
-pub use frame_support::{assert_noop, assert_ok, pallet_prelude::GetDefault};
+pub use frame_support::derive_impl;
 use frame_support::{
 	parameter_types,
 	traits::{ConstU32, Hooks},
@@ -80,11 +80,7 @@ frame_election_provider_support::generate_solution_type!(
 
 /// All events of this pallet.
 pub(crate) fn multi_phase_events() -> Vec<super::Event<Runtime>> {
-	System::events()
-		.into_iter()
-		.map(|r| r.event)
-		.filter_map(|e| if let RuntimeEvent::MultiPhase(inner) = e { Some(inner) } else { None })
-		.collect::<Vec<_>>()
+	System::read_events_for_pallet::<super::Event<Runtime>>()
 }
 
 /// To from `now` to block `n`.
@@ -113,6 +109,15 @@ pub fn roll_to_with_ocw(n: BlockNumber) {
 		System::set_block_number(i);
 		MultiPhase::on_initialize(i);
 		MultiPhase::offchain_worker(i);
+	}
+}
+
+pub fn roll_to_round(n: u32) {
+	assert!(MultiPhase::round() <= n);
+
+	while MultiPhase::round() != n {
+		roll_to_signed();
+		frame_support::assert_ok!(MultiPhase::elect());
 	}
 }
 
@@ -204,6 +209,7 @@ pub fn witness() -> SolutionOrSnapshotSize {
 		.unwrap_or_default()
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	type SS58Prefix = ();
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -295,7 +301,6 @@ parameter_types! {
 	pub static SignedMaxWeight: Weight = BlockWeights::get().max_block;
 	pub static MinerTxPriority: u64 = 100;
 	pub static BetterSignedThreshold: Perbill = Perbill::zero();
-	pub static BetterUnsignedThreshold: Perbill = Perbill::zero();
 	pub static OffchainRepeat: BlockNumber = 5;
 	pub static MinerMaxWeight: Weight = BlockWeights::get().max_block;
 	pub static MinerMaxLength: u32 = 256;
@@ -393,7 +398,6 @@ impl crate::Config for Runtime {
 	type EstimateCallFee = frame_support::traits::ConstU32<8>;
 	type SignedPhase = SignedPhase;
 	type UnsignedPhase = UnsignedPhase;
-	type BetterUnsignedThreshold = BetterUnsignedThreshold;
 	type BetterSignedThreshold = BetterSignedThreshold;
 	type OffchainRepeat = OffchainRepeat;
 	type MinerTxPriority = MinerTxPriority;
@@ -532,10 +536,7 @@ impl ExtBuilder {
 		<BetterSignedThreshold>::set(p);
 		self
 	}
-	pub fn better_unsigned_threshold(self, p: Perbill) -> Self {
-		<BetterUnsignedThreshold>::set(p);
-		self
-	}
+
 	pub fn phases(self, signed: BlockNumber, unsigned: BlockNumber) -> Self {
 		<SignedPhase>::set(signed);
 		<UnsignedPhase>::set(unsigned);
@@ -637,9 +638,9 @@ impl ExtBuilder {
 
 		#[cfg(feature = "try-runtime")]
 		ext.execute_with(|| {
-			assert_ok!(<MultiPhase as frame_support::traits::Hooks<u64>>::try_state(
-				System::block_number()
-			));
+			frame_support::assert_ok!(
+				<MultiPhase as frame_support::traits::Hooks<u64>>::try_state(System::block_number())
+			);
 		});
 	}
 }

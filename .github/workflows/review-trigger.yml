@@ -1,6 +1,6 @@
 name: Review-Trigger
 
-on: 
+on:
   pull_request_target:
     types:
       - opened
@@ -10,12 +10,18 @@ on:
       - review_request_removed
       - ready_for_review
   pull_request_review:
+  merge_group:
 
 jobs:
   trigger-review-bot:
+    # (It is not a draft) && (it is not a review || it is an approving review)
+    if: ${{ github.event.pull_request.draft != true && (github.event_name != 'pull_request_review' || (github.event.review && github.event.review.state == 'APPROVED')) }}
     runs-on: ubuntu-latest
     name: trigger review bot
     steps:
+      - name: Skip merge queue
+        if: ${{ contains(github.ref, 'gh-readonly-queue') }}
+        run: exit 0
       - name: Get PR number
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
