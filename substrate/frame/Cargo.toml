@@ -9,6 +9,9 @@ repository.workspace = true
 description = "The single package to get you started with building frame pallets and runtimes"
 publish = false
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 # enable `experimental` feature for docs
 features = ["experimental"]
@@ -17,7 +20,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 # external deps
 parity-scale-codec = { version = "3.2.2", default-features = false, features = ["derive"] }
-scale-info = {  version = "2.6.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.6.0", default-features = false, features = ["derive"] }
 
 # primitive deps, used for developing FRAME pallets.
 sp-runtime = { default-features = false, path = "../primitives/runtime" }
@@ -27,8 +30,8 @@ sp-core = { default-features = false, path = "../primitives/core" }
 sp-arithmetic = { default-features = false, path = "../primitives/arithmetic" }
 
 # frame deps, for developing FRAME pallets.
-frame-support = { default-features = false,  path = "support" }
-frame-system = { default-features = false,  path = "system" }
+frame-support = { default-features = false, path = "support" }
+frame-system = { default-features = false, path = "system" }
 
 # primitive types used for developing FRAME runtimes.
 sp-version = { default-features = false, path = "../primitives/version", optional = true }
@@ -52,8 +55,8 @@ log = { version = "0.4.20", default-features = false }
 pallet-examples = { path = "./examples" }
 
 [features]
-default = [ "runtime", "std" ]
-experimental = [ "frame-support/experimental", "frame-system/experimental" ]
+default = ["runtime", "std"]
+experimental = ["frame-support/experimental"]
 runtime = [
 	"frame-executive",
 	"frame-system-rpc-runtime-api",
