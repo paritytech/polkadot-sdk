@@ -47,8 +47,8 @@ pub(crate) trait BeefyFisherman<B: Block>: Send + Sync {
 		vote: VoteMessage<NumberFor<B>, AuthorityId, Signature>,
 	) -> Result<(), Error>;
 
-	/// Check `signed_commitment` for contained block against canonical payload. If an equivocation is detected,
-	/// this should also report it.
+	/// Check `signed_commitment` for contained block against canonical payload. If an equivocation
+	/// is detected, this should also report it.
 	fn check_signed_commitment(
 		&self,
 		signed_commitment: SignedCommitment<NumberFor<B>, Signature>,
@@ -240,6 +240,14 @@ where
 		vote: VoteMessage<NumberFor<B>, AuthorityId, Signature>,
 	) -> Result<(), Error> {
 		let number = vote.commitment.block_number;
+		// if the vote's commitment has not been signed by the purported signer, we ignore it
+		if !sp_consensus_beefy::check_commitment_signature::<_, _, BeefySignatureHasher>(
+			&vote.commitment,
+			&vote.id,
+			&vote.signature,
+		) {
+			return Ok(())
+		};
 		// if the vote is for a block number exceeding our best block number, there shouldn't even
 		// be a payload to sign yet, hence we assume it is an equivocation and report it
 		if number > self.backend.blockchain().info().best_number {
@@ -302,7 +310,20 @@ where
 				.iter()
 				.cloned()
 				.zip(signatures.into_iter())
-				.filter_map(|(id, signature)| signature.map(|sig| (id, sig)))
+				.filter_map(|(id, signature)| match signature {
+					Some(sig) =>
+						if sp_consensus_beefy::check_commitment_signature::<
+							_,
+							_,
+							BeefySignatureHasher,
+						>(&commitment, &id, &sig)
+						{
+							Some((id, sig))
+						} else {
+							None
+						},
+					None => None,
+				})
 				.collect();
 			if signatories.len() > 0 {
 				let proof = ForkEquivocationProof {
