@@ -35,9 +35,8 @@ use jsonrpsee::{
 };
 use log::warn;
 
-use sc_consensus_beefy::{
-	communication::notification::{BeefyBestBlockStream, BeefyVersionedFinalityProofStream},
-	justification::BeefyVersionedFinalityProof,
+use sc_consensus_beefy::communication::notification::{
+	BeefyBestBlockStream, BeefyVersionedFinalityProofStream,
 };
 
 mod notification;
@@ -84,7 +83,7 @@ impl From<Error> for JsonRpseeError {
 
 // Provides RPC methods for interacting with BEEFY.
 #[rpc(client, server)]
-pub trait BeefyApi<Notification, Block: BlockT> {
+pub trait BeefyApi<Notification, Hash> {
 	/// Returns the block most recently finalized by BEEFY, alongside its justification.
 	#[subscription(
 		name = "beefy_subscribeJustifications" => "beefy_justifications",
@@ -99,15 +98,7 @@ pub trait BeefyApi<Notification, Block: BlockT> {
 	/// in the network or if the client is still initializing or syncing with the network.
 	/// In such case an error would be returned.
 	#[method(name = "beefy_getFinalizedHead")]
-	async fn latest_finalized(&self) -> RpcResult<Block::Hash>;
-
-	/// Checks a versioned finality proof for equivocations against canonical chain.
-	/// If an equivocation is detected, the call also reports the equivocation to the runtime.
-	#[method(name = "beefy_check_versioned_finality_proof")]
-	async fn check_versioned_finality_proof(
-		&self,
-		versioned_finality_proof: BeefyVersionedFinalityProof<Block>,
-	) -> RpcResult<bool>;
+	async fn latest_finalized(&self) -> RpcResult<Hash>;
 }
 
 /// Implements the BeefyApi RPC trait for interacting with BEEFY.
@@ -142,7 +133,8 @@ where
 }
 
 #[async_trait]
-impl<Block> BeefyApiServer<notification::EncodedVersionedFinalityProof, Block> for Beefy<Block>
+impl<Block> BeefyApiServer<notification::EncodedVersionedFinalityProof, Block::Hash>
+	for Beefy<Block>
 where
 	Block: BlockT,
 {
@@ -167,13 +159,6 @@ where
 			.cloned()
 			.ok_or(Error::EndpointNotReady)
 			.map_err(Into::into)
-	}
-
-	async fn check_versioned_finality_proof(
-		&self,
-		versioned_finality_proof: BeefyVersionedFinalityProof<Block>,
-	) -> RpcResult<bool> {
-		return Ok(false)
 	}
 }
 
