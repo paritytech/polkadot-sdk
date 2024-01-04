@@ -378,6 +378,13 @@
 <a href="#378" id="378">378</a>
 <a href="#379" id="379">379</a>
 <a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -552,12 +559,14 @@
 		inherent_data: (ParachainInherentData, InherentData),
 		proposal_duration: Duration,
 		max_pov_size: usize,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(Collation, ParachainBlockData&lt;Block&gt;, Block::Hash), Box&lt;<span class="kw">dyn </span>Error + Send + <span class="lifetime">&#39;static</span>&gt;&gt;
-	{
+	) -&gt; <span class="prelude-ty">Result</span>&lt;
+		<span class="prelude-ty">Option</span>&lt;(Collation, ParachainBlockData&lt;Block&gt;, Block::Hash)&gt;,
+		Box&lt;<span class="kw">dyn </span>Error + Send + <span class="lifetime">&#39;static</span>&gt;,
+	&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>digest = additional_pre_digest.into().unwrap_or_default();
 		digest.push(slot_claim.pre_digest.clone());
 
-		<span class="kw">let </span>proposal = <span class="self">self
+		<span class="kw">let </span>maybe_proposal = <span class="self">self
 			</span>.proposer
 			.propose(
 				<span class="kw-2">&amp;</span>parent_header,
@@ -569,6 +578,11 @@
 			)
 			.<span class="kw">await
 			</span>.map_err(|e| Box::new(e) <span class="kw">as </span>Box&lt;<span class="kw">dyn </span>Error + Send&gt;)<span class="question-mark">?</span>;
+
+		<span class="kw">let </span>proposal = <span class="kw">match </span>maybe_proposal {
+			<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
+			<span class="prelude-val">Some</span>(p) =&gt; p,
+		};
 
 		<span class="kw">let </span>sealed_importable = seal::&lt;<span class="kw">_</span>, P&gt;(
 			proposal.block,
@@ -614,7 +628,7 @@
 				);
 			}
 
-			<span class="prelude-val">Ok</span>((collation, block_data, post_hash))
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>((collation, block_data, post_hash)))
 		} <span class="kw">else </span>{
 			<span class="prelude-val">Err</span>(Box::&lt;<span class="kw">dyn </span>Error + Send + Sync&gt;::from(<span class="string">&quot;Unable to produce collation&quot;</span>)
 				<span class="kw">as </span>Box&lt;<span class="kw">dyn </span>Error + Send&gt;)

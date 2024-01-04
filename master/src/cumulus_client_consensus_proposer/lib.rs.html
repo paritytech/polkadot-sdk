@@ -130,6 +130,7 @@
 <a href="#130" id="130">130</a>
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -208,7 +209,7 @@
 		inherent_digests: Digest,
 		max_duration: Duration,
 		block_size_limit: <span class="prelude-ty">Option</span>&lt;usize&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Proposal&lt;Block, StorageProof&gt;, Error&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Proposal&lt;Block, StorageProof&gt;&gt;, Error&gt;;
 }
 
 <span class="doccomment">/// A simple wrapper around a Substrate proposer for creating collations.
@@ -241,7 +242,7 @@
 		inherent_digests: Digest,
 		max_duration: Duration,
 		block_size_limit: <span class="prelude-ty">Option</span>&lt;usize&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Proposal&lt;B, StorageProof&gt;, Error&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Proposal&lt;B, StorageProof&gt;&gt;, Error&gt; {
 		<span class="kw">let </span>proposer = <span class="self">self
 			</span>.inner
 			.init(parent_header)
@@ -259,7 +260,8 @@
 		proposer
 			.propose(inherent_data, inherent_digests, max_duration, block_size_limit)
 			.<span class="kw">await
-			</span>.map_err(|e| Error::proposing(anyhow::Error::new(e)).into())
+			</span>.map(<span class="prelude-val">Some</span>)
+			.map_err(|e| Error::proposing(anyhow::Error::new(e)).into())
 	}
 }
 </code></pre></div></section></main></body></html>

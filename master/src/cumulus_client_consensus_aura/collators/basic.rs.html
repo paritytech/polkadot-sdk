@@ -225,6 +225,12 @@
 <a href="#225" id="225">225</a>
 <a href="#226" id="226">226</a>
 <a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -430,7 +436,7 @@
 					.<span class="kw">await
 			</span>);
 
-			<span class="kw">let </span>(collation, <span class="kw">_</span>, post_hash) = <span class="macro">try_request!</span>(
+			<span class="kw">let </span>maybe_collation = <span class="macro">try_request!</span>(
 				collator
 					.collate(
 						<span class="kw-2">&amp;</span>parent_header,
@@ -447,8 +453,14 @@
 					.<span class="kw">await
 			</span>);
 
-			<span class="kw">let </span>result_sender = <span class="prelude-val">Some</span>(collator.collator_service().announce_with_barrier(post_hash));
-			request.complete(<span class="prelude-val">Some</span>(CollationResult { collation, result_sender }));
+			<span class="kw">if let </span><span class="prelude-val">Some</span>((collation, <span class="kw">_</span>, post_hash)) = maybe_collation {
+				<span class="kw">let </span>result_sender =
+					<span class="prelude-val">Some</span>(collator.collator_service().announce_with_barrier(post_hash));
+				request.complete(<span class="prelude-val">Some</span>(CollationResult { collation, result_sender }));
+			} <span class="kw">else </span>{
+				request.complete(<span class="prelude-val">None</span>);
+				<span class="macro">tracing::debug!</span>(target: <span class="kw">crate</span>::LOG_TARGET, <span class="string">&quot;No block proposal&quot;</span>);
+			}
 		}
 	}
 }

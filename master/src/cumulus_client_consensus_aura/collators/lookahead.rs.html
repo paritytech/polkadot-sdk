@@ -495,6 +495,10 @@
 <a href="#495" id="495">495</a>
 <a href="#496" id="496">496</a>
 <a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -856,7 +860,7 @@
 					)
 					.<span class="kw">await
 				</span>{
-					<span class="prelude-val">Ok</span>((collation, block_data, new_block_hash)) =&gt; {
+					<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>((collation, block_data, new_block_hash))) =&gt; {
 						<span class="comment">// Here we are assuming that the import logic protects against equivocations
 						// and provides sybil-resistance, as it should.
 						</span>collator.collator_service().announce_block(new_block_hash, <span class="prelude-val">None</span>);
@@ -884,6 +888,10 @@
 						parent_hash = new_block_hash;
 						parent_header = block_data.into_header();
 					},
+					<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
+						<span class="macro">tracing::debug!</span>(target: <span class="kw">crate</span>::LOG_TARGET, <span class="string">&quot;No block proposal&quot;</span>);
+						<span class="kw">break
+					</span>},
 					<span class="prelude-val">Err</span>(err) =&gt; {
 						<span class="macro">tracing::error!</span>(target: <span class="kw">crate</span>::LOG_TARGET, <span class="question-mark">?</span>err);
 						<span class="kw">break
