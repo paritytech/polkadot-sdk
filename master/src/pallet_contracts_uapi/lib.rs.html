@@ -136,7 +136,6 @@
 <a href="#136" id="136">136</a>
 <a href="#137" id="137">137</a>
 <a href="#138" id="138">138</a>
-<a href="#139" id="139">139</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 //
 // Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
@@ -174,7 +173,7 @@
         )*
     ) =&gt; {
         <span class="doccomment">/// Every error that can be returned to a contract when it calls any of the host functions.
-        </span><span class="attr">#[derive(Debug)]
+        </span><span class="attr">#[derive(Debug, PartialEq, Eq)]
         #[repr(u32)]
         </span><span class="kw">pub enum </span>ReturnErrorCode {
             <span class="doccomment">/// API call successful.
@@ -188,8 +187,7 @@
         }
 
         <span class="kw">impl </span>From&lt;ReturnCode&gt; <span class="kw">for </span><span class="prelude-ty">Result </span>{
-            <span class="attr">#[inline]
-            </span><span class="kw">fn </span>from(return_code: ReturnCode) -&gt; <span class="self">Self </span>{
+            <span class="kw">fn </span>from(return_code: ReturnCode) -&gt; <span class="self">Self </span>{
                 <span class="kw">match </span>return_code.<span class="number">0 </span>{
                     <span class="number">0 </span>=&gt; <span class="prelude-val">Ok</span>(()),
                     $(
