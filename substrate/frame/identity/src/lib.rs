@@ -84,9 +84,9 @@ use frame_support::{
 	ensure,
 	pallet_prelude::{DispatchError, DispatchResult},
 	traits::{
-		fungible::{Inspect, MutateHold},
+		fungible::{Credit, Inspect, MutateHold},
 		tokens::Precision,
-		BalanceStatus, Get, OnUnbalanced,
+		Get, Imbalance, OnUnbalanced,
 	},
 };
 use sp_runtime::traits::{AppendZerosInput, Hash, Saturating, StaticLookup, Zero};
@@ -100,14 +100,19 @@ pub use types::{
 
 type BalanceOf<T> =
 	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
-type NegativeImbalanceOf<T> =
-	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
+type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	use frame_support::{
+		pallet_prelude::*,
+		traits::{
+			fungible::BalancedHold,
+			tokens::{Fortitude, Restriction},
+		},
+	};
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::config]
@@ -116,7 +121,9 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The currency trait.
-		type Currency: MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+		type Currency: MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ BalancedHold<Self::AccountId>
+			+ Imbalance<BalanceOf<Self>>;
 
 		/// The amount held on deposit for a registered identity
 		#[pallet::constant]
@@ -145,7 +152,7 @@ pub mod pallet {
 		type MaxRegistrars: Get<u32>;
 
 		/// What to do with slashed funds.
-		type Slashed: OnUnbalanced<NegativeImbalanceOf<Self>>;
+		type Slashed: OnUnbalanced<CreditOf<Self>>;
 
 		/// The origin which may forcibly set or remove a name. Root can always do this.
 		type ForceOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -748,8 +755,16 @@ pub mod pallet {
 			match id.judgements.binary_search_by_key(&reg_index, |x| x.0) {
 				Ok(position) => {
 					if let Judgement::FeePaid(fee) = id.judgements[position].1 {
-						T::Currency::transfer_on_hold(&target, &sender, fee, BalanceStatus::Free)
-							.map_err(|_| Error::<T>::JudgementPaymentFailed)?;
+						T::Currency::transfer_on_hold(
+							&HoldReason::RegistrarFee.into(),
+							&target,
+							&sender,
+							fee,
+							Precision::BestEffort,
+							Restriction::Free,
+							Fortitude::Polite,
+						)
+						.map_err(|_| Error::<T>::JudgementPaymentFailed)?;
 					}
 					id.judgements[position] = item
 				},
@@ -799,7 +814,9 @@ pub mod pallet {
 				<SuperOf<T>>::remove(sub);
 			}
 			// Slash their deposit from them.
-			T::Slashed::on_unbalanced(T::Currency::slash_reserved(&target, deposit).0);
+			T::Slashed::on_unbalanced(
+				T::Currency::slash(&HoldReason::IdentityDeposit.into(), &target, deposit).0,
+			);
 
 			Self::deposit_event(Event::IdentityKilled { who: target, deposit });
 
@@ -917,8 +934,15 @@ pub mod pallet {
 				sub_ids.retain(|x| x != &sender);
 				let deposit = T::SubAccountDeposit::get().min(*subs_deposit);
 				*subs_deposit -= deposit;
-				let _ =
-					T::Currency::repatriate_reserved(&sup, &sender, deposit, BalanceStatus::Free);
+				let _ = T::Currency::transfer_on_hold(
+					&HoldReason::IdentityDeposit.into(),
+					&sup,
+					&sender,
+					deposit,
+					Precision::BestEffort,
+					Restriction::Free,
+					Fortitude::Polite,
+				);
 				Self::deposit_event(Event::SubIdentityRevoked {
 					sub: sender,
 					main: sup.clone(),
