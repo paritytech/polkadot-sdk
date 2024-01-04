@@ -77,7 +77,6 @@ pub use benchmarking::ExtConfig;
 
 mod payment;
 use frame_support::{pallet_prelude::Weight, traits::tokens::AssetId};
-use pallet_asset_conversion::MultiAssetIdConverter;
 pub use payment::*;
 pub use weights::WeightInfo;
 
