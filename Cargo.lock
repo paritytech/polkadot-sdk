@@ -17365,7 +17365,6 @@ dependencies = [
 name = "sp-consensus-sassafras"
 version = "0.3.4-dev"
 dependencies = [
- "array-bytes 6.1.0",
  "parity-scale-codec",
  "scale-info",
  "serde",

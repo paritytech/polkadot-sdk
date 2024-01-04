@@ -193,29 +193,6 @@ impl ByteArray for Signature {
 	const LEN: usize = SIGNATURE_SERIALIZED_SIZE;
 }
 
-#[cfg(feature = "serde")]
-impl Serialize for Signature {
-	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-	where
-		S: Serializer,
-	{
-		serializer.serialize_str(&array_bytes::bytes2hex("", self))
-	}
-}
-
-#[cfg(feature = "serde")]
-impl<'de> Deserialize<'de> for Signature {
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-	where
-		D: Deserializer<'de>,
-	{
-		let signature_hex = array_bytes::hex2bytes(&String::deserialize(deserializer)?)
-			.map_err(|e| de::Error::custom(format!("{:?}", e)))?;
-		Signature::try_from(signature_hex.as_ref())
-			.map_err(|e| de::Error::custom(format!("{:?}", e)))
-	}
-}
-
 impl CryptoType for Signature {
 	#[cfg(feature = "full_crypto")]
 	type Pair = Pair;
