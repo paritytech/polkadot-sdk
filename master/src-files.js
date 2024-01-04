@@ -107,7 +107,7 @@ var srcIndex = JSON.parse('{\
 "generate_bags":["",[],["lib.rs"]],\
 "glutton_westend_runtime":["",[["weights",[],["cumulus_pallet_parachain_system.rs","mod.rs","pallet_glutton.rs","pallet_message_queue.rs","pallet_timestamp.rs"]]],["lib.rs","xcm_config.rs"]],\
 "kitchensink_runtime":["",[],["assets_api.rs","constants.rs","impls.rs","lib.rs","voter_bags.rs"]],\
-"malus":["",[["variants",[],["back_garbage_candidate.rs","common.rs","dispute_finalized_candidates.rs","dispute_valid_candidates.rs","mod.rs","suggest_garbage_candidate.rs"]]],["interceptor.rs","malus.rs","shared.rs"]],\
+"malus":["",[["variants",[],["back_garbage_candidate.rs","common.rs","dispute_finalized_candidates.rs","dispute_valid_candidates.rs","mod.rs","suggest_garbage_candidate.rs","support_disabled.rs"]]],["interceptor.rs","malus.rs","shared.rs"]],\
 "minimal_node":["",[],["chain_spec.rs","cli.rs","lib.rs","rpc.rs","service.rs"]],\
 "minimal_runtime":["",[],["lib.rs"]],\
 "mmr_gadget":["",[],["aux_schema.rs","lib.rs","offchain_mmr.rs"]],\
