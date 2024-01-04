@@ -298,6 +298,11 @@ pub mod pallet {
 				let rank_index = Self::rank_to_index(rank).ok_or(Error::<T, I>::InvalidRank)?;
 				params.demotion_period[rank_index]
 			};
+
+			if demotion_period.is_zero() {
+				return Err(Error::<T, I>::NothingDoing.into())
+			}
+
 			let demotion_block = member.last_proof.saturating_add(demotion_period);
 
 			// Ensure enough time has passed.
