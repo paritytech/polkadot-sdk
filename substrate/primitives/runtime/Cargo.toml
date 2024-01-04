@@ -25,7 +25,7 @@ log = { version = "0.4.17", default-features = false }
 paste = "1.0"
 rand = { version = "0.8.5", optional = true }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.193", default-features = false, features = ["alloc", "derive"], optional = true }
+serde = { version = "1.0.194", default-features = false, features = ["alloc", "derive"], optional = true }
 sp-application-crypto = { path = "../application-crypto", default-features = false }
 sp-arithmetic = { path = "../arithmetic", default-features = false }
 sp-core = { path = "../core", default-features = false }
@@ -38,7 +38,7 @@ simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", rev
 
 [dev-dependencies]
 rand = "0.8.5"
-serde_json = "1.0.108"
+serde_json = "1.0.110"
 zstd = { version = "0.12.4", default-features = false }
 sp-api = { path = "../api" }
 sp-state-machine = { path = "../state-machine" }
