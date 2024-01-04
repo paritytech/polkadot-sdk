@@ -86,7 +86,7 @@ use frame_support::{
 	traits::{
 		fungible::{Credit, Inspect, MutateHold},
 		tokens::Precision,
-		Get, Imbalance, OnUnbalanced,
+		Get, OnUnbalanced,
 	},
 };
 use sp_runtime::traits::{AppendZerosInput, Hash, Saturating, StaticLookup, Zero};
@@ -122,8 +122,7 @@ pub mod pallet {
 
 		/// The currency trait.
 		type Currency: MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
-			+ BalancedHold<Self::AccountId>
-			+ Imbalance<BalanceOf<Self>>;
+			+ BalancedHold<Self::AccountId>;
 
 		/// The amount held on deposit for a registered identity
 		#[pallet::constant]
