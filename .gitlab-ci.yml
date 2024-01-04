@@ -230,7 +230,7 @@ include:
 
 codecov:
   stage: test
-  timeout: 2h
+  timeout: 3h
   extends:
     - .docker-env
     - .common-refs
