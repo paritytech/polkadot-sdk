@@ -79,6 +79,7 @@ pub fn config_endowed(extra_endowed: Vec<AccountId>) -> RuntimeGenesisConfig {
 			..Default::default()
 		},
 		grandpa: GrandpaConfig { authorities: vec![], _config: Default::default() },
+		beefy: Default::default(),
 		im_online: Default::default(),
 		authority_discovery: Default::default(),
 		democracy: Default::default(),

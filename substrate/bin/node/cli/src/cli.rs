@@ -41,6 +41,12 @@ pub struct Cli {
 	#[arg(long)]
 	pub no_hardware_benchmarks: bool,
 
+	/// Disable the BEEFY gadget.
+	///
+	/// Currently enabled by default.
+	#[arg(long)]
+	pub no_beefy: bool,
+
 	#[allow(missing_docs)]
 	#[clap(flatten)]
 	pub storage_monitor: sc_storage_monitor::StorageMonitorParams,
