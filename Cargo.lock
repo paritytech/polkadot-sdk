@@ -9951,7 +9951,6 @@ dependencies = [
 name = "pallet-im-online"
 version = "4.0.0-dev"
 dependencies = [
- "array-bytes 6.1.0",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -12826,7 +12825,6 @@ dependencies = [
 name = "polkadot-primitives"
 version = "1.0.0"
 dependencies = [
- "array-bytes 6.1.0",
  "bitvec",
  "hex-literal",
  "parity-scale-codec",
@@ -17155,7 +17153,6 @@ dependencies = [
 name = "sp-application-crypto"
 version = "23.0.0"
 dependencies = [
- "array-bytes 6.1.0",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -17225,7 +17222,6 @@ dependencies = [
 name = "sp-authority-discovery"
 version = "4.0.0-dev"
 dependencies = [
- "array-bytes 6.1.0",
  "parity-scale-codec",
  "scale-info",
  "sp-api",
@@ -17280,7 +17276,6 @@ dependencies = [
 name = "sp-consensus-aura"
 version = "0.10.0-dev"
 dependencies = [
- "array-bytes 6.1.0",
  "async-trait",
  "parity-scale-codec",
  "scale-info",
@@ -17297,7 +17292,6 @@ dependencies = [
 name = "sp-consensus-babe"
 version = "0.10.0-dev"
 dependencies = [
- "array-bytes 6.1.0",
  "async-trait",
  "parity-scale-codec",
  "scale-info",
@@ -17336,7 +17330,6 @@ dependencies = [
 name = "sp-consensus-grandpa"
 version = "4.0.0-dev"
 dependencies = [
- "array-bytes 6.1.0",
  "finality-grandpa",
  "log",
  "parity-scale-codec",
@@ -17649,7 +17642,6 @@ dependencies = [
 name = "sp-mixnet"
 version = "0.1.0-dev"
 dependencies = [
- "array-bytes 6.1.0",
  "parity-scale-codec",
  "scale-info",
  "sp-api",
@@ -17917,7 +17909,6 @@ name = "sp-statement-store"
 version = "4.0.0-dev"
 dependencies = [
  "aes-gcm 0.10.3",
- "array-bytes 6.1.0",
  "curve25519-dalek 4.0.0",
  "ed25519-dalek",
  "hkdf",
