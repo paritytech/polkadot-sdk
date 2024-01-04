@@ -113,7 +113,7 @@ fn send_response(
 	worker_pid: u32,
 	result: PrepareWorkerResult,
 ) -> io::Result<()> {
-    if let Err(ref err) = result {
+	if let Err(ref err) = result {
 		gum::warn!(
 			target: LOG_TARGET,
 			%worker_pid,
