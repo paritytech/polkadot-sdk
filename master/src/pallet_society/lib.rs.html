@@ -3468,8 +3468,8 @@
 		<span class="kw">let </span>weight_root = rank + <span class="number">1</span>;
 		<span class="kw">let </span>weight = weight_root * weight_root;
 		<span class="kw">match </span>approve {
-			<span class="bool-val">true </span>=&gt; tally.approvals.saturating_accrue(<span class="number">1</span>),
-			<span class="bool-val">false </span>=&gt; tally.rejections.saturating_accrue(<span class="number">1</span>),
+			<span class="bool-val">true </span>=&gt; tally.approvals.saturating_accrue(weight),
+			<span class="bool-val">false </span>=&gt; tally.rejections.saturating_accrue(weight),
 		}
 		Vote { approve, weight }
 	}
