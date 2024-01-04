@@ -48,6 +48,7 @@ tempfile = "3.2.0"
 tokio = "1.24.2"
 substrate-rpc-client = { path = "../substrate/utils/frame/rpc/client/" }
 polkadot-core-primitives = { path = "core-primitives" }
+zip = { version = "0.6.6", default-features = false, features = ["deflate"] }
 
 [build-dependencies]
 substrate-build-script-utils = { path = "../substrate/utils/build-script-utils" }

@@ -35,26 +35,11 @@ async fn purge_chain_rocksdb_works() {
 	run_with_timeout(Duration::from_secs(10 * 60), async move {
 		let tmpdir = tempdir().expect("could not create temp dir");
 
-		let mut cmd = Command::new(cargo_bin("polkadot"))
-			.stdout(process::Stdio::piped())
-			.stderr(process::Stdio::piped())
-			.args(["--dev", "-d"])
-			.arg(tmpdir.path())
-			.arg("--port")
-			.arg("33034")
-			.arg("--no-hardware-benchmarks")
-			.spawn()
-			.unwrap();
+		// Creating new RocksDB databases is not supported anymore, so let's
+		// just use a preexisting snapshot of a minimal database.
+		let blob = std::io::Cursor::new(include_bytes!("rocksdb_test_database.zip"));
+		zip::read::ZipArchive::new(blob).unwrap().extract(&tmpdir).unwrap();
 
-		let (ws_url, _) = common::find_ws_url_from_output(cmd.stderr.take().unwrap());
-
-		// Let it produce 1 block.
-		common::wait_n_finalized_blocks(1, &ws_url).await;
-
-		// Send SIGINT to node.
-		kill(Pid::from_raw(cmd.id().try_into().unwrap()), SIGINT).unwrap();
-		// Wait for the node to handle it and exit.
-		assert!(cmd.wait().unwrap().success());
 		assert!(tmpdir.path().join("chains/rococo_dev").exists());
 		assert!(tmpdir.path().join("chains/rococo_dev/db/full").exists());
 

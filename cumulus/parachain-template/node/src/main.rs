@@ -8,6 +8,9 @@ mod command;
 mod rpc;
 mod service;
 
-fn main() -> sc_cli::Result<()> {
-	command::run()
+fn main() {
+	if let Err(error) = command::run() {
+		eprintln!("Error: {error}");
+		std::process::exit(1);
+	}
 }
