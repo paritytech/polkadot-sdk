@@ -65,7 +65,7 @@ impl<T: Config> TransactionExtensionBase for CheckNonce<T> {
 	type Implicit = ();
 	fn weight(&self) -> sp_weights::Weight {
 		use super::WeightInfo;
-		T::SystemExtensionsWeightInfo::check_nonce()
+		T::ExtensionsWeightInfo::check_nonce()
 	}
 }
 impl<T: Config, Context> TransactionExtension<T::RuntimeCall, Context> for CheckNonce<T>

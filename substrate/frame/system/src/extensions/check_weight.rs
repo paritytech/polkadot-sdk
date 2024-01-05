@@ -214,7 +214,7 @@ impl<T: Config + Send + Sync> TransactionExtensionBase for CheckWeight<T> {
 
 	fn weight(&self) -> Weight {
 		use super::WeightInfo;
-		T::SystemExtensionsWeightInfo::check_weight()
+		T::ExtensionsWeightInfo::check_weight()
 	}
 }
 impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Context>

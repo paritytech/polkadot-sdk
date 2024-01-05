@@ -61,7 +61,7 @@ impl<T: Config + Send + Sync> TransactionExtensionBase for CheckGenesis<T> {
 	}
 	fn weight(&self) -> sp_weights::Weight {
 		use super::WeightInfo;
-		T::SystemExtensionsWeightInfo::check_genesis()
+		T::ExtensionsWeightInfo::check_genesis()
 	}
 }
 impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Context>

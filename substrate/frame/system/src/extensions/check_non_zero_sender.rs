@@ -57,7 +57,7 @@ impl<T: Config + Send + Sync> TransactionExtensionBase for CheckNonZeroSender<T>
 	type Implicit = ();
 	fn weight(&self) -> sp_weights::Weight {
 		use super::WeightInfo;
-		T::SystemExtensionsWeightInfo::check_non_zero_sender()
+		T::ExtensionsWeightInfo::check_non_zero_sender()
 	}
 }
 impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Context>

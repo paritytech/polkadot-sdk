@@ -280,7 +280,7 @@ pub mod pallet {
 			type OnNewAccount = ();
 			type OnKilledAccount = ();
 			type SystemWeightInfo = ();
-			type SystemExtensionsWeightInfo = ();
+			type ExtensionsWeightInfo = ();
 			type SS58Prefix = ();
 			type Version = ();
 			type BlockWeights = ();
@@ -349,7 +349,7 @@ pub mod pallet {
 			type SystemWeightInfo = ();
 
 			/// Weight information for the extensions of this pallet.
-			type SystemExtensionsWeightInfo = ();
+			type ExtensionsWeightInfo = ();
 
 			/// This is used as an identifier of the chain.
 			type SS58Prefix = ();
@@ -556,7 +556,7 @@ pub mod pallet {
 		type SystemWeightInfo: WeightInfo;
 
 		/// Weight information for the transaction extensions of this pallet.
-		type SystemExtensionsWeightInfo: extensions::WeightInfo;
+		type ExtensionsWeightInfo: extensions::WeightInfo;
 
 		/// The designated SS58 prefix of this chain.
 		///
