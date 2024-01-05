@@ -577,7 +577,7 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 	///
 	/// The weight of reading a fixed value is included in the overall weight of any
 	/// contract callable function.
-	pub fn read_sandbox_memory_as<D: Decode>(
+	pub fn read_sandbox_memory_as<D: Decode + MaxEncodedLen>(
 		&self,
 		memory: &[u8],
 		ptr: u32,
