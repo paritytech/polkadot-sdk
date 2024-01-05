@@ -743,6 +743,7 @@ mod tests {
 		type QueueFootprinter = ();
 		type NextSessionRotation = crate::mock::TestNextSessionRotation;
 		type OnNewHead = ();
+		type AssignCoretime = ();
 	}
 
 	impl parachains_shared::Config for Test {}

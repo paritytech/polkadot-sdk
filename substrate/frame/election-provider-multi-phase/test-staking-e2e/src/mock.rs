@@ -190,7 +190,6 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type SignedPhase = SignedPhase;
 	type UnsignedPhase = UnsignedPhase;
 	type BetterSignedThreshold = ();
-	type BetterUnsignedThreshold = ();
 	type OffchainRepeat = OffchainRepeat;
 	type MinerTxPriority = TransactionPriority;
 	type MinerConfig = Self;

@@ -17,7 +17,7 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 hex-literal = { version = "0.4.1" }
 log = { version = "0.4.20", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.193", optional = true, features = ["derive"] }
+serde = { version = "1.0.194", optional = true, features = ["derive"] }
 smallvec = "1.11.0"
 
 # Substrate
@@ -95,6 +95,7 @@ pallet-bridge-parachains = { path = "../../../../../bridges/modules/parachains",
 pallet-bridge-relayers = { path = "../../../../../bridges/modules/relayers", default-features = false }
 pallet-xcm-bridge-hub = { path = "../../../../../bridges/modules/xcm-bridge-hub", default-features = false }
 bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common", default-features = false }
+bridge-hub-common = { path = "../../bridge-hubs/common", default-features = false }
 
 [dev-dependencies]
 static_assertions = "1.1"
@@ -117,6 +118,7 @@ std = [
 	"bp-rococo/std",
 	"bp-runtime/std",
 	"bp-westend/std",
+	"bridge-hub-common/std",
 	"bridge-runtime-common/std",
 	"codec/std",
 	"cumulus-pallet-aura-ext/std",
@@ -181,6 +183,7 @@ std = [
 ]
 
 runtime-benchmarks = [
+	"bridge-hub-common/runtime-benchmarks",
 	"bridge-runtime-common/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-session-benchmarking/runtime-benchmarks",

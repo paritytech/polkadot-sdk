@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive", "max-encoded-len"] }
 scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
 log = { version = "0.4.17", default-features = false }
-serde = { version = "1.0.193", optional = true, default-features = false, features = ["alloc", "derive"] }
+serde = { version = "1.0.194", optional = true, default-features = false, features = ["alloc", "derive"] }
 bounded-collections = { version = "0.1.8", default-features = false }
 primitive-types = { version = "0.12.0", default-features = false, features = ["codec", "scale-info"] }
 impl-serde = { version = "0.4.0", default-features = false, optional = true }
@@ -50,8 +50,8 @@ array-bytes = { version = "6.1", optional = true }
 ed25519-zebra = { version = "3.1.0", default-features = false, optional = true }
 blake2 = { version = "0.10.4", default-features = false, optional = true }
 libsecp256k1 = { version = "0.7", default-features = false, features = ["static-context"], optional = true }
-schnorrkel = { version = "0.9.1", features = ["preaudit_deprecated", "u64_backend"], default-features = false }
-merlin = { version = "2.0", default-features = false }
+schnorrkel = { version = "0.11.4", features = ["preaudit_deprecated"], default-features = false }
+merlin = { version = "3.0", default-features = false }
 secp256k1 = { version = "0.28.0", default-features = false, features = ["alloc", "recovery"], optional = true }
 sp-core-hashing = { path = "hashing", default-features = false, optional = true }
 sp-runtime-interface = { path = "../runtime-interface", default-features = false }
@@ -63,7 +63,7 @@ bandersnatch_vrfs = { git = "https://github.com/w3f/ring-vrf", rev = "e9782f9", 
 
 [dev-dependencies]
 criterion = "0.4.0"
-serde_json = "1.0.108"
+serde_json = "1.0.110"
 lazy_static = "1.4.0"
 regex = "1.6.0"
 sp-core-hashing-proc-macro = { path = "hashing/proc-macro" }

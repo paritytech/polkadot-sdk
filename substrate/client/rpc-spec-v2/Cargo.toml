@@ -42,7 +42,7 @@ log = "0.4.17"
 futures-util = { version = "0.3.19", default-features = false }
 
 [dev-dependencies]
-serde_json = "1.0.108"
+serde_json = "1.0.110"
 tokio = { version = "1.22.0", features = ["macros"] }
 substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
 substrate-test-runtime = { path = "../../test-utils/runtime" }

@@ -6,6 +6,3 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Common utilities for pallet-contracts-fixtures."
-
-[lints]
-workspace = true
