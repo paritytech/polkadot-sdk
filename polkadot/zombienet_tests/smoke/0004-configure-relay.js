@@ -29,8 +29,8 @@ async function run(nodeName, networkInfo, _jsArgs) {
       alice.address,
       0,
       100,
-      genesis_header,
-      validation_code,
+      genesis_header.toHex(),
+      validation_code.toHex(),
     )
   ];
   const sudo_batch = api.tx.sudo.sudo(api.tx.utility.batch(calls));
