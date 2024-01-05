@@ -131,6 +131,7 @@ pub type FungiblesTransactor = FungiblesAdapter<
 	CheckingAccount,
 >;
 
+/// Matcher for converting `ClassId`/`InstanceId` into a uniques asset.
 pub type UniquesConvertedConcreteId =
 	assets_common::UniquesConvertedConcreteId<UniquesPalletLocation>;
 
