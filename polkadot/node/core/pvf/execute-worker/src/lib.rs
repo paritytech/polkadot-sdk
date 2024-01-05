@@ -277,6 +277,15 @@ fn handle_child_process(
 	params: Vec<u8>,
 	execution_timeout: Duration,
 ) -> ! {
+	// Terminate if the parent thread dies. Parent thread == worker process (it is single-threaded).
+	//
+	// RACE: the worker may die before we install the death signal. In practice this is unlikely,
+	// and most of the time the job process should terminate on its own when it completes.
+	#[cfg(target_os = "linux")]
+	nix::sys::prctl::set_pdeathsig(nix::sys::signal::Signal::SIGTERM).unwrap_or_else(|err| {
+		send_child_response(&mut pipe_write, Err(JobError::CouldNotSetPdeathsig(err.to_string())))
+	});
+
 	gum::debug!(
 		target: LOG_TARGET,
 		worker_job_pid = %process::id(),
