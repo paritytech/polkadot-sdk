@@ -382,7 +382,6 @@ pub fn new_full_base(
 	config: Configuration,
 	mixnet_config: Option<sc_mixnet::Config>,
 	disable_hardware_benchmarks: bool,
-	disable_beefy: bool,
 	with_startup_data: impl FnOnce(
 		&sc_consensus_babe::BabeBlockImport<
 			Block,
@@ -399,7 +398,6 @@ pub fn new_full_base(
 		Some(sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging::default());
 	let name = config.network.node_name.clone();
 	let enable_grandpa = !config.disable_grandpa;
-	let enable_beefy = !disable_beefy;
 	let prometheus_registry = config.prometheus_registry().cloned();
 	let enable_offchain_worker = config.offchain_worker.enabled;
 
@@ -443,17 +441,12 @@ pub fn new_full_base(
 			client.clone(),
 			prometheus_registry.clone(),
 		);
-	let beefy_notification_service = match enable_beefy {
-		false => None,
-		true => {
-			let (beefy_notification_config, beefy_notification_service) =
-				beefy::communication::beefy_peers_set_config(beefy_gossip_proto_name.clone());
 
-			net_config.add_notification_protocol(beefy_notification_config);
-			net_config.add_request_response_protocol(beefy_req_resp_cfg);
-			Some(beefy_notification_service)
-		},
-	};
+	let (beefy_notification_config, beefy_notification_service) =
+		beefy::communication::beefy_peers_set_config(beefy_gossip_proto_name.clone());
+
+	net_config.add_notification_protocol(beefy_notification_config);
+	net_config.add_request_response_protocol(beefy_req_resp_cfg);
 
 	let (statement_handler_proto, statement_config) =
 		sc_network_statement::StatementHandlerPrototype::new(
@@ -638,49 +631,44 @@ pub fn new_full_base(
 	let keystore = if role.is_authority() { Some(keystore_container.keystore()) } else { None };
 
 	// beefy is enabled if its notification service exists
-	if let Some(notification_service) = beefy_notification_service {
-		let justifications_protocol_name = beefy_on_demand_justifications_handler.protocol_name();
-		let network_params = beefy::BeefyNetworkParams {
-			network: network.clone(),
-			sync: sync_service.clone(),
-			gossip_protocol_name: beefy_gossip_proto_name,
-			justifications_protocol_name,
-			notification_service,
-			_phantom: core::marker::PhantomData::<Block>,
-		};
-		let payload_provider = beefy_primitives::mmr::MmrRootProvider::new(client.clone());
-		let beefy_params = beefy::BeefyParams {
-			client: client.clone(),
-			backend: backend.clone(),
-			payload_provider,
-			runtime: client.clone(),
-			key_store: keystore.clone(),
-			network_params,
-			min_block_delta: 8,
-			prometheus_registry: prometheus_registry.clone(),
-			links: beefy_links,
-			on_demand_justifications_handler: beefy_on_demand_justifications_handler,
-		};
+	let network_params = beefy::BeefyNetworkParams {
+		network: network.clone(),
+		sync: sync_service.clone(),
+		gossip_protocol_name: beefy_gossip_proto_name,
+		justifications_protocol_name: beefy_on_demand_justifications_handler.protocol_name(),
+		notification_service: beefy_notification_service,
+		_phantom: core::marker::PhantomData::<Block>,
+	};
+	let beefy_params = beefy::BeefyParams {
+		client: client.clone(),
+		backend: backend.clone(),
+		payload_provider: beefy_primitives::mmr::MmrRootProvider::new(client.clone()),
+		runtime: client.clone(),
+		key_store: keystore.clone(),
+		network_params,
+		min_block_delta: 8,
+		prometheus_registry: prometheus_registry.clone(),
+		links: beefy_links,
+		on_demand_justifications_handler: beefy_on_demand_justifications_handler,
+	};
 
-		let gadget = beefy::start_beefy_gadget::<_, _, _, _, _, _, _>(beefy_params);
-
-		// BEEFY is part of consensus, if it fails we'll bring the node down with it to make sure it
-		// is noticed.
-		task_manager
-			.spawn_essential_handle()
-			.spawn_blocking("beefy-gadget", None, gadget);
-		// When offchain indexing is enabled, MMR gadget should also run.
-		if is_offchain_indexing_enabled {
-			task_manager.spawn_essential_handle().spawn_blocking(
-				"mmr-gadget",
-				None,
-				mmr_gadget::MmrGadget::start(
-					client.clone(),
-					backend.clone(),
-					sp_mmr_primitives::INDEXING_PREFIX.to_vec(),
-				),
-			);
-		}
+	let beefy_gadget = beefy::start_beefy_gadget::<_, _, _, _, _, _, _>(beefy_params);
+	// BEEFY is part of consensus, if it fails we'll bring the node down with it to make sure it
+	// is noticed.
+	task_manager
+		.spawn_essential_handle()
+		.spawn_blocking("beefy-gadget", None, beefy_gadget);
+	// When offchain indexing is enabled, MMR gadget should also run.
+	if is_offchain_indexing_enabled {
+		task_manager.spawn_essential_handle().spawn_blocking(
+			"mmr-gadget",
+			None,
+			mmr_gadget::MmrGadget::start(
+				client.clone(),
+				backend.clone(),
+				sp_mmr_primitives::INDEXING_PREFIX.to_vec(),
+			),
+		);
 	}
 
 	let grandpa_config = grandpa::Config {
@@ -782,9 +770,8 @@ pub fn new_full_base(
 pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceError> {
 	let mixnet_config = cli.mixnet_params.config(config.role.is_authority());
 	let database_source = config.database.clone();
-	let task_manager =
-		new_full_base(config, mixnet_config, cli.no_hardware_benchmarks, cli.no_beefy, |_, _| ())
-			.map(|NewFullBase { task_manager, .. }| task_manager)?;
+	let task_manager = new_full_base(config, mixnet_config, cli.no_hardware_benchmarks, |_, _| ())
+		.map(|NewFullBase { task_manager, .. }| task_manager)?;
 
 	sc_storage_monitor::StorageMonitorService::try_spawn(
 		cli.storage_monitor,
@@ -862,7 +849,6 @@ mod tests {
 					new_full_base(
 						config,
 						None,
-						false,
 						false,
 						|block_import: &sc_consensus_babe::BabeBlockImport<Block, _, _>,
 						 babe_link: &sc_consensus_babe::BabeLink<Block>| {
@@ -1038,7 +1024,7 @@ mod tests {
 			crate::chain_spec::tests::integration_test_config_with_two_authorities(),
 			|config| {
 				let NewFullBase { task_manager, client, network, sync, transaction_pool, .. } =
-					new_full_base(config, None, false, false, |_, _| ())?;
+					new_full_base(config, None, false, |_, _| ())?;
 				Ok(sc_service_test::TestNetComponents::new(
 					task_manager,
 					client,
