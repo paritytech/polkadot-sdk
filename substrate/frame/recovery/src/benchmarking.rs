@@ -21,9 +21,8 @@ use super::*;
 
 use crate::Pallet;
 use frame_benchmarking::v1::{account, benchmarks, whitelisted_caller};
-use frame_support::traits::{Currency, Get};
+use frame_support::traits::Get;
 use frame_system::RawOrigin;
-use sp_runtime::traits::Bounded;
 
 const SEED: u32 = 0;
 const DEFAULT_DELAY: u32 = 0;
@@ -34,8 +33,7 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 
 fn get_total_deposit<T: Config>(
 	bounded_friends: &FriendsOf<T>,
-) -> Option<<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance>
-{
+) -> Option<<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance> {
 	let friend_deposit = T::FriendDepositFactor::get()
 		.checked_mul(&bounded_friends.len().saturated_into())
 		.unwrap();
@@ -51,9 +49,9 @@ fn generate_friends<T: Config>(num: u32) -> Vec<<T as frame_system::Config>::Acc
 
 	for friend in 0..friends.len() {
 		// Top up accounts of friends
-		T::Currency::make_free_balance_be(
+		T::Currency::set_balance(
 			&friends.get(friend).unwrap(),
-			BalanceOf::<T>::max_value(),
+			T::Currency::minimum_balance() * 10000u32.into(),
 		);
 	}
 
@@ -67,7 +65,7 @@ fn add_caller_and_generate_friends<T: Config>(
 	// Create friends
 	let mut friends = generate_friends::<T>(num - 1);
 
-	T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+	T::Currency::set_balance(&caller, T::Currency::minimum_balance() * 10000u32.into());
 
 	friends.push(caller);
 
@@ -78,7 +76,7 @@ fn add_caller_and_generate_friends<T: Config>(
 }
 
 fn insert_recovery_account<T: Config>(caller: &T::AccountId, account: &T::AccountId) {
-	T::Currency::make_free_balance_be(&account, BalanceOf::<T>::max_value());
+	T::Currency::set_balance(&account, T::Currency::minimum_balance() * 10000u32.into());
 
 	let n = T::MaxFriends::get();
 
@@ -96,8 +94,8 @@ fn insert_recovery_account<T: Config>(caller: &T::AccountId, account: &T::Accoun
 		threshold: n as u16,
 	};
 
-	// Reserve deposit for recovery
-	T::Currency::reserve(&caller, total_deposit).unwrap();
+	// Hold deposit for recovery
+	T::Currency::hold(&HoldReason::RecoveryProcessDeposit.into(), &caller, total_deposit).unwrap();
 
 	<Recoverable<T>>::insert(&account, recovery_config);
 }
@@ -138,7 +136,7 @@ benchmarks! {
 		let n in 1 .. T::MaxFriends::get();
 
 		let caller: T::AccountId = whitelisted_caller();
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		T::Currency::set_balance(&caller, T::Currency::minimum_balance() * 10000u32.into());
 
 		// Create friends
 		let friends = generate_friends::<T>(n);
@@ -153,7 +151,7 @@ benchmarks! {
 
 	initiate_recovery {
 		let caller: T::AccountId = whitelisted_caller();
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		T::Currency::set_balance(&caller, T::Currency::minimum_balance() * 10000u32.into());
 
 		let lost_account: T::AccountId = account("lost_account", 0, SEED);
 		let lost_account_lookup = T::Lookup::unlookup(lost_account.clone());
@@ -198,8 +196,8 @@ benchmarks! {
 		// Create the recovery config storage item
 		<Recoverable<T>>::insert(&lost_account, recovery_config.clone());
 
-		// Reserve deposit for recovery
-		T::Currency::reserve(&caller, total_deposit).unwrap();
+		// Hold deposit for configuration
+		T::Currency::hold(&HoldReason::ConfigurationDeposit.into(), &caller, total_deposit).unwrap();
 
 		// Create an active recovery status
 		let recovery_status = ActiveRecovery {
@@ -232,7 +230,7 @@ benchmarks! {
 		let lost_account: T::AccountId = account("lost_account", 0, SEED);
 		let lost_account_lookup = T::Lookup::unlookup(lost_account.clone());
 
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		T::Currency::set_balance(&caller, T::Currency::minimum_balance() * 10000u32.into());
 
 		// Create friends
 		let friends = generate_friends::<T>(n);
@@ -251,8 +249,8 @@ benchmarks! {
 		// Create the recovery config storage item
 		<Recoverable<T>>::insert(&lost_account, recovery_config.clone());
 
-		// Reserve deposit for recovery
-		T::Currency::reserve(&caller, total_deposit).unwrap();
+		// Hold deposit for configuration
+		T::Currency::hold(&HoldReason::ConfigurationDeposit.into(), &caller, total_deposit).unwrap();
 
 		// Create an active recovery status
 		let recovery_status = ActiveRecovery {
@@ -282,8 +280,8 @@ benchmarks! {
 
 		let n in 1 .. T::MaxFriends::get();
 
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
-		T::Currency::make_free_balance_be(&rescuer_account, BalanceOf::<T>::max_value());
+		T::Currency::set_balance(&caller, T::Currency::minimum_balance() * 10000u32.into());
+		T::Currency::set_balance(&rescuer_account, T::Currency::minimum_balance() * 10000u32.into());
 
 		// Create friends
 		let friends = generate_friends::<T>(n);
@@ -302,8 +300,8 @@ benchmarks! {
 		// Create the recovery config storage item
 		<Recoverable<T>>::insert(&caller, recovery_config.clone());
 
-		// Reserve deposit for recovery
-		T::Currency::reserve(&caller, total_deposit).unwrap();
+		// Hold deposit for configuration
+		T::Currency::hold(&HoldReason::ConfigurationDeposit.into(), &caller, total_deposit).unwrap();
 
 		// Create an active recovery status
 		let recovery_status = ActiveRecovery {
@@ -331,7 +329,7 @@ benchmarks! {
 
 		let caller: T::AccountId = whitelisted_caller();
 
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		T::Currency::set_balance(&caller, T::Currency::minimum_balance() * 10000u32.into());
 
 		// Create friends
 		let friends = generate_friends::<T>(n);
@@ -350,8 +348,8 @@ benchmarks! {
 		// Create the recovery config storage item
 		<Recoverable<T>>::insert(&caller, recovery_config);
 
-		// Reserve deposit for recovery
-		T::Currency::reserve(&caller, total_deposit).unwrap();
+		// Hold deposit for configuration
+		T::Currency::hold(&HoldReason::ConfigurationDeposit.into(), &caller, total_deposit).unwrap();
 	}: _(
 		RawOrigin::Signed(caller.clone())
 	) verify {
