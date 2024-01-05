@@ -42,7 +42,7 @@ pub trait ExtConfig: Config {
 }
 
 #[benchmarks(where
-	T: Config + Send + Sync + ExtConfig,
+	T: ExtConfig,
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	AssetBalanceOf<T>: Send + Sync,
 	BalanceOf<T>: Send + Sync + From<u64> + IsType<ChargeAssetBalanceOf<T>>,

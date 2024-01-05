@@ -1549,7 +1549,7 @@ pub(super) mod benchmarking {
 
 	benchmarks! {
 		where_clause { where <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
-			T: Config + Send + Sync + ExtConfig,
+			T: Send + Sync + ExtConfig,
 			<<T as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
 		}
 
