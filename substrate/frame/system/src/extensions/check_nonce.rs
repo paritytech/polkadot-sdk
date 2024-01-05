@@ -64,8 +64,7 @@ impl<T: Config> TransactionExtensionBase for CheckNonce<T> {
 	const IDENTIFIER: &'static str = "CheckNonce";
 	type Implicit = ();
 	fn weight(&self) -> sp_weights::Weight {
-		use super::WeightInfo;
-		T::ExtensionsWeightInfo::check_nonce()
+		<T::ExtensionsWeightInfo as super::WeightInfo>::check_nonce()
 	}
 }
 impl<T: Config, Context> TransactionExtension<T::RuntimeCall, Context> for CheckNonce<T>

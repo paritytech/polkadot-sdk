@@ -60,8 +60,7 @@ impl<T: Config + Send + Sync> TransactionExtensionBase for CheckGenesis<T> {
 		Ok(<Pallet<T>>::block_hash(BlockNumberFor::<T>::zero()))
 	}
 	fn weight(&self) -> sp_weights::Weight {
-		use super::WeightInfo;
-		T::ExtensionsWeightInfo::check_genesis()
+		<T::ExtensionsWeightInfo as super::WeightInfo>::check_genesis()
 	}
 }
 impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Context>

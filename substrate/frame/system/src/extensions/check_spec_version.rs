@@ -60,8 +60,7 @@ impl<T: Config + Send + Sync> TransactionExtensionBase for CheckSpecVersion<T> {
 		Ok(<Pallet<T>>::runtime_version().spec_version)
 	}
 	fn weight(&self) -> sp_weights::Weight {
-		use super::WeightInfo;
-		T::ExtensionsWeightInfo::check_spec_version()
+		<T::ExtensionsWeightInfo as super::WeightInfo>::check_spec_version()
 	}
 }
 impl<T: Config + Send + Sync, Context> TransactionExtension<<T as Config>::RuntimeCall, Context>
