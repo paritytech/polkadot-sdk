@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Adapter to use `fungibles:*` implementations as `fungibles::*`.
+//! Adapter to use `fungible:*` implementations as `fungibles::*`.
 
 use super::{imbalance::from_fungibles, *};
 use crate::traits::tokens::{
@@ -24,8 +24,7 @@ use crate::traits::tokens::{
 };
 use sp_runtime::{DispatchError, DispatchResult};
 
-/// Redirects `fungibles` function to the `fungible` equivalent without
-/// the AssetId argument.
+/// Redirects `fungibles` function to the `fungible` equivalent without the AssetId argument.
 macro_rules! redirect {
     ( $(
         fn $fn_name:ident (
@@ -52,7 +51,7 @@ impl<B, H: fungible::HandleImbalanceDrop<B>> fungibles::HandleImbalanceDrop<(), 
 	}
 }
 
-/// A wrapper to use a `fungible` as a `fungibles` with a single asset.
+/// A wrapper to use a `fungible` as a `fungibles` with a single asset represented by `()`.
 pub struct AsFungibles<F, AccountId>(PhantomData<(F, AccountId)>);
 
 impl<AccountId, F: fungible::Inspect<AccountId>> fungibles::Inspect<AccountId>
