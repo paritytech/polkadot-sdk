@@ -552,8 +552,10 @@ pub mod pallet {
 		/// All resources should be cleaned up associated with the given account.
 		type OnKilledAccount: OnKilledAccount<Self::AccountId>;
 
+		/// Weight information for the extrinsics of this pallet.
 		type SystemWeightInfo: WeightInfo;
 
+		/// Weight information for the transaction extensions of this pallet.
 		type SystemExtensionsWeightInfo: extensions::WeightInfo;
 
 		/// The designated SS58 prefix of this chain.
