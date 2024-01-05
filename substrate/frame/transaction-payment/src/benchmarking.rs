@@ -21,8 +21,16 @@ use super::*;
 use crate::Pallet;
 use frame_benchmarking::v2::*;
 use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
-use frame_system::RawOrigin;
+use frame_system::{EventRecord, RawOrigin};
 use sp_runtime::traits::{DispatchTransaction, Dispatchable};
+
+fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+	let events = frame_system::Pallet::<T>::events();
+	let system_event: <T as frame_system::Config>::RuntimeEvent = generic_event.into();
+	// compare to the last event record
+	let EventRecord { event, .. } = &events[events.len() - 1];
+	assert_eq!(event, &system_event);
+}
 
 #[benchmarks(where
 	T: Config,
@@ -39,9 +47,8 @@ mod benchmarks {
 			&caller,
 			<T::OnChargeTransaction as OnChargeTransaction<T>>::minimum_balance() * 1000.into(),
 		);
-		let ext: ChargeTransactionPayment<T> = ChargeTransactionPayment::from(
-			<T::OnChargeTransaction as OnChargeTransaction<T>>::minimum_balance(),
-		);
+		let tip = <T::OnChargeTransaction as OnChargeTransaction<T>>::minimum_balance();
+		let ext: ChargeTransactionPayment<T> = ChargeTransactionPayment::from(tip);
 		let inner = frame_system::Call::remark { remark: vec![] };
 		let call = T::RuntimeCall::from(inner);
 		let info = DispatchInfo {
@@ -57,10 +64,17 @@ mod benchmarks {
 		#[block]
 		{
 			assert!(ext
-				.test_run(RawOrigin::Signed(caller).into(), &call, &info, 10, |_| Ok(post_info))
+				.test_run(RawOrigin::Signed(caller.clone()).into(), &call, &info, 10, |_| Ok(
+					post_info.clone()
+				))
 				.unwrap()
 				.is_ok());
 		}
+
+		let actual_fee = Pallet::<T>::compute_actual_fee(10, &info, &post_info, tip);
+		assert_last_event::<T>(
+			Event::<T>::TransactionFeePaid { who: caller, actual_fee, tip }.into(),
+		);
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Runtime);
