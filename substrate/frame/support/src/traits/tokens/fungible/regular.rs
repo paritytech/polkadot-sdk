@@ -181,9 +181,16 @@ pub trait Unbalanced<AccountId>: Inspect<AccountId> {
 	) -> Result<Self::Balance, DispatchError> {
 		let old_balance = Self::balance(who);
 		let free = Self::reducible_balance(who, preservation, force);
-		if let BestEffort = precision {
-			amount = amount.min(free);
+		match precision {
+			BestEffort => {
+				amount = amount.min(free);
+			},
+			Exact =>
+				if free < amount {
+					return Err(TokenError::FundsUnavailable.into())
+				},
 		}
+
 		let new_balance = old_balance.checked_sub(&amount).ok_or(TokenError::FundsUnavailable)?;
 		if let Some(dust) = Self::write_balance(who, new_balance)? {
 			Self::handle_dust(Dust(dust));
