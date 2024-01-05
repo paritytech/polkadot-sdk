@@ -69,7 +69,7 @@ mod tests;
 mod benchmarking;
 
 #[cfg(feature = "runtime-benchmarks")]
-pub use benchmarking::ExtConfig;
+pub use benchmarking::BenchmarkingConfig;
 
 mod payment;
 pub mod weights;

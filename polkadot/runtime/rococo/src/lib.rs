@@ -649,7 +649,7 @@ impl claims::Config for Runtime {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-impl claims::ExtConfig for Runtime {
+impl claims::BenchmarkingConfig for Runtime {
 	fn default_call_and_info(
 	) -> (Self::RuntimeCall, sp_runtime::traits::DispatchInfoOf<Self::RuntimeCall>) {
 		use frame_support::dispatch::GetDispatchInfo;

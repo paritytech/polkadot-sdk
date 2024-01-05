@@ -2225,7 +2225,7 @@ mod mmr {
 use frame_support::traits::fungibles::Inspect as FnInspect;
 
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_asset_conversion_tx_payment::ExtConfig for Runtime {
+impl pallet_asset_conversion_tx_payment::BenchmarkingConfig for Runtime {
 	fn create_asset_id_parameter(
 		seed: u32,
 	) -> (
@@ -2281,7 +2281,7 @@ impl pallet_asset_conversion_tx_payment::ExtConfig for Runtime {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_asset_tx_payment::ExtConfig for Runtime {
+impl pallet_asset_tx_payment::BenchmarkingConfig for Runtime {
 	fn create_asset_id_parameter(
 		seed: u32,
 	) -> (

@@ -16,7 +16,7 @@
 use super::*;
 use crate as pallet_asset_tx_payment;
 #[cfg(feature = "runtime-benchmarks")]
-use crate::benchmarking::ExtConfig;
+use crate::benchmarking::BenchmarkingConfig;
 
 use codec;
 use frame_support::{
@@ -223,7 +223,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-impl ExtConfig for Runtime {
+impl BenchmarkingConfig for Runtime {
 	fn create_asset_id_parameter(
 		id: u32,
 	) -> (

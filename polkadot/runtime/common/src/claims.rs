@@ -596,8 +596,11 @@ impl<T: Config> Pallet<T> {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-pub trait ExtConfig: Config {
+/// Helper trait to benchmark the `PrevalidateAttests` transaction extension.
+pub trait BenchmarkingConfig: Config {
+	/// `Call` to be used when benchmarking the transaction extension.
 	fn default_call_and_info() -> (Self::RuntimeCall, DispatchInfoOf<Self::RuntimeCall>);
+	/// `PostInfo` to be used when benchmarking the transaction extension.
 	fn default_post_info() -> <Self::RuntimeCall as Dispatchable>::PostInfo;
 }
 
@@ -837,7 +840,7 @@ pub(super) mod tests {
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	impl ExtConfig for Test {
+	impl BenchmarkingConfig for Test {
 		fn default_call_and_info() -> (Self::RuntimeCall, DispatchInfoOf<Self::RuntimeCall>) {
 			let call = RuntimeCall::Claims(crate::claims::Call::attest {
 				statement: StatementKind::Regular.to_text().to_vec(),
@@ -1549,7 +1552,7 @@ pub(super) mod benchmarking {
 
 	benchmarks! {
 		where_clause { where <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
-			T: Send + Sync + ExtConfig,
+			T: Send + Sync + BenchmarkingConfig,
 			<<T as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
 		}
 

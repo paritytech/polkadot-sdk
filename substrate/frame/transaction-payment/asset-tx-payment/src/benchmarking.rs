@@ -28,13 +28,17 @@ use frame_support::{
 use frame_system::RawOrigin;
 use sp_runtime::traits::{AsSystemOriginSigner, DispatchTransaction, Dispatchable};
 
-pub trait ExtConfig: Config {
+/// Helper trait to benchmark the `ChargeAssetTxPayment` transaction extension.
+pub trait BenchmarkingConfig: Config {
+	/// Returns the `AssetId` to be used in the liquidity pool by the benchmarking code.
 	fn create_asset_id_parameter(
 		id: u32,
 	) -> (
 		<<Self as Config>::Fungibles as Inspect<Self::AccountId>>::AssetId,
 		<<Self as Config>::OnChargeAssetTransaction as OnChargeAssetTransaction<Self>>::AssetId,
 	);
+	/// Create a liquidity pool for a given asset and sufficiently endow accounts to benchmark the
+	/// extension.
 	fn setup_balances_and_pool(
 		asset_id: <<Self as Config>::Fungibles as Inspect<Self::AccountId>>::AssetId,
 		account: Self::AccountId,
@@ -42,7 +46,7 @@ pub trait ExtConfig: Config {
 }
 
 #[benchmarks(where
-	T: ExtConfig,
+	T: BenchmarkingConfig,
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	AssetBalanceOf<T>: Send + Sync,
 	BalanceOf<T>: Send + Sync + From<u64> + IsType<ChargeAssetBalanceOf<T>>,
