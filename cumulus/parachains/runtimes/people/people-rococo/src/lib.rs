@@ -30,8 +30,8 @@ use frame_support::{
 	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
 	traits::{
-		ConstBool, ConstU32, ConstU64, ConstU8, Contains, EitherOfDiverse, EverythingBut,
-		TransformOrigin,
+		fungible::HoldConsideration, ConstBool, ConstU32, ConstU64, ConstU8, Contains,
+		EitherOfDiverse, EverythingBut, LinearStoragePrice, TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
@@ -376,14 +376,19 @@ parameter_types! {
 	pub const DepositBase: Balance = deposit(1, 88);
 	// Additional storage item size of 32 bytes.
 	pub const DepositFactor: Balance = deposit(0, 32);
+	pub const MultisigHoldReason: RuntimeHoldReason = RuntimeHoldReason::Multisig(pallet_multisig::HoldReason::Multisig);
 }
 
 impl pallet_multisig::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type Currency = Balances;
-	type DepositBase = DepositBase;
-	type DepositFactor = DepositFactor;
+	type Consideration = HoldConsideration<
+		AccountId,
+		Balances,
+		MultisigHoldReason,
+		LinearStoragePrice<DepositBase, DepositFactor, Balance>,
+	>;
 	type MaxSignatories = ConstU32<100>;
 	type WeightInfo = weights::pallet_multisig::WeightInfo<Runtime>;
 }
@@ -434,7 +439,7 @@ construct_runtime!(
 
 		// Handy utilities.
 		Utility: pallet_utility::{Pallet, Call, Event} = 40,
-		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 41,
+		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>, HoldReason} = 41,
 
 		// The main stage.
 		Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 50,

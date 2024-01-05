@@ -235,14 +235,19 @@ parameter_types! {
 	pub const DepositBase: Balance = deposit(1, 88);
 	// Additional storage item size of 32 bytes.
 	pub const DepositFactor: Balance = deposit(0, 32);
+	pub const MultisigHoldReason: RuntimeHoldReason = RuntimeHoldReason::Multisig(pallet_multisig::HoldReason::Multisig);
 }
 
 impl pallet_multisig::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type Currency = Balances;
-	type DepositBase = DepositBase;
-	type DepositFactor = DepositFactor;
+	type Consideration = HoldConsideration<
+		AccountId,
+		Balances,
+		MultisigHoldReason,
+		LinearStoragePrice<DepositBase, DepositFactor, Balance>,
+	>;
 	type MaxSignatories = ConstU32<100>;
 	type WeightInfo = weights::pallet_multisig::WeightInfo<Runtime>;
 }
@@ -661,7 +666,7 @@ construct_runtime!(
 
 		// Handy utilities.
 		Utility: pallet_utility::{Pallet, Call, Event} = 40,
-		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 41,
+		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>, HoldReason} = 41,
 		Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>} = 42,
 		Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>, HoldReason} = 43,
 		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 44,

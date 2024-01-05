@@ -907,14 +907,19 @@ parameter_types! {
 	// Additional storage item size of 32 bytes.
 	pub const DepositFactor: Balance = deposit(0, 32);
 	pub const MaxSignatories: u32 = 100;
+	pub const MultisigHoldReason: RuntimeHoldReason = RuntimeHoldReason::Multisig(pallet_multisig::HoldReason::Multisig);
 }
 
 impl pallet_multisig::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type Currency = Balances;
-	type DepositBase = DepositBase;
-	type DepositFactor = DepositFactor;
+	type Consideration = HoldConsideration<
+		AccountId,
+		Balances,
+		MultisigHoldReason,
+		LinearStoragePrice<DepositBase, DepositFactor, Balance>,
+	>;
 	type MaxSignatories = MaxSignatories;
 	type WeightInfo = weights::pallet_multisig::WeightInfo<Runtime>;
 }
@@ -1455,7 +1460,7 @@ construct_runtime! {
 		Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>} = 22,
 
 		// Multisig module. Late addition.
-		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 23,
+		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>, HoldReason} = 23,
 
 		// Election pallet. Only works with staking, but placed here to maintain indices.
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 24,

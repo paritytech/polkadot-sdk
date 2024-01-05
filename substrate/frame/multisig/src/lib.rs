@@ -700,17 +700,13 @@ impl<T: Config> Pallet<T> {
 		};
 		T::Currency::unreserve(&r.depositor, r.deposit);
 		// take consideration
-		let Ok(ticket) = T::Consideration::new(&r.depositor, Footprint::from_parts(1, threshold as usize))
+		let Ok(ticket) =
+			T::Consideration::new(&r.depositor, Footprint::from_parts(1, threshold as usize))
 				.defensive_proof("Unexpected inability to take deposit after unreserved")
 		else {
 			return true
 		};
-		let n = Multisig {
-			when: r.when,
-			ticket: ticket,
-			depositor: r.depositor,
-			approvals: r.approvals,
-		};
+		let n = Multisig { when: r.when, ticket, depositor: r.depositor, approvals: r.approvals };
 		MultisigsFor::<T>::insert(id, call_hash, n);
 		true
 	}
