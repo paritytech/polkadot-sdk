@@ -212,9 +212,9 @@ pub type PoolFungiblesTransactor = FungiblesAdapter<
 pub type AssetTransactors = (
 	CurrencyTransactor,
 	FungiblesTransactor,
-	UniquesTransactor,
 	ForeignFungiblesTransactor,
 	PoolFungiblesTransactor,
+	UniquesTransactor,
 );
 
 /// Simple `MultiLocation` matcher for Local and Foreign asset `MultiLocation`.
