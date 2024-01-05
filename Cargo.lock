@@ -3626,9 +3626,9 @@ dependencies = [
  "cumulus-client-collator",
  "cumulus-client-consensus-common",
  "cumulus-client-consensus-proposer",
+ "cumulus-client-parachain-inherent",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
- "cumulus-primitives-parachain-inherent",
  "cumulus-relay-chain-interface",
  "futures",
  "parity-scale-codec",
@@ -3758,6 +3758,29 @@ dependencies = [
  "tokio",
  "tracing",
  "url",
+]
+
+[[package]]
+name = "cumulus-client-parachain-inherent"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "cumulus-primitives-core",
+ "cumulus-primitives-parachain-inherent",
+ "cumulus-relay-chain-interface",
+ "cumulus-test-relay-sproof-builder",
+ "parity-scale-codec",
+ "sc-client-api",
+ "scale-info",
+ "sp-api",
+ "sp-core",
+ "sp-inherents",
+ "sp-runtime",
+ "sp-state-machine",
+ "sp-std 8.0.0",
+ "sp-storage 13.0.0",
+ "sp-trie",
+ "tracing",
 ]
 
 [[package]]
@@ -4033,20 +4056,14 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "cumulus-primitives-core",
- "cumulus-relay-chain-interface",
- "cumulus-test-relay-sproof-builder",
  "parity-scale-codec",
- "sc-client-api",
  "scale-info",
- "sp-api",
  "sp-core",
  "sp-inherents",
  "sp-runtime",
  "sp-state-machine",
  "sp-std 8.0.0",
- "sp-storage 13.0.0",
  "sp-trie",
- "tracing",
 ]
 
 [[package]]
@@ -4303,11 +4320,11 @@ dependencies = [
  "cumulus-client-cli",
  "cumulus-client-consensus-common",
  "cumulus-client-consensus-relay-chain",
+ "cumulus-client-parachain-inherent",
  "cumulus-client-pov-recovery",
  "cumulus-client-service",
  "cumulus-pallet-parachain-system",
  "cumulus-primitives-core",
- "cumulus-primitives-parachain-inherent",
  "cumulus-relay-chain-inprocess-interface",
  "cumulus-relay-chain-interface",
  "cumulus-relay-chain-minimal-node",
@@ -13033,10 +13050,10 @@ dependencies = [
  "cumulus-client-consensus-common",
  "cumulus-client-consensus-proposer",
  "cumulus-client-consensus-relay-chain",
+ "cumulus-client-parachain-inherent",
  "cumulus-client-service",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
- "cumulus-primitives-parachain-inherent",
  "cumulus-relay-chain-interface",
  "frame-benchmarking",
  "frame-benchmarking-cli",
