@@ -26,7 +26,7 @@ use crate::{
 use codec::{Decode, Encode};
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,
-	traits::{fungible::Mutate, ConstU32, ConstU64, EitherOfDiverse, Get},
+	traits::{ConstU32, ConstU64, EitherOfDiverse, Get, StoredMap},
 	BoundedVec,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
@@ -641,8 +641,12 @@ fn provide_judgement_should_return_judgement_payment_failed_error() {
 		// 10 for the judgement request and the deposit for the identity.
 		assert_eq!(Balances::free_balance(10), 1000 - id_deposit - 10);
 
-		// This forces judgement payment failed error
-		Balances::set_balance(&3, 0);
+		// This forces judgement payment failed error, as `transfer_on_hold` will fail with
+		// `CannotCreate` when the attempt to transfer to `3` overflows.
+		let _ = <Test as pallet_balances::Config>::AccountStore::mutate(&3, |account| {
+			account.free = <Test as pallet_balances::Config>::Balance::max_value();
+			Ok::<(), ()>(())
+		});
 		assert_noop!(
 			Identity::provide_judgement(
 				RuntimeOrigin::signed(3),
