@@ -6891,16 +6891,15 @@ mod ledger {
 }
 
 mod byzantine_threshold_disabling_strategy {
-	use crate::{
-		tests::Test, CurrentEra, DisablingStrategy, UpToThresholdDisablingStrategy,
-	};
+	use crate::{tests::Test, CurrentEra, DisablingStrategy, UpToThresholdDisablingStrategy};
 	use sp_staking::EraIndex;
 
-	// Common test data - the stash of the offending validator, the era of the offence and the active set
+	// Common test data - the stash of the offending validator, the era of the offence and the
+	// active set
 	const OFFENDER_ID: <Test as frame_system::Config>::AccountId = 7;
 	const SLASH_ERA: EraIndex = 1;
 	const ACTIVE_SET: [<Test as pallet_session::Config>::ValidatorId; 7] = [1, 2, 3, 4, 5, 6, 7];
-	const OFFENDER_VALIDATOR_IDX: u32 = 6;	// the offender is with index 6 in the active set
+	const OFFENDER_VALIDATOR_IDX: u32 = 6; // the offender is with index 6 in the active set
 
 	#[test]
 	fn dont_disable_for_ancient_offence() {

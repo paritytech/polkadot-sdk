@@ -1269,8 +1269,7 @@ impl<T: Config, const DISABLING_THRESHOLD_FACTOR: usize> DisablingStrategy<T>
 		};
 
 		// We don't disable more than the threshold
-		let over_threshold =
-			currently_disabled.len() >= Self::disable_threshold(active_set.len());
+		let over_threshold = currently_disabled.len() >= Self::disable_threshold(active_set.len());
 		// We don't disable for offences in previous eras
 		let ancient_offence = Pallet::<T>::current_era().unwrap_or(1) > slash_era;
 
