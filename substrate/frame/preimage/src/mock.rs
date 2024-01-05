@@ -21,7 +21,7 @@ use super::*;
 
 use crate as pallet_preimage;
 use frame_support::{
-	ord_parameter_types,
+	derive_impl, ord_parameter_types,
 	traits::{fungible::HoldConsideration, ConstU32, ConstU64, Everything},
 	weights::constants::RocksDbWeight,
 };
@@ -43,6 +43,7 @@ frame_support::construct_runtime!(
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = Everything;
 	type BlockWeights = ();

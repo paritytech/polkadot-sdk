@@ -29,8 +29,7 @@ use polkadot_node_network_protocol::{
 		MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS,
 	},
 	v2::{self as protocol_v2, StatementFilter},
-	vstaging as protocol_vstaging, IfDisconnected, PeerId, UnifiedReputationChange as Rep,
-	Versioned, View,
+	v3 as protocol_v3, IfDisconnected, PeerId, UnifiedReputationChange as Rep, Versioned, View,
 };
 use polkadot_node_primitives::{
 	SignedFullStatementWithPVD, StatementWithPVD as FullStatementWithPVD,
@@ -142,8 +141,27 @@ struct PerRelayParentState {
 	session: SessionIndex,
 }
 
+impl PerRelayParentState {
+	fn active_validator_state(&self) -> Option<&ActiveValidatorState> {
+		self.local_validator.as_ref().and_then(|local| local.active.as_ref())
+	}
+
+	fn active_validator_state_mut(&mut self) -> Option<&mut ActiveValidatorState> {
+		self.local_validator.as_mut().and_then(|local| local.active.as_mut())
+	}
+}
+
 // per-relay-parent local validator state.
 struct LocalValidatorState {
+	// the grid-level communication at this relay-parent.
+	grid_tracker: GridTracker,
+	// additional fields in case local node is an active validator.
+	active: Option<ActiveValidatorState>,
+	// local index actually exists in case node is inactive validator, however,
+	// it's not needed outside of `build_session_topology`, where it's known.
+}
+
+struct ActiveValidatorState {
 	// The index of the validator.
 	index: ValidatorIndex,
 	// our validator group
@@ -152,8 +170,14 @@ struct LocalValidatorState {
 	assignment: Option<ParaId>,
 	// the 'direct-in-group' communication at this relay-parent.
 	cluster_tracker: ClusterTracker,
-	// the grid-level communication at this relay-parent.
-	grid_tracker: GridTracker,
+}
+
+#[derive(Debug, Copy, Clone)]
+enum LocalValidatorIndex {
+	// Local node is an active validator.
+	Active(ValidatorIndex),
+	// Local node is not in active validator set.
+	Inactive,
 }
 
 #[derive(Debug)]
@@ -164,7 +188,7 @@ struct PerSessionState {
 	// is only `None` in the time between seeing a session and
 	// getting the topology from the gossip-support subsystem
 	grid_view: Option<grid::SessionTopologyView>,
-	local_validator: Option<ValidatorIndex>,
+	local_validator: Option<LocalValidatorIndex>,
 }
 
 impl PerSessionState {
@@ -178,15 +202,10 @@ impl PerSessionState {
 		let local_validator = polkadot_node_subsystem_util::signing_key_and_index(
 			session_info.validators.iter(),
 			keystore,
-		);
+		)
+		.map(|(_, index)| LocalValidatorIndex::Active(index));
 
-		PerSessionState {
-			session_info,
-			groups,
-			authority_lookup,
-			grid_view: None,
-			local_validator: local_validator.map(|(_key, index)| index),
-		}
+		PerSessionState { session_info, groups, authority_lookup, grid_view: None, local_validator }
 	}
 
 	fn supply_topology(
@@ -204,6 +223,16 @@ impl PerSessionState {
 		);
 
 		self.grid_view = Some(grid_view);
+		if local_index.is_some() {
+			self.local_validator.get_or_insert(LocalValidatorIndex::Inactive);
+		}
+	}
+
+	/// Returns `true` if local is neither active or inactive validator node.
+	///
+	/// `false` is also returned if session topology is not known yet.
+	fn is_not_validator(&self) -> bool {
+		self.grid_view.is_some() && self.local_validator.is_none()
 	}
 }
 
@@ -336,7 +365,7 @@ pub(crate) async fn handle_network_update<Context>(
 			gum::trace!(target: LOG_TARGET, ?peer_id, ?role, ?protocol_version, "Peer connected");
 
 			let versioned_protocol = if protocol_version != ValidationVersion::V2.into() &&
-				protocol_version != ValidationVersion::VStaging.into()
+				protocol_version != ValidationVersion::V3.into()
 			{
 				return
 			} else {
@@ -402,28 +431,28 @@ pub(crate) async fn handle_network_update<Context>(
 			net_protocol::StatementDistributionMessage::V2(
 				protocol_v2::StatementDistributionMessage::V1Compatibility(_),
 			) |
-			net_protocol::StatementDistributionMessage::VStaging(
-				protocol_vstaging::StatementDistributionMessage::V1Compatibility(_),
+			net_protocol::StatementDistributionMessage::V3(
+				protocol_v3::StatementDistributionMessage::V1Compatibility(_),
 			) => return,
 			net_protocol::StatementDistributionMessage::V2(
 				protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
 			) |
-			net_protocol::StatementDistributionMessage::VStaging(
-				protocol_vstaging::StatementDistributionMessage::Statement(relay_parent, statement),
+			net_protocol::StatementDistributionMessage::V3(
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, statement),
 			) =>
 				handle_incoming_statement(ctx, state, peer_id, relay_parent, statement, reputation)
 					.await,
 			net_protocol::StatementDistributionMessage::V2(
 				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(inner),
 			) |
-			net_protocol::StatementDistributionMessage::VStaging(
-				protocol_vstaging::StatementDistributionMessage::BackedCandidateManifest(inner),
+			net_protocol::StatementDistributionMessage::V3(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(inner),
 			) => handle_incoming_manifest(ctx, state, peer_id, inner, reputation).await,
 			net_protocol::StatementDistributionMessage::V2(
 				protocol_v2::StatementDistributionMessage::BackedCandidateKnown(inner),
 			) |
-			net_protocol::StatementDistributionMessage::VStaging(
-				protocol_vstaging::StatementDistributionMessage::BackedCandidateKnown(inner),
+			net_protocol::StatementDistributionMessage::V3(
+				protocol_v3::StatementDistributionMessage::BackedCandidateKnown(inner),
 			) => handle_incoming_acknowledgement(ctx, state, peer_id, inner, reputation).await,
 		},
 		NetworkBridgeEvent::PeerViewChange(peer_id, view) =>
@@ -554,13 +583,17 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 			.expect("either existed or just inserted; qed");
 
 		let local_validator = per_session.local_validator.and_then(|v| {
-			find_local_validator_state(
-				v,
-				&per_session.groups,
-				&availability_cores,
-				&group_rotation_info,
-				seconding_limit,
-			)
+			if let LocalValidatorIndex::Active(idx) = v {
+				find_active_validator_state(
+					idx,
+					&per_session.groups,
+					&availability_cores,
+					&group_rotation_info,
+					seconding_limit,
+				)
+			} else {
+				Some(LocalValidatorState { grid_tracker: GridTracker::default(), active: None })
+			}
 		});
 
 		state.per_relay_parent.insert(
@@ -607,7 +640,7 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 	Ok(())
 }
 
-fn find_local_validator_state(
+fn find_active_validator_state(
 	validator_index: ValidatorIndex,
 	groups: &Groups,
 	availability_cores: &[CoreState],
@@ -628,11 +661,13 @@ fn find_local_validator_state(
 	let group_validators = groups.get(our_group)?.to_owned();
 
 	Some(LocalValidatorState {
-		index: validator_index,
-		group: our_group,
-		assignment: para,
-		cluster_tracker: ClusterTracker::new(group_validators, seconding_limit)
-			.expect("group is non-empty because we are in it; qed"),
+		active: Some(ActiveValidatorState {
+			index: validator_index,
+			group: our_group,
+			assignment: para,
+			cluster_tracker: ClusterTracker::new(group_validators, seconding_limit)
+				.expect("group is non-empty because we are in it; qed"),
+		}),
 		grid_tracker: GridTracker::default(),
 	})
 }
@@ -725,13 +760,17 @@ async fn send_peer_messages_for_relay_parent<Context>(
 	for validator_id in find_validator_ids(peer_data.iter_known_discovery_ids(), |a| {
 		per_session_state.authority_lookup.get(a)
 	}) {
-		if let Some(local_validator_state) = relay_parent_state.local_validator.as_mut() {
+		if let Some(active) = relay_parent_state
+			.local_validator
+			.as_mut()
+			.and_then(|local| local.active.as_mut())
+		{
 			send_pending_cluster_statements(
 				ctx,
 				relay_parent,
 				&(peer, peer_data.protocol_version),
 				validator_id,
-				&mut local_validator_state.cluster_tracker,
+				&mut active.cluster_tracker,
 				&state.candidates,
 				&relay_parent_state.statement_store,
 			)
@@ -766,13 +805,13 @@ fn pending_statement_network_message(
 				protocol_v2::StatementDistributionMessage::Statement(relay_parent, signed)
 			})
 			.map(|msg| (vec![peer.0], Versioned::V2(msg).into())),
-		ValidationVersion::VStaging => statement_store
+		ValidationVersion::V3 => statement_store
 			.validator_statement(originator, compact)
 			.map(|s| s.as_unchecked().clone())
 			.map(|signed| {
-				protocol_vstaging::StatementDistributionMessage::Statement(relay_parent, signed)
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, signed)
 			})
-			.map(|msg| (vec![peer.0], Versioned::VStaging(msg).into())),
+			.map(|msg| (vec![peer.0], Versioned::V3(msg).into())),
 		ValidationVersion::V1 => {
 			gum::error!(
 				target: LOG_TARGET,
@@ -905,10 +944,10 @@ async fn send_pending_grid_messages<Context>(
 						)
 						.into(),
 					)),
-					ValidationVersion::VStaging => messages.push((
+					ValidationVersion::V3 => messages.push((
 						vec![peer_id.0],
-						Versioned::VStaging(
-							protocol_vstaging::StatementDistributionMessage::BackedCandidateManifest(
+						Versioned::V3(
+							protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 								manifest,
 							),
 						)
@@ -920,7 +959,7 @@ async fn send_pending_grid_messages<Context>(
 							"Bug ValidationVersion::V1 should not be used in statement-distribution v2,
 							legacy should have handled this"
 						);
-					}
+					},
 				};
 			},
 			grid::ManifestKind::Acknowledgement => {
@@ -1009,7 +1048,7 @@ pub(crate) async fn share_local_statement<Context>(
 	};
 
 	let (local_index, local_assignment, local_group) =
-		match per_relay_parent.local_validator.as_ref() {
+		match per_relay_parent.active_validator_state() {
 			None => return Err(JfyiError::InvalidShare),
 			Some(l) => (l.index, l.assignment, l.group),
 		};
@@ -1086,7 +1125,7 @@ pub(crate) async fn share_local_statement<Context>(
 		}
 
 		{
-			let l = per_relay_parent.local_validator.as_mut().expect("checked above; qed");
+			let l = per_relay_parent.active_validator_state_mut().expect("checked above; qed");
 			l.cluster_tracker.note_issued(local_index, compact_statement.payload().clone());
 		}
 
@@ -1173,31 +1212,41 @@ async fn circulate_statement<Context>(
 
 		// We're not meant to circulate statements in the cluster until we have the confirmed
 		// candidate.
-		let cluster_relevant = Some(local_validator.group) == statement_group;
-		let cluster_targets = if is_confirmed && cluster_relevant {
-			Some(
-				local_validator
-					.cluster_tracker
-					.targets()
-					.iter()
-					.filter(|&&v| {
-						local_validator
+		//
+		// Cluster is only relevant if local node is an active validator.
+		let (cluster_relevant, cluster_targets, all_cluster_targets) = local_validator
+			.active
+			.as_mut()
+			.map(|active| {
+				let cluster_relevant = Some(active.group) == statement_group;
+				let cluster_targets = if is_confirmed && cluster_relevant {
+					Some(
+						active
 							.cluster_tracker
-							.can_send(v, originator, compact_statement.clone())
-							.is_ok()
-					})
-					.filter(|&v| v != &local_validator.index)
-					.map(|v| (*v, DirectTargetKind::Cluster)),
-			)
-		} else {
-			None
-		};
+							.targets()
+							.iter()
+							.filter(|&&v| {
+								active
+									.cluster_tracker
+									.can_send(v, originator, compact_statement.clone())
+									.is_ok()
+							})
+							.filter(|&v| v != &active.index)
+							.map(|v| (*v, DirectTargetKind::Cluster)),
+					)
+				} else {
+					None
+				};
+				let all_cluster_targets = active.cluster_tracker.targets();
+				(cluster_relevant, cluster_targets, all_cluster_targets)
+			})
+			.unwrap_or((false, None, &[]));
 
 		let grid_targets = local_validator
 			.grid_tracker
 			.direct_statement_targets(&per_session.groups, originator, &compact_statement)
 			.into_iter()
-			.filter(|v| !cluster_relevant || !local_validator.cluster_tracker.targets().contains(v))
+			.filter(|v| !cluster_relevant || !all_cluster_targets.contains(v))
 			.map(|v| (v, DirectTargetKind::Grid));
 
 		let targets = cluster_targets
@@ -1229,18 +1278,17 @@ async fn circulate_statement<Context>(
 
 		match kind {
 			DirectTargetKind::Cluster => {
+				let active = local_validator
+					.active
+					.as_mut()
+					.expect("cluster target means local is active validator; qed");
+
 				// At this point, all peers in the cluster should 'know'
 				// the candidate, so we don't expect for this to fail.
-				if let Ok(()) = local_validator.cluster_tracker.can_send(
-					target,
-					originator,
-					compact_statement.clone(),
-				) {
-					local_validator.cluster_tracker.note_sent(
-						target,
-						originator,
-						compact_statement.clone(),
-					);
+				if let Ok(()) =
+					active.cluster_tracker.can_send(target, originator, compact_statement.clone())
+				{
+					active.cluster_tracker.note_sent(target, originator, compact_statement.clone());
 					statement_to_peers.push(peer_id);
 				}
 			},
@@ -1259,8 +1307,8 @@ async fn circulate_statement<Context>(
 	let statement_to_v2_peers =
 		filter_by_peer_version(&statement_to_peers, ValidationVersion::V2.into());
 
-	let statement_to_vstaging_peers =
-		filter_by_peer_version(&statement_to_peers, ValidationVersion::VStaging.into());
+	let statement_to_v3_peers =
+		filter_by_peer_version(&statement_to_peers, ValidationVersion::V3.into());
 
 	// ship off the network messages to the network bridge.
 	if !statement_to_v2_peers.is_empty() {
@@ -1282,17 +1330,17 @@ async fn circulate_statement<Context>(
 		.await;
 	}
 
-	if !statement_to_vstaging_peers.is_empty() {
+	if !statement_to_v3_peers.is_empty() {
 		gum::debug!(
 			target: LOG_TARGET,
 			?compact_statement,
 			n_peers = ?statement_to_peers.len(),
-			"Sending statement to vstaging peers",
+			"Sending statement to v3 peers",
 		);
 
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-			statement_to_vstaging_peers,
-			Versioned::VStaging(protocol_vstaging::StatementDistributionMessage::Statement(
+			statement_to_v3_peers,
+			Versioned::V3(protocol_v3::StatementDistributionMessage::Statement(
 				relay_parent,
 				statement.as_unchecked().clone(),
 			))
@@ -1387,7 +1435,9 @@ async fn handle_incoming_statement<Context>(
 		None => {
 			// we shouldn't be receiving statements unless we're a validator
 			// this session.
-			modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).await;
+			if per_session.is_not_validator() {
+				modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).await;
+			}
 			return
 		},
 		Some(l) => l,
@@ -1402,73 +1452,81 @@ async fn handle_incoming_statement<Context>(
 			},
 		};
 
-	let cluster_sender_index = {
+	let (active, cluster_sender_index) = {
 		// This block of code only returns `Some` when both the originator and
 		// the sending peer are in the cluster.
+		let active = local_validator.active.as_mut();
 
-		let allowed_senders = local_validator
-			.cluster_tracker
-			.senders_for_originator(statement.unchecked_validator_index());
+		let allowed_senders = active
+			.as_ref()
+			.map(|active| {
+				active
+					.cluster_tracker
+					.senders_for_originator(statement.unchecked_validator_index())
+			})
+			.unwrap_or_default();
 
-		allowed_senders
+		let idx = allowed_senders
 			.iter()
 			.filter_map(|i| session_info.discovery_keys.get(i.0 as usize).map(|ad| (*i, ad)))
 			.filter(|(_, ad)| peer_state.is_authority(ad))
 			.map(|(i, _)| i)
-			.next()
+			.next();
+		(active, idx)
 	};
 
-	let checked_statement = if let Some(cluster_sender_index) = cluster_sender_index {
-		match handle_cluster_statement(
-			relay_parent,
-			&mut local_validator.cluster_tracker,
-			per_relay_parent.session,
-			&per_session.session_info,
-			statement,
-			cluster_sender_index,
-		) {
-			Ok(Some(s)) => s,
-			Ok(None) => return,
-			Err(rep) => {
-				modify_reputation(reputation, ctx.sender(), peer, rep).await;
-				return
-			},
-		}
-	} else {
-		let grid_sender_index = local_validator
-			.grid_tracker
-			.direct_statement_providers(
-				&per_session.groups,
-				statement.unchecked_validator_index(),
-				statement.unchecked_payload(),
-			)
-			.into_iter()
-			.filter_map(|i| session_info.discovery_keys.get(i.0 as usize).map(|ad| (i, ad)))
-			.filter(|(_, ad)| peer_state.is_authority(ad))
-			.map(|(i, _)| i)
-			.next();
-
-		if let Some(grid_sender_index) = grid_sender_index {
-			match handle_grid_statement(
+	let checked_statement =
+		if let Some((active, cluster_sender_index)) = active.zip(cluster_sender_index) {
+			match handle_cluster_statement(
 				relay_parent,
-				&mut local_validator.grid_tracker,
+				&mut active.cluster_tracker,
 				per_relay_parent.session,
-				&per_session,
+				&per_session.session_info,
 				statement,
-				grid_sender_index,
+				cluster_sender_index,
 			) {
-				Ok(s) => s,
+				Ok(Some(s)) => s,
+				Ok(None) => return,
 				Err(rep) => {
 					modify_reputation(reputation, ctx.sender(), peer, rep).await;
 					return
 				},
 			}
 		} else {
-			// Not a cluster or grid peer.
-			modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).await;
-			return
-		}
-	};
+			let grid_sender_index = local_validator
+				.grid_tracker
+				.direct_statement_providers(
+					&per_session.groups,
+					statement.unchecked_validator_index(),
+					statement.unchecked_payload(),
+				)
+				.into_iter()
+				.filter_map(|i| session_info.discovery_keys.get(i.0 as usize).map(|ad| (i, ad)))
+				.filter(|(_, ad)| peer_state.is_authority(ad))
+				.map(|(i, _)| i)
+				.next();
+
+			if let Some(grid_sender_index) = grid_sender_index {
+				match handle_grid_statement(
+					relay_parent,
+					&mut local_validator.grid_tracker,
+					per_relay_parent.session,
+					&per_session,
+					statement,
+					grid_sender_index,
+				) {
+					Ok(s) => s,
+					Err(rep) => {
+						modify_reputation(reputation, ctx.sender(), peer, rep).await;
+						return
+					},
+				}
+			} else {
+				// Not a cluster or grid peer.
+				modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).await;
+				return
+			}
+		};
 
 	let statement = checked_statement.payload().clone();
 	let originator_index = checked_statement.validator_index();
@@ -1536,7 +1594,7 @@ async fn handle_incoming_statement<Context>(
 			local_validator.grid_tracker.learned_fresh_statement(
 				&per_session.groups,
 				session_topology,
-				local_validator.index,
+				originator_index,
 				&statement,
 			);
 		}
@@ -1828,13 +1886,12 @@ async fn provide_candidate_to_grid<Context>(
 	}
 
 	let manifest_peers_v2 = filter_by_peer_version(&manifest_peers, ValidationVersion::V2.into());
-	let manifest_peers_vstaging =
-		filter_by_peer_version(&manifest_peers, ValidationVersion::VStaging.into());
+	let manifest_peers_v3 = filter_by_peer_version(&manifest_peers, ValidationVersion::V3.into());
 	if !manifest_peers_v2.is_empty() {
 		gum::debug!(
 			target: LOG_TARGET,
 			?candidate_hash,
-			local_validator = ?local_validator.index,
+			local_validator = ?per_session.local_validator,
 			n_peers = manifest_peers_v2.len(),
 			"Sending manifest to v2 peers"
 		);
@@ -1849,32 +1906,32 @@ async fn provide_candidate_to_grid<Context>(
 		.await;
 	}
 
-	if !manifest_peers_vstaging.is_empty() {
+	if !manifest_peers_v3.is_empty() {
 		gum::debug!(
 			target: LOG_TARGET,
 			?candidate_hash,
-			local_validator = ?local_validator.index,
-			n_peers = manifest_peers_vstaging.len(),
-			"Sending manifest to vstaging peers"
+			local_validator = ?per_session.local_validator,
+			n_peers = manifest_peers_v3.len(),
+			"Sending manifest to v3 peers"
 		);
 
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-			manifest_peers_vstaging,
-			Versioned::VStaging(
-				protocol_vstaging::StatementDistributionMessage::BackedCandidateManifest(manifest),
-			)
+			manifest_peers_v3,
+			Versioned::V3(protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
+				manifest,
+			))
 			.into(),
 		))
 		.await;
 	}
 
 	let ack_peers_v2 = filter_by_peer_version(&ack_peers, ValidationVersion::V2.into());
-	let ack_peers_vstaging = filter_by_peer_version(&ack_peers, ValidationVersion::VStaging.into());
+	let ack_peers_v3 = filter_by_peer_version(&ack_peers, ValidationVersion::V3.into());
 	if !ack_peers_v2.is_empty() {
 		gum::debug!(
 			target: LOG_TARGET,
 			?candidate_hash,
-			local_validator = ?local_validator.index,
+			local_validator = ?per_session.local_validator,
 			n_peers = ack_peers_v2.len(),
 			"Sending acknowledgement to v2 peers"
 		);
@@ -1889,22 +1946,20 @@ async fn provide_candidate_to_grid<Context>(
 		.await;
 	}
 
-	if !ack_peers_vstaging.is_empty() {
+	if !ack_peers_v3.is_empty() {
 		gum::debug!(
 			target: LOG_TARGET,
 			?candidate_hash,
-			local_validator = ?local_validator.index,
-			n_peers = ack_peers_vstaging.len(),
-			"Sending acknowledgement to vstaging peers"
+			local_validator = ?per_session.local_validator,
+			n_peers = ack_peers_v3.len(),
+			"Sending acknowledgement to v3 peers"
 		);
 
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-			ack_peers_vstaging,
-			Versioned::VStaging(
-				protocol_vstaging::StatementDistributionMessage::BackedCandidateKnown(
-					acknowledgement,
-				),
-			)
+			ack_peers_v3,
+			Versioned::V3(protocol_v3::StatementDistributionMessage::BackedCandidateKnown(
+				acknowledgement,
+			))
 			.into(),
 		))
 		.await;
@@ -2086,13 +2141,15 @@ async fn handle_incoming_manifest_common<'a, Context>(
 
 	let local_validator = match relay_parent_state.local_validator.as_mut() {
 		None => {
-			modify_reputation(
-				reputation,
-				ctx.sender(),
-				peer,
-				COST_UNEXPECTED_MANIFEST_MISSING_KNOWLEDGE,
-			)
-			.await;
+			if per_session.is_not_validator() {
+				modify_reputation(
+					reputation,
+					ctx.sender(),
+					peer,
+					COST_UNEXPECTED_MANIFEST_MISSING_KNOWLEDGE,
+				)
+				.await;
+			}
 			return None
 		},
 		Some(x) => x,
@@ -2188,7 +2245,7 @@ async fn handle_incoming_manifest_common<'a, Context>(
 			target: LOG_TARGET,
 			?candidate_hash,
 			from = ?sender_index,
-			local_index = ?local_validator.index,
+			local_index = ?per_session.local_validator,
 			?manifest_kind,
 			"immediate ack, known candidate"
 		);
@@ -2232,8 +2289,8 @@ fn post_acknowledgement_statement_messages(
 				)
 				.into(),
 			)),
-			ValidationVersion::VStaging => messages.push(Versioned::VStaging(
-				protocol_vstaging::StatementDistributionMessage::Statement(
+			ValidationVersion::V3 => messages.push(Versioned::V3(
+				protocol_v3::StatementDistributionMessage::Statement(
 					relay_parent,
 					statement.as_unchecked().clone(),
 				)
@@ -2380,9 +2437,9 @@ fn acknowledgement_and_statement_messages(
 
 	let mut messages = match peer.1 {
 		ValidationVersion::V2 => vec![(vec![peer.0], msg_v2.into())],
-		ValidationVersion::VStaging => vec![(
+		ValidationVersion::V3 => vec![(
 			vec![peer.0],
-			Versioned::VStaging(protocol_v2::StatementDistributionMessage::BackedCandidateKnown(
+			Versioned::V3(protocol_v2::StatementDistributionMessage::BackedCandidateKnown(
 				acknowledgement,
 			))
 			.into(),
@@ -2593,7 +2650,7 @@ async fn send_cluster_candidate_statements<Context>(
 		Some(s) => s,
 	};
 
-	let local_group = match relay_parent_state.local_validator.as_mut() {
+	let local_group = match relay_parent_state.active_validator_state_mut() {
 		None => return,
 		Some(v) => v.group,
 	};
@@ -2680,11 +2737,10 @@ pub(crate) async fn dispatch_requests<Context>(ctx: &mut Context, state: &mut St
 		}) {
 			// For cluster members, they haven't advertised any statements in particular,
 			// but have surely sent us some.
-			if local_validator
-				.cluster_tracker
-				.knows_candidate(validator_id, identifier.candidate_hash)
-			{
-				return Some(StatementFilter::blank(local_validator.cluster_tracker.targets().len()))
+			if let Some(active) = local_validator.active.as_ref() {
+				if active.cluster_tracker.knows_candidate(validator_id, identifier.candidate_hash) {
+					return Some(StatementFilter::blank(active.cluster_tracker.targets().len()))
+				}
 			}
 
 			let filter = local_validator
@@ -2715,7 +2771,11 @@ pub(crate) async fn dispatch_requests<Context>(ctx: &mut Context, state: &mut St
 		}
 
 		// don't require a backing threshold for cluster candidates.
-		let require_backing = relay_parent_state.local_validator.as_ref()?.group != group_index;
+		let local_validator = relay_parent_state.local_validator.as_ref()?;
+		let require_backing = local_validator
+			.active
+			.as_ref()
+			.map_or(true, |active| active.group != group_index);
 
 		Some(RequestProperties {
 			unwanted_mask,
@@ -2973,7 +3033,11 @@ pub(crate) fn answer_request(state: &mut State, message: ResponderMessage) {
 		for v in find_validator_ids(peer_data.iter_known_discovery_ids(), |a| {
 			per_session.authority_lookup.get(a)
 		}) {
-			if local_validator.cluster_tracker.can_request(v, *candidate_hash) {
+			if local_validator
+				.active
+				.as_ref()
+				.map_or(false, |active| active.cluster_tracker.can_request(v, *candidate_hash))
+			{
 				validator_id = Some(v);
 				is_cluster = true;
 				break
@@ -3015,11 +3079,16 @@ pub(crate) fn answer_request(state: &mut State, message: ResponderMessage) {
 	// Update bookkeeping about which statements peers have received.
 	for statement in &statements {
 		if is_cluster {
-			local_validator.cluster_tracker.note_sent(
-				validator_id,
-				statement.unchecked_validator_index(),
-				statement.unchecked_payload().clone(),
-			);
+			local_validator
+				.active
+				.as_mut()
+				.expect("cluster peer means local is active validator; qed")
+				.cluster_tracker
+				.note_sent(
+					validator_id,
+					statement.unchecked_validator_index(),
+					statement.unchecked_payload().clone(),
+				);
 		} else {
 			local_validator.grid_tracker.sent_or_received_direct_statement(
 				&per_session.groups,

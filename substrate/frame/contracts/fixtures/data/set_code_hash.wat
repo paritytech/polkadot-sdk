@@ -16,7 +16,7 @@
 	(func $assert (param i32)
 		(block $ok
 			(br_if $ok
-				(get_local 0)
+				(local.get 0)
 			)
 			(unreachable)
 		)
@@ -27,11 +27,11 @@
 
 		(call $seal_input (i32.const 0) (i32.const 32))
 
-		(set_local $exit_code
+		(local.set $exit_code
 			(call $seal_set_code_hash (i32.const 0)) ;; Pointer to the input data.
 		)
 		(call $assert
-			(i32.eq (get_local $exit_code) (i32.const 0)) ;; ReturnCode::Success
+			(i32.eq (local.get $exit_code) (i32.const 0)) ;; ReturnCode::Success
 		)
 
 		;; we return 1 after setting new code_hash

@@ -27,6 +27,21 @@ use std::fmt::Debug;
 use xcm::latest::prelude::*;
 use xcm_builder::{CreateMatcher, MatchXcm};
 
+/// Given a message, a sender, and a destination, it returns the delivery fees
+fn get_fungible_delivery_fees<S: SendXcm>(destination: MultiLocation, message: Xcm<()>) -> u128 {
+	let Ok((_, delivery_fees)) = validate_send::<S>(destination, message) else {
+		unreachable!("message can be sent; qed")
+	};
+	if let Some(delivery_fee) = delivery_fees.inner().first() {
+		let Fungible(delivery_fee_amount) = delivery_fee.fun else {
+			unreachable!("asset is fungible; qed");
+		};
+		delivery_fee_amount
+	} else {
+		0
+	}
+}
+
 /// Helper function to verify `xcm` contains all relevant instructions expected on destination
 /// chain as part of a reserve-asset-transfer.
 pub(crate) fn assert_matches_reserve_asset_deposited_instructions<RuntimeCall: Debug>(

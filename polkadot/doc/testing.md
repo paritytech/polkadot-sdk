@@ -1,6 +1,7 @@
 # Testing
 
-Automated testing is an essential tool to assure correctness.
+Testing is an essential tool to assure correctness. This document describes how we test the Polkadot code, whether
+locally, at scale, and/or automatically in CI.
 
 ## Scopes
 
@@ -8,27 +9,57 @@ The testing strategy for Polkadot is 4-fold:
 
 ### Unit testing (1)
 
-Boring, small scale correctness tests of individual functions.
+Boring, small scale correctness tests of individual functions. It is usually
+enough to run `cargo test` in the crate you are testing.
+
+For full coverage you may have to pass some additional features. For example:
+
+```sh
+cargo test --features ci-only-tests
+```
 
 ### Integration tests
 
-There are two variants of integration tests:
+There are the following variants of integration tests:
 
 #### Subsystem tests (2)
 
 One particular subsystem (subsystem under test) interacts with a mocked overseer that is made to assert incoming and
-outgoing messages of the subsystem under test. This is largely present today, but has some fragmentation in the evolved
-integration test implementation. A `proc-macro`/`macro_rules` would allow for more consistent implementation and
-structure.
+outgoing messages of the subsystem under test. See e.g. the `statement-distribution` tests.
 
 #### Behavior tests (3)
 
-Launching small scale networks, with multiple adversarial nodes without any further tooling required. This should
-include tests around the thresholds in order to evaluate the error handling once certain assumed invariants fail.
+Launching small scale networks, with multiple adversarial nodes. This should include tests around the thresholds in
+order to evaluate the error handling once certain assumed invariants fail.
 
-For this purpose based on `AllSubsystems` and `proc-macro` `AllSubsystemsGen`.
+Currently, we commonly use **zombienet** to run mini test-networks, whether locally or in CI. To run on your machine:
 
-This assumes a simplistic test runtime.
+- First, make sure you have [zombienet][zombienet] installed.
+
+- Now, all the required binaries must be installed in your $PATH. You must run the following from the `polkadot/`
+directory in order to test your changes. (Not `zombienet setup`, or you will get the released binaries without your
+local changes!)
+
+```sh
+cargo install --path . --locked
+```
+
+- You will also need to install whatever binaries are required for your specific tests. For example, to install
+`undying-collator`, from `polkadot/`, run:
+
+```sh
+cargo install --path ./parachain/test-parachains/undying/collator --locked
+```
+
+- Finally, run the zombienet test from the `polkadot` directory:
+
+```sh
+RUST_LOG=parachain::pvf=trace zombienet --provider=native spawn zombienet_tests/functional/0001-parachains-pvf.toml
+```
+
+- You can pick a validator node like `alice` from the output and view its logs
+(`tail -f <log_file>`) or metrics. Make sure there is nothing funny in the logs
+(try `grep WARN <log_file>`).
 
 #### Testing at scale (4)
 
@@ -41,13 +72,27 @@ addition prometheus avoiding additional Polkadot source changes.
 _Behavior tests_ and _testing at scale_ have naturally soft boundary. The most significant difference is the presence of
 a real network and the number of nodes, since a single host often not capable to run multiple nodes at once.
 
----
+## Observing Logs
+
+To verify expected behavior it's often useful to observe logs. To avoid too many
+logs at once, you can run one test at a time:
+
+1. Add `sp_tracing::try_init_simple();` to the beginning of a test
+2. Specify `RUST_LOG=<target>::<subtarget>=trace` before the cargo command.
+
+For example:
+
+```sh
+RUST_LOG=parachain::pvf=trace cargo test execute_can_run_serially
+```
+
+For more info on how our logs work, check [the docs][logs].
 
 ## Coverage
 
 Coverage gives a _hint_ of the actually covered source lines by tests and test applications.
 
-The state of the art is currently [tarpaulin][tarpaulin] which unfortunately yields a lot of false negatives. Lines that
+The state of the art is currently tarpaulin which unfortunately yields a lot of false negatives. Lines that
 are in fact covered, marked as uncovered due to a mere linebreak in a statement can cause these artifacts. This leads to
 lower coverage percentages than there actually is.
 
@@ -102,7 +147,7 @@ Fuzzing is an approach to verify correctness against arbitrary or partially stru
 
 Currently implemented fuzzing targets:
 
-* `erasure-coding`
+- `erasure-coding`
 
 The tooling of choice here is `honggfuzz-rs` as it allows _fastest_ coverage according to "some paper" which is a
 positive feature when run as part of PRs.
@@ -113,16 +158,16 @@ hence simply not feasible due to the amount of state that is required.
 
 Other candidates to implement fuzzing are:
 
-* `rpc`
-* ...
+- `rpc`
+- ...
 
 ## Performance metrics
 
 There are various ways of performance metrics.
 
-* timing with `criterion`
-* cache hits/misses w/ `iai` harness or `criterion-perf`
-* `coz` a performance based compiler
+- timing with `criterion`
+- cache hits/misses w/ `iai` harness or `criterion-perf`
+- `coz` a performance based compiler
 
 Most of them are standard tools to aid in the creation of statistical tests regarding change in time of certain unit
 tests.
@@ -140,10 +185,10 @@ pursued at the current time.
 
 Requirements:
 
-* spawn nodes with preconfigured behaviors
-* allow multiple types of configuration to be specified
-* allow extendability via external crates
-* ...
+- spawn nodes with preconfigured behaviors
+- allow multiple types of configuration to be specified
+- allow extendability via external crates
+- ...
 
 ---
 
@@ -251,5 +296,7 @@ behavior_testcase!{
 }
 ```
 
+[zombienet]: https://github.com/paritytech/zombienet
 [Gurke]: https://github.com/paritytech/gurke
 [simnet]: https://github.com/paritytech/simnet_scripts
+[logs]: https://github.com/paritytech/polkadot-sdk/blob/master/polkadot/node/gum/src/lib.rs

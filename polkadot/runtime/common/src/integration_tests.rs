@@ -17,7 +17,7 @@
 //! Mocking utilities for testing with real pallets.
 
 use crate::{
-	auctions, crowdloan,
+	auctions, crowdloan, identity_migrator,
 	mock::{conclude_pvf_checking, validators_public_keys},
 	paras_registrar,
 	slot_range::SlotRange,
@@ -25,13 +25,14 @@ use crate::{
 	traits::{AuctionStatus, Auctioneer, Leaser, Registrar as RegistrarT},
 };
 use frame_support::{
-	assert_noop, assert_ok, parameter_types,
+	assert_noop, assert_ok, derive_impl, parameter_types,
 	traits::{ConstU32, Currency, OnFinalize, OnInitialize},
 	weights::Weight,
 	PalletId,
 };
 use frame_support_test::TestRandomness;
 use frame_system::EnsureRoot;
+use pallet_identity::{self, legacy::IdentityInfo};
 use parity_scale_codec::Encode;
 use primitives::{
 	BlockNumber, HeadData, Id as ParaId, SessionIndex, ValidationCode, LOWEST_PUBLIC_ID,
@@ -88,6 +89,10 @@ frame_support::construct_runtime!(
 		Auctions: auctions::{Pallet, Call, Storage, Event<T>},
 		Crowdloan: crowdloan::{Pallet, Call, Storage, Event<T>},
 		Slots: slots::{Pallet, Call, Storage, Event<T>},
+
+		// Migrators
+		Identity: pallet_identity::{Pallet, Call, Storage, Event<T>},
+		IdentityMigrator: identity_migrator::{Pallet, Call, Event<T>},
 	}
 );
 
@@ -109,6 +114,7 @@ parameter_types! {
 		);
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = BlockWeights;
@@ -206,6 +212,7 @@ impl paras::Config for Test {
 	type QueueFootprinter = ();
 	type NextSessionRotation = crate::mock::TestNextSessionRotation;
 	type OnNewHead = ();
+	type AssignCoretime = ();
 }
 
 parameter_types! {
@@ -272,6 +279,28 @@ impl crowdloan::Config for Test {
 	type Auctioneer = Auctions;
 	type MaxMemoLength = MaxMemoLength;
 	type WeightInfo = crate::crowdloan::TestWeightInfo;
+}
+
+impl pallet_identity::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type Slashed = ();
+	type BasicDeposit = ConstU32<100>;
+	type ByteDeposit = ConstU32<10>;
+	type SubAccountDeposit = ConstU32<100>;
+	type MaxSubAccounts = ConstU32<2>;
+	type IdentityInformation = IdentityInfo<ConstU32<2>>;
+	type MaxRegistrars = ConstU32<20>;
+	type RegistrarOrigin = EnsureRoot<AccountId>;
+	type ForceOrigin = EnsureRoot<AccountId>;
+	type WeightInfo = ();
+}
+
+impl identity_migrator::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type Reaper = EnsureRoot<AccountId>;
+	type ReapIdentityHandler = ();
+	type WeightInfo = crate::identity_migrator::TestWeightInfo;
 }
 
 /// Create a new set of test externalities.

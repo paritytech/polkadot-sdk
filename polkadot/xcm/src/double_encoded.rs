@@ -25,6 +25,7 @@ use parity_scale_codec::{Decode, DecodeLimit, Encode};
 #[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(T))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub struct DoubleEncoded<T> {
 	encoded: Vec<u8>,
 	#[codec(skip)]
@@ -46,7 +47,7 @@ impl<T> Eq for DoubleEncoded<T> {}
 
 impl<T> core::fmt::Debug for DoubleEncoded<T> {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-		self.encoded.fmt(f)
+		array_bytes::bytes2hex("0x", &self.encoded).fmt(f)
 	}
 }
 

@@ -47,6 +47,10 @@ pub mod pallet {
 		#[pallet::no_default] // optional. `RuntimeEvent` is automatically excluded as well.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
+		/// The overarching task type.
+		#[pallet::no_default]
+		type RuntimeTask: Task;
+
 		/// An input parameter to this pallet. This value can have a default, because it is not
 		/// reliant on `frame_system::Config` or the overarching runtime in any way.
 		type WithDefaultValue: Get<u32>;
@@ -193,6 +197,7 @@ pub mod tests {
 	impl pallet_default_config_example::Config for Runtime {
 		// These two both cannot have defaults.
 		type RuntimeEvent = RuntimeEvent;
+		type RuntimeTask = RuntimeTask;
 
 		type HasNoDefault = frame_support::traits::ConstU32<1>;
 		type CannotHaveDefault = SomeCall;

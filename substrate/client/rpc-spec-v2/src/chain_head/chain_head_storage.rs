@@ -22,8 +22,8 @@ use std::{collections::VecDeque, marker::PhantomData, sync::Arc};
 
 use sc_client_api::{Backend, ChildInfo, StorageKey, StorageProvider};
 use sc_utils::mpsc::TracingUnboundedSender;
-use sp_api::BlockT;
 use sp_core::storage::well_known_keys;
+use sp_runtime::traits::Block as BlockT;
 
 use crate::chain_head::event::OperationStorageItems;
 

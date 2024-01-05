@@ -22,7 +22,10 @@
     "/dns/polkadot-collectives-boot-ng.dwellir.com/tcp/30341/p2p/12D3KooWDMFYCNRAQcSRNV7xu2xv8319goSEbSHW4TnXRz6EpPKc",
     "/dns/polkadot-collectives-boot-ng.dwellir.com/tcp/443/wss/p2p/12D3KooWDMFYCNRAQcSRNV7xu2xv8319goSEbSHW4TnXRz6EpPKc",
     "/dns/collectives-polkadot-bootnode.radiumblock.com/tcp/30333/p2p/12D3KooWDumvnNwPbBg5inBEapgjKU7ECdMHHgwfYeGWUkzYUE1c",
-    "/dns/collectives-polkadot-bootnode.radiumblock.com/tcp/30336/wss/p2p/12D3KooWDumvnNwPbBg5inBEapgjKU7ECdMHHgwfYeGWUkzYUE1c"
+    "/dns/collectives-polkadot-bootnode.radiumblock.com/tcp/30336/wss/p2p/12D3KooWDumvnNwPbBg5inBEapgjKU7ECdMHHgwfYeGWUkzYUE1c",
+    "/dns/pch13.rotko.net/tcp/33573/p2p/12D3KooWRXudHoazPZ9osMfdY38e8CBxQLD4RhrVeHpRSNNpcDtH",
+    "/dns/pch13.rotko.net/tcp/34573/ws/p2p/12D3KooWRXudHoazPZ9osMfdY38e8CBxQLD4RhrVeHpRSNNpcDtH",
+    "/dns/pch13.rotko.net/tcp/35573/wss/p2p/12D3KooWRXudHoazPZ9osMfdY38e8CBxQLD4RhrVeHpRSNNpcDtH"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
