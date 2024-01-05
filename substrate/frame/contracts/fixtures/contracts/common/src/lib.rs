@@ -46,8 +46,8 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
 /// input$!(
 /// 		input,        // input buffer (optional)
 /// 		512,          // input size (optional)
-/// 		var6 => u32,  // [0, 4)  var4 decoded as u32
-/// 		var7 => [u8], // [4, ..) var5 decoded as a [u8] slice
+/// 		var4 => u32,  // [0, 4)  var4 decoded as u32
+/// 		var5 => [u8], // [4, ..) var5 decoded as a [u8] slice
 /// );
 /// ```
 #[macro_export]
