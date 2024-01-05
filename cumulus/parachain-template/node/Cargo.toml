@@ -39,6 +39,7 @@ sc-executor = { path = "../../../substrate/client/executor" }
 sc-network = { path = "../../../substrate/client/network" }
 sc-network-sync = { path = "../../../substrate/client/network/sync" }
 sc-rpc = { path = "../../../substrate/client/rpc" }
+sc-rpc-spec-v2 = { path = "../../../substrate/client/rpc-spec-v2" }
 sc-service = { path = "../../../substrate/client/service" }
 sc-sysinfo = { path = "../../../substrate/client/sysinfo" }
 sc-telemetry = { path = "../../../substrate/client/telemetry" }

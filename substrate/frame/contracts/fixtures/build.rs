@@ -104,7 +104,7 @@ fn collect_entries(contracts_dir: &Path, out_dir: &Path) -> Vec<Entry> {
 		.filter_map(|file| {
 			let path = file.expect("file exists; qed").path();
 			if path.extension().map_or(true, |ext| ext != "rs") {
-				return None;
+				return None
 			}
 
 			let entry = Entry::new(path);
@@ -303,7 +303,7 @@ fn find_workspace_root(current_dir: &Path) -> Option<PathBuf> {
 			let cargo_toml_contents =
 				std::fs::read_to_string(current_dir.join("Cargo.toml")).ok()?;
 			if cargo_toml_contents.contains("[workspace]") {
-				return Some(current_dir);
+				return Some(current_dir)
 			}
 		}
 
@@ -321,7 +321,7 @@ fn main() -> Result<()> {
 
 	let entries = collect_entries(&contracts_dir, &out_dir);
 	if entries.is_empty() {
-		return Ok(());
+		return Ok(())
 	}
 
 	let tmp_dir = tempfile::tempdir()?;

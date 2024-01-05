@@ -45,6 +45,12 @@ where
 	let mut module = RpcModule::new(());
 	let FullDeps { client, pool, deny_unsafe } = deps;
 
+	// Enable the `chainSpec rpc v2` interface.
+	let chain_name = chain_spec.name().to_string();
+	let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");
+	let properties = chain_spec.properties();
+	io.merge(ChainSpec::new(chain_name, genesis_hash, properties).into_rpc())?;
+
 	module.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
 	module.merge(TransactionPayment::new(client).into_rpc())?;
 
