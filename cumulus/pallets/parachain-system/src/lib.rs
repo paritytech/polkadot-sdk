@@ -48,7 +48,7 @@ use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
 use polkadot_runtime_parachains::FeeTracker;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{Block as BlockT, BlockNumberProvider, Hash},
+	traits::{Block as BlockT, BlockNumberProvider, Hash, One},
 	transaction_validity::{
 		InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction,
 	},
@@ -1750,9 +1750,7 @@ impl<T: Config> BlockNumberProvider for RelaychainDataProvider<T> {
 	type BlockNumber = relay_chain::BlockNumber;
 
 	fn current_block_number() -> relay_chain::BlockNumber {
-		Pallet::<T>::validation_data()
-			.map(|d| d.relay_parent_number)
-			.unwrap_or_default()
+		LastRelayChainBlockNumber::<T>::get().saturating_add(One::one())
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
