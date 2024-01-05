@@ -94,13 +94,17 @@ fn configure_accounts_for_staging_testnet() -> (
 	Vec<AccountId>,
 ) {
 	#[rustfmt::skip]
-	// stash, controller, session-key
+	// stash, controller, session-key, beefy id
 	// generated with secret:
 	// for i in 1 2 3 4 ; do for j in stash controller; do subkey inspect "$secret"/fir/$j/$i; done; done
 	//
 	// and
 	//
-	// for i in 1 2 3 4 ; do for j in session; do subkey --ed25519 inspect "$secret"//fir//$j//$i; done; done
+	// for i in 1 2 3 4 ; do for j in session; do subkey inspect --scheme ed25519 "$secret"//fir//$j//$i; done; done
+	//
+	// and
+	//
+	// for i in 1 2 3 4 ; do for j in session; do subkey inspect --scheme ecdsa "$secret"//fir//$j//$i; done; done
 
 	let initial_authorities: Vec<(
 		AccountId,
@@ -133,7 +137,7 @@ fn configure_accounts_for_staging_testnet() -> (
 			array_bytes::hex2array_unchecked("6e7e4eb42cbd2e0ab4cae8708ce5509580b8c04d11f6758dbf686d50fe9f9106")
 				.unchecked_into(),
 			// 5DMLFcDdLLQbw696YfHaWBpQR99HwR456ycSCfr6L7KXGYK8
-			array_bytes::hex2array_unchecked("36a818b3f59579c5fbbe4fede64f49dbf090ba883eb2a175d5ca90e5adb5f0b3e")
+			array_bytes::hex2array_unchecked("035560fafa241739869360aa4b32bc98953172ceb41a19c6cc1a27962fb3d1ecec")
 				.unchecked_into(),
 		),
 		(
@@ -157,7 +161,7 @@ fn configure_accounts_for_staging_testnet() -> (
 			array_bytes::hex2array_unchecked("482dbd7297a39fa145c570552249c2ca9dd47e281f0c500c971b59c9dcdcd82e")
 				.unchecked_into(),
 			// 5FYk11kNtB4178wLKJ2RNoUzzcjgRUciFe3SJDVZXhqX4dzG
-			array_bytes::hex2array_unchecked("2da1ab255ed888ee3e19b73d335fc13160b3eb10456c2d17c6a8ea7de403d2445")
+			array_bytes::hex2array_unchecked("02da1ab255ed888ee3e19b73d335fc13160b3eb10456c2d17c6a8ea7de403d2445")
 				.unchecked_into(),
 		),
 		(
@@ -181,7 +185,7 @@ fn configure_accounts_for_staging_testnet() -> (
 			array_bytes::hex2array_unchecked("482a3389a6cf42d8ed83888cfd920fec738ea30f97e44699ada7323f08c3380a")
 				.unchecked_into(),
 			// 5GQx4FToRBPqfani6o7owFJE1UstiviqbPP7HPWyvtXWWukn
-			array_bytes::hex2array_unchecked("36a818b3f59579c5fbbe4fede64f49dbf090ba883eb2a175d5ca90e5adb5f0b3e")
+			array_bytes::hex2array_unchecked("036a818b3f59579c5fbbe4fede64f49dbf090ba883eb2a175d5ca90e5adb5f0b3e")
 				.unchecked_into(),
 		),
 		(
@@ -205,7 +209,7 @@ fn configure_accounts_for_staging_testnet() -> (
 			array_bytes::hex2array_unchecked("00299981a2b92f878baaf5dbeba5c18d4e70f2a1fcd9c61b32ea18daf38f4378")
 				.unchecked_into(),
 			// 5FCu2pY928VVHPgnNVJssvxFJZECyNe1CyH3WTG79Wisx58B
-			array_bytes::hex2array_unchecked("20ce02b963548f9f8ade8765f7a4a06638c17819c78422a1cc35b647873583eef")
+			array_bytes::hex2array_unchecked("020ce02b963548f9f8ade8765f7a4a06638c17819c78422a1cc35b647873583eef")
 				.unchecked_into(),
 		),
 	];
