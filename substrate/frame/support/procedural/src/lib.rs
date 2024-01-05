@@ -1520,7 +1520,7 @@ pub fn composite_enum(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
-/// Derive macro for implementing [`frame_support::traits::VariantCount`] for enum type.
+/// Derive macro for implementing `frame_support::traits::VariantCount` for enum type.
 ///
 /// This macro works only for the enum which does not have variants or variants do not have fields.
 ///
