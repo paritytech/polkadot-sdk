@@ -1300,11 +1300,17 @@ mod sanitizers {
 			scheduler::Pallet::<Test>::set_claimqueue(BTreeMap::from([
 				(
 					CoreIndex::from(0),
-					VecDeque::from([Some(ParasEntry::new(Assignment::new(1.into()), 1))]),
+					VecDeque::from([ParasEntry::new(
+						Assignment::Pool { para_id: 1.into(), core_index: CoreIndex(1) },
+						RELAY_PARENT_NUM,
+					)]),
 				),
 				(
 					CoreIndex::from(1),
-					VecDeque::from([Some(ParasEntry::new(Assignment::new(2.into()), 1))]),
+					VecDeque::from([ParasEntry::new(
+						Assignment::Pool { para_id: 2.into(), core_index: CoreIndex(1) },
+						RELAY_PARENT_NUM,
+					)]),
 				),
 			]));
 
