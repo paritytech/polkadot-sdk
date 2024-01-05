@@ -54,6 +54,12 @@ pub fn expand_outer_freeze_reason(pallet_decls: &[Pallet], scrate: &TokenStream)
 		}
 	}
 
+	if freeze_reason_variants_count.is_empty() {
+		freeze_reason_variants_count.push(
+			quote! { 0 }
+		)
+	}
+
 	quote! {
 		/// A reason for placing a freeze on funds.
 		#[derive(

@@ -54,6 +54,12 @@ pub fn expand_outer_hold_reason(pallet_decls: &[Pallet], scrate: &TokenStream) -
 		}
 	}
 
+	if hold_reason_variants_count.is_empty() {
+		hold_reason_variants_count.push(
+			quote! { 0 }
+		)
+	}
+
 	quote! {
 		/// A reason for placing a hold on funds.
 		#[derive(
