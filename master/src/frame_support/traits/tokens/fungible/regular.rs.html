@@ -558,6 +558,13 @@
 <a href="#558" id="558">558</a>
 <a href="#559" id="559">559</a>
 <a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -741,9 +748,16 @@
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Balance, DispatchError&gt; {
 		<span class="kw">let </span>old_balance = <span class="self">Self</span>::balance(who);
 		<span class="kw">let </span>free = <span class="self">Self</span>::reducible_balance(who, preservation, force);
-		<span class="kw">if let </span>BestEffort = precision {
-			amount = amount.min(free);
+		<span class="kw">match </span>precision {
+			BestEffort =&gt; {
+				amount = amount.min(free);
+			},
+			Exact =&gt;
+				<span class="kw">if </span>free &lt; amount {
+					<span class="kw">return </span><span class="prelude-val">Err</span>(TokenError::FundsUnavailable.into())
+				},
 		}
+
 		<span class="kw">let </span>new_balance = old_balance.checked_sub(<span class="kw-2">&amp;</span>amount).ok_or(TokenError::FundsUnavailable)<span class="question-mark">?</span>;
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(dust) = <span class="self">Self</span>::write_balance(who, new_balance)<span class="question-mark">? </span>{
 			<span class="self">Self</span>::handle_dust(Dust(dust));
