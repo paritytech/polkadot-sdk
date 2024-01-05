@@ -214,6 +214,7 @@ impl paras::Config for Test {
 	type QueueFootprinter = ();
 	type NextSessionRotation = crate::mock::TestNextSessionRotation;
 	type OnNewHead = ();
+	type AssignCoretime = ();
 }
 
 parameter_types! {

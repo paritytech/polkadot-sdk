@@ -19,7 +19,7 @@
 use crate::LOG_TARGET;
 
 use codec::{Decode, Encode};
-use log::debug;
+use log::{debug, info};
 use sp_consensus_beefy::{
 	ecdsa_crypto::{AuthorityId, Signature},
 	Commitment, EquivocationProof, SignedCommitment, ValidatorSet, ValidatorSetId, VoteMessage,
@@ -194,7 +194,11 @@ where
 		self.previous_votes.retain(|&(_, number), _| number > round_num);
 		self.mandatory_done = self.mandatory_done || round_num == self.session_start;
 		self.best_done = self.best_done.max(Some(round_num));
-		debug!(target: LOG_TARGET, "🥩 Concluded round #{}", round_num);
+		if round_num == self.session_start {
+			info!(target: LOG_TARGET, "🥩 Concluded mandatory round #{}", round_num);
+		} else {
+			debug!(target: LOG_TARGET, "🥩 Concluded optional round #{}", round_num);
+		}
 	}
 }
 
