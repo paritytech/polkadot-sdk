@@ -183,6 +183,16 @@ impl RecoveryHandle for FailingRecoveryHandle {
 	}
 }
 
+/// Assembly of PartialComponents (enough to run chain ops subcommands)
+pub type Service = PartialComponents<
+	Client,
+	Backend,
+	(),
+	sc_consensus::import_queue::BasicQueue<Block>,
+	sc_transaction_pool::FullPool<Block, Client>,
+	ParachainBlockImport,
+>;
+
 /// Starts a `ServiceBuilder` for a full service.
 ///
 /// Use this macro if you don't actually need the full service, but just the builder in order to
@@ -190,17 +200,7 @@ impl RecoveryHandle for FailingRecoveryHandle {
 pub fn new_partial(
 	config: &mut Configuration,
 	enable_import_proof_record: bool,
-) -> Result<
-	PartialComponents<
-		Client,
-		Backend,
-		(),
-		sc_consensus::import_queue::BasicQueue<Block>,
-		sc_transaction_pool::FullPool<Block, Client>,
-		ParachainBlockImport,
-	>,
-	sc_service::Error,
-> {
+) -> Result<Service, sc_service::Error> {
 	let heap_pages = config
 		.default_heap_pages
 		.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |h| HeapAllocStrategy::Static { extra_pages: h as _ });
