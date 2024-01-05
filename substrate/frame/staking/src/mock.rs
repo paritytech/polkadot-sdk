@@ -290,7 +290,7 @@ impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 }
 
 // Disabling threshold for `UpToByzantineThresholdDisablingStrategy`
-pub(crate) const DISABLING_THRESHOLD_FACTOR: u32 = 3;
+pub(crate) const DISABLING_THRESHOLD_FACTOR: usize = 3;
 
 impl crate::pallet::pallet::Config for Test {
 	type Currency = Balances;

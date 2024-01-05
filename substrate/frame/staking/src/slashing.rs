@@ -323,28 +323,17 @@ fn kick_out_if_recent<T: Config>(params: SlashParams<T>) {
 /// Inform the [`DisablingStrategy`] implementation about the new offender and disable the list of
 /// validators provided by [`make_disabling_decision`].
 fn add_offending_validator<T: Config>(params: &SlashParams<T>) {
-	let stash = params.stash;
 	DisabledValidators::<T>::mutate(|disabled| {
-		let validators = T::SessionInterface::validators();
-		let validator_index = match validators.iter().position(|i| i == stash) {
-			Some(index) => index,
-			None => return,
-		};
-
-		let validator_index_u32 = validator_index as u32;
-
 		let disable_offenders = T::DisablingStrategy::make_disabling_decision(
-			validator_index as u32,
+			params.stash,
 			params.slash_era,
 			&disabled,
-			&validators,
 		);
 
 		for offender in disable_offenders {
 			// Add the validator to `DisabledValidators` and disable it. Do nothing if it is
 			// already disabled.
-			if let Err(index) = disabled.binary_search_by_key(&validator_index_u32, |index| *index)
-			{
+			if let Err(index) = disabled.binary_search_by_key(&offender, |index| *index) {
 				disabled.insert(index, offender);
 				T::SessionInterface::disable_validator(offender);
 			}

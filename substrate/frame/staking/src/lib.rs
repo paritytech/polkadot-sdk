@@ -1229,10 +1229,9 @@ pub trait DisablingStrategy<T: Config> {
 	/// Make a decision if an offender should be disabled or not. The result is a `Vec` of validator
 	/// indices that should be disabled
 	fn make_disabling_decision(
-		offender_idx: u32,
+		offender_stash: &T::AccountId,
 		slash_era: EraIndex,
 		currently_disabled: &Vec<u32>,
-		active_set: &Vec<T::AccountId>,
 	) -> Vec<u32>;
 }
 
@@ -1240,27 +1239,34 @@ pub trait DisablingStrategy<T: Config> {
 /// threshold. `DISABLING_THRESHOLD_FACTOR` is the factor of the maximum disabled validators in the
 /// active set. E.g. setting this value to `3` means no more than 1/3 of the validators in the
 /// active set can be disabled in an era.
-pub struct UpToByzantineThresholdDisablingStrategy<const DISABLING_THRESHOLD_FACTOR: u32 = 3>;
+pub struct UpToByzantineThresholdDisablingStrategy<const DISABLING_THRESHOLD_FACTOR: usize = 3>;
 
-impl<const DISABLING_THRESHOLD_FACTOR: u32>
+impl<const DISABLING_THRESHOLD_FACTOR: usize>
 	UpToByzantineThresholdDisablingStrategy<DISABLING_THRESHOLD_FACTOR>
 {
 	/// Disabling limit calculated from the total number of validators in the active set. When
 	/// reached no more validators will be disabled.
 	pub fn byzantine_threshold(validators_len: usize) -> usize {
-		validators_len.saturating_sub(1) / 3
+		validators_len.saturating_sub(1) / DISABLING_THRESHOLD_FACTOR
 	}
 }
 
-impl<T: Config, const DISABLING_THRESHOLD_FACTOR: u32> DisablingStrategy<T>
+impl<T: Config, const DISABLING_THRESHOLD_FACTOR: usize> DisablingStrategy<T>
 	for UpToByzantineThresholdDisablingStrategy<DISABLING_THRESHOLD_FACTOR>
 {
 	fn make_disabling_decision(
-		offender_idx: u32,
+		offender_stash: &T::AccountId,
 		slash_era: EraIndex,
 		currently_disabled: &Vec<u32>,
-		active_set: &Vec<T::AccountId>,
 	) -> Vec<u32> {
+		let active_set = T::SessionInterface::validators();
+		let offender_idx = if let Some(idx) = active_set.iter().position(|i| i == offender_stash) {
+			idx as u32
+		} else {
+			// offender not found in the active set, do nothing
+			return vec![]
+		};
+
 		// We don't disable more than 1/3 of the validators in the active set
 		let over_byzantine_threshold =
 			currently_disabled.len() >= Self::byzantine_threshold(active_set.len());
