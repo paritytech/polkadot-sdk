@@ -677,8 +677,6 @@
 <a href="#677" id="677">677</a>
 <a href="#678" id="678">678</a>
 <a href="#679" id="679">679</a>
-<a href="#680" id="680">680</a>
-<a href="#681" id="681">681</a>
 </pre></div><pre class="rust"><code><span class="comment">// SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork &lt;hello@snowfork.com&gt;
 </span><span class="doccomment">//! Governance API for controlling the Ethereum side of the bridge
@@ -759,8 +757,6 @@
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 </span><span class="kw">use </span>frame_support::traits::OriginTrait;
-
-<span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 
 <span class="kw">pub type </span>BalanceOf&lt;T&gt; =
 	&lt;&lt;T <span class="kw">as </span>pallet::Config&gt;::Token <span class="kw">as </span>Inspect&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;&gt;::Balance;
