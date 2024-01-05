@@ -114,6 +114,23 @@
 <a href="#114" id="114">114</a>
 <a href="#115" id="115">115</a>
 <a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -135,11 +152,11 @@
 //! The [`ParachainInherentData`] is the data that is passed by the collator to the parachain
 //! runtime. The runtime will use this data to execute messages from other parachains/the relay
 //! chain or to read data from the relay chain state. When the parachain is validated by a parachain
-//! validator on the relay chain, this data is checked for correctnes. If the data passed by the
+//! validator on the relay chain, this data is checked for correctness. If the data passed by the
 //! collator to the runtime isn&#39;t correct, the parachain candidate is considered invalid.
 //!
-//! Use [`ParachainInherentData::create_at`] to create the [`ParachainInherentData`] at a given
-//! relay chain block to include it in a parachain block.
+//! To create a [`ParachainInherentData`] for a specific relay chain block, there exists the
+//! `ParachainInherentDataExt` trait in `cumulus-client-parachain-inherent` that helps with this.
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
@@ -151,13 +168,6 @@
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_inherents::InherentIdentifier;
 <span class="kw">use </span>sp_std::{collections::btree_map::BTreeMap, vec::Vec};
-
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">mod </span>client_side;
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">mod </span>mock;
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">pub use </span>mock::{MockValidationDataInherentDataProvider, MockXcmConfig};
 
 <span class="doccomment">/// The identifier for the parachain inherent.
 </span><span class="kw">pub const </span>INHERENT_IDENTIFIER: InherentIdentifier = <span class="kw-2">*</span><span class="string">b&quot;sysi1337&quot;</span>;
@@ -184,6 +194,25 @@
 	</span><span class="kw">pub </span>horizontal_messages: BTreeMap&lt;ParaId, Vec&lt;InboundHrmpMessage&gt;&gt;,
 }
 
+<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+#[async_trait::async_trait]
+</span><span class="kw">impl </span>sp_inherents::InherentDataProvider <span class="kw">for </span>ParachainInherentData {
+	<span class="kw">async fn </span>provide_inherent_data(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		inherent_data: <span class="kw-2">&amp;mut </span>sp_inherents::InherentData,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_inherents::Error&gt; {
+		inherent_data.put_data(INHERENT_IDENTIFIER, <span class="kw-2">&amp;</span><span class="self">self</span>)
+	}
+
+	<span class="kw">async fn </span>try_handle_error(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		<span class="kw">_</span>: <span class="kw-2">&amp;</span>sp_inherents::InherentIdentifier,
+		<span class="kw">_</span>: <span class="kw-2">&amp;</span>[u8],
+	) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="prelude-ty">Result</span>&lt;(), sp_inherents::Error&gt;&gt; {
+		<span class="prelude-val">None
+	</span>}
+}
+
 <span class="doccomment">/// This struct provides ability to extend a message queue chain (MQC) and compute a new head.
 ///
 /// MQC is an instance of a [hash chain] applied to a message queue. Using a hash chain it&#39;s
@@ -200,6 +229,11 @@
 </span><span class="kw">pub struct </span>MessageQueueChain(RelayHash);
 
 <span class="kw">impl </span>MessageQueueChain {
+	<span class="doccomment">/// Create a new instance initialized to `hash`.
+	</span><span class="kw">pub fn </span>new(hash: RelayHash) -&gt; <span class="self">Self </span>{
+		<span class="self">Self</span>(hash)
+	}
+
 	<span class="doccomment">/// Extend the hash chain with an HRMP message. This method should be used only when
 	/// this chain is tracking HRMP.
 	</span><span class="kw">pub fn </span>extend_hrmp(<span class="kw-2">&amp;mut </span><span class="self">self</span>, horizontal_message: <span class="kw-2">&amp;</span>InboundHrmpMessage) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{

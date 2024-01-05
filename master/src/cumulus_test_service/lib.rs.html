@@ -1387,7 +1387,7 @@
 						<span class="kw">let </span>relay_chain_interface = relay_chain_interface_for_closure.clone();
 						<span class="kw">async move </span>{
 							<span class="kw">let </span>parachain_inherent =
-							cumulus_primitives_parachain_inherent::ParachainInherentData::create_at(
+							cumulus_client_parachain_inherent::ParachainInherentDataProvider::create_at(
 								relay_parent,
 								<span class="kw-2">&amp;</span>relay_chain_interface,
 								<span class="kw-2">&amp;</span>validation_data,

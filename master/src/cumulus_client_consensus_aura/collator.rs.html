@@ -417,10 +417,10 @@
 	<span class="self">self </span><span class="kw">as </span>consensus_common, ParachainBlockImportMarker, ParachainCandidate,
 };
 <span class="kw">use </span>cumulus_client_consensus_proposer::ProposerInterface;
+<span class="kw">use </span>cumulus_client_parachain_inherent::{ParachainInherentData, ParachainInherentDataProvider};
 <span class="kw">use </span>cumulus_primitives_core::{
 	relay_chain::Hash <span class="kw">as </span>PHash, DigestItem, ParachainBlockData, PersistedValidationData,
 };
-<span class="kw">use </span>cumulus_primitives_parachain_inherent::ParachainInherentData;
 <span class="kw">use </span>cumulus_relay_chain_interface::RelayChainInterface;
 
 <span class="kw">use </span>polkadot_node_primitives::{Collation, MaybeCompressedPoV};
@@ -511,7 +511,7 @@
 		parent_hash: Block::Hash,
 		timestamp: <span class="kw">impl </span>Into&lt;<span class="prelude-ty">Option</span>&lt;Timestamp&gt;&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(ParachainInherentData, InherentData), Box&lt;<span class="kw">dyn </span>Error + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt; {
-		<span class="kw">let </span>paras_inherent_data = ParachainInherentData::create_at(
+		<span class="kw">let </span>paras_inherent_data = ParachainInherentDataProvider::create_at(
 			relay_parent,
 			<span class="kw-2">&amp;</span><span class="self">self</span>.relay_client,
 			validation_data,

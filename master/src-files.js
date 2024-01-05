@@ -56,6 +56,7 @@ var srcIndex = JSON.parse('{\
 "cumulus_client_consensus_proposer":["",[],["lib.rs"]],\
 "cumulus_client_consensus_relay_chain":["",[],["import_queue.rs","lib.rs"]],\
 "cumulus_client_network":["",[],["lib.rs"]],\
+"cumulus_client_parachain_inherent":["",[],["lib.rs","mock.rs"]],\
 "cumulus_client_pov_recovery":["",[],["active_candidate_recovery.rs","lib.rs"]],\
 "cumulus_client_service":["",[],["lib.rs"]],\
 "cumulus_pallet_aura_ext":["",[],["consensus_hook.rs","lib.rs"]],\
@@ -69,7 +70,7 @@ var srcIndex = JSON.parse('{\
 "cumulus_ping":["",[],["lib.rs"]],\
 "cumulus_primitives_aura":["",[],["lib.rs"]],\
 "cumulus_primitives_core":["",[],["lib.rs"]],\
-"cumulus_primitives_parachain_inherent":["",[],["client_side.rs","lib.rs","mock.rs"]],\
+"cumulus_primitives_parachain_inherent":["",[],["lib.rs"]],\
 "cumulus_primitives_proof_size_hostfunction":["",[],["lib.rs"]],\
 "cumulus_primitives_timestamp":["",[],["lib.rs"]],\
 "cumulus_primitives_utility":["",[],["lib.rs"]],\
