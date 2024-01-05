@@ -224,6 +224,7 @@ pub mod mainnet {
 		type OnNewAccount = ();
 		type OnKilledAccount = ();
 		type SystemWeightInfo = ();
+		type SystemExtensionsWeightInfo = ();
 		type SS58Prefix = SS58Prefix;
 		type MaxConsumers = frame_support::traits::ConstU32<16>;
 		type Nonce = u64;
