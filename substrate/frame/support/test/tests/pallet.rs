@@ -965,7 +965,7 @@ fn inherent_expand() {
 		),
 		vec![UncheckedExtrinsic {
 			call: RuntimeCall::Example(pallet::Call::foo_no_post_info {}),
-			signature: Some((1, Default::default())),
+			signature: Some((1, frame_system::CheckNonZeroSender::<Runtime>::default())),
 		}],
 	);
 

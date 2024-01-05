@@ -16,18 +16,19 @@
 use super::*;
 use crate::mock::{pallet_dummy::Call, DummyExtension, PreDispatchCount, Runtime, RuntimeCall};
 use frame_support::dispatch::DispatchInfo;
+use sp_runtime::traits::DispatchTransaction;
 
 #[test]
 fn skip_feeless_payment_works() {
 	let call = RuntimeCall::DummyPallet(Call::<Runtime>::aux { data: 1 });
 	SkipCheckIfFeeless::<Runtime, DummyExtension>::from(DummyExtension)
-		.pre_dispatch(&0, &call, &DispatchInfo::default(), 0)
+		.validate_and_prepare(Some(0).into(), &call, &DispatchInfo::default(), 0)
 		.unwrap();
 	assert_eq!(PreDispatchCount::get(), 1);
 
 	let call = RuntimeCall::DummyPallet(Call::<Runtime>::aux { data: 0 });
 	SkipCheckIfFeeless::<Runtime, DummyExtension>::from(DummyExtension)
-		.pre_dispatch(&0, &call, &DispatchInfo::default(), 0)
+		.validate_and_prepare(Some(0).into(), &call, &DispatchInfo::default(), 0)
 		.unwrap();
 	assert_eq!(PreDispatchCount::get(), 1);
 }

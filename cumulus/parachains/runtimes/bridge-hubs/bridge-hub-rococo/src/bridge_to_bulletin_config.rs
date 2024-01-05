@@ -39,7 +39,7 @@ use bridge_runtime_common::{
 		XcmBlobMessageDispatch, XcmVersionOfDestAndRemoteBridge,
 	},
 	refund_relayer_extension::{
-		ActualFeeRefund, RefundBridgedGrandpaMessages, RefundSignedExtensionAdapter,
+		ActualFeeRefund, RefundBridgedGrandpaMessages, RefundTransactionExtensionAdapter,
 		RefundableMessagesLane,
 	},
 };
@@ -171,7 +171,7 @@ impl messages::BridgedChainWithMessages for RococoBulletin {}
 
 /// Signed extension that refunds relayers that are delivering messages from the Rococo Bulletin
 /// chain.
-pub type OnBridgeHubRococoRefundRococoBulletinMessages = RefundSignedExtensionAdapter<
+pub type OnBridgeHubRococoRefundRococoBulletinMessages = RefundTransactionExtensionAdapter<
 	RefundBridgedGrandpaMessages<
 		Runtime,
 		BridgeGrandpaRococoBulletinInstance,

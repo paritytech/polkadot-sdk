@@ -919,7 +919,7 @@ where
 	Address: TypeInfo,
 	Call: TypeInfo,
 	Signature: TypeInfo,
-	Extra: sp_runtime::traits::SignedExtension + TypeInfo,
+	Extra: TypeInfo,
 {
 	fn call(&self) -> &Self::Call {
 		&self.function
