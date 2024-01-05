@@ -659,9 +659,6 @@ impl claims::BenchmarkingConfig for Runtime {
 		let info = call.get_dispatch_info();
 		(call, info)
 	}
-	fn default_post_info() -> <Self::RuntimeCall as sp_runtime::traits::Dispatchable>::PostInfo {
-		Default::default()
-	}
 }
 
 parameter_types! {

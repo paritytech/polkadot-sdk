@@ -600,8 +600,6 @@ impl<T: Config> Pallet<T> {
 pub trait BenchmarkingConfig: Config {
 	/// `Call` to be used when benchmarking the transaction extension.
 	fn default_call_and_info() -> (Self::RuntimeCall, DispatchInfoOf<Self::RuntimeCall>);
-	/// `PostInfo` to be used when benchmarking the transaction extension.
-	fn default_post_info() -> <Self::RuntimeCall as Dispatchable>::PostInfo;
 }
 
 /// Validate `attest` calls prior to execution. Needed to avoid a DoS attack since they are
@@ -847,9 +845,6 @@ pub(super) mod tests {
 			});
 			let info = call.get_dispatch_info();
 			(call, info)
-		}
-		fn default_post_info() -> <Self::RuntimeCall as Dispatchable>::PostInfo {
-			().into()
 		}
 	}
 
@@ -1554,6 +1549,7 @@ pub(super) mod benchmarking {
 		where_clause { where <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 			T: Send + Sync + BenchmarkingConfig,
 			<<T as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
+			<<T as frame_system::Config>::RuntimeCall as Dispatchable>::PostInfo: Default,
 		}
 
 		// Benchmark `claim` including `validate_unsigned` logic.
@@ -1761,7 +1757,7 @@ pub(super) mod benchmarking {
 				&info,
 				0,
 				|_| {
-					Ok(T::default_post_info())
+					Ok(Default::default())
 				}
 			).unwrap().is_ok());
 		}
