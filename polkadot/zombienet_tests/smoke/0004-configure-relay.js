@@ -6,7 +6,7 @@ async function run(nodeName, networkInfo, _jsArgs) {
   let userDefinedTypes = init.userDefinedTypes;
   const api = await zombie.connect(wsUri, userDefinedTypes);
 
-  const sec = networkInfo.nodesByName["collator01"];
+  const sec = networkInfo.nodesByName["collator-para-100"];
   wsUri = sec.wsUri;
   userDefinedTypes = sec.userDefinedTypes;
 

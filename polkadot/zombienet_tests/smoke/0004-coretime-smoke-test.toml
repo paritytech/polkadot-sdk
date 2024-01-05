@@ -8,7 +8,7 @@ command = "polkadot"
 
   [[relaychain.nodes]]
   name = "alice"
-  args = ["-lruntime=debug,parachain=trace" ]
+  args = ["-lruntime=debug,xcm=trace" ]
 
   [[relaychain.nodes]]
   name = "bob"
@@ -26,16 +26,16 @@ chain = "coretime-rococo-local"
   name = "coretime-collator"
   image = "{{COL_IMAGE}}"
   command = "polkadot-parachain"
-  args = [ "-lruntime=debug,parachain=trace" ]
+  args = [ "-lruntime=debug,xcm=trace" ]
 
 [[parachains]]
 id = 100
 add_to_genesis = false
 register_para = false
 onboard_as_parachain = false
-cumulus_based = true
 
   [parachains.collator]
-  name = "collator01"
-  image = "{{CUMULUS_IMAGE}}"
+  name = "collator-para-100"
+  image = "{{COL_IMAGE}}"
   command = "polkadot-parachain"
+  args = ["-lruntime=debug,parachain=trace,aura=trace", "--force-authoring"]

@@ -9,9 +9,6 @@ alice: reports block height is at least 3 within 30 seconds
 # configure relay chain
 alice: js-script ./0004-configure-relay.js with "" return is 0 within 600 secs
 
-# Wait 2 sessions. The parachain doesn't start block production immediately.
-alice: log line contains "New session detected session_index=2" within 600 seconds
-
 # configure broker chain
 coretime-collator: js-script ./0004-configure-broker.js with "" return is 0 within 600 secs
 

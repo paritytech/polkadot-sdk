@@ -13,7 +13,7 @@ async function run(nodeName, networkInfo, _jsArgs) {
   const calls = [
     // Default broker configuration
     api.tx.broker.configure({
-      advanceNotice: 10,
+      advanceNotice: 5,
       interludeLength: 1,
       leadinLength: 1,
       regionLength: 3,
