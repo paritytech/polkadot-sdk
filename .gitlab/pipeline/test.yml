@@ -96,44 +96,6 @@ test-linux-stable-runtime-benchmarks:
 #         --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
 #     # todo: add flacky-test collector
 
-# TODO: remove me
-test-linux-stable-additional-tests:
-  stage: test
-  extends:
-    - .docker-env
-    - .common-refs
-    - .run-immediately
-    - .pipeline-stopper-artifacts
-  variables:
-    RUST_TOOLCHAIN: stable
-    # Enable debug assertions since we are running optimized builds for testing
-    # but still want to have debug assertions.
-    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
-  script:
-    # tests were moved to test-linux-stable
-    # the jobs should be removed
-    - exit 0
-
-# TODO: remove me
-test-linux-stable-slow:
-  stage: test
-  # remove after cache is setup
-  timeout: 2h
-  extends:
-    - .docker-env
-    - .common-refs
-    - .run-immediately
-    - .pipeline-stopper-artifacts
-  variables:
-    RUST_TOOLCHAIN: stable
-    # Enable debug assertions since we are running optimized builds for testing
-    # but still want to have debug assertions.
-    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
-  script:
-    # tests were moved to test-linux-stable
-    # the jobs should be removed
-    - exit 0
-
 # takes about 1,5h without cache
 # can be used to check that nextest works correctly
 # test-linux-stable-polkadot:
