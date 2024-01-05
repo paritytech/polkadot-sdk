@@ -750,20 +750,10 @@ impl pallet_collator_selection::Config for Runtime {
 
 impl pallet_asset_conversion_tx_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-<<<<<<< HEAD
-	type Fungibles = LocalAndForeignAssets<
-		Assets,
-		AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation>,
-		ForeignAssets,
-	>;
-	type OnChargeAssetTransaction = AssetConversionAdapter<Balances, AssetConversion>;
-	type WeightInfo = weights::pallet_asset_conversion_tx_payment::WeightInfo<Runtime>;
-=======
 	type Fungibles = LocalAndForeignAssets;
 	type OnChargeAssetTransaction =
 		AssetConversionAdapter<Balances, AssetConversion, TokenLocation>;
 	type WeightInfo = weights::pallet_asset_conversion_tx_payment::WeightInfo<Runtime>;
->>>>>>> upstream/gav-tx-ext
 }
 
 parameter_types! {
