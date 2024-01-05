@@ -15,7 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #![no_std]
-#![cfg(any(target_arch = "wasm32", target_arch = "riscv32"))]
 
 pub use uapi::{HostFn, HostFnImpl as api};
 
