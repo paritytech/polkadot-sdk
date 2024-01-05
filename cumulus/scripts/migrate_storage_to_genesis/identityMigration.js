@@ -23,6 +23,7 @@ const migrateIdentity = async (key, data, api) => {
 		deposit: 'Balance',
 		info: 'IdentityInfoNew'
 		},
+		Username: 'Vec<u8>',
 	});
 
 	// We want to migrate `IdentityOf` storage item
@@ -36,7 +37,7 @@ const migrateIdentity = async (key, data, api) => {
 	// We take the second half of the key, which is the storage item identifier
 	let storageItem = u8aToHex(key.toU8a().slice(18, 34));
 
-	// Migrate `IdentitOf` data to its new format
+	// Migrate `IdentityOf` data to its new format
 	if (IdentityOfHexkeyToMigrate === storageItem) {
 		let decoded = api.createType('Registration', data.toU8a(true));
 
@@ -63,23 +64,27 @@ const migrateIdentity = async (key, data, api) => {
 		// - add `github` field
 		// - set `deposit` to 0
 		let decodedNew = api.createType(
-			'RegistrationNew',
-			{
-				judgements: decodedJson.judgements,
-				deposit: 0,
-				info: {
-					display: decodedJson.info.display,
-					legal: decodedJson.info.legal,
-					web: decodedJson.info.web,
-					matrix: decodedJson.info.riot,
-					email: decodedJson.info.email,
-					pgpFingerprint: decodedJson.info.pgpFingerprint,
-					image: decodedJson.info.image,
-					twitter: decodedJson.info.twitter,
-					github: github,
-					discord: discord,
-				}
-			}
+			'(RegistrationNew, Option<Username>)',
+			[
+				{
+					judgements: decodedJson.judgements,
+					deposit: 0,
+					info: {
+						display: decodedJson.info.display,
+						legal: decodedJson.info.legal,
+						web: decodedJson.info.web,
+						matrix: decodedJson.info.riot,
+						email: decodedJson.info.email,
+						pgpFingerprint: decodedJson.info.pgpFingerprint,
+						image: decodedJson.info.image,
+						twitter: decodedJson.info.twitter,
+						github: github,
+						discord: discord,
+					}
+				},
+				null
+			]
+
 		);
 
 		data = decodedNew.toHex();
