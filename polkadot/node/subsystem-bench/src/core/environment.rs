@@ -252,11 +252,6 @@ impl TestEnvironment {
 		&self.network
 	}
 
-	/// Returns a mutable reference to the inner network emulator handle.
-	pub fn network_mut(&mut self) -> &mut NetworkEmulatorHandle {
-		&mut self.network
-	}
-
 	/// Returns the Prometheus registry.
 	pub fn registry(&self) -> &Registry {
 		&self.dependencies.registry
@@ -270,6 +265,18 @@ impl TestEnvironment {
 			.spawn(name, "test-environment", task);
 	}
 
+	/// Spawn a blocking named task in the `test-environment` task group.
+	pub fn spawn_blocking(
+		&self,
+		name: &'static str,
+		task: impl Future<Output = ()> + Send + 'static,
+	) {
+		self.dependencies.task_manager.spawn_handle().spawn_blocking(
+			name,
+			"test-environment",
+			task,
+		);
+	}
 	/// Returns a reference to the test environment metrics instance
 	pub fn metrics(&self) -> &TestEnvironmentMetrics {
 		&self.metrics

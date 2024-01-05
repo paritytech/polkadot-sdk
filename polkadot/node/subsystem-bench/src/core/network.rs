@@ -16,6 +16,19 @@
 //!
 //! Implements network emulation and interfaces to control and specialize
 //! network peer behaviour.
+//!
+//!  Peer1	Peer2  Peer3  Peer4
+//!    \      |	     |	    /
+//!     \     |      |	   /
+//!      \    |      |    /
+//!       \   |      |   /
+//!        \  |      |  /
+//!     [Network Interface]
+//!               | 
+//!    [Emulated Network Bridge]
+//!               |
+//!     Subsystems under test
+
 
 use super::{
 	configuration::{TestAuthorities, TestConfiguration},
@@ -131,32 +144,40 @@ impl RateLimit {
 
 /// A wrapper for both gossip and request/response protocols along with the destination
 /// peer(`AuthorityDiscoveryId``).
-pub enum PeerMessage {
-	/// A gossip message
-	Message(AuthorityDiscoveryId, VersionedValidationProtocol),
+pub enum NetworkMessage {
+	/// A gossip message from peer to node.
+	MessageFromPeer(VersionedValidationProtocol),
+	/// A gossip message from node to a peer.
+	MessageFromNode(AuthorityDiscoveryId, VersionedValidationProtocol),
 	/// A request originating from our node
 	RequestFromNode(AuthorityDiscoveryId, Requests),
 	/// A request originating from an emultated peer
 	RequestFromPeer(IncomingRequest),
 }
 
-impl PeerMessage {
+impl NetworkMessage {
 	/// Returns the size of the encoded message or request
 	pub fn size(&self) -> usize {
 		match &self {
-			PeerMessage::Message(_peer_id, Versioned::V2(message)) => message.encoded_size(),
-			PeerMessage::Message(_peer_id, Versioned::V1(message)) => message.encoded_size(),
-			PeerMessage::Message(_peer_id, Versioned::VStaging(message)) => message.encoded_size(),
-			PeerMessage::RequestFromNode(_peer_id, incoming) => request_size(incoming),
-			PeerMessage::RequestFromPeer(request) => request.payload.encoded_size(),
+			NetworkMessage::MessageFromPeer(Versioned::V2(message)) => message.encoded_size(),
+			NetworkMessage::MessageFromPeer(Versioned::V1(message)) => message.encoded_size(),
+			NetworkMessage::MessageFromPeer(Versioned::VStaging(message)) => message.encoded_size(),
+			NetworkMessage::MessageFromNode(_peer_id, Versioned::V2(message)) =>
+				message.encoded_size(),
+			NetworkMessage::MessageFromNode(_peer_id, Versioned::V1(message)) =>
+				message.encoded_size(),
+			NetworkMessage::MessageFromNode(_peer_id, Versioned::VStaging(message)) =>
+				message.encoded_size(),
+			NetworkMessage::RequestFromNode(_peer_id, incoming) => request_size(incoming),
+			NetworkMessage::RequestFromPeer(request) => request.payload.encoded_size(),
 		}
 	}
 
-	/// Returns the destination peer from the message
+	/// Returns the destination peer from the message or `None` if it originates from a peer.
 	pub fn peer(&self) -> Option<&AuthorityDiscoveryId> {
 		match &self {
-			PeerMessage::Message(peer_id, _) | PeerMessage::RequestFromNode(peer_id, _) =>
-				Some(peer_id),
+			NetworkMessage::MessageFromNode(peer_id, _) |
+			NetworkMessage::RequestFromNode(peer_id, _) => Some(peer_id),
 			_ => None,
 		}
 	}
@@ -165,18 +186,13 @@ impl PeerMessage {
 /// A network interface of the node under test.
 /// TODO(soon): Implement latency and connection errors here, instead of doing it on the peers.
 pub struct NetworkInterface {
-	// Used to receive traffic from the `network-bridge-tx` subsystem.
-	// The network action is forwarded via `network` to the relevant peer(s).
-	// from_netowork_bridge: Receiver<NetworkAction>,
 	// Sender for subsystems.
-	bridge_to_interface_sender: UnboundedSender<PeerMessage>,
-	// A sender to forward actions to the network bridge subsystem.
-	interface_to_bridge_sender: UnboundedSender<PeerMessage>,
+	bridge_to_interface_sender: UnboundedSender<NetworkMessage>,
 }
 
 // Wraps the receiving side of a interface to bridge channel. It is a required
 // parameter of the `network-bridge` mock.
-pub struct NetworkInterfaceReceiver(pub UnboundedReceiver<PeerMessage>);
+pub struct NetworkInterfaceReceiver(pub UnboundedReceiver<NetworkMessage>);
 
 struct ProxiedRequest {
 	sender: Option<oneshot::Sender<OutgoingResponse>>,
@@ -216,22 +232,22 @@ impl NetworkInterface {
 	pub fn new(
 		spawn_task_handle: SpawnTaskHandle,
 		mut network: NetworkEmulatorHandle,
-		bandiwdth_bps: usize,
-		mut from_network: UnboundedReceiver<PeerMessage>,
+		bandwidth_bps: usize,
+		mut from_network: UnboundedReceiver<NetworkMessage>,
 	) -> (NetworkInterface, NetworkInterfaceReceiver) {
-		let mut rx_limiter = RateLimit::new(10, bandiwdth_bps);
+		let mut rx_limiter = RateLimit::new(10, bandwidth_bps);
 		// We need to share the transimit limiter as we handle incoming request/response on rx
 		// thread.
-		let mut tx_limiter = Arc::new(Mutex::new(RateLimit::new(10, bandiwdth_bps)));
+		let mut tx_limiter = Arc::new(Mutex::new(RateLimit::new(10, bandwidth_bps)));
 		let mut proxied_requests = FuturesUnordered::new();
 
-		// The sender (`egress_tx`) is
+		// Channel for receiving messages from the network bridge subsystem.
 		let (bridge_to_interface_sender, mut bridge_to_interface_receiver) =
-			mpsc::unbounded::<PeerMessage>();
+			mpsc::unbounded::<NetworkMessage>();
 
-		// Channel for forwarding actions to the bridge.
+		// Channel for forwarding messages to the network bridge subsystem.
 		let (interface_to_bridge_sender, interface_to_bridge_receiver) =
-			mpsc::unbounded::<PeerMessage>();
+			mpsc::unbounded::<NetworkMessage>();
 
 		let mut rx_network = network.clone();
 		let mut tx_network = network;
@@ -240,7 +256,7 @@ impl NetworkInterface {
 		let rx_task_tx_limiter = tx_limiter.clone();
 		let tx_task_tx_limiter = tx_limiter;
 
-		// Spawn the network interface task.
+		// A task that forwards messages from emulated peers to the node (emulated network bridge).
 		let rx_task = async move {
 			loop {
 				let mut from_network = from_network.next().fuse();
@@ -248,22 +264,23 @@ impl NetworkInterface {
 					maybe_peer_message = from_network => {
 						if let Some(peer_message) = maybe_peer_message {
 							let size = peer_message.size();
-							// TODO (maybe): Implement limiter as part of something like `RateLimitedChannel`.
 							rx_limiter.reap(size).await;
 							rx_network.inc_received(size);
 
-							// We act as an incoming request proxy, so we'll craft a new request and wait for
-							// the answer from subsystem, and only then, after ratelimiting we send back a response
-							// to the peer
-							if let PeerMessage::RequestFromPeer(request) = peer_message {
+							// To be able to apply the configured bandwidth limits for responses being sent 
+							// over channels, we need to implement a simple proxy that allows this loop 
+							// to receive the response and enforce the configured bandwidth before 
+							// sending it to the original recipient.
+							if let NetworkMessage::RequestFromPeer(request) = peer_message {
 								let (response_sender, response_receiver) = oneshot::channel();
+
 								// Create a new `IncomingRequest` that we forward to the network bridge.
 								let new_request = IncomingRequest {payload: request.payload, peer: request.peer, pending_response: response_sender};
-
 								proxied_requests.push(ProxiedRequest {sender: Some(request.pending_response), receiver: response_receiver});
-								// Send the new message to network bridge rx
+
+								// Send the new message to network bridge subsystem.
 								rx_task_bridge_sender
-									.unbounded_send(PeerMessage::RequestFromPeer(new_request))
+									.unbounded_send(NetworkMessage::RequestFromPeer(new_request))
 									.expect("network bridge subsystem is alive");
 								continue
 							}
@@ -284,9 +301,13 @@ impl NetworkInterface {
 									let bytes = result.encoded_size();
 									gum::trace!(target: LOG_TARGET, size = bytes, "proxied request completed");
 
+									// Enforce bandwidth based on the response the node has sent.
+									// TODO: Fix the stall of RX when TX lock() takes a while to refill
+									// the token bucket.
 									rx_task_tx_limiter.lock().await.reap(bytes).await;
 									rx_network.inc_sent(bytes);
 
+									// Forward the response to original recipient.
 									proxied_request.sender.send(
 										OutgoingResponse {
 											reputation_changes: Vec::new(),
@@ -309,18 +330,24 @@ impl NetworkInterface {
 		}
 		.boxed();
 
+		// A task that forwards messages from the node to emulated peers.
 		let tx_task = async move {
 			loop {
 				if let Some(peer_message) = bridge_to_interface_receiver.next().await {
 					let size = peer_message.size();
+					// Ensure bandwidth used is limited.
 					tx_task_tx_limiter.lock().await.reap(size).await;
-					let dst_peer = peer_message
-						.peer()
-						.expect(
-							"Node always needs to specify destination peer when sending a message",
-						)
-						.clone();
-					tx_network.submit_peer_message(&dst_peer, peer_message);
+
+					match peer_message {
+						NetworkMessage::MessageFromNode(peer, message) =>
+							tx_network.send_message_to_peer(&peer, message),
+						NetworkMessage::RequestFromNode(peer, request) =>
+							tx_network.send_request_to_peer(&peer, request),
+						_ => panic!(
+							"Unexpected network message received from emulated network bridge"
+						),
+					}
+
 					tx_network.inc_sent(size);
 				} else {
 					gum::info!(target: LOG_TARGET, "Downlink channel closed, network interface task exiting");
@@ -334,120 +361,111 @@ impl NetworkInterface {
 		spawn_task_handle.spawn("network-interface-tx", "test-environment", tx_task);
 
 		(
-			Self { bridge_to_interface_sender, interface_to_bridge_sender },
+			Self { bridge_to_interface_sender },
 			NetworkInterfaceReceiver(interface_to_bridge_receiver),
 		)
 	}
 
 	/// Get a sender that can be used by a subsystem to send network actions to the network.
-	pub fn subsystem_sender(&self) -> UnboundedSender<PeerMessage> {
+	pub fn subsystem_sender(&self) -> UnboundedSender<NetworkMessage> {
 		self.bridge_to_interface_sender.clone()
 	}
-
-	/// Get a sender that can be used by the Network to send network actions to the network.
-	pub fn network_sender(&self) -> UnboundedSender<PeerMessage> {
-		self.interface_to_bridge_sender.clone()
-	}
 }
 
-/// An emulated peer network interface.
-#[derive(Debug)]
-pub struct PeerNetworkInterface {
-	/// Receive rate limiter.
-	rx_limiter: RateLimit,
-	/// Transmit rate limiter
-	tx_limiter: RateLimit,
-	/// Network receive queue.
-	/// This is paired to a `Sender` in `NetworkEmulator`.
-	/// The network interface task will forward messages/requests from the node over
-	/// this channel.
-	rx_queue: UnboundedReceiver<NetworkAction>,
-	/// Network send queue.
-	/// Paired to the `rx_queue` receiver on the `NetworkInterface`.
-	tx_queue: UnboundedSender<NetworkAction>,
-}
-
-/// A handle send messages and actions to an emulated peer.
+/// A handle for controlling an emulated peer.
 #[derive(Clone)]
 pub struct EmulatedPeerHandle {
-	/// Send messages to the peer emulator task
-	messages_tx: UnboundedSender<PeerMessage>,
-	/// Send actions to the peer emulator task
-	actions_tx: UnboundedSender<NetworkAction>,
+	/// Send messages to be processed by the peer.
+	messages_tx: UnboundedSender<NetworkMessage>,
+	/// Send actions to be performed by the peer.
+	actions_tx: UnboundedSender<NetworkMessage>,
 }
 
 impl EmulatedPeerHandle {
-	/// Send a message to the peer.
-	pub fn send_message(&self, message: PeerMessage) {
+	/// Receive and process a message
+	pub fn receive(&self, message: NetworkMessage) {
 		let _ = self
 			.messages_tx
 			.unbounded_send(message)
-			.expect("Sending message to the peer never fails");
+			.expect("Sending action to the peer never fails");
 	}
 
-	/// Send a message to the peer.
-	pub fn send_action(&self, action: NetworkAction) {
+	pub fn send_message(&self, message: VersionedValidationProtocol) {
 		let _ = self
 			.actions_tx
-			.unbounded_send(action)
+			.unbounded_send(NetworkMessage::MessageFromPeer(message))
+			.expect("Sending action to the peer never fails");
+	}
+
+	/// Send a `request` to the node.
+	pub fn send_request(&self, request: IncomingRequest) {
+		let _ = self
+			.actions_tx
+			.unbounded_send(NetworkMessage::RequestFromPeer(request))
 			.expect("Sending action to the peer never fails");
 	}
 }
 
-/// A network peer emulator. Receives `PeerMessages` and `NetworkActions`. Tipically
-/// these actions send a message to the node under test.
-pub struct EmulatedPeer {
-	to_node: UnboundedSender<PeerMessage>,
+// A network peer emulator.
+struct EmulatedPeer {
+	to_node: UnboundedSender<NetworkMessage>,
 	tx_limiter: RateLimit,
 	rx_limiter: RateLimit,
 }
 
 impl EmulatedPeer {
-	pub async fn send_message(&mut self, message: PeerMessage) {
+	/// Send a message to the node.
+	pub async fn send_message(&mut self, message: NetworkMessage) {
 		self.tx_limiter.reap(message.size()).await;
 		let _ = self.to_node.unbounded_send(message).expect("Sending to the node never fails");
 	}
 
+	/// Returns the rx bandwidth limiter.
 	pub fn rx_limiter(&mut self) -> &mut RateLimit {
 		&mut self.rx_limiter
 	}
 
+	/// Returns the tx bandwidth limiter.
 	pub fn tx_limiter(&mut self) -> &mut RateLimit {
 		&mut self.tx_limiter
 	}
 }
 
 /// Interceptor pattern for handling messages.
-pub trait HandlePeerMessage {
-	// Returns `None` if the message was handled, or the `message`
-	// otherwise.
+pub trait HandleNetworkMessage {
+	/// Returns `None` if the message was handled, or the `message`
+	/// otherwise.
+	///
+	/// `node_sender` allows sending of messages to the node in response
+	/// to the handled message.
 	fn handle(
 		&self,
-		message: PeerMessage,
-		node_sender: &mut UnboundedSender<PeerMessage>,
-	) -> Option<PeerMessage>;
+		message: NetworkMessage,
+		node_sender: &mut UnboundedSender<NetworkMessage>,
+	) -> Option<NetworkMessage>;
 }
 
-impl<T> HandlePeerMessage for Arc<T>
+impl<T> HandleNetworkMessage for Arc<T>
 where
-	T: HandlePeerMessage,
+	T: HandleNetworkMessage,
 {
 	fn handle(
 		&self,
-		message: PeerMessage,
-		node_sender: &mut UnboundedSender<PeerMessage>,
-	) -> Option<PeerMessage> {
+		message: NetworkMessage,
+		node_sender: &mut UnboundedSender<NetworkMessage>,
+	) -> Option<NetworkMessage> {
 		self.as_ref().handle(message, node_sender)
 	}
 }
 
+// This loop is responsible for handling of messages/requests between the peer and the node.
 async fn emulated_peer_loop(
-	handlers: Vec<Arc<dyn HandlePeerMessage + Sync + Send>>,
+	handlers: Vec<Arc<dyn HandleNetworkMessage + Sync + Send>>,
 	stats: Arc<PeerEmulatorStats>,
 	mut emulated_peer: EmulatedPeer,
-	messages_rx: UnboundedReceiver<PeerMessage>,
-	actions_rx: UnboundedReceiver<NetworkAction>,
-	mut to_network_interface: UnboundedSender<PeerMessage>,
+	messages_rx: UnboundedReceiver<NetworkMessage>,
+	actions_rx: UnboundedReceiver<NetworkMessage>,
+	mut to_network_interface: UnboundedSender<NetworkMessage>,
 ) {
 	let mut proxied_requests = FuturesUnordered::new();
 	let mut messages_rx = messages_rx.fuse();
@@ -461,8 +479,12 @@ async fn emulated_peer_loop(
 					stats.inc_received(size);
 
 					let mut message = Some(peer_message);
+
+					// Try all handlers until the message gets processed.
+					// Panic if the message is not consumed.
 					for handler in handlers.iter() {
-						// The check below guarantees that message is always `Some`.
+						// The check below guarantees that message is always `Some`: we are still
+						// inside the loop.
 						message = handler.handle(message.unwrap(), &mut to_network_interface);
 						if message.is_none() {
 							break
@@ -477,24 +499,23 @@ async fn emulated_peer_loop(
 				}
 			},
 			maybe_action = actions_rx.next() => {
-				if let Some(action) = maybe_action {
+				match maybe_action {
 					// We proxy any request being sent to the node to limit bandwidth as we
 					// do in the `NetworkInterface` task.
-					if let PeerMessage::RequestFromPeer(request) = action.message {
+					Some(NetworkMessage::RequestFromPeer(request)) => {
 						let (response_sender, response_receiver) = oneshot::channel();
 						// Create a new `IncomingRequest` that we forward to the network interface.
 						let new_request = IncomingRequest {payload: request.payload, peer: request.peer, pending_response: response_sender};
 
 						proxied_requests.push(ProxiedRequest {sender: Some(request.pending_response), receiver: response_receiver});
 
-						emulated_peer.send_message(PeerMessage::RequestFromPeer(new_request)).await;
-						continue
+						emulated_peer.send_message(NetworkMessage::RequestFromPeer(new_request)).await;
+					},
+					Some(message) => emulated_peer.send_message(message).await,
+					None => {
+						gum::debug!(target: LOG_TARGET, "Action channel closed, peer task exiting");
+						break
 					}
-
-					emulated_peer.send_message(action.message).await;
-				} else {
-					gum::debug!(target: LOG_TARGET, "Action channel closed, peer task exiting");
-					break
 				}
 			},
 			proxied_request = proxied_requests.next() => {
@@ -528,12 +549,12 @@ async fn emulated_peer_loop(
 pub fn new_peer(
 	bandwidth: usize,
 	spawn_task_handle: SpawnTaskHandle,
-	handlers: Vec<Arc<dyn HandlePeerMessage + Sync + Send>>,
+	handlers: Vec<Arc<dyn HandleNetworkMessage + Sync + Send>>,
 	stats: Arc<PeerEmulatorStats>,
-	mut to_network_interface: UnboundedSender<PeerMessage>,
+	mut to_network_interface: UnboundedSender<NetworkMessage>,
 ) -> EmulatedPeerHandle {
-	let (messages_tx, mut messages_rx) = mpsc::unbounded::<PeerMessage>();
-	let (actions_tx, mut actions_rx) = mpsc::unbounded::<NetworkAction>();
+	let (messages_tx, mut messages_rx) = mpsc::unbounded::<NetworkMessage>();
+	let (actions_tx, mut actions_rx) = mpsc::unbounded::<NetworkMessage>();
 
 	let rx_limiter = RateLimit::new(10, bandwidth);
 	let tx_limiter = RateLimit::new(10, bandwidth);
@@ -555,14 +576,6 @@ pub fn new_peer(
 	);
 
 	EmulatedPeerHandle { messages_tx, actions_tx }
-}
-
-/// A network action to be completed by an emulator task.
-pub struct NetworkAction {
-	/// The message to be sent by the peer.
-	pub message: PeerMessage,
-	/// Peer which should run the action.
-	pub peer: AuthorityDiscoveryId,
 }
 
 /// Book keeping of sent and received bytes.
@@ -652,7 +665,7 @@ pub fn new_network(
 	config: &TestConfiguration,
 	dependencies: &TestEnvironmentDependencies,
 	authorities: &TestAuthorities,
-	handlers: Vec<Arc<dyn HandlePeerMessage + Sync + Send>>,
+	handlers: Vec<Arc<dyn HandleNetworkMessage + Sync + Send>>,
 ) -> (NetworkEmulatorHandle, NetworkInterface, NetworkInterfaceReceiver) {
 	let n_peers = config.n_validators;
 	gum::info!(target: LOG_TARGET, "{}",format!("Initializing emulation for a {} peer network.", n_peers).bright_blue());
@@ -717,24 +730,56 @@ impl NetworkEmulatorHandle {
 		self.peer(peer).is_connected()
 	}
 
-	/// Forward `message`` to an emulated `peer`.
+	/// Forward notification `message` to an emulated `peer`.
 	/// Panics if peer is not connected.
-	pub fn submit_peer_message(&self, peer: &AuthorityDiscoveryId, message: PeerMessage) {
-		let peer = self.peer(peer);
+	pub fn send_message_to_peer(
+		&self,
+		peer_id: &AuthorityDiscoveryId,
+		message: VersionedValidationProtocol,
+	) {
+		let peer = self.peer(peer_id);
 		assert!(peer.is_connected(), "forward message only for connected peers.");
-		peer.handle().send_message(message);
+		peer.handle().receive(NetworkMessage::MessageFromNode(peer_id.clone(), message));
 	}
 
-	/// Run a `NetworkAction` in the context of an emulated peer.
-	pub fn submit_peer_action(&mut self, action: NetworkAction) {
-		let dst_peer = self.peer(&action.peer);
+	/// Forward a `request`` to an emulated `peer`.
+	/// Panics if peer is not connected.
+	pub fn send_request_to_peer(&self, peer_id: &AuthorityDiscoveryId, request: Requests) {
+		let peer = self.peer(peer_id);
+		assert!(peer.is_connected(), "forward request only for connected peers.");
+		peer.handle().receive(NetworkMessage::RequestFromNode(peer_id.clone(), request));
+	}
+
+	/// Send a message from a peer to the node.
+	pub fn send_message_from_peer(
+		&self,
+		from_peer: &AuthorityDiscoveryId,
+		message: VersionedValidationProtocol,
+	) {
+		let dst_peer = self.peer(&from_peer);
 
 		if !dst_peer.is_connected() {
-			gum::warn!(target: LOG_TARGET, "Attempted to send data from a disconnected peer, operation ignored");
+			gum::warn!(target: LOG_TARGET, "Attempted to send message from a peer not connected to our node, operation ignored");
 			return
 		}
 
-		dst_peer.handle().send_action(action);
+		dst_peer.handle().send_message(message);
+	}
+
+	/// Send a request from a peer to the node.
+	pub fn send_request_from_peer(
+		&self,
+		from_peer: &AuthorityDiscoveryId,
+		request: IncomingRequest,
+	) {
+		let dst_peer = self.peer(&from_peer);
+
+		if !dst_peer.is_connected() {
+			gum::warn!(target: LOG_TARGET, "Attempted to send request from a peer not connected to our node, operation ignored");
+			return
+		}
+
+		dst_peer.handle().send_request(request);
 	}
 
 	// Returns the sent/received stats for `peer_index`.

@@ -52,19 +52,17 @@ use polkadot_primitives::AuthorityDiscoveryId;
 
 use crate::core::{
 	configuration::{random_error, random_latency, TestConfiguration},
-	network::{
-		NetworkAction, NetworkEmulatorHandle, NetworkInterfaceReceiver, PeerMessage, RateLimit,
-	},
+	network::{NetworkEmulatorHandle, NetworkInterfaceReceiver, NetworkMessage, RateLimit},
 };
 
-const LOG_TARGET: &str = "subsystem-bench::network-bridge-tx-mock";
+const LOG_TARGET: &str = "subsystem-bench::network-bridge";
 
 /// A mock of the network bridge tx subsystem.
 pub struct MockNetworkBridgeTx {
 	/// A network emulator handle
 	network: NetworkEmulatorHandle,
 	/// A channel to the network interface,
-	to_network_interface: UnboundedSender<PeerMessage>,
+	to_network_interface: UnboundedSender<NetworkMessage>,
 }
 
 /// A mock of the network bridge tx subsystem.
@@ -78,7 +76,7 @@ pub struct MockNetworkBridgeRx {
 impl MockNetworkBridgeTx {
 	pub fn new(
 		network: NetworkEmulatorHandle,
-		to_network_interface: UnboundedSender<PeerMessage>,
+		to_network_interface: UnboundedSender<NetworkMessage>,
 	) -> MockNetworkBridgeTx {
 		Self { network, to_network_interface }
 	}
@@ -150,7 +148,7 @@ impl MockNetworkBridgeTx {
 							let peer_id =
 								request.authority_id().expect("all nodes are authorities").clone();
 							let peer_message =
-								PeerMessage::RequestFromNode(peer_id.clone(), request);
+								NetworkMessage::RequestFromNode(peer_id.clone(), request);
 							let _ = self.to_network_interface.unbounded_send(peer_message);
 						}
 					},
@@ -176,7 +174,7 @@ impl MockNetworkBridgeRx {
 				maybe_peer_message = from_network_interface.next() => {
 					if let Some(message) = maybe_peer_message {
 						match message {
-							PeerMessage::Message(peer, message) => match message {
+							NetworkMessage::MessageFromPeer(message) => match message {
 								Versioned::V2(
 									polkadot_node_network_protocol::v2::ValidationProtocol::BitfieldDistribution(
 										bitfield,
@@ -190,7 +188,7 @@ impl MockNetworkBridgeRx {
 									unimplemented!("We only talk v2 network protocol")
 								},
 							},
-							PeerMessage::RequestFromPeer(request) => {
+							NetworkMessage::RequestFromPeer(request) => {
 								if let Some(protocol) = self.chunk_request_sender.as_mut() {
 									if let Some(inbound_queue) = protocol.inbound_queue.as_ref() {
 										let _ = inbound_queue
@@ -201,7 +199,7 @@ impl MockNetworkBridgeRx {
 								}
 							},
 							_ => {
-								panic!("1PeerMessage::RequestFromNode1 is not expected to be received from a peer")
+								panic!("NetworkMessage::RequestFromNode is not expected to be received from a peer")
 							}
 						}
 					}

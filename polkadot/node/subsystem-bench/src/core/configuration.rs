@@ -37,9 +37,9 @@ fn random_uniform_sample<T: Into<usize> + From<usize>>(min_value: T, max_value: 
 /// Peer response latency configuration.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct PeerLatency {
-	/// Min latency for `NetworkAction` completion.
+	/// Min latency of the peer.
 	pub min_latency: Duration,
-	/// Max latency or `NetworkAction` completion.
+	/// Max latency or the peer.
 	pub max_latency: Duration,
 }
 

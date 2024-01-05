@@ -53,7 +53,7 @@ use polkadot_node_network_protocol::{
 		},
 		IncomingRequest, OutgoingRequest, ReqProtocolNames, Requests,
 	},
-	BitfieldDistributionMessage, OurView, Versioned, View,
+	BitfieldDistributionMessage, OurView, Versioned, VersionedValidationProtocol, View,
 };
 use sc_network::request_responses::IncomingRequest as RawIncomingRequest;
 
@@ -145,14 +145,14 @@ pub struct NetworkAvailabilityState {
 	pub chunks: Vec<Vec<ErasureChunk>>,
 }
 
-impl HandlePeerMessage for NetworkAvailabilityState {
+impl HandleNetworkMessage for NetworkAvailabilityState {
 	fn handle(
 		&self,
-		message: PeerMessage,
-		node_sender: &mut futures::channel::mpsc::UnboundedSender<PeerMessage>,
-	) -> Option<PeerMessage> {
+		message: NetworkMessage,
+		node_sender: &mut futures::channel::mpsc::UnboundedSender<NetworkMessage>,
+	) -> Option<NetworkMessage> {
 		match message {
-			PeerMessage::RequestFromNode(peer, request) => match request {
+			NetworkMessage::RequestFromNode(peer, request) => match request {
 				Requests::ChunkFetchingV1(outgoing_request) => {
 					gum::debug!(target: LOG_TARGET, request = ?outgoing_request, "Received `RequestFromNode`");
 					let validator_index: usize = outgoing_request.payload.index.0 as usize;
@@ -175,10 +175,6 @@ impl HandlePeerMessage for NetworkAvailabilityState {
 					if let Err(err) = outgoing_request.pending_response.send(response) {
 						gum::error!(target: LOG_TARGET, "Failed to send `ChunkFetchingResponse`");
 					}
-					// let _ = outgoing_request
-					// 	.pending_response
-					// 	.send(response)
-					// 	.expect("Response is always sent succesfully");
 
 					None
 				},
@@ -203,7 +199,7 @@ impl HandlePeerMessage for NetworkAvailabilityState {
 						.expect("Response is always sent succesfully");
 					None
 				},
-				_ => Some(PeerMessage::RequestFromNode(peer, request)),
+				_ => Some(NetworkMessage::RequestFromNode(peer, request)),
 			},
 
 			message => Some(message),
@@ -211,7 +207,7 @@ impl HandlePeerMessage for NetworkAvailabilityState {
 	}
 }
 
-/// Takes a test configuration and uses it to creates the `TestEnvironment`.
+/// Takes a test configuration and uses it to create the `TestEnvironment`.
 pub fn prepare_test(
 	config: TestConfiguration,
 	state: &mut TestState,
@@ -647,7 +643,7 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 		for index in 1..config.n_validators {
 			let (pending_response, pending_response_receiver) = oneshot::channel();
 
-			let message = PeerMessage::RequestFromPeer(RawIncomingRequest {
+			let request = RawIncomingRequest {
 				peer: PeerId::random(),
 				payload: ChunkFetchingRequest {
 					candidate_hash: state.backed_candidates()[block_num].hash(),
@@ -655,16 +651,16 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 				}
 				.encode(),
 				pending_response,
-			});
+			};
 
 			let peer = env
 				.authorities()
 				.validator_authority_id
 				.get(index)
-				.expect("all validators have keys")
-				.clone();
+				.expect("all validators have keys");
 
-			env.network_mut().submit_peer_action(NetworkAction { message, peer });
+			env.network().send_request_from_peer(peer, request);
+
 			receivers.push(pending_response_receiver);
 		}
 
@@ -684,19 +680,17 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 		let authorities = env.authorities().clone();
 		let n_validators = config.n_validators;
 
-
 		// Spawn a task that will generate `n_validator` - 1 signed bitfiends and
 		// send them from the emulated peers to the subsystem.
-		env.spawn("send-bitfields", async move {
+		env.spawn_blocking("send-bitfields", async move {
 			for index in 1..n_validators {
-				let validator_public = authorities
-					.validator_public
-					.get(index)
-					.expect("All validator keys are known");
+				let validator_public =
+					authorities.validator_public.get(index).expect("All validator keys are known");
 
 				// Node has all the chunks in the world.
 				let payload: AvailabilityBitfield =
 					AvailabilityBitfield(bitvec![u8, bitvec::order::Lsb0; 1u8; 32]);
+				// TODO(soon): Use pre-signed messages. This is quite intensive on the CPU.
 				let signed_bitfield = Signed::<AvailabilityBitfield>::sign(
 					&authorities.keyring.keystore(),
 					payload,
@@ -708,15 +702,12 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 				.flatten()
 				.expect("should be signed");
 
-				let from_peer = authorities.validator_authority_id[index].clone();
-				// Send to our node.
-				let to_peer = authorities.validator_authority_id[0].clone();
+				let from_peer = &authorities.validator_authority_id[index];
 
-				let action =
-					send_peer_bitfield(relay_block_hash, signed_bitfield, &from_peer, &to_peer);
+				let message = peer_bitfield_message_v2(relay_block_hash, signed_bitfield);
 
 				// Send the action to `to_peer`.
-				network.submit_peer_action(action);
+				network.send_message_from_peer(from_peer, message);
 			}
 
 			gum::info!("Waiting for {} bitfields to be received and processed", n_validators - 1);
@@ -728,7 +719,7 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 			(config.n_validators - 1) * (block_num),
 		)
 		.await;
-	
+
 		gum::info!("All bitfields processed");
 
 		let block_time = Instant::now().sub(block_start_ts).as_millis() as u64;
@@ -755,25 +746,16 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 	env.stop().await;
 }
 
-pub fn send_peer_bitfield(
+pub fn peer_bitfield_message_v2(
 	relay_hash: H256,
 	signed_bitfield: Signed<AvailabilityBitfield>,
-	from_peer: &AuthorityDiscoveryId,
-	to_peer: &AuthorityDiscoveryId,
-) -> NetworkAction {
+) -> VersionedValidationProtocol {
 	let bitfield = polkadot_node_network_protocol::v2::BitfieldDistributionMessage::Bitfield(
 		relay_hash,
 		signed_bitfield.into(),
 	);
 
-	let to_peer = to_peer.clone();
-
-	let message = PeerMessage::Message(
-		to_peer,
-		Versioned::V2(
-			polkadot_node_network_protocol::v2::ValidationProtocol::BitfieldDistribution(bitfield),
-		),
-	);
-
-	NetworkAction { peer: from_peer.clone(), message }
+	Versioned::V2(polkadot_node_network_protocol::v2::ValidationProtocol::BitfieldDistribution(
+		bitfield,
+	))
 }
