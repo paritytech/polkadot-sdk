@@ -98,6 +98,11 @@ impl<
 		fn total_balance_on_hold(who: &AccountId) -> Self::Balance;
 		fn balance_on_hold(reason: &Self::Reason, who: &AccountId) -> Self::Balance;
 		fn can_hold(reason: &Self::Reason, who: &AccountId, amount: Self::Balance) -> bool;
+		fn ensure_can_hold(
+			reason: &Self::Reason,
+			who: &AccountId,
+			amount: Self::Balance,
+		) -> DispatchResult;
 	);
 }
 
@@ -147,6 +152,9 @@ impl<
 			amount: Self::Balance,
 			precision: Precision,
 		) -> Result<Self::Balance, DispatchError>;
+		fn handle_raw_dust(amount: Self::Balance);
+		fn deactivate(amount: Self::Balance);
+		fn reactivate(amount: Self::Balance);
 	);
 }
 
@@ -184,7 +192,10 @@ impl<
 	> Mutate<AccountId> for ItemOf<F, A, AccountId>
 {
 	redirect!(
-		fn mint_into(who: &AccountId, amount: Self::Balance) -> Result<Self::Balance, DispatchError>;
+		fn mint_into(
+			who: &AccountId,
+			amount: Self::Balance,
+		) -> Result<Self::Balance, DispatchError>;
 		fn burn_from(
 			who: &AccountId,
 			amount: Self::Balance,
@@ -200,6 +211,11 @@ impl<
 			preservation: Preservation,
 		) -> Result<Self::Balance, DispatchError>;
 		fn set_balance(who: &AccountId, amount: Self::Balance) -> Self::Balance;
+		fn done_mint_into(who: &AccountId, amount: Self::Balance);
+		fn done_burn_from(who: &AccountId, amount: Self::Balance);
+		fn done_shelve(who: &AccountId, amount: Self::Balance);
+		fn done_restore(who: &AccountId, amount: Self::Balance);
+		fn done_transfer(source: &AccountId, dest: &AccountId, amount: Self::Balance);
 	);
 }
 
@@ -242,8 +258,28 @@ impl<
 			preservation: Preservation,
 			force: Fortitude,
 		) -> Result<Self::Balance, DispatchError>;
+		fn burn_all_held(
+			reason: &Self::Reason,
+			who: &AccountId,
+			precision: Precision,
+			force: Fortitude,
+		) -> Result<Self::Balance, DispatchError>;
+		fn done_hold(reason: &Self::Reason, who: &AccountId, amount: Self::Balance);
+		fn done_release(reason: &Self::Reason, who: &AccountId, amount: Self::Balance);
+		fn done_burn_held(reason: &Self::Reason, who: &AccountId, amount: Self::Balance);
+		fn done_transfer_on_hold(
+			reason: &Self::Reason,
+			source: &AccountId,
+			dest: &AccountId,
+			amount: Self::Balance,
+		);
+		fn done_transfer_and_hold(
+			reason: &Self::Reason,
+			source: &AccountId,
+			dest: &AccountId,
+			transferred: Self::Balance,
+		);
 	);
-
 }
 
 impl<
@@ -256,8 +292,23 @@ impl<
 		fn set_freeze(id: &Self::Id, who: &AccountId, amount: Self::Balance) -> DispatchResult;
 		fn extend_freeze(id: &Self::Id, who: &AccountId, amount: Self::Balance) -> DispatchResult;
 		fn thaw(id: &Self::Id, who: &AccountId) -> DispatchResult;
+		fn set_frozen(
+			id: &Self::Id,
+			who: &AccountId,
+			amount: Self::Balance,
+			fortitude: Fortitude,
+		) -> DispatchResult;
+		fn ensure_frozen(
+			id: &Self::Id,
+			who: &AccountId,
+			amount: Self::Balance,
+			fortitude: Fortitude,
+		) -> DispatchResult;
+		fn decrease_frozen(id: &Self::Id, who: &AccountId, amount: Self::Balance)
+			-> DispatchResult;
+		fn increase_frozen(id: &Self::Id, who: &AccountId, amount: Self::Balance)
+			-> DispatchResult;
 	);
-
 }
 
 pub struct ConvertImbalanceDropHandler<AccountId, Balance, AssetIdType, AssetId, Handler>(
@@ -347,6 +398,13 @@ impl<
 		)
 		.map(imbalance::from_fungibles)
 	}
+
+	redirect!(
+		fn done_rescind(amount: Self::Balance);
+		fn done_issue(amount: Self::Balance);
+		fn done_deposit(who: &AccountId, amount: Self::Balance);
+		fn done_withdraw(who: &AccountId, amount: Self::Balance);
+	);
 }
 
 impl<
@@ -364,6 +422,10 @@ impl<
 			<F as fungibles::BalancedHold<AccountId>>::slash(A::get(), reason, who, amount);
 		(imbalance::from_fungibles(credit), amount)
 	}
+
+	redirect!(
+		fn done_slash(reason: &Self::Reason, who: &AccountId, amount: Self::Balance);
+	);
 }
 
 #[test]
