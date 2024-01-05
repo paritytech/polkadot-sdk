@@ -211,6 +211,10 @@ where
 impl<T: Config + Send + Sync> TransactionExtensionBase for CheckWeight<T> {
 	const IDENTIFIER: &'static str = "CheckWeight";
 	type Implicit = ();
+
+	fn weight(&self) -> Weight {
+		<T::ExtensionsWeightInfo as super::WeightInfo>::check_weight()
+	}
 }
 impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Context>
 	for CheckWeight<T>

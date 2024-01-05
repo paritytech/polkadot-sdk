@@ -75,6 +75,12 @@ pub trait OnChargeTransaction<T: Config> {
 		tip: Self::Balance,
 		already_withdrawn: Self::LiquidityInfo,
 	) -> Result<(), TransactionValidityError>;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn endow_account(who: &T::AccountId, amount: Self::Balance);
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn minimum_balance() -> Self::Balance;
 }
 
 /// Implements the transaction payment for a pallet implementing the `Currency`
@@ -190,5 +196,15 @@ where
 			OU::on_unbalanceds(Some(fee).into_iter().chain(Some(tip)));
 		}
 		Ok(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn endow_account(who: &T::AccountId, amount: Self::Balance) {
+		let _ = C::deposit_creating(who, amount);
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn minimum_balance() -> Self::Balance {
+		C::minimum_balance()
 	}
 }

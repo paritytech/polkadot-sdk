@@ -53,6 +53,7 @@ pub trait WeightInfo {
 	fn sudo() -> Weight;
 	fn sudo_as() -> Weight;
 	fn remove_key() -> Weight;
+	fn check_only_sudo_account() -> Weight;
 }
 
 /// Weights for `pallet_sudo` using the Substrate node and recommended hardware.
@@ -100,6 +101,17 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	/// Storage: `Sudo::Key` (r:1 w:0)
+	/// Proof: `Sudo::Key` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
+	fn check_only_sudo_account() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `132`
+		//  Estimated: `1517`
+		// Minimum execution time: 27_321_000 picoseconds.
+		Weight::from_parts(29_276_000, 0)
+			.saturating_add(Weight::from_parts(0, 1517))
+			.saturating_add(T::DbWeight::get().reads(1))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -145,5 +157,16 @@ impl WeightInfo for () {
 		Weight::from_parts(8_846_000, 1517)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `Sudo::Key` (r:1 w:0)
+	/// Proof: `Sudo::Key` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
+	fn check_only_sudo_account() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `132`
+		//  Estimated: `1517`
+		// Minimum execution time: 27_321_000 picoseconds.
+		Weight::from_parts(29_276_000, 0)
+			.saturating_add(Weight::from_parts(0, 1517))
+			.saturating_add(RocksDbWeight::get().reads(1))
 	}
 }

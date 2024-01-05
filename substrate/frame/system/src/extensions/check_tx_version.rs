@@ -59,6 +59,9 @@ impl<T: Config + Send + Sync> TransactionExtensionBase for CheckTxVersion<T> {
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 		Ok(<Pallet<T>>::runtime_version().transaction_version)
 	}
+	fn weight(&self) -> sp_weights::Weight {
+		<T::ExtensionsWeightInfo as super::WeightInfo>::check_tx_version()
+	}
 }
 impl<T: Config + Send + Sync, Context> TransactionExtension<<T as Config>::RuntimeCall, Context>
 	for CheckTxVersion<T>

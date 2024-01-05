@@ -54,6 +54,7 @@ pub trait WeightInfo {
 	fn claim_attest() -> Weight;
 	fn attest() -> Weight;
 	fn move_claim() -> Weight;
+	fn prevalidate_attests() -> Weight;
 }
 
 pub struct TestWeightInfo;
@@ -73,6 +74,9 @@ impl WeightInfo for TestWeightInfo {
 	fn move_claim() -> Weight {
 		Weight::zero()
 	}
+	fn prevalidate_attests() -> Weight {
+		Weight::zero()
+	}
 }
 
 /// The kind of statement an account needs to make for a claim to be valid.
@@ -88,7 +92,7 @@ pub enum StatementKind {
 
 impl StatementKind {
 	/// Convert this to the (English) statement it represents.
-	fn to_text(self) -> &'static [u8] {
+	pub fn to_text(self) -> &'static [u8] {
 		match self {
 			StatementKind::Regular =>
 				&b"I hereby agree to the terms of the statement whose SHA-256 multihash is \
@@ -591,6 +595,13 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+/// Helper trait to benchmark the `PrevalidateAttests` transaction extension.
+pub trait BenchmarkingConfig: Config {
+	/// `Call` to be used when benchmarking the transaction extension.
+	fn default_call_and_info() -> (Self::RuntimeCall, DispatchInfoOf<Self::RuntimeCall>);
+}
+
 /// Validate `attest` calls prior to execution. Needed to avoid a DoS attack since they are
 /// otherwise free to place on chain.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
@@ -704,7 +715,7 @@ mod secp_utils {
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
 	use super::*;
 	use hex_literal::hex;
 	use secp_utils::*;
@@ -824,6 +835,17 @@ mod tests {
 		type Prefix = Prefix;
 		type MoveClaimOrigin = frame_system::EnsureSignedBy<Six, u64>;
 		type WeightInfo = TestWeightInfo;
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	impl BenchmarkingConfig for Test {
+		fn default_call_and_info() -> (Self::RuntimeCall, DispatchInfoOf<Self::RuntimeCall>) {
+			let call = RuntimeCall::Claims(crate::claims::Call::attest {
+				statement: StatementKind::Regular.to_text().to_vec(),
+			});
+			let info = call.get_dispatch_info();
+			(call, info)
+		}
 	}
 
 	fn alice() -> libsecp256k1::SecretKey {
@@ -1478,14 +1500,17 @@ mod tests {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-mod benchmarking {
+pub(super) mod benchmarking {
 	use super::*;
 	use crate::claims::Call;
 	use frame_benchmarking::{account, benchmarks};
 	use frame_support::traits::UnfilteredDispatchable;
 	use frame_system::RawOrigin;
 	use secp_utils::*;
-	use sp_runtime::{traits::ValidateUnsigned, DispatchResult};
+	use sp_runtime::{
+		traits::{DispatchTransaction, ValidateUnsigned},
+		DispatchResult,
+	};
 
 	const SEED: u32 = 0;
 
@@ -1521,6 +1546,12 @@ mod benchmarking {
 	}
 
 	benchmarks! {
+		where_clause { where <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
+			T: Send + Sync + BenchmarkingConfig,
+			<<T as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
+			<<T as frame_system::Config>::RuntimeCall as Dispatchable>::PostInfo: Default,
+		}
+
 		// Benchmark `claim` including `validate_unsigned` logic.
 		claim {
 			let c = MAX_CLAIMS;
@@ -1697,6 +1728,38 @@ mod benchmarking {
 			for _ in 0 .. i {
 				assert!(super::Pallet::<T>::eth_recover(&signature, &data, extra).is_some());
 			}
+		}
+
+		prevalidate_attests {
+			let c = MAX_CLAIMS;
+
+			for i in 0 .. c / 2 {
+				create_claim::<T>(c)?;
+				create_claim_attest::<T>(u32::MAX - c)?;
+			}
+
+			let ext = PrevalidateAttests::<T>::new();
+			let (call, info) = T::default_call_and_info();
+			let attest_c = u32::MAX - c;
+			let secret_key = libsecp256k1::SecretKey::parse(&keccak_256(&attest_c.encode())).unwrap();
+			let eth_address = eth(&secret_key);
+			let account: T::AccountId = account("user", c, SEED);
+			let vesting = Some((100_000u32.into(), 1_000u32.into(), 100u32.into()));
+			let statement = StatementKind::Regular;
+			let signature = sig::<T>(&secret_key, &account.encode(), statement.to_text());
+			super::Pallet::<T>::mint_claim(RawOrigin::Root.into(), eth_address, VALUE.into(), vesting, Some(statement))?;
+			Preclaims::<T>::insert(&account, eth_address);
+			assert_eq!(Claims::<T>::get(eth_address), Some(VALUE.into()));
+		}: {
+			assert!(ext.test_run(
+				RawOrigin::Signed(account).into(),
+				&call,
+				&info,
+				0,
+				|_| {
+					Ok(Default::default())
+				}
+			).unwrap().is_ok());
 		}
 
 		impl_benchmark_test_suite!(
