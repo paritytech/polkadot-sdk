@@ -26,14 +26,14 @@ frame_support::parameter_types! {
 	pub ParentLocation: MultiLocation = MultiLocation::parent();
 }
 
-/// Accepts an asset if it is from the origin.
-pub struct IsForeignConcreteAsset<IsForeign>(sp_std::marker::PhantomData<IsForeign>);
-impl<IsForeign: ContainsPair<MultiLocation, MultiLocation>> ContainsPair<MultiAsset, MultiLocation>
-	for IsForeignConcreteAsset<IsForeign>
+/// Accepts an asset if it is from a sibling parachain.
+pub struct IsSiblingParachainAsset<SelfParaId>(sp_std::marker::PhantomData<SelfParaId>);
+impl<SelfParaId: Get<ParaId>> ContainsPair<MultiAsset, MultiLocation>
+	for IsSiblingParachainAsset<SelfParaId>
 {
 	fn contains(asset: &MultiAsset, origin: &MultiLocation) -> bool {
-		log::trace!(target: "xcm::contains", "IsForeignConcreteAsset asset: {:?}, origin: {:?}", asset, origin);
-		matches!(asset.id, Concrete(ref id) if IsForeign::contains(id, origin))
+		log::trace!(target: "xcm::contains", "IsSiblingParachainAsset asset: {:?}, origin: {:?}", asset, origin);
+		matches!(asset.id, Concrete(ref id) if <FromSiblingParachain<SelfParaId>>::contains(id, origin))
 	}
 }
 
