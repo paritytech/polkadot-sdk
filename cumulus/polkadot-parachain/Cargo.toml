@@ -71,7 +71,6 @@ sp-block-builder = { path = "../../substrate/primitives/block-builder" }
 sp-keystore = { path = "../../substrate/primitives/keystore" }
 sc-chain-spec = { path = "../../substrate/client/chain-spec" }
 sc-rpc = { path = "../../substrate/client/rpc" }
-sc-rpc-spec-v2 = { path = "../../substrate/client/rpc-spec-v2" }
 sp-version = { path = "../../substrate/primitives/version" }
 sc-tracing = { path = "../../substrate/client/tracing" }
 sp-offchain = { path = "../../substrate/primitives/offchain" }
