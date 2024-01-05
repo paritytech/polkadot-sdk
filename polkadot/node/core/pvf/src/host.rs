@@ -217,6 +217,9 @@ pub async fn start(
 ) -> SubsystemResult<(ValidationHost, impl Future<Output = ()>)> {
 	gum::debug!(target: LOG_TARGET, ?config, "starting PVF validation host");
 
+	// Make sure the cache is initialized before doing anything else.
+	let artifacts = Artifacts::new_and_prune(&config.cache_path).await;
+
 	// Run checks for supported security features once per host startup. If some checks fail, warn
 	// if Secure Validator Mode is disabled and return an error otherwise.
 	let security_status = match security::check_security_status(&config).await {
@@ -260,8 +263,6 @@ pub async fn start(
 	let run_sweeper = sweeper_task(to_sweeper_rx);
 
 	let run_host = async move {
-		let artifacts = Artifacts::new_and_prune(&config.cache_path).await;
-
 		run(Inner {
 			cleanup_pulse_interval: Duration::from_secs(3600),
 			artifact_ttl: Duration::from_secs(3600 * 24),
