@@ -11252,6 +11252,7 @@ dependencies = [
  "sc-network-sync",
  "sc-offchain",
  "sc-rpc",
+ "sc-rpc-spec-v2",
  "sc-service",
  "sc-sysinfo",
  "sc-telemetry",
