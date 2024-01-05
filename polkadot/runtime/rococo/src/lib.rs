@@ -317,7 +317,7 @@ impl pallet_balances::Config for Runtime {
 	type MaxFreezes = ConstU32<1>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type MaxHolds = ConstU32<2>;
+	type MaxHolds = ConstU32<3>;
 }
 
 parameter_types! {
@@ -1163,7 +1163,7 @@ impl pallet_balances::Config<NisCounterpartInstance> for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<2>;
+	type MaxHolds = ConstU32<3>;
 	type MaxFreezes = ConstU32<1>;
 }
 
@@ -1696,6 +1696,7 @@ parameter_types! {
 impl pallet_state_trie_migration::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type SignedDepositPerItem = MigrationSignedDepositPerItem;
 	type SignedDepositBase = MigrationSignedDepositBase;
 	type ControlOrigin = EnsureRoot<AccountId>;
