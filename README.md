@@ -12,12 +12,3 @@ It aims at being a reference point. If the text in this specification doesn't ma
 
 You are encouraged to open issues if you see issues or would like to suggest improvements to this specification, or if some elements are missing clarity.
 This specification can be modified (in a backwards-compatible way) by opening pull requests.
-
-## Note
-
-*This section should be removed in the future.*
-
-At the moment, this specification isn't implemented by Substrate or any other client implementation.
-It is planned to be implemented in Substrate once this specification has been fully fleshed out.
-
-[The smoldot repository](https://github.com/paritytech/smoldot) aims to implement this specification while it is still in progress, in order to experiment with it in practice.
