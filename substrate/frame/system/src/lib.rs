@@ -298,6 +298,7 @@ pub mod pallet {
 			type BaseCallFilter = frame_support::traits::Everything;
 			type BlockHashCount = frame_support::traits::ConstU64<10>;
 			type OnSetCode = ();
+			type DefaultNonce = ();
 		}
 
 		/// Default configurations of this pallet in a solo-chain environment.
@@ -392,6 +393,9 @@ pub mod pallet {
 
 			/// The set code logic, just the default since we're not a parachain.
 			type OnSetCode = ();
+
+			/// The default nonce when an account is created.
+			type DefaultNonce = ();
 		}
 
 		/// Default configurations of this pallet in a relay-chain environment.
@@ -463,6 +467,7 @@ pub mod pallet {
 		type RuntimeTask: Task;
 
 		/// This stores the number of previous transactions associated with a sender account.
+		#[pallet::no_default_bounds]
 		type Nonce: Parameter
 			+ Member
 			+ MaybeSerializeDeserialize
@@ -570,6 +575,9 @@ pub mod pallet {
 
 		/// The maximum number of consumers allowed on a single account.
 		type MaxConsumers: ConsumerLimits;
+
+		/// The default nonce when an account is created.
+		type DefaultNonce: Get<Self::Nonce>;
 	}
 
 	#[pallet::pallet]
@@ -837,6 +845,7 @@ pub mod pallet {
 		T::AccountId,
 		AccountInfo<T::Nonce, T::AccountData>,
 		ValueQuery,
+		GetDefaultAccountInfo<T>,
 	>;
 
 	/// Total extrinsics count for the current block.
@@ -1036,7 +1045,10 @@ pub type RefCount = u32;
 /// Information of an account.
 #[derive(Clone, Eq, PartialEq, Default, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub struct AccountInfo<Nonce, AccountData> {
-	/// The number of transactions this account has sent.
+	/// A value that increases with every transaction that the account has sent.
+	///
+	/// Gets reset when the account gets reaped and is initialized to the default nonce as provided
+	/// in the config.
 	pub nonce: Nonce,
 	/// The number of other modules that currently depend on this account's existence. The account
 	/// cannot be reaped until this is zero.
@@ -1050,6 +1062,17 @@ pub struct AccountInfo<Nonce, AccountData> {
 	/// The additional data that belongs to this account. Used to store the balance(s) in a lot of
 	/// chains.
 	pub data: AccountData,
+}
+
+type NonceOf<T> = <T as Config>::Nonce;
+type AccountDataOf<T> = <T as Config>::AccountData;
+type AccountInfoOf<T> = AccountInfo<NonceOf<T>, AccountDataOf<T>>;
+
+pub struct GetDefaultAccountInfo<T>(PhantomData<T>);
+impl<T: pallet::Config> Get<AccountInfoOf<T>> for GetDefaultAccountInfo<T> {
+	fn get() -> AccountInfoOf<T> {
+		AccountInfo { nonce: T::DefaultNonce::get(), ..Default::default() }
+	}
 }
 
 /// Stores the `spec_version` and `spec_name` of when the last runtime upgrade
@@ -1909,7 +1932,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Increment a particular account's nonce by 1.
 	pub fn inc_account_nonce(who: impl EncodeLike<T::AccountId>) {
-		Account::<T>::mutate(who, |a| a.nonce += T::Nonce::one());
+		Account::<T>::mutate(who, |a| a.nonce.saturating_inc());
 	}
 
 	/// Note what the extrinsic data of the current extrinsic index is.
