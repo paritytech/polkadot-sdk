@@ -326,14 +326,19 @@ parameter_types! {
 	pub const DepositBase: Balance = deposit(1, 88);
 	// Additional storage item size of 32 bytes.
 	pub const DepositFactor: Balance = deposit(0, 32);
+	pub const MultisigHoldReason: RuntimeHoldReason = RuntimeHoldReason::Multisig(pallet_multisig::HoldReason::Multisig);
 }
 
 impl pallet_multisig::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type Currency = Balances;
-	type DepositBase = DepositBase;
-	type DepositFactor = DepositFactor;
+	type Consideration = HoldConsideration<
+		AccountId,
+		Balances,
+		MultisigHoldReason,
+		LinearStoragePrice<DepositBase, DepositFactor, Balance>,
+	>;
 	type MaxSignatories = ConstU32<100>;
 	type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>;
 }
@@ -529,7 +534,7 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
 	type FreezeIdentifier = RuntimeFreezeReason;
 	type MaxFreezes = ConstU32<1>;
-	type MaxHolds = ConstU32<6>;
+	type MaxHolds = ConstU32<7>;
 }
 
 parameter_types! {
