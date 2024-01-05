@@ -24,7 +24,7 @@ use crate::{
 	schedule::HostFnWeights,
 	BalanceOf, CodeHash, Config, DebugBufferVec, Error, SENTINEL,
 };
-use codec::{Decode, DecodeLimit, Encode};
+use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
 use frame_support::{
 	dispatch::DispatchInfo,
 	ensure,
