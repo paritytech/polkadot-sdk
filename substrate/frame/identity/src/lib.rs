@@ -80,6 +80,8 @@ mod types;
 pub mod weights;
 
 use codec::Encode;
+#[cfg(feature = "runtime-benchmarks")]
+use frame_support::traits::fungible::Mutate;
 use frame_support::{
 	ensure,
 	pallet_prelude::{DispatchError, DispatchResult},
@@ -121,8 +123,13 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The currency trait.
+		#[cfg(not(feature = "runtime-benchmarks"))]
 		type Currency: MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
 			+ BalancedHold<Self::AccountId>;
+		#[cfg(feature = "runtime-benchmarks")]
+		type Currency: MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ BalancedHold<Self::AccountId>
+			+ Mutate<Self::AccountId>;
 
 		/// The amount held on deposit for a registered identity
 		#[pallet::constant]

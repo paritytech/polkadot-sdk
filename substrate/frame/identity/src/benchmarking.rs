@@ -43,7 +43,7 @@ fn add_registrars<T: Config>(r: u32) -> Result<(), &'static str> {
 	for i in 0..r {
 		let registrar: T::AccountId = account("registrar", i, SEED);
 		let registrar_lookup = T::Lookup::unlookup(registrar.clone());
-		let _ = T::Currency::make_free_balance_be(&registrar, BalanceOf::<T>::max_value());
+		let _ = T::Currency::set_balance(&registrar, BalanceOf::<T>::max_value());
 		let registrar_origin = T::RegistrarOrigin::try_successful_origin()
 			.expect("RegistrarOrigin has no successful origin required for the benchmark");
 		Identity::<T>::add_registrar(registrar_origin, registrar_lookup)?;
@@ -73,7 +73,7 @@ fn create_sub_accounts<T: Config>(
 
 	// Set identity so `set_subs` does not fail.
 	if IdentityOf::<T>::get(who).is_none() {
-		let _ = T::Currency::make_free_balance_be(who, BalanceOf::<T>::max_value() / 2u32.into());
+		let _ = T::Currency::set_balance(who, BalanceOf::<T>::max_value() / 2u32.into());
 		let info = T::IdentityInformation::create_identity_info();
 		Identity::<T>::set_identity(who_origin.into(), Box::new(info))?;
 	}
@@ -122,7 +122,7 @@ mod benchmarks {
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
 		let caller_origin: <T as frame_system::Config>::RuntimeOrigin =
 			RawOrigin::Signed(caller.clone()).into();
-		let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		let _ = T::Currency::set_balance(&caller, BalanceOf::<T>::max_value());
 
 		// Add an initial identity
 		let initial_info = T::IdentityInformation::create_identity_info();
@@ -133,7 +133,7 @@ mod benchmarks {
 			let registrar: T::AccountId = account("registrar", i, SEED);
 			let _ = T::Lookup::unlookup(registrar.clone());
 			let balance_to_use = T::Currency::minimum_balance() * 10u32.into();
-			let _ = T::Currency::make_free_balance_be(&registrar, balance_to_use);
+			let _ = T::Currency::set_balance(&registrar, balance_to_use);
 
 			Identity::<T>::request_judgement(caller_origin.clone(), i, 10u32.into())?;
 			Identity::<T>::provide_judgement(
@@ -200,7 +200,7 @@ mod benchmarks {
 		let caller_origin =
 			<T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
 		let caller_lookup = <T::Lookup as StaticLookup>::unlookup(caller.clone());
-		let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		let _ = T::Currency::set_balance(&caller, BalanceOf::<T>::max_value());
 
 		// Register the registrars
 		add_registrars::<T>(r)?;
@@ -216,7 +216,7 @@ mod benchmarks {
 		for i in 0..r {
 			let registrar: T::AccountId = account("registrar", i, SEED);
 			let balance_to_use = T::Currency::minimum_balance() * 10u32.into();
-			let _ = T::Currency::make_free_balance_be(&registrar, balance_to_use);
+			let _ = T::Currency::set_balance(&registrar, balance_to_use);
 
 			Identity::<T>::request_judgement(caller_origin.clone(), i, 10u32.into())?;
 			Identity::<T>::provide_judgement(
@@ -240,7 +240,7 @@ mod benchmarks {
 	#[benchmark]
 	fn request_judgement(r: Linear<1, { T::MaxRegistrars::get() }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
-		let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		let _ = T::Currency::set_balance(&caller, BalanceOf::<T>::max_value());
 
 		// Register the registrars
 		add_registrars::<T>(r)?;
@@ -264,7 +264,7 @@ mod benchmarks {
 	#[benchmark]
 	fn cancel_request(r: Linear<1, { T::MaxRegistrars::get() }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
-		let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		let _ = T::Currency::set_balance(&caller, BalanceOf::<T>::max_value());
 
 		// Register the registrars
 		add_registrars::<T>(r)?;
@@ -317,7 +317,7 @@ mod benchmarks {
 	fn set_account_id(r: Linear<1, { T::MaxRegistrars::get() - 1 }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
-		let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		let _ = T::Currency::set_balance(&caller, BalanceOf::<T>::max_value());
 
 		add_registrars::<T>(r)?;
 
@@ -346,7 +346,7 @@ mod benchmarks {
 	fn set_fields(r: Linear<1, { T::MaxRegistrars::get() - 1 }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
-		let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		let _ = T::Currency::set_balance(&caller, BalanceOf::<T>::max_value());
 
 		add_registrars::<T>(r)?;
 
@@ -382,11 +382,11 @@ mod benchmarks {
 		let user_origin =
 			<T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(user.clone()));
 		let user_lookup = <T::Lookup as StaticLookup>::unlookup(user.clone());
-		let _ = T::Currency::make_free_balance_be(&user, BalanceOf::<T>::max_value());
+		let _ = T::Currency::set_balance(&user, BalanceOf::<T>::max_value());
 
 		let caller: T::AccountId = whitelisted_caller();
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
-		let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		let _ = T::Currency::set_balance(&caller, BalanceOf::<T>::max_value());
 
 		add_registrars::<T>(r)?;
 
@@ -420,7 +420,7 @@ mod benchmarks {
 		let target_origin: <T as frame_system::Config>::RuntimeOrigin =
 			RawOrigin::Signed(target.clone()).into();
 		let target_lookup = T::Lookup::unlookup(target.clone());
-		let _ = T::Currency::make_free_balance_be(&target, BalanceOf::<T>::max_value());
+		let _ = T::Currency::set_balance(&target, BalanceOf::<T>::max_value());
 
 		let info = T::IdentityInformation::create_identity_info();
 		Identity::<T>::set_identity(target_origin.clone(), Box::new(info.clone()))?;
@@ -430,7 +430,7 @@ mod benchmarks {
 		for i in 0..r {
 			let registrar: T::AccountId = account("registrar", i, SEED);
 			let balance_to_use = T::Currency::minimum_balance() * 10u32.into();
-			let _ = T::Currency::make_free_balance_be(&registrar, balance_to_use);
+			let _ = T::Currency::set_balance(&registrar, balance_to_use);
 
 			Identity::<T>::request_judgement(target_origin.clone(), i, 10u32.into())?;
 			Identity::<T>::provide_judgement(
