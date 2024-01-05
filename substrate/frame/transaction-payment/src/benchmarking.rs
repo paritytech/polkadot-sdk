@@ -65,7 +65,7 @@ mod benchmarks {
 		{
 			assert!(ext
 				.test_run(RawOrigin::Signed(caller.clone()).into(), &call, &info, 10, |_| Ok(
-					post_info.clone()
+					post_info
 				))
 				.unwrap()
 				.is_ok());
