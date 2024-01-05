@@ -55,9 +55,7 @@ pub fn expand_outer_freeze_reason(pallet_decls: &[Pallet], scrate: &TokenStream)
 	}
 
 	if freeze_reason_variants_count.is_empty() {
-		freeze_reason_variants_count.push(
-			quote! { 0 }
-		)
+		freeze_reason_variants_count.push(quote! { 0 })
 	}
 
 	quote! {

@@ -1513,7 +1513,8 @@ pub fn origin(_: TokenStream, _: TokenStream) -> TokenStream {
 /// For ease of usage, when no `#[derive]` attributes are found for the enum under
 /// `#[pallet::composite_enum]`, the aforementioned traits are automatically derived for it. The
 /// inverse is also true: if there are any `#[derive]` attributes found for the enum, then no traits
-/// will automatically be derived for it (this implies that you need to provide the `frame_support::traits::VariantCount` implementation).
+/// will automatically be derived for it (this implies that you need to provide the
+/// `frame_support::traits::VariantCount` implementation).
 #[proc_macro_attribute]
 pub fn composite_enum(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
@@ -1534,28 +1535,31 @@ pub fn derive_composite_enum_variant_count(input: TokenStream) -> TokenStream {
 	// only `Enum` type is expected here (see also `CompositeDef::try_from`)
 	let data_enum = match &input.data {
 		syn::Data::Enum(ref data_enum) => data_enum,
-		_ => return syn::Error::new(
-			input.ident.span(),
-			"Invalid type: expected enum item",
-		).to_compile_error().into()
+		_ =>
+			return syn::Error::new(input.ident.span(), "Invalid type: expected enum item")
+				.to_compile_error()
+				.into(),
 	};
 
-		// check variants: composite enums support only field-less enum variants. This is because fields can introduce too many possibilities, making it challenging to compute a fixed variant count.
-		// The only exception is `__Ignore` which can be added by `CompositeDef::try_from`.
-		for variant in &data_enum.variants {
-			match variant.fields {
-				syn::Fields::Named(_) | syn::Fields::Unnamed(_) => {
-					let variant_name = variant.ident.to_string();
-					if variant_name != "__Ignore" {
-						return syn::Error::new(
-							variant.ident.span(),
-							"The composite enum does not support variants with fields!",
-						).to_compile_error().into()
-					}
-				},
-				syn::Fields::Unit => (),
-			}
+	// check variants: composite enums support only field-less enum variants. This is because fields
+	// can introduce too many possibilities, making it challenging to compute a fixed variant count.
+	// The only exception is `__Ignore` which can be added by `CompositeDef::try_from`.
+	for variant in &data_enum.variants {
+		match variant.fields {
+			syn::Fields::Named(_) | syn::Fields::Unnamed(_) => {
+				let variant_name = variant.ident.to_string();
+				if variant_name != "__Ignore" {
+					return syn::Error::new(
+						variant.ident.span(),
+						"The composite enum does not support variants with fields!",
+					)
+					.to_compile_error()
+					.into()
+				}
+			},
+			syn::Fields::Unit => (),
 		}
+	}
 	// get variants count
 	let variants_count = data_enum.variants.len() as u32;
 

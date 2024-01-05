@@ -497,7 +497,8 @@ pub fn debug(data: &impl sp_std::fmt::Debug) {
 
 #[doc(inline)]
 pub use frame_support_procedural::{
-	construct_runtime, match_and_insert, transactional, CompositeEnumVariantCount, PalletError, RuntimeDebugNoBound,
+	construct_runtime, match_and_insert, transactional, CompositeEnumVariantCount, PalletError,
+	RuntimeDebugNoBound,
 };
 
 #[doc(hidden)]
@@ -851,8 +852,9 @@ pub mod pallet_prelude {
 			BuildGenesisConfig, ConstU32, EnsureOrigin, Get, GetDefault, GetStorageVersion, Hooks,
 			IsType, PalletInfoAccess, StorageInfoTrait, StorageVersion, Task, TypedGet,
 		},
-		Blake2_128, Blake2_128Concat, Blake2_256, CloneNoBound, CompositeEnumVariantCount, DebugNoBound, EqNoBound, Identity,
-		PartialEqNoBound, RuntimeDebugNoBound, Twox128, Twox256, Twox64Concat,
+		Blake2_128, Blake2_128Concat, Blake2_256, CloneNoBound, CompositeEnumVariantCount,
+		DebugNoBound, EqNoBound, Identity, PartialEqNoBound, RuntimeDebugNoBound, Twox128, Twox256,
+		Twox64Concat,
 	};
 	pub use codec::{Decode, Encode, MaxEncodedLen};
 	pub use frame_support::pallet_macros::*;

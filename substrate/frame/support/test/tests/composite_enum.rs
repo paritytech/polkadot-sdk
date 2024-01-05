@@ -21,8 +21,10 @@
 #![recursion_limit = "128"]
 
 use codec::Encode;
-use frame_support::derive_impl;
-use frame_support::traits::{Get, VariantCount};
+use frame_support::{
+	derive_impl,
+	traits::{Get, VariantCount},
+};
 use sp_core::sr25519;
 use sp_runtime::{
 	generic,
@@ -233,7 +235,10 @@ fn runtime_hold_reason_variant_count_works() {
 #[test]
 fn runtime_freeze_reason_variant_count_works() {
 	assert_eq!(RuntimeFreezeReason::VARIANT_COUNT, RuntimeFreezeReason::get());
-	assert_eq!(RuntimeFreezeReason::VARIANT_COUNT as usize, list_all_freeze_reason_variants().len());
+	assert_eq!(
+		RuntimeFreezeReason::VARIANT_COUNT as usize,
+		list_all_freeze_reason_variants().len()
+	);
 }
 
 #[test]
