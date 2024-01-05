@@ -22,8 +22,7 @@ use XcmpMessageFormat::*;
 use codec::Input;
 use cumulus_primitives_core::{ParaId, XcmpMessageHandler};
 use frame_support::{
-	assert_err, assert_noop, assert_ok, assert_storage_noop, hypothetically,
-	traits::{Footprint, Hooks},
+	assert_err, assert_noop, assert_ok, assert_storage_noop, hypothetically, traits::Hooks,
 	StorageNoopGuard,
 };
 use mock::{new_test_ext, ParachainSystem, RuntimeOrigin as Origin, Test, XcmpQueue};
@@ -100,7 +99,7 @@ fn xcm_enqueueing_multiple_times_works() {
 }
 
 #[test]
-#[cfg_attr(debug_assertions, should_panic = "Defensive failure")]
+#[cfg_attr(debug_assertions, should_panic = "Could not enqueue XCMP messages.")]
 fn xcm_enqueueing_starts_dropping_on_overflow() {
 	new_test_ext().execute_with(|| {
 		let xcm = VersionedXcm::<Test>::from(Xcm::<Test>(vec![ClearOrigin]));
@@ -111,12 +110,6 @@ fn xcm_enqueueing_starts_dropping_on_overflow() {
 		XcmpQueue::handle_xcmp_messages(
 			repeat((1000.into(), 1, data.as_slice())).take(limit * 2),
 			Weight::MAX,
-		);
-		assert_eq!(EnqueuedMessages::get().len(), limit);
-		// The drop threshold for pages is 48, the others numbers dont really matter:
-		assert_eq!(
-			<Test as Config>::XcmpQueue::footprint(1000.into()),
-			QueueFootprint { storage: Footprint { count: 256, size: 768 }, pages: 48 }
 		);
 	})
 }
@@ -729,6 +722,50 @@ fn xcmp_queue_send_xcm_works() {
 			.iter()
 			.any(|(para_id, _)| para_id == &sibling_para_id));
 	})
+}
+
+#[test]
+fn xcmp_queue_send_too_big_xcm_fails() {
+	new_test_ext().execute_with(|| {
+		let sibling_para_id = ParaId::from(12345);
+		let dest = (Parent, X1(Parachain(sibling_para_id.into()))).into();
+
+		let max_message_size = 100_u32;
+
+		// open HRMP channel to the sibling_para_id with a set `max_message_size`
+		ParachainSystem::open_custom_outbound_hrmp_channel_for_benchmarks_or_tests(
+			sibling_para_id,
+			cumulus_primitives_core::AbridgedHrmpChannel {
+				max_message_size,
+				max_capacity: 10,
+				max_total_size: 10_000_000_u32,
+				msg_count: 0,
+				total_size: 0,
+				mqc_head: None,
+			},
+		);
+
+		// Message is crafted to exceed `max_message_size`
+		let mut message = Xcm::builder_unsafe();
+		for _ in 0..97 {
+			message = message.clear_origin();
+		}
+		let message = message.build();
+		let encoded_message_size = message.encode().len();
+		let versioned_size = 1; // VersionedXcm enum is added by `send_xcm` and it add one additional byte
+		assert_eq!(encoded_message_size, max_message_size as usize - versioned_size);
+
+		// check empty outbound queue
+		assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
+
+		// Message is too big because after adding the VersionedXcm enum, it would reach
+		// `max_message_size` Then, adding the format, which is the worst case scenario in which a
+		// new page is needed, would get it over the limit
+		assert_eq!(send_xcm::<XcmpQueue>(dest, message), Err(SendError::Transport("TooBig")),);
+
+		// outbound queue is still empty
+		assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
+	});
 }
 
 #[test]

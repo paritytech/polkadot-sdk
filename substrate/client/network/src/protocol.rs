@@ -43,7 +43,7 @@ use sp_runtime::traits::Block as BlockT;
 
 use std::{collections::HashSet, iter, task::Poll};
 
-use notifications::{Notifications, NotificationsOut};
+use notifications::{metrics, Notifications, NotificationsOut};
 
 pub(crate) use notifications::ProtocolHandle;
 
@@ -95,7 +95,7 @@ impl<B: BlockT> Protocol<B> {
 			// NOTE: Block announcement protocol is still very much hardcoded into
 			// `Protocol`. 	This protocol must be the first notification protocol given to
 			// `Notifications`
-			let (protocol_configs, handles): (Vec<_>, Vec<_>) = iter::once({
+			let (protocol_configs, mut handles): (Vec<_>, Vec<_>) = iter::once({
 				let config = notifications::ProtocolConfig {
 					name: block_announces_protocol.protocol_name().clone(),
 					fallback_names: block_announces_protocol.fallback_names().cloned().collect(),
@@ -122,11 +122,16 @@ impl<B: BlockT> Protocol<B> {
 			}))
 			.unzip();
 
+			let metrics = registry.as_ref().and_then(|registry| metrics::register(&registry).ok());
+			handles.iter_mut().for_each(|handle| {
+				handle.set_metrics(metrics.clone());
+			});
+
 			(
 				Notifications::new(
 					protocol_controller_handles,
 					from_protocol_controllers,
-					registry,
+					metrics,
 					protocol_configs.into_iter(),
 				),
 				installed_protocols,

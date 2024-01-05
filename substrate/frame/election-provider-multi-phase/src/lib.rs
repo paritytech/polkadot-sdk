@@ -101,9 +101,8 @@
 //! unsigned transaction, thus the name _unsigned_ phase. This unsigned transaction can never be
 //! valid if propagated, and it acts similar to an inherent.
 //!
-//! Validators will only submit solutions if the one that they have computed is sufficiently better
-//! than the best queued one (see [`pallet::Config::BetterUnsignedThreshold`]) and will limit the
-//! weight of the solution to [`MinerConfig::MaxWeight`].
+//! Validators will only submit solutions if the one that they have computed is strictly better than
+//! the best queued one and will limit the weight of the solution to [`MinerConfig::MaxWeight`].
 //!
 //! The unsigned phase can be made passive depending on how the previous signed phase went, by
 //! setting the first inner value of [`Phase`] to `false`. For now, the signed phase is always
@@ -598,11 +597,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type BetterSignedThreshold: Get<Perbill>;
 
-		/// The minimum amount of improvement to the solution score that defines a solution as
-		/// "better" in the Unsigned phase.
-		#[pallet::constant]
-		type BetterUnsignedThreshold: Get<Perbill>;
-
 		/// The repeat threshold of the offchain worker.
 		///
 		/// For example, if it is 5, that means that at least 5 blocks will elapse between attempts
@@ -1024,6 +1018,7 @@ pub mod pallet {
 
 			// ensure solution is timely.
 			ensure!(Self::current_phase().is_signed(), Error::<T>::PreDispatchEarlySubmission);
+			ensure!(raw_solution.round == Self::round(), Error::<T>::PreDispatchDifferentRound);
 
 			// NOTE: this is the only case where having separate snapshot would have been better
 			// because could do just decode_len. But we can create abstractions to do this.
@@ -1197,6 +1192,8 @@ pub mod pallet {
 		BoundNotMet,
 		/// Submitted solution has too many winners
 		TooManyWinners,
+		/// Sumission was prepared for a different round.
+		PreDispatchDifferentRound,
 	}
 
 	#[pallet::validate_unsigned]

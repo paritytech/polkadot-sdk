@@ -188,6 +188,7 @@ impl pallet_staking::Config for Test {
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<16>;
 	type MaxUnlockingChunks = ConstU32<32>;
 	type HistoryDepth = ConstU32<84>;
+	type MaxControllersInDeprecationBatch = ConstU32<100>;
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
 	type EventListeners = ();
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
