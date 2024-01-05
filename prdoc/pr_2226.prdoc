@@ -10,12 +10,12 @@ doc:
       The disabling strategy in staking pallet is no longer hardcoded but abstracted away via
       DisablingStrategy trait. The trait contains a single function (make_disabling_decision) which
       is called for each offence. The function makes a decision if (and which) validators should be
-      disabled. A default implementation is provided - UpToByzantineThresholdDisablingStrategy. It
-      will be used on Kusama and Polkadot. In nutshel UpToByzantineThresholdDisablingStrategy
+      disabled. A default implementation is provided - UpToThresholdDisablingStrategy. It
+      will be used on Kusama and Polkadot. In nutshel UpToThresholdDisablingStrategy
       disables offenders up to the configured threshold (1/3 of the validators in the active set by
       default). Offending validators are not disabled for offences in previous eras. The threshold is
       controlled via `DISABLING_THRESHOLD_FACTOR` (a generic parameter of
-      UpToByzantineThresholdDisablingStrategy).
+      UpToThresholdDisablingStrategy).
 
 migrations:
   db: []

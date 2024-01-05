@@ -13,7 +13,7 @@ migrations.
 
 - New trait `DisablingStrategy` which is responsible for making a decision which offenders should be
   disabled on new offence.
-- Default implementation of `DisablingStrategy` - `UpToByzantineThresholdDisablingStrategy`. It
+- Default implementation of `DisablingStrategy` - `UpToThresholdDisablingStrategy`. It
   disables each new offender up to a threshold (1/3 by default). Offenders are not punished for
   offences in previous era(s).
 - `OffendingValidators` storage item is replaced with `DisabledValidators`. The former keeps all

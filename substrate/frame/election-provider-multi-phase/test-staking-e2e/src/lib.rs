@@ -151,7 +151,7 @@ fn mass_slash_doesnt_enter_emergency_phase() {
 		// And no more than `1/3` of the validators are disabled
 		assert_eq!(
 			Session::disabled_validators().len(),
-			pallet_staking::UpToByzantineThresholdDisablingStrategy::byzantine_threshold(
+			pallet_staking::UpToThresholdDisablingStrategy::<DISABLING_FACTOR>::disable_threshold(
 				Session::validators().len()
 			)
 		);

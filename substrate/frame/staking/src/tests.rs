@@ -3410,7 +3410,7 @@ fn offence_threshold_doesnt_trigger_new_era() {
 			assert_eq_uvec!(Session::validators(), vec![11, 21, 31, 41]);
 
 			assert_eq!(
-				UpToByzantineThresholdDisablingStrategy::<DISABLING_THRESHOLD_FACTOR>::byzantine_threshold(
+				UpToThresholdDisablingStrategy::<DISABLING_THRESHOLD_FACTOR>::disable_threshold(
 					Session::validators().len()
 				),
 				1
@@ -6892,27 +6892,27 @@ mod ledger {
 
 mod byzantine_threshold_disabling_strategy {
 	use crate::{
-		tests::Test, CurrentEra, DisablingStrategy, UpToByzantineThresholdDisablingStrategy,
+		tests::Test, CurrentEra, DisablingStrategy, UpToThresholdDisablingStrategy,
 	};
 	use sp_staking::EraIndex;
 
-	// Common test data - the validator index of the offender and the era of the offence
-	const OFFENDER_IDX: u32 = 7;
+	// Common test data - the stash of the offending validator, the era of the offence and the active set
+	const OFFENDER_ID: <Test as frame_system::Config>::AccountId = 7;
 	const SLASH_ERA: EraIndex = 1;
+	const ACTIVE_SET: [<Test as pallet_session::Config>::ValidatorId; 7] = [1, 2, 3, 4, 5, 6, 7];
+	const OFFENDER_VALIDATOR_IDX: u32 = 6;	// the offender is with index 6 in the active set
 
 	#[test]
 	fn dont_disable_for_ancient_offence() {
 		sp_io::TestExternalities::default().execute_with(|| {
 			let initially_disabled = vec![];
-			let active_set = vec![1, 2, 3, 4, 5, 6, 7];
-
-			// Current era is 2
+			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
 			CurrentEra::<Test>::put(2);
 
-			let disable_offenders = <UpToByzantineThresholdDisablingStrategy as DisablingStrategy<
+			let disable_offenders = <UpToThresholdDisablingStrategy as DisablingStrategy<
 			Test,
 		>>::make_disabling_decision(
-			OFFENDER_IDX, SLASH_ERA, &initially_disabled, &active_set
+			&OFFENDER_ID, SLASH_ERA, &initially_disabled
 		);
 
 			assert!(disable_offenders.is_empty());
@@ -6923,12 +6923,12 @@ mod byzantine_threshold_disabling_strategy {
 	fn dont_disable_beyond_byzantine_threshold() {
 		sp_io::TestExternalities::default().execute_with(|| {
 			let initially_disabled = vec![1, 2];
-			let active_set = vec![1, 2, 3, 4, 5, 6, 7];
+			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
 
-			let disable_offenders = <UpToByzantineThresholdDisablingStrategy as DisablingStrategy<
+			let disable_offenders = <UpToThresholdDisablingStrategy as DisablingStrategy<
 			Test,
 		>>::make_disabling_decision(
-			OFFENDER_IDX, SLASH_ERA, &initially_disabled, &active_set
+			&OFFENDER_ID, SLASH_ERA, &initially_disabled
 		);
 
 			assert!(disable_offenders.is_empty());
@@ -6939,15 +6939,15 @@ mod byzantine_threshold_disabling_strategy {
 	fn disable_when_below_byzantine_threshold() {
 		sp_io::TestExternalities::default().execute_with(|| {
 			let initially_disabled = vec![1];
-			let active_set = vec![1, 2, 3, 4, 5, 6, 7];
+			pallet_session::Validators::<Test>::put(ACTIVE_SET.to_vec());
 
-			let disable_offenders = <UpToByzantineThresholdDisablingStrategy as DisablingStrategy<
+			let disable_offenders = <UpToThresholdDisablingStrategy as DisablingStrategy<
 			Test,
 		>>::make_disabling_decision(
-			OFFENDER_IDX, SLASH_ERA, &initially_disabled, &active_set
+			&OFFENDER_ID, SLASH_ERA, &initially_disabled
 		);
 
-			assert_eq!(disable_offenders, vec![7]);
+			assert_eq!(disable_offenders, vec![OFFENDER_VALIDATOR_IDX]);
 		});
 	}
 }

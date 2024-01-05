@@ -358,7 +358,7 @@ impl pallet_staking::Config for Runtime {
 	type BenchmarkingConfig = runtime_common::StakingBenchmarkingConfig;
 	type EventListeners = ();
 	type WeightInfo = ();
-	type DisablingStrategy = pallet_staking::UpToByzantineThresholdDisablingStrategy;
+	type DisablingStrategy = pallet_staking::UpToThresholdDisablingStrategy;
 }
 
 parameter_types! {

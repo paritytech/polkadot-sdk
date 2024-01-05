@@ -208,7 +208,7 @@ impl pallet_staking::Config for Test {
 	type EventListeners = ();
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type WeightInfo = ();
-	type DisablingStrategy = pallet_staking::UpToByzantineThresholdDisablingStrategy;
+	type DisablingStrategy = pallet_staking::UpToThresholdDisablingStrategy;
 }
 
 impl pallet_offences::Config for Test {

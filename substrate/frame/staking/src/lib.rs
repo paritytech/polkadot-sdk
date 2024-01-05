@@ -1239,20 +1239,21 @@ pub trait DisablingStrategy<T: Config> {
 /// threshold. `DISABLING_THRESHOLD_FACTOR` is the factor of the maximum disabled validators in the
 /// active set. E.g. setting this value to `3` means no more than 1/3 of the validators in the
 /// active set can be disabled in an era.
-pub struct UpToByzantineThresholdDisablingStrategy<const DISABLING_THRESHOLD_FACTOR: usize = 3>;
+/// By default a factor of 3 is used which is the byzantine threshold.
+pub struct UpToThresholdDisablingStrategy<const DISABLING_THRESHOLD_FACTOR: usize = 3>;
 
 impl<const DISABLING_THRESHOLD_FACTOR: usize>
-	UpToByzantineThresholdDisablingStrategy<DISABLING_THRESHOLD_FACTOR>
+	UpToThresholdDisablingStrategy<DISABLING_THRESHOLD_FACTOR>
 {
 	/// Disabling limit calculated from the total number of validators in the active set. When
 	/// reached no more validators will be disabled.
-	pub fn byzantine_threshold(validators_len: usize) -> usize {
+	pub fn disable_threshold(validators_len: usize) -> usize {
 		validators_len.saturating_sub(1) / DISABLING_THRESHOLD_FACTOR
 	}
 }
 
 impl<T: Config, const DISABLING_THRESHOLD_FACTOR: usize> DisablingStrategy<T>
-	for UpToByzantineThresholdDisablingStrategy<DISABLING_THRESHOLD_FACTOR>
+	for UpToThresholdDisablingStrategy<DISABLING_THRESHOLD_FACTOR>
 {
 	fn make_disabling_decision(
 		offender_stash: &T::AccountId,
@@ -1267,14 +1268,14 @@ impl<T: Config, const DISABLING_THRESHOLD_FACTOR: usize> DisablingStrategy<T>
 			return vec![]
 		};
 
-		// We don't disable more than 1/3 of the validators in the active set
-		let over_byzantine_threshold =
-			currently_disabled.len() >= Self::byzantine_threshold(active_set.len());
+		// We don't disable more than the threshold
+		let over_threshold =
+			currently_disabled.len() >= Self::disable_threshold(active_set.len());
 		// We don't disable for offences in previous eras
 		let ancient_offence = Pallet::<T>::current_era().unwrap_or(1) > slash_era;
 
 		let disable_offenders =
-			if over_byzantine_threshold || ancient_offence { vec![] } else { vec![offender_idx] };
+			if over_threshold || ancient_offence { vec![] } else { vec![offender_idx] };
 
 		disable_offenders
 	}
