@@ -231,7 +231,7 @@ impl ChainExtension<Test> for TestExtension {
 			},
 			1 => {
 				let env = env.only_in();
-				TestExtensionTestValue::mutate(|e| e.last_seen_input_len = env.input_len());
+				TestExtensionTestValue::mutate(|e| e.last_seen_input_len = env.val1());
 				Ok(RetVal::Converging(id))
 			},
 			2 => {
