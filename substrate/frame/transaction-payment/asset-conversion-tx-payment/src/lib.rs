@@ -190,9 +190,8 @@ where
 		who: &T::AccountId,
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
-		len: usize,
+		fee: BalanceOf<T>,
 	) -> Result<(BalanceOf<T>, InitialPayment<T>), TransactionValidityError> {
-		let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(len as u32, info, self.tip);
 		debug_assert!(self.tip <= fee, "tip should be included in the computed fee");
 		if fee.is_zero() {
 			Ok((fee, InitialPayment::Nothing))
@@ -277,6 +276,8 @@ where
 		BalanceOf<T>,
 		// who paid the fee
 		T::AccountId,
+		// transaction fee
+		BalanceOf<T>,
 	);
 	type Pre = (
 		// tip
@@ -307,7 +308,7 @@ where
 		let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(len as u32, info, self.tip);
 		let priority = ChargeTransactionPayment::<T>::get_priority(info, len, self.tip, fee);
 		let validity = ValidTransaction { priority, ..Default::default() };
-		let val = (self.tip, who.clone());
+		let val = (self.tip, who.clone(), fee);
 		Ok((validity, val, origin))
 	}
 
@@ -317,12 +318,12 @@ where
 		_origin: &<T::RuntimeCall as Dispatchable>::RuntimeOrigin,
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
-		len: usize,
+		_len: usize,
 		_context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		let (tip, who) = val;
+		let (tip, who, fee) = val;
 		// Mutating call of `withdraw_fee` to actually charge for the transaction.
-		let (_fee, initial_payment) = self.withdraw_fee(&who, call, info, len)?;
+		let (_fee, initial_payment) = self.withdraw_fee(&who, call, info, fee)?;
 		Ok((tip, who, initial_payment, self.asset_id.clone()))
 	}
 
