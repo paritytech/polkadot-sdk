@@ -76,6 +76,13 @@ pub fn expand_outer_freeze_reason(pallet_decls: &[Pallet], scrate: &TokenStream)
 			const VARIANT_COUNT: u32 = #( #freeze_reason_variants_count )+*;
 		}
 
+		/// Implementation of `Get<u32>` which returns `RuntimeFreezeReason::VARIANT_COUNT`.
+		impl #scrate::traits::Get<u32> for RuntimeFreezeReason {
+			fn get() -> u32 {
+				<RuntimeFreezeReason as #scrate::traits::VariantCount>::VARIANT_COUNT
+			}
+		}
+
 		#( #conversion_fns )*
 	}
 }

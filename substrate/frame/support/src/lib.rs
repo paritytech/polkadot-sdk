@@ -1675,7 +1675,7 @@ pub mod pallet_prelude {
 /// the enum:
 ///
 /// ```ignore
-/// Copy, Clone, Eq, PartialEq, Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebug
+/// Copy, Clone, Eq, PartialEq, Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebug, CompositeEnumVariantCount
 /// ```
 ///
 /// The inverse is also true: if there are any #[derive] attributes present for the enum, then
