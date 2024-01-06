@@ -27,6 +27,7 @@ use frame_support::{
 };
 use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600, RCBlockNumberOf};
 use parachains_common::{AccountId, Balance, BlockNumber};
+use polkadot_runtime_common::prod_or_fast;
 use xcm::latest::prelude::*;
 
 pub struct CreditToCollatorPot;
@@ -221,7 +222,10 @@ impl pallet_broker::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type OnRevenue = CreditToCollatorPot;
+	#[cfg(feature = "fast-runtime")]
 	type TimeslicePeriod = ConstU32<10>;
+	#[cfg(not(feature = "fast-runtime"))]
+	type TimeslicePeriod = ConstU32<80>;
 	type MaxLeasedCores = ConstU32<50>;
 	type MaxReservedCores = ConstU32<10>;
 	type Coretime = CoretimeAllocator;
