@@ -39,7 +39,9 @@ use bridge_runtime_common::{
 };
 use frame_support::traits::{Get, OnFinalize, OnInitialize};
 use frame_system::pallet_prelude::BlockNumberFor;
-use parachains_runtimes_test_utils::{AccountIdOf, BasicParachainRuntime, CollatorSessionKeys, RuntimeCallOf, SlotDurations};
+use parachains_runtimes_test_utils::{
+	AccountIdOf, BasicParachainRuntime, CollatorSessionKeys, RuntimeCallOf, SlotDurations,
+};
 use sp_keyring::AccountKeyring::*;
 use sp_runtime::{traits::Header as HeaderT, AccountId32};
 use xcm::latest::prelude::*;

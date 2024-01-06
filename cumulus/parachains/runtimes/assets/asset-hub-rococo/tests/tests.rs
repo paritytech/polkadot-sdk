@@ -31,7 +31,10 @@ pub use asset_hub_rococo_runtime::{
 	RuntimeCall, RuntimeEvent, SessionKeys, System, ToWestendXcmRouterInstance,
 	TrustBackedAssetsInstance, XcmpQueue,
 };
-use asset_test_utils::{test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys, ExtBuilder, SlotDurations};
+use asset_test_utils::{
+	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys,
+	ExtBuilder, SlotDurations,
+};
 use codec::{Decode, Encode};
 use cumulus_primitives_utility::ChargeWeightInFungibles;
 use frame_support::{
@@ -69,7 +72,9 @@ fn collator_session_keys() -> CollatorSessionKeys<Runtime> {
 
 fn slot_durations() -> SlotDurations {
 	SlotDurations {
-		relay: SlotDuration::from_millis(asset_hub_rococo_runtime::RELAY_CHAIN_SLOT_DURATION_MILLIS.into()),
+		relay: SlotDuration::from_millis(
+			asset_hub_rococo_runtime::RELAY_CHAIN_SLOT_DURATION_MILLIS.into(),
+		),
 		para: SlotDuration::from_millis(asset_hub_rococo_runtime::SLOT_DURATION),
 	}
 }

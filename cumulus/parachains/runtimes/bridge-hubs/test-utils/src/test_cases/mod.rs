@@ -43,7 +43,10 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use parachains_common::AccountId;
-use parachains_runtimes_test_utils::{mock_open_hrmp_channel, AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder, RuntimeCallOf, XcmReceivedFrom, SlotDurations};
+use parachains_runtimes_test_utils::{
+	mock_open_hrmp_channel, AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder, RuntimeCallOf,
+	SlotDurations, XcmReceivedFrom,
+};
 use sp_runtime::{traits::Zero, AccountId32};
 use xcm::{latest::prelude::*, AlwaysLatest};
 use xcm_builder::DispatchBlobError;

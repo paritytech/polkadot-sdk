@@ -24,8 +24,8 @@ use bridge_hub_rococo_runtime::{
 	Executive, ExistentialDeposit, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall,
 	RuntimeEvent, RuntimeOrigin, SessionKeys, SignedExtra, TransactionPayment, UncheckedExtrinsic,
 };
-use codec::{Decode, Encode};
 use bridge_hub_test_utils::SlotDurations;
+use codec::{Decode, Encode};
 use frame_support::{dispatch::GetDispatchInfo, parameter_types, traits::ConstU8};
 use parachains_common::{rococo::fee::WeightToFee, AccountId, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
@@ -99,7 +99,9 @@ fn collator_session_keys() -> bridge_hub_test_utils::CollatorSessionKeys<Runtime
 
 fn slot_durations() -> SlotDurations {
 	SlotDurations {
-		relay: SlotDuration::from_millis(bridge_hub_rococo_runtime::RELAY_CHAIN_SLOT_DURATION_MILLIS.into()),
+		relay: SlotDuration::from_millis(
+			bridge_hub_rococo_runtime::RELAY_CHAIN_SLOT_DURATION_MILLIS.into(),
+		),
 		para: SlotDuration::from_millis(bridge_hub_rococo_runtime::SLOT_DURATION),
 	}
 }

@@ -30,7 +30,9 @@ use frame_support::{
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_bridge_grandpa::{BridgedBlockHash, BridgedHeader};
 use parachains_common::AccountId;
-use parachains_runtimes_test_utils::{mock_open_hrmp_channel, AccountIdOf, CollatorSessionKeys, RuntimeCallOf, SlotDurations};
+use parachains_runtimes_test_utils::{
+	mock_open_hrmp_channel, AccountIdOf, CollatorSessionKeys, RuntimeCallOf, SlotDurations,
+};
 use sp_core::Get;
 use sp_keyring::AccountKeyring::*;
 use sp_runtime::{traits::TrailingZeroInput, AccountId32};

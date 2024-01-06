@@ -25,7 +25,10 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use parachains_common::{AccountId, Balance};
-use parachains_runtimes_test_utils::{mock_open_hrmp_channel, AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder, RuntimeHelper, ValidatorIdOf, XcmReceivedFrom, SlotDurations};
+use parachains_runtimes_test_utils::{
+	mock_open_hrmp_channel, AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder, RuntimeHelper,
+	SlotDurations, ValidatorIdOf, XcmReceivedFrom,
+};
 use sp_runtime::{traits::StaticLookup, Saturating};
 use xcm::{latest::prelude::*, VersionedMultiAssets};
 use xcm_builder::{CreateMatcher, MatchXcm};

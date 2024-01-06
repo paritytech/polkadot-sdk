@@ -29,7 +29,10 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use parachains_common::{AccountId, Balance};
-use parachains_runtimes_test_utils::{assert_metadata, assert_total, mock_open_hrmp_channel, AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder, ValidatorIdOf, XcmReceivedFrom, SlotDurations};
+use parachains_runtimes_test_utils::{
+	assert_metadata, assert_total, mock_open_hrmp_channel, AccountIdOf, BalanceOf,
+	CollatorSessionKeys, ExtBuilder, SlotDurations, ValidatorIdOf, XcmReceivedFrom,
+};
 use sp_runtime::{
 	traits::{MaybeEquivalence, StaticLookup, Zero},
 	DispatchError, Saturating,

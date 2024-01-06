@@ -63,7 +63,7 @@ use parachains_common::{
 	Signature, AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS, MAXIMUM_BLOCK_WEIGHT,
 	NORMAL_DISPATCH_RATIO,
 };
-pub use parachains_common::{SLOT_DURATION, westend::consensus::RELAY_CHAIN_SLOT_DURATION_MILLIS};
+pub use parachains_common::{westend::consensus::RELAY_CHAIN_SLOT_DURATION_MILLIS, SLOT_DURATION};
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{

@@ -18,7 +18,7 @@
 
 use bp_polkadot_core::Signature;
 use bridge_common_config::{DeliveryRewardInBalance, RequiredStakeForStakeAndSlash};
-use bridge_hub_test_utils::test_cases::from_parachain;
+use bridge_hub_test_utils::{test_cases::from_parachain, SlotDurations};
 use bridge_hub_westend_runtime::{
 	bridge_common_config, bridge_to_rococo_config,
 	xcm_config::{RelayNetwork, WestendLocation, XcmConfig},
@@ -32,7 +32,6 @@ use bridge_to_rococo_config::{
 	WithBridgeHubRococoMessagesInstance, XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO,
 };
 use codec::{Decode, Encode};
-use bridge_hub_test_utils::SlotDurations;
 use frame_support::{dispatch::GetDispatchInfo, parameter_types, traits::ConstU8};
 use parachains_common::{westend::fee::WeightToFee, AccountId, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
@@ -115,7 +114,9 @@ fn collator_session_keys() -> bridge_hub_test_utils::CollatorSessionKeys<Runtime
 
 fn slot_durations() -> SlotDurations {
 	SlotDurations {
-		relay: SlotDuration::from_millis(bridge_hub_westend_runtime::RELAY_CHAIN_SLOT_DURATION_MILLIS.into()),
+		relay: SlotDuration::from_millis(
+			bridge_hub_westend_runtime::RELAY_CHAIN_SLOT_DURATION_MILLIS.into(),
+		),
 		para: SlotDuration::from_millis(bridge_hub_westend_runtime::SLOT_DURATION),
 	}
 }

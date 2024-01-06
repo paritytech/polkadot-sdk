@@ -28,7 +28,10 @@ use asset_hub_westend_runtime::{
 	PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
 	ToRococoXcmRouterInstance, TrustBackedAssetsInstance, XcmpQueue,
 };
-use asset_test_utils::{test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys, ExtBuilder, SlotDurations};
+use asset_test_utils::{
+	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys,
+	ExtBuilder, SlotDurations,
+};
 use codec::{Decode, Encode};
 use cumulus_primitives_utility::ChargeWeightInFungibles;
 use frame_support::{
@@ -39,9 +42,9 @@ use frame_support::{
 use parachains_common::{
 	westend::fee::WeightToFee, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
 };
+use sp_consensus_aura::SlotDuration;
 use sp_runtime::traits::MaybeEquivalence;
 use std::convert::Into;
-use sp_consensus_aura::SlotDuration;
 use xcm::latest::prelude::*;
 use xcm_executor::traits::{Identity, JustTry, WeightTrader};
 
@@ -67,7 +70,9 @@ fn collator_session_keys() -> CollatorSessionKeys<Runtime> {
 
 fn slot_durations() -> SlotDurations {
 	SlotDurations {
-		relay: SlotDuration::from_millis(asset_hub_westend_runtime::RELAY_CHAIN_SLOT_DURATION_MILLIS.into()),
+		relay: SlotDuration::from_millis(
+			asset_hub_westend_runtime::RELAY_CHAIN_SLOT_DURATION_MILLIS.into(),
+		),
 		para: SlotDuration::from_millis(asset_hub_westend_runtime::SLOT_DURATION),
 	}
 }

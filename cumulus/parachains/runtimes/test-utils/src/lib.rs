@@ -116,7 +116,7 @@ impl<Runtime: frame_system::Config + pallet_balances::Config + pallet_session::C
 
 pub struct SlotDurations {
 	pub relay: SlotDuration,
-	pub para: SlotDuration
+	pub para: SlotDuration,
 }
 
 /// A set of traits for a minimal parachain runtime, that may be used in conjunction with the
