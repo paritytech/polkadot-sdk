@@ -2876,6 +2876,78 @@
 <a href="#2876" id="2876">2876</a>
 <a href="#2877" id="2877">2877</a>
 <a href="#2878" id="2878">2878</a>
+<a href="#2879" id="2879">2879</a>
+<a href="#2880" id="2880">2880</a>
+<a href="#2881" id="2881">2881</a>
+<a href="#2882" id="2882">2882</a>
+<a href="#2883" id="2883">2883</a>
+<a href="#2884" id="2884">2884</a>
+<a href="#2885" id="2885">2885</a>
+<a href="#2886" id="2886">2886</a>
+<a href="#2887" id="2887">2887</a>
+<a href="#2888" id="2888">2888</a>
+<a href="#2889" id="2889">2889</a>
+<a href="#2890" id="2890">2890</a>
+<a href="#2891" id="2891">2891</a>
+<a href="#2892" id="2892">2892</a>
+<a href="#2893" id="2893">2893</a>
+<a href="#2894" id="2894">2894</a>
+<a href="#2895" id="2895">2895</a>
+<a href="#2896" id="2896">2896</a>
+<a href="#2897" id="2897">2897</a>
+<a href="#2898" id="2898">2898</a>
+<a href="#2899" id="2899">2899</a>
+<a href="#2900" id="2900">2900</a>
+<a href="#2901" id="2901">2901</a>
+<a href="#2902" id="2902">2902</a>
+<a href="#2903" id="2903">2903</a>
+<a href="#2904" id="2904">2904</a>
+<a href="#2905" id="2905">2905</a>
+<a href="#2906" id="2906">2906</a>
+<a href="#2907" id="2907">2907</a>
+<a href="#2908" id="2908">2908</a>
+<a href="#2909" id="2909">2909</a>
+<a href="#2910" id="2910">2910</a>
+<a href="#2911" id="2911">2911</a>
+<a href="#2912" id="2912">2912</a>
+<a href="#2913" id="2913">2913</a>
+<a href="#2914" id="2914">2914</a>
+<a href="#2915" id="2915">2915</a>
+<a href="#2916" id="2916">2916</a>
+<a href="#2917" id="2917">2917</a>
+<a href="#2918" id="2918">2918</a>
+<a href="#2919" id="2919">2919</a>
+<a href="#2920" id="2920">2920</a>
+<a href="#2921" id="2921">2921</a>
+<a href="#2922" id="2922">2922</a>
+<a href="#2923" id="2923">2923</a>
+<a href="#2924" id="2924">2924</a>
+<a href="#2925" id="2925">2925</a>
+<a href="#2926" id="2926">2926</a>
+<a href="#2927" id="2927">2927</a>
+<a href="#2928" id="2928">2928</a>
+<a href="#2929" id="2929">2929</a>
+<a href="#2930" id="2930">2930</a>
+<a href="#2931" id="2931">2931</a>
+<a href="#2932" id="2932">2932</a>
+<a href="#2933" id="2933">2933</a>
+<a href="#2934" id="2934">2934</a>
+<a href="#2935" id="2935">2935</a>
+<a href="#2936" id="2936">2936</a>
+<a href="#2937" id="2937">2937</a>
+<a href="#2938" id="2938">2938</a>
+<a href="#2939" id="2939">2939</a>
+<a href="#2940" id="2940">2940</a>
+<a href="#2941" id="2941">2941</a>
+<a href="#2942" id="2942">2942</a>
+<a href="#2943" id="2943">2943</a>
+<a href="#2944" id="2944">2944</a>
+<a href="#2945" id="2945">2945</a>
+<a href="#2946" id="2946">2946</a>
+<a href="#2947" id="2947">2947</a>
+<a href="#2948" id="2948">2948</a>
+<a href="#2949" id="2949">2949</a>
+<a href="#2950" id="2950">2950</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2953,6 +3025,10 @@
 <span class="kw">use </span>pallet_tx_pause::RuntimeCallNameOf;
 <span class="kw">use </span>sp_api::impl_runtime_apis;
 <span class="kw">use </span>sp_authority_discovery::AuthorityId <span class="kw">as </span>AuthorityDiscoveryId;
+<span class="kw">use </span>sp_consensus_beefy::{
+	ecdsa_crypto::{AuthorityId <span class="kw">as </span>BeefyId, Signature <span class="kw">as </span>BeefySignature},
+	mmr::MmrLeafVersion,
+};
 <span class="kw">use </span>sp_consensus_grandpa::AuthorityId <span class="kw">as </span>GrandpaId;
 <span class="kw">use </span>sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 <span class="kw">use </span>sp_inherents::{CheckInherentsResult, InherentData};
@@ -3009,7 +3085,7 @@
 <span class="doccomment">/// Max size for serialized extrinsic params for this testing runtime.
 /// This is a quite arbitrary but empirically battle tested value.
 </span><span class="attr">#[cfg(test)]
-</span><span class="kw">pub const </span>CALL_PARAMS_MAX_SIZE: usize = <span class="number">208</span>;
+</span><span class="kw">pub const </span>CALL_PARAMS_MAX_SIZE: usize = <span class="number">244</span>;
 
 <span class="doccomment">/// Wasm binary unwrapped. If built with `SKIP_WASM_BUILD`, the function panics.
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
@@ -3480,6 +3556,7 @@
 		<span class="kw">pub </span>im_online: ImOnline,
 		<span class="kw">pub </span>authority_discovery: AuthorityDiscovery,
 		<span class="kw">pub </span>mixnet: Mixnet,
+		<span class="kw">pub </span>beefy: Beefy,
 	}
 }
 
@@ -4452,6 +4529,17 @@
 }
 
 <span class="macro">parameter_types! </span>{
+	<span class="kw">pub </span>LeafVersion: MmrLeafVersion = MmrLeafVersion::new(<span class="number">0</span>, <span class="number">0</span>);
+}
+
+<span class="kw">impl </span>pallet_beefy_mmr::Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>LeafVersion = LeafVersion;
+	<span class="kw">type </span>BeefyAuthorityToMerkleLeaf = pallet_beefy_mmr::BeefyEcdsaToEthereum;
+	<span class="kw">type </span>LeafExtra = Vec&lt;u8&gt;;
+	<span class="kw">type </span>BeefyDataProvider = ();
+}
+
+<span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>LotteryPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b&quot;py/lotto&quot;</span>);
 	<span class="kw">pub const </span>MaxCalls: u32 = <span class="number">10</span>;
 	<span class="kw">pub const </span>MaxGenerateRandom: u32 = <span class="number">10</span>;
@@ -4955,6 +5043,11 @@
 		AssetConversionTxPayment: pallet_asset_conversion_tx_payment,
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase,
 		Staking: pallet_staking,
+		Beefy: pallet_beefy::{Pallet, Call, Storage, Config&lt;T&gt;, ValidateUnsigned},
+		<span class="comment">// MMR leaf construction must be before session in order to have leaf contents
+		// refer to block&lt;N-1&gt; consistently. see substrate issue #11797 for details.
+		</span>Mmr: pallet_mmr::{Pallet, Storage},
+		MmrLeaf: pallet_beefy_mmr::{Pallet, Storage},
 		Session: pallet_session,
 		Democracy: pallet_democracy,
 		Council: pallet_collective::&lt;Instance1&gt;,
@@ -4984,7 +5077,6 @@
 		Tips: pallet_tips,
 		Assets: pallet_assets::&lt;Instance1&gt;,
 		PoolAssets: pallet_assets::&lt;Instance2&gt;,
-		Mmr: pallet_mmr,
 		Lottery: pallet_lottery,
 		Nis: pallet_nis,
 		Uniques: pallet_uniques,
@@ -5079,6 +5171,22 @@
 	&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent,
 	&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::Hash,
 &gt;;
+
+<span class="macro">parameter_types! </span>{
+	<span class="kw">pub const </span>BeefySetIdSessionEntries: u32 = BondingDuration::get() * SessionsPerEra::get();
+}
+
+<span class="kw">impl </span>pallet_beefy::Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>BeefyId = BeefyId;
+	<span class="kw">type </span>MaxAuthorities = MaxAuthorities;
+	<span class="kw">type </span>MaxNominators = ConstU32&lt;<span class="number">0</span>&gt;;
+	<span class="kw">type </span>MaxSetIdSessionEntries = BeefySetIdSessionEntries;
+	<span class="kw">type </span>OnNewValidatorSet = MmrLeaf;
+	<span class="kw">type </span>WeightInfo = ();
+	<span class="kw">type </span>KeyOwnerProof = &lt;Historical <span class="kw">as </span>KeyOwnerProofSystem&lt;(KeyTypeId, BeefyId)&gt;&gt;::Proof;
+	<span class="kw">type </span>EquivocationReportSystem =
+		pallet_beefy::EquivocationReportSystem&lt;<span class="self">Self</span>, Offences, Historical, ReportLongevity&gt;;
+}
 
 <span class="doccomment">/// MMR helper types.
 </span><span class="kw">mod </span>mmr {
@@ -5531,6 +5639,42 @@
 
 		<span class="kw">fn </span>collection_attribute(collection: u32, key: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
 			&lt;Nfts <span class="kw">as </span>Inspect&lt;AccountId&gt;&gt;::collection_attribute(<span class="kw-2">&amp;</span>collection, <span class="kw-2">&amp;</span>key)
+		}
+	}
+
+	<span class="attr">#[api_version(<span class="number">3</span>)]
+	</span><span class="kw">impl </span>sp_consensus_beefy::BeefyApi&lt;Block, BeefyId&gt; <span class="kw">for </span>Runtime {
+		<span class="kw">fn </span>beefy_genesis() -&gt; <span class="prelude-ty">Option</span>&lt;BlockNumber&gt; {
+			Beefy::genesis_block()
+		}
+
+		<span class="kw">fn </span>validator_set() -&gt; <span class="prelude-ty">Option</span>&lt;sp_consensus_beefy::ValidatorSet&lt;BeefyId&gt;&gt; {
+			Beefy::validator_set()
+		}
+
+		<span class="kw">fn </span>submit_report_equivocation_unsigned_extrinsic(
+			equivocation_proof: sp_consensus_beefy::EquivocationProof&lt;
+				BlockNumber,
+				BeefyId,
+				BeefySignature,
+			&gt;,
+			key_owner_proof: sp_consensus_beefy::OpaqueKeyOwnershipProof,
+		) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
+			<span class="kw">let </span>key_owner_proof = key_owner_proof.decode()<span class="question-mark">?</span>;
+
+			Beefy::submit_unsigned_equivocation_report(
+				equivocation_proof,
+				key_owner_proof,
+			)
+		}
+
+		<span class="kw">fn </span>generate_key_ownership_proof(
+			_set_id: sp_consensus_beefy::ValidatorSetId,
+			authority_id: BeefyId,
+		) -&gt; <span class="prelude-ty">Option</span>&lt;sp_consensus_beefy::OpaqueKeyOwnershipProof&gt; {
+			Historical::prove((sp_consensus_beefy::KEY_TYPE, authority_id))
+				.map(|p| p.encode())
+				.map(sp_consensus_beefy::OpaqueKeyOwnershipProof::new)
 		}
 	}
 

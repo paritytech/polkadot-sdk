@@ -135,8 +135,10 @@
 
 </span><span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>kitchensink_runtime::{CheckedExtrinsic, SessionKeys, SignedExtra, UncheckedExtrinsic};
+<span class="kw">use </span>node_cli::chain_spec::get_from_seed;
 <span class="kw">use </span>node_primitives::{AccountId, Balance, Nonce};
-<span class="kw">use </span>sp_keyring::{AccountKeyring, Ed25519Keyring, Sr25519Keyring};
+<span class="kw">use </span>sp_core::{ecdsa, ed25519, sr25519};
+<span class="kw">use </span>sp_keyring::AccountKeyring;
 <span class="kw">use </span>sp_runtime::generic::Era;
 
 <span class="doccomment">/// Alice&#39;s account id.
@@ -170,16 +172,14 @@
 }
 
 <span class="doccomment">/// Convert keyrings into `SessionKeys`.
-</span><span class="kw">pub fn </span>to_session_keys(
-	ed25519_keyring: <span class="kw-2">&amp;</span>Ed25519Keyring,
-	sr25519_keyring: <span class="kw-2">&amp;</span>Sr25519Keyring,
-) -&gt; SessionKeys {
+</span><span class="kw">pub fn </span>session_keys_from_seed(seed: <span class="kw-2">&amp;</span>str) -&gt; SessionKeys {
 	SessionKeys {
-		grandpa: ed25519_keyring.to_owned().public().into(),
-		babe: sr25519_keyring.to_owned().public().into(),
-		im_online: sr25519_keyring.to_owned().public().into(),
-		authority_discovery: sr25519_keyring.to_owned().public().into(),
-		mixnet: sr25519_keyring.to_owned().public().into(),
+		grandpa: get_from_seed::&lt;ed25519::Public&gt;(seed).into(),
+		babe: get_from_seed::&lt;sr25519::Public&gt;(seed).into(),
+		im_online: get_from_seed::&lt;sr25519::Public&gt;(seed).into(),
+		authority_discovery: get_from_seed::&lt;sr25519::Public&gt;(seed).into(),
+		mixnet: get_from_seed::&lt;sr25519::Public&gt;(seed).into(),
+		beefy: get_from_seed::&lt;ecdsa::Public&gt;(seed).into(),
 	}
 }
 

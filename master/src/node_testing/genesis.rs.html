@@ -105,9 +105,6 @@
 <a href="#105" id="105">105</a>
 <a href="#106" id="106">106</a>
 <a href="#107" id="107">107</a>
-<a href="#108" id="108">108</a>
-<a href="#109" id="109">109</a>
-<a href="#110" id="110">110</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -134,7 +131,7 @@
 	GrandpaConfig, IndicesConfig, RuntimeGenesisConfig, SessionConfig, SocietyConfig, StakerStatus,
 	StakingConfig, BABE_GENESIS_EPOCH_CONFIG,
 };
-<span class="kw">use </span>sp_keyring::{Ed25519Keyring, Sr25519Keyring};
+<span class="kw">use </span>sp_keyring::Ed25519Keyring;
 <span class="kw">use </span>sp_runtime::Perbill;
 
 <span class="doccomment">/// Create genesis runtime configuration for tests.
@@ -162,13 +159,9 @@
 		balances: BalancesConfig { balances: endowed },
 		session: SessionConfig {
 			keys: <span class="macro">vec!</span>[
-				(alice(), dave(), to_session_keys(<span class="kw-2">&amp;</span>Ed25519Keyring::Alice, <span class="kw-2">&amp;</span>Sr25519Keyring::Alice)),
-				(bob(), eve(), to_session_keys(<span class="kw-2">&amp;</span>Ed25519Keyring::Bob, <span class="kw-2">&amp;</span>Sr25519Keyring::Bob)),
-				(
-					charlie(),
-					ferdie(),
-					to_session_keys(<span class="kw-2">&amp;</span>Ed25519Keyring::Charlie, <span class="kw-2">&amp;</span>Sr25519Keyring::Charlie),
-				),
+				(alice(), dave(), session_keys_from_seed(Ed25519Keyring::Alice.into())),
+				(bob(), eve(), session_keys_from_seed(Ed25519Keyring::Bob.into())),
+				(charlie(), ferdie(), session_keys_from_seed(Ed25519Keyring::Charlie.into())),
 			],
 		},
 		staking: StakingConfig {
@@ -189,6 +182,7 @@
 			..Default::default()
 		},
 		grandpa: GrandpaConfig { authorities: <span class="macro">vec!</span>[], _config: Default::default() },
+		beefy: Default::default(),
 		im_online: Default::default(),
 		authority_discovery: Default::default(),
 		democracy: Default::default(),

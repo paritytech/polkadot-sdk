@@ -2536,19 +2536,6 @@
 <a href="#2536" id="2536">2536</a>
 <a href="#2537" id="2537">2537</a>
 <a href="#2538" id="2538">2538</a>
-<a href="#2539" id="2539">2539</a>
-<a href="#2540" id="2540">2540</a>
-<a href="#2541" id="2541">2541</a>
-<a href="#2542" id="2542">2542</a>
-<a href="#2543" id="2543">2543</a>
-<a href="#2544" id="2544">2544</a>
-<a href="#2545" id="2545">2545</a>
-<a href="#2546" id="2546">2546</a>
-<a href="#2547" id="2547">2547</a>
-<a href="#2548" id="2548">2548</a>
-<a href="#2549" id="2549">2549</a>
-<a href="#2550" id="2550">2550</a>
-<a href="#2551" id="2551">2551</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2893,20 +2880,7 @@
 }
 
 <span class="macro">parameter_types! </span>{
-	<span class="doccomment">/// Version of the produced MMR leaf.
-	///
-	/// The version consists of two parts;
-	/// - `major` (3 bits)
-	/// - `minor` (5 bits)
-	///
-	/// `major` should be updated only if decoding the previous MMR Leaf format from the payload
-	/// is not possible (i.e. backward incompatible change).
-	/// `minor` should be updated if fields are added to the previous MMR Leaf, which given SCALE
-	/// encoding does not prevent old leafs from being decoded.
-	///
-	/// Hence we expect `major` to be changed really rarely (think never).
-	/// See [`MmrLeafVersion`] type documentation for more details.
-	</span><span class="kw">pub </span>LeafVersion: MmrLeafVersion = MmrLeafVersion::new(<span class="number">0</span>, <span class="number">0</span>);
+	<span class="kw">pub </span>LeafVersion: MmrLeafVersion = MmrLeafVersion::new(<span class="number">0</span>, <span class="number">0</span>);
 }
 
 <span class="doccomment">/// A BEEFY data provider that merkelizes all the parachain heads at the current block

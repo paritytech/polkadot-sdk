@@ -207,6 +207,32 @@
 <a href="#207" id="207">207</a>
 <a href="#208" id="208">208</a>
 <a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -246,10 +272,13 @@
 <span class="kw">use </span>node_primitives::{AccountId, Balance, Block, BlockNumber, Hash, Nonce};
 <span class="kw">use </span>sc_client_api::AuxStore;
 <span class="kw">use </span>sc_consensus_babe::BabeWorkerHandle;
+<span class="kw">use </span>sc_consensus_beefy::communication::notification::{
+	BeefyBestBlockStream, BeefyVersionedFinalityProofStream,
+};
 <span class="kw">use </span>sc_consensus_grandpa::{
 	FinalityProofProvider, GrandpaJustificationStream, SharedAuthoritySet, SharedVoterState,
 };
-<span class="kw">use </span>sc_rpc::SubscriptionTaskExecutor;
+<span class="kw">pub use </span>sc_rpc::SubscriptionTaskExecutor;
 <span class="kw">pub use </span>sc_rpc_api::DenyUnsafe;
 <span class="kw">use </span>sc_transaction_pool_api::TransactionPool;
 <span class="kw">use </span>sp_api::ProvideRuntimeApi;
@@ -281,6 +310,16 @@
 	</span><span class="kw">pub </span>finality_provider: Arc&lt;FinalityProofProvider&lt;B, Block&gt;&gt;,
 }
 
+<span class="doccomment">/// Dependencies for BEEFY
+</span><span class="kw">pub struct </span>BeefyDeps {
+	<span class="doccomment">/// Receives notifications about finality proof events from BEEFY.
+	</span><span class="kw">pub </span>beefy_finality_proof_stream: BeefyVersionedFinalityProofStream&lt;Block&gt;,
+	<span class="doccomment">/// Receives notifications about best block events from BEEFY.
+	</span><span class="kw">pub </span>beefy_best_block_stream: BeefyBestBlockStream&lt;Block&gt;,
+	<span class="doccomment">/// Executor to drive the subscription manager in the BEEFY RPC handler.
+	</span><span class="kw">pub </span>subscription_executor: SubscriptionTaskExecutor,
+}
+
 <span class="doccomment">/// Full client dependencies.
 </span><span class="kw">pub struct </span>FullDeps&lt;C, P, SC, B&gt; {
 	<span class="doccomment">/// The client instance to use.
@@ -297,6 +336,8 @@
 	</span><span class="kw">pub </span>babe: BabeDeps,
 	<span class="doccomment">/// GRANDPA specific dependencies.
 	</span><span class="kw">pub </span>grandpa: GrandpaDeps&lt;B&gt;,
+	<span class="doccomment">/// BEEFY specific dependencies.
+	</span><span class="kw">pub </span>beefy: BeefyDeps,
 	<span class="doccomment">/// Shared statement store reference.
 	</span><span class="kw">pub </span>statement_store: Arc&lt;<span class="kw">dyn </span>sp_statement_store::StatementStore&gt;,
 	<span class="doccomment">/// The backend used by the node.
@@ -315,6 +356,7 @@
 		deny_unsafe,
 		babe,
 		grandpa,
+		beefy,
 		statement_store,
 		backend,
 		mixnet_api,
@@ -342,6 +384,7 @@
 	<span class="kw">use </span>mmr_rpc::{Mmr, MmrApiServer};
 	<span class="kw">use </span>pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
 	<span class="kw">use </span>sc_consensus_babe_rpc::{Babe, BabeApiServer};
+	<span class="kw">use </span>sc_consensus_beefy_rpc::{Beefy, BeefyApiServer};
 	<span class="kw">use </span>sc_consensus_grandpa_rpc::{Grandpa, GrandpaApiServer};
 	<span class="kw">use </span>sc_rpc::{
 		dev::{Dev, DevApiServer},
@@ -413,6 +456,15 @@
 		<span class="kw">let </span>mixnet = sc_rpc::mixnet::Mixnet::new(mixnet_api).into_rpc();
 		io.merge(mixnet)<span class="question-mark">?</span>;
 	}
+
+	io.merge(
+		Beefy::&lt;Block&gt;::new(
+			beefy.beefy_finality_proof_stream,
+			beefy.beefy_best_block_stream,
+			beefy.subscription_executor,
+		)<span class="question-mark">?
+		</span>.into_rpc(),
+	)<span class="question-mark">?</span>;
 
 	<span class="prelude-val">Ok</span>(io)
 }

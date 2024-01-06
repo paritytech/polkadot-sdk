@@ -497,6 +497,48 @@
 <a href="#497" id="497">497</a>
 <a href="#498" id="498">498</a>
 <a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
+<a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -517,7 +559,8 @@
 
 </span><span class="doccomment">//! Substrate chain configurations.
 
-</span><span class="kw">use </span>grandpa_primitives::AuthorityId <span class="kw">as </span>GrandpaId;
+</span><span class="kw">use </span>beefy_primitives::ecdsa_crypto::AuthorityId <span class="kw">as </span>BeefyId;
+<span class="kw">use </span>grandpa_primitives::AuthorityId <span class="kw">as </span>GrandpaId;
 <span class="kw">use </span>kitchensink_runtime::{
 	constants::currency::<span class="kw-2">*</span>, wasm_binary_unwrap, Block, MaxNominations, SessionKeys, StakerStatus,
 };
@@ -572,23 +615,37 @@
 	im_online: ImOnlineId,
 	authority_discovery: AuthorityDiscoveryId,
 	mixnet: MixnetId,
+	beefy: BeefyId,
 ) -&gt; SessionKeys {
-	SessionKeys { grandpa, babe, im_online, authority_discovery, mixnet }
+	SessionKeys { grandpa, babe, im_online, authority_discovery, mixnet, beefy }
 }
 
 <span class="kw">fn </span>configure_accounts_for_staging_testnet() -&gt; (
-	Vec&lt;(AccountId, AccountId, GrandpaId, BabeId, ImOnlineId, AuthorityDiscoveryId, MixnetId)&gt;,
+	Vec&lt;(
+		AccountId,
+		AccountId,
+		GrandpaId,
+		BabeId,
+		ImOnlineId,
+		AuthorityDiscoveryId,
+		MixnetId,
+		BeefyId,
+	)&gt;,
 	AccountId,
 	Vec&lt;AccountId&gt;,
 ) {
 	<span class="attr">#[rustfmt::skip]
-	</span><span class="comment">// stash, controller, session-key
+	</span><span class="comment">// stash, controller, session-key, beefy id
 	// generated with secret:
 	// for i in 1 2 3 4 ; do for j in stash controller; do subkey inspect &quot;$secret&quot;/fir/$j/$i; done; done
 	//
 	// and
 	//
-	// for i in 1 2 3 4 ; do for j in session; do subkey --ed25519 inspect &quot;$secret&quot;//fir//$j//$i; done; done
+	// for i in 1 2 3 4 ; do for j in session; do subkey inspect --scheme ed25519 &quot;$secret&quot;//fir//$j//$i; done; done
+	//
+	// and
+	//
+	// for i in 1 2 3 4 ; do for j in session; do subkey inspect --scheme ecdsa &quot;$secret&quot;//fir//$j//$i; done; done
 
 	</span><span class="kw">let </span>initial_authorities: Vec&lt;(
 		AccountId,
@@ -598,6 +655,7 @@
 		ImOnlineId,
 		AuthorityDiscoveryId,
 		MixnetId,
+		BeefyId,
 	)&gt; = <span class="macro">vec!</span>[
 		(
 			<span class="comment">// 5Fbsd6WXDGiLTxunqeK5BATNiocfCqu9bS1yArVjCgeBLkVy
@@ -618,6 +676,9 @@
 				.unchecked_into(),
 			<span class="comment">// 5EZaeQ8djPcq9pheJUhgerXQZt9YaHnMJpiHMRhwQeinqUW8
 			</span>array_bytes::hex2array_unchecked(<span class="string">&quot;6e7e4eb42cbd2e0ab4cae8708ce5509580b8c04d11f6758dbf686d50fe9f9106&quot;</span>)
+				.unchecked_into(),
+			<span class="comment">// 5DMLFcDdLLQbw696YfHaWBpQR99HwR456ycSCfr6L7KXGYK8
+			</span>array_bytes::hex2array_unchecked(<span class="string">&quot;035560fafa241739869360aa4b32bc98953172ceb41a19c6cc1a27962fb3d1ecec&quot;</span>)
 				.unchecked_into(),
 		),
 		(
@@ -640,6 +701,9 @@
 			<span class="comment">// 5DhLtiaQd1L1LU9jaNeeu9HJkP6eyg3BwXA7iNMzKm7qqruQ
 			</span>array_bytes::hex2array_unchecked(<span class="string">&quot;482dbd7297a39fa145c570552249c2ca9dd47e281f0c500c971b59c9dcdcd82e&quot;</span>)
 				.unchecked_into(),
+			<span class="comment">// 5FYk11kNtB4178wLKJ2RNoUzzcjgRUciFe3SJDVZXhqX4dzG
+			</span>array_bytes::hex2array_unchecked(<span class="string">&quot;02da1ab255ed888ee3e19b73d335fc13160b3eb10456c2d17c6a8ea7de403d2445&quot;</span>)
+				.unchecked_into(),
 		),
 		(
 			<span class="comment">// 5DyVtKWPidondEu8iHZgi6Ffv9yrJJ1NDNLom3X9cTDi98qp
@@ -661,6 +725,9 @@
 			<span class="comment">// 5DhKqkHRkndJu8vq7pi2Q5S3DfftWJHGxbEUNH43b46qNspH
 			</span>array_bytes::hex2array_unchecked(<span class="string">&quot;482a3389a6cf42d8ed83888cfd920fec738ea30f97e44699ada7323f08c3380a&quot;</span>)
 				.unchecked_into(),
+			<span class="comment">// 5GQx4FToRBPqfani6o7owFJE1UstiviqbPP7HPWyvtXWWukn
+			</span>array_bytes::hex2array_unchecked(<span class="string">&quot;036a818b3f59579c5fbbe4fede64f49dbf090ba883eb2a175d5ca90e5adb5f0b3e&quot;</span>)
+				.unchecked_into(),
 		),
 		(
 			<span class="comment">// 5HYZnKWe5FVZQ33ZRJK1rG3WaLMztxWrrNDb1JRwaHHVWyP9
@@ -681,6 +748,9 @@
 				.unchecked_into(),
 			<span class="comment">// 5C4vDQxA8LTck2xJEy4Yg1hM9qjDt4LvTQaMo4Y8ne43aU6x
 			</span>array_bytes::hex2array_unchecked(<span class="string">&quot;00299981a2b92f878baaf5dbeba5c18d4e70f2a1fcd9c61b32ea18daf38f4378&quot;</span>)
+				.unchecked_into(),
+			<span class="comment">// 5FCu2pY928VVHPgnNVJssvxFJZECyNe1CyH3WTG79Wisx58B
+			</span>array_bytes::hex2array_unchecked(<span class="string">&quot;020ce02b963548f9f8ade8765f7a4a06638c17819c78422a1cc35b647873583eef&quot;</span>)
 				.unchecked_into(),
 		),
 	];
@@ -733,7 +803,8 @@
 <span class="doccomment">/// Helper function to generate stash, controller and session key from seed.
 </span><span class="kw">pub fn </span>authority_keys_from_seed(
 	seed: <span class="kw-2">&amp;</span>str,
-) -&gt; (AccountId, AccountId, GrandpaId, BabeId, ImOnlineId, AuthorityDiscoveryId, MixnetId) {
+) -&gt; (AccountId, AccountId, GrandpaId, BabeId, ImOnlineId, AuthorityDiscoveryId, MixnetId, BeefyId)
+{
 	(
 		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}//stash&quot;</span>, seed)),
 		get_account_id_from_seed::&lt;sr25519::Public&gt;(seed),
@@ -742,6 +813,7 @@
 		get_from_seed::&lt;ImOnlineId&gt;(seed),
 		get_from_seed::&lt;AuthorityDiscoveryId&gt;(seed),
 		get_from_seed::&lt;MixnetId&gt;(seed),
+		get_from_seed::&lt;BeefyId&gt;(seed),
 	)
 }
 
@@ -754,12 +826,22 @@
 		ImOnlineId,
 		AuthorityDiscoveryId,
 		MixnetId,
+		BeefyId,
 	)&gt;,
 	initial_nominators: Vec&lt;AccountId&gt;,
 	endowed_accounts: <span class="prelude-ty">Option</span>&lt;Vec&lt;AccountId&gt;&gt;,
 	stash: Balance,
 ) -&gt; (
-	Vec&lt;(AccountId, AccountId, GrandpaId, BabeId, ImOnlineId, AuthorityDiscoveryId, MixnetId)&gt;,
+	Vec&lt;(
+		AccountId,
+		AccountId,
+		GrandpaId,
+		BabeId,
+		ImOnlineId,
+		AuthorityDiscoveryId,
+		MixnetId,
+		BeefyId,
+	)&gt;,
 	Vec&lt;AccountId&gt;,
 	usize,
 	Vec&lt;(AccountId, AccountId, Balance, StakerStatus&lt;AccountId&gt;)&gt;,
@@ -825,6 +907,7 @@
 		ImOnlineId,
 		AuthorityDiscoveryId,
 		MixnetId,
+		BeefyId,
 	)&gt;,
 	initial_nominators: Vec&lt;AccountId&gt;,
 	root_key: AccountId,
@@ -850,6 +933,7 @@
 							x.<span class="number">4</span>.clone(),
 							x.<span class="number">5</span>.clone(),
 							x.<span class="number">6</span>.clone(),
+							x.<span class="number">7</span>.clone(),
 						),
 					)
 				})
