@@ -52,6 +52,7 @@ rand = "0.8"
 # primitives
 sp-authority-discovery = { path = "../../../primitives/authority-discovery" }
 sp-consensus-babe = { path = "../../../primitives/consensus/babe" }
+beefy-primitives = { package = "sp-consensus-beefy", path = "../../../primitives/consensus/beefy" }
 grandpa-primitives = { package = "sp-consensus-grandpa", path = "../../../primitives/consensus/grandpa" }
 sp-api = { path = "../../../primitives/api" }
 sp-core = { path = "../../../primitives/core" }
@@ -64,6 +65,7 @@ sp-consensus = { path = "../../../primitives/consensus/common" }
 sp-transaction-storage-proof = { path = "../../../primitives/transaction-storage-proof" }
 sp-io = { path = "../../../primitives/io" }
 sp-mixnet = { path = "../../../primitives/mixnet" }
+sp-mmr-primitives = { path = "../../../primitives/merkle-mountain-range" }
 sp-statement-store = { path = "../../../primitives/statement-store" }
 
 # client dependencies
@@ -79,7 +81,9 @@ sc-network-sync = { path = "../../../client/network/sync" }
 sc-network-statement = { path = "../../../client/network/statement" }
 sc-consensus-slots = { path = "../../../client/consensus/slots" }
 sc-consensus-babe = { path = "../../../client/consensus/babe" }
+beefy = { package = "sc-consensus-beefy", path = "../../../client/consensus/beefy" }
 grandpa = { package = "sc-consensus-grandpa", path = "../../../client/consensus/grandpa" }
+mmr-gadget = { path = "../../../client/merkle-mountain-range" }
 sc-rpc = { path = "../../../client/rpc" }
 sc-basic-authorship = { path = "../../../client/basic-authorship" }
 sc-service = { path = "../../../client/service", default-features = false }
