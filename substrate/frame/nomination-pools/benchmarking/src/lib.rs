@@ -119,6 +119,12 @@ fn vote_to_balance<T: pallet_nomination_pools::Config>(
 	vote.try_into().map_err(|_| "could not convert u64 to Balance")
 }
 
+fn pool_unlocking_funds<T: pallet_nomination_pools::Config>(
+	pool_account: &T::AccountId,
+) -> BalanceOf<T> {
+	T::Staking::total_stake(pool_account).unwrap() - T::Staking::active_stake(pool_account).unwrap()
+}
+
 #[allow(unused)]
 struct ListScenario<T: pallet_nomination_pools::Config> {
 	/// Stash/Controller that is expected to be moved.
@@ -336,6 +342,59 @@ frame_benchmarking::benchmarks! {
 		);
 	}
 
+	// TODO: revisit after tests are implemented.
+	rebond {
+		// How many unlock chunks there will be to iterate in order to cover the entire rebond amount.
+		let l in 1 .. T::MaxUnbonding::get() as u32;
+
+		// setup the worst case list scenario.
+		let origin_weight = Pools::<T>::depositor_min_bond() * 2u32.into();
+		let scenario = ListScenario::<T>::new(origin_weight, true)?;
+		// This is used as the `bond_extra` balance.
+		let extra = scenario.dest_weight - origin_weight;
+		let scenario = scenario.add_joiner(extra);
+
+		let member_id = scenario.origin1_member.unwrap().clone();
+		let member_id_lookup = T::Lookup::unlookup(member_id.clone());
+		let origin_unlocking_funds = pool_unlocking_funds::<T>(&scenario.origin1);
+
+		// bond the `extra` amount to be rebonded.
+		CurrencyOf::<T>::set_balance(&member_id, extra + CurrencyOf::<T>::minimum_balance());
+		Pools::<T>::bond_extra(RuntimeOrigin::Signed(member_id.clone()).into(), BondExtra::FreeBalance(extra)).unwrap();
+
+		// create `l` unlocking chunks and distribute funds between them. The distribution of funds is
+		// not important, as long as the sum of them equal to `extra`.
+		for i in 0..l {
+			pallet_staking::CurrentEra::<T>::put(i);
+			let is_last_chunk = i + 1 == l;
+			// if not last chunk, set chunk amount to 1 unit, else set the remaining `extra` amount into
+			// the last chunk.
+			let amount = if !is_last_chunk {
+				BalanceOf::<T>::from(1u32)
+			} else {
+				extra - BalanceOf::<T>::from(l - 1)
+			};
+
+			Pools::<T>::unbond(
+				RuntimeOrigin::Signed(member_id.clone()).into(),
+				member_id_lookup.clone(),
+				amount
+			).unwrap();
+		}
+
+		let member = PoolMembers::<T>::get(&member_id).unwrap();
+		assert_eq!(member.points, extra);
+		assert_eq!(member.unbonding_eras.len() as u32, l);
+		assert_eq!(pool_unlocking_funds::<T>(&scenario.origin1), origin_unlocking_funds + extra);
+
+		whitelist_account!(member_id);
+	}: _(RuntimeOrigin::Signed(member_id.clone()), extra)
+	verify {
+		let member = PoolMembers::<T>::get(&member_id).unwrap();
+		assert_eq!(member.points, extra * 2u32.into());
+		assert!(member.unbonding_eras.is_empty());
+		assert_eq!(pool_unlocking_funds::<T>(&scenario.origin1), origin_unlocking_funds);
+	}
 
 	unbond {
 		// The weight the nominator will start at. The value used here is expected to be
