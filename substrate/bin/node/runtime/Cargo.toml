@@ -34,6 +34,7 @@ primitive-types = { version = "0.12.0", default-features = false, features = ["c
 # primitives
 sp-authority-discovery = { path = "../../../primitives/authority-discovery", default-features = false, features = ["serde"] }
 sp-consensus-babe = { path = "../../../primitives/consensus/babe", default-features = false, features = ["serde"] }
+sp-consensus-beefy = { path = "../../../primitives/consensus/beefy", default-features = false }
 sp-consensus-grandpa = { path = "../../../primitives/consensus/grandpa", default-features = false, features = ["serde"] }
 sp-block-builder = { path = "../../../primitives/block-builder", default-features = false }
 sp-genesis-builder = { default-features = false, path = "../../../primitives/genesis-builder" }
@@ -72,6 +73,8 @@ pallet-authorship = { path = "../../../frame/authorship", default-features = fal
 pallet-babe = { path = "../../../frame/babe", default-features = false }
 pallet-bags-list = { path = "../../../frame/bags-list", default-features = false }
 pallet-balances = { path = "../../../frame/balances", default-features = false }
+pallet-beefy = { path = "../../../frame/beefy", default-features = false }
+pallet-beefy-mmr = { path = "../../../frame/beefy-mmr", default-features = false }
 pallet-bounties = { path = "../../../frame/bounties", default-features = false }
 pallet-broker = { path = "../../../frame/broker", default-features = false }
 pallet-child-bounties = { path = "../../../frame/child-bounties", default-features = false }
@@ -170,6 +173,8 @@ std = [
 	"pallet-babe/std",
 	"pallet-bags-list/std",
 	"pallet-balances/std",
+	"pallet-beefy-mmr/std",
+	"pallet-beefy/std",
 	"pallet-bounties/std",
 	"pallet-broker/std",
 	"pallet-child-bounties/std",
@@ -241,6 +246,7 @@ std = [
 	"sp-authority-discovery/std",
 	"sp-block-builder/std",
 	"sp-consensus-babe/std",
+	"sp-consensus-beefy/std",
 	"sp-consensus-grandpa/std",
 	"sp-core/std",
 	"sp-genesis-builder/std",
@@ -349,6 +355,8 @@ try-runtime = [
 	"pallet-babe/try-runtime",
 	"pallet-bags-list/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-beefy-mmr/try-runtime",
+	"pallet-beefy/try-runtime",
 	"pallet-bounties/try-runtime",
 	"pallet-broker/try-runtime",
 	"pallet-child-bounties/try-runtime",
