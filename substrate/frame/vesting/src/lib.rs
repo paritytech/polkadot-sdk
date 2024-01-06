@@ -696,8 +696,8 @@ impl<T: Config> Pallet<T> {
 /// * the locked amount of a vesting schedule must be equal to the
 /// product of the duration(`schedules_left` - `starting_block`) and the per block amount when
 /// the locked amount is divisible by the per block amount.
-/// * However, If the locked amount is not divisible by the per block amount, the final vesting blo
-/// (`schedules_left` - 1), the vesting balance should be equal to the remainder.
+/// * However, If the locked amount is not divisible by the per block amount, the final vesting block
+/// (`schedules_left` - 1), the unvested amount should be equal to the remainder.
 ///
 /// `handle_during_schedule`:
 /// * the amount `still_vesting` must be equal to the product of the remaining blocks to
@@ -705,7 +705,7 @@ impl<T: Config> Pallet<T> {
 /// and per block amount when the locked amount is divisible by the per block amount.
 /// * However, If the locked amount is not divisible by the per block amount, then at the final
 ///   vesting block of the
-/// current schedule (`schedules_left` - 1), the vesting balance should be equal to the
+/// current schedule (`schedules_left` - 1), the unvested amount should be equal to the
 /// remainder.
 #[cfg(any(feature = "try-runtime", test))]
 impl<T: Config> Pallet<T> {
