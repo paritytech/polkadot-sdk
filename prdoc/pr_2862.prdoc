@@ -1,4 +1,4 @@
-title: Return latest known relay chain block number in on_initialize et all
+title: Return latest known relay chain block number in `on_initialize` etc.
 
 doc:
   - audience: Runtime Dev
