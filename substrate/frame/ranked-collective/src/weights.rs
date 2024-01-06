@@ -58,6 +58,7 @@ pub trait WeightInfo {
 	fn demote_member(r: u32, ) -> Weight;
 	fn vote() -> Weight;
 	fn cleanup_poll(n: u32, ) -> Weight;
+	fn exchange_member() -> Weight;
 }
 
 /// Weights for pallet_ranked_collective using the Substrate node and recommended hardware.
@@ -180,6 +181,25 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(n.into())))
 			.saturating_add(Weight::from_parts(0, 2540).saturating_mul(n.into()))
 	}
+
+	/// Storage: `RankedCollective::Members` (r:2 w:2)
+	/// Proof: `RankedCollective::Members` (`max_values`: None, `max_size`: Some(42), added: 2517, mode: `MaxEncodedLen`)
+	/// Storage: `RankedCollective::MemberCount` (r:2 w:2)
+	/// Proof: `RankedCollective::MemberCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
+	/// Storage: `RankedCollective::IdToIndex` (r:2 w:2)
+	/// Proof: `RankedCollective::IdToIndex` (`max_values`: None, `max_size`: Some(54), added: 2529, mode: `MaxEncodedLen`)
+	/// Storage: `RankedCollective::IndexToId` (r:0 w:2)
+	/// Proof: `RankedCollective::IndexToId` (`max_values`: None, `max_size`: Some(54), added: 2529, mode: `MaxEncodedLen`)
+	fn exchange_member() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `437`
+		//  Estimated: `6048`
+		// Minimum execution time: 138_000_000 picoseconds.
+		Weight::from_parts(141_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 6048))
+			.saturating_add(T::DbWeight::get().reads(6))
+			.saturating_add(T::DbWeight::get().writes(8))
+	}
 }
 
 // For backwards compatibility and tests
@@ -300,5 +320,24 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(n.into())))
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(n.into())))
 			.saturating_add(Weight::from_parts(0, 2540).saturating_mul(n.into()))
+	}
+
+	/// Storage: `RankedCollective::Members` (r:2 w:2)
+	/// Proof: `RankedCollective::Members` (`max_values`: None, `max_size`: Some(42), added: 2517, mode: `MaxEncodedLen`)
+	/// Storage: `RankedCollective::MemberCount` (r:2 w:2)
+	/// Proof: `RankedCollective::MemberCount` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
+	/// Storage: `RankedCollective::IdToIndex` (r:2 w:2)
+	/// Proof: `RankedCollective::IdToIndex` (`max_values`: None, `max_size`: Some(54), added: 2529, mode: `MaxEncodedLen`)
+	/// Storage: `RankedCollective::IndexToId` (r:0 w:2)
+	/// Proof: `RankedCollective::IndexToId` (`max_values`: None, `max_size`: Some(54), added: 2529, mode: `MaxEncodedLen`)
+	fn exchange_member() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `437`
+		//  Estimated: `6048`
+		// Minimum execution time: 138_000_000 picoseconds.
+		Weight::from_parts(141_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 6048))
+			.saturating_add(RocksDbWeight::get().reads(6))
+			.saturating_add(RocksDbWeight::get().writes(8))
 	}
 }
