@@ -31,9 +31,7 @@ pub use asset_hub_rococo_runtime::{
 	RuntimeCall, RuntimeEvent, SessionKeys, System, ToWestendXcmRouterInstance,
 	TrustBackedAssetsInstance, XcmpQueue,
 };
-use asset_test_utils::{
-	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys, ExtBuilder,
-};
+use asset_test_utils::{test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys, ExtBuilder, SlotDurations};
 use codec::{Decode, Encode};
 use cumulus_primitives_utility::ChargeWeightInFungibles;
 use frame_support::{
@@ -44,6 +42,7 @@ use frame_support::{
 use parachains_common::{
 	rococo::fee::WeightToFee, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
 };
+use sp_consensus_aura::SlotDuration;
 use sp_runtime::traits::MaybeEquivalence;
 use xcm::latest::prelude::*;
 use xcm_executor::traits::{Identity, JustTry, WeightTrader};
@@ -66,6 +65,13 @@ fn collator_session_key(account: [u8; 32]) -> CollatorSessionKey<Runtime> {
 
 fn collator_session_keys() -> CollatorSessionKeys<Runtime> {
 	CollatorSessionKeys::default().add(collator_session_key(ALICE))
+}
+
+fn slot_durations() -> SlotDurations {
+	SlotDurations {
+		relay: SlotDuration::from_millis(asset_hub_rococo_runtime::RELAY_CHAIN_SLOT_DURATION_MILLIS.into()),
+		para: SlotDuration::from_millis(asset_hub_rococo_runtime::SLOT_DURATION),
+	}
 }
 
 #[test]
@@ -522,6 +528,7 @@ asset_test_utils::include_teleports_for_native_asset_works!(
 	WeightToFee,
 	ParachainSystem,
 	collator_session_keys(),
+	slot_durations(),
 	ExistentialDeposit::get(),
 	Box::new(|runtime_event_encoded: Vec<u8>| {
 		match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
@@ -542,6 +549,7 @@ asset_test_utils::include_teleports_for_foreign_assets_works!(
 	ForeignCreatorsSovereignAccountOf,
 	ForeignAssetsInstance,
 	collator_session_keys(),
+	slot_durations(),
 	ExistentialDeposit::get(),
 	Box::new(|runtime_event_encoded: Vec<u8>| {
 		match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
@@ -650,6 +658,7 @@ fn limited_reserve_transfer_assets_for_native_asset_over_bridge_works(
 		LocationToAccountId,
 	>(
 		collator_session_keys(),
+		slot_durations(),
 		ExistentialDeposit::get(),
 		AccountId::from(ALICE),
 		Box::new(|runtime_event_encoded: Vec<u8>| {
@@ -821,6 +830,7 @@ mod asset_hub_rococo_tests {
 			LocationToAccountId,
 		>(
 			collator_session_keys(),
+			slot_durations(),
 			ExistentialDeposit::get(),
 			AccountId::from(ALICE),
 			Box::new(|runtime_event_encoded: Vec<u8>| {

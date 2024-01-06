@@ -29,10 +29,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use parachains_common::{AccountId, Balance};
-use parachains_runtimes_test_utils::{
-	assert_metadata, assert_total, mock_open_hrmp_channel, AccountIdOf, BalanceOf,
-	CollatorSessionKeys, ExtBuilder, ValidatorIdOf, XcmReceivedFrom,
-};
+use parachains_runtimes_test_utils::{assert_metadata, assert_total, mock_open_hrmp_channel, AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder, ValidatorIdOf, XcmReceivedFrom, SlotDurations};
 use sp_runtime::{
 	traits::{MaybeEquivalence, StaticLookup, Zero},
 	DispatchError, Saturating,
@@ -57,6 +54,7 @@ pub fn teleports_for_native_asset_works<
 	HrmpChannelOpener,
 >(
 	collator_session_keys: CollatorSessionKeys<Runtime>,
+	slot_durations: SlotDurations,
 	existential_deposit: BalanceOf<Runtime>,
 	target_account: AccountIdOf<Runtime>,
 	unwrap_pallet_xcm_event: Box<dyn Fn(Vec<u8>) -> Option<pallet_xcm::Event<Runtime>>>,
@@ -203,6 +201,7 @@ pub fn teleports_for_native_asset_works<
 					None,
 					included_head.clone(),
 					&alice,
+					&slot_durations,
 				));
 
 				// check balances
@@ -254,6 +253,7 @@ pub fn teleports_for_native_asset_works<
 						Some((runtime_para_id, other_para_id)),
 						included_head,
 						&alice,
+						&slot_durations,
 					),
 					Err(DispatchError::Module(sp_runtime::ModuleError {
 						index: 31,
@@ -285,6 +285,7 @@ macro_rules! include_teleports_for_native_asset_works(
 		$weight_to_fee:path,
 		$hrmp_channel_opener:path,
 		$collator_session_key:expr,
+		$slot_durations:expr,
 		$existential_deposit:expr,
 		$unwrap_pallet_xcm_event:expr,
 		$runtime_para_id:expr
@@ -303,6 +304,7 @@ macro_rules! include_teleports_for_native_asset_works(
 				$hrmp_channel_opener
 			>(
 				$collator_session_key,
+				$slot_durations,
 				$existential_deposit,
 				target_account,
 				$unwrap_pallet_xcm_event,
@@ -325,6 +327,7 @@ pub fn teleports_for_foreign_assets_works<
 	ForeignAssetsPalletInstance,
 >(
 	collator_session_keys: CollatorSessionKeys<Runtime>,
+	slot_durations: SlotDurations,
 	target_account: AccountIdOf<Runtime>,
 	existential_deposit: BalanceOf<Runtime>,
 	asset_owner: AccountIdOf<Runtime>,
@@ -582,6 +585,7 @@ pub fn teleports_for_foreign_assets_works<
 					Some((runtime_para_id, foreign_para_id)),
 					included_head,
 					&alice,
+					&slot_durations,
 				));
 
 				// check balances
@@ -634,6 +638,7 @@ macro_rules! include_teleports_for_foreign_assets_works(
 		$sovereign_account_of:path,
 		$assets_pallet_instance:path,
 		$collator_session_key:expr,
+		$slot_durations:expr,
 		$existential_deposit:expr,
 		$unwrap_pallet_xcm_event:expr,
 		$unwrap_xcmp_queue_event:expr
@@ -656,6 +661,7 @@ macro_rules! include_teleports_for_foreign_assets_works(
 				$assets_pallet_instance
 			>(
 				$collator_session_key,
+				$slot_durations,
 				target_account,
 				$existential_deposit,
 				asset_owner,
@@ -1388,6 +1394,7 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 	LocationToAccountId,
 >(
 	collator_session_keys: CollatorSessionKeys<Runtime>,
+	slot_durations: SlotDurations,
 	existential_deposit: BalanceOf<Runtime>,
 	alice_account: AccountIdOf<Runtime>,
 	unwrap_pallet_xcm_event: Box<dyn Fn(Vec<u8>) -> Option<pallet_xcm::Event<Runtime>>>,
@@ -1461,6 +1468,7 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 				other_para_id.into(),
 				included_head,
 				&alice,
+				&slot_durations,
 			);
 
 			// we calculate exact delivery fees _after_ sending the message by weighing the sent

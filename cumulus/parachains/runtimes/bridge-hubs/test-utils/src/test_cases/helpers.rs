@@ -30,9 +30,7 @@ use frame_support::{
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_bridge_grandpa::{BridgedBlockHash, BridgedHeader};
 use parachains_common::AccountId;
-use parachains_runtimes_test_utils::{
-	mock_open_hrmp_channel, AccountIdOf, CollatorSessionKeys, RuntimeCallOf,
-};
+use parachains_runtimes_test_utils::{mock_open_hrmp_channel, AccountIdOf, CollatorSessionKeys, RuntimeCallOf, SlotDurations};
 use sp_core::Get;
 use sp_keyring::AccountKeyring::*;
 use sp_runtime::{traits::TrailingZeroInput, AccountId32};
@@ -220,6 +218,7 @@ pub fn relayer_id_at_bridged_chain<Runtime: pallet_bridge_messages::Config<MPI>,
 /// with proofs (finality, message) independently submitted.
 pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, MPI>(
 	collator_session_key: CollatorSessionKeys<Runtime>,
+	slot_durations: SlotDurations,
 	runtime_para_id: u32,
 	sibling_parachain_id: u32,
 	local_relay_chain_id: NetworkId,
@@ -272,6 +271,7 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, MPI>(
 				sibling_parachain_id.into(),
 				included_head,
 				&alice,
+				&slot_durations,
 			);
 
 			// set up relayer details and proofs

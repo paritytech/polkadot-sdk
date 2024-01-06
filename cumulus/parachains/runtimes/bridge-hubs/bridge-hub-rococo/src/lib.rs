@@ -96,8 +96,9 @@ use parachains_common::{
 	impls::DealWithFees,
 	rococo::{consensus::*, currency::*, fee::WeightToFee},
 	AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
-	HOURS, MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
+	HOURS, MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO,
 };
+pub use parachains_common::{SLOT_DURATION, rococo::consensus::RELAY_CHAIN_SLOT_DURATION_MILLIS};
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::xcm_config::benchmark_helpers::DoNothingRouter;

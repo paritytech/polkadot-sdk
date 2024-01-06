@@ -32,8 +32,10 @@ use bridge_to_rococo_config::{
 	WithBridgeHubRococoMessagesInstance, XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO,
 };
 use codec::{Decode, Encode};
+use bridge_hub_test_utils::SlotDurations;
 use frame_support::{dispatch::GetDispatchInfo, parameter_types, traits::ConstU8};
 use parachains_common::{westend::fee::WeightToFee, AccountId, AuraId, Balance};
+use sp_consensus_aura::SlotDuration;
 use sp_keyring::AccountKeyring::Alice;
 use sp_runtime::{
 	generic::{Era, SignedPayload},
@@ -111,6 +113,13 @@ fn collator_session_keys() -> bridge_hub_test_utils::CollatorSessionKeys<Runtime
 	)
 }
 
+fn slot_durations() -> SlotDurations {
+	SlotDurations {
+		relay: SlotDuration::from_millis(bridge_hub_westend_runtime::RELAY_CHAIN_SLOT_DURATION_MILLIS.into()),
+		para: SlotDuration::from_millis(bridge_hub_westend_runtime::SLOT_DURATION),
+	}
+}
+
 bridge_hub_test_utils::test_cases::include_teleports_for_native_asset_works!(
 	Runtime,
 	AllPalletsWithoutSystem,
@@ -119,6 +128,7 @@ bridge_hub_test_utils::test_cases::include_teleports_for_native_asset_works!(
 	WeightToFee,
 	ParachainSystem,
 	collator_session_keys(),
+	slot_durations(),
 	ExistentialDeposit::get(),
 	Box::new(|runtime_event_encoded: Vec<u8>| {
 		match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
@@ -229,6 +239,7 @@ fn message_dispatch_routing_works() {
 		ConstU8<2>,
 	>(
 		collator_session_keys(),
+		slot_durations(),
 		bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
 		SIBLING_PARACHAIN_ID,
 		Box::new(|runtime_event_encoded: Vec<u8>| {
@@ -252,6 +263,7 @@ fn message_dispatch_routing_works() {
 fn relayed_incoming_message_works() {
 	from_parachain::relayed_incoming_message_works::<RuntimeTestsAdapter>(
 		collator_session_keys(),
+		slot_durations(),
 		bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
 		bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 		BridgeHubRococoChainId::get(),
@@ -267,6 +279,7 @@ fn relayed_incoming_message_works() {
 pub fn complex_relay_extrinsic_works() {
 	from_parachain::complex_relay_extrinsic_works::<RuntimeTestsAdapter>(
 		collator_session_keys(),
+		slot_durations(),
 		bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
 		bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 		SIBLING_PARACHAIN_ID,
