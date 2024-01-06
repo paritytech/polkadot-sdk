@@ -1579,7 +1579,6 @@ impl pallet_mmr::Config for Runtime {
 }
 
 parameter_types! {
-	/// See [`MmrLeafVersion`] type documentation for more details.
 	pub LeafVersion: MmrLeafVersion = MmrLeafVersion::new(0, 0);
 }
 
