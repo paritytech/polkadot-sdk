@@ -16,7 +16,7 @@ async function run(nodeName, networkInfo, _jsArgs) {
       advanceNotice: 5,
       interludeLength: 1,
       leadinLength: 1,
-      regionLength: 3,
+      regionLength: 1,
       idealBulkProportion: 100,
       limitCoresOffered: null,
       renewalBump: 10,
@@ -34,7 +34,8 @@ async function run(nodeName, networkInfo, _jsArgs) {
       100,
       1000,
     ),
-    // Start sale with 1 core starting at 1 planck
+    // Start sale to make the broker "work", but we don't offer any cores
+    // as we have fixed leases only anyway.
     api.tx.broker.startSales(1, 0),
   ];
   const sudo_batch = api.tx.sudo.sudo(api.tx.utility.batch(calls));

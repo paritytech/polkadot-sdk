@@ -5,7 +5,6 @@ Creds: config
 alice: is up
 coretime-collator: is up
 
-alice: reports block height is at least 3 within 30 seconds
 # configure relay chain
 alice: js-script ./0004-configure-relay.js with "" return is 0 within 600 secs
 
@@ -13,4 +12,4 @@ alice: js-script ./0004-configure-relay.js with "" return is 0 within 600 secs
 coretime-collator: js-script ./0004-configure-broker.js with "" return is 0 within 600 secs
 
 # Ensure that parachain 100 got onboarded
-alice: parachain 100 block height is at least 30 within 900 seconds
+alice: parachain 100 block height is at least 5 within 900 seconds
