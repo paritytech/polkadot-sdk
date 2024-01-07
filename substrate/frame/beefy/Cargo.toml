@@ -15,7 +15,7 @@ workspace = true
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 log = { version = "0.4.17", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive", "serde"] }
-serde = { version = "1.0.194", optional = true }
+serde = { version = "1.0.195", optional = true }
 frame-support = { path = "../support", default-features = false }
 frame-system = { path = "../system", default-features = false }
 pallet-authorship = { path = "../authorship", default-features = false }

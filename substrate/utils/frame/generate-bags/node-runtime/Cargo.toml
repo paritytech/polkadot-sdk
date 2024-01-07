@@ -17,4 +17,4 @@ kitchensink-runtime = { path = "../../../../bin/node/runtime" }
 generate-bags = { path = ".." }
 
 # third-party
-clap = { version = "4.4.12", features = ["derive"] }
+clap = { version = "4.4.13", features = ["derive"] }
