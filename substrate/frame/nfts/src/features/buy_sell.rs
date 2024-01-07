@@ -157,7 +157,41 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		let old_owner = details.owner.clone();
 
-		Self::do_transfer(collection, item, buyer.clone(), |_, _| Ok(()))?;
+		Self::do_transfer(collection, item, buyer.clone(), |collection_details, details| {
+			// Here we move item deppsit and metadata deposit to the buyer. Attribute deposit is
+			// currently not moved.
+
+			let mut maybe_metadata = ItemMetadataOf::<T, I>::get(&collection, &item);
+
+			// Sum of item deposit and metadata deposit.
+			let deposit = details.deposit.amount.saturating_add(
+				maybe_metadata
+					.as_ref()
+					.map(|metadata| metadata.deposit.amount)
+					.unwrap_or(Zero::zero()),
+			);
+
+			let depositor = maybe_metadata
+				.iter()
+				.flat_map(|metadata| metadata.deposit.account.iter())
+				.next()
+				.unwrap_or(&collection_details.owner);
+
+			// Move the deposit to buyer.
+			T::Currency::unreserve(depositor, deposit);
+			T::Currency::reserve(&buyer, deposit)?;
+
+			// Change deposit accounts.
+			details.deposit.account = buyer.clone();
+			if let Some(metadata) = maybe_metadata.as_mut() {
+				if !metadata.deposit.amount.is_zero() {
+					metadata.deposit.account = Some(buyer.clone());
+					ItemMetadataOf::<T, I>::insert(&collection, &item, metadata);
+				}
+			}
+
+			Ok(())
+		})?;
 
 		Self::deposit_event(Event::ItemBought {
 			collection,

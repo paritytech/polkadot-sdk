@@ -2464,7 +2464,7 @@ fn buy_item_should_work() {
 		assert_ok!(Nfts::force_create(
 			RuntimeOrigin::root(),
 			user_1.clone(),
-			default_collection_config()
+			collection_config_with_all_settings_enabled()
 		));
 
 		assert_ok!(Nfts::mint(
@@ -2487,6 +2487,13 @@ fn buy_item_should_work() {
 			item_3,
 			user_1.clone(),
 			None
+		));
+
+		assert_ok!(Nfts::set_metadata(
+			RuntimeOrigin::signed(user_1.clone()),
+			collection_id,
+			item_1,
+			bvec![0u8; 10],
 		));
 
 		assert_ok!(Nfts::set_price(
@@ -2519,11 +2526,16 @@ fn buy_item_should_work() {
 			price_1 + 1,
 		));
 
-		// validate the new owner & balances
+		// validate the new owner, balances, and reserves
 		let item = Item::<Test>::get(collection_id, item_1).unwrap();
+		let metadata = ItemMetadataOf::<Test>::get(collection_id, item_1).unwrap();
 		assert_eq!(item.owner, user_2.clone());
-		assert_eq!(Balances::total_balance(&user_1.clone()), initial_balance + price_1);
-		assert_eq!(Balances::total_balance(&user_2.clone()), initial_balance - price_1);
+		assert_eq!(item.deposit.account, user_2.clone());
+		assert_eq!(metadata.deposit.account, Some(user_2.clone()));
+		assert_eq!(Balances::total_balance(&user_1), initial_balance + price_1);
+		assert_eq!(Balances::total_balance(&user_2), initial_balance - price_1);
+		assert_eq!(Balances::reserved_balance(&user_1), 2);
+		assert_eq!(Balances::reserved_balance(&user_2), 12);
 
 		// can't buy from yourself
 		assert_noop!(
