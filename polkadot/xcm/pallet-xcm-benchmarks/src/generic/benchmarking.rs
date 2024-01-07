@@ -125,7 +125,7 @@ benchmarks! {
 	}
 
 	refund_surplus {
-		let holding = T::worst_case_holding(0).into();
+		let holding = T::worst_case_holding(1).into();
 		let mut executor = new_executor::<T>(Default::default());
 		executor.set_holding(holding);
 		executor.set_total_surplus(Weight::from_parts(1337, 1337));

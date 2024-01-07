@@ -27,6 +27,7 @@ use frame_support::{
 		Get,
 	},
 	weights::Weight,
+	CloneNoBound,
 };
 use polkadot_runtime_common::xcm_sender::PriceForMessageDelivery;
 use sp_runtime::{traits::Saturating, SaturatedConversion};
@@ -101,6 +102,7 @@ struct AssetTraderRefunder {
 /// later refund purposes
 /// Important: Errors if the Trader is being called twice by 2 BuyExecution instructions
 /// Alternatively we could just return payment in the aforementioned case
+#[derive(CloneNoBound)]
 pub struct TakeFirstAssetTrader<
 	AccountId: Eq,
 	FeeCharger: ChargeWeightInFungibles<AccountId, ConcreteAssets>,
