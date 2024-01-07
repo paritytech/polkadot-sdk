@@ -998,6 +998,18 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		})
 	}
 
+	/// Do set sufficiency
+	pub(super) fn do_set_sufficiency(asset_id: T::AssetId, is_sufficient: bool) -> DispatchResult {
+		Asset::<T, I>::try_mutate(asset_id, |maybe_asset| {
+			if let Some(asset) = maybe_asset {
+				asset.is_sufficient = is_sufficient;
+				Ok(())
+			} else {
+				Err(Error::<T, I>::Unknown)?
+			}
+		})
+	}
+
 	/// Calculate the metadata deposit for the provided data.
 	pub(super) fn calc_metadata_deposit(name: &[u8], symbol: &[u8]) -> DepositBalanceOf<T, I> {
 		T::MetadataDepositPerByte::get()

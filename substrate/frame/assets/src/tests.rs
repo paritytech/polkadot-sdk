@@ -107,7 +107,7 @@ fn insufficient_assets_can_turn_into_sufficient() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
 		assert_eq!(Assets::is_sufficient(0), false);
-		assert_ok!(Assets::set_sufficient(0, true));
+		assert_ok!(Assets::make_sufficient(0));
 		assert_eq!(Assets::is_sufficient(0), true);
 	});
 }
