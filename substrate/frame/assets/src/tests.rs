@@ -18,7 +18,7 @@
 //! Tests for Assets pallet.
 
 use super::*;
-use crate::{mock::*, Error};
+use crate::{mock::*, traits::*, Error};
 use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::GetDispatchInfo,
@@ -97,6 +97,18 @@ fn basic_minting_should_work() {
 			amount: 100,
 		}));
 		assert_eq!(Assets::account_balances(1), vec![(0, 100), (999, 100), (1, 100)]);
+	});
+}
+
+#[test]
+fn insufficient_assets_can_turn_into_sufficient() {
+	use sufficients::{Inspect, Mutate};
+
+	new_test_ext().execute_with(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		assert_eq!(Assets::is_sufficient(0), false);
+		assert_ok!(Assets::set_sufficient(0, true));
+		assert_eq!(Assets::is_sufficient(0), true);
 	});
 }
 
