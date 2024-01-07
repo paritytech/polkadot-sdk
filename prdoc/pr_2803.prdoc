@@ -1,0 +1,19 @@
+title: "cumulus-primitives-parachain-inherent: Split into two crates"
+
+doc:
+  - audience: Node Dev
+    description: |
+      This splits `cumulus-primitives-parachain-inherent` into two crates. The new crate is called
+      `cumulus-client-parachain-inherent`. This is done to improve the compile time for runtimes,
+      as they are not required anymore to pull in half of the node side at compile time.
+
+      To migrate your code you need to change
+      `cumulus_primitives_parachain_inherent::ParachainInherentData::create_at` to
+      `cumulus_client_parachain_inherent::ParachainInherentDataProvider::create_at`.
+      Any other code should be compatible. The mocking code also moved to the new client crate and
+      you may need to adapt your imports accordingly. Generally, replacing the old crate with the new
+      crate fix most compile errors resulting from this pull request.
+
+crates:
+  - name: "cumulus-primitives-parachain-inherent"
+  - name: "cumulus-client-parachain-inherent"

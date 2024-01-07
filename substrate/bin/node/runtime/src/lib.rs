@@ -75,6 +75,10 @@ use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 use pallet_tx_pause::RuntimeCallNameOf;
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
+use sp_consensus_beefy::{
+	ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature},
+	mmr::MmrLeafVersion,
+};
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_inherents::{CheckInherentsResult, InherentData};
@@ -131,7 +135,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 /// Max size for serialized extrinsic params for this testing runtime.
 /// This is a quite arbitrary but empirically battle tested value.
 #[cfg(test)]
-pub const CALL_PARAMS_MAX_SIZE: usize = 208;
+pub const CALL_PARAMS_MAX_SIZE: usize = 244;
 
 /// Wasm binary unwrapped. If built with `SKIP_WASM_BUILD`, the function panics.
 #[cfg(feature = "std")]
@@ -602,6 +606,7 @@ impl_opaque_keys! {
 		pub im_online: ImOnline,
 		pub authority_discovery: AuthorityDiscovery,
 		pub mixnet: Mixnet,
+		pub beefy: Beefy,
 	}
 }
 
@@ -1574,6 +1579,17 @@ impl pallet_mmr::Config for Runtime {
 }
 
 parameter_types! {
+	pub LeafVersion: MmrLeafVersion = MmrLeafVersion::new(0, 0);
+}
+
+impl pallet_beefy_mmr::Config for Runtime {
+	type LeafVersion = LeafVersion;
+	type BeefyAuthorityToMerkleLeaf = pallet_beefy_mmr::BeefyEcdsaToEthereum;
+	type LeafExtra = Vec<u8>;
+	type BeefyDataProvider = ();
+}
+
+parameter_types! {
 	pub const LotteryPalletId: PalletId = PalletId(*b"py/lotto");
 	pub const MaxCalls: u32 = 10;
 	pub const MaxGenerateRandom: u32 = 10;
@@ -2077,6 +2093,11 @@ construct_runtime!(
 		AssetConversionTxPayment: pallet_asset_conversion_tx_payment,
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase,
 		Staking: pallet_staking,
+		Beefy: pallet_beefy::{Pallet, Call, Storage, Config<T>, ValidateUnsigned},
+		// MMR leaf construction must be before session in order to have leaf contents
+		// refer to block<N-1> consistently. see substrate issue #11797 for details.
+		Mmr: pallet_mmr::{Pallet, Storage},
+		MmrLeaf: pallet_beefy_mmr::{Pallet, Storage},
 		Session: pallet_session,
 		Democracy: pallet_democracy,
 		Council: pallet_collective::<Instance1>,
@@ -2106,7 +2127,6 @@ construct_runtime!(
 		Tips: pallet_tips,
 		Assets: pallet_assets::<Instance1>,
 		PoolAssets: pallet_assets::<Instance2>,
-		Mmr: pallet_mmr,
 		Lottery: pallet_lottery,
 		Nis: pallet_nis,
 		Uniques: pallet_uniques,
@@ -2201,6 +2221,22 @@ type EventRecord = frame_system::EventRecord<
 	<Runtime as frame_system::Config>::RuntimeEvent,
 	<Runtime as frame_system::Config>::Hash,
 >;
+
+parameter_types! {
+	pub const BeefySetIdSessionEntries: u32 = BondingDuration::get() * SessionsPerEra::get();
+}
+
+impl pallet_beefy::Config for Runtime {
+	type BeefyId = BeefyId;
+	type MaxAuthorities = MaxAuthorities;
+	type MaxNominators = ConstU32<0>;
+	type MaxSetIdSessionEntries = BeefySetIdSessionEntries;
+	type OnNewValidatorSet = MmrLeaf;
+	type WeightInfo = ();
+	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, BeefyId)>>::Proof;
+	type EquivocationReportSystem =
+		pallet_beefy::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
+}
 
 /// MMR helper types.
 mod mmr {
@@ -2653,6 +2689,42 @@ impl_runtime_apis! {
 
 		fn collection_attribute(collection: u32, key: Vec<u8>) -> Option<Vec<u8>> {
 			<Nfts as Inspect<AccountId>>::collection_attribute(&collection, &key)
+		}
+	}
+
+	#[api_version(3)]
+	impl sp_consensus_beefy::BeefyApi<Block, BeefyId> for Runtime {
+		fn beefy_genesis() -> Option<BlockNumber> {
+			Beefy::genesis_block()
+		}
+
+		fn validator_set() -> Option<sp_consensus_beefy::ValidatorSet<BeefyId>> {
+			Beefy::validator_set()
+		}
+
+		fn submit_report_equivocation_unsigned_extrinsic(
+			equivocation_proof: sp_consensus_beefy::EquivocationProof<
+				BlockNumber,
+				BeefyId,
+				BeefySignature,
+			>,
+			key_owner_proof: sp_consensus_beefy::OpaqueKeyOwnershipProof,
+		) -> Option<()> {
+			let key_owner_proof = key_owner_proof.decode()?;
+
+			Beefy::submit_unsigned_equivocation_report(
+				equivocation_proof,
+				key_owner_proof,
+			)
+		}
+
+		fn generate_key_ownership_proof(
+			_set_id: sp_consensus_beefy::ValidatorSetId,
+			authority_id: BeefyId,
+		) -> Option<sp_consensus_beefy::OpaqueKeyOwnershipProof> {
+			Historical::prove((sp_consensus_beefy::KEY_TYPE, authority_id))
+				.map(|p| p.encode())
+				.map(sp_consensus_beefy::OpaqueKeyOwnershipProof::new)
 		}
 	}
 
