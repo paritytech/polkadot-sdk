@@ -27,7 +27,6 @@ use frame_support::{
 };
 use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600, RCBlockNumberOf};
 use parachains_common::{AccountId, Balance, BlockNumber};
-use polkadot_runtime_common::prod_or_fast;
 use xcm::latest::prelude::*;
 
 pub struct CreditToCollatorPot;
