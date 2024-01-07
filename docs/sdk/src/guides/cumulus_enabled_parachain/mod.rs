@@ -6,39 +6,53 @@
 //! support and learn about the most important Cumulus and Substrate pallets required to set up a
 //! parachain.
 //!
+//! This guide is highly inspired on the
+//! [Cumulus runtime template](https://github.com/paritytech/polkadot-sdk/tree/master/cumulus/parachain-template/runtime)
+//! and re-uses most of the patterns used in the template. The template is a good starting point
+//! for a new project and this guide elaborates on how to use it, how to include your own pallet in
+//! the runtime and how to deploy the resulting cumulus runtine locally for testing and on Rococo.
+//!
 //! ## Topics Covered
 //!
 //! The following topics are covered in this guide:
 //!
-//! > TODO(gpestana)
+//! - The pallets required to compose a Cumulus runtime and their [Types and constants], with
+//! some usable defaults.
+//! - The pallets and configurations required to setup XCM channels between the parachain and the
+//! relay-chain.
+//! - How to define the Cumulus runtime weights.
+//! - Changes to the parachain CLI to generate the runtime spec.
+//! - How to deploy the parachain locally via Zombienet and on Rococo.
+//!
+//! You should have studied the following modules as a prelude to this guide:
+//!
+//! - [`crate::reference_docs::blockchain_state_machines`]
+//! - [`crate::reference_docs::trait_based_programming`]
+//! - [`crate::polkadot_sdk::frame_runtime`]
+//! - [`crate::guides::your_first_pallet`]
 //!
 //! ## Convert a FRAME runtime into a Cumulus-based runtime
 //!
 //! Our goal is to convert the Currency pallet's runtime built in the [`your_first_pallet`] guide
 //! into a Cumulus runtime so that we can deploy the pallet's logic in a parachain. The bulk of this
 //! exercise consists of configuring a Cumulus runtime that has the main parachain system pallets
-//! required. The final Cumulus runtime can then be easily deployed and registered on a relay-chain,
-//! and a few other helpful pallets that enable XCM messaging between the parachain and the
-//! relay-chain.
-//!
-//! The parachain runtime must use a set of parachain system pallets provided by Cumulus and
-//! substrate, namely:
-//!
-//! - []()
+//! required to run a parachain, as well as XCM enabled messaging between the relay chain and the
+//! parachain.
 //!
 //! In addition, we will cover how to define the weight limits for the parachain blocks, parachain
 //! runtime APIs and other useful and/or necessary configurations.
 //!
-//! First, we will define the types and constants that will be used by the runtime.
+//! ### Types and constants
 //!
-//! TODO(gpestana): types
-#![doc = docify::embed!("./src/guides/cumulus_enabled_parachain/mod.rs", opaque_types)]
+//! First, we define the types and constants that are will be used in the runtime.
 //!
-//! TODO(gpestana): consts
-#![doc = docify::embed!("./src/guides/cumulus_enabled_parachain/mod.rs", consts)]
-//!
-//! TODO(gpestana): runtime version
-#![doc = docify::embed!("./src/guides/cumulus_enabled_parachain/mod.rs", runtime_version)]
+//! **Runtime types**: The runtime types are very similar to the types defined on a Substrate
+//! runtime. These include how a block `Block` is represented in the runtime, `Balance` (if
+//! required), the `BlockNumber` type, etc. Similarly to in a Substrate runtime, the `SignedExtra`
+//! tuple defines the transaction logic that checks the validity of an extrinsic before it being
+//! executed in the runtime [`TODO(gpestana): docs link`]. In addition, we define the `Executive`
+//! dispatch type that will be used by the parachain.
+#![doc = docify::embed!("./src/guides/cumulus_enabled_parachain/mod.rs", types)]
 //!
 //! **Opaque types**: These are used by the CLI to instantiate machinery that don't need to know the
 //! specifics of the runtime. They can then be made to be agnostic over specific formats
@@ -46,32 +60,83 @@
 //! even the core data structures.
 #![doc = docify::embed!("./src/guides/cumulus_enabled_parachain/mod.rs", opaque_types)]
 //!
-//! ## Pallets
+//! **Constants**: `SLOT_DURATION`, `EXISTENTIAL_DEPOSIT`,
+#![doc = docify::embed!("./src/guides/cumulus_enabled_parachain/mod.rs", consts)]
+//!
+//! **Runtime version**: We also need to define the runtime version, which consist of a const that
+//! keeps track of the spec version, runtime APIs version, state version, among others.
+//!
+//! Note: This should not be thought of as classic Semver (major/minor/tiny). This triplet have
+//! different semantics and mis-interpretation could cause problems. In particular: bug fixes should
+//! result in an increment of `spec_version` and possibly `authoring_version`, absolutely not
+//! `impl_version` since they change the semantics of the runtime. TODO(gpestana): runtime version
+#![doc = docify::embed!("./src/guides/cumulus_enabled_parachain/mod.rs", runtime_version)]
+//!
+//! ## Runtime Pallets
+//!
+//! A Cumulus runtime is defined by the [`frame::runtime::prelude::construct_runtime`] macro which
+//! amalgamates all the pallets in the runtime, similarly to the Substrate runtime as explained in
+//! the [`crate::guides::your_first_runtime`] guide.
+#![doc = docify::embed!("./src/guides/cumulus_enabled_parachain/mod.rs", construct_runtime)]
+//!
+//! In this section, we outline the pallets required to setup a Cumulus runtime.
+//!
+//! ### System Pallets
 #![doc = docify::embed!("./src/guides/cumulus_enabled_parachain/mod.rs", pallet_system)]
+//!
+//! > TODO(gpestana): what should be the degree of granularity in this section? Should we explain
+//! all the pallets and their functions and include the respective snippet of the Config impl?
+//!
+//! ### Including [`your_first_pallet`] in the Runtime
+//!
+//! So as to include `your_firs_pallet` in the runtime, we implement the pallet's `Config` in the
+//! `Runtime` and include it in the `construct_runtime` macro.
+#![doc = docify::embed!("./src/guides/cumulus_enabled_parachain/mod.rs", your_first_pallet)]
 //!
 //! ## Runtime APIs
 //!
-//! We need to configure the runtime APIs.. TODO(gpestana)
+//! Now, we define the runtime APIs for using the [`frame::runtime::prelude::impl_runtime_apis`]
+//! macro.
 #![doc = docify::embed!("./src/guides/cumulus_enabled_parachain/mod.rs", runtime_apis)]
 //!
 //! ## Runtime Weights
 //!
-//! TODO(gpestana): WeightToFee
-#![doc = docify::embed!("./src/guides/cumulus_enabled_parachain/mod.rs", weight_to_fee)]
-//!
 //! TODO(gpestana): weights
-#![doc = docify::embed!("./src/guides/cumulus_enabled_parachain/mod.rs", weights)]
+#![doc = docify::embed!("./src/guides/cumulus_enabled_parachain/weights.rs", block_weights)]
+#![doc = docify::embed!("./src/guides/cumulus_enabled_parachain/weights.rs", extrinsic_weights)]
+#![doc = docify::embed!("./src/guides/cumulus_enabled_parachain/weights.rs", paritydb_weights)]
+#![doc = docify::embed!("./src/guides/cumulus_enabled_parachain/weights.rs", rocksdb_weights)]
+//!
+//! Finally, we define how the how the fees are calculated in our runtime. We do so by implementing
+//! the [`frame_support::weights::WeightToFeePolynomial`] trait on a struct that will be used by the
+//! `pallet_transaction_payment`.
+#![doc = docify::embed!("./src/guides/cumulus_enabled_parachain/mod.rs", weight_to_fee)]
 //!
 //! ## XCM Config
 //!
-//! The XCM barrier ... TODO(gpestana)
-#![doc = docify::embed!("./src/guides/cumulus_enabled_parachain/mod.rs", xcm_barrier)]
+//! > `TODO(gpestana)`
+#![doc = docify::embed!("./src/guides/cumulus_enabled_parachain/xcm_config.rs", xcm_barrier)]
+#![doc = docify::embed!("./src/guides/cumulus_enabled_parachain/xcm_config.rs", xcm_cumulus_pallet)]
+#![doc = docify::embed!("./src/guides/cumulus_enabled_parachain/xcm_config.rs", xcm_pallet)]
+#![doc = docify::embed!("./src/guides/cumulus_enabled_parachain/xcm_config.rs", xcm_executor_pallet)]
 //!
-//! ## CLI chain-spec generator
+//! ## Runtime `chain-spec`
+//!
+//! > TODO: explain the chain-spec
+//!
+//! ### CLI chain-spec generator
+//!
+//!
+//! > TODO: explain the chain spec generator.
+#![doc = docify::embed!("./src/guides/cumulus_enabled_parachain/chain_spec_gen.rs", chain_spec_config)]
 //!
 //! ## Local deployment with Zombienet
 //!
+//! > `TODO(gpestana)`
+//!
 //! ## Deployment on Rococo
+//!
+//! > `TODO(gpestana)`
 
 #[cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
@@ -79,6 +144,14 @@
 // Make the WASM binary available.
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
+
+mod weights;
+mod xcm_config;
+
+use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
+use xcm_config::{RelayLocation, XcmOriginToTransactDispatchOrigin};
+
+use crate::guides::your_first_pallet::pallet as your_first_pallet;
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
@@ -132,15 +205,12 @@ use parachains_common::{
 };
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
-use xcm_config::{RelayLocation, XcmOriginToTransactDispatchOrigin};
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 
 // Polkadot imports
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
-
-use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
 // XCM Imports
 use xcm::latest::prelude::BodyId;
@@ -268,8 +338,8 @@ impl WeightToFeePolynomial for WeightToFee {
 #[docify::export(runtime_version)]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("staking-parachain"),
-	impl_name: create_runtime_str!("staking-parachain"),
+	spec_name: create_runtime_str!("your-first-pallet"),
+	impl_name: create_runtime_str!("your-first-pallet"),
 	authoring_version: 1,
 	spec_version: 1,
 	impl_version: 0,
@@ -579,11 +649,8 @@ impl pallet_collator_selection::Config for Runtime {
 	type WeightInfo = ();
 }
 
-parameter_types! {
-	// TODO(gpestana)
-}
-
-// TODO(gpestana): your_pallet
+#[docify::export(your_first_pallet)]
+impl your_first_pallet::Config for Runtime {}
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
 #[docify::export(construct_runtime)]
@@ -616,7 +683,7 @@ construct_runtime!(
 		MessageQueue: pallet_message_queue = 33,
 
 		// Your Pallet.
-		// TODO(gpestana)
+		YourFirstPallet: your_first_pallet = 34,
 	}
 );
 
@@ -848,237 +915,4 @@ impl_runtime_apis! {
 cumulus_pallet_parachain_system::register_validate_block! {
 	Runtime = Runtime,
 	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
-}
-
-pub mod xcm_config {
-	use super::{
-		frame_system::EnsureRoot, AccountId, AllPalletsWithSystem, Balances, ParachainInfo,
-		ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
-		WeightToFee, XcmpQueue,
-	};
-	use frame_support::{
-		match_types, parameter_types,
-		traits::{ConstU32, Everything, Nothing},
-		weights::Weight,
-	};
-	use pallet_xcm::XcmPassthrough;
-	use polkadot_parachain_primitives::primitives::Sibling;
-	use polkadot_runtime_common::impls::ToAuthor;
-	use xcm::latest::prelude::*;
-	use xcm_builder::{
-		AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowTopLevelPaidExecutionFrom,
-		CurrencyAdapter, DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin,
-		FixedWeightBounds, IsConcrete, NativeAsset, ParentIsPreset, RelayChainAsNative,
-		SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
-		SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId,
-		UsingComponents, WithComputedOrigin, WithUniqueTopic,
-	};
-	use xcm_executor::XcmExecutor;
-
-	parameter_types! {
-		pub const RelayLocation: MultiLocation = MultiLocation::parent();
-		pub const RelayNetwork: Option<NetworkId> = None;
-		pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
-		pub UniversalLocation: InteriorMultiLocation = Parachain(ParachainInfo::parachain_id().into()).into();
-	}
-
-	/// Type for specifying how a `MultiLocation` can be converted into an `AccountId`. This is used
-	/// when determining ownership of accounts for asset transacting and when attempting to use XCM
-	/// `Transact` in order to determine the dispatch Origin.
-	pub type LocationToAccountId = (
-		// The parent (Relay-chain) origin converts to the parent `AccountId`.
-		ParentIsPreset<AccountId>,
-		// Sibling parachain origins convert to AccountId via the `ParaId::into`.
-		SiblingParachainConvertsVia<Sibling, AccountId>,
-		// Straight up local `AccountId32` origins just alias directly to `AccountId`.
-		AccountId32Aliases<RelayNetwork, AccountId>,
-	);
-
-	/// Means for transacting assets on this chain.
-	pub type LocalAssetTransactor = CurrencyAdapter<
-		// Use this currency:
-		Balances,
-		// Use this currency when it is a fungible asset matching the given location or name:
-		IsConcrete<RelayLocation>,
-		// Do a simple punn to convert an AccountId32 MultiLocation into a native chain account ID:
-		LocationToAccountId,
-		// Our chain's account ID type (we can't get away without mentioning it explicitly):
-		AccountId,
-		// We don't track any teleports.
-		(),
-	>;
-
-	/// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
-	/// ready for dispatching a transaction with Xcm's `Transact`. There is an `OriginKind` which
-	/// can biases the kind of local `Origin` it will become.
-	pub type XcmOriginToTransactDispatchOrigin = (
-		// Sovereign account converter; this attempts to derive an `AccountId` from the origin
-		// location using `LocationToAccountId` and then turn that into the usual `Signed` origin.
-		// Useful for foreign chains who want to have a local sovereign account on this chain which
-		// they control.
-		SovereignSignedViaLocation<LocationToAccountId, RuntimeOrigin>,
-		// Native converter for Relay-chain (Parent) location; will convert to a `Relay` origin
-		// when recognized.
-		RelayChainAsNative<RelayChainOrigin, RuntimeOrigin>,
-		// Native converter for sibling Parachains; will convert to a `SiblingPara` origin when
-		// recognized.
-		SiblingParachainAsNative<cumulus_pallet_xcm::Origin, RuntimeOrigin>,
-		// Native signed account converter; this just converts an `AccountId32` origin into a
-		// normal `RuntimeOrigin::Signed` origin of the same 32-byte value.
-		SignedAccountId32AsNative<RelayNetwork, RuntimeOrigin>,
-		// Xcm origins can be represented natively under the Xcm pallet's Xcm origin.
-		XcmPassthrough<RuntimeOrigin>,
-	);
-
-	parameter_types! {
-		// One XCM operation is 1_000_000_000 weight - almost certainly a conservative estimate.
-		pub UnitWeightCost: Weight = Weight::from_parts(1_000_000_000, 64 * 1024);
-		pub const MaxInstructions: u32 = 100;
-		pub const MaxAssetsIntoHolding: u32 = 64;
-	}
-
-	match_types! {
-		pub type ParentOrParentsExecutivePlurality: impl Contains<MultiLocation> = {
-			MultiLocation { parents: 1, interior: Here } |
-			MultiLocation { parents: 1, interior: X1(Plurality { id: BodyId::Executive, .. }) }
-		};
-	}
-
-	#[docify::export(xcm_barrier)]
-	pub type Barrier = TrailingSetTopicAsId<
-		DenyThenTry<
-			DenyReserveTransferToRelayChain,
-			(
-				TakeWeightCredit,
-				WithComputedOrigin<
-					(
-						AllowTopLevelPaidExecutionFrom<Everything>,
-						AllowExplicitUnpaidExecutionFrom<ParentOrParentsExecutivePlurality>,
-						// ^^^ Parent and its exec plurality get free execution
-					),
-					UniversalLocation,
-					ConstU32<8>,
-				>,
-			),
-		>,
-	>;
-
-	pub struct XcmConfig;
-	impl xcm_executor::Config for XcmConfig {
-		type RuntimeCall = RuntimeCall;
-		type XcmSender = XcmRouter;
-		// How to withdraw and deposit an asset.
-		type AssetTransactor = LocalAssetTransactor;
-		type OriginConverter = XcmOriginToTransactDispatchOrigin;
-		type IsReserve = NativeAsset;
-		type IsTeleporter = (); // Teleporting is disabled.
-		type UniversalLocation = UniversalLocation;
-		type Barrier = Barrier;
-		type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
-		type Trader =
-			UsingComponents<WeightToFee, RelayLocation, AccountId, Balances, ToAuthor<Runtime>>;
-		type ResponseHandler = PolkadotXcm;
-		type AssetTrap = PolkadotXcm;
-		type AssetClaims = PolkadotXcm;
-		type SubscriptionService = PolkadotXcm;
-		type PalletInstancesInfo = AllPalletsWithSystem;
-		type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
-		type AssetLocker = ();
-		type AssetExchanger = ();
-		type FeeManager = ();
-		type MessageExporter = ();
-		type UniversalAliases = Nothing;
-		type CallDispatcher = RuntimeCall;
-		type SafeCallFilter = Everything;
-		type Aliasers = Nothing;
-	}
-
-	/// No local origins on this chain are allowed to dispatch XCM sends/executions.
-	pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, RelayNetwork>;
-
-	/// The means for routing XCM messages which are not for local execution into the right message
-	/// queues.
-	pub type XcmRouter = WithUniqueTopic<(
-		// Two routers - use UMP to communicate with the relay chain:
-		cumulus_primitives_utility::ParentAsUmp<ParachainSystem, (), ()>,
-		// ..and XCMP to communicate with the sibling chains.
-		XcmpQueue,
-	)>;
-
-	impl pallet_xcm::Config for Runtime {
-		type RuntimeEvent = RuntimeEvent;
-		type SendXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
-		type XcmRouter = XcmRouter;
-		type ExecuteXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
-		type XcmExecuteFilter = Nothing;
-		// ^ Disable dispatchable execute on the XCM pallet.
-		// Needs to be `Everything` for local testing.
-		type XcmExecutor = XcmExecutor<XcmConfig>;
-		type XcmTeleportFilter = Everything;
-		type XcmReserveTransferFilter = Nothing;
-		type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
-		type UniversalLocation = UniversalLocation;
-		type RuntimeOrigin = RuntimeOrigin;
-		type RuntimeCall = RuntimeCall;
-
-		const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 100;
-		// ^ Override for AdvertisedXcmVersion default
-		type AdvertisedXcmVersion = pallet_xcm::CurrentXcmVersion;
-		type Currency = Balances;
-		type CurrencyMatcher = ();
-		type TrustedLockers = ();
-		type SovereignAccountOf = LocationToAccountId;
-		type MaxLockers = ConstU32<8>;
-		type WeightInfo = pallet_xcm::TestWeightInfo;
-		type AdminOrigin = EnsureRoot<AccountId>;
-		type MaxRemoteLockConsumers = ConstU32<0>;
-		type RemoteLockConsumerIdentifier = ();
-	}
-
-	impl cumulus_pallet_xcm::Config for Runtime {
-		type RuntimeEvent = RuntimeEvent;
-		type XcmExecutor = XcmExecutor<XcmConfig>;
-	}
-}
-
-#[docify::export(weights)]
-pub mod weights {
-	use frame_support::{
-		parameter_types,
-		weights::{constants, RuntimeDbWeight, Weight},
-	};
-
-	// Block weights
-	parameter_types! {
-		/// Importing a block with 0 Extrinsics.
-		pub const BlockExecutionWeight: Weight =
-			Weight::from_parts(constants::WEIGHT_REF_TIME_PER_NANOS.saturating_mul(5_000_000), 0);
-	}
-
-	// Extrinsic weights
-	parameter_types! {
-		/// Executing a NO-OP `System::remarks` Extrinsic.
-		pub const ExtrinsicBaseWeight: Weight =
-			Weight::from_parts(constants::WEIGHT_REF_TIME_PER_NANOS.saturating_mul(125_000), 0);
-	}
-
-	// ParityDb weights
-	parameter_types! {
-		/// `ParityDB` can be enabled with a feature flag, but is still experimental. These weights
-		/// are available for brave runtime engineers who may want to try this out as default.
-		pub const ParityDbWeight: RuntimeDbWeight = RuntimeDbWeight {
-			read: 8_000 * constants::WEIGHT_REF_TIME_PER_NANOS,
-			write: 50_000 * constants::WEIGHT_REF_TIME_PER_NANOS,
-		};
-	}
-
-	// RocksDb weights
-	parameter_types! {
-		/// By default, Substrate uses `RocksDB`, so this will be the weight used throughout
-		/// the runtime.
-		pub const RocksDbWeight: RuntimeDbWeight = RuntimeDbWeight {
-			read: 25_000 * constants::WEIGHT_REF_TIME_PER_NANOS,
-			write: 100_000 * constants::WEIGHT_REF_TIME_PER_NANOS,
-		};
-	}
 }
