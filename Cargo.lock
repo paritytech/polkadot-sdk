@@ -4215,7 +4215,7 @@ dependencies = [
  "schnellru",
  "serde",
  "serde_json",
- "smoldot",
+ "smoldot 0.11.0",
  "smoldot-light",
  "sp-api",
  "sp-authority-discovery",
@@ -17509,10 +17509,64 @@ dependencies = [
 ]
 
 [[package]]
-name = "smoldot-light"
-version = "0.9.0"
+name = "smoldot"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "256b5bad1d6b49045e95fe87492ce73d5af81545d8b4d8318a872d2007024c33"
+checksum = "4388a7690d9f76320dedc7f97f213160fbe4fb4a38a8b4cc8bb96e0fd05e0971"
+dependencies = [
+ "arrayvec 0.7.4",
+ "async-lock",
+ "atomic-take",
+ "base64 0.21.2",
+ "bip39",
+ "blake2-rfc",
+ "bs58 0.5.0",
+ "chacha20 0.9.1",
+ "crossbeam-queue",
+ "derive_more",
+ "ed25519-zebra 4.0.3",
+ "either",
+ "event-listener",
+ "fnv",
+ "futures-lite",
+ "futures-util",
+ "hashbrown 0.14.3",
+ "hex",
+ "hmac 0.12.1",
+ "itertools 0.11.0",
+ "libsecp256k1",
+ "merlin 3.0.0",
+ "no-std-net",
+ "nom",
+ "num-bigint",
+ "num-rational",
+ "num-traits",
+ "pbkdf2 0.12.2",
+ "pin-project",
+ "poly1305 0.8.0",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
+ "ruzstd",
+ "schnorrkel 0.10.2",
+ "serde",
+ "serde_json",
+ "sha2 0.10.7",
+ "sha3",
+ "siphasher",
+ "slab",
+ "smallvec",
+ "soketto",
+ "twox-hash",
+ "wasmi",
+ "x25519-dalek 2.0.0",
+ "zeroize",
+]
+
+[[package]]
+name = "smoldot-light"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bea3d21923cbdb1362205ff8b2adb5da67e6b81b34c4bba1baaef9b88cbd83b8"
 dependencies = [
  "async-channel",
  "async-lock",
@@ -17540,7 +17594,7 @@ dependencies = [
  "siphasher",
  "slab",
  "smol",
- "smoldot",
+ "smoldot 0.12.0",
  "zeroize",
 ]
 
