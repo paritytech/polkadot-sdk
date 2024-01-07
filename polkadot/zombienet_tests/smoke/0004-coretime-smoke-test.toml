@@ -24,7 +24,7 @@ chain = "coretime-rococo-local"
 
   [parachains.collator]
   name = "coretime-collator"
-  image = "{{COL_IMAGE}}"
+  image = "{{CUMULUS_IMAGE}}"
   command = "polkadot-parachain"
   args = [ "-lruntime=debug,xcm=trace" ]
 
@@ -36,6 +36,6 @@ onboard_as_parachain = false
 
   [parachains.collator]
   name = "collator-para-100"
-  image = "{{COL_IMAGE}}"
+  image = "{{CUMULUS_IMAGE}}"
   command = "polkadot-parachain"
   args = ["-lruntime=debug,parachain=trace,aura=trace", "--force-authoring"]
