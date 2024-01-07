@@ -176,7 +176,7 @@ impl<T: Config> ListScenario<T> {
 		let (origin_stash1, origin_controller1) = create_stash_controller_with_balance::<T>(
 			USER_SEED + 2,
 			origin_weight,
-			Default::default(),
+			RewardDestination::Staked,
 		)?;
 		Staking::<T>::nominate(
 			RawOrigin::Signed(origin_controller1.clone()).into(),
@@ -187,7 +187,7 @@ impl<T: Config> ListScenario<T> {
 		let (_origin_stash2, origin_controller2) = create_stash_controller_with_balance::<T>(
 			USER_SEED + 3,
 			origin_weight,
-			Default::default(),
+			RewardDestination::Staked,
 		)?;
 		Staking::<T>::nominate(
 			RawOrigin::Signed(origin_controller2).into(),
@@ -207,7 +207,7 @@ impl<T: Config> ListScenario<T> {
 		let (_dest_stash1, dest_controller1) = create_stash_controller_with_balance::<T>(
 			USER_SEED + 1,
 			dest_weight,
-			Default::default(),
+			RewardDestination::Staked,
 		)?;
 		Staking::<T>::nominate(
 			RawOrigin::Signed(dest_controller1).into(),
@@ -291,7 +291,7 @@ benchmarks! {
 	withdraw_unbonded_update {
 		// Slashing Spans
 		let s in 0 .. MAX_SPANS;
-		let (stash, controller) = create_stash_controller::<T>(0, 100, Default::default())?;
+		let (stash, controller) = create_stash_controller::<T>(0, 100, RewardDestination::Staked)?;
 		add_slashing_spans::<T>(&stash, s);
 		let amount = T::Currency::minimum_balance() * 5u32.into(); // Half of total
 		Staking::<T>::unbond(RawOrigin::Signed(controller.clone()).into(), amount)?;
@@ -340,7 +340,7 @@ benchmarks! {
 		let (stash, controller) = create_stash_controller::<T>(
 			MaxNominationsOf::<T>::get() - 1,
 			100,
-			Default::default(),
+			RewardDestination::Staked,
 		)?;
 		// because it is chilled.
 		assert!(!T::VoterList::contains(&stash));
@@ -368,7 +368,7 @@ benchmarks! {
 		let (stash, controller) = create_stash_controller::<T>(
 			MaxNominationsOf::<T>::get() - 1,
 			100,
-			Default::default(),
+			RewardDestination::Staked,
 		)?;
 		let stash_lookup = T::Lookup::unlookup(stash.clone());
 
@@ -383,7 +383,7 @@ benchmarks! {
 			let (n_stash, n_controller) = create_stash_controller::<T>(
 				MaxNominationsOf::<T>::get() + i,
 				100,
-				Default::default(),
+				RewardDestination::Staked,
 			)?;
 
 			// bake the nominations; we first clone them from the rest of the validators.
@@ -431,7 +431,7 @@ benchmarks! {
 		let (stash, controller) = create_stash_controller_with_balance::<T>(
 			SEED + MaxNominationsOf::<T>::get() + 1, // make sure the account does not conflict with others
 			origin_weight,
-			Default::default(),
+			RewardDestination::Staked,
 		).unwrap();
 
 		assert!(!Nominators::<T>::contains_key(&stash));
@@ -466,11 +466,11 @@ benchmarks! {
 
 	set_payee {
 		let (stash, controller) = create_stash_controller::<T>(USER_SEED, 100, RewardDestination::Staked)?;
-		assert_eq!(Payee::<T>::get(&stash), RewardDestination::Staked);
+		assert_eq!(Payee::<T>::get(&stash), Some(RewardDestination::Staked));
 		whitelist_account!(controller);
 	}: _(RawOrigin::Signed(controller.clone()), RewardDestination::Account(controller.clone()))
 	verify {
-		assert_eq!(Payee::<T>::get(&stash), RewardDestination::Account(controller));
+		assert_eq!(Payee::<T>::get(&stash), Some(RewardDestination::Account(controller)));
 	}
 
 	update_payee {
@@ -482,7 +482,7 @@ benchmarks! {
 		whitelist_account!(controller);
 	}: _(RawOrigin::Signed(controller.clone()), controller.clone())
 	verify {
-		assert_eq!(Payee::<T>::get(&stash), RewardDestination::Account(controller));
+		assert_eq!(Payee::<T>::get(&stash), Some(RewardDestination::Account(controller)));
 	}
 
 	set_controller {
@@ -784,7 +784,7 @@ benchmarks! {
 	#[extra]
 	do_slash {
 		let l in 1 .. T::MaxUnlockingChunks::get() as u32;
-		let (stash, controller) = create_stash_controller::<T>(0, 100, Default::default())?;
+		let (stash, controller) = create_stash_controller::<T>(0, 100, RewardDestination::Staked)?;
 		let mut staking_ledger = Ledger::<T>::get(controller.clone()).unwrap();
 		let unlock_chunk = UnlockChunk::<BalanceOf<T>> {
 			value: 1u32.into(),

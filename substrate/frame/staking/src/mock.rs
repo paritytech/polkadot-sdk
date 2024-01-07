@@ -345,6 +345,11 @@ where
 pub(crate) type StakingCall = crate::Call<Test>;
 pub(crate) type TestCall = <Test as frame_system::Config>::RuntimeCall;
 
+parameter_types! {
+	// if true, skips the try-state for the test running.
+	pub static SkipTryStateCheck: bool = false;
+}
+
 pub struct ExtBuilder {
 	nominate: bool,
 	validator_count: u32,
@@ -582,9 +587,15 @@ impl ExtBuilder {
 		let mut ext = self.build();
 		ext.execute_with(test);
 		ext.execute_with(|| {
-			Staking::do_try_state(System::block_number()).unwrap();
+			if !SkipTryStateCheck::get() {
+				Staking::do_try_state(System::block_number()).unwrap();
+			}
 		});
 	}
+}
+
+pub(crate) fn skip_try_state_checks() {
+	SkipTryStateCheck::set(true);
 }
 
 pub(crate) fn active_era() -> EraIndex {
