@@ -14,7 +14,7 @@
     params: Params
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.74.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;T, Error&gt;<span class="where fmt-newline">where
     Params: ToRpcParams,
-    T: <a class="trait" href="https://docs.rs/serde/1.0.194/serde/de/trait.DeserializeOwned.html" title="trait serde::de::DeserializeOwned">DeserializeOwned</a>,</span></h4></section></summary><div class="docblock"><p>Helper to call a method on the <code>RPC module</code> without having to spin up a server.</p>
+    T: <a class="trait" href="https://docs.rs/serde/1.0.195/serde/de/trait.DeserializeOwned.html" title="trait serde::de::DeserializeOwned">DeserializeOwned</a>,</span></h4></section></summary><div class="docblock"><p>Helper to call a method on the <code>RPC module</code> without having to spin up a server.</p>
 <p>The params must be serializable as JSON array, see [<code>ToRpcParams</code>] for further documentation.</p>
 <p>Returns the decoded value of the <code>result field</code> in JSON-RPC response if successful.</p>
 <h5 id="examples"><a href="#examples">Examples</a></h5>
