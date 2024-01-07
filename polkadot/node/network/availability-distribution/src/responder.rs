@@ -27,7 +27,7 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_primitives::{AvailableData, ErasureChunk};
 use polkadot_node_subsystem::{jaeger, messages::AvailabilityStoreMessage, SubsystemSender};
-use polkadot_primitives::{CandidateHash, ValidatorIndex};
+use polkadot_primitives::{CandidateHash, ChunkIndex};
 
 use crate::{
 	error::{JfyiError, Result},
@@ -217,22 +217,20 @@ where
 async fn query_chunk<Sender>(
 	sender: &mut Sender,
 	candidate_hash: CandidateHash,
-	validator_index: ValidatorIndex,
+	chunk_index: ChunkIndex,
 ) -> std::result::Result<Option<ErasureChunk>, JfyiError>
 where
 	Sender: SubsystemSender<AvailabilityStoreMessage>,
 {
 	let (tx, rx) = oneshot::channel();
 	sender
-		.send_message(
-			AvailabilityStoreMessage::QueryChunk(candidate_hash, validator_index, tx).into(),
-		)
+		.send_message(AvailabilityStoreMessage::QueryChunk(candidate_hash, chunk_index, tx).into())
 		.await;
 
 	let result = rx.await.map_err(|e| {
 		gum::trace!(
 			target: LOG_TARGET,
-			?validator_index,
+			?chunk_index,
 			?candidate_hash,
 			error = ?e,
 			"Error retrieving chunk",

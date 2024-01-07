@@ -25,17 +25,16 @@
 
 #![warn(missing_docs)]
 
-use polkadot_node_subsystem::{
-	errors::{RuntimeApiError, SubsystemError},
-	messages::{RuntimeApiMessage, RuntimeApiRequest, RuntimeApiSender},
-	overseer, SubsystemSender,
-};
-use polkadot_primitives::{slashing, ExecutorParams};
-
 pub use overseer::{
 	gen::{OrchestraError as OverseerError, Timeout},
 	Subsystem, TimeoutExt,
 };
+use polkadot_node_subsystem::{
+	errors::{RuntimeApiError, SubsystemError},
+	messages::{RuntimeApiMessage, RuntimeApiRequest, RuntimeApiSender},
+	overseer, ChainApiError, SubsystemSender,
+};
+use polkadot_node_subsystem_types::messages::ChainApiMessage;
 
 pub use polkadot_node_metrics::{metrics, Metronome};
 
@@ -43,9 +42,9 @@ use futures::channel::{mpsc, oneshot};
 use parity_scale_codec::Encode;
 
 use polkadot_primitives::{
-	AsyncBackingParams, AuthorityDiscoveryId, CandidateEvent, CandidateHash,
-	CommittedCandidateReceipt, CoreState, EncodeAs, GroupIndex, GroupRotationInfo, Hash,
-	Id as ParaId, OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes,
+	slashing, AsyncBackingParams, AuthorityDiscoveryId, BlockNumber, CandidateEvent, CandidateHash,
+	CommittedCandidateReceipt, CoreState, EncodeAs, ExecutorParams, GroupIndex, GroupRotationInfo,
+	Hash, Id as ParaId, OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes,
 	SessionIndex, SessionInfo, Signed, SigningContext, ValidationCode, ValidationCodeHash,
 	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
@@ -56,10 +55,9 @@ use sp_keystore::{Error as KeystoreError, KeystorePtr};
 use std::time::Duration;
 use thiserror::Error;
 
+pub use determine_new_blocks::determine_new_blocks;
 pub use metered;
 pub use polkadot_node_network_protocol::MIN_GOSSIP_PEERS;
-
-pub use determine_new_blocks::determine_new_blocks;
 
 /// These reexports are required so that external crates can use the `delegated_subsystem` macro
 /// properly.
@@ -67,6 +65,8 @@ pub mod reexports {
 	pub use polkadot_overseer::gen::{SpawnedSubsystem, Spawner, Subsystem, SubsystemContext};
 }
 
+/// Helpers for the validator->chunk index mapping.
+pub mod availability_chunks;
 /// A utility for managing the implicit view of the relay-chain derived from active
 /// leaves and the minimum allowed relay-parents that parachain candidates can have
 /// and be backed in those leaves' children.
@@ -383,23 +383,20 @@ pub struct Validator {
 impl Validator {
 	/// Get a struct representing this node's validator if this node is in fact a validator in the
 	/// context of the given block.
-	pub async fn new<S>(parent: Hash, keystore: KeystorePtr, sender: &mut S) -> Result<Self, Error>
+	pub async fn new<S>(
+		validators: &[ValidatorId],
+		parent: Hash,
+		keystore: KeystorePtr,
+		sender: &mut S,
+	) -> Result<Self, Error>
 	where
 		S: SubsystemSender<RuntimeApiMessage>,
 	{
-		// Note: request_validators and request_session_index_for_child do not and cannot
-		// run concurrently: they both have a mutable handle to the same sender.
-		// However, each of them returns a oneshot::Receiver, and those are resolved concurrently.
-		let (validators, session_index) = futures::try_join!(
-			request_validators(parent, sender).await,
-			request_session_index_for_child(parent, sender).await,
-		)?;
+		let session_index = request_session_index_for_child(parent, sender).await.await??;
 
-		let signing_context = SigningContext { session_index: session_index?, parent_hash: parent };
+		let signing_context = SigningContext { session_index, parent_hash: parent };
 
-		let validators = validators?;
-
-		Self::construct(&validators, signing_context, keystore)
+		Self::construct(validators, signing_context, keystore)
 	}
 
 	/// Construct a validator instance without performing runtime fetches.
@@ -439,4 +436,19 @@ impl Validator {
 	) -> Result<Option<Signed<Payload, RealPayload>>, KeystoreError> {
 		Signed::sign(&keystore, payload, &self.signing_context, self.index, &self.key)
 	}
+}
+
+/// Get the block number by hash.
+pub async fn get_block_number<Sender, E>(
+	sender: &mut Sender,
+	relay_parent: Hash,
+) -> Result<Option<BlockNumber>, E>
+where
+	Sender: overseer::SubsystemSender<ChainApiMessage>,
+	E: From<ChainApiError> + From<oneshot::Canceled>,
+{
+	let (tx, rx) = oneshot::channel();
+	sender.send_message(ChainApiMessage::BlockNumber(relay_parent, tx)).await;
+
+	rx.await?.map_err(Into::into)
 }

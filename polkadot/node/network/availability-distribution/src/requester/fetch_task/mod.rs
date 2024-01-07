@@ -34,8 +34,8 @@ use polkadot_node_subsystem::{
 	overseer,
 };
 use polkadot_primitives::{
-	AuthorityDiscoveryId, BlakeTwo256, CandidateHash, GroupIndex, Hash, HashT, OccupiedCore,
-	SessionIndex,
+	AuthorityDiscoveryId, BlakeTwo256, CandidateHash, ChunkIndex, GroupIndex, Hash, HashT,
+	OccupiedCore, SessionIndex,
 };
 
 use crate::{
@@ -140,6 +140,7 @@ impl FetchTaskConfig {
 		sender: mpsc::Sender<FromFetchTask>,
 		metrics: Metrics,
 		session_info: &SessionInfo,
+		chunk_index: ChunkIndex,
 		span: jaeger::Span,
 	) -> Self {
 		let span = span
@@ -167,7 +168,7 @@ impl FetchTaskConfig {
 				.clone(),
 			request: ChunkFetchingRequest {
 				candidate_hash: core.candidate_hash,
-				index: session_info.our_index,
+				index: chunk_index,
 			},
 			erasure_root: core.candidate_descriptor.erasure_root,
 			relay_parent: core.candidate_descriptor.relay_parent,

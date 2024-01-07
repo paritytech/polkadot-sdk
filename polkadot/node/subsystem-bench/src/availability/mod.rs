@@ -303,6 +303,7 @@ pub async fn benchmark_availability_read(env: &mut TestEnvironment, mut state: T
 					Some(GroupIndex(
 						candidate_num as u32 % (std::cmp::max(5, config.n_cores) / 5) as u32,
 					)),
+					None,
 					tx,
 				),
 			);

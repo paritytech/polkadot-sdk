@@ -18,10 +18,7 @@
 //! availability.
 
 use std::{
-	collections::{
-		hash_map::{Entry, HashMap},
-		hash_set::HashSet,
-	},
+	collections::{hash_map::HashMap, hash_set::HashSet},
 	iter::IntoIterator,
 	pin::Pin,
 };
@@ -37,10 +34,14 @@ use polkadot_node_subsystem::{
 	messages::{ChainApiMessage, RuntimeApiMessage},
 	overseer, ActivatedLeaf, ActiveLeavesUpdate,
 };
-use polkadot_node_subsystem_util::runtime::{get_occupied_cores, RuntimeInfo};
+use polkadot_node_subsystem_util::{
+	availability_chunks::ChunkIndexCacheRegistry,
+	get_block_number,
+	runtime::{get_occupied_cores, request_node_features, RuntimeInfo},
+};
 use polkadot_primitives::{CandidateHash, Hash, OccupiedCore, SessionIndex};
 
-use super::{FatalError, Metrics, Result, LOG_TARGET};
+use super::{error::Error, FatalError, Metrics, Result, LOG_TARGET};
 
 #[cfg(test)]
 mod tests;
@@ -77,6 +78,9 @@ pub struct Requester {
 
 	/// Prometheus Metrics
 	metrics: Metrics,
+
+	/// Cache of our chunk indices based on the relay parent block and core index.
+	chunk_indices: ChunkIndexCacheRegistry,
 }
 
 #[overseer::contextbounds(AvailabilityDistribution, prefix = self::overseer)]
@@ -90,7 +94,16 @@ impl Requester {
 	/// by advancing the stream.
 	pub fn new(metrics: Metrics) -> Self {
 		let (tx, rx) = mpsc::channel(1);
-		Requester { fetches: HashMap::new(), session_cache: SessionCache::new(), tx, rx, metrics }
+		Requester {
+			fetches: HashMap::new(),
+			session_cache: SessionCache::new(),
+			tx,
+			rx,
+			metrics,
+			// Candidates shouldn't be pending availability for many blocks, so keep our index for
+			// the last two relay parents.
+			chunk_indices: ChunkIndexCacheRegistry::new(2),
+		}
 	}
 
 	/// Update heads that need availability distribution.
@@ -207,46 +220,91 @@ impl Requester {
 				.with_string_tag("leaf", format!("{:?}", leaf))
 				.with_candidate(core.candidate_hash)
 				.with_stage(jaeger::Stage::AvailabilityDistribution);
-			match self.fetches.entry(core.candidate_hash) {
-				Entry::Occupied(mut e) =>
-				// Just book keeping - we are already requesting that chunk:
-				{
-					span.add_string_tag("already-requested-chunk", "true");
-					e.get_mut().add_leaf(leaf);
-				},
-				Entry::Vacant(e) => {
-					span.add_string_tag("already-requested-chunk", "false");
-					let tx = self.tx.clone();
-					let metrics = self.metrics.clone();
 
-					let task_cfg = self
-						.session_cache
-						.with_session_info(
-							context,
-							runtime,
-							// We use leaf here, the relay_parent must be in the same session as
-							// the leaf. This is guaranteed by runtime which ensures that cores are
-							// cleared at session boundaries. At the same time, only leaves are
-							// guaranteed to be fetchable by the state trie.
-							leaf,
-							leaf_session_index,
-							|info| FetchTaskConfig::new(leaf, &core, tx, metrics, info, span),
-						)
-						.await
-						.map_err(|err| {
-							gum::warn!(
-								target: LOG_TARGET,
-								error = ?err,
-								"Failed to spawn a fetch task"
-							);
-							err
+			if let Some(e) = self.fetches.get_mut(&core.candidate_hash) {
+				// Just book keeping - we are already requesting that chunk:
+				span.add_string_tag("already-requested-chunk", "true");
+				e.add_leaf(leaf);
+			} else {
+				span.add_string_tag("already-requested-chunk", "false");
+				let tx = self.tx.clone();
+				let metrics = self.metrics.clone();
+				let block_number = get_block_number::<_, Error>(
+					context.sender(),
+					core.candidate_descriptor.relay_parent,
+				)
+				.await?
+				.ok_or(Error::BlockNumberNotFound)?;
+
+				let session_info = self
+					.session_cache
+					.get_session_info(
+						context,
+						runtime,
+						// We use leaf here, the relay_parent must be in the same session as
+						// the leaf. This is guaranteed by runtime which ensures that cores are
+						// cleared at session boundaries. At the same time, only leaves are
+						// guaranteed to be fetchable by the state trie.
+						leaf,
+						leaf_session_index,
+					)
+					.await
+					.map_err(|err| {
+						gum::warn!(
+							target: LOG_TARGET,
+							error = ?err,
+							"Failed to spawn a fetch task"
+						);
+						err
+					})?;
+
+				if let Some(session_info) = session_info {
+					let n_validators =
+						session_info.validator_groups.iter().fold(0usize, |mut acc, group| {
+							acc = acc.saturating_add(group.len());
+							acc
 						});
 
-					if let Ok(Some(task_cfg)) = task_cfg {
-						e.insert(FetchTask::start(task_cfg, context).await?);
-					}
-					// Not a validator, nothing to do.
-				},
+					let chunk_index = if let Some(chunk_index) =
+						self.chunk_indices.query_cache_for_validator(
+							block_number,
+							session_info.session_index,
+							core.para_id(),
+							session_info.our_index,
+						) {
+						chunk_index
+					} else {
+						let maybe_node_features = request_node_features(
+							core.candidate_descriptor.relay_parent,
+							session_info.session_index,
+							context.sender(),
+						)
+						.await?;
+
+						self.chunk_indices.populate_for_validator(
+							maybe_node_features,
+							session_info.random_seed,
+							n_validators,
+							block_number,
+							session_info.session_index,
+							core.para_id(),
+							session_info.our_index,
+						)
+					};
+
+					let task_cfg = FetchTaskConfig::new(
+						leaf,
+						&core,
+						tx,
+						metrics,
+						session_info,
+						chunk_index,
+						span,
+					);
+
+					self.fetches
+						.insert(core.candidate_hash, FetchTask::start(task_cfg, context).await?);
+				}
 			}
 		}
 		Ok(())

@@ -16,7 +16,7 @@ connect to and query randomly chosen validators until we have received `f + 1` p
 Input:
 
 * `NetworkBridgeUpdate(update)`
-* `AvailabilityRecoveryMessage::RecoverAvailableData(candidate, session, backing_group, response)`
+* `AvailabilityRecoveryMessage::RecoverAvailableData(candidate, session, backing_group, maybe_relay_parent_block_number, response)`
 
 Output:
 
@@ -90,7 +90,7 @@ Ignore `BlockFinalized` signals.
 
 On `Conclude`, shut down the subsystem.
 
-#### `AvailabilityRecoveryMessage::RecoverAvailableData(receipt, session, Option<backing_group_index>, response)`
+#### `AvailabilityRecoveryMessage::RecoverAvailableData(receipt, session, Option<backing_group_index>, Option<relay_parent_block_number> response)`
 
 1. Check the `availability_lru` for the candidate and return the data if so.
 1. Check if there is already an recovery handle for the request. If so, add the response handle to it.

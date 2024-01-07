@@ -31,7 +31,7 @@ use sp_keyring::Sr25519Keyring;
 use polkadot_node_network_protocol::request_response::{v1, Recipient};
 use polkadot_node_primitives::{BlockData, PoV, Proof};
 use polkadot_node_subsystem::messages::AllMessages;
-use polkadot_primitives::{CandidateHash, ValidatorIndex};
+use polkadot_primitives::{CandidateHash, ChunkIndex};
 
 use super::*;
 use crate::{metrics::Metrics, tests::mock::get_valid_chunk_data};
@@ -74,12 +74,12 @@ fn task_does_not_accept_invalid_chunk() {
 #[test]
 fn task_stores_valid_chunk() {
 	let (mut task, rx) = get_test_running_task();
-	let pov = PoV { block_data: BlockData(vec![45, 46, 47]) };
-	let (root_hash, chunk) = get_valid_chunk_data(pov);
-	task.erasure_root = root_hash;
-	task.request.index = chunk.index;
-
 	let validators = vec![Sr25519Keyring::Alice.public().into()];
+	let pov = PoV { block_data: BlockData(vec![45, 46, 47]) };
+	let (root_hash, chunk) = get_valid_chunk_data(pov, 10, ChunkIndex(0));
+	task.erasure_root = root_hash;
+	task.request.index = chunk.index.into();
+
 	task.group = validators;
 
 	let test = TestRun {
@@ -106,12 +106,12 @@ fn task_stores_valid_chunk() {
 #[test]
 fn task_does_not_accept_wrongly_indexed_chunk() {
 	let (mut task, rx) = get_test_running_task();
-	let pov = PoV { block_data: BlockData(vec![45, 46, 47]) };
-	let (root_hash, chunk) = get_valid_chunk_data(pov);
-	task.erasure_root = root_hash;
-	task.request.index = ValidatorIndex(chunk.index.0 + 1);
-
 	let validators = vec![Sr25519Keyring::Alice.public().into()];
+	let pov = PoV { block_data: BlockData(vec![45, 46, 47]) };
+	let (root_hash, chunk) = get_valid_chunk_data(pov, 10, ChunkIndex(0));
+	task.erasure_root = root_hash;
+	task.request.index = ChunkIndex(chunk.index.0 + 1);
+
 	task.group = validators;
 
 	let test = TestRun {
@@ -136,9 +136,6 @@ fn task_does_not_accept_wrongly_indexed_chunk() {
 fn task_stores_valid_chunk_if_there_is_one() {
 	let (mut task, rx) = get_test_running_task();
 	let pov = PoV { block_data: BlockData(vec![45, 46, 47]) };
-	let (root_hash, chunk) = get_valid_chunk_data(pov);
-	task.erasure_root = root_hash;
-	task.request.index = chunk.index;
 
 	let validators = [
 		// Only Alice has valid chunk - should succeed, even though she is tried last.
@@ -151,6 +148,11 @@ fn task_stores_valid_chunk_if_there_is_one() {
 	.iter()
 	.map(|v| v.public().into())
 	.collect::<Vec<_>>();
+
+	let (root_hash, chunk) = get_valid_chunk_data(pov, 10, ChunkIndex(0));
+	task.erasure_root = root_hash;
+	task.request.index = chunk.index.into();
+
 	task.group = validators;
 
 	let test = TestRun {
@@ -285,7 +287,7 @@ fn get_test_running_task() -> (RunningTask, mpsc::Receiver<FromFetchTask>) {
 			group: Vec::new(),
 			request: ChunkFetchingRequest {
 				candidate_hash: CandidateHash([43u8; 32].into()),
-				index: ValidatorIndex(0),
+				index: ChunkIndex(0),
 			},
 			erasure_root: Hash::repeat_byte(99),
 			relay_parent: Hash::repeat_byte(71),

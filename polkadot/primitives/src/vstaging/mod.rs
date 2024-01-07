@@ -53,6 +53,7 @@ impl Default for ApprovalVotingParams {
 use bitvec::vec::BitVec;
 
 /// Bit indices in the `HostConfiguration.node_features` that correspond to different node features.
+/// The maximum bit that can be currently set/unset via the `set_node_feature` extrinsic is 255.
 pub type NodeFeatures = BitVec<u8, bitvec::order::Lsb0>;
 
 /// Module containing feature-specific bit indices into the `NodeFeatures` bitvec.
@@ -64,9 +65,11 @@ pub mod node_features {
 		/// Tells if tranch0 assignments could be sent in a single certificate.
 		/// Reserved for: `<https://github.com/paritytech/polkadot-sdk/issues/628>`
 		EnableAssignmentsV2 = 0,
+		/// Index of the availability chunk shuffling feature bit.
+		AvailabilityChunkShuffling = 1,
 		/// First unassigned feature bit.
 		/// Every time a new feature flag is assigned it should take this value.
 		/// and this should be incremented.
-		FirstUnassigned = 1,
+		FirstUnassigned = 2,
 	}
 }
