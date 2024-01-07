@@ -14,8 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-#![warn(missing_docs)]
-
 //! The PVF validation host. Responsible for coordinating preparation and execution of PVFs.
 //!
 //! For more background, refer to the Implementer's Guide: [PVF
@@ -89,6 +87,8 @@
 //! The execute workers will be fed by the requests from the execution queue, which is basically a
 //! combination of a path to the compiled artifact and the
 //! [`params`][`polkadot_parachain_primitives::primitives::ValidationParams`].
+
+#![warn(missing_docs)]
 
 mod artifacts;
 mod error;
