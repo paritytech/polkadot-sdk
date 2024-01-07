@@ -1,0 +1,8 @@
+title: "Refactors `OnStakingUpdate` trait"
+
+doc:
+  - audience: Runtime Dev
+    description: Refactors the `sp_staking:OnStakingUpdate` to make event inputs more explicit.
+
+crates:
+  - name: "sp-staking"
