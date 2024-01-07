@@ -2456,13 +2456,16 @@ fn buy_item_should_work() {
 		let price_1 = 20;
 		let price_2 = 30;
 		let initial_balance = 100;
+		let collection_deposit = 2;
+		let metadata_deposit = 11;
+		let item_deposit = 1;
 
 		Balances::make_free_balance_be(&user_1, initial_balance);
 		Balances::make_free_balance_be(&user_2, initial_balance);
 		Balances::make_free_balance_be(&user_3, initial_balance);
 
-		assert_ok!(Nfts::force_create(
-			RuntimeOrigin::root(),
+		assert_ok!(Nfts::create(
+			RuntimeOrigin::signed(user_1.clone()),
 			user_1.clone(),
 			collection_config_with_all_settings_enabled()
 		));
@@ -2529,13 +2532,96 @@ fn buy_item_should_work() {
 		// validate the new owner, balances, and reserves
 		let item = Item::<Test>::get(collection_id, item_1).unwrap();
 		let metadata = ItemMetadataOf::<Test>::get(collection_id, item_1).unwrap();
+		let collection_details = Collection::<Test>::get(collection_id).unwrap();
 		assert_eq!(item.owner, user_2.clone());
 		assert_eq!(item.deposit.account, user_2.clone());
 		assert_eq!(metadata.deposit.account, Some(user_2.clone()));
 		assert_eq!(Balances::total_balance(&user_1), initial_balance + price_1);
 		assert_eq!(Balances::total_balance(&user_2), initial_balance - price_1);
-		assert_eq!(Balances::reserved_balance(&user_1), 2);
-		assert_eq!(Balances::reserved_balance(&user_2), 12);
+		assert_eq!(Balances::reserved_balance(&user_1), 2 * item_deposit + collection_deposit);
+		assert_eq!(Balances::reserved_balance(&user_2), item_deposit + metadata_deposit);
+		assert_eq!(collection_details.owner_deposit, collection_deposit);
+
+		// when neither buyer nor seller is collection owner
+		assert_ok!(Nfts::set_price(
+			RuntimeOrigin::signed(user_2.clone()),
+			collection_id,
+			item_1,
+			Some(price_1),
+			None,
+		));
+		assert_ok!(Nfts::buy_item(
+			RuntimeOrigin::signed(user_3.clone()),
+			collection_id,
+			item_1,
+			price_1,
+		));
+		let item = Item::<Test>::get(collection_id, item_1).unwrap();
+		let metadata = ItemMetadataOf::<Test>::get(collection_id, item_1).unwrap();
+		let collection_details = Collection::<Test>::get(collection_id).unwrap();
+		assert_eq!(item.deposit.account, user_3.clone());
+		assert_eq!(metadata.deposit.account, Some(user_3.clone()));
+		assert_eq!(Balances::reserved_balance(&user_2), 0);
+		assert_eq!(Balances::reserved_balance(&user_3), item_deposit + metadata_deposit);
+		assert_eq!(collection_details.owner_deposit, collection_deposit);
+
+		// when buyer is the collection owner and depositor is not collection owner
+		assert_ok!(Nfts::set_price(
+			RuntimeOrigin::signed(user_3.clone()),
+			collection_id,
+			item_1,
+			Some(price_1),
+			None,
+		));
+		assert_ok!(Nfts::buy_item(
+			RuntimeOrigin::signed(user_1.clone()),
+			collection_id,
+			item_1,
+			price_1,
+		));
+		let item = Item::<Test>::get(collection_id, item_1).unwrap();
+		let metadata = ItemMetadataOf::<Test>::get(collection_id, item_1).unwrap();
+		let collection_details = Collection::<Test>::get(collection_id).unwrap();
+		assert_eq!(item.deposit.account, user_1.clone());
+		assert_eq!(metadata.deposit.account, None);
+		assert_eq!(Balances::reserved_balance(&user_3), 0);
+		assert_eq!(
+			Balances::reserved_balance(&user_1),
+			3 * item_deposit + collection_deposit + metadata_deposit
+		);
+		assert_eq!(collection_details.owner_deposit, collection_deposit + metadata_deposit);
+
+		// when both buyer and depositor are collection owner
+		Account::<Test>::remove((user_1.clone(), collection_id, item_1));
+		Account::<Test>::insert((user_2.clone(), collection_id, item_1), ());
+		Item::<Test>::mutate(collection_id, item_1, |maybe_item| {
+			let item = maybe_item.as_mut().unwrap();
+			item.owner = user_2.clone();
+		});
+		assert_ok!(Nfts::set_price(
+			RuntimeOrigin::signed(user_2.clone()),
+			collection_id,
+			item_1,
+			Some(price_1),
+			None,
+		));
+		assert_ok!(Nfts::buy_item(
+			RuntimeOrigin::signed(user_1.clone()),
+			collection_id,
+			item_1,
+			price_1,
+		));
+		let item = Item::<Test>::get(collection_id, item_1).unwrap();
+		let metadata = ItemMetadataOf::<Test>::get(collection_id, item_1).unwrap();
+		let collection_details = Collection::<Test>::get(collection_id).unwrap();
+		assert_eq!(item.deposit.account, user_1.clone());
+		assert_eq!(metadata.deposit.account, None);
+		assert_eq!(Balances::reserved_balance(&user_2), 0);
+		assert_eq!(
+			Balances::reserved_balance(&user_1),
+			3 * item_deposit + collection_deposit + metadata_deposit
+		);
+		assert_eq!(collection_details.owner_deposit, collection_deposit + metadata_deposit);
 
 		// can't buy from yourself
 		assert_noop!(

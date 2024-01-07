@@ -161,34 +161,49 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			// Here we move item deppsit and metadata deposit to the buyer. Attribute deposit is
 			// currently not moved.
 
-			let mut maybe_metadata = ItemMetadataOf::<T, I>::get(&collection, &item);
+			let item_deposit = details.deposit.amount;
+			let item_depositor = &details.deposit.account;
 
-			// Sum of item deposit and metadata deposit.
-			let deposit = details.deposit.amount.saturating_add(
-				maybe_metadata
-					.as_ref()
-					.map(|metadata| metadata.deposit.amount)
-					.unwrap_or(Zero::zero()),
-			);
-
-			let depositor = maybe_metadata
-				.iter()
-				.flat_map(|metadata| metadata.deposit.account.iter())
-				.next()
-				.unwrap_or(&collection_details.owner);
-
-			// Move the deposit to buyer.
-			T::Currency::unreserve(depositor, deposit);
-			T::Currency::reserve(&buyer, deposit)?;
-
-			// Change deposit accounts.
-			details.deposit.account = buyer.clone();
-			if let Some(metadata) = maybe_metadata.as_mut() {
-				if !metadata.deposit.amount.is_zero() {
-					metadata.deposit.account = Some(buyer.clone());
-					ItemMetadataOf::<T, I>::insert(&collection, &item, metadata);
-				}
+			if &buyer != item_depositor {
+				T::Currency::unreserve(item_depositor, item_deposit);
+				T::Currency::reserve(&buyer, item_deposit)?;
+				details.deposit.account = buyer.clone();
 			}
+
+			let mut maybe_metadata = ItemMetadataOf::<T, I>::get(&collection, &item);
+			let metadata = match maybe_metadata.as_mut() {
+				Some(metadata) => metadata,
+				None => return Ok(()),
+			};
+
+			let metadata_deposit = metadata.deposit.amount;
+			let metadata_depositor =
+				metadata.deposit.account.as_ref().unwrap_or(&collection_details.owner);
+
+			if &buyer != metadata_depositor {
+				T::Currency::unreserve(metadata_depositor, metadata_deposit);
+				T::Currency::reserve(&buyer, metadata_deposit)?;
+			}
+
+			let buyer_is_collection_owner = buyer == collection_details.owner;
+			let collection_owner_is_depositor = metadata_depositor == &collection_details.owner;
+
+			match (buyer_is_collection_owner, collection_owner_is_depositor) {
+				(true, true) => { /* Do nothing */ },
+				(true, false) => {
+					collection_details.owner_deposit.saturating_accrue(metadata_deposit);
+					metadata.deposit.account = None;
+				},
+				(false, true) => {
+					collection_details.owner_deposit.saturating_reduce(metadata_deposit);
+					metadata.deposit.account = Some(buyer.clone());
+				},
+				(false, false) => {
+					metadata.deposit.account = Some(buyer.clone());
+				},
+			}
+
+			ItemMetadataOf::<T, I>::insert(&collection, &item, metadata);
 
 			Ok(())
 		})?;
