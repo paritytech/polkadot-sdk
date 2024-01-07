@@ -86,3 +86,17 @@ pub fn framed_recv_blocking(r: &mut (impl Read + Unpin)) -> io::Result<Vec<u8>> 
 	r.read_exact(&mut buf)?;
 	Ok(buf)
 }
+
+/// Calls `uname` to get the host architecture. Example output: "Linux-x86_64".
+#[cfg(feature = "test-utils")]
+pub fn test_get_host_architecture() -> String {
+	let uname = std::process::Command::new("uname")
+		.arg("-ms")
+		.output()
+		.expect("uname should not fail in tests")
+		.stdout;
+	std::str::from_utf8(&uname)
+		.expect("uname output is printed as an ASCII string; qed")
+		.trim()
+		.replace(" ", "-")
+}

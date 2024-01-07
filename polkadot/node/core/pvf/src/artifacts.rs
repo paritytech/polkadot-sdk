@@ -57,6 +57,7 @@
 
 use crate::{host::PrecheckResultSender, LOG_TARGET};
 use always_assert::always;
+use helpers::Architecture;
 use polkadot_core_primitives::Hash;
 use polkadot_node_core_pvf_common::{
 	error::PrepareError, prepare::PrepareStats, pvf::PvfPrepData, RUNTIME_VERSION,
@@ -84,26 +85,32 @@ fn artifact_prefix() -> String {
 pub struct ArtifactId {
 	pub(crate) code_hash: ValidationCodeHash,
 	pub(crate) executor_params_hash: ExecutorParamsHash,
+	pub(crate) architecture: Architecture,
 }
 
 impl ArtifactId {
 	/// Creates a new artifact ID with the given hash.
-	pub fn new(code_hash: ValidationCodeHash, executor_params_hash: ExecutorParamsHash) -> Self {
-		Self { code_hash, executor_params_hash }
+	pub fn new(
+		code_hash: ValidationCodeHash,
+		executor_params_hash: ExecutorParamsHash,
+		architecture: Architecture,
+	) -> Self {
+		Self { code_hash, executor_params_hash, architecture }
 	}
 
 	/// Returns an artifact ID that corresponds to the PVF with given executor params.
 	pub fn from_pvf_prep_data(pvf: &PvfPrepData) -> Self {
-		Self::new(pvf.code_hash(), pvf.executor_params().hash())
+		Self::new(pvf.code_hash(), pvf.executor_params().hash(), pvf.architecture().into())
 	}
 
 	/// Returns the canonical path to the concluded artifact.
 	pub(crate) fn path(&self, cache_path: &Path, checksum: &str) -> PathBuf {
 		let file_name = format!(
-			"{}_{:#x}_{:#x}_0x{}",
+			"{}_{:#x}_{:#x}_{}_0x{}",
 			artifact_prefix(),
 			self.code_hash,
 			self.executor_params_hash,
+			self.architecture,
 			checksum
 		);
 		cache_path.join(file_name)
@@ -111,16 +118,16 @@ impl ArtifactId {
 
 	/// Tries to recover the artifact id from the given file name.
 	/// Return `None` if the given file name is invalid.
-	/// VALID_NAME := <PREFIX> _ <CODE_HASH> _ <PARAM_HASH> _ <CHECKSUM>
+	/// VALID_NAME := <PREFIX> _ <CODE_HASH> _ <PARAM_HASH> _ <ARCHITECTURE> _ <CHECKSUM>
 	fn from_file_name(file_name: &str) -> Option<Self> {
 		let file_name = file_name.strip_prefix(&artifact_prefix())?.strip_prefix('_')?;
 		let parts: Vec<&str> = file_name.split('_').collect();
 
-		if let [code_hash, param_hash, _checksum] = parts[..] {
+		if let [code_hash, param_hash, architecture, _checksum] = parts[..] {
 			let code_hash = Hash::from_str(code_hash).ok()?.into();
 			let executor_params_hash =
 				ExecutorParamsHash::from_hash(Hash::from_str(param_hash).ok()?);
-			return Some(Self { code_hash, executor_params_hash })
+			return Some(Self { code_hash, executor_params_hash, architecture: architecture.into() })
 		}
 
 		None
@@ -185,12 +192,16 @@ pub enum ArtifactState {
 /// A container of all known artifact ids and their states.
 pub struct Artifacts {
 	inner: HashMap<ArtifactId, ArtifactState>,
+	architecture: Architecture,
 }
 
 impl Artifacts {
 	#[cfg(test)]
 	pub(crate) fn empty() -> Self {
-		Self { inner: HashMap::new() }
+		Self {
+			inner: HashMap::new(),
+			architecture: polkadot_node_core_pvf_common::test_get_host_architecture().into(),
+		}
 	}
 
 	#[cfg(test)]
@@ -203,8 +214,9 @@ impl Artifacts {
 	/// valid, e.g., matching the current node version. The ones deemed invalid will be pruned.
 	///
 	/// Create the cache directory on-disk if it doesn't exist.
-	pub async fn new_and_prune(cache_path: &Path) -> Self {
-		let mut artifacts = Self { inner: HashMap::new() };
+	pub async fn new_and_prune(cache_path: &Path, architecture: &str) -> Self {
+		let architecture: Architecture = architecture.replace("_", "-").into();
+		let mut artifacts = Self { inner: HashMap::new(), architecture };
 		let _ = artifacts.insert_and_prune(cache_path).await.map_err(|err| {
 			gum::error!(
 				target: LOG_TARGET,
@@ -215,7 +227,7 @@ impl Artifacts {
 	}
 
 	async fn insert_and_prune(&mut self, cache_path: &Path) -> Result<(), String> {
-		async fn is_corrupted(path: &Path) -> bool {
+		async fn checksum_matches(path: &Path) -> bool {
 			let checksum = match tokio::fs::read(path).await {
 				Ok(bytes) => blake3::hash(&bytes),
 				Err(err) => {
@@ -226,16 +238,16 @@ impl Artifacts {
 						"unable to read artifact {:?} when checking integrity, removing...",
 						path,
 					);
-					return true
+					return false
 				},
 			};
 
 			if let Some(file_name) = path.file_name() {
 				if let Some(file_name) = file_name.to_str() {
-					return !file_name.ends_with(checksum.to_hex().as_str())
+					return file_name.ends_with(checksum.to_hex().as_str())
 				}
 			}
-			true
+			false
 		}
 
 		// Insert the entry into the artifacts table if it is valid.
@@ -260,12 +272,17 @@ impl Artifacts {
 				let id = ArtifactId::from_file_name(file_name);
 				let path = cache_path.join(file_name);
 
-				if id.is_none() || is_corrupted(&path).await {
+				if id.is_none() || !checksum_matches(&path).await {
 					let _ = tokio::fs::remove_file(&path).await;
 					return Err(format!("invalid artifact {path:?}, file deleted"))
 				}
-
 				let id = id.expect("checked is_none() above; qed");
+				let architecture = &artifacts.architecture;
+				if &id.architecture != architecture {
+					let _ = tokio::fs::remove_file(&path).await;
+					return Err(format!("artifact at {path:?} compiled with different architecture (current architecture is {architecture}), file deleted"))
+				}
+
 				gum::debug!(
 					target: LOG_TARGET,
 					"reusing existing {:?} for node version v{}",
@@ -374,13 +391,46 @@ impl Artifacts {
 	}
 }
 
+mod helpers {
+	use std::fmt;
+
+	/// A helper type for the host architecture. It manipulates the architecture string so that it
+	/// is guaranteed not to contain characters such as "_" that could cause problems with parsing
+	/// artifact filenames.
+	#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+	pub struct Architecture(String);
+
+	impl Architecture {
+		#[cfg(test)]
+		pub fn inner(&self) -> &str {
+			&self.0
+		}
+	}
+
+	impl<S> From<S> for Architecture
+	where
+		S: AsRef<str>,
+	{
+		fn from(s: S) -> Self {
+			Self(s.as_ref().replace("_", "-").replace(" ", "-"))
+		}
+	}
+
+	impl fmt::Display for Architecture {
+		fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+			write!(f, "{}", self.0)
+		}
+	}
+}
+
 #[cfg(test)]
 mod tests {
-	use super::{artifact_prefix as prefix, ArtifactId, Artifacts, NODE_VERSION, RUNTIME_VERSION};
-	use polkadot_primitives::ExecutorParamsHash;
+	use super::*;
+
 	use rand::Rng;
 	use sp_core::H256;
 	use std::{
+		ffi::OsString,
 		fs,
 		io::Write,
 		path::{Path, PathBuf},
@@ -393,8 +443,38 @@ mod tests {
 		(0..len).map(|_| hex[rng.gen_range(0..hex.len())]).collect()
 	}
 
-	fn file_name(code_hash: &str, param_hash: &str, checksum: &str) -> String {
-		format!("{}_0x{}_0x{}_0x{}", prefix(), code_hash, param_hash, checksum)
+	fn file_name_without_checksum(
+		prefix: &str,
+		code_hash: impl AsRef<str>,
+		params_hash: impl AsRef<str>,
+		architecture: &Architecture,
+	) -> String {
+		format!(
+			"{}_0x{}_0x{}_{}",
+			prefix,
+			code_hash.as_ref(),
+			params_hash.as_ref(),
+			architecture.inner(),
+		)
+	}
+
+	fn append_checksum(mut file_name: OsString, checksum: &str) -> OsString {
+		file_name.push("_0x");
+		file_name.push(checksum);
+		file_name
+	}
+
+	fn file_name(
+		code_hash: &str,
+		params_hash: &str,
+		architecture: &Architecture,
+		checksum: &str,
+	) -> String {
+		let without_checksum =
+			file_name_without_checksum(&artifact_prefix(), code_hash, params_hash, architecture);
+		append_checksum(without_checksum.into(), checksum)
+			.into_string()
+			.expect("the filename is valid UTF8")
 	}
 
 	fn create_artifact(
@@ -402,22 +482,12 @@ mod tests {
 		prefix: &str,
 		code_hash: impl AsRef<str>,
 		params_hash: impl AsRef<str>,
+		architecture: &Architecture,
 	) -> (PathBuf, String) {
-		fn artifact_path_without_checksum(
-			dir: impl AsRef<Path>,
-			prefix: &str,
-			code_hash: impl AsRef<str>,
-			params_hash: impl AsRef<str>,
-		) -> PathBuf {
-			let mut path = dir.as_ref().to_path_buf();
-			let file_name =
-				format!("{}_0x{}_0x{}", prefix, code_hash.as_ref(), params_hash.as_ref(),);
-			path.push(file_name);
-			path
-		}
-
 		let (code_hash, params_hash) = (code_hash.as_ref(), params_hash.as_ref());
-		let path = artifact_path_without_checksum(dir, prefix, code_hash, params_hash);
+		let file_name = file_name_without_checksum(prefix, code_hash, params_hash, architecture);
+		let mut path = dir.as_ref().to_path_buf();
+		path.push(file_name);
 		let mut file = fs::File::create(&path).unwrap();
 
 		let content = format!("{}{}", code_hash, params_hash).into_bytes();
@@ -427,21 +497,19 @@ mod tests {
 		(path, checksum)
 	}
 
-	fn create_rand_artifact(dir: impl AsRef<Path>, prefix: &str) -> (PathBuf, String) {
-		create_artifact(dir, prefix, rand_hash(64), rand_hash(64))
+	fn create_rand_artifact(
+		dir: impl AsRef<Path>,
+		prefix: &str,
+		architecture: &Architecture,
+	) -> (PathBuf, String) {
+		create_artifact(dir, prefix, rand_hash(64), rand_hash(64), architecture)
 	}
 
 	fn concluded_path(path: impl AsRef<Path>, checksum: &str) -> PathBuf {
 		let path = path.as_ref();
-		let mut file_name = path.file_name().unwrap().to_os_string();
-		file_name.push("_0x");
-		file_name.push(checksum);
+		let without_checksum = path.file_name().unwrap().to_os_string();
+		let file_name = append_checksum(without_checksum, checksum);
 		path.with_file_name(file_name)
-	}
-
-	#[test]
-	fn artifact_prefix() {
-		assert_eq!(prefix(), format!("wasmtime_v{}_polkadot_v{}", RUNTIME_VERSION, NODE_VERSION));
 	}
 
 	#[test]
@@ -449,9 +517,12 @@ mod tests {
 		assert!(ArtifactId::from_file_name("").is_none());
 		assert!(ArtifactId::from_file_name("junk").is_none());
 
+		let architecture = Architecture::from("Linux-x86_64");
+
 		let file_name = file_name(
 			"0022800000000000000000000000000000000000000000000000000000000000",
 			"0033900000000000000000000000000000000000000000000000000000000000",
+			&architecture,
 			"00000000000000000000000000000000",
 		);
 
@@ -465,6 +536,7 @@ mod tests {
 				ExecutorParamsHash::from_hash(sp_core::H256(hex_literal::hex![
 					"0033900000000000000000000000000000000000000000000000000000000000"
 				])),
+				architecture,
 			)),
 		);
 	}
@@ -474,13 +546,18 @@ mod tests {
 		let dir = Path::new("/test");
 		let code_hash = "1234567890123456789012345678901234567890123456789012345678901234";
 		let params_hash = "4321098765432109876543210987654321098765432109876543210987654321";
+		let architecture = Architecture::from("Darwin-arm64");
 		let checksum = "34567890123456789012345678901234";
-		let file_name = file_name(code_hash, params_hash, checksum);
+		let file_name = file_name(code_hash, params_hash, &architecture, checksum);
 
 		let code_hash = H256::from_str(code_hash).unwrap();
 		let params_hash = H256::from_str(params_hash).unwrap();
-		let path = ArtifactId::new(code_hash.into(), ExecutorParamsHash::from_hash(params_hash))
-			.path(dir, checksum);
+		let path = ArtifactId::new(
+			code_hash.into(),
+			ExecutorParamsHash::from_hash(params_hash),
+			architecture,
+		)
+		.path(dir, checksum);
 
 		assert_eq!(path.to_str().unwrap(), format!("/test/{}", file_name));
 	}
@@ -488,35 +565,43 @@ mod tests {
 	#[tokio::test]
 	async fn remove_stale_cache_on_startup() {
 		let cache_dir = tempfile::Builder::new().prefix("test-cache-").tempdir().unwrap();
+		let valid_architecture = Architecture::from("Linux-x86_64");
+		let valid_prefix = artifact_prefix();
 
 		// invalid prefix
-		create_rand_artifact(&cache_dir, "");
-		create_rand_artifact(&cache_dir, "wasmtime_polkadot_v");
-		create_rand_artifact(&cache_dir, "wasmtime_v8.0.0_polkadot_v1.0.0");
-
-		let prefix = prefix();
+		create_rand_artifact(&cache_dir, "", &valid_architecture);
+		create_rand_artifact(&cache_dir, "wasmtime_polkadot_v", &valid_architecture);
+		create_rand_artifact(&cache_dir, "wasmtime_v8.0.0_polkadot_v1.0.0", &valid_architecture);
 
 		// no checksum
-		create_rand_artifact(&cache_dir, &prefix);
+		create_rand_artifact(&cache_dir, &valid_prefix, &valid_architecture);
 
 		// invalid hashes
-		let (path, checksum) = create_artifact(&cache_dir, &prefix, "000", "000001");
+		let (path, checksum) =
+			create_artifact(&cache_dir, &valid_prefix, "000", "000001", &valid_architecture);
+		let new_path = concluded_path(&path, &checksum);
+		fs::rename(&path, &new_path).unwrap();
+
+		// architecture mismatch
+		let (path, checksum) =
+			create_rand_artifact(&cache_dir, &valid_prefix, &("Qubes-mips".into()));
 		let new_path = concluded_path(&path, &checksum);
 		fs::rename(&path, &new_path).unwrap();
 
 		// checksum tampered
-		let (path, checksum) = create_rand_artifact(&cache_dir, &prefix);
+		let (path, checksum) = create_rand_artifact(&cache_dir, &valid_prefix, &valid_architecture);
 		let new_path = concluded_path(&path, checksum.chars().rev().collect::<String>().as_str());
 		fs::rename(&path, &new_path).unwrap();
 
 		// valid
-		let (path, checksum) = create_rand_artifact(&cache_dir, &prefix);
+		let (path, checksum) = create_rand_artifact(&cache_dir, &valid_prefix, &valid_architecture);
 		let new_path = concluded_path(&path, &checksum);
 		fs::rename(&path, &new_path).unwrap();
 
-		assert_eq!(fs::read_dir(&cache_dir).unwrap().count(), 7);
+		assert_eq!(fs::read_dir(&cache_dir).unwrap().count(), 8);
 
-		let artifacts = Artifacts::new_and_prune(cache_dir.path()).await;
+		let artifacts =
+			Artifacts::new_and_prune(cache_dir.path(), valid_architecture.inner()).await;
 
 		assert_eq!(fs::read_dir(&cache_dir).unwrap().count(), 1);
 		assert_eq!(artifacts.len(), 1);

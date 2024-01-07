@@ -42,20 +42,23 @@ pub struct PvfPrepData {
 	prep_timeout: Duration,
 	/// The kind of preparation job.
 	prep_kind: PrepareJobKind,
+	/// The host architecture.
+	architecture: String,
 }
 
 impl PvfPrepData {
 	/// Returns an instance of the PVF out of the given PVF code and executor params.
-	pub fn from_code(
+	pub fn new(
 		code: Vec<u8>,
 		executor_params: ExecutorParams,
 		prep_timeout: Duration,
 		prep_kind: PrepareJobKind,
+		architecture: String,
 	) -> Self {
 		let code = Arc::new(code);
 		let code_hash = blake2_256(&code).into();
 		let executor_params = Arc::new(executor_params);
-		Self { code, code_hash, executor_params, prep_timeout, prep_kind }
+		Self { code, code_hash, executor_params, prep_timeout, prep_kind, architecture }
 	}
 
 	/// Returns validation code hash for the PVF
@@ -83,15 +86,21 @@ impl PvfPrepData {
 		self.prep_kind
 	}
 
+	/// Returns host architecture.
+	pub fn architecture(&self) -> &str {
+		&self.architecture
+	}
+
 	/// Creates a structure for tests.
 	#[cfg(feature = "test-utils")]
 	pub fn from_discriminator_and_timeout(num: u32, timeout: Duration) -> Self {
 		let descriminator_buf = num.to_le_bytes().to_vec();
-		Self::from_code(
+		Self::new(
 			descriminator_buf,
 			ExecutorParams::default(),
 			timeout,
 			PrepareJobKind::Compilation,
+			crate::test_get_host_architecture(),
 		)
 	}
 
