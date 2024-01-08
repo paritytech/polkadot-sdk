@@ -99,7 +99,6 @@ pub fn create_full<C, P, SC, B>(
 ) -> Result<RpcExtension, Box<dyn std::error::Error + Send + Sync>>
 where
 	C: ProvideRuntimeApi<Block>
-		+ sc_client_api::BlockBackend<Block>
 		+ HeaderBackend<Block>
 		+ AuxStore
 		+ HeaderMetadata<Block, Error = BlockChainError>
@@ -137,7 +136,7 @@ where
 	} = grandpa;
 
 	let chain_name = chain_spec.name().to_string();
-	let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");
+	let genesis_hash = client.hash(0).ok().flatten().expect("Genesis block exists; qed");
 	let properties = chain_spec.properties();
 
 	io.merge(ChainSpec::new(chain_name, genesis_hash, properties).into_rpc())?;
