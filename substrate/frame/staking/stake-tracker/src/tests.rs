@@ -107,7 +107,7 @@ fn on_stake_update_works() {
 			n.insert(1, (new_stake, nominations.clone()));
 		});
 
-		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&1, stake_before);
+		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&1, stake_before, new_stake);
 
 		assert_eq!(VoterBagsList::get_score(&1).unwrap(), new_stake.active);
 
@@ -139,7 +139,7 @@ fn on_stake_update_works() {
 
 		let stake_imbalance = stake_before.unwrap().active - new_stake.total;
 
-		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&10, stake_before);
+		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&10, stake_before, new_stake);
 
 		assert_eq!(VoterBagsList::get_score(&10).unwrap(), new_stake.active);
 		assert_eq!(StakingMock::stake(&10), Ok(new_stake));
@@ -199,7 +199,11 @@ fn on_stake_update_sorting_works() {
 
 		// noop, nothing changes.
 		let initial_stake = stake_of(11);
-		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&11, initial_stake);
+		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(
+			&11,
+			initial_stake,
+			initial_stake.unwrap(),
+		);
 		assert_eq!(voter_scores_before, get_scores::<VoterBagsList>());
 
 		// now let's change the self-vote of 11 and call `on_stake_update` again.
@@ -209,7 +213,7 @@ fn on_stake_update_sorting_works() {
 			n.insert(11, (new_stake, nominations.clone()));
 		});
 
-		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&11, initial_stake);
+		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&11, initial_stake, new_stake);
 
 		// although the voter score of 11 is 1, the voter list sorting has not been updated
 		// automatically.
@@ -239,7 +243,7 @@ fn on_stake_update_defensive_not_in_list_works() {
 		// removes 1 from nominator's list manually, while keeping it as staker.
 		assert_ok!(VoterBagsList::on_remove(&1));
 
-		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&1, None);
+		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&1, None, Stake::default());
 	})
 }
 
@@ -249,7 +253,7 @@ fn on_stake_update_defensive_not_staker_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		assert!(!VoterBagsList::contains(&1));
 
-		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&1, None);
+		<StakeTracker as OnStakingUpdate<A, B>>::on_stake_update(&1, None, Stake::default());
 	})
 }
 
@@ -295,7 +299,8 @@ fn on_nominator_add_already_exists_works() {
 		let target_list_before = TargetBagsList::iter().collect::<Vec<_>>();
 
 		// noop.
-		<StakeTracker as OnStakingUpdate<A, B>>::on_nominator_add(&1);
+		let nominations = <StakingMock as StakingInterface>::nominations(&1).unwrap();
+		<StakeTracker as OnStakingUpdate<A, B>>::on_nominator_add(&1, nominations);
 		assert!(VoterBagsList::contains(&1));
 		assert_eq!(VoterBagsList::count(), 4);
 		assert_eq!(<VoterBagsList as ScoreProvider<A>>::score(&1), 100);
@@ -316,7 +321,10 @@ fn on_validator_add_already_exists_works() {
 		let target_list_before = TargetBagsList::iter().collect::<Vec<_>>();
 
 		// noop
-		<StakeTracker as OnStakingUpdate<A, B>>::on_validator_add(&10);
+		<StakeTracker as OnStakingUpdate<A, B>>::on_validator_add(
+			&10,
+			Some(Stake { total: 300, active: 300 }),
+		);
 		assert!(TargetBagsList::contains(&10));
 		assert_eq!(TargetBagsList::count(), 2);
 		assert_eq!(<TargetBagsList as ScoreProvider<A>>::score(&10), 300);

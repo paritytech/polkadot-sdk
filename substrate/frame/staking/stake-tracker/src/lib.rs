@@ -331,7 +331,11 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	///
 	/// Note: it is assumed that `who`'s staking ledger state is updated *before* this method is
 	/// called.
-	fn on_stake_update(who: &T::AccountId, prev_stake: Option<Stake<BalanceOf<T>>>) {
+	fn on_stake_update(
+		who: &T::AccountId,
+		prev_stake: Option<Stake<BalanceOf<T>>>,
+		stake: Stake<BalanceOf<T>>,
+	) {
 		// closure to calculate the stake imbalance of a staker.
 		let stake_imbalance_of = |prev_stake: Option<Stake<BalanceOf<T>>>,
 		                          voter_weight: ExtendedBalance| {
@@ -357,7 +361,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		if let Ok(_) = T::Staking::status(who).and(T::Staking::stake(who)).defensive_proof(
 			"staker should exist when calling on_stake_update and have a valid status",
 		) {
-			let voter_weight = Self::weight_of(Self::active_vote_of(who));
+			let voter_weight = Self::weight_of(stake.active);
 
 			match T::Staking::status(who).expect("status checked above; qed.") {
 				StakerStatus::Nominator(nominations) => {
@@ -404,17 +408,17 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	//
 	/// Note: it is assumed that `who`'s ledger staking state is updated *before* calling this
 	/// method.
-	fn on_validator_add(who: &T::AccountId) {
+	fn on_validator_add(who: &T::AccountId, self_stake: Option<Stake<BalanceOf<T>>>) {
 		// target may exist in the list in case of re-enabling a chilled validator;
 		if !T::TargetList::contains(who) {
-			let _ = T::TargetList::on_insert(who.clone(), Self::active_vote_of(who))
+			let _ = T::TargetList::on_insert(who.clone(), self_stake.unwrap_or_default().active)
 				.expect("staker does not exist in the list as per check above; qed.");
 		}
 
 		log!(debug, "on_validator_add: {:?}. role: {:?}", who, T::Staking::status(who),);
 
 		// a validator is also a nominator.
-		Self::on_nominator_add(who)
+		Self::on_nominator_add(who, vec![])
 	}
 
 	/// Fired when a validator becomes idle (i.e. chilling).
@@ -464,7 +468,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	///
 	/// Note: it is assumed that `who`'s ledger staking state is updated *before* this method is
 	/// called.
-	fn on_nominator_add(who: &T::AccountId) {
+	fn on_nominator_add(who: &T::AccountId, nominations: Vec<AccountIdOf<T>>) {
 		let nominator_vote = Self::weight_of(Self::active_vote_of(who));
 
 		// voter may exist in the list in case of re-enabling a chilled nominator;
@@ -478,7 +482,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		// If who is a nominator, update the vote weight of the nominations if they exist. Note:
 		// this will update the score of up to `T::MaxNominations` validators.
 		match T::Staking::status(who).defensive() {
-			Ok(StakerStatus::Nominator(nominations)) =>
+			Ok(StakerStatus::Nominator(_)) =>
 				for t in nominations {
 					Self::update_target_score(&t, StakeImbalance::Positive(nominator_vote.into()))
 				},
@@ -530,27 +534,28 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	///
 	/// Note: it is assumed that `who`'s ledger staking state is updated *before* calling this
 	/// method.
-	fn on_nominator_update(who: &T::AccountId, prev_nominations: Vec<T::AccountId>) {
+	fn on_nominator_update(
+		who: &T::AccountId,
+		prev_nominations: Vec<T::AccountId>,
+		nominations: Vec<AccountIdOf<T>>,
+	) {
 		let nominator_vote = Self::weight_of(Self::active_vote_of(who));
-
-		let curr_nominations =
-			<T::Staking as StakingInterface>::nominations(&who).unwrap_or_default();
 
 		log!(
 			debug,
 			"on_nominator_update: {:?}, with {:?}. previous nominations: {:?} -> new nominations {:?}",
-			who, nominator_vote, prev_nominations, curr_nominations,
+			who, nominator_vote, prev_nominations, nominations,
 		);
 
 		// new nominations
-		for target in curr_nominations.iter() {
+		for target in nominations.iter() {
 			if !prev_nominations.contains(target) {
 				Self::update_target_score(&target, StakeImbalance::Positive(nominator_vote.into()));
 			}
 		}
 		// removed nominations
 		for target in prev_nominations.iter() {
-			if !curr_nominations.contains(target) {
+			if !nominations.contains(target) {
 				Self::update_target_score(&target, StakeImbalance::Negative(nominator_vote.into()));
 			}
 		}

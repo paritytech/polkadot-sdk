@@ -187,7 +187,7 @@ impl<T: Config> StakingLedger<T> {
 		// fire `on_stake_update` if there was a stake update.
 		let new_stake: Stake<_> = self.clone().into();
 		if new_stake != prev_stake.unwrap_or_default() {
-			T::EventListeners::on_stake_update(&self.stash, prev_stake);
+			T::EventListeners::on_stake_update(&self.stash, prev_stake, new_stake);
 		}
 
 		Ok(())

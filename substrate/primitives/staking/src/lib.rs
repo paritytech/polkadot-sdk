@@ -100,19 +100,29 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 	///
 	/// This is effectively any changes to the bond amount, such as bonding more funds, and
 	/// unbonding.
-	fn on_stake_update(_who: &AccountId, _prev_stake: Option<Stake<Balance>>) {}
+	fn on_stake_update(
+		_who: &AccountId,
+		_prev_stake: Option<Stake<Balance>>,
+		_stake: Stake<Balance>,
+	) {
+	}
 
 	/// Fired when someone sets their intention to nominate.
 	///
 	/// This should never be fired for existing nominators.
-	fn on_nominator_add(_who: &AccountId) {}
+	fn on_nominator_add(_who: &AccountId, _nominations: Vec<AccountId>) {}
 
 	/// Fired when an existing nominator updates their nominations.
 	///
 	/// Note that this is not fired when a nominator changes their stake. For that,
 	/// `on_stake_update` should be used, followed by querying whether `who` was a validator or a
 	/// nominator.
-	fn on_nominator_update(_who: &AccountId, _prev_nominations: Vec<AccountId>) {}
+	fn on_nominator_update(
+		_who: &AccountId,
+		_prev_nominations: Vec<AccountId>,
+		_nominations: Vec<AccountId>,
+	) {
+	}
 
 	/// Fired when an existng nominator becomes idle.
 	///
@@ -128,12 +138,12 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 	/// Fired when someone sets their intention to validate.
 	///
 	/// Note validator preference changes are not communicated, but could be added if needed.
-	fn on_validator_add(_who: &AccountId) {}
+	fn on_validator_add(_who: &AccountId, _self_stake: Option<Stake<Balance>>) {}
 
 	/// Fired when an existing validator updates their preferences.
 	///
 	/// Note validator preference changes are not communicated, but could be added if needed.
-	fn on_validator_update(_who: &AccountId) {}
+	fn on_validator_update(_who: &AccountId, _self_stake: Option<Stake<Balance>>) {}
 
 	/// Fired when an existing validator becomes idle.
 	///
