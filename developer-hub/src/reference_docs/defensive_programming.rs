@@ -263,7 +263,6 @@
 //! [`PerThing`](sp_arithmetic::PerThing) are used:
 //! - **[`Perbill`](sp_arithmetic::Perbill), parts of a billion**
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", perbill_example)]
-//!
 //! - **[`Percent`](sp_arithmetic::Percent), parts of a hundred**
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", percent_example)]
 //!
