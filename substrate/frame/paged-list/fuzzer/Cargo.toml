@@ -9,6 +9,9 @@ repository.workspace = true
 description = "Fuzz storage types of pallet-paged-list"
 publish = false
 
+[lints]
+workspace = true
+
 [[bin]]
 name = "pallet-paged-list-fuzzer"
 path = "src/paged_list.rs"
