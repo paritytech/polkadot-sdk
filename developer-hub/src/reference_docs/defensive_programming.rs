@@ -516,6 +516,7 @@ mod tests {
 		assert_eq!(division, FixedU64::from_float(1.25));
 		assert_eq!(subtraction, FixedU64::from_float(0.4));
 	}
+
 	#[docify::export]
 	#[test]
 	fn bad_unwrap() {
