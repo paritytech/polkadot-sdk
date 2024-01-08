@@ -9,6 +9,9 @@ repository.workspace = true
 description = "FRAME example pallet with umbrella crate"
 publish = false
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 

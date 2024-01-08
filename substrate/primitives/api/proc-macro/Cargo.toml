@@ -9,6 +9,9 @@ repository.workspace = true
 description = "Macros for declaring and implementing runtime apis."
 documentation = "https://docs.rs/sp-api-proc-macro"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
@@ -17,10 +20,10 @@ proc-macro = true
 
 [dependencies]
 quote = "1.0.28"
-syn = { version = "2.0.39", features = ["extra-traits", "fold", "full", "visit"] }
+syn = { version = "2.0.48", features = ["extra-traits", "fold", "full", "visit"] }
 proc-macro2 = "1.0.56"
 blake2 = { version = "0.10.4", default-features = false }
-proc-macro-crate = "2.0.0"
+proc-macro-crate = "3.0.0"
 expander = "2.0.0"
 Inflector = "0.11.4"
 
