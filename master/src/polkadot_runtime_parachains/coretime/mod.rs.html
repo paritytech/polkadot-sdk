@@ -251,6 +251,11 @@
 <a href="#251" id="251">251</a>
 <a href="#252" id="252">252</a>
 <a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -280,7 +285,8 @@
 <span class="kw">use </span>primitives::{CoreIndex, Id <span class="kw">as </span>ParaId};
 <span class="kw">use </span>sp_arithmetic::traits::SaturatedConversion;
 <span class="kw">use </span>xcm::v3::{
-	send_xcm, Instruction, Junction, Junctions, MultiLocation, OriginKind, SendXcm, Xcm,
+	send_xcm, Instruction, Junction, Junctions, MultiLocation, OriginKind, SendXcm, WeightLimit,
+	Xcm,
 };
 
 <span class="kw">use crate</span>::{
@@ -473,9 +479,13 @@
 		<span class="kw">let </span>new_core_count = notification.new_config.coretime_cores;
 		<span class="kw">if </span>new_core_count != old_core_count {
 			<span class="kw">let </span>core_count: u16 = new_core_count.saturated_into();
-			<span class="kw">let </span>message = Xcm(<span class="macro">vec!</span>[mk_coretime_call(
-				<span class="kw">crate</span>::coretime::CoretimeCalls::NotifyCoreCount(core_count),
-			)]);
+			<span class="kw">let </span>message = Xcm(<span class="macro">vec!</span>[
+				Instruction::UnpaidExecution {
+					weight_limit: WeightLimit::Unlimited,
+					check_origin: <span class="prelude-val">None</span>,
+				},
+				mk_coretime_call(<span class="kw">crate</span>::coretime::CoretimeCalls::NotifyCoreCount(core_count)),
+			]);
 			<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = send_xcm::&lt;T::SendXcm&gt;(
 				MultiLocation {
 					parents: <span class="number">0</span>,
@@ -500,7 +510,7 @@
 		origin_kind: OriginKind::Superuser,
 		<span class="comment">// Largest call is set_lease with 1526 byte:
 		// Longest call is reserve() with 31_000_000
-		</span>require_weight_at_most: Weight::from_parts(<span class="number">100_000_000</span>, <span class="number">20_000</span>),
+		</span>require_weight_at_most: Weight::from_parts(<span class="number">110_000_000</span>, <span class="number">20_000</span>),
 		call: BrokerRuntimePallets::Broker(call).encode().into(),
 	}
 }

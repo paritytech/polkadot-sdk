@@ -225,6 +225,15 @@
 <a href="#225" id="225">225</a>
 <a href="#226" id="226">226</a>
 <a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2022 Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -244,6 +253,7 @@
 </span><span class="kw">use crate</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>cumulus_pallet_parachain_system::RelaychainDataProvider;
+<span class="kw">use </span>cumulus_primitives_core::relay_chain;
 <span class="kw">use </span>frame_support::{
 	parameter_types,
 	traits::{
@@ -278,11 +288,16 @@
 	<span class="attr">#[codec(index = <span class="number">1</span>)]
 	</span>RequestCoreCount(CoreIndex),
 	<span class="attr">#[codec(index = <span class="number">2</span>)]
-	</span>RequestRevenueInfoAt(BlockNumber),
+	</span>RequestRevenueInfoAt(relay_chain::BlockNumber),
 	<span class="attr">#[codec(index = <span class="number">3</span>)]
 	</span>CreditAccount(AccountId, Balance),
 	<span class="attr">#[codec(index = <span class="number">4</span>)]
-	</span>AssignCore(CoreIndex, BlockNumber, Vec&lt;(CoreAssignment, PartsOf57600)&gt;, <span class="prelude-ty">Option</span>&lt;BlockNumber&gt;),
+	</span>AssignCore(
+		CoreIndex,
+		relay_chain::BlockNumber,
+		Vec&lt;(CoreAssignment, PartsOf57600)&gt;,
+		<span class="prelude-ty">Option</span>&lt;relay_chain::BlockNumber&gt;,
+	),
 }
 
 <span class="macro">parameter_types! </span>{
@@ -408,7 +423,7 @@
 			},
 			Instruction::Transact {
 				origin_kind: OriginKind::Native,
-				require_weight_at_most: Weight::from_parts(<span class="number">1000000000</span>, <span class="number">200000</span>),
+				require_weight_at_most: Weight::from_parts(<span class="number">1_000_000_000</span>, <span class="number">200000</span>),
 				call: assign_core_call.encode().into(),
 			},
 		]);
@@ -442,7 +457,10 @@
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>Currency = Balances;
 	<span class="kw">type </span>OnRevenue = CreditToCollatorPot;
-	<span class="kw">type </span>TimeslicePeriod = ConstU32&lt;<span class="number">80</span>&gt;;
+	<span class="attr">#[cfg(feature = <span class="string">&quot;fast-runtime&quot;</span>)]
+	</span><span class="kw">type </span>TimeslicePeriod = ConstU32&lt;<span class="number">10</span>&gt;;
+	<span class="attr">#[cfg(not(feature = <span class="string">&quot;fast-runtime&quot;</span>))]
+	</span><span class="kw">type </span>TimeslicePeriod = ConstU32&lt;<span class="number">80</span>&gt;;
 	<span class="kw">type </span>MaxLeasedCores = ConstU32&lt;<span class="number">50</span>&gt;;
 	<span class="kw">type </span>MaxReservedCores = ConstU32&lt;<span class="number">10</span>&gt;;
 	<span class="kw">type </span>Coretime = CoretimeAllocator;

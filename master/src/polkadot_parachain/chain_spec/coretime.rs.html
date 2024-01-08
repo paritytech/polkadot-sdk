@@ -280,6 +280,14 @@
 <a href="#280" id="280">280</a>
 <a href="#281" id="281">281</a>
 <a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -302,7 +310,7 @@
 <span class="kw">use </span>std::{borrow::Cow, str::FromStr};
 
 <span class="doccomment">/// Collects all supported Coretime configurations.
-</span><span class="attr">#[derive(Debug, PartialEq, Clone)]
+</span><span class="attr">#[derive(Debug, PartialEq, Clone, Copy)]
 </span><span class="kw">pub enum </span>CoretimeRuntimeType {
 	<span class="comment">// Live
 	</span>Rococo,
@@ -367,13 +375,13 @@
 				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../../../parachains/chain-specs/coretime-rococo.json&quot;</span>)[..],
 			)<span class="question-mark">?</span>)),
 			CoretimeRuntimeType::RococoLocal =&gt;
-				<span class="prelude-val">Ok</span>(Box::new(rococo::local_config(<span class="self">self</span>, <span class="string">&quot;rococo-local&quot;</span>))),
+				<span class="prelude-val">Ok</span>(Box::new(rococo::local_config(<span class="kw-2">*</span><span class="self">self</span>, <span class="string">&quot;rococo-local&quot;</span>))),
 			CoretimeRuntimeType::RococoDevelopment =&gt;
-				<span class="prelude-val">Ok</span>(Box::new(rococo::local_config(<span class="self">self</span>, <span class="string">&quot;rococo-dev&quot;</span>))),
+				<span class="prelude-val">Ok</span>(Box::new(rococo::local_config(<span class="kw-2">*</span><span class="self">self</span>, <span class="string">&quot;rococo-dev&quot;</span>))),
 			CoretimeRuntimeType::WestendLocal =&gt;
-				<span class="prelude-val">Ok</span>(Box::new(westend::local_config(<span class="self">self</span>, <span class="string">&quot;westend-local&quot;</span>))),
+				<span class="prelude-val">Ok</span>(Box::new(westend::local_config(<span class="kw-2">*</span><span class="self">self</span>, <span class="string">&quot;westend-local&quot;</span>))),
 			CoretimeRuntimeType::WestendDevelopment =&gt;
-				<span class="prelude-val">Ok</span>(Box::new(westend::local_config(<span class="self">self</span>, <span class="string">&quot;westend-dev&quot;</span>))),
+				<span class="prelude-val">Ok</span>(Box::new(westend::local_config(<span class="kw-2">*</span><span class="self">self</span>, <span class="string">&quot;westend-dev&quot;</span>))),
 		}
 	}
 }
@@ -396,6 +404,7 @@
 		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, SAFE_XCM_VERSION,
 	};
 	<span class="kw">use </span>parachains_common::{AccountId, AuraId, Balance};
+	<span class="kw">use </span>sc_chain_spec::ChainType;
 	<span class="kw">use </span>sp_core::sr25519;
 
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CORETIME_ROCOCO: <span class="kw-2">&amp;</span>str = <span class="string">&quot;coretime-rococo&quot;</span>;
@@ -403,24 +412,31 @@
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CORETIME_ROCOCO_DEVELOPMENT: <span class="kw-2">&amp;</span>str = <span class="string">&quot;coretime-rococo-dev&quot;</span>;
 	<span class="kw">const </span>CORETIME_ROCOCO_ED: Balance = parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
 
-	<span class="kw">pub fn </span>local_config(runtime_type: <span class="kw-2">&amp;</span>CoretimeRuntimeType, relay_chain: <span class="kw-2">&amp;</span>str) -&gt; GenericChainSpec {
+	<span class="kw">pub fn </span>local_config(runtime_type: CoretimeRuntimeType, relay_chain: <span class="kw-2">&amp;</span>str) -&gt; GenericChainSpec {
 		<span class="comment">// Rococo defaults
 		</span><span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
 		properties.insert(<span class="string">&quot;ss58Format&quot;</span>.into(), <span class="number">42</span>.into());
 		properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;ROC&quot;</span>.into());
 		properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">12</span>.into());
 
-		<span class="kw">let </span>chain_type = runtime_type.clone().into();
+		<span class="kw">let </span>chain_type = runtime_type.into();
 		<span class="kw">let </span>chain_name = <span class="macro">format!</span>(<span class="string">&quot;Coretime Rococo {}&quot;</span>, chain_type_name(<span class="kw-2">&amp;</span>chain_type));
 		<span class="kw">let </span>para_id = <span class="kw">super</span>::CORETIME_PARA_ID;
 
-		GenericChainSpec::builder(
+		<span class="kw">let </span>wasm_binary = <span class="kw">if </span><span class="macro">matches!</span>(chain_type, ChainType::Local | ChainType::Development) {
+			coretime_rococo_runtime::fast_runtime_binary::WASM_BINARY
+				.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>)
+		} <span class="kw">else </span>{
 			coretime_rococo_runtime::WASM_BINARY
-				.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
+				.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>)
+		};
+
+		GenericChainSpec::builder(
+			wasm_binary,
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
 		)
 		.with_name(<span class="kw-2">&amp;</span>chain_name)
-		.with_id(runtime_type.clone().into())
+		.with_id(runtime_type.into())
 		.with_chain_type(chain_type)
 		.with_genesis_config_patch(genesis(
 			<span class="comment">// initial collators.
@@ -491,14 +507,14 @@
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CORETIME_WESTEND_DEVELOPMENT: <span class="kw-2">&amp;</span>str = <span class="string">&quot;coretime-westend-dev&quot;</span>;
 	<span class="kw">const </span>CORETIME_WESTEND_ED: Balance = parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
 
-	<span class="kw">pub fn </span>local_config(runtime_type: <span class="kw-2">&amp;</span>CoretimeRuntimeType, relay_chain: <span class="kw-2">&amp;</span>str) -&gt; GenericChainSpec {
+	<span class="kw">pub fn </span>local_config(runtime_type: CoretimeRuntimeType, relay_chain: <span class="kw-2">&amp;</span>str) -&gt; GenericChainSpec {
 		<span class="comment">// westend defaults
 		</span><span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
 		properties.insert(<span class="string">&quot;ss58Format&quot;</span>.into(), <span class="number">42</span>.into());
 		properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;WND&quot;</span>.into());
 		properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">12</span>.into());
 
-		<span class="kw">let </span>chain_type = runtime_type.clone().into();
+		<span class="kw">let </span>chain_type = runtime_type.into();
 		<span class="kw">let </span>chain_name = <span class="macro">format!</span>(<span class="string">&quot;Coretime Westend {}&quot;</span>, chain_type_name(<span class="kw-2">&amp;</span>chain_type));
 		<span class="kw">let </span>para_id = <span class="kw">super</span>::CORETIME_PARA_ID;
 
@@ -508,7 +524,7 @@
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
 		)
 		.with_name(<span class="kw-2">&amp;</span>chain_name)
-		.with_id(runtime_type.clone().into())
+		.with_id(runtime_type.into())
 		.with_chain_type(chain_type)
 		.with_genesis_config_patch(genesis(
 			<span class="comment">// initial collators.
