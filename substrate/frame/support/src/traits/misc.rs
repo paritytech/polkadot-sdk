@@ -46,6 +46,14 @@ impl VariantCount for () {
 	const VARIANT_COUNT: u32 = 0;
 }
 
+/// Adapter for `Get<u32>` to access `VARIANT_COUNT` from `trait pub trait VariantCount {`.
+pub struct VariantCountOf<T: VariantCount>(sp_std::marker::PhantomData<T>);
+impl<T: VariantCount> Get<u32> for VariantCountOf<T> {
+	fn get() -> u32 {
+		T::VARIANT_COUNT
+	}
+}
+
 /// Generic function to mark an execution path as ONLY defensive.
 ///
 /// Similar to mark a match arm or `if/else` branch as `unreachable!`.
