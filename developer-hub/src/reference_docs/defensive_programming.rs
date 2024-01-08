@@ -20,7 +20,7 @@
 //!
 //! When developing within the context of the a runtime, there is one golden rule:
 //!
-//! ***DO NOT PANIC,*** most of the time. There are some exceptions, such as critical operations being actually more
+//! ***DO NOT PANIC***. There are some exceptions, such as critical operations being actually more
 //! dangerous than allowing the node to continue running (block authoring, consensus, etc).
 //!
 //!  General guidelines:
