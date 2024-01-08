@@ -207,7 +207,7 @@ const RECENTLY_PRUNED_TAGS: usize = 2;
 /// as-is for the second time will fail or produce unwanted results.
 /// Most likely it is required to revalidate them and recompute set of
 /// required tags.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct BasePool<Hash: hash::Hash + Eq, Ex> {
 	reject_future_transactions: bool,
 	future: FutureTransactions<Hash, Ex>,

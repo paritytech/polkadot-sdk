@@ -107,7 +107,7 @@ impl<Hash, Ex> WaitingTransaction<Hash, Ex> {
 ///
 /// Contains transactions that are still awaiting for some other transactions that
 /// could provide a tag that they require.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct FutureTransactions<Hash: hash::Hash + Eq, Ex> {
 	/// tags that are not yet provided by any transaction and we await for them
 	wanted_tags: HashMap<Tag, HashSet<Hash>>,

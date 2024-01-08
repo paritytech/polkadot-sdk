@@ -444,9 +444,10 @@ impl<B: ChainApi> Pool<B> {
 	}
 }
 
-impl<B: ChainApi> Clone for Pool<B> {
-	fn clone(&self) -> Self {
-		Self { validated_pool: self.validated_pool.clone() }
+impl<B: ChainApi> Pool<B> {
+	pub fn deep_clone(&self) -> Self {
+		let other: ValidatedPool<B> = (*self.validated_pool).clone();
+		Self { validated_pool: Arc::from(other) }
 	}
 }
 
