@@ -3,8 +3,8 @@ TestConfiguration:
 - objective: !ApprovalsTest
     last_considered_tranche: 89
     min_coalesce: 1
-    max_coalesce: 6
-    enable_assignments_v2: true
+    max_coalesce: 1
+    enable_assignments_v2: false
     send_till_tranche: 89
     stop_when_approved: false
     coalesce_tranche_diff: 12

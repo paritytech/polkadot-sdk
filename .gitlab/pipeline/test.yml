@@ -420,8 +420,13 @@ test-linux-subsystem-bench:
     # Ensure we run the UI tests.
     RUN_UI_TESTS: 1
   script:
-    - WASM_BUILD_NO_COLOR=1
-      time cargo run -p polkadot-subsystem-bench --release -- test-sequence --path polkadot/node/subsystem-bench/examples/approvals_throughput.yaml
+    - nproc
+    - cat /proc/cpuinfo
+    - cat /proc/meminfo
+    - time cargo run -p polkadot-subsystem-bench --release -- test-sequence --path polkadot/node/subsystem-bench/examples/approvals_throughput.yaml
+    - time cargo run -p polkadot-subsystem-bench --release -- test-sequence --path polkadot/node/subsystem-bench/examples/approvals_throughput_no_optimisations_enabled.yaml
+    - time cargo run -p polkadot-subsystem-bench --release -- test-sequence --path polkadot/node/subsystem-bench/examples/approvals_throughput_12_seconds.yaml
+    - time cargo run -p polkadot-subsystem-bench --release -- test-sequence --path polkadot/node/subsystem-bench/examples/approvals_throughput_12_seconds_no_optimisations.yaml
 
 # more information about this job can be found here:
 # https://github.com/paritytech/substrate/pull/6916
