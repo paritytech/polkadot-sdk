@@ -754,6 +754,7 @@ pub mod pallet {
 		/// Returns `true` if the account did get upgraded, `false` if it didn't need upgrading.
 		pub fn ensure_upgraded(who: &T::AccountId) -> bool {
 			let mut a = T::AccountStore::get(who);
+			let ed = Self::ed();
 			if a.flags.is_new_logic() {
 				return false
 			}
@@ -768,12 +769,19 @@ pub mod pallet {
 						"account with a non-zero reserve balance has no provider refs, account_id: '{:?}'.",
 						who
 					);
-					a.free = a.free.max(Self::ed());
+					a.free = a.free.max(ed);
 					system::Pallet::<T>::inc_providers(who);
 				}
 				let _ = system::Pallet::<T>::inc_consumers_without_limit(who).defensive();
 			}
-			// Should never fail - we're only setting a bit.
+
+			// Ensure the account holds at least ED of free balance.
+			let free = a.free;
+			if free < ed && a.reserved >= ed - free {
+				a.free = ed;
+				a.reserved -= ed - free;
+			}
+
 			let _ = T::AccountStore::try_mutate_exists(who, |account| -> DispatchResult {
 				*account = Some(a);
 				Ok(())
