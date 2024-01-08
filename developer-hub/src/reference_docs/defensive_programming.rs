@@ -187,7 +187,6 @@
 //! consider some other ways of dealing with runtime arithmetic, such as saturated or checked
 //! operations, that won't carry these potential consequences.
 //!
-//!
 //! While it may seem trivial, choosing how to handle numbers is quite important. As a thought
 //! exercise, here are some scenarios of which will shed more light on when to use which.
 //!
