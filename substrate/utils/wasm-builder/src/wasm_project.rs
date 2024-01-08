@@ -935,7 +935,7 @@ fn generate_rerun_if_changed_instructions(
 	while let Some(dependency) = dependencies.pop() {
 		// Ignore all dev dependencies
 		if dependency.kind == DependencyKind::Development {
-			continue;
+			continue
 		}
 
 		let path_or_git_dep =
