@@ -175,7 +175,7 @@ benchmarks! {
 	descend_origin {
 		let mut executor = new_executor::<T>(Default::default());
 		let who = X2(OnlyChild, OnlyChild);
-		let instruction = Instruction::DescendOrigin(who.clone());
+		let instruction = Instruction::DescendOrigin(who);
 		let xcm = Xcm(vec![instruction]);
 	} : {
 		executor.bench_process(xcm)?;
@@ -242,7 +242,7 @@ benchmarks! {
 			&origin,
 			assets.clone().into(),
 			&XcmContext {
-				origin: Some(origin.clone()),
+				origin: Some(origin),
 				message_id: [0; 32],
 				topic: None,
 			},
@@ -279,7 +279,7 @@ benchmarks! {
 		let origin = T::subscribe_origin()?;
 		let query_id = Default::default();
 		let max_response_weight = Default::default();
-		let mut executor = new_executor::<T>(origin.clone());
+		let mut executor = new_executor::<T>(origin);
 		let instruction = Instruction::SubscribeVersion { query_id, max_response_weight };
 		let xcm = Xcm(vec![instruction]);
 	} : {
@@ -299,14 +299,14 @@ benchmarks! {
 			query_id,
 			max_response_weight,
 			&XcmContext {
-				origin: Some(origin.clone()),
+				origin: Some(origin),
 				message_id: [0; 32],
 				topic: None,
 			},
 		).map_err(|_| "Could not start subscription")?;
 		assert!(<T::XcmConfig as xcm_executor::Config>::SubscriptionService::is_subscribed(&origin));
 
-		let mut executor = new_executor::<T>(origin.clone());
+		let mut executor = new_executor::<T>(origin);
 		let instruction = Instruction::UnsubscribeVersion;
 		let xcm = Xcm(vec![instruction]);
 	} : {
@@ -413,8 +413,9 @@ benchmarks! {
 			executor.set_holding(expected_assets_in_holding.into());
 		}
 
+		let valid_pallet = T::valid_pallet();
 		let instruction = Instruction::QueryPallet {
-			module_name: b"frame_system".to_vec(),
+			module_name: valid_pallet.module_name.as_bytes().to_vec(),
 			response_info: QueryResponseInfo { destination, query_id, max_weight },
 		};
 		let xcm = Xcm(vec![instruction]);
@@ -428,13 +429,13 @@ benchmarks! {
 
 	expect_pallet {
 		let mut executor = new_executor::<T>(Default::default());
-
+		let valid_pallet = T::valid_pallet();
 		let instruction = Instruction::ExpectPallet {
-			index: 0,
-			name: b"System".to_vec(),
-			module_name: b"frame_system".to_vec(),
-			crate_major: 4,
-			min_crate_minor: 0,
+			index: valid_pallet.index as u32,
+			name: valid_pallet.name.as_bytes().to_vec(),
+			module_name: valid_pallet.module_name.as_bytes().to_vec(),
+			crate_major: valid_pallet.crate_version.major.into(),
+			min_crate_minor: valid_pallet.crate_version.minor.into(),
 		};
 		let xcm = Xcm(vec![instruction]);
 	}: {
@@ -537,7 +538,7 @@ benchmarks! {
 
 		let mut executor = new_executor::<T>(origin);
 
-		let instruction = Instruction::UniversalOrigin(alias.clone());
+		let instruction = Instruction::UniversalOrigin(alias);
 		let xcm = Xcm(vec![instruction]);
 	}: {
 		executor.bench_process(xcm)?;
@@ -561,7 +562,7 @@ benchmarks! {
 		let (expected_fees_mode, expected_assets_in_holding) = T::DeliveryHelper::ensure_successful_delivery(
 			&origin,
 			&destination.into(),
-			FeeReason::Export(network),
+			FeeReason::Export { network, destination },
 		);
 		let sender_account = T::AccountIdConverter::convert_location(&origin).unwrap();
 		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
@@ -631,13 +632,13 @@ benchmarks! {
 
 		let (unlocker, owner, asset) = T::unlockable_asset()?;
 
-		let mut executor = new_executor::<T>(unlocker.clone());
+		let mut executor = new_executor::<T>(unlocker);
 
 		// We first place the asset in lock first...
 		<T::XcmConfig as xcm_executor::Config>::AssetLocker::prepare_lock(
 			unlocker,
 			asset.clone(),
-			owner.clone(),
+			owner,
 		)
 		.map_err(|_| BenchmarkError::Skip)?
 		.enact()
@@ -657,13 +658,13 @@ benchmarks! {
 
 		let (unlocker, owner, asset) = T::unlockable_asset()?;
 
-		let mut executor = new_executor::<T>(unlocker.clone());
+		let mut executor = new_executor::<T>(unlocker);
 
 		// We first place the asset in lock first...
 		<T::XcmConfig as xcm_executor::Config>::AssetLocker::prepare_lock(
 			unlocker,
 			asset.clone(),
-			owner.clone(),
+			owner,
 		)
 		.map_err(|_| BenchmarkError::Skip)?
 		.enact()
@@ -685,9 +686,9 @@ benchmarks! {
 
 		// We first place the asset in lock first...
 		<T::XcmConfig as xcm_executor::Config>::AssetLocker::prepare_lock(
-			locker.clone(),
+			locker,
 			asset.clone(),
-			owner.clone(),
+			owner,
 		)
 		.map_err(|_| BenchmarkError::Skip)?
 		.enact()
@@ -738,7 +739,7 @@ benchmarks! {
 
 		let mut executor = new_executor::<T>(origin);
 
-		let instruction = Instruction::AliasOrigin(target.clone());
+		let instruction = Instruction::AliasOrigin(target);
 		let xcm = Xcm(vec![instruction]);
 	}: {
 		executor.bench_process(xcm)?;

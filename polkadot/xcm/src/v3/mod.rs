@@ -69,8 +69,12 @@ pub type QueryId = u64;
 #[codec(encode_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub struct Xcm<Call>(pub Vec<Instruction<Call>>);
 
+/// The maximal number of instructions in an XCM before decoding fails.
+///
+/// This is a deliberate limit - not a technical one.
 pub const MAX_INSTRUCTIONS_TO_DECODE: u8 = 100;
 
 environmental::environmental!(instructions_count: u8);
@@ -229,26 +233,30 @@ pub mod prelude {
 }
 
 parameter_types! {
+	#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 	pub MaxPalletNameLen: u32 = 48;
 	/// Maximum size of the encoded error code coming from a `Dispatch` result, used for
 	/// `MaybeErrorCode`. This is not (yet) enforced, so it's just an indication of expectation.
+	#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 	pub MaxDispatchErrorLen: u32 = 128;
+	#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 	pub MaxPalletsInfo: u32 = 64;
 }
 
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub struct PalletInfo {
 	#[codec(compact)]
-	index: u32,
-	name: BoundedVec<u8, MaxPalletNameLen>,
-	module_name: BoundedVec<u8, MaxPalletNameLen>,
+	pub index: u32,
+	pub name: BoundedVec<u8, MaxPalletNameLen>,
+	pub module_name: BoundedVec<u8, MaxPalletNameLen>,
 	#[codec(compact)]
-	major: u32,
+	pub major: u32,
 	#[codec(compact)]
-	minor: u32,
+	pub minor: u32,
 	#[codec(compact)]
-	patch: u32,
+	pub patch: u32,
 }
 
 impl PalletInfo {
@@ -269,6 +277,7 @@ impl PalletInfo {
 
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub enum MaybeErrorCode {
 	Success,
 	Error(BoundedVec<u8, MaxDispatchErrorLen>),
@@ -293,6 +302,7 @@ impl Default for MaybeErrorCode {
 /// Response data to a query.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub enum Response {
 	/// No response. Serves as a neutral default.
 	Null,
@@ -317,6 +327,7 @@ impl Default for Response {
 /// Information regarding the composition of a query response.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub struct QueryResponseInfo {
 	/// The destination to which the query response message should be send.
 	pub destination: MultiLocation,
@@ -330,6 +341,7 @@ pub struct QueryResponseInfo {
 /// An optional weight limit.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub enum WeightLimit {
 	/// No weight limit imposed.
 	Unlimited,
@@ -401,12 +413,20 @@ impl XcmContext {
 ///
 /// This is the inner XCM format and is version-sensitive. Messages are typically passed using the
 /// outer XCM format, known as `VersionedXcm`.
-#[derive(Derivative, Encode, Decode, TypeInfo, xcm_procedural::XcmWeightInfoTrait)]
+#[derive(
+	Derivative,
+	Encode,
+	Decode,
+	TypeInfo,
+	xcm_procedural::XcmWeightInfoTrait,
+	xcm_procedural::Builder,
+)]
 #[derivative(Clone(bound = ""), Eq(bound = ""), PartialEq(bound = ""), Debug(bound = ""))]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub enum Instruction<Call> {
 	/// Withdraw asset(s) (`assets`) from the ownership of `origin` and place them into the Holding
 	/// Register.
@@ -416,6 +436,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*.
 	///
 	/// Errors:
+	#[builder(loads_holding)]
 	WithdrawAsset(MultiAssets),
 
 	/// Asset(s) (`assets`) have been received into the ownership of this system on the `origin`
@@ -429,6 +450,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Trusted Indication*.
 	///
 	/// Errors:
+	#[builder(loads_holding)]
 	ReserveAssetDeposited(MultiAssets),
 
 	/// Asset(s) (`assets`) have been destroyed on the `origin` system and equivalent assets should
@@ -442,6 +464,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Trusted Indication*.
 	///
 	/// Errors:
+	#[builder(loads_holding)]
 	ReceiveTeleportedAsset(MultiAssets),
 
 	/// Respond with information that the local system is expecting.
@@ -766,6 +789,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*
 	///
 	/// Errors:
+	#[builder(loads_holding)]
 	ClaimAsset { assets: MultiAssets, ticket: MultiLocation },
 
 	/// Always throws an error of type `Trap`.

@@ -62,7 +62,7 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 	//
 	// At the end of a session we clear the claim queues: Without this update call, nothing would be
 	// scheduled to the client.
-	<scheduler::Pallet<T>>::update_claimqueue(Vec::new(), now);
+	<scheduler::Pallet<T>>::free_cores_and_fill_claimqueue(Vec::new(), now);
 
 	let time_out_for = <scheduler::Pallet<T>>::availability_timeout_predicate();
 
@@ -370,15 +370,7 @@ pub fn get_session_disputes<T: disputes::Config>(
 pub fn session_executor_params<T: session_info::Config>(
 	session_index: SessionIndex,
 ) -> Option<ExecutorParams> {
-	// This is to bootstrap the storage working around the runtime migration issue:
-	// https://github.com/paritytech/substrate/issues/9997
-	// After the bootstrap is complete (no less than 7 session passed with the runtime)
-	// this code should be replaced with a pure
-	// <session_info::Pallet<T>>::session_executor_params(session_index) call.
-	match <session_info::Pallet<T>>::session_executor_params(session_index) {
-		Some(ep) => Some(ep),
-		None => Some(ExecutorParams::default()),
-	}
+	<session_info::Pallet<T>>::session_executor_params(session_index)
 }
 
 /// Implementation of `unapplied_slashes` runtime API

@@ -27,20 +27,16 @@ pub use crate::{
 };
 use frame_support::traits::{ContainsPair, Everything};
 pub use frame_support::{
-	dispatch::{
-		DispatchInfo, DispatchResultWithPostInfo, GetDispatchInfo, Parameter, PostDispatchInfo,
-	},
+	dispatch::{DispatchInfo, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo},
 	ensure, match_types, parameter_types,
 	sp_runtime::{traits::Dispatchable, DispatchError, DispatchErrorWithPostInfo},
-	traits::{ConstU32, Contains, Get, IsInVec},
+	traits::{Contains, Get, IsInVec},
 };
 pub use parity_scale_codec::{Decode, Encode};
-pub use sp_io::hashing::blake2_256;
 pub use sp_std::{
 	cell::{Cell, RefCell},
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
 	fmt::Debug,
-	marker::PhantomData,
 };
 pub use xcm::latest::{prelude::*, Weight};
 use xcm_executor::traits::{Properties, QueryHandler, QueryResponseStatus};
@@ -52,6 +48,7 @@ pub use xcm_executor::{
 	Assets, Config,
 };
 
+#[derive(Debug)]
 pub enum TestOrigin {
 	Root,
 	Relay,
@@ -414,7 +411,7 @@ pub fn response(query_id: u64) -> Option<Response> {
 /// Mock implementation of the [`QueryHandler`] trait for creating XCM success queries and expecting
 /// responses.
 pub struct TestQueryHandler<T, BlockNumber>(core::marker::PhantomData<(T, BlockNumber)>);
-impl<T: Config, BlockNumber: sp_runtime::traits::Zero> QueryHandler
+impl<T: Config, BlockNumber: sp_runtime::traits::Zero + Encode> QueryHandler
 	for TestQueryHandler<T, BlockNumber>
 {
 	type QueryId = u64;
@@ -526,7 +523,8 @@ impl FeeManager for TestFeeManager {
 	fn is_waived(_: Option<&MultiLocation>, r: FeeReason) -> bool {
 		IS_WAIVED.with(|l| l.borrow().contains(&r))
 	}
-	fn handle_fee(_: MultiAssets, _: Option<&XcmContext>) {}
+
+	fn handle_fee(_: MultiAssets, _: Option<&XcmContext>, _: FeeReason) {}
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]

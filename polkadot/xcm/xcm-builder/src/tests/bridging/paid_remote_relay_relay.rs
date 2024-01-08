@@ -24,23 +24,25 @@
 use super::*;
 
 parameter_types! {
+	// 100 to use the bridge (export) and 80 for the remote execution weight (4 instructions x (10 +
+	// 10) weight each).
+	pub SendOverBridgePrice: u128 = 180u128 + if UsingTopic::get() { 20 } else { 0 };
 	pub UniversalLocation: Junctions = X2(GlobalConsensus(Local::get()), Parachain(100));
 	pub RelayUniversalLocation: Junctions = X1(GlobalConsensus(Local::get()));
 	pub RemoteUniversalLocation: Junctions = X1(GlobalConsensus(Remote::get()));
+	pub RemoteNetwork: MultiLocation = AncestorThen(1, GlobalConsensus(Remote::get())).into();
 	pub BridgeTable: Vec<NetworkExportTableItem> = vec![
 		NetworkExportTableItem::new(
 			Remote::get(),
 			None,
 			MultiLocation::parent(),
-			Some((Parent, 200u128 + if UsingTopic::get() { 20 } else { 0 }).into())
+			Some((Parent, SendOverBridgePrice::get()).into())
 		)
 	];
-	// ^^^ 100 to use the bridge (export) and 100 for the remote execution weight (5 instructions
-	//     x (10 + 10) weight each).
 }
 type TheBridge =
 	TestBridge<BridgeBlobDispatcher<TestRemoteIncomingRouter, RemoteUniversalLocation, ()>>;
-type RelayExporter = HaulBlobExporter<TheBridge, Remote, Price>;
+type RelayExporter = HaulBlobExporter<TheBridge, RemoteNetwork, AlwaysLatest, Price>;
 type LocalInnerRouter = ExecutingRouter<UniversalLocation, RelayUniversalLocation, RelayExporter>;
 type LocalBridgeRouter = SovereignPaidRemoteExporter<
 	NetworkExportTable<BridgeTable>,
@@ -68,7 +70,7 @@ fn sending_to_bridged_chain_works() {
 		clear_assets(Parachain(100));
 		add_asset(Parachain(100), (Here, 1000u128));
 
-		let price = 200u128 + if UsingTopic::get() { 20 } else { 0 };
+		let price = SendOverBridgePrice::get();
 
 		let msg = Xcm(vec![Trap(1)]);
 		assert_eq!(send_xcm::<LocalRouter>(dest, msg).unwrap().1, (Parent, price).into());
@@ -86,7 +88,7 @@ fn sending_to_bridged_chain_works() {
 		)];
 		assert_eq!(take_received_remote_messages(), expected);
 
-		// The export cost 50 ref time and 50 proof size weight units (and thus 100 units of
+		// The export cost 40 ref time and 40 proof size weight units (and thus 80 units of
 		// balance).
 		assert_eq!(asset_list(Parachain(100)), vec![(Here, 1000u128 - price).into()]);
 
@@ -104,11 +106,10 @@ fn sending_to_bridged_chain_works() {
 						destination: Here,
 						xcm: xcm_with_topic([0; 32], vec![Trap(1)]),
 					},
-					RefundSurplus,
 					DepositAsset { assets: Wild(All), beneficiary: Parachain(100).into() },
 				],
 			),
-			outcome: Outcome::Complete(test_weight(5)),
+			outcome: Outcome::Complete(test_weight(4)),
 			paid: true,
 		};
 		assert_eq!(RoutingLog::take(), vec![entry]);
@@ -143,7 +144,7 @@ fn sending_to_parachain_of_bridged_chain_works() {
 		clear_assets(Parachain(100));
 		add_asset(Parachain(100), (Here, 1000u128));
 
-		let price = 200u128 + if UsingTopic::get() { 20 } else { 0 };
+		let price = SendOverBridgePrice::get();
 
 		let msg = Xcm(vec![Trap(1)]);
 		assert_eq!(send_xcm::<LocalRouter>(dest, msg).unwrap().1, (Parent, price).into());
@@ -161,7 +162,7 @@ fn sending_to_parachain_of_bridged_chain_works() {
 		)];
 		assert_eq!(take_received_remote_messages(), expected);
 
-		// The export cost 50 ref time and 50 proof size weight units (and thus 100 units of
+		// The export cost 40 ref time and 40 proof size weight units (and thus 80 units of
 		// balance).
 		assert_eq!(asset_list(Parachain(100)), vec![(Here, 1000u128 - price).into()]);
 
@@ -179,11 +180,10 @@ fn sending_to_parachain_of_bridged_chain_works() {
 						destination: Parachain(100).into(),
 						xcm: xcm_with_topic([0; 32], vec![Trap(1)]),
 					},
-					RefundSurplus,
 					DepositAsset { assets: Wild(All), beneficiary: Parachain(100).into() },
 				],
 			),
-			outcome: Outcome::Complete(test_weight(5)),
+			outcome: Outcome::Complete(test_weight(4)),
 			paid: true,
 		};
 		assert_eq!(RoutingLog::take(), vec![entry]);

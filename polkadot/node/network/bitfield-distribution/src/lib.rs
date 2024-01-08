@@ -25,14 +25,15 @@
 use always_assert::never;
 use futures::{channel::oneshot, FutureExt};
 
+use net_protocol::filter_by_peer_version;
 use polkadot_node_network_protocol::{
 	self as net_protocol,
 	grid_topology::{
 		GridNeighbors, RandomRouting, RequiredRouting, SessionBoundGridTopologyStorage,
 	},
 	peer_set::{ProtocolVersion, ValidationVersion},
-	v1 as protocol_v1, v2 as protocol_v2, OurView, PeerId, UnifiedReputationChange as Rep,
-	Versioned, View,
+	v1 as protocol_v1, v2 as protocol_v2, v3 as protocol_v3, OurView, PeerId,
+	UnifiedReputationChange as Rep, Versioned, View,
 };
 use polkadot_node_subsystem::{
 	jaeger, messages::*, overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, PerLeafSpan,
@@ -101,6 +102,11 @@ impl BitfieldGossipMessage {
 					self.relay_parent,
 					self.signed_availability.into(),
 				)),
+			Some(ValidationVersion::V3) =>
+				Versioned::V3(protocol_v3::BitfieldDistributionMessage::Bitfield(
+					self.relay_parent,
+					self.signed_availability.into(),
+				)),
 			None => {
 				never!("Peers should only have supported protocol versions.");
 
@@ -131,9 +137,9 @@ pub struct PeerData {
 
 /// Data used to track information of peers and relay parents the
 /// overseer ordered us to work on.
-#[derive(Default, Debug)]
+#[derive(Default)]
 struct ProtocolState {
-	/// Track all active peers and their views
+	/// Track all active peer views and protocol versions
 	/// to determine what is relevant to them.
 	peer_data: HashMap<PeerId, PeerData>,
 
@@ -492,17 +498,13 @@ async fn relay_message<Context>(
 	} else {
 		let _span = span.child("gossip");
 
-		let filter_by_version = |peers: &[(PeerId, ProtocolVersion)],
-		                         version: ValidationVersion| {
-			peers
-				.iter()
-				.filter(|(_, v)| v == &version.into())
-				.map(|(peer_id, _)| *peer_id)
-				.collect::<Vec<_>>()
-		};
+		let v1_interested_peers =
+			filter_by_peer_version(&interested_peers, ValidationVersion::V1.into());
+		let v2_interested_peers =
+			filter_by_peer_version(&interested_peers, ValidationVersion::V2.into());
 
-		let v1_interested_peers = filter_by_version(&interested_peers, ValidationVersion::V1);
-		let v2_interested_peers = filter_by_version(&interested_peers, ValidationVersion::V2);
+		let v3_interested_peers =
+			filter_by_peer_version(&interested_peers, ValidationVersion::V3.into());
 
 		if !v1_interested_peers.is_empty() {
 			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
@@ -515,7 +517,15 @@ async fn relay_message<Context>(
 		if !v2_interested_peers.is_empty() {
 			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
 				v2_interested_peers,
-				message.into_validation_protocol(ValidationVersion::V2.into()),
+				message.clone().into_validation_protocol(ValidationVersion::V2.into()),
+			))
+			.await
+		}
+
+		if !v3_interested_peers.is_empty() {
+			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
+				v3_interested_peers,
+				message.into_validation_protocol(ValidationVersion::V3.into()),
 			))
 			.await
 		}
@@ -538,6 +548,10 @@ async fn process_incoming_peer_message<Context>(
 			bitfield,
 		)) => (relay_parent, bitfield),
 		Versioned::V2(protocol_v2::BitfieldDistributionMessage::Bitfield(
+			relay_parent,
+			bitfield,
+		)) |
+		Versioned::V3(protocol_v3::BitfieldDistributionMessage::Bitfield(
 			relay_parent,
 			bitfield,
 		)) => (relay_parent, bitfield),
@@ -774,9 +788,11 @@ async fn handle_network_msg<Context>(
 				handle_peer_view_change(ctx, state, new_peer, old_view, rng).await;
 			}
 		},
-		NetworkBridgeEvent::PeerViewChange(peerid, new_view) => {
-			gum::trace!(target: LOG_TARGET, ?peerid, ?new_view, "Peer view change");
-			handle_peer_view_change(ctx, state, peerid, new_view, rng).await;
+		NetworkBridgeEvent::PeerViewChange(peer_id, new_view) => {
+			gum::trace!(target: LOG_TARGET, ?peer_id, ?new_view, "Peer view change");
+			if state.peer_data.get(&peer_id).is_some() {
+				handle_peer_view_change(ctx, state, peer_id, new_view, rng).await;
+			}
 		},
 		NetworkBridgeEvent::OurViewChange(new_view) => {
 			gum::trace!(target: LOG_TARGET, ?new_view, "Our view change");

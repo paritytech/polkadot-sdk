@@ -106,7 +106,7 @@ use polkadot_node_subsystem_util::{
 use polkadot_primitives::{
 	BackedCandidate, CandidateCommitments, CandidateHash, CandidateReceipt,
 	CommittedCandidateReceipt, CoreIndex, CoreState, ExecutorParams, Hash, Id as ParaId,
-	PersistedValidationData, PvfExecTimeoutKind, SigningContext, ValidationCode, ValidatorId,
+	PersistedValidationData, PvfExecKind, SigningContext, ValidationCode, ValidatorId,
 	ValidatorIndex, ValidatorSignature, ValidityAttestation,
 };
 use sp_keystore::KeystorePtr;
@@ -551,8 +551,8 @@ async fn request_pov(
 
 async fn request_candidate_validation(
 	sender: &mut impl overseer::CandidateBackingSenderTrait,
-	pvd: PersistedValidationData,
-	code: ValidationCode,
+	validation_data: PersistedValidationData,
+	validation_code: ValidationCode,
 	candidate_receipt: CandidateReceipt,
 	pov: Arc<PoV>,
 	executor_params: ExecutorParams,
@@ -560,15 +560,15 @@ async fn request_candidate_validation(
 	let (tx, rx) = oneshot::channel();
 
 	sender
-		.send_message(CandidateValidationMessage::ValidateFromExhaustive(
-			pvd,
-			code,
+		.send_message(CandidateValidationMessage::ValidateFromExhaustive {
+			validation_data,
+			validation_code,
 			candidate_receipt,
 			pov,
 			executor_params,
-			PvfExecTimeoutKind::Backing,
-			tx,
-		))
+			exec_kind: PvfExecKind::Backing,
+			response_sender: tx,
+		})
 		.await;
 
 	match rx.await {

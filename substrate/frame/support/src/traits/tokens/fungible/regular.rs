@@ -181,9 +181,16 @@ pub trait Unbalanced<AccountId>: Inspect<AccountId> {
 	) -> Result<Self::Balance, DispatchError> {
 		let old_balance = Self::balance(who);
 		let free = Self::reducible_balance(who, preservation, force);
-		if let BestEffort = precision {
-			amount = amount.min(free);
+		match precision {
+			BestEffort => {
+				amount = amount.min(free);
+			},
+			Exact =>
+				if free < amount {
+					return Err(TokenError::FundsUnavailable.into())
+				},
 		}
+
 		let new_balance = old_balance.checked_sub(&amount).ok_or(TokenError::FundsUnavailable)?;
 		if let Some(dust) = Self::write_balance(who, new_balance)? {
 			Self::handle_dust(Dust(dust));
@@ -235,7 +242,10 @@ pub trait Unbalanced<AccountId>: Inspect<AccountId> {
 }
 
 /// Trait for providing a basic fungible asset.
-pub trait Mutate<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
+pub trait Mutate<AccountId>: Inspect<AccountId> + Unbalanced<AccountId>
+where
+	AccountId: Eq,
+{
 	/// Increase the balance of `who` by exactly `amount`, minting new tokens. If that isn't
 	/// possible then an `Err` is returned and nothing is changed.
 	fn mint_into(who: &AccountId, amount: Self::Balance) -> Result<Self::Balance, DispatchError> {
@@ -303,6 +313,9 @@ pub trait Mutate<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 	}
 
 	/// Transfer funds from one account into another.
+	///
+	/// A transfer where the source and destination account are identical is treated as No-OP after
+	/// checking the preconditions.
 	fn transfer(
 		source: &AccountId,
 		dest: &AccountId,
@@ -311,6 +324,10 @@ pub trait Mutate<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 	) -> Result<Self::Balance, DispatchError> {
 		let _extra = Self::can_withdraw(source, amount).into_result(preservation != Expendable)?;
 		Self::can_deposit(dest, amount, Extant).into_result()?;
+		if source == dest {
+			return Ok(amount)
+		}
+
 		Self::decrease_balance(source, amount, BestEffort, preservation, Polite)?;
 		// This should never fail as we checked `can_deposit` earlier. But we do a best-effort
 		// anyway.
@@ -504,3 +521,47 @@ pub trait Balanced<AccountId>: Inspect<AccountId> + Unbalanced<AccountId> {
 	fn done_deposit(_who: &AccountId, _amount: Self::Balance) {}
 	fn done_withdraw(_who: &AccountId, _amount: Self::Balance) {}
 }
+
+/// Dummy implementation of [`Inspect`]
+#[cfg(feature = "std")]
+impl<AccountId> Inspect<AccountId> for () {
+	type Balance = u32;
+	fn total_issuance() -> Self::Balance {
+		0
+	}
+	fn minimum_balance() -> Self::Balance {
+		0
+	}
+	fn total_balance(_: &AccountId) -> Self::Balance {
+		0
+	}
+	fn balance(_: &AccountId) -> Self::Balance {
+		0
+	}
+	fn reducible_balance(_: &AccountId, _: Preservation, _: Fortitude) -> Self::Balance {
+		0
+	}
+	fn can_deposit(_: &AccountId, _: Self::Balance, _: Provenance) -> DepositConsequence {
+		DepositConsequence::Success
+	}
+	fn can_withdraw(_: &AccountId, _: Self::Balance) -> WithdrawConsequence<Self::Balance> {
+		WithdrawConsequence::Success
+	}
+}
+
+/// Dummy implementation of [`Unbalanced`]
+#[cfg(feature = "std")]
+impl<AccountId> Unbalanced<AccountId> for () {
+	fn handle_dust(_: Dust<AccountId, Self>) {}
+	fn write_balance(
+		_: &AccountId,
+		_: Self::Balance,
+	) -> Result<Option<Self::Balance>, DispatchError> {
+		Ok(None)
+	}
+	fn set_total_issuance(_: Self::Balance) {}
+}
+
+/// Dummy implementation of [`Mutate`]
+#[cfg(feature = "std")]
+impl<AccountId: Eq> Mutate<AccountId> for () {}

@@ -19,7 +19,7 @@
 //! This is responsible for distributing signed statements about candidate
 //! validity among validators.
 
-// #![deny(unused_crate_dependencies)]
+#![deny(unused_crate_dependencies)]
 #![warn(missing_docs)]
 
 use error::{log_error, FatalResult};
@@ -27,7 +27,7 @@ use std::time::Duration;
 
 use polkadot_node_network_protocol::{
 	request_response::{v1 as request_v1, v2::AttestedCandidateRequest, IncomingRequestReceiver},
-	v2 as protocol_v2, Versioned,
+	v2 as protocol_v2, v3 as protocol_v3, Versioned,
 };
 use polkadot_node_primitives::StatementWithPVD;
 use polkadot_node_subsystem::{
@@ -399,9 +399,12 @@ impl<R: rand::Rng> StatementDistributionSubsystem<R> {
 						NetworkBridgeEvent::PeerMessage(_, message) => match message {
 							Versioned::V2(
 								protocol_v2::StatementDistributionMessage::V1Compatibility(_),
+							) |
+							Versioned::V3(
+								protocol_v3::StatementDistributionMessage::V1Compatibility(_),
 							) => VersionTarget::Legacy,
 							Versioned::V1(_) => VersionTarget::Legacy,
-							Versioned::V2(_) => VersionTarget::Current,
+							Versioned::V2(_) | Versioned::V3(_) => VersionTarget::Current,
 						},
 						_ => VersionTarget::Both,
 					};
