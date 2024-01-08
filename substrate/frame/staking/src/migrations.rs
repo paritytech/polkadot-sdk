@@ -20,6 +20,7 @@
 use super::*;
 use frame_election_provider_support::SortedListProvider;
 use frame_support::{
+	migrations::VersionedMigration,
 	pallet_prelude::ValueQuery,
 	storage_alias,
 	traits::{GetStorageVersion, OnRuntimeUpgrade},
@@ -59,10 +60,41 @@ impl Default for ObsoleteReleases {
 #[storage_alias]
 type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, ValueQuery>;
 
+/// Migrating `OffendingValidators` from `Vec<(u32, bool)>` to `Vec<u32>`
+pub mod v15 {
+	use super::*;
+
+	pub struct VersionUncheckedMigrateV14ToV15<T>(sp_std::marker::PhantomData<T>);
+	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV14ToV15<T> {
+		fn on_runtime_upgrade() -> Weight {
+			let migrated = v14::OffendingValidators::<T>::get()
+				.into_iter()
+				.map(|p| p.0)
+				.collect::<Vec<_>>();
+			DisabledValidators::<T>::set(migrated);
+
+			log!(info, "v15 applied successfully.");
+			T::DbWeight::get().reads_writes(1, 1)
+		}
+	}
+
+	pub type MigrateV14ToV15<T> = VersionedMigration<
+		14,
+		15,
+		VersionUncheckedMigrateV14ToV15<T>,
+		crate::Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+}
+
 /// Migration of era exposure storage items to paged exposures.
 /// Changelog: [v14.](https://github.com/paritytech/substrate/blob/ankan/paged-rewards-rebased2/frame/staking/CHANGELOG.md#14)
 pub mod v14 {
 	use super::*;
+
+	#[frame_support::storage_alias]
+	pub(crate) type OffendingValidators<T: Config> =
+		StorageValue<Pallet<T>, Vec<(u32, bool)>, ValueQuery>;
 
 	pub struct MigrateToV14<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV14<T> {
@@ -73,10 +105,10 @@ pub mod v14 {
 			if current == 14 && on_chain == 13 {
 				current.put::<Pallet<T>>();
 
-				log!(info, "v14 applied successfully.");
+				log!(info, "staking v14 applied successfully.");
 				T::DbWeight::get().reads_writes(1, 1)
 			} else {
-				log!(warn, "v14 not applied.");
+				log!(warn, "staking v14 not applied.");
 				T::DbWeight::get().reads(1)
 			}
 		}

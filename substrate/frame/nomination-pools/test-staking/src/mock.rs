@@ -126,7 +126,6 @@ impl pallet_staking::Config for Runtime {
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type NextNewSession = ();
 	type MaxExposurePageSize = ConstU32<64>;
-	type OffendingValidatorsThreshold = ();
 	type ElectionProvider =
 		frame_election_provider_support::NoElection<(AccountId, BlockNumber, Staking, ())>;
 	type GenesisElectionProvider = Self::ElectionProvider;
@@ -139,6 +138,7 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = Pools;
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type WeightInfo = ();
+	type DisablingStrategy = pallet_staking::UpToThresholdDisablingStrategy;
 }
 
 parameter_types! {
