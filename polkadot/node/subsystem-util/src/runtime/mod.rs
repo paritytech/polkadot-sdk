@@ -43,7 +43,7 @@ use crate::{
 	request_from_runtime, request_key_ownership_proof, request_on_chain_votes,
 	request_session_executor_params, request_session_index_for_child, request_session_info,
 	request_submit_report_dispute_lost, request_unapplied_slashes, request_validation_code_by_hash,
-	request_validator_groups,
+	request_validator_groups, vstaging::get_disabled_validators_with_fallback,
 };
 
 /// Errors that can happen on runtime fetches.
@@ -74,6 +74,11 @@ pub struct RuntimeInfo {
 	/// We query this up to a 100 times per block, so caching it here without roundtrips over the
 	/// overseer seems sensible.
 	session_index_cache: LruMap<Hash, SessionIndex>,
+
+	/// In the happy case, we do not query disabled validators at all. In the worst case, we can
+	/// query it order of `n_cores` times `n_validators` per block, so caching it here seems
+	/// sensible.
+	disabled_validators_cache: LruMap<Hash, Vec<ValidatorIndex>>,
 
 	/// Look up cached sessions by `SessionIndex`.
 	session_info_cache: LruMap<SessionIndex, ExtendedSessionInfo>,
@@ -129,6 +134,7 @@ impl RuntimeInfo {
 		Self {
 			session_index_cache: LruMap::new(ByLength::new(cfg.session_cache_lru_size.max(10))),
 			session_info_cache: LruMap::new(ByLength::new(cfg.session_cache_lru_size)),
+			disabled_validators_cache: LruMap::new(ByLength::new(100)),
 			pinned_blocks: LruMap::new(ByLength::new(cfg.session_cache_lru_size)),
 			keystore: cfg.keystore,
 		}
@@ -178,6 +184,26 @@ impl RuntimeInfo {
 		let session_index = self.get_session_index_for_child(sender, relay_parent).await?;
 
 		self.get_session_info_by_index(sender, relay_parent, session_index).await
+	}
+
+	/// Get the list of disabled validators at the relay parent.
+	pub async fn get_disabled_validators<Sender>(
+		&mut self,
+		sender: &mut Sender,
+		relay_parent: Hash,
+	) -> Result<Vec<ValidatorIndex>>
+	where
+		Sender: SubsystemSender<RuntimeApiMessage>,
+	{
+		match self.disabled_validators_cache.get(&relay_parent).cloned() {
+			Some(result) => Ok(result),
+			None => {
+				let disabled_validators =
+					get_disabled_validators_with_fallback(sender, relay_parent).await?;
+				self.disabled_validators_cache.insert(relay_parent, disabled_validators.clone());
+				Ok(disabled_validators)
+			},
+		}
 	}
 
 	/// Get `ExtendedSessionInfo` by session index.

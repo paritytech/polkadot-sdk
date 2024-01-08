@@ -1030,9 +1030,10 @@ async fn construct_per_relay_parent_state<Context>(
 	// Once runtime ver `DISABLED_VALIDATORS_RUNTIME_REQUIREMENT` is released remove this call to
 	// `get_disabled_validators_with_fallback`, add `request_disabled_validators` call to the
 	// `try_join!` above and use `try_runtime_api!` to get `disabled_validators`
-	let disabled_validators = get_disabled_validators_with_fallback(ctx.sender(), parent)
-		.await
-		.map_err(Error::UtilError)?;
+	let disabled_validators =
+		get_disabled_validators_with_fallback(ctx.sender(), parent).await.map_err(|e| {
+			Error::UtilError(TryFrom::try_from(e).expect("the conversion is infallible; qed"))
+		})?;
 
 	let signing_context = SigningContext { parent_hash: parent, session_index };
 	let validator = match Validator::construct(

@@ -1,0 +1,18 @@
+title: Validator disabling in Dispute Participation.
+
+doc:
+  - audience: Node Operator
+    description: |
+      Once a validator has been disabled for misbehavior, other validators
+      should no longer participate in disputes initiated by it.
+      This feature is needed to ensure robust spam protection against
+      malicious actors.
+
+migrations:
+  db: []
+  runtime: []
+
+crates:
+  - name: polkadot-node-core-dispute-coordinator
+
+host_functions: []
