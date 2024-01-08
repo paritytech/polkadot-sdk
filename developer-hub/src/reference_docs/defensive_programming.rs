@@ -11,7 +11,7 @@
 //! Defensive programming is a design paradigm that enables a particular program to continue
 //! running despite unexpected behavior. These unforseen circumstances may
 //! cause the program to stop or, in the Rust context, `panic!`. Defensive practices allow for
-//! these circumstances to be accounted for ahead of time, and for them to be handled in a more
+//! these circumstances to be accounted for ahead of time and for them to be handled in a more
 //! graceful manner.
 //!
 //! The Polkadot SDK is both built to reflect these principles, and to be used accordingly.
