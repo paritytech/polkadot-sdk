@@ -32,7 +32,10 @@ use crate::{
 	core::{
 		configuration::{TestAuthorities, TestConfiguration},
 		environment::{TestEnvironment, TestEnvironmentDependencies, MAX_TIME_OF_FLIGHT},
-		mock::{dummy_builder, AlwaysSupportsParachains, MockNetworkBridgeTx, TestSyncOracle},
+		mock::{
+			dummy_builder, network_bridge::MockNetworkBridgeTx, AlwaysSupportsParachains,
+			TestSyncOracle,
+		},
 		network::{NetworkAction, NetworkEmulator},
 	},
 };
