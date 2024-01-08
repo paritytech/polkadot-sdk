@@ -583,9 +583,8 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 		ptr: u32,
 	) -> Result<D, DispatchError> {
 		let ptr = ptr as usize;
-		let mut bound_checked = memory
-			.get(ptr..ptr + D::max_encoded_len() as usize)
-			.ok_or_else(|| Error::<E::T>::OutOfBounds)?;
+		let mut bound_checked = memory.get(ptr..).ok_or_else(|| Error::<E::T>::OutOfBounds)?;
+
 		let decoded = D::decode_with_depth_limit(MAX_DECODE_NESTING, &mut bound_checked)
 			.map_err(|_| DispatchError::from(Error::<E::T>::DecodingFailed))?;
 		Ok(decoded)
