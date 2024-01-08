@@ -1,5 +1,5 @@
 use crate::{
-	traits::sufficients::{Inspect, Mutate},
+	traits::sufficiency::{Inspect, Mutate},
 	Asset, Config, Pallet,
 };
 

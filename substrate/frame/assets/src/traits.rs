@@ -1,4 +1,4 @@
-pub mod sufficients {
+pub mod sufficiency {
 	use sp_runtime::DispatchResult;
 
 	/// Trait for providing the sufficient state of an asset.
