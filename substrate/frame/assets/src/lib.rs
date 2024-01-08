@@ -155,7 +155,7 @@ pub use extra_mutator::*;
 mod functions;
 mod impl_fungibles;
 mod impl_stored_map;
-mod impl_sufficients;
+mod impl_sufficiency;
 
 pub mod traits;
 mod types;
