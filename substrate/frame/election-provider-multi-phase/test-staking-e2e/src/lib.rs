@@ -414,20 +414,36 @@ fn parachain_weight_limits() {
 		5_242_880,
 	);
 
+	let nominations_inc = 10;
+
 	// EPM
 	let snapshot_weight = EPMWeightInfo::create_snapshot_internal(voters, targets);
-	println!(
-		"snapshot weight: {:?}. fits? {:?}",
-		snapshot_weight,
-		snapshot_weight.all_lte(weight_limit)
-	);
 
+	let mut v = nominations_inc;
+	while EPMWeightInfo::create_snapshot_internal(v, targets).all_lte(weight_limit) {
+		v += nominations_inc;
+	}
+
+	println!(
+		"snapshot weight: {:?}. fits? {:?}. Max voters: {:?}",
+		snapshot_weight,
+		snapshot_weight.all_lte(weight_limit),
+		v,
+	);
 	let submit_unsigned_weight =
 		EPMWeightInfo::submit_unsigned(voters, targets, active_voters, desired_targets);
+
+	let mut v = nominations_inc;
+	while EPMWeightInfo::submit_unsigned(v, targets, active_voters, desired_targets)
+		.all_lte(weight_limit)
+	{
+		v += nominations_inc;
+	}
 	println!(
-		"submit_unsigned: {:?}. fits? {:?}",
+		"submit_unsigned: {:?}. fits? {:?}. Max voters: {:?}",
 		submit_unsigned_weight,
-		submit_unsigned_weight.all_lte(weight_limit)
+		submit_unsigned_weight.all_lte(weight_limit),
+		v
 	);
 
 	let elect_weight = EPMWeightInfo::elect_queued(active_voters, desired_targets);
