@@ -299,6 +299,10 @@ contract BeefyClient {
         bytes32 ticketID = createTicketID(msg.sender, commitmentHash);
         Ticket storage ticket = tickets[ticketID];
 
+        if (ticket.blockNumber == 0) {
+            revert InvalidTicket();
+        }
+
         if (ticket.prevRandao != 0) {
             revert PrevRandaoAlreadyCaptured();
         }

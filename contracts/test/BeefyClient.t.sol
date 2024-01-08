@@ -437,6 +437,11 @@ contract BeefyClientTest is Test {
         assertEq(beefyClient.getValidatorCounter(true, finalValidatorProofs[1].index), 0);
     }
 
+    function testCommitPrevRandaoCalledInSequence() public {
+        vm.expectRevert(BeefyClient.InvalidTicket.selector);
+        commitPrevRandao();
+    }
+
     function testSubmitWithHandoverAnd3SignatureCount() public {
         //initialize with previous set
         BeefyClient.Commitment memory commitment = initialize(setId - 1);

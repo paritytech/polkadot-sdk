@@ -6,6 +6,8 @@ authors = ["Snowfork <contact@snowfork.com>"]
 edition = "2021"
 license = "Apache-2.0"
 
+[workspace]
+
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 hex-literal = { version = "0.4.1" }
@@ -234,7 +236,7 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 fast-runtime = [
-	"snowbridge-ethereum-beacon-client/beacon-spec-minimal",
+	"bridge-hub-rococo-runtime/fast-runtime",
 ]
 experimental = ["pallet-aura/experimental"]
 

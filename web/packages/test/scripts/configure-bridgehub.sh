@@ -6,9 +6,10 @@ source scripts/xcm-helper.sh
 
 config_beacon_checkpoint() {
     pushd $root_dir
-    local check_point_call=$($relay_bin generate-beacon-checkpoint --spec $active_spec --url $beacon_endpoint_http)
+    local check_point_hex=$($relay_bin generate-beacon-checkpoint --spec $active_spec --url $beacon_endpoint_http)
     popd
-    send_governance_transact_from_relaychain $BRIDGE_HUB_PARAID "$check_point_call" 180000000000 900000
+    local transact_call="0x5200"$check_point_hex
+    send_governance_transact_from_relaychain $BRIDGE_HUB_PARAID "$transact_call" 180000000000 900000
 }
 
 wait_beacon_chain_ready() {
@@ -29,8 +30,7 @@ fund_accounts() {
     transfer_balance $relaychain_ws_url "//Charlie" 1013 1000000000000000 $execution_relayer_pub_key
 }
 
-open_hrmp_channel()
-{
+open_hrmp_channel() {
     local relay_url=$1
     local relay_chain_seed=$2
     local sender_para_id=$3
@@ -52,25 +52,23 @@ open_hrmp_channel()
         --seed "${relay_chain_seed?}" \
         --sudo \
         tx.hrmp.forceOpenHrmpChannel \
-            ${sender_para_id} \
-            ${recipient_para_id} \
-            ${max_capacity} \
-            ${max_message_size}
+        ${sender_para_id} \
+        ${recipient_para_id} \
+        ${max_capacity} \
+        ${max_message_size}
 }
 
-open_hrmp_channels()
-{
+open_hrmp_channels() {
     echo "Opening HRMP channels"
     open_hrmp_channel "${relaychain_ws_url}" "${relaychain_sudo_seed}" 1000 1013 8 512 # Assethub -> BridgeHub
-    open_hrmp_channel "${relaychain_ws_url}"  "${relaychain_sudo_seed}" 1013 1000 8 512 # BridgeHub -> Assethub
+    open_hrmp_channel "${relaychain_ws_url}" "${relaychain_sudo_seed}" 1013 1000 8 512 # BridgeHub -> Assethub
     open_hrmp_channel "${relaychain_ws_url}" "${relaychain_sudo_seed}" 2000 1013 8 512 # Penpal -> BridgeHub
     open_hrmp_channel "${relaychain_ws_url}" "${relaychain_sudo_seed}" 1013 2000 8 512 # BridgeHub -> Penpal
     open_hrmp_channel "${relaychain_ws_url}" "${relaychain_sudo_seed}" 1000 2000 8 512 # Penpal -> AssetHub
     open_hrmp_channel "${relaychain_ws_url}" "${relaychain_sudo_seed}" 2000 1000 8 512 # Assethub -> Penpal
 }
 
-set_gateway()
-{
+set_gateway() {
     echo "Setting gateway contract"
     local storage_key=$(echo $GATEWAY_STORAGE_KEY | cut -c3-)
     local gateway=$(echo $GATEWAY_PROXY_CONTRACT | cut -c3-)
