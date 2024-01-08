@@ -311,7 +311,7 @@ test-linux-stable:
   extends:
     - .docker-env
     - .common-refs
-    - .run-immediately
+    # - .run-immediately
     - .pipeline-stopper-artifacts
   variables:
     RUST_TOOLCHAIN: stable
