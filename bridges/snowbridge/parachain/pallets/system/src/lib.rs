@@ -79,8 +79,6 @@ use xcm_executor::traits::ConvertLocation;
 #[cfg(feature = "runtime-benchmarks")]
 use frame_support::traits::OriginTrait;
 
-pub use pallet::*;
-
 pub type BalanceOf<T> =
 	<<T as pallet::Config>::Token as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
