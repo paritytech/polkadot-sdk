@@ -18,7 +18,7 @@ futures = "0.3.16"
 jsonrpsee = { version = "0.16.2", features = ["client-core", "macros", "server"] }
 log = "0.4.8"
 parity-scale-codec = { version = "3.6.1", features = ["derive"] }
-serde = { version = "1.0.194", features = ["derive"] }
+serde = { version = "1.0.195", features = ["derive"] }
 thiserror = "1.0"
 sc-client-api = { path = "../../../api" }
 sc-consensus-grandpa = { path = ".." }

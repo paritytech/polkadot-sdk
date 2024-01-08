@@ -23,3 +23,7 @@ toml = "0.8.2"
 twox-hash = "1.6.3"
 polkavm-linker = "0.3.0"
 anyhow = "1.0.0"
+
+[features]
+# Enable experimental RISCV fixtures build
+riscv-experimental = []

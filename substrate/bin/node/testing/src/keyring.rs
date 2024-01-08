@@ -20,8 +20,10 @@
 
 use codec::Encode;
 use kitchensink_runtime::{CheckedExtrinsic, SessionKeys, SignedExtra, UncheckedExtrinsic};
+use node_cli::chain_spec::get_from_seed;
 use node_primitives::{AccountId, Balance, Nonce};
-use sp_keyring::{AccountKeyring, Ed25519Keyring, Sr25519Keyring};
+use sp_core::{ecdsa, ed25519, sr25519};
+use sp_keyring::AccountKeyring;
 use sp_runtime::generic::Era;
 
 /// Alice's account id.
@@ -55,16 +57,14 @@ pub fn ferdie() -> AccountId {
 }
 
 /// Convert keyrings into `SessionKeys`.
-pub fn to_session_keys(
-	ed25519_keyring: &Ed25519Keyring,
-	sr25519_keyring: &Sr25519Keyring,
-) -> SessionKeys {
+pub fn session_keys_from_seed(seed: &str) -> SessionKeys {
 	SessionKeys {
-		grandpa: ed25519_keyring.to_owned().public().into(),
-		babe: sr25519_keyring.to_owned().public().into(),
-		im_online: sr25519_keyring.to_owned().public().into(),
-		authority_discovery: sr25519_keyring.to_owned().public().into(),
-		mixnet: sr25519_keyring.to_owned().public().into(),
+		grandpa: get_from_seed::<ed25519::Public>(seed).into(),
+		babe: get_from_seed::<sr25519::Public>(seed).into(),
+		im_online: get_from_seed::<sr25519::Public>(seed).into(),
+		authority_discovery: get_from_seed::<sr25519::Public>(seed).into(),
+		mixnet: get_from_seed::<sr25519::Public>(seed).into(),
+		beefy: get_from_seed::<ecdsa::Public>(seed).into(),
 	}
 }
 
