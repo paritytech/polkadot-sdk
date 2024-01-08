@@ -1709,7 +1709,7 @@ impl<T: Config> BlockNumberProvider for RelaychainDataProvider<T> {
 	fn current_block_number() -> relay_chain::BlockNumber {
 		Pallet::<T>::validation_data()
 			.map(|d| d.relay_parent_number)
-			.unwrap_or_default()
+			.unwrap_or_else(|| Pallet::<T>::last_relay_block_number())
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
