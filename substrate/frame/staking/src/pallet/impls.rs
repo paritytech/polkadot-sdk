@@ -1095,7 +1095,10 @@ impl<T: Config> Pallet<T> {
 			Validators::<T>::insert(who, prefs);
 
 			let self_stake = Self::stake(who);
-			T::EventListeners::on_validator_add(who, Some(self_stake.defensive_unwrap_or_default().into()));
+			T::EventListeners::on_validator_add(
+				who,
+				Some(self_stake.defensive_unwrap_or_default().into()),
+			);
 		} else {
 			Validators::<T>::insert(who, prefs);
 		}

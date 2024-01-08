@@ -100,7 +100,12 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 	///
 	/// This is effectively any changes to the bond amount, such as bonding more funds, and
 	/// unbonding.
-	fn on_stake_update(_who: &AccountId, _prev_stake: Option<Stake<Balance>>, _stake: Stake<Balance>) {}
+	fn on_stake_update(
+		_who: &AccountId,
+		_prev_stake: Option<Stake<Balance>>,
+		_stake: Stake<Balance>,
+	) {
+	}
 
 	/// Fired when someone sets their intention to nominate.
 	///
@@ -112,7 +117,12 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 	/// Note that this is not fired when a nominator changes their stake. For that,
 	/// `on_stake_update` should be used, followed by querying whether `who` was a validator or a
 	/// nominator.
-	fn on_nominator_update(_who: &AccountId, _prev_nominations: Vec<AccountId>, _nominations: Vec<AccountId>) {}
+	fn on_nominator_update(
+		_who: &AccountId,
+		_prev_nominations: Vec<AccountId>,
+		_nominations: Vec<AccountId>,
+	) {
+	}
 
 	/// Fired when an existng nominator becomes idle.
 	///
