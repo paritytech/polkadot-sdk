@@ -8,13 +8,16 @@ repository.workspace = true
 license.workspace = true
 publish = false
 
+[lints]
+workspace = true
+
 [dependencies]
 parity-scale-codec = { version = "3.0.0", default-features = false }
 scale-info = { version = "2.6.0", default-features = false }
 
 # this is a frame-based runtime, thus importing `frame` with runtime feature enabled.
-frame = { path = "../../../frame", default-features = false, features = ["runtime", "experimental"] }
-frame-support = { path = "../../../frame/support", default-features = false}
+frame = { path = "../../../frame", default-features = false, features = ["experimental", "runtime"] }
+frame-support = { path = "../../../frame/support", default-features = false }
 
 # pallets that we want to use
 pallet-balances = { path = "../../../frame/balances", default-features = false }
@@ -24,14 +27,14 @@ pallet-transaction-payment = { path = "../../../frame/transaction-payment", defa
 pallet-transaction-payment-rpc-runtime-api = { path = "../../../frame/transaction-payment/rpc/runtime-api", default-features = false }
 
 # genesis builder that allows us to interacto with runtime genesis config
-sp-genesis-builder = { path = "../../../primitives/genesis-builder", default-features = false}
+sp-genesis-builder = { path = "../../../primitives/genesis-builder", default-features = false }
 
 
 [build-dependencies]
 substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"frame-support/std",
 	"frame/std",

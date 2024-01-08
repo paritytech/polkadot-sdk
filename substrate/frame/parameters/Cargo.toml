@@ -27,7 +27,7 @@ pallet-example-basic = { path = "../examples/basic", features = ["std"] }
 pallet-balances = { path = "../balances", features = ["std"] }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"frame-support/std",

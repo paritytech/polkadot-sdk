@@ -8,7 +8,7 @@
 	(func $assert_eq (param i32 i32)
 		(block $ok
 			(br_if $ok
-				(i32.eq (get_local 0) (get_local 1))
+				(i32.eq (local.get 0) (local.get 1))
 			)
 			(unreachable)
 		)

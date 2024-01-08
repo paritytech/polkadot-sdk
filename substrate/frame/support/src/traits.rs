@@ -126,6 +126,9 @@ pub use tx_pause::{TransactionPause, TransactionPauseError};
 mod dynamic_params;
 pub use dynamic_params::{AggregratedKeyValue, Key};
 
+pub mod tasks;
+pub use tasks::Task;
+
 #[cfg(feature = "try-runtime")]
 mod try_runtime;
 #[cfg(feature = "try-runtime")]

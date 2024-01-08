@@ -16,13 +16,13 @@
 
 //! A queue that handles requests for PVF execution.
 
-use super::worker_intf::Outcome;
+use super::worker_interface::Outcome;
 use crate::{
 	artifacts::{ArtifactId, ArtifactPathId},
 	host::ResultSender,
 	metrics::Metrics,
-	worker_intf::{IdleWorker, WorkerHandle},
-	InvalidCandidate, ValidationError, LOG_TARGET,
+	worker_interface::{IdleWorker, WorkerHandle},
+	InvalidCandidate, PossiblyInvalidError, ValidationError, LOG_TARGET,
 };
 use futures::{
 	channel::mpsc,
@@ -342,20 +342,27 @@ fn handle_job_finish(
 		},
 		Outcome::InvalidCandidate { err, idle_worker } => (
 			Some(idle_worker),
-			Err(ValidationError::InvalidCandidate(InvalidCandidate::WorkerReportedError(err))),
+			Err(ValidationError::Invalid(InvalidCandidate::WorkerReportedInvalid(err))),
 			None,
 		),
-		Outcome::InternalError { err } => (None, Err(ValidationError::InternalError(err)), None),
+		Outcome::InternalError { err } => (None, Err(ValidationError::Internal(err)), None),
+		// Either the worker or the job timed out. Kill the worker in either case. Treated as
+		// definitely-invalid, because if we timed out, there's no time left for a retry.
 		Outcome::HardTimeout =>
-			(None, Err(ValidationError::InvalidCandidate(InvalidCandidate::HardTimeout)), None),
+			(None, Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)), None),
 		// "Maybe invalid" errors (will retry).
-		Outcome::IoErr => (
+		Outcome::WorkerIntfErr => (
 			None,
-			Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath)),
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)),
 			None,
 		),
-		Outcome::Panic { err } =>
-			(None, Err(ValidationError::InvalidCandidate(InvalidCandidate::Panic(err))), None),
+		Outcome::JobDied { err } => (
+			None,
+			Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousJobDeath(err))),
+			None,
+		),
+		Outcome::JobError { err } =>
+			(None, Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(err))), None),
 	};
 
 	queue.metrics.execute_finished();
@@ -441,7 +448,7 @@ async fn spawn_worker_task(
 	use futures_timer::Delay;
 
 	loop {
-		match super::worker_intf::spawn(
+		match super::worker_interface::spawn(
 			&program_path,
 			&cache_path,
 			job.executor_params.clone(),
@@ -493,7 +500,7 @@ fn assign(queue: &mut Queue, worker: Worker, job: ExecuteJob) {
 	queue.mux.push(
 		async move {
 			let _timer = execution_timer;
-			let outcome = super::worker_intf::start_work(
+			let outcome = super::worker_interface::start_work(
 				idle,
 				job.artifact.clone(),
 				job.exec_timeout,

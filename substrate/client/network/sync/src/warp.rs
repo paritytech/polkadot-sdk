@@ -42,7 +42,7 @@ const LOG_TARGET: &'static str = "sync";
 pub struct EncodedProof(pub Vec<u8>);
 
 /// Warp sync request
-#[derive(Encode, Decode, Debug)]
+#[derive(Encode, Decode, Debug, Clone)]
 pub struct WarpProofRequest<B: BlockT> {
 	/// Start collecting proofs from this block.
 	pub begin: B::Hash,
