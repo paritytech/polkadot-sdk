@@ -24,7 +24,7 @@ use crate::metrics::{
 use async_std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use std::time::Duration;
-use sysinfo::{ProcessExt, RefreshKind, System, SystemExt};
+use sysinfo::{RefreshKind, System};
 
 /// Global metrics update interval.
 const UPDATE_INTERVAL: Duration = Duration::from_secs(10);
@@ -73,7 +73,7 @@ impl StandaloneMetric for GlobalMetrics {
 	async fn update(&self) {
 		// update system-wide metrics
 		let mut system = self.system.lock().await;
-		let load = system.load_average();
+		let load = sysinfo::System::load_average();
 		self.system_average_load.with_label_values(&["1min"]).set(load.one);
 		self.system_average_load.with_label_values(&["5min"]).set(load.five);
 		self.system_average_load.with_label_values(&["15min"]).set(load.fifteen);
