@@ -96,7 +96,7 @@ const STATE_SYNC_FINALITY_THRESHOLD: u32 = 8;
 const MAJOR_SYNC_BLOCKS: u8 = 5;
 
 /// Number of peers that need to be connected before warp sync is started.
-const MIN_PEERS_TO_START_WARP_SYNC: usize = 3;
+const MIN_PEERS_TO_START_WARP_SYNC: usize = 2;
 
 mod rep {
 	use sc_network::ReputationChange as Rep;

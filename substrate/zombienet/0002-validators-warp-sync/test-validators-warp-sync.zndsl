@@ -14,24 +14,27 @@ charlie: reports peers count is at least 4 within 60 seconds
 dave: reports peers count is at least 4 within 60 seconds
 eve: reports peers count is at least 4 within 60 seconds
 
-# db snapshot has 12133 blocks
-charlie: reports block height is at least 12133 within 60 seconds
-dave: reports block height is at least 12133 within 60 seconds
-eve: reports block height is at least 12133 within 60 seconds
+# db snapshot has DB_BLOCK_HEIGHT=46742 blocks
+charlie: reports block height is at least {{DB_BLOCK_HEIGHT}} within 60 seconds
+dave: reports block height is at least {{DB_BLOCK_HEIGHT}} within 60 seconds
+eve: reports block height is at least {{DB_BLOCK_HEIGHT}} within 60 seconds
 
 alice: log line matches "Warp sync is complete" within 60 seconds
 bob: log line matches "Warp sync is complete" within 60 seconds
 
-# workaround for: https://github.com/paritytech/zombienet/issues/580
-alice: count of log lines containing  "Block history download is complete" is 1 within 60 seconds
-bob: count of log lines containing  "Block history download is complete" is 1 within 60 seconds
+alice: log line matches   "Block history download is complete" within 60 seconds
+bob: log line matches   "Block history download is complete" within 60 seconds
 
-alice: reports block height is at least 12133 within 10 seconds
-bob: reports block height is at least 12133 within 10 seconds
+alice: reports block height is at least {{DB_BLOCK_HEIGHT}} within 10 seconds
+bob: reports block height is at least {{DB_BLOCK_HEIGHT}} within 10 seconds
 
 alice: count of log lines containing "error" is 0 within 10 seconds
 bob: count of log lines containing "verification failed" is 0 within 10 seconds
 
 # new block were built
-alice: reports block height is at least 12136 within 90 seconds
-bob: reports block height is at least 12136 within 90 seconds
+alice: reports block height minus 3 is at least {{DB_BLOCK_HEIGHT}} within 90 seconds
+bob: reports block height minus 3 is at least {{DB_BLOCK_HEIGHT}} within 90 seconds
+
+# BEEFY catched-up after warp sync
+alice: log line matches "🥩 Concluded mandatory round #{{DB_LATEST_MANDATORY_ROUND}}" within 180 seconds
+bob: log line matches "🥩 Concluded mandatory round #{{DB_LATEST_MANDATORY_ROUND}}" within 180 seconds
