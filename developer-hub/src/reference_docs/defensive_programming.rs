@@ -1,6 +1,6 @@
 //! As our runtime should _never_ panic; this includes carefully handling [`Result`]/[`Option`]
 //! types, eliminating the possibility of integer overflows, converting between number types, or
-//! even handling floating point usage with fixed point arithmetic to mitigate issues that come with
+//! even replacing floating point usage with fixed point arithmetic to mitigate issues that come with
 //! floating point calculations.
 //!
 //! Intentional and predictable design should be our first and foremost
