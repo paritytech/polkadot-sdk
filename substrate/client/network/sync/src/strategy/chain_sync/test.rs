@@ -38,7 +38,7 @@ fn processes_empty_response_on_justification_request_for_unknown_block() {
 	let client = Arc::new(TestClientBuilder::new().build());
 	let peer_id = PeerId::random();
 
-	let mut sync = ChainSync::new(SyncMode::Full, client.clone(), 1, 64, None).unwrap();
+	let mut sync = ChainSync::new(ChainSyncMode::Full, client.clone(), 1, 64, None).unwrap();
 
 	let (a1_hash, a1_number) = {
 		let a1 = BlockBuilderBuilder::new(&*client)
@@ -53,7 +53,7 @@ fn processes_empty_response_on_justification_request_for_unknown_block() {
 	};
 
 	// add a new peer with the same best block
-	sync.new_peer(peer_id, a1_hash, a1_number);
+	sync.add_peer(peer_id, a1_hash, a1_number);
 
 	// and request a justification for the block
 	sync.request_justification(&a1_hash, a1_number);
@@ -91,7 +91,7 @@ fn processes_empty_response_on_justification_request_for_unknown_block() {
 fn restart_doesnt_affect_peers_downloading_finality_data() {
 	let mut client = Arc::new(TestClientBuilder::new().build());
 
-	let mut sync = ChainSync::new(SyncMode::Full, client.clone(), 1, 64, None).unwrap();
+	let mut sync = ChainSync::new(ChainSyncMode::Full, client.clone(), 1, 64, None).unwrap();
 
 	let peer_id1 = PeerId::random();
 	let peer_id2 = PeerId::random();
@@ -117,8 +117,8 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 	let (b1_hash, b1_number) = new_blocks(50);
 
 	// add 2 peers at blocks that we don't have locally
-	sync.new_peer(peer_id1, Hash::random(), 42);
-	sync.new_peer(peer_id2, Hash::random(), 10);
+	sync.add_peer(peer_id1, Hash::random(), 42);
+	sync.add_peer(peer_id2, Hash::random(), 10);
 
 	// we wil send block requests to these peers
 	// for these blocks we don't know about
@@ -128,7 +128,7 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 		.all(|(p, _)| { p == peer_id1 || p == peer_id2 }));
 
 	// add a new peer at a known block
-	sync.new_peer(peer_id3, b1_hash, b1_number);
+	sync.add_peer(peer_id3, b1_hash, b1_number);
 
 	// we request a justification for a block we have locally
 	sync.request_justification(&b1_hash, b1_number);
@@ -181,7 +181,7 @@ fn send_block_announce(header: Header, peer_id: PeerId, sync: &mut ChainSync<Blo
 		data: Some(Vec::new()),
 	};
 
-	sync.on_validated_block_announce(true, peer_id, &announce);
+	let _ = sync.on_validated_block_announce(true, peer_id, &announce);
 }
 
 /// Create a block response from the given `blocks`.
@@ -275,7 +275,7 @@ fn do_ancestor_search_when_common_block_to_best_qeued_gap_is_to_big() {
 	let mut client = Arc::new(TestClientBuilder::new().build());
 	let info = client.info();
 
-	let mut sync = ChainSync::new(SyncMode::Full, client.clone(), 5, 64, None).unwrap();
+	let mut sync = ChainSync::new(ChainSyncMode::Full, client.clone(), 5, 64, None).unwrap();
 
 	let peer_id1 = PeerId::random();
 	let peer_id2 = PeerId::random();
@@ -283,8 +283,8 @@ fn do_ancestor_search_when_common_block_to_best_qeued_gap_is_to_big() {
 	let best_block = blocks.last().unwrap().clone();
 	let max_blocks_to_request = sync.max_blocks_per_request;
 	// Connect the node we will sync from
-	sync.new_peer(peer_id1, best_block.hash(), *best_block.header().number());
-	sync.new_peer(peer_id2, info.best_hash, 0);
+	sync.add_peer(peer_id1, best_block.hash(), *best_block.header().number());
+	sync.add_peer(peer_id2, info.best_hash, 0);
 
 	let mut best_block_num = 0;
 	while best_block_num < MAX_DOWNLOAD_AHEAD {
@@ -421,7 +421,7 @@ fn can_sync_huge_fork() {
 
 	let info = client.info();
 
-	let mut sync = ChainSync::new(SyncMode::Full, client.clone(), 5, 64, None).unwrap();
+	let mut sync = ChainSync::new(ChainSyncMode::Full, client.clone(), 5, 64, None).unwrap();
 
 	let finalized_block = blocks[MAX_BLOCKS_TO_LOOK_BACKWARDS as usize * 2 - 1].clone();
 	let just = (*b"TEST", Vec::new());
@@ -432,7 +432,7 @@ fn can_sync_huge_fork() {
 
 	let common_block = blocks[MAX_BLOCKS_TO_LOOK_BACKWARDS as usize / 2].clone();
 	// Connect the node we will sync from
-	sync.new_peer(peer_id1, common_block.hash(), *common_block.header().number());
+	sync.add_peer(peer_id1, common_block.hash(), *common_block.header().number());
 
 	send_block_announce(fork_blocks.last().unwrap().header().clone(), peer_id1, &mut sync);
 
@@ -554,7 +554,7 @@ fn syncs_fork_without_duplicate_requests() {
 
 	let info = client.info();
 
-	let mut sync = ChainSync::new(SyncMode::Full, client.clone(), 5, 64, None).unwrap();
+	let mut sync = ChainSync::new(ChainSyncMode::Full, client.clone(), 5, 64, None).unwrap();
 
 	let finalized_block = blocks[MAX_BLOCKS_TO_LOOK_BACKWARDS as usize * 2 - 1].clone();
 	let just = (*b"TEST", Vec::new());
@@ -565,7 +565,7 @@ fn syncs_fork_without_duplicate_requests() {
 
 	let common_block = blocks[MAX_BLOCKS_TO_LOOK_BACKWARDS as usize / 2].clone();
 	// Connect the node we will sync from
-	sync.new_peer(peer_id1, common_block.hash(), *common_block.header().number());
+	sync.add_peer(peer_id1, common_block.hash(), *common_block.header().number());
 
 	send_block_announce(fork_blocks.last().unwrap().header().clone(), peer_id1, &mut sync);
 
@@ -689,12 +689,12 @@ fn removes_target_fork_on_disconnect() {
 	let mut client = Arc::new(TestClientBuilder::new().build());
 	let blocks = (0..3).map(|_| build_block(&mut client, None, false)).collect::<Vec<_>>();
 
-	let mut sync = ChainSync::new(SyncMode::Full, client.clone(), 1, 64, None).unwrap();
+	let mut sync = ChainSync::new(ChainSyncMode::Full, client.clone(), 1, 64, None).unwrap();
 
 	let peer_id1 = PeerId::random();
 	let common_block = blocks[1].clone();
 	// Connect the node we will sync from
-	sync.new_peer(peer_id1, common_block.hash(), *common_block.header().number());
+	sync.add_peer(peer_id1, common_block.hash(), *common_block.header().number());
 
 	// Create a "new" header and announce it
 	let mut header = blocks[0].header().clone();
@@ -702,7 +702,7 @@ fn removes_target_fork_on_disconnect() {
 	send_block_announce(header, peer_id1, &mut sync);
 	assert!(sync.fork_targets.len() == 1);
 
-	let _ = sync.peer_disconnected(&peer_id1);
+	let _ = sync.remove_peer(&peer_id1);
 	assert!(sync.fork_targets.len() == 0);
 }
 
@@ -714,11 +714,11 @@ fn can_import_response_with_missing_blocks() {
 
 	let empty_client = Arc::new(TestClientBuilder::new().build());
 
-	let mut sync = ChainSync::new(SyncMode::Full, empty_client.clone(), 1, 64, None).unwrap();
+	let mut sync = ChainSync::new(ChainSyncMode::Full, empty_client.clone(), 1, 64, None).unwrap();
 
 	let peer_id1 = PeerId::random();
 	let best_block = blocks[3].clone();
-	sync.new_peer(peer_id1, best_block.hash(), *best_block.header().number());
+	sync.add_peer(peer_id1, best_block.hash(), *best_block.header().number());
 
 	sync.peers.get_mut(&peer_id1).unwrap().state = PeerSyncState::Available;
 	sync.peers.get_mut(&peer_id1).unwrap().common_number = 0;
@@ -745,7 +745,7 @@ fn ancestor_search_repeat() {
 #[test]
 fn sync_restart_removes_block_but_not_justification_requests() {
 	let mut client = Arc::new(TestClientBuilder::new().build());
-	let mut sync = ChainSync::new(SyncMode::Full, client.clone(), 1, 64, None).unwrap();
+	let mut sync = ChainSync::new(ChainSyncMode::Full, client.clone(), 1, 64, None).unwrap();
 
 	let peers = vec![PeerId::random(), PeerId::random()];
 
@@ -769,7 +769,7 @@ fn sync_restart_removes_block_but_not_justification_requests() {
 	let (b1_hash, b1_number) = new_blocks(50);
 
 	// add new peer and request blocks from them
-	sync.new_peer(peers[0], Hash::random(), 42);
+	sync.add_peer(peers[0], Hash::random(), 42);
 
 	// we don't actually perform any requests, just keep track of peers waiting for a response
 	let mut pending_responses = HashSet::new();
@@ -782,7 +782,7 @@ fn sync_restart_removes_block_but_not_justification_requests() {
 	}
 
 	// add a new peer at a known block
-	sync.new_peer(peers[1], b1_hash, b1_number);
+	sync.add_peer(peers[1], b1_hash, b1_number);
 
 	// we request a justification for a block we have locally
 	sync.request_justification(&b1_hash, b1_number);
@@ -837,7 +837,7 @@ fn sync_restart_removes_block_but_not_justification_requests() {
 		sync.peers.get(&peers[1]).unwrap().state,
 		PeerSyncState::DownloadingJustification(b1_hash),
 	);
-	let _ = sync.peer_disconnected(&peers[1]);
+	let _ = sync.remove_peer(&peers[1]);
 	pending_responses.remove(&peers[1]);
 	assert_eq!(pending_responses.len(), 0);
 }
@@ -887,14 +887,14 @@ fn request_across_forks() {
 		fork_blocks
 	};
 
-	let mut sync = ChainSync::new(SyncMode::Full, client.clone(), 5, 64, None).unwrap();
+	let mut sync = ChainSync::new(ChainSyncMode::Full, client.clone(), 5, 64, None).unwrap();
 
 	// Add the peers, all at the common ancestor 100.
 	let common_block = blocks.last().unwrap();
 	let peer_id1 = PeerId::random();
-	sync.new_peer(peer_id1, common_block.hash(), *common_block.header().number());
+	sync.add_peer(peer_id1, common_block.hash(), *common_block.header().number());
 	let peer_id2 = PeerId::random();
-	sync.new_peer(peer_id2, common_block.hash(), *common_block.header().number());
+	sync.add_peer(peer_id2, common_block.hash(), *common_block.header().number());
 
 	// Peer 1 announces 107 from fork 1, 100-107 get downloaded.
 	{

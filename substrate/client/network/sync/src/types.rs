@@ -23,13 +23,11 @@ use sc_network_common::{role::Roles, types::ReputationChange};
 
 use libp2p::PeerId;
 
-use crate::warp::WarpSyncProgress;
+use crate::strategy::warp::WarpSyncProgress;
 use sc_network_common::sync::message::BlockRequest;
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 use std::{any::Any, fmt, fmt::Formatter, pin::Pin, sync::Arc};
-
-pub use sc_network_common::sync::SyncMode;
 
 /// The sync status of a peer we are trying to sync with
 #[derive(Debug)]
@@ -108,13 +106,6 @@ impl fmt::Display for BadPeer {
 }
 
 impl std::error::Error for BadPeer {}
-
-#[derive(Debug)]
-pub struct Metrics {
-	pub queued_blocks: u32,
-	pub fork_targets: u32,
-	pub justifications: crate::request_metrics::Metrics,
-}
 
 #[derive(Debug)]
 pub enum PeerRequest<B: BlockT> {

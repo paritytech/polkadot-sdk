@@ -22,7 +22,9 @@ alice: reports block height is at least 12133 within 60 seconds
 bob: reports block height is at least 12133 within 60 seconds
 charlie: reports block height is at least 12133 within 60 seconds
 
-dave: log line matches "Warp sync is complete" within 60 seconds
+dave: log line matches "Warp sync finished" within 60 seconds
+# State sync is logically part of warp sync
+dave: log line matches "State sync finished" within 60 seconds
 # workaround for: https://github.com/paritytech/zombienet/issues/580
 dave: count of log lines containing  "Block history download is complete" is 1 within 10 seconds
 

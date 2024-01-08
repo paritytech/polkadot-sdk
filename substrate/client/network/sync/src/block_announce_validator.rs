@@ -19,7 +19,7 @@
 //! [`BlockAnnounceValidator`] is responsible for async validation of block announcements.
 //! [`Stream`] implemented by [`BlockAnnounceValidator`] never terminates.
 
-use crate::futures_stream::FuturesStream;
+use crate::{futures_stream::FuturesStream, LOG_TARGET};
 use futures::{stream::FusedStream, Future, FutureExt, Stream, StreamExt};
 use libp2p::PeerId;
 use log::{debug, error, trace, warn};
@@ -32,9 +32,6 @@ use std::{
 	pin::Pin,
 	task::{Context, Poll},
 };
-
-/// Log target for this file.
-const LOG_TARGET: &str = "sync";
 
 /// Maximum number of concurrent block announce validations.
 ///
