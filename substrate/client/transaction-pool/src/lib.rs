@@ -345,7 +345,11 @@ where
 		self.pool.validated_pool().ready_by_hash(hash)
 	}
 
-	fn ready_at(&self, at: NumberFor<Self::Block>) -> PolledIterator<PoolApi> {
+	fn ready_at(&self, at: <Self::Block as BlockT>::Hash) -> PolledIterator<PoolApi> {
+		let Ok(at) = self.api.resolve_block_number(at) else {
+			return async { Box::new(std::iter::empty()) as Box<_> }.boxed()
+		};
+
 		let status = self.status();
 		// If there are no transactions in the pool, it is fine to return early.
 		//
@@ -373,14 +377,14 @@ where
 			.boxed()
 	}
 
-	fn ready(&self) -> ReadyIteratorFor<PoolApi> {
-		Box::new(self.pool.validated_pool().ready())
+	fn ready(&self, _: <Self::Block as BlockT>::Hash) -> Option<ReadyIteratorFor<PoolApi>> {
+		Some(Box::new(self.pool.validated_pool().ready()))
 	}
 
-	fn futures(&self) -> Vec<Self::InPoolTransaction> {
+	fn futures(&self, _: <Self::Block as BlockT>::Hash) -> Option<Vec<Self::InPoolTransaction>> {
 		let pool = self.pool.validated_pool().pool.read();
 
-		pool.futures().cloned().collect::<Vec<_>>()
+		Some(pool.futures().cloned().collect::<Vec<_>>())
 	}
 }
 

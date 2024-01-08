@@ -447,19 +447,24 @@ impl<C, P: ?Sized> TransactionPoolAdapter<C, P> {
 /// Get transactions for propagation.
 ///
 /// Function extracted to simplify the test and prevent creating `ServiceFactory`.
-fn transactions_to_propagate<Pool, B, H, E>(pool: &Pool) -> Vec<(H, B::Extrinsic)>
+fn transactions_to_propagate<Pool, B, H, E>(
+	at: <B as BlockT>::Hash,
+	pool: &Pool,
+) -> Vec<(H, B::Extrinsic)>
 where
 	Pool: TransactionPool<Block = B, Hash = H, Error = E> + ?Sized,
 	B: BlockT,
 	H: std::hash::Hash + Eq + sp_runtime::traits::Member + sp_runtime::traits::MaybeSerialize,
 	E: IntoPoolError + From<sc_transaction_pool_api::error::Error>,
 {
-	pool.ready()
-		.filter(|t| t.is_propagable())
-		.map(|t| {
-			let hash = t.hash().clone();
-			let ex: B::Extrinsic = t.data().clone();
-			(hash, ex)
+	pool.ready(at)
+		.into_iter()
+		.flat_map(|ready| {
+			ready.filter(|t| t.is_propagable()).map(|t| {
+				let hash = t.hash().clone();
+				let ex: B::Extrinsic = t.data().clone();
+				(hash, ex)
+			})
 		})
 		.collect()
 }
@@ -480,7 +485,7 @@ where
 	E: 'static + IntoPoolError + From<sc_transaction_pool_api::error::Error>,
 {
 	fn transactions(&self) -> Vec<(H, B::Extrinsic)> {
-		transactions_to_propagate(&*self.pool)
+		transactions_to_propagate(self.client.info().best_hash, &*self.pool)
 	}
 
 	fn hash_of(&self, transaction: &B::Extrinsic) -> H {
@@ -573,7 +578,7 @@ mod tests {
 		assert_eq!(pool.status().ready, 2);
 
 		// when
-		let transactions = transactions_to_propagate(&*pool);
+		let transactions = transactions_to_propagate(best.hash(), &*pool);
 
 		// then
 		assert_eq!(transactions.len(), 1);
