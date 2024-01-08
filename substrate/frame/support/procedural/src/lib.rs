@@ -1524,9 +1524,7 @@ pub fn derive_composite_enum_variant_count(input: TokenStream) -> TokenStream {
 	let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
 	// only `Enum` type is expected here (see also `CompositeDef::try_from`)
-	let data_enum = match &input.data {
-		syn::Data::Enum(ref data_enum) => data_enum,
-		_ =>
+	let syn::Data::Enum(data_enum) = &input.data else {
 			return syn::Error::new(input.ident.span(), "Invalid type: expected enum item")
 				.to_compile_error()
 				.into(),
