@@ -1,17 +1,18 @@
 # Release
 
-The outputs of a release are the `polkadot` and `polkadot-parachain` nodes, runtimes for the Westend & Rococo networks, including their system parachains, and new crate versions published to `crates.io`.
+The outputs of a release are the `polkadot` and `polkadot-parachain` node binaries, the runtimes for Westend & Rococo and their system parachains, and new crate versions published to `crates.io`.
 
 # Setup
 
-We have two branches: `master` and `release`. `master` is the main development branch where normal merge requests are opened. Developers need to mostly only care about this branch.  
-The `release` branch contains a version of the code that is ready to be released. Its contents are always audited. Merging to it is restricted to [Backports](#backports).
+We have two branches: `master` and `stable`. `master` is the main development branch where normal merge requests are opened. Developers need to mostly only care about this branch.  
+The `stable` branch contains a version of the code that is ready to be released. Its contents are always audited. Merging to it is restricted to [Backports](#backports).
 
 # Versioning
 
-We are releasing multiple different things from this repository in one release, but 
-we don't want to use the same version for everything. Thus, in the following we explain
-the versioning story for the crates, node and Westend & Rococo. To easily refer to a release, it shall be named by its date in the form `stableYYMMDD`.
+We are releasing multiple different things from this repository in one release, but we don't want to
+use the same version for everything. Thus, in the following we explain the versioning story for the
+crates, node and Westend & Rococo. To easily refer to a release, it shall be named by its date in
+the form `stableYYMMDD`.
 
 ## Crate
 
@@ -19,10 +20,10 @@ We try to follow SemVer<sup>1</sup> as best as possible for versioning our crate
 
 - @bkchr the list of node internals please
 
-The public API of our library crates is declared as all public items that are neither:
+Inductively, the public API of our library crates is declared as all public items that are neither:
 - Inside a `__private` module
-- Documented as `unstable` or `experimental` in the first line of docs
-- Bear `unstable` or `experimental` in their path or name
+- Documented as "unstable" or "experimental" in the first line of docs
+- Bear `unstable` or `experimental` in their absolute path
 
 ## Node
 
@@ -35,19 +36,20 @@ interface or similar. The node version is declared in the `NODE_VERSION` variabl
 
 ## Westend & Rococo
 
-For the these networks, in addition to incrementing the Cargo.toml version we also increment the `spec_version` and sometimes the `transaction_version`. The spec version is also following
-the node version. Its schema is: `M_mmm_ppp` and for example `1_002_000` is the node release `1.2.0`. This versioning has no further meaning, and is only done to map from an on chain `spec_version` easily to the release in this repository.  
-The Westend testnet will be updated to the new runtime version immediately after a `mainline` release happened.
+For the these networks, in addition to incrementing the `Cargo.toml` version we also increment the
+`spec_version` and sometimes the `transaction_version`. The spec version is also following the node
+version. Its schema is: `M_mmm_ppp` and for example `1_002_000` is the node release `1.2.0`. This
+versioning has no further meaning, and is only done to map from an on chain `spec_version` easily to
+the release in this repository.  
+The Westend testnet will be updated to the new runtime version immediately after a *Stable* release happened.
 
 # Backports
 
-Backporting refers to the practice of re-applying a patch to a branch that is behind the branch where the patch was originally applied.
+**From `master` to `stable`**
+Backports in this direction can be anything that is audited and either `minor` or a `patch` bump. [Security fixes](#bug-and-security-fix) should be prioritized over additions or improvements.
 
-**From `master` to `release`**  
-Backports in this direction can be anything that is audited and not a breaking SemVer change. Specifically, [security fixes](#bug-and-security-fix) should be prioritized over Features and Improvements.
-
-**From `release` to `master`**  
-Should not be needed. The `release` branch can get out of sync and will be synced with the [Clobbering](#clobbering) process.
+**From `stable` to `master`**
+Should not be needed since all changes first get merged into `master`. The `stable` branch can get out of sync and will be synced with the [Clobbering](#clobbering) process.
 
 # Processes
 
@@ -66,32 +68,32 @@ Following SemVer isn't easy, but there exists [a guide](https://doc.rust-lang.or
 3. They bump all crates that export any changed types in their *public API*.
 4. They also bump all crates that inherit logic changes from relying on one of the bumped crates. 
 
-## Mainline Release
+## Stable Release
 
 Cadence: every two weeks. Responsible: Release Team.
 
-This process aims to release the `release` branch as a *Mainline* release every two weeks.
+This process aims to release the `stable` branch as a *Stable* release every two weeks.
 
 ### Steps
 
 1. Check if process [Clobbering](#clobbering) needs to happen and do so, if that is the case.
-2. Check out the latest commit of `release`.
+2. Check out the latest commit of `stable`.
 3. Update the `CHANGELOG.md` version, date and compile the content using the prdoc files.
-4. Open a Merge Request against `release` for visibility.
+4. Open a Merge Request against `stable` for visibility.
 5. Check if there were any changes since the last release and abort, if not.
 6. Run `cargo semver-checks` and `cargo public-api` again to ensure that there are no SemVer breaks.
 7. Internal QA from the release team can happen here.
 8. Do a dry-run release to ensure that it *should* work.
-10. Comment that a *Mainline* release will happen from the merged commit hash.
+10. Comment that a *Stable* release will happen from the merged commit hash.
 11. Release all changed crates to crates.io.
 12. Create a release on GitHub.
 13. Notify Devops so that they can update Westend to the new runtime.
 
 ## Nightly Release
 
-Cadence: every day at 00:00 UTC. Responsible: Release Team
+Cadence: every day at 00:00 UTC+1. Responsible: Release Team
 
-This process aims to release the `master` branch as a *Nightly* release. The process can start at 00:00 UTC and should automatically do the following steps.
+This process aims to release the `master` branch as a *Nightly* release. The process can start at 00:00 UTC+1 and should automatically do the following steps.
 
 1. Check out the latest commit of branch `master`.
 2. Compare this commit to the latest `nightly*` tag and abort if there are no changes detected.
@@ -105,7 +107,7 @@ This process aims to release the `master` branch as a *Nightly* release. The pro
 
 Cadence: every 6th release (~3 months). Responsible: Release Team
 
-This process aims to bring branch `release` in sync with the latest audited commit of `master`. It is not done via a Merge Request but rather by just copying files. It should be automated. 
+This process aims to bring branch `stable` in sync with the latest audited commit of `master`. It is not done via a Merge Request but rather by just copying files. It should be automated.  
 The following script is provided to do the clobbering. Note that it keeps the complete history of all past clobbering processes.
 
 ```bash
@@ -142,8 +144,8 @@ Describes how developers should merge bug and security fixes.
 2. They have the possibility to mark the MR as such, and does so.
 3. Audit happens with priority.
 4. It is merged into `master`.
-5. It is automatically back-ported to `release`.
-6. The fix will be released in the next *Mainline* release. In urgent cases, a release can happen earlier.
+5. It is automatically back-ported to `stable`.
+6. The fix will be released in the next *Stable* release. In urgent cases, a release can happen earlier.
 
 # Footnotes
 
