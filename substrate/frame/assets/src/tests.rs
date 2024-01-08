@@ -109,6 +109,8 @@ fn insufficient_assets_can_turn_into_sufficient() {
 		assert_eq!(Assets::is_sufficient(0), false);
 		assert_ok!(Assets::make_sufficient(0));
 		assert_eq!(Assets::is_sufficient(0), true);
+		assert_ok!(Assets::make_insufficient(0));
+		assert_eq!(Assets::is_sufficient(0), false);
 	});
 }
 
