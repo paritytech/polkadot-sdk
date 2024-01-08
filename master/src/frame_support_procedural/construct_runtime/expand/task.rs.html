@@ -162,8 +162,8 @@
 	<span class="kw">let </span><span class="kw-2">mut </span>task_paths = Vec::new();
 	<span class="kw">for </span>decl <span class="kw">in </span>pallet_decls {
 		<span class="kw">if </span>decl.find_part(<span class="string">&quot;Task&quot;</span>).is_none() {
-			<span class="kw">continue</span>;
-		}
+			<span class="kw">continue
+		</span>}
 
 		<span class="kw">let </span>variant_name = <span class="kw-2">&amp;</span>decl.name;
 		<span class="kw">let </span>path = <span class="kw-2">&amp;</span>decl.path;

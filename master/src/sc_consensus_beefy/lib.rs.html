@@ -1023,7 +1023,7 @@
 			header =
 				wait_for_parent_header(backend.blockchain(), header, HEADER_SYNC_DELAY).<span class="kw">await</span><span class="question-mark">?</span>;
 		}
-		<span class="kw">return </span><span class="prelude-val">Ok</span>(state);
+		<span class="kw">return </span><span class="prelude-val">Ok</span>(state)
 	}
 
 	<span class="comment">// No valid voter-state persisted, re-initialize from pallet genesis.

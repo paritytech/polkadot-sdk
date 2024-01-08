@@ -1956,7 +1956,7 @@
 	<span class="kw">fn </span>from_string(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, PublicError&gt; {
 		<span class="kw">let </span>cap = AddressUri::parse(s)<span class="question-mark">?</span>;
 		<span class="kw">if </span>cap.pass.is_some() {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(PublicError::PasswordNotAllowed);
+			<span class="kw">return </span><span class="prelude-val">Err</span>(PublicError::PasswordNotAllowed)
 		}
 		<span class="kw">let </span>s = cap.phrase.unwrap_or(DEV_ADDRESS);
 		<span class="kw">let </span>addr = <span class="kw">if let </span><span class="prelude-val">Some</span>(stripped) = s.strip_prefix(<span class="string">&quot;0x&quot;</span>) {
@@ -1976,7 +1976,7 @@
 	<span class="kw">fn </span>from_string_with_version(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, Ss58AddressFormat), PublicError&gt; {
 		<span class="kw">let </span>cap = AddressUri::parse(s)<span class="question-mark">?</span>;
 		<span class="kw">if </span>cap.pass.is_some() {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(PublicError::PasswordNotAllowed);
+			<span class="kw">return </span><span class="prelude-val">Err</span>(PublicError::PasswordNotAllowed)
 		}
 		<span class="kw">let </span>(addr, v) = <span class="self">Self</span>::from_ss58check_with_version(cap.phrase.unwrap_or(DEV_ADDRESS))<span class="question-mark">?</span>;
 		<span class="kw">if </span>cap.paths.is_empty() {

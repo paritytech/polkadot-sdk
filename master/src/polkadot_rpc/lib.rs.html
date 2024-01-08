@@ -175,6 +175,12 @@
 <a href="#175" id="175">175</a>
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -298,6 +304,7 @@
 	<span class="kw">use </span>sc_consensus_babe_rpc::{Babe, BabeApiServer};
 	<span class="kw">use </span>sc_consensus_beefy_rpc::{Beefy, BeefyApiServer};
 	<span class="kw">use </span>sc_consensus_grandpa_rpc::{Grandpa, GrandpaApiServer};
+	<span class="kw">use </span>sc_rpc_spec_v2::chain_spec::{ChainSpec, ChainSpecApiServer};
 	<span class="kw">use </span>sc_sync_state_rpc::{SyncState, SyncStateApiServer};
 	<span class="kw">use </span>substrate_state_trie_migration_rpc::{StateMigration, StateMigrationApiServer};
 
@@ -311,6 +318,11 @@
 		finality_provider,
 	} = grandpa;
 
+	<span class="kw">let </span>chain_name = chain_spec.name().to_string();
+	<span class="kw">let </span>genesis_hash = client.hash(<span class="number">0</span>).ok().flatten().expect(<span class="string">&quot;Genesis block exists; qed&quot;</span>);
+	<span class="kw">let </span>properties = chain_spec.properties();
+
+	io.merge(ChainSpec::new(chain_name, genesis_hash, properties).into_rpc())<span class="question-mark">?</span>;
 	io.merge(StateMigration::new(client.clone(), backend.clone(), deny_unsafe).into_rpc())<span class="question-mark">?</span>;
 	io.merge(System::new(client.clone(), pool.clone(), deny_unsafe).into_rpc())<span class="question-mark">?</span>;
 	io.merge(TransactionPayment::new(client.clone()).into_rpc())<span class="question-mark">?</span>;

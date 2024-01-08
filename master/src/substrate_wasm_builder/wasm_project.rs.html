@@ -1958,8 +1958,8 @@
 	<span class="kw">while let </span><span class="prelude-val">Some</span>(dependency) = dependencies.pop() {
 		<span class="comment">// Ignore all dev dependencies
 		</span><span class="kw">if </span>dependency.kind == DependencyKind::Development {
-			<span class="kw">continue</span>;
-		}
+			<span class="kw">continue
+		</span>}
 
 		<span class="kw">let </span>path_or_git_dep =
 			dependency.source.as_ref().map(|s| s.starts_with(<span class="string">&quot;git+&quot;</span>)).unwrap_or(<span class="bool-val">true</span>);

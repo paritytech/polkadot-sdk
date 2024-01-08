@@ -1705,22 +1705,22 @@
 					<span class="kw">if </span>num_death_retries_left &gt; <span class="number">0 </span>{
 						num_death_retries_left -= <span class="number">1</span>;
 					} <span class="kw">else </span>{
-						<span class="kw">break</span>;
-					},
+						<span class="kw">break
+					</span>},
 
 				<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(<span class="kw">_</span>))) =&gt;
 					<span class="kw">if </span>num_job_error_retries_left &gt; <span class="number">0 </span>{
 						num_job_error_retries_left -= <span class="number">1</span>;
 					} <span class="kw">else </span>{
-						<span class="kw">break</span>;
-					},
+						<span class="kw">break
+					</span>},
 
 				<span class="prelude-val">Err</span>(ValidationError::Internal(<span class="kw">_</span>)) =&gt;
 					<span class="kw">if </span>num_internal_retries_left &gt; <span class="number">0 </span>{
 						num_internal_retries_left -= <span class="number">1</span>;
 					} <span class="kw">else </span>{
-						<span class="kw">break</span>;
-					},
+						<span class="kw">break
+					</span>},
 
 				<span class="prelude-val">Ok</span>(<span class="kw">_</span>) | <span class="prelude-val">Err</span>(ValidationError::Invalid(<span class="kw">_</span>) | ValidationError::Preparation(<span class="kw">_</span>)) =&gt; <span class="kw">break</span>,
 			}

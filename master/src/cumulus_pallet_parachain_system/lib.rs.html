@@ -1752,23 +1752,6 @@
 <a href="#1752" id="1752">1752</a>
 <a href="#1753" id="1753">1753</a>
 <a href="#1754" id="1754">1754</a>
-<a href="#1755" id="1755">1755</a>
-<a href="#1756" id="1756">1756</a>
-<a href="#1757" id="1757">1757</a>
-<a href="#1758" id="1758">1758</a>
-<a href="#1759" id="1759">1759</a>
-<a href="#1760" id="1760">1760</a>
-<a href="#1761" id="1761">1761</a>
-<a href="#1762" id="1762">1762</a>
-<a href="#1763" id="1763">1763</a>
-<a href="#1764" id="1764">1764</a>
-<a href="#1765" id="1765">1765</a>
-<a href="#1766" id="1766">1766</a>
-<a href="#1767" id="1767">1767</a>
-<a href="#1768" id="1768">1768</a>
-<a href="#1769" id="1769">1769</a>
-<a href="#1770" id="1770">1770</a>
-<a href="#1771" id="1771">1771</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -3454,20 +3437,33 @@
 }
 
 <span class="doccomment">/// Implements [`BlockNumberProvider`] that returns relay chain block number fetched from validation
-/// data. When validation data is not available (e.g. within on_initialize), 0 will be returned.
+/// data.
+///
+/// When validation data is not available (e.g. within `on_initialize`), it will fallback to use
+/// [`Pallet::last_relay_block_number()`].
 ///
 /// **NOTE**: This has been deprecated, please use [`RelaychainDataProvider`]
 </span><span class="attr">#[deprecated = <span class="string">&quot;Use `RelaychainDataProvider` instead&quot;</span>]
-</span><span class="kw">pub struct </span>RelaychainBlockNumberProvider&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+</span><span class="kw">pub type </span>RelaychainBlockNumberProvider&lt;T&gt; = RelaychainDataProvider&lt;T&gt;;
 
-<span class="attr">#[allow(deprecated)]
-</span><span class="kw">impl</span>&lt;T: Config&gt; BlockNumberProvider <span class="kw">for </span>RelaychainBlockNumberProvider&lt;T&gt; {
+<span class="doccomment">/// Implements [`BlockNumberProvider`] and [`RelaychainStateProvider`] that returns relevant relay
+/// data fetched from validation data.
+///
+/// NOTE: When validation data is not available (e.g. within `on_initialize`):
+///
+/// - [`current_relay_chain_state`](Self::current_relay_chain_state): Will return the default value
+///   of [`RelayChainState`].
+/// - [`current_block_number`](Self::current_block_number): Will return
+///   [`Pallet::last_relay_block_number()`].
+</span><span class="kw">pub struct </span>RelaychainDataProvider&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+
+<span class="kw">impl</span>&lt;T: Config&gt; BlockNumberProvider <span class="kw">for </span>RelaychainDataProvider&lt;T&gt; {
 	<span class="kw">type </span>BlockNumber = relay_chain::BlockNumber;
 
 	<span class="kw">fn </span>current_block_number() -&gt; relay_chain::BlockNumber {
 		Pallet::&lt;T&gt;::validation_data()
 			.map(|d| d.relay_parent_number)
-			.unwrap_or_default()
+			.unwrap_or_else(|| Pallet::&lt;T&gt;::last_relay_block_number())
 	}
 
 	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
@@ -3507,36 +3503,6 @@
 			});
 		validation_data.relay_parent_number = state.number;
 		validation_data.relay_parent_storage_root = state.state_root;
-		ValidationData::&lt;T&gt;::put(validation_data)
-	}
-}
-
-<span class="doccomment">/// Implements [`BlockNumberProvider`] and [`RelaychainStateProvider`] that returns relevant relay
-/// data fetched from validation data.
-/// NOTE: When validation data is not available (e.g. within on_initialize), default values will be
-/// returned.
-</span><span class="kw">pub struct </span>RelaychainDataProvider&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
-
-<span class="kw">impl</span>&lt;T: Config&gt; BlockNumberProvider <span class="kw">for </span>RelaychainDataProvider&lt;T&gt; {
-	<span class="kw">type </span>BlockNumber = relay_chain::BlockNumber;
-
-	<span class="kw">fn </span>current_block_number() -&gt; relay_chain::BlockNumber {
-		Pallet::&lt;T&gt;::validation_data()
-			.map(|d| d.relay_parent_number)
-			.unwrap_or_default()
-	}
-
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-	</span><span class="kw">fn </span>set_block_number(block: <span class="self">Self</span>::BlockNumber) {
-		<span class="kw">let </span><span class="kw-2">mut </span>validation_data = Pallet::&lt;T&gt;::validation_data().unwrap_or_else(||
-			<span class="comment">// PersistedValidationData does not impl default in non-std
-			</span>PersistedValidationData {
-				parent_head: <span class="macro">vec!</span>[].into(),
-				relay_parent_number: Default::default(),
-				max_pov_size: Default::default(),
-				relay_parent_storage_root: Default::default(),
-			});
-		validation_data.relay_parent_number = block;
 		ValidationData::&lt;T&gt;::put(validation_data)
 	}
 }
