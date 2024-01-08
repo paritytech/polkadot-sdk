@@ -90,6 +90,7 @@ fn module_error_outer_enum_expand_explicit() {
 			frame_system::Error::NonDefaultComposite => (),
 			frame_system::Error::NonZeroRefCount => (),
 			frame_system::Error::CallFiltered => (),
+			frame_system::Error::MultiBlockMigrationsOngoing => (),
 			#[cfg(feature = "experimental")]
 			frame_system::Error::InvalidTask => (),
 			#[cfg(feature = "experimental")]

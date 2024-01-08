@@ -37,7 +37,7 @@ use sp_core::traits::CallContext;
 use sp_runtime::{
 	legacy,
 	traits::{Block as BlockT, Hash, HashingFor, Header as HeaderT, NumberFor, One},
-	Digest,
+	Digest, ExtrinsicInclusionMode,
 };
 use std::marker::PhantomData;
 
@@ -202,6 +202,7 @@ pub struct BlockBuilder<'a, Block: BlockT, C: ProvideRuntimeApi<Block> + 'a> {
 	parent_hash: Block::Hash,
 	/// The estimated size of the block header.
 	estimated_header_size: usize,
+	extrinsic_inclusion_mode: ExtrinsicInclusionMode,
 }
 
 impl<'a, Block, C> BlockBuilder<'a, Block, C>
@@ -243,12 +244,17 @@ where
 		}
 
 		api.set_call_context(CallContext::Onchain);
-
-		api.initialize_block(parent_hash, &header)?;
-
 		let version = api
 			.api_version::<dyn BlockBuilderApi<Block>>(parent_hash)?
 			.ok_or_else(|| Error::VersionInvalid("BlockBuilderApi".to_string()))?;
+
+		let extrinsic_inclusion_mode = if version >= 5 {
+			api.initialize_block(parent_hash, &header)?
+		} else {
+			#[allow(deprecated)]
+			api.initialize_block_before_version_5(parent_hash, &header)?;
+			ExtrinsicInclusionMode::AllExtrinsics
+		};
 
 		Ok(Self {
 			parent_hash,
@@ -257,7 +263,13 @@ where
 			version,
 			estimated_header_size,
 			call_api_at,
+			extrinsic_inclusion_mode,
 		})
+	}
+
+	/// The extrinsic inclusion mode of the runtime for this block.
+	pub fn extrinsic_inclusion_mode(&self) -> ExtrinsicInclusionMode {
+		self.extrinsic_inclusion_mode
 	}
 
 	/// Push onto the block's list of extrinsics.

@@ -85,7 +85,8 @@ mod hooks;
 pub use hooks::GenesisBuild;
 pub use hooks::{
 	BeforeAllRuntimeMigrations, BuildGenesisConfig, Hooks, IntegrityTest, OnFinalize, OnGenesis,
-	OnIdle, OnInitialize, OnRuntimeUpgrade, OnTimestampSet,
+	OnIdle, OnInitialize, OnPoll, OnRuntimeUpgrade, OnTimestampSet, PostInherents,
+	PostTransactions, PreInherents,
 };
 
 pub mod schedule;
