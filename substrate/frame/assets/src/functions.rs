@@ -998,7 +998,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		})
 	}
 
-	/// Do set sufficiency
+	/// Set the sufficiency of an asset class
+	///
+	/// ### Errors
+	///
+	/// - [`Unknown`][crate::Error::Unknown] when the asset ID is unknown.
 	pub(super) fn do_set_sufficiency(asset_id: T::AssetId, is_sufficient: bool) -> DispatchResult {
 		Asset::<T, I>::try_mutate(asset_id, |maybe_asset| {
 			if let Some(asset) = maybe_asset {
