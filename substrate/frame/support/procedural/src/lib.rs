@@ -1536,8 +1536,7 @@ pub fn derive_composite_enum_variant_count(input: TokenStream) -> TokenStream {
 	for variant in &data_enum.variants {
 		match variant.fields {
 			syn::Fields::Named(_) | syn::Fields::Unnamed(_) => {
-				let variant_name = variant.ident.to_string();
-				if variant_name != "__Ignore" {
+				if variant.ident != "__Ignore" {
 					return syn::Error::new(
 						variant.ident.span(),
 						"The composite enum does not support variants with fields!",
