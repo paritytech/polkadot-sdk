@@ -243,7 +243,6 @@
 //!
 //! </details>
 //!
-//!
 //! From the above, we can clearly see the problematic nature of seemingly simple operations in
 //! runtime. Of course, it may be that using unchecked math is perfectly fine under some scenarios -
 //! such as certain balance being never realistically attainable, or a number type being so large
