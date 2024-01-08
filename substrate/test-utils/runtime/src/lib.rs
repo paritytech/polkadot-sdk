@@ -74,6 +74,8 @@ pub use pallet_balances::Call as BalancesCall;
 pub type AuraId = sp_consensus_aura::sr25519::AuthorityId;
 #[cfg(feature = "std")]
 pub use extrinsic::{ExtrinsicBuilder, Transfer};
+use sp_application_crypto::Ss58Codec;
+use sp_keyring::AccountKeyring;
 
 const LOG_TARGET: &str = "substrate-test-runtime";
 
@@ -724,6 +726,8 @@ impl_runtime_apis! {
 
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
 		fn create_default_config() -> Vec<u8> {
+			log::info!("{:#?}", AccountKeyring::Alice.public().to_ss58check());
+			log::info!("{:#?}", AccountKeyring::Bob.public().to_ss58check());
 			create_default_config::<RuntimeGenesisConfig>()
 		}
 

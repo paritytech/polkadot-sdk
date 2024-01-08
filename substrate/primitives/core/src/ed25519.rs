@@ -19,7 +19,6 @@
 //! Simple Ed25519 API.
 // end::description[]
 
-#[cfg(feature = "full_crypto")]
 use sp_std::vec::Vec;
 
 use crate::{
@@ -32,13 +31,11 @@ use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
 use crate::crypto::{
-	CryptoType, CryptoTypeId, Derive, FromEntropy, Public as TraitPublic, UncheckedFrom,
+	CryptoType, CryptoTypeId, Derive, DeriveError, DeriveJunction, FromEntropy, Pair as TraitPair,
+	Public as TraitPublic, SecretStringError, UncheckedFrom,
 };
 #[cfg(feature = "full_crypto")]
-use crate::crypto::{DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError};
-#[cfg(feature = "full_crypto")]
 use core::convert::TryFrom;
-#[cfg(feature = "full_crypto")]
 use ed25519_zebra::{SigningKey, VerificationKey};
 #[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
@@ -53,11 +50,9 @@ pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"ed25");
 /// A secret seed. It's not called a "secret key" because ring doesn't expose the secret keys
 /// of the key pair (yeah, dumb); as such we're forced to remember the seed manually if we
 /// will need it later (such as for HDKD).
-#[cfg(feature = "full_crypto")]
 type Seed = [u8; 32];
 
 /// A public key.
-#[cfg_attr(feature = "full_crypto", derive(Hash))]
 #[derive(
 	PartialEq,
 	Eq,
@@ -70,11 +65,11 @@ type Seed = [u8; 32];
 	PassByInner,
 	MaxEncodedLen,
 	TypeInfo,
+	Hash,
 )]
 pub struct Public(pub [u8; 32]);
 
 /// A key pair.
-#[cfg(feature = "full_crypto")]
 #[derive(Copy, Clone)]
 pub struct Pair {
 	public: VerificationKey,
@@ -210,8 +205,7 @@ impl<'de> Deserialize<'de> for Public {
 }
 
 /// A signature (a 512-bit value).
-#[cfg_attr(feature = "full_crypto", derive(Hash))]
-#[derive(Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq)]
+#[derive(Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq, Hash)]
 pub struct Signature(pub [u8; 64]);
 
 impl TryFrom<&[u8]> for Signature {
@@ -370,12 +364,10 @@ impl TraitPublic for Public {}
 impl Derive for Public {}
 
 /// Derive a single hard junction.
-#[cfg(feature = "full_crypto")]
 fn derive_hard_junction(secret_seed: &Seed, cc: &[u8; 32]) -> Seed {
 	("Ed25519HDKD", secret_seed, cc).using_encoded(sp_core_hashing::blake2_256)
 }
 
-#[cfg(feature = "full_crypto")]
 impl TraitPair for Pair {
 	type Public = Public;
 	type Seed = Seed;
@@ -414,6 +406,7 @@ impl TraitPair for Pair {
 	}
 
 	/// Sign a message.
+	#[cfg(feature = "full_crypto")]
 	fn sign(&self, message: &[u8]) -> Signature {
 		Signature::from_raw(self.secret.sign(message).into())
 	}
@@ -433,7 +426,6 @@ impl TraitPair for Pair {
 	}
 }
 
-#[cfg(feature = "full_crypto")]
 impl Pair {
 	/// Get the seed for this key.
 	pub fn seed(&self) -> Seed {
@@ -454,16 +446,13 @@ impl Pair {
 }
 
 impl CryptoType for Public {
-	#[cfg(feature = "full_crypto")]
 	type Pair = Pair;
 }
 
 impl CryptoType for Signature {
-	#[cfg(feature = "full_crypto")]
 	type Pair = Pair;
 }
 
-#[cfg(feature = "full_crypto")]
 impl CryptoType for Pair {
 	type Pair = Pair;
 }

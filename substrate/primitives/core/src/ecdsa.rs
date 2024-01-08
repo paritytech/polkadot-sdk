@@ -23,19 +23,17 @@ use sp_runtime_interface::pass_by::PassByInner;
 
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
-use crate::crypto::{
-	ByteArray, CryptoType, CryptoTypeId, Derive, Public as TraitPublic, UncheckedFrom,
-};
-#[cfg(feature = "full_crypto")]
 use crate::{
-	crypto::{DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError},
+	crypto::{
+		ByteArray, CryptoType, CryptoTypeId, Derive, DeriveError, DeriveJunction,
+		Pair as TraitPair, Public as TraitPublic, SecretStringError, UncheckedFrom,
+	},
 	hashing::blake2_256,
 };
-#[cfg(all(feature = "full_crypto", not(feature = "std")))]
+#[cfg(not(feature = "std"))]
 use secp256k1::Secp256k1;
 #[cfg(feature = "std")]
 use secp256k1::SECP256K1;
-#[cfg(feature = "full_crypto")]
 use secp256k1::{
 	ecdsa::{RecoverableSignature, RecoveryId},
 	Message, PublicKey, SecretKey,
@@ -44,7 +42,7 @@ use secp256k1::{
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use sp_std::alloc::{format, string::String};
-#[cfg(feature = "full_crypto")]
+#[cfg(not(feature = "std"))]
 use sp_std::vec::Vec;
 
 /// An identifier used to match public keys against ecdsa keys
@@ -59,11 +57,9 @@ pub const SIGNATURE_SERIALIZED_SIZE: usize = 65;
 /// A secret seed (which is bytewise essentially equivalent to a SecretKey).
 ///
 /// We need it as a different type because `Seed` is expected to be AsRef<[u8]>.
-#[cfg(feature = "full_crypto")]
 type Seed = [u8; 32];
 
 /// The ECDSA compressed public key.
-#[cfg_attr(feature = "full_crypto", derive(Hash))]
 #[derive(
 	Clone,
 	Copy,
@@ -76,6 +72,7 @@ type Seed = [u8; 32];
 	PartialEq,
 	PartialOrd,
 	Ord,
+	Hash,
 )]
 pub struct Public(pub [u8; PUBLIC_KEY_SERIALIZED_SIZE]);
 
@@ -202,8 +199,7 @@ impl<'de> Deserialize<'de> for Public {
 }
 
 /// A signature (a 512-bit value, plus 8 bits for recovery ID).
-#[cfg_attr(feature = "full_crypto", derive(Hash))]
-#[derive(Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq)]
+#[derive(Hash, Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq)]
 pub struct Signature(pub [u8; SIGNATURE_SERIALIZED_SIZE]);
 
 impl ByteArray for Signature {
@@ -326,13 +322,11 @@ impl Signature {
 	}
 
 	/// Recover the public key from this signature and a message.
-	#[cfg(feature = "full_crypto")]
 	pub fn recover<M: AsRef<[u8]>>(&self, message: M) -> Option<Public> {
 		self.recover_prehashed(&blake2_256(message.as_ref()))
 	}
 
 	/// Recover the public key from this signature and a pre-hashed message.
-	#[cfg(feature = "full_crypto")]
 	pub fn recover_prehashed(&self, message: &[u8; 32]) -> Option<Public> {
 		let rid = RecoveryId::from_i32(self.0[64] as i32).ok()?;
 		let sig = RecoverableSignature::from_compact(&self.0[..64], rid).ok()?;
@@ -363,20 +357,17 @@ impl From<RecoverableSignature> for Signature {
 }
 
 /// Derive a single hard junction.
-#[cfg(feature = "full_crypto")]
 fn derive_hard_junction(secret_seed: &Seed, cc: &[u8; 32]) -> Seed {
 	("Secp256k1HDKD", secret_seed, cc).using_encoded(sp_core_hashing::blake2_256)
 }
 
 /// A key pair.
-#[cfg(feature = "full_crypto")]
 #[derive(Clone)]
 pub struct Pair {
 	public: Public,
 	secret: SecretKey,
 }
 
-#[cfg(feature = "full_crypto")]
 impl TraitPair for Pair {
 	type Public = Public;
 	type Seed = Seed;
@@ -422,6 +413,7 @@ impl TraitPair for Pair {
 	}
 
 	/// Sign a message.
+	#[cfg(feature = "full_crypto")]
 	fn sign(&self, message: &[u8]) -> Signature {
 		self.sign_prehashed(&blake2_256(message))
 	}
@@ -437,7 +429,6 @@ impl TraitPair for Pair {
 	}
 }
 
-#[cfg(feature = "full_crypto")]
 impl Pair {
 	/// Get the seed for this key.
 	pub fn seed(&self) -> Seed {
@@ -457,6 +448,7 @@ impl Pair {
 	}
 
 	/// Sign a pre-hashed message
+	#[cfg(feature = "full_crypto")]
 	pub fn sign_prehashed(&self, message: &[u8; 32]) -> Signature {
 		let message = Message::from_digest_slice(message).expect("Message is 32 bytes; qed");
 
@@ -470,6 +462,7 @@ impl Pair {
 
 	/// Verify a signature on a pre-hashed message. Return `true` if the signature is valid
 	/// and thus matches the given `public` key.
+	#[cfg(feature = "full_crypto")]
 	pub fn verify_prehashed(sig: &Signature, message: &[u8; 32], public: &Public) -> bool {
 		match sig.recover_prehashed(message) {
 			Some(actual) => actual == *public,
@@ -480,6 +473,7 @@ impl Pair {
 	/// Verify a signature on a message. Returns true if the signature is good.
 	/// Parses Signature using parse_overflowing_slice.
 	#[deprecated(note = "please use `verify` instead")]
+	#[cfg(feature = "full_crypto")]
 	pub fn verify_deprecated<M: AsRef<[u8]>>(sig: &Signature, message: M, pubkey: &Public) -> bool {
 		let message = libsecp256k1::Message::parse(&blake2_256(message.as_ref()));
 
@@ -513,16 +507,13 @@ impl Drop for Pair {
 }
 
 impl CryptoType for Public {
-	#[cfg(feature = "full_crypto")]
 	type Pair = Pair;
 }
 
 impl CryptoType for Signature {
-	#[cfg(feature = "full_crypto")]
 	type Pair = Pair;
 }
 
-#[cfg(feature = "full_crypto")]
 impl CryptoType for Pair {
 	type Pair = Pair;
 }

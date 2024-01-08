@@ -19,20 +19,14 @@
 //!
 //! Note: `CHAIN_CODE_LENGTH` must be equal to `crate::crypto::JUNCTION_ID_LEN`
 //! for this to work.
-#[cfg(any(feature = "full_crypto", feature = "serde"))]
-use crate::crypto::DeriveJunction;
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
+use crate::crypto::{DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError};
 #[cfg(feature = "full_crypto")]
-use crate::crypto::{DeriveError, Pair as TraitPair, SecretStringError};
-#[cfg(feature = "full_crypto")]
+use schnorrkel::signing_context;
 use schnorrkel::{
-	derive::CHAIN_CODE_LENGTH, signing_context, ExpansionMode, Keypair, MiniSecretKey, SecretKey,
-};
-#[cfg(any(feature = "full_crypto", feature = "serde"))]
-use schnorrkel::{
-	derive::{ChainCode, Derivation},
-	PublicKey,
+	derive::{ChainCode, Derivation, CHAIN_CODE_LENGTH},
+	ExpansionMode, Keypair, MiniSecretKey, PublicKey, SecretKey,
 };
 use sp_std::vec::Vec;
 
@@ -47,7 +41,6 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_std::ops::Deref;
 
-#[cfg(feature = "full_crypto")]
 use schnorrkel::keys::{MINI_SECRET_KEY_LENGTH, SECRET_KEY_LENGTH};
 #[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
@@ -56,14 +49,12 @@ use sp_runtime_interface::pass_by::PassByInner;
 use sp_std::alloc::{format, string::String};
 
 // signing context
-#[cfg(feature = "full_crypto")]
 const SIGNING_CTX: &[u8] = b"substrate";
 
 /// An identifier used to match public keys against sr25519 keys
 pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"sr25");
 
 /// An Schnorrkel/Ristretto x25519 ("sr25519") public key.
-#[cfg_attr(feature = "full_crypto", derive(Hash))]
 #[derive(
 	PartialEq,
 	Eq,
@@ -76,14 +67,13 @@ pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"sr25");
 	PassByInner,
 	MaxEncodedLen,
 	TypeInfo,
+	Hash,
 )]
 pub struct Public(pub [u8; 32]);
 
 /// An Schnorrkel/Ristretto x25519 ("sr25519") key pair.
-#[cfg(feature = "full_crypto")]
 pub struct Pair(Keypair);
 
-#[cfg(feature = "full_crypto")]
 impl Clone for Pair {
 	fn clone(&self) -> Self {
 		Pair(schnorrkel::Keypair {
@@ -216,8 +206,7 @@ impl<'de> Deserialize<'de> for Public {
 }
 
 /// An Schnorrkel/Ristretto x25519 ("sr25519") signature.
-#[cfg_attr(feature = "full_crypto", derive(Hash))]
-#[derive(Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq)]
+#[derive(Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq, Hash)]
 pub struct Signature(pub [u8; 64]);
 
 impl TryFrom<&[u8]> for Signature {
@@ -435,16 +424,13 @@ impl AsRef<schnorrkel::Keypair> for Pair {
 }
 
 /// Derive a single hard junction.
-#[cfg(feature = "full_crypto")]
 fn derive_hard_junction(secret: &SecretKey, cc: &[u8; CHAIN_CODE_LENGTH]) -> MiniSecretKey {
 	secret.hard_derive_mini_secret_key(Some(ChainCode(*cc)), b"").0
 }
 
 /// The raw secret seed, which can be used to recreate the `Pair`.
-#[cfg(feature = "full_crypto")]
 type Seed = [u8; MINI_SECRET_KEY_LENGTH];
 
-#[cfg(feature = "full_crypto")]
 impl TraitPair for Pair {
 	type Public = Public;
 	type Seed = Seed;
@@ -499,6 +485,7 @@ impl TraitPair for Pair {
 		Ok((Self(result.into()), seed.map(|s| MiniSecretKey::to_bytes(&s))))
 	}
 
+	#[cfg(feature = "full_crypto")]
 	fn sign(&self, message: &[u8]) -> Signature {
 		let context = signing_context(SIGNING_CTX);
 		self.0.sign(context.bytes(message)).into()
@@ -533,16 +520,13 @@ impl Pair {
 }
 
 impl CryptoType for Public {
-	#[cfg(feature = "full_crypto")]
 	type Pair = Pair;
 }
 
 impl CryptoType for Signature {
-	#[cfg(feature = "full_crypto")]
 	type Pair = Pair;
 }
 
-#[cfg(feature = "full_crypto")]
 impl CryptoType for Pair {
 	type Pair = Pair;
 }

@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
 //! Support code for the runtime. A set of test accounts.
 
 /// Test account crypto for sr25519.
