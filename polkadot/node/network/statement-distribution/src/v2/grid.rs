@@ -253,7 +253,9 @@ impl GridTracker {
 	/// This checks whether the peer is allowed to send us manifests
 	/// about this group at this relay-parent. This also does sanity
 	/// checks on the format of the manifest and the amount of votes
-	/// it contains. It has effects on the stored state only when successful.
+	/// it contains. It assumes that the votes from disabled validators
+	/// are already filtered out.
+	/// It has effects on the stored state only when successful.
 	///
 	/// This returns a `bool` on success, which if true indicates that an acknowledgement is
 	/// to be sent in response to the received manifest. This only occurs when the

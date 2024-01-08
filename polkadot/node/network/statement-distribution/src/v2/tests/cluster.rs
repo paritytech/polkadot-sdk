@@ -75,15 +75,7 @@ fn share_seconded_circulated_to_cluster() {
 			send_peer_view_change(&mut overseer, peer_c.clone(), view![relay_parent]).await;
 		}
 
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
-
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
 		let full_signed = state
 			.sign_statement(
@@ -120,7 +112,7 @@ fn share_seconded_circulated_to_cluster() {
 
 		// sharing a `Seconded` message confirms a candidate, which leads to new
 		// fragment tree updates.
-		answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+		answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 
 		overseer
 	});
@@ -156,15 +148,7 @@ fn cluster_valid_statement_before_seconded_ignored() {
 		.await;
 
 		send_peer_view_change(&mut overseer, peer_a.clone(), view![relay_parent]).await;
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
-
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
 		let signed_valid = state.sign_statement(
 			v_a,
@@ -226,15 +210,7 @@ fn cluster_statement_bad_signature() {
 		.await;
 
 		send_peer_view_change(&mut overseer, peer_a.clone(), view![relay_parent]).await;
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
-
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
 		// sign statements with wrong signing context, leading to bad signature.
 		let statements = vec![
@@ -308,15 +284,7 @@ fn useful_cluster_statement_from_non_cluster_peer_rejected() {
 		.await;
 
 		send_peer_view_change(&mut overseer, peer_a.clone(), view![relay_parent]).await;
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
-
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
 		let statement = state
 			.sign_statement(
@@ -370,15 +338,7 @@ fn statement_from_non_cluster_originator_unexpected() {
 		connect_peer(&mut overseer, peer_a.clone(), None).await;
 
 		send_peer_view_change(&mut overseer, peer_a.clone(), view![relay_parent]).await;
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
-
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
 		let statement = state
 			.sign_statement(
@@ -448,15 +408,7 @@ fn seconded_statement_leads_to_request() {
 		.await;
 
 		send_peer_view_change(&mut overseer, peer_a.clone(), view![relay_parent]).await;
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
-
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
 		let statement = state
 			.sign_statement(
@@ -497,7 +449,7 @@ fn seconded_statement_leads_to_request() {
 				if p == peer_a && r == BENEFIT_VALID_RESPONSE.into() => { }
 		);
 
-		answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+		answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 
 		overseer
 	});
@@ -544,15 +496,7 @@ fn cluster_statements_shared_seconded_first() {
 			.await;
 		}
 
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
-
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
 		let full_signed = state
 			.sign_statement(
@@ -579,7 +523,7 @@ fn cluster_statements_shared_seconded_first() {
 			.await;
 
 		// result of new confirmed candidate.
-		answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+		answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 
 		overseer
 			.send(FromOrchestra::Communication {
@@ -677,15 +621,7 @@ fn cluster_accounts_for_implicit_view() {
 			send_peer_view_change(&mut overseer, peer_a.clone(), view![relay_parent]).await;
 		}
 
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
-
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
 		let full_signed = state
 			.sign_statement(
@@ -722,7 +658,7 @@ fn cluster_accounts_for_implicit_view() {
 
 		// sharing a `Seconded` message confirms a candidate, which leads to new
 		// fragment tree updates.
-		answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+		answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 
 		// activate new leaf, which has relay-parent in implicit view.
 		let next_relay_parent = Hash::repeat_byte(2);
@@ -730,15 +666,7 @@ fn cluster_accounts_for_implicit_view() {
 		next_test_leaf.parent_hash = relay_parent;
 		next_test_leaf.number = 2;
 
-		activate_leaf(&mut overseer, &next_test_leaf, &state, false).await;
-
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(next_relay_parent),
-			false,
-		)
-		.await;
+		activate_leaf(&mut overseer, &next_test_leaf, &state, false, vec![]).await;
 
 		send_peer_view_change(&mut overseer, peer_a.clone(), view![next_relay_parent]).await;
 		send_peer_view_change(&mut overseer, peer_b.clone(), view![next_relay_parent]).await;
@@ -820,15 +748,7 @@ fn cluster_messages_imported_after_confirmed_candidate_importable_check() {
 			send_peer_view_change(&mut overseer, peer_a.clone(), view![relay_parent]).await;
 		}
 
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
-
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
 		// Peer sends `Seconded` statement.
 		{
@@ -885,8 +805,6 @@ fn cluster_messages_imported_after_confirmed_candidate_importable_check() {
 				},
 				vec![(relay_parent, vec![0])],
 			)],
-			None,
-			false,
 		)
 		.await;
 
@@ -953,15 +871,7 @@ fn cluster_messages_imported_after_new_leaf_importable_check() {
 			send_peer_view_change(&mut overseer, peer_a.clone(), view![relay_parent]).await;
 		}
 
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
-
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
 		// Peer sends `Seconded` statement.
 		{
@@ -1008,17 +918,18 @@ fn cluster_messages_imported_after_new_leaf_importable_check() {
 			);
 		}
 
-		answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+		answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 
 		let next_relay_parent = Hash::repeat_byte(2);
 		let mut next_test_leaf = state.make_dummy_leaf(next_relay_parent);
 		next_test_leaf.parent_hash = relay_parent;
 		next_test_leaf.number = 2;
 
-		activate_leaf(&mut overseer, &next_test_leaf, &state, false).await;
-
-		answer_expected_hypothetical_depth_request(
+		activate_leaf(
 			&mut overseer,
+			&next_test_leaf,
+			&state,
+			false,
 			vec![(
 				HypotheticalCandidate::Complete {
 					candidate_hash,
@@ -1027,8 +938,6 @@ fn cluster_messages_imported_after_new_leaf_importable_check() {
 				},
 				vec![(relay_parent, vec![0])],
 			)],
-			Some(next_relay_parent),
-			false,
 		)
 		.await;
 
@@ -1117,15 +1026,7 @@ fn ensure_seconding_limit_is_respected() {
 			send_peer_view_change(&mut overseer, peer_a.clone(), view![relay_parent]).await;
 		}
 
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
-
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
 		// Confirm the candidates locally so that we don't send out requests.
 
@@ -1152,7 +1053,7 @@ fn ensure_seconding_limit_is_respected() {
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(peers, _)) if peers == vec![peer_a]
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 		}
 
 		// Candidate 2.
@@ -1178,7 +1079,7 @@ fn ensure_seconding_limit_is_respected() {
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(peers, _)) if peers == vec![peer_a]
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 		}
 
 		// Send first statement from peer A.
