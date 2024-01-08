@@ -182,7 +182,7 @@ pub mod minimal {
 	}
 }
 
-#[cfg(any(not(feature = "beacon-spec-minimal"), feature = "runtime-benchmarks"))]
+#[cfg(not(feature = "beacon-spec-minimal"))]
 pub mod mainnet {
 	use super::*;
 
