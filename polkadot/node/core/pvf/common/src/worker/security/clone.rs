@@ -78,7 +78,8 @@ unsafe fn try_clone(cb: CloneCb, stack_size: usize, flags: CloneFlags) -> Result
 /// Returns flags for `clone(2)`, including all the sandbox-related ones.
 fn clone_flags(have_unshare_newuser: bool) -> CloneFlags {
 	// NOTE: CLONE_NEWUSER does not work in `clone` if we previously called `unshare` with this
-	// flag.
+	// flag. On the other hand, if we did not call `unshare` we need this flag for the CAP_SYS_ADMIN
+	// capability.
 	let maybe_clone_newuser =
 		if have_unshare_newuser { CloneFlags::empty() } else { CloneFlags::CLONE_NEWUSER };
 	// SIGCHLD flag is used to inform clone that the parent process is
