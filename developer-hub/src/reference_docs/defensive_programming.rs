@@ -545,7 +545,7 @@ mod tests {
 
 	#[docify::export]
 	#[test]
-	#[should_panic(expected = "Defensive failure has been triggered!")]
+	#[cfg_attr(debug_assertions, should_panic(expected = "Defensive failure has been triggered!")]
 	fn saturated_defensive_example() {
 		let saturated_defensive = u32::MAX.defensive_saturating_add(10);
 		assert_eq!(saturated_defensive, u32::MAX);
