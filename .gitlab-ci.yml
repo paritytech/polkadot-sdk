@@ -282,7 +282,7 @@ test-linux-stable:
         --release \
         --no-fail-fast \
         --features try-runtime,experimental,ci-only-tests \
-        --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
+        --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL} || df -h
     # codecov
     - mkdir -p target/coverage
     - date
