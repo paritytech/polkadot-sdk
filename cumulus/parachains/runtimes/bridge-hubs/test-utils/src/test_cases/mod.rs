@@ -45,7 +45,7 @@ use frame_system::pallet_prelude::BlockNumberFor;
 use parachains_common::AccountId;
 use parachains_runtimes_test_utils::{
 	mock_open_hrmp_channel, AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder, RuntimeCallOf,
-	XcmReceivedFrom,
+	SlotDurations, XcmReceivedFrom,
 };
 use sp_runtime::{traits::Zero, AccountId32};
 use xcm::{latest::prelude::*, AlwaysLatest};
@@ -418,6 +418,7 @@ pub fn message_dispatch_routing_works<
 	NetworkDistanceAsParentCount,
 >(
 	collator_session_key: CollatorSessionKeys<Runtime>,
+	slot_durations: SlotDurations,
 	runtime_para_id: u32,
 	sibling_parachain_id: u32,
 	unwrap_cumulus_pallet_parachain_system_event: Box<
@@ -528,6 +529,7 @@ pub fn message_dispatch_routing_works<
 			sibling_parachain_id.into(),
 			included_head,
 			&alice,
+			&slot_durations,
 		);
 		let result =
 			<<Runtime as BridgeMessagesConfig<MessagesPalletInstance>>::MessageDispatch>::dispatch(

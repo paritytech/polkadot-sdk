@@ -191,7 +191,7 @@ std = [
 	"cumulus-pallet-session-benchmarking/std",
 	"cumulus-pallet-xcm/std",
 	"cumulus-pallet-xcmp-queue/std",
-	"cumulus-primitives-aura/std", # TODO: guide is missing this step
+	"cumulus-primitives-aura/std",                    # TODO: guide is missing this step
 	"cumulus-primitives-core/std",
 	"cumulus-primitives-utility/std",
 	"frame-benchmarking?/std",
