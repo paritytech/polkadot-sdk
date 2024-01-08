@@ -31,7 +31,7 @@ pub extern "C" fn deploy() {
 
 	let input = [0u8; 0];
 	let mut address = [0u8; 32];
-	let address = &mut address[..];
+	let address = &mut &mut address[..];
 	let salt = [71u8, 17u8];
 
 	#[allow(deprecated)]

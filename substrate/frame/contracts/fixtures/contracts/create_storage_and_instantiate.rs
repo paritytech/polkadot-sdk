@@ -38,7 +38,7 @@ pub extern "C" fn call() {
 	let value = 10_000u64.to_le_bytes();
 	let salt = [0u8; 0];
 	let mut address = [0u8; 32];
-	let address = &mut address[..];
+	let address = &mut &mut address[..];
 
 	#[allow(deprecated)]
 	api::instantiate_v2(

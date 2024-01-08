@@ -283,7 +283,7 @@ mod sys {
 //     (v1) => [gas_left],
 // }
 // ```
-// 
+//
 // Expands to:
 // ```nocompile
 // fn gas_left(output: &mut &mut [u8]) {
@@ -341,8 +341,8 @@ impl HostFn for HostFnImpl {
 		gas: u64,
 		value: &[u8],
 		input: &[u8],
-		mut address: Option<&mut [u8]>,
-		mut output: Option<&mut [u8]>,
+		mut address: Option<&mut &mut [u8]>,
+		mut output: Option<&mut &mut [u8]>,
 		salt: &[u8],
 	) -> Result {
 		let (address_ptr, mut address_len) = ptr_len_or_sentinel(&mut address);
@@ -379,8 +379,8 @@ impl HostFn for HostFnImpl {
 		deposit: Option<&[u8]>,
 		value: &[u8],
 		input: &[u8],
-		mut address: Option<&mut [u8]>,
-		mut output: Option<&mut [u8]>,
+		mut address: Option<&mut &mut [u8]>,
+		mut output: Option<&mut &mut [u8]>,
 		salt: &[u8],
 	) -> Result {
 		let (address_ptr, mut address_len) = ptr_len_or_sentinel(&mut address);
@@ -423,7 +423,7 @@ impl HostFn for HostFnImpl {
 		gas: u64,
 		value: &[u8],
 		input_data: &[u8],
-		mut output: Option<&mut [u8]>,
+		mut output: Option<&mut &mut [u8]>,
 	) -> Result {
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let ret_code = {
@@ -455,7 +455,7 @@ impl HostFn for HostFnImpl {
 		gas: u64,
 		value: &[u8],
 		input_data: &[u8],
-		mut output: Option<&mut [u8]>,
+		mut output: Option<&mut &mut [u8]>,
 	) -> Result {
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let ret_code = {
@@ -488,7 +488,7 @@ impl HostFn for HostFnImpl {
 		deposit: Option<&[u8]>,
 		value: &[u8],
 		input_data: &[u8],
-		mut output: Option<&mut [u8]>,
+		mut output: Option<&mut &mut [u8]>,
 	) -> Result {
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let deposit_ptr = ptr_or_sentinel(&deposit);
@@ -524,7 +524,7 @@ impl HostFn for HostFnImpl {
 		flags: CallFlags,
 		code_hash: &[u8],
 		input: &[u8],
-		mut output: Option<&mut [u8]>,
+		mut output: Option<&mut &mut [u8]>,
 	) -> Result {
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let ret_code = {
@@ -665,7 +665,7 @@ impl HostFn for HostFnImpl {
 		unsafe { sys::v1::terminate(beneficiary.as_ptr()) }
 	}
 
-	fn call_chain_extension(func_id: u32, input: &[u8], mut output: Option<&mut [u8]>) -> u32 {
+	fn call_chain_extension(func_id: u32, input: &[u8], mut output: Option<&mut &mut [u8]>) -> u32 {
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let ret_code = {
 			unsafe {

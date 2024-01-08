@@ -33,7 +33,7 @@ pub extern "C" fn call() {
 
 	// the chain extension passes through the input and returns it as output
 	let mut output_buffer = [0u8; 32];
-	let output = &mut output_buffer[0..input.len()];
+	let output = &mut &mut output_buffer[0..input.len()];
 
 	let ret_id = api::call_chain_extension(func_id, input, Some(output));
 	assert_eq!(ret_id, func_id);

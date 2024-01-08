@@ -76,7 +76,7 @@ pub extern "C" fn call() {
 
 	// Deploy the contract successfully.
 	let mut callee = [0u8; 32];
-	let callee = &mut callee[..];
+	let callee = &mut &mut callee[..];
 
 	#[allow(deprecated)]
 	api::instantiate_v2(
@@ -146,7 +146,7 @@ pub extern "C" fn call() {
 		None, // No deposit limit.
 		&value,
 		&input,
-		Some(&mut output[..]),
+		Some(&mut &mut output[..]),
 	)
 	.unwrap();
 	assert_eq!(&output, &input[4..])
