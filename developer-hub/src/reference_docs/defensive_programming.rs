@@ -141,7 +141,6 @@
     increase_balance_result
 )]
 //!
-//!
 //! ### Saturating Operations
 //!
 //! Saturating a number limits it to the type's upper or lower bound, no matter the integer would
