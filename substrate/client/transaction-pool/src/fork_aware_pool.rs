@@ -52,6 +52,7 @@ use std::{
 };
 
 use crate::graph::{ExtrinsicHash, IsValidator};
+use futures::FutureExt;
 use sc_transaction_pool_api::{
 	error::Error as TxPoolError, ChainEvent, ImportNotificationStream, MaintainedTransactionPool,
 	PoolFuture, PoolStatus, ReadyTransactions, TransactionFor, TransactionPool, TransactionSource,
@@ -103,7 +104,7 @@ pub enum ViewCreationError {
 impl<PoolApi, Block> ViewManager<PoolApi, Block>
 where
 	Block: BlockT,
-	PoolApi: graph::ChainApi<Block = Block>,
+	PoolApi: graph::ChainApi<Block = Block> + 'static,
 {
 	fn new(api: Arc<PoolApi>) -> Self {
 		Self { api, views: Default::default() }
@@ -112,12 +113,9 @@ where
 	// shall be called on block import
 	pub async fn create_new_view_at(
 		&self,
-		event: ChainEvent<Block>,
+		hash: Block::Hash,
 		xts: Arc<RwLock<Vec<Block::Extrinsic>>>,
 	) -> Result<(), ViewCreationError> {
-		let hash = match event {
-			ChainEvent::Finalized { hash, .. } | ChainEvent::NewBestBlock { hash, .. } => hash,
-		};
 		if self.views.read().contains_key(&hash) {
 			return Err(ViewCreationError::AlreadyExists)
 		}
@@ -213,6 +211,78 @@ where
 			.map(|(h, v)| (*h, v.pool.validated_pool().status()))
 			.collect()
 	}
+
+	pub fn is_empty(&self) -> bool {
+		self.views.read().is_empty()
+	}
+
+	fn find_best_view(&self, tree_route: &TreeRoute<Block>) -> Option<Arc<View<PoolApi>>> {
+		let views = self.views.read();
+		let best_view = {
+			tree_route
+				.enacted()
+				.iter()
+				.rev()
+				.skip(1)
+				.chain(std::iter::once(tree_route.common_block()))
+				.chain(tree_route.retracted().iter().rev())
+				.find(|i| views.contains_key(&i.hash))
+		};
+		best_view.map(|h| views.get(&h.hash).expect("best_hash is an existing key.qed").clone())
+	}
+
+	// todo: API change? ready at block?
+	fn ready(&self, at: Block::Hash) -> Option<super::ReadyIteratorFor<PoolApi>> {
+		let maybe_ready = self.views.read().get(&at).map(|v| v.pool.validated_pool().ready());
+		let Some(ready) = maybe_ready else { return None };
+		Some(Box::new(ready))
+	}
+
+	// todo: API change? futures at block?
+	fn futures(
+		&self,
+		at: Block::Hash,
+	) -> Option<Vec<graph::base_pool::Transaction<graph::ExtrinsicHash<PoolApi>, Block::Extrinsic>>>
+	{
+		// let pool = self.pool.validated_pool().pool.read();
+		// pool.futures().cloned().collect::<Vec<_>>()
+		self.views
+			.read()
+			.get(&at)
+			.map(|v| v.pool.validated_pool().pool.read().futures().cloned().collect())
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+struct ReadyPoll<T, Block>
+where
+	Block: BlockT,
+{
+	pollers: HashMap<<Block as BlockT>::Hash, Vec<oneshot::Sender<T>>>,
+}
+
+impl<T, Block> ReadyPoll<T, Block>
+where
+	Block: BlockT,
+{
+	fn new() -> Self {
+		Self { pollers: Default::default() }
+	}
+
+	fn add(&mut self, at: <Block as BlockT>::Hash) -> oneshot::Receiver<T> {
+		let (s, r) = oneshot::channel();
+		self.pollers.entry(at).or_default().push(s);
+		r
+	}
+
+	fn trigger(&mut self, at: <Block as BlockT>::Hash, ready_iterator: impl Fn() -> T) {
+		let Some(pollers) = self.pollers.remove(&at) else { return };
+		pollers.into_iter().for_each(|p| {
+			log::debug!(target: LOG_TARGET, "Sending ready signal at block {}", at);
+			let _ = p.send(ready_iterator());
+		});
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -224,10 +294,11 @@ where
 {
 	api: Arc<PoolApi>,
 	xts: Arc<RwLock<Vec<Block::Extrinsic>>>,
+
+	// todo: is ViewManager strucy really needed? (no)
 	views: Arc<ViewManager<PoolApi, Block>>,
-	// todo:
-	// map: hash -> view
-	// ready_poll: Arc<Mutex<ReadyPoll<ReadyIteratorFor<PoolApi>, Block>>>,
+	// todo: is ReadyPoll struct really needed? (no)
+	ready_poll: Arc<Mutex<ReadyPoll<super::ReadyIteratorFor<PoolApi>, Block>>>,
 	// current tree? (somehow similar to enactment state?)
 	// todo: metrics
 
@@ -254,6 +325,7 @@ where
 			api: pool_api.clone(),
 			xts: Default::default(),
 			views: Arc::new(ViewManager::new(pool_api)),
+			ready_poll: Arc::from(Mutex::from(ReadyPoll::new())),
 		}
 	}
 
@@ -262,11 +334,13 @@ where
 		&self.api
 	}
 
+	//todo: this should be new TransactionPool API?
 	pub fn status_all(&self) -> HashMap<Block::Hash, PoolStatus> {
 		self.views.status()
 	}
 }
 
+//todo: naming!
 fn xxxx<H, E>(input: &mut HashMap<H, Vec<Result<H, E>>>) -> Vec<Result<H, E>> {
 	let mut values = input.values();
 	let Some(first) = values.next() else {
@@ -550,32 +624,31 @@ where
 	}
 
 	// todo: API change? ready at hash (not number)?
-	fn ready_at(
-		&self,
-		at: NumberFor<Self::Block>,
-	) -> Pin<
-		Box<
-			dyn Future<
-					Output = Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>,
-				> + Send,
-		>,
-	> {
-		// -> PolledIterator<PoolApi>
-		unimplemented!()
+	fn ready_at(&self, at: <Self::Block as BlockT>::Hash) -> super::PolledIterator<PoolApi> {
+		if let Some(view) = self.views.views.read().get(&at) {
+			let iterator: super::ReadyIteratorFor<PoolApi> =
+				Box::new(view.pool.validated_pool().ready());
+			return async move { iterator }.boxed();
+		}
+
+		self.ready_poll
+			.lock()
+			.add(at)
+			.map(|received| {
+				received.unwrap_or_else(|e| {
+					log::warn!("Error receiving pending set: {:?}", e);
+					Box::new(std::iter::empty())
+				})
+			})
+			.boxed()
 	}
 
-	// todo: API change? ready at block?
-	fn ready(&self) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send> {
-		//originally it was: -> ReadyIteratorFor<PoolApi>
-		// Box::new(self.pool.validated_pool().ready())
-		unimplemented!()
+	fn ready(&self, at: <Self::Block as BlockT>::Hash) -> Option<super::ReadyIteratorFor<PoolApi>> {
+		self.views.ready(at)
 	}
 
-	// todo: API change? futures at block?
-	fn futures(&self) -> Vec<Self::InPoolTransaction> {
-		// let pool = self.pool.validated_pool().pool.read();
-		// pool.futures().cloned().collect::<Vec<_>>()
-		unimplemented!()
+	fn futures(&self, at: <Self::Block as BlockT>::Hash) -> Option<Vec<Self::InPoolTransaction>> {
+		self.views.futures(at)
 	}
 }
 
@@ -604,6 +677,140 @@ where
 	}
 }
 
+// async fn prune_known_txs_for_block_in_view<Block: BlockT, Api: graph::ChainApi<Block = Block>>(
+// 	view: &View<PoolApi>,
+// ) -> Vec<ExtrinsicHash<Api>> {
+// }
+
+impl<PoolApi, Block> ForkAwareTxPool<PoolApi, Block>
+where
+	Block: BlockT,
+	PoolApi: graph::ChainApi<Block = Block> + 'static,
+{
+	async fn handle_new_block(&self, tree_route: &TreeRoute<Block>) {
+		let hash_and_number = match tree_route.last() {
+			Some(hash_and_number) => hash_and_number,
+			None => {
+				log::warn!(
+					target: LOG_TARGET,
+					"Skipping ChainEvent - no last block in tree route {:?}",
+					tree_route,
+				);
+				return
+			},
+		};
+
+		let best_view = self.views.find_best_view(tree_route);
+		if let Some(best_view) = best_view {
+			let mut view = View { at: hash_and_number.clone(), pool: best_view.pool.deep_clone() };
+			self.update_view_with_fork(&mut view, tree_route, hash_and_number).await;
+			self.update_view(&mut view).await;
+			let view = Arc::from(view);
+			self.views.views.write().insert(hash_and_number.hash, view.clone());
+			self.ready_poll.lock().trigger(hash_and_number.hash, move || {
+				Box::from(view.pool.validated_pool().ready())
+			});
+		} else {
+			let _ = self.views.create_new_view_at(hash_and_number.hash, self.xts.clone()).await;
+		}
+	}
+
+	async fn update_view(&self, view: &mut View<PoolApi>) {
+		//todo: source?
+		let source = TransactionSource::External;
+		let xts = self.xts.read().clone();
+		view.pool.submit_at(&view.at, source, xts).await;
+	}
+
+	//copied from handle_enactment
+	async fn update_view_with_fork(
+		&self,
+		view: &mut View<PoolApi>,
+		tree_route: &TreeRoute<Block>,
+		hash_and_number: &HashAndNumber<Block>,
+	) {
+		log::info!(target: LOG_TARGET, "update_view tree_route: {tree_route:?}");
+		let api = self.api.clone();
+
+		// We keep track of everything we prune so that later we won't add
+		// transactions with those hashes from the retracted blocks.
+		let mut pruned_log = HashSet::<ExtrinsicHash<PoolApi>>::new();
+
+		future::join_all(
+			tree_route
+				.enacted()
+				.iter()
+				.map(|h| super::prune_known_txs_for_block(h, &*api, &view.pool)),
+		)
+		.await
+		.into_iter()
+		.for_each(|enacted_log| {
+			pruned_log.extend(enacted_log);
+		});
+
+		// todo: metrics (does pruned makes sense?)
+		// self.metrics
+		// 	.report(|metrics| metrics.block_transactions_pruned.inc_by(pruned_log.len() as u64));
+
+		//resubmit
+		{
+			let mut resubmit_transactions = Vec::new();
+
+			for retracted in tree_route.retracted() {
+				let hash = retracted.hash;
+
+				let block_transactions = api
+					.block_body(hash)
+					.await
+					.unwrap_or_else(|e| {
+						log::warn!("Failed to fetch block body: {}", e);
+						None
+					})
+					.unwrap_or_default()
+					.into_iter()
+					.filter(|tx| tx.is_signed().unwrap_or(true));
+
+				let mut resubmitted_to_report = 0;
+
+				resubmit_transactions.extend(block_transactions.into_iter().filter(|tx| {
+					let tx_hash = view.pool.hash_of(tx);
+					let contains = pruned_log.contains(&tx_hash);
+
+					// need to count all transactions, not just filtered, here
+					resubmitted_to_report += 1;
+
+					if !contains {
+						log::debug!(
+							target: LOG_TARGET,
+							"[{:?}]: Resubmitting from retracted block {:?}",
+							tx_hash,
+							hash,
+						);
+					}
+					!contains
+				}));
+
+				// todo: metrics (does resubmit makes sense?)
+				// self.metrics.report(|metrics| {
+				// 	metrics.block_transactions_resubmitted.inc_by(resubmitted_to_report)
+				// });
+			}
+
+			view.pool
+				.resubmit_at(
+					&hash_and_number,
+					// These transactions are coming from retracted blocks, we should
+					// simply consider them external.
+					TransactionSource::External,
+					resubmit_transactions,
+				)
+				.await;
+		}
+	}
+
+	async fn handle_finalized(&self, tree_route: &[Block::Hash]) {}
+}
+
 #[async_trait]
 impl<PoolApi, Block> MaintainedTransactionPool for ForkAwareTxPool<PoolApi, Block>
 where
@@ -611,8 +818,22 @@ where
 	PoolApi: 'static + graph::ChainApi<Block = Block>,
 {
 	async fn maintain(&self, event: ChainEvent<Self::Block>) {
-		//todo: print error?
-		let _ = self.views.create_new_view_at(event, self.xts.clone()).await;
+		if self.views.is_empty() {
+			//todo: print error?
+			let _ = self.views.create_new_view_at(event.hash(), self.xts.clone()).await;
+			return;
+		}
+
+		match event {
+			ChainEvent::NewBestBlock { hash, tree_route: Some(tree_route) } =>
+				self.handle_new_block(&tree_route).await,
+			ChainEvent::Finalized { hash, tree_route } => self.handle_finalized(&*tree_route).await,
+			_ => {
+				let _ = self.views.create_new_view_at(event.hash(), self.xts.clone()).await;
+			},
+		}
+
+		()
 	}
 }
 
