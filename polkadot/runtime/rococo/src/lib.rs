@@ -68,9 +68,8 @@ use beefy_primitives::{
 };
 
 use frame_support::{
-	construct_runtime,
-	dynamic_params::{dynamic_pallet_params, dynamic_params},
 	construct_runtime, derive_impl,
+	dynamic_params::{dynamic_pallet_params, dynamic_params},
 	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
 	traits::{
@@ -93,8 +92,6 @@ use sp_runtime::{
 		AccountIdLookup, BlakeTwo256, Block as BlockT, ConstBool, ConstU32, ConvertInto,
 		Extrinsic as ExtrinsicT, IdentityLookup, Keccak256, OpaqueKeys, SaturatedConversion,
 		Verify,
-		BlakeTwo256, Block as BlockT, ConstU32, ConvertInto, Extrinsic as ExtrinsicT,
-		IdentityLookup, Keccak256, OpaqueKeys, SaturatedConversion, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, BoundToRuntimeAppPublic, FixedU128, KeyTypeId, Perbill, Percent, Permill,

@@ -2,10 +2,12 @@
 
 #![cfg(test)]
 
-use super::*;
+use super::{
+	mock::{dynamic_params::*, *},
+	*,
+};
 use frame_support::{assert_noop, assert_ok};
 use RuntimeOrigin as Origin;
-use super::mock::{*, dynamic_params::*};
 
 #[docify::export]
 #[test]
@@ -191,21 +193,12 @@ fn test_define_aggregrated_parameters_aggregrated_key_value() {
 	let kv1 = RuntimeParameters::Pallet1(pallet1::Parameters::Key1(pallet1::Key1, None));
 	let (key1, value1) = kv1.clone().into_parts();
 
-	assert_eq!(
-		key1,
-		RuntimeParametersKey::Pallet1(pallet1::ParametersKey::Key1(pallet1::Key1))
-	);
+	assert_eq!(key1, RuntimeParametersKey::Pallet1(pallet1::ParametersKey::Key1(pallet1::Key1)));
 	assert_eq!(value1, None);
 
 	let kv2 = RuntimeParameters::Pallet2(pallet2::Parameters::Key2(pallet2::Key2, Some(2)));
 	let (key2, value2) = kv2.clone().into_parts();
 
-	assert_eq!(
-		key2,
-		RuntimeParametersKey::Pallet2(pallet2::ParametersKey::Key2(pallet2::Key2))
-	);
-	assert_eq!(
-		value2,
-		Some(RuntimeParametersValue::Pallet2(pallet2::ParametersValue::Key2(2)))
-	);
+	assert_eq!(key2, RuntimeParametersKey::Pallet2(pallet2::ParametersKey::Key2(pallet2::Key2)));
+	assert_eq!(value2, Some(RuntimeParametersValue::Pallet2(pallet2::ParametersValue::Key2(2))));
 }
