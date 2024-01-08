@@ -45,6 +45,10 @@
   "grandpa": {
     "authorities": []
   },
+  "beefy": {
+    "authorities": [],
+    "genesisBlock": 1
+  },
   "treasury": {},
   "sudo": {
     "key": null
