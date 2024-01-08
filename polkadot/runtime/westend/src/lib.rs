@@ -304,7 +304,10 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = RuntimeFreezeReason;
 	type MaxFreezes = ConstU32<1>;
-	type MaxHolds = ConstU32<1>;
+	// We allow each account to have holds on it from:
+	//   - `Preimage`: 1
+	//   - `Multisig`: 1
+	type MaxHolds = ConstU32<2>;
 }
 
 parameter_types! {

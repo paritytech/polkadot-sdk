@@ -317,7 +317,11 @@ impl pallet_balances::Config for Runtime {
 	type MaxFreezes = ConstU32<1>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type MaxHolds = ConstU32<2>;
+	// We allow each account to have holds on it from:
+	//   - `Nis`: 1
+	//   - `Preimage`: 1
+	//   - `Multisig`: 1
+	type MaxHolds = ConstU32<3>;
 }
 
 parameter_types! {
@@ -1168,7 +1172,11 @@ impl pallet_balances::Config<NisCounterpartInstance> for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<2>;
+	// We allow each account to have holds on it from:
+	//   - `Nis`: 1
+	//   - `Preimage`: 1
+	//   - `Multisig`: 1
+	type MaxHolds = ConstU32<3>;
 	type MaxFreezes = ConstU32<1>;
 }
 
