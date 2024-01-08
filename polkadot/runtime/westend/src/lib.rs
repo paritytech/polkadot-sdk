@@ -115,7 +115,7 @@ use sp_runtime::traits::Get;
 pub use sp_runtime::BuildStorage;
 
 /// Constant values used within the runtime.
-use westend_runtime_constants::{currency::*, fee::*, time::*};
+use westend_runtime_constants::{currency::*, fee::*, system_parachain::BROKER_ID, time::*};
 
 mod bag_thresholds;
 mod weights;
@@ -342,19 +342,6 @@ mod mmr {
 }
 
 parameter_types! {
-	/// Version of the produced MMR leaf.
-	///
-	/// The version consists of two parts;
-	/// - `major` (3 bits)
-	/// - `minor` (5 bits)
-	///
-	/// `major` should be updated only if decoding the previous MMR Leaf format from the payload
-	/// is not possible (i.e. backward incompatible change).
-	/// `minor` should be updated if fields are added to the previous MMR Leaf, which given SCALE
-	/// encoding does not prevent old leafs from being decoded.
-	///
-	/// Hence we expect `major` to be changed really rarely (think never).
-	/// See [`MmrLeafVersion`] type documentation for more details.
 	pub LeafVersion: MmrLeafVersion = MmrLeafVersion::new(0, 0);
 }
 
@@ -1149,6 +1136,7 @@ impl parachains_paras::Config for Runtime {
 	type QueueFootprinter = ParaInclusion;
 	type NextSessionRotation = Babe;
 	type OnNewHead = ();
+	type AssignCoretime = ();
 }
 
 parameter_types! {
@@ -1215,7 +1203,13 @@ impl parachains_paras_inherent::Config for Runtime {
 }
 
 impl parachains_scheduler::Config for Runtime {
-	type AssignmentProvider = ParaAssignmentProvider;
+	// If you change this, make sure the `Assignment` type of the new provider is binary compatible,
+	// otherwise provide a migration.
+	type AssignmentProvider = ParachainsAssignmentProvider;
+}
+
+parameter_types! {
+	pub const BrokerId: u32 = BROKER_ID;
 }
 
 impl parachains_assigner_parachains::Config for Runtime {}
@@ -1224,6 +1218,7 @@ impl parachains_initializer::Config for Runtime {
 	type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = weights::runtime_parachains_initializer::WeightInfo<Runtime>;
+	type CoretimeOnNewSession = ();
 }
 
 impl paras_sudo_wrapper::Config for Runtime {}
@@ -1485,7 +1480,7 @@ construct_runtime! {
 		ParaSessionInfo: parachains_session_info::{Pallet, Storage} = 52,
 		ParasDisputes: parachains_disputes::{Pallet, Call, Storage, Event<T>} = 53,
 		ParasSlashing: parachains_slashing::{Pallet, Call, Storage, ValidateUnsigned} = 54,
-		ParaAssignmentProvider: parachains_assigner_parachains::{Pallet, Storage} = 55,
+		ParachainsAssignmentProvider: parachains_assigner_parachains::{Pallet} = 55,
 
 		// Parachain Onboarding Pallets. Start indices at 60 to leave room.
 		Registrar: paras_registrar::{Pallet, Call, Storage, Event<T>, Config<T>} = 60,
@@ -1636,7 +1631,7 @@ pub mod migrations {
 		parachains_configuration::migration::v7::MigrateToV7<Runtime>,
 		pallet_staking::migrations::v14::MigrateToV14<Runtime>,
 		assigned_slots::migration::v1::MigrateToV1<Runtime>,
-		parachains_scheduler::migration::v1::MigrateToV1<Runtime>,
+		parachains_scheduler::migration::MigrateV1ToV2<Runtime>,
 		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
 		paras_registrar::migration::MigrateToV1<Runtime, ()>,

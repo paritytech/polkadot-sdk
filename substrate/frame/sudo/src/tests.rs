@@ -170,6 +170,18 @@ fn remove_key_works() {
 }
 
 #[test]
+fn using_root_origin_works() {
+	new_test_ext(1).execute_with(|| {
+		assert_ok!(Sudo::remove_key(RuntimeOrigin::root()));
+		assert!(Sudo::key().is_none());
+		System::assert_has_event(TestEvent::Sudo(Event::KeyRemoved {}));
+
+		assert_ok!(Sudo::set_key(RuntimeOrigin::root(), 1));
+		assert_eq!(Some(1), Sudo::key());
+	});
+}
+
+#[test]
 fn sudo_as_basics() {
 	new_test_ext(1).execute_with(|| {
 		// A privileged function will not work when passed to `sudo_as`.

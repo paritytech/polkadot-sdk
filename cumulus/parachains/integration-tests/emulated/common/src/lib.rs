@@ -32,7 +32,6 @@ use sp_runtime::{
 // Polakdot
 use parachains_common::BlockNumber;
 use polkadot_runtime_parachains::configuration::HostConfiguration;
-use xcm;
 
 // Cumulus
 use parachains_common::{AccountId, AssetHubPolkadotAuraId, AuraId};

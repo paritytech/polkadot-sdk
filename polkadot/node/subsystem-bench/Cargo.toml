@@ -31,7 +31,7 @@ async-trait = "0.1.74"
 sp-keystore = { path = "../../../substrate/primitives/keystore" }
 sc-keystore = { path = "../../../substrate/client/keystore" }
 sp-core = { path = "../../../substrate/primitives/core" }
-clap = { version = "4.4.6", features = ["derive"] }
+clap = { version = "4.4.13", features = ["derive"] }
 futures = "0.3.21"
 futures-timer = "3.0.2"
 gum = { package = "tracing-gum", path = "../gum" }
@@ -52,7 +52,7 @@ itertools = "0.11.0"
 polkadot-primitives-test-helpers = { path = "../../primitives/test-helpers" }
 prometheus_endpoint = { package = "substrate-prometheus-endpoint", path = "../../../substrate/utils/prometheus" }
 prometheus = { version = "0.13.0", default-features = false }
-serde = "1.0.192"
+serde = "1.0.195"
 serde_yaml = "0.9"
 paste = "1.0.14"
 orchestra = { version = "0.3.3", default-features = false, features = ["futures_channel"] }
