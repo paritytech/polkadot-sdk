@@ -548,6 +548,7 @@ mod tests {
 		// Rust includes `.get`, returning Option<T> - so lets use that:
 		assert_eq!(my_list.get(5), None)
 	}
+
 	#[docify::export]
 	#[test]
 	#[should_panic(expected = "Defensive failure has been triggered!")]
