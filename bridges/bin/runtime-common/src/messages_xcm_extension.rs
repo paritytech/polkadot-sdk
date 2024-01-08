@@ -22,26 +22,23 @@
 //! `XcmRouter` <- `MessageDispatch` <- `InboundMessageQueue`
 
 use bp_messages::{
-	source_chain::{MessagesBridge, OnMessagesDelivered},
+	source_chain::OnMessagesDelivered,
 	target_chain::{DispatchMessage, MessageDispatch},
 	LaneId, MessageNonce,
 };
 use bp_runtime::messages::MessageDispatchResult;
+pub use bp_xcm_bridge_hub::XcmAsPlainPayload;
 use bp_xcm_bridge_hub_router::XcmChannelStatusProvider;
 use codec::{Decode, Encode};
 use frame_support::{traits::Get, weights::Weight, CloneNoBound, EqNoBound, PartialEqNoBound};
 use pallet_bridge_messages::{
-	Config as MessagesConfig, OutboundLanesCongestedSignals, Pallet as MessagesPallet,
-	WeightInfoExt as MessagesPalletWeights,
+	Config as MessagesConfig, OutboundLanesCongestedSignals, WeightInfoExt as MessagesPalletWeights,
 };
 use scale_info::TypeInfo;
 use sp_runtime::SaturatedConversion;
 use sp_std::{fmt::Debug, marker::PhantomData};
 use xcm::prelude::*;
-use xcm_builder::{DispatchBlob, DispatchBlobError, HaulBlob, HaulBlobError};
-
-/// Plain "XCM" payload, which we transfer through bridge
-pub type XcmAsPlainPayload = sp_std::prelude::Vec<u8>;
+use xcm_builder::{DispatchBlob, DispatchBlobError};
 
 /// Message dispatch result type for single message
 #[derive(CloneNoBound, EqNoBound, PartialEqNoBound, Encode, Decode, Debug, TypeInfo)]
@@ -123,6 +120,7 @@ impl<
 
 /// A pair of sending chain location and message lane, used by this chain to send messages
 /// over the bridge.
+#[cfg_attr(feature = "std", derive(Debug, Eq, PartialEq))]
 pub struct SenderAndLane {
 	/// Sending chain relative location.
 	pub location: MultiLocation,
@@ -144,8 +142,6 @@ pub trait XcmBlobHauler {
 	type Runtime: MessagesConfig<Self::MessagesInstance>;
 	/// Instance of the messages pallet that is used to send messages.
 	type MessagesInstance: 'static;
-	/// Returns lane used by this hauler.
-	type SenderAndLane: Get<SenderAndLane>;
 
 	/// Actual XCM message sender (`HRMP` or `UMP`) to the source chain
 	/// location (`Self::SenderAndLane::get().location`).
@@ -166,54 +162,25 @@ pub trait XcmBlobHauler {
 /// makes sure that XCM blob is sent to the outbound lane to be relayed.
 ///
 /// It needs to be used at the source bridge hub.
-pub struct XcmBlobHaulerAdapter<XcmBlobHauler>(sp_std::marker::PhantomData<XcmBlobHauler>);
+pub struct XcmBlobHaulerAdapter<XcmBlobHauler, Lanes>(
+	sp_std::marker::PhantomData<(XcmBlobHauler, Lanes)>,
+);
 
-impl<H: XcmBlobHauler> HaulBlob for XcmBlobHaulerAdapter<H>
-where
-	H::Runtime: MessagesConfig<H::MessagesInstance, OutboundPayload = XcmAsPlainPayload>,
+impl<
+		H: XcmBlobHauler,
+		Lanes: Get<sp_std::vec::Vec<(SenderAndLane, (NetworkId, InteriorMultiLocation))>>,
+	> OnMessagesDelivered for XcmBlobHaulerAdapter<H, Lanes>
 {
-	fn haul_blob(blob: sp_std::prelude::Vec<u8>) -> Result<(), HaulBlobError> {
-		let sender_and_lane = H::SenderAndLane::get();
-		MessagesPallet::<H::Runtime, H::MessagesInstance>::send_message(sender_and_lane.lane, blob)
-			.map(|artifacts| {
-				log::info!(
-					target: crate::LOG_TARGET_BRIDGE_DISPATCH,
-					"haul_blob result - ok: {:?} on lane: {:?}. Enqueued messages: {}",
-					artifacts.nonce,
-					sender_and_lane.lane,
-					artifacts.enqueued_messages,
-				);
-
-				// notify XCM queue manager about updated lane state
-				LocalXcmQueueManager::<H>::on_bridge_message_enqueued(
-					&sender_and_lane,
-					artifacts.enqueued_messages,
-				);
-			})
-			.map_err(|error| {
-				log::error!(
-					target: crate::LOG_TARGET_BRIDGE_DISPATCH,
-					"haul_blob result - error: {:?} on lane: {:?}",
-					error,
-					sender_and_lane.lane,
-				);
-				HaulBlobError::Transport("MessageSenderError")
-			})
-	}
-}
-
-impl<H: XcmBlobHauler> OnMessagesDelivered for XcmBlobHaulerAdapter<H> {
 	fn on_messages_delivered(lane: LaneId, enqueued_messages: MessageNonce) {
-		let sender_and_lane = H::SenderAndLane::get();
-		if sender_and_lane.lane != lane {
-			return
+		if let Some(sender_and_lane) =
+			Lanes::get().iter().find(|link| link.0.lane == lane).map(|link| &link.0)
+		{
+			// notify XCM queue manager about updated lane state
+			LocalXcmQueueManager::<H>::on_bridge_messages_delivered(
+				sender_and_lane,
+				enqueued_messages,
+			);
 		}
-
-		// notify XCM queue manager about updated lane state
-		LocalXcmQueueManager::<H>::on_bridge_messages_delivered(
-			&sender_and_lane,
-			enqueued_messages,
-		);
 	}
 }
 
@@ -342,6 +309,28 @@ impl<H: XcmBlobHauler> LocalXcmQueueManager<H> {
 	}
 }
 
+/// Adapter for the implementation of `GetVersion`, which attempts to find the minimal
+/// configured XCM version between the destination `dest` and the bridge hub location provided as
+/// `Get<Location>`.
+pub struct XcmVersionOfDestAndRemoteBridge<Version, RemoteBridge>(
+	sp_std::marker::PhantomData<(Version, RemoteBridge)>,
+);
+impl<Version: GetVersion, RemoteBridge: Get<MultiLocation>> GetVersion
+	for XcmVersionOfDestAndRemoteBridge<Version, RemoteBridge>
+{
+	fn get_version_for(dest: &MultiLocation) -> Option<XcmVersion> {
+		let dest_version = Version::get_version_for(dest);
+		let bridge_hub_version = Version::get_version_for(&RemoteBridge::get());
+
+		match (dest_version, bridge_hub_version) {
+			(Some(dv), Some(bhv)) => Some(sp_std::cmp::min(dv, bhv)),
+			(Some(dv), None) => Some(dv),
+			(None, Some(bhv)) => Some(bhv),
+			(None, None) => None,
+		}
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -356,6 +345,9 @@ mod tests {
 			location: MultiLocation::new(1, X1(Parachain(1000))),
 			lane: TEST_LANE_ID,
 		};
+		pub TestLanes: sp_std::vec::Vec<(SenderAndLane, (NetworkId, InteriorMultiLocation))> = sp_std::vec![
+			(TestSenderAndLane::get(), (NetworkId::ByGenesis([0; 32]), InteriorMultiLocation::Here))
+		];
 		pub DummyXcmMessage: Xcm<()> = Xcm::new();
 	}
 
@@ -389,37 +381,44 @@ mod tests {
 	impl XcmBlobHauler for TestBlobHauler {
 		type Runtime = TestRuntime;
 		type MessagesInstance = ();
-		type SenderAndLane = TestSenderAndLane;
 
 		type ToSourceChainSender = DummySendXcm;
 		type CongestedMessage = DummyXcmMessage;
 		type UncongestedMessage = DummyXcmMessage;
 	}
 
-	type TestBlobHaulerAdapter = XcmBlobHaulerAdapter<TestBlobHauler>;
+	type TestBlobHaulerAdapter = XcmBlobHaulerAdapter<TestBlobHauler, TestLanes>;
 
-	fn fill_up_lane_to_congestion() {
+	fn fill_up_lane_to_congestion() -> MessageNonce {
+		let latest_generated_nonce = OUTBOUND_LANE_CONGESTED_THRESHOLD;
 		OutboundLanes::<TestRuntime, ()>::insert(
 			TEST_LANE_ID,
 			OutboundLaneData {
 				oldest_unpruned_nonce: 0,
 				latest_received_nonce: 0,
-				latest_generated_nonce: OUTBOUND_LANE_CONGESTED_THRESHOLD,
+				latest_generated_nonce,
 			},
 		);
+		latest_generated_nonce
 	}
 
 	#[test]
 	fn congested_signal_is_not_sent_twice() {
 		run_test(|| {
-			fill_up_lane_to_congestion();
+			let enqueued = fill_up_lane_to_congestion();
 
 			// next sent message leads to congested signal
-			TestBlobHaulerAdapter::haul_blob(vec![42]).unwrap();
+			LocalXcmQueueManager::<TestBlobHauler>::on_bridge_message_enqueued(
+				&TestSenderAndLane::get(),
+				enqueued + 1,
+			);
 			assert_eq!(DummySendXcm::messages_sent(), 1);
 
 			// next sent message => we don't sent another congested signal
-			TestBlobHaulerAdapter::haul_blob(vec![42]).unwrap();
+			LocalXcmQueueManager::<TestBlobHauler>::on_bridge_message_enqueued(
+				&TestSenderAndLane::get(),
+				enqueued,
+			);
 			assert_eq!(DummySendXcm::messages_sent(), 1);
 		});
 	}
@@ -427,7 +426,10 @@ mod tests {
 	#[test]
 	fn congested_signal_is_not_sent_when_outbound_lane_is_not_congested() {
 		run_test(|| {
-			TestBlobHaulerAdapter::haul_blob(vec![42]).unwrap();
+			LocalXcmQueueManager::<TestBlobHauler>::on_bridge_message_enqueued(
+				&TestSenderAndLane::get(),
+				1,
+			);
 			assert_eq!(DummySendXcm::messages_sent(), 0);
 		});
 	}
@@ -435,10 +437,13 @@ mod tests {
 	#[test]
 	fn congested_signal_is_sent_when_outbound_lane_is_congested() {
 		run_test(|| {
-			fill_up_lane_to_congestion();
+			let enqueued = fill_up_lane_to_congestion();
 
 			// next sent message leads to congested signal
-			TestBlobHaulerAdapter::haul_blob(vec![42]).unwrap();
+			LocalXcmQueueManager::<TestBlobHauler>::on_bridge_message_enqueued(
+				&TestSenderAndLane::get(),
+				enqueued + 1,
+			);
 			assert_eq!(DummySendXcm::messages_sent(), 1);
 			assert!(LocalXcmQueueManager::<TestBlobHauler>::is_congested_signal_sent(TEST_LANE_ID));
 		});

@@ -9,6 +9,9 @@ homepage = "https://substrate.io"
 repository.workspace = true
 publish = false
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
@@ -58,8 +61,8 @@ sp-consensus = { path = "../../primitives/consensus/common" }
 substrate-test-runtime-client = { path = "client" }
 sp-tracing = { path = "../../primitives/tracing" }
 json-patch = { version = "1.0.0", default-features = false }
-serde = { version = "1.0.193", features = ["alloc", "derive"], default-features = false }
-serde_json = { version = "1.0.108", default-features = false, features = ["alloc"] }
+serde = { version = "1.0.195", features = ["alloc", "derive"], default-features = false }
+serde_json = { version = "1.0.111", default-features = false, features = ["alloc"] }
 
 [build-dependencies]
 substrate-wasm-builder = { path = "../../utils/wasm-builder", optional = true }

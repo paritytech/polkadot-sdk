@@ -192,7 +192,6 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type SignedPhase = SignedPhase;
 	type UnsignedPhase = UnsignedPhase;
 	type BetterSignedThreshold = ();
-	type BetterUnsignedThreshold = ();
 	type OffchainRepeat = OffchainRepeat;
 	type MinerTxPriority = TransactionPriority;
 	type MinerConfig = Self;
@@ -297,6 +296,7 @@ impl pallet_staking::Config for Runtime {
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<MAX_QUOTA_NOMINATIONS>;
 	type TargetList = TargetBagsList;
 	type MaxUnlockingChunks = ConstU32<32>;
+	type MaxControllersInDeprecationBatch = ConstU32<100>;
 	type HistoryDepth = HistoryDepth;
 	type EventListeners = StakeTracker;
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
