@@ -176,14 +176,22 @@ fn set_default_ss58_version(spec: &Box<dyn service::ChainSpec>) {
 pub fn run_node(
 	run: Cli,
 	overseer_gen: impl service::OverseerGen,
+	node_version: String,
 	malus_finality_delay: Option<u32>,
 ) -> Result<()> {
-	run_node_inner(run, overseer_gen, malus_finality_delay, |_logger_builder, _config| {})
+	run_node_inner(
+		run,
+		overseer_gen,
+		node_version,
+		malus_finality_delay,
+		|_logger_builder, _config| {},
+	)
 }
 
 fn run_node_inner<F>(
 	cli: Cli,
 	overseer_gen: impl service::OverseerGen,
+	node_version: String,
 	maybe_malus_finality_delay: Option<u32>,
 	logger_hook: F,
 ) -> Result<()>
@@ -220,8 +228,7 @@ where
 		None
 	};
 
-	let node_version =
-		if cli.run.disable_worker_version_check { None } else { Some(NODE_VERSION.to_string()) };
+	let node_version = (!cli.run.disable_worker_version_check).then_some(node_version);
 
 	let secure_validator_mode = cli.run.base.validator && !cli.run.insecure_validator;
 
@@ -267,7 +274,7 @@ where
 }
 
 /// Parses polkadot specific CLI arguments and run the service.
-pub fn run() -> Result<()> {
+pub fn run(node_version: String) -> Result<()> {
 	let cli: Cli = Cli::from_args();
 
 	#[cfg(feature = "pyroscope")]
@@ -298,6 +305,7 @@ pub fn run() -> Result<()> {
 		None => run_node_inner(
 			cli,
 			service::RealOverseerGen,
+			node_version,
 			None,
 			polkadot_node_metrics::logger_hook(),
 		),

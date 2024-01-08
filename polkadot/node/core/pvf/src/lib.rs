@@ -125,8 +125,8 @@ pub const LOG_TARGET: &str = "parachain::pvf";
 /// Utility to get the version of a worker, used for version checks.
 ///
 /// The worker's existence at the given path must be checked separately.
-pub fn get_worker_version(worker_path: &Path) -> std::io::Result<String> {
-	let worker_version = Command::new(worker_path).args(["--version"]).output()?.stdout;
+pub fn get_worker_version(worker_path: impl AsRef<Path>) -> std::io::Result<String> {
+	let worker_version = Command::new(worker_path.as_ref()).args(["--version"]).output()?.stdout;
 	Ok(std::str::from_utf8(&worker_version)
 		.expect("version is printed as a string; qed")
 		.trim()
