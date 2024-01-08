@@ -52,6 +52,7 @@ impl pallet_identity::Config for Runtime {
 	type ForceOrigin = EnsureRoot<Self::AccountId>;
 	type RegistrarOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = weights::pallet_identity::WeightInfo<Runtime>;
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 /// The fields that we use to identify the owner of an account with. Each corresponds to a field
