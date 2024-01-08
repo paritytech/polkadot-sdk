@@ -331,7 +331,7 @@
     fixed_u64_block_computation_example
 )]
 //!
-//! For a much more comprehensive example, be sure to look at the source for [`pallet_broker`]
+//! For a much more comprehensive example, be sure to look at the source for [`pallet_broker`].
 //!
 //! #### Fixed Point Types in Practice
 //!
