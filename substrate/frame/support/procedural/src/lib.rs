@@ -432,10 +432,7 @@ pub fn derive_runtime_debug_no_bound(input: TokenStream) -> TokenStream {
 	if cfg!(any(feature = "std", feature = "try-runtime")) {
 		no_bound::debug::derive_debug_no_bound(input)
 	} else {
-		let input: syn::DeriveInput = match syn::parse(input) {
-			Ok(input) => input,
-			Err(e) => return e.to_compile_error().into(),
-		};
+		let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
 		let name = &input.ident;
 		let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
@@ -463,10 +460,7 @@ pub fn derive_partial_eq_no_bound(input: TokenStream) -> TokenStream {
 /// derive Eq but do no bound any generic. Docs are at `frame_support::EqNoBound`.
 #[proc_macro_derive(EqNoBound)]
 pub fn derive_eq_no_bound(input: TokenStream) -> TokenStream {
-	let input: syn::DeriveInput = match syn::parse(input) {
-		Ok(input) => input,
-		Err(e) => return e.to_compile_error().into(),
-	};
+	let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
 	let name = &input.ident;
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
