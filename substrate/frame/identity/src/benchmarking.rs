@@ -122,7 +122,7 @@ mod benchmarks {
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
 		let caller_origin: <T as frame_system::Config>::RuntimeOrigin =
 			RawOrigin::Signed(caller.clone()).into();
-		let _ = T::Currency::set_balance(&caller, BalanceOf::<T>::max_value());
+		let _ = T::Currency::set_balance(&caller, BalanceOf::<T>::max_value() / 2u32.into());
 
 		// Add an initial identity
 		let initial_info = T::IdentityInformation::create_identity_info();
@@ -240,7 +240,7 @@ mod benchmarks {
 	#[benchmark]
 	fn request_judgement(r: Linear<1, { T::MaxRegistrars::get() }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
-		let _ = T::Currency::set_balance(&caller, BalanceOf::<T>::max_value());
+		let _ = T::Currency::set_balance(&caller, BalanceOf::<T>::max_value() / 2u32.into());
 
 		// Register the registrars
 		add_registrars::<T>(r)?;
@@ -264,7 +264,7 @@ mod benchmarks {
 	#[benchmark]
 	fn cancel_request(r: Linear<1, { T::MaxRegistrars::get() }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
-		let _ = T::Currency::set_balance(&caller, BalanceOf::<T>::max_value());
+		let _ = T::Currency::set_balance(&caller, BalanceOf::<T>::max_value() / 2u32.into());
 
 		// Register the registrars
 		add_registrars::<T>(r)?;
@@ -382,11 +382,11 @@ mod benchmarks {
 		let user_origin =
 			<T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(user.clone()));
 		let user_lookup = <T::Lookup as StaticLookup>::unlookup(user.clone());
-		let _ = T::Currency::set_balance(&user, BalanceOf::<T>::max_value());
+		let _ = T::Currency::set_balance(&user, BalanceOf::<T>::max_value() / 2u32.into());
 
 		let caller: T::AccountId = whitelisted_caller();
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
-		let _ = T::Currency::set_balance(&caller, BalanceOf::<T>::max_value());
+		let _ = T::Currency::set_balance(&caller, BalanceOf::<T>::max_value() / 2u32.into());
 
 		add_registrars::<T>(r)?;
 
@@ -420,7 +420,7 @@ mod benchmarks {
 		let target_origin: <T as frame_system::Config>::RuntimeOrigin =
 			RawOrigin::Signed(target.clone()).into();
 		let target_lookup = T::Lookup::unlookup(target.clone());
-		let _ = T::Currency::set_balance(&target, BalanceOf::<T>::max_value());
+		let _ = T::Currency::set_balance(&target, BalanceOf::<T>::max_value() / 2u32.into());
 
 		let info = T::IdentityInformation::create_identity_info();
 		Identity::<T>::set_identity(target_origin.clone(), Box::new(info.clone()))?;
