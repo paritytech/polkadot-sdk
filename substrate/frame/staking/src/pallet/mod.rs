@@ -564,6 +564,12 @@ pub mod pallet {
 	#[pallet::getter(fn force_era)]
 	pub type ForceEra<T> = StorageValue<_, Forcing, ValueQuery>;
 
+	/// Maximum staked rewards, i.e. the percentage of the era inflation that
+	/// is used for stake rewards.
+	/// See [Era payout](./index.html#era-payout).
+	#[pallet::storage]
+	pub type MaxStakedRewards<T> = StorageValue<_, Percent, OptionQuery>;
+
 	/// The percentage of the slash that is distributed to reporters.
 	///
 	/// The rest of the slashed value is handled by the `Slash`.
@@ -1969,6 +1975,15 @@ pub mod pallet {
 				<Ledger<T>>::insert(stash, ledger);
 			}
 			Ok(Some(T::WeightInfo::deprecate_controller_batch(controllers.len() as u32)).into())
+		}
+
+		/// Sets the fraction of the maximum staked rewards of the era's inflation.
+		#[pallet::call_index(29)]
+		#[pallet::weight(T::WeightInfo::set_max_staked_rewards())]
+		pub fn set_max_staked_rewards(origin: OriginFor<T>, new: Percent) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			MaxStakedRewards::<T>::put(new);
+			Ok(())
 		}
 	}
 }
