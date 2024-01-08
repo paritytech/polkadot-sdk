@@ -28,7 +28,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		Currency, Defensive, DefensiveSaturating, EstimateNextNewSession, Get, Imbalance, Len,
-		OnUnbalanced, TryCollect, UnixTime,
+		LockableCurrency, OnUnbalanced, TryCollect, UnixTime,
 	},
 	weights::Weight,
 };
@@ -40,6 +40,7 @@ use sp_runtime::{
 };
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
+	delegation::StakingDelegationSupport,
 	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
 	EraIndex, Page, SessionIndex, Stake,
 	StakingAccount::{self, Controller, Stash},
@@ -58,6 +59,7 @@ use super::pallet::*;
 
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;
+use frame_support::traits::WithdrawReasons;
 #[cfg(any(test, feature = "try-runtime"))]
 use sp_runtime::TryRuntimeError;
 
@@ -120,14 +122,18 @@ impl<T: Config> Pallet<T> {
 	pub(super) fn do_withdraw_unbonded(
 		controller: &T::AccountId,
 		num_slashing_spans: u32,
+		maybe_amount: Option<BalanceOf<T>>,
 	) -> Result<Weight, DispatchError> {
 		let mut ledger = Self::ledger(Controller(controller.clone()))?;
 		let (stash, old_total) = (ledger.stash.clone(), ledger.total);
 		if let Some(current_era) = Self::current_era() {
-			ledger = ledger.consolidate_unlocked(current_era)
+			ledger = ledger.consolidate_unlocked(current_era, maybe_amount)
 		}
 		let new_total = ledger.total;
 
+		if let Some(amount) = maybe_amount {
+			ensure!(old_total.saturating_sub(new_total) == amount, Error::<T>::NotEnoughFunds);
+		};
 		let used_weight =
 			if ledger.unlocking.is_empty() && ledger.active < T::Currency::minimum_balance() {
 				// This account must have called `unbond()` with some value that caused the active
@@ -1089,6 +1095,37 @@ impl<T: Config> Pallet<T> {
 	) -> Exposure<T::AccountId, BalanceOf<T>> {
 		EraInfo::<T>::get_full_exposure(era, account)
 	}
+
+	pub(crate) fn stakeable_balance(who: &T::AccountId) -> BalanceOf<T> {
+		if T::DelegationSupport::is_delegatee(who) {
+			return T::DelegationSupport::stakeable_balance(who);
+		}
+
+		T::Currency::free_balance(who)
+	}
+
+	pub(crate) fn restrict_reward_destination(
+		who: &T::AccountId,
+		reward_destination: Option<T::AccountId>,
+	) -> bool {
+		if T::DelegationSupport::is_delegatee(who) {
+			return T::DelegationSupport::restrict_reward_destination(who, reward_destination);
+		}
+
+		false
+	}
+
+	pub(crate) fn update_hold(
+		who: &T::AccountId,
+		amount: BalanceOf<T>,
+	) -> sp_runtime::DispatchResult {
+		if T::DelegationSupport::is_delegatee(who) {
+			return T::DelegationSupport::update_hold(who, amount);
+		}
+
+		T::Currency::set_lock(crate::STAKING_ID, who, amount, WithdrawReasons::all());
+		Ok(())
+	}
 }
 
 impl<T: Config> Pallet<T> {
@@ -1722,6 +1759,16 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			.map_err(|with_post| with_post.error)
 	}
 
+	fn withdraw_exact(
+		who: &Self::AccountId,
+		amount: BalanceOf<T>,
+		num_slashing_spans: u32,
+	) -> Result<bool, DispatchError> {
+		let ctrl = Self::bonded(who).ok_or(Error::<T>::NotStash)?;
+		Self::do_withdraw_unbonded(&ctrl, num_slashing_spans, Some(amount))
+			.map(|_| !Ledger::<T>::contains_key(&ctrl))
+	}
+
 	fn bond(
 		who: &Self::AccountId,
 		value: Self::Balance,
@@ -1814,6 +1861,36 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		fn max_exposure_page_size() -> Page {
 			T::MaxExposurePageSize::get()
 		}
+	}
+
+	fn slash_reward_fraction() -> Perbill {
+		SlashRewardFraction::<T>::get()
+	}
+
+	fn release_all(who: &Self::AccountId) {
+		T::Currency::remove_lock(crate::STAKING_ID, who)
+	}
+}
+
+/// Standard implementation of `StakingDelegationSupport` that supports only direct staking and no
+/// delegated staking.
+pub struct NoDelegation<T>(PhantomData<T>);
+impl<T: Config> StakingDelegationSupport for NoDelegation<T> {
+	type Balance = BalanceOf<T>;
+	type AccountId = T::AccountId;
+	fn stakeable_balance(_who: &Self::AccountId) -> Self::Balance {
+		BalanceOf::<T>::zero()
+	}
+	fn is_delegatee(_who: &Self::AccountId) -> bool {
+		false
+	}
+	fn update_hold(_who: &Self::AccountId, _amount: Self::Balance) -> sp_runtime::DispatchResult {
+		defensive!("delegation update_hold should not be have been called for NoDelegation");
+		Err(Error::<T>::NotEnoughFunds.into())
+	}
+
+	fn report_slash(_who: &Self::AccountId, _slash: Self::Balance) {
+		defensive!("delegation report_slash should not be have been called for NoDelegation");
 	}
 }
 

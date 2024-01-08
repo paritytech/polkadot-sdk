@@ -9741,6 +9741,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-delegated-staking"
+version = "4.0.0-dev"
+dependencies = [
+ "frame-election-provider-support",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-staking",
+ "pallet-staking-reward-curve",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-staking",
+ "sp-std 8.0.0",
+ "sp-tracing 10.0.0",
+ "substrate-test-utils",
+]
+
+[[package]]
 name = "pallet-democracy"
 version = "4.0.0-dev"
 dependencies = [
@@ -10342,6 +10364,7 @@ dependencies = [
  "frame-system",
  "pallet-bags-list",
  "pallet-balances",
+ "pallet-delegated-staking",
  "pallet-nomination-pools",
  "pallet-staking",
  "pallet-staking-reward-curve",
@@ -10391,6 +10414,7 @@ dependencies = [
  "log",
  "pallet-bags-list",
  "pallet-balances",
+ "pallet-delegated-staking",
  "pallet-nomination-pools",
  "pallet-staking",
  "pallet-staking-reward-curve",

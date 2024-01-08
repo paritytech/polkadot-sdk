@@ -25,13 +25,14 @@ use codec::{Decode, Encode, FullCodec, HasCompact, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Zero},
-	DispatchError, DispatchResult, RuntimeDebug, Saturating,
+	DispatchError, DispatchResult, Perbill, RuntimeDebug, Saturating,
 };
 use sp_std::{collections::btree_map::BTreeMap, ops::Sub, vec, vec::Vec};
 
 pub mod offence;
 
 pub mod currency_to_vote;
+pub mod delegation;
 
 /// Simple index type with which we can count sessions.
 pub type SessionIndex = u32;
@@ -97,9 +98,6 @@ pub struct Stake<Balance> {
 #[impl_trait_for_tuples::impl_for_tuples(10)]
 pub trait OnStakingUpdate<AccountId, Balance> {
 	/// Fired when the stake amount of someone updates.
-	///
-	/// This is effectively any changes to the bond amount, such as bonding more funds, and
-	/// unbonding.
 	fn on_stake_update(_who: &AccountId, _prev_stake: Option<Stake<Balance>>) {}
 
 	/// Fired when someone sets their intention to nominate.
@@ -115,9 +113,6 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 	fn on_nominator_update(_who: &AccountId, _prev_nominations: Vec<AccountId>) {}
 
 	/// Fired when someone removes their intention to nominate, either due to chill or validating.
-	///
-	/// The set of nominations at the time of removal is provided as it can no longer be fetched in
-	/// any way.
 	fn on_nominator_remove(_who: &AccountId, _nominations: Vec<AccountId>) {}
 
 	/// Fired when someone sets their intention to validate.
@@ -153,9 +148,6 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 }
 
 /// A generic representation of a staking implementation.
-///
-/// This interface uses the terminology of NPoS, but it is aims to be generic enough to cover other
-/// implementations as well.
 pub trait StakingInterface {
 	/// Balance type used by the staking system.
 	type Balance: Sub<Output = Self::Balance>
@@ -256,6 +248,15 @@ pub trait StakingInterface {
 		num_slashing_spans: u32,
 	) -> Result<bool, DispatchError>;
 
+	/// Unlock any funds schedule to unlock before or at the current era upto a provided limit.
+	///
+	/// Returns whether the stash was killed because of this withdraw or not.
+	fn withdraw_exact(
+		stash: &Self::AccountId,
+		amount: Self::Balance,
+		num_slashing_spans: u32,
+	) -> Result<bool, DispatchError>;
+
 	/// The ideal number of active validators.
 	fn desired_validator_count() -> u32;
 
@@ -283,6 +284,14 @@ pub trait StakingInterface {
 			_ => None,
 		}
 	}
+
+	/// Returns the fraction of the slash to be rewarded to reporter.
+	fn slash_reward_fraction() -> Perbill;
+
+	/// Release all funds bonded for stake.
+	///
+	/// Unsafe, only used for migration of delegatee accounts.
+	fn release_all(who: &Self::AccountId);
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn max_exposure_page_size() -> Page;
