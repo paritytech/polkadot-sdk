@@ -14,7 +14,7 @@
 //! these circumstances to be accounted for ahead of time and for them to be handled in a more
 //! graceful manner.
 //!
-//! The Polkadot SDK is both built to reflect these principles, and to be used accordingly.
+//! The Polkadot SDK is both built to reflect these principles and to be used accordingly.
 //!
 //! ## General Practices
 //!
