@@ -158,6 +158,8 @@ pub struct Config {
 	pub node_version: Option<String>,
 	/// Whether the node is attempting to run as a secure validator.
 	pub secure_validator_mode: bool,
+	/// The architecture of the current host.
+	pub architecture: String,
 
 	/// The path to the program that can be used to spawn the prepare workers.
 	pub prepare_worker_program_path: PathBuf,
@@ -183,6 +185,7 @@ impl Config {
 		cache_path: PathBuf,
 		node_version: Option<String>,
 		secure_validator_mode: bool,
+		architecture: String,
 		prepare_worker_program_path: PathBuf,
 		execute_worker_program_path: PathBuf,
 	) -> Self {
@@ -190,6 +193,7 @@ impl Config {
 			cache_path,
 			node_version,
 			secure_validator_mode,
+			architecture,
 
 			prepare_worker_program_path,
 			prepare_worker_spawn_timeout: Duration::from_secs(3),
@@ -218,7 +222,7 @@ pub async fn start(
 	gum::debug!(target: LOG_TARGET, ?config, "starting PVF validation host");
 
 	// Make sure the cache is initialized before doing anything else.
-	let artifacts = Artifacts::new_and_prune(&config.cache_path).await;
+	let artifacts = Artifacts::new_and_prune(&config.cache_path, &config.architecture).await;
 
 	// Run checks for supported security features once per host startup. If some checks fail, warn
 	// if Secure Validator Mode is disabled and return an error otherwise.

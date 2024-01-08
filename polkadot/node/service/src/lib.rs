@@ -234,6 +234,12 @@ pub enum Error {
 	#[error("Expected at least one of polkadot, kusama, westend or rococo runtime feature")]
 	NoRuntime,
 
+	#[error("Could not get the system name. This is required for validator nodes as we need to know how to prepare/execute PVFs")]
+	UnknownSysname,
+
+	#[error("Could not get the system architecture. This is required for validator nodes as we need to know how to prepare/execute PVFs")]
+	UnknownArchitecture,
+
 	#[cfg(feature = "full-node")]
 	#[error("Worker binaries not executable, prepare binary: {prep_worker_path:?}, execute binary: {exec_worker_path:?}")]
 	InvalidWorkerBinaries { prep_worker_path: PathBuf, exec_worker_path: PathBuf },
@@ -949,6 +955,13 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 		log::info!("🚀 Using prepare-worker binary at: {:?}", prep_worker_path);
 		log::info!("🚀 Using execute-worker binary at: {:?}", exec_worker_path);
 
+		let sysinfo = sc_sysinfo::gather_sysinfo();
+		let architecture = format!(
+			"{}-{}",
+			sysinfo.sysname.ok_or(Error::UnknownSysname)?,
+			sysinfo.architecture.ok_or(Error::UnknownArchitecture)?,
+		);
+
 		Some(CandidateValidationConfig {
 			artifacts_cache_path: config
 				.database
@@ -957,6 +970,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 				.join("pvf-artifacts"),
 			node_version,
 			secure_validator_mode,
+			architecture,
 			prep_worker_path,
 			exec_worker_path,
 		})

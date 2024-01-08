@@ -24,6 +24,7 @@ use polkadot_node_core_pvf::{
 	start, testing::build_workers_and_get_paths, Config, InvalidCandidate, Metrics, PrepareError,
 	PrepareJobKind, PvfPrepData, ValidationError, ValidationHost, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 };
+use polkadot_node_core_pvf_common::test_get_host_architecture;
 use polkadot_parachain_primitives::primitives::{BlockData, ValidationParams, ValidationResult};
 use polkadot_primitives::{ExecutorParam, ExecutorParams};
 
@@ -39,9 +40,10 @@ const TEST_EXECUTION_TIMEOUT: Duration = Duration::from_secs(6);
 const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(6);
 
 struct TestHost {
-	// Keep a reference to the tempdir as it gets deleted on drop.
+	// Keep a reference to the tempdir because otherwise it gets deleted on drop.
 	cache_dir: tempfile::TempDir,
 	host: Mutex<ValidationHost>,
+	architecture: String,
 }
 
 impl TestHost {
@@ -56,17 +58,21 @@ impl TestHost {
 		let (prepare_worker_path, execute_worker_path) = build_workers_and_get_paths();
 
 		let cache_dir = tempfile::tempdir().unwrap();
+		let architecture = test_get_host_architecture();
 		let mut config = Config::new(
 			cache_dir.path().to_owned(),
 			None,
 			false,
+			architecture.clone(),
 			prepare_worker_path,
 			execute_worker_path,
 		);
 		f(&mut config);
+
 		let (host, task) = start(config, Metrics::default()).await.unwrap();
 		let _ = tokio::task::spawn(task);
-		Self { cache_dir, host: Mutex::new(host) }
+
+		Self { cache_dir, host: Mutex::new(host), architecture }
 	}
 
 	async fn precheck_pvf(
@@ -83,11 +89,12 @@ impl TestHost {
 			.lock()
 			.await
 			.precheck_pvf(
-				PvfPrepData::from_code(
+				PvfPrepData::new(
 					code.into(),
 					executor_params,
 					TEST_PREPARATION_TIMEOUT,
 					PrepareJobKind::Prechecking,
+					self.architecture.clone(),
 				),
 				result_tx,
 			)
@@ -111,11 +118,12 @@ impl TestHost {
 			.lock()
 			.await
 			.execute_pvf(
-				PvfPrepData::from_code(
+				PvfPrepData::new(
 					code.into(),
 					executor_params,
 					TEST_PREPARATION_TIMEOUT,
 					PrepareJobKind::Compilation,
+					self.architecture.clone(),
 				),
 				TEST_EXECUTION_TIMEOUT,
 				params.encode(),

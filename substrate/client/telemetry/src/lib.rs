@@ -125,7 +125,7 @@ pub struct ConnectionMessage {
 /// so most of the fields here are optional.
 #[derive(Debug, Serialize)]
 pub struct SysInfo {
-	/// The exact CPU model.
+	/// The exact CPU model. Example: "Intel(R) Xeon(TM) CPU 2.40GHz"
 	pub cpu: Option<String>,
 	/// The total amount of memory, in bytes.
 	pub memory: Option<u64>,
@@ -137,6 +137,10 @@ pub struct SysInfo {
 	pub linux_distro: Option<String>,
 	/// Whether the node's running under a virtual machine.
 	pub is_virtual_machine: Option<bool>,
+	/// The system name. Examples: "Darwin", "Linux"
+	pub sysname: Option<String>,
+	/// The CPU architecture. Examples: "x86_64", "arm64"
+	pub architecture: Option<String>,
 }
 
 /// Telemetry worker.

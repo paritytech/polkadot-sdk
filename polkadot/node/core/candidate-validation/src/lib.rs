@@ -90,6 +90,8 @@ pub struct Config {
 	pub node_version: Option<String>,
 	/// Whether the node is attempting to run as a secure validator.
 	pub secure_validator_mode: bool,
+	/// The architecture of the current host.
+	pub architecture: String,
 	/// Path to the preparation worker binary
 	pub prep_worker_path: PathBuf,
 	/// Path to the execution worker binary
@@ -139,6 +141,7 @@ async fn run<Context>(
 		artifacts_cache_path,
 		node_version,
 		secure_validator_mode,
+		architecture,
 		prep_worker_path,
 		exec_worker_path,
 	}: Config,
@@ -148,6 +151,7 @@ async fn run<Context>(
 			artifacts_cache_path,
 			node_version,
 			secure_validator_mode,
+			architecture.clone(),
 			prep_worker_path,
 			exec_worker_path,
 		),
@@ -157,6 +161,7 @@ async fn run<Context>(
 	ctx.spawn_blocking("pvf-validation-host", task.boxed())?;
 
 	loop {
+		let architecture = architecture.clone();
 		match ctx.recv().await? {
 			FromOrchestra::Signal(OverseerSignal::ActiveLeaves(_)) => {},
 			FromOrchestra::Signal(OverseerSignal::BlockFinalized(..)) => {},
@@ -184,6 +189,7 @@ async fn run<Context>(
 								pov,
 								executor_params,
 								exec_kind,
+								architecture,
 								&metrics,
 							)
 							.await;
@@ -219,6 +225,7 @@ async fn run<Context>(
 								pov,
 								executor_params,
 								exec_kind,
+								architecture,
 								&metrics,
 							)
 							.await;
@@ -246,6 +253,7 @@ async fn run<Context>(
 								validation_host,
 								relay_parent,
 								validation_code_hash,
+								architecture,
 							)
 							.await;
 
@@ -319,6 +327,7 @@ async fn precheck_pvf<Sender>(
 	mut validation_backend: impl ValidationBackend,
 	relay_parent: Hash,
 	validation_code_hash: ValidationCodeHash,
+	architecture: String,
 ) -> PreCheckOutcome
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
@@ -366,11 +375,12 @@ where
 		&validation_code.0,
 		VALIDATION_CODE_BOMB_LIMIT,
 	) {
-		Ok(code) => PvfPrepData::from_code(
+		Ok(code) => PvfPrepData::new(
 			code.into_owned(),
 			executor_params,
 			timeout,
 			PrepareJobKind::Prechecking,
+			architecture,
 		),
 		Err(e) => {
 			gum::debug!(target: LOG_TARGET, err=?e, "precheck: cannot decompress validation code");
@@ -505,6 +515,7 @@ async fn validate_from_chain_state<Sender>(
 	pov: Arc<PoV>,
 	executor_params: ExecutorParams,
 	exec_kind: PvfExecKind,
+	architecture: String,
 	metrics: &Metrics,
 ) -> Result<ValidationResult, ValidationFailed>
 where
@@ -525,6 +536,7 @@ where
 		pov,
 		executor_params,
 		exec_kind,
+		architecture,
 		metrics,
 	)
 	.await;
@@ -561,6 +573,7 @@ async fn validate_candidate_exhaustive(
 	pov: Arc<PoV>,
 	executor_params: ExecutorParams,
 	exec_kind: PvfExecKind,
+	architecture: String,
 	metrics: &Metrics,
 ) -> Result<ValidationResult, ValidationFailed> {
 	let _timer = metrics.time_validate_candidate_exhaustive();
@@ -625,11 +638,12 @@ async fn validate_candidate_exhaustive(
 		PvfExecKind::Backing => {
 			let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
 			let exec_timeout = pvf_exec_timeout(&executor_params, exec_kind);
-			let pvf = PvfPrepData::from_code(
+			let pvf = PvfPrepData::new(
 				raw_validation_code.to_vec(),
 				executor_params,
 				prep_timeout,
 				PrepareJobKind::Compilation,
+				architecture,
 			);
 
 			validation_backend.validate_candidate(pvf, exec_timeout, params.encode()).await
@@ -641,6 +655,7 @@ async fn validate_candidate_exhaustive(
 					pvf_exec_timeout(&executor_params, exec_kind),
 					params,
 					executor_params,
+					architecture,
 					PVF_APPROVAL_EXECUTION_RETRY_DELAY,
 				)
 				.await,
@@ -735,15 +750,17 @@ trait ValidationBackend {
 		exec_timeout: Duration,
 		params: ValidationParams,
 		executor_params: ExecutorParams,
+		architecture: String,
 		retry_delay: Duration,
 	) -> Result<WasmValidationResult, ValidationError> {
 		let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
 		// Construct the PVF a single time, since it is an expensive operation. Cloning it is cheap.
-		let pvf = PvfPrepData::from_code(
+		let pvf = PvfPrepData::new(
 			raw_validation_code,
 			executor_params,
 			prep_timeout,
 			PrepareJobKind::Compilation,
+			architecture,
 		);
 		// We keep track of the total time that has passed and stop retrying if we are taking too
 		// long.

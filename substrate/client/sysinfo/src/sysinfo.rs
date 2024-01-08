@@ -302,10 +302,37 @@ pub fn gather_sysinfo() -> SysInfo {
 		linux_kernel: None,
 		linux_distro: None,
 		is_virtual_machine: None,
+		sysname: None,
+		architecture: None,
 	};
 
 	#[cfg(target_os = "linux")]
 	crate::sysinfo_linux::gather_linux_sysinfo(&mut sysinfo);
+
+	// NOTE: We don't use the `nix` crate to call this since it doesn't
+	//       currently check for errors.
+	#[cfg(unix)]
+	unsafe {
+		// SAFETY: The `utsname` is full of byte arrays, so this is safe.
+		let mut uname: libc::utsname = std::mem::zeroed();
+		if libc::uname(&mut uname) < 0 {
+			log::warn!("uname failed: {}", std::io::Error::last_os_error());
+		} else {
+			let length =
+				uname.sysname.iter().position(|&byte| byte == 0).unwrap_or(uname.sysname.len());
+			let sysname = std::slice::from_raw_parts(uname.sysname.as_ptr().cast(), length);
+			if let Ok(sysname) = std::str::from_utf8(sysname) {
+				sysinfo.sysname = Some(sysname.into());
+			}
+
+			let length =
+				uname.machine.iter().position(|&byte| byte == 0).unwrap_or(uname.machine.len());
+			let machine = std::slice::from_raw_parts(uname.machine.as_ptr().cast(), length);
+			if let Ok(machine) = std::str::from_utf8(machine) {
+				sysinfo.architecture = Some(machine.into());
+			}
+		}
+	}
 
 	sysinfo
 }
@@ -714,6 +741,22 @@ impl Requirements {
 mod tests {
 	use super::*;
 	use sp_runtime::assert_eq_error_rate_float;
+
+	#[cfg(unix)]
+	#[test]
+	fn test_gather_sysinfo() {
+		let sysinfo = gather_sysinfo();
+
+		#[cfg(target_arch = "x86_64")]
+		assert_eq!(sysinfo.architecture, Some("x86_64".into()));
+		#[cfg(target_arch = "aarch64")]
+		assert_eq!(sysinfo.architecture, Some("arm64".into()));
+
+		#[cfg(target_os = "linux")]
+		assert_eq!(sysinfo.sysname, Some("Linux".into()));
+		#[cfg(target_os = "macos")]
+		assert_eq!(sysinfo.sysname, Some("Darwin".into()));
+	}
 
 	#[cfg(target_os = "linux")]
 	#[test]
