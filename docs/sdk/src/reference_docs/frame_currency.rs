@@ -34,8 +34,8 @@
 //! #### Holds and Freezes
 //!
 //! Learn more about this two concepts in
-//! [frame_support::traits::tokens::fungible::hold](../../../frame_support/traits/tokens/fungible/hold/index.html)
-//! and [frame_support::traits::tokens::fungible::freeze](../../../frame_support/traits/tokens/fungible/freeze/index.html).
+//! [`frame_support::traits::tokens::fungible::hold`][1] and
+//! [`frame_support::traits::tokens::fungible::freeze`][2].
 //!
 //! ## Pallet Balances
 //! The [`pallet_balances`](../../../pallet_balances/index.html) is a key component in FRAME. It
@@ -46,3 +46,6 @@
 //! accounts, checking account balances, and adjusting balances for staking or fees. This pallet
 //! implements the [`fungible`](../../../frame_support/traits/tokens/fungible/index.html)
 //! traits, aligning with the standardized approach for asset management in Substrate.
+//!
+//! [1]: ../../../frame_support/traits/tokens/fungible/hold/index.html
+//! [2]: ../../../frame_support/traits/tokens/fungible/freeze/index.html
