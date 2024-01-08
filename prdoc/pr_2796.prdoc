@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Rococo and Westend Asset-Hub: XCM Transfers with Pallet-Uniques
+
+doc:
+  - audience: Runtime User
+    description: |
+      With the added `UniquesTransactor` Rococo and Westend Asset-Hub are now capable of handling
+      XCM transfers with pallet-uniques. 
+
+crates:
+  - name: "asset-hub-rococo-runtime"
+  - name: "asset-hub-westend-runtime"
+  - name: "assets-common"
