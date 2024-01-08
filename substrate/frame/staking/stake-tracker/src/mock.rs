@@ -282,7 +282,7 @@ pub(crate) fn add_nominator(who: AccountId, stake: Balance) {
 	});
 
 	// add new nominator (called at `fn bond` in staking)
-	<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_nominator_add(&who);
+	<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_nominator_add(&who, vec![]);
 }
 
 pub(crate) fn stake_of(who: AccountId) -> Option<Stake<Balance>> {
@@ -305,10 +305,14 @@ pub(crate) fn add_nominator_with_nominations(
 
 	// add nominations (called at `fn nominate` in staking)
 	TestNominators::mutate(|n| {
-		n.insert(who, (Stake::<Balance> { active: stake, total: stake }, nominations));
+		n.insert(who, (Stake::<Balance> { active: stake, total: stake }, nominations.clone()));
 	});
 
-	<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_nominator_update(&who, vec![]);
+	<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_nominator_update(
+		&who,
+		vec![],
+		nominations,
+	);
 }
 
 pub(crate) fn update_nominations_of(who: AccountId, new_nominations: Nominations) {
@@ -317,29 +321,32 @@ pub(crate) fn update_nominations_of(who: AccountId, new_nominations: Nominations
 	let (current_stake, prev_nominations) = current_nom.get(&who).unwrap();
 
 	TestNominators::mutate(|n| {
-		n.insert(who, (*current_stake, new_nominations));
+		n.insert(who, (*current_stake, new_nominations.clone()));
 	});
 
 	<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_nominator_update(
 		&who,
 		prev_nominations.clone(),
+		new_nominations,
 	);
 }
 
-pub(crate) fn add_validator(who: AccountId, stake: Balance) {
+pub(crate) fn add_validator(who: AccountId, self_stake: Balance) {
 	Bonded::mutate(|b| {
 		b.push(who);
 	});
 
+	let stake = Stake { active: self_stake, total: self_stake };
+
 	TestValidators::mutate(|v| {
-		v.insert(who, Stake::<Balance> { active: stake, total: stake });
+		v.insert(who, stake);
 	});
 	// validator is a nominator too.
 	TestNominators::mutate(|v| {
-		v.insert(who, (Stake::<Balance> { active: stake, total: stake }, vec![]));
+		v.insert(who, (stake, vec![]));
 	});
 
-	<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_validator_add(&who);
+	<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_validator_add(&who, Some(stake));
 }
 
 pub(crate) fn update_stake(who: AccountId, new: Balance, prev_stake: Option<Stake<Balance>>) {
@@ -361,7 +368,11 @@ pub(crate) fn update_stake(who: AccountId, new: Balance, prev_stake: Option<Stak
 		Ok(StakerStatus::Idle) | Err(_) => panic!("not a staker"),
 	}
 
-	<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_stake_update(&who, prev_stake);
+	<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_stake_update(
+		&who,
+		prev_stake,
+		Stake { total: new, active: new },
+	);
 }
 
 pub(crate) fn chill_staker(who: AccountId) {

@@ -997,17 +997,19 @@ impl<T: Config> Pallet<T> {
 	/// NOTE: you must ALWAYS use this function to add nominator or update their targets. Any
 	/// access to `Nominators` or `VoterList` outside of this function is almost certainly wrong.
 	pub fn do_add_nominator(who: &T::AccountId, nominations: Nominations<T>) {
+		let targets = nominations.targets.to_vec();
+
 		match (Nominators::<T>::contains_key(who), T::VoterList::contains(who)) {
 			(false, false) => {
 				// new nomination
 				Nominators::<T>::insert(who, nominations);
-				T::EventListeners::on_nominator_add(who);
+				T::EventListeners::on_nominator_add(who, targets);
 			},
 			(_, true) => {
 				// update nominations or un-chill nominator.
 				let prev_nominations = Self::nominations(who).unwrap_or_default();
 				Nominators::<T>::insert(who, nominations);
-				T::EventListeners::on_nominator_update(who, prev_nominations);
+				T::EventListeners::on_nominator_update(who, prev_nominations, targets);
 			},
 			(true, false) => {
 				defensive!("unexpected state.");
@@ -1091,7 +1093,9 @@ impl<T: Config> Pallet<T> {
 	pub fn do_add_validator(who: &T::AccountId, prefs: ValidatorPrefs) {
 		if !Validators::<T>::contains_key(who) {
 			Validators::<T>::insert(who, prefs);
-			T::EventListeners::on_validator_add(who);
+
+			let self_stake = Self::stake(who);
+			T::EventListeners::on_validator_add(who, Some(self_stake.defensive_unwrap_or_default().into()));
 		} else {
 			Validators::<T>::insert(who, prefs);
 		}
