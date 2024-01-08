@@ -49,7 +49,6 @@
 //! Defensive methods use [`debug_assertions`](https://doc.rust-lang.org/reference/conditional-compilation.html#debug_assertions), which panic in development, but in
 //! production/release, they will merely log an error (i.e., `log::error`).
 //!
-//!
 //! ## Integer Overflow
 //!
 //! The Rust compiler prevents any sort of static overflow from happening at compile time.  
