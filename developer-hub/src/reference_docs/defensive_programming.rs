@@ -86,7 +86,7 @@
 //!
 //! Using floating point number types in the runtime should be avoided,
 //! as a single nondeterministic result could cause chaos for consensus along with the
-//! aforementioned issues. For more on the specifics of the peculiarities of floating point calculations, [watch this video by the Computerphile](https://www.youtube.com/watch?v=PZRI1IfStY0)
+//! aforementioned issues. For more on the specifics of the peculiarities of floating point calculations, [watch this video by the Computerphile](https://www.youtube.com/watch?v=PZRI1IfStY0).
 //!
 //! The following methods demonstrate different ways one can handle numbers safely natively in Rust,
 //! without fear of panic or unexpected behavior from wrapping.
