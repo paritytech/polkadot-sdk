@@ -149,8 +149,7 @@ fn late_nonce_should_be_queued() {
 fn prune_tags_should_work() {
 	let (pool, api) = pool();
 	let hash209 =
-		block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt(Alice, 209)))
-			.unwrap();
+		block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt(Alice, 209))).unwrap();
 	block_on(pool.submit_one(&api.expect_hash_and_number(0), SOURCE, uxt(Alice, 210))).unwrap();
 
 	let pending: Vec<_> = pool
