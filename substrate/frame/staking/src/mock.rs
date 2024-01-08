@@ -20,7 +20,7 @@
 use crate::{self as pallet_staking, *};
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
-	onchain, SequentialPhragmen, VoteWeight,
+	onchain, SequentialPhragmen, SortedListProvider, VoteWeight,
 };
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
@@ -101,7 +101,9 @@ frame_support::construct_runtime!(
 		Staking: pallet_staking,
 		Session: pallet_session,
 		Historical: pallet_session::historical,
+		StakeTracker: pallet_stake_tracker,
 		VoterBagsList: pallet_bags_list::<Instance1>,
+		TargetBagsList: pallet_bags_list::<Instance2>,
 	}
 );
 
@@ -232,11 +234,14 @@ impl OnUnbalanced<NegativeImbalanceOf<Test>> for RewardRemainderMock {
 	}
 }
 
-const THRESHOLDS: [sp_npos_elections::VoteWeight; 9] =
+const VOTER_THRESHOLDS: [sp_npos_elections::VoteWeight; 9] =
 	[10, 20, 30, 40, 50, 60, 1_000, 2_000, 10_000];
 
+const TARGET_THRESHOLDS: [Balance; 9] = [100, 200, 300, 400, 500, 600, 1_000, 2_000, 10_000];
+
 parameter_types! {
-	pub static BagThresholds: &'static [sp_npos_elections::VoteWeight] = &THRESHOLDS;
+	pub static VoterBagThresholds: &'static [sp_npos_elections::VoteWeight] = &VOTER_THRESHOLDS;
+	pub static TargetBagThresholds: &'static [Balance] = &TARGET_THRESHOLDS;
 	pub static HistoryDepth: u32 = 80;
 	pub static MaxExposurePageSize: u32 = 64;
 	pub static MaxUnlockingChunks: u32 = 32;
@@ -252,8 +257,17 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Test {
 	type WeightInfo = ();
 	// Staking is the source of truth for voter bags list, since they are not kept up to date.
 	type ScoreProvider = Staking;
-	type BagThresholds = BagThresholds;
+	type BagThresholds = VoterBagThresholds;
 	type Score = VoteWeight;
+}
+
+type TargetBagsListInstance = pallet_bags_list::Instance2;
+impl pallet_bags_list::Config<TargetBagsListInstance> for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type ScoreProvider = pallet_bags_list::Pallet<Test, TargetBagsListInstance>;
+	type BagThresholds = TargetBagThresholds;
+	type Score = Balance;
 }
 
 pub struct OnChainSeqPhragmen;
@@ -279,8 +293,8 @@ parameter_types! {
 		(Zero::zero(), BTreeMap::new());
 }
 
-pub struct EventListenerMock;
-impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
+pub struct SlashListenerMock;
+impl OnStakingUpdate<AccountId, Balance> for SlashListenerMock {
 	fn on_slash(
 		_pool_account: &AccountId,
 		slashed_bonded: Balance,
@@ -289,6 +303,13 @@ impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 	) {
 		LedgerSlashPerEra::set((slashed_bonded, slashed_chunks.clone()));
 	}
+}
+
+impl pallet_stake_tracker::Config for Test {
+	type Currency = Balances;
+	type Staking = Staking;
+	type VoterList = VoterBagsList;
+	type TargetList = TargetBagsList;
 }
 
 impl crate::pallet::pallet::Config for Test {
@@ -313,12 +334,12 @@ impl crate::pallet::pallet::Config for Test {
 	type GenesisElectionProvider = Self::ElectionProvider;
 	// NOTE: consider a macro and use `UseNominatorsAndValidatorsMap<Self>` as well.
 	type VoterList = VoterBagsList;
-	type TargetList = UseValidatorsMap<Self>;
+	type TargetList = TargetBagsList;
 	type NominationsQuota = WeightedNominationsQuota<16>;
 	type MaxUnlockingChunks = MaxUnlockingChunks;
 	type HistoryDepth = HistoryDepth;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
-	type EventListeners = EventListenerMock;
+	type EventListeners = (StakeTracker, SlashListenerMock);
 	type BenchmarkingConfig = TestBenchmarkingConfig;
 	type WeightInfo = ();
 }
@@ -486,6 +507,8 @@ impl ExtBuilder {
 				(71, self.balance_factor * 2000),
 				(80, self.balance_factor),
 				(81, self.balance_factor * 2000),
+				(90, self.balance_factor),
+				(91, self.balance_factor * 2000),
 				// This allows us to have a total_payout different from 0.
 				(999, 1_000_000_000_000),
 			],
@@ -582,7 +605,9 @@ impl ExtBuilder {
 		let mut ext = self.build();
 		ext.execute_with(test);
 		ext.execute_with(|| {
-			Staking::do_try_state(System::block_number()).unwrap();
+			let _ = Staking::do_try_state(System::block_number())
+				.map_err(|err| println!(" 🕵️‍♂️  try_state failure: {:?}", err))
+				.unwrap();
 		});
 	}
 }
@@ -852,4 +877,83 @@ pub(crate) fn staking_events_since_last_call() -> Vec<crate::Event<Test>> {
 
 pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
 	(Balances::free_balance(who), Balances::reserved_balance(who))
+}
+
+/// Similar to the try-state checks of the stake-tracker pallet, but works without `try-runtime`
+/// feature enabled.
+pub(crate) fn stake_tracker_sanity_tests() -> Result<(), &'static str> {
+	use sp_staking::StakingInterface;
+
+	assert_eq!(
+		Nominators::<Test>::count() + Validators::<Test>::count(),
+		VoterBagsList::iter()
+			.filter(|v| Staking::status(&v) != Ok(StakerStatus::Idle))
+			.count() as u32,
+	);
+
+	// recalculate the target's stake based on voter's nominations and compare with the score in the
+	// target list.
+	let mut map: BTreeMap<AccountId, Balance> = BTreeMap::new();
+	for nominator in VoterBagsList::iter() {
+		if let Some(nominations) = <Staking as StakingInterface>::nominations(&nominator) {
+			let score = <VoterBagsList as SortedListProvider<AccountId>>::get_score(&nominator)
+				.map_err(|_| "nominator score must exist in voter bags list")?;
+
+			for nomination in nominations {
+				if let Some(stake) = map.get_mut(&nomination) {
+					*stake += score as u128;
+				} else {
+					map.insert(nomination, score.into());
+				}
+			}
+		}
+	}
+	for target in TargetBagsList::iter() {
+		let score = <VoterBagsList as SortedListProvider<AccountId>>::get_score(&target)
+			.map_err(|_| "target score must exist in voter bags list")?;
+		if let Some(stake) = map.get_mut(&target) {
+			*stake += score as u128;
+		} else {
+			map.insert(target, score.into());
+		}
+	}
+
+	// compare final result with target list.
+	let mut valid_validators_count = 0;
+	for (target, stake) in map.into_iter() {
+		if let Ok(stake_in_list) = TargetBagsList::get_score(&target) {
+			assert_eq!(
+				stake, stake_in_list,
+				"target list score of {:?} is not correct. expected {:?}, got {:?}",
+				target, stake, stake_in_list
+			);
+			valid_validators_count += 1;
+		} else {
+			// moot target nomination, do nothing.
+		}
+	}
+	assert_eq!(valid_validators_count, TargetBagsList::count() as usize);
+
+	Ok(())
+}
+
+pub(crate) fn voters_and_targets() -> (Vec<(AccountId, VoteWeight)>, Vec<(AccountId, Balance)>) {
+	(
+		VoterBagsList::iter()
+			.map(|v| (v, VoterBagsList::get_score(&v).unwrap()))
+			.collect::<Vec<_>>(),
+		TargetBagsList::iter()
+			.map(|t| (t, TargetBagsList::get_score(&t).unwrap()))
+			.collect::<Vec<_>>(),
+	)
+}
+
+pub(crate) fn target_bags_events() -> Vec<pallet_bags_list::Event<Test, TargetBagsListInstance>> {
+	System::events()
+		.into_iter()
+		.map(|r| r.event)
+		.filter_map(
+			|e| if let RuntimeEvent::TargetBagsList(inner) = e { Some(inner) } else { None },
+		)
+		.collect::<Vec<_>>()
 }

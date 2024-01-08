@@ -108,7 +108,6 @@ pub use pallet_balances::Call as BalancesCall;
 pub use pallet_election_provider_multi_phase::{Call as EPMCall, GeometricDepositBase};
 #[cfg(feature = "std")]
 pub use pallet_staking::StakerStatus;
-use pallet_staking::UseValidatorsMap;
 pub use pallet_timestamp::Call as TimestampCall;
 use sp_runtime::traits::Get;
 #[cfg(any(feature = "std", test))]
@@ -621,7 +620,8 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 }
 
 parameter_types! {
-	pub const BagThresholds: &'static [u64] = &bag_thresholds::THRESHOLDS;
+	pub const VoterBagThresholds: &'static [u64] = &bag_thresholds::VOTER_THRESHOLDS;
+	pub const TargetBagThresholds: &'static [Balance] = &bag_thresholds::TARGET_THRESHOLDS;
 }
 
 type VoterBagsListInstance = pallet_bags_list::Instance1;
@@ -629,8 +629,24 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ScoreProvider = Staking;
 	type WeightInfo = weights::pallet_bags_list::WeightInfo<Runtime>;
-	type BagThresholds = BagThresholds;
+	type BagThresholds = VoterBagThresholds;
 	type Score = sp_npos_elections::VoteWeight;
+}
+
+type TargetBagsListInstance = pallet_bags_list::Instance2;
+impl pallet_bags_list::Config<TargetBagsListInstance> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type ScoreProvider = pallet_bags_list::Pallet<Runtime, TargetBagsListInstance>;
+	type WeightInfo = weights::pallet_bags_list::WeightInfo<Runtime>;
+	type BagThresholds = TargetBagThresholds;
+	type Score = Balance;
+}
+
+impl pallet_stake_tracker::Config for Runtime {
+	type Currency = Balances;
+	type Staking = Staking;
+	type VoterList = VoterList;
+	type TargetList = TargetList;
 }
 
 pallet_staking_reward_curve::build! {
@@ -683,13 +699,13 @@ impl pallet_staking::Config for Runtime {
 	type ElectionProvider = ElectionProviderMultiPhase;
 	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type VoterList = VoterList;
-	type TargetList = UseValidatorsMap<Self>;
+	type TargetList = TargetList;
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<{ MaxNominations::get() }>;
 	type MaxUnlockingChunks = frame_support::traits::ConstU32<32>;
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type BenchmarkingConfig = runtime_common::StakingBenchmarkingConfig;
-	type EventListeners = NominationPools;
+	type EventListeners = (StakeTracker, NominationPools);
 	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
 }
 
@@ -1032,6 +1048,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				RuntimeCall::Slots(..) |
 				RuntimeCall::Auctions(..) | // Specifically omitting the entire XCM Pallet
 				RuntimeCall::VoterList(..) |
+				RuntimeCall::TargetList(..) |
 				RuntimeCall::NominationPools(..) |
 				RuntimeCall::FastUnstake(..)
 			),
@@ -1042,6 +1059,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 						RuntimeCall::Session(..) | RuntimeCall::Utility(..) |
 						RuntimeCall::FastUnstake(..) |
 						RuntimeCall::VoterList(..) |
+						RuntimeCall::TargetList(..) |
 						RuntimeCall::NominationPools(..)
 				)
 			},
@@ -1450,6 +1468,12 @@ construct_runtime! {
 		// Provides a semi-sorted list of nominators for staking.
 		VoterList: pallet_bags_list::<Instance1>::{Pallet, Call, Storage, Event<T>} = 25,
 
+		// Provides a sorted list of validators for staking.
+		TargetList: pallet_bags_list::<Instance2>::{Pallet, Call, Storage, Event<T>} = 103,
+
+		// Stake tracker for staking.
+		StakeTracker: pallet_stake_tracker::{Pallet, Storage} = 104,
+
 		// Nomination pools for staking.
 		NominationPools: pallet_nomination_pools::{Pallet, Call, Storage, Event<T>, Config<T>, FreezeReason} = 29,
 
@@ -1685,6 +1709,8 @@ mod benches {
 		[runtime_parachains::paras_inherent, ParaInherent]
 		// Substrate
 		[pallet_bags_list, VoterList]
+		[pallet_bags_list, TargetList]
+		[pallet_stake_tracker, StakeTracker]
 		[pallet_balances, Balances]
 		[pallet_conviction_voting, ConvictionVoting]
 		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]

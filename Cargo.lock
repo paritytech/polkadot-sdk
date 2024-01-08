@@ -9788,6 +9788,7 @@ dependencies = [
  "pallet-balances",
  "pallet-election-provider-multi-phase",
  "pallet-session",
+ "pallet-stake-tracker",
  "pallet-staking",
  "pallet-timestamp",
  "parity-scale-codec",
@@ -10800,6 +10801,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-stake-tracker"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-election-provider-support",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-bags-list",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-npos-elections",
+ "sp-runtime",
+ "sp-staking",
+ "sp-std 8.0.0",
+ "sp-tracing 10.0.0",
+]
+
+[[package]]
 name = "pallet-staking"
 version = "4.0.0-dev"
 dependencies = [
@@ -10812,6 +10835,7 @@ dependencies = [
  "pallet-bags-list",
  "pallet-balances",
  "pallet-session",
+ "pallet-stake-tracker",
  "pallet-staking-reward-curve",
  "pallet-timestamp",
  "parity-scale-codec",
@@ -21546,6 +21570,7 @@ dependencies = [
  "pallet-session",
  "pallet-session-benchmarking",
  "pallet-society",
+ "pallet-stake-tracker",
  "pallet-staking",
  "pallet-staking-reward-curve",
  "pallet-staking-runtime-api",
