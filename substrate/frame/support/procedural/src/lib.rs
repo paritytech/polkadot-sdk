@@ -1527,10 +1527,7 @@ pub fn composite_enum(_: TokenStream, _: TokenStream) -> TokenStream {
 /// This macro is automatically derived for `#[pallet::composite_enum]` enums.
 #[proc_macro_derive(CompositeEnumVariantCount)]
 pub fn derive_composite_enum_variant_count(input: TokenStream) -> TokenStream {
-	let input: syn::DeriveInput = match syn::parse(input) {
-		Ok(input) => input,
-		Err(e) => return e.to_compile_error().into(),
-	};
+	let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
 	// only `Enum` type is expected here (see also `CompositeDef::try_from`)
 	let data_enum = match &input.data {
