@@ -50,7 +50,7 @@ use polkadot_node_core_pvf_common::{
 		thread::{self, spawn_worker_thread, WaitOutcome},
 		WorkerKind,
 	},
-	worker_dir, ProcessTime, SecurityStatus,
+	worker_dir, ProcessTime,
 };
 use polkadot_primitives::ExecutorParams;
 use std::{
@@ -193,7 +193,6 @@ pub fn worker_entrypoint(
 	worker_dir_path: PathBuf,
 	node_version: Option<&str>,
 	worker_version: Option<&str>,
-	security_status: SecurityStatus,
 ) {
 	run_worker(
 		WorkerKind::Prepare,
@@ -201,7 +200,6 @@ pub fn worker_entrypoint(
 		worker_dir_path,
 		node_version,
 		worker_version,
-		&security_status,
 		|mut stream, worker_dir_path| {
 			let worker_pid = process::id();
 			let temp_artifact_dest = worker_dir::prepare_tmp_artifact(&worker_dir_path);
@@ -336,6 +334,15 @@ fn handle_child_process(
 	prepare_job_kind: PrepareJobKind,
 	executor_params: Arc<ExecutorParams>,
 ) -> ! {
+	// Terminate if the parent thread dies. Parent thread == worker process (it is single-threaded).
+	//
+	// RACE: the worker may die before we install the death signal. In practice this is unlikely,
+	// and most of the time the job process should terminate on its own when it completes.
+	#[cfg(target_os = "linux")]
+	nix::sys::prctl::set_pdeathsig(nix::sys::signal::Signal::SIGTERM).unwrap_or_else(|err| {
+		send_child_response(&mut pipe_write, Err(PrepareError::IoErr(err.to_string())))
+	});
+
 	let worker_job_pid = process::id();
 	gum::debug!(
 		target: LOG_TARGET,

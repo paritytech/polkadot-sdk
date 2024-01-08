@@ -239,7 +239,7 @@ pub enum Error {
 	InvalidWorkerBinaries { prep_worker_path: PathBuf, exec_worker_path: PathBuf },
 
 	#[cfg(feature = "full-node")]
-	#[error("Worker binaries could not be found, make sure polkadot was built/installed correctly. If you ran with `cargo run`, please run `cargo build` first. Searched given workers path ({given_workers_path:?}), polkadot binary path ({current_exe_path:?}), and lib path (/usr/lib/polkadot), workers names: {workers_names:?}")]
+	#[error("Worker binaries could not be found, make sure polkadot was built and installed correctly. Please see the readme for the latest instructions (https://github.com/paritytech/polkadot-sdk/tree/master/polkadot). If you ran with `cargo run`, please run `cargo build` first. Searched given workers path ({given_workers_path:?}), polkadot binary path ({current_exe_path:?}), and lib path (/usr/lib/polkadot), workers names: {workers_names:?}")]
 	MissingWorkerBinaries {
 		given_workers_path: Option<PathBuf>,
 		current_exe_path: PathBuf,
@@ -633,6 +633,8 @@ pub struct NewFullParams<OverseerGenerator: OverseerGen> {
 	/// The version of the node. TESTING ONLY: `None` can be passed to skip the node/worker version
 	/// check, both on startup and in the workers.
 	pub node_version: Option<String>,
+	/// Whether the node is attempting to run as a secure validator.
+	pub secure_validator_mode: bool,
 	/// An optional path to a directory containing the workers.
 	pub workers_path: Option<std::path::PathBuf>,
 	/// Optional custom names for the prepare and execute workers.
@@ -722,6 +724,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 		jaeger_agent,
 		telemetry_worker_handle,
 		node_version,
+		secure_validator_mode,
 		workers_path,
 		workers_names,
 		overseer_gen,
@@ -953,6 +956,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 				.ok_or(Error::DatabasePathRequired)?
 				.join("pvf-artifacts"),
 			node_version,
+			secure_validator_mode,
 			prep_worker_path,
 			exec_worker_path,
 		})
