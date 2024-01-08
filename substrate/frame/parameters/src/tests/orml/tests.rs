@@ -44,7 +44,7 @@ fn get_param_in_pallet_works() {
 	new_test_ext().execute_with(|| {
 		set_magic(123);
 
-		assert_ok!(OrmlParams::check_param_orml(Origin::root(), Some(123),));
+		assert_ok!(OrmlParams::check_param(Origin::root(), Some(123),));
 	});
 }
 

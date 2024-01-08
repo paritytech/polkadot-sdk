@@ -177,7 +177,6 @@ pub mod pallet {
 	}
 }
 
-// This exposes the pallet for ORML use:
 impl<T: Config> RuntimeParameterStore for Pallet<T> {
 	type AggregratedKeyValue = T::AggregratedKeyValue;
 

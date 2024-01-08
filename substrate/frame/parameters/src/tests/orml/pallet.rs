@@ -27,6 +27,7 @@ use frame_support::traits::dynamic_params::ParameterStore;
 
 pub use pallet::{Pallet as OrmlPalletParams, *};
 
+// This macro will be move to ORML:
 frame_support::define_parameters! {
 	pub Parameters = {
 		DynamicMagicNumber: u32 = 0,
@@ -43,9 +44,6 @@ pub mod pallet {
 
 		/// This is how ORML pallets would use it:
 		type ParameterStore: ParameterStore<Parameters>;
-
-		// This is how usage without ORML would look like:
-		//type DynamicMagicNumber: Get<u32>;
 	}
 
 	#[pallet::event]
@@ -63,20 +61,12 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		pub fn check_param_orml(_origin: OriginFor<T>, want: Option<u32>) -> DispatchResult {
+		pub fn check_param(_origin: OriginFor<T>, want: Option<u32>) -> DispatchResult {
 			let got = T::ParameterStore::get(DynamicMagicNumber);
 
 			ensure!(got == want, Error::<T>::WrongValue);
 
 			Ok(())
 		}
-
-		/*pub fn check_param_non_orml(_origin: OriginFor<T>, want: u32) -> DispatchResult {
-			let got = T::DynamicMagicNumber::get();
-
-			ensure!(got == want, Error::<T>::WrongValue);
-
-			Ok(())
-		}*/
 	}
 }

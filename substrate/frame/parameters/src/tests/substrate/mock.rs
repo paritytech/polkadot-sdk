@@ -17,6 +17,8 @@
 
 #![cfg(test)]
 
+//! Test that the `pallet_example_basic` can use the parameters pallet as storage.
+
 use frame_support::{
 	construct_runtime, derive_impl,
 	dynamic_params::{dynamic_pallet_params, dynamic_params},
