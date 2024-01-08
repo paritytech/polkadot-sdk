@@ -43,6 +43,8 @@ const INITIAL_BALANCE: u128 = 100;
 const SEND_AMOUNT: u128 = 10;
 const FEE_AMOUNT: u128 = 2;
 
+mod execute_filter;
+
 #[test]
 fn report_outcome_notify_works() {
 	let balances = vec![
