@@ -67,7 +67,7 @@ pub fn expand_outer_hold_reason(pallet_decls: &[Pallet], scrate: &TokenStream) -
 		}
 
 		impl #scrate::traits::VariantCount for RuntimeHoldReason {
-			const VARIANT_COUNT: u32 = #( #hold_reason_variants_count )+*;
+			const VARIANT_COUNT: u32 = 0 #( + #hold_reason_variants_count )*;
 		}
 
 		/// Implementation of `Get<u32>` which returns `RuntimeHoldReason::VARIANT_COUNT`.
