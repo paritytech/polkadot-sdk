@@ -72,7 +72,7 @@ use substrate_test_runtime_client::{BlockBuilderExt, ClientExt};
 use tokio::time::Duration;
 
 const GENESIS_HASH: H256 = H256::zero();
-fn beefy_gossip_proto_name() -> ProtocolName {
+pub(crate) fn beefy_gossip_proto_name() -> ProtocolName {
 	gossip_protocol_name(GENESIS_HASH, None)
 }
 
@@ -371,13 +371,14 @@ async fn voter_init_setup(
 	let mut gossip_engine = sc_network_gossip::GossipEngine::new(
 		net.peer(0).network_service().clone(),
 		net.peer(0).sync_service().clone(),
+		net.peer(0).take_notification_service(&beefy_gossip_proto_name()).unwrap(),
 		"/beefy/whatever",
 		gossip_validator,
 		None,
 	);
 	let (beefy_genesis, best_grandpa) =
 		wait_for_runtime_pallet(api, &mut gossip_engine, finality).await.unwrap();
-	load_or_init_voter_state(&*backend, api, beefy_genesis, best_grandpa, 1)
+	load_or_init_voter_state(&*backend, api, beefy_genesis, best_grandpa, 1).await
 }
 
 // Spawns beefy voters. Returns a future to spawn on the runtime.
@@ -391,6 +392,14 @@ where
 	API::Api: BeefyApi<Block, AuthorityId> + MmrApi<Block, MmrRootHash, NumberFor<Block>>,
 {
 	let tasks = FuturesUnordered::new();
+
+	let mut notification_services = peers
+		.iter()
+		.map(|(peer_id, _, _)| {
+			let peer = &mut net.peers[*peer_id];
+			(*peer_id, peer.take_notification_service(&beefy_gossip_proto_name()).unwrap())
+		})
+		.collect::<std::collections::HashMap<_, _>>();
 
 	for (peer_id, key, api) in peers.into_iter() {
 		let peer = &net.peers[peer_id];
@@ -409,6 +418,7 @@ where
 		let network_params = crate::BeefyNetworkParams {
 			network: peer.network_service().clone(),
 			sync: peer.sync_service().clone(),
+			notification_service: notification_services.remove(&peer_id).unwrap(),
 			gossip_protocol_name: beefy_gossip_proto_name(),
 			justifications_protocol_name: on_demand_justif_handler.protocol_name(),
 			_phantom: PhantomData,
@@ -1016,7 +1026,7 @@ async fn should_initialize_voter_at_genesis() {
 	assert_eq!(rounds.validator_set_id(), validator_set.id());
 
 	// verify next vote target is mandatory block 1
-	assert_eq!(persisted_state.best_beefy_block(), 0);
+	assert_eq!(persisted_state.best_beefy(), 0);
 	assert_eq!(persisted_state.best_grandpa_number(), 13);
 	assert_eq!(persisted_state.voting_oracle().voting_target(), Some(1));
 
@@ -1045,7 +1055,26 @@ async fn should_initialize_voter_at_custom_genesis() {
 	net.peer(0).client().as_client().finalize_block(hashes[8], None).unwrap();
 
 	// load persistent state - nothing in DB, should init at genesis
-	let persisted_state = voter_init_setup(&mut net, &mut finality, &api).await.unwrap();
+	//
+	// NOTE: code from `voter_init_setup()` is moved here because the new network event system
+	// doesn't allow creating a new `GossipEngine` as the notification handle is consumed by the
+	// first `GossipEngine`
+	let known_peers = Arc::new(Mutex::new(KnownPeers::new()));
+	let (gossip_validator, _) = GossipValidator::new(known_peers);
+	let gossip_validator = Arc::new(gossip_validator);
+	let mut gossip_engine = sc_network_gossip::GossipEngine::new(
+		net.peer(0).network_service().clone(),
+		net.peer(0).sync_service().clone(),
+		net.peer(0).take_notification_service(&beefy_gossip_proto_name()).unwrap(),
+		"/beefy/whatever",
+		gossip_validator,
+		None,
+	);
+	let (beefy_genesis, best_grandpa) =
+		wait_for_runtime_pallet(&api, &mut gossip_engine, &mut finality).await.unwrap();
+	let persisted_state = load_or_init_voter_state(&*backend, &api, beefy_genesis, best_grandpa, 1)
+		.await
+		.unwrap();
 
 	// Test initialization at session boundary.
 	// verify voter initialized with single session starting at block `custom_pallet_genesis` (7)
@@ -1057,7 +1086,7 @@ async fn should_initialize_voter_at_custom_genesis() {
 	assert_eq!(rounds.validator_set_id(), validator_set.id());
 
 	// verify next vote target is mandatory block 7
-	assert_eq!(persisted_state.best_beefy_block(), 0);
+	assert_eq!(persisted_state.best_beefy(), 0);
 	assert_eq!(persisted_state.best_grandpa_number(), 8);
 	assert_eq!(persisted_state.voting_oracle().voting_target(), Some(custom_pallet_genesis));
 
@@ -1075,7 +1104,13 @@ async fn should_initialize_voter_at_custom_genesis() {
 
 	net.peer(0).client().as_client().finalize_block(hashes[10], None).unwrap();
 	// load persistent state - state preset in DB, but with different pallet genesis
-	let new_persisted_state = voter_init_setup(&mut net, &mut finality, &api).await.unwrap();
+	// the network state persists and uses the old `GossipEngine` initialized for `peer(0)`
+	let (beefy_genesis, best_grandpa) =
+		wait_for_runtime_pallet(&api, &mut gossip_engine, &mut finality).await.unwrap();
+	let new_persisted_state =
+		load_or_init_voter_state(&*backend, &api, beefy_genesis, best_grandpa, 1)
+			.await
+			.unwrap();
 
 	// verify voter initialized with single session starting at block `new_pallet_genesis` (10)
 	let sessions = new_persisted_state.voting_oracle().sessions();
@@ -1086,7 +1121,7 @@ async fn should_initialize_voter_at_custom_genesis() {
 	assert_eq!(rounds.validator_set_id(), new_validator_set.id());
 
 	// verify next vote target is mandatory block 10
-	assert_eq!(new_persisted_state.best_beefy_block(), 0);
+	assert_eq!(new_persisted_state.best_beefy(), 0);
 	assert_eq!(new_persisted_state.best_grandpa_number(), 10);
 	assert_eq!(new_persisted_state.voting_oracle().voting_target(), Some(new_pallet_genesis));
 
@@ -1139,7 +1174,7 @@ async fn should_initialize_voter_when_last_final_is_session_boundary() {
 	assert_eq!(rounds.validator_set_id(), validator_set.id());
 
 	// verify block 10 is correctly marked as finalized
-	assert_eq!(persisted_state.best_beefy_block(), 10);
+	assert_eq!(persisted_state.best_beefy(), 10);
 	assert_eq!(persisted_state.best_grandpa_number(), 13);
 	// verify next vote target is diff-power-of-two block 12
 	assert_eq!(persisted_state.voting_oracle().voting_target(), Some(12));
@@ -1192,7 +1227,7 @@ async fn should_initialize_voter_at_latest_finalized() {
 	assert_eq!(rounds.validator_set_id(), validator_set.id());
 
 	// verify next vote target is 13
-	assert_eq!(persisted_state.best_beefy_block(), 12);
+	assert_eq!(persisted_state.best_beefy(), 12);
 	assert_eq!(persisted_state.best_grandpa_number(), 13);
 	assert_eq!(persisted_state.voting_oracle().voting_target(), Some(13));
 
@@ -1240,7 +1275,7 @@ async fn should_initialize_voter_at_custom_genesis_when_state_unavailable() {
 	assert_eq!(rounds.validator_set_id(), validator_set.id());
 
 	// verify next vote target is mandatory block 7 (genesis)
-	assert_eq!(persisted_state.best_beefy_block(), 0);
+	assert_eq!(persisted_state.best_beefy(), 0);
 	assert_eq!(persisted_state.best_grandpa_number(), 30);
 	assert_eq!(persisted_state.voting_oracle().voting_target(), Some(custom_pallet_genesis));
 
@@ -1371,7 +1406,7 @@ async fn gossipped_finality_proofs() {
 	let api = Arc::new(TestApi::with_validator_set(&validator_set));
 	let beefy_peers = peers.iter().enumerate().map(|(id, key)| (id, key, api.clone())).collect();
 
-	let charlie = &net.peers[2];
+	let charlie = &mut net.peers[2];
 	let known_peers = Arc::new(Mutex::new(KnownPeers::<Block>::new()));
 	// Charlie will run just the gossip engine and not the full voter.
 	let (gossip_validator, _) = GossipValidator::new(known_peers);
@@ -1384,6 +1419,7 @@ async fn gossipped_finality_proofs() {
 	let mut charlie_gossip_engine = sc_network_gossip::GossipEngine::new(
 		charlie.network_service().clone(),
 		charlie.sync_service().clone(),
+		charlie.take_notification_service(&beefy_gossip_proto_name()).unwrap(),
 		beefy_gossip_proto_name(),
 		charlie_gossip_validator.clone(),
 		None,

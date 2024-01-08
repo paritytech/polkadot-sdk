@@ -24,12 +24,13 @@ use polkadot_overseer::{ChainApiBackend, RuntimeApiSubsystemClient};
 use polkadot_primitives::{
 	async_backing::{AsyncBackingParams, BackingState},
 	slashing,
-	vstaging::NodeFeatures,
+	vstaging::{ApprovalVotingParams, NodeFeatures},
 };
 use sc_authority_discovery::{AuthorityDiscovery, Error as AuthorityDiscoveryError};
 use sc_client_api::AuxStore;
-use sp_api::{ApiError, BlockT, HeaderT, NumberFor, RuntimeApiInfo};
+use sp_api::{ApiError, RuntimeApiInfo};
 use sp_blockchain::Info;
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
 
 #[derive(Clone)]
 pub struct BlockChainRpcClient {
@@ -424,6 +425,18 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 		para_id: cumulus_primitives_core::ParaId,
 	) -> Result<Option<BackingState>, ApiError> {
 		Ok(self.rpc_client.parachain_host_para_backing_state(at, para_id).await?)
+	}
+
+	/// Approval voting configuration parameters
+	async fn approval_voting_params(
+		&self,
+		at: Hash,
+		session_index: polkadot_primitives::SessionIndex,
+	) -> Result<ApprovalVotingParams, ApiError> {
+		Ok(self
+			.rpc_client
+			.parachain_host_staging_approval_voting_params(at, session_index)
+			.await?)
 	}
 
 	async fn node_features(&self, at: Hash) -> Result<NodeFeatures, ApiError> {
