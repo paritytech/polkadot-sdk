@@ -8,7 +8,7 @@
 "coretime_rococo_runtime":[["impl Config for <a class=\"struct\" href=\"coretime_rococo_runtime/struct.Runtime.html\" title=\"struct coretime_rococo_runtime::Runtime\">Runtime</a>"]],
 "coretime_westend_runtime":[["impl Config for <a class=\"struct\" href=\"coretime_westend_runtime/struct.Runtime.html\" title=\"struct coretime_westend_runtime::Runtime\">Runtime</a>"]],
 "cumulus_test_runtime":[["impl Config for <a class=\"struct\" href=\"cumulus_test_runtime/struct.Runtime.html\" title=\"struct cumulus_test_runtime::Runtime\">Runtime</a>"]],
-"kitchensink_runtime":[["impl Config for <a class=\"struct\" href=\"kitchensink_runtime/struct.Runtime.html\" title=\"struct kitchensink_runtime::Runtime\">Runtime</a>"]],
+"kitchensink_runtime":[["impl <a class=\"trait\" href=\"pallet_transaction_payment/pallet/trait.Config.html\" title=\"trait pallet_transaction_payment::pallet::Config\">Config</a> for <a class=\"struct\" href=\"kitchensink_runtime/struct.Runtime.html\" title=\"struct kitchensink_runtime::Runtime\">Runtime</a>"]],
 "minimal_runtime":[["impl Config for <a class=\"struct\" href=\"minimal_runtime/struct.Runtime.html\" title=\"struct minimal_runtime::Runtime\">Runtime</a>"]],
 "node_template_runtime":[["impl Config for <a class=\"struct\" href=\"node_template_runtime/struct.Runtime.html\" title=\"struct node_template_runtime::Runtime\">Runtime</a>"]],
 "parachain_template_runtime":[["impl Config for <a class=\"struct\" href=\"parachain_template_runtime/struct.Runtime.html\" title=\"struct parachain_template_runtime::Runtime\">Runtime</a>"]],
