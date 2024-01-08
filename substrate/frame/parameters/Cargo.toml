@@ -19,13 +19,13 @@ sp-core = { path = "../../primitives/core", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }
 sp-std = { path = "../../primitives/std", default-features = false }
 docify = "0.2.5"
+#orml-traits = { version = "0.6.7", default-features = false }
 
 [dev-dependencies]
 sp-core = { path = "../../primitives/core", features = ["std"] }
 sp-io = { path = "../../primitives/io", features = ["std"] }
 pallet-example-basic = { path = "../examples/basic", features = ["std"] }
 pallet-balances = { path = "../balances", features = ["std"] }
-orml-traits = { version = "0.6.7", default-features = false, features = ["std"] }
 
 [features]
 default = ["std"]
@@ -38,6 +38,7 @@ std = [
 	"sp-core/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	#"orml-traits/std",
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",

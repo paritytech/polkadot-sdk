@@ -17,6 +17,6 @@
 
 //! Tests to check the compatibility with ORML.
 
+mod mock;
 mod pallet;
-//mod tests;
-//mod mock;
+mod tests;

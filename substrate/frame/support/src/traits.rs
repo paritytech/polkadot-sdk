@@ -123,7 +123,7 @@ pub use safe_mode::{SafeMode, SafeModeError, SafeModeNotify};
 mod tx_pause;
 pub use tx_pause::{TransactionPause, TransactionPauseError};
 
-mod dynamic_params;
+pub mod dynamic_params;
 pub use dynamic_params::{AggregratedKeyValue, Key};
 
 pub mod tasks;

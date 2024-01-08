@@ -57,16 +57,16 @@
 //! ### Example
 //!
 //! Here is an example of how to define some parameters, including their default values:
-#![doc = docify::embed!("src/tests/normal/mock.rs", dynamic_params)]
+#![doc = docify::embed!("src/tests/substrate/mock.rs", dynamic_params)]
 //!
 //! Now the aggregated parameter needs to be injected into the pallet config:
-#![doc = docify::embed!("src/tests/normal/mock.rs", impl_config)]
+#![doc = docify::embed!("src/tests/substrate/mock.rs", impl_config)]
 //!
 //! As last step, the parameters can now be used in other pallets 🙌
-#![doc = docify::embed!("src/tests/normal/mock.rs", usage)]
+#![doc = docify::embed!("src/tests/substrate/mock.rs", usage)]
 //!
 //! Now to demonstrate how the values can be updated:
-#![doc = docify::embed!("src/tests/normal/tests.rs", set_parameters_example)]
+#![doc = docify::embed!("src/tests/substrate/tests.rs", set_parameters_example)]
 //!
 //! ## Low Level / Implementation Details
 //!
@@ -97,7 +97,10 @@
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 
-use frame_support::traits::{AggregratedKeyValue, EnsureOriginWithArg};
+use frame_support::traits::{
+	dynamic_params::{Into2, Key, RuntimeParameterStore, TryInto2},
+	AggregratedKeyValue, EnsureOriginWithArg,
+};
 
 #[cfg(test)]
 mod tests;
@@ -171,5 +174,30 @@ pub mod pallet {
 
 			Ok(())
 		}
+	}
+}
+
+// This exposes the pallet for ORML use:
+impl<T: Config> RuntimeParameterStore for Pallet<T> {
+	type AggregratedKeyValue = T::AggregratedKeyValue;
+
+	fn get<KV, K>(key: K) -> Option<K::Value>
+	where
+		KV: AggregratedKeyValue,
+		K: Key + Into<<KV as AggregratedKeyValue>::AggregratedKey>,
+		<KV as AggregratedKeyValue>::AggregratedKey:
+			Into2<<<Self as RuntimeParameterStore>::AggregratedKeyValue as AggregratedKeyValue>::AggregratedKey>,
+		<<Self as RuntimeParameterStore>::AggregratedKeyValue as AggregratedKeyValue>::AggregratedValue:
+			TryInto2<<KV as AggregratedKeyValue>::AggregratedValue>,
+		<KV as AggregratedKeyValue>::AggregratedValue: TryInto<K::WrappedValue>,
+	{
+		let key: <KV as AggregratedKeyValue>::AggregratedKey = key.into();
+		let val = Parameters::<T>::get(key.into2());
+		val.and_then(|v| {
+			let val: <KV as AggregratedKeyValue>::AggregratedValue = v.try_into2().ok()?;
+			let val: K::WrappedValue = val.try_into().ok()?;
+			let val = val.into();
+			Some(val)
+		})
 	}
 }

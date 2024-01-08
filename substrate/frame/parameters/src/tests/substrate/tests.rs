@@ -20,7 +20,7 @@
 #![cfg(test)]
 
 use crate::{
-	tests::normal::mock::{dynamic_params::*, *},
+	tests::substrate::mock::{dynamic_params::*, *},
 	*,
 };
 use frame_support::{assert_noop, assert_ok, traits::AggregratedKeyValue};

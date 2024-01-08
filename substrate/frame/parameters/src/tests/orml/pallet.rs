@@ -23,14 +23,13 @@
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 
-use orml_traits::{define_parameters, parameters::ParameterStore};
-use sp_runtime::Permill;
+use frame_support::traits::dynamic_params::ParameterStore;
 
 pub use pallet::{Pallet as OrmlPalletParams, *};
 
-define_parameters! {
+frame_support::define_parameters! {
 	pub Parameters = {
-		InstantUnstakeFee: Permill = 0,
+		DynamicMagicNumber: u32 = 0,
 	}
 }
 
@@ -44,6 +43,9 @@ pub mod pallet {
 
 		/// This is how ORML pallets would use it:
 		type ParameterStore: ParameterStore<Parameters>;
+
+		// This is how usage without ORML would look like:
+		//type DynamicMagicNumber: Get<u32>;
 	}
 
 	#[pallet::event]
@@ -61,12 +63,20 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		pub fn set_parameter(_origin: OriginFor<T>, expected: Option<Permill>) -> DispatchResult {
-			let fee_ratio = T::ParameterStore::get(InstantUnstakeFee);
+		pub fn check_param_orml(_origin: OriginFor<T>, want: Option<u32>) -> DispatchResult {
+			let got = T::ParameterStore::get(DynamicMagicNumber);
 
-			ensure!(fee_ratio == expected, Error::<T>::WrongValue);
+			ensure!(got == want, Error::<T>::WrongValue);
 
 			Ok(())
 		}
+
+		/*pub fn check_param_non_orml(_origin: OriginFor<T>, want: u32) -> DispatchResult {
+			let got = T::DynamicMagicNumber::get();
+
+			ensure!(got == want, Error::<T>::WrongValue);
+
+			Ok(())
+		}*/
 	}
 }
