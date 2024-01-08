@@ -691,4 +691,9 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn set_validator_groups(validator_groups: Vec<Vec<ValidatorIndex>>) {
 		ValidatorGroups::<T>::set(validator_groups);
 	}
+
+	#[cfg(test)]
+	pub(crate) fn set_claimqueue(claimqueue: BTreeMap<CoreIndex, VecDeque<ParasEntryType<T>>>) {
+		ClaimQueue::<T>::set(claimqueue);
+	}
 }

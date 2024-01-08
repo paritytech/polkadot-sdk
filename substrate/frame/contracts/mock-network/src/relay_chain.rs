@@ -99,7 +99,9 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
-impl shared::Config for Runtime {}
+impl shared::Config for Runtime {
+	type DisabledValidators = ();
+}
 
 impl configuration::Config for Runtime {
 	type WeightInfo = configuration::TestWeightInfo;

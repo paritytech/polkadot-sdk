@@ -478,7 +478,9 @@ impl parachains_configuration::Config for Runtime {
 	type WeightInfo = parachains_configuration::TestWeightInfo;
 }
 
-impl parachains_shared::Config for Runtime {}
+impl parachains_shared::Config for Runtime {
+	type DisabledValidators = Session;
+}
 
 impl parachains_inclusion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;

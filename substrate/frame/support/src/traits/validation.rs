@@ -251,10 +251,17 @@ pub trait ValidatorRegistration<ValidatorId> {
 pub trait DisabledValidators {
 	/// Returns true if the given validator is disabled.
 	fn is_disabled(index: u32) -> bool;
+
+	/// Returns all disabled validators
+	fn disabled_validators() -> Vec<u32>;
 }
 
 impl DisabledValidators for () {
 	fn is_disabled(_index: u32) -> bool {
 		false
+	}
+
+	fn disabled_validators() -> Vec<u32> {
+		vec![]
 	}
 }
