@@ -816,19 +816,19 @@ mod on_idle {
 			CurrentEra::<T>::put(BondingDuration::get());
 
 			// create a new validator that 100% not exposed.
-			Balances::make_free_balance_be(&42, 100 + Deposit::get());
-			assert_ok!(Staking::bond(RuntimeOrigin::signed(42), 10, RewardDestination::Staked));
-			assert_ok!(Staking::validate(RuntimeOrigin::signed(42), Default::default()));
+			Balances::make_free_balance_be(&43, 100 + Deposit::get());
+			assert_ok!(Staking::bond(RuntimeOrigin::signed(43), 10, RewardDestination::Staked));
+			assert_ok!(Staking::validate(RuntimeOrigin::signed(43), Default::default()));
 
 			// let them register:
-			assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(42)));
+			assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(43)));
 
 			// 2 block's enough to unstake them.
 			next_block(true);
 			assert_eq!(
 				Head::<T>::get(),
 				Some(UnstakeRequest {
-					stashes: bounded_vec![(42, Deposit::get())],
+					stashes: bounded_vec![(43, Deposit::get())],
 					checked: bounded_vec![3, 2, 1, 0]
 				})
 			);
@@ -839,7 +839,7 @@ mod on_idle {
 				fast_unstake_events_since_last_call(),
 				vec![
 					Event::BatchChecked { eras: vec![3, 2, 1, 0] },
-					Event::Unstaked { stash: 42, result: Ok(()) },
+					Event::Unstaked { stash: 43, result: Ok(()) },
 					Event::BatchFinished { size: 1 }
 				]
 			);
