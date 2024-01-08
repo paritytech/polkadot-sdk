@@ -320,7 +320,6 @@
 //! percentage of a particular item:
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", percent_mult)]
 //!
-//!
 //! ### Fixed Point Types in Practice
 //!
 //! As said earlier, if one needs to exceed the value of one, then
