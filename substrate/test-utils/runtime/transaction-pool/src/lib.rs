@@ -46,7 +46,7 @@ use substrate_test_runtime_client::{
 /// Error type used by [`TestApi`].
 #[derive(Debug, thiserror::Error)]
 #[error(transparent)]
-pub struct Error(#[from] sc_transaction_pool_api::error::Error);
+pub struct Error(#[from] pub sc_transaction_pool_api::error::Error);
 
 impl sc_transaction_pool_api::error::IntoPoolError for Error {
 	fn into_pool_error(self) -> Result<sc_transaction_pool_api::error::Error, Self> {
@@ -201,13 +201,6 @@ impl TestApi {
 		let mut chain = self.chain.write();
 		chain.block_by_hash.insert(hash, block.clone());
 
-		log::info!(
-			"add_block: {:?} {:?} nonces:{:#?}",
-			hash,
-			block.header.parent_hash(),
-			chain.nonces
-		);
-
 		if *block_number > 0 {
 			// copy nonces to new block
 			let prev_nonces = chain
@@ -217,6 +210,14 @@ impl TestApi {
 				.clone();
 			chain.nonces.insert(hash, prev_nonces);
 		}
+
+		log::debug!(
+			"add_block: {:?} {:?} {:?} nonces:{:#?}",
+			hash,
+			block_number,
+			block.header.parent_hash(),
+			chain.nonces
+		);
 
 		if is_best_block {
 			chain
@@ -275,14 +276,14 @@ impl TestApi {
 		&self.chain
 	}
 
-	/// Increment nonce in the inner state for given block.
+	/// Set nonce in the inner state for given block.
 	pub fn set_nonce(&self, at: Hash, account: AccountId, nonce: u64) {
 		let mut chain = self.chain.write();
 		chain.nonces.entry(at).and_modify(|h| {
 			h.insert(account, nonce);
 		});
 
-		log::info!("set_nonce: {:?} nonces:{:#?}", at, chain.nonces);
+		log::debug!("set_nonce: {:?} nonces:{:#?}", at, chain.nonces);
 	}
 
 	/// Increment nonce in the inner state for given block.
@@ -292,7 +293,7 @@ impl TestApi {
 			h.entry(account).and_modify(|n| *n += 1).or_insert(1);
 		});
 
-		log::info!("increment_nonce_at_block: {:?} nonces:{:#?}", at, chain.nonces);
+		log::debug!("increment_nonce_at_block: {:?} nonces:{:#?}", at, chain.nonces);
 	}
 
 	/// Increment nonce in the inner state.
@@ -325,6 +326,17 @@ impl TestApi {
 
 	pub fn expect_hash_and_number(&self, n: BlockNumber) -> HashAndNumber<Block> {
 		HashAndNumber { hash: self.expect_hash_from_number(n), number: n }
+	}
+}
+
+trait TagFrom {
+	fn tag_from(&self) -> u8;
+}
+
+impl TagFrom for AccountId {
+	fn tag_from(&self) -> u8 {
+		let f = AccountKeyring::iter().enumerate().find(|k| AccountId::from(k.1) == *self);
+		u8::try_from(f.unwrap().0).unwrap()
 	}
 }
 
@@ -383,12 +395,21 @@ impl ChainApi for TestApi {
 			let requires = if chain_nonce == transfer.nonce {
 				vec![]
 			} else {
-				vec![vec![(transfer.nonce - 1) as u8]]
+				if self.enable_stale_check {
+					vec![vec![transfer.from.tag_from(), (transfer.nonce - 1) as u8]]
+				} else {
+					vec![vec![(transfer.nonce - 1) as u8]]
+				}
 			};
-			let provides = vec![vec![transfer.nonce as u8]];
+			let provides = if self.enable_stale_check {
+				vec![vec![transfer.from.tag_from(), transfer.nonce as u8]]
+			} else {
+				vec![vec![transfer.nonce as u8]]
+			};
 
 			log::info!(
-				"test_api::validate_transaction: n:{:?} cn:{:?} tn:{:?} r:{:?} p:{:?}",
+				"test_api::validate_transaction: h{:?} n:{:?} cn:{:?} tn:{:?} r:{:?} p:{:?}",
+				at,
 				block_number,
 				chain_nonce,
 				transfer.nonce,
