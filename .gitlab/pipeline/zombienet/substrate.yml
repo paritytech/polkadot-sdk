@@ -44,9 +44,9 @@
   extends:
     - .zombienet-substrate-common
   variables:
-    DB_SNAPSHOT: "https://storage.googleapis.com/zombienet-db-snaps/substrate/0004-basic-beefy-warp-sync/chains.tgz"
-    DB_BLOCK_HEIGHT: 46742
-    DB_LATEST_MANDATORY_ROUND: 46616
+    DB_SNAPSHOT: "https://storage.googleapis.com/zombienet-db-snaps/substrate/0004-basic-beefy-warp-sync/chains-2s.tgz"
+    DB_BLOCK_HEIGHT: 46141
+    DB_LATEST_MANDATORY_ROUND: 46072
 
 zombienet-substrate-0000-block-building:
   extends:
