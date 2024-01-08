@@ -1,6 +1,6 @@
 //! As our runtime should _never_ panic; this includes carefully handling [`Result`]/[`Option`]
 //! types, eliminating the possibility of integer overflows, converting between number types, or
-//! even handling floating point usage with fixed point arithmetic to mitigate issues that come with
+//! even replacing floating point usage with fixed point arithmetic to mitigate issues that come with
 //! floating point calculations.
 //!
 //! Intentional and predictable design should be our first and foremost
@@ -10,61 +10,55 @@
 //!
 //! Defensive programming is a design paradigm that enables a particular program to continue
 //! running despite unexpected behavior. These unforseen circumstances may
-//! cause the program to stop, (or in the Rust context, `panic!`) defensive practices allow for
-//! these circumstances to be accounted for ahead of time, and for them to be handled in a more
+//! cause the program to stop or, in the Rust context, `panic!`. Defensive practices allow for
+//! these circumstances to be accounted for ahead of time and for them to be handled in a more
 //! graceful manner.
 //!
-//! The Polkadot SDK is both built to reflect these principles, and to be used accordingly.
+//! The Polkadot SDK is both built to reflect these principles and to be used accordingly.
 //!
 //! ## General Practices
 //!
 //! When developing within the context of the a runtime, there is one golden rule:
 //!
-//! ***DO NOT PANIC!***
-//!
-//! Most of the time - there are some exceptions, such as critical operations being actually more
+//! ***DO NOT PANIC***. There are some exceptions, such as critical operations being actually more
 //! dangerous than allowing the node to continue running (block authoring, consensus, etc).
 //!
-//! - Directly using `unwrap()` for a [`Result`] shouldn't be used.
-//! - This includes accessing indices of some collection type, which may implicitly `panic!` (i.e.,
-//!   via `get()`)
+//!  General guidelines:
+//!
+//! - Avoid panickable operations, such as directly using `unwrap()` for a [`Result`], common errors such as accessing collections out of bounds (using safer methods to access collection types, i.e., `get()`).
 //! - It may be acceptable to use `except()`, but only if one is completely certain (and has
 //!   performed a check beforehand) that a value won't panic upon unwrapping.
 //! - If you are writing a function that could panic, [be sure to document it!](https://doc.rust-lang.org/rustdoc/how-to-write-documentation.html#documenting-components)
-//! - Many seemingly, simplistic operations, such as **arithmetic** in the runtime, could present a
+//! - Carefully handle mathematical operations.  Many seemingly, simplistic operations, such as **arithmetic** in the runtime, could present a
 //!   number of issues [(see more later in this document)](#integer-overflow).
 //!
 //! ### Defensive Traits
 //!
-//! To also aid in debugging and mitigating the above issues, there is a
-//! [`Defensive`](frame::traits::Defensive) trait (and its companions,
-//! [`DefensiveOption`](frame::traits::DefensiveOption),
-//! [`DefensiveResult`](frame::traits::DefensiveResult)) that can be used to defensively unwrap
-//! values.  This can be used in place of
-//! an `expect`, and again, only if the developer is sure about the unwrap in the first place.
-//!
-//! The primary difference of defensive implementations bring over vanilla ones is the usage of [`debug_assertions`](https://doc.rust-lang.org/reference/conditional-compilation.html#debug_assertions).
-//! `debug_assertions` allows for panics to occur in a testing context, but in
-//! production/release, they will merely log an error (i.e., `log::error`).
-//!
 //! The [`Defensive`](frame::traits::Defensive) trait provides a number of functions, all of which
-//! provide an alternative to 'vanilla' Rust functions:
+//! provide an alternative to 'vanilla' Rust functions, e.g.,:
 //!
 //! - [`defensive_unwrap_or()`](frame::traits::Defensive::defensive_unwrap_or)
 //! - [`defensive_ok_or()`](frame::traits::DefensiveOption::defensive_ok_or)
 //!
-//! This traits are useful for catching issues in the development environment, without risking
-//! panicking in production.
+//! The [`Defensive`](frame::traits::Defensive) trait and its companions,
+//! [`DefensiveOption`](frame::traits::DefensiveOption),
+//! [`DefensiveResult`](frame::traits::DefensiveResult) can be used to defensively unwrap
+//! and handle values.  This can be used in place of
+//! an `expect`, and again, only if the developer is sure about the unwrap in the first place.
+//!
+//! Defensive methods use [`debug_assertions`](https://doc.rust-lang.org/reference/conditional-compilation.html#debug_assertions), which panic in development, but in
+//! production/release, they will merely log an error (i.e., `log::error`).
 //!
 //! ## Integer Overflow
 //!
 //! The Rust compiler prevents any sort of static overflow from happening at compile time.  
 //! The compiler panics in **debug** mode in the event of an integer overflow. In
-//! **release** mode, it resorts to silently _wrapping_ the overflowed amount in a modular fashion.
+//! **release** mode, it resorts to silently _wrapping_ the overflowed amount in a modular fashion (from the `MAX` back to zero).
 //!
-//! However in the runtime context, we don't always have control over what is being supplied as a
+//! In the context of runtime development, we don't always have control over what is being supplied as a
 //! parameter. For example, even this simple adding function could present one of two outcomes
 //! depending on whether it is in **release** or **debug** mode:
+//!
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", naive_add)]
 //!
 //! If we passed in overflow-able values at runtime, this could actually panic (or wrap, if in
@@ -74,14 +68,9 @@
 //! naive_add(250u8, 10u8); // In debug mode, this would panic. In release, this would return 4.
 //! ```
 //!
-//! It is actually the _silent_ portion of this behavior that presents a real issue. Such behavior should be made obvious, especially in
+//! It is the _silent_ portion of this behavior that presents a real issue. Such behavior should be made obvious, especially in
 //! the context of blockchain development, where unsafe arithmetic could produce unexpected
-//! consequences.
-//!
-//! A quick example is a user's balance overflowing: the default behavior of wrapping could result
-//! in the user's balance starting from zero, or vice versa, of a `0` balance turning into the
-//! `MAX`. This could lead to various exploits and issues down the road, which if
-//! failing silently, would be difficult to trace and rectify in production.
+//! consequences like a user balance over or underflowing.
 //!
 //! Luckily, there are ways to both represent and handle these scenarios depending on our specific
 //! use case natively built into Rust, as well as libraries like [`sp_arithmetic`].
@@ -91,14 +80,14 @@
 //! Both Rust and Substrate provide safe ways to deal with numbers and alternatives to floating
 //! point arithmetic.
 //!
-//! A developer should use fixed-point arithmetic to mitigate the potential for inaccuracy,
-//! rounding errors, or other unexpected behavior. For more on the specifics of the peculiarities of floating point calculations, [watch this video by the Computerphile](https://www.youtube.com/watch?v=PZRI1IfStY0).
+//! A developer should use fixed-point instead of floating-point arithmetic to mitigate the potential for inaccuracy,
+//! rounding errors, or other unexpected behavior.
 //!
-//! Using **primitive** floating point number types in a blockchain context should be avoided,
+//! Using floating point number types in the runtime should be avoided,
 //! as a single nondeterministic result could cause chaos for consensus along with the
-//! aforementioned issues.
+//! aforementioned issues. For more on the specifics of the peculiarities of floating point calculations, [watch this video by the Computerphile](https://www.youtube.com/watch?v=PZRI1IfStY0).
 //!
-//! The following methods represent different ways one can handle numbers safely natively in Rust,
+//! The following methods demonstrate different ways one can handle numbers safely natively in Rust,
 //! without fear of panic or unexpected behavior from wrapping.
 //!
 //! ### Checked Arithmetic
@@ -152,7 +141,6 @@
     increase_balance_result
 )]
 //!
-//!
 //! ### Saturating Operations
 //!
 //! Saturating a number limits it to the type's upper or lower bound, no matter the integer would
@@ -178,15 +166,14 @@
 //!
 //! As a recap, we covered the following concepts:
 //!
-//! 1. **Checked** operations - using [`Option`] or [`Result`],
-//! 2. **Saturating** operations - limited to the lower and upper bounds of a number type,
-//! 3. **Wrapped** operations (the default) - wrap around to above or below the bounds of a type,
+//! 1. **Checked** operations - using [`Option`] or [`Result`]
+//! 2. **Saturating** operations - limited to the lower and upper bounds of a number type
+//! 3. **Wrapped** operations (the default) - wrap around to above or below the bounds of a type
 //!
 //!
 //! Known scenarios that could be fallible should be avoided: i.e., avoiding the possibility of
 //! dividing/modulo by zero at any point should be mitigated. One should be, instead, opting for a
-//! `checked_` method in order to introduce safe arithmetic in their code.
-//!
+//! `checked_*` method in order to introduce safe arithmetic in their code.
 //!
 //! #### The problem with 'default' wrapped operations
 //!
@@ -197,7 +184,6 @@
 //! Some of these mechanisms can be more critical than others. It's for this reason that we may
 //! consider some other ways of dealing with runtime arithmetic, such as saturated or checked
 //! operations, that won't carry these potential consequences.
-//!
 //!
 //! While it may seem trivial, choosing how to handle numbers is quite important. As a thought
 //! exercise, here are some scenarios of which will shed more light on when to use which.
@@ -255,15 +241,14 @@
 //!
 //! </details>
 //!
-//!
-//! From the above, we can clearly see the problematic nature of seemingly simple operations in
+//! From the above, we can clearly see the problematic nature of seemingly simple operations in the
 //! runtime. Of course, it may be that using unchecked math is perfectly fine under some scenarios -
 //! such as certain balance being never realistically attainable, or a number type being so large
 //! that it could never realistically overflow unless one sent thousands of transactions to the
 //! network.
 //!
 //! ### Decision Chart: When to use which?
-#![doc = simple_mermaid::mermaid!("../../../docs/mermaid/integer_operation_decision.mmd")]
+#![doc = simple_mermaid::mermaid!("../../../mermaid/integer_operation_decision.mmd")]
 //! ## Fixed Point Arithmetic
 //!
 //! The following code uses types from [`sp_arithmetic`].
@@ -277,7 +262,6 @@
 //! [`PerThing`](sp_arithmetic::PerThing) are used:
 //! - **[`Perbill`](sp_arithmetic::Perbill), parts of a billion**
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", perbill_example)]
-//!
 //! - **[`Percent`](sp_arithmetic::Percent), parts of a hundred**
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", percent_example)]
 //!
@@ -294,7 +278,7 @@
 //! - [`FixedI128`](sp_arithmetic::FixedU128) and [`FixedU128`](sp_arithmetic::FixedI128)
 //!
 //! Similar to types that implement [`PerThing`](sp_arithmetic::PerThing), these are also
-//! fixed-point types, however, they are able to represent larger numbers:
+//! fixed-point types, however, they are able to represent larger fractions:
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", fixed_u64)]
 //!
 //! Let's now explore these types in practice, and how they may be used with pallets to perform
@@ -330,7 +314,6 @@
 //! percentage of a particular item:
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", percent_mult)]
 //!
-//!
 //! ### Fixed Point Types in Practice
 //!
 //! As said earlier, if one needs to exceed the value of one, then
@@ -342,7 +325,7 @@
     fixed_u64_block_computation_example
 )]
 //!
-//! For a much more comprehensive example, be sure to look at the source for [`pallet_broker`]
+//! For a much more comprehensive example, be sure to look at the source for [`pallet_broker`].
 //!
 //! #### Fixed Point Types in Practice
 //!
@@ -527,6 +510,7 @@ mod tests {
 		assert_eq!(division, FixedU64::from_float(1.25));
 		assert_eq!(subtraction, FixedU64::from_float(0.4));
 	}
+
 	#[docify::export]
 	#[test]
 	fn bad_unwrap() {
@@ -558,9 +542,10 @@ mod tests {
 		// Rust includes `.get`, returning Option<T> - so lets use that:
 		assert_eq!(my_list.get(5), None)
 	}
+
 	#[docify::export]
 	#[test]
-	#[should_panic(expected = "Defensive failure has been triggered!")]
+	#[cfg_attr(debug_assertions, should_panic(expected = "Defensive failure has been triggered!"))]
 	fn saturated_defensive_example() {
 		let saturated_defensive = u32::MAX.defensive_saturating_add(10);
 		assert_eq!(saturated_defensive, u32::MAX);

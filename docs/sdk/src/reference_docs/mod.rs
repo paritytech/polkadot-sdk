@@ -48,7 +48,6 @@ pub mod signed_extensions;
 pub mod frame_origin;
 
 /// Learn about how to write safe and defensive code in your FRAME runtime.
-// TODO: @CrackTheCode016 https://github.com/paritytech/polkadot-sdk-docs/issues/44
 pub mod defensive_programming;
 
 /// Learn about composite enums in FRAME-based runtimes, such as "RuntimeEvent" and "RuntimeCall".
