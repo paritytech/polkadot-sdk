@@ -9,6 +9,9 @@ repository.workspace = true
 description = "FRAME system module"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
@@ -17,7 +20,7 @@ cfg-if = "1.0"
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 log = { version = "0.4.17", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive", "serde"] }
-serde = { version = "1.0.193", default-features = false, features = ["alloc", "derive"] }
+serde = { version = "1.0.195", default-features = false, features = ["alloc", "derive"] }
 frame-support = { path = "../support", default-features = false }
 sp-core = { path = "../../primitives/core", default-features = false, features = ["serde"] }
 sp-io = { path = "../../primitives/io", default-features = false }
@@ -53,6 +56,7 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = ["frame-support/try-runtime", "sp-runtime/try-runtime"]
+experimental = ["frame-support/experimental"]
 
 [[bench]]
 name = "bench"

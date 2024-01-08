@@ -35,7 +35,7 @@ macro_rules! define_error_codes {
         )*
     ) => {
         /// Every error that can be returned to a contract when it calls any of the host functions.
-        #[derive(Debug)]
+        #[derive(Debug, PartialEq, Eq)]
         #[repr(u32)]
         pub enum ReturnErrorCode {
             /// API call successful.
@@ -49,7 +49,6 @@ macro_rules! define_error_codes {
         }
 
         impl From<ReturnCode> for Result {
-            #[inline]
             fn from(return_code: ReturnCode) -> Self {
                 match return_code.0 {
                     0 => Ok(()),
