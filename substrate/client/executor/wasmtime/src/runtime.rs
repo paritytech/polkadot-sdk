@@ -41,7 +41,7 @@ use std::{
 		Arc,
 	},
 };
-use wasmtime::{AsContext, Engine, Memory, Table};
+use wasmtime::{AsContext, Engine, Func, Memory, Table, Val};
 
 const MAX_INSTANCE_COUNT: u32 = 64;
 
@@ -53,6 +53,8 @@ pub(crate) struct StoreData {
 	pub(crate) memory: Option<Memory>,
 	/// This will be set only if the runtime actually contains a table.
 	pub(crate) table: Option<Table>,
+	/// This will be set only if the runtime actually contains a table.
+	pub(crate) alloc: Option<Func>,
 }
 
 impl StoreData {
@@ -171,11 +173,21 @@ impl WasmtimeInstance {
 		match &mut self.strategy {
 			Strategy::RecreateInstance(ref mut instance_creator) => {
 				let mut instance_wrapper = instance_creator.instantiate()?;
-				let heap_base = instance_wrapper.extract_heap_base()?;
 				let entrypoint = instance_wrapper.resolve_entrypoint(method)?;
-				let allocator = FreeingBumpHeapAllocator::new(heap_base);
 
-				perform_call(data, &mut instance_wrapper, entrypoint, allocator, allocation_stats)
+				if let Some(alloc) = instance_wrapper.store().data().alloc {
+					perform_call_v1(data, &mut instance_wrapper, entrypoint, alloc)
+				} else {
+					let heap_base = instance_wrapper.extract_heap_base()?;
+					let allocator = FreeingBumpHeapAllocator::new(heap_base);
+					perform_call(
+						data,
+						&mut instance_wrapper,
+						entrypoint,
+						allocator,
+						allocation_stats,
+					)
+				}
 			},
 		}
 	}
@@ -694,7 +706,7 @@ fn perform_call(
 ) -> Result<Vec<u8>> {
 	let (data_ptr, data_len) = inject_input_data(instance_wrapper, &mut allocator, data)?;
 
-	let host_state = HostState::new(allocator);
+	let host_state = HostState::new(Some(allocator));
 
 	// Set the host state before calling into wasm.
 	instance_wrapper.store_mut().data_mut().host_state = Some(host_state);
@@ -715,6 +727,29 @@ fn perform_call(
 	Ok(output)
 }
 
+fn perform_call_v1(
+	data: &[u8],
+	instance_wrapper: &mut InstanceWrapper,
+	entrypoint: EntryPoint,
+	alloc: Func,
+) -> Result<Vec<u8>> {
+	let (data_ptr, data_len) = inject_input_data_v1(instance_wrapper, alloc, data)?;
+
+	let host_state = HostState::new(None);
+
+	// Set the host state before calling into wasm.
+	instance_wrapper.store_mut().data_mut().host_state = Some(host_state);
+
+	let ret = entrypoint
+		.call(instance_wrapper.store_mut(), data_ptr, data_len)
+		.map(unpack_ptr_and_len);
+
+	let (output_ptr, output_len) = ret?;
+	let output = extract_output_data(instance_wrapper, output_ptr, output_len)?;
+
+	Ok(output)
+}
+
 fn inject_input_data(
 	instance: &mut InstanceWrapper,
 	allocator: &mut FreeingBumpHeapAllocator,
@@ -725,6 +760,25 @@ fn inject_input_data(
 	let data_len = data.len() as WordSize;
 	let data_ptr = allocator.allocate(&mut MemoryWrapper(&memory, &mut ctx), data_len)?;
 	util::write_memory_from(instance.store_mut(), data_ptr, data)?;
+	Ok((data_ptr, data_len))
+}
+
+fn inject_input_data_v1(
+	instance: &mut InstanceWrapper,
+	alloc: Func,
+	data: &[u8],
+) -> Result<(Pointer<u8>, WordSize)> {
+	let data_len = data.len() as WordSize;
+	let params = [Val::I32(data_len as _)];
+	let mut results = [Val::I32(0)];
+
+	alloc
+		.call(instance.store_mut(), &params, &mut results)
+		.expect("alloc must success; qed");
+	let data_ptr = results[0].i32().unwrap();
+	let data_ptr = Pointer::new(data_ptr as u32);
+	util::write_memory_from(instance.store_mut(), data_ptr, data)?;
+
 	Ok((data_ptr, data_len))
 }
 

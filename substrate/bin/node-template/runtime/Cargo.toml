@@ -29,6 +29,7 @@ frame-try-runtime = { path = "../../../frame/try-runtime", default-features = fa
 pallet-timestamp = { path = "../../../frame/timestamp", default-features = false }
 pallet-transaction-payment = { path = "../../../frame/transaction-payment", default-features = false }
 frame-executive = { path = "../../../frame/executive", default-features = false }
+sp-allocator-v1 = { default-features = false, path = "../../../primitives/allocator-v1" }
 sp-api = { path = "../../../primitives/api", default-features = false }
 sp-block-builder = { path = "../../../primitives/block-builder", default-features = false }
 sp-consensus-aura = { path = "../../../primitives/consensus/aura", default-features = false, features = ["serde"] }
@@ -60,7 +61,10 @@ pallet-template = { path = "../pallets/template", default-features = false }
 substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true }
 
 [features]
-default = ["std"]
+default = [ "std" ]
+allocator-v1 = [
+	"sp-allocator-v1/allocator-v1",
+]
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",
@@ -79,6 +83,7 @@ std = [
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
 	"scale-info/std",
+	"sp-allocator-v1/std",
 	"serde_json/std",
 	"sp-api/std",
 	"sp-block-builder/std",

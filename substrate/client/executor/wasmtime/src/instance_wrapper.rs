@@ -28,7 +28,7 @@ use sc_executor_common::{
 };
 use sp_wasm_interface::{Pointer, Value, WordSize};
 use wasmtime::{
-	AsContext, AsContextMut, Engine, Extern, Instance, InstancePre, Memory, Table, Val,
+	AsContext, AsContextMut, Engine, Extern, Func, Instance, InstancePre, Memory, Table, Val,
 };
 
 /// Invoked entrypoint format.
@@ -179,9 +179,11 @@ impl InstanceWrapper {
 
 		let memory = get_linear_memory(&instance, &mut store)?;
 		let table = get_table(&instance, &mut store);
+		let alloc = get_export_alloc(&instance, &mut store);
 
 		store.data_mut().memory = Some(memory);
 		store.data_mut().table = table;
+		store.data_mut().alloc = alloc;
 
 		Ok(InstanceWrapper { instance, store, _release_instance_handle })
 	}
@@ -308,6 +310,11 @@ fn get_table(instance: &Instance, ctx: &mut Store) -> Option<Table> {
 		.as_ref()
 		.cloned()
 		.and_then(Extern::into_table)
+}
+
+/// Extract export `alloc` func from the given instance.
+fn get_export_alloc(instance: &Instance, ctx: impl AsContextMut) -> Option<Func> {
+	instance.get_export(ctx, "alloc").and_then(Extern::into_func)
 }
 
 /// Functions related to memory.
