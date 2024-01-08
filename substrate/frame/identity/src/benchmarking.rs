@@ -22,20 +22,41 @@
 use super::*;
 
 use crate::Pallet as Identity;
+use codec::Encode;
 use frame_benchmarking::{
 	account, impl_benchmark_test_suite, v2::*, whitelisted_caller, BenchmarkError,
 };
 use frame_support::{
-	ensure,
-	traits::{EnsureOrigin, Get},
+	assert_ok, ensure,
+	traits::{EnsureOrigin, Get, OnFinalize, OnInitialize},
 };
 use frame_system::RawOrigin;
-use sp_runtime::traits::Bounded;
+use sp_io::crypto::{sr25519_generate, sr25519_sign};
+use sp_runtime::{
+	traits::{Bounded, IdentifyAccount, One},
+	MultiSignature, MultiSigner,
+};
 
 const SEED: u32 = 0;
 
+fn assert_has_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+	frame_system::Pallet::<T>::assert_has_event(generic_event.into());
+}
+
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
+}
+
+fn run_to_block<T: Config>(n: frame_system::pallet_prelude::BlockNumberFor<T>) {
+	while frame_system::Pallet::<T>::block_number() < n {
+		crate::Pallet::<T>::on_finalize(frame_system::Pallet::<T>::block_number());
+		frame_system::Pallet::<T>::on_finalize(frame_system::Pallet::<T>::block_number());
+		frame_system::Pallet::<T>::set_block_number(
+			frame_system::Pallet::<T>::block_number() + One::one(),
+		);
+		frame_system::Pallet::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
+		crate::Pallet::<T>::on_initialize(frame_system::Pallet::<T>::block_number());
+	}
 }
 
 // Adds `r` registrars to the Identity Pallet. These registrars will have set fees and fields.
@@ -95,7 +116,28 @@ fn add_sub_accounts<T: Config>(
 	Ok(subs)
 }
 
-#[benchmarks]
+fn bench_suffix() -> Vec<u8> {
+	b"bench".to_vec()
+}
+
+fn bench_username() -> Vec<u8> {
+	// len = 24
+	b"veryfastbenchmarkmachine".to_vec()
+}
+
+fn bounded_username<T: Config>(username: Vec<u8>, suffix: Vec<u8>) -> Username<T> {
+	let mut full_username = Vec::with_capacity(username.len() + suffix.len() + 1);
+	full_username.extend(username);
+	full_username.extend(b".");
+	full_username.extend(suffix);
+	Username::<T>::try_from(full_username).expect("test usernames should fit within bounds")
+}
+
+#[benchmarks(
+	where
+		<T as frame_system::Config>::AccountId: From<sp_runtime::AccountId32>,
+		T::OffchainSignature: From<MultiSignature>,
+)]
 mod benchmarks {
 	use super::*;
 
@@ -520,6 +562,167 @@ mod benchmarks {
 
 		ensure!(!SuperOf::<T>::contains_key(&caller), "Sub not removed");
 
+		Ok(())
+	}
+
+	#[benchmark]
+	fn add_username_authority() -> Result<(), BenchmarkError> {
+		let origin =
+			T::UsernameAuthorityOrigin::try_successful_origin().expect("can generate origin");
+
+		let authority: T::AccountId = account("authority", 0, SEED);
+		let authority_lookup = T::Lookup::unlookup(authority.clone());
+		let suffix = bench_suffix();
+		let allocation = 10;
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, authority_lookup, suffix, allocation);
+
+		assert_last_event::<T>(Event::<T>::AuthorityAdded { authority }.into());
+		Ok(())
+	}
+
+	#[benchmark]
+	fn remove_username_authority() -> Result<(), BenchmarkError> {
+		let origin =
+			T::UsernameAuthorityOrigin::try_successful_origin().expect("can generate origin");
+
+		let authority: T::AccountId = account("authority", 0, SEED);
+		let authority_lookup = T::Lookup::unlookup(authority.clone());
+		let suffix = bench_suffix();
+		let allocation = 10;
+
+		assert_ok!(Identity::<T>::add_username_authority(
+			origin.clone(),
+			authority_lookup.clone(),
+			suffix,
+			allocation
+		));
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, authority_lookup);
+
+		assert_last_event::<T>(Event::<T>::AuthorityRemoved { authority }.into());
+		Ok(())
+	}
+
+	#[benchmark]
+	fn set_username_for() -> Result<(), BenchmarkError> {
+		// Set up a username authority.
+		let auth_origin =
+			T::UsernameAuthorityOrigin::try_successful_origin().expect("can generate origin");
+		let authority: T::AccountId = account("authority", 0, SEED);
+		let authority_lookup = T::Lookup::unlookup(authority.clone());
+		let suffix = bench_suffix();
+		let allocation = 10;
+
+		Identity::<T>::add_username_authority(
+			auth_origin,
+			authority_lookup,
+			suffix.clone(),
+			allocation,
+		)?;
+
+		let username = bench_username();
+		let bounded_username = bounded_username::<T>(username.clone(), suffix.clone());
+		let encoded_username = Encode::encode(&bounded_username.to_vec());
+
+		let public = sr25519_generate(0.into(), None);
+		let who_account: T::AccountId = MultiSigner::Sr25519(public).into_account().into();
+		let who_lookup = T::Lookup::unlookup(who_account.clone());
+
+		let signature =
+			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &encoded_username).unwrap());
+
+		// Verify signature here to avoid surprise errors at runtime
+		assert!(signature.verify(&encoded_username[..], &public.into()));
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(authority.clone()), who_lookup, username, Some(signature.into()));
+
+		assert_has_event::<T>(
+			Event::<T>::UsernameSet {
+				who: who_account.clone(),
+				username: bounded_username.clone(),
+			}
+			.into(),
+		);
+		assert_has_event::<T>(
+			Event::<T>::PrimaryUsernameSet { who: who_account, username: bounded_username }.into(),
+		);
+		Ok(())
+	}
+
+	#[benchmark]
+	fn accept_username() -> Result<(), BenchmarkError> {
+		let caller: T::AccountId = whitelisted_caller();
+		let username = bounded_username::<T>(bench_username(), bench_suffix());
+
+		Identity::<T>::queue_acceptance(&caller, username.clone());
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), username.clone());
+
+		assert_last_event::<T>(Event::<T>::UsernameSet { who: caller, username }.into());
+		Ok(())
+	}
+
+	#[benchmark]
+	fn remove_expired_approval() -> Result<(), BenchmarkError> {
+		let caller: T::AccountId = whitelisted_caller();
+		let username = bounded_username::<T>(bench_username(), bench_suffix());
+		Identity::<T>::queue_acceptance(&caller, username.clone());
+
+		let expected_exiration =
+			frame_system::Pallet::<T>::block_number() + T::PendingUsernameExpiration::get();
+
+		run_to_block::<T>(expected_exiration + One::one());
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), username);
+
+		assert_last_event::<T>(Event::<T>::PreapprovalExpired { whose: caller }.into());
+		Ok(())
+	}
+
+	#[benchmark]
+	fn set_primary_username() -> Result<(), BenchmarkError> {
+		let caller: T::AccountId = whitelisted_caller();
+		let first_username = bounded_username::<T>(bench_username(), bench_suffix());
+		let second_username = bounded_username::<T>(b"slowbenchmark".to_vec(), bench_suffix());
+
+		// First one will be set as primary. Second will not be.
+		Identity::<T>::insert_username(&caller, first_username);
+		Identity::<T>::insert_username(&caller, second_username.clone());
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), second_username.clone());
+
+		assert_last_event::<T>(
+			Event::<T>::PrimaryUsernameSet { who: caller, username: second_username }.into(),
+		);
+		Ok(())
+	}
+
+	#[benchmark]
+	fn remove_dangling_username() -> Result<(), BenchmarkError> {
+		let caller: T::AccountId = whitelisted_caller();
+		let first_username = bounded_username::<T>(bench_username(), bench_suffix());
+		let second_username = bounded_username::<T>(b"slowbenchmark".to_vec(), bench_suffix());
+
+		// First one will be set as primary. Second will not be.
+		Identity::<T>::insert_username(&caller, first_username);
+		Identity::<T>::insert_username(&caller, second_username.clone());
+
+		// User calls `clear_identity`, leaving their second username as "dangling"
+		Identity::<T>::clear_identity(RawOrigin::Signed(caller.clone()).into())?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), second_username.clone());
+
+		assert_last_event::<T>(
+			Event::<T>::DanglingUsernameRemoved { who: caller, username: second_username }.into(),
+		);
 		Ok(())
 	}
 
