@@ -35,6 +35,31 @@ pub(super) type AssetAccountOf<T, I> = AssetAccount<
 pub(super) type ExistenceReasonOf<T, I> =
 	ExistenceReason<DepositBalanceOf<T, I>, <T as SystemConfig>::AccountId>;
 
+/// Whether the set metadata operation is coming from a `force_origin` or not.
+// If it's a force origin then `is_frozen` is provided for the asset as well.
+pub(super) enum MetadataRequestOf<AccountId> {
+	ForceOrigin(bool),
+	Origin(AccountId),
+}
+
+impl<AccountId> MetadataRequestOf<AccountId> {
+	// It unwraps the origin request, returning `is_frozen` of the asset and whether the request comes from `force_origin' or not
+	pub fn origin(&self) -> (bool, bool) {
+		match self {
+			MetadataRequestOf::ForceOrigin(is_frozen) => (*is_frozen, true),
+			MetadataRequestOf::Origin(_) => (false, false),
+		}
+	}
+
+	pub fn account<T: Config<I>, I: 'static>(&self) -> Result<&AccountId, Error<T, I>> {
+		if let MetadataRequestOf::Origin(origin) = self {
+			Ok(origin)
+		} else {
+			Err(Error::<T, I>::BadOrigin)
+		}
+	}
+}
+
 /// AssetStatus holds the current state of the asset. It could either be Live and available for use,
 /// or in a Destroying state.
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
@@ -120,7 +145,7 @@ where
 {
 	pub(crate) fn take_deposit(&mut self) -> Option<Balance> {
 		if !matches!(self, ExistenceReason::DepositHeld(_)) {
-			return None
+			return None;
 		}
 		if let ExistenceReason::DepositHeld(deposit) =
 			sp_std::mem::replace(self, ExistenceReason::DepositRefunded)
@@ -133,7 +158,7 @@ where
 
 	pub(crate) fn take_deposit_from(&mut self) -> Option<(AccountId, Balance)> {
 		if !matches!(self, ExistenceReason::DepositFrom(..)) {
-			return None
+			return None;
 		}
 		if let ExistenceReason::DepositFrom(depositor, deposit) =
 			sp_std::mem::replace(self, ExistenceReason::DepositRefunded)
