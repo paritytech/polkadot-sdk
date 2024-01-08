@@ -1527,7 +1527,7 @@ pub fn derive_composite_enum_variant_count(input: TokenStream) -> TokenStream {
 	let syn::Data::Enum(data_enum) = &input.data else {
 			return syn::Error::new(input.ident.span(), "Invalid type: expected enum item")
 				.to_compile_error()
-				.into(),
+				.into()
 	};
 
 	// check variants: composite enums support only field-less enum variants. This is because fields
