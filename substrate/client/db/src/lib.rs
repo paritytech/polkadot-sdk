@@ -2514,7 +2514,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			self.storage.state_db.pin(&hash, number.saturated_into::<u64>(), hint).map_err(
 				|_| {
 					sp_blockchain::Error::UnknownBlock(format!(
-						"State already discarded for `{:?}`",
+						"Unable to pin: state already discarded for `{:?}`",
 						hash
 					))
 				},
@@ -4180,6 +4180,7 @@ pub(crate) mod tests {
 
 	#[test]
 	fn test_pinned_blocks_on_finalize() {
+		sp_tracing::try_init_simple();
 		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(1), 10);
 		let mut blocks = Vec::new();
 		let mut prev_hash = Default::default();
@@ -4341,6 +4342,7 @@ pub(crate) mod tests {
 
 	#[test]
 	fn test_pinned_blocks_on_finalize_with_fork() {
+		sp_tracing::try_init_simple();
 		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(1), 10);
 		let mut blocks = Vec::new();
 		let mut prev_hash = Default::default();
