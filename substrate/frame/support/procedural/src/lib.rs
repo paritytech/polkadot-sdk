@@ -1556,7 +1556,6 @@ pub fn derive_composite_enum_variant_count(input: TokenStream) -> TokenStream {
 		Ok(c) => c,
 		Err(e) => return e.into_compile_error().into(),
 	};
-	let frame_support = &frame_support;
 
 	let name = &input.ident;
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
