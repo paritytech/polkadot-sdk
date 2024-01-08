@@ -253,6 +253,7 @@ pub fn worker_entrypoint(
 								prepare_job_kind,
 								&executor_params,
 								worker_info,
+								security_status.can_unshare_user_namespace_and_change_root,
 								&temp_artifact_dest,
 								usage_before,
 							)
@@ -339,6 +340,7 @@ fn handle_clone(
 	prepare_job_kind: PrepareJobKind,
 	executor_params: &Arc<ExecutorParams>,
 	worker_info: &WorkerInfo,
+	have_unshare_newuser: bool,
 	temp_artifact_dest: &Path,
 	usage_before: Usage,
 ) -> Result<PrepareWorkerSuccess, PrepareError> {
@@ -352,6 +354,7 @@ fn handle_clone(
 	match unsafe {
 		security::clone::clone_on_worker(
 			worker_info,
+			have_unshare_newuser,
 			Box::new(|| {
 				handle_child_process(
 					pvf.clone(),

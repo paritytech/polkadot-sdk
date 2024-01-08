@@ -180,6 +180,7 @@ pub fn worker_entrypoint(
 								execute_thread_stack_size,
 								clone_stack_size,
 								worker_info,
+								security_status.can_unshare_user_namespace_and_change_root,
 								usage_before,
 							)?
 						} else {
@@ -264,6 +265,7 @@ fn handle_clone(
 	execute_stack_size: usize,
 	clone_stack_size: usize,
 	worker_info: &WorkerInfo,
+	have_unshare_newuser: bool,
 	usage_before: Usage,
 ) -> io::Result<WorkerResponse> {
 	use polkadot_node_core_pvf_common::worker::security;
@@ -273,6 +275,7 @@ fn handle_clone(
 	match unsafe {
 		security::clone::clone_on_worker(
 			worker_info,
+			have_unshare_newuser,
 			Box::new(|| {
 				handle_child_process(
 					pipe_write_fd,

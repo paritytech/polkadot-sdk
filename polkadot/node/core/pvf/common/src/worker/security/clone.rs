@@ -38,10 +38,11 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// async-signal-safe functions.
 pub unsafe fn clone_on_worker(
 	worker_info: &WorkerInfo,
+	have_unshare_newuser: bool,
 	cb: CloneCb,
 	stack_size: usize,
 ) -> Result<Pid> {
-	let flags = clone_flags();
+	let flags = clone_flags(have_unshare_newuser);
 
 	gum::trace!(
 		target: LOG_TARGET,
@@ -61,7 +62,7 @@ pub unsafe fn clone_on_worker(
 /// async-signal-safe functions.
 pub unsafe fn check_can_fully_clone() -> Result<()> {
 	let stack_size = 2 * 1024 * 1024; // Use same as prepare worker for this check.
-	try_clone(Box::new(|| 0), stack_size, clone_flags()).map(|_pid| ())
+	try_clone(Box::new(|| 0), stack_size, clone_flags(false)).map(|_pid| ())
 }
 
 /// Runs clone(2) with all sandboxing flags.
@@ -75,14 +76,16 @@ unsafe fn try_clone(cb: CloneCb, stack_size: usize, flags: CloneFlags) -> Result
 }
 
 /// Returns flags for `clone(2)`, including all the sandbox-related ones.
-fn clone_flags() -> CloneFlags {
-	// NOTE: CLONE_NEWUSER does not work when cloning job processes, but in Secure Validator Mode it
-	// is already set by the worker.
-	//
+fn clone_flags(have_unshare_newuser: bool) -> CloneFlags {
+	// NOTE: CLONE_NEWUSER does not work in `clone` if we previously called `unshare` with this
+	// flag.
+	let maybe_clone_newuser =
+		if have_unshare_newuser { CloneFlags::empty() } else { CloneFlags::CLONE_NEWUSER };
 	// SIGCHLD flag is used to inform clone that the parent process is
 	// expecting a child termination signal, without this flag `waitpid` function
 	// return `ECHILD` error.
-	CloneFlags::CLONE_NEWCGROUP |
+	maybe_clone_newuser |
+		CloneFlags::CLONE_NEWCGROUP |
 		CloneFlags::CLONE_NEWIPC |
 		CloneFlags::CLONE_NEWNET |
 		CloneFlags::CLONE_NEWNS |

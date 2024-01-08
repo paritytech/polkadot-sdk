@@ -131,6 +131,15 @@ impl TestHost {
 	async fn security_status(&self) -> SecurityStatus {
 		self.host.lock().await.security_status.clone()
 	}
+
+	#[cfg(all(feature = "ci-only-tests", target_os = "linux"))]
+	async fn mutate_security_status<F>(&self, f: F)
+	where
+		F: FnOnce(&mut SecurityStatus),
+	{
+		let mut host = self.host.lock().await;
+		f(&mut host.security_status);
+	}
 }
 
 #[tokio::test]
@@ -447,6 +456,24 @@ async fn all_security_features_work() {
 			can_do_secure_clone: true,
 		}
 	);
+}
+
+// Usually both `unshare` and `clone` security capabilities are present. Test what happens when
+// `unshare` is not.
+#[cfg(all(feature = "ci-only-tests", target_os = "linux"))]
+#[tokio::test]
+async fn clone_works_without_unshare() {
+	let host = TestHost::new().await;
+
+	assert!(host.security_status().await.can_unshare_user_namespace_and_change_root);
+	assert!(host.security_status().await.can_do_secure_clone);
+	host.mutate_security_status(|status| status.can_unshare_user_namespace_and_change_root = false)
+		.await;
+
+	let _stats = host
+		.precheck_pvf(::adder::wasm_binary_unwrap(), Default::default())
+		.await
+		.unwrap();
 }
 
 // Regression test to make sure the unshare-pivot-root capability does not depend on the PVF
