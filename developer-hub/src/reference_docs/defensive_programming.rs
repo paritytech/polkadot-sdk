@@ -175,7 +175,6 @@
 //! dividing/modulo by zero at any point should be mitigated. One should be, instead, opting for a
 //! `checked_` method in order to introduce safe arithmetic in their code.
 //!
-//!
 //! #### The problem with 'default' wrapped operations
 //!
 //! **Wrapped operations** cause the overflow to wrap around to either the maximum or minimum of
