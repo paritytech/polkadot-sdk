@@ -25,6 +25,7 @@ sp-core = { path = "../../primitives/core", features = ["std"] }
 sp-io = { path = "../../primitives/io", features = ["std"] }
 pallet-example-basic = { path = "../examples/basic", features = ["std"] }
 pallet-balances = { path = "../balances", features = ["std"] }
+orml-traits = { version = "0.6.7", default-features = false, features = ["std"] }
 
 [features]
 default = ["std"]

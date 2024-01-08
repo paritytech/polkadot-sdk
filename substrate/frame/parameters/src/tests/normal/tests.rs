@@ -1,12 +1,29 @@
+// This file is part of Substrate.
+
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 //! Unit tests for the non-fungible-token module.
 
 #![cfg(test)]
 
-use super::{
-	mock::{dynamic_params::*, *},
+use crate::{
+	tests::normal::mock::{dynamic_params::*, *},
 	*,
 };
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{assert_noop, assert_ok, traits::AggregratedKeyValue};
 use RuntimeOrigin as Origin;
 
 #[docify::export]
@@ -14,7 +31,7 @@ use RuntimeOrigin as Origin;
 fn set_parameters_example() {
 	use RuntimeParameters::*;
 
-	ExtBuilder::new().execute_with(|| {
+	new_test_ext().execute_with(|| {
 		assert_eq!(pallet1::Key3::get(), 2, "Default works");
 
 		// This gets rejected since the origin is not root.
@@ -37,7 +54,7 @@ fn set_parameters_example() {
 
 #[test]
 fn set_parameters() {
-	/*ExtBuilder::new().execute_with(|| {
+	/*new_test_ext().execute_with(|| {
 		assert_eq!(
 			<ModuleParameters as RuntimeParameterStore>::get::<pallet1::Parameters, _>(
 				pallet1::Key1
@@ -152,8 +169,6 @@ fn test_define_parameters_value_convert() {
 
 #[test]
 fn test_define_parameters_aggregrated_key_value() {
-	use super::AggregratedKeyValue;
-
 	let kv1 = pallet1::Parameters::Key1(pallet1::Key1, None);
 	let (key1, value1) = kv1.clone().into_parts();
 
@@ -188,8 +203,6 @@ fn test_define_aggregrated_parameters_key_convert() {
 
 #[test]
 fn test_define_aggregrated_parameters_aggregrated_key_value() {
-	use super::AggregratedKeyValue;
-
 	let kv1 = RuntimeParameters::Pallet1(pallet1::Parameters::Key1(pallet1::Key1, None));
 	let (key1, value1) = kv1.clone().into_parts();
 

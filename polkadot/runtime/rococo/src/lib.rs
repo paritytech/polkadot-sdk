@@ -89,9 +89,8 @@ use sp_core::{ConstU128, OpaqueMetadata, H256};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{
-		AccountIdLookup, BlakeTwo256, Block as BlockT, ConstBool, ConstU32, ConvertInto,
-		Extrinsic as ExtrinsicT, IdentityLookup, Keccak256, OpaqueKeys, SaturatedConversion,
-		Verify,
+		BlakeTwo256, Block as BlockT, ConstBool, ConstU32, ConvertInto, Extrinsic as ExtrinsicT,
+		IdentityLookup, Keccak256, OpaqueKeys, SaturatedConversion, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, BoundToRuntimeAppPublic, FixedU128, KeyTypeId, Perbill, Percent, Permill,

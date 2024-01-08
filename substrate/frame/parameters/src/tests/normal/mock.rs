@@ -1,36 +1,37 @@
+// This file is part of Substrate.
+
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Polkadot.
+// SPDX-License-Identifier: Apache-2.0
 
-// Polkadot is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Polkadot is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #![cfg(test)]
 
 use frame_support::{
-	construct_runtime,
+	construct_runtime, derive_impl,
 	dynamic_params::{dynamic_pallet_params, dynamic_params},
-	traits::{ConstU32, ConstU64, EnsureOriginWithArg, Everything},
+	traits::{ConstU32, ConstU64, EnsureOriginWithArg},
 };
 use sp_core::H256;
-use sp_runtime::{traits::IdentityLookup, BuildStorage};
-
-use super::*;
+use sp_runtime::traits::IdentityLookup;
 
 use crate as parameters;
+use crate::*;
 
 pub type AccountId = u128;
 type Block = frame_system::mocking::MockBlock<Runtime>;
 
+#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
@@ -47,13 +48,6 @@ impl frame_system::Config for Runtime {
 	type Version = ();
 	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u64>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type DbWeight = ();
-	type BaseCallFilter = Everything;
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
 	type MaxConsumers = ConstU32<16>;
 }
 
@@ -155,14 +149,6 @@ construct_runtime!(
 	}
 );
 
-pub struct ExtBuilder;
-
-impl ExtBuilder {
-	pub fn new() -> sp_io::TestExternalities {
-		let t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
-
-		let mut ext = sp_io::TestExternalities::new(t);
-		ext.execute_with(|| System::set_block_number(1));
-		ext
-	}
+pub fn new_test_ext() -> sp_io::TestExternalities {
+	sp_io::TestExternalities::new(Default::default())
 }

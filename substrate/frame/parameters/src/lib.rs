@@ -57,16 +57,16 @@
 //! ### Example
 //!
 //! Here is an example of how to define some parameters, including their default values:
-#![doc = docify::embed!("src/mock.rs", dynamic_params)]
+#![doc = docify::embed!("src/tests/normal/mock.rs", dynamic_params)]
 //!
 //! Now the aggregated parameter needs to be injected into the pallet config:
-#![doc = docify::embed!("src/mock.rs", impl_config)]
+#![doc = docify::embed!("src/tests/normal/mock.rs", impl_config)]
 //!
 //! As last step, the parameters can now be used in other pallets 🙌
-#![doc = docify::embed!("src/mock.rs", usage)]
+#![doc = docify::embed!("src/tests/normal/mock.rs", usage)]
 //!
 //! Now to demonstrate how the values can be updated:
-#![doc = docify::embed!("src/tests.rs", set_parameters_example)]
+#![doc = docify::embed!("src/tests/normal/tests.rs", set_parameters_example)]
 //!
 //! ## Low Level / Implementation Details
 //!
@@ -99,7 +99,7 @@ use frame_system::pallet_prelude::*;
 
 use frame_support::traits::{AggregratedKeyValue, EnsureOriginWithArg};
 
-mod mock;
+#[cfg(test)]
 mod tests;
 mod weights;
 

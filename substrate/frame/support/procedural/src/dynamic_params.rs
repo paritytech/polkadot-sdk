@@ -367,6 +367,25 @@ pub fn dynamic_aggregated_params(_attr: TokenStream, item: TokenStream) -> Resul
 				}
 			}
 		}
+
+		#(
+			impl ::core::convert::From<<#param_types as #scrate::traits::AggregratedKeyValue>::AggregratedKey> for #params_key_ident {
+				fn from(key: <#param_types as #scrate::traits::AggregratedKeyValue>::AggregratedKey) -> Self {
+					#params_key_ident::#param_names(key)
+				}
+			}
+
+			impl ::core::convert::TryFrom<#params_value_ident> for <#param_types as #scrate::traits::AggregratedKeyValue>::AggregratedValue {
+				type Error = ();
+
+				fn try_from(value: #params_value_ident) -> Result<Self, Self::Error> {
+					match value {
+						#params_value_ident::#param_names(value) => Ok(value),
+						_ => Err(()),
+					}
+				}
+			}
+		)*
 	};
 
 	Ok(res)
