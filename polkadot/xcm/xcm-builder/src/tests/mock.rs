@@ -48,6 +48,7 @@ pub use xcm_executor::{
 	Assets, Config,
 };
 
+#[derive(Debug)]
 pub enum TestOrigin {
 	Root,
 	Relay,
