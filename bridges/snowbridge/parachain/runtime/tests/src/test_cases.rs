@@ -12,11 +12,11 @@ use parachains_runtimes_test_utils::{
 };
 use sp_core::H160;
 use sp_runtime::SaturatedConversion;
-use xcm::latest::prelude::*;
+use xcm::{
+	latest::prelude::*,
+	v3::Error::{self, Barrier},
+};
 use xcm_executor::XcmExecutor;
-// Re-export test_case from `parachains-runtimes-test-utils`
-pub use parachains_runtimes_test_utils::test_cases::change_storage_constant_by_governance_works;
-use xcm::v3::Error::{self, Barrier};
 
 type RuntimeHelper<Runtime, AllPalletsWithoutSystem = ()> =
 	parachains_runtimes_test_utils::RuntimeHelper<Runtime, AllPalletsWithoutSystem>;

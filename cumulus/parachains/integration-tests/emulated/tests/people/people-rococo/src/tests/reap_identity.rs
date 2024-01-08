@@ -88,7 +88,7 @@ impl Identity {
 		};
 		let (github, discord) = additional
 			.as_ref()
-			.and_then(|vec| vec.get(0))
+			.and_then(|vec| vec.first())
 			.map(|(g, d)| (g.clone(), d.clone()))
 			.unwrap_or((Data::None, Data::None));
 		Self {

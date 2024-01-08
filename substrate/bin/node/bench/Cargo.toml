@@ -16,7 +16,7 @@ workspace = true
 
 [dependencies]
 array-bytes = "6.1"
-clap = { version = "4.4.12", features = ["derive"] }
+clap = { version = "4.4.13", features = ["derive"] }
 log = "0.4.17"
 node-primitives = { path = "../primitives" }
 node-testing = { path = "../testing" }
@@ -24,8 +24,8 @@ kitchensink-runtime = { path = "../runtime" }
 sc-client-api = { path = "../../../client/api" }
 sp-runtime = { path = "../../../primitives/runtime" }
 sp-state-machine = { path = "../../../primitives/state-machine" }
-serde = "1.0.194"
-serde_json = "1.0.110"
+serde = "1.0.195"
+serde_json = "1.0.111"
 derive_more = { version = "0.99.17", default-features = false, features = ["display"] }
 kvdb = "0.13.0"
 kvdb-rocksdb = "0.19.0"
