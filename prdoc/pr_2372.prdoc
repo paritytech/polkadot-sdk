@@ -1,0 +1,23 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: On-demand & Coretime parachain upgrade fees
+
+doc:
+  - audience: Runtime User
+    description: |
+      All the parachains utilizing on-demand or the coretime model will be charged for performing
+      validation code upgrades. Before scheduling a code upgrade these parachains will have to 
+      explicitly specify the account that will be charged for performing the code upgrade.
+      Existing lease holding and system chains are not affected by this change and are allowed 
+      to continue performing code upgrades without associated upgrade costs. 
+migrations: 
+  db: []
+  runtime: 
+    - reference: polkadot-runtime-parachains
+      description: |
+        ParaInfo has been updated to include two new fields: billing_account and pending_deposit_refund. 
+        Both fields are initialized to None during the runtime migration.
+
+crates:
+  - name: polkadot-runtime-parachains

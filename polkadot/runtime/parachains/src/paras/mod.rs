@@ -415,6 +415,12 @@ enum PvfCheckOutcome {
 	Rejected,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, TypeInfo, Decode, Encode)]
+pub enum UpgradeRequirements {
+	SkipRequirements,
+	EnforceRequirements,
+}
+
 /// This struct describes the current state of an in-progress PVF pre-checking vote.
 #[derive(Encode, Decode, TypeInfo)]
 pub(crate) struct PvfCheckActiveVoteState<BlockNumber> {
@@ -503,6 +509,51 @@ impl OnNewHead for Tuple {
 		let mut weight: Weight = Default::default();
 		for_tuples!( #( weight.saturating_accrue(Tuple::on_new_head(id, head)); )* );
 		weight
+	}
+}
+
+pub trait OnCodeUpgrade {
+	/// A function to execute some custom logic once the pre-checking is successfully completed.
+	///
+	/// This is currently used by the registrar pallet to perform refunds upon validation code
+	/// size reduction.
+	fn on_code_upgrade(id: ParaId) -> Weight;
+}
+
+/// An empty implementation of the trait where there is no logic executed upon a successful
+/// code upgrade.
+impl OnCodeUpgrade for () {
+	fn on_code_upgrade(_id: ParaId) -> Weight {
+		Weight::zero()
+	}
+}
+
+pub trait PreCodeUpgrade {
+	/// A function that performs custom logic to before sceduling a code upgrade.
+	///
+	/// This is currently utilized by the registrar pallet to ensure that the necessary validation
+	/// code upgrade costs are covered.
+	///
+	/// `requirements` signals whether to enforce the pre code upgrade requirements.
+	///
+	/// As a result, it indicates either the success or failure of executing the pre code upgrade
+	/// scheduling logic. In both cases, it returns the consumed weight.
+	fn pre_code_upgrade(
+		id: ParaId,
+		new_code: ValidationCode,
+		requirements: UpgradeRequirements,
+	) -> Result<Weight, Weight>;
+}
+
+/// An empty implementation of the trait where there are no checks performed before scheduling a
+/// code upgrade.
+impl PreCodeUpgrade for () {
+	fn pre_code_upgrade(
+		_id: ParaId,
+		_new_code: ValidationCode,
+		_requirements: UpgradeRequirements,
+	) -> Result<Weight, Weight> {
+		Ok(Weight::zero())
 	}
 }
 
@@ -617,6 +668,13 @@ pub mod pallet {
 
 		/// Runtime hook for when a parachain head is updated.
 		type OnNewHead: OnNewHead;
+
+		/// A type that performs custom logic to determine whether a code upgrade is allowed to be
+		/// performed.
+		type PreCodeUpgrade: PreCodeUpgrade;
+
+		/// Type that executes some custom logic upon a successful code upgrade.
+		type OnCodeUpgrade: OnCodeUpgrade;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -772,7 +830,7 @@ pub mod pallet {
 	pub(super) type FutureCodeHash<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, ValidationCodeHash>;
 
-	/// This is used by the relay-chain to communicate to a parachain a go-ahead with in the upgrade
+	/// This is used by the relay-chain to communicate to a parachain a go-ahead within the upgrade
 	/// procedure.
 	///
 	/// This value is absent when there are no upgrades scheduled or during the time the relay chain
@@ -1245,13 +1303,13 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Called by the initializer to initialize the paras pallet.
-	pub(crate) fn initializer_initialize(now: BlockNumberFor<T>) -> Weight {
+	pub fn initializer_initialize(now: BlockNumberFor<T>) -> Weight {
 		let weight = Self::prune_old_code(now);
 		weight + Self::process_scheduled_upgrade_changes(now)
 	}
 
 	/// Called by the initializer to finalize the paras pallet.
-	pub(crate) fn initializer_finalize(now: BlockNumberFor<T>) {
+	pub fn initializer_finalize(now: BlockNumberFor<T>) {
 		Self::process_scheduled_upgrade_cooldowns(now);
 	}
 
@@ -1267,7 +1325,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// The validation code of live para.
-	pub(crate) fn current_code(para_id: &ParaId) -> Option<ValidationCode> {
+	pub fn current_code(para_id: &ParaId) -> Option<ValidationCode> {
 		Self::current_code_hash(para_id).and_then(|code_hash| {
 			let code = CodeByHash::<T>::get(&code_hash);
 			if code.is_none() {
@@ -2058,7 +2116,10 @@ impl<T: Config> Pallet<T> {
 				let now = <frame_system::Pallet<T>>::block_number();
 
 				let weight = if let Some(prior_code_hash) = maybe_prior_code_hash {
-					Self::note_past_code(id, expected_at, now, prior_code_hash)
+					let mut weight = Self::note_past_code(id, expected_at, now, prior_code_hash);
+					weight = weight.saturating_add(T::OnCodeUpgrade::on_code_upgrade(id));
+
+					weight
 				} else {
 					log::error!(target: LOG_TARGET, "Missing prior code hash for para {:?}", &id);
 					Weight::zero()
@@ -2154,7 +2215,7 @@ impl<T: Config> Pallet<T> {
 
 	/// If a candidate from the specified parachain were submitted at the current block, this
 	/// function returns if that candidate passes the acceptance criteria.
-	pub(crate) fn can_upgrade_validation_code(id: ParaId) -> bool {
+	pub fn can_upgrade_validation_code(id: ParaId) -> bool {
 		FutureCodeHash::<T>::get(&id).is_none() && UpgradeRestrictionSignal::<T>::get(&id).is_none()
 	}
 

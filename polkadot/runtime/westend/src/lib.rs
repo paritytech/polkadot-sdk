@@ -121,6 +121,8 @@ mod bag_thresholds;
 mod weights;
 pub mod xcm_config;
 
+use xcm_config::LocationConverter;
+
 // Implemented types.
 mod impls;
 use impls::ToParachainIdentityReaper;
@@ -1135,6 +1137,8 @@ impl parachains_paras::Config for Runtime {
 	type UnsignedPriority = ParasUnsignedPriority;
 	type QueueFootprinter = ParaInclusion;
 	type NextSessionRotation = Babe;
+	type PreCodeUpgrade = ();
+	type OnCodeUpgrade = ();
 	type OnNewHead = ();
 	type AssignCoretime = ();
 }
@@ -1265,6 +1269,7 @@ impl parachains_slashing::Config for Runtime {
 
 parameter_types! {
 	pub const ParaDeposit: Balance = 2000 * CENTS;
+	pub const UpgradeFee: Balance = 0;
 	pub const RegistrarDataDepositPerByte: Balance = deposit(0, 1);
 }
 
@@ -1275,6 +1280,8 @@ impl paras_registrar::Config for Runtime {
 	type OnSwap = (Crowdloan, Slots);
 	type ParaDeposit = ParaDeposit;
 	type DataDepositPerByte = RegistrarDataDepositPerByte;
+	type UpgradeFee = UpgradeFee;
+	type SovereignAccountOf = LocationConverter;
 	type WeightInfo = weights::runtime_common_paras_registrar::WeightInfo<Runtime>;
 }
 
@@ -1634,7 +1641,7 @@ pub mod migrations {
 		parachains_scheduler::migration::MigrateV1ToV2<Runtime>,
 		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
-		paras_registrar::migration::MigrateToV1<Runtime, ()>,
+		paras_registrar::migration::MigrateToV2<Runtime>,
 		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
 		pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
 		parachains_configuration::migration::v10::MigrateToV10<Runtime>,
@@ -2333,7 +2340,7 @@ sp_api::impl_runtime_apis! {
 
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
-				type AccountIdConverter = xcm_config::LocationConverter;
+				type AccountIdConverter = LocationConverter;
 				type DeliveryHelper = runtime_common::xcm_sender::ToParachainDeliveryHelper<
 					xcm_config::XcmConfig,
 					ExistentialDepositMultiAsset,

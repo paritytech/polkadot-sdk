@@ -32,6 +32,7 @@ use frame_support::{
 };
 use frame_support_test::TestRandomness;
 use frame_system::EnsureRoot;
+use pallet_balances::Error as BalancesError;
 use pallet_identity::{self, legacy::IdentityInfo};
 use parity_scale_codec::Encode;
 use primitives::{
@@ -50,6 +51,9 @@ use sp_runtime::{
 	AccountId32, BuildStorage,
 };
 use sp_std::sync::Arc;
+use xcm::opaque::lts::{Junction::Parachain, MultiLocation, NetworkId, Parent};
+use xcm_builder::{DescribeAllTerminal, DescribeFamily, HashedDescription};
+use xcm_executor::traits::ConvertLocation;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlockU32<Test>;
@@ -211,6 +215,8 @@ impl paras::Config for Test {
 	type UnsignedPriority = ParasUnsignedPriority;
 	type QueueFootprinter = ();
 	type NextSessionRotation = crate::mock::TestNextSessionRotation;
+	type PreCodeUpgrade = Registrar;
+	type OnCodeUpgrade = Registrar;
 	type OnNewHead = ();
 	type AssignCoretime = ();
 }
@@ -218,7 +224,11 @@ impl paras::Config for Test {
 parameter_types! {
 	pub const ParaDeposit: Balance = 500;
 	pub const DataDepositPerByte: Balance = 1;
+	pub const UpgradeFee: Balance = 2;
+	pub const RelayNetwork: NetworkId = NetworkId::Kusama;
 }
+
+pub type LocationToAccountId = HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>;
 
 impl paras_registrar::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
@@ -227,6 +237,8 @@ impl paras_registrar::Config for Test {
 	type DataDepositPerByte = DataDepositPerByte;
 	type Currency = Balances;
 	type RuntimeOrigin = RuntimeOrigin;
+	type UpgradeFee = UpgradeFee;
+	type SovereignAccountOf = LocationToAccountId;
 	type WeightInfo = crate::paras_registrar::TestWeightInfo;
 }
 
@@ -374,7 +386,9 @@ fn run_to_block(n: u32) {
 		AllPalletsWithSystem::on_finalize(block_number);
 		System::set_block_number(block_number + 1);
 		maybe_new_session(block_number + 1);
+		Paras::initializer_initialize(block_number + 1);
 		AllPalletsWithSystem::on_initialize(block_number + 1);
+		Paras::initializer_finalize(block_number + 1);
 	}
 }
 
@@ -389,6 +403,12 @@ fn last_event() -> RuntimeEvent {
 
 fn contains_event(event: RuntimeEvent) -> bool {
 	System::events().iter().any(|x| x.event == event)
+}
+
+/// Helper function for getting a custom size validation code.
+fn validation_code(size: usize) -> ValidationCode {
+	let validation_code = vec![0u8; size];
+	validation_code.into()
 }
 
 // Runs an end to end test of the auction, crowdloan, slots, and onboarding process over varying
@@ -418,7 +438,7 @@ fn basic_end_to_end_works() {
 				genesis_head.clone(),
 				validation_code.clone(),
 			));
-			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 			assert_ok!(Registrar::reserve(signed(2)));
 			assert_ok!(Registrar::register(
 				signed(2),
@@ -581,6 +601,556 @@ fn basic_end_to_end_works() {
 }
 
 #[test]
+fn para_upgrade_initiated_by_manager_works() {
+	new_test_ext().execute_with(|| {
+		assert!(System::block_number().is_one()); /* So events are emitted */
+		let para_id = LOWEST_PUBLIC_ID;
+		const START_SESSION_INDEX: SessionIndex = 1;
+		run_to_session(START_SESSION_INDEX);
+
+		// User 1 will own a parachain
+		let free_balance = 1_000_000_000;
+		Balances::make_free_balance_be(&account_id(1), free_balance);
+		// Register an on demand parachain
+		let mut code_size = 1024 * 1024;
+		let genesis_head = Registrar::worst_head_data();
+		let head_size = genesis_head.0.len();
+		let code_0 = validation_code(code_size);
+
+		assert_ok!(Registrar::reserve(signed(1)));
+		assert_ok!(Registrar::register(
+			signed(1),
+			ParaId::from(para_id),
+			genesis_head.clone(),
+			code_0.clone(),
+		));
+		conclude_pvf_checking::<Test>(&code_0, VALIDATORS, START_SESSION_INDEX, true);
+
+		// The para should be onboarding.
+		assert_eq!(Paras::lifecycle(ParaId::from(para_id)), Some(ParaLifecycle::Onboarding));
+		// After two sessions the parachain will be succesfully registered as an on-demand.
+		run_to_session(START_SESSION_INDEX + 2);
+		assert!(Registrar::is_parathread(para_id));
+		// The deposit should be appropriately taken.
+		let total_bytes_stored = code_size as u32 + head_size as u32;
+		assert_eq!(
+			Balances::reserved_balance(&account_id(1)),
+			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
+		);
+
+		// CASE 1: Attempting to schedule a parachain upgrade without setting the billing account
+		// beforehand will result in failure.
+		assert_noop!(
+			Registrar::schedule_code_upgrade(signed(1), ParaId::from(para_id), code_0,),
+			paras_registrar::Error::<Test>::CannotUpgrade
+		);
+
+		// Set the billing account to be able to schedule code upgrades.
+		assert_ok!(Registrar::set_parachain_billing_account_to_self(
+			signed(1),
+			ParaId::from(para_id),
+		));
+
+		// CASE 2: Schedule a para upgrade to set the validation code to a new one which is twice
+		// the size.
+		code_size *= 2;
+		let code_1 = validation_code(code_size);
+		assert_ok!(Registrar::schedule_code_upgrade(
+			signed(1),
+			ParaId::from(para_id),
+			code_1.clone(),
+		));
+
+		// The reserved deposit should cover for the size difference of the new validation code.
+		let total_bytes_stored = code_size as u32 + head_size as u32;
+		assert_eq!(
+			Balances::reserved_balance(&account_id(1)),
+			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
+		);
+		// An additional upgrade fee should also be deducted from the caller's balance.
+		assert_eq!(Balances::total_balance(&account_id(1)), free_balance - UpgradeFee::get());
+
+		conclude_pvf_checking::<Test>(&code_1, VALIDATORS, START_SESSION_INDEX + 2, true);
+		// After two more sessions the parachain can be upgraded.
+		run_to_session(START_SESSION_INDEX + 4);
+		// Force a new head to enact the code upgrade.
+		assert_ok!(Paras::force_note_new_head(
+			RuntimeOrigin::root(),
+			para_id,
+			genesis_head.clone()
+		));
+		assert_eq!(Paras::current_code(&para_id), Some(code_1.clone()));
+
+		// CASE 3: After successfully upgrading the validation code to twice the size of the
+		// previous one, we will now proceed to upgrade the validation code to a smaller size. It is
+		// expected that the parachain manager will receive a refund upon the successful completion
+		// of the upgrade.
+
+		code_size /= 2;
+		let code_2 = validation_code(code_size);
+		assert_ok!(Registrar::schedule_code_upgrade(
+			signed(1),
+			ParaId::from(para_id),
+			code_2.clone(),
+		));
+		conclude_pvf_checking::<Test>(&code_2, VALIDATORS, START_SESSION_INDEX + 4, true);
+
+		// After two more sessions the parachain can be upgraded.
+		run_to_session(START_SESSION_INDEX + 6);
+		// Force a new head to enact the code upgrade.
+		assert_ok!(Paras::force_note_new_head(
+			RuntimeOrigin::root(),
+			para_id,
+			genesis_head.clone()
+		));
+		assert_eq!(Paras::current_code(&para_id), Some(code_2.clone()));
+
+		let updated_total_bytes_stored = code_size as u32 + head_size as u32;
+		let expected_rebate =
+			(total_bytes_stored - updated_total_bytes_stored) * DataDepositPerByte::get();
+
+		assert!(contains_event(
+			paras_registrar::Event::<Test>::Refunded {
+				para_id,
+				who: account_id(1),
+				amount: expected_rebate
+			}
+			.into()
+		),);
+		// The reserved deposit should cover only the size of the new validation code.
+		assert_eq!(
+			Balances::reserved_balance(&account_id(1)),
+			ParaDeposit::get() + (updated_total_bytes_stored * DataDepositPerByte::get())
+		);
+		// An additional upgrade fee should also be deducted from the caller's balance.
+		assert_eq!(Balances::total_balance(&account_id(1)), free_balance - (2 * UpgradeFee::get()));
+
+		// CASE 4: Para manager won't get refunded if the code upgrade fails
+		let code_3 = validation_code(42);
+		assert_ok!(Registrar::schedule_code_upgrade(
+			signed(1),
+			ParaId::from(para_id),
+			code_3.clone(),
+		));
+		// Reject the new validation code.
+		conclude_pvf_checking::<Test>(&code_3, VALIDATORS, START_SESSION_INDEX + 6, false);
+
+		// After two more sessions the parachain can be upgraded.
+		run_to_session(START_SESSION_INDEX + 8);
+		// Force a new head to enact the code upgrade.
+		assert_ok!(Paras::force_note_new_head(RuntimeOrigin::root(), para_id, Default::default()));
+		// The upgrade failed and the para manager shouldn't get a refund.
+		assert_eq!(Paras::current_code(&para_id), Some(code_2.clone()));
+		assert_eq!(
+			Balances::reserved_balance(&account_id(1)),
+			ParaDeposit::get() + (updated_total_bytes_stored * DataDepositPerByte::get())
+		);
+		// Even though the upgrade failed the upgrade fee is deducted from the caller's balance.
+		assert_eq!(Balances::total_balance(&account_id(1)), free_balance - (3 * UpgradeFee::get()));
+	});
+}
+
+#[test]
+fn root_upgrading_parachain_works() {
+	new_test_ext().execute_with(|| {
+		assert!(System::block_number().is_one()); /* So events are emitted */
+		let para_id = LOWEST_PUBLIC_ID;
+		const START_SESSION_INDEX: SessionIndex = 1;
+		run_to_session(START_SESSION_INDEX);
+
+		// User 1 will own a parachain
+		Balances::make_free_balance_be(&account_id(1), 1_000_000_000);
+		// Register an on demand parachain
+		let code_size = 1024 * 1024;
+		let genesis_head = Registrar::worst_head_data();
+		let head_size = genesis_head.0.len();
+		let code_0 = validation_code(code_size);
+
+		assert_ok!(Registrar::reserve(signed(1)));
+		assert_ok!(Registrar::register(
+			signed(1),
+			ParaId::from(para_id),
+			genesis_head.clone(),
+			code_0.clone(),
+		));
+		conclude_pvf_checking::<Test>(&code_0, VALIDATORS, START_SESSION_INDEX, true);
+
+		// The para should be onboarding.
+		assert_eq!(Paras::lifecycle(ParaId::from(para_id)), Some(ParaLifecycle::Onboarding));
+		// After two sessions the parachain will be succesfully registered as an on-demand.
+		run_to_session(START_SESSION_INDEX + 2);
+		assert!(Registrar::is_parathread(para_id));
+		// The deposit should be appropriately taken.
+		let total_bytes_stored = code_size as u32 + head_size as u32;
+		assert_eq!(
+			Balances::reserved_balance(&account_id(1)),
+			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
+		);
+
+		// Set the billing account to be able to schedule code upgrades.
+		assert_ok!(Registrar::set_parachain_billing_account_to_self(
+			signed(1),
+			ParaId::from(para_id),
+		));
+
+		// CASE 1: Root schedules a para upgrade to set the validation code to a new one which is
+		// twice the size.
+
+		let code_1 = validation_code(code_size * 2);
+		assert_ok!(Registrar::schedule_code_upgrade(
+			RuntimeOrigin::root(),
+			ParaId::from(para_id),
+			code_1.clone(),
+		));
+		conclude_pvf_checking::<Test>(&code_1, VALIDATORS, START_SESSION_INDEX + 2, true);
+
+		// After two more sessions the parachain can be upgraded.
+		run_to_session(START_SESSION_INDEX + 4);
+		// Force a new head to enact the code upgrade.
+		assert_ok!(Paras::force_note_new_head(
+			RuntimeOrigin::root(),
+			para_id,
+			genesis_head.clone()
+		));
+		assert_eq!(Paras::current_code(&para_id), Some(code_1.clone()));
+
+		// The reserved deposit should remain the same since the upgrade was performed by root.
+		let total_bytes_stored = code_size as u32 + head_size as u32;
+		assert_eq!(
+			Balances::reserved_balance(&account_id(1)),
+			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
+		);
+
+		// CASE 2: Root schedules a para upgrade to set the validation code to a new one which has
+		// half the size of the initially registered code. The billing acount should get a refund
+		// for the deposit they are no longer required to hold.
+
+		let code_2 = validation_code(code_size / 2);
+		assert_ok!(Registrar::schedule_code_upgrade(
+			RuntimeOrigin::root(),
+			ParaId::from(para_id),
+			code_2.clone(),
+		));
+		conclude_pvf_checking::<Test>(&code_2, VALIDATORS, START_SESSION_INDEX + 4, true);
+
+		// After two more sessions the parachain can be upgraded.
+		run_to_session(START_SESSION_INDEX + 6);
+		// Force a new head to enact the code upgrade.
+		assert_ok!(Paras::force_note_new_head(
+			RuntimeOrigin::root(),
+			para_id,
+			genesis_head.clone()
+		));
+		assert_eq!(Paras::current_code(&para_id), Some(code_2.clone()));
+
+		let total_bytes_stored = (code_size / 2) as u32 + head_size as u32;
+		assert_eq!(
+			Balances::reserved_balance(&account_id(1)),
+			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
+		);
+	});
+}
+
+#[test]
+fn lease_holding_parachains_have_no_upgrade_costs() {
+	new_test_ext().execute_with(|| {
+		assert!(System::block_number().is_one()); /* So events are emitted */
+		let para_id = LOWEST_PUBLIC_ID;
+		const START_SESSION_INDEX: SessionIndex = 1;
+		run_to_session(START_SESSION_INDEX);
+
+		// User 1 will own a parachain
+		let free_balance = 1_000_000_000;
+		Balances::make_free_balance_be(&account_id(1), free_balance);
+		// Register an on demand parachain
+		let mut code_size = 1024 * 1024;
+		let genesis_head = Registrar::worst_head_data();
+		let head_size = genesis_head.0.len();
+		let code_0 = validation_code(code_size);
+
+		assert_ok!(Registrar::reserve(signed(1)));
+		assert_ok!(Registrar::register(
+			signed(1),
+			ParaId::from(para_id),
+			genesis_head.clone(),
+			code_0.clone(),
+		));
+		conclude_pvf_checking::<Test>(&code_0, VALIDATORS, START_SESSION_INDEX, true);
+
+		// The para should be onboarding.
+		assert_eq!(Paras::lifecycle(ParaId::from(para_id)), Some(ParaLifecycle::Onboarding));
+		// After two sessions the parachain will be succesfully registered as an on-demand.
+		run_to_session(START_SESSION_INDEX + 2);
+		assert!(Registrar::is_parathread(para_id));
+
+		// The deposit should be appropriately taken.
+		let total_bytes_stored = code_size as u32 + head_size as u32;
+		assert_eq!(
+			Balances::reserved_balance(&account_id(1)),
+			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
+		);
+
+		// Make the para a lease holding parachain.
+		assert_ok!(Registrar::make_parachain(para_id));
+		run_to_session(START_SESSION_INDEX + 4);
+		assert!(Registrar::is_parachain(para_id));
+
+		// The lease holding parachain should be able to schedule a code upgrade without any
+		// additional deposit or fees necessary.
+
+		code_size *= 2;
+		let code_1 = validation_code(code_size);
+		assert_ok!(Registrar::schedule_code_upgrade(
+			signed(1),
+			ParaId::from(para_id),
+			code_1.clone(),
+		));
+		conclude_pvf_checking::<Test>(&code_1, VALIDATORS, START_SESSION_INDEX + 4, true);
+
+		// After two more sessions the parachain can be upgraded.
+		run_to_session(START_SESSION_INDEX + 6);
+		// Force a new head to enact the code upgrade.
+		assert_ok!(Paras::force_note_new_head(
+			RuntimeOrigin::root(),
+			para_id,
+			genesis_head.clone()
+		));
+		assert_eq!(Paras::current_code(&para_id), Some(code_1.clone()));
+
+		// Should remain unchanged:
+		assert_eq!(
+			Balances::reserved_balance(&account_id(1)),
+			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
+		);
+		assert_eq!(Balances::total_balance(&account_id(1)), free_balance);
+	});
+}
+
+#[test]
+fn setting_parachain_billing_account_to_self_works() {
+	new_test_ext().execute_with(|| {
+		assert!(System::block_number().is_one()); /* So events are emitted */
+		let para_id = LOWEST_PUBLIC_ID;
+		const START_SESSION_INDEX: SessionIndex = 1;
+		run_to_session(START_SESSION_INDEX);
+
+		// User 1 will own a parachain
+		let free_balance = 1_000_000_000;
+		Balances::make_free_balance_be(&account_id(1), free_balance);
+		// Register an on demand parachain
+		let mut code_size = 1024 * 1024;
+		let genesis_head = Registrar::worst_head_data();
+		let head_size = genesis_head.0.len();
+		let code_0 = validation_code(code_size);
+
+		assert_ok!(Registrar::reserve(signed(1)));
+		assert_ok!(Registrar::register(
+			signed(1),
+			ParaId::from(para_id),
+			genesis_head.clone(),
+			code_0.clone(),
+		));
+		conclude_pvf_checking::<Test>(&code_0, VALIDATORS, START_SESSION_INDEX, true);
+
+		// The para should be onboarding.
+		assert_eq!(Paras::lifecycle(ParaId::from(para_id)), Some(ParaLifecycle::Onboarding));
+		// After two sessions the parachain will be succesfully registered as an on-demand.
+		run_to_session(START_SESSION_INDEX + 2);
+		assert!(Registrar::is_parathread(para_id));
+		// The deposit should be appropriately taken.
+		let total_bytes_stored = code_size as u32 + head_size as u32;
+		assert_eq!(
+			Balances::reserved_balance(&account_id(1)),
+			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
+		);
+
+		// CASE 1: Parachain origin attempting to assign the billing account to it itself will
+		// fail if the balance of the sovereign account is insufficient to cover the required
+		// deposit amount
+
+		let location: MultiLocation = (Parent, Parachain(para_id.into())).into();
+		let sovereign_account =
+			<Test as paras_registrar::Config>::SovereignAccountOf::convert_location(&location)
+				.unwrap();
+		let para_origin: runtime_parachains::Origin = u32::from(para_id).into();
+
+		assert_noop!(
+			Registrar::set_parachain_billing_account_to_self(
+				para_origin.clone().into(),
+				ParaId::from(para_id)
+			),
+			BalancesError::<Test>::InsufficientBalance
+		);
+
+		// CASE 2: The happy path.. The new billing account is sufficiently funded, so the
+		// reserve will be successful, and the old account will be refunded.
+		Balances::make_free_balance_be(&sovereign_account, free_balance);
+
+		assert_ok!(Registrar::set_parachain_billing_account_to_self(
+			para_origin.into(),
+			ParaId::from(para_id),
+		));
+		assert_eq!(
+			last_event(),
+			paras_registrar::Event::<Test>::BillingAccountSet {
+				para_id,
+				who: sovereign_account.clone()
+			}
+			.into(),
+		);
+
+		assert_eq!(
+			Balances::reserved_balance(&sovereign_account),
+			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
+		);
+		assert_eq!(Balances::free_balance(&account_id(1)), free_balance);
+
+		// Now, if we attempt to schedule a code upgrade, all the costs will be covered by the new
+		// billing account.
+
+		code_size *= 2;
+		let code_1 = validation_code(code_size);
+		assert_ok!(Registrar::schedule_code_upgrade(
+			signed(1),
+			ParaId::from(para_id),
+			code_1.clone(),
+		));
+		conclude_pvf_checking::<Test>(&code_1, VALIDATORS, START_SESSION_INDEX + 2, true);
+
+		// After two more sessions the parachain can be upgraded.
+		run_to_session(START_SESSION_INDEX + 4);
+		// Force a new head to enact the code upgrade.
+		assert_ok!(Paras::force_note_new_head(
+			RuntimeOrigin::root(),
+			para_id,
+			genesis_head.clone()
+		));
+		assert_eq!(Paras::current_code(&para_id), Some(code_1.clone()));
+
+		// The new code upgrade billing account will have its deposit appropriately adjusted given
+		// the increase in the new code.
+		let total_bytes_stored = code_size as u32 + head_size as u32;
+		assert_eq!(
+			Balances::reserved_balance(&sovereign_account),
+			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
+		);
+		// The new billing account will also be charged with the upgrade fees.
+		assert_eq!(Balances::total_balance(&sovereign_account), free_balance - UpgradeFee::get());
+
+		// The account of the initial billing account should however remain unchanged.
+		assert_eq!(Balances::free_balance(&account_id(1)), free_balance);
+	});
+}
+
+#[test]
+fn force_set_parachain_billing_account_works() {
+	new_test_ext().execute_with(|| {
+		assert!(System::block_number().is_one()); /* So events are emitted */
+		let para_id = LOWEST_PUBLIC_ID;
+		const START_SESSION_INDEX: SessionIndex = 1;
+		run_to_session(START_SESSION_INDEX);
+
+		// User 1 will own a parachain
+		let free_balance = 1_000_000_000;
+		Balances::make_free_balance_be(&account_id(1), free_balance);
+		// Register an on demand parachain
+		let mut code_size = 1024 * 1024;
+		let genesis_head = Registrar::worst_head_data();
+		let head_size = genesis_head.0.len();
+		let code_0 = validation_code(code_size);
+
+		assert_ok!(Registrar::reserve(signed(1)));
+		assert_ok!(Registrar::register(
+			signed(1),
+			ParaId::from(para_id),
+			genesis_head.clone(),
+			code_0.clone(),
+		));
+		conclude_pvf_checking::<Test>(&code_0, VALIDATORS, START_SESSION_INDEX, true);
+
+		// The para should be onboarding.
+		assert_eq!(Paras::lifecycle(ParaId::from(para_id)), Some(ParaLifecycle::Onboarding));
+		// After two sessions the parachain will be succesfully registered as an on-demand.
+		run_to_session(START_SESSION_INDEX + 2);
+		assert!(Registrar::is_parathread(para_id));
+		// The deposit should be appropriately taken.
+		let total_bytes_stored = code_size as u32 + head_size as u32;
+		assert_eq!(
+			Balances::reserved_balance(&account_id(1)),
+			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
+		);
+
+		// CASE 1: Attempting to set the billing account to an account with an insufficient balance
+		// to cover the required deposit should result in a failure.
+
+		assert_noop!(
+			Registrar::force_set_parachain_billing_account(
+				RuntimeOrigin::root(),
+				ParaId::from(para_id),
+				account_id(2),
+			),
+			BalancesError::<Test>::InsufficientBalance
+		);
+
+		// CASE 2: The new billing account is sufficiently funded, so the reserve will be
+		// successful, and the old account will be refunded.
+		Balances::make_free_balance_be(&account_id(2), free_balance);
+
+		assert_ok!(Registrar::force_set_parachain_billing_account(
+			RuntimeOrigin::root(),
+			ParaId::from(para_id),
+			account_id(2)
+		));
+		assert_eq!(
+			last_event(),
+			paras_registrar::Event::<Test>::BillingAccountSet { para_id, who: account_id(2) }
+				.into(),
+		);
+
+		assert_eq!(
+			Balances::reserved_balance(&account_id(2)),
+			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
+		);
+		assert_eq!(Balances::free_balance(&account_id(1)), free_balance);
+
+		// Now, if we attempt to schedule a code upgrade, all the costs will be covered by the new
+		// billing account.
+
+		code_size *= 2;
+		let code_1 = validation_code(code_size);
+		assert_ok!(Registrar::schedule_code_upgrade(
+			signed(1),
+			ParaId::from(para_id),
+			code_1.clone(),
+		));
+		conclude_pvf_checking::<Test>(&code_1, VALIDATORS, START_SESSION_INDEX + 2, true);
+
+		// After two more sessions the parachain can be upgraded.
+		run_to_session(START_SESSION_INDEX + 4);
+		// Force a new head to enact the code upgrade.
+		assert_ok!(Paras::force_note_new_head(
+			RuntimeOrigin::root(),
+			para_id,
+			genesis_head.clone()
+		));
+		assert_eq!(Paras::current_code(&para_id), Some(code_1.clone()));
+
+		// The new code upgrade billing account will have its deposit appropriately adjusted given
+		// the increase in the new code.
+		let total_bytes_stored = code_size as u32 + head_size as u32;
+		assert_eq!(
+			Balances::reserved_balance(&account_id(2)),
+			ParaDeposit::get() + (total_bytes_stored * DataDepositPerByte::get())
+		);
+		// The new billing account will also be charged with the upgrade fees.
+		assert_eq!(Balances::total_balance(&account_id(2)), free_balance - UpgradeFee::get());
+
+		// The account of the initial billing account should however remain unchanged.
+		assert_eq!(Balances::free_balance(&account_id(1)), free_balance);
+	});
+}
+
+#[test]
 fn basic_errors_fail() {
 	new_test_ext().execute_with(|| {
 		assert!(System::block_number().is_one());
@@ -655,7 +1225,7 @@ fn competing_slots() {
 			));
 		}
 		// The code undergoing the prechecking is the same for all paras.
-		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 		// Start a new auction in the future
 		let duration = 149u32;
@@ -757,7 +1327,7 @@ fn competing_bids() {
 			));
 		}
 		// The code undergoing the prechecking is the same for all paras.
-		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 		// Finish registration of paras.
 		run_to_session(START_SESSION_INDEX + 2);
@@ -864,7 +1434,7 @@ fn basic_swap_works() {
 			test_genesis_head(10),
 			validation_code.clone(),
 		));
-		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 		let validation_code = test_validation_code(20);
 		assert_ok!(Registrar::reserve(signed(2)));
@@ -874,7 +1444,7 @@ fn basic_swap_works() {
 			test_genesis_head(20),
 			validation_code.clone(),
 		));
-		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 		// Paras should be onboarding
 		assert_eq!(Paras::lifecycle(ParaId::from(2000)), Some(ParaLifecycle::Onboarding));
@@ -1026,7 +1596,7 @@ fn parachain_swap_works() {
 			test_genesis_head(10),
 			validation_code.clone(),
 		));
-		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 		let validation_code = test_validation_code(20);
 		assert_ok!(Registrar::reserve(signed(2)));
@@ -1036,7 +1606,7 @@ fn parachain_swap_works() {
 			test_genesis_head(20),
 			validation_code.clone(),
 		));
-		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 		// Paras should be onboarding
 		assert_eq!(Paras::lifecycle(ParaId::from(2000)), Some(ParaLifecycle::Onboarding));
@@ -1204,7 +1774,7 @@ fn crowdloan_ending_period_bid() {
 			test_genesis_head(10),
 			validation_code.clone(),
 		));
-		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 		let validation_code = test_validation_code(20);
 		assert_ok!(Registrar::reserve(signed(2)));
@@ -1214,7 +1784,7 @@ fn crowdloan_ending_period_bid() {
 			test_genesis_head(20),
 			validation_code.clone(),
 		));
-		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 		// Paras should be onboarding
 		assert_eq!(Paras::lifecycle(ParaId::from(2000)), Some(ParaLifecycle::Onboarding));
@@ -1336,7 +1906,7 @@ fn auction_bid_requires_registered_para() {
 			test_genesis_head(10),
 			validation_code.clone(),
 		));
-		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 		// Still can't bid until it is fully onboarded
 		assert_noop!(
@@ -1402,7 +1972,7 @@ fn gap_bids_work() {
 			test_genesis_head(10),
 			validation_code.clone(),
 		));
-		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 		// Onboarded on Session 2
 		run_to_session(START_SESSION_INDEX + 2);
@@ -1572,7 +2142,7 @@ fn cant_bid_on_existing_lease_periods() {
 			test_genesis_head(10),
 			validation_code.clone(),
 		));
-		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 		// Start a new auction in the future
 		let starting_block = System::block_number();

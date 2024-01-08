@@ -23,13 +23,14 @@ use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	pallet_prelude::Weight,
-	traits::{Currency, Get, ReservableCurrency},
+	traits::{Currency, ExistenceRequirement, Get, ReservableCurrency, WithdrawReasons},
 };
 use frame_system::{self, ensure_root, ensure_signed};
+use polkadot_parachain_primitives::primitives::IsSystem;
 use primitives::{HeadData, Id as ParaId, ValidationCode, LOWEST_PUBLIC_ID};
 use runtime_parachains::{
 	configuration, ensure_parachain,
-	paras::{self, ParaGenesisArgs, SetGoAhead},
+	paras::{self, OnCodeUpgrade, ParaGenesisArgs, PreCodeUpgrade, SetGoAhead},
 	Origin, ParaLifecycle,
 };
 use sp_std::{prelude::*, result};
@@ -37,22 +38,39 @@ use sp_std::{prelude::*, result};
 use crate::traits::{OnSwap, Registrar};
 pub use pallet::*;
 use parity_scale_codec::{Decode, Encode};
-use runtime_parachains::paras::{OnNewHead, ParaKind};
+use runtime_parachains::paras::{OnNewHead, ParaKind, UpgradeRequirements};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{CheckedSub, Saturating},
 	RuntimeDebug,
 };
+use xcm::opaque::lts::{Junction::Parachain, MultiLocation, Parent};
+use xcm_executor::traits::ConvertLocation;
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, TypeInfo)]
 pub struct ParaInfo<Account, Balance> {
-	/// The account that has placed a deposit for registering this para.
+	/// The account that has initially placed a deposit for registering this para.
+	///
+	/// The given account ID is responsible for registering the code and initial head data, but may
+	/// only do so if it isn't yet registered. (After that, it's up to governance to do so.)
 	pub(crate) manager: Account,
-	/// The amount reserved by the `manager` account for the registration.
+	/// The total amount reserved for this para.
 	deposit: Balance,
 	/// Whether the para registration should be locked from being controlled by the manager.
 	/// None means the lock had not been explicitly set, and should be treated as false.
 	locked: Option<bool>,
+	/// The billing account for a parachain. This account is responsible for holding the required
+	/// deposit and covering all associated costs related to scheduling parachain validation code
+	/// upgrades.
+	///
+	/// This account must be explicitly set using the `set_parachain_billing_account_to_self`
+	/// extrinsic
+	///
+	/// None indicates that the billing account hasn't been set, and attempting to schedule a
+	/// parachain upgrade will result in failure.
+	billing_account: Option<Account>,
+	/// The deposit that will be refunded upon a successful code upgrade.
+	pending_deposit_refund: Option<Balance>,
 }
 
 impl<Account, Balance> ParaInfo<Account, Balance> {
@@ -60,6 +78,17 @@ impl<Account, Balance> ParaInfo<Account, Balance> {
 	pub fn is_locked(&self) -> bool {
 		self.locked.unwrap_or(false)
 	}
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+pub enum CodeUpgradeScheduleError {
+	/// The parachain billing account has to be explicitly set before being able to schedule a
+	/// code upgrade.
+	BillingAccountNotSet,
+	/// Failed to pay the upgrade fee for scheduling the code upgrade.
+	FailedToPayUpgradeFee,
+	/// Failed to reserve the appropriate deposit for the new validation code.
+	FailedToReserveDeposit,
 }
 
 type BalanceOf<T> =
@@ -71,8 +100,12 @@ pub trait WeightInfo {
 	fn force_register() -> Weight;
 	fn deregister() -> Weight;
 	fn swap() -> Weight;
+	fn pre_code_upgrade() -> Weight;
+	fn on_code_upgrade() -> Weight;
 	fn schedule_code_upgrade(b: u32) -> Weight;
 	fn set_current_head(b: u32) -> Weight;
+	fn set_parachain_billing_account_to_self() -> Weight;
+	fn force_set_parachain_billing_account() -> Weight;
 }
 
 pub struct TestWeightInfo;
@@ -92,10 +125,22 @@ impl WeightInfo for TestWeightInfo {
 	fn swap() -> Weight {
 		Weight::zero()
 	}
+	fn pre_code_upgrade() -> Weight {
+		Weight::zero()
+	}
+	fn on_code_upgrade() -> Weight {
+		Weight::zero()
+	}
 	fn schedule_code_upgrade(_b: u32) -> Weight {
 		Weight::zero()
 	}
 	fn set_current_head(_b: u32) -> Weight {
+		Weight::zero()
+	}
+	fn set_parachain_billing_account_to_self() -> Weight {
+		Weight::zero()
+	}
+	fn force_set_parachain_billing_account() -> Weight {
 		Weight::zero()
 	}
 }
@@ -107,7 +152,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	/// The current storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
@@ -142,6 +187,17 @@ pub mod pallet {
 		#[pallet::constant]
 		type DataDepositPerByte: Get<BalanceOf<Self>>;
 
+		/// The fee required to perform a validation code upgrade for a parachain.
+		///
+		/// This is used to discourage spamming parachain upgrades.
+		#[pallet::constant]
+		type UpgradeFee: Get<BalanceOf<Self>>;
+
+		/// Type used to get the sovereign account of a parachain.  
+		///
+		/// This is used to enable reserving or refunding deposit from parachains.
+		type SovereignAccountOf: ConvertLocation<Self::AccountId>;
+
 		/// Weight Information for the Extrinsics in the Pallet
 		type WeightInfo: WeightInfo;
 	}
@@ -153,6 +209,12 @@ pub mod pallet {
 		Deregistered { para_id: ParaId },
 		Reserved { para_id: ParaId, who: T::AccountId },
 		Swapped { para_id: ParaId, other_id: ParaId },
+		BillingAccountSet { para_id: ParaId, who: T::AccountId },
+		Refunded { para_id: ParaId, who: T::AccountId, amount: BalanceOf<T> },
+		// NOTE: This event won't be emitted if the upgrade is scheduled using the extrinsic,
+		// since failed dispatchables can't emit events. This is useful for upgrades that are
+		// triggered from the parachain inclusion pallet, which is almost always the case anyway.
+		CodeUpgradeScheduleFailed(CodeUpgradeScheduleError),
 	}
 
 	#[pallet::error]
@@ -193,10 +255,8 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type PendingSwap<T> = StorageMap<_, Twox64Concat, ParaId, ParaId>;
 
-	/// Amount held on deposit for each para and the original depositor.
-	///
-	/// The given account ID is responsible for registering the code and initial head data, but may
-	/// only do so if it isn't yet registered. (After that, it's up to governance to do so.)
+	/// Stores all the registration, code upgrade permission, and billing-related information for
+	/// the parachain
 	#[pallet::storage]
 	pub type Paras<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, ParaInfo<T::AccountId, BalanceOf<T>>>;
@@ -402,8 +462,16 @@ pub mod pallet {
 
 		/// Schedule a parachain upgrade.
 		///
-		/// Can be called by Root, the parachain, or the parachain manager if the parachain is
-		/// unlocked.
+		/// ## Arguments
+		/// - `origin`: Can be called by Root, the parachain, or the parachain manager if the
+		///   parachain is unlocked.
+		/// - `para`: The parachain's ID for which the code upgrade is scheduled.
+		/// - `new_code`: The new validation code of the parachain.
+		///
+		/// ## Deposits/Fees
+		/// In case the call is made by the parachain manager or the parachain itself, there will be
+		/// associated upgrade costs. Depending on the size of the new validation code, the caller's
+		/// reserved deposit might be adjusted to account for the size difference.
 		#[pallet::call_index(7)]
 		#[pallet::weight(<T as Config>::WeightInfo::schedule_code_upgrade(new_code.0.len() as u32))]
 		pub fn schedule_code_upgrade(
@@ -411,9 +479,17 @@ pub mod pallet {
 			para: ParaId,
 			new_code: ValidationCode,
 		) -> DispatchResult {
-			Self::ensure_root_para_or_owner(origin, para)?;
-			runtime_parachains::schedule_code_upgrade::<T>(para, new_code, SetGoAhead::No)?;
-			Ok(())
+			Self::ensure_root_para_or_owner(origin.clone(), para)?;
+
+			let requirements = if ensure_root(origin.clone()).is_ok() {
+				// Upgrades initiated by the root origin do not have any upgrade cost-related
+				// requirements. For this reason we can skip all the pre code upgrade checks.
+				UpgradeRequirements::SkipRequirements
+			} else {
+				UpgradeRequirements::EnforceRequirements
+			};
+
+			Self::do_schedule_code_upgrade(para, new_code, requirements)
 		}
 
 		/// Set the parachain's current head.
@@ -429,6 +505,76 @@ pub mod pallet {
 		) -> DispatchResult {
 			Self::ensure_root_para_or_owner(origin, para)?;
 			runtime_parachains::set_current_head::<T>(para, new_head);
+			Ok(())
+		}
+
+		/// Changes the billing account of a parachain to the caller.
+		///
+		/// ## Arguments
+		/// - `origin`: Can be called by Root, the parachain, or the parachain manager if the
+		///   parachain is unlocked.
+		/// - `para`: The parachain's ID for which the billing account is set.
+		///
+		/// ## Deposits/Fees
+		/// For this call to be successful, the caller account must have a sufficient balance
+		/// to cover the current deposit required for this parachain.
+		///
+		/// ## Events
+		/// The `BillingAccountSet` event is emitted in case of success.
+		#[pallet::call_index(9)]
+		#[pallet::weight(<T as Config>::WeightInfo::set_parachain_billing_account_to_self())]
+		pub fn set_parachain_billing_account_to_self(
+			origin: OriginFor<T>,
+			para: ParaId,
+		) -> DispatchResult {
+			Self::ensure_root_para_or_owner(origin.clone(), para)?;
+
+			let new_billing_account = if let Ok(caller) = ensure_signed(origin.clone()) {
+				let para_info = Paras::<T>::get(para).ok_or(Error::<T>::NotRegistered)?;
+				ensure!(!para_info.is_locked(), Error::<T>::ParaLocked);
+				ensure!(para_info.manager == caller, Error::<T>::NotOwner);
+
+				caller
+			} else if ensure_root(origin).is_ok() {
+				// Root should use `force_set_parachain_billing_account` since it doesn't make sense
+				// for the root to set itself as the billing account.
+				return Ok(())
+			} else {
+				let location: MultiLocation = (Parent, Parachain(para.into())).into();
+				let sovereign_account = T::SovereignAccountOf::convert_location(&location).unwrap();
+				sovereign_account
+			};
+
+			Self::set_parachain_billing_account(para, new_billing_account)?;
+
+			Ok(())
+		}
+
+		/// Sets the billing account of a parachain to a specific account.
+		///
+		/// ## Arguments
+		/// - `origin`: Must be Root.
+		/// - `para`: The parachain's ID for which the billing account is set.
+		/// - `billing_account`: The account that will be responsible for covering all parachain
+		///   related costs.
+		///
+		/// ## Deposits/Fees
+		/// For this call to be successful, the `billing_account` account must have a sufficient
+		/// balance to cover the current deposit required for this parachain.
+		///
+		/// ## Events
+		/// The `BillingAccountSet` event is emitted in case of success.
+		#[pallet::call_index(10)]
+		#[pallet::weight(<T as Config>::WeightInfo::force_set_parachain_billing_account())]
+		pub fn force_set_parachain_billing_account(
+			origin: OriginFor<T>,
+			para: ParaId,
+			billing_account: T::AccountId,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			Self::set_parachain_billing_account(para, billing_account)?;
+
 			Ok(())
 		}
 	}
@@ -578,7 +724,13 @@ impl<T: Config> Pallet<T> {
 
 		let deposit = deposit_override.unwrap_or_else(T::ParaDeposit::get);
 		<T as Config>::Currency::reserve(&who, deposit)?;
-		let info = ParaInfo { manager: who.clone(), deposit, locked: None };
+		let info = ParaInfo {
+			manager: who.clone(),
+			deposit,
+			locked: None,
+			billing_account: None,
+			pending_deposit_refund: None,
+		};
 
 		Paras::<T>::insert(id, info);
 		Self::deposit_event(Event::<T>::Reserved { para_id: id, who });
@@ -613,7 +765,13 @@ impl<T: Config> Pallet<T> {
 		} else if let Some(rebate) = deposited.checked_sub(&deposit) {
 			<T as Config>::Currency::unreserve(&who, rebate);
 		};
-		let info = ParaInfo { manager: who.clone(), deposit, locked: None };
+		let info = ParaInfo {
+			manager: who.clone(),
+			deposit,
+			locked: None,
+			billing_account: None,
+			pending_deposit_refund: None,
+		};
 
 		Paras::<T>::insert(id, info);
 		// We check above that para has no lifecycle, so this should not fail.
@@ -642,6 +800,31 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Schedules a code upgrade for a parachain.
+	///
+	/// If `requirements` is set to `UpgradeRequirements::SkipRequirements` all the code upgrade
+	/// cost related requirements will be ignored.
+	///
+	/// If the size of the validation is reduced and the upgrade is successful the caller will be
+	/// eligible for receiving back a portion of their deposit that is no longer required.
+	fn do_schedule_code_upgrade(
+		para: ParaId,
+		new_code: ValidationCode,
+		requirements: UpgradeRequirements,
+	) -> DispatchResult {
+		// Before doing anything we ensure that a code upgrade is allowed at the moment for the
+		// specific parachain.
+		ensure!(paras::Pallet::<T>::can_upgrade_validation_code(para), Error::<T>::CannotUpgrade);
+
+		ensure!(
+			T::PreCodeUpgrade::pre_code_upgrade(para, new_code.clone(), requirements).is_ok(),
+			Error::<T>::CannotUpgrade
+		);
+		runtime_parachains::schedule_code_upgrade::<T>(para, new_code, SetGoAhead::No)?;
+
+		Ok(())
+	}
+
 	/// Verifies the onboarding data is valid for a para.
 	///
 	/// Returns `ParaGenesisArgs` and the deposit needed for the data.
@@ -658,10 +841,7 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::HeadDataTooLarge
 		);
 
-		let per_byte_fee = T::DataDepositPerByte::get();
-		let deposit = T::ParaDeposit::get()
-			.saturating_add(per_byte_fee.saturating_mul((genesis_head.0.len() as u32).into()))
-			.saturating_add(per_byte_fee.saturating_mul((validation_code.0.len() as u32).into()));
+		let deposit = Self::required_para_deposit(genesis_head.0.len(), validation_code.0.len());
 
 		Ok((ParaGenesisArgs { genesis_head, validation_code, para_kind }, deposit))
 	}
@@ -674,6 +854,46 @@ impl<T: Config> Pallet<T> {
 		let res2 = runtime_parachains::schedule_parathread_upgrade::<T>(to_upgrade);
 		debug_assert!(res2.is_ok());
 		T::OnSwap::on_swap(to_upgrade, to_downgrade);
+	}
+
+	/// Sets the billing account of a parachain.
+	///
+	/// The newly set account will be responsible for covering all associated costs related to
+	/// performing parachain validation code upgrades.
+	fn set_parachain_billing_account(
+		para: ParaId,
+		new_billing_account: T::AccountId,
+	) -> DispatchResult {
+		let mut info = Paras::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
+
+		// When updating the account responsible for all code upgrade costs, we unreserve all
+		// funds associated with the registered parachain from the original billing account and
+		// reserves the required amount from the new one.
+
+		<T as Config>::Currency::reserve(&new_billing_account, info.deposit)?;
+
+		// After reserving the required funds from the new billing account we can now safely
+		// refund the current deposit holder.
+		let current_deposit_holder = info.billing_account.clone().unwrap_or(info.manager.clone());
+		<T as Config>::Currency::unreserve(&current_deposit_holder, info.deposit);
+
+		info.billing_account = Some(new_billing_account.clone());
+		Paras::<T>::insert(para, info.clone());
+
+		Self::deposit_event(Event::<T>::BillingAccountSet {
+			para_id: para,
+			who: new_billing_account,
+		});
+		Ok(())
+	}
+
+	/// Returns the required deposit amount for the parachain, given the specified genesis head
+	/// and validation code size.
+	fn required_para_deposit(head_size: usize, validation_code_size: usize) -> BalanceOf<T> {
+		let per_byte_fee = T::DataDepositPerByte::get();
+		T::ParaDeposit::get()
+			.saturating_add(per_byte_fee.saturating_mul((head_size as u32).into()))
+			.saturating_add(per_byte_fee.saturating_mul((validation_code_size as u32).into()))
 	}
 }
 
@@ -689,6 +909,125 @@ impl<T: Config> OnNewHead for Pallet<T> {
 			}
 		}
 		T::DbWeight::get().reads_writes(1, writes)
+	}
+}
+
+impl<T: Config> PreCodeUpgrade for Pallet<T> {
+	/// Ensures that all upgrade-related costs are covered for the specific parachain. Upon success,
+	/// it updates the deposit-related state for the parachain.
+	///
+	/// There are three cases where we do not charge any upgrade costs from the initiator
+	/// of the upgrade:
+	///
+	/// 1. `requirements` is explicitly set to `UpgradeRequirements::SkipRequirements`.
+	///
+	/// 2. System parachains do not pay for upgrade fees.
+	///
+	/// 3. All lease-holding parachains are permitted to do upgrades for free. This is introduced to
+	///    avoid causing a breaking change to the system once para upgrade fees are required.
+	fn pre_code_upgrade(
+		para: ParaId,
+		new_code: ValidationCode,
+		requirements: UpgradeRequirements,
+	) -> Result<Weight, Weight> {
+		let Some(head) = paras::Pallet::<T>::para_head(para) else {
+			return Err(T::DbWeight::get().reads(1))
+		};
+
+		let Some(mut info) = Paras::<T>::get(para) else { return Err(T::DbWeight::get().reads(2)) };
+
+		let new_deposit = Self::required_para_deposit(head.0.len(), new_code.0.len());
+		let current_deposit = info.deposit;
+
+		let lease_holding = Self::is_parachain(para);
+		let free_upgrade = requirements == UpgradeRequirements::SkipRequirements ||
+			para.is_system() ||
+			lease_holding;
+
+		if !free_upgrade {
+			let Some(billing_account) = info.billing_account.clone() else {
+				Self::deposit_event(Event::<T>::CodeUpgradeScheduleFailed(
+					CodeUpgradeScheduleError::BillingAccountNotSet,
+				));
+				// An overestimate of the used weight, but it's better to be safe than sorry.
+				return Err(<T as Config>::WeightInfo::pre_code_upgrade())
+			};
+
+			if let Err(_) = <T as Config>::Currency::withdraw(
+				&billing_account,
+				T::UpgradeFee::get(),
+				WithdrawReasons::FEE,
+				ExistenceRequirement::KeepAlive,
+			) {
+				Self::deposit_event(Event::<T>::CodeUpgradeScheduleFailed(
+					CodeUpgradeScheduleError::FailedToPayUpgradeFee,
+				));
+				// An overestimate of the used weight, but it's better to be safe than sorry.
+				return Err(<T as Config>::WeightInfo::pre_code_upgrade())
+			}
+
+			let additional_deposit = new_deposit.saturating_sub(current_deposit);
+			if let Err(_) = <T as Config>::Currency::reserve(&billing_account, additional_deposit) {
+				Self::deposit_event(Event::<T>::CodeUpgradeScheduleFailed(
+					CodeUpgradeScheduleError::FailedToReserveDeposit,
+				));
+				// An overestimate of the used weight, but it's better to be safe than sorry.
+				return Err(<T as Config>::WeightInfo::pre_code_upgrade())
+			}
+
+			// Update the deposit to the new appropriate amount.
+			info.deposit = new_deposit;
+		}
+
+		if current_deposit > new_deposit {
+			// The billing account should receive a refund if the current deposit exceeds the new
+			// required deposit, even if they did not initiate the upgrade.
+			//
+			// The excess deposit will be refunded to the caller upon the success of the code
+			// upgrade.
+			//
+			// The reason why the deposit is not instantly refunded is that scheduling a code
+			// upgrade doesn't guarantee the success of it.
+			//
+			// If we returned the deposit here, a possible attack scenario would be to register
+			// the validation code of a parachain and then schedule a code upgrade to set the
+			// code to an empty blob. In such a case, the pre-checking process would fail, so
+			// the old code would remain on-chain even though there is no deposit to cover it.
+
+			info.pending_deposit_refund = Some(current_deposit.saturating_sub(new_deposit));
+		}
+
+		Paras::<T>::insert(para, info);
+		Ok(<T as Config>::WeightInfo::pre_code_upgrade())
+	}
+}
+
+impl<T: Config> OnCodeUpgrade for Pallet<T> {
+	fn on_code_upgrade(id: ParaId) -> Weight {
+		let maybe_info = Paras::<T>::get(id);
+		if maybe_info.is_none() {
+			return T::DbWeight::get().reads(1)
+		}
+
+		let mut info = maybe_info
+			.expect("Ensured above that the deposit info is stored for the parachain; qed");
+
+		if let Some(rebate) = info.pending_deposit_refund {
+			if let Some(billing_account) = info.billing_account.clone() {
+				<T as Config>::Currency::unreserve(&billing_account, rebate);
+				info.pending_deposit_refund = None;
+				Paras::<T>::insert(id, info);
+
+				Self::deposit_event(Event::<T>::Refunded {
+					para_id: id,
+					who: billing_account,
+					amount: rebate,
+				});
+				return <T as Config>::WeightInfo::on_code_upgrade()
+			}
+		}
+
+		T::DbWeight::get().reads(1)
 	}
 }
 
@@ -813,6 +1152,8 @@ mod tests {
 		type UnsignedPriority = ParasUnsignedPriority;
 		type QueueFootprinter = ();
 		type NextSessionRotation = crate::mock::TestNextSessionRotation;
+		type PreCodeUpgrade = Registrar;
+		type OnCodeUpgrade = ();
 		type OnNewHead = ();
 		type AssignCoretime = ();
 	}
@@ -825,6 +1166,7 @@ mod tests {
 		pub const ParaDeposit: Balance = 10;
 		pub const DataDepositPerByte: Balance = 1;
 		pub const MaxRetries: u32 = 3;
+		pub const UpgradeFee: Balance = 2;
 	}
 
 	impl Config for Test {
@@ -834,6 +1176,8 @@ mod tests {
 		type OnSwap = MockSwap;
 		type ParaDeposit = ParaDeposit;
 		type DataDepositPerByte = DataDepositPerByte;
+		type UpgradeFee = UpgradeFee;
+		type SovereignAccountOf = ();
 		type WeightInfo = TestWeightInfo;
 	}
 
@@ -963,7 +1307,7 @@ mod tests {
 				test_genesis_head(32),
 				validation_code.clone(),
 			));
-			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 			run_to_session(START_SESSION_INDEX + 2);
 			// It is now a parathread (on-demand parachain).
@@ -1007,7 +1351,7 @@ mod tests {
 				test_genesis_head(32),
 				validation_code.clone(),
 			));
-			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 			run_to_session(START_SESSION_INDEX + 2);
 			assert!(Parachains::is_parathread(para_id));
@@ -1117,7 +1461,7 @@ mod tests {
 				test_genesis_head(32),
 				validation_code.clone(),
 			));
-			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 			run_to_session(START_SESSION_INDEX + 2);
 			assert!(Parachains::is_parathread(para_id));
@@ -1145,7 +1489,7 @@ mod tests {
 				test_genesis_head(32),
 				validation_code.clone(),
 			));
-			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 			run_to_session(START_SESSION_INDEX + 2);
 			assert!(Parachains::is_parathread(para_id));
@@ -1186,7 +1530,7 @@ mod tests {
 				test_genesis_head(max_head_size() as usize),
 				validation_code.clone(),
 			));
-			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 			run_to_session(START_SESSION_INDEX + 2);
 
@@ -1251,7 +1595,12 @@ mod tests {
 				test_genesis_head(max_head_size() as usize),
 				validation_code.clone(),
 			));
-			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX + 6);
+			conclude_pvf_checking::<Test>(
+				&validation_code,
+				VALIDATORS,
+				START_SESSION_INDEX + 6,
+				true,
+			);
 
 			run_to_session(START_SESSION_INDEX + 8);
 
@@ -1359,7 +1708,7 @@ mod tests {
 				test_genesis_head(32),
 				validation_code.clone(),
 			));
-			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX, true);
 
 			// Cannot swap
 			assert_ok!(Registrar::swap(RuntimeOrigin::root(), para_1, para_2));
@@ -1591,16 +1940,72 @@ mod benchmarking {
 		}
 
 		schedule_code_upgrade {
+			// The 'worst case' scenario in terms of benchmarking is when the upgrade isn't free
+			// and there is a refund.
+
+			let para = register_para::<T>(LOWEST_PUBLIC_ID.into());
+
 			let b in 1 .. MAX_CODE_SIZE;
 			let new_code = ValidationCode(vec![0; b as usize]);
-			let para_id = ParaId::from(1000);
-		}: _(RawOrigin::Root, para_id, new_code)
+
+			// Actually finish registration process
+			next_scheduled_session::<T>();
+			// Set the billing account
+			let caller: T::AccountId = whitelisted_caller();
+			assert_ok!(Registrar::<T>::force_set_parachain_billing_account(RawOrigin::Root.into(), para, caller.clone()));
+		}: _(RawOrigin::Signed(caller), para, new_code)
+
+		pre_code_upgrade {
+			let para = register_para::<T>(LOWEST_PUBLIC_ID.into());
+			let new_small_code = ValidationCode(vec![0]);
+
+			// Actually finish registration process
+			next_scheduled_session::<T>();
+		}: {
+			let _ = T::PreCodeUpgrade::pre_code_upgrade(para, new_small_code, UpgradeRequirements::EnforceRequirements);
+		}
+
+		on_code_upgrade {
+			let para = register_para::<T>(LOWEST_PUBLIC_ID.into());
+			let new_small_code = ValidationCode(vec![0]);
+
+			// Actually finish registration process
+			next_scheduled_session::<T>();
+			// Set the billing account
+			assert_ok!(Registrar::<T>::force_set_parachain_billing_account(RawOrigin::Root.into(), para, whitelisted_caller()));
+
+			assert_ok!(Registrar::<T>::schedule_code_upgrade(RawOrigin::Root.into(), para, new_small_code));
+		}: {
+			let _ = T::OnCodeUpgrade::on_code_upgrade(para);
+		}
 
 		set_current_head {
 			let b in 1 .. MAX_HEAD_DATA_SIZE;
 			let new_head = HeadData(vec![0; b as usize]);
 			let para_id = ParaId::from(1000);
 		}: _(RawOrigin::Root, para_id, new_head)
+
+		set_parachain_billing_account_to_self {
+			let para = register_para::<T>(LOWEST_PUBLIC_ID.into());
+			// Actually finish registration process
+			next_scheduled_session::<T>();
+
+			let caller: T::AccountId = whitelisted_caller();
+		}: _(RawOrigin::Signed(caller.clone()), para)
+		verify {
+			assert_eq!(Paras::<T>::get(para).unwrap().billing_account, Some(caller));
+		}
+
+		force_set_parachain_billing_account {
+			let para = register_para::<T>(LOWEST_PUBLIC_ID.into());
+			// Actually finish registration process
+			next_scheduled_session::<T>();
+
+			let caller: T::AccountId = whitelisted_caller();
+		}: _(RawOrigin::Root, para, caller.clone())
+		verify {
+			assert_eq!(Paras::<T>::get(para).unwrap().billing_account, Some(caller));
+		}
 
 		impl_benchmark_test_suite!(
 			Registrar,
