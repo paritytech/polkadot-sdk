@@ -34,10 +34,8 @@
 //! #### Holds and Freezes
 //!
 //! Learn more about this two concepts in
-//! [frame_support::traits::tokens::fungible::hold](../../../frame_support/traits/tokens/fungible/
-//! hold/index.html) and
-//! [frame_support::traits::tokens::fungible::freeze](../../../frame_support/traits/tokens/fungible/
-//! freeze/index.html).
+//! [frame_support::traits::tokens::fungible::hold](../../../frame_support/traits/tokens/fungible/hold/index.html)
+//! and [frame_support::traits::tokens::fungible::freeze](../../../frame_support/traits/tokens/fungible/freeze/index.html).
 //!
 //! ## Pallet Balances
 //! The [`pallet_balances`](../../../pallet_balances/index.html) is a key component in FRAME. It
