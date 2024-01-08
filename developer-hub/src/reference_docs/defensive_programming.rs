@@ -284,7 +284,7 @@
 //! - [`FixedI128`](sp_arithmetic::FixedU128) and [`FixedU128`](sp_arithmetic::FixedI128)
 //!
 //! Similar to types that implement [`PerThing`](sp_arithmetic::PerThing), these are also
-//! fixed-point types, however, they are able to represent larger numbers:
+//! fixed-point types, however, they are able to represent larger fractions:
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", fixed_u64)]
 //!
 //! Let's now explore these types in practice, and how they may be used with pallets to perform
