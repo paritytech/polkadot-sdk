@@ -1468,6 +1468,10 @@
 <a href="#1468" id="1468">1468</a>
 <a href="#1469" id="1469">1469</a>
 <a href="#1470" id="1470">1470</a>
+<a href="#1471" id="1471">1471</a>
+<a href="#1472" id="1472">1472</a>
+<a href="#1473" id="1473">1473</a>
+<a href="#1474" id="1474">1474</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1568,6 +1572,8 @@
 	AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
 	HOURS, MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
 };
+
+<span class="kw">use </span>polkadot_runtime_common::prod_or_fast;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::xcm_config::benchmark_helpers::DoNothingRouter;
@@ -1679,7 +1685,7 @@
 	spec_name: <span class="macro">create_runtime_str!</span>(<span class="string">&quot;bridge-hub-rococo&quot;</span>),
 	impl_name: <span class="macro">create_runtime_str!</span>(<span class="string">&quot;bridge-hub-rococo&quot;</span>),
 	authoring_version: <span class="number">1</span>,
-	spec_version: <span class="number">1_005_001</span>,
+	spec_version: <span class="number">1_005_002</span>,
 	impl_version: <span class="number">0</span>,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: <span class="number">4</span>,
@@ -2036,7 +2042,7 @@
 	<span class="kw">type </span>Channels = EthereumSystem;
 }
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;beacon-spec-mainnet&quot;</span>))]
+<span class="attr">#[cfg(feature = <span class="string">&quot;fast-runtime&quot;</span>)]
 </span><span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>ChainForkVersions: ForkVersions = ForkVersions {
 		genesis: Fork {
@@ -2056,30 +2062,32 @@
 			</span>epoch: <span class="number">0</span>,
 		},
 	};
-	<span class="kw">pub const </span>MaxExecutionHeadersToKeep:u32 = <span class="number">1000</span>;
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;beacon-spec-mainnet&quot;</span>)]
+<span class="attr">#[cfg(not(feature = <span class="string">&quot;fast-runtime&quot;</span>))]
 </span><span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>ChainForkVersions: ForkVersions = ForkVersions {
 		genesis: Fork {
-			version: [<span class="number">0</span>, <span class="number">0</span>, <span class="number">16</span>, <span class="number">32</span>], <span class="comment">// 0x00001020
+			version: [<span class="number">144</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">111</span>], <span class="comment">// 0x90000069
 			</span>epoch: <span class="number">0</span>,
 		},
 		altair: Fork {
-			version: [<span class="number">1</span>, <span class="number">0</span>, <span class="number">16</span>, <span class="number">32</span>], <span class="comment">// 0x01001020
-			</span>epoch: <span class="number">36660</span>,
+			version: [<span class="number">144</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">112</span>], <span class="comment">// 0x90000070
+			</span>epoch: <span class="number">50</span>,
 		},
 		bellatrix: Fork {
-			version: [<span class="number">2</span>, <span class="number">0</span>, <span class="number">16</span>, <span class="number">32</span>], <span class="comment">// 0x02001020
-			</span>epoch: <span class="number">112260</span>,
+			version: [<span class="number">144</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">113</span>], <span class="comment">// 0x90000071
+			</span>epoch: <span class="number">100</span>,
 		},
 		capella: Fork {
-			version: [<span class="number">3</span>, <span class="number">0</span>, <span class="number">16</span>, <span class="number">32</span>], <span class="comment">// 0x03001020
-			</span>epoch: <span class="number">162304</span>,
+			version: [<span class="number">144</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">114</span>], <span class="comment">// 0x90000072
+			</span>epoch: <span class="number">56832</span>,
 		},
 	};
-	<span class="kw">pub const </span>MaxExecutionHeadersToKeep:u32 = <span class="number">8192 </span>* <span class="number">2</span>;
+}
+
+<span class="macro">parameter_types! </span>{
+	<span class="kw">pub const </span>MaxExecutionHeadersToKeep: u32 = <span class="macro">prod_or_fast!</span>(<span class="number">8192 </span>* <span class="number">2</span>, <span class="number">1000</span>);
 }
 
 <span class="kw">impl </span>snowbridge_ethereum_beacon_client::Config <span class="kw">for </span>Runtime {
@@ -2100,7 +2108,7 @@
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>OutboundQueue = EthereumOutboundQueue;
 	<span class="kw">type </span>SiblingOrigin = EnsureXcm&lt;AllowSiblingsOnly&gt;;
-	<span class="kw">type </span>AgentIdOf = xcm_config::AgentIdOf;
+	<span class="kw">type </span>AgentIdOf = snowbridge_core::AgentIdOf;
 	<span class="kw">type </span>TreasuryAccount = TreasuryAccount;
 	<span class="kw">type </span>Token = Balances;
 	<span class="kw">type </span>WeightInfo = weights::snowbridge_system::WeightInfo&lt;Runtime&gt;;

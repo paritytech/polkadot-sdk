@@ -511,12 +511,6 @@
 <a href="#511" id="511">511</a>
 <a href="#512" id="512">512</a>
 <a href="#513" id="513">513</a>
-<a href="#514" id="514">514</a>
-<a href="#515" id="515">515</a>
-<a href="#516" id="516">516</a>
-<a href="#517" id="517">517</a>
-<a href="#518" id="518">518</a>
-<a href="#519" id="519">519</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -566,10 +560,9 @@
 };
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::Sibling;
 <span class="kw">use </span>polkadot_runtime_common::xcm_sender::ExponentialPrice;
-<span class="kw">use </span>snowbridge_core::DescribeHere;
 <span class="kw">use </span>snowbridge_rococo_common::EthereumNetwork;
 <span class="kw">use </span>snowbridge_runtime_common::XcmExportFeeToSibling;
-<span class="kw">use </span>sp_core::{Get, H256};
+<span class="kw">use </span>sp_core::Get;
 <span class="kw">use </span>sp_runtime::traits::AccountIdConversion;
 <span class="kw">use </span>sp_std::marker::PhantomData;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
@@ -577,12 +570,11 @@
 </span><span class="kw">use </span>xcm_builder::{
 	deposit_or_burn_fee, AccountId32Aliases, AllowExplicitUnpaidExecutionFrom,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
-	CurrencyAdapter, DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal,
-	DescribeFamily, EnsureXcmOrigin, HandleFee, HashedDescription, IsConcrete, ParentAsSuperuser,
-	ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
-	XcmFeeToAccount,
+	CurrencyAdapter, DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, HandleFee,
+	IsConcrete, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
+	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
+	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeToAccount,
 };
 <span class="kw">use </span>xcm_executor::{
 	traits::{FeeManager, FeeReason, FeeReason::Export, TransactAsset, WithOriginFilter},
@@ -901,10 +893,6 @@
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>XcmExecutor = XcmExecutor&lt;XcmConfig&gt;;
 }
-
-<span class="doccomment">/// Creates an AgentId from a MultiLocation. An AgentId is a unique mapping to a Agent contract on
-/// Ethereum which acts as the sovereign account for the MultiLocation.
-</span><span class="kw">pub type </span>AgentIdOf = HashedDescription&lt;H256, (DescribeHere, DescribeFamily&lt;DescribeAllTerminal&gt;)&gt;;
 
 <span class="doccomment">/// A `HandleFee` implementation that simply deposits the fees for `ExportMessage` XCM instructions
 /// into the accounts that are used for paying the relayer rewards.

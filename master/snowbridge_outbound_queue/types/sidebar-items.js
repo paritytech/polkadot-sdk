@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["LOG_TARGET"],"struct":["CommittedMessage","FeeConfigRecord","InvalidFeeConfig","MerkleProof"],"type":["ProcessMessageOriginOf"]};
+window.SIDEBAR_ITEMS = {"constant":["LOG_TARGET"],"struct":["CommittedMessage","MerkleProof"],"type":["ProcessMessageOriginOf"]};

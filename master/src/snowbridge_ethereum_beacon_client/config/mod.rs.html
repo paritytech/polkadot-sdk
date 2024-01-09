@@ -62,10 +62,10 @@
 <span class="kw">pub mod </span>mainnet;
 <span class="kw">pub mod </span>minimal;
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;beacon-spec-mainnet&quot;</span>))]
+<span class="attr">#[cfg(feature = <span class="string">&quot;beacon-spec-minimal&quot;</span>)]
 </span><span class="kw">pub use </span>minimal::<span class="kw-2">*</span>;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;beacon-spec-mainnet&quot;</span>)]
+<span class="attr">#[cfg(not(feature = <span class="string">&quot;beacon-spec-minimal&quot;</span>))]
 </span><span class="kw">pub use </span>mainnet::<span class="kw-2">*</span>;
 
 <span class="comment">// Generalized Indices
