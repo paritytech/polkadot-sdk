@@ -47,6 +47,16 @@ pub type TrustBackedAssetsConvertedConcreteId<TrustBackedAssetsPalletLocation, B
 /// AssetId used for identifying assets by MultiLocation.
 pub type MultiLocationForAssetId = MultiLocation;
 
+/// [`MatchedConvertedConcreteId`] converter dedicated for `TrustBackedAssets`
+pub type TrustBackedAssetsAsMultiLocation<TrustBackedAssetsPalletLocation, Balance> =
+	MatchedConvertedConcreteId<
+		MultiLocationForAssetId,
+		Balance,
+		StartsWith<TrustBackedAssetsPalletLocation>,
+		Identity,
+		JustTry,
+	>;
+
 /// [`MatchedConvertedConcreteId`] converter dedicated for storing `AssetId` as `MultiLocation`.
 pub type MultiLocationConvertedConcreteId<MultiLocationFilter, Balance> =
 	MatchedConvertedConcreteId<

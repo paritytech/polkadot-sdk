@@ -4097,6 +4097,7 @@ dependencies = [
  "cumulus-primitives-core",
  "frame-support",
  "log",
+ "pallet-asset-conversion",
  "pallet-xcm-benchmarks",
  "parity-scale-codec",
  "polkadot-runtime-common",
