@@ -294,6 +294,7 @@ impl pallet_identity::Config for Test {
 	type RegistrarOrigin = EnsureRoot<AccountId>;
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = ();
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 impl identity_migrator::Config for Test {

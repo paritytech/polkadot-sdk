@@ -26,7 +26,7 @@ use crate::{
 use codec::{Decode, Encode};
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,
-	traits::{ConstU32, ConstU64, EitherOfDiverse, Get},
+	traits::{ConstU32, ConstU64, EitherOfDiverse, Get, StoredMap},
 	BoundedVec,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
@@ -43,7 +43,7 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Identity: pallet_identity::{Pallet, Call, Storage, Event<T>},
+		Identity: pallet_identity::{Pallet, Call, Storage, Event<T>, HoldReason},
 	}
 );
 
@@ -86,9 +86,9 @@ impl pallet_balances::Config for Test {
 	type WeightInfo = ();
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = ();
-	type MaxHolds = ();
+	type MaxHolds = ConstU32<2>;
 }
 
 parameter_types! {
@@ -115,6 +115,7 @@ impl pallet_identity::Config for Test {
 	type RegistrarOrigin = EnsureOneOrRoot;
 	type ForceOrigin = EnsureTwoOrRoot;
 	type WeightInfo = ();
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
@@ -640,8 +641,12 @@ fn provide_judgement_should_return_judgement_payment_failed_error() {
 		// 10 for the judgement request and the deposit for the identity.
 		assert_eq!(Balances::free_balance(10), 1000 - id_deposit - 10);
 
-		// This forces judgement payment failed error
-		Balances::make_free_balance_be(&3, 0);
+		// This forces judgement payment failed error, as `transfer_on_hold` will fail with
+		// `CannotCreate` when the attempt to transfer to `3` overflows.
+		let _ = <Test as pallet_balances::Config>::AccountStore::mutate(&3, |account| {
+			account.free = <Test as pallet_balances::Config>::Balance::max_value();
+			Ok::<(), ()>(())
+		});
 		assert_noop!(
 			Identity::provide_judgement(
 				RuntimeOrigin::signed(3),

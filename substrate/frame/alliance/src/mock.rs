@@ -125,6 +125,7 @@ impl pallet_identity::Config for Test {
 	type RegistrarOrigin = EnsureOneOrRoot;
 	type ForceOrigin = EnsureTwoOrRoot;
 	type WeightInfo = ();
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 pub struct AllianceIdentityVerifier;
