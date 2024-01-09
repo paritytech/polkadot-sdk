@@ -48,12 +48,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		item: T::ItemId,
 		dest: T::AccountId,
 		with_details: impl FnOnce(
-			&CollectionDetailsFor<T, I>,
+			&mut CollectionDetailsFor<T, I>,
 			&mut ItemDetailsFor<T, I>,
 		) -> DispatchResult,
 	) -> DispatchResult {
 		// Retrieve collection details.
-		let collection_details =
+		let mut collection_details =
 			Collection::<T, I>::get(&collection).ok_or(Error::<T, I>::UnknownCollection)?;
 
 		// Ensure the item is not locked.
@@ -84,7 +84,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Item::<T, I>::get(&collection, &item).ok_or(Error::<T, I>::UnknownItem)?;
 
 		// Perform the transfer with custom details using the provided closure.
-		with_details(&collection_details, &mut details)?;
+		with_details(&mut collection_details, &mut details)?;
 
 		// Update account ownership information.
 		Account::<T, I>::remove((&details.owner, &collection, &item));
@@ -99,6 +99,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		// Update item details.
 		Item::<T, I>::insert(&collection, &item, &details);
+		Collection::<T, I>::insert(&collection, collection_details);
 		ItemPriceOf::<T, I>::remove(&collection, &item);
 		PendingSwapOf::<T, I>::remove(&collection, &item);
 
