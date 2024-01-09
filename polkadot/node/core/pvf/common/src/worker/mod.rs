@@ -28,7 +28,7 @@ use std::{
 	fs::File,
 	io::{self, Read, Write},
 	os::{
-		fd::{AsRawFd, FromRawFd},
+		fd::{AsRawFd, FromRawFd, RawFd},
 		unix::net::UnixStream,
 	},
 	path::PathBuf,
@@ -227,20 +227,21 @@ pub struct PipeFd {
 	file: File,
 }
 
-impl PipeFd {
+impl AsRawFd for PipeFd {
+	/// Returns the raw file descriptor associated with this `PipeFd`
+	fn as_raw_fd(&self) -> RawFd {
+		self.file.as_raw_fd()
+	}
+}
+
+impl FromRawFd for PipeFd {
 	/// Creates a new `PipeFd` instance from a raw file descriptor.
 	///
 	/// # Safety
 	///
 	/// The fd passed in must be an owned file descriptor; in particular, it must be open.
-	pub unsafe fn new(fd: i32) -> Self {
-		let file = File::from_raw_fd(fd);
-		PipeFd { file }
-	}
-
-	/// Returns the raw file descriptor associated with this `PipeFd`
-	pub fn as_raw_fd(&self) -> i32 {
-		self.file.as_raw_fd()
+	unsafe fn from_raw_fd(fd: RawFd) -> Self {
+		PipeFd { file: File::from_raw_fd(fd) }
 	}
 }
 

@@ -59,7 +59,7 @@ use std::{
 	fs,
 	io::{self, Read},
 	os::{
-		fd::{AsRawFd, RawFd},
+		fd::{AsRawFd, FromRawFd, RawFd},
 		unix::net::UnixStream,
 	},
 	path::{Path, PathBuf},
@@ -438,7 +438,7 @@ fn handle_child_process(
 	executor_params: Arc<ExecutorParams>,
 ) -> ! {
 	// SAFETY: pipe_writer is an open and owned file descriptor at this point.
-	let mut pipe_write = unsafe { PipeFd::new(pipe_write_fd) };
+	let mut pipe_write = unsafe { PipeFd::from_raw_fd(pipe_write_fd) };
 
 	// Drop the read end so we don't have too many FDs open.
 	if let Err(errno) = nix::unistd::close(pipe_read_fd) {
@@ -629,7 +629,7 @@ fn handle_parent_process(
 	};
 
 	// SAFETY: this is an open and owned file descriptor at this point.
-	let mut pipe_read = unsafe { PipeFd::new(pipe_read_fd) };
+	let mut pipe_read = unsafe { PipeFd::from_raw_fd(pipe_read_fd) };
 
 	// Read from the child. Don't decode unless the process exited normally, which we check later.
 	let mut received_data = Vec::new();
