@@ -30,8 +30,8 @@ pub extern "C" fn deploy() {}
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
 	input!(
-		callee_input => [u8; 4],
-		callee_addr => [u8; 32],
+		callee_input: [u8; 4],
+		callee_addr: [u8; 32],
 	);
 
 	// Call the callee

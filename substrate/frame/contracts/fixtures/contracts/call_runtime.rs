@@ -30,7 +30,7 @@ pub extern "C" fn deploy() {}
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
 	// Fixture calls should fit into 100 bytes.
-	input!(100, call => [u8], );
+	input!(100, call: [u8], );
 
 	// Use the call passed as input to call the runtime.
 	let err_code = match api::call_runtime(call) {

@@ -30,9 +30,9 @@ pub extern "C" fn deploy() {}
 pub extern "C" fn call() {
 	input!(
 		512,
-		callee_input => [u8; 4],
-		callee_addr => [u8; 32],
-		call => [u8],
+		callee_input: [u8; 4],
+		callee_addr: [u8; 32],
+		call: [u8],
 	);
 
 	// Use the call passed as input to call the runtime.

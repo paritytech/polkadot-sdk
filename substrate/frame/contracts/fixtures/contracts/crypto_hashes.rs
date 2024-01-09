@@ -54,8 +54,8 @@ pub extern "C" fn deploy() {}
 pub extern "C" fn call() {
 	input!(
 		256,
-		chosen_hash_fn => u8,
-		input => [u8],
+		chosen_hash_fn: u8,
+		input: [u8],
 	);
 
 	match chosen_hash_fn {

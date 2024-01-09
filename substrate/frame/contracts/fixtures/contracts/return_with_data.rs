@@ -34,8 +34,8 @@ pub extern "C" fn deploy() {
 pub extern "C" fn call() {
 	input!(
 		input, 128,
-		exit_status => [u8; 4],
-		output => [u8],
+		exit_status: [u8; 4],
+		output: [u8],
 	);
 
 	let exit_status = uapi::ReturnFlags::from_bits(exit_status[0] as u32).unwrap();

@@ -33,8 +33,8 @@ pub extern "C" fn deploy() {}
 pub extern "C" fn call() {
 	input!(
 		100,
-		callee_addr => [u8; 32],
-		input => [u8],
+		callee_addr: [u8; 32],
+		input: [u8],
 	);
 
 	// Call the callee

@@ -30,9 +30,9 @@ pub extern "C" fn deploy() {}
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
 	input!(
-		input => [u8; 4],
-		code_hash => [u8; 32],
-		deposit_limit => [u8; 8],
+		input: [u8; 4],
+		code_hash: [u8; 32],
+		deposit_limit: [u8; 8],
 	);
 
 	let value = 10_000u64.to_le_bytes();

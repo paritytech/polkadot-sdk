@@ -31,8 +31,8 @@ pub extern "C" fn deploy() {}
 pub extern "C" fn call() {
 	input!(
 		input,
-		code_hash => [u8; 32],
-		call_stack_height => u32,
+		code_hash: [u8; 32],
+		call_stack_height: u32,
 	);
 
 	let call_stack_height = call_stack_height + 1;

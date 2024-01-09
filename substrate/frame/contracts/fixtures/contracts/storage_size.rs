@@ -28,7 +28,7 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	input!(len => u32, );
+	input!(len: u32, );
 
 	let mut buffer = [0u8; 16 * 1024 + 1];
 	let data = &buffer[..len as usize];

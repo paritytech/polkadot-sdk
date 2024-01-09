@@ -29,8 +29,8 @@ pub extern "C" fn deploy() {}
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
 	input!(
-		signature => [u8; 65],
-		hash => [u8; 32],
+		signature: [u8; 65],
+		hash: [u8; 32],
 	);
 
 	let mut output = [0u8; 33];

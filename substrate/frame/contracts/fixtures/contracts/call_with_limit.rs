@@ -31,9 +31,9 @@ pub extern "C" fn deploy() {}
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
 	input!(
-		callee_addr => [u8; 32],
-		ref_time => u64,
-		proof_size => u64,
+		callee_addr: [u8; 32],
+		ref_time: u64,
+		proof_size: u64,
 	);
 
 	#[allow(deprecated)]

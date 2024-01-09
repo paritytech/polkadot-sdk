@@ -29,7 +29,7 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	input!(input, 8, func_id => u32,);
+	input!(input, 8, func_id: u32,);
 
 	// the chain extension passes through the input and returns it as output
 	let mut output_buffer = [0u8; 32];

@@ -29,7 +29,7 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	input!(expected_reentrance_count => u32,);
+	input!(expected_reentrance_count: u32,);
 
 	// Read the contract address.
 	output!(addr, [0u8; 32], api::address,);

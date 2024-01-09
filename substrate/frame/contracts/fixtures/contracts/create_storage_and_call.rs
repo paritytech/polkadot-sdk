@@ -31,9 +31,9 @@ pub extern "C" fn deploy() {}
 pub extern "C" fn call() {
 	input!(
 		buffer,
-		input => [u8; 4],
-		callee => [u8; 32],
-		deposit_limit => [u8; 8],
+		input: [u8; 4],
+		callee: [u8; 32],
+		deposit_limit: [u8; 8],
 	);
 
 	// create 4 byte of storage before calling

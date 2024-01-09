@@ -29,7 +29,7 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	input!(callee => [u8; 32],);
+	input!(callee: [u8; 32],);
 
 	#[allow(deprecated)]
 	let reentrance_count = api::account_reentrance_count(callee);

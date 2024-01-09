@@ -37,17 +37,17 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
 ///
 /// ```
 /// input$!(
-/// 		var1 => u32,      // [0, 4)   var1 decoded as u32
-/// 		var2 => [u8; 32], // [4, 36)  var2 decoded as a [u8] slice
-/// 		var3 => u8,       // [36, 37) var3 decoded as a u8
+/// 		var1: u32,      // [0, 4)   var1 decoded as u32
+/// 		var2: [u8; 32], // [4, 36)  var2 decoded as a [u8] slice
+/// 		var3: u8,       // [36, 37) var3 decoded as a u8
 /// );
 ///
 /// // Input and size can be specified as well:
 /// input$!(
 /// 		input,        // input buffer (optional)
 /// 		512,          // input size (optional)
-/// 		var4 => u32,  // [0, 4)  var4 decoded as u32
-/// 		var5 => [u8], // [4, ..) var5 decoded as a [u8] slice
+/// 		var4: u32,  // [0, 4)  var4 decoded as u32
+/// 		var5: [u8], // [4, ..) var5 decoded as a [u8] slice
 /// );
 /// ```
 #[macro_export]
@@ -56,61 +56,61 @@ macro_rules! input {
 	(@size $size:expr, ) => { $size };
 
 	// Match a u8 variable.
-	// e.g input!(var1 => u8, );
-	(@inner $input:expr, $cursor:expr, $var:ident => u8, $($rest:tt)*) => {
+	// e.g input!(var1: u8, );
+	(@inner $input:expr, $cursor:expr, $var:ident: u8, $($rest:tt)*) => {
 		let $var = $input[$cursor];
 		input!(@inner $input, $cursor + 1, $($rest)*);
 	};
 
 	// Size of u8 variable.
-	(@size $size:expr, $var:ident => u8, $($rest:tt)*) => {
+	(@size $size:expr, $var:ident: u8, $($rest:tt)*) => {
 		input!(@size $size + 1, $($rest)*)
 	};
 
 	// Match a u64 variable.
-	// e.g input!(var1 => u64, );
-	(@inner $input:expr, $cursor:expr, $var:ident => u64, $($rest:tt)*) => {
+	// e.g input!(var1: u64, );
+	(@inner $input:expr, $cursor:expr, $var:ident: u64, $($rest:tt)*) => {
 		let $var = u64::from_le_bytes($input[$cursor..$cursor + 8].try_into().unwrap());
 		input!(@inner $input, $cursor + 8, $($rest)*);
 	};
 
 	// Size of u64 variable.
-	(@size $size:expr, $var:ident => u64, $($rest:tt)*) => {
+	(@size $size:expr, $var:ident: u64, $($rest:tt)*) => {
 		input!(@size $size + 8, $($rest)*)
 	};
 
 	// Match a u32 variable.
-	// e.g input!(var1 => u32, );
-	(@inner $input:expr, $cursor:expr, $var:ident => u32, $($rest:tt)*) => {
+	// e.g input!(var1: u32, );
+	(@inner $input:expr, $cursor:expr, $var:ident: u32, $($rest:tt)*) => {
 		let $var = u32::from_le_bytes($input[$cursor..$cursor + 4].try_into().unwrap());
 		input!(@inner $input, $cursor + 4, $($rest)*);
 	};
 
 	// Size of u32 variable.
-	(@size $size:expr, $var:ident => u32, $($rest:tt)*) => {
+	(@size $size:expr, $var:ident: u32, $($rest:tt)*) => {
 		input!(@size $size + 4, $($rest)*)
 	};
 
 	// Match a u8 slice with the remaining bytes.
-	// e.g input!(512, var1 => [u8; 32], var2 => [u8], );
-	(@inner $input:expr, $cursor:expr, $var:ident => [u8],) => {
+	// e.g input!(512, var1: [u8; 32], var2: [u8], );
+	(@inner $input:expr, $cursor:expr, $var:ident: [u8],) => {
 		let $var = &$input[$cursor..];
 	};
 
 	// Match a u8 slice of the given size.
-	// e.g input!(var1 => [u8; 32], );
-	(@inner $input:expr, $cursor:expr, $var:ident => [u8; $n:expr], $($rest:tt)*) => {
+	// e.g input!(var1: [u8; 32], );
+	(@inner $input:expr, $cursor:expr, $var:ident: [u8; $n:expr], $($rest:tt)*) => {
 		let $var = &$input[$cursor..$cursor+$n];
 		input!(@inner $input, $cursor + $n, $($rest)*);
 	};
 
 	// Size of a u8 slice.
-	(@size $size:expr, $var:ident => [u8; $n:expr], $($rest:tt)*) => {
+	(@size $size:expr, $var:ident: [u8; $n:expr], $($rest:tt)*) => {
 		input!(@size $size + $n, $($rest)*)
 	};
 
 	// Entry point, with the buffer and it's size specified first.
-	// e.g input!(buffer, 512, var1 => u32, var2 => [u8], );
+	// e.g input!(buffer, 512, var1: u32, var2: [u8], );
 	($buffer:ident, $size:expr, $($rest:tt)*) => {
 		let mut $buffer = [0u8; $size];
 		let $buffer = &mut &mut $buffer[..];
@@ -119,13 +119,13 @@ macro_rules! input {
 	};
 
 	// Entry point, with the name of the buffer specified and size of the input buffer computed.
-	// e.g input!(buffer, var1 => u32, var2 => u64, );
+	// e.g input!(buffer, var1: u32, var2: u64, );
 	($buffer: ident, $($rest:tt)*) => {
 		input!($buffer, input!(@size 0, $($rest)*), $($rest)*);
 	};
 
 	// Entry point, with the size of the input buffer computed.
-	// e.g input!(var1 => u32, var2 => u64, );
+	// e.g input!(var1: u32, var2: u64, );
 	($($rest:tt)*) => {
 		input!(buffer, $($rest)*);
 	};

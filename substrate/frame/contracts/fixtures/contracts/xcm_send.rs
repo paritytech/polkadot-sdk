@@ -30,8 +30,8 @@ pub extern "C" fn deploy() {}
 pub extern "C" fn call() {
 	input!(
 		512,
-		dest => [u8; 3],
-		msg => [u8],
+		dest: [u8; 3],
+		msg: [u8],
 	);
 
 	let mut message_id = [0u8; 32];

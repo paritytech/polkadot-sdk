@@ -24,7 +24,7 @@ use uapi::{HostFn, HostFnImpl as api};
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn deploy() {
-	input!(len => u32, );
+	input!(len: u32, );
 
 	let buffer = [0u8; 16 * 1024 + 1];
 	let data = &buffer[..len as usize];
