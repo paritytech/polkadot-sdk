@@ -19,6 +19,7 @@ members = [
 	"primitives/router",
 	"runtime/rococo-common",
 	"runtime/runtime-common",
+	"runtime/test-common",
 ]
 
 [patch.'https://github.com/snowfork/snowbridge']

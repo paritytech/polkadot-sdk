@@ -234,9 +234,11 @@ jobs:
       - name: setup rust toolchain
         run: rustup show
       - name: snowbridge runtime tests
-        working-directory: parachain/runtime/tests
+        working-directory: polkadot-sdk
         run: >
-          cargo test
+          RUST_LOG=xcm=trace cargo test
+          --package bridge-hub-rococo-runtime 
+          --test snowbridge
           -- --nocapture
 
   integration-tests:

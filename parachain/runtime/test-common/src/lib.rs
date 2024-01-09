@@ -1,22 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 
-//! Module contains predefined test-case scenarios for `Runtime` with bridging capabilities.
-
-use asset_hub_rococo_runtime::xcm_config::bridging::to_ethereum::DefaultBridgeHubEthereumBaseFee;
-use bridge_hub_rococo_runtime::EthereumSystem;
 use codec::Encode;
 use frame_support::{assert_err, assert_ok, traits::fungible::Mutate};
+pub use parachains_runtimes_test_utils::test_cases::change_storage_constant_by_governance_works;
 use parachains_runtimes_test_utils::{
 	AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder, ValidatorIdOf, XcmReceivedFrom,
 };
 use sp_core::H160;
 use sp_runtime::SaturatedConversion;
-use xcm::latest::prelude::*;
+use xcm::{
+	latest::prelude::*,
+	v3::Error::{self, Barrier},
+};
 use xcm_executor::XcmExecutor;
-// Re-export test_case from `parachains-runtimes-test-utils`
-pub use parachains_runtimes_test_utils::test_cases::change_storage_constant_by_governance_works;
-use xcm::v3::Error::{self, Barrier};
 
 type RuntimeHelper<Runtime, AllPalletsWithoutSystem = ()> =
 	parachains_runtimes_test_utils::RuntimeHelper<Runtime, AllPalletsWithoutSystem>;
@@ -132,14 +129,14 @@ pub fn send_transfer_token_message_success<Runtime, XcmConfig>(
 		.with_tracing()
 		.build()
 		.execute_with(|| {
-			EthereumSystem::initialize(runtime_para_id.into(), assethub_parachain_id.into())
-				.unwrap();
+			<snowbridge_system::Pallet<Runtime>>::initialize(
+				runtime_para_id.into(),
+				assethub_parachain_id.into(),
+			)
+			.unwrap();
 
 			// fund asset hub sovereign account enough so it can pay fees
-			initial_fund::<Runtime>(
-				assethub_parachain_id,
-				DefaultBridgeHubEthereumBaseFee::get() + 1_000_000_000,
-			);
+			initial_fund::<Runtime>(assethub_parachain_id, 5_000_000_000_000);
 
 			let outcome = send_transfer_token_message::<Runtime, XcmConfig>(
 				assethub_parachain_id,
@@ -275,8 +272,11 @@ pub fn send_transfer_token_message_failure<Runtime, XcmConfig>(
 		.with_tracing()
 		.build()
 		.execute_with(|| {
-			EthereumSystem::initialize(runtime_para_id.into(), assethub_parachain_id.into())
-				.unwrap();
+			<snowbridge_system::Pallet<Runtime>>::initialize(
+				runtime_para_id.into(),
+				assethub_parachain_id.into(),
+			)
+			.unwrap();
 
 			// fund asset hub sovereign account enough so it can pay fees
 			initial_fund::<Runtime>(assethub_parachain_id, initial_amount);
