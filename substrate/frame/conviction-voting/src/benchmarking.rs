@@ -55,8 +55,7 @@ fn fill_voting<T: Config<I>, I: 'static>(
 
 fn funded_account<T: Config<I>, I: 'static>(name: &'static str, index: u32) -> T::AccountId {
 	let caller: T::AccountId = account(name, index, SEED);
-	// TODO: Find a way to fund the account with pallet only implementing Inspect trait
-	T::Currency::make_free_balance_be(&caller, BalanceOf::<T, I>::max_value());
+	T::Currency::set_balance(&caller, BalanceOf::<T, I>::max_value());
 	caller
 }
 

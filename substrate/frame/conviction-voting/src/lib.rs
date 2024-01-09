@@ -31,7 +31,7 @@ use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	traits::{
-		fungible::{Inspect, InspectFreeze, MutateFreeze},
+		fungible::{Inspect, InspectFreeze, Mutate, MutateFreeze},
 		Get, PollStatus, Polling,
 	},
 };
@@ -106,9 +106,15 @@ pub mod pallet {
 		type RuntimeFreezeReason: From<FreezeReason>;
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
-		/// Currency type with which voting happens.
+
+		#[cfg(not(feature = "runtime-benchmarks"))]
 		type Currency: MutateFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>
 			+ InspectFreeze<Self::AccountId>;
+
+		#[cfg(feature = "runtime-benchmarks")]
+		type Currency: MutateFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>
+			+ InspectFreeze<Self::AccountId>
+			+ Mutate<Self::AccountId>;
 
 		/// The implementation of the logic which conducts polls.
 		type Polls: Polling<
