@@ -240,8 +240,9 @@ fn valgrind_toggle_collect() {}
 fn run_valgrind() -> eyre::Result<()> {
 	use std::os::unix::process::CommandExt;
 	std::process::Command::new("valgrind")
-		.arg("--tool=cachegrind")
+		.arg("--tool=callgrind")
 		.arg("--cache-sim=yes")
+		.arg("--instr-atstart=no")
 		.arg("--collect-atstart=no")
 		.args(std::env::args())
 		.exec();
