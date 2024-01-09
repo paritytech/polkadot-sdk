@@ -31,21 +31,24 @@ use primitives::{
 	OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes, SessionInfo, Signature,
 	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, PARACHAIN_KEY_TYPE_ID,
 };
+use rococo_runtime_constants::system_parachain::BROKER_ID;
 use runtime_common::{
 	assigned_slots, auctions, claims, crowdloan, identity_migrator, impl_runtime_weights,
 	impls::{
 		LocatableAssetConverter, ToAuthor, VersionedLocatableAsset, VersionedMultiLocationConverter,
 	},
-	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots, BlockHashCount, BlockLength,
-	SlowAdjustingFeeUpdate,
+	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots,
+	traits::Leaser,
+	BlockHashCount, BlockLength, SlowAdjustingFeeUpdate,
 };
 use scale_info::TypeInfo;
 use sp_std::{cmp::Ordering, collections::btree_map::BTreeMap, prelude::*};
 
 use runtime_parachains::{
-	assigner as parachains_assigner, assigner_on_demand as parachains_assigner_on_demand,
+	assigner_coretime as parachains_assigner_coretime,
+	assigner_on_demand as parachains_assigner_on_demand,
 	assigner_parachains as parachains_assigner_parachains,
-	configuration as parachains_configuration, disputes as parachains_disputes,
+	configuration as parachains_configuration, coretime, disputes as parachains_disputes,
 	disputes::slashing as parachains_slashing,
 	dmp as parachains_dmp, hrmp as parachains_hrmp, inclusion as parachains_inclusion,
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
@@ -150,7 +153,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("rococo"),
 	impl_name: create_runtime_str!("parity-rococo-v2.0"),
 	authoring_version: 0,
-	spec_version: 1_005_000,
+	spec_version: 1_005_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 24,
@@ -935,6 +938,7 @@ impl parachains_paras::Config for Runtime {
 	type QueueFootprinter = ParaInclusion;
 	type NextSessionRotation = Babe;
 	type OnNewHead = Registrar;
+	type AssignCoretime = CoretimeAssignmentProvider;
 }
 
 parameter_types! {
@@ -1001,7 +1005,22 @@ impl parachains_paras_inherent::Config for Runtime {
 }
 
 impl parachains_scheduler::Config for Runtime {
-	type AssignmentProvider = ParaAssignmentProvider;
+	// If you change this, make sure the `Assignment` type of the new provider is binary compatible,
+	// otherwise provide a migration.
+	type AssignmentProvider = CoretimeAssignmentProvider;
+}
+
+parameter_types! {
+	pub const BrokerId: u32 = BROKER_ID;
+}
+
+impl coretime::Config for Runtime {
+	type RuntimeOrigin = RuntimeOrigin;
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type BrokerId = BrokerId;
+	type WeightInfo = weights::runtime_parachains_coretime::WeightInfo<Runtime>;
+	type SendXcm = crate::xcm_config::XcmRouter;
 }
 
 parameter_types! {
@@ -1017,15 +1036,13 @@ impl parachains_assigner_on_demand::Config for Runtime {
 
 impl parachains_assigner_parachains::Config for Runtime {}
 
-impl parachains_assigner::Config for Runtime {
-	type OnDemandAssignmentProvider = OnDemandAssignmentProvider;
-	type ParachainsAssignmentProvider = ParachainsAssignmentProvider;
-}
+impl parachains_assigner_coretime::Config for Runtime {}
 
 impl parachains_initializer::Config for Runtime {
 	type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = weights::runtime_parachains_initializer::WeightInfo<Runtime>;
+	type CoretimeOnNewSession = Coretime;
 }
 
 impl parachains_disputes::Config for Runtime {
@@ -1220,19 +1237,6 @@ impl pallet_mmr::Config for Runtime {
 }
 
 parameter_types! {
-	/// Version of the produced MMR leaf.
-	///
-	/// The version consists of two parts;
-	/// - `major` (3 bits)
-	/// - `minor` (5 bits)
-	///
-	/// `major` should be updated only if decoding the previous MMR Leaf format from the payload
-	/// is not possible (i.e. backward incompatible change).
-	/// `minor` should be updated if fields are added to the previous MMR Leaf, which given SCALE
-	/// encoding does not prevent old leafs from being decoded.
-	///
-	/// Hence we expect `major` to be changed really rarely (think never).
-	/// See [`MmrLeafVersion`] type documentation for more details.
 	pub LeafVersion: MmrLeafVersion = MmrLeafVersion::new(0, 0);
 }
 
@@ -1405,15 +1409,16 @@ construct_runtime! {
 		ParasDisputes: parachains_disputes::{Pallet, Call, Storage, Event<T>} = 62,
 		ParasSlashing: parachains_slashing::{Pallet, Call, Storage, ValidateUnsigned} = 63,
 		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>} = 64,
-		ParaAssignmentProvider: parachains_assigner::{Pallet, Storage} = 65,
 		OnDemandAssignmentProvider: parachains_assigner_on_demand::{Pallet, Call, Storage, Event<T>} = 66,
 		ParachainsAssignmentProvider: parachains_assigner_parachains::{Pallet} = 67,
+		CoretimeAssignmentProvider: parachains_assigner_coretime::{Pallet, Storage} = 68,
 
 		// Parachain Onboarding Pallets. Start indices at 70 to leave room.
 		Registrar: paras_registrar::{Pallet, Call, Storage, Event<T>, Config<T>} = 70,
 		Slots: slots::{Pallet, Call, Storage, Event<T>} = 71,
 		Auctions: auctions::{Pallet, Call, Storage, Event<T>} = 72,
 		Crowdloan: crowdloan::{Pallet, Call, Storage, Event<T>} = 73,
+		Coretime: coretime::{Pallet, Call, Event<T>} = 74,
 
 		// Pallet for sending XCM.
 		XcmPallet: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config<T>} = 99,
@@ -1479,6 +1484,24 @@ pub mod migrations {
 	use frame_system::pallet_prelude::BlockNumberFor;
 	#[cfg(feature = "try-runtime")]
 	use sp_core::crypto::ByteArray;
+
+	pub struct GetLegacyLeaseImpl;
+	impl coretime::migration::GetLegacyLease<BlockNumber> for GetLegacyLeaseImpl {
+		fn get_parachain_lease_in_blocks(para: ParaId) -> Option<BlockNumber> {
+			let now = frame_system::Pallet::<Runtime>::block_number();
+			let lease = slots::Pallet::<Runtime>::lease(para);
+			if lease.is_empty() {
+				return None
+			}
+			// Lease not yet started, ignore:
+			if lease.iter().any(Option::is_none) {
+				return None
+			}
+			let (index, _) =
+				<slots::Pallet<Runtime> as Leaser<BlockNumber>>::lease_period_index(now)?;
+			Some(index.saturating_add(lease.len() as u32).saturating_mul(LeasePeriod::get()))
+		}
+	}
 
 	parameter_types! {
 		pub const DemocracyPalletName: &'static str = "Democracy";
@@ -1602,7 +1625,7 @@ pub mod migrations {
 		pallet_society::migrations::MigrateToV2<Runtime, (), ()>,
 		parachains_configuration::migration::v7::MigrateToV7<Runtime>,
 		assigned_slots::migration::v1::MigrateToV1<Runtime>,
-		parachains_scheduler::migration::v1::MigrateToV1<Runtime>,
+		parachains_scheduler::migration::MigrateV1ToV2<Runtime>,
 		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
 		paras_registrar::migration::MigrateToV1<Runtime, ()>,
@@ -1633,6 +1656,8 @@ pub mod migrations {
 		// Remove `im-online` pallet on-chain storage
 		frame_support::migrations::RemovePallet<ImOnlinePalletName, <Runtime as frame_system::Config>::DbWeight>,
 		parachains_configuration::migration::v11::MigrateToV11<Runtime>,
+		// This needs to come after the `parachains_configuration` above as we are reading the configuration.
+		coretime::migration::MigrateToCoretime<Runtime, crate::xcm_config::XcmRouter, GetLegacyLeaseImpl>,
 	);
 }
 
@@ -1681,6 +1706,7 @@ mod benches {
 		// the that path resolves correctly in the generated file.
 		[runtime_common::assigned_slots, AssignedSlots]
 		[runtime_common::auctions, Auctions]
+		[runtime_common::coretime, Coretime]
 		[runtime_common::crowdloan, Crowdloan]
 		[runtime_common::claims, Claims]
 		[runtime_common::identity_migrator, IdentityMigrator]

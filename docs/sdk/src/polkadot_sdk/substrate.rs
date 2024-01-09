@@ -143,7 +143,7 @@
 //!     - [`sc_consensus_aura`]
 //!     - [`sc_consensus_babe`]
 //!     - [`sc_consensus_grandpa`]
-//!     - [`sc_consensus_beefy`] (TODO: @adrian, add some high level docs https://github.com/paritytech/polkadot-sdk-docs/issues/57)
+//!     - [`sc_consensus_beefy`] (TODO: @adrian, add some high level docs <https://github.com/paritytech/polkadot-sdk-docs/issues/57>)
 //!     - [`sc_consensus_manual_seal`]
 //!     - [`sc_consensus_pow`]
 
