@@ -44,8 +44,8 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
 ///
 /// // Input and size can be specified as well:
 /// input$!(
-/// 		input,        // input buffer (optional)
-/// 		512,          // input size (optional)
+/// 		input,      // input buffer (optional)
+/// 		512,        // input size (optional)
 /// 		var4: u32,  // [0, 4)  var4 decoded as u32
 /// 		var5: [u8], // [4, ..) var5 decoded as a [u8] slice
 /// );
