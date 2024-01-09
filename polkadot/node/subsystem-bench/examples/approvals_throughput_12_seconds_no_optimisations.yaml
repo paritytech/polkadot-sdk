@@ -10,9 +10,9 @@ TestConfiguration:
     coalesce_tranche_diff: 12
     workdir_prefix: "/tmp/"
     num_no_shows_per_candidate: 0
-    approval_distribution_expected_tof: 6.0
-    approval_distribution_cpu_ms: 3.0
-    approval_voting_cpu_ms: 4.30
+    approval_distribution_expected_tof: 60.0
+    approval_distribution_cpu_ms: 4.70
+    approval_voting_cpu_ms: 6.30
   n_validators: 500
   n_cores: 100
   n_included_candidates: 50

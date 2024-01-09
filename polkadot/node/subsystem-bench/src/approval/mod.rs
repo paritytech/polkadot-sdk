@@ -527,12 +527,11 @@ impl PeerMessageProducer {
 					.unwrap_or_default()
 				{
 					let bundle = progressing_iterator.next().unwrap();
-					re_process_skipped = re_process_skipped ||
-						self.process_message(
-							bundle,
-							&mut per_candidate_data,
-							&mut skipped_messages,
-						);
+					re_process_skipped = self.process_message(
+						bundle,
+						&mut per_candidate_data,
+						&mut skipped_messages,
+					) || re_process_skipped;
 				}
 				sleep(Duration::from_millis(50)).await;
 			}
@@ -939,27 +938,24 @@ pub async fn bench_approvals_run(
 	);
 	gum::info!("{}", &env);
 
-	assert!(env.bucket_metric_lower_than(
-		"polkadot_parachain_subsystem_bounded_tof_bucket",
-		"subsystem_name",
-		"approval-distribution-subsystem",
-		// state.options.approval_distribution_expected_tof
-		12000.0
-	));
-
 	assert!(env.metric_with_label_lower_than(
 		"substrate_tasks_polling_duration_sum",
 		"task_group",
 		"approval-voting",
-		//state.options.approval_voting_cpu_ms * state.blocks.len() as f64
-		12000.0
+		state.options.approval_voting_cpu_ms * state.blocks.len() as f64
 	));
 
 	assert!(env.metric_with_label_lower_than(
 		"substrate_tasks_polling_duration_sum",
 		"task_group",
 		"approval-distribution",
-		//state.options.approval_distribution_cpu_ms * state.blocks.len() as f64
-		12000.00
+		state.options.approval_distribution_cpu_ms * state.blocks.len() as f64
+	));
+
+	assert!(env.bucket_metric_lower_than(
+		"polkadot_parachain_subsystem_bounded_tof_bucket",
+		"subsystem_name",
+		"approval-distribution-subsystem",
+		state.options.approval_distribution_expected_tof
 	));
 }

@@ -427,6 +427,8 @@ test-linux-subsystem-bench:
     - time cargo run -p polkadot-subsystem-bench --release -- test-sequence --path polkadot/node/subsystem-bench/examples/approvals_throughput_no_optimisations_enabled.yaml
     - time cargo run -p polkadot-subsystem-bench --release -- test-sequence --path polkadot/node/subsystem-bench/examples/approvals_throughput_12_seconds.yaml
     - time cargo run -p polkadot-subsystem-bench --release -- test-sequence --path polkadot/node/subsystem-bench/examples/approvals_throughput_12_seconds_no_optimisations.yaml
+    - time cargo run -p polkadot-subsystem-bench --release -- test-sequence --path polkadot/node/subsystem-bench/examples/approvals_throughput_best_case.yaml
+    - time cargo run -p polkadot-subsystem-bench --release -- test-sequence --path polkadot/node/subsystem-bench/examples/approvals_no_shows.yaml
 
 # more information about this job can be found here:
 # https://github.com/paritytech/substrate/pull/6916

@@ -3,16 +3,16 @@ TestConfiguration:
 - objective: !ApprovalsTest
     last_considered_tranche: 89
     min_coalesce: 1
-    max_coalesce: 1
-    enable_assignments_v2: false
+    max_coalesce: 6
+    enable_assignments_v2: true
     send_till_tranche: 89
-    stop_when_approved: false
+    stop_when_approved: true
     coalesce_tranche_diff: 12
     workdir_prefix: "/tmp/"
-    num_no_shows_per_candidate: 0
+    num_no_shows_per_candidate: 10
     approval_distribution_expected_tof: 60.0
-    approval_distribution_cpu_ms: 10.50
-    approval_voting_cpu_ms: 13.00
+    approval_distribution_cpu_ms: 3.0
+    approval_voting_cpu_ms: 4.30
   n_validators: 500
   n_cores: 100
   n_included_candidates: 100
