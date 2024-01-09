@@ -11,6 +11,7 @@ chain_spec_path = "chain-spec.json"
   [[relaychain.nodes]]
   name = "alice"
   validator = true
+  args = ["--state-pruning archive --blocks-pruning archive"]
 
   [[relaychain.nodes]]
   name = "bob"
