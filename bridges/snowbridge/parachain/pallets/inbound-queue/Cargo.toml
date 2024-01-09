@@ -22,17 +22,17 @@ alloy-sol-types = { version = "0.4.2", default-features = false }
 alloy-rlp = { version = "0.3.3", default-features = false, features = ["derive"] }
 num-traits = { version = "0.2.16", default-features = false }
 
-frame-benchmarking = { path = "../../../polkadot-sdk/substrate/frame/benchmarking", default-features = false, optional = true }
-frame-support = { path = "../../../polkadot-sdk/substrate/frame/support", default-features = false }
-frame-system = { path = "../../../polkadot-sdk/substrate/frame/system", default-features = false }
-pallet-balances = { path = "../../../polkadot-sdk/substrate/frame/balances", default-features = false }
-sp-core = { path = "../../../polkadot-sdk/substrate/primitives/core", default-features = false }
-sp-std = { path = "../../../polkadot-sdk/substrate/primitives/std", default-features = false }
-sp-io = { path = "../../../polkadot-sdk/substrate/primitives/io", default-features = false }
-sp-runtime = { path = "../../../polkadot-sdk/substrate/primitives/runtime", default-features = false }
+frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true }
+frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
+frame-system = { path = "../../../../../substrate/frame/system", default-features = false }
+pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false }
+sp-core = { path = "../../../../../substrate/primitives/core", default-features = false }
+sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
+sp-io = { path = "../../../../../substrate/primitives/io", default-features = false }
+sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false }
 
-xcm = { package = "staging-xcm", path = "../../../polkadot-sdk/polkadot/xcm", default-features = false }
-xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot-sdk/polkadot/xcm/xcm-builder", default-features = false }
+xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false }
 
 snowbridge-core = { path = "../../primitives/core", default-features = false }
 snowbridge-ethereum = { path = "../../primitives/ethereum", default-features = false }
@@ -40,8 +40,8 @@ snowbridge-router-primitives = { path = "../../primitives/router", default-featu
 snowbridge-beacon-primitives = { path = "../../primitives/beacon", default-features = false, optional = true }
 
 [dev-dependencies]
-frame-benchmarking = { path = "../../../polkadot-sdk/substrate/frame/benchmarking" }
-sp-keyring = { path = "../../../polkadot-sdk/substrate/primitives/keyring" }
+frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking" }
+sp-keyring = { path = "../../../../../substrate/primitives/keyring" }
 snowbridge-beacon-primitives = { path = "../../primitives/beacon" }
 snowbridge-ethereum-beacon-client = { path = "../../pallets/ethereum-beacon-client" }
 hex-literal = { version = "0.4.1" }
