@@ -64,6 +64,7 @@ use sp_runtime::{
 	traits::{
 		AtLeast32Bit, Block as BlockT, Extrinsic, Hash as HashT, Header as HeaderT, NumberFor, Zero,
 	},
+	transaction_validity::UnknownTransaction,
 };
 use std::time::Instant;
 
@@ -99,6 +100,7 @@ pub enum ViewCreationError {
 	AlreadyExists,
 	Unknown,
 	BlockIdConversion,
+	NoViews,
 }
 
 impl<PoolApi, Block> ViewManager<PoolApi, Block>
@@ -340,7 +342,7 @@ where
 	}
 }
 
-//todo: naming!
+//todo: naming + doc!
 fn xxxx<H, E>(input: &mut HashMap<H, Vec<Result<H, E>>>) -> Vec<Result<H, E>> {
 	let mut values = input.values();
 	let Some(first) = values.next() else {
@@ -527,6 +529,17 @@ where
 	) -> PoolFuture<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error> {
 		let views = self.views.clone();
 		self.xts.write().extend(xts.clone());
+		let xts = xts.clone();
+
+		if views.is_empty() {
+			return future::ready(Ok(xts
+				.iter()
+				.map(|_| {
+					Err(TxPoolError::UnknownTransaction(UnknownTransaction::CannotLookup).into())
+				})
+				.collect()))
+			.boxed()
+		}
 
 		// todo:
 		// self.metrics
@@ -547,9 +560,16 @@ where
 	) -> PoolFuture<TxHash<Self>, Self::Error> {
 		// todo:
 		// self.metrics.report(|metrics| metrics.submitted_transactions.inc());
-
 		let views = self.views.clone();
 		self.xts.write().push(xt.clone());
+
+		if views.is_empty() {
+			return future::ready(Err(TxPoolError::UnknownTransaction(
+				UnknownTransaction::CannotLookup,
+			)
+			.into()))
+			.boxed()
+		}
 
 		async move {
 			let results = views.submit_one(source, xt).await;

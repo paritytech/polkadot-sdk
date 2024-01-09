@@ -20,18 +20,26 @@
 
 use futures::{executor::block_on, FutureExt};
 use sc_transaction_pool::ChainApi;
-use sc_transaction_pool_api::{ChainEvent, MaintainedTransactionPool, TransactionPool};
-use sp_runtime::transaction_validity::TransactionSource;
+use sc_transaction_pool_api::{
+	error::Error as TxPoolError, ChainEvent, MaintainedTransactionPool, TransactionPool,
+};
+use sp_runtime::transaction_validity::{InvalidTransaction, TransactionSource, UnknownTransaction};
 use std::sync::Arc;
 use substrate_test_runtime_client::{
 	runtime::{Block, Hash, Header},
 	AccountKeyring::*,
 };
 use substrate_test_runtime_transaction_pool::{uxt, TestApi};
-
 const LOG_TARGET: &str = "txpool";
 
 use sc_transaction_pool::fork_aware_pool::ForkAwareTxPool;
+use substrate_test_runtime::{Nonce, TransferData};
+
+fn pool() -> (ForkAwareTxPool<TestApi, Block>, Arc<TestApi>) {
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let pool = create_basic_pool(api.clone());
+	(pool, api)
+}
 
 fn invalid_hash() -> Hash {
 	Default::default()
@@ -138,9 +146,106 @@ mod test_chain_with_forks {
 // - view.ready iterator
 // - stale transaction submission when there is single view only (expect error)
 // - stale transaction submission when there are more views (expect ok)
+//
+// done:
+// fn submission_should_work()
+// fn multiple_submission_should_work()
+// fn early_nonce_should_be_culled()
+// fn late_nonce_should_be_queued()
+// fn only_prune_on_new_best()
+// fn should_prune_old_during_maintenance()
+// fn should_resubmit_from_retracted_during_maintenance() (shitty name)
+// fn should_not_resubmit_from_retracted_during_maintenance_if_tx_is_also_in_enacted()
+//
+// todo: [validated_pool/pool related, probably can be reused]:
+// fn prune_tags_should_work()
+// fn should_ban_invalid_transactions()
+// fn should_correctly_prune_transactions_providing_more_than_one_tag()
+//
+//
+// fn should_push_watchers_during_maintenance()
+// fn finalization()
+// fn fork_aware_finalization()
+// fn prune_and_retract_tx_at_same_time()
+// fn resubmit_tx_of_fork_that_is_not_part_of_retracted()
+// fn resubmit_from_retracted_fork()
+// fn ready_set_should_not_resolve_before_block_update()
+// fn ready_set_should_resolve_after_block_update()
+// fn ready_set_should_eventually_resolve_when_block_update_arrives()
+// fn import_notification_to_pool_maintain_works()
+// fn pruning_a_transaction_should_remove_it_from_best_transaction()
+// fn stale_transactions_are_pruned()
+// fn finalized_only_handled_correctly()
+// fn best_block_after_finalized_handled_correctly()
+// fn switching_fork_with_finalized_works()
+// fn switching_fork_multiple_times_works()
+// fn two_blocks_delayed_finalization_works()
+// fn delayed_finalization_does_not_retract()
+// fn best_block_after_finalization_does_not_retract()
+//
+// watcher needed?
+// fn should_revalidate_during_maintenance()
+// fn should_not_retain_invalid_hashes_from_retracted()
+// fn should_revalidate_across_many_blocks()
 
 #[test]
-fn fap_one_view_future_and_ready_submit_one() {
+fn fap_no_view_future_and_ready_submit_one_fails() {
+	sp_tracing::try_init_simple();
+
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let pool = create_basic_pool(api.clone());
+
+	let header01a = api.push_block(1, vec![], true);
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Alice, 202);
+
+	let submissions = vec![
+		pool.submit_one(header01a.hash(), SOURCE, xt0.clone()),
+		pool.submit_one(header01a.hash(), SOURCE, xt1.clone()),
+	];
+
+	let results = block_on(futures::future::join_all(submissions));
+
+	assert!(results.iter().all(|r| {
+		matches!(
+			&r.as_ref().unwrap_err().0,
+			TxPoolError::UnknownTransaction(UnknownTransaction::CannotLookup,)
+		)
+	}));
+}
+
+#[test]
+fn fap_no_view_future_and_ready_submit_many_fails() {
+	sp_tracing::try_init_simple();
+
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let pool = create_basic_pool(api.clone());
+
+	let header01a = api.push_block(1, vec![], true);
+
+	let xts0 = (200..205).map(|i| uxt(Alice, i)).collect::<Vec<_>>();
+	let xts1 = (205..210).map(|i| uxt(Alice, i)).collect::<Vec<_>>();
+	let xts2 = (215..220).map(|i| uxt(Alice, i)).collect::<Vec<_>>();
+
+	let submissions = vec![
+		pool.submit_at(header01a.hash(), SOURCE, xts0.clone()),
+		pool.submit_at(header01a.hash(), SOURCE, xts1.clone()),
+		pool.submit_at(header01a.hash(), SOURCE, xts2.clone()),
+	];
+
+	let results = block_on(futures::future::join_all(submissions));
+
+	assert!(results.into_iter().flat_map(|x| x.unwrap()).all(|r| {
+		matches!(
+			&r.as_ref().unwrap_err().0,
+			TxPoolError::UnknownTransaction(UnknownTransaction::CannotLookup,)
+		)
+	}));
+}
+
+#[test]
+fn fap_one_view_future_and_ready_submit_one_works() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -170,7 +275,7 @@ fn fap_one_view_future_and_ready_submit_one() {
 }
 
 #[test]
-fn fap_one_view_future_and_ready_submit_many() {
+fn fap_one_view_future_and_ready_submit_many_works() {
 	sp_tracing::try_init_simple();
 
 	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
@@ -199,6 +304,137 @@ fn fap_one_view_future_and_ready_submit_many() {
 	let status = &pool.status_all()[&header01a.hash()];
 	assert_eq!(status.ready, 10);
 	assert_eq!(status.future, 5);
+}
+
+#[test]
+fn fap_one_view_stale_submit_one_fails() {
+	sp_tracing::try_init_simple();
+
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let pool = create_basic_pool(api.clone());
+
+	let header = api.push_block(1, vec![], true);
+
+	let event = ChainEvent::NewBestBlock { hash: header.hash(), tree_route: None };
+	block_on(pool.maintain(event));
+
+	let xt0 = uxt(Alice, 100);
+	let submissions = vec![pool.submit_one(invalid_hash(), SOURCE, xt0.clone())];
+	let results = block_on(futures::future::join_all(submissions));
+
+	//xt0 should be stale
+	assert!(matches!(
+		&results[0].as_ref().unwrap_err().0,
+		TxPoolError::InvalidTransaction(InvalidTransaction::Stale,)
+	));
+
+	let status = &pool.status_all()[&header.hash()];
+	assert_eq!(status.ready, 0);
+	assert_eq!(status.future, 0);
+}
+
+#[test]
+fn fap_one_view_stale_submit_many_fails() {
+	sp_tracing::try_init_simple();
+
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let pool = create_basic_pool(api.clone());
+
+	let header = api.push_block(1, vec![], true);
+
+	let event = ChainEvent::NewBestBlock { hash: header.hash(), tree_route: None };
+	block_on(pool.maintain(event));
+
+	let xts0 = (100..105).map(|i| uxt(Alice, i)).collect::<Vec<_>>();
+	let xts1 = (105..110).map(|i| uxt(Alice, i)).collect::<Vec<_>>();
+	let xts2 = (195..201).map(|i| uxt(Alice, i)).collect::<Vec<_>>();
+
+	let submissions = vec![
+		pool.submit_at(header.hash(), SOURCE, xts0.clone()),
+		pool.submit_at(header.hash(), SOURCE, xts1.clone()),
+		pool.submit_at(header.hash(), SOURCE, xts2.clone()),
+	];
+
+	let results = block_on(futures::future::join_all(submissions));
+
+	log::info!("{:#?}", results);
+
+	//xts2 contains one ready transaction
+	//todo: submit_at result is not ordered as the input
+	assert_eq!(
+		results
+			.into_iter()
+			.flat_map(|x| x.unwrap())
+			.filter(Result::is_err)
+			.filter(|r| {
+				matches!(
+					&r.as_ref().unwrap_err().0,
+					TxPoolError::InvalidTransaction(InvalidTransaction::Stale,)
+				)
+			})
+			.count(),
+		xts0.len() + xts1.len() + xts2.len() - 1
+	);
+
+	let status = &pool.status_all()[&header.hash()];
+	assert_eq!(status.ready, 1);
+	assert_eq!(status.future, 0);
+}
+
+#[test]
+fn fap_one_view_future_turns_to_ready_works() {
+	let (pool, api) = pool();
+
+	let header = api.push_block(1, vec![], true);
+	let at = header.hash();
+	let event = ChainEvent::NewBestBlock { hash: at, tree_route: None };
+	block_on(pool.maintain(event));
+
+	let xt0 = uxt(Alice, 201);
+	block_on(pool.submit_one(invalid_hash(), SOURCE, xt0.clone())).unwrap();
+	assert!(pool.ready(at).unwrap().count() == 0);
+	let status = &pool.status_all()[&at];
+	assert_eq!(status.ready, 0);
+	assert_eq!(status.future, 1);
+
+	let xt1 = uxt(Alice, 200);
+	block_on(pool.submit_one(invalid_hash(), SOURCE, xt1.clone())).unwrap();
+	let ready: Vec<_> = pool.ready(at).unwrap().map(|v| v.data.clone()).collect();
+	assert_eq!(ready, vec![xt1, xt0]);
+	let status = &pool.status_all()[&at];
+	assert_eq!(status.ready, 2);
+	assert_eq!(status.future, 0);
+}
+
+#[test]
+fn fap_one_view_ready_turns_to_stale_works() {
+	let (pool, api) = pool();
+
+	let header = api.push_block(1, vec![], true);
+	let block1 = header.hash();
+	let event = ChainEvent::NewBestBlock { hash: block1, tree_route: None };
+	block_on(pool.maintain(event));
+
+	let xt0 = uxt(Alice, 200);
+	block_on(pool.submit_one(invalid_hash(), SOURCE, xt0.clone())).unwrap();
+	let pending: Vec<_> = pool.ready(block1).unwrap().map(|v| v.data.clone()).collect();
+	assert_eq!(pending, vec![xt0.clone()]);
+	assert_eq!(pool.status_all()[&block1].ready, 1);
+
+	// todo: xt0 shall become stale, and this does not neccesarily requires transaction in block 2.
+	// nonce setting should be enough, but revalidation is required!
+	let header = api.push_block(2, vec![uxt(Alice, 200)], true);
+	let block2 = header.hash();
+	api.set_nonce(block2, Alice.into(), 201);
+	let event = ChainEvent::NewBestBlock {
+		hash: block2,
+		tree_route: api.tree_route(block1, block2).ok().map(Into::into),
+	};
+	block_on(pool.maintain(event));
+	let status = &pool.status_all()[&block2];
+	assert!(pool.ready(block2).unwrap().count() == 0);
+	assert_eq!(status.ready, 0);
+	assert_eq!(status.future, 0);
 }
 
 #[test]
@@ -283,7 +519,7 @@ fn fap_two_views_future_and_ready_sumbit_many() {
 }
 
 #[test]
-fn fap_lin_poc() {
+fn fap_linear_progress() {
 	sp_tracing::try_init_simple();
 
 	let (api, forks) = test_chain_with_forks::chain(None);
@@ -319,7 +555,7 @@ fn fap_lin_poc() {
 }
 
 #[test]
-fn fap_fork_poc() {
+fn fap_fork_reorg() {
 	sp_tracing::try_init_simple();
 
 	let (api, forks) = test_chain_with_forks::chain(None);
@@ -375,7 +611,41 @@ fn fap_fork_poc() {
 }
 
 #[test]
-fn fap_fork_stale_poc() {
+fn fap_fork_do_resubmit_same_tx() {
+	let xt = uxt(Alice, 200);
+
+	let (pool, api) = pool();
+	let genesis = api.genesis_hash();
+	let event = ChainEvent::NewBestBlock { hash: genesis, tree_route: None };
+	block_on(pool.maintain(event));
+
+	block_on(pool.submit_one(api.expect_hash_from_number(0), SOURCE, xt.clone()))
+		.expect("1. Imported");
+	assert_eq!(pool.status_all()[&genesis].ready, 1);
+
+	let header = api.push_block(1, vec![xt.clone()], true);
+	let fork_header = api.push_block(1, vec![xt], true);
+
+	let event = ChainEvent::NewBestBlock {
+		hash: fork_header.hash(),
+		tree_route: api.tree_route(header.hash(), fork_header.hash()).ok().map(Into::into),
+	};
+	api.set_nonce(header.hash(), Alice.into(), 201);
+	block_on(pool.maintain(event));
+	assert_eq!(pool.status_all()[&fork_header.hash()].ready, 0);
+
+	let event = ChainEvent::NewBestBlock {
+		hash: fork_header.hash(),
+		tree_route: api.tree_route(api.genesis_hash(), fork_header.hash()).ok().map(Into::into),
+	};
+	api.set_nonce(fork_header.hash(), Alice.into(), 201);
+	block_on(pool.maintain(event));
+
+	assert_eq!(pool.status_all()[&fork_header.hash()].ready, 0);
+}
+
+#[test]
+fn fap_fork_stale_switch_to_future() {
 	sp_tracing::try_init_simple();
 
 	let (api, forks) = test_chain_with_forks::chain(Some(&|f, b| match (f, b) {
@@ -403,9 +673,7 @@ fn fap_fork_stale_poc() {
 	//xt2 should be stale (todo:move to new test?)
 	assert!(matches!(
 		&submission_results[2].as_ref().unwrap_err().0,
-		sc_transaction_pool_api::error::Error::InvalidTransaction(
-			sp_runtime::transaction_validity::InvalidTransaction::Stale,
-		)
+		TxPoolError::InvalidTransaction(InvalidTransaction::Stale,)
 	));
 
 	let event = ChainEvent::NewBestBlock {
@@ -437,7 +705,7 @@ fn fap_fork_stale_poc() {
 
 //todo - fix this test
 #[test]
-fn fap_fork_no_xts_ready_to_future() {
+fn fap_fork_no_xts_ready_switch_to_future() {
 	//this scenario w/o xts is not likely to happen, but similar thing (xt changing from ready to
 	//future) could occur e.g. when runtime was updated on fork1.
 	sp_tracing::try_init_simple();
