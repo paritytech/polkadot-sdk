@@ -76,7 +76,7 @@ pub enum Error {
 	FetchAvailabilityCores(RuntimeApiError),
 
 	#[error("Fetching disabled validators failed {0:?}")]
-	FetchDisabledValidators(util::Error),
+	FetchDisabledValidators(runtime::Error),
 
 	#[error("Fetching validator groups failed {0:?}")]
 	FetchValidatorGroups(RuntimeApiError),
