@@ -44,8 +44,8 @@
   extends:
     - .zombienet-substrate-common
   variables:
-    DB_SNAPSHOT: "https://storage.googleapis.com/zombienet-db-snaps/substrate/0001-basic-warp-sync/chains-a233bbacff650aac6bcb56b4e4ef7db7dc143cfb.tgz"
-    DB_BLOCK_HEIGHT: 12133
+    DB_SNAPSHOT: "https://storage.googleapis.com/zombienet-db-snaps/substrate/0001-basic-warp-sync/chains-510ac1c891afe26bad6fcd6d74185917b3fb1b4f.tgz"
+    DB_BLOCK_HEIGHT: 47222
 
 zombienet-substrate-0000-block-building:
   extends:

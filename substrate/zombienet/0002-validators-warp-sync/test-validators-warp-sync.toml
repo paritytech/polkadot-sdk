@@ -18,7 +18,7 @@ chain_spec_path = "chain-spec.json"
   validator = true
   args = ["--sync warp"]
 
-  #we need at least 3 nodes for warp sync
+  # we need at least 3 nodes for warp sync
   [[relaychain.nodes]]
   name = "charlie"
   validator = false
