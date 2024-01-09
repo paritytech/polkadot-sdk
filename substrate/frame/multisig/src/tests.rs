@@ -26,7 +26,7 @@ use frame_support::{
 	assert_noop, assert_ok, derive_impl,
 	traits::{fungible::HoldConsideration, ConstU32, Contains},
 };
-use sp_runtime::{traits::Convert, BuildStorage, TokenError};
+use sp_runtime::{bounded_vec, traits::Convert, BuildStorage, TokenError};
 
 type Block = frame_system::mocking::MockBlockU32<Test>;
 
@@ -103,6 +103,24 @@ fn now() -> Timepoint<u32> {
 
 fn call_transfer(dest: u64, value: u64) -> Box<RuntimeCall> {
 	Box::new(RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest, value }))
+}
+
+/// Insert an un-migrated multisig.
+pub fn insert_old_multisig<T: Config>(
+	id: &T::AccountId,
+	call_hash: &[u8; 32],
+	depositor: T::AccountId,
+) {
+	let when: Timepoint<BlockNumberFor<T>> = crate::Pallet::<T>::timepoint();
+	let deposit: BalanceOf<T> = 123u32.into();
+	let n = OldMultisig {
+		when,
+		deposit,
+		depositor: depositor.clone(),
+		approvals: bounded_vec!(depositor),
+	};
+	#[allow(deprecated)]
+	Multisigs::<T>::insert(id, call_hash, n);
 }
 
 #[test]
@@ -699,5 +717,26 @@ fn multisig_handles_no_preimage_after_all_approve() {
 			call_weight
 		));
 		assert_eq!(Balances::free_balance(6), 15);
+	});
+}
+
+#[test]
+fn ensure_updated_works() {
+	#![allow(deprecated)]
+	new_test_ext().execute_with(|| {
+		let multi = Multisig::multi_account_id(&[1, 2, 3][..], 3);
+
+		let call = call_transfer(6, 15);
+		let call_hash = blake2_256(&call.encode());
+
+		insert_old_multisig::<Test>(&multi, &call_hash, 1);
+		assert_eq!(Multisigs::<Test>::iter().count(), 1);
+
+		assert_eq!(Multisig::ensure_updated(&multi, &call_hash, 3), true);
+		assert_eq!(Multisigs::<Test>::iter().count(), 0);
+		assert_eq!(MultisigsFor::<Test>::iter().count(), 1);
+
+		let updated_multisig = MultisigsFor::<Test>::get(&multi, &call_hash).unwrap();
+		assert_eq!(updated_multisig.depositor, 1);
 	});
 }

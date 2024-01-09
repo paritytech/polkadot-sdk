@@ -692,7 +692,7 @@ impl<T: Config> Pallet<T> {
 		Ok(signatories)
 	}
 
-	fn ensure_updated(id: &T::AccountId, call_hash: &[u8; 32], threshold: u16) -> bool {
+	pub(crate) fn ensure_updated(id: &T::AccountId, call_hash: &[u8; 32], threshold: u16) -> bool {
 		#[allow(deprecated)]
 		let r = match Multisigs::<T>::take(id, call_hash) {
 			Some(r) => r,
