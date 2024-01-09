@@ -57,6 +57,8 @@ rm -rf $SNOWBRIDGE_FOLDER/codecov.yml
 rm -rf $SNOWBRIDGE_FOLDER/docs
 rm -rf $SNOWBRIDGE_FOLDER/hooks
 rm -rf $SNOWBRIDGE_FOLDER/relayer
+rm -rf $SNOWBRIDGE_FOLDER/scripts
+rm -rf $SNOWBRIDGE_FOLDER/SECURITY.md
 rm -rf $SNOWBRIDGE_FOLDER/smoketest
 rm -rf $SNOWBRIDGE_FOLDER/web
 rm -rf $SNOWBRIDGE_FOLDER/.envrc-example
@@ -74,6 +76,7 @@ rm -rf $SNOWBRIDGE_FOLDER/rust-toolchain.toml
 rm -rf $SNOWBRIDGE_FOLDER/parachain/rustfmt.toml
 rm -rf $SNOWBRIDGE_FOLDER/parachain/.gitignore
 rm -rf $SNOWBRIDGE_FOLDER/parachain/templates
+rm -rf $SNOWBRIDGE_FOLDER/parachain/.cargo
 rm -rf $SNOWBRIDGE_FOLDER/parachain/.config
 rm -rf $SNOWBRIDGE_FOLDER/parachain/pallets/ethereum-beacon-client/fuzz
 

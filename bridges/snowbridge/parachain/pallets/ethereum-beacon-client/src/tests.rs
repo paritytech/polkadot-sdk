@@ -1,14 +1,27 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use crate::{
-	config::{EPOCHS_PER_SYNC_COMMITTEE_PERIOD, SLOTS_PER_EPOCH},
-	functions::compute_period,
-	mock::minimal::*,
-	pallet::ExecutionHeaders,
-	sync_committee_sum, verify_merkle_branch, BeaconHeader, CompactBeaconState, Error,
-	ExecutionHeaderBuffer, FinalizedBeaconState, LatestExecutionState, LatestFinalizedBlockRoot,
-	NextSyncCommittee, SyncCommitteePrepared,
+	functions::compute_period, pallet::ExecutionHeaders, sync_committee_sum, verify_merkle_branch,
+	BeaconHeader, CompactBeaconState, Error, ExecutionHeaderBuffer, FinalizedBeaconState,
+	LatestExecutionState, LatestFinalizedBlockRoot, NextSyncCommittee, SyncCommitteePrepared,
 };
+
+use crate::mock::{
+	get_message_verification_header, get_message_verification_payload,
+	load_checkpoint_update_fixture, load_execution_header_update_fixture,
+	load_finalized_header_update_fixture, load_next_finalized_header_update_fixture,
+	load_next_sync_committee_update_fixture, load_sync_committee_update_fixture,
+};
+
+#[cfg(feature = "beacon-spec-minimal")]
+pub use crate::config::minimal::*;
+#[cfg(feature = "beacon-spec-minimal")]
+pub use crate::mock::minimal::*;
+
+#[cfg(not(feature = "beacon-spec-minimal"))]
+pub use crate::config::mainnet::*;
+#[cfg(not(feature = "beacon-spec-minimal"))]
+pub use crate::mock::mainnet::*;
 
 use frame_support::{assert_err, assert_noop, assert_ok};
 use hex_literal::hex;
@@ -168,7 +181,7 @@ pub fn verify_merkle_branch_fails_if_depth_and_branch_dont_match() {
 #[test]
 pub fn sync_committee_participation_is_supermajority() {
 	let bits =
-	hex!("bffffffff7f1ffdfcfeffeffbfdffffbfffffdffffefefffdffff7f7ffff77fffdf7bff77ffdf7fffafffffff77fefffeff7effffffff5f7fedfffdfb6ddff7b"
+		hex!("bffffffff7f1ffdfcfeffeffbfdffffbfffffdffffefefffdffff7f7ffff77fffdf7bff77ffdf7fffafffffff77fefffeff7effffffff5f7fedfffdfb6ddff7b"
 	);
 	let participation = primitives::decompress_sync_committee_bits::<512, 64>(bits);
 	assert_ok!(EthereumBeaconClient::sync_committee_participation_is_supermajority(&participation));

@@ -1,11 +1,9 @@
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, Encode};
 use ethabi::Token;
 use frame_support::traits::ProcessMessage;
 use scale_info::TypeInfo;
-use serde::{Deserialize, Serialize};
-use sp_arithmetic::FixedU128;
 use sp_core::H256;
-use sp_runtime::{traits::Zero, RuntimeDebug};
+use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;
 
 use super::Pallet;
@@ -55,45 +53,5 @@ impl From<CommittedMessage> for Token {
 			Token::Uint(x.reward.into()),
 			Token::FixedBytes(Vec::from(x.id.as_ref())),
 		])
-	}
-}
-
-/// Configuration for fee calculations
-#[derive(
-	Encode,
-	Decode,
-	Copy,
-	Clone,
-	PartialEq,
-	RuntimeDebug,
-	MaxEncodedLen,
-	TypeInfo,
-	Serialize,
-	Deserialize,
-)]
-pub struct FeeConfigRecord {
-	/// ETH/DOT exchange rate
-	pub exchange_rate: FixedU128,
-	/// Ether fee per unit of gas
-	pub fee_per_gas: u128,
-	/// Ether reward for delivering message
-	pub reward: u128,
-}
-
-#[derive(RuntimeDebug)]
-pub struct InvalidFeeConfig;
-
-impl FeeConfigRecord {
-	pub fn validate(&self) -> Result<(), InvalidFeeConfig> {
-		if self.exchange_rate == FixedU128::zero() {
-			return Err(InvalidFeeConfig)
-		}
-		if self.fee_per_gas == 0 {
-			return Err(InvalidFeeConfig)
-		}
-		if self.reward == 0 {
-			return Err(InvalidFeeConfig)
-		}
-		Ok(())
 	}
 }
