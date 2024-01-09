@@ -3779,7 +3779,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-beacon-primitives"
-version = "0.0.1"
+version = "0.9.0"
 dependencies = [
  "byte-slice-cast",
  "frame-support",
@@ -3803,7 +3803,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-core"
-version = "0.1.1"
+version = "0.9.0"
 dependencies = [
  "ethabi-decode",
  "frame-support",
@@ -3826,7 +3826,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-ethereum"
-version = "0.1.0"
+version = "0.9.0"
 dependencies = [
  "ethabi-decode",
  "ethbloom",
@@ -3850,7 +3850,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-ethereum-beacon-client"
-version = "0.0.1"
+version = "0.9.0"
 dependencies = [
  "bp-runtime",
  "byte-slice-cast",
@@ -3881,7 +3881,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-inbound-queue"
-version = "0.1.1"
+version = "0.9.0"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
@@ -3912,7 +3912,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-outbound-queue"
-version = "0.1.1"
+version = "0.9.0"
 dependencies = [
  "bridge-hub-common",
  "ethabi-decode",
@@ -3937,7 +3937,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-outbound-queue-merkle-tree"
-version = "0.1.1"
+version = "0.9.0"
 dependencies = [
  "array-bytes 4.2.0",
  "env_logger",
@@ -3951,7 +3951,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-outbound-queue-runtime-api"
-version = "0.1.0"
+version = "0.9.0"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
@@ -3965,7 +3965,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-rococo-common"
-version = "0.0.1"
+version = "0.9.0"
 dependencies = [
  "frame-support",
  "log",
@@ -3974,7 +3974,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-router-primitives"
-version = "0.1.1"
+version = "0.9.0"
 dependencies = [
  "ethabi-decode",
  "frame-support",
@@ -3997,7 +3997,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-runtime-common"
-version = "0.1.1"
+version = "0.9.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -4011,7 +4011,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-system"
-version = "0.1.1"
+version = "0.9.0"
 dependencies = [
  "ethabi-decode",
  "frame-benchmarking",
@@ -4039,7 +4039,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-system-runtime-api"
-version = "0.1.0"
+version = "0.9.0"
 dependencies = [
  "parity-scale-codec",
  "snowbridge-core",

@@ -1,3 +1,8 @@
+[workspace.package]
+authors = ["Snowfork <contact@snowfork.com>"]
+edition = "2021"
+repository = "https://github.com/snowfork/snowbridge.git"
+
 [workspace]
 resolver = "2"
 members = [
