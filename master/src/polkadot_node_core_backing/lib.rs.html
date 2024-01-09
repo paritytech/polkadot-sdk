@@ -2093,6 +2093,7 @@
 <a href="#2093" id="2093">2093</a>
 <a href="#2094" id="2094">2094</a>
 <a href="#2095" id="2095">2095</a>
+<a href="#2096" id="2096">2096</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3125,9 +3126,10 @@
 	// Once runtime ver `DISABLED_VALIDATORS_RUNTIME_REQUIREMENT` is released remove this call to
 	// `get_disabled_validators_with_fallback`, add `request_disabled_validators` call to the
 	// `try_join!` above and use `try_runtime_api!` to get `disabled_validators`
-	</span><span class="kw">let </span>disabled_validators = get_disabled_validators_with_fallback(ctx.sender(), parent)
-		.<span class="kw">await
-		</span>.map_err(Error::UtilError)<span class="question-mark">?</span>;
+	</span><span class="kw">let </span>disabled_validators =
+		get_disabled_validators_with_fallback(ctx.sender(), parent).<span class="kw">await</span>.map_err(|e| {
+			Error::UtilError(TryFrom::try_from(e).expect(<span class="string">&quot;the conversion is infallible; qed&quot;</span>))
+		})<span class="question-mark">?</span>;
 
 	<span class="kw">let </span>signing_context = SigningContext { parent_hash: parent, session_index };
 	<span class="kw">let </span>validator = <span class="kw">match </span>Validator::construct(

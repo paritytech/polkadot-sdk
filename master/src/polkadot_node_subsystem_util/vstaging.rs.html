@@ -79,7 +79,7 @@
 <span class="kw">use </span>polkadot_overseer::SubsystemSender;
 <span class="kw">use </span>polkadot_primitives::{Hash, ValidatorIndex};
 
-<span class="kw">use crate</span>::{has_required_runtime, request_disabled_validators, Error};
+<span class="kw">use crate</span>::{has_required_runtime, request_disabled_validators, runtime};
 
 <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;parachain::subsystem-util-vstaging&quot;</span>;
 
@@ -91,7 +91,7 @@
 </span><span class="kw">pub async fn </span>get_disabled_validators_with_fallback&lt;Sender: SubsystemSender&lt;RuntimeApiMessage&gt;&gt;(
 	sender: <span class="kw-2">&amp;mut </span>Sender,
 	relay_parent: Hash,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;ValidatorIndex&gt;, Error&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;ValidatorIndex&gt;, runtime::Error&gt; {
 	<span class="kw">let </span>disabled_validators = <span class="kw">if </span>has_required_runtime(
 		sender,
 		relay_parent,
@@ -102,7 +102,7 @@
 		request_disabled_validators(relay_parent, sender)
 			.<span class="kw">await
 			</span>.<span class="kw">await
-			</span>.map_err(Error::Oneshot)<span class="question-mark">??
+			</span>.map_err(runtime::Error::RuntimeRequestCanceled)<span class="question-mark">??
 	</span>} <span class="kw">else </span>{
 		<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Runtime doesn&#39;t support `DisabledValidators` - continuing with an empty disabled validators set&quot;</span>);
 		<span class="macro">vec!</span>[]

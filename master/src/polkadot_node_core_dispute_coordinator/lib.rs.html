@@ -599,6 +599,11 @@
 <a href="#599" id="599">599</a>
 <a href="#600" id="600">600</a>
 <a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -971,8 +976,10 @@
 					</span>},
 				};
 			<span class="kw">let </span>vote_state = CandidateVoteState::new(votes, <span class="kw-2">&amp;</span>env, now);
-
-			<span class="kw">let </span>potential_spam = is_potential_spam(<span class="kw-2">&amp;</span>scraper, <span class="kw-2">&amp;</span>vote_state, candidate_hash);
+			<span class="kw">let </span>onchain_disabled = env.disabled_indices();
+			<span class="kw">let </span>potential_spam = is_potential_spam(<span class="kw-2">&amp;</span>scraper, <span class="kw-2">&amp;</span>vote_state, candidate_hash, |v| {
+				onchain_disabled.contains(v)
+			});
 			<span class="kw">let </span>is_included =
 				scraper.is_candidate_included(<span class="kw-2">&amp;</span>vote_state.votes().candidate_receipt.hash());
 
@@ -1063,17 +1070,20 @@
 <span class="doccomment">/// Check wheter a dispute for the given candidate could be spam.
 ///
 /// That is the candidate could be made up.
-</span><span class="kw">pub fn </span>is_potential_spam&lt;V&gt;(
+</span><span class="kw">pub fn </span>is_potential_spam(
 	scraper: <span class="kw-2">&amp;</span>ChainScraper,
-	vote_state: <span class="kw-2">&amp;</span>CandidateVoteState&lt;V&gt;,
+	vote_state: <span class="kw-2">&amp;</span>CandidateVoteState&lt;CandidateVotes&gt;,
 	candidate_hash: <span class="kw-2">&amp;</span>CandidateHash,
+	is_disabled: <span class="kw">impl </span>FnMut(<span class="kw-2">&amp;</span>ValidatorIndex) -&gt; bool,
 ) -&gt; bool {
 	<span class="kw">let </span>is_disputed = vote_state.is_disputed();
 	<span class="kw">let </span>is_included = scraper.is_candidate_included(candidate_hash);
 	<span class="kw">let </span>is_backed = scraper.is_candidate_backed(candidate_hash);
 	<span class="kw">let </span>is_confirmed = vote_state.is_confirmed();
+	<span class="kw">let </span>all_invalid_votes_disabled = vote_state.invalid_votes_all_disabled(is_disabled);
+	<span class="kw">let </span>ignore_disabled = !is_confirmed &amp;&amp; all_invalid_votes_disabled;
 
-	is_disputed &amp;&amp; !is_included &amp;&amp; !is_backed &amp;&amp; !is_confirmed
+	(is_disputed &amp;&amp; !is_included &amp;&amp; !is_backed &amp;&amp; !is_confirmed) || ignore_disabled
 }
 
 <span class="doccomment">/// Tell dispute-distribution to send all our votes.

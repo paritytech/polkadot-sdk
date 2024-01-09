@@ -1922,6 +1922,15 @@
 <a href="#1922" id="1922">1922</a>
 <a href="#1923" id="1923">1923</a>
 <a href="#1924" id="1924">1924</a>
+<a href="#1925" id="1925">1925</a>
+<a href="#1926" id="1926">1926</a>
+<a href="#1927" id="1927">1927</a>
+<a href="#1928" id="1928">1928</a>
+<a href="#1929" id="1929">1929</a>
+<a href="#1930" id="1930">1930</a>
+<a href="#1931" id="1931">1931</a>
+<a href="#1932" id="1932">1932</a>
+<a href="#1933" id="1933">1933</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3264,12 +3273,8 @@
 
 	<span class="doccomment">/// Statement is backing statement.
 	</span><span class="kw">pub fn </span>is_backing(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
-			<span class="self">Self</span>::Valid(ValidDisputeStatementKind::BackingSeconded(<span class="kw">_</span>)) |
-			<span class="self">Self</span>::Valid(ValidDisputeStatementKind::BackingValid(<span class="kw">_</span>)) =&gt; <span class="bool-val">true</span>,
-			<span class="self">Self</span>::Valid(ValidDisputeStatementKind::Explicit) |
-			<span class="self">Self</span>::Valid(ValidDisputeStatementKind::ApprovalChecking) |
-			<span class="self">Self</span>::Valid(ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(<span class="kw">_</span>)) |
+		<span class="kw">match </span><span class="self">self </span>{
+			<span class="self">Self</span>::Valid(s) =&gt; s.is_backing(),
 			<span class="self">Self</span>::Invalid(<span class="kw">_</span>) =&gt; <span class="bool-val">false</span>,
 		}
 	}
@@ -3296,6 +3301,19 @@
 	/// is set to more than 1.
 	</span><span class="attr">#[codec(index = <span class="number">4</span>)]
 	</span>ApprovalCheckingMultipleCandidates(Vec&lt;CandidateHash&gt;),
+}
+
+<span class="kw">impl </span>ValidDisputeStatementKind {
+	<span class="doccomment">/// Whether the statement is from the backing phase.
+	</span><span class="kw">pub fn </span>is_backing(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+		<span class="kw">match </span><span class="self">self </span>{
+			ValidDisputeStatementKind::BackingSeconded(<span class="kw">_</span>) |
+			ValidDisputeStatementKind::BackingValid(<span class="kw">_</span>) =&gt; <span class="bool-val">true</span>,
+			ValidDisputeStatementKind::Explicit |
+			ValidDisputeStatementKind::ApprovalChecking |
+			ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(<span class="kw">_</span>) =&gt; <span class="bool-val">false</span>,
+		}
+	}
 }
 
 <span class="doccomment">/// Different kinds of statements of invalidity on a candidate.

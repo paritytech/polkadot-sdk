@@ -1,5 +1,5 @@
 (function() {var implementors = {
-"kitchensink_runtime":[["impl <a class=\"trait\" href=\"pallet_identity/pallet/trait.Config.html\" title=\"trait pallet_identity::pallet::Config\">Config</a> for <a class=\"struct\" href=\"kitchensink_runtime/struct.Runtime.html\" title=\"struct kitchensink_runtime::Runtime\">Runtime</a>"]],
+"kitchensink_runtime":[["impl Config for <a class=\"struct\" href=\"kitchensink_runtime/struct.Runtime.html\" title=\"struct kitchensink_runtime::Runtime\">Runtime</a>"]],
 "people_rococo_runtime":[["impl Config for <a class=\"struct\" href=\"people_rococo_runtime/struct.Runtime.html\" title=\"struct people_rococo_runtime::Runtime\">Runtime</a>"]],
 "people_westend_runtime":[["impl Config for <a class=\"struct\" href=\"people_westend_runtime/struct.Runtime.html\" title=\"struct people_westend_runtime::Runtime\">Runtime</a>"]],
 "rococo_runtime":[["impl Config for <a class=\"struct\" href=\"rococo_runtime/struct.Runtime.html\" title=\"struct rococo_runtime::Runtime\">Runtime</a>"]],
