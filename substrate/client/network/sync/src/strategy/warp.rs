@@ -30,7 +30,7 @@ use futures::channel::oneshot;
 use libp2p::PeerId;
 use log::{debug, error, trace};
 use sc_network_common::sync::message::{
-	BlockAttributes, BlockData, BlockRequest, Direction, FromBlock,
+	BlockAnnounce, BlockAttributes, BlockData, BlockRequest, Direction, FromBlock,
 };
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
@@ -310,6 +310,27 @@ where
 	/// Notify that a peer has disconnected.
 	pub fn remove_peer(&mut self, peer_id: &PeerId) {
 		self.peers.remove(peer_id);
+	}
+
+	/// Submit a validated block announcement.
+	///
+	/// Returns new best hash & best number of the peer if they are updated.
+	#[must_use]
+	pub fn on_validated_block_announce(
+		&mut self,
+		is_best: bool,
+		peer_id: PeerId,
+		announce: &BlockAnnounce<B::Header>,
+	) -> Option<(B::Hash, NumberFor<B>)> {
+		is_best.then_some({
+			let best_number = *announce.header.number();
+			let best_hash = announce.header.hash();
+			if let Some(ref mut peer) = self.peers.get_mut(&peer_id) {
+				peer.best_number = best_number;
+			}
+			// Let `SyncingEngine` know that we should update the peer info.
+			(best_hash, best_number)
+		})
 	}
 
 	/// Start warp sync as soon as we have enough peers.

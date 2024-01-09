@@ -41,7 +41,7 @@ use sc_network_common::sync::{
 use sp_blockchain::{Error as ClientError, HeaderBackend, HeaderMetadata};
 use sp_consensus::BlockOrigin;
 use sp_runtime::{
-	traits::{Block as BlockT, Header, NumberFor},
+	traits::{Block as BlockT, NumberFor},
 	Justifications,
 };
 use state::{StateStrategy, StateStrategyAction};
@@ -166,10 +166,10 @@ where
 		announce: &BlockAnnounce<B::Header>,
 	) -> Option<(B::Hash, NumberFor<B>)> {
 		match self {
-			SyncingStrategy::WarpSyncStrategy(_) =>
-				Some((announce.header.hash(), *announce.header.number())),
-			SyncingStrategy::StateSyncStrategy(_) =>
-				Some((announce.header.hash(), *announce.header.number())),
+			SyncingStrategy::WarpSyncStrategy(strategy) =>
+				strategy.on_validated_block_announce(is_best, peer_id, announce),
+			SyncingStrategy::StateSyncStrategy(strategy) =>
+				strategy.on_validated_block_announce(is_best, peer_id, announce),
 			SyncingStrategy::ChainSyncStrategy(strategy) =>
 				strategy.on_validated_block_announce(is_best, peer_id, announce),
 		}
