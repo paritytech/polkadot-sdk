@@ -38,6 +38,7 @@
 //!   funds must be removed from an account before it is known precisely what should be done with
 //!   them.
 
+mod as_fungibles;
 pub mod conformance_tests;
 pub mod freeze;
 pub mod hold;
@@ -55,6 +56,7 @@ use super::{
 	Fortitude::{Force, Polite},
 	Precision::BestEffort,
 };
+pub use as_fungibles::AsFungibles;
 pub use freeze::{Inspect as InspectFreeze, Mutate as MutateFreeze};
 pub use hold::{
 	Balanced as BalancedHold, Inspect as InspectHold, Mutate as MutateHold,
