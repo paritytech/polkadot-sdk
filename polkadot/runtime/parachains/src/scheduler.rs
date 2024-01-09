@@ -693,9 +693,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	#[cfg(test)]
-	pub(crate) fn set_claimqueue(
-		claimqueue: BTreeMap<CoreIndex, VecDeque<Option<ParasEntry<BlockNumberFor<T>>>>>,
-	) {
+	pub(crate) fn set_claimqueue(claimqueue: BTreeMap<CoreIndex, VecDeque<ParasEntryType<T>>>) {
 		ClaimQueue::<T>::set(claimqueue);
 	}
 }
