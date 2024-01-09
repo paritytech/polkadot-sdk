@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use crate as ethereum_beacon_client;
-use frame_support::parameter_types;
+use frame_support::{derive_impl, parameter_types};
 use pallet_timestamp;
 use primitives::{Fork, ForkVersions};
 use sp_core::H256;
@@ -33,6 +33,7 @@ pub mod minimal {
 		pub const SS58Prefix: u8 = 42;
 	}
 
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type OnSetCode = ();
@@ -202,6 +203,7 @@ pub mod mainnet {
 		pub const SS58Prefix: u8 = 42;
 	}
 
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type OnSetCode = ();

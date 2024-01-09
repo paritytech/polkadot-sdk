@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use crate as snowbridge_system;
 use frame_support::{
-	parameter_types,
+	derive_impl, parameter_types,
 	traits::{tokens::fungible::Mutate, ConstU128, ConstU16, ConstU64, ConstU8},
 	weights::IdentityFee,
 	PalletId,
@@ -95,6 +95,7 @@ frame_support::construct_runtime!(
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();

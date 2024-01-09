@@ -85,6 +85,13 @@ impl OnKilledAccount<u64> for RecordKilled {
 	}
 }
 
+pub struct SetDefaultNonceToBlockNumber;
+impl Get<u64> for SetDefaultNonceToBlockNumber {
+	fn get() -> u64 {
+		System::block_number().into()
+	}
+}
+
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -110,6 +117,7 @@ impl Config for Test {
 	type SS58Prefix = ();
 	type OnSetCode = ();
 	type MaxConsumers = ConstU32<16>;
+	type DefaultNonce = SetDefaultNonceToBlockNumber;
 }
 
 pub type SysEvent = frame_system::Event<Test>;
