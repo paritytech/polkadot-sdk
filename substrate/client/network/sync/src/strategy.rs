@@ -416,6 +416,7 @@ where
 							res.target_header,
 							res.target_body,
 							res.target_justifications,
+							// skip proofs, only set to `true` in `FastUnsafe` sync mode
 							false,
 							connected_peers
 								.map(|(peer_id, _best_hash, best_number)| (peer_id, best_number)),
