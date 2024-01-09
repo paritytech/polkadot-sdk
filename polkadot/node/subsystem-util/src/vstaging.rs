@@ -23,7 +23,7 @@ use polkadot_node_subsystem_types::messages::{RuntimeApiMessage, RuntimeApiReque
 use polkadot_overseer::SubsystemSender;
 use polkadot_primitives::{Hash, ValidatorIndex};
 
-use crate::{has_required_runtime, request_disabled_validators, Error};
+use crate::{has_required_runtime, request_disabled_validators, runtime};
 
 const LOG_TARGET: &'static str = "parachain::subsystem-util-vstaging";
 
@@ -35,7 +35,7 @@ const LOG_TARGET: &'static str = "parachain::subsystem-util-vstaging";
 pub async fn get_disabled_validators_with_fallback<Sender: SubsystemSender<RuntimeApiMessage>>(
 	sender: &mut Sender,
 	relay_parent: Hash,
-) -> Result<Vec<ValidatorIndex>, Error> {
+) -> Result<Vec<ValidatorIndex>, runtime::Error> {
 	let disabled_validators = if has_required_runtime(
 		sender,
 		relay_parent,
@@ -46,7 +46,7 @@ pub async fn get_disabled_validators_with_fallback<Sender: SubsystemSender<Runti
 		request_disabled_validators(relay_parent, sender)
 			.await
 			.await
-			.map_err(Error::Oneshot)??
+			.map_err(runtime::Error::RuntimeRequestCanceled)??
 	} else {
 		gum::debug!(target: LOG_TARGET, "Runtime doesn't support `DisabledValidators` - continuing with an empty disabled validators set");
 		vec![]
