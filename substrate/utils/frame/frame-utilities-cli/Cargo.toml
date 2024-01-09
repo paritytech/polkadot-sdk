@@ -14,7 +14,7 @@ readme = "README.md"
 workspace = true
 
 [dependencies]
-clap = { version = "4.4.13", features = ["derive"] }
+clap = { version = "4.4.14", features = ["derive"] }
 frame-support = { path = "../../../frame/support" }
 frame-system = { path = "../../../frame/system" }
 sc-cli = { path = "../../../client/cli" }
