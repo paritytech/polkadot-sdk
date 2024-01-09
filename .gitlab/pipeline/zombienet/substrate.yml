@@ -40,6 +40,13 @@
   tags:
     - zombienet-polkadot-integration-test
 
+.zombienet-substrate-warp-sync-common:
+  extends:
+    - .zombienet-substrate-common
+  variables:
+    DB_SNAPSHOT: "https://storage.googleapis.com/zombienet-db-snaps/substrate/0001-basic-warp-sync/chains-a233bbacff650aac6bcb56b4e4ef7db7dc143cfb.tgz"
+    DB_BLOCK_HEIGHT: 12133
+
 zombienet-substrate-0000-block-building:
   extends:
     - .zombienet-substrate-common
@@ -50,7 +57,7 @@ zombienet-substrate-0000-block-building:
 
 zombienet-substrate-0001-basic-warp-sync:
   extends:
-    - .zombienet-substrate-common
+    - .zombienet-substrate-warp-sync-common
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
       --local-dir="${LOCAL_DIR}/0001-basic-warp-sync"
@@ -58,7 +65,10 @@ zombienet-substrate-0001-basic-warp-sync:
 
 zombienet-substrate-0002-validators-warp-sync:
   extends:
-    - .zombienet-substrate-common
+    - .zombienet-substrate-warp-sync-common
+  before_script:
+    - !reference [.zombienet-substrate-warp-sync-common, before_script]
+    - cp ${LOCAL_DIR}/0001-basic-warp-sync/chain-spec.json ${LOCAL_DIR}/0002-validators-warp-sync
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
       --local-dir="${LOCAL_DIR}/0002-validators-warp-sync"
@@ -66,7 +76,10 @@ zombienet-substrate-0002-validators-warp-sync:
 
 zombienet-substrate-0003-block-building-warp-sync:
   extends:
-    - .zombienet-substrate-common
+    - .zombienet-substrate-warp-sync-common
+  before_script:
+    - !reference [.zombienet-substrate-warp-sync-common, before_script]
+    - cp ${LOCAL_DIR}/0001-basic-warp-sync/chain-spec.json ${LOCAL_DIR}/0003-block-building-warp-sync
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
       --local-dir="${LOCAL_DIR}/0003-block-building-warp-sync"

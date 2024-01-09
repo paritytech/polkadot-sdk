@@ -13,14 +13,13 @@ charlie: reports peers count is at least 3 within 60 seconds
 dave: reports peers count is at least 3 within 60 seconds
 
 
-# db snapshot has 12133 blocks
+# db snapshot has {{DB_BLOCK_HEIGHT}} blocks
 dave: reports block height is at least 1 within 60 seconds
-dave: reports block height is at least 12132 within 60 seconds
-dave: reports block height is at least 12133 within 60 seconds
+dave: reports block height is at least {{DB_BLOCK_HEIGHT}} within 60 seconds
 
-alice: reports block height is at least 12133 within 60 seconds
-bob: reports block height is at least 12133 within 60 seconds
-charlie: reports block height is at least 12133 within 60 seconds
+alice: reports block height is at least {{DB_BLOCK_HEIGHT}} within 60 seconds
+bob: reports block height is at least {{DB_BLOCK_HEIGHT}} within 60 seconds
+charlie: reports block height is at least {{DB_BLOCK_HEIGHT}} within 60 seconds
 
 dave: log line matches "Warp sync is complete" within 60 seconds
 # workaround for: https://github.com/paritytech/zombienet/issues/580
