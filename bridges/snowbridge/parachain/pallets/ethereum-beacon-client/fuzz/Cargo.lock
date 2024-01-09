@@ -2530,7 +2530,7 @@ checksum = "62bb4feee49fdd9f707ef802e22365a35de4b7b299de4763d44bfea899442ff9"
 
 [[package]]
 name = "snowbridge-beacon-primitives"
-version = "0.0.1"
+version = "0.9.0"
 dependencies = [
  "byte-slice-cast",
  "frame-support",
@@ -2553,7 +2553,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-core"
-version = "0.1.1"
+version = "0.9.0"
 dependencies = [
  "ethabi-decode",
  "frame-support",
@@ -2572,7 +2572,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-ethereum"
-version = "0.1.0"
+version = "0.9.0"
 dependencies = [
  "ethabi-decode",
  "ethbloom",
@@ -2593,7 +2593,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-ethereum-beacon-client"
-version = "0.0.1"
+version = "0.9.0"
 dependencies = [
  "bp-runtime",
  "byte-slice-cast",

@@ -1,10 +1,12 @@
 [package]
 name = "snowbridge-beacon-primitives"
 description = "Snowbridge Beacon Primitives"
-version = "0.0.1"
-authors = ["Snowfork <contact@snowfork.com>"]
-edition = "2021"
+version = "0.9.0"
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
 license = "Apache-2.0"
+categories = ["cryptography::cryptocurrencies"]
 
 [dependencies]
 serde = { version = "1.0.188", optional = true, features = ["derive"] }
