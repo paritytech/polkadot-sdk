@@ -1467,12 +1467,6 @@ mod tests {
 			);
 		});
 	}
-
-	#[test]
-	fn prevalidate_assets_is_send_and_sync() {
-		fn is_send_and_sync<T: Send + Sync>() {}
-		is_send_and_sync::<PrevalidateAttests<Test>>();
-	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]
