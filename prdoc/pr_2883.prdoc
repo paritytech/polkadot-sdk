@@ -1,4 +1,4 @@
-title: "pallet-core-fellowship: import not tracked member on approve"
+title: "pallet-core-fellowship: import an unimported on approve"
 
 doc:
   - audience: Runtime User
