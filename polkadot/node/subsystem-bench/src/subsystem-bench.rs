@@ -245,6 +245,8 @@ fn run_valgrind() -> eyre::Result<()> {
 		.arg("--collect-atstart=no")
 		.args(std::env::args())
 		.exec();
+
+	return Ok(())
 }
 
 #[cfg(not(target_os = "linux"))]
