@@ -20,7 +20,7 @@ use parity_scale_codec::{Decode, DecodeAll, Encode};
 
 use crate::{
 	best_justification, find_scheduled_change, AuthoritySetChanges, AuthoritySetHardFork,
-	BlockNumberOps, GrandpaJustification, SharedAuthoritySet,
+	BlockNumberOps, GrandpaJustification, SharedAuthoritySet, LOG_TARGET,
 };
 use sc_client_api::Backend as ClientBackend;
 use sc_network_sync::warp::{EncodedProof, VerificationResult, WarpSyncProvider};
@@ -109,6 +109,15 @@ impl<Block: BlockT> WarpSyncProof<Block> {
 			))
 		}
 
+		log::info!(
+			target:LOG_TARGET,
+			"Generating warp sync proof from ({:?}, {}) at: ({:?}, {})",
+			begin_number,
+			canon_hash,
+			blockchain.info().finalized_number,
+			blockchain.info().finalized_hash
+		);
+
 		let mut proofs = Vec::new();
 		let mut proofs_encoded_len = 0;
 		let mut proof_limit_reached = false;
@@ -181,6 +190,7 @@ impl<Block: BlockT> WarpSyncProof<Block> {
 		};
 
 		let final_outcome = WarpSyncProof { proofs, is_finished };
+		log::info!(target:LOG_TARGET, "Generated warp sync proof: size: {}", final_outcome.encoded_size());
 		debug_assert!(final_outcome.encoded_size() <= MAX_WARP_SYNC_PROOF_SIZE);
 		Ok(final_outcome)
 	}
