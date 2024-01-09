@@ -696,7 +696,8 @@ impl<T: Config> Pallet<T> {
 /// * the locked amount of a vesting schedule must be equal to the
 /// product of the duration(`schedules_left` - `starting_block`) and the per block amount when
 /// the locked amount is divisible by the per block amount.
-/// * However, If the locked amount is not divisible by the per block amount, the final vesting block
+/// * However, If the locked amount is not divisible by the per block amount, the final vesting
+///   block
 /// (`schedules_left` - 1), the unvested amount should be equal to the remainder.
 ///
 /// `handle_during_schedule`:
@@ -717,8 +718,9 @@ impl<T: Config> Pallet<T> {
 				let schedules_left: BalanceOf<T> =
 					info.ending_block_as_balance::<T::BlockNumberToBalance>();
 				let starting_block = T::BlockNumberToBalance::convert(info.starting_block());
-				let current_block_to_balance =
-					T::BlockNumberToBalance::convert(<frame_system::Pallet<T>>::block_number());
+				let current_block_to_balance = T::BlockNumberToBalance::convert(
+					T::BlockNumberProvider::current_block_number(),
+				);
 
 				if current_block_to_balance < starting_block {
 					Self::handle_before_schedule_starts(info, starting_block, schedules_left)?;
@@ -739,7 +741,7 @@ impl<T: Config> Pallet<T> {
 
 		if (info.locked() % info.per_block()).is_zero() {
 			ensure!(
-                info.locked_at::<T::BlockNumberToBalance>(frame_system::Pallet::<T>::block_number()) == (count * info.per_block()),
+                info.locked_at::<T::BlockNumberToBalance>(T::BlockNumberProvider::current_block_number()) == (count * info.per_block()),
                 TryRuntimeError::Other("Before schedule starts, the vesting balance should be equal to the total per block releases")
             );
 		} else {
@@ -772,7 +774,7 @@ impl<T: Config> Pallet<T> {
 		current_block_to_balance: BalanceOf<T>,
 		schedules_left: BalanceOf<T>,
 	) -> Result<(), TryRuntimeError> {
-		let current_block = frame_system::Pallet::<T>::block_number();
+		let current_block = T::BlockNumberProvider::current_block_number();
 
 		let still_vesting = info.locked_at::<T::BlockNumberToBalance>(current_block);
 
