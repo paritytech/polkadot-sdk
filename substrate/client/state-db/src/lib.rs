@@ -135,8 +135,6 @@ pub enum StateDbError {
 	InvalidParent,
 	/// Invalid pruning mode specified. Contains expected mode.
 	IncompatiblePruningModes { stored: PruningMode, requested: PruningMode },
-	/// Too many unfinalized sibling blocks inserted.
-	TooManySiblingBlocks { number: u64 },
 	/// Trying to insert existing block.
 	BlockAlreadyExists,
 	/// Invalid metadata
@@ -187,9 +185,6 @@ impl fmt::Debug for StateDbError {
 				"Incompatible pruning modes [stored: {:?}; requested: {:?}]",
 				stored, requested
 			),
-			Self::TooManySiblingBlocks { number } => {
-				write!(f, "Too many sibling blocks at #{number} inserted")
-			},
 			Self::BlockAlreadyExists => write!(f, "Block already exists"),
 			Self::Metadata(message) => write!(f, "Invalid metadata: {}", message),
 			Self::BlockUnavailable => {

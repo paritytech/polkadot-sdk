@@ -28,8 +28,8 @@ use log::trace;
 use std::collections::{hash_map::Entry, HashMap, VecDeque};
 
 const NON_CANONICAL_JOURNAL: &[u8] = b"noncanonical_journal";
+const NON_CANONICAL_JOURNAL_LEN: &[u8] = b"noncanonical_journal_len";
 pub(crate) const LAST_CANONICAL: &[u8] = b"last_canonical";
-const MAX_BLOCKS_PER_LEVEL: u64 = 32;
 
 /// See module documentation.
 pub struct NonCanonicalOverlay<BlockHash: Hash, Key: Hash> {
@@ -62,6 +62,10 @@ impl<BlockHash: Hash, Key: Hash> OverlayLevel<BlockHash, Key> {
 	fn remove(&mut self, index: usize) -> BlockOverlay<BlockHash, Key> {
 		self.used_indicies &= !(1 << self.blocks[index].journal_index);
 		self.blocks.remove(index)
+	}
+
+	fn level_width(&self) -> u64 {
+		64 - self.used_indicies.leading_zeros() as u64
 	}
 
 	fn new() -> OverlayLevel<BlockHash, Key> {
@@ -190,7 +194,13 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 			block += 1;
 			loop {
 				let mut level = OverlayLevel::new();
-				for index in 0..MAX_BLOCKS_PER_LEVEL {
+				let non_canonical_journal_len_record = db.get_meta(&to_meta_key(NON_CANONICAL_JOURNAL_LEN, &block))
+					.map_err(Error::Db)?;
+				let level_len = match non_canonical_journal_len_record {
+					Some(data) => Decode::decode(&mut data.as_slice())?,
+					None => 0,
+				};
+				for index in 0..level_len {
 					let journal_key = to_journal_key(block, index);
 					if let Some(record) = db.get_meta(&journal_key).map_err(Error::Db)? {
 						let record: JournalRecord<BlockHash, Key> =
@@ -241,8 +251,8 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 		})
 	}
 
-	/// Insert a new block into the overlay. If inserted on the second level or lover expects parent
-	/// to be present in the window.
+	/// Insert a new block into the overlay. If inserted on the second level or lower,
+	/// expects parent to be present in the window.
 	pub fn insert(
 		&mut self,
 		hash: &BlockHash,
@@ -295,19 +305,16 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 				.expect("number is [front_block_number .. front_block_number + levels.len()) is asserted in precondition; qed")
 		};
 
-		if level.blocks.len() >= MAX_BLOCKS_PER_LEVEL as usize {
-			trace!(
-				target: LOG_TARGET,
-				"Too many sibling blocks at #{number}: {:?}",
-				level.blocks.iter().map(|b| &b.hash).collect::<Vec<_>>()
-			);
-			return Err(StateDbError::TooManySiblingBlocks { number })
-		}
 		if level.blocks.iter().any(|b| b.hash == *hash) {
 			return Err(StateDbError::BlockAlreadyExists)
 		}
 
 		let index = level.available_index();
+		if index == level.level_width() {
+			let key = to_meta_key(NON_CANONICAL_JOURNAL_LEN, &number);
+			let journal_len_at_number = index+1;
+			commit.meta.inserted.push((key, journal_len_at_number.encode()));
+		}
 		let journal_key = to_journal_key(number, index);
 
 		let inserted = changeset.inserted.iter().map(|(k, _)| k.clone()).collect();
@@ -666,7 +673,7 @@ mod tests {
 		let insertion = overlay.insert(&h1, 1, &H256::default(), changeset.clone()).unwrap();
 		assert_eq!(insertion.data.inserted.len(), 0);
 		assert_eq!(insertion.data.deleted.len(), 0);
-		assert_eq!(insertion.meta.inserted.len(), 2);
+		assert_eq!(insertion.meta.inserted.len(), 3);
 		assert_eq!(insertion.meta.deleted.len(), 0);
 		db.commit(&insertion);
 		let mut finalization = CommitSet::default();
@@ -691,7 +698,7 @@ mod tests {
 				.unwrap(),
 		);
 		db.commit(&overlay.insert(&h2, 11, &h1, make_changeset(&[5], &[3])).unwrap());
-		assert_eq!(db.meta_len(), 3);
+		assert_eq!(db.meta_len(), 5);
 
 		let overlay2 = NonCanonicalOverlay::<H256, H256>::new(&db).unwrap();
 		assert_eq!(overlay.levels, overlay2.levels);
