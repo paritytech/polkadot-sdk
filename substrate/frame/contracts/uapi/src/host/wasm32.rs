@@ -449,6 +449,7 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
+	#[inline(always)]
 	fn call_v1(
 		flags: CallFlags,
 		callee: &[u8],
@@ -693,6 +694,7 @@ impl HostFn for HostFnImpl {
 		extract_from_slice(output, output_len as usize);
 	}
 
+	#[inline(always)]
 	fn return_value(flags: ReturnFlags, return_value: &[u8]) -> ! {
 		unsafe { sys::seal_return(flags.bits(), return_value.as_ptr(), return_value.len() as u32) }
 	}
