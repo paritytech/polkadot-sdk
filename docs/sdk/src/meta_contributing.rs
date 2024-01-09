@@ -136,7 +136,7 @@
 //!
 //! To build and view this crate locally, with with right HTML headers injected, run:
 //!
-//! ```no_compile
+//! ```sh
 //! RUSTDOCFLAGS="--html-in-header $(pwd)/docs/sdk/headers/toc.html" cargo doc -p polkadot-sdk-docs --open
 //! ```
 //!
