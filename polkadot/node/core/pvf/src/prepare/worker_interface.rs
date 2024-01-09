@@ -17,7 +17,6 @@
 //! Host interface to the prepare worker.
 
 use crate::{
-	artifacts::ArtifactId,
 	metrics::Metrics,
 	worker_interface::{
 		clear_worker_dir_path, framed_recv, framed_send, spawn_with_program_path, IdleWorker,
@@ -165,7 +164,6 @@ pub async fn start_work(
 						prepare_worker_result,
 						pid,
 						tmp_artifact_file,
-						&pvf,
 						&cache_path,
 						preparation_timeout,
 					)
@@ -205,7 +203,6 @@ async fn handle_response(
 	result: PrepareWorkerResult,
 	worker_pid: u32,
 	tmp_file: PathBuf,
-	pvf: &PvfPrepData,
 	cache_path: &Path,
 	preparation_timeout: Duration,
 ) -> Outcome {
@@ -232,8 +229,14 @@ async fn handle_response(
 		return Outcome::TimedOut
 	}
 
-	let artifact_id = ArtifactId::from_pvf_prep_data(pvf);
-	let artifact_path = artifact_id.path(cache_path, &checksum);
+	let unique_id = {
+		use rand::RngCore;
+		let mut bytes = [0u8; 64];
+		rand::thread_rng().fill_bytes(&mut bytes);
+		hex::encode(&bytes)
+	};
+	let file_name = format!("{}_0x{}", unique_id, checksum);
+	let artifact_path = cache_path.join(file_name);
 
 	gum::debug!(
 		target: LOG_TARGET,

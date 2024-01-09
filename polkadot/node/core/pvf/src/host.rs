@@ -218,7 +218,7 @@ pub async fn start(
 	gum::debug!(target: LOG_TARGET, ?config, "starting PVF validation host");
 
 	// Make sure the cache is initialized before doing anything else.
-	let artifacts = Artifacts::new_and_prune(&config.cache_path).await;
+	let artifacts = Artifacts::new(&config.cache_path).await;
 
 	// Run checks for supported security features once per host startup. If some checks fail, warn
 	// if Secure Validator Mode is disabled and return an error otherwise.
@@ -918,9 +918,8 @@ pub(crate) mod tests {
 	fn artifact_path(discriminator: u32) -> PathBuf {
 		let pvf = PvfPrepData::from_discriminator(discriminator);
 		let checksum = blake3::hash(pvf.code().as_bytes_ref());
-		artifact_id(discriminator)
-			.path(&PathBuf::from(std::env::temp_dir()), checksum.to_hex().as_str())
-			.to_owned()
+		let file_name = format!("test_{}_0x{}", discriminator, checksum);
+		std::env::temp_dir().join(file_name)
 	}
 
 	struct Builder {

@@ -16,6 +16,7 @@ cfg-if = "1.0"
 futures = "0.3.21"
 futures-timer = "3.0.2"
 gum = { package = "tracing-gum", path = "../../gum" }
+hex = { version = "0.4.3", default-features = false }
 is_executable = "1.0.1"
 libc = "0.2.139"
 pin-project = "1.0.9"
