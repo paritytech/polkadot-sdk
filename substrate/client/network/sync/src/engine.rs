@@ -731,7 +731,7 @@ where
 						.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
 					self.network_service.report_peer(peer_id, rep);
 
-					trace!(target: LOG_TARGET, "Processed {action:?}.");
+					trace!(target: LOG_TARGET, "{peer_id:?} dropped: {rep:?}.");
 				},
 				SyncingAction::ImportBlocks { origin, blocks } => {
 					let count = blocks.len();
