@@ -68,9 +68,6 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
-#[cfg(feature = "runtime-benchmarks")]
-pub use benchmarking::BenchmarkingConfig;
-
 mod payment;
 pub mod weights;
 
@@ -133,10 +130,26 @@ pub mod pallet {
 		type OnChargeAssetTransaction: OnChargeAssetTransaction<Self>;
 		/// The weight information of this pallet.
 		type WeightInfo: WeightInfo;
+		#[cfg(feature = "runtime-benchmarks")]
+		/// Benchmark helper
+		type BenchmarkHelper: BenchmarkHelperTrait<
+			Self::AccountId,
+			<<Self as Config>::Fungibles as Inspect<Self::AccountId>>::AssetId,
+			<<Self as Config>::OnChargeAssetTransaction as OnChargeAssetTransaction<Self>>::AssetId,
+		>;
 	}
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
+
+	#[cfg(feature = "runtime-benchmarks")]
+	pub trait BenchmarkHelperTrait<AccountId, FunAssetIdParameter, AssetIdParameter> {
+		/// Returns the `AssetId` to be used in the liquidity pool by the benchmarking code.
+		fn create_asset_id_parameter(id: u32) -> (FunAssetIdParameter, AssetIdParameter);
+		/// Create a liquidity pool for a given asset and sufficiently endow accounts to benchmark
+		/// the extension.
+		fn setup_balances_and_pool(asset_id: FunAssetIdParameter, account: AccountId);
+	}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]

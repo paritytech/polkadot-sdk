@@ -754,6 +754,8 @@ impl pallet_asset_conversion_tx_payment::Config for Runtime {
 	type OnChargeAssetTransaction =
 		AssetConversionAdapter<Balances, AssetConversion, TokenLocation>;
 	type WeightInfo = weights::pallet_asset_conversion_tx_payment::WeightInfo<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = AssetConversionTxHelper;
 }
 
 parameter_types! {
@@ -1032,16 +1034,17 @@ pub type Executive = frame_executive::Executive<
 extern crate frame_benchmarking;
 
 #[cfg(feature = "runtime-benchmarks")]
-use frame_support::traits::fungibles::Inspect;
+pub struct AssetConversionTxHelper;
 
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_asset_conversion_tx_payment::BenchmarkingConfig for Runtime {
-	fn create_asset_id_parameter(
-		seed: u32,
-	) -> (
-		<<Self as pallet_asset_conversion_tx_payment::Config>::Fungibles as Inspect<Self::AccountId>>::AssetId,
-		<<Self as pallet_asset_conversion_tx_payment::Config>::OnChargeAssetTransaction as pallet_asset_conversion_tx_payment::OnChargeAssetTransaction<Self>>::AssetId,
-	){
+impl
+	pallet_asset_conversion_tx_payment::BenchmarkHelperTrait<
+		AccountId,
+		MultiLocation,
+		MultiLocation,
+	> for AssetConversionTxHelper
+{
+	fn create_asset_id_parameter(seed: u32) -> (MultiLocation, MultiLocation) {
 		// Use a different parachain' foreign assets pallet so that the asset is indeed foreign.
 		let asset_id = MultiLocation::new(
 			1,
@@ -1050,12 +1053,7 @@ impl pallet_asset_conversion_tx_payment::BenchmarkingConfig for Runtime {
 		(asset_id, asset_id)
 	}
 
-	fn setup_balances_and_pool(
-		asset_id: <<Self as pallet_asset_conversion_tx_payment::Config>::Fungibles as Inspect<
-			Self::AccountId,
-		>>::AssetId,
-		account: Self::AccountId,
-	) {
+	fn setup_balances_and_pool(asset_id: MultiLocation, account: AccountId) {
 		use frame_support::{assert_ok, traits::fungibles::Mutate};
 		assert_ok!(ForeignAssets::force_create(
 			RuntimeOrigin::root(),

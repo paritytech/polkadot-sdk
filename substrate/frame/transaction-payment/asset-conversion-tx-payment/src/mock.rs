@@ -15,8 +15,6 @@
 
 use super::*;
 use crate as pallet_asset_conversion_tx_payment;
-#[cfg(feature = "runtime-benchmarks")]
-use crate::benchmarking::BenchmarkingConfig;
 
 use frame_support::{
 	derive_impl,
@@ -274,6 +272,8 @@ impl Config for Runtime {
 	type Fungibles = Assets;
 	type OnChargeAssetTransaction = AssetConversionAdapter<Balances, AssetConversion, Native>;
 	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = Helper;
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -287,20 +287,15 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-impl BenchmarkingConfig for Runtime {
-	fn create_asset_id_parameter(
-		id: u32,
-	) -> (
-		<<Self as Config>::Fungibles as Inspect<Self::AccountId>>::AssetId,
-		<<Self as Config>::OnChargeAssetTransaction as OnChargeAssetTransaction<Self>>::AssetId,
-	) {
-		(id.into(), id.into())
+pub struct Helper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl BenchmarkHelperTrait<u64, u32, u32> for Helper {
+	fn create_asset_id_parameter(id: u32) -> (u32, u32) {
+		(id, id)
 	}
 
-	fn setup_balances_and_pool(
-		asset_id: <<Self as Config>::Fungibles as Inspect<Self::AccountId>>::AssetId,
-		account: Self::AccountId,
-	) {
+	fn setup_balances_and_pool(asset_id: u32, account: u64) {
 		use frame_support::{assert_ok, traits::fungibles::Mutate};
 		use sp_runtime::traits::StaticLookup;
 		assert_ok!(Assets::force_create(

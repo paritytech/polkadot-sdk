@@ -174,6 +174,13 @@ pub mod pallet {
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
+	#[cfg(feature = "runtime-benchmarks")]
+	/// Helper trait to benchmark the `PrevalidateAttests` transaction extension.
+	pub trait BenchmarkHelperTrait<RuntimeCall, DispatchInfo> {
+		/// `Call` to be used when benchmarking the transaction extension.
+		fn default_call_and_info() -> (RuntimeCall, DispatchInfo);
+	}
+
 	/// Configuration trait.
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -184,6 +191,12 @@ pub mod pallet {
 		type Prefix: Get<&'static [u8]>;
 		type MoveClaimOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		type WeightInfo: WeightInfo;
+		#[cfg(feature = "runtime-benchmarks")]
+		/// Benchmark helper
+		type BenchmarkHelper: BenchmarkHelperTrait<
+			Self::RuntimeCall,
+			DispatchInfoOf<Self::RuntimeCall>,
+		>;
 	}
 
 	#[pallet::event]
@@ -595,13 +608,6 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-#[cfg(feature = "runtime-benchmarks")]
-/// Helper trait to benchmark the `PrevalidateAttests` transaction extension.
-pub trait BenchmarkingConfig: Config {
-	/// `Call` to be used when benchmarking the transaction extension.
-	fn default_call_and_info() -> (Self::RuntimeCall, DispatchInfoOf<Self::RuntimeCall>);
-}
-
 /// Validate `attest` calls prior to execution. Needed to avoid a DoS attack since they are
 /// otherwise free to place on chain.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
@@ -835,11 +841,16 @@ pub(super) mod tests {
 		type Prefix = Prefix;
 		type MoveClaimOrigin = frame_system::EnsureSignedBy<Six, u64>;
 		type WeightInfo = TestWeightInfo;
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper = Helper;
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	impl BenchmarkingConfig for Test {
-		fn default_call_and_info() -> (Self::RuntimeCall, DispatchInfoOf<Self::RuntimeCall>) {
+	pub struct Helper;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	impl BenchmarkHelperTrait<RuntimeCall, DispatchInfoOf<RuntimeCall>> for Helper {
+		fn default_call_and_info() -> (RuntimeCall, DispatchInfoOf<RuntimeCall>) {
 			let call = RuntimeCall::Claims(crate::claims::Call::attest {
 				statement: StatementKind::Regular.to_text().to_vec(),
 			});
@@ -1547,7 +1558,7 @@ pub(super) mod benchmarking {
 
 	benchmarks! {
 		where_clause { where <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
-			T: Send + Sync + BenchmarkingConfig,
+			T: Send + Sync,
 			<<T as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
 			<<T as frame_system::Config>::RuntimeCall as Dispatchable>::PostInfo: Default,
 		}
@@ -1739,7 +1750,7 @@ pub(super) mod benchmarking {
 			}
 
 			let ext = PrevalidateAttests::<T>::new();
-			let (call, info) = T::default_call_and_info();
+			let (call, info) = T::BenchmarkHelper::default_call_and_info();
 			let attest_c = u32::MAX - c;
 			let secret_key = libsecp256k1::SecretKey::parse(&keccak_256(&attest_c.encode())).unwrap();
 			let eth_address = eth(&secret_key);

@@ -646,6 +646,25 @@ impl claims::Config for Runtime {
 	type Prefix = Prefix;
 	type MoveClaimOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = weights::runtime_common_claims::WeightInfo<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ClaimsHelper;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct ClaimsHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl claims::BenchmarkHelperTrait<RuntimeCall, sp_runtime::traits::DispatchInfoOf<RuntimeCall>>
+	for ClaimsHelper
+{
+	fn default_call_and_info() -> (RuntimeCall, sp_runtime::traits::DispatchInfoOf<RuntimeCall>) {
+		use frame_support::dispatch::GetDispatchInfo;
+		let call = RuntimeCall::Claims(claims::Call::attest {
+			statement: claims::StatementKind::Regular.to_text().to_vec(),
+		});
+		let info = call.get_dispatch_info();
+		(call, info)
+	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]

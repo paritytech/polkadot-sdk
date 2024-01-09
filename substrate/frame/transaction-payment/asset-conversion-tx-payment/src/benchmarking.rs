@@ -23,30 +23,11 @@ use frame_benchmarking::v2::*;
 use frame_support::{
 	dispatch::{DispatchInfo, PostDispatchInfo},
 	pallet_prelude::*,
-	traits::fungibles::Inspect,
 };
 use frame_system::RawOrigin;
 use sp_runtime::traits::{AsSystemOriginSigner, DispatchTransaction, Dispatchable};
 
-/// Helper trait to benchmark the `ChargeAssetTxPayment` transaction extension.
-pub trait BenchmarkingConfig: Config {
-	/// Returns the `AssetId` to be used in the liquidity pool by the benchmarking code.
-	fn create_asset_id_parameter(
-		seed: u32,
-	) -> (
-		<<Self as Config>::Fungibles as Inspect<Self::AccountId>>::AssetId,
-		<<Self as Config>::OnChargeAssetTransaction as OnChargeAssetTransaction<Self>>::AssetId,
-	);
-	/// Create a liquidity pool for a given asset and sufficiently endow accounts to benchmark the
-	/// extension.
-	fn setup_balances_and_pool(
-		asset_id: <<Self as Config>::Fungibles as Inspect<Self::AccountId>>::AssetId,
-		account: Self::AccountId,
-	);
-}
-
 #[benchmarks(where
-	T: BenchmarkingConfig,
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	AssetBalanceOf<T>: Send + Sync,
 	BalanceOf<T>: Send
@@ -85,8 +66,8 @@ mod benchmarks {
 	#[benchmark]
 	fn charge_asset_tx_payment_native() {
 		let caller: T::AccountId = whitelisted_caller();
-		let (fun_asset_id, _) = T::create_asset_id_parameter(1);
-		T::setup_balances_and_pool(fun_asset_id, caller.clone());
+		let (fun_asset_id, _) = <T as Config>::BenchmarkHelper::create_asset_id_parameter(1);
+		<T as Config>::BenchmarkHelper::setup_balances_and_pool(fun_asset_id, caller.clone());
 		let ext: ChargeAssetTxPayment<T> = ChargeAssetTxPayment::from(10u64.into(), None);
 		let inner = frame_system::Call::remark { remark: vec![] };
 		let call = T::RuntimeCall::from(inner);
@@ -112,8 +93,8 @@ mod benchmarks {
 	#[benchmark]
 	fn charge_asset_tx_payment_asset() {
 		let caller: T::AccountId = whitelisted_caller();
-		let (fun_asset_id, asset_id) = T::create_asset_id_parameter(1);
-		T::setup_balances_and_pool(fun_asset_id, caller.clone());
+		let (fun_asset_id, asset_id) = <T as Config>::BenchmarkHelper::create_asset_id_parameter(1);
+		<T as Config>::BenchmarkHelper::setup_balances_and_pool(fun_asset_id, caller.clone());
 
 		let tip = 10u64.into();
 		let ext: ChargeAssetTxPayment<T> = ChargeAssetTxPayment::from(tip, Some(asset_id));

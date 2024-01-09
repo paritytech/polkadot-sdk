@@ -565,6 +565,8 @@ impl pallet_asset_tx_payment::Config for Runtime {
 		CreditToBlockAuthor,
 	>;
 	type WeightInfo = pallet_asset_tx_payment::weights::SubstrateWeight<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = AssetTxHelper;
 }
 
 impl pallet_asset_conversion_tx_payment::Config for Runtime {
@@ -576,6 +578,8 @@ impl pallet_asset_conversion_tx_payment::Config for Runtime {
 		Native,
 	>;
 	type WeightInfo = pallet_asset_conversion_tx_payment::weights::SubstrateWeight<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = AssetConversionTxHelper;
 }
 
 impl pallet_skip_feeless_payment::Config for Runtime {
@@ -2222,25 +2226,17 @@ mod mmr {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-use frame_support::traits::fungibles::Inspect as FnInspect;
+pub struct AssetConversionTxHelper;
 
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_asset_conversion_tx_payment::BenchmarkingConfig for Runtime {
-	fn create_asset_id_parameter(
-		seed: u32,
-	) -> (
-		<<Self as pallet_asset_conversion_tx_payment::Config>::Fungibles as FnInspect<Self::AccountId>>::AssetId,
-		<<Self as pallet_asset_conversion_tx_payment::Config>::OnChargeAssetTransaction as pallet_asset_conversion_tx_payment::OnChargeAssetTransaction<Self>>::AssetId,
-	){
+impl pallet_asset_conversion_tx_payment::BenchmarkHelperTrait<AccountId, u32, u32>
+	for AssetConversionTxHelper
+{
+	fn create_asset_id_parameter(seed: u32) -> (u32, u32) {
 		(seed, seed)
 	}
 
-	fn setup_balances_and_pool(
-		asset_id: <<Self as pallet_asset_conversion_tx_payment::Config>::Fungibles as FnInspect<
-			Self::AccountId,
-		>>::AssetId,
-		account: Self::AccountId,
-	) {
+	fn setup_balances_and_pool(asset_id: u32, account: AccountId) {
 		use frame_support::{assert_ok, traits::fungibles::Mutate};
 		assert_ok!(Assets::force_create(
 			RuntimeOrigin::root(),
@@ -2281,22 +2277,15 @@ impl pallet_asset_conversion_tx_payment::BenchmarkingConfig for Runtime {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_asset_tx_payment::BenchmarkingConfig for Runtime {
-	fn create_asset_id_parameter(
-		seed: u32,
-	) -> (
-		<<Self as pallet_asset_tx_payment::Config>::Fungibles as FnInspect<Self::AccountId>>::AssetId,
-		<<Self as pallet_asset_tx_payment::Config>::OnChargeAssetTransaction as pallet_asset_tx_payment::OnChargeAssetTransaction<Self>>::AssetId,
-	){
+pub struct AssetTxHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_asset_tx_payment::BenchmarkHelperTrait<AccountId, u32, u32> for AssetTxHelper {
+	fn create_asset_id_parameter(seed: u32) -> (u32, u32) {
 		(seed, seed)
 	}
 
-	fn setup_balances_and_pool(
-		asset_id: <<Self as pallet_asset_tx_payment::Config>::Fungibles as FnInspect<
-			Self::AccountId,
-		>>::AssetId,
-		account: Self::AccountId,
-	) {
+	fn setup_balances_and_pool(asset_id: u32, account: AccountId) {
 		use frame_support::{assert_ok, traits::fungibles::Mutate};
 		assert_ok!(Assets::force_create(
 			RuntimeOrigin::root(),
