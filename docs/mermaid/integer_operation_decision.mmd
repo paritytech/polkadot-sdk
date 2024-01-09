@@ -1,0 +1,7 @@
+flowchart LR
+    CH["Checked"]
+    ST["Saturated"]
+    CH-->NEED["The user needs to know that the operation failed - and why"]
+    CH-->DOUBT["Unsure whether this operation could fail/overflow"]
+    ST-->SILENT["Silently reaching upper/lower bound will not result in any damage"]
+    ST-->REASON["In all reasonable circumstances, the number will not overflow, but safety is still desired"]
