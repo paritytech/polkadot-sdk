@@ -693,9 +693,10 @@ pub mod pallet {
 			note = "To be removed after June 2024. Migrate to `frame_system::apply_authorized_upgrade`."
 		)]
 		pub fn enact_authorized_upgrade(
-			_: OriginFor<T>,
+			origin: OriginFor<T>,
 			code: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
+			<T as frame_system::Config>::ApplyAuthorizedUpgradeOrigin::ensure_origin(origin)?;
 			let post = frame_system::Pallet::<T>::do_apply_authorize_upgrade(code)?;
 			Ok(post)
 		}

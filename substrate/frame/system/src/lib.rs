@@ -257,7 +257,7 @@ pub mod pallet {
 
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	pub mod config_preludes {
-		use super::{inject_runtime_type, DefaultConfig};
+		use super::{inject_runtime_type, DefaultConfig, EnsureAlways};
 		use frame_support::derive_impl;
 
 		/// Provides a viable default config that can be used with
@@ -298,6 +298,7 @@ pub mod pallet {
 			type BaseCallFilter = frame_support::traits::Everything;
 			type BlockHashCount = frame_support::traits::ConstU64<10>;
 			type OnSetCode = ();
+			type ApplyAuthorizedUpgradeOrigin = EnsureAlways;
 		}
 
 		/// Default configurations of this pallet in a solo-chain environment.
@@ -392,6 +393,8 @@ pub mod pallet {
 
 			/// The set code logic, just the default since we're not a parachain.
 			type OnSetCode = ();
+
+			type ApplyAuthorizedUpgradeOrigin = EnsureAlways;
 		}
 
 		/// Default configurations of this pallet in a relay-chain environment.
@@ -567,6 +570,8 @@ pub mod pallet {
 		/// `Cumulus`, where the actual code change is deferred.
 		#[pallet::no_default_bounds]
 		type OnSetCode: SetCode<Self>;
+
+		type ApplyAuthorizedUpgradeOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// The maximum number of consumers allowed on a single account.
 		type MaxConsumers: ConsumerLimits;
@@ -757,9 +762,10 @@ pub mod pallet {
 		#[pallet::call_index(11)]
 		#[pallet::weight((T::SystemWeightInfo::apply_authorized_upgrade(), DispatchClass::Operational))]
 		pub fn apply_authorized_upgrade(
-			_: OriginFor<T>,
+			origin: OriginFor<T>,
 			code: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
+			T::ApplyAuthorizedUpgradeOrigin::ensure_origin(origin)?;
 			let post = Self::do_apply_authorize_upgrade(code)?;
 			Ok(post)
 		}
@@ -1257,6 +1263,20 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 	impl< { O, Success, T } >
 		EnsureOriginWithArg<O, T> for EnsureNever<Success>
 	{}
+}
+
+/// Always pass.
+pub struct EnsureAlways;
+impl<O> EnsureOrigin<O> for EnsureAlways {
+	type Success = ();
+	fn try_origin(_: O) -> Result<(), O> {
+		Ok(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<O, ()> {
+		Ok(O::from(RawOrigin::None))
+	}
 }
 
 #[docify::export]
