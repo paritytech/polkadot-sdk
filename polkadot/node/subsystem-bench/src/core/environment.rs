@@ -121,7 +121,8 @@ fn new_runtime() -> tokio::runtime::Runtime {
 	tokio::runtime::Builder::new_multi_thread()
 		.thread_name("subsystem-bench")
 		.enable_all()
-		.thread_stack_size(3 * 1024 * 1024)
+		.thread_stack_size(128 * 1024 * 1024)
+		.max_blocking_threads(4096)
 		.build()
 		.unwrap()
 }
@@ -150,7 +151,7 @@ pub const GENESIS_HASH: Hash = Hash::repeat_byte(0xff);
 // We use this to bail out sending messages to the subsystem if it is overloaded such that
 // the time of flight is breaches 5s.
 // This should eventually be a test parameter.
-const MAX_TIME_OF_FLIGHT: Duration = Duration::from_millis(5000);
+pub const MAX_TIME_OF_FLIGHT: Duration = Duration::from_millis(5000);
 
 /// The test environment is the high level wrapper of all things required to test
 /// a certain subsystem.
@@ -241,6 +242,14 @@ impl TestEnvironment {
 		&self.network
 	}
 
+	pub fn overseer_handle(&self) -> &OverseerHandle {
+		&self.overseer_handle
+	}
+
+	pub fn spawn_handle(&self) -> SpawnTaskHandle {
+		self.dependencies.task_manager.spawn_handle()
+	}
+
 	pub fn registry(&self) -> &Registry {
 		&self.dependencies.registry
 	}
@@ -274,7 +283,37 @@ impl TestEnvironment {
 				panic!("{}ms maximum time of flight breached", MAX_TIME_OF_FLIGHT.as_millis())
 			});
 	}
+	/// Tells if entries in bucket metric is lower than `value`
+	pub fn metric_with_label_lower_than(
+		&self,
+		metric_name: &str,
+		label_name: &str,
+		label_value: &str,
+		value: f64,
+	) -> bool {
+		let test_metrics = super::display::parse_metrics(self.registry())
+			.subset_with_label_value(label_name, label_value);
+		test_metrics.metric_lower_than(metric_name, value)
+	}
 
+	/// Tells if entries in bucket metric is lower than `value`
+	pub fn metric_lower_than(registry: &Registry, metric_name: &str, value: f64) -> bool {
+		let test_metrics = super::display::parse_metrics(registry);
+		test_metrics.metric_lower_than(metric_name, value)
+	}
+
+	/// Tells if all entries in a Histogram are lower than value
+	pub fn bucket_metric_lower_than(
+		&self,
+		metric_name: &str,
+		label_name: &str,
+		label_value: &str,
+		value: f64,
+	) -> bool {
+		let test_metrics = super::display::parse_metrics(self.registry());
+
+		test_metrics.bucket_metric_lower_than(metric_name, label_name, label_value, value)
+	}
 	// Stop overseer and subsystems.
 	pub async fn stop(&mut self) {
 		self.overseer_handle.stop().await;
@@ -294,6 +333,7 @@ impl Display for TestEnvironment {
 				stats
 					.iter()
 					.enumerate()
+					.filter(|(index, _)| *index != 0)
 					.map(|(_index, stats)| stats.tx_bytes_total as u128)
 					.sum::<u128>() / (1024 * 1024)
 			)
@@ -307,9 +347,27 @@ impl Display for TestEnvironment {
 
 		let test_metrics = super::display::parse_metrics(self.registry());
 		let subsystem_cpu_metrics =
-			test_metrics.subset_with_label_value("task_group", "availability-recovery");
+			test_metrics.subset_with_label_value("task_group", "approval-distribution");
 		let total_cpu = subsystem_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum");
-		writeln!(f, "Total subsystem CPU usage {}", format!("{:.2}s", total_cpu).bright_purple())?;
+		writeln!(
+			f,
+			"Total approval-distribution CPU usage {}",
+			format!("{:.2}s", total_cpu).bright_purple()
+		)?;
+		writeln!(
+			f,
+			"CPU usage per block {}",
+			format!("{:.2}s", total_cpu / self.config().num_blocks as f64).bright_purple()
+		)?;
+
+		let subsystem_cpu_metrics =
+			test_metrics.subset_with_label_value("task_group", "approval-voting");
+		let total_cpu = subsystem_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum");
+		writeln!(
+			f,
+			"Total approval-voting CPU usage {}",
+			format!("{:.2}s", total_cpu).bright_purple()
+		)?;
 		writeln!(
 			f,
 			"CPU usage per block {}",

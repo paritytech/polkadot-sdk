@@ -23,6 +23,7 @@ polkadot-node-primitives = { path = "../primitives" }
 polkadot-primitives = { path = "../../primitives" }
 polkadot-node-network-protocol = { path = "../network/protocol" }
 polkadot-availability-recovery = { path = "../network/availability-recovery", features = ["subsystem-benchmarks"] }
+
 color-eyre = { version = "0.6.1", default-features = false }
 polkadot-overseer = { path = "../overseer" }
 colored = "2.0.4"
@@ -34,6 +35,9 @@ sp-core = { path = "../../../substrate/primitives/core" }
 clap = { version = "4.4.13", features = ["derive"] }
 futures = "0.3.21"
 futures-timer = "3.0.2"
+bincode = "1.3.3"
+sha1 = "0.10.6"
+hex = "0.4.3"
 gum = { package = "tracing-gum", path = "../gum" }
 polkadot-erasure-coding = { package = "polkadot-erasure-coding", path = "../../erasure-coding" }
 log = "0.4.17"
@@ -55,6 +59,18 @@ prometheus = { version = "0.13.0", default-features = false }
 serde = "1.0.195"
 serde_yaml = "0.9"
 paste = "1.0.14"
+
+polkadot-node-core-approval-voting = { path = "../core/approval-voting"}
+polkadot-approval-distribution = {path = "../network/approval-distribution"}
+kvdb-memorydb = "0.13.0"
+sp-consensus = { path = "../../../substrate/primitives/consensus/common", default-features = false }
+sp-consensus-babe = { path = "../../../substrate/primitives/consensus/babe" }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
+sp-timestamp = { path = "../../../substrate/primitives/timestamp" }
+
+schnorrkel = { version = "0.9.1", default-features = false }
+rand_core = "0.6.2" # should match schnorrkel
+rand_chacha = { version = "0.3.1" }
 orchestra = { version = "0.3.3", default-features = false, features = ["futures_channel"] }
 pyroscope = "0.5.7"
 pyroscope_pprofrs = "0.2.7"

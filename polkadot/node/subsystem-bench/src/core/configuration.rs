@@ -17,6 +17,7 @@
 //! Test configuration definition and helpers.
 use super::*;
 use keyring::Keyring;
+use sc_network::PeerId;
 use std::{path::Path, time::Duration};
 
 pub use crate::cli::TestObjective;
@@ -67,6 +68,8 @@ pub struct TestConfiguration {
 	pub n_validators: usize,
 	/// Number of cores
 	pub n_cores: usize,
+	/// Number of included candidates
+	pub n_included_candidates: usize,
 	/// The min PoV size
 	#[serde(default = "default_pov_size")]
 	pub min_pov_size: usize,
@@ -132,6 +135,7 @@ pub struct TestAuthorities {
 	pub keyrings: Vec<Keyring>,
 	pub validator_public: Vec<ValidatorId>,
 	pub validator_authority_id: Vec<AuthorityDiscoveryId>,
+	pub peer_ids: Vec<PeerId>,
 }
 
 impl TestConfiguration {
@@ -164,7 +168,9 @@ impl TestConfiguration {
 			.map(|keyring| keyring.clone().public().into())
 			.collect::<Vec<_>>();
 
-		TestAuthorities { keyrings, validator_public, validator_authority_id }
+		let peer_ids: Vec<PeerId> = keyrings.iter().map(|_| PeerId::random()).collect::<Vec<_>>();
+
+		TestAuthorities { keyrings, validator_public, validator_authority_id, peer_ids }
 	}
 
 	/// An unconstrained standard configuration matching Polkadot/Kusama
@@ -179,6 +185,7 @@ impl TestConfiguration {
 		Self {
 			objective,
 			n_cores,
+			n_included_candidates: n_cores,
 			n_validators,
 			pov_sizes: generate_pov_sizes(n_cores, min_pov_size, max_pov_size),
 			bandwidth: 50 * 1024 * 1024,
@@ -204,6 +211,7 @@ impl TestConfiguration {
 		Self {
 			objective,
 			n_cores,
+			n_included_candidates: n_cores,
 			n_validators,
 			pov_sizes: generate_pov_sizes(n_cores, min_pov_size, max_pov_size),
 			bandwidth: 50 * 1024 * 1024,
@@ -231,6 +239,7 @@ impl TestConfiguration {
 		Self {
 			objective,
 			n_cores,
+			n_included_candidates: n_cores,
 			n_validators,
 			pov_sizes: generate_pov_sizes(n_cores, min_pov_size, max_pov_size),
 			bandwidth: 50 * 1024 * 1024,

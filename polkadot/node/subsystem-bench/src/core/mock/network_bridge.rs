@@ -37,9 +37,12 @@ use polkadot_node_network_protocol::request_response::{
 };
 use polkadot_primitives::AuthorityDiscoveryId;
 
-use crate::core::{
-	configuration::{random_error, random_latency, TestConfiguration},
-	network::{NetworkAction, NetworkEmulator, RateLimit},
+use crate::{
+	approval::ApprovalTestState,
+	core::{
+		configuration::{random_error, random_latency, TestConfiguration},
+		network::{NetworkAction, NetworkEmulator, RateLimit},
+	},
 };
 
 /// The availability store state of all emulated peers.
@@ -54,22 +57,57 @@ pub struct NetworkAvailabilityState {
 const LOG_TARGET: &str = "subsystem-bench::network-bridge-tx-mock";
 
 /// A mock of the network bridge tx subsystem.
-pub struct MockNetworkBridgeTx {
+pub struct MockNetworkBridgeTx<State> {
 	/// The test configurationg
 	config: TestConfiguration,
 	/// The network availability state
-	availabilty: NetworkAvailabilityState,
+	state: State,
 	/// A network emulator instance
 	network: NetworkEmulator,
 }
 
-impl MockNetworkBridgeTx {
+/// Trait to be implemented by benchamrks that need to respond to requests info.
+pub trait RespondToRequestsInfo {
+	fn candidate_hashes(&self) -> &HashMap<CandidateHash, usize>;
+	fn available_data(&self) -> &Vec<AvailableData>;
+	fn chunks(&self) -> &Vec<Vec<ErasureChunk>>;
+}
+
+impl RespondToRequestsInfo for NetworkAvailabilityState {
+	fn candidate_hashes(&self) -> &HashMap<CandidateHash, usize> {
+		&self.candidate_hashes
+	}
+
+	fn available_data(&self) -> &Vec<AvailableData> {
+		&self.available_data
+	}
+
+	fn chunks(&self) -> &Vec<Vec<ErasureChunk>> {
+		&self.chunks
+	}
+}
+
+impl RespondToRequestsInfo for ApprovalTestState {
+	fn candidate_hashes(&self) -> &HashMap<CandidateHash, usize> {
+		todo!()
+	}
+
+	fn available_data(&self) -> &Vec<AvailableData> {
+		todo!()
+	}
+
+	fn chunks(&self) -> &Vec<Vec<ErasureChunk>> {
+		todo!()
+	}
+}
+
+impl<State: RespondToRequestsInfo> MockNetworkBridgeTx<State> {
 	pub fn new(
 		config: TestConfiguration,
-		availabilty: NetworkAvailabilityState,
+		state: State,
 		network: NetworkEmulator,
-	) -> MockNetworkBridgeTx {
-		Self { config, availabilty, network }
+	) -> MockNetworkBridgeTx<State> {
+		Self { config, state, network }
 	}
 
 	fn not_connected_response(
@@ -127,13 +165,13 @@ impl MockNetworkBridgeTx {
 				let candidate_hash = outgoing_request.payload.candidate_hash;
 
 				let candidate_index = self
-					.availabilty
-					.candidate_hashes
+					.state
+					.candidate_hashes()
 					.get(&candidate_hash)
 					.expect("candidate was generated previously; qed");
 				gum::warn!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
 
-				let chunk: ChunkResponse = self.availabilty.chunks.get(*candidate_index).unwrap()
+				let chunk: ChunkResponse = self.state.chunks().get(*candidate_index).unwrap()
 					[validator_index]
 					.clone()
 					.into();
@@ -174,8 +212,8 @@ impl MockNetworkBridgeTx {
 			Requests::AvailableDataFetchingV1(outgoing_request) => {
 				let candidate_hash = outgoing_request.payload.candidate_hash;
 				let candidate_index = self
-					.availabilty
-					.candidate_hashes
+					.state
+					.candidate_hashes()
 					.get(&candidate_hash)
 					.expect("candidate was generated previously; qed");
 				gum::debug!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
@@ -205,7 +243,7 @@ impl MockNetworkBridgeTx {
 					.inc_received(outgoing_request.payload.encoded_size());
 
 				let available_data =
-					self.availabilty.available_data.get(*candidate_index).unwrap().clone();
+					self.state.available_data().get(*candidate_index).unwrap().clone();
 
 				let size = available_data.encoded_size();
 
@@ -246,7 +284,9 @@ impl MockNetworkBridgeTx {
 }
 
 #[overseer::subsystem(NetworkBridgeTx, error=SubsystemError, prefix=self::overseer)]
-impl<Context> MockNetworkBridgeTx {
+impl<State: std::marker::Send + RespondToRequestsInfo + 'static, Context>
+	MockNetworkBridgeTx<State>
+{
 	fn start(self, ctx: Context) -> SpawnedSubsystem {
 		let future = self.run(ctx).map(|_| Ok(())).boxed();
 
@@ -255,7 +295,7 @@ impl<Context> MockNetworkBridgeTx {
 }
 
 #[overseer::contextbounds(NetworkBridgeTx, prefix = self::overseer)]
-impl MockNetworkBridgeTx {
+impl<State: RespondToRequestsInfo> MockNetworkBridgeTx<State> {
 	async fn run<Context>(mut self, mut ctx: Context) {
 		let (mut ingress_tx, mut ingress_rx) =
 			tokio::sync::mpsc::unbounded_channel::<NetworkAction>();
@@ -303,9 +343,25 @@ impl MockNetworkBridgeTx {
 							self.network.submit_peer_action(action.peer(), action);
 						}
 					},
-					_ => {
-						unimplemented!("Unexpected network bridge message")
+					NetworkBridgeTxMessage::SendValidationMessage(peers, _message) => {
+						for _peer in peers {
+							self.network.inc_sent(200);
+						}
 					},
+					NetworkBridgeTxMessage::ReportPeer(_) => {},
+					NetworkBridgeTxMessage::DisconnectPeer(_, _) => todo!(),
+					NetworkBridgeTxMessage::SendCollationMessage(_, _) => todo!(),
+					NetworkBridgeTxMessage::SendValidationMessages(_) => todo!(),
+					NetworkBridgeTxMessage::SendCollationMessages(_) => todo!(),
+					NetworkBridgeTxMessage::ConnectToValidators {
+						validator_ids: _,
+						peer_set: _,
+						failed: _,
+					} => todo!(),
+					NetworkBridgeTxMessage::ConnectToResolvedValidators {
+						validator_addrs: _,
+						peer_set: _,
+					} => todo!(),
 				},
 			}
 		}

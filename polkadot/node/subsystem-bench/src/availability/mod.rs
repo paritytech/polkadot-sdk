@@ -19,7 +19,7 @@ use std::{collections::HashMap, iter::Cycle, ops::Sub, sync::Arc, time::Instant}
 use crate::TestEnvironment;
 use polkadot_node_subsystem::{Overseer, OverseerConnector, SpawnGlue};
 use polkadot_node_subsystem_test_helpers::derive_erasure_chunks_with_proofs_and_root;
-use polkadot_overseer::Handle as OverseerHandle;
+use polkadot_overseer::{metrics::Metrics as OverseerMetrics, Handle as OverseerHandle};
 use sc_network::request_responses::ProtocolConfig;
 
 use colored::Colorize;
@@ -65,11 +65,14 @@ fn build_overseer(
 	spawn_task_handle: SpawnTaskHandle,
 	runtime_api: MockRuntimeApi,
 	av_store: MockAvailabilityStore,
-	network_bridge: MockNetworkBridgeTx,
+	network_bridge: MockNetworkBridgeTx<NetworkAvailabilityState>,
 	availability_recovery: AvailabilityRecoverySubsystem,
+	dependencies: &TestEnvironmentDependencies,
 ) -> (Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>, OverseerHandle) {
 	let overseer_connector = OverseerConnector::with_event_capacity(64000);
-	let dummy = dummy_builder!(spawn_task_handle);
+	let overseer_metrics = OverseerMetrics::try_register(&dependencies.registry).unwrap();
+
+	let dummy = dummy_builder!(spawn_task_handle, overseer_metrics);
 	let builder = dummy
 		.replace_runtime_api(|_| runtime_api)
 		.replace_availability_store(|_| av_store)
@@ -143,6 +146,7 @@ fn prepare_test_inner(
 		av_store,
 		network_bridge_tx,
 		subsystem,
+		&dependencies,
 	);
 
 	(TestEnvironment::new(dependencies, config, network, overseer, overseer_handle), req_cfg)
