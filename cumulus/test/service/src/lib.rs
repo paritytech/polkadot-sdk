@@ -23,9 +23,6 @@ pub mod bench_utils;
 
 pub mod chain_spec;
 
-/// Utilities for creating test genesis block and head data
-pub mod genesis;
-
 use runtime::AccountId;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 use std::{
@@ -88,7 +85,6 @@ use substrate_test_client::{
 
 pub use chain_spec::*;
 pub use cumulus_test_runtime as runtime;
-pub use genesis::*;
 pub use sp_keyring::Sr25519Keyring as Keyring;
 
 const LOG_TARGET: &str = "cumulus-test-service";
