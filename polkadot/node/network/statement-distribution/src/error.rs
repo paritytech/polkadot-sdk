@@ -20,7 +20,7 @@
 use polkadot_node_network_protocol::PeerId;
 use polkadot_node_subsystem::{RuntimeApiError, SubsystemError};
 use polkadot_node_subsystem_util::{
-	self as util, backing_implicit_view::FetchError as ImplicitViewFetchError, runtime,
+	backing_implicit_view::FetchError as ImplicitViewFetchError, runtime,
 };
 use polkadot_primitives::{CandidateHash, Hash, Id as ParaId};
 
