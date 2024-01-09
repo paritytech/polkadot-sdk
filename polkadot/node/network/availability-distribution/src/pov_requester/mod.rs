@@ -139,6 +139,7 @@ mod tests {
 	use futures::{executor, future};
 
 	use parity_scale_codec::Encode;
+	use sc_network::ProtocolName;
 	use sp_core::testing::TaskExecutor;
 
 	use polkadot_node_primitives::BlockData;
@@ -231,7 +232,10 @@ mod tests {
 							Some(Requests::PoVFetchingV1(outgoing)) => {outgoing}
 						);
 						req.pending_response
-							.send(Ok(PoVFetchingResponse::PoV(pov.clone()).encode()))
+							.send(Ok((
+								PoVFetchingResponse::PoV(pov.clone()).encode(),
+								ProtocolName::from(""),
+							)))
 							.unwrap();
 						break
 					},

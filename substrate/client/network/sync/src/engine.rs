@@ -1263,7 +1263,7 @@ where
 		let ResponseEvent { peer_id, request, response } = response_event;
 
 		match response {
-			Ok(Ok(resp)) => match request {
+			Ok(Ok((resp, _))) => match request {
 				PeerRequest::Block(req) => {
 					match self.block_downloader.block_response_into_blocks(&req, resp) {
 						Ok(blocks) => {

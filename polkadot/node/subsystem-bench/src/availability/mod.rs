@@ -109,7 +109,12 @@ fn prepare_test_inner(
 		chunks: state.chunks.clone(),
 	};
 
-	let network = NetworkEmulator::new(&config, &dependencies, &test_authorities);
+	let req_protocol_names = ReqProtocolNames::new(GENESIS_HASH, None);
+	let (collation_req_receiver, req_cfg) =
+		IncomingRequest::get_config_receiver(&req_protocol_names);
+
+	let network =
+		NetworkEmulator::new(&config, &dependencies, &test_authorities, req_protocol_names);
 
 	let network_bridge_tx = network_bridge::MockNetworkBridgeTx::new(
 		config.clone(),
@@ -121,9 +126,6 @@ fn prepare_test_inner(
 		TestObjective::DataAvailabilityRead(options) => options.fetch_from_backers,
 		_ => panic!("Unexpected objective"),
 	};
-
-	let (collation_req_receiver, req_cfg) =
-		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
 
 	let subsystem = if use_fast_path {
 		AvailabilityRecoverySubsystem::with_fast_path(

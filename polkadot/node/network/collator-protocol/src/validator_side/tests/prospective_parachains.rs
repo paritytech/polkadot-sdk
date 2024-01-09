@@ -314,11 +314,11 @@ fn v1_advertisement_accepted_and_seconded() {
 		let pov = PoV { block_data: BlockData(vec![1]) };
 
 		response_channel
-			.send(Ok(request_v2::CollationFetchingResponse::Collation(
-				candidate.clone(),
-				pov.clone(),
-			)
-			.encode()))
+			.send(Ok((
+				request_v2::CollationFetchingResponse::Collation(candidate.clone(), pov.clone())
+					.encode(),
+				ProtocolName::from(""),
+			)))
 			.expect("Sending response should succeed");
 
 		assert_candidate_backing_second(
@@ -565,11 +565,14 @@ fn second_multiple_candidates_per_relay_parent() {
 			let pov = PoV { block_data: BlockData(vec![1]) };
 
 			response_channel
-				.send(Ok(request_v2::CollationFetchingResponse::Collation(
-					candidate.clone(),
-					pov.clone(),
-				)
-				.encode()))
+				.send(Ok((
+					request_v2::CollationFetchingResponse::Collation(
+						candidate.clone(),
+						pov.clone(),
+					)
+					.encode(),
+					ProtocolName::from(""),
+				)))
 				.expect("Sending response should succeed");
 
 			assert_candidate_backing_second(
@@ -717,11 +720,11 @@ fn fetched_collation_sanity_check() {
 		let pov = PoV { block_data: BlockData(vec![1]) };
 
 		response_channel
-			.send(Ok(request_v2::CollationFetchingResponse::Collation(
-				candidate.clone(),
-				pov.clone(),
-			)
-			.encode()))
+			.send(Ok((
+				request_v2::CollationFetchingResponse::Collation(candidate.clone(), pov.clone())
+					.encode(),
+				ProtocolName::from(""),
+			)))
 			.expect("Sending response should succeed");
 
 		// PVD request.

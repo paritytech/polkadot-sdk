@@ -32,7 +32,7 @@ use futures::{
 use futures_timer::Delay;
 use parity_scale_codec::{Decode, Encode};
 
-use sc_network::config::RequestResponseConfig;
+use sc_network::{config::RequestResponseConfig, ProtocolName};
 
 use polkadot_node_network_protocol::{
 	request_response::{v1::DisputeRequest, IncomingRequest, ReqProtocolNames},
@@ -832,7 +832,7 @@ async fn check_sent_requests(
 			if confirm_receive {
 				for req in reqs {
 					req.pending_response.send(
-						Ok(DisputeResponse::Confirmed.encode())
+						Ok((DisputeResponse::Confirmed.encode(), ProtocolName::from("")))
 					)
 					.expect("Subsystem should be listening for a response.");
 				}
