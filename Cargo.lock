@@ -13786,21 +13786,15 @@ dependencies = [
 
 [[package]]
 name = "polkavm-common"
-version = "0.2.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01363cf0a778e8d93eff31e8a03bc59992cba35faa419ea4f3e80146b69195ba"
-
-[[package]]
-name = "polkavm-common"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88e869d66a254db6c7069992f240626416aba8e87d65c00e4be443135babfe82"
+checksum = "fecd2caacfc4a7ee34243758dd7348859e6dec73f5e5df059890f5742ee46f0e"
 
 [[package]]
 name = "polkavm-derive"
-version = "0.2.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26501292b2cb980cbeaac3304f0fc4480ff1bac2473045453d7333d775658b6a"
+checksum = "db65a500d4adf574893c726ae365e37e4fbb7f2cbd403f6eaa1b665457456adc"
 dependencies = [
  "polkavm-derive-impl",
  "syn 2.0.48",
@@ -13808,11 +13802,11 @@ dependencies = [
 
 [[package]]
 name = "polkavm-derive-impl"
-version = "0.2.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "903e16ad3ed768f35e6f40acff2e8aaf6afb9f2889b0a8982dd43dcbee29db2d"
+checksum = "c99f4e7a9ff434ef9c885b874c99d824c3a5693bf5e3e8569bb1d2245a8c1b7f"
 dependencies = [
- "polkavm-common 0.2.0",
+ "polkavm-common",
  "proc-macro2",
  "quote",
  "syn 2.0.48",
@@ -13820,15 +13814,15 @@ dependencies = [
 
 [[package]]
 name = "polkavm-linker"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f8719d37effca6df1cecf5c816d84ab09b7d18e960511f61c254a7581fa50c3"
+checksum = "550738c1b49b9279fa19d8ebed81f551b911b869227a20a190f85f6db45d5d0e"
 dependencies = [
  "gimli 0.28.0",
  "hashbrown 0.14.3",
  "log",
  "object 0.32.2",
- "polkavm-common 0.3.0",
+ "polkavm-common",
  "rustc-demangle",
 ]
 
