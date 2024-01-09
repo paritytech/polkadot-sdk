@@ -18,14 +18,19 @@
 
 pub mod security;
 
-use crate::{framed_recv_blocking, WorkerHandshake, LOG_TARGET};
+use crate::{framed_recv_blocking, SecurityStatus, WorkerHandshake, LOG_TARGET};
 use cpu_time::ProcessTime;
 use futures::never::Never;
 use parity_scale_codec::Decode;
 use std::{
 	any::Any,
-	fmt, io,
-	os::unix::net::UnixStream,
+	fmt::{self},
+	fs::File,
+	io::{self, Read, Write},
+	os::{
+		fd::{AsRawFd, FromRawFd},
+		unix::net::UnixStream,
+	},
 	path::PathBuf,
 	sync::mpsc::{Receiver, RecvTimeoutError},
 	time::Duration,
@@ -78,7 +83,7 @@ macro_rules! decl_worker_main {
 
 				"--check-can-enable-landlock" => {
 					#[cfg(target_os = "linux")]
-					let status = if let Err(err) = security::landlock::check_is_fully_enabled() {
+					let status = if let Err(err) = security::landlock::check_can_fully_enable() {
 						// Write the error to stderr, log it on the host-side.
 						eprintln!("{}", err);
 						-1
@@ -91,7 +96,7 @@ macro_rules! decl_worker_main {
 				},
 				"--check-can-enable-seccomp" => {
 					#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-					let status = if let Err(err) = security::seccomp::check_is_fully_enabled() {
+					let status = if let Err(err) = security::seccomp::check_can_fully_enable() {
 						// Write the error to stderr, log it on the host-side.
 						eprintln!("{}", err);
 						-1
@@ -107,8 +112,23 @@ macro_rules! decl_worker_main {
 					let cache_path_tempdir = std::path::Path::new(&args[2]);
 					#[cfg(target_os = "linux")]
 					let status = if let Err(err) =
-						security::change_root::check_is_fully_enabled(&cache_path_tempdir)
+						security::change_root::check_can_fully_enable(&cache_path_tempdir)
 					{
+						// Write the error to stderr, log it on the host-side.
+						eprintln!("{}", err);
+						-1
+					} else {
+						0
+					};
+					#[cfg(not(target_os = "linux"))]
+					let status = -1;
+					std::process::exit(status)
+				},
+				"--check-can-do-secure-clone" => {
+					#[cfg(target_os = "linux")]
+					// SAFETY: new process is spawned within a single threaded process. This
+					// invariant is enforced by tests.
+					let status = if let Err(err) = unsafe { security::clone::check_can_fully_clone() } {
 						// Write the error to stderr, log it on the host-side.
 						eprintln!("{}", err);
 						-1
@@ -171,6 +191,83 @@ macro_rules! decl_worker_main {
 	};
 }
 
+//taken from the os_pipe crate. Copied here to reduce one dependency and
+// because its type-safe abstractions do not play well with nix's clone
+#[cfg(not(target_os = "macos"))]
+pub fn pipe2_cloexec() -> io::Result<(libc::c_int, libc::c_int)> {
+	let mut fds: [libc::c_int; 2] = [0; 2];
+	let res = unsafe { libc::pipe2(fds.as_mut_ptr(), libc::O_CLOEXEC) };
+	if res != 0 {
+		return Err(io::Error::last_os_error())
+	}
+	Ok((fds[0], fds[1]))
+}
+
+#[cfg(target_os = "macos")]
+pub fn pipe2_cloexec() -> io::Result<(libc::c_int, libc::c_int)> {
+	let mut fds: [libc::c_int; 2] = [0; 2];
+	let res = unsafe { libc::pipe(fds.as_mut_ptr()) };
+	if res != 0 {
+		return Err(io::Error::last_os_error())
+	}
+	let res = unsafe { libc::fcntl(fds[0], libc::F_SETFD, libc::FD_CLOEXEC) };
+	if res != 0 {
+		return Err(io::Error::last_os_error())
+	}
+	let res = unsafe { libc::fcntl(fds[1], libc::F_SETFD, libc::FD_CLOEXEC) };
+	if res != 0 {
+		return Err(io::Error::last_os_error())
+	}
+	Ok((fds[0], fds[1]))
+}
+
+/// A wrapper around a file descriptor used to encapsulate and restrict
+/// functionality for pipe operations.
+pub struct PipeFd {
+	file: File,
+}
+
+impl PipeFd {
+	/// Creates a new `PipeFd` instance from a raw file descriptor.
+	///
+	/// # Safety
+	///
+	/// The fd passed in must be an owned file descriptor; in particular, it must be open.
+	pub unsafe fn new(fd: i32) -> Self {
+		let file = File::from_raw_fd(fd);
+		PipeFd { file }
+	}
+
+	/// Returns the raw file descriptor associated with this `PipeFd`
+	pub fn as_raw_fd(&self) -> i32 {
+		self.file.as_raw_fd()
+	}
+}
+
+impl Read for PipeFd {
+	fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+		self.file.read(buf)
+	}
+
+	fn read_to_end(&mut self, buf: &mut Vec<u8>) -> io::Result<usize> {
+		self.file.read_to_end(buf)
+	}
+}
+
+impl Write for PipeFd {
+	fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+		self.file.write(buf)
+	}
+
+	fn flush(&mut self) -> io::Result<()> {
+		self.file.flush()
+	}
+
+	fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
+		self.file.write_all(buf)
+	}
+}
+
 /// Some allowed overhead that we account for in the "CPU time monitor" thread's sleeps, on the
 /// child process.
 pub const JOB_TIMEOUT_OVERHEAD: Duration = Duration::from_millis(50);
@@ -192,14 +289,12 @@ impl fmt::Display for WorkerKind {
 	}
 }
 
-// Some fields are only used for logging, and dead-code analysis ignores Debug.
-#[allow(dead_code)]
 #[derive(Debug)]
 pub struct WorkerInfo {
-	pid: u32,
-	kind: WorkerKind,
-	version: Option<String>,
-	worker_dir_path: PathBuf,
+	pub pid: u32,
+	pub kind: WorkerKind,
+	pub version: Option<String>,
+	pub worker_dir_path: PathBuf,
 }
 
 // NOTE: The worker version must be passed in so that we accurately get the version of the worker,
@@ -218,7 +313,7 @@ pub fn run_worker<F>(
 	worker_version: Option<&str>,
 	mut event_loop: F,
 ) where
-	F: FnMut(UnixStream, PathBuf) -> io::Result<Never>,
+	F: FnMut(UnixStream, &WorkerInfo, SecurityStatus) -> io::Result<Never>,
 {
 	#[cfg_attr(not(target_os = "linux"), allow(unused_mut))]
 	let mut worker_info = WorkerInfo {
@@ -250,11 +345,8 @@ pub fn run_worker<F>(
 	}
 
 	// Make sure that we can read the worker dir path, and log its contents.
-	let entries = || -> Result<Vec<_>, io::Error> {
-		std::fs::read_dir(&worker_info.worker_dir_path)?
-			.map(|res| res.map(|e| e.file_name()))
-			.collect()
-	}();
+	let entries: io::Result<Vec<_>> = std::fs::read_dir(&worker_info.worker_dir_path)
+		.and_then(|d| d.map(|res| res.map(|e| e.file_name())).collect());
 	match entries {
 		Ok(entries) =>
 			gum::trace!(target: LOG_TARGET, ?worker_info, "content of worker dir: {:?}", entries),
@@ -353,7 +445,7 @@ pub fn run_worker<F>(
 	}
 
 	// Run the main worker loop.
-	let err = event_loop(stream, worker_info.worker_dir_path.clone())
+	let err = event_loop(stream, &worker_info, security_status)
 		// It's never `Ok` because it's `Ok(Never)`.
 		.unwrap_err();
 

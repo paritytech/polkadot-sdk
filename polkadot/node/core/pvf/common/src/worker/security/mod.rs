@@ -27,14 +27,16 @@
 //! - Restrict networking by blocking socket creation and io_uring.
 //! - Remove env vars
 
-use crate::{worker::WorkerInfo, LOG_TARGET};
-
 #[cfg(target_os = "linux")]
 pub mod change_root;
+#[cfg(target_os = "linux")]
+pub mod clone;
 #[cfg(target_os = "linux")]
 pub mod landlock;
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 pub mod seccomp;
+
+use crate::{worker::WorkerInfo, LOG_TARGET};
 
 /// Require env vars to have been removed when spawning the process, to prevent malicious code from
 /// accessing them.

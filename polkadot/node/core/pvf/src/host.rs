@@ -906,7 +906,7 @@ pub(crate) mod tests {
 			let _ = pulse.next().await.unwrap();
 
 			let el = start.elapsed().as_millis();
-			assert!(el > 50 && el < 150, "{}", el);
+			assert!(el > 50 && el < 150, "pulse duration: {}", el);
 		}
 	}
 

@@ -77,8 +77,8 @@ pub enum PrepareError {
 	#[codec(index = 9)]
 	ClearWorkerDir(String),
 	/// The preparation job process died, due to OOM, a seccomp violation, or some other factor.
-	JobDied { err: String, job_pid: i32 },
 	#[codec(index = 10)]
+	JobDied { err: String, job_pid: i32 },
 	/// Some error occurred when interfacing with the kernel.
 	#[codec(index = 11)]
 	Kernel(String),
