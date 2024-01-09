@@ -103,7 +103,7 @@ impl BenchCli {
 	fn launch(self) -> eyre::Result<()> {
 		let is_valgrind = is_valgrind_mode();
 		if !is_valgrind && self.cache_misses {
-			return run_valgrind()
+			return valgrind_init()
 		}
 
 		let agent_running = if self.profile {
@@ -196,17 +196,15 @@ impl BenchCli {
 		let mut state = TestState::new(&test_config);
 		let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
 
-		// Start collecting cache misses data
 		if is_valgrind {
-			valgrind_toggle_collect();
+			valgrind_start();
 		}
 
 		env.runtime()
 			.block_on(availability::benchmark_availability_read(&mut env, state));
 
-		// Stop collecting cache misses data
 		if is_valgrind {
-			valgrind_toggle_collect();
+			valgrind_stop();
 		}
 
 		if let Some(agent_running) = agent_running {
@@ -228,16 +226,28 @@ fn is_valgrind_mode() -> bool {
 	false
 }
 
+/// Start collecting cache misses data
 #[cfg(target_os = "linux")]
-fn valgrind_toggle_collect() {
-	crabgrind::callgrind::toggle_collect()
+fn valgrind_start() {
+	crabgrind::callgrind::start_instrumentation();
+	crabgrind::callgrind::toggle_collect();
 }
 
 #[cfg(not(target_os = "linux"))]
-fn valgrind_toggle_collect() {}
+fn valgrind_start() {}
+
+/// Stop collecting cache misses data
+#[cfg(target_os = "linux")]
+fn valgrind_stop() {
+	crabgrind::callgrind::toggle_collect();
+	crabgrind::callgrind::stop_instrumentation();
+}
+
+#[cfg(not(target_os = "linux"))]
+fn valgrind_stop() {}
 
 #[cfg(target_os = "linux")]
-fn run_valgrind() -> eyre::Result<()> {
+fn valgrind_init() -> eyre::Result<()> {
 	use std::os::unix::process::CommandExt;
 	std::process::Command::new("valgrind")
 		.arg("--tool=callgrind")
@@ -251,7 +261,7 @@ fn run_valgrind() -> eyre::Result<()> {
 }
 
 #[cfg(not(target_os = "linux"))]
-fn run_valgrind() -> eyre::Result<()> {
+fn valgrind_init() -> eyre::Result<()> {
 	return Err(eyre::eyre!("Valgrind can be executed only on linux"));
 }
 
