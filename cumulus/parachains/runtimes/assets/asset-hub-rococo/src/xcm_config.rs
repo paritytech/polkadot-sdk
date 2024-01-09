@@ -567,19 +567,6 @@ impl xcm_executor::Config for XcmConfig {
 			ResolveAssetTo<StakingPot, crate::NativeAndAssets>,
 			AccountId,
 		>,
-		// This trader allows to pay with `is_sufficient=true` "Foreign" assets from dedicated
-		// `pallet_assets` instance - `ForeignAssets`.
-		cumulus_primitives_utility::TakeFirstAssetTrader<
-			AccountId,
-			ForeignAssetFeeAsExistentialDepositMultiplierFeeCharger,
-			ForeignAssetsConvertedConcreteId,
-			ForeignAssets,
-			cumulus_primitives_utility::XcmFeesTo32ByteAccount<
-				ForeignFungiblesTransactor,
-				AccountId,
-				XcmAssetFeesReceiver,
-			>,
-		>,
 	);
 	type ResponseHandler = PolkadotXcm;
 	type AssetTrap = PolkadotXcm;
