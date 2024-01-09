@@ -54,8 +54,8 @@
 //! > high level tutorial. They should be explained in the rust-doc of the corresponding type or
 //! > macro.
 //!
-//! 2. 🧘 Less is More: For reasons mentioned [above](#crate::why-rust-docs), the more concise this
-//!    crate is, the better.
+//! 2. 🧘 Less is More: For reasons mentioned [above](#why-rust-docs), the more concise this crate
+//!    is, the better.
 //! 3. √ Don’t Repeat Yourself – DRY: A summary of the above two points. Authors should always
 //!    strive to avoid any duplicate information. Every concept should ideally be documented in
 //!    *ONE* place and one place only. This makes the task of maintaining topics significantly
