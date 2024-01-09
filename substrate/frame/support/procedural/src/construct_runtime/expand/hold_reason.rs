@@ -23,6 +23,7 @@ use quote::quote;
 pub fn expand_outer_hold_reason(pallet_decls: &[Pallet], scrate: &TokenStream) -> TokenStream {
 	let mut conversion_fns = Vec::new();
 	let mut hold_reason_variants = Vec::new();
+	let mut hold_reason_variants_count = Vec::new();
 	for decl in pallet_decls {
 		if let Some(_) = decl.find_part("HoldReason") {
 			let variant_name = &decl.name;
@@ -44,9 +45,14 @@ pub fn expand_outer_hold_reason(pallet_decls: &[Pallet], scrate: &TokenStream) -
 				instance,
 				variant_name,
 			));
+
+			hold_reason_variants_count.push(composite_helper::expand_variant_count(
+				"HoldReason",
+				path,
+				instance,
+			));
 		}
 	}
-	let hold_reason_variants_count = hold_reason_variants.len() as u32;
 
 	quote! {
 		/// A reason for placing a hold on funds.
@@ -61,7 +67,14 @@ pub fn expand_outer_hold_reason(pallet_decls: &[Pallet], scrate: &TokenStream) -
 		}
 
 		impl #scrate::traits::VariantCount for RuntimeHoldReason {
-			const VARIANT_COUNT: u32 = #hold_reason_variants_count;
+			const VARIANT_COUNT: u32 = 0 #( + #hold_reason_variants_count )*;
+		}
+
+		/// Implementation of `Get<u32>` which returns `RuntimeHoldReason::VARIANT_COUNT`.
+		impl #scrate::traits::Get<u32> for RuntimeHoldReason {
+			fn get() -> u32 {
+				<RuntimeHoldReason as #scrate::traits::VariantCount>::VARIANT_COUNT
+			}
 		}
 
 		#( #conversion_fns )*
