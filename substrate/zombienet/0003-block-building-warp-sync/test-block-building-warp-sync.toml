@@ -5,7 +5,7 @@ enable_tracing = false
 default_image = "{{ZOMBIENET_INTEGRATION_TEST_IMAGE}}"
 default_command = "substrate"
 
-chain = "gen-db"
+chain = "local"
 chain_spec_path = "chain-spec.json"
 
   #we need at least 3 nodes for warp sync
