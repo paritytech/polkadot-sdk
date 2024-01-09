@@ -49,7 +49,7 @@ members = [
 	"bridges/snowbridge/parachain/primitives/router",
 	"bridges/snowbridge/parachain/runtime/rococo-common",
 	"bridges/snowbridge/parachain/runtime/runtime-common",
-	"bridges/snowbridge/parachain/runtime/tests",
+	"bridges/snowbridge/parachain/runtime/test-common",
 	"cumulus/client/cli",
 	"cumulus/client/collator",
 	"cumulus/client/consensus/aura",

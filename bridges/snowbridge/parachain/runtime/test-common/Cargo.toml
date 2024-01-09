@@ -1,13 +1,11 @@
 [package]
-name = "snowbridge-runtime-tests"
+name = "snowbridge-runtime-test-common"
 description = "Snowbridge Runtime Tests"
 version = "0.9.0"
 authors = ["Snowfork <contact@snowfork.com>"]
 edition = "2021"
 license = "Apache-2.0"
 categories = ["cryptography::cryptocurrencies"]
-
-[workspace]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
@@ -51,7 +49,6 @@ sp-transaction-pool = { path = "../../../../../substrate/primitives/transaction-
 sp-version = { path = "../../../../../substrate/primitives/version", default-features = false }
 
 # Polkadot
-rococo-runtime-constants = { path = "../../../../../polkadot/runtime/rococo/constants", default-features = false }
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false }
 pallet-xcm-benchmarks = { path = "../../../../../polkadot/xcm/pallet-xcm-benchmarks", default-features = false, optional = true }
 polkadot-core-primitives = { path = "../../../../../polkadot/core-primitives", default-features = false }
@@ -74,8 +71,6 @@ pallet-collator-selection = { path = "../../../../../cumulus/pallets/collator-se
 parachain-info = { package = "staging-parachain-info", path = "../../../../../cumulus/parachains/pallets/parachain-info", default-features = false }
 parachains-common = { path = "../../../../../cumulus/parachains/common", default-features = false }
 parachains-runtimes-test-utils = { path = "../../../../../cumulus/parachains/runtimes/test-utils", default-features = false }
-bridge-hub-rococo-runtime = { path = "../../../../../cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo", default-features = false }
-asset-hub-rococo-runtime = { path = "../../../../../cumulus/parachains/runtimes/assets/asset-hub-rococo", default-features = false }
 assets-common = { path = "../../../../../cumulus/parachains/runtimes/assets/common", default-features = false }
 
 # Ethereum Bridge (Snowbridge)
@@ -98,9 +93,7 @@ sp-keyring = { path = "../../../../../substrate/primitives/keyring" }
 [features]
 default = ["std"]
 std = [
-	"asset-hub-rococo-runtime/std",
 	"assets-common/std",
-	"bridge-hub-rococo-runtime/std",
 	"codec/std",
 	"cumulus-pallet-aura-ext/std",
 	"cumulus-pallet-dmp-queue/std",
@@ -137,7 +130,6 @@ std = [
 	"polkadot-core-primitives/std",
 	"polkadot-parachain-primitives/std",
 	"polkadot-runtime-common/std",
-	"rococo-runtime-constants/std",
 	"scale-info/std",
 	"serde",
 	"snowbridge-beacon-primitives/std",
@@ -169,9 +161,7 @@ std = [
 ]
 
 runtime-benchmarks = [
-	"asset-hub-rococo-runtime/runtime-benchmarks",
 	"assets-common/runtime-benchmarks",
-	"bridge-hub-rococo-runtime/runtime-benchmarks",
 	"bridge-runtime-common/runtime-benchmarks",
 	"cumulus-pallet-dmp-queue/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
@@ -204,44 +194,3 @@ runtime-benchmarks = [
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 ]
-
-try-runtime = [
-	"asset-hub-rococo-runtime/try-runtime",
-	"bridge-hub-rococo-runtime/try-runtime",
-	"cumulus-pallet-aura-ext/try-runtime",
-	"cumulus-pallet-dmp-queue/try-runtime",
-	"cumulus-pallet-parachain-system/try-runtime",
-	"cumulus-pallet-xcm/try-runtime",
-	"cumulus-pallet-xcmp-queue/try-runtime",
-	"frame-executive/try-runtime",
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-	"frame-try-runtime/try-runtime",
-	"pallet-aura/try-runtime",
-	"pallet-authorship/try-runtime",
-	"pallet-balances/try-runtime",
-	"pallet-collator-selection/try-runtime",
-	"pallet-message-queue/try-runtime",
-	"pallet-multisig/try-runtime",
-	"pallet-session/try-runtime",
-	"pallet-timestamp/try-runtime",
-	"pallet-transaction-payment/try-runtime",
-	"pallet-utility/try-runtime",
-	"pallet-xcm/try-runtime",
-	"parachain-info/try-runtime",
-	"polkadot-runtime-common/try-runtime",
-	"snowbridge-ethereum-beacon-client/try-runtime",
-	"snowbridge-inbound-queue/try-runtime",
-	"snowbridge-outbound-queue/try-runtime",
-	"snowbridge-system/try-runtime",
-	"sp-runtime/try-runtime",
-]
-fast-runtime = [
-	"bridge-hub-rococo-runtime/fast-runtime",
-]
-experimental = ["pallet-aura/experimental"]
-
-# A feature that should be enabled when the runtime should be built for on-chain
-# deployment. This will disable stuff that shouldn't be part of the on-chain wasm
-# to make it smaller like logging for example.
-on-chain-release-build = ["sp-api/disable-logging"]
