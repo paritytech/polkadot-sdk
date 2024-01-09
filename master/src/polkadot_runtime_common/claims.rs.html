@@ -1698,8 +1698,6 @@
 <a href="#1698" id="1698">1698</a>
 <a href="#1699" id="1699">1699</a>
 <a href="#1700" id="1700">1700</a>
-<a href="#1701" id="1701">1701</a>
-<a href="#1702" id="1702">1702</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2293,11 +2291,9 @@
 /// otherwise free to place on chain.
 </span><span class="attr">#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
-</span><span class="kw">pub struct </span>PrevalidateAttests&lt;T: Config + Send + Sync&gt;(sp_std::marker::PhantomData&lt;T&gt;)
-<span class="kw">where
-	</span>&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall: IsSubType&lt;Call&lt;T&gt;&gt;;
+</span><span class="kw">pub struct </span>PrevalidateAttests&lt;T&gt;(core::marker::PhantomData&lt;<span class="kw">fn</span>(T)&gt;);
 
-<span class="kw">impl</span>&lt;T: Config + Send + Sync&gt; Debug <span class="kw">for </span>PrevalidateAttests&lt;T&gt;
+<span class="kw">impl</span>&lt;T: Config&gt; Debug <span class="kw">for </span>PrevalidateAttests&lt;T&gt;
 <span class="kw">where
 	</span>&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall: IsSubType&lt;Call&lt;T&gt;&gt;,
 {
@@ -2312,7 +2308,7 @@
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config + Send + Sync&gt; PrevalidateAttests&lt;T&gt;
+<span class="kw">impl</span>&lt;T: Config&gt; PrevalidateAttests&lt;T&gt;
 <span class="kw">where
 	</span>&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall: IsSubType&lt;Call&lt;T&gt;&gt;,
 {
@@ -2322,7 +2318,7 @@
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config + Send + Sync&gt; SignedExtension <span class="kw">for </span>PrevalidateAttests&lt;T&gt;
+<span class="kw">impl</span>&lt;T: Config&gt; SignedExtension <span class="kw">for </span>PrevalidateAttests&lt;T&gt;
 <span class="kw">where
 	</span>&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall: IsSubType&lt;Call&lt;T&gt;&gt;,
 {
