@@ -918,7 +918,7 @@ pub fn run_relay_chain_validator_node(
 ) -> polkadot_test_service::PolkadotTestNode {
 	let mut config = polkadot_test_service::node_config(
 		storage_update_func,
-		tokio_handle,
+		tokio_handle.clone(),
 		key,
 		boot_nodes,
 		true,
@@ -932,5 +932,7 @@ pub fn run_relay_chain_validator_node(
 	workers_path.pop();
 	workers_path.pop();
 
-	polkadot_test_service::run_validator_node(config, Some(workers_path))
+	tokio_handle.block_on(async move {
+		polkadot_test_service::run_validator_node(config, Some(workers_path))
+	})
 }

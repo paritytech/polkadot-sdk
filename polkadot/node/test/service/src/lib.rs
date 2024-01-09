@@ -206,12 +206,9 @@ pub fn run_validator_node(
 	worker_program_path: Option<PathBuf>,
 ) -> PolkadotTestNode {
 	let multiaddr = config.network.listen_addresses[0].clone();
-
 	let NewFull { task_manager, client, network, rpc_handlers, overseer_handle, .. } =
-		config.tokio_handle.clone().block_on(async move {
-			new_full(config, IsParachainNode::No, worker_program_path)
-				.expect("could not create Polkadot test service")
-		});
+		new_full(config, IsParachainNode::No, worker_program_path)
+			.expect("could not create Polkadot test service");
 
 	let overseer_handle = overseer_handle.expect("test node must have an overseer handle");
 	let peer_id = network.local_peer_id();
