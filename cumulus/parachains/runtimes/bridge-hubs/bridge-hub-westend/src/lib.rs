@@ -57,7 +57,10 @@ use frame_support::{
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
-	traits::{ConstBool, ConstU32, ConstU64, ConstU8, TransformOrigin},
+	traits::{
+		fungible::HoldConsideration, ConstBool, ConstU32, ConstU64, ConstU8, LinearStoragePrice,
+		TransformOrigin,
+	},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
 };
@@ -278,7 +281,9 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<0>;
+	// We allow each account to have holds on it from:
+	//   - `Multisig`: 1
+	type MaxHolds = ConstU32<1>;
 	type MaxFreezes = ConstU32<0>;
 }
 
@@ -434,14 +439,19 @@ parameter_types! {
 	pub const DepositBase: Balance = deposit(1, 88);
 	// Additional storage item size of 32 bytes.
 	pub const DepositFactor: Balance = deposit(0, 32);
+	pub const MultisigHoldReason: RuntimeHoldReason = RuntimeHoldReason::Multisig(pallet_multisig::HoldReason::Multisig);
 }
 
 impl pallet_multisig::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type Currency = Balances;
-	type DepositBase = DepositBase;
-	type DepositFactor = DepositFactor;
+	type Consideration = HoldConsideration<
+		AccountId,
+		Balances,
+		MultisigHoldReason,
+		LinearStoragePrice<DepositBase, DepositFactor, Balance>,
+	>;
 	type MaxSignatories = ConstU32<100>;
 	type WeightInfo = weights::pallet_multisig::WeightInfo<Runtime>;
 }
@@ -483,7 +493,7 @@ construct_runtime!(
 
 		// Handy utilities.
 		Utility: pallet_utility::{Pallet, Call, Event} = 40,
-		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 36,
+		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>, HoldReason} = 36,
 
 		// Bridging stuff.
 		BridgeRelayers: pallet_bridge_relayers::{Pallet, Call, Storage, Event<T>} = 41,
