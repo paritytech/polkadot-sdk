@@ -3270,6 +3270,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "crabgrind"
+version = "0.1.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0e174279a2a6598ba9a1fec494ebb4172916b95e69d7d2396598c6a7b850d048"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "cranelift-bforest"
 version = "0.95.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -13557,6 +13566,7 @@ dependencies = [
  "clap-num",
  "color-eyre",
  "colored",
+ "crabgrind",
  "env_logger 0.9.3",
  "futures",
  "futures-timer",

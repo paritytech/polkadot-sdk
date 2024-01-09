@@ -16,6 +16,7 @@
 
 //! A tool for running subsystem benchmark tests designed for development and
 //! CI regression testing.
+
 use clap::Parser;
 use color_eyre::eyre;
 use pyroscope::PyroscopeAgent;
@@ -90,12 +91,21 @@ struct BenchCli {
 	/// Pyroscope Sample Rate
 	pub pyroscope_sample_rate: u32,
 
+	#[clap(long, default_value_t = false)]
+	/// Enable Cache Misses Profiling with Valgrind (must be installed)
+	pub cache_misses: bool,
+
 	#[command(subcommand)]
 	pub objective: cli::TestObjective,
 }
 
 impl BenchCli {
 	fn launch(self) -> eyre::Result<()> {
+		let is_valgrind = is_valgrind_mode();
+		if !is_valgrind && self.cache_misses {
+			return run_valgrind()
+		}
+
 		let agent_running = if self.profile {
 			let agent = PyroscopeAgent::builder(self.pyroscope_url.as_str(), "subsystem-bench")
 				.backend(pprof_backend(PprofConfig::new().sample_rate(self.pyroscope_sample_rate)))
@@ -185,9 +195,19 @@ impl BenchCli {
 
 		let mut state = TestState::new(&test_config);
 		let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
-		// test_config.write_to_disk();
+
+		// Start collecting cache misses data
+		if is_valgrind {
+			valgrind_toggle_collect();
+		}
+
 		env.runtime()
 			.block_on(availability::benchmark_availability_read(&mut env, state));
+
+		// Stop collecting cache misses data
+		if is_valgrind {
+			valgrind_toggle_collect();
+		}
 
 		if let Some(agent_running) = agent_running {
 			let agent_ready = agent_running.stop()?;
@@ -196,6 +216,40 @@ impl BenchCli {
 
 		Ok(())
 	}
+}
+
+#[cfg(target_os = "linux")]
+fn is_valgrind_mode() -> bool {
+	!matches!(crabgrind::run_mode(), crabgrind::RunMode::Native)
+}
+
+#[cfg(not(target_os = "linux"))]
+fn is_valgrind_mode() -> bool {
+	false
+}
+
+#[cfg(target_os = "linux")]
+fn valgrind_toggle_collect() {
+	crabgrind::callgrind::toggle_collect()
+}
+
+#[cfg(not(target_os = "linux"))]
+fn valgrind_toggle_collect() {}
+
+#[cfg(target_os = "linux")]
+fn run_valgrind() -> eyre::Result<()> {
+	use std::os::unix::process::CommandExt;
+	std::process::Command::new("valgrind")
+		.arg("--tool=cachegrind")
+		.arg("--cache-sim=yes")
+		.arg("--collect-atstart=no")
+		.args(std::env::args())
+		.exec();
+}
+
+#[cfg(not(target_os = "linux"))]
+fn run_valgrind() -> eyre::Result<()> {
+	return Err(eyre::eyre!("Valgrind can be executed only on linux"));
 }
 
 fn main() -> eyre::Result<()> {
