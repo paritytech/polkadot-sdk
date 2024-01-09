@@ -17,7 +17,7 @@
 use std::{net::SocketAddr, path::PathBuf};
 
 use cumulus_client_cli::{ExportGenesisHeadCommand, ExportGenesisWasmCommand};
-use polkadot_service::{ChainSpec, ParaId, PrometheusConfig};
+use polkadot_service::{ChainSpec, PrometheusConfig};
 use sc_cli::{
 	CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams, NetworkParams,
 	Result as CliResult, SharedParams, SubstrateCli,
@@ -37,9 +37,6 @@ pub struct TestCollatorCli {
 
 	#[command(flatten)]
 	pub run: cumulus_client_cli::RunCmd,
-
-	#[arg(default_value_t = 2000u32)]
-	pub parachain_id: u32,
 
 	/// Relay chain arguments
 	#[arg(raw = true)]
@@ -254,17 +251,13 @@ impl SubstrateCli for TestCollatorCli {
 		2017
 	}
 
-	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
-		Ok(match id {
-			"" => Box::new(cumulus_test_service::get_chain_spec(Some(ParaId::from(
-				self.parachain_id,
-			)))) as Box<_>,
-			path => {
-				let chain_spec =
-					cumulus_test_service::chain_spec::ChainSpec::from_json_file(path.into())?;
-				Box::new(chain_spec)
-			},
-		})
+	fn load_spec(
+		&self,
+		chain_spec_path: &str,
+	) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
+		let chain_spec =
+			cumulus_test_service::chain_spec::ChainSpec::from_json_file(chain_spec_path.into())?;
+		Ok(Box::new(chain_spec))
 	}
 }
 
