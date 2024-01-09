@@ -21,7 +21,7 @@ workflow:
     - if: $CI_COMMIT_BRANCH
 
 variables:
-  CI_IMAGE: !reference [.ci-unified, variables, CI_IMAGE]
+  CI_IMAGE: "docker.io/paritypr/ci-unified:623-2f0e6bfd-bullseye-1.74.0"
   # BUILDAH_IMAGE is defined in group variables
   BUILDAH_COMMAND: "buildah --storage-driver overlay2"
   RELENG_SCRIPTS_BRANCH: "master"
