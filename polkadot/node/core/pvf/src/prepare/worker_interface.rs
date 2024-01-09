@@ -206,15 +206,19 @@ async fn handle_response(
 	cache_path: &Path,
 	preparation_timeout: Duration,
 ) -> Outcome {
-	let PrepareWorkerSuccess { checksum, stats: PrepareStats { cpu_time_elapsed, memory_stats } } =
-		match result.clone() {
-			Ok(result) => result,
-			// Timed out on the child. This should already be logged by the child.
-			Err(PrepareError::TimedOut) => return Outcome::TimedOut,
-			Err(PrepareError::JobDied { err, job_pid }) => return Outcome::JobDied { err, job_pid },
-			Err(PrepareError::OutOfMemory) => return Outcome::OutOfMemory,
-			Err(err) => return Outcome::Concluded { worker, result: Err(err) },
-		};
+	// TODO: Add `checksum` to `ArtifactPathId`. See:
+	//       https://github.com/paritytech/polkadot-sdk/issues/2399
+	let PrepareWorkerSuccess {
+		checksum: _,
+		stats: PrepareStats { cpu_time_elapsed, memory_stats },
+	} = match result.clone() {
+		Ok(result) => result,
+		// Timed out on the child. This should already be logged by the child.
+		Err(PrepareError::TimedOut) => return Outcome::TimedOut,
+		Err(PrepareError::JobDied { err, job_pid }) => return Outcome::JobDied { err, job_pid },
+		Err(PrepareError::OutOfMemory) => return Outcome::OutOfMemory,
+		Err(err) => return Outcome::Concluded { worker, result: Err(err) },
+	};
 
 	if cpu_time_elapsed > preparation_timeout {
 		// The job didn't complete within the timeout.
@@ -229,13 +233,16 @@ async fn handle_response(
 		return Outcome::TimedOut
 	}
 
-	let unique_id = {
+	// The file name should uniquely identify the artifact even across restarts. In case the cache
+	// for some reason is not cleared correctly, we cannot
+	// accidentally execute an artifact compiled under a different wasmtime version, host
+	// environment, etc.
+	let file_name = {
 		use rand::RngCore;
 		let mut bytes = [0u8; 64];
 		rand::thread_rng().fill_bytes(&mut bytes);
 		hex::encode(&bytes)
 	};
-	let file_name = format!("{}_0x{}", unique_id, checksum);
 	let artifact_path = cache_path.join(file_name);
 
 	gum::debug!(
