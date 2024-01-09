@@ -1,0 +1,22 @@
+name: Check each crate in parallel
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
+
+jobs:
+  check_each_crate:
+    strategy:
+      matrix:
+        group: [1, 2, 3, 4, 5, 6]
+    runs-on: macos-latest-xlarge
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Install deps
+        run: |
+          brew install protobuf
+          rustup target add wasm32-unknown-unknown
+          rustup component add rust-src
+      - name: Cargo check crates
+        run: .github/scripts/common/check-each-crate.py ${{ matrix.group }} 6
