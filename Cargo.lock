@@ -333,16 +333,16 @@ dependencies = [
 
 [[package]]
 name = "aquamarine"
-version = "0.3.2"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df752953c49ce90719c7bf1fc587bc8227aed04732ea0c0f85e5397d7fdbd1a1"
+checksum = "074b80d14d0240b6ce94d68f059a2d26a5d77280ae142662365a21ef6e2594ef"
 dependencies = [
  "include_dir",
  "itertools 0.10.5",
  "proc-macro-error",
  "proc-macro2",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.48",
 ]
 
 [[package]]
@@ -2639,9 +2639,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.4.13"
+version = "4.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52bdc885e4cacc7f7c9eedc1ef6da641603180c783c41a15c264944deeaab642"
+checksum = "33e92c5c1a78c62968ec57dbc2440366a2d6e5a23faf829970ff1585dc6b18e2"
 dependencies = [
  "clap_builder",
  "clap_derive 4.4.7",
@@ -2658,9 +2658,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.4.12"
+version = "4.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb7fb5e4e979aec3be7791562fcba452f94ad85e954da024396433e0e25a79e9"
+checksum = "f4323769dc8a61e2c39ad7dc26f6f2800524691a44d74fe3d1071a5c24db6370"
 dependencies = [
  "anstream",
  "anstyle",
@@ -2675,7 +2675,7 @@ version = "4.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "586a385f7ef2f8b4d86bddaa0c094794e7ccbfe5ffef1f434fe928143fc783a5"
 dependencies = [
- "clap 4.4.13",
+ "clap 4.4.14",
 ]
 
 [[package]]
@@ -3413,7 +3413,7 @@ dependencies = [
  "anes",
  "cast",
  "ciborium",
- "clap 4.4.13",
+ "clap 4.4.14",
  "criterion-plot",
  "futures",
  "is-terminal",
@@ -3576,7 +3576,7 @@ dependencies = [
 name = "cumulus-client-cli"
 version = "0.1.0"
 dependencies = [
- "clap 4.4.13",
+ "clap 4.4.14",
  "parity-scale-codec",
  "sc-chain-spec",
  "sc-cli",
@@ -3930,7 +3930,7 @@ dependencies = [
 name = "cumulus-pallet-parachain-system-proc-macro"
 version = "0.1.0"
 dependencies = [
- "proc-macro-crate 2.0.1",
+ "proc-macro-crate 3.0.0",
  "proc-macro2",
  "quote",
  "syn 2.0.48",
@@ -4315,7 +4315,7 @@ name = "cumulus-test-service"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "clap 4.4.13",
+ "clap 4.4.14",
  "criterion 0.5.1",
  "cumulus-client-cli",
  "cumulus-client-consensus-common",
@@ -5499,7 +5499,7 @@ dependencies = [
  "Inflector",
  "array-bytes 6.1.0",
  "chrono",
- "clap 4.4.13",
+ "clap 4.4.14",
  "comfy-table",
  "frame-benchmarking",
  "frame-support",
@@ -5560,7 +5560,7 @@ dependencies = [
  "frame-election-provider-support",
  "frame-support",
  "parity-scale-codec",
- "proc-macro-crate 2.0.1",
+ "proc-macro-crate 3.0.0",
  "proc-macro2",
  "quote",
  "scale-info",
@@ -5591,7 +5591,7 @@ dependencies = [
 name = "frame-election-solution-type-fuzzer"
 version = "2.0.0-alpha.5"
 dependencies = [
- "clap 4.4.13",
+ "clap 4.4.14",
  "frame-election-provider-solution-type",
  "frame-election-provider-support",
  "frame-support",
@@ -5726,7 +5726,7 @@ name = "frame-support-procedural-tools"
 version = "4.0.0-dev"
 dependencies = [
  "frame-support-procedural-tools-derive",
- "proc-macro-crate 2.0.1",
+ "proc-macro-crate 3.0.0",
  "proc-macro2",
  "quote",
  "syn 2.0.48",
@@ -8107,7 +8107,7 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 name = "minimal-node"
 version = "4.0.0-dev"
 dependencies = [
- "clap 4.4.13",
+ "clap 4.4.14",
  "frame",
  "futures",
  "futures-timer",
@@ -8571,7 +8571,7 @@ name = "node-bench"
 version = "0.9.0-dev"
 dependencies = [
  "array-bytes 6.1.0",
- "clap 4.4.13",
+ "clap 4.4.14",
  "derive_more",
  "fs_extra",
  "futures",
@@ -8648,7 +8648,7 @@ dependencies = [
 name = "node-runtime-generate-bags"
 version = "3.0.0"
 dependencies = [
- "clap 4.4.13",
+ "clap 4.4.14",
  "generate-bags",
  "kitchensink-runtime",
 ]
@@ -8657,7 +8657,7 @@ dependencies = [
 name = "node-template"
 version = "4.0.0-dev"
 dependencies = [
- "clap 4.4.13",
+ "clap 4.4.14",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-system",
@@ -8701,7 +8701,7 @@ dependencies = [
 name = "node-template-release"
 version = "3.0.0"
 dependencies = [
- "clap 4.4.13",
+ "clap 4.4.14",
  "flate2",
  "fs_extra",
  "glob",
@@ -10833,7 +10833,7 @@ dependencies = [
 name = "pallet-staking-reward-curve"
 version = "4.0.0-dev"
 dependencies = [
- "proc-macro-crate 2.0.1",
+ "proc-macro-crate 3.0.0",
  "proc-macro2",
  "quote",
  "sp-runtime",
@@ -11243,7 +11243,7 @@ dependencies = [
 name = "parachain-template-node"
 version = "0.1.0"
 dependencies = [
- "clap 4.4.13",
+ "clap 4.4.14",
  "color-print",
  "cumulus-client-cli",
  "cumulus-client-collator",
@@ -12202,7 +12202,7 @@ name = "polkadot-cli"
 version = "1.1.0"
 dependencies = [
  "cfg-if",
- "clap 4.4.13",
+ "clap 4.4.14",
  "frame-benchmarking-cli",
  "futures",
  "log",
@@ -13043,7 +13043,7 @@ dependencies = [
  "async-trait",
  "bridge-hub-rococo-runtime",
  "bridge-hub-westend-runtime",
- "clap 4.4.13",
+ "clap 4.4.14",
  "collectives-westend-runtime",
  "color-print",
  "contracts-rococo-runtime",
@@ -13200,6 +13200,7 @@ dependencies = [
  "sc-consensus-grandpa",
  "sc-consensus-grandpa-rpc",
  "sc-rpc",
+ "sc-rpc-spec-v2",
  "sc-sync-state-rpc",
  "sc-transaction-pool-api",
  "sp-api",
@@ -13553,7 +13554,7 @@ version = "1.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
- "clap 4.4.13",
+ "clap 4.4.14",
  "clap-num",
  "color-eyre",
  "colored",
@@ -13630,7 +13631,7 @@ version = "1.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
- "clap 4.4.13",
+ "clap 4.4.14",
  "color-eyre",
  "futures",
  "futures-timer",
@@ -13777,7 +13778,7 @@ dependencies = [
 name = "polkadot-voter-bags"
 version = "1.0.0"
 dependencies = [
- "clap 4.4.13",
+ "clap 4.4.14",
  "generate-bags",
  "sp-io",
  "westend-runtime",
@@ -13785,21 +13786,15 @@ dependencies = [
 
 [[package]]
 name = "polkavm-common"
-version = "0.2.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01363cf0a778e8d93eff31e8a03bc59992cba35faa419ea4f3e80146b69195ba"
-
-[[package]]
-name = "polkavm-common"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88e869d66a254db6c7069992f240626416aba8e87d65c00e4be443135babfe82"
+checksum = "fecd2caacfc4a7ee34243758dd7348859e6dec73f5e5df059890f5742ee46f0e"
 
 [[package]]
 name = "polkavm-derive"
-version = "0.2.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26501292b2cb980cbeaac3304f0fc4480ff1bac2473045453d7333d775658b6a"
+checksum = "db65a500d4adf574893c726ae365e37e4fbb7f2cbd403f6eaa1b665457456adc"
 dependencies = [
  "polkavm-derive-impl",
  "syn 2.0.48",
@@ -13807,11 +13802,11 @@ dependencies = [
 
 [[package]]
 name = "polkavm-derive-impl"
-version = "0.2.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "903e16ad3ed768f35e6f40acff2e8aaf6afb9f2889b0a8982dd43dcbee29db2d"
+checksum = "c99f4e7a9ff434ef9c885b874c99d824c3a5693bf5e3e8569bb1d2245a8c1b7f"
 dependencies = [
- "polkavm-common 0.2.0",
+ "polkavm-common",
  "proc-macro2",
  "quote",
  "syn 2.0.48",
@@ -13819,15 +13814,15 @@ dependencies = [
 
 [[package]]
 name = "polkavm-linker"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f8719d37effca6df1cecf5c816d84ab09b7d18e960511f61c254a7581fa50c3"
+checksum = "550738c1b49b9279fa19d8ebed81f551b911b869227a20a190f85f6db45d5d0e"
 dependencies = [
  "gimli 0.28.0",
  "hashbrown 0.14.3",
  "log",
  "object 0.32.2",
- "polkavm-common 0.3.0",
+ "polkavm-common",
  "rustc-demangle",
 ]
 
@@ -14049,12 +14044,11 @@ dependencies = [
 
 [[package]]
 name = "proc-macro-crate"
-version = "2.0.1"
+version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97dc5fea232fc28d2f597b37c4876b348a40e33f3b02cc975c8d006d78d94b1a"
+checksum = "6b2685dd208a3771337d8d386a89840f0f43cd68be8dae90a5f8c2384effc9cd"
 dependencies = [
- "toml_datetime",
- "toml_edit 0.20.2",
+ "toml_edit 0.21.0",
 ]
 
 [[package]]
@@ -14654,7 +14648,7 @@ checksum = "c08c74e62047bb2de4ff487b251e4a92e24f48745648451635cec7d591162d9f"
 name = "remote-ext-tests-bags-list"
 version = "1.0.0"
 dependencies = [
- "clap 4.4.13",
+ "clap 4.4.14",
  "frame-system",
  "log",
  "pallet-bags-list-remote-tests",
@@ -15431,7 +15425,7 @@ dependencies = [
 name = "sc-chain-spec-derive"
 version = "4.0.0-dev"
 dependencies = [
- "proc-macro-crate 2.0.1",
+ "proc-macro-crate 3.0.0",
  "proc-macro2",
  "quote",
  "syn 2.0.48",
@@ -15444,7 +15438,7 @@ dependencies = [
  "array-bytes 6.1.0",
  "bip39",
  "chrono",
- "clap 4.4.13",
+ "clap 4.4.14",
  "fdlimit",
  "futures",
  "futures-timer",
@@ -16588,7 +16582,7 @@ dependencies = [
 name = "sc-storage-monitor"
 version = "0.1.0"
 dependencies = [
- "clap 4.4.13",
+ "clap 4.4.14",
  "fs4",
  "log",
  "sc-client-db",
@@ -16687,7 +16681,7 @@ dependencies = [
 name = "sc-tracing-proc-macro"
 version = "4.0.0-dev"
 dependencies = [
- "proc-macro-crate 2.0.1",
+ "proc-macro-crate 3.0.0",
  "proc-macro2",
  "quote",
  "syn 2.0.48",
@@ -17985,7 +17979,7 @@ dependencies = [
  "assert_matches",
  "blake2 0.10.6",
  "expander 2.0.0",
- "proc-macro-crate 2.0.1",
+ "proc-macro-crate 3.0.0",
  "proc-macro2",
  "quote",
  "syn 2.0.48",
@@ -18550,7 +18544,7 @@ dependencies = [
 name = "sp-npos-elections-fuzzer"
 version = "2.0.0-alpha.5"
 dependencies = [
- "clap 4.4.13",
+ "clap 4.4.14",
  "honggfuzz",
  "rand 0.8.5",
  "sp-npos-elections",
@@ -18661,7 +18655,7 @@ version = "11.0.0"
 dependencies = [
  "Inflector",
  "expander 2.0.0",
- "proc-macro-crate 2.0.1",
+ "proc-macro-crate 3.0.0",
  "proc-macro2",
  "quote",
  "syn 2.0.48",
@@ -19071,7 +19065,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 name = "staging-chain-spec-builder"
 version = "2.0.0"
 dependencies = [
- "clap 4.4.13",
+ "clap 4.4.14",
  "log",
  "sc-chain-spec",
  "serde_json",
@@ -19084,7 +19078,7 @@ version = "3.0.0-dev"
 dependencies = [
  "array-bytes 6.1.0",
  "assert_cmd",
- "clap 4.4.13",
+ "clap 4.4.14",
  "clap_complete",
  "criterion 0.4.0",
  "frame-benchmarking",
@@ -19193,7 +19187,7 @@ dependencies = [
 name = "staging-node-inspect"
 version = "0.9.0-dev"
 dependencies = [
- "clap 4.4.13",
+ "clap 4.4.14",
  "parity-scale-codec",
  "sc-cli",
  "sc-client-api",
@@ -19398,7 +19392,7 @@ dependencies = [
 name = "subkey"
 version = "3.0.0"
 dependencies = [
- "clap 4.4.13",
+ "clap 4.4.14",
  "sc-cli",
 ]
 
@@ -19440,7 +19434,7 @@ dependencies = [
 name = "substrate-frame-cli"
 version = "4.0.0-dev"
 dependencies = [
- "clap 4.4.13",
+ "clap 4.4.14",
  "frame-support",
  "frame-system",
  "sc-cli",
@@ -19918,7 +19912,7 @@ dependencies = [
 name = "test-parachain-adder-collator"
 version = "1.0.0"
 dependencies = [
- "clap 4.4.13",
+ "clap 4.4.14",
  "futures",
  "futures-timer",
  "log",
@@ -19966,7 +19960,7 @@ dependencies = [
 name = "test-parachain-undying-collator"
 version = "1.0.0"
 dependencies = [
- "clap 4.4.13",
+ "clap 4.4.14",
  "futures",
  "futures-timer",
  "log",
@@ -20327,9 +20321,9 @@ dependencies = [
 
 [[package]]
 name = "toml_datetime"
-version = "0.6.3"
+version = "0.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7cda73e2f1397b1262d6dfdcef8aafae14d1de7748d66822d3bfeeb6d03e5e4b"
+checksum = "3550f4e9685620ac18a50ed434eb3aec30db8ba93b0287467bca5826ea25baf1"
 dependencies = [
  "serde",
 ]
@@ -20356,6 +20350,17 @@ dependencies = [
  "indexmap 2.0.0",
  "serde",
  "serde_spanned",
+ "toml_datetime",
+ "winnow",
+]
+
+[[package]]
+name = "toml_edit"
+version = "0.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d34d383cd00a163b4a5b85053df514d45bc330f6de7737edfe0a93311d1eaa03"
+dependencies = [
+ "indexmap 2.0.0",
  "toml_datetime",
  "winnow",
 ]
@@ -20461,7 +20466,7 @@ version = "1.0.0"
 dependencies = [
  "assert_matches",
  "expander 2.0.0",
- "proc-macro-crate 2.0.1",
+ "proc-macro-crate 3.0.0",
  "proc-macro2",
  "quote",
  "syn 2.0.48",
@@ -20617,7 +20622,7 @@ version = "0.10.0-dev"
 dependencies = [
  "assert_cmd",
  "async-trait",
- "clap 4.4.13",
+ "clap 4.4.14",
  "frame-remote-externalities",
  "frame-try-runtime",
  "hex",
