@@ -141,6 +141,20 @@ impl From<OverseerError> for Error {
 	}
 }
 
+impl TryFrom<crate::runtime::Error> for Error {
+	type Error = ();
+
+	fn try_from(e: crate::runtime::Error) -> Result<Self, ()> {
+		use crate::runtime::Error;
+
+		match e {
+			Error::RuntimeRequestCanceled(e) => Ok(Self::Oneshot(e)),
+			Error::RuntimeRequest(e) => Ok(Self::RuntimeApi(e)),
+			Error::NoSuchSession(_) | Error::NoExecutorParams(_) => Err(()),
+		}
+	}
+}
+
 /// A type alias for Runtime API receivers.
 pub type RuntimeApiReceiver<T> = oneshot::Receiver<Result<T, RuntimeApiError>>;
 
@@ -465,7 +479,9 @@ impl Validator {
 		// TODO: https://github.com/paritytech/polkadot-sdk/issues/1940
 		// When `DisabledValidators` is released remove this and add a
 		// `request_disabled_validators` call here
-		let disabled_validators = get_disabled_validators_with_fallback(sender, parent).await?;
+		let disabled_validators = get_disabled_validators_with_fallback(sender, parent)
+			.await
+			.map_err(|e| Error::try_from(e).expect("the conversion is infallible; qed"))?;
 
 		Self::construct(&validators, &disabled_validators, signing_context, keystore)
 	}
