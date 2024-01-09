@@ -15,7 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! # Freeze
+//!
 //! The traits for putting freezes within a single fungible token class.
+//!
+//! Refer to [`frame_support::traits::tokens::fungible::freeze`] for more info.
 
 use crate::{ensure, traits::tokens::Fortitude};
 use scale_info::TypeInfo;

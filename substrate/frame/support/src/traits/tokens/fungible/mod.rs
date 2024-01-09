@@ -15,7 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The traits for dealing with a single fungible token class and any associated types.
+//! # Fungible Traits
+//!
+//! **The traits for dealing with a single fungible token class and any associated types.**
+//!
+//! This trait includes key methods for asset management, like transfer, balance check, and minting.
+//! It's particularly useful in scenarios involving a single currency type, simplifying the
+//! implementation and management process.
 //!
 //! ### User-implememted traits
 //! - `Inspect`: Regular balance inspector functions.

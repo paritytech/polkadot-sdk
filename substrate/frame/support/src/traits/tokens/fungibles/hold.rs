@@ -15,7 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! # Hold
+//!
 //! The traits for putting holds within a single fungible token class.
+//!
+//! Refer to [`frame_support::traits::tokens::fungible::hold`] for more info.
 
 use crate::{
 	ensure,
