@@ -1,10 +1,10 @@
 (function() {var implementors = {
 "asset_hub_rococo_runtime":[["impl Config for <a class=\"struct\" href=\"asset_hub_rococo_runtime/struct.Runtime.html\" title=\"struct asset_hub_rococo_runtime::Runtime\">Runtime</a>"]],
 "asset_hub_westend_runtime":[["impl Config for <a class=\"struct\" href=\"asset_hub_westend_runtime/struct.Runtime.html\" title=\"struct asset_hub_westend_runtime::Runtime\">Runtime</a>"]],
-"bridge_hub_rococo_runtime":[["impl <a class=\"trait\" href=\"staging_parachain_info/pallet/trait.Config.html\" title=\"trait staging_parachain_info::pallet::Config\">Config</a> for <a class=\"struct\" href=\"bridge_hub_rococo_runtime/struct.Runtime.html\" title=\"struct bridge_hub_rococo_runtime::Runtime\">Runtime</a>"]],
+"bridge_hub_rococo_runtime":[["impl Config for <a class=\"struct\" href=\"bridge_hub_rococo_runtime/struct.Runtime.html\" title=\"struct bridge_hub_rococo_runtime::Runtime\">Runtime</a>"]],
 "bridge_hub_westend_runtime":[["impl Config for <a class=\"struct\" href=\"bridge_hub_westend_runtime/struct.Runtime.html\" title=\"struct bridge_hub_westend_runtime::Runtime\">Runtime</a>"]],
-"collectives_westend_runtime":[["impl <a class=\"trait\" href=\"staging_parachain_info/pallet/trait.Config.html\" title=\"trait staging_parachain_info::pallet::Config\">Config</a> for <a class=\"struct\" href=\"collectives_westend_runtime/struct.Runtime.html\" title=\"struct collectives_westend_runtime::Runtime\">Runtime</a>"]],
-"contracts_rococo_runtime":[["impl <a class=\"trait\" href=\"staging_parachain_info/pallet/trait.Config.html\" title=\"trait staging_parachain_info::pallet::Config\">Config</a> for <a class=\"struct\" href=\"contracts_rococo_runtime/struct.Runtime.html\" title=\"struct contracts_rococo_runtime::Runtime\">Runtime</a>"]],
+"collectives_westend_runtime":[["impl Config for <a class=\"struct\" href=\"collectives_westend_runtime/struct.Runtime.html\" title=\"struct collectives_westend_runtime::Runtime\">Runtime</a>"]],
+"contracts_rococo_runtime":[["impl Config for <a class=\"struct\" href=\"contracts_rococo_runtime/struct.Runtime.html\" title=\"struct contracts_rococo_runtime::Runtime\">Runtime</a>"]],
 "coretime_rococo_runtime":[["impl Config for <a class=\"struct\" href=\"coretime_rococo_runtime/struct.Runtime.html\" title=\"struct coretime_rococo_runtime::Runtime\">Runtime</a>"]],
 "coretime_westend_runtime":[["impl Config for <a class=\"struct\" href=\"coretime_westend_runtime/struct.Runtime.html\" title=\"struct coretime_westend_runtime::Runtime\">Runtime</a>"]],
 "glutton_westend_runtime":[["impl Config for <a class=\"struct\" href=\"glutton_westend_runtime/struct.Runtime.html\" title=\"struct glutton_westend_runtime::Runtime\">Runtime</a>"]],

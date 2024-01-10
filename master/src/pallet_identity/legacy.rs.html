@@ -185,6 +185,21 @@
 <a href="#185" id="185">185</a>
 <a href="#186" id="186">186</a>
 <a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -262,7 +277,6 @@
 	TypeInfo,
 )]
 #[codec(mel_bound())]
-#[cfg_attr(test, derive(frame_support::DefaultNoBound))]
 #[scale_info(skip_type_params(FieldLimit))]
 </span><span class="kw">pub struct </span>IdentityInfo&lt;FieldLimit: Get&lt;u32&gt;&gt; {
 	<span class="doccomment">/// Additional fields of the identity that are not catered for with the struct&#39;s explicit
@@ -339,6 +353,22 @@
 	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 	</span><span class="kw">fn </span>all_fields() -&gt; <span class="self">Self</span>::FieldsIdentifier {
 		IdentityField::all().bits()
+	}
+}
+
+<span class="kw">impl</span>&lt;FieldLimit: Get&lt;u32&gt;&gt; Default <span class="kw">for </span>IdentityInfo&lt;FieldLimit&gt; {
+	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+		IdentityInfo {
+			additional: BoundedVec::default(),
+			display: Data::None,
+			legal: Data::None,
+			web: Data::None,
+			riot: Data::None,
+			email: Data::None,
+			pgp_fingerprint: <span class="prelude-val">None</span>,
+			image: Data::None,
+			twitter: Data::None,
+		}
 	}
 }
 

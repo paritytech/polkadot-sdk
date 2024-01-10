@@ -2465,6 +2465,18 @@
 <a href="#2465" id="2465">2465</a>
 <a href="#2466" id="2466">2466</a>
 <a href="#2467" id="2467">2467</a>
+<a href="#2468" id="2468">2468</a>
+<a href="#2469" id="2469">2469</a>
+<a href="#2470" id="2470">2470</a>
+<a href="#2471" id="2471">2471</a>
+<a href="#2472" id="2472">2472</a>
+<a href="#2473" id="2473">2473</a>
+<a href="#2474" id="2474">2474</a>
+<a href="#2475" id="2475">2475</a>
+<a href="#2476" id="2476">2476</a>
+<a href="#2477" id="2477">2477</a>
+<a href="#2478" id="2478">2478</a>
+<a href="#2479" id="2479">2479</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3135,6 +3147,12 @@
 	<span class="kw">type </span>Slashed = Treasury;
 	<span class="kw">type </span>ForceOrigin = EitherOf&lt;EnsureRoot&lt;<span class="self">Self</span>::AccountId&gt;, GeneralAdmin&gt;;
 	<span class="kw">type </span>RegistrarOrigin = EitherOf&lt;EnsureRoot&lt;<span class="self">Self</span>::AccountId&gt;, GeneralAdmin&gt;;
+	<span class="kw">type </span>OffchainSignature = Signature;
+	<span class="kw">type </span>SigningPublicKey = &lt;Signature <span class="kw">as </span>Verify&gt;::Signer;
+	<span class="kw">type </span>UsernameAuthorityOrigin = EnsureRoot&lt;<span class="self">Self</span>::AccountId&gt;;
+	<span class="kw">type </span>PendingUsernameExpiration = ConstU32&lt;{ <span class="number">7 </span>* DAYS }&gt;;
+	<span class="kw">type </span>MaxSuffixLength = ConstU32&lt;<span class="number">7</span>&gt;;
+	<span class="kw">type </span>MaxUsernameLength = ConstU32&lt;<span class="number">32</span>&gt;;
 	<span class="kw">type </span>WeightInfo = weights::pallet_identity::WeightInfo&lt;Runtime&gt;;
 }
 
@@ -4087,6 +4105,9 @@
 		}
 	}
 
+	<span class="comment">// We don&#39;t have a limit in the Relay Chain.
+	</span><span class="kw">const </span>IDENTITY_MIGRATION_KEY_LIMIT: u64 = u64::MAX;
+
 	<span class="doccomment">/// Unreleased migrations. Add new ones here:
 	</span><span class="kw">pub type </span>Unreleased = (
 		pallet_society::migrations::MigrateToV2&lt;Runtime, (), ()&gt;,
@@ -4122,6 +4143,9 @@
 
 		<span class="comment">// Remove `im-online` pallet on-chain storage
 		</span>frame_support::migrations::RemovePallet&lt;ImOnlinePalletName, &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight&gt;,
+
+		<span class="comment">// Migrate Identity pallet for Usernames
+		</span>pallet_identity::migration::versioned::V0ToV1&lt;Runtime, IDENTITY_MIGRATION_KEY_LIMIT&gt;,
 		parachains_configuration::migration::v11::MigrateToV11&lt;Runtime&gt;,
 		<span class="comment">// This needs to come after the `parachains_configuration` above as we are reading the configuration.
 		</span>coretime::migration::MigrateToCoretime&lt;Runtime, <span class="kw">crate</span>::xcm_config::XcmRouter, GetLegacyLeaseImpl&gt;,

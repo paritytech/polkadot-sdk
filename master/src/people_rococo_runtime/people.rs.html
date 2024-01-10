@@ -202,6 +202,32 @@
 <a href="#202" id="202">202</a>
 <a href="#203" id="203">203</a>
 <a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -226,9 +252,12 @@
 	RuntimeDebugNoBound,
 };
 <span class="kw">use </span>pallet_identity::{Data, IdentityInformationProvider};
-<span class="kw">use </span>parachains_common::impls::ToParentTreasury;
+<span class="kw">use </span>parachains_common::{impls::ToParentTreasury, DAYS};
 <span class="kw">use </span>scale_info::TypeInfo;
-<span class="kw">use </span>sp_runtime::{traits::AccountIdConversion, RuntimeDebug};
+<span class="kw">use </span>sp_runtime::{
+	traits::{AccountIdConversion, Verify},
+	RuntimeDebug,
+};
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="macro">parameter_types! </span>{
@@ -255,6 +284,12 @@
 	<span class="kw">type </span>Slashed = ToParentTreasury&lt;RelayTreasuryAccount, LocationToAccountId, Runtime&gt;;
 	<span class="kw">type </span>ForceOrigin = EnsureRoot&lt;<span class="self">Self</span>::AccountId&gt;;
 	<span class="kw">type </span>RegistrarOrigin = EnsureRoot&lt;<span class="self">Self</span>::AccountId&gt;;
+	<span class="kw">type </span>OffchainSignature = Signature;
+	<span class="kw">type </span>SigningPublicKey = &lt;Signature <span class="kw">as </span>Verify&gt;::Signer;
+	<span class="kw">type </span>UsernameAuthorityOrigin = EnsureRoot&lt;<span class="self">Self</span>::AccountId&gt;;
+	<span class="kw">type </span>PendingUsernameExpiration = ConstU32&lt;{ <span class="number">7 </span>* DAYS }&gt;;
+	<span class="kw">type </span>MaxSuffixLength = ConstU32&lt;<span class="number">7</span>&gt;;
+	<span class="kw">type </span>MaxUsernameLength = ConstU32&lt;<span class="number">32</span>&gt;;
 	<span class="kw">type </span>WeightInfo = weights::pallet_identity::WeightInfo&lt;Runtime&gt;;
 }
 
@@ -288,7 +323,6 @@
 	TypeInfo,
 )]
 #[codec(mel_bound())]
-#[cfg_attr(test, derive(frame_support::DefaultNoBound))]
 </span><span class="kw">pub struct </span>IdentityInfo {
 	<span class="doccomment">/// A reasonable display name for the controller of the account. This should be whatever the  
 	/// account is typically known as and should not be confusable with other entities, given  
@@ -404,6 +438,24 @@
 			res.insert(IdentityField::Discord);
 		}
 		res
+	}
+}
+
+<span class="doccomment">/// A `Default` identity. This is given to users who get a username but have not set an identity.
+</span><span class="kw">impl </span>Default <span class="kw">for </span>IdentityInfo {
+	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+		IdentityInfo {
+			display: Data::None,
+			legal: Data::None,
+			web: Data::None,
+			matrix: Data::None,
+			email: Data::None,
+			pgp_fingerprint: <span class="prelude-val">None</span>,
+			image: Data::None,
+			twitter: Data::None,
+			github: Data::None,
+			discord: Data::None,
+		}
 	}
 }
 </code></pre></div></section></main></body></html>

@@ -385,6 +385,28 @@
 <a href="#385" id="385">385</a>
 <a href="#386" id="386">386</a>
 <a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -619,7 +641,7 @@
 
 <span class="doccomment">/// Information concerning the identity of the controller of an account.
 </span><span class="kw">pub trait </span>IdentityInformationProvider:
-	Encode + Decode + MaxEncodedLen + Clone + Debug + Eq + PartialEq + TypeInfo
+	Encode + Decode + MaxEncodedLen + Clone + Debug + Eq + PartialEq + TypeInfo + Default
 {
 	<span class="doccomment">/// Type capable of holding information on which identity fields are set.
 	</span><span class="kw">type </span>FieldsIdentifier: Member + Encode + Decode + MaxEncodedLen + TypeInfo + Default;
@@ -705,6 +727,28 @@
 	/// these fields.
 	</span><span class="kw">pub </span>fields: IdField,
 }
+
+<span class="doccomment">/// Authority properties for a given pallet configuration.
+</span><span class="kw">pub type </span>AuthorityPropertiesOf&lt;T&gt; = AuthorityProperties&lt;Suffix&lt;T&gt;&gt;;
+
+<span class="doccomment">/// The number of usernames that an authority may allocate.
+</span><span class="kw">type </span>Allocation = u32;
+<span class="doccomment">/// A byte vec used to represent a username.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>Suffix&lt;T&gt; = BoundedVec&lt;u8, &lt;T <span class="kw">as </span>Config&gt;::MaxSuffixLength&gt;;
+
+<span class="doccomment">/// Properties of a username authority.
+</span><span class="attr">#[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Debug)]
+</span><span class="kw">pub struct </span>AuthorityProperties&lt;Suffix&gt; {
+	<span class="doccomment">/// The suffix added to usernames granted by this authority. Will be appended to usernames; for
+	/// example, a suffix of `wallet` will result in `.wallet` being appended to a user&#39;s selected
+	/// name.
+	</span><span class="kw">pub </span>suffix: Suffix,
+	<span class="doccomment">/// The number of usernames remaining that this authority can grant.
+	</span><span class="kw">pub </span>allocation: Allocation,
+}
+
+<span class="doccomment">/// A byte vec used to represent a username.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>Username&lt;T&gt; = BoundedVec&lt;u8, &lt;T <span class="kw">as </span>Config&gt;::MaxUsernameLength&gt;;
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {

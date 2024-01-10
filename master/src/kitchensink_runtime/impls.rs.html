@@ -554,7 +554,7 @@
 	<span class="kw">fn </span>has_good_judgement(who: <span class="kw-2">&amp;</span>AccountId) -&gt; bool {
 		<span class="kw">use </span>pallet_identity::Judgement;
 		<span class="kw">crate</span>::Identity::identity(who)
-			.map(|registration| registration.judgements)
+			.map(|(registration, <span class="kw">_</span>)| registration.judgements)
 			.map_or(<span class="bool-val">false</span>, |judgements| {
 				judgements
 					.iter()
