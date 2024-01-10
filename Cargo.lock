@@ -906,7 +906,6 @@ dependencies = [
  "rococo-runtime-constants",
  "scale-info",
  "smallvec",
- "snowbridge-rococo-common",
  "snowbridge-router-primitives",
  "sp-api",
  "sp-block-builder",
@@ -1951,10 +1950,10 @@ dependencies = [
  "parachains-common",
  "serde_json",
  "snowbridge-core",
- "snowbridge-inbound-queue",
- "snowbridge-outbound-queue",
+ "snowbridge-pallet-inbound-queue",
+ "snowbridge-pallet-outbound-queue",
+ "snowbridge-pallet-system",
  "snowbridge-router-primitives",
- "snowbridge-system",
  "sp-core",
  "sp-runtime",
 ]
@@ -1985,11 +1984,10 @@ dependencies = [
  "rococo-westend-system-emulated-network",
  "scale-info",
  "snowbridge-core",
- "snowbridge-inbound-queue",
- "snowbridge-outbound-queue",
- "snowbridge-rococo-common",
+ "snowbridge-pallet-inbound-queue",
+ "snowbridge-pallet-outbound-queue",
+ "snowbridge-pallet-system",
  "snowbridge-router-primitives",
- "snowbridge-system",
  "sp-core",
  "sp-runtime",
  "staging-xcm",
@@ -2062,15 +2060,14 @@ dependencies = [
  "smallvec",
  "snowbridge-beacon-primitives",
  "snowbridge-core",
- "snowbridge-ethereum-beacon-client",
- "snowbridge-inbound-queue",
- "snowbridge-outbound-queue",
  "snowbridge-outbound-queue-runtime-api",
- "snowbridge-rococo-common",
+ "snowbridge-pallet-ethereum-client",
+ "snowbridge-pallet-inbound-queue",
+ "snowbridge-pallet-outbound-queue",
+ "snowbridge-pallet-system",
  "snowbridge-router-primitives",
  "snowbridge-runtime-common",
  "snowbridge-runtime-test-common",
- "snowbridge-system",
  "snowbridge-system-runtime-api",
  "sp-api",
  "sp-block-builder",
@@ -11646,7 +11643,6 @@ dependencies = [
  "polkadot-runtime-common",
  "scale-info",
  "smallvec",
- "snowbridge-rococo-common",
  "sp-api",
  "sp-block-builder",
  "sp-consensus-aura",
@@ -17315,7 +17311,31 @@ dependencies = [
 ]
 
 [[package]]
-name = "snowbridge-ethereum-beacon-client"
+name = "snowbridge-outbound-queue-merkle-tree"
+version = "0.9.0"
+dependencies = [
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-runtime",
+]
+
+[[package]]
+name = "snowbridge-outbound-queue-runtime-api"
+version = "0.9.0"
+dependencies = [
+ "frame-support",
+ "parity-scale-codec",
+ "snowbridge-core",
+ "snowbridge-outbound-queue-merkle-tree",
+ "sp-api",
+ "sp-core",
+ "sp-std 8.0.0",
+ "staging-xcm",
+]
+
+[[package]]
+name = "snowbridge-pallet-ethereum-client"
 version = "0.9.0"
 dependencies = [
  "bp-runtime",
@@ -17343,7 +17363,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "snowbridge-inbound-queue"
+name = "snowbridge-pallet-inbound-queue"
 version = "0.9.0"
 dependencies = [
  "alloy-primitives",
@@ -17373,7 +17393,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "snowbridge-outbound-queue"
+name = "snowbridge-pallet-outbound-queue"
 version = "0.9.0"
 dependencies = [
  "bridge-hub-common",
@@ -17396,36 +17416,24 @@ dependencies = [
 ]
 
 [[package]]
-name = "snowbridge-outbound-queue-merkle-tree"
+name = "snowbridge-pallet-system"
 version = "0.9.0"
 dependencies = [
+ "ethabi-decode",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
  "parity-scale-codec",
  "scale-info",
- "sp-core",
- "sp-runtime",
-]
-
-[[package]]
-name = "snowbridge-outbound-queue-runtime-api"
-version = "0.9.0"
-dependencies = [
- "frame-support",
- "parity-scale-codec",
  "snowbridge-core",
- "snowbridge-outbound-queue-merkle-tree",
- "sp-api",
  "sp-core",
+ "sp-io",
+ "sp-runtime",
  "sp-std 8.0.0",
  "staging-xcm",
-]
-
-[[package]]
-name = "snowbridge-rococo-common"
-version = "0.9.0"
-dependencies = [
- "frame-support",
- "log",
- "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
 ]
 
 [[package]]
@@ -17510,12 +17518,12 @@ dependencies = [
  "smallvec",
  "snowbridge-beacon-primitives",
  "snowbridge-core",
- "snowbridge-ethereum-beacon-client",
- "snowbridge-inbound-queue",
- "snowbridge-outbound-queue",
  "snowbridge-outbound-queue-runtime-api",
+ "snowbridge-pallet-ethereum-client",
+ "snowbridge-pallet-inbound-queue",
+ "snowbridge-pallet-outbound-queue",
+ "snowbridge-pallet-system",
  "snowbridge-router-primitives",
- "snowbridge-system",
  "snowbridge-system-runtime-api",
  "sp-api",
  "sp-block-builder",
@@ -17532,27 +17540,6 @@ dependencies = [
  "sp-transaction-pool",
  "sp-version",
  "staging-parachain-info",
- "staging-xcm",
- "staging-xcm-builder",
- "staging-xcm-executor",
-]
-
-[[package]]
-name = "snowbridge-system"
-version = "0.9.0"
-dependencies = [
- "ethabi-decode",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "log",
- "parity-scale-codec",
- "scale-info",
- "snowbridge-core",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std 8.0.0",
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",

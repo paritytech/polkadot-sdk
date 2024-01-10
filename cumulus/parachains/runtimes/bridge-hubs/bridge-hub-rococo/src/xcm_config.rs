@@ -47,7 +47,7 @@ use parachains_common::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-use snowbridge_rococo_common::EthereumNetwork;
+use parachains_common::rococo::snowbridge::EthereumNetwork;
 use snowbridge_runtime_common::XcmExportFeeToSibling;
 use sp_core::Get;
 use sp_runtime::traits::AccountIdConversion;
@@ -221,12 +221,12 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 					WithRococoBulletinMessagesInstance,
 				>::set_operating_mode { .. }) |
 				RuntimeCall::EthereumBeaconClient(
-					snowbridge_ethereum_beacon_client::Call::force_checkpoint { .. } |
-						snowbridge_ethereum_beacon_client::Call::set_operating_mode { .. },
+					snowbridge_pallet_ethereum_client::Call::force_checkpoint { .. } |
+						snowbridge_pallet_ethereum_client::Call::set_operating_mode { .. },
 				) | RuntimeCall::EthereumInboundQueue(
-				snowbridge_inbound_queue::Call::set_operating_mode { .. },
+				snowbridge_pallet_inbound_queue::Call::set_operating_mode { .. },
 			) | RuntimeCall::EthereumOutboundQueue(
-				snowbridge_outbound_queue::Call::set_operating_mode { .. },
+				snowbridge_pallet_outbound_queue::Call::set_operating_mode { .. },
 			) | RuntimeCall::EthereumSystem(..)
 		)
 	}
