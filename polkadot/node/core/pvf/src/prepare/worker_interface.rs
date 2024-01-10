@@ -17,6 +17,7 @@
 //! Host interface to the prepare worker.
 
 use crate::{
+	artifacts::generate_artifact_path,
 	metrics::Metrics,
 	worker_interface::{
 		clear_worker_dir_path, framed_recv, framed_send, spawn_with_program_path, IdleWorker,
@@ -237,13 +238,7 @@ async fn handle_response(
 	// for some reason is not cleared correctly, we cannot
 	// accidentally execute an artifact compiled under a different wasmtime version, host
 	// environment, etc.
-	let file_name = {
-		use rand::RngCore;
-		let mut bytes = [0u8; 64];
-		rand::thread_rng().fill_bytes(&mut bytes);
-		hex::encode(&bytes)
-	};
-	let artifact_path = cache_path.join(file_name);
+	let artifact_path = generate_artifact_path(cache_path);
 
 	gum::debug!(
 		target: LOG_TARGET,

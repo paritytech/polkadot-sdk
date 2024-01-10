@@ -54,16 +54,36 @@
 //!    older by a predefined parameter. This process is run very rarely (say, once a day). Once the
 //!    artifact is expired it is removed from disk eagerly atomically.
 
-use crate::host::PrecheckResultSender;
+use crate::{host::PrecheckResultSender, worker_interface::WORKER_DIR_PREFIX};
 use always_assert::always;
 use polkadot_node_core_pvf_common::{error::PrepareError, prepare::PrepareStats, pvf::PvfPrepData};
 use polkadot_parachain_primitives::primitives::ValidationCodeHash;
 use polkadot_primitives::ExecutorParamsHash;
 use std::{
 	collections::HashMap,
+	fs,
 	path::{Path, PathBuf},
 	time::{Duration, SystemTime},
 };
+
+/// The extension to use for cached artifacts.
+const ARTIFACT_EXTENSION: &str = "pvf";
+
+/// The prefix that artifacts used to start with under the old naming scheme.
+const ARTIFACT_OLD_PREFIX: &str = "wasmtime_";
+
+pub fn generate_artifact_path(cache_path: &Path) -> PathBuf {
+	let file_name = {
+		use array_bytes::Hex;
+		use rand::RngCore;
+		let mut bytes = [0u8; 64];
+		rand::thread_rng().fill_bytes(&mut bytes);
+		bytes.hex("0x")
+	};
+	let mut artifact_path = cache_path.join(file_name);
+	artifact_path.set_extension(ARTIFACT_EXTENSION);
+	artifact_path
+}
 
 /// Identifier of an artifact. Encodes a code hash of the PVF and a hash of executor parameter set.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -150,16 +170,34 @@ impl Artifacts {
 		Self { inner: HashMap::new() }
 	}
 
-	/// Create an empty table and populate it with valid artifacts as [`ArtifactState::Prepared`],
-	/// if any. The existing caches will be checked by their file name to determine whether they are
-	/// valid, e.g., matching the current node version. The ones deemed invalid will be pruned.
-	///
-	/// Create the cache directory on-disk if it doesn't exist.
+	#[cfg(test)]
+	fn len(&self) -> usize {
+		self.inner.len()
+	}
+
+	/// Create an empty table and the cache directory on-disk if it doesn't exist.
 	pub async fn new(cache_path: &Path) -> Self {
 		// Make sure that the cache path directory and all its parents are created.
-		// First delete the entire cache. Nodes are long-running so this should populate shortly.
-		let _ = tokio::fs::remove_dir_all(cache_path).await;
 		let _ = tokio::fs::create_dir_all(cache_path).await;
+
+		// Delete any leftover artifacts and worker dirs from previous runs. We don't delete the
+		// entire cache directory in case the user made a mistake and set it to e.g. their home
+		// directory. This is a best-effort to do clean-up, so ignore any errors.
+		if let Ok(paths) = fs::read_dir(cache_path) {
+			for path in paths.map(|res| res.map(|e| e.path())).flatten() {
+				let file_name = match path.file_name().map(|f| f.to_str()).flatten() {
+					Some(f) => f,
+					None => continue,
+				};
+				if path.is_dir() && file_name.starts_with(WORKER_DIR_PREFIX) {
+					let _ = fs::remove_dir_all(path);
+				} else if path.extension().map_or(false, |ext| ext == ARTIFACT_EXTENSION) ||
+					file_name.starts_with(ARTIFACT_OLD_PREFIX)
+				{
+					let _ = fs::remove_file(path);
+				}
+			}
+		}
 
 		Self { inner: HashMap::new() }
 	}
@@ -226,5 +264,36 @@ impl Artifacts {
 		}
 
 		to_remove
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[tokio::test]
+	async fn cache_cleared_on_startup() {
+		let tempdir = tempfile::tempdir().unwrap();
+		let cache_path = tempdir.path();
+
+		// These should be cleared.
+		fs::write(cache_path.join("abcd.pvf"), "test").unwrap();
+		fs::write(cache_path.join("wasmtime_..."), "test").unwrap();
+		fs::create_dir(cache_path.join("worker-dir-prepare-test")).unwrap();
+
+		// These should not be touched.
+		fs::write(cache_path.join("abcd.pvfartifact"), "test").unwrap();
+		fs::write(cache_path.join("polkadot_..."), "test").unwrap();
+		fs::create_dir(cache_path.join("worker-prepare-test")).unwrap();
+
+		let artifacts = Artifacts::new(cache_path).await;
+
+		let entries: Vec<String> = fs::read_dir(&cache_path)
+			.unwrap()
+			.map(|entry| entry.unwrap().file_name().into_string().unwrap())
+			.collect();
+		assert_eq!(entries.len(), 3);
+		assert!(entries.contains(&String::from("abcd.pvfartifact")));
+		assert_eq!(artifacts.len(), 0);
 	}
 }

@@ -884,14 +884,13 @@ fn pulse_every(interval: std::time::Duration) -> impl futures::Stream<Item = ()>
 #[cfg(test)]
 pub(crate) mod tests {
 	use super::*;
-	use crate::PossiblyInvalidError;
+	use crate::{artifacts::generate_artifact_path, PossiblyInvalidError};
 	use assert_matches::assert_matches;
 	use futures::future::BoxFuture;
 	use polkadot_node_core_pvf_common::{
 		error::PrepareError,
 		prepare::{PrepareStats, PrepareSuccess},
 	};
-	use sp_core::hexdisplay::AsBytesRef;
 
 	const TEST_EXECUTION_TIMEOUT: Duration = Duration::from_secs(3);
 	pub(crate) const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(30);
@@ -913,13 +912,6 @@ pub(crate) mod tests {
 	/// Creates a new PVF which artifact id can be uniquely identified by the given number.
 	fn artifact_id(discriminator: u32) -> ArtifactId {
 		ArtifactId::from_pvf_prep_data(&PvfPrepData::from_discriminator(discriminator))
-	}
-
-	fn artifact_path(discriminator: u32) -> PathBuf {
-		let pvf = PvfPrepData::from_discriminator(discriminator);
-		let checksum = blake3::hash(pvf.code().as_bytes_ref());
-		let file_name = format!("test_{}_0x{}", discriminator, checksum);
-		std::env::temp_dir().join(file_name)
 	}
 
 	struct Builder {
@@ -1109,19 +1101,23 @@ pub(crate) mod tests {
 	#[tokio::test]
 	async fn pruning() {
 		let mock_now = SystemTime::now() - Duration::from_millis(1000);
+		let tempdir = tempfile::tempdir().unwrap();
+		let cache_path = tempdir.path();
 
 		let mut builder = Builder::default();
 		builder.cleanup_pulse_interval = Duration::from_millis(100);
 		builder.artifact_ttl = Duration::from_millis(500);
+		let path1 = generate_artifact_path(cache_path);
+		let path2 = generate_artifact_path(cache_path);
 		builder.artifacts.insert_prepared(
 			artifact_id(1),
-			artifact_path(1),
+			path1.clone(),
 			mock_now,
 			PrepareStats::default(),
 		);
 		builder.artifacts.insert_prepared(
 			artifact_id(2),
-			artifact_path(2),
+			path2.clone(),
 			mock_now,
 			PrepareStats::default(),
 		);
@@ -1134,7 +1130,7 @@ pub(crate) mod tests {
 		run_until(
 			&mut test.run,
 			async {
-				assert_eq!(to_sweeper_rx.next().await.unwrap(), artifact_path(2));
+				assert_eq!(to_sweeper_rx.next().await.unwrap(), path2);
 			}
 			.boxed(),
 		)

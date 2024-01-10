@@ -12669,13 +12669,13 @@ name = "polkadot-node-core-pvf"
 version = "1.0.0"
 dependencies = [
  "always-assert",
+ "array-bytes 6.1.0",
  "assert_matches",
  "blake3",
  "cfg-if",
  "criterion 0.4.0",
  "futures",
  "futures-timer",
- "hex",
  "hex-literal",
  "is_executable",
  "libc",
