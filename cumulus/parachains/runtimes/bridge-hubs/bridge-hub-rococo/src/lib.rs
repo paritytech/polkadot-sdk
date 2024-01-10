@@ -551,6 +551,7 @@ impl snowbridge_inbound_queue::Config for Runtime {
 	type MaxMessageSize = ConstU32<2048>;
 	type WeightInfo = weights::snowbridge_inbound_queue::WeightInfo<Runtime>;
 	type PricingParameters = EthereumSystem;
+	type AssetTransactor = <xcm_config::XcmConfig as xcm_executor::Config>::AssetTransactor;
 }
 
 impl snowbridge_outbound_queue::Config for Runtime {

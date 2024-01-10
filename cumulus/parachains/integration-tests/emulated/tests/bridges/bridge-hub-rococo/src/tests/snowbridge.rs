@@ -190,7 +190,10 @@ fn register_weth_token_from_ethereum_to_asset_hub() {
 			chain_id: CHAIN_ID,
 			command: Command::RegisterToken { token: WETH.into(), fee: XCM_FEE },
 		});
-		let (xcm, _) = EthereumInboundQueue::do_convert(message_id_, message).unwrap();
+		let (xcm, fee) = EthereumInboundQueue::do_convert(message_id_, message).unwrap();
+
+		assert_ok!(EthereumInboundQueue::burn_fees(AssetHubRococo::para_id().into(), fee));
+
 		let _ = EthereumInboundQueue::send_xcm(xcm, AssetHubRococo::para_id().into()).unwrap();
 
 		assert_expected_events!(
