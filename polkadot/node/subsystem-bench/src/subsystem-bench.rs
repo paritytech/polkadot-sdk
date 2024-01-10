@@ -229,8 +229,7 @@ fn is_valgrind_mode() -> bool {
 /// Start collecting cache misses data
 #[cfg(target_os = "linux")]
 fn valgrind_start() {
-	crabgrind::callgrind::start_instrumentation();
-	crabgrind::callgrind::toggle_collect();
+	crabgrind::cachegrind::start_instrumentation();
 }
 
 #[cfg(not(target_os = "linux"))]
@@ -239,8 +238,7 @@ fn valgrind_start() {}
 /// Stop collecting cache misses data
 #[cfg(target_os = "linux")]
 fn valgrind_stop() {
-	crabgrind::callgrind::toggle_collect();
-	crabgrind::callgrind::stop_instrumentation();
+	crabgrind::cachegrind::stop_instrumentation();
 }
 
 #[cfg(not(target_os = "linux"))]
@@ -250,10 +248,9 @@ fn valgrind_stop() {}
 fn valgrind_init() -> eyre::Result<()> {
 	use std::os::unix::process::CommandExt;
 	std::process::Command::new("valgrind")
-		.arg("--tool=callgrind")
+		.arg("--tool=cachegrind")
 		.arg("--cache-sim=yes")
 		.arg("--instr-atstart=no")
-		.arg("--collect-atstart=no")
 		.args(std::env::args())
 		.exec();
 
