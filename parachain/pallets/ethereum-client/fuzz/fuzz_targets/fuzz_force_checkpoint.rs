@@ -1,8 +1,8 @@
 #![no_main]
-extern crate snowbridge_ethereum_beacon_client;
+extern crate snowbridge_pallet_ethereum_client;
 
 use libfuzzer_sys::fuzz_target;
-use snowbridge_ethereum_beacon_client::{mock::minimal::*, types::CheckpointUpdate};
+use snowbridge_pallet_ethereum_client::{mock::minimal::*, types::CheckpointUpdate};
 use snowbridge_ethereum_beacon_client_fuzz::types::FuzzCheckpointUpdate;
 use std::convert::TryInto;
 

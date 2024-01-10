@@ -20,7 +20,7 @@
 // --repeat
 // 10
 // --output
-// pallets/ethereum-beacon-client/src/weights.rs
+// pallets/ethereum-client/src/weights.rs
 // --template
 // templates/module-weight-template.hbs
 

@@ -61,7 +61,7 @@ pub use pallet::*;
 
 pub use config::SLOTS_PER_HISTORICAL_ROOT;
 
-pub const LOG_TARGET: &str = "ethereum-beacon-client";
+pub const LOG_TARGET: &str = "ethereum-client";
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -692,7 +692,7 @@ pub mod pallet {
 		/// Stores the provided execution header in pallet storage. The header is stored
 		/// in a ring buffer map, with the block hash as map key. The last imported execution
 		/// header is also kept in storage, for the relayer to check import progress.
-		pub(crate) fn store_execution_header(
+		pub fn store_execution_header(
 			block_hash: H256,
 			header: CompactExecutionHeader,
 			beacon_slot: u64,

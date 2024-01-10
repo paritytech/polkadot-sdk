@@ -9,7 +9,7 @@ use snowbridge_beacon_primitives::{
 	types::BeaconHeader, updates::AncestryProof, ExecutionHeaderUpdate, ExecutionPayloadHeader,
 	PublicKey,
 };
-use snowbridge_ethereum_beacon_client::types::{
+use snowbridge_pallet_ethereum_client::types::{
 	CheckpointUpdate, NextSyncCommitteeUpdate, SyncAggregate, SyncCommittee, Update,
 };
 use sp_core::H256;

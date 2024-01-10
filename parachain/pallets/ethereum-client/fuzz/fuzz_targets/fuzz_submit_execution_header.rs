@@ -1,9 +1,9 @@
 #![no_main]
-extern crate snowbridge_ethereum_beacon_client;
+extern crate snowbridge_pallet_ethereum_client;
 
 use snowbridge_beacon_primitives::ExecutionHeaderUpdate;
-use snowbridge_ethereum_beacon_client::mock::minimal::*;
-use snowbridge_ethereum_beacon_client_fuzz::types::FuzzExecutionHeaderUpdate;
+use snowbridge_pallet_ethereum_client::mock::minimal::*;
+use snowbridge_pallet_ethereum_client::types::FuzzExecutionHeaderUpdate;
 
 use libfuzzer_sys::fuzz_target;
 

@@ -6,7 +6,7 @@ repository = "https://github.com/snowfork/snowbridge.git"
 [workspace]
 resolver = "2"
 members = [
-	"pallets/ethereum-beacon-client",
+	"pallets/ethereum-client",
 	"pallets/inbound-queue",
 	"pallets/outbound-queue",
 	"pallets/outbound-queue/merkle-tree",
@@ -17,20 +17,18 @@ members = [
 	"primitives/core",
 	"primitives/ethereum",
 	"primitives/router",
-	"runtime/rococo-common",
 	"runtime/runtime-common",
 	"runtime/test-common",
 ]
 
 [patch.'https://github.com/snowfork/snowbridge']
 snowbridge-beacon-primitives = { path = "./primitives/beacon" }
-snowbridge-system = { path = "./pallets/system" }
+snowbridge-pallet-system = { path = "./pallets/system" }
 snowbridge-system-runtime-api = { path = "./pallets/system/runtime-api" }
 snowbridge-core = { path = "./primitives/core" }
-snowbridge-ethereum-beacon-client = { path = "./pallets/ethereum-beacon-client" }
-snowbridge-inbound-queue = { path = "./pallets/inbound-queue" }
-snowbridge-outbound-queue = { path = "./pallets/outbound-queue" }
+snowbridge-pallet-ethereum-client = { path = "./pallets/ethereum-client" }
+snowbridge-pallet-inbound-queue = { path = "./pallets/inbound-queue" }
+snowbridge-pallet-outbound-queue = { path = "./pallets/outbound-queue" }
 snowbridge-outbound-queue-runtime-api = { path = "./pallets/outbound-queue/runtime-api" }
 snowbridge-router-primitives = { path = "./primitives/router" }
 snowbridge-runtime-common = { path = "./runtime/runtime-common" }
-snowbridge-rococo-common = { path = "./runtime/rococo-common" }

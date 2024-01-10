@@ -8,6 +8,8 @@ exclude = [
 	"web/packages/test/config/launch-config.toml",
 	"polkadot-sdk/**",
 	".config/**",
+	"target/**",
+	"runtime/tests/target/**",
 ]
 
 # global rules

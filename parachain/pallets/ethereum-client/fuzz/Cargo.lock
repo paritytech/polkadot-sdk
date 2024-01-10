@@ -2592,7 +2592,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "snowbridge-ethereum-beacon-client"
+name = "snowbridge-pallet-ethereum-client"
 version = "0.9.0"
 dependencies = [
  "bp-runtime",
@@ -2620,14 +2620,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "snowbridge-ethereum-beacon-client-fuzz"
+name = "snowbridge-ethereum-client-fuzz"
 version = "0.0.0"
 dependencies = [
  "arbitrary",
  "hex-literal",
  "libfuzzer-sys",
  "snowbridge-beacon-primitives",
- "snowbridge-ethereum-beacon-client",
+ "snowbridge-pallet-ethereum-client",
  "sp-core",
 ]
 
