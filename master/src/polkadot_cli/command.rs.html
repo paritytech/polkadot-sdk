@@ -491,6 +491,8 @@
 <a href="#491" id="491">491</a>
 <a href="#492" id="492">492</a>
 <a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -749,11 +751,13 @@
 		)
 		.map(|full| full.task_manager)<span class="question-mark">?</span>;
 
-		sc_storage_monitor::StorageMonitorService::try_spawn(
-			cli.storage_monitor,
-			database_source,
-			<span class="kw-2">&amp;</span>task_manager.spawn_essential_handle(),
-		)<span class="question-mark">?</span>;
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(path) = database_source.path() {
+			sc_storage_monitor::StorageMonitorService::try_spawn(
+				cli.storage_monitor,
+				path.to_path_buf(),
+				<span class="kw-2">&amp;</span>task_manager.spawn_essential_handle(),
+			)<span class="question-mark">?</span>;
+		}
 
 		<span class="prelude-val">Ok</span>(task_manager)
 	})

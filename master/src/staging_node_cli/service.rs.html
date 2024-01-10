@@ -1037,6 +1037,8 @@
 <a href="#1037" id="1037">1037</a>
 <a href="#1038" id="1038">1038</a>
 <a href="#1039" id="1039">1039</a>
+<a href="#1040" id="1040">1040</a>
+<a href="#1041" id="1041">1041</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1077,7 +1079,7 @@
 <span class="kw">use </span>sp_api::ProvideRuntimeApi;
 <span class="kw">use </span>sp_core::crypto::Pair;
 <span class="kw">use </span>sp_runtime::{generic, traits::Block <span class="kw">as </span>BlockT, SaturatedConversion};
-<span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>std::{path::Path, sync::Arc};
 
 <span class="doccomment">/// Host functions required for kitchensink runtime and Substrate node.
 </span><span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
@@ -1808,16 +1810,18 @@
 <span class="doccomment">/// Builds a new service for a full client.
 </span><span class="kw">pub fn </span>new_full(config: Configuration, cli: Cli) -&gt; <span class="prelude-ty">Result</span>&lt;TaskManager, ServiceError&gt; {
 	<span class="kw">let </span>mixnet_config = cli.mixnet_params.config(config.role.is_authority());
-	<span class="kw">let </span>database_source = config.database.clone();
+	<span class="kw">let </span>database_path = config.database.path().map(Path::to_path_buf);
 	<span class="kw">let </span>task_manager = new_full_base(config, mixnet_config, cli.no_hardware_benchmarks, |<span class="kw">_</span>, <span class="kw">_</span>| ())
 		.map(|NewFullBase { task_manager, .. }| task_manager)<span class="question-mark">?</span>;
 
-	sc_storage_monitor::StorageMonitorService::try_spawn(
-		cli.storage_monitor,
-		database_source,
-		<span class="kw-2">&amp;</span>task_manager.spawn_essential_handle(),
-	)
-	.map_err(|e| ServiceError::Application(e.into()))<span class="question-mark">?</span>;
+	<span class="kw">if let </span><span class="prelude-val">Some</span>(database_path) = database_path {
+		sc_storage_monitor::StorageMonitorService::try_spawn(
+			cli.storage_monitor,
+			database_path,
+			<span class="kw-2">&amp;</span>task_manager.spawn_essential_handle(),
+		)
+		.map_err(|e| ServiceError::Application(e.into()))<span class="question-mark">?</span>;
+	}
 
 	<span class="prelude-val">Ok</span>(task_manager)
 }

@@ -143,13 +143,6 @@
 <a href="#143" id="143">143</a>
 <a href="#144" id="144">144</a>
 <a href="#145" id="145">145</a>
-<a href="#146" id="146">146</a>
-<a href="#147" id="147">147</a>
-<a href="#148" id="148">148</a>
-<a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
-<a href="#152" id="152">152</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -169,7 +162,6 @@
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
 </span><span class="kw">use </span>clap::Args;
-<span class="kw">use </span>sc_client_db::DatabaseSource;
 <span class="kw">use </span>sp_core::traits::SpawnEssentialNamed;
 <span class="kw">use </span>std::{
 	io,
@@ -222,43 +214,37 @@
 	<span class="doccomment">/// Creates new StorageMonitorService for given client config
 	</span><span class="kw">pub fn </span>try_spawn(
 		parameters: StorageMonitorParams,
-		database: DatabaseSource,
+		path: PathBuf,
 		spawner: <span class="kw-2">&amp;</span><span class="kw">impl </span>SpawnEssentialNamed,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-		<span class="prelude-val">Ok</span>(<span class="kw">match </span>(parameters.threshold, database.path()) {
-			(<span class="number">0</span>, <span class="kw">_</span>) =&gt; {
-				<span class="macro">log::info!</span>(
-					target: LOG_TARGET,
-					<span class="string">&quot;StorageMonitorService: threshold `0` given, storage monitoring disabled&quot;</span>,
-				);
-			},
-			(<span class="kw">_</span>, <span class="prelude-val">None</span>) =&gt; {
-				<span class="macro">log::warn!</span>(
-					target: LOG_TARGET,
-					<span class="string">&quot;StorageMonitorService: no database path to observe&quot;</span>,
-				);
-			},
-			(threshold, <span class="prelude-val">Some</span>(path)) =&gt; {
-				<span class="macro">log::debug!</span>(
-					target: LOG_TARGET,
-					<span class="string">&quot;Initializing StorageMonitorService for db path: {path:?}&quot;</span>,
-				);
+		<span class="kw">if </span>parameters.threshold == <span class="number">0 </span>{
+			<span class="macro">log::info!</span>(
+				target: LOG_TARGET,
+				<span class="string">&quot;StorageMonitorService: threshold `0` given, storage monitoring disabled&quot;</span>,
+			);
+		} <span class="kw">else </span>{
+			<span class="macro">log::debug!</span>(
+				target: LOG_TARGET,
+				<span class="string">&quot;Initializing StorageMonitorService for db path: {}&quot;</span>,
+				path.display()
+			);
 
-				<span class="self">Self</span>::check_free_space(<span class="kw-2">&amp;</span>path, threshold)<span class="question-mark">?</span>;
+			<span class="self">Self</span>::check_free_space(<span class="kw-2">&amp;</span>path, parameters.threshold)<span class="question-mark">?</span>;
 
-				<span class="kw">let </span>storage_monitor_service = StorageMonitorService {
-					path: path.to_path_buf(),
-					threshold,
-					polling_period: Duration::from_secs(parameters.polling_period.into()),
-				};
+			<span class="kw">let </span>storage_monitor_service = StorageMonitorService {
+				path,
+				threshold: parameters.threshold,
+				polling_period: Duration::from_secs(parameters.polling_period.into()),
+			};
 
-				spawner.spawn_essential(
-					<span class="string">&quot;storage-monitor&quot;</span>,
-					<span class="prelude-val">None</span>,
-					Box::pin(storage_monitor_service.run()),
-				);
-			},
-		})
+			spawner.spawn_essential(
+				<span class="string">&quot;storage-monitor&quot;</span>,
+				<span class="prelude-val">None</span>,
+				Box::pin(storage_monitor_service.run()),
+			);
+		}
+
+		<span class="prelude-val">Ok</span>(())
 	}
 
 	<span class="doccomment">/// Main monitoring loop, intended to be spawned as essential task. Quits if free space drop
