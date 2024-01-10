@@ -616,10 +616,10 @@ pub struct AssetTxHelper;
 
 #[cfg(feature = "runtime-benchmarks")]
 impl pallet_asset_tx_payment::BenchmarkHelperTrait<AccountId, u32, u32> for AssetTxHelper {
-	fn create_asset_id_parameter(id: u32) -> (u32, u32) {
+	fn create_asset_id_parameter(_id: u32) -> (u32, u32) {
 		unimplemented!("Penpal uses default weights");
 	}
-	fn setup_balances_and_pool(asset_id: u32, account: AccountId) {
+	fn setup_balances_and_pool(_asset_id: u32, _account: AccountId) {
 		unimplemented!("Penpal uses default weights");
 	}
 }
