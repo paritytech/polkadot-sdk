@@ -71,8 +71,6 @@ use frame_system::{
 };
 
 use bp_runtime::HeaderId;
-#[cfg(not(feature = "runtime-benchmarks"))]
-use bridge_hub_common::BridgeHubMessageRouter;
 use bridge_hub_common::{
 	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
 	AggregateMessageOrigin,
@@ -102,17 +100,9 @@ use parachains_common::{
 use polkadot_runtime_common::prod_or_fast;
 
 #[cfg(feature = "runtime-benchmarks")]
-use crate::xcm_config::benchmark_helpers::DoNothingRouter;
-#[cfg(feature = "runtime-benchmarks")]
-use snowbridge_beacon_primitives::CompactExecutionHeader;
-#[cfg(feature = "runtime-benchmarks")]
-use snowbridge_core::RingBufferMap;
-#[cfg(feature = "runtime-benchmarks")]
-pub use snowbridge_ethereum_beacon_client::ExecutionHeaderBuffer;
-#[cfg(feature = "runtime-benchmarks")]
-use snowbridge_inbound_queue::BenchmarkHelper;
-#[cfg(feature = "runtime-benchmarks")]
-use sp_core::H256;
+use benchmark_helpers::DoNothingRouter;
+#[cfg(not(feature = "runtime-benchmarks"))]
+use bridge_hub_common::BridgeHubMessageRouter;
 
 /// The address format for describing accounts.
 pub type Address = MultiAddress<AccountId, ()>;
@@ -521,9 +511,40 @@ parameter_types! {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-impl<T: snowbridge_ethereum_beacon_client::Config> BenchmarkHelper<T> for Runtime {
-	fn initialize_storage(block_hash: H256, header: CompactExecutionHeader) {
-		<ExecutionHeaderBuffer<T>>::insert(block_hash, header);
+pub mod benchmark_helpers {
+	use crate::{EthereumBeaconClient, Runtime, RuntimeOrigin};
+	use codec::Encode;
+	use snowbridge_beacon_primitives::CompactExecutionHeader;
+	use snowbridge_inbound_queue::BenchmarkHelper;
+	use sp_core::H256;
+	use xcm::latest::{MultiAssets, MultiLocation, SendError, SendResult, SendXcm, Xcm, XcmHash};
+
+	impl<T: snowbridge_ethereum_beacon_client::Config> BenchmarkHelper<T> for Runtime {
+		fn initialize_storage(block_hash: H256, header: CompactExecutionHeader) {
+			EthereumBeaconClient::store_execution_header(block_hash, header, 0, H256::default())
+		}
+	}
+
+	pub struct DoNothingRouter;
+	impl SendXcm for DoNothingRouter {
+		type Ticket = Xcm<()>;
+
+		fn validate(
+			_dest: &mut Option<MultiLocation>,
+			xcm: &mut Option<Xcm<()>>,
+		) -> SendResult<Self::Ticket> {
+			Ok((xcm.clone().unwrap(), MultiAssets::new()))
+		}
+		fn deliver(xcm: Xcm<()>) -> Result<XcmHash, SendError> {
+			let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+			Ok(hash)
+		}
+	}
+
+	impl snowbridge_system::BenchmarkHelper<RuntimeOrigin> for () {
+		fn make_xcm_origin(location: MultiLocation) -> RuntimeOrigin {
+			RuntimeOrigin::from(pallet_xcm::Origin::Xcm(location))
+		}
 	}
 }
 
@@ -622,13 +643,6 @@ impl snowbridge_ethereum_beacon_client::Config for Runtime {
 	type ForkVersions = ChainForkVersions;
 	type MaxExecutionHeadersToKeep = MaxExecutionHeadersToKeep;
 	type WeightInfo = weights::snowbridge_ethereum_beacon_client::WeightInfo<Runtime>;
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-impl snowbridge_system::BenchmarkHelper<RuntimeOrigin> for () {
-	fn make_xcm_origin(location: xcm::latest::MultiLocation) -> RuntimeOrigin {
-		RuntimeOrigin::from(pallet_xcm::Origin::Xcm(location))
-	}
 }
 
 impl snowbridge_system::Config for Runtime {
