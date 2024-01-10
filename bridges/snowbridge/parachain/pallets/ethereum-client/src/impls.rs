@@ -15,7 +15,7 @@ impl<T: Config> Verifier for Pallet<T> {
 	/// ancestor of a finalized beacon block.
 	fn verify(event_log: &Log, proof: &Proof) -> Result<(), VerificationError> {
 		log::info!(
-			target: "ethereum-beacon-client",
+			target: "ethereum-client",
 			"💫 Verifying message with block hash {}",
 			proof.block_hash,
 		);
@@ -26,7 +26,7 @@ impl<T: Config> Verifier for Pallet<T> {
 			Ok(receipt) => receipt,
 			Err(err) => {
 				log::error!(
-					target: "ethereum-beacon-client",
+					target: "ethereum-client",
 					"💫 Verification of receipt inclusion failed for block {}: {:?}",
 					proof.block_hash,
 					err
@@ -36,7 +36,7 @@ impl<T: Config> Verifier for Pallet<T> {
 		};
 
 		log::trace!(
-			target: "ethereum-beacon-client",
+			target: "ethereum-client",
 			"💫 Verified receipt inclusion for transaction at index {} in block {}",
 			proof.tx_index, proof.block_hash,
 		);
@@ -52,7 +52,7 @@ impl<T: Config> Verifier for Pallet<T> {
 
 		if !receipt.contains_log(&event_log) {
 			log::error!(
-				target: "ethereum-beacon-client",
+				target: "ethereum-client",
 				"💫 Event log not found in receipt for transaction at index {} in block {}",
 				proof.tx_index, proof.block_hash,
 			);
@@ -60,7 +60,7 @@ impl<T: Config> Verifier for Pallet<T> {
 		}
 
 		log::info!(
-			target: "ethereum-beacon-client",
+			target: "ethereum-client",
 			"💫 Receipt verification successful for {}",
 			proof.block_hash,
 		);
@@ -82,7 +82,7 @@ impl<T: Config> Pallet<T> {
 			Ok(receipt) => Ok(receipt),
 			Err(err) => {
 				log::trace!(
-					target: "ethereum-beacon-client",
+					target: "ethereum-client",
 					"💫 Failed to decode transaction receipt: {}",
 					err
 				);

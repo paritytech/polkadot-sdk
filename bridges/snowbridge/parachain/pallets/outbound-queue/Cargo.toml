@@ -1,12 +1,15 @@
 [package]
-name = "snowbridge-outbound-queue"
-description = "Snowbridge Outbound Queue"
+name = "snowbridge-pallet-outbound-queue"
+description = "Snowbridge Outbound Queue Pallet"
 version = "0.9.0"
+authors = ["Snowfork <contact@snowfork.com>"]
 edition.workspace = true
-authors.workspace = true
 repository.workspace = true
 license = "Apache-2.0"
 categories = ["cryptography::cryptocurrencies"]
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
