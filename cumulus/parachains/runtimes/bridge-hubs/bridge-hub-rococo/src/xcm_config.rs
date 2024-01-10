@@ -39,6 +39,7 @@ use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::{
 	impls::ToStakingPot,
+	rococo::snowbridge::EthereumNetwork,
 	xcm_config::{
 		AllSiblingSystemParachains, ConcreteAssetFromSystem, ParentRelayOrSiblingParachains,
 		RelayOrOtherSystemParachains,
@@ -47,7 +48,6 @@ use parachains_common::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-use snowbridge_rococo_common::EthereumNetwork;
 use snowbridge_runtime_common::XcmExportFeeToSibling;
 use sp_core::Get;
 use sp_runtime::traits::AccountIdConversion;
@@ -216,12 +216,12 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 					WithRococoBulletinMessagesInstance,
 				>::set_operating_mode { .. }) |
 				RuntimeCall::EthereumBeaconClient(
-					snowbridge_ethereum_beacon_client::Call::force_checkpoint { .. } |
-						snowbridge_ethereum_beacon_client::Call::set_operating_mode { .. },
+					snowbridge_pallet_ethereum_client::Call::force_checkpoint { .. } |
+						snowbridge_pallet_ethereum_client::Call::set_operating_mode { .. },
 				) | RuntimeCall::EthereumInboundQueue(
-				snowbridge_inbound_queue::Call::set_operating_mode { .. },
+				snowbridge_pallet_inbound_queue::Call::set_operating_mode { .. },
 			) | RuntimeCall::EthereumOutboundQueue(
-				snowbridge_outbound_queue::Call::set_operating_mode { .. },
+				snowbridge_pallet_outbound_queue::Call::set_operating_mode { .. },
 			) | RuntimeCall::EthereumSystem(..)
 		)
 	}
@@ -490,24 +490,5 @@ impl<WaivedLocations: Contains<MultiLocation>, FeeHandler: HandleFee> FeeManager
 
 	fn handle_fee(fee: MultiAssets, context: Option<&XcmContext>, reason: FeeReason) {
 		FeeHandler::handle_fee(fee, context, reason);
-	}
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-pub mod benchmark_helpers {
-	use crate::{MultiAssets, MultiLocation, SendError, SendResult, SendXcm, Xcm, XcmHash};
-
-	pub struct DoNothingRouter;
-	impl SendXcm for DoNothingRouter {
-		type Ticket = ();
-		fn validate(
-			_dest: &mut Option<MultiLocation>,
-			_msg: &mut Option<Xcm<()>>,
-		) -> SendResult<()> {
-			Ok(((), MultiAssets::new()))
-		}
-		fn deliver(_: ()) -> Result<XcmHash, SendError> {
-			Ok([0; 32])
-		}
 	}
 }

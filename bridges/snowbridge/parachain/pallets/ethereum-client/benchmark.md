@@ -7,15 +7,15 @@ for it is super helpful.
 
 # Benchmark
 We add several benchmarks
-[here](https://github.com/Snowfork/snowbridge/blob/8891ca3cdcf2e04d8118c206588c956541ae4710/parachain/pallets/ethereum-beacon-client/src/benchmarking/mod.rs#L98-L124)
+[here](https://github.com/Snowfork/snowbridge/blob/8891ca3cdcf2e04d8118c206588c956541ae4710/parachain/pallets/ethereum-client/src/benchmarking/mod.rs#L98-L124)
 as following to demonstrate
-[bls_fast_aggregate_verify](https://github.com/Snowfork/snowbridge/blob/8891ca3cdcf2e04d8118c206588c956541ae4710/parachain/pallets/ethereum-beacon-client/src/lib.rs#L764)
+[bls_fast_aggregate_verify](https://github.com/Snowfork/snowbridge/blob/8891ca3cdcf2e04d8118c206588c956541ae4710/parachain/pallets/ethereum-client/src/lib.rs#L764)
 is the main bottleneck. Test data
-[here](https://github.com/Snowfork/snowbridge/blob/8891ca3cdcf2e04d8118c206588c956541ae4710/parachain/pallets/ethereum-beacon-client/src/benchmarking/data_mainnet.rs#L553-L1120)
+[here](https://github.com/Snowfork/snowbridge/blob/8891ca3cdcf2e04d8118c206588c956541ae4710/parachain/pallets/ethereum-client/src/benchmarking/data_mainnet.rs#L553-L1120)
 is real from goerli network which contains 512 public keys from sync committee.
 
 ## sync_committee_period_update
-Base line benchmark for extrinsic [sync_committee_period_update](https://github.com/Snowfork/snowbridge/blob/8891ca3cdcf2e04d8118c206588c956541ae4710/parachain/pallets/ethereum-beacon-client/src/lib.rs#L233)
+Base line benchmark for extrinsic [sync_committee_period_update](https://github.com/Snowfork/snowbridge/blob/8891ca3cdcf2e04d8118c206588c956541ae4710/parachain/pallets/ethereum-client/src/lib.rs#L233)
 
 ## bls_fast_aggregate_verify
 Subfunction of extrinsic `sync_committee_period_update` which does what
@@ -59,14 +59,14 @@ cargo run --release --bin polkadot-parachain \
 benchmark pallet \
 --base-path /mnt/scratch/benchmark \
 --chain=bridge-hub-rococo-dev \
---pallet=snowbridge_ethereum_beacon_client \
+--pallet=snowbridge_pallet_ethereum_client \
 --extrinsic="*" \
 --execution=wasm --wasm-execution=compiled \
 --steps 50 --repeat 20 \
---output ./parachains/runtimes/bridge-hubs/bridge-hub-rococo/src/weights/snowbridge_ethereum_beacon_client.rs
+--output ./parachains/runtimes/bridge-hubs/bridge-hub-rococo/src/weights/snowbridge_pallet_ethereum_client.rs
 ```
 
-### [Weights](https://github.com/Snowfork/cumulus/blob/ron/benchmark-beacon-bridge/parachains/runtimes/bridge-hubs/bridge-hub-rococo/src/weights/snowbridge_ethereum_beacon_client.rs)
+### [Weights](https://github.com/Snowfork/cumulus/blob/ron/benchmark-beacon-bridge/parachains/runtimes/bridge-hubs/bridge-hub-rococo/src/weights/snowbridge_pallet_ethereum_client.rs)
 
 |extrinsic       | minimum execution time benchmarked(us) |
 | --------------------------------------- |----------------------------------------|
@@ -84,5 +84,5 @@ benchmark pallet \
 # Conclusion
 
 A high level host function specific for
-[bls_fast_aggregate_verify](https://github.com/Snowfork/snowbridge/blob/8891ca3cdcf2e04d8118c206588c956541ae4710/parachain/pallets/ethereum-beacon-client/src/lib.rs#L764)
+[bls_fast_aggregate_verify](https://github.com/Snowfork/snowbridge/blob/8891ca3cdcf2e04d8118c206588c956541ae4710/parachain/pallets/ethereum-client/src/lib.rs#L764)
 is super helpful.
