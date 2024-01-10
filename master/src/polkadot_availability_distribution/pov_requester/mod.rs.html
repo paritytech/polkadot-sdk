@@ -249,6 +249,10 @@
 <a href="#249" id="249">249</a>
 <a href="#250" id="250">250</a>
 <a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -390,6 +394,7 @@
 	<span class="kw">use </span>futures::{executor, future};
 
 	<span class="kw">use </span>parity_scale_codec::Encode;
+	<span class="kw">use </span>sc_network::ProtocolName;
 	<span class="kw">use </span>sp_core::testing::TaskExecutor;
 
 	<span class="kw">use </span>polkadot_node_primitives::BlockData;
@@ -482,7 +487,10 @@
 							<span class="prelude-val">Some</span>(Requests::PoVFetchingV1(outgoing)) =&gt; {outgoing}
 						);
 						req.pending_response
-							.send(<span class="prelude-val">Ok</span>(PoVFetchingResponse::PoV(pov.clone()).encode()))
+							.send(<span class="prelude-val">Ok</span>((
+								PoVFetchingResponse::PoV(pov.clone()).encode(),
+								ProtocolName::from(<span class="string">&quot;&quot;</span>),
+							)))
 							.unwrap();
 						<span class="kw">break
 					</span>},

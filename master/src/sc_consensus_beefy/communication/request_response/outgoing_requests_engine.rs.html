@@ -271,6 +271,7 @@
 <a href="#271" id="271">271</a>
 <a href="#272" id="272">272</a>
 <a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -316,7 +317,7 @@
 };
 
 <span class="doccomment">/// Response type received from network.
-</span><span class="kw">type </span>Response = <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, RequestFailure&gt;;
+</span><span class="kw">type </span>Response = <span class="prelude-ty">Result</span>&lt;(Vec&lt;u8&gt;, ProtocolName), RequestFailure&gt;;
 <span class="doccomment">/// Used to receive a response from the network.
 </span><span class="kw">type </span>ResponseReceiver = oneshot::Receiver&lt;Response&gt;;
 
@@ -398,6 +399,7 @@
 			peer,
 			<span class="self">self</span>.protocol_name.clone(),
 			payload,
+			<span class="prelude-val">None</span>,
 			tx,
 			IfDisconnected::ImmediateError,
 		);
@@ -477,7 +479,7 @@
 					},
 				}
 			})
-			.and_then(|encoded| {
+			.and_then(|(encoded, <span class="kw">_</span>)| {
 				decode_and_verify_finality_proof::&lt;B&gt;(
 					<span class="kw-2">&amp;</span>encoded[..],
 					req_info.block,

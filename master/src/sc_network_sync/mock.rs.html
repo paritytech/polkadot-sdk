@@ -67,7 +67,7 @@
 
 <span class="kw">use </span>futures::channel::oneshot;
 <span class="kw">use </span>libp2p::PeerId;
-<span class="kw">use </span>sc_network::RequestFailure;
+<span class="kw">use </span>sc_network::{ProtocolName, RequestFailure};
 <span class="kw">use </span>sc_network_common::sync::message::{BlockData, BlockRequest};
 <span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 
@@ -80,7 +80,7 @@
 			<span class="kw-2">&amp;</span><span class="self">self</span>,
 			who: PeerId,
 			request: BlockRequest&lt;Block&gt;,
-		) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, RequestFailure&gt;, oneshot::Canceled&gt;;
+		) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;(Vec&lt;u8&gt;, ProtocolName), RequestFailure&gt;, oneshot::Canceled&gt;;
 		<span class="kw">fn </span>block_response_into_blocks(
 			<span class="kw-2">&amp;</span><span class="self">self</span>,
 			request: <span class="kw-2">&amp;</span>BlockRequest&lt;Block&gt;,

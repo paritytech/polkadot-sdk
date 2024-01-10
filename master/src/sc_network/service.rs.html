@@ -1748,6 +1748,12 @@
 <a href="#1748" id="1748">1748</a>
 <a href="#1749" id="1749">1749</a>
 <a href="#1750" id="1750">1750</a>
+<a href="#1751" id="1751">1751</a>
+<a href="#1752" id="1752">1752</a>
+<a href="#1753" id="1753">1753</a>
+<a href="#1754" id="1754">1754</a>
+<a href="#1755" id="1755">1755</a>
+<a href="#1756" id="1756">1756</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2798,11 +2804,12 @@
 		target: PeerId,
 		protocol: ProtocolName,
 		request: Vec&lt;u8&gt;,
+		fallback_request: <span class="prelude-ty">Option</span>&lt;(Vec&lt;u8&gt;, ProtocolName)&gt;,
 		connect: IfDisconnected,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, RequestFailure&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;u8&gt;, ProtocolName), RequestFailure&gt; {
 		<span class="kw">let </span>(tx, rx) = oneshot::channel();
 
-		<span class="self">self</span>.start_request(target, protocol, request, tx, connect);
+		<span class="self">self</span>.start_request(target, protocol, request, fallback_request, tx, connect);
 
 		<span class="kw">match </span>rx.<span class="kw">await </span>{
 			<span class="prelude-val">Ok</span>(v) =&gt; v,
@@ -2818,13 +2825,15 @@
 		target: PeerId,
 		protocol: ProtocolName,
 		request: Vec&lt;u8&gt;,
-		tx: oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, RequestFailure&gt;&gt;,
+		fallback_request: <span class="prelude-ty">Option</span>&lt;(Vec&lt;u8&gt;, ProtocolName)&gt;,
+		tx: oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;(Vec&lt;u8&gt;, ProtocolName), RequestFailure&gt;&gt;,
 		connect: IfDisconnected,
 	) {
 		<span class="kw">let _ </span>= <span class="self">self</span>.to_worker.unbounded_send(ServiceToWorkerMsg::Request {
 			target,
 			protocol: protocol.into(),
 			request,
+			fallback_request,
 			pending_response: tx,
 			connect,
 		});
@@ -2910,7 +2919,8 @@
 		target: PeerId,
 		protocol: ProtocolName,
 		request: Vec&lt;u8&gt;,
-		pending_response: oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, RequestFailure&gt;&gt;,
+		fallback_request: <span class="prelude-ty">Option</span>&lt;(Vec&lt;u8&gt;, ProtocolName)&gt;,
+		pending_response: oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;(Vec&lt;u8&gt;, ProtocolName), RequestFailure&gt;&gt;,
 		connect: IfDisconnected,
 	},
 	NetworkStatus {
@@ -3037,13 +3047,15 @@
 				target,
 				protocol,
 				request,
+				fallback_request,
 				pending_response,
 				connect,
 			} =&gt; {
 				<span class="self">self</span>.network_service.behaviour_mut().send_request(
 					<span class="kw-2">&amp;</span>target,
-					<span class="kw-2">&amp;</span>protocol,
+					protocol,
 					request,
+					fallback_request,
 					pending_response,
 					connect,
 				);

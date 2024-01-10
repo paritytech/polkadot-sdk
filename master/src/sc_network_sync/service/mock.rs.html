@@ -139,6 +139,8 @@
 <a href="#139" id="139">139</a>
 <a href="#140" id="140">140</a>
 <a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -258,14 +260,16 @@
 			target: PeerId,
 			protocol: ProtocolName,
 			request: Vec&lt;u8&gt;,
+			fallback_request: <span class="prelude-ty">Option</span>&lt;(Vec&lt;u8&gt;, ProtocolName)&gt;,
 			connect: IfDisconnected,
-		) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, RequestFailure&gt;;
+		) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;u8&gt;, ProtocolName), RequestFailure&gt;;
 		<span class="kw">fn </span>start_request(
 			<span class="kw-2">&amp;</span><span class="self">self</span>,
 			target: PeerId,
 			protocol: ProtocolName,
 			request: Vec&lt;u8&gt;,
-			tx: oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, RequestFailure&gt;&gt;,
+			fallback_request: <span class="prelude-ty">Option</span>&lt;(Vec&lt;u8&gt;, ProtocolName)&gt;,
+			tx: oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;(Vec&lt;u8&gt;, ProtocolName), RequestFailure&gt;&gt;,
 			connect: IfDisconnected,
 		);
 	}

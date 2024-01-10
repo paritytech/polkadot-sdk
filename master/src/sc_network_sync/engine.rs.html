@@ -2706,7 +2706,7 @@
 		<span class="kw">let </span>ResponseEvent { peer_id, request, response } = response_event;
 
 		<span class="kw">match </span>response {
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(resp)) =&gt; <span class="kw">match </span>request {
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>((resp, <span class="kw">_</span>))) =&gt; <span class="kw">match </span>request {
 				PeerRequest::Block(req) =&gt; {
 					<span class="kw">match </span><span class="self">self</span>.block_downloader.block_response_into_blocks(<span class="kw-2">&amp;</span>req, resp) {
 						<span class="prelude-val">Ok</span>(blocks) =&gt; {

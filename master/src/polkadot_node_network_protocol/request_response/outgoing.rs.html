@@ -189,6 +189,27 @@
 <a href="#189" id="189">189</a>
 <a href="#190" id="190">190</a>
 <a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -205,8 +226,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span>futures::{channel::oneshot, prelude::Future};
+</span><span class="kw">use </span>futures::{channel::oneshot, prelude::Future, FutureExt};
 
+<span class="kw">use </span>network::ProtocolName;
 <span class="kw">use </span>parity_scale_codec::{Decode, Encode, Error <span class="kw">as </span>DecodingError};
 
 <span class="kw">use </span>sc_network <span class="kw">as </span>network;
@@ -240,20 +262,6 @@
 }
 
 <span class="kw">impl </span>Requests {
-	<span class="doccomment">/// Get the protocol this request conforms to.
-	</span><span class="kw">pub fn </span>get_protocol(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Protocol {
-		<span class="kw">match </span><span class="self">self </span>{
-			<span class="self">Self</span>::ChunkFetchingV1(<span class="kw">_</span>) =&gt; Protocol::ChunkFetchingV1,
-			<span class="self">Self</span>::CollationFetchingV1(<span class="kw">_</span>) =&gt; Protocol::CollationFetchingV1,
-			<span class="self">Self</span>::CollationFetchingV2(<span class="kw">_</span>) =&gt; Protocol::CollationFetchingV2,
-			<span class="self">Self</span>::PoVFetchingV1(<span class="kw">_</span>) =&gt; Protocol::PoVFetchingV1,
-			<span class="self">Self</span>::AvailableDataFetchingV1(<span class="kw">_</span>) =&gt; Protocol::AvailableDataFetchingV1,
-			<span class="self">Self</span>::StatementFetchingV1(<span class="kw">_</span>) =&gt; Protocol::StatementFetchingV1,
-			<span class="self">Self</span>::DisputeSendingV1(<span class="kw">_</span>) =&gt; Protocol::DisputeSendingV1,
-			<span class="self">Self</span>::AttestedCandidateV2(<span class="kw">_</span>) =&gt; Protocol::AttestedCandidateV2,
-		}
-	}
-
 	<span class="doccomment">/// Encode the request.
 	///
 	/// The corresponding protocol is returned as well, as we are now leaving typed territory.
@@ -276,7 +284,7 @@
 }
 
 <span class="doccomment">/// Used by the network to send us a response to a request.
-</span><span class="kw">pub type </span>ResponseSender = oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, network::RequestFailure&gt;&gt;;
+</span><span class="kw">pub type </span>ResponseSender = oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;(Vec&lt;u8&gt;, ProtocolName), network::RequestFailure&gt;&gt;;
 
 <span class="doccomment">/// Any error that can occur when sending a request.
 </span><span class="attr">#[derive(Debug, thiserror::Error)]
@@ -319,11 +327,13 @@
 /// When using `Recipient::Authority`, the addresses can be found thanks to the authority
 /// discovery system.
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>OutgoingRequest&lt;Req&gt; {
+</span><span class="kw">pub struct </span>OutgoingRequest&lt;Req, FallbackReq = Req&gt; {
 	<span class="doccomment">/// Intended recipient of this request.
 	</span><span class="kw">pub </span>peer: Recipient,
 	<span class="doccomment">/// The actual request to send over the wire.
 	</span><span class="kw">pub </span>payload: Req,
+	<span class="doccomment">/// Optional fallback request and protocol.
+	</span><span class="kw">pub </span>fallback_request: <span class="prelude-ty">Option</span>&lt;(FallbackReq, Protocol)&gt;,
 	<span class="doccomment">/// Sender which is used by networking to get us back a response.
 	</span><span class="kw">pub </span>pending_response: ResponseSender,
 }
@@ -340,10 +350,12 @@
 <span class="doccomment">/// Responses received for an `OutgoingRequest`.
 </span><span class="kw">pub type </span>OutgoingResult&lt;Res&gt; = <span class="prelude-ty">Result</span>&lt;Res, RequestError&gt;;
 
-<span class="kw">impl</span>&lt;Req&gt; OutgoingRequest&lt;Req&gt;
+<span class="kw">impl</span>&lt;Req, FallbackReq&gt; OutgoingRequest&lt;Req, FallbackReq&gt;
 <span class="kw">where
 	</span>Req: IsRequest + Encode,
 	Req::Response: Decode,
+	FallbackReq: IsRequest + Encode,
+	FallbackReq::Response: Decode,
 {
 	<span class="doccomment">/// Create a new `OutgoingRequest`.
 	///
@@ -354,24 +366,54 @@
 		payload: Req,
 	) -&gt; (<span class="self">Self</span>, <span class="kw">impl </span>Future&lt;Output = OutgoingResult&lt;Req::Response&gt;&gt;) {
 		<span class="kw">let </span>(tx, rx) = oneshot::channel();
-		<span class="kw">let </span>r = <span class="self">Self </span>{ peer, payload, pending_response: tx };
-		(r, receive_response::&lt;Req&gt;(rx))
+		<span class="kw">let </span>r = <span class="self">Self </span>{ peer, payload, pending_response: tx, fallback_request: <span class="prelude-val">None </span>};
+		(r, receive_response::&lt;Req&gt;(rx.map(|r| r.map(|r| r.map(|(resp, <span class="kw">_</span>)| resp)))))
 	}
 
-	<span class="doccomment">/// Encode a request into a `Vec&lt;u8&gt;`.
+	<span class="doccomment">/// Create a new `OutgoingRequest` with a fallback in case the remote does not support this
+	/// protocol. Useful when adding a new version of a req-response protocol, to achieve
+	/// compatibility with the older version.
+	///
+	/// Returns a raw `Vec&lt;u8&gt;` response over the channel. Use the associated `ProtocolName` to know
+	/// which request was the successful one and appropriately decode the response.
+	</span><span class="comment">// WARNING: This is commented for now because it&#39;s not used yet.
+	// If you need it, make sure to test it. You may need to enable the V1 substream upgrade
+	// protocol, unless libp2p was in the meantime updated to a version that fixes the problem
+	// described in https://github.com/libp2p/rust-libp2p/issues/5074
+	// pub fn new_with_fallback(
+	// 	peer: Recipient,
+	// 	payload: Req,
+	// 	fallback_request: FallbackReq,
+	// ) -&gt; (Self, impl Future&lt;Output = OutgoingResult&lt;(Vec&lt;u8&gt;, ProtocolName)&gt;&gt;) {
+	// 	let (tx, rx) = oneshot::channel();
+	// 	let r = Self {
+	// 		peer,
+	// 		payload,
+	// 		pending_response: tx,
+	// 		fallback_request: Some((fallback_request, FallbackReq::PROTOCOL)),
+	// 	};
+	// 	(r, async { Ok(rx.await??) })
+	// }
+
+	</span><span class="doccomment">/// Encode a request into a `Vec&lt;u8&gt;`.
 	///
 	/// As this throws away type information, we also return the `Protocol` this encoded request
 	/// adheres to.
 	</span><span class="kw">pub fn </span>encode_request(<span class="self">self</span>) -&gt; (Protocol, OutgoingRequest&lt;Vec&lt;u8&gt;&gt;) {
-		<span class="kw">let </span>OutgoingRequest { peer, payload, pending_response } = <span class="self">self</span>;
-		<span class="kw">let </span>encoded = OutgoingRequest { peer, payload: payload.encode(), pending_response };
+		<span class="kw">let </span>OutgoingRequest { peer, payload, pending_response, fallback_request } = <span class="self">self</span>;
+		<span class="kw">let </span>encoded = OutgoingRequest {
+			peer,
+			payload: payload.encode(),
+			fallback_request: fallback_request.map(|(r, p)| (r.encode(), p)),
+			pending_response,
+		};
 		(Req::PROTOCOL, encoded)
 	}
 }
 
 <span class="doccomment">/// Future for actually receiving a typed response for an `OutgoingRequest`.
 </span><span class="kw">async fn </span>receive_response&lt;Req&gt;(
-	rec: oneshot::Receiver&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, network::RequestFailure&gt;&gt;,
+	rec: <span class="kw">impl </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, network::RequestFailure&gt;, oneshot::Canceled&gt;&gt;,
 ) -&gt; OutgoingResult&lt;Req::Response&gt;
 <span class="kw">where
 	</span>Req: IsRequest,

@@ -1181,7 +1181,7 @@
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		who: PeerId,
 		request: BlockRequest&lt;B&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, RequestFailure&gt;, oneshot::Canceled&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;(Vec&lt;u8&gt;, ProtocolName), RequestFailure&gt;, oneshot::Canceled&gt; {
 		<span class="comment">// Build the request protobuf.
 		</span><span class="kw">let </span>bytes = BlockRequestSchema {
 			fields: request.fields.to_be_u32(),

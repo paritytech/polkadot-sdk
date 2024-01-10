@@ -236,7 +236,7 @@
 		PeerId,
 		ProtocolName,
 		Vec&lt;u8&gt;,
-		oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, RequestFailure&gt;&gt;,
+		oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;(Vec&lt;u8&gt;, ProtocolName), RequestFailure&gt;&gt;,
 		IfDisconnected,
 	),
 
@@ -276,7 +276,7 @@
 		who: PeerId,
 		protocol: ProtocolName,
 		request: Vec&lt;u8&gt;,
-		tx: oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, RequestFailure&gt;&gt;,
+		tx: oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;(Vec&lt;u8&gt;, ProtocolName), RequestFailure&gt;&gt;,
 		connect: IfDisconnected,
 	) {
 		<span class="kw">let _ </span>= <span class="self">self
@@ -316,7 +316,7 @@
 				ToServiceCommand::ReportPeer(peer, reputation_change) =&gt;
 					service.report_peer(peer, reputation_change),
 				ToServiceCommand::StartRequest(peer, protocol, request, tx, connect) =&gt;
-					service.start_request(peer, protocol, request, tx, connect),
+					service.start_request(peer, protocol, request, <span class="prelude-val">None</span>, tx, connect),
 				ToServiceCommand::WriteNotification(peer, protocol, message) =&gt;
 					service.write_notification(peer, protocol, message),
 				ToServiceCommand::SetNotificationHandshake(protocol, handshake) =&gt;

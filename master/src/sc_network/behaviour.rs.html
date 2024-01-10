@@ -348,6 +348,13 @@
 <a href="#348" id="348">348</a>
 <a href="#349" id="349">349</a>
 <a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -581,13 +588,20 @@
 	</span><span class="kw">pub fn </span>send_request(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		target: <span class="kw-2">&amp;</span>PeerId,
-		protocol: <span class="kw-2">&amp;</span>str,
+		protocol: ProtocolName,
 		request: Vec&lt;u8&gt;,
-		pending_response: oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, RequestFailure&gt;&gt;,
+		fallback_request: <span class="prelude-ty">Option</span>&lt;(Vec&lt;u8&gt;, ProtocolName)&gt;,
+		pending_response: oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;(Vec&lt;u8&gt;, ProtocolName), RequestFailure&gt;&gt;,
 		connect: IfDisconnected,
 	) {
-		<span class="self">self</span>.request_responses
-			.send_request(target, protocol, request, pending_response, connect)
+		<span class="self">self</span>.request_responses.send_request(
+			target,
+			protocol,
+			request,
+			fallback_request,
+			pending_response,
+			connect,
+		)
 	}
 
 	<span class="doccomment">/// Returns a shared reference to the user protocol.

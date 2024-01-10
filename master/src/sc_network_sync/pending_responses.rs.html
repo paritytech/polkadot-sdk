@@ -160,7 +160,7 @@
 };
 <span class="kw">use </span>libp2p::PeerId;
 <span class="kw">use </span>log::error;
-<span class="kw">use </span>sc_network::request_responses::RequestFailure;
+<span class="kw">use </span>sc_network::{request_responses::RequestFailure, types::ProtocolName};
 <span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 <span class="kw">use </span>std::task::{Context, Poll, Waker};
 <span class="kw">use </span>tokio_stream::StreamMap;
@@ -169,7 +169,7 @@
 </span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;sync&quot;</span>;
 
 <span class="doccomment">/// Response result.
-</span><span class="kw">type </span>ResponseResult = <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, RequestFailure&gt;, oneshot::Canceled&gt;;
+</span><span class="kw">type </span>ResponseResult = <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;(Vec&lt;u8&gt;, ProtocolName), RequestFailure&gt;, oneshot::Canceled&gt;;
 
 <span class="doccomment">/// A future yielding [`ResponseResult`].
 </span><span class="kw">type </span>ResponseFuture = BoxFuture&lt;<span class="lifetime">&#39;static</span>, ResponseResult&gt;;

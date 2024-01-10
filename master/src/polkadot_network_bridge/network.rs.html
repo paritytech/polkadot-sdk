@@ -348,6 +348,9 @@
 <a href="#348" id="348">348</a>
 <a href="#349" id="349">349</a>
 <a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -614,7 +617,8 @@
 		req_protocol_names: <span class="kw-2">&amp;</span>ReqProtocolNames,
 		if_disconnected: IfDisconnected,
 	) {
-		<span class="kw">let </span>(protocol, OutgoingRequest { peer, payload, pending_response }) = req.encode_request();
+		<span class="kw">let </span>(protocol, OutgoingRequest { peer, payload, pending_response, fallback_request }) =
+			req.encode_request();
 
 		<span class="kw">let </span>peer_id = <span class="kw">match </span>peer {
 			Recipient::Peer(peer_id) =&gt; <span class="prelude-val">Some</span>(peer_id),
@@ -665,6 +669,7 @@
 			target: LOG_TARGET,
 			%peer_id,
 			protocol = %req_protocol_names.get_name(protocol),
+			fallback_protocol = <span class="question-mark">?</span>fallback_request.as_ref().map(|(<span class="kw">_</span>, p)| req_protocol_names.get_name(<span class="kw-2">*</span>p)),
 			<span class="question-mark">?</span>if_disconnected,
 			<span class="string">&quot;Starting request&quot;</span>,
 		);
@@ -674,6 +679,7 @@
 			peer_id,
 			req_protocol_names.get_name(protocol),
 			payload,
+			fallback_request.map(|(r, p)| (r, req_protocol_names.get_name(p))),
 			pending_response,
 			if_disconnected,
 		);

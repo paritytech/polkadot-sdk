@@ -817,6 +817,16 @@
 <a href="#817" id="817">817</a>
 <a href="#818" id="818">818</a>
 <a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 //
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1370,8 +1380,9 @@
 		target: PeerId,
 		protocol: ProtocolName,
 		request: Vec&lt;u8&gt;,
+		fallback_request: <span class="prelude-ty">Option</span>&lt;(Vec&lt;u8&gt;, ProtocolName)&gt;,
 		connect: IfDisconnected,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, RequestFailure&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;u8&gt;, ProtocolName), RequestFailure&gt;;
 
 	<span class="doccomment">/// Variation of `request` which starts a request whose response is delivered on a provided
 	/// channel.
@@ -1388,7 +1399,8 @@
 		target: PeerId,
 		protocol: ProtocolName,
 		request: Vec&lt;u8&gt;,
-		tx: oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, RequestFailure&gt;&gt;,
+		fallback_request: <span class="prelude-ty">Option</span>&lt;(Vec&lt;u8&gt;, ProtocolName)&gt;,
+		tx: oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;(Vec&lt;u8&gt;, ProtocolName), RequestFailure&gt;&gt;,
 		connect: IfDisconnected,
 	);
 }
@@ -1404,13 +1416,20 @@
 		target: PeerId,
 		protocol: ProtocolName,
 		request: Vec&lt;u8&gt;,
+		fallback_request: <span class="prelude-ty">Option</span>&lt;(Vec&lt;u8&gt;, ProtocolName)&gt;,
 		connect: IfDisconnected,
-	) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, RequestFailure&gt;&gt; + Send + <span class="lifetime">&#39;async_trait</span>&gt;&gt;
+	) -&gt; Pin&lt;
+		Box&lt;
+			<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;(Vec&lt;u8&gt;, ProtocolName), RequestFailure&gt;&gt;
+				+ Send
+				+ <span class="lifetime">&#39;async_trait</span>,
+		&gt;,
+	&gt;
 	<span class="kw">where
 		</span><span class="lifetime">&#39;life0</span>: <span class="lifetime">&#39;async_trait</span>,
 		<span class="self">Self</span>: <span class="lifetime">&#39;async_trait</span>,
 	{
-		T::request(<span class="self">self</span>, target, protocol, request, connect)
+		T::request(<span class="self">self</span>, target, protocol, request, fallback_request, connect)
 	}
 
 	<span class="kw">fn </span>start_request(
@@ -1418,10 +1437,11 @@
 		target: PeerId,
 		protocol: ProtocolName,
 		request: Vec&lt;u8&gt;,
-		tx: oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, RequestFailure&gt;&gt;,
+		fallback_request: <span class="prelude-ty">Option</span>&lt;(Vec&lt;u8&gt;, ProtocolName)&gt;,
+		tx: oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;(Vec&lt;u8&gt;, ProtocolName), RequestFailure&gt;&gt;,
 		connect: IfDisconnected,
 	) {
-		T::start_request(<span class="self">self</span>, target, protocol, request, tx, connect)
+		T::start_request(<span class="self">self</span>, target, protocol, request, fallback_request, tx, connect)
 	}
 }
 
