@@ -38,7 +38,7 @@ use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
 use sp_core::crypto::Pair;
 use sp_runtime::{generic, traits::Block as BlockT, SaturatedConversion};
-use std::sync::Arc;
+use std::{path::Path, sync::Arc};
 
 /// Host functions required for kitchensink runtime and Substrate node.
 #[cfg(not(feature = "runtime-benchmarks"))]
@@ -769,16 +769,18 @@ pub fn new_full_base(
 /// Builds a new service for a full client.
 pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceError> {
 	let mixnet_config = cli.mixnet_params.config(config.role.is_authority());
-	let database_source = config.database.clone();
+	let database_path = config.database.path().map(Path::to_path_buf);
 	let task_manager = new_full_base(config, mixnet_config, cli.no_hardware_benchmarks, |_, _| ())
 		.map(|NewFullBase { task_manager, .. }| task_manager)?;
 
-	sc_storage_monitor::StorageMonitorService::try_spawn(
-		cli.storage_monitor,
-		database_source,
-		&task_manager.spawn_essential_handle(),
-	)
-	.map_err(|e| ServiceError::Application(e.into()))?;
+	if let Some(database_path) = database_path {
+		sc_storage_monitor::StorageMonitorService::try_spawn(
+			cli.storage_monitor,
+			database_path,
+			&task_manager.spawn_essential_handle(),
+		)
+		.map_err(|e| ServiceError::Application(e.into()))?;
+	}
 
 	Ok(task_manager)
 }
