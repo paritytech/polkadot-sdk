@@ -382,7 +382,11 @@ pub mod pallet {
 			ensure!(at_rank > 0, Error::<T, I>::InvalidRank);
 			let rank = T::Members::rank_of(&who).ok_or(Error::<T, I>::Unranked)?;
 			ensure!(rank == at_rank, Error::<T, I>::UnexpectedRank);
-			let mut member = Member::<T, I>::get(&who).ok_or(Error::<T, I>::NotTracked)?;
+			let mut member = if let Some(m) = Member::<T, I>::get(&who) {
+				m
+			} else {
+				Self::import_member(who.clone(), rank)
+			};
 
 			member.last_proof = frame_system::Pallet::<T>::block_number();
 			Member::<T, I>::insert(&who, &member);
@@ -518,13 +522,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			ensure!(!Member::<T, I>::contains_key(&who), Error::<T, I>::AlreadyInducted);
 			let rank = T::Members::rank_of(&who).ok_or(Error::<T, I>::Unranked)?;
-
-			let now = frame_system::Pallet::<T>::block_number();
-			Member::<T, I>::insert(
-				&who,
-				MemberStatus { is_active: true, last_promotion: 0u32.into(), last_proof: now },
-			);
-			Self::deposit_event(Event::<T, I>::Imported { who, rank });
+			let _ = Self::import_member(who, rank);
 
 			Ok(Pays::No.into())
 		}
@@ -547,6 +545,18 @@ pub mod pallet {
 				let e = Event::<T, I>::EvidenceJudged { who, wish, evidence, old_rank, new_rank };
 				Self::deposit_event(e);
 			}
+		}
+
+		fn import_member(who: T::AccountId, rank: RankOf<T, I>) -> MemberStatusOf<T> {
+			let now = frame_system::Pallet::<T>::block_number();
+			let status = MemberStatus {
+				is_active: true,
+				last_promotion: BlockNumberFor::<T>::zero(),
+				last_proof: now,
+			};
+			Member::<T, I>::insert(&who, status.clone());
+			Self::deposit_event(Event::<T, I>::Imported { who, rank });
+			status
 		}
 	}
 
