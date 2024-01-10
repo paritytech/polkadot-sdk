@@ -95,7 +95,7 @@ impl Identity {
 			relay: IdentityInfo {
 				display: make_data(b"xcm-test", full),
 				legal: make_data(b"The Xcm Test, Esq.", full),
-				web: make_data(b"https://xcm-test.io", full),
+				web: make_data(b"https://visitme/", full),
 				riot: make_data(b"xcm-riot", full),
 				email: make_data(b"xcm-test@gmail.com", full),
 				pgp_fingerprint: Some(pgp_fingerprint),
@@ -106,7 +106,7 @@ impl Identity {
 			para: IdentityInfoParachain {
 				display: make_data(b"xcm-test", full),
 				legal: make_data(b"The Xcm Test, Esq.", full),
-				web: make_data(b"https://xcm-test.io", full),
+				web: make_data(b"https://visitme/", full),
 				matrix: make_data(b"xcm-matrix@server", full),
 				email: make_data(b"xcm-test@gmail.com", full),
 				pgp_fingerprint: Some(pgp_fingerprint),
