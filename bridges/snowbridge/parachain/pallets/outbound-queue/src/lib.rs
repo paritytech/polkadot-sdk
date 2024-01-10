@@ -109,7 +109,7 @@ use sp_runtime::{
 	DigestItem,
 };
 use sp_std::prelude::*;
-pub use types::{CommittedMessage, FeeConfigRecord, ProcessMessageOriginOf};
+pub use types::{CommittedMessage, ProcessMessageOriginOf};
 pub use weights::WeightInfo;
 
 pub use pallet::*;
@@ -186,12 +186,7 @@ pub mod pallet {
 			count: u64,
 		},
 		/// Set OperatingMode
-		OperatingModeChanged {
-			mode: BasicOperatingMode,
-		},
-		FeeConfigChanged {
-			fee_config: FeeConfigRecord,
-		},
+		OperatingModeChanged { mode: BasicOperatingMode },
 	}
 
 	#[pallet::error]
@@ -200,8 +195,6 @@ pub mod pallet {
 		MessageTooLarge,
 		/// The pallet is halted
 		Halted,
-		// Invalid fee config
-		InvalidFeeConfig,
 		/// Invalid Channel
 		InvalidChannel,
 	}

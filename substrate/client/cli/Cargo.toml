@@ -18,7 +18,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 array-bytes = "6.1"
 chrono = "0.4.31"
-clap = { version = "4.4.13", features = ["derive", "string", "wrap_help"] }
+clap = { version = "4.4.14", features = ["derive", "string", "wrap_help"] }
 fdlimit = "0.3.0"
 futures = "0.3.21"
 itertools = "0.10.3"
