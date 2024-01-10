@@ -429,6 +429,8 @@
 <a href="#429" id="429">429</a>
 <a href="#430" id="430">430</a>
 <a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -815,10 +817,12 @@
 	tempdir: tempfile::TempDir,
 }
 
+<span class="kw">pub const </span>WORKER_DIR_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">&quot;worker-dir&quot;</span>;
+
 <span class="kw">impl </span>WorkerDir {
 	<span class="doccomment">/// Creates a new, empty worker dir with a random name in the given cache dir.
 	</span><span class="kw">pub async fn </span>new(debug_id: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, cache_dir: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, SpawnErr&gt; {
-		<span class="kw">let </span>prefix = <span class="macro">format!</span>(<span class="string">&quot;worker-dir-{}-&quot;</span>, debug_id);
+		<span class="kw">let </span>prefix = <span class="macro">format!</span>(<span class="string">&quot;{WORKER_DIR_PREFIX}-{debug_id}-&quot;</span>);
 		<span class="kw">let </span>tempdir = tempfile::Builder::new()
 			.prefix(<span class="kw-2">&amp;</span>prefix)
 			.tempdir_in(cache_dir)

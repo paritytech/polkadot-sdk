@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["RUNTIME_VERSION"],"fn":["framed_recv_blocking","framed_send_blocking"],"macro":["decl_worker_main"],"mod":["error","execute","executor_interface","prepare","pvf","worker","worker_dir"],"struct":["ProcessTime","SecurityStatus","WorkerHandshake"]};
+window.SIDEBAR_ITEMS = {"fn":["framed_recv_blocking","framed_send_blocking"],"macro":["decl_worker_main"],"mod":["error","execute","executor_interface","prepare","pvf","worker","worker_dir"],"struct":["ProcessTime","SecurityStatus","WorkerHandshake"]};

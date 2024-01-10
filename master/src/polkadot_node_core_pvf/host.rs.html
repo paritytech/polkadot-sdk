@@ -1708,11 +1708,6 @@
 <a href="#1708" id="1708">1708</a>
 <a href="#1709" id="1709">1709</a>
 <a href="#1710" id="1710">1710</a>
-<a href="#1711" id="1711">1711</a>
-<a href="#1712" id="1712">1712</a>
-<a href="#1713" id="1713">1713</a>
-<a href="#1714" id="1714">1714</a>
-<a href="#1715" id="1715">1715</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1933,7 +1928,7 @@
 	<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>config, <span class="string">&quot;starting PVF validation host&quot;</span>);
 
 	<span class="comment">// Make sure the cache is initialized before doing anything else.
-	</span><span class="kw">let </span>artifacts = Artifacts::new_and_prune(<span class="kw-2">&amp;</span>config.cache_path).<span class="kw">await</span>;
+	</span><span class="kw">let </span>artifacts = Artifacts::new(<span class="kw-2">&amp;</span>config.cache_path).<span class="kw">await</span>;
 
 	<span class="comment">// Run checks for supported security features once per host startup. If some checks fail, warn
 	// if Secure Validator Mode is disabled and return an error otherwise.
@@ -2599,14 +2594,13 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use </span><span class="kw">crate</span>::PossiblyInvalidError;
+	<span class="kw">use crate</span>::{artifacts::generate_artifact_path, PossiblyInvalidError};
 	<span class="kw">use </span>assert_matches::assert_matches;
 	<span class="kw">use </span>futures::future::BoxFuture;
 	<span class="kw">use </span>polkadot_node_core_pvf_common::{
 		error::PrepareError,
 		prepare::{PrepareStats, PrepareSuccess},
 	};
-	<span class="kw">use </span>sp_core::hexdisplay::AsBytesRef;
 
 	<span class="kw">const </span>TEST_EXECUTION_TIMEOUT: Duration = Duration::from_secs(<span class="number">3</span>);
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(<span class="number">30</span>);
@@ -2628,14 +2622,6 @@
 	<span class="doccomment">/// Creates a new PVF which artifact id can be uniquely identified by the given number.
 	</span><span class="kw">fn </span>artifact_id(discriminator: u32) -&gt; ArtifactId {
 		ArtifactId::from_pvf_prep_data(<span class="kw-2">&amp;</span>PvfPrepData::from_discriminator(discriminator))
-	}
-
-	<span class="kw">fn </span>artifact_path(discriminator: u32) -&gt; PathBuf {
-		<span class="kw">let </span>pvf = PvfPrepData::from_discriminator(discriminator);
-		<span class="kw">let </span>checksum = blake3::hash(pvf.code().as_bytes_ref());
-		artifact_id(discriminator)
-			.path(<span class="kw-2">&amp;</span>PathBuf::from(std::env::temp_dir()), checksum.to_hex().as_str())
-			.to_owned()
 	}
 
 	<span class="kw">struct </span>Builder {
@@ -2825,19 +2811,23 @@
 	<span class="attr">#[tokio::test]
 	</span><span class="kw">async fn </span>pruning() {
 		<span class="kw">let </span>mock_now = SystemTime::now() - Duration::from_millis(<span class="number">1000</span>);
+		<span class="kw">let </span>tempdir = tempfile::tempdir().unwrap();
+		<span class="kw">let </span>cache_path = tempdir.path();
 
 		<span class="kw">let </span><span class="kw-2">mut </span>builder = Builder::default();
 		builder.cleanup_pulse_interval = Duration::from_millis(<span class="number">100</span>);
 		builder.artifact_ttl = Duration::from_millis(<span class="number">500</span>);
+		<span class="kw">let </span>path1 = generate_artifact_path(cache_path);
+		<span class="kw">let </span>path2 = generate_artifact_path(cache_path);
 		builder.artifacts.insert_prepared(
 			artifact_id(<span class="number">1</span>),
-			artifact_path(<span class="number">1</span>),
+			path1.clone(),
 			mock_now,
 			PrepareStats::default(),
 		);
 		builder.artifacts.insert_prepared(
 			artifact_id(<span class="number">2</span>),
-			artifact_path(<span class="number">2</span>),
+			path2.clone(),
 			mock_now,
 			PrepareStats::default(),
 		);
@@ -2850,7 +2840,7 @@
 		run_until(
 			<span class="kw-2">&amp;mut </span>test.run,
 			<span class="kw">async </span>{
-				<span class="macro">assert_eq!</span>(to_sweeper_rx.next().<span class="kw">await</span>.unwrap(), artifact_path(<span class="number">2</span>));
+				<span class="macro">assert_eq!</span>(to_sweeper_rx.next().<span class="kw">await</span>.unwrap(), path2);
 			}
 			.boxed(),
 		)

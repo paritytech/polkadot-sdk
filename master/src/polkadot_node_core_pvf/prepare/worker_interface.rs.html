@@ -350,6 +350,11 @@
 <a href="#350" id="350">350</a>
 <a href="#351" id="351">351</a>
 <a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -369,7 +374,7 @@
 </span><span class="doccomment">//! Host interface to the prepare worker.
 
 </span><span class="kw">use crate</span>::{
-	artifacts::ArtifactId,
+	artifacts::generate_artifact_path,
 	metrics::Metrics,
 	worker_interface::{
 		clear_worker_dir_path, framed_recv, framed_send, spawn_with_program_path, IdleWorker,
@@ -517,7 +522,6 @@
 						prepare_worker_result,
 						pid,
 						tmp_artifact_file,
-						<span class="kw-2">&amp;</span>pvf,
 						<span class="kw-2">&amp;</span>cache_path,
 						preparation_timeout,
 					)
@@ -557,19 +561,22 @@
 	result: PrepareWorkerResult,
 	worker_pid: u32,
 	tmp_file: PathBuf,
-	pvf: <span class="kw-2">&amp;</span>PvfPrepData,
 	cache_path: <span class="kw-2">&amp;</span>Path,
 	preparation_timeout: Duration,
 ) -&gt; Outcome {
-	<span class="kw">let </span>PrepareWorkerSuccess { checksum, stats: PrepareStats { cpu_time_elapsed, memory_stats } } =
-		<span class="kw">match </span>result.clone() {
-			<span class="prelude-val">Ok</span>(result) =&gt; result,
-			<span class="comment">// Timed out on the child. This should already be logged by the child.
-			</span><span class="prelude-val">Err</span>(PrepareError::TimedOut) =&gt; <span class="kw">return </span>Outcome::TimedOut,
-			<span class="prelude-val">Err</span>(PrepareError::JobDied { err, job_pid }) =&gt; <span class="kw">return </span>Outcome::JobDied { err, job_pid },
-			<span class="prelude-val">Err</span>(PrepareError::OutOfMemory) =&gt; <span class="kw">return </span>Outcome::OutOfMemory,
-			<span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span>Outcome::Concluded { worker, result: <span class="prelude-val">Err</span>(err) },
-		};
+	<span class="comment">// TODO: Add `checksum` to `ArtifactPathId`. See:
+	//       https://github.com/paritytech/polkadot-sdk/issues/2399
+	</span><span class="kw">let </span>PrepareWorkerSuccess {
+		checksum: <span class="kw">_</span>,
+		stats: PrepareStats { cpu_time_elapsed, memory_stats },
+	} = <span class="kw">match </span>result.clone() {
+		<span class="prelude-val">Ok</span>(result) =&gt; result,
+		<span class="comment">// Timed out on the child. This should already be logged by the child.
+		</span><span class="prelude-val">Err</span>(PrepareError::TimedOut) =&gt; <span class="kw">return </span>Outcome::TimedOut,
+		<span class="prelude-val">Err</span>(PrepareError::JobDied { err, job_pid }) =&gt; <span class="kw">return </span>Outcome::JobDied { err, job_pid },
+		<span class="prelude-val">Err</span>(PrepareError::OutOfMemory) =&gt; <span class="kw">return </span>Outcome::OutOfMemory,
+		<span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span>Outcome::Concluded { worker, result: <span class="prelude-val">Err</span>(err) },
+	};
 
 	<span class="kw">if </span>cpu_time_elapsed &gt; preparation_timeout {
 		<span class="comment">// The job didn&#39;t complete within the timeout.
@@ -584,8 +591,11 @@
 		<span class="kw">return </span>Outcome::TimedOut
 	}
 
-	<span class="kw">let </span>artifact_id = ArtifactId::from_pvf_prep_data(pvf);
-	<span class="kw">let </span>artifact_path = artifact_id.path(cache_path, <span class="kw-2">&amp;</span>checksum);
+	<span class="comment">// The file name should uniquely identify the artifact even across restarts. In case the cache
+	// for some reason is not cleared correctly, we cannot
+	// accidentally execute an artifact compiled under a different wasmtime version, host
+	// environment, etc.
+	</span><span class="kw">let </span>artifact_path = generate_artifact_path(cache_path);
 
 	<span class="macro">gum::debug!</span>(
 		target: LOG_TARGET,
