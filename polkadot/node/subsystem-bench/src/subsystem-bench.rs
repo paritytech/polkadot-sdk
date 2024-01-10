@@ -250,7 +250,7 @@ fn valgrind_init() -> eyre::Result<()> {
 	std::process::Command::new("valgrind")
 		.arg("--tool=cachegrind")
 		.arg("--cache-sim=yes")
-		.arg("--instr-atstart=no")
+		.arg("--instr-at-start=no")
 		.args(std::env::args())
 		.exec();
 
