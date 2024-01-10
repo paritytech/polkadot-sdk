@@ -19,6 +19,7 @@ use codec::Decode;
 use cumulus_primitives_core::{
 	relay_chain, InboundDownwardMessage, InboundHrmpMessage, ParaId, PersistedValidationData,
 };
+use cumulus_primitives_parachain_inherent::MessageQueueChain;
 use sc_client_api::{Backend, StorageProvider};
 use sp_core::twox_128;
 use sp_inherents::{InherentData, InherentDataProvider};
@@ -168,7 +169,7 @@ impl<R: Send + Sync + GenerateRandomness<u64>> InherentDataProvider
 
 		// Process the downward messages and set up the correct head
 		let mut downward_messages = Vec::new();
-		let mut dmq_mqc = crate::MessageQueueChain(self.xcm_config.starting_dmq_mqc_head);
+		let mut dmq_mqc = MessageQueueChain::new(self.xcm_config.starting_dmq_mqc_head);
 		for msg in &self.raw_downward_messages {
 			let wrapped = InboundDownwardMessage { sent_at: relay_parent_number, msg: msg.clone() };
 
@@ -188,7 +189,7 @@ impl<R: Send + Sync + GenerateRandomness<u64>> InherentDataProvider
 
 		// Now iterate again, updating the heads as we go
 		for (para_id, messages) in &horizontal_messages {
-			let mut channel_mqc = crate::MessageQueueChain(
+			let mut channel_mqc = MessageQueueChain::new(
 				*self
 					.xcm_config
 					.starting_hrmp_mqc_heads
