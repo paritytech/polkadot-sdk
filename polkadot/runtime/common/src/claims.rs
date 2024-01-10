@@ -842,14 +842,11 @@ pub(super) mod tests {
 		type MoveClaimOrigin = frame_system::EnsureSignedBy<Six, u64>;
 		type WeightInfo = TestWeightInfo;
 		#[cfg(feature = "runtime-benchmarks")]
-		type BenchmarkHelper = Helper;
+		type BenchmarkHelper = ();
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	pub struct Helper;
-
-	#[cfg(feature = "runtime-benchmarks")]
-	impl BenchmarkHelperTrait<RuntimeCall, DispatchInfoOf<RuntimeCall>> for Helper {
+	impl BenchmarkHelperTrait<RuntimeCall, DispatchInfoOf<RuntimeCall>> for () {
 		fn default_call_and_info() -> (RuntimeCall, DispatchInfoOf<RuntimeCall>) {
 			let call = RuntimeCall::Claims(crate::claims::Call::attest {
 				statement: StatementKind::Regular.to_text().to_vec(),

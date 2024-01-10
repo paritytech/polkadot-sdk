@@ -146,6 +146,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[cfg(feature = "runtime-benchmarks")]
+	/// Helper trait to benchmark the `ChargeAssetTxPayment` transaction extension.
 	pub trait BenchmarkHelperTrait<AccountId, FunAssetIdParameter, AssetIdParameter> {
 		/// Returns the `AssetId` to be used in the liquidity pool by the benchmarking code.
 		fn create_asset_id_parameter(id: u32) -> (FunAssetIdParameter, AssetIdParameter);
