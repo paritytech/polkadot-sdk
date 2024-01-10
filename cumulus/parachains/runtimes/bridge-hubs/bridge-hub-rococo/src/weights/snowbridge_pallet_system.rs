@@ -27,12 +27,12 @@
 // pallet
 // --chain
 // bridge-hub-rococo-dev
-// --pallet=snowbridge_system
+// --pallet=snowbridge_pallet_system
 // --extrinsic=*
 // --execution=wasm
 // --wasm-execution=compiled
 // --output
-// parachains/runtimes/bridge-hubs/bridge-hub-rococo/src/weights/snowbridge_system.rs
+// parachains/runtimes/bridge-hubs/bridge-hub-rococo/src/weights/snowbridge_pallet_system.rs
 
 #![cfg_attr(rustfmt, rustfmt_skip)]
 #![allow(unused_parens)]
@@ -44,7 +44,7 @@ use core::marker::PhantomData;
 
 /// Weight functions for `snowbridge_system`.
 pub struct WeightInfo<T>(PhantomData<T>);
-impl<T: frame_system::Config> snowbridge_system::WeightInfo for WeightInfo<T> {
+impl<T: frame_system::Config> snowbridge_pallet_system::WeightInfo for WeightInfo<T> {
 	/// Storage: ParachainInfo ParachainId (r:1 w:0)
 	/// Proof: ParachainInfo ParachainId (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
 	/// Storage: EthereumOutboundQueue PalletOperatingMode (r:1 w:0)
