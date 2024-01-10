@@ -164,20 +164,24 @@ where
 	///
 	/// Returns a raw `Vec<u8>` response over the channel. Use the associated `ProtocolName` to know
 	/// which request was the successful one and appropriately decode the response.
-	pub fn new_with_fallback(
-		peer: Recipient,
-		payload: Req,
-		fallback_request: FallbackReq,
-	) -> (Self, impl Future<Output = OutgoingResult<(Vec<u8>, ProtocolName)>>) {
-		let (tx, rx) = oneshot::channel();
-		let r = Self {
-			peer,
-			payload,
-			pending_response: tx,
-			fallback_request: Some((fallback_request, FallbackReq::PROTOCOL)),
-		};
-		(r, async { Ok(rx.await??) })
-	}
+	// WARNING: This is commented for now because it's not used yet.
+	// If you need it, make sure to test it. You may need to enable the V1 substream upgrade
+	// protocol, unless libp2p was in the meantime updated to a version that fixes the problem
+	// described in https://github.com/libp2p/rust-libp2p/issues/5074
+	// pub fn new_with_fallback(
+	// 	peer: Recipient,
+	// 	payload: Req,
+	// 	fallback_request: FallbackReq,
+	// ) -> (Self, impl Future<Output = OutgoingResult<(Vec<u8>, ProtocolName)>>) {
+	// 	let (tx, rx) = oneshot::channel();
+	// 	let r = Self {
+	// 		peer,
+	// 		payload,
+	// 		pending_response: tx,
+	// 		fallback_request: Some((fallback_request, FallbackReq::PROTOCOL)),
+	// 	};
+	// 	(r, async { Ok(rx.await??) })
+	// }
 
 	/// Encode a request into a `Vec<u8>`.
 	///
