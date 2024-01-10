@@ -30,10 +30,7 @@ use polkadot_node_subsystem_util::metrics::prometheus::{
 };
 
 use sc_service::{SpawnTaskHandle, TaskManager};
-use std::{
-	fmt::Display,
-	net::{Ipv4Addr, SocketAddr},
-};
+use std::net::{Ipv4Addr, SocketAddr};
 use tokio::runtime::Handle;
 
 const LOG_TARGET: &str = "subsystem-bench::environment";

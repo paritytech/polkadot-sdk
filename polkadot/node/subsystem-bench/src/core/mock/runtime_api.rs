@@ -17,8 +17,7 @@
 //! A generic runtime api subsystem mockup suitable to be used in benchmarks.
 
 use polkadot_primitives::{
-	CandidateHash, CandidateReceipt, CoreState, GroupIndex, IndexedVec, OccupiedCore, SessionInfo,
-	ValidatorIndex,
+	CandidateReceipt, CoreState, GroupIndex, IndexedVec, OccupiedCore, SessionInfo, ValidatorIndex,
 };
 
 use bitvec::prelude::BitVec;

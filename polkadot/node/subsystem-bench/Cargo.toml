@@ -43,6 +43,9 @@ polkadot-erasure-coding = { package = "polkadot-erasure-coding", path = "../../e
 log = "0.4.17"
 env_logger = "0.9.0"
 rand = "0.8.5"
+# `rand` only supports uniform distribution, we need normal distribution for latency.
+rand_distr = "0.4.3"
+
 parity-scale-codec = { version = "3.6.1", features = ["std", "derive"] }
 tokio = "1.24.2"
 clap-num = "1.0.2"

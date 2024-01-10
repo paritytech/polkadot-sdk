@@ -17,6 +17,13 @@
 //! Implements network emulation and interfaces to control and specialize
 //! network peer behaviour.
 //!
+//! High level component wiring chart:
+//!
+//! 	  [TestEnvironment]
+//! 	[NetworkEmulatorHandle]
+//! 			 ||
+//!   +-------+--||--+-------+
+//!   |       |      |       |
 //!  Peer1	Peer2  Peer3  Peer4
 //!    \      |	     |	    /
 //!     \     |      |	   /
@@ -24,11 +31,12 @@
 //!       \   |      |   /
 //!        \  |      |  /
 //!     [Network Interface]
-//!               | 
+//!               |
 //!    [Emulated Network Bridge]
 //!               |
 //!     Subsystems under test
 
+use crate::core::configuration::random_latency;
 
 use super::{
 	configuration::{TestAuthorities, TestConfiguration},
@@ -38,14 +46,10 @@ use super::{
 use colored::Colorize;
 use futures::{
 	channel::{mpsc, oneshot},
-	future::FusedFuture,
 	lock::Mutex,
 	stream::FuturesUnordered,
 };
-use net_protocol::{
-	request_response::{OutgoingRequest, Requests},
-	VersionedValidationProtocol,
-};
+use net_protocol::{request_response::Requests, VersionedValidationProtocol};
 use parity_scale_codec::Encode;
 use polkadot_primitives::AuthorityDiscoveryId;
 use prometheus_endpoint::U64;
@@ -57,12 +61,7 @@ use sc_network::{
 use sc_service::SpawnTaskHandle;
 use std::{
 	collections::HashMap,
-	ops::DerefMut,
-	pin::Pin,
-	sync::{
-		atomic::{AtomicU64, Ordering},
-		Arc,
-	},
+	sync::Arc,
 	time::{Duration, Instant},
 };
 
@@ -184,7 +183,6 @@ impl NetworkMessage {
 }
 
 /// A network interface of the node under test.
-/// TODO(soon): Implement latency and connection errors here, instead of doing it on the peers.
 pub struct NetworkInterface {
 	// Sender for subsystems.
 	bridge_to_interface_sender: UnboundedSender<NetworkMessage>,
@@ -408,26 +406,37 @@ impl EmulatedPeerHandle {
 
 // A network peer emulator.
 struct EmulatedPeer {
+	spawn_handle: SpawnTaskHandle,
 	to_node: UnboundedSender<NetworkMessage>,
 	tx_limiter: RateLimit,
 	rx_limiter: RateLimit,
+	latency_ms: usize,
 }
 
 impl EmulatedPeer {
 	/// Send a message to the node.
 	pub async fn send_message(&mut self, message: NetworkMessage) {
 		self.tx_limiter.reap(message.size()).await;
-		let _ = self.to_node.unbounded_send(message).expect("Sending to the node never fails");
+
+		if self.latency_ms == 0 {
+			let _ = self.to_node.unbounded_send(message).expect("Sending to the node never fails");
+		} else {
+			let mut to_node = self.to_node.clone();
+			let latency_ms = std::time::Duration::from_millis(self.latency_ms as u64);
+
+			// Emulate RTT latency
+			self.spawn_handle
+				.spawn("peer-latency-emulator", "test-environment", async move {
+					tokio::time::sleep(latency_ms).await;
+					let _ =
+						to_node.unbounded_send(message).expect("Sending to the node never fails");
+				});
+		}
 	}
 
 	/// Returns the rx bandwidth limiter.
 	pub fn rx_limiter(&mut self) -> &mut RateLimit {
 		&mut self.rx_limiter
-	}
-
-	/// Returns the tx bandwidth limiter.
-	pub fn tx_limiter(&mut self) -> &mut RateLimit {
-		&mut self.tx_limiter
 	}
 }
 
@@ -470,11 +479,13 @@ async fn emulated_peer_loop(
 	let mut proxied_requests = FuturesUnordered::new();
 	let mut messages_rx = messages_rx.fuse();
 	let mut actions_rx = actions_rx.fuse();
+
 	loop {
 		futures::select! {
 			maybe_peer_message = messages_rx.next() => {
 				if let Some(peer_message) = maybe_peer_message {
 					let size = peer_message.size();
+
 					emulated_peer.rx_limiter().reap(size).await;
 					stats.inc_received(size);
 
@@ -552,14 +563,20 @@ pub fn new_peer(
 	handlers: Vec<Arc<dyn HandleNetworkMessage + Sync + Send>>,
 	stats: Arc<PeerEmulatorStats>,
 	mut to_network_interface: UnboundedSender<NetworkMessage>,
+	latency_ms: usize,
 ) -> EmulatedPeerHandle {
 	let (messages_tx, mut messages_rx) = mpsc::unbounded::<NetworkMessage>();
 	let (actions_tx, mut actions_rx) = mpsc::unbounded::<NetworkMessage>();
 
 	let rx_limiter = RateLimit::new(10, bandwidth);
 	let tx_limiter = RateLimit::new(10, bandwidth);
-	let mut emulated_peer =
-		EmulatedPeer { rx_limiter, tx_limiter, to_node: to_network_interface.clone() };
+	let mut emulated_peer = EmulatedPeer {
+		spawn_handle: spawn_task_handle.clone(),
+		rx_limiter,
+		tx_limiter,
+		to_node: to_network_interface.clone(),
+		latency_ms,
+	};
 
 	spawn_task_handle.clone().spawn(
 		"peer-emulator",
@@ -640,12 +657,6 @@ impl Peer {
 			Peer::Disconnected(ref emulator) => emulator,
 		}
 	}
-	pub fn handle_mut(&mut self) -> &mut EmulatedPeerHandle {
-		match self {
-			Peer::Connected(ref mut emulator) => emulator,
-			Peer::Disconnected(ref mut emulator) => emulator,
-		}
-	}
 }
 
 /// A ha emulated network implementation.
@@ -669,7 +680,7 @@ pub fn new_network(
 ) -> (NetworkEmulatorHandle, NetworkInterface, NetworkInterfaceReceiver) {
 	let n_peers = config.n_validators;
 	gum::info!(target: LOG_TARGET, "{}",format!("Initializing emulation for a {} peer network.", n_peers).bright_blue());
-	gum::info!(target: LOG_TARGET, "{}",format!("connectivity {}%, error {}%", config.connectivity, config.error).bright_black());
+	gum::info!(target: LOG_TARGET, "{}",format!("connectivity {}%, latency {:?}%", config.connectivity, config.latency).bright_black());
 
 	let metrics =
 		Metrics::new(&dependencies.registry).expect("Metrics always register succesfully");
@@ -692,6 +703,7 @@ pub fn new_network(
 					handlers.clone(),
 					stats,
 					to_network_interface.clone(),
+					random_latency(config.latency.as_ref()),
 				)),
 			)
 		})
@@ -725,6 +737,11 @@ pub fn new_network(
 	(handle, network_interface, network_interface_receiver)
 }
 
+/// Errors that can happen when sending data to emulated peers.
+pub enum EmulatedPeerError {
+	NotConnected
+}
+
 impl NetworkEmulatorHandle {
 	pub fn is_peer_connected(&self, peer: &AuthorityDiscoveryId) -> bool {
 		self.peer(peer).is_connected()
@@ -755,15 +772,16 @@ impl NetworkEmulatorHandle {
 		&self,
 		from_peer: &AuthorityDiscoveryId,
 		message: VersionedValidationProtocol,
-	) {
+	) -> Result<(), EmulatedPeerError> {
 		let dst_peer = self.peer(&from_peer);
 
 		if !dst_peer.is_connected() {
 			gum::warn!(target: LOG_TARGET, "Attempted to send message from a peer not connected to our node, operation ignored");
-			return
+			return Err(EmulatedPeerError::NotConnected)
 		}
 
 		dst_peer.handle().send_message(message);
+		Ok(())
 	}
 
 	/// Send a request from a peer to the node.
@@ -771,15 +789,16 @@ impl NetworkEmulatorHandle {
 		&self,
 		from_peer: &AuthorityDiscoveryId,
 		request: IncomingRequest,
-	) {
+	) -> Result<(), EmulatedPeerError> {
 		let dst_peer = self.peer(&from_peer);
 
 		if !dst_peer.is_connected() {
 			gum::warn!(target: LOG_TARGET, "Attempted to send request from a peer not connected to our node, operation ignored");
-			return
+			return Err(EmulatedPeerError::NotConnected)
 		}
 
 		dst_peer.handle().send_request(request);
+		Ok(())
 	}
 
 	// Returns the sent/received stats for `peer_index`.
@@ -798,13 +817,6 @@ impl NetworkEmulatorHandle {
 	// Return the Peer entry for a given `AuthorityDiscoveryId`.
 	fn peer(&self, peer: &AuthorityDiscoveryId) -> &Peer {
 		&self.peers[self.peer_index(peer)]
-	}
-
-	// Returns the sent/received stats for `peer`.
-	pub fn peer_stats_by_id(&mut self, peer: &AuthorityDiscoveryId) -> Arc<PeerEmulatorStats> {
-		let peer_index = self.peer_index(peer);
-
-		self.stats[peer_index].clone()
 	}
 
 	// Increment bytes sent by our node (the node that contains the subsystem under test)
@@ -874,6 +886,16 @@ impl Metrics {
 	}
 }
 
+/// A helper to determine the request payload size.
+pub fn request_size(request: &Requests) -> usize {
+	match request {
+		Requests::ChunkFetchingV1(outgoing_request) => outgoing_request.payload.encoded_size(),
+		Requests::AvailableDataFetchingV1(outgoing_request) =>
+			outgoing_request.payload.encoded_size(),
+		_ => unimplemented!("received an unexpected request"),
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use std::time::Instant;
@@ -908,15 +930,5 @@ mod tests {
 			((end - start).as_millis() / 1000u128 + rate_limiter.max_refill as u128);
 		assert!(total_sent as u128 >= lower_bound);
 		assert!(total_sent as u128 <= upper_bound);
-	}
-}
-
-/// A helper to determine the request payload size.
-pub fn request_size(request: &Requests) -> usize {
-	match request {
-		Requests::ChunkFetchingV1(outgoing_request) => outgoing_request.payload.encoded_size(),
-		Requests::AvailableDataFetchingV1(outgoing_request) =>
-			outgoing_request.payload.encoded_size(),
-		_ => unimplemented!("received an unexpected request"),
 	}
 }

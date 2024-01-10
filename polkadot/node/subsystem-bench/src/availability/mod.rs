@@ -24,20 +24,17 @@ use polkadot_node_subsystem_types::{
 	messages::{AvailabilityStoreMessage, NetworkBridgeEvent},
 	Span,
 };
-use polkadot_primitives::AuthorityDiscoveryId;
-
 use polkadot_overseer::Handle as OverseerHandle;
 use sc_network::{request_responses::ProtocolConfig, PeerId};
 use sp_core::H256;
-use std::{collections::HashMap, iter::Cycle, ops::Sub, pin::Pin, sync::Arc, time::Instant};
+use std::{collections::HashMap, iter::Cycle, ops::Sub, sync::Arc, time::Instant};
 
 use av_store_helpers::new_av_store;
-use futures::{channel::oneshot, stream::FuturesUnordered, Future, StreamExt};
+use futures::{channel::oneshot, stream::FuturesUnordered, StreamExt};
 use polkadot_availability_distribution::{
 	AvailabilityDistributionSubsystem, IncomingRequestReceivers,
 };
 use polkadot_node_metrics::metrics::Metrics;
-use polkadot_node_subsystem::TimeoutExt;
 
 use polkadot_availability_recovery::AvailabilityRecoverySubsystem;
 use polkadot_node_primitives::{AvailableData, ErasureChunk};
@@ -57,7 +54,7 @@ use polkadot_node_network_protocol::{
 };
 use sc_network::request_responses::IncomingRequest as RawIncomingRequest;
 
-use polkadot_node_primitives::{BlockData, PoV, Proof};
+use polkadot_node_primitives::{BlockData, PoV};
 use polkadot_node_subsystem::messages::{AllMessages, AvailabilityRecoveryMessage};
 
 use crate::core::{
@@ -659,9 +656,9 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 				.get(index)
 				.expect("all validators have keys");
 
-			env.network().send_request_from_peer(peer, request);
-
-			receivers.push(pending_response_receiver);
+			if env.network().send_request_from_peer(peer, request).is_ok() {
+				receivers.push(pending_response_receiver);
+			}
 		}
 
 		gum::info!(target: LOG_TARGET, "Waiting for all emulated peers to receive their chunk from us ...");
@@ -676,7 +673,7 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 		gum::info!("All chunks received in {}ms", chunk_fetch_duration);
 
 		let signing_context = SigningContext { session_index: 0, parent_hash: relay_block_hash };
-		let mut network = env.network().clone();
+		let network = env.network().clone();
 		let authorities = env.authorities().clone();
 		let n_validators = config.n_validators;
 
@@ -707,7 +704,7 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 				let message = peer_bitfield_message_v2(relay_block_hash, signed_bitfield);
 
 				// Send the action to `to_peer`.
-				network.send_message_from_peer(from_peer, message);
+				let _ = network.send_message_from_peer(from_peer, message);
 			}
 
 			gum::info!("Waiting for {} bitfields to be received and processed", n_validators - 1);

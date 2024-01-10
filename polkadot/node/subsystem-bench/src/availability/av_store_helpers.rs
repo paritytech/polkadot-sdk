@@ -19,16 +19,9 @@ use super::*;
 use polkadot_node_metrics::metrics::Metrics;
 
 use polkadot_node_core_av_store::Config;
-use polkadot_node_subsystem_test_helpers as test_helpers;
-use polkadot_node_subsystem_util::{database::Database, TimeoutExt};
-use polkadot_primitives::{
-	CandidateHash, CandidateReceipt, CoreIndex, GroupIndex, HeadData, Header,
-	PersistedValidationData, ValidatorId,
-};
+use polkadot_node_subsystem_util::database::Database;
 
 use polkadot_node_core_av_store::AvailabilityStoreSubsystem;
-use sp_keyring::Sr25519Keyring;
-use std::time::Duration;
 
 mod columns {
 	pub const DATA: u32 = 0;

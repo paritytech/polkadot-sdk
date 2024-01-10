@@ -45,15 +45,12 @@ use polkadot_node_subsystem::{
 };
 
 use polkadot_node_network_protocol::{
-	request_response::{self as req_res, v1::ChunkResponse, Recipient, Requests},
+	request_response::{ v1::ChunkResponse, Recipient, Requests, ResponseSender},
 	Versioned,
 };
 use polkadot_primitives::AuthorityDiscoveryId;
 
-use crate::core::{
-	configuration::{random_error, random_latency, TestConfiguration},
-	network::{NetworkEmulatorHandle, NetworkInterfaceReceiver, NetworkMessage, RateLimit},
-};
+use crate::core::network::{NetworkEmulatorHandle, NetworkInterfaceReceiver, NetworkMessage};
 
 const LOG_TARGET: &str = "subsystem-bench::network-bridge";
 
@@ -109,11 +106,13 @@ impl<Context> MockNetworkBridgeRx {
 	}
 }
 
-trait RequestAuthority {
+// Helper trait for `Requests`.
+trait RequestExt {
 	fn authority_id(&self) -> Option<&AuthorityDiscoveryId>;
+	fn into_response_sender(self) -> ResponseSender;
 }
 
-impl RequestAuthority for Requests {
+impl RequestExt for Requests {
 	fn authority_id(&self) -> Option<&AuthorityDiscoveryId> {
 		match self {
 			Requests::ChunkFetchingV1(request) => {
@@ -126,6 +125,18 @@ impl RequestAuthority for Requests {
 			request => {
 				unimplemented!("RequestAuthority not implemented for {:?}", request)
 			},
+		}
+	}
+
+	fn into_response_sender(self) -> ResponseSender {
+		match self {
+			Requests::ChunkFetchingV1(outgoing_request) => {
+				outgoing_request.pending_response
+			},
+			Requests::AvailableDataFetchingV1(outgoing_request) => {
+				outgoing_request.pending_response
+			}
+			_ => unimplemented!("unsupported request type")
 		}
 	}
 }
@@ -147,8 +158,16 @@ impl MockNetworkBridgeTx {
 							gum::debug!(target: LOG_TARGET, request = ?request, "Processing request");
 							let peer_id =
 								request.authority_id().expect("all nodes are authorities").clone();
+
+							if !self.network.is_peer_connected(&peer_id) {
+								// Attempting to send a request to a disconnected peer.
+								let _ = request.into_response_sender().send(Err(RequestFailure::NotConnected)).expect("send never fails");
+								continue
+							}
+							
 							let peer_message =
 								NetworkMessage::RequestFromNode(peer_id.clone(), request);
+								
 							let _ = self.to_network_interface.unbounded_send(peer_message);
 						}
 					},

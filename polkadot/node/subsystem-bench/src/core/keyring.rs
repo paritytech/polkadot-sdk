@@ -18,12 +18,8 @@ use polkadot_primitives::ValidatorId;
 use sc_keystore::LocalKeystore;
 use sp_application_crypto::AppCrypto;
 pub use sp_core::sr25519;
-use sp_core::{
-	sr25519::{Pair, Public},
-	Pair as PairT,
-};
-use sp_keyring::Sr25519Keyring;
-use sp_keystore::{Keystore, KeystorePtr};
+use sp_core::sr25519::Public;
+use sp_keystore::Keystore;
 use std::sync::Arc;
 
 /// Set of test accounts generated and kept safe by a keystore.

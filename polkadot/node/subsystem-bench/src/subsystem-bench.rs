@@ -20,7 +20,7 @@ use clap::Parser;
 use color_eyre::eyre;
 
 use colored::Colorize;
-use std::{path::Path, time::Duration};
+use std::path::Path;
 
 pub(crate) mod availability;
 pub(crate) mod cli;
@@ -57,24 +57,24 @@ struct BenchCli {
 	pub standard_configuration: cli::StandardTestOptions,
 
 	#[clap(short, long)]
-	/// The bandwidth of simulated remote peers in KiB
+	/// The bandwidth of emulated remote peers in KiB
 	pub peer_bandwidth: Option<usize>,
 
 	#[clap(short, long)]
-	/// The bandwidth of our simulated node in KiB
+	/// The bandwidth of our node in KiB
 	pub bandwidth: Option<usize>,
 
 	#[clap(long, value_parser=le_100)]
-	/// Simulated conection error ratio [0-100].
-	pub peer_error: Option<usize>,
+	/// Emulated peer connection ratio [0-100].
+	pub connectivity: Option<usize>,
 
 	#[clap(long, value_parser=le_5000)]
-	/// Minimum remote peer latency in milliseconds [0-5000].
-	pub peer_min_latency: Option<u64>,
+	/// Mean remote peer latency in milliseconds [0-5000].
+	pub peer_mean_latency: Option<usize>,
 
 	#[clap(long, value_parser=le_5000)]
-	/// Maximum remote peer latency in milliseconds [0-5000].
-	pub peer_max_latency: Option<u64>,
+	/// Remote peer latency standard deviation
+	pub peer_latency_std_dev: Option<f64>,
 
 	#[command(subcommand)]
 	pub objective: cli::TestObjective,
@@ -141,16 +141,19 @@ impl BenchCli {
 
 		let mut latency_config = test_config.latency.clone().unwrap_or_default();
 
-		if let Some(latency) = self.peer_min_latency {
-			latency_config.min_latency = Duration::from_millis(latency);
+		if let Some(latency) = self.peer_mean_latency {
+			latency_config.mean_latency_ms = latency;
 		}
 
-		if let Some(latency) = self.peer_max_latency {
-			latency_config.max_latency = Duration::from_millis(latency);
+		if let Some(std_dev) = self.peer_latency_std_dev {
+			latency_config.std_dev = std_dev;
 		}
 
-		if let Some(error) = self.peer_error {
-			test_config.error = error;
+		// Write back the updated latency.
+		test_config.latency = Some(latency_config);
+
+		if let Some(connectivity) = self.connectivity {
+			test_config.connectivity = connectivity;
 		}
 
 		if let Some(bandwidth) = self.peer_bandwidth {

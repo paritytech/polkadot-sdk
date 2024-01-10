@@ -92,20 +92,30 @@ Note: `test-sequence` is a special test objective that wraps up an arbitrary num
   
 ```
 Options:
-      --network <NETWORK>                    The type of network to be emulated [default: ideal] [possible values: 
-                                             ideal, healthy, degraded]
-      --n-cores <N_CORES>                    Number of cores to fetch availability for [default: 100]
-      --n-validators <N_VALIDATORS>          Number of validators to fetch chunks from [default: 500]
-      --min-pov-size <MIN_POV_SIZE>          The minimum pov size in KiB [default: 5120]
-      --max-pov-size <MAX_POV_SIZE>          The maximum pov size bytes [default: 5120]
-  -n, --num-blocks <NUM_BLOCKS>              The number of blocks the test is going to run [default: 1]
-  -p, --peer-bandwidth <PEER_BANDWIDTH>      The bandwidth of simulated remote peers in KiB
-  -b, --bandwidth <BANDWIDTH>                The bandwidth of our simulated node in KiB
-      --peer-error <PEER_ERROR>              Simulated conection error ratio [0-100]
-      --peer-min-latency <PEER_MIN_LATENCY>  Minimum remote peer latency in milliseconds [0-5000]
-      --peer-max-latency <PEER_MAX_LATENCY>  Maximum remote peer latency in milliseconds [0-5000]
-  -h, --help                                 Print help
-  -V, --version                              Print version
+      --network <NETWORK>
+          The type of network to be emulated [default: ideal] [possible values: ideal, healthy, degraded]
+      --n-cores <N_CORES>
+          Number of cores to fetch availability for [default: 100]
+      --n-validators <N_VALIDATORS>
+          Number of validators to fetch chunks from [default: 500]
+      --min-pov-size <MIN_POV_SIZE>
+          The minimum pov size in KiB [default: 5120]
+      --max-pov-size <MAX_POV_SIZE>
+          The maximum pov size bytes [default: 5120]
+  -n, --num-blocks <NUM_BLOCKS>
+          The number of blocks the test is going to run [default: 1]
+  -p, --peer-bandwidth <PEER_BANDWIDTH>
+          The bandwidth of emulated remote peers in KiB
+  -b, --bandwidth <BANDWIDTH>
+          The bandwidth of our node in KiB
+      --connectivity <CONNECTIVITY>
+          Emulated peer connection ratio [0-100]
+      --peer-mean-latency <PEER_MEAN_LATENCY>
+          Mean remote peer latency in milliseconds [0-5000]
+      --peer-latency-std-dev <PEER_LATENCY_STD_DEV>
+          Remote peer latency standard deviation
+  -h, --help
+          Print help
 ```
 
 These apply to all test objectives, except `test-sequence` which relies on the values being specified in a file.
@@ -154,7 +164,7 @@ node validator network.
 ```
  target/testnet/subsystem-bench --n-cores 10 data-availability-read 
 [2023-11-28T09:01:59Z INFO  subsystem_bench::core::display] n_validators = 500, n_cores = 10, pov_size = 5120 - 5120, 
-                                                            error = 0, latency = None
+                                                            latency = None
 [2023-11-28T09:01:59Z INFO  subsystem-bench::availability] Generating template candidate index=0 pov_size=5242880
 [2023-11-28T09:01:59Z INFO  subsystem-bench::availability] Created test environment.
 [2023-11-28T09:01:59Z INFO  subsystem-bench::availability] Pre-generating 10 candidates.
