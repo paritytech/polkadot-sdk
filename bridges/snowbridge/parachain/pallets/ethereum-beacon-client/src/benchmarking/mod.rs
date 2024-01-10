@@ -1,18 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use super::*;
-
-mod fixtures;
 mod util;
 
 use crate::Pallet as EthereumBeaconClient;
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 
-use fixtures::{
-	make_checkpoint, make_execution_header_update, make_finalized_header_update,
-	make_sync_committee_update,
-};
+#[cfg(feature = "beacon-spec-minimal")]
+mod fixtures_minimal;
+#[cfg(feature = "beacon-spec-minimal")]
+use fixtures_minimal::*;
+
+#[cfg(not(feature = "beacon-spec-minimal"))]
+mod fixtures_mainnet;
+#[cfg(not(feature = "beacon-spec-minimal"))]
+use fixtures_mainnet::*;
 
 use primitives::{
 	fast_aggregate_verify, prepare_aggregate_pubkey, prepare_aggregate_signature,
@@ -148,6 +151,13 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[cfg(feature = "beacon-spec-minimal")]
+	impl_benchmark_test_suite!(
+		EthereumBeaconClient,
+		crate::mock::minimal::new_tester(),
+		crate::mock::minimal::Test
+	);
+	#[cfg(not(feature = "beacon-spec-minimal"))]
 	impl_benchmark_test_suite!(
 		EthereumBeaconClient,
 		crate::mock::mainnet::new_tester(),
