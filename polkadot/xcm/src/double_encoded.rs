@@ -47,7 +47,7 @@ impl<T> Eq for DoubleEncoded<T> {}
 
 impl<T> core::fmt::Debug for DoubleEncoded<T> {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-		self.encoded.fmt(f)
+		array_bytes::bytes2hex("0x", &self.encoded).fmt(f)
 	}
 }
 
