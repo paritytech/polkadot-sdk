@@ -483,17 +483,23 @@ impl PeerMessageProducer {
 			while all_messages.peek().is_some() {
 				let current_slot =
 					tick_to_slot_number(SLOT_DURATION_MILLIS, system_clock.tick_now());
-				let block_info = self.state.get_info_by_slot(current_slot).cloned();
-
-				if let Some(block_info) = block_info {
-					if !initialized_blocks.contains(&block_info.hash) &&
-						!TestEnvironment::metric_lower_than(
-							&self.registry,
-							"polkadot_parachain_imported_candidates_total",
-							(block_info.total_candidates_before +
-								block_info.candidates.len() as u64 -
-								1) as f64,
-						) {
+				let block_to_initialize = self
+					.state
+					.blocks
+					.iter()
+					.filter(|block_info| {
+						block_info.slot <= current_slot &&
+							!initialized_blocks.contains(&block_info.hash)
+					})
+					.cloned()
+					.collect_vec();
+				for block_info in block_to_initialize {
+					if !TestEnvironment::metric_lower_than(
+						&self.registry,
+						"polkadot_parachain_imported_candidates_total",
+						(block_info.total_candidates_before + block_info.candidates.len() as u64 -
+							1) as f64,
+					) {
 						initialized_blocks.insert(block_info.hash);
 						self.initialize_block(&block_info).await;
 					}
