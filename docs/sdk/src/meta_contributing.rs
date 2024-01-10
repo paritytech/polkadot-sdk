@@ -69,8 +69,7 @@
 //! > what topics are already covered in this crate, and how you can build on top of the information
 //! > that they already pose, rather than repeating yourself**.
 //!
-//! For more details about documenting guidelines, see:
-//! <https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/DOCUMENTATION_GUIDELINES.md#L23>
+//! For more details see the [latest documenting guidelines](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/DOCUMENTATION_GUIDELINES.md).
 //!
 //! #### Example: Explaining `#[pallet::call]`
 //!
@@ -135,12 +134,12 @@
 //!
 //! ## How to Build
 //!
-//! To build this crate properly, with with right HTML headers injected, run:
+//! To build and view this crate locally, with with right HTML headers injected, run:
 //!
 //! ```no_compile
-//! RUSTDOCFLAGS="--html-in-header $(pwd)/docs/sdk/headers/toc.html" cargo doc -p polkadot-sdk-docs
+//! RUSTDOCFLAGS="--html-in-header $(pwd)/docs/sdk/headers/toc.html" cargo doc -p polkadot-sdk-docs --open
 //! ```
 //!
-//! adding `--no-deps` would speed up the process while development. If even faster build time for
+//! Adding `--no-deps` would speed up the process while development. If even faster build time for
 //! docs is needed, you can temporarily remove most of the substrate/cumulus dependencies that are
 //! only used for linking purposes.
