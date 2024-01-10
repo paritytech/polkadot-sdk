@@ -117,23 +117,24 @@ used to run a suite of tests defined in a `yaml` file like in this [example](exa
 
 ```
 Options:
-      --network <NETWORK>                              The type of network to be emulated [default: ideal] [possible values:
-                                                       ideal, healthy, degraded]
-      --n-cores <N_CORES>                              Number of cores to fetch availability for [default: 100]
-      --n-validators <N_VALIDATORS>                    Number of validators to fetch chunks from [default: 500]
-      --min-pov-size <MIN_POV_SIZE>                    The minimum pov size in KiB [default: 5120]
-      --max-pov-size <MAX_POV_SIZE>                    The maximum pov size bytes [default: 5120]
-  -n, --num-blocks <NUM_BLOCKS>                        The number of blocks the test is going to run [default: 1]
-  -p, --peer-bandwidth <PEER_BANDWIDTH>                The bandwidth of simulated remote peers in KiB
-  -b, --bandwidth <BANDWIDTH>                          The bandwidth of our simulated node in KiB
-      --peer-error <PEER_ERROR>                        Simulated conection error ratio [0-100]
-      --peer-min-latency <PEER_MIN_LATENCY>            Minimum remote peer latency in milliseconds [0-5000]
-      --peer-max-latency <PEER_MAX_LATENCY>            Maximum remote peer latency in milliseconds [0-5000]
-      --profile                                        Enable CPU Profiling with Pyroscope
-      --pyroscope-url <PYROSCOPE_URL>                  Pyroscope Server URL [default: http://localhost:4040]
-      --pyroscope-sample-rate <PYROSCOPE_SAMPLE_RATE>  Pyroscope Sample Rate [default: 113]
-  -h, --help                                           Print help
-  -V, --version                                        Print version
+    --network <NETWORK>                              The type of network to be emulated [default: ideal] [possible
+                                                     values: ideal, healthy, degraded]
+    --n-cores <N_CORES>                              Number of cores to fetch availability for [default: 100]
+    --n-validators <N_VALIDATORS>                    Number of validators to fetch chunks from [default: 500]
+    --min-pov-size <MIN_POV_SIZE>                    The minimum pov size in KiB [default: 5120]
+    --max-pov-size <MAX_POV_SIZE>                    The maximum pov size bytes [default: 5120]
+-n, --num-blocks <NUM_BLOCKS>                        The number of blocks the test is going to run [default: 1]
+-p, --peer-bandwidth <PEER_BANDWIDTH>                The bandwidth of simulated remote peers in KiB
+-b, --bandwidth <BANDWIDTH>                          The bandwidth of our simulated node in KiB
+    --peer-error <PEER_ERROR>                        Simulated conection error ratio [0-100]
+    --peer-min-latency <PEER_MIN_LATENCY>            Minimum remote peer latency in milliseconds [0-5000]
+    --peer-max-latency <PEER_MAX_LATENCY>            Maximum remote peer latency in milliseconds [0-5000]
+    --profile                                        Enable CPU Profiling with Pyroscope
+    --pyroscope-url <PYROSCOPE_URL>                  Pyroscope Server URL [default: http://localhost:4040]
+    --pyroscope-sample-rate <PYROSCOPE_SAMPLE_RATE>  Pyroscope Sample Rate [default: 113]
+    --cache-misses                                   Enable Cache Misses Profiling with Valgrind. Linux only, Valgrind
+                                                     must be in the PATH
+-h, --help                                           Print help
 ```
 
 These apply to all test objectives, except `test-sequence` which relies on the values being specified in a file.
@@ -221,6 +222,43 @@ view the test progress in real time by accessing [this link](http://localhost:30
 Now run
 `target/testnet/subsystem-bench test-sequence --path polkadot/node/subsystem-bench/examples/availability_read.yaml`
 and view the metrics in real time and spot differences between different `n_validators` values.
+
+### Profiling cache misses
+
+Cache misses are profiled using Cachegrind, part of Valgrind. Cachegrind runs slowly, and its cache simulation is basic
+and unlikely to reflect the behavior of a modern machine. However, it still represents the general situation with cache
+usage, and more importantly it doesn't require a bare-metal machine to run on, which means it could be run in CI or in
+a remote virtual installation.
+
+To profile cache misses use the `--cache-misses` flag. Since the execution will be very slow, it's recommended not to run it together with other profiling and not to take benchmark results into account.
+
+Example run results:
+```
+==201761== I   refs:      95,411,656,238
+==201761== I1  misses:         9,032,639
+==201761== LLi misses:            42,409
+==201761== I1  miss rate:           0.01%
+==201761== LLi miss rate:           0.00%
+==201761==
+==201761== D   refs:      18,607,561,833  (10,227,094,854 rd + 8,380,466,979 wr)
+==201761== D1  misses:       335,359,148  (   161,537,270 rd +   173,821,878 wr)
+==201761== LLd misses:        16,428,680  (     6,413,757 rd +    10,014,923 wr)
+==201761== D1  miss rate:            1.8% (           1.6%   +           2.1%  )
+==201761== LLd miss rate:            0.1% (           0.1%   +           0.1%  )
+==201761==
+==201761== LL refs:          344,391,787  (   170,569,909 rd +   173,821,878 wr)
+==201761== LL misses:         16,471,089  (     6,456,166 rd +    10,014,923 wr)
+==201761== LL miss rate:             0.0% (           0.0%   +           0.1%  )
+```
+
+The results show that 1.8% of the L1 data cache missed, but the last level cache only missed 0.1% of the time.
+Instruction data of the L1 has 0.04% of the time and almost nothing was missed at the last level.
+
+Cachegrind writes line-by-line cache profiling information to a file named `cachegrind.out.<pid>`.
+This file is best interpreted with `cg_annotate --auto=yes cachegrind.out.<pid>`. For more information see the [cachegrind manual](https://www.cs.cmu.edu/afs/cs.cmu.edu/project/cmt-40/Nice/RuleRefinement/bin/valgrind-3.2.0/docs/html/cg-manual.html).
+
+For finer profiling of cache misses, better use `perf` on a bare-metal machine.
+
 ## Create new test objectives
 
 This tool is intended to make it easy to write new test objectives that focus individual subsystems,

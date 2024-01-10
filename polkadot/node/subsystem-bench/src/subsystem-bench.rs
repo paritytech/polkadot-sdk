@@ -92,7 +92,7 @@ struct BenchCli {
 	pub pyroscope_sample_rate: u32,
 
 	#[clap(long, default_value_t = false)]
-	/// Enable Cache Misses Profiling with Valgrind (must be installed)
+	/// Enable Cache Misses Profiling with Valgrind. Linux only, Valgrind must be in the PATH
 	pub cache_misses: bool,
 
 	#[command(subcommand)]
