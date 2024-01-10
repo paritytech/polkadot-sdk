@@ -24,6 +24,8 @@ sc-chain-spec = { path = "../../../client/chain-spec" }
 sc-client-api = { path = "../../../client/api" }
 sc-consensus-babe = { path = "../../../client/consensus/babe" }
 sc-consensus-babe-rpc = { path = "../../../client/consensus/babe/rpc" }
+sc-consensus-beefy = { path = "../../../client/consensus/beefy" }
+sc-consensus-beefy-rpc = { path = "../../../client/consensus/beefy/rpc" }
 sc-consensus-grandpa = { path = "../../../client/consensus/grandpa" }
 sc-consensus-grandpa-rpc = { path = "../../../client/consensus/grandpa/rpc" }
 sc-mixnet = { path = "../../../client/mixnet" }

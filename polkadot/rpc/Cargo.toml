@@ -21,6 +21,7 @@ sp-consensus = { path = "../../substrate/primitives/consensus/common" }
 sp-consensus-babe = { path = "../../substrate/primitives/consensus/babe" }
 sc-chain-spec = { path = "../../substrate/client/chain-spec" }
 sc-rpc = { path = "../../substrate/client/rpc" }
+sc-rpc-spec-v2 = { path = "../../substrate/client/rpc-spec-v2" }
 sc-consensus-babe = { path = "../../substrate/client/consensus/babe" }
 sc-consensus-babe-rpc = { path = "../../substrate/client/consensus/babe/rpc" }
 sc-consensus-beefy = { path = "../../substrate/client/consensus/beefy" }
