@@ -37,8 +37,9 @@ use runtime_common::{
 	impls::{
 		LocatableAssetConverter, ToAuthor, VersionedLocatableAsset, VersionedMultiLocationConverter,
 	},
-	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots, BlockHashCount, BlockLength,
-	SlowAdjustingFeeUpdate,
+	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots,
+	traits::Leaser,
+	BlockHashCount, BlockLength, SlowAdjustingFeeUpdate,
 };
 use scale_info::TypeInfo;
 use sp_std::{cmp::Ordering, collections::btree_map::BTreeMap, prelude::*};
@@ -1241,19 +1242,6 @@ impl pallet_mmr::Config for Runtime {
 }
 
 parameter_types! {
-	/// Version of the produced MMR leaf.
-	///
-	/// The version consists of two parts;
-	/// - `major` (3 bits)
-	/// - `minor` (5 bits)
-	///
-	/// `major` should be updated only if decoding the previous MMR Leaf format from the payload
-	/// is not possible (i.e. backward incompatible change).
-	/// `minor` should be updated if fields are added to the previous MMR Leaf, which given SCALE
-	/// encoding does not prevent old leafs from being decoded.
-	///
-	/// Hence we expect `major` to be changed really rarely (think never).
-	/// See [`MmrLeafVersion`] type documentation for more details.
 	pub LeafVersion: MmrLeafVersion = MmrLeafVersion::new(0, 0);
 }
 
@@ -1499,7 +1487,6 @@ pub mod migrations {
 
 	use frame_support::traits::LockIdentifier;
 	use frame_system::pallet_prelude::BlockNumberFor;
-	use sp_arithmetic::traits::Zero;
 	#[cfg(feature = "try-runtime")]
 	use sp_core::crypto::ByteArray;
 
@@ -1507,28 +1494,17 @@ pub mod migrations {
 	impl coretime::migration::GetLegacyLease<BlockNumber> for GetLegacyLeaseImpl {
 		fn get_parachain_lease_in_blocks(para: ParaId) -> Option<BlockNumber> {
 			let now = frame_system::Pallet::<Runtime>::block_number();
-			let mut leases = slots::Pallet::<Runtime>::lease(para).into_iter();
-			let initial_sum = if let Some(Some(_)) = leases.next() {
-				let (_, progress) =
-					slots::Pallet::<Runtime>::lease_period_index_plus_progress(now)?;
-				LeasePeriod::get().saturating_sub(progress)
-			} else {
-				// The parachain lease did not yet start
-				Zero::zero()
-			};
-			log::trace!(
-				target: "coretime-migration",
-				"Getting lease info for para {:?}:\n LEASE_PERIOD: {:?}, initial_sum: {:?}, number of leases: {:?}",
-				para,
-				LeasePeriod::get(),
-				initial_sum,
-				slots::Pallet::<Runtime>::lease(para).len(),
-			);
-
-			Some(leases.into_iter().fold(initial_sum, |sum, lease| {
-				// If the parachain lease did not yet start, we ignore them by multiplying by `0`.
-				sum + LeasePeriod::get() * lease.map_or(0, |_| 1)
-			}))
+			let lease = slots::Pallet::<Runtime>::lease(para);
+			if lease.is_empty() {
+				return None
+			}
+			// Lease not yet started, ignore:
+			if lease.iter().any(Option::is_none) {
+				return None
+			}
+			let (index, _) =
+				<slots::Pallet<Runtime> as Leaser<BlockNumber>>::lease_period_index(now)?;
+			Some(index.saturating_add(lease.len() as u32).saturating_mul(LeasePeriod::get()))
 		}
 	}
 

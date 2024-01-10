@@ -99,6 +99,8 @@ use parachains_common::{
 	HOURS, MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
 };
 
+use polkadot_runtime_common::prod_or_fast;
+
 #[cfg(feature = "runtime-benchmarks")]
 use crate::xcm_config::benchmark_helpers::DoNothingRouter;
 #[cfg(feature = "runtime-benchmarks")]
@@ -209,7 +211,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("bridge-hub-rococo"),
 	impl_name: create_runtime_str!("bridge-hub-rococo"),
 	authoring_version: 1,
-	spec_version: 1_005_001,
+	spec_version: 1_005_002,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 4,
@@ -569,7 +571,7 @@ impl snowbridge_outbound_queue::Config for Runtime {
 	type Channels = EthereumSystem;
 }
 
-#[cfg(not(feature = "beacon-spec-mainnet"))]
+#[cfg(feature = "fast-runtime")]
 parameter_types! {
 	pub const ChainForkVersions: ForkVersions = ForkVersions {
 		genesis: Fork {
@@ -589,30 +591,32 @@ parameter_types! {
 			epoch: 0,
 		},
 	};
-	pub const MaxExecutionHeadersToKeep:u32 = 1000;
 }
 
-#[cfg(feature = "beacon-spec-mainnet")]
+#[cfg(not(feature = "fast-runtime"))]
 parameter_types! {
 	pub const ChainForkVersions: ForkVersions = ForkVersions {
 		genesis: Fork {
-			version: [0, 0, 16, 32], // 0x00001020
+			version: [144, 0, 0, 111], // 0x90000069
 			epoch: 0,
 		},
 		altair: Fork {
-			version: [1, 0, 16, 32], // 0x01001020
-			epoch: 36660,
+			version: [144, 0, 0, 112], // 0x90000070
+			epoch: 50,
 		},
 		bellatrix: Fork {
-			version: [2, 0, 16, 32], // 0x02001020
-			epoch: 112260,
+			version: [144, 0, 0, 113], // 0x90000071
+			epoch: 100,
 		},
 		capella: Fork {
-			version: [3, 0, 16, 32], // 0x03001020
-			epoch: 162304,
+			version: [144, 0, 0, 114], // 0x90000072
+			epoch: 56832,
 		},
 	};
-	pub const MaxExecutionHeadersToKeep:u32 = 8192 * 2;
+}
+
+parameter_types! {
+	pub const MaxExecutionHeadersToKeep: u32 = prod_or_fast!(8192 * 2, 1000);
 }
 
 impl snowbridge_ethereum_beacon_client::Config for Runtime {
@@ -633,7 +637,7 @@ impl snowbridge_system::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OutboundQueue = EthereumOutboundQueue;
 	type SiblingOrigin = EnsureXcm<AllowSiblingsOnly>;
-	type AgentIdOf = xcm_config::AgentIdOf;
+	type AgentIdOf = snowbridge_core::AgentIdOf;
 	type TreasuryAccount = TreasuryAccount;
 	type Token = Balances;
 	type WeightInfo = weights::snowbridge_system::WeightInfo<Runtime>;

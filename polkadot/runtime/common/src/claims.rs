@@ -612,11 +612,9 @@ impl<T: Config> Pallet<T> {
 /// otherwise free to place on chain.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
-pub struct PrevalidateAttests<T: Config + Send + Sync>(sp_std::marker::PhantomData<T>)
-where
-	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>;
+pub struct PrevalidateAttests<T>(core::marker::PhantomData<fn(T)>);
 
-impl<T: Config + Send + Sync> Debug for PrevalidateAttests<T>
+impl<T: Config> Debug for PrevalidateAttests<T>
 where
 	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
@@ -631,7 +629,7 @@ where
 	}
 }
 
-impl<T: Config + Send + Sync> PrevalidateAttests<T>
+impl<T: Config> PrevalidateAttests<T>
 where
 	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
@@ -641,7 +639,7 @@ where
 	}
 }
 
-impl<T: Config + Send + Sync> TransactionExtensionBase for PrevalidateAttests<T>
+impl<T: Config> TransactionExtensionBase for PrevalidateAttests<T>
 where
 	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
@@ -649,8 +647,7 @@ where
 	type Implicit = ();
 }
 
-impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Context>
-	for PrevalidateAttests<T>
+impl<T: Config, Context> TransactionExtension<T::RuntimeCall, Context> for PrevalidateAttests<T>
 where
 	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 	<<T as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin:
@@ -1555,7 +1552,6 @@ pub(super) mod benchmarking {
 
 	benchmarks! {
 		where_clause { where <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
-			T: Send + Sync,
 			<<T as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
 			<<T as frame_system::Config>::RuntimeCall as Dispatchable>::PostInfo: Default,
 		}
