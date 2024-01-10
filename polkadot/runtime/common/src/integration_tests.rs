@@ -45,9 +45,9 @@ use sp_io::TestExternalities;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup, One},
+	traits::{BlakeTwo256, IdentityLookup, One, Verify},
 	transaction_validity::TransactionPriority,
-	AccountId32, BuildStorage,
+	AccountId32, BuildStorage, MultiSignature,
 };
 use sp_std::sync::Arc;
 
@@ -293,6 +293,12 @@ impl pallet_identity::Config for Test {
 	type MaxRegistrars = ConstU32<20>;
 	type RegistrarOrigin = EnsureRoot<AccountId>;
 	type ForceOrigin = EnsureRoot<AccountId>;
+	type OffchainSignature = MultiSignature;
+	type SigningPublicKey = <MultiSignature as Verify>::Signer;
+	type UsernameAuthorityOrigin = EnsureRoot<AccountId>;
+	type PendingUsernameExpiration = ConstU32<100>;
+	type MaxSuffixLength = ConstU32<7>;
+	type MaxUsernameLength = ConstU32<32>;
 	type WeightInfo = ();
 }
 
