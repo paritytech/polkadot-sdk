@@ -399,6 +399,7 @@ mod select_candidates {
 					prospective_parachains_mode,
 					Default::default(),
 					&mut tx,
+					0,
 				)
 				.await
 				.unwrap();
@@ -406,11 +407,19 @@ mod select_candidates {
 		)
 	}
 
+	#[test]
+	fn selects_correct_candidates() {
+		run_selects_correct_candidates(0);
+		run_selects_correct_candidates(2);
+		run_selects_correct_candidates(5);
+		run_selects_correct_candidates(6);
+		run_selects_correct_candidates(10);
+	}
+
 	// this tests that only the appropriate candidates get selected.
 	// To accomplish this, we supply a candidate list containing one candidate per possible core;
 	// the candidate selection algorithm must filter them to the appropriate set
-	#[test]
-	fn selects_correct_candidates() {
+	fn run_selects_correct_candidates(approval_checking_lag: BlockNumber) {
 		let mock_cores = mock_availability_cores();
 
 		let empty_hash = PersistedValidationData::<Hash, BlockNumber>::default().hash();
@@ -475,9 +484,20 @@ mod select_candidates {
 					prospective_parachains_mode,
 					Default::default(),
 					&mut tx,
+					approval_checking_lag,
 				)
 				.await
 				.unwrap();
+
+				assert_eq!(
+					expected_candidates.len() /
+						usize::pow(
+							2,
+							max(0, approval_checking_lag as i32 - TOLERATED_APPROVAL_CHECKING_LAG)
+								as u32,
+						),
+					result.len()
+				);
 
 				result.into_iter().for_each(|c| {
 					assert!(
@@ -553,6 +573,7 @@ mod select_candidates {
 					prospective_parachains_mode,
 					Default::default(),
 					&mut tx,
+					0,
 				)
 				.await
 				.unwrap();
@@ -620,6 +641,7 @@ mod select_candidates {
 					prospective_parachains_mode,
 					Default::default(),
 					&mut tx,
+					0,
 				)
 				.await
 				.unwrap();
@@ -686,6 +708,7 @@ mod select_candidates {
 					prospective_parachains_mode,
 					Default::default(),
 					&mut tx,
+					0,
 				)
 				.await
 				.unwrap();

@@ -43,6 +43,7 @@ use polkadot_node_subsystem::messages::{
 	ApprovalDistributionMessage, ApprovalVotingMessage, ChainSelectionMessage,
 	DisputeCoordinatorMessage, HighestApprovedAncestorBlock,
 };
+use polkadot_node_subsystem_types::messages::ProvisionerMessage;
 use polkadot_node_subsystem_util::metrics::{self, prometheus};
 use polkadot_overseer::{AllMessages, Handle};
 use polkadot_primitives::{Block as PolkadotBlock, BlockNumber, Hash, Header as PolkadotHeader};
@@ -480,6 +481,12 @@ where
 				overseer_handle
 					.send_msg(
 						ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag),
+						std::any::type_name::<Self>(),
+					)
+					.await;
+				overseer_handle
+					.send_msg(
+						ProvisionerMessage::ApprovalCheckingLagUpdate(lag),
 						std::any::type_name::<Self>(),
 					)
 					.await;

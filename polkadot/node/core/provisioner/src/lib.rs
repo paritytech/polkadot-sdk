@@ -43,7 +43,10 @@ use polkadot_primitives::{
 	BackedCandidate, BlockNumber, CandidateHash, CandidateReceipt, CoreState, Hash, Id as ParaId,
 	OccupiedCoreAssumption, SignedAvailabilityBitfield, ValidatorIndex,
 };
-use std::collections::{BTreeMap, HashMap};
+use std::{
+	cmp::max,
+	collections::{BTreeMap, HashMap},
+};
 
 mod disputes;
 mod error;
@@ -51,6 +54,8 @@ mod metrics;
 
 pub use self::metrics::*;
 use error::{Error, FatalResult};
+
+const TOLERATED_APPROVAL_CHECKING_LAG: i32 = 8;
 
 #[cfg(test)]
 mod tests;
@@ -124,10 +129,17 @@ impl<Context> ProvisionerSubsystem {
 async fn run<Context>(mut ctx: Context, metrics: Metrics) -> FatalResult<()> {
 	let mut inherent_delays = InherentDelays::new();
 	let mut per_relay_parent = HashMap::new();
+	let mut approval_checking_lag: BlockNumber = 0;
 
 	loop {
-		let result =
-			run_iteration(&mut ctx, &mut per_relay_parent, &mut inherent_delays, &metrics).await;
+		let result = run_iteration(
+			&mut ctx,
+			&mut per_relay_parent,
+			&mut inherent_delays,
+			&metrics,
+			&mut approval_checking_lag,
+		)
+		.await;
 
 		match result {
 			Ok(()) => break,
@@ -144,6 +156,7 @@ async fn run_iteration<Context>(
 	per_relay_parent: &mut HashMap<Hash, PerRelayParent>,
 	inherent_delays: &mut InherentDelays,
 	metrics: &Metrics,
+	approval_checking_lag: &mut BlockNumber,
 ) -> Result<(), Error> {
 	loop {
 		futures::select! {
@@ -155,7 +168,7 @@ async fn run_iteration<Context>(
 					FromOrchestra::Signal(OverseerSignal::BlockFinalized(..)) => {},
 					FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
 					FromOrchestra::Communication { msg } => {
-						handle_communication(ctx, per_relay_parent, msg, metrics).await?;
+						handle_communication(ctx, per_relay_parent, msg, metrics, approval_checking_lag).await?;
 					},
 				}
 			},
@@ -171,7 +184,7 @@ async fn run_iteration<Context>(
 
 					let return_senders = std::mem::take(&mut state.awaiting_inherent);
 					if !return_senders.is_empty() {
-						send_inherent_data_bg(ctx, &state, return_senders, metrics.clone()).await?;
+						send_inherent_data_bg(ctx, &state, return_senders, metrics.clone(), *approval_checking_lag).await?;
 					}
 				}
 			}
@@ -207,6 +220,7 @@ async fn handle_communication<Context>(
 	per_relay_parent: &mut HashMap<Hash, PerRelayParent>,
 	message: ProvisionerMessage,
 	metrics: &Metrics,
+	approval_checking_lag: &mut BlockNumber,
 ) -> Result<(), Error> {
 	match message {
 		ProvisionerMessage::RequestInherentData(relay_parent, return_sender) => {
@@ -215,8 +229,14 @@ async fn handle_communication<Context>(
 			if let Some(state) = per_relay_parent.get_mut(&relay_parent) {
 				if state.is_inherent_ready {
 					gum::trace!(target: LOG_TARGET, ?relay_parent, "Calling send_inherent_data.");
-					send_inherent_data_bg(ctx, &state, vec![return_sender], metrics.clone())
-						.await?;
+					send_inherent_data_bg(
+						ctx,
+						&state,
+						vec![return_sender],
+						metrics.clone(),
+						*approval_checking_lag,
+					)
+					.await?;
 				} else {
 					gum::trace!(
 						target: LOG_TARGET,
@@ -237,6 +257,9 @@ async fn handle_communication<Context>(
 				note_provisionable_data(state, &span, data);
 			}
 		},
+		ProvisionerMessage::ApprovalCheckingLagUpdate(lag) => {
+			*approval_checking_lag = lag;
+		},
 	}
 
 	Ok(())
@@ -248,6 +271,7 @@ async fn send_inherent_data_bg<Context>(
 	per_relay_parent: &PerRelayParent,
 	return_senders: Vec<oneshot::Sender<ProvisionerInherentData>>,
 	metrics: Metrics,
+	approval_checking_lag: BlockNumber,
 ) -> Result<(), Error> {
 	let leaf = per_relay_parent.leaf.clone();
 	let signed_bitfields = per_relay_parent.signed_bitfields.clone();
@@ -275,6 +299,7 @@ async fn send_inherent_data_bg<Context>(
 			return_senders,
 			&mut sender,
 			&metrics,
+			approval_checking_lag,
 		) // Make sure call is not taking forever:
 		.timeout(SEND_INHERENT_DATA_TIMEOUT)
 		.map(|v| match v {
@@ -386,6 +411,7 @@ async fn send_inherent_data(
 	return_senders: Vec<oneshot::Sender<ProvisionerInherentData>>,
 	from_job: &mut impl overseer::ProvisionerSenderTrait,
 	metrics: &Metrics,
+	approval_checking_lag: BlockNumber,
 ) -> Result<(), Error> {
 	gum::trace!(
 		target: LOG_TARGET,
@@ -436,6 +462,7 @@ async fn send_inherent_data(
 		prospective_parachains_mode,
 		leaf.hash,
 		from_job,
+		approval_checking_lag,
 	)
 	.await?;
 
@@ -708,12 +735,13 @@ async fn select_candidates(
 	prospective_parachains_mode: ProspectiveParachainsMode,
 	relay_parent: Hash,
 	sender: &mut impl overseer::ProvisionerSenderTrait,
+	approval_checking_lag: BlockNumber,
 ) -> Result<Vec<BackedCandidate>, Error> {
 	gum::trace!(target: LOG_TARGET,
 		leaf_hash=?relay_parent,
 		"before GetBackedCandidates");
 
-	let selected_candidates = match prospective_parachains_mode {
+	let mut selected_candidates = match prospective_parachains_mode {
 		ProspectiveParachainsMode::Enabled { .. } =>
 			request_backable_candidates(availability_cores, bitfields, relay_parent, sender).await?,
 		ProspectiveParachainsMode::Disabled =>
@@ -726,6 +754,26 @@ async fn select_candidates(
 			)
 			.await?,
 	};
+
+	// Eponentially back-off if we are past a tolerated approval checking lag.
+	// This way we avoid creating new work for approval subsystem and give it
+	// the opportunity to catch if it has falled behind.
+	let max_candidates_to_back = selected_candidates.len() /
+		usize::pow(
+			2,
+			max(0, approval_checking_lag as i32 - TOLERATED_APPROVAL_CHECKING_LAG) as u32,
+		);
+
+	if max_candidates_to_back != selected_candidates.len() {
+		gum::info!(
+			target: LOG_TARGET,
+			available_for_backing = ?selected_candidates.len(),
+			?max_candidates_to_back,
+			?approval_checking_lag,
+			"High approval checking lag throttle backing"
+		);
+		selected_candidates.truncate(max_candidates_to_back);
+	}
 
 	// now get the backed candidates corresponding to these candidate receipts
 	let (tx, rx) = oneshot::channel();
