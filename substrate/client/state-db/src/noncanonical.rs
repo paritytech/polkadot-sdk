@@ -28,8 +28,11 @@ use log::trace;
 use std::collections::{hash_map::Entry, HashMap, VecDeque};
 
 const NON_CANONICAL_JOURNAL: &[u8] = b"noncanonical_journal";
-const NON_CANONICAL_JOURNAL_LEN: &[u8] = b"noncanonical_journal_len";
 pub(crate) const LAST_CANONICAL: &[u8] = b"last_canonical";
+const OVERLAY_LEVEL_LARGEST_INDEX_USED: &[u8] = b"noncanonical_overlay_largest_idx";
+// To decrease the number of database operations, the largest index used at some overlay
+// level will be committed to the database iff it exceeds this threshold.
+const OVERLAY_LEVEL_LARGEST_INDEX_THRESHOLD: u64 = 32;
 
 /// See module documentation.
 pub struct NonCanonicalOverlay<BlockHash: Hash, Key: Hash> {
@@ -46,12 +49,14 @@ pub struct NonCanonicalOverlay<BlockHash: Hash, Key: Hash> {
 #[cfg_attr(test, derive(PartialEq, Debug))]
 struct OverlayLevel<BlockHash: Hash, Key: Hash> {
 	blocks: Vec<BlockOverlay<BlockHash, Key>>,
-	used_indicies: u64, // Bitmask of available journal indicies.
+	used_indicies: u64, // Bitmask of available journal indices.
+	largest_index_ever_used: u64,
 }
 
 impl<BlockHash: Hash, Key: Hash> OverlayLevel<BlockHash, Key> {
 	fn push(&mut self, overlay: BlockOverlay<BlockHash, Key>) {
 		self.used_indicies |= 1 << overlay.journal_index;
+		self.largest_index_ever_used = self.largest_index_ever_used.max(overlay.journal_index);
 		self.blocks.push(overlay)
 	}
 
@@ -59,17 +64,25 @@ impl<BlockHash: Hash, Key: Hash> OverlayLevel<BlockHash, Key> {
 		self.used_indicies.trailing_ones() as u64
 	}
 
+	fn largest_index_ever_used(&self) -> u64 {
+		self.largest_index_ever_used
+	}
+
 	fn remove(&mut self, index: usize) -> BlockOverlay<BlockHash, Key> {
 		self.used_indicies &= !(1 << self.blocks[index].journal_index);
 		self.blocks.remove(index)
 	}
 
-	fn level_width(&self) -> u64 {
-		64 - self.used_indicies.leading_zeros() as u64
+	fn new_with_largest_index(largest_index: u64) -> OverlayLevel<BlockHash, Key> {
+		OverlayLevel {
+			blocks: Vec::new(),
+			used_indicies: 0,
+			largest_index_ever_used: largest_index,
+		}
 	}
 
 	fn new() -> OverlayLevel<BlockHash, Key> {
-		OverlayLevel { blocks: Vec::new(), used_indicies: 0 }
+		Self::new_with_largest_index(0)
 	}
 }
 
@@ -193,15 +206,18 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 			let mut total: u64 = 0;
 			block += 1;
 			loop {
-				let mut level = OverlayLevel::new();
-				let non_canonical_journal_len_record = db
-					.get_meta(&to_meta_key(NON_CANONICAL_JOURNAL_LEN, &block))
-					.map_err(Error::Db)?;
-				let level_len = match non_canonical_journal_len_record {
-					Some(data) => Decode::decode(&mut data.as_slice())?,
-					None => 0,
+				let largest_index_used = db
+					.get_meta(&to_meta_key(OVERLAY_LEVEL_LARGEST_INDEX_USED, &block))
+					.map_err(Error::Db)?
+					.map(|data| Decode::decode(&mut data.as_slice()))
+					.transpose()?;
+				let mut level = match largest_index_used {
+					Some(largest_index) => OverlayLevel::new_with_largest_index(largest_index),
+					None => OverlayLevel::new(),
 				};
-				for index in 0..level_len {
+				for index in
+					0..=largest_index_used.unwrap_or(OVERLAY_LEVEL_LARGEST_INDEX_THRESHOLD - 1)
+				{
 					let journal_key = to_journal_key(block, index);
 					if let Some(record) = db.get_meta(&journal_key).map_err(Error::Db)? {
 						let record: JournalRecord<BlockHash, Key> =
@@ -311,11 +327,6 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 		}
 
 		let index = level.available_index();
-		if index == level.level_width() {
-			let key = to_meta_key(NON_CANONICAL_JOURNAL_LEN, &number);
-			let journal_len_at_number = index + 1;
-			commit.meta.inserted.push((key, journal_len_at_number.encode()));
-		}
 		let journal_key = to_journal_key(number, index);
 
 		let inserted = changeset.inserted.iter().map(|(k, _)| k.clone()).collect();
@@ -334,6 +345,15 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 			inserted: changeset.inserted,
 			deleted: changeset.deleted,
 		};
+
+		if index >= OVERLAY_LEVEL_LARGEST_INDEX_THRESHOLD &&
+			index == level.largest_index_ever_used()
+		{
+			let key = to_meta_key(OVERLAY_LEVEL_LARGEST_INDEX_USED, &number);
+			let overlay_len_at_number = index + 1;
+			commit.meta.inserted.push((key, overlay_len_at_number.encode()));
+		}
+
 		commit.meta.inserted.push((journal_key, journal_record.encode()));
 		trace!(
 			target: LOG_TARGET,
@@ -415,6 +435,7 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 		self.pinned_canonincalized.push(hash.clone());
 
 		let mut discarded_journals = Vec::new();
+		let level_largest_index_ever_used = level.largest_index_ever_used();
 		for (i, overlay) in level.blocks.into_iter().enumerate() {
 			let mut pinned_children = 0;
 			// That's the one we need to canonicalize
@@ -455,10 +476,10 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 			discarded_journals.push(overlay.journal_key.clone());
 		}
 		commit.meta.deleted.append(&mut discarded_journals);
-		commit
-			.meta
-			.deleted
-			.push(to_meta_key(NON_CANONICAL_JOURNAL_LEN, &self.front_block_number()));
+		if level_largest_index_ever_used >= OVERLAY_LEVEL_LARGEST_INDEX_THRESHOLD {
+			let key = to_meta_key(OVERLAY_LEVEL_LARGEST_INDEX_USED, &self.front_block_number());
+			commit.meta.deleted.push(key);
+		}
 
 		let canonicalized = (hash.clone(), self.front_block_number());
 		commit
@@ -497,8 +518,10 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 				self.parents.remove(&overlay.hash);
 				discard_values(&mut self.values, overlay.inserted);
 			}
-			let journal_level_len_key = to_meta_key(NON_CANONICAL_JOURNAL_LEN, &last_block_number);
-			commit.meta.deleted.push(journal_level_len_key);
+			if level.largest_index_ever_used >= OVERLAY_LEVEL_LARGEST_INDEX_THRESHOLD {
+				let key = to_meta_key(OVERLAY_LEVEL_LARGEST_INDEX_USED, &last_block_number);
+				commit.meta.deleted.push(key);
+			}
 			commit
 		})
 	}
@@ -526,9 +549,13 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 		}
 		if self.levels.back().map_or(false, |l| l.blocks.is_empty()) {
 			let last_block_number = self.front_block_number() + level_count as u64 - 1;
+			if self.levels.back().map_or(0, |l| l.largest_index_ever_used) >=
+				OVERLAY_LEVEL_LARGEST_INDEX_THRESHOLD
+			{
+				let key = to_meta_key(OVERLAY_LEVEL_LARGEST_INDEX_USED, &last_block_number);
+				commit.meta.deleted.push(key);
+			}
 			self.levels.pop_back();
-			let journal_level_len_key = to_meta_key(NON_CANONICAL_JOURNAL_LEN, &last_block_number);
-			commit.meta.deleted.push(journal_level_len_key);
 		}
 		if !commit.meta.deleted.is_empty() {
 			Some(commit)
@@ -590,13 +617,13 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 mod tests {
 	use super::{to_journal_key, NonCanonicalOverlay};
 	use crate::{
-		noncanonical::{LAST_CANONICAL, NON_CANONICAL_JOURNAL_LEN},
+		noncanonical::LAST_CANONICAL,
 		test::{make_changeset, make_db},
 		to_meta_key, ChangeSet, CommitSet, MetaDb, StateDbError,
 	};
+	use codec::Encode;
 	use sp_core::H256;
 	use std::collections::HashSet;
-	use codec::Encode;
 
 	fn contains(overlay: &NonCanonicalOverlay<H256, H256>, key: u64) -> bool {
 		overlay.get(&H256::from_low_u64_be(key)) ==
@@ -692,7 +719,7 @@ mod tests {
 			HashSet::from_iter(&[
 				to_meta_key(LAST_CANONICAL, &()),
 				to_journal_key(1, 0),
-				to_meta_key(&NON_CANONICAL_JOURNAL_LEN, &1u64),
+				// to_meta_key(&OVERLAY_LEVEL_LARGEST_INDEX_USED, &1u64),
 			])
 		);
 		assert!(insertion.meta.deleted.is_empty());
@@ -703,13 +730,13 @@ mod tests {
 		assert_eq!(finalization.data.deleted.len(), changeset.deleted.len());
 		assert_eq!(
 			finalization.meta.inserted,
-			vec![(to_meta_key(LAST_CANONICAL, &()),(&h1, 1u64).encode())]
+			vec![(to_meta_key(LAST_CANONICAL, &()), (&h1, 1u64).encode())]
 		);
 		assert_eq!(
 			HashSet::<Vec<_>>::from_iter(finalization.meta.deleted.clone()),
 			HashSet::from_iter(vec![
 				to_journal_key(1, 0),
-				to_meta_key(&NON_CANONICAL_JOURNAL_LEN, &1u64),
+				// to_meta_key(&OVERLAY_LEVEL_LARGEST_INDEX_USED, &1u64),
 			])
 		);
 		db.commit(&finalization);
@@ -728,7 +755,7 @@ mod tests {
 				.unwrap(),
 		);
 		db.commit(&overlay.insert(&h2, 11, &h1, make_changeset(&[5], &[3])).unwrap());
-		assert_eq!(db.meta_len(), 5);
+		assert_eq!(db.meta_len(), 3); //TODO
 
 		let overlay2 = NonCanonicalOverlay::<H256, H256>::new(&db).unwrap();
 		assert_eq!(overlay.levels, overlay2.levels);
