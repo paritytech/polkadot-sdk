@@ -17,7 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::{
-	arg_enums::RpcMethods,
+	arg_enums::{Cors, RpcMethods},
 	error::{Error, Result},
 	params::{
 		ImportParams, KeystoreParams, NetworkParams, OffchainWorkerParams, SharedParams,
@@ -34,10 +34,7 @@ use sc_service::{
 	ChainSpec, Role,
 };
 use sc_telemetry::TelemetryEndpoints;
-use std::{
-	net::{IpAddr, Ipv4Addr, SocketAddr},
-	str::FromStr,
-};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 /// The `run` command used to run a node.
 #[derive(Debug, Clone, Parser)]
@@ -470,50 +467,6 @@ fn rpc_interface(
 		Ok(Ipv4Addr::UNSPECIFIED.into())
 	} else {
 		Ok(Ipv4Addr::LOCALHOST.into())
-	}
-}
-
-/// CORS setting
-///
-/// The type is introduced to overcome `Option<Option<T>>` handling of `clap`.
-#[derive(Clone, Debug)]
-pub enum Cors {
-	/// All hosts allowed.
-	All,
-	/// Only hosts on the list are allowed.
-	List(Vec<String>),
-}
-
-impl From<Cors> for Option<Vec<String>> {
-	fn from(cors: Cors) -> Self {
-		match cors {
-			Cors::All => None,
-			Cors::List(list) => Some(list),
-		}
-	}
-}
-
-impl FromStr for Cors {
-	type Err = Error;
-
-	fn from_str(s: &str) -> Result<Self> {
-		let mut is_all = false;
-		let mut origins = Vec::new();
-		for part in s.split(',') {
-			match part {
-				"all" | "*" => {
-					is_all = true;
-					break
-				},
-				other => origins.push(other.to_owned()),
-			}
-		}
-
-		if is_all {
-			Ok(Cors::All)
-		} else {
-			Ok(Cors::List(origins))
-		}
 	}
 }
 
