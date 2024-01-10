@@ -34,7 +34,10 @@ use sc_service::{
 	ChainSpec, Role,
 };
 use sc_telemetry::TelemetryEndpoints;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::{
+	net::{IpAddr, Ipv4Addr, SocketAddr},
+	str::FromStr,
+};
 
 /// The `run` command used to run a node.
 #[derive(Debug, Clone, Parser)]
@@ -108,7 +111,7 @@ pub struct RunCmd {
 	/// value). Value of `all` will disable origin validation. Default is to
 	/// allow localhost and <https://polkadot.js.org> origins. When running in
 	/// `--dev` mode the default is to allow all origins.
-	#[arg(long, value_name = "ORIGINS", value_parser = parse_cors)]
+	#[arg(long, value_name = "ORIGINS")]
 	pub rpc_cors: Option<Cors>,
 
 	/// The human-readable name for this node.
@@ -490,24 +493,27 @@ impl From<Cors> for Option<Vec<String>> {
 	}
 }
 
-/// Parse cors origins.
-fn parse_cors(s: &str) -> Result<Cors> {
-	let mut is_all = false;
-	let mut origins = Vec::new();
-	for part in s.split(',') {
-		match part {
-			"all" | "*" => {
-				is_all = true;
-				break
-			},
-			other => origins.push(other.to_owned()),
-		}
-	}
+impl FromStr for Cors {
+	type Err = Error;
 
-	if is_all {
-		Ok(Cors::All)
-	} else {
-		Ok(Cors::List(origins))
+	fn from_str(s: &str) -> Result<Self> {
+		let mut is_all = false;
+		let mut origins = Vec::new();
+		for part in s.split(',') {
+			match part {
+				"all" | "*" => {
+					is_all = true;
+					break
+				},
+				other => origins.push(other.to_owned()),
+			}
+		}
+
+		if is_all {
+			Ok(Cors::All)
+		} else {
+			Ok(Cors::List(origins))
+		}
 	}
 }
 
