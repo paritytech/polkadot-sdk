@@ -360,13 +360,14 @@ async fn deleting_prepared_artifact_does_not_dispute() {
 
 #[tokio::test]
 async fn cache_cleared_on_startup() {
-	let cache_dir = {
-		let host = TestHost::new().await;
+	// Don't drop this host, it owns the `TempDir` which gets cleared on drop.
+	let host = TestHost::new().await;
 
-		let _stats =
-			host.precheck_pvf(halt::wasm_binary_unwrap(), Default::default()).await.unwrap();
-		host.cache_dir.path().to_owned()
-	};
+	let _stats = host.precheck_pvf(halt::wasm_binary_unwrap(), Default::default()).await.unwrap();
+
+	// The cache dir should contain one artifact and one worker dir.
+	let cache_dir = host.cache_dir.path().to_owned();
+	assert_eq!(std::fs::read_dir(&cache_dir).unwrap().count(), 2);
 
 	// Start a new host, previous artifact should be cleared.
 	let _host = TestHost::new_with_config(|cfg| {

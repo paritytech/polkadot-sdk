@@ -183,19 +183,15 @@ impl Artifacts {
 		// Delete any leftover artifacts and worker dirs from previous runs. We don't delete the
 		// entire cache directory in case the user made a mistake and set it to e.g. their home
 		// directory. This is a best-effort to do clean-up, so ignore any errors.
-		if let Ok(paths) = fs::read_dir(cache_path) {
-			for path in paths.flat_map(|res| res.map(|e| e.path())) {
-				let file_name = match path.file_name().and_then(|f| f.to_str()) {
-					Some(f) => f,
-					None => continue,
-				};
-				if path.is_dir() && file_name.starts_with(WORKER_DIR_PREFIX) {
-					let _ = fs::remove_dir_all(path);
-				} else if path.extension().map_or(false, |ext| ext == ARTIFACT_EXTENSION) ||
-					file_name.starts_with(ARTIFACT_OLD_PREFIX)
-				{
-					let _ = fs::remove_file(path);
-				}
+		for entry in fs::read_dir(cache_path).into_iter().flatten().flatten() {
+			let path = entry.path();
+			let Some(file_name) = path.file_name().and_then(|f| f.to_str()) else { continue };
+			if path.is_dir() && file_name.starts_with(WORKER_DIR_PREFIX) {
+				let _ = fs::remove_dir_all(path);
+			} else if path.extension().map_or(false, |ext| ext == ARTIFACT_EXTENSION) ||
+				file_name.starts_with(ARTIFACT_OLD_PREFIX)
+			{
+				let _ = fs::remove_file(path);
 			}
 		}
 
@@ -294,6 +290,8 @@ mod tests {
 			.collect();
 		assert_eq!(entries.len(), 3);
 		assert!(entries.contains(&String::from("abcd.pvfartifact")));
+		assert!(entries.contains(&String::from("polkadot_...")));
+		assert!(entries.contains(&String::from("worker-prepare-test")));
 		assert_eq!(artifacts.len(), 0);
 	}
 }
