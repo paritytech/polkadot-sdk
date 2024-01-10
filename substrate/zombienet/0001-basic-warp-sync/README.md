@@ -20,7 +20,6 @@ chain_spec_path = "chain-spec.json"
   [[relaychain.nodes]]
   name = "alice"
   validator = true
-  args = ["--state-pruning archive --blocks-pruning archive"]
   
   [[relaychain.nodes]]
   name = "bob"
@@ -56,6 +55,8 @@ data/chains/local_testnet/db/full/000469.log
 ```
 
 Also refer to: [zombienet#578](https://github.com/paritytech/zombienet/issues/578)
+
+The `raw` chain-spec shall also be saved: `db-test-gen/local.json`.
 
 # Where to upload database
 The access to this [bucket](https://console.cloud.google.com/storage/browser/zombienet-db-snaps/) is required.
