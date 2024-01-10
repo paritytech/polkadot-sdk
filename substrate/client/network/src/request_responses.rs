@@ -793,7 +793,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 										if let Some((fallback_request, fallback_protocol)) =
 											fallback_request
 										{
-											log::debug!(
+											log::trace!(
 												target: "sub-libp2p",
 												"Request with id {:?} failed. Trying the fallback protocol. {}",
 												request_id,
@@ -1061,6 +1061,7 @@ mod tests {
 	use super::*;
 
 	use crate::mock::MockPeerStore;
+	use assert_matches::assert_matches;
 	use futures::{channel::oneshot, executor::LocalPool, task::Spawn};
 	use libp2p::{
 		core::{
@@ -1664,6 +1665,29 @@ mod tests {
 					protocol_name_1_fallback.clone()
 				)
 			);
+			// Try the new protocol with no fallback. Should fail.
+			let (sender, response_receiver) = oneshot::channel();
+			swarm.behaviour_mut().send_request(
+				older_peer_id.as_ref().unwrap(),
+				protocol_name_1.clone(),
+				b"request on protocol /test/req-resp-2".to_vec(),
+				None,
+				sender,
+				IfDisconnected::ImmediateError,
+			);
+			loop {
+				match swarm.select_next_some().await {
+					SwarmEvent::Behaviour(Event::RequestFinished { result, .. }) => {
+						assert_matches!(
+							result.unwrap_err(),
+							RequestFailure::Network(OutboundFailure::UnsupportedProtocols)
+						);
+						break
+					},
+					_ => {},
+				}
+			}
+			assert!(response_receiver.await.unwrap().is_err());
 			// Try the other protocol with no fallback.
 			let (sender, response_receiver) = oneshot::channel();
 			swarm.behaviour_mut().send_request(
