@@ -247,7 +247,7 @@ where
 	}
 }
 
-/// Exposes conversion of an arbitrary balance of an asset to native balance.
+/// Exposes conversion of an native balance to an asset balance.
 impl<T> ConversionToAssetBalance<BalanceOf<T>, AssetKindOf<T>, BalanceOf<T>> for Pallet<T>
 where
 	T: Config,
