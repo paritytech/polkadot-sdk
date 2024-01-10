@@ -12671,6 +12671,7 @@ name = "polkadot-node-core-pvf"
 version = "1.0.0"
 dependencies = [
  "always-assert",
+ "array-bytes 6.1.0",
  "assert_matches",
  "blake3",
  "cfg-if",
@@ -12753,7 +12754,6 @@ dependencies = [
  "sp-externalities 0.19.0",
  "sp-io",
  "sp-tracing 10.0.0",
- "substrate-build-script-utils",
  "tempfile",
  "thiserror",
  "tracing-gum",
