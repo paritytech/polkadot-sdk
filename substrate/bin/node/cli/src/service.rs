@@ -775,7 +775,7 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 
 	sc_storage_monitor::StorageMonitorService::try_spawn(
 		cli.storage_monitor,
-		database_source,
+		database_source.path(),
 		&task_manager.spawn_essential_handle(),
 	)
 	.map_err(|e| ServiceError::Application(e.into()))?;

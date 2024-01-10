@@ -16585,7 +16585,6 @@ dependencies = [
  "clap 4.4.14",
  "fs4",
  "log",
- "sc-client-db",
  "sp-core",
  "thiserror",
  "tokio",

@@ -17,7 +17,6 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use clap::Args;
-use sc_client_db::DatabaseSource;
 use sp_core::traits::SpawnEssentialNamed;
 use std::{
 	io,
@@ -70,10 +69,10 @@ impl StorageMonitorService {
 	/// Creates new StorageMonitorService for given client config
 	pub fn try_spawn(
 		parameters: StorageMonitorParams,
-		database: DatabaseSource,
+		path: Option<&Path>,
 		spawner: &impl SpawnEssentialNamed,
 	) -> Result<()> {
-		Ok(match (parameters.threshold, database.path()) {
+		Ok(match (parameters.threshold, path) {
 			(0, _) => {
 				log::info!(
 					target: LOG_TARGET,
@@ -89,10 +88,11 @@ impl StorageMonitorService {
 			(threshold, Some(path)) => {
 				log::debug!(
 					target: LOG_TARGET,
-					"Initializing StorageMonitorService for db path: {path:?}",
+					"Initializing StorageMonitorService for db path: {}",
+					path.display()
 				);
 
-				Self::check_free_space(&path, threshold)?;
+				Self::check_free_space(path, threshold)?;
 
 				let storage_monitor_service = StorageMonitorService {
 					path: path.to_path_buf(),
