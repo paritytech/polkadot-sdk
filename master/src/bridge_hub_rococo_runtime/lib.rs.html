@@ -1472,6 +1472,21 @@
 <a href="#1472" id="1472">1472</a>
 <a href="#1473" id="1473">1473</a>
 <a href="#1474" id="1474">1474</a>
+<a href="#1475" id="1475">1475</a>
+<a href="#1476" id="1476">1476</a>
+<a href="#1477" id="1477">1477</a>
+<a href="#1478" id="1478">1478</a>
+<a href="#1479" id="1479">1479</a>
+<a href="#1480" id="1480">1480</a>
+<a href="#1481" id="1481">1481</a>
+<a href="#1482" id="1482">1482</a>
+<a href="#1483" id="1483">1483</a>
+<a href="#1484" id="1484">1484</a>
+<a href="#1485" id="1485">1485</a>
+<a href="#1486" id="1486">1486</a>
+<a href="#1487" id="1487">1487</a>
+<a href="#1488" id="1488">1488</a>
+<a href="#1489" id="1489">1489</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1545,8 +1560,6 @@
 };
 
 <span class="kw">use </span>bp_runtime::HeaderId;
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
-</span><span class="kw">use </span>bridge_hub_common::BridgeHubMessageRouter;
 <span class="kw">use </span>bridge_hub_common::{
 	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
 	AggregateMessageOrigin,
@@ -1576,17 +1589,9 @@
 <span class="kw">use </span>polkadot_runtime_common::prod_or_fast;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-</span><span class="kw">use </span><span class="kw">crate</span>::xcm_config::benchmark_helpers::DoNothingRouter;
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-</span><span class="kw">use </span>snowbridge_beacon_primitives::CompactExecutionHeader;
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-</span><span class="kw">use </span>snowbridge_core::RingBufferMap;
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-</span><span class="kw">pub use </span>snowbridge_ethereum_beacon_client::ExecutionHeaderBuffer;
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-</span><span class="kw">use </span>snowbridge_inbound_queue::BenchmarkHelper;
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-</span><span class="kw">use </span>sp_core::H256;
+</span><span class="kw">use </span>benchmark_helpers::DoNothingRouter;
+<span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+</span><span class="kw">use </span>bridge_hub_common::BridgeHubMessageRouter;
 
 <span class="doccomment">/// The address format for describing accounts.
 </span><span class="kw">pub type </span>Address = MultiAddress&lt;AccountId, ()&gt;;
@@ -1628,7 +1633,7 @@
 	InitStorageVersions,
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4&lt;Runtime&gt;,
 	<span class="comment">// unreleased
-	</span>snowbridge_system::migration::v0::InitializeOnUpgrade&lt;
+	</span>snowbridge_pallet_system::migration::v0::InitializeOnUpgrade&lt;
 		Runtime,
 		ConstU32&lt;BRIDGE_HUB_ID&gt;,
 		ConstU32&lt;ASSET_HUB_ID&gt;,
@@ -1986,7 +1991,7 @@
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>CreateAssetCall: [u8;<span class="number">2</span>] = [<span class="number">53</span>, <span class="number">0</span>];
 	<span class="kw">pub const </span>CreateAssetDeposit: u128 = (UNITS / <span class="number">10</span>) + EXISTENTIAL_DEPOSIT;
-	<span class="kw">pub const </span>InboundQueuePalletInstance: u8 = snowbridge_rococo_common::INBOUND_QUEUE_MESSAGES_PALLET_INDEX;
+	<span class="kw">pub const </span>InboundQueuePalletInstance: u8 = parachains_common::rococo::snowbridge::INBOUND_QUEUE_PALLET_INDEX;
 	<span class="kw">pub </span>Parameters: PricingParameters&lt;u128&gt; = PricingParameters {
 		exchange_rate: FixedU128::from_rational(<span class="number">1</span>, <span class="number">400</span>),
 		fee_per_gas: gwei(<span class="number">20</span>),
@@ -1995,15 +2000,46 @@
 }
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-</span><span class="kw">impl</span>&lt;T: snowbridge_ethereum_beacon_client::Config&gt; BenchmarkHelper&lt;T&gt; <span class="kw">for </span>Runtime {
-	<span class="kw">fn </span>initialize_storage(block_hash: H256, header: CompactExecutionHeader) {
-		&lt;ExecutionHeaderBuffer&lt;T&gt;&gt;::insert(block_hash, header);
+</span><span class="kw">pub mod </span>benchmark_helpers {
+	<span class="kw">use crate</span>::{EthereumBeaconClient, Runtime, RuntimeOrigin};
+	<span class="kw">use </span>codec::Encode;
+	<span class="kw">use </span>snowbridge_beacon_primitives::CompactExecutionHeader;
+	<span class="kw">use </span>snowbridge_pallet_inbound_queue::BenchmarkHelper;
+	<span class="kw">use </span>sp_core::H256;
+	<span class="kw">use </span>xcm::latest::{MultiAssets, MultiLocation, SendError, SendResult, SendXcm, Xcm, XcmHash};
+
+	<span class="kw">impl</span>&lt;T: snowbridge_pallet_ethereum_client::Config&gt; BenchmarkHelper&lt;T&gt; <span class="kw">for </span>Runtime {
+		<span class="kw">fn </span>initialize_storage(block_hash: H256, header: CompactExecutionHeader) {
+			EthereumBeaconClient::store_execution_header(block_hash, header, <span class="number">0</span>, H256::default())
+		}
+	}
+
+	<span class="kw">pub struct </span>DoNothingRouter;
+	<span class="kw">impl </span>SendXcm <span class="kw">for </span>DoNothingRouter {
+		<span class="kw">type </span>Ticket = Xcm&lt;()&gt;;
+
+		<span class="kw">fn </span>validate(
+			_dest: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;MultiLocation&gt;,
+			xcm: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Xcm&lt;()&gt;&gt;,
+		) -&gt; SendResult&lt;<span class="self">Self</span>::Ticket&gt; {
+			<span class="prelude-val">Ok</span>((xcm.clone().unwrap(), MultiAssets::new()))
+		}
+		<span class="kw">fn </span>deliver(xcm: Xcm&lt;()&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;XcmHash, SendError&gt; {
+			<span class="kw">let </span>hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+			<span class="prelude-val">Ok</span>(hash)
+		}
+	}
+
+	<span class="kw">impl </span>snowbridge_pallet_system::BenchmarkHelper&lt;RuntimeOrigin&gt; <span class="kw">for </span>() {
+		<span class="kw">fn </span>make_xcm_origin(location: MultiLocation) -&gt; RuntimeOrigin {
+			RuntimeOrigin::from(pallet_xcm::Origin::Xcm(location))
+		}
 	}
 }
 
-<span class="kw">impl </span>snowbridge_inbound_queue::Config <span class="kw">for </span>Runtime {
+<span class="kw">impl </span>snowbridge_pallet_inbound_queue::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-	<span class="kw">type </span>Verifier = snowbridge_ethereum_beacon_client::Pallet&lt;Runtime&gt;;
+	<span class="kw">type </span>Verifier = snowbridge_pallet_ethereum_client::Pallet&lt;Runtime&gt;;
 	<span class="kw">type </span>Token = Balances;
 	<span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
 	</span><span class="kw">type </span>XcmSender = XcmRouter;
@@ -2023,11 +2059,12 @@
 	<span class="kw">type </span>WeightToFee = WeightToFee;
 	<span class="kw">type </span>LengthToFee = ConstantMultiplier&lt;Balance, TransactionByteFee&gt;;
 	<span class="kw">type </span>MaxMessageSize = ConstU32&lt;<span class="number">2048</span>&gt;;
-	<span class="kw">type </span>WeightInfo = weights::snowbridge_inbound_queue::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>WeightInfo = weights::snowbridge_pallet_inbound_queue::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>PricingParameters = EthereumSystem;
+	<span class="kw">type </span>AssetTransactor = &lt;xcm_config::XcmConfig <span class="kw">as </span>xcm_executor::Config&gt;::AssetTransactor;
 }
 
-<span class="kw">impl </span>snowbridge_outbound_queue::Config <span class="kw">for </span>Runtime {
+<span class="kw">impl </span>snowbridge_pallet_outbound_queue::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>Hashing = Keccak256;
 	<span class="kw">type </span>MessageQueue = MessageQueue;
@@ -2037,7 +2074,7 @@
 	<span class="kw">type </span>GasMeter = snowbridge_core::outbound::ConstantGasMeter;
 	<span class="kw">type </span>Balance = Balance;
 	<span class="kw">type </span>WeightToFee = WeightToFee;
-	<span class="kw">type </span>WeightInfo = weights::snowbridge_outbound_queue::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>WeightInfo = weights::snowbridge_pallet_outbound_queue::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>PricingParameters = EthereumSystem;
 	<span class="kw">type </span>Channels = EthereumSystem;
 }
@@ -2090,28 +2127,21 @@
 	<span class="kw">pub const </span>MaxExecutionHeadersToKeep: u32 = <span class="macro">prod_or_fast!</span>(<span class="number">8192 </span>* <span class="number">2</span>, <span class="number">1000</span>);
 }
 
-<span class="kw">impl </span>snowbridge_ethereum_beacon_client::Config <span class="kw">for </span>Runtime {
+<span class="kw">impl </span>snowbridge_pallet_ethereum_client::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>ForkVersions = ChainForkVersions;
 	<span class="kw">type </span>MaxExecutionHeadersToKeep = MaxExecutionHeadersToKeep;
-	<span class="kw">type </span>WeightInfo = weights::snowbridge_ethereum_beacon_client::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>WeightInfo = weights::snowbridge_pallet_ethereum_client::WeightInfo&lt;Runtime&gt;;
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-</span><span class="kw">impl </span>snowbridge_system::BenchmarkHelper&lt;RuntimeOrigin&gt; <span class="kw">for </span>() {
-	<span class="kw">fn </span>make_xcm_origin(location: xcm::latest::MultiLocation) -&gt; RuntimeOrigin {
-		RuntimeOrigin::from(pallet_xcm::Origin::Xcm(location))
-	}
-}
-
-<span class="kw">impl </span>snowbridge_system::Config <span class="kw">for </span>Runtime {
+<span class="kw">impl </span>snowbridge_pallet_system::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>OutboundQueue = EthereumOutboundQueue;
 	<span class="kw">type </span>SiblingOrigin = EnsureXcm&lt;AllowSiblingsOnly&gt;;
 	<span class="kw">type </span>AgentIdOf = snowbridge_core::AgentIdOf;
 	<span class="kw">type </span>TreasuryAccount = TreasuryAccount;
 	<span class="kw">type </span>Token = Balances;
-	<span class="kw">type </span>WeightInfo = weights::snowbridge_system::WeightInfo&lt;Runtime&gt;;
+	<span class="kw">type </span>WeightInfo = weights::snowbridge_pallet_system::WeightInfo&lt;Runtime&gt;;
 	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 	</span><span class="kw">type </span>Helper = ();
 	<span class="kw">type </span>DefaultPricingParameters = Parameters;
@@ -2177,10 +2207,10 @@
 		<span class="comment">// With-Rococo Bulletin bridge hub pallet.
 		</span>XcmOverPolkadotBulletin: pallet_xcm_bridge_hub::&lt;Instance2&gt;::{Pallet} = <span class="number">62</span>,
 
-		EthereumInboundQueue: snowbridge_inbound_queue::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">80</span>,
-		EthereumOutboundQueue: snowbridge_outbound_queue::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">81</span>,
-		EthereumBeaconClient: snowbridge_ethereum_beacon_client::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">82</span>,
-		EthereumSystem: snowbridge_system::{Pallet, Call, Storage, Config&lt;T&gt;, Event&lt;T&gt;} = <span class="number">83</span>,
+		EthereumInboundQueue: snowbridge_pallet_inbound_queue::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">80</span>,
+		EthereumOutboundQueue: snowbridge_pallet_outbound_queue::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">81</span>,
+		EthereumBeaconClient: snowbridge_pallet_ethereum_client::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">82</span>,
+		EthereumSystem: snowbridge_pallet_system::{Pallet, Call, Storage, Config&lt;T&gt;, Event&lt;T&gt;} = <span class="number">83</span>,
 
 		<span class="comment">// Message Queue. Importantly, is registered last so that messages are processed after
 		// the `on_initialize` hooks of bridging pallets.
@@ -2232,10 +2262,10 @@
 		[pallet_bridge_messages, RococoToRococoBulletin]
 		[pallet_bridge_relayers, BridgeRelayersBench::&lt;Runtime&gt;]
 		<span class="comment">// Ethereum Bridge
-		</span>[snowbridge_inbound_queue, EthereumInboundQueue]
-		[snowbridge_outbound_queue, EthereumOutboundQueue]
-		[snowbridge_system, EthereumSystem]
-		[snowbridge_ethereum_beacon_client, EthereumBeaconClient]
+		</span>[snowbridge_pallet_inbound_queue, EthereumInboundQueue]
+		[snowbridge_pallet_outbound_queue, EthereumOutboundQueue]
+		[snowbridge_pallet_system, EthereumSystem]
+		[snowbridge_pallet_ethereum_client, EthereumBeaconClient]
 	);
 }
 
@@ -2465,18 +2495,18 @@
 	}
 
 	<span class="kw">impl </span>snowbridge_outbound_queue_runtime_api::OutboundQueueApi&lt;Block, Balance&gt; <span class="kw">for </span>Runtime {
-		<span class="kw">fn </span>prove_message(leaf_index: u64) -&gt; <span class="prelude-ty">Option</span>&lt;snowbridge_outbound_queue::MerkleProof&gt; {
-			snowbridge_outbound_queue::api::prove_message::&lt;Runtime&gt;(leaf_index)
+		<span class="kw">fn </span>prove_message(leaf_index: u64) -&gt; <span class="prelude-ty">Option</span>&lt;snowbridge_pallet_outbound_queue::MerkleProof&gt; {
+			snowbridge_pallet_outbound_queue::api::prove_message::&lt;Runtime&gt;(leaf_index)
 		}
 
 		<span class="kw">fn </span>calculate_fee(message: Message) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt; {
-			snowbridge_outbound_queue::api::calculate_fee::&lt;Runtime&gt;(message)
+			snowbridge_pallet_outbound_queue::api::calculate_fee::&lt;Runtime&gt;(message)
 		}
 	}
 
 	<span class="kw">impl </span>snowbridge_system_runtime_api::ControlApi&lt;Block&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>agent_id(location: VersionedMultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;AgentId&gt; {
-			snowbridge_system::api::agent_id::&lt;Runtime&gt;(location)
+			snowbridge_pallet_system::api::agent_id::&lt;Runtime&gt;(location)
 		}
 	}
 
