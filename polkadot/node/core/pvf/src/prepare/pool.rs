@@ -243,6 +243,7 @@ fn handle_to_pool(
 							idle,
 							pvf,
 							cache_path,
+							node_version,
 							preparation_timer,
 						)
 						.boxed(),
@@ -304,9 +305,10 @@ async fn start_work_task<Timer>(
 	idle: IdleWorker,
 	pvf: PvfPrepData,
 	cache_path: PathBuf,
+	node_version: Option<String>,
 	_preparation_timer: Option<Timer>,
 ) -> PoolEvent {
-	let outcome = worker_interface::start_work(&metrics, idle, pvf, cache_path).await;
+	let outcome = worker_interface::start_work(&metrics, idle, pvf, cache_path, node_version).await;
 	PoolEvent::StartWork(worker, outcome)
 }
 

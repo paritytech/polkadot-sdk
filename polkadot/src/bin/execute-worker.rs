@@ -17,8 +17,7 @@
 //! Execute worker.
 
 polkadot_node_core_pvf_common::decl_worker_main!(
-	"execute-worker",
 	polkadot_node_core_pvf_execute_worker::worker_entrypoint,
-	polkadot_cli::NODE_VERSION,
+	polkadot_node_core_pvf_common::logical_node_version(env!("SUBSTRATE_WASMTIME_VERSION")),
 	env!("SUBSTRATE_CLI_COMMIT_HASH"),
 );

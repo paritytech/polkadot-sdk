@@ -15,6 +15,8 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 fn main() {
+	substrate_build_script_utils::generate_wasmtime_version();
+
 	if let Ok(profile) = std::env::var("PROFILE") {
 		println!(r#"cargo:rustc-cfg=build_type="{}""#, profile);
 	}

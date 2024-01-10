@@ -21,9 +21,6 @@ pub use crate::{
 	worker_interface::{spawn_with_program_path, SpawnErr},
 };
 
-use crate::get_worker_version;
-use is_executable::IsExecutable;
-use polkadot_node_primitives::NODE_VERSION;
 use polkadot_primitives::ExecutorParams;
 use std::{
 	path::PathBuf,
@@ -99,24 +96,6 @@ pub fn build_workers_and_get_paths() -> (PathBuf, PathBuf) {
 		prepare_worker_path.push(PREPARE_BINARY_NAME);
 		let mut execute_worker_path = workers_path.clone();
 		execute_worker_path.push(EXECUTE_BINARY_NAME);
-
-		// explain why a build happens
-		if !prepare_worker_path.is_executable() {
-			println!("WARN: Prepare worker does not exist or is not executable. Workers directory: {:?}", workers_path);
-		}
-		if !execute_worker_path.is_executable() {
-			println!("WARN: Execute worker does not exist or is not executable. Workers directory: {:?}", workers_path);
-		}
-		if let Ok(ver) = get_worker_version(&prepare_worker_path) {
-			if ver != NODE_VERSION {
-				println!("WARN: Prepare worker version {ver} does not match node version {NODE_VERSION}; worker path: {prepare_worker_path:?}");
-			}
-		}
-		if let Ok(ver) = get_worker_version(&execute_worker_path) {
-			if ver != NODE_VERSION {
-				println!("WARN: Execute worker version {ver} does not match node version {NODE_VERSION}; worker path: {execute_worker_path:?}");
-			}
-		}
 
 		build_workers();
 
