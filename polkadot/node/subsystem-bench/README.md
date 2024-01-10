@@ -230,7 +230,8 @@ and unlikely to reflect the behavior of a modern machine. However, it still repr
 usage, and more importantly it doesn't require a bare-metal machine to run on, which means it could be run in CI or in
 a remote virtual installation.
 
-To profile cache misses use the `--cache-misses` flag. Since the execution will be very slow, it's recommended not to run it together with other profiling and not to take benchmark results into account.
+To profile cache misses use the `--cache-misses` flag. Since the execution will be very slow, it's recommended not to
+run it together with other profiling and not to take benchmark results into account.
 
 Example run results:
 ```
@@ -293,7 +294,8 @@ The results show that 1.8% of the L1 data cache missed, but the last level cache
 Instruction data of the L1 has 0.04% of the time and almost nothing was missed at the last level.
 
 Cachegrind writes line-by-line cache profiling information to a file named `cachegrind.out.<pid>`.
-This file is best interpreted with `cg_annotate --auto=yes cachegrind.out.<pid>`. For more information see the [cachegrind manual](https://www.cs.cmu.edu/afs/cs.cmu.edu/project/cmt-40/Nice/RuleRefinement/bin/valgrind-3.2.0/docs/html/cg-manual.html).
+This file is best interpreted with `cg_annotate --auto=yes cachegrind.out.<pid>`. For more information see the
+[cachegrind manual](https://www.cs.cmu.edu/afs/cs.cmu.edu/project/cmt-40/Nice/RuleRefinement/bin/valgrind-3.2.0/docs/html/cg-manual.html).
 
 For finer profiling of cache misses, better use `perf` on a bare-metal machine.
 
