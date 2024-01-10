@@ -7,7 +7,7 @@
 "contracts_rococo_runtime":[["impl Config for <a class=\"struct\" href=\"contracts_rococo_runtime/struct.Runtime.html\" title=\"struct contracts_rococo_runtime::Runtime\">Runtime</a>"]],
 "coretime_rococo_runtime":[["impl Config for <a class=\"struct\" href=\"coretime_rococo_runtime/struct.Runtime.html\" title=\"struct coretime_rococo_runtime::Runtime\">Runtime</a>"]],
 "coretime_westend_runtime":[["impl Config for <a class=\"struct\" href=\"coretime_westend_runtime/struct.Runtime.html\" title=\"struct coretime_westend_runtime::Runtime\">Runtime</a>"]],
-"kitchensink_runtime":[["impl Config for <a class=\"struct\" href=\"kitchensink_runtime/struct.Runtime.html\" title=\"struct kitchensink_runtime::Runtime\">Runtime</a>"]],
+"kitchensink_runtime":[["impl <a class=\"trait\" href=\"pallet_authorship/pallet/trait.Config.html\" title=\"trait pallet_authorship::pallet::Config\">Config</a> for <a class=\"struct\" href=\"kitchensink_runtime/struct.Runtime.html\" title=\"struct kitchensink_runtime::Runtime\">Runtime</a>"]],
 "parachain_template_runtime":[["impl Config for <a class=\"struct\" href=\"parachain_template_runtime/struct.Runtime.html\" title=\"struct parachain_template_runtime::Runtime\">Runtime</a>"]],
 "penpal_runtime":[["impl Config for <a class=\"struct\" href=\"penpal_runtime/struct.Runtime.html\" title=\"struct penpal_runtime::Runtime\">Runtime</a>"]],
 "people_rococo_runtime":[["impl Config for <a class=\"struct\" href=\"people_rococo_runtime/struct.Runtime.html\" title=\"struct people_rococo_runtime::Runtime\">Runtime</a>"]],
