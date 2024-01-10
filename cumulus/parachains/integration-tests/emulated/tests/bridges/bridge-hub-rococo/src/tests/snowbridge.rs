@@ -18,11 +18,11 @@ use emulated_integration_tests_common::xcm_emulator::ConvertLocation;
 use frame_support::pallet_prelude::TypeInfo;
 use hex_literal::hex;
 use snowbridge_core::outbound::OperatingMode;
-use snowbridge_rococo_common::EthereumNetwork;
+use parachains_common::rococo::snowbridge::EthereumNetwork;
 use snowbridge_router_primitives::inbound::{
 	Command, Destination, GlobalConsensusEthereumConvertsFor, MessageV1, VersionedMessage,
 };
-use snowbridge_system;
+use snowbridge_pallet_system;
 use sp_core::H256;
 
 const INITIAL_FUND: u128 = 5_000_000_000 * ROCOCO_ED;
@@ -94,7 +94,7 @@ fn create_agent() {
 		assert_expected_events!(
 			BridgeHubRococo,
 			vec![
-				RuntimeEvent::EthereumSystem(snowbridge_system::Event::CreateAgent {
+				RuntimeEvent::EthereumSystem(snowbridge_pallet_system::Event::CreateAgent {
 					..
 				}) => {},
 			]
@@ -168,7 +168,7 @@ fn create_channel() {
 		assert_expected_events!(
 			BridgeHubRococo,
 			vec![
-				RuntimeEvent::EthereumSystem(snowbridge_system::Event::CreateChannel {
+				RuntimeEvent::EthereumSystem(snowbridge_pallet_system::Event::CreateChannel {
 					..
 				}) => {},
 			]
@@ -484,7 +484,7 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 		assert_expected_events!(
 			BridgeHubRococo,
 			vec![
-				RuntimeEvent::EthereumOutboundQueue(snowbridge_outbound_queue::Event::MessageQueued {..}) => {},
+				RuntimeEvent::EthereumOutboundQueue(snowbridge_pallet_outbound_queue::Event::MessageQueued {..}) => {},
 			]
 		);
 		let events = BridgeHubRococo::events();

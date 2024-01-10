@@ -23,7 +23,7 @@ use codec::Decode;
 use cumulus_primitives_core::XcmError::{FailedToTransactAsset, NotHoldingFees};
 use frame_support::parameter_types;
 use parachains_common::{AccountId, AuraId, Balance};
-use snowbridge_ethereum_beacon_client::WeightInfo;
+use snowbridge_pallet_ethereum_client::WeightInfo;
 use sp_core::H160;
 use sp_keyring::AccountKeyring::Alice;
 
@@ -101,9 +101,9 @@ pub fn transfer_token_to_ethereum_insufficient_fund() {
 fn max_message_queue_service_weight_is_more_than_beacon_extrinsic_weights() {
 	let max_message_queue_weight = MessageQueueServiceWeight::get();
 	let force_checkpoint =
-		<Runtime as snowbridge_ethereum_beacon_client::Config>::WeightInfo::force_checkpoint();
+		<Runtime as snowbridge_pallet_ethereum_client::Config>::WeightInfo::force_checkpoint();
 	let submit_checkpoint =
-		<Runtime as snowbridge_ethereum_beacon_client::Config>::WeightInfo::submit();
+		<Runtime as snowbridge_pallet_ethereum_client::Config>::WeightInfo::submit();
 	max_message_queue_weight.all_gt(force_checkpoint);
 	max_message_queue_weight.all_gt(submit_checkpoint);
 }
