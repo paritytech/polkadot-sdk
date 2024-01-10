@@ -70,7 +70,7 @@
 //! > that they already pose, rather than repeating yourself**.
 //!
 //! For more details about documenting guidelines, see:
-//! <https://github.com/paritytech/polkadot-sdk/master/docs/contributor/DOCUMENTATION_GUIDELINES.md>
+//! <https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/DOCUMENTATION_GUIDELINES.md#L23>
 //!
 //! #### Example: Explaining `#[pallet::call]`
 //!
