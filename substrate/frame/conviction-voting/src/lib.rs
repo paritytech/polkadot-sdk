@@ -27,14 +27,18 @@
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "runtime-benchmarks")]
+use frame_support::traits::fungible::Mutate;
+
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	traits::{
-		fungible::{Inspect, InspectFreeze, Mutate, MutateFreeze},
+		fungible::{Inspect, InspectFreeze, MutateFreeze},
 		Get, PollStatus, Polling,
 	},
 };
+
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Saturating, StaticLookup, Zero},
