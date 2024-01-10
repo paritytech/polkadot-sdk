@@ -612,11 +612,14 @@ impl pallet_collator_selection::Config for Runtime {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_asset_tx_payment::BenchmarkHelperTrait<AccountId, u32, u32> for () {
-	fn create_asset_id_parameter(id: u32) -> (FunAssetIdParameter, AssetIdParameter) {
+pub struct AssetTxHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_asset_tx_payment::BenchmarkHelperTrait<AccountId, u32, u32> for AssetTxHelper {
+	fn create_asset_id_parameter(id: u32) -> (u32, u32) {
 		unimplemented!("Penpal uses default weights");
 	}
-	fn setup_balances_and_pool(asset_id: FunAssetIdParameter, account: AccountId) {
+	fn setup_balances_and_pool(asset_id: u32, account: AccountId) {
 		unimplemented!("Penpal uses default weights");
 	}
 }
@@ -635,7 +638,7 @@ impl pallet_asset_tx_payment::Config for Runtime {
 	>;
 	type WeightInfo = ();
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = ();
+	type BenchmarkHelper = AssetTxHelper;
 }
 
 impl pallet_sudo::Config for Runtime {

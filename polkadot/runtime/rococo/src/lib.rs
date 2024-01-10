@@ -641,6 +641,24 @@ parameter_types! {
 	pub Prefix: &'static [u8] = b"Pay ROCs to the Rococo account:";
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+pub struct ClaimsHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+use frame_support::dispatch::DispatchInfo;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl claims::BenchmarkHelperTrait<RuntimeCall, DispatchInfo> for ClaimsHelper {
+	fn default_call_and_info() -> (RuntimeCall, DispatchInfo) {
+		use frame_support::dispatch::GetDispatchInfo;
+		let call = RuntimeCall::Claims(claims::Call::attest {
+			statement: claims::StatementKind::Regular.to_text().to_vec(),
+		});
+		let info = call.get_dispatch_info();
+		(call, info)
+	}
+}
+
 impl claims::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type VestingSchedule = Vesting;
@@ -648,7 +666,7 @@ impl claims::Config for Runtime {
 	type MoveClaimOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = weights::runtime_common_claims::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = ();
+	type BenchmarkHelper = ClaimsHelper;
 }
 
 parameter_types! {
