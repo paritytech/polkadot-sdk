@@ -154,7 +154,7 @@ impl sp_runtime::traits::Convert<usize, Balance> for ConstDepositBase {
 
 parameter_types! {
 	pub static OnChainElectionBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
-	 pub static MaxVotesPerVoter: u32 = <TestNposSolution as NposSolution>::LIMIT as u32;
+	pub static MaxVotesPerVoter: u32 = <TestNposSolution as NposSolution>::LIMIT as u32;
 	pub static FallbackEnabled: bool = true;
 }
 
@@ -229,7 +229,15 @@ impl ExtBuilder {
 		let mut storage = frame_system::GenesisConfig::<T>::default().build_storage().unwrap();
 		let _ = pallet_balances::GenesisConfig::<T> {
 			balances: vec![
-				// account for submitting stuff only.
+				(10, 100_000),
+				(20, 100_000),
+				(30, 100_000),
+				(40, 100_000),
+				(50, 100_000),
+				(60, 100_000),
+				(70, 100_000),
+				(80, 100_000),
+				(90, 100_000),
 				(91, 100),
 				(92, 100),
 				(93, 100),
@@ -266,27 +274,35 @@ impl ExtBuilder {
 }
 
 pub(crate) fn roll_to(n: BlockNumber) {
-	let now = System::block_number();
-	for bn in now + 1..n {
+	for bn in (System::block_number()) + 1..=n {
 		System::set_block_number(bn);
 
-		let election_prediction =
-			<<Runtime as Config>::DataProvider as ElectionDataProvider>::next_election_prediction(
-				bn,
-			);
+		MultiPhase::on_initialize(bn);
+		SignedPallet::on_initialize(bn);
+		VerifierPallet::on_initialize(bn);
+
+		// TODO: maybe add try-checks for all pallets here too, as we progress the blocks.
 
 		log!(
 			info,
-			"Phase: {:?}, Round: {:?}, Election at {:?}",
+			"Block: {}, Phase: {:?}, Round: {:?}, Election at {:?}",
+			bn,
 			<CurrentPhase<T>>::get(),
 			<Round<T>>::get(),
-			election_prediction
+			election_prediction()
 		);
-		MultiPhase::on_initialize(bn);
-		VerifierPallet::on_initialize(bn);
-		//SignedPallet::on_initialize(bn);
-		//UnsignedPallet::on_initialize(bn);
-
-		// TODO: maybe add try-checks for all pallets here too, as we progress the blocks.
 	}
+}
+
+// Fast forward until a given election phase.
+pub fn roll_to_phase(phase: Phase<BlockNumber>) {
+	while MultiPhase::current_phase() != phase {
+		roll_to(System::block_number() + 1);
+	}
+}
+
+pub fn election_prediction() -> BlockNumber {
+	<<Runtime as Config>::DataProvider as ElectionDataProvider>::next_election_prediction(
+		System::block_number(),
+	)
 }

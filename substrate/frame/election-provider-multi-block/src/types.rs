@@ -102,8 +102,12 @@ impl<Bn: PartialEq + Eq> Phase<Bn> {
 		matches!(self, Phase::Signed)
 	}
 
-	pub(crate) fn is_signed_validation_open_at(&self, at: Bn) -> bool {
-		matches!(self, Phase::SignedValidation(real) if *real == at)
+	/// Returns whether the validation phase is ongoing.
+	pub(crate) fn is_signed_validation_open_at(&self, at: Option<Bn>) -> bool {
+		match at {
+			Some(at) => matches!(self, Phase::SignedValidation(real) if *real == at),
+			None => matches!(self, Phase::SignedValidation(_)),
+		}
 	}
 
 	pub(crate) fn is_unsigned_open_at(&self, at: Bn) -> bool {

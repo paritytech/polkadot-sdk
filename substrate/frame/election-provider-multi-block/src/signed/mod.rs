@@ -42,17 +42,27 @@
 mod tests;
 
 // TODO(gpestana): clean imports.
-use frame_support::traits::fungible::{
-	hold::Balanced as FnBalanced, Credit, Inspect as FnInspect, MutateHold as FnMutateHold,
-};
-
-use sp_npos_elections::ElectionScore;
-
 use crate::{
+	signed::pallet::Submissions,
 	types::AccountIdOf,
-	verifier::{SolutionDataProvider, VerificationResult},
+	verifier::{AsyncVerifier, SolutionDataProvider, VerificationResult},
 	PageIndex,
 };
+
+use codec::{Decode, Encode, MaxEncodedLen};
+use frame_support::{
+	traits::{
+		fungible::{
+			hold::Balanced as FnBalanced, Credit, Inspect as FnInspect, MutateHold as FnMutateHold,
+		},
+		tokens::Precision,
+		Defensive,
+	},
+	RuntimeDebugNoBound,
+};
+use scale_info::TypeInfo;
+
+use sp_npos_elections::ElectionScore;
 
 // public re-exports.
 pub use pallet::{
@@ -64,6 +74,15 @@ pub use pallet::{
 type BalanceOf<T> = <<T as Config>::Currency as FnInspect<AccountIdOf<T>>>::Balance;
 // Alias for the pallet's hold credit type.
 pub type CreditOf<T> = Credit<AccountIdOf<T>, <T as Config>::Currency>;
+
+/// Metadata of a registered submission.
+#[derive(PartialEq, Encode, Decode, MaxEncodedLen, TypeInfo, Default, RuntimeDebugNoBound)]
+pub struct SubmissionMetadata {
+	/// The score that this submission is proposing.
+	claimed_score: ElectionScore,
+	/// A counter of the pages submitted thus far.
+	pages: PageIndex,
+}
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
@@ -85,13 +104,6 @@ pub mod pallet {
 	use sp_npos_elections::ElectionScore;
 	use sp_runtime::{traits::Convert, BoundedVec};
 
-	/// A reason for this pallet placing a hold on funds.
-	#[pallet::composite_enum]
-	pub enum HoldReason {
-		/// The funds are held as deposit for submitting a signed solution.
-		ElectionSubmission,
-	}
-
 	#[pallet::config]
 	#[pallet::disable_frame_system_supertrait_check]
 	pub trait Config: crate::Config {
@@ -108,7 +120,8 @@ pub mod pallet {
 		/// Handler for the unbalanced reduction that happens when submitters are slashed.
 		type OnSlash: OnUnbalanced<CreditOf<Self>>;
 
-		/// Something that calculates the signed base deposit based on the signed submissions size.
+		/// Something that calculates the signed base deposit based on the size of the current
+		/// queued solution proposals.
 		type DepositBase: Convert<usize, BalanceOf<Self>>;
 
 		/// Per-page deposit for a signed solution.
@@ -130,7 +143,10 @@ pub mod pallet {
 	}
 
 	/// A sorted list of the current submissions scores corresponding to pre-solutions submitted in
-	/// te signed phase, keyed by round.
+	/// the signed phase, keyed by round.
+	///
+	/// The implementor *MUST* ensure the bounded vec of scores is always sorted after mutation. //
+	/// TODO: add try state check.
 	#[pallet::storage]
 	type SortedScores<T: Config> = StorageMap<
 		_,
@@ -140,8 +156,33 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	/// A triple-map from (round, account, page) to a submitted solution.
+	#[pallet::storage]
+	type SubmissionStorage<T: Config> = StorageNMap<
+		_,
+		(
+			NMapKey<Twox64Concat, u32>,
+			NMapKey<Twox64Concat, T::AccountId>,
+			NMapKey<Twox64Concat, PageIndex>,
+		),
+		T::Solution,
+		OptionQuery,
+	>;
+
+	/// A double-map from (round, account_id) to a submission metadata of a registered solution.
+	#[pallet::storage]
+	type SubmissionMetadataStorage<T: Config> =
+		StorageDoubleMap<_, Twox64Concat, u32, Twox64Concat, T::AccountId, SubmissionMetadata>;
+
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
+
+	/// A reason for this pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason<I: 'static = ()> {
+		/// Deposit for registering an election solution.
+		ElectionSolutionSubmission,
+	}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -158,13 +199,186 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// The election system is not expecting signed submissions.
 		NotAcceptingSubmissions,
+		/// Duplicate registering for a given round,
+		DuplicateRegister,
+		/// The submissions queue is full. Reject submission.
+		SubmissionsQueueFull,
+		/// Submission with a page index higher than the supported.
+		BadPageIndex,
+		/// A a page submission was attempted for a submission that was not previously registered.
+		SubmissionNotRegistered,
+	}
+
+	/// TODO: docs
+	pub(crate) struct Submissions<T: Config>(core::marker::PhantomData<T>);
+	impl<T: Config> Submissions<T> {
+		/// Generic mutation helper with checks.
+		///
+		/// All the mutation functions must be done through this function.
+		fn mutate_checked<R, F: FnOnce() -> R>(_round: u32, mutate: F) -> R {
+			let result = mutate();
+
+			#[cfg(debug_assertions)]
+			{
+				//assert!(Self::sanity_check_round(round).is_ok()); // TODO
+			}
+
+			result
+		}
+
+		/// TODO: docs
+		fn try_register(
+			who: &T::AccountId,
+			round: u32,
+			metadata: SubmissionMetadata,
+		) -> DispatchResult {
+			Self::mutate_checked(round, || Self::try_register_inner(who, round, metadata))
+		}
+
+		fn try_register_inner(
+			who: &T::AccountId,
+			round: u32,
+			metadata: SubmissionMetadata,
+		) -> DispatchResult {
+			let mut scores = SortedScores::<T>::get(round);
+
+			scores.iter().try_for_each(|(account, _)| -> DispatchResult {
+				ensure!(account != who, Error::<T>::DuplicateRegister);
+				Ok(())
+			})?;
+
+			// most likely checked before, but double-checking.
+			debug_assert!(!SubmissionMetadataStorage::<T>::contains_key(round, who));
+
+			let pos =
+				match scores.binary_search_by_key(&metadata.claimed_score, |(_, score)| *score) {
+					// in the unlikely event that election scores already exists in the storage, we
+					// store the submissions next to one other.
+					Ok(pos) | Err(pos) => pos,
+				};
+
+			let submission = (who.clone(), metadata.claimed_score);
+
+			match scores.force_insert_keep_right(pos, submission) {
+				// entry inserted without discarding.
+				Ok(None) => Ok(()),
+				// entry inserted but queue was full, clear the discarded submission.
+				Ok(Some((discarded, _s))) => {
+					let _ =
+						SubmissionStorage::<T>::clear_prefix((round, &discarded), u32::MAX, None);
+					// unreserve deposit
+					let _ = T::Currency::release_all(
+						&HoldReason::ElectionSolutionSubmission.into(),
+						&who,
+						Precision::Exact,
+					)
+					.defensive()?;
+
+					Ok(())
+				},
+				Err(_) => Err(Error::<T>::SubmissionsQueueFull),
+			}?;
+
+			SortedScores::<T>::insert(round, scores);
+			SubmissionMetadataStorage::<T>::insert(round, who, metadata);
+
+			Ok(())
+		}
+
+		// TODO: docs
+		// Note: if `maybe_solution` is None, it will delete the given page from the submission
+		// store. Successive calls to this with the same page index will replace the existing page
+		// submission.
+		fn try_mutate_page(
+			who: &T::AccountId,
+			round: u32,
+			page: PageIndex,
+			maybe_solution: Option<T::Solution>,
+		) -> DispatchResult {
+			Self::mutate_checked(round, || {
+				Self::try_mutate_page_inner(who, round, page, maybe_solution)
+			})
+		}
+
+		fn try_mutate_page_inner(
+			who: &T::AccountId,
+			round: u32,
+			page: PageIndex,
+			maybe_solution: Option<T::Solution>,
+		) -> DispatchResult {
+			ensure!(page < T::Pages::get(), Error::<T>::BadPageIndex);
+			ensure!(
+				SubmissionMetadataStorage::<T>::contains_key(round, who),
+				Error::<T>::SubmissionNotRegistered
+			);
+
+			// TODO: update the held deposit to account for the paged submission deposit.
+
+			SubmissionStorage::<T>::mutate_exists((round, who, page), |maybe_old_solution| {
+				*maybe_old_solution = maybe_solution
+			});
+
+			Ok(())
+		}
+
+		pub(crate) fn take_leader_data(round: u32) -> Option<(T::AccountId, SubmissionMetadata)> {
+			Self::mutate_checked(round, || {
+				SortedScores::<T>::mutate(round, |scores| scores.pop()).and_then(
+					|(submitter, _score)| {
+						let _ = SubmissionStorage::<T>::clear_prefix(
+							(round, &submitter),
+							u32::MAX,
+							None,
+						); // TODO: handle error.
+
+						SubmissionMetadataStorage::<T>::take(round, &submitter)
+							.map(|metadata| (submitter, metadata))
+					},
+				)
+			})
+		}
+
+		pub(crate) fn leader(round: u32) -> Option<(T::AccountId, ElectionScore)> {
+			SortedScores::<T>::get(round).last().cloned()
+		}
+
+		pub(crate) fn get_page(
+			who: &T::AccountId,
+			round: u32,
+			page: PageIndex,
+		) -> Option<T::Solution> {
+			SubmissionStorage::<T>::get((round, who, page))
+		}
+	}
+
+	#[cfg(any(test, debug_assertions))]
+	impl<T: Config> Submissions<T> {
+		#[allow(dead_code)]
+		pub(crate) fn metadata(round: u32, who: &T::AccountId) -> Option<SubmissionMetadata> {
+			SubmissionMetadataStorage::<T>::get(round, who)
+		}
+
+		#[allow(dead_code)]
+		pub(crate) fn scores_for(
+			round: u32,
+		) -> BoundedVec<(T::AccountId, ElectionScore), T::MaxSubmissions> {
+			SortedScores::<T>::get(round)
+		}
+
+		#[allow(dead_code)]
+		pub(crate) fn submission_for(
+			who: T::AccountId,
+			round: u32,
+			page: PageIndex,
+		) -> Option<T::Solution> {
+			SubmissionStorage::<T>::get((round, who, page))
+		}
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Submit a score commitment for a solution in the current round.
 		#[pallet::call_index(1)]
-		#[pallet::weight(0)]
 		pub fn register(origin: OriginFor<T>, claimed_score: ElectionScore) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(
@@ -172,25 +386,32 @@ pub mod pallet {
 				Error::<T>::NotAcceptingSubmissions
 			);
 
-			// 1. check for duplicate register
-			// 2. do deposit reserve
-			// 3. add submission commitment to storage (sorting implemented by the underlying ds)
+			let round = crate::Pallet::<T>::current_round();
+			ensure!(
+				!SubmissionMetadataStorage::<T>::contains_key(round, who.clone()),
+				Error::<T>::DuplicateRegister
+			);
 
-			Self::deposit_event(Event::<T>::Registered {
-				round: crate::Pallet::<T>::current_round(),
-				who,
-				claimed_score,
-			});
+			let deposit_base = T::DepositBase::convert(
+				SubmissionMetadataStorage::<T>::iter_key_prefix(round).count(),
+			);
+
+			T::Currency::hold(&HoldReason::ElectionSolutionSubmission.into(), &who, deposit_base)?;
+
+			let metadata = SubmissionMetadata { pages: 0, claimed_score };
+
+			let _ = Submissions::<T>::try_register(&who, round, metadata)?;
+
+			Self::deposit_event(Event::<T>::Registered { round, who, claimed_score });
 			Ok(())
 		}
 
 		/// Submit a page for a solution.
 		#[pallet::call_index(2)]
-		#[pallet::weight(0)]
 		pub fn submit_page(
 			origin: OriginFor<T>,
 			page: PageIndex,
-			_maybe_solution: Option<T::Solution>,
+			maybe_solution: Option<T::Solution>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
@@ -199,11 +420,11 @@ pub mod pallet {
 				Error::<T>::NotAcceptingSubmissions
 			);
 
-			// TODO(gpestana): allow anyone to submit a paged solution or only allow the leader to
-			// do so? how about having a phase that determines which leader should add a paged
-			// solution and keep going until we get a final successful solution?
-			// Note: for security reasons, we have to ensure that ALL submitters "space" to submit
-			// their pages and be verified.
+			// Note/TODO: for security reasons, we have to ensure that ALL submitters "space" to
+			// submit their pages and be verified.
+
+			let round = crate::Pallet::<T>::current_round();
+			Submissions::<T>::try_mutate_page(&who, round, page, maybe_solution)?;
 
 			Self::deposit_event(Event::<T>::PageStored {
 				round: crate::Pallet::<T>::current_round(),
@@ -216,7 +437,6 @@ pub mod pallet {
 
 		/// Unregister a submission.
 		#[pallet::call_index(3)]
-		#[pallet::weight(0)]
 		pub fn bail(origin: OriginFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
@@ -225,6 +445,7 @@ pub mod pallet {
 				Error::<T>::NotAcceptingSubmissions
 			);
 
+			// TODO
 			// 1. clear all storage items related to `who`
 			// 2. return deposit
 
@@ -240,7 +461,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
-			if crate::Pallet::<T>::current_phase().is_signed_validation_open_at(now) {
+			if crate::Pallet::<T>::current_phase().is_signed_validation_open_at(Some(now)) {
 				// TODO(gpestana): check if there is currently a leader score submission.
 				let _ = <T::Verifier as AsyncVerifier>::start().defensive();
 			};
@@ -258,15 +479,100 @@ pub mod pallet {
 impl<T: Config> SolutionDataProvider for Pallet<T> {
 	type Solution = T::Solution;
 
-	fn get_paged_solution(_page: PageIndex) -> Option<Self::Solution> {
-		todo!()
+	fn get_paged_solution(page: PageIndex) -> Option<Self::Solution> {
+		let round = crate::Pallet::<T>::current_round();
+
+		Submissions::<T>::leader(round).map(|(who, _score)| {
+			sublog!(info, "signed", "returning page {} of leader's {:?} solution", page, who);
+			Submissions::<T>::get_page(&who, round, page).unwrap_or_default()
+		})
 	}
 
 	fn get_score() -> Option<ElectionScore> {
-		todo!()
+		let round = crate::Pallet::<T>::current_round();
+		Submissions::<T>::leader(round).map(|(_who, score)| score)
 	}
 
-	fn report_result(_result: VerificationResult) {
-		todo!()
+	// TODO: finish
+	fn report_result(result: VerificationResult) {
+		let round = crate::Pallet::<T>::current_round();
+		match result {
+			VerificationResult::Queued => {},
+			VerificationResult::Rejected => {
+				if let Some((_offender, _metadata)) =
+					Submissions::<T>::take_leader_data(round).defensive()
+				{
+					// TODO: slash offender
+				} else {
+					// should never happen, defensive
+					// note: should the AsyncVerifier be notified to proceed with next leader in
+					// this case?
+				};
+
+				if crate::Pallet::<T>::current_phase().is_signed_validation_open_at(None) &&
+					Submissions::<T>::leader(round).is_some()
+				{
+					let _ = <T::Verifier as AsyncVerifier>::start().defensive();
+				}
+			},
+			VerificationResult::DataUnavailable => {
+				// signed pallet did not have the required data.
+			},
+		}
+	}
+}
+
+#[cfg(test)]
+mod signed_tests {
+	use super::*;
+	use crate::{mock::*, Phase};
+	use frame_support::{testing_prelude::*, BoundedVec};
+
+	type MaxSubmissions = <Runtime as Config>::MaxSubmissions;
+
+	mod submissions {
+		use super::*;
+
+		#[test]
+		fn submit_solution_happy_path_works() {
+			ExtBuilder::default().build_and_execute(|| {
+				// TODO: check events
+
+				roll_to_phase(Phase::Signed);
+
+				let current_round = MultiPhase::current_round();
+
+				assert!(Submissions::<Runtime>::metadata(current_round, &10).is_none());
+
+				let claimed_score = ElectionScore::default();
+
+				// register submission
+				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(10), claimed_score,));
+
+				// metadata and claimed scores have been stored as expected.
+				assert_eq!(
+					Submissions::<Runtime>::metadata(current_round, &10),
+					Some(SubmissionMetadata { pages: 0, claimed_score })
+				);
+				let expected_scores: BoundedVec<(AccountId, ElectionScore), MaxSubmissions> =
+					bounded_vec![(10, claimed_score)];
+				assert_eq!(Submissions::<Runtime>::scores_for(current_round), expected_scores);
+
+				// submit all pages of a noop solution;
+				let solution = TestNposSolution::default();
+				for page in (0..=MultiPhase::msp()).into_iter().rev() {
+					assert_ok!(SignedPallet::submit_page(
+						RuntimeOrigin::signed(10),
+						page,
+						Some(solution.clone())
+					));
+
+					assert_eq!(
+						Submissions::<Runtime>::submission_for(10, current_round, page),
+						Some(solution.clone())
+					);
+				}
+			})
+		}
 	}
 }

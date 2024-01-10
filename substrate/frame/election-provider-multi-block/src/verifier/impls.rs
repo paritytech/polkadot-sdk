@@ -449,7 +449,7 @@ impl<T: impls::pallet::Config> Pallet<T> {
 					if current_page > crate::Pallet::<T>::lsp() {
 						// election didn't finish, tick forward.
 						VerificationStatus::<T>::put(Status::Ongoing(
-							current_page.saturating_add(1),
+							current_page.saturating_sub(1),
 						));
 					} else {
 						// last page, finalize everything. At this point, the solution data
@@ -516,13 +516,16 @@ impl<T: impls::pallet::Config> Pallet<T> {
 		let outcome = QueuedSolution::<T>::compute_current_score()
 			.and_then(|(final_score, winner_count)| {
 				let desired_targets = crate::Snapshot::<T>::desired_targets().unwrap_or_default();
+
 				match (final_score == claimed_score, winner_count == desired_targets) {
 					(true, true) => {
+						QueuedSolution::<T>::finalize_solution(final_score);
+
 						Self::deposit_event(Event::<T>::Queued(
 							final_score,
 							QueuedSolution::<T>::queued_score(),
 						));
-						QueuedSolution::<T>::finalize_solution(final_score);
+
 						Ok(())
 					},
 					(false, true) => Err(FeasibilityError::InvalidScore),

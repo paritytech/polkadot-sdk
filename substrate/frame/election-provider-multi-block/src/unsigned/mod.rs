@@ -17,10 +17,16 @@
 
 #![allow(unused)] // TODO(remove)
 
-mod miner;
+pub mod miner;
 
 use crate::PageSize;
 use frame_election_provider_support::PageIndex;
+
+// public re-exports.
+pub use pallet::{
+	Call, Config, Event, Pallet, __substrate_call_check, __substrate_event_check, tt_default_parts,
+	tt_error_token,
+};
 
 #[frame_support::pallet(dev_mode)]
 pub(crate) mod pallet {
@@ -58,11 +64,6 @@ pub(crate) mod pallet {
 		///
 		/// The weight is computed using `solution_weight`.
 		type MaxWeight: Get<Weight>;
-
-		/// Something that can compute the weight of a solution.
-		///
-		/// This weight estimate is then used to trim the solution, based on [`Self::MaxWeight`].
-		fn solution_weight(voters: u32, targets: u32, active_voters: u32, degree: u32) -> Weight;
 
 		type WeightInfo: WeightInfo;
 	}
@@ -125,7 +126,8 @@ pub(crate) mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
-			todo!()
+			// TODO(gpestana)
+			0.into()
 		}
 
 		fn integrity_test() {

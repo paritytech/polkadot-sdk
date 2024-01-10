@@ -36,6 +36,7 @@ use sp_npos_elections::{
 };
 use sp_runtime::SaturatedConversion;
 
+#[derive(Debug, Eq, PartialEq)]
 pub enum MinerError {
 	/// An internal error in the NPoS elections crate.
 	NposElections(sp_npos_elections::Error),
@@ -89,7 +90,7 @@ pub struct Miner<T: UnsignedConfig, Solver: NposSolver>(sp_std::marker::PhantomD
 
 impl<T: UnsignedConfig, S: NposSolver> Miner<T, S>
 where
-	S: NposSolver<AccountId = T::AccountId, Error = MinerError>,
+	S: NposSolver<AccountId = T::AccountId>,
 {
 	/// Mines a NPoS solution of a given page anc converts the result into a [`PagedRawSolution`],
 	/// ready to be submitted on-chain.
@@ -348,7 +349,8 @@ where
 
 		// helper closures.
 		let weight_with = |active_voters: u32| -> Weight {
-			T::solution_weight(size.voters, size.targets, active_voters, desired_winners)
+			//T::solution_weight(size.voters, size.targets, active_voters, desired_winners) // TODO
+			0.into()
 		};
 
 		let next_voters = |current_weight: Weight, voters: u32, step: u32| -> Result<u32, ()> {

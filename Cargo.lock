@@ -10056,6 +10056,7 @@ dependencies = [
  "sp-staking",
  "sp-std 8.0.0",
  "sp-tracing 10.0.0",
+ "substrate-test-utils",
 ]
 
 [[package]]

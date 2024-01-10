@@ -101,7 +101,7 @@ impl SolutionPointer {
 
 /// A type that represents a partial backing of a winner. It does not contain the
 /// [`sp_npos_election::Supports`] normally associated with a list of backings.
-#[derive(Default, Encode, Decode, MaxEncodedLen, scale_info::TypeInfo)]
+#[derive(Debug, Default, Encode, Decode, MaxEncodedLen, scale_info::TypeInfo)]
 pub struct PartialBackings {
 	/// Total backing of a particular winner.
 	total: ExtendedBalance,

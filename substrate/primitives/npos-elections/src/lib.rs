@@ -217,6 +217,25 @@ impl sp_std::cmp::PartialOrd for ElectionScore {
 	}
 }
 
+/// Note: this sum is saturating. TODO(gpestana): maybe impl CheckedAdd instead.
+impl std::ops::Add for ElectionScore {
+	type Output = Self;
+
+	fn add(self, other: Self) -> Self {
+		Self {
+			minimal_stake: self.minimal_stake.saturating_add(other.minimal_stake),
+			sum_stake: self.sum_stake.saturating_add(other.sum_stake),
+			sum_stake_squared: self.sum_stake_squared.saturating_add(other.sum_stake_squared),
+		}
+	}
+}
+
+impl std::ops::AddAssign for ElectionScore {
+	fn add_assign(&mut self, rhs: Self) {
+		*self = *self + rhs;
+	}
+}
+
 /// Utility struct to group parameters for the balancing algorithm.
 #[derive(Clone, Copy)]
 pub struct BalancingConfig {

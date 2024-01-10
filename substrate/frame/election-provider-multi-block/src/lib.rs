@@ -121,6 +121,7 @@ pub use crate::verifier::Verifier;
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use super::*;
+	use codec::EncodeLike;
 	use frame_support::{
 		pallet_prelude::{ValueQuery, *},
 		sp_runtime::Saturating,
@@ -169,14 +170,16 @@ pub mod pallet {
 
 		/// The solution type.
 		type Solution: codec::Codec
+			+ sp_std::fmt::Debug
 			+ Default
 			+ PartialEq
 			+ Eq
 			+ Clone
-			+ sp_std::fmt::Debug
+			+ Sized
 			+ Ord
 			+ NposSolution
 			+ TypeInfo
+			+ EncodeLike
 			+ MaxEncodedLen;
 
 		/// Something that will provide the election data.
@@ -432,7 +435,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Return the current election round.
-	pub(crate) fn current_round() -> u32 {
+	pub fn current_round() -> u32 {
 		<Round<T>>::get()
 	}
 
@@ -469,7 +472,10 @@ impl<T: Config> Pallet<T> {
 				.and_then(|t| {
 					t.try_into().map_err(|_| "too many targets returned by the data provider.")
 				})
-				.map_err(|_| ElectionError::<T>::DataProvider)?;
+				.map_err(|e| {
+					log!(debug, "error fetching electable targets from data provider: {:?}", e);
+					ElectionError::<T>::DataProvider
+				})?;
 
 		let count = targets.len() as u32;
 		log!(info, "created target snapshot with {} targets.", count);
@@ -529,7 +535,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 			.ok_or(ElectionError::<T>::SupportPageNotAvailable(remaining))
 			.or_else(|err| {
 				log!(error, "election provider failed due to {:?}, trying fallback.", err);
-				T::Fallback::elect(0).map_err(|fe| ElectionError::<T>::Fallback(fe))
+				T::Fallback::elect(remaining).map_err(|fe| ElectionError::<T>::Fallback(fe))
 			})
 			.map(|supports| {
 				if remaining.is_zero() {

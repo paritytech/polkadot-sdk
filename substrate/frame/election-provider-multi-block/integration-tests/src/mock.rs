@@ -39,13 +39,18 @@ use std::collections::BTreeMap;
 
 use codec::Decode;
 use frame_election_provider_support::{
-	bounds::ElectionBoundsBuilder, onchain, ExtendedBalance, PageIndex, SequentialPhragmen, Weight,
+	bounds::ElectionBoundsBuilder, onchain, ElectionDataProvider, ExtendedBalance, PageIndex,
+	SequentialPhragmen, Weight,
 };
+
+use sp_npos_elections::ElectionScore;
 
 use pallet_election_provider_multi_block::{
 	self as epm_core_pallet,
 	signed::{self as epm_signed_pallet},
+	unsigned::{self as epm_unsigned_pallet, miner::Miner},
 	verifier::{self as epm_verifier_pallet},
+	Phase,
 };
 
 use pallet_staking::StakerStatus;
@@ -70,6 +75,7 @@ frame_support::construct_runtime!(
 		ElectionProvider: epm_core_pallet,
 		VerifierPallet: epm_verifier_pallet,
 		SignedPallet: epm_signed_pallet,
+		UnsignedPallet: epm_unsigned_pallet,
 
 		Staking: pallet_staking,
 		Balances: pallet_balances,
@@ -87,6 +93,8 @@ pub(crate) type Balance = u64;
 pub(crate) type VoterIndex = u16;
 pub(crate) type TargetIndex = u16;
 pub(crate) type Moment = u32;
+
+type Solver = SequentialPhragmen<AccountId, sp_runtime::PerU16>;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
@@ -181,10 +189,6 @@ parameter_types! {
 	// enetering in emergency phase after the election failed.
 	pub static MinBlocksBeforeEmergency: BlockNumber = 3;
 	pub static MaxActiveValidators: u32 = 1000;
-	pub static OffchainRepeat: u32 = 5;
-	pub static MinerMaxLength: u32 = 256;
-	pub static MinerMaxWeight: Weight = BlockWeights::get().max_block;
-	pub static TransactionPriority: transaction_validity::TransactionPriority = 1;
 	#[derive(Debug)]
 	pub static MaxWinners: u32 = 100;
 	pub static MaxVotesPerVoter: u32 = 16;
@@ -258,6 +262,22 @@ impl sp_runtime::traits::Convert<usize, Balance> for ConstDepositBase {
 	}
 }
 
+parameter_types! {
+	pub static OffchainRepeatInterval: BlockNumber = 0;
+	pub static TransactionPriority: transaction_validity::TransactionPriority = 1;
+	pub static MinerMaxLength: u32 = 256;
+	pub static MinerMaxWeight: Weight = BlockWeights::get().max_block;
+}
+
+impl epm_unsigned_pallet::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type OffchainRepeatInterval = OffchainRepeatInterval;
+	type MinerTxPriority = TransactionPriority;
+	type MaxLength = MinerMaxLength;
+	type MaxWeight = MinerMaxWeight;
+	type WeightInfo = ();
+}
+
 const THRESHOLDS: [VoteWeight; 9] = [10, 20, 30, 40, 50, 60, 1_000, 2_000, 10_000];
 
 parameter_types! {
@@ -327,11 +347,7 @@ parameter_types! {
 
 impl onchain::Config for OnChainSeqPhragmen {
 	type System = Runtime;
-	type Solver = SequentialPhragmen<
-		AccountId,
-		sp_runtime::PerU16,
-		//pallet_election_provider_multi_block::SolutionAccuracyOf<Runtime>,
-	>;
+	type Solver = Solver;
 	type DataProvider = Staking;
 	type WeightInfo = ();
 	type Bounds = ElectionBounds;
@@ -608,15 +624,16 @@ pub fn roll_to(n: BlockNumber, delay_solution: bool) {
 		Session::on_initialize(b);
 		Timestamp::set_timestamp(System::block_number() * BLOCK_TIME + INIT_TIMESTAMP);
 
-		if ElectionProvider::current_phase() == pallet_election_provider_multi_block::Phase::Signed &&
-			!delay_solution
-		{
-			// TODO(gpestana): fix when EPM sub-pallets are ready
-			//let _ = try_queue_solution(ElectionCompute::Signed).map_err(|e| {
-			//	log!(info, "failed to mine/queue solution: {:?}", e);
-			//});
-		}
+		if ElectionProvider::current_phase() == Phase::Signed && !delay_solution {
+			let _ = try_submit_solution().map_err(|e| {
+				log!(info, "failed to mine/queue solution: {:?}", e);
+			});
+		};
+
 		ElectionProvider::on_initialize(b);
+		VerifierPallet::on_initialize(b);
+		SignedPallet::on_initialize(b);
+		UnsignedPallet::on_initialize(b);
 
 		Staking::on_initialize(b);
 		if b != n {
@@ -636,6 +653,10 @@ pub fn roll_to_with_ocw(n: BlockNumber, pool: Arc<RwLock<PoolState>>, delay_solu
 		Timestamp::set_timestamp(System::block_number() * BLOCK_TIME + INIT_TIMESTAMP);
 
 		ElectionProvider::on_initialize(b);
+		VerifierPallet::on_initialize(b);
+		SignedPallet::on_initialize(b);
+		UnsignedPallet::on_initialize(b);
+
 		ElectionProvider::offchain_worker(b);
 
 		if !delay_solution && pool.read().transactions.len() > 0 {
@@ -646,7 +667,7 @@ pub fn roll_to_with_ocw(n: BlockNumber, pool: Arc<RwLock<PoolState>>, delay_solu
 
 				// TODO(gpestana): fix when EPM sub-pallets are ready
 				//let _ = match extrinsic.call {
-				//	RuntimeCall::ElectionProviderMultiBlock(
+				//	RuntimeCall::ElectionProvider(
 				//		call @ Call::submit_unsigned { .. },
 				//	) => {
 				//		// call submit_unsigned callable in OCW pool.
@@ -762,39 +783,83 @@ pub(crate) fn current_era() -> EraIndex {
 	Staking::current_era().unwrap()
 }
 
-// Fast forward until EPM signed phase.
-pub fn roll_to_epm_signed() {
-	while !matches!(
-		ElectionProvider::current_phase(),
-		pallet_election_provider_multi_block::Phase::Signed
-	) {
-		roll_to(System::block_number() + 1, false);
+// Fast forward until a given election phase.
+pub fn roll_to_phase(phase: Phase<BlockNumber>, delay: bool) {
+	while ElectionProvider::current_phase() != phase {
+		roll_to(System::block_number() + 1, delay);
 	}
 }
 
-// Fast forward until EPM unsigned phase.
-pub fn roll_to_epm_unsigned() {
-	while !matches!(
-		ElectionProvider::current_phase(),
-		pallet_election_provider_multi_block::Phase::Unsigned(_)
-	) {
-		roll_to(System::block_number() + 1, false);
-	}
+pub fn election_prediction() -> BlockNumber {
+	<<Runtime as epm_core_pallet::Config>::DataProvider as ElectionDataProvider>::next_election_prediction(
+		System::block_number()
+	)
 }
 
-// Fast forward until EPM off.
-pub fn roll_to_epm_off() {
-	while !matches!(
-		ElectionProvider::current_phase(),
-		pallet_election_provider_multi_block::Phase::Off
-	) {
-		roll_to(System::block_number() + 1, false);
-	}
+parameter_types! {
+	pub static LastSolutionSubmittedFor: Option<u32> = None;
 }
 
-// Queue a solution based on the current snapshot.
-pub(crate) fn try_queue_solution() -> Result<(), String> {
-	todo!()
+// Queue a solution based on the current snapshot rn.
+pub(crate) fn try_submit_solution() -> Result<(), ()> {
+	let submit = || {
+		log!(
+			info,
+			"submitter: will prepare solution with {:?} pages and try to submit",
+			Pages::get()
+		);
+
+		let mut paged_solutions = vec![];
+		let mut total_election_score: ElectionScore = Default::default();
+
+		for _ in 0..Pages::get() {
+			let paged_solution =
+				Miner::<Runtime, Solver>::mine_and_prepare_solution_page(0, false).unwrap();
+			let page_score = paged_solution.0.score;
+
+			paged_solutions.push(paged_solution.0.solution);
+			total_election_score += page_score;
+		}
+
+		//TODO: fix this hack
+		total_election_score.sum_stake_squared = 40500000;
+
+		// register submission.
+		let _ = SignedPallet::register(RuntimeOrigin::signed(10), total_election_score).unwrap();
+
+		// submit pages from higher to 0.
+		while let Some(page) = paged_solutions.pop() {
+			let _ = SignedPallet::submit_page(
+				RuntimeOrigin::signed(10),
+				paged_solutions.len().try_into().unwrap(),
+				Some(page),
+			);
+		}
+
+		log!(
+			info,
+			"submitter: successfully submitted {} pages with {:?} score in round {}.",
+			Pages::get(),
+			total_election_score,
+			ElectionProvider::current_round(),
+		);
+	};
+
+	match LastSolutionSubmittedFor::get() {
+		Some(submitted_at) => {
+			if submitted_at == ElectionProvider::current_round() {
+				// solution already submitted in this round, do nothing.
+			} else {
+				// haven't submit in this round, submit it.
+				submit()
+			}
+		},
+		// never submitted, do it.
+		None => submit(),
+	};
+
+	LastSolutionSubmittedFor::set(Some(ElectionProvider::current_round()));
+	Ok(())
 }
 
 pub(crate) fn on_offence_now(
