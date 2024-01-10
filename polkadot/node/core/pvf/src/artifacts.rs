@@ -184,8 +184,8 @@ impl Artifacts {
 		// entire cache directory in case the user made a mistake and set it to e.g. their home
 		// directory. This is a best-effort to do clean-up, so ignore any errors.
 		if let Ok(paths) = fs::read_dir(cache_path) {
-			for path in paths.map(|res| res.map(|e| e.path())).flatten() {
-				let file_name = match path.file_name().map(|f| f.to_str()).flatten() {
+			for path in paths.flat_map(|res| res.map(|e| e.path())) {
+				let file_name = match path.file_name().and_then(|f| f.to_str()) {
 					Some(f) => f,
 					None => continue,
 				};
