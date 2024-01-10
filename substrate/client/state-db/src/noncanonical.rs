@@ -194,7 +194,8 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 			block += 1;
 			loop {
 				let mut level = OverlayLevel::new();
-				let non_canonical_journal_len_record = db.get_meta(&to_meta_key(NON_CANONICAL_JOURNAL_LEN, &block))
+				let non_canonical_journal_len_record = db
+					.get_meta(&to_meta_key(NON_CANONICAL_JOURNAL_LEN, &block))
 					.map_err(Error::Db)?;
 				let level_len = match non_canonical_journal_len_record {
 					Some(data) => Decode::decode(&mut data.as_slice())?,
@@ -312,7 +313,7 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 		let index = level.available_index();
 		if index == level.level_width() {
 			let key = to_meta_key(NON_CANONICAL_JOURNAL_LEN, &number);
-			let journal_len_at_number = index+1;
+			let journal_len_at_number = index + 1;
 			commit.meta.inserted.push((key, journal_len_at_number.encode()));
 		}
 		let journal_key = to_journal_key(number, index);
@@ -454,6 +455,10 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 			discarded_journals.push(overlay.journal_key.clone());
 		}
 		commit.meta.deleted.append(&mut discarded_journals);
+		commit
+			.meta
+			.deleted
+			.push(to_meta_key(NON_CANONICAL_JOURNAL_LEN, &self.front_block_number()));
 
 		let canonicalized = (hash.clone(), self.front_block_number());
 		commit
@@ -484,6 +489,7 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 	/// Revert a single level. Returns commit set that deletes the journal or `None` if not
 	/// possible.
 	pub fn revert_one(&mut self) -> Option<CommitSet<Key>> {
+		let last_block_number = self.front_block_number() + self.levels.len() as u64 - 1;
 		self.levels.pop_back().map(|level| {
 			let mut commit = CommitSet::default();
 			for overlay in level.blocks.into_iter() {
@@ -491,6 +497,8 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 				self.parents.remove(&overlay.hash);
 				discard_values(&mut self.values, overlay.inserted);
 			}
+			let journal_level_len_key = to_meta_key(NON_CANONICAL_JOURNAL_LEN, &last_block_number);
+			commit.meta.deleted.push(journal_level_len_key);
 			commit
 		})
 	}
@@ -517,7 +525,10 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 			break
 		}
 		if self.levels.back().map_or(false, |l| l.blocks.is_empty()) {
+			let last_block_number = self.front_block_number() + level_count as u64 - 1;
 			self.levels.pop_back();
+			let journal_level_len_key = to_meta_key(NON_CANONICAL_JOURNAL_LEN, &last_block_number);
+			commit.meta.deleted.push(journal_level_len_key);
 		}
 		if !commit.meta.deleted.is_empty() {
 			Some(commit)
@@ -579,10 +590,13 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 mod tests {
 	use super::{to_journal_key, NonCanonicalOverlay};
 	use crate::{
+		noncanonical::{LAST_CANONICAL, NON_CANONICAL_JOURNAL_LEN},
 		test::{make_changeset, make_db},
-		ChangeSet, CommitSet, MetaDb, StateDbError,
+		to_meta_key, ChangeSet, CommitSet, MetaDb, StateDbError,
 	};
 	use sp_core::H256;
+	use std::collections::HashSet;
+	use codec::Encode;
 
 	fn contains(overlay: &NonCanonicalOverlay<H256, H256>, key: u64) -> bool {
 		overlay.get(&H256::from_low_u64_be(key)) ==
@@ -673,15 +687,31 @@ mod tests {
 		let insertion = overlay.insert(&h1, 1, &H256::default(), changeset.clone()).unwrap();
 		assert_eq!(insertion.data.inserted.len(), 0);
 		assert_eq!(insertion.data.deleted.len(), 0);
-		assert_eq!(insertion.meta.inserted.len(), 3);
-		assert_eq!(insertion.meta.deleted.len(), 0);
+		assert_eq!(
+			insertion.meta.inserted.iter().map(|(k, _)| k).collect::<HashSet<_>>(),
+			HashSet::from_iter(&[
+				to_meta_key(LAST_CANONICAL, &()),
+				to_journal_key(1, 0),
+				to_meta_key(&NON_CANONICAL_JOURNAL_LEN, &1u64),
+			])
+		);
+		assert!(insertion.meta.deleted.is_empty());
 		db.commit(&insertion);
 		let mut finalization = CommitSet::default();
 		overlay.canonicalize(&h1, &mut finalization).unwrap();
 		assert_eq!(finalization.data.inserted.len(), changeset.inserted.len());
 		assert_eq!(finalization.data.deleted.len(), changeset.deleted.len());
-		assert_eq!(finalization.meta.inserted.len(), 1);
-		assert_eq!(finalization.meta.deleted.len(), 1);
+		assert_eq!(
+			finalization.meta.inserted,
+			vec![(to_meta_key(LAST_CANONICAL, &()),(&h1, 1u64).encode())]
+		);
+		assert_eq!(
+			HashSet::<Vec<_>>::from_iter(finalization.meta.deleted.clone()),
+			HashSet::from_iter(vec![
+				to_journal_key(1, 0),
+				to_meta_key(&NON_CANONICAL_JOURNAL_LEN, &1u64),
+			])
+		);
 		db.commit(&finalization);
 		assert!(db.data_eq(&make_db(&[1, 3, 4])));
 	}
