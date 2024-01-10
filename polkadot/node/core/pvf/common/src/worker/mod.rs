@@ -319,7 +319,7 @@ pub fn run_worker<F>(
 		}
 
 		// TODO: We can enable the seccomp networking blacklist on aarch64 as well, but we need a CI
-		//       job to catch regressions. See <https://github.com/paritytech/ci_cd/issues/609>.
+		//       job to catch regressions. See issue ci_cd/issues/609.
 		#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 		if security_status.can_enable_seccomp {
 			if let Err(err) = security::seccomp::enable_for_worker(&worker_info) {
