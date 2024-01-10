@@ -2315,6 +2315,8 @@
 <a href="#2315" id="2315">2315</a>
 <a href="#2316" id="2316">2316</a>
 <a href="#2317" id="2317">2317</a>
+<a href="#2318" id="2318">2318</a>
+<a href="#2319" id="2319">2319</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2570,7 +2572,9 @@
 	/// This checks whether the peer is allowed to send us manifests
 	/// about this group at this relay-parent. This also does sanity
 	/// checks on the format of the manifest and the amount of votes
-	/// it contains. It has effects on the stored state only when successful.
+	/// it contains. It assumes that the votes from disabled validators
+	/// are already filtered out.
+	/// It has effects on the stored state only when successful.
 	///
 	/// This returns a `bool` on success, which if true indicates that an acknowledgement is
 	/// to be sent in response to the received manifest. This only occurs when the

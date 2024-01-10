@@ -129,6 +129,9 @@
 <a href="#129" id="129">129</a>
 <a href="#130" id="130">130</a>
 <a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -205,6 +208,9 @@
 
 	<span class="attr">#[error(<span class="string">&quot;Fetching availability cores failed {0:?}&quot;</span>)]
 	</span>FetchAvailabilityCores(RuntimeApiError),
+
+	<span class="attr">#[error(<span class="string">&quot;Fetching disabled validators failed {0:?}&quot;</span>)]
+	</span>FetchDisabledValidators(runtime::Error),
 
 	<span class="attr">#[error(<span class="string">&quot;Fetching validator groups failed {0:?}&quot;</span>)]
 	</span>FetchValidatorGroups(RuntimeApiError),

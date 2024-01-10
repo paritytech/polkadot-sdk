@@ -1271,6 +1271,17 @@
 <a href="#1271" id="1271">1271</a>
 <a href="#1272" id="1272">1272</a>
 <a href="#1273" id="1273">1273</a>
+<a href="#1274" id="1274">1274</a>
+<a href="#1275" id="1275">1275</a>
+<a href="#1276" id="1276">1276</a>
+<a href="#1277" id="1277">1277</a>
+<a href="#1278" id="1278">1278</a>
+<a href="#1279" id="1279">1279</a>
+<a href="#1280" id="1280">1280</a>
+<a href="#1281" id="1281">1281</a>
+<a href="#1282" id="1282">1282</a>
+<a href="#1283" id="1283">1283</a>
+<a href="#1284" id="1284">1284</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1303,12 +1314,13 @@
 //! (which requires state not owned by the request manager).
 
 </span><span class="kw">use super</span>::{
-	BENEFIT_VALID_RESPONSE, BENEFIT_VALID_STATEMENT, COST_IMPROPERLY_DECODED_RESPONSE,
-	COST_INVALID_RESPONSE, COST_INVALID_SIGNATURE, COST_UNREQUESTED_RESPONSE_STATEMENT,
-	REQUEST_RETRY_DELAY,
+	seconded_and_sufficient, BENEFIT_VALID_RESPONSE, BENEFIT_VALID_STATEMENT,
+	COST_IMPROPERLY_DECODED_RESPONSE, COST_INVALID_RESPONSE, COST_INVALID_SIGNATURE,
+	COST_UNREQUESTED_RESPONSE_STATEMENT, REQUEST_RETRY_DELAY,
 };
 <span class="kw">use </span><span class="kw">crate</span>::LOG_TARGET;
 
+<span class="kw">use </span>bitvec::prelude::{BitVec, Lsb0};
 <span class="kw">use </span>polkadot_node_network_protocol::{
 	request_response::{
 		outgoing::{Recipient <span class="kw">as </span>RequestRecipient, RequestError},
@@ -1768,10 +1780,6 @@
 	</span>}
 }
 
-<span class="kw">fn </span>seconded_and_sufficient(filter: <span class="kw-2">&amp;</span>StatementFilter, backing_threshold: <span class="prelude-ty">Option</span>&lt;usize&gt;) -&gt; bool {
-	backing_threshold.map_or(<span class="bool-val">true</span>, |t| filter.has_seconded() &amp;&amp; filter.backing_validators() &gt;= t)
-}
-
 <span class="doccomment">/// A response to a request, which has not yet been handled.
 </span><span class="kw">pub struct </span>UnhandledResponse {
 	response: TaggedResponse,
@@ -1815,6 +1823,7 @@
 		session: SessionIndex,
 		validator_key_lookup: <span class="kw">impl </span>Fn(ValidatorIndex) -&gt; <span class="prelude-ty">Option</span>&lt;ValidatorId&gt;,
 		allowed_para_lookup: <span class="kw">impl </span>Fn(ParaId, GroupIndex) -&gt; bool,
+		disabled_mask: BitVec&lt;u8, Lsb0&gt;,
 	) -&gt; ResponseValidationOutput {
 		<span class="kw">let </span>UnhandledResponse {
 			response: TaggedResponse { identifier, requested_peer, props, response },
@@ -1898,6 +1907,7 @@
 			session,
 			validator_key_lookup,
 			allowed_para_lookup,
+			disabled_mask,
 		);
 
 		<span class="kw">if let </span>CandidateRequestStatus::Complete { .. } = output.request_status {
@@ -1917,6 +1927,7 @@
 	session: SessionIndex,
 	validator_key_lookup: <span class="kw">impl </span>Fn(ValidatorIndex) -&gt; <span class="prelude-ty">Option</span>&lt;ValidatorId&gt;,
 	allowed_para_lookup: <span class="kw">impl </span>Fn(ParaId, GroupIndex) -&gt; bool,
+	disabled_mask: BitVec&lt;u8, Lsb0&gt;,
 ) -&gt; ResponseValidationOutput {
 	<span class="kw">let </span>RequestProperties { backing_threshold, <span class="kw-2">mut </span>unwanted_mask } = props;
 
@@ -2023,6 +2034,10 @@
 					</span>}
 				},
 			}
+
+			<span class="kw">if </span>disabled_mask.get(i).map_or(<span class="bool-val">false</span>, |x| <span class="kw-2">*</span>x) {
+				<span class="kw">continue
+			</span>}
 
 			<span class="kw">let </span>validator_public =
 				<span class="kw">match </span>validator_key_lookup(unchecked_statement.unchecked_validator_index()) {
@@ -2286,6 +2301,7 @@
 		<span class="kw">let </span>group = <span class="kw-2">&amp;</span>[ValidatorIndex(<span class="number">0</span>), ValidatorIndex(<span class="number">1</span>), ValidatorIndex(<span class="number">2</span>)];
 
 		<span class="kw">let </span>unwanted_mask = StatementFilter::blank(group_size);
+		<span class="kw">let </span>disabled_mask: BitVec&lt;u8, Lsb0&gt; = Default::default();
 		<span class="kw">let </span>request_properties = RequestProperties { unwanted_mask, backing_threshold: <span class="prelude-val">None </span>};
 
 		<span class="comment">// Get requests.
@@ -2329,6 +2345,7 @@
 				<span class="number">0</span>,
 				validator_key_lookup,
 				allowed_para_lookup,
+				disabled_mask.clone(),
 			);
 			<span class="macro">assert_eq!</span>(
 				output,
@@ -2367,6 +2384,7 @@
 				<span class="number">0</span>,
 				validator_key_lookup,
 				allowed_para_lookup,
+				disabled_mask,
 			);
 			<span class="macro">assert_eq!</span>(
 				output,
@@ -2440,12 +2458,14 @@
 			};
 			<span class="kw">let </span>validator_key_lookup = |_v| <span class="prelude-val">None</span>;
 			<span class="kw">let </span>allowed_para_lookup = |_para, _g_index| <span class="bool-val">true</span>;
+			<span class="kw">let </span>disabled_mask: BitVec&lt;u8, Lsb0&gt; = Default::default();
 			<span class="kw">let </span>output = response.validate_response(
 				<span class="kw-2">&amp;mut </span>request_manager,
 				group,
 				<span class="number">0</span>,
 				validator_key_lookup,
 				allowed_para_lookup,
+				disabled_mask,
 			);
 			<span class="macro">assert_eq!</span>(
 				output,
@@ -2518,12 +2538,14 @@
 			<span class="kw">let </span>validator_key_lookup = |_v| <span class="prelude-val">None</span>;
 			<span class="kw">let </span>allowed_para_lookup = |_para, _g_index| <span class="bool-val">true</span>;
 			<span class="kw">let </span>statements = <span class="macro">vec!</span>[];
+			<span class="kw">let </span>disabled_mask: BitVec&lt;u8, Lsb0&gt; = Default::default();
 			<span class="kw">let </span>output = response.validate_response(
 				<span class="kw-2">&amp;mut </span>request_manager,
 				group,
 				<span class="number">0</span>,
 				validator_key_lookup,
 				allowed_para_lookup,
+				disabled_mask,
 			);
 			<span class="macro">assert_eq!</span>(
 				output,

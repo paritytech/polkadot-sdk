@@ -359,6 +359,9 @@
 <a href="#359" id="359">359</a>
 <a href="#360" id="360">360</a>
 <a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -458,10 +461,10 @@
 		groups: <span class="kw-2">&amp;</span>Groups,
 		statement: SignedStatement,
 		origin: StatementOrigin,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;bool, ValidatorUnknown&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;bool, Error&gt; {
 		<span class="kw">let </span>validator_index = statement.validator_index();
 		<span class="kw">let </span>validator_meta = <span class="kw">match </span><span class="self">self</span>.validator_meta.get_mut(<span class="kw-2">&amp;</span>validator_index) {
-			<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(ValidatorUnknown),
+			<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Error::ValidatorUnknown),
 			<span class="prelude-val">Some</span>(m) =&gt; m,
 		};
 
@@ -495,7 +498,7 @@
 						<span class="string">&quot;groups passed into `insert` differ from those used at store creation&quot;
 					</span>);
 
-					<span class="kw">return </span><span class="prelude-val">Err</span>(ValidatorUnknown)
+					<span class="kw">return </span><span class="prelude-val">Err</span>(Error::ValidatorUnknown)
 				},
 			};
 
@@ -612,9 +615,12 @@
 	}
 }
 
-<span class="doccomment">/// Error indicating that the validator was unknown.
+<span class="doccomment">/// Error when inserting a statement into the statement store.
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>ValidatorUnknown;
+</span><span class="kw">pub enum </span>Error {
+	<span class="doccomment">/// The validator was unknown.
+	</span>ValidatorUnknown,
+}
 
 <span class="kw">type </span>Fingerprint = (ValidatorIndex, CompactStatement);
 
