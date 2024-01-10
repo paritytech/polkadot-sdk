@@ -35,7 +35,7 @@ frame-election-provider-support = { path = "../election-provider-support", defau
 # third party
 log = { version = "0.4.17", default-features = false }
 docify = "0.2.6"
-aquamarine = { version = "0.3.2" }
+aquamarine = { version = "0.4.0" }
 
 # Optional imports for benchmarking
 frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }

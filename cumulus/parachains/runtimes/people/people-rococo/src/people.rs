@@ -39,7 +39,7 @@ parameter_types! {
 	pub const ByteDeposit: Balance = deposit(0, 1);
 	pub const SubAccountDeposit: Balance = deposit(1, 53);
 	pub RelayTreasuryAccount: AccountId =
-		parachains_common::polkadot::account::POLKADOT_TREASURY_PALLET_ID.into_account_truncating();
+		parachains_common::TREASURY_PALLET_ID.into_account_truncating();
 }
 
 impl pallet_identity::Config for Runtime {
