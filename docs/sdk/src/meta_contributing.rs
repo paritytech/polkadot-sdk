@@ -132,14 +132,16 @@
 //! compromise, but in the long term, we should work towards finding a way to maintain different
 //! revisions of this crate.
 //!
-//! ## How to Build
+//! ## How to Develop Locally
 //!
-//! To build and view this crate locally, with with right HTML headers injected, run:
+//! To view the docs specific [`crate`] locally for development, including the correct HTML headers
+//! injected, run:
 //!
 //! ```sh
-//! RUSTDOCFLAGS="--html-in-header $(pwd)/docs/sdk/headers/toc.html" cargo doc -p polkadot-sdk-docs --open
+//! SKIP_WASM_BUILD=1 RUSTDOCFLAGS="--html-in-header $(pwd)/docs/sdk/headers/toc.html" cargo doc -p polkadot-sdk-docs --no-deps --open
 //! ```
 //!
-//! Adding `--no-deps` would speed up the process while development. If even faster build time for
-//! docs is needed, you can temporarily remove most of the substrate/cumulus dependencies that are
-//! only used for linking purposes.
+//! If even faster build time for docs is needed, you can temporarily remove most of the
+//! substrate/cumulus dependencies that are only used for linking purposes.
+//!
+//! For more on local development, see [`crate::reference_docs::development_environment_advice`].
