@@ -46,9 +46,11 @@ The Westend testnet will be updated to the new runtime version immediately after
 # Backports
 
 **From `master` to `stable`**
+
 Backports in this direction can be anything that is audited and either `minor` or a `patch` bump. [Security fixes](#bug-and-security-fix) should be prioritized over additions or improvements.
 
 **From `stable` to `master`**
+
 Should not be needed since all changes first get merged into `master`. The `stable` branch can get out of sync and will be synced with the [Clobbering](#clobbering) process.
 
 # Processes
