@@ -22,7 +22,7 @@ use crate::{
 };
 
 use bp_beefy::{BeefyValidatorSignatureOf, ChainWithBeefy, Commitment, MmrDataOrHash};
-use bp_runtime::{BasicOperatingMode, Chain};
+use bp_runtime::{BasicOperatingMode, Chain, ChainId};
 use codec::Encode;
 use frame_support::{construct_runtime, derive_impl, weights::Weight};
 use sp_core::{sr25519::Signature, Pair};
@@ -81,6 +81,8 @@ impl beefy::Config for TestRuntime {
 pub struct TestBridgedChain;
 
 impl Chain for TestBridgedChain {
+	const ID: ChainId = *b"tbch";
+
 	type BlockNumber = TestBridgedBlockNumber;
 	type Hash = H256;
 	type Hasher = BlakeTwo256;

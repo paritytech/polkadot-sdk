@@ -20,7 +20,6 @@ pub mod codegen_runtime;
 
 use bp_kusama::{AccountInfoStorageMapKeyProvider, KUSAMA_SYNCED_HEADERS_GRANDPA_INFO_METHOD};
 use bp_polkadot_core::SuffixedCommonSignedExtensionExt;
-use bp_runtime::ChainId;
 use codec::Encode;
 use relay_substrate_client::{
 	Chain, ChainWithBalances, ChainWithGrandpa, ChainWithTransactions, Error as SubstrateError,
@@ -55,7 +54,6 @@ impl UnderlyingChainProvider for Kusama {
 }
 
 impl Chain for Kusama {
-	const ID: ChainId = bp_runtime::KUSAMA_CHAIN_ID;
 	const NAME: &'static str = "Kusama";
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str =
 		bp_kusama::BEST_FINALIZED_KUSAMA_HEADER_METHOD;

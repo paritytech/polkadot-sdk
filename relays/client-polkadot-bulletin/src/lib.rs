@@ -18,9 +18,7 @@
 
 mod codegen_runtime;
 
-use bp_messages::MessageNonce;
 use bp_polkadot_bulletin::POLKADOT_BULLETIN_SYNCED_HEADERS_GRANDPA_INFO_METHOD;
-use bp_runtime::ChainId;
 use codec::Encode;
 use relay_substrate_client::{
 	Chain, ChainWithBalances, ChainWithGrandpa, ChainWithMessages, ChainWithTransactions,
@@ -65,8 +63,6 @@ impl UnderlyingChainProvider for PolkadotBulletin {
 }
 
 impl Chain for PolkadotBulletin {
-	const ID: ChainId = *b"pbch";
-
 	const NAME: &'static str = "PolkadotBulletin";
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str =
 		bp_polkadot_bulletin::BEST_FINALIZED_POLKADOT_BULLETIN_HEADER_METHOD;
@@ -84,8 +80,6 @@ impl ChainWithGrandpa for PolkadotBulletin {
 }
 
 impl ChainWithMessages for PolkadotBulletin {
-	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str =
-		bp_polkadot_bulletin::WITH_POLKADOT_BULLETIN_MESSAGES_PALLET_NAME;
 	// this is not critical (some metrics will be missing from the storage), but probably it needs
 	// to be changed when we'll polish the bridge configuration
 	const WITH_CHAIN_RELAYERS_PALLET_NAME: Option<&'static str> = None;
@@ -94,11 +88,6 @@ impl ChainWithMessages for PolkadotBulletin {
 		bp_polkadot_bulletin::TO_POLKADOT_BULLETIN_MESSAGE_DETAILS_METHOD;
 	const FROM_CHAIN_MESSAGE_DETAILS_METHOD: &'static str =
 		bp_polkadot_bulletin::FROM_POLKADOT_BULLETIN_MESSAGE_DETAILS_METHOD;
-
-	const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce =
-		bp_polkadot_bulletin::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
-	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce =
-		bp_polkadot_bulletin::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 }
 
 impl ChainWithBalances for PolkadotBulletin {

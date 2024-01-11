@@ -20,7 +20,6 @@ pub mod codegen_runtime;
 
 use bp_polkadot_core::SuffixedCommonSignedExtensionExt;
 use bp_rococo::ROCOCO_SYNCED_HEADERS_GRANDPA_INFO_METHOD;
-use bp_runtime::ChainId;
 use codec::Encode;
 use relay_substrate_client::{
 	Chain, ChainWithBalances, ChainWithGrandpa, ChainWithTransactions, Error as SubstrateError,
@@ -55,7 +54,6 @@ impl UnderlyingChainProvider for Rococo {
 }
 
 impl Chain for Rococo {
-	const ID: ChainId = bp_runtime::ROCOCO_CHAIN_ID;
 	const NAME: &'static str = "Rococo";
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str =
 		bp_rococo::BEST_FINALIZED_ROCOCO_HEADER_METHOD;

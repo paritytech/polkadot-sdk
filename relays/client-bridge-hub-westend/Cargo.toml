@@ -11,18 +11,16 @@ workspace = true
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.1.5", features = ["derive"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-subxt = { version = "0.32.1", default-features = false, features = [] }
+subxt = { version = "0.32.1", default-features = false, features = ["native"] }
 
 # Bridge dependencies
 
 bp-bridge-hub-rococo = { path = "../../primitives/chain-bridge-hub-rococo" }
 bp-bridge-hub-westend = { path = "../../primitives/chain-bridge-hub-westend" }
 bp-header-chain = { path = "../../primitives/header-chain" }
-bp-messages = { path = "../../primitives/messages" }
 bp-parachains = { path = "../../primitives/parachains" }
 bp-polkadot-core = { path = "../../primitives/polkadot-core" }
 bp-rococo = { path = "../../primitives/chain-rococo" }
-bp-runtime = { path = "../../primitives/runtime" }
 
 bridge-runtime-common = { path = "../../bin/runtime-common" }
 relay-substrate-client = { path = "../client-substrate" }
@@ -34,4 +32,5 @@ sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", branch = "mas
 sp-weights = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
 
 [dev-dependencies]
+bp-runtime = { path = "../../primitives/runtime" }
 sp-consensus-grandpa = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }

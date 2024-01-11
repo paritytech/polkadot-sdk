@@ -29,6 +29,7 @@
 //! Given the header hash, other pallets are able to verify header-based proofs
 //! (e.g. storage proofs, transaction inclusion proofs, etc.).
 
+#![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use bp_beefy::{ChainWithBeefy, InitializationData};

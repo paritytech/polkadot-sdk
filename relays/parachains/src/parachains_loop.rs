@@ -648,7 +648,8 @@ mod tests {
 			_at_block: HeaderIdOf<TestChain>,
 		) -> Result<(ParaHeadsProof, ParaHash), TestError> {
 			let head = *self.data.lock().await.source_head.clone()?.as_available().unwrap();
-			let proof = (ParaHeadsProof(vec![head.hash().encode()]), head.hash());
+			let storage_proof = vec![head.hash().encode()];
+			let proof = (ParaHeadsProof { storage_proof }, head.hash());
 			self.data.lock().await.source_proof.clone().map(|_| proof)
 		}
 	}

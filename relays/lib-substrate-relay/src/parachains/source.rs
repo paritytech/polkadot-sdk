@@ -164,6 +164,6 @@ where
 			})?;
 		let parachain_head_hash = parachain_head.hash();
 
-		Ok((ParaHeadsProof(parachain_heads_proof), parachain_head_hash))
+		Ok((ParaHeadsProof { storage_proof: parachain_heads_proof }, parachain_head_hash))
 	}
 }
