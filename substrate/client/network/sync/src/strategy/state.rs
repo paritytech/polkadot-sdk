@@ -182,6 +182,7 @@ impl<B: BlockT> StateStrategy<B> {
 				target: LOG_TARGET,
 				"Failed to downcast opaque state response, this is an implementation bug."
 			);
+			debug_assert!(false);
 
 			BadPeer(peer_id, rep::BAD_RESPONSE)
 		})?;
@@ -283,8 +284,8 @@ impl<B: BlockT> StateStrategy<B> {
 
 		if self
 			.peers
-			.iter()
-			.any(|(_, peer)| matches!(peer.state, PeerState::DownloadingState))
+			.values()
+			.any(|peer| matches!(peer.state, PeerState::DownloadingState))
 		{
 			// Only one state request at a time is possible.
 			return None
@@ -306,17 +307,18 @@ impl<B: BlockT> StateStrategy<B> {
 		min_best_number: NumberFor<B>,
 	) -> Option<PeerId> {
 		let mut targets: Vec<_> = self.peers.values().map(|p| p.best_number).collect();
-		if !targets.is_empty() {
-			targets.sort();
-			let median = targets[targets.len() / 2];
-			let threshold = std::cmp::max(median, min_best_number);
-			// Find a random peer that is synced as much as peer majority and is above
-			// `min_best_number`.
-			for (peer_id, peer) in self.peers.iter_mut() {
-				if peer.state.is_available() && peer.best_number >= threshold {
-					peer.state = new_state;
-					return Some(*peer_id)
-				}
+		if targets.is_empty() {
+			return None
+		}
+		targets.sort();
+		let median = targets[targets.len() / 2];
+		let threshold = std::cmp::max(median, min_best_number);
+		// Find a random peer that is synced as much as peer majority and is above
+		// `min_best_number`.
+		for (peer_id, peer) in self.peers.iter_mut() {
+			if peer.state.is_available() && peer.best_number >= threshold {
+				peer.state = new_state;
+				return Some(*peer_id)
 			}
 		}
 		None

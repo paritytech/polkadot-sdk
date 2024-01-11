@@ -481,17 +481,18 @@ where
 		min_best_number: Option<NumberFor<B>>,
 	) -> Option<PeerId> {
 		let mut targets: Vec<_> = self.peers.values().map(|p| p.best_number).collect();
-		if !targets.is_empty() {
-			targets.sort();
-			let median = targets[targets.len() / 2];
-			let threshold = std::cmp::max(median, min_best_number.unwrap_or(Zero::zero()));
-			// Find a random peer that is synced as much as peer majority and is above
-			// `min_best_number`.
-			for (peer_id, peer) in self.peers.iter_mut() {
-				if peer.state.is_available() && peer.best_number >= threshold {
-					peer.state = new_state;
-					return Some(*peer_id)
-				}
+		if targets.is_empty() {
+			return None
+		}
+		targets.sort();
+		let median = targets[targets.len() / 2];
+		let threshold = std::cmp::max(median, min_best_number.unwrap_or(Zero::zero()));
+		// Find a random peer that is synced as much as peer majority and is above
+		// `min_best_number`.
+		for (peer_id, peer) in self.peers.iter_mut() {
+			if peer.state.is_available() && peer.best_number >= threshold {
+				peer.state = new_state;
+				return Some(*peer_id)
 			}
 		}
 		None
@@ -506,8 +507,8 @@ where
 
 		if self
 			.peers
-			.iter()
-			.any(|(_, peer)| matches!(peer.state, PeerState::DownloadingProofs))
+			.values()
+			.any(|peer| matches!(peer.state, PeerState::DownloadingProofs))
 		{
 			// Only one warp proof request at a time is possible.
 			return None
@@ -525,8 +526,8 @@ where
 
 		if self
 			.peers
-			.iter()
-			.any(|(_, peer)| matches!(peer.state, PeerState::DownloadingTargetBlock))
+			.values()
+			.any(|peer| matches!(peer.state, PeerState::DownloadingTargetBlock))
 		{
 			// Only one target block request at a time is possible.
 			return None
@@ -636,6 +637,8 @@ where
 		std::mem::take(&mut self.actions).into_iter()
 	}
 
+	/// Take the result of finished warp sync, returning `None` if the sync was unsuccessful.
+	#[must_use]
 	pub fn take_result(&mut self) -> Option<WarpSyncResult<B>> {
 		self.result.take()
 	}
