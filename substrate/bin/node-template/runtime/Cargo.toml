@@ -9,6 +9,9 @@ license = "MIT-0"
 publish = false
 repository = "https://github.com/substrate-developer-hub/substrate-node-template/"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
@@ -39,7 +42,7 @@ sp-std = { path = "../../../primitives/std", default-features = false }
 sp-storage = { path = "../../../primitives/storage", default-features = false }
 sp-transaction-pool = { path = "../../../primitives/transaction-pool", default-features = false }
 sp-version = { path = "../../../primitives/version", default-features = false, features = ["serde"] }
-serde_json = { version = "1.0.108", default-features = false, features = ["alloc"] }
+serde_json = { version = "1.0.111", default-features = false, features = ["alloc"] }
 sp-genesis-builder = { default-features = false, path = "../../../primitives/genesis-builder" }
 
 # Used for the node template's RPCs

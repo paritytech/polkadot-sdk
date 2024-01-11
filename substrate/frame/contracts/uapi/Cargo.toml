@@ -8,6 +8,9 @@ homepage = "https://substrate.io"
 repository.workspace = true
 description = "Exposes all the host functions that a contract can import."
 
+[lints]
+workspace = true
+
 [dependencies]
 paste = { version = "1.0", default-features = false }
 bitflags = "1.0"
@@ -16,6 +19,9 @@ scale = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 	"derive",
 	"max-encoded-len",
 ], optional = true }
+
+[target.'cfg(target_arch = "riscv32")'.dependencies]
+polkavm-derive = '0.4.0'
 
 [features]
 default = ["scale"]

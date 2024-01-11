@@ -283,7 +283,7 @@ fn setting_pending_config_members() {
 			max_code_size: 100_000,
 			max_pov_size: 1024,
 			max_head_data_size: 1_000,
-			on_demand_cores: 2,
+			coretime_cores: 2,
 			on_demand_retries: 5,
 			group_rotation_frequency: 20,
 			paras_availability_period: 10,
@@ -313,6 +313,7 @@ fn setting_pending_config_members() {
 			pvf_voting_ttl: 3,
 			minimum_validation_upgrade_delay: 20,
 			executor_params: Default::default(),
+			approval_voting_params: ApprovalVotingParams { max_approval_coalesce_count: 1 },
 			on_demand_queue_max_size: 10_000u32,
 			on_demand_base_fee: 10_000_000u128,
 			on_demand_fee_variability: Perbill::from_percent(3),
@@ -341,7 +342,7 @@ fn setting_pending_config_members() {
 		Configuration::set_max_pov_size(RuntimeOrigin::root(), new_config.max_pov_size).unwrap();
 		Configuration::set_max_head_data_size(RuntimeOrigin::root(), new_config.max_head_data_size)
 			.unwrap();
-		Configuration::set_on_demand_cores(RuntimeOrigin::root(), new_config.on_demand_cores)
+		Configuration::set_coretime_cores(RuntimeOrigin::root(), new_config.coretime_cores)
 			.unwrap();
 		Configuration::set_on_demand_retries(RuntimeOrigin::root(), new_config.on_demand_retries)
 			.unwrap();

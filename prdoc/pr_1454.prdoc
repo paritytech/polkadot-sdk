@@ -1,0 +1,10 @@
+title: Support XCM as part of Cosmos CosmWasm contract messages
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Made XCM JSON schema behind flag, bumped bounded-collection so to ensure it has that flag too.
+
+crates:
+  - name: staging-xcm
+  - name: sp-weights
