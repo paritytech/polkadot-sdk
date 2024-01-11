@@ -17,7 +17,7 @@
 use std::{net::SocketAddr, path::PathBuf};
 
 use cumulus_client_cli::{ExportGenesisHeadCommand, ExportGenesisWasmCommand};
-use polkadot_service::{ChainSpec, PrometheusConfig};
+use polkadot_service::{ChainSpec, ParaId, PrometheusConfig};
 use sc_cli::{
 	CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams, NetworkParams,
 	Result as CliResult, SharedParams, SubstrateCli,
@@ -253,7 +253,8 @@ impl SubstrateCli for TestCollatorCli {
 
 	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
 		Ok(match id {
-			"" => Box::new(cumulus_test_service::get_chain_spec(None)) as Box<_>,
+			"" =>
+				Box::new(cumulus_test_service::get_chain_spec(Some(ParaId::from(2000)))) as Box<_>,
 			path => {
 				let chain_spec =
 					cumulus_test_service::chain_spec::ChainSpec::from_json_file(path.into())?;
