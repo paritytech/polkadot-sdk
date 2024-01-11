@@ -45,9 +45,9 @@
     - cp /tmp/polkadot.* ./zombienet-logs/
     # copy logs of our polkadot-parachain binary wrapper (polkadot-parachain-x.sh)
     - cp /tmp/polkadot-parachain.* ./zombienet-logs/
-  retry: 2
-  tags:
-    - zombienet-polkadot-integration-test
+#  retry: 2
+#  tags:
+#    - zombienet-polkadot-integration-test
 
 run-zombienet-bridges-tests:
   extends:
