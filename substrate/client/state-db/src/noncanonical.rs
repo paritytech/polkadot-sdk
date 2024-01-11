@@ -77,10 +77,6 @@ impl<BlockHash: Hash, Key: Hash> OverlayLevel<BlockHash, Key> {
 		let available_indices = (0..span).collect::<BTreeSet<_>>();
 		OverlayLevel { blocks: Vec::new(), span, available_indices }
 	}
-
-	fn new() -> OverlayLevel<BlockHash, Key> {
-		Self::new_with_span(0)
-	}
 }
 
 #[derive(Encode, Decode)]
@@ -208,6 +204,8 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 					.map_err(Error::Db)?
 					.map(|data| Decode::decode(&mut data.as_slice()))
 					.transpose()?;
+				// Since we don't update the overlay level span on block removal,
+				// we have to restore it there
 				let mut level = OverlayLevel::new_with_span(level_span.unwrap_or(0));
 				for index in 0..level_span.unwrap_or(OVERLAY_LEVEL_STORE_SPANS_LONGER_THAN) {
 					let journal_key = to_journal_key(block, index);
@@ -307,7 +305,7 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 		let level = if self.levels.is_empty() ||
 			number == front_block_number + self.levels.len() as u64
 		{
-			self.levels.push_back(OverlayLevel::new());
+			self.levels.push_back(OverlayLevel::new_with_span(0));
 			self.levels.back_mut().expect("can't be empty after insertion; qed")
 		} else {
 			self.levels.get_mut((number - front_block_number) as usize)
@@ -342,7 +340,6 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 			inserted: changeset.inserted,
 			deleted: changeset.deleted,
 		};
-
 		commit.meta.inserted.push((journal_key, journal_record.encode()));
 		trace!(
 			target: LOG_TARGET,
@@ -726,7 +723,7 @@ mod tests {
 				.unwrap(),
 		);
 		db.commit(&overlay.insert(&h2, 11, &h1, make_changeset(&[5], &[3])).unwrap());
-		assert_eq!(db.meta_len(), 3); //TODO
+		assert_eq!(db.meta_len(), 3);
 
 		let overlay2 = NonCanonicalOverlay::<H256, H256>::new(&db).unwrap();
 		assert_eq!(overlay.levels, overlay2.levels);
