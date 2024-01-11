@@ -22,7 +22,6 @@ use crate::{
 	aux_schema::{load_persistent, tests::verify_persisted_version},
 	beefy_block_import_and_links,
 	communication::{
-		fisherman::BeefyFisherman,
 		gossip::{
 			proofs_topic, tests::sign_commitment, votes_topic, GossipFilterCfg, GossipMessage,
 			GossipValidator,
@@ -249,24 +248,6 @@ impl TestNetFactory for BeefyTestNet {
 
 pub(crate) struct DummyFisherman<B> {
 	pub _phantom: PhantomData<B>,
-}
-
-impl<B: BlockT> BeefyFisherman<B> for DummyFisherman<B> {
-	fn check_proof(&self, _: BeefyVersionedFinalityProof<B>) -> Result<(), Error> {
-		Ok(())
-	}
-	fn check_signed_commitment(
-		&self,
-		_: SignedCommitment<NumberFor<B>, Signature>,
-	) -> Result<(), Error> {
-		Ok(())
-	}
-	fn check_vote(
-		&self,
-		_: VoteMessage<NumberFor<B>, AuthorityId, Signature>,
-	) -> Result<(), Error> {
-		Ok(())
-	}
 }
 
 #[derive(Clone)]

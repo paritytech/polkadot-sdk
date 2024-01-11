@@ -25,13 +25,15 @@ use sp_runtime::traits::{Block, Hash, Header, NumberFor};
 use codec::{Decode, DecodeAll, Encode};
 use log::{debug, trace};
 use parking_lot::{Mutex, RwLock};
+use sc_client_api::Backend;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
+use sp_api::ProvideRuntimeApi;
 use wasm_timer::Instant;
 
 use crate::{
 	communication::{
 		benefit, cost,
-		fisherman::BeefyFisherman,
+		fisherman::Fisherman,
 		peers::{KnownPeers, PeerReport},
 	},
 	justification::{
@@ -42,8 +44,9 @@ use crate::{
 };
 use sp_consensus_beefy::{
 	ecdsa_crypto::{AuthorityId, Signature},
-	ValidatorSet, ValidatorSetId, VoteMessage,
+	BeefyApi, MmrRootHash, PayloadProvider, ValidatorSet, ValidatorSetId, VoteMessage,
 };
+use sp_mmr_primitives::MmrApi;
 
 // Timeout for rebroadcasting messages.
 #[cfg(not(test))]
@@ -229,25 +232,28 @@ impl<B: Block> Filter<B> {
 /// to create forks before head of GRANDPA are reported.
 ///
 ///All messaging is handled in a single BEEFY global topic.
-pub(crate) struct GossipValidator<B: Block, F> {
+pub(crate) struct GossipValidator<B: Block, BE, R, P> {
 	votes_topic: B::Hash,
 	justifs_topic: B::Hash,
 	gossip_filter: RwLock<Filter<B>>,
 	next_rebroadcast: Mutex<Instant>,
 	known_peers: Arc<Mutex<KnownPeers<B>>>,
 	report_sender: TracingUnboundedSender<PeerReport>,
-	pub(crate) fisherman: F,
+	pub(crate) fisherman: Fisherman<B, BE, R, P>,
 }
 
-impl<B, F> GossipValidator<B, F>
+impl<B, BE, R, P> GossipValidator<B, BE, R, P>
 where
 	B: Block,
-	F: BeefyFisherman<B>,
+	BE: Backend<B> + Send + Sync,
+	P: PayloadProvider<B> + Send + Sync,
+	R: ProvideRuntimeApi<B> + Send + Sync,
+	R::Api: BeefyApi<B, AuthorityId, MmrRootHash> + MmrApi<B, MmrRootHash, NumberFor<B>>,
 {
 	pub(crate) fn new(
 		known_peers: Arc<Mutex<KnownPeers<B>>>,
-		fisherman: F,
-	) -> (GossipValidator<B, F>, TracingUnboundedReceiver<PeerReport>) {
+		fisherman: Fisherman<B, BE, R, P>,
+	) -> (GossipValidator<B, BE, R, P>, TracingUnboundedReceiver<PeerReport>) {
 		let (tx, rx) = tracing_unbounded("mpsc_beefy_gossip_validator", 10_000);
 		let val = GossipValidator {
 			votes_topic: votes_topic::<B>(),
@@ -385,10 +391,13 @@ where
 	}
 }
 
-impl<B, F> Validator<B> for GossipValidator<B, F>
+impl<B, BE, R, P> Validator<B> for GossipValidator<B, BE, R, P>
 where
 	B: Block,
-	F: BeefyFisherman<B>,
+	BE: Backend<B> + Send + Sync,
+	P: PayloadProvider<B> + Send + Sync,
+	R: ProvideRuntimeApi<B> + Send + Sync,
+	R::Api: BeefyApi<B, AuthorityId, MmrRootHash> + MmrApi<B, MmrRootHash, NumberFor<B>>,
 {
 	fn peer_disconnected(&self, _context: &mut dyn ValidatorContext<B>, who: &PeerId) {
 		self.known_peers.lock().remove(who);

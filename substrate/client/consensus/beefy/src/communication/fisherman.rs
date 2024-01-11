@@ -39,26 +39,6 @@ use sp_runtime::{
 };
 use std::{marker::PhantomData, sync::Arc};
 
-pub(crate) trait BeefyFisherman<B: Block>: Send + Sync {
-	/// Check `vote` for contained block against canonical payload. If an equivocation is detected,
-	/// this should also report it.
-	fn check_vote(
-		&self,
-		vote: VoteMessage<NumberFor<B>, AuthorityId, Signature>,
-	) -> Result<(), Error>;
-
-	/// Check `signed_commitment` for contained block against canonical payload. If an equivocation
-	/// is detected, this should also report it.
-	fn check_signed_commitment(
-		&self,
-		signed_commitment: SignedCommitment<NumberFor<B>, Signature>,
-	) -> Result<(), Error>;
-
-	/// Check `proof` for contained block against canonical payload. If an equivocation is detected,
-	/// this should also report it.
-	fn check_proof(&self, proof: BeefyVersionedFinalityProof<B>) -> Result<(), Error>;
-}
-
 /// Helper wrapper used to check gossiped votes for (historical) equivocations,
 /// and report any such protocol infringements.
 pub(crate) struct Fisherman<B: Block, BE, R, P> {
@@ -72,8 +52,8 @@ pub(crate) struct Fisherman<B: Block, BE, R, P> {
 impl<B, BE, R, P> Fisherman<B, BE, R, P>
 where
 	B: Block,
-	BE: Backend<B>,
-	P: PayloadProvider<B>,
+	BE: Backend<B> + Send + Sync,
+	P: PayloadProvider<B> + Send + Sync,
 	R: ProvideRuntimeApi<B> + Send + Sync,
 	R::Api: BeefyApi<B, AuthorityId, MmrRootHash> + MmrApi<B, MmrRootHash, NumberFor<B>>,
 {
@@ -223,19 +203,10 @@ where
 			Ok(false)
 		}
 	}
-}
 
-impl<B, BE, R, P> BeefyFisherman<B> for Fisherman<B, BE, R, P>
-where
-	B: Block,
-	BE: Backend<B>,
-	P: PayloadProvider<B>,
-	R: ProvideRuntimeApi<B> + Send + Sync,
-	R::Api: BeefyApi<B, AuthorityId, MmrRootHash> + MmrApi<B, MmrRootHash, NumberFor<B>>,
-{
 	/// Check `vote` for contained block against canonical payload. If an equivocation is detected,
 	/// this also reports it.
-	fn check_vote(
+	pub(crate) fn check_vote(
 		&self,
 		vote: VoteMessage<NumberFor<B>, AuthorityId, Signature>,
 	) -> Result<(), Error> {
@@ -383,7 +354,7 @@ where
 
 	/// Check `proof` for contained block against canonical payload. If an equivocation is detected,
 	/// this also reports it.
-	fn check_proof(&self, proof: BeefyVersionedFinalityProof<B>) -> Result<(), Error> {
+	pub(crate) fn check_proof(&self, proof: BeefyVersionedFinalityProof<B>) -> Result<(), Error> {
 		match proof {
 			BeefyVersionedFinalityProof::<B>::V1(signed_commitment) =>
 				self.check_signed_commitment(signed_commitment),

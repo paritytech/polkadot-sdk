@@ -18,7 +18,6 @@
 
 use crate::{
 	communication::{
-		fisherman::BeefyFisherman,
 		gossip::{proofs_topic, votes_topic, GossipFilterCfg, GossipMessage, GossipValidator},
 		peers::PeerReport,
 		request_response::outgoing_requests_engine::{OnDemandJustificationsEngine, ResponseInfo},
@@ -318,15 +317,15 @@ impl<B: Block> PersistedState<B> {
 /// Helper object holding BEEFY worker communication/gossip components.
 ///
 /// These are created once, but will be reused if worker is restarted/reinitialized.
-pub(crate) struct BeefyComms<B: Block, F: BeefyFisherman<B>> {
+pub(crate) struct BeefyComms<B: Block, BE, P, R> {
 	pub gossip_engine: GossipEngine<B>,
-	pub gossip_validator: Arc<GossipValidator<B, F>>,
+	pub gossip_validator: Arc<GossipValidator<B, BE, R, P>>,
 	pub gossip_report_stream: TracingUnboundedReceiver<PeerReport>,
 	pub on_demand_justifications: OnDemandJustificationsEngine<B>,
 }
 
 /// A BEEFY worker plays the BEEFY protocol
-pub(crate) struct BeefyWorker<B: Block, BE, P, RuntimeApi, S, F: BeefyFisherman<B>> {
+pub(crate) struct BeefyWorker<B: Block, BE, P, RuntimeApi, S> {
 	// utilities
 	pub backend: Arc<BE>,
 	pub payload_provider: P,
@@ -335,7 +334,7 @@ pub(crate) struct BeefyWorker<B: Block, BE, P, RuntimeApi, S, F: BeefyFisherman<
 	pub key_store: Arc<BeefyKeystore>,
 
 	// communication (created once, but returned and reused if worker is restarted/reinitialized)
-	pub comms: BeefyComms<B, F>,
+	pub comms: BeefyComms<B, BE, P, RuntimeApi>,
 
 	// channels
 	/// Links between the block importer, the background voter and the RPC layer.
@@ -350,15 +349,14 @@ pub(crate) struct BeefyWorker<B: Block, BE, P, RuntimeApi, S, F: BeefyFisherman<
 	pub persisted_state: PersistedState<B>,
 }
 
-impl<B, BE, P, R, S, F> BeefyWorker<B, BE, P, R, S, F>
+impl<B, BE, P, R, S> BeefyWorker<B, BE, P, R, S>
 where
 	B: Block + Codec,
 	BE: Backend<B>,
-	P: PayloadProvider<B>,
+	P: PayloadProvider<B> + Send + Sync,
 	S: SyncOracle,
-	R: ProvideRuntimeApi<B>,
+	R: ProvideRuntimeApi<B> + Send + Sync,
 	R::Api: BeefyApi<B, AuthorityId, MmrRootHash> + MmrApi<B, MmrRootHash, NumberFor<B>>,
-	F: BeefyFisherman<B>,
 {
 	fn best_grandpa_block(&self) -> NumberFor<B> {
 		*self.persisted_state.voting_oracle.best_grandpa_block_header.number()
@@ -824,7 +822,7 @@ where
 		mut self,
 		block_import_justif: &mut Fuse<NotificationReceiver<BeefyVersionedFinalityProof<B>>>,
 		finality_notifications: &mut Fuse<FinalityNotifications<B>>,
-	) -> (Error, BeefyComms<B, F>) {
+	) -> (Error, BeefyComms<B, BE, P, R>) {
 		info!(
 			target: LOG_TARGET,
 			"🥩 run BEEFY worker, best grandpa: #{:?}.",
@@ -1133,7 +1131,6 @@ pub(crate) mod tests {
 		MmrRootProvider<Block, TestApi>,
 		TestApi,
 		Arc<SyncingService<Block>>,
-		Fisherman<Block, Backend, TestApi, MmrRootProvider<Block, TestApi>>,
 	> {
 		let key_store: Arc<BeefyKeystore> = Arc::new(Some(create_beefy_keystore(*key)).into());
 
