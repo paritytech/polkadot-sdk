@@ -614,6 +614,7 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
+	#[inline(always)]
 	fn get_storage_v1(key: &[u8], output: &mut &mut [u8]) -> Result {
 		let mut output_len = output.len() as u32;
 		let ret_code = {
