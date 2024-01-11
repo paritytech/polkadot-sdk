@@ -25,13 +25,13 @@ use crate::{LOG_TARGET, LOG_TARGET_PIN};
 use super::{to_meta_key, ChangeSet, CommitSet, DBValue, Error, Hash, MetaDb, StateDbError};
 use codec::{Decode, Encode};
 use log::trace;
-use std::collections::{hash_map::Entry, HashMap, VecDeque};
+use std::collections::{hash_map::Entry, BTreeSet, HashMap, VecDeque};
 
 const NON_CANONICAL_JOURNAL: &[u8] = b"noncanonical_journal";
 pub(crate) const LAST_CANONICAL: &[u8] = b"last_canonical";
 const OVERLAY_LEVEL_SPAN: &[u8] = b"noncanonical_overlay_span";
 /// To decrease the number of database operations, the span of some overlay
-/// level will be committed to the database iff index with this number belongs to it.
+/// level will be committed to the database iff span > `OVERLAY_LEVEL_STORE_SPANS_LONGER_THAN`
 const OVERLAY_LEVEL_STORE_SPANS_LONGER_THAN: u64 = 32;
 
 /// See module documentation.
@@ -49,19 +49,19 @@ pub struct NonCanonicalOverlay<BlockHash: Hash, Key: Hash> {
 #[cfg_attr(test, derive(PartialEq, Debug))]
 struct OverlayLevel<BlockHash: Hash, Key: Hash> {
 	blocks: Vec<BlockOverlay<BlockHash, Key>>,
-	used_indicies: u64, // Bitmask of available journal indices.
-	span: u64,          // Largest index ever used + 1 (or 0 when None)
+	span: u64,                        // largest index ever used + 1 (or 0 when None)
+	available_indices: BTreeSet<u64>, // available indices in [0; span)
 }
 
 impl<BlockHash: Hash, Key: Hash> OverlayLevel<BlockHash, Key> {
 	fn push(&mut self, overlay: BlockOverlay<BlockHash, Key>) {
-		self.used_indicies |= 1 << overlay.journal_index;
 		self.span = self.span.max(overlay.journal_index + 1);
+		self.available_indices.remove(&overlay.journal_index);
 		self.blocks.push(overlay)
 	}
 
 	fn available_index(&self) -> u64 {
-		self.used_indicies.trailing_ones() as u64
+		*self.available_indices.first().unwrap_or(&self.span)
 	}
 
 	fn span(&self) -> u64 {
@@ -69,12 +69,13 @@ impl<BlockHash: Hash, Key: Hash> OverlayLevel<BlockHash, Key> {
 	}
 
 	fn remove(&mut self, index: usize) -> BlockOverlay<BlockHash, Key> {
-		self.used_indicies &= !(1 << self.blocks[index].journal_index);
+		self.available_indices.insert(self.blocks[index].journal_index);
 		self.blocks.remove(index)
 	}
 
 	fn new_with_span(span: u64) -> OverlayLevel<BlockHash, Key> {
-		OverlayLevel { blocks: Vec::new(), used_indicies: 0, span }
+		let available_indices = (0..span).collect::<BTreeSet<_>>();
+		OverlayLevel { blocks: Vec::new(), span, available_indices }
 	}
 
 	fn new() -> OverlayLevel<BlockHash, Key> {
@@ -1167,11 +1168,11 @@ mod tests {
 	fn insert_canonicalize_long_span() {
 		let mut db = make_db(&[]);
 		let mut overlay = NonCanonicalOverlay::<(u64, u64), H256>::new(&db).unwrap();
-		let indices_per_level = OVERLAY_LEVEL_STORE_SPANS_LONGER_THAN+2;
+		let indices = 130;
 
-		for i in 0..indices_per_level {
+		for i in 0..indices {
 			let changeset = make_changeset(&[i], &[]);
-			let insertion = overlay.insert(&(1,i), 1, &(0,0), changeset).unwrap();
+			let insertion = overlay.insert(&(1, i), 1, &(0, 0), changeset).unwrap();
 			db.commit(&insertion);
 			let expected_insertion_meta_len = match i {
 				0 => 2,                                       // last canonical, journal key
@@ -1182,9 +1183,9 @@ mod tests {
 		}
 
 		let mut commit = CommitSet::default();
-		overlay.canonicalize(&(1,indices_per_level-1), &mut commit).unwrap();
+		overlay.canonicalize(&(1, indices - 1), &mut commit).unwrap();
 
-		let expected_meta_deleted = (0..indices_per_level)
+		let expected_meta_deleted = (0..indices)
 			.map(|i| to_journal_key(1, i))
 			.chain([to_meta_key(OVERLAY_LEVEL_SPAN, &1u64)])
 			.collect::<HashSet<_>>();
@@ -1196,25 +1197,25 @@ mod tests {
 	fn restore_from_journal_long_span() {
 		let mut db = make_db(&[]);
 		let mut overlay = NonCanonicalOverlay::<(u64, u64), H256>::new(&db).unwrap();
-		let indices_per_level = OVERLAY_LEVEL_STORE_SPANS_LONGER_THAN+2;
+		let indices = OVERLAY_LEVEL_STORE_SPANS_LONGER_THAN + 2;
 
-		for i in 0..indices_per_level {
+		for i in 0..indices {
 			let changeset = make_changeset(&[i], &[]);
-			let insertion = overlay.insert(&(1,i), 1, &(0,0), changeset).unwrap();
+			let insertion = overlay.insert(&(1, i), 1, &(0, 0), changeset).unwrap();
 			db.commit(&insertion);
 		}
 
-		for i in 0..indices_per_level-1 {
-			db.commit(&overlay.remove(&(1,i)).unwrap());
+		for i in 0..indices - 1 {
+			db.commit(&overlay.remove(&(1, i)).unwrap());
 		}
 
 		// Restore into a new overlay and check that journaled value exists.
 		let mut overlay = NonCanonicalOverlay::<(u64, u64), H256>::new(&db).unwrap();
 		let mut commit = CommitSet::default();
-		overlay.canonicalize(&(1,indices_per_level-1), &mut commit).unwrap();
+		overlay.canonicalize(&(1, indices - 1), &mut commit).unwrap();
 		db.commit(&commit);
 
-		assert!(db.data_eq(& make_db(&[indices_per_level-1])));
+		assert!(db.data_eq(&make_db(&[indices - 1])));
 		assert_eq!(commit.meta.inserted.len(), 1);
 		assert_eq!(commit.meta.deleted.len(), 2); // journal key, span
 	}
@@ -1233,6 +1234,7 @@ mod tests {
 			}
 		}
 
+		// leave only the 1st level, with not too many blocks, and restore into a new overlay
 		db.commit(&overlay.revert_one().unwrap());
 		for index in 0..indices_per_level {
 			db.commit(&overlay.remove(&(2, index)).unwrap());
@@ -1241,6 +1243,7 @@ mod tests {
 			db.commit(&overlay.remove(&(1, index)).unwrap());
 		}
 		let mut overlay = NonCanonicalOverlay::<(u64, u64), H256>::new(&db).unwrap();
+
 		let mut commit = CommitSet::default();
 		overlay.canonicalize(&(1, 1), &mut commit).unwrap();
 		db.commit(&commit);
