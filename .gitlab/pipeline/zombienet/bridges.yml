@@ -51,5 +51,5 @@ run-zombienet-bridges-tests:
   extends:
     - .zombienet-bridges-common
   script:
-    - /home/nonroot/bridges-polkadot-sdk/bridges/zombienet/run-tests.sh --zombienet
+    - /home/nonroot/bridges-polkadot-sdk/bridges/zombienet/run-tests.sh --docker
     - echo "Done"

@@ -11,7 +11,7 @@ while [ $# -ne 0 ]
 do
     arg="$1"
     case "$arg" in
-        --zombienet)
+        --docker)
             ZOMBIENET_DOCKER_PATHS=1
             ;;
     esac
