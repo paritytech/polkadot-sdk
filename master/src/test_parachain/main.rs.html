@@ -122,10 +122,6 @@
 <a href="#122" id="122">122</a>
 <a href="#123" id="123">123</a>
 <a href="#124" id="124">124</a>
-<a href="#125" id="125">125</a>
-<a href="#126" id="126">126</a>
-<a href="#127" id="127">127</a>
-<a href="#128" id="128">128</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -147,9 +143,8 @@
 <span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>cli::{RelayChainCli, Subcommand, TestCollatorCli};
-<span class="kw">use </span>cumulus_primitives_core::{relay_chain::CollatorPair, ParaId};
-<span class="kw">use </span>cumulus_test_service::{new_partial, AnnounceBlockFn};
-<span class="kw">use </span>polkadot_service::runtime_traits::AccountIdConversion;
+<span class="kw">use </span>cumulus_primitives_core::relay_chain::CollatorPair;
+<span class="kw">use </span>cumulus_test_service::{chain_spec, new_partial, AnnounceBlockFn};
 <span class="kw">use </span>sc_cli::{CliConfiguration, SubstrateCli};
 <span class="kw">use </span>sp_core::Pair;
 
@@ -196,24 +191,21 @@
 				.create_configuration(<span class="kw-2">&amp;</span>cli, tokio_handle.clone())
 				.expect(<span class="string">&quot;Should be able to generate config&quot;</span>);
 
-			<span class="kw">let </span>parachain_id = ParaId::from(cli.parachain_id);
 			<span class="kw">let </span>polkadot_cli = RelayChainCli::new(
 				<span class="kw-2">&amp;</span>config,
 				[RelayChainCli::executable_name()].iter().chain(cli.relaychain_args.iter()),
 			);
-
-			<span class="kw">let </span>parachain_account =
-				AccountIdConversion::&lt;polkadot_primitives::AccountId&gt;::into_account_truncating(
-					<span class="kw-2">&amp;</span>parachain_id,
-				);
 
 			<span class="kw">let </span>tokio_handle = config.tokio_handle.clone();
 			<span class="kw">let </span>polkadot_config =
 				SubstrateCli::create_configuration(<span class="kw-2">&amp;</span>polkadot_cli, <span class="kw-2">&amp;</span>polkadot_cli, tokio_handle)
 					.map_err(|err| <span class="macro">format!</span>(<span class="string">&quot;Relay chain argument error: {}&quot;</span>, err))<span class="question-mark">?</span>;
 
+			<span class="kw">let </span>parachain_id = chain_spec::Extensions::try_get(<span class="kw-2">&amp;*</span>config.chain_spec)
+				.map(|e| e.para_id)
+				.ok_or(<span class="string">&quot;Could not find parachain extension in chain-spec.&quot;</span>)<span class="question-mark">?</span>;
+
 			<span class="macro">tracing::info!</span>(<span class="string">&quot;Parachain id: {:?}&quot;</span>, parachain_id);
-			<span class="macro">tracing::info!</span>(<span class="string">&quot;Parachain Account: {}&quot;</span>, parachain_account);
 			<span class="macro">tracing::info!</span>(
 				<span class="string">&quot;Is collating: {}&quot;</span>,
 				<span class="kw">if </span>config.role.is_authority() { <span class="string">&quot;yes&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;no&quot; </span>}
@@ -237,7 +229,7 @@
 					config,
 					collator_key,
 					polkadot_config,
-					parachain_id,
+					parachain_id.into(),
 					cli.disable_block_announcements.then(wrap_announce_block),
 					cli.fail_pov_recovery,
 					|<span class="kw">_</span>| <span class="prelude-val">Ok</span>(jsonrpsee::RpcModule::new(())),

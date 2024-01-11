@@ -1121,29 +1121,29 @@
 }
 
 <span class="kw">trait </span>RuntimeResolver {
-	<span class="kw">fn </span>runtime(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Runtime;
+	<span class="kw">fn </span>runtime(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Runtime&gt;;
 }
 
 <span class="kw">impl </span>RuntimeResolver <span class="kw">for dyn </span>ChainSpec {
-	<span class="kw">fn </span>runtime(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Runtime {
-		runtime(<span class="self">self</span>.id())
+	<span class="kw">fn </span>runtime(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Runtime&gt; {
+		<span class="prelude-val">Ok</span>(runtime(<span class="self">self</span>.id()))
 	}
 }
 
 <span class="doccomment">/// Implementation, that can resolve [`Runtime`] from any json configuration file
 </span><span class="kw">impl </span>RuntimeResolver <span class="kw">for </span>PathBuf {
-	<span class="kw">fn </span>runtime(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Runtime {
+	<span class="kw">fn </span>runtime(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Runtime&gt; {
 		<span class="attr">#[derive(Debug, serde::Deserialize)]
 		</span><span class="kw">struct </span>EmptyChainSpecWithId {
 			id: String,
 		}
 
-		<span class="kw">let </span>file = std::fs::File::open(<span class="self">self</span>).expect(<span class="string">&quot;Failed to open file&quot;</span>);
+		<span class="kw">let </span>file = std::fs::File::open(<span class="self">self</span>)<span class="question-mark">?</span>;
 		<span class="kw">let </span>reader = std::io::BufReader::new(file);
-		<span class="kw">let </span>chain_spec: EmptyChainSpecWithId = serde_json::from_reader(reader)
-			.expect(<span class="string">&quot;Failed to read &#39;json&#39; file with ChainSpec configuration&quot;</span>);
+		<span class="kw">let </span>chain_spec: EmptyChainSpecWithId =
+			serde_json::from_reader(reader).map_err(|e| sc_cli::Error::Application(Box::new(e)))<span class="question-mark">?</span>;
 
-		runtime(<span class="kw-2">&amp;</span>chain_spec.id)
+		<span class="prelude-val">Ok</span>(runtime(<span class="kw-2">&amp;</span>chain_spec.id))
 	}
 }
 
@@ -1455,7 +1455,7 @@
 <span class="doccomment">/// Creates partial components for the runtimes that are supported by the benchmarks.
 </span><span class="macro">macro_rules! </span>construct_partials {
 	(<span class="macro-nonterminal">$config</span>:expr, |<span class="macro-nonterminal">$partials</span>:ident| <span class="macro-nonterminal">$code</span>:expr) =&gt; {
-		<span class="kw">match </span><span class="macro-nonterminal">$config</span>.chain_spec.runtime() {
+		<span class="kw">match </span><span class="macro-nonterminal">$config</span>.chain_spec.runtime()<span class="question-mark">? </span>{
 			Runtime::AssetHubPolkadot =&gt; {
 				<span class="kw">let </span><span class="macro-nonterminal">$partials </span>= new_partial::&lt;AssetHubPolkadotRuntimeApi, <span class="kw">_</span>&gt;(
 					<span class="kw-2">&amp;</span><span class="macro-nonterminal">$config</span>,
@@ -1505,7 +1505,7 @@
 <span class="macro">macro_rules! </span>construct_async_run {
 	(|<span class="macro-nonterminal">$components</span>:ident, <span class="macro-nonterminal">$cli</span>:ident, <span class="macro-nonterminal">$cmd</span>:ident, <span class="macro-nonterminal">$config</span>:ident| $( <span class="macro-nonterminal">$code</span>:tt )* ) =&gt; {{
 		<span class="kw">let </span>runner = <span class="macro-nonterminal">$cli</span>.create_runner(<span class="macro-nonterminal">$cmd</span>)<span class="question-mark">?</span>;
-		<span class="kw">match </span>runner.config().chain_spec.runtime() {
+		<span class="kw">match </span>runner.config().chain_spec.runtime()<span class="question-mark">? </span>{
 			Runtime::AssetHubPolkadot =&gt; {
 				runner.async_run(|<span class="macro-nonterminal">$config</span>| {
 					<span class="kw">let </span><span class="macro-nonterminal">$components </span>= new_partial::&lt;AssetHubPolkadotRuntimeApi, <span class="kw">_</span>&gt;(
@@ -1747,7 +1747,7 @@
 				<span class="macro">info!</span>(<span class="string">&quot;Parachain Account: {}&quot;</span>, parachain_account);
 				<span class="macro">info!</span>(<span class="string">&quot;Is collating: {}&quot;</span>, <span class="kw">if </span>config.role.is_authority() { <span class="string">&quot;yes&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;no&quot; </span>});
 
-				<span class="kw">match </span>config.chain_spec.runtime() {
+				<span class="kw">match </span>config.chain_spec.runtime()<span class="question-mark">? </span>{
 					AssetHubPolkadot =&gt; <span class="kw">crate</span>::service::start_asset_hub_node::&lt;
 						AssetHubPolkadotRuntimeApi,
 						AssetHubPolkadotAuraId,
@@ -2093,31 +2093,31 @@
 			<span class="kw-2">&amp;</span>temp_dir,
 			Box::new(create_default_with_extensions(<span class="string">&quot;shell-1&quot;</span>, Extensions1::default())),
 		);
-		<span class="macro">assert_eq!</span>(Runtime::Shell, path.runtime());
+		<span class="macro">assert_eq!</span>(Runtime::Shell, path.runtime().unwrap());
 
 		<span class="kw">let </span>path = store_configuration(
 			<span class="kw-2">&amp;</span>temp_dir,
 			Box::new(create_default_with_extensions(<span class="string">&quot;shell-2&quot;</span>, Extensions2::default())),
 		);
-		<span class="macro">assert_eq!</span>(Runtime::Shell, path.runtime());
+		<span class="macro">assert_eq!</span>(Runtime::Shell, path.runtime().unwrap());
 
 		<span class="kw">let </span>path = store_configuration(
 			<span class="kw-2">&amp;</span>temp_dir,
 			Box::new(create_default_with_extensions(<span class="string">&quot;seedling&quot;</span>, Extensions2::default())),
 		);
-		<span class="macro">assert_eq!</span>(Runtime::Seedling, path.runtime());
+		<span class="macro">assert_eq!</span>(Runtime::Seedling, path.runtime().unwrap());
 
 		<span class="kw">let </span>path = store_configuration(
 			<span class="kw-2">&amp;</span>temp_dir,
 			Box::new(<span class="kw">crate</span>::chain_spec::rococo_parachain::rococo_parachain_local_config()),
 		);
-		<span class="macro">assert_eq!</span>(Runtime::Default, path.runtime());
+		<span class="macro">assert_eq!</span>(Runtime::Default, path.runtime().unwrap());
 
 		<span class="kw">let </span>path = store_configuration(
 			<span class="kw-2">&amp;</span>temp_dir,
 			Box::new(<span class="kw">crate</span>::chain_spec::contracts::contracts_rococo_local_config()),
 		);
-		<span class="macro">assert_eq!</span>(Runtime::ContractsRococo, path.runtime());
+		<span class="macro">assert_eq!</span>(Runtime::ContractsRococo, path.runtime().unwrap());
 	}
 }
 </code></pre></div></section></main></body></html>

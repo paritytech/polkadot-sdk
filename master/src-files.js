@@ -81,7 +81,7 @@ var srcIndex = JSON.parse('{\
 "cumulus_test_client":["",[],["block_builder.rs","lib.rs"]],\
 "cumulus_test_relay_sproof_builder":["",[],["lib.rs"]],\
 "cumulus_test_runtime":["",[],["lib.rs","test_pallet.rs"]],\
-"cumulus_test_service":["",[],["bench_utils.rs","chain_spec.rs","genesis.rs","lib.rs"]],\
+"cumulus_test_service":["",[],["bench_utils.rs","chain_spec.rs","lib.rs"]],\
 "emulated_integration_tests_common":["",[],["impls.rs","lib.rs","macros.rs","xcm_helpers.rs"]],\
 "fixed_point":["",[],["fixed_point.rs"]],\
 "fork_tree":["",[],["lib.rs"]],\

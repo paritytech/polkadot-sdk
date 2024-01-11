@@ -936,8 +936,6 @@
 <a href="#936" id="936">936</a>
 <a href="#937" id="937">937</a>
 <a href="#938" id="938">938</a>
-<a href="#939" id="939">939</a>
-<a href="#940" id="940">940</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -962,9 +960,6 @@
 </span><span class="kw">pub mod </span>bench_utils;
 
 <span class="kw">pub mod </span>chain_spec;
-
-<span class="doccomment">/// Utilities for creating test genesis block and head data
-</span><span class="kw">pub mod </span>genesis;
 
 <span class="kw">use </span>runtime::AccountId;
 <span class="kw">use </span>sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
@@ -1028,7 +1023,6 @@
 
 <span class="kw">pub use </span>chain_spec::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>cumulus_test_runtime <span class="kw">as </span>runtime;
-<span class="kw">pub use </span>genesis::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>sp_keyring::Sr25519Keyring <span class="kw">as </span>Keyring;
 
 <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;cumulus-test-service&quot;</span>;
@@ -1862,7 +1856,7 @@
 ) -&gt; polkadot_test_service::PolkadotTestNode {
 	<span class="kw">let </span><span class="kw-2">mut </span>config = polkadot_test_service::node_config(
 		storage_update_func,
-		tokio_handle,
+		tokio_handle.clone(),
 		key,
 		boot_nodes,
 		<span class="bool-val">true</span>,
@@ -1876,6 +1870,8 @@
 	workers_path.pop();
 	workers_path.pop();
 
-	polkadot_test_service::run_validator_node(config, <span class="prelude-val">Some</span>(workers_path))
+	tokio_handle.block_on(<span class="kw">async move </span>{
+		polkadot_test_service::run_validator_node(config, <span class="prelude-val">Some</span>(workers_path))
+	})
 }
 </code></pre></div></section></main></body></html>
