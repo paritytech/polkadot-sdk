@@ -19,7 +19,6 @@
 pub mod codegen_runtime;
 
 use bp_polkadot_core::SuffixedCommonSignedExtensionExt;
-use bp_runtime::ChainId;
 use bp_westend::WESTEND_SYNCED_HEADERS_GRANDPA_INFO_METHOD;
 use codec::Encode;
 use relay_substrate_client::{
@@ -55,7 +54,6 @@ impl UnderlyingChainProvider for Westend {
 }
 
 impl Chain for Westend {
-	const ID: ChainId = bp_runtime::WESTEND_CHAIN_ID;
 	const NAME: &'static str = "Westend";
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str =
 		bp_westend::BEST_FINALIZED_WESTEND_HEADER_METHOD;

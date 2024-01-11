@@ -24,7 +24,7 @@ use crate::{
 };
 
 use async_std::sync::Arc;
-use bp_messages::{LaneId, MessageNonce};
+use bp_messages::{ChainWithMessages as _, LaneId, MessageNonce};
 use bp_runtime::{
 	AccountIdOf, Chain as _, EncodedOrDecodedCall, HeaderIdOf, TransactionEra, WeightExtraOps,
 };
